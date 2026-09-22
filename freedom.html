@@ -924,6 +924,378 @@ h3 .ic-svg, h3 .logo-btc, h3 .logo-sol { vertical-align: -2px; margin-right: 6px
 .badge-chip.verliehen { color: #7A8894; }
 .badge-chip.selbst { color: #6E6E6E; }
 
+/* ======================================================================
+   NEUORDNUNG — sechs Tabs, schmale Seitenleiste, Discord-Aufbau.
+   Nur bestehende Tokens: --bg --card --border --text --text-muted
+   --accent --accent-dim --amber --red, dazu die Zwischentoene, die diese
+   Datei schon benutzt (#131313 #16181A #2A2A2A).
+   ====================================================================== */
+
+:root { --surf: #131313; --surf2: #16181A; --line2: #2A2A2A; }
+
+/* ---------- Bewegung ---------- */
+@keyframes fs-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+@keyframes fs-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+@keyframes fs-grow { from { transform: scaleX(0); } }
+.tab-page.active { animation: fs-in .22s ease-out both; }
+.subpane.active { animation: fs-in .18s ease-out both; }
+button, .history-item, .space-pill, .channel-item { transition: background-color .12s ease, color .12s ease, border-color .12s ease, border-radius .15s ease; }
+@media (prefers-reduced-motion: reduce) {
+  .tab-page.active, .subpane.active, .status-dot.on, .nq-fill { animation: none !important; }
+  * { transition: none !important; }
+}
+
+/* ---------- Logo im Kopf ---------- */
+header .logo { display: inline-flex; align-items: center; gap: 7px; }
+#head-mark svg { display: block; }
+
+/* ---------- App-Navigation ---------- */
+.app-nav .nav-brand, .app-nav .nav-status { display: none; }
+.app-nav button span:last-child { white-space: nowrap; }
+
+@media (min-width: 1024px) {
+  /* 72 px: so breit wie Discords Server-Leiste, damit beide nebeneinander
+     wie Geschwister wirken. */
+  .app-nav {
+    order: -1; width: 72px; min-width: 72px; flex-shrink: 0; flex-direction: column; align-items: center;
+    border-top: 0; border-right: 1px solid var(--border); padding: 14px 0; gap: 4px;
+    background: var(--card);
+  }
+  .app-nav .nav-brand {
+    display: flex; justify-content: center; width: 44px; padding-bottom: 12px;
+    margin-bottom: 6px; border-bottom: 1px solid var(--border);
+  }
+  .app-nav button {
+    position: relative; flex: none; width: 60px; padding: 8px 0 7px; gap: 4px;
+    border-radius: 4px; font-size: 9px; letter-spacing: .01em;
+    flex-direction: column; justify-content: center; align-items: center; text-align: center;
+  }
+  .app-nav button:hover { background: var(--surf2); color: var(--text); }
+  .app-nav button.active { background: var(--surf2); color: var(--accent); }
+  .app-nav button.active::before {
+    content: ""; position: absolute; left: -6px; top: 10px; bottom: 10px; width: 3px;
+    border-radius: 0 2px 2px 0; background: var(--accent);
+  }
+  .app-nav button span:last-child { max-width: 62px; overflow: hidden; text-overflow: ellipsis; }
+  .app-nav .nav-status {
+    display: flex; flex-direction: column; align-items: center; gap: 3px; margin-top: auto;
+  }
+  #app > header { display: none; }
+}
+
+.status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--line2); }
+.status-dot.on { background: var(--accent); animation: fs-pulse 1.6s ease-in-out infinite; }
+
+/* ---------- Seiten allgemein ---------- */
+main { min-width: 0; }
+.tab-page { min-height: 0; }
+.page-head {
+  display: flex; align-items: flex-end; justify-content: space-between; gap: 20px;
+  padding: 22px 28px 14px;
+}
+.page-title { margin: 0 0 3px; font-size: 21px; font-weight: 700; letter-spacing: -.01em; color: var(--text); }
+.page-sub { margin: 0; font-size: 13px; color: var(--text-muted); }
+.page-body { padding: 18px 28px 28px; display: flex; flex-direction: column; gap: 14px; }
+.page-body.narrow { max-width: 1000px; margin: 0 auto; width: 100%; box-sizing: border-box; padding-top: 26px; }
+.grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+@media (max-width: 760px) { .grid-2 { grid-template-columns: 1fr; } .page-head, .page-body { padding-left: 14px; padding-right: 14px; } }
+
+/* Unter-Reiter */
+.seg { display: flex; gap: 2px; border-bottom: 1px solid var(--border); padding: 0 28px; }
+.seg button {
+  width: auto; background: none; border: 0; border-bottom: 2px solid transparent; border-radius: 0;
+  padding: 11px 14px 10px; margin-bottom: -1px; font-size: 13px; font-weight: 500;
+  color: var(--text-muted); cursor: pointer;
+}
+.seg button:hover { color: var(--text); }
+.seg button.active { color: var(--text); font-weight: 600; border-bottom-color: var(--accent); }
+.subpane { display: none; flex-direction: column; gap: 14px; }
+.subpane.active { display: flex; }
+@media (max-width: 760px) { .seg { padding: 0 8px; overflow-x: auto; } }
+
+/* Guthaben im Kopf von Waehrung */
+.head-balances { display: flex; align-items: center; gap: 16px; }
+.head-balances .nb-row { display: flex; align-items: baseline; gap: 6px; }
+.head-balances .nb-label { font-size: 11px; color: var(--text-muted); }
+.head-balances .nb-val { font-family: var(--font-mono); font-size: 15px; color: var(--text); }
+.head-balances button { width: auto; padding: 6px 11px; font-size: 12px; }
+
+/* ---------- Agent: Verlauf | Gespraech | Arbeitsbereich ---------- */
+.agent-layout { display: flex; height: 100%; min-height: 0; }
+.agent-side {
+  width: 260px; flex-shrink: 0; background: var(--card); border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; gap: 10px; padding: 14px 12px; min-height: 0;
+}
+.agent-new { width: 100%; justify-content: center; display: flex; align-items: center; gap: 6px; }
+.agent-side .seg {
+  padding: 3px; border: 1px solid var(--border); border-radius: 4px; background: var(--bg); gap: 3px;
+}
+.agent-side .seg button {
+  flex: 1; border: 0; border-radius: 3px; margin: 0; padding: 6px 4px; font-size: 12px;
+}
+.agent-side .seg button.active { background: var(--surf2); border-bottom-color: transparent; }
+.agent-side .subpane { flex: 1; min-height: 0; overflow-y: auto; gap: 2px; }
+.agent-side .subpane .card { margin: 0; }
+.history-group {
+  font-size: 10px; color: #6E6E6E; letter-spacing: .06em; text-transform: uppercase; padding: 10px 10px 4px;
+}
+.history-item {
+  width: 100%; background: transparent; border: 0; border-radius: 3px; padding: 8px 10px;
+  display: flex; flex-direction: column; gap: 2px; text-align: left; cursor: pointer; color: var(--text);
+}
+.history-item:hover { background: var(--surf); }
+.history-item.active { background: var(--surf2); }
+.history-title { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.history-sub { font-size: 11px; color: var(--text-muted); }
+.history-empty { padding: 10px; }
+.agent-quota { border-top: 1px solid var(--border); padding: 12px 4px 2px; display: flex; flex-direction: column; gap: 5px; }
+.quota-label { font-size: 11px; color: var(--text-muted); }
+.agent-quota .nq-fill { transform-origin: left; animation: fs-grow 1.2s cubic-bezier(.2,.7,.2,1) both; }
+
+.agent-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+/* Gespraechsspalte: ruhig, zentriert, schmal genug zum Lesen */
+.agent-main .ai-thread { padding-left: max(24px, calc((100% - 760px) / 2)); padding-right: max(24px, calc((100% - 760px) / 2)); }
+.agent-main .bubble.ai { background: transparent; border: 0; padding-left: 0; padding-right: 0; }
+.agent-main .bubble.ai .body { font-size: 15px; line-height: 1.7; }
+.agent-main .bubble.user { margin-left: auto; max-width: 85%; background: var(--surf2); border: 1px solid var(--border); border-radius: 8px; }
+
+/* Werkzeug-Karten */
+.usage-bubble {
+  border: 1px solid var(--border); border-radius: 4px; background: var(--card); overflow: hidden;
+  margin: 2px 0 6px;
+}
+.usage-toggle {
+  width: 100%; display: flex; align-items: center; gap: 10px; padding: 9px 12px; text-align: left;
+  background: none; border: 0; color: var(--text); font-size: 13px; cursor: pointer;
+}
+.usage-toggle:hover { background: var(--surf); }
+.usage-body { border-top: 1px solid var(--border); background: var(--bg); padding: 8px 12px; }
+.usage-row { font-family: var(--font-mono); font-size: 12px; }
+
+.agent-panel {
+  width: 300px; flex-shrink: 0; background: var(--card); border-left: 1px solid var(--border);
+  padding: 16px; display: flex; flex-direction: column; gap: 22px; overflow-y: auto;
+}
+.panel-title {
+  margin: 0 0 10px; font-size: 11px; font-weight: 600; color: var(--text-muted);
+  letter-spacing: .06em; text-transform: uppercase;
+}
+.panel-row { display: flex; align-items: center; gap: 8px; padding: 5px 0; font-size: 12px; }
+.panel-name { flex: 1; min-width: 0; font-family: var(--font-mono); color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.panel-meta { font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); }
+.panel-check { display: flex; }
+@media (max-width: 1279px) { .agent-panel { display: none; } }
+@media (max-width: 900px) { .agent-side { display: none; } }
+
+/* ---------- Kommunikation: Discord-Aufbau ---------- */
+.comm-layout { display: flex; height: 100%; min-height: 0; }
+.comm-rail {
+  width: 72px; flex-shrink: 0; background: var(--bg); display: flex; flex-direction: column;
+  align-items: center; padding: 12px 0; gap: 8px; overflow-y: auto;
+}
+.rail-sep { width: 32px; height: 2px; background: var(--border); border-radius: 1px; flex-shrink: 0; }
+.space-rail-list { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.comm-rail .space-pill {
+  position: relative; width: 48px; height: 48px; border-radius: 24px; border: 0;
+  background: var(--surf2); color: var(--text); font-size: 14px; font-weight: 600;
+  display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0;
+}
+.comm-rail .space-pill:hover, .comm-rail .space-pill[aria-current="true"] { border-radius: 14px; }
+.comm-rail .space-pill[aria-current="true"] { background: var(--accent-dim); }
+/* Der weisse Balken links: gross fuer den aktiven Raum */
+.comm-rail .space-pill[aria-current="true"]::before {
+  content: ""; position: absolute; left: -12px; top: 4px; bottom: 4px; width: 4px;
+  border-radius: 0 3px 3px 0; background: var(--text);
+}
+.comm-rail .dm-pill { color: var(--accent); }
+.comm-rail .dm-pill[aria-current="true"] { background: var(--accent-dim); color: var(--text); }
+
+.comm-dm, .comm-space { flex: 1; min-width: 0; display: none; height: 100%; }
+.comm-layout[data-comm-mode="dm"] .comm-dm { display: flex; }
+.comm-layout[data-comm-mode="space"] .comm-space { display: flex; }
+.comm-dm .chat-layout, .comm-space .spaces-layout { flex: 1; min-width: 0; height: 100%; }
+/* Die alte Vierspaltigkeit ohne ihre eigene Leiste: Kanaele | Chat | Mitglieder */
+.comm-space-inner { grid-template-columns: 240px 1fr 240px !important; }
+.comm-dm .chat-sidebar { width: 240px; background: var(--card); }
+.channel-col .channel-item { font-size: 14px; }
+@media (max-width: 1100px) { .comm-space-inner { grid-template-columns: 220px 1fr !important; } .comm-space-inner .member-col { display: none; } }
+@media (max-width: 760px) {
+  .comm-rail { width: 60px; }
+  .comm-space-inner { grid-template-columns: 1fr !important; }
+}
+
+/* ---------- Profil ---------- */
+.ident-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  background: var(--card); border: 1px solid var(--border); border-radius: 4px; padding: 10px 14px;
+}
+.ident-row .nb-ident { font-family: var(--font-mono); font-size: 12px; color: var(--text-muted); cursor: pointer; }
+.ident-row button { width: auto; padding: 6px 11px; font-size: 12px; }
+
+/* ---------- Settings: Abschnitte | Inhalt ---------- */
+.settings-layout { display: flex; height: 100%; min-height: 0; }
+.settings-nav {
+  width: 250px; flex-shrink: 0; background: var(--card); border-right: 1px solid var(--border);
+  padding: 22px 12px; display: flex; flex-direction: column; gap: 2px;
+}
+.settings-title { margin: 0 0 14px 10px; font-size: 18px; font-weight: 700; color: var(--text); }
+.settings-nav button {
+  width: 100%; display: flex; align-items: center; gap: 10px; text-align: left;
+  background: transparent; border: 0; border-radius: 4px; padding: 8px 10px; min-height: 36px;
+  font-size: 14px; color: var(--text-muted); cursor: pointer;
+}
+.settings-nav button:hover { background: var(--surf); color: var(--text); }
+.settings-nav button.active { background: var(--surf2); color: var(--text); font-weight: 500; }
+.nav-badge { margin-left: auto; font-family: var(--font-mono); font-size: 11px; }
+.nav-badge.warn { color: var(--amber); }
+.settings-lang { margin-top: auto; padding: 10px; }
+.settings-body { flex: 1; min-width: 0; overflow-y: auto; padding: 32px 40px; }
+.settings-body .subpane { max-width: 760px; margin: 0 auto; }
+.settings-h { margin: 0 0 6px; font-size: 22px; font-weight: 700; color: var(--text); }
+@media (max-width: 760px) {
+  .settings-layout { flex-direction: column; }
+  .settings-nav { width: auto; flex-direction: row; overflow-x: auto; padding: 8px; border-right: 0; border-bottom: 1px solid var(--border); }
+  .settings-nav button { width: auto; white-space: nowrap; }
+  .settings-title, .settings-lang { display: none; }
+  .settings-body { padding: 18px 14px; }
+}
+
+/* ---------- Mobil: untere Leiste mit sechs Tabs ---------- */
+@media (max-width: 1023px) {
+  .app-nav button { font-size: 9px; padding: 8px 2px 10px; min-width: 0; }
+  .app-nav button span:last-child { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+}
+
+/* Die neuen Seiten fuellen den Raum bis an die Leiste — kein Rand dazwischen. */
+@media (min-width: 1024px) {
+  #app > main:has(#page-ai.active), #app > main:has(#page-comm.active),
+  #app > main:has(#page-settings.active) { padding: 0; overflow: hidden; }
+  #app > main:has(#page-wallet.active), #app > main:has(#page-earn.active),
+  #app > main:has(#page-profile.active) { padding: 0; }
+  #page-ai.active, #page-comm.active, #page-settings.active { height: 100%; }
+}
+
+/* Die alte App zentrierte jede Seite auf 1200 px. Die neuen Seiten mit
+   Seitenspalten brauchen die volle Breite — sonst entstehen links und rechts
+   leere Streifen. Lesespalten begrenzen sich weiterhin selbst. */
+@media (min-width: 1024px) {
+  #page-ai, #page-comm, #page-settings { max-width: none; margin-inline: 0; }
+  #page-ai .chat-layout, #page-comm .chat-layout { max-width: none; }
+  #page-ai .ai-thread, #page-ai .composer-inner { max-width: none; }
+  /* Die Eingabe folgt der Lesespalte des Gespraechs */
+  #page-ai .composer-inner { max-width: 760px; margin-inline: auto; }
+  .app-nav button { width: 68px; font-size: 8.5px; letter-spacing: -.01em; }
+  .app-nav button span:last-child { max-width: 68px; }
+}
+
+/* Composer: das Eingabefeld nimmt den Platz, die Knoepfe nur ihre Breite.
+   Ohne das erbt der Zap-Knopf width:100% aus der Grundregel und drueckt das
+   Feld auf wenige Pixel zusammen. */
+.chat-composer > * { flex-shrink: 0; }
+.chat-composer textarea { flex: 1 1 auto; min-width: 0; }
+.chat-composer button { width: auto; min-width: 40px; }
+
+/* Kopf der Direktnachrichten: eine Zeile, kompakte Knoepfe */
+.comm-dm .chat-side-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 6px;
+  height: 48px; padding: 0 12px; border-bottom: 1px solid var(--border); box-sizing: border-box;
+}
+.comm-dm .chat-side-head > span:first-child { font-size: 12px; font-weight: 600; letter-spacing: .04em; }
+.comm-dm .chat-side-head > span:last-child { display: flex; gap: 2px; flex-wrap: nowrap; }
+.comm-dm .chat-side-head button {
+  width: 28px; height: 28px; padding: 0; min-width: 0; display: inline-flex;
+  align-items: center; justify-content: center; font-size: 12px;
+}
+
+/* Leistenknoepfe unten: Anlegen und Beitreten, wie bei Discord */
+.comm-rail .rail-action { background: var(--surf2); color: var(--accent); }
+.comm-rail .rail-action:hover { background: var(--accent-dim); color: var(--text); border-radius: 14px; }
+
+/* Zap im Composer: Nebenaktion, deshalb umrandet statt gefuellt —
+   "Senden" bleibt der einzige volle Knopf. */
+.chat-composer .zap-btn {
+  background: transparent; border: 1px solid var(--line2); color: var(--accent);
+}
+.chat-composer .zap-btn:hover { border-color: var(--accent); }
+
+/* Hauptnavigation: kein abgeschnittener Eintrag */
+@media (min-width: 1024px) {
+  .app-nav button { font-size: 8px; letter-spacing: -.02em; }
+  .app-nav button span:last-child { max-width: none; overflow: visible; text-overflow: clip; }
+}
+
+/* Saetze nicht mitten im Wort brechen. .mono-sm bricht hart, weil es fuer
+   Schluessel gedacht ist — fuer Fliesstext ist das falsch. */
+.settings-body p, .settings-body .mono-sm, .card p, .card .muted, .sec-sub {
+  word-break: normal; overflow-wrap: break-word;
+}
+
+/* Sicherheit: vier Schritte mit Fortschritt */
+.settings-lead { margin: 0 0 18px; font-size: 14px; color: var(--text-muted); }
+.settings-sub { margin: 28px 0 10px; font-size: 11px; font-weight: 600; color: var(--text-muted); letter-spacing: .06em; text-transform: uppercase; }
+.sec-steps { display: flex; flex-direction: column; }
+.sec-progress { display: flex; gap: 4px; margin-bottom: 6px; }
+.sec-progress span { flex: 1; height: 5px; border-radius: 3px; background: var(--surf2); transition: background-color .3s ease; }
+.sec-progress span.on { background: var(--accent); }
+.sec-step { display: flex; align-items: flex-start; gap: 14px; padding: 14px 0; border-top: 1px solid var(--border); }
+.sec-dot {
+  width: 24px; height: 24px; border-radius: 50%; flex-shrink: 0; border: 1.5px solid var(--line2);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-mono); font-size: 11px; color: var(--text-muted);
+}
+.sec-step.done .sec-dot { background: var(--accent); border-color: var(--accent); color: var(--bg); font-size: 0; }
+.sec-step.done .sec-dot::after { content: "✓"; font-size: 13px; font-weight: 700; }
+.sec-text { flex: 1; min-width: 0; }
+.sec-title { font-size: 14px; font-weight: 500; color: var(--text); }
+.sec-step.done .sec-title { color: var(--text-muted); }
+.sec-sub { font-size: 13px; line-height: 1.5; color: var(--text-muted); margin-top: 2px; }
+.sec-action { width: auto; padding: 6px 12px; font-size: 12px; flex-shrink: 0; }
+/* Der erste offene Schritt, der nur vorher geht, ist hervorgehoben */
+.sec-step:not(.done) .sec-action[data-step="2"] { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+
+/* Nur der dringendste Schritt ist gefuellt; die anderen umrandet. */
+.sec-action { background: transparent; color: var(--text); border: 1px solid var(--line2); }
+.sec-action:hover { border-color: var(--accent); color: var(--accent); }
+.sec-step:not(.done) .sec-action[data-step="2"] { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+
+/* Profil: die Vorschau mit dem vom Nutzer gewaehlten Muster ist der Kopf.
+   Teilen sitzt oben rechts darauf. */
+.profile-hero { padding: 0; overflow: hidden; }
+.profile-top { position: relative; }
+.profile-top #profile-share {
+  position: absolute; top: 12px; right: 12px; width: auto; padding: 6px 11px; font-size: 12px;
+  display: inline-flex; flex-direction: row; align-items: center; gap: 6px;
+  background: rgba(5,5,5,.72); backdrop-filter: blur(4px);
+}
+.profile-hero > details { padding: 12px 18px 16px; }
+.ident-row { margin-top: 2px; }
+
+/* Vertrauensstufe: Marken ueber dem Balken brauchen Platz, sonst liegen sie auf der Ueberschrift */
+.trust-bar-wrap { margin-top: 26px; }
+.trust-marker i { font-style: normal; font-size: 10px; color: var(--text-muted); }
+.card p.muted, .card [data-i18n="trustSub"] { font-size: 13px; line-height: 1.5; color: var(--text-muted); }
+
+/* Mobil wie Discord: eine Ebene zur Zeit */
+.chat-back { display: none; }
+@media (max-width: 760px) {
+  .comm-dm .chat-sidebar { width: auto; flex: 1; }
+  .comm-dm .chat-main { display: none; }
+  .comm-dm .chat-item .label { display: block; }
+  .comm-dm .chat-side-head span:first-child { display: inline; }
+  .comm-layout.thread-open .comm-rail, .comm-layout.thread-open .comm-dm .chat-sidebar { display: none; }
+  .comm-layout.thread-open .comm-dm .chat-main { display: flex; flex: 1; }
+  .chat-back {
+    display: block; width: auto; align-self: flex-start; margin: 8px 10px 0;
+    padding: 6px 10px; font-size: 13px; background: transparent; color: var(--text);
+    border: 1px solid var(--line2);
+  }
+}
+
+/* Umbruch fuer alle Monospace-Texte: an Leerzeichen, wie bei normalem Text.
+   Nur Zeichenketten ohne Leerzeichen — Schluessel, Adressen, Hashes — duerfen
+   irgendwo getrennt werden, sonst sprengen sie das Layout. */
+.mono-sm { word-break: normal; overflow-wrap: anywhere; }
+
 </style>
 </head>
 <body>
@@ -964,7 +1336,7 @@ h3 .ic-svg, h3 .logo-btc, h3 .logo-sol { vertical-align: -2px; margin-right: 6px
   <!-- ============ APP (nach Login, VOLLBILD-Overlay wie PWA) ============ -->
   <div id="app" class="hidden">
     <header>
-      <span class="logo">FREEDOM</span>
+      <span class="logo"><span id="head-mark"></span>FREEDOM</span>
       <span style="display:flex;gap:10px;align-items:center">
         <span id="balance" class="balance" title="guthaben">— sats</span>
         <span id="ident" class="ident" title="pubkey — klick: nsec exportieren">…</span>
@@ -973,18 +1345,51 @@ h3 .ic-svg, h3 .logo-btc, h3 .logo-sol { vertical-align: -2px; margin-right: 6px
     </header>
 
     <main>
-      <!-- 🤖 AGENT (voller Verlauf, Claude-Stil) -->
+      <!-- AGENT -->
       <section id="page-ai" class="tab-page">
+        <div class="agent-layout">
+          <aside class="agent-side">
+            <button id="agent-new" class="btn-primary agent-new" type="button">
+              <span class="ic" data-icon="plus"></span> Neue Aufgabe</button>
+            <div class="seg" role="tablist" data-subtab-group="agent"><button role="tab" data-subtab="tasks" class="active">Aufgaben</button><button role="tab" data-subtab="models">Modelle</button><button role="tab" data-subtab="repos">Repos</button></div>
+            <div class="subpane active" data-subpane="agent:tasks"><div id="agent-history" class="agent-history"></div></div>
+            <div class="subpane" data-subpane="agent:models"><div class="card">
+          <h3><span class="ic" data-icon="server"></span> Modelle im Netz</h3>
+          <p class="mono-sm">Was im Netz vorgehalten wird. Modelle mit nur einem Seeder sind gefährdet.</p>
+          <div id="models-list" class="mono-sm">lade …</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
+            <button id="models-refresh" class="ghost" style="width:auto;padding:6px 10px">aktualisieren</button>
+            <button id="models-seed" class="ghost" style="width:auto;padding:6px 10px">Modell vorhalten</button>
+            <button id="models-publish" class="ghost" style="width:auto;padding:6px 10px">Modell ankündigen</button>
+          </div>
+        </div></div>
+            <div class="subpane" data-subpane="agent:repos"><div class="card">
+          <h3><span class="ic" data-icon="git"></span> Repositories</h3>
+          <p class="mono-sm">Repositories, verteilt über das Speichernetz. Funktioniert auch offline.</p>
+          <div class="composer-meta">
+            <input id="git-repo-name" placeholder="repo-name" style="width:120px" />
+            <button id="git-repo-publish" class="ghost copy-btn">⇪ Bundle publizieren</button>
+            <input type="file" id="git-bundle-file" accept=".bundle" style="display:none" />
+          </div>
+          <div id="git-repo-list" class="mono-sm" style="margin-top:8px">lade…</div>
+        </div></div>
+            <div class="nb-quota agent-quota" id="nb-quota" title="Gratis-Kontingent heute">
+              <span class="quota-label">Gratis-Kontingent</span>
+              <div class="nq-bar"><div class="nq-fill" id="nq-fill"></div></div>
+              <span class="nq-text" id="nq-text"></span>
+            </div>
+          </aside>
+          <div class="agent-main">
         <div id="ai-thread" class="ai-thread">
           <div id="ai-empty" class="ai-empty">
             <div class="ai-empty-logo">FREEDOM</div>
-            <p class="ai-empty-sub" data-i18n="emptySub">Ask anything. Pay per job in sats or SOL — non-custodial.</p>
+            <p class="ai-empty-sub" data-i18n="emptySub">Stell eine Frage. Du zahlst pro Anfrage.</p>
             <div class="ai-empty-examples">
               <button class="ai-example" data-prompt="Erkläre mir das Nostr-Protokoll in einem Satz."><span class="ic ic-inline" data-icon="chat"></span>„Erkläre mir das Nostr-Protokoll…“</button>
               <button class="ai-example" data-prompt="Schreibe eine kurze Zusammenfassung der wichtigsten Vorteile von Lightning."><svg class="logo-btc" width="13" height="13" viewBox="10.5 0.8 12.6 22.4" fill="#f7931a" aria-label="Bitcoin"><path d="M16.15 12.03c1.44-.36 2.42-1.32 2.24-3.02-.23-2.13-1.98-2.85-4.23-3.05l-.01-2.44h-1.51l-.01 2.38c-.4 0-.81.01-1.21.01l.01-2.39H9.92l-.01 2.44c-.33.01-.65.01-.97.01v-.01H6.88l.01 1.62s1.11-.02 1.09-.01c.61 0 .81.36.87.67v2.77c.04 0 .1.01.16.03h-.16v3.88c-.03.19-.13.49-.54.49.02.01-1.09 0-1.09 0l-.3 1.81h2.55c.34 0 .68.01 1.01.01l.01 2.47h1.51l.01-2.44c.41.01.81.01 1.21.02l-.01 2.43h1.51l.01-2.46c2.58-.15 4.37-.8 4.59-3.18.18-1.93-.73-2.79-2.17-3.14zm-4.7-4.71c.86 0 3.57-.17 3.57 1.53 0 1.63-2.71 1.45-3.57 1.45zm0 7.63v-3.19c1.04 0 4.28-.19 4.28 1.6 0 1.71-3.24 1.59-4.28 1.59z"/></svg> „Vorteile von Lightning…“</button>
-              <button class="ai-example" data-prompt="Erstelle ein Bild: cypherpunk cat, neon green on black."><span class="ic ic-inline" data-icon="image"></span>„Bild: cypherpunk cat…“</button>
+              <button class="ai-example" data-prompt="Erstelle ein Bild: ein Leuchtturm bei Nacht."><span class="ic ic-inline" data-icon="image"></span>„Bild: Leuchtturm bei Nacht…“</button>
             </div>
-            <p class="ai-empty-hint" data-i18n="emptyHint">Tier wählen (free/classic/pro/max/swarm) · Gebot in sats · Tools anhängen</p>
+            <p class="ai-empty-hint" data-i18n="emptyHint">Modell wählen · Werkzeuge anhängen</p>
           </div>
         </div>
 
@@ -1049,14 +1454,42 @@ h3 .ic-svg, h3 .logo-btc, h3 .logo-sol { vertical-align: -2px; margin-right: 6px
             </div>
           </div>
         </div>
+      </div>
+          <aside class="agent-panel" aria-label="Arbeitsbereich">
+            <div class="panel-block">
+              <h2 class="panel-title">Arbeitsbereich</h2>
+              <div id="agent-workspace" class="mono-sm muted">Kein Repository verbunden.</div>
+            </div>
+            <div class="panel-block">
+              <h2 class="panel-title">Werkzeuge</h2>
+              <div id="agent-tools" class="mono-sm muted">Noch keine in dieser Sitzung.</div>
+            </div>
+            <div class="panel-block">
+              <h2 class="panel-title">Kosten</h2>
+              <div id="agent-cost" class="mono-sm muted">—</div>
+            </div>
+          </aside>
+        </div>
       </section>
 
-      <!-- 💬 CHAT (1:1 + Communities, kein oeffentlicher Feed) -->
-      <section id="page-chat" class="tab-page">
+      <!-- KOMMUNIKATION: Discord-Aufbau -->
+      <section id="page-comm" class="tab-page">
+        <div class="comm-layout" data-comm-mode="dm">
+          <div class="comm-rail" role="navigation" aria-label="Direktnachrichten und Räume">
+            <button id="comm-dm-btn" class="space-pill dm-pill" aria-current="true" title="Direktnachrichten"
+              type="button"><span class="ic" data-icon="chat"></span></button>
+            <div class="rail-sep"></div>
+            <div id="space-rail" class="space-rail-list"></div>
+            <button id="rail-create" class="space-pill rail-action" title="Raum anlegen" type="button"
+              aria-label="Raum anlegen"><span class="ic" data-icon="plus"></span></button>
+            <button id="rail-join" class="space-pill rail-action" title="Raum beitreten" type="button"
+              aria-label="Raum beitreten"><span class="ic" data-icon="search"></span></button>
+          </div>
+          <div class="comm-dm">
         <div class="chat-layout">
           <aside class="chat-sidebar">
             <div class="chat-side-head">
-              <span data-i18n="chatTitle">Messages</span>
+              <span data-i18n="chatTitle">Direktnachrichten</span>
               <span>
                 <button id="chat-new-dm" class="ghost mini" title="New message">＋</button>
                 <button id="chat-mesh-export" class="ghost mini" title="Chat offline exportieren (USB/Mesh)">⇪</button>
@@ -1068,8 +1501,9 @@ h3 .ic-svg, h3 .logo-btc, h3 .logo-sol { vertical-align: -2px; margin-right: 6px
             <div id="chat-list" class="chat-list"></div>
           </aside>
           <div class="chat-main">
+          <button id="chat-back" class="chat-back" type="button" aria-label="Zurück zur Liste">‹ Zurück</button>
             <div id="chat-thread" class="chat-thread">
-              <div class="empty-state">Select a chat or community.<br/>1:1 messages are end-to-end encrypted. Communities are opt-in groups.</div>
+              <div class="empty-state">Wähl eine Unterhaltung.<br/>Direktnachrichten sind Ende-zu-Ende verschlüsselt.</div>
             </div>
             <div class="chat-composer">
               <textarea id="chat-input" rows="1" data-i18n-ph="chatPlaceholder" placeholder="Message…"></textarea>
@@ -1081,91 +1515,10 @@ h3 .ic-svg, h3 .logo-btc, h3 .logo-sol { vertical-align: -2px; margin-right: 6px
             <div id="chat-attach-list" class="mono-sm" style="padding:0 12px 8px"></div>
           </div>
         </div>
-      </section>
-
-      <!-- Der oeffentliche Feed (kind 1) wurde bewusst entfernt: ein globaler,
-           unmoderierter Stream haette zwangslaeufig Inhalte transportiert, fuer
-           die es in einem betreiberlosen System keine Handhabe gibt. Communities
-           bleiben — dort ist die Mitgliedschaft opt-in und damit die Sichtbarkeit
-           eine Entscheidung des Nutzers. Media-Anhaenge sind in den Chat-Composer
-           gewandert, die Blob-/Chunk-Integration bleibt also erhalten. -->
-
-      <!-- ⚡ WALLET -->
-      <section id="page-wallet" class="tab-page">
-        <div class="card">
-          <h3>Lightning</h3>
-          <div id="ln-balance" class="bal">—</div>
-          <div id="ln-hint" class="mono-sm"></div>
-          <!-- NWC statt nur WebLN: funktioniert auf Handy wie Desktop, weil es
-               ueber die Nostr-Relays laeuft und keine Browser-Extension braucht. -->
-          <div id="nwc-box" style="margin-top:10px">
-            <input id="nwc-uri" class="mono-sm" placeholder="nostr+walletconnect://… (aus deiner Wallet)" style="width:100%" />
-            <div style="display:flex;gap:6px;margin-top:6px">
-              <button id="nwc-connect" class="ghost" style="width:auto;padding:6px 10px">wallet verbinden</button>
-              <button id="nwc-disconnect" class="ghost hidden" style="width:auto;padding:6px 10px">trennen</button>
-            </div>
-            <div id="nwc-status" class="mono-sm"></div>
-          </div>
-        </div>
-        <div class="card">
-          <h3>Solana</h3>
-          <div id="sol-pubkey" class="mono-sm">not connected</div>
-          <div id="sol-status" class="mono-sm"></div>
-          <input id="sol-addr" class="mono-sm hidden" placeholder="SOL address" />
-          <button id="sol-connect" class="ghost">connect</button>
-        </div>
-        <div class="card">
-          <h3>SOL-Deposit (escrow)</h3>
-          <input id="dep-amount" type="number" placeholder="lamports" class="mono-sm" />
-          <input id="dep-provider" placeholder="provider pubkey (auto)" class="mono-sm" />
-          <!-- Wird aus dem Job-Ergebnis uebernommen. Manuell nur als Notausgang:
-               eine abgetippte Empfaengeradresse ist die naheliegendste Stelle,
-               um Geld an den Falschen zu sperren. -->
-          <input id="dep-provider-sol" placeholder="SOL-Adresse des Providers (auto)" class="mono-sm" />
-          <div id="dep-status" class="mono-sm">—</div>
-          <button id="dep-start" class="ghost">deposit</button>
-          <button id="dep-refund" class="ghost hidden">refund</button>
-        </div>
-        <div class="card"><h3>Swap-Orderbook</h3><div id="swap-book" class="mono-sm">—</div><div id="lp-offers" class="mono-sm"></div><div id="swap-invoice" class="mono-sm hidden">
-            <!-- Der Zahl-Link bleibt gesperrt, bis die Gegenleistung auf der
-                 Kette geprueft ist. Genau hier verliert ein Kunde sonst Geld. -->
-            <div id="swap-bolt11" class="mono-sm" style="word-break:break-all"></div>
-            <a id="swap-pay-link" class="ghost disabled" style="width:auto;padding:6px 10px;display:inline-block;margin-top:6px">in Wallet zahlen</a>
-            <button id="swap-claim" class="ghost hidden" style="width:auto;padding:6px 10px;margin-top:6px">SOL einlösen</button>
-          </div>
-          <div id="swap-status" class="mono-sm"></div>
-          <button id="swap-backup" class="ghost" style="width:auto;padding:4px 8px;font-size:10px">Preimage-Sicherung</button>
-          <button id="wallet-refresh" class="ghost">refresh</button></div>
-      <div class="card">
-          <h3><span class="ic" data-icon="info"></span> Gebühren — offen und abschaltbar</h3>
-          <p class="mono-sm">
-            Das <strong>Protokoll</strong> nimmt 2,5 %: 2,0 % in den Reward-Pool,
-            0,5 % an Werber. Kein Anteil geht an eine feste Adresse — es gibt
-            keinen Empfänger, den ein Provider nicht ändern könnte.
-          </p>
-          <p class="mono-sm">
-            Diese <strong>App</strong> nimmt zusätzlich eine eigene Gebühr. Sie steht offen
-            in jedem Job-Event, du kannst sie hier ändern oder auf 0 setzen —
-            und ein anderer Client kann sie weglassen. Eine Gebühr, die man nicht
-            abschalten kann, wäre eine Steuer.
-          </p>
-          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-            <label class="mono-sm">App-Gebühr
-              <input id="clientfee-percent" type="number" min="0" max="10" step="0.5"
-                     style="width:80px" class="mono-sm" /> %</label>
-            <button id="clientfee-save" class="ghost" style="width:auto;padding:6px 10px">speichern</button>
-          </div>
-          <div id="clientfee-status" class="mono-sm"></div>
-        </div>
-
-        </section>
-
-      <!-- 🖥️ VERDIENEN -->
-      <!-- 📡 MESH — Kommunikation und Zahlungen ohne Internet -->
-      <!-- 🏛 RÄUME — Server, Kanäle, Threads -->
-      <section id="page-spaces" class="tab-page">
-        <div class="spaces-layout">
-          <aside class="space-rail" id="space-rail" aria-label="Räume"></aside>
+      </div>
+          <div class="comm-space">
+        <div class="spaces-layout comm-space-inner">
+          
           <aside class="channel-col">
             <div class="space-head">
               <h2 id="space-name">Kein Raum</h2>
@@ -1195,136 +1548,138 @@ h3 .ic-svg, h3 .logo-btc, h3 .logo-sol { vertical-align: -2px; margin-right: 6px
             <div id="member-list" class="mono-sm"></div>
           </aside>
         </div>
+      </div>
+        </div>
       </section>
 
-      <section id="page-mesh" class="tab-page"><div class="card">
-          <h3><span class="ic" data-icon="radio"></span> Ohne Internet</h3>
-          <p class="mono-sm">
-            Nachrichten und Zahlungen über Funk oder per Datei — wenn das Netz
-            weg ist. Nostr-Nachrichten und Solana-Zahlungen gehen durch;
-            Lightning und KI-Anfragen nicht, dafür ist die Strecke zu schmal.
-          </p>
-          <div id="mesh-transport" class="mono-sm"></div>
-          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
-            <button id="mesh-connect" class="ghost" style="width:auto;padding:6px 10px">USB-Gerät</button>
-            <button id="mesh-bt" class="ghost" style="width:auto;padding:6px 10px">Bluetooth</button>
-            <button id="mesh-export" class="ghost" style="width:auto;padding:6px 10px">als Datei ausgeben</button>
-            <input type="file" id="mesh-import-input" accept=".meshpkt,.bin" style="display:none" />
-            <button id="mesh-import" class="ghost" style="width:auto;padding:6px 10px">Datei einlesen</button>
+      <!-- WAEHRUNG -->
+      <section id="page-wallet" class="tab-page">
+        <header class="page-head"><div><h1 class="page-title">Währung</h1><p class="page-sub">Lightning, Solana, Tausch und Liquidität.</p></div>
+          <div class="nav-balances head-balances" id="nav-balances">
+            <div class="nb-row"><span class="nb-label">Sats</span><span class="nb-val" id="nb-sats">—</span></div>
+            <div class="nb-row"><span class="nb-label">SOL</span><span class="nb-val" id="nb-sol">—</span></div>
+            <button id="nb-wallet" class="ghost" type="button">Wallet verbinden</button>
+          </div></header>
+        <div class="seg" role="tablist" data-subtab-group="wallet"><button role="tab" data-subtab="overview" class="active">Übersicht</button><button role="tab" data-subtab="swap">Tauschen</button><button role="tab" data-subtab="lp">Liquidität</button></div>
+        <div class="page-body">
+          <div class="subpane active" data-subpane="wallet:overview"><div class="grid-2"><div class="card">
+          <h3>Lightning</h3>
+          <div id="ln-balance" class="bal">—</div>
+          <div id="ln-hint" class="mono-sm"></div>
+          <!-- NWC statt nur WebLN: funktioniert auf Handy wie Desktop, weil es
+               ueber die Nostr-Relays laeuft und keine Browser-Extension braucht. -->
+          <div id="nwc-box" style="margin-top:10px">
+            <input id="nwc-uri" class="mono-sm" placeholder="nostr+walletconnect://… (aus deiner Wallet)" style="width:100%" />
+            <div style="display:flex;gap:6px;margin-top:6px">
+              <button id="nwc-connect" class="ghost" style="width:auto;padding:6px 10px">wallet verbinden</button>
+              <button id="nwc-disconnect" class="ghost hidden" style="width:auto;padding:6px 10px">trennen</button>
+            </div>
+            <div id="nwc-status" class="mono-sm"></div>
           </div>
-          <div id="mesh-status" class="mono-sm"></div>
+        </div><div class="card">
+          <h3>Solana</h3>
+          <div id="sol-pubkey" class="mono-sm">Nicht verbunden</div>
+          <div id="sol-status" class="mono-sm"></div>
+          <input id="sol-addr" class="mono-sm hidden" placeholder="SOL address" />
+          <button id="sol-connect" class="ghost">Verbinden</button>
+        </div></div></div>
+          <div class="subpane" data-subpane="wallet:swap"><div class="card"><h3>Tauschangebote</h3><div id="swap-book" class="mono-sm">—</div><div id="lp-offers" class="mono-sm"></div><div id="swap-invoice" class="mono-sm hidden">
+            <!-- Der Zahl-Link bleibt gesperrt, bis die Gegenleistung auf der
+                 Kette geprueft ist. Genau hier verliert ein Kunde sonst Geld. -->
+            <div id="swap-bolt11" class="mono-sm" style="word-break:break-all"></div>
+            <a id="swap-pay-link" class="ghost disabled" style="width:auto;padding:6px 10px;display:inline-block;margin-top:6px">in Wallet zahlen</a>
+            <button id="swap-claim" class="ghost hidden" style="width:auto;padding:6px 10px;margin-top:6px">SOL einlösen</button>
+          </div>
+          <div id="swap-status" class="mono-sm"></div>
+          <button id="swap-backup" class="ghost" style="width:auto;padding:4px 8px;font-size:10px">Preimage-Sicherung</button>
+          <button id="wallet-refresh" class="ghost">Aktualisieren</button></div></div>
+          <div class="subpane" data-subpane="wallet:lp"><div class="card">
+          <h3>SOL hinterlegen</h3>
+          <input id="dep-amount" type="number" placeholder="lamports" class="mono-sm" />
+          <input id="dep-provider" placeholder="provider pubkey (auto)" class="mono-sm" />
+          <!-- Wird aus dem Job-Ergebnis uebernommen. Manuell nur als Notausgang:
+               eine abgetippte Empfaengeradresse ist die naheliegendste Stelle,
+               um Geld an den Falschen zu sperren. -->
+          <input id="dep-provider-sol" placeholder="SOL-Adresse des Providers (auto)" class="mono-sm" />
+          <div id="dep-status" class="mono-sm">—</div>
+          <button id="dep-start" class="ghost">deposit</button>
+          <button id="dep-refund" class="ghost hidden">refund</button>
+        </div></div>
+        </div>
+      </section>
+
+      <!-- EARN -->
+      <section id="page-earn" class="tab-page">
+        <header class="page-head"><div><h1 class="page-title">Earn</h1><p class="page-sub">Rechenzeit, Speicher und Relays gegen Sats.</p></div></header>
+        <div class="seg" role="tablist" data-subtab-group="earn"><button role="tab" data-subtab="overview" class="active">Übersicht</button><button role="tab" data-subtab="host">Hosten</button><button role="tab" data-subtab="refer">Werben</button><button role="tab" data-subtab="map">Karte</button></div>
+        <div class="page-body">
+          <div class="subpane active" data-subpane="earn:overview"><div class="card"><h3>Einnahmen</h3><div id="earn-status" class="mono-sm">—</div><div id="earn-events" class="mono-sm"></div><button id="earn-refresh" class="ghost">Aktualisieren</button></div><div class="card">
+          <h3><span class="ic" data-icon="coins"></span> Belohnungen abholen</h3>
+          <p class="mono-sm" id="claim-summary">—</p>
+          <select id="claim-chain" class="tier-select">
+            <option value="lightning"><svg class="logo-btc" width="13" height="13" viewBox="10.5 0.8 12.6 22.4" fill="#f7931a" aria-label="Bitcoin"><path d="M16.15 12.03c1.44-.36 2.42-1.32 2.24-3.02-.23-2.13-1.98-2.85-4.23-3.05l-.01-2.44h-1.51l-.01 2.38c-.4 0-.81.01-1.21.01l.01-2.39H9.92l-.01 2.44c-.33.01-.65.01-.97.01v-.01H6.88l.01 1.62s1.11-.02 1.09-.01c.61 0 .81.36.87.67v2.77c.04 0 .1.01.16.03h-.16v3.88c-.03.19-.13.49-.54.49.02.01-1.09 0-1.09 0l-.3 1.81h2.55c.34 0 .68.01 1.01.01l.01 2.47h1.51l.01-2.44c.41.01.81.01 1.21.02l-.01 2.43h1.51l.01-2.46c2.58-.15 4.37-.8 4.59-3.18.18-1.93-.73-2.79-2.17-3.14zm-4.7-4.71c.86 0 3.57-.17 3.57 1.53 0 1.63-2.71 1.45-3.57 1.45zm0 7.63v-3.19c1.04 0 4.28-.19 4.28 1.6 0 1.71-3.24 1.59-4.28 1.59z"/></svg> Lightning</option>
+            <option value="solana">◎ Solana</option>
+          </select>
+          <input id="claim-address" class="mono-sm" placeholder="Auszahlungsadresse — leer lassen für deine eigene" />
+          <button id="claim-submit" class="ghost">Auszahlung anfordern</button>
+        </div></div>
+          <div class="subpane" data-subpane="earn:host"><div class="card">
+          <h3><span class="ic" data-icon="globe"></span> <span data-i18n="hostReward">App verbreiten</span></h3>
+          <p class="muted" data-i18n="hostSub">Leg freedom.html auf einen eigenen Server, IPFS oder Tor. Mehr Kopien sind schwerer zu sperren. Eine Vergütung gibt es dafür nicht.</p>
+        </div></div>
+          <div class="subpane" data-subpane="earn:refer"><div class="card">
+          <h3><span class="ic" data-icon="trophy"></span> Rangliste</h3>
+          <div id="provider-leaderboard"><div class='mono-sm'>lade…</div></div>
+        </div><div class="card">
+          <h3><span class="ic" data-icon="link"></span> <span data-i18n="referral">Werben</span></h3>
+          <p class="muted">
+            Du bekommst <strong>0,5 %</strong> jeder Zahlung deiner Geworbenen, solange sie aktiv sind —
+            und einen kleineren Anteil an deren Geworbenen.
+            <br><span class="mono-sm">Bezahlt aus der Protokollgebühr. Für das Anwerben allein gibt es nichts.</span>
+          </p>
+          <div class="referral-box">
+            <input id="referral-link" readonly class="mono-sm" value="" />
+            <button id="referral-copy" class="ghost" data-i18n="copy">copy</button>
+          </div>
+          <div id="referral-tier" class="mono-sm"></div>
+          <p class="mono-sm" id="referral-stats">—</p>
           <details style="margin-top:8px">
-            <summary class="mono-sm" style="cursor:pointer">Was geht ohne Internet?</summary>
-            <div id="offline-caps" class="mono-sm" style="margin-top:6px"></div>
+            <summary class="mono-sm" style="cursor:pointer">Was wäre wenn …</summary>
+            <div style="display:flex;gap:6px;align-items:center;margin-top:6px;flex-wrap:wrap">
+              <input id="ref-calc-n" type="number" min="0" value="10" style="width:70px" class="mono-sm" />
+              <span class="mono-sm">Provider mit je</span>
+              <input id="ref-calc-sats" type="number" min="0" step="1000" value="100000" style="width:110px" class="mono-sm" />
+              <span class="mono-sm">sats/Monat</span>
+            </div>
+            <div id="ref-calc-out" class="mono-sm" style="margin-top:6px"></div>
           </details>
-        </div>
-
-        <div class="card">
-          <h3><span class="ic" data-icon="shield"></span> Datenschutz — was abfließt</h3>
-          <p class="mono-sm muted">
-            Was in deiner Einstellung wirklich sichtbar ist. Unangenehm, aber
-            besser als eine Überraschung.
-          </p>
-          <label class="mono-sm" style="display:block;margin:8px 0">Verbindung
-            <select id="net-mode" class="mono-sm">
-              <option value="klar">direkt (Relays sehen deine IP)</option>
-              <option value="tor">über Tor</option>
-              <option value="mixnet">über ein Mixnetz</option>
-            </select></label>
-          <div id="privacy-report" class="mono-sm"
-            style="white-space:pre-wrap;max-height:340px;overflow-y:auto"></div>
-        </div>
-
-        <div class="card">
-          <h3>Warteschlange</h3>
-          <div id="mesh-queue" class="mono-sm">nichts zu senden</div>
-        </div>
-
-        <div class="card">
+        </div><div class="card">
+          <h3><span class="ic" data-icon="code"></span> Mitwirkende</h3>
+          <p class="mono-sm">Wer mitarbeitet und ob das Projekt an einer Person hängt. Gezählt werden aktive Tage.</p>
+          <div id="contrib-list" class="mono-sm">lade …</div>
+        </div></div>
+          <div class="subpane" data-subpane="earn:map"><div class="card">
           <h3><span class="ic" data-icon="globe"></span> Abdeckung</h3>
-          <p class="mono-sm">
-            Wo gibt es Provider, wo Funkabdeckung. Funkknoten erscheinen nur in
-            groben Zellen und erst ab drei Knoten — eine Zelle mit einem Knoten
-            wäre eine Adresse.
-          </p>
+          <p class="mono-sm">Wo es Provider und Funk gibt. Funkknoten erscheinen erst ab drei pro Gebiet, damit sich niemand verorten lässt.</p>
           <div id="coverage-here" class="mono-sm"></div>
           <div id="coverage-list" class="mono-sm"></div>
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
             <button id="coverage-refresh" class="ghost" style="width:auto;padding:6px 10px">aktualisieren</button>
             <button id="coverage-join" class="ghost" style="width:auto;padding:6px 10px">selbst eintragen</button>
           </div>
+        </div></div>
         </div>
-      <div class="card">
-          <h3><span class="ic" data-icon="server"></span> Modelle im Netz</h3>
-          <p class="mono-sm">
-            Welche Modelle werden vorgehalten und wie gut. Ein Modell mit
-            einem einzigen Seeder ist gefährdet — wer es spiegelt, sichert es.
-          </p>
-          <div id="models-list" class="mono-sm">lade …</div>
-          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
-            <button id="models-refresh" class="ghost" style="width:auto;padding:6px 10px">aktualisieren</button>
-            <button id="models-seed" class="ghost" style="width:auto;padding:6px 10px">Modell vorhalten</button>
-            <button id="models-publish" class="ghost" style="width:auto;padding:6px 10px">Modell ankündigen</button>
+      </section>
+
+      <!-- PROFIL -->
+      <section id="page-profile" class="tab-page">
+        <div class="page-body narrow">
+          
+          <div class="card profile-hero" id="profile-card">
+          <div class="profile-top">
+            <div id="profile-preview"></div>
+            <button id="profile-share" class="ghost" type="button"><span class="ic" data-icon="link"></span> Teilen</button>
           </div>
-        </div>
-
-        <div class="card">
-          <h3><span class="ic" data-icon="server"></span> Eigene Endpunkte</h3>
-          <p class="mono-sm">
-            Solana-RPCs, kommagetrennt. Deine kommen zuerst; fällt einer aus,
-            weicht die App automatisch auf die nächsten aus. Wer einen eigenen
-            Knoten betreibt, sollte ihn hier eintragen — eine feste Adresse
-            wäre ein einzelner Ausfallpunkt.
-          </p>
-          <input id="sol-rpcs" class="mono-sm" style="width:100%"
-                 placeholder="https://mein-knoten.example, https://…" />
-          <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">
-            <button id="sol-rpcs-save" class="ghost" style="width:auto;padding:6px 10px">speichern</button>
-            <button id="sol-rpcs-check" class="ghost" style="width:auto;padding:6px 10px">erreichbarkeit prüfen</button>
-          </div>
-          <div id="sol-rpcs-status" class="mono-sm"></div>
-        </div>
-
-        
-        <details class="card" style="padding:0">
-          <summary style="padding:13px 14px;cursor:pointer;font-size:13px;font-weight:600;
-            list-style:none;display:flex;justify-content:space-between;align-items:center">
-            <span>Projekt</span>
-            <span class="mono-sm muted">Mitwirkende, Rangliste, Code</span>
-          </summary>
-          <div style="padding:0 14px 12px"><div class="card">
-          <h3><span class="ic" data-icon="code"></span> Mitwirkende</h3>
-          <p class="mono-sm">
-            Wer arbeitet am Projekt, und hängt es an einer Person. Gezählt
-            werden aktive Tage, nicht Commits.
-          </p>
-          <div id="contrib-list" class="mono-sm">lade …</div>
-        </div>
-
-        <div class="card">
-          <h3><span class="ic" data-icon="trophy"></span> Provider-Leaderboard (Reputation)</h3>
-          <div id="provider-leaderboard"><div class='mono-sm'>lade…</div></div>
-        </div>
-        <div class="card">
-          <h3><span class="ic" data-icon="git"></span> Freedom Git</h3>
-          <p class="mono-sm">Repos als torrent-artige Bundles über das Chunk-Netz (offline-fähig). Clone: <code>git clone &lt;datei&gt;.bundle</code></p>
-          <div class="composer-meta">
-            <input id="git-repo-name" placeholder="repo-name" style="width:120px" />
-            <button id="git-repo-publish" class="ghost copy-btn">⇪ Bundle publizieren</button>
-            <input type="file" id="git-bundle-file" accept=".bundle" style="display:none" />
-          </div>
-          <div id="git-repo-list" class="mono-sm" style="margin-top:8px">lade…</div>
-        </div>
-        </div>
-        </details></section>
-
-      <section id="page-earn" class="tab-page">
-        <p class="mono-sm muted" style="padding:0 2px 6px">
-          Identität, Einnahmen, Weitergabe — alles, was dir gehört.
-        </p>
-
-        <div class="card" id="profile-card">
-          <div id="profile-preview"></div>
           <details style="margin-top:10px">
             <summary style="cursor:pointer;font-size:13px;font-weight:600">Profil bearbeiten</summary>
             <div style="display:flex;flex-direction:column;gap:8px;margin-top:10px">
@@ -1354,29 +1709,51 @@ h3 .ic-svg, h3 .logo-btc, h3 .logo-sol { vertical-align: -2px; margin-right: 6px
             </div>
           </details>
         </div>
-
-        <div class="card">
+          <div class="grid-2"><div class="card">
+          <h3><span class="ic" data-icon="star"></span> <span data-i18n="trustLevel">Vertrauensstufe</span></h3>
+          <div class="trust-bar-wrap">
+            <div class="trust-bar" id="trust-bar-track">
+              <div id="trust-fill" class="trust-fill" style="width:0%"></div>
+              <span class="trust-marker m10" style="left:20%" title="classic ab 10 XP"><i>Classic</i></span>
+              <span class="trust-marker m50" style="left:100%" title="pro ab 50 XP"><i>Pro</i></span>
+            </div>
+            <div class="trust-meta mono-sm"><span id="trust-xp">0 XP</span> · <span id="trust-jobs">0 jobs</span> · <span id="trust-tier">free</span></div>
+          </div>
+          <p class="muted" data-i18n="trustSub">Wächst mit erledigten Jobs. Sie bestimmt, welche Stufe du bedienen kannst.</p>
+        </div><div class="card">
           <h3><span class="ic" data-icon="shield"></span> Abzeichen</h3>
           <div id="badge-list" class="mono-sm">lade …</div>
           <button id="badge-create" class="ghost" style="width:auto;padding:6px 10px;margin-top:8px">
             Abzeichen vergeben</button>
-        </div>
-<div class="card">
-          <h3><span class="ic" data-icon="shield"></span> Nachfolge &amp; Wiederherstellung</h3>
-          <p class="mono-sm">
-            Wenn du dein Gerät verlierst oder nicht mehr da bist: Vertraute
-            können deinen Zugang wiederherstellen — aber erst nach Ablauf
-            einer Frist, und ein einziges Lebenszeichen von dir bricht alles ab.
-          </p>
-          <div id="succession-status" class="mono-sm"></div>
-          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
-            <button id="succ-setup" class="ghost" style="width:auto;padding:6px 10px">einrichten</button>
-            <button id="succ-heartbeat" class="ghost" style="width:auto;padding:6px 10px">Lebenszeichen senden</button>
-            <button id="succ-claim" class="ghost" style="width:auto;padding:6px 10px">für jemanden melden</button>
-          </div>
-        </div>
+        </div></div>
+        <div class="ident-row">
+            <span class="nb-ident" id="nb-ident" title="Öffentlicher Schlüssel — Klick exportiert den privaten">…</span>
+            <button id="nb-import" class="ghost" type="button" data-i18n="import">Importieren</button>
+          </div></div>
+      </section>
 
-        <div class="card">
+      <!-- SETTINGS -->
+      <section id="page-settings" class="tab-page">
+        <div class="settings-layout">
+          <div class="settings-nav" data-subtab-group="settings" role="tablist">
+            <h1 class="settings-title">Settings</h1>
+            <button role="tab" data-subtab="security" class="active"><span class="ic" data-icon="shield"></span>
+              Sicherheit <span id="settings-security-badge" class="nav-badge"></span></button>
+            <button role="tab" data-subtab="devices"><span class="ic" data-icon="monitor"></span> Geräte</button>
+            <button role="tab" data-subtab="network"><span class="ic" data-icon="globe"></span> Verbindung</button>
+            <button role="tab" data-subtab="privacy"><span class="ic" data-icon="shield"></span> Datenschutz</button>
+            <button role="tab" data-subtab="fees"><span class="ic" data-icon="coins"></span> Gebühren</button>
+            <button role="tab" data-subtab="mesh"><span class="ic" data-icon="radio"></span> Mesh</button>
+            <button role="tab" data-subtab="share"><span class="ic" data-icon="link"></span> Weitergeben</button>
+            <div class="nav-lang settings-lang">
+              <div class="lang-dropdown">
+                <button id="lang-btn-app" class="ghost lang-toggle" type="button">Sprache ▾</button>
+                <div id="lang-menu-app" class="lang-menu hidden"></div>
+              </div>
+            </div>
+          </div>
+          <div class="settings-body">
+            <div class="subpane active" data-subpane="settings:security"><h2 class="settings-h">Sicherheit</h2><p class="settings-lead">Zwei der vier Schritte gehen nur vorher.</p><div class="sec-steps"><div class="sec-progress"><span></span><span></span><span></span><span></span></div><div class="sec-step" data-sec-step="0"><span class="sec-dot">1</span><div class="sec-text"><div class="sec-title">Merkphrase gesichert</div><div class="sec-sub">Zwölf Wörter, beim ersten Start bestätigt.</div></div></div><div class="sec-step" data-sec-step="1"><span class="sec-dot">2</span><div class="sec-text"><div class="sec-title">Zustand gesichert</div><div class="sec-sub">Unterhaltungen, Räume und Namen, verschlüsselt.</div></div><button class="sec-action" data-step="1" type="button">Einrichten</button></div><div class="sec-step" data-sec-step="2"><span class="sec-dot">3</span><div class="sec-text"><div class="sec-title">Diebstahl vorbeugen</div><div class="sec-sub">Ein Ersatzschlüssel, getrennt aufbewahrt. Nur vorher einrichtbar.</div></div><button class="sec-action" data-step="2" type="button">Einrichten</button></div><div class="sec-step" data-sec-step="3"><span class="sec-dot">4</span><div class="sec-text"><div class="sec-title">Nachfolge</div><div class="sec-sub">Vertraute stellen deinen Zugang wieder her.</div></div><button class="sec-action" data-step="3" type="button">Einrichten</button></div></div><h3 class="settings-sub">Details</h3><div class="card">
           <h3><span class="ic" data-icon="shield"></span> Sicherung &amp; Schlüsselwechsel</h3>
           <div id="backup-status" class="mono-sm"></div>
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
@@ -1385,124 +1762,106 @@ h3 .ic-svg, h3 .logo-btc, h3 .logo-sol { vertical-align: -2px; margin-right: 6px
             <button id="rotation-prepare" class="ghost" style="width:auto;padding:6px 10px">Diebstahl vorbeugen</button>
             <button id="rotation-revoke" class="ghost" style="width:auto;padding:6px 10px">Schlüssel widerrufen</button>
           </div>
-        </div>
-
-        <div class="card">
-          <h3><span class="ic" data-icon="server"></span> Deine Geräte</h3>
+        </div><div class="card">
+          <h3><span class="ic" data-icon="shield"></span> Nachfolge &amp; Wiederherstellung</h3>
+          <p class="mono-sm">Vertraute können deinen Zugang wiederherstellen, wenn du dein Gerät verlierst oder nicht mehr da bist. Das geht erst nach einer Frist, und ein Lebenszeichen von dir bricht den Vorgang ab.</p>
+          <div id="succession-status" class="mono-sm"></div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
+            <button id="succ-setup" class="ghost" style="width:auto;padding:6px 10px">einrichten</button>
+            <button id="succ-heartbeat" class="ghost" style="width:auto;padding:6px 10px">Lebenszeichen senden</button>
+            <button id="succ-claim" class="ghost" style="width:auto;padding:6px 10px">für jemanden melden</button>
+          </div>
+        </div></div>
+            <div class="subpane" data-subpane="settings:devices"><h2 class="settings-h">Geräte</h2><div class="card">
+          <h3><span class="ic" data-icon="server"></span> Verbundene Geräte</h3>
           <div id="device-list" class="mono-sm">lade …</div>
           <button id="device-add" class="ghost" style="width:auto;padding:6px 10px;margin-top:8px">
             Gerät hinzufügen</button>
-        </div>
-
-        <div class="card">
-          <h3><span class="ic" data-icon="download"></span> App weitergeben</h3>
+        </div></div>
+            <div class="subpane" data-subpane="settings:network"><h2 class="settings-h">Verbindung</h2><div class="card">
+          <h3><span class="ic" data-icon="server"></span> Eigene Endpunkte</h3>
+          <p class="mono-sm">Eigene Solana-Endpunkte, kommagetrennt. Sie werden zuerst benutzt; fällt einer aus, nimmt die App den nächsten.</p>
+          <input id="sol-rpcs" class="mono-sm" style="width:100%"
+                 placeholder="https://mein-knoten.example, https://…" />
+          <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">
+            <button id="sol-rpcs-save" class="ghost" style="width:auto;padding:6px 10px">speichern</button>
+            <button id="sol-rpcs-check" class="ghost" style="width:auto;padding:6px 10px">erreichbarkeit prüfen</button>
+          </div>
+          <div id="sol-rpcs-status" class="mono-sm"></div>
+        </div></div>
+            <div class="subpane" data-subpane="settings:privacy"><h2 class="settings-h">Datenschutz</h2><div class="card">
+          <h3><span class="ic" data-icon="shield"></span> Was sichtbar ist</h3>
+          <p class="mono-sm muted">Was in deiner Einstellung für andere sichtbar ist.</p>
+          <label class="mono-sm" style="display:block;margin:8px 0">Verbindung
+            <select id="net-mode" class="mono-sm">
+              <option value="klar">direkt (Relays sehen deine IP)</option>
+              <option value="tor">über Tor</option>
+              <option value="mixnet">über ein Mixnetz</option>
+            </select></label>
+          <div id="privacy-report" class="mono-sm"
+            style="white-space:pre-wrap;max-height:340px;overflow-y:auto"></div>
+        </div></div>
+            <div class="subpane" data-subpane="settings:fees"><h2 class="settings-h">Gebühren</h2><div class="card">
+          <h3><span class="ic" data-icon="info"></span> Aufteilung</h3>
           <p class="mono-sm">
-            Diese App ist eine einzige Datei. Du kannst sie exportieren und
-            weitergeben — per Stick, per Chat, per Funk. Wer sie bekommt, prüft
-            die Prüfsumme gegen das signierte Manifest auf den Relays und weiß
-            dann, dass sie echt ist. Egal, ob die Domain noch existiert.
+            Das <strong>Protokoll</strong> nimmt 2,5 %: 2,0 % für den Reward-Pool, 0,5 % für Werber.
           </p>
+          <p class="mono-sm">
+            Diese <strong>App</strong> nimmt zusätzlich eine eigene Gebühr. Du kannst sie hier ändern oder auf 0 setzen.
+          </p>
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+            <label class="mono-sm">App-Gebühr
+              <input id="clientfee-percent" type="number" min="0" max="10" step="0.5"
+                     style="width:80px" class="mono-sm" /> %</label>
+            <button id="clientfee-save" class="ghost" style="width:auto;padding:6px 10px">speichern</button>
+          </div>
+          <div id="clientfee-status" class="mono-sm"></div>
+        </div></div>
+            <div class="subpane" data-subpane="settings:mesh"><h2 class="settings-h">Mesh</h2><div class="card">
+          <h3><span class="ic" data-icon="radio"></span> Ohne Internet</h3>
+          <p class="mono-sm">Nachrichten und Solana-Zahlungen über Funk oder per Datei, wenn das Netz weg ist. Lightning und KI-Anfragen gehen so nicht.</p>
+          <div id="mesh-transport" class="mono-sm"></div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
+            <button id="mesh-connect" class="ghost" style="width:auto;padding:6px 10px">USB-Gerät</button>
+            <button id="mesh-bt" class="ghost" style="width:auto;padding:6px 10px">Bluetooth</button>
+            <button id="mesh-export" class="ghost" style="width:auto;padding:6px 10px">als Datei ausgeben</button>
+            <input type="file" id="mesh-import-input" accept=".meshpkt,.bin" style="display:none" />
+            <button id="mesh-import" class="ghost" style="width:auto;padding:6px 10px">Datei einlesen</button>
+          </div>
+          <div id="mesh-status" class="mono-sm"></div>
+          <details style="margin-top:8px">
+            <summary class="mono-sm" style="cursor:pointer">Was geht ohne Internet?</summary>
+            <div id="offline-caps" class="mono-sm" style="margin-top:6px"></div>
+          </details>
+        </div><div class="card">
+          <h3>Warteschlange</h3>
+          <div id="mesh-queue" class="mono-sm">nichts zu senden</div>
+        </div></div>
+            <div class="subpane" data-subpane="settings:share"><h2 class="settings-h">Weitergeben</h2><div class="card">
+          <h3><span class="ic" data-icon="download"></span> Als Datei</h3>
+          <p class="mono-sm">Die App ist eine einzige Datei. Du kannst sie exportieren und weitergeben; ihre Echtheit lässt sich gegen das signierte Manifest prüfen.</p>
           <div style="display:flex;gap:6px;flex-wrap:wrap">
             <button id="selfexport-btn" class="ghost" style="width:auto;padding:6px 10px">App exportieren</button>
             <button id="selfcheck-btn" class="ghost" style="width:auto;padding:6px 10px">eigene Echtheit prüfen</button>
           </div>
           <div id="selfexport-status" class="mono-sm"></div>
           <div id="selfcheck-status" class="mono-sm"></div>
-        </div>
-
-        <div class="card">
-          <h3><span class="ic" data-icon="star"></span> <span data-i18n="trustLevel">Dein Trust-Level</span></h3>
-          <div class="trust-bar-wrap">
-            <div class="trust-bar" id="trust-bar-track">
-              <div id="trust-fill" class="trust-fill" style="width:0%"></div>
-              <span class="trust-marker m10" style="left:20%" title="classic ab 10 XP"><i>10 classic</i></span>
-              <span class="trust-marker m50" style="left:100%" title="pro ab 50 XP"><i>50 pro</i></span>
-            </div>
-            <div class="trust-meta mono-sm"><span id="trust-xp">0 XP</span> · <span id="trust-jobs">0 jobs</span> · <span id="trust-tier">free</span></div>
+        </div></div>
           </div>
-          <p class="muted" data-i18n="trustSub">Trust verdienst du durch erfolgreiche Jobs (wie XP). Ab 10 XP kannst du classic providen, ab 50 XP pro.</p>
         </div>
-        
-        <details class="card" style="padding:0" open>
-          <summary style="padding:13px 14px;cursor:pointer;font-size:13px;font-weight:600;
-            list-style:none;display:flex;justify-content:space-between;align-items:center">
-            <span>Verdienen</span>
-            <span class="mono-sm muted">Provider, Belohnungen, Geworbene</span>
-          </summary>
-          <div style="padding:0 14px 12px"><div class="card"><h3 data-i18n="navEarn">Earn</h3><div id="earn-status" class="mono-sm">—</div><div id="earn-events" class="mono-sm"></div><button id="earn-refresh" class="ghost">refresh</button></div>
-        <div class="card">
-          <h3><span class="ic" data-icon="coins"></span> Rewards einfordern</h3>
-          <p class="mono-sm" id="claim-summary">—</p>
-          <select id="claim-chain" class="tier-select">
-            <option value="lightning"><svg class="logo-btc" width="13" height="13" viewBox="10.5 0.8 12.6 22.4" fill="#f7931a" aria-label="Bitcoin"><path d="M16.15 12.03c1.44-.36 2.42-1.32 2.24-3.02-.23-2.13-1.98-2.85-4.23-3.05l-.01-2.44h-1.51l-.01 2.38c-.4 0-.81.01-1.21.01l.01-2.39H9.92l-.01 2.44c-.33.01-.65.01-.97.01v-.01H6.88l.01 1.62s1.11-.02 1.09-.01c.61 0 .81.36.87.67v2.77c.04 0 .1.01.16.03h-.16v3.88c-.03.19-.13.49-.54.49.02.01-1.09 0-1.09 0l-.3 1.81h2.55c.34 0 .68.01 1.01.01l.01 2.47h1.51l.01-2.44c.41.01.81.01 1.21.02l-.01 2.43h1.51l.01-2.46c2.58-.15 4.37-.8 4.59-3.18.18-1.93-.73-2.79-2.17-3.14zm-4.7-4.71c.86 0 3.57-.17 3.57 1.53 0 1.63-2.71 1.45-3.57 1.45zm0 7.63v-3.19c1.04 0 4.28-.19 4.28 1.6 0 1.71-3.24 1.59-4.28 1.59z"/></svg> Lightning (lud16)</option>
-            <option value="solana">◎ Solana</option>
-          </select>
-          <input id="claim-address" class="mono-sm" placeholder="Auszahlungsadresse (leer = eigene lud16/wallet)" />
-          <button id="claim-submit" class="ghost">Claim einreichen</button>
-        </div>
-        <div class="card">
-          <h3><span class="ic" data-icon="link"></span> <span data-i18n="referral">Referral — werbe & verdiene</span></h3>
-          <p class="muted">
-            Du verdienst an <strong>jedem Job</strong> deiner Geworbenen — dauerhaft,
-            ohne Enddatum. Und an den Geworbenen deiner Geworbenen (Ebene 2).
-            <br>
-            <!-- Der Satz ist wichtig: Er ist der Unterschied zwischen einem
-                 Referral- und einem Schneeballsystem, und er sollte nicht im
-                 Kleingedruckten stehen. -->
-            <span class="mono-sm">Bezahlt aus der Protokollfee — dein Geworbener zahlt dadurch
-            keinen Cent mehr. Fürs Anwerben allein gibt es nichts; vergütet wird
-            nur echte Arbeit.</span>
-          </p>
-          <div class="referral-box">
-            <input id="referral-link" readonly class="mono-sm" value="" />
-            <button id="referral-copy" class="ghost" data-i18n="copy">copy</button>
-          </div>
-          <div id="referral-tier" class="mono-sm"></div>
-          <p class="mono-sm" id="referral-stats">—</p>
-          <details style="margin-top:8px">
-            <summary class="mono-sm" style="cursor:pointer">Was wäre wenn …</summary>
-            <div style="display:flex;gap:6px;align-items:center;margin-top:6px;flex-wrap:wrap">
-              <input id="ref-calc-n" type="number" min="0" value="10" style="width:70px" class="mono-sm" />
-              <span class="mono-sm">Provider mit je</span>
-              <input id="ref-calc-sats" type="number" min="0" step="1000" value="100000" style="width:110px" class="mono-sm" />
-              <span class="mono-sm">sats/Monat</span>
-            </div>
-            <div id="ref-calc-out" class="mono-sm" style="margin-top:6px"></div>
-          </details>
-        </div>
-        <div class="card">
-          <h3><span class="ic" data-icon="globe"></span> <span data-i18n="hostReward">Host die App — 2%</span></h3>
-          <p class="muted" data-i18n="hostSub">Hoste freedom.html (IPFS/Tor/eigener Server) und bekomme 2% der Zahlungen über deinen Host. Wie ein Bitcoin-Node.</p>
-        </div>
-      </div>
-        </details></section>
+      </section>
     </main>
 
-    <nav>
-      <span class="nav-logo">FREEDOM</span>
-      <div class="nav-balances" id="nav-balances">
-        <div class="nb-row"><span class="nb-label">Sats</span><span class="nb-val" id="nb-sats">—</span></div>
-        <div class="nb-row"><span class="nb-label">Sol</span><span class="nb-val" id="nb-sol">—</span></div>
-        <div class="nb-quota" id="nb-quota" title="gratis-kontingent heute bei diesem provider">
-          <div class="nq-bar"><div class="nq-fill" id="nq-fill"></div></div>
-          <span class="nq-text" id="nq-text"></span>
-        </div>
-        <button id="nb-wallet" class="ghost" style="width:auto;padding:3px 8px;font-size:9px;margin-top:4px;align-self:flex-start">◎ wallet verbinden</button>
-        <span class="nb-ident" id="nb-ident" title="pubkey — klick: nsec exportieren">…</span>
-        <button id="nb-import" class="ghost" style="width:auto;padding:3px 8px;font-size:9px;margin-top:4px;align-self:flex-start" data-i18n="import">import</button>
-      </div>
-      <button data-tab="ai" class="active"><span class="ic" data-icon="bot"></span><span data-i18n="navAi">Agent</span></button>
-      <button data-tab="chat"><span class="ic" data-icon="chat"></span><span data-i18n="navChat">Chat</span></button>
-      <button data-tab="spaces"><span class="ic" data-icon="hash"></span>Räume</button>
-      <button data-tab="mesh"><span class="ic" data-icon="radio"></span>Netz</button>
-      <button data-tab="wallet"><span class="ic" data-icon="zap"></span><span data-i18n="navWallet">Wallet</span></button>
-      <button data-tab="earn"><span class="ic" data-icon="monitor"></span><span data-i18n="navEarn">Earn</span></button>
-      <div class="nav-lang">
-        <div class="lang-dropdown">
-          <button id="lang-btn-app" class="ghost lang-toggle" type="button">🌐 ▾</button>
-          <div id="lang-menu-app" class="lang-menu hidden"></div>
-        </div>
-      </div>
+    <nav class="app-nav">
+      <a class="nav-brand" href="#" aria-label="FREEDOM"><span id="nav-mark"></span></a>
+      <button data-tab="ai" class="active"><span class="ic" data-icon="bot"></span><span>Agent</span></button>
+      <button data-tab="comm"><span class="ic" data-icon="chat"></span><span>Kommunikation</span></button>
+      <button data-tab="wallet"><span class="ic" data-icon="zap"></span><span>Währung</span></button>
+      <button data-tab="earn"><span class="ic" data-icon="monitor"></span><span>Earn</span></button>
+      <button data-tab="profile"><span class="ic" data-icon="user"></span><span>Profil</span></button>
+      <button data-tab="settings"><span class="ic" data-icon="settings"></span><span>Settings</span></button>
+      <div class="nav-status" title="Relays verbunden"><span id="nav-status-dot" class="status-dot"></span>
+        <span id="nav-status-text" class="mono-sm">—</span></div>
     </nav>
   </div>
 
@@ -24507,7 +24866,7 @@ Message: ${transactionMessage}.
       init_index_browser_esm();
       init_crypto();
       PROGRAM_ID = new PublicKey(
-        process.env.HTLC_PROGRAM_ID ?? "3UmRRrMySUbPwRfV4x7c1A6ah94K7SQt3dDH2uqqdeZ8"
+        process.env.HTLC_PROGRAM_ID ?? "B6W19UfZ1iYDoJYaSesZDiP96TpeZACQu3Xs6VSJ4kJk"
       );
       AnchorSolanaHtlc = class _AnchorSolanaHtlc {
         constructor(cfg) {
@@ -24670,7 +25029,8 @@ Message: ${transactionMessage}.
             for (const ix of ixs) {
               const raw = typeof ix.data === "string" ? Buffer.from(ix.data, "base64") : Buffer.from(ix.data);
               if (raw.subarray(0, 8).equals(claimHash)) {
-                const pre = raw.subarray(8, 8 + 32);
+                const len = raw.readUInt32LE(8);
+                const pre = raw.subarray(12, 12 + len);
                 if (pre.length === 32) return new Uint8Array(pre);
               }
             }
@@ -34479,14 +34839,14 @@ Message: ${transactionMessage}.
         webln,
         isMobile,
         recommendation: "nwc",
-        note: "Auf Mobilger\xE4ten gibt es keine Browser-Extension. Wallet per NWC-URI oder QR-Code verbinden."
+        note: "Verbinde deine Wallet \xFCber einen NWC-Link oder QR-Code aus deiner Wallet-App."
       };
     }
     return {
       webln,
       isMobile,
       recommendation: webln ? "webln" : "nwc",
-      note: webln ? "Browser-Wallet erkannt (WebLN). NWC funktioniert zus\xE4tzlich und ger\xE4te\xFCbergreifend." : "Keine Browser-Extension gefunden. Wallet per NWC-URI verbinden \u2014 das l\xE4uft ohne Extension."
+      note: webln ? "Browser-Wallet erkannt. Ein NWC-Link funktioniert zus\xE4tzlich auf allen Ger\xE4ten." : "Verbinde deine Wallet \xFCber einen NWC-Link aus deiner Wallet-App."
     };
   }
   var KIND_NWC_INFO, KIND_NWC_REQUEST, KIND_NWC_RESPONSE, NwcClient;
@@ -38312,15 +38672,8 @@ Message: ${transactionMessage}.
   }
   function backupInfo(sizeBytes, lastAt) {
     const alter = lastAt ? Math.floor((Date.now() / 1e3 - lastAt) / 86400) : null;
-    return [
-      lastAt ? `Letzte Sicherung vor ${alter} Tag(en), ${Math.round(sizeBytes / 1024)} KB.` : "Noch keine Sicherung.",
-      "",
-      "Gesichert werden Unterhaltungen, R\xE4ume, eigene Namen und Lesest\xE4nde \u2014",
-      "verschl\xFCsselt mit einem aus deiner Merkphrase abgeleiteten Schl\xFCssel.",
-      "Niemand au\xDFer dir kann sie lesen, auch kein Relay.",
-      "",
-      "Deine Merkphrase allein gen\xFCgt zur Wiederherstellung."
-    ].join("\n");
+    const stand = lastAt ? `Letzte Sicherung vor ${alter} Tag(en), ${Math.round(sizeBytes / 1024)} KB.` : "Noch keine Sicherung.";
+    return `${stand} Unterhaltungen, R\xE4ume und Namen, verschl\xFCsselt \u2014 auch kein Relay kann sie lesen. Deine Merkphrase allein gen\xFCgt zur Wiederherstellung.`;
   }
   function expirationTag(preset, nowSecs = Math.floor(Date.now() / 1e3)) {
     const dauer = EXPIRY_SECONDS[preset];
@@ -40361,6 +40714,8 @@ Message: ${transactionMessage}.
         // nav
         bot: '<rect x="4" y="8" width="16" height="12" rx="2"/><path d="M12 8V4M8 4h8"/><circle cx="9" cy="14" r="1"/><circle cx="15" cy="14" r="1"/>',
         chat: '<path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>',
+        user: '<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/>',
+        settings: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',
         shield: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>',
         code: '<polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>',
         hash: '<line x1="4" y1="9" x2="20" y2="9"/><line x1="4" y1="15" x2="20" y2="15"/><line x1="10" y1="3" x2="8" y2="21"/><line x1="16" y1="3" x2="14" y2="21"/>',
@@ -48029,7 +48384,7 @@ zoo`.split("\n");
       "use strict";
       init_sha2();
       init_utils();
-      HTLC_PROGRAM_ID = "3UmRRrMySUbPwRfV4x7c1A6ah94K7SQt3dDH2uqqdeZ8";
+      HTLC_PROGRAM_ID = "B6W19UfZ1iYDoJYaSesZDiP96TpeZACQu3Xs6VSJ4kJk";
     }
   });
 
@@ -48550,19 +48905,19 @@ zoo`.split("\n");
   var en = {
     import: "import",
     // landing (app-interne landing — website-landing hat eigenes dict)
-    tagline: "The uncensorable AI & message network",
-    taglineSub: "Pay per job in sats or SOL. Non-custodial. No operator. No token.",
+    tagline: "Messaging, payments and AI without an operator",
+    taglineSub: "Pay per request in sats. No account, no token.",
     featLightning: "lightning",
     featSolana: "solana",
     featAi: "ai",
     featEncChat: "encrypted chat",
     clickToEnter: "Click anywhere to start",
     openApp: "Open app",
-    emptySub: "Ask anything. Pay per job in sats or SOL \u2014 non-custodial.",
-    emptyHint: "Choose a model \xB7 attach tools \xB7 ask away",
+    emptySub: "Ask a question. You pay per request.",
+    emptyHint: "Choose a model \xB7 attach tools",
     // gate
     connectTitle: "Connect to enter",
-    connectSub: "non-custodial \u2014 your keys stay with you",
+    connectSub: "Your keys stay on your device.",
     connectLightning: "Lightning (Nostr key)",
     connectSolana: "Solana wallet",
     continueLocal: "continue without wallet (local, free)",
@@ -48573,21 +48928,21 @@ zoo`.split("\n");
     navWallet: "Wallet",
     navEarn: "Earn",
     // earn/referral
-    referralSub: "Share your link: you earn 5% of a referred provider's revenue / 5% of a referred user's spend.",
+    referralSub: "Share your link. You get 0.5% of every payment your referrals make, for as long as they are active.",
     referralCode: "your code:",
-    trustLevel: "Your trust level",
-    trustSub: "You earn trust through successful jobs (like XP). From 10 XP you can provide classic, from 50 XP pro.",
-    hostReward: "Host the app \u2014 2%",
-    hostSub: "Host freedom.html (IPFS/Tor/own server) and receive 2% of payments through your host. Like a Bitcoin node.",
+    trustLevel: "Trust level",
+    trustSub: "Earned through completed jobs. It decides which tier you can serve.",
+    hostReward: "Distribute the app",
+    hostSub: "Put freedom.html on your own server, IPFS or Tor. More copies make it harder to block. There is no payment for this.",
     // ai
-    aiPlaceholder: "Ask the network\u2026",
+    aiPlaceholder: "Message the agent",
     send: "Send",
     thinking: "thinking\u2026",
     connecting: "connecting\u2026",
     researching: "researching\u2026",
     creating: "creating\u2026",
-    copyLast: "copy last",
-    copyAll: "copy all",
+    copyLast: "Copy last",
+    copyAll: "Copy all",
     bid: "Bid (sats)",
     // chat
     chatTitle: "Messages",
@@ -48595,63 +48950,73 @@ zoo`.split("\n");
     chatNewCommunity: "New community",
     chatPlaceholder: "Message\u2026",
     attach: "attach",
-    balance: "balance"
+    balance: "balance",
+    copy: "Copy",
+    referral: "Referrals",
+    tierFree: "Free \u2014 small model",
+    tierClassic: "Classic \u2014 balanced",
+    tierPro: "Pro \u2014 trusted providers",
+    tierMax: "Max \u2014 fastest wins",
+    tierSwarm: "Swarm \u2014 best of several"
   };
   var de = {
-    import: "importieren",
-    tagline: "Das unzensierbare KI- & Nachrichten-Netzwerk",
-    taglineSub: "Pay per job in sats oder SOL. Non-custodial. Kein Betreiber. Kein Token.",
+    import: "Importieren",
+    tagline: "Nachrichten, Zahlungen und KI ohne Betreiber",
+    taglineSub: "Bezahlt pro Anfrage in Sats. Kein Konto, kein Token.",
     featLightning: "Lightning",
     featSolana: "Solana",
     featAi: "KI",
     featEncChat: "verschl\xFCsselter Chat",
-    clickToEnter: "Klicken zum Start",
+    clickToEnter: "Klicken zum Starten",
     openApp: "App \xF6ffnen",
-    emptySub: "Frag alles. Pay per job in sats oder SOL \u2014 non-custodial.",
-    emptyHint: "Modell w\xE4hlen \xB7 Tools anh\xE4ngen \xB7 losfragen",
+    emptySub: "Stell eine Frage. Du zahlst pro Anfrage.",
+    emptyHint: "Modell w\xE4hlen \xB7 Werkzeuge anh\xE4ngen",
     connectTitle: "Verbinden zum Start",
-    connectSub: "non-custodial \u2014 deine Keys bleiben bei dir",
+    connectSub: "Deine Schl\xFCssel bleiben auf deinem Ger\xE4t.",
     connectLightning: "Lightning (Nostr-Key)",
     connectSolana: "Solana-Wallet",
-    continueLocal: "ohne Wallet fortfahren (lokal, gratis)",
+    continueLocal: "Ohne Wallet fortfahren",
     navAi: "Agent",
     navChat: "Chat",
     navFeed: "Feed",
     navWallet: "Wallet",
     navEarn: "Verdienen",
-    referralSub: "Teile deinen Link: du bekommst 5% der Einnahmen eines geworbenen Providers / 5% des Umsatzes eines geworbenen Users.",
+    referralSub: "Teile deinen Link. Du bekommst 0,5 % jeder Zahlung deiner Geworbenen, solange sie aktiv sind.",
     referralCode: "dein Code:",
-    trustLevel: "Dein Trust-Level",
-    trustSub: "Trust verdienst du durch erfolgreiche Jobs (wie XP). Ab 10 XP kannst du classic providen, ab 50 XP pro.",
-    hostReward: "Hoste die App \u2014 2%",
-    hostSub: "Hoste freedom.html (IPFS/Tor/eigener Server) und bekomme 2% der Zahlungen \xFCber deinen Host. Wie ein Bitcoin-Node.",
-    aiPlaceholder: "Frag das Netzwerk\u2026",
+    trustLevel: "Vertrauensstufe",
+    trustSub: "W\xE4chst mit erledigten Jobs. Sie bestimmt, welche Stufe du bedienen kannst.",
+    hostReward: "App verbreiten",
+    hostSub: "Leg freedom.html auf einen eigenen Server, IPFS oder Tor. Mehr Kopien sind schwerer zu sperren. Eine Verg\xFCtung gibt es daf\xFCr nicht.",
+    aiPlaceholder: "Nachricht an den Agenten",
     send: "Senden",
     thinking: "denkt nach\u2026",
     connecting: "verbindet\u2026",
     researching: "recherchiert\u2026",
     creating: "erstellt\u2026",
-    copyLast: "letzte kopieren",
-    copyAll: "alles kopieren",
+    copyLast: "Letzte kopieren",
+    copyAll: "Alle kopieren",
     bid: "Gebot (sats)",
-    chatTitle: "Nachrichten",
+    chatTitle: "Direktnachrichten",
     chatNewDm: "Neue Nachricht",
     chatNewCommunity: "Neue Community",
     chatPlaceholder: "Nachricht\u2026",
     attach: "anh\xE4ngen",
-    balance: "Guthaben"
+    balance: "Guthaben",
+    copy: "Kopieren",
+    referral: "Werben",
+    tierFree: "Free \u2014 kleines Modell",
+    tierClassic: "Classic \u2014 ausgewogen",
+    tierPro: "Pro \u2014 vertrauensw\xFCrdige Anbieter",
+    tierMax: "Max \u2014 schnellster gewinnt",
+    tierSwarm: "Swarm \u2014 bestes aus mehreren"
   };
   var es = {
     ...en,
-    tagline: "La red de IA y mensajes incensurable",
-    taglineSub: "Paga por trabajo en sats o SOL. Sin custodia. Sin operador. Sin token.",
     featEncChat: "chat cifrado",
     clickToEnter: "Haz clic para empezar",
     openApp: "Abrir app",
-    emptySub: "Pregunta lo que quieras. Paga por trabajo en sats o SOL \u2014 sin custodia.",
     emptyHint: "Elige un modelo \xB7 adjunta herramientas \xB7 pregunta",
     connectTitle: "Con\xE9ctate para entrar",
-    connectSub: "sin custodia \u2014 tus claves se quedan contigo",
     connectLightning: "Lightning (clave Nostr)",
     connectSolana: "Cartera Solana",
     continueLocal: "continuar sin cartera (local, gratis)",
@@ -48660,10 +49025,8 @@ zoo`.split("\n");
     navFeed: "Feed",
     navWallet: "Cartera",
     navEarn: "Ganar",
-    referralSub: "Comparte tu enlace: ganas el 5% de los ingresos de un proveedor referido / 5% del gasto de un usuario referido.",
     referralCode: "tu c\xF3digo:",
     trustLevel: "Tu nivel de confianza",
-    hostReward: "Aloja la app \u2014 2%",
     aiPlaceholder: "Pregunta a la red\u2026",
     send: "Enviar",
     thinking: "pensando\u2026",
@@ -48682,15 +49045,11 @@ zoo`.split("\n");
   };
   var fr = {
     ...en,
-    tagline: "Le r\xE9seau d'IA et de messages sans censure",
-    taglineSub: "Payez par t\xE2che en sats ou SOL. Non-d\xE9positaire. Aucun op\xE9rateur. Aucun token.",
     featEncChat: "chat chiffr\xE9",
     clickToEnter: "Cliquez pour commencer",
     openApp: "Ouvrir l'app",
-    emptySub: "Posez toutes vos questions. Payez par t\xE2che en sats ou SOL \u2014 non-d\xE9positaire.",
     emptyHint: "Choisissez un mod\xE8le \xB7 joignez des outils \xB7 lancez-vous",
     connectTitle: "Connectez-vous pour entrer",
-    connectSub: "non-d\xE9positaire \u2014 vos cl\xE9s restent chez vous",
     connectLightning: "Lightning (cl\xE9 Nostr)",
     connectSolana: "Portefeuille Solana",
     continueLocal: "continuer sans portefeuille (local, gratuit)",
@@ -48699,10 +49058,8 @@ zoo`.split("\n");
     navFeed: "Flux",
     navWallet: "Portefeuille",
     navEarn: "Gagner",
-    referralSub: "Partagez votre lien : vous gagnez 5% des revenus d'un prestataire parrain\xE9 / 5% des d\xE9penses d'un utilisateur parrain\xE9.",
     referralCode: "votre code :",
     trustLevel: "Votre niveau de confiance",
-    hostReward: "H\xE9bergez l'app \u2014 2%",
     aiPlaceholder: "Demandez au r\xE9seau\u2026",
     send: "Envoyer",
     thinking: "r\xE9flexion\u2026",
@@ -48721,15 +49078,11 @@ zoo`.split("\n");
   };
   var it = {
     ...en,
-    tagline: "La rete di IA e messaggi senza censura",
-    taglineSub: "Paga per lavoro in sats o SOL. Non-custodial. Nessun operatore. Nessun token.",
     featEncChat: "chat crittografata",
     clickToEnter: "Clicca per iniziare",
     openApp: "Apri l'app",
-    emptySub: "Chiedi qualsiasi cosa. Paga per lavoro in sats o SOL \u2014 non-custodial.",
     emptyHint: "Scegli un modello \xB7 allega strumenti \xB7 fai la tua domanda",
     connectTitle: "Connettiti per entrare",
-    connectSub: "non-custodial \u2014 le tue chiavi restano con te",
     connectLightning: "Lightning (chiave Nostr)",
     connectSolana: "Wallet Solana",
     continueLocal: "continua senza wallet (locale, gratuito)",
@@ -48738,10 +49091,8 @@ zoo`.split("\n");
     navFeed: "Feed",
     navWallet: "Wallet",
     navEarn: "Guadagna",
-    referralSub: "Condividi il tuo link: guadagni il 5% dei ricavi di un provider referenziato / 5% della spesa di un utente referenziato.",
     referralCode: "il tuo codice:",
     trustLevel: "Il tuo livello di fiducia",
-    hostReward: "Ospita l'app \u2014 2%",
     aiPlaceholder: "Chiedi alla rete\u2026",
     send: "Invia",
     thinking: "sta pensando\u2026",
@@ -48760,15 +49111,11 @@ zoo`.split("\n");
   };
   var pt = {
     ...en,
-    tagline: "A rede de IA e mensagens sem censura",
-    taglineSub: "Pague por trabalho em sats ou SOL. Sem cust\xF3dia. Sem operador. Sem token.",
     featEncChat: "chat criptografado",
     clickToEnter: "Clique para come\xE7ar",
     openApp: "Abrir app",
-    emptySub: "Pergunte qualquer coisa. Pague por trabalho em sats ou SOL \u2014 sem cust\xF3dia.",
     emptyHint: "Escolha um modelo \xB7 anexe ferramentas \xB7 pergunte",
     connectTitle: "Conecte-se para entrar",
-    connectSub: "sem cust\xF3dia \u2014 suas chaves ficam com voc\xEA",
     connectLightning: "Lightning (chave Nostr)",
     connectSolana: "Carteira Solana",
     continueLocal: "continuar sem carteira (local, gr\xE1tis)",
@@ -48777,10 +49124,8 @@ zoo`.split("\n");
     navFeed: "Feed",
     navWallet: "Carteira",
     navEarn: "Ganhar",
-    referralSub: "Compartilhe seu link: voc\xEA ganha 5% da receita de um provedor indicado / 5% dos gastos de um usu\xE1rio indicado.",
     referralCode: "seu c\xF3digo:",
     trustLevel: "Seu n\xEDvel de confian\xE7a",
-    hostReward: "Hospede o app \u2014 2%",
     aiPlaceholder: "Pergunte \xE0 rede\u2026",
     send: "Enviar",
     thinking: "pensando\u2026",
@@ -48799,15 +49144,11 @@ zoo`.split("\n");
   };
   var zh = {
     ...en,
-    tagline: "\u65E0\u5BA1\u67E5\u7684 AI \u4E0E\u6D88\u606F\u7F51\u7EDC",
-    taglineSub: "\u6309\u4EFB\u52A1\u652F\u4ED8\uFF0C\u652F\u6301 sats \u6216 SOL\u3002\u975E\u6258\u7BA1\u3002\u65E0\u8FD0\u8425\u5546\u3002\u65E0\u4EE3\u5E01\u3002",
     featEncChat: "\u52A0\u5BC6\u804A\u5929",
     clickToEnter: "\u70B9\u51FB\u4EFB\u610F\u5904\u5F00\u59CB",
     openApp: "\u6253\u5F00\u5E94\u7528",
-    emptySub: "\u95EE\u4EFB\u4F55\u95EE\u9898\u3002\u6309\u4EFB\u52A1\u652F\u4ED8 sats \u6216 SOL \u2014\u2014 \u975E\u6258\u7BA1\u3002",
     emptyHint: "\u9009\u62E9\u6A21\u578B \xB7 \u9644\u52A0\u5DE5\u5177 \xB7 \u5F00\u59CB\u63D0\u95EE",
     connectTitle: "\u8FDE\u63A5\u4EE5\u8FDB\u5165",
-    connectSub: "\u975E\u6258\u7BA1 \u2014\u2014 \u5BC6\u94A5\u7531\u4F60\u4FDD\u7BA1",
     connectLightning: "\u95EA\u7535\u7F51\u7EDC\uFF08Nostr \u5BC6\u94A5\uFF09",
     connectSolana: "Solana \u94B1\u5305",
     continueLocal: "\u4E0D\u8FDE\u63A5\u94B1\u5305\u7EE7\u7EED\uFF08\u672C\u5730\u3001\u514D\u8D39\uFF09",
@@ -48816,10 +49157,8 @@ zoo`.split("\n");
     navFeed: "\u52A8\u6001",
     navWallet: "\u94B1\u5305",
     navEarn: "\u8D5A\u94B1",
-    referralSub: "\u5206\u4EAB\u4F60\u7684\u94FE\u63A5\uFF1A\u88AB\u63A8\u8350\u670D\u52A1\u5546\u6536\u5165\u7684 5% / \u88AB\u63A8\u8350\u7528\u6237\u6D88\u8D39\u7684 5% \u5F52\u4F60\u3002",
     referralCode: "\u4F60\u7684\u4EE3\u7801\uFF1A",
     trustLevel: "\u4F60\u7684\u4FE1\u4EFB\u7B49\u7EA7",
-    hostReward: "\u6258\u7BA1\u5E94\u7528 \u2014 2%",
     aiPlaceholder: "\u5411\u7F51\u7EDC\u63D0\u95EE\u2026",
     send: "\u53D1\u9001",
     thinking: "\u601D\u8003\u4E2D\u2026",
@@ -48838,15 +49177,11 @@ zoo`.split("\n");
   };
   var ja = {
     ...en,
-    tagline: "\u691C\u95B2\u306E\u306A\u3044 AI & \u30E1\u30C3\u30BB\u30FC\u30B8\u30CD\u30C3\u30C8\u30EF\u30FC\u30AF",
-    taglineSub: "sats \u307E\u305F\u306F SOL \u3067\u30B8\u30E7\u30D6\u5358\u4F4D\u3067\u652F\u6255\u3044\u3002\u30CE\u30F3\u30AB\u30B9\u30C8\u30C7\u30A3\u30A2\u30EB\u3002\u904B\u55B6\u8005\u306A\u3057\u3002\u30C8\u30FC\u30AF\u30F3\u306A\u3057\u3002",
     featEncChat: "\u6697\u53F7\u5316\u30C1\u30E3\u30C3\u30C8",
     clickToEnter: "\u30AF\u30EA\u30C3\u30AF\u3057\u3066\u958B\u59CB",
     openApp: "\u30A2\u30D7\u30EA\u3092\u958B\u304F",
-    emptySub: "\u4F55\u3067\u3082\u8CEA\u554F\u3057\u3066\u304F\u3060\u3055\u3044\u3002sats \u307E\u305F\u306F SOL \u3067\u30B8\u30E7\u30D6\u5358\u4F4D\u306E\u652F\u6255\u3044 \u2014 \u30CE\u30F3\u30AB\u30B9\u30C8\u30C7\u30A3\u30A2\u30EB\u3002",
     emptyHint: "\u30E2\u30C7\u30EB\u3092\u9078\u629E \xB7 \u30C4\u30FC\u30EB\u3092\u6DFB\u4ED8 \xB7 \u8CEA\u554F\u3059\u308B",
     connectTitle: "\u63A5\u7D9A\u3057\u3066\u5165\u5834",
-    connectSub: "\u30CE\u30F3\u30AB\u30B9\u30C8\u30C7\u30A3\u30A2\u30EB \u2014 \u9375\u306F\u3042\u306A\u305F\u304C\u4FDD\u7BA1",
     connectLightning: "Lightning\uFF08Nostr \u30AD\u30FC\uFF09",
     connectSolana: "Solana \u30A6\u30A9\u30EC\u30C3\u30C8",
     continueLocal: "\u30A6\u30A9\u30EC\u30C3\u30C8\u306A\u3057\u3067\u7D9A\u884C\uFF08\u30ED\u30FC\u30AB\u30EB\u30FB\u7121\u6599\uFF09",
@@ -48855,10 +49190,8 @@ zoo`.split("\n");
     navFeed: "\u30D5\u30A3\u30FC\u30C9",
     navWallet: "\u30A6\u30A9\u30EC\u30C3\u30C8",
     navEarn: "\u7A3C\u3050",
-    referralSub: "\u30EA\u30F3\u30AF\u3092\u5171\u6709\uFF1A\u7D39\u4ECB\u3057\u305F\u30D7\u30ED\u30D0\u30A4\u30C0\u30FC\u306E\u53CE\u76CA\u306E 5% / \u7D39\u4ECB\u30E6\u30FC\u30B6\u30FC\u306E\u652F\u51FA\u306E 5% \u304C\u3042\u306A\u305F\u306B\u3002",
     referralCode: "\u3042\u306A\u305F\u306E\u30B3\u30FC\u30C9\uFF1A",
     trustLevel: "\u3042\u306A\u305F\u306E\u30C8\u30E9\u30B9\u30C8\u30EC\u30D9\u30EB",
-    hostReward: "\u30A2\u30D7\u30EA\u3092\u30DB\u30B9\u30C8 \u2014 2%",
     aiPlaceholder: "\u30CD\u30C3\u30C8\u30EF\u30FC\u30AF\u306B\u805E\u304F\u2026",
     send: "\u9001\u4FE1",
     thinking: "\u601D\u8003\u4E2D\u2026",
