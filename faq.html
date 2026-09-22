@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="theme-color" content="#7BC80A" />
+<title>FAQ — FreedomStack</title>
+<meta name="description" content="Häufige Fragen zu FreedomStack: Identität, Gebühren, Technik, Verdienen — und was heute noch nicht funktioniert." />
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<div class="topnav">
+  <div class="wrap">
+    <a class="logo" href="index.html" style="text-decoration:none">FREEDOM</a>
+    <nav>
+      <a href="index.html">Start</a>
+      <a href="dashboard.html">Status</a>
+      <a href="whitepaper.html">Whitepaper</a>
+      <a href="roadmap.html">Roadmap</a>
+      <a href="faq.html">FAQ</a>
+      <a href="https://github.com" target="_blank" rel="noopener">Code</a>
+    </nav>
+  </div>
+</div>
+<main class="doc-wrap">
+<h1>Häufige Fragen</h1>
+<p class="lede">
+  Was das Protokoll tut, was es kostet, und was es nicht kann. Die letzte
+  Gruppe beantwortet die unbequemen Fragen — sie steht hier, weil sie
+  irgendwann ohnehin gestellt wird.
+</p>
+<div class="doc-toc"><ul><li><a href="#grundlagen">Grundlagen</a></li><li><a href="#identitaet">Identität und Sicherheit</a></li><li><a href="#geld">Geld und Gebühren</a></li><li><a href="#technik">Technik</a></li><li><a href="#verdienen">Verdienen</a></li><li><a href="#grenzen">Grenzen und Risiken</a></li></ul></div>
+<h2 id="grundlagen">Grundlagen</h2>
+<details class="faq-item">
+  <summary>Was ist FreedomStack eigentlich?</summary>
+  <div class="answer"><p>Ein Protokoll für drei Dinge: verschlüsselte Nachrichten, KI-Rechenzeit gegen Bezahlung, und Werttransfer zwischen Bitcoin und Solana. Alles in einer App, die als einzelne Datei läuft.</p><p>Der Unterschied zu einem Dienst ist, dass es keinen Betreiber gibt. Nachrichten laufen über Nostr-Relays, Zahlungen über Lightning und Solana. Wir betreiben keinen Server, durch den etwas hindurch muss.</p></div>
+</details>
+<details class="faq-item">
+  <summary>Wer betreibt das?</summary>
+  <div class="answer"><p>Niemand. Das ist keine Werbeaussage, sondern eine Eigenschaft: Es gibt keine Datenbank, keinen Vermittler und keine Adresse, an die das Protokoll zwingend etwas abführt.</p><p>Wir — die Firma hinter FreedomStack — bauen die App und nehmen dafür eine Gebühr. Die steht offen in jedem Auftrag, du kannst sie abschalten, und ein anderer Client kann sie weglassen. Genau das ist der Beweis, dass wir das Protokoll nicht kontrollieren.</p></div>
+</details>
+<details class="faq-item">
+  <summary>Warum sollte ich das benutzen und nicht ChatGPT oder Discord?</summary>
+  <div class="answer"><p>Ehrliche Antwort: Für die meisten Menschen gibt es keinen Grund. Die großen Anbieter sind schneller, billiger und bequemer.</p><p>Es gibt einen Grund, wenn du einen brauchst — weil du gesperrt wurdest, weil du kein Konto hinterlegen willst, weil dein Netz ausfällt, oder weil du willst, dass deine Kontakte dir gehören und nicht einer Plattform.</p></div>
+</details>
+<details class="faq-item">
+  <summary>Brauche ich Krypto-Kenntnisse?</summary>
+  <div class="answer"><p>Zum Ausprobieren nicht. Die ersten Anfragen sind kostenlos, dafür musst du nichts einrichten. Erst wenn du weitermachen willst, brauchst du eine Lightning-Wallet — das dauert ein paar Minuten.</p></div>
+</details>
+<h2 id="identitaet">Identität und Sicherheit</h2>
+<details class="faq-item">
+  <summary>Was passiert, wenn ich meinen Zugang verliere?</summary>
+  <div class="answer"><p>Beim ersten Start bekommst du zwölf Wörter und musst drei davon nachtippen, bevor es weitergeht. Mit diesen Wörtern stellst du deine Identität überall wieder her — auch in anderen Nostr-Clients, denn wir folgen dem gemeinsamen Standard NIP-06.</p><p><strong>Ohne sie ist alles weg.</strong> Es gibt niemanden, der zurücksetzen kann. Das ist der Preis dafür, dass niemand deine Identität abschalten kann.</p></div>
+</details>
+<details class="faq-item">
+  <summary>Was, wenn ich sterbe oder verhaftet werde?</summary>
+  <div class="answer"><p>Dafür gibt es die Nachfolge. Du teilst deinen Schlüssel auf mehrere Vertraute auf — zum Beispiel drei von fünf. Meldest du dich monatelang nicht, können sie ihn nach einer weiteren Wartezeit zusammensetzen.</p><p>Ein einziges Lebenszeichen von dir bricht den Vorgang ab. Und die unbequeme Grenze steht im Einrichtungsdialog: Sprechen sich genug Vertraute ab, können sie übernehmen. Dagegen hilft keine Technik, nur die Auswahl — wähle Menschen, die sich nicht kennen.</p></div>
+</details>
+<details class="faq-item">
+  <summary>Sind meine Nachrichten wirklich verschlüsselt?</summary>
+  <div class="answer"><p>Direktnachrichten ja, nach NIP-44 v2. Wir haben das gegen den offiziellen Referenzvektor geprüft, also können andere Clients sie lesen und unsere umgekehrt auch.</p><p>Kanäle in Räumen sind standardmäßig <strong>offen</strong>, und das steht auch so daneben. Die Rechte dort regeln, wer schreiben darf — nicht, wer lesen kann.</p></div>
+</details>
+<details class="faq-item">
+  <summary>Kann jemand sehen, mit wem ich schreibe?</summary>
+  <div class="answer"><p>Teilweise. Der Inhalt ist verschlüsselt, aber ein Relay sieht, dass zwei Schlüssel miteinander Ereignisse austauschen. Metadaten vollständig zu verbergen würde ein anderes Systemdesign erfordern — wir behaupten nicht, das zu leisten.</p></div>
+</details>
+<h2 id="geld">Geld und Gebühren</h2>
+<details class="faq-item">
+  <summary>Was kostet die Nutzung?</summary>
+  <div class="answer"><p>Du zahlst pro Anfrage, was der Provider verlangt. Dazu kommen <strong>2,5 % Protokollfee</strong> (2 % Reward-Pool, 0,5 % Werber) und <strong>2,5 % App-Gebühr</strong> für diese App. Zusammen 5 %.</p><p>Die App-Gebühr kannst du im Tab „Ich“ ändern oder abschalten. Die Protokollfee nicht — sie finanziert das Netz, nicht uns.</p></div>
+</details>
+<details class="faq-item">
+  <summary>Woher weiß ich, dass die Gebühren wirklich abgeführt werden?</summary>
+  <div class="answer"><p>Unter jeder bezahlten Antwort steht „diese Zahlung prüfen“. Der Provider veröffentlicht einen signierten Beleg, den jeder nachrechnen kann.</p><p>Die Anzeige unterscheidet <strong>belegt</strong> von <strong>angekündigt</strong>. Lightning hat kein öffentliches Ledger — ohne Preimage ist eine Zahlung rechnerisch korrekt, aber nicht beweisbar. Wir sagen das, statt „alles in Ordnung“ zu behaupten.</p></div>
+</details>
+<details class="faq-item">
+  <summary>Verwahrt ihr mein Geld?</summary>
+  <div class="answer"><p>Nein, an keiner Stelle. Zahlungen gehen direkt von deiner Wallet an den Provider. Bei Swaps liegt das Geld in einem HTLC auf der Kette, das niemand kontrolliert — nach Ablauf der Frist fließt es automatisch zurück.</p></div>
+</details>
+<details class="faq-item">
+  <summary>Was ist der Reward-Pool?</summary>
+  <div class="answer"><p>2 % jeder Zahlung fließen dorthin und werden wöchentlich an Provider ausgeschüttet — bevorzugt an solche in Regionen, wo Kapazität fehlt. Jede Verteilung wird als signierter Bericht veröffentlicht, den jeder nachrechnen kann.</p></div>
+</details>
+<h2 id="technik">Technik</h2>
+<details class="faq-item">
+  <summary>Was passiert, wenn die Relays abgeschaltet werden?</summary>
+  <div class="answer"><p>Die App startet mit einer festen Liste, entdeckt darüber aber die Relays der Provider und merkt sie sich. Die Startliste ist ein Ausgangspunkt, kein Fundament.</p><p>Jeder Provider kann selbst ein Relay betreiben und ankündigen. Je mehr das tun, desto weniger hängt das Netz an fremder Infrastruktur.</p></div>
+</details>
+<details class="faq-item">
+  <summary>Funktioniert es ohne Internet?</summary>
+  <div class="answer"><p>Nachrichten und Solana-Zahlungen ja — über Funk (LoRa) oder per Datei auf einem Stick. Eine Solana-Transaktion passt in 1.232 Byte und braucht kein Hin und Her.</p><p>Lightning geht <strong>nicht</strong>: Es braucht mehrere Runden Austausch, das überlebt eine Funkstrecke nicht. KI-Anfragen auch nicht — eine Antwort mit 500 Wörtern bräuchte über Funk Stunden.</p></div>
+</details>
+<details class="faq-item">
+  <summary>Wie weiß ich, dass die App echt ist?</summary>
+  <div class="answer"><p>Jede Veröffentlichung hat ein signiertes Manifest auf den Relays — mit Prüfsumme und Bezugsquellen. Die App kann ihre eigene Echtheit prüfen, und sie kann sich selbst exportieren, damit du sie weitergeben kannst.</p><p>Wichtig: Das Manifest liegt auf den Relays, <strong>nicht</strong> neben der Datei. Wer die Datei austauschen könnte, könnte auch eine danebenliegende Prüfsumme austauschen.</p></div>
+</details>
+<details class="faq-item">
+  <summary>Kann ich meinen eigenen Solana-Knoten benutzen?</summary>
+  <div class="answer"><p>Ja, im Tab „Netz“ unter „Eigene Endpunkte“. Deine kommen zuerst; fällt einer aus, weicht die App automatisch aus.</p></div>
+</details>
+<h2 id="verdienen">Verdienen</h2>
+<details class="faq-item">
+  <summary>Wie werde ich Provider?</summary>
+  <div class="answer"><p>Ein Befehl, wenn du Docker hast:</p><pre><code>NODE_LUD16=du@wallet.cash REGION=eu docker compose up -d</code></pre><p>Ohne <code>NODE_LUD16</code> startet nichts — ein Provider, dessen Einnahmen nirgendwo ankommen, wäre schlimmer als gar keiner.</p></div>
+</details>
+<details class="faq-item">
+  <summary>Was verdiene ich damit?</summary>
+  <div class="answer"><p>Das hängt davon ab, wie viel Nachfrage es gibt und wo du sitzt. In unterversorgten Regionen gibt es bis zum Dreifachen. Ehrlich: Im Moment ist das Netz klein, und niemand lebt davon.</p><p>Ohne GPU lohnt es sich kaum — auf dem Prozessor ist die Antwortzeit so lang, dass kaum ein Kunde deinen Knoten wählt.</p></div>
+</details>
+<details class="faq-item">
+  <summary>Was sind Aufgaben und Abzeichen?</summary>
+  <div class="answer"><p>Aufgaben belohnen nachweisbare Beiträge: eine Woche Provider, ein Relay betreiben, ein gefährdetes Modell spiegeln. Der Nachweis liegt als signiertes Ereignis vor, jeder kann ihn nachrechnen.</p><p>Für Dinge wie „folge uns“ gibt es <strong>kein Geld</strong>, nur Abzeichen. Solche Aufgaben bräuchten einen Prüfer bei einer fremden Plattform, und Wegwerf-Konten kosten fast nichts — das wäre ein offenes Scheunentor.</p></div>
+</details>
+<details class="faq-item">
+  <summary>Wie funktioniert das Werben?</summary>
+  <div class="answer"><p>Du bekommst einen Anteil an jedem Job deiner Geworbenen, dauerhaft, plus einen kleineren an deren Geworbenen. Bezahlt wird aus der Protokollfee — dein Geworbener zahlt dadurch keinen Cent mehr.</p><p>Fürs bloße Anwerben gibt es nichts. Wer hundert Leute wirbt, die nie arbeiten, verdient exakt null. Das ist der Unterschied zu einem Schneeballsystem, und er ist im Code festgeschrieben.</p></div>
+</details>
+<h2 id="grenzen">Grenzen und Risiken</h2>
+<details class="faq-item">
+  <summary>Was funktioniert heute noch nicht?</summary>
+  <div class="answer"><p>Das Projekt hat noch nie echtes Geld über echte Infrastruktur bewegt. Alles ist gegen Testaufbauten geprüft — über 800 automatische Tests —, aber der erste echte Zahlungsvorgang steht aus.</p><p>Der aktuelle Stand steht ungeschönt in der <a href="roadmap.html">Roadmap</a>.</p></div>
+</details>
+<details class="faq-item">
+  <summary>Was, wenn ihr aufhört?</summary>
+  <div class="answer"><p>Das Protokoll läuft weiter. Der Code ist quelloffen, das Solana-Programm ist unveränderlich, und die App kann sich selbst weitergeben. Was wegfällt, ist unsere Weiterentwicklung — nicht das System.</p></div>
+</details>
+<details class="faq-item">
+  <summary>Kann das Netz für schlimme Dinge benutzt werden?</summary>
+  <div class="answer"><p>Ja. Jede Infrastruktur ohne Betreiber kann missbraucht werden, und wir behaupten nichts anderes.</p><p>Was wir tun: Es gibt keinen offenen globalen Stream — diese Funktion haben wir gestrichen, weil ein unmoderierter Feed zwangsläufig Inhalte transportiert, für die es keine Handhabe gäbe. Communities haben Moderationswerkzeuge, die ihr Gründer einsetzt.</p><p>Was wir nicht tun: so tun, als hätten wir das gelöst.</p></div>
+</details>
+<details class="faq-item">
+  <summary>Ist das legal?</summary>
+  <div class="answer"><p>Die Software ist quelloffen und legal. Was du damit tust, unterliegt deinem Recht — das ist bei einem Browser nicht anders.</p><p>Wir sind eine österreichische Firma und nehmen eine Gebühr für unsere App. Das Protokoll selbst verwahrt nichts und hat keinen Empfänger.</p></div>
+</details>
+
+<h2 id="mehr">Noch eine Frage offen?</h2>
+<p>
+  Die vollständige Beschreibung steht im <a href="whitepaper.html">Whitepaper</a>,
+  der aktuelle Stand in der <a href="roadmap.html">Roadmap</a>, und was das Netz
+  gerade tut, siehst du im <a href="dashboard.html">Status</a>.
+</p>
+</main>
+<footer class="doc-wrap" style="padding-top:28px;border-top:1px solid var(--border);color:var(--text-muted);font-size:13px">
+  <p>
+    Das Protokoll ist quelloffen und hat keinen Betreiber. Diese Seite ist von
+    FreedomStack — das Protokoll läuft ohne sie weiter.
+  </p>
+  <p>
+    <a href="index.html">Start</a> ·
+    <a href="dashboard.html">Status</a> ·
+    <a href="whitepaper.html">Whitepaper</a> ·
+    <a href="roadmap.html">Roadmap</a> ·
+    <a href="faq.html">FAQ</a>
+  </p>
+</footer>
+</body>
+</html>
