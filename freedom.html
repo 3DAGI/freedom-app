@@ -1084,8 +1084,8 @@ main { min-width: 0; }
 .panel-name { flex: 1; min-width: 0; font-family: var(--font-mono); color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .panel-meta { font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); }
 .panel-check { display: flex; }
-@media (max-width: 1279px) { .agent-panel { display: none; } }
-@media (max-width: 900px) { .agent-side { display: none; } }
+@media (max-width: 1199px) { .agent-panel { display: none; } }
+@media (max-width: 859px) { .agent-side { display: none; } }
 
 /* ---------- Kommunikation: Discord-Aufbau ---------- */
 .comm-layout { display: flex; height: 100%; min-height: 0; }
@@ -1295,6 +1295,31 @@ main { min-width: 0; }
    Nur Zeichenketten ohne Leerzeichen — Schluessel, Adressen, Hashes — duerfen
    irgendwo getrennt werden, sonst sprengen sie das Layout. */
 .mono-sm { word-break: normal; overflow-wrap: anywhere; }
+
+/* Werkzeug-Karten: Kopfzeile mit Haken, ausklappbar, darin je Werkzeug
+   eine eigene Zeile. Ohne Werkzeugdaten bleibt der Bereich einfach leer —
+   es wird nichts vorgetäuscht. */
+.usage-toggle { gap: 10px; font-family: var(--font-body); }
+.usage-title { font-size: 13px; font-weight: 500; color: var(--text); }
+.usage-meta { margin-left: auto; font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); }
+.usage-chev { color: #6E6E6E; font-size: 15px; transition: transform .15s ease; }
+.usage-toggle[aria-expanded="true"] .usage-chev { transform: rotate(90deg); }
+.tool-check { display: flex; align-items: center; flex-shrink: 0; }
+
+.tool-list { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
+.tool-card {
+  display: flex; align-items: center; gap: 9px; padding: 7px 10px;
+  background: var(--surf2); border: 1px solid var(--border); border-radius: 3px;
+}
+.tool-name { flex: 1; min-width: 0; font-family: var(--font-mono); font-size: 12px; color: var(--text); }
+.tool-cost { font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); }
+
+.usage-row { display: flex; justify-content: space-between; gap: 12px; padding: 4px 0; }
+.usage-row span:first-child { color: var(--text-muted); }
+.usage-row.total { border-top: 1px solid var(--border); margin-top: 4px; padding-top: 7px; }
+.usage-row.total span:last-child { color: var(--accent); }
+.usage-actions { display: flex; gap: 6px; margin-top: 10px; }
+.usage-actions button { width: auto; padding: 6px 10px; font-size: 12px; }
 
 </style>
 </head>
@@ -52207,20 +52232,38 @@ ${summary}
     const el = document.createElement("div");
     el.className = "usage-bubble";
     aktualisiereAgentPanel(usage.toolCalls ?? [], usage.sessionTotalMsat);
-    const toolRows = (usage.toolCalls ?? []).map((t2) => `<div class="usage-row"><span>${icon("wrench", 12)} ${escapeHtml(t2.name)}</span><span>${Math.floor(t2.costMsat / 1e3)} sats</span></div>`).join("");
+    const haken = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--accent)"
+    stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7"/></svg>`;
+    const toolRows = (usage.toolCalls ?? []).map((t2) => `<div class="tool-card">
+      <span class="tool-check">${haken}</span>
+      <span class="tool-name">${escapeHtml(t2.name)}</span>
+      <span class="tool-cost">${Math.floor(t2.costMsat / 1e3)} sat</span></div>`).join("");
+    const zeile = (k, v) => `<div class="usage-row"><span>${k}</span><span>${v}</span></div>`;
+    const werkzeugTeil = toolRows ? `<div class="tool-list">${toolRows}</div>` : "";
     el.innerHTML = `
-    <button class="usage-toggle" type="button">\u25B8 details \xB7 ${Math.floor(amountMsat / 1e3)} sats</button>
+    <button class="usage-toggle" type="button" aria-expanded="false">
+      <span class="tool-check">${haken}</span>
+      <span class="usage-title">${escapeHtml(usage.model ?? "Antwort")}</span>
+      <span class="usage-meta">${usage.completionTokens ?? 0} Tokens \xB7 ${Math.floor(amountMsat / 1e3)} sat</span>
+      <span class="usage-chev" aria-hidden="true">\u203A</span>
+    </button>
     <div class="usage-body hidden">
-      <div class="usage-row"><span>modell</span><span>${escapeHtml(usage.model ?? "\u2014")}</span></div>
-      <div class="usage-row"><span>provider</span><span>${pkShort(providerPk)}</span></div>
-      <div class="usage-row"><span>tokens</span><span>${usage.promptTokens ?? 0}\u2192${usage.completionTokens ?? 0}</span></div>
-      <div class="usage-row"><span>diese antwort</span><span>${Math.floor(amountMsat / 1e3)} sats</span></div>
-      ${toolRows}
-      ${usage.sessionTotalMsat !== void 0 ? `<div class="usage-row total"><span>session gesamt</span><span>${Math.floor(usage.sessionTotalMsat / 1e3)} sats</span></div>` : ""}
-      ${amountMsat > 0 ? `<button class="ghost verify-fee" style="width:auto;padding:5px 9px;margin-top:6px;font-size:11px">diese Zahlung pr\xFCfen</button>
-      <button class="ghost file-dispute" style="width:auto;padding:5px 9px;margin-top:6px;margin-left:4px;font-size:11px">reklamieren</button>
+      ${werkzeugTeil}
+      ${zeile("Modell", escapeHtml(usage.model ?? "\u2014"))}
+      ${zeile("Provider", pkShort(providerPk))}
+      ${zeile("Tokens", `${usage.promptTokens ?? 0} rein, ${usage.completionTokens ?? 0} raus`)}
+      ${zeile("Diese Antwort", `${Math.floor(amountMsat / 1e3)} sat`)}
+      ${usage.sessionTotalMsat !== void 0 ? `<div class="usage-row total"><span>Sitzung gesamt</span><span>${Math.floor(usage.sessionTotalMsat / 1e3)} sat</span></div>` : ""}
+      ${amountMsat > 0 ? `<div class="usage-actions">
+        <button class="ghost verify-fee" type="button">Zahlung pr\xFCfen</button>
+        <button class="ghost file-dispute" type="button">Reklamieren</button></div>
       <div class="fee-verdict mono-sm"></div>` : ""}
     </div>`;
+    const toggle = el.querySelector(".usage-toggle");
+    toggle?.addEventListener("click", () => {
+      const offen = el.querySelector(".usage-body")?.classList.contains("hidden") === false;
+      toggle.setAttribute("aria-expanded", String(offen));
+    });
     el.querySelector(".verify-fee")?.addEventListener("click", () => {
       void pruefeZahlung(el, resultEventId, amountMsat);
     });
