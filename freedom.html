@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-MxWXOiPQl4pRs6Gl8peLk3gZeFQUEOMZotNS+P+xvL4='; style-src 'unsafe-inline' https:; img-src https: data: blob:; media-src https: data: blob:; font-src https: data:; connect-src https: http: wss: ws: data: blob:; worker-src blob:; manifest-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'">
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#7BC80A" />
@@ -1336,8 +1337,8 @@ main { min-width: 0; }
       <canvas id="hero-gl"></canvas>
       <div class="hero-content">
         <h1 class="logo-xl">FREEDOM</h1>
-        <p class="tagline" data-i18n="tagline">The uncensorable AI &amp; message network</p>
-        <p class="sub" data-i18n="taglineSub">Pay per job in sats or SOL. Non-custodial. No operator. No token.</p>
+        <p class="tagline" data-i18n="tagline">Messaging, payments and AI without an operator</p>
+        <p class="sub" data-i18n="taglineSub">Pay per request in sats. No account, no token.</p>
         <div class="hero-feats">
           <span><svg class="logo-btc" width="13" height="13" viewBox="10.5 0.8 12.6 22.4" fill="#f7931a" aria-label="Bitcoin"><path d="M16.15 12.03c1.44-.36 2.42-1.32 2.24-3.02-.23-2.13-1.98-2.85-4.23-3.05l-.01-2.44h-1.51l-.01 2.38c-.4 0-.81.01-1.21.01l.01-2.39H9.92l-.01 2.44c-.33.01-.65.01-.97.01v-.01H6.88l.01 1.62s1.11-.02 1.09-.01c.61 0 .81.36.87.67v2.77c.04 0 .1.01.16.03h-.16v3.88c-.03.19-.13.49-.54.49.02.01-1.09 0-1.09 0l-.3 1.81h2.55c.34 0 .68.01 1.01.01l.01 2.47h1.51l.01-2.44c.41.01.81.01 1.21.02l-.01 2.43h1.51l.01-2.46c2.58-.15 4.37-.8 4.59-3.18.18-1.93-.73-2.79-2.17-3.14zm-4.7-4.71c.86 0 3.57-.17 3.57 1.53 0 1.63-2.71 1.45-3.57 1.45zm0 7.63v-3.19c1.04 0 4.28-.19 4.28 1.6 0 1.71-3.24 1.59-4.28 1.59z"/></svg> <span data-i18n="featLightning">lightning</span></span><span><svg class="logo-sol" width="12" height="12" viewBox="0 0 397.7 311.7" aria-label="Solana"><defs><linearGradient id="solGrad" x1="360.9" y1="351.4" x2="141.4" y2="-69.3" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#9945FF"/><stop offset="1" stop-color="#14F195"/></linearGradient></defs><g fill="url(#solGrad)"><path d="M64.6 237.9c2.4-2.4 5.7-3.8 9.2-3.8h317.4c5.8 0 8.7 7 4.6 11.1l-62.7 62.7c-2.4 2.4-5.7 3.8-9.2 3.8H6.5c-5.8 0-8.7-7-4.6-11.1l62.7-62.7z"/><path d="M64.6 3.8C67.1 1.4 70.4 0 73.8 0h317.4c5.8 0 8.7 7 4.6 11.1l-62.7 62.7c-2.4 2.4-5.7 3.8-9.2 3.8H6.5c-5.8 0-8.7-7-4.6-11.1L64.6 3.8z"/><path d="M332.3 120.1c-2.4-2.4-5.7-3.8-9.2-3.8H5.7c-5.8 0-8.7 7-4.6 11.1l62.7 62.7c2.4 2.4 5.7 3.8 9.2 3.8h317.4c5.8 0 8.7-7 4.6-11.1l-62.7-62.7z"/></g></svg> <span data-i18n="featSolana">solana</span></span><span><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="8" width="16" height="12" rx="2"/><path d="M12 8V4M8 4h8"/></svg> <span data-i18n="featAi">ai</span></span><span><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8z"/></svg> <span data-i18n="featEncChat">encrypted chat</span></span>
         <p class="landing-hint" data-i18n="clickToEnter">Klicken zum Start</p>        </div>
@@ -1820,8 +1821,8 @@ main { min-width: 0; }
           <label class="mono-sm" style="display:block;margin:8px 0">Verbindung
             <select id="net-mode" class="mono-sm">
               <option value="klar">direkt (Relays sehen deine IP)</option>
-              <option value="tor">über Tor</option>
-              <option value="mixnet">über ein Mixnetz</option>
+              <option value="tor">.onion-Relays bevorzugen (nur im Tor Browser wirksam)</option>
+              <option value="mixnet">Mixnetz (nur wirksam, wenn du selbst eines nutzt)</option>
             </select></label>
           <div id="privacy-report" class="mono-sm"
             style="white-space:pre-wrap;max-height:340px;overflow-y:auto"></div>
@@ -29437,6 +29438,42 @@ Message: ${transactionMessage}.
       createdAt
     );
   }
+  function safeCount(v) {
+    if (typeof v !== "number" || !Number.isFinite(v) || v < 0) return void 0;
+    return Math.min(Math.floor(v), Number.MAX_SAFE_INTEGER);
+  }
+  function safeText(v, max = MAX_USAGE_TEXT) {
+    if (typeof v !== "string") return void 0;
+    const clean7 = v.replace(/[\u0000-\u001f\u007f]/g, "").slice(0, max);
+    return clean7.length > 0 ? clean7 : void 0;
+  }
+  function sanitizeUsage(raw) {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return void 0;
+    const r = raw;
+    const out = {};
+    const model = safeText(r.model, 100);
+    if (model !== void 0) out.model = model;
+    const pt2 = safeCount(r.promptTokens);
+    if (pt2 !== void 0) out.promptTokens = pt2;
+    const ct = safeCount(r.completionTokens);
+    if (ct !== void 0) out.completionTokens = ct;
+    const st = safeCount(r.sessionTotalMsat);
+    if (st !== void 0) out.sessionTotalMsat = st;
+    if (Array.isArray(r.toolCalls)) {
+      const tools = [];
+      for (const t2 of r.toolCalls.slice(0, MAX_USAGE_TOOLS)) {
+        if (!t2 || typeof t2 !== "object") continue;
+        const tt = t2;
+        const name = safeText(tt.name, 80);
+        const kind = safeCount(tt.kind);
+        const costMsat = safeCount(tt.costMsat);
+        if (name === void 0 || kind === void 0 || costMsat === void 0) continue;
+        tools.push({ name, kind, costMsat });
+      }
+      if (tools.length > 0) out.toolCalls = tools;
+    }
+    return Object.keys(out).length > 0 ? out : void 0;
+  }
   function parseJobResult(ev) {
     if (!isDvmResult(ev.kind)) throw new Error(`kein DVM-Result-Kind: ${ev.kind}`);
     const e = getTag(ev, "e");
@@ -29449,7 +29486,7 @@ Message: ${transactionMessage}.
     let usage;
     if (usageTag) {
       try {
-        usage = JSON.parse(usageTag);
+        usage = sanitizeUsage(JSON.parse(usageTag));
       } catch {
         usage = void 0;
       }
@@ -29466,11 +29503,14 @@ Message: ${transactionMessage}.
       usage
     };
   }
+  var MAX_USAGE_TOOLS, MAX_USAGE_TEXT;
   var init_dvm = __esm({
     "../protocol/src/dvm.ts"() {
       "use strict";
       init_event();
       init_kinds();
+      MAX_USAGE_TOOLS = 50;
+      MAX_USAGE_TEXT = 200;
     }
   });
 
@@ -40570,6 +40610,7 @@ Message: ${transactionMessage}.
     rotationWarning: () => rotationWarning,
     runSwap: () => runSwap,
     runSweepOnce: () => runSweepOnce,
+    sanitizeUsage: () => sanitizeUsage,
     scarcityMultiplier: () => scarcityMultiplier,
     search: () => search,
     searchByName: () => searchByName,
@@ -50636,8 +50677,13 @@ Ausdrucken oder auf einen Stick, nicht in die Cloud.
       const profil = JSON.parse(localStorage.getItem("freedom.profile") ?? "{}");
       const cfg = {
         ...DEFAULT_CONFIG2,
-        network: netz,
-        giftWrap: localStorage.getItem("freedom.giftwrap") !== "off",
+        // Tor oder ein Mixnetz kann eine Web-App weder herstellen noch pruefen –
+        // die Einstellung bevorzugt nur .onion-Relays. Bewertet wird deshalb
+        // die direkte Verbindung (Schritt 6.2 im Ausbauplan).
+        network: "klar",
+        // Erst wahr, wenn der Sendepfad NIP-17 nutzt (Schritt 2.1). Vorher
+        // meldete der Bericht einen Wegwerfschluessel, den es nicht gab.
+        giftWrap: DMS_GIFT_WRAPPED,
         ownRelay: !!localStorage.getItem("freedom.ownRelay"),
         solanaInProfile: !!localStorage.getItem("freedom.solAddress"),
         usesSwaps: !!localStorage.getItem("freedom.swapHistory"),
@@ -50646,7 +50692,15 @@ Ausdrucken oder auf einen Stick, nicht in die Cloud.
         expiringMessages: localStorage.getItem("freedom.expiry") !== null
       };
       const s = summarizePrivacy2(auditPrivacy2(cfg));
-      box.textContent = privacyReport2(cfg);
+      const hinweise = [
+        "KI-Anfragen: \xF6ffentlich lesbar \u2013 der Prompt steht im Klartext auf den Relays. Verschl\xFCsselung folgt."
+      ];
+      if (netz !== "klar") {
+        hinweise.push(
+          "Tor/Mixnetz: Die Einstellung bevorzugt nur .onion-Relays. Deine IP-Adresse ist nur verborgen, wenn du die App selbst im Tor Browser bzw. hinter einem Mixnetz \xF6ffnest \u2013 das kann die App nicht pr\xFCfen."
+        );
+      }
+      box.textContent = privacyReport2(cfg) + "\n\n" + hinweise.join("\n");
       box.className = s.critical > 0 ? "mono-sm err" : s.warnings > 0 ? "mono-sm warn" : "mono-sm ok";
     } catch (e) {
       box.textContent = `Bericht nicht erstellbar: ${e.message}`;
@@ -51426,7 +51480,7 @@ Dann sehen andere diesen Namen als Hinweis \u2014 und erfahren, dass du diese Pe
     loadChatList();
     const c = conversations.find((x) => x.id === cid);
     const thread = $("#chat-thread");
-    thread.innerHTML = `<div class="empty-state">${c ? escapeHtml(c.name) : ""}<br/>` + (c?.type === "dm" ? "1:1 \u2014 end-to-end verschluesselt (NIP-04)." : "community \u2014 opt-in gruppe.") + `</div>`;
+    thread.innerHTML = `<div class="empty-state">${c ? escapeHtml(c.name) : ""}<br/>` + (c?.type === "dm" ? "1:1 \u2014 Inhalt verschl\xFCsselt (NIP-44). Relays sehen Absender und Empf\xE4nger." : "community \u2014 opt-in gruppe.") + `</div>`;
     loadChatMessages(cid);
   }
   async function ladeModeration(communityId) {
@@ -51884,7 +51938,16 @@ ${summary}
     }
     lastTier = newTier;
   }
+  function hinweisKiOeffentlich() {
+    try {
+      if (sessionStorage.getItem("freedom.hinweis.kiOeffentlich")) return;
+      sessionStorage.setItem("freedom.hinweis.kiOeffentlich", "1");
+      toast("Hinweis: KI-Anfragen sind derzeit \xF6ffentlich lesbar \u2013 bitte keine vertraulichen Daten senden.");
+    } catch {
+    }
+  }
   function buildJobEvent(prompt2, bid, tier, targetPubkey, sc) {
+    hinweisKiOeffentlich();
     if (!state.keypair) throw new Error("no keypair");
     const fullPrompt = pendingContextSummary ? pendingContextSummary + prompt2 : prompt2;
     const extraTags = [];
@@ -52003,6 +52066,7 @@ ${summary}
   var TRUSTED_SIGNERS = [
     // VOR DEM RELEASE SETZEN: Pubkey des Projekt-Signierschluessels.
   ];
+  var DMS_GIFT_WRAPPED = false;
   async function wireClientFeeSetting() {
     const input = $("#clientfee-percent");
     const save = $("#clientfee-save");
@@ -52228,6 +52292,10 @@ ${summary}
       toast(e.message, true);
     }
   }
+  function ganzeZahl(v) {
+    const n = typeof v === "number" ? v : Number(v);
+    return Number.isFinite(n) && n >= 0 ? String(Math.floor(n)) : "0";
+  }
   function addUsageBubble(usage, amountMsat, providerPk, resultEventId) {
     const el = document.createElement("div");
     el.className = "usage-bubble";
@@ -52244,14 +52312,14 @@ ${summary}
     <button class="usage-toggle" type="button" aria-expanded="false">
       <span class="tool-check">${haken}</span>
       <span class="usage-title">${escapeHtml(usage.model ?? "Antwort")}</span>
-      <span class="usage-meta">${usage.completionTokens ?? 0} Tokens \xB7 ${Math.floor(amountMsat / 1e3)} sat</span>
+      <span class="usage-meta">${ganzeZahl(usage.completionTokens)} Tokens \xB7 ${Math.floor(amountMsat / 1e3)} sat</span>
       <span class="usage-chev" aria-hidden="true">\u203A</span>
     </button>
     <div class="usage-body hidden">
       ${werkzeugTeil}
       ${zeile("Modell", escapeHtml(usage.model ?? "\u2014"))}
       ${zeile("Provider", pkShort(providerPk))}
-      ${zeile("Tokens", `${usage.promptTokens ?? 0} rein, ${usage.completionTokens ?? 0} raus`)}
+      ${zeile("Tokens", `${ganzeZahl(usage.promptTokens)} rein, ${ganzeZahl(usage.completionTokens)} raus`)}
       ${zeile("Diese Antwort", `${Math.floor(amountMsat / 1e3)} sat`)}
       ${usage.sessionTotalMsat !== void 0 ? `<div class="usage-row total"><span>Sitzung gesamt</span><span>${Math.floor(usage.sessionTotalMsat / 1e3)} sat</span></div>` : ""}
       ${amountMsat > 0 ? `<div class="usage-actions">
