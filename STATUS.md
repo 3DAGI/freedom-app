@@ -1678,3 +1678,27 @@ nachgespielt.
 
 **Offen (MENSCH):** Pages-Quelle „GitHub Actions“ und Standard-Branch `main`
 vor dem Merge (0.I); danach Interop-Test der Direktnachrichten (2.1).
+
+
+## 42. Veröffentlichung über GitHub Actions abgeschlossen (Schritt 0.I)
+
+Nach dem Merge von #1 hat `.github/workflows/pages.yml` die Seite zum ersten
+Mal selbst veröffentlicht. **Live geprüft:**
+
+- CI und `pages` auf `main` grün.
+- Prüfsumme an allen drei Stellen gleich: ausgelieferte `freedom.html`,
+  `freedom.html.sha256` und Startseite – `ef5a0aec…`. Derselbe Wert wie im
+  lokalen Build; der Build ist also reproduzierbar.
+- Alle Seiten, Stylesheet und Manifest laden. Ausgeliefert wird nur der
+  Website-Ordner: Quellcode, `README.md`, `CLAUDE.md` liefern 404.
+- Standard-Branch ist `main` – neue Sitzungen starten auf dem aktuellen Stand.
+
+**Aufgeräumt:** Die zehn von Hand hochgeladenen Build-Dateien im
+Wurzelverzeichnis (`index.html`, `freedom.html`, `freedom.html.sha256`,
+`dashboard.html`, `faq.html`, `roadmap.html`, `whitepaper.html`,
+`manifest.json`, `css/style.css`, `.nojekyll`) sind entfernt. Nichts im
+Repository verweist auf sie; die Seite entsteht aus `packages/website` und dem
+App-Build. `DEPLOY.md` nennt die neue Prüfsumme und den einzigen
+Veröffentlichungsweg; `UEBERSICHT.md` führt 2.1 als live.
+
+Endstand: unverändert, keine Codeänderung (Zahlen im Bericht des Pull Requests).

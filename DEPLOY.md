@@ -10,7 +10,9 @@
 
 ## Website
 - **URL**: https://3dagi.github.io/freedom-app/
-- **SHA256 freedom.html**: 1ba63a9ac2779061668ef5b098d9d173e5d053cb5ab10f35021952f40099a5f7
+- **Veröffentlichung**: nur über `.github/workflows/pages.yml` (bei jedem Merge nach `main`, nur mit grünen Tests)
+- **SHA256 freedom.html**: ef5a0aec4a9e88268c066d0391cfe1c58efc63d59abb60084ece7e73f60695dc (Stand 24.09., nach 2.1;
+  der aktuelle Wert steht immer in `freedom.html.sha256` und auf der Startseite)
 
 ## SLIP-10 Key Derivation (1.1)
 - **Path**: m/44'/501'/0'/0' (Phantom-kompatibel)
