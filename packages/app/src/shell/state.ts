@@ -7,7 +7,7 @@
  *
  * Aus app.ts verschoben (Schritt 1.0) – woertlich, ohne Logikaenderung.
  */
-import { Keypair, OutboxPool, WebSocketRelay } from "@freedomstack/protocol";
+import { Keypair, LocalSigner, OutboxPool, type Signer, WebSocketRelay } from "@freedomstack/protocol";
 import { ScoredProvider, discoverProviders, matchProviders } from "../matchmaking.js";
 import { SessionClient } from "../session-client.js";
 import { escapeHtml } from "../shell-logic.js";
@@ -31,6 +31,11 @@ export const LS_KEY = "freedom.nsec";
 
 interface AppState {
   keypair: Keypair | null;
+  /**
+   * Signiert und ver-/entschluesselt fuer die Identitaet (Schritt 1.3). Neue
+   * Stellen nutzen ihn statt des rohen Schluessels; die bisherigen folgen.
+   */
+  signer: Signer | null;
   pool: OutboxPool | null;
   lud16: string;
   sessionClient: SessionClient | null;
@@ -46,7 +51,14 @@ interface AppState {
   lastProviderSolAddress: string | null;
 }
 
-export const state: AppState = { keypair: null, pool: null, lud16: "", sessionClient: null, lastProvider: null, lastProviderSolAddress: null };
+export const state: AppState = { keypair: null, signer: null, pool: null, lud16: "", sessionClient: null, lastProvider: null, lastProviderSolAddress: null };
+
+/** Identitaet setzen: Schluessel und Signer immer gemeinsam (Schritt 1.3). */
+export function setzeIdentitaet(sk: Uint8Array): void {
+  const signer = new LocalSigner(sk);
+  state.signer = signer;
+  state.keypair = { sk, pk: signer.publicKey() };
+}
 
 /** Provider-Kandidaten-Cache (Matchmaking). */
 let providerCache: ScoredProvider[] | null = null;

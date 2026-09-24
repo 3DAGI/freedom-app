@@ -9,18 +9,18 @@ Nicht abgedeckt: andere Eingänge wie `href` oder `src`, die per Eigenschaft ges
 | Datei | Zeile | Ausdruck | Bewertung |
 |---|---|---|---|
 | `packages/app/src/offline-queue.ts` | 73 | `pending.length` | Länge eines lokalen Arrays (eigene Offline-Warteschlange) |
-| `packages/app/src/shell/app.ts` | 151 | `` woerter.map((w) => `<li>${escapeHtml(w)}</li>`).join("") `` | Callback liefert nur ein Template mit escapeHtml(w) |
-| `packages/app/src/shell/app.ts` | 158 | `` positionen.map((p) => `<label class="mono-sm">Nr. ${p + 1} <input data-pos="${p}" class="mono-sm" style="width:110px" au `` | Callback liefert nur ein Template; einzige Werte sind die Positionen p |
-| `packages/app/src/shell/app.ts` | 158 | `p` | Zahl: Position aus pickChallengePositions(), lokal erzeugt |
-| `packages/app/src/shell/app.ts` | 159 | `p` | Zahl: Position aus pickChallengePositions(), lokal erzeugt |
-| `packages/app/src/shell/app.ts` | 392 | `` (Zuweisung) LANGS.map( (l) => `<button type="button" data-lang="${l.code}" class="${l.code === getLang() ? "active" : ""}">${l.code. `` | Callback: Template aus der festen Sprachliste LANGS |
-| `packages/app/src/shell/app.ts` | 393 | `l.code` | feste Sprachliste LANGS (i18n.ts) |
-| `packages/app/src/shell/app.ts` | 393 | `l.code.toUpperCase()` | feste Sprachliste LANGS (i18n.ts) |
-| `packages/app/src/shell/app.ts` | 393 | `l.label` | feste Sprachliste LANGS (i18n.ts) |
-| `packages/app/src/shell/state.ts` | 139 | `` (Zuweisung) st.map((s) => { const name = escapeHtml(s.label ?? new URL(s.url).hostname); return s.available ? `<span class="ok">${na `` | Callback liefert nur Templates; Name und Fehlertext mit escapeHtml |
-| `packages/app/src/shell/state.ts` | 142 | `name` | name = escapeHtml(label oder hostname), eine Zeile darüber |
-| `packages/app/src/shell/state.ts` | 142 | `s.lastLatencyMs` | lokal gemessene Latenz in ms (rpc-pool.ts: Date.now() - start) |
-| `packages/app/src/shell/state.ts` | 143 | `name` | name = escapeHtml(label oder hostname) |
+| `packages/app/src/shell/app.ts` | 149 | `` woerter.map((w) => `<li>${escapeHtml(w)}</li>`).join("") `` | Callback liefert nur ein Template mit escapeHtml(w) |
+| `packages/app/src/shell/app.ts` | 156 | `` positionen.map((p) => `<label class="mono-sm">Nr. ${p + 1} <input data-pos="${p}" class="mono-sm" style="width:110px" au `` | Callback liefert nur ein Template; einzige Werte sind die Positionen p |
+| `packages/app/src/shell/app.ts` | 156 | `p` | Zahl: Position aus pickChallengePositions(), lokal erzeugt |
+| `packages/app/src/shell/app.ts` | 157 | `p` | Zahl: Position aus pickChallengePositions(), lokal erzeugt |
+| `packages/app/src/shell/app.ts` | 389 | `` (Zuweisung) LANGS.map( (l) => `<button type="button" data-lang="${l.code}" class="${l.code === getLang() ? "active" : ""}">${l.code. `` | Callback: Template aus der festen Sprachliste LANGS |
+| `packages/app/src/shell/app.ts` | 390 | `l.code` | feste Sprachliste LANGS (i18n.ts) |
+| `packages/app/src/shell/app.ts` | 390 | `l.code.toUpperCase()` | feste Sprachliste LANGS (i18n.ts) |
+| `packages/app/src/shell/app.ts` | 390 | `l.label` | feste Sprachliste LANGS (i18n.ts) |
+| `packages/app/src/shell/state.ts` | 151 | `` (Zuweisung) st.map((s) => { const name = escapeHtml(s.label ?? new URL(s.url).hostname); return s.available ? `<span class="ok">${na `` | Callback liefert nur Templates; Name und Fehlertext mit escapeHtml |
+| `packages/app/src/shell/state.ts` | 154 | `name` | name = escapeHtml(label oder hostname), eine Zeile darüber |
+| `packages/app/src/shell/state.ts` | 154 | `s.lastLatencyMs` | lokal gemessene Latenz in ms (rpc-pool.ts: Date.now() - start) |
+| `packages/app/src/shell/state.ts` | 155 | `name` | name = escapeHtml(label oder hostname) |
 | `packages/app/src/shell/tabs/agent-netz.ts` | 24 | `(Zuweisung) r.models.slice(0, 20).map((m) => { const cls = m.availability === "gut" ? "ok" : m.availability === "knapp" ? "warn" : "` | Callback liefert nur Templates; Name, Quantisierung, Hinweis mit escapeHtml |
 | `packages/app/src/shell/tabs/agent-netz.ts` | 28 | `cls` | feste Klassennamen ok/err/warn |
 | `packages/app/src/shell/tabs/agent-netz.ts` | 127 | `` (Zuweisung) sorted.map((ev) => { const name = ev.tags.find((t) => t[0] === "d")?.[1] ?? "?"; return `<div class="stat"><span class=" `` | Callback: Template mit escapeHtml(name), escapeHtml(pkShort(...)) und escapeHtml(blob) |

@@ -2216,3 +2216,36 @@ mit echten 12 Wörtern, Swap und Deposit einmal auf Devnet.
 Endstand: protocol 947 grün (5 übersprungen) · node 161 grün (6 übersprungen) ·
 app 192 grün (+3) · 0 rot · check-wiring `--streng` 0 offen · innerHTML streng
 0 unbewertet · Smoke-Test 10/10 bestanden (Tresor, Pflicht, Sperre).
+
+## 56. Signer-Schnittstelle, Teil a: `signer.ts` und `LocalSigner` (Schritt 1.3)
+
+**Entscheidung (24.09.2026, im Chat):** Die Karte verlangt einen `Nip46Signer`
+„aus vorhandenen Teilen in `devices.ts`“ – dort gibt es keine: `devices.ts` hat
+sich bewusst gegen NIP-46 entschieden (eigene Gerätschlüssel, offline). Auf
+Nachfrage: „passend entscheiden, ohne viel am Plan zu ändern“. Also bleibt es bei
+der Karte: `Nip46Signer` wird neu nach dem NIP-46-Standard gebaut (Teil b), der
+Verweis auf `devices.ts` war ungenau.
+
+**Aufteilung von 1.3:** a Schnittstelle und `LocalSigner` (dieser Teil) · b
+`Nip46Signer` · c… Aufrufer modulweise umstellen, bis `keypair.sk` nur noch im
+`LocalSigner` steht (heute 46 Stellen in 11 Dateien).
+
+**Teil a:** neu `packages/protocol/src/signer.ts` – `Signer` (publicKey,
+signEvent, nip44Encrypt, nip44Decrypt), `SolanaSigner` (publicKey,
+signTransaction), `LocalSigner`. Der Schlüssel steckt in einem privaten
+Klassenfeld und ist eine Kopie; `toJSON()` zeigt nur den Pubkey. Fremde Pubkeys
+werden vor jeder NIP-44-Rechnung auf genau 64 Hex-Zeichen geprüft; ein Event mit
+fremdem pubkey wird nicht signiert. In der App: `state.signer` und
+`setzeIdentitaet(sk)` (`shell/state.ts`) – die drei Stellen in `app.ts`, die bisher
+`state.keypair` direkt setzten, gehen jetzt darüber; Schlüssel und Signer
+entstehen immer gemeinsam.
+
+**Tests:** protocol 947 → 955 – gleiche Event-ID wie `signEvent`, fremdes Event
+abgelehnt, NIP-44 in beide Richtungen kompatibel mit `encryptDM`/`decryptDM`,
+Manipulation und falscher Peer scheitern, sechs ungültige Pubkeys abgelehnt, der
+Schlüssel taucht in keiner Darstellung auf (JSON, Spread, Einträge, String),
+Kopie statt Referenz, falsche Schlüssellänge.
+
+Endstand: protocol 955 grün (5 übersprungen) · node 161 grün (6 übersprungen) ·
+app 192 grün · 0 rot · check-wiring `--streng` 0 offen (252 verdrahtet) ·
+innerHTML streng 0 unbewertet · Smoke-Test bestanden.

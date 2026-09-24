@@ -8,12 +8,11 @@
  * Wird per esbuild zu einer einzigen dist/freedom.html gebuendelt.
  */
 import { fromHex, signEvent, toHex } from "@freedomstack/protocol";
-import { schnorr } from "@noble/curves/secp256k1.js";
 import { startHero } from "../hero.js";
 import { LANGS, Lang, detectLang, getLang, setLang, t } from "../i18n.js";
 import { escapeHtml, pkShort } from "../shell-logic.js";
 import { zeigeDatenschutz } from "./datenschutz.js";
-import { ensurePool, getOwnProviderFromUrl, setOwnProvider, state, wireRpcSetting } from "./state.js";
+import { ensurePool, getOwnProviderFromUrl, setOwnProvider, setzeIdentitaet, state, wireRpcSetting } from "./state.js";
 import { haltevorModell, kuendigeModellAn, loadGitRepos, setGitStatus, zeigeModelle } from "./tabs/agent-netz.js";
 import {
   askAi,
@@ -101,8 +100,7 @@ export { activateCodeBlocks } from "./ui.js";
 function loadOrCreateIdentity(): void {
   const stored = ladeSchluessel();
   if (stored) {
-    const sk = fromHex(stored);
-    state.keypair = { sk, pk: toHex(schnorr.getPublicKey(sk)) };
+    setzeIdentitaet(fromHex(stored));
   } else {
     // Neue Identitaeten bekommen eine Merkphrase. Frueher wurde hier still ein
     // Schluessel erzeugt — wer seine Browserdaten loeschte, verlor Identitaet,
@@ -118,7 +116,7 @@ function loadOrCreateIdentity(): void {
 async function erzeugeIdentitaetMitPhrase(): Promise<void> {
   const { createIdentity, markHasMnemonic } = await import("../identity.js");
   const id = createIdentity();
-  state.keypair = { sk: id.sk, pk: id.pk };
+  setzeIdentitaet(id.sk);
   await speichereSchluessel(toHex(id.sk));
   markHasMnemonic();
   $("#ident").textContent = escrowIdent();
@@ -248,8 +246,7 @@ function importIdentity(): void {
     if (hex !== null) toast("ungueltiger key", true);
     return;
   }
-  const sk = fromHex(hex);
-  state.keypair = { sk, pk: toHex(schnorr.getPublicKey(sk)) };
+  setzeIdentitaet(fromHex(hex));
   void speichereSchluessel(hex.toLowerCase()).catch((e) => toast(`nicht gespeichert: ${(e as Error).message}`, true));
   $("#ident").textContent = escrowIdent();
   toast("Identitaet importiert");
