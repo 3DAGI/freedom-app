@@ -83,7 +83,9 @@ geschützt sind. Reihenfolge: 1.0 → 1.1 → 1.2 → 1.3 → 1.4 → 1.5.
 
 ---
 
-## 1.3 Signer-Schnittstelle
+## 1.3 Signer-Schnittstelle – CODE FERTIG (24.09.2026)
+
+> Umgesetzt in sechs Teilen (a–f, PRs #17–#22). `keypair.sk` 46 → 0; der rohe Schlüssel liegt nur noch im `LocalSigner` (`mitSchluessel()` für Sicherung, Nachfolge, Swap-Adressen, Export). `Nip46Signer` neu nach NIP-46 statt aus `devices.ts` (dort gab es keine Teile; Entscheidung 24.09.). Anmelden per Bunker unter Settings → Geräte. Offen: MENSCH-Test mit einem echten Bunker.
 
 - **Stellen:** neu `packages/protocol/src/signer.ts`; App: jede Stelle mit
   `keypair.sk` (`grep -rn "keypair.sk" packages/app/src | wc -l` vorher und

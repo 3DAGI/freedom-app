@@ -26,6 +26,8 @@ export const KIND_SWAP_REQUEST = 25001;
 export const KIND_SWAP_RESPONSE = 25002;
 export const KIND_DVM_RESULT = 6050;
 export const LS_KEY = "freedom.nsec";
+/** Bunker-Sitzung (Schritt 1.3f): Signer, Relays, Client-Schluessel – ein Geheimnis. */
+export const LS_BUNKER = "freedom.bunker";
 
 // ------------------------------------------------------------- State
 
@@ -69,6 +71,17 @@ export function setzeIdentitaet(sk: Uint8Array): void {
   const signer = new LocalSigner(sk);
   state.signer = signer;
   state.keypair = { pk: signer.publicKey() };
+}
+
+/** Identitaet ueber einen entfernten Signer (Bunker, Schritt 1.3f): in der App nur der Pubkey. */
+export function setzeSigner(signer: Signer): void {
+  state.signer = signer;
+  state.keypair = { pk: signer.publicKey() };
+}
+
+/** true, wenn ein entfernter Signer (Bunker) die Identitaet haelt – dann gibt es keinen rohen Schluessel. */
+export function mitBunker(): boolean {
+  return state.signer !== null && !(state.signer instanceof LocalSigner);
 }
 
 /**

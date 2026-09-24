@@ -20,7 +20,7 @@ vollständig fertig. Ausführlich: `docs/ausbau/UEBERSICHT.md`.
 |---|---|
 | `packages/protocol` | Protokollbausteine (TypeScript), Tests in `test/` |
 | `packages/node` | Provider-Knoten (TypeScript), Tests in `test/` |
-| `packages/app` | Web-App; `src/shell/app.ts` (Einstieg: `boot()`, `switchTab()`, Identität, Onboarding), `state.ts` (Zustand, Pools), `ui.ts` (Hilfsfunktionen), `datenschutz.ts` (Bericht), `tresor.ts` (Tresor-Dialoge; Krypto in `src/vault.ts`), `tabs/` (je Tab ein Modul: `kommunikation.ts`, `agent.ts` + `agent-netz.ts`, `waehrung.ts`, `earn.ts`, `profil.ts`, `settings.ts`); Build → `dist/freedom.html` |
+| `packages/app` | Web-App; `src/shell/app.ts` (Einstieg: `boot()`, `switchTab()`, Identität, Onboarding), `state.ts` (Zustand, Pools), `ui.ts` (Hilfsfunktionen), `datenschutz.ts` (Bericht), `tresor.ts` (Tresor-Dialoge; Krypto in `src/vault.ts`), `bunker.ts` (Anmelden per NIP-46), `tabs/` (je Tab ein Modul: `kommunikation.ts`, `agent.ts` + `agent-netz.ts`, `waehrung.ts`, `earn.ts`, `profil.ts`, `settings.ts`); Build → `dist/freedom.html` |
 | `packages/website` | Startseite, Whitepaper, FAQ, Roadmap, Dashboard |
 | `contracts/solana-htlc` | Anchor-Programm (Rust) für Swaps und Deposits |
 | `scripts/` | Build, Prüfungen, `smoke_test.py`, `check_innerhtml.py` |
@@ -41,9 +41,9 @@ python3 scripts/smoke_test.py packages/app/dist         # braucht playwright + c
 bash scripts/build-site.sh /tmp/site                     # Website bauen (Ziel wird gelöscht!)
 ```
 
-Stand 24.09.2026 (nach 1.3e): protocol 971 grün (5 übersprungen), node 161 grün
+Stand 24.09.2026 (nach 1.3): protocol 972 grün (5 übersprungen), node 161 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 200 grün.
+in `tools.test.ts`), app 206 grün.
 
 ## Arbeitsweise
 
@@ -117,7 +117,8 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   mit einem entfernten Signer (NIP-46) nicht. `state.keypair` hat seit 1.3e nur
   noch `pk`; den rohen Schlüssel gibt es nur über `mitRohemSchluessel(wofuer, fn)`
   und nur für das, was ohne ihn nicht geht (Sicherung, Nachfolge, Swap-Adressen,
-  Export) – synchron, die Kopie wird danach genullt.
+  Export) – synchron, die Kopie wird danach genullt. Mit Bunker (`mitBunker()`)
+  gibt es ihn nicht: solche Funktionen sperren, nicht scheitern lassen.
 - **Geheimnisse nur über `geheim`** (`shell/tresor.ts`): Schlüssel, Wallet-Zugänge,
   Preimages, Unterhaltungen und Verläufe nie direkt in `localStorage` schreiben –
   mit Tresor landen sie sonst im Klartext. Vor neuen Geld-Geheimnissen

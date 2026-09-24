@@ -18,6 +18,7 @@ import {
   ensurePool,
   KIND_SWAP_REQUEST,
   KIND_SWAP_RESPONSE,
+  mitBunker,
   mitRohemSchluessel,
   signiere,
   solRpcUrl,
@@ -132,12 +133,16 @@ async function startSwap(lpPubkey: string, offerId: string): Promise<void> {
   }
 
   // Frische Adresse vorschlagen — abgeleitet, also ohne zusaetzliche Sicherung
-  // wiederherstellbar.
-  const frisch = mitRohemSchluessel("Eine frische Swap-Adresse", (sk) => deriveSwapAddress(sk, verlauf.length));
+  // wiederherstellbar. Mit Bunker gibt es keinen Schluessel zum Ableiten:
+  // dann ohne Vorschlag.
+  const frisch = mitBunker()
+    ? null
+    : mitRohemSchluessel("Eine frische Swap-Adresse", (sk) => deriveSwapAddress(sk, verlauf.length));
   const solAddr = prompt(
-    `Deine Solana-Empfangsadresse:\n\n` +
-    `Vorschlag: eine frische Adresse Nummer ${verlauf.length} ` +
-    `(${addressFingerprint(frisch)}…). Deine Merkphrase bringt sie zurueck.`,
+    `Deine Solana-Empfangsadresse:` + (frisch
+      ? `\n\nVorschlag: eine frische Adresse Nummer ${verlauf.length} ` +
+        `(${addressFingerprint(frisch)}…). Deine Merkphrase bringt sie zurueck.`
+      : ""),
   );
   if (!solAddr) return;
   // Adressverlauf und Preimage sind Geheimnisse – vor dem Speichern der Tresor.

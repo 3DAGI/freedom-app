@@ -2391,3 +2391,47 @@ als nsec (dekodiert verglichen).
 Endstand: protocol 971 grün (+3, 5 übersprungen) · node 161 grün · app 200
 grün · 0 rot · check-wiring `--streng` 0 offen (180 begründet) · innerHTML
 streng 0 unbewertet · Smoke-Test bestanden.
+
+## 61. Signer-Schnittstelle, Teil f: Anmelden per Bunker – 1.3 Code fertig
+
+**Protokoll:** `Nip46Signer` nimmt mit `nutzer` (und demselben `clientSk`) eine
+frühere Sitzung ohne neues `connect()` wieder auf; ein ungültiger Pubkey wird
+abgelehnt.
+
+**App:** Neu `shell/bunker.ts` mit der Karte „Anmelden per Bunker (NIP-46)“
+unter Settings → Geräte. `bunker://`-Adresse eingeben → `connect` über einen
+eigenen Pool zu den Relays des Bunkers → die Sitzung (Signer-Pubkey, Relays,
+Client-Schlüssel, Nutzer) liegt über `geheim` unter `freedom.bunker`, mit
+Tresor verschlüsselt (`geheimnisse()` ergänzt). Das `secret` der Adresse wird
+nicht gespeichert. Danach lädt die App neu; `loadOrCreateIdentity()` nimmt die
+Sitzung vor dem lokalen Schlüssel auf – ohne Netz. Der Schlüssel auf dem Gerät
+bleibt liegen, „abmelden“ löscht die Sitzung und bringt ihn zurück. Während ein
+Tausch, ein Deposit oder ein Auftrag läuft, wird nicht gewechselt.
+
+Mit Bunker gibt es keinen rohen Schlüssel (`mitBunker()`): „jetzt sichern“,
+„wiederherstellen“ und Nachfolge „einrichten“ sind gesperrt (die
+Sicherheitsliste sagt warum), Sicherungsdatei und Export melden „geht nur im
+Signer“, Import verlangt erst das Abmelden, der Swap fragt ohne Vorschlag einer
+abgeleiteten Adresse.
+
+**Fund, behoben:** „jetzt sichern“, „wiederherstellen“, „Diebstahl vorbeugen“,
+„Schlüssel widerrufen“, „Gerät hinzufügen“ und „für jemand anderen melden“
+wurden erst am Ende von `richteNachfolgeEin()` verdrahtet – so stand es schon in
+der Übergabe. Ohne eingerichtete Nachfolge taten die Knöpfe nichts, auch die
+Schritte 2 und 3 der Sicherheitsliste liefen ins Leere. Jetzt verdrahtet
+`wireSicherheitsKnoepfe()` sie beim Start.
+
+**Tests:** protocol 971 → 972 (Sitzung wieder aufnehmen); app 200 → 206
+(`bunker.test.ts`: verbinden speichert weder Secret noch Nutzer-Schlüssel,
+Aufnehmen ohne zweites `connect`, Signieren über den Bunker, kein roher
+Schlüssel; falsches Secret speichert nichts; sechs kaputte Sitzungen werden
+nicht aufgenommen; abmelden; Verdrahtung). Browser-Durchlauf mit nachgebildetem
+Relay (Playwright `route_web_socket`) und einem Test-Bunker aus dem
+Protokoll-Code: falsches Secret abgelehnt, Anmeldung, nach dem Neuladen die
+Identität des Bunkers, gesperrte Knöpfe mit Begründung, Lebenszeichen über den
+Bunker signiert, abmelden → wieder die lokale Identität. `Nip46Signer` und
+`parseBunkerUri` sind verdrahtet – ihre Ausnahmen sind entfernt.
+
+Endstand: protocol 972 grün (+1, 5 übersprungen) · node 161 grün · app 206
+grün · 0 rot · check-wiring `--streng` 0 offen (178 begründet) · innerHTML
+streng 0 unbewertet · Smoke-Test bestanden.

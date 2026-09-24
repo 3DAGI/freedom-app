@@ -7,7 +7,7 @@
 import { DEFAULT_CLIENT_FEE_PERCENT, MAX_CLIENT_FEE_PERCENT } from "@freedomstack/protocol";
 import { escapeHtml } from "../../shell-logic.js";
 import { zeigeDatenschutz } from "../datenschutz.js";
-import { ensurePool, mitRohemSchluessel, signiere, state } from "../state.js";
+import { ensurePool, mitBunker, mitRohemSchluessel, signiere, state } from "../state.js";
 import { tresorEingerichtet, wireTresorKarte } from "../tresor.js";
 import { $, ganzeZahl, toast } from "../ui.js";
 import { ladeAbdeckung, trageAbdeckungEin } from "./earn.js";
@@ -104,7 +104,25 @@ export async function richteNachfolgeEin(): Promise<void> {
     localStorage.setItem("freedom.successionSet", "1");
     void aktualisiereSicherheitsStand();
     toast("Eingerichtet. Übergib die Teile einzeln.");
-    const bn = $("#backup-now");
+    void zeigeSicherung();
+    void zeigeGeraete();
+    void zeigeNachfolge();
+  } catch (e) {
+    toast((e as Error).message, true);
+  }
+}
+
+// -------------------------------------- Sicherung, Wechsel, Geraete
+
+/**
+ * Knoepfe unter Settings → Sicherheit und Geraete. Bis 1.3f wurden sie erst
+ * am Ende von `richteNachfolgeEin()` verdrahtet – ohne eingerichtete Nachfolge
+ * taten „jetzt sichern“, „wiederherstellen“, „Diebstahl vorbeugen“ usw. nichts.
+ * Mit Bunker gibt es keinen rohen Schluessel: Zustandssicherung und Nachfolge
+ * sind dann gesperrt.
+ */
+export function wireSicherheitsKnoepfe(): void {
+  const bn = $("#backup-now");
   if (bn) bn.onclick = () => void sichereZustand();
   const br = $("#backup-restore");
   if (br) br.onclick = () => void stelleZustandWieder();
@@ -116,16 +134,14 @@ export async function richteNachfolgeEin(): Promise<void> {
   if (da) da.onclick = () => void fuegeGeraetHinzu();
   const sc = $("#succ-claim");
   if (sc) sc.onclick = () => void meldeFuerAnderen();
-
-  void zeigeSicherung();
-  void zeigeGeraete();
-  void zeigeNachfolge();
-  } catch (e) {
-    toast((e as Error).message, true);
+  if (!mitBunker()) return;
+  for (const id of ["backup-now", "backup-restore", "succ-setup"]) {
+    const k = document.getElementById(id) as HTMLButtonElement | null;
+    if (!k) continue;
+    k.disabled = true;
+    k.title = "Mit Bunker nicht möglich – das braucht den Schlüssel selbst";
   }
 }
-
-// -------------------------------------- Sicherung, Wechsel, Geraete
 
 /** Alles, was lokal liegt und bei Datenverlust verschwinden wuerde. */
 function sammleZustand(): Record<string, unknown> {

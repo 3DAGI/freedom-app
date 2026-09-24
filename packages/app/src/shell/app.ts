@@ -11,10 +11,12 @@ import { fromHex, toHex } from "@freedomstack/protocol";
 import { startHero } from "../hero.js";
 import { LANGS, Lang, detectLang, getLang, setLang, t } from "../i18n.js";
 import { escapeHtml, pkShort } from "../shell-logic.js";
+import { nimmBunkerAuf, wireBunkerKarte } from "./bunker.js";
 import { zeigeDatenschutz } from "./datenschutz.js";
 import {
   ensurePool,
   getOwnProviderFromUrl,
+  mitBunker,
   mitRohemSchluessel,
   setOwnProvider,
   setzeIdentitaet,
@@ -69,6 +71,7 @@ import {
   richteNachfolgeEin,
   wireClientFeeSetting,
   wireMeshTab,
+  wireSicherheitsKnoepfe,
   zeigeGeraete,
   zeigeNachfolge,
   zeigeSicherung,
@@ -107,6 +110,11 @@ export { activateCodeBlocks } from "./ui.js";
 // ------------------------------------------------------------- Identitaet
 
 function loadOrCreateIdentity(): void {
+  // Anmeldung per Bunker (1.3f) geht vor – dann liegt kein Schluessel in der App.
+  if (nimmBunkerAuf()) {
+    $("#ident").textContent = escrowIdent();
+    return;
+  }
   const stored = ladeSchluessel();
   if (stored) {
     setzeIdentitaet(fromHex(stored));
@@ -223,9 +231,12 @@ async function zeigeBackupWarnung(): Promise<void> {
   } catch { /* Anzeige ist optional */ }
 }
 
+const NUR_IM_SIGNER = "Mit Bunker liegt der Schlüssel nicht in der App – sichern und exportieren geht nur im Signer";
+
 /** Nachtraegliche Sicherung — auch fuer Identitaeten ohne Phrase. */
 async function sichereJetzt(): Promise<void> {
   if (!state.keypair) return;
+  if (mitBunker()) { toast(NUR_IM_SIGNER, true); return; }
   const { identityFromHex, buildBackupFile, markBackupConfirmed } = await import("../identity.js");
   const id = identityFromHex(mitRohemSchluessel("Die Sicherungsdatei", toHex));
   const blob = new Blob([buildBackupFile(id)], { type: "application/json" });
@@ -242,6 +253,7 @@ async function sichereJetzt(): Promise<void> {
 
 function exportIdentity(): void {
   if (!state.keypair) return;
+  if (mitBunker()) { toast(NUR_IM_SIGNER, true); return; }
   const hex = mitRohemSchluessel("Der Export", toHex);
   navigator.clipboard?.writeText(hex).then(
     () => toast("nsec (hex) kopiert — sicher aufbewahren!"),
@@ -250,6 +262,7 @@ function exportIdentity(): void {
 }
 
 function importIdentity(): void {
+  if (mitBunker()) { toast("Erst vom Bunker abmelden (Settings → Geräte)", true); return; }
   const hex = prompt("Merkphrase, nsec1… oder 64 Zeichen Hex einfuegen:");
   if (!hex || !/^[0-9a-f]{64}$/i.test(hex)) {
     if (hex !== null) toast("ungueltiger key", true);
@@ -502,8 +515,12 @@ function starte(): void {
   setupLangMenu();
   // Kein Gate mehr → Identity beim Boot laden/erzeugen (früher gate-button)
   loadOrCreateIdentity();
-  // Tresor: automatische Sperre, aber nie mitten in einen Geldvorgang oder Auftrag
-  starteAutoSperre(() => geldVorgangLaeuft() || $("#ai-send")?.dataset.running === "1");
+  // Tresor: automatische Sperre, aber nie mitten in einen Geldvorgang oder Auftrag;
+  // ebenso kein Wechsel der Identitaet (Bunker)
+  const beschaeftigt = (): boolean => geldVorgangLaeuft() || $("#ai-send")?.dataset.running === "1";
+  starteAutoSperre(beschaeftigt);
+  wireBunkerKarte(beschaeftigt);
+  wireSicherheitsKnoepfe();
   checkOwnProvider();
   const enter = setupFlow();
   // Kein Gate: App öffnet direkt. Wallet-Connect/Deposit über sidebar-CTA
@@ -672,8 +689,11 @@ function starte(): void {
   document.querySelectorAll<HTMLElement>(".sec-action").forEach((b) => {
     b.addEventListener("click", () => {
       // Schritt 5 (Tresor) hat keinen eigenen Knopf in den Details
-      if (b.dataset.step === "4") void richteTresorEin().then(() => aktualisiereSicherheitsStand());
-      else document.getElementById(ziele[b.dataset.step!] ?? "")?.click();
+      if (b.dataset.step === "4") { void richteTresorEin().then(() => aktualisiereSicherheitsStand()); return; }
+      const ziel = document.getElementById(ziele[b.dataset.step!] ?? "") as HTMLButtonElement | null;
+      // Gesperrt (z. B. mit Bunker): sagen, warum – statt still nichts zu tun.
+      if (ziel?.disabled) toast(ziel.title, true);
+      else ziel?.click();
     });
   });
   setInterval(() => void aktualisiereNavStatus(), 30_000);
