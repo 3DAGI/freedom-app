@@ -8,6 +8,7 @@ import { DEFAULT_CLIENT_FEE_PERCENT, MAX_CLIENT_FEE_PERCENT } from "@freedomstac
 import { escapeHtml } from "../../shell-logic.js";
 import { zeigeDatenschutz } from "../datenschutz.js";
 import { ensurePool, state } from "../state.js";
+import { tresorEingerichtet } from "../tresor.js";
 import { $, ganzeZahl, toast } from "../ui.js";
 import { ladeAbdeckung, trageAbdeckungEin } from "./earn.js";
 
@@ -570,10 +571,11 @@ export async function aktualisiereSicherheitsStand(): Promise<void> {
     !!localStorage.getItem("freedom.backupAt"),
     localStorage.getItem("freedom.rotationPrepared") === "1",
     localStorage.getItem("freedom.successionSet") === "1",
+    tresorEingerichtet(),
   ];
   const erledigt = schritte.filter(Boolean).length;
-  badge.textContent = erledigt < 4 ? `${erledigt}/4` : "";
-  badge.classList.toggle("warn", erledigt < 4);
+  badge.textContent = erledigt < schritte.length ? `${erledigt}/${schritte.length}` : "";
+  badge.classList.toggle("warn", erledigt < schritte.length);
 
   // Schrittliste oben in Sicherheit
   schritte.forEach((ok, i) => {

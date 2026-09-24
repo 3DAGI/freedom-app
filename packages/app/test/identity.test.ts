@@ -15,6 +15,7 @@ import {
   buildBackupFile, parseBackupFile,
   verifyMnemonicChallenge, pickChallengePositions,
   NOSTR_DERIVATION_PATH,
+  backupStatus,
 } from "../src/identity.js";
 
 // ------------------------------------------------------------- Erzeugen
@@ -193,4 +194,28 @@ test("Sicherungsdatei funktioniert auch ohne Merkphrase", () => {
 test("Fremde Dateien werden abgelehnt", () => {
   assert.throws(() => parseBackupFile('{"format":"etwas-anderes"}'), /keine FreedomStack/);
   assert.throws(() => parseBackupFile('{"format":"freedomstack-identity"}'), /weder Merkphrase noch nsec/);
+});
+
+// ------------------------------------------------------------- Sicherungsstand mit Tresor (1.2)
+
+function mitSpeicher(werte: Record<string, string>, f: () => void): void {
+  const m = new Map(Object.entries(werte));
+  const vorher = (globalThis as { localStorage?: unknown }).localStorage;
+  (globalThis as { localStorage?: unknown }).localStorage = {
+    getItem: (k: string) => m.get(k) ?? null,
+    setItem: (k: string, v: string) => void m.set(k, v),
+    removeItem: (k: string) => void m.delete(k),
+  };
+  try { f(); } finally { (globalThis as { localStorage?: unknown }).localStorage = vorher; }
+}
+
+test("backupStatus: Schluessel im Tresor zaehlt als vorhanden – die Warnung bleibt", () => {
+  mitSpeicher({}, () => assert.equal(backupStatus().hasKey, false));
+  mitSpeicher({ "freedom.nsec": "ab".repeat(32) }, () => assert.equal(backupStatus().hasKey, true));
+  mitSpeicher({ "freedom.vault": "1", "freedom.backup.mnemonic": "1" }, () => {
+    const st = backupStatus();
+    assert.equal(st.hasKey, true, "Schluessel liegt im Tresor, nicht in localStorage");
+    assert.match(st.warning ?? "", /nicht bestätigt/, "ohne bestaetigte Merkphrase wird weiter gewarnt");
+  });
+  mitSpeicher({ "freedom.vault": "0" }, () => assert.equal(backupStatus().hasKey, false));
 });

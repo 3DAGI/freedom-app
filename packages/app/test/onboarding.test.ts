@@ -10,7 +10,7 @@ import assert from "node:assert/strict";
 import { nextStep, pitchFor, providerNextStep, Readiness } from "../src/onboarding.js";
 
 const neu: Readiness = {
-  hasIdentity: true, backedUp: false, hasWallet: false,
+  hasIdentity: true, backedUp: false, hasVault: false, hasWallet: false,
   hasUsedOnce: false, freeTierLeft: 10,
 };
 
@@ -42,18 +42,18 @@ test("Sicherung ist ueberspringbar, aber nicht unsichtbar", () => {
 });
 
 test("Wallet wird erst verlangt, wenn das Gratis-Kontingent leer ist", () => {
-  const nochGratis = nextStep({ ...neu, hasUsedOnce: true, backedUp: true, freeTierLeft: 5 });
+  const nochGratis = nextStep({ ...neu, hasUsedOnce: true, backedUp: true, hasVault: true, freeTierLeft: 5 });
   assert.equal(nochGratis.skippable, true);
   assert.equal(nochGratis.urgency, "info");
   assert.match(nochGratis.title, /Später/);
 
-  const leer = nextStep({ ...neu, hasUsedOnce: true, backedUp: true, freeTierLeft: 0 });
+  const leer = nextStep({ ...neu, hasUsedOnce: true, backedUp: true, hasVault: true, freeTierLeft: 0 });
   assert.equal(leer.id, "wallet");
   assert.equal(leer.skippable, false, "jetzt ist die Frage berechtigt");
 });
 
 test("Verdienen-Absicht fuehrt zur Anleitung, nicht zur Wallet-Frage", () => {
-  const s = nextStep({ ...neu, hasUsedOnce: true, backedUp: true }, "verdienen");
+  const s = nextStep({ ...neu, hasUsedOnce: true, backedUp: true, hasVault: true }, "verdienen");
   assert.equal(s.id, "provider-anleitung");
   // Ehrlich statt werbend: ohne GPU lohnt es sich kaum.
   assert.match(s.body, /GPU/);
@@ -65,9 +65,36 @@ test("Sicherung geht auch der Verdienen-Absicht vor", () => {
   assert.equal(s.id, "sichern");
 });
 
+// ------------------------------------------------------------- Tresor (Schritt 1.2)
+
+test("Tresor kommt erst nach der ersten Nutzung und nach der Sicherung", () => {
+  // Entscheidung zu 1.2: erst benutzen, dann einrichten.
+  assert.equal(nextStep(neu).id, "los");
+  assert.equal(nextStep({ ...neu, hasUsedOnce: true }).id, "sichern");
+  const s = nextStep({ ...neu, hasUsedOnce: true, backedUp: true });
+  assert.equal(s.id, "tresor");
+  assert.equal(s.skippable, true, "angeboten, nicht erzwungen");
+  assert.equal(s.urgency, "hinweis");
+  assert.match(s.body, /unverschlüsselt/);
+  assert.ok(s.action);
+});
+
+test("Tresor geht der Wallet-Frage und der Verdienen-Anleitung vor", () => {
+  // Wallet-Zugaenge kommen in den Tresor – also erst der Tresor.
+  const r = { ...neu, hasUsedOnce: true, backedUp: true, freeTierLeft: 0 };
+  assert.equal(nextStep(r).id, "tresor");
+  assert.equal(nextStep(r, "verdienen").id, "tresor");
+  assert.equal(nextStep({ ...r, hasVault: true }).id, "wallet");
+});
+
+test("Mit Tresor, aber ohne Sicherung: zuerst die Sicherung", () => {
+  // Ein Tresor ohne Merkphrase ist bei vergessener Passphrase verloren.
+  assert.equal(nextStep({ ...neu, hasUsedOnce: true, hasVault: true }).id, "sichern");
+});
+
 test("Alles erledigt: kein erfundener naechster Schritt", () => {
   const s = nextStep({
-    hasIdentity: true, backedUp: true, hasWallet: true, hasUsedOnce: true, freeTierLeft: 0,
+    hasIdentity: true, backedUp: true, hasVault: true, hasWallet: true, hasUsedOnce: true, freeTierLeft: 0,
   });
   assert.equal(s.id, "fertig");
   assert.equal(s.action, undefined, "keine Beschaeftigungstherapie");
@@ -78,10 +105,12 @@ test("Es gibt IMMER genau einen naechsten Schritt", () => {
   // nie braucht.
   const kombis: Readiness[] = [];
   for (const backedUp of [true, false]) {
-    for (const hasWallet of [true, false]) {
-      for (const hasUsedOnce of [true, false]) {
-        for (const freeTierLeft of [0, 5]) {
-          kombis.push({ hasIdentity: true, backedUp, hasWallet, hasUsedOnce, freeTierLeft });
+    for (const hasVault of [true, false]) {
+      for (const hasWallet of [true, false]) {
+        for (const hasUsedOnce of [true, false]) {
+          for (const freeTierLeft of [0, 5]) {
+            kombis.push({ hasIdentity: true, backedUp, hasVault, hasWallet, hasUsedOnce, freeTierLeft });
+          }
         }
       }
     }

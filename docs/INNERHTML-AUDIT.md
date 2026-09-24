@@ -9,14 +9,14 @@ Nicht abgedeckt: andere Eingänge wie `href` oder `src`, die per Eigenschaft ges
 | Datei | Zeile | Ausdruck | Bewertung |
 |---|---|---|---|
 | `packages/app/src/offline-queue.ts` | 73 | `pending.length` | Länge eines lokalen Arrays (eigene Offline-Warteschlange) |
-| `packages/app/src/shell/app.ts` | 142 | `` woerter.map((w) => `<li>${escapeHtml(w)}</li>`).join("") `` | Callback liefert nur ein Template mit escapeHtml(w) |
-| `packages/app/src/shell/app.ts` | 149 | `` positionen.map((p) => `<label class="mono-sm">Nr. ${p + 1} <input data-pos="${p}" class="mono-sm" style="width:110px" au `` | Callback liefert nur ein Template; einzige Werte sind die Positionen p |
-| `packages/app/src/shell/app.ts` | 149 | `p` | Zahl: Position aus pickChallengePositions(), lokal erzeugt |
-| `packages/app/src/shell/app.ts` | 150 | `p` | Zahl: Position aus pickChallengePositions(), lokal erzeugt |
-| `packages/app/src/shell/app.ts` | 381 | `` (Zuweisung) LANGS.map( (l) => `<button type="button" data-lang="${l.code}" class="${l.code === getLang() ? "active" : ""}">${l.code. `` | Callback: Template aus der festen Sprachliste LANGS |
-| `packages/app/src/shell/app.ts` | 382 | `l.code` | feste Sprachliste LANGS (i18n.ts) |
-| `packages/app/src/shell/app.ts` | 382 | `l.code.toUpperCase()` | feste Sprachliste LANGS (i18n.ts) |
-| `packages/app/src/shell/app.ts` | 382 | `l.label` | feste Sprachliste LANGS (i18n.ts) |
+| `packages/app/src/shell/app.ts` | 149 | `` woerter.map((w) => `<li>${escapeHtml(w)}</li>`).join("") `` | Callback liefert nur ein Template mit escapeHtml(w) |
+| `packages/app/src/shell/app.ts` | 156 | `` positionen.map((p) => `<label class="mono-sm">Nr. ${p + 1} <input data-pos="${p}" class="mono-sm" style="width:110px" au `` | Callback liefert nur ein Template; einzige Werte sind die Positionen p |
+| `packages/app/src/shell/app.ts` | 156 | `p` | Zahl: Position aus pickChallengePositions(), lokal erzeugt |
+| `packages/app/src/shell/app.ts` | 157 | `p` | Zahl: Position aus pickChallengePositions(), lokal erzeugt |
+| `packages/app/src/shell/app.ts` | 390 | `` (Zuweisung) LANGS.map( (l) => `<button type="button" data-lang="${l.code}" class="${l.code === getLang() ? "active" : ""}">${l.code. `` | Callback: Template aus der festen Sprachliste LANGS |
+| `packages/app/src/shell/app.ts` | 391 | `l.code` | feste Sprachliste LANGS (i18n.ts) |
+| `packages/app/src/shell/app.ts` | 391 | `l.code.toUpperCase()` | feste Sprachliste LANGS (i18n.ts) |
+| `packages/app/src/shell/app.ts` | 391 | `l.label` | feste Sprachliste LANGS (i18n.ts) |
 | `packages/app/src/shell/state.ts` | 139 | `` (Zuweisung) st.map((s) => { const name = escapeHtml(s.label ?? new URL(s.url).hostname); return s.available ? `<span class="ok">${na `` | Callback liefert nur Templates; Name und Fehlertext mit escapeHtml |
 | `packages/app/src/shell/state.ts` | 142 | `name` | name = escapeHtml(label oder hostname), eine Zeile darüber |
 | `packages/app/src/shell/state.ts` | 142 | `s.lastLatencyMs` | lokal gemessene Latenz in ms (rpc-pool.ts: Date.now() - start) |
@@ -91,14 +91,14 @@ Nicht abgedeckt: andere Eingänge wie `href` oder `src`, die per Eigenschaft ges
 | `packages/app/src/shell/tabs/profil.ts` | 100 | `` (Zuweisung) werte.map((w) => `<option value="${escapeHtml(w)}"${w === aktiv ? " selected" : ""}>${escapeHtml(w)}</option>`).join("") `` | Callback: Template mit escapeHtml(w); selected ist ein Vergleich |
 | `packages/app/src/shell/tabs/profil.ts` | 140 | `` (Zuweisung) zeilen.map((z) => `<div>${escapeHtml(z)}</div>`).join("") `` | Callback: Template mit escapeHtml(z) |
 | `packages/app/src/shell/tabs/profil.ts` | 204 | `` (Zuweisung) alle.map((b) => `<div class="badge-row"> <span class="badge-chip ${escapeHtml(b.source)}">${escapeHtml(b.source)}</span> `` | Callback: Template, alle Werte mit escapeHtml |
-| `packages/app/src/shell/tabs/settings.ts` | 44 | `cls` | feste Klassennamen ok/warn/err |
-| `packages/app/src/shell/tabs/settings.ts` | 292 | `` (Zuweisung) d.map((x) => { const cls = x.status === "aktiv" ? "ok" : x.status === "abgelaufen" ? "warn" : "muted"; return `<div clas `` | Callback: Templates mit escapeHtml(label, status, devicePubkey) |
-| `packages/app/src/shell/tabs/settings.ts` | 295 | `cls` | feste Klassennamen ok/warn/muted |
-| `packages/app/src/shell/tabs/settings.ts` | 548 | `` (Zuweisung) offlineCapabilities(link).map((f) => `<div class="usage-row"><span>${f.works ? "✓" : "✕"} ${escapeHtml(f.feature)}</span `` | Callback: Template mit escapeHtml; Haken/Kreuz fest |
-| `packages/app/src/shell/tabs/settings.ts` | 560 | `` (Zuweisung) p.map((m) => `${escapeHtml(m.label)} — ${m.framesLeft} Pakete offen`).join("<br>") `` | Callback: Template mit escapeHtml(m.label) und lokalem Zähler |
-| `packages/app/src/shell/tabs/settings.ts` | 560 | `m.framesLeft` | lokaler Zähler der eigenen Mesh-Warteschlange |
-| `packages/app/src/shell/tabs/settings.ts` | 672 | `cls` | feste Klassennamen ok/err/warn |
-| `packages/app/src/shell/tabs/settings.ts` | 677 | `quellen.map((q) => escapeHtml(q)).join(", ")` | jede Quelle mit escapeHtml |
+| `packages/app/src/shell/tabs/settings.ts` | 45 | `cls` | feste Klassennamen ok/warn/err |
+| `packages/app/src/shell/tabs/settings.ts` | 293 | `` (Zuweisung) d.map((x) => { const cls = x.status === "aktiv" ? "ok" : x.status === "abgelaufen" ? "warn" : "muted"; return `<div clas `` | Callback: Templates mit escapeHtml(label, status, devicePubkey) |
+| `packages/app/src/shell/tabs/settings.ts` | 296 | `cls` | feste Klassennamen ok/warn/muted |
+| `packages/app/src/shell/tabs/settings.ts` | 549 | `` (Zuweisung) offlineCapabilities(link).map((f) => `<div class="usage-row"><span>${f.works ? "✓" : "✕"} ${escapeHtml(f.feature)}</span `` | Callback: Template mit escapeHtml; Haken/Kreuz fest |
+| `packages/app/src/shell/tabs/settings.ts` | 561 | `` (Zuweisung) p.map((m) => `${escapeHtml(m.label)} — ${m.framesLeft} Pakete offen`).join("<br>") `` | Callback: Template mit escapeHtml(m.label) und lokalem Zähler |
+| `packages/app/src/shell/tabs/settings.ts` | 561 | `m.framesLeft` | lokaler Zähler der eigenen Mesh-Warteschlange |
+| `packages/app/src/shell/tabs/settings.ts` | 674 | `cls` | feste Klassennamen ok/err/warn |
+| `packages/app/src/shell/tabs/settings.ts` | 679 | `quellen.map((q) => escapeHtml(q)).join(", ")` | jede Quelle mit escapeHtml |
 | `packages/app/src/shell/tabs/waehrung.ts` | 67 | `` (Zuweisung) valid .map( ({ ev, offer }) => ` <div class="stat"> <span class="k">${escapeHtml(pkShort(ev.pubkey))} · ${Number(offer.m `` | Callback: Template mit escapeHtml und Number(...) |
 | `packages/app/src/shell/tabs/waehrung.ts` | 71 | `(Number(offer.feePpm) / 100).toFixed(1)` | Number(...).toFixed(1) – nur Ziffern und Punkt |
 | `packages/app/src/shell/tabs/waehrung.ts` | 251 | `(Zuweisung) verdict.problems.map((p) => escapeHtml(p)).join("<br>")` | jede Zeile mit escapeHtml |
@@ -106,7 +106,8 @@ Nicht abgedeckt: andere Eingänge wie `href` oder `src`, die per Eigenschaft ges
 | `packages/app/src/shell/tabs/waehrung.ts` | 644 | `restMin` | Math.ceil(...) – Zahl |
 | `packages/app/src/shell/tabs/waehrung.ts` | 666 | `res.refunded.length` | Länge eines Arrays aus dem eigenen Refund-Ergebnis |
 | `packages/app/src/shell/tabs/waehrung.ts` | 689 | `sats` | Math.floor(...) – Zahl |
+| `packages/app/src/shell/tresor.ts` | 58 | `html` | dialog() ist modulintern; alle drei Aufrufer übergeben feste Text-Literale ohne Einsetzungen, Eingaben und Meldungen laufen über textContent |
 | `packages/app/src/shell/ui.ts` | 122 | `(Zuweisung) markSvg(18)` | eigenes SVG mit fester Farbe |
 | `packages/app/src/shell/ui.ts` | 124 | `(Zuweisung) markSvg(30)` | eigenes SVG mit fester Farbe |
 
-100 Fundstellen, davon 0 unbewertet.
+101 Fundstellen, davon 0 unbewertet.

@@ -13,6 +13,7 @@ import {
   PBKDF2_ITERATIONEN,
   SpeicherImRam,
   createVault,
+  uebernehme,
   unlock,
   vaultExists,
 } from "../src/vault.js";
@@ -198,4 +199,43 @@ test("Passphrase in anderer Unicode-Zusammensetzung oeffnet denselben Tresor (NF
   await v.set("k", "v");
   v.lock();
   assert.equal((await unlock(zerlegt, sp)).get("k"), "v");
+});
+
+// ------------------------------------------------------------- Uebernahme aus localStorage
+
+class FakeStorage {
+  werte = new Map<string, string>();
+  getItem(k: string): string | null { return this.werte.get(k) ?? null; }
+  setItem(k: string, v: string): void { this.werte.set(k, v); }
+  removeItem(k: string): void { this.werte.delete(k); }
+}
+
+test("Uebernahme: Werte stehen im Tresor, der Klartext ist danach weg", async () => {
+  const sp = new SpeicherImRam();
+  const ls = new FakeStorage();
+  ls.setItem("freedom.nsec", NSEC_HEX);
+  ls.setItem("freedom.lang", "de");
+  const v = await createVault(PASS, sp);
+  const uebernommen = await uebernehme(v, ls, ["freedom.nsec", "freedom.fehlt"], () => unlock(PASS, sp));
+  assert.deepEqual(uebernommen, ["freedom.nsec"]);
+  assert.equal(ls.getItem("freedom.nsec"), null, "Klartext geloescht");
+  assert.equal(ls.getItem("freedom.lang"), "de", "nicht genannte Werte bleiben");
+  v.lock();
+  assert.equal((await unlock(PASS, sp)).get("freedom.nsec"), NSEC_HEX);
+  assert.ok(!sp.blob!.includes(NSEC_HEX));
+});
+
+test("Uebernahme: scheitert die Kontrolle, bleibt der Klartext stehen", async () => {
+  const sp = new SpeicherImRam();
+  const ls = new FakeStorage();
+  ls.setItem("freedom.nsec", NSEC_HEX);
+  const v = await createVault(PASS, sp);
+  // Kontrolle liest einen anderen Stand (z. B. Schreiben nicht angekommen)
+  const leer = new SpeicherImRam();
+  await createVault(PASS, leer);
+  await assert.rejects(uebernehme(v, ls, ["freedom.nsec"], () => unlock(PASS, leer)), /nicht bestätigt/);
+  assert.equal(ls.getItem("freedom.nsec"), NSEC_HEX, "Klartext bleibt, nichts geht verloren");
+  // Kontrolle wirft (z. B. Speicher nicht lesbar)
+  await assert.rejects(uebernehme(v, ls, ["freedom.nsec"], () => Promise.reject(new Error("weg"))), /weg/);
+  assert.equal(ls.getItem("freedom.nsec"), NSEC_HEX);
 });

@@ -20,7 +20,7 @@ vollständig fertig. Ausführlich: `docs/ausbau/UEBERSICHT.md`.
 |---|---|
 | `packages/protocol` | Protokollbausteine (TypeScript), Tests in `test/` |
 | `packages/node` | Provider-Knoten (TypeScript), Tests in `test/` |
-| `packages/app` | Web-App; `src/shell/app.ts` (Einstieg: `boot()`, `switchTab()`, Identität, Onboarding), `state.ts` (Zustand, Pools), `ui.ts` (Hilfsfunktionen), `datenschutz.ts` (Bericht), `tabs/` (je Tab ein Modul: `kommunikation.ts`, `agent.ts` + `agent-netz.ts`, `waehrung.ts`, `earn.ts`, `profil.ts`, `settings.ts`); Build → `dist/freedom.html` |
+| `packages/app` | Web-App; `src/shell/app.ts` (Einstieg: `boot()`, `switchTab()`, Identität, Onboarding), `state.ts` (Zustand, Pools), `ui.ts` (Hilfsfunktionen), `datenschutz.ts` (Bericht), `tresor.ts` (Tresor-Dialoge; Krypto in `src/vault.ts`), `tabs/` (je Tab ein Modul: `kommunikation.ts`, `agent.ts` + `agent-netz.ts`, `waehrung.ts`, `earn.ts`, `profil.ts`, `settings.ts`); Build → `dist/freedom.html` |
 | `packages/website` | Startseite, Whitepaper, FAQ, Roadmap, Dashboard |
 | `contracts/solana-htlc` | Anchor-Programm (Rust) für Swaps und Deposits |
 | `scripts/` | Build, Prüfungen, `smoke_test.py`, `check_innerhtml.py` |
@@ -41,9 +41,9 @@ python3 scripts/smoke_test.py packages/app/dist         # braucht playwright + c
 bash scripts/build-site.sh /tmp/site                     # Website bauen (Ziel wird gelöscht!)
 ```
 
-Stand 24.09.2026 (nach 1.2a): protocol 947 grün (5 übersprungen), node 161 grün
+Stand 24.09.2026 (nach 1.2b): protocol 947 grün (5 übersprungen), node 161 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 179 grün.
+in `tools.test.ts`), app 185 grün.
 
 ## Arbeitsweise
 
