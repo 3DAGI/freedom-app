@@ -316,3 +316,57 @@ export async function uebernehme(
   for (const k of gefunden) quelle.removeItem(k);
   return gefunden;
 }
+
+/** Was die App fuer Geheimnisse braucht – wie localStorage, Schreiben awaitbar. */
+export interface GeheimSpeicher {
+  getItem(key: string): string | null;
+  setItem(key: string, value: string): Promise<void>;
+  removeItem(key: string): Promise<void>;
+  keys(): string[];
+}
+
+/**
+ * Speicher fuer Geheimnisse (Schritt 1.2c): Ist ein Tresor eingerichtet, liest
+ * und schreibt er dort – sonst wie bisher in localStorage (Entscheidung zu 1.2:
+ * erst benutzen, dann einrichten). Ist der Tresor eingerichtet, aber (noch)
+ * nicht offen, wird nie auf localStorage ausgewichen: Lesen liefert nichts,
+ * Schreiben scheitert laut.
+ */
+export function geheimSpeicher(
+  tresor: () => Vault | null,
+  eingerichtet: () => boolean,
+  ls: Pick<Storage, "getItem" | "setItem" | "removeItem" | "key" | "length">,
+): GeheimSpeicher {
+  const offen = (): Vault => {
+    const v = tresor();
+    if (!v || v.locked) throw new Error("Tresor gesperrt");
+    return v;
+  };
+  return {
+    getItem(k) {
+      if (!eingerichtet()) return ls.getItem(k);
+      const v = tresor();
+      return v && !v.locked ? v.get(k) ?? null : null;
+    },
+    async setItem(k, wert) {
+      if (!eingerichtet()) { ls.setItem(k, wert); return; }
+      await offen().set(k, wert);
+    },
+    async removeItem(k) {
+      if (!eingerichtet()) { ls.removeItem(k); return; }
+      await offen().delete(k);
+    },
+    keys() {
+      if (eingerichtet()) {
+        const v = tresor();
+        return v && !v.locked ? v.keys() : [];
+      }
+      const out: string[] = [];
+      for (let i = 0; i < ls.length; i++) {
+        const k = ls.key(i);
+        if (k !== null) out.push(k);
+      }
+      return out;
+    },
+  };
+}

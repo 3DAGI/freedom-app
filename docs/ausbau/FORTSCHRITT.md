@@ -12,7 +12,7 @@ Pull Request eintragen.
 4. ~~**0.J** Event-Felder streng prüfen~~ – erledigt
 5. ~~**1.4** Verdrahtungsprüfung erweitern~~ – erledigt
 6. ~~**1.0** `app.ts` aufteilen~~ – Code fertig in fünf Teilen (a–e); offen nur MENSCH: alle Tabs anklicken, Desktop und Handy
-7. **1.2** in Arbeit (a Tresor-Baustein ✓, b Einrichten/Entsperren + Schlüssel ✓, c weitere Geheimnisse, d Sperre/Passkey), dann **1.3**, Rest von **1.5**
+7. **1.2** in Arbeit (a Tresor-Baustein ✓, b Einrichten/Entsperren + Schlüssel ✓, c weitere Geheimnisse ✓, d Sperre/Passkey), dann **1.3**, Rest von **1.5**
 8. **3.1** bis **3.4** – private KI-Aufträge, die größte offene Datenschutzlücke (braucht kein MLS)
 9. **2.4**, **2.5**, dann **2.2a** (Entscheidung), **2.2b**, **2.3**
 10. **4.0** (Entscheidung), dann Phase 4, Phase 5, 6, 7, 8, 9
@@ -36,7 +36,7 @@ jederzeit parallel erledigen.
 | 0.J | Event-Felder streng prüfen | fertig | [#6](https://github.com/3DAGI/freedom-app/pull/6) | Freigabe 24.09.; `verifyEvent()` prüft die Form nach NIP-01; dazu Hashlock-Prüfung im LP-Daemon |
 | 1.0 | app.ts aufteilen | Code fertig | [#8](https://github.com/3DAGI/freedom-app/pull/8) (a), [#9](https://github.com/3DAGI/freedom-app/pull/9) (b), [#10](https://github.com/3DAGI/freedom-app/pull/10) (c), [#11](https://github.com/3DAGI/freedom-app/pull/11) (d), #12 (e) | `app.ts` 5.816 → 792 Zeilen; `state.ts`, `ui.ts`, `datenschutz.ts`, `tabs/` (kommunikation, agent, agent-netz, waehrung, earn, profil, settings); größte Datei `agent.ts` 1.376 Zeilen; MENSCH: alle Tabs anklicken, Desktop und Handy |
 | 1.1 | Ein Seed, getrennte Schlüssel (SLIP-10) | fertig |  | Baustein; MENSCH: Phantom-Abgleich; Verdrahtung mit 4.2 |
-| 1.2 | Verschlüsselter Speicher | in Arbeit | [#13](https://github.com/3DAGI/freedom-app/pull/13) (a), #14 (b) | a: `vault.ts` (AES-GCM 256, PBKDF2-SHA256 600.000, IndexedDB); b: verdrahtet – Entscheidung „erst benutzen, dann einrichten“ (24.09.), Sicherheitsliste Schritt 5 + Führung, Entsperren beim Start, „Passphrase vergessen“, `freedom.nsec` geprüft übernommen, Smoke-Test mit Speicher-Scan; c–d folgen; MENSCH: Handy/Desktop |
+| 1.2 | Verschlüsselter Speicher | in Arbeit | [#13](https://github.com/3DAGI/freedom-app/pull/13) (a), [#14](https://github.com/3DAGI/freedom-app/pull/14) (b), #15 (c) | a: `vault.ts` (AES-GCM 256, PBKDF2-SHA256 600.000, IndexedDB); b: verdrahtet – Entscheidung „erst benutzen, dann einrichten“ (24.09.), Sicherheitsliste Schritt 5 + Führung, Entsperren beim Start, „Passphrase vergessen“, `freedom.nsec` geprüft übernommen, Smoke-Test mit Speicher-Scan; c: NWC, Preimages (Swap, Deposit), Chats, Verläufe im Tresor, Tresor-Pflicht vor Wallet/Swap/Deposit; d folgt; MENSCH: Handy/Desktop |
 | 1.3 | Signer-Schnittstelle | offen |  |  |
 | 1.4 | Verdrahtungsprüfung erweitern | fertig | [#7](https://github.com/3DAGI/freedom-app/pull/7), [#8](https://github.com/3DAGI/freedom-app/pull/8) | alle Exporte, Erreichbarkeit aus App/Knoten; Nachtrag in #8: Regex-Literale; 176 von 427 nicht verdrahtet, begründet in `scripts/wiring-ausnahmen.txt` |
 | 1.5 | Leak-Tests | teilweise |  | Regeln + Fakten + DM-Szenarien fertig; App-Szenarien offen |

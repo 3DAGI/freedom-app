@@ -16,6 +16,7 @@ import {
 } from "@freedomstack/protocol";
 import { escapeHtml, pkShort } from "../../shell-logic.js";
 import { KIND_SWAP_REQUEST, KIND_SWAP_RESPONSE, ensurePool, solRpcUrl, state } from "../state.js";
+import { geheim, verlangeTresor } from "../tresor.js";
 import { $, toast, updateSidebarBalances } from "../ui.js";
 import { updateBudgetBar } from "./agent.js";
 
@@ -31,7 +32,7 @@ export async function loadWallet(): Promise<void> {
     if (hintEl) hintEl.textContent = caps.note;
   } catch { /* Hinweis ist optional */ }
 
-  if (!nwc && localStorage.getItem(NWC_KEY)) {
+  if (!nwc && geheim.getItem(NWC_KEY)) {
     // Gespeicherte Verbindung still wiederherstellen — der Nutzer soll die URI
     // nicht bei jedem Laden neu einfuegen muessen.
     void connectNwc(undefined, true);
@@ -85,6 +86,13 @@ export async function loadWallet(): Promise<void> {
   }
 }
 
+/** swap-client laden und seine Preimage-Ablage auf den Geheimspeicher setzen. */
+async function swapClient(): Promise<typeof import("../../swap-client.js")> {
+  const m = await import("../../swap-client.js");
+  m.setzeSwapSpeicher(geheim);
+  return m;
+}
+
 async function startSwap(lpPubkey: string, offerId: string): Promise<void> {
   if (!state.keypair) return;
   const amountStr = prompt("Betrag in sats:");
@@ -93,7 +101,7 @@ async function startSwap(lpPubkey: string, offerId: string): Promise<void> {
   // Adressverlauf: Die Kette ist der Abfluss, gegen den weder Tor noch
   // Verschluesselung hilft. Deshalb VOR dem Swap pruefen, nicht danach
   // berichten.
-  const verlauf = JSON.parse(localStorage.getItem("freedom.swapHistory") ?? "[]") as {
+  const verlauf = JSON.parse(geheim.getItem("freedom.swapHistory") ?? "[]") as {
     address: string; uses: number; firstUsed: number; lastUsed: number;
   }[];
   const letzter = verlauf.length > 0 ? Math.max(...verlauf.map((v) => v.lastUsed)) : undefined;
@@ -125,6 +133,8 @@ async function startSwap(lpPubkey: string, offerId: string): Promise<void> {
     `(${addressFingerprint(frisch)}…). Deine Merkphrase bringt sie zurueck.`,
   );
   if (!solAddr) return;
+  // Adressverlauf und Preimage sind Geheimnisse – vor dem Speichern der Tresor.
+  if (!(await verlangeTresor("den Tausch"))) return;
 
   // Benutzung mitschreiben, damit die naechste Pruefung etwas weiss.
   const vorhanden = verlauf.find((v) => v.address === solAddr);
@@ -135,7 +145,7 @@ async function startSwap(lpPubkey: string, offerId: string): Promise<void> {
   } else {
     verlauf.push({ address: solAddr, uses: 1, firstUsed: jetzt, lastUsed: jetzt });
   }
-  localStorage.setItem("freedom.swapHistory", JSON.stringify(verlauf));
+  await geheim.setItem("freedom.swapHistory", JSON.stringify(verlauf));
 
   try {
     const pool = await ensurePool();
@@ -143,8 +153,8 @@ async function startSwap(lpPubkey: string, offerId: string): Promise<void> {
     const H = hashlock(preimage);
     // Frueher sessionStorage: beim Schliessen des Tabs weg — und mit dem
     // Preimage der Zugriff auf das Geld. Jetzt dauerhaft, mit Exportmoeglichkeit.
-    const { saveSwapSecret } = await import("../../swap-client.js");
-    saveSwapSecret({
+    const { saveSwapSecret } = await swapClient();
+    await saveSwapSecret({
       hashlockHex: toHex(H),
       preimageHex: toHex(preimage),
       solAddress: solAddr,
@@ -298,7 +308,7 @@ export async function claimActiveSwap(): Promise<void> {
   }
   try {
     const { loadSwapSecret, claimSwap, preimageFits, forgetSwapSecret } =
-      await import("../../swap-client.js");
+      await swapClient();
     const secret = loadSwapSecret(activeSwap.hashlockHex);
     if (!secret || !preimageFits(secret.preimageHex, activeSwap.hashlockHex)) {
       statusEl.textContent =
@@ -325,7 +335,8 @@ export async function claimActiveSwap(): Promise<void> {
       `<strong>Eingeloest.</strong> Die SOL sind auf deiner Adresse.<br>`
       + `<span class="mono-sm">tx ${escapeHtml(r.signature.slice(0, 16))}…</span>`;
     statusEl.className = "mono-sm ok";
-    forgetSwapSecret(activeSwap.hashlockHex);
+    // Aufraeumen darf ein gelungenes Einloesen nicht als Fehler melden.
+    await forgetSwapSecret(activeSwap.hashlockHex).catch(() => undefined);
     activeSwap = null;
     $("#swap-claim").classList.add("hidden");
     updateSidebarBalances();
@@ -337,7 +348,7 @@ export async function claimActiveSwap(): Promise<void> {
 
 /** Sicherung aller offenen Preimages herunterladen. */
 export async function exportSwapBackup(): Promise<void> {
-  const { exportSwapSecrets } = await import("../../swap-client.js");
+  const { exportSwapSecrets } = await swapClient();
   const blob = new Blob([exportSwapSecrets()], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -426,7 +437,8 @@ const NWC_KEY = "freedom.nwc.uri";
 export async function connectNwc(uri?: string, silent = false): Promise<void> {
   const statusEl = $("#nwc-status");
   const input = $("#nwc-uri") as HTMLInputElement | null;
-  const raw = (uri ?? input?.value ?? "").trim() || localStorage.getItem(NWC_KEY) || "";
+  const gespeichert = geheim.getItem(NWC_KEY);
+  const raw = (uri ?? input?.value ?? "").trim() || gespeichert || "";
   if (!raw) {
     if (!silent) {
       statusEl.textContent = "Verbindungs-URI aus der Wallet einfuegen (Alby Hub, Coinos, Mutiny …).";
@@ -439,6 +451,13 @@ export async function connectNwc(uri?: string, silent = false): Promise<void> {
     const { parseNwcUri, NwcClient, redactNwcUri, WebSocketRelay, OutboxPool } =
       await import("@freedomstack/protocol");
     const conn = parseNwcUri(raw);
+
+    // Eine NEUE Wallet-Verbindung ist ein Geld-Geheimnis – erst der Tresor.
+    if (raw !== gespeichert && !(await verlangeTresor("die Wallet-Verbindung (NWC)"))) {
+      statusEl.textContent = "Nicht verbunden: Die Verbindung wird nur im Tresor gespeichert.";
+      statusEl.className = "mono-sm warn";
+      return;
+    }
 
     // Eigener Pool auf den Relays DER WALLET — die muessen nicht dieselben
     // sein wie die des Protokolls, sonst findet das Wallet uns nicht.
@@ -456,7 +475,7 @@ export async function connectNwc(uri?: string, silent = false): Promise<void> {
     nwc = client;
     // Das Secret liegt lokal wie der Nostr-Key auch. Es ist eine im Wallet
     // widerrufbare, budgetierbare Vollmacht — kein Kontozugang.
-    localStorage.setItem(NWC_KEY, raw);
+    await geheim.setItem(NWC_KEY, raw);
     if (input) input.value = redactNwcUri(raw);
 
     $("#ln-balance").innerHTML = `${Math.floor(balance / 1000).toLocaleString()} <small>sats</small>`;
@@ -473,7 +492,7 @@ export async function connectNwc(uri?: string, silent = false): Promise<void> {
 
 export function disconnectNwc(): void {
   nwc = null;
-  localStorage.removeItem(NWC_KEY);
+  void geheim.removeItem(NWC_KEY).catch((e) => toast(`nicht gelöscht: ${(e as Error).message}`, true));
   const input = $("#nwc-uri") as HTMLInputElement | null;
   if (input) input.value = "";
   $("#ln-balance").innerHTML = `— <small>sats</small>`;
@@ -521,6 +540,8 @@ export async function startDeposit(): Promise<void> {
     statusEl.className = "mono-sm warn";
     return;
   }
+  // Das Preimage des Deposits ist ein Geld-Geheimnis – vor dem Sperren der Tresor.
+  if (!(await verlangeTresor("das Deposit"))) return;
 
   const totalLamports = Math.floor(amountSol * 1e9);
   // Zwei-HTLC-Muster: 40% Verbrauch (Provider), 60% Rest (User, refundbar)
@@ -578,7 +599,7 @@ export async function startDeposit(): Promise<void> {
     // kommen. Frueher lag es in sessionStorage und war beim Schliessen des Tabs
     // weg. localStorage ueberlebt wenigstens einen Neustart — dauerhaft sicher
     // ist nur eine Sicherung durch den Nutzer, deshalb wird sie eingefordert.
-    localStorage.setItem(`freedom.htlc.${sessionId}`, JSON.stringify({
+    await geheim.setItem(`freedom.htlc.${sessionId}`, JSON.stringify({
       preimageHex: lock.preimageHex,
       hashlockHex: lock.hashlockHex,
       spendSwapId, refundSwapId, timelockUnix: Math.floor(Date.now() / 1000) + 7200,
@@ -635,7 +656,7 @@ export async function refundDeposit(): Promise<void> {
 
   // Erwartungshaltung geradeziehen, BEVOR die Wallet aufgeht: Was der Provider
   // bereits eingeloest hat, ist bezahlter Verbrauch und kommt nicht zurueck.
-  const stored = localStorage.getItem(`freedom.htlc.${activeDeposit.sessionId}`);
+  const stored = geheim.getItem(`freedom.htlc.${activeDeposit.sessionId}`);
   const meta = stored ? (JSON.parse(stored) as { timelockUnix: number }) : null;
   const now = Math.floor(Date.now() / 1000);
   if (meta && now < meta.timelockUnix) {
@@ -666,7 +687,7 @@ export async function refundDeposit(): Promise<void> {
         `<strong>Zurueckgeholt.</strong> ${res.refunded.length} HTLC(s) freigegeben.<br>`
         + `<span class="mono-sm">tx ${escapeHtml((res.signature ?? "").slice(0, 16))}…</span>`;
       statusEl.className = "mono-sm ok";
-      localStorage.removeItem(`freedom.htlc.${activeDeposit.sessionId}`);
+      await geheim.removeItem(`freedom.htlc.${activeDeposit.sessionId}`).catch(() => undefined);
       activeDeposit = null;
       ($("#dep-refund") as HTMLButtonElement).classList.add("hidden");
     } else {

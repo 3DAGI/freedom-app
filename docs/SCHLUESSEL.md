@@ -21,10 +21,16 @@ dann als Erwartungswert in `test/derivation.test.ts` eintragen.
 
 ## Aufbewahrung auf dem Gerät (Schritt 1.2)
 
-| Zustand | Wo der Nostr-Schlüssel liegt |
+| Zustand | Wo die Geheimnisse liegen |
 |---|---|
-| ohne Tresor | `localStorage` (`freedom.nsec`), unverschlüsselt – wie bisher |
+| ohne Tresor | `localStorage`, unverschlüsselt – wie bisher |
 | mit Tresor | IndexedDB `freedom-vault`, AES-GCM 256; Schlüssel aus der Passphrase per PBKDF2-SHA256 mit 600.000 Iterationen (`packages/app/src/vault.ts`) |
+
+Im Tresor liegen: der Nostr-Schlüssel (`freedom.nsec`), die Wallet-Verbindung
+(`freedom.nwc.uri`), die Preimages von Swaps (`freedom.swap.*`) und Deposits
+(`freedom.htlc.*`), Unterhaltungen (`freedom.chats`), der Agent-Verlauf und der
+Swap-Adressverlauf. Wer eine Wallet verbindet oder einen Swap bzw. ein Deposit
+startet, richtet den Tresor vorher ein.
 
 Den Tresor richtet man nach der ersten Nutzung ein (Settings → Sicherheit,
 Schritt 5, oder über die Führung); danach fragt die App bei jedem Start nach der

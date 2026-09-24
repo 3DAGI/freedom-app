@@ -41,9 +41,9 @@ python3 scripts/smoke_test.py packages/app/dist         # braucht playwright + c
 bash scripts/build-site.sh /tmp/site                     # Website bauen (Ziel wird gelöscht!)
 ```
 
-Stand 24.09.2026 (nach 1.2b): protocol 947 grün (5 übersprungen), node 161 grün
+Stand 24.09.2026 (nach 1.2c): protocol 947 grün (5 übersprungen), node 161 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 185 grün.
+in `tools.test.ts`), app 189 grün.
 
 ## Arbeitsweise
 
@@ -112,5 +112,9 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   Test rot, sobald dazwischen die Sekunde umspringt – so war
   `sol-deposit-job.test.ts` bis Schritt 0.H instabil. Ein roter Test gilt seitdem
   nie als Zufall.
+- **Geheimnisse nur über `geheim`** (`shell/tresor.ts`): Schlüssel, Wallet-Zugänge,
+  Preimages, Unterhaltungen und Verläufe nie direkt in `localStorage` schreiben –
+  mit Tresor landen sie sonst im Klartext. Vor neuen Geld-Geheimnissen
+  `verlangeTresor()`. Neue Schlüsselnamen auch in `geheimnisse()` eintragen.
 - **Solana-RPC:** Die App spricht standardmäßig Mainnet an; für Devnet-Tests in
   den Settings `https://api.devnet.solana.com` eintragen.

@@ -22,6 +22,8 @@ import {
   listSwapSecrets,
   forgetSwapSecret,
   exportSwapSecrets,
+  setzeSwapSpeicher,
+  swapSecretKeys,
   OnChainLock,
   SwapState,
 } from "../src/swap-client.js";
@@ -218,7 +220,7 @@ test("Preimage: Zugehoerigkeit wird geprueft", () => {
   assert.equal(preimageFits("keinhex", "auchnicht"), false);
 });
 
-test("Preimage-Ablage: ueberlebt (anders als sessionStorage vorher)", () => {
+test("Preimage-Ablage: ueberlebt (anders als sessionStorage vorher)", async () => {
   const store = new Map<string, string>();
   (globalThis as { localStorage?: unknown }).localStorage = {
     setItem: (k: string, v: string) => store.set(k, v),
@@ -232,7 +234,7 @@ test("Preimage-Ablage: ueberlebt (anders als sessionStorage vorher)", () => {
     hashlockHex: bytesToHex(HASH), preimageHex: bytesToHex(PREIMAGE),
     solAddress: KUNDE, amountSats: 5000, createdAt: NOW,
   };
-  saveSwapSecret(s);
+  await saveSwapSecret(s);
   assert.deepEqual(loadSwapSecret(s.hashlockHex), s);
   assert.equal(listSwapSecrets().length, 1);
 
@@ -241,9 +243,52 @@ test("Preimage-Ablage: ueberlebt (anders als sessionStorage vorher)", () => {
   assert.match(exportiert, /Sicher aufbewahren/);
   assert.ok(exportiert.includes(s.preimageHex));
 
-  forgetSwapSecret(s.hashlockHex);
+  await forgetSwapSecret(s.hashlockHex);
   assert.equal(loadSwapSecret(s.hashlockHex), null);
   delete (globalThis as { localStorage?: unknown }).localStorage;
+});
+
+test("Preimage-Ablage: mit eingesetztem Speicher (Tresor) landet nichts in localStorage", async () => {
+  const lokal = new Map<string, string>();
+  (globalThis as { localStorage?: unknown }).localStorage = {
+    setItem: (k: string, v: string) => lokal.set(k, v),
+    getItem: (k: string) => lokal.get(k) ?? null,
+    removeItem: (k: string) => lokal.delete(k),
+    get length() { return lokal.size; },
+    key: (i: number) => [...lokal.keys()][i] ?? null,
+  };
+  const tresor = new Map<string, string>([["freedom.nsec", "anderes"]]);
+  let geschrieben = 0;
+  setzeSwapSpeicher({
+    getItem: (k) => tresor.get(k) ?? null,
+    setItem: async (k, v) => { await Promise.resolve(); tresor.set(k, v); geschrieben++; },
+    removeItem: async (k) => { tresor.delete(k); },
+    keys: () => [...tresor.keys()],
+  });
+  try {
+    const s = {
+      hashlockHex: bytesToHex(HASH), preimageHex: bytesToHex(PREIMAGE),
+      solAddress: KUNDE, amountSats: 5000, createdAt: NOW,
+    };
+    await saveSwapSecret(s);
+    assert.equal(geschrieben, 1, "erst nach dem Schreiben kehrt save zurueck");
+    assert.deepEqual(loadSwapSecret(s.hashlockHex), s);
+    assert.deepEqual(listSwapSecrets(), [s], "andere Tresor-Eintraege stoeren nicht");
+    assert.equal(lokal.size, 0, "kein Preimage in localStorage");
+    assert.deepEqual(swapSecretKeys([...tresor.keys()]), [`freedom.swap.${s.hashlockHex}`]);
+    assert.deepEqual(swapSecretKeys(["freedom.swapHistory", "freedom.nsec"]), [], "Verlauf ist kein Preimage");
+    await forgetSwapSecret(s.hashlockHex);
+    assert.equal(loadSwapSecret(s.hashlockHex), null);
+  } finally {
+    // Standard wiederherstellen (wie in swap-client.ts)
+    setzeSwapSpeicher({
+      getItem: (k) => localStorage.getItem(k), setItem: (k, v) => localStorage.setItem(k, v),
+      removeItem: (k) => localStorage.removeItem(k),
+      keys: () => Array.from({ length: localStorage.length }, (_, i) => localStorage.key(i))
+        .filter((k): k is string => k !== null),
+    });
+    delete (globalThis as { localStorage?: unknown }).localStorage;
+  }
 });
 
 // ------------------------------------------------------------- Ablauf
