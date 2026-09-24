@@ -14,6 +14,8 @@ Prueft im Headless-Chromium:
     neu laden, falsche und richtige Passphrase, Chat und Verlauf sind wieder da;
     „Passphrase vergessen“ ueber die 12 Woerter – die Identitaet bleibt dieselbe
   - Tresor-Pflicht: eine neue Wallet-Verbindung ohne Tresor wird nicht gespeichert
+  - Automatische Sperre (gesteuerte Uhr): nach 16 Minuten ohne Eingabe gesperrt,
+    nach 14 noch nicht; nicht waehrend eines laufenden Auftrags; 0 = nie
 
 Verbindungsfehler zu Relays werden ignoriert (hängen vom Netz ab).
 
@@ -21,7 +23,7 @@ Aufruf:  python3 agent/werkzeuge/smoke_test.py packages/app/dist
 Voraussetzung: pip install playwright && python3 -m playwright install chromium
 Exit-Code 0 = bestanden, 1 = durchgefallen.
 """
-import functools, http.server, json, socket, sys, threading
+import datetime, functools, http.server, json, socket, sys, threading
 
 # Verlauf mit HTML im Modellnamen und in meta – beides kam frueher roh ins HTML.
 PROBE_VERLAUF = [{"id": "probe", "title": "Probe", "at": 1790000000, "messages": [
@@ -144,6 +146,70 @@ def tresor_pruefen(browser, url: str) -> dict:
     return erg
 
 
+def sperre_pruefen(browser, url: str) -> dict:
+    """Automatische Sperre mit gesteuerter Uhr – ohne 15 Minuten zu warten."""
+    erg = {"fehler": []}
+    ctx = browser.new_context()
+    basis = url.rsplit("/", 1)[0]
+    ctx.route("**/*", lambda r: r.continue_() if r.request.url.startswith(basis) else r.abort())
+    s = ctx.new_page()
+    s.on("pageerror", lambda e: erg["fehler"].append(str(e)[:300]))
+    ev = s.evaluate
+    s.clock.install()
+
+    def warte(bedingung: str) -> None:
+        try:
+            s.wait_for_function(bedingung, timeout=30000)
+        except Exception as e:
+            raise RuntimeError(f"wartet vergeblich auf {bedingung}") from e
+
+    def entsperre() -> None:
+        ev("() => { document.getElementById('tr-pass').value = 'smoke sperre 1';"
+           " document.getElementById('tr-ok').click(); }")
+        warte("() => !document.getElementById('tr-pass')")
+        s.wait_for_timeout(1000)
+
+    offen = "() => !document.getElementById('tr-pass')"
+
+    def laufe(dauer: str) -> None:
+        s.clock.fast_forward(dauer)
+        s.wait_for_timeout(300)
+
+    s.goto(url, wait_until="load")
+    s.wait_for_timeout(2500)
+    ev("() => document.querySelector('.modal-backdrop')?.remove()")
+    ev("() => document.querySelector('.app-nav button[data-tab=\"settings\"]').click()")
+    ev("() => document.querySelector('.sec-action[data-step=\"4\"]').click()")
+    ev("() => { document.getElementById('tr-neu1').value = 'smoke sperre 1';"
+       " document.getElementById('tr-neu2').value = 'smoke sperre 1'; document.getElementById('tr-ok').click(); }")
+    warte("() => !document.getElementById('tr-ok')")
+    # Uhr anhalten: Laeuft sie natuerlich weiter, kann Playwright einen
+    # fast_forward wieder verlieren (gemessen: Date.now() stand danach wieder
+    # beim Ausgangswert). Angehalten bewegt sie sich nur durch die Spruenge hier.
+    # pause_at: eine Zahl liest die Python-API als Sekunden – deshalb datetime.
+    jetzt_ms = ev("() => Date.now()")
+    s.clock.pause_at(datetime.datetime.fromtimestamp((jetzt_ms + 1000) / 1000, tz=datetime.timezone.utc))
+    laufe("14:00")
+    erg["nach_14_min_offen"] = ev(offen)
+    laufe("02:00")
+    warte("() => !!document.getElementById('tr-pass')")
+    erg["nach_16_min_gesperrt"] = True
+    entsperre()
+    ev("() => { document.getElementById('ai-send').dataset.running = '1'; }")
+    laufe("40:00")
+    erg["auftrag_laeuft_offen"] = ev(offen)
+    ev("() => { document.getElementById('ai-send').dataset.running = ''; }")
+    ev("() => document.querySelector('.app-nav button[data-tab=\"settings\"]').click()")
+    ev("() => { const f = document.getElementById('tresor-sperre'); f.value = '0';"
+       " f.dispatchEvent(new Event('change')); }")
+    laufe("03:00:00")
+    erg["null_heisst_nie"] = ev(offen)
+    ctx.close()
+    erg["bestanden"] = (not erg["fehler"] and all(v is True for k, v in erg.items()
+                                                   if k not in ("fehler", "bestanden")))
+    return erg
+
+
 def main() -> int:
     dist = Path(sys.argv[1] if len(sys.argv) > 1 else "packages/app/dist").resolve()
     datei = dist / "freedom.html"
@@ -194,6 +260,10 @@ def main() -> int:
                 erg["tresor"] = tresor_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
             except Exception as e:  # Zeitueberschreitung = durchgefallen, nicht abgestuerzt
                 erg["tresor"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
+            try:
+                erg["sperre"] = sperre_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
+            except Exception as e:
+                erg["sperre"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
             browser.close()
     finally:
         srv.shutdown()
@@ -201,7 +271,8 @@ def main() -> int:
     ok = (erg.get("booted") == "object" and not erg["pageerrors"]
           and erg.get("csp_gesetzt") and erg.get("xss_ausgefuehrt") is False
           and erg.get("fremd_als_text") is True
-          and erg.get("tresor", {}).get("bestanden") is True)
+          and erg.get("tresor", {}).get("bestanden") is True
+          and erg.get("sperre", {}).get("bestanden") is True)
     erg["bestanden"] = bool(ok)
     print(json.dumps(erg, indent=1, ensure_ascii=False))
     return 0 if ok else 1

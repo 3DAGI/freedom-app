@@ -41,9 +41,9 @@ python3 scripts/smoke_test.py packages/app/dist         # braucht playwright + c
 bash scripts/build-site.sh /tmp/site                     # Website bauen (Ziel wird gelöscht!)
 ```
 
-Stand 24.09.2026 (nach 1.2c): protocol 947 grün (5 übersprungen), node 161 grün
+Stand 24.09.2026 (nach 1.2): protocol 947 grün (5 übersprungen), node 161 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 189 grün.
+in `tools.test.ts`), app 192 grün.
 
 ## Arbeitsweise
 
@@ -116,5 +116,8 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   Preimages, Unterhaltungen und Verläufe nie direkt in `localStorage` schreiben –
   mit Tresor landen sie sonst im Klartext. Vor neuen Geld-Geheimnissen
   `verlangeTresor()`. Neue Schlüsselnamen auch in `geheimnisse()` eintragen.
+- **Uhr im Smoke-Test:** Playwrights frei laufende Uhr kann einen `fast_forward`
+  verlieren; vorher `clock.pause_at(...)`. In Python liest `pause_at` eine Zahl als
+  Sekunden – ein `datetime` übergeben.
 - **Solana-RPC:** Die App spricht standardmäßig Mainnet an; für Devnet-Tests in
   den Settings `https://api.devnet.solana.com` eintragen.

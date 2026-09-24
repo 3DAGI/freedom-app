@@ -370,3 +370,28 @@ export function geheimSpeicher(
     },
   };
 }
+
+export const SPERRE_STANDARD_MIN = 15;
+
+/** Einstellung lesen: Minuten bis zur Sperre, 0 = nie, sonst der Standard. */
+export function sperrMinuten(roh: string | null): number {
+  if (roh === null || roh.trim() === "") return SPERRE_STANDARD_MIN;
+  const n = Number(roh);
+  return Number.isFinite(n) && n >= 0 && n <= 1440 ? Math.floor(n) : SPERRE_STANDARD_MIN;
+}
+
+/**
+ * Automatische Sperre (Karte 1.2, Schritt 3): Ist es Zeit? Nie waehrend eines
+ * laufenden Tauschs, Deposits oder Auftrags – mitten hinein zu sperren koennte
+ * Geld festhalten.
+ */
+export function sollSperren(z: {
+  jetzt: number;
+  letzteEingabe: number;
+  minuten: number;
+  offen: boolean;
+  beschaeftigt: boolean;
+}): boolean {
+  if (!z.offen || z.minuten <= 0 || z.beschaeftigt) return false;
+  return z.jetzt - z.letzteEingabe >= z.minuten * 60_000;
+}

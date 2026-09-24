@@ -8,7 +8,7 @@ import { DEFAULT_CLIENT_FEE_PERCENT, MAX_CLIENT_FEE_PERCENT } from "@freedomstac
 import { escapeHtml } from "../../shell-logic.js";
 import { zeigeDatenschutz } from "../datenschutz.js";
 import { ensurePool, state } from "../state.js";
-import { tresorEingerichtet } from "../tresor.js";
+import { tresorEingerichtet, wireTresorKarte } from "../tresor.js";
 import { $, ganzeZahl, toast } from "../ui.js";
 import { ladeAbdeckung, trageAbdeckungEin } from "./earn.js";
 
@@ -588,6 +588,7 @@ export async function aktualisiereSicherheitsStand(): Promise<void> {
   document.querySelectorAll<HTMLElement>(".sec-progress span").forEach((s, i) => {
     s.classList.toggle("on", i < erledigt);
   });
+  wireTresorKarte();
 }
 
 /**

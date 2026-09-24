@@ -2172,3 +2172,47 @@ Pflichtprüfung. Klicktests unverändert gleich der veröffentlichten Fassung.
 Endstand: protocol 947 grün (5 übersprungen) · node 161 grün (6 übersprungen) ·
 app 189 grün (+4) · 0 rot · check-wiring `--streng` 0 offen · innerHTML streng
 0 unbewertet · Smoke-Test bestanden (Tresor mit allen Geheimnissen, Pflicht vor NWC).
+
+## 55. Tresor, Teil d: automatische Sperre – 1.2 Code fertig (Schritt 1.2)
+
+**Automatische Sperre** (Karte 1.2, Schritt 3): nach 15 Minuten ohne Eingabe
+(Tippen, Klicken, Scrollen, Berühren), einstellbar unter Settings → Sicherheit →
+Tresor (0 = nie), dazu „jetzt sperren“. Gesperrt wird durch Neuladen – das
+räumt jeden entschlüsselten Wert aus dem Speicher der Seite, danach fragt der
+Start wieder nach der Passphrase. Nie gesperrt wird, während ein Tausch, ein
+Deposit (`geldVorgangLaeuft()`, neu in `waehrung.ts`) oder ein KI-Auftrag läuft
+– mitten hinein zu sperren könnte Geld festhalten. Die Entscheidung steckt in
+der reinen Funktion `sollSperren()` (`vault.ts`), die Einstellung liest
+`sperrMinuten()`; die Karte in den Settings ist nur mit Tresor sichtbar.
+
+**Tests:** app 189 → 192 – Schwelle (15 min − 1 ms offen, 15 min gesperrt),
+0 = nie, gesperrt bleibt gesperrt, laufender Geldvorgang, Einstellung mit
+Unsinn. **Smoke-Test** mit gesteuerter Uhr: nach 14 Minuten offen, nach 16
+gesperrt, während eines Auftrags auch nach 40 Minuten offen, mit 0 auch nach 3
+Stunden offen. Gegenprobe: ohne `starteAutoSperre()` fällt der Smoke-Test durch.
+
+**Instabilität im Test – Ursache gefunden, nicht weggewiesen:** Der erste
+Entwurf fiel in etwa einem von fünf vollen Smoke-Läufen durch. Messung im
+Fehlerfall: `Date.now()` stand 300 ms nach `fast_forward("14:00")` wieder beim
+Ausgangswert – Playwrights frei laufende Uhr hatte den Sprung verloren. Mehr
+Wartezeit änderte nichts (widerlegte Vermutung „verpasster Takt“). Abhilfe: Uhr
+nach dem Einrichten anhalten (`pause_at`). Dabei zweiter Fund: Die Python-API
+liest eine Zahl als Sekunden (die Uhr sprang Jahrtausende vor und sperrte schon
+nach 14 Minuten) – jetzt mit `datetime`. Danach 10 von 10 vollen Läufen grün.
+Beides steht als Fallstrick in `CLAUDE.md`.
+
+**Passkey (Karte 1.2, Schritt 2, optional):** zurückgestellt. Er bräuchte
+Schlüssel-Umhüllung (zweiter Weg zum selben Datenschlüssel) und damit ein neues
+Tresor-Format; Headless-Tests mit PRF sind aufwendig. Nichts in App oder Texten
+behauptet einen Passkey.
+
+**1.2 insgesamt (Code fertig):** Tresor mit AES-GCM 256 und PBKDF2-SHA256
+600.000; alle Geheimnisse der Karten-Suche liegen mit Tresor nur verschlüsselt
+in IndexedDB; Einrichten nach der ersten Nutzung (Entscheidung), Entsperren beim
+Start, „Passphrase vergessen“ über die 12 Wörter, Pflicht vor Geld-Geheimnissen,
+automatische Sperre. Offen (MENSCH): Entsperren auf Handy und Desktop, „vergessen“
+mit echten 12 Wörtern, Swap und Deposit einmal auf Devnet.
+
+Endstand: protocol 947 grün (5 übersprungen) · node 161 grün (6 übersprungen) ·
+app 192 grün (+3) · 0 rot · check-wiring `--streng` 0 offen · innerHTML streng
+0 unbewertet · Smoke-Test 10/10 bestanden (Tresor, Pflicht, Sperre).

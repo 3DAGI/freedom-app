@@ -519,6 +519,11 @@ async function payInvoiceAnyDevice(bolt11: string): Promise<{ preimage: string }
 /** Aktive Deposit-Session (RAM). */
 let activeDeposit: { sessionId: string; spendSwapId: string; refundSwapId: string } | null = null;
 
+/** Laeuft gerade ein Tausch oder ein Deposit? Dann sperrt der Tresor nicht (1.2d). */
+export function geldVorgangLaeuft(): boolean {
+  return activeSwap !== null || activeDeposit !== null;
+}
+
 export async function startDeposit(): Promise<void> {
   if (!state.keypair) return;
   const statusEl = $("#dep-status");
