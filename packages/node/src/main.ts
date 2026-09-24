@@ -139,6 +139,9 @@ async function main(): Promise<void> {
     : relayUrls.map((url) => new WebSocketRelay(url));
   const pool = new OutboxPool(relays, { minAcks: useMemory ? 1 : Math.min(2, relays.length) });
 
+  // Rechenarbeit fuer private Anfragen (3.1) – steht im Angebot. Ueber 24 rechnet
+  // ein Handy Minuten; die App wiese solche Angebote ab.
+  const privatePowBits = Math.min(24, Math.max(0, Math.floor(Number(process.env.PRIVATE_POW_BITS ?? DEFAULT_PROVIDER_CONFIG.privatePowBits))));
   const provider = new DvmProvider(
     {
       keypair,
@@ -146,6 +149,7 @@ async function main(): Promise<void> {
       pricePerKTokenMsat: Number(process.env.PRICE_PER_K_TOKEN_MSAT ?? DEFAULT_PROVIDER_CONFIG.pricePerKTokenMsat),
       minBidMsat: Number(process.env.MIN_BID_MSAT ?? DEFAULT_PROVIDER_CONFIG.minBidMsat),
       powDifficulty: Number(process.env.POW_DIFFICULTY ?? DEFAULT_PROVIDER_CONFIG.powDifficulty),
+      privatePowBits,
       seasonId: process.env.SEASON_ID ?? DEFAULT_PROVIDER_CONFIG.seasonId,
       // Ohne beides werden SOL-Deposits abgelehnt — ungeprueft akzeptieren
       // hiesse, dem Kunden die Pruefung seiner eigenen Zahlung zu ueberlassen.
@@ -341,8 +345,10 @@ async function main(): Promise<void> {
   // 1-Klick-Einstieg: Capabilities publizieren (Tier aus Modell, Default-Preise).
   // MoA: PROVIDER_MODELS = kommaseparierte liste (z.B. "nemotron-3.5-lightning,qwen3.5:27b").
   // Der provider bietet ALLE an — der user waehlt, oder der provider routet.
-  {
-    const { buildCapabilities, defaultPriceFor, DEFAULT_TOOL_PRICES } = await import("@freedomstack/protocol");
+  // Beim Start und beim Erneuern gleich gebaut: frueher fehlten beim Erneuern
+  // Speicherangabe und (seit 3.1) die Rechenarbeit fuer private Anfragen.
+  const baueAngebot = async () => {
+    const { buildCapabilities, defaultPriceFor, DEFAULT_TOOL_PRICES, signEvent } = await import("@freedomstack/protocol");
     const modelsEnv = process.env.PROVIDER_MODELS ?? process.env.OLLAMA_MODEL ?? "nemotron-3.5-lightning:30b-a3b-nvfp4";
     const models = modelsEnv.split(",").map((m) => m.trim()).filter(Boolean);
     const model = models[0]; // primaer
@@ -360,10 +366,14 @@ async function main(): Promise<void> {
         priceMsatPerMB: Number(process.env.STORAGE_PRICE_MSAT_PER_MB ?? 1),
         bootstrap: process.env.BOOTSTRAP_SEEDER === "1",
       } : undefined,
+      powBits: privatePowBits,
     });
-    const { signEvent } = await import("@freedomstack/protocol");
-    await pool.publish(signEvent(caps, keypair.sk));
-    console.log(`Capabilities publiziert: tier=${tier} models=${models.join(",")} free=${provider.isCurrentlyFree()}${storageEnabled ? " storage=an" : ""}`);
+    return { ev: signEvent(caps, keypair.sk), tier, models };
+  };
+  {
+    const { ev, tier, models } = await baueAngebot();
+    await pool.publish(ev);
+    console.log(`Capabilities publiziert: tier=${tier} models=${models.join(",")} free=${provider.isCurrentlyFree()}${storageEnabled ? " storage=an" : ""} pow=${privatePowBits}`);
   }
 
   // NEU: Capabilities regelmaessig neu publizieren (alle 30min), damit der
@@ -372,22 +382,7 @@ async function main(): Promise<void> {
   const CAPS_REFRESH_MS = 30 * 60 * 1000; // 30 Minuten
   setInterval(async () => {
     try {
-      const { buildCapabilities, defaultPriceFor, DEFAULT_TOOL_PRICES } = await import("@freedomstack/protocol");
-      const modelsEnv = process.env.PROVIDER_MODELS ?? process.env.OLLAMA_MODEL ?? "nemotron-3.5-lightning:30b-a3b-nvfp4";
-      const models = modelsEnv.split(",").map((m) => m.trim()).filter(Boolean);
-      const model = models[0];
-      const mp = defaultPriceFor(model);
-      const tier = (process.env.PROVIDER_TIER as "free" | "classic" | "pro") ?? mp?.tier ?? "classic";
-      const caps = buildCapabilities({
-        pubkey: keypair.pk,
-        tier,
-        models,
-        textRatePerKTokenMsat: Number(process.env.PRICE_PER_K_TOKEN_MSAT ?? (mp ? (mp.inputSatsPerK + mp.outputSatsPerK) * 500 : 1500)),
-        tools: DEFAULT_TOOL_PRICES.map((t) => ({ kind: t.kind, name: t.name, priceMsat: t.satsPerCall * 1000 })),
-        currentlyFree: provider.isCurrentlyFree(),
-      });
-      const { signEvent } = await import("@freedomstack/protocol");
-      await pool.publish(signEvent(caps, keypair.sk));
+      await pool.publish((await baueAngebot()).ev);
       console.log(`[caps-refresh] Capabilities erneuert: ${new Date().toISOString()}`);
     } catch (err) {
       console.error("[caps-refresh] Fehler:", err);

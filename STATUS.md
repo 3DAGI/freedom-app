@@ -2530,3 +2530,41 @@ ignoriert). Bis 3.1b/3.1c sind die zwei Funktionen begründet ausgenommen.
 Endstand: protocol 985 grün (+6, 5 übersprungen) · node 161 grün · app 206
 grün · Leak-Tests 21 grün + 6 todo · 0 rot · check-wiring `--streng` 0 offen
 (186 begründet) · innerHTML streng 0 unbewertet · Smoke-Test bestanden.
+
+## 65. Verschlüsselte Job-Anfragen, Teil b: Knoten (Schritt 3.1)
+
+**`node/src/dvm-provider.ts`:** Der Knoten abonniert zusätzlich Umschläge
+(Kind 1059) mit seinem p-Tag und fragt sie in `pollOnce()` ab. `handlePrivate()`
+öffnet sie mit `openPrivateJobRequest()` – Form, Empfänger, Signatur und
+Rechenarbeit werden geprüft, bevor entschlüsselt oder gerechnet wird – und
+arbeitet die Anfrage wie bisher ab. Das Ergebnis verweist auf die ID der
+Anfrage und geht an den Sitzungsschlüssel (die Antwort selbst ist bis 3.2
+noch offen). Dieselbe Anfrage in einem zweiten Umschlag zählt nicht doppelt.
+Gratis: Für private Anfragen gibt es kein Kontingent je Schlüssel mehr – der
+Schlüssel wechselt je Sitzung, jede Anfrage hat die verlangte Rechenarbeit
+geleistet; gratis läuft sie, wenn der Provider überhaupt gratis anbietet
+(`gratisErlaubt()`). Offene Anfragen behalten in der Übergangszeit ihr
+Kontingent. Absagen (Kind 7000) gehen über das neue `meldeFehler()`, das auch
+der offene Weg nutzt.
+
+**`node/src/main.ts`:** `PRIVATE_POW_BITS` (Standard 12, gekappt auf 0–24)
+steht im Angebot. Das Angebot baut jetzt eine Funktion für Start und
+Erneuern – **Fund, behoben:** Beim Erneuern alle 30 Minuten fehlte bisher die
+Speicherangabe; ein Provider mit Speicherrolle verlor sie nach einer halben
+Stunde aus seinem Angebot.
+
+**Warum 12 Bits:** gemessen je Umschlag auf einem PC 8 Bits 5 ms, 12 Bits
+64 ms, 14 Bits 0,3 s, 16 Bits 1,1 s – auf einem Handy ein Mehrfaches. Für
+jede Chat-Nachricht wären 16 Bits zu langsam; der Provider kann erhöhen.
+
+**Tests:** node 161 → 166 (`private-jobs.test.ts`: geöffnet und abgearbeitet,
+Ergebnis mit e-Tag der Anfrage und p-Tag des Sitzungsschlüssels; fremder
+Empfänger und zu wenig Rechenarbeit verworfen, ohne zu rechnen; drei private
+Anfragen gratis ohne Kontingent, offene behalten es; ohne Gratis-Angebot
+Absage per Kind 7000 an den Sitzungsschlüssel; derselbe Umschlag und dieselbe
+Anfrage neu verpackt zählen einmal). `openPrivateJobRequest` und
+`eventDifficulty` sind verdrahtet, ihre Ausnahmen entfernt.
+
+Endstand: protocol 985 grün · node 166 grün (+5, 6 übersprungen) · app 206
+grün · Leak-Tests 21 grün + 6 todo · 0 rot · check-wiring `--streng` 0 offen
+· innerHTML streng 0 unbewertet · Smoke-Test (App unverändert) bestanden.
