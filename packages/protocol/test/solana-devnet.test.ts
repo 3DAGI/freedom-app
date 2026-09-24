@@ -11,9 +11,11 @@
  *   4. getRevealedPreimage() — LP kann R aus der Claim-TX extrahieren
  *   5. refund() auf zweitem Swap nach Timelock-Ablauf
  *
- * Wird uebersprungen, wenn Devnet nicht erreichbar.
+ * Wird uebersprungen, wenn Devnet nicht erreichbar oder kein Wallet da ist
+ * (etwa in GitHub Actions: Devnet erreichbar, aber ohne Schluessel).
  */
 import { test } from "node:test";
+import { existsSync } from "node:fs";
 import assert from "node:assert/strict";
 import { Keypair } from "@solana/web3.js";
 import {
@@ -40,9 +42,17 @@ async function devnetAlive(): Promise<boolean> {
   }
 }
 
+/** Grund zum Ueberspringen, oder null, wenn der Live-Test laufen kann. */
+async function grundZumUeberspringen(): Promise<string | null> {
+  if (!existsSync(WALLET)) return "kein Devnet-Wallet (SOLANA_KEYPAIR setzen)";
+  if (!(await devnetAlive())) return "Devnet nicht erreichbar";
+  return null;
+}
+
 test("DEVNET: HTLC lock -> claim -> Preimage offengelegt", async (t) => {
-  if (!(await devnetAlive())) {
-    t.skip("Devnet nicht erreichbar");
+  const grund = await grundZumUeberspringen();
+  if (grund) {
+    t.skip(grund);
     return;
   }
 
@@ -107,8 +117,9 @@ test("DEVNET: HTLC lock -> claim -> Preimage offengelegt", async (t) => {
 });
 
 test("DEVNET: refund vor Timelock-Ablauf wird on-chain abgelehnt", async (t) => {
-  if (!(await devnetAlive())) {
-    t.skip("Devnet nicht erreichbar");
+  const grund = await grundZumUeberspringen();
+  if (grund) {
+    t.skip(grund);
     return;
   }
   const wallet = await loadSolanaKeypair(WALLET);

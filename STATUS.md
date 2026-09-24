@@ -1643,3 +1643,38 @@ in 1 von 8 Läufen rot. Gehört repariert (Zeitabhängigkeit im Test).
 
 **Offen (MENSCH):** Nachricht mit einem anderen NIP-17-Client hin und zurück
 (etwa Amethyst oder 0xchat); Abgleich der Solana-Programm-ID (siehe Anleitung).
+
+
+## 41. Quellcode ins Repository, Schritt 2.1 abgeschlossen
+
+**Quellcode liegt jetzt in `3dagi/freedom-app`** (Weg A aus `START-HIER.md`):
+Der vollständige Stand kommt in den Branch `main`, ab dann baut
+`.github/workflows/pages.yml` die Seite – nur mit grünen Tests. Die bisher von
+Hand hochgeladenen Build-Dateien im Wurzelverzeichnis bleiben vorerst liegen:
+Solange die Pages-Quelle noch „Branch“ ist, hält das die Seite erreichbar. Sie
+werden entfernt, sobald die erste Veröffentlichung über Actions live ist.
+
+**Zwei Befunde, die GitHub Actions sofort rot gemacht hätten:**
+
+- `protocol/test/solana-devnet.test.ts` übersprang die Live-Tests nur, wenn
+  Devnet nicht erreichbar war. In GitHub Actions ist Devnet erreichbar, aber es
+  gibt kein Wallet – beide Tests scheiterten an `~/.config/solana/id.json`.
+  Jetzt wird auch ohne Wallet übersprungen; mit Wallet-Datei laufen sie wie
+  bisher (gegengeprüft). Die Prüfungen selbst sind unverändert.
+- Die Fee-Invariante in `ci.yml` importierte noch `FEE_DEV_PPM` und rechnete mit
+  `devMsat` – beides gibt es seit der Umschichtung des Entwickleranteils in die
+  Client-Schicht nicht mehr. Sie prüft jetzt den heutigen Aufbau (Pool +
+  Referral = Protokollfee, nichts geht verloren) und schlägt an, sobald wieder
+  ein fester Entwickleranteil im Protokoll auftaucht (Negativprobe gemacht).
+
+**2.1 abgeschlossen:** Alle Prüfungen grün, der Schritt wird mit diesem Merge
+veröffentlicht. Code von 2.1 unverändert.
+
+Endstand: protocol 929 grün (5 übersprungen) · node 159 grün (6 übersprungen –
+der Netz-Test in `tools.test.ts` läuft mit Internet mit) · app 167 grün · 0 rot
+· check-wiring, check-website ok · check_innerhtml 66 unbewertete Fundstellen
+(Schritt 0.B) · Smoke-Test bestanden · alle übrigen CI-Schritte lokal
+nachgespielt.
+
+**Offen (MENSCH):** Pages-Quelle „GitHub Actions“ und Standard-Branch `main`
+vor dem Merge (0.I); danach Interop-Test der Direktnachrichten (2.1).

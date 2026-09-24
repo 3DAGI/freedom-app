@@ -6,7 +6,7 @@ Pull Request eintragen.
 
 ## Empfohlene Reihenfolge ab jetzt
 
-1. **2.1 veröffentlichen:** Tests laufen lassen, Pull Request, Merge (MENSCH danach: Interop-Test)
+1. **2.1 veröffentlichen:** Prüfungen grün, Pull Request offen – Merge (MENSCH danach: Interop-Test)
 2. **0.H** instabilen Test reparieren – damit jede weitere Prüfung verlässlich ist
 3. **0.B** innerHTML-Prüfung – Sicherheit
 4. **1.4** Verdrahtungsprüfung erweitern
@@ -18,6 +18,11 @@ Pull Request eintragen.
 
 MENSCH-Aufgaben aus Phase 0 (0.D, 0.E, 0.F-Teile, 0.G, 0.I) kann der Mensch
 jederzeit parallel erledigen.
+
+**Vor dem ersten Merge des Quellcodes nach `main` (MENSCH, 0.I):** unter
+Settings → Pages die Quelle „GitHub Actions“ wählen und unter Settings →
+General den Standard-Branch auf `main` stellen (bisher `master`, ein veralteter
+Stand – neue Sitzungen würden sonst dort starten).
 
 ## Alle Schritte
 
@@ -31,14 +36,14 @@ jederzeit parallel erledigen.
 | 0.F | Texte angleichen | offen |  | MENSCH: Firmenname, Marketing-Entwürfe |
 | 0.G | Solana-Programm-ID abgleichen | offen |  | MENSCH: Entscheidung A/B |
 | 0.H | Instabilen Knoten-Test reparieren | offen |  |  |
-| 0.I | Veröffentlichung über GitHub Actions | offen |  | MENSCH: Pages-Quelle |
+| 0.I | Veröffentlichung über GitHub Actions | wartet auf MENSCH |  | Quellcode im Repository (mit 2.1); MENSCH: Pages-Quelle „GitHub Actions“, Standard-Branch `main`; danach Agent: Live-Prüfsumme, alte Build-Dateien im Wurzelverzeichnis entfernen |
 | 1.0 | app.ts aufteilen | offen |  | früh erledigen – spart bei allen späteren Schritten |
 | 1.1 | Ein Seed, getrennte Schlüssel (SLIP-10) | fertig |  | Baustein; MENSCH: Phantom-Abgleich; Verdrahtung mit 4.2 |
 | 1.2 | Verschlüsselter Speicher | offen |  |  |
 | 1.3 | Signer-Schnittstelle | offen |  |  |
 | 1.4 | Verdrahtungsprüfung erweitern | offen |  |  |
 | 1.5 | Leak-Tests | teilweise |  | Regeln + Fakten + DM-Szenarien fertig; App-Szenarien offen |
-| 2.1 | NIP-17-Direktnachrichten | Code fertig |  | noch nicht veröffentlicht; MENSCH: Interop-Test |
+| 2.1 | NIP-17-Direktnachrichten | fertig – wartet auf Interop-Test (MENSCH) |  | Prüfungen am 24.09. grün; MENSCH: Interop-Test mit Amethyst oder 0xchat |
 | 2.2a | MLS: Entscheidung und Spike | offen |  | MENSCH: Entscheidung |
 | 2.2b | MLS nach Marmot | offen |  | MENSCH: White Noise |
 | 2.3 | Räume als MLS-Gruppen | offen |  |  |

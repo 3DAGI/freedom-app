@@ -127,22 +127,29 @@ jobs:
         run: |
           cd packages/protocol
           cat > /tmp/inv.mts <<'EOF'
-          import {
+          import * as fee from "./src/protocol-fee.js";
+          const {
             PROTOCOL_FEE_PERCENT, PROTOCOL_FEE_PPM,
-            FEE_DEV_PPM, FEE_POOL_PPM, FEE_REFERRAL_PPM, splitFeeV1,
-          } from "./src/protocol-fee.js";
+            FEE_POOL_PPM, FEE_REFERRAL_PPM, splitFeeV1,
+          } = fee;
 
           const fail = (m: string) => { console.error("INVARIANTE VERLETZT: " + m); process.exit(1); };
 
           if (PROTOCOL_FEE_PPM !== PROTOCOL_FEE_PERCENT * 10_000) {
             fail(`${PROTOCOL_FEE_PERCENT}% muessten ${PROTOCOL_FEE_PERCENT * 10_000} ppm sein, sind aber ${PROTOCOL_FEE_PPM}`);
           }
-          if (FEE_DEV_PPM + FEE_POOL_PPM + FEE_REFERRAL_PPM !== PROTOCOL_FEE_PPM) {
+          // Die Protokollfee hat keinen privilegierten Empfaenger mehr: nur
+          // Pool und Referral. Ein Entwickleranteil gehoert in client-fee.ts.
+          if ("FEE_DEV_PPM" in fee) {
+            fail("Im Protokoll steht wieder ein fester Entwickleranteil (FEE_DEV_PPM)");
+          }
+          if (FEE_POOL_PPM + FEE_REFERRAL_PPM !== PROTOCOL_FEE_PPM) {
             fail("Die Anteile ergeben nicht die Gesamtfee");
           }
           for (const amount of [1, 999, 1000, 123_457, 10_000_000]) {
             const s = splitFeeV1(amount);
-            const sum = s.workerMsat + s.devMsat + s.poolMsat + s.referralMsat;
+            if ("devMsat" in s) fail("splitFeeV1 liefert wieder einen Entwickleranteil (devMsat)");
+            const sum = s.workerMsat + s.poolMsat + s.referralMsat;
             if (sum !== amount) fail(`Bei ${amount} msat gehen ${amount - sum} msat verloren`);
           }
           console.log(`Fee-Invarianten ok (${PROTOCOL_FEE_PERCENT}% = ${PROTOCOL_FEE_PPM} ppm)`);
