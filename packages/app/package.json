@@ -7,7 +7,8 @@
     "build": "tsc -p tsconfig.json && node build.mjs",
     "build:shell": "node build.mjs",
     "serve": "cd dist && python3 -m http.server 3500 --bind 0.0.0.0",
-    "test": "node --import tsx --test test/*.test.ts"
+    "test": "node --import tsx --test test/*.test.ts",
+    "test:leak": "node --import tsx --test test/leak/*.test.ts"
   },
   "devDependencies": {
     "@types/node": "^26.1.1",

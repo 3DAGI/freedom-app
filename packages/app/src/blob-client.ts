@@ -7,7 +7,7 @@
  * - Browser-Seeding: IndexedDB haelt eigene Uploads + optional gesehene Chunks
  */
 
-import type { Signer } from "@freedomstack/protocol";
+import type { NostrEvent, Signer } from "@freedomstack/protocol";
 
 const DB_NAME = "freedom-blobs";
 const STORE = "chunks";
@@ -58,7 +58,7 @@ export interface BlobUploadResult {
 /** Datei hochladen: chunked + erasure + als Events publizieren – signiert ueber den Signer (1.3e). */
 export async function uploadBlob(
   file: File,
-  pool: { publish: (ev: unknown) => Promise<unknown> },
+  pool: { publish: (ev: NostrEvent) => Promise<unknown> },
   signer: Signer,
 ): Promise<BlobUploadResult> {
   const { buildBlob } = await import("@freedomstack/protocol");

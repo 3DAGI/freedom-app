@@ -2435,3 +2435,31 @@ Bunker signiert, abmelden → wieder die lokale Identität. `Nip46Signer` und
 Endstand: protocol 972 grün (+1, 5 übersprungen) · node 161 grün · app 206
 grün · 0 rot · check-wiring `--streng` 0 offen (178 begründet) · innerHTML
 streng 0 unbewertet · Smoke-Test bestanden.
+
+## 62. Leak-Tests, Teil a: Aufzeichnung, Regeln, erste App-Szenarien (Schritt 1.5)
+
+**Regeln** (`protocol/src/leak-rules.ts`), je mit Treffer- und
+Nicht-Treffer-Test in `test/leak-rules.test.ts`: kein Klartext-Prompt in
+Anfragen (Kind 5000–5999), Kunden-Schlüssel weder Autor noch p-Tag, keine
+bolt11 (klein und groß, kurze Wörter wie „lnbc1abc“ zählen nicht), keine
+SOL-Adresse des Nutzers, jede SOL-Zahlung an eine frische Adresse, Anhänge nur
+verschlüsselt (drei Ausschnitte der Datei als Hex und Base64). `LEAK_REGELN`
+nennt alle Regeln mit ihrer Aussage; ein Test prüft, dass jede Regel unter
+einem Namen daraus meldet.
+
+**Aufzeichnung** (`app/test/leak/aufzeichnung.ts`): ein Relay mit derselben
+Schnittstelle wie der Pool der App (`publish`, `query`, `subscribe`), das jedes
+gesendete Event festhält; `aufzeichnung()` liefert einen `OutboxPool` darauf.
+
+**Szenarien** (`app/test/leak/`): DM senden (NIP-17 über den Signer – alle
+Regeln grün), Datei anhängen (der echte `uploadBlob`), KI-Anfrage (der echte
+`SessionClient` plus die Anfrage wie in `buildJobEvent()`, mit und ohne
+Sitzung). Heute verletzt und als `todo` markiert: Anhänge im Klartext (2.4),
+Klartext-Prompt (3.1), Kunden-Schlüssel in Job-Events (3.1). Ein
+Verdrahtungstest je Szenario prüft, dass die App genau diesen Weg nimmt.
+`npm run test:leak` läuft als eigener Schritt in der CI. Nebenbei: `uploadBlob`
+nimmt den Pool jetzt mit `NostrEvent` statt `unknown` getypt.
+
+Endstand: protocol 978 grün (+6, 5 übersprungen) · node 161 grün · app 206
+grün · Leak-Tests 9 grün + 3 todo · 0 rot · check-wiring `--streng` 0 offen
+(184 begründet) · innerHTML streng 0 unbewertet · Smoke-Test bestanden.

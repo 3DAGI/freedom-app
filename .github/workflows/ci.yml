@@ -51,6 +51,12 @@ jobs:
       - name: Tests app
         run: npm test --workspace @freedomstack/app
 
+      - name: Leak-Tests app
+        # Schneidet mit, was die App veroeffentlicht, und prueft es gegen die
+        # Regeln aus leak-rules.ts (Schritt 1.5). Heute bekannte Lecks stehen als
+        # "todo" mit dem Schritt, der sie schliesst – sie werden dort gruen.
+        run: npm run test:leak --workspace @freedomstack/app
+
       - name: App-Build muss durchlaufen
         # Der Buffer-Shim wird als String in das Bundle geschrieben; ein
         # Syntaxfehler darin faellt bei tsc NICHT auf, sondern erst hier.

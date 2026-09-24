@@ -33,7 +33,7 @@ vollständig fertig. Ausführlich: `docs/ausbau/UEBERSICHT.md`.
 npm ci                                                   # einmal pro Sitzung
 cd packages/protocol && npx tsc -p tsconfig.json --noEmit && npm test && cd ../..
 cd packages/node     && npx tsc -p tsconfig.json --noEmit && npm test && cd ../..
-cd packages/app      && npx tsc -p tsconfig.json --noEmit && npm test && node build.mjs && cd ../..
+cd packages/app      && npx tsc -p tsconfig.json --noEmit && npm test && npm run test:leak && node build.mjs && cd ../..
 python3 scripts/check-wiring.py --streng
 python3 scripts/check-website.py
 python3 scripts/check_innerhtml.py packages/app/src --ausnahmen scripts/innerhtml-ausnahmen.txt --streng
@@ -41,9 +41,9 @@ python3 scripts/smoke_test.py packages/app/dist         # braucht playwright + c
 bash scripts/build-site.sh /tmp/site                     # Website bauen (Ziel wird gelöscht!)
 ```
 
-Stand 24.09.2026 (nach 1.3): protocol 972 grün (5 übersprungen), node 161 grün
+Stand 24.09.2026 (nach 1.5a): protocol 978 grün (5 übersprungen), node 161 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 206 grün.
+in `tools.test.ts`), app 206 grün, Leak-Tests 9 grün + 3 `todo` (heutige Lecks).
 
 ## Arbeitsweise
 
