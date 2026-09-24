@@ -31,7 +31,7 @@ von sich aus an.
 
 ```bash
 git status                                                  # sauber, sonst STOPP
-grep -c "buildPrivateDm" packages/app/src/shell/app.ts      # mindestens 1 = Schritt 2.1 ist drin
+grep -c "buildPrivateDm" packages/app/src/shell/tabs/kommunikation.ts   # mindestens 1 = Schritt 2.1 ist drin
 node --version                                              # 20 oder neuer
 pip install playwright && python3 -m playwright install chromium   # einmalig
 ```

@@ -2008,3 +2008,46 @@ Wartezeit liefern beide Fassungen in drei Läufen jeweils dasselbe Ergebnis.
 Endstand: protocol 947 grün (5 übersprungen) · node 161 grün (6 übersprungen) ·
 app 167 grün · 0 rot · check-wiring `--streng` 0 offen (176 begründet) ·
 innerHTML streng 0 unbewertet · Smoke-Test bestanden.
+
+## 51. `app.ts` aufteilen, Teil e: Profil, Settings, Datenschutz – 1.0 Code fertig
+
+**Teil e:** 30 Deklarationen. `shell/tabs/profil.ts` (213 Zeilen): Profil,
+Vorschau, Abzeichen. `shell/tabs/settings.ts` (725 Zeilen): Nachfolge,
+verschlüsselte Sicherung, Schlüsselwechsel, Geräte, Mesh, Sicherheitsstand,
+Gebühren, App-Export und Echtheitsprüfung (`TRUSTED_SIGNERS`).
+`shell/datenschutz.ts` (69 Zeilen): `zeigeDatenschutz` und `DMS_GIFT_WRAPPED`.
+`app.ts`: 1.763 → 792 Zeilen. In `app.ts` bleiben `boot()`, `switchTab()`,
+`wireSubtabs()`, Identität (Erzeugen, Sicherungsdialog, Export/Import),
+Onboarding, Sprache und Kopierknöpfe. `agent.ts` holt Nachfolge und Abzeichen
+jetzt aus `settings.ts`/`profil.ts`; aus `app.ts` importiert es nur noch
+`switchTab` und `zeigeOnboarding`.
+
+**Nur Verschiebungen – belegt:** Alle 225 Deklarationen wörtlich in genau einer
+Datei; 11 haben ein `export` bekommen; keine neue. Als Menge unterscheiden sich
+die Zeilen nur in acht Importpfaden (`../mesh-radio.js`, `../identity.js` → eine
+Ebene länger). 14 innerHTML-Ausnahmen tragen den neuen Dateinamen.
+
+**Anleitungen nachgezogen:** `START.md`, `GO-LIVE.md`, `ANFANGEN.md` und die
+Karte 0.D nennen für `TRUSTED_SIGNERS` jetzt `tabs/settings.ts`;
+`agent/ANLEITUNG-INTEROP.md` sucht `buildPrivateDm` in `tabs/kommunikation.ts`
+(seit Teil b dort – dort hätte die Vorabprüfung sonst fälschlich „0 = STOPP“
+gemeldet); `README.md` nennt die Shell statt nur `app.ts`.
+
+**Klicktest Profil/Settings (neu, im Scratchpad):** Profil bearbeiten und
+speichern, Abzeichen, alle sieben Settings-Reiter, Sicherung, Schlüsselwechsel,
+Nachfolge, Gerät hinzufügen, RPC-Prüfung, Gebühr speichern, Mesh, App-Export,
+Echtheitsprüfung, Netzmodus – dazu der vollständige Text des
+Datenschutzberichts. Ein Lauf zeigte beim Status der Echtheitsprüfung einen
+Unterschied; auch hier war es die Wartezeit des Tests (Relay-Abfrage ohne Netz).
+Mit 8 s Wartezeit liefern alte und neue Fassung in drei Läufen dasselbe Ergebnis.
+Die Klicktests für Kommunikation, Agent und Währung/Earn laufen auf dem Endstand
+ebenfalls gleich.
+
+**1.0 insgesamt:** `app.ts` 5.816 → 792 Zeilen in fünf Pull Requests (#8–#12);
+größte Datei `tabs/agent.ts` mit 1.376 Zeilen, keine über 1.500. Jeder Teil
+belegt: nur Verschiebungen. Offen ist nur die MENSCH-Aufgabe der Karte: einmal
+alle Tabs im Browser anklicken, auf Desktop und Handy.
+
+Endstand: protocol 947 grün (5 übersprungen) · node 161 grün (6 übersprungen) ·
+app 167 grün · 0 rot · check-wiring `--streng` 0 offen (176 begründet) ·
+innerHTML streng 0 unbewertet · Smoke-Test bestanden.

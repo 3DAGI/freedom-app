@@ -34,7 +34,7 @@ fünf roten Tests der Ausgangsanalyse waren unbemerkt eingecheckt worden, weil
 niemand sie automatisch ausführte.
 
 Die Darstellungslogik der App liegt in `shell-logic.ts` — ohne DOM und deshalb
-tatsächlich prüfbar. `shell/app.ts` importiert sie, statt eine zweite Kopie zu
+tatsächlich prüfbar. Die Shell (`shell/app.ts`, `shell/tabs/`) importiert sie, statt eine zweite Kopie zu
 halten; die Tests decken damit den Code ab, der wirklich läuft. Schwerpunkt sind
 feindliche Eingaben aus fremden Relay-Events, denn genau dort steckte schon
 einmal ein XSS-Loch.

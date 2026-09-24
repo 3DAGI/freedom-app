@@ -9,28 +9,14 @@ Nicht abgedeckt: andere Eingänge wie `href` oder `src`, die per Eigenschaft ges
 | Datei | Zeile | Ausdruck | Bewertung |
 |---|---|---|---|
 | `packages/app/src/offline-queue.ts` | 73 | `pending.length` | Länge eines lokalen Arrays (eigene Offline-Warteschlange) |
-| `packages/app/src/shell/app.ts` | 132 | `` woerter.map((w) => `<li>${escapeHtml(w)}</li>`).join("") `` | Callback liefert nur ein Template mit escapeHtml(w) |
-| `packages/app/src/shell/app.ts` | 139 | `` positionen.map((p) => `<label class="mono-sm">Nr. ${p + 1} <input data-pos="${p}" class="mono-sm" style="width:110px" au `` | Callback liefert nur ein Template; einzige Werte sind die Positionen p |
-| `packages/app/src/shell/app.ts` | 139 | `p` | Zahl: Position aus pickChallengePositions(), lokal erzeugt |
-| `packages/app/src/shell/app.ts` | 140 | `p` | Zahl: Position aus pickChallengePositions(), lokal erzeugt |
-| `packages/app/src/shell/app.ts` | 273 | `cls` | feste Klassennamen ok/warn/err |
-| `packages/app/src/shell/app.ts` | 412 | `farbe` | aus der festen Tabelle ACCENT_HEX nach normalizeStyle() |
-| `packages/app/src/shell/app.ts` | 414 | `avatar` | Template mit escapeHtml(bild) bzw. escapeHtml(Anfangsbuchstabe), direkt darüber gebaut |
-| `packages/app/src/shell/app.ts` | 418 | `farbe` | aus der festen Tabelle ACCENT_HEX nach normalizeStyle() |
-| `packages/app/src/shell/app.ts` | 444 | `` (Zuweisung) werte.map((w) => `<option value="${escapeHtml(w)}"${w === aktiv ? " selected" : ""}>${escapeHtml(w)}</option>`).join("") `` | Callback: Template mit escapeHtml(w); selected ist ein Vergleich |
-| `packages/app/src/shell/app.ts` | 484 | `` (Zuweisung) zeilen.map((z) => `<div>${escapeHtml(z)}</div>`).join("") `` | Callback: Template mit escapeHtml(z) |
-| `packages/app/src/shell/app.ts` | 548 | `` (Zuweisung) alle.map((b) => `<div class="badge-row"> <span class="badge-chip ${escapeHtml(b.source)}">${escapeHtml(b.source)}</span> `` | Callback: Template, alle Werte mit escapeHtml |
-| `packages/app/src/shell/app.ts` | 726 | `` (Zuweisung) d.map((x) => { const cls = x.status === "aktiv" ? "ok" : x.status === "abgelaufen" ? "warn" : "muted"; return `<div clas `` | Callback: Templates mit escapeHtml(label, status, devicePubkey) |
-| `packages/app/src/shell/app.ts` | 729 | `cls` | feste Klassennamen ok/warn/muted |
-| `packages/app/src/shell/app.ts` | 1093 | `` (Zuweisung) offlineCapabilities(link).map((f) => `<div class="usage-row"><span>${f.works ? "✓" : "✕"} ${escapeHtml(f.feature)}</span `` | Callback: Template mit escapeHtml; Haken/Kreuz fest |
-| `packages/app/src/shell/app.ts` | 1105 | `` (Zuweisung) p.map((m) => `${escapeHtml(m.label)} — ${m.framesLeft} Pakete offen`).join("<br>") `` | Callback: Template mit escapeHtml(m.label) und lokalem Zähler |
-| `packages/app/src/shell/app.ts` | 1105 | `m.framesLeft` | lokaler Zähler der eigenen Mesh-Warteschlange |
-| `packages/app/src/shell/app.ts` | 1260 | `cls` | feste Klassennamen ok/err/warn |
-| `packages/app/src/shell/app.ts` | 1265 | `quellen.map((q) => escapeHtml(q)).join(", ")` | jede Quelle mit escapeHtml |
-| `packages/app/src/shell/app.ts` | 1352 | `` (Zuweisung) LANGS.map( (l) => `<button type="button" data-lang="${l.code}" class="${l.code === getLang() ? "active" : ""}">${l.code. `` | Callback: Template aus der festen Sprachliste LANGS |
-| `packages/app/src/shell/app.ts` | 1353 | `l.code` | feste Sprachliste LANGS (i18n.ts) |
-| `packages/app/src/shell/app.ts` | 1353 | `l.code.toUpperCase()` | feste Sprachliste LANGS (i18n.ts) |
-| `packages/app/src/shell/app.ts` | 1353 | `l.label` | feste Sprachliste LANGS (i18n.ts) |
+| `packages/app/src/shell/app.ts` | 142 | `` woerter.map((w) => `<li>${escapeHtml(w)}</li>`).join("") `` | Callback liefert nur ein Template mit escapeHtml(w) |
+| `packages/app/src/shell/app.ts` | 149 | `` positionen.map((p) => `<label class="mono-sm">Nr. ${p + 1} <input data-pos="${p}" class="mono-sm" style="width:110px" au `` | Callback liefert nur ein Template; einzige Werte sind die Positionen p |
+| `packages/app/src/shell/app.ts` | 149 | `p` | Zahl: Position aus pickChallengePositions(), lokal erzeugt |
+| `packages/app/src/shell/app.ts` | 150 | `p` | Zahl: Position aus pickChallengePositions(), lokal erzeugt |
+| `packages/app/src/shell/app.ts` | 381 | `` (Zuweisung) LANGS.map( (l) => `<button type="button" data-lang="${l.code}" class="${l.code === getLang() ? "active" : ""}">${l.code. `` | Callback: Template aus der festen Sprachliste LANGS |
+| `packages/app/src/shell/app.ts` | 382 | `l.code` | feste Sprachliste LANGS (i18n.ts) |
+| `packages/app/src/shell/app.ts` | 382 | `l.code.toUpperCase()` | feste Sprachliste LANGS (i18n.ts) |
+| `packages/app/src/shell/app.ts` | 382 | `l.label` | feste Sprachliste LANGS (i18n.ts) |
 | `packages/app/src/shell/state.ts` | 139 | `` (Zuweisung) st.map((s) => { const name = escapeHtml(s.label ?? new URL(s.url).hostname); return s.available ? `<span class="ok">${na `` | Callback liefert nur Templates; Name und Fehlertext mit escapeHtml |
 | `packages/app/src/shell/state.ts` | 142 | `name` | name = escapeHtml(label oder hostname), eine Zeile darüber |
 | `packages/app/src/shell/state.ts` | 142 | `s.lastLatencyMs` | lokal gemessene Latenz in ms (rpc-pool.ts: Date.now() - start) |
@@ -38,31 +24,31 @@ Nicht abgedeckt: andere Eingänge wie `href` oder `src`, die per Eigenschaft ges
 | `packages/app/src/shell/tabs/agent-netz.ts` | 24 | `(Zuweisung) r.models.slice(0, 20).map((m) => { const cls = m.availability === "gut" ? "ok" : m.availability === "knapp" ? "warn" : "` | Callback liefert nur Templates; Name, Quantisierung, Hinweis mit escapeHtml |
 | `packages/app/src/shell/tabs/agent-netz.ts` | 28 | `cls` | feste Klassennamen ok/err/warn |
 | `packages/app/src/shell/tabs/agent-netz.ts` | 127 | `` (Zuweisung) sorted.map((ev) => { const name = ev.tags.find((t) => t[0] === "d")?.[1] ?? "?"; return `<div class="stat"><span class=" `` | Callback: Template mit escapeHtml(name), escapeHtml(pkShort(...)) und escapeHtml(blob) |
-| `packages/app/src/shell/tabs/agent.ts` | 92 | `entries.map(([m, info]) => { const sp = speedOf(m); const short = m.split(":")[0]; const satsPer1k = Math.ceil(info.pric` | Callback: Template mit escapeHtml(m) und escapeHtml(short); übrige Werte siehe folgende Zeilen |
-| `packages/app/src/shell/tabs/agent.ts` | 100 | `sp.cls` | fester Klassenname aus speedOf() |
-| `packages/app/src/shell/tabs/agent.ts` | 100 | `sp.label` | festes Label aus speedOf() |
-| `packages/app/src/shell/tabs/agent.ts` | 101 | `satsPer1k` | Math.ceil(...) – immer eine Zahl |
-| `packages/app/src/shell/tabs/agent.ts` | 101 | `solPer1k` | Zahl.toFixed(6) – nur Ziffern und Punkt |
-| `packages/app/src/shell/tabs/agent.ts` | 101 | `info.count` | lokal gezählt (Provider je Modell) |
-| `packages/app/src/shell/tabs/agent.ts` | 205 | `(Zuweisung) alle.map((v) => { const d = new Date(v.at * 1000); const gruppe = d.toDateString() === heute ? "Heute" : "Früher"; const` | Callback: Template mit escapeHtml(v.id) und escapeHtml(v.title); übrige Werte siehe folgende Zeilen |
-| `packages/app/src/shell/tabs/agent.ts` | 208 | `gruppe` | fest: Heute oder Früher |
-| `packages/app/src/shell/tabs/agent.ts` | 211 | `kopf` | Template mit dem festen Gruppennamen oder leer |
-| `packages/app/src/shell/tabs/agent.ts` | 211 | `aktiv` | fest: active oder leer |
-| `packages/app/src/shell/tabs/agent.ts` | 213 | `v.messages.length` | Länge des lokal gespeicherten Verlaufs |
-| `packages/app/src/shell/tabs/agent.ts` | 256 | `` (Zuweisung) tools.map((x) => `<div class="panel-row"> <span class="panel-check">${markSvgCheck()}</span> <span class="panel-name">${ `` | Callback: Template mit escapeHtml(x.name) und Math.floor |
-| `packages/app/src/shell/tabs/agent.ts` | 644 | `msgs.length` | Anzahl eigener Chat-Blasen (lokal) |
-| `packages/app/src/shell/tabs/agent.ts` | 938 | `whoLabel` | fest du, sonst agent plus escapeHtml(model) |
-| `packages/app/src/shell/tabs/agent.ts` | 939 | `body` | renderMarkdown(escapeHtml(text)) oder escapeHtml(text) |
-| `packages/app/src/shell/tabs/agent.ts` | 952 | `whoLabel` | agent plus escapeHtml(model) |
-| `packages/app/src/shell/tabs/agent.ts` | 966 | `(Zuweisung) renderMarkdown(escapeHtml(text))` | Eingabe vorher maskiert; renderMarkdown() erzeugt nur feste Tags |
-| `packages/app/src/shell/tabs/agent.ts` | 1057 | `haken` | eigenes SVG, Konstante |
-| `packages/app/src/shell/tabs/agent.ts` | 1063 | `werkzeugTeil` | Template mit toolRows: escapeHtml(t.name) und Math.floor |
-| `packages/app/src/shell/tabs/agent.ts` | 1064 | `zeile("Modell", usage.model ?? "—")` | zeile() maskiert Schlüssel und Wert selbst |
-| `packages/app/src/shell/tabs/agent.ts` | 1065 | `zeile("Provider", pkShort(providerPk))` | zeile() maskiert Schlüssel und Wert selbst |
-| `packages/app/src/shell/tabs/agent.ts` | 1066 | `` zeile("Tokens", `${ganzeZahl(usage.promptTokens)} rein, ${ganzeZahl(usage.completionTokens)} raus`) `` | zeile() maskiert Schlüssel und Wert selbst |
-| `packages/app/src/shell/tabs/agent.ts` | 1067 | `` zeile("Diese Antwort", `${Math.floor(amountMsat / 1000)} sat`) `` | zeile() maskiert Schlüssel und Wert selbst |
-| `packages/app/src/shell/tabs/agent.ts` | 1151 | `zeilen` | Templates mit escapeHtml(l.leg), festen Klassen und Marken, Zahl.toFixed(2) |
-| `packages/app/src/shell/tabs/agent.ts` | 1198 | `(Zuweisung) svg` | icon(...) aus der festen Symboltabelle |
+| `packages/app/src/shell/tabs/agent.ts` | 94 | `entries.map(([m, info]) => { const sp = speedOf(m); const short = m.split(":")[0]; const satsPer1k = Math.ceil(info.pric` | Callback: Template mit escapeHtml(m) und escapeHtml(short); übrige Werte siehe folgende Zeilen |
+| `packages/app/src/shell/tabs/agent.ts` | 102 | `sp.cls` | fester Klassenname aus speedOf() |
+| `packages/app/src/shell/tabs/agent.ts` | 102 | `sp.label` | festes Label aus speedOf() |
+| `packages/app/src/shell/tabs/agent.ts` | 103 | `satsPer1k` | Math.ceil(...) – immer eine Zahl |
+| `packages/app/src/shell/tabs/agent.ts` | 103 | `solPer1k` | Zahl.toFixed(6) – nur Ziffern und Punkt |
+| `packages/app/src/shell/tabs/agent.ts` | 103 | `info.count` | lokal gezählt (Provider je Modell) |
+| `packages/app/src/shell/tabs/agent.ts` | 207 | `(Zuweisung) alle.map((v) => { const d = new Date(v.at * 1000); const gruppe = d.toDateString() === heute ? "Heute" : "Früher"; const` | Callback: Template mit escapeHtml(v.id) und escapeHtml(v.title); übrige Werte siehe folgende Zeilen |
+| `packages/app/src/shell/tabs/agent.ts` | 210 | `gruppe` | fest: Heute oder Früher |
+| `packages/app/src/shell/tabs/agent.ts` | 213 | `kopf` | Template mit dem festen Gruppennamen oder leer |
+| `packages/app/src/shell/tabs/agent.ts` | 213 | `aktiv` | fest: active oder leer |
+| `packages/app/src/shell/tabs/agent.ts` | 215 | `v.messages.length` | Länge des lokal gespeicherten Verlaufs |
+| `packages/app/src/shell/tabs/agent.ts` | 258 | `` (Zuweisung) tools.map((x) => `<div class="panel-row"> <span class="panel-check">${markSvgCheck()}</span> <span class="panel-name">${ `` | Callback: Template mit escapeHtml(x.name) und Math.floor |
+| `packages/app/src/shell/tabs/agent.ts` | 646 | `msgs.length` | Anzahl eigener Chat-Blasen (lokal) |
+| `packages/app/src/shell/tabs/agent.ts` | 940 | `whoLabel` | fest du, sonst agent plus escapeHtml(model) |
+| `packages/app/src/shell/tabs/agent.ts` | 941 | `body` | renderMarkdown(escapeHtml(text)) oder escapeHtml(text) |
+| `packages/app/src/shell/tabs/agent.ts` | 954 | `whoLabel` | agent plus escapeHtml(model) |
+| `packages/app/src/shell/tabs/agent.ts` | 968 | `(Zuweisung) renderMarkdown(escapeHtml(text))` | Eingabe vorher maskiert; renderMarkdown() erzeugt nur feste Tags |
+| `packages/app/src/shell/tabs/agent.ts` | 1059 | `haken` | eigenes SVG, Konstante |
+| `packages/app/src/shell/tabs/agent.ts` | 1065 | `werkzeugTeil` | Template mit toolRows: escapeHtml(t.name) und Math.floor |
+| `packages/app/src/shell/tabs/agent.ts` | 1066 | `zeile("Modell", usage.model ?? "—")` | zeile() maskiert Schlüssel und Wert selbst |
+| `packages/app/src/shell/tabs/agent.ts` | 1067 | `zeile("Provider", pkShort(providerPk))` | zeile() maskiert Schlüssel und Wert selbst |
+| `packages/app/src/shell/tabs/agent.ts` | 1068 | `` zeile("Tokens", `${ganzeZahl(usage.promptTokens)} rein, ${ganzeZahl(usage.completionTokens)} raus`) `` | zeile() maskiert Schlüssel und Wert selbst |
+| `packages/app/src/shell/tabs/agent.ts` | 1069 | `` zeile("Diese Antwort", `${Math.floor(amountMsat / 1000)} sat`) `` | zeile() maskiert Schlüssel und Wert selbst |
+| `packages/app/src/shell/tabs/agent.ts` | 1153 | `zeilen` | Templates mit escapeHtml(l.leg), festen Klassen und Marken, Zahl.toFixed(2) |
+| `packages/app/src/shell/tabs/agent.ts` | 1200 | `(Zuweisung) svg` | icon(...) aus der festen Symboltabelle |
 | `packages/app/src/shell/tabs/earn.ts` | 30 | `` (Zuweisung) o.contributors.slice(0, 15).map((c) => `<div class="usage-row"><span>${escapeHtml(pkShort(c.pubkey))}</span>` + `<span>$ `` | Callback: Template mit escapeHtml(pkShort(c.pubkey)); Zahlen siehe folgende Zeilen |
 | `packages/app/src/shell/tabs/earn.ts` | 32 | `c.activeDays` | lokal gezählt in buildRepoOverview() (git-contributors.ts) |
 | `packages/app/src/shell/tabs/earn.ts` | 32 | `c.contributions` | lokal gezählt in buildRepoOverview() (git-contributors.ts: e.c.length) |
@@ -99,6 +85,20 @@ Nicht abgedeckt: andere Eingänge wie `href` oder `src`, die per Eigenschaft ges
 | `packages/app/src/shell/tabs/kommunikation.ts` | 908 | `zapBtn` | Template mit escapeHtml(ev.pubkey) und escapeHtml(pkShort(ev.pubkey)) |
 | `packages/app/src/shell/tabs/kommunikation.ts` | 908 | `body` | body = escapeHtml(text) |
 | `packages/app/src/shell/tabs/kommunikation.ts` | 908 | `media` | renderAttachment() maskiert Name und URL und erlaubt nur sichere Schemata (shell-logic.ts) |
+| `packages/app/src/shell/tabs/profil.ts` | 68 | `farbe` | aus der festen Tabelle ACCENT_HEX nach normalizeStyle() |
+| `packages/app/src/shell/tabs/profil.ts` | 70 | `avatar` | Template mit escapeHtml(bild) bzw. escapeHtml(Anfangsbuchstabe), direkt darüber gebaut |
+| `packages/app/src/shell/tabs/profil.ts` | 74 | `farbe` | aus der festen Tabelle ACCENT_HEX nach normalizeStyle() |
+| `packages/app/src/shell/tabs/profil.ts` | 100 | `` (Zuweisung) werte.map((w) => `<option value="${escapeHtml(w)}"${w === aktiv ? " selected" : ""}>${escapeHtml(w)}</option>`).join("") `` | Callback: Template mit escapeHtml(w); selected ist ein Vergleich |
+| `packages/app/src/shell/tabs/profil.ts` | 140 | `` (Zuweisung) zeilen.map((z) => `<div>${escapeHtml(z)}</div>`).join("") `` | Callback: Template mit escapeHtml(z) |
+| `packages/app/src/shell/tabs/profil.ts` | 204 | `` (Zuweisung) alle.map((b) => `<div class="badge-row"> <span class="badge-chip ${escapeHtml(b.source)}">${escapeHtml(b.source)}</span> `` | Callback: Template, alle Werte mit escapeHtml |
+| `packages/app/src/shell/tabs/settings.ts` | 44 | `cls` | feste Klassennamen ok/warn/err |
+| `packages/app/src/shell/tabs/settings.ts` | 292 | `` (Zuweisung) d.map((x) => { const cls = x.status === "aktiv" ? "ok" : x.status === "abgelaufen" ? "warn" : "muted"; return `<div clas `` | Callback: Templates mit escapeHtml(label, status, devicePubkey) |
+| `packages/app/src/shell/tabs/settings.ts` | 295 | `cls` | feste Klassennamen ok/warn/muted |
+| `packages/app/src/shell/tabs/settings.ts` | 548 | `` (Zuweisung) offlineCapabilities(link).map((f) => `<div class="usage-row"><span>${f.works ? "✓" : "✕"} ${escapeHtml(f.feature)}</span `` | Callback: Template mit escapeHtml; Haken/Kreuz fest |
+| `packages/app/src/shell/tabs/settings.ts` | 560 | `` (Zuweisung) p.map((m) => `${escapeHtml(m.label)} — ${m.framesLeft} Pakete offen`).join("<br>") `` | Callback: Template mit escapeHtml(m.label) und lokalem Zähler |
+| `packages/app/src/shell/tabs/settings.ts` | 560 | `m.framesLeft` | lokaler Zähler der eigenen Mesh-Warteschlange |
+| `packages/app/src/shell/tabs/settings.ts` | 672 | `cls` | feste Klassennamen ok/err/warn |
+| `packages/app/src/shell/tabs/settings.ts` | 677 | `quellen.map((q) => escapeHtml(q)).join(", ")` | jede Quelle mit escapeHtml |
 | `packages/app/src/shell/tabs/waehrung.ts` | 67 | `` (Zuweisung) valid .map( ({ ev, offer }) => ` <div class="stat"> <span class="k">${escapeHtml(pkShort(ev.pubkey))} · ${Number(offer.m `` | Callback: Template mit escapeHtml und Number(...) |
 | `packages/app/src/shell/tabs/waehrung.ts` | 71 | `(Number(offer.feePpm) / 100).toFixed(1)` | Number(...).toFixed(1) – nur Ziffern und Punkt |
 | `packages/app/src/shell/tabs/waehrung.ts` | 251 | `(Zuweisung) verdict.problems.map((p) => escapeHtml(p)).join("<br>")` | jede Zeile mit escapeHtml |

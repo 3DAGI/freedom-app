@@ -16,7 +16,7 @@ ist, sucht später Fehler an der falschen Stelle.
       einen Passwortmanager mit Cloud-Sync. Dieser Schlüssel ist eure
       Richtungsmacht — wer ihn hat, kann Releases im Namen des Projekts
       ausgeben.
-- [ ] **Pubkey daraus in `TRUSTED_SIGNERS` eintragen** (`packages/app/src/shell/app.ts`).
+- [ ] **Pubkey daraus in `TRUSTED_SIGNERS` eintragen** (`packages/app/src/shell/tabs/settings.ts`).
       Solange die Liste leer ist, prüft die App gegen niemanden und meldet
       ehrlich „nicht prüfbar".
 - [ ] **Steuerberater kontaktieren.** Vor dem ersten Sat, nicht danach. Frage:
