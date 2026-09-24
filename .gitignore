@@ -1,0 +1,13 @@
+node_modules/
+dist/
+target/
+.anchor/
+test-ledger/
+node_modules/
+target/
+.anchor/
+dist/
+*.log
+.ollama-freedom/
+packages/launcher/src-tauri/target/
+site/

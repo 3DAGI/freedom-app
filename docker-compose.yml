@@ -1,0 +1,102 @@
+# FreedomStack Provider — alles in einem Paket
+#
+# WARUM ES DAS GIBT
+# Der Installer setzt Ollama voraus und installiert es notfalls nach. Das
+# funktioniert, verlangt aber Systemrechte, hinterlässt einen Dienst und
+# scheitert auf jeder Distribution ein bisschen anders. Für jemanden, der nur
+# ausprobieren will, ist das die Hürde, an der er abbricht.
+#
+# Hier läuft alles in Containern: ein Befehl, keine Systemänderung, und
+# `docker compose down` entfernt es rückstandsfrei. Das ist die ehrlichere
+# Einstiegsvariante — wer bleibt, kann später auf den Installer wechseln.
+#
+# START
+#   NODE_LUD16=du@wallet.cash REGION=eu docker compose up -d
+#
+# Ohne NODE_LUD16 startet der Knoten NICHT. Das ist Absicht: Ein Provider, der
+# arbeitet und dessen Einnahmen nirgendwo ankommen, ist schlimmer als einer,
+# der gar nicht erst startet.
+
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: freedom-ollama
+    restart: unless-stopped
+    volumes:
+      - ollama-models:/root/.ollama
+    # Kein Port nach außen. Der Knoten erreicht Ollama über das interne Netz;
+    # ein offener Inferenz-Endpunkt im Internet wäre eine Einladung.
+    expose:
+      - "11434"
+    healthcheck:
+      test: ["CMD-SHELL", "ollama list >/dev/null 2>&1 || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+    deploy:
+      resources:
+        reservations:
+          devices:
+            # Ohne GPU auskommentieren. Der Knoten läuft dann auf dem
+            # Prozessor — langsam genug, dass kaum ein Kunde ihn wählt.
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  # Lädt das Modell einmal und beendet sich. Ohne diesen Schritt wartet der
+  # erste Kunde minutenlang auf einen Download, den er für Rechenzeit hält.
+  model-pull:
+    image: ollama/ollama:latest
+    container_name: freedom-model-pull
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        MODEL="${OLLAMA_MODEL:-qwen2.5:7b}"
+        echo "Lade $$MODEL — das dauert beim ersten Mal einige Minuten."
+        ollama pull "$$MODEL"
+    restart: "no"
+
+  node:
+    build:
+      context: .
+      dockerfile: docker/node.Dockerfile
+    container_name: freedom-node
+    restart: unless-stopped
+    depends_on:
+      ollama:
+        condition: service_healthy
+      model-pull:
+        condition: service_completed_successfully
+    environment:
+      # Pflicht. Fehlt sie, bricht der Knoten mit einer klaren Meldung ab.
+      NODE_LUD16: "${NODE_LUD16:?NODE_LUD16 fehlt — ohne Auszahlungsadresse waere die Arbeit geschenkt}"
+      REGION: "${REGION:-}"
+      OLLAMA_URL: "http://ollama:11434"
+      OLLAMA_MODEL: "${OLLAMA_MODEL:-qwen2.5:7b}"
+      PROVIDER_MODELS: "${PROVIDER_MODELS:-qwen2.5:7b}"
+      FREE_TOKENS_PER_DAY: "${FREE_TOKENS_PER_DAY:-2000}"
+      STORAGE_ENABLED: "${STORAGE_ENABLED:-1}"
+      RELAY_ENABLED: "${RELAY_ENABLED:-0}"
+      # Ein Relay ohne oeffentliche Adresse ist fuer das Netz unsichtbar —
+      # deshalb hier standardmaessig aus, statt still nichts beizutragen.
+      RELAY_PUBLIC_URL: "${RELAY_PUBLIC_URL:-}"
+      QUOTA_API_PORT: "3602"
+    volumes:
+      # Identitaet und Bootstrap-Zeitpunkt ueberleben Neustarts. Ohne dieses
+      # Volume erzeugt jeder Neustart einen neuen Schluessel — Reputation weg,
+      # Gratisphase zurueck auf Anfang.
+      - freedom-state:/home/node/.freedom
+      - freedom-data:/home/node/freedom-data
+    ports:
+      - "127.0.0.1:3602:3602"
+
+volumes:
+  ollama-models:
+  freedom-state:
+  freedom-data:

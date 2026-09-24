@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>freedom launcher</title>
+<style>
+:root { --bg:#050505; --card:#0A0A0A; --border:#1E1E1E; --accent:#7BC80A; --accent-dim:#5A9400; --text:#E0E0E0; --muted:#777; --red:#CC3333; --amber:#CC8800; }
+* { box-sizing:border-box; margin:0; padding:0; }
+body { background:var(--bg); color:var(--text); font-family:ui-monospace,Menlo,monospace; font-size:14px; padding:20px; max-width:640px; margin:0 auto; }
+h1 { color:var(--accent); font-size:18px; letter-spacing:2px; margin-bottom:4px; }
+.sub { color:var(--muted); font-size:11px; margin-bottom:20px; }
+.card { background:var(--card); border:1px solid var(--border); border-radius:2px; padding:14px; margin-bottom:12px; }
+.card h3 { font-size:11px; text-transform:uppercase; letter-spacing:.5px; color:var(--muted); margin-bottom:10px; }
+.row { display:flex; gap:8px; align-items:center; }
+.stat { display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid var(--border); font-size:12px; }
+.stat:last-child { border-bottom:none; }
+.ok { color:var(--accent); } .warn { color:var(--amber); } .err { color:var(--red); } .muted { color:var(--muted); }
+button { background:var(--accent); color:#000; border:none; border-radius:2px; padding:12px 16px; font-family:inherit; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; cursor:pointer; }
+button:hover { background:var(--accent-dim); }
+button:disabled { background:var(--border); color:var(--muted); }
+button.ghost { background:transparent; border:1px solid var(--border); color:var(--text); }
+input, select { width:100%; background:var(--bg); border:1px solid var(--border); border-radius:2px; color:var(--text); font-family:inherit; font-size:13px; padding:10px; margin-bottom:8px; }
+label { font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:.5px; display:block; margin-bottom:4px; }
+#logs { background:#000; border:1px solid var(--border); padding:8px; font-size:10px; height:120px; overflow-y:auto; white-space:pre-wrap; }
+.hidden { display:none !important; }
+.big { font-size:22px; font-weight:700; }
+</style>
+</head>
+<body>
+<h1>FREEDOM LAUNCHER</h1>
+<div class="sub">1-Klick Provider-Knoten — vermiete KI-Compute, verdiene sats. Non-custodial.</div>
+
+<div class="card">
+  <h3>System-Check</h3>
+  <div class="stat"><span>Ollama installiert</span><span id="st-ollama-inst" class="muted">…</span></div>
+  <div class="stat"><span>Ollama läuft</span><span id="st-ollama-run" class="muted">…</span></div>
+  <div class="stat"><span>Modelle verfügbar</span><span id="st-models" class="muted">…</span></div>
+  <div class="stat"><span>Knoten-Config</span><span id="st-config" class="muted">…</span></div>
+  <button class="ghost" id="btn-recheck" style="margin-top:8px;width:100%">Erneut prüfen</button>
+</div>
+
+<div class="card" id="setup-card">
+  <h3>Knoten einrichten</h3>
+  <label>Lightning-Adresse (lud16) — wohin sats fließen</label>
+  <input id="cfg-lud16" placeholder="you@walletofsatoshi.com" />
+  <label>Secret Key (nsec hex) — <a href="#" id="gen-key" style="color:var(--accent)">neu generieren</a></label>
+  <input id="cfg-key" placeholder="64 hex chars" />
+  <label>Modell</label>
+  <select id="cfg-model"></select>
+  <label>Preis (msat pro 1k tokens)</label>
+  <input id="cfg-price" type="number" value="1000" />
+  <label><input type="checkbox" id="cfg-lp" style="width:auto;margin:0 6px 8px 0" />LP-Modus (Swap-Liquidität anbieten, braucht LND)</label>
+  <input id="cfg-macaroon" class="hidden" placeholder="Pfad zum admin.macaroon" />
+  <button id="btn-start" style="width:100%">Verdienen starten</button>
+</div>
+
+<div class="card">
+  <h3>Knoten-Status</h3>
+  <div class="stat"><span>Daemon</span><span id="st-daemon" class="muted">gestoppt</span></div>
+  <div class="stat"><span>Modus</span><span class="muted">DVM-Provider</span></div>
+  <button class="ghost" id="btn-stop" style="width:100%;margin-top:8px" disabled>Stoppen</button>
+</div>
+
+<div class="card">
+  <h3>Logs</h3>
+  <div id="logs"></div>
+</div>
+
+<script type="module">
+const invoke = window.__TAURI__?.core?.invoke;
+
+function log(msg) {
+  const el = document.getElementById('logs');
+  el.textContent += `[${new Date().toLocaleTimeString()}] ${msg}\n`;
+  el.scrollTop = el.scrollHeight;
+}
+
+function setStatus(id, text, cls) {
+  const el = document.getElementById(id);
+  el.textContent = text;
+  el.className = cls;
+}
+
+async function refresh() {
+  if (!invoke) { log('TAURI nicht verfügbar (Browser-Modus)'); return; }
+  try {
+    const s = await invoke('system_status');
+    setStatus('st-ollama-inst', s.ollama_installed ? '✓' : '✗ fehlt', s.ollama_installed ? 'ok' : 'err');
+    setStatus('st-ollama-run', s.ollama_running ? '✓' : '✗', s.ollama_running ? 'ok' : 'err');
+    setStatus('st-models', `${s.ollama_models.length}`, s.ollama_models.length ? 'ok' : 'warn');
+    setStatus('st-config', s.config_present ? '✓' : '—', s.config_present ? 'ok' : 'muted');
+    const sel = document.getElementById('cfg-model');
+    sel.innerHTML = s.ollama_models.map(m => `<option>${m}</option>`).join('');
+    if (s.daemon_running) {
+      setStatus('st-daemon', 'läuft', 'ok');
+      document.getElementById('btn-stop').disabled = false;
+      document.getElementById('btn-start').disabled = true;
+    }
+    for (const l of s.daemon_logs.slice(-5)) log(l);
+  } catch (e) { log(`status fehler: ${e}`); }
+}
+
+document.getElementById('btn-recheck').onclick = refresh;
+document.getElementById('gen-key').onclick = async (e) => {
+  e.preventDefault();
+  if (!invoke) return;
+  document.getElementById('cfg-key').value = await invoke('generate_node_key');
+  log('neuer key generiert — sicher aufbewahren!');
+};
+document.getElementById('cfg-lp').onchange = (e) => {
+  document.getElementById('cfg-macaroon').classList.toggle('hidden', !e.target.checked);
+};
+
+document.getElementById('btn-start').onclick = async () => {
+  if (!invoke) return;
+  const cfg = {
+    lud16: document.getElementById('cfg-lud16').value.trim(),
+    secret_key_hex: document.getElementById('cfg-key').value.trim(),
+    price_per_ktoken_msat: Number(document.getElementById('cfg-price').value),
+    lp_enabled: document.getElementById('cfg-lp').checked,
+    lnd_macaroon_path: document.getElementById('cfg-macaroon').value.trim(),
+    ollama_model: document.getElementById('cfg-model').value,
+  };
+  if (!cfg.lud16 || !cfg.secret_key_hex) { log('lud16 + key erforderlich'); return; }
+  try {
+    await invoke('start_daemon', { cfg });
+    log('daemon gestartet');
+    setStatus('st-daemon', 'läuft', 'ok');
+    document.getElementById('btn-stop').disabled = false;
+    document.getElementById('btn-start').disabled = true;
+  } catch (e) { log(`start fehlgeschlagen: ${e}`); }
+};
+
+document.getElementById('btn-stop').onclick = async () => {
+  if (!invoke) return;
+  try {
+    await invoke('stop_daemon');
+    log('daemon gestoppt');
+    setStatus('st-daemon', 'gestoppt', 'muted');
+    document.getElementById('btn-stop').disabled = true;
+    document.getElementById('btn-start').disabled = false;
+  } catch (e) { log(`stop fehlgeschlagen: ${e}`); }
+};
+
+refresh();
+setInterval(refresh, 10000);
+</script>
+</body>
+</html>

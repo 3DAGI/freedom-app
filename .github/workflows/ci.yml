@@ -1,0 +1,183 @@
+# Warum es diese Datei gibt
+#
+# Die Ausgangsanalyse fand fuenf rote Tests im Node-Paket, die unbemerkt
+# eingecheckt worden waren — darunter drei, die genau die Sicherheitsluecke
+# markierten, durch die jeder unbegrenzt Gratis-Inferenz beziehen konnte.
+# Der Grund war nicht Nachlaessigkeit, sondern dass niemand die Tests
+# automatisch ausfuehrte. Genau das erledigt dieser Workflow.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Tests und Typpruefung
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Abhaengigkeiten installieren
+        # Playwright ist optional (~300 MB) und wird fuer die Tests nicht
+        # gebraucht — ueberspringen spart pro Lauf mehrere Minuten.
+        run: npm install --workspaces --include-workspace-root --no-audit --no-fund
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+
+      - name: Typpruefung (alle drei Pakete)
+        run: |
+          for p in protocol node app; do
+            echo "--- tsc: $p"
+            (cd "packages/$p" && npx tsc -p tsconfig.json --noEmit)
+          done
+
+      - name: Tests protocol
+        run: npm test --workspace @freedomstack/protocol
+
+      - name: Tests node
+        run: npm test --workspace @freedomstack/node
+
+      - name: Tests app
+        run: npm test --workspace @freedomstack/app
+
+      - name: App-Build muss durchlaufen
+        # Der Buffer-Shim wird als String in das Bundle geschrieben; ein
+        # Syntaxfehler darin faellt bei tsc NICHT auf, sondern erst hier.
+        run: |
+          cd packages/app
+          node build.mjs
+          test -f dist/freedom.html
+
+      - name: Installer-Syntax pruefen
+        run: bash -n scripts/install-freedom.sh
+
+      - name: Gate-Server-Syntax pruefen
+        run: python3 -m py_compile packages/website/gated-server.py
+
+      - name: Container-Paket pruefen
+        # Ein kaputtes compose-File faellt sonst erst dem ersten Provider auf,
+        # der es ausprobiert — also genau dem, den es abholen sollte.
+        run: |
+          python3 -c "
+          import yaml, sys
+          d = yaml.safe_load(open('docker-compose.yml'))
+          assert set(d['services']) >= {'ollama', 'node'}, 'Dienste fehlen'
+          # Ollama darf nie nach aussen offen sein: ein offener
+          # Inferenz-Endpunkt im Internet ist eine Einladung.
+          assert 'ports' not in d['services']['ollama'], 'Ollama nach aussen offen'
+          # Zustand muss Neustarts ueberleben, sonst erzeugt jeder Neustart
+          # einen neuen Schluessel: Reputation weg, Gratisphase zurueck.
+          vols = d['services']['node'].get('volumes', [])
+          assert any('.freedom' in v for v in vols), 'Zustands-Volume fehlt'
+          print('docker-compose.yml ok')
+          "
+
+      - name: Website-Seiten pruefen
+        run: python3 scripts/check-website.py
+
+      - name: Verdrahtung pruefen
+        # Dreimal im Projekt war eine Protokollschicht gebaut, getestet und
+        # nirgends aufgerufen. Protokollcode laesst sich testen, Verdrahtung
+        # nicht — deshalb diese Pruefung.
+        run: python3 scripts/check-wiring.py
+
+      - name: Dashboard-Skript pruefen
+        # Das Dashboard ist reines Inline-JS ohne Build — ein Syntaxfehler
+        # faellt sonst erst dem ersten Besucher auf.
+        run: |
+          node -e "
+            const fs = require('fs');
+            const html = fs.readFileSync('packages/website/dashboard.html', 'utf8');
+            const m = html.match(/<script type=\"module\">([\s\S]*?)<\/script>/);
+            if (!m) { console.error('Kein Skriptblock gefunden'); process.exit(1); }
+            new Function(m[1]);
+            console.log('dashboard.html: Skript syntaktisch ok');
+          "
+
+  invariants:
+    name: Protokoll-Invarianten
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - run: npm install --workspaces --include-workspace-root --no-audit --no-fund
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+
+      - name: Fee-Konstanten sind in sich stimmig
+        # Der Faktor-10-Fehler (5.000 ppm als "5%" bezeichnet) lief monatelang
+        # mit. Diese Pruefung faengt eine Wiederholung sofort ab.
+        run: |
+          cd packages/protocol
+          cat > /tmp/inv.mts <<'EOF'
+          import * as fee from "./src/protocol-fee.js";
+          const {
+            PROTOCOL_FEE_PERCENT, PROTOCOL_FEE_PPM,
+            FEE_POOL_PPM, FEE_REFERRAL_PPM, splitFeeV1,
+          } = fee;
+
+          const fail = (m: string) => { console.error("INVARIANTE VERLETZT: " + m); process.exit(1); };
+
+          if (PROTOCOL_FEE_PPM !== PROTOCOL_FEE_PERCENT * 10_000) {
+            fail(`${PROTOCOL_FEE_PERCENT}% muessten ${PROTOCOL_FEE_PERCENT * 10_000} ppm sein, sind aber ${PROTOCOL_FEE_PPM}`);
+          }
+          // Die Protokollfee hat keinen privilegierten Empfaenger mehr: nur
+          // Pool und Referral. Ein Entwickleranteil gehoert in client-fee.ts.
+          if ("FEE_DEV_PPM" in fee) {
+            fail("Im Protokoll steht wieder ein fester Entwickleranteil (FEE_DEV_PPM)");
+          }
+          if (FEE_POOL_PPM + FEE_REFERRAL_PPM !== PROTOCOL_FEE_PPM) {
+            fail("Die Anteile ergeben nicht die Gesamtfee");
+          }
+          for (const amount of [1, 999, 1000, 123_457, 10_000_000]) {
+            const s = splitFeeV1(amount);
+            if ("devMsat" in s) fail("splitFeeV1 liefert wieder einen Entwickleranteil (devMsat)");
+            const sum = s.workerMsat + s.poolMsat + s.referralMsat;
+            if (sum !== amount) fail(`Bei ${amount} msat gehen ${amount - sum} msat verloren`);
+          }
+          console.log(`Fee-Invarianten ok (${PROTOCOL_FEE_PERCENT}% = ${PROTOCOL_FEE_PPM} ppm)`);
+          EOF
+          cp /tmp/inv.mts . && node --import tsx inv.mts && rm inv.mts
+
+      - name: Keine Geheimnisse im Repo
+        run: |
+          # Ein versehentlich eingecheckter Treasury-Key waere nicht rueckholbar.
+          if grep -rIn --exclude-dir=node_modules --exclude-dir=.git \
+               -E "(TREASURY_MASTER_SECRET|NODE_SECRET_KEY|LND_MACAROON_HEX)[[:space:]]*=[[:space:]]*[\"']?[0-9a-fA-F]{64}" . ; then
+            echo "Es sieht so aus, als laege ein echter Schluessel im Repo."
+            exit 1
+          fi
+          echo "keine Schluessel gefunden"
+
+      - name: Keine Browser-Speicher-APIs im Protokoll
+        run: |
+          # Das Protokoll muss in Node UND im Browser laufen; eine Abhaengigkeit
+          # von localStorage waere in beiden Richtungen ein Problem.
+          #
+          # Gesucht wird echte VERWENDUNG (localStorage. oder localStorage[),
+          # nicht die blosse Erwaehnung — sonst schlaegt die Pruefung auf einem
+          # erklaerenden Kommentar an und wird nach dem zweiten Fehlalarm
+          # ignoriert. Genau so verlieren Pruefungen ihren Wert.
+          if grep -rnE "(localStorage|sessionStorage)[.[]" packages/protocol/src \
+               | grep -vE "^\s*[^:]+:[0-9]+:\s*(//|\*|/\*)" ; then
+            echo "Das Protokoll darf nicht von Browser-Speicher abhaengen."
+            exit 1
+          fi
+          echo "protocol ist speicherfrei"

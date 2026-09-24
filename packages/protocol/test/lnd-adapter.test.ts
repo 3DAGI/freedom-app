@@ -1,0 +1,226 @@
+/**
+ * Tests fuer die LND-Anbindung.
+ *
+ * Dieses Modul bewegt echtes Geld und hatte bislang keinen einzigen Test. Der
+ * Schwerpunkt liegt auf dem, was beim ersten echten Sat schiefgehen kann:
+ * falsche Kodierung, verschluckte Fehler, und eine TLS-Ausnahme, die mehr
+ * oeffnet als gedacht.
+ */
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { LndLightningAdapter, loadMacaroonHex } from "../src/lnd-adapter.js";
+import { toHex } from "../src/htlc.js";
+
+const LOKAL = "https://127.0.0.1:8080";
+const MAC = "0201036c6e64";
+
+/** fetch-Ersatz, der Aufrufe mitschreibt und feste Antworten gibt. */
+function fakeFetch(antworten: Record<string, unknown>, log: { url: string; body: unknown }[] = []) {
+  return (async (url: string | URL, init?: RequestInit) => {
+    const u = url.toString();
+    log.push({ url: u, body: init?.body ? JSON.parse(String(init.body)) : undefined });
+    const treffer = Object.keys(antworten).find((k) => u.includes(k));
+    if (!treffer) return new Response("nicht gefunden", { status: 404 });
+    const a = antworten[treffer];
+    if (a instanceof Response) return a;
+    return new Response(JSON.stringify(a));
+  }) as unknown as typeof fetch;
+}
+
+function mitFetch<T>(f: typeof fetch, fn: () => Promise<T>): Promise<T> {
+  const orig = globalThis.fetch;
+  globalThis.fetch = f;
+  return fn().finally(() => { globalThis.fetch = orig; });
+}
+
+// ------------------------------------------------------------- TLS
+
+test("Unsicheres TLS oeffnet NICHT den ganzen Prozess", () => {
+  // Frueher stand hier NODE_TLS_REJECT_UNAUTHORIZED = "0". Das schaltet die
+  // Zertifikatspruefung fuer Solana-RPC, Relays und alles andere ab — und
+  // zwar dauerhaft und unsichtbar.
+  const vorher = process.env.NODE_TLS_REJECT_UNAUTHORIZED;
+  new LndLightningAdapter({ restUrl: LOKAL, macaroonHex: MAC, allowInsecureTls: true });
+  assert.equal(
+    process.env.NODE_TLS_REJECT_UNAUTHORIZED, vorher,
+    "die globale TLS-Einstellung darf sich nicht aendern",
+  );
+});
+
+test("Unsicheres TLS nur fuer lokale Instanzen", () => {
+  // Ein selbstsigniertes Zertifikat auf einer fremden Adresse ist nicht zu
+  // unterscheiden von einem Angriff.
+  assert.throws(
+    () => new LndLightningAdapter({
+      restUrl: "https://fremde-lnd.example:8080", macaroonHex: MAC, allowInsecureTls: true,
+    }),
+    /nur fuer lokale|nur für lokale/,
+  );
+  assert.doesNotThrow(() => new LndLightningAdapter({
+    restUrl: "https://localhost:8080", macaroonHex: MAC, allowInsecureTls: true,
+  }));
+});
+
+test("Ohne die Ausnahme wird jede Adresse akzeptiert", () => {
+  assert.doesNotThrow(() => new LndLightningAdapter({
+    restUrl: "https://lnd.example:8080", macaroonHex: MAC,
+  }));
+});
+
+// ------------------------------------------------------------- Kodierung
+
+test("Hold-Invoice: Payment-Hash geht als base64 raus", async () => {
+  // LND erwartet base64. Hex zu schicken ergibt eine Invoice auf einen
+  // voellig anderen Hash — und die Zahlung landet nirgends.
+  const log: { url: string; body: unknown }[] = [];
+  const hash = new Uint8Array(32).fill(7);
+  const inv = await mitFetch(
+    fakeFetch({ "/v2/invoices/hodl": { payment_request: "lnbc1test" } }, log),
+    () => new LndLightningAdapter({ restUrl: LOKAL, macaroonHex: MAC })
+      .createHoldInvoice(hash, 1000, 144),
+  );
+
+  const body = log[0].body as { hash: string; value: string; cltv_expiry: string };
+  assert.equal(body.hash, Buffer.from(hash).toString("base64"));
+  assert.equal(body.value, "1000", "Betrag als Zeichenkette, nicht als Zahl");
+  assert.equal(body.cltv_expiry, "144");
+  assert.equal(inv.bolt11, "lnbc1test");
+});
+
+test("Macaroon wandert in den richtigen Kopf", async () => {
+  let kopf: string | null = null;
+  const f = (async (url: string | URL, init?: RequestInit) => {
+    kopf = (init?.headers as Record<string, string>)["Grpc-Metadata-macaroon"];
+    void url;
+    return new Response(JSON.stringify({ payment_request: "x" }));
+  }) as unknown as typeof fetch;
+
+  await mitFetch(f, () => new LndLightningAdapter({ restUrl: LOKAL, macaroonHex: MAC })
+    .createHoldInvoice(new Uint8Array(32), 1, 1));
+  assert.equal(kopf, MAC);
+});
+
+test("Lookup kodiert den Hash URL-sicher", async () => {
+  // Base64 enthaelt + / = — ohne Kodierung antwortet LND mit HTTP 400.
+  const log: { url: string; body: unknown }[] = [];
+  const hash = new Uint8Array(32).fill(255); // erzeugt sicher Sonderzeichen
+  await mitFetch(
+    fakeFetch({ "/v2/invoices/lookup": { state: "OPEN" } }, log),
+    () => new LndLightningAdapter({ restUrl: LOKAL, macaroonHex: MAC }).getInvoiceState(hash),
+  );
+  assert.ok(!log[0].url.includes("+"), "rohes + wuerde als Leerzeichen gelesen");
+  assert.ok(log[0].url.includes("%2F") || !log[0].url.includes("/v2/invoices/lookup?payment_hash=/"));
+});
+
+test("Settle und Cancel schicken base64", async () => {
+  const log: { url: string; body: unknown }[] = [];
+  const a = new LndLightningAdapter({ restUrl: LOKAL, macaroonHex: MAC });
+  const pre = new Uint8Array(32).fill(3);
+  await mitFetch(fakeFetch({ "/v2/invoices/settle": {}, "/v2/invoices/cancel": {} }, log), async () => {
+    await a.settleHoldInvoice(pre);
+    await a.cancelHoldInvoice(pre);
+  });
+  assert.equal((log[0].body as { preimage: string }).preimage, Buffer.from(pre).toString("base64"));
+  assert.equal((log[1].body as { payment_hash: string }).payment_hash, Buffer.from(pre).toString("base64"));
+});
+
+// ------------------------------------------------------------- Zustaende
+
+test("Invoice-Zustaende werden durchgereicht", async () => {
+  for (const zustand of ["OPEN", "ACCEPTED", "SETTLED", "CANCELED"]) {
+    const r = await mitFetch(
+      fakeFetch({ "/v2/invoices/lookup": { state: zustand } }),
+      () => new LndLightningAdapter({ restUrl: LOKAL, macaroonHex: MAC })
+        .getInvoiceState(new Uint8Array(32)),
+    );
+    assert.equal(r, zustand);
+  }
+});
+
+test("Unbekannter Zustand gilt als OPEN, nicht als bezahlt", () => {
+  // Die sichere Richtung: Eine Invoice faelschlich als bezahlt zu behandeln
+  // waere ein Verlust, sie faelschlich als offen zu behandeln nur eine
+  // Verzoegerung.
+  return mitFetch(
+    fakeFetch({ "/v2/invoices/lookup": { state: "WAS_AUCH_IMMER" } }),
+    async () => {
+      const r = await new LndLightningAdapter({ restUrl: LOKAL, macaroonHex: MAC })
+        .getInvoiceState(new Uint8Array(32));
+      assert.equal(r, "OPEN");
+    },
+  );
+});
+
+// ------------------------------------------------------------- Fehler
+
+test("HTTP-Fehler werden mit Text gemeldet, nicht verschluckt", async () => {
+  // "Zahlung fehlgeschlagen" ohne Grund kostet bei der Fehlersuche Stunden.
+  await assert.rejects(
+    () => mitFetch(
+      fakeFetch({ "/v2/invoices/hodl": new Response("macaroon abgelaufen", { status: 401 }) }),
+      () => new LndLightningAdapter({ restUrl: LOKAL, macaroonHex: MAC })
+        .createHoldInvoice(new Uint8Array(32), 1, 1),
+    ),
+    /HTTP 401.*macaroon abgelaufen/,
+  );
+});
+
+test("Zahlung: Preimage kommt als Hex zurueck, nicht als base64", async () => {
+  // Der Fee-Beweis braucht Hex. Base64 durchzureichen ergaebe einen Beleg,
+  // den niemand pruefen kann.
+  const pre = new Uint8Array(32).fill(9);
+  const zeilen = JSON.stringify({
+    result: { status: "SUCCEEDED", payment_preimage: Buffer.from(pre).toString("base64") },
+  }) + "\n";
+
+  const f = (async () => new Response(zeilen)) as unknown as typeof fetch;
+  const r = await mitFetch(f, () => new LndLightningAdapter({ restUrl: LOKAL, macaroonHex: MAC })
+    .payInvoiceAndGetPreimage("lnbc1"));
+  assert.equal(r, toHex(pre));
+});
+
+test("Gescheiterte Zahlung nennt den Grund", async () => {
+  const zeilen = JSON.stringify({
+    result: { status: "FAILED", failure_reason: "FAILURE_REASON_NO_ROUTE" },
+  }) + "\n";
+  const f = (async () => new Response(zeilen)) as unknown as typeof fetch;
+  await assert.rejects(
+    () => mitFetch(f, () => new LndLightningAdapter({ restUrl: LOKAL, macaroonHex: MAC })
+      .payInvoiceAndGetPreimage("lnbc1")),
+    /NO_ROUTE/,
+  );
+});
+
+test("Abbruch ohne Ergebnis wird als solcher gemeldet", async () => {
+  // Ein stiller Abbruch saehe fuer den Aufrufer aus wie Erfolg.
+  const f = (async () => new Response("")) as unknown as typeof fetch;
+  await assert.rejects(
+    () => mitFetch(f, () => new LndLightningAdapter({ restUrl: LOKAL, macaroonHex: MAC })
+      .payInvoiceAndGetPreimage("lnbc1")),
+    /kein Ergebnis/,
+  );
+});
+
+test("Fehler im Strom wird durchgereicht", async () => {
+  const zeilen = JSON.stringify({ error: { message: "insufficient balance" } }) + "\n";
+  const f = (async () => new Response(zeilen)) as unknown as typeof fetch;
+  await assert.rejects(
+    () => mitFetch(f, () => new LndLightningAdapter({ restUrl: LOKAL, macaroonHex: MAC })
+      .payInvoiceAndGetPreimage("lnbc1")),
+    /insufficient balance/,
+  );
+});
+
+test("Macaroon-Datei wird als Hex gelesen", async () => {
+  const { mkdtemp, writeFile, rm } = await import("node:fs/promises");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+  const dir = await mkdtemp(join(tmpdir(), "freedom-mac-"));
+  try {
+    const p = join(dir, "admin.macaroon");
+    await writeFile(p, Buffer.from([0x02, 0x01, 0x03]));
+    assert.equal(await loadMacaroonHex(p), "020103");
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});

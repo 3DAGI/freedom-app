@@ -1,0 +1,25 @@
+{
+  "name": "@freedomstack/app",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "FreedomStack App: ein Download \u2014 Chat, KI-Marktplatz, Wallet, Verdienen",
+  "scripts": {
+    "build": "tsc -p tsconfig.json && node build.mjs",
+    "build:shell": "node build.mjs",
+    "serve": "cd dist && python3 -m http.server 3500 --bind 0.0.0.0",
+    "test": "node --import tsx --test test/*.test.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.1",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3"
+  },
+  "dependencies": {
+    "@freedomstack/protocol": "*",
+    "@solana/web3.js": "^1.98.4",
+    "esbuild": "^0.28.1",
+    "@scure/base": "^1.2.6",
+    "@scure/bip32": "^1.7.0",
+    "@scure/bip39": "^1.6.0"
+  }
+}

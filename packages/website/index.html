@@ -1,0 +1,523 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="theme-color" content="#7BC80A" />
+<title>FREEDOM — Nachrichten, Zahlungen und KI ohne Betreiber</title>
+<meta name="description" content="Nachrichten, KI-Rechenzeit und Zahlungen ohne Betreiber. Kein Konto, kein Token, niemand verwahrt dein Geld." />
+<link rel="stylesheet" href="css/style.css" />
+<link rel="manifest" href="manifest.json" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2064%2064%22%20fill%3D%22none%22%3E%3Cpath%20d%3D%22M22%2010%20H12%20V54%20H22%22%20stroke%3D%22%237BC80A%22%20stroke-width%3D%227%22%20stroke-linecap%3D%22square%22/%3E%3Cpath%20d%3D%22M42%2010%20H52%20V54%20H42%22%20stroke%3D%22%237BC80A%22%20stroke-width%3D%227%22%20stroke-linecap%3D%22square%22/%3E%3Crect%20x%3D%2227%22%20y%3D%2227%22%20width%3D%2210%22%20height%3D%2210%22%20fill%3D%22%237BC80A%22/%3E%3C/svg%3E">
+</head>
+<body>
+
+<div class="topnav">
+  <div class="wrap">
+    <span class="logo"><svg width="18" height="18" viewBox="0 0 64 64" fill="none" aria-hidden="true" style="vertical-align:-3px;margin-right:7px"><path d="M22 10 H12 V54 H22" stroke="currentColor" stroke-width="7" stroke-linecap="square"/><path d="M42 10 H52 V54 H42" stroke="currentColor" stroke-width="7" stroke-linecap="square"/><rect x="27" y="27" width="10" height="10" fill="currentColor"/></svg>FREEDOM</span>
+    <nav>
+      <a href="#app">App</a>
+      <a href="#downloads">Downloads</a>
+      <a href="dashboard.html">Status</a>
+      <a href="whitepaper.html">Whitepaper</a>
+      <a href="roadmap.html">Roadmap</a>
+      <a href="faq.html">FAQ</a>
+      <a href="https://github.com" target="_blank" rel="noopener">Code</a>
+      <span class="lang-switch" id="lang-switch">
+        <button class="lang-btn" id="lang-btn" type="button">DE ▾</button>
+        <span class="lang-menu hidden" id="lang-menu"></span>
+      </span>
+    </nav>
+  </div>
+</div>
+
+<canvas id="hero-particles" style="position:fixed;inset:0;width:100%;height:100%;opacity:.55;pointer-events:none;z-index:0"></canvas>
+<header class="hero">
+  <div class="wrap hero-grid" style="position:relative;z-index:1">
+    <div class="hero-text">
+      <h1><span class="t-a" data-i18n="heroA">Kommunizieren. KI nutzen.</span><br /><span class="g t-b" data-i18n="heroB">Bezahlen — ohne Betreiber.</span></h1>
+      <p><span data-i18n="heroSub">Ein Protokoll für Nachrichten, KI-Rechenzeit und Zahlungen. Kein Konto, kein Token, und niemand verwahrt dein Geld.</span></p>
+      <div class="cta">
+        <a class="btn" href="freedom.html" target="_blank" rel="noopener" data-i18n="ctaOpen">App öffnen →</a>
+        <a class="btn ghost" href="#features" data-i18n="ctaProtocol">Protokoll ansehen</a>
+      </div>
+      <p class="cta-sub" data-i18n="ctaSub">Kein Download · Kein Account · läuft sofort im Browser</p>
+      <div class="trust-badges">
+        <span style="--brand:#f7931a"><svg class="logo-btc" width="13" height="13" viewBox="10.5 0.8 12.6 22.4" fill="#f7931a" aria-label="Bitcoin"><path d="M16.15 12.03c1.44-.36 2.42-1.32 2.24-3.02-.23-2.13-1.98-2.85-4.23-3.05l-.01-2.44h-1.51l-.01 2.38c-.4 0-.81.01-1.21.01l.01-2.39H9.92l-.01 2.44c-.33.01-.65.01-.97.01v-.01H6.88l.01 1.62s1.11-.02 1.09-.01c.61 0 .81.36.87.67v2.77c.04 0 .1.01.16.03h-.16v3.88c-.03.19-.13.49-.54.49.02.01-1.09 0-1.09 0l-.3 1.81h2.55c.34 0 .68.01 1.01.01l.01 2.47h1.51l.01-2.44c.41.01.81.01 1.21.02l-.01 2.43h1.51l.01-2.46c2.58-.15 4.37-.8 4.59-3.18.18-1.93-.73-2.79-2.17-3.14zm-4.7-4.71c.86 0 3.57-.17 3.57 1.53 0 1.63-2.71 1.45-3.57 1.45zm0 7.63v-3.19c1.04 0 4.28-.19 4.28 1.6 0 1.71-3.24 1.59-4.28 1.59z"/></svg> Lightning</span>
+        <span><svg class="logo-sol" width="12" height="12" viewBox="0 0 397.7 311.7" aria-label="Solana"><defs><linearGradient id="solGrad" x1="360.9" y1="351.4" x2="141.4" y2="-69.3" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#9945FF"/><stop offset="1" stop-color="#14F195"/></linearGradient></defs><g fill="url(#solGrad)"><path d="M64.6 237.9c2.4-2.4 5.7-3.8 9.2-3.8h317.4c5.8 0 8.7 7 4.6 11.1l-62.7 62.7c-2.4 2.4-5.7 3.8-9.2 3.8H6.5c-5.8 0-8.7-7-4.6-11.1l62.7-62.7z"/><path d="M64.6 3.8C67.1 1.4 70.4 0 73.8 0h317.4c5.8 0 8.7 7 4.6 11.1l-62.7 62.7c-2.4 2.4-5.7 3.8-9.2 3.8H6.5c-5.8 0-8.7-7-4.6-11.1L64.6 3.8z"/><path d="M332.3 120.1c-2.4-2.4-5.7-3.8-9.2-3.8H5.7c-5.8 0-8.7 7-4.6 11.1l62.7 62.7c2.4 2.4 5.7 3.8 9.2 3.8h317.4c5.8 0 8.7-7 4.6-11.1l-62.7-62.7z"/></g></svg> Solana</span>
+        <span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8z"/></svg> Nostr</span>
+        <span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg> Ohne Verwahrung</span>
+        <span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19 17V5a2 2 0 0 0-2-2H4"/><path d="M8 21h12a2 2 0 0 0 2-2v-1a1 1 0 0 0-1-1H11a1 1 0 0 0-1 1v1a2 2 0 1 1-4 0V5a2 2 0 1 0-4 0v2a1 1 0 0 0 1 1h3"/></svg> Open Source</span>
+      </div>
+    </div>
+    <div class="hero-demo" aria-hidden="true">
+      <div class="demo-window">
+        <div class="demo-bar"><i></i><i></i><i></i><span>freedom — agent</span></div>
+        <div class="demo-body" id="demo-body"></div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- ============================== APP ============================== -->
+<section id="app">
+  <div class="wrap">
+    <h2 data-i18n="appTitle">Die App — läuft komplett in deinem Browser</h2>
+    <p class="muted" style="margin-bottom:16px;font-size:12px">
+      KI-Rechenzeit, verschlüsselter Chat, Wallet mit Swaps zwischen Lightning und Solana, und deine Einnahmen als Provider. Kein Download nötig.
+    </p>
+    <p class="mono" style="margin-top:10px">
+      Identität = Nostr-Key (nsec), lokal in deinem Browser. Zahlungen = Lightning (sats).
+      Compute = Provider-Knoten im Netz, nicht wir.
+    </p>
+  </div>
+</section>
+
+<!-- ============================== FEATURES ============================== -->
+<section id="features">
+  <div class="wrap">
+    <h2 data-i18n="howTitle">Wie es funktioniert</h2>
+    <div class="grid">
+      <div class="card">
+        <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8z"/></svg></div>
+        <h3><span data-i18n="featChat">Verschlüsselter Chat</span></h3>
+        <p><p data-i18n="featChatSub">Nachrichten laufen über mehrere Relays. Ein Relay kann Nachrichten zurückhalten, aber nicht fälschen.</p>
+      </div>
+      <div class="card">
+        <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="4" y="8" width="16" height="12" rx="2"/><path d="M12 8V4M8 4h8"/><circle cx="9" cy="14" r="1"/><circle cx="15" cy="14" r="1"/></svg></div>
+        <h3><span data-i18n="featDvm">KI-Marktplatz (NIP-90)</span></h3>
+        <p><p data-i18n="featDvmSub">Stell eine Frage, Provider im Netz antworten. Bezahlt wird pro Anfrage in Sats.</p>
+      </div>
+      <div class="card">
+        <div class="ico"><svg class="logo-btc" width="13" height="13" viewBox="10.5 0.8 12.6 22.4" fill="#f7931a" aria-label="Bitcoin"><path d="M16.15 12.03c1.44-.36 2.42-1.32 2.24-3.02-.23-2.13-1.98-2.85-4.23-3.05l-.01-2.44h-1.51l-.01 2.38c-.4 0-.81.01-1.21.01l.01-2.39H9.92l-.01 2.44c-.33.01-.65.01-.97.01v-.01H6.88l.01 1.62s1.11-.02 1.09-.01c.61 0 .81.36.87.67v2.77c.04 0 .1.01.16.03h-.16v3.88c-.03.19-.13.49-.54.49.02.01-1.09 0-1.09 0l-.3 1.81h2.55c.34 0 .68.01 1.01.01l.01 2.47h1.51l.01-2.44c.41.01.81.01 1.21.02l-.01 2.43h1.51l.01-2.46c2.58-.15 4.37-.8 4.59-3.18.18-1.93-.73-2.79-2.17-3.14zm-4.7-4.71c.86 0 3.57-.17 3.57 1.53 0 1.63-2.71 1.45-3.57 1.45zm0 7.63v-3.19c1.04 0 4.28-.19 4.28 1.6 0 1.71-3.24 1.59-4.28 1.59z"/></svg></div>
+        <h3><span data-i18n="featWallet">Wallet und Swaps</span></h3>
+        <p><p data-i18n="featWalletSub">Lightning und Solana. Swaps laufen direkt über Hashlocks — ohne Bridge und ohne Verwahrer.</p>
+      </div>
+      <div class="card">
+        <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 2 4 5v6c0 5.25 3.4 9.74 8 11 4.6-1.26 8-5.75 8-11V5l-8-3z"/></svg></div>
+        <h3><span data-i18n="featSybil">Sybil-Schutz ohne Zentrale</span></h3>
+        <p><p data-i18n="featSybilSub">Arbeitsnachweis und Vertrauensnetz machen falsche Konten teuer. Reputation ist öffentlich nachprüfbar.</p>
+      </div>
+      <div class="card">
+        <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg></div>
+        <h3><span data-i18n="featNoToken">Kein Token, kein Mixer</span></h3>
+        <p><p data-i18n="featNoTokenSub">Läuft mit BTC und SOL. Das Protokoll nimmt 2,5 %: 2,0 % für den Reward-Pool, 0,5 % für Werber. Die App nimmt zusätzlich 2,5 %, abschaltbar.</p>
+      </div>
+      <div class="card">
+        <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M18.18 8c-2.5 0-3.86 2.04-4.68 3.6C12.68 13.16 11.32 16 8.82 16a4 4 0 1 1 0-8c1.97 0 3.21 1.5 4.13 3.06"/><path d="M18.18 8a4 4 0 1 1 0 8c-1.06 0-1.98-.44-2.76-1.08"/></svg></div>
+        <h3><span data-i18n="featImmutable">Ohne Betreiber</span></h3>
+        <p><p data-i18n="featImmutableSub">Das Swap-Programm wird nach einer Testphase unveränderlich gemacht. Der Code ist offen und liegt an mehreren Orten.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================== DOWNLOADS ============================== -->
+<section id="downloads">
+  <div class="wrap">
+    <h2 data-i18n="dlTitle">Downloads — ohne App-Store, ohne KYC</h2>
+    <p class="muted" style="margin-bottom:16px;font-size:12px">
+      Alle Builds auch über IPFS/Arweave/Tor erreichbar (Hashes unten).
+      Verifiziere die SHA256-Summe vor der Installation.
+    </p>
+
+    <div class="dl">
+      <div class="meta">
+        <div class="name">freedom (PWA)</div>
+        <div class="desc">Web + Android/Seeker + iOS + Desktop-Browser — die volle App</div>
+      </div>
+      <a class="btn" href="freedom.html">Öffnen</a>
+    </div>
+    <div class="hash">sha256: <span id="hash-pwa">dee0377fd5bd16ca74d1e842c70809e09e967dd45e17e62b7f397eb490255580</span></div>
+
+    <div class="dl">
+      <div class="meta">
+        <div class="name">freedom launcher (Linux)</div>
+        <div class="desc">1-Klick Provider-Knoten — KI-Compute vermieten (.AppImage/.deb)</div>
+      </div>
+      <a class="btn ghost" href="#" id="dl-launcher-linux">Bald</a>
+    </div>
+
+    <div class="dl">
+      <div class="meta">
+        <div class="name">freedom launcher (Windows / macOS)</div>
+        <div class="desc">.msi / .dmg — gebaut aus CI (ARM64-GX10 kann nicht cross-kompilieren)</div>
+      </div>
+      <a class="btn ghost" href="#">CI folgt</a>
+    </div>
+
+    <div class="dl">
+      <div class="meta">
+        <div class="name">freedomstack-node (headless)</div>
+        <div class="desc">Server/GX10/VPS — DVM-Provider + LP per Kommandozeile</div>
+      </div>
+      <a class="btn ghost" href="#provide">Anleitung</a>
+    </div>
+
+    <div class="card" style="margin-top:20px">
+      <h3 style="font-size:12px">Dezentrale Mirrors</h3>
+      <ul>
+        <li>IPFS: <span class="mono">ipfs://<span id="ipfs-cid">nach erstem deploy</span></span></li>
+        <li>Arweave: <span class="mono">ar://<span id="ar-tx">nach erstem deploy</span></span></li>
+        <li>Tor: <span class="mono">http://<span id="onion">nach onion-setup</span>.onion</span></li>
+        <li>Code (P2P): <span class="mono">radicle — nach mirror-setup</span></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ============================== PROVIDE ============================== -->
+<section id="provide">
+  <div class="wrap">
+    <h2 data-i18n="provideTitle">Rechenzeit vermieten — drei Einnahmen, ein Knoten</h2>
+    <p class="muted" style="margin-bottom:16px;font-size:12px">
+      Ein GPU-Gerät (Gaming-PC, Mac Mini, NVIDIA DGX Spark, VPS) wird zum
+      Provider-Knoten. Du verdienst: KI-Jobs (DVM), Swap-Liquidität (LP-Fees),
+      und das Netz wächst mit jedem Knoten.
+    </p>
+
+    <div class="grid">
+      <div class="card">
+        <h3><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="12" y1="17" x2="12" y2="21"/><line x1="8" y1="21" x2="16" y2="21"/></svg> <span data-i18n="provDesktop">Desktop (1-Klick)</span></h3>
+        <p>freedom launcher für Windows/Mac/Linux. Installiert Ollama, generiert Keys, fragt deine Lightning-Adresse ab — "Verdienen starten".</p>
+      </div>
+      <div class="card">
+        <h3><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg> <span data-i18n="provHeadless">Headless (Server)</span></h3>
+        <p style="margin-bottom:8px">Überall wo Node läuft:</p>
+        <pre class="mono" style="background:#000;padding:10px;border-radius:2px">git clone &lt;repo&gt;
+cd freedomstack/packages/node
+npm install
+NODE_LUD16=you@wallet.cash npm start</pre>
+      </div>
+      <div class="card">
+        <h3><svg class="logo-btc" width="13" height="13" viewBox="10.5 0.8 12.6 22.4" fill="#f7931a" aria-label="Bitcoin"><path d="M16.15 12.03c1.44-.36 2.42-1.32 2.24-3.02-.23-2.13-1.98-2.85-4.23-3.05l-.01-2.44h-1.51l-.01 2.38c-.4 0-.81.01-1.21.01l.01-2.39H9.92l-.01 2.44c-.33.01-.65.01-.97.01v-.01H6.88l.01 1.62s1.11-.02 1.09-.01c.61 0 .81.36.87.67v2.77c.04 0 .1.01.16.03h-.16v3.88c-.03.19-.13.49-.54.49.02.01-1.09 0-1.09 0l-.3 1.81h2.55c.34 0 .68.01 1.01.01l.01 2.47h1.51l.01-2.44c.41.01.81.01 1.21.02l-.01 2.43h1.51l.01-2.46c2.58-.15 4.37-.8 4.59-3.18.18-1.93-.73-2.79-2.17-3.14zm-4.7-4.71c.86 0 3.57-.17 3.57 1.53 0 1.63-2.71 1.45-3.57 1.45zm0 7.63v-3.19c1.04 0 4.28-.19 4.28 1.6 0 1.71-3.24 1.59-4.28 1.59z"/></svg> Mit LP-Modus</h3>
+        <p style="margin-bottom:8px">Zusätzlich Swap-Liquidität anbieten (braucht LND):</p>
+        <pre class="mono" style="background:#000;padding:10px;border-radius:2px">LP_ENABLED=1 \
+LND_MACAROON=~/.lnd/…/admin.macaroon \
+npm start</pre>
+      </div>
+    </div>
+
+    <p class="mono" style="margin-top:20px">
+      Verdienen-Tab in der App zeigt deine Einnahmen (signierte Leistungs-Events,
+      öffentlich prüfbar). Kein Konto, kein Dashboard-Server — die Relays sind die Quelle.
+    </p>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <span>freedom — betreiberloses Protokoll. Kein Unternehmen, keine Plattform.</span>
+    <span>
+      <a href="#app">App</a> ·
+      <a href="#downloads">Downloads</a> ·
+      <a href="dashboard.html">Netzwerk-Status</a> ·
+      <a href="#provide">Verdienen</a> ·
+      <a href="https://github.com" target="_blank" rel="noopener">Code</a>
+    </span>
+  </div>
+  <div class="wrap" style="margin-top:14px">
+    <span class="mono">Technisches Referenzprojekt, keine Rechts-/Anlageberatung.</span>
+  </div>
+</footer>
+
+<script>
+// Landing-i18n: DE/EN voll, weitere Sprachen fallback EN.
+const LANDING_I18N = {
+  en: {
+    heroA: "Communicate. Use AI.",
+    heroB: "Pay — no operator.",
+    heroSub: "A protocol for messaging, AI compute and payments. No account, no token, and no one holds your money.",
+    ctaOpen: "Open app \u2192",
+    ctaProtocol: "Read the protocol",
+    ctaSub: "No download \u00b7 No account \u00b7 runs in your browser",
+    howTitle: "How it works",
+    featChat: "Encrypted chat",
+    featChatSub: "Messages travel over several relays. A relay can withhold messages but cannot forge them.",
+    featDvm: "AI marketplace (NIP-90)",
+    featDvmSub: "Ask a question, providers in the network answer. You pay per request in sats.",
+    featWallet: "Wallet and swaps",
+    featWalletSub: "Lightning and Solana. Swaps settle directly through hashlocks — no bridge, no custodian.",
+    featSybil: "Sybil resistance without a center",
+    featSybilSub: "Proof of work and a web of trust make fake accounts expensive. Reputation is publicly verifiable.",
+    featNoToken: "No token, no mixer",
+    featNoTokenSub: "Runs on BTC and SOL. The protocol takes 2.5%: 2.0% to the reward pool, 0.5% to referrers. The app adds 2.5%, which you can turn off.",
+    featImmutable: "No operator",
+    featImmutableSub: "The swap program becomes immutable after a test phase. The code is open and hosted in several places.",
+    dlTitle: "Downloads \u2014 no app store, no KYC",
+    provideTitle: "Rent out compute — three income streams, one node",
+    appTitle: "The app \u2014 runs entirely in your browser",
+    provDesktop: "Desktop (1-click)",
+    provHeadless: "Headless (server)",
+  },
+  de: {
+    heroA: "Kommunizieren. KI nutzen.",
+    heroB: "Bezahlen — ohne Betreiber.",
+    heroSub: "Ein Protokoll für Nachrichten, KI-Rechenzeit und Zahlungen. Kein Konto, kein Token, und niemand verwahrt dein Geld.",
+    ctaOpen: "App öffnen →",
+    ctaProtocol: "Protokoll ansehen",
+    ctaSub: "Kein Download · Kein Account · läuft sofort im Browser",
+    howTitle: "Wie es funktioniert",
+    featChat: "Verschlüsselter Chat",
+    featChatSub: "Nachrichten laufen über mehrere Relays. Ein Relay kann Nachrichten zurückhalten, aber nicht fälschen.",
+    featDvm: "KI-Marktplatz (NIP-90)",
+    featDvmSub: "Stell eine Frage, Provider im Netz antworten. Bezahlt wird pro Anfrage in Sats.",
+    featWallet: "Wallet und Swaps",
+    featWalletSub: "Lightning und Solana. Swaps laufen direkt über Hashlocks — ohne Bridge und ohne Verwahrer.",
+    featSybil: "Sybil-Schutz ohne Zentrale",
+    featSybilSub: "Arbeitsnachweis und Vertrauensnetz machen falsche Konten teuer. Reputation ist öffentlich nachprüfbar.",
+    featNoToken: "Kein Token, kein Mixer",
+    featNoTokenSub: "Läuft mit BTC und SOL. Das Protokoll nimmt 2,5 %: 2,0 % für den Reward-Pool, 0,5 % für Werber. Die App nimmt zusätzlich 2,5 %, abschaltbar.",
+    featImmutable: "Ohne Betreiber",
+    featImmutableSub: "Das Swap-Programm wird nach einer Testphase unveränderlich gemacht. Der Code ist offen und liegt an mehreren Orten.",
+    dlTitle: "Downloads — ohne App-Store, ohne KYC",
+    provideTitle: "Rechenzeit vermieten — drei Einnahmen, ein Knoten",
+    appTitle: "Die App — läuft komplett in deinem Browser",
+    provDesktop: "Desktop (1-Klick)",
+    provHeadless: "Headless (Server)",
+  },
+  es: {
+    heroA: "Comunica. Usa IA.",
+    heroB: "Paga — sin operador.",
+    ctaOpen: "Abrir app →",
+    ctaProtocol: "Ver el protocolo",
+    ctaSub: "Sin descarga · Sin cuenta · funciona en tu navegador",
+    howTitle: "Cómo funciona",
+    featDvm: "Mercado de IA (NIP-90)",
+    featSybil: "Resistencia Sybil sin centro",
+    featNoToken: "Sin token, sin mixer",
+    dlTitle: "Descargas — sin app store, sin KYC",
+    appTitle: "La app — funciona entirely en tu navegador",
+    provDesktop: "Escritorio (1-clic)",
+    provHeadless: "Headless (servidor)",
+  },
+  fr: {
+    heroA: "Communiquez. Utilisez l'IA.",
+    heroB: "Payez — sans opérateur.",
+    ctaOpen: "Ouvrir l'app →",
+    ctaProtocol: "Voir le protocole",
+    ctaSub: "Sans téléchargement · Sans compte · fonctionne dans votre navigateur",
+    howTitle: "Comment ça marche",
+    featDvm: "Marché de l'IA (NIP-90)",
+    featSybil: "Résistance Sybil sans centre",
+    featNoToken: "Pas de token, pas de mixer",
+    dlTitle: "Téléchargements — sans app store, sans KYC",
+    appTitle: "L'app — fonctionne entièrement dans votre navigateur",
+    provDesktop: "Bureau (1-clic)",
+    provHeadless: "Headless (serveur)",
+  },
+  it: {
+    heroA: "Comunica. Usa l'IA.",
+    heroB: "Paga — senza operatore.",
+    ctaOpen: "Apri l'app →",
+    ctaProtocol: "Vedi il protocollo",
+    ctaSub: "Nessun download · Nessun account · funziona nel browser",
+    howTitle: "Come funziona",
+    featDvm: "Mercato dell'IA (NIP-90)",
+    featSybil: "Resistenza Sybil senza centro",
+    featNoToken: "Nessun token, nessun mixer",
+    dlTitle: "Download — senza app store, senza KYC",
+    appTitle: "L'app — gira interamente nel tuo browser",
+    provDesktop: "Desktop (1-clic)",
+    provHeadless: "Headless (server)",
+  },
+  pt: {
+    heroA: "Comunique. Use IA.",
+    heroB: "Pague — sem operador.",
+    ctaOpen: "Abrir app →",
+    ctaProtocol: "Ver o protocolo",
+    ctaSub: "Sem download · Sem conta · roda no seu navegador",
+    howTitle: "Como funciona",
+    featDvm: "Mercado de IA (NIP-90)",
+    featSybil: "Resistência Sybil sem centro",
+    featNoToken: "Sem token, sem mixer",
+    dlTitle: "Downloads — sem app store, sem KYC",
+    appTitle: "O app — roda inteiramente no seu navegador",
+    provDesktop: "Desktop (1-clique)",
+    provHeadless: "Headless (servidor)",
+  },
+  zh: {
+    heroA: "沟通。使用 AI。",
+    heroB: "支付 —— 无需运营商。",
+    ctaOpen: "打开应用 →",
+    ctaProtocol: "查看协议",
+    ctaSub: "无需下载 · 无需账户 · 浏览器即用",
+    howTitle: "工作原理",
+    featDvm: "AI 市场（NIP-90）",
+    featSybil: "无中心的女巫防御",
+    featNoToken: "无代币，无混币器",
+    dlTitle: "下载 —— 无应用商店，无需 KYC",
+    appTitle: "应用 —— 完全在你的浏览器中运行",
+    provDesktop: "桌面版（一键）",
+    provHeadless: "无界面（服务器）",
+  },
+  ja: {
+    heroA: "コミュニケート。AI を使う。",
+    heroB: "支払う — 運営者なし。",
+    ctaOpen: "アプリを開く →",
+    ctaProtocol: "プロトコルを見る",
+    ctaSub: "ダウンロード不要 · アカウント不要 · ブラウザで即動作",
+    howTitle: "仕組み",
+    featDvm: "AI マーケットプレイス（NIP-90）",
+    featSybil: "中央なしの Sybil 耐性",
+    featNoToken: "トークンなし、ミキサーなし",
+    dlTitle: "ダウンロード — アプリストア不要、KYC 不要",
+    appTitle: "アプリ — 完全にブラウザ内で動作",
+    provDesktop: "デスクトップ（1クリック）",
+    provHeadless: "ヘッドレス（サーバー）",
+  },
+};
+function applyLandingI18n(lang) {
+  const dict = LANDING_I18N[lang] ?? LANDING_I18N.en;
+  document.querySelectorAll("[data-i18n]").forEach((el) => {
+    const k = el.getAttribute("data-i18n");
+    const v = dict[k] ?? LANDING_I18N.en[k];
+    if (v) el.textContent = v;
+  });
+}
+</script>
+<script>
+// Sprachauswahl (Landing). Default EN, localStorage persistiert.
+(function () {
+    const LANGS = [
+    { code: "en", label: "English" },
+    { code: "de", label: "Deutsch" },
+    { code: "es", label: "Español" },
+    { code: "fr", label: "Français" },
+    { code: "it", label: "Italiano" },
+    { code: "pt", label: "Português" },
+    { code: "zh", label: "中文" },
+    { code: "ja", label: "日本語" },
+  ];
+  const btn = document.getElementById("lang-btn");
+  const menu = document.getElementById("lang-menu");
+  let current = localStorage.getItem("freedom.lang") || (navigator.language || "en").slice(0, 2);
+  if (!LANGS.find((l) => l.code === current)) current = "en";
+  function render() {
+    btn.textContent = current.toUpperCase() + " ▾";
+    menu.innerHTML = LANGS.map(
+      (l) => `<button type="button" data-lang="${l.code}" class="${l.code === current ? "active" : ""}">${l.label}</button>`
+    ).join("");
+    menu.querySelectorAll("button[data-lang]").forEach((b) => {
+      b.addEventListener("click", () => {
+        current = b.getAttribute("data-lang");
+        localStorage.setItem("freedom.lang", current);
+        applyLandingI18n(current);
+        document.documentElement.lang = current;
+        render();
+        menu.classList.add("hidden");
+      });
+    });
+  }
+  btn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    render();
+    menu.classList.toggle("hidden");
+  });
+  document.addEventListener("click", () => menu.classList.add("hidden"));
+  render();
+  applyLandingI18n(current);
+  document.documentElement.lang = current;
+})();
+
+/* ---------- Hero-Terminal-Demo: getippte AI-Szene (loop) ---------- */
+(function demoLoop() {
+  const body = document.getElementById("demo-body");
+  if (!body) return;
+  const scene = [
+    { cls: "dl-user", text: "du: researche online und erklär mir, wie lightning netzwerke funktionieren" },
+    { cls: "dl-provider", text: "> suche im netz…" },
+    { cls: "dl-provider", text: "✓ Provider e18a… übernimmt die Anfrage" },
+    { cls: "dl-answer", text: "Lightning ist ein Zahlungsnetzwerk auf Bitcoin: Kanäle zwischen Nutzern halten Guthaben, Zahlungen laufen über Routen dieser Kanäle — sofort und für Bruchteile eines Cents." },
+    { cls: "dl-paid", text: "» 82 msat bezahlt, direkt an den Provider" },
+  ];
+  let idx = 0;
+  function next() {
+    if (idx >= scene.length) {
+      // kurze pause, dann neu
+      setTimeout(() => { body.innerHTML = ""; idx = 0; next(); }, 3500);
+      return;
+    }
+    const line = scene[idx];
+    const div = document.createElement("div");
+    div.className = line.cls;
+    body.appendChild(div);
+    if (line.cls === "dl-answer") {
+      // antwort tippt sich zeichenweise
+      let ci = 0;
+      const caret = document.createElement("span");
+      caret.className = "demo-caret";
+      div.appendChild(caret);
+      const tick = () => {
+        if (ci < line.text.length) {
+          caret.before(document.createTextNode(line.text[ci++]));
+          setTimeout(tick, 22);
+        } else { caret.remove(); idx++; setTimeout(next, 700); }
+      };
+      tick();
+    } else {
+      div.textContent = line.text;
+      idx++;
+      setTimeout(next, 850);
+    }
+  }
+  next();
+})();
+/* ---------- Partikel-Hintergrund (circuit-feel) ---------- */
+window.__particlesLoaded = true;
+(function () {
+  const canvas = document.getElementById("hero-particles");
+  if (!canvas) return;
+  const ctx2d = canvas.getContext("2d");
+  if (!ctx2d) return;
+  let w = window.innerWidth;
+  let h = window.innerHeight;
+  canvas.width = w; canvas.height = h;
+  window.addEventListener("resize", () => {
+    w = window.innerWidth;
+    h = window.innerHeight;
+    canvas.width = w; canvas.height = h;
+  });
+  const mouse = { x: w/2, y: h/2, active: false };
+  document.addEventListener("pointermove", (e) => {
+    const r = canvas.getBoundingClientRect();
+    mouse.x = e.clientX - r.left; mouse.y = e.clientY - r.top;
+    mouse.active = true;
+  });
+  const N = Math.max(120, Math.floor((w*h)/9000));
+  const pts = Array.from({length:N}, () => ({
+    x: Math.random()*w, y: Math.random()*h,
+    vx: (Math.random()-0.5)*0.3, vy: (Math.random()-0.5)*0.3,
+    base: 0.5+Math.random()*0.5,
+  }));
+  const frame = () => {
+    if (!document.body.contains(canvas)) return;
+    ctx2d.clearRect(0,0,w,h);
+    for (const pt of pts) {
+      if (mouse.active) {
+        const dx=mouse.x-pt.x, dy=mouse.y-pt.y, d=Math.hypot(dx,dy)||1;
+        if (d<200){const f=(1-d/200)*0.6; pt.vx+=dx/d*f; pt.vy+=dy/d*f;}
+      }
+      pt.vx*=0.92; pt.vy*=0.92; pt.x+=pt.vx; pt.y+=pt.vy;
+      if(pt.x<0)pt.x=w; if(pt.x>w)pt.x=0; if(pt.y<0)pt.y=h; if(pt.y>h)pt.y=0;
+      const speed=Math.min(1,Math.hypot(pt.vx,pt.vy)/4);
+      ctx2d.fillStyle="rgba(123,200,10,"+Math.min(1,pt.base*(0.7+speed*0.5))+")";
+      ctx2d.fillRect(pt.x,pt.y,2+speed*2.5,2+speed*2.5);
+    }
+    ctx2d.strokeStyle="rgba(123,200,10,0.22)"; ctx2d.lineWidth=1;
+    for(let i=0;i<pts.length;i++)for(let j=i+1;j<pts.length;j++){
+      const dx=pts[i].x-pts[j].x, dy=pts[i].y-pts[j].y;
+      if(dx*dx+dy*dy<3600){ctx2d.beginPath();ctx2d.moveTo(pts[i].x,pts[i].y);ctx2d.lineTo(pts[j].x,pts[j].y);ctx2d.stroke();}
+    }
+    requestAnimationFrame(frame);
+  };
+  requestAnimationFrame(frame);
+})();
+
+</script>
+
+
+
+
+</body>
+</html>
