@@ -7,7 +7,9 @@ import assert from "node:assert/strict";
 import { PRIVACY_FACTS, privacyFactsText } from "../src/privacy-facts.js";
 import { buildPrivateDm } from "../src/private-dm.js";
 import { generateKeypair } from "../src/event.js";
-import { regelAutorNicht, regelKeinKind4, regelKeinKlartext } from "../src/leak-rules.js";
+import { LEAK_REGELN, regelAutorNicht, regelKeinKind4, regelKeinKlartext } from "../src/leak-rules.js";
+import { LAYER_CELL_DEGREES, buildCoverageAnnouncement, toCell } from "../src/coverage.js";
+import { signEvent } from "../src/event.js";
 
 const a = generateKeypair();
 const b = generateKeypair();
@@ -26,6 +28,14 @@ const SZENARIEN: Record<string, () => Promise<number>> = {
     const d = await buildPrivateDm({ senderSk: a.sk, senderPk: a.pk, recipientPk: b.pk, content: GEHEIM });
     return regelKeinKind4([d.toRecipient, d.toSelf]).length;
   },
+  "abdeckung-zelle": async () => {
+    const [lat, lon] = [48.137154, 11.576124];
+    const funde = (["lora", "bluetooth"] as const).flatMap((layer) => {
+      const ev = signEvent(buildCoverageAnnouncement({ pubkey: a.pk, layer, cell: toCell(lat, lon, LAYER_CELL_DEGREES[layer]), region: "" }), a.sk);
+      return regelKeinKlartext([ev], [String(lat), String(lon), lat.toFixed(4), lon.toFixed(4)]);
+    });
+    return funde.length;
+  },
 };
 
 test("jede belegte Aussage hat ein Szenario", () => {
@@ -38,6 +48,15 @@ test("alle Szenarien fuer belegte Aussagen sind ohne Verstoss", async () => {
   for (const f of PRIVACY_FACTS.filter((x) => x.status === "belegt")) {
     assert.equal(await SZENARIEN[f.id](), 0, f.id);
   }
+});
+
+test("belegte Aussagen nennen ihre Regel, und jede genannte Regel gibt es", () => {
+  for (const f of PRIVACY_FACTS) {
+    if (f.status === "belegt") assert.ok(f.regel, `Belegte Aussage "${f.id}" ohne Regel`);
+    if (f.regel) assert.ok(f.regel in LEAK_REGELN, `Aussage "${f.id}": Regel "${f.regel}" gibt es nicht`);
+  }
+  // Ohne Regel nur, was kein Event-Mitschnitt pruefen kann.
+  assert.deepEqual(PRIVACY_FACTS.filter((f) => !f.regel).map((f) => f.id).sort(), ["dm-forward-secrecy", "ip"]);
 });
 
 test("offene Aussagen nennen den Schritt, der sie schliesst", () => {

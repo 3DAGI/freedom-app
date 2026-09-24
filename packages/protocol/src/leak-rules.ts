@@ -58,7 +58,7 @@ export function regelPTagsNur(events: readonly NostrEvent[], erlaubt: readonly s
 /** KI-Anfragen (Kind 5000–5999) ohne Klartext-Prompt – Schritt 3.1. */
 export function regelKeinKlartextPrompt(events: readonly NostrEvent[], prompts: readonly string[]): LeakFinding[] {
   return regelKeinKlartext(events.filter((e) => e.kind >= 5000 && e.kind < 6000), prompts)
-    .map((f) => ({ ...f, regel: "kein-klartext-prompt", detail: `Prompt sichtbar: ${f.detail.slice(17)}` }));
+    .map((f) => ({ ...f, regel: "kein-klartext-prompt", detail: f.detail.replace("Klartext sichtbar", "Prompt sichtbar") }));
 }
 
 /** Der Hauptschluessel des Kunden weder als Autor noch als p-Tag (Job- und Sitzungs-Events) – Schritt 3.1. */

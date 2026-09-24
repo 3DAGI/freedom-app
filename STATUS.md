@@ -2463,3 +2463,35 @@ nimmt den Pool jetzt mit `NostrEvent` statt `unknown` getypt.
 Endstand: protocol 978 grün (+6, 5 übersprungen) · node 161 grün · app 206
 grün · Leak-Tests 9 grün + 3 todo · 0 rot · check-wiring `--streng` 0 offen
 (184 begründet) · innerHTML streng 0 unbewertet · Smoke-Test bestanden.
+
+## 63. Leak-Tests, Teil b: alle App-Szenarien, Aussagen mit Regel – 1.5 Code fertig
+
+**Szenarien** (`app/test/leak/`), je mit Verdrahtungstest gegen den Weg der App:
+- **Raum-Nachricht:** Kanal eines Raums (`buildChannelMessage`) und
+  Community-Chat (Kind 42) – Klartext, `todo` 2.3.
+- **Swap starten:** Anfrage Kind 25001 wie in `startSwap()` – keine Rechnung,
+  aber die SOL-Empfangsadresse offen neben dem npub, `todo` 4.9.
+- **Profil speichern:** Felder wie `sammeln()` – keine SOL-Adresse, keine
+  Rechnung (das Formular fragt keine Chain-Adresse ab; lud16 ist gewollt
+  öffentlich).
+- **Abdeckung eintragen:** `toCell()` vor dem Senden – weder die genaue
+  Position noch vier Nachkommastellen im Event, für Funk und Bluetooth.
+- **SOL-Zahlung:** zwei Deposits mit dem echten `lockDeposit()` an einer
+  **Aufzeichnungs-RPC** (`aufzeichnungsRpc()`: Blockhash, Senden, Bestätigen –
+  hält jede Transaktion samt Gebührenzahler fest), dazu die Ankündigung per
+  Nostr. Die Wallet-Adresse steht in keinem Nostr-Event; beide Zahlungen kommen
+  aber von derselben Adresse, `todo` 4.9.
+
+**Aussagen** (`privacy-facts.ts`): jede verweist mit `regel` auf ihre Regel aus
+`LEAK_REGELN`; ohne Regel nur Forward Secrecy und IP-Adresse, die kein
+Event-Mitschnitt prüfen kann – ein Test hält genau diese Liste fest. Neu belegt
+(mit Szenario in `privacy-facts.test.ts`): „Abdeckungskarte: Nur die gerundete
+Zelle verlässt das Gerät, nie der genaue Standort.“ Neu als bekannte Lücken:
+KI-Anfragen verraten, wer fragt (3.1); SOL-Adresse in öffentlichen Events und
+wiederverwendete Zahladresse (4.9). Der Bericht in der App zeigt sie (im Browser
+geprüft). Nebenbei: Der Detailtext der Prompt-Regel hatte einen doppelten
+Doppelpunkt.
+
+Endstand: protocol 979 grün (+1, 5 übersprungen) · node 161 grün · app 206
+grün · Leak-Tests 21 grün + 6 todo · 0 rot · check-wiring `--streng` 0 offen
+(184 begründet) · innerHTML streng 0 unbewertet · Smoke-Test bestanden.
