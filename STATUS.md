@@ -2352,3 +2352,42 @@ angenommen“); ein erster Unterschied lag an zu kurzer Wartezeit im Test.
 Endstand: protocol 968 grün (+4, 5 übersprungen) · node 161 grün · app 194
 grün · 0 rot · check-wiring `--streng` 0 offen (180 begründet) · innerHTML
 streng 0 unbewertet · Smoke-Test bestanden.
+
+## 60. Signer-Schnittstelle, Teil e: der rohe Schlüssel nur noch im Signer (Schritt 1.3)
+
+**Protokoll:** `LocalSigner.mitSchluessel(fn)` ist der einzige Weg an den
+rohen Schlüssel – für das, was nur mit ihm geht. `fn` bekommt eine Kopie, die
+danach genullt wird; nur synchron, denn bei einem Promise wäre die Kopie beim
+Weiterlaufen schon gelöscht. Ein entfernter Signer kann das grundsätzlich
+nicht, darum steht es nicht in der Schnittstelle `Signer`.
+
+**App:** `state.keypair` hält nur noch `{ pk }`; der Schlüssel steckt allein im
+`LocalSigner`. `mitRohemSchluessel(wofuer, fn)` (`shell/state.ts`) leiht ihn
+und sagt mit einem Bunker klar ab („… geht nur mit dem Schlüssel auf diesem
+Gerät“). Umgestellt: Nachfolge (Shamir-Teile und Hash in einem Aufruf),
+Zustandssicherung und Wiederherstellung (`deriveBackupKey`), frische
+Swap-Adresse (`deriveSwapAddress`), Sicherungsdatei und Export. `keypair.sk`
+7 → 0. Dabei gefunden: vier Stellen, die den Schlüssel verdeckt nutzten, weil
+sie `state.keypair` als Ganzes weitergaben – der Blob-Upload (Anhänge und
+Git-Bundles; `uploadBlob` nimmt jetzt einen `Signer`), das Lesen alter
+Kind-4-DMs (jetzt `signer.nip44Decrypt`, dieselbe Rechnung) und das
+Veröffentlichen der DM-Relay-Liste (jetzt `signiere`). Der Zähler aus 1.3c
+(46 → 9) hatte sie nicht erfasst.
+
+**Fund (nicht behoben, bei 8.1 vermerkt):** `#onboarding-bar` und
+`#backup-warn` stehen in keinem HTML – die Onboarding-Leiste und die
+Sicherungs-Erinnerung erscheinen nie. Die Sicherheitsliste in den Settings
+funktioniert.
+
+**Tests:** protocol 968 → 971 (Kopie wird genullt, Änderungen an ihr treffen
+den Signer nicht, asynchrone Rechnung und Fehler – Kopie trotzdem genullt);
+app 194 → 200 (`rohschluessel.test.ts`: kein `keypair.sk` in `src/`, Zustand
+nur mit Pubkey, `mitRohemSchluessel` rechnet lokal und sagt mit entferntem
+Signer ab, ohne `fn` aufzurufen; `uploadBlob` signiert jeden Chunk und das
+Manifest über den Signer, bei Absage geht nichts ins Netz). Browser: Export
+kopiert genau den gespeicherten Schlüssel, die Sicherungsdatei enthält ihn
+als nsec (dekodiert verglichen).
+
+Endstand: protocol 971 grün (+3, 5 übersprungen) · node 161 grün · app 200
+grün · 0 rot · check-wiring `--streng` 0 offen (180 begründet) · innerHTML
+streng 0 unbewertet · Smoke-Test bestanden.

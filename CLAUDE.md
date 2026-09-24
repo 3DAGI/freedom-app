@@ -41,9 +41,9 @@ python3 scripts/smoke_test.py packages/app/dist         # braucht playwright + c
 bash scripts/build-site.sh /tmp/site                     # Website bauen (Ziel wird gelöscht!)
 ```
 
-Stand 24.09.2026 (nach 1.3d): protocol 968 grün (5 übersprungen), node 161 grün
+Stand 24.09.2026 (nach 1.3e): protocol 971 grün (5 übersprungen), node 161 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 194 grün.
+in `tools.test.ts`), app 200 grün.
 
 ## Arbeitsweise
 
@@ -112,9 +112,12 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   Test rot, sobald dazwischen die Sekunde umspringt – so war
   `sol-deposit-job.test.ts` bis Schritt 0.H instabil. Ein roter Test gilt seitdem
   nie als Zufall.
-- **Signieren nur über den Signer:** `await signiere(ev)` (`shell/state.ts`) statt
-  `signEvent(ev, state.keypair.sk)` – sonst funktioniert der Pfad mit einem
-  entfernten Signer (NIP-46) nicht.
+- **Signieren nur über den Signer:** `await signiere(ev)` (`shell/state.ts`),
+  Ver-/Entschlüsseln über `state.signer.nip44…` – sonst funktioniert der Pfad
+  mit einem entfernten Signer (NIP-46) nicht. `state.keypair` hat seit 1.3e nur
+  noch `pk`; den rohen Schlüssel gibt es nur über `mitRohemSchluessel(wofuer, fn)`
+  und nur für das, was ohne ihn nicht geht (Sicherung, Nachfolge, Swap-Adressen,
+  Export) – synchron, die Kopie wird danach genullt.
 - **Geheimnisse nur über `geheim`** (`shell/tresor.ts`): Schlüssel, Wallet-Zugänge,
   Preimages, Unterhaltungen und Verläufe nie direkt in `localStorage` schreiben –
   mit Tresor landen sie sonst im Klartext. Vor neuen Geld-Geheimnissen

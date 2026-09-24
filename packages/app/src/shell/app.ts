@@ -7,7 +7,7 @@
  *
  * Wird per esbuild zu einer einzigen dist/freedom.html gebuendelt.
  */
-import { fromHex, signEvent, toHex } from "@freedomstack/protocol";
+import { fromHex, toHex } from "@freedomstack/protocol";
 import { startHero } from "../hero.js";
 import { LANGS, Lang, detectLang, getLang, setLang, t } from "../i18n.js";
 import { escapeHtml, pkShort } from "../shell-logic.js";
@@ -15,6 +15,7 @@ import { zeigeDatenschutz } from "./datenschutz.js";
 import {
   ensurePool,
   getOwnProviderFromUrl,
+  mitRohemSchluessel,
   setOwnProvider,
   setzeIdentitaet,
   signiere,
@@ -226,7 +227,7 @@ async function zeigeBackupWarnung(): Promise<void> {
 async function sichereJetzt(): Promise<void> {
   if (!state.keypair) return;
   const { identityFromHex, buildBackupFile, markBackupConfirmed } = await import("../identity.js");
-  const id = identityFromHex(toHex(state.keypair.sk));
+  const id = identityFromHex(mitRohemSchluessel("Die Sicherungsdatei", toHex));
   const blob = new Blob([buildBackupFile(id)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -241,7 +242,7 @@ async function sichereJetzt(): Promise<void> {
 
 function exportIdentity(): void {
   if (!state.keypair) return;
-  const hex = toHex(state.keypair.sk);
+  const hex = mitRohemSchluessel("Der Export", toHex);
   navigator.clipboard?.writeText(hex).then(
     () => toast("nsec (hex) kopiert — sicher aufbewahren!"),
     () => toast(hex),
@@ -626,7 +627,7 @@ function starte(): void {
         setGitStatus(`publiziere ${file.name} (${Math.round(bytes.length / 1024)}kb)…`);
         const res = await uploadBlob(
           new File([bytes], `${name}.bundle`, { type: "application/octet-stream" }),
-          pool as never, state.keypair, signEvent as never,
+          pool as never, state.signer!,
         );
         // repo-ref-event (38042)
         const { buildGitRepoRef } = await import("@freedomstack/protocol");

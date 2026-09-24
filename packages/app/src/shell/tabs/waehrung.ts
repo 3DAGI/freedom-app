@@ -18,6 +18,7 @@ import {
   ensurePool,
   KIND_SWAP_REQUEST,
   KIND_SWAP_RESPONSE,
+  mitRohemSchluessel,
   signiere,
   solRpcUrl,
   state,
@@ -132,7 +133,7 @@ async function startSwap(lpPubkey: string, offerId: string): Promise<void> {
 
   // Frische Adresse vorschlagen — abgeleitet, also ohne zusaetzliche Sicherung
   // wiederherstellbar.
-  const frisch = deriveSwapAddress(state.keypair.sk, verlauf.length);
+  const frisch = mitRohemSchluessel("Eine frische Swap-Adresse", (sk) => deriveSwapAddress(sk, verlauf.length));
   const solAddr = prompt(
     `Deine Solana-Empfangsadresse:\n\n` +
     `Vorschlag: eine frische Adresse Nummer ${verlauf.length} ` +

@@ -78,3 +78,29 @@ test("LocalSigner: haelt eine Kopie – das Original zu ueberschreiben aendert n
 test("LocalSigner: falsche Schluessellaenge wird abgelehnt", () => {
   assert.throws(() => new LocalSigner(new Uint8Array(31)), /32 Bytes/);
 });
+
+test("mitSchluessel: liefert den Schluessel fuer eine Rechnung, danach ist die Kopie genullt", () => {
+  const s = new LocalSigner(alice.sk);
+  let gemerkt: Uint8Array | null = null;
+  const hex = s.mitSchluessel((sk) => { gemerkt = sk; return toHex(sk); });
+  assert.equal(hex, toHex(alice.sk));
+  assert.ok(gemerkt);
+  assert.equal((gemerkt as Uint8Array).every((b) => b === 0), true, "Kopie nach der Rechnung nicht genullt");
+});
+
+test("mitSchluessel: Aenderungen an der Kopie treffen den Signer nicht", async () => {
+  const s = new LocalSigner(alice.sk);
+  s.mitSchluessel((sk) => sk.fill(7));
+  assert.equal(s.publicKey(), alice.pk);
+  assert.equal(verifyEvent(await s.signEvent(buildEvent(alice.pk, 1, [], "x"))), true);
+  assert.equal(s.mitSchluessel(toHex), toHex(alice.sk));
+});
+
+test("mitSchluessel: asynchrone Rechnungen und Fehler – Kopie trotzdem genullt", async () => {
+  const s = new LocalSigner(alice.sk);
+  let gemerkt: Uint8Array | null = null;
+  assert.throws(() => s.mitSchluessel(async (sk) => { gemerkt = sk; return 1; }), /nur synchrone/);
+  assert.equal((gemerkt as unknown as Uint8Array).every((b) => b === 0), true);
+  assert.throws(() => s.mitSchluessel((sk) => { gemerkt = sk; throw new Error("kaputt"); }), /kaputt/);
+  assert.equal((gemerkt as unknown as Uint8Array).every((b) => b === 0), true);
+});

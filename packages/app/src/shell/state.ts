@@ -7,7 +7,7 @@
  *
  * Aus app.ts verschoben (Schritt 1.0) – woertlich, ohne Logikaenderung.
  */
-import { Keypair, LocalSigner, type NostrEvent, OutboxPool, type Signer, type UnsignedEvent, WebSocketRelay } from "@freedomstack/protocol";
+import { LocalSigner, type NostrEvent, OutboxPool, type Signer, type UnsignedEvent, WebSocketRelay } from "@freedomstack/protocol";
 import { ScoredProvider, discoverProviders, matchProviders } from "../matchmaking.js";
 import { SessionClient } from "../session-client.js";
 import { escapeHtml } from "../shell-logic.js";
@@ -30,11 +30,12 @@ export const LS_KEY = "freedom.nsec";
 // ------------------------------------------------------------- State
 
 interface AppState {
-  keypair: Keypair | null;
   /**
-   * Signiert und ver-/entschluesselt fuer die Identitaet (Schritt 1.3). Neue
-   * Stellen nutzen ihn statt des rohen Schluessels; die bisherigen folgen.
+   * Oeffentlicher Schluessel der Identitaet. Der private steckt seit Schritt
+   * 1.3e nur noch im Signer – siehe `mitRohemSchluessel()`.
    */
+  keypair: { pk: string } | null;
+  /** Signiert und ver-/entschluesselt fuer die Identitaet (Schritt 1.3). */
   signer: Signer | null;
   pool: OutboxPool | null;
   lud16: string;
@@ -63,11 +64,23 @@ export async function signiere(ev: UnsignedEvent): Promise<NostrEvent> {
   return state.signer.signEvent(ev);
 }
 
-/** Identitaet setzen: Schluessel und Signer immer gemeinsam (Schritt 1.3). */
+/** Identitaet setzen: der Schluessel geht in den Signer, im Zustand bleibt nur der Pubkey. */
 export function setzeIdentitaet(sk: Uint8Array): void {
   const signer = new LocalSigner(sk);
   state.signer = signer;
-  state.keypair = { sk, pk: signer.publicKey() };
+  state.keypair = { pk: signer.publicKey() };
+}
+
+/**
+ * Den rohen Schluessel fuer eine Rechnung leihen, die ohne ihn nicht geht
+ * (Sicherung, Nachfolge, Swap-Adressen, Export). Nur mit dem Schluessel auf
+ * diesem Geraet – ein entfernter Signer (Bunker) gibt ihn nie heraus.
+ */
+export function mitRohemSchluessel<T>(wofuer: string, fn: (sk: Uint8Array) => T): T {
+  if (!(state.signer instanceof LocalSigner)) {
+    throw new Error(`${wofuer} geht nur mit dem Schlüssel auf diesem Gerät, nicht über einen Bunker`);
+  }
+  return state.signer.mitSchluessel(fn);
 }
 
 /** Provider-Kandidaten-Cache (Matchmaking). */
