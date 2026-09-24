@@ -31,5 +31,5 @@ Ist hier etwas rot, erst das klären.
 ## Vor dem Start
 
 1. **Anchor auf Devnet, dann Mainnet** — Programm und Client zusammen.
-2. **`TRUSTED_SIGNERS`** in `packages/app/src/shell/app.ts` setzen.
+2. **`TRUSTED_SIGNERS`** in `packages/app/src/shell/tabs/settings.ts` setzen.
 3. **AMLR-Frage an den Anwalt** — ist die Firma ein CASP? Frist 10. Juli 2027.

@@ -187,7 +187,7 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 
 Auf Papier und auf einen Stick. **Nicht** in einen Passwortmanager mit Cloud.
 
-Pubkey daraus in `packages/app/src/shell/app.ts` → `TRUSTED_SIGNERS`. Solange
+Pubkey daraus in `packages/app/src/shell/tabs/settings.ts` → `TRUSTED_SIGNERS`. Solange
 die Liste leer ist, prüft die App gegen niemanden und sagt das auch.
 
 ## 2.2 Website veröffentlichen

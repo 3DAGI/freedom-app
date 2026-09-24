@@ -20,7 +20,7 @@ vollständig fertig. Ausführlich: `docs/ausbau/UEBERSICHT.md`.
 |---|---|
 | `packages/protocol` | Protokollbausteine (TypeScript), Tests in `test/` |
 | `packages/node` | Provider-Knoten (TypeScript), Tests in `test/` |
-| `packages/app` | Web-App; `src/shell/app.ts` (Einstieg, `boot()`, wird in 1.0 aufgeteilt), `state.ts` (Zustand, Pools), `ui.ts` (Hilfsfunktionen), `tabs/` (je Tab ein Modul: `kommunikation.ts`, `agent.ts` + `agent-netz.ts`, `waehrung.ts`, `earn.ts`, …); Build → `dist/freedom.html` |
+| `packages/app` | Web-App; `src/shell/app.ts` (Einstieg: `boot()`, `switchTab()`, Identität, Onboarding), `state.ts` (Zustand, Pools), `ui.ts` (Hilfsfunktionen), `datenschutz.ts` (Bericht), `tabs/` (je Tab ein Modul: `kommunikation.ts`, `agent.ts` + `agent-netz.ts`, `waehrung.ts`, `earn.ts`, `profil.ts`, `settings.ts`); Build → `dist/freedom.html` |
 | `packages/website` | Startseite, Whitepaper, FAQ, Roadmap, Dashboard |
 | `contracts/solana-htlc` | Anchor-Programm (Rust) für Swaps und Deposits |
 | `scripts/` | Build, Prüfungen, `smoke_test.py`, `check_innerhtml.py` |
@@ -49,8 +49,8 @@ in `tools.test.ts`), app 167 grün.
 
 1. `docs/ausbau/FORTSCHRITT.md` lesen, den nächsten offenen Schritt nehmen –
    **nur einen pro Sitzung**. Dann die passende Karte `docs/ausbau/phase-N.md`.
-2. Vor jeder Änderung die Stellen mit `grep -rn` finden und lesen. `app.ts` nur
-   in Ausschnitten lesen (Zeilenbereiche), nie komplett.
+2. Vor jeder Änderung die Stellen mit `grep -rn` finden und lesen. Große Dateien
+   (`tabs/agent.ts`, `tabs/kommunikation.ts`) nur in Ausschnitten lesen (Zeilenbereiche).
 3. Kleine, gezielte Änderungen; keine Umformatierung unbeteiligter Stellen.
 4. Tests schreiben, auch Negativfälle; alle Befehle oben ausführen.
 5. `docs/ausbau/FORTSCHRITT.md` und `STATUS.md` aktualisieren.

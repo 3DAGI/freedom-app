@@ -22,7 +22,7 @@
 ## 0.D Signierte Releases – MENSCH nötig
 
 - **MENSCH:** Signierschlüssel offline erzeugen, nur den öffentlichen Schlüssel (hex) weitergeben.
-- **Agent:** Pubkey in `TRUSTED_SIGNERS` (`packages/app/src/shell/app.ts`);
+- **Agent:** Pubkey in `TRUSTED_SIGNERS` (`packages/app/src/shell/tabs/settings.ts`, seit 1.0);
   `scripts/publish-release.mjs` prüfen (Schlüssel nur aus der Umgebung, nie
   geloggt); Echtheitsprüfung mit einem eigens erzeugten TEST-Schlüssel testen.
 - **Abnahme:** „eigene Echtheit prüfen“ meldet in der veröffentlichten App „geprüft“.
