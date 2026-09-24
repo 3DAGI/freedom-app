@@ -115,7 +115,7 @@ geschützt sind. Reihenfolge: 1.0 → 1.1 → 1.2 → 1.3 → 1.4 → 1.5.
 
 ## 1.5 Leak-Tests – TEILWEISE ERLEDIGT
 
-> Schon da: `packages/protocol/src/leak-rules.ts` (Regeln), `packages/protocol/src/privacy-facts.ts` (Aussagen des Datenschutzberichts, „belegt“ nur mit Szenario – erzwungen durch `test/privacy-facts.test.ts`), DM-Szenarien in `test/private-dm.test.ts`, Verdrahtungstest `packages/app/test/dm-verdrahtung.test.ts`. Der Bericht der App liest `privacyFactsText()`. **Offen:** Aufzeichnungs-Relay für die App-Szenarien (KI-Anfrage, Raum, Swap, Profil, Abdeckung, Anhang), Skript `test:leak` und CI-Schritt.
+> Schon da: `packages/protocol/src/leak-rules.ts` (Regeln), `packages/protocol/src/privacy-facts.ts` (Aussagen des Datenschutzberichts, „belegt“ nur mit Szenario – erzwungen durch `test/privacy-facts.test.ts`), DM-Szenarien in `test/private-dm.test.ts`, Verdrahtungstest `packages/app/test/dm-verdrahtung.test.ts`. Der Bericht der App liest `privacyFactsText()`. Seit 1.5a: Aufzeichnungs-Relay `packages/app/test/leak/aufzeichnung.ts`, Regeln für Prompt, Kunden-Schlüssel, bolt11, SOL-Adresse, frische Adresse, verschlüsselte Uploads (`LEAK_REGELN`), Szenarien DM, Anhang, KI-Anfrage, `npm run test:leak` in der CI. **Offen (1.5b):** Szenarien Raum, Swap, Profil, Abdeckung, SOL-Zahladresse; Aussagen mit Verweis auf ihre Regel.
 
 - **Stellen:** neu `packages/app/test/leak/`, neu
   `packages/protocol/src/privacy-facts.ts`, `privacy-audit.ts`, Datenschutzbericht

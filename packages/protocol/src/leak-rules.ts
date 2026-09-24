@@ -6,6 +6,7 @@
  * eingehalten.
  */
 import type { NostrEvent } from "./event.js";
+import { toHex } from "./htlc.js";
 
 export interface LeakFinding {
   regel: string;
@@ -53,3 +54,82 @@ export function regelPTagsNur(events: readonly NostrEvent[], erlaubt: readonly s
   }
   return funde;
 }
+
+/** KI-Anfragen (Kind 5000–5999) ohne Klartext-Prompt – Schritt 3.1. */
+export function regelKeinKlartextPrompt(events: readonly NostrEvent[], prompts: readonly string[]): LeakFinding[] {
+  return regelKeinKlartext(events.filter((e) => e.kind >= 5000 && e.kind < 6000), prompts)
+    .map((f) => ({ ...f, regel: "kein-klartext-prompt", detail: `Prompt sichtbar: ${f.detail.slice(17)}` }));
+}
+
+/** Der Hauptschluessel des Kunden weder als Autor noch als p-Tag (Job- und Sitzungs-Events) – Schritt 3.1. */
+export function regelKundeVerborgen(events: readonly NostrEvent[], kundePk: string): LeakFinding[] {
+  return events
+    .filter((e) => e.pubkey === kundePk || e.tags.some((t) => t[0] === "p" && t[1] === kundePk))
+    .map((e) => ({
+      regel: "kunde-verborgen", eventId: e.id,
+      detail: e.pubkey === kundePk ? `Kunde ist Autor (Kind ${e.kind})` : `Kunde im p-Tag (Kind ${e.kind})`,
+    }));
+}
+
+/** bolt11 in Klein- oder Grossschreibung (QR-Codes), mit Betrag und Trenner „1“. */
+const BOLT11 = [/\bln(?:bc|tb|bcrt|sb)\d*[munp]?1[02-9ac-hj-np-z]{50,}/, /\bLN(?:BC|TB|BCRT|SB)\d*[MUNP]?1[02-9AC-HJ-NP-Z]{50,}/];
+
+/** Keine Lightning-Rechnung (bolt11) in oeffentlichen Events. */
+export function regelKeinBolt11(events: readonly NostrEvent[]): LeakFinding[] {
+  return events
+    .filter((e) => BOLT11.some((r) => r.test(e.content + "\n" + JSON.stringify(e.tags))))
+    .map((e) => ({ regel: "kein-bolt11", eventId: e.id, detail: `Rechnung sichtbar (Kind ${e.kind})` }));
+}
+
+/** Die Solana-Adressen des Nutzers in keinem oeffentlichen Event – Schritt 4.9. */
+export function regelKeineSolAdresse(events: readonly NostrEvent[], adressen: readonly string[]): LeakFinding[] {
+  const funde: LeakFinding[] = [];
+  for (const e of events) {
+    const sichtbar = e.content + "\n" + JSON.stringify(e.tags);
+    for (const a of adressen) {
+      if (a.length >= 32 && sichtbar.includes(a)) {
+        funde.push({ regel: "keine-sol-adresse", eventId: e.id, detail: `SOL-Adresse ${a.slice(0, 6)}… sichtbar (Kind ${e.kind})` });
+      }
+    }
+  }
+  return funde;
+}
+
+/** Jede SOL-Zahlung an eine frische Adresse – Schritt 4.9. `adressen` in Reihenfolge der Zahlungen. */
+export function regelSolAdresseFrisch(adressen: readonly string[]): LeakFinding[] {
+  return adressen
+    .filter((a, i) => adressen.indexOf(a) !== i)
+    .map((a) => ({ regel: "sol-adresse-frisch", eventId: "-", detail: `Adresse ${a.slice(0, 6)}… wiederverwendet` }));
+}
+
+/**
+ * Hochgeladenes nur verschluesselt – Schritt 2.4. Geprueft werden drei
+ * Ausschnitte der Datei (Anfang, Mitte, Ende) als Hex und Base64; die
+ * Ausschnitte beginnen bei Vielfachen von 3, damit Base64 auf der Zeichengrenze liegt.
+ */
+export function regelUploadVerschluesselt(events: readonly NostrEvent[], datei: Uint8Array): LeakFinding[] {
+  const n = Math.min(15, datei.length);
+  const auf3 = (x: number): number => Math.max(0, x - (x % 3));
+  const stellen = [0, auf3(Math.floor((datei.length - n) / 2)), auf3(datei.length - n)];
+  const proben = stellen.flatMap((s) => {
+    const stueck = datei.subarray(s, s + n);
+    return [toHex(stueck), btoa(String.fromCharCode(...stueck)).replace(/=+$/, "")];
+  }).filter((p) => p.length >= 8);
+  return events
+    .filter((e) => proben.some((p) => (e.content + "\n" + JSON.stringify(e.tags)).includes(p)))
+    .map((e) => ({ regel: "upload-verschluesselt", eventId: e.id, detail: `Dateiinhalt im Klartext (Kind ${e.kind})` }));
+}
+
+/** Alle Regeln mit ihrer Aussage – Datenschutz-Aussagen verweisen hierauf. */
+export const LEAK_REGELN: Readonly<Record<string, string>> = {
+  "kein-kind4": "Keine Direktnachrichten im alten, offenen Format (Kind 4).",
+  "kein-klartext": "Kein Klartext im Inhalt oder in Tags.",
+  "autor-verborgen": "Der echte Absender ist nicht Autor.",
+  "p-tags": "p-Tags nur an die gemeinten Empfänger.",
+  "kein-klartext-prompt": "KI-Anfragen ohne Klartext-Prompt.",
+  "kunde-verborgen": "Der Schlüssel des Kunden steht in keinem Job-Event.",
+  "kein-bolt11": "Keine Lightning-Rechnung in öffentlichen Events.",
+  "keine-sol-adresse": "Keine SOL-Adresse des Nutzers in öffentlichen Events.",
+  "sol-adresse-frisch": "Jede SOL-Zahlung an eine frische Adresse.",
+  "upload-verschluesselt": "Anhänge nur verschlüsselt.",
+};

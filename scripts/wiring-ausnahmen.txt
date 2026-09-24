@@ -116,9 +116,15 @@ key-rotation.ts|resolveKey|Schlüsselwechsel nach Diebstahl, noch nicht angebund
 key-rotation.ts|trustEvent|Schlüsselwechsel nach Diebstahl, noch nicht angebunden (Geräte und Schlüsselwechsel, 8.6)
 
 leak-rules.ts|regelAutorNicht|Prüfregeln der Leak-Tests, gehören in die Tests (1.5)
+leak-rules.ts|regelKeinBolt11|Prüfregeln der Leak-Tests, gehören in die Tests (1.5)
+leak-rules.ts|regelKeineSolAdresse|Prüfregeln der Leak-Tests, gehören in die Tests (1.5)
 leak-rules.ts|regelKeinKind4|Prüfregeln der Leak-Tests, gehören in die Tests (1.5)
 leak-rules.ts|regelKeinKlartext|Prüfregeln der Leak-Tests, gehören in die Tests (1.5)
+leak-rules.ts|regelKeinKlartextPrompt|Prüfregeln der Leak-Tests, gehören in die Tests (1.5)
+leak-rules.ts|regelKundeVerborgen|Prüfregeln der Leak-Tests, gehören in die Tests (1.5)
 leak-rules.ts|regelPTagsNur|Prüfregeln der Leak-Tests, gehören in die Tests (1.5)
+leak-rules.ts|regelSolAdresseFrisch|Prüfregeln der Leak-Tests, gehören in die Tests (1.5)
+leak-rules.ts|regelUploadVerschluesselt|Prüfregeln der Leak-Tests, gehören in die Tests (1.5)
 
 local-search.ts|buildIndexIncrementally|lokale Suche ohne Oberfläche (8.13)
 local-search.ts|emptyIndex|lokale Suche ohne Oberfläche (8.13)
