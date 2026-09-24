@@ -20,7 +20,7 @@ vollständig fertig. Ausführlich: `docs/ausbau/UEBERSICHT.md`.
 |---|---|
 | `packages/protocol` | Protokollbausteine (TypeScript), Tests in `test/` |
 | `packages/node` | Provider-Knoten (TypeScript), Tests in `test/` |
-| `packages/app` | Web-App; `src/shell/app.ts` (Einstieg, `boot()`, wird in 1.0 aufgeteilt), `state.ts` (Zustand, Pools), `ui.ts` (Hilfsfunktionen); Build → `dist/freedom.html` |
+| `packages/app` | Web-App; `src/shell/app.ts` (Einstieg, `boot()`, wird in 1.0 aufgeteilt), `state.ts` (Zustand, Pools), `ui.ts` (Hilfsfunktionen), `tabs/` (je Tab ein Modul, z. B. `kommunikation.ts`); Build → `dist/freedom.html` |
 | `packages/website` | Startseite, Whitepaper, FAQ, Roadmap, Dashboard |
 | `contracts/solana-htlc` | Anchor-Programm (Rust) für Swaps und Deposits |
 | `scripts/` | Build, Prüfungen, `smoke_test.py`, `check_innerhtml.py` |

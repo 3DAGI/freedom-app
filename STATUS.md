@@ -1915,3 +1915,32 @@ Import „verdrahtet“, der in Teil a wegfiel – jetzt begründet ausgenommen.
 Endstand: protocol 947 grün (5 übersprungen) · node 161 grün (6 übersprungen) ·
 app 167 grün · 0 rot · check-wiring `--streng` 0 offen (176 begründet) ·
 innerHTML streng 0 unbewertet · Smoke-Test bestanden.
+
+## 48. `app.ts` aufteilen, Teil b: Kommunikation (Schritt 1.0)
+
+**Teil b:** 46 Deklarationen nach `shell/tabs/kommunikation.ts` (1.003 Zeilen):
+Räume mit Kanälen und Moderation, Anhänge (inline, Blob-Netz, Blossom), das
+Umschalten zwischen Direktnachrichten und Raum, der Chat-Tab mit NIP-17-DMs und
+Communities. `app.ts`: 5.402 → 4.419 Zeilen. `boot()` liest `conversations` und
+`activeConversation` nur, schreibt sie nie – deshalb konnten beide mit dem Code,
+der sie schreibt, umziehen. `loadTrust` (Earn) und `wireSubtabs` (alle Tabs)
+bleiben in `app.ts`.
+
+**Nur Verschiebungen – belegt:** Alle 225 Deklarationen stehen wörtlich in genau
+einer Datei; 11 haben ein `export` bekommen; keine neue. Als Menge unterscheiden
+sich die Zeilen nur in vier dynamischen Importpfaden, die im Unterordner eine
+Ebene länger sind (`../blob-client.js` → `../../blob-client.js`). 17
+innerHTML-Ausnahmen tragen jetzt den neuen Dateinamen, Begründungen unverändert.
+
+**Test angepasst, nicht abgeschwächt:** `dm-verdrahtung.test.ts` las nur
+`app.ts`. Er liest jetzt die ganze Shell – die Prüfung „nirgends ein Kind-4-Event“
+deckt damit mehr ab als vorher. Gegenprobe: ein eingeschleustes Kind-4-Event in
+`kommunikation.ts` und ein umbenanntes `buildPrivateDm` machen je einen Test rot.
+
+**Klicktest Kommunikation (neu, im Scratchpad):** Community und DM anlegen, Chat
+öffnen, mobil zurück, DM-Modus, Raum beitreten – veröffentlichte und neue Fassung
+mit gleichem Ergebnis, ohne Skriptfehler.
+
+Endstand: protocol 947 grün (5 übersprungen) · node 161 grün (6 übersprungen) ·
+app 167 grün · 0 rot · check-wiring `--streng` 0 offen (176 begründet) ·
+innerHTML streng 0 unbewertet · Smoke-Test bestanden.
