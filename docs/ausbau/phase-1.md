@@ -56,7 +56,9 @@ geschützt sind. Reihenfolge: 1.0 → 1.1 → 1.2 → 1.3 → 1.4 → 1.5.
 
 ---
 
-## 1.2 Verschlüsselter Speicher (Tresor)
+## 1.2 Verschlüsselter Speicher (Tresor) – CODE FERTIG (24.09.2026)
+
+> Umgesetzt in vier Teilen (#13–#16), Bericht in `STATUS.md` Abschnitte 52–55. Abweichung nach MENSCH-Entscheidung vom 24.09.: erst benutzen, dann einrichten – der Tresor ist Schritt 5 der Sicherheitsliste und der Führung, Pflicht erst vor Geld-Geheimnissen; die Migration läuft beim Einrichten statt beim ersten Start. Passkey (Schritt 2, optional) ist zurückgestellt. Offen: MENSCH-Prüfungen unten.
 
 - **Stellen:** neu `packages/app/src/vault.ts`; alle Geheimnisse im Browser:
   `grep -rn "localStorage\.\(get\|set\)Item" packages/app/src | grep -i "nsec\|mnemonic\|nwc\|agentHistory\|chats\|swap\|secret\|preimage"`

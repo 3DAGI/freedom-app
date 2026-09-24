@@ -19,12 +19,14 @@ import {
   MIN_PASSPHRASE,
   createVault,
   geheimSpeicher,
+  sollSperren,
+  sperrMinuten,
   uebernehme,
   unlock,
   vaultExists,
 } from "../vault.js";
 import { LS_KEY } from "./state.js";
-import { toast } from "./ui.js";
+import { $, toast } from "./ui.js";
 
 /** Nur ein Merker, kein Geheimnis: Gibt es auf diesem Geraet einen Tresor? */
 export const LS_TRESOR = "freedom.vault";
@@ -277,4 +279,55 @@ function neuBeginnen(): Promise<void> {
       }
     });
   });
+}
+
+// ------------------------------------------------------------- Automatische Sperre (1.2d)
+
+const LS_SPERRE = "freedom.vault.sperreMin";
+
+/**
+ * Sperrt den Tresor nach N Minuten ohne Eingabe (Standard 15, 0 = nie).
+ * Gesperrt wird durch Neuladen: Das raeumt jeden entschluesselten Wert aus dem
+ * Speicher der Seite, danach fragt der Start wieder nach der Passphrase.
+ * Waehrend ein Tausch, ein Deposit oder ein Auftrag laeuft, wird nicht gesperrt.
+ */
+export function starteAutoSperre(beschaeftigt: () => boolean): void {
+  let letzte = Date.now();
+  for (const art of ["pointerdown", "keydown", "wheel", "touchstart"]) {
+    addEventListener(art, () => { letzte = Date.now(); }, { passive: true, capture: true });
+  }
+  setInterval(() => {
+    if (sollSperren({
+      jetzt: Date.now(),
+      letzteEingabe: letzte,
+      minuten: sperrMinuten(localStorage.getItem(LS_SPERRE)),
+      offen: tresorEingerichtet() && !!tresor && !tresor.locked,
+      beschaeftigt: beschaeftigt(),
+    })) sperreJetzt();
+  }, 20_000);
+}
+
+export function sperreJetzt(): void {
+  tresor?.lock();
+  tresor = null;
+  location.reload();
+}
+
+/** Settings → Sicherheit: Sperrzeit einstellen, sofort sperren. Nur mit Tresor sichtbar. */
+export function wireTresorKarte(): void {
+  const karte = $("#tresor-karte");
+  if (!karte) return;
+  karte.hidden = !tresorEingerichtet();
+  const feld = $("#tresor-sperre") as HTMLInputElement | null;
+  if (feld && !feld.dataset.verdrahtet) {
+    feld.dataset.verdrahtet = "1";
+    feld.value = String(sperrMinuten(localStorage.getItem(LS_SPERRE)));
+    feld.addEventListener("change", () => {
+      const min = sperrMinuten(feld.value);
+      localStorage.setItem(LS_SPERRE, String(min));
+      feld.value = String(min);
+      toast(min === 0 ? "Automatische Sperre aus" : `Sperrt nach ${min} Minuten ohne Eingabe`);
+    });
+    $("#tresor-jetzt")?.addEventListener("click", sperreJetzt);
+  }
 }

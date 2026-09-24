@@ -71,6 +71,7 @@ import {
   connectSolana,
   disconnectNwc,
   exportSwapBackup,
+  geldVorgangLaeuft,
   loadWallet,
   nwc,
   refundDeposit,
@@ -81,6 +82,7 @@ import {
   ladeSchluessel,
   richteTresorEin,
   speichereSchluessel,
+  starteAutoSperre,
   tresorEingerichtet,
 } from "./tresor.js";
 import {
@@ -494,6 +496,8 @@ function starte(): void {
   setupLangMenu();
   // Kein Gate mehr → Identity beim Boot laden/erzeugen (früher gate-button)
   loadOrCreateIdentity();
+  // Tresor: automatische Sperre, aber nie mitten in einen Geldvorgang oder Auftrag
+  starteAutoSperre(() => geldVorgangLaeuft() || $("#ai-send")?.dataset.running === "1");
   checkOwnProvider();
   const enter = setupFlow();
   // Kein Gate: App öffnet direkt. Wallet-Connect/Deposit über sidebar-CTA

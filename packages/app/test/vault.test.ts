@@ -14,6 +14,8 @@ import {
   SpeicherImRam,
   createVault,
   geheimSpeicher,
+  sollSperren,
+  sperrMinuten,
   uebernehme,
   unlock,
   vaultExists,
@@ -285,4 +287,30 @@ test("Geheimspeicher: eingerichtet, aber gesperrt – nie Ausweichen auf localSt
   }
   assert.equal(ls.getItem("freedom.chats"), "alter klartext", "localStorage unberuehrt");
   assert.equal(ls.length, 1);
+});
+
+// ------------------------------------------------------------- Automatische Sperre (1.2d)
+
+test("Sperre: nach der eingestellten Zeit ohne Eingabe, nie vorher", () => {
+  const basis = { letzteEingabe: 0, minuten: 15, offen: true, beschaeftigt: false };
+  assert.equal(sollSperren({ ...basis, jetzt: 15 * 60_000 - 1 }), false);
+  assert.equal(sollSperren({ ...basis, jetzt: 15 * 60_000 }), true);
+  assert.equal(sollSperren({ ...basis, jetzt: 3 * 60 * 60_000 }), true);
+});
+
+test("Sperre: nicht, wenn aus (0), schon gesperrt oder ein Geldvorgang laeuft", () => {
+  const spaet = { jetzt: 10 * 60 * 60_000, letzteEingabe: 0 };
+  assert.equal(sollSperren({ ...spaet, minuten: 0, offen: true, beschaeftigt: false }), false, "0 = nie");
+  assert.equal(sollSperren({ ...spaet, minuten: 15, offen: false, beschaeftigt: false }), false);
+  assert.equal(sollSperren({ ...spaet, minuten: 15, offen: true, beschaeftigt: true }), false,
+    "nicht mitten in einen Tausch hinein");
+});
+
+test("Sperre: Einstellung lesen – Standard 15, 0 erlaubt, Unsinn faellt auf den Standard", () => {
+  assert.equal(sperrMinuten(null), 15);
+  assert.equal(sperrMinuten(""), 15);
+  assert.equal(sperrMinuten("0"), 0);
+  assert.equal(sperrMinuten("5"), 5);
+  assert.equal(sperrMinuten("7.9"), 7);
+  for (const u of ["-1", "abc", "1e9", "NaN", "Infinity"]) assert.equal(sperrMinuten(u), 15, u);
 });
