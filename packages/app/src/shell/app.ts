@@ -8,207 +8,83 @@
  * Wird per esbuild zu einer einzigen dist/freedom.html gebuendelt.
  */
 import {
-  generateKeypair,
-  signEvent,
-  buildEvent,
-  verifyEvent,
-  OutboxPool,
-  WebSocketRelay,
-  buildJobRequest,
-  clientFeeTag,
-  clientFeePpm,
-  DEFAULT_CLIENT_FEE_PERCENT,
-  MAX_CLIENT_FEE_PERCENT,
   type ClientFee,
-  parseJobResult,
-  buildLpOffer,
-  parseLpOffer,
-  offerMatches,
-  hashlock,
-  generatePreimage,
-  toHex,
-  fromHex,
+  DEFAULT_CLIENT_FEE_PERCENT,
+  KIND_DVM_TEXT_GENERATION,
   KIND_LP_OFFER,
   KIND_PERFORMANCE,
-  KIND_DVM_TEXT_GENERATION,
-  computeFeeSplit,
+  MAX_CLIENT_FEE_PERCENT,
+  NostrEvent,
+  OutboxPool,
   PROTOCOL_FEE_PPM,
   PROTOCOL_POOL_SHARE_PERCENT,
-  NostrEvent,
-  Keypair,
+  WebSocketRelay,
+  buildEvent,
+  buildJobRequest,
+  clientFeePpm,
+  clientFeeTag,
+  computeFeeSplit,
+  fromHex,
+  generatePreimage,
+  hashlock,
+  parseJobResult,
+  parseLpOffer,
+  signEvent,
+  toHex,
 } from "@freedomstack/protocol";
-import { SessionClient } from "../session-client.js";
-import { discoverProviders, matchProviders, ScoredProvider, matchRaceProviders, maxModeSplit, DEFAULT_MAX_MODE, matchSwarmProviders, swarmSplit, DEFAULT_SWARM } from "../matchmaking.js";
 import { schnorr } from "@noble/curves/secp256k1.js";
-import { t, setLang, getLang, detectLang, LANGS, Lang } from "../i18n.js";
 import { startHero } from "../hero.js";
+import { LANGS, Lang, detectLang, getLang, setLang, t } from "../i18n.js";
 import { icon } from "../icons.js";
-
-// ------------------------------------------------------------- Konstanten
-
-const RELAYS = [
-  "wss://relay.damus.io",
-  "wss://nos.lol",
-  "wss://relay.nostr.band",
-];
-const KIND_SWAP_REQUEST = 25001;
-const KIND_SWAP_RESPONSE = 25002;
-const KIND_DVM_RESULT = 6050;
-const LS_KEY = "freedom.nsec";
-
-// ------------------------------------------------------------- State
-
-interface AppState {
-  keypair: Keypair | null;
-  pool: OutboxPool | null;
-  lud16: string;
-  sessionClient: SessionClient | null;
-  /** Zuletzt verwendeter Provider (fuer Session-Wiederverwendung). */
-  lastProvider: string | null;
-  /**
-   * SOL-Adresse des zuletzt genutzten Providers.
-   *
-   * Kommt aus dem Job-Result (Tag "sol_address"), nicht aus einer Eingabe:
-   * eine vom Nutzer abgetippte Empfaengeradresse waere die naheliegendste
-   * Stelle, um Geld an den Falschen zu sperren.
-   */
-  lastProviderSolAddress: string | null;
-}
-
-const state: AppState = { keypair: null, pool: null, lud16: "", sessionClient: null, lastProvider: null, lastProviderSolAddress: null };
-
-/** Provider-Kandidaten-Cache (Matchmaking). */
-let providerCache: ScoredProvider[] | null = null;
-let providerCacheAt = 0;
+import {
+  DEFAULT_MAX_MODE,
+  ScoredProvider,
+  discoverProviders,
+  matchRaceProviders,
+  maxModeSplit,
+} from "../matchmaking.js";
+import { SessionClient } from "../session-client.js";
+import {
+  type ChatAttachment,
+  escapeHtml,
+  parseDmBody,
+  parseImetaTags,
+  pkShort,
+  renderAttachment,
+} from "../shell-logic.js";
+import {
+  KIND_DVM_RESULT,
+  KIND_SWAP_REQUEST,
+  KIND_SWAP_RESPONSE,
+  LS_KEY,
+  RELAYS,
+  ensurePool,
+  ensureSessionClient,
+  findProviders,
+  getOwnProviderFromUrl,
+  setOwnProvider,
+  solRpcUrl,
+  state,
+  wireRpcSetting,
+} from "./state.js";
+import {
+  $,
+  activateCodeBlocks,
+  aktualisiereNavStatus,
+  escrowIdent,
+  ganzeZahl,
+  markSvgCheck,
+  quotaExhausted,
+  refreshQuota,
+  renderMarkdown,
+  setzeLogo,
+  timeAgo,
+  toast,
+  updateSidebarBalances,
+} from "./ui.js";
+export { activateCodeBlocks } from "./ui.js";
 /** Modell des zuletzt genutzten Providers (fuer die anzeige). */
 let lastProviderModel: string | null = null;
-
-/** Auto-Matchmaking: beste Provider fuer ein Tier (5min Cache). Kein manuelles pubkey. */
-async function findProviders(tier: string): Promise<ScoredProvider[]> {
-  const pool = await ensurePool();
-  const now = Date.now();
-  if (!providerCache || now - providerCacheAt > 300_000) {
-    providerCache = await discoverProviders(pool);
-    providerCacheAt = now;
-  }
-  return matchProviders(providerCache, tier as "free" | "classic" | "pro", { allowlist: getAllowlist() });
-}
-
-/** Allowlist: eigene/vertraute provider (pubkeys), die immer prioritaet haben.
- *  Der user kann eigene provider hinzufuegen (z.B. der eigene gx10). */
-function getAllowlist(): string[] {
-  try {
-    return JSON.parse(localStorage.getItem("freedom.allowlist") ?? "[]");
-  } catch { return []; }
-}
-
-/** Setzt den eigenen Provider als einzigen erlaubten (Test-Modus). */
-function setOwnProvider(pubkey: string): void {
-  localStorage.setItem("freedom.allowlist", JSON.stringify([pubkey]));
-  providerCache = null; // Cache invalidieren
-  providerCacheAt = 0;
-}
-
-/** Gibt den eigenen Provider-Key aus der URL oder null. */
-function getOwnProviderFromUrl(): string | null {
-  const params = new URLSearchParams(window.location.search);
-  return params.get("provider") || params.get("pk");
-}
-
-// ------------------------------------------------------------- Helpers
-
-const $ = <T extends HTMLElement = HTMLElement>(sel: string): T =>
-  document.querySelector(sel) as T;
-
-function toast(msg: string, isErr = false): void {
-  const t = $("#toast");
-  t.textContent = msg;
-  t.className = isErr ? "err" : "";
-  t.style.display = "block";
-  setTimeout(() => (t.style.display = "none"), 4000);
-}
-
-
-function timeAgo(ts: number): string {
-  const d = Math.floor(Date.now() / 1000) - ts;
-  if (d < 60) return `${d}s`;
-  if (d < 3600) return `${Math.floor(d / 60)}m`;
-  if (d < 86400) return `${Math.floor(d / 3600)}h`;
-  return `${Math.floor(d / 86400)}d`;
-}
-
-function escrowIdent(): string {
-  return state.keypair ? pkShort(state.keypair.pk) : "nicht verbunden";
-}
-
-/**
- * Sidebar-Balances (Desktop): sats = session-budget rest, sol = aus localStorage
- * (wird vom wallet-connect gesetzt). Wird bei jedem Balance-Update aufgerufen.
- */
-/** True wenn das Gratis-Kontingent des aktuellen Providers aufgebraucht ist. */
-let quotaExhausted = false;
-
-/**
- * Free-Quota beim aktuellen Provider abfragen und in der Sidebar zeigen.
- * Bei 0 restlichen Tokens: Wallet-Connect-CTA hervorheben.
- */
-async function refreshQuota(): Promise<void> {
-  const textEl = document.getElementById("nq-text");
-  const fill = document.getElementById("nq-fill") as HTMLElement | null;
-  const quotaBox = document.getElementById("nb-quota");
-  const walletBtn = $("#nb-wallet") as HTMLButtonElement | null;
-  if (!textEl || !fill || !quotaBox) return;
-  if (!state.lastProvider || !state.keypair) {
-    quotaBox.style.display = "none";
-    return;
-  }
-  quotaBox.style.display = "";
-  try {
-    // Quota-API des Providers (gleicher Host wie der Gate, Port 3602)
-    const apiBase = (window as unknown as { FREEDOM_QUOTA_API?: string }).FREEDOM_QUOTA_API
-      ?? "http://" + location.hostname + ":3602";
-    const res = await fetch(`${apiBase}/api/quota?pk=${state.keypair.pk}`, { signal: AbortSignal.timeout(6000) });
-    if (!res.ok) throw new Error(`quota http ${res.status}`);
-    const q = await res.json() as { limitTokens: number; usedTokens: number; remainingTokens: number };
-    const pct = q.limitTokens > 0 ? Math.min(100, Math.round((q.remainingTokens / q.limitTokens) * 100)) : 0;
-    fill.style.width = `${pct}%`;
-    fill.className = "nq-fill" + (pct <= 15 ? " low" : "");
-    textEl.textContent = `${q.remainingTokens.toLocaleString("de-DE")} / ${q.limitTokens.toLocaleString("de-DE")} gratis tokens heute`;
-    // Bei erschöpftem Kontingent: Wallet-CTA pulsieren + beim Senden zum Wallet-Tab lenken
-    quotaExhausted = q.remainingTokens === 0;
-    if (walletBtn) walletBtn.classList.toggle("cta-pulse", quotaExhausted);
-  } catch {
-    // API nicht erreichbar (fremder provider) — Anzeige ausblenden
-    quotaBox.style.display = "none";
-  }
-}
-
-function updateSidebarBalances(): void {
-  const satsEl = document.getElementById("nb-sats");
-  const solEl = document.getElementById("nb-sol");
-  const identEl = document.getElementById("nb-ident");
-  if (!satsEl && !solEl && !identEl) return;
-  // ident
-  if (identEl) identEl.textContent = escrowIdent();
-  // sats: session-budget rest (gleiche quelle wie header-balance)
-  if (satsEl) {
-    let left: number | null = null;
-    try {
-      const b = state.sessionClient?.budgetState(state.lastProvider ?? "");
-      if (b) left = Math.floor((b.max - b.charged) / 1000);
-    } catch { /* keine session */ }
-    satsEl.textContent = left === null ? "—" : `${left}`;
-    satsEl.className = left !== null && left < 10 ? "nb-val nb-warn" : "nb-val";
-    satsEl.title = "session-budget rest (non-custodial proxy)";
-  }
-  // sol: escrow-guthaben (deposited, nutzbar für jobs) — nicht die wallet-balance
-  if (solEl) {
-    const lamports = Number(localStorage.getItem("freedom.escrow.lamports") ?? "0");
-    solEl.textContent = lamports > 0 ? `${(lamports / 1e9).toFixed(4)}` : "—";
-    solEl.className = lamports > 0 ? "nb-val" : "nb-val nb-muted";
-    solEl.title = "escrow-guthaben (eingezahlt, für jobs nutzbar)";
-  }
-}
 
 // ------------------------------------------------------------- Identitaet
 
@@ -371,68 +247,6 @@ function importIdentity(): void {
   loadChatList();
   loadWallet();
   loadEarnings();
-}
-
-// ------------------------------------------------------------- Relay-Pool
-
-/**
- * Solana-Endpunkt bestimmen — ueber einen Pool mit Ausweichmoeglichkeit.
- *
- * Vorher stand `api.mainnet-beta.solana.com` an fuenf Stellen fest im Code:
- * der Endpunkt eines einzelnen Unternehmens, mit Ratenbegrenzung und
- * Sperrmoeglichkeit. Faellt er aus, funktionieren Deposits, Swaps und die
- * Deposit-Pruefung nicht mehr.
- *
- * Der Pool merkt sich Ausfaelle und ueberspringt tote Endpunkte, statt bei
- * jeder Anfrage erneut auf ein Timeout zu laufen. Eigene Knoten des Nutzers
- * kommen zuerst.
- */
-let rpcPool: import("@freedomstack/protocol").RpcPool | null = null;
-
-async function ensureRpcPool(): Promise<import("@freedomstack/protocol").RpcPool> {
-  if (rpcPool) return rpcPool;
-  const { RpcPool, parseUserEndpoints, DEFAULT_MAINNET_RPCS } = await import("@freedomstack/protocol");
-  const eigene = parseUserEndpoints(localStorage.getItem("freedom.sol.rpcs"));
-  const konfiguriert = (window as unknown as { FREEDOM_SOL_RPC?: string }).FREEDOM_SOL_RPC;
-  rpcPool = new RpcPool(DEFAULT_MAINNET_RPCS, {
-    userEndpoints: [...(konfiguriert ? [konfiguriert] : []), ...eigene],
-  });
-  return rpcPool;
-}
-
-/** Eigene RPC-Endpunkte eintragen und pruefen. */
-async function wireRpcSetting(): Promise<void> {
-  const input = $("#sol-rpcs") as HTMLInputElement | null;
-  const save = $("#sol-rpcs-save");
-  const check = $("#sol-rpcs-check");
-  const status = $("#sol-rpcs-status");
-  if (!input || !save || !check || !status) return;
-
-  input.value = localStorage.getItem("freedom.sol.rpcs") ?? "";
-
-  save.onclick = () => {
-    localStorage.setItem("freedom.sol.rpcs", input.value.trim());
-    rpcPool = null; // beim naechsten Zugriff neu aufbauen
-    toast("Endpunkte gespeichert");
-  };
-
-  check.onclick = async () => {
-    status.textContent = "prüfe …";
-    try {
-      rpcPool = null;
-      const pool = await ensureRpcPool();
-      const st = await pool.healthCheck();
-      status.innerHTML = st.map((s) => {
-        const name = escapeHtml(s.label ?? new URL(s.url).hostname);
-        return s.available
-          ? `<span class="ok">${name} · ${s.lastLatencyMs ?? "?"} ms</span>`
-          : `<span class="err">${name} · ${escapeHtml(s.lastError ?? "keine Antwort")}</span>`;
-      }).join("<br>");
-    } catch (e) {
-      status.textContent = (e as Error).message;
-      status.className = "mono-sm err";
-    }
-  };
 }
 
 // ------------------------------------------------- Nachfolge & Modelle
@@ -1893,117 +1707,9 @@ async function trageAbdeckungEin(): Promise<void> {
   }, () => toast("Standort nicht verfuegbar", true));
 }
 
-/** Beste erreichbare RPC-URL fuer Bibliotheken, die eine feste Adresse wollen. */
-async function solRpcUrl(): Promise<string> {
-  return (await ensureRpcPool()).bestUrl();
-}
-
-async function ensurePool(): Promise<OutboxPool> {
-  if (state.pool) {
-    (window as unknown as { freedomPool?: OutboxPool }).freedomPool = state.pool;
-    return state.pool;
-  }
-  // Gemerkte Funde aus der letzten Sitzung sofort mitnehmen: Wer beim Start
-  // erst entdecken muesste, haengt beim ersten Job an denselben vier fremden
-  // Servern wie vorher.
-  const gemerkt = ladeGemerkteRelays();
-  const urls = [...new Set([...RELAYS, ...gemerkt])];
-  const relays = urls.map((url) => new WebSocketRelay(url, { timeoutMs: 8000 }));
-  state.pool = new OutboxPool(relays, { minAcks: 1 });
-
-  // Entdeckung im Hintergrund — sie darf den ersten Job nicht verzoegern.
-  void entdeckeRelays();
-  return state.pool;
-}
-
-const LS_RELAYS = "freedom.relays";
-
-function ladeGemerkteRelays(): string[] {
-  try {
-    const raw = localStorage.getItem(LS_RELAYS);
-    return raw ? (JSON.parse(raw) as string[]).slice(0, 8) : [];
-  } catch {
-    return [];
-  }
-}
-
-/**
- * Entdeckt Relays des Netzes und merkt sich die brauchbaren.
- *
- * Der Client hing an vier fest verdrahteten Adressen fremder Betreiber.
- * Filtern die eure Job-Kinds, ist das Netz tot — nicht beschaedigt, tot.
- * Ab jetzt sind sie ein STARTPUNKT: ueber sie werden die Relays der Provider
- * gefunden, und die bleiben erhalten.
- */
-async function entdeckeRelays(): Promise<void> {
-  try {
-    const pool = state.pool!;
-    const {
-      discoverRelays, buildRelaySet, KIND_RELAY_LIST, KIND_PERFORMANCE,
-    } = await import("@freedomstack/protocol");
-
-    const [listen, arbeit] = await Promise.all([
-      pool.query({ kinds: [KIND_RELAY_LIST], limit: 500 }),
-      pool.query({
-        kinds: [KIND_PERFORMANCE],
-        since: Math.floor(Date.now() / 1000) - 7 * 24 * 3600,
-        limit: 500,
-      }),
-    ]);
-
-    // Wer nachweislich gearbeitet hat, dessen Relay-Angabe wiegt schwerer.
-    // Eine blosse Anzahl liesse sich mit Wegwerf-Schluesseln erzeugen.
-    const arbeiter = new Set(arbeit.map((e) => e.pubkey));
-    const { relays } = discoverRelays(listen, { trustedPubkeys: arbeiter, known: RELAYS });
-    if (relays.length === 0) return;
-
-    const set = await buildRelaySet({
-      seedUrls: RELAYS,
-      discovered: relays,
-      makeRelay: (u) => new WebSocketRelay(u, { timeoutMs: 6000 }),
-      maxTotal: 8,
-    });
-
-    const neu = set.urls.filter((u) => !RELAYS.includes(u));
-    if (neu.length > 0) {
-      localStorage.setItem(LS_RELAYS, JSON.stringify(neu));
-      console.log(`[relay] ${neu.length} Relay(s) des Netzes gefunden — beim naechsten Start aktiv`);
-    }
-  } catch (e) {
-    // Entdeckung ist eine Verbesserung, kein Muss: Ohne sie laeuft alles
-    // weiter wie bisher.
-    console.warn(`[relay] Entdeckung fehlgeschlagen: ${(e as Error).message}`);
-  }
-}
-
-function ensureSessionClient(): SessionClient {
-  if (state.sessionClient) return state.sessionClient;
-  if (!state.keypair || !state.pool) throw new Error("Identitaet/Pool fehlt");
-  state.sessionClient = new SessionClient({
-    keypair: state.keypair,
-    pool: state.pool,
-    defaultBudgetSats: 100,
-    settleEverySats: 20,
-    ttlSecs: 3600,
-  });
-  return state.sessionClient;
-}
-
-// ------------------------------------------------------------- Tabs
-
-// --------------------------------------------------- Anhaenge (Chat/Community)
-//
-// Frueher haing das am oeffentlichen Feed. Der ist entfernt (unmoderierter
-// globaler Stream), die Upload-Kette ueber das Chunk-Netz bleibt aber und
-// bedient jetzt den Chat-Composer — Communities koennen damit Medien teilen.
-
 /** Anhang: kleine Dateien inline als data-url, grosse ueber das Blob-Netz. */
 // Darstellungslogik liegt in shell-logic.ts — dort ohne DOM und deshalb
 // tatsaechlich testbar (29 Tests, Schwerpunkt feindliche Relay-Eingaben).
-import {
-  escapeHtml, pkShort, renderAttachment, parseDmBody, parseImetaTags,
-  type ChatAttachment,
-} from "../shell-logic.js";
 let chatAttachments: ChatAttachment[] = [];
 /** Blossom-Server fuer grosse Dateien (BUD-01/02, Nostr-Standard fuer Blobs).
  *  Selbst hostbar — jede Community kann eigenen Storage betreiben. */
@@ -2199,32 +1905,6 @@ function setupModelPicker(): void {
   });
 }
 
-// -------------------------------------------------- Neuer Aufbau: Hilfslogik
-
-/** Zeichen 09 — Klammer. Eine Quelle fuer Kopf, Seitenleiste und Favicon. */
-function markSvg(size: number, color = "var(--accent)"): string {
-  return `<svg width="${size}" height="${size}" viewBox="0 0 64 64" fill="none" aria-hidden="true">
-    <path d="M22 10 H12 V54 H22" stroke="${color}" stroke-width="7" stroke-linecap="square"/>
-    <path d="M42 10 H52 V54 H42" stroke="${color}" stroke-width="7" stroke-linecap="square"/>
-    <rect x="27" y="27" width="10" height="10" fill="${color}"/></svg>`;
-}
-
-function setzeLogo(): void {
-  const kopf = document.getElementById("head-mark");
-  if (kopf) kopf.innerHTML = markSvg(18);
-  const leiste = document.getElementById("nav-mark");
-  if (leiste) leiste.innerHTML = markSvg(30);
-  // Favicon aus demselben Zeichen, damit Tab und App gleich aussehen.
-  const svg = markSvg(64, "#7BC80A").replace("<svg ", `<svg xmlns="http://www.w3.org/2000/svg" `);
-  let link = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
-  if (!link) {
-    link = document.createElement("link");
-    link.rel = "icon";
-    document.head.appendChild(link);
-  }
-  link.href = "data:image/svg+xml," + encodeURIComponent(svg);
-}
-
 /**
  * Unter-Reiter fuer Waehrung, Earn, Agent und Settings.
  *
@@ -2406,11 +2086,6 @@ function aktualisiereAgentPanel(
   }
 }
 
-function markSvgCheck(): string {
-  return `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--accent)"
-    stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-    <path d="M5 12l5 5L20 7"/></svg>`;
-}
 
 /** Stand der Sicherheit: Punktzahl neben dem Settings-Eintrag, solange etwas fehlt. */
 async function aktualisiereSicherheitsStand(): Promise<void> {
@@ -2440,22 +2115,6 @@ async function aktualisiereSicherheitsStand(): Promise<void> {
   });
 }
 
-/** Relay-Stand unten in der Seitenleiste. */
-async function aktualisiereNavStatus(): Promise<void> {
-  const punkt = document.getElementById("nav-status-dot");
-  const text = document.getElementById("nav-status-text");
-  if (!punkt || !text) return;
-  try {
-    const pool = await ensurePool();
-    const r = (pool as unknown as { relays?: { url: string }[] }).relays;
-    const n = Array.isArray(r) ? r.length : 0;
-    text.textContent = n > 0 ? String(n) : "—";
-    punkt.classList.toggle("on", n > 0);
-  } catch {
-    text.textContent = "offline";
-    punkt.classList.remove("on");
-  }
-}
 
 function switchTab(name: string): void {
   document.querySelectorAll(".tab-page").forEach((p) => p.classList.remove("active"));
@@ -3862,11 +3521,6 @@ async function reklamiere(
   }
 }
 
-/** Zahl aus Fremddaten sicher als Text – nie ein ungepruefter Wert in innerHTML. */
-function ganzeZahl(v: unknown): string {
-  const n = typeof v === "number" ? v : Number(v);
-  return Number.isFinite(n) && n >= 0 ? String(Math.floor(n)) : "0";
-}
 
 function addUsageBubble(usage: {
   model?: string;
@@ -5088,74 +4742,6 @@ function setupAttach(): void {
     reader.readAsDataURL(f);
     input.value = "";
   });
-}
-
-/** Minimales, sicheres Markdown fuer AI-Antworten (nach escapeHtml):
- *  **bold**, *italic*, `code`, ```codeblock```, Listen, Absaetze. */
-function renderMarkdown(escaped: string): string {
-  let s = escaped;
-  // Codeblocks zuerst (``` ... ```) — mit Copy-Button + minimalem Highlighting
-  s = s.replace(/```(\w*)\n?([\s\S]*?)```/g, (_m, _lang: string, code: string) => {
-    const trimmed = code.trim();
-    const id = "code-" + Math.random().toString(36).slice(2, 8);
-    // Queue für nachträgliches Highlighting (nach innerHTML-Insert)
-    pendingCodeBlocks.set(id, trimmed);
-    return `<div class="codeblock"><div class="cb-head"><span>code</span><button class="cb-copy" data-code-id="${id}">⧉ copy</button></div><pre><code id="${id}">${highlightCode(trimmed)}</code></pre></div>`;
-  });
-  // Inline code
-  s = s.replace(/`([^`\n]+)`/g, "<code>$1</code>");
-  // Bold / italic
-  s = s.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
-  s = s.replace(/(^|\s)\*([^*\n]+)\*/g, "$1<em>$2</em>");
-  // Einfache Listen (- / * am Zeilenanfang)
-  s = s.replace(/(?:^|\n)[-*] (.+)(?=\n|$)/g, "\n<li>$1</li>");
-  s = s.replace(/(<li>[\s\S]*?<\/li>)/g, "<ul>$1</ul>");
-  s = s.replace(/<\/ul>\s*<ul>/g, "");
-  // Absaetze: doppelte Newlines -> <p>
-  const paras = s.split(/\n{2,}/).map((p) => p.trim());
-  s = paras
-    .map((p) => (p.startsWith("<pre") || p.startsWith("<div") || p.startsWith("<ul") ? p : `<p>${p.replace(/\n/g, "<br>")}</p>`))
-    .join("");
-  return s;
-}
-
-/** Code-Blöcke die auf Copy-Highlighting warten (id -> code). */
-const pendingCodeBlocks = new Map<string, string>();
-
-/** Aktiviert Copy-Buttons der gerenderten Code-Blöcke (nach innerHTML-Insert rufen). */
-export function activateCodeBlocks(container: HTMLElement): void {
-  container.querySelectorAll(".cb-copy").forEach((btn) => {
-    const el = btn as HTMLButtonElement;
-    if (el.dataset.wired === "1") return;
-    el.dataset.wired = "1";
-    el.addEventListener("click", async () => {
-      const id = el.dataset.codeId;
-      const code = id ? pendingCodeBlocks.get(id) : undefined;
-      if (!code) return;
-      try {
-        await navigator.clipboard.writeText(code);
-        el.textContent = "✓ kopiert";
-        setTimeout(() => { el.textContent = "⧉ copy"; }, 1500);
-      } catch { /* clipboard denied */ }
-    });
-  });
-}
-
-/** Minimales Syntax-Highlighting (keywords/strings/comments/kommentare) ohne Library. */
-function highlightCode(code: string): string {
-  let s = escapeHtml(code);
-  // strings zuerst (schützen vor keyword-replace)
-  s = s.replace(/(&quot;[^&]*?&quot;|&#39;[^&]*?&#39;|"[^"]*"|'[^']*')/g, '<span class="tok-str">$1</span>');
-  // comments
-  s = s.replace(/(\/\/[^\n]*|#[^\n]*|\/\*[\s\S]*?\*\/)/g, '<span class="tok-com">$1</span>');
-  // keywords (js/ts/python/rust/solana gemischt — pragmatisch)
-  s = s.replace(
-    /\b(const|let|var|function|return|if|else|for|while|import|export|from|class|extends|new|async|await|try|catch|throw|typeof|interface|type|public|private|def|self|None|True|False|fn|pub|impl|struct|match|use|mut|null|undefined|true|false)\b/g,
-    '<span class="tok-kw">$1</span>',
-  );
-  // zahlen
-  s = s.replace(/\b(\d+(\.\d+)?)\b/g, '<span class="tok-num">$1</span>');
-  return s;
 }
 
 // ------------------------------------------------------------- Init (v0.2)

@@ -1879,3 +1879,39 @@ Endstand: protocol 947 grün (5 übersprungen) · node 161 grün (6 übersprunge
 app 167 grün · 0 rot · Selbsttests: Verdrahtung 4, innerHTML 6 · check-wiring
 `--streng` 0 offen · check-website ok · innerHTML streng 0 unbewertet ·
 Smoke-Test bestanden.
+
+
+## 47. `app.ts` aufteilen, Teil a: `state.ts` und `ui.ts` (Schritt 1.0) – dazu ein Nachtrag zu 1.4
+
+**Plan für 1.0** in fünf Pull Requests, jeweils nur Verschiebungen: a `state.ts`
+und `ui.ts`; b Kommunikation; c Agent; d Währung und Earn; e Profil, Settings,
+Datenschutz. `boot()` und `switchTab()` (ruft alle Tabs auf) bleiben in `app.ts`.
+
+**Teil a:** 38 Deklarationen verschoben – `state.ts` (Konstanten, `state`,
+Provider-Suche, Relay- und RPC-Pool, Session-Client) und `ui.ts` (`$`, `toast`,
+Zeiten, Seitenleiste, Logo, Markdown). `app.ts`: 5.816 → 5.402 Zeilen. Eine
+Variable zieht immer mit dem Code um, der sie schreibt: `wireRpcSetting` steht
+deshalb in `state.ts`, weil es `rpcPool` zurücksetzt; `lastProviderModel` bleibt
+bis Teil c in `app.ts`. `escapeHtml`/`pkShort` bleiben in `shell-logic.ts` (dort
+getestet), `icon` in `icons.ts`. `app.ts` exportiert `activateCodeBlocks` weiter,
+damit `window.freedomApp` gleich bleibt.
+
+**Nur Verschiebungen – belegt:** Jede der 225 Deklarationen des alten `app.ts`
+steht wörtlich in genau einer Datei; 25 haben ein `export` bekommen; keine neue.
+Alle nichtleeren Zeilen außer den Importen sind als Menge identisch. Sieben
+Importe waren schon vorher unbenutzt (`tsc --noUnusedLocals`) und fallen weg.
+Klicktest aller 6 Tabs und 17 Unter-Reiter im Browser: veröffentlichte und neue
+Fassung ohne Skriptfehler.
+
+**Nachtrag zu 1.4:** `check-wiring.py` las Backticks in einem Regex-Literal
+(`/`([^`\n]+)`/g` in `renderMarkdown`) als Template-String und überlas den Rest
+der Datei. Das fiel auf, weil `renderMarkdown` nach `ui.ts` zog und sich dadurch
+das Ergebnis änderte. Jetzt erkennt die Prüfung Regex-Literale (Selbsttest ergänzt,
+ohne die Erkennung scheitern 3 Fälle). Folge: `buildGitRepoRef` ist verdrahtet
+(war fälschlich ausgenommen), `search`/`tokenize` aus `local-search.ts` nicht
+(galten fälschlich als benutzt). `offerMatches` war nur über einen unbenutzten
+Import „verdrahtet“, der in Teil a wegfiel – jetzt begründet ausgenommen.
+
+Endstand: protocol 947 grün (5 übersprungen) · node 161 grün (6 übersprungen) ·
+app 167 grün · 0 rot · check-wiring `--streng` 0 offen (176 begründet) ·
+innerHTML streng 0 unbewertet · Smoke-Test bestanden.

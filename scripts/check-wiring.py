@@ -50,6 +50,19 @@ OBERSTE_EBENE = re.compile(
 BEZEICHNER = re.compile(r"(?<![\w.$])([A-Za-z_$][\w$]*)(?![\w$])(?!\s*\??:(?!:))")
 
 
+def regex_moeglich(s: str, i: int) -> bool:
+    """'/' beginnt ein Regex-Literal, wenn davor kein Wert steht."""
+    if s.startswith("//", i) or s.startswith("/*", i):
+        return False
+    k = i - 1
+    while k >= 0 and s[k] in " \t":
+        k -= 1
+    if k < 0 or s[k] in "(,=:[!&|?{};+-*%<>~^\n":
+        return True
+    wort = re.search(r"(\w+)$", s[:k + 1])
+    return bool(wort and wort.group(1) in ("return", "typeof", "case", "in", "of", "void", "delete"))
+
+
 def leeren(s: str) -> str:
     """Kommentare und Text in Strings durch Leerzeichen ersetzen; ${...} bleibt."""
     out, i, n = [], 0, len(s)
@@ -63,6 +76,16 @@ def leeren(s: str) -> str:
             j = s.find("*/", i + 2)
             j = n if j < 0 else j + 2
             out.append(re.sub(r"[^\n]", " ", s[i:j])); i = j; continue
+        if c == "/" and regex_moeglich(s, i):
+            # Regex-Literal: /```(\w*)/ ist kein Template-String
+            j, klasse = i + 1, False
+            while j < n and s[j] != "\n":
+                if s[j] == "\\": j += 2; continue
+                if s[j] == "[": klasse = True
+                elif s[j] == "]": klasse = False
+                elif s[j] == "/" and not klasse: break
+                j += 1
+            out.append("/" + " " * max(0, j - i - 1) + "/"); i = j + 1; continue
         if c in "\"'":
             j = i + 1
             while j < n and s[j] != c and s[j] != "\n":

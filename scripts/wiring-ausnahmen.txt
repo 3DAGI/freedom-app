@@ -92,7 +92,6 @@ gift-wrap.ts|wrapInfo|Hinweistexte zum Umschlag; die Oberfläche nutzt privacy-f
 git-contributors.ts|buildContribution|Mitwirkenden-Ansicht, noch nicht vollständig angebunden (Repositories, 8.10)
 git-contributors.ts|contributorProfile|Mitwirkenden-Ansicht, noch nicht vollständig angebunden (Repositories, 8.10)
 
-git.ts|buildGitRepoRef|Git über Blobs, noch ohne vollständige Oberfläche (Repositories, 8.10)
 git.ts|createGitBundle|Git über Blobs, noch ohne vollständige Oberfläche (Repositories, 8.10)
 git.ts|parseGitRepoRef|Git über Blobs, noch ohne vollständige Oberfläche (Repositories, 8.10)
 git.ts|restoreGitBundle|Git über Blobs, noch ohne vollständige Oberfläche (Repositories, 8.10)
@@ -128,6 +127,8 @@ local-search.ts|indexStats|lokale Suche ohne Oberfläche (8.13)
 local-search.ts|removeDoc|lokale Suche ohne Oberfläche (8.13)
 local-search.ts|searchInfo|lokale Suche ohne Oberfläche (8.13)
 local-search.ts|suggest|lokale Suche ohne Oberfläche (8.13)
+local-search.ts|search|lokale Suche ohne Oberfläche (8.13)
+local-search.ts|tokenize|lokale Suche ohne Oberfläche (8.13)
 
 merge.ts|emptySet|Zusammenführen nach Offline-Bearbeitung, noch nicht angebunden (Zustandssicherung, 8.12)
 merge.ts|mergeField|Zusammenführen nach Offline-Bearbeitung, noch nicht angebunden (Zustandssicherung, 8.12)
@@ -160,6 +161,8 @@ network-capacity.ts|computeNetworkCapacity|dezentrale Gratis-Schwelle, noch nich
 network-capacity.ts|extractStorageCaps|dezentrale Gratis-Schwelle, noch nicht angebunden (Gebührenmodell, 5.1)
 
 nwc.ts|formatNwcUri|NWC-Verbindungstext erzeugen, ohne Oberfläche (Lightning privat, 6.3)
+
+nostr-order.ts|offerMatches|Angebot gegen Betrag prüfen; der Import in app.ts war unbenutzt und fiel mit 1.0 weg (Swaps in beide Richtungen, 4.6)
 
 performance.ts|buildRewardPayout|Saison und Reward-Ausschüttung, hängt am Gebührenmodell (4.0, 5.1)
 performance.ts|buildSeasonDef|Saison und Reward-Ausschüttung, hängt am Gebührenmodell (4.0, 5.1)
