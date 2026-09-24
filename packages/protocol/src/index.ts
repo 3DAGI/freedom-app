@@ -14,6 +14,7 @@ export * from "./solana-adapter.js";
 // Nostr-Schicht
 export * from "./kinds.js";
 export * from "./event.js";
+export * from "./signer.js";
 export * from "./profile.js";
 export * from "./outbox.js";
 export * from "./ws-relay.js";
