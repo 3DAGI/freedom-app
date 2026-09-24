@@ -39,6 +39,7 @@
  */
 import { NostrEvent, UnsignedEvent, buildEvent, getTag, generateKeypair, signEvent, verifyEvent } from "./event.js";
 import { encryptDM } from "./dm.js";
+import { mineEvent } from "./pow.js";
 import { LocalSigner, type Signer } from "./signer.js";
 
 /** Das Siegel: Absender bekannt, nur für den Empfänger sichtbar. */
@@ -59,6 +60,11 @@ export interface GiftWrapOptions {
   /** Feste Verschiebung statt Zufall — nur für Tests. */
   fixedJitter?: number;
   nowSecs?: number;
+  /**
+   * Rechenarbeit auf dem Umschlag (NIP-13, Schritt 3.1): so viele führende
+   * Null-Bits in der ID. Der Empfänger prüft sie, bevor er entschlüsselt.
+   */
+  powBits?: number;
 }
 
 function jitter(opts: GiftWrapOptions): number {
@@ -112,16 +118,8 @@ export async function giftWrapMitSigner(
   const wegwerf = generateKeypair();
   const umschlagInhalt = await encryptDM(JSON.stringify(siegel), wegwerf.sk, recipientPk);
 
-  return signEvent(
-    buildEvent(
-      wegwerf.pk,
-      KIND_GIFT_WRAP,
-      [["p", recipientPk]],
-      umschlagInhalt,
-      now - jitter(opts),
-    ),
-    wegwerf.sk,
-  );
+  const umschlag = buildEvent(wegwerf.pk, KIND_GIFT_WRAP, [["p", recipientPk]], umschlagInhalt, now - jitter(opts));
+  return signEvent(opts.powBits ? mineEvent(umschlag, opts.powBits) : umschlag, wegwerf.sk);
 }
 
 export interface UnwrapResult {

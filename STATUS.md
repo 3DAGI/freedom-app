@@ -2495,3 +2495,38 @@ Doppelpunkt.
 Endstand: protocol 979 grün (+1, 5 übersprungen) · node 161 grün · app 206
 grün · Leak-Tests 21 grün + 6 todo · 0 rot · check-wiring `--streng` 0 offen
 (184 begründet) · innerHTML streng 0 unbewertet · Smoke-Test bestanden.
+
+## 64. Verschlüsselte Job-Anfragen, Teil a: Protokoll (Schritt 3.1)
+
+Aufteilung von 3.1: **a** Protokoll (hier), **b** Knoten (Umschläge abonnieren,
+öffnen, Rechenarbeit statt Kontingent), **c** App (Sitzungsschlüssel,
+Anfragen im Umschlag, Leak-Regeln grün, `hinweisKiOeffentlich()` weg).
+
+**`protocol/src/private-job.ts`:** `buildPrivateJobRequest()` packt eine
+gewöhnliche Anfrage (Kind 5xxx) als Kern in einen Umschlag (NIP-59) an den
+Provider – versiegelt vom Sitzungsschlüssel des Kunden, nicht von seiner
+Identität. Relays sehen einen Wegwerf-Autor, den p-Tag des Providers und
+Chiffrat. Der Umschlag bekommt keinen Zeitversatz (der Provider abonniert nur
+die jüngste Zeit; die Empfangszeit sieht das Relay ohnehin) und auf Wunsch
+Rechenarbeit (NIP-13, höchstens 24 Bits). `openPrivateJobRequest()` prüft
+Günstiges zuerst – Form, p-Tag, Signatur, Rechenarbeit – und entschlüsselt erst
+danach; den Kern baut es aus den bekannten Feldern mit Typprüfung neu auf, die
+ID rechnet es selbst aus.
+
+**`gift-wrap.ts`:** Option `powBits` – der Umschlag wird vor der Signatur mit
+dem Wegwerf-Schlüssel gemined. Ohne die Option (DMs) ändert sich nichts.
+
+**`tiers.ts`:** Das Angebot (Kind 38027) kann `["pow", "<bits>"]` tragen;
+beim Lesen zählen nur ganze Zahlen 0–24, alles andere wird ignoriert.
+
+**Tests:** protocol 979 → 985 (`private-job.test.ts`: Provider öffnet genau die
+Anfrage, ID stimmt, Autor = Sitzungsschlüssel; Leak-Regeln auf dem Umschlag –
+kein Prompt, weder Identität noch Sitzungsschlüssel als Autor oder p-Tag;
+fremder Provider und umgelenkter p-Tag scheitern ohne Entschlüsseln;
+Rechenarbeit verlangt/geleistet/zu wenig; kein Job, fremder Schlüssel,
+kaputter Kern, offenes Event; `pow`-Tag hin und zurück, sechs fremde Werte
+ignoriert). Bis 3.1b/3.1c sind die zwei Funktionen begründet ausgenommen.
+
+Endstand: protocol 985 grün (+6, 5 übersprungen) · node 161 grün · app 206
+grün · Leak-Tests 21 grün + 6 todo · 0 rot · check-wiring `--streng` 0 offen
+(186 begründet) · innerHTML streng 0 unbewertet · Smoke-Test bestanden.

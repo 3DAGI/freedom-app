@@ -15,6 +15,7 @@
  */
 import { UnsignedEvent, buildEvent, getTag, getTags } from "./event.js";
 import { KIND_PROVIDER_CAPABILITIES } from "./kinds.js";
+import { MAX_POW_BITS } from "./private-job.js";
 
 export type ProviderTier = "free" | "classic" | "pro";
 
@@ -39,6 +40,8 @@ export interface ProviderCapabilities {
   currentlyFree: boolean;
   /** Storage-Rolle: dieser Provider seedet Blobs. */
   storage?: { capacityBytes: number; priceMsatPerMB: number; bootstrap: boolean };
+  /** Rechenarbeit (NIP-13-Bits), die private Anfragen tragen muessen (Schritt 3.1). */
+  powBits?: number;
   /** Gueltig ab (ersetzbar via d-Tag = pubkey). */
   updatedAt: number;
 }
@@ -58,6 +61,7 @@ export function buildCapabilities(
   if (c.storage) {
     tags.push(["storage", String(c.storage.capacityBytes), String(c.storage.priceMsatPerMB), c.storage.bootstrap ? "1" : "0"]);
   }
+  if (c.powBits !== undefined) tags.push(["pow", String(c.powBits)]);
   return buildEvent(c.pubkey, KIND_PROVIDER_CAPABILITIES, tags, "", createdAt);
 }
 
@@ -90,6 +94,11 @@ export function parseCapabilities(ev: UnsignedEvent): ProviderCapabilities {
       }
     : undefined;
 
+  // Fremde Angabe: nur ganze Zahlen im erlaubten Bereich, sonst keine.
+  const powRoh = getTag(ev, "pow");
+  const pow = powRoh !== undefined && /^\d{1,2}$/.test(powRoh) ? Number(powRoh) : NaN;
+  const powBits = Number.isInteger(pow) && pow >= 0 && pow <= MAX_POW_BITS ? pow : undefined;
+
   return {
     pubkey: ev.pubkey,
     tier,
@@ -100,6 +109,7 @@ export function parseCapabilities(ev: UnsignedEvent): ProviderCapabilities {
     ...(storage && Number.isFinite(storage.capacityBytes) && storage.capacityBytes > 0
       ? { storage }
       : {}),
+    ...(powBits !== undefined ? { powBits } : {}),
     updatedAt: ev.created_at,
   };
 }
