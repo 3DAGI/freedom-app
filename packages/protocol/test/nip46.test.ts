@@ -184,3 +184,19 @@ test("NIP-46 + NIP-17: Direktnachricht ueber den Bunker – ohne lokalen Schlues
   const r2 = await openPrivateDm(antwort.toRecipient, s);
   assert.equal(r2.ok && r2.dm.content, "zurück");
 });
+
+test("NIP-46: Sitzung wieder aufnehmen – gleicher Client-Schluessel, ohne neues connect", async () => {
+  const b = testBunker();
+  const clientSk = generateKeypair().sk;
+  const erst = new Nip46Signer(b.uri, { transport: b.transport, clientSk, ...schnell });
+  const pk = await erst.connect();
+
+  const wieder = new Nip46Signer(b.uri, { transport: b.transport, clientSk, nutzer: pk, ...schnell });
+  assert.equal(wieder.publicKey(), b.nutzer.pk);
+  const signiert = await wieder.signEvent(buildEvent(pk, 1, [], "nach dem Neuladen", 1_790_000_000));
+  assert.equal(verifyEvent(signiert), true);
+  assert.deepEqual(b.anfragen, ["connect", "get_public_key", "sign_event"]);
+
+  assert.throws(() => new Nip46Signer(b.uri, { transport: b.transport, nutzer: "abc" }), /Nutzer-Pubkey ungültig/);
+  assert.throws(() => new Nip46Signer(b.uri, { transport: b.transport, nutzer: b.nutzer.pk.toUpperCase() }), /Nutzer-Pubkey ungültig/);
+});

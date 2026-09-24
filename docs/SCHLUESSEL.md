@@ -26,7 +26,8 @@ dann als Erwartungswert in `test/derivation.test.ts` eintragen.
 | ohne Tresor | `localStorage`, unverschlüsselt – wie bisher |
 | mit Tresor | IndexedDB `freedom-vault`, AES-GCM 256; Schlüssel aus der Passphrase per PBKDF2-SHA256 mit 600.000 Iterationen (`packages/app/src/vault.ts`) |
 
-Im Tresor liegen: der Nostr-Schlüssel (`freedom.nsec`), die Wallet-Verbindung
+Im Tresor liegen: der Nostr-Schlüssel (`freedom.nsec`), die Bunker-Sitzung
+(`freedom.bunker`, siehe unten), die Wallet-Verbindung
 (`freedom.nwc.uri`), die Preimages von Swaps (`freedom.swap.*`) und Deposits
 (`freedom.htlc.*`), Unterhaltungen (`freedom.chats`), der Agent-Verlauf und der
 Swap-Adressverlauf. Wer eine Wallet verbindet oder einen Swap bzw. ein Deposit
@@ -37,3 +38,17 @@ Schritt 5, oder über die Führung); danach fragt die App bei jedem Start nach d
 Passphrase. Die Tresor-Passphrase ist **keine** BIP-39-Passphrase: Sie ändert
 keinen Pfad und keinen Schlüssel. Wer sie vergisst, stellt die Identität mit den
 12 Wörtern (oder dem nsec) wieder her und legt dabei einen neuen Tresor an.
+
+## Anmelden per Bunker (Schritt 1.3f)
+
+Statt des Schlüssels auf dem Gerät kann ein entfernter Signer die Identität
+halten (NIP-46, z. B. Amber oder nsecBunker; Settings → Geräte). Die App
+speichert dann nur die Sitzung: Pubkey des Signers, seine Relays, einen
+zufälligen Client-Schlüssel für die Verbindung und den Pubkey des Nutzers. Das
+`secret` aus der `bunker://`-Adresse gilt nur für das erste Verbinden und wird
+nicht gespeichert. Jede Unterschrift und jede NIP-44-Operation fragt die App im
+Signer an; der Schlüssel auf dem Gerät bleibt liegen, Abmelden bringt ihn zurück.
+
+Ohne den Schlüssel selbst gehen nicht: Sicherungsdatei, Export, verschlüsselte
+Zustandssicherung (abgeleiteter Schlüssel), Nachfolge (Shamir-Teile) und
+abgeleitete Swap-Adressen. Die App sperrt diese Knöpfe und sagt warum.

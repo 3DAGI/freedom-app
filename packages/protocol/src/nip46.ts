@@ -43,6 +43,11 @@ export interface Nip46Options {
   transport: Nip46Transport;
   /** Wegwerf-Schluessel des Clients; ohne Angabe neu erzeugt. */
   clientSk?: Uint8Array;
+  /**
+   * Pubkey des Nutzers aus einer frueheren Verbindung – nimmt die Sitzung
+   * ohne neues `connect()` wieder auf (gleicher `clientSk` noetig).
+   */
+  nutzer?: string;
   timeoutMs?: number;
   pollMs?: number;
 }
@@ -79,6 +84,10 @@ export class Nip46Signer implements Signer {
     this.#transport = opts.transport;
     this.#timeoutMs = opts.timeoutMs ?? 30_000;
     this.#pollMs = opts.pollMs ?? 1_000;
+    if (opts.nutzer !== undefined) {
+      if (!HEX64.test(opts.nutzer)) throw new Error("Nutzer-Pubkey ungültig (64 Zeichen hex erwartet)");
+      this.#nutzer = opts.nutzer;
+    }
   }
 
   /** Verbinden (mit Geheimnis, falls die Adresse eins traegt) und Nutzer-Pubkey holen. */

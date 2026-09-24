@@ -25,7 +25,7 @@ import {
   unlock,
   vaultExists,
 } from "../vault.js";
-import { LS_KEY } from "./state.js";
+import { LS_BUNKER, LS_KEY } from "./state.js";
 import { $, toast } from "./ui.js";
 
 /** Nur ein Merker, kein Geheimnis: Gibt es auf diesem Geraet einen Tresor? */
@@ -44,12 +44,12 @@ export const geheim: GeheimSpeicher = geheimSpeicher(() => tresor, tresorEingeri
 
 /**
  * Was beim Einrichten aus localStorage in den Tresor wandert: privater
- * Schluessel, Wallet-Verbindung (NWC), Preimages von Swaps und Deposits,
- * Unterhaltungen, Agent- und Swap-Verlauf. Die Namen stehen auch in
+ * Schluessel, Bunker-Sitzung, Wallet-Verbindung (NWC), Preimages von Swaps und
+ * Deposits, Unterhaltungen, Agent- und Swap-Verlauf. Die Namen stehen auch in
  * tabs/waehrung.ts, tabs/agent.ts, tabs/kommunikation.ts und swap-client.ts.
  */
 function geheimnisse(): string[] {
-  const fest = [LS_KEY, "freedom.nwc.uri", "freedom.chats", "freedom.agentHistory", "freedom.swapHistory"];
+  const fest = [LS_KEY, LS_BUNKER, "freedom.nwc.uri", "freedom.chats", "freedom.agentHistory", "freedom.swapHistory"];
   const praefixe = ["freedom.swap.", "freedom.htlc."];
   const alle = Array.from({ length: localStorage.length }, (_, i) => localStorage.key(i) ?? "");
   return [...fest, ...alle.filter((k) => praefixe.some((p) => k.startsWith(p)))];

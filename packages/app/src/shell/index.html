@@ -487,6 +487,15 @@
           <div id="device-list" class="mono-sm">lade …</div>
           <button id="device-add" class="ghost" style="width:auto;padding:6px 10px;margin-top:8px">
             Gerät hinzufügen</button>
+        </div><div class="card" id="bunker-karte">
+          <h3><span class="ic" data-icon="shield"></span> Anmelden per Bunker (NIP-46)</h3>
+          <p class="mono-sm">Dein Schlüssel bleibt in einem Signer, z. B. Amber oder nsecBunker; die App fragt jede Unterschrift dort an. Ohne den Schlüssel selbst gehen nicht: Sicherungsdatei, Export, Zustandssicherung, Nachfolge und abgeleitete Swap-Adressen.</p>
+          <div id="bunker-status" class="mono-sm"></div>
+          <input id="bunker-uri" type="text" autocomplete="off" spellcheck="false" placeholder="bunker://…" aria-label="bunker://-Adresse" />
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
+            <button id="bunker-verbinden" class="ghost" style="width:auto;padding:6px 10px">verbinden</button>
+            <button id="bunker-abmelden" class="ghost" style="width:auto;padding:6px 10px" hidden>abmelden</button>
+          </div>
         </div></div>
             <div class="subpane" data-subpane="settings:network"><h2 class="settings-h">Verbindung</h2><div class="card">
           <h3><span class="ic" data-icon="server"></span> Eigene Endpunkte</h3>
