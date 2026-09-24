@@ -42,7 +42,8 @@ und **KI-Anfragen**, die Provider gegen Bezahlung ausführen (NIP-90).
 | 23.09.2026 | drei Prüfberichte (Kritische Analyse, Zweitgutachten, Gesamtbericht) und daraus der Ausbauplan |
 | 24.09.2026 | **Phase 0** live: XSS geschlossen, Content-Security-Policy, ehrliche Texte, Prüfsumme; HTLC-Einlösefrist im Programmcode |
 | 24.09.2026 | **0.C + 1.1** live: Einlösen nur mit 10 Minuten Sicherheitsabstand; Solana-Ableitung nach SLIP-10 |
-| 24.09.2026 | **2.1** im Code (noch nicht veröffentlicht): Direktnachrichten nach NIP-17, Siegelprüfung, Leak-Regeln, Datenschutzbericht nur mit belegten Aussagen |
+| 24.09.2026 | **2.1** live: Direktnachrichten nach NIP-17, Siegelprüfung, Leak-Regeln, Datenschutzbericht nur mit belegten Aussagen |
+| 24.09.2026 | **0.I** Quellcode öffentlich in `3dagi/freedom-app`; die Seite veröffentlicht nur noch `.github/workflows/pages.yml`, und nur mit grünen Tests |
 
 Wichtigste Befunde der Prüfungen, die noch offen sind: KI-Prompts stehen im
 Klartext auf den Relays (Schritt 3.1); der Reward-Pool ist zentral verwaltet
