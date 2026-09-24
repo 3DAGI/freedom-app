@@ -1978,3 +1978,33 @@ Skriptfehler.
 Endstand: protocol 947 grün (5 übersprungen) · node 161 grün (6 übersprungen) ·
 app 167 grün · 0 rot · check-wiring `--streng` 0 offen (176 begründet) ·
 innerHTML streng 0 unbewertet · Smoke-Test bestanden.
+
+## 50. `app.ts` aufteilen, Teil d: Währung und Earn (Schritt 1.0)
+
+**Teil d:** 31 Deklarationen. `shell/tabs/waehrung.ts` (763 Zeilen): Guthaben,
+Tausch sats ↔ SOL mit Einlösen und Swap-Sicherung, Solana-Wallet, Lightning über
+NWC, SOL-Deposits mit Rückforderung, `addZapButton`. `shell/tabs/earn.ts` (432
+Zeilen): Einnahmen, Vertrauensstufe (`loadTrust`), Rangliste, Belohnungen,
+Mitwirkende, Abdeckungskarte, Werben. `app.ts`: 2.927 → 1.763 Zeilen.
+`ladeAbdeckung`/`trageAbdeckungEin` stehen in `earn.ts`, weil ihre Oberfläche im
+Earn-Reiter „Karte“ liegt; `wireMeshTab` (Settings) ruft sie von dort auf.
+`agent.ts` holt `zeigeMitwirkende` jetzt aus `earn.ts` statt aus `app.ts` – der
+Import-Kreis mit `app.ts` ist damit um einen Namen kleiner.
+
+**Nur Verschiebungen – belegt:** Alle 225 Deklarationen wörtlich in genau einer
+Datei; 20 haben ein `export` bekommen; keine neue. Als Menge unterscheiden sich
+die Zeilen nur in acht dynamischen Importpfaden (`../swap-client.js`,
+`../solana-connect.js`, `../sol-htlc.js`, `../lightning-wallet.js` → eine Ebene
+länger). 26 innerHTML-Ausnahmen tragen den neuen Dateinamen.
+
+**Klicktest Währung/Earn (neu, im Scratchpad, ohne Netz und ohne Geld):** alle
+Unter-Reiter, Aktualisieren, NWC mit kaputter URI, Solana verbinden, Swap-Sicherung
+und Einlösen, Deposit starten und zurückfordern, Werben, Belohnung anfordern,
+Abdeckung – Texte und Meldungen gesammelt. Ein erster Vergleich zeigte eine
+Meldung nur in der alten Fassung. Ursache war die Wartezeit des Tests, nicht der
+Code: Auch die alte Fassung zeigte sie nur in einem von drei Läufen. Mit 8 s
+Wartezeit liefern beide Fassungen in drei Läufen jeweils dasselbe Ergebnis.
+
+Endstand: protocol 947 grün (5 übersprungen) · node 161 grün (6 übersprungen) ·
+app 167 grün · 0 rot · check-wiring `--streng` 0 offen (176 begründet) ·
+innerHTML streng 0 unbewertet · Smoke-Test bestanden.

@@ -20,9 +20,9 @@ state.ts|name|name = escapeHtml(label oder hostname)
 agent-netz.ts|cls|feste Klassennamen ok/err/warn
 agent-netz.ts|(Zuweisung) r.models.slice(0, 20).map((m) => { const cls = m.availability === "gut" ? "ok" : m.availability === "knapp" ? "warn" : "|Callback liefert nur Templates; Name, Quantisierung, Hinweis mit escapeHtml
 app.ts|cls|feste Klassennamen ok/warn/err
-app.ts|(Zuweisung) o.contributors.slice(0, 15).map((c) => `<div class="usage-row"><span>${escapeHtml(pkShort(c.pubkey))}</span>` + `<span>$|Callback: Template mit escapeHtml(pkShort(c.pubkey)); Zahlen siehe folgende Zeilen
-app.ts|c.activeDays|lokal gezählt in buildRepoOverview() (git-contributors.ts)
-app.ts|c.contributions|lokal gezählt in buildRepoOverview() (git-contributors.ts: e.c.length)
+earn.ts|(Zuweisung) o.contributors.slice(0, 15).map((c) => `<div class="usage-row"><span>${escapeHtml(pkShort(c.pubkey))}</span>` + `<span>$|Callback: Template mit escapeHtml(pkShort(c.pubkey)); Zahlen siehe folgende Zeilen
+earn.ts|c.activeDays|lokal gezählt in buildRepoOverview() (git-contributors.ts)
+earn.ts|c.contributions|lokal gezählt in buildRepoOverview() (git-contributors.ts: e.c.length)
 kommunikation.ts|(Zuweisung) ids.map((id) => { const kurz = id.slice(0, 2).toUpperCase(); return `<button class="space-pill" data-space="${escapeHtml|Callback: Template mit escapeHtml(id) und escapeHtml(kurz); aria-current ist ein Vergleich
 kommunikation.ts|(Zuweisung) st.space.channels.map((c) => { const b = badges.get(c.id); const marke = b?.mentions ? `<span class="mention">${b.mentio|Callback: Template mit escapeHtml(c.id) und escapeHtml(c.name); marke/schloss siehe folgende Zeilen
 kommunikation.ts|b.mentions|lokal gezählt in unreadBadges()
@@ -45,12 +45,12 @@ app.ts|cls|feste Klassennamen ok/warn/muted
 app.ts|(Zuweisung) offlineCapabilities(link).map((f) => `<div class="usage-row"><span>${f.works ? "✓" : "✕"} ${escapeHtml(f.feature)}</span|Callback: Template mit escapeHtml; Haken/Kreuz fest
 app.ts|(Zuweisung) p.map((m) => `${escapeHtml(m.label)} — ${m.framesLeft} Pakete offen`).join("<br>")|Callback: Template mit escapeHtml(m.label) und lokalem Zähler
 app.ts|m.framesLeft|lokaler Zähler der eigenen Mesh-Warteschlange
-app.ts|(Zuweisung) zusammen.map((z) => `<div class="usage-row"><span>${symbol[z.layer]} ${escapeHtml(z.label)}</span>` + `<span class="${z.|Callback: Template mit escapeHtml(z.label); Symbol und Zähler siehe folgende Zeilen
-app.ts|symbol[z.layer]|Eintrag aus der festen Symboltabelle (oder undefined)
-app.ts|z.cells|lokal gezählt in summarizeLayers()
-app.ts|(Zuweisung) r.cells.slice(0, 15).map((c) => `${symbol[c.layer] ?? "•"} ${escapeHtml(c.region ¦¦ "?")} · ${escapeHtml(c.label)}`, ).j|Callback: Template mit escapeHtml(region, label); Symbol aus fester Tabelle
-app.ts|symbol[c.layer]|Eintrag aus der festen Symboltabelle (oder undefined)
-app.ts|r.hiddenCells|lokal gezählt in buildCoverage()
+earn.ts|(Zuweisung) zusammen.map((z) => `<div class="usage-row"><span>${symbol[z.layer]} ${escapeHtml(z.label)}</span>` + `<span class="${z.|Callback: Template mit escapeHtml(z.label); Symbol und Zähler siehe folgende Zeilen
+earn.ts|symbol[z.layer]|Eintrag aus der festen Symboltabelle (oder undefined)
+earn.ts|z.cells|lokal gezählt in summarizeLayers()
+earn.ts|(Zuweisung) r.cells.slice(0, 15).map((c) => `${symbol[c.layer] ?? "•"} ${escapeHtml(c.region ¦¦ "?")} · ${escapeHtml(c.label)}`, ).j|Callback: Template mit escapeHtml(region, label); Symbol aus fester Tabelle
+earn.ts|symbol[c.layer]|Eintrag aus der festen Symboltabelle (oder undefined)
+earn.ts|r.hiddenCells|lokal gezählt in buildCoverage()
 agent.ts|entries.map(([m, info]) => { const sp = speedOf(m); const short = m.split(":")[0]; const satsPer1k = Math.ceil(info.pric|Callback: Template mit escapeHtml(m) und escapeHtml(short); übrige Werte siehe folgende Zeilen
 agent.ts|sp.cls|fester Klassenname aus speedOf()
 agent.ts|sp.label|festes Label aus speedOf()
@@ -86,25 +86,25 @@ agent.ts|zeile("Tokens", `${ganzeZahl(usage.promptTokens)} rein, ${ganzeZahl(usa
 agent.ts|zeile("Diese Antwort", `${Math.floor(amountMsat / 1000)} sat`)|zeile() maskiert Schlüssel und Wert selbst
 agent.ts|zeilen|Templates mit escapeHtml(l.leg), festen Klassen und Marken, Zahl.toFixed(2)
 agent.ts|(Zuweisung) svg|icon(...) aus der festen Symboltabelle
-app.ts|(Zuweisung) valid .map( ({ ev, offer }) => ` <div class="stat"> <span class="k">${escapeHtml(pkShort(ev.pubkey))} · ${Number(offer.m|Callback: Template mit escapeHtml und Number(...)
-app.ts|(Number(offer.feePpm) / 100).toFixed(1)|Number(...).toFixed(1) – nur Ziffern und Punkt
-app.ts|(Zuweisung) verdict.problems.map((p) => escapeHtml(p)).join("<br>")|jede Zeile mit escapeHtml
-app.ts|(Zuweisung) sorted .map((ev) => { const get = (n: string) => ev.tags.find((t) => t[0] === n)?.[1] ?? "—"; return `<div class="stat">|Callback: Template mit escapeHtml(get(...)), Math.floor und timeAgo()
-app.ts|timeAgo(ev.created_at)|timeAgo() rechnet: Zahl plus s/m/h/d
-app.ts|(Zuweisung) `<div class="lb-skeleton"></div>`.repeat(4)|festes Markup
-app.ts|rows|Templates mit escapeHtml(pkShort(pk)), lokalen Zählern und festem Tier-Namen
+waehrung.ts|(Zuweisung) valid .map( ({ ev, offer }) => ` <div class="stat"> <span class="k">${escapeHtml(pkShort(ev.pubkey))} · ${Number(offer.m|Callback: Template mit escapeHtml und Number(...)
+waehrung.ts|(Number(offer.feePpm) / 100).toFixed(1)|Number(...).toFixed(1) – nur Ziffern und Punkt
+waehrung.ts|(Zuweisung) verdict.problems.map((p) => escapeHtml(p)).join("<br>")|jede Zeile mit escapeHtml
+earn.ts|(Zuweisung) sorted .map((ev) => { const get = (n: string) => ev.tags.find((t) => t[0] === n)?.[1] ?? "—"; return `<div class="stat">|Callback: Template mit escapeHtml(get(...)), Math.floor und timeAgo()
+earn.ts|timeAgo(ev.created_at)|timeAgo() rechnet: Zahl plus s/m/h/d
+earn.ts|(Zuweisung) `<div class="lb-skeleton"></div>`.repeat(4)|festes Markup
+earn.ts|rows|Templates mit escapeHtml(pkShort(pk)), lokalen Zählern und festem Tier-Namen
 agent-netz.ts|(Zuweisung) sorted.map((ev) => { const name = ev.tags.find((t) => t[0] === "d")?.[1] ?? "?"; return `<div class="stat"><span class="|Callback: Template mit escapeHtml(name), escapeHtml(pkShort(...)) und escapeHtml(blob)
-app.ts|new Date((Math.floor(Date.now() / 1000) + 7200) * 1000).toLocaleTimeString("de-DE")|lokal berechnete Uhrzeit
-app.ts|restMin|Math.ceil(...) – Zahl
-app.ts|res.refunded.length|Länge eines Arrays aus dem eigenen Refund-Ergebnis
+waehrung.ts|new Date((Math.floor(Date.now() / 1000) + 7200) * 1000).toLocaleTimeString("de-DE")|lokal berechnete Uhrzeit
+waehrung.ts|restMin|Math.ceil(...) – Zahl
+waehrung.ts|res.refunded.length|Länge eines Arrays aus dem eigenen Refund-Ergebnis
 app.ts|(Zuweisung) LANGS.map( (l) => `<button type="button" data-lang="${l.code}" class="${l.code === getLang() ? "active" : ""}">${l.code.|Callback: Template aus der festen Sprachliste LANGS
 app.ts|l.code|feste Sprachliste LANGS (i18n.ts)
 app.ts|l.code.toUpperCase()|feste Sprachliste LANGS (i18n.ts)
 app.ts|l.label|feste Sprachliste LANGS (i18n.ts)
-app.ts|sats|Math.floor(...) – Zahl
-app.ts|p.monthlySats.toLocaleString("de-DE")|Zahl aus projectEarnings(), formatiert
-app.ts|p.yearlySats.toLocaleString("de-DE")|Zahl aus projectEarnings(), formatiert
-app.ts|u.activeReferrals|lokal gezählt in referrerOverview()
-app.ts|u.totalReferrals|lokal gezählt in referrerOverview()
-app.ts|u.level2Count|lokal gezählt in referrerOverview()
-app.ts|next.missing|Zahl aus nextTier()
+waehrung.ts|sats|Math.floor(...) – Zahl
+earn.ts|p.monthlySats.toLocaleString("de-DE")|Zahl aus projectEarnings(), formatiert
+earn.ts|p.yearlySats.toLocaleString("de-DE")|Zahl aus projectEarnings(), formatiert
+earn.ts|u.activeReferrals|lokal gezählt in referrerOverview()
+earn.ts|u.totalReferrals|lokal gezählt in referrerOverview()
+earn.ts|u.level2Count|lokal gezählt in referrerOverview()
+earn.ts|next.missing|Zahl aus nextTier()
