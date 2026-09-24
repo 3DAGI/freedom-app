@@ -8,6 +8,10 @@ Prueft im Headless-Chromium:
   - ein eingeschleuster Inline-Handler (onerror=...) wird NICHT ausgefuehrt
   - Fremddaten landen als Text, nicht als HTML: ein gespeicherter Verlauf mit
     HTML im Modellnamen des Providers (Schritt 0.B) wird wiederhergestellt
+  - Tresor (Schritt 1.2): Merkphrase bestaetigen, Tresor einrichten, danach
+    Speicher-Scan – der Schluessel steht weder in localStorage noch im Klartext
+    in IndexedDB; neu laden, falsche und richtige Passphrase; „Passphrase
+    vergessen“ ueber die 12 Woerter – die Identitaet bleibt dieselbe
 
 Verbindungsfehler zu Relays werden ignoriert (hängen vom Netz ab).
 
@@ -29,6 +33,70 @@ def freier_port() -> int:
     with socket.socket() as s:
         s.bind(("127.0.0.1", 0))
         return s.getsockname()[1]
+
+
+def tresor_pruefen(browser, url: str) -> dict:
+    """Tresor-Ablauf in einem frischen Profil, ohne Netz nach aussen."""
+    erg = {"fehler": []}
+    ctx = browser.new_context()
+    basis = url.rsplit("/", 1)[0]
+    ctx.route("**/*", lambda r: r.continue_() if r.request.url.startswith(basis) else r.abort())
+    s = ctx.new_page()
+    s.on("pageerror", lambda e: erg["fehler"].append(str(e)[:300]))
+    ev = s.evaluate
+
+    def warte(bedingung: str) -> None:
+        s.wait_for_function(bedingung, timeout=30000)
+
+    def felder(werte: dict, knopf: str) -> None:
+        ev("([w, k]) => { for (const [id, v] of Object.entries(w)) document.getElementById(id).value = v;"
+           " document.getElementById(k).click(); }", [werte, knopf])
+
+    s.goto(url, wait_until="load")
+    s.wait_for_timeout(2500)
+    woerter = ev("() => [...document.querySelectorAll('.mnemonic-list li')].map(l => l.textContent)")
+    ev("(w) => document.querySelectorAll('#bk-challenge input').forEach(i => i.value = w[+i.dataset.pos])", woerter)
+    ev("() => document.getElementById('bk-done').click()")
+    nsec = ev("() => localStorage.getItem('freedom.nsec')") or ""
+    ident = ev("() => document.getElementById('ident').textContent")
+    erg["start"] = len(woerter) == 12 and len(nsec) == 64
+
+    ev("() => document.querySelector('.app-nav button[data-tab=\"settings\"]').click()")
+    ev("() => document.querySelector('.sec-action[data-step=\"4\"]').click()")
+    felder({"tr-neu1": "smoke tresor 1", "tr-neu2": "smoke tresor 1"}, "tr-ok")
+    warte("() => !document.getElementById('tr-ok')")
+    scan = ev("""async (nsec) => {
+      const ls = Object.keys(localStorage).map(k => k + '=' + localStorage.getItem(k)).join('\\n');
+      const blob = await new Promise((r) => { const q = indexedDB.open('freedom-vault');
+        q.onsuccess = () => { const g = q.result.transaction('tresor').objectStore('tresor').get('blob');
+          g.onsuccess = () => r(g.result); }; q.onerror = () => r(null); });
+      return { klar_in_ls: ls.includes(nsec), blob: typeof blob === 'string',
+               klar_in_blob: String(blob).includes(nsec), merker: localStorage.getItem('freedom.vault') };
+    }""", nsec)
+    erg["speicher_scan"] = (scan["blob"] and not scan["klar_in_ls"] and not scan["klar_in_blob"]
+                            and scan["merker"] == "1")
+
+    s.reload(wait_until="load")
+    warte("() => !!document.getElementById('tr-pass')")
+    erg["gesperrt_ohne_identitaet"] = ev("() => document.getElementById('ident').textContent") != ident
+    felder({"tr-pass": "falsche passphrase"}, "tr-ok")
+    warte("() => document.getElementById('tr-meldung').textContent.includes('falsch')")
+    felder({"tr-pass": "smoke tresor 1"}, "tr-ok")
+    warte("() => !document.getElementById('tr-pass')")
+    s.wait_for_timeout(1000)
+    erg["entsperrt_gleiche_identitaet"] = ev("() => document.getElementById('ident').textContent") == ident
+
+    s.reload(wait_until="load")
+    warte("() => !!document.getElementById('tr-vergessen')")
+    ev("() => document.getElementById('tr-vergessen').click()")
+    felder({"tr-phrase": " ".join(woerter), "tr-neu1": "smoke tresor 2", "tr-neu2": "smoke tresor 2"}, "tr-ok")
+    warte("() => !document.getElementById('tr-phrase')")
+    s.wait_for_timeout(1000)
+    erg["vergessen_gleiche_identitaet"] = ev("() => document.getElementById('ident').textContent") == ident
+    ctx.close()
+    erg["bestanden"] = (not erg["fehler"] and all(v is True for k, v in erg.items()
+                                                   if k not in ("fehler", "bestanden")))
+    return erg
 
 
 def main() -> int:
@@ -77,13 +145,15 @@ def main() -> int:
                 "!document.getElementById('probe-modell') && !document.getElementById('probe-meta')"
                 " && [...document.querySelectorAll('#ai-thread .who')].some(e => e.textContent.includes('<img'))")
             erg["csp_verletzungen"] = seite.evaluate("window.__csp || []")
+            erg["tresor"] = tresor_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
             browser.close()
     finally:
         srv.shutdown()
 
     ok = (erg.get("booted") == "object" and not erg["pageerrors"]
           and erg.get("csp_gesetzt") and erg.get("xss_ausgefuehrt") is False
-          and erg.get("fremd_als_text") is True)
+          and erg.get("fremd_als_text") is True
+          and erg.get("tresor", {}).get("bestanden") is True)
     erg["bestanden"] = bool(ok)
     print(json.dumps(erg, indent=1, ensure_ascii=False))
     return 0 if ok else 1

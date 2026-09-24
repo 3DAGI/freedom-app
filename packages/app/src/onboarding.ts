@@ -27,6 +27,8 @@ export interface Readiness {
   hasIdentity: boolean;
   /** Merkphrase bestätigt — ohne sie ist alles bei Datenverlust weg. */
   backedUp: boolean;
+  /** Tresor eingerichtet — sonst liegt der Schlüssel im Klartext im Browser. */
+  hasVault: boolean;
   /** Irgendeine Zahlungsmöglichkeit verbunden. */
   hasWallet: boolean;
   /** Schon einmal etwas gemacht. */
@@ -38,6 +40,7 @@ export interface Readiness {
 export type StepId =
   | "los"
   | "sichern"
+  | "tresor"
   | "wallet"
   | "provider-anleitung"
   | "fertig";
@@ -95,7 +98,24 @@ export function nextStep(r: Readiness, intent: Intent = "unbekannt"): NextStep {
     };
   }
 
-  // 3. Verdienen wollen: die Hürde ist die Software, nicht die Wallet.
+  // 3. Gesichert, aber der Schlüssel liegt im Klartext im Browser? Jetzt die
+  //    Passphrase — wie die Sicherung erst nach der ersten Nutzung (Entscheidung
+  //    zu Schritt 1.2) und vor der Wallet, denn Wallet-Zugänge kommen in den Tresor.
+  if (!r.hasVault) {
+    return {
+      id: "tresor",
+      title: "Schütze deinen Schlüssel",
+      body:
+        "Noch liegt dein Schlüssel unverschlüsselt im Browser — jede Erweiterung " +
+        "mit Seitenzugriff kann ihn lesen. Eine Passphrase verschlüsselt ihn auf " +
+        "diesem Gerät; beim Start fragt die App danach.",
+      action: "Tresor einrichten",
+      skippable: true,
+      urgency: "hinweis",
+    };
+  }
+
+  // 4. Verdienen wollen: die Hürde ist die Software, nicht die Wallet.
   if (intent === "verdienen") {
     return {
       id: "provider-anleitung",
@@ -110,7 +130,7 @@ export function nextStep(r: Readiness, intent: Intent = "unbekannt"): NextStep {
     };
   }
 
-  // 4. Gratis aufgebraucht und keine Wallet: jetzt ist die Frage berechtigt.
+  // 5. Gratis aufgebraucht und keine Wallet: jetzt ist die Frage berechtigt.
   if (!r.hasWallet && r.freeTierLeft <= 0) {
     return {
       id: "wallet",
@@ -125,7 +145,7 @@ export function nextStep(r: Readiness, intent: Intent = "unbekannt"): NextStep {
     };
   }
 
-  // 5. Wallet fehlt, aber noch Gratis übrig: erwähnen, nicht drängen.
+  // 6. Wallet fehlt, aber noch Gratis übrig: erwähnen, nicht drängen.
   if (!r.hasWallet) {
     return {
       id: "wallet",

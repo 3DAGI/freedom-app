@@ -13,7 +13,7 @@ import { startHero } from "../hero.js";
 import { LANGS, Lang, detectLang, getLang, setLang, t } from "../i18n.js";
 import { escapeHtml, pkShort } from "../shell-logic.js";
 import { zeigeDatenschutz } from "./datenschutz.js";
-import { LS_KEY, ensurePool, getOwnProviderFromUrl, setOwnProvider, state, wireRpcSetting } from "./state.js";
+import { ensurePool, getOwnProviderFromUrl, setOwnProvider, state, wireRpcSetting } from "./state.js";
 import { haltevorModell, kuendigeModellAn, loadGitRepos, setGitStatus, zeigeModelle } from "./tabs/agent-netz.js";
 import {
   askAi,
@@ -77,6 +77,13 @@ import {
   startDeposit,
 } from "./tabs/waehrung.js";
 import {
+  entsperreBeimStart,
+  ladeSchluessel,
+  richteTresorEin,
+  speichereSchluessel,
+  tresorEingerichtet,
+} from "./tresor.js";
+import {
   $,
   aktualisiereNavStatus,
   escrowIdent,
@@ -90,7 +97,7 @@ export { activateCodeBlocks } from "./ui.js";
 // ------------------------------------------------------------- Identitaet
 
 function loadOrCreateIdentity(): void {
-  const stored = localStorage.getItem(LS_KEY);
+  const stored = ladeSchluessel();
   if (stored) {
     const sk = fromHex(stored);
     state.keypair = { sk, pk: toHex(schnorr.getPublicKey(sk)) };
@@ -110,7 +117,7 @@ async function erzeugeIdentitaetMitPhrase(): Promise<void> {
   const { createIdentity, markHasMnemonic } = await import("../identity.js");
   const id = createIdentity();
   state.keypair = { sk: id.sk, pk: id.pk };
-  localStorage.setItem(LS_KEY, toHex(id.sk));
+  await speichereSchluessel(toHex(id.sk));
   markHasMnemonic();
   $("#ident").textContent = escrowIdent();
   await zeigeSicherungsDialog(id.mnemonic!);
@@ -241,7 +248,7 @@ function importIdentity(): void {
   }
   const sk = fromHex(hex);
   state.keypair = { sk, pk: toHex(schnorr.getPublicKey(sk)) };
-  localStorage.setItem(LS_KEY, hex.toLowerCase());
+  void speichereSchluessel(hex.toLowerCase()).catch((e) => toast(`nicht gespeichert: ${(e as Error).message}`, true));
   $("#ident").textContent = escrowIdent();
   toast("Identitaet importiert");
   updateFeePreview();
@@ -274,6 +281,7 @@ export async function zeigeOnboarding(): Promise<void> {
     const schritt = nextStep({
       hasIdentity: !!state.keypair,
       backedUp: bu.confirmed,
+      hasVault: tresorEingerichtet(),
       hasWallet: !!nwc || !!(window as unknown as { webln?: unknown }).webln,
       hasUsedOnce: localStorage.getItem("freedom.usedOnce") === "1",
       freeTierLeft: Number(localStorage.getItem("freedom.freeLeft") ?? "10"),
@@ -297,6 +305,7 @@ export async function zeigeOnboarding(): Promise<void> {
 
     bar.querySelector("#ob-action")?.addEventListener("click", () => {
       if (schritt.id === "sichern") void sichereJetzt();
+      else if (schritt.id === "tresor") void richteTresorEin().then(() => zeigeOnboarding());
       else if (schritt.id === "wallet") document.querySelector<HTMLElement>('[data-tab="wallet"]')?.click();
       else if (schritt.id === "provider-anleitung") document.querySelector<HTMLElement>('[data-tab="earn"]')?.click();
       else document.querySelector<HTMLElement>('[data-tab="ai"]')?.click();
@@ -457,7 +466,15 @@ function checkOwnProvider(): void {
   }
 }
 
+/**
+ * Einstieg. Gibt es einen Tresor (Schritt 1.2), wird zuerst entsperrt – erst
+ * danach ist der Schluessel da und die App startet wie bisher.
+ */
 export function boot(): void {
+  void entsperreBeimStart().then(starte);
+}
+
+function starte(): void {
   captureReferral();
   void publishReferralClaim();
   // SVG-Icons: alle [data-icon]-Elemente bekommen ihr Inline-SVG (ersetzt Emojis)
@@ -643,7 +660,11 @@ export function boot(): void {
   });
   const ziele: Record<string, string> = { "1": "backup-now", "2": "rotation-prepare", "3": "succ-setup" };
   document.querySelectorAll<HTMLElement>(".sec-action").forEach((b) => {
-    b.addEventListener("click", () => document.getElementById(ziele[b.dataset.step!] ?? "")?.click());
+    b.addEventListener("click", () => {
+      // Schritt 5 (Tresor) hat keinen eigenen Knopf in den Details
+      if (b.dataset.step === "4") void richteTresorEin().then(() => aktualisiereSicherheitsStand());
+      else document.getElementById(ziele[b.dataset.step!] ?? "")?.click();
+    });
   });
   setInterval(() => void aktualisiereNavStatus(), 30_000);
   void zeigeOnboarding();

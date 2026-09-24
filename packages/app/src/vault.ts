@@ -293,3 +293,26 @@ export async function unlock(
   for (const [k, v] of Object.entries(daten)) if (typeof v === "string") werte.set(k, v);
   return new OffenerTresor(werte, key, blob.salt, blob.iter, speicher);
 }
+
+/**
+ * Klartextwerte in den Tresor uebernehmen (Karte 1.2, Schritt 4): setzen, den
+ * Tresor NEU aus dem Speicher entschluesseln und vergleichen – erst wenn jeder
+ * Wert dort wortgleich steht, verschwindet der Klartext. Scheitert etwas,
+ * bleibt der Klartext stehen: lieber unverschluesselt als verloren.
+ */
+export async function uebernehme(
+  vault: Vault,
+  quelle: Pick<Storage, "getItem" | "removeItem">,
+  schluessel: string[],
+  neuGeoeffnet: () => Promise<Vault>,
+): Promise<string[]> {
+  const gefunden = schluessel.filter((k) => quelle.getItem(k) !== null);
+  for (const k of gefunden) await vault.set(k, quelle.getItem(k)!);
+  if (gefunden.length === 0) return [];
+  const kontrolle = await neuGeoeffnet();
+  const abweichend = gefunden.filter((k) => kontrolle.get(k) !== quelle.getItem(k));
+  kontrolle.lock();
+  if (abweichend.length > 0) throw new Error(`Übernahme nicht bestätigt: ${abweichend.join(", ")}`);
+  for (const k of gefunden) quelle.removeItem(k);
+  return gefunden;
+}

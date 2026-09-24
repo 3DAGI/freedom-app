@@ -150,9 +150,13 @@ export interface BackupCheck {
 const LS_KEY = "freedom.nsec";
 const LS_CONFIRMED = "freedom.backup.confirmed";
 const LS_HAS_MNEMONIC = "freedom.backup.mnemonic";
+/** Merker aus shell/tresor.ts: Der Schluessel liegt im Tresor (Schritt 1.2). */
+const LS_TRESOR = "freedom.vault";
 
 export function backupStatus(): BackupCheck {
-  const hasKey = !!localStorage.getItem(LS_KEY);
+  // Mit Tresor steht der Schluessel nicht mehr in localStorage – die Warnung
+  // vor fehlender Sicherung muss trotzdem erscheinen.
+  const hasKey = !!localStorage.getItem(LS_KEY) || localStorage.getItem(LS_TRESOR) === "1";
   const confirmed = localStorage.getItem(LS_CONFIRMED) === "1";
   const recoverable = localStorage.getItem(LS_HAS_MNEMONIC) === "1";
 

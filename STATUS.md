@@ -2085,3 +2085,50 @@ ungeordnetem Schreiben wird jeweils ein Test rot.
 Endstand: protocol 947 grün (5 übersprungen) · node 161 grün (6 übersprungen) ·
 app 179 grün (+12) · 0 rot · check-wiring `--streng` 0 offen (176 begründet) ·
 innerHTML streng 0 unbewertet · Smoke-Test bestanden.
+
+## 53. Tresor, Teil b: verdrahtet – Einrichten, Entsperren, „vergessen“ (Schritt 1.2)
+
+**Entscheidung (24.09.2026, im Chat):** erst benutzen, dann einrichten. Die
+Karte verlangt „Entsperr-Dialog beim Start“ und die Migration „beim ersten
+Start“; die Führung (`zeigeOnboarding`) fragt aber ausdrücklich erst nach der
+ersten Nutzung. Umgesetzt: Der Tresor ist Schritt 5 der Sicherheitsliste und der
+Schritt „tresor“ der Führung (nach der Sicherung, vor Wallet und Verdienen –
+Wallet-Zugänge kommen in Teil c in den Tresor). Wer ihn eingerichtet hat,
+entsperrt bei jedem Start. „Spätestens vor Geld-Geheimnissen verlangt“ kommt mit
+Teil c, wenn NWC, Swaps und Deposits in den Tresor wandern.
+
+**Neu `shell/tresor.ts`:**
+- `boot()` entsperrt zuerst, wenn es einen Tresor gibt (Merker `freedom.vault`
+  oder – falls localStorage geleert wurde – der Blob in IndexedDB); erst danach
+  startet die App wie bisher (`starte()`). Vor dem Entsperren ist die Seite leer.
+- Einrichten: Passphrase zweimal, mindestens 8 Zeichen. `freedom.nsec` wandert
+  mit `uebernehme()` (neu in `vault.ts`) hinein: setzen, den Tresor neu
+  entschlüsseln, vergleichen, erst dann den Klartext löschen. Scheitert etwas,
+  wird der neue Tresor gelöscht und alles bleibt wie vorher. Ohne Schlüssel in
+  localStorage wird nichts eingerichtet (sonst entstünde beim nächsten Start eine
+  neue Identität).
+- „Passphrase vergessen?“: 12 Wörter oder nsec über `importIdentity()`, neue
+  Passphrase; der alte Tresor wird gelöscht, ein neuer angelegt. Wer alle zwölf
+  Wörter eintippt, gilt als gesichert.
+- Schlüssel lesen/schreiben (`ladeSchluessel`/`speichereSchluessel`): aus dem
+  Tresor, wenn es einen gibt, sonst wie bisher aus localStorage.
+
+**Weitere Änderungen:** `identity.ts`/`backupStatus()` zählt den Schlüssel im
+Tresor als vorhanden (sonst verschwände die Sicherungswarnung); Sicherheitsliste
+jetzt 5 Schritte („Zwei der fünf Schritte gehen nur vorher.“); `docs/SCHLUESSEL.md`
+um die Aufbewahrung ergänzt. Die Dialoge setzen nur feste Texte per innerHTML
+(eine begründete Ausnahme), Eingaben und Meldungen über textContent.
+
+**Tests:** app 179 → 185 – `uebernehme()` (Rundreise; scheitert die Kontrolle,
+bleibt der Klartext), `backupStatus()` mit Tresor (Gegenprobe: alter Code rot),
+Führung: Tresor erst nach erster Nutzung und Sicherung, vor Wallet und
+Verdienen. **Smoke-Test** um den ganzen Ablauf erweitert: Merkphrase bestätigen,
+Tresor einrichten, Speicher-Scan (Schlüssel weder in localStorage noch im Blob),
+neu laden (gesperrt, ohne Identität), falsche und richtige Passphrase, „vergessen“
+mit den 12 Wörtern – dieselbe Identität. Gegenprobe: ohne Übernahme scheitern
+Speicher-Scan und Identitätsvergleich. Klicktests: ohne Tresor unverändert bis auf
+die fünfte Stufe der Sicherheitsliste.
+
+Endstand: protocol 947 grün (5 übersprungen) · node 161 grün (6 übersprungen) ·
+app 185 grün (+6) · 0 rot · check-wiring `--streng` 0 offen (176 begründet) ·
+innerHTML streng 0 unbewertet (101 begründet) · Smoke-Test bestanden (mit Tresor).
