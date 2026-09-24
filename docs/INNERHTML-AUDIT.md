@@ -24,12 +24,12 @@ Nicht abgedeckt: andere Eingänge wie `href` oder `src`, die per Eigenschaft ges
 | `packages/app/src/shell/tabs/agent-netz.ts` | 24 | `(Zuweisung) r.models.slice(0, 20).map((m) => { const cls = m.availability === "gut" ? "ok" : m.availability === "knapp" ? "warn" : "` | Callback liefert nur Templates; Name, Quantisierung, Hinweis mit escapeHtml |
 | `packages/app/src/shell/tabs/agent-netz.ts` | 28 | `cls` | feste Klassennamen ok/err/warn |
 | `packages/app/src/shell/tabs/agent-netz.ts` | 127 | `` (Zuweisung) sorted.map((ev) => { const name = ev.tags.find((t) => t[0] === "d")?.[1] ?? "?"; return `<div class="stat"><span class=" `` | Callback: Template mit escapeHtml(name), escapeHtml(pkShort(...)) und escapeHtml(blob) |
-| `packages/app/src/shell/tabs/agent.ts` | 94 | `entries.map(([m, info]) => { const sp = speedOf(m); const short = m.split(":")[0]; const satsPer1k = Math.ceil(info.pric` | Callback: Template mit escapeHtml(m) und escapeHtml(short); übrige Werte siehe folgende Zeilen |
-| `packages/app/src/shell/tabs/agent.ts` | 102 | `sp.cls` | fester Klassenname aus speedOf() |
-| `packages/app/src/shell/tabs/agent.ts` | 102 | `sp.label` | festes Label aus speedOf() |
-| `packages/app/src/shell/tabs/agent.ts` | 103 | `satsPer1k` | Math.ceil(...) – immer eine Zahl |
-| `packages/app/src/shell/tabs/agent.ts` | 103 | `solPer1k` | Zahl.toFixed(6) – nur Ziffern und Punkt |
-| `packages/app/src/shell/tabs/agent.ts` | 103 | `info.count` | lokal gezählt (Provider je Modell) |
+| `packages/app/src/shell/tabs/agent.ts` | 95 | `entries.map(([m, info]) => { const sp = speedOf(m); const short = m.split(":")[0]; const satsPer1k = Math.ceil(info.pric` | Callback: Template mit escapeHtml(m) und escapeHtml(short); übrige Werte siehe folgende Zeilen |
+| `packages/app/src/shell/tabs/agent.ts` | 103 | `sp.cls` | fester Klassenname aus speedOf() |
+| `packages/app/src/shell/tabs/agent.ts` | 103 | `sp.label` | festes Label aus speedOf() |
+| `packages/app/src/shell/tabs/agent.ts` | 104 | `satsPer1k` | Math.ceil(...) – immer eine Zahl |
+| `packages/app/src/shell/tabs/agent.ts` | 104 | `solPer1k` | Zahl.toFixed(6) – nur Ziffern und Punkt |
+| `packages/app/src/shell/tabs/agent.ts` | 104 | `info.count` | lokal gezählt (Provider je Modell) |
 | `packages/app/src/shell/tabs/agent.ts` | 207 | `(Zuweisung) alle.map((v) => { const d = new Date(v.at * 1000); const gruppe = d.toDateString() === heute ? "Heute" : "Früher"; const` | Callback: Template mit escapeHtml(v.id) und escapeHtml(v.title); übrige Werte siehe folgende Zeilen |
 | `packages/app/src/shell/tabs/agent.ts` | 210 | `gruppe` | fest: Heute oder Früher |
 | `packages/app/src/shell/tabs/agent.ts` | 213 | `kopf` | Template mit dem festen Gruppennamen oder leer |
@@ -68,23 +68,23 @@ Nicht abgedeckt: andere Eingänge wie `href` oder `src`, die per Eigenschaft ges
 | `packages/app/src/shell/tabs/earn.ts` | 385 | `u.totalReferrals` | lokal gezählt in referrerOverview() |
 | `packages/app/src/shell/tabs/earn.ts` | 386 | `u.level2Count` | lokal gezählt in referrerOverview() |
 | `packages/app/src/shell/tabs/earn.ts` | 388 | `next.missing` | Zahl aus nextTier() |
-| `packages/app/src/shell/tabs/kommunikation.ts` | 70 | `` (Zuweisung) ids.map((id) => { const kurz = id.slice(0, 2).toUpperCase(); return `<button class="space-pill" data-space="${escapeHtml `` | Callback: Template mit escapeHtml(id) und escapeHtml(kurz); aria-current ist ein Vergleich |
-| `packages/app/src/shell/tabs/kommunikation.ts` | 121 | `` (Zuweisung) st.space.channels.map((c) => { const b = badges.get(c.id); const marke = b?.mentions ? `<span class="mention">${b.mentio `` | Callback: Template mit escapeHtml(c.id) und escapeHtml(c.name); marke/schloss siehe folgende Zeilen |
-| `packages/app/src/shell/tabs/kommunikation.ts` | 126 | `b.mentions` | lokal gezählt in unreadBadges() |
-| `packages/app/src/shell/tabs/kommunikation.ts` | 131 | `schloss` | feste Zeichen: Schloss-Entity oder # |
-| `packages/app/src/shell/tabs/kommunikation.ts` | 131 | `marke` | festes Markup oder Template mit dem lokalen Zähler b.mentions |
-| `packages/app/src/shell/tabs/kommunikation.ts` | 169 | `` (Zuweisung) topLevel.map((m) => { const t = threads.get(m.id); const antworten = t ? `<button class="thread-link" data-root="${escap `` | Callback: Templates mit escapeHtml für IDs, Autor, Zeit und Inhalt |
-| `packages/app/src/shell/tabs/kommunikation.ts` | 173 | `t.replies.length` | Länge eines lokal gebauten Arrays (Threads) |
-| `packages/app/src/shell/tabs/kommunikation.ts` | 174 | `t.participants.length` | Länge eines lokal gebauten Arrays (Threads) |
-| `packages/app/src/shell/tabs/kommunikation.ts` | 185 | `antworten` | Template mit escapeHtml(m.id) und lokalen Zählern |
-| `packages/app/src/shell/tabs/kommunikation.ts` | 185 | `modKnopf` | Template mit escapeHtml(m.id) und escapeHtml(m.authorPubkey) |
-| `packages/app/src/shell/tabs/kommunikation.ts` | 232 | `(Zuweisung) zeilen.join("")` | zeilen enthält nur Templates mit escapeHtml (direkt darüber gebaut) |
-| `packages/app/src/shell/tabs/kommunikation.ts` | 644 | `` (Zuweisung) conversations .sort((a, b) => b.lastTs - a.lastTs) .map( (c) => `<div class="chat-item ${c.id === activeConversation ? " `` | Callback: Template mit escapeHtml(c.id) und escapeHtml(c.name) |
-| `packages/app/src/shell/tabs/kommunikation.ts` | 877 | `(Zuweisung) decrypted .sort((a, b) => a.created_at - b.created_at) .map((ev) => { const mine = ev.pubkey === state.keypair!.pk; let` | Callback: Templates mit escapeHtml; alt, zapBtn, body, media siehe folgende Zeilen |
-| `packages/app/src/shell/tabs/kommunikation.ts` | 908 | `alt` | festes Markup oder leer |
-| `packages/app/src/shell/tabs/kommunikation.ts` | 908 | `zapBtn` | Template mit escapeHtml(ev.pubkey) und escapeHtml(pkShort(ev.pubkey)) |
-| `packages/app/src/shell/tabs/kommunikation.ts` | 908 | `body` | body = escapeHtml(text) |
-| `packages/app/src/shell/tabs/kommunikation.ts` | 908 | `media` | renderAttachment() maskiert Name und URL und erlaubt nur sichere Schemata (shell-logic.ts) |
+| `packages/app/src/shell/tabs/kommunikation.ts` | 71 | `` (Zuweisung) ids.map((id) => { const kurz = id.slice(0, 2).toUpperCase(); return `<button class="space-pill" data-space="${escapeHtml `` | Callback: Template mit escapeHtml(id) und escapeHtml(kurz); aria-current ist ein Vergleich |
+| `packages/app/src/shell/tabs/kommunikation.ts` | 122 | `` (Zuweisung) st.space.channels.map((c) => { const b = badges.get(c.id); const marke = b?.mentions ? `<span class="mention">${b.mentio `` | Callback: Template mit escapeHtml(c.id) und escapeHtml(c.name); marke/schloss siehe folgende Zeilen |
+| `packages/app/src/shell/tabs/kommunikation.ts` | 127 | `b.mentions` | lokal gezählt in unreadBadges() |
+| `packages/app/src/shell/tabs/kommunikation.ts` | 132 | `schloss` | feste Zeichen: Schloss-Entity oder # |
+| `packages/app/src/shell/tabs/kommunikation.ts` | 132 | `marke` | festes Markup oder Template mit dem lokalen Zähler b.mentions |
+| `packages/app/src/shell/tabs/kommunikation.ts` | 170 | `` (Zuweisung) topLevel.map((m) => { const t = threads.get(m.id); const antworten = t ? `<button class="thread-link" data-root="${escap `` | Callback: Templates mit escapeHtml für IDs, Autor, Zeit und Inhalt |
+| `packages/app/src/shell/tabs/kommunikation.ts` | 174 | `t.replies.length` | Länge eines lokal gebauten Arrays (Threads) |
+| `packages/app/src/shell/tabs/kommunikation.ts` | 175 | `t.participants.length` | Länge eines lokal gebauten Arrays (Threads) |
+| `packages/app/src/shell/tabs/kommunikation.ts` | 186 | `antworten` | Template mit escapeHtml(m.id) und lokalen Zählern |
+| `packages/app/src/shell/tabs/kommunikation.ts` | 186 | `modKnopf` | Template mit escapeHtml(m.id) und escapeHtml(m.authorPubkey) |
+| `packages/app/src/shell/tabs/kommunikation.ts` | 233 | `(Zuweisung) zeilen.join("")` | zeilen enthält nur Templates mit escapeHtml (direkt darüber gebaut) |
+| `packages/app/src/shell/tabs/kommunikation.ts` | 646 | `` (Zuweisung) conversations .sort((a, b) => b.lastTs - a.lastTs) .map( (c) => `<div class="chat-item ${c.id === activeConversation ? " `` | Callback: Template mit escapeHtml(c.id) und escapeHtml(c.name) |
+| `packages/app/src/shell/tabs/kommunikation.ts` | 879 | `(Zuweisung) decrypted .sort((a, b) => a.created_at - b.created_at) .map((ev) => { const mine = ev.pubkey === state.keypair!.pk; let` | Callback: Templates mit escapeHtml; alt, zapBtn, body, media siehe folgende Zeilen |
+| `packages/app/src/shell/tabs/kommunikation.ts` | 910 | `alt` | festes Markup oder leer |
+| `packages/app/src/shell/tabs/kommunikation.ts` | 910 | `zapBtn` | Template mit escapeHtml(ev.pubkey) und escapeHtml(pkShort(ev.pubkey)) |
+| `packages/app/src/shell/tabs/kommunikation.ts` | 910 | `body` | body = escapeHtml(text) |
+| `packages/app/src/shell/tabs/kommunikation.ts` | 910 | `media` | renderAttachment() maskiert Name und URL und erlaubt nur sichere Schemata (shell-logic.ts) |
 | `packages/app/src/shell/tabs/profil.ts` | 68 | `farbe` | aus der festen Tabelle ACCENT_HEX nach normalizeStyle() |
 | `packages/app/src/shell/tabs/profil.ts` | 70 | `avatar` | Template mit escapeHtml(bild) bzw. escapeHtml(Anfangsbuchstabe), direkt darüber gebaut |
 | `packages/app/src/shell/tabs/profil.ts` | 74 | `farbe` | aus der festen Tabelle ACCENT_HEX nach normalizeStyle() |
@@ -99,14 +99,14 @@ Nicht abgedeckt: andere Eingänge wie `href` oder `src`, die per Eigenschaft ges
 | `packages/app/src/shell/tabs/settings.ts` | 561 | `m.framesLeft` | lokaler Zähler der eigenen Mesh-Warteschlange |
 | `packages/app/src/shell/tabs/settings.ts` | 674 | `cls` | feste Klassennamen ok/err/warn |
 | `packages/app/src/shell/tabs/settings.ts` | 679 | `quellen.map((q) => escapeHtml(q)).join(", ")` | jede Quelle mit escapeHtml |
-| `packages/app/src/shell/tabs/waehrung.ts` | 67 | `` (Zuweisung) valid .map( ({ ev, offer }) => ` <div class="stat"> <span class="k">${escapeHtml(pkShort(ev.pubkey))} · ${Number(offer.m `` | Callback: Template mit escapeHtml und Number(...) |
-| `packages/app/src/shell/tabs/waehrung.ts` | 71 | `(Number(offer.feePpm) / 100).toFixed(1)` | Number(...).toFixed(1) – nur Ziffern und Punkt |
-| `packages/app/src/shell/tabs/waehrung.ts` | 251 | `(Zuweisung) verdict.problems.map((p) => escapeHtml(p)).join("<br>")` | jede Zeile mit escapeHtml |
-| `packages/app/src/shell/tabs/waehrung.ts` | 611 | `new Date((Math.floor(Date.now() / 1000) + 7200) * 1000).toLocaleTimeString("de-DE")` | lokal berechnete Uhrzeit |
-| `packages/app/src/shell/tabs/waehrung.ts` | 644 | `restMin` | Math.ceil(...) – Zahl |
-| `packages/app/src/shell/tabs/waehrung.ts` | 666 | `res.refunded.length` | Länge eines Arrays aus dem eigenen Refund-Ergebnis |
-| `packages/app/src/shell/tabs/waehrung.ts` | 689 | `sats` | Math.floor(...) – Zahl |
-| `packages/app/src/shell/tresor.ts` | 58 | `html` | dialog() ist modulintern; alle drei Aufrufer übergeben feste Text-Literale ohne Einsetzungen, Eingaben und Meldungen laufen über textContent |
+| `packages/app/src/shell/tabs/waehrung.ts` | 68 | `` (Zuweisung) valid .map( ({ ev, offer }) => ` <div class="stat"> <span class="k">${escapeHtml(pkShort(ev.pubkey))} · ${Number(offer.m `` | Callback: Template mit escapeHtml und Number(...) |
+| `packages/app/src/shell/tabs/waehrung.ts` | 72 | `(Number(offer.feePpm) / 100).toFixed(1)` | Number(...).toFixed(1) – nur Ziffern und Punkt |
+| `packages/app/src/shell/tabs/waehrung.ts` | 261 | `(Zuweisung) verdict.problems.map((p) => escapeHtml(p)).join("<br>")` | jede Zeile mit escapeHtml |
+| `packages/app/src/shell/tabs/waehrung.ts` | 632 | `new Date((Math.floor(Date.now() / 1000) + 7200) * 1000).toLocaleTimeString("de-DE")` | lokal berechnete Uhrzeit |
+| `packages/app/src/shell/tabs/waehrung.ts` | 665 | `restMin` | Math.ceil(...) – Zahl |
+| `packages/app/src/shell/tabs/waehrung.ts` | 687 | `res.refunded.length` | Länge eines Arrays aus dem eigenen Refund-Ergebnis |
+| `packages/app/src/shell/tabs/waehrung.ts` | 710 | `sats` | Math.floor(...) – Zahl |
+| `packages/app/src/shell/tresor.ts` | 76 | `html` | dialog() ist modulintern; alle drei Aufrufer übergeben feste Text-Literale ohne Einsetzungen, Eingaben und Meldungen laufen über textContent |
 | `packages/app/src/shell/ui.ts` | 122 | `(Zuweisung) markSvg(18)` | eigenes SVG mit fester Farbe |
 | `packages/app/src/shell/ui.ts` | 124 | `(Zuweisung) markSvg(30)` | eigenes SVG mit fester Farbe |
 

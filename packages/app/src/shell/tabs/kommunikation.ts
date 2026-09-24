@@ -14,6 +14,7 @@ import {
   renderAttachment,
 } from "../../shell-logic.js";
 import { RELAYS, ensurePool, state } from "../state.js";
+import { geheim } from "../tresor.js";
 import { $, toast } from "../ui.js";
 
 // ------------------------------------------------------------- Räume
@@ -562,12 +563,13 @@ export let activeConversation: string | null = null;
 
 function loadConversations(): void {
   try {
-    conversations = JSON.parse(localStorage.getItem("freedom.chats") ?? "[]");
+    conversations = JSON.parse(geheim.getItem("freedom.chats") ?? "[]");
   } catch { conversations = []; }
 }
 
 function saveConversations(): void {
-  localStorage.setItem("freedom.chats", JSON.stringify(conversations));
+  void geheim.setItem("freedom.chats", JSON.stringify(conversations))
+    .catch((e) => toast(`Unterhaltungen nicht gespeichert: ${(e as Error).message}`, true));
 }
 
 /**

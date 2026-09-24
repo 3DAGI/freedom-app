@@ -364,12 +364,39 @@ export interface StoredSwap {
   createdAt: number;
 }
 
-export function saveSwapSecret(s: StoredSwap): void {
-  localStorage.setItem(STORE_PREFIX + s.hashlockHex, JSON.stringify(s));
+/**
+ * Wo die Preimages liegen. Standard: localStorage. Mit Tresor (Schritt 1.2c)
+ * setzt die App hier den verschluesselten Speicher ein – vor dem ersten Swap
+ * verlangt sie den Tresor ohnehin.
+ */
+export interface SwapSpeicher {
+  getItem(key: string): string | null;
+  setItem(key: string, value: string): void | Promise<void>;
+  removeItem(key: string): void | Promise<void>;
+  keys(): string[];
+}
+
+const lokalerSpeicher: SwapSpeicher = {
+  getItem: (k) => localStorage.getItem(k),
+  setItem: (k, v) => localStorage.setItem(k, v),
+  removeItem: (k) => localStorage.removeItem(k),
+  keys: () => Array.from({ length: localStorage.length }, (_, i) => localStorage.key(i))
+    .filter((k): k is string => k !== null),
+};
+
+let speicher: SwapSpeicher = lokalerSpeicher;
+
+export function setzeSwapSpeicher(s: SwapSpeicher): void {
+  speicher = s;
+}
+
+/** Speichern ist awaitbar: Erst wenn das Preimage sicher liegt, darf gezahlt werden. */
+export async function saveSwapSecret(s: StoredSwap): Promise<void> {
+  await speicher.setItem(STORE_PREFIX + s.hashlockHex, JSON.stringify(s));
 }
 
 export function loadSwapSecret(hashlockHex: string): StoredSwap | null {
-  const raw = localStorage.getItem(STORE_PREFIX + hashlockHex);
+  const raw = speicher.getItem(STORE_PREFIX + hashlockHex);
   if (!raw) return null;
   try {
     return JSON.parse(raw) as StoredSwap;
@@ -380,18 +407,22 @@ export function loadSwapSecret(hashlockHex: string): StoredSwap | null {
 
 export function listSwapSecrets(): StoredSwap[] {
   const out: StoredSwap[] = [];
-  for (let i = 0; i < localStorage.length; i++) {
-    const k = localStorage.key(i);
-    if (!k?.startsWith(STORE_PREFIX)) continue;
+  for (const k of speicher.keys()) {
+    if (!k.startsWith(STORE_PREFIX)) continue;
     try {
-      out.push(JSON.parse(localStorage.getItem(k)!) as StoredSwap);
+      out.push(JSON.parse(speicher.getItem(k)!) as StoredSwap);
     } catch { /* beschädigter Eintrag */ }
   }
   return out.sort((a, b) => b.createdAt - a.createdAt);
 }
 
-export function forgetSwapSecret(hashlockHex: string): void {
-  localStorage.removeItem(STORE_PREFIX + hashlockHex);
+export async function forgetSwapSecret(hashlockHex: string): Promise<void> {
+  await speicher.removeItem(STORE_PREFIX + hashlockHex);
+}
+
+/** Alle Schluessel, unter denen Preimages liegen – fuer die Uebernahme in den Tresor. */
+export function swapSecretKeys(keys: string[]): string[] {
+  return keys.filter((k) => k.startsWith(STORE_PREFIX));
 }
 
 /** Sicherung zum Herunterladen — ohne Preimage ist verlorenes Geld verloren. */

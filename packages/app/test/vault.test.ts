@@ -13,6 +13,7 @@ import {
   PBKDF2_ITERATIONEN,
   SpeicherImRam,
   createVault,
+  geheimSpeicher,
   uebernehme,
   unlock,
   vaultExists,
@@ -208,6 +209,8 @@ class FakeStorage {
   getItem(k: string): string | null { return this.werte.get(k) ?? null; }
   setItem(k: string, v: string): void { this.werte.set(k, v); }
   removeItem(k: string): void { this.werte.delete(k); }
+  key(i: number): string | null { return [...this.werte.keys()][i] ?? null; }
+  get length(): number { return this.werte.size; }
 }
 
 test("Uebernahme: Werte stehen im Tresor, der Klartext ist danach weg", async () => {
@@ -238,4 +241,48 @@ test("Uebernahme: scheitert die Kontrolle, bleibt der Klartext stehen", async ()
   // Kontrolle wirft (z. B. Speicher nicht lesbar)
   await assert.rejects(uebernehme(v, ls, ["freedom.nsec"], () => Promise.reject(new Error("weg"))), /weg/);
   assert.equal(ls.getItem("freedom.nsec"), NSEC_HEX);
+});
+
+// ------------------------------------------------------------- Geheimspeicher (1.2c)
+
+test("Geheimspeicher ohne Tresor: wie bisher localStorage", async () => {
+  const ls = new FakeStorage();
+  const g = geheimSpeicher(() => null, () => false, ls);
+  await g.setItem("freedom.chats", "[1]");
+  assert.equal(ls.getItem("freedom.chats"), "[1]");
+  assert.equal(g.getItem("freedom.chats"), "[1]");
+  assert.deepEqual(g.keys(), ["freedom.chats"]);
+  await g.removeItem("freedom.chats");
+  assert.equal(ls.length, 0);
+});
+
+test("Geheimspeicher mit offenem Tresor: alles verschluesselt, nichts in localStorage", async () => {
+  const ls = new FakeStorage();
+  const sp = new SpeicherImRam();
+  const v = await createVault(PASS, sp);
+  const g = geheimSpeicher(() => v, () => true, ls);
+  await g.setItem("freedom.nwc.uri", NWC);
+  assert.equal(g.getItem("freedom.nwc.uri"), NWC);
+  assert.deepEqual(g.keys(), ["freedom.nwc.uri"]);
+  assert.equal(ls.length, 0, "kein Klartext in localStorage");
+  assert.ok(!sp.blob!.includes("walletconnect"));
+  v.lock();
+  assert.equal((await unlock(PASS, sp)).get("freedom.nwc.uri"), NWC, "nach dem Speichern wieder lesbar");
+});
+
+test("Geheimspeicher: eingerichtet, aber gesperrt – nie Ausweichen auf localStorage", async () => {
+  const ls = new FakeStorage();
+  ls.setItem("freedom.chats", "alter klartext");
+  const sp = new SpeicherImRam();
+  const v = await createVault(PASS, sp);
+  v.lock();
+  for (const tresor of [() => null, () => v]) {
+    const g = geheimSpeicher(tresor, () => true, ls);
+    assert.equal(g.getItem("freedom.chats"), null, "kein Lesen aus localStorage");
+    assert.deepEqual(g.keys(), []);
+    await assert.rejects(g.setItem("freedom.chats", "neu"), /gesperrt/);
+    await assert.rejects(g.removeItem("freedom.chats"), /gesperrt/);
+  }
+  assert.equal(ls.getItem("freedom.chats"), "alter klartext", "localStorage unberuehrt");
+  assert.equal(ls.length, 1);
 });

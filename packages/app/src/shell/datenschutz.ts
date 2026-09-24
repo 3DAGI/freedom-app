@@ -5,6 +5,7 @@
  *
  * Aus app.ts verschoben (Schritt 1.0) – wörtlich, ohne Logikänderung.
  */
+import { geheim } from "./tresor.js";
 import { $ } from "./ui.js";
 
 /**
@@ -37,7 +38,7 @@ export async function zeigeDatenschutz(): Promise<void> {
       giftWrap: DMS_GIFT_WRAPPED,
       ownRelay: !!localStorage.getItem("freedom.ownRelay"),
       solanaInProfile: !!localStorage.getItem("freedom.solAddress"),
-      usesSwaps: !!localStorage.getItem("freedom.swapHistory"),
+      usesSwaps: !!geheim.getItem("freedom.swapHistory"),
       externalAvatar: /^https:\/\//.test(profil.picture ?? ""),
       stateBackup: !!localStorage.getItem("freedom.backupAt"),
       expiringMessages: localStorage.getItem("freedom.expiry") !== null,

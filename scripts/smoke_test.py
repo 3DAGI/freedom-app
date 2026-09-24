@@ -9,9 +9,11 @@ Prueft im Headless-Chromium:
   - Fremddaten landen als Text, nicht als HTML: ein gespeicherter Verlauf mit
     HTML im Modellnamen des Providers (Schritt 0.B) wird wiederhergestellt
   - Tresor (Schritt 1.2): Merkphrase bestaetigen, Tresor einrichten, danach
-    Speicher-Scan – der Schluessel steht weder in localStorage noch im Klartext
-    in IndexedDB; neu laden, falsche und richtige Passphrase; „Passphrase
-    vergessen“ ueber die 12 Woerter – die Identitaet bleibt dieselbe
+    Speicher-Scan – Schluessel, Wallet-Verbindung, Preimages, Unterhaltungen
+    und Verlaeufe stehen weder in localStorage noch im Klartext in IndexedDB;
+    neu laden, falsche und richtige Passphrase, Chat und Verlauf sind wieder da;
+    „Passphrase vergessen“ ueber die 12 Woerter – die Identitaet bleibt dieselbe
+  - Tresor-Pflicht: eine neue Wallet-Verbindung ohne Tresor wird nicht gespeichert
 
 Verbindungsfehler zu Relays werden ignoriert (hängen vom Netz ab).
 
@@ -33,6 +35,20 @@ def freier_port() -> int:
     with socket.socket() as s:
         s.bind(("127.0.0.1", 0))
         return s.getsockname()[1]
+
+
+# Geheimnisse, die vor dem Einrichten im Klartext liegen (Altbestand) – nach dem
+# Einrichten darf keines davon mehr lesbar im Speicher stehen.
+PROBE_GEHEIM = {
+    "freedom.nwc.uri": "nostr+walletconnect://" + "ab" * 32 + "?relay=wss%3A%2F%2Fr.example&secret=" + "cd" * 32,
+    "freedom.swap." + "01" * 32: json.dumps({"hashlockHex": "01" * 32, "preimageHex": "ef" * 32,
+                                            "solAddress": "ProbeSol", "amountSats": 1, "createdAt": 1}),
+    "freedom.htlc.probe": json.dumps({"preimageHex": "7a" * 32, "hashlockHex": "02" * 32}),
+    "freedom.chats": json.dumps([{"id": "03" * 32, "type": "dm", "name": "ProbeChat", "lastTs": 0}]),
+    "freedom.agentHistory": json.dumps([{"id": "p2", "title": "ProbeVerlauf", "at": 1790000000, "messages": []}]),
+    "freedom.swapHistory": json.dumps([{"address": "ProbeAdresse", "uses": 1, "firstUsed": 1, "lastUsed": 1}]),
+}
+PROBE_MUSTER = ["cd" * 32, "ef" * 32, "7a" * 32, "ProbeChat", "ProbeVerlauf", "ProbeAdresse"]
 
 
 def tresor_pruefen(browser, url: str) -> dict:
@@ -60,6 +76,10 @@ def tresor_pruefen(browser, url: str) -> dict:
     nsec = ev("() => localStorage.getItem('freedom.nsec')") or ""
     ident = ev("() => document.getElementById('ident').textContent")
     erg["start"] = len(woerter) == 12 and len(nsec) == 64
+    # Altbestand anlegen und neu laden, damit die App ihn wie gewohnt liest
+    ev("(w) => { for (const [k, v] of Object.entries(w)) localStorage.setItem(k, v); }", PROBE_GEHEIM)
+    s.reload(wait_until="load")
+    s.wait_for_timeout(2000)
 
     ev("() => document.querySelector('.app-nav button[data-tab=\"settings\"]').click()")
     ev("() => document.querySelector('.sec-action[data-step=\"4\"]').click()")
@@ -70,11 +90,12 @@ def tresor_pruefen(browser, url: str) -> dict:
       const blob = await new Promise((r) => { const q = indexedDB.open('freedom-vault');
         q.onsuccess = () => { const g = q.result.transaction('tresor').objectStore('tresor').get('blob');
           g.onsuccess = () => r(g.result); }; q.onerror = () => r(null); });
-      return { klar_in_ls: ls.includes(nsec), blob: typeof blob === 'string',
-               klar_in_blob: String(blob).includes(nsec), merker: localStorage.getItem('freedom.vault') };
-    }""", nsec)
-    erg["speicher_scan"] = (scan["blob"] and not scan["klar_in_ls"] and not scan["klar_in_blob"]
-                            and scan["merker"] == "1")
+      return { ls, blob: typeof blob === 'string' ? blob : null, merker: localStorage.getItem('freedom.vault') };
+    }""")
+    muster = [nsec] + PROBE_MUSTER
+    erg["speicher_scan"] = (scan["blob"] is not None and scan["merker"] == "1"
+                            and not any(m in scan["ls"] or m in scan["blob"] for m in muster)
+                            and not any(k + "=" in scan["ls"] for k in PROBE_GEHEIM))
 
     s.reload(wait_until="load")
     warte("() => !!document.getElementById('tr-pass')")
@@ -85,6 +106,10 @@ def tresor_pruefen(browser, url: str) -> dict:
     warte("() => !document.getElementById('tr-pass')")
     s.wait_for_timeout(1000)
     erg["entsperrt_gleiche_identitaet"] = ev("() => document.getElementById('ident').textContent") == ident
+    ev("() => document.querySelector('.app-nav button[data-tab=\"comm\"]').click()")
+    s.wait_for_timeout(500)
+    erg["daten_aus_tresor"] = ev("() => document.getElementById('chat-list').textContent.includes('ProbeChat')"
+                                 " && document.getElementById('agent-history').textContent.includes('ProbeVerlauf')")
 
     s.reload(wait_until="load")
     warte("() => !!document.getElementById('tr-vergessen')")
@@ -93,6 +118,26 @@ def tresor_pruefen(browser, url: str) -> dict:
     warte("() => !document.getElementById('tr-phrase')")
     s.wait_for_timeout(1000)
     erg["vergessen_gleiche_identitaet"] = ev("() => document.getElementById('ident').textContent") == ident
+    ctx.close()
+
+    # Tresor-Pflicht: frisches Profil ohne Tresor, neue Wallet-Verbindung
+    ctx = browser.new_context()
+    ctx.route("**/*", lambda r: r.continue_() if r.request.url.startswith(basis) else r.abort())
+    s = ctx.new_page()
+    s.on("pageerror", lambda e: erg["fehler"].append(str(e)[:300]))
+    ev = s.evaluate
+    s.goto(url, wait_until="load")
+    s.wait_for_timeout(2500)
+    ev("() => document.querySelector('.modal-backdrop')?.remove()")
+    ev("() => document.querySelector('.app-nav button[data-tab=\"wallet\"]').click()")
+    ev("(u) => { document.getElementById('nwc-uri').value = u; document.getElementById('nwc-connect').click(); }",
+       PROBE_GEHEIM["freedom.nwc.uri"])
+    warte("() => !!document.getElementById('tr-abbruch')")
+    grund = ev("() => document.getElementById('tr-grund').textContent")
+    ev("() => document.getElementById('tr-abbruch').click()")
+    warte("() => document.getElementById('nwc-status').textContent.includes('Nicht verbunden')")
+    erg["pflicht_vor_nwc"] = ("Wallet-Verbindung" in grund
+                              and ev("() => localStorage.getItem('freedom.nwc.uri')") is None)
     ctx.close()
     erg["bestanden"] = (not erg["fehler"] and all(v is True for k, v in erg.items()
                                                    if k not in ("fehler", "bestanden")))
@@ -145,7 +190,10 @@ def main() -> int:
                 "!document.getElementById('probe-modell') && !document.getElementById('probe-meta')"
                 " && [...document.querySelectorAll('#ai-thread .who')].some(e => e.textContent.includes('<img'))")
             erg["csp_verletzungen"] = seite.evaluate("window.__csp || []")
-            erg["tresor"] = tresor_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
+            try:
+                erg["tresor"] = tresor_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
+            except Exception as e:  # Zeitueberschreitung = durchgefallen, nicht abgestuerzt
+                erg["tresor"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
             browser.close()
     finally:
         srv.shutdown()

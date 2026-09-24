@@ -12,11 +12,13 @@
  */
 import { toHex } from "@freedomstack/protocol";
 import {
+  type GeheimSpeicher,
   type Vault,
   FalschePassphrase,
   IndexedDbSpeicher,
   MIN_PASSPHRASE,
   createVault,
+  geheimSpeicher,
   uebernehme,
   unlock,
   vaultExists,
@@ -26,13 +28,29 @@ import { toast } from "./ui.js";
 
 /** Nur ein Merker, kein Geheimnis: Gibt es auf diesem Geraet einen Tresor? */
 export const LS_TRESOR = "freedom.vault";
-/** Was beim Einrichten aus localStorage in den Tresor wandert (1.2c: mehr). */
-const GEHEIMNISSE = [LS_KEY];
-
 let tresor: Vault | null = null;
 
 export function tresorEingerichtet(): boolean {
   return localStorage.getItem(LS_TRESOR) === "1";
+}
+
+/**
+ * Speicher fuer alle Geheimnisse der App (Schritt 1.2c): mit Tresor
+ * verschluesselt, ohne wie bisher localStorage.
+ */
+export const geheim: GeheimSpeicher = geheimSpeicher(() => tresor, tresorEingerichtet, localStorage);
+
+/**
+ * Was beim Einrichten aus localStorage in den Tresor wandert: privater
+ * Schluessel, Wallet-Verbindung (NWC), Preimages von Swaps und Deposits,
+ * Unterhaltungen, Agent- und Swap-Verlauf. Die Namen stehen auch in
+ * tabs/waehrung.ts, tabs/agent.ts, tabs/kommunikation.ts und swap-client.ts.
+ */
+function geheimnisse(): string[] {
+  const fest = [LS_KEY, "freedom.nwc.uri", "freedom.chats", "freedom.agentHistory", "freedom.swapHistory"];
+  const praefixe = ["freedom.swap.", "freedom.htlc."];
+  const alle = Array.from({ length: localStorage.length }, (_, i) => localStorage.key(i) ?? "");
+  return [...fest, ...alle.filter((k) => praefixe.some((p) => k.startsWith(p)))];
 }
 
 /** Privater Schluessel (hex): aus dem Tresor, wenn es einen gibt, sonst wie bisher. */
@@ -101,21 +119,25 @@ function neuePassphrase(box: HTMLElement): string | null {
  * Der Schluessel wandert geprueft hinein; scheitert die Pruefung, bleibt
  * alles wie vorher.
  */
-export function richteTresorEin(): Promise<boolean> {
+export function richteTresorEin(grund = ""): Promise<boolean> {
   if (tresorEingerichtet()) {
     toast("Der Tresor ist schon eingerichtet");
     return Promise.resolve(false);
   }
   const box = dialog(`
     <h3>Tresor einrichten</h3>
-    <p class="mono-sm">Eine Passphrase verschlüsselt deinen Schlüssel auf diesem Gerät.
-    Beim Start fragt die App danach. Vergisst du sie, hilft nur deine Merkphrase
-    (12 Wörter) – sichere sie vorher.</p>
+    <p id="tr-grund" class="mono-sm warn"></p>
+    <p class="mono-sm">Eine Passphrase verschlüsselt deinen Schlüssel, Wallet-Zugänge,
+    Swap-Geheimnisse und Unterhaltungen auf diesem Gerät. Beim Start fragt die App
+    danach. Vergisst du sie, hilft nur deine Merkphrase (12 Wörter) – sichere sie vorher.</p>
     <input id="tr-neu1" type="password" autocomplete="new-password" placeholder="Passphrase (mind. 8 Zeichen)" />
     <input id="tr-neu2" type="password" autocomplete="new-password" placeholder="noch einmal" />
     <div id="tr-meldung" class="mono-sm err"></div>
     <button id="tr-ok" class="send-btn">einrichten</button>
     <button id="tr-abbruch" class="ghost">abbrechen</button>`);
+  const grundEl = box.querySelector("#tr-grund") as HTMLElement;
+  grundEl.textContent = grund;
+  grundEl.hidden = !grund;
   return new Promise<boolean>((resolve) => {
     box.querySelector("#tr-abbruch")!.addEventListener("click", () => { box.remove(); resolve(false); });
     beiAbsenden(box, "tr-ok", async () => {
@@ -132,7 +154,7 @@ export function richteTresorEin(): Promise<boolean> {
       try {
         const v = await createVault(pass, speicher);
         try {
-          await uebernehme(v, localStorage, GEHEIMNISSE, () => unlock(pass, speicher));
+          await uebernehme(v, localStorage, geheimnisse(), () => unlock(pass, speicher));
         } catch (e) {
           v.lock();
           await speicher.loeschen();   // nichts halb eingerichtet lassen
@@ -141,13 +163,23 @@ export function richteTresorEin(): Promise<boolean> {
         tresor = v;
         localStorage.setItem(LS_TRESOR, "1");
         box.remove();
-        toast("Tresor eingerichtet – dein Schlüssel liegt jetzt verschlüsselt");
+        toast("Tresor eingerichtet – deine Geheimnisse liegen jetzt verschlüsselt");
         resolve(true);
       } catch (e) {
         melde(box, `Nicht eingerichtet: ${(e as Error).message}`);
       }
     });
   });
+}
+
+/**
+ * Vor Geld-Geheimnissen (Entscheidung zu 1.2): Wer eine Wallet verbindet oder
+ * einen Swap bzw. ein Deposit startet, richtet vorher den Tresor ein.
+ */
+export async function verlangeTresor(wofuer: string): Promise<boolean> {
+  if (tresorEingerichtet()) return true;
+  return richteTresorEin(`Für ${wofuer} braucht die App zuerst den Tresor: ` +
+    "Das Geheimnis dazu soll nicht unverschlüsselt im Browser liegen.");
 }
 
 /** Beim Start: Gibt es einen Tresor, erst entsperren. Ohne Tresor sofort weiter. */

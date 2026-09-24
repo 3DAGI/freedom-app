@@ -26,6 +26,7 @@ import { SessionClient } from "../../session-client.js";
 import { escapeHtml, pkShort } from "../../shell-logic.js";
 import { switchTab, zeigeOnboarding } from "../app.js";
 import { KIND_DVM_RESULT, ensurePool, ensureSessionClient, findProviders, state } from "../state.js";
+import { geheim } from "../tresor.js";
 import {
   $,
   activateCodeBlocks,
@@ -159,7 +160,7 @@ let verlaufWiederherstellen = false;
 
 function ladeVerlaeufe(): AgentVerlauf[] {
   try {
-    return JSON.parse(localStorage.getItem("freedom.agentHistory") ?? "[]") as AgentVerlauf[];
+    return JSON.parse(geheim.getItem("freedom.agentHistory") ?? "[]") as AgentVerlauf[];
   } catch {
     return [];
   }
@@ -168,9 +169,8 @@ function ladeVerlaeufe(): AgentVerlauf[] {
 function speichereVerlaeufe(v: AgentVerlauf[]): void {
   // Obergrenze: Ein unbegrenzter Verlauf fuellt den Speicher, und der ist im
   // Browser knapp — bei Ueberlauf verliert die App ganz andere Daten.
-  try {
-    localStorage.setItem("freedom.agentHistory", JSON.stringify(v.slice(0, 40)));
-  } catch { /* Speicher voll — Verlauf ist verzichtbar */ }
+  geheim.setItem("freedom.agentHistory", JSON.stringify(v.slice(0, 40)))
+    .catch(() => { /* Speicher voll oder gesperrt — Verlauf ist verzichtbar */ });
 }
 
 /** Wird von addAiMessage aufgerufen. Beim Wiederherstellen nicht erneut speichern. */

@@ -2132,3 +2132,43 @@ die fünfte Stufe der Sicherheitsliste.
 Endstand: protocol 947 grün (5 übersprungen) · node 161 grün (6 übersprungen) ·
 app 185 grün (+6) · 0 rot · check-wiring `--streng` 0 offen (176 begründet) ·
 innerHTML streng 0 unbewertet (101 begründet) · Smoke-Test bestanden (mit Tresor).
+
+## 54. Tresor, Teil c: alle Geheimnisse im Tresor, Pflicht vor Geld (Schritt 1.2)
+
+**Neu `geheimSpeicher()` in `vault.ts`**, in der App als `geheim`
+(`shell/tresor.ts`): Mit Tresor liest und schreibt er dort, ohne Tresor wie
+bisher in localStorage. Ist der Tresor eingerichtet, aber nicht offen, weicht er
+nie auf localStorage aus – Lesen liefert nichts, Schreiben scheitert laut.
+
+**Umgestellt auf `geheim`:** Wallet-Verbindung `freedom.nwc.uri`
+(`waehrung.ts`), Preimages von Swaps (`swap-client.ts`, jetzt mit einsetzbarem
+Speicher; `saveSwapSecret`/`forgetSwapSecret` awaitbar – erst wenn das Preimage
+liegt, geht es weiter) und Deposits (`freedom.htlc.*`), Unterhaltungen
+(`kommunikation.ts`), Agent-Verlauf (`agent.ts`), Swap-Adressverlauf (auch im
+Datenschutzbericht). Beim Einrichten wandern alle diese Werte geprüft mit
+(`geheimnisse()`).
+
+**Tresor-Pflicht vor Geld-Geheimnissen** (Entscheidung zu 1.2):
+`verlangeTresor()` vor dem Speichern einer NEUEN Wallet-Verbindung (erst nach
+dem Einlesen der URI, damit eine kaputte URI ihren eigenen Fehler zeigt), vor dem
+Speichern von Adressverlauf und Preimage beim Tausch, vor dem Sperren beim
+Deposit – jeweils nach den günstigen Prüfungen (Wallet verbunden, Betrag,
+Provider). Der Dialog nennt den Grund. Wer abbricht, verbindet nicht bzw. startet
+nichts. Eine schon gespeicherte Verbindung verbindet sich weiter still neu.
+Nach gelungenem Einlösen bzw. Zurückholen darf das Aufräumen des Geheimnisses
+den Erfolg nicht als Fehler melden.
+
+**Tests:** app 185 → 189 – Geheimspeicher ohne Tresor, mit offenem und mit
+gesperrtem Tresor (kein Ausweichen); Preimage-Ablage mit eingesetztem Speicher
+(nichts in localStorage, Verlauf zählt nicht als Preimage). **Smoke-Test:**
+Altbestand aus sechs Geheimnissen vor dem Einrichten; danach steht keiner der
+Werte und keiner der Namen in localStorage oder im Blob; nach dem Entsperren
+sind Chat und Verlauf wieder da; ohne Tresor wird eine neue NWC-Verbindung nicht
+gespeichert, der Dialog nennt die Wallet-Verbindung. Gegenproben: ohne
+Übernahme der Chats scheitern Scan und Anzeige; ohne Pflicht scheitert die
+Pflichtprüfung. Klicktests unverändert gleich der veröffentlichten Fassung.
+`CLAUDE.md`: neuer Fallstrick „Geheimnisse nur über `geheim`“.
+
+Endstand: protocol 947 grün (5 übersprungen) · node 161 grün (6 übersprungen) ·
+app 189 grün (+4) · 0 rot · check-wiring `--streng` 0 offen · innerHTML streng
+0 unbewertet · Smoke-Test bestanden (Tresor mit allen Geheimnissen, Pflicht vor NWC).
