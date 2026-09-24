@@ -13,7 +13,7 @@ Pull Request eintragen.
 5. ~~**1.4** Verdrahtungsprüfung erweitern~~ – erledigt
 6. ~~**1.0** `app.ts` aufteilen~~ – Code fertig in fünf Teilen (a–e); offen nur MENSCH: alle Tabs anklicken, Desktop und Handy
 7. ~~**1.2**~~ Code fertig (a–d; Passkey optional zurückgestellt; MENSCH: Handy/Desktop, Devnet), ~~**1.3**~~ Code fertig (a–f; MENSCH: Anmeldung mit einem echten Bunker, z. B. Amber), ~~**1.5**~~ Code fertig (a Aufzeichnung, Regeln, `test:leak` ✓, b Szenarien, Aussagen mit Regel ✓)
-8. **3.1** bis **3.4** – private KI-Aufträge, die größte offene Datenschutzlücke (braucht kein MLS)
+8. **3.1** in Arbeit (a Protokoll ✓, b Knoten, c App), dann **3.2** bis **3.4** – private KI-Aufträge, die größte offene Datenschutzlücke (braucht kein MLS)
 9. **2.4**, **2.5**, dann **2.2a** (Entscheidung), **2.2b**, **2.3**
 10. **4.0** (Entscheidung), dann Phase 4, Phase 5, 6, 7, 8, 9
 
@@ -46,7 +46,7 @@ jederzeit parallel erledigen.
 | 2.3 | Räume als MLS-Gruppen | offen |  |  |
 | 2.4 | Verschlüsselte Anhänge | offen |  |  |
 | 2.5 | Metadaten minimieren | offen |  |  |
-| 3.1 | Verschlüsselte Job-Anfragen | offen |  | größte offene Datenschutzlücke |
+| 3.1 | Verschlüsselte Job-Anfragen | in Arbeit | #25 (a) | größte offene Datenschutzlücke; a: `protocol/src/private-job.ts` – Anfrage als Kern im Umschlag (NIP-59), versiegelt vom Sitzungsschlüssel, Rechenarbeit (NIP-13) auf dem Umschlag, `pow`-Tag im Angebot (`tiers.ts`); b Knoten, c App |
 | 3.2 | Verschlüsselte Antworten und Belege | offen |  |  |
 | 3.3 | Provider-Seite | offen |  |  |
 | 3.4 | Verlauf und Reklamationen privat | offen |  |  |
