@@ -145,6 +145,18 @@ test("Unvollstaendige Anfrage wird abgelehnt", async () => {
   assert.equal(a.locks.length, 0);
 });
 
+test("Hashlock mit falscher Form wird abgelehnt, bevor etwas gesperrt wird", async () => {
+  // fromHex() schnitt still ab, das Sperren fuellte mit Nullen auf: SOL laege
+  // unter einem Hash, dessen Preimage niemand kennt, bis zur Frist fest (0.J).
+  const gueltig = toHex(hashlock(generatePreimage()));
+  for (const h of ["ab", gueltig.slice(0, 62), gueltig + "<b>x</b>", "zz" + gueltig.slice(2)]) {
+    const { pool, lp, a } = setup();
+    await pool.publish(anfrage({ hashlock: h }));
+    assert.equal((await lp.pollOnce()).length, 0, `Hashlock ${JSON.stringify(h)} bedient`);
+    assert.equal(a.locks.length, 0, "es darf NICHTS gesperrt werden");
+  }
+});
+
 test("Dieselbe Anfrage wird nur einmal bedient", async () => {
   // Ohne diese Pruefung wuerde ein wiederholt geliefertes Event zweimal
   // Liquiditaet binden.

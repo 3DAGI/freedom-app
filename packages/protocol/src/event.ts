@@ -56,9 +56,34 @@ export function signEvent(e: UnsignedEvent, sk: Uint8Array): NostrEvent {
   return { ...e, id, sig };
 }
 
-/** Vollstaendige Pruefung: ID korrekt berechnet UND Signatur gueltig. */
+const HEX64 = /^[0-9a-f]{64}$/;
+const HEX128 = /^[0-9a-f]{128}$/;
+
+/**
+ * Form eines Events nach NIP-01 – geprueft, BEVOR irgendetwas dekodiert wird.
+ *
+ * fromHex() (Buffer.from(h, "hex")) bricht beim ersten ungueltigen Zeichen
+ * still ab. Ein pubkey aus 64 Hex-Zeichen plus angehaengtem Text bestand
+ * deshalb die Signaturpruefung: geprueft wurde gegen den echten Schluessel,
+ * der Text lief bis in die Oberflaeche mit (Schritt 0.J).
+ */
+export function hasValidEventShape(e: unknown): e is NostrEvent {
+  if (typeof e !== "object" || e === null) return false;
+  const ev = e as Record<string, unknown>;
+  return typeof ev.id === "string" && HEX64.test(ev.id)
+    && typeof ev.pubkey === "string" && HEX64.test(ev.pubkey)
+    && typeof ev.sig === "string" && HEX128.test(ev.sig)
+    && Number.isSafeInteger(ev.created_at) && (ev.created_at as number) >= 0
+    && Number.isSafeInteger(ev.kind) && (ev.kind as number) >= 0
+    && Array.isArray(ev.tags)
+    && ev.tags.every((t) => Array.isArray(t) && t.every((x) => typeof x === "string"))
+    && typeof ev.content === "string";
+}
+
+/** Vollstaendige Pruefung: Form nach NIP-01, ID korrekt berechnet UND Signatur gueltig. */
 export function verifyEvent(e: NostrEvent): boolean {
   try {
+    if (!hasValidEventShape(e)) return false;
     if (computeEventId(e) !== e.id) return false;
     return schnorr.verify(fromHex(e.sig), fromHex(e.id), fromHex(e.pubkey));
   } catch {

@@ -41,7 +41,7 @@ python3 scripts/smoke_test.py packages/app/dist         # braucht playwright + c
 bash scripts/build-site.sh /tmp/site                     # Website bauen (Ziel wird gelöscht!)
 ```
 
-Stand 24.09.2026 (nach 0.H): protocol 929 grün (5 übersprungen), node 160 grün
+Stand 24.09.2026 (nach 0.J): protocol 947 grün (5 übersprungen), node 161 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
 in `tools.test.ts`), app 167 grün.
 
@@ -96,6 +96,10 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   in `scripts/innerhtml-ausnahmen.txt`, eine Zeile je Stelle – nie für Fremddaten.
   `pkShort()` maskiert nicht: im HTML immer `escapeHtml(pkShort(…))`.
   Provider-Daten laufen durch `parseJobResult()` + `sanitizeUsage()`.
+- **Hex aus Fremddaten vor `fromHex()` prüfen:** `fromHex()` (`Buffer.from(h, "hex")`)
+  schneidet beim ersten ungültigen Zeichen still ab. Events prüft `verifyEvent()`
+  seit 0.J selbst (Form nach NIP-01); jeden anderen fremden Hex-Wert (Hashlock,
+  Preimage, Schlüssel aus Tags) vorher mit fester Länge prüfen.
 - **Direktnachrichten nur nach NIP-17** (`buildPrivateDm`, Kind 1059). Nie Kind 4
   senden – `app/test/dm-verdrahtung.test.ts` prüft das.
 - **Datenschutzbericht:** Aussagen nur über `packages/protocol/src/privacy-facts.ts`.

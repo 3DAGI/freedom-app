@@ -1801,3 +1801,44 @@ Patch freedomstack-interop-2.1.patch via git am -3 ✅
 | App tests | 167/167 grün ✅ |
 | UI-Test lokales Relay | bestanden ✅ |
 | UI-Test public Relays | bestanden ✅ |
+
+
+## 45. Event-Felder streng prüfen (Schritt 0.J)
+
+**Freigabe:** 24.09.2026 (Änderung im Signaturpfad, STOPP-Regel).
+
+**Befund aus 0.B:** `verifyEvent()` dekodierte `pubkey`, `id` und `sig` mit
+`fromHex()` = `Buffer.from(h, "hex")`, das beim ersten ungültigen Zeichen still
+abbricht. Ein Event mit `pubkey` aus 64 Hex-Zeichen plus angehängtem Text bestand
+die Prüfung; der Text lief bis in die Oberfläche mit.
+
+**Jetzt:** `hasValidEventShape()` prüft vor allem anderen die Form nach NIP-01:
+`id` und `pubkey` genau 64 kleine Hex-Zeichen, `sig` genau 128, `created_at` und
+`kind` ganze Zahlen ≥ 0, `tags` ein Array aus Arrays von Zeichenketten, `content`
+eine Zeichenkette. Alle Signaturprüfungen laufen über `verifyEvent()`: Relay-Pool
+der App, Relay-Rolle des Knotens, Gift-Wrap-Siegel, HTTP-Auth, Datei-Relay,
+Gebührenbeleg.
+
+**Weitere `fromHex()`-Aufrufe mit Fremddaten geprüft:**
+- **LP-Daemon, Hashlock aus der Swap-Anfrage:** Ein zu kurzer Wert wurde still
+  gekürzt, und das Sperren füllte mit Nullen auf. Der LP sperrte SOL unter einem
+  Hash, dessen Preimage niemand kennt, bis zur Frist. Mit einem Test
+  nachgestellt: Hashlock `"ab"` wurde bedient. Jetzt wird vor jeder Geldbewegung
+  genau 32 Byte hex verlangt.
+- **Zap-Quittung (Preimage):** harmlos – angehängter Text an einer echten
+  Preimage verschafft nichts, eine gekürzte passt nicht zum Hash; alles in
+  `try/catch`. Unverändert.
+- **PoW (`countLeadingZeroBits`):** sieht nur Events, die `verifyEvent()` schon
+  geprüft hat. Unverändert.
+- Übrige Aufrufe dekodieren eigene Schlüssel aus Speicher, Eingabe oder Umgebung.
+
+**Tests:** 13 neue in `protocol/test/event.test.ts` – zehn Formfehler, jeder so
+signiert, wie ein Angreifer es kann, mit Kontrolle, dass die reine Kryptografie
+ihn annähme; dazu gültige Events, Nicht-Objekte und der echte Pfad über
+`OutboxPool.query()`. Ohne die neue Prüfung scheitern alle zehn Ablehnungen und
+der Pool-Test. 1 neuer in `node/test/lp-daemon.test.ts` (vier falsche
+Hashlock-Formen); ohne die Prüfung wird `"ab"` bedient.
+
+Endstand: protocol 947 grün (5 übersprungen; vorher 934) · node 161 grün (6
+übersprungen; vorher 160) · app 167 grün · 0 rot · innerHTML streng 0 unbewertet ·
+check-wiring, check-website ok · Smoke-Test bestanden.
