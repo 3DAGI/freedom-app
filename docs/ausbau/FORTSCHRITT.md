@@ -36,14 +36,14 @@ Stand – neue Sitzungen würden sonst dort starten).
 | 0.F | Texte angleichen | offen |  | MENSCH: Firmenname, Marketing-Entwürfe |
 | 0.G | Solana-Programm-ID abgleichen | offen |  | MENSCH: Entscheidung A/B |
 | 0.H | Instabilen Knoten-Test reparieren | offen |  |  |
-| 0.I | Veröffentlichung über GitHub Actions | wartet auf MENSCH |  | Quellcode im Repository (mit 2.1); MENSCH: Pages-Quelle „GitHub Actions“, Standard-Branch `main`; danach Agent: Live-Prüfsumme, alte Build-Dateien im Wurzelverzeichnis entfernen |
+| 0.I | Veröffentlichung über GitHub Actions | wartet auf MENSCH | [#1](https://github.com/3DAGI/freedom-app/pull/1) | Quellcode im Repository (mit 2.1); MENSCH: Pages-Quelle „GitHub Actions“, Standard-Branch `main`; danach Agent: Live-Prüfsumme, alte Build-Dateien im Wurzelverzeichnis entfernen |
 | 1.0 | app.ts aufteilen | offen |  | früh erledigen – spart bei allen späteren Schritten |
 | 1.1 | Ein Seed, getrennte Schlüssel (SLIP-10) | fertig |  | Baustein; MENSCH: Phantom-Abgleich; Verdrahtung mit 4.2 |
 | 1.2 | Verschlüsselter Speicher | offen |  |  |
 | 1.3 | Signer-Schnittstelle | offen |  |  |
 | 1.4 | Verdrahtungsprüfung erweitern | offen |  |  |
 | 1.5 | Leak-Tests | teilweise |  | Regeln + Fakten + DM-Szenarien fertig; App-Szenarien offen |
-| 2.1 | NIP-17-Direktnachrichten | fertig – wartet auf Interop-Test (MENSCH) |  | Prüfungen am 24.09. grün; MENSCH: Interop-Test mit Amethyst oder 0xchat |
+| 2.1 | NIP-17-Direktnachrichten | fertig – wartet auf Interop-Test (MENSCH) | [#1](https://github.com/3DAGI/freedom-app/pull/1) | Prüfungen am 24.09. grün; MENSCH: Interop-Test mit Amethyst oder 0xchat |
 | 2.2a | MLS: Entscheidung und Spike | offen |  | MENSCH: Entscheidung |
 | 2.2b | MLS nach Marmot | offen |  | MENSCH: White Noise |
 | 2.3 | Räume als MLS-Gruppen | offen |  |  |
