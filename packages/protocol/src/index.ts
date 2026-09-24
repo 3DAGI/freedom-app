@@ -15,6 +15,7 @@ export * from "./solana-adapter.js";
 export * from "./kinds.js";
 export * from "./event.js";
 export * from "./signer.js";
+export * from "./nip46.js";
 export * from "./profile.js";
 export * from "./outbox.js";
 export * from "./ws-relay.js";
