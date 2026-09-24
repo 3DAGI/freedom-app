@@ -89,8 +89,11 @@ jobs:
       - name: Verdrahtung pruefen
         # Dreimal im Projekt war eine Protokollschicht gebaut, getestet und
         # nirgends aufgerufen. Protokollcode laesst sich testen, Verdrahtung
-        # nicht — deshalb diese Pruefung.
-        run: python3 scripts/check-wiring.py
+        # nicht — deshalb diese Pruefung. Seit Schritt 1.4 fuer jede exportierte
+        # Funktion und Klasse; Ausnahmen begruendet in scripts/wiring-ausnahmen.txt.
+        run: |
+          python3 scripts/test_check_wiring.py
+          python3 scripts/check-wiring.py --streng
 
       - name: innerHTML pruefen
         # Fremddaten (Relays, Provider, Profile, Raeume, Dateinamen, URLs)

@@ -1842,3 +1842,40 @@ Hashlock-Formen); ohne die Prüfung wird `"ab"` bedient.
 Endstand: protocol 947 grün (5 übersprungen; vorher 934) · node 161 grün (6
 übersprungen; vorher 160) · app 167 grün · 0 rot · innerHTML streng 0 unbewertet ·
 check-wiring, check-website ok · Smoke-Test bestanden.
+
+
+## 46. Verdrahtungsprüfung erweitert (Schritt 1.4)
+
+**Vorher** prüfte `scripts/check-wiring.py` nur `build*`-Exporte und zählte jedes
+Vorkommen des Namens – auch in Kommentaren, Strings und als Eigenschaft
+(`giftWrap: true`). **Jetzt** prüft es jede exportierte Funktion und Klasse im
+Protokoll. „Verdrahtet“ heißt: von App, Knoten oder Skripten aus erreichbar –
+direkt oder über eine Kette von Protokoll-Funktionen, die selbst erreichbar
+sind. Kommentare, Strings, `obj.name` und `name:` zählen nicht. Ausnahmen stehen
+mit Begründung in `scripts/wiring-ausnahmen.txt`; `--streng` (CI) scheitert an
+unbegründeten und an veralteten Ausnahmen. Laufzeit 0,3 s. Selbsttest
+`scripts/test_check_wiring.py` (4 Fälle).
+
+**Abnahme – Hilfszweig mit nachgebildetem Stand vor 2.1** (Branch
+`hilfszweig/vor-2.1`, nur lokal: `private-dm.ts` entfernt, die App-Aufrufe
+abgeklemmt – der echte Stand vor 2.1 liegt nicht im Repository):
+
+    gift-wrap.ts: giftUnwrap, giftWrap, shouldWrap, wrapDisclosure, wrapInfo
+
+Die alte Prüfung meldet auf demselben Stand „Verdrahtung ok — 75 Bausteine“.
+
+**Bestandsaufnahme:** 427 Exporte, 253 verdrahtet, **174 nicht** (57 Module).
+Jede Zeile der Ausnahmeliste nennt den Schritt im Ausbauplan, der die
+Verdrahtung bringt. Auffällig, weil es Schutzfunktionen sind:
+- `antispam.ts` (`RateLimiter` u. a.): Spam- und Flutschutz ist weder im Relay
+  des Knotens noch in der App eingebunden.
+- `parseProfileSafe()`: gebaut für fremde Profile; App liest fremde Profile mit
+  `parseProfile()`, das bei kaputten Daten wirft (`chat-zap.ts`, `app.ts`).
+- `assertProtocolFeeConfigured()`: die Prüfung vor Mainnet-Betrieb ruft niemand.
+- `verifyZapPayment()`, `feeLegsFor()`: Belegprüfungen ohne Aufrufer (4.8).
+- `runSwap()`: der Referenz-Ablauf läuft nur in Tests; die App nutzt `swap-client.ts`.
+
+Endstand: protocol 947 grün (5 übersprungen) · node 161 grün (6 übersprungen) ·
+app 167 grün · 0 rot · Selbsttests: Verdrahtung 4, innerHTML 6 · check-wiring
+`--streng` 0 offen · check-website ok · innerHTML streng 0 unbewertet ·
+Smoke-Test bestanden.

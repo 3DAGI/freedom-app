@@ -1,0 +1,241 @@
+# Nicht verdrahtete Protokoll-Exporte mit Begruendung (Schritt 1.4)
+#
+# Format: datei|export|Begruendung. Jede Zeile nimmt genau einen Export aus.
+# "Nicht verdrahtet" heisst: von App, Knoten oder Skripten aus nicht erreichbar –
+# gebaut und getestet, aber in keinem echten Pfad. Die Liste ist die
+# Bestandsaufnahme bei Einfuehrung der Pruefung; die Klammer nennt den Schritt
+# im Ausbauplan, der die Verdrahtung bringt. Wer einen Export verdrahtet,
+# streicht die Zeile – sonst meldet `--streng` sie als veraltet.
+#
+# Pruefen: python3 scripts/check-wiring.py --streng
+
+antispam.ts|RateLimiter|Spam- und Flutschutz, weder im Relay des Knotens noch in der App eingebunden (Relay-Rolle, 8.4)
+antispam.ts|checkPow|Spam- und Flutschutz, weder im Relay des Knotens noch in der App eingebunden (Relay-Rolle, 8.4)
+antispam.ts|difficulty|Spam- und Flutschutz, weder im Relay des Knotens noch in der App eingebunden (Relay-Rolle, 8.4)
+antispam.ts|hashHex|Spam- und Flutschutz, weder im Relay des Knotens noch in der App eingebunden (Relay-Rolle, 8.4)
+antispam.ts|mineNonce|Spam- und Flutschutz, weder im Relay des Knotens noch in der App eingebunden (Relay-Rolle, 8.4)
+antispam.ts|powRequired|Spam- und Flutschutz, weder im Relay des Knotens noch in der App eingebunden (Relay-Rolle, 8.4)
+antispam.ts|sortIncoming|Spam- und Flutschutz, weder im Relay des Knotens noch in der App eingebunden (Relay-Rolle, 8.4)
+antispam.ts|spamFilterInfo|Spam- und Flutschutz, weder im Relay des Knotens noch in der App eingebunden (Relay-Rolle, 8.4)
+
+arweave-mirror.ts|readLatestAnnouncementFromArweave|Treasury-Archiv auf Arweave, hängt am Gebührenmodell (4.0)
+
+blob.ts|parseBlobChunk|Blob-Stücke lesen, noch ohne Speicher-Client (Speicher, 8.9)
+
+client-fee.ts|explainFees|Client-Gebühr aufteilen und erklären, hängt am Gebührenmodell (4.0, 5.1)
+client-fee.ts|splitWithClientFee|Client-Gebühr aufteilen und erklären, hängt am Gebührenmodell (4.0, 5.1)
+
+cluster.ts|buildClusterOffer|Cluster-Pairing ohne Oberfläche und ohne Anbindung im Knoten (Provider-Knoten, 8.2)
+cluster.ts|buildPairedEvent|Cluster-Pairing ohne Oberfläche und ohne Anbindung im Knoten (Provider-Knoten, 8.2)
+cluster.ts|computeReciprocity|Cluster-Pairing ohne Oberfläche und ohne Anbindung im Knoten (Provider-Knoten, 8.2)
+cluster.ts|estimateClusterPerf|Cluster-Pairing ohne Oberfläche und ohne Anbindung im Knoten (Provider-Knoten, 8.2)
+cluster.ts|findPairPartners|Cluster-Pairing ohne Oberfläche und ohne Anbindung im Knoten (Provider-Knoten, 8.2)
+cluster.ts|hoursNeededToRent|Cluster-Pairing ohne Oberfläche und ohne Anbindung im Knoten (Provider-Knoten, 8.2)
+cluster.ts|kvCacheGb|Cluster-Pairing ohne Oberfläche und ohne Anbindung im Knoten (Provider-Knoten, 8.2)
+cluster.ts|modelFitsOnCluster|Cluster-Pairing ohne Oberfläche und ohne Anbindung im Knoten (Provider-Knoten, 8.2)
+cluster.ts|parseClusterOffer|Cluster-Pairing ohne Oberfläche und ohne Anbindung im Knoten (Provider-Knoten, 8.2)
+cluster.ts|recommendMode|Cluster-Pairing ohne Oberfläche und ohne Anbindung im Knoten (Provider-Knoten, 8.2)
+
+consensus.ts|consensusCostPreview|Redundanz-Konsens über mehrere Provider, ohne Oberfläche (Agent und Werkzeuge, 8.7)
+consensus.ts|evaluateConsensus|Redundanz-Konsens über mehrere Provider, ohne Oberfläche (Agent und Werkzeuge, 8.7)
+consensus.ts|normalizeAnswer|Redundanz-Konsens über mehrere Provider, ohne Oberfläche (Agent und Werkzeuge, 8.7)
+consensus.ts|recommendedRedundancy|Redundanz-Konsens über mehrere Provider, ohne Oberfläche (Agent und Werkzeuge, 8.7)
+consensus.ts|similarity|Redundanz-Konsens über mehrere Provider, ohne Oberfläche (Agent und Werkzeuge, 8.7)
+
+contributor-funding.ts|buildAllocation|Vergütung von Mitentwicklern, ohne Oberfläche (Repositories, 8.10)
+contributor-funding.ts|buildBounty|Vergütung von Mitentwicklern, ohne Oberfläche (Repositories, 8.10)
+contributor-funding.ts|buildFundingRound|Vergütung von Mitentwicklern, ohne Oberfläche (Repositories, 8.10)
+contributor-funding.ts|openBounties|Vergütung von Mitentwicklern, ohne Oberfläche (Repositories, 8.10)
+contributor-funding.ts|parseAllocation|Vergütung von Mitentwicklern, ohne Oberfläche (Repositories, 8.10)
+contributor-funding.ts|parseBounty|Vergütung von Mitentwicklern, ohne Oberfläche (Repositories, 8.10)
+contributor-funding.ts|parseFundingRound|Vergütung von Mitentwicklern, ohne Oberfläche (Repositories, 8.10)
+contributor-funding.ts|suggestAllocations|Vergütung von Mitentwicklern, ohne Oberfläche (Repositories, 8.10)
+contributor-funding.ts|verifyRound|Vergütung von Mitentwicklern, ohne Oberfläche (Repositories, 8.10)
+
+derivation.ts|deriveSolanaKey|SLIP-10-Ableitung aus 1.1, Verdrahtung mit der eingebauten SOL-Wallet (4.2)
+derivation.ts|parseDerivationPath|SLIP-10-Ableitung aus 1.1, Verdrahtung mit der eingebauten SOL-Wallet (4.2)
+derivation.ts|slip10Child|SLIP-10-Ableitung aus 1.1, Verdrahtung mit der eingebauten SOL-Wallet (4.2)
+derivation.ts|slip10Derive|SLIP-10-Ableitung aus 1.1, Verdrahtung mit der eingebauten SOL-Wallet (4.2)
+derivation.ts|slip10Master|SLIP-10-Ableitung aus 1.1, Verdrahtung mit der eingebauten SOL-Wallet (4.2)
+derivation.ts|slip10PublicKey|SLIP-10-Ableitung aus 1.1, Verdrahtung mit der eingebauten SOL-Wallet (4.2)
+derivation.ts|solanaPath|SLIP-10-Ableitung aus 1.1, Verdrahtung mit der eingebauten SOL-Wallet (4.2)
+
+devices.ts|checkDeviceEvent|Geräte-Event prüfen, noch nicht angebunden (Geräte und Schlüsselwechsel, 8.6)
+
+disputes-relays.ts|buildResolution|Streitfälle und Relay-Vergütung ohne Oberfläche (Streitfall-Prüfer 5.6, Relay-Rolle 8.4)
+disputes-relays.ts|distributeToRelays|Streitfälle und Relay-Vergütung ohne Oberfläche (Streitfall-Prüfer 5.6, Relay-Rolle 8.4)
+disputes-relays.ts|parseDispute|Streitfälle und Relay-Vergütung ohne Oberfläche (Streitfall-Prüfer 5.6, Relay-Rolle 8.4)
+disputes-relays.ts|parseRelayProof|Streitfälle und Relay-Vergütung ohne Oberfläche (Streitfall-Prüfer 5.6, Relay-Rolle 8.4)
+disputes-relays.ts|relayEconomicsInfo|Streitfälle und Relay-Vergütung ohne Oberfläche (Streitfall-Prüfer 5.6, Relay-Rolle 8.4)
+disputes-relays.ts|resolveDispute|Streitfälle und Relay-Vergütung ohne Oberfläche (Streitfall-Prüfer 5.6, Relay-Rolle 8.4)
+
+dm.ts|buildDM|Direktnachrichten nach Kind 4; seit 2.1 wird nur noch NIP-17 gesendet (2.1)
+dm.ts|filterDMsForUser|Direktnachrichten nach Kind 4; seit 2.1 wird nur noch NIP-17 gesendet (2.1)
+dm.ts|isNip44Payload|Direktnachrichten nach Kind 4; seit 2.1 wird nur noch NIP-17 gesendet (2.1)
+dm.ts|parseDM|Direktnachrichten nach Kind 4; seit 2.1 wird nur noch NIP-17 gesendet (2.1)
+
+duress.ts|checkUnlock|Notfall-Löschung ohne Oberfläche (8.14)
+duress.ts|duressWarning|Notfall-Löschung ohne Oberfläche (8.14)
+duress.ts|wipeAll|Notfall-Löschung ohne Oberfläche (8.14)
+duress.ts|wipeConfirmation|Notfall-Löschung ohne Oberfläche (8.14)
+
+dvm.ts|buildJobFeedback|Job-Feedback (NIP-90 Kind 7000) wird noch nicht gesendet (Antworten und Belege, 3.2)
+
+fee-proof.ts|feeLegsFor|Gebührenanteile berechnen; der Beleg wird bisher ohne sie geprüft (Belege mit Empfängerprüfung, 4.8)
+
+file-relay.ts|memStorage|Speicher im Arbeitsspeicher, Hilfe für Tests
+
+gift-wrap.ts|shouldWrap|Hinweistexte zum Umschlag; die Oberfläche nutzt privacy-facts.ts (2.1)
+gift-wrap.ts|wrapDisclosure|Hinweistexte zum Umschlag; die Oberfläche nutzt privacy-facts.ts (2.1)
+gift-wrap.ts|wrapInfo|Hinweistexte zum Umschlag; die Oberfläche nutzt privacy-facts.ts (2.1)
+
+git-contributors.ts|buildContribution|Mitwirkenden-Ansicht, noch nicht vollständig angebunden (Repositories, 8.10)
+git-contributors.ts|contributorProfile|Mitwirkenden-Ansicht, noch nicht vollständig angebunden (Repositories, 8.10)
+
+git.ts|buildGitRepoRef|Git über Blobs, noch ohne vollständige Oberfläche (Repositories, 8.10)
+git.ts|createGitBundle|Git über Blobs, noch ohne vollständige Oberfläche (Repositories, 8.10)
+git.ts|parseGitRepoRef|Git über Blobs, noch ohne vollständige Oberfläche (Repositories, 8.10)
+git.ts|restoreGitBundle|Git über Blobs, noch ohne vollständige Oberfläche (Repositories, 8.10)
+
+group-crypto.ts|buildEncryptedMessage|verschlüsselte Kanäle mit Schlüsselwechsel, ohne Oberfläche; Ablösung durch MLS geplant (2.2b, 2.3)
+group-crypto.ts|buildEpochKeyGrant|verschlüsselte Kanäle mit Schlüsselwechsel, ohne Oberfläche; Ablösung durch MLS geplant (2.2b, 2.3)
+group-crypto.ts|buildKeyring|verschlüsselte Kanäle mit Schlüsselwechsel, ohne Oberfläche; Ablösung durch MLS geplant (2.2b, 2.3)
+group-crypto.ts|decryptChannelMessage|verschlüsselte Kanäle mit Schlüsselwechsel, ohne Oberfläche; Ablösung durch MLS geplant (2.2b, 2.3)
+group-crypto.ts|encryptionInfo|verschlüsselte Kanäle mit Schlüsselwechsel, ohne Oberfläche; Ablösung durch MLS geplant (2.2b, 2.3)
+group-crypto.ts|epochKeyId|verschlüsselte Kanäle mit Schlüsselwechsel, ohne Oberfläche; Ablösung durch MLS geplant (2.2b, 2.3)
+group-crypto.ts|generateEpochKey|verschlüsselte Kanäle mit Schlüsselwechsel, ohne Oberfläche; Ablösung durch MLS geplant (2.2b, 2.3)
+group-crypto.ts|openEpochKey|verschlüsselte Kanäle mit Schlüsselwechsel, ohne Oberfläche; Ablösung durch MLS geplant (2.2b, 2.3)
+group-crypto.ts|parseEpochKeyGrant|verschlüsselte Kanäle mit Schlüsselwechsel, ohne Oberfläche; Ablösung durch MLS geplant (2.2b, 2.3)
+group-crypto.ts|planRotation|verschlüsselte Kanäle mit Schlüsselwechsel, ohne Oberfläche; Ablösung durch MLS geplant (2.2b, 2.3)
+
+http-auth.ts|btoaBase64|NIP-98-Anmeldung auf Client-Seite, noch ohne Speicher-Client (Speicher, 8.9)
+http-auth.ts|buildHttpAuth|NIP-98-Anmeldung auf Client-Seite, noch ohne Speicher-Client (Speicher, 8.9)
+
+key-rotation.ts|parseRevocation|Schlüsselwechsel nach Diebstahl, noch nicht angebunden (Geräte und Schlüsselwechsel, 8.6)
+key-rotation.ts|parseRotationMandate|Schlüsselwechsel nach Diebstahl, noch nicht angebunden (Geräte und Schlüsselwechsel, 8.6)
+key-rotation.ts|resolveKey|Schlüsselwechsel nach Diebstahl, noch nicht angebunden (Geräte und Schlüsselwechsel, 8.6)
+key-rotation.ts|trustEvent|Schlüsselwechsel nach Diebstahl, noch nicht angebunden (Geräte und Schlüsselwechsel, 8.6)
+
+leak-rules.ts|regelAutorNicht|Prüfregeln der Leak-Tests, gehören in die Tests (1.5)
+leak-rules.ts|regelKeinKind4|Prüfregeln der Leak-Tests, gehören in die Tests (1.5)
+leak-rules.ts|regelKeinKlartext|Prüfregeln der Leak-Tests, gehören in die Tests (1.5)
+leak-rules.ts|regelPTagsNur|Prüfregeln der Leak-Tests, gehören in die Tests (1.5)
+
+local-search.ts|buildIndexIncrementally|lokale Suche ohne Oberfläche (8.13)
+local-search.ts|emptyIndex|lokale Suche ohne Oberfläche (8.13)
+local-search.ts|indexDoc|lokale Suche ohne Oberfläche (8.13)
+local-search.ts|indexStats|lokale Suche ohne Oberfläche (8.13)
+local-search.ts|removeDoc|lokale Suche ohne Oberfläche (8.13)
+local-search.ts|searchInfo|lokale Suche ohne Oberfläche (8.13)
+local-search.ts|suggest|lokale Suche ohne Oberfläche (8.13)
+
+merge.ts|emptySet|Zusammenführen nach Offline-Bearbeitung, noch nicht angebunden (Zustandssicherung, 8.12)
+merge.ts|mergeField|Zusammenführen nach Offline-Bearbeitung, noch nicht angebunden (Zustandssicherung, 8.12)
+merge.ts|mergeSets|Zusammenführen nach Offline-Bearbeitung, noch nicht angebunden (Zustandssicherung, 8.12)
+merge.ts|setAdd|Zusammenführen nach Offline-Bearbeitung, noch nicht angebunden (Zustandssicherung, 8.12)
+merge.ts|setRemove|Zusammenführen nach Offline-Bearbeitung, noch nicht angebunden (Zustandssicherung, 8.12)
+merge.ts|setValues|Zusammenführen nach Offline-Bearbeitung, noch nicht angebunden (Zustandssicherung, 8.12)
+merge.ts|summarizeConflicts|Zusammenführen nach Offline-Bearbeitung, noch nicht angebunden (Zustandssicherung, 8.12)
+
+mesh-sync.ts|blobFeasibility|Machbarkeit großer Dateien offline, ohne Oberfläche (Phase 7)
+
+mesh.ts|buildDeliveryReceipt|Mesh-Pakete und Zustellbelege, noch nicht angebunden (Mesh nur verschlüsselt, 7.1)
+mesh.ts|buildMeshPacket|Mesh-Pakete und Zustellbelege, noch nicht angebunden (Mesh nur verschlüsselt, 7.1)
+mesh.ts|parseDeliveryReceipt|Mesh-Pakete und Zustellbelege, noch nicht angebunden (Mesh nur verschlüsselt, 7.1)
+mesh.ts|parseMeshPacket|Mesh-Pakete und Zustellbelege, noch nicht angebunden (Mesh nur verschlüsselt, 7.1)
+mesh.ts|receiptMatchesPacket|Mesh-Pakete und Zustellbelege, noch nicht angebunden (Mesh nur verschlüsselt, 7.1)
+
+mocks.ts|MockLightning|Test-Attrappe für Lightning
+
+model-registry.ts|fitsOnDevice|Modellkatalog-Prüfungen ohne Oberfläche (Modelle, 8.8)
+model-registry.ts|modelsAtRisk|Modellkatalog-Prüfungen ohne Oberfläche (Modelle, 8.8)
+model-registry.ts|verifyFile|Modellkatalog-Prüfungen ohne Oberfläche (Modelle, 8.8)
+
+moderation.ts|canModerate|Moderationsrechte und Hinweistext ohne Oberfläche (Räume und Moderation, 8.5)
+moderation.ts|moderationInfo|Moderationsrechte und Hinweistext ohne Oberfläche (Räume und Moderation, 8.5)
+
+naming.ts|searchByName|Namenssuche ohne Oberfläche (Lokale Suche, 8.13)
+
+network-capacity.ts|computeNetworkCapacity|dezentrale Gratis-Schwelle, noch nicht angebunden (Gebührenmodell, 5.1)
+network-capacity.ts|extractStorageCaps|dezentrale Gratis-Schwelle, noch nicht angebunden (Gebührenmodell, 5.1)
+
+nwc.ts|formatNwcUri|NWC-Verbindungstext erzeugen, ohne Oberfläche (Lightning privat, 6.3)
+
+performance.ts|buildRewardPayout|Saison und Reward-Ausschüttung, hängt am Gebührenmodell (4.0, 5.1)
+performance.ts|buildSeasonDef|Saison und Reward-Ausschüttung, hängt am Gebührenmodell (4.0, 5.1)
+
+pow.ts|eventDifficulty|nur von rewards.ts und antispam.ts aufgerufen, die selbst nicht verdrahtet sind
+pow.ts|verifyPow|nur von rewards.ts und antispam.ts aufgerufen, die selbst nicht verdrahtet sind
+
+pricing.ts|textPriceSats|Preise für Text und Video, noch nicht angebunden (Preise und Kurse, 4.4)
+pricing.ts|videoPriceSats|Preise für Text und Video, noch nicht angebunden (Preise und Kurse, 4.4)
+
+privacy-audit.ts|mixnetImpact|Auswirkung eines Mixnetzes, ohne Oberfläche (Verkehrsmuster, 6.4)
+
+profile.ts|parseProfileSafe|sicheres Parsen fremder Profile; App nutzt noch parseProfile (chat-zap.ts, app.ts) – umstellen offen
+
+protocol-fee.ts|assertProtocolFeeConfigured|Prüfung vor Mainnet-Betrieb, vor dem Mainnet-Deploy einbinden (9.3)
+
+quests.ts|decidePayout|Aufgaben als Anreiz, ohne Oberfläche und noch ohne Schritt im Ausbauplan
+quests.ts|maxCostPerParticipant|Aufgaben als Anreiz, ohne Oberfläche und noch ohne Schritt im Ausbauplan
+quests.ts|questBudgetFor|Aufgaben als Anreiz, ohne Oberfläche und noch ohne Schritt im Ausbauplan
+quests.ts|sustainability|Aufgaben als Anreiz, ohne Oberfläche und noch ohne Schritt im Ausbauplan
+
+referral-graph.ts|chainFor|Werber-Kette abfragen, hängt am Gebührenmodell (5.1)
+
+referral.ts|computeJobReferral|Werber-Auszahlung aus der Protokollfee, hängt am Gebührenmodell (4.0, 5.1)
+referral.ts|offlineMeshBounty|Werber-Auszahlung aus der Protokollfee, hängt am Gebührenmodell (4.0, 5.1)
+referral.ts|referralBudgetPpm|Werber-Auszahlung aus der Protokollfee, hängt am Gebührenmodell (4.0, 5.1)
+referral.ts|referralLeaderboard|Werber-Auszahlung aus der Protokollfee, hängt am Gebührenmodell (4.0, 5.1)
+referral.ts|referralShare|Werber-Auszahlung aus der Protokollfee, hängt am Gebührenmodell (4.0, 5.1)
+referral.ts|splitProviderPayment|Werber-Auszahlung aus der Protokollfee, hängt am Gebührenmodell (4.0, 5.1)
+
+relay-discovery.ts|torInfo|Hinweistext zu Tor, ohne Oberfläche (Native Apps mit Tor, 6.1)
+
+release.ts|hashBytes|Hash-Hilfe für Release-Dateien, noch nicht angebunden (Signierte Releases, 0.D)
+
+reward-claim.ts|parseRewardClaim|Reward-Anforderung lesen, hängt am Gebührenmodell (5.1)
+
+rewards.ts|accumulatePool|Reward-Pool und Rangliste, hängt am Gebührenmodell (4.0, 5.1)
+rewards.ts|allocateProportional|Reward-Pool und Rangliste, hängt am Gebührenmodell (4.0, 5.1)
+rewards.ts|buildLeaderboard|Reward-Pool und Rangliste, hängt am Gebührenmodell (4.0, 5.1)
+rewards.ts|totalAllocated|Reward-Pool und Rangliste, hängt am Gebührenmodell (4.0, 5.1)
+
+scarcity.ts|computeRegionStats|Knappheitsbonus nach Region, noch nicht angebunden (Abdeckungskarte, 5.10)
+scarcity.ts|whereIsCapacityNeeded|Knappheitsbonus nach Region, noch nicht angebunden (Abdeckungskarte, 5.10)
+
+sol-deposit.ts|buildSolDepositSettle|Abschluss eines SOL-Deposits, noch nicht angebunden (Verdienen in SOL, 4.5)
+sol-deposit.ts|checkSolDeposit|Abschluss eines SOL-Deposits, noch nicht angebunden (Verdienen in SOL, 4.5)
+sol-deposit.ts|parseSolDepositSettle|Abschluss eines SOL-Deposits, noch nicht angebunden (Verdienen in SOL, 4.5)
+
+spaces.ts|searchMessages|Suche in Raum-Nachrichten, ohne Oberfläche (Lokale Suche, 8.13)
+
+state-backup.ts|checkExpiry|Zustandssicherung und ablaufende Nachrichten ohne Oberfläche (8.12)
+state-backup.ts|expirationTag|Zustandssicherung und ablaufende Nachrichten ohne Oberfläche (8.12)
+state-backup.ts|expiryWarning|Zustandssicherung und ablaufende Nachrichten ohne Oberfläche (8.12)
+state-backup.ts|filterExpired|Zustandssicherung und ablaufende Nachrichten ohne Oberfläche (8.12)
+state-backup.ts|stateFingerprint|Zustandssicherung und ablaufende Nachrichten ohne Oberfläche (8.12)
+
+stream.ts|amountDue|Streaming-Abrechnung: fälliger Betrag, noch nicht angebunden (PaymentRail, 4.1)
+
+succession.ts|combineShares|Anteile zusammensetzen bei der Nachfolge, ohne Oberfläche (Nachfolge, 8.11)
+succession.ts|verifyRecovered|Anteile zusammensetzen bei der Nachfolge, ohne Oberfläche (Nachfolge, 8.11)
+
+swap-privacy.ts|swapPrivacyInfo|Hinweistext zu Swap-Adressen, ohne Oberfläche (Privatsphäre auf Solana, 4.9)
+
+swap.ts|runSwap|Referenz-Ablauf eines Swaps für Tests; die App nutzt swap-client.ts (Swaps in beide Richtungen, 4.6)
+
+timestamps.ts|checkAgainstWitnesses|Zeitstempel gegen Zeugen prüfen, noch nicht angebunden (Zeitanker, 5.10)
+timestamps.ts|checkPlausibility|Zeitstempel gegen Zeugen prüfen, noch nicht angebunden (Zeitanker, 5.10)
+timestamps.ts|compareTrusted|Zeitstempel gegen Zeugen prüfen, noch nicht angebunden (Zeitanker, 5.10)
+timestamps.ts|countActiveDays|Zeitstempel gegen Zeugen prüfen, noch nicht angebunden (Zeitanker, 5.10)
+timestamps.ts|parseTimeWitness|Zeitstempel gegen Zeugen prüfen, noch nicht angebunden (Zeitanker, 5.10)
+
+treasury.ts|parsePayoutAnnouncement|Treasury-Auszahlung, hängt an der Entscheidung zum Gebührenmodell (4.0)
+treasury.ts|verifyWeekRecipient|Treasury-Auszahlung, hängt an der Entscheidung zum Gebührenmodell (4.0)
+
+wot.ts|trustOf|Vertrauenswert abfragen, noch nicht angebunden (Reputation aus Quittungen, 5.5)
+
+zap.ts|parseZapReceipt|Zap-Belege prüfen und summieren, noch nicht angebunden (Belege mit Empfängerprüfung, 4.8)
+zap.ts|sumZapsByRecipient|Zap-Belege prüfen und summieren, noch nicht angebunden (Belege mit Empfängerprüfung, 4.8)
+zap.ts|verifyZapPayment|Zap-Belege prüfen und summieren, noch nicht angebunden (Belege mit Empfängerprüfung, 4.8)
