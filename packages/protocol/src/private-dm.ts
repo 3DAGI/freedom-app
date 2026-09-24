@@ -15,7 +15,8 @@
  * kann alte Nachrichten lesen. Das loest erst MLS (Schritt 2.2b).
  */
 import { buildEvent, computeEventId, type NostrEvent, type UnsignedEvent } from "./event.js";
-import { giftUnwrap, giftWrap, KIND_GIFT_WRAP, type GiftWrapOptions } from "./gift-wrap.js";
+import { giftUnwrapMitSigner, giftWrapMitSigner, KIND_GIFT_WRAP, type GiftWrapOptions } from "./gift-wrap.js";
+import { LocalSigner, type Signer } from "./signer.js";
 
 export const KIND_PRIVATE_DM = 14;
 export const KIND_DM_RELAYS = 10050;
@@ -23,8 +24,11 @@ export const KIND_DM_RELAYS = 10050;
 const HEX64 = /^[0-9a-f]{64}$/;
 
 export interface PrivateDmInput {
-  senderSk: Uint8Array;
-  senderPk: string;
+  /** Mit rohem Schluessel … */
+  senderSk?: Uint8Array;
+  senderPk?: string;
+  /** … oder ueber den Signer (Schritt 1.3) – so auch mit einem entfernten Signer. */
+  signer?: Signer;
   recipientPk: string;
   content: string;
   nowSecs?: number;
@@ -43,13 +47,25 @@ export interface PrivateDmOutput {
 /** Baut eine private Direktnachricht samt Kopie an sich selbst. */
 export async function buildPrivateDm(i: PrivateDmInput): Promise<PrivateDmOutput> {
   if (!HEX64.test(i.recipientPk)) throw new Error("Empfänger muss ein 64-stelliger Hex-Schlüssel sein");
-  if (!HEX64.test(i.senderPk)) throw new Error("Absender muss ein 64-stelliger Hex-Schlüssel sein");
+  const signer = signerAus(i.signer, i.senderSk, i.senderPk);
+  const senderPk = signer.publicKey();
+  if (!HEX64.test(senderPk)) throw new Error("Absender muss ein 64-stelliger Hex-Schlüssel sein");
   const now = i.nowSecs ?? Math.floor(Date.now() / 1000);
-  const rumor = buildEvent(i.senderPk, KIND_PRIVATE_DM, [["p", i.recipientPk]], i.content, now);
+  const rumor = buildEvent(senderPk, KIND_PRIVATE_DM, [["p", i.recipientPk]], i.content, now);
   const rumorId = computeEventId(rumor);
-  const toRecipient = await giftWrap(rumor, i.senderSk, i.senderPk, i.recipientPk, i.wrapOptions);
-  const toSelf = await giftWrap(rumor, i.senderSk, i.senderPk, i.senderPk, i.wrapOptions);
+  const toRecipient = await giftWrapMitSigner(rumor, signer, i.recipientPk, i.wrapOptions);
+  const toSelf = await giftWrapMitSigner(rumor, signer, senderPk, i.wrapOptions);
   return { toRecipient, toSelf, rumorId };
+}
+
+/** Signer aus den Angaben: entweder ein Signer oder Schluessel samt passendem Pubkey. */
+function signerAus(signer: Signer | undefined, sk: Uint8Array | undefined, pk: string | undefined): Signer {
+  if (signer) return signer;
+  if (!sk || pk === undefined) throw new Error("Absender fehlt: Signer oder Schlüssel angeben");
+  if (!HEX64.test(pk)) throw new Error("Absender muss ein 64-stelliger Hex-Schlüssel sein");
+  const lokal = new LocalSigner(sk);
+  if (lokal.publicKey() !== pk) throw new Error("Absender-Pubkey passt nicht zum Schlüssel");
+  return lokal;
 }
 
 export interface PrivateDm {
@@ -64,10 +80,17 @@ export interface PrivateDm {
 
 export type OpenResult = { ok: true; dm: PrivateDm } | { ok: false; reason: string };
 
-/** Oeffnet einen Umschlag und prueft Absender, Art und Empfaenger. */
-export async function openPrivateDm(wrap: NostrEvent, mySk: Uint8Array, myPk: string): Promise<OpenResult> {
+/**
+ * Oeffnet einen Umschlag und prueft Absender, Art und Empfaenger – mit rohem
+ * Schluessel (mySk, myPk) oder ueber den Signer (Schritt 1.3).
+ */
+export async function openPrivateDm(wrap: NostrEvent, mySkOderSigner: Uint8Array | Signer, myPkAngabe?: string): Promise<OpenResult> {
   if (wrap.kind !== KIND_GIFT_WRAP) return { ok: false, reason: "kein Gift-Wrap" };
-  const r = await giftUnwrap(wrap, mySk);
+  const signer = mySkOderSigner instanceof Uint8Array
+    ? signerAus(undefined, mySkOderSigner, myPkAngabe)
+    : mySkOderSigner;
+  const myPk = signer.publicKey();
+  const r = await giftUnwrapMitSigner(wrap, signer);
   if (!r.ok || !r.inner) return { ok: false, reason: r.message };
   const inner = r.inner as UnsignedEvent;
   if (inner.kind !== KIND_PRIVATE_DM) return { ok: false, reason: `anderer Inhalt (Kind ${inner.kind})` };

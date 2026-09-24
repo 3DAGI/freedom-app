@@ -41,7 +41,7 @@ python3 scripts/smoke_test.py packages/app/dist         # braucht playwright + c
 bash scripts/build-site.sh /tmp/site                     # Website bauen (Ziel wird gelöscht!)
 ```
 
-Stand 24.09.2026 (nach 1.3c): protocol 964 grün (5 übersprungen), node 161 grün
+Stand 24.09.2026 (nach 1.3d): protocol 968 grün (5 übersprungen), node 161 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
 in `tools.test.ts`), app 194 grün.
 

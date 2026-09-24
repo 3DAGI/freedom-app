@@ -2322,3 +2322,33 @@ veröffentlichte Fassung.
 Endstand: protocol 964 grün (5 übersprungen) · node 161 grün · app 194 grün
 (+2) · 0 rot · check-wiring `--streng` 0 offen · innerHTML streng 0 unbewertet ·
 Smoke-Test bestanden.
+
+## 59. Signer-Schnittstelle, Teil d: NIP-17 über den Signer (Schritt 1.3)
+
+**Protokoll:** `giftWrapMitSigner` und `giftUnwrapMitSigner` (`gift-wrap.ts`)
+versiegeln bzw. öffnen über einen `Signer` – Siegel verschlüsseln und signieren,
+Umschlag und Siegel entschlüsseln; der Wegwerf-Schlüssel des Umschlags bleibt
+lokal. Die bisherigen `giftWrap`/`giftUnwrap` mit rohem Schlüssel sind dünne
+Hüllen darum (mit `LocalSigner`), sodass die vorhandenen Gift-Wrap-, NIP-17-
+und Interop-Tests den neuen Kern prüfen. `buildPrivateDm` nimmt zusätzlich
+`{ signer }`, `openPrivateDm(wrap, signer)` zusätzlich zu `(wrap, sk, pk)`; die
+Namen bleiben, damit `dm-verdrahtung.test.ts` (prüft auf `buildPrivateDm(`)
+unverändert gilt. Neu geprüft: Schlüssel und Pubkey müssen zusammenpassen
+(vorher wurde ein unpassender Pubkey still übernommen). Reihenfolge der
+Zeitversätze (Siegel, dann Umschlag) ist unverändert.
+
+**App:** `kommunikation.ts` sendet und öffnet DMs über `state.signer`
+(`keypair.sk` 9 → 7). `giftWrap`/`giftUnwrap` sind begründet ausgenommen – die
+App nutzt die Signer-Varianten, die Hüllen tragen die Tests.
+
+**Tests:** protocol 964 → 968 – Siegel über einen zählenden Signer (genau
+zweimal verschlüsseln und signieren je DM), Öffnen über den Signer, in beide
+Richtungen kompatibel, Carol liest nicht mit; Schlüssel/Pubkey passen nicht →
+abgelehnt; **DM über den Test-Bunker** (NIP-46) hin und zurück, ganz ohne
+lokalen Schlüssel. Browser: DM senden ohne Netz – alte und neue Fassung bauen
+die Umschläge und melden nach 6–7 s dasselbe („Kein Relay hat das Event
+angenommen“); ein erster Unterschied lag an zu kurzer Wartezeit im Test.
+
+Endstand: protocol 968 grün (+4, 5 übersprungen) · node 161 grün · app 194
+grün · 0 rot · check-wiring `--streng` 0 offen (180 begründet) · innerHTML
+streng 0 unbewertet · Smoke-Test bestanden.
