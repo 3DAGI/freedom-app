@@ -36,6 +36,9 @@ import {
   ParsedSolDepositOpen,
   PROTOCOL_FEE_PPM,
   PROTOCOL_POOL_SHARE_PERCENT,
+  KIND_GIFT_WRAP,
+  LocalSigner,
+  openPrivateJobRequest,
 } from "@freedomstack/protocol";
 import { verifyDepositOnChain, DepositVerificationCache, parseClientFee, checkClientFee } from "@freedomstack/protocol";
 import type { Connection } from "@solana/web3.js";
@@ -64,6 +67,12 @@ export interface ProviderConfig {
   minBidMsat: number;
   /** PoW-Difficulty fuer Leistungs-Events (Sybil-Schutz). */
   powDifficulty: number;
+  /**
+   * Rechenarbeit (NIP-13-Bits), die private Anfragen im Umschlag tragen
+   * muessen (Schritt 3.1). Steht im Angebot; ersetzt fuer sie das
+   * Gratis-Kontingent je Schluessel. Default 12 (~0,1 s auf einem PC).
+   */
+  privatePowBits?: number;
   /** Season-Kennung fuer Leistungs-Events. */
   seasonId: string;
   /**
@@ -99,6 +108,7 @@ export const DEFAULT_PROVIDER_CONFIG: Omit<ProviderConfig, "keypair" | "lud16"> 
   pricePerKTokenMsat: 1000,
   minBidMsat: 100,
   powDifficulty: 8,
+  privatePowBits: 12,
   seasonId: "season-1",
   freeTokensPerPubkeyPerDay: 0, // aus; Provider aktiviert es bewusst
   freeTierUntil: undefined,
@@ -155,6 +165,8 @@ export class DvmProvider {
    * auftauchen.
    */
   private seen = new Set<string>();
+  /** Oeffnet Umschlaege privater Anfragen (Schritt 3.1). */
+  private readonly signer: LocalSigner;
   private static readonly SEEN_LIMIT = 20_000;
 
   /** Aelteste Eintraege verwerfen, wenn das Limit ueberschritten ist. */
@@ -200,6 +212,7 @@ export class DvmProvider {
     /** Storage-Rolle (optional): aktiviert Blob-Fetch-Jobs (5075). */
     public storage?: import("./storage-role.js").StorageRole,
   ) {
+    this.signer = new LocalSigner(cfg.keypair.sk);
     // Verbindung nur aufbauen, wenn beides konfiguriert ist. Fehlt eines,
     // bleibt solConnection undefined und Deposits werden abgelehnt statt
     // ungeprueft akzeptiert.
@@ -314,6 +327,16 @@ export class DvmProvider {
     return (this.cfg.freeTokensPerPubkeyPerDay ?? 0) > 0;
   }
 
+  /**
+   * Darf dieser Job gratis laufen? Offene Anfragen: Kontingent je Schluessel.
+   * Private Anfragen (3.1): Jeder Umschlag hat die verlangte Rechenarbeit
+   * geleistet, der Schluessel wechselt je Sitzung – also gilt nur, ob der
+   * Provider ueberhaupt gratis anbietet.
+   */
+  private gratisErlaubt(customerPubkey: string, now: number, privat: boolean): boolean {
+    return privat ? this.isCurrentlyFree(now) : this.freeAllowanceLeft(customerPubkey, now) > 0;
+  }
+
   private recordFreeUsage(customerPubkey: string, tokens: number, now = Math.floor(Date.now() / 1000)): void {
     const day = new Date(now * 1000).toISOString().slice(0, 10);
     const rec = this.freeUsage.get(customerPubkey);
@@ -337,7 +360,7 @@ export class DvmProvider {
     const kinds = [KIND_DVM_TEXT_GENERATION];
     if (this.storage && process.env.STORAGE_ENABLED === "1") kinds.push(5075);
 
-    return this.pool.subscribe({ kinds, since: Math.floor(Date.now() / 1000) - 60 }, (ev) => {
+    const stopOffen = await this.pool.subscribe({ kinds, since: Math.floor(Date.now() / 1000) - 60 }, (ev) => {
       if (this.seen.has(ev.id)) return;
       this.seen.add(ev.id);
       this.pruneSeen();
@@ -348,6 +371,64 @@ export class DvmProvider {
         .then((job) => { if (job) onJob(job); })
         .catch((e) => console.warn(`[dvm] Job ${ev.id.slice(0, 8)} fehlgeschlagen: ${(e as Error).message}`));
     });
+    // Private Anfragen (Schritt 3.1): Umschlaege an diesen Provider.
+    let stopPrivat: () => void;
+    try {
+      stopPrivat = await this.pool.subscribe(
+        { kinds: [KIND_GIFT_WRAP], "#p": [this.cfg.keypair.pk], since: Math.floor(Date.now() / 1000) - 60 },
+        (wrap) => {
+          if (this.seen.has(wrap.id)) return;
+          this.seen.add(wrap.id);
+          this.pruneSeen();
+          void this.handlePrivate(wrap)
+            .then((job) => { if (job) onJob(job); })
+            .catch((e) => console.warn(`[dvm] Private Anfrage fehlgeschlagen: ${(e as Error).message}`));
+        },
+      );
+    } catch (e) {
+      stopOffen();
+      throw e;
+    }
+    return () => { stopOffen(); stopPrivat(); };
+  }
+
+  /**
+   * Private Anfrage (Schritt 3.1): Umschlag pruefen und oeffnen, dann wie eine
+   * offene Anfrage abarbeiten. Fremdes, Kaputtes oder zu wenig Rechenarbeit
+   * wird verworfen, bevor irgendetwas laeuft; Kontingente je Schluessel gibt
+   * es hier nicht – die Rechenarbeit ersetzt sie.
+   */
+  async handlePrivate(wrap: NostrEvent): Promise<ProcessedJob | null> {
+    const r = await openPrivateJobRequest(wrap, this.signer, this.cfg.privatePowBits ?? 0);
+    if (!r.ok) {
+      console.warn(`[dvm] Umschlag ${wrap.id.slice(0, 8)} verworfen: ${r.grund}`);
+      return null;
+    }
+    // Dieselbe Anfrage in einem zweiten Umschlag zaehlt nicht doppelt.
+    if (this.seen.has(r.request.id)) return null;
+    this.seen.add(r.request.id);
+    const request: NostrEvent = { ...r.request, sig: "" };
+    try {
+      return await this.handleJob(request, true);
+    } catch (err) {
+      await this.meldeFehler(request, err);
+      throw err;
+    }
+  }
+
+  /** NIP-90-Rueckmeldung (Kind 7000): dem Kunden sofort sagen, warum abgelehnt. */
+  private async meldeFehler(request: NostrEvent, err: unknown): Promise<void> {
+    try {
+      const fb = signEvent(
+        buildEvent(this.cfg.keypair.pk, 7000, [
+          ["e", request.id],
+          ["p", request.pubkey],
+          ["status", "error"],
+        ], `error: ${(err as Error).message.slice(0, 200)}`),
+        this.cfg.keypair.sk,
+      );
+      await this.pool.publish(fb);
+    } catch { /* feedback ist best-effort */ }
   }
 
   async pollOnce(now = Math.floor(Date.now() / 1000)): Promise<ProcessedJob[]> {
@@ -376,17 +457,23 @@ export class DvmProvider {
         // NIP-90 Feedback (kind 7000): Dem Client SOFORT mitteilen warum der
         // Job abgelehnt wurde — sonst wartet er bis zum Timeout.
         console.error(`Job ${ev.id} fehlgeschlagen:`, err);
-        try {
-          const fb = signEvent(
-            buildEvent(this.cfg.keypair.pk, 7000, [
-              ["e", ev.id],
-              ["p", ev.pubkey],
-              ["status", "error"],
-            ], `error: ${(err as Error).message.slice(0, 200)}`),
-            this.cfg.keypair.sk,
-          );
-          await this.pool.publish(fb);
-        } catch { /* feedback ist best-effort */ }
+        await this.meldeFehler(ev, err);
+      }
+    }
+    // Private Anfragen (Schritt 3.1) – Rueckmeldung bei Fehlern schickt handlePrivate.
+    let umschlaege: NostrEvent[] = [];
+    try {
+      umschlaege = await this.pool.query({ kinds: [KIND_GIFT_WRAP], "#p": [this.cfg.keypair.pk], since: now - 3600 });
+    } catch { /* relay */ }
+    for (const wrap of umschlaege) {
+      if (this.seen.has(wrap.id)) continue;
+      this.seen.add(wrap.id);
+      this.pruneSeen();
+      try {
+        const job = await this.handlePrivate(wrap);
+        if (job) processed.push(job);
+      } catch (err) {
+        console.error(`Private Anfrage fehlgeschlagen:`, err);
       }
     }
     return processed;
@@ -546,7 +633,7 @@ export class DvmProvider {
     return deposit;
   }
 
-  private async handleJob(request: NostrEvent): Promise<ProcessedJob> {
+  private async handleJob(request: NostrEvent, privat = false): Promise<ProcessedJob> {
     const input = getTag(request, "i");
     const bidMsat = Number(getTag(request, "bid") ?? "0");
     const sessionId = getTag(request, "session");
@@ -585,7 +672,7 @@ export class DvmProvider {
           // pubkey. Der Chat bricht bei einem Provider-Neustart also weiterhin
           // nicht ab (solange Gratis-Tokens uebrig sind), aber die Sybil-Grenze
           // aus freeAllowanceLeft() gilt.
-          if (this.freeAllowanceLeft(request.pubkey, now) > 0) {
+          if (this.gratisErlaubt(request.pubkey, now, privat)) {
             console.warn(`[provider] Session ${sessionId} ungueltig — fahre auf Free-Tier fort`);
             isFreeJob = true;
           } else {
@@ -596,7 +683,7 @@ export class DvmProvider {
     } else if (bidMsat >= this.cfg.minBidMsat) {
       // Bezahlter Bid-Job — in Bootstrap ABLEHNEN (Reputation zuerst aufbauen)
       if (bootstrap) throw new Error("Bootstrap-Phase: neue Provider nehmen nur Gratis-Jobs");
-    } else if (this.freeAllowanceLeft(request.pubkey, now) > 0 || bootstrap) {
+    } else if (this.gratisErlaubt(request.pubkey, now, privat) || bootstrap) {
       // Free-Tier ODER Bootstrap: Gratis-Job ohne Bid
       isFreeJob = true;
     } else {
@@ -742,7 +829,7 @@ export class DvmProvider {
     let chain: "lightning" | "solana" = "lightning";
     if (isFreeJob) {
       amountMsat = 0; // Gratis — Provider-Marketing, kein Topf (Tools in free auch 0)
-      this.recordFreeUsage(request.pubkey, result.completionTokens);
+      if (!privat) this.recordFreeUsage(request.pubkey, result.completionTokens);
     } else if (solDeposit) {
       // Deposit: Preis in msat (text-Rate gedeckelt auf Deposit-Rate) + Tools,
       // dann in lamports umgerechnet (msatToLamports beim Result).

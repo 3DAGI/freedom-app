@@ -173,7 +173,6 @@ nostr-order.ts|offerMatches|Angebot gegen Betrag prüfen; der Import in app.ts w
 performance.ts|buildRewardPayout|Saison und Reward-Ausschüttung, hängt am Gebührenmodell (4.0, 5.1)
 performance.ts|buildSeasonDef|Saison und Reward-Ausschüttung, hängt am Gebührenmodell (4.0, 5.1)
 
-pow.ts|eventDifficulty|nur von rewards.ts und antispam.ts aufgerufen, die selbst nicht verdrahtet sind
 pow.ts|verifyPow|nur von rewards.ts und antispam.ts aufgerufen, die selbst nicht verdrahtet sind
 
 pricing.ts|textPriceSats|Preise für Text und Video, noch nicht angebunden (Preise und Kurse, 4.4)
@@ -181,8 +180,7 @@ pricing.ts|videoPriceSats|Preise für Text und Video, noch nicht angebunden (Pre
 
 privacy-audit.ts|mixnetImpact|Auswirkung eines Mixnetzes, ohne Oberfläche (Verkehrsmuster, 6.4)
 
-private-job.ts|buildPrivateJobRequest|Private KI-Anfragen: Knoten in 3.1b, App in 3.1c
-private-job.ts|openPrivateJobRequest|Private KI-Anfragen: Knoten in 3.1b, App in 3.1c
+private-job.ts|buildPrivateJobRequest|Private KI-Anfragen: die App sendet sie ab 3.1c (Knoten nimmt sie seit 3.1b an)
 
 profile.ts|parseProfileSafe|sicheres Parsen fremder Profile; App nutzt noch parseProfile (chat-zap.ts, app.ts) – umstellen offen
 
