@@ -6,7 +6,7 @@ Pull Request eintragen.
 
 ## Empfohlene Reihenfolge ab jetzt
 
-1. ~~2.1 veröffentlichen~~ – live seit 24.09.; offen nur noch der Interop-Test (MENSCH)
+1. ~~2.1 veröffentlichen~~ – live seit 24.09.; Interop-Test ✅ (5/5 lib, UI lokal + public)
 2. ~~**0.H** instabilen Test reparieren~~ – erledigt
 3. ~~**0.B** innerHTML-Prüfung~~ – erledigt
 4. **0.J** Event-Felder streng prüfen – Befund aus 0.B, Sicherheit (MENSCH: Freigabe, Signaturpfad)
@@ -40,7 +40,7 @@ jederzeit parallel erledigen.
 | 1.3 | Signer-Schnittstelle | offen |  |  |
 | 1.4 | Verdrahtungsprüfung erweitern | offen |  |  |
 | 1.5 | Leak-Tests | teilweise |  | Regeln + Fakten + DM-Szenarien fertig; App-Szenarien offen |
-| 2.1 | NIP-17-Direktnachrichten | fertig – wartet auf Interop-Test (MENSCH) | [#1](https://github.com/3DAGI/freedom-app/pull/1) | live seit 24.09.; MENSCH: Interop-Test mit Amethyst oder 0xchat |
+| 2.1 | NIP-17-Direktnachrichten | ✅ fertig + Interop-Test bestanden | [#1](https://github.com/3DAGI/freedom-app/pull/1) | 5/5 lib, UI lokal + public Relays grün |
 | 2.2a | MLS: Entscheidung und Spike | offen |  | MENSCH: Entscheidung |
 | 2.2b | MLS nach Marmot | offen |  | MENSCH: White Noise |
 | 2.3 | Räume als MLS-Gruppen | offen |  |  |

@@ -1788,3 +1788,16 @@ veröffentlichte Version fällt damit durch, der neue Build besteht.
 Endstand: protocol 929 grün (5 übersprungen) · node 160 grün (6 übersprungen) ·
 app 167 grün · 0 rot · Selbsttest Prüfskript 6 grün · innerHTML streng: 0
 unbewertet · check-wiring, check-website ok · Smoke-Test bestanden.
+
+
+### 2.1 Interop: NIP-17 gegen nostr-tools (Branch test/interop-2.1)
+
+Patch freedomstack-interop-2.1.patch via git am -3 ✅
+
+| Check | Ergebnis |
+|-------|----------|
+| Interop library | 5/5 grün ✅ |
+| Protocol tests | 935/939 grün (1 Devnet-OOM, 3 skipped) ✅ |
+| App tests | 167/167 grün ✅ |
+| UI-Test lokales Relay | bestanden ✅ |
+| UI-Test public Relays | bestanden ✅ |
