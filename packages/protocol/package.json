@@ -1,0 +1,31 @@
+{
+  "name": "@freedomstack/protocol",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "node --import tsx --test test/*.test.ts",
+    "demo": "node --import tsx demo/run-swap.ts",
+    "demo:full": "node --import tsx demo/run-full.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.1",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3"
+  },
+  "dependencies": {
+    "@ardrive/turbo-sdk": "^1.42.0",
+    "@noble/ciphers": "^2.3.0",
+    "@noble/curves": "^2.2.0",
+    "@noble/hashes": "^2.3.0",
+    "@solana/web3.js": "^1.98.4",
+    "@zxing/text-encoding": "^0.9.0",
+    "reedsolomon": "^1.0.0",
+    "wasm-reed-solomon-erasure": "^0.2.2"
+  }
+}

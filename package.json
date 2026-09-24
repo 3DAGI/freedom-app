@@ -1,0 +1,6 @@
+{
+  "name": "freedomstack",
+  "private": true,
+  "type": "module",
+  "workspaces": ["packages/*"]
+}
