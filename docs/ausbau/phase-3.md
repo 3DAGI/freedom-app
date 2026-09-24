@@ -6,7 +6,9 @@ verschlüsselt.
 
 ---
 
-## 3.1 Verschlüsselte Job-Anfragen
+## 3.1 Verschlüsselte Job-Anfragen – CODE FERTIG (24.09.2026)
+
+> Umgesetzt in drei Teilen (a Protokoll `private-job.ts`, b Knoten `handlePrivate`, c App `buildJobEvent` + `ki-sitzung.ts`; PRs #25–#27). Rechenarbeit Standard 12 Bits (gemessen: 16 Bits ≈ 1 s je Umschlag auf einem PC – zu langsam für jede Chat-Nachricht). Die App sendet nur noch an Provider, deren Angebot `pow` nennt. Offen: MENSCH – Provider-Knoten aktualisieren, echte Anfrage.
 
 - **Voraussetzung:** 1.3, 1.5, 2.1.
 - **Stellen:** `buildJobEvent()` (Agent), `packages/app/src/session-client.ts`,

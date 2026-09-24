@@ -180,8 +180,6 @@ pricing.ts|videoPriceSats|Preise für Text und Video, noch nicht angebunden (Pre
 
 privacy-audit.ts|mixnetImpact|Auswirkung eines Mixnetzes, ohne Oberfläche (Verkehrsmuster, 6.4)
 
-private-job.ts|buildPrivateJobRequest|Private KI-Anfragen: die App sendet sie ab 3.1c (Knoten nimmt sie seit 3.1b an)
-
 profile.ts|parseProfileSafe|sicheres Parsen fremder Profile; App nutzt noch parseProfile (chat-zap.ts, app.ts) – umstellen offen
 
 protocol-fee.ts|assertProtocolFeeConfigured|Prüfung vor Mainnet-Betrieb, vor dem Mainnet-Deploy einbinden (9.3)

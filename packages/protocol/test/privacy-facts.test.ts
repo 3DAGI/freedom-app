@@ -7,13 +7,28 @@ import assert from "node:assert/strict";
 import { PRIVACY_FACTS, privacyFactsText } from "../src/privacy-facts.js";
 import { buildPrivateDm } from "../src/private-dm.js";
 import { generateKeypair } from "../src/event.js";
-import { LEAK_REGELN, regelAutorNicht, regelKeinKind4, regelKeinKlartext } from "../src/leak-rules.js";
+import {
+  LEAK_REGELN, regelAutorNicht, regelKeinKind4, regelKeinKlartext, regelKeinKlartextPrompt, regelKundeVerborgen,
+} from "../src/leak-rules.js";
 import { LAYER_CELL_DEGREES, buildCoverageAnnouncement, toCell } from "../src/coverage.js";
 import { signEvent } from "../src/event.js";
+import { buildJobRequest } from "../src/dvm.js";
+import { buildPrivateJobRequest } from "../src/private-job.js";
+import { LocalSigner } from "../src/signer.js";
 
 const a = generateKeypair();
 const b = generateKeypair();
 const GEHEIM = "streng geheimer Inhalt 4711";
+
+const PROMPT = "Wie lese ich meinen Laborbefund?";
+
+/** Wie die App seit 3.1: Anfrage vom Sitzungsschluessel, im Umschlag an den Provider (a = Identitaet). */
+async function privateKiAnfrage() {
+  const sitzung = new LocalSigner(generateKeypair().sk);
+  const request = buildJobRequest({ customerPubkey: sitzung.publicKey(), input: PROMPT, bidMsat: 1000, providerPubkey: b.pk });
+  const { wrap } = await buildPrivateJobRequest({ request, sessionSigner: sitzung, providerPk: b.pk });
+  return { wrap, sitzung: sitzung.publicKey() };
+}
 
 const SZENARIEN: Record<string, () => Promise<number>> = {
   "dm-inhalt": async () => {
@@ -27,6 +42,14 @@ const SZENARIEN: Record<string, () => Promise<number>> = {
   "dm-kein-kind4": async () => {
     const d = await buildPrivateDm({ senderSk: a.sk, senderPk: a.pk, recipientPk: b.pk, content: GEHEIM });
     return regelKeinKind4([d.toRecipient, d.toSelf]).length;
+  },
+  "ki-prompt": async () => {
+    const { wrap } = await privateKiAnfrage();
+    return regelKeinKlartextPrompt([wrap], [PROMPT]).length + regelKeinKlartext([wrap], [PROMPT]).length;
+  },
+  "ki-kunde": async () => {
+    const { wrap, sitzung } = await privateKiAnfrage();
+    return regelKundeVerborgen([wrap], a.pk).length + regelKundeVerborgen([wrap], sitzung).length;
   },
   "abdeckung-zelle": async () => {
     const [lat, lon] = [48.137154, 11.576124];
@@ -69,5 +92,6 @@ test("der Berichtstext trennt Belegtes und Offenes", () => {
   const t = privacyFactsText();
   assert.match(t, /Durch Tests belegt:/);
   assert.match(t, /Bekannte Lücken:/);
-  assert.match(t, /KI-Anfragen sind für Relays nicht lesbar\. \(Ausbauplan 3\.1\)/);
+  assert.match(t, /✓ KI-Anfragen sind für Relays nicht lesbar\./);
+  assert.match(t, /○ Noch nicht: KI-Antworten sind für Relays nicht lesbar\. \(Ausbauplan 3\.2\)/);
 });

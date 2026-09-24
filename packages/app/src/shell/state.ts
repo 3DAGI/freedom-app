@@ -9,6 +9,7 @@
  */
 import { LocalSigner, type NostrEvent, OutboxPool, type Signer, type UnsignedEvent, WebSocketRelay } from "@freedomstack/protocol";
 import { ScoredProvider, discoverProviders, matchProviders } from "../matchmaking.js";
+import { KiSitzungen } from "../ki-sitzung.js";
 import { SessionClient } from "../session-client.js";
 import { escapeHtml } from "../shell-logic.js";
 import { $, toast } from "./ui.js";
@@ -281,11 +282,14 @@ async function entdeckeRelays(): Promise<void> {
   }
 }
 
+/** Sitzungsschluessel je Provider fuer KI-Auftraege (Schritt 3.1) – nur im Speicher. */
+export const kiSitzungen = new KiSitzungen();
+
 export function ensureSessionClient(): SessionClient {
   if (state.sessionClient) return state.sessionClient;
-  if (!state.signer || !state.pool) throw new Error("Identitaet/Pool fehlt");
+  if (!state.pool) throw new Error("Pool fehlt");
   state.sessionClient = new SessionClient({
-    signer: state.signer,
+    signerFuer: (providerPk) => kiSitzungen.fuer(providerPk),
     pool: state.pool,
     defaultBudgetSats: 100,
     settleEverySats: 20,
