@@ -2249,3 +2249,40 @@ Kopie statt Referenz, falsche Schlüssellänge.
 Endstand: protocol 955 grün (5 übersprungen) · node 161 grün (6 übersprungen) ·
 app 192 grün · 0 rot · check-wiring `--streng` 0 offen (252 verdrahtet) ·
 innerHTML streng 0 unbewertet · Smoke-Test bestanden.
+
+## 57. Signer-Schnittstelle, Teil b: `Nip46Signer` (Schritt 1.3)
+
+Neu `packages/protocol/src/nip46.ts` nach dem NIP-46-Standard – eigenständig,
+`devices.ts` hat dafür keine Teile (siehe Abschnitt 56). `parseBunkerUri()`
+liest `bunker://<signer-pubkey>?relay=wss://…&secret=…` streng (64 Hex-Zeichen,
+nur wss://-Relays). Der `Nip46Signer` erzeugt einen Wegwerf-Schlüssel (als
+`LocalSigner`), schickt Anfragen als Kind 24133 an den Signer, Inhalt
+NIP-44-verschlüsselt ({id, method, params}), und fragt die Antwort über
+`publish`/`query` ab – das passt zum `OutboxPool` der App.
+
+**Dem Signer nicht blind glauben:** Antworten zählen nur vom Signer-Pubkey, mit
+gültiger Signatur, entschlüsselbar und mit passender id. Ein signiertes Event
+muss genau das angefragte sein (kind, Inhalt, Tags, Zeit, Nutzer-Pubkey) und
+gültig signiert. `auth_url` wird mit der Adresse gemeldet, nichts wird
+automatisch geöffnet. Fremde Pubkeys werden vor NIP-44 geprüft; ein Event mit
+fremdem pubkey geht gar nicht erst an den Signer.
+
+**Tests (9, Test-Bunker im Speicher, das Test-Relay liefert wie ein böswilliges
+Relay alles):** verbinden mit Secret, signieren, NIP-44 in beide Richtungen
+kompatibel mit direkt verschlüsselten Nachrichten; Relays sehen weder Methode
+noch Inhalt; ein Bunker, der etwas anderes signiert, wird entlarvt; fremder
+Absender, falsche id und Schweigen enden in „Keine Antwort“; Ablehnung,
+Freigabe-Adresse und falsches Secret werden gemeldet; strenges Lesen der
+Adresse; der Wegwerf-Schlüssel taucht in keiner Darstellung auf. Gegenproben:
+ohne Ereignis-Vergleich, ohne id-Prüfung und ohne pubkey-Prüfung wird jeweils
+ein Test rot. Ohne die ausdrückliche Absenderprüfung bleibt alles grün – eine
+Antwort von fremdem Absender lässt sich mit dem Signer-Schlüssel ohnehin nicht
+entschlüsseln (MAC); die Prüfung ist eine zusätzliche Sicherung.
+
+**Verdrahtung:** Anmelden per Bunker in der Oberfläche erst, wenn alle Aufrufer
+den Signer nutzen – bis dahin begründet in `scripts/wiring-ausnahmen.txt`
+(`Nip46Signer`, `parseBunkerUri`).
+
+Endstand: protocol 964 grün (+9, 5 übersprungen) · node 161 grün · app 192
+grün · 0 rot · check-wiring `--streng` 0 offen (178 begründet) · innerHTML
+streng 0 unbewertet · Smoke-Test bestanden.
