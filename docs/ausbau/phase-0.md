@@ -81,3 +81,20 @@ zwischen Deposit- und Job-Event), reparieren, dann 20 Läufe am Stück grün:
 Siehe `START-HIER.md`, Weg A: Pages-Quelle „GitHub Actions“, danach
 veröffentlicht `pages.yml` bei jedem Merge nach `main`. Der Agent prüft danach
 live: Prüfsumme der Datei = `freedom.html.sha256` = Wert auf der Startseite.
+
+## 0.J Event-Felder streng prüfen – Befund aus 0.B, MENSCH-Freigabe
+
+`verifyEvent()` (`packages/protocol/src/event.ts`) dekodiert `pubkey`, `id` und
+`sig` mit `fromHex()` = `Buffer.from(h, "hex")`. Das bricht beim ersten
+ungültigen Zeichen still ab. Ein Event mit `pubkey` = 64 gültige Hex-Zeichen
+plus angehängtem Text (z. B. HTML) besteht deshalb die Prüfung: Die Signatur
+wird gegen den echten Schlüssel geprüft, der Text läuft mit. Nachgewiesen am
+24.09. mit einem Wegwerf-Skript.
+
+- **Vorgehen:** Vor der Signaturprüfung verlangen: `pubkey` und `id` genau
+  `/^[0-9a-f]{64}$/`, `sig` genau `/^[0-9a-f]{128}$/` (so schreibt NIP-01 es
+  vor), `created_at` ganze Zahl, `kind` ganze Zahl, `tags` Array aus
+  String-Arrays, `content` String. Negativtests für jeden Fall; prüfen, ob
+  `fromHex()` auch anderswo Fremddaten dekodiert.
+- **Warum MENSCH:** Die Änderung liegt im Signaturpfad (STOPP-Regel in `CLAUDE.md`).
+- **Abnahme:** Das Event aus dem Nachweis wird abgelehnt; alle Suiten grün.

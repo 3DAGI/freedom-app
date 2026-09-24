@@ -8,13 +8,14 @@ Pull Request eintragen.
 
 1. ~~2.1 veröffentlichen~~ – live seit 24.09.; offen nur noch der Interop-Test (MENSCH)
 2. ~~**0.H** instabilen Test reparieren~~ – erledigt
-3. **0.B** innerHTML-Prüfung – Sicherheit
-4. **1.4** Verdrahtungsprüfung erweitern
-5. **1.0** `app.ts` aufteilen – macht alle weiteren Schritte kleiner und günstiger
-6. **1.2**, **1.3**, Rest von **1.5**
-7. **3.1** bis **3.4** – private KI-Aufträge, die größte offene Datenschutzlücke (braucht kein MLS)
-8. **2.4**, **2.5**, dann **2.2a** (Entscheidung), **2.2b**, **2.3**
-9. **4.0** (Entscheidung), dann Phase 4, Phase 5, 6, 7, 8, 9
+3. ~~**0.B** innerHTML-Prüfung~~ – erledigt
+4. **0.J** Event-Felder streng prüfen – Befund aus 0.B, Sicherheit (MENSCH: Freigabe, Signaturpfad)
+5. **1.4** Verdrahtungsprüfung erweitern
+6. **1.0** `app.ts` aufteilen – macht alle weiteren Schritte kleiner und günstiger
+7. **1.2**, **1.3**, Rest von **1.5**
+8. **3.1** bis **3.4** – private KI-Aufträge, die größte offene Datenschutzlücke (braucht kein MLS)
+9. **2.4**, **2.5**, dann **2.2a** (Entscheidung), **2.2b**, **2.3**
+10. **4.0** (Entscheidung), dann Phase 4, Phase 5, 6, 7, 8, 9
 
 MENSCH-Aufgaben aus Phase 0 (0.D, 0.E, 0.F-Teile, 0.G) kann der Mensch
 jederzeit parallel erledigen.
@@ -24,7 +25,7 @@ jederzeit parallel erledigen.
 | ID | Schritt | Status | Pull Request | Notiz |
 |---|---|---|---|---|
 | 0.A | Phase-0-Patch (XSS, CSP, Texte, Prüfsumme, HTLC-Frist im Code) | fertig |  | live seit 24.09. |
-| 0.B | innerHTML-Prüfung und CI-Schritt | offen |  |  |
+| 0.B | innerHTML-Prüfung und CI-Schritt | fertig | [#4](https://github.com/3DAGI/freedom-app/pull/4) | Prüfskript liest jetzt die ganze rechte Seite; 12 Stellen abgesichert, 100 begründet; CI und `pages.yml` streng |
 | 0.C | Einlösen mit Sicherheitsabstand (Client) | fertig |  | live seit 24.09. |
 | 0.D | Signierte Releases | offen |  | MENSCH: Signierschlüssel |
 | 0.E | Wallet-Erweiterungen unter CSP | offen |  | MENSCH |
@@ -32,6 +33,7 @@ jederzeit parallel erledigen.
 | 0.G | Solana-Programm-ID abgleichen | offen |  | MENSCH: Entscheidung A/B |
 | 0.H | Instabilen Knoten-Test reparieren | fertig | [#3](https://github.com/3DAGI/freedom-app/pull/3) | Ursache: Frist zweimal aus der Uhr berechnet; 120 Läufe am Stück grün |
 | 0.I | Veröffentlichung über GitHub Actions | fertig | [#1](https://github.com/3DAGI/freedom-app/pull/1), [#2](https://github.com/3DAGI/freedom-app/pull/2) | live seit 24.09. über `pages.yml`; Prüfsumme Datei = `freedom.html.sha256` = Startseite; Standard-Branch `main` |
+| 0.J | Event-Felder streng prüfen | offen |  | Befund aus 0.B: `verifyEvent()` akzeptiert `pubkey` mit angehängtem Text; MENSCH: Freigabe (Signaturpfad) |
 | 1.0 | app.ts aufteilen | offen |  | früh erledigen – spart bei allen späteren Schritten |
 | 1.1 | Ein Seed, getrennte Schlüssel (SLIP-10) | fertig |  | Baustein; MENSCH: Phantom-Abgleich; Verdrahtung mit 4.2 |
 | 1.2 | Verschlüsselter Speicher | offen |  |  |

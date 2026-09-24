@@ -466,8 +466,8 @@ async function zeigeNachfolge(): Promise<void> {
     const cls = st.status === "aktiv" ? "ok" : st.status === "freigegeben" ? "err" : "warn";
     box.innerHTML =
       `<span class="${cls}">${escapeHtml(st.message)}</span><br>` +
-      `<span class="muted">${plan.threshold} von ${plan.guardians.length} Vertrauten, ` +
-      `Frist ${plan.inactivityDays} Tage, Wartezeit ${plan.graceDays} Tage.</span>`;
+      `<span class="muted">${ganzeZahl(plan.threshold)} von ${ganzeZahl(plan.guardians.length)} Vertrauten, ` +
+      `Frist ${ganzeZahl(plan.inactivityDays)} Tage, Wartezeit ${ganzeZahl(plan.graceDays)} Tage.</span>`;
   } catch (e) {
     box.textContent = `Nicht abrufbar: ${(e as Error).message}`;
   }
@@ -2604,7 +2604,7 @@ function loadChatList(): void {
   list.innerHTML = conversations
     .sort((a, b) => b.lastTs - a.lastTs)
     .map(
-      (c) => `<div class="chat-item ${c.id === activeConversation ? "active" : ""}" data-cid="${c.id}">
+      (c) => `<div class="chat-item ${c.id === activeConversation ? "active" : ""}" data-cid="${escapeHtml(c.id)}">
         <span class="av">${c.type === "community" ? "🏠" : escapeHtml(c.name.slice(0, 1).toUpperCase())}</span>
         <span class="label">${escapeHtml(c.name)}</span>
       </div>`,
@@ -3337,7 +3337,7 @@ function maybeInsertModelSwitchSummary(newTier: string): void {
     pendingContextSummary = `[Bisheriger Verlauf, kompakt]:\n${summary}\n\n[Neue Nachricht]:\n`;
     const note = document.createElement("div");
     note.className = "model-switch";
-    note.innerHTML = `<div class="model-switch-inner">⇄ modell gewechselt zu <b>${newTier}</b> — kontext wird mitgegeben (${msgs.length} nachrichten)</div>`;
+    note.innerHTML = `<div class="model-switch-inner">⇄ modell gewechselt zu <b>${escapeHtml(newTier)}</b> — kontext wird mitgegeben (${msgs.length} nachrichten)</div>`;
     thread.appendChild(note);
     stickToBottom(() => note.scrollIntoView({ behavior: "smooth", block: "end" }));
   }
@@ -3773,9 +3773,10 @@ function addAiMessage(role: "user" | "ai", text: string, meta: string, model?: s
   el.className = `bubble ${role}`;
   // AI-Antworten: Markdown rendern. User: plain (escaped).
   const body = role === "ai" ? renderMarkdown(escapeHtml(text)) : escapeHtml(text);
-  const whoLabel = role === "user" ? "du" : `agent${model ? ` · ${model}` : ""}`;
+  // Der Modellname kommt vom Provider (usage.model, Ankuendigung) – nie roh ins HTML.
+  const whoLabel = role === "user" ? "du" : `agent${model ? ` · ${escapeHtml(model)}` : ""}`;
   el.innerHTML = `<div class="who">${whoLabel}</div>
-    <div class="body">${body}</div>${meta ? `<div class="cost">${meta}</div>` : ""}`;
+    <div class="body">${body}</div>${meta ? `<div class="cost">${escapeHtml(meta)}</div>` : ""}`;
   $("#ai-thread").appendChild(el);
   stickToBottom(() => el.scrollIntoView({ behavior: "smooth", block: "end" }));
   merkeNachricht(role, text, meta, model);
@@ -3787,8 +3788,8 @@ function addAiMessage(role: "user" | "ai", text: string, meta: string, model?: s
 function addAiMessageStreaming(role: "ai", text: string, meta: string, model?: string, onDone?: () => void): HTMLElement {
   const el = document.createElement("div");
   el.className = `bubble ${role}`;
-  const whoLabel = `agent${model ? ` · ${model}` : ""}`;
-  el.innerHTML = `<div class="who">${whoLabel}</div><div class="body"></div>${meta ? `<div class="cost">${meta}</div>` : ""}`;
+  const whoLabel = `agent${model ? ` · ${escapeHtml(model)}` : ""}`;
+  el.innerHTML = `<div class="who">${whoLabel}</div><div class="body"></div>${meta ? `<div class="cost">${escapeHtml(meta)}</div>` : ""}`;
   const bodyEl = el.querySelector(".body") as HTMLElement;
   $("#ai-thread").appendChild(el);
   stickToBottom(() => el.scrollIntoView({ behavior: "smooth", block: "end" }));
@@ -3888,8 +3889,9 @@ function addUsageBubble(usage: {
       <span class="tool-cost">${Math.floor(t.costMsat / 1000)} sat</span></div>`)
     .join("");
 
+  // Nimmt Klartext und maskiert selbst – so kann kein Aufrufer es vergessen.
   const zeile = (k: string, v: string): string =>
-    `<div class="usage-row"><span>${k}</span><span>${v}</span></div>`;
+    `<div class="usage-row"><span>${escapeHtml(k)}</span><span>${escapeHtml(v)}</span></div>`;
 
   const werkzeugTeil = toolRows
     ? `<div class="tool-list">${toolRows}</div>`
@@ -3904,7 +3906,7 @@ function addUsageBubble(usage: {
     </button>
     <div class="usage-body hidden">
       ${werkzeugTeil}
-      ${zeile("Modell", escapeHtml(usage.model ?? "—"))}
+      ${zeile("Modell", usage.model ?? "—")}
       ${zeile("Provider", pkShort(providerPk))}
       ${zeile("Tokens", `${ganzeZahl(usage.promptTokens)} rein, ${ganzeZahl(usage.completionTokens)} raus`)}
       ${zeile("Diese Antwort", `${Math.floor(amountMsat / 1000)} sat`)}
@@ -4476,13 +4478,13 @@ async function loadEarnings(): Promise<void> {
       ? sorted
           .map((ev) => {
             const get = (n: string) => ev.tags.find((t) => t[0] === n)?.[1] ?? "—";
-            return `<div class="stat"><span class="k">${get("work_type")} · ${get("units")} units</span>
+            return `<div class="stat"><span class="k">${escapeHtml(get("work_type"))} · ${escapeHtml(get("units"))} units</span>
               <span>${Math.floor(Number(get("volume_msat")) / 1000)} sats · ${timeAgo(ev.created_at)}</span></div>`;
           })
           .join("")
       : "<div class='mono-sm'>Noch keine Einnahmen. Sie erscheinen, sobald dein Provider-Knoten Jobs erledigt.</div>";
   } catch (e) {
-    box.innerHTML = `<div class='mono-sm err'>${(e as Error).message}</div>`;
+    box.innerHTML = `<div class='mono-sm err'>${escapeHtml((e as Error).message)}</div>`;
   }
 }
 
@@ -4549,7 +4551,7 @@ async function loadLeaderboard(): Promise<void> {
         <tbody>${rows}</tbody>
       </table>`;
   } catch (e) {
-    box.innerHTML = `<div class='mono-sm err'>${(e as Error).message}</div>
+    box.innerHTML = `<div class='mono-sm err'>${escapeHtml((e as Error).message)}</div>
       <button class="ghost lb-retry" style="width:auto;margin-top:6px">↻ erneut versuchen</button>`;
     box.querySelector(".lb-retry")?.addEventListener("click", () => loadLeaderboard());
   }
@@ -4634,7 +4636,7 @@ async function loadGitRepos(): Promise<void> {
     list.innerHTML = sorted.length
       ? sorted.map((ev) => {
           const name = ev.tags.find((t) => t[0] === "d")?.[1] ?? "?";
-          return `<div class="stat"><span class="k">📦 ${escapeHtml(name)} <span class="mono-sm">${pkShort(ev.pubkey)}</span></span>
+          return `<div class="stat"><span class="k">📦 ${escapeHtml(name)} <span class="mono-sm">${escapeHtml(pkShort(ev.pubkey))}</span></span>
             <span><button class="ghost copy-btn git-clone-btn" data-blob="${escapeHtml(ev.tags.find((t) => t[0] === "blob")?.[1] ?? "")}" data-name="${escapeHtml(name)}" style="width:auto;padding:4px 8px">⇩ bundle</button></span></div>`;
         }).join("")
       : "<span>noch keine repos — publiziere das erste bundle!</span>";
@@ -5080,7 +5082,7 @@ function setupAttach(): void {
       status.textContent = `${f.name} angehängt`;
       status.className = "mono-sm ok";
       if (attachment.type === "image" || attachment.type === "camera") {
-        status.innerHTML = `${f.name} <img class="attach-thumb" src="${attachment.dataUrl}" />`;
+        status.innerHTML = `${escapeHtml(f.name)} <img class="attach-thumb" src="${escapeHtml(attachment.dataUrl)}" />`;
       }
     };
     reader.readAsDataURL(f);

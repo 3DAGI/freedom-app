@@ -92,6 +92,16 @@ jobs:
         # nicht — deshalb diese Pruefung.
         run: python3 scripts/check-wiring.py
 
+      - name: innerHTML pruefen
+        # Fremddaten (Relays, Provider, Profile, Raeume, Dateinamen, URLs)
+        # duerfen nie ungeprueft in HTML landen. Jede Fundstelle ist entweder
+        # abgesichert oder in scripts/innerhtml-ausnahmen.txt begruendet.
+        # Zuerst der Selbsttest: Eine Pruefung, die still etwas uebersieht,
+        # meldet sonst "0 Fundstellen", und alle glauben es.
+        run: |
+          python3 scripts/test_check_innerhtml.py
+          python3 scripts/check_innerhtml.py packages/app/src --ausnahmen scripts/innerhtml-ausnahmen.txt --streng
+
       - name: Dashboard-Skript pruefen
         # Das Dashboard ist reines Inline-JS ohne Build — ein Syntaxfehler
         # faellt sonst erst dem ersten Besucher auf.

@@ -6,6 +6,8 @@ Prueft im Headless-Chromium:
   - die App startet (window.freedomApp existiert), keine Skriptfehler
   - eine Content-Security-Policy ist gesetzt
   - ein eingeschleuster Inline-Handler (onerror=...) wird NICHT ausgefuehrt
+  - Fremddaten landen als Text, nicht als HTML: ein gespeicherter Verlauf mit
+    HTML im Modellnamen des Providers (Schritt 0.B) wird wiederhergestellt
 
 Verbindungsfehler zu Relays werden ignoriert (hängen vom Netz ab).
 
@@ -14,6 +16,12 @@ Voraussetzung: pip install playwright && python3 -m playwright install chromium
 Exit-Code 0 = bestanden, 1 = durchgefallen.
 """
 import functools, http.server, json, socket, sys, threading
+
+# Verlauf mit HTML im Modellnamen und in meta – beides kam frueher roh ins HTML.
+PROBE_VERLAUF = [{"id": "probe", "title": "Probe", "at": 1790000000, "messages": [
+    {"role": "user", "text": "frage", "meta": ""},
+    {"role": "ai", "text": "antwort", "meta": "<b id='probe-meta'>m</b>",
+     "model": "<img id='probe-modell' src='x'>"}]}]
 from pathlib import Path
 
 
@@ -50,6 +58,7 @@ def main() -> int:
             seite.add_init_script(
                 "document.addEventListener('securitypolicyviolation', e => {"
                 " (window.__csp = window.__csp || []).push(e.violatedDirective); });"
+                f"localStorage.setItem('freedom.agentHistory', {json.dumps(json.dumps(PROBE_VERLAUF))});"
             )
             seite.goto(f"http://127.0.0.1:{port}/freedom.html", wait_until="load")
             seite.wait_for_timeout(4000)
@@ -61,13 +70,20 @@ def main() -> int:
                 document.body.appendChild(d); }""")
             seite.wait_for_timeout(800)
             erg["xss_ausgefuehrt"] = seite.evaluate("window.__xss === 1")
+            # Verlauf oeffnen: addAiMessage() bekommt Modellname und meta aus dem Speicher.
+            seite.evaluate("() => document.querySelector('.history-item[data-hid=\"probe\"]')?.click()")
+            seite.wait_for_timeout(300)
+            erg["fremd_als_text"] = seite.evaluate(
+                "!document.getElementById('probe-modell') && !document.getElementById('probe-meta')"
+                " && [...document.querySelectorAll('#ai-thread .who')].some(e => e.textContent.includes('<img'))")
             erg["csp_verletzungen"] = seite.evaluate("window.__csp || []")
             browser.close()
     finally:
         srv.shutdown()
 
     ok = (erg.get("booted") == "object" and not erg["pageerrors"]
-          and erg.get("csp_gesetzt") and erg.get("xss_ausgefuehrt") is False)
+          and erg.get("csp_gesetzt") and erg.get("xss_ausgefuehrt") is False
+          and erg.get("fremd_als_text") is True)
     erg["bestanden"] = bool(ok)
     print(json.dumps(erg, indent=1, ensure_ascii=False))
     return 0 if ok else 1
