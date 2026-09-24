@@ -24,14 +24,7 @@ import { icon } from "../../icons.js";
 import { DEFAULT_MAX_MODE, ScoredProvider, matchRaceProviders, maxModeSplit } from "../../matchmaking.js";
 import { SessionClient } from "../../session-client.js";
 import { escapeHtml, pkShort } from "../../shell-logic.js";
-import {
-  richteNachfolgeEin,
-  switchTab,
-  vergebeAbzeichen,
-  zeigeMitwirkende,
-  zeigeNachfolge,
-  zeigeOnboarding,
-} from "../app.js";
+import { richteNachfolgeEin, switchTab, vergebeAbzeichen, zeigeNachfolge, zeigeOnboarding } from "../app.js";
 import { KIND_DVM_RESULT, ensurePool, ensureSessionClient, findProviders, state } from "../state.js";
 import {
   $,
@@ -45,6 +38,7 @@ import {
   updateSidebarBalances,
 } from "../ui.js";
 import { haltevorModell, kuendigeModellAn, zeigeModelle } from "./agent-netz.js";
+import { zeigeMitwirkende } from "./earn.js";
 
 /** Modell des zuletzt genutzten Providers (fuer die anzeige). */
 let lastProviderModel: string | null = null;
