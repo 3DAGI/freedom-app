@@ -10,7 +10,7 @@ Pull Request eintragen.
 2. ~~**0.H** instabilen Test reparieren~~ – erledigt
 3. ~~**0.B** innerHTML-Prüfung~~ – erledigt
 4. ~~**0.J** Event-Felder streng prüfen~~ – erledigt
-5. **1.4** Verdrahtungsprüfung erweitern
+5. ~~**1.4** Verdrahtungsprüfung erweitern~~ – erledigt
 6. **1.0** `app.ts` aufteilen – macht alle weiteren Schritte kleiner und günstiger
 7. **1.2**, **1.3**, Rest von **1.5**
 8. **3.1** bis **3.4** – private KI-Aufträge, die größte offene Datenschutzlücke (braucht kein MLS)
@@ -38,7 +38,7 @@ jederzeit parallel erledigen.
 | 1.1 | Ein Seed, getrennte Schlüssel (SLIP-10) | fertig |  | Baustein; MENSCH: Phantom-Abgleich; Verdrahtung mit 4.2 |
 | 1.2 | Verschlüsselter Speicher | offen |  |  |
 | 1.3 | Signer-Schnittstelle | offen |  |  |
-| 1.4 | Verdrahtungsprüfung erweitern | offen |  |  |
+| 1.4 | Verdrahtungsprüfung erweitern | fertig | [#7](https://github.com/3DAGI/freedom-app/pull/7) | alle Exporte, Erreichbarkeit aus App/Knoten; 174 von 427 nicht verdrahtet, begründet in `scripts/wiring-ausnahmen.txt` |
 | 1.5 | Leak-Tests | teilweise |  | Regeln + Fakten + DM-Szenarien fertig; App-Szenarien offen |
 | 2.1 | NIP-17-Direktnachrichten | ✅ fertig + Interop-Test bestanden | [#1](https://github.com/3DAGI/freedom-app/pull/1) | 5/5 lib, UI lokal + public Relays grün |
 | 2.2a | MLS: Entscheidung und Spike | offen |  | MENSCH: Entscheidung |

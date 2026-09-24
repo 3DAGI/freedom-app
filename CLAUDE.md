@@ -34,7 +34,7 @@ npm ci                                                   # einmal pro Sitzung
 cd packages/protocol && npx tsc -p tsconfig.json --noEmit && npm test && cd ../..
 cd packages/node     && npx tsc -p tsconfig.json --noEmit && npm test && cd ../..
 cd packages/app      && npx tsc -p tsconfig.json --noEmit && npm test && node build.mjs && cd ../..
-python3 scripts/check-wiring.py
+python3 scripts/check-wiring.py --streng
 python3 scripts/check-website.py
 python3 scripts/check_innerhtml.py packages/app/src --ausnahmen scripts/innerhtml-ausnahmen.txt --streng
 python3 scripts/smoke_test.py packages/app/dist         # braucht playwright + chromium
