@@ -25,7 +25,9 @@ test("kein-klartext-prompt: Prompt im i-Tag einer Anfrage, nicht aber in anderen
   assert.equal(regelKeinKlartextPrompt([ev(5050, [["i", prompt, "text"]])], [prompt]).length, 1);
   assert.equal(regelKeinKlartextPrompt([ev(5050, [["i", "verschluesselt…", "text"]])], [prompt]).length, 0);
   assert.equal(regelKeinKlartextPrompt([ev(1, [], prompt)], [prompt]).length, 0, "Kind 1 ist keine Anfrage");
-  assert.equal(regelKeinKlartextPrompt([ev(5050, [["i", prompt, "text"]])], [prompt])[0].regel, "kein-klartext-prompt");
+  const [fund] = regelKeinKlartextPrompt([ev(5050, [["i", prompt, "text"]])], [prompt]);
+  assert.equal(fund.regel, "kein-klartext-prompt");
+  assert.match(fund.detail, /^Prompt sichtbar: Wie spaet/);
 });
 
 test("kunde-verborgen: Kunde als Autor oder im p-Tag", () => {
