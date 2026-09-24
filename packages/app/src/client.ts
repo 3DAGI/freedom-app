@@ -11,33 +11,28 @@
  * binden nur diese Klassen ein.
  */
 import {
-  Keypair,
+  LocalSigner,
+  type Signer,
   generateKeypair,
-  signEvent,
   buildEvent,
   OutboxPool,
   fromHex,
-  toHex,
   buildJobRequest,
   parseJobResult,
   isDvmResult,
   NostrEvent,
   KIND_DVM_TEXT_RESULT,
 } from "@freedomstack/protocol";
-import { schnorr } from "@noble/curves/secp256k1.js";
 
 export interface Identity {
-  keypair: Keypair;
+  /** Signiert fuer die Identitaet – der rohe Schluessel bleibt im Signer (Schritt 1.3). */
+  signer: Signer;
   lud16?: string;
 }
 
 /** Identitaet: erzeugen oder aus gespeichertem Secret wiederherstellen. */
 export function createIdentity(secretKeyHex?: string): Identity {
-  if (secretKeyHex) {
-    const sk = fromHex(secretKeyHex);
-    return { keypair: { sk, pk: toHex(schnorr.getPublicKey(sk)) } };
-  }
-  return { keypair: generateKeypair() };
+  return { signer: new LocalSigner(secretKeyHex ? fromHex(secretKeyHex) : generateKeypair().sk) };
 }
 
 // ------------------------------------------------------------------ KI-Tab
@@ -63,14 +58,13 @@ export class AiMarketplaceClient {
 
   /** Job ausschreiben (kind 5050). Gibt sofort ein Handle zurueck. */
   async ask(prompt: string, bidMsat: number, providerPubkey?: string): Promise<AiJobHandle> {
-    const ev = signEvent(
+    const ev = await this.identity.signer.signEvent(
       buildJobRequest({
-        customerPubkey: this.identity.keypair.pk,
+        customerPubkey: this.identity.signer.publicKey(),
         input: prompt,
         bidMsat,
         providerPubkey,
       }),
-      this.identity.keypair.sk,
     );
     await this.pool.publish(ev);
     return { requestId: ev.id, bidMsat };
@@ -127,7 +121,7 @@ export class ChatClient {
   ) {}
 
   async post(text: string): Promise<string> {
-    const ev = signEvent(buildEvent(this.identity.keypair.pk, 1, [], text), this.identity.keypair.sk);
+    const ev = await this.identity.signer.signEvent(buildEvent(this.identity.signer.publicKey(), 1, [], text));
     await this.pool.publish(ev);
     return ev.id;
   }

@@ -4,7 +4,7 @@
  * Aus app.ts verschoben (Schritt 1.0) – wörtlich, ohne Logikänderung.
  */
 import { escapeHtml, pkShort } from "../../shell-logic.js";
-import { ensurePool, state } from "../state.js";
+import { ensurePool, signiere, state } from "../state.js";
 import { $, toast } from "../ui.js";
 
 /**
@@ -27,17 +27,17 @@ export async function vergebeAbzeichen(): Promise<void> {
   }
 
   try {
-    const { buildBadgeDefinition, buildBadgeAward, signEvent: se } =
+    const { buildBadgeDefinition, buildBadgeAward } =
       await import("@freedomstack/protocol");
     const id = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 24);
     const pool = await ensurePool();
 
-    await pool.publish(se(buildBadgeDefinition({
+    await pool.publish(await signiere(buildBadgeDefinition({
       id, name: name.trim(),
       description: prompt("Wofür? (erscheint bei jedem Träger)") ?? "",
       issuerPubkey: state.keypair.pk,
-    }), state.keypair.sk));
-    await pool.publish(se(buildBadgeAward(id, state.keypair.pk, pks), state.keypair.sk));
+    })));
+    await pool.publish(await signiere(buildBadgeAward(id, state.keypair.pk, pks)));
 
     // Die ehrliche Einordnung gehoert dazu, sonst ueberschaetzt der Vergeber
     // die Wirkung.
@@ -155,7 +155,7 @@ export async function wireProfil(): Promise<void> {
   if (save) save.onclick = async () => {
     if (!state.keypair) return;
     try {
-      const { buildProfile, signEvent: se, inspectPicture } = await import("@freedomstack/protocol");
+      const { buildProfile, inspectPicture } = await import("@freedomstack/protocol");
       const entwurf = sammeln();
       const bild = inspectPicture(entwurf.picture);
       if (!bild.ok) {
@@ -163,7 +163,7 @@ export async function wireProfil(): Promise<void> {
         return;
       }
       localStorage.setItem("freedom.profile", JSON.stringify(entwurf));
-      await (await ensurePool()).publish(se(buildProfile(state.keypair.pk, entwurf as never), state.keypair.sk));
+      await (await ensurePool()).publish(await signiere(buildProfile(state.keypair.pk, entwurf as never)));
       toast("Profil gespeichert");
       void zeigeProfilVorschau();
     } catch (err) {

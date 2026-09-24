@@ -2286,3 +2286,39 @@ den Signer nutzen – bis dahin begründet in `scripts/wiring-ausnahmen.txt`
 Endstand: protocol 964 grün (+9, 5 übersprungen) · node 161 grün · app 192
 grün · 0 rot · check-wiring `--streng` 0 offen (178 begründet) · innerHTML
 streng 0 unbewertet · Smoke-Test bestanden.
+
+## 58. Signer-Schnittstelle, Teil c: Signieren über den Signer (Schritt 1.3)
+
+**Aufteilung (verfeinert):** c reine Signier-Stellen (dieser Teil) · d
+NIP-17-DMs über den Signer · e Stellen, die den rohen Schlüssel wirklich
+brauchen (Sicherung, Nachfolge, Swap-Adressen, Export), ausdrücklich über den
+`LocalSigner`; `sk` fällt aus `state.keypair` · f Anmelden per Bunker.
+
+**Teil c:** `signiere(ev)` in `shell/state.ts` signiert über `state.signer`.
+32 Stellen der Form `signEvent(X, state.keypair.sk)` / `se(X, …)` in den Tabs
+und `app.ts` sind per Skript (Klammern gezählt, nur genau diese Form)
+umgeschrieben; die Typprüfung hat jede Stelle außerhalb von `async` gemeldet –
+dafür ist `buildJobEvent` (Agent) jetzt `async`, das Rennen mehrerer Provider
+nutzt `Promise.all`. `SessionClient` bekommt statt `keypair` einen `signer`
+(zwei Stellen), die SDK-Klassen in `client.ts` ebenso (zwei Stellen);
+`chat-zap.ts` signiert über `signiere` (eine Stelle). Nur die dadurch
+unbenutzten Importe (`signEvent`, `signEvent: se`, `toHex`, `schnorr`) sind
+entfernt, ältere unbenutzte bleiben.
+
+**Fehler nebenbei behoben:** `chat-zap.ts` las Absender und Schlüssel aus
+`window.state` – das gab es nie (der Name `state` ist dort der Zustand des
+Dialogs). Ein Zap brach deshalb beim Bau der Zap-Anfrage ab. Jetzt kommt der
+App-Zustand als `appState` aus `shell/state.ts`.
+
+**Zahlen:** `grep -rn "keypair.sk" packages/app/src | wc -l` 46 → 9; übrig sind
+nur Stellen, die den rohen Schlüssel wirklich brauchen oder die DMs (Teil d/e).
+
+**Tests:** app 192 → 194 – `SessionClient` signiert über den Signer (gültige
+Signatur, richtiger Pubkey) und trägt den Schlüssel in keiner Darstellung (vorher
+stand er als Zahlenobjekt `"sk":{"0":…}` darin). Klicktests Kommunikation,
+Agent (Senden ohne Netz), Währung/Earn und Settings: gleich wie die
+veröffentlichte Fassung.
+
+Endstand: protocol 964 grün (5 übersprungen) · node 161 grün · app 194 grün
+(+2) · 0 rot · check-wiring `--streng` 0 offen · innerHTML streng 0 unbewertet ·
+Smoke-Test bestanden.

@@ -7,7 +7,7 @@
 import { NostrEvent } from "@freedomstack/protocol";
 import { t } from "../../i18n.js";
 import { escapeHtml, pkShort } from "../../shell-logic.js";
-import { ensurePool, state } from "../state.js";
+import { ensurePool, signiere, state } from "../state.js";
 import { $, toast } from "../ui.js";
 
 /** Modelle im Netz anzeigen. */
@@ -60,10 +60,10 @@ export async function kuendigeModellAn(): Promise<void> {
   }
 
   try {
-    const { buildModelManifest, signEvent: se } = await import("@freedomstack/protocol");
-    await (await ensurePool()).publish(se(buildModelManifest({
+    const { buildModelManifest } = await import("@freedomstack/protocol");
+    await (await ensurePool()).publish(await signiere(buildModelManifest({
       modelId: id.trim(), name: id.trim(), files, publisherPubkey: state.keypair.pk,
-    } as never), state.keypair.sk));
+    } as never)));
     toast(`${files.length} Datei(en) angekündigt`);
     void zeigeModelle();
   } catch (e) {
@@ -79,7 +79,7 @@ export async function haltevorModell(): Promise<void> {
   const dateien = prompt("Welche Dateien? (kommagetrennt, leer = alle)") ?? "";
 
   try {
-    const { buildModelSeed, signEvent: se, buildRegistry, KIND_MODEL_MANIFEST } =
+    const { buildModelSeed, buildRegistry, KIND_MODEL_MANIFEST } =
       await import("@freedomstack/protocol");
     const pool = await ensurePool();
 
@@ -96,9 +96,9 @@ export async function haltevorModell(): Promise<void> {
       liste = m.manifest.files.map((f) => f.name);
     }
 
-    await pool.publish(se(buildModelSeed(
+    await pool.publish(await signiere(buildModelSeed(
       id.trim(), state.keypair.pk, liste,
-      localStorage.getItem("freedom.region") ?? undefined), state.keypair.sk));
+      localStorage.getItem("freedom.region") ?? undefined)));
     toast(`${liste.length} Datei(en) gemeldet`);
     void zeigeModelle();
   } catch (e) {

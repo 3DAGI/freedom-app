@@ -11,11 +11,17 @@ import {
   generatePreimage,
   hashlock,
   parseLpOffer,
-  signEvent,
   toHex,
 } from "@freedomstack/protocol";
 import { escapeHtml, pkShort } from "../../shell-logic.js";
-import { KIND_SWAP_REQUEST, KIND_SWAP_RESPONSE, ensurePool, solRpcUrl, state } from "../state.js";
+import {
+  ensurePool,
+  KIND_SWAP_REQUEST,
+  KIND_SWAP_RESPONSE,
+  signiere,
+  solRpcUrl,
+  state,
+} from "../state.js";
 import { geheim, verlangeTresor } from "../tresor.js";
 import { $, toast, updateSidebarBalances } from "../ui.js";
 import { updateBudgetBar } from "./agent.js";
@@ -162,8 +168,7 @@ async function startSwap(lpPubkey: string, offerId: string): Promise<void> {
       createdAt: Math.floor(Date.now() / 1000),
     });
 
-    const ev = signEvent(
-      buildEvent(
+    const ev = await signiere(buildEvent(
         state.keypair.pk,
         KIND_SWAP_REQUEST,
         [
@@ -174,9 +179,7 @@ async function startSwap(lpPubkey: string, offerId: string): Promise<void> {
           ["solana_address", solAddr],
         ],
         "",
-      ),
-      state.keypair.sk,
-    );
+      ));
     await pool.publish(ev);
     toast("Swap-Request gesendet — warte auf Invoice…");
     void pollSwapResponse(ev.id, toHex(H), solAddr, amount);
@@ -612,9 +615,8 @@ export async function startDeposit(): Promise<void> {
 
     // Erst JETZT ankuendigen — das Geld liegt bereits auf der Kette.
     const pool = await ensurePool();
-    const { buildSolDepositOpen, signEvent: se } = await import("@freedomstack/protocol");
-    const ev = se(
-      buildSolDepositOpen({
+    const { buildSolDepositOpen } = await import("@freedomstack/protocol");
+    const ev = await signiere(buildSolDepositOpen({
         customerPubkey: state.keypair.pk,
         providerPubkey: providerPk,
         sessionId,
@@ -625,9 +627,7 @@ export async function startDeposit(): Promise<void> {
         refundLamports,
         timelockUnix: Math.floor(Date.now() / 1000) + 7200,
         maxLamportsPerKToken: 1000,
-      }),
-      state.keypair.sk,
-    );
+      }));
     await pool.publish(ev);
 
     activeDeposit = { sessionId, spendSwapId, refundSwapId };
@@ -768,7 +768,7 @@ function addZapButton(providerPubkey: string, eventId: string, amountMsat: numbe
       const { preimage } = await wallet.sendPayment(cbData.pr);
       status.textContent = `⚡ gezappt! ${Math.floor(amountMsat / 1000)} sats`;
       // Zap-Receipt publizieren (NIP-57)
-      const { buildZapReceipt, signEvent } = await import("@freedomstack/protocol");
+      const { buildZapReceipt } = await import("@freedomstack/protocol");
       const receipt = buildZapReceipt({
         zapperPubkey: state.keypair!.pk,
         recipientPubkey: providerPubkey,
@@ -777,7 +777,7 @@ function addZapButton(providerPubkey: string, eventId: string, amountMsat: numbe
         bolt11: cbData.pr,
         preimageHex: preimage,
       });
-      await pool.publish(signEvent(receipt, state.keypair!.sk));
+      await pool.publish(await signiere(receipt));
     } catch (e) {
       status.textContent = `fehler: ${(e as Error).message}`;
     } finally {

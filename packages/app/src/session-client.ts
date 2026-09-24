@@ -14,9 +14,8 @@
  * entscheidet selbst, wie viel Kredit er gibt (Betrugsrisiko = 1 Intervall).
  */
 import {
-  Keypair,
+  type Signer,
   OutboxPool,
-  signEvent,
   buildEvent,
   buildSessionOpen,
   buildSessionPayment,
@@ -31,7 +30,8 @@ import {
 } from "@freedomstack/protocol";
 
 export interface SessionClientConfig {
-  keypair: Keypair;
+  /** Signiert Session-Events – nie der rohe Schluessel (Schritt 1.3). */
+  signer: Signer;
   pool: OutboxPool;
   /** Standard-Budget pro Session in sats. */
   defaultBudgetSats: number;
@@ -69,7 +69,7 @@ export class SessionClient {
   constructor(private cfg: SessionClientConfig) {}
 
   private sessionIdFor(providerPubkey: string): string {
-    return `sess-${this.cfg.keypair.pk.slice(0, 8)}-${providerPubkey.slice(0, 8)}-${Math.floor(Date.now() / 1000)}`;
+    return `sess-${this.cfg.signer.publicKey().slice(0, 8)}-${providerPubkey.slice(0, 8)}-${Math.floor(Date.now() / 1000)}`;
   }
 
   /** Aktive Session zu einem Provider (oder null). */
@@ -89,9 +89,9 @@ export class SessionClient {
     budgetSats = this.cfg.defaultBudgetSats,
   ): Promise<ActiveSession> {
     const sessionId = this.sessionIdFor(providerPubkey);
-    const ev = signEvent(
+    const ev = await this.cfg.signer.signEvent(
       buildSessionOpen({
-        customerPubkey: this.cfg.keypair.pk,
+        customerPubkey: this.cfg.signer.publicKey(),
         providerPubkey,
         sessionId,
         maxTotalMsat: budgetSats * 1000,
@@ -99,7 +99,6 @@ export class SessionClient {
         settleEveryMsat: this.cfg.settleEverySats * 1000,
         ttlSecs: this.cfg.ttlSecs,
       }),
-      this.cfg.keypair.sk,
     );
     await this.cfg.pool.publish(ev);
     const session: ActiveSession = {
@@ -157,9 +156,9 @@ export class SessionClient {
     }
 
     const cumulativeMsat = session.paidMsat;
-    const payment = signEvent(
+    const payment = await this.cfg.signer.signEvent(
       buildSessionPayment({
-        customerPubkey: this.cfg.keypair.pk,
+        customerPubkey: this.cfg.signer.publicKey(),
         sessionId: session.open.sessionId,
         seq,
         cumulativeMsat,
@@ -167,7 +166,6 @@ export class SessionClient {
         refEventId: resultEventId,
         paymentRef,
       }),
-      this.cfg.keypair.sk,
     );
     await this.cfg.pool.publish(payment);
     session.payments.push(parseSessionPayment(payment));

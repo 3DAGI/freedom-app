@@ -7,7 +7,7 @@
 import { DEFAULT_CLIENT_FEE_PERCENT, MAX_CLIENT_FEE_PERCENT } from "@freedomstack/protocol";
 import { escapeHtml } from "../../shell-logic.js";
 import { zeigeDatenschutz } from "../datenschutz.js";
-import { ensurePool, state } from "../state.js";
+import { ensurePool, signiere, state } from "../state.js";
 import { tresorEingerichtet, wireTresorKarte } from "../tresor.js";
 import { $, ganzeZahl, toast } from "../ui.js";
 import { ladeAbdeckung, trageAbdeckungEin } from "./earn.js";
@@ -54,7 +54,7 @@ export async function zeigeNachfolge(): Promise<void> {
 export async function richteNachfolgeEin(): Promise<void> {
   if (!state.keypair) return;
   const {
-    successionWarning, splitSecret, secretHashOf, buildSuccessionPlan, signEvent: se, toHex: th,
+    successionWarning, splitSecret, secretHashOf, buildSuccessionPlan, toHex: th,
   } = await import("@freedomstack/protocol");
 
   const eingabe = prompt(
@@ -76,14 +76,14 @@ export async function richteNachfolgeEin(): Promise<void> {
     // Zweck aufheben: Wer die Uebertragung mitliest, hat sie alle.
     const teile = splitSecret(state.keypair.sk, guardians.length, threshold);
     const pool = await ensurePool();
-    await pool.publish(se(buildSuccessionPlan({
+    await pool.publish(await signiere(buildSuccessionPlan({
       ownerPubkey: state.keypair.pk,
       guardians,
       threshold,
       inactivityDays: 180,
       graceDays: 30,
       secretHash: secretHashOf(state.keypair.sk),
-    }), state.keypair.sk));
+    })));
 
     const text = teile.map((t, i) =>
       `Teil ${t.index} — fuer ${guardians[i]}\n${th(t.data)}\n`,
@@ -154,11 +154,11 @@ export async function zeigeSicherung(): Promise<void> {
 async function sichereZustand(): Promise<void> {
   if (!state.keypair) return;
   try {
-    const { deriveBackupKey, buildStateBackup, signEvent: se } =
+    const { deriveBackupKey, buildStateBackup } =
       await import("@freedomstack/protocol");
     const key = deriveBackupKey(state.keypair.sk);
     const r = await buildStateBackup(state.keypair.pk, key, sammleZustand());
-    await (await ensurePool()).publish(se(r.event as never, state.keypair.sk));
+    await (await ensurePool()).publish(await signiere(r.event as never));
 
     localStorage.setItem("freedom.backupAt", String(Math.floor(Date.now() / 1000)));
     localStorage.setItem("freedom.backupSize", String(r.sizeBytes));
@@ -209,14 +209,14 @@ async function stelleZustandWieder(): Promise<void> {
  */
 async function bereiteWechselVor(): Promise<void> {
   if (!state.keypair) return;
-  const { rotationWarning, buildRotationMandate, signEvent: se, generateKeypair, toHex: th } =
+  const { rotationWarning, buildRotationMandate, generateKeypair, toHex: th } =
     await import("@freedomstack/protocol");
 
   if (!confirm(rotationWarning())) return;
   try {
     const ersatz = generateKeypair();
     await (await ensurePool()).publish(
-      se(buildRotationMandate(state.keypair.pk, ersatz.pk), state.keypair.sk));
+      await signiere(buildRotationMandate(state.keypair.pk, ersatz.pk)));
 
     // Der Ersatz darf NICHT auf diesem Geraet bleiben — wer beides hat, ist du.
     const url = URL.createObjectURL(new Blob([
@@ -310,7 +310,7 @@ export async function zeigeGeraete(): Promise<void> {
 
 async function fuegeGeraetHinzu(): Promise<void> {
   if (!state.keypair) return;
-  const { defaultPermissions, deviceWarning, buildDeviceGrant, signEvent: se, generateKeypair, toHex: th } =
+  const { defaultPermissions, deviceWarning, buildDeviceGrant, generateKeypair, toHex: th } =
     await import("@freedomstack/protocol");
 
   const name = prompt("Wie heißt das Gerät? Zum Beispiel: Handy");
@@ -324,10 +324,10 @@ async function fuegeGeraetHinzu(): Promise<void> {
 
   try {
     const geraet = generateKeypair();
-    await (await ensurePool()).publish(se(buildDeviceGrant({
+    await (await ensurePool()).publish(await signiere(buildDeviceGrant({
       ownerPubkey: state.keypair.pk, devicePubkey: geraet.pk, label: name.trim(),
       permissions: perms, expiresAt: Math.floor(Date.now() / 1000) + tage * 86400,
-    }), state.keypair.sk));
+    })));
 
     prompt(
       "Diesen Schlüssel auf dem anderen Gerät eingeben.\n" +
@@ -345,9 +345,9 @@ async function entzieheGeraet(devicePk: string): Promise<void> {
   if (!confirm("Vollmacht entziehen?\n\nDer Entzug erreicht nur Clients, die ihn sehen. " +
     "Was das Gerät vorher geschrieben hat, bleibt gültig.")) return;
   try {
-    const { buildDeviceRevoke, signEvent: se } = await import("@freedomstack/protocol");
+    const { buildDeviceRevoke } = await import("@freedomstack/protocol");
     await (await ensurePool()).publish(
-      se(buildDeviceRevoke(state.keypair.pk, devicePk, "entzogen"), state.keypair.sk));
+      await signiere(buildDeviceRevoke(state.keypair.pk, devicePk, "entzogen")));
     toast("Entzogen");
     void zeigeGeraete();
   } catch (e) {
@@ -364,9 +364,8 @@ async function meldeFuerAnderen(): Promise<void> {
   if (!grund?.trim()) return;
 
   try {
-    const { buildRecoveryClaim, signEvent: se } = await import("@freedomstack/protocol");
-    await (await ensurePool()).publish(se(
-      buildRecoveryClaim(state.keypair.pk, wen.trim(), grund.trim()), state.keypair.sk));
+    const { buildRecoveryClaim } = await import("@freedomstack/protocol");
+    await (await ensurePool()).publish(await signiere(buildRecoveryClaim(state.keypair.pk, wen.trim(), grund.trim())));
     toast("Gemeldet — ein Lebenszeichen der Person bricht den Vorgang ab");
   } catch (e) {
     toast((e as Error).message, true);

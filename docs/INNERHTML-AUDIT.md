@@ -9,34 +9,34 @@ Nicht abgedeckt: andere Eingänge wie `href` oder `src`, die per Eigenschaft ges
 | Datei | Zeile | Ausdruck | Bewertung |
 |---|---|---|---|
 | `packages/app/src/offline-queue.ts` | 73 | `pending.length` | Länge eines lokalen Arrays (eigene Offline-Warteschlange) |
-| `packages/app/src/shell/app.ts` | 149 | `` woerter.map((w) => `<li>${escapeHtml(w)}</li>`).join("") `` | Callback liefert nur ein Template mit escapeHtml(w) |
-| `packages/app/src/shell/app.ts` | 156 | `` positionen.map((p) => `<label class="mono-sm">Nr. ${p + 1} <input data-pos="${p}" class="mono-sm" style="width:110px" au `` | Callback liefert nur ein Template; einzige Werte sind die Positionen p |
-| `packages/app/src/shell/app.ts` | 156 | `p` | Zahl: Position aus pickChallengePositions(), lokal erzeugt |
-| `packages/app/src/shell/app.ts` | 157 | `p` | Zahl: Position aus pickChallengePositions(), lokal erzeugt |
-| `packages/app/src/shell/app.ts` | 389 | `` (Zuweisung) LANGS.map( (l) => `<button type="button" data-lang="${l.code}" class="${l.code === getLang() ? "active" : ""}">${l.code. `` | Callback: Template aus der festen Sprachliste LANGS |
-| `packages/app/src/shell/app.ts` | 390 | `l.code` | feste Sprachliste LANGS (i18n.ts) |
-| `packages/app/src/shell/app.ts` | 390 | `l.code.toUpperCase()` | feste Sprachliste LANGS (i18n.ts) |
-| `packages/app/src/shell/app.ts` | 390 | `l.label` | feste Sprachliste LANGS (i18n.ts) |
-| `packages/app/src/shell/state.ts` | 151 | `` (Zuweisung) st.map((s) => { const name = escapeHtml(s.label ?? new URL(s.url).hostname); return s.available ? `<span class="ok">${na `` | Callback liefert nur Templates; Name und Fehlertext mit escapeHtml |
-| `packages/app/src/shell/state.ts` | 154 | `name` | name = escapeHtml(label oder hostname), eine Zeile darüber |
-| `packages/app/src/shell/state.ts` | 154 | `s.lastLatencyMs` | lokal gemessene Latenz in ms (rpc-pool.ts: Date.now() - start) |
-| `packages/app/src/shell/state.ts` | 155 | `name` | name = escapeHtml(label oder hostname) |
+| `packages/app/src/shell/app.ts` | 157 | `` woerter.map((w) => `<li>${escapeHtml(w)}</li>`).join("") `` | Callback liefert nur ein Template mit escapeHtml(w) |
+| `packages/app/src/shell/app.ts` | 164 | `` positionen.map((p) => `<label class="mono-sm">Nr. ${p + 1} <input data-pos="${p}" class="mono-sm" style="width:110px" au `` | Callback liefert nur ein Template; einzige Werte sind die Positionen p |
+| `packages/app/src/shell/app.ts` | 164 | `p` | Zahl: Position aus pickChallengePositions(), lokal erzeugt |
+| `packages/app/src/shell/app.ts` | 165 | `p` | Zahl: Position aus pickChallengePositions(), lokal erzeugt |
+| `packages/app/src/shell/app.ts` | 397 | `` (Zuweisung) LANGS.map( (l) => `<button type="button" data-lang="${l.code}" class="${l.code === getLang() ? "active" : ""}">${l.code. `` | Callback: Template aus der festen Sprachliste LANGS |
+| `packages/app/src/shell/app.ts` | 398 | `l.code` | feste Sprachliste LANGS (i18n.ts) |
+| `packages/app/src/shell/app.ts` | 398 | `l.code.toUpperCase()` | feste Sprachliste LANGS (i18n.ts) |
+| `packages/app/src/shell/app.ts` | 398 | `l.label` | feste Sprachliste LANGS (i18n.ts) |
+| `packages/app/src/shell/state.ts` | 161 | `` (Zuweisung) st.map((s) => { const name = escapeHtml(s.label ?? new URL(s.url).hostname); return s.available ? `<span class="ok">${na `` | Callback liefert nur Templates; Name und Fehlertext mit escapeHtml |
+| `packages/app/src/shell/state.ts` | 164 | `name` | name = escapeHtml(label oder hostname), eine Zeile darüber |
+| `packages/app/src/shell/state.ts` | 164 | `s.lastLatencyMs` | lokal gemessene Latenz in ms (rpc-pool.ts: Date.now() - start) |
+| `packages/app/src/shell/state.ts` | 165 | `name` | name = escapeHtml(label oder hostname) |
 | `packages/app/src/shell/tabs/agent-netz.ts` | 24 | `(Zuweisung) r.models.slice(0, 20).map((m) => { const cls = m.availability === "gut" ? "ok" : m.availability === "knapp" ? "warn" : "` | Callback liefert nur Templates; Name, Quantisierung, Hinweis mit escapeHtml |
 | `packages/app/src/shell/tabs/agent-netz.ts` | 28 | `cls` | feste Klassennamen ok/err/warn |
 | `packages/app/src/shell/tabs/agent-netz.ts` | 127 | `` (Zuweisung) sorted.map((ev) => { const name = ev.tags.find((t) => t[0] === "d")?.[1] ?? "?"; return `<div class="stat"><span class=" `` | Callback: Template mit escapeHtml(name), escapeHtml(pkShort(...)) und escapeHtml(blob) |
-| `packages/app/src/shell/tabs/agent.ts` | 95 | `entries.map(([m, info]) => { const sp = speedOf(m); const short = m.split(":")[0]; const satsPer1k = Math.ceil(info.pric` | Callback: Template mit escapeHtml(m) und escapeHtml(short); übrige Werte siehe folgende Zeilen |
-| `packages/app/src/shell/tabs/agent.ts` | 103 | `sp.cls` | fester Klassenname aus speedOf() |
-| `packages/app/src/shell/tabs/agent.ts` | 103 | `sp.label` | festes Label aus speedOf() |
-| `packages/app/src/shell/tabs/agent.ts` | 104 | `satsPer1k` | Math.ceil(...) – immer eine Zahl |
-| `packages/app/src/shell/tabs/agent.ts` | 104 | `solPer1k` | Zahl.toFixed(6) – nur Ziffern und Punkt |
-| `packages/app/src/shell/tabs/agent.ts` | 104 | `info.count` | lokal gezählt (Provider je Modell) |
-| `packages/app/src/shell/tabs/agent.ts` | 207 | `(Zuweisung) alle.map((v) => { const d = new Date(v.at * 1000); const gruppe = d.toDateString() === heute ? "Heute" : "Früher"; const` | Callback: Template mit escapeHtml(v.id) und escapeHtml(v.title); übrige Werte siehe folgende Zeilen |
-| `packages/app/src/shell/tabs/agent.ts` | 210 | `gruppe` | fest: Heute oder Früher |
-| `packages/app/src/shell/tabs/agent.ts` | 213 | `kopf` | Template mit dem festen Gruppennamen oder leer |
-| `packages/app/src/shell/tabs/agent.ts` | 213 | `aktiv` | fest: active oder leer |
-| `packages/app/src/shell/tabs/agent.ts` | 215 | `v.messages.length` | Länge des lokal gespeicherten Verlaufs |
-| `packages/app/src/shell/tabs/agent.ts` | 258 | `` (Zuweisung) tools.map((x) => `<div class="panel-row"> <span class="panel-check">${markSvgCheck()}</span> <span class="panel-name">${ `` | Callback: Template mit escapeHtml(x.name) und Math.floor |
-| `packages/app/src/shell/tabs/agent.ts` | 646 | `msgs.length` | Anzahl eigener Chat-Blasen (lokal) |
+| `packages/app/src/shell/tabs/agent.ts` | 101 | `entries.map(([m, info]) => { const sp = speedOf(m); const short = m.split(":")[0]; const satsPer1k = Math.ceil(info.pric` | Callback: Template mit escapeHtml(m) und escapeHtml(short); übrige Werte siehe folgende Zeilen |
+| `packages/app/src/shell/tabs/agent.ts` | 109 | `sp.cls` | fester Klassenname aus speedOf() |
+| `packages/app/src/shell/tabs/agent.ts` | 109 | `sp.label` | festes Label aus speedOf() |
+| `packages/app/src/shell/tabs/agent.ts` | 110 | `satsPer1k` | Math.ceil(...) – immer eine Zahl |
+| `packages/app/src/shell/tabs/agent.ts` | 110 | `solPer1k` | Zahl.toFixed(6) – nur Ziffern und Punkt |
+| `packages/app/src/shell/tabs/agent.ts` | 110 | `info.count` | lokal gezählt (Provider je Modell) |
+| `packages/app/src/shell/tabs/agent.ts` | 213 | `(Zuweisung) alle.map((v) => { const d = new Date(v.at * 1000); const gruppe = d.toDateString() === heute ? "Heute" : "Früher"; const` | Callback: Template mit escapeHtml(v.id) und escapeHtml(v.title); übrige Werte siehe folgende Zeilen |
+| `packages/app/src/shell/tabs/agent.ts` | 216 | `gruppe` | fest: Heute oder Früher |
+| `packages/app/src/shell/tabs/agent.ts` | 219 | `kopf` | Template mit dem festen Gruppennamen oder leer |
+| `packages/app/src/shell/tabs/agent.ts` | 219 | `aktiv` | fest: active oder leer |
+| `packages/app/src/shell/tabs/agent.ts` | 221 | `v.messages.length` | Länge des lokal gespeicherten Verlaufs |
+| `packages/app/src/shell/tabs/agent.ts` | 264 | `` (Zuweisung) tools.map((x) => `<div class="panel-row"> <span class="panel-check">${markSvgCheck()}</span> <span class="panel-name">${ `` | Callback: Template mit escapeHtml(x.name) und Math.floor |
+| `packages/app/src/shell/tabs/agent.ts` | 652 | `msgs.length` | Anzahl eigener Chat-Blasen (lokal) |
 | `packages/app/src/shell/tabs/agent.ts` | 940 | `whoLabel` | fest du, sonst agent plus escapeHtml(model) |
 | `packages/app/src/shell/tabs/agent.ts` | 941 | `body` | renderMarkdown(escapeHtml(text)) oder escapeHtml(text) |
 | `packages/app/src/shell/tabs/agent.ts` | 954 | `whoLabel` | agent plus escapeHtml(model) |
@@ -94,14 +94,14 @@ Nicht abgedeckt: andere Eingänge wie `href` oder `src`, die per Eigenschaft ges
 | `packages/app/src/shell/tabs/settings.ts` | 45 | `cls` | feste Klassennamen ok/warn/err |
 | `packages/app/src/shell/tabs/settings.ts` | 293 | `` (Zuweisung) d.map((x) => { const cls = x.status === "aktiv" ? "ok" : x.status === "abgelaufen" ? "warn" : "muted"; return `<div clas `` | Callback: Templates mit escapeHtml(label, status, devicePubkey) |
 | `packages/app/src/shell/tabs/settings.ts` | 296 | `cls` | feste Klassennamen ok/warn/muted |
-| `packages/app/src/shell/tabs/settings.ts` | 549 | `` (Zuweisung) offlineCapabilities(link).map((f) => `<div class="usage-row"><span>${f.works ? "✓" : "✕"} ${escapeHtml(f.feature)}</span `` | Callback: Template mit escapeHtml; Haken/Kreuz fest |
-| `packages/app/src/shell/tabs/settings.ts` | 561 | `` (Zuweisung) p.map((m) => `${escapeHtml(m.label)} — ${m.framesLeft} Pakete offen`).join("<br>") `` | Callback: Template mit escapeHtml(m.label) und lokalem Zähler |
-| `packages/app/src/shell/tabs/settings.ts` | 561 | `m.framesLeft` | lokaler Zähler der eigenen Mesh-Warteschlange |
-| `packages/app/src/shell/tabs/settings.ts` | 675 | `cls` | feste Klassennamen ok/err/warn |
-| `packages/app/src/shell/tabs/settings.ts` | 680 | `quellen.map((q) => escapeHtml(q)).join(", ")` | jede Quelle mit escapeHtml |
-| `packages/app/src/shell/tabs/waehrung.ts` | 68 | `` (Zuweisung) valid .map( ({ ev, offer }) => ` <div class="stat"> <span class="k">${escapeHtml(pkShort(ev.pubkey))} · ${Number(offer.m `` | Callback: Template mit escapeHtml und Number(...) |
-| `packages/app/src/shell/tabs/waehrung.ts` | 72 | `(Number(offer.feePpm) / 100).toFixed(1)` | Number(...).toFixed(1) – nur Ziffern und Punkt |
-| `packages/app/src/shell/tabs/waehrung.ts` | 261 | `(Zuweisung) verdict.problems.map((p) => escapeHtml(p)).join("<br>")` | jede Zeile mit escapeHtml |
+| `packages/app/src/shell/tabs/settings.ts` | 548 | `` (Zuweisung) offlineCapabilities(link).map((f) => `<div class="usage-row"><span>${f.works ? "✓" : "✕"} ${escapeHtml(f.feature)}</span `` | Callback: Template mit escapeHtml; Haken/Kreuz fest |
+| `packages/app/src/shell/tabs/settings.ts` | 560 | `` (Zuweisung) p.map((m) => `${escapeHtml(m.label)} — ${m.framesLeft} Pakete offen`).join("<br>") `` | Callback: Template mit escapeHtml(m.label) und lokalem Zähler |
+| `packages/app/src/shell/tabs/settings.ts` | 560 | `m.framesLeft` | lokaler Zähler der eigenen Mesh-Warteschlange |
+| `packages/app/src/shell/tabs/settings.ts` | 674 | `cls` | feste Klassennamen ok/err/warn |
+| `packages/app/src/shell/tabs/settings.ts` | 679 | `quellen.map((q) => escapeHtml(q)).join(", ")` | jede Quelle mit escapeHtml |
+| `packages/app/src/shell/tabs/waehrung.ts` | 74 | `` (Zuweisung) valid .map( ({ ev, offer }) => ` <div class="stat"> <span class="k">${escapeHtml(pkShort(ev.pubkey))} · ${Number(offer.m `` | Callback: Template mit escapeHtml und Number(...) |
+| `packages/app/src/shell/tabs/waehrung.ts` | 78 | `(Number(offer.feePpm) / 100).toFixed(1)` | Number(...).toFixed(1) – nur Ziffern und Punkt |
+| `packages/app/src/shell/tabs/waehrung.ts` | 264 | `(Zuweisung) verdict.problems.map((p) => escapeHtml(p)).join("<br>")` | jede Zeile mit escapeHtml |
 | `packages/app/src/shell/tabs/waehrung.ts` | 637 | `new Date((Math.floor(Date.now() / 1000) + 7200) * 1000).toLocaleTimeString("de-DE")` | lokal berechnete Uhrzeit |
 | `packages/app/src/shell/tabs/waehrung.ts` | 670 | `restMin` | Math.ceil(...) – Zahl |
 | `packages/app/src/shell/tabs/waehrung.ts` | 692 | `res.refunded.length` | Länge eines Arrays aus dem eigenen Refund-Ergebnis |
