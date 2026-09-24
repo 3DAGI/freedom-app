@@ -15,6 +15,8 @@
  * - `LocalSigner`: der Schluessel liegt lokal (in der App aus dem Tresor). Er
  *   steckt in einem privaten Klassenfeld – `JSON.stringify`, Objekt-Spread
  *   und das Auflisten der Felder zeigen ihn nicht.
+ * - `LocalSigner.mitSchluessel()`: der einzige Weg an den rohen Schluessel, fuer
+ *   das, was nur mit ihm geht (Sicherung, Nachfolge, Swap-Adressen, Export).
  */
 import { NostrEvent, UnsignedEvent, keypairFromSecret, signEvent } from "./event.js";
 import { decryptDM, encryptDM } from "./dm.js";
@@ -70,6 +72,29 @@ export class LocalSigner implements Signer {
   async nip44Decrypt(peerPk: string, payload: string): Promise<string> {
     pruefePeer(peerPk);
     return decryptDM(payload, this.#sk, peerPk);
+  }
+
+  /**
+   * Den rohen Schluessel fuer genau eine Rechnung leihen – nur fuer das, was
+   * ohne ihn nicht geht: Ableitungen (Sicherung, Swap-Adressen), Shamir-Teile
+   * fuer die Nachfolge, Export durch den Nutzer. Ein entfernter Signer kann
+   * das grundsaetzlich nicht; darum steht es nicht in der Schnittstelle.
+   *
+   * `fn` bekommt eine Kopie, die danach mit Nullen ueberschrieben wird – was
+   * `fn` sich merkt, ist wertlos. Darum nur synchron: Bei einem Promise waere
+   * die Kopie beim Weiterlaufen schon geloescht.
+   */
+  mitSchluessel<T>(fn: (sk: Uint8Array) => T): T {
+    const kopie = Uint8Array.from(this.#sk);
+    try {
+      const ergebnis = fn(kopie);
+      if (typeof (ergebnis as { then?: unknown } | null)?.then === "function") {
+        throw new Error("mitSchluessel: nur synchrone Rechnungen");
+      }
+      return ergebnis;
+    } finally {
+      kopie.fill(0);
+    }
   }
 
   /** Nichts Geheimes in Logs oder serialisierten Objekten. */

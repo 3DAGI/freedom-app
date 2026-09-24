@@ -7,6 +7,8 @@
  * - Browser-Seeding: IndexedDB haelt eigene Uploads + optional gesehene Chunks
  */
 
+import type { Signer } from "@freedomstack/protocol";
+
 const DB_NAME = "freedom-blobs";
 const STORE = "chunks";
 
@@ -53,19 +55,18 @@ export interface BlobUploadResult {
   manifestEventId: string;
 }
 
-/** Datei hochladen: chunked + erasure + als Events publizieren. */
+/** Datei hochladen: chunked + erasure + als Events publizieren – signiert ueber den Signer (1.3e). */
 export async function uploadBlob(
   file: File,
-  pool: { publish: (ev: unknown) => Promise<void> },
-  signer: { pk: string; sk: Uint8Array },
-  signEvent: (ev: unknown, sk: Uint8Array) => unknown,
+  pool: { publish: (ev: unknown) => Promise<unknown> },
+  signer: Signer,
 ): Promise<BlobUploadResult> {
   const { buildBlob } = await import("@freedomstack/protocol");
   const bytes = new Uint8Array(await file.arrayBuffer());
 
   const { manifestEvent, chunkEvents, manifest } = await buildBlob(
     { name: file.name, mime: file.type || "application/octet-stream", bytes },
-    signer.pk,
+    signer.publicKey(),
   );
 
   // eigene chunks zuerst cachen (wir seeden unsere eigenen uploads immer)
@@ -79,13 +80,13 @@ export async function uploadBlob(
   // chunks publizieren (in batches um relay-flood zu vermeiden)
   const BATCH = 4;
   for (let i = 0; i < chunkEvents.length; i += BATCH) {
-    await Promise.all(chunkEvents.slice(i, i + BATCH).map((ev) => pool.publish(signEvent(ev, signer.sk))));
+    await Promise.all(chunkEvents.slice(i, i + BATCH).map(async (ev) => pool.publish(await signer.signEvent(ev))));
   }
   // manifest zuletzt (entdeckt die datei erst wenn chunks verteilt sind)
-  const signedManifest = signEvent(manifestEvent, signer.sk);
+  const signedManifest = await signer.signEvent(manifestEvent);
   await pool.publish(signedManifest);
 
-  return { blobId: manifest.blobId, manifestEventId: (signedManifest as { id?: string }).id ?? "" };
+  return { blobId: manifest.blobId, manifestEventId: signedManifest.id };
 }
 
 /** Datei herunterladen: manifest -> shards aus cache+relay -> rekonstruieren. */

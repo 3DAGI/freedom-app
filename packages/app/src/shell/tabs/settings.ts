@@ -7,7 +7,7 @@
 import { DEFAULT_CLIENT_FEE_PERCENT, MAX_CLIENT_FEE_PERCENT } from "@freedomstack/protocol";
 import { escapeHtml } from "../../shell-logic.js";
 import { zeigeDatenschutz } from "../datenschutz.js";
-import { ensurePool, signiere, state } from "../state.js";
+import { ensurePool, mitRohemSchluessel, signiere, state } from "../state.js";
 import { tresorEingerichtet, wireTresorKarte } from "../tresor.js";
 import { $, ganzeZahl, toast } from "../ui.js";
 import { ladeAbdeckung, trageAbdeckungEin } from "./earn.js";
@@ -74,7 +74,9 @@ export async function richteNachfolgeEin(): Promise<void> {
     // Die Teile werden LOKAL erzeugt und muessen von Hand uebergeben werden.
     // Sie ueber das Netz zu schicken waere bequemer und wuerde den ganzen
     // Zweck aufheben: Wer die Uebertragung mitliest, hat sie alle.
-    const teile = splitSecret(state.keypair.sk, guardians.length, threshold);
+    const { teile, hash } = mitRohemSchluessel("Die Nachfolge", (sk) => ({
+      teile: splitSecret(sk, guardians.length, threshold), hash: secretHashOf(sk),
+    }));
     const pool = await ensurePool();
     await pool.publish(await signiere(buildSuccessionPlan({
       ownerPubkey: state.keypair.pk,
@@ -82,7 +84,7 @@ export async function richteNachfolgeEin(): Promise<void> {
       threshold,
       inactivityDays: 180,
       graceDays: 30,
-      secretHash: secretHashOf(state.keypair.sk),
+      secretHash: hash,
     })));
 
     const text = teile.map((t, i) =>
@@ -156,7 +158,7 @@ async function sichereZustand(): Promise<void> {
   try {
     const { deriveBackupKey, buildStateBackup } =
       await import("@freedomstack/protocol");
-    const key = deriveBackupKey(state.keypair.sk);
+    const key = mitRohemSchluessel("Die Sicherung", deriveBackupKey);
     const r = await buildStateBackup(state.keypair.pk, key, sammleZustand());
     await (await ensurePool()).publish(await signiere(r.event as never));
 
@@ -184,7 +186,7 @@ async function stelleZustandWieder(): Promise<void> {
       toast("Keine Sicherung gefunden", true);
       return;
     }
-    const r = await restoreStateBackup(neueste, deriveBackupKey(state.keypair.sk));
+    const r = await restoreStateBackup(neueste, mitRohemSchluessel("Die Wiederherstellung", deriveBackupKey));
     if (!r.ok || !r.data) {
       toast(r.message, true);
       return;

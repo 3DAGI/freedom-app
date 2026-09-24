@@ -4,7 +4,7 @@
  *
  * Aus app.ts verschoben (Schritt 1.0) – wörtlich, ohne Logikänderung.
  */
-import { NostrEvent, OutboxPool, WebSocketRelay, buildEvent, signEvent } from "@freedomstack/protocol";
+import { NostrEvent, OutboxPool, WebSocketRelay, buildEvent } from "@freedomstack/protocol";
 import {
   type ChatAttachment,
   escapeHtml,
@@ -458,7 +458,7 @@ export async function handleChatFiles(files: FileList | null): Promise<void> {
         try {
           const { uploadBlob } = await import("../../blob-client.js");
           const pool = await ensurePool();
-          const res = await uploadBlob(file, pool as never, state.keypair!, signEvent as never);
+          const res = await uploadBlob(file, pool as never, state.signer!);
           url = `freedom-blob:${res.blobId}`;
         } catch {
           setAttachStatus(listEl, `${file.name}: blossom-fallback…`);
@@ -754,7 +754,6 @@ async function ladeDmNachrichten(partner: string): Promise<DmAnzeige[]> {
   if (!state.keypair) return [];
   const me = state.keypair;
   const pool = await ensurePool();
-  const { decryptDM } = await import("@freedomstack/protocol");
   const [umschlaege, alt] = await Promise.all([
     pool.query({ kinds: [1059], "#p": [me.pk], limit: 500 }),
     pool.query({ kinds: [4], authors: [me.pk, partner], limit: 50 }),
@@ -771,7 +770,7 @@ async function ladeDmNachrichten(partner: string): Promise<DmAnzeige[]> {
     if (!betrifft || ergebnis.has(ev.id)) continue;
     let text: string;
     try {
-      text = await decryptDM(ev.content, me.sk, ev.pubkey === me.pk ? partner : ev.pubkey);
+      text = await state.signer!.nip44Decrypt(ev.pubkey === me.pk ? partner : ev.pubkey, ev.content);
     } catch {
       text = "[entschluesselung fehlgeschlagen]";
     }
@@ -823,7 +822,7 @@ async function syncDmInbox(): Promise<void> {
     const { KIND_DM_RELAYS, buildDmRelayList } = await import("@freedomstack/protocol");
     const eigene = await pool.query({ kinds: [KIND_DM_RELAYS], authors: [me.pk], limit: 1 });
     if (eigene.length === 0) {
-      await pool.publish(signEvent(buildDmRelayList(me.pk, RELAYS), me.sk)).catch(() => { /* offline */ });
+      await pool.publish(await signiere(buildDmRelayList(me.pk, RELAYS))).catch(() => { /* offline */ });
     }
     const umschlaege = await pool.query({ kinds: [1059], "#p": [me.pk], limit: 200 });
     let neu = 0;
