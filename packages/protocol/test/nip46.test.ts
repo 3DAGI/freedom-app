@@ -9,6 +9,7 @@ import { LocalSigner } from "../src/signer.js";
 import { MemoryRelay, type RelayFilter } from "../src/outbox.js";
 import { buildEvent, generateKeypair, getTag, signEvent, verifyEvent, type NostrEvent } from "../src/event.js";
 import { decryptDM } from "../src/dm.js";
+import { buildPrivateDm, openPrivateDm } from "../src/private-dm.js";
 
 type Verhalten = "ehrlich" | "anderesEvent" | "fremderAbsender" | "falscheId" | "fehler" | "authUrl" | "stumm" | "falschesSecret";
 
@@ -167,4 +168,19 @@ test("NIP-46: der Wegwerf-Schluessel taucht in keiner Darstellung auf", () => {
   const text = JSON.stringify(s) + JSON.stringify({ ...s }) + Object.keys(s).join();
   assert.ok(!text.includes(Buffer.from(client.sk).toString("hex")));
   assert.deepEqual(JSON.parse(JSON.stringify(s)), { type: "Nip46Signer", signer: b.bunker.pk, pubkey: null });
+});
+
+test("NIP-46 + NIP-17: Direktnachricht ueber den Bunker – ohne lokalen Schluessel", async () => {
+  const b = testBunker();
+  const s = new Nip46Signer(b.uri, { transport: b.transport, ...schnell });
+  await s.connect();
+  const bob = generateKeypair();
+  const out = await buildPrivateDm({ signer: s, recipientPk: bob.pk, content: "über den Bunker" });
+  const r = await openPrivateDm(out.toRecipient, bob.sk, bob.pk);
+  assert.equal(r.ok && r.dm.content, "über den Bunker");
+  assert.equal(r.ok && r.dm.from, b.nutzer.pk);
+  // Antwort von Bob, geoeffnet ueber den Bunker
+  const antwort = await buildPrivateDm({ senderSk: bob.sk, senderPk: bob.pk, recipientPk: b.nutzer.pk, content: "zurück" });
+  const r2 = await openPrivateDm(antwort.toRecipient, s);
+  assert.equal(r2.ok && r2.dm.content, "zurück");
 });

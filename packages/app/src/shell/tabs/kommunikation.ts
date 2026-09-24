@@ -731,9 +731,10 @@ const dmCache = new Map<string, { partner: string; ev: DmAnzeige } | null>();
 async function oeffneUmschlag(w: NostrEvent): Promise<{ partner: string; ev: DmAnzeige } | null> {
   const bekannt = dmCache.get(w.id);
   if (bekannt !== undefined) return bekannt;
-  if (!state.keypair) return null;
+  if (!state.signer) return null;
   const { openPrivateDm } = await import("@freedomstack/protocol");
-  const r = await openPrivateDm(w, state.keypair.sk, state.keypair.pk);
+  // Ueber den Signer (Schritt 1.3): Umschlag und Siegel entschluesselt er selbst.
+  const r = await openPrivateDm(w, state.signer);
   const e = r.ok
     ? {
         partner: r.dm.partner,
@@ -944,9 +945,9 @@ export async function sendChatMessage(): Promise<void> {
       const payload = chatAttachments.length > 0
         ? JSON.stringify({ text, attachments: chatAttachments })
         : text;
+      if (!state.signer) return;
       const dm = await buildPrivateDm({
-        senderSk: state.keypair.sk,
-        senderPk: state.keypair.pk,
+        signer: state.signer,
         recipientPk: c.id,
         content: payload,
       });

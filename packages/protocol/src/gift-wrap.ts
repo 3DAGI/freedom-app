@@ -38,7 +38,8 @@
  * verrät.
  */
 import { NostrEvent, UnsignedEvent, buildEvent, getTag, generateKeypair, signEvent, verifyEvent } from "./event.js";
-import { encryptDM, decryptDM } from "./dm.js";
+import { encryptDM } from "./dm.js";
+import { LocalSigner, type Signer } from "./signer.js";
 
 /** Das Siegel: Absender bekannt, nur für den Empfänger sichtbar. */
 export const KIND_SEAL = 13;
@@ -81,14 +82,30 @@ export async function giftWrap(
   recipientPk: string,
   opts: GiftWrapOptions = {},
 ): Promise<NostrEvent> {
+  const signer = new LocalSigner(senderSk);
+  if (signer.publicKey() !== senderPk) throw new Error("Absender-Pubkey passt nicht zum Schlüssel");
+  return giftWrapMitSigner(inner, signer, recipientPk, opts);
+}
+
+/**
+ * Wie giftWrap, aber der Absender signiert und verschluesselt ueber seinen
+ * Signer (Schritt 1.3) – der rohe Schluessel wird nicht gebraucht, ein
+ * entfernter Signer (NIP-46) funktioniert genauso.
+ */
+export async function giftWrapMitSigner(
+  inner: UnsignedEvent,
+  signer: Signer,
+  recipientPk: string,
+  opts: GiftWrapOptions = {},
+): Promise<NostrEvent> {
   const now = opts.nowSecs ?? Math.floor(Date.now() / 1000);
+  const senderPk = signer.publicKey();
 
   // 1. Kern verschlüsseln und versiegeln — signiert vom echten Absender.
   const kern = JSON.stringify({ ...inner, pubkey: senderPk, sig: undefined, id: undefined });
-  const siegelInhalt = await encryptDM(kern, senderSk, recipientPk);
-  const siegel = signEvent(
+  const siegelInhalt = await signer.nip44Encrypt(recipientPk, kern);
+  const siegel = await signer.signEvent(
     buildEvent(senderPk, KIND_SEAL, [], siegelInhalt, now - jitter(opts)),
-    senderSk,
   );
 
   // 2. Siegel verschlüsseln und mit einem Wegwerfschlüssel signieren.
@@ -128,13 +145,21 @@ export async function giftUnwrap(
   wrap: NostrEvent,
   recipientSk: Uint8Array,
 ): Promise<UnwrapResult> {
+  return giftUnwrapMitSigner(wrap, new LocalSigner(recipientSk));
+}
+
+/** Wie giftUnwrap, aber entschluesselt ueber den Signer des Empfaengers (Schritt 1.3). */
+export async function giftUnwrapMitSigner(
+  wrap: NostrEvent,
+  signer: Signer,
+): Promise<UnwrapResult> {
   if (wrap.kind !== KIND_GIFT_WRAP) {
     return { ok: false, message: "Kein Umschlag." };
   }
 
   let siegel: NostrEvent;
   try {
-    const roh = await decryptDM(wrap.content, recipientSk, wrap.pubkey);
+    const roh = await signer.nip44Decrypt(wrap.pubkey, wrap.content);
     siegel = JSON.parse(roh) as NostrEvent;
   } catch {
     return { ok: false, message: "Umschlag nicht für dich oder beschädigt." };
@@ -153,7 +178,7 @@ export async function giftUnwrap(
 
   let inner: UnsignedEvent;
   try {
-    const roh = await decryptDM(siegel.content, recipientSk, siegel.pubkey);
+    const roh = await signer.nip44Decrypt(siegel.pubkey, siegel.content);
     inner = JSON.parse(roh) as UnsignedEvent;
   } catch {
     return { ok: false, message: "Siegel nicht lesbar." };

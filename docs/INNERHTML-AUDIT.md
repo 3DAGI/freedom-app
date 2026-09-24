@@ -80,11 +80,11 @@ Nicht abgedeckt: andere Eingänge wie `href` oder `src`, die per Eigenschaft ges
 | `packages/app/src/shell/tabs/kommunikation.ts` | 186 | `modKnopf` | Template mit escapeHtml(m.id) und escapeHtml(m.authorPubkey) |
 | `packages/app/src/shell/tabs/kommunikation.ts` | 233 | `(Zuweisung) zeilen.join("")` | zeilen enthält nur Templates mit escapeHtml (direkt darüber gebaut) |
 | `packages/app/src/shell/tabs/kommunikation.ts` | 646 | `` (Zuweisung) conversations .sort((a, b) => b.lastTs - a.lastTs) .map( (c) => `<div class="chat-item ${c.id === activeConversation ? " `` | Callback: Template mit escapeHtml(c.id) und escapeHtml(c.name) |
-| `packages/app/src/shell/tabs/kommunikation.ts` | 879 | `(Zuweisung) decrypted .sort((a, b) => a.created_at - b.created_at) .map((ev) => { const mine = ev.pubkey === state.keypair!.pk; let` | Callback: Templates mit escapeHtml; alt, zapBtn, body, media siehe folgende Zeilen |
-| `packages/app/src/shell/tabs/kommunikation.ts` | 910 | `alt` | festes Markup oder leer |
-| `packages/app/src/shell/tabs/kommunikation.ts` | 910 | `zapBtn` | Template mit escapeHtml(ev.pubkey) und escapeHtml(pkShort(ev.pubkey)) |
-| `packages/app/src/shell/tabs/kommunikation.ts` | 910 | `body` | body = escapeHtml(text) |
-| `packages/app/src/shell/tabs/kommunikation.ts` | 910 | `media` | renderAttachment() maskiert Name und URL und erlaubt nur sichere Schemata (shell-logic.ts) |
+| `packages/app/src/shell/tabs/kommunikation.ts` | 880 | `(Zuweisung) decrypted .sort((a, b) => a.created_at - b.created_at) .map((ev) => { const mine = ev.pubkey === state.keypair!.pk; let` | Callback: Templates mit escapeHtml; alt, zapBtn, body, media siehe folgende Zeilen |
+| `packages/app/src/shell/tabs/kommunikation.ts` | 911 | `alt` | festes Markup oder leer |
+| `packages/app/src/shell/tabs/kommunikation.ts` | 911 | `zapBtn` | Template mit escapeHtml(ev.pubkey) und escapeHtml(pkShort(ev.pubkey)) |
+| `packages/app/src/shell/tabs/kommunikation.ts` | 911 | `body` | body = escapeHtml(text) |
+| `packages/app/src/shell/tabs/kommunikation.ts` | 911 | `media` | renderAttachment() maskiert Name und URL und erlaubt nur sichere Schemata (shell-logic.ts) |
 | `packages/app/src/shell/tabs/profil.ts` | 68 | `farbe` | aus der festen Tabelle ACCENT_HEX nach normalizeStyle() |
 | `packages/app/src/shell/tabs/profil.ts` | 70 | `avatar` | Template mit escapeHtml(bild) bzw. escapeHtml(Anfangsbuchstabe), direkt darüber gebaut |
 | `packages/app/src/shell/tabs/profil.ts` | 74 | `farbe` | aus der festen Tabelle ACCENT_HEX nach normalizeStyle() |
