@@ -11,7 +11,7 @@ Pull Request eintragen.
 3. ~~**0.B** innerHTML-Prüfung~~ – erledigt
 4. ~~**0.J** Event-Felder streng prüfen~~ – erledigt
 5. ~~**1.4** Verdrahtungsprüfung erweitern~~ – erledigt
-6. **1.0** `app.ts` aufteilen – in Arbeit, in fünf Teilen: a `state.ts`/`ui.ts` ✓, b Kommunikation ✓, c Agent, d Währung/Earn, e Profil/Settings/Datenschutz
+6. **1.0** `app.ts` aufteilen – in Arbeit, in fünf Teilen: a `state.ts`/`ui.ts` ✓, b Kommunikation ✓, c Agent ✓, d Währung/Earn, e Profil/Settings/Datenschutz
 7. **1.2**, **1.3**, Rest von **1.5**
 8. **3.1** bis **3.4** – private KI-Aufträge, die größte offene Datenschutzlücke (braucht kein MLS)
 9. **2.4**, **2.5**, dann **2.2a** (Entscheidung), **2.2b**, **2.3**
@@ -34,7 +34,7 @@ jederzeit parallel erledigen.
 | 0.H | Instabilen Knoten-Test reparieren | fertig | [#3](https://github.com/3DAGI/freedom-app/pull/3) | Ursache: Frist zweimal aus der Uhr berechnet; 120 Läufe am Stück grün |
 | 0.I | Veröffentlichung über GitHub Actions | fertig | [#1](https://github.com/3DAGI/freedom-app/pull/1), [#2](https://github.com/3DAGI/freedom-app/pull/2) | live seit 24.09. über `pages.yml`; Prüfsumme Datei = `freedom.html.sha256` = Startseite; Standard-Branch `main` |
 | 0.J | Event-Felder streng prüfen | fertig | [#6](https://github.com/3DAGI/freedom-app/pull/6) | Freigabe 24.09.; `verifyEvent()` prüft die Form nach NIP-01; dazu Hashlock-Prüfung im LP-Daemon |
-| 1.0 | app.ts aufteilen | in Arbeit | [#8](https://github.com/3DAGI/freedom-app/pull/8) (Teil a), #9 (Teil b) | a: `state.ts`, `ui.ts`; b: `tabs/kommunikation.ts`; `app.ts` 5.816 → 5.402 → 4.419 Zeilen |
+| 1.0 | app.ts aufteilen | in Arbeit | [#8](https://github.com/3DAGI/freedom-app/pull/8) (a), [#9](https://github.com/3DAGI/freedom-app/pull/9) (b), #10 (c) | a: `state.ts`, `ui.ts`; b: `tabs/kommunikation.ts`; c: `tabs/agent.ts`, `tabs/agent-netz.ts`; `app.ts` 5.816 → 5.402 → 4.419 → 2.927 Zeilen |
 | 1.1 | Ein Seed, getrennte Schlüssel (SLIP-10) | fertig |  | Baustein; MENSCH: Phantom-Abgleich; Verdrahtung mit 4.2 |
 | 1.2 | Verschlüsselter Speicher | offen |  |  |
 | 1.3 | Signer-Schnittstelle | offen |  |  |

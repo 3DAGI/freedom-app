@@ -1944,3 +1944,37 @@ mit gleichem Ergebnis, ohne Skriptfehler.
 Endstand: protocol 947 grün (5 übersprungen) · node 161 grün (6 übersprungen) ·
 app 167 grün · 0 rot · check-wiring `--streng` 0 offen (176 begründet) ·
 innerHTML streng 0 unbewertet · Smoke-Test bestanden.
+
+## 49. `app.ts` aufteilen, Teil c: Agent (Schritt 1.0)
+
+**Teil c:** 62 Deklarationen in zwei Dateien. `shell/tabs/agent.ts` (1.380 Zeilen):
+Aufträge stellen (`askAi`, Ausfallsicherung, Race, Schwarm, Video), Antworten,
+Belege, Reklamation, Zahlungsprüfung, Tipp-Anzeige, Modellwahl, lokaler Verlauf,
+Werkzeug-Chips und Anhang. `shell/tabs/agent-netz.ts` (162 Zeilen): die
+Unter-Reiter „Modelle“ und „Repos“. Die Teilung ist nötig, weil `agent.ts` mit
+beiden bei rund 1.530 Zeilen läge – über der Grenze der Karte. `app.ts`:
+4.419 → 2.927 Zeilen. `lastProviderModel` ist mit `handleAnswer` umgezogen, das
+die Variable schreibt.
+
+**Import-Kreis mit `app.ts`:** `handleAnswer` ruft Nachfolge, Onboarding,
+Abzeichen und Mitwirkende auf, eine Fehlermeldung `switchTab("wallet")`. Diese
+Funktionen liegen (noch) in `app.ts`. Harmlos, weil nur zur Laufzeit aufgerufen:
+Auf Modulebene ruft `agent.ts` nichts aus `app.ts` auf, und `boot()` läuft erst,
+wenn das ganze Bündel geladen ist (`build.mjs`: `window.freedomApp.boot()` am
+Ende). Mit Teil d und e fallen alle bis auf `switchTab` weg; `switchTab` ruft
+jeden Tab auf und bleibt in `app.ts`.
+
+**Nur Verschiebungen – belegt:** Alle 225 Deklarationen wörtlich in genau einer
+Datei; 22 haben ein `export` bekommen; keine neue. Als Menge unterscheiden sich
+die Zeilen nur in einem dynamischen Importpfad (`../blob-client.js` →
+`../../blob-client.js`). 28 innerHTML-Ausnahmen tragen den neuen Dateinamen,
+Begründungen unverändert.
+
+**Klicktest Agent (neu, im Scratchpad):** Beispiel übernehmen, Modellmenü,
+Werkzeug-Chips, Modelle und Repos laden, Senden ohne Netz, neue Aufgabe und
+Verlauf – veröffentlichte und neue Fassung mit gleichem Ergebnis, ohne
+Skriptfehler.
+
+Endstand: protocol 947 grün (5 übersprungen) · node 161 grün (6 übersprungen) ·
+app 167 grün · 0 rot · check-wiring `--streng` 0 offen (176 begründet) ·
+innerHTML streng 0 unbewertet · Smoke-Test bestanden.
