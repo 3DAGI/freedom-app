@@ -162,6 +162,7 @@ network-capacity.ts|extractStorageCaps|dezentrale Gratis-Schwelle, noch nicht an
 
 nwc.ts|formatNwcUri|NWC-Verbindungstext erzeugen, ohne Oberfläche (Lightning privat, 6.3)
 
+nostr-order.ts|offerMatches|Angebot gegen Betrag prüfen; der Import in app.ts war unbenutzt und fiel mit 1.0 weg (Swaps in beide Richtungen, 4.6)
 
 performance.ts|buildRewardPayout|Saison und Reward-Ausschüttung, hängt am Gebührenmodell (4.0, 5.1)
 performance.ts|buildSeasonDef|Saison und Reward-Ausschüttung, hängt am Gebührenmodell (4.0, 5.1)

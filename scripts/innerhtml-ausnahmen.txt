@@ -13,10 +13,10 @@ app.ts|woerter.map((w) => `<li>${escapeHtml(w)}</li>`).join("")|Callback liefert
 app.ts|positionen.map((p) => `<label class="mono-sm">Nr. ${p + 1} <input data-pos="${p}" class="mono-sm" style="width:110px" au|Callback liefert nur ein Template; einzige Werte sind die Positionen p
 app.ts|p|Zahl: Position aus pickChallengePositions(), lokal erzeugt
 app.ts|p|Zahl: Position aus pickChallengePositions(), lokal erzeugt
-app.ts|(Zuweisung) st.map((s) => { const name = escapeHtml(s.label ?? new URL(s.url).hostname); return s.available ? `<span class="ok">${na|Callback liefert nur Templates; Name und Fehlertext mit escapeHtml
-app.ts|name|name = escapeHtml(label oder hostname), eine Zeile darüber
-app.ts|s.lastLatencyMs|lokal gemessene Latenz in ms (rpc-pool.ts: Date.now() - start)
-app.ts|name|name = escapeHtml(label oder hostname)
+state.ts|(Zuweisung) st.map((s) => { const name = escapeHtml(s.label ?? new URL(s.url).hostname); return s.available ? `<span class="ok">${na|Callback liefert nur Templates; Name und Fehlertext mit escapeHtml
+state.ts|name|name = escapeHtml(label oder hostname), eine Zeile darüber
+state.ts|s.lastLatencyMs|lokal gemessene Latenz in ms (rpc-pool.ts: Date.now() - start)
+state.ts|name|name = escapeHtml(label oder hostname)
 app.ts|cls|feste Klassennamen ok/err/warn
 app.ts|(Zuweisung) r.models.slice(0, 20).map((m) => { const cls = m.availability === "gut" ? "ok" : m.availability === "knapp" ? "warn" : "|Callback liefert nur Templates; Name, Quantisierung, Hinweis mit escapeHtml
 app.ts|cls|feste Klassennamen ok/warn/err
@@ -57,8 +57,8 @@ app.ts|sp.label|festes Label aus speedOf()
 app.ts|satsPer1k|Math.ceil(...) – immer eine Zahl
 app.ts|solPer1k|Zahl.toFixed(6) – nur Ziffern und Punkt
 app.ts|info.count|lokal gezählt (Provider je Modell)
-app.ts|(Zuweisung) markSvg(18)|eigenes SVG mit fester Farbe
-app.ts|(Zuweisung) markSvg(30)|eigenes SVG mit fester Farbe
+ui.ts|(Zuweisung) markSvg(18)|eigenes SVG mit fester Farbe
+ui.ts|(Zuweisung) markSvg(30)|eigenes SVG mit fester Farbe
 app.ts|(Zuweisung) alle.map((v) => { const d = new Date(v.at * 1000); const gruppe = d.toDateString() === heute ? "Heute" : "Früher"; const|Callback: Template mit escapeHtml(v.id) und escapeHtml(v.title); übrige Werte siehe folgende Zeilen
 app.ts|gruppe|fest: Heute oder Früher
 app.ts|kopf|Template mit dem festen Gruppennamen oder leer
