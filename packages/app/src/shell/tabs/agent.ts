@@ -17,7 +17,6 @@ import {
   clientFeeTag,
   computeFeeSplit,
   parseJobResult,
-  signEvent,
 } from "@freedomstack/protocol";
 import { t } from "../../i18n.js";
 import { icon } from "../../icons.js";
@@ -25,7 +24,14 @@ import { DEFAULT_MAX_MODE, ScoredProvider, matchRaceProviders, maxModeSplit } fr
 import { SessionClient } from "../../session-client.js";
 import { escapeHtml, pkShort } from "../../shell-logic.js";
 import { switchTab, zeigeOnboarding } from "../app.js";
-import { KIND_DVM_RESULT, ensurePool, ensureSessionClient, findProviders, state } from "../state.js";
+import {
+  ensurePool,
+  ensureSessionClient,
+  findProviders,
+  KIND_DVM_RESULT,
+  signiere,
+  state,
+} from "../state.js";
 import { geheim } from "../tresor.js";
 import {
   $,
@@ -452,7 +458,7 @@ async function askWithFailover(prompt: string, bid: number, tier: "free" | "clas
     const target = targets[i];
     // erster Kandidat: hedge-fenster + restlaufzeit (browser-suche braucht zeit)
     const timeoutMs = i === 0 ? HEDGE_AFTER_MS + Math.min(280_000, 300_000 - HEDGE_AFTER_MS) : 120_000;
-    const ev = buildJobEvent(prompt, bid, tier, target, sc);
+    const ev = await buildJobEvent(prompt, bid, tier, target, sc);
     await pool.publish(ev);
     activeJobIds.add(ev.id);
 
@@ -562,12 +568,12 @@ async function askRace(prompt: string, bid: number, tier: "free" | "classic" | "
   toast(`max mode: ${racers.length} provider racen — gewinner ${Math.floor(split.winnerMsat / 1000)} sats, je verlierer ${Math.floor(split.loserMsatEach / 1000)}`);
 
   // Job an ALLE racer gleichzeitig (race-tag + p-tag pro provider)
-  const jobs = racers.map((r) => {
-    const ev = buildJobEvent(prompt, bid, tier, r.caps.pubkey, sc);
+  const jobs = await Promise.all(racers.map(async (r) => {
+    const ev = await buildJobEvent(prompt, bid, tier, r.caps.pubkey, sc);
     ev.tags.push(["race", "1"]);
     // re-sign wegen neuem tag
-    return signEvent({ pubkey: ev.pubkey, kind: ev.kind, tags: ev.tags, content: ev.content, created_at: ev.created_at }, state.keypair!.sk);
-  });
+    return await signiere({ pubkey: ev.pubkey, kind: ev.kind, tags: ev.tags, content: ev.content, created_at: ev.created_at });
+  }));
   for (const j of jobs) await pool.publish(j);
 
   // Erste Antwort gewinnt
@@ -609,7 +615,7 @@ async function askSwarm(prompt: string, bid: number, tier: "free" | "classic" | 
   }
 
   toast(`swarm: beide modelle (nemotron + qwen3.8:27b) denken parallel…`);
-  const ev = buildJobEvent(prompt, bid, tier, target, sc);
+  const ev = await buildJobEvent(prompt, bid, tier, target, sc);
   ev.tags.push(["swarm", "1"]); // Tag fuer swarm-modus im provider
   await pool.publish(ev);
   const answer = await waitForAnswer(ev.id, 120_000, target);
@@ -661,13 +667,13 @@ function hinweisKiOeffentlich(): void {
   }
 }
 
-function buildJobEvent(
+async function buildJobEvent(
   prompt: string,
   bid: number,
   tier: string,
   targetPubkey: string | null,
   sc: SessionClient,
-): import("@freedomstack/protocol").NostrEvent {
+): Promise<import("@freedomstack/protocol").NostrEvent> {
   hinweisKiOeffentlich();
   if (!state.keypair) throw new Error("no keypair");
   // Modellwechsel: Verlauf-Summary als Kontext-Praefix (KV-cache-Ersatz)
@@ -697,28 +703,22 @@ function buildJobEvent(
   }
   const useSession = targetPubkey && sc.activeFor(targetPubkey);
   if (useSession) {
-    return signEvent(
-      buildEvent(state.keypair.pk, KIND_DVM_TEXT_GENERATION, [
+    return await signiere(buildEvent(state.keypair.pk, KIND_DVM_TEXT_GENERATION, [
         ["i", fullPrompt, "text"],
         ...sc.jobTags(targetPubkey, bid * 1000),
         ["tier", tier],
         ["p", targetPubkey],
         ...extraTags,
-      ], ""),
-      state.keypair.sk,
-    );
+      ], ""));
   }
-  return signEvent(
-    buildJobRequest({
+  return await signiere(buildJobRequest({
       customerPubkey: state.keypair.pk,
       input: fullPrompt,
       bidMsat: bid * 1000,
       providerPubkey: targetPubkey ?? undefined,
       params: [["tier", tier]],
       extraTags,
-    }),
-    state.keypair.sk,
-  );
+    }));
 }
 
 /**
@@ -849,8 +849,8 @@ async function handleAnswer(ev: import("@freedomstack/protocol").NostrEvent, r: 
   const succBeat = $("#succ-heartbeat");
   if (succBeat) succBeat.onclick = async () => {
     if (!state.keypair) return;
-    const { buildHeartbeat, signEvent: se } = await import("@freedomstack/protocol");
-    await (await ensurePool()).publish(se(buildHeartbeat(state.keypair.pk), state.keypair.sk));
+    const { buildHeartbeat } = await import("@freedomstack/protocol");
+    await (await ensurePool()).publish(await signiere(buildHeartbeat(state.keypair.pk)));
     toast("Lebenszeichen gesendet — laufende Vorgänge sind abgebrochen");
     void zeigeNachfolge();
   };
@@ -991,7 +991,7 @@ async function reklamiere(
     toast("Ohne Bezug zur Antwort nicht reklamierbar", true);
     return;
   }
-  const { disputeInfo, buildDispute, disputeWindowOpen, signEvent: se } =
+  const { disputeInfo, buildDispute, disputeWindowOpen } =
     await import("@freedomstack/protocol");
 
   if (!confirm(disputeInfo())) return;
@@ -1014,10 +1014,10 @@ async function reklamiere(
       toast(w.message, true);
       return;
     }
-    await (await ensurePool()).publish(se(buildDispute({
+    await (await ensurePool()).publish(await signiere(buildDispute({
       jobId, customerPubkey: state.keypair.pk, providerPubkey: providerPk,
       reason: art, amountMsat, note: prompt("Kurze Beschreibung (öffentlich):") ?? "",
-    }), state.keypair.sk));
+    })));
     toast(`Reklamiert. ${w.message}`);
   } catch (e) {
     toast((e as Error).message, true);

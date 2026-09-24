@@ -13,7 +13,7 @@ import {
   pkShort,
   renderAttachment,
 } from "../../shell-logic.js";
-import { RELAYS, ensurePool, state } from "../state.js";
+import { ensurePool, RELAYS, signiere, state } from "../state.js";
 import { geheim } from "../tresor.js";
 import { $, toast } from "../ui.js";
 
@@ -240,11 +240,11 @@ async function sendeRaumNachricht(): Promise<void> {
   const text = input.value.trim();
   input.value = "";
   try {
-    const { buildChannelMessage, signEvent: se } = await import("@freedomstack/protocol");
-    const ev = se(buildChannelMessage({
+    const { buildChannelMessage } = await import("@freedomstack/protocol");
+    const ev = await signiere(buildChannelMessage({
       authorPubkey: state.keypair.pk, spaceId: spacesUi.spaceId,
       channelId: spacesUi.channelId, content: text, mentions: [],
-    } as never), state.keypair.sk);
+    } as never));
     await (await ensurePool()).publish(ev);
     spacesUi.messages.push(ev);
     await oeffneKanal(spacesUi.channelId);
@@ -266,7 +266,7 @@ async function legeRaumAn(): Promise<void> {
   const name = prompt("Name des Raums:");
   if (!name?.trim()) return;
 
-  const { buildSpace, buildRoles, signEvent: se } = await import("@freedomstack/protocol");
+  const { buildSpace, buildRoles } = await import("@freedomstack/protocol");
   const spaceId = `${name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 24)}-${Math.random().toString(36).slice(2, 8)}`;
 
   try {
@@ -274,20 +274,20 @@ async function legeRaumAn(): Promise<void> {
     // Zwei Kanaele als Grundausstattung: einer fuer alle, einer nur fuer
     // Moderatoren. Ein Raum mit einem einzigen Kanal laedt niemanden ein,
     // Struktur zu bauen.
-    await pool.publish(se(buildSpace({
+    await pool.publish(await signiere(buildSpace({
       spaceId, name: name.trim(), ownerPubkey: state.keypair.pk,
       channels: [
         { id: "allgemein", name: "allgemein", privacy: "offen", writeRoles: [], position: 0 },
         { id: "ankuendigungen", name: "ankündigungen", privacy: "offen", writeRoles: ["mod"], position: 1 },
       ],
-    } as never), state.keypair.sk));
+    } as never)));
 
-    await pool.publish(se(buildRoles(spaceId, state.keypair.pk, [
+    await pool.publish(await signiere(buildRoles(spaceId, state.keypair.pk, [
       { id: "mod", name: "Moderator", rank: 50,
         permissions: ["lesen", "schreiben", "threads", "moderieren", "rollen_vergeben"] },
       { id: "mitglied", name: "Mitglied", rank: 10,
         permissions: ["lesen", "schreiben", "threads"] },
-    ] as never), state.keypair.sk));
+    ] as never)));
 
     raumBeitreten(spaceId);
     await oeffneRaum(spaceId);
@@ -308,7 +308,7 @@ async function legeRaumAn(): Promise<void> {
 async function moderiere(aktion: "hide" | "ban" | "grant", ziel: string): Promise<void> {
   if (!state.keypair || !spacesUi.spaceId) return;
   const st = spacesUi.state as never;
-  const { can, buildHide, buildBan, buildRoleGrant, signEvent: se } =
+  const { can, buildHide, buildBan, buildRoleGrant } =
     await import("@freedomstack/protocol");
 
   const darf = aktion === "grant"
@@ -324,8 +324,8 @@ async function moderiere(aktion: "hide" | "ban" | "grant", ziel: string): Promis
     if (aktion === "grant") {
       const rolle = prompt("Welche Rolle? (mod / mitglied)", "mitglied");
       if (!rolle) return;
-      await pool.publish(se(buildRoleGrant(
-        spacesUi.spaceId, state.keypair.pk, ziel, [rolle.trim()]), state.keypair.sk));
+      await pool.publish(await signiere(buildRoleGrant(
+        spacesUi.spaceId, state.keypair.pk, ziel, [rolle.trim()])));
       toast("Rolle vergeben");
     } else {
       // Ohne Begruendung wirkt Moderation willkuerlich — und wird es meist auch.
@@ -337,7 +337,7 @@ async function moderiere(aktion: "hide" | "ban" | "grant", ziel: string): Promis
       const ev = aktion === "hide"
         ? buildHide(spacesUi.spaceId, state.keypair.pk, ziel, grund.trim())
         : buildBan(spacesUi.spaceId, state.keypair.pk, ziel, grund.trim());
-      await pool.publish(se(ev, state.keypair.sk));
+      await pool.publish(await signiere(ev));
       toast(aktion === "hide" ? "Nachricht ausgeblendet" : "Absender gesperrt");
     }
     await oeffneRaum(spacesUi.spaceId);
@@ -371,9 +371,9 @@ async function ernenneModeratoren(): Promise<void> {
   );
 
   try {
-    const { buildModeratorList, signEvent: se } = await import("@freedomstack/protocol");
-    await (await ensurePool()).publish(se(buildModeratorList(
-      spacesUi.spaceId, state.keypair.pk, mods, regeln ?? undefined), state.keypair.sk));
+    const { buildModeratorList } = await import("@freedomstack/protocol");
+    await (await ensurePool()).publish(await signiere(buildModeratorList(
+      spacesUi.spaceId, state.keypair.pk, mods, regeln ?? undefined)));
     toast(`${mods.length} Moderator(en) benannt`);
     await oeffneRaum(spacesUi.spaceId);
   } catch (e) {
@@ -626,10 +626,10 @@ function setzePetname(pubkey: string, name: string, teilen = false): void {
   if (teilen && name.trim() && state.keypair) {
     void (async () => {
       try {
-        const { buildPetname, signEvent: se } = await import("@freedomstack/protocol");
-        await (await ensurePool()).publish(se(buildPetname({
+        const { buildPetname } = await import("@freedomstack/protocol");
+        await (await ensurePool()).publish(await signiere(buildPetname({
           byPubkey: state.keypair!.pk, forPubkey: pubkey, name: name.trim(),
-        }), state.keypair!.sk));
+        })));
       } catch { /* lokal gilt der Name trotzdem */ }
     })();
   }
@@ -954,7 +954,7 @@ export async function sendChatMessage(): Promise<void> {
       await pool.publish(dm.toSelf);
     } else {
       // Community: kind 42 mit h-tag (channel-id)
-      const ev = signEvent(buildEvent(state.keypair.pk, 42, [["h", c.id], ...imeta], text), state.keypair.sk);
+      const ev = await signiere(buildEvent(state.keypair.pk, 42, [["h", c.id], ...imeta], text));
       await pool.publish(ev);
     }
     input.value = "";

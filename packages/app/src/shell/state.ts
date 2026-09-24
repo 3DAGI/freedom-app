@@ -7,7 +7,7 @@
  *
  * Aus app.ts verschoben (Schritt 1.0) – woertlich, ohne Logikaenderung.
  */
-import { Keypair, LocalSigner, OutboxPool, type Signer, WebSocketRelay } from "@freedomstack/protocol";
+import { Keypair, LocalSigner, type NostrEvent, OutboxPool, type Signer, type UnsignedEvent, WebSocketRelay } from "@freedomstack/protocol";
 import { ScoredProvider, discoverProviders, matchProviders } from "../matchmaking.js";
 import { SessionClient } from "../session-client.js";
 import { escapeHtml } from "../shell-logic.js";
@@ -52,6 +52,16 @@ interface AppState {
 }
 
 export const state: AppState = { keypair: null, signer: null, pool: null, lud16: "", sessionClient: null, lastProvider: null, lastProviderSolAddress: null };
+
+/**
+ * Event signieren – ueber den Signer der Identitaet, nie mit dem rohen
+ * Schluessel (Schritt 1.3). So funktioniert derselbe Pfad spaeter auch mit
+ * einem entfernten Signer (NIP-46).
+ */
+export async function signiere(ev: UnsignedEvent): Promise<NostrEvent> {
+  if (!state.signer) throw new Error("Keine Identität – nichts zu signieren");
+  return state.signer.signEvent(ev);
+}
 
 /** Identitaet setzen: Schluessel und Signer immer gemeinsam (Schritt 1.3). */
 export function setzeIdentitaet(sk: Uint8Array): void {
@@ -247,9 +257,9 @@ async function entdeckeRelays(): Promise<void> {
 
 export function ensureSessionClient(): SessionClient {
   if (state.sessionClient) return state.sessionClient;
-  if (!state.keypair || !state.pool) throw new Error("Identitaet/Pool fehlt");
+  if (!state.signer || !state.pool) throw new Error("Identitaet/Pool fehlt");
   state.sessionClient = new SessionClient({
-    keypair: state.keypair,
+    signer: state.signer,
     pool: state.pool,
     defaultBudgetSats: 100,
     settleEverySats: 20,

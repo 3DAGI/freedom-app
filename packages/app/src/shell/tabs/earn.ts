@@ -4,11 +4,11 @@
  *
  * Aus app.ts verschoben (Schritt 1.0) – wörtlich, ohne Logikänderung.
  */
-import { KIND_PERFORMANCE, signEvent } from "@freedomstack/protocol";
+import { KIND_PERFORMANCE } from "@freedomstack/protocol";
 import { icon } from "../../icons.js";
 import { discoverProviders } from "../../matchmaking.js";
 import { escapeHtml, pkShort } from "../../shell-logic.js";
-import { ensurePool, state } from "../state.js";
+import { ensurePool, signiere, state } from "../state.js";
 import { $, timeAgo, toast } from "../ui.js";
 
 /** Mitwirkende am Projekt anzeigen. */
@@ -82,7 +82,7 @@ export async function ladeAbdeckung(): Promise<void> {
 /** Sich selbst eintragen — mit Aufklaerung vorher. */
 export async function trageAbdeckungEin(): Promise<void> {
   if (!state.keypair) return;
-  const { coverageConsentText, toCell, buildCoverageAnnouncement, signEvent: se } =
+  const { coverageConsentText, toCell, buildCoverageAnnouncement } =
     await import("@freedomstack/protocol");
 
   const art = prompt("Was trägst du ein? (funk / bluetooth)", "funk");
@@ -99,9 +99,9 @@ export async function trageAbdeckungEin(): Promise<void> {
       const cell = toCell(pos.coords.latitude, pos.coords.longitude, LAYER_CELL_DEGREES[layer]);
       localStorage.setItem("freedom.coverage.cell", JSON.stringify([pos.coords.latitude, pos.coords.longitude]));
       const pool = await ensurePool();
-      await pool.publish(se(buildCoverageAnnouncement({
+      await pool.publish(await signiere(buildCoverageAnnouncement({
         pubkey: state.keypair!.pk, layer, cell, region: "",
-      }), state.keypair!.sk));
+      })));
       toast("Eingetragen — jederzeit widerrufbar");
       void ladeAbdeckung();
     } catch (e) {
@@ -273,7 +273,7 @@ export async function submitRewardClaim(): Promise<void> {
       },
       state.keypair.pk,
     );
-    await pool.publish(signEvent(claim, state.keypair.sk));
+    await pool.publish(await signiere(claim));
     toast(`claim eingereicht: ${mine.length} jobs · ${Math.floor(volumeMsat / 1000)} sats`);
   } catch (e) {
     toast(`claim-fehler: ${(e as Error).message}`, true);
@@ -421,9 +421,9 @@ export async function publishReferralClaim(): Promise<void> {
   if (!referrer || referrer === state.keypair.pk) return;
 
   try {
-    const { buildReferralClaim, signEvent: se } = await import("@freedomstack/protocol");
+    const { buildReferralClaim } = await import("@freedomstack/protocol");
     const pool = await ensurePool();
-    await pool.publish(se(buildReferralClaim(state.keypair.pk, referrer), state.keypair.sk));
+    await pool.publish(await signiere(buildReferralClaim(state.keypair.pk, referrer)));
     localStorage.setItem("freedom.referrer.published", "1");
   } catch (e) {
     // Kein Abbruch: Der Claim wird beim naechsten Start erneut versucht.

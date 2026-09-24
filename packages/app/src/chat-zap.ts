@@ -9,6 +9,9 @@
  */
 
 import { escapeHtml } from "./shell-logic.js";
+// App-Zustand unter eigenem Namen: `state` ist hier der Zustand des Dialogs.
+// Vorher stand hier `window.state` – das gab es nie, der Zap brach ab.
+import { signiere, state as appState } from "./shell/state.js";
 
 export interface ZapDialogState {
   recipientPubkey: string;
@@ -104,10 +107,10 @@ async function sendZap(state: ZapDialogState, el: HTMLElement): Promise<void> {
       await wallet.connect();
 
       // NIP-57 Zap-Request bauen
-      const { buildZapRequest, signEvent } = await import("@freedomstack/protocol");
+      const { buildZapRequest } = await import("@freedomstack/protocol");
       const amountMsat = state.unit === "sats" ? state.amount * 1000 : state.amount * 1_000_000_000; // SOL -> lamports
       const zapReq = buildZapRequest({
-        senderPubkey: (window as unknown as { state: { keypair: { pk: string } } }).state.keypair.pk,
+        senderPubkey: appState.keypair!.pk,
         recipientPubkey: state.recipientPubkey,
         amountMsat,
         relays: ["wss://relay.damus.io", "wss://nos.lol", "wss://relay.nostr.band"],
@@ -146,13 +149,13 @@ async function sendZap(state: ZapDialogState, el: HTMLElement): Promise<void> {
       // Zap-Receipt publizieren (NIP-57)
       const { buildZapReceipt } = await import("@freedomstack/protocol");
       const receipt = buildZapReceipt({
-        zapperPubkey: (window as unknown as { state: { keypair: { pk: string } } }).state.keypair.pk,
+        zapperPubkey: appState.keypair!.pk,
         recipientPubkey: state.recipientPubkey,
         zapRequestJson: JSON.stringify(zapReq),
         bolt11: cbData.pr,
         preimageHex: preimage,
       });
-      await (pool as unknown as { publish: (ev: unknown) => Promise<void> }).publish(signEvent(receipt, (window as unknown as { state: { keypair: { sk: Uint8Array } } }).state.keypair.sk));
+      await (pool as unknown as { publish: (ev: unknown) => Promise<void> }).publish(await signiere(receipt));
 
       // Offline-Queue: falls Relay ausfaellt
       const { queueOfflineZap } = await import("./offline-queue.js");

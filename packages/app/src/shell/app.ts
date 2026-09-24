@@ -12,7 +12,15 @@ import { startHero } from "../hero.js";
 import { LANGS, Lang, detectLang, getLang, setLang, t } from "../i18n.js";
 import { escapeHtml, pkShort } from "../shell-logic.js";
 import { zeigeDatenschutz } from "./datenschutz.js";
-import { ensurePool, getOwnProviderFromUrl, setOwnProvider, setzeIdentitaet, state, wireRpcSetting } from "./state.js";
+import {
+  ensurePool,
+  getOwnProviderFromUrl,
+  setOwnProvider,
+  setzeIdentitaet,
+  signiere,
+  state,
+  wireRpcSetting,
+} from "./state.js";
 import { haltevorModell, kuendigeModellAn, loadGitRepos, setGitStatus, zeigeModelle } from "./tabs/agent-netz.js";
 import {
   askAi,
@@ -626,7 +634,7 @@ function starte(): void {
           { name, blobId: res.blobId, headSha: "local", branch: "main", message: `bundle ${file.name}`, version: Math.floor(Date.now() / 1000) },
           state.keypair.pk,
         );
-        await pool.publish(signEvent(ref, state.keypair.sk));
+        await pool.publish(await signiere(ref));
         toast(`${name} publiziert (${res.blobId.slice(0, 8)}…)`);
         loadGitRepos();
       } catch (e) {
@@ -674,8 +682,8 @@ function starte(): void {
   const succBeat = $("#succ-heartbeat");
   if (succBeat) succBeat.onclick = async () => {
     if (!state.keypair) return;
-    const { buildHeartbeat, signEvent: se } = await import("@freedomstack/protocol");
-    await (await ensurePool()).publish(se(buildHeartbeat(state.keypair.pk), state.keypair.sk));
+    const { buildHeartbeat } = await import("@freedomstack/protocol");
+    await (await ensurePool()).publish(await signiere(buildHeartbeat(state.keypair.pk)));
     toast("Lebenszeichen gesendet — laufende Vorgänge sind abgebrochen");
     void zeigeNachfolge();
   };
