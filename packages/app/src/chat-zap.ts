@@ -8,6 +8,8 @@
  * - Offline-Queue: falls Relay ausfaellt
  */
 
+import { escapeHtml } from "./shell-logic.js";
+
 export interface ZapDialogState {
   recipientPubkey: string;
   recipientName: string;
@@ -44,7 +46,7 @@ export function openZapDialog(recipientPubkey: string, recipientName: string): v
       <div class="zap-dialog-body">
         <div class="zap-field">
           <label>Empfaenger</label>
-          <div class="zap-recipient">${recipientName}</div>
+          <div class="zap-recipient">${escapeHtml(recipientName)}</div>
         </div>
         <div class="zap-field">
           <label>Betrag</label>

@@ -1736,3 +1736,55 @@ etwa jeder 20. rot).
 Endstand: protocol 929 grün (5 übersprungen) · node 160 grün (6 übersprungen;
 +1 neuer Negativtest) · app 167 grün · 0 rot · check-wiring, check-website ok ·
 Smoke-Test bestanden · App-Build unverändert (`ef5a0aec…`).
+
+
+## 44. innerHTML-Prüfung (Schritt 0.B)
+
+**Das Prüfskript sah nur einen Teil.** `scripts/check_innerhtml.py` las nach
+`innerHTML =` nur die erste Vorlage. Per `+` angehängte Vorlagen, beide Zweige
+einer Bedingung und Vorlagen in `.map()`-Rückgaben blieben ungeprüft –
+„0 Fundstellen“ hätte also nichts bedeutet. Jetzt zerlegt es die ganze rechte
+Seite in die Teile, die im HTML landen können (Verkettung, `? :`, `||`, `??`,
+`&&`, verschachtelte Vorlagen), überspringt Kommentare und zählt Vergleiche und
+Negationen als sicher. `pkShort()` gilt nicht mehr als sicher – es maskiert
+nicht. Eine Ausnahme deckt genau eine Stelle ab; ein zweites `${cls}` in
+derselben Datei wird wieder gemeldet. Selbsttest `scripts/test_check_innerhtml.py`
+(6 Fälle; gegen das alte Skript scheitern 5).
+
+**Ergebnis:** 66 Fundstellen vorher, mit dem neuen Skript 116. 12 Stellen
+abgesichert, 100 in `scripts/innerhtml-ausnahmen.txt` begründet (eigene
+Konstanten, lokal gezählte Zahlen, `Math.*`, schon maskierte Teile). Audit:
+`docs/INNERHTML-AUDIT.md`. CI (`ci.yml`) und Veröffentlichung (`pages.yml`)
+prüfen streng.
+
+**Abgesichert – von außen erreichbar:**
+- **Modellname des Providers** (`usage.model`, Ankündigungen) stand roh in der
+  Absenderzeile (`addAiMessage`, `addAiMessageStreaming`) und kam beim
+  Wiederherstellen eines Verlaufs erneut roh ins HTML. `sanitizeUsage()` entfernt
+  nur Steuerzeichen. Im Browser nachgewiesen: In der veröffentlichten Version
+  wird ein `<img>` im Modellnamen zu einem echten Element, jetzt zu Text. Die CSP
+  verhinderte Skripte, nicht eingeschleustes HTML.
+- **Unterhaltungs-ID im Attribut** `data-cid` der Chat-Liste und **Name im
+  Zap-Dialog**: Bei einer DM-Anfrage ist das der Absenderschlüssel aus dem
+  Siegel. Über den Befund unten vermutlich von jedem Fremden erreichbar (nicht
+  Ende-zu-Ende nachgestellt).
+- Schlüssel in der Repo-Liste (`pkShort` ohne Maskierung).
+
+**Abgesichert – Härtung:** Zahlen aus dem eigenen Nachfolgeplan (`ganzeZahl`),
+`work_type`/`units` aus eigenen Leistungs-Events, zwei Fehlermeldungen,
+Modellstufe, `meta`, Dateiname und Daten-URL der Anhang-Vorschau; `zeile()` in
+der Kosten-Blase maskiert jetzt selbst.
+
+**Neuer Befund, nicht behoben (Schritt 0.J):** `verifyEvent()` akzeptiert ein
+Event, dessen `pubkey` aus 64 gültigen Hex-Zeichen plus angehängtem Text
+besteht – `Buffer.from(h, "hex")` schneidet still ab, die Signatur prüft gegen
+den echten Schlüssel. Mit einem Wegwerf-Skript nachgewiesen. Die Lösung liegt im
+Signaturpfad; nach der STOPP-Regel nur mit Freigabe. Karte in `phase-0.md`.
+
+**Smoke-Test erweitert:** ein gespeicherter Verlauf mit HTML im Modellnamen und
+in `meta` wird geöffnet; bestanden nur, wenn beides als Text erscheint. Die
+veröffentlichte Version fällt damit durch, der neue Build besteht.
+
+Endstand: protocol 929 grün (5 übersprungen) · node 160 grün (6 übersprungen) ·
+app 167 grün · 0 rot · Selbsttest Prüfskript 6 grün · innerHTML streng: 0
+unbewertet · check-wiring, check-website ok · Smoke-Test bestanden.

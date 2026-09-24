@@ -36,7 +36,7 @@ cd packages/node     && npx tsc -p tsconfig.json --noEmit && npm test && cd ../.
 cd packages/app      && npx tsc -p tsconfig.json --noEmit && npm test && node build.mjs && cd ../..
 python3 scripts/check-wiring.py
 python3 scripts/check-website.py
-python3 scripts/check_innerhtml.py packages/app/src     # Fremddaten in innerHTML
+python3 scripts/check_innerhtml.py packages/app/src --ausnahmen scripts/innerhtml-ausnahmen.txt --streng
 python3 scripts/smoke_test.py packages/app/dist         # braucht playwright + chromium
 bash scripts/build-site.sh /tmp/site                     # Website bauen (Ziel wird gelöscht!)
 ```
@@ -91,7 +91,10 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
 - **CSP:** `build.mjs` erlaubt genau ein eingebettetes Skript (per Hash). Keine
   Inline-Handler, kein `eval`. WASM bräuchte `'wasm-unsafe-eval'` → vorher fragen.
 - **Fremddaten nie ungeprüft in `innerHTML`:** `escapeHtml()` für Text,
-  `ganzeZahl()` für Zahlen, sonst `textContent`. `scripts/check_innerhtml.py` hilft.
+  `ganzeZahl()` für Zahlen, sonst `textContent`. `scripts/check_innerhtml.py` prüft
+  jede HTML-Zuweisung streng (CI und `pages.yml`); neue sichere Stellen mit Begründung
+  in `scripts/innerhtml-ausnahmen.txt`, eine Zeile je Stelle – nie für Fremddaten.
+  `pkShort()` maskiert nicht: im HTML immer `escapeHtml(pkShort(…))`.
   Provider-Daten laufen durch `parseJobResult()` + `sanitizeUsage()`.
 - **Direktnachrichten nur nach NIP-17** (`buildPrivateDm`, Kind 1059). Nie Kind 4
   senden – `app/test/dm-verdrahtung.test.ts` prüft das.
