@@ -9,7 +9,7 @@ Pull Request eintragen.
 1. ~~2.1 veröffentlichen~~ – live seit 24.09.; Interop-Test ✅ (5/5 lib, UI lokal + public)
 2. ~~**0.H** instabilen Test reparieren~~ – erledigt
 3. ~~**0.B** innerHTML-Prüfung~~ – erledigt
-4. **0.J** Event-Felder streng prüfen – Befund aus 0.B, Sicherheit (MENSCH: Freigabe, Signaturpfad)
+4. ~~**0.J** Event-Felder streng prüfen~~ – erledigt
 5. **1.4** Verdrahtungsprüfung erweitern
 6. **1.0** `app.ts` aufteilen – macht alle weiteren Schritte kleiner und günstiger
 7. **1.2**, **1.3**, Rest von **1.5**
@@ -33,7 +33,7 @@ jederzeit parallel erledigen.
 | 0.G | Solana-Programm-ID abgleichen | offen |  | MENSCH: Entscheidung A/B |
 | 0.H | Instabilen Knoten-Test reparieren | fertig | [#3](https://github.com/3DAGI/freedom-app/pull/3) | Ursache: Frist zweimal aus der Uhr berechnet; 120 Läufe am Stück grün |
 | 0.I | Veröffentlichung über GitHub Actions | fertig | [#1](https://github.com/3DAGI/freedom-app/pull/1), [#2](https://github.com/3DAGI/freedom-app/pull/2) | live seit 24.09. über `pages.yml`; Prüfsumme Datei = `freedom.html.sha256` = Startseite; Standard-Branch `main` |
-| 0.J | Event-Felder streng prüfen | offen |  | Befund aus 0.B: `verifyEvent()` akzeptiert `pubkey` mit angehängtem Text; MENSCH: Freigabe (Signaturpfad) |
+| 0.J | Event-Felder streng prüfen | fertig | [#6](https://github.com/3DAGI/freedom-app/pull/6) | Freigabe 24.09.; `verifyEvent()` prüft die Form nach NIP-01; dazu Hashlock-Prüfung im LP-Daemon |
 | 1.0 | app.ts aufteilen | offen |  | früh erledigen – spart bei allen späteren Schritten |
 | 1.1 | Ein Seed, getrennte Schlüssel (SLIP-10) | fertig |  | Baustein; MENSCH: Phantom-Abgleich; Verdrahtung mit 4.2 |
 | 1.2 | Verschlüsselter Speicher | offen |  |  |

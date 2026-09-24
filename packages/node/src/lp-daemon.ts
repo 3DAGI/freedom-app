@@ -126,6 +126,10 @@ export class LpDaemon {
     const customerSol = getTag(req, "solana_address");
     if (offerId !== this.cfg.offer.offerId) throw new Error("fremdes Angebot");
     if (!hashlockHex || !customerSol) throw new Error("unvollstaendiger Request");
+    // Genau 32 Byte hex. fromHex() schneidet sonst still ab, und das Sperren
+    // fuellt mit Nullen auf: SOL laege unter einem Hash, dessen Preimage
+    // niemand kennt, bis zur Frist fest (Schritt 0.J).
+    if (!/^[0-9a-f]{64}$/i.test(hashlockHex)) throw new Error("Hashlock ungueltig (32 Byte hex erwartet)");
     if (amountSats < this.cfg.offer.minSats || amountSats > this.cfg.offer.maxSats) {
       throw new Error(`Betrag ausserhalb Angebot: ${amountSats}`);
     }
