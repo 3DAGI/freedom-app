@@ -2051,3 +2051,37 @@ alle Tabs im Browser anklicken, auf Desktop und Handy.
 Endstand: protocol 947 grün (5 übersprungen) · node 161 grün (6 übersprungen) ·
 app 167 grün · 0 rot · check-wiring `--streng` 0 offen (176 begründet) ·
 innerHTML streng 0 unbewertet · Smoke-Test bestanden.
+
+## 52. Tresor, Teil a: `vault.ts` (Schritt 1.2)
+
+**Aufteilung von 1.2** (zusammen deutlich über 400 Zeilen): a Tresor-Baustein
+mit Tests (dieser Teil) · b Start-Dialog (anlegen, entsperren, „Passphrase
+vergessen“ über die 12 Wörter) und der private Schlüssel `freedom.nsec` mit
+geprüfter Migration, dazu ein Speicher-Scan im Smoke-Test · c weitere
+Geheimnisse (NWC-URI, Swap-Geheimnisse, Chats, Agent- und Swap-Verlauf) ·
+d automatische Sperre nach 15 Minuten (einstellbar), Passkey mit PRF optional.
+
+**Teil a:** `packages/app/src/vault.ts` nach der Karte – `createVault`,
+`unlock`, `lock`, `get`, `set` (dazu `delete`, `keys`, `vaultExists`).
+PBKDF2-SHA256 mit 600.000 Iterationen und 16 Byte Salt, AES-GCM 256 mit neuer
+12-Byte-IV bei jedem Schreiben, ein Blob in IndexedDB. Der Kopf ist AAD. Nur
+WebCrypto, keine neue Abhängigkeit, kein WASM. Über die Karte hinaus, jeweils
+begründet: weniger als 600.000 Iterationen im Kopf werden abgelehnt, bevor
+abgeleitet wird (kein Herabstufen); `createVault` überschreibt nie einen
+vorhandenen Tresor; Passphrase mindestens 8 Zeichen und NFC-normalisiert;
+Schreibvorgänge laufen nacheinander.
+
+**Tests (12, neu in `app/test/vault.test.ts`):** Rundreise, falsche
+Passphrase, manipulierter Geheimtext und Tag, manipulierter Kopf, Herabstufen
+(gezählt: 0 Ableitungen), kaputte Blobs, Speicher-Scan (kein Schlüssel, keine
+NWC-URI, kein Schlüsselname, keine Passphrase im Blob), neue IV je Schreiben,
+gesperrt, Anlegen, gleichzeitiges Schreiben, NFC. Gegenproben: ohne
+Mindest-Iterationen, mit fester IV, mit Überschreiben, ohne NFC und mit
+ungeordnetem Schreiben wird jeweils ein Test rot.
+
+**Noch nicht verdrahtet** – das ist Teil b. Die Oberfläche und die Texte der App
+ändern sich in Teil a nicht.
+
+Endstand: protocol 947 grün (5 übersprungen) · node 161 grün (6 übersprungen) ·
+app 179 grün (+12) · 0 rot · check-wiring `--streng` 0 offen (176 begründet) ·
+innerHTML streng 0 unbewertet · Smoke-Test bestanden.
