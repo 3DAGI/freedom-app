@@ -7,17 +7,24 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 
-const app = readFileSync(new URL("../src/shell/app.ts", import.meta.url), "utf8");
+// Seit Schritt 1.0 ist app.ts auf mehrere Module verteilt (state.ts, ui.ts,
+// tabs/…). Geprueft wird deshalb die ganze Shell, nicht mehr nur app.ts.
+function shellDateien(dir: URL): string[] {
+  return readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
+    if (e.isDirectory()) return e.name === "shims" ? [] : shellDateien(new URL(`${e.name}/`, dir));
+    return e.name.endsWith(".ts") ? [readFileSync(new URL(e.name, dir), "utf8")] : [];
+  });
+}
+const app = shellDateien(new URL("../src/shell/", import.meta.url)).join("\n");
 
 function funktion(name: string): string {
   const start = app.indexOf(`async function ${name}(`);
   assert.ok(start >= 0, `Funktion ${name} nicht gefunden`);
-  const naechste = app.indexOf("\nasync function ", start + 10);
-  const naechste2 = app.indexOf("\nfunction ", start + 10);
-  const ende = Math.min(...[naechste, naechste2].filter((x) => x > 0));
-  return app.slice(start, ende);
+  // Ende: die naechste Funktion auf oberster Ebene, exportiert oder nicht
+  const rest = app.slice(start + 10).search(/\n(export )?(async )?function /);
+  return app.slice(start, rest < 0 ? undefined : start + 10 + rest);
 }
 
 test("sendChatMessage verschickt DMs nur per NIP-17", () => {
