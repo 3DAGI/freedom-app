@@ -7,7 +7,7 @@ Pull Request eintragen.
 ## Empfohlene Reihenfolge ab jetzt
 
 1. ~~2.1 veröffentlichen~~ – live seit 24.09.; offen nur noch der Interop-Test (MENSCH)
-2. **0.H** instabilen Test reparieren – damit jede weitere Prüfung verlässlich ist
+2. ~~**0.H** instabilen Test reparieren~~ – erledigt
 3. **0.B** innerHTML-Prüfung – Sicherheit
 4. **1.4** Verdrahtungsprüfung erweitern
 5. **1.0** `app.ts` aufteilen – macht alle weiteren Schritte kleiner und günstiger
@@ -30,7 +30,7 @@ jederzeit parallel erledigen.
 | 0.E | Wallet-Erweiterungen unter CSP | offen |  | MENSCH |
 | 0.F | Texte angleichen | offen |  | MENSCH: Firmenname, Marketing-Entwürfe |
 | 0.G | Solana-Programm-ID abgleichen | offen |  | MENSCH: Entscheidung A/B |
-| 0.H | Instabilen Knoten-Test reparieren | offen |  |  |
+| 0.H | Instabilen Knoten-Test reparieren | fertig | [#3](https://github.com/3DAGI/freedom-app/pull/3) | Ursache: Frist zweimal aus der Uhr berechnet; 120 Läufe am Stück grün |
 | 0.I | Veröffentlichung über GitHub Actions | fertig | [#1](https://github.com/3DAGI/freedom-app/pull/1), [#2](https://github.com/3DAGI/freedom-app/pull/2) | live seit 24.09. über `pages.yml`; Prüfsumme Datei = `freedom.html.sha256` = Startseite; Standard-Branch `main` |
 | 1.0 | app.ts aufteilen | offen |  | früh erledigen – spart bei allen späteren Schritten |
 | 1.1 | Ein Seed, getrennte Schlüssel (SLIP-10) | fertig |  | Baustein; MENSCH: Phantom-Abgleich; Verdrahtung mit 4.2 |

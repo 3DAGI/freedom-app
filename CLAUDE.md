@@ -41,8 +41,9 @@ python3 scripts/smoke_test.py packages/app/dist         # braucht playwright + c
 bash scripts/build-site.sh /tmp/site                     # Website bauen (Ziel wird gelöscht!)
 ```
 
-Stand 24.09.2026: protocol 929 grün (5 übersprungen), node 158 grün
-(7 übersprungen), app 167 grün.
+Stand 24.09.2026 (nach 0.H): protocol 929 grün (5 übersprungen), node 160 grün
+(6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
+in `tools.test.ts`), app 167 grün.
 
 ## Arbeitsweise
 
@@ -69,7 +70,7 @@ Stand 24.09.2026: protocol 929 grün (5 übersprungen), node 158 grün
 
 ## STOPP – anhalten und im Pull Request fragen, wenn
 
-- ein Test rot ist und die Ursache unklar ist (Ausnahme siehe Fallstricke: instabiler Test);
+- ein Test rot ist und die Ursache unklar ist;
 - eine MENSCH-Aufgabe dran ist (Schlüssel, Geld, Geräte, Entscheidungen, Konten);
 - kryptografische Parameter, Zeitschlossregeln, Gebührenberechnung, Borsh-Layouts,
   Event-Formate oder Ableitungspfade geändert werden müssten, ohne dass die Karte es verlangt;
@@ -99,8 +100,10 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
 - **Anchor-Fehler-Enum:** neue Varianten nur ANS ENDE – Fehlercodes dürfen sich nicht verschieben.
 - **Programm-ID ungeklärt:** Code nutzt `B6W19U…`, laut `DEPLOY.md` wurde nach
   `3UmRR…` deployt. Nicht ändern ohne MENSCH-Entscheidung (Schritt 0.G).
-- **Instabiler Test:** `packages/node/test/sol-deposit-job.test.ts` („Provider
-  verarbeitet Job gegen Deposit“) scheitert gelegentlich, auch ohne Änderungen.
-  Ist genau er rot: einmal wiederholen. Reparatur ist Schritt 0.H.
+- **Fristen in Tests nur einmal aus der Uhr berechnen:** Kette (Stub) und
+  Event bekommen dieselbe Konstante, nie zweimal `Date.now()`. Sonst ist der
+  Test rot, sobald dazwischen die Sekunde umspringt – so war
+  `sol-deposit-job.test.ts` bis Schritt 0.H instabil. Ein roter Test gilt seitdem
+  nie als Zufall.
 - **Solana-RPC:** Die App spricht standardmäßig Mainnet an; für Devnet-Tests in
   den Settings `https://api.devnet.solana.com` eintragen.

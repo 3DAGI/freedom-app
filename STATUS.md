@@ -1702,3 +1702,37 @@ App-Build. `DEPLOY.md` nennt die neue Prüfsumme und den einzigen
 Veröffentlichungsweg; `UEBERSICHT.md` führt 2.1 als live.
 
 Endstand: unverändert, keine Codeänderung (Zahlen im Bericht des Pull Requests).
+
+
+## 43. Instabilen Knoten-Test repariert (Schritt 0.H)
+
+**Symptom:** `node/test/sol-deposit-job.test.ts`, „Provider verarbeitet Job
+gegen Deposit, bietet SOL-Zahlung an“, war in 2 von 40 Läufen rot:
+`pollOnce()` verarbeitete 0 statt 1 Job. Protokoll des Providers dabei:
+„Das Event nennt einen späteren Timelock (…062) als die Kette (…061).“
+
+**Ursache – im Test, nicht im Code:** Der Test berechnete die Frist zweimal
+aus der Uhr (`Math.floor(Date.now() / 1000) + 7200`): einmal für die simulierte
+Kette, einmal für das Deposit-Event. Dazwischen liegen Schlüsselerzeugung und
+Provider-Aufbau. Sprang in dieser Zeit die Sekunde um, versprach das Event eine
+Sekunde mehr, als das HTLC hergab – und `verifyDepositOnChain()` lehnte ab.
+Das ist gewollt: Ein Event darf keine längere Frist versprechen als die Kette
+(`protocol/src/deposit-verify.ts`). Der Code bleibt unverändert.
+
+**Belegt:** Mit erzwungenem Sekundenwechsel zwischen beiden Berechnungen war der
+alte Test 5 von 5 Mal rot, der korrigierte 5 von 5 Mal grün (Wegwerf-Kopie,
+nicht eingecheckt).
+
+**Behoben:** Eine Frist-Konstante für Kette und Event. Neuer Negativtest auf
+Provider-Ebene: Ein Event mit nur einer Sekunde mehr Frist als die Kette wird
+abgelehnt, und es entsteht kein Ergebnis – genau der Fall, den der alte Test
+zufällig mitprüfte, jetzt mit Absicht. `CLAUDE.md`: Ausnahme „instabiler Test
+einmal wiederholen“ gestrichen, stattdessen die Regel „Fristen in Tests nur
+einmal aus der Uhr berechnen“.
+
+**Läufe:** 20 am Stück nach der Karte grün, dazu 100 weitere grün (vorher
+etwa jeder 20. rot).
+
+Endstand: protocol 929 grün (5 übersprungen) · node 160 grün (6 übersprungen;
++1 neuer Negativtest) · app 167 grün · 0 rot · check-wiring, check-website ok ·
+Smoke-Test bestanden · App-Build unverändert (`ef5a0aec…`).

@@ -60,7 +60,12 @@ class EchoBackend implements InferenceBackend {
 test("Solana-Deposit: Provider verarbeitet Job gegen Deposit, bietet SOL-Zahlung an", async () => {
   // Gedecktes HTLC auf der simulierten Kette: 0,04 SOL an den Provider,
   // Timelock zwei Stunden. Ohne das lehnt der Provider jetzt korrekt ab.
-  const restoreChain = stubChain("ProviderSoLAddr111", 40_000_000, Math.floor(Date.now() / 1000) + 7200);
+  //
+  // Eine Frist fuer Kette UND Event. Frueher wurde sie zweimal aus der Uhr
+  // berechnet; sprang dazwischen die Sekunde um, nannte das Event eine Sekunde
+  // mehr als die Kette, und der Provider lehnte zu Recht ab (Schritt 0.H).
+  const timelockUnix = Math.floor(Date.now() / 1000) + 7200;
+  const restoreChain = stubChain("ProviderSoLAddr111", 40_000_000, timelockUnix);
   try {
   const customer = generateKeypair();
   const providerKp = generateKeypair();
@@ -93,7 +98,7 @@ test("Solana-Deposit: Provider verarbeitet Job gegen Deposit, bietet SOL-Zahlung
         refundSwapId: "swap-refund-1",
         spendLamports: 40_000_000,
         refundLamports: 60_000_000,
-        timelockUnix: Math.floor(Date.now() / 1000) + 7200,
+        timelockUnix,
         maxLamportsPerKToken: 1000,
       }),
       customer.sk,
@@ -122,6 +127,64 @@ test("Solana-Deposit: Provider verarbeitet Job gegen Deposit, bietet SOL-Zahlung
   const parsed = parseJobResult(results[0]);
   assert.equal(parsed.solanaAddress, "ProviderSoLAddr111");
   assert.equal(parsed.amountLamports, 400);
+  } finally {
+    restoreChain();
+  }
+});
+
+test("Solana-Deposit: Event verspricht eine Sekunde mehr Frist als die Kette -> abgelehnt", async () => {
+  // Genau der Fall, an dem der Test oben frueher zufaellig scheiterte – hier
+  // mit Absicht: Das Event darf keine laengere Frist versprechen als das HTLC.
+  const timelockUnix = Math.floor(Date.now() / 1000) + 7200;
+  const restoreChain = stubChain("ProviderSoLAddr111", 40_000_000, timelockUnix);
+  try {
+    const customer = generateKeypair();
+    const providerKp = generateKeypair();
+    const pool = new OutboxPool([new MemoryRelay("mem://solspaet")], { minAcks: 1 });
+    const provider = new DvmProvider(
+      {
+        keypair: providerKp,
+        lud16: "p@x.cash",
+        solanaAddress: "ProviderSoLAddr111",
+        lamportsPerMsat: 0.2,
+        pricePerKTokenMsat: 1000,
+        minBidMsat: 100,
+        powDifficulty: 2,
+        seasonId: "sol",
+        solConnection: fakeConn,
+      },
+      pool,
+      new EchoBackend(),
+    );
+
+    await pool.publish(
+      signEvent(
+        buildSolDepositOpen({
+          customerPubkey: customer.pk,
+          providerPubkey: providerKp.pk,
+          sessionId: "sol-spaet",
+          totalLamports: 100_000_000,
+          spendSwapId: "swap-spend-2",
+          refundSwapId: "swap-refund-2",
+          spendLamports: 40_000_000,
+          refundLamports: 60_000_000,
+          timelockUnix: timelockUnix + 1,
+          maxLamportsPerKToken: 1000,
+        }),
+        customer.sk,
+      ),
+    );
+    await pool.publish(
+      signEvent(
+        buildEvent(customer.pk, KIND_DVM_TEXT_GENERATION, [["i", "hi", "text"], ["session", "sol-spaet"]], ""),
+        customer.sk,
+      ),
+    );
+
+    const processed = await provider.pollOnce();
+    assert.equal(processed.length, 0, "Deposit mit spaeterer Frist als die Kette abgelehnt");
+    const results = await pool.query({ kinds: [KIND_DVM_TEXT_RESULT] });
+    assert.equal(results.length, 0, "kein Ergebnis ohne gedecktes Deposit");
   } finally {
     restoreChain();
   }
