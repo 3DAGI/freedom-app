@@ -132,6 +132,58 @@ test("Solana-Deposit: Provider verarbeitet Job gegen Deposit, bietet SOL-Zahlung
   }
 });
 
+/** Deposit-Session und Job wie oben, mit frei waehlbarer Kurs-Einstellung. */
+async function depositJob(kurs: { solPriceSats?: number }, zaehler: { aufrufe: number }) {
+  const timelockUnix = Math.floor(Date.now() / 1000) + 7200;
+  const restoreChain = stubChain("ProviderSoLAddr111", 40_000_000, timelockUnix);
+  const customer = generateKeypair();
+  const providerKp = generateKeypair();
+  const pool = new OutboxPool([new MemoryRelay(`mem://soljob-${Math.random()}`)], { minAcks: 1 });
+  const backend = new EchoBackend();
+  const complete = backend.complete.bind(backend);
+  backend.complete = async (r) => { zaehler.aufrufe++; return complete(r); };
+  const provider = new DvmProvider(
+    { keypair: providerKp, lud16: "p@x.cash", solanaAddress: "ProviderSoLAddr111", ...kurs,
+      pricePerKTokenMsat: 1000, minBidMsat: 100, powDifficulty: 2, seasonId: "sol", solConnection: fakeConn },
+    pool, backend,
+  );
+  await pool.publish(signEvent(buildSolDepositOpen({
+    customerPubkey: customer.pk, providerPubkey: providerKp.pk, sessionId: "sol-sess-k",
+    totalLamports: 100_000_000, spendSwapId: "swap-spend-k", refundSwapId: "swap-refund-k",
+    spendLamports: 40_000_000, refundLamports: 60_000_000, timelockUnix, maxLamportsPerKToken: 1000,
+  }), customer.sk));
+  await pool.publish(signEvent(buildEvent(customer.pk, KIND_DVM_TEXT_GENERATION, [["i", "frage", "text"], ["session", "sol-sess-k"]], ""), customer.sk));
+  try {
+    const processed = await provider.pollOnce();
+    return { processed, pool };
+  } finally {
+    restoreChain();
+  }
+}
+
+test("Solana-Deposit: ohne SOL-Kurs abgelehnt, bevor gerechnet wird (Schritt 4.4)", async () => {
+  // Frueher galt still 0,2 Lamports/msat (5 Mio. sats pro SOL).
+  const zaehler = { aufrufe: 0 };
+  const { processed, pool } = await depositJob({}, zaehler);
+  assert.equal(processed.length, 0);
+  assert.equal(zaehler.aufrufe, 0, "keine Rechenzeit ohne Preis");
+  assert.equal((await pool.query({ kinds: [KIND_DVM_TEXT_RESULT] })).length, 0);
+  const fb = await pool.query({ kinds: [7000] });
+  assert.ok(fb.some((e) => /Kein SOL-Kurs/.test(e.content)), "Kunde erfaehrt den Grund");
+});
+
+test("Solana-Deposit: richtiger Kurs – der Deckel des Kunden (Lamports je 1k Tokens) greift", async () => {
+  // 1 SOL = 150.000 sats -> 6,67 Lamports/msat. Anbieterpreis 1000 msat/1k waeren
+  // 6.667 Lamports/1k; der Kunde erlaubt hoechstens 1000 Lamports/1k = 150 msat/1k.
+  // 2000 Tokens -> 300 msat -> 2000 Lamports, genau der Deckel.
+  const zaehler = { aufrufe: 0 };
+  const { processed, pool } = await depositJob({ solPriceSats: 150_000 }, zaehler);
+  assert.equal(processed.length, 1);
+  assert.equal(processed[0].amountMsat, 300);
+  const parsed = parseJobResult((await pool.query({ kinds: [KIND_DVM_TEXT_RESULT] }))[0]);
+  assert.equal(parsed.amountLamports, 2_000);
+});
+
 test("Solana-Deposit: Event verspricht eine Sekunde mehr Frist als die Kette -> abgelehnt", async () => {
   // Genau der Fall, an dem der Test oben frueher zufaellig scheiterte – hier
   // mit Absicht: Das Event darf keine laengere Frist versprechen als das HTLC.

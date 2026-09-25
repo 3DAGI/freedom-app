@@ -3300,3 +3300,47 @@ angebotene Funktionen, Auswahl, stilles Verbinden nur mit gemerkter Wallet).
 Endstand: protocol 1013 · node 176 · app 240 · Leak-Tests 35 grün + 3 todo · 0
 rot · check-wiring `--streng` 0 offen, 0 Wallet-Zugriffe außerhalb der Schienen ·
 innerHTML streng 0 unbewertet · Smoke-Test bestanden.
+
+## 86. Preise und Kurse, Teil a: Marktkurs und Umrechnung im Knoten (Schritt 4.4)
+
+**Marktkurs (`protocol/src/kurs.ts`):** Median der Kurs-Events (Kind 38026),
+aber **eine Stimme je Absender** (sein jüngster Kurs) – der alte
+`medianPrice()` zählte jedes Event, wer zehn schickte, bekam zehn Stimmen.
+Nur frische (1 h), plausible Kurse. Warnungen: weniger als drei Quellen,
+Quellen mehr als 10 % auseinander, ein Referenzkurs (etwa der eines Anbieters)
+mehr als 10 % neben dem Markt. Umrechnung msat ↔ Lamports ganzzahlig mit
+BigInt, aufgerundet. `medianPrice` bleibt (acht Tests), ist aber begründet als
+abgelöst ausgenommen.
+
+**Angebot:** Kind 38025 trägt optional `["kurs", "SOL/BTC", <sats pro SOL>,
+"manuell"|"markt"]` – „eine Einheit plus Kursquelle“ nach der Karte; gelesen
+wird nur eine ganze Zahl und eine bekannte Quelle.
+
+**Zwei alte Fehler im Knoten (`dvm-provider.ts`):**
+- `lamportsPerMsat()` rechnete `1e9 / (Kurs · 1000 · 1000)` – eine Tausend zu
+  viel. Richtig: 1 SOL = 1e9 Lamports = Kurs · 1000 msat. SOL-Preise waren
+  damit 1000× zu niedrig, und der Deckel des Kunden (Lamports je 1k Tokens)
+  griff nie. Die Tests hatten die falsche Formel festgeschrieben (2 sats bei
+  150.000 sats/SOL = „14 Lamports“ statt 13.334) – ihre Erwartungen sind
+  korrigiert und damit strenger.
+- Ohne Kurs galt still 0,2 Lamports/msat (5 Mio. sats pro SOL). Jetzt: ohne
+  Kurs kein SOL-Preis; ein Deposit-Auftrag wird vor dem Rechnen mit Grund
+  abgelehnt („Kein SOL-Kurs …“), keine Rechenzeit verschenkt.
+
+**Kurse veröffentlichen:** Bisher veröffentlichte niemand Kurs-Events – der
+Knoten rief `cycle()` ohne Kurse auf. Jetzt veröffentlicht ein LP seinen
+Tauschkurs (`LP_LAMPORTS_PER_SAT` → sats pro SOL); das Angebot des Anbieters
+trägt den Kurs, mit dem er rechnet.
+
+**Knoten-Stand:** Mit dem Update rechnet der GX10-Knoten SOL-Preise richtig
+und lehnt SOL-Deposits ohne Kurs ab (`SOL_PRICE_SATS` setzen, bis LPs Kurse
+veröffentlichen).
+
+**Tests:** protocol 1013 → 1018 (`kurs.test.ts`: Median je Absender,
+Frische/Unsinn, Warnungen, Umrechnung inkl. großer Beträge, Angebot mit
+Kurs), node 176 → 179 (ohne Kurs abgelehnt ohne Rechenzeit, Deckel greift mit
+richtigem Kurs, Verdrahtung LP-Kurs und Angebot).
+
+Endstand: protocol 1018 · node 179 · app 240 · Leak-Tests 35 grün + 3 todo · 0
+rot · check-wiring `--streng` 0 offen · innerHTML streng 0 unbewertet ·
+Smoke-Test bestanden.

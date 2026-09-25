@@ -42,6 +42,11 @@ export interface ProviderCapabilities {
   storage?: { capacityBytes: number; priceMsatPerMB: number; bootstrap: boolean };
   /** Rechenarbeit (NIP-13-Bits), die private Anfragen tragen muessen (Schritt 3.1). */
   powBits?: number;
+  /**
+   * Kurs, mit dem der Anbieter SOL-Preise rechnet (Schritt 4.4): sats pro SOL
+   * und woher er stammt – manuell gesetzt oder Median der Kurs-Events.
+   */
+  kurs?: { satsProSol: number; quelle: "manuell" | "markt" };
   /** Gueltig ab (ersetzbar via d-Tag = pubkey). */
   updatedAt: number;
 }
@@ -62,6 +67,7 @@ export function buildCapabilities(
     tags.push(["storage", String(c.storage.capacityBytes), String(c.storage.priceMsatPerMB), c.storage.bootstrap ? "1" : "0"]);
   }
   if (c.powBits !== undefined) tags.push(["pow", String(c.powBits)]);
+  if (c.kurs) tags.push(["kurs", "SOL/BTC", String(c.kurs.satsProSol), c.kurs.quelle]);
   return buildEvent(c.pubkey, KIND_PROVIDER_CAPABILITIES, tags, "", createdAt);
 }
 
@@ -98,6 +104,11 @@ export function parseCapabilities(ev: UnsignedEvent): ProviderCapabilities {
   const powRoh = getTag(ev, "pow");
   const pow = powRoh !== undefined && /^\d{1,2}$/.test(powRoh) ? Number(powRoh) : NaN;
   const powBits = Number.isInteger(pow) && pow >= 0 && pow <= MAX_POW_BITS ? pow : undefined;
+  // Kurs des Anbieters (4.4): nur eine plausible ganze Zahl und eine bekannte Quelle.
+  const kt = ev.tags.find((t) => t[0] === "kurs" && t[1] === "SOL/BTC");
+  const kurs = kt && /^\d{1,10}$/.test(kt[2] ?? "") && Number(kt[2]) > 0 && (kt[3] === "manuell" || kt[3] === "markt")
+    ? { satsProSol: Number(kt[2]), quelle: kt[3] as "manuell" | "markt" }
+    : undefined;
 
   return {
     pubkey: ev.pubkey,
@@ -110,6 +121,7 @@ export function parseCapabilities(ev: UnsignedEvent): ProviderCapabilities {
       ? { storage }
       : {}),
     ...(powBits !== undefined ? { powBits } : {}),
+    ...(kurs ? { kurs } : {}),
     updatedAt: ev.created_at,
   };
 }

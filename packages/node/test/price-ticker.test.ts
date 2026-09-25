@@ -64,9 +64,11 @@ test("Provider: Ticker-Median wird genutzt, wenn kein manueller Kurs", async () 
     pool,
   );
   await dvm.refreshTickerPrice();
-  // lamportsPerMsat = 1e9/(150000*1000*1000) ~ 0.0000667
+  // 1 SOL = 1e9 Lamports = 150.000 sats = 1,5e8 msat -> 6,67 Lamports/msat.
+  // (Bis 4.4 stand hier 1e9/(150000·1000·1000) – eine Tausend zu viel, SOL 1000× zu billig.)
+  assert.deepEqual(dvm.kurs(), { satsProSol: 150_000, quelle: "markt" });
   const rate = dvm.lamportsPerMsat();
-  const expected = 1e9 / (150_000 * 1000 * 1000);
+  const expected = 1e9 / (150_000 * 1000);
   assert.ok(Math.abs(rate - expected) < 1e-9, `rate ${rate} ~ ${expected}`);
 });
 
@@ -80,6 +82,27 @@ test("Provider: manueller solPriceSats schlaegt Ticker", async () => {
   );
   await dvm.refreshTickerPrice(); // sollte Ticker NICHT laden (manuell hat Vorrang)
   const rate = dvm.lamportsPerMsat();
-  const expected = 1e9 / (200_000 * 1000 * 1000);
+  const expected = 1e9 / (200_000 * 1000);
   assert.ok(Math.abs(rate - expected) < 1e-9, "manueller Kurs hat Vorrang");
+  assert.deepEqual(dvm.kurs(), { satsProSol: 200_000, quelle: "manuell" });
+});
+
+test("Verdrahtung (4.4): LP veroeffentlicht seinen Kurs, das Angebot traegt den Kurs des Anbieters", async () => {
+  const { readFileSync } = await import("node:fs");
+  const main = readFileSync(new URL("../src/main.ts", import.meta.url), "utf8");
+  assert.match(main, /rates: lpKurs && lpKurs\.lamportsPerSat\(\) > 0\n\s+\? \[\{ pair: "SOL\/BTC", satsPerUnit: Math\.round\(1e9 \/ lpKurs\.lamportsPerSat\(\)\) \}\]/);
+  assert.match(main, /\(lpKurs = new FixedRate\(/);
+  assert.match(main, /kurs: provider\.kurs\(\),/);
+  // Manueller Kurs in Lamports/msat wird zu sats/SOL: 0,2 -> 5 Mio.
+  const { DvmProvider } = await import("../src/dvm-provider.js");
+  const dvm = new DvmProvider(
+    { keypair: generateKeypair(), lud16: "p@w.cash", pricePerKTokenMsat: 1000, minBidMsat: 100, powDifficulty: 0, seasonId: "t", lamportsPerMsat: 0.2 },
+    new OutboxPool([new MemoryRelay("mem://tick3")], { minAcks: 1 }),
+  );
+  assert.deepEqual(dvm.kurs(), { satsProSol: 5_000_000, quelle: "manuell" });
+  const ohne = new DvmProvider(
+    { keypair: generateKeypair(), lud16: "p@w.cash", pricePerKTokenMsat: 1000, minBidMsat: 100, powDifficulty: 0, seasonId: "t" },
+    new OutboxPool([new MemoryRelay("mem://tick4")], { minAcks: 1 }),
+  );
+  assert.equal(ohne.kurs(), undefined, "ohne Kurs kein SOL-Preis");
 });

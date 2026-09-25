@@ -106,6 +106,8 @@ Jede Funktion, in der Geld fließt, bietet beide Schienen mit gleichem Komfort.
 
 ## 4.4 Preise und Kurse
 
+> Aufgeteilt: a Protokoll und Knoten ✓ (`kurs.ts`: Median je Absender, Frische, Warnungen, ganzzahlige Umrechnung; Kurs im Angebot; Knoten rechnet richtig – vorher 1000× zu niedrig – und ohne Kurs gar nicht; LP veröffentlicht seinen Kurs); b App: Marktkurs, beide Einheiten in jeder Preisanzeige, sichtbare Warnung, Deposit-Deckel aus Kurs. Orakel-Abgleich (nur lesen) zurückgestellt: bräuchte das Konto-Layout eines Orakels (z. B. Pyth) – eigener Schritt, wenn gewünscht.
+
 - **Stellen:** `pricing.ts`, `price-ticker.ts`, Angebote in `dvm-provider.ts`, Anzeige.
 - **Vorgehen:** Das Angebot enthält Preise in msat und in Lamports – oder in einer
   Einheit plus Kursquelle. Kurs = Median der Kurs-Events mehrerer

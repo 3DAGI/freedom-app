@@ -373,6 +373,8 @@ async function main(): Promise<void> {
         bootstrap: process.env.BOOTSTRAP_SEEDER === "1",
       } : undefined,
       powBits: privatePowBits,
+      // Mit diesem Kurs rechnet der Anbieter SOL-Preise (4.4); ohne Kurs keiner.
+      kurs: provider.kurs(),
     });
     return { ev: signEvent(caps, keypair.sk), tier, models };
   };
@@ -445,6 +447,9 @@ async function main(): Promise<void> {
   // (LND) + Solana-Adapter; ohne beide bleibt der Knoten reiner DVM-Provider.
   const lpEnabled = process.env.LP_ENABLED === "1";
   let lp: import("./lp-daemon.js").LpDaemon | undefined;
+  // Kurs des LP: Er tauscht zu diesem Kurs und veroeffentlicht ihn (Schritt 4.4) –
+  // die Kurs-Events der LPs sind die Quelle des Marktkurses.
+  let lpKurs: import("./lp-daemon.js").RateProvider | undefined;
   if (lpEnabled) {
     const { LpDaemon, FixedRate } = await import("./lp-daemon.js");
     const { LndLightningAdapter, loadMacaroonHex, MockSolana } = await import("@freedomstack/protocol");
@@ -493,7 +498,7 @@ async function main(): Promise<void> {
       pool,
       ln,
       sol,
-      new FixedRate(Number(process.env.LP_LAMPORTS_PER_SAT ?? 5000)),
+      (lpKurs = new FixedRate(Number(process.env.LP_LAMPORTS_PER_SAT ?? 5000))),
     );
     const offerEvId = await lp.publishOffer();
     console.log(`LP-Angebot publiziert (${offerEvId.slice(0, 12)}...) fee=${process.env.LP_FEE_PPM ?? 3000}ppm`);
@@ -710,6 +715,9 @@ async function main(): Promise<void> {
           // unterbleibt ohnehin.
           delivered: relayRole?.stats().events ?? 0,
           uniqueClients: relayRole?.stats().subscriptions ?? 0,
+          rates: lpKurs && lpKurs.lamportsPerSat() > 0
+            ? [{ pair: "SOL/BTC", satsPerUnit: Math.round(1e9 / lpKurs.lamportsPerSat()) }]
+            : [],
           nowSecs: jetzt,
         });
         if (r.witnesses || r.relayProofs || r.tickers) {
