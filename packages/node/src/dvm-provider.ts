@@ -38,6 +38,7 @@ import {
   PROTOCOL_POOL_SHARE_PERCENT,
   KIND_GIFT_WRAP,
   LocalSigner,
+  buildPrivateJobResponse,
   openPrivateJobRequest,
 } from "@freedomstack/protocol";
 import { verifyDepositOnChain, DepositVerificationCache, parseClientFee, checkClientFee } from "@freedomstack/protocol";
@@ -411,13 +412,27 @@ export class DvmProvider {
     try {
       return await this.handleJob(request, true);
     } catch (err) {
-      await this.meldeFehler(request, err);
+      await this.meldeFehler(request, err, true);
       throw err;
     }
   }
 
+  /**
+   * Antwort an den Kunden (Schritt 3.2): auf private Anfragen versiegelt an den
+   * Sitzungsschluessel – Relays sehen weder Antwort noch Betrag noch Empfaenger
+   * als Autor –, auf offene Anfragen wie bisher offen.
+   */
+  private async antworte(ev: NostrEvent, request: NostrEvent, privat: boolean): Promise<void> {
+    if (!privat) {
+      await this.pool.publish(ev);
+      return;
+    }
+    const { wrap } = await buildPrivateJobResponse({ response: ev, providerSigner: this.signer, sessionPk: request.pubkey });
+    await this.pool.publish(wrap);
+  }
+
   /** NIP-90-Rueckmeldung (Kind 7000): dem Kunden sofort sagen, warum abgelehnt. */
-  private async meldeFehler(request: NostrEvent, err: unknown): Promise<void> {
+  private async meldeFehler(request: NostrEvent, err: unknown, privat = false): Promise<void> {
     try {
       const fb = signEvent(
         buildEvent(this.cfg.keypair.pk, 7000, [
@@ -427,7 +442,7 @@ export class DvmProvider {
         ], `error: ${(err as Error).message.slice(0, 200)}`),
         this.cfg.keypair.sk,
       );
-      await this.pool.publish(fb);
+      await this.antworte(fb, request, privat);
     } catch { /* feedback ist best-effort */ }
   }
 
@@ -481,7 +496,7 @@ export class DvmProvider {
 
   /** Chunk-Fetch-Job: [i, <blobId>], ["param","shard",<idx>] — liefert hex-Shard.
    *  Micro-Bid pro Shard; Ergebnis als kind 6075 mit content=hex. */
-  private async handleBlobFetch(request: NostrEvent): Promise<ProcessedJob> {
+  private async handleBlobFetch(request: NostrEvent, privat = false): Promise<ProcessedJob> {
     const start = Date.now();
     const blobId = getTag(request, "i");
     const shardIdx = Number(getTag(request, "param") === "shard" ? request.tags.find((t) => t[0] === "param" && t[1] === "shard")?.[2] ?? "-1" : "-1");
@@ -513,7 +528,7 @@ export class DvmProvider {
       }),
       this.cfg.keypair.sk,
     );
-    await this.pool.publish(resultEvent);
+    await this.antworte(resultEvent, request, privat);
     return {
       requestId: request.id,
       ...clientFeeFor(request, amountMsat),
@@ -748,7 +763,7 @@ export class DvmProvider {
         }),
         this.cfg.keypair.sk,
       );
-      await this.pool.publish(resultEvent);
+      await this.antworte(resultEvent, request, privat);
       return {
         requestId: request.id,
         ...clientFeeFor(request, amountMsat),
@@ -774,7 +789,7 @@ export class DvmProvider {
     }
     // Blob-Fetch-Jobs (5075) haben eigenen Handler (kein LLM!)
     if (request.kind === 5075) {
-      return this.handleBlobFetch(request);
+      return this.handleBlobFetch(request, privat);
     }
 
     // WICHTIG: Wenn es Tool-Ergebnisse gibt, sende sie als SEPARATE Nachricht
@@ -794,14 +809,14 @@ export class DvmProvider {
     // Live-Progress: bei jedem Tool-Aufruf ein kind-7000 (status=progress) an
     // den Kunden — die App zeigt daraus den passenden Schritt in der Leiste.
     const onProgress = (step: string): void => {
-      void this.pool.publish(signEvent(
+      void this.antworte(signEvent(
         buildEvent(this.cfg.keypair.pk, 7000, [
           ["e", request.id],
           ["p", request.pubkey],
           ["status", "progress"],
         ], step),
         this.cfg.keypair.sk,
-      )).catch(() => { /* best-effort */ });
+      ), request, privat).catch(() => { /* best-effort */ });
     };
 
     const result = await this.backend.complete({
@@ -876,7 +891,7 @@ export class DvmProvider {
       }),
       this.cfg.keypair.sk,
     );
-    await this.pool.publish(resultEvent);
+    await this.antworte(resultEvent, request, privat);
 
     // 5. Leistungs-Event (kind 38010) mit PoW -> oeffentlich pruefbare Reputation.
     // WICHTIG: Gratis-Jobs (Bootstrap + freiwilliges Free-Tier) erzeugen
@@ -892,15 +907,17 @@ export class DvmProvider {
       proofEventId: resultEvent.id,
       seasonId: this.cfg.seasonId,
     });
-    const perfMined = mineEvent(perf, this.cfg.powDifficulty);
     // Bootstrap-Markierung (oeffentlich sichtbar: neuer Provider beweist sich)
-    if (bootstrap) perfMined.tags.push(["bootstrap", "1"]);
+    if (bootstrap) perf.tags.push(["bootstrap", "1"]);
     // Region grob mitgeben. Ohne dieses Tag kann das Netz nicht erkennen, wo
     // Kapazitaet fehlt — der Knappheitsbonus liefe im Leeren. Bewusst
     // selbstdeklariert und kontinentweit: keine IP-Geolokalisierung, kein
     // Standortnachweis. Manipulierbar ist es trotzdem, deshalb ist der Bonus
     // gedeckelt und an nachgewiesene Arbeit gekoppelt.
-    if (this.cfg.region) perfMined.tags.push(["region", this.cfg.region]);
+    if (this.cfg.region) perf.tags.push(["region", this.cfg.region]);
+    // Erst alle Tags, dann minen: Jede spaetere Aenderung aendert die ID, und
+    // die Rechenarbeit gaelte nicht mehr (so war es bis 3.2c).
+    const perfMined = mineEvent(perf, this.cfg.powDifficulty);
     await this.pool.publish(signEvent(perfMined, this.cfg.keypair.sk));
 
     return {

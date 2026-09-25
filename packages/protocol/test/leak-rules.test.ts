@@ -100,6 +100,7 @@ test("keine-zahlungsdaten: Betrag, Rechnung, Adresse, Sitzung, Beleg – aber ni
   }
   assert.equal(regelKeineZahlungsdaten([ev(1, [], `zahl bitte ${BOLT11}`)]).length, 1, "Rechnung im Inhalt");
   // Leistungs-Event: Volumen des Providers ohne Kunden – gehoert nicht dazu.
-  assert.equal(regelKeineZahlungsdaten([ev(38010, [["volume_msat", "21000"]])]).length, 0);
+  assert.equal(regelKeineZahlungsdaten([ev(38010, [["volume_msat", "21000"], ["units", "7"]])]).length, 0);
+  assert.equal(regelKeineZahlungsdaten([ev(38022, [["units", "7"]])]).length, 1, "units im Beleg zaehlt");
   assert.equal(regelKeineZahlungsdaten([ev(1059, [["p", provider.pk]], "Chiffrat")]).length, 0, "Umschlag");
 });

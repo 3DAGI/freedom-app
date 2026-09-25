@@ -130,10 +130,14 @@ const ZAHLUNGS_TAGS = new Set([
   "max_total_msat", "max_rate_per_ktoken_msat", "settle_every_msat", "cumulative_msat", "units", "payment",
 ]);
 
+/** Leistungs-Event des Providers (Reputation): Menge und Volumen ohne Kunden. */
+const KIND_LEISTUNG = 38010;
+
 /** Keine Rechnung, keine Adresse, kein Betrag pro Kunde in oeffentlichen Events – Schritt 3.2. */
 export function regelKeineZahlungsdaten(events: readonly NostrEvent[]): LeakFinding[] {
   const funde: LeakFinding[] = [];
   for (const e of events) {
+    if (e.kind === KIND_LEISTUNG) continue;
     const tags = [...new Set(e.tags.filter((t) => ZAHLUNGS_TAGS.has(t[0])).map((t) => t[0]))];
     if (tags.length > 0) funde.push({ regel: "keine-zahlungsdaten", eventId: e.id, detail: `Zahlungsdaten offen (Kind ${e.kind}): ${tags.join(", ")}` });
     else if (regelKeinBolt11([e]).length > 0) funde.push({ regel: "keine-zahlungsdaten", eventId: e.id, detail: `Rechnung offen (Kind ${e.kind})` });

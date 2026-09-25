@@ -3,7 +3,8 @@
  *
  * Beweist:
  *  - Umschlag an diesen Provider wird geoeffnet und wie bisher abgearbeitet;
- *    Ergebnis verweist auf die Anfrage und geht an den Sitzungsschluessel
+ *    Ergebnis verweist auf die Anfrage und geht versiegelt an den
+ *    Sitzungsschluessel (seit 3.2c) – offen erscheint nichts davon
  *  - fremder Empfaenger, zu wenig Rechenarbeit: verworfen, bevor gerechnet wird
  *  - Gratis ohne Kontingent je Schluessel – die Rechenarbeit ersetzt es
  *  - ohne Gratis-Angebot: Absage per Kind 7000 an den Sitzungsschluessel
@@ -14,7 +15,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   KIND_DVM_TEXT_GENERATION, LocalSigner, MemoryRelay, OutboxPool, buildEvent, buildJobRequest,
-  buildPrivateJobRequest, eventDifficulty, generateKeypair, getTag, signEvent, type NostrEvent,
+  buildPrivateJobRequest, eventDifficulty, generateKeypair, getTag, openPrivateJobResponse, parseJobResult,
+  regelKeineZahlungsdaten, signEvent, type NostrEvent,
 } from "@freedomstack/protocol";
 import { DvmProvider, type ProviderConfig } from "../src/dvm-provider.js";
 import type { InferenceBackend, InferenceRequest, InferenceResult } from "../src/inference.js";
@@ -49,7 +51,14 @@ async function privateAnfrage(providerPk: string, text: string, powBits = 8, sit
 
 const gesendet = async (relay: MemoryRelay, kind: number): Promise<NostrEvent[]> => relay.query({ kinds: [kind] });
 
-test("privat: Umschlag wird geoeffnet und abgearbeitet, Antwort an den Sitzungsschluessel", async () => {
+/** Antworten des Providers, wie der Kunde sie sieht: Umschlaege an seinen Sitzungsschluessel, geoeffnet. */
+async function antwortenAn(relay: MemoryRelay, sitzung: LocalSigner) {
+  const umschlaege = await relay.query({ kinds: [1059], "#p": [sitzung.publicKey()] });
+  const geoeffnet = await Promise.all(umschlaege.map((w) => openPrivateJobResponse(w, sitzung)));
+  return geoeffnet.flatMap((r) => (r.ok ? [r] : []));
+}
+
+test("privat: Umschlag wird geoeffnet und abgearbeitet, Antwort versiegelt an den Sitzungsschluessel", async () => {
   const { relay, pool, kp, backend, provider } = aufbau();
   const { wrap, requestId, sitzung } = await privateAnfrage(kp.pk, "Geheime Frage 42");
   await pool.publish(wrap);
@@ -57,10 +66,17 @@ test("privat: Umschlag wird geoeffnet und abgearbeitet, Antwort an den Sitzungss
   assert.equal(jobs.length, 1);
   assert.equal(jobs[0].amountMsat, 0, "Provider bietet gratis an");
   assert.ok(backend.prompts.some((p) => p.includes("Geheime Frage 42")));
-  const ergebnisse = await gesendet(relay, KIND_DVM_TEXT_GENERATION + 1000);
+  // Seit 3.2c: nichts offen – weder Ergebnis noch Zahlungsdaten auf dem Relay
+  assert.equal((await gesendet(relay, KIND_DVM_TEXT_GENERATION + 1000)).length, 0);
+  assert.deepEqual(regelKeineZahlungsdaten(await relay.query({})), []);
+  const antworten = await antwortenAn(relay, sitzung);
+  const ergebnisse = antworten.filter((a) => a.response.kind === KIND_DVM_TEXT_GENERATION + 1000);
   assert.equal(ergebnisse.length, 1);
-  assert.equal(getTag(ergebnisse[0], "e"), requestId);
-  assert.equal(getTag(ergebnisse[0], "p"), sitzung.publicKey());
+  assert.equal(ergebnisse[0].providerPk, kp.pk);
+  assert.equal(getTag(ergebnisse[0].response, "e"), requestId);
+  assert.equal(getTag(ergebnisse[0].response, "p"), sitzung.publicKey());
+  assert.equal(parseJobResult(ergebnisse[0].response).output, "Antwort");
+  assert.equal(ergebnisse[0].response.id, jobs[0].resultEventId, "Beleg-ID = ID des Ergebnisses im Umschlag");
 });
 
 test("privat: fremder Empfaenger und zu wenig Rechenarbeit – verworfen, nichts gerechnet", async () => {
@@ -97,11 +113,35 @@ test("privat: ohne Gratis-Angebot – Absage per Kind 7000 an den Sitzungsschlue
   await pool.publish(wrap);
   assert.equal((await provider.pollOnce()).length, 0);
   assert.equal(backend.prompts.length, 0);
-  const absagen = await gesendet(relay, 7000);
+  assert.equal((await gesendet(relay, 7000)).length, 0, "Absage nicht offen");
+  const absagen = (await antwortenAn(relay, sitzung)).map((a) => a.response).filter((e) => e.kind === 7000);
   assert.equal(absagen.length, 1);
   assert.equal(getTag(absagen[0], "e"), requestId);
   assert.equal(getTag(absagen[0], "p"), sitzung.publicKey());
   assert.match(absagen[0].content, /Bid zu niedrig/);
+});
+
+test("offene Anfrage (Uebergang): Antwort bleibt offen, wie bisher", async () => {
+  const { relay, pool, provider } = aufbau();
+  const kunde = generateKeypair();
+  await pool.publish(signEvent(buildEvent(kunde.pk, KIND_DVM_TEXT_GENERATION, [["i", "offene Frage", "text"]], ""), kunde.sk));
+  assert.equal((await provider.pollOnce()).length, 1);
+  const ergebnisse = await gesendet(relay, KIND_DVM_TEXT_GENERATION + 1000);
+  assert.equal(ergebnisse.length, 1);
+  assert.equal(getTag(ergebnisse[0], "p"), kunde.pk);
+});
+
+test("Leistungs-Event (38010): Rechenarbeit gilt auch mit bootstrap- und region-Tag", async () => {
+  const { relay, pool, kp, provider } = aufbau({
+    providerSince: Math.floor(Date.now() / 1000), region: "eu", powDifficulty: 8,
+  });
+  await pool.publish((await privateAnfrage(kp.pk, "fuer die Reputation")).wrap);
+  assert.equal((await provider.pollOnce()).length, 1);
+  const perf = (await relay.query({ kinds: [38010], authors: [kp.pk] }))[0];
+  assert.ok(perf, "Leistungs-Event veroeffentlicht");
+  assert.equal(getTag(perf, "bootstrap"), "1");
+  assert.equal(getTag(perf, "region"), "eu");
+  assert.ok(eventDifficulty(perf) >= 8, `Rechenarbeit ${eventDifficulty(perf)} < 8 – Tags nach dem Minen?`);
 });
 
 test("privat: Wiederholung zaehlt einmal – derselbe Umschlag und dieselbe Anfrage neu verpackt", async () => {

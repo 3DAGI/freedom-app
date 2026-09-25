@@ -2682,3 +2682,34 @@ Identität in KI-Events.
 Endstand: protocol 989 · node 166 · app 211 grün (+4) · Leak-Tests 23 grün +
 5 todo · 0 rot · check-wiring `--streng` 0 offen · innerHTML streng 0
 unbewertet · Smoke-Test bestanden.
+
+## 69. Verschlüsselte Antworten, Teil c: Knoten versiegelt (Schritt 3.2)
+
+**`node/src/dvm-provider.ts`:** neue `antworte(ev, request, privat)` – auf
+private Anfragen geht die Antwort als Kern im Umschlag an den
+Sitzungsschlüssel (`buildPrivateJobResponse`), auf offene wie bisher offen.
+Umgestellt: Ergebnis, Swarm-Ergebnis, Blob-Abruf (5075), Fortschritt (7000
+progress) und Absage (`meldeFehler`, jetzt mit `privat`). Die ID des
+Ergebnisses im Umschlag ist dieselbe wie vorher – Beleg und Leistungs-Event
+verweisen weiter darauf.
+
+**Fund, behoben:** `bootstrap` und `region` kamen nach dem Minen an das
+Leistungs-Event (38010); die ID änderte sich, die Rechenarbeit galt nicht
+mehr. Jetzt erst alle Tags, dann minen. Die Regel `keine-zahlungsdaten` nimmt
+Kind 38010 ausdrücklich aus (dessen `units` sind Menge ohne Kunden).
+
+**Reihenfolge:** Die App liest versiegelte Antworten seit 3.2b. Knoten erst
+aktualisieren, wenn 3.2b veröffentlicht ist (MENSCH).
+
+**Tests:** node 166 → 168 (`private-jobs.test.ts`: Antwort versiegelt, nichts
+offen – kein Ergebnis, keine Zahlungsdaten auf dem Relay –, beim Kunden
+geöffnet mit Ausgabe, e-/p-Tag und derselben Beleg-ID; Absage versiegelt;
+neu: offene Anfrage bekommt weiter eine offene Antwort; neu: 38010 behält mit
+`bootstrap`/`region` seine Rechenarbeit). Zwei Tests aus 3.1b prüften die
+Antwort offen – sie prüfen jetzt versiegelt und zusätzlich, dass nichts offen
+erscheint. **E2E im Browser** mit dem echten Knoten-Code: kein offenes
+Ergebnis im Netz, ein Umschlag an die Sitzung, Antwort in der App.
+
+Endstand: protocol 989 · node 168 grün (+2) · app 211 · Leak-Tests 23 grün + 5
+todo · 0 rot · check-wiring `--streng` 0 offen (184 begründet) · innerHTML
+streng 0 unbewertet · Smoke-Test (App unverändert gegenüber 3.2b) bestanden.
