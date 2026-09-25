@@ -74,6 +74,12 @@ export interface ProviderConfig {
    * Gratis-Kontingent je Schluessel. Default 12 (~0,1 s auf einem PC).
    */
   privatePowBits?: number;
+  /**
+   * Schritt 3.3: Anfragen und Antworten im Klartext protokollieren – nur zur
+   * Fehlersuche (`LOG_KLARTEXT=1`), standardmaessig aus. Aus heisst: keine
+   * Vorschau im Ergebnis (`outputPreview` leer), also auch keine im Log.
+   */
+  klartextProtokoll?: boolean;
   /** Season-Kennung fuer Leistungs-Events. */
   seasonId: string;
   /**
@@ -150,6 +156,7 @@ export interface ProcessedJob {
   customerPubkey: string;
   amountMsat: number;
   feeSplit: { recipientMsat: number; poolMsat: number; protocolMsat: number };
+  /** Antwort-Anfang fuers Log – leer, solange `klartextProtokoll` aus ist (3.3). */
   outputPreview: string;
   durationMs: number;
 }
@@ -185,8 +192,6 @@ export class DvmProvider {
   private readonly depositCache = new DepositVerificationCache(60);
   /** Nur-Lese-Verbindung zur Kette; undefined = Deposits werden abgelehnt. */
   private solConnection?: Connection;
-  /** Live-Chat: Konversations-History pro Session (RAM, kein Server-Account). */
-  private conversations = new Map<string, Array<{ role: "user" | "assistant"; content: string }>>();
   /** Free-Tier: verbrauchte Gratis-Tokens pro pubkey pro Tag (RAM). */
   private freeUsage = new Map<string, { day: string; used: number }>();
 
@@ -202,9 +207,6 @@ export class DvmProvider {
     const resetsAt = `${day}T23:59:59Z`;
     return { limitTokens: limit, usedTokens: used, remainingTokens: Math.max(0, limit - used), resetsAt };
   }
-  /** Max. History-Laenge pro Session (Kontextfenster schonen). */
-  private static MAX_HISTORY = 40;
-
   constructor(
     private cfg: ProviderConfig,
     private pool: OutboxPool,
@@ -284,13 +286,9 @@ export class DvmProvider {
     return Math.ceil(msat * this.lamportsPerMsat());
   }
 
-  private historyFor(sessionId: string): Array<{ role: "user" | "assistant"; content: string }> {
-    let h = this.conversations.get(sessionId);
-    if (!h) {
-      h = [];
-      this.conversations.set(sessionId, h);
-    }
-    return h;
+  /** Antwort-Anfang fuers Log – nur mit `klartextProtokoll` (Schritt 3.3). */
+  private vorschau(output: string): string {
+    return this.cfg.klartextProtokoll ? output.slice(0, 120) : "";
   }
 
   /**
@@ -759,8 +757,9 @@ export class DvmProvider {
     }
 
     // 2. Lokale Inferenz (kein Cloud-Call, keine Custody).
-    // Live-Chat: bei Session-Jobs History mitgeben (Konversations-Kontext).
-    const history = sessionId ? this.historyFor(sessionId) : undefined;
+    // Schritt 3.3: Der Knoten merkt sich keinen Gespraechsverlauf mehr – der
+    // Klartext ist nach der Antwort weg. Den Kontext bringt die App selbst mit,
+    // versiegelt in der Anfrage.
 
     // TOOL-EXECUTION: Job kann Tool-Aufrufe anfordern (["tool", kind, input]).
     // Werden LOKAL ausgefuehrt, Ergebnisse in den Prompt-Kontext eingebaut
@@ -776,11 +775,6 @@ export class DvmProvider {
         const costMsat = (price?.satsPerCall ?? 0) * 1000;
         toolResults.push({ name: tc.name, kind: tc.kind, costMsat, output: res.output, ok: res.ok });
         toolContext += `\n[Tool ${tc.name} Ergebnis]:\n${res.output}\n`;
-        // NEU: Tool-Ergebnis als user-Message in History (nicht assistant).
-        // Das LLM weiss: das ist neue Info, auf die ich antworten muss.
-        if (history) {
-          history.push({ role: "user", content: `[${tc.name} Ergebnis]: ${res.output}\n\nBitte antworte jetzt mit diesem Wissen, nicht mit einem Tool-Aufruf.` });
-        }
       }
     }
 
@@ -791,7 +785,6 @@ export class DvmProvider {
       const result = await this.backend.complete({
         jobId: request.id,
         prompt: input,
-        history,
         swarm: true,
       });
       // Swarm-Result direkt zurueckgeben (keine Tool-Logik noetig)
@@ -828,7 +821,7 @@ export class DvmProvider {
           poolMsat: feeSplit.poolMsat,
           protocolMsat: feeSplit.protocolMsat,
         },
-        outputPreview: result.output.slice(0, 120),
+        outputPreview: this.vorschau(result.output),
         durationMs: result.durationMs,
       };
     }
@@ -875,19 +868,9 @@ export class DvmProvider {
     const result = await this.backend.complete({
       jobId: request.id,
       prompt: finalPrompt,
-      history,
       model: requestedModel,
       onProgress,
     });
-
-    // History aktualisieren (user-frage + assistant-antwort), gekappt
-    if (sessionId && history) {
-      history.push({ role: "user", content: input });
-      history.push({ role: "assistant", content: result.output });
-      if (history.length > DvmProvider.MAX_HISTORY) {
-        history.splice(0, history.length - DvmProvider.MAX_HISTORY);
-      }
-    }
 
     // Preis: Session-Rate, Deposit-Rate, Free-Tier (0), oder Bid-Preis.
     // PLUS Tool-Kosten (web_search etc.) — werden on top gerechnet.
@@ -984,7 +967,7 @@ export class DvmProvider {
         poolMsat: feeSplit.poolMsat,
         protocolMsat: feeSplit.protocolMsat,
       },
-      outputPreview: result.output.slice(0, 120),
+      outputPreview: this.vorschau(result.output),
       durationMs: result.durationMs,
     };
   }

@@ -78,12 +78,14 @@ test("Session-Jobs: Kunde chattet ohne Einzel-Bids, Provider rechnet ueber Sessi
     assert.equal(processed.length, 1, `Job "${prompt}" verarbeitet`);
     // 2000 tokens * 1000 msat/1k = 2000 msat (unter Rate-Deckel)
     assert.equal(processed[0].amountMsat, 2000);
-    assert.ok(processed[0].outputPreview.startsWith("ok:"));
+    // Seit 3.3 keine Vorschau fuers Log – die Antwort steht im Ergebnis-Event.
+    assert.equal(processed[0].outputPreview, "");
   }
 
   // 3. Alle Results liegen auf dem Relay (Kunde streamt Belege darauf)
   const results = await pool.query({ kinds: [KIND_DVM_TEXT_RESULT] });
   assert.equal(results.length, 3);
+  assert.deepEqual(results.map((r) => parseJobResult(r).output).sort(), ["ok:Frage 1", "ok:Frage 2", "ok:Frage 3"]);
 });
 
 test("Session-Jobs: Provider lehnt bei erschoepftem Budget ab", async () => {

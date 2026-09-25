@@ -2782,3 +2782,54 @@ wartet vergeblich auf offene Antworten.
 Endstand: protocol 991 · node 170 · app 211 · Leak-Tests 24 grün + 4 todo · 0
 rot · check-wiring `--streng` 0 offen · innerHTML streng 0 unbewertet ·
 Smoke-Test bestanden.
+
+## 72. Provider-Seite: kein Klartext im Knoten – 3.3 Code fertig
+
+**Knoten (`dvm-provider.ts`, `inference.ts`, `main.ts`):** Nach einem Job
+stehen Prompt und Antwort nirgends mehr – weder im Log noch in einer Datei noch
+im Speicher. Bisher lagen sie an drei Stellen:
+- `main.ts` schrieb zu jedem Job die ersten 120 Zeichen der Antwort ins Log
+  (`outputPreview`). Die Vorschau ist jetzt leer, außer der Betreiber setzt
+  `LOG_KLARTEXT=1` (Fehlersuche; der Knoten warnt beim Start).
+- `OllamaBackend` loggte die ersten 100 Zeichen der Antwort und bei
+  gescheiterter Websuche die Fehlermeldung – bei Playwright samt URL mit der
+  Suchanfrage aus dem Prompt. Jetzt: nur die Länge bzw. der Fehlername.
+- Der Knoten führte je Sitzung einen Gesprächsverlauf (bis 40 Prompts und
+  Antworten im Klartext, im RAM, ohne Ablauf). Er ist entfernt.
+
+**App (`ki-kontext.ts`, `tabs/agent.ts`):** Den Zusammenhang bringt jetzt die
+App mit: `kontextPraefix()` setzt die letzten Nachrichten des aktuellen
+Verlaufs (höchstens 12 bzw. 6000 Zeichen) vor den Prompt – versiegelt mit ihm.
+Bisher tat sie das nur beim Modellwechsel (8 Blasen, 800 Zeichen). Nebeneffekt:
+Der Kontext bleibt beim Wechsel des Providers erhalten, und eine neue Aufgabe
+beginnt wirklich ohne alten Verlauf (der Knoten mischte bisher alle Aufgaben
+einer Sitzung).
+
+**`tee`:** zurückgestellt. Ohne Prüfung eines Attestierungsnachweises zeigt die
+App nie „vertraulich (attestiert)“ – das hält die Karte ein. Eine echte Prüfung
+braucht eine MENSCH-Entscheidung (welche TEE, welche Wurzelzertifikate) und
+vermutlich eine neue Abhängigkeit.
+
+**Tests:** node 170 → 175 (neu `klartext.test.ts`: Abnahme mit versiegelter
+Sitzung und Anfrage – Prompt und Antwort weder im mitgeschnittenen Log noch in
+einer Datei im Arbeitsverzeichnis noch irgendwo im Knoten-Objekt; kein Verlauf
+vom Knoten; Schalter; `OllamaBackend` mit nachgebautem Ollama und Websuche;
+keine Schreib-APIs im Job-Pfad). Gegenprobe: auf dem alten Code sind 4 der 5
+rot. `live-chat.test.ts` prüfte den wachsenden Verlauf – die Funktion entfällt
+laut Karte, der Test prüft jetzt das Gegenteil (Anzahl gleich);
+`session-jobs.test.ts` prüft die Antwort im Ergebnis statt in der Vorschau.
+app 211 → 215 (`ki-kontext.test.ts`). **E2E im Browser** mit dem echten
+Knoten-Code: zwei Anfragen über die versiegelte Sitzung; die zweite bringt
+„Du: … / KI: …“ als Kontext mit, der Knoten gibt dem Modell keinen eigenen
+Verlauf; von der App geht nur Kind 1059 ins Netz.
+
+**Veröffentlichung (MENSCH):** Nach dem Merge den Knoten auf `main` bringen.
+Die Reihenfolge passt: Die App ist mit dem Merge live, der Knoten folgt. Ein
+alter Knoten mit der neuen App ist harmlos, der Kontext steht dann doppelt im
+Prompt. Seit heute gilt: PRs werden gemergt, sobald CI grün ist, auch wenn die
+App einen neueren Knoten braucht. Der MENSCH aktualisiert den GX10-Knoten
+danach (CLAUDE.md, Arbeitsweise Punkt 7). #32 (3.2e) ist so gemergt worden.
+
+Endstand: protocol 991 · node 175 · app 215 · Leak-Tests 24 grün + 4 todo · 0
+rot · check-wiring `--streng` 0 offen · innerHTML streng 0 unbewertet ·
+Smoke-Test bestanden.
