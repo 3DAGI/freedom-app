@@ -14,7 +14,8 @@ import {
 import { LAYER_CELL_DEGREES, buildCoverageAnnouncement, toCell } from "../src/coverage.js";
 import { signEvent } from "../src/event.js";
 import { buildJobRequest, buildJobResult } from "../src/dvm.js";
-import { buildPrivateJobRequest, buildPrivateJobResponse, buildPrivateSessionEvent } from "../src/private-job.js";
+import { buildPrivateDispute, buildPrivateJobRequest, buildPrivateJobResponse, buildPrivateSessionEvent } from "../src/private-job.js";
+import { buildDispute } from "../src/disputes-relays.js";
 import { buildSessionOpen, buildSessionPayment } from "../src/stream.js";
 import { LocalSigner } from "../src/signer.js";
 
@@ -60,6 +61,18 @@ async function privateKiRunde() {
   return { wraps: [open.wrap, anfrage, antwort.wrap, beleg.wrap] };
 }
 
+const NOTIZ = "Antwort zum Laborbefund war unbrauchbar";
+
+/** Reklamation wie seit 3.4: vom Sitzungsschluessel, versiegelt an Provider (b) und Pruefer. */
+async function privateReklamation() {
+  const sitzung = new LocalSigner(generateKeypair().sk);
+  const dispute = buildDispute({
+    jobId: "d".repeat(64), customerPubkey: sitzung.publicKey(), providerPubkey: b.pk, reason: "unbrauchbar", amountMsat: 7000, note: NOTIZ,
+  });
+  const { wraps } = await buildPrivateDispute({ dispute, sessionSigner: sitzung, empfaenger: [{ pk: b.pk }, { pk: generateKeypair().pk }] });
+  return { wraps, sitzung: sitzung.publicKey() };
+}
+
 const SZENARIEN: Record<string, () => Promise<number>> = {
   "dm-inhalt": async () => {
     const d = await buildPrivateDm({ senderSk: a.sk, senderPk: a.pk, recipientPk: b.pk, content: GEHEIM });
@@ -88,6 +101,11 @@ const SZENARIEN: Record<string, () => Promise<number>> = {
   "ki-zahlung": async () => {
     const { wraps } = await privateKiRunde();
     return regelKeineZahlungsdaten(wraps).length;
+  },
+  "ki-reklamation": async () => {
+    const { wraps, sitzung } = await privateReklamation();
+    return regelKeineZahlungsdaten(wraps).length + regelKeinKlartext(wraps, [NOTIZ, "unbrauchbar"]).length
+      + regelKundeVerborgen(wraps, sitzung).length + regelKundeVerborgen(wraps, a.pk).length;
   },
   "abdeckung-zelle": async () => {
     const [lat, lon] = [48.137154, 11.576124];
@@ -132,5 +150,6 @@ test("der Berichtstext trennt Belegtes und Offenes", () => {
   assert.match(t, /Bekannte Lücken:/);
   assert.match(t, /✓ KI-Anfragen sind für Relays nicht lesbar\./);
   assert.match(t, /✓ KI-Antworten sind für Relays nicht lesbar\./);
-  assert.match(t, /○ Noch nicht: Reklamationen sind nicht öffentlich\. \(Ausbauplan 3\.4\)/);
+  assert.match(t, /✓ Reklamationen sind nicht öffentlich – sie gehen versiegelt/);
+  assert.match(t, /○ Noch nicht: Räume sind Ende-zu-Ende-verschlüsselt\. \(Ausbauplan 2\.3\)/);
 });

@@ -15,7 +15,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   KIND_DVM_TEXT_GENERATION, LocalSigner, MemoryRelay, OutboxPool, buildEvent, buildJobRequest,
-  buildPrivateJobRequest, buildPrivateSessionEvent, buildSessionOpen, buildSessionPayment, eventDifficulty,
+  buildDispute, buildPrivateDispute, buildPrivateJobRequest, buildPrivateSessionEvent, buildSessionOpen, buildSessionPayment, eventDifficulty,
   generateKeypair, getTag, openPrivateJobResponse, parseJobResult,
   regelKeineZahlungsdaten, signEvent, type NostrEvent,
 } from "@freedomstack/protocol";
@@ -201,4 +201,51 @@ test("privat 3.2d: fremde oder ausgeschoepfte versiegelte Sitzung – Absage", a
   await pool.publish(await sitzungsAnfrage(kp.pk, voll, "sess-p3", "Budget leer"));
   assert.equal((await provider.pollOnce()).length, 0);
   assert.equal(backend.prompts.length, 0);
+});
+
+test("privat 3.4: versiegelte Reklamation – Provider und Pruefer nehmen sie an, ins Log ohne Notiz, keine Arbeit", async () => {
+  const a = aufbau();
+  const pruefer = aufbau();
+  const sitzung = new LocalSigner(generateKeypair().sk);
+  const notiz = "Antwort zu meiner Diagnose war falsch";
+  const dispute = buildDispute({
+    jobId: "e".repeat(64), customerPubkey: sitzung.publicKey(), providerPubkey: a.kp.pk, reason: "unbrauchbar", amountMsat: 7000, note: notiz,
+  });
+  const { wraps } = await buildPrivateDispute({
+    dispute, sessionSigner: sitzung, empfaenger: [{ pk: a.kp.pk, powBits: 8 }, { pk: pruefer.kp.pk, powBits: 8 }],
+  });
+  await a.pool.publish(wraps[0]);
+  await pruefer.pool.publish(wraps[1]);
+  const zeilen: string[] = [];
+  const [log, warn] = [console.log, console.warn];
+  console.log = (...xs: unknown[]) => { zeilen.push(xs.join(" ")); };
+  console.warn = (...xs: unknown[]) => { zeilen.push(xs.join(" ")); };
+  try {
+    assert.equal((await a.provider.pollOnce()).length, 0, "keine Arbeit");
+    assert.equal((await pruefer.provider.pollOnce()).length, 0);
+  } finally {
+    [console.log, console.warn] = [log, warn];
+  }
+  assert.deepEqual(zeilen.filter((z) => z.startsWith("[reklamation]")), [
+    "[reklamation] gegen diesen Knoten: Job eeeeeeee, unbrauchbar, 7000 msat",
+    "[reklamation] zur Nachpruefung: Job eeeeeeee, unbrauchbar, 7000 msat",
+  ]);
+  assert.ok(!zeilen.some((z) => z.includes("verworfen")), zeilen.join("\n"));
+  assert.ok(!zeilen.join("\n").includes(notiz), "Notiz nicht im Log");
+  assert.equal(a.backend.prompts.length + pruefer.backend.prompts.length, 0);
+  // Zu wenig Rechenarbeit: verworfen wie jeder andere Umschlag
+  const b = aufbau();
+  // Ohne Rechenarbeit hat ein Umschlag mit 1/256 trotzdem 8 Bits – dann neu bauen.
+  let schwach: NostrEvent;
+  do {
+    [schwach] = (await buildPrivateDispute({ dispute: buildDispute({
+      jobId: "f".repeat(64), customerPubkey: sitzung.publicKey(), providerPubkey: b.kp.pk, reason: "abgebrochen", amountMsat: 1, note: "",
+    }), sessionSigner: sitzung, empfaenger: [{ pk: b.kp.pk, powBits: 0 }] })).wraps;
+  } while (eventDifficulty(schwach) >= 8);
+  await b.pool.publish(schwach);
+  const alt = console.warn;
+  const warnungen: string[] = [];
+  console.warn = (...xs: unknown[]) => { warnungen.push(xs.join(" ")); };
+  try { await b.provider.pollOnce(); } finally { console.warn = alt; }
+  assert.ok(warnungen.some((w) => /verworfen: Zu wenig Rechenarbeit/.test(w)));
 });

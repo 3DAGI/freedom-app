@@ -35,6 +35,7 @@ import {
   findProviders,
   kiSitzungen,
   powJeProvider,
+  prueferKandidaten,
   signiere,
   state,
 } from "../state.js";
@@ -1017,6 +1018,25 @@ function addAiMessageStreaming(role: "ai", text: string, meta: string, model?: s
 
 /** Claude-Stil ausklappbare Kosten-/Usage-Bubble unter einer AI-Antwort. */
 /**
+ * Pruefer fuer eine Reklamation waehlen (Schritt 3.4): ein zweiter Provider,
+ * der Umschlaege liest. null = keiner, undefined = abgebrochen.
+ */
+async function waehlePruefer(beschuldigt: string): Promise<string | null | undefined> {
+  const kandidaten = privatFaehig(await prueferKandidaten(beschuldigt).catch(() => [])).slice(0, 5);
+  if (kandidaten.length === 0) return null;
+  const liste = kandidaten
+    .map((c, i) => `  ${i + 1} = ${pkShort(c.caps.pubkey)} · ${c.jobsCompleted} Aufträge`)
+    .join("\n");
+  const wahl = prompt(
+    "Wer soll nachprüfen? Ein zweiter Provider bekommt die Reklamation versiegelt.\n" +
+    `${liste}\n  leer = nur der Provider`,
+    "1",
+  );
+  if (wahl === null) return undefined;
+  return kandidaten[Number(wahl) - 1]?.caps.pubkey ?? null;
+}
+
+/**
  * Auftrag reklamieren.
  *
  * Bei Swaps liegt das Geld in einem HTLC mit Frist; bei Rechenauftraegen gab
@@ -1030,7 +1050,7 @@ async function reklamiere(
     toast("Ohne Bezug zur Antwort nicht reklamierbar", true);
     return;
   }
-  const { disputeInfo, buildDispute, disputeWindowOpen } =
+  const { disputeInfo, buildDispute, buildPrivateDispute, disputeWindowOpen } =
     await import("@freedomstack/protocol");
 
   if (!confirm(disputeInfo())) return;
@@ -1053,13 +1073,21 @@ async function reklamiere(
       toast(w.message, true);
       return;
     }
-    // Vom Sitzungsschluessel wie der Auftrag selbst (3.1) – nicht von der Identitaet.
+    const pruefer = await waehlePruefer(providerPk);
+    if (pruefer === undefined) return;
+    // Vom Sitzungsschluessel wie der Auftrag selbst (3.1) – nicht von der
+    // Identitaet – und nur versiegelt an Provider und Pruefer (3.4).
     const sitzung = kiSitzungen.fuer(providerPk);
-    await (await ensurePool()).publish(await sitzung.signEvent(buildDispute({
+    const dispute = buildDispute({
       jobId, customerPubkey: sitzung.publicKey(), providerPubkey: providerPk,
-      reason: art, amountMsat, note: prompt("Kurze Beschreibung (öffentlich):") ?? "",
-    })));
-    toast(`Reklamiert. ${w.message}`);
+      reason: art, amountMsat, note: prompt("Kurze Beschreibung (nur für Provider und Prüfer):") ?? "",
+    });
+    const empfaenger = [providerPk, ...(pruefer ? [pruefer] : [])]
+      .map((pk) => ({ pk, powBits: powJeProvider.get(pk) ?? 0 }));
+    const { wraps } = await buildPrivateDispute({ dispute, sessionSigner: sitzung, empfaenger });
+    const pool = await ensurePool();
+    for (const wrap of wraps) await pool.publish(wrap);
+    toast(`Reklamiert${pruefer ? " – Provider und Prüfer benachrichtigt" : ""}. ${w.message}`);
   } catch (e) {
     toast((e as Error).message, true);
   }

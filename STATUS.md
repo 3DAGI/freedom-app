@@ -2833,3 +2833,56 @@ danach (CLAUDE.md, Arbeitsweise Punkt 7). #32 (3.2e) ist so gemergt worden.
 Endstand: protocol 991 · node 175 · app 215 · Leak-Tests 24 grün + 4 todo · 0
 rot · check-wiring `--streng` 0 offen · innerHTML streng 0 unbewertet ·
 Smoke-Test bestanden.
+
+## 73. Verlauf und Reklamationen privat – 3.4 Code fertig
+
+**Verlauf:** Der KI-Verlauf liegt seit 1.2c nur im Tresor (`geheim`,
+`freedom.agentHistory`, in `geheimnisse()` eingetragen). Neu prüft das der
+Leak-Test mit: Lesen und Schreiben nur über `geheim`, nie direkt in
+`localStorage`.
+
+**Reklamationen:** Bisher ging eine Reklamation offen als Kind 38072 hinaus –
+mit Auftrag, Grund, Betrag und einer Notiz, die die App ausdrücklich als
+„öffentlich“ abfragte. Jetzt:
+- `protocol/private-job.ts`: `buildPrivateDispute()` versiegelt sie vom
+  Sitzungsschlüssel, je ein Umschlag an den Provider und an einen Prüfer
+  (höchstens 2 Empfänger, Rechenarbeit laut Angebot des Empfängers). Der
+  Provider muss dabei sein, und wer reklamiert, prüft nicht selbst.
+  `openPrivateKundenEvent()` nimmt Reklamationen an – auch beim Prüfer.
+- App: `reklamiere()` fragt nach einem Prüfer. Zur Wahl stehen die bekannten
+  Provider außer dem beschuldigten (`prueferKandidaten()` in `state.ts`), nur
+  solche, die Umschläge lesen. Leer heißt: nur an den Provider.
+- Knoten: `meldeReklamation()` loggt Auftrag, Grund und Betrag – als
+  „gegen diesen Knoten“ oder „zur Nachprüfung“ –, nie die Notiz (3.3).
+
+**Ehrlicher Text:** Der Infotext versprach, dass ein zweiter Provider
+nachprüft und die Zahlung zurückfließt. Das gibt es im Code nicht (Streitfall-
+Prüfer: Schritt 5.6). Jetzt steht dort, dass die Reklamation benachrichtigt
+und keine Erstattung von selbst folgt.
+
+**Datenschutzbericht:** belegt „Reklamationen sind nicht öffentlich – sie
+gehen versiegelt an den Provider und einen Prüfer deiner Wahl.“ Szenario:
+Reklamation an Provider und Prüfer, weder Betrag noch Grund noch Notiz noch
+Sitzung sichtbar.
+
+**Fund:** `klartext.test.ts` (3.3, #33) war in etwa einem von sieben Läufen
+rot. Zwei Anfragen derselben Sekunde verarbeitet `pollOnce()` in keiner festen
+Reihenfolge, der Test nahm aber eine an. Er prüft jetzt ohne Reihenfolge; 40
+Läufe am Stück grün, die ganze Knoten-Suite dreimal.
+
+**Tests:** protocol 991 → 993 (Reklamation versiegelt/Fehlerfälle), node
+175 → 176, app 215, Leak-Tests 24 → 28 grün + 4 todo (`reklamation.test.ts`:
+Abnahme – nur Umschläge, kein Betrag/Grund/Notiz, weder Identität noch
+Sitzung, p-Tags nur Provider und Prüfer, beide lesen sie vollständig,
+Verdrahtung). **E2E im Browser** mit zwei echten Knoten: zwei Anfragen, dann
+„Reklamieren“ → Prüfer-Auswahl zeigt den zweiten Knoten → von der App gehen
+nur Umschläge an genau diese beiden; beide Knoten melden die Reklamation,
+keiner loggt die Notiz.
+
+**Knoten-Stand:** Ein Knoten vor 3.4 verwirft die Umschläge („Weder Anfrage
+noch Sitzungs-Event“) – die Reklamation erreicht ihn dann nicht. Der MENSCH
+bringt den GX10-Knoten ohnehin auf `main`.
+
+Endstand: protocol 993 · node 176 · app 215 · Leak-Tests 28 grün + 4 todo · 0
+rot · check-wiring `--streng` 0 offen · innerHTML streng 0 unbewertet ·
+Smoke-Test bestanden.
