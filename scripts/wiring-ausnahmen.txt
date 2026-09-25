@@ -182,7 +182,6 @@ pricing.ts|videoPriceSats|Preise für Text und Video, noch nicht angebunden (Pre
 privacy-audit.ts|mixnetImpact|Auswirkung eines Mixnetzes, ohne Oberfläche (Verkehrsmuster, 6.4)
 
 private-job.ts|buildPrivateJobResponse|Private Antworten (3.2): der Knoten versiegelt sie ab 3.2c, sobald die App sie lesen kann (3.2b)
-private-job.ts|openPrivateJobResponse|Private Antworten (3.2): die App liest sie ab 3.2b
 
 profile.ts|parseProfileSafe|sicheres Parsen fremder Profile; App nutzt noch parseProfile (chat-zap.ts, app.ts) – umstellen offen
 

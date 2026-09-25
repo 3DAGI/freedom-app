@@ -2653,3 +2653,32 @@ grün + 5 todo.
 Endstand: protocol 989 grün (+4) · node 166 · app 207 · Leak-Tests 23 grün +
 5 todo · 0 rot · check-wiring `--streng` 0 offen (186 begründet) · innerHTML
 streng 0 unbewertet · Smoke-Test bestanden.
+
+## 68. Verschlüsselte Antworten, Teil b: App liest private Antworten (Schritt 3.2)
+
+**`app/src/ki-antworten.ts`:** `oeffneAntworten()` öffnet Umschläge an die
+Sitzungsschlüssel dieser Seite (`KiSitzungen.pubkeys()`/`mitPubkey()`) und gibt
+Ergebnisse (6xxx) und Rückmeldungen (7000) zu den gesuchten Anfragen wie
+offene Events zurück – neueste zuerst, geöffnete Umschläge gemerkt (auch
+ungültige), damit nicht bei jeder Abfrage neu entschlüsselt wird. Die Echtheit
+belegt das Siegel des Providers; Autor ist der Provider aus dem Siegel.
+
+**`tabs/agent.ts`:** `waitForAnswer()` fragt zusätzlich Umschläge an die
+Sitzungsschlüssel ab (`privateAntworten()`), Rückmeldungen und Ergebnisse
+laufen in dieselben Wege wie offene – Warten, Failover, Hedging;
+`askRace()` ebenso. Offene Antworten gelten weiter: Knoten bis 3.2b antworten
+offen, ab 3.2c versiegelt – die Live-App versteht beides, bevor der Knoten
+umstellt.
+
+**Tests:** app 207 → 211 (`ki-antworten.test.ts`: Ergebnis und Rückmeldung zur
+gesuchten Anfrage, Hedging mit zwei Anfragen; fremde Sitzung, beschädigter
+Umschlag, Anfrage statt Antwort bleiben draußen und werden als ungültig
+gemerkt; Reihenfolge und Cache; Verdrahtung in `waitForAnswer()`/`askRace()`).
+**E2E im Browser** mit dem echten `DvmProvider`: einmal antwortet er offen
+(heutiger Knoten), einmal nur versiegelt (3.2c nachgestellt) – beide Male
+erscheint die Antwort samt Nutzungsanzeige, kein Prompt offen, keine
+Identität in KI-Events.
+
+Endstand: protocol 989 · node 166 · app 211 grün (+4) · Leak-Tests 23 grün +
+5 todo · 0 rot · check-wiring `--streng` 0 offen · innerHTML streng 0
+unbewertet · Smoke-Test bestanden.
