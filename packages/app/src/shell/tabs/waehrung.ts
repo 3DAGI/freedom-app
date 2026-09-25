@@ -388,6 +388,28 @@ export function verbundeneSolanaWallet(): { adresse: string; provider: SolanaWal
   return solWallet.connected && solWallet.pubkey ? { adresse: solWallet.pubkey, provider: solWallet.provider } : undefined;
 }
 
+/** Name der zuletzt verbundenen Wallet (Wallet Standard) – kein Geheimnis. */
+const LS_SOL_WALLET_NAME = "freedom.sol.walletName";
+
+/** Mehrere Wallets angemeldet: als Knoepfe anbieten (Namen per textContent). */
+function waehleWallet(statusEl: HTMLElement, namen: string[]): Promise<number | null> {
+  statusEl.className = "mono-sm";
+  statusEl.textContent = "Welche Wallet?";
+  const zeile = document.createElement("div");
+  zeile.style.cssText = "display:flex;gap:6px;flex-wrap:wrap;margin-top:6px";
+  statusEl.appendChild(zeile);
+  return new Promise((resolve) => {
+    namen.forEach((name, i) => {
+      const b = document.createElement("button");
+      b.className = "ghost";
+      b.style.cssText = "width:auto;padding:6px 10px";
+      b.textContent = name;
+      b.addEventListener("click", () => { statusEl.textContent = ""; resolve(i); });
+      zeile.appendChild(b);
+    });
+  });
+}
+
 export async function connectSolana(silent = false): Promise<void> {
   const statusEl = $("#sol-status");
   const { connectSolanaWallet, fetchSolBalance, detectSolanaEnvironment } =
@@ -396,8 +418,12 @@ export async function connectSolana(silent = false): Promise<void> {
     // Frueher wurde hier nur window.solana geprueft. Auf jedem Handy ohne
     // Wallet-In-App-Browser war damit Schluss ("kein Wallet gefunden") — auch
     // auf dem Seeker. Jetzt: injizierter Provider, sonst Deeplink in die App.
+    const { ketteAusRpc } = await import("../../wallet-standard.js");
     const conn = await connectSolanaWallet({
       silent,
+      gemerkt: localStorage.getItem(LS_SOL_WALLET_NAME),
+      kette: async () => ketteAusRpc(await solRpcUrl()),
+      waehle: (namen) => waehleWallet(statusEl, namen),
       onNeedsDeeplink: (links, hint) => {
         statusEl.className = "mono-sm";
         statusEl.innerHTML =
@@ -415,6 +441,7 @@ export async function connectSolana(silent = false): Promise<void> {
       return;
     }
 
+    if (conn.name) localStorage.setItem(LS_SOL_WALLET_NAME, conn.name);
     solWallet.connected = true;
     solWallet.pubkey = conn.pubkey;
     solWallet.signTransaction = conn.provider?.signTransaction?.bind(conn.provider);

@@ -50,9 +50,9 @@ Jede Funktion, in der Geld fließt, bietet beide Schienen mit gleichem Komfort.
 
 ---
 
-## 4.2 SOL-Wallet: extern und eingebaut
+## 4.2 SOL-Wallet: extern und eingebaut – CODE FERTIG BIS AUF MOBILE WALLET ADAPTER (25.09.2026)
 
-> Aufgeteilt: a Kern ✓ (Tageslimit als reine Funktion, rollende 24 Stunden; eingebaute Wallet `sol-wallet.ts`: Schlüssel aus den 12 Wörtern der Identität, nur im Tresor, synchron signiert und genullt; Freigabe-Haken der Solana-Schiene; verbundene Wallet vor eingebauter, mit Bunker gesperrt); b Oberfläche im Wallet-Tab (einrichten, Adresse zum Empfangen, Guthaben, Limit, entfernen) mit E2E ✓ (dabei `RpcPool` im Browser repariert); c externe Wallets über Wallet Standard (ohne neue Abhängigkeit) – Mobile Wallet Adapter bräuchte `@solana-mobile/wallet-adapter-mobile` → vorher MENSCH fragen.
+> Aufgeteilt: a Kern ✓ (Tageslimit als reine Funktion, rollende 24 Stunden; eingebaute Wallet `sol-wallet.ts`: Schlüssel aus den 12 Wörtern der Identität, nur im Tresor, synchron signiert und genullt; Freigabe-Haken der Solana-Schiene; verbundene Wallet vor eingebauter, mit Bunker gesperrt); b Oberfläche im Wallet-Tab (einrichten, Adresse zum Empfangen, Guthaben, Limit, entfernen) mit E2E ✓ (dabei `RpcPool` im Browser repariert); c externe Wallets über den Wallet Standard (ohne neue Abhängigkeit) ✓ – Mobile Wallet Adapter bräuchte `@solana-mobile/wallet-standard-mobile` (meldet MWA als Standard-Wallet an; der Code aus c nähme sie ohne Umbau) → MENSCH-Frage.
 
 - **Stellen:** `packages/app/src/solana-connect.ts`, neu `packages/app/src/sol-wallet.ts`.
 - **Vorgehen:**

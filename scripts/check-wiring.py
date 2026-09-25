@@ -184,7 +184,8 @@ def wurzel_setzen(wurzel: Path) -> None:
 ZAHLWEGE = {
     r"\.payInvoice\(": {"rails.ts"},
     r"\.sendPayment\(": {"rails.ts"},
-    r"signAndSendTransaction": {"shell/zahlschienen.ts"},
+    # wallet-standard.ts baut den Anbieter (4.2c) – aufgerufen wird er nur von der Schiene.
+    r"signAndSendTransaction": {"shell/zahlschienen.ts", "wallet-standard.ts"},
     r"\bbuildSolTransfer\b": {"sol-transfer.ts", "shell/zahlschienen.ts"},
     # Treuhand-Programme (HTLC-Deposit, Swap) senden eigene Anweisungen, keine Ueberweisung.
     r"sendRawTransaction": {"shell/zahlschienen.ts", "sol-htlc.ts", "swap-client.ts"},
