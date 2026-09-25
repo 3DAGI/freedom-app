@@ -3176,3 +3176,46 @@ bestanden (Vorgabe Lightning).
 Endstand: protocol 1009 · node 176 · app 230 · Leak-Tests 35 grün + 3 todo · 0
 rot · check-wiring `--streng` 0 offen, 0 Wallet-Zugriffe außerhalb der Schienen ·
 innerHTML streng 0 unbewertet · Smoke-Test bestanden.
+
+## 83. SOL-Wallet, Teil a: Tageslimit und eingebaute Wallet (Schritt 4.2)
+
+**Tageslimit (`protocol/src/ausgabe-limit.ts`):** reine Funktion wie das
+Budget einer NWC-Verbindung – `pruefeTageslimit(verlauf, betrag, limit, jetzt)`
+zählt die Ausgaben der letzten 24 Stunden (rollend: ein Kalendertag ließe
+sich um Mitternacht zweimal ausschöpfen). Über dem Limit ist eine Zahlung
+nicht verboten, sie braucht eine ausdrückliche Bestätigung; Limit 0 heißt:
+jede Zahlung fragt.
+
+**Eingebaute Wallet (`app/src/sol-wallet.ts`):** für alle ohne Browser-Wallet.
+Der Schlüssel entsteht per SLIP-10 aus den 12 Wörtern auf Phantoms Pfad
+(Schritt 1.1) – nur wenn die Wörter zur eigenen Identität gehören. Der Test
+prüft die Adresse, die Phantom für die öffentliche Testphrase zeigt. Die App
+speichert die Wörter nicht; liegen bleibt nur der abgeleitete Schlüssel, über
+`geheim` (neuer Name in `geheimnisse()`). Signiert wird synchron mit einer
+frischen Kopie, die danach genullt wird – ohne `Buffer.from`, das kleine Werte
+in einen gemeinsamen Pool legt. Die Wallet signiert nur Transaktionen, die
+ihre Adresse als Signierer verlangen.
+
+**Freigabe-Haken:** `SolanaRail.pay()` fragt vor dem Bauen `freigabe()` –
+die eingebaute Wallet prüft dort das Tageslimit (Standard 0,1 SOL) und fragt
+darüber mit einem Dialog nach (`shell/eingebaute-wallet.ts`, Beträge und
+Adresse per `textContent`). Gezählt wird ab der Freigabe; scheitert die
+Zahlung danach, zählt sie trotzdem – das Limit irrt zur Nachfrage hin.
+Abgelehnt: nichts gebaut, nichts gesendet.
+
+**Verdrahtung:** `zahlschienen.ts` nimmt die verbundene Wallet, sonst die
+eingebaute (eingerichtet, Tresor offen, kein Bunker – mit Bunker gehören die
+12 Wörter nicht auf das Gerät). `check-wiring.py` prüft zusätzlich: roh
+signiert nur `sol-wallet.ts`, die benutzbare eingebaute Wallet holt nur die
+Schiene. Einrichten kann man sie erst mit Teil b (Oberfläche) – bis dahin
+ändert sich für Nutzer nichts.
+
+**Tests:** protocol 1009 → 1012 (`ausgabe-limit.test.ts`), app 230 → 234
+(`sol-wallet.test.ts`: Phantom-Adresse, fremde und ungültige Wörter, gesperrter
+Tresor, Signatur gleich der von web3.js, fremde Transaktion abgelehnt, Limit
+mit Nachfrage/Ablehnung/Fenster/ungültigen Werten, Schiene ohne Freigabe baut
+nichts).
+
+Endstand: protocol 1012 · node 176 · app 234 · Leak-Tests 35 grün + 3 todo · 0
+rot · check-wiring `--streng` 0 offen, 0 Wallet-Zugriffe außerhalb der Schienen ·
+innerHTML streng 0 unbewertet · Smoke-Test bestanden.

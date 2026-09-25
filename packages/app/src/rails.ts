@@ -128,13 +128,23 @@ export class LightningRail implements PaymentRail {
 
 // ------------------------------------------------------------ Solana
 
+export interface SolanaWalletZugang {
+  adresse: string;
+  signiereUndSende(tx: unknown): Promise<string>;
+  /**
+   * Freigabe vor dem Bauen (4.2a): Die eingebaute Wallet prueft hier ihr
+   * Tageslimit und fragt darueber nach. Externe Wallets fragen selbst.
+   */
+  freigabe?(lamports: number, ziel: string): Promise<boolean>;
+}
+
 export interface SolanaQuellen {
   /**
    * Die verbundene Wallet (injiziert oder eingebaut, 4.2): ihre Adresse und
    * „signieren und senden“ – ob die Wallet selbst sendet oder die App die
    * signierte Transaktion abschickt, entscheidet die Fabrik (zahlschienen.ts).
    */
-  wallet: () => { adresse: string; signiereUndSende(tx: unknown): Promise<string> } | undefined;
+  wallet: () => SolanaWalletZugang | undefined;
   /** Baut die Ueberweisung (sol-transfer.ts). */
   baueUeberweisung: (von: string, an: string, lamports: number) => Promise<unknown>;
   /** Prueft eine Signatur auf der Kette – ohne sie gilt ein Beleg als nicht pruefbar (4.8). */
@@ -163,6 +173,7 @@ export class SolanaRail implements PaymentRail {
     const von = w?.adresse;
     if (!w || !von) throw new Error("Keine Solana-Wallet verbunden – im Wallet-Tab verbinden.");
     if (von === a.ziel) throw new Error("Überweisung an sich selbst");
+    if (w.freigabe && !(await w.freigabe(a.betrag.wert, a.ziel))) throw new Error("Zahlung nicht freigegeben – nichts gesendet.");
     const tx = await this.q.baueUeberweisung(von, a.ziel, a.betrag.wert);
     const signature = await w.signiereUndSende(tx);
     if (typeof signature !== "string" || !/^[1-9A-HJ-NP-Za-km-z]{64,90}$/.test(signature)) throw new Error("Wallet lieferte keine gültige Signatur");
