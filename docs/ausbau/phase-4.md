@@ -14,7 +14,9 @@ Jede Funktion, in der Geld fließt, bietet beide Schienen mit gleichem Komfort.
 
 ---
 
-## 4.0 Entscheidung Gebührenmodell – MENSCH (vor 4.3)
+## 4.0 Entscheidung Gebührenmodell – MENSCH (vor 4.3) – VORLAGE FERTIG (25.09.2026)
+
+> Vorlage mit Ist-Stand, Optionen A und B, betroffenen Dateien, Folgen für den Zahlkanal, AMLR-Angriffsfläche und Einnahmen: [`docs/GEBUEHREN-ENTSCHEIDUNG.md`](../GEBUEHREN-ENTSCHEIDUNG.md). Wartet auf die Entscheidung.
 
 - **Du:** `docs/GEBUEHREN-ENTSCHEIDUNG.md` vorbereiten mit zwei Optionen:
   - **A (empfohlen):** Protokollgebühr 0 %; App-Gebühr freiwillig, offen
