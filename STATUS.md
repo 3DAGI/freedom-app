@@ -3068,3 +3068,15 @@ fertig), mit den Kosten CSP-Änderung, Rust in CI, eigener Browser-Speicher,
 App grob doppelt so groß (oder WASM nachladen und das Ein-Datei-Prinzip
 aufgeben). **STOPP: Die Entscheidung trifft der MENSCH.** 2.2b und 2.3 warten
 darauf.
+
+## 79. Gebührenmodell: Entscheidungsvorlage (Schritt 4.0) – wartet auf MENSCH
+
+`docs/GEBUEHREN-ENTSCHEIDUNG.md`: Ist-Stand aus dem Code (Protokollfee 2,5 %
+als Invariante, Abführung an Lightning-Adressen aus der Knoten-Umgebung,
+Pool-Wallet auf einem Knoten mit `POOL_DISTRIBUTOR=1`, Verteilung nach
+Selbstauskünften, Treasury-Code noch vorhanden, App-Gebühr 2,5 % offen und
+abschaltbar), dazu Option A (0 %) und B (Pool offen als zentral verwaltete
+Belohnung, nur SOL, Multisig) mit betroffenen Dateien, Folgen für den
+Zahlkanal (4.3), AMLR-Angriffsfläche (ausdrücklich kein Rechtsrat) und
+Einnahmen. **STOPP: Die Entscheidung trifft der MENSCH.** 4.3 wartet darauf;
+4.1 (PaymentRail) hängt nicht daran.
