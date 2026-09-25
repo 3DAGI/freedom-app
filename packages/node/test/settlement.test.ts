@@ -9,6 +9,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { sha256 } from "@noble/hashes/sha2.js";
 import { bytesToHex, hexToBytes } from "@noble/hashes/utils.js";
+import { secp256k1 } from "@noble/curves/secp256k1.js";
+import { bech32 } from "@scure/base";
 import {
   generateKeypair,
   OutboxPool,
@@ -28,19 +30,35 @@ import {
 
 const CLIENT_FEE = 25_000; // 2,5 % von 1.000.000 msat
 
+/** Selbst signierte bolt11-Rechnung (Test) – Knoten mit Wegwerfschluessel. */
+const KNOTEN_SK = secp256k1.utils.randomSecretKey();
+function rechnung(msat: number, preimage: Uint8Array): string {
+  const inBytes = (w: number[]) => {
+    const out: number[] = []; let a = 0, b = 0;
+    for (const x of w) { a = (a << 5) | x; b += 5; while (b >= 8) { b -= 8; out.push((a >> b) & 0xff); } }
+    if (b > 0) out.push((a << (8 - b)) & 0xff);
+    return Uint8Array.from(out);
+  };
+  const prefix = `lnbc${msat * 10}p`;
+  const p = bech32.toWords(sha256(preimage));
+  const woerter = [0, 0, 0, 0, 0, 0, 1, 1, Math.floor(p.length / 32), p.length % 32, ...p];
+  const sig = secp256k1.sign(new Uint8Array([...new TextEncoder().encode(prefix), ...inBytes(woerter)]), KNOTEN_SK, { format: "recovered" });
+  return bech32.encode(prefix, [...woerter, ...bech32.toWords(new Uint8Array([...sig.slice(1), sig[0]]))], false);
+}
+
 const TARGETS = {
   pool: { lud16: "pool@freedom.cash" },
   referral: { lud16: "ref@freedom.cash" },
   dev: { lud16: "dev@freedom.cash" },
 };
 
-/** Payer, der immer gelingt und ein nachpruefbares Preimage liefert. */
+/** Payer, der immer gelingt und Preimage samt bezahlter Rechnung liefert. */
 class GoodPayer implements Payer {
   public paid: { lud16: string; msat: number }[] = [];
   async payToLightningAddress(lud16: string, amountMsat: number) {
     this.paid.push({ lud16, msat: amountMsat });
-    const preimage = bytesToHex(sha256(new TextEncoder().encode(lud16 + amountMsat)));
-    return { preimage, paymentHash: bytesToHex(sha256(hexToBytes(preimage))) };
+    const preimage = sha256(new TextEncoder().encode(lud16 + amountMsat));
+    return { preimage: bytesToHex(preimage), paymentHash: bytesToHex(sha256(preimage)), bolt11: rechnung(amountMsat, preimage) };
   }
 }
 
@@ -105,9 +123,13 @@ test("Settlement: der veroeffentlichte Beweis ist gueltig und belegt", async () 
   assert.equal(v.amountsMatch, true);
   assert.equal(v.sumsMatch, true);
   assert.equal(v.ok, true);
-  // Mit Preimage muessen die Fee-Legs als belegt gelten, nicht nur angekuendigt.
-  const belegt = v.legs.filter((l) => l.status === "settled");
-  assert.equal(belegt.length, 3, "dev/pool/referral sind per Preimage bewiesen");
+  // Seit 4.8: Preimage und Rechnung liegen bei, die Zahlung an den Knoten ist
+  // belegt. Die Empfaenger sind aber Lightning-Adressen ohne Knotenangabe –
+  // bei Verwahrdiensten teilen sich viele einen Knoten. Deshalb ehrlich
+  // „angekuendigt“, nicht „belegt“ (bis 4.8 zaehlte hier ein Preimage allein).
+  const fee = v.legs.filter((l) => l.leg !== "worker");
+  assert.equal(fee.length, 3);
+  assert.ok(fee.every((l) => l.status === "announced" && /Zahlung an Knoten .* belegt/.test(l.detail)), JSON.stringify(fee));
 });
 
 test("Settlement: fehlgeschlagene Zahlung blockiert den Job nicht", async () => {
@@ -245,15 +267,32 @@ test("LNURL-Payer: holt Rechnung und leitet Preimage samt Hash zurueck", async (
     if (u.includes("/.well-known/lnurlp/")) {
       return new Response(JSON.stringify({ callback: "https://w.cash/cb", minSendable: 1000, maxSendable: 1e9 }));
     }
-    return new Response(JSON.stringify({ pr: "lnbc1test" }));
+    return new Response(JSON.stringify({ pr: rechnung(25_000, hexToBytes(preimage)) }));
   }) as unknown as typeof fetch;
 
   const payer = new LnurlPayer(async () => ({ preimage }), fakeFetch);
   const r = await payer.payToLightningAddress("pool@w.cash", 25_000, "test");
 
   assert.equal(r.preimage, preimage);
-  // Der Hash wird aus dem Preimage GERECHNET, nicht vom Empfaenger uebernommen.
+  // Der Hash kommt aus der signierten Rechnung, das Preimage passt dazu.
   assert.equal(r.paymentHash, bytesToHex(sha256(hexToBytes(preimage))));
+  assert.ok(r.bolt11.startsWith("lnbc250000p"), "bezahlte Rechnung fuer den Beleg");
+});
+
+test("LNURL-Payer (4.8): teurere oder kaputte Rechnung wird nicht bezahlt, falsches Preimage faellt auf", async () => {
+  const preimage = "ab".repeat(32);
+  let pr = rechnung(2_500_000, hexToBytes(preimage)); // hundertmal so teuer
+  const fakeFetch = (async (url: string | URL) => url.toString().includes("/.well-known/lnurlp/")
+    ? new Response(JSON.stringify({ callback: "https://w.cash/cb", minSendable: 1000, maxSendable: 1e9 }))
+    : new Response(JSON.stringify({ pr }))) as unknown as typeof fetch;
+  let bezahlt = 0;
+  const payer = new LnurlPayer(async () => { bezahlt++; return { preimage }; }, fakeFetch);
+  await assert.rejects(() => payer.payToLightningAddress("pool@w.cash", 25_000, "t"), /nicht bezahlt/);
+  pr = "lnbc1kaputt";
+  await assert.rejects(() => payer.payToLightningAddress("pool@w.cash", 25_000, "t"));
+  assert.equal(bezahlt, 0, "nichts bezahlt");
+  pr = rechnung(25_000, hexToBytes("cd".repeat(32)));
+  await assert.rejects(() => payer.payToLightningAddress("pool@w.cash", 25_000, "t"), /Preimage passt nicht/);
 });
 
 test("LNURL-Payer: Betrag ausserhalb der Grenzen des Empfaengers", async () => {

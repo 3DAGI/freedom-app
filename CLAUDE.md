@@ -41,9 +41,9 @@ python3 scripts/smoke_test.py packages/app/dist         # braucht playwright + c
 bash scripts/build-site.sh /tmp/site                     # Website bauen (Ziel wird gelöscht!)
 ```
 
-Stand 25.09.2026 (nach 4.7b): protocol 1022 grün (5 übersprungen), node 179 grün
+Stand 25.09.2026 (nach 4.8): protocol 1025 grün (5 übersprungen), node 180 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 248 grün, Leak-Tests 36 grün + 3 `todo` (heutige Lecks,
+in `tools.test.ts`), app 249 grün, Leak-Tests 36 grün + 3 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test).
 
 ## Arbeitsweise
@@ -159,6 +159,11 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   Sekunden – ein `datetime` übergeben.
 - **Solana-RPC:** Die App spricht standardmäßig Mainnet an; für Devnet-Tests in
   den Settings `https://api.devnet.solana.com` eintragen.
+- **„Belegt“ heißt: beim angekündigten Empfänger angekommen** (seit 4.8):
+  Lightning nur mit Preimage + Rechnung, die dessen Knoten signiert hat
+  (`leseBolt11()`), Solana nur mit der Kette (`verifyFeeProofMitKette`). Ein
+  Preimage allein oder eine bloße Signatur ist „angekündigt“. Rechnungen von
+  LNURL-Servern vor dem Zahlen auf den Betrag prüfen.
 - **Kurse und Umrechnung nur über `kurs.ts`** (seit 4.4): Marktkurs mit
   `marktKurs()` (eine Stimme je Absender), msat ↔ Lamports mit
   `msatZuLamports()`/`lamportsZuMsat()` (BigInt). 1 SOL = 1e9 Lamports =

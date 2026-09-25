@@ -14,8 +14,14 @@
  *   ✓ Die Summe der Teile ergibt exakt die Zahlung (kein Rest verschwindet).
  *   ✓ Der Dev-Anteil geht an die Wochen-Adresse, die das signierte
  *     Treasury-Announcement (kind 38050) für diese Woche nennt.
- *   ✓ Lightning: ein vorgelegtes Preimage passt zum Payment-Hash.
- *   ✓ Solana: eine Transaktionssignatur, die jeder im Explorer nachschlagen kann.
+ *   ✓ Lightning (seit 4.8): Die beigelegte Rechnung ist vom Knoten des
+ *     Empfaengers signiert, nennt den angekuendigten Betrag, und das Preimage
+ *     passt zu ihrem Payment-Hash. „Belegt“ nur, wenn der Empfaenger als
+ *     Knoten angekuendigt ist – eine Lightning-Adresse kann bei einem
+ *     Verwahrdienst liegen, dessen Knoten sich viele teilen.
+ *   ✓ Solana (seit 4.8): Die Transaktion auf der Kette ueberweist mindestens
+ *     die angekuendigten Lamports an den angekuendigten Empfaenger
+ *     (`verifyFeeProofMitKette`).
  *
  *   ✗ NICHT bewiesen wird, dass eine Lightning-Zahlung wirklich ankam, wenn
  *     kein Preimage vorliegt. Lightning hat kein öffentliches Ledger — das ist
@@ -27,6 +33,8 @@ import { UnsignedEvent, NostrEvent, buildEvent, getTag, verifyEvent } from "./ev
 import { splitFeeV1, PROTOCOL_FEE_PPM, PROTOCOL_FEE_PERCENT } from "./protocol-fee.js";
 import { sha256 } from "@noble/hashes/sha2.js";
 import { bytesToHex, hexToBytes } from "@noble/hashes/utils.js";
+import { leseBolt11 } from "./bolt11.js";
+import { pruefeSolUeberweisung } from "./sol-trinkgeld.js";
 
 /** Kind für den Fee-Beweis (adressierbarer Bereich). */
 export const KIND_FEE_PROOF = 38051;
@@ -52,6 +60,10 @@ export interface FeeLegProof {
   preimage?: string;
   /** Solana: Transaktionssignatur (base58) = im Explorer nachschlagbar. */
   txSignature?: string;
+  /** Lightning: die bezahlte Rechnung – belegt Empfaengerknoten und Betrag (4.8). */
+  bolt11?: string;
+  /** Solana: ueberwiesene Lamports – geprueft gegen die Kette (4.8). */
+  lamports?: number;
 }
 
 export interface FeeProof {
@@ -85,6 +97,8 @@ export function buildFeeProof(p: FeeProof, createdAt?: number): UnsignedEvent {
       l.paymentHash ?? "",
       l.preimage ?? "",
       l.txSignature ?? "",
+      l.bolt11 ?? "",
+      l.lamports !== undefined ? String(l.lamports) : "",
     ]);
   }
   return buildEvent(p.providerPubkey, KIND_FEE_PROOF, tags, "", createdAt);
@@ -109,6 +123,8 @@ export function parseFeeProof(ev: UnsignedEvent): FeeProof {
       paymentHash: t[5] || undefined,
       preimage: t[6] || undefined,
       txSignature: t[7] || undefined,
+      bolt11: t[8] || undefined,
+      lamports: /^\d{1,16}$/.test(t[9] ?? "") ? Number(t[9]) : undefined,
     }));
   return {
     resultEventId,
@@ -201,21 +217,13 @@ export function verifyFeeProof(ev: NostrEvent, opts: VerifyOptions = {}): FeePro
       status = "invalid";
       detail = `Betrag weicht ab: angekündigt ${l.amountMsat} msat, nach Protokoll ${exp} msat.`;
     } else if (l.chain === "solana") {
-      status = l.txSignature ? "settled" : "announced";
-      detail = l.txSignature
-        ? `On-chain nachprüfbar: Transaktion ${l.txSignature.slice(0, 12)}… im Solana-Explorer.`
-        : "Angekündigt, aber keine Transaktionssignatur beigelegt — nicht nachprüfbar.";
-    } else if (l.preimage && l.paymentHash) {
-      const ok = preimageMatches(l.preimage, l.paymentHash);
-      status = ok ? "settled" : "invalid";
-      detail = ok
-        ? "Lightning-Zahlung bewiesen: Preimage passt zum Payment-Hash."
-        : "Preimage passt NICHT zum Payment-Hash — der Beweis ist ungültig.";
-    } else {
+      // Belegt erst nach dem Blick auf die Kette (verifyFeeProofMitKette).
       status = "announced";
-      detail =
-        "Lightning ohne Preimage: angekündigt, nicht bewiesen. Lightning hat kein " +
-        "öffentliches Ledger — ohne Preimage ist der Empfang nicht belegbar.";
+      detail = l.txSignature
+        ? `Transaktion ${l.txSignature.slice(0, 12)}… angegeben – belegt erst, wenn die Kette Empfänger und Betrag zeigt.`
+        : "Angekündigt, aber keine Transaktionssignatur beigelegt — nicht nachprüfbar.";
+    } else {
+      ({ status, detail } = pruefeLightningLeg(l));
     }
     return { leg: l.leg, amountMsat: l.amountMsat, expectedMsat: exp, recipient: l.recipient, status, detail };
   });
@@ -261,6 +269,93 @@ export function verifyFeeProof(ev: NostrEvent, opts: VerifyOptions = {}): FeePro
   }
 
   return { ok, signatureValid, sumsMatch, amountsMatch, treasuryMatches, legs, summary };
+}
+
+const KNOTEN = /^0[23][0-9a-f]{64}$/;
+
+/**
+ * Lightning-Teilzahlung (4.8): Preimage, Rechnung, Empfaengerknoten, Betrag.
+ * Ohne Rechnung belegt ein Preimage nicht, an wen gezahlt wurde.
+ */
+function pruefeLightningLeg(l: FeeLegProof): { status: LegStatus; detail: string } {
+  if (!l.preimage) {
+    return { status: "announced", detail: "Lightning ohne Preimage: angekündigt, nicht bewiesen. Lightning hat kein " +
+      "öffentliches Ledger — ohne Preimage ist der Empfang nicht belegbar." };
+  }
+  if (!l.bolt11) {
+    if (l.paymentHash && !preimageMatches(l.preimage, l.paymentHash)) {
+      return { status: "invalid", detail: "Preimage passt NICHT zum Payment-Hash — der Beweis ist ungültig." };
+    }
+    return { status: "announced", detail: "Preimage ohne Rechnung: Eine Zahlung ist belegt, aber nicht, an wen – dafür fehlt die Rechnung." };
+  }
+  let r: ReturnType<typeof leseBolt11>;
+  try {
+    r = leseBolt11(l.bolt11);
+  } catch (e) {
+    return { status: "invalid", detail: `Rechnung ungültig: ${(e as Error).message}.` };
+  }
+  if (l.paymentHash && l.paymentHash.toLowerCase() !== r.zahlungsHash) {
+    return { status: "invalid", detail: "Payment-Hash im Beleg passt nicht zur Rechnung." };
+  }
+  if (!preimageMatches(l.preimage, r.zahlungsHash)) {
+    return { status: "invalid", detail: "Preimage passt NICHT zur Rechnung — der Beweis ist ungültig." };
+  }
+  if (r.betragMsat !== null && r.betragMsat !== l.amountMsat) {
+    return { status: "invalid", detail: `Die Rechnung lautet auf ${r.betragMsat} msat, angekündigt sind ${l.amountMsat} msat.` };
+  }
+  const knoten = `${r.empfaengerKnoten.slice(0, 8)}…${r.empfaengerKnoten.slice(-4)}`;
+  if (KNOTEN.test(l.recipient)) {
+    return l.recipient === r.empfaengerKnoten
+      ? r.betragMsat === null
+        ? { status: "announced", detail: `Gezahlt an den angekündigten Knoten ${knoten}, aber die Rechnung nennt keinen Betrag.` }
+        : { status: "settled", detail: `Belegt: Rechnung vom angekündigten Knoten ${knoten}, Betrag stimmt, Preimage passt.` }
+      : { status: "invalid", detail: `Die Rechnung stammt von Knoten ${knoten}, nicht vom angekündigten Empfänger.` };
+  }
+  return { status: "announced", detail: `Zahlung an Knoten ${knoten} belegt. Der Empfänger ist eine Lightning-Adresse ohne Knotenangabe – ` +
+    "bei Verwahrdiensten teilen sich viele einen Knoten, deshalb nur angekündigt." };
+}
+
+/**
+ * Wie verifyFeeProof, prueft aber zusaetzlich Solana-Teilzahlungen gegen die
+ * Kette (4.8): Die Transaktion muss mindestens die angekuendigten Lamports an
+ * den angekuendigten Empfaenger ueberweisen.
+ */
+export async function verifyFeeProofMitKette(
+  ev: NostrEvent,
+  opts: VerifyOptions,
+  ladeTransaktion: (signatur: string) => Promise<unknown>,
+): Promise<FeeProofVerdict> {
+  const v = verifyFeeProof(ev, opts);
+  const proof = parseFeeProof(ev);
+  const legs = await Promise.all(v.legs.map(async (lv, i) => {
+    const l = proof.legs[i];
+    if (l.chain !== "solana" || !l.txSignature || lv.status === "invalid") return lv;
+    if (!l.lamports) return { ...lv, detail: "Solana-Teilzahlung ohne Lamport-Betrag – gegen die Kette nicht prüfbar." };
+    let tx: unknown;
+    try {
+      tx = await ladeTransaktion(l.txSignature);
+    } catch (e) {
+      return { ...lv, detail: `Kette nicht erreichbar (${(e as Error).name}) – noch nicht belegt.` };
+    }
+    const p = pruefeSolUeberweisung(tx, { an: l.recipient, lamports: l.lamports });
+    return p.status === "belegt"
+      ? { ...lv, status: "settled" as const, detail: `Belegt: Die Kette zeigt ${l.lamports} Lamports an den angekündigten Empfänger.` }
+      : p.status === "falsch"
+        ? { ...lv, status: "invalid" as const, detail: `Auf der Kette: ${p.grund}.` }
+        : { ...lv, detail: `${p.grund} – noch nicht belegt.` };
+  }));
+  const invalid = legs.filter((l) => l.status === "invalid").length;
+  const settled = legs.filter((l) => l.status === "settled").length;
+  if (v.ok && invalid > 0) {
+    return { ...v, legs, ok: false, summary: `${invalid} von ${legs.length} Teilzahlungen sind fehlerhaft — Beträge oder Beweise stimmen nicht.` };
+  }
+  return {
+    ...v,
+    legs,
+    summary: v.ok
+      ? `Aufteilung korrekt (${PROTOCOL_FEE_PERCENT} % Protokollfee): ${settled} von ${legs.length} Teilzahlungen sind belegt, ${legs.length - settled} nur angekündigt.`
+      : v.summary,
+  };
 }
 
 /** Hilfe für Provider: Legs aus einem Betrag erzeugen, ohne selbst zu rechnen. */

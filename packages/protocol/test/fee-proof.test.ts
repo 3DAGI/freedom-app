@@ -11,14 +11,17 @@ import { sha256 } from "@noble/hashes/sha2.js";
 import { bytesToHex } from "@noble/hashes/utils.js";
 import { generateKeypair, signEvent, buildEvent } from "../src/event.js";
 import { splitFeeV1 } from "../src/protocol-fee.js";
+import { secp256k1 } from "@noble/curves/secp256k1.js";
 import {
   buildFeeProof,
   parseFeeProof,
   verifyFeeProof,
+  verifyFeeProofMitKette,
   feeLegsFor,
   preimageMatches,
   KIND_FEE_PROOF,
 } from "../src/fee-proof.js";
+import { rechnung } from "./bolt11-hilfe.js";
 
 const RECIPIENTS = {
   worker: "provider@wallet.cash",
@@ -123,7 +126,9 @@ test("Fee-Beweis: manipuliertes Event faellt an der Signatur auf", () => {
   assert.match(v.summary, /Signatur/);
 });
 
-test("Fee-Beweis: gueltiges Preimage macht aus 'angekuendigt' ein 'belegt'", () => {
+test("Fee-Beweis: Preimage ohne Rechnung belegt nicht, an wen gezahlt wurde (4.8)", () => {
+  // Bis 4.8 galt das als „belegt“ – ein Preimage passt aber zu jeder Zahlung
+  // mit diesem Hash, auch zu einer an sich selbst.
   const preimage = "11".repeat(32);
   const hash = bytesToHex(sha256(Uint8Array.from(Buffer.from(preimage, "hex"))));
 
@@ -133,8 +138,40 @@ test("Fee-Beweis: gueltiges Preimage macht aus 'angekuendigt' ein 'belegt'", () 
   });
   const v = verifyFeeProofWithClient(ev);
   const dev = v.legs.find((l) => l.leg === "client")!;
-  assert.equal(dev.status, "settled");
-  assert.match(dev.detail, /bewiesen/);
+  assert.equal(dev.status, "announced");
+  assert.match(dev.detail, /nicht, an wen/);
+});
+
+/** Lightning-Leg mit Rechnung eines Knotens: Empfaenger als Knoten oder Adresse. */
+function mitRechnung(opts: { empfaengerIstKnoten: boolean; fremderKnoten?: boolean; betragDaneben?: boolean; preimageDaneben?: boolean }) {
+  const sk = secp256k1.utils.randomSecretKey();
+  const knoten = bytesToHex(secp256k1.getPublicKey(opts.fremderKnoten ? secp256k1.utils.randomSecretKey() : sk, true));
+  const pre = new Uint8Array(32).fill(9);
+  return proofEvent(100_000, (legs) => {
+    const l = legs.find((x) => x.leg === "pool")!;
+    const msat = opts.betragDaneben ? l.amountMsat + 1000 : l.amountMsat;
+    l.bolt11 = rechnung(sk, `lnbc${msat * 10}p`, pre);
+    l.preimage = bytesToHex(opts.preimageDaneben ? new Uint8Array(32).fill(8) : pre);
+    if (opts.empfaengerIstKnoten) l.recipient = knoten;
+  });
+}
+
+test("Fee-Beweis (4.8) Lightning: richtiger Empfaengerknoten belegt, falscher ungueltig, Adresse nur angekuendigt", () => {
+  const pool = (ev: ReturnType<typeof proofEvent>) => verifyFeeProofWithClient(ev).legs.find((l) => l.leg === "pool")!;
+  const richtig = pool(mitRechnung({ empfaengerIstKnoten: true }));
+  assert.equal(richtig.status, "settled");
+  assert.match(richtig.detail, /angekündigten Knoten/);
+  const falsch = pool(mitRechnung({ empfaengerIstKnoten: true, fremderKnoten: true }));
+  assert.equal(falsch.status, "invalid");
+  assert.match(falsch.detail, /nicht vom angekündigten Empfänger/);
+  const adresse = pool(mitRechnung({ empfaengerIstKnoten: false }));
+  assert.equal(adresse.status, "announced");
+  assert.match(adresse.detail, /Verwahrdiensten/);
+  assert.equal(pool(mitRechnung({ empfaengerIstKnoten: true, betragDaneben: true })).status, "invalid");
+  assert.equal(pool(mitRechnung({ empfaengerIstKnoten: true, preimageDaneben: true })).status, "invalid");
+  // Rechnung und Beleg sind signiert: bolt11 und Lamports kommen durch parse
+  const ev = mitRechnung({ empfaengerIstKnoten: true });
+  assert.ok(parseFeeProof(ev).legs.find((l) => l.leg === "pool")!.bolt11?.startsWith("lnbc"));
 });
 
 test("Fee-Beweis: falsches Preimage wird nicht durchgewunken", () => {
@@ -156,15 +193,28 @@ test("Fee-Beweis: Lightning ohne Preimage bleibt ehrlich 'nur angekuendigt'", ()
   assert.match(v.legs[0].detail, /kein öffentliches Ledger/);
 });
 
-test("Fee-Beweis: Solana-leg mit Signatur gilt als belegt", () => {
+test("Fee-Beweis (4.8) Solana: belegt erst mit der Kette – richtiger Empfaenger ja, falscher nein", async () => {
+  const AN = "7EcDhSYGxXyscszYEp35KHN8vvw3svAuLKTzXwCFLtVb";
   const ev = proofEvent(100_000, (legs) => {
-    legs.find((l) => l.leg === "client")!.chain = "solana";
-    legs.find((l) => l.leg === "client")!.txSignature = "5xY".padEnd(88, "z");
+    const l = legs.find((x) => x.leg === "client")!;
+    l.chain = "solana";
+    l.recipient = AN;
+    l.txSignature = "5xY".padEnd(88, "z");
+    l.lamports = 16_667;
   });
-  const v = verifyFeeProofWithClient(ev);
-  const dev = v.legs.find((l) => l.leg === "client")!;
-  assert.equal(dev.status, "settled");
-  assert.match(dev.detail, /Explorer/);
+  // Ohne Kette: nur angekuendigt (bis 4.8 hiess eine blosse Signatur „belegt“)
+  assert.equal(verifyFeeProofWithClient(ev).legs.find((l) => l.leg === "client")!.status, "announced");
+  const tx = (an: string, lamports: number) => ({ meta: { err: null }, transaction: { message: { instructions: [
+    { program: "system", parsed: { type: "transfer", info: { source: "x", destination: an, lamports } } }] } } });
+  const opts = { clientFeeMsat: clientFeeOf(100_000) };
+  const client = async (lade: () => Promise<unknown>) => (await verifyFeeProofMitKette(ev, opts, lade)).legs.find((l) => l.leg === "client")!;
+  assert.equal((await client(async () => tx(AN, 16_667))).status, "settled");
+  const falsch = await verifyFeeProofMitKette(ev, opts, async () => tx("9xQeWvG816bUx9EPjHmaT23yvVM2ZWbrrpZb9PusVFin", 16_667));
+  assert.equal(falsch.legs.find((l) => l.leg === "client")!.status, "invalid");
+  assert.equal(falsch.ok, false, "falscher Empfaenger macht den Beleg ungueltig");
+  assert.equal((await client(async () => tx(AN, 100))).status, "invalid");
+  assert.equal((await client(async () => null)).status, "announced", "Kette kennt die Signatur nicht");
+  assert.match((await client(async () => { throw new TypeError("x"); })).detail, /nicht erreichbar \(TypeError\)/);
 });
 
 test("Fee-Beweis: fremde Treasury-Adresse wird erkannt", () => {
