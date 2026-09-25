@@ -50,11 +50,9 @@ earn.ts|z.cells|lokal gezählt in summarizeLayers()
 earn.ts|(Zuweisung) r.cells.slice(0, 15).map((c) => `${symbol[c.layer] ?? "•"} ${escapeHtml(c.region ¦¦ "?")} · ${escapeHtml(c.label)}`, ).j|Callback: Template mit escapeHtml(region, label); Symbol aus fester Tabelle
 earn.ts|symbol[c.layer]|Eintrag aus der festen Symboltabelle (oder undefined)
 earn.ts|r.hiddenCells|lokal gezählt in buildCoverage()
-agent.ts|entries.map(([m, info]) => { const sp = speedOf(m); const short = m.split(":")[0]; const satsPer1k = Math.ceil(info.pric|Callback: Template mit escapeHtml(m) und escapeHtml(short); übrige Werte siehe folgende Zeilen
+agent.ts|entries.map(([m, info]) => { const sp = speedOf(m); const short = m.split(":")[0]; const preis = ausMsat(info.priceMsat,|Callback: Template mit escapeHtml(m), escapeHtml(short) und escapeHtml(preis); übrige Werte siehe folgende Zeilen
 agent.ts|sp.cls|fester Klassenname aus speedOf()
 agent.ts|sp.label|festes Label aus speedOf()
-agent.ts|satsPer1k|Math.ceil(...) – immer eine Zahl
-agent.ts|solPer1k|Zahl.toFixed(6) – nur Ziffern und Punkt
 agent.ts|info.count|lokal gezählt (Provider je Modell)
 ui.ts|(Zuweisung) markSvg(18)|eigenes SVG mit fester Farbe
 ui.ts|(Zuweisung) markSvg(30)|eigenes SVG mit fester Farbe

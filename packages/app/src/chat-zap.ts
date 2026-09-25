@@ -9,7 +9,9 @@
  */
 
 import { escapeHtml } from "./shell-logic.js";
+import { ausLamports, ausMsat } from "./preis-anzeige.js";
 import { standardSchiene } from "./standard-schiene.js";
+import { aktualisiereKurs, aktuellerKurs } from "./shell/marktkurs.js";
 // App-Zustand unter eigenem Namen: `state` ist hier der Zustand des Dialogs.
 // Vorher stand hier `window.state` – das gab es nie, der Zap brach ab.
 import { ensurePool, signiere, state as appState } from "./shell/state.js";
@@ -61,6 +63,7 @@ export function openZapDialog(recipientPubkey: string, recipientName: string): v
             <option value="sats"${state.unit === "sats" ? " selected" : ""}>sats</option>
             <option value="sol"${state.unit === "sol" ? " selected" : ""}>SOL</option>
           </select>
+          <div class="mono-sm" id="zap-umrechnung"></div>
         </div>
         <div class="zap-field">
           <label>Wallet</label>
@@ -82,9 +85,21 @@ export function openZapDialog(recipientPubkey: string, recipientName: string): v
   // Event-Listener
   // Die Einheit folgt der Schiene: Lightning zahlt in sats, Solana in SOL.
   const walletSel = document.getElementById("zap-wallet") as HTMLSelectElement;
+  // Beide Einheiten (4.4b): der Betrag in der anderen Waehrung, aus dem Marktkurs.
+  const umrechnung = () => {
+    const wert = Number((document.getElementById("zap-amount") as HTMLInputElement).value);
+    const einheit = (document.getElementById("zap-unit") as HTMLSelectElement).value;
+    document.getElementById("zap-umrechnung")!.textContent = !Number.isFinite(wert) || wert <= 0 ? ""
+      : einheit === "sol" ? ausLamports(wert * 1e9, aktuellerKurs()) : ausMsat(wert * 1000, aktuellerKurs());
+  };
   walletSel.onchange = () => {
     (document.getElementById("zap-unit") as HTMLSelectElement).value = walletSel.value === "solana" ? "sol" : "sats";
+    umrechnung();
   };
+  (document.getElementById("zap-amount") as HTMLInputElement).oninput = umrechnung;
+  (document.getElementById("zap-unit") as HTMLSelectElement).onchange = umrechnung;
+  umrechnung();
+  void aktualisiereKurs().then(umrechnung);
   document.getElementById("zap-close")!.onclick = () => el.remove();
   document.getElementById("zap-cancel")!.onclick = () => el.remove();
   document.getElementById("zap-send")!.onclick = async () => {

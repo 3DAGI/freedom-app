@@ -295,6 +295,7 @@
           </div>
         </div><div class="card">
           <h3>Solana</h3>
+          <div id="kurs-info" class="mono-sm"></div>
           <div id="sol-pubkey" class="mono-sm">Nicht verbunden</div>
           <div id="sol-status" class="mono-sm"></div>
           <input id="sol-addr" class="mono-sm hidden" placeholder="SOL address" />
@@ -333,7 +334,7 @@
           <button id="wallet-refresh" class="ghost">Aktualisieren</button></div></div>
           <div class="subpane" data-subpane="wallet:lp"><div class="card">
           <h3>SOL hinterlegen</h3>
-          <input id="dep-amount" type="number" placeholder="lamports" class="mono-sm" />
+          <input id="dep-amount" type="number" step="any" placeholder="Betrag in SOL" class="mono-sm" />
           <input id="dep-provider" placeholder="provider pubkey (auto)" class="mono-sm" />
           <!-- Wird aus dem Job-Ergebnis uebernommen. Manuell nur als Notausgang:
                eine abgetippte Empfaengeradresse ist die naheliegendste Stelle,

@@ -28,6 +28,7 @@ import { type AntwortCache, oeffneAntworten } from "../../ki-antworten.js";
 import { kontextPraefix } from "../../ki-kontext.js";
 import { SessionClient } from "../../session-client.js";
 import { escapeHtml, pkShort } from "../../shell-logic.js";
+import { ausMsat } from "../../preis-anzeige.js";
 import { switchTab, zeigeOnboarding } from "../app.js";
 import {
   ensurePool,
@@ -39,6 +40,7 @@ import {
   signiere,
   state,
 } from "../state.js";
+import { aktualisiereKurs, aktuellerKurs } from "../marktkurs.js";
 import { geheim } from "../tresor.js";
 import {
   $,
@@ -68,7 +70,7 @@ export async function refreshModelDropdown(): Promise<void> {
   if (!sel || !btn) return;
   const current = sel.value;
   try {
-    const providers = await findProviders(($("#ai-tier") as HTMLSelectElement).value);
+    const [providers] = await Promise.all([findProviders(($("#ai-tier") as HTMLSelectElement).value), aktualisiereKurs()]);
     // modelle + preise der top-provider sammeln (dedupe, haeufigkeit)
     const counts = new Map<string, { count: number; priceMsat: number; tools: Set<string> }>();
     for (const p of providers.slice(0, 5)) {
@@ -108,13 +110,11 @@ export async function refreshModelDropdown(): Promise<void> {
         ${entries.map(([m, info]) => {
           const sp = speedOf(m);
           const short = m.split(":")[0];
-          const satsPer1k = Math.ceil(info.priceMsat / 1000);
-          // SOL-preis: SOL_PRICE_SATS env (provider-seite) oder default 150000 sats/SOL
-          const solPriceSats = Number((window as unknown as { FREEDOM_SOL_PRICE_SATS?: number }).FREEDOM_SOL_PRICE_SATS ?? 150_000);
-          const solPer1k = (satsPer1k / solPriceSats).toFixed(6).replace(/0+$/, "").replace(/\.$/, "");
+          // Beide Einheiten aus dem Marktkurs (4.4b) – vorher fest 150.000 sats/SOL.
+          const preis = ausMsat(info.priceMsat, aktuellerKurs());
           return `<button type="button" class="model-card ${current === m ? "selected" : ""}" data-model="${escapeHtml(m)}">
             <div class="mc-head"><b>${escapeHtml(short)}</b><span class="mc-speed ${sp.cls}">${sp.label}</span></div>
-            <div class="mc-sub">~${satsPer1k} sats ≈ ${solPer1k} SOL /1k tokens · ${info.count} provider${info.tools.size ? " · " + icon("wrench", 11) : ""}</div>
+            <div class="mc-sub">~${escapeHtml(preis)} /1k tokens · ${info.count} provider${info.tools.size ? " · " + icon("wrench", 11) : ""}</div>
           </button>`;
         }).join("")}`;
     }
@@ -297,8 +297,8 @@ export function updateFeePreview(): void {
   // Den Rundungsrest zeigen, damit die Summe immer stimmt (kein "verschwundener sat").
   $("#ai-fee-preview").textContent =
     rest > 0
-      ? `${bid} sats → provider ${p} / pool ${pool} / protokoll ${proto} (+${rest} rundung)`
-      : `${bid} sats → provider ${p} / pool ${pool} / protokoll ${proto}`;
+      ? `${ausMsat(bid * 1000, aktuellerKurs())} → provider ${p} / pool ${pool} / protokoll ${proto} (+${rest} rundung)`
+      : `${ausMsat(bid * 1000, aktuellerKurs())} → provider ${p} / pool ${pool} / protokoll ${proto}`;
   updateTokenEstimate();
 }
 
@@ -322,7 +322,7 @@ export function updateTokenEstimate(): void {
     if (hit) rate = hit[1].priceMsat;
   } catch { /* default */ }
   const estSats = Math.max(1, Math.ceil((estTokens / 1000) * rate / 1000));
-  el.textContent = `~${estTokens} tokens ≈ ${estSats} sats`;
+  el.textContent = `~${estTokens} tokens ≈ ${ausMsat(estSats * 1000, aktuellerKurs())}`;
 }
 
 // ------------------------------------------------------------- Fehler-UX (Phase 1.2)

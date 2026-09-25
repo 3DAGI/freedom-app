@@ -3344,3 +3344,40 @@ richtigem Kurs, Verdrahtung LP-Kurs und Angebot).
 Endstand: protocol 1018 · node 179 · app 240 · Leak-Tests 35 grün + 3 todo · 0
 rot · check-wiring `--streng` 0 offen · innerHTML streng 0 unbewertet ·
 Smoke-Test bestanden.
+
+## 87. Preise und Kurse, Teil b: beide Einheiten in der App (Schritt 4.4)
+
+**Marktkurs in der App (`shell/marktkurs.ts`):** holt die Kurs-Events, bildet
+den Median je Absender (`marktKurs()` aus 4.4a) und hält ihn zehn Minuten.
+Die Kurszeile im Wallet-Tab nennt Kurs und Quellen; Warnungen (zu wenige
+Quellen, Streuung) stehen sichtbar dabei, ohne Kurs-Events steht dort „SOL-Preise
+nicht verfügbar“.
+
+**Beide Einheiten (`preis-anzeige.ts`):** Modellwahl („~1 sats ≈ 0,000006452 SOL
+/1k tokens“), Kostenschätzung, Gebot, Zap-Dialog (live in die jeweils andere
+Einheit) und das Guthaben der eingebauten Wallet. Vorher rechnete die App mit
+festen 150.000 sats/SOL; jetzt ohne Kurs ehrlich „(SOL: kein Kurs)“.
+
+**Deposit-Deckel:** Lamports je 1k Tokens aus dem Preis des Anbieters und dem
+Marktkurs, plus 10 % Spielraum – vorher fest 1000, mit der seit 4.4a richtigen
+Umrechnung weit unter jedem Preis. Ohne Kurs oder ohne Angebot des Anbieters
+kein Deposit („der Preis in SOL wäre geraten“). Rechnet der Anbieter mit einem
+Kurs mehr als 10 % neben dem Markt, fragt die App mit beiden Kursen nach.
+Nebenbei: Das Betragsfeld des Deposits hieß „lamports“, gelesen wurde SOL –
+Platzhalter korrigiert.
+
+**E2E im Browser:** Kurs-Events von drei Absendern plus einem „lauten“, der
+zehnmal 900.000 schickt → Kurszeile „1 SOL ≈ 155.000 sats (Median aus 4
+Quellen) ⚠ Kursquellen weichen bis 481 % voneinander ab“; Modellkarte,
+Schätzung und Zap in beiden Einheiten; Deposit bei einem Anbieter mit
+5.000.000 sats/SOL → Rückfrage mit beiden Kursen, abgelehnt → weder Tresor
+noch Signatur. Ohne Kurs-Events: Warnung und „(SOL: kein Kurs)“. Die E2Es
+der Wallets (§84, §85) laufen weiter grün.
+
+**Tests:** app 240 → 244 (`preis-anzeige.test.ts`: Formate beider Richtungen,
+ohne Kurs, Kurszeile mit Warnungen, Deposit-Deckel, Anbieterkurs-Warnung,
+Verdrahtung ohne festen Kurs).
+
+Endstand: protocol 1018 · node 179 · app 244 · Leak-Tests 35 grün + 3 todo · 0
+rot · check-wiring `--streng` 0 offen · innerHTML streng 0 unbewertet ·
+Smoke-Test bestanden.
