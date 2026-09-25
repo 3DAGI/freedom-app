@@ -100,15 +100,30 @@ export function mitRohemSchluessel<T>(wofuer: string, fn: (sk: Uint8Array) => T)
 let providerCache: ScoredProvider[] | null = null;
 let providerCacheAt = 0;
 
-/** Auto-Matchmaking: beste Provider fuer ein Tier (5min Cache). Kein manuelles pubkey. */
-export async function findProviders(tier: string): Promise<ScoredProvider[]> {
+/** Alle bekannten Provider mit Reputation (5 min Cache). */
+async function bekannteProvider(): Promise<ScoredProvider[]> {
   const pool = await ensurePool();
   const now = Date.now();
   if (!providerCache || now - providerCacheAt > 300_000) {
     providerCache = await discoverProviders(pool);
     providerCacheAt = now;
   }
-  return matchProviders(providerCache, tier as "free" | "classic" | "pro", { allowlist: getAllowlist() });
+  return providerCache;
+}
+
+/** Auto-Matchmaking: beste Provider fuer ein Tier (5min Cache). Kein manuelles pubkey. */
+export async function findProviders(tier: string): Promise<ScoredProvider[]> {
+  return matchProviders(await bekannteProvider(), tier as "free" | "classic" | "pro", { allowlist: getAllowlist() });
+}
+
+/**
+ * Pruefer fuer eine Reklamation (Schritt 3.4): andere Provider als der
+ * beschuldigte, die meisten erledigten Auftraege zuerst.
+ */
+export async function prueferKandidaten(beschuldigt: string): Promise<ScoredProvider[]> {
+  return (await bekannteProvider())
+    .filter((c) => c.caps.pubkey !== beschuldigt)
+    .sort((x, y) => y.score - x.score);
 }
 
 

@@ -23,9 +23,15 @@
  * Rueckmeldungen (Kind 7000) gehen genauso zurueck: als Kern im Umschlag an
  * den Sitzungsschluessel, versiegelt vom Provider. Relays sehen weder Antwort
  * noch Betrag noch, an wen sie geht.
+ *
+ * DIE REKLAMATION (Schritt 3.4)
+ * Eine Reklamation (Kind 38072) nennt Auftrag, Grund, Betrag und eine Notiz.
+ * Sie geht nur versiegelt hinaus: je ein Umschlag an den Provider und an einen
+ * Pruefer, den der Kunde waehlt – vom Sitzungsschluessel, wie der Auftrag.
  */
 import { type NostrEvent, type UnsignedEvent, computeEventId, getTag, verifyEvent } from "./event.js";
 import { KIND_GIFT_WRAP, giftUnwrapMitSigner, giftWrapMitSigner } from "./gift-wrap.js";
+import { KIND_JOB_DISPUTE } from "./disputes-relays.js";
 import { KIND_DVM_FEEDBACK, KIND_SESSION_OPEN, KIND_SESSION_PAYMENT, isDvmRequest, isDvmResult } from "./kinds.js";
 import { eventDifficulty } from "./pow.js";
 import type { Signer } from "./signer.js";
@@ -78,6 +84,44 @@ export async function buildPrivateSessionEvent(p: {
   return { wrap, eventId: computeEventId(p.event) };
 }
 
+/** Empfaenger einer Reklamation: der Provider und hoechstens ein Pruefer. */
+export const MAX_REKLAMATION_EMPFAENGER = 2;
+
+/**
+ * Reklamation versiegeln (Schritt 3.4): je ein Umschlag an den beschuldigten
+ * Provider und an den Pruefer, jeder mit der Rechenarbeit aus dessen Angebot.
+ * Auf den Relays steht kein Grund, kein Betrag, keine Notiz und nicht, wer
+ * reklamiert.
+ */
+export async function buildPrivateDispute(p: {
+  dispute: UnsignedEvent;
+  sessionSigner: Signer;
+  empfaenger: ReadonlyArray<{ pk: string; powBits?: number }>;
+  nowSecs?: number;
+}): Promise<{ wraps: NostrEvent[]; disputeId: string }> {
+  if (p.dispute.kind !== KIND_JOB_DISPUTE) throw new Error(`Keine Reklamation: Kind ${p.dispute.kind}`);
+  const selbst = p.sessionSigner.publicKey();
+  if (p.dispute.pubkey !== selbst) throw new Error("Reklamation gehört nicht zum Sitzungsschlüssel");
+  const pks = p.empfaenger.map((e) => e.pk);
+  if (pks.length < 1 || pks.length > MAX_REKLAMATION_EMPFAENGER) {
+    throw new Error(`Reklamation an 1–${MAX_REKLAMATION_EMPFAENGER} Empfänger, nicht ${pks.length}`);
+  }
+  if (new Set(pks).size !== pks.length) throw new Error("Empfänger doppelt");
+  for (const e of p.empfaenger) {
+    if (!HEX64.test(e.pk)) throw new Error("Empfänger-Pubkey ungültig (64 Zeichen hex erwartet)");
+    const bits = e.powBits ?? 0;
+    if (!Number.isInteger(bits) || bits < 0 || bits > MAX_POW_BITS) throw new Error(`Rechenarbeit ${bits} außerhalb 0–${MAX_POW_BITS}`);
+  }
+  if (pks.includes(selbst)) throw new Error("Wer reklamiert, prüft nicht selbst");
+  const provider = p.dispute.tags.find((t) => t[0] === "p")?.[1];
+  if (!provider || !pks.includes(provider)) throw new Error("Der Provider muss die Reklamation bekommen");
+  const wraps: NostrEvent[] = [];
+  for (const e of p.empfaenger) {
+    wraps.push(await giftWrapMitSigner(p.dispute, p.sessionSigner, e.pk, { fixedJitter: 0, nowSecs: p.nowSecs, powBits: e.powBits ?? 0 }));
+  }
+  return { wraps, disputeId: computeEventId(p.dispute) };
+}
+
 export type GeoeffneterJob =
   | { ok: true; request: UnsignedEvent & { id: string }; kundePk: string; powBits: number }
   | { ok: false; grund: string };
@@ -95,13 +139,21 @@ export async function openPrivateJobRequest(
   return oeffneVomKunden(wrap, providerSigner, minPowBits, isDvmRequest, "Keine Job-Anfrage");
 }
 
-/** Wie openPrivateJobRequest, nimmt aber auch Sitzung (38021) und Belege (38022) an (Schritt 3.2). */
+/**
+ * Wie openPrivateJobRequest, nimmt aber auch Sitzung (38021) und Belege
+ * (38022) an (Schritt 3.2) sowie Reklamationen (38072, Schritt 3.4) – auch als
+ * Pruefer, an den der Umschlag geht.
+ */
 export async function openPrivateKundenEvent(
   wrap: NostrEvent,
   providerSigner: Signer,
   minPowBits = 0,
 ): Promise<GeoeffneterJob> {
-  return oeffneVomKunden(wrap, providerSigner, minPowBits, (k) => isDvmRequest(k) || istSitzungsEvent(k), "Weder Anfrage noch Sitzungs-Event");
+  return oeffneVomKunden(
+    wrap, providerSigner, minPowBits,
+    (k) => isDvmRequest(k) || istSitzungsEvent(k) || k === KIND_JOB_DISPUTE,
+    "Weder Anfrage noch Sitzungs-Event noch Reklamation",
+  );
 }
 
 async function oeffneVomKunden(

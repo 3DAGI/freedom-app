@@ -40,6 +40,8 @@ import {
   LocalSigner,
   buildPrivateJobResponse,
   openPrivateKundenEvent,
+  KIND_JOB_DISPUTE,
+  parseDispute,
 } from "@freedomstack/protocol";
 import { verifyDepositOnChain, DepositVerificationCache, parseClientFee, checkClientFee } from "@freedomstack/protocol";
 import type { Connection } from "@solana/web3.js";
@@ -143,6 +145,11 @@ function clientFeeFor(
     clientFeeMsat: Math.floor((amountMsat * verdict.ppm) / 1_000_000),
     clientFeeRecipient: fee.recipient,
   };
+}
+
+/** Betrag fuers Log: nur ganze, nicht negative Zahlen – sonst "?". */
+function ganzeZahlLog(n: number): string {
+  return Number.isSafeInteger(n) && n >= 0 ? String(n) : "?";
 }
 
 export interface ProcessedJob {
@@ -420,7 +427,28 @@ export class DvmProvider {
       this.merkeSitzungsEvent(request);
       return null;
     }
+    if (request.kind === KIND_JOB_DISPUTE) {
+      this.meldeReklamation(request);
+      return null;
+    }
     return request;
+  }
+
+  /**
+   * Reklamation (Schritt 3.4), versiegelt an diesen Knoten – als beschuldigter
+   * Provider oder als Pruefer, den der Kunde gewaehlt hat. Ins Log kommen nur
+   * Auftrag, Grund und Betrag: Die Notiz des Kunden kann Klartext aus dem
+   * Auftrag tragen (3.3).
+   */
+  private meldeReklamation(ev: NostrEvent): void {
+    try {
+      const d = parseDispute(ev);
+      const rolle = d.providerPubkey === this.cfg.keypair.pk ? "gegen diesen Knoten" : "zur Nachpruefung";
+      const job = /^[0-9a-f]{64}$/.test(d.jobId) ? d.jobId.slice(0, 8) : "ungueltig";
+      console.log(`[reklamation] ${rolle}: Job ${job}, ${d.reason}, ${ganzeZahlLog(d.amountMsat)} msat`);
+    } catch (e) {
+      console.warn(`[reklamation] unvollstaendig: ${(e as Error).message}`);
+    }
   }
 
   private async bearbeitePrivat(request: NostrEvent): Promise<ProcessedJob> {

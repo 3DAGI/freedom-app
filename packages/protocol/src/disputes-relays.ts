@@ -246,11 +246,14 @@ export function disputeWindowOpen(
  */
 export function disputeInfo(): string {
   return [
-    "Reklamation: Ein zweiter Provider bearbeitet dieselbe Anfrage.",
-    "Stimmen die Ergebnisse überein, bleibt die Zahlung; weichen sie ab,",
-    "fließt sie zurück.",
+    "Reklamation: Sie geht versiegelt an den Provider und, wenn du einen",
+    "wählst, an einen zweiten Provider als Prüfer. Relays sehen weder Grund",
+    "noch Betrag noch, wer reklamiert.",
     "",
-    "Was das abfängt: gar keine Antwort, abgebrochene Jobs, ein anderes",
+    "Noch nicht automatisch: Nachprüfung und Rückzahlung. Die Reklamation",
+    "benachrichtigt beide – eine Erstattung folgt daraus noch nicht von selbst.",
+    "",
+    "Wofür sie gedacht ist: gar keine Antwort, abgebrochene Jobs, ein anderes",
     "Modell als vereinbart, offensichtlicher Unsinn.",
     "",
     "Was es NICHT abfängt: „Die Antwort gefällt mir nicht.“ Bei kreativen",

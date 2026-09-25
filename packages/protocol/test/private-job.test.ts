@@ -8,9 +8,10 @@ import { buildEvent, computeEventId, generateKeypair, signEvent, type NostrEvent
 import { buildJobFeedback, buildJobRequest, buildJobResult, parseJobResult } from "../src/dvm.js";
 import { giftWrapMitSigner } from "../src/gift-wrap.js";
 import {
-  MAX_POW_BITS, buildPrivateJobRequest, buildPrivateJobResponse, buildPrivateSessionEvent, openPrivateJobRequest,
-  openPrivateJobResponse, openPrivateKundenEvent,
+  MAX_POW_BITS, buildPrivateDispute, buildPrivateJobRequest, buildPrivateJobResponse, buildPrivateSessionEvent,
+  openPrivateJobRequest, openPrivateJobResponse, openPrivateKundenEvent,
 } from "../src/private-job.js";
+import { buildDispute, parseDispute } from "../src/disputes-relays.js";
 import { buildSessionOpen, buildSessionPayment, parseSessionOpen } from "../src/stream.js";
 import { eventDifficulty } from "../src/pow.js";
 import { LocalSigner } from "../src/signer.js";
@@ -234,4 +235,62 @@ test("privat 3.2d: Sitzungs-Events – falsches Kind, fremder Schluessel; Anfrag
   const d = await openPrivateKundenEvent(dm, provider);
   assert.equal(d.ok, false);
   assert.match(!d.ok ? d.grund : "", /Weder Anfrage noch Sitzungs-Event/);
+});
+
+// ------------------------------------------------------------ Reklamation (3.4)
+
+const NOTIZ = "Die Antwort hat meine Frage zum Medikament ignoriert";
+const JOB = "c".repeat(64);
+function reklamation(sitzung: LocalSigner, providerPk = provider.publicKey()) {
+  return buildDispute({
+    jobId: JOB, customerPubkey: sitzung.publicKey(), providerPubkey: providerPk, reason: "unbrauchbar", amountMsat: 7000, note: NOTIZ,
+  }, 1_790_000_000);
+}
+
+test("privat 3.4: Reklamation versiegelt an Provider und Pruefer – beide oeffnen sie, Relays sehen nichts", async () => {
+  const sitzung = new LocalSigner(generateKeypair().sk);
+  const pruefer = new LocalSigner(generateKeypair().sk);
+  const dispute = reklamation(sitzung);
+  const { wraps, disputeId } = await buildPrivateDispute({
+    dispute, sessionSigner: sitzung, empfaenger: [{ pk: provider.publicKey(), powBits: 8 }, { pk: pruefer.publicKey(), powBits: 4 }],
+  });
+  assert.equal(wraps.length, 2);
+  assert.ok(eventDifficulty(wraps[0]) >= 8 && eventDifficulty(wraps[1]) >= 4, "Rechenarbeit je Empfaenger");
+  for (const [w, signer] of [[wraps[0], provider], [wraps[1], pruefer]] as const) {
+    const r = await openPrivateKundenEvent(w, signer, 4);
+    assert.ok(r.ok, !r.ok ? r.grund : "");
+    assert.equal(r.request.id, disputeId);
+    assert.equal(r.kundePk, sitzung.publicKey());
+    const d = parseDispute({ ...r.request, sig: "" });
+    assert.deepEqual([d.jobId, d.providerPubkey, d.reason, d.amountMsat, d.note], [JOB, provider.publicKey(), "unbrauchbar", 7000, NOTIZ]);
+  }
+  // Ein Dritter kann keinen der Umschlaege oeffnen; die Anfrage-Oeffnung nimmt keine Reklamation.
+  const dritter = new LocalSigner(generateKeypair().sk);
+  assert.equal((await openPrivateKundenEvent(wraps[0], dritter)).ok, false);
+  assert.equal((await openPrivateJobRequest(wraps[0], provider)).ok, false);
+  // Relays: kein Betrag, kein Grund, keine Notiz, weder Identitaet noch Sitzung
+  assert.deepEqual(regelKeineZahlungsdaten(wraps), []);
+  assert.deepEqual(regelKeinKlartext(wraps, [NOTIZ, "unbrauchbar", JOB]), []);
+  assert.deepEqual(regelKundeVerborgen(wraps, sitzung.publicKey()), []);
+  assert.deepEqual(regelAutorNicht(wraps, identitaet.pk), []);
+  assert.deepEqual(wraps.map((w) => w.kind), [1059, 1059]);
+});
+
+test("privat 3.4: Reklamation – falsche Eingaben scheitern", async () => {
+  const sitzung = new LocalSigner(generateKeypair().sk);
+  const pruefer = generateKeypair().pk;
+  const p = provider.publicKey();
+  const bau = (dispute: ReturnType<typeof reklamation>, empfaenger: Array<{ pk: string; powBits?: number }>, signer = sitzung) =>
+    buildPrivateDispute({ dispute, sessionSigner: signer, empfaenger });
+  await assert.rejects(bau(anfrage(sitzung), [{ pk: p }]), /Keine Reklamation/);
+  await assert.rejects(bau(reklamation(sitzung), [{ pk: p }], new LocalSigner(generateKeypair().sk)), /Sitzungsschlüssel/);
+  await assert.rejects(bau(reklamation(sitzung), []), /1–2 Empfänger/);
+  await assert.rejects(bau(reklamation(sitzung), [{ pk: p }, { pk: pruefer }, { pk: generateKeypair().pk }]), /1–2 Empfänger/);
+  await assert.rejects(bau(reklamation(sitzung), [{ pk: p }, { pk: p }]), /doppelt/);
+  await assert.rejects(bau(reklamation(sitzung), [{ pk: pruefer }]), /Provider muss/, "ohne den Provider");
+  await assert.rejects(bau(reklamation(sitzung), [{ pk: p }, { pk: sitzung.publicKey() }]), /prüft nicht selbst/);
+  await assert.rejects(bau(reklamation(sitzung), [{ pk: p.toUpperCase() }]), /ungültig/);
+  await assert.rejects(bau(reklamation(sitzung), [{ pk: p, powBits: MAX_POW_BITS + 1 }]), /Rechenarbeit/);
+  // Nur an den Provider geht auch – ohne Pruefer
+  assert.equal((await bau(reklamation(sitzung), [{ pk: p }])).wraps.length, 1);
 });

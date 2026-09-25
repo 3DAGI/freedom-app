@@ -60,7 +60,9 @@ verschlüsselt.
 
 ---
 
-## 3.4 Verlauf und Reklamationen privat
+## 3.4 Verlauf und Reklamationen privat – CODE FERTIG (25.09.2026)
+
+> Der KI-Verlauf liegt seit 1.2c nur im Tresor (`geheim`, `freedom.agentHistory`). Das prüft jetzt auch der Leak-Test. Reklamationen gehen nur versiegelt hinaus, je ein Umschlag an den Provider und an einen Prüfer, den der Nutzer aus den bekannten Providern wählt (`buildPrivateDispute`). Der Knoten nimmt sie an und meldet sie ohne Notiz im Log. Nachprüfung und Rückzahlung laufen noch nicht automatisch (Streitfall-Prüfer: 5.6); der Infotext sagt das jetzt so.
 
 - **Vorgehen:** KI-Verlauf nur im Tresor. Reklamationen (`file-dispute`) gehen
   verschlüsselt an den Provider und an einen vom Nutzer gewählten Prüfer –

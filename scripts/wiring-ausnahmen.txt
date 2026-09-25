@@ -64,7 +64,6 @@ devices.ts|checkDeviceEvent|Geräte-Event prüfen, noch nicht angebunden (Gerät
 
 disputes-relays.ts|buildResolution|Streitfälle und Relay-Vergütung ohne Oberfläche (Streitfall-Prüfer 5.6, Relay-Rolle 8.4)
 disputes-relays.ts|distributeToRelays|Streitfälle und Relay-Vergütung ohne Oberfläche (Streitfall-Prüfer 5.6, Relay-Rolle 8.4)
-disputes-relays.ts|parseDispute|Streitfälle und Relay-Vergütung ohne Oberfläche (Streitfall-Prüfer 5.6, Relay-Rolle 8.4)
 disputes-relays.ts|parseRelayProof|Streitfälle und Relay-Vergütung ohne Oberfläche (Streitfall-Prüfer 5.6, Relay-Rolle 8.4)
 disputes-relays.ts|relayEconomicsInfo|Streitfälle und Relay-Vergütung ohne Oberfläche (Streitfall-Prüfer 5.6, Relay-Rolle 8.4)
 disputes-relays.ts|resolveDispute|Streitfälle und Relay-Vergütung ohne Oberfläche (Streitfall-Prüfer 5.6, Relay-Rolle 8.4)

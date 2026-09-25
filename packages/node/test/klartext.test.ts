@@ -134,7 +134,8 @@ test("3.3: kein Gespraechsverlauf im Knoten – jede Anfrage steht fuer sich, Ko
   await mitgeschrieben(() => provider.pollOnce());
   assert.equal(backend.anfragen.length, 2);
   assert.deepEqual(backend.anfragen.map((a) => a.history), [undefined, undefined], "kein Verlauf vom Knoten");
-  assert.equal(backend.anfragen[1].prompt, zweite, "der Kontext der App geht unveraendert ans Modell");
+  // Beide Anfragen tragen dieselbe Sekunde – die Reihenfolge in pollOnce() ist nicht festgelegt.
+  assert.deepEqual(backend.anfragen.map((a) => a.prompt).sort(), ["Hallo", zweite].sort(), "der Kontext der App geht unveraendert ans Modell");
 });
 
 test("3.3: LOG_KLARTEXT schaltet die Vorschau fuer die Fehlersuche ein – nur dann", async () => {
