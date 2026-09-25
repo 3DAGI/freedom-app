@@ -190,6 +190,9 @@ ZAHLWEGE = {
     r"sendRawTransaction": {"shell/zahlschienen.ts", "sol-htlc.ts", "swap-client.ts"},
     # Keysend der Sitzung: nie mit Wallet aufgerufen; die KI-Bezahlung wartet auf 4.0/4.3.
     r"\.keysend\(": {"session-client.ts"},
+    # Eingebaute SOL-Wallet (4.2a): roh signiert nur sie selbst, zahlen nur ueber die Schiene.
+    r"\.addSignature\(": {"sol-wallet.ts"},
+    r"\bbenutzbareEingebauteWallet\b": {"shell/eingebaute-wallet.ts", "shell/zahlschienen.ts"},
 }
 
 

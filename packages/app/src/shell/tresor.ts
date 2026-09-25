@@ -45,12 +45,13 @@ export const geheim: GeheimSpeicher = geheimSpeicher(() => tresor, tresorEingeri
 /**
  * Was beim Einrichten aus localStorage in den Tresor wandert: privater
  * Schluessel, Bunker-Sitzung, Wallet-Verbindung (NWC), Preimages von Swaps und
- * Deposits, Unterhaltungen, Agent- und Swap-Verlauf. Die Namen stehen auch in
- * tabs/waehrung.ts, tabs/agent.ts, tabs/kommunikation.ts und swap-client.ts.
+ * Deposits, Unterhaltungen, Agent- und Swap-Verlauf, die eingebaute SOL-Wallet.
+ * Die Namen stehen auch in tabs/waehrung.ts, tabs/agent.ts,
+ * tabs/kommunikation.ts, swap-client.ts und sol-wallet.ts.
  */
 function geheimnisse(): string[] {
   const fest = [LS_KEY, LS_BUNKER, "freedom.nwc.uri", "freedom.chats", "freedom.agentHistory", "freedom.swapHistory"];
-  const praefixe = ["freedom.swap.", "freedom.htlc."];
+  const praefixe = ["freedom.swap.", "freedom.htlc.", "freedom.solWallet"];
   const alle = Array.from({ length: localStorage.length }, (_, i) => localStorage.key(i) ?? "");
   return [...fest, ...alle.filter((k) => praefixe.some((p) => k.startsWith(p)))];
 }

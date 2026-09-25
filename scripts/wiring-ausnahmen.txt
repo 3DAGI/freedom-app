@@ -52,13 +52,7 @@ contributor-funding.ts|parseFundingRound|Vergütung von Mitentwicklern, ohne Obe
 contributor-funding.ts|suggestAllocations|Vergütung von Mitentwicklern, ohne Oberfläche (Repositories, 8.10)
 contributor-funding.ts|verifyRound|Vergütung von Mitentwicklern, ohne Oberfläche (Repositories, 8.10)
 
-derivation.ts|deriveSolanaKey|SLIP-10-Ableitung aus 1.1, Verdrahtung mit der eingebauten SOL-Wallet (4.2)
-derivation.ts|parseDerivationPath|SLIP-10-Ableitung aus 1.1, Verdrahtung mit der eingebauten SOL-Wallet (4.2)
-derivation.ts|slip10Child|SLIP-10-Ableitung aus 1.1, Verdrahtung mit der eingebauten SOL-Wallet (4.2)
-derivation.ts|slip10Derive|SLIP-10-Ableitung aus 1.1, Verdrahtung mit der eingebauten SOL-Wallet (4.2)
-derivation.ts|slip10Master|SLIP-10-Ableitung aus 1.1, Verdrahtung mit der eingebauten SOL-Wallet (4.2)
 derivation.ts|slip10PublicKey|SLIP-10-Ableitung aus 1.1, Verdrahtung mit der eingebauten SOL-Wallet (4.2)
-derivation.ts|solanaPath|SLIP-10-Ableitung aus 1.1, Verdrahtung mit der eingebauten SOL-Wallet (4.2)
 
 devices.ts|checkDeviceEvent|Geräte-Event prüfen, noch nicht angebunden (Geräte und Schlüsselwechsel, 8.6)
 
