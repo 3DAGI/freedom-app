@@ -18,6 +18,7 @@ export * from "./signer.js";
 export * from "./nip46.js";
 export * from "./private-job.js";
 export * from "./datei-krypto.js";
+export * from "./kontaktliste.js";
 export * from "./profile.js";
 export * from "./outbox.js";
 export * from "./ws-relay.js";

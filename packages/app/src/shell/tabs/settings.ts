@@ -11,6 +11,7 @@ import { ensurePool, mitBunker, mitRohemSchluessel, signiere, state } from "../s
 import { tresorEingerichtet, wireTresorKarte } from "../tresor.js";
 import { $, ganzeZahl, toast } from "../ui.js";
 import { ladeAbdeckung, trageAbdeckungEin } from "./earn.js";
+import { LS_KONTAKTE_SICHERN, kontakteEinschalten, kontakteSichernAn, sichereKontakte } from "./kommunikation.js";
 
 // ------------------------------------------------- Nachfolge & Modelle
 
@@ -508,6 +509,27 @@ export async function wireMeshTab(): Promise<void> {
     };
   }
   void zeigeDatenschutz();
+
+  // Private Kontaktliste (2.5b) – Standard aus; beim Ausschalten wird die Liste geleert.
+  const kontakte = document.getElementById("kontakte-sichern") as HTMLInputElement | null;
+  if (kontakte) {
+    kontakte.checked = kontakteSichernAn();
+    kontakte.onchange = async () => {
+      try {
+        if (kontakte.checked) {
+          const neu = await kontakteEinschalten();
+          toast(`Kontakte verschlüsselt gesichert${neu ? ` – ${neu} von anderen Geräten übernommen` : ""}.`);
+        } else {
+          localStorage.removeItem(LS_KONTAKTE_SICHERN);
+          await sichereKontakte(true);
+          toast("Abgleich aus – die Liste auf den Relays ist geleert.");
+        }
+      } catch (e) {
+        kontakte.checked = kontakteSichernAn();
+        toast(`Kontaktliste: ${(e as Error).message}`, true);
+      }
+    };
+  }
 
   const exp = $("#mesh-export");
   if (exp) exp.onclick = async () => {
