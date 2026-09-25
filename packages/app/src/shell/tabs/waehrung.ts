@@ -24,6 +24,7 @@ import {
   solRpcUrl,
   state,
 } from "../state.js";
+import { zeigeEingebauteWallet } from "../eingebaute-wallet.js";
 import { geheim, verlangeTresor } from "../tresor.js";
 import { $, toast, updateSidebarBalances } from "../ui.js";
 import { updateBudgetBar } from "./agent.js";
@@ -50,6 +51,7 @@ export async function loadWallet(): Promise<void> {
 
   // Solana still wiederverbinden, wenn die Seite schon einmal erlaubt wurde.
   if (!solWallet.connected) void connectSolana(true);
+  zeigeEingebauteWallet();
 
   try {
     const pool = await ensurePool();

@@ -52,7 +52,7 @@ Jede Funktion, in der Geld fließt, bietet beide Schienen mit gleichem Komfort.
 
 ## 4.2 SOL-Wallet: extern und eingebaut
 
-> Aufgeteilt: a Kern ✓ (Tageslimit als reine Funktion, rollende 24 Stunden; eingebaute Wallet `sol-wallet.ts`: Schlüssel aus den 12 Wörtern der Identität, nur im Tresor, synchron signiert und genullt; Freigabe-Haken der Solana-Schiene; verbundene Wallet vor eingebauter, mit Bunker gesperrt); b Oberfläche im Wallet-Tab (einrichten, Adresse zum Empfangen, Limit, entfernen) mit E2E; c externe Wallets über Wallet Standard (ohne neue Abhängigkeit) – Mobile Wallet Adapter bräuchte `@solana-mobile/wallet-adapter-mobile` → vorher MENSCH fragen.
+> Aufgeteilt: a Kern ✓ (Tageslimit als reine Funktion, rollende 24 Stunden; eingebaute Wallet `sol-wallet.ts`: Schlüssel aus den 12 Wörtern der Identität, nur im Tresor, synchron signiert und genullt; Freigabe-Haken der Solana-Schiene; verbundene Wallet vor eingebauter, mit Bunker gesperrt); b Oberfläche im Wallet-Tab (einrichten, Adresse zum Empfangen, Guthaben, Limit, entfernen) mit E2E ✓ (dabei `RpcPool` im Browser repariert); c externe Wallets über Wallet Standard (ohne neue Abhängigkeit) – Mobile Wallet Adapter bräuchte `@solana-mobile/wallet-adapter-mobile` → vorher MENSCH fragen.
 
 - **Stellen:** `packages/app/src/solana-connect.ts`, neu `packages/app/src/sol-wallet.ts`.
 - **Vorgehen:**
