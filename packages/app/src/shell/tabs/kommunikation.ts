@@ -4,13 +4,14 @@
  *
  * Aus app.ts verschoben (Schritt 1.0) – wörtlich, ohne Logikänderung.
  */
-import { NostrEvent, OutboxPool, WebSocketRelay, buildEvent } from "@freedomstack/protocol";
+import { type DateiSchluessel, NostrEvent, OutboxPool, WebSocketRelay, buildEvent } from "@freedomstack/protocol";
 import {
   type ChatAttachment,
   escapeHtml,
   parseDmBody,
   parseImetaTags,
   pkShort,
+  imetaSchluessel,
   renderAttachment,
 } from "../../shell-logic.js";
 import { ensurePool, RELAYS, signiere, state } from "../state.js";
@@ -438,14 +439,22 @@ async function uploadToBlossom(file: File): Promise<string> {
   throw new Error("kein blossom-server erreichbar — datei zu gross fuer inline");
 }
 
+/**
+ * Groesste Datei, die inline als data-URL in der Nachricht reist. Eine DM ist
+ * nach NIP-44 hoechstens 65.535 Byte lang; Base64 macht ein Drittel mehr. Bis
+ * 2.4 lag die Grenze bei 80 KB – DMs mit Anhaengen ab etwa 48 KB scheiterten.
+ */
+const INLINE_MAX_BYTES = 32_000;
+
 export async function handleChatFiles(files: FileList | null): Promise<void> {
   if (!files || files.length === 0) return;
   const listEl = $("#chat-attach-list");
   for (const file of Array.from(files)) {
     try {
       let url: string;
-      if (file.size <= 80_000) {
-        // klein: inline als data-url (funktioniert offline, kein server)
+      let enc: DateiSchluessel | undefined;
+      if (file.size <= INLINE_MAX_BYTES) {
+        // klein: inline als data-url – in DMs mit der Nachricht verschluesselt
         url = await new Promise<string>((res, rej) => {
           const r = new FileReader();
           r.onload = () => res(r.result as string);
@@ -453,19 +462,24 @@ export async function handleChatFiles(files: FileList | null): Promise<void> {
           r.readAsDataURL(file);
         });
       } else {
-        // gross: blob-netz (chunked + erasure, torrent-artig). blossom nur fallback.
-        setAttachStatus(listEl, `${file.name}: chunking…`);
+        // gross (2.4): nur verschluesselt hinaus – Blob-Netz, Blossom als Ausweg.
+        // Schluessel, Name und Typ reisen nur in der Nachricht.
+        setAttachStatus(listEl, `${file.name}: verschlüssele…`);
         try {
-          const { uploadBlob } = await import("../../blob-client.js");
+          const { uploadAnhang } = await import("../../blob-client.js");
           const pool = await ensurePool();
-          const res = await uploadBlob(file, pool as never, state.signer!);
+          const res = await uploadAnhang(file, pool as never, state.signer!);
           url = `freedom-blob:${res.blobId}`;
+          enc = res.schluessel;
         } catch {
           setAttachStatus(listEl, `${file.name}: blossom-fallback…`);
-          url = await uploadToBlossom(file);
+          const { verschluesseleDatei } = await import("@freedomstack/protocol");
+          const { chiffrat, schluessel } = verschluesseleDatei(new Uint8Array(await file.arrayBuffer()));
+          url = await uploadToBlossom(new File([chiffrat as BlobPart], "", { type: "application/octet-stream" }));
+          enc = schluessel;
         }
       }
-      chatAttachments.push({ name: file.name, mime: file.type || "application/octet-stream", size: file.size, url });
+      chatAttachments.push({ name: file.name, mime: file.type || "application/octet-stream", size: file.size, url, ...(enc ? { enc } : {}) });
       setAttachStatus(listEl, chatAttachments.map((a) => `${a.name} (${Math.round(a.size / 1024)}kb)`).join(", "));
     } catch (e) {
       toast(`${file.name}: ${(e as Error).message}`, true);
@@ -486,14 +500,33 @@ function wireBlobButtons(root: HTMLElement): void {
       const oldText = el.textContent ?? "";
       el.textContent = "lade…";
       try {
-        const { downloadBlob } = await import("../../blob-client.js");
+        const { downloadBlob, oeffneAnhang } = await import("../../blob-client.js");
         const pool = await ensurePool();
-        const res = await downloadBlob(el.dataset.blob!, pool as never);
-        if (!res) throw new Error("nicht genug shards im netz gefunden");
-        const url = URL.createObjectURL(new Blob([res.bytes as BlobPart], { type: res.mime }));
+        const d = el.dataset;
+        let datei: { bytes: Uint8Array; mime: string; name: string };
+        if (d.key) {
+          // Verschluesselt (2.4): Chiffrat holen, mit dem Schluessel aus der Nachricht oeffnen.
+          let chiffrat: Uint8Array;
+          if (d.blob) {
+            const res = await downloadBlob(d.blob, pool as never);
+            if (!res) throw new Error("nicht genug shards im netz gefunden");
+            chiffrat = res.bytes;
+          } else {
+            const r = await fetch(d.url!);
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            chiffrat = new Uint8Array(await r.arrayBuffer());
+          }
+          const schluessel = { alg: "aes-gcm" as const, key: d.key, nonce: d.nonce ?? "", ox: d.ox ?? "" };
+          datei = { bytes: await oeffneAnhang(chiffrat, schluessel), mime: d.mime || "application/octet-stream", name: d.name || "datei" };
+        } else {
+          const res = await downloadBlob(d.blob!, pool as never);
+          if (!res) throw new Error("nicht genug shards im netz gefunden");
+          datei = { bytes: res.bytes, mime: res.mime, name: res.name || d.name || "datei" };
+        }
+        const url = URL.createObjectURL(new Blob([datei.bytes as BlobPart], { type: datei.mime }));
         const a = document.createElement("a");
         a.href = url;
-        a.download = res.name || el.dataset.name || "datei";
+        a.download = datei.name;
         a.click();
         URL.revokeObjectURL(url);
         el.textContent = oldText;
@@ -934,8 +967,9 @@ export async function sendChatMessage(): Promise<void> {
     // NIP-92 imeta-Tags fuer Community-Posts. Bei DMs duerfen die Anhaenge
     // NICHT in Klartext-Tags landen — dort wandern sie mit in den
     // verschluesselten Body, sonst waere die Metadatenspur oeffentlich.
+    // Raeume sind bis 2.3 offen: Der Datei-Schluessel steht dort so offen wie der Text.
     const imeta: string[][] = chatAttachments.map((a) => [
-      "imeta", `url ${a.url}`, `m ${a.mime}`, `name ${a.name}`,
+      "imeta", `url ${a.url}`, `m ${a.mime}`, `name ${a.name}`, ...imetaSchluessel(a),
     ]);
     if (c.type === "dm") {
       // NIP-17: Inhalt (Kind 14) im Siegel (Kind 13) im Umschlag (Kind 1059).

@@ -251,6 +251,3 @@ zap.ts|sumZapsByRecipient|Zap-Belege prüfen und summieren, noch nicht angebunde
 zap.ts|verifyZapPayment|Zap-Belege prüfen und summieren, noch nicht angebunden (Belege mit Empfängerprüfung, 4.8)
 gift-wrap.ts|giftUnwrap|Variante mit rohem Schlüssel; die App öffnet über giftUnwrapMitSigner. Bleibt als dünne Hülle, über die die Gift-Wrap-Tests den Kern prüfen (Signer-Schnittstelle, 1.3)
 gift-wrap.ts|giftWrap|Variante mit rohem Schlüssel; die App packt über giftWrapMitSigner. Bleibt als dünne Hülle, über die die Gift-Wrap-Tests den Kern prüfen (Signer-Schnittstelle, 1.3)
-datei-krypto.ts|verschluesseleDatei|Baustein 2.4a; die App verschlüsselt Anhänge damit ab 2.4b
-datei-krypto.ts|entschluesseleDatei|Baustein 2.4a; die App öffnet Anhänge damit ab 2.4b
-datei-krypto.ts|istDateiSchluessel|Baustein 2.4a; die App prüft Schlüssel aus fremden Nachrichten damit ab 2.4b

@@ -2912,3 +2912,49 @@ Klartext über das echte `buildBlob` samt Gegenprobe).
 
 Endstand: protocol 998 · node 176 · app 215 · Leak-Tests 28 grün + 4 todo · 0
 rot · check-wiring `--streng` 0 offen (3 neue Ausnahmen bis 2.4b).
+
+## 75. Verschlüsselte Anhänge, Teil b: App – 2.4 Code fertig
+
+**Upload (`blob-client.ts`, `tabs/kommunikation.ts`):** `uploadAnhang()`
+verschlüsselt mit `verschluesseleDatei()` und lädt nur das Chiffrat ins
+Blob-Netz, mit leerem Namen und Typ `application/octet-stream` im Manifest.
+Der Blossom-Ausweg lädt ebenso nur Chiffrat hoch. Der Schlüssel steht im
+Anhang (`enc`) – in der DM im verschlüsselten Body, in Räumen im imeta-Tag mit
+den Feldnamen von NIP-17 Kind 15. Räume sind bis 2.3 offen, der Schlüssel dort
+also so öffentlich wie der Text.
+
+**Download:** `renderAttachment()` zeigt verschlüsselte Anhänge als 🔒-Knopf
+– der Schlüssel aus fremder Nachricht wird erst geprüft (`istDateiSchluessel`,
+sonst „ungültiger Schlüssel“), nur `freedom-blob:` oder `https:`. Der Knopf
+holt das Chiffrat, öffnet es mit `oeffneAnhang()` (GCM-Tag und Hash) und
+bietet die Datei mit Name und Typ aus der Nachricht zum Speichern an. Nie als
+`<img>`-Quelle.
+
+**Zwei alte Fehler, beim Test gefunden:**
+- `downloadBlob()` verglich den Hex-Inhalt eines Chunks mit seinem Hash statt
+  den Hash des Inhalts. Kein Chunk vom Relay wurde je angenommen – Empfänger
+  konnten große Anhänge nie laden, nur der Absender aus seinem Cache. Jetzt
+  gegen den Hash im Manifest geprüft; ohne IndexedDB (privates Fenster) liest
+  der Cache einfach nichts, statt den Download abzubrechen.
+- Anhänge bis 80 KB reisten inline als data-URL in der DM. Base64 macht ein
+  Drittel mehr, NIP-44 erlaubt höchstens 65.535 Byte – DMs mit Anhängen ab
+  etwa 48 KB scheiterten beim Senden. Die Grenze liegt jetzt bei 32 KB,
+  darüber geht es verschlüsselt ins Blob-Netz.
+
+**Git-Bundle:** bleibt mit Absicht öffentlich (`uploadBlob`), es ist eine
+Veröffentlichung.
+
+**Datenschutzbericht:** belegt „Anhänge liegen verschlüsselt auf den
+Speicher-Servern – öffnen kann sie nur, wer die Nachricht lesen kann.“
+Szenario: verschlüsselte Datei über das echte `buildBlob`.
+
+**Tests:** app 215 → 219 (Darstellung mit geprüftem Schlüssel, feindliche
+Namen/Typen/Schemata, imeta hin und zurück, DM-Body), Leak-Tests 28 + 4 todo
+→ 30 + 3 todo (Anhang: nur Chiffrat, weder Name noch Typ; Empfänger lädt und
+öffnet, Manipulation fällt auf; Verdrahtung). **E2E mit zwei Browsern:** Alice
+schickt Bob per DM eine 50-KB-Datei; Bob sieht „🔒 geheimer-befund.pdf“, lädt
+und bekommt sie byte-genau; im Netz stehen weder Name noch Typ noch Klartext.
+
+Endstand: protocol 998 · node 176 · app 219 · Leak-Tests 30 grün + 3 todo · 0
+rot · check-wiring `--streng` 0 offen · innerHTML streng 0 unbewertet ·
+Smoke-Test bestanden.

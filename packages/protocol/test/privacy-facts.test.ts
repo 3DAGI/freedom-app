@@ -9,13 +9,15 @@ import { buildPrivateDm } from "../src/private-dm.js";
 import { generateKeypair } from "../src/event.js";
 import {
   LEAK_REGELN, regelAutorNicht, regelKeinKind4, regelKeinKlartext, regelKeinKlartextPrompt, regelKeineZahlungsdaten,
-  regelKundeVerborgen,
+  regelKundeVerborgen, regelUploadVerschluesselt,
 } from "../src/leak-rules.js";
 import { LAYER_CELL_DEGREES, buildCoverageAnnouncement, toCell } from "../src/coverage.js";
 import { signEvent } from "../src/event.js";
 import { buildJobRequest, buildJobResult } from "../src/dvm.js";
 import { buildPrivateDispute, buildPrivateJobRequest, buildPrivateJobResponse, buildPrivateSessionEvent } from "../src/private-job.js";
 import { buildDispute } from "../src/disputes-relays.js";
+import { verschluesseleDatei } from "../src/datei-krypto.js";
+import { buildBlob } from "../src/blob.js";
 import { buildSessionOpen, buildSessionPayment } from "../src/stream.js";
 import { LocalSigner } from "../src/signer.js";
 
@@ -101,6 +103,14 @@ const SZENARIEN: Record<string, () => Promise<number>> = {
   "ki-zahlung": async () => {
     const { wraps } = await privateKiRunde();
     return regelKeineZahlungsdaten(wraps).length;
+  },
+  anhaenge: async () => {
+    // Wie die App seit 2.4: nur das Chiffrat ins Blob-Netz, ohne Name und Typ.
+    const datei = crypto.getRandomValues(new Uint8Array(30_000));
+    const { chiffrat } = verschluesseleDatei(datei);
+    const { manifestEvent, chunkEvents } = await buildBlob({ name: "", mime: "application/octet-stream", bytes: chiffrat }, a.pk);
+    const events = [manifestEvent, ...chunkEvents].map((e) => signEvent(e, a.sk));
+    return regelUploadVerschluesselt(events, datei).length;
   },
   "ki-reklamation": async () => {
     const { wraps, sitzung } = await privateReklamation();
