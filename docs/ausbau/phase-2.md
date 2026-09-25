@@ -35,7 +35,9 @@ für Forward Secrecy. NIP-17 bleibt Rückfall für Kontakte ohne MLS.
 
 ---
 
-## 2.2a MLS: Entscheidung und Spike
+## 2.2a MLS: Entscheidung und Spike – WARTET AUF MENSCH (25.09.2026)
+
+> Spike erledigt, Vorlage in [`docs/MLS-ENTSCHEIDUNG.md`](../MLS-ENTSCHEIDUNG.md), Quellen unter `docs/mls-spike/`. Das ist kein Workspace-Paket, damit ts-mls nicht ins Lockfile kommt. Empfehlung: MDK per WASM, mit CSP `'wasm-unsafe-eval'`, Rust in CI, eigenem Browser-Speicher und einer grob doppelt so großen App. Die Marmot-Spezifikation ist neu gefasst (app components statt MIPs); ts-mls kennt den MLS-Extensions-Draft nicht.
 
 - **Ziel:** festlegen, ob die Web-App MDK (Rust, Marmot-Referenz, per WASM) oder
   ts-mls (TypeScript, nicht auditiert) nutzt.

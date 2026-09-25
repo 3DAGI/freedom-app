@@ -3039,3 +3039,32 @@ Ausschalten auf Gerät 1 leert sie.
 Endstand: protocol 1005 · node 176 · app 219 · Leak-Tests 35 grün + 3 todo · 0
 rot · check-wiring `--streng` 0 offen · innerHTML streng 0 unbewertet ·
 Smoke-Test bestanden.
+
+## 78. MLS: Spike und Entscheidungsvorlage (Schritt 2.2a) – wartet auf MENSCH
+
+**Vorlage:** `docs/MLS-ENTSCHEIDUNG.md` mit Tabelle und Empfehlung; Spike-Quellen
+und Anleitung unter `docs/mls-spike/` (bewusst kein Paket unter `packages/*`,
+sonst käme ts-mls ins Lockfile des Repos).
+
+**Neu seit der Karte:** Marmot ist neu gefasst (`marmot-protocol/marmot`,
+„adopted“). Die MIPs sind veraltet; der Gruppenzustand liegt in
+MLS-`app_data_dictionary`-Komponenten aus dem Extensions-Draft, KeyPackages
+brauchen `last_resort_key_package` und `app_data_update`. MDK 0.10.4 setzt das
+auf einem festgenagelten OpenMLS-Fork um.
+
+**Gemessen:**
+- ts-mls 1.6.4 (MIT, laut README ohne Audit): zwei Mitglieder, Nachricht,
+  Entfernen laufen; Bündel 214 KB (67 KB gzip); kennt den Extensions-Draft
+  nicht – die Marmot-Schicht wäre selbst zu schreiben.
+- OpenMLS-Kern aus dem MDK-Fork als WASM mit wasm-bindgen: läuft in Node und
+  in Chromium (Bob liest, nach dem Entfernen nicht mehr); 1,43 MB WASM
+  (456 KB gzip). Ohne `'wasm-unsafe-eval'` verweigert Chromium das Modul.
+- MDK-Kernbausteine bauen für wasm32 (81 s), aber einen Browser-Speicher gibt
+  es nicht – nur SQLite/SQLCipher; `StorageProvider` umfasst 16 Teil-Traits
+  mit rund 140 Methoden.
+
+**Empfehlung:** A – MDK per WASM (Interop mit White Noise, Marmot-Logik
+fertig), mit den Kosten CSP-Änderung, Rust in CI, eigener Browser-Speicher,
+App grob doppelt so groß (oder WASM nachladen und das Ein-Datei-Prinzip
+aufgeben). **STOPP: Die Entscheidung trifft der MENSCH.** 2.2b und 2.3 warten
+darauf.
