@@ -4,14 +4,14 @@
  * Zap-Dialog neben dem Eingabefeld:
  * - Empfaenger: aktiver Chat-Partner
  * - Betrag: custom input (1-1000 sats/SOL)
- * - Wallet: Lightning (WebLN) oder Solana (Phantom/Seeker)
- * - Offline-Queue: falls Relay ausfaellt
+ * - Wallet: Lightning (NWC oder WebLN) oder Solana (verbundene Wallet) –
+ *   gezahlt wird ueber die Zahlschienen (Schritt 4.1b)
  */
 
 import { escapeHtml } from "./shell-logic.js";
 // App-Zustand unter eigenem Namen: `state` ist hier der Zustand des Dialogs.
 // Vorher stand hier `window.state` – das gab es nie, der Zap brach ab.
-import { signiere, state as appState } from "./shell/state.js";
+import { ensurePool, signiere, state as appState } from "./shell/state.js";
 
 export interface ZapDialogState {
   recipientPubkey: string;
@@ -62,8 +62,8 @@ export function openZapDialog(recipientPubkey: string, recipientName: string): v
         <div class="zap-field">
           <label>Wallet</label>
           <select id="zap-wallet">
-            <option value="lightning">Lightning (WebLN)</option>
-            <option value="solana">Solana (Phantom/Seeker)</option>
+            <option value="lightning">Lightning (sats)</option>
+            <option value="solana">Solana (SOL)</option>
           </select>
         </div>
         <div class="zap-status hidden" id="zap-status"></div>
@@ -87,123 +87,59 @@ export function openZapDialog(recipientPubkey: string, recipientName: string): v
   };
 }
 
-/** Zap senden (NIP-57). */
+/**
+ * Zap senden (NIP-57) bzw. SOL-Trinkgeld – ueber die Zahlschienen (4.1b).
+ *
+ * Vorher suchte dieser Dialog seine Wallet selbst und griff auf globale
+ * Objekte zu, die es nicht gab (`window.ensurePool`, `window.solWallet`) –
+ * beide Wege brachen ab. Der Zap-Request ging unsigniert hinaus, und die App
+ * veroeffentlichte selbst eine „Quittung“ mit Rechnung und Preimage unter der
+ * eigenen Identitaet. Die Quittung (Kind 9735) schreibt nach NIP-57 der
+ * Server des Empfaengers; hier entfaellt sie.
+ */
 async function sendZap(state: ZapDialogState, el: HTMLElement): Promise<void> {
   const statusEl = document.getElementById("zap-status")!;
   const sendBtn = document.getElementById("zap-send") as HTMLButtonElement;
   try {
     state.status = "connecting";
-    statusEl.textContent = "verbinde wallet…";
+    statusEl.textContent = "hole zahlungsziel…";
     statusEl.classList.remove("hidden");
     sendBtn.disabled = true;
+    if (!Number.isFinite(state.amount) || state.amount <= 0) throw new Error("Betrag fehlt");
+    const { zahle, parseProfileSafe, buildZapRequest } = await import("@freedomstack/protocol");
+    const { zahlschienen } = await import("./shell/zahlschienen.js");
+    const pool = await ensurePool();
+    const profile = await pool.query({ kinds: [0], authors: [state.recipientPubkey], limit: 1 });
 
-    // Wallet verbinden
     if (state.walletType === "lightning") {
-      const { detectWallet } = await import("./lightning-wallet.js");
-      const wallet = await detectWallet();
-      if (!wallet) {
-        throw new Error("keine lightning-wallet im browser — auf dem iphone nutze bitte den solana-weg (deposit) oder die desktop-variante mit alby");
-      }
-      await wallet.connect();
-
-      // NIP-57 Zap-Request bauen
-      const { buildZapRequest } = await import("@freedomstack/protocol");
-      const amountMsat = state.unit === "sats" ? state.amount * 1000 : state.amount * 1_000_000_000; // SOL -> lamports
-      const zapReq = buildZapRequest({
+      if (state.unit !== "sats") throw new Error("Lightning zahlt in sats");
+      const betragMsat = Math.round(state.amount * 1000);
+      const lud16 = profile[0] ? parseProfileSafe(profile[0]).lud16 ?? "" : "";
+      if (!lud16) throw new Error("Empfänger hat keine Lightning-Adresse (lud16)");
+      const zapRequest = await signiere(buildZapRequest({
         senderPubkey: appState.keypair!.pk,
         recipientPubkey: state.recipientPubkey,
-        amountMsat,
+        amountMsat: betragMsat,
         relays: ["wss://relay.damus.io", "wss://nos.lol", "wss://relay.nostr.band"],
-      });
-
-      // LNURL-Pay vom Empfaenger holen
-      const { parseProfile } = await import("@freedomstack/protocol");
-      const pool = (window as unknown as { ensurePool: () => Promise<unknown> }).ensurePool;
-      const profiles = await (pool as unknown as { query: (args: unknown) => Promise<unknown[]> }).query({ kinds: [0], authors: [state.recipientPubkey], limit: 1 });
-      let lud16 = "";
-      if (profiles.length > 0) {
-        try {
-          const p = parseProfile(profiles[0] as never);
-          lud16 = p.lud16 ?? "";
-        } catch { /* ignore */ }
-      }
-      if (!lud16) {
-        throw new Error("empfaenger hat keine lightning-adresse (lud16)");
-      }
-
-      // LNURL-Pay: fetch -> get invoice -> pay
-      const lnurlRes = await fetch(`https://${lud16.split("@")[1]}/.well-known/lnurlp/${lud16.split("@")[0]}`);
-      const lnurlData = await lnurlRes.json();
-      if (!lnurlData.callback) throw new Error("kein callback in LNURL");
-      const cb = new URL(lnurlData.callback);
-      cb.searchParams.set("amount", String(amountMsat));
-      cb.searchParams.set("nostr", JSON.stringify(zapReq));
-      const cbRes = await fetch(cb.toString());
-      const cbData = await cbRes.json();
-      if (!cbData.pr) throw new Error("keine invoice in callback");
-
-      // Bezahlen mit Wallet
-      const { preimage } = await wallet.sendPayment(cbData.pr);
-      statusEl.textContent = `⚡ gezappt! ${state.amount} ${state.unit}`;
-
-      // Zap-Receipt publizieren (NIP-57)
-      const { buildZapReceipt } = await import("@freedomstack/protocol");
-      const receipt = buildZapReceipt({
-        zapperPubkey: appState.keypair!.pk,
-        recipientPubkey: state.recipientPubkey,
-        zapRequestJson: JSON.stringify(zapReq),
-        bolt11: cbData.pr,
-        preimageHex: preimage,
-      });
-      await (pool as unknown as { publish: (ev: unknown) => Promise<void> }).publish(await signiere(receipt));
-
-      // Offline-Queue: falls Relay ausfaellt
-      const { queueOfflineZap } = await import("./offline-queue.js");
-      queueOfflineZap(receipt);
-
-    } else if (state.walletType === "solana") {
-      // Solana: SOL direkt an den Partner senden (Phantom/Seeker signieren).
-      // Empfaenger-Adresse: aus dem partner-profil (lud00-Convention: SOL-Adresse
-      // im kind-0 content als "sol") oder der user gibt sie beim ersten mal an.
-      const w = window as unknown as {
-        state: { keypair: { pk: string } };
-        solWallet?: { connected: boolean; pubkey: string | null };
-      };
-      const solWallet = w.solWallet;
-      if (!solWallet?.connected || !solWallet.pubkey) {
-        throw new Error("solana-wallet nicht verbunden");
-      }
-      // Empfaenger-SOL-Adresse ermitteln: profil laden
-      const { parseProfile } = await import("@freedomstack/protocol");
-      const pool = (window as unknown as {
-        freedomPool?: { query: (f: unknown) => Promise<Array<{ content: string }>> };
-      }).freedomPool;
-      const profiles = pool ? await pool.query({ kinds: [0], authors: [state.recipientPubkey], limit: 1 }) : [];
-      let solAddr = "";
-      if (profiles.length > 0) {
-        try {
-          const meta = JSON.parse((profiles[0] as { content: string }).content || "{}");
-          solAddr = meta.sol ?? "";
-        } catch { /* ignore */ }
-      }
-      if (!solAddr) {
-        solAddr = prompt(`SOL-adresse von ${state.recipientName}:`) ?? "";
-        if (!solAddr) throw new Error("abgebrochen — keine empfaenger-adresse");
-      }
-      if (state.unit !== "sol") {
-        throw new Error("wallet=_solana_ braucht einheit SOL");
+      }));
+      const { holeZapRechnung } = await import("./zap-zahlung.js");
+      const rechnung = await holeZapRechnung({ lud16, betragMsat, zapRequest });
+      statusEl.textContent = "warte auf wallet…";
+      await zahle(zahlschienen(), { ziel: rechnung, betrag: { einheit: "msat", wert: betragMsat }, zweck: "zap" });
+      statusEl.textContent = `⚡ gezappt! ${state.amount} sats`;
+    } else {
+      if (state.unit !== "sol") throw new Error("Solana zahlt in SOL");
+      const { solAdresseAusProfil } = await import("./zap-zahlung.js");
+      let ziel = profile[0] ? solAdresseAusProfil(profile[0].content) : "";
+      if (!ziel) {
+        ziel = (prompt(`SOL-Adresse von ${state.recipientName}:`) ?? "").trim();
+        if (!ziel) throw new Error("abgebrochen — keine Empfänger-Adresse");
       }
       statusEl.textContent = "warte auf wallet-signatur…";
-      // Transfer via injiziertem Wallet-Provider (phantom.signAndSendTransaction)
-      const provider = ((window as unknown as Record<string, unknown>).phantom as { solana: { signAndSendTransaction: (tx: unknown) => Promise<{ signature: string }> } })?.solana;
-      if (!provider?.signAndSendTransaction) {
-        throw new Error("wallet kann keine transaktionen senden (signAndSendTransaction fehlt)");
-      }
-      // Transaktion bauen braucht @solana/web3.js — lazy geladen, via helper:
-      const { buildSolTransfer } = await import("./sol-transfer.js");
-      const tx = await buildSolTransfer(solWallet.pubkey!, solAddr, String(state.amount));
-      const res = await provider.signAndSendTransaction(tx);
-      statusEl.textContent = `◎ gesendet! sig: ${res.signature.slice(0, 12)}…`;
+      const beleg = await zahle(zahlschienen(), {
+        ziel, betrag: { einheit: "lamports", wert: Math.round(state.amount * 1e9) }, zweck: "trinkgeld",
+      });
+      statusEl.textContent = `◎ gesendet! sig: ${beleg.ref.slice(0, 12)}…`;
     }
 
     state.status = "sent";

@@ -32,7 +32,7 @@ Jede Funktion, in der Geld fließt, bietet beide Schienen mit gleichem Komfort.
 
 ## 4.1 PaymentRail-Schnittstelle – IN ARBEIT
 
-> Aufgeteilt: a Schnittstelle und Schienen ✓ (`protocol/payment-rail.ts`: Typen, `railFuerZiel`, `pruefeAnfrage`, `waehleRail` ohne stille Umleitung, `zahle`, Beträge in beiden Einheiten; `app/src/rails.ts`: `LightningRail` mit NWC, WebLN und Lightning-Adresse per LNURL – die Rechnung muss genau den gewollten Betrag nennen –, Beleg per Preimage gegen den bolt11-Hash; `SolanaRail` mit der verbundenen Wallet, Beleg nur mit RPC-Prüfung); b Zap und Wallet-Tab auf die Schienen; c Agent-Bezahlung, Verdienen, „Standard-Schiene“, Prüfung „keine direkten Wallet-Aufrufe außerhalb der Rails“.
+> Aufgeteilt: a Schnittstelle und Schienen ✓ (`protocol/payment-rail.ts`: Typen, `railFuerZiel`, `pruefeAnfrage`, `waehleRail` ohne stille Umleitung, `zahle`, Beträge in beiden Einheiten; `app/src/rails.ts`: `LightningRail` mit NWC, WebLN und Lightning-Adresse per LNURL – die Rechnung muss genau den gewollten Betrag nennen –, Beleg per Preimage gegen den bolt11-Hash; `SolanaRail` mit der verbundenen Wallet, Beleg nur mit RPC-Prüfung); b Zap und Wallet-Tab auf die Schienen ✓ (dabei drei Fehler im Zap behoben und toten Wallet-Code entfernt); c Agent-Bezahlung, Verdienen, „Standard-Schiene“, Prüfung „keine direkten Wallet-Aufrufe außerhalb der Rails“.
 
 - **Stellen:** neu `packages/protocol/src/payment-rail.ts`; `lightning-wallet.ts`,
   `sol-transfer.ts`, `sol-htlc.ts`, `session-client.ts`, `chat-zap.ts`,

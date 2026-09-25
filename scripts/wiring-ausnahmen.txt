@@ -182,7 +182,6 @@ privacy-audit.ts|mixnetImpact|Auswirkung eines Mixnetzes, ohne Oberfläche (Verk
 
 private-job.ts|openPrivateJobRequest|Öffner nur für Anfragen (3.1); der Knoten nutzt seit 3.2d openPrivateKundenEvent, das auch Sitzungs-Events annimmt
 
-profile.ts|parseProfileSafe|sicheres Parsen fremder Profile; App nutzt noch parseProfile (chat-zap.ts, app.ts) – umstellen offen
 
 protocol-fee.ts|assertProtocolFeeConfigured|Prüfung vor Mainnet-Betrieb, vor dem Mainnet-Deploy einbinden (9.3)
 
@@ -251,7 +250,7 @@ zap.ts|sumZapsByRecipient|Zap-Belege prüfen und summieren, noch nicht angebunde
 zap.ts|verifyZapPayment|Zap-Belege prüfen und summieren, noch nicht angebunden (Belege mit Empfängerprüfung, 4.8)
 gift-wrap.ts|giftUnwrap|Variante mit rohem Schlüssel; die App öffnet über giftUnwrapMitSigner. Bleibt als dünne Hülle, über die die Gift-Wrap-Tests den Kern prüfen (Signer-Schnittstelle, 1.3)
 gift-wrap.ts|giftWrap|Variante mit rohem Schlüssel; die App packt über giftWrapMitSigner. Bleibt als dünne Hülle, über die die Gift-Wrap-Tests den Kern prüfen (Signer-Schnittstelle, 1.3)
-payment-rail.ts|zahle|Baustein 4.1a; Zap, Wallet-Tab und Agent zahlen darüber ab 4.1b/4.1c
-payment-rail.ts|waehleRail|Baustein 4.1a; über zahle() ab 4.1b
 payment-rail.ts|inBeidenEinheiten|Baustein 4.1a; Anzeige in beiden Einheiten ab 4.1b
 payment-rail.ts|betragText|Baustein 4.1a; Anzeige ab 4.1b
+
+zap.ts|buildZapReceipt|Quittung (Kind 9735) schreibt nach NIP-57 der LNURL-Server des Empfängers; die App baute sie bis 4.1b selbst (mit Preimage unter der eigenen Identität) – entfallen; ein eigener Zap-Server im Knoten wäre der künftige Nutzer

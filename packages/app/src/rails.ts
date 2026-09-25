@@ -129,8 +129,12 @@ export class LightningRail implements PaymentRail {
 // ------------------------------------------------------------ Solana
 
 export interface SolanaQuellen {
-  /** Die verbundene Wallet (injiziert oder eingebaut, 4.2). */
-  wallet: () => { publicKey?: { toBase58(): string } | null; signAndSendTransaction?(tx: unknown): Promise<{ signature: string }> } | undefined;
+  /**
+   * Die verbundene Wallet (injiziert oder eingebaut, 4.2): ihre Adresse und
+   * „signieren und senden“ – ob die Wallet selbst sendet oder die App die
+   * signierte Transaktion abschickt, entscheidet die Fabrik (zahlschienen.ts).
+   */
+  wallet: () => { adresse: string; signiereUndSende(tx: unknown): Promise<string> } | undefined;
   /** Baut die Ueberweisung (sol-transfer.ts). */
   baueUeberweisung: (von: string, an: string, lamports: number) => Promise<unknown>;
   /** Prueft eine Signatur auf der Kette – ohne sie gilt ein Beleg als nicht pruefbar (4.8). */
@@ -144,8 +148,7 @@ export class SolanaRail implements PaymentRail {
   constructor(private q: SolanaQuellen) {}
 
   async verfuegbar(): Promise<boolean> {
-    const w = this.q.wallet();
-    return !!(w?.publicKey && w.signAndSendTransaction);
+    return !!this.q.wallet()?.adresse;
   }
 
   async quote(a: Zahlanfrage): Promise<Angebot> {
@@ -157,11 +160,11 @@ export class SolanaRail implements PaymentRail {
   async pay(a: Zahlanfrage): Promise<Beleg> {
     pruefeAnfrage(this.id, a);
     const w = this.q.wallet();
-    const von = w?.publicKey?.toBase58();
-    if (!w?.signAndSendTransaction || !von) throw new Error("Keine Solana-Wallet verbunden – im Wallet-Tab verbinden.");
+    const von = w?.adresse;
+    if (!w || !von) throw new Error("Keine Solana-Wallet verbunden – im Wallet-Tab verbinden.");
     if (von === a.ziel) throw new Error("Überweisung an sich selbst");
     const tx = await this.q.baueUeberweisung(von, a.ziel, a.betrag.wert);
-    const { signature } = await w.signAndSendTransaction(tx);
+    const signature = await w.signiereUndSende(tx);
     if (typeof signature !== "string" || !/^[1-9A-HJ-NP-Za-km-z]{64,90}$/.test(signature)) throw new Error("Wallet lieferte keine gültige Signatur");
     return { rail: this.id, ziel: a.ziel, betrag: a.betrag, ref: signature, zeit: this.q.jetzt?.() ?? Math.floor(Date.now() / 1000) };
   }
@@ -172,7 +175,7 @@ export class SolanaRail implements PaymentRail {
   }
 
   async balance() {
-    const adr = this.q.wallet()?.publicKey?.toBase58();
+    const adr = this.q.wallet()?.adresse;
     if (!adr || !this.q.guthaben) throw new Error("Guthaben nicht abfragbar");
     return { einheit: "lamports" as const, wert: await this.q.guthaben(adr) };
   }

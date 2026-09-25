@@ -497,6 +497,9 @@ export function boot(): void {
 }
 
 function starte(): void {
+  // Bis 4.1b legte der Zap eine eigene „Quittung“ mit Preimage im Klartext hier
+  // ab – die Warteschlange ist entfallen, alte Eintraege gehoeren weg.
+  localStorage.removeItem("freedom.offlineZaps");
   captureReferral();
   void publishReferralClaim();
   // SVG-Icons: alle [data-icon]-Elemente bekommen ihr Inline-SVG (ersetzt Emojis)

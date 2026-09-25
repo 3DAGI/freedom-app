@@ -3110,3 +3110,37 @@ bis dahin 4 begründete Ausnahmen.
 
 Endstand: protocol 1009 · node 176 · app 224 · Leak-Tests 35 grün + 3 todo · 0
 rot · check-wiring `--streng` 0 offen.
+
+## 81. PaymentRail, Teil b: Zap über die Schienen, toter Wallet-Code entfernt (Schritt 4.1)
+
+**`shell/zahlschienen.ts`:** baut beide Schienen aus dem Zustand der App –
+Lightning über NWC oder WebLN, Solana über die im Wallet-Tab verbundene Wallet
+(`verbundeneSolanaWallet()`): kann sie selbst senden, tut sie es, sonst
+signiert sie und die App sendet über den RPC-Pool (`solRpcUrl()`, aus
+`sol-transfer.ts` herausgelöst; `buildSolTransfer` rechnet jetzt in Lamports).
+
+**Chat-Zap (`chat-zap.ts`, `zap-zahlung.ts`):** holt die Rechnung per LNURL
+mit dem Zap-Request und zahlt mit `zahle(zahlschienen(), …)`; das
+SOL-Trinkgeld ebenso über die Solana-Schiene. Drei alte Fehler dabei:
+- Der Dialog griff auf `window.ensurePool` und `window.solWallet` zu – beide
+  gab es nie; Lightning- und SOL-Zap brachen ab.
+- Der Zap-Request (Kind 9734) ging **unsigniert** an den LNURL-Server.
+- Die App veröffentlichte selbst eine „Quittung“ (Kind 9735) mit Rechnung und
+  Preimage unter der eigenen Identität – nicht NIP-57 (die schreibt der
+  Server des Empfängers) und ein Leck; entfallen.
+
+**Entfernt, weil tot:** `lightning-wallet.ts` (nur noch vom alten Zap
+benutzt), `offline-queue.ts` (wurde gefüllt, nie abgearbeitet, und legte
+Preimages im Klartext in localStorage ab – alte Einträge löscht die App beim
+Start), `addZapButton` und `payInvoiceAnyDevice` in `waehrung.ts` (nie
+aufgerufen). Ausnahmen bereinigt; `buildZapReceipt` begründet ausgenommen.
+
+**Tests:** app 224 → 228 (`zap-zahlung.test.ts`: LNURL mit Zap-Request,
+Empfänger ohne Zaps, http-Callback, teurere Rechnung wird nicht gezahlt,
+SOL-Adresse aus dem Profil, Verdrahtung). **E2E im Browser:** Alice zappt Bob
+10 sats aus dem Chat – WebLN zahlt genau die Rechnung von Bobs LNURL-Server,
+der Zap-Request ist signiert, keine Quittung und keine Rechnung im Netz.
+
+Endstand: protocol 1009 · node 176 · app 228 · Leak-Tests 35 grün + 3 todo · 0
+rot · check-wiring `--streng` 0 offen · innerHTML streng 0 unbewertet ·
+Smoke-Test bestanden.

@@ -1,26 +1,16 @@
 /**
  * SOL-Transfer-Builder (lazy @solana/web3.js).
  *
- * Wird vom chat-zap genutzt. Laedt web3.js nur wenn tatsaechlich ein
- * Solana-Zap gesendet wird — haelt das Bundle klein.
+ * Genutzt von der Solana-Schiene (shell/zahlschienen.ts). Laedt web3.js nur,
+ * wenn tatsaechlich SOL ueberwiesen wird — haelt das Bundle klein.
  */
 
-export async function buildSolTransfer(fromPubkey: string, toPubkey: string, amountSol: string): Promise<unknown> {
+/** Ueberweisung in Lamports (Schritt 4.1b: fuer die Solana-Schiene). */
+export async function buildSolTransfer(fromPubkey: string, toPubkey: string, lamports: number): Promise<unknown> {
   const web3 = await import("@solana/web3.js");
-  const lamports = Math.round(Number(amountSol) * 1_000_000_000);
-  if (!Number.isFinite(lamports) || lamports <= 0) throw new Error("ungueltiger betrag");
+  if (!Number.isSafeInteger(lamports) || lamports <= 0) throw new Error("ungueltiger betrag");
 
-  // Endpunkt aus dem Pool: eine feste Adresse waere ein einzelner
-  // Ausfallpunkt fuer jede Solana-Funktion der App.
-  const { RpcPool, parseUserEndpoints, DEFAULT_MAINNET_RPCS } = await import("@freedomstack/protocol");
-  const konfiguriert = (window as unknown as { FREEDOM_SOL_RPC?: string }).FREEDOM_SOL_RPC;
-  const RPC = new RpcPool(DEFAULT_MAINNET_RPCS, {
-    userEndpoints: [
-      ...(konfiguriert ? [konfiguriert] : []),
-      ...parseUserEndpoints(localStorage.getItem("freedom.sol.rpcs")),
-    ],
-  }).bestUrl();
-  const connection = new web3.Connection(RPC, "confirmed");
+  const connection = new web3.Connection(await solRpcUrl(), "confirmed");
 
   const tx = new web3.Transaction().add(
     web3.SystemProgram.transfer({
@@ -35,4 +25,19 @@ export async function buildSolTransfer(fromPubkey: string, toPubkey: string, amo
   tx.lastValidBlockHeight = lastValidBlockHeight;
   tx.feePayer = new web3.PublicKey(fromPubkey);
   return tx;
+}
+
+/**
+ * Bester erreichbarer RPC-Endpunkt aus dem Pool – eine feste Adresse waere ein
+ * einzelner Ausfallpunkt fuer jede Solana-Funktion der App.
+ */
+export async function solRpcUrl(): Promise<string> {
+  const { RpcPool, parseUserEndpoints, DEFAULT_MAINNET_RPCS } = await import("@freedomstack/protocol");
+  const konfiguriert = (window as unknown as { FREEDOM_SOL_RPC?: string }).FREEDOM_SOL_RPC;
+  return new RpcPool(DEFAULT_MAINNET_RPCS, {
+    userEndpoints: [
+      ...(konfiguriert ? [konfiguriert] : []),
+      ...parseUserEndpoints(localStorage.getItem("freedom.sol.rpcs")),
+    ],
+  }).bestUrl();
 }
