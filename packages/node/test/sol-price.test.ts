@@ -106,11 +106,14 @@ test("SOL-Preis: solPriceSats rechnet alle Preise (text+tool) in lamports um", a
 
     // SOL-Betrag vorhanden und > 0 (text + tool in lamports)
     assert.ok(r.amountLamports !== undefined && r.amountLamports > 0, "SOL-Betrag im Result");
-    // Erwartung: lamportsPerMsat = 1e9/(150000*1000) = 0.006667 lamports/msat
-    // amountMsat = text(1000tok@1000msat=1000) + tool(file_io 1sat=1000msat) = 2000msat
-    // lamports = 2000 * 0.006667 = ~14 lamports (gerundet)
-    const expectLamportsPerMsat = 1e9 / (SOL_PRICE * 1000 * 1000); // lamports/msat
-    const expected = Math.ceil(2000 * expectLamportsPerMsat);
+    // 1 SOL = 150.000 sats -> 6,67 Lamports/msat. Text: 1000 Tokens zum Anbieterpreis
+    // 1000 msat, gedeckelt auf den Kunden-Deckel 1000 Lamports/1k = 150 msat; dazu
+    // Werkzeug file_io 1 sat = 1000 msat -> 1150 msat = 7.666,7 -> 7.667 Lamports.
+    // (Bis 4.4 erwartete dieser Test 14 Lamports: Die Formel hatte eine Tausend zu
+    // viel, der Deckel griff deshalb nie.)
+    const expectLamportsPerMsat = 1e9 / (SOL_PRICE * 1000); // Lamports/msat
+    const expected = 7_667;
+    assert.equal(r.amountMsat, 1150);
     console.log(`    [sol] amountMsat=${r.amountMsat} lamports=${r.amountLamports} expected=${expected} rate=${expectLamportsPerMsat}`);
     assert.equal(r.amountLamports, expected, `lamports ${r.amountLamports} == ${expected}`);
     assert.equal(r.solanaAddress, "SoLprov1111111111111111111111111111111111");

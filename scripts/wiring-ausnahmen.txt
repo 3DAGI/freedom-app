@@ -248,3 +248,5 @@ payment-rail.ts|inBeidenEinheiten|Baustein 4.1a; Anzeige in beiden Einheiten ab 
 payment-rail.ts|betragText|Baustein 4.1a; Anzeige ab 4.1b
 
 zap.ts|buildZapReceipt|Quittung (Kind 9735) schreibt nach NIP-57 der LNURL-Server des Empfängers; die App baute sie bis 4.1b selbst (mit Preimage unter der eigenen Identität) – entfallen; ein eigener Zap-Server im Knoten wäre der künftige Nutzer
+kurs.ts|lamportsZuMsat|Umrechnung für die Anzeige in der App (Preise und Kurse, 4.4b)
+price-ticker.ts|medianPrice|abgelöst durch marktKurs() – eine Stimme je Absender statt je Event (4.4); kein Pfad nutzt ihn mehr

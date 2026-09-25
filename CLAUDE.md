@@ -41,7 +41,7 @@ python3 scripts/smoke_test.py packages/app/dist         # braucht playwright + c
 bash scripts/build-site.sh /tmp/site                     # Website bauen (Ziel wird gelöscht!)
 ```
 
-Stand 25.09.2026 (nach 4.2c): protocol 1013 grün (5 übersprungen), node 176 grün
+Stand 25.09.2026 (nach 4.4a): protocol 1018 grün (5 übersprungen), node 179 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
 in `tools.test.ts`), app 240 grün, Leak-Tests 35 grün + 3 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test).
@@ -157,6 +157,11 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   Sekunden – ein `datetime` übergeben.
 - **Solana-RPC:** Die App spricht standardmäßig Mainnet an; für Devnet-Tests in
   den Settings `https://api.devnet.solana.com` eintragen.
+- **Kurse und Umrechnung nur über `kurs.ts`** (seit 4.4): Marktkurs mit
+  `marktKurs()` (eine Stimme je Absender), msat ↔ Lamports mit
+  `msatZuLamports()`/`lamportsZuMsat()` (BigInt). 1 SOL = 1e9 Lamports =
+  Kurs · 1000 msat – bis 4.4 stand im Knoten eine Tausend zu viel im Nenner.
+  Ohne Kurs keinen SOL-Preis erfinden.
 - **`fetch` nie als Methode speichern** (`this.f = fetch; this.f(…)`): Im Browser
   wirft das „Illegal invocation“, Node merkt es nicht – so scheiterte bis 4.2b
   jede Abfrage des `RpcPool` in der App. Stattdessen `(i, o) => fetch(i, o)`.

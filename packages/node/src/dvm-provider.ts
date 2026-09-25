@@ -42,6 +42,10 @@ import {
   openPrivateKundenEvent,
   KIND_JOB_DISPUTE,
   parseDispute,
+  KIND_PRICE_TICKER,
+  marktKurs,
+  msatZuLamports,
+  lamportsProMsat,
 } from "@freedomstack/protocol";
 import { verifyDepositOnChain, DepositVerificationCache, parseClientFee, checkClientFee } from "@freedomstack/protocol";
 import type { Connection } from "@solana/web3.js";
@@ -56,9 +60,8 @@ export interface ProviderConfig {
   /** Optional: eigene Solana-Adresse (2. Zahloption). Wenn gesetzt, bietet
    *  der Provider SOL-Zahlung im Result an. */
   solanaAddress?: string;
-  /** Wechselkurs lamports pro msat (fuer SOL-Betrag im Result).
-   *  Provider-seitig gesetzt (z.B. aus SOL_PRICE_SATS env oder Orderbook-Kurs).
-   *  Default 0.2 (1 msat = 5 lamports ~ grober BTC/SOL-Richtwert). */
+  /** Wechselkurs Lamports pro msat (fuer SOL-Betrag im Result), manuell.
+   *  Bequemer ist solPriceSats; ohne beides gilt der Marktkurs (4.4). */
   lamportsPerMsat?: number;
   /** Optional: SOL-Preis in sats (z.B. 150000 = 1 SOL ~ 150k sats). Bequemer
    *  als lamportsPerMsat; wird intern umgerechnet (1 SOL = 1e9 lamports,
@@ -253,44 +256,48 @@ export class DvmProvider {
       .map((t) => ({ kind: Number(t[1]), name: `tool-${t[1]}`, input: t.slice(2).join(" ") }));
   }
 
-  /** Effektiver Kurs lamports/msat. Vorrang: 1) solPriceSats (manuell),
-   *  2) lamportsPerMsat (manuell), 3) dezentraler Ticker-Median (Orderbook),
-   *  4) Default 0.2. Der Ticker ist async — wird bei pollOnce aktualisiert. */
-  private lamportsPerMsat(): number {
-    if (this.cfg.solPriceSats && this.cfg.solPriceSats > 0) {
-      // 1 SOL = 1e9 lamports = solPriceSats sats = solPriceSats*1000 msat
-      // -> lamports pro msat = 1e9 / (solPriceSats * 1000 * 1000)
-      return 1e9 / (this.cfg.solPriceSats * 1000 * 1000);
-    }
+  /**
+   * Kurs in sats pro SOL (Schritt 4.4). Vorrang: 1) solPriceSats (manuell),
+   * 2) lamportsPerMsat (manuell, umgerechnet), 3) Marktkurs – Median der
+   * Kurs-Events, je Absender eine Stimme. Ohne Kurs gibt es keinen SOL-Preis:
+   * Frueher galt dann still 0,2 Lamports/msat (5 Mio. sats pro SOL).
+   */
+  kurs(): { satsProSol: number; quelle: "manuell" | "markt" } | undefined {
+    if (this.cfg.solPriceSats && this.cfg.solPriceSats > 0) return { satsProSol: Math.round(this.cfg.solPriceSats), quelle: "manuell" };
     if (this.cfg.lamportsPerMsat && this.cfg.lamportsPerMsat > 0) {
-      return this.cfg.lamportsPerMsat;
+      return { satsProSol: Math.round(1e9 / (this.cfg.lamportsPerMsat * 1000)), quelle: "manuell" };
     }
-    // Dezentraler Markt-Kurs (Median aus Ticker-Events), wenn aktualisiert
-    if (this.tickerSatsPerSol && this.tickerSatsPerSol > 0) {
-      return 1e9 / (this.tickerSatsPerSol * 1000 * 1000);
-    }
-    return 0.2;
+    if (this.tickerSatsPerSol && this.tickerSatsPerSol > 0) return { satsProSol: this.tickerSatsPerSol, quelle: "markt" };
+    return undefined;
   }
 
-  /** Letzter Markt-Kurs (sats pro SOL) aus dem dezentralen Ticker-Median. */
+  /**
+   * Lamports pro msat: 1 SOL = 1e9 Lamports = Kurs · 1000 msat. Bis 4.4 stand
+   * hier eine Tausend zu viel im Nenner – SOL-Preise waren 1000× zu niedrig.
+   */
+  private lamportsPerMsat(): number | undefined {
+    const k = this.kurs();
+    return k ? lamportsProMsat(k.satsProSol) : undefined;
+  }
+
+  /** Letzter Markt-Kurs (sats pro SOL) aus den Kurs-Events. */
   private tickerSatsPerSol?: number;
 
-  /** Holt den Median-Kurs aus Ticker-Events (kind 38026) und cached ihn.
-   *  Wird in pollOnce aufgerufen, wenn weder solPriceSats noch lamportsPerMsat
-   *  manuell gesetzt sind. */
+  /** Holt den Marktkurs aus Kurs-Events (Kind 38026), wenn kein manueller gesetzt ist. */
   private async refreshTickerPrice(): Promise<void> {
     if (this.cfg.solPriceSats || this.cfg.lamportsPerMsat) return; // manuell hat Vorrang
     try {
-      const { medianPrice, KIND_PRICE_TICKER } = await import("@freedomstack/protocol");
-      const events = await this.pool.query({ kinds: [KIND_PRICE_TICKER], limit: 50 });
-      const median = medianPrice(events, "SOL/BTC", 3600);
-      if (median) this.tickerSatsPerSol = median;
-    } catch { /* Ticker optional — Default bleibt */ }
+      const events = await this.pool.query({ kinds: [KIND_PRICE_TICKER], limit: 100 });
+      const markt = marktKurs(events, Math.floor(Date.now() / 1000));
+      if (markt) this.tickerSatsPerSol = markt.satsProSol;
+    } catch { /* Kurs optional – ohne ihn keine SOL-Preise */ }
   }
 
-  /** msat -> lamports (fuer SOL-Betrag im Result). */
+  /** msat -> Lamports (SOL-Betrag im Ergebnis), aufgerundet und ganzzahlig. */
   private msatToLamports(msat: number): number {
-    return Math.ceil(msat * this.lamportsPerMsat());
+    const k = this.kurs();
+    if (!k) throw new Error("Kein SOL-Kurs");
+    return msatZuLamports(msat, k.satsProSol);
   }
 
   /** Antwort-Anfang fuers Log – nur mit `klartextProtokoll` (Schritt 3.3). */
@@ -756,6 +763,10 @@ export class DvmProvider {
       if (!session) {
         // Fallback: vielleicht eine Solana-Deposit-Session
         solDeposit = await this.validateSolDeposit(sessionId, request.pubkey);
+        // Ohne Kurs kein fairer SOL-Preis: ablehnen, bevor gerechnet wird.
+        if (solDeposit && !this.kurs()) {
+          throw new Error("Kein SOL-Kurs: Anbieter braucht SOL_PRICE_SATS oder Kurs-Events von Liquiditätsgebern");
+        }
         if (!solDeposit) {
           // Ungueltige Session (abgelaufen, fremder Provider, Budget leer,
           // inkonsistente Belege). Frueher wurde der Job hier bedingungslos
@@ -912,7 +923,7 @@ export class DvmProvider {
     } else if (solDeposit) {
       // Deposit: Preis in msat (text-Rate gedeckelt auf Deposit-Rate) + Tools,
       // dann in lamports umgerechnet (msatToLamports beim Result).
-      const rate = this.lamportsPerMsat();
+      const rate = this.lamportsPerMsat()!; // oben geprueft
       const depositRateMsatPerK = solDeposit.maxLamportsPerKToken / rate; // lamports/1k -> msat/1k
       const textMsat = Math.min(rawPrice, Math.ceil((result.completionTokens / 1000) * depositRateMsatPerK));
       amountMsat = textMsat + toolCostMsat;
