@@ -8,7 +8,6 @@
 # Dateinamen, URLs) gehoeren NICHT hierher, sondern in escapeHtml()/ganzeZahl().
 #
 # Pruefen: python3 scripts/check_innerhtml.py packages/app/src --ausnahmen scripts/innerhtml-ausnahmen.txt --streng
-offline-queue.ts|pending.length|Länge eines lokalen Arrays (eigene Offline-Warteschlange)
 app.ts|woerter.map((w) => `<li>${escapeHtml(w)}</li>`).join("")|Callback liefert nur ein Template mit escapeHtml(w)
 app.ts|positionen.map((p) => `<label class="mono-sm">Nr. ${p + 1} <input data-pos="${p}" class="mono-sm" style="width:110px" au|Callback liefert nur ein Template; einzige Werte sind die Positionen p
 app.ts|p|Zahl: Position aus pickChallengePositions(), lokal erzeugt
@@ -101,7 +100,6 @@ app.ts|(Zuweisung) LANGS.map( (l) => `<button type="button" data-lang="${l.code}
 app.ts|l.code|feste Sprachliste LANGS (i18n.ts)
 app.ts|l.code.toUpperCase()|feste Sprachliste LANGS (i18n.ts)
 app.ts|l.label|feste Sprachliste LANGS (i18n.ts)
-waehrung.ts|sats|Math.floor(...) – Zahl
 earn.ts|p.monthlySats.toLocaleString("de-DE")|Zahl aus projectEarnings(), formatiert
 earn.ts|p.yearlySats.toLocaleString("de-DE")|Zahl aus projectEarnings(), formatiert
 earn.ts|u.activeReferrals|lokal gezählt in referrerOverview()

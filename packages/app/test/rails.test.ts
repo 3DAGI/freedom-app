@@ -93,7 +93,7 @@ test("Lightning-Adresse: LNURL holt die Rechnung – falscher Betrag, Grenzen un
 
 test("Solana: verbundene Wallet signiert die gebaute Ueberweisung; Pruefung nur mit RPC", async () => {
   const gebaut: Array<[string, string, number]> = [];
-  const wallet = { publicKey: { toBase58: () => SOL_ICH }, signAndSendTransaction: async () => ({ signature: SIGNATUR }) };
+  const wallet = { adresse: SOL_ICH, signiereUndSende: async () => SIGNATUR };
   const rail = new SolanaRail({
     wallet: () => wallet,
     baueUeberweisung: async (von, an, lamports) => { gebaut.push([von, an, lamports]); return { tx: true }; },
@@ -113,7 +113,7 @@ test("Solana: verbundene Wallet signiert die gebaute Ueberweisung; Pruefung nur 
   assert.equal(await ohne.verify(b), false);
   // An sich selbst, kaputte Signatur, keine Wallet
   await assert.rejects(rail.pay({ ziel: SOL_ICH, betrag: { einheit: "lamports", wert: 5_000 }, zweck: "trinkgeld" }), /sich selbst/);
-  const kaputt = new SolanaRail({ wallet: () => ({ ...wallet, signAndSendTransaction: async () => ({ signature: "x" }) }), baueUeberweisung: async () => ({}) });
+  const kaputt = new SolanaRail({ wallet: () => ({ ...wallet, signiereUndSende: async () => "x" }), baueUeberweisung: async () => ({}) });
   await assert.rejects(kaputt.pay({ ziel: SOL_ZIEL, betrag: { einheit: "lamports", wert: 5_000 }, zweck: "trinkgeld" }), /keine gültige Signatur/);
   const leer = new SolanaRail({ wallet: () => undefined, baueUeberweisung: async () => ({}) });
   assert.equal(await leer.verfuegbar(), false);

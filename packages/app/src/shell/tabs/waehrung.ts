@@ -381,6 +381,11 @@ interface SolanaWalletState {
 }
 const solWallet: SolanaWalletState = { connected: false, pubkey: null };
 
+/** Verbundene Solana-Wallet fuer die Zahlschiene (4.1b) – undefined, solange keine verbunden ist. */
+export function verbundeneSolanaWallet(): { adresse: string; provider: SolanaWalletState["provider"] } | undefined {
+  return solWallet.connected && solWallet.pubkey ? { adresse: solWallet.pubkey, provider: solWallet.provider } : undefined;
+}
+
 export async function connectSolana(silent = false): Promise<void> {
   const statusEl = $("#sol-status");
   const { connectSolanaWallet, fetchSolBalance, detectSolanaEnvironment } =
@@ -511,19 +516,6 @@ export function disconnectNwc(): void {
   updateSidebarBalances();
 }
 
-/** Zahlt eine Rechnung ueber den Weg, der auf diesem Geraet verfuegbar ist. */
-async function payInvoiceAnyDevice(bolt11: string): Promise<{ preimage: string }> {
-  if (nwc) return nwc.payInvoice(bolt11);
-  const w = (window as unknown as { webln?: { enable(): Promise<void>; sendPayment(i: string): Promise<{ preimage: string }> } }).webln;
-  if (w) {
-    await w.enable();
-    return w.sendPayment(bolt11);
-  }
-  throw new Error(
-    "Keine Lightning-Wallet verbunden. Im Wallet-Tab per NWC verbinden — das " +
-      "funktioniert auf Handy und Desktop gleichermassen.",
-  );
-}
 
 /** Aktive Deposit-Session (RAM). */
 let activeDeposit: { sessionId: string; spendSwapId: string; refundSwapId: string } | null = null;
@@ -712,84 +704,3 @@ export async function refundDeposit(): Promise<void> {
   }
 }
 
-/** Zap-Button: NIP-57 Lightning-Zahlung fuer eine Antwort. */
-function addZapButton(providerPubkey: string, eventId: string, amountMsat: number): void {
-  const el = document.createElement("div");
-  el.className = "zap-bubble";
-  const sats = Math.floor(amountMsat / 1000);
-  el.innerHTML = `
-    <button class="zap-btn" type="button">⚡ zap ${sats} sats</button>
-    <span class="zap-status hidden"></span>
-  `;
-  const btn = el.querySelector(".zap-btn") as HTMLButtonElement;
-  const status = el.querySelector(".zap-status") as HTMLElement;
-  btn.onclick = async () => {
-    try {
-      btn.disabled = true;
-      status.textContent = "verbinde wallet…";
-      status.classList.remove("hidden");
-      // Wallet verbinden (WebLN oder LNURL)
-      const { detectWallet } = await import("../../lightning-wallet.js");
-      const wallet = await detectWallet();
-      if (!wallet) {
-        status.textContent = "keine lightning-wallet im browser — iphone: nutze solana-deposit im wallet-tab";
-        return;
-      }
-      await wallet.connect();
-      // Zap-Request bauen (NIP-57)
-      const { buildZapRequest } = await import("@freedomstack/protocol");
-      const zapReq = buildZapRequest({
-        senderPubkey: state.keypair!.pk,
-        recipientPubkey: providerPubkey,
-        eventId,
-        amountMsat,
-        relays: ["wss://relay.damus.io", "wss://nos.lol", "wss://relay.nostr.band"],
-      });
-      // LNURL-Pay vom Provider holen (aus seinem Profil, kind 0)
-      const { parseProfile } = await import("@freedomstack/protocol");
-      const pool = await ensurePool();
-      const profiles = await pool.query({ kinds: [0], authors: [providerPubkey], limit: 1 });
-      let lud16 = "";
-      if (profiles.length > 0) {
-        try {
-          const p = parseProfile(profiles[0]);
-          lud16 = p.lud16 ?? "";
-        } catch { /* ignore */ }
-      }
-      if (!lud16) {
-        status.textContent = "provider hat keine lightning-adresse (lud16)";
-        return;
-      }
-      // LNURL-Pay: fetch -> get invoice -> pay
-      const lnurlRes = await fetch(`https://${lud16.split("@")[1]}/.well-known/lnurlp/${lud16.split("@")[0]}`);
-      const lnurlData = await lnurlRes.json();
-      if (!lnurlData.callback) throw new Error("kein callback in LNURL");
-      const cb = new URL(lnurlData.callback);
-      cb.searchParams.set("amount", String(amountMsat));
-      cb.searchParams.set("nostr", JSON.stringify(zapReq));
-      const cbRes = await fetch(cb.toString());
-      const cbData = await cbRes.json();
-      if (!cbData.pr) throw new Error("keine invoice in callback");
-      // Bezahlen mit Wallet
-      const { preimage } = await wallet.sendPayment(cbData.pr);
-      status.textContent = `⚡ gezappt! ${Math.floor(amountMsat / 1000)} sats`;
-      // Zap-Receipt publizieren (NIP-57)
-      const { buildZapReceipt } = await import("@freedomstack/protocol");
-      const receipt = buildZapReceipt({
-        zapperPubkey: state.keypair!.pk,
-        recipientPubkey: providerPubkey,
-        eventId,
-        zapRequestJson: JSON.stringify(zapReq),
-        bolt11: cbData.pr,
-        preimageHex: preimage,
-      });
-      await pool.publish(await signiere(receipt));
-    } catch (e) {
-      status.textContent = `fehler: ${(e as Error).message}`;
-    } finally {
-      btn.disabled = false;
-    }
-  };
-  $("#ai-thread").appendChild(el);
-  el.scrollIntoView({ behavior: "smooth", block: "end" });
-}
