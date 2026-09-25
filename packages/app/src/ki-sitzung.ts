@@ -20,4 +20,15 @@ export class KiSitzungen {
     }
     return s;
   }
+
+  /** Alle bisher erzeugten Sitzungsschluessel (Pubkeys) – fuer das Abo privater Antworten (3.2). */
+  pubkeys(): string[] {
+    return [...this.#je.values()].map((s) => s.publicKey());
+  }
+
+  /** Der Sitzungsschluessel mit diesem Pubkey, falls es ihn gibt. */
+  mitPubkey(pk: string): LocalSigner | undefined {
+    for (const s of this.#je.values()) if (s.publicKey() === pk) return s;
+    return undefined;
+  }
 }

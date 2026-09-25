@@ -8,6 +8,7 @@ import {
   type ClientFee,
   DEFAULT_CLIENT_FEE_PERCENT,
   KIND_DVM_TEXT_GENERATION,
+  KIND_GIFT_WRAP,
   MAX_CLIENT_FEE_PERCENT,
   PROTOCOL_FEE_PPM,
   PROTOCOL_POOL_SHARE_PERCENT,
@@ -23,6 +24,7 @@ import {
 import { t } from "../../i18n.js";
 import { icon } from "../../icons.js";
 import { DEFAULT_MAX_MODE, ScoredProvider, matchRaceProviders, maxModeSplit } from "../../matchmaking.js";
+import { type AntwortCache, oeffneAntworten } from "../../ki-antworten.js";
 import { SessionClient } from "../../session-client.js";
 import { escapeHtml, pkShort } from "../../shell-logic.js";
 import { switchTab, zeigeOnboarding } from "../app.js";
@@ -507,6 +509,18 @@ async function askWithFailover(prompt: string, bid: number, tier: "free" | "clas
   );
 }
 
+/**
+ * Private Antworten (Schritt 3.2): Umschlaege an die Sitzungsschluessel dieser
+ * Seite abfragen und oeffnen – Ergebnisse und Rueckmeldungen zu den gesuchten
+ * Anfragen, wie offene Events.
+ */
+async function privateAntworten(ids: ReadonlySet<string>, seit: number, cache: AntwortCache) {
+  const pks = kiSitzungen.pubkeys();
+  if (pks.length === 0) return { ergebnisse: [], rueckmeldungen: [] };
+  const umschlaege = await (await ensurePool()).query({ kinds: [KIND_GIFT_WRAP], "#p": pks, since: seit });
+  return oeffneAntworten(umschlaege, kiSitzungen, ids, cache);
+}
+
 /** Payment-Feedback von fremden Providern (NWC-timeouts etc.) ist KEIN
  *  Job-Fehler — der Antwortfluss darf dadurch nicht abbrechen. */
 function isPaymentNoise(msg: string): boolean {
@@ -585,8 +599,13 @@ async function askRace(prompt: string, bid: number, tier: "free" | "classic" | "
   // Erste Antwort gewinnt
   const ids = new Set(jobs.map((j) => j.requestId));
   const deadline = Date.now() + 45_000;
+  const seit = Math.floor(Date.now() / 1000) - 120;
+  const cache: AntwortCache = new Map();
   while (Date.now() < deadline) {
-    const results = await pool.query({ kinds: [KIND_DVM_RESULT], limit: 20 });
+    const results = [
+      ...(await privateAntworten(ids, seit, cache)).ergebnisse,
+      ...await pool.query({ kinds: [KIND_DVM_RESULT], limit: 20 }),
+    ];
     const hit = results.find((ev) => ids.has(ev.tags.find((t) => t[0] === "e")?.[1] ?? ""));
     if (hit) {
       let r: ReturnType<typeof parseJobResult>;
@@ -783,11 +802,19 @@ async function waitForAnswer(
 ) {
   const pool = await ensurePool();
   const deadline = Date.now() + timeoutMs;
+  const seit = Math.floor(Date.now() / 1000) - 120;
+  const cache: AntwortCache = new Map();
   while (Date.now() < deadline) {
     if (opts.signal?.aborted) return { aborted: true as const };
+    const ids = opts.extraJobIds ? [...opts.extraJobIds] : [requestId];
+    // Private Antworten (3.2) an unsere Sitzungsschluessel – offene gelten weiter.
+    const privat = await privateAntworten(new Set(ids), seit, cache);
     // Feedback-Events (kind 7000): Ablehnung -> Failover. ABER: status=progress
     // ist KEINE Ablehnung (provider arbeitet noch) — weiter warten.
-    const feedback = await pool.query({ kinds: [7000], "#e": [requestId], limit: 5 });
+    const feedback = [
+      ...privat.rueckmeldungen.filter((e) => e.tags.some((t) => t[0] === "e" && t[1] === requestId)),
+      ...await pool.query({ kinds: [7000], "#e": [requestId], limit: 5 }),
+    ];
     if (feedback.length > 0) {
       const statusTag = feedback[0].tags.find((t) => t[0] === "status")?.[1] ?? "";
       const fbMsg = feedback[0].content.replace(/^error:\s*/i, "");
@@ -824,8 +851,7 @@ async function waitForAnswer(
       return { ev: feedback[0], parsed: null, providerError: fbMsg };
     }
     // Results aus allen aktiven Jobs (Hedge) akzeptieren:
-    const ids = opts.extraJobIds ? [...opts.extraJobIds] : [requestId];
-    const results = await pool.query({ kinds: [KIND_DVM_RESULT], "#e": ids });
+    const results = [...privat.ergebnisse, ...await pool.query({ kinds: [KIND_DVM_RESULT], "#e": ids })];
     if (results.length > 0) {
       // NEU: Nur Antworten vom erwarteten Provider akzeptieren (wenn angegeben).
       // Beim Hedging entfällt dieser Filter — erster Result gewinnt.
