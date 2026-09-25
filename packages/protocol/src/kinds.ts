@@ -18,6 +18,7 @@ export const KIND_PROFILE = 0;              // NIP-01 Metadaten (enthaelt lud16)
 export const KIND_TEXT_NOTE = 1;            // NIP-01
 export const KIND_ZAP_REQUEST = 9734;       // NIP-57
 export const KIND_ZAP_RECEIPT = 9735;       // NIP-57
+export const KIND_SOL_TRINKGELD = 9736;     // SOL-Trinkgeld-Beleg (Entwurf docs/NIP-SOL-TIP.md, 4.7)
 export const KIND_DM = 4;                   // NIP-44 (verschluesselte DM)
 export const KIND_BLOB_MANIFEST = 38040;    // Freedom Blob: "Torrent-Datei"
 export const KIND_BLOB_CHUNK = 38041;       // Freedom Blob: ein Erasure-Shard

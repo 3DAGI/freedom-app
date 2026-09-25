@@ -3381,3 +3381,40 @@ Verdrahtung ohne festen Kurs).
 Endstand: protocol 1018 · node 179 · app 244 · Leak-Tests 35 grün + 3 todo · 0
 rot · check-wiring `--streng` 0 offen · innerHTML streng 0 unbewertet ·
 Smoke-Test bestanden.
+
+## 88. SOL-Trinkgeld, Teil a: Beleg-Event und Prüfung gegen die Kette (Schritt 4.7)
+
+**Warum:** Für Lightning gibt es NIP-57; für SOL gab es nichts – die App
+überwies und zeigte „gesendet“, der Empfänger erfuhr nichts.
+
+**Beleg (`protocol/src/sol-trinkgeld.ts`, Entwurf `docs/NIP-SOL-TIP.md`):**
+Kind 9736 (vorläufig, in `kinds.ts` und `docs/PROTOCOL.md` eingetragen) mit
+`p`, `sol_tx` (Signatur), `lamports`, `sol_to` (Empfängeradresse), `chain`,
+optional `e` (Bezug) und einer Notiz bis 280 Zeichen. Gelesen wird streng:
+ganze Zahl ohne Exponent, base58 in fester Länge, bekannte Kette.
+
+**Privat zuerst:** `buildPrivateSolTrinkgeld` versiegelt den Beleg als Kern
+eines Gift-Wraps – an den Empfänger und als eigene Kopie. Auf den Relays steht
+nur Kind 1059; Signatur und Adresse nur im Umschlag. Öffentlich wird er nur auf
+ausdrücklichen Wunsch (App, Teil b).
+
+**Prüfung gegen die Kette:** `pruefeSolUeberweisung` liest die Transaktion
+(`RpcPool.getTransaction`, `jsonParsed`): erfolgreich, und die
+System-Überweisungen an die genannte Adresse ergeben mindestens den Betrag →
+„belegt“. Unbekannte Transaktion (etwa eine erfundene Signatur) →
+„unbestätigt“; gescheitert, anderer Empfänger, weniger Geld, fremdes Programm →
+„falsch“. Das ist zugleich der Solana-Teil von 4.8.
+
+**4.5 zurückgestellt:** Der Knoten löst heute kein SOL-Deposit ein, frische
+Empfangsadressen bräuchten einen Knoten-Seed – beides erst sinnvoll mit dem
+Zahlkanal 4.3, der auf die Entscheidung 4.0 wartet.
+
+**Tests:** protocol 1018 → 1022 (`sol-trinkgeld.test.ts`: Tags und
+Ablehnungen, manipulierte Events, Umschläge nur für Empfänger und Absender,
+Kettenprüfung mit gefälschter Signatur, falschem Betrag und Empfänger,
+gescheiterter Transaktion, `getTransaction`-Aufruf). Die fünf neuen Funktionen
+sind bis 4.7b begründet ausgenommen.
+
+Endstand: protocol 1022 · node 179 · app 244 · Leak-Tests 35 grün + 3 todo · 0
+rot · check-wiring `--streng` 0 offen · innerHTML streng 0 unbewertet ·
+Smoke-Test bestanden.

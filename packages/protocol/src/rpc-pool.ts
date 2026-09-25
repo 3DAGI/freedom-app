@@ -184,6 +184,14 @@ export class RpcPool {
     );
   }
 
+  /**
+   * Transaktion mit aufgeschluesselten Anweisungen (Schritt 4.7) – fuer die
+   * Pruefung von Belegen; null, solange die Kette sie nicht kennt.
+   */
+  async getTransaction(signatur: string): Promise<unknown> {
+    return this.call("getTransaction", [signatur, { encoding: "jsonParsed", maxSupportedTransactionVersion: 0, commitment: "confirmed" }]);
+  }
+
   async getBalance(pubkey: string): Promise<number> {
     const r = await this.call<{ value?: number }>("getBalance", [pubkey]);
     return r?.value ?? 0;

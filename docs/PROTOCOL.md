@@ -98,6 +98,7 @@ Bestehende Kinds sind reserviert und semantisch eingefroren:
 | 4 | Verschlüsselte DM (NIP-44, p-Tag = Partner) |
 | 42 | Community-Nachricht (h-Tag = Channel) |
 | 9734 / 9735 | Zap-Request / Zap-Receipt (NIP-57) |
+| 9736 | SOL-Trinkgeld-Beleg (Entwurf, `docs/NIP-SOL-TIP.md`; privat im Gift-Wrap) |
 | 27235 | HTTP-Auth (NIP-98) |
 
 ### DVM-Jobs (NIP-90; Result = Request + 1000)
