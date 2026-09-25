@@ -17,10 +17,16 @@
  *
  * Der Umschlag bekommt keinen Zeitversatz: Der Provider abonniert nur die
  * juengste Zeit, und die Empfangszeit sieht das Relay ohnehin.
+ *
+ * DIE ANTWORT (Schritt 3.2)
+ * Ergebnis (Kind 6xxx) samt Betrag, Rechnung, SOL-Adresse und usage sowie
+ * Rueckmeldungen (Kind 7000) gehen genauso zurueck: als Kern im Umschlag an
+ * den Sitzungsschluessel, versiegelt vom Provider. Relays sehen weder Antwort
+ * noch Betrag noch, an wen sie geht.
  */
 import { type NostrEvent, type UnsignedEvent, computeEventId, getTag, verifyEvent } from "./event.js";
 import { KIND_GIFT_WRAP, giftUnwrapMitSigner, giftWrapMitSigner } from "./gift-wrap.js";
-import { isDvmRequest } from "./kinds.js";
+import { KIND_DVM_FEEDBACK, isDvmRequest, isDvmResult } from "./kinds.js";
 import { eventDifficulty } from "./pow.js";
 import type { Signer } from "./signer.js";
 
@@ -81,4 +87,49 @@ export async function openPrivateJobRequest(
     pubkey: r.senderPubkey, created_at: k.created_at!, kind: k.kind!, tags: k.tags!, content: k.content!,
   };
   return { ok: true, request: { ...request, id: computeEventId(request) }, kundePk: r.senderPubkey, powBits: bits };
+}
+
+/** Was ein Provider privat zuruecksendet: Ergebnis oder Rueckmeldung. */
+function istAntwort(kind: number): boolean {
+  return isDvmResult(kind) || kind === KIND_DVM_FEEDBACK;
+}
+
+export interface PrivateJobResponseInput {
+  /** Ergebnis (Kind 6xxx) oder Rueckmeldung (7000), Autor = Provider. */
+  response: UnsignedEvent;
+  providerSigner: Signer;
+  /** Sitzungsschluessel des Kunden – aus der geoeffneten Anfrage. */
+  sessionPk: string;
+  nowSecs?: number;
+}
+
+/** Antwort des Providers versiegeln und an den Sitzungsschluessel packen (Schritt 3.2). */
+export async function buildPrivateJobResponse(p: PrivateJobResponseInput): Promise<{ wrap: NostrEvent; responseId: string }> {
+  if (!istAntwort(p.response.kind)) throw new Error(`Keine Antwort: Kind ${p.response.kind}`);
+  if (!HEX64.test(p.sessionPk)) throw new Error("Sitzungsschlüssel ungültig (64 Zeichen hex erwartet)");
+  if (p.response.pubkey !== p.providerSigner.publicKey()) throw new Error("Antwort gehört nicht zum Provider");
+  const wrap = await giftWrapMitSigner(p.response, p.providerSigner, p.sessionPk, { fixedJitter: 0, nowSecs: p.nowSecs });
+  return { wrap, responseId: computeEventId(p.response) };
+}
+
+export type GeoeffneteAntwort =
+  | { ok: true; response: UnsignedEvent & { id: string }; providerPk: string }
+  | { ok: false; grund: string };
+
+/** Umschlag mit einer Antwort als Kunde (Sitzungsschluessel) oeffnen – gleiche Pruefungen wie beim Provider. */
+export async function openPrivateJobResponse(wrap: NostrEvent, sessionSigner: Signer): Promise<GeoeffneteAntwort> {
+  if (wrap.kind !== KIND_GIFT_WRAP) return { ok: false, grund: "Kein Umschlag" };
+  if (getTag(wrap, "p") !== sessionSigner.publicKey()) return { ok: false, grund: "Umschlag nicht an diese Sitzung" };
+  if (!verifyEvent(wrap)) return { ok: false, grund: "Umschlag-Signatur ungültig" };
+  const r = await giftUnwrapMitSigner(wrap, sessionSigner);
+  if (!r.ok || !r.inner || !r.senderPubkey) return { ok: false, grund: r.message };
+  const k = r.inner as Partial<UnsignedEvent>;
+  const form = Number.isInteger(k.kind) && Number.isInteger(k.created_at) && typeof k.content === "string"
+    && Array.isArray(k.tags) && k.tags.every((t) => Array.isArray(t) && t.every((x) => typeof x === "string"));
+  if (!form) return { ok: false, grund: "Antwort beschädigt" };
+  if (!istAntwort(k.kind!)) return { ok: false, grund: `Keine Antwort: Kind ${k.kind}` };
+  const response: UnsignedEvent = {
+    pubkey: r.senderPubkey, created_at: k.created_at!, kind: k.kind!, tags: k.tags!, content: k.content!,
+  };
+  return { ok: true, response: { ...response, id: computeEventId(response) }, providerPk: r.senderPubkey };
 }

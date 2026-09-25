@@ -8,7 +8,8 @@ import assert from "node:assert/strict";
 import { buildEvent, generateKeypair, signEvent, type NostrEvent } from "../src/event.js";
 import {
   LEAK_REGELN, regelAutorNicht, regelKeinBolt11, regelKeinKind4, regelKeinKlartext, regelKeinKlartextPrompt,
-  regelKeineSolAdresse, regelKundeVerborgen, regelPTagsNur, regelSolAdresseFrisch, regelUploadVerschluesselt,
+  regelKeineSolAdresse, regelKeineZahlungsdaten, regelKundeVerborgen, regelPTagsNur, regelSolAdresseFrisch,
+  regelUploadVerschluesselt,
 } from "../src/leak-rules.js";
 
 const kunde = generateKeypair();
@@ -76,7 +77,29 @@ test("jede Regel meldet unter einem Namen aus LEAK_REGELN", () => {
     ...regelKeineSolAdresse([ev(1, [], SOL)], [SOL]),
     ...regelSolAdresseFrisch([SOL, SOL]),
     ...regelUploadVerschluesselt([ev(1, [], "0102030405060708090a")], new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])),
+    ...regelKeineZahlungsdaten([ev(6050, [["amount", "21000"]])]),
   ];
   const gemeldet = new Set(funde.map((f) => f.regel));
   assert.deepEqual([...gemeldet].sort(), Object.keys(LEAK_REGELN).sort());
+});
+
+test("keine-zahlungsdaten: Betrag, Rechnung, Adresse, Sitzung, Beleg – aber nicht das Leistungs-Event", () => {
+  const faelle: Array<[string[][], string]> = [
+    [[["amount", "21000", BOLT11]], "Ergebnis mit Rechnung"],
+    [[["amount", "0"]], "Ergebnis ohne Rechnung"],
+    [[["solana_address", SOL], ["amount_lamports", "5000"]], "SOL-Zahloption"],
+    [[["usage", "{\"completionTokens\":7}"]], "usage"],
+    [[["max_total_msat", "100000"], ["settle_every_msat", "20000"]], "Sitzung"],
+    [[["cumulative_msat", "40000"], ["units", "7"], ["payment", "ref"]], "Beleg"],
+    [[["bid", "21000"]], "Gebot"],
+  ];
+  for (const [tags, name] of faelle) {
+    const funde = regelKeineZahlungsdaten([ev(6050, tags)]);
+    assert.equal(funde.length, 1, name);
+    assert.equal(funde[0].regel, "keine-zahlungsdaten");
+  }
+  assert.equal(regelKeineZahlungsdaten([ev(1, [], `zahl bitte ${BOLT11}`)]).length, 1, "Rechnung im Inhalt");
+  // Leistungs-Event: Volumen des Providers ohne Kunden – gehoert nicht dazu.
+  assert.equal(regelKeineZahlungsdaten([ev(38010, [["volume_msat", "21000"]])]).length, 0);
+  assert.equal(regelKeineZahlungsdaten([ev(1059, [["p", provider.pk]], "Chiffrat")]).length, 0, "Umschlag");
 });
