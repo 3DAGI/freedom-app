@@ -14,11 +14,22 @@
  * Prüfungen sind schärfer als alles, was ein DOM-Test leisten würde.
  */
 
+import { type DateiSchluessel, istDateiSchluessel } from "@freedomstack/protocol";
+
 export interface ChatAttachment {
   name: string;
   mime: string;
   size: number;
   url: string;
+  /** Schritt 2.4: Die Datei unter `url` ist verschluesselt; der Schluessel reist nur hier. */
+  enc?: DateiSchluessel;
+}
+
+/** Schluessel-Felder eines Anhangs fuer ein imeta-Tag (Namen wie NIP-17 Kind 15). */
+export function imetaSchluessel(a: ChatAttachment): string[] {
+  return a.enc
+    ? ["encryption-algorithm aes-gcm", `decryption-key ${a.enc.key}`, `decryption-nonce ${a.enc.nonce}`, `ox ${a.enc.ox}`]
+    : [];
 }
 
 /**
@@ -58,6 +69,18 @@ export function isSafeAttachmentUrl(url: string): boolean {
 /** Einen Anhang als HTML darstellen. `freedom-blob:` lädt on demand nach. */
 export function renderAttachment(a: ChatAttachment): string {
   const name = escapeHtml(a.name || "datei");
+
+  // Verschluesselt (2.4): nur als Knopf – laden, entschluesseln, speichern.
+  // Schluessel und Typ kommen aus fremder Nachricht: erst pruefen, dann maskieren.
+  if (a.enc !== undefined) {
+    if (!istDateiSchluessel(a.enc)) return `<div class="mono-sm">[Anhang mit ungültigem Schlüssel: ${name}]</div>`;
+    const ziel = a.url.startsWith("freedom-blob:")
+      ? `data-blob="${escapeHtml(a.url.slice("freedom-blob:".length))}"`
+      : a.url.startsWith("https://") && isSafeAttachmentUrl(a.url) ? `data-url="${escapeHtml(a.url)}"` : "";
+    if (!ziel) return `<div class="mono-sm">[Anhang mit nicht unterstuetztem Link: ${name}]</div>`;
+    return `<button class="ghost copy-btn chat-blob-btn" ${ziel} data-key="${a.enc.key}" data-nonce="${a.enc.nonce}" `
+      + `data-ox="${a.enc.ox}" data-mime="${escapeHtml(a.mime || "application/octet-stream")}" data-name="${name}">🔒 ${name}</button>`;
+  }
 
   if (a.url.startsWith("freedom-blob:")) {
     const blobId = a.url.slice("freedom-blob:".length);
@@ -180,7 +203,11 @@ export function parseImetaTags(tags: string[][]): ChatAttachment[] {
     .map((t) => {
       const get = (p: string): string =>
         t.find((x) => typeof x === "string" && x.startsWith(p + " "))?.slice(p.length + 1) ?? "";
-      return { url: get("url"), mime: get("m"), name: get("name"), size: 0 };
+      const a: ChatAttachment = { url: get("url"), mime: get("m"), name: get("name"), size: 0 };
+      if (get("encryption-algorithm") === "aes-gcm") {
+        a.enc = { alg: "aes-gcm", key: get("decryption-key"), nonce: get("decryption-nonce"), ox: get("ox") };
+      }
+      return a;
     })
     .filter((a) => a.url.length > 0);
 }

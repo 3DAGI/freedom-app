@@ -26,7 +26,7 @@ export const PRIVACY_FACTS: readonly PrivacyFact[] = [
   { id: "dm-kein-kind4", aussage: "Die App sendet keine Direktnachrichten im alten Format (Kind 4) mehr.", status: "belegt", regel: "kein-kind4" },
   { id: "abdeckung-zelle", aussage: "Abdeckungskarte: Nur die gerundete Zelle verlässt das Gerät, nie der genaue Standort.", status: "belegt", regel: "kein-klartext" },
   { id: "dm-forward-secrecy", aussage: "Direktnachrichten haben Forward Secrecy.", status: "offen", schritt: "2.2b" },
-  { id: "anhaenge", aussage: "Anhänge liegen verschlüsselt auf den Speicher-Servern.", status: "offen", schritt: "2.4", regel: "upload-verschluesselt" },
+  { id: "anhaenge", aussage: "Anhänge liegen verschlüsselt auf den Speicher-Servern – öffnen kann sie nur, wer die Nachricht lesen kann.", status: "belegt", regel: "upload-verschluesselt" },
   { id: "raeume", aussage: "Räume sind Ende-zu-Ende-verschlüsselt.", status: "offen", schritt: "2.3", regel: "kein-klartext" },
   { id: "ki-prompt", aussage: "KI-Anfragen sind für Relays nicht lesbar.", status: "belegt", regel: "kein-klartext-prompt" },
   { id: "ki-kunde", aussage: "KI-Anfragen verraten Relays nicht, wer fragt – der Provider sieht nur einen Schlüssel je Sitzung.", status: "belegt", regel: "kunde-verborgen" },

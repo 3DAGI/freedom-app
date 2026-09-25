@@ -20,7 +20,9 @@ import {
   ago,
   parseDmBody,
   parseImetaTags,
+  imetaSchluessel,
 } from "../src/shell-logic.js";
+import { verschluesseleDatei } from "@freedomstack/protocol";
 
 // ------------------------------------------------------------- Escaping
 
@@ -257,4 +259,47 @@ test("imeta: Community-Anhaenge werden gelesen", () => {
 test("imeta: fehlerhafte Tags bringen die Anzeige nicht zum Absturz", () => {
   assert.doesNotThrow(() => parseImetaTags([["imeta"], [], ["imeta", "", ""]]));
   assert.equal(parseImetaTags([["imeta"]]).length, 0);
+});
+
+// ------------------------------------------------- Verschluesselte Anhaenge (2.4)
+
+const ENC = verschluesseleDatei(new Uint8Array([1, 2, 3])).schluessel;
+
+test("2.4: verschluesselter Anhang wird ein Knopf mit geprueftem Schluessel, nie eine Quelle", () => {
+  const blob = renderAttachment({ name: "befund.pdf", mime: "application/pdf", size: 9, url: "freedom-blob:abc123", enc: ENC });
+  assert.match(blob, /class="ghost copy-btn chat-blob-btn" data-blob="abc123"/);
+  assert.ok(blob.includes(`data-key="${ENC.key}"`) && blob.includes(`data-nonce="${ENC.nonce}"`) && blob.includes(`data-ox="${ENC.ox}"`));
+  assert.match(blob, /🔒 befund\.pdf/);
+  const blossom = renderAttachment({ name: "bild", mime: "image/png", size: 9, url: "https://blossom.example/ab", enc: ENC });
+  assert.match(blossom, /data-url="https:\/\/blossom\.example\/ab"/);
+  assert.doesNotMatch(blossom, /<img/, "Chiffrat nie als Bild einbinden");
+});
+
+test("2.4: kaputter Schluessel, fremdes Schema, boesartiger Typ und Name", () => {
+  const kaputt = renderAttachment({ name: "x", mime: "image/png", size: 1, url: "freedom-blob:a", enc: { ...ENC, key: `${ENC.key.slice(2)}"><script>` } });
+  assert.match(kaputt, /ungültigem Schlüssel/);
+  assert.doesNotMatch(kaputt, /<script/);
+  assert.match(renderAttachment({ name: "x", mime: "", size: 1, url: "javascript:alert(1)", enc: ENC }), /nicht unterstuetzt/);
+  assert.match(renderAttachment({ name: "x", mime: "", size: 1, url: "http://klartext.example/a", enc: ENC }), /nicht unterstuetzt/, "nur https");
+  const boese = renderAttachment({ name: `"><img src=x onerror=alert(1)>`, mime: `x" onclick="alert(1)`, size: 1, url: "freedom-blob:a", enc: ENC });
+  // Maskiert bleibt es Text: kein neues Tag, kein ausbrechendes Attribut
+  assert.doesNotMatch(boese, /<img|" onclick="/);
+  assert.match(boese, /data-mime="x&#34; onclick=&#34;alert\(1\)"/);
+});
+
+test("2.4: Schluessel im imeta-Tag hin und zurueck, ohne Schluessel wie bisher", () => {
+  const tag = ["imeta", "url freedom-blob:abc", "m application/pdf", "name a.pdf", ...imetaSchluessel({ name: "a.pdf", mime: "application/pdf", size: 1, url: "freedom-blob:abc", enc: ENC })];
+  const [a] = parseImetaTags([tag]);
+  assert.deepEqual(a.enc, ENC);
+  assert.deepEqual(imetaSchluessel({ name: "a", mime: "", size: 1, url: "https://x" }), []);
+  const [b] = parseImetaTags([["imeta", "url https://x.io/a.png", "m image/png"]]);
+  assert.equal(b.enc, undefined);
+  // Unbekanntes Verfahren: kein Schluessel, also wie ein offener Anhang
+  const [c] = parseImetaTags([["imeta", "url https://x.io/a", "encryption-algorithm chacha", `decryption-key ${ENC.key}`]]);
+  assert.equal(c.enc, undefined);
+});
+
+test("2.4: DM-Body traegt den Schluessel mit", () => {
+  const r = parseDmBody(JSON.stringify({ text: "", attachments: [{ url: "freedom-blob:abc", mime: "application/pdf", name: "a", size: 1, enc: ENC }] }));
+  assert.deepEqual(r.attachments[0].enc, ENC);
 });

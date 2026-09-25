@@ -7,7 +7,7 @@
  * - Browser-Seeding: IndexedDB haelt eigene Uploads + optional gesehene Chunks
  */
 
-import type { NostrEvent, Signer } from "@freedomstack/protocol";
+import type { DateiSchluessel, NostrEvent, Signer } from "@freedomstack/protocol";
 
 const DB_NAME = "freedom-blobs";
 const STORE = "chunks";
@@ -43,6 +43,11 @@ async function idbGet(hash: string): Promise<Uint8Array | null> {
     req.onsuccess = () => { db.close(); res(req.result?.bytes ?? null); };
     req.onerror = () => { db.close(); rej(req.error); };
   });
+}
+
+/** Aus dem lokalen Speicher lesen – ohne IndexedDB (privates Fenster, Tests) einfach nichts. */
+async function ausCache(hash: string): Promise<Uint8Array | null> {
+  try { return await idbGet(hash); } catch { return null; }
 }
 
 /** Eigene Chunks + empfangene lokal halten (auto-seeding). */
@@ -89,6 +94,28 @@ export async function uploadBlob(
   return { blobId: manifest.blobId, manifestEventId: signedManifest.id };
 }
 
+/**
+ * Chat-Anhang hochladen (Schritt 2.4): nur das Chiffrat geht ins Blob-Netz,
+ * ohne Name und Typ im Manifest. Der Schluessel kommt zurueck und gehoert nur
+ * in die (verschluesselte) Nachricht.
+ */
+export async function uploadAnhang(
+  file: File,
+  pool: { publish: (ev: NostrEvent) => Promise<unknown> },
+  signer: Signer,
+): Promise<{ blobId: string; schluessel: DateiSchluessel }> {
+  const { verschluesseleDatei } = await import("@freedomstack/protocol");
+  const { chiffrat, schluessel } = verschluesseleDatei(new Uint8Array(await file.arrayBuffer()));
+  const res = await uploadBlob(new File([chiffrat as BlobPart], "", { type: "application/octet-stream" }), pool, signer);
+  return { blobId: res.blobId, schluessel };
+}
+
+/** Verschluesselte Datei oeffnen (2.4) – wirft bei Manipulation oder falschem Schluessel. */
+export async function oeffneAnhang(chiffrat: Uint8Array, schluessel: DateiSchluessel): Promise<Uint8Array> {
+  const { entschluesseleDatei } = await import("@freedomstack/protocol");
+  return entschluesseleDatei(chiffrat, schluessel);
+}
+
 /** Datei herunterladen: manifest -> shards aus cache+relay -> rekonstruieren. */
 export async function downloadBlob(
   manifestEventIdOrBlobId: string,
@@ -111,21 +138,24 @@ export async function downloadBlob(
   const missingShards: Array<{ idx: number; ev: Record<string, unknown> }> = [];
 
   for (let i = 0; i < total && chunks.size < manifest.dataShards; i++) {
-    const cached = await idbGet(manifest.shardHashes[i]);
+    const cached = await ausCache(manifest.shardHashes[i]);
     if (cached) chunks.set(i, toHexLocal(cached));
   }
   onProgress?.(chunks.size, manifest.dataShards);
 
   if (chunks.size < manifest.dataShards) {
+    const { sha256, toHex } = await import("@freedomstack/protocol");
     const events = await pool.query({ kinds: [KIND_BLOB_CHUNK], "#blob": [manifest.blobId], limit: 500 });
     for (const ev of events) {
       const tags = (ev.tags as string[][]) ?? [];
       const idx = Number(tags.find((t) => t[0] === "index")?.[1] ?? "-1");
       const sha = tags.find((t) => t[0] === "sha256")?.[1] ?? "";
-      if (idx < 0 || chunks.has(idx)) continue;
-      // verifizieren gegen manifest-hash
+      if (!Number.isInteger(idx) || idx < 0 || idx >= total || chunks.has(idx)) continue;
+      // Gegen den Hash aus dem Manifest pruefen. Bis 2.4 stand hier der Vergleich
+      // des Hex-Inhalts mit dem Hash – er schlug immer fehl, und kein Chunk vom
+      // Relay wurde angenommen: Empfaenger konnten grosse Anhaenge nie laden.
       const bytes = hexToLocal(ev.content as string);
-      if (toHexLocal(bytes) !== sha) continue;
+      if (sha !== manifest.shardHashes[idx] || toHex(sha256(bytes)) !== sha) continue;
       chunks.set(idx, ev.content as string);
       void cacheChunk(sha, bytes); // seeding: gefundene chunks cachen
       onProgress?.(Math.min(chunks.size, manifest.dataShards), manifest.dataShards);

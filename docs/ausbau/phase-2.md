@@ -79,9 +79,9 @@ für Forward Secrecy. NIP-17 bleibt Rückfall für Kontakte ohne MLS.
 
 ---
 
-## 2.4 Verschlüsselte Anhänge – IN ARBEIT
+## 2.4 Verschlüsselte Anhänge – CODE FERTIG (25.09.2026)
 
-> Aufgeteilt: a Protokoll-Baustein `datei-krypto.ts` (AES-256-GCM je Datei, Schlüssel/Nonce/Klartext-Hash nur in der Nachricht) ✓, b App (Upload, Nachricht, Download). MLS/MIP-04 folgt mit 2.2b.
+> Zwei Teile: a Protokoll-Baustein `datei-krypto.ts` (AES-256-GCM je Datei; Schlüssel, Nonce und Klartext-Hash nur in der Nachricht) und b App. Chat-Anhänge über 32 KB gehen nur verschlüsselt ins Blob-Netz oder zu Blossom, ohne Name und Typ. Kleinere reisen inline in der DM und sind damit verschlüsselt. Der Empfänger lädt, entschlüsselt und prüft. Git-Bundles bleiben mit Absicht öffentlich. In Räumen steht der Schlüssel bis 2.3 so offen wie der Text. MLS/MIP-04 folgt mit 2.2b. Nebenbei behoben: Der Download nahm nie einen Chunk vom Relay an, und DMs mit Anhängen ab etwa 48 KB sprengten die NIP-44-Grenze.
 
 - **Stellen:** `packages/app/src/blob-client.ts`, Anhänge im Chat.
 - **Vorgehen:** AES-GCM mit zufälligem Schlüssel je Datei vor dem Upload;
