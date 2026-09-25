@@ -251,3 +251,7 @@ zap.ts|sumZapsByRecipient|Zap-Belege prüfen und summieren, noch nicht angebunde
 zap.ts|verifyZapPayment|Zap-Belege prüfen und summieren, noch nicht angebunden (Belege mit Empfängerprüfung, 4.8)
 gift-wrap.ts|giftUnwrap|Variante mit rohem Schlüssel; die App öffnet über giftUnwrapMitSigner. Bleibt als dünne Hülle, über die die Gift-Wrap-Tests den Kern prüfen (Signer-Schnittstelle, 1.3)
 gift-wrap.ts|giftWrap|Variante mit rohem Schlüssel; die App packt über giftWrapMitSigner. Bleibt als dünne Hülle, über die die Gift-Wrap-Tests den Kern prüfen (Signer-Schnittstelle, 1.3)
+payment-rail.ts|zahle|Baustein 4.1a; Zap, Wallet-Tab und Agent zahlen darüber ab 4.1b/4.1c
+payment-rail.ts|waehleRail|Baustein 4.1a; über zahle() ab 4.1b
+payment-rail.ts|inBeidenEinheiten|Baustein 4.1a; Anzeige in beiden Einheiten ab 4.1b
+payment-rail.ts|betragText|Baustein 4.1a; Anzeige ab 4.1b

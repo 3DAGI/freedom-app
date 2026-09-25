@@ -3080,3 +3080,33 @@ Belohnung, nur SOL, Multisig) mit betroffenen Dateien, Folgen für den
 Zahlkanal (4.3), AMLR-Angriffsfläche (ausdrücklich kein Rechtsrat) und
 Einnahmen. **STOPP: Die Entscheidung trifft der MENSCH.** 4.3 wartet darauf;
 4.1 (PaymentRail) hängt nicht daran.
+
+## 80. PaymentRail, Teil a: Schnittstelle und Schienen (Schritt 4.1)
+
+**`protocol/src/payment-rail.ts`:** `PaymentRail` (verfügbar, quote, pay,
+verify, optional refund/balance), `Zahlanfrage` (Ziel, Betrag in der Einheit
+der Schiene, Zweck), `Beleg` (Preimage bzw. Signatur, bei Lightning die
+bezahlte Rechnung). `railFuerZiel()` erkennt Rechnung, Lightning-Adresse und
+Solana-Adresse; `pruefeAnfrage()` verlangt die Einheit der Schiene und einen
+positiven ganzzahligen Betrag; `waehleRail()` nimmt die passende, verbundene
+Schiene und leitet **nie still** auf die andere um – das wäre eine Zahlung in
+einer Währung, die der Nutzer nicht gewählt hat; `inBeidenEinheiten()` für die
+Anzeige mit Kurs (4.4).
+
+**`app/src/rails.ts`:** `LightningRail` zahlt über NWC, sonst WebLN; für
+Lightning-Adressen holt sie die Rechnung per LNURL-pay (nur https-Callback,
+Grenzen des Empfängers) und zahlt nur, wenn die Rechnung genau den gewollten
+Betrag nennt – ein fremder Server könnte sonst mehr abbuchen. Der Beleg prüft
+sich am Payment-Hash der Rechnung (bolt11 selbst dekodiert). `SolanaRail`
+lässt die verbundene Wallet die gebaute Überweisung signieren und prüft die
+Signaturform; einen Beleg bestätigt sie nur mit RPC-Prüfung, sonst gilt er als
+nicht prüfbar (die volle Empfängerprüfung ist 4.8).
+
+**Tests:** protocol 1005 → 1009, app 219 → 224 (Testvektor aus BOLT 11,
+selbst gebaute Rechnungen mit bekanntem Hash, NWC/WebLN/LNURL-Attrappen,
+teurere Rechnung vom Server, Grenzen, http-Callback, Solana mit und ohne
+RPC-Prüfung, Selbstüberweisung, kaputte Signatur). Verdrahtet wird in 4.1b/c;
+bis dahin 4 begründete Ausnahmen.
+
+Endstand: protocol 1009 · node 176 · app 224 · Leak-Tests 35 grün + 3 todo · 0
+rot · check-wiring `--streng` 0 offen.
