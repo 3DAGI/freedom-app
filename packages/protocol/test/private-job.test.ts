@@ -8,8 +8,10 @@ import { buildEvent, computeEventId, generateKeypair, signEvent, type NostrEvent
 import { buildJobFeedback, buildJobRequest, buildJobResult, parseJobResult } from "../src/dvm.js";
 import { giftWrapMitSigner } from "../src/gift-wrap.js";
 import {
-  MAX_POW_BITS, buildPrivateJobRequest, buildPrivateJobResponse, openPrivateJobRequest, openPrivateJobResponse,
+  MAX_POW_BITS, buildPrivateJobRequest, buildPrivateJobResponse, buildPrivateSessionEvent, openPrivateJobRequest,
+  openPrivateJobResponse, openPrivateKundenEvent,
 } from "../src/private-job.js";
+import { buildSessionOpen, buildSessionPayment, parseSessionOpen } from "../src/stream.js";
 import { eventDifficulty } from "../src/pow.js";
 import { LocalSigner } from "../src/signer.js";
 import { buildCapabilities, parseCapabilities } from "../src/tiers.js";
@@ -185,4 +187,51 @@ test("privat 3.2: Rueckmeldung (7000) ebenso; fremde Sitzung und falsche Autoren
   const o = await openPrivateJobResponse(falsch, sitzung);
   assert.equal(o.ok, false);
   assert.match(!o.ok ? o.grund : "", /Keine Antwort/);
+});
+
+// ---------------------------------------------------------------- Sitzung und Belege (3.2d)
+
+function sitzungsEvents(sitzung: LocalSigner) {
+  const open = buildSessionOpen({
+    customerPubkey: sitzung.publicKey(), providerPubkey: provider.publicKey(), sessionId: "sess-privat-1",
+    maxTotalMsat: 100_000, maxRatePerKTokenMsat: 2000, settleEveryMsat: 20_000, ttlSecs: 3600,
+  }, 1_790_000_000);
+  const beleg = buildSessionPayment({
+    customerPubkey: sitzung.publicKey(), sessionId: "sess-privat-1", seq: 1, cumulativeMsat: 20_000, unitsSinceLast: 7000,
+  }, 1_790_000_060);
+  return { open, beleg };
+}
+
+test("privat 3.2d: Sitzung und Beleg versiegelt – Provider oeffnet sie, Relays sehen keine Betraege", async () => {
+  const sitzung = new LocalSigner(generateKeypair().sk);
+  const { open, beleg } = sitzungsEvents(sitzung);
+  for (const event of [open, beleg]) {
+    const { wrap, eventId } = await buildPrivateSessionEvent({ event, sessionSigner: sitzung, providerPk: provider.publicKey(), powBits: 8 });
+    assert.deepEqual(regelKeineZahlungsdaten([wrap]), []);
+    assert.deepEqual(regelKundeVerborgen([wrap], sitzung.publicKey()), []);
+    const r = await openPrivateKundenEvent(wrap, provider, 8);
+    assert.ok(r.ok, !r.ok ? r.grund : "");
+    assert.equal(r.ok && r.request.id, eventId);
+    assert.equal(r.ok && r.kundePk, sitzung.publicKey());
+    // Nur-Anfragen-Oeffner nimmt Sitzungs-Events nicht an
+    const nurJob = await openPrivateJobRequest(wrap, provider, 8);
+    assert.equal(nurJob.ok, false);
+  }
+  const r = await openPrivateKundenEvent((await buildPrivateSessionEvent({ event: open, sessionSigner: sitzung, providerPk: provider.publicKey() })).wrap, provider);
+  assert.equal(r.ok && parseSessionOpen(r.request).maxTotalMsat, 100_000);
+});
+
+test("privat 3.2d: Sitzungs-Events – falsches Kind, fremder Schluessel; Anfragen gehen weiter durch den Kunden-Oeffner", async () => {
+  const sitzung = new LocalSigner(generateKeypair().sk);
+  const { open } = sitzungsEvents(sitzung);
+  await assert.rejects(buildPrivateSessionEvent({ event: anfrage(sitzung), sessionSigner: sitzung, providerPk: provider.publicKey() }), /Kein Sitzungs-Event/);
+  await assert.rejects(buildPrivateSessionEvent({ event: open, sessionSigner: new LocalSigner(generateKeypair().sk), providerPk: provider.publicKey() }), /Sitzungsschlüssel/);
+  const { wrap } = await buildPrivateJobRequest({ request: anfrage(sitzung), sessionSigner: sitzung, providerPk: provider.publicKey() });
+  const r = await openPrivateKundenEvent(wrap, provider);
+  assert.equal(r.ok && r.request.kind, 5050);
+  // Eine DM an den Provider ist weder Anfrage noch Sitzungs-Event
+  const dm = await giftWrapMitSigner(buildEvent(sitzung.publicKey(), 14, [], "hallo"), sitzung, provider.publicKey());
+  const d = await openPrivateKundenEvent(dm, provider);
+  assert.equal(d.ok, false);
+  assert.match(!d.ok ? d.grund : "", /Weder Anfrage noch Sitzungs-Event/);
 });

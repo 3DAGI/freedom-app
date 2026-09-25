@@ -181,6 +181,9 @@ pricing.ts|videoPriceSats|Preise für Text und Video, noch nicht angebunden (Pre
 
 privacy-audit.ts|mixnetImpact|Auswirkung eines Mixnetzes, ohne Oberfläche (Verkehrsmuster, 6.4)
 
+private-job.ts|buildPrivateSessionEvent|Sitzung und Belege versiegelt (3.2): die App schickt sie ab 3.2e, der Knoten nimmt sie seit 3.2d an
+private-job.ts|openPrivateJobRequest|Öffner nur für Anfragen (3.1); der Knoten nutzt seit 3.2d openPrivateKundenEvent, das auch Sitzungs-Events annimmt
+
 profile.ts|parseProfileSafe|sicheres Parsen fremder Profile; App nutzt noch parseProfile (chat-zap.ts, app.ts) – umstellen offen
 
 protocol-fee.ts|assertProtocolFeeConfigured|Prüfung vor Mainnet-Betrieb, vor dem Mainnet-Deploy einbinden (9.3)

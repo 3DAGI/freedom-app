@@ -26,7 +26,7 @@
  */
 import { type NostrEvent, type UnsignedEvent, computeEventId, getTag, verifyEvent } from "./event.js";
 import { KIND_GIFT_WRAP, giftUnwrapMitSigner, giftWrapMitSigner } from "./gift-wrap.js";
-import { KIND_DVM_FEEDBACK, isDvmRequest, isDvmResult } from "./kinds.js";
+import { KIND_DVM_FEEDBACK, KIND_SESSION_OPEN, KIND_SESSION_PAYMENT, isDvmRequest, isDvmResult } from "./kinds.js";
 import { eventDifficulty } from "./pow.js";
 import type { Signer } from "./signer.js";
 
@@ -57,6 +57,27 @@ export async function buildPrivateJobRequest(p: PrivateJobInput): Promise<{ wrap
   return { wrap, requestId: computeEventId(p.request) };
 }
 
+/** Sitzung (38021) und Belege (38022) des Kunden – seit 3.2 ebenfalls nur versiegelt. */
+function istSitzungsEvent(kind: number): boolean {
+  return kind === KIND_SESSION_OPEN || kind === KIND_SESSION_PAYMENT;
+}
+
+/**
+ * Sitzungseroeffnung oder Beleg versiegelt an den Provider (Schritt 3.2) –
+ * Budget, Rate und bezahlte Summen stehen dann in keinem oeffentlichen Event.
+ */
+export async function buildPrivateSessionEvent(p: {
+  event: UnsignedEvent; sessionSigner: Signer; providerPk: string; powBits?: number; nowSecs?: number;
+}): Promise<{ wrap: NostrEvent; eventId: string }> {
+  if (!istSitzungsEvent(p.event.kind)) throw new Error(`Kein Sitzungs-Event: Kind ${p.event.kind}`);
+  if (!HEX64.test(p.providerPk)) throw new Error("Provider-Pubkey ungültig (64 Zeichen hex erwartet)");
+  if (p.event.pubkey !== p.sessionSigner.publicKey()) throw new Error("Event gehört nicht zum Sitzungsschlüssel");
+  const bits = p.powBits ?? 0;
+  if (!Number.isInteger(bits) || bits < 0 || bits > MAX_POW_BITS) throw new Error(`Rechenarbeit ${bits} außerhalb 0–${MAX_POW_BITS}`);
+  const wrap = await giftWrapMitSigner(p.event, p.sessionSigner, p.providerPk, { fixedJitter: 0, nowSecs: p.nowSecs, powBits: bits });
+  return { wrap, eventId: computeEventId(p.event) };
+}
+
 export type GeoeffneterJob =
   | { ok: true; request: UnsignedEvent & { id: string }; kundePk: string; powBits: number }
   | { ok: false; grund: string };
@@ -64,11 +85,31 @@ export type GeoeffneterJob =
 /**
  * Umschlag als Provider oeffnen. Guenstiges zuerst: Form, Signatur und
  * Rechenarbeit werden geprueft, bevor irgendetwas entschluesselt wird.
+ * Nur Anfragen (5xxx).
  */
 export async function openPrivateJobRequest(
   wrap: NostrEvent,
   providerSigner: Signer,
   minPowBits = 0,
+): Promise<GeoeffneterJob> {
+  return oeffneVomKunden(wrap, providerSigner, minPowBits, isDvmRequest, "Keine Job-Anfrage");
+}
+
+/** Wie openPrivateJobRequest, nimmt aber auch Sitzung (38021) und Belege (38022) an (Schritt 3.2). */
+export async function openPrivateKundenEvent(
+  wrap: NostrEvent,
+  providerSigner: Signer,
+  minPowBits = 0,
+): Promise<GeoeffneterJob> {
+  return oeffneVomKunden(wrap, providerSigner, minPowBits, (k) => isDvmRequest(k) || istSitzungsEvent(k), "Weder Anfrage noch Sitzungs-Event");
+}
+
+async function oeffneVomKunden(
+  wrap: NostrEvent,
+  providerSigner: Signer,
+  minPowBits: number,
+  erlaubt: (kind: number) => boolean,
+  fehltext: string,
 ): Promise<GeoeffneterJob> {
   if (wrap.kind !== KIND_GIFT_WRAP) return { ok: false, grund: "Kein Umschlag" };
   if (getTag(wrap, "p") !== providerSigner.publicKey()) return { ok: false, grund: "Umschlag nicht an diesen Provider" };
@@ -82,7 +123,7 @@ export async function openPrivateJobRequest(
   const form = Number.isInteger(k.kind) && Number.isInteger(k.created_at) && typeof k.content === "string"
     && Array.isArray(k.tags) && k.tags.every((t) => Array.isArray(t) && t.every((x) => typeof x === "string"));
   if (!form) return { ok: false, grund: "Anfrage beschädigt" };
-  if (!isDvmRequest(k.kind!)) return { ok: false, grund: `Keine Job-Anfrage: Kind ${k.kind}` };
+  if (!erlaubt(k.kind!)) return { ok: false, grund: `${fehltext}: Kind ${k.kind}` };
   const request: UnsignedEvent = {
     pubkey: r.senderPubkey, created_at: k.created_at!, kind: k.kind!, tags: k.tags!, content: k.content!,
   };
