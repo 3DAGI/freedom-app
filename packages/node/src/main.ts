@@ -142,6 +142,11 @@ async function main(): Promise<void> {
   // Rechenarbeit fuer private Anfragen (3.1) – steht im Angebot. Ueber 24 rechnet
   // ein Handy Minuten; die App wiese solche Angebote ab.
   const privatePowBits = Math.min(24, Math.max(0, Math.floor(Number(process.env.PRIVATE_POW_BITS ?? DEFAULT_PROVIDER_CONFIG.privatePowBits))));
+  // Schritt 3.3: Anfragen und Antworten stehen standardmaessig in keinem Log.
+  const klartextProtokoll = process.env.LOG_KLARTEXT === "1";
+  if (klartextProtokoll) {
+    console.warn("[datenschutz] LOG_KLARTEXT=1 – Antworten erscheinen im Log. Nur zur Fehlersuche, danach wieder ausschalten.");
+  }
   const provider = new DvmProvider(
     {
       keypair,
@@ -150,6 +155,7 @@ async function main(): Promise<void> {
       minBidMsat: Number(process.env.MIN_BID_MSAT ?? DEFAULT_PROVIDER_CONFIG.minBidMsat),
       powDifficulty: Number(process.env.POW_DIFFICULTY ?? DEFAULT_PROVIDER_CONFIG.powDifficulty),
       privatePowBits,
+      klartextProtokoll,
       seasonId: process.env.SEASON_ID ?? DEFAULT_PROVIDER_CONFIG.seasonId,
       // Ohne beides werden SOL-Deposits abgelehnt — ungeprueft akzeptieren
       // hiesse, dem Kunden die Pruefung seiner eigenen Zahlung zu ueberlassen.
@@ -624,7 +630,7 @@ async function main(): Promise<void> {
         console.log(
           `[dvm] ${j.requestId.slice(0, 8)} -> ${j.amountMsat} msat ` +
             `(provider ${j.feeSplit.recipientMsat} / pool ${j.feeSplit.poolMsat} / protocol ${j.feeSplit.protocolMsat}) ` +
-            `${j.durationMs}ms :: ${j.outputPreview.replace(/\n/g, " ")}`,
+            `${j.durationMs}ms${j.outputPreview ? ` :: ${j.outputPreview.replace(/\n/g, " ")}` : ""}`,
         );
 
         // Fee tatsaechlich abfuehren und den Beweis veroeffentlichen.

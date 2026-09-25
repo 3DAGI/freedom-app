@@ -54,6 +54,11 @@ interface ToolSchema {
   };
 }
 
+/** Fehler der Websuche fuers Log: nur der Name, nie die Meldung (Schritt 3.3). */
+function suchFehler(e: unknown): string {
+  return e instanceof Error ? e.name : "unbekannt";
+}
+
 /** Lokale Inferenz ueber Ollama (Standard auf dem GX10, Port 11434). */
 export class OllamaBackend implements InferenceBackend {
   constructor(
@@ -296,7 +301,8 @@ WICHTIG:
 
       // Keine Tool-Aufrufe? Fertig!
       if (!msg.tool_calls || msg.tool_calls.length === 0) {
-        console.log(`[tool-loop] Keine tool_calls, finale Antwort: ${msg.content?.slice(0, 100)}`);
+        // Schritt 3.3: Nur die Laenge – der Antworttext gehoert nicht ins Log.
+        console.log(`[tool-loop] Keine tool_calls, finale Antwort (${msg.content?.length ?? 0} Zeichen)`);
         finalOutput = msg.content ?? "";
         break;
       }
@@ -417,7 +423,9 @@ WICHTIG:
     }
   }
 
-  /** web_search: DuckDuckGo HTML + Playwright-Fallback (echte Browser-Suche). */
+  /** web_search: DuckDuckGo HTML + Playwright-Fallback (echte Browser-Suche).
+   *  Fehler nur mit ihrem Namen protokollieren: Die Meldung kann die URL samt
+   *  Suchanfrage enthalten (Playwright nennt sie), und die stammt aus dem Prompt. */
   private async webSearch(query: string): Promise<string> {
     // Versuch 1: DuckDuckGo Instant Answer (kostenlos, kein Key)
     try {
@@ -433,7 +441,7 @@ WICHTIG:
         }
       }
     } catch (e) {
-      console.warn(`[web_search] DuckDuckGo Instant Answer fehlgeschlagen: ${(e as Error).message}`);
+      console.warn(`[web_search] DuckDuckGo Instant Answer fehlgeschlagen (${suchFehler(e)})`);
     }
 
     // Versuch 2: DuckDuckGo HTML (scraping, falls Instant Answer leer)
@@ -452,7 +460,7 @@ WICHTIG:
         }
       }
     } catch (e) {
-      console.warn(`[web_search] DuckDuckGo HTML fehlgeschlagen: ${(e as Error).message}`);
+      console.warn(`[web_search] DuckDuckGo HTML fehlgeschlagen (${suchFehler(e)})`);
     }
 
     // Versuch 3: Playwright (echte Browser-Suche mit JavaScript-Rendering)
@@ -472,7 +480,7 @@ WICHTIG:
         return `Top-Ergebnisse (Playwright):\n${results.join("\n")}`;
       }
     } catch (e) {
-      console.warn(`[web_search] Playwright fehlgeschlagen: ${(e as Error).message}`);
+      console.warn(`[web_search] Playwright fehlgeschlagen (${suchFehler(e)})`);
     }
 
     return "Keine Suchergebnisse gefunden. Versuche eine spezifischere Query oder pruefe die offizielle Website direkt.";

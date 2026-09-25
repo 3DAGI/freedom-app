@@ -48,7 +48,9 @@ verschlüsselt.
 
 ---
 
-## 3.3 Provider-Seite
+## 3.3 Provider-Seite – CODE FERTIG (25.09.2026)
+
+> Umgesetzt in einem PR (Knoten und App). Der Knoten protokolliert weder Prompt noch Antwort (Schalter `LOG_KLARTEXT=1` nur zur Fehlersuche), schreibt nichts in Dateien und merkt sich keinen Gesprächsverlauf mehr – den Kontext bringt die App versiegelt in der Anfrage mit (`ki-kontext.ts`). Das Feld `tee` ist zurückgestellt: Es gibt noch keine Prüfung eines Attestierungsnachweises, also zeigt die App nie „vertraulich (attestiert)“. Eine Prüfung bräuchte eine Entscheidung (welche TEE, welche Wurzelzertifikate) und vermutlich eine neue Abhängigkeit.
 
 - **Vorgehen:** Der Knoten verwirft den Klartext nach der Antwort; das
   Protokollieren von Prompts ist standardmäßig aus. Ein optionales Feld `tee` im

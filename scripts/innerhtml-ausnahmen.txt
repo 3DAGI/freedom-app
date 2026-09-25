@@ -71,7 +71,7 @@ kommunikation.ts|alt|festes Markup oder leer
 kommunikation.ts|zapBtn|Template mit escapeHtml(ev.pubkey) und escapeHtml(pkShort(ev.pubkey))
 kommunikation.ts|body|body = escapeHtml(text)
 kommunikation.ts|media|renderAttachment() maskiert Name und URL und erlaubt nur sichere Schemata (shell-logic.ts)
-agent.ts|msgs.length|Anzahl eigener Chat-Blasen (lokal)
+agent.ts|msgs.length|Anzahl Nachrichten im eigenen Verlauf (lokal, seit 3.3)
 settings.ts|cls|feste Klassennamen ok/err/warn
 settings.ts|quellen.map((q) => escapeHtml(q)).join(", ")|jede Quelle mit escapeHtml
 agent.ts|whoLabel|fest du, sonst agent plus escapeHtml(model)

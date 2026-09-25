@@ -41,9 +41,9 @@ python3 scripts/smoke_test.py packages/app/dist         # braucht playwright + c
 bash scripts/build-site.sh /tmp/site                     # Website bauen (Ziel wird gelöscht!)
 ```
 
-Stand 25.09.2026 (nach 3.2): protocol 991 grün (5 übersprungen), node 170 grün
+Stand 25.09.2026 (nach 3.3): protocol 991 grün (5 übersprungen), node 175 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 211 grün, Leak-Tests 24 grün + 4 `todo` (heutige Lecks,
+in `tools.test.ts`), app 215 grün, Leak-Tests 24 grün + 4 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test).
 
 ## Arbeitsweise
@@ -57,6 +57,11 @@ je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test
 5. `docs/ausbau/FORTSCHRITT.md` und `STATUS.md` aktualisieren.
 6. Commit auf Deutsch: `<Schritt>: <kurz>`; Pull Request mit dem Bericht aus
    `docs/ausbau/VORLAGEN.md` als Beschreibung. Dann anhalten.
+7. **Knoten-Stand (Entscheidung 25.09.2026):** Braucht die App nach einem Merge
+   einen neueren Provider-Knoten, wird trotzdem gemergt, sobald CI grün ist. Der
+   MENSCH bringt den GX10-Knoten danach auf den aktuellen `main`. Im PR steht,
+   welcher Knoten-Stand nötig ist; bis zum Update dürfen KI-Anfragen der Live-App
+   scheitern.
 
 ## Definition of Done – alle Punkte, sonst nicht fertig
 
@@ -126,6 +131,12 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   den Kern; nie nach der Signatur anhängen. `test/leak/ki-anfrage.test.ts` prüft das.
   Seit 3.2 ebenso zurück (Antwort, Rückmeldung) und für Sitzung und Belege; die App
   nimmt nur versiegelte Antworten. Neue KI-Events nie offen veröffentlichen.
+- **Kein Klartext im Knoten** (seit 3.3): Prompts und Antworten nie loggen (nur
+  mit `klartextProtokoll`/`LOG_KLARTEXT=1`), nie in Dateien, nicht über die
+  Antwort hinaus im Speicher halten – auch nicht als Gesprächsverlauf; den
+  Kontext bringt die App (`kontextPraefix()`). Fehlermeldungen können Fremdtext
+  tragen (URL mit Suchanfrage) – dann nur den Fehlernamen loggen.
+  `node/test/klartext.test.ts` prüft das.
 - **Geheimnisse nur über `geheim`** (`shell/tresor.ts`): Schlüssel, Wallet-Zugänge,
   Preimages, Unterhaltungen und Verläufe nie direkt in `localStorage` schreiben –
   mit Tresor landen sie sonst im Klartext. Vor neuen Geld-Geheimnissen

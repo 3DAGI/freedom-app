@@ -25,6 +25,7 @@ import { t } from "../../i18n.js";
 import { icon } from "../../icons.js";
 import { DEFAULT_MAX_MODE, ScoredProvider, matchRaceProviders, maxModeSplit } from "../../matchmaking.js";
 import { type AntwortCache, oeffneAntworten } from "../../ki-antworten.js";
+import { kontextPraefix } from "../../ki-kontext.js";
 import { SessionClient } from "../../session-client.js";
 import { escapeHtml, pkShort } from "../../shell-logic.js";
 import { switchTab, zeigeOnboarding } from "../app.js";
@@ -656,20 +657,17 @@ async function askSwarm(prompt: string, bid: number, tier: "free" | "classic" | 
   showAiError(new Error("swarm: provider keine antwort — timeout"), prompt, bid, tier, { swarm: true });
 }
 
-/** Modellwechsel-Summary: bei Tier-Wechsel mit Verlauf eine kompakte
- *  Zusammenfassung als Kontext einfuegen (wie Claude bei Modellwechsel).
- *  Gibt die Summary zurueck, die als Kontext-Praefix an den Job geht. */
+/** Kontext fuer den naechsten Job (Schritt 3.3): Der Knoten merkt sich keinen
+ *  Verlauf mehr, also gehen die letzten Nachrichten des aktuellen Verlaufs
+ *  versiegelt mit jeder Anfrage mit (`kontextPraefix`). Beim Tier-Wechsel
+ *  zeigt ein Hinweis, dass der Kontext mitgeht. */
 let lastTier: string | null = null;
 let pendingContextSummary = "";
 function maybeInsertModelSwitchSummary(newTier: string): void {
   const thread = $("#ai-thread");
-  const hasHistory = thread.querySelectorAll(".bubble").length > 0;
-  pendingContextSummary = "";
-  if (lastTier && lastTier !== newTier && hasHistory) {
-    // Sammle bisherige Nachrichten als kompakten Kontext
-    const msgs = Array.from(thread.querySelectorAll(".bubble .txt")).map((el) => el.textContent ?? "").filter(Boolean);
-    const summary = msgs.slice(-8).join("\n").slice(0, 800);
-    pendingContextSummary = `[Bisheriger Verlauf, kompakt]:\n${summary}\n\n[Neue Nachricht]:\n`;
+  const msgs = aktuellerVerlauf?.messages ?? [];
+  pendingContextSummary = kontextPraefix(msgs);
+  if (lastTier && lastTier !== newTier && pendingContextSummary) {
     const note = document.createElement("div");
     note.className = "model-switch";
     note.innerHTML = `<div class="model-switch-inner">⇄ modell gewechselt zu <b>${escapeHtml(newTier)}</b> — kontext wird mitgegeben (${msgs.length} nachrichten)</div>`;
@@ -709,7 +707,7 @@ async function buildJobEvent(
 ): Promise<{ wrap: NostrEvent; requestId: string }> {
   if (!state.keypair) throw new Error("no keypair");
   const sitzung = kiSitzungen.fuer(targetPubkey);
-  // Modellwechsel: Verlauf-Summary als Kontext-Praefix (KV-cache-Ersatz)
+  // Kontext des Verlaufs (3.3): reist versiegelt mit dem Prompt, der Knoten merkt sich nichts
   const fullPrompt = pendingContextSummary ? pendingContextSummary + prompt : prompt;
   // Extra-Tags: Anhang (multimodal) + angeforderte Tools + gewuenschtes Modell
   const extraTags: string[][] = [];
