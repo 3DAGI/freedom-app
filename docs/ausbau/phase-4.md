@@ -159,6 +159,8 @@ Jede Funktion, in der Geld fließt, bietet beide Schienen mit gleichem Komfort.
 
 ## 4.7 SOL-Trinkgeld
 
+> Aufgeteilt: a Protokoll ✓ (Beleg-Event Kind 9736 als NIP-Entwurf, privat versiegelt, Prüfung gegen die Kette, `RpcPool.getTransaction`); b App: Beleg nach dem Trinkgeld senden (öffentlich nur auf Wunsch), empfangene Belege im Chat anzeigen und prüfen.
+
 - **Stellen:** `packages/app/src/chat-zap.ts`, `packages/protocol/src/zap.ts`.
 - **Vorgehen:** Beleg-Event mit Transaktionssignatur, Betrag und Bezug; als
   NIP-Entwurf in `docs/NIP-SOL-TIP.md`. Privat per Gift-Wrap an den Empfänger,
