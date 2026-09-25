@@ -98,6 +98,20 @@ class Verdrahtung(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("veraltete Ausnahme (verdrahtet oder entfernt): modul.ts|direkt", aus)
 
+    def test_zahlwege_nur_ueber_die_schienen(self):
+        # Schritt 4.1: ein Wallet-Zugriff ausserhalb der Schienen laesst --streng scheitern
+        liste = self.w / "scripts/wiring-ausnahmen.txt"
+        namen = ["nurTest", "nurSchluessel", "nurEigenschaft", "nurImString", "totAnfang", "totEnde"]
+        liste.write_text("".join(f"modul.ts|{n}|Grund\n" for n in namen), encoding="utf-8")
+        (self.w / "packages/app/src/rails.ts").write_text("await nwc.payInvoice(x);\n", encoding="utf-8")
+        self.assertEqual(lauf(self.w, "--streng")[0], 0, "in rails.ts erlaubt")
+        (self.w / "packages/app/src/zap.ts").write_text("// kommentar: w.sendPayment(x) zaehlt nicht\n", encoding="utf-8")
+        self.assertEqual(lauf(self.w, "--streng")[0], 0, "Kommentar zaehlt nicht")
+        (self.w / "packages/app/src/zap.ts").write_text("const r = await w.sendPayment(rechnung);\n", encoding="utf-8")
+        code, aus = lauf(self.w, "--streng")
+        self.assertEqual(code, 1)
+        self.assertIn("Wallet-Zugriff ausserhalb der Zahlschienen: zap.ts", aus)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

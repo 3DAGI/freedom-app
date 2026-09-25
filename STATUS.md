@@ -3144,3 +3144,35 @@ der Zap-Request ist signiert, keine Quittung und keine Rechnung im Netz.
 Endstand: protocol 1009 · node 176 · app 228 · Leak-Tests 35 grün + 3 todo · 0
 rot · check-wiring `--streng` 0 offen · innerHTML streng 0 unbewertet ·
 Smoke-Test bestanden.
+
+## 82. PaymentRail, Teil c: Standard-Schiene und Zahlwege-Prüfung (Schritt 4.1)
+
+**Standard-Schiene:** Settings → Gebühren → „Zahlen“: Lightning (sats) oder
+Solana (SOL), Standard Lightning (`standard-schiene.ts`). Der Zap-Dialog
+übernimmt sie als Vorgabe (Betrag, Einheit, Schiene); je Zahlung änderbar, die
+Einheit folgt der gewählten Schiene. Die App zahlt nie still in der anderen
+Währung (`waehleRail`).
+
+**Zahlwege-Prüfung (Abnahme der Karte):** `check-wiring.py --streng` meldet
+jeden Wallet-Zugriff (`payInvoice`, `sendPayment`, `signAndSendTransaction`,
+`buildSolTransfer`, `sendRawTransaction`, `keysend`) außerhalb der erlaubten
+Dateien – `rails.ts` und `shell/zahlschienen.ts`; begründet ausgenommen sind
+die Treuhand-Programme (HTLC-Deposit, Swap: eigene Anweisungen, keine
+Überweisung) und der nie benutzte Keysend der Sitzung. Selbsttest in
+`scripts/test_check_wiring.py` (erlaubt, Kommentar, Verstoß).
+
+**Karte passt nicht zum Code (MENSCH-Frage):** „Agent-Bezahlung“ und
+„Verdienen“ auf die Schiene umstellen setzt voraus, dass es dort Zahlungen
+gibt. Die App bezahlt KI-Aufträge heute nicht – `chargeForResult()` wird ohne
+Wallet aufgerufen, es bleibt bei versiegelten Belegen –, der Knoten stellt
+keine Rechnungen aus, und „Verdienen“ hat in der App keine Zahlfunktion. Eine
+echte KI-Bezahlung ist eine neue Geldfunktion: Knoten stellt Rechnungen aus
+(Lightning, braucht LND/NWC am Knoten) oder SOL-Zahlkanal (4.3, nach 4.0).
+Vorschlag im PR.
+
+**Tests:** app 228 → 230, Selbsttest check-wiring 4 → 5. Zap-E2E erneut
+bestanden (Vorgabe Lightning).
+
+Endstand: protocol 1009 · node 176 · app 230 · Leak-Tests 35 grün + 3 todo · 0
+rot · check-wiring `--streng` 0 offen, 0 Wallet-Zugriffe außerhalb der Schienen ·
+innerHTML streng 0 unbewertet · Smoke-Test bestanden.

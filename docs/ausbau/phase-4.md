@@ -30,9 +30,9 @@ Jede Funktion, in der Geld fließt, bietet beide Schienen mit gleichem Komfort.
 
 ---
 
-## 4.1 PaymentRail-Schnittstelle – IN ARBEIT
+## 4.1 PaymentRail-Schnittstelle – CODE FERTIG BIS AUF AGENT-BEZAHLUNG (25.09.2026)
 
-> Aufgeteilt: a Schnittstelle und Schienen ✓ (`protocol/payment-rail.ts`: Typen, `railFuerZiel`, `pruefeAnfrage`, `waehleRail` ohne stille Umleitung, `zahle`, Beträge in beiden Einheiten; `app/src/rails.ts`: `LightningRail` mit NWC, WebLN und Lightning-Adresse per LNURL – die Rechnung muss genau den gewollten Betrag nennen –, Beleg per Preimage gegen den bolt11-Hash; `SolanaRail` mit der verbundenen Wallet, Beleg nur mit RPC-Prüfung); b Zap und Wallet-Tab auf die Schienen ✓ (dabei drei Fehler im Zap behoben und toten Wallet-Code entfernt); c Agent-Bezahlung, Verdienen, „Standard-Schiene“, Prüfung „keine direkten Wallet-Aufrufe außerhalb der Rails“.
+> Aufgeteilt: a Schnittstelle und Schienen ✓ (`protocol/payment-rail.ts`: Typen, `railFuerZiel`, `pruefeAnfrage`, `waehleRail` ohne stille Umleitung, `zahle`, Beträge in beiden Einheiten; `app/src/rails.ts`: `LightningRail` mit NWC, WebLN und Lightning-Adresse per LNURL – die Rechnung muss genau den gewollten Betrag nennen –, Beleg per Preimage gegen den bolt11-Hash; `SolanaRail` mit der verbundenen Wallet, Beleg nur mit RPC-Prüfung); b Zap und Wallet-Tab auf die Schienen ✓ (dabei drei Fehler im Zap behoben und toten Wallet-Code entfernt); c „Standard-Schiene“ und Prüfung „keine direkten Wallet-Aufrufe außerhalb der Rails“ ✓. **Agent-Bezahlung und Verdienen:** Die Karte nimmt an, es gäbe schon Zahlungen, die man umstellt. Die App bezahlt KI-Aufträge heute aber nicht (nur Belege, `chargeForResult()` ohne Wallet), der Knoten stellt keine Rechnungen aus, und „Verdienen“ hat keine Zahlfunktion. Das wird eine neue Geldfunktion (Knoten stellt Rechnungen aus bzw. SOL-Zahlkanal 4.3) – MENSCH-Frage.
 
 - **Stellen:** neu `packages/protocol/src/payment-rail.ts`; `lightning-wallet.ts`,
   `sol-transfer.ts`, `sol-htlc.ts`, `session-client.ts`, `chat-zap.ts`,

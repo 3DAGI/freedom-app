@@ -179,6 +179,32 @@ def wurzel_setzen(wurzel: Path) -> None:
     AUSNAHMEN = wurzel / "scripts" / "wiring-ausnahmen.txt"
 
 
+# Schritt 4.1: Geld fliesst nur ueber die Zahlschienen. Jeder direkte
+# Wallet-Zugriff in der App steht hier mit den Dateien, die ihn duerfen.
+ZAHLWEGE = {
+    r"\.payInvoice\(": {"rails.ts"},
+    r"\.sendPayment\(": {"rails.ts"},
+    r"signAndSendTransaction": {"shell/zahlschienen.ts"},
+    r"\bbuildSolTransfer\b": {"sol-transfer.ts", "shell/zahlschienen.ts"},
+    # Treuhand-Programme (HTLC-Deposit, Swap) senden eigene Anweisungen, keine Ueberweisung.
+    r"sendRawTransaction": {"shell/zahlschienen.ts", "sol-htlc.ts", "swap-client.ts"},
+    # Keysend der Sitzung: nie mit Wallet aufgerufen; die KI-Bezahlung wartet auf 4.0/4.3.
+    r"\.keysend\(": {"session-client.ts"},
+}
+
+
+def zahlwege_pruefen(app_src: Path) -> list[str]:
+    """Wallet-Zugriffe ausserhalb der erlaubten Dateien (Kommentare ausgenommen)."""
+    funde = []
+    for f in sorted(app_src.rglob("*.ts")):
+        rel = f.relative_to(app_src).as_posix()
+        code = leeren(f.read_text(encoding="utf8"))
+        for muster, erlaubt in ZAHLWEGE.items():
+            if rel not in erlaubt and re.search(muster, code):
+                funde.append(f"{rel}: {muster}")
+    return funde
+
+
 def main() -> int:
     streng, liste = "--streng" in sys.argv, "--liste" in sys.argv
     if "--wurzel" in sys.argv:
@@ -209,7 +235,11 @@ def main() -> int:
         print(f"veraltete Ausnahme (verdrahtet oder entfernt): {datei}|{name}")
     print(f"\nVerdrahtung: {len(exporte)} Exporte, {len(exporte) - len(nicht)} verdrahtet, "
           f"{len(nicht)} nicht – davon {len(ausgenommen)} begruendet ausgenommen, {offen} offen.")
-    return 1 if streng and (offen or veraltet) else 0
+    zahlwege = zahlwege_pruefen(KONSUMENTEN[0])
+    for z in zahlwege:
+        print(f"Wallet-Zugriff ausserhalb der Zahlschienen: {z}")
+    print(f"Zahlwege: {len(zahlwege)} Wallet-Zugriffe ausserhalb der Schienen.")
+    return 1 if streng and (offen or veraltet or zahlwege) else 0
 
 
 if __name__ == "__main__":

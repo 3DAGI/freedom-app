@@ -107,3 +107,4 @@ earn.ts|u.totalReferrals|lokal gezählt in referrerOverview()
 earn.ts|u.level2Count|lokal gezählt in referrerOverview()
 earn.ts|next.missing|Zahl aus nextTier()
 tresor.ts|html|dialog() ist modulintern; alle drei Aufrufer übergeben feste Text-Literale ohne Einsetzungen, Eingaben und Meldungen laufen über textContent
+chat-zap.ts|state.amount|feste Zahl aus der Standard-Schiene (10 bzw. 0,01), keine Fremddaten

@@ -12,6 +12,7 @@ import { tresorEingerichtet, wireTresorKarte } from "../tresor.js";
 import { $, ganzeZahl, toast } from "../ui.js";
 import { ladeAbdeckung, trageAbdeckungEin } from "./earn.js";
 import { LS_KONTAKTE_SICHERN, kontakteEinschalten, kontakteSichernAn, sichereKontakte } from "./kommunikation.js";
+import { LS_STANDARD_SCHIENE, standardSchiene } from "../../standard-schiene.js";
 
 // ------------------------------------------------- Nachfolge & Modelle
 
@@ -509,6 +510,16 @@ export async function wireMeshTab(): Promise<void> {
     };
   }
   void zeigeDatenschutz();
+
+  // Standard-Schiene (4.1c): Vorgabe fuer Zaps und Trinkgeld
+  const schiene = document.getElementById("standard-schiene") as HTMLSelectElement | null;
+  if (schiene) {
+    schiene.value = standardSchiene();
+    schiene.onchange = () => {
+      localStorage.setItem(LS_STANDARD_SCHIENE, schiene.value === "solana" ? "solana" : "lightning");
+      toast(`Standard-Schiene: ${schiene.value === "solana" ? "Solana (SOL)" : "Lightning (sats)"}`);
+    };
+  }
 
   // Private Kontaktliste (2.5b) – Standard aus; beim Ausschalten wird die Liste geleert.
   const kontakte = document.getElementById("kontakte-sichern") as HTMLInputElement | null;

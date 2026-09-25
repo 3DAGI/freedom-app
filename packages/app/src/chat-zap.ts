@@ -9,6 +9,7 @@
  */
 
 import { escapeHtml } from "./shell-logic.js";
+import { standardSchiene } from "./standard-schiene.js";
 // App-Zustand unter eigenem Namen: `state` ist hier der Zustand des Dialogs.
 // Vorher stand hier `window.state` – das gab es nie, der Zap brach ab.
 import { ensurePool, signiere, state as appState } from "./shell/state.js";
@@ -28,12 +29,14 @@ export function openZapDialog(recipientPubkey: string, recipientName: string): v
   const existing = document.getElementById("zap-dialog");
   if (existing) existing.remove();
 
+  // Vorgabe aus der Standard-Schiene (4.1c); im Dialog aenderbar.
+  const schiene = standardSchiene();
   const state: ZapDialogState = {
     recipientPubkey,
     recipientName,
-    amount: 10,
-    unit: "sats",
-    walletType: "lightning",
+    amount: schiene === "solana" ? 0.01 : 10,
+    unit: schiene === "solana" ? "sol" : "sats",
+    walletType: schiene,
     status: "idle",
   };
 
@@ -53,17 +56,17 @@ export function openZapDialog(recipientPubkey: string, recipientName: string): v
         </div>
         <div class="zap-field">
           <label>Betrag</label>
-          <input type="number" id="zap-amount" value="10" min="1" max="1000" />
+          <input type="number" id="zap-amount" value="${state.amount}" min="0" step="any" />
           <select id="zap-unit">
-            <option value="sats">sats</option>
-            <option value="sol">SOL</option>
+            <option value="sats"${state.unit === "sats" ? " selected" : ""}>sats</option>
+            <option value="sol"${state.unit === "sol" ? " selected" : ""}>SOL</option>
           </select>
         </div>
         <div class="zap-field">
           <label>Wallet</label>
           <select id="zap-wallet">
-            <option value="lightning">Lightning (sats)</option>
-            <option value="solana">Solana (SOL)</option>
+            <option value="lightning"${state.walletType === "lightning" ? " selected" : ""}>Lightning (sats)</option>
+            <option value="solana"${state.walletType === "solana" ? " selected" : ""}>Solana (SOL)</option>
           </select>
         </div>
         <div class="zap-status hidden" id="zap-status"></div>
@@ -77,6 +80,11 @@ export function openZapDialog(recipientPubkey: string, recipientName: string): v
   document.body.appendChild(el);
 
   // Event-Listener
+  // Die Einheit folgt der Schiene: Lightning zahlt in sats, Solana in SOL.
+  const walletSel = document.getElementById("zap-wallet") as HTMLSelectElement;
+  walletSel.onchange = () => {
+    (document.getElementById("zap-unit") as HTMLSelectElement).value = walletSel.value === "solana" ? "sol" : "sats";
+  };
   document.getElementById("zap-close")!.onclick = () => el.remove();
   document.getElementById("zap-cancel")!.onclick = () => el.remove();
   document.getElementById("zap-send")!.onclick = async () => {
