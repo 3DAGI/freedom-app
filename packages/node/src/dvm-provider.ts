@@ -39,7 +39,7 @@ import {
   KIND_GIFT_WRAP,
   LocalSigner,
   buildPrivateJobResponse,
-  openPrivateJobRequest,
+  openPrivateKundenEvent,
 } from "@freedomstack/protocol";
 import { verifyDepositOnChain, DepositVerificationCache, parseClientFee, checkClientFee } from "@freedomstack/protocol";
 import type { Connection } from "@solana/web3.js";
@@ -400,7 +400,16 @@ export class DvmProvider {
    * es hier nicht – die Rechenarbeit ersetzt sie.
    */
   async handlePrivate(wrap: NostrEvent): Promise<ProcessedJob | null> {
-    const r = await openPrivateJobRequest(wrap, this.signer, this.cfg.privatePowBits ?? 0);
+    const request = await this.oeffnePrivat(wrap);
+    return request ? this.bearbeitePrivat(request) : null;
+  }
+
+  /**
+   * Umschlag oeffnen. Sitzung und Belege (3.2d) werden gemerkt – keine Arbeit –,
+   * eine Anfrage kommt zurueck. Fremdes, Kaputtes, Wiederholtes: null.
+   */
+  private async oeffnePrivat(wrap: NostrEvent): Promise<NostrEvent | null> {
+    const r = await openPrivateKundenEvent(wrap, this.signer, this.cfg.privatePowBits ?? 0);
     if (!r.ok) {
       console.warn(`[dvm] Umschlag ${wrap.id.slice(0, 8)} verworfen: ${r.grund}`);
       return null;
@@ -409,6 +418,14 @@ export class DvmProvider {
     if (this.seen.has(r.request.id)) return null;
     this.seen.add(r.request.id);
     const request: NostrEvent = { ...r.request, sig: "" };
+    if (request.kind === KIND_SESSION_OPEN || request.kind === KIND_SESSION_PAYMENT) {
+      this.merkeSitzungsEvent(request);
+      return null;
+    }
+    return request;
+  }
+
+  private async bearbeitePrivat(request: NostrEvent): Promise<ProcessedJob> {
     try {
       return await this.handleJob(request, true);
     } catch (err) {
@@ -429,6 +446,34 @@ export class DvmProvider {
     }
     const { wrap } = await buildPrivateJobResponse({ response: ev, providerSigner: this.signer, sessionPk: request.pubkey });
     await this.pool.publish(wrap);
+  }
+
+  /**
+   * Versiegelt erhaltene Sitzungen und Belege (Schritt 3.2d), je Kunde und
+   * Sitzungs-ID. Nur im Speicher: Sitzungen laufen hoechstens Stunden, und
+   * nach einem Neustart eroeffnet der Kunde eine neue.
+   */
+  private privateSitzungen = new Map<string, { open?: NostrEvent; belege: NostrEvent[] }>();
+  private static MAX_PRIVATE_SITZUNGEN = 5000;
+
+  private merkeSitzungsEvent(ev: NostrEvent): void {
+    const sessionId = getTag(ev, "d");
+    if (!sessionId) return;
+    const schluessel = `${ev.pubkey}:${sessionId}`;
+    let s = this.privateSitzungen.get(schluessel);
+    if (!s) {
+      if (this.privateSitzungen.size >= DvmProvider.MAX_PRIVATE_SITZUNGEN) {
+        // Aelteste zuerst verwerfen – Map haelt die Einfuegereihenfolge.
+        this.privateSitzungen.delete(this.privateSitzungen.keys().next().value!);
+      }
+      s = { belege: [] };
+      this.privateSitzungen.set(schluessel, s);
+    }
+    if (ev.kind === KIND_SESSION_OPEN) {
+      if (!s.open) s.open = ev;  // die erste Eroeffnung gilt – spaetere aendern Budget und Rate nicht
+    } else if (!s.belege.some((b) => b.id === ev.id)) {
+      s.belege.push(ev);
+    }
   }
 
   /** NIP-90-Rueckmeldung (Kind 7000): dem Kunden sofort sagen, warum abgelehnt. */
@@ -480,13 +525,19 @@ export class DvmProvider {
     try {
       umschlaege = await this.pool.query({ kinds: [KIND_GIFT_WRAP], "#p": [this.cfg.keypair.pk], since: now - 3600 });
     } catch { /* relay */ }
+    // Erst alle oeffnen (Sitzungen und Belege sind dann bekannt), dann arbeiten –
+    // sonst haengt es an der Reihenfolge, ob eine Anfrage ihre Sitzung findet.
+    const anfragen: NostrEvent[] = [];
     for (const wrap of umschlaege) {
       if (this.seen.has(wrap.id)) continue;
       this.seen.add(wrap.id);
       this.pruneSeen();
+      const request = await this.oeffnePrivat(wrap);
+      if (request) anfragen.push(request);
+    }
+    for (const request of anfragen) {
       try {
-        const job = await this.handlePrivate(wrap);
-        if (job) processed.push(job);
+        processed.push(await this.bearbeitePrivat(request));
       } catch (err) {
         console.error(`Private Anfrage fehlgeschlagen:`, err);
       }
@@ -554,7 +605,9 @@ export class DvmProvider {
     sessionId: string,
     customerPubkey: string,
   ): Promise<ParsedSessionOpen | undefined> {
-    const opens = await this.pool.query({
+    // Versiegelt erhaltene Sitzung zuerst (3.2d), sonst wie bisher vom Relay.
+    const privat = this.privateSitzungen.get(`${customerPubkey}:${sessionId}`);
+    const opens = privat?.open ? [privat.open] : await this.pool.query({
       kinds: [KIND_SESSION_OPEN],
       authors: [customerPubkey],
       "#d": [sessionId],
@@ -570,7 +623,7 @@ export class DvmProvider {
     if (Math.floor(Date.now() / 1000) > session.expiration) return undefined;
 
     // Buchhaltung pruefen: bisherige Belege konsistent + Budget frei
-    const belege = await this.pool.query({
+    const belege = privat?.open ? privat.belege : await this.pool.query({
       kinds: [KIND_SESSION_PAYMENT],
       authors: [customerPubkey],
       "#d": [sessionId],

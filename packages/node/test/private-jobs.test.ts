@@ -15,7 +15,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   KIND_DVM_TEXT_GENERATION, LocalSigner, MemoryRelay, OutboxPool, buildEvent, buildJobRequest,
-  buildPrivateJobRequest, eventDifficulty, generateKeypair, getTag, openPrivateJobResponse, parseJobResult,
+  buildPrivateJobRequest, buildPrivateSessionEvent, buildSessionOpen, buildSessionPayment, eventDifficulty,
+  generateKeypair, getTag, openPrivateJobResponse, parseJobResult,
   regelKeineZahlungsdaten, signEvent, type NostrEvent,
 } from "@freedomstack/protocol";
 import { DvmProvider, type ProviderConfig } from "../src/dvm-provider.js";
@@ -154,4 +155,50 @@ test("privat: Wiederholung zaehlt einmal – derselbe Umschlag und dieselbe Anfr
   assert.equal((await provider.pollOnce()).length, 1);
   assert.equal((await provider.pollOnce()).length, 0);
   assert.equal(backend.prompts.length, 1);
+});
+
+// ---------------------------------------------------------------- Sitzung und Belege versiegelt (3.2d)
+
+async function privateSitzung(providerPk: string, sitzung: LocalSigner, sessionId: string, bezahltMsat?: number) {
+  const events = [buildSessionOpen({
+    customerPubkey: sitzung.publicKey(), providerPubkey: providerPk, sessionId,
+    maxTotalMsat: 100_000, maxRatePerKTokenMsat: 1000, settleEveryMsat: 10_000, ttlSecs: 3600,
+  })];
+  if (bezahltMsat !== undefined) {
+    events.push(buildSessionPayment({ customerPubkey: sitzung.publicKey(), sessionId, seq: 1, cumulativeMsat: bezahltMsat, unitsSinceLast: 1 }));
+  }
+  return Promise.all(events.map(async (event) => (await buildPrivateSessionEvent({ event, sessionSigner: sitzung, providerPk, powBits: 8 })).wrap));
+}
+
+async function sitzungsAnfrage(providerPk: string, sitzung: LocalSigner, sessionId: string, text: string) {
+  const request = buildEvent(sitzung.publicKey(), KIND_DVM_TEXT_GENERATION, [["i", text, "text"], ["session", sessionId], ["p", providerPk]], "");
+  return (await buildPrivateJobRequest({ request, sessionSigner: sitzung, providerPk, powBits: 8 })).wrap;
+}
+
+test("privat 3.2d: versiegelte Sitzung – Jobs ohne Gebot werden ueber die Sitzung abgerechnet, nichts offen", async () => {
+  const { relay, pool, kp, provider } = aufbau({ freeTierUntil: undefined });
+  const sitzung = new LocalSigner(generateKeypair().sk);
+  for (const w of await privateSitzung(kp.pk, sitzung, "sess-p1")) await pool.publish(w);
+  await pool.publish(await sitzungsAnfrage(kp.pk, sitzung, "sess-p1", "Frage mit Sitzung"));
+  const jobs = await provider.pollOnce();
+  assert.equal(jobs.length, 1);
+  assert.equal(jobs[0].amountMsat, 500, "500 Tokens × 1000 msat/1k – ueber die Sitzung, nicht gratis");
+  assert.equal((await relay.query({ kinds: [38021] })).length, 0, "Sitzung nicht offen");
+  assert.deepEqual(regelKeineZahlungsdaten(await relay.query({})), []);
+});
+
+test("privat 3.2d: fremde oder ausgeschoepfte versiegelte Sitzung – Absage", async () => {
+  const { pool, kp, backend, provider } = aufbau({ freeTierUntil: undefined });
+  // Sitzung gehoert einem anderen Schluessel
+  const eigentuemer = new LocalSigner(generateKeypair().sk);
+  const fremd = new LocalSigner(generateKeypair().sk);
+  for (const w of await privateSitzung(kp.pk, eigentuemer, "sess-p2")) await pool.publish(w);
+  await pool.publish(await sitzungsAnfrage(kp.pk, fremd, "sess-p2", "fremde Sitzung"));
+  assert.equal((await provider.pollOnce()).length, 0);
+  // Budget laut Beleg schon voll bezahlt
+  const voll = new LocalSigner(generateKeypair().sk);
+  for (const w of await privateSitzung(kp.pk, voll, "sess-p3", 100_000)) await pool.publish(w);
+  await pool.publish(await sitzungsAnfrage(kp.pk, voll, "sess-p3", "Budget leer"));
+  assert.equal((await provider.pollOnce()).length, 0);
+  assert.equal(backend.prompts.length, 0);
 });

@@ -2713,3 +2713,36 @@ Ergebnis im Netz, ein Umschlag an die Sitzung, Antwort in der App.
 Endstand: protocol 989 · node 168 grün (+2) · app 211 · Leak-Tests 23 grün + 5
 todo · 0 rot · check-wiring `--streng` 0 offen (184 begründet) · innerHTML
 streng 0 unbewertet · Smoke-Test (App unverändert gegenüber 3.2b) bestanden.
+
+## 70. Verschlüsselte Belege, Teil d: Knoten nimmt versiegelte Sitzung und Belege an (Schritt 3.2)
+
+3.2b ist live (Prüfsumme `c2eb93f4…` = lokaler Build von `main` nach #29), 3.2c
+gemergt. Der Knoten sucht Sitzung (38021) und Belege (38022) bisher auf den
+Relays – er muss versiegelte **erst verstehen**, bevor die App sie so schickt.
+Deshalb: d Knoten (hier) → MENSCH: Knoten aktualisieren → e App.
+
+**Protokoll (`private-job.ts`):** `buildPrivateSessionEvent()` versiegelt
+Sitzungseröffnung oder Beleg vom Sitzungsschlüssel an den Provider (mit
+Rechenarbeit – der Knoten prüft sie vor jedem Entschlüsseln).
+`openPrivateKundenEvent()` öffnet Anfragen **und** Sitzungs-Events;
+`openPrivateJobRequest()` bleibt der Öffner nur für Anfragen (gemeinsamer Kern
+`oeffneVomKunden()`).
+
+**Knoten (`dvm-provider.ts`):** `handlePrivate()` = `oeffnePrivat()` +
+`bearbeitePrivat()`. Sitzungs-Events werden je Kunde und Sitzungs-ID im
+Speicher gemerkt (`merkeSitzungsEvent()`, höchstens 5000, die erste Eröffnung
+gilt, Belege ohne Doppelte); `validateSession()` prüft sie vor dem Relay, die
+Buchhaltung (`checkSessionLedger`) ist dieselbe. Offene Sitzungen gelten
+weiter. `pollOnce()` öffnet erst alle Umschläge eines Durchgangs und arbeitet
+dann – sonst hing es an der Reihenfolge der Relay-Antwort, ob eine Anfrage ihre
+Sitzung findet (einzeln grün, im Verbund rot: so gefunden).
+
+**Tests:** protocol 989 → 991 (versiegelte Sitzung und Beleg: Provider öffnet,
+Relays sehen keine Beträge, Nur-Anfragen-Öffner lehnt ab; falsches Kind,
+fremder Schlüssel, DM an den Provider); node 168 → 170 (versiegelte Sitzung:
+Job ohne Gebot wird über die Sitzung abgerechnet, nichts offen; fremde und
+ausgeschöpfte Sitzung → Absage, nichts gerechnet), dreimal hintereinander grün.
+
+Endstand: protocol 991 · node 170 · app 211 · Leak-Tests 23 grün + 5 todo · 0
+rot · check-wiring `--streng` 0 offen (186 begründet) · innerHTML streng 0
+unbewertet · Smoke-Test bestanden.
