@@ -7,12 +7,14 @@ import assert from "node:assert/strict";
 import {
   buildDmRelayList,
   buildPrivateDm,
+  dmAbgelaufen,
   isUsableDmRelay,
+  MAX_ABLAUF_SECS,
   KIND_DM_RELAYS,
   openPrivateDm,
   parseDmRelayList,
 } from "../src/private-dm.js";
-import { giftUnwrap, KIND_GIFT_WRAP, KIND_SEAL } from "../src/gift-wrap.js";
+import { giftUnwrap, KIND_GIFT_WRAP, KIND_SEAL, MAX_TIME_JITTER_SECS } from "../src/gift-wrap.js";
 import { buildEvent, generateKeypair, signEvent } from "../src/event.js";
 import { encryptDM } from "../src/dm.js";
 import { regelAutorNicht, regelKeinKind4, regelKeinKlartext, regelPTagsNur } from "../src/leak-rules.js";
@@ -154,4 +156,59 @@ test("NIP-17: Schluessel und Pubkey muessen zusammenpassen", async () => {
   await assert.rejects(buildPrivateDm({ recipientPk: carol.pk, content: "x" }), /Absender fehlt/);
   const out = await buildPrivateDm({ senderSk: alice.sk, senderPk: alice.pk, recipientPk: bob.pk, content: "x" });
   await assert.rejects(openPrivateDm(out.toRecipient, bob.sk, carol.pk), /passt nicht zum Schlüssel/);
+});
+
+// ---------------------------------------------------------- Ablauf (2.5, NIP-40)
+
+test("2.5: Ablauf steht exakt im Inhalt und spaeter auf beiden Umschlaegen", async () => {
+  const jetzt = 1_790_000_000;
+  const tag = 24 * 3600;
+  const dm = await buildPrivateDm({ senderSk: alice.sk, senderPk: alice.pk, recipientPk: bob.pk, content: TEXT, nowSecs: jetzt, ablaufSecs: tag });
+  for (const w of [dm.toRecipient, dm.toSelf]) {
+    const ablauf = Number(w.tags.find((t) => t[0] === "expiration")?.[1]);
+    assert.ok(ablauf >= jetzt + tag && ablauf < jetzt + 2 * tag, `Umschlag laeuft nach der Dauer ab, hoechstens eine Dauer spaeter: ${ablauf - jetzt}`);
+    assert.deepEqual(w.tags.map((t) => t[0]).sort(), ["expiration", "p"], "sonst nichts Neues auf dem Umschlag");
+  }
+  const r = await openPrivateDm(dm.toRecipient, bob.sk, bob.pk);
+  assert.ok(r.ok);
+  assert.equal(r.dm.expiresAt, jetzt + tag, "im Inhalt exakt");
+  assert.equal(dmAbgelaufen(r.dm, jetzt + tag - 1), false);
+  assert.equal(dmAbgelaufen(r.dm, jetzt + tag), true);
+  // Ohne Ablauf: kein Tag, nie abgelaufen
+  const ohne = await dmAliceAnBob();
+  assert.equal(ohne.toRecipient.tags.some((t) => t[0] === "expiration"), false);
+  const o = await openPrivateDm(ohne.toRecipient, bob.sk, bob.pk);
+  assert.ok(o.ok);
+  assert.equal(o.dm.expiresAt, undefined);
+  assert.equal(dmAbgelaufen(o.dm, Number.MAX_SAFE_INTEGER), false);
+});
+
+test("2.5: Der Ablauf des Umschlags verraet den Sendezeitpunkt nicht genau", async () => {
+  // Bei langer Dauer streut der Ablauf ueber das ganze Zeitfenster von NIP-59.
+  const jetzt = 1_790_000_000;
+  const dauer = 30 * 24 * 3600;
+  const abl = new Set<number>();
+  for (let i = 0; i < 8; i++) {
+    const dm = await buildPrivateDm({ senderSk: alice.sk, senderPk: alice.pk, recipientPk: bob.pk, content: TEXT, nowSecs: jetzt, ablaufSecs: dauer });
+    for (const w of [dm.toRecipient, dm.toSelf]) {
+      const a = Number(w.tags.find((t) => t[0] === "expiration")?.[1]);
+      assert.ok(a >= jetzt + dauer && a < jetzt + dauer + MAX_TIME_JITTER_SECS);
+      abl.add(a);
+    }
+  }
+  assert.ok(abl.size >= 15, `16 Umschlaege, ${abl.size} verschiedene Ablaufzeiten`);
+});
+
+test("2.5: Ablauf ausserhalb 60 s bis 1 Jahr wird abgelehnt; Muell im Inhalt zaehlt nicht", async () => {
+  const bau = (ablaufSecs: number) => buildPrivateDm({ senderSk: alice.sk, senderPk: alice.pk, recipientPk: bob.pk, content: TEXT, ablaufSecs });
+  await assert.rejects(bau(59), /außerhalb/);
+  await assert.rejects(bau(MAX_ABLAUF_SECS + 1), /außerhalb/);
+  await assert.rejects(bau(1.5), /außerhalb/);
+  // Fremder Inhalt mit kaputtem Ablauf: wird nicht als Ablauf gelesen
+  const { giftWrap } = await import("../src/gift-wrap.js");
+  const rumor = buildEvent(alice.pk, 14, [["p", bob.pk], ["expiration", "morgen"]], TEXT);
+  const w = await giftWrap(rumor, alice.sk, alice.pk, bob.pk);
+  const r = await openPrivateDm(w, bob.sk, bob.pk);
+  assert.ok(r.ok);
+  assert.equal(r.dm.expiresAt, undefined);
 });

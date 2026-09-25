@@ -4,7 +4,7 @@
  *
  * Aus app.ts verschoben (Schritt 1.0) – wörtlich, ohne Logikänderung.
  */
-import { type DateiSchluessel, NostrEvent, OutboxPool, WebSocketRelay, buildEvent } from "@freedomstack/protocol";
+import { type DateiSchluessel, NostrEvent, OutboxPool, type PrivateDm, WebSocketRelay, buildEvent } from "@freedomstack/protocol";
 import {
   type ChatAttachment,
   escapeHtml,
@@ -589,6 +589,8 @@ interface ChatConversation {
   type: "dm" | "community";
   name: string;
   lastTs: number;
+  /** Ablauf nach NIP-40 fuer neue Nachrichten (Schritt 2.5), nur DMs; fehlt = aus. */
+  ablaufSecs?: number;
 }
 
 export let conversations: ChatConversation[] = [];
@@ -729,7 +731,29 @@ function openConversation(cid: string): void {
   thread.innerHTML = `<div class="empty-state">${c ? escapeHtml(c.name) : ""}<br/>` +
     (c?.type === "dm" ? "1:1 — Ende-zu-Ende verschlüsselt (NIP-17). Relays sehen nicht, wer schreibt – nur, dass du Post bekommst." : "community — opt-in gruppe.") +
     `</div>`;
+  zeigeAblauf(c);
   loadChatMessages(cid);
+}
+
+/** Ablauf-Auswahl (2.5): nur bei DMs, zeigt den Wert der Unterhaltung. */
+function zeigeAblauf(c: ChatConversation | undefined): void {
+  const sel = document.getElementById("chat-ablauf") as HTMLSelectElement | null;
+  if (!sel) return;
+  sel.hidden = c?.type !== "dm";
+  sel.value = String(c?.ablaufSecs ?? "");
+}
+
+/** Ablauf fuer neue Nachrichten dieser Unterhaltung setzen (2.5). */
+export function setzeAblauf(wert: string): void {
+  const c = conversations.find((x) => x.id === activeConversation);
+  if (!c || c.type !== "dm") return;
+  const secs = Number(wert);
+  if (Number.isSafeInteger(secs) && secs > 0) c.ablaufSecs = secs;
+  else delete c.ablaufSecs;
+  saveConversations();
+  toast(c.ablaufSecs
+    ? "Neue Nachrichten laufen ab. Löschen ist eine Bitte an die Relays – wer sie schon hat, behält sie."
+    : "Neue Nachrichten laufen nicht mehr ab.");
 }
 
 /**
@@ -759,9 +783,9 @@ async function ladeModeration(communityId: string): Promise<unknown | null> {
 type DmAnzeige = NostrEvent & { legacy?: boolean };
 
 /** Bereits geoeffnete Umschlaege (ID des Umschlags -> Ergebnis), damit nichts doppelt entschluesselt wird. */
-const dmCache = new Map<string, { partner: string; ev: DmAnzeige } | null>();
+const dmCache = new Map<string, { partner: string; ev: DmAnzeige; dm: PrivateDm } | null>();
 
-async function oeffneUmschlag(w: NostrEvent): Promise<{ partner: string; ev: DmAnzeige } | null> {
+async function oeffneUmschlag(w: NostrEvent): Promise<{ partner: string; ev: DmAnzeige; dm: PrivateDm } | null> {
   const bekannt = dmCache.get(w.id);
   if (bekannt !== undefined) return bekannt;
   if (!state.signer) return null;
@@ -772,6 +796,8 @@ async function oeffneUmschlag(w: NostrEvent): Promise<{ partner: string; ev: DmA
     ? {
         partner: r.dm.partner,
         ev: { id: r.dm.id, pubkey: r.dm.from, created_at: r.dm.createdAt, kind: 14, tags: [], content: r.dm.content, sig: "" },
+        // Mit Ablauf (2.5): ladeDmNachrichten() blendet danach aus.
+        dm: r.dm,
       }
     : null;
   dmCache.set(w.id, e);
@@ -792,9 +818,11 @@ async function ladeDmNachrichten(partner: string): Promise<DmAnzeige[]> {
     pool.query({ kinds: [4], authors: [me.pk, partner], limit: 50 }),
   ]);
   const ergebnis = new Map<string, DmAnzeige>();
+  const { dmAbgelaufen } = await import("@freedomstack/protocol");
   for (const w of umschlaege) {
     const e = await oeffneUmschlag(w);
-    if (e && e.partner === partner) ergebnis.set(e.ev.id, e.ev);
+    // Abgelaufene Nachrichten (NIP-40) zeigt die App nicht mehr – auch wenn ein Relay sie noch hat.
+    if (e && e.partner === partner && !dmAbgelaufen(e.dm)) ergebnis.set(e.ev.id, e.ev);
   }
   for (const ev of alt) {
     // Nur Nachrichten zwischen genau uns beiden – nicht die des Partners an Dritte.
@@ -983,6 +1011,8 @@ export async function sendChatMessage(): Promise<void> {
         signer: state.signer,
         recipientPk: c.id,
         content: payload,
+        // Ablauf nach NIP-40 (2.5), falls fuer diese Unterhaltung gesetzt
+        ...(c.ablaufSecs ? { ablaufSecs: c.ablaufSecs } : {}),
       });
       await veroeffentlicheDm(dm.toRecipient, c.id);
       await pool.publish(dm.toSelf);

@@ -65,6 +65,11 @@ export interface GiftWrapOptions {
    * Null-Bits in der ID. Der Empfänger prüft sie, bevor er entschlüsselt.
    */
   powBits?: number;
+  /**
+   * Ablauf nach NIP-40 (Schritt 2.5): Unix-Sekunden, ab denen Relays den
+   * Umschlag loeschen sollen – eine Bitte, keine Garantie.
+   */
+  ablaufBis?: number;
 }
 
 function jitter(opts: GiftWrapOptions): number {
@@ -118,7 +123,12 @@ export async function giftWrapMitSigner(
   const wegwerf = generateKeypair();
   const umschlagInhalt = await encryptDM(JSON.stringify(siegel), wegwerf.sk, recipientPk);
 
-  const umschlag = buildEvent(wegwerf.pk, KIND_GIFT_WRAP, [["p", recipientPk]], umschlagInhalt, now - jitter(opts));
+  const tags = [["p", recipientPk]];
+  if (opts.ablaufBis !== undefined) {
+    if (!Number.isSafeInteger(opts.ablaufBis) || opts.ablaufBis <= now) throw new Error("Ablauf muss in der Zukunft liegen");
+    tags.push(["expiration", String(opts.ablaufBis)]);
+  }
+  const umschlag = buildEvent(wegwerf.pk, KIND_GIFT_WRAP, tags, umschlagInhalt, now - jitter(opts));
   return signEvent(opts.powBits ? mineEvent(umschlag, opts.powBits) : umschlag, wegwerf.sk);
 }
 

@@ -2958,3 +2958,41 @@ und bekommt sie byte-genau; im Netz stehen weder Name noch Typ noch Klartext.
 Endstand: protocol 998 · node 176 · app 219 · Leak-Tests 30 grün + 3 todo · 0
 rot · check-wiring `--streng` 0 offen · innerHTML streng 0 unbewertet ·
 Smoke-Test bestanden.
+
+## 76. Metadaten minimieren, Teil a: Ablauf nach NIP-40, Bericht, Wache (Schritt 2.5)
+
+**Ablauf (`protocol/private-dm.ts`, `gift-wrap.ts`):** `buildPrivateDm()`
+nimmt `ablaufSecs` (60 s bis 1 Jahr). Der Ablauf steht exakt im
+verschlüsselten Inhalt – die App des Empfängers blendet die Nachricht danach
+aus (`dmAbgelaufen()`). Auf beiden Umschlägen steht er als `expiration`, damit
+Relays löschen, aber je Umschlag zufällig bis zu einer Dauer später
+(höchstens das NIP-59-Zeitfenster von 2 Tagen): Ein exakter Ablauf verriete
+sonst den Sendezeitpunkt (Ablauf minus Dauer) und machte den Zeitversatz der
+Umschläge wirkungslos. Fremde, kaputte Ablaufwerte im Inhalt zählen nicht.
+
+**App:** Neben dem Anhang-Knopf wählt ⏱ den Ablauf je DM-Unterhaltung (aus,
+1 Stunde, 1 Tag, 7 Tage, 30 Tage), gespeichert mit der Unterhaltung im
+Tresor. Beim Einschalten: „Löschen ist eine Bitte an die Relays – wer sie
+schon hat, behält sie.“ `ladeDmNachrichten()` zeigt Abgelaufenes nicht mehr.
+Räume sind bis 2.3 offen und bekommen den Ablauf mit ihnen.
+
+**Datenschutzbericht:** vorweg die Zeile „Kurz: Inhalt, Absender: verborgen;
+IP-Adresse: sichtbar ohne Tor“ (`kurzfassung()`). „Aufbewahrung“ hing an einer
+Einstellung `freedom.expiry`, die es nie gab; jetzt gilt sie nur als erledigt,
+wenn jede DM-Unterhaltung abläuft.
+
+**Lesebestätigungen, Tippanzeige, Reaktionen, Kontaktliste:** Die App hat
+keine davon, die Unterhaltungen liegen nur lokal im Tresor. Eine Wache im
+Leak-Test verhindert, dass sie offen hinzukommen. Die optionale private
+Kontaktliste (NIP-51, Standard aus) folgt in Teil b.
+
+**Tests:** protocol 998 → 1002 (Ablauf im Inhalt und auf den Umschlägen,
+Streuung, Grenzen und Müll, Kurzfassung), app 219, Leak-Tests 30 → 33 grün +
+3 todo (`metadaten.test.ts`). **E2E im Browser:** Alice stellt „1 Tag“ ein und
+schreibt Bob; die Umschläge laufen nach 25,5 bzw. 38,2 Stunden ab, sonst tragen
+sie nur `p`; Bob liest die Nachricht; mit der Uhr 25 Stunden weiter ist sie
+bei ihm ausgeblendet; die Einstellung übersteht das Neuladen.
+
+Endstand: protocol 1002 · node 176 · app 219 · Leak-Tests 33 grün + 3 todo · 0
+rot · check-wiring `--streng` 0 offen · innerHTML streng 0 unbewertet ·
+Smoke-Test bestanden.

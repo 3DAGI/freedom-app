@@ -41,7 +41,8 @@ export async function zeigeDatenschutz(): Promise<void> {
       usesSwaps: !!geheim.getItem("freedom.swapHistory"),
       externalAvatar: /^https:\/\//.test(profil.picture ?? ""),
       stateBackup: !!localStorage.getItem("freedom.backupAt"),
-      expiringMessages: localStorage.getItem("freedom.expiry") !== null,
+      // Aufbewahrung (2.5): nur „gut“, wenn JEDE Direktnachrichten-Unterhaltung abläuft.
+      expiringMessages: alleDmsLaufenAb(),
     };
 
     const s = summarizePrivacy(auditPrivacy(cfg as never));
@@ -59,6 +60,17 @@ export async function zeigeDatenschutz(): Promise<void> {
     box.className = s.critical > 0 ? "mono-sm err" : s.warnings > 0 ? "mono-sm warn" : "mono-sm ok";
   } catch (e) {
     box.textContent = `Bericht nicht erstellbar: ${(e as Error).message}`;
+  }
+}
+
+/** Laufen alle DM-Unterhaltungen ab (NIP-40, Schritt 2.5)? Ohne DMs: nein. */
+function alleDmsLaufenAb(): boolean {
+  try {
+    const dms = (JSON.parse(geheim.getItem("freedom.chats") ?? "[]") as Array<{ type?: string; ablaufSecs?: number }>)
+      .filter((c) => c.type === "dm");
+    return dms.length > 0 && dms.every((c) => Number(c.ablaufSecs) > 0);
+  } catch {
+    return false;
   }
 }
 
