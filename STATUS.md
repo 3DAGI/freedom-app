@@ -3207,8 +3207,10 @@ Abgelehnt: nichts gebaut, nichts gesendet.
 eingebaute (eingerichtet, Tresor offen, kein Bunker – mit Bunker gehören die
 12 Wörter nicht auf das Gerät). `check-wiring.py` prüft zusätzlich: roh
 signiert nur `sol-wallet.ts`, die benutzbare eingebaute Wallet holt nur die
-Schiene. Einrichten kann man sie erst mit Teil b (Oberfläche) – bis dahin
-ändert sich für Nutzer nichts.
+Schiene. Die SLIP-10-Ableitung aus 1.1 ist damit verdrahtet – ihre sechs
+Ausnahmen in `wiring-ausnahmen.txt` sind entfernt (`slip10PublicKey` bleibt
+unbenutzt). Einrichten kann man die Wallet erst mit Teil b (Oberfläche) – bis
+dahin ändert sich für Nutzer nichts.
 
 **Tests:** protocol 1009 → 1012 (`ausgabe-limit.test.ts`), app 230 → 234
 (`sol-wallet.test.ts`: Phantom-Adresse, fremde und ungültige Wörter, gesperrter
