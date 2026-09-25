@@ -88,14 +88,15 @@ export async function buildPrivateSolTrinkgeld(t: SolTrinkgeld, signer: Signer, 
 }
 
 /** Oeffnet einen Umschlag mit Trinkgeld-Beleg; null, wenn es keiner ist oder er mich nicht betrifft. */
-export async function oeffnePrivatesSolTrinkgeld(wrap: NostrEvent, signer: Signer): Promise<(SolTrinkgeld & { absender: string }) | null> {
+export async function oeffnePrivatesSolTrinkgeld(wrap: NostrEvent, signer: Signer): Promise<(SolTrinkgeld & { absender: string; zeit: number }) | null> {
   const r = await giftUnwrapMitSigner(wrap, signer);
   if (!r.ok || !r.inner || r.inner.kind !== KIND_SOL_TRINKGELD) return null;
   if (r.inner.pubkey !== r.senderPubkey) return null; // Absender aus dem Siegel
   try {
     const t = parseSolTrinkgeld(r.inner);
     const ich = signer.publicKey();
-    return t.empfaenger === ich || t.absender === ich ? t : null;
+    // Zeitpunkt aus dem Kern – der Umschlag traegt einen verschleierten.
+    return t.empfaenger === ich || t.absender === ich ? { ...t, zeit: r.inner.created_at } : null;
   } catch {
     return null;
   }

@@ -249,8 +249,3 @@ payment-rail.ts|betragText|Baustein 4.1a; Anzeige ab 4.1b
 
 zap.ts|buildZapReceipt|Quittung (Kind 9735) schreibt nach NIP-57 der LNURL-Server des Empfängers; die App baute sie bis 4.1b selbst (mit Preimage unter der eigenen Identität) – entfallen; ein eigener Zap-Server im Knoten wäre der künftige Nutzer
 price-ticker.ts|medianPrice|abgelöst durch marktKurs() – eine Stimme je Absender statt je Event (4.4); kein Pfad nutzt ihn mehr
-sol-trinkgeld.ts|buildPrivateSolTrinkgeld|SOL-Trinkgeld-Beleg (4.7a); Senden, Empfangen und Prüfen in der App folgen mit 4.7b
-sol-trinkgeld.ts|buildSolTrinkgeld|SOL-Trinkgeld-Beleg (4.7a); Senden, Empfangen und Prüfen in der App folgen mit 4.7b
-sol-trinkgeld.ts|oeffnePrivatesSolTrinkgeld|SOL-Trinkgeld-Beleg (4.7a); Senden, Empfangen und Prüfen in der App folgen mit 4.7b
-sol-trinkgeld.ts|parseSolTrinkgeld|SOL-Trinkgeld-Beleg (4.7a); Senden, Empfangen und Prüfen in der App folgen mit 4.7b
-sol-trinkgeld.ts|pruefeSolUeberweisung|SOL-Trinkgeld-Beleg (4.7a); Senden, Empfangen und Prüfen in der App folgen mit 4.7b

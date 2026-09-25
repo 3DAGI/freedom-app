@@ -14,7 +14,8 @@ import {
   imetaSchluessel,
   renderAttachment,
 } from "../../shell-logic.js";
-import { ensurePool, RELAYS, signiere, state } from "../state.js";
+import { aktuellerKurs } from "../marktkurs.js";
+import { ensurePool, RELAYS, signiere, solRpcUrl, solTransaktion, state } from "../state.js";
 import { geheim } from "../tresor.js";
 import { $, toast } from "../ui.js";
 
@@ -879,9 +880,32 @@ async function oeffneUmschlag(w: NostrEvent): Promise<{ partner: string; ev: DmA
         // Mit Ablauf (2.5): ladeDmNachrichten() blendet danach aus.
         dm: r.dm,
       }
-    : null;
+    // Keine DM: vielleicht ein SOL-Trinkgeld-Beleg (4.7b).
+    : await alsTrinkgeld(w);
   dmCache.set(w.id, e);
   return e;
+}
+
+/**
+ * SOL-Trinkgeld-Beleg im Umschlag (Schritt 4.7b): erscheint in der
+ * Unterhaltung, zuerst „wird geprueft …“; die Pruefung gegen die Kette laeuft
+ * im Hintergrund und zeichnet die offene Unterhaltung danach neu.
+ */
+async function alsTrinkgeld(w: NostrEvent): Promise<{ partner: string; ev: DmAnzeige; dm: PrivateDm } | null> {
+  const { oeffnePrivatesSolTrinkgeld } = await import("@freedomstack/protocol");
+  const t = await oeffnePrivatesSolTrinkgeld(w, state.signer!);
+  if (!t) return null;
+  const { pruefeTrinkgeld, trinkgeldText } = await import("../../trinkgeld-beleg.js");
+  const partner = t.absender === state.signer!.publicKey() ? t.empfaenger : t.absender;
+  // Beide Kopien (Empfaenger und eigene) tragen dieselbe Signatur: eine Zeile.
+  const ev: DmAnzeige = { id: `sol-trinkgeld:${t.signatur}`, pubkey: t.absender, created_at: t.zeit, kind: 9736, tags: [], content: trinkgeldText(t, undefined, aktuellerKurs()), sig: "" };
+  void (async () => {
+    const { ketteAusRpc } = await import("../../wallet-standard.js");
+    const p = await pruefeTrinkgeld(t, ketteAusRpc(await solRpcUrl()), solTransaktion);
+    ev.content = trinkgeldText(t, p, aktuellerKurs());
+    if (activeConversation === partner) void loadChatMessages(partner);
+  })();
+  return { partner, ev, dm: { id: ev.id, from: t.absender, partner, createdAt: t.zeit, content: ev.content } };
 }
 
 /**

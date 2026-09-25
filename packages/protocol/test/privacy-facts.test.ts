@@ -8,7 +8,7 @@ import { PRIVACY_FACTS, privacyFactsText } from "../src/privacy-facts.js";
 import { buildPrivateDm } from "../src/private-dm.js";
 import { generateKeypair } from "../src/event.js";
 import {
-  LEAK_REGELN, regelAutorNicht, regelKeinKind4, regelKeinKlartext, regelKeinKlartextPrompt, regelKeineZahlungsdaten,
+  LEAK_REGELN, regelAutorNicht, regelKeinKind4, regelKeinKlartext, regelKeinKlartextPrompt, regelKeineSolAdresse, regelKeineZahlungsdaten,
   regelKundeVerborgen, regelPTagsNur, regelUploadVerschluesselt,
 } from "../src/leak-rules.js";
 import { LAYER_CELL_DEGREES, buildCoverageAnnouncement, toCell } from "../src/coverage.js";
@@ -21,6 +21,7 @@ import { buildPrivateKontaktliste } from "../src/kontaktliste.js";
 import { buildBlob } from "../src/blob.js";
 import { buildSessionOpen, buildSessionPayment } from "../src/stream.js";
 import { LocalSigner } from "../src/signer.js";
+import { buildPrivateSolTrinkgeld } from "../src/sol-trinkgeld.js";
 
 const a = generateKeypair();
 const b = generateKeypair();
@@ -124,6 +125,12 @@ const SZENARIEN: Record<string, () => Promise<number>> = {
     const { wraps, sitzung } = await privateReklamation();
     return regelKeineZahlungsdaten(wraps).length + regelKeinKlartext(wraps, [NOTIZ, "unbrauchbar"]).length
       + regelKundeVerborgen(wraps, sitzung).length + regelKundeVerborgen(wraps, a.pk).length;
+  },
+  "sol-trinkgeld": async () => {
+    // Wie die App seit 4.7b: Beleg versiegelt an Empfaenger und eigene Kopie.
+    const an = "7EcDhSYGxXyscszYEp35KHN8vvw3svAuLKTzXwCFLtVb", sig = "3".repeat(88);
+    const wraps = await buildPrivateSolTrinkgeld({ empfaenger: b.pk, signatur: sig, lamports: 2_345_678, an, kette: "solana:mainnet", notiz: NOTIZ }, new LocalSigner(a.sk));
+    return regelKeineSolAdresse(wraps, [an]).length + regelKeinKlartext(wraps, [sig, "2345678", NOTIZ]).length + regelAutorNicht(wraps, a.pk).length;
   },
   "abdeckung-zelle": async () => {
     const [lat, lon] = [48.137154, 11.576124];

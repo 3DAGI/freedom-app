@@ -41,9 +41,9 @@ python3 scripts/smoke_test.py packages/app/dist         # braucht playwright + c
 bash scripts/build-site.sh /tmp/site                     # Website bauen (Ziel wird gelöscht!)
 ```
 
-Stand 25.09.2026 (nach 4.7a): protocol 1022 grün (5 übersprungen), node 179 grün
+Stand 25.09.2026 (nach 4.7b): protocol 1022 grün (5 übersprungen), node 179 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 244 grün, Leak-Tests 35 grün + 3 `todo` (heutige Lecks,
+in `tools.test.ts`), app 248 grün, Leak-Tests 36 grün + 3 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test).
 
 ## Arbeitsweise
@@ -147,7 +147,9 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   `shell/zahlschienen.ts` – `check-wiring.py --streng` prüft das (Zahlwege).
   Nie still auf die andere Währung ausweichen. Die eingebaute SOL-Wallet
   (`sol-wallet.ts`, seit 4.2a) zahlt nur über die Schiene mit `freigabe()`
-  (Tageslimit, darüber Dialog); ihr Schlüssel liegt nur in `geheim`.
+  (Tageslimit, darüber Dialog); ihr Schlüssel liegt nur in `geheim`. Nach einem
+  SOL-Trinkgeld geht der Beleg (Kind 9736) über `sendeTrinkgeldBeleg()` –
+  versiegelt; offen nur, wenn der Nutzer es ausdrücklich wählt.
 - **Geheimnisse nur über `geheim`** (`shell/tresor.ts`): Schlüssel, Wallet-Zugänge,
   Preimages, Unterhaltungen und Verläufe nie direkt in `localStorage` schreiben –
   mit Tresor landen sie sonst im Klartext. Vor neuen Geld-Geheimnissen
