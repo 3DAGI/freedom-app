@@ -9,7 +9,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
   KIND_DVM_TEXT_GENERATION, LocalSigner, buildEvent, buildJobRequest, buildPrivateJobRequest, generateKeypair,
-  regelKeinBolt11, regelKeinKind4, regelKeinKlartextPrompt, regelKundeVerborgen,
+  regelKeinBolt11, regelKeinKind4, regelKeinKlartextPrompt, regelKeineZahlungsdaten, regelKundeVerborgen,
 } from "@freedomstack/protocol";
 import { KiSitzungen } from "../../src/ki-sitzung.js";
 import { SessionClient } from "../../src/session-client.js";
@@ -60,6 +60,16 @@ test("KI-Anfrage: Kunden-Schluessel in keinem Job-Event", async () => {
   assert.deepEqual(regelKundeVerborgen(gesendet, identitaet), []);
   // Der Sitzungsschluessel zeigt sich nur in der Sitzungseroeffnung, nie an einer Anfrage.
   assert.deepEqual(gesendet.filter((e) => e.pubkey === sitzung).map((e) => e.kind), [38021]);
+});
+
+test("KI-Anfrage: keine Zahlungsdaten offen (Sitzung, Beleg)", { todo: "Schritt 3.2" }, async () => {
+  const { pool, relay } = aufzeichnung();
+  const sitzungen = new KiSitzungen();
+  const provider = generateKeypair().pk;
+  const sc = new SessionClient({ signerFuer: (pk) => sitzungen.fuer(pk), pool, defaultBudgetSats: 100, settleEverySats: 20, ttlSecs: 3600 });
+  await sc.openSession(provider);
+  await sc.chargeForResult(provider, 7000, "e".repeat(64));
+  assert.deepEqual(regelKeineZahlungsdaten(relay.gesendet), []);
 });
 
 test("Verdrahtung: buildJobEvent() baut die Anfrage wie das Szenario", () => {

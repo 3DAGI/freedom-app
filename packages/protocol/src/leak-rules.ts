@@ -120,6 +120,27 @@ export function regelUploadVerschluesselt(events: readonly NostrEvent[], datei: 
     .map((e) => ({ regel: "upload-verschluesselt", eventId: e.id, detail: `Dateiinhalt im Klartext (Kind ${e.kind})` }));
 }
 
+/**
+ * Zahlungs-Tags, die einen Betrag, eine Rechnung oder eine Adresse einem
+ * Kunden zuordnen (Ergebnis, Sitzung, Beleg). Das Leistungs-Event des Providers
+ * (volume_msat, ohne Kunden) gehoert nicht dazu.
+ */
+const ZAHLUNGS_TAGS = new Set([
+  "amount", "amount_lamports", "solana_address", "bid", "usage",
+  "max_total_msat", "max_rate_per_ktoken_msat", "settle_every_msat", "cumulative_msat", "units", "payment",
+]);
+
+/** Keine Rechnung, keine Adresse, kein Betrag pro Kunde in oeffentlichen Events – Schritt 3.2. */
+export function regelKeineZahlungsdaten(events: readonly NostrEvent[]): LeakFinding[] {
+  const funde: LeakFinding[] = [];
+  for (const e of events) {
+    const tags = [...new Set(e.tags.filter((t) => ZAHLUNGS_TAGS.has(t[0])).map((t) => t[0]))];
+    if (tags.length > 0) funde.push({ regel: "keine-zahlungsdaten", eventId: e.id, detail: `Zahlungsdaten offen (Kind ${e.kind}): ${tags.join(", ")}` });
+    else if (regelKeinBolt11([e]).length > 0) funde.push({ regel: "keine-zahlungsdaten", eventId: e.id, detail: `Rechnung offen (Kind ${e.kind})` });
+  }
+  return funde;
+}
+
 /** Alle Regeln mit ihrer Aussage – Datenschutz-Aussagen verweisen hierauf. */
 export const LEAK_REGELN: Readonly<Record<string, string>> = {
   "kein-kind4": "Keine Direktnachrichten im alten, offenen Format (Kind 4).",
@@ -132,4 +153,5 @@ export const LEAK_REGELN: Readonly<Record<string, string>> = {
   "keine-sol-adresse": "Keine SOL-Adresse des Nutzers in öffentlichen Events.",
   "sol-adresse-frisch": "Jede SOL-Zahlung an eine frische Adresse.",
   "upload-verschluesselt": "Anhänge nur verschlüsselt.",
+  "keine-zahlungsdaten": "Keine Rechnung, keine Adresse, kein Betrag pro Kunde in öffentlichen Events.",
 };

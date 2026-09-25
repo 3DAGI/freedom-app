@@ -13,7 +13,7 @@ Pull Request eintragen.
 5. ~~**1.4** Verdrahtungsprüfung erweitern~~ – erledigt
 6. ~~**1.0** `app.ts` aufteilen~~ – Code fertig in fünf Teilen (a–e); offen nur MENSCH: alle Tabs anklicken, Desktop und Handy
 7. ~~**1.2**~~ Code fertig (a–d; Passkey optional zurückgestellt; MENSCH: Handy/Desktop, Devnet), ~~**1.3**~~ Code fertig (a–f; MENSCH: Anmeldung mit einem echten Bunker, z. B. Amber), ~~**1.5**~~ Code fertig (a Aufzeichnung, Regeln, `test:leak` ✓, b Szenarien, Aussagen mit Regel ✓)
-8. ~~**3.1**~~ Code fertig (a Protokoll, b Knoten, c App; MENSCH: Provider-Knoten auf Stand ≥ 3.1b bringen, dann echte Anfrage), dann **3.2** bis **3.4** – private KI-Aufträge, die größte offene Datenschutzlücke (braucht kein MLS)
+8. ~~**3.1**~~ Code fertig (a Protokoll, b Knoten, c App; MENSCH: echte Anfrage in der Live-App), dann **3.2** in Arbeit (a Protokoll, b App liest private Antworten, c Knoten versiegelt sie, d Sitzung und Belege), dann **3.3**, **3.4** – private KI-Aufträge, die größte offene Datenschutzlücke (braucht kein MLS)
 9. **2.4**, **2.5**, dann **2.2a** (Entscheidung), **2.2b**, **2.3**
 10. **4.0** (Entscheidung), dann Phase 4, Phase 5, 6, 7, 8, 9
 
@@ -47,7 +47,7 @@ jederzeit parallel erledigen.
 | 2.4 | Verschlüsselte Anhänge | offen |  |  |
 | 2.5 | Metadaten minimieren | offen |  |  |
 | 3.1 | Verschlüsselte Job-Anfragen | Code fertig | [#25](https://github.com/3DAGI/freedom-app/pull/25) (a), [#26](https://github.com/3DAGI/freedom-app/pull/26) (b), #27 (c) | größte offene Datenschutzlücke; a: `protocol/src/private-job.ts` – Anfrage als Kern im Umschlag (NIP-59), versiegelt vom Sitzungsschlüssel, Rechenarbeit (NIP-13) auf dem Umschlag, `pow`-Tag im Angebot (`tiers.ts`); b: Knoten abonniert Umschläge an sich (`handlePrivate`), prüft Rechenarbeit vor dem Entschlüsseln, gratis ohne Kontingent je Schlüssel (nur wenn der Provider gratis anbietet), offene Anfragen übergangsweise weiter, `PRIVATE_POW_BITS` (Standard 12) im Angebot; c: App – Sitzungsschlüssel je Provider (`ki-sitzung.ts`, nur im Speicher) für Sitzung, Belege, Anfragen und Reklamation; Anfragen nur noch im Umschlag an Provider mit `pow` im Angebot (≤ 16 Bits), kein offener Bid-Job mehr; Kontingent-Abfrage mit eigenem Pubkey entfernt; `hinweisKiOeffentlich()` entfernt; Leak-Regeln Prompt und Kunden-Schlüssel grün, Aussagen belegt; E2E im Browser mit echtem `DvmProvider`; MENSCH: Knoten aktualisieren |
-| 3.2 | Verschlüsselte Antworten und Belege | offen |  |  |
+| 3.2 | Verschlüsselte Antworten und Belege | in Arbeit | #28 (a) | Reihenfolge wegen Veröffentlichung: erst liest die App private Antworten (b), dann versiegelt der Knoten (c) – sonst bricht die Live-App; a: `buildPrivateJobResponse`/`openPrivateJobResponse` (6xxx und 7000 an den Sitzungsschlüssel), Regel `keine-zahlungsdaten`, Aussage „ki-zahlung“ offen, todo im KI-Szenario |
 | 3.3 | Provider-Seite | offen |  |  |
 | 3.4 | Verlauf und Reklamationen privat | offen |  |  |
 | 4.0 | Entscheidung Gebührenmodell | offen |  | MENSCH: Entscheidung |

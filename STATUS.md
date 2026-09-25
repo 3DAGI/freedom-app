@@ -2614,3 +2614,42 @@ und nennt den Grund.
 Endstand: protocol 985 grün · node 166 grün · app 207 grün · Leak-Tests 23
 grün + 4 todo · 0 rot · check-wiring `--streng` 0 offen (183 begründet) ·
 innerHTML streng 0 unbewertet · Smoke-Test bestanden.
+
+## 67. Verschlüsselte Antworten, Teil a: Protokoll (Schritt 3.2)
+
+3.1 ist live: Die veröffentlichte App (`8e3e9efa…`) entspricht dem Build von
+`main` nach #27; der Provider-Knoten lief laut MENSCH schon mit ≥ 3.1b.
+
+Aufteilung von 3.2 – wegen der automatischen Veröffentlichung in dieser
+Reihenfolge, damit die Live-App nie bricht: **a** Protokoll (hier), **b** App
+liest private **und** offene Antworten, **c** Knoten versiegelt Antworten für
+private Anfragen, **d** Sitzung und Belege privat.
+
+**`private-job.ts`:** `buildPrivateJobResponse()` packt ein Ergebnis (Kind
+6xxx, mit Betrag, Rechnung, SOL-Adresse, usage) oder eine Rückmeldung (7000)
+als Kern in einen Umschlag an den Sitzungsschlüssel, versiegelt vom Provider;
+nur Antworten, nur vom Provider selbst. `openPrivateJobResponse()` prüft
+Empfänger, Signatur und Form, bevor es entschlüsselt, und baut den Kern streng
+neu auf.
+
+**Regel `keine-zahlungsdaten`** (`leak-rules.ts`): kein Zahlungs-Tag (amount,
+amount_lamports, solana_address, bid, usage, max_total_msat,
+max_rate_per_ktoken_msat, settle_every_msat, cumulative_msat, units, payment)
+und keine Rechnung in öffentlichen Events. Das Leistungs-Event des Providers
+(volume_msat, ohne Kunden) zählt nicht dazu. Neue offene Aussage „ki-zahlung“
+(3.2); im KI-Szenario sichtbar als `todo`: Sitzung (38021) und Beleg (38022)
+der App tragen heute Beträge offen.
+
+**Fund (nicht behoben, für 3.2c vorgemerkt):** Der Knoten hängt `bootstrap` und
+`region` erst nach dem Minen an das Leistungs-Event (38010) – die ID ändert
+sich, die Rechenarbeit gilt nicht mehr.
+
+**Tests:** protocol 985 → 989 (private Antworten: kommt unverändert an, Relays
+sehen weder Antwort noch Betrag noch Rechnung, Rückmeldung ebenso, fremde
+Sitzung, fremder Autor, Anfrage statt Antwort; Regel mit sieben Fällen,
+Rechnung im Inhalt, Leistungs-Event und Umschlag unberührt); Leak-Tests 23
+grün + 5 todo.
+
+Endstand: protocol 989 grün (+4) · node 166 · app 207 · Leak-Tests 23 grün +
+5 todo · 0 rot · check-wiring `--streng` 0 offen (186 begründet) · innerHTML
+streng 0 unbewertet · Smoke-Test bestanden.
