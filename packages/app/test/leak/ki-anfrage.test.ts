@@ -2,7 +2,8 @@
  * Leak-Szenario „KI-Anfrage“ (Schritt 1.5, seit 3.1 privat): Sitzung eroeffnen
  * mit dem echten `SessionClient` und dem Sitzungsschluessel aus `KiSitzungen`,
  * dann die Anfrage so gebaut wie `buildJobEvent()` in `tabs/agent.ts` – einmal
- * mit Sitzung, einmal mit Gebot – und im Umschlag an den Provider.
+ * mit Sitzung, einmal mit Gebot – und im Umschlag an den Provider. Seit 3.2e
+ * gehen auch Sitzung und Belege nur versiegelt an ihn.
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -40,9 +41,9 @@ async function frage() {
   return { gesendet: relay.gesendet, identitaet: identitaet.publicKey(), sitzung: sitzung.publicKey() };
 }
 
-test("KI-Anfrage: Sitzung und zwei Umschlaege gehen ueber den Pool, keine offene Anfrage", async () => {
+test("KI-Anfrage: Sitzung und zwei Anfragen gehen nur als Umschlaege ueber den Pool", async () => {
   const { gesendet } = await frage();
-  assert.deepEqual(gesendet.map((e) => e.kind).sort(), [1059, 1059, 38021]);
+  assert.deepEqual(gesendet.map((e) => e.kind), [1059, 1059, 1059]);
   assert.equal(gesendet.filter((e) => e.kind >= 5000 && e.kind < 6000).length, 0);
   assert.deepEqual(regelKeinKind4(gesendet), []);
   assert.deepEqual(regelKeinBolt11(gesendet), []);
@@ -58,11 +59,11 @@ test("KI-Anfrage: kein Klartext-Prompt", async () => {
 test("KI-Anfrage: Kunden-Schluessel in keinem Job-Event", async () => {
   const { gesendet, identitaet, sitzung } = await frage();
   assert.deepEqual(regelKundeVerborgen(gesendet, identitaet), []);
-  // Der Sitzungsschluessel zeigt sich nur in der Sitzungseroeffnung, nie an einer Anfrage.
-  assert.deepEqual(gesendet.filter((e) => e.pubkey === sitzung).map((e) => e.kind), [38021]);
+  // Auch der Sitzungsschluessel zeigt sich nirgends – weder an Anfrage noch Sitzung (3.2e).
+  assert.deepEqual(regelKundeVerborgen(gesendet, sitzung), []);
 });
 
-test("KI-Anfrage: keine Zahlungsdaten offen (Sitzung, Beleg)", { todo: "Schritt 3.2" }, async () => {
+test("KI-Anfrage: keine Zahlungsdaten offen (Sitzung, Beleg)", async () => {
   const { pool, relay } = aufzeichnung();
   const sitzungen = new KiSitzungen();
   const provider = generateKeypair().pk;

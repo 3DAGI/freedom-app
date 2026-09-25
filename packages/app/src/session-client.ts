@@ -14,8 +14,10 @@
  * entscheidet selbst, wie viel Kredit er gibt (Betrugsrisiko = 1 Intervall).
  */
 import {
+  type NostrEvent,
   type Signer,
   OutboxPool,
+  buildPrivateSessionEvent,
   buildEvent,
   buildSessionOpen,
   buildSessionPayment,
@@ -42,6 +44,11 @@ export interface SessionClientConfig {
   settleEverySats: number;
   /** Session-TTL in Sekunden. */
   ttlSecs: number;
+  /**
+   * Rechenarbeit laut Angebot des Providers (Schritt 3.2): Sitzung und Belege
+   * gehen versiegelt an ihn, der Knoten prueft sie vor dem Entschluesseln.
+   */
+  powFuer?: (providerPubkey: string) => number;
 }
 
 export const DEFAULT_SESSION_CONFIG = {
@@ -104,7 +111,7 @@ export class SessionClient {
         ttlSecs: this.cfg.ttlSecs,
       }),
     );
-    await this.cfg.pool.publish(ev);
+    await this.versiegeltSenden(ev, providerPubkey, signer);
     const session: ActiveSession = {
       open: parseSessionOpen(ev),
       payments: [],
@@ -172,7 +179,7 @@ export class SessionClient {
         paymentRef,
       }),
     );
-    await this.cfg.pool.publish(payment);
+    await this.versiegeltSenden(payment, providerPubkey, signer);
     session.payments.push(parseSessionPayment(payment));
 
     return {
@@ -180,6 +187,17 @@ export class SessionClient {
       paymentRef,
       remainingMsat: session.open.maxTotalMsat - session.chargedMsat,
     };
+  }
+
+  /**
+   * Sitzung und Belege nur versiegelt an den Provider (Schritt 3.2): Budget,
+   * Rate und bezahlte Summen stehen in keinem oeffentlichen Event.
+   */
+  private async versiegeltSenden(ev: NostrEvent, providerPubkey: string, signer: Signer): Promise<void> {
+    const { wrap } = await buildPrivateSessionEvent({
+      event: ev, sessionSigner: signer, providerPk: providerPubkey, powBits: this.cfg.powFuer?.(providerPubkey) ?? 0,
+    });
+    await this.cfg.pool.publish(wrap);
   }
 
   /** Budget-Stand einer Session (UI). */

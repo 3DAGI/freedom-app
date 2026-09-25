@@ -41,9 +41,9 @@ python3 scripts/smoke_test.py packages/app/dist         # braucht playwright + c
 bash scripts/build-site.sh /tmp/site                     # Website bauen (Ziel wird gelöscht!)
 ```
 
-Stand 25.09.2026 (nach 3.2d): protocol 991 grün (5 übersprungen), node 170 grün
+Stand 25.09.2026 (nach 3.2): protocol 991 grün (5 übersprungen), node 170 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 211 grün, Leak-Tests 23 grün + 5 `todo` (heutige Lecks,
+in `tools.test.ts`), app 211 grün, Leak-Tests 24 grün + 4 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test).
 
 ## Arbeitsweise
@@ -124,6 +124,8 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   Sitzungsschlüssel aus `kiSitzungen` (nie `state.keypair.pk`), gesendet wird nur
   der Umschlag aus `buildPrivateJobRequest()`. Tags gehören vor dem Versiegeln in
   den Kern; nie nach der Signatur anhängen. `test/leak/ki-anfrage.test.ts` prüft das.
+  Seit 3.2 ebenso zurück (Antwort, Rückmeldung) und für Sitzung und Belege; die App
+  nimmt nur versiegelte Antworten. Neue KI-Events nie offen veröffentlichen.
 - **Geheimnisse nur über `geheim`** (`shell/tresor.ts`): Schlüssel, Wallet-Zugänge,
   Preimages, Unterhaltungen und Verläufe nie direkt in `localStorage` schreiben –
   mit Tresor landen sie sonst im Klartext. Vor neuen Geld-Geheimnissen

@@ -25,7 +25,6 @@ export const RELAYS = [
 
 export const KIND_SWAP_REQUEST = 25001;
 export const KIND_SWAP_RESPONSE = 25002;
-export const KIND_DVM_RESULT = 6050;
 export const LS_KEY = "freedom.nsec";
 /** Bunker-Sitzung (Schritt 1.3f): Signer, Relays, Client-Schluessel – ein Geheimnis. */
 export const LS_BUNKER = "freedom.bunker";
@@ -285,11 +284,15 @@ async function entdeckeRelays(): Promise<void> {
 /** Sitzungsschluessel je Provider fuer KI-Auftraege (Schritt 3.1) – nur im Speicher. */
 export const kiSitzungen = new KiSitzungen();
 
+/** Rechenarbeit laut Angebot je Provider (Schritt 3.1) – fuer Anfragen, Sitzung und Belege. */
+export const powJeProvider = new Map<string, number>();
+
 export function ensureSessionClient(): SessionClient {
   if (state.sessionClient) return state.sessionClient;
   if (!state.pool) throw new Error("Pool fehlt");
   state.sessionClient = new SessionClient({
     signerFuer: (providerPk) => kiSitzungen.fuer(providerPk),
+    powFuer: (providerPk) => powJeProvider.get(providerPk) ?? 0,
     pool: state.pool,
     defaultBudgetSats: 100,
     settleEverySats: 20,

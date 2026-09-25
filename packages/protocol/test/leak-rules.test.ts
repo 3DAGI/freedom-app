@@ -92,6 +92,7 @@ test("keine-zahlungsdaten: Betrag, Rechnung, Adresse, Sitzung, Beleg – aber ni
     [[["max_total_msat", "100000"], ["settle_every_msat", "20000"]], "Sitzung"],
     [[["cumulative_msat", "40000"], ["units", "7"], ["payment", "ref"]], "Beleg"],
     [[["bid", "21000"]], "Gebot"],
+    [[["amount_msat", "7000"], ["reason", "unbrauchbar"]], "Reklamation"],
   ];
   for (const [tags, name] of faelle) {
     const funde = regelKeineZahlungsdaten([ev(6050, tags)]);
