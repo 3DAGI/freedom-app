@@ -32,8 +32,8 @@ import {
   ensurePool,
   ensureSessionClient,
   findProviders,
-  KIND_DVM_RESULT,
   kiSitzungen,
+  powJeProvider,
   signiere,
   state,
 } from "../state.js";
@@ -602,10 +602,7 @@ async function askRace(prompt: string, bid: number, tier: "free" | "classic" | "
   const seit = Math.floor(Date.now() / 1000) - 120;
   const cache: AntwortCache = new Map();
   while (Date.now() < deadline) {
-    const results = [
-      ...(await privateAntworten(ids, seit, cache)).ergebnisse,
-      ...await pool.query({ kinds: [KIND_DVM_RESULT], limit: 20 }),
-    ];
+    const results = (await privateAntworten(ids, seit, cache)).ergebnisse;
     const hit = results.find((ev) => ids.has(ev.tags.find((t) => t[0] === "e")?.[1] ?? ""));
     if (hit) {
       let r: ReturnType<typeof parseJobResult>;
@@ -689,7 +686,6 @@ function maybeInsertModelSwitchSummary(newTier: string): void {
  */
 const MAX_POW_APP = 16;
 const KEIN_PRIVATER_PROVIDER = "Kein Provider für private Anfragen gefunden – die Knoten brauchen mindestens Stand 3.1.";
-const powJeProvider = new Map<string, number>();
 
 function privatFaehig(kandidaten: ScoredProvider[]): ScoredProvider[] {
   const ok = kandidaten.filter((c) => c.caps.powBits !== undefined && c.caps.powBits <= MAX_POW_APP);
@@ -800,7 +796,6 @@ async function waitForAnswer(
     signal?: AbortSignal;
   } = {},
 ) {
-  const pool = await ensurePool();
   const deadline = Date.now() + timeoutMs;
   const seit = Math.floor(Date.now() / 1000) - 120;
   const cache: AntwortCache = new Map();
@@ -811,10 +806,9 @@ async function waitForAnswer(
     const privat = await privateAntworten(new Set(ids), seit, cache);
     // Feedback-Events (kind 7000): Ablehnung -> Failover. ABER: status=progress
     // ist KEINE Ablehnung (provider arbeitet noch) — weiter warten.
-    const feedback = [
-      ...privat.rueckmeldungen.filter((e) => e.tags.some((t) => t[0] === "e" && t[1] === requestId)),
-      ...await pool.query({ kinds: [7000], "#e": [requestId], limit: 5 }),
-    ];
+    // Seit 3.2e nur noch versiegelte: Auf eine private Anfrage antwortet ein
+    // Knoten ab 3.2c nie offen – eine offene „Antwort“ waere untergeschoben.
+    const feedback = privat.rueckmeldungen.filter((e) => e.tags.some((t) => t[0] === "e" && t[1] === requestId));
     if (feedback.length > 0) {
       const statusTag = feedback[0].tags.find((t) => t[0] === "status")?.[1] ?? "";
       const fbMsg = feedback[0].content.replace(/^error:\s*/i, "");
@@ -851,7 +845,7 @@ async function waitForAnswer(
       return { ev: feedback[0], parsed: null, providerError: fbMsg };
     }
     // Results aus allen aktiven Jobs (Hedge) akzeptieren:
-    const results = [...privat.ergebnisse, ...await pool.query({ kinds: [KIND_DVM_RESULT], "#e": ids })];
+    const results = privat.ergebnisse;
     if (results.length > 0) {
       // NEU: Nur Antworten vom erwarteten Provider akzeptieren (wenn angegeben).
       // Beim Hedging entfällt dieser Filter — erster Result gewinnt.

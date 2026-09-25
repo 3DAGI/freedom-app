@@ -126,7 +126,7 @@ export function regelUploadVerschluesselt(events: readonly NostrEvent[], datei: 
  * (volume_msat, ohne Kunden) gehoert nicht dazu.
  */
 const ZAHLUNGS_TAGS = new Set([
-  "amount", "amount_lamports", "solana_address", "bid", "usage",
+  "amount", "amount_msat", "amount_lamports", "solana_address", "bid", "usage",
   "max_total_msat", "max_rate_per_ktoken_msat", "settle_every_msat", "cumulative_msat", "units", "payment",
 ]);
 

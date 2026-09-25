@@ -74,13 +74,15 @@ test("private Antworten: geoeffnete Umschlaege werden gemerkt, neueste zuerst", 
   assert.equal(r2.rueckmeldungen.length, 1);
 });
 
-test("Verdrahtung: waitForAnswer() und askRace() nehmen private Antworten dazu", () => {
+test("Verdrahtung: waitForAnswer() und askRace() nehmen nur private Antworten (seit 3.2e)", () => {
   const agent = readFileSync(new URL("../src/shell/tabs/agent.ts", import.meta.url), "utf8");
   const warten = agent.slice(agent.indexOf("async function waitForAnswer("), agent.indexOf("async function handleAnswer("));
   assert.match(warten, /const privat = await privateAntworten\(new Set\(ids\), seit, cache\);/);
-  assert.match(warten, /\.\.\.privat\.rueckmeldungen\.filter/);
-  assert.match(warten, /const results = \[\.\.\.privat\.ergebnisse, \.\.\.await pool\.query\(\{ kinds: \[KIND_DVM_RESULT\]/);
+  assert.match(warten, /const feedback = privat\.rueckmeldungen\.filter/);
+  assert.match(warten, /const results = privat\.ergebnisse;/);
   const race = agent.slice(agent.indexOf("async function askRace("), agent.indexOf("async function askSwarm("));
-  assert.match(race, /\(await privateAntworten\(ids, seit, cache\)\)\.ergebnisse/);
+  assert.match(race, /const results = \(await privateAntworten\(ids, seit, cache\)\)\.ergebnisse;/);
+  // Keine offenen Ergebnisse oder Rueckmeldungen mehr abfragen
+  assert.doesNotMatch(warten + race, /kinds: \[(KIND_DVM_RESULT|7000)\]/);
   assert.match(agent, /query\(\{ kinds: \[KIND_GIFT_WRAP\], "#p": pks, since: seit \}\)/);
 });

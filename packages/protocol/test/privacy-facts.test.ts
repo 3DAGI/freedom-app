@@ -8,12 +8,14 @@ import { PRIVACY_FACTS, privacyFactsText } from "../src/privacy-facts.js";
 import { buildPrivateDm } from "../src/private-dm.js";
 import { generateKeypair } from "../src/event.js";
 import {
-  LEAK_REGELN, regelAutorNicht, regelKeinKind4, regelKeinKlartext, regelKeinKlartextPrompt, regelKundeVerborgen,
+  LEAK_REGELN, regelAutorNicht, regelKeinKind4, regelKeinKlartext, regelKeinKlartextPrompt, regelKeineZahlungsdaten,
+  regelKundeVerborgen,
 } from "../src/leak-rules.js";
 import { LAYER_CELL_DEGREES, buildCoverageAnnouncement, toCell } from "../src/coverage.js";
 import { signEvent } from "../src/event.js";
-import { buildJobRequest } from "../src/dvm.js";
-import { buildPrivateJobRequest } from "../src/private-job.js";
+import { buildJobRequest, buildJobResult } from "../src/dvm.js";
+import { buildPrivateJobRequest, buildPrivateJobResponse, buildPrivateSessionEvent } from "../src/private-job.js";
+import { buildSessionOpen, buildSessionPayment } from "../src/stream.js";
 import { LocalSigner } from "../src/signer.js";
 
 const a = generateKeypair();
@@ -28,6 +30,34 @@ async function privateKiAnfrage() {
   const request = buildJobRequest({ customerPubkey: sitzung.publicKey(), input: PROMPT, bidMsat: 1000, providerPubkey: b.pk });
   const { wrap } = await buildPrivateJobRequest({ request, sessionSigner: sitzung, providerPk: b.pk });
   return { wrap, sitzung: sitzung.publicKey() };
+}
+
+const ANTWORT = "Der Wert liegt im Normbereich.";
+// Testvektor aus BOLT 11 – oeffentlich, kein Geheimnis.
+const BOLT11 = "lnbc2500u1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdq5xysxxatsyp3k7enxv4jsxqzpuaztrnwngzn3kdzw5hydlzf03qdgm2hdq27cqv3agm2awhz5se903vruatfhq77w3ls4evs3ch9zw97j25emudupq63nyw24cg27h2rspfj9srp";
+
+/**
+ * Eine ganze private KI-Runde wie seit 3.2e (a = Identitaet, b = Provider):
+ * Sitzung, Anfrage, Antwort mit Betrag und Rechnung, Beleg – alles versiegelt.
+ */
+async function privateKiRunde() {
+  const sitzung = new LocalSigner(generateKeypair().sk);
+  const provider = new LocalSigner(b.sk);
+  const sp = sitzung.publicKey();
+  const open = await buildPrivateSessionEvent({ sessionSigner: sitzung, providerPk: b.pk, event: buildSessionOpen({
+    customerPubkey: sp, providerPubkey: b.pk, sessionId: "s1", maxTotalMsat: 100_000, maxRatePerKTokenMsat: 1000, settleEveryMsat: 20_000, ttlSecs: 3600,
+  }) });
+  const { wrap: anfrage, requestId } = await buildPrivateJobRequest({ sessionSigner: sitzung, providerPk: b.pk, request: buildJobRequest({
+    customerPubkey: sp, input: PROMPT, bidMsat: 1000, providerPubkey: b.pk,
+  }) });
+  const antwort = await buildPrivateJobResponse({ providerSigner: provider, sessionPk: sp, response: buildJobResult({
+    providerPubkey: b.pk, requestId, requestKind: 5050, customerPubkey: sp, output: ANTWORT, amountMsat: 7000, bolt11: BOLT11,
+    usage: { model: "m", promptTokens: 3, completionTokens: 7 },
+  }) });
+  const beleg = await buildPrivateSessionEvent({ sessionSigner: sitzung, providerPk: b.pk, event: buildSessionPayment({
+    customerPubkey: sp, sessionId: "s1", seq: 1, cumulativeMsat: 7000, unitsSinceLast: 7,
+  }) });
+  return { wraps: [open.wrap, anfrage, antwort.wrap, beleg.wrap] };
 }
 
 const SZENARIEN: Record<string, () => Promise<number>> = {
@@ -50,6 +80,14 @@ const SZENARIEN: Record<string, () => Promise<number>> = {
   "ki-kunde": async () => {
     const { wrap, sitzung } = await privateKiAnfrage();
     return regelKundeVerborgen([wrap], a.pk).length + regelKundeVerborgen([wrap], sitzung).length;
+  },
+  "ki-antwort": async () => {
+    const { wraps } = await privateKiRunde();
+    return regelKeinKlartext(wraps, [ANTWORT]).length;
+  },
+  "ki-zahlung": async () => {
+    const { wraps } = await privateKiRunde();
+    return regelKeineZahlungsdaten(wraps).length;
   },
   "abdeckung-zelle": async () => {
     const [lat, lon] = [48.137154, 11.576124];
@@ -93,5 +131,6 @@ test("der Berichtstext trennt Belegtes und Offenes", () => {
   assert.match(t, /Durch Tests belegt:/);
   assert.match(t, /Bekannte Lücken:/);
   assert.match(t, /✓ KI-Anfragen sind für Relays nicht lesbar\./);
-  assert.match(t, /○ Noch nicht: KI-Antworten sind für Relays nicht lesbar\. \(Ausbauplan 3\.2\)/);
+  assert.match(t, /✓ KI-Antworten sind für Relays nicht lesbar\./);
+  assert.match(t, /○ Noch nicht: Reklamationen sind nicht öffentlich\. \(Ausbauplan 3\.4\)/);
 });

@@ -31,7 +31,9 @@ verschlüsselt.
 
 ---
 
-## 3.2 Verschlüsselte Antworten, Rechnungen und Belege
+## 3.2 Verschlüsselte Antworten, Rechnungen und Belege – CODE FERTIG (25.09.2026)
+
+> Umgesetzt in fünf Teilen (PRs #28–#32), Reihenfolge nach der Veröffentlichung: erst lesen, dann senden. Antworten, Rückmeldungen, Sitzung und Belege gehen nur noch versiegelt; die App nimmt auf private Anfragen nur private Antworten. Leak-Regel `keine-zahlungsdaten` grün. Punkt 3 (wöchentliches Aggregat mit Merkle-Wurzel, optional) zurückgestellt. Reklamationen bleiben bis 3.4 offen.
 
 - **Vorgehen:**
   1. Ergebnis (Kind 6xxx) samt usage, bolt11 bzw. SOL-Empfangsadresse und

@@ -5,9 +5,19 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { LocalSigner, generateKeypair, toHex, verifyEvent, type NostrEvent, type OutboxPool } from "@freedomstack/protocol";
+import {
+  LocalSigner, generateKeypair, openPrivateKundenEvent, regelKeineZahlungsdaten, toHex, verifyEvent, type NostrEvent,
+  type OutboxPool,
+} from "@freedomstack/protocol";
 import { SessionClient } from "../src/session-client.js";
 import { KiSitzungen } from "../src/ki-sitzung.js";
+
+/** Was der Provider sieht: Umschlag oeffnen (seit 3.2e geht alles versiegelt an ihn). */
+async function geoeffnet(wrap: NostrEvent, providerSk: Uint8Array) {
+  const r = await openPrivateKundenEvent(wrap, new LocalSigner(providerSk));
+  if (!r.ok) throw new Error(r.grund);
+  return r.request;
+}
 
 function fakePool(): { pool: OutboxPool; gesendet: NostrEvent[] } {
   const gesendet: NostrEvent[] = [];
@@ -25,7 +35,11 @@ test("SessionClient: Session-Eroeffnung ist vom Signer signiert", async () => {
   const s = await sc.openSession(provider.pk);
   assert.equal(gesendet.length, 1);
   assert.equal(verifyEvent(gesendet[0]), true);
-  assert.equal(gesendet[0].pubkey, kunde.pk);
+  assert.equal(gesendet[0].kind, 1059, "versiegelt an den Provider (3.2e)");
+  assert.deepEqual(regelKeineZahlungsdaten(gesendet), []);
+  const open = await geoeffnet(gesendet[0], provider.sk);
+  assert.equal(open.kind, 38021);
+  assert.equal(open.pubkey, kunde.pk);
   assert.ok(s.open.sessionId.startsWith(`sess-${kunde.pk.slice(0, 8)}-`));
 });
 
@@ -44,20 +58,26 @@ test("SessionClient: der Schluessel taucht nicht auf, wenn der Client serialisie
 
 test("SessionClient mit KiSitzungen: je Provider ein eigener Schluessel, nie die Identitaet", async () => {
   const identitaet = generateKeypair();
-  const [a, b] = [generateKeypair().pk, generateKeypair().pk];
+  const [a, b] = [generateKeypair(), generateKeypair()];
   const { pool, gesendet } = fakePool();
   const sitzungen = new KiSitzungen();
   const sc = new SessionClient({
     signerFuer: (pk) => sitzungen.fuer(pk), pool, defaultBudgetSats: 100, settleEverySats: 20, ttlSecs: 3600,
+    powFuer: () => 4,
   });
-  await sc.openSession(a);
-  await sc.openSession(b);
-  await sc.chargeForResult(a, 5000, "e".repeat(64));
+  await sc.openSession(a.pk);
+  await sc.openSession(b.pk);
+  await sc.chargeForResult(a.pk, 5000, "e".repeat(64));
   assert.equal(gesendet.length, 3);
-  assert.ok(gesendet.every((ev) => verifyEvent(ev) && ev.pubkey !== identitaet.pk));
-  assert.equal(gesendet[0].pubkey, sitzungen.fuer(a).publicKey());
-  assert.equal(gesendet[1].pubkey, sitzungen.fuer(b).publicKey());
-  assert.notEqual(gesendet[0].pubkey, gesendet[1].pubkey, "zwei Provider sehen nicht denselben Schluessel");
-  assert.equal(gesendet[2].pubkey, gesendet[0].pubkey, "Beleg vom Sitzungsschluessel desselben Providers");
-  assert.equal(sitzungen.fuer(a), sitzungen.fuer(a), "fester Schluessel je Provider");
+  assert.ok(gesendet.every((ev) => verifyEvent(ev) && ev.kind === 1059 && ev.pubkey !== identitaet.pk));
+  assert.ok(gesendet.every((ev) => ev.tags.some((t) => t[0] === "nonce")), "Rechenarbeit laut Angebot");
+  const [oa, ob, beleg] = [await geoeffnet(gesendet[0], a.sk), await geoeffnet(gesendet[1], b.sk), await geoeffnet(gesendet[2], a.sk)];
+  assert.equal(oa.pubkey, sitzungen.fuer(a.pk).publicKey());
+  assert.equal(ob.pubkey, sitzungen.fuer(b.pk).publicKey());
+  assert.notEqual(oa.pubkey, ob.pubkey, "zwei Provider sehen nicht denselben Schluessel");
+  assert.equal(beleg.kind, 38022);
+  assert.equal(beleg.pubkey, oa.pubkey, "Beleg vom Sitzungsschluessel desselben Providers");
+  assert.equal(sitzungen.fuer(a.pk), sitzungen.fuer(a.pk), "fester Schluessel je Provider");
+  // Der Umschlag an b laesst sich mit a's Schluessel nicht oeffnen
+  await assert.rejects(geoeffnet(gesendet[1], a.sk));
 });

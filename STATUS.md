@@ -2746,3 +2746,39 @@ ausgeschöpfte Sitzung → Absage, nichts gerechnet), dreimal hintereinander gr�
 Endstand: protocol 991 · node 170 · app 211 · Leak-Tests 23 grün + 5 todo · 0
 rot · check-wiring `--streng` 0 offen (186 begründet) · innerHTML streng 0
 unbewertet · Smoke-Test bestanden.
+
+## 71. Verschlüsselte Belege, Teil e: App versiegelt Sitzung und Belege – 3.2 Code fertig
+
+**`session-client.ts`:** Sitzungseröffnung und Belege gehen nur noch versiegelt
+an den Provider (`versiegeltSenden()` → `buildPrivateSessionEvent`), mit der
+Rechenarbeit aus dem Angebot (`powFuer`, aus `powJeProvider` – jetzt zentral in
+`shell/state.ts`). Budget, Rate und bezahlte Summen stehen in keinem
+öffentlichen Event mehr; auch der Sitzungsschlüssel zeigt sich nirgends.
+
+**`tabs/agent.ts`:** `waitForAnswer()` und `askRace()` nehmen nur noch
+versiegelte Antworten – auf eine private Anfrage antwortet ein Knoten ab 3.2c
+nie offen; eine offene „Antwort“ wäre untergeschoben. `KIND_DVM_RESULT` in
+`state.ts` war danach unbenutzt und ist entfernt.
+
+**Datenschutzbericht:** belegt „KI-Antworten sind für Relays nicht lesbar“ und
+„Anfragen, Antworten, Sitzungen und Belege deiner KI-Nutzung zeigen Relays
+keine Beträge, Rechnungen oder Adressen“ (Szenario: eine ganze private Runde –
+Sitzung, Anfrage, Antwort mit Rechnung, Beleg). Neu offen: „Reklamationen sind
+nicht öffentlich“ (3.4) – `buildDispute` trägt `amount_msat`, die Regel kennt
+das Tag jetzt.
+
+**Tests:** app bleibt 211 – drei Tests prüften den alten Weg (offene Sitzung,
+offene Antworten) und prüfen jetzt versiegelt, mit Öffnen durch den Provider,
+Rechenarbeit und fremdem Schlüssel; Leak-Tests 23 + 5 todo → 24 + 4 todo (die
+3.2-Regel ist grün). **E2E im Browser** mit dem echten Knoten-Code: zwei
+Anfragen, die zweite über die versiegelte Sitzung – der Knoten findet sie und
+rechnet 7 msat darüber ab; von der App geht nur Kind 1059 ins Netz, kein Prompt
+offen, keine Identität, kein offenes Ergebnis.
+
+**Veröffentlichung (MENSCH):** Erst Knoten auf ≥ 3.2d, dann diesen PR mergen –
+sonst findet ein älterer Knoten die versiegelte Sitzung nicht, und die App
+wartet vergeblich auf offene Antworten.
+
+Endstand: protocol 991 · node 170 · app 211 · Leak-Tests 24 grün + 4 todo · 0
+rot · check-wiring `--streng` 0 offen · innerHTML streng 0 unbewertet ·
+Smoke-Test bestanden.
