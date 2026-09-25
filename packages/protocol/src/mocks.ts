@@ -15,7 +15,7 @@ import {
   HoldInvoiceState,
   SolanaLock,
 } from "./adapters.js";
-import { verifyPreimage, toHex } from "./htlc.js";
+import { generatePreimage, hashlock, verifyPreimage, toHex } from "./htlc.js";
 
 export class MockLightning implements LightningAdapter {
   private invoices = new Map<string, { inv: HoldInvoice; state: HoldInvoiceState }>();
@@ -60,6 +60,33 @@ export class MockLightning implements LightningAdapter {
     throw new Error("keine passende ACCEPTED-Invoice fuer diese Preimage");
   }
 
+  // ---------------------------------------------------- Gegenrichtung (4.6)
+  private rechnungen = new Map<string, { preimage: Uint8Array; amountSats: number; bezahlt: boolean }>();
+  /** Simuliert einen Kunden, der das Preimage bis nach Ablauf zurueckhaelt. */
+  public kundeHaeltZurueck = false;
+  /** Das zuletzt verlangte cltv_limit (zur Pruefung im Test). */
+  public letztesCltvLimit?: number;
+
+  async createInvoice(amountSats: number): Promise<{ bolt11: string; paymentHash: Uint8Array; amountSats: number }> {
+    const preimage = generatePreimage();
+    const paymentHash = hashlock(preimage);
+    this.rechnungen.set(toHex(paymentHash), { preimage, amountSats, bezahlt: false });
+    return { bolt11: `lnmockinv:${toHex(paymentHash)}`, paymentHash, amountSats };
+  }
+
+  async payInvoice(bolt11: string, cltvLimitBlocks: number): Promise<{ preimage: Uint8Array }> {
+    this.letztesCltvLimit = cltvLimitBlocks;
+    const r = this.rechnungen.get(bolt11.replace("lnmockinv:", ""));
+    if (!r || r.bezahlt) throw new Error("unbekannte oder bezahlte Rechnung");
+    if (this.lpSats < r.amountSats) throw new Error("LP hat zu wenig sats");
+    // Haelt der Kunde zurueck, laeuft die Zahlung nach cltv_limit ab: sats bleiben beim LP.
+    if (this.kundeHaeltZurueck) throw new Error("Zahlung nach cltv_limit abgelaufen");
+    this.lpSats -= r.amountSats;
+    this.userSats += r.amountSats;
+    r.bezahlt = true;
+    return { preimage: r.preimage };
+  }
+
   async cancelHoldInvoice(paymentHash: Uint8Array): Promise<void> {
     const rec = this.invoices.get(toHex(paymentHash));
     if (!rec) return;
@@ -71,6 +98,11 @@ export class MockLightning implements LightningAdapter {
   }
 }
 
+/**
+ * Solana-HTLC im Speicher. `lpLamports` ist das Konto des Initiators (sperrt),
+ * `userLamports` das des Empfaengers (loest ein) – in der Gegenrichtung (4.6)
+ * sperrt der Kunde und der LP loest ein.
+ */
 export class MockSolana implements SolanaHtlcAdapter {
   private locks = new Map<string, SolanaLock>();
   public lpLamports: number;

@@ -70,3 +70,57 @@ export function validateTimelockOrdering(p: TimelockParams): TimelockCheck {
   }
   return { ok: true, tSolSecs: p.tSolSecs, tLnSecs, marginSecs: actualMargin };
 }
+
+// ------------------------------------------------------------ SOL -> Lightning (4.6)
+
+/**
+ * Langsame Bloecke fuer die Gegenrichtung: Hier muss die Lightning-Frist
+ * VOR der Solana-Frist enden. Laufen die Bloecke langsamer als gedacht, endet
+ * sie spaeter – also rechnen wir mit langsamen Bloecken (20 min statt 10).
+ */
+export const SLOW_BLOCK_SECS = 1200;
+
+export interface ReverseTimelockParams {
+  /** Restlaufzeit des Solana-HTLC des Kunden in Sekunden. */
+  tSolSecs: number;
+  /** Hoechstlaufzeit der Lightning-Zahlung des LP (cltv_limit) in Bloecken. */
+  lnCltvLimitBlocks: number;
+  slowBlockSecs?: number;
+  minSafetyMarginSecs?: number;
+}
+
+/**
+ * Gegenrichtung (Kunde sperrt SOL, LP zahlt die Rechnung des Kunden):
+ * Der Kunde koennte das Preimage zurueckhalten, bis die Solana-Frist
+ * abgelaufen ist, dann SOL zurueckholen UND die Lightning-Zahlung annehmen.
+ * Deshalb zahlt der LP nur mit einem `cltv_limit`, dessen Frist auch bei
+ * langsamen Bloecken plus Sicherheitsabstand vor T_sol endet:
+ *   cltv_limit · langsame Blockzeit + Abstand ≤ T_sol.
+ * Dann gilt: Entweder das Preimage kommt vor Ablauf der Lightning-Frist (und
+ * der LP hat mindestens den Abstand, um SOL einzuloesen), oder die Zahlung
+ * scheitert und der LP bekommt seine sats zurueck.
+ */
+export function validateReverseTimelock(p: ReverseTimelockParams): TimelockCheck {
+  const blockSecs = p.slowBlockSecs ?? SLOW_BLOCK_SECS;
+  const margin = p.minSafetyMarginSecs ?? MIN_SAFETY_MARGIN_SECS;
+  const tLnSecs = p.lnCltvLimitBlocks * blockSecs;
+  const actualMargin = p.tSolSecs - tLnSecs;
+  const ergebnis = { tSolSecs: p.tSolSecs, tLnSecs, marginSecs: actualMargin };
+  if (!Number.isSafeInteger(p.lnCltvLimitBlocks) || p.lnCltvLimitBlocks <= 0) {
+    return { ok: false, reason: "cltv_limit muss eine positive ganze Zahl (Bloecke) sein", ...ergebnis };
+  }
+  if (p.tSolSecs <= 0) return { ok: false, reason: "tSolSecs muss > 0 sein", ...ergebnis };
+  if (actualMargin < margin) {
+    return {
+      ok: false,
+      reason: `Lightning-Frist (${tLnSecs}s bei langsamen Bloecken) plus Abstand ${margin}s muss vor der Solana-Frist (${p.tSolSecs}s) enden`,
+      ...ergebnis,
+    };
+  }
+  return { ok: true, ...ergebnis };
+}
+
+/** Groesstes cltv_limit, das zu einer Solana-Restlaufzeit passt (0 = zu kurz fuer jede Zahlung). */
+export function maxCltvLimitFuer(tSolSecs: number, slowBlockSecs = SLOW_BLOCK_SECS, minSafetyMarginSecs = MIN_SAFETY_MARGIN_SECS): number {
+  return Math.max(0, Math.floor((tSolSecs - minSafetyMarginSecs) / slowBlockSecs));
+}

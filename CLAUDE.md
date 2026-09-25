@@ -41,7 +41,7 @@ python3 scripts/smoke_test.py packages/app/dist         # braucht playwright + c
 bash scripts/build-site.sh /tmp/site                     # Website bauen (Ziel wird gelöscht!)
 ```
 
-Stand 25.09.2026 (nach 4.8): protocol 1025 grün (5 übersprungen), node 180 grün
+Stand 25.09.2026 (nach 4.6a): protocol 1030 grün (5 übersprungen), node 180 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
 in `tools.test.ts`), app 249 grün, Leak-Tests 36 grün + 3 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test).
@@ -110,6 +110,8 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   senden – `app/test/dm-verdrahtung.test.ts` prüft das.
 - **Datenschutzbericht:** Aussagen nur über `packages/protocol/src/privacy-facts.ts`.
 - **Swaps:** Einlösen nur bis Frist minus 10 Minuten (`claimAllowed()`), Vorabsimulation an.
+  Richtung SOL → Lightning (seit 4.6): der LP zahlt nur mit `cltv_limit` nach
+  `validateReverseTimelock()` – Lightning muss dort **vor** Solana enden. Regeln in `docs/SWAPS.md`.
 - **Anchor-Fehler-Enum:** neue Varianten nur ANS ENDE – Fehlercodes dürfen sich nicht verschieben.
 - **Programm-ID ungeklärt:** Code nutzt `B6W19U…`, laut `DEPLOY.md` wurde nach
   `3UmRR…` deployt. Nicht ändern ohne MENSCH-Entscheidung (Schritt 0.G).
