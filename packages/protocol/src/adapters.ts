@@ -31,6 +31,17 @@ export interface LightningAdapter {
   settleHoldInvoice(preimage: Uint8Array): Promise<void>;
   /** LP/Nutzer bricht ab -> Zahlung wird an den Nutzer zurueckerstattet. */
   cancelHoldInvoice(paymentHash: Uint8Array): Promise<void>;
+  /**
+   * Gegenrichtung (4.6), Kunde: normale Rechnung aus seiner Wallet. Das
+   * Preimage bleibt in der Wallet – bekannt wird es erst beim Bezahlen.
+   */
+  createInvoice?(amountSats: number): Promise<{ bolt11: string; paymentHash: Uint8Array; amountSats: number }>;
+  /**
+   * Gegenrichtung (4.6), LP: zahlt eine Rechnung, deren HTLC hoechstens
+   * `cltvLimitBlocks` Bloecke laeuft; liefert das Preimage. Wirft, wenn die
+   * Zahlung scheitert – dann bleiben die sats beim LP.
+   */
+  payInvoice?(bolt11: string, cltvLimitBlocks: number): Promise<{ preimage: Uint8Array }>;
 }
 
 export interface SolanaLock {

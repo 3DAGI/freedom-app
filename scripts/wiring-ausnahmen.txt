@@ -249,3 +249,7 @@ payment-rail.ts|betragText|Baustein 4.1a; Anzeige ab 4.1b
 
 zap.ts|buildZapReceipt|Quittung (Kind 9735) schreibt nach NIP-57 der LNURL-Server des Empfängers; die App baute sie bis 4.1b selbst (mit Preimage unter der eigenen Identität) – entfallen; ein eigener Zap-Server im Knoten wäre der künftige Nutzer
 price-ticker.ts|medianPrice|abgelöst durch marktKurs() – eine Stimme je Absender statt je Event (4.4); kein Pfad nutzt ihn mehr
+swap-umgekehrt.ts|pruefeRueckSwapSperre|Prüfung des LP vor dem Zahlen (Gegenrichtung 4.6a); nutzt der LP-Daemon ab 4.6b
+swap-umgekehrt.ts|runReverseSwap|Simulation der Gegenrichtung mit Adaptern (4.6a), wie runSwap für die Hinrichtung
+timelock.ts|maxCltvLimitFuer|Fristregel Gegenrichtung (4.6a); LP-Daemon ab 4.6b
+timelock.ts|validateReverseTimelock|Fristregel Gegenrichtung (4.6a); LP-Daemon ab 4.6b, App ab 4.6c

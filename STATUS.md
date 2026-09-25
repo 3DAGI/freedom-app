@@ -3501,3 +3501,41 @@ falsches Preimage fällt auf), app 248 → 249 (Verdrahtung).
 Endstand: protocol 1025 · node 180 · app 249 · Leak-Tests 36 grün + 3 todo · 0
 rot · check-wiring `--streng` 0 offen · innerHTML streng 0 unbewertet ·
 Smoke-Test bestanden.
+
+## 91. Swaps in beide Richtungen, Teil a: Gegenrichtung im Protokoll (Schritt 4.6)
+
+**Die Gegenrichtung (SOL → Lightning):** Die Wallet des Kunden erstellt eine
+Rechnung (R bleibt dort), der Kunde sperrt SOL mit deren Hash für den LP, der
+LP prüft Sperre und Rechnung, zahlt und löst mit dem Preimage aus der Zahlung
+die SOL ein.
+
+**Fristregel umgekehrt (`timelock.ts`):** In der Hinrichtung muss Lightning
+länger laufen als Solana. Hier muss es **vor** Solana enden – sonst hält der
+Kunde R zurück, holt nach T_sol seine SOL zurück und nimmt trotzdem die
+Lightning-Zahlung an. Weil langsame Blöcke die Frist verlängern, rechnet
+`validateReverseTimelock` mit 20 Minuten je Block: `cltv_limit · 20 min + 1 h ≤
+T_sol`; `maxCltvLimitFuer` liefert das größte passende Limit.
+
+**Adapter und Mocks:** `createInvoice` (Kunde) und `payInvoice(bolt11,
+cltvLimit)` (LP), optional; `MockLightning` kann beides und einen Kunden
+simulieren, der R zurückhält.
+
+**Prüfung des LP (`pruefeRueckSwapSperre`)** als eigene Funktion – genau das tut
+der LP-Daemon in 4.6b mit echter Kette und Rechnung: Empfänger, Betrag,
+Hashlock gleich Rechnungshash, nicht abgeschlossen, Frist lang genug.
+
+**Simulation `runReverseSwap`** mit Fehlerpfaden ohne Verlust: LP zahlt nicht,
+Kunde hält R zurück, falscher Hashlock, zu kurze Frist.
+
+**`docs/SWAPS.md`:** beide Richtungen, Fristregeln, Einlösen nur bis T_sol −
+10 min ohne `skipPreflight`, Blockadeschutz (Vorab-Gebühr, kurze Fristen),
+Relayer für Nutzer ohne SOL, eingeschränkte Macaroon für den LP-Daemon
+(`lncli bakemacaroon … info:read invoices:read invoices:write offchain:read
+offchain:write`, nie `admin.macaroon`).
+
+**Tests:** protocol 1025 → 1030 (`swap-umgekehrt.test.ts`). Die vier neuen
+Exporte sind bis 4.6b/c begründet ausgenommen.
+
+Endstand: protocol 1030 · node 180 · app 249 · Leak-Tests 36 grün + 3 todo · 0
+rot · check-wiring `--streng` 0 offen · innerHTML streng 0 unbewertet ·
+Smoke-Test bestanden.
