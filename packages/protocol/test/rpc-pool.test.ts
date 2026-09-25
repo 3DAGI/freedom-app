@@ -183,3 +183,20 @@ test("Nutzereingabe: nur brauchbare URLs, begrenzte Anzahl", () => {
   assert.deepEqual(parseUserEndpoints(null), []);
   assert.equal(parseUserEndpoints(Array.from({ length: 20 }, (_, i) => `https://r${i}.io`).join(",")).length, 5);
 });
+
+test("ohne fetchImpl: das globale fetch wird ohne fremdes this aufgerufen (wie im Browser)", async () => {
+  // Browser werfen „Illegal invocation“, wenn fetch als Methode eines anderen
+  // Objekts laeuft. Node nicht – deshalb blieb der Fehler bis 4.2b unbemerkt:
+  // In der App scheiterte jeder Pool-Aufruf, auch die Guthaben-Anzeige.
+  const echt = globalThis.fetch;
+  globalThis.fetch = function (this: unknown) {
+    if (this !== undefined && this !== globalThis) throw new TypeError("Illegal invocation");
+    return Promise.resolve(new Response(JSON.stringify({ jsonrpc: "2.0", id: 1, result: { value: 7 } })));
+  } as typeof fetch;
+  try {
+    const pool = new RpcPool([{ url: "https://a.example" }]);
+    assert.equal(await pool.getBalance("x"), 7);
+  } finally {
+    globalThis.fetch = echt;
+  }
+});

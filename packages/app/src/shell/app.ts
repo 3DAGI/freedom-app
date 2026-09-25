@@ -12,6 +12,7 @@ import { startHero } from "../hero.js";
 import { LANGS, Lang, detectLang, getLang, setLang, t } from "../i18n.js";
 import { escapeHtml, pkShort } from "../shell-logic.js";
 import { nimmBunkerAuf, wireBunkerKarte } from "./bunker.js";
+import { wireEingebauteWallet } from "./eingebaute-wallet.js";
 import { zeigeDatenschutz } from "./datenschutz.js";
 import {
   ensurePool,
@@ -737,6 +738,7 @@ function starte(): void {
   if (swapBackupBtn) swapBackupBtn.onclick = () => void exportSwapBackup();
   $("#earn-refresh").onclick = loadEarnings;
   $("#sol-connect").onclick = () => void connectSolana();
+  wireEingebauteWallet();
   // NWC: Lightning ohne Browser-Extension — der einzige Weg, der auf iOS geht.
   const nwcConnectBtn = $("#nwc-connect");
   if (nwcConnectBtn) nwcConnectBtn.onclick = () => void connectNwc();

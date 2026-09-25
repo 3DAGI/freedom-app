@@ -3221,3 +3221,39 @@ nichts).
 Endstand: protocol 1012 · node 176 · app 234 · Leak-Tests 35 grün + 3 todo · 0
 rot · check-wiring `--streng` 0 offen, 0 Wallet-Zugriffe außerhalb der Schienen ·
 innerHTML streng 0 unbewertet · Smoke-Test bestanden.
+
+## 84. SOL-Wallet, Teil b: Oberfläche der eingebauten Wallet (Schritt 4.2)
+
+**Wallet-Tab → Solana → „Eingebaute Wallet“** (`shell/eingebaute-wallet.ts`):
+einrichten verlangt zuerst den Tresor (`verlangeTresor`), dann die 12 Wörter
+einmal; das Feld wird danach geleert. Angezeigt werden die Adresse zum
+Empfangen (kopierbar), das Guthaben, das Tageslimit in SOL (speicherbar) und
+„von diesem Gerät entfernen“ (das Guthaben bleibt auf der Kette, die Wörter
+stellen die Wallet wieder her). Mit Bunker ist der Abschnitt gesperrt – mit
+Hinweis auf eine externe Wallet. Der Text sagt ehrlich, dass die eingebaute
+Wallet Zaps und Trinkgeld zahlt; Tausch und Deposit brauchen vorerst eine
+verbundene Wallet. FAQ: „Brauche ich Phantom oder eine andere Solana-Wallet?“
+
+**Alter Fehler behoben (`protocol/src/rpc-pool.ts`):** Der Pool speicherte
+`fetch` und rief es als Methode auf – im Browser „Illegal invocation“. Damit
+scheiterte in der App jede Pool-Abfrage: Guthaben (auch externer Wallets),
+die RPC-Prüfung in den Settings, `solRpcUrl()`. Node stört das nicht, deshalb
+waren alle Tests grün. Jetzt ein Pfeil um `fetch`; Regressionstest, der das
+Browser-Verhalten nachstellt (vorher rot, jetzt grün). Fallstrick in CLAUDE.md.
+
+**E2E im Browser** (Relay und Solana-RPC gemockt, öffentliche Testphrase):
+Tresor einrichten → fremde Wörter abgelehnt („gehören nicht zu deiner
+Identität“) → Adresse `HAgk14…` wie in Phantom, Guthaben 2 SOL → weder Wörter
+noch Schlüssel in localStorage → Limit 0,001 SOL → Zap 0,0005 SOL ohne Dialog
+gesendet → Zap 0,002 SOL: Dialog (Betrag, schon gesendet 0,0005 SOL),
+abgelehnt → „nicht freigegeben – nichts gesendet“, keine Transaktion;
+bestätigt → gesendet → beide Transaktionen gültig signiert, von `HAgk14…` an
+Bobs Adresse aus seinem Profil, 500.000 und 2.000.000 Lamports → Neuladen,
+Tresor entsperren → Wallet und Limit noch da.
+
+**Tests:** protocol 1012 → 1013 (RpcPool ohne `fetchImpl`), app 234 → 235
+(Verdrahtung des Abschnitts).
+
+Endstand: protocol 1013 · node 176 · app 235 · Leak-Tests 35 grün + 3 todo · 0
+rot · check-wiring `--streng` 0 offen, 0 Wallet-Zugriffe außerhalb der Schienen ·
+innerHTML streng 0 unbewertet · Smoke-Test bestanden · Website gebaut.

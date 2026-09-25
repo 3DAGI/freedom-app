@@ -144,3 +144,20 @@ test("Solana-Schiene: ohne Freigabe wird nichts gebaut und nichts gesendet", asy
   assert.equal(gesendet[0].verifySignatures(), true);
   assert.equal(b.rail, "solana");
 });
+
+test("Verdrahtung (4.2b): Abschnitt im Wallet-Tab – Tresor zuerst, Bunker gesperrt, alle Knoepfe vorhanden", async () => {
+  const { readFileSync } = await import("node:fs");
+  const ui = readFileSync(new URL("../src/shell/eingebaute-wallet.ts", import.meta.url), "utf8");
+  assert.match(ui, /if \(!\(await verlangeTresor\("die eingebaute Wallet"\)\)\) return;/);
+  assert.match(ui, /const adresse = mitBunker\(\) \? undefined : eingebauteWallet\.adresse\(\);/);
+  assert.match(ui, /await eingebauteWallet\.einrichten\(feld\.value, state\.keypair\?\.pk \?\? ""\);\n\s+feld\.value = "";/);
+  const html = readFileSync(new URL("../src/shell/index.html", import.meta.url), "utf8");
+  for (const id of ["solw-box", "solw-einrichten", "solw-bereit", "solw-adresse", "solw-guthaben", "solw-limit", "solw-limit-speichern", "solw-kopieren", "solw-entfernen", "solw-status"]) {
+    assert.match(html, new RegExp(`id="${id}"`), id);
+    if (id !== "solw-box") assert.ok(ui.includes(`"#${id}"`), `${id} wird benutzt`);
+  }
+  const app = readFileSync(new URL("../src/shell/app.ts", import.meta.url), "utf8");
+  assert.match(app, /wireEingebauteWallet\(\);/);
+  const tab = readFileSync(new URL("../src/shell/tabs/waehrung.ts", import.meta.url), "utf8");
+  assert.match(tab, /zeigeEingebauteWallet\(\);/);
+});

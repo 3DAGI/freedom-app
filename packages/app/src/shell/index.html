@@ -299,6 +299,27 @@
           <div id="sol-status" class="mono-sm"></div>
           <input id="sol-addr" class="mono-sm hidden" placeholder="SOL address" />
           <button id="sol-connect" class="ghost">Verbinden</button>
+          <!-- Eingebaute Wallet (4.2): fuer alle ohne Browser-Wallet. Schluessel aus
+               den 12 Woertern, nur im Tresor; Zahlungen ueber dem Tageslimit fragen nach. -->
+          <div id="solw-box" style="margin-top:12px">
+            <div class="mono-sm"><b>Eingebaute Wallet</b> – ohne Browser-Wallet. Schlüssel aus deinen 12 Wörtern, nur im Tresor. Zahlt Zaps und Trinkgeld; Tausch und Deposit brauchen eine verbundene Wallet.</div>
+            <button id="solw-einrichten" class="ghost hidden" style="width:auto;padding:6px 10px;margin-top:6px">einrichten</button>
+            <div id="solw-bereit" class="hidden" style="margin-top:6px">
+              <div class="mono-sm">Empfangen an:</div>
+              <div id="solw-adresse" class="mono-sm" style="word-break:break-all"></div>
+              <div id="solw-guthaben" class="mono-sm"></div>
+              <div style="display:flex;gap:6px;align-items:center;margin-top:6px;flex-wrap:wrap">
+                <input id="solw-limit" type="number" min="0" step="0.01" class="mono-sm" style="width:7em" />
+                <span class="mono-sm">SOL in 24 Std. ohne Nachfrage</span>
+                <button id="solw-limit-speichern" class="ghost" style="width:auto;padding:6px 10px">speichern</button>
+              </div>
+              <div style="display:flex;gap:6px;margin-top:6px">
+                <button id="solw-kopieren" class="ghost" style="width:auto;padding:6px 10px">Adresse kopieren</button>
+                <button id="solw-entfernen" class="ghost" style="width:auto;padding:6px 10px">von diesem Gerät entfernen</button>
+              </div>
+            </div>
+            <div id="solw-status" class="mono-sm"></div>
+          </div>
         </div></div></div>
           <div class="subpane" data-subpane="wallet:swap"><div class="card"><h3>Tauschangebote</h3><div id="swap-book" class="mono-sm">—</div><div id="lp-offers" class="mono-sm"></div><div id="swap-invoice" class="mono-sm hidden">
             <!-- Der Zahl-Link bleibt gesperrt, bis die Gegenleistung auf der

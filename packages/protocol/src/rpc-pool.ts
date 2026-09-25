@@ -101,7 +101,9 @@ export class RpcPool {
     if (this.states.length === 0) throw new Error("RpcPool braucht mindestens einen Endpunkt");
     this.timeoutMs = opts.timeoutMs ?? 10_000;
     this.cooldownMs = opts.cooldownMs ?? 60_000;
-    this.fetchImpl = opts.fetchImpl ?? fetch;
+    // Nicht `fetch` selbst speichern: Als Methode dieses Objekts aufgerufen,
+    // wirft es im Browser „Illegal invocation“ (Node merkt das nicht).
+    this.fetchImpl = opts.fetchImpl ?? ((input, init) => fetch(input, init));
   }
 
   get urls(): string[] {
