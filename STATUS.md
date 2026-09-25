@@ -3257,3 +3257,46 @@ Tresor entsperren → Wallet und Limit noch da.
 Endstand: protocol 1013 · node 176 · app 235 · Leak-Tests 35 grün + 3 todo · 0
 rot · check-wiring `--streng` 0 offen, 0 Wallet-Zugriffe außerhalb der Schienen ·
 innerHTML streng 0 unbewertet · Smoke-Test bestanden · Website gebaut.
+
+## 85. SOL-Wallet, Teil c: externe Wallets über den Wallet Standard (Schritt 4.2)
+
+**Wallet Standard ohne Abhängigkeit (`app/src/wallet-standard.ts`):** Die
+meisten Browser-Wallets (Backpack, Solflare, Phantom …) melden sich heute über
+den Wallet Standard an. Das Protokoll sind zwei Ereignisse – die App ruft
+„app-ready“ mit einer Registrierung aus, später ladende Wallets rufen
+„register-wallet“ –, dafür lohnt kein Paket. Genommen werden nur Wallets mit
+einer Solana-Kette und einer Signierfunktion; `alsAnbieter()` macht daraus die
+Form, die der Rest der App kennt, und bietet nur an, was die Wallet kann.
+
+**Verbinden (`solana-connect.ts`, `tabs/waehrung.ts`):** Wallet Standard vor
+dem alten `window.solana`. Mehrere Wallets → Auswahl als Knöpfe (Namen per
+`textContent`); gemerkt wird nur der Name (kein Geheimnis), still
+wiederverbunden nur mit dieser Wallet – ohne gemerkte kein stilles Popup. Die
+Kette folgt dem eingestellten RPC (`ketteAusRpc`: Devnet/Testnet am Namen,
+sonst Mainnet); kann die Wallet sie nicht, sagt die App das. Die
+Zahlwege-Prüfung erlaubt `signAndSendTransaction` im Adapter begründet –
+aufgerufen wird er nur von der Schiene.
+
+**E2E im Browser:** zwei Test-Wallets nach dem Wallet Standard, RPC auf Devnet
+gestellt → beim Start keine Verbindung (nichts gemerkt) → Verbinden zeigt beide
+zur Auswahl → „Testwallet Zwei“ verbunden → Zap 0,003 SOL an Bob: die Wallet
+bekommt `solana:devnet`, ihr Konto und eine Überweisung von ihrer Adresse an
+Bobs Adresse über 3.000.000 Lamports, kein Limit-Dialog (externe Wallets fragen
+selbst) → Neuladen: still mit genau dieser Wallet verbunden. Der E2E der
+eingebauten Wallet (§84) läuft unverändert grün.
+
+**Mobile Wallet Adapter (MENSCH-Frage):** Nativ auf Android/Seeker bräuchte es
+`@solana-mobile/wallet-standard-mobile` (0.6.0, 1,1 MB entpackt, zieht das
+MWA-Protokoll und `@solana/kit` nach). Es meldet MWA als Standard-Wallet an –
+der Code aus diesem Schritt nähme sie ohne Umbau. Bis dahin: Deeplink in den
+Wallet-Browser oder die eingebaute Wallet.
+
+**Tests:** app 235 → 240 (`wallet-standard.test.ts`: Anmeldung in beide
+Richtungen, fremde Ketten und Wallets ohne Signierfunktion ausgefiltert,
+kaputte Anmeldung stört nicht, Kette aus dem RPC, Signieren mit richtiger Kette
+und echter Signatur, falsche Kette und kaputte Signatur abgelehnt, nur
+angebotene Funktionen, Auswahl, stilles Verbinden nur mit gemerkter Wallet).
+
+Endstand: protocol 1013 · node 176 · app 240 · Leak-Tests 35 grün + 3 todo · 0
+rot · check-wiring `--streng` 0 offen, 0 Wallet-Zugriffe außerhalb der Schienen ·
+innerHTML streng 0 unbewertet · Smoke-Test bestanden.

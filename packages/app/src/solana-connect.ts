@@ -20,7 +20,9 @@
  * Abhängigkeit funktioniert — und "funktioniert überall" schlägt "elegant".
  */
 
-export type SolanaConnectMethod = "injected" | "mwa" | "deeplink" | "none";
+import { alsAnbieter, solanaWallets } from "./wallet-standard.js";
+
+export type SolanaConnectMethod = "standard" | "injected" | "mwa" | "deeplink" | "none";
 
 export interface SolanaProvider {
   connect(opts?: { onlyIfTrusted?: boolean }): Promise<{ publicKey: { toBase58(): string } }>;
@@ -64,9 +66,15 @@ export function detectSolanaEnvironment(userAgentOverride?: string): SolanaEnvir
   // Browser ist er nur indirekt erkennbar.
   const hasMwa = isAndroid && typeof (w as { navigator?: unknown }).navigator !== "undefined";
 
+  // Wallet Standard (4.2c): so melden sich die meisten Browser-Wallets heute an.
+  const standard = typeof (globalThis as { dispatchEvent?: unknown }).dispatchEvent === "function" ? solanaWallets().map((x) => x.name) : [];
+
   let method: SolanaConnectMethod;
   let hint: string;
-  if (hasInjected) {
+  if (standard.length) {
+    method = "standard";
+    hint = `Wallet erkannt: ${standard.join(", ")}.`;
+  } else if (hasInjected) {
     method = "injected";
     hint = inWalletBrowser
       ? "Wallet-Browser erkannt — Verbinden funktioniert direkt."
@@ -108,6 +116,8 @@ export interface SolanaConnection {
   pubkey: string;
   method: SolanaConnectMethod;
   provider?: SolanaProvider;
+  /** Name der Wallet (Wallet Standard) – zum stillen Wiederverbinden. */
+  name?: string;
 }
 
 export interface ConnectOptions {
@@ -116,6 +126,12 @@ export interface ConnectOptions {
   /** Wird aufgerufen, wenn nur noch ein Deeplink bleibt. */
   onNeedsDeeplink?: (links: { phantom: string; solflare: string }, hint: string) => void;
   userAgentOverride?: string;
+  /** Mehrere Wallets angemeldet: welche? (Index oder null = abbrechen) */
+  waehle?: (namen: string[]) => Promise<number | null>;
+  /** Zuletzt benutzte Wallet – nur mit ihr wird still wiederverbunden. */
+  gemerkt?: string | null;
+  /** Kette zum eingestellten RPC (`ketteAusRpc`), Standard Mainnet. */
+  kette?: () => Promise<string>;
 }
 
 /**
@@ -132,6 +148,28 @@ export async function connectSolanaWallet(opts: ConnectOptions = {}): Promise<So
     solflare?: SolanaProvider;
   };
   const provider = w.solana ?? w.phantom?.solana ?? w.solflare;
+
+  // Wallet Standard zuerst: Wer sich so anmeldet, kann auch Devnet und sagt,
+  // was er kann. Still nur mit der zuletzt benutzten Wallet.
+  const standard = env.method === "standard" ? solanaWallets() : [];
+  if (standard.length) {
+    let gewaehlt = opts.silent ? standard.find((x) => x.name === opts.gemerkt) : standard.length === 1 ? standard[0] : undefined;
+    if (!opts.silent && !gewaehlt) {
+      const i = await opts.waehle?.(standard.map((x) => x.name));
+      if (i === null || i === undefined || !standard[i]) return null;
+      gewaehlt = standard[i];
+    }
+    if (gewaehlt) {
+      const anbieter = alsAnbieter(gewaehlt, opts.kette ?? (async () => "solana:mainnet"));
+      try {
+        const resp = await anbieter.connect(opts.silent ? { onlyIfTrusted: true } : undefined);
+        return { pubkey: resp.publicKey.toBase58(), method: "standard", provider: anbieter, name: gewaehlt.name };
+      } catch (e) {
+        if (opts.silent) return null;
+        throw new Error(`Wallet hat die Verbindung abgelehnt: ${(e as Error).message}`);
+      }
+    }
+  }
 
   if (provider && typeof provider.connect === "function") {
     try {
