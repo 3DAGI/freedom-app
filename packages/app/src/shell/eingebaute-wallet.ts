@@ -6,6 +6,8 @@
  * gehoeren dann nicht auf dieses Geraet.
  */
 import { EingebauteSolWallet, type Nachfrage } from "../sol-wallet.js";
+import { ausLamports, solText } from "../preis-anzeige.js";
+import { aktuellerKurs } from "./marktkurs.js";
 import { mitBunker, solRpcUrl, state } from "./state.js";
 import { geheim, verlangeTresor } from "./tresor.js";
 import { $, toast } from "./ui.js";
@@ -15,11 +17,6 @@ export const eingebauteWallet = new EingebauteSolWallet(geheim);
 /** Die eingebaute Wallet, wenn sie hier benutzbar ist (eingerichtet, Tresor offen, kein Bunker). */
 export function benutzbareEingebauteWallet(): EingebauteSolWallet | undefined {
   return !mitBunker() && eingebauteWallet.eingerichtet() ? eingebauteWallet : undefined;
-}
-
-/** Lamports als SOL-Text, z. B. „0,05 SOL“. */
-export function solText(lamports: number): string {
-  return `${(lamports / 1e9).toLocaleString("de-DE", { maximumFractionDigits: 9 })} SOL`;
 }
 
 /**
@@ -77,7 +74,7 @@ export function zeigeEingebauteWallet(): void {
     try {
       const { fetchSolBalance } = await import("../solana-connect.js");
       const { lamports } = await fetchSolBalance(adresse, await solRpcUrl());
-      $("#solw-guthaben").textContent = `Guthaben: ${solText(lamports)}`;
+      $("#solw-guthaben").textContent = `Guthaben: ${ausLamports(lamports, aktuellerKurs())}`;
     } catch {
       $("#solw-guthaben").textContent = "Guthaben: nicht abrufbar (RPC)";
     }

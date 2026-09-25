@@ -111,6 +111,11 @@ async function bekannteProvider(): Promise<ScoredProvider[]> {
   return providerCache;
 }
 
+/** Das Angebot (Kind 38025) eines bekannten Providers – Preis und Kurs (4.4b). */
+export async function angebotVon(pk: string): Promise<ScoredProvider["caps"] | undefined> {
+  return (await bekannteProvider()).find((c) => c.caps.pubkey === pk)?.caps;
+}
+
 /** Auto-Matchmaking: beste Provider fuer ein Tier (5min Cache). Kein manuelles pubkey. */
 export async function findProviders(tier: string): Promise<ScoredProvider[]> {
   return matchProviders(await bekannteProvider(), tier as "free" | "classic" | "pro", { allowlist: getAllowlist() });

@@ -14,10 +14,12 @@ import {
   toHex,
 } from "@freedomstack/protocol";
 import { escapeHtml, pkShort } from "../../shell-logic.js";
+import { anbieterKursWarnung, depositDeckel } from "../../preis-anzeige.js";
 import {
   ensurePool,
   KIND_SWAP_REQUEST,
   KIND_SWAP_RESPONSE,
+  angebotVon,
   mitBunker,
   mitRohemSchluessel,
   signiere,
@@ -25,6 +27,7 @@ import {
   state,
 } from "../state.js";
 import { zeigeEingebauteWallet } from "../eingebaute-wallet.js";
+import { aktualisiereKurs, zeigeKurs } from "../marktkurs.js";
 import { geheim, verlangeTresor } from "../tresor.js";
 import { $, toast, updateSidebarBalances } from "../ui.js";
 import { updateBudgetBar } from "./agent.js";
@@ -52,6 +55,8 @@ export async function loadWallet(): Promise<void> {
   // Solana still wiederverbinden, wenn die Seite schon einmal erlaubt wurde.
   if (!solWallet.connected) void connectSolana(true);
   zeigeEingebauteWallet();
+  zeigeKurs();
+  void aktualisiereKurs().then(() => zeigeEingebauteWallet());
 
   try {
     const pool = await ensurePool();
@@ -575,6 +580,19 @@ export async function startDeposit(): Promise<void> {
     statusEl.className = "mono-sm warn";
     return;
   }
+  // Deckel je 1k Tokens aus dem Preis des Anbieters und dem Marktkurs (4.4b) –
+  // vorher fest 1000 Lamports, mit richtiger Umrechnung weit unter jedem Preis.
+  const [markt, angebot] = await Promise.all([aktualisiereKurs(), angebotVon(providerPk)]);
+  if (!markt || !angebot) {
+    statusEl.textContent = !markt
+      ? "Kein Marktkurs SOL/sats gefunden – ohne ihn wäre der Preis in SOL geraten."
+      : "Angebot des Providers nicht gefunden – sein Preis ist unbekannt.";
+    statusEl.className = "mono-sm warn";
+    return;
+  }
+  const kursWarnung = anbieterKursWarnung(angebot.kurs, markt);
+  if (kursWarnung && !confirm(`${kursWarnung} Trotzdem hinterlegen?`)) return;
+  const maxLamportsPerKToken = depositDeckel(angebot.textRatePerKTokenMsat, markt);
   // Das Preimage des Deposits ist ein Geld-Geheimnis – vor dem Sperren der Tresor.
   if (!(await verlangeTresor("das Deposit"))) return;
 
@@ -653,7 +671,7 @@ export async function startDeposit(): Promise<void> {
         spendLamports,
         refundLamports,
         timelockUnix: Math.floor(Date.now() / 1000) + 7200,
-        maxLamportsPerKToken: 1000,
+        maxLamportsPerKToken,
       }));
     await pool.publish(ev);
 
