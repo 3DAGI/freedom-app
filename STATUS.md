@@ -2886,3 +2886,29 @@ bringt den GX10-Knoten ohnehin auf `main`.
 Endstand: protocol 993 · node 176 · app 215 · Leak-Tests 28 grün + 4 todo · 0
 rot · check-wiring `--streng` 0 offen · innerHTML streng 0 unbewertet ·
 Smoke-Test bestanden.
+
+## 74. Verschlüsselte Anhänge, Teil a: Protokoll-Baustein (Schritt 2.4)
+
+Bisher gingen Chat-Anhänge über 80 KB im Klartext ins Blob-Netz (Chunks als
+Hex) oder zu einem Blossom-Server, dazu Name und Typ im öffentlichen Manifest –
+auch wenn die Direktnachricht selbst verschlüsselt war.
+
+**`protocol/src/datei-krypto.ts`:** `verschluesseleDatei()` – AES-256-GCM
+(`@noble/ciphers`, schon Abhängigkeit) mit frischem Schlüssel und frischer
+Nonce je Datei, wie NIP-17 Kind 15 mit `aes-gcm`. Zurück kommen das Chiffrat
+und ein `DateiSchluessel` (Schlüssel, Nonce, `ox` = SHA-256 des Klartexts), der
+nur in die verschlüsselte Nachricht gehört. `entschluesseleDatei()` prüft den
+GCM-Tag und danach den Hash; `istDateiSchluessel()` prüft Schlüssel aus fremden
+Nachrichten streng (Längen, Kleinbuchstaben-Hex).
+
+**Aufteilung:** a (dieser Teil) Baustein und Abnahme-Tests; b verdrahtet die
+App: Upload nur als Chiffrat (Blob-Netz und Blossom), Schlüssel in der
+Nachricht, Download entschlüsselt; dort wird die Leak-Regel im App-Szenario
+grün und die Aussage „Anhänge liegen verschlüsselt“ belegt.
+
+**Tests:** protocol 993 → 998 (Rundreise, frische Schlüssel, Manipulation /
+falscher Schlüssel / falscher Hash, strenge Form fremder Schlüssel, Upload ≠
+Klartext über das echte `buildBlob` samt Gegenprobe).
+
+Endstand: protocol 998 · node 176 · app 215 · Leak-Tests 28 grün + 4 todo · 0
+rot · check-wiring `--streng` 0 offen (3 neue Ausnahmen bis 2.4b).

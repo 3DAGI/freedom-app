@@ -79,7 +79,9 @@ für Forward Secrecy. NIP-17 bleibt Rückfall für Kontakte ohne MLS.
 
 ---
 
-## 2.4 Verschlüsselte Anhänge
+## 2.4 Verschlüsselte Anhänge – IN ARBEIT
+
+> Aufgeteilt: a Protokoll-Baustein `datei-krypto.ts` (AES-256-GCM je Datei, Schlüssel/Nonce/Klartext-Hash nur in der Nachricht) ✓, b App (Upload, Nachricht, Download). MLS/MIP-04 folgt mit 2.2b.
 
 - **Stellen:** `packages/app/src/blob-client.ts`, Anhänge im Chat.
 - **Vorgehen:** AES-GCM mit zufälligem Schlüssel je Datei vor dem Upload;
