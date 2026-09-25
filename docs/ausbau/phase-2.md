@@ -93,7 +93,9 @@ für Forward Secrecy. NIP-17 bleibt Rückfall für Kontakte ohne MLS.
 
 ---
 
-## 2.5 Metadaten minimieren
+## 2.5 Metadaten minimieren – IN ARBEIT
+
+> Aufgeteilt: a Ablauf nach NIP-40 je DM-Unterhaltung (im Inhalt exakt, auf dem Umschlag zufällig später, damit er den Sendezeitpunkt nicht verrät; die App blendet Abgelaufenes aus), Kurzzeile im Datenschutzbericht, Wache gegen offene Reaktionen, Lesebestätigungen, Tippanzeigen und Kontaktlisten (die App hat keine davon) ✓; b Kontaktliste optional privat als verschlüsselte NIP-51-Liste (Standard: aus).
 
 - **Vorgehen:** Ablauf nach NIP-40 pro Unterhaltung (mit Hinweis „Löschen ist eine
   Bitte an die Relays“); Lesebestätigungen, Tippanzeige und Reaktionen nur

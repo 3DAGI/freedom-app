@@ -59,6 +59,7 @@ import {
   newCommunity,
   newDm,
   sendChatMessage,
+  setzeAblauf,
   wireKommunikation,
   wireSpacesTab,
   zeigeRaumLeiste,
@@ -556,6 +557,9 @@ function starte(): void {
     chatMediaBtn.onclick = () => chatFileInput.click();
     chatFileInput.onchange = () => { void handleChatFiles(chatFileInput.files); chatFileInput.value = ""; };
   }
+  // Ablauf neuer Nachrichten je Unterhaltung (NIP-40, Schritt 2.5)
+  const ablaufSel = document.getElementById("chat-ablauf") as HTMLSelectElement | null;
+  if (ablaufSel) ablaufSel.onchange = () => setzeAblauf(ablaufSel.value);
   // NEU: Zap-Button neben Eingabefeld
   const zapBtn = $("#chat-zap");
   if (zapBtn) {

@@ -219,6 +219,13 @@
               <textarea id="chat-input" rows="1" data-i18n-ph="chatPlaceholder" placeholder="Message…"></textarea>
               <button id="chat-media-btn" class="ghost copy-btn" title="bild/video/datei anhängen (über das Chunk-Netz)"><span class="ic" data-icon="paperclip"></span></button>
               <input type="file" id="chat-file-input" accept="image/*,video/*,audio/*,.pdf,.txt,.zip" multiple style="display:none" />
+              <select id="chat-ablauf" class="ghost mini" hidden title="Neue Nachrichten verschwinden nach … (NIP-40). Löschen ist eine Bitte an die Relays." aria-label="Ablauf neuer Nachrichten">
+                <option value="">⏱ aus</option>
+                <option value="3600">⏱ 1 Stunde</option>
+                <option value="86400">⏱ 1 Tag</option>
+                <option value="604800">⏱ 7 Tage</option>
+                <option value="2592000">⏱ 30 Tage</option>
+              </select>
               <button id="chat-zap" class="zap-btn" title="zap senden"><svg class="logo-btc" width="13" height="13" viewBox="10.5 0.8 12.6 22.4" fill="#f7931a" aria-label="Bitcoin"><path d="M16.15 12.03c1.44-.36 2.42-1.32 2.24-3.02-.23-2.13-1.98-2.85-4.23-3.05l-.01-2.44h-1.51l-.01 2.38c-.4 0-.81.01-1.21.01l.01-2.39H9.92l-.01 2.44c-.33.01-.65.01-.97.01v-.01H6.88l.01 1.62s1.11-.02 1.09-.01c.61 0 .81.36.87.67v2.77c.04 0 .1.01.16.03h-.16v3.88c-.03.19-.13.49-.54.49.02.01-1.09 0-1.09 0l-.3 1.81h2.55c.34 0 .68.01 1.01.01l.01 2.47h1.51l.01-2.44c.41.01.81.01 1.21.02l-.01 2.43h1.51l.01-2.46c2.58-.15 4.37-.8 4.59-3.18.18-1.93-.73-2.79-2.17-3.14zm-4.7-4.71c.86 0 3.57-.17 3.57 1.53 0 1.63-2.71 1.45-3.57 1.45zm0 7.63v-3.19c1.04 0 4.28-.19 4.28 1.6 0 1.71-3.24 1.59-4.28 1.59z"/></svg></button>
               <button id="chat-send" class="send-btn"><span class="ic" data-icon="send"></span></button>
             </div>

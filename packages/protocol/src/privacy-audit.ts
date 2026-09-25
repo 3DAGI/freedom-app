@@ -290,6 +290,17 @@ export function mixnetImpact(cfg: PrivacyConfig): {
   };
 }
 
+/**
+ * Eine Zeile vorweg (Schritt 2.5): was bei Direktnachrichten verborgen ist
+ * und was nicht. Die IP-Adresse bleibt sichtbar, solange die App nicht ueber
+ * Tor oder ein Mixnetz laeuft – das kann eine Web-App nicht selbst herstellen.
+ */
+export function kurzfassung(cfg: PrivacyConfig): string {
+  const verborgen = cfg.giftWrap ? "Inhalt, Absender: verborgen" : "Inhalt: verborgen; Absender: sichtbar";
+  const ip = cfg.network === "klar" ? "IP-Adresse: sichtbar ohne Tor" : "IP-Adresse: hinter Tor/Mixnetz";
+  return `Kurz: ${verborgen}; ${ip}`;
+}
+
 /** Bericht als Text. */
 export function privacyReport(cfg: PrivacyConfig): string {
   const f = auditPrivacy(cfg);
@@ -297,6 +308,7 @@ export function privacyReport(cfg: PrivacyConfig): string {
   const zeilen = [
     `Datenschutz-Selbstauskunft — ${s.score} von 100`,
     s.headline,
+    kurzfassung(cfg),
     "",
   ];
   for (const x of f) {

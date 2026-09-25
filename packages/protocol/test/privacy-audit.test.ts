@@ -8,7 +8,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  auditPrivacy, summarizePrivacy, mixnetImpact, privacyReport,
+  auditPrivacy, summarizePrivacy, mixnetImpact, privacyReport, kurzfassung,
   DEFAULT_CONFIG, PrivacyConfig,
 } from "../src/privacy-audit.js";
 
@@ -167,4 +167,12 @@ test("Die beste Konfiguration verspricht trotzdem keine Anonymitaet", () => {
   assert.equal(s.critical, 0);
   assert.ok(!/\banonym\b/.test(s.headline), "das Wort 'anonym' darf hier nicht stehen");
   assert.match(s.headline, /so gut.*wie es hier geht/);
+});
+
+test("2.5: Kurzfassung vorweg – Inhalt und Absender verborgen, IP sichtbar ohne Tor", () => {
+  assert.equal(kurzfassung(cfg({ giftWrap: true, network: "klar" })), "Kurz: Inhalt, Absender: verborgen; IP-Adresse: sichtbar ohne Tor");
+  assert.equal(kurzfassung(cfg({ giftWrap: false, network: "klar" })), "Kurz: Inhalt: verborgen; Absender: sichtbar; IP-Adresse: sichtbar ohne Tor");
+  assert.equal(kurzfassung(cfg({ giftWrap: true, network: "tor" })), "Kurz: Inhalt, Absender: verborgen; IP-Adresse: hinter Tor/Mixnetz");
+  const t = privacyReport(cfg({ giftWrap: true, network: "klar" }));
+  assert.equal(t.split("\n")[2], "Kurz: Inhalt, Absender: verborgen; IP-Adresse: sichtbar ohne Tor");
 });

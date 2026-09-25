@@ -15,7 +15,7 @@
  * kann alte Nachrichten lesen. Das loest erst MLS (Schritt 2.2b).
  */
 import { buildEvent, computeEventId, type NostrEvent, type UnsignedEvent } from "./event.js";
-import { giftUnwrapMitSigner, giftWrapMitSigner, KIND_GIFT_WRAP, type GiftWrapOptions } from "./gift-wrap.js";
+import { giftUnwrapMitSigner, giftWrapMitSigner, KIND_GIFT_WRAP, MAX_TIME_JITTER_SECS, type GiftWrapOptions } from "./gift-wrap.js";
 import { LocalSigner, type Signer } from "./signer.js";
 
 export const KIND_PRIVATE_DM = 14;
@@ -33,7 +33,16 @@ export interface PrivateDmInput {
   content: string;
   nowSecs?: number;
   wrapOptions?: GiftWrapOptions;
+  /**
+   * Ablauf nach NIP-40 (Schritt 2.5) in Sekunden ab jetzt: steht im Inhalt
+   * (die App des Empfaengers blendet die Nachricht danach aus) und auf beiden
+   * Umschlaegen (Relays sollen sie loeschen). Loeschen ist eine Bitte.
+   */
+  ablaufSecs?: number;
 }
+
+/** Laengster Ablauf: ein Jahr. */
+export const MAX_ABLAUF_SECS = 365 * 24 * 3600;
 
 export interface PrivateDmOutput {
   /** Umschlag an den Empfaenger – auf dessen Posteingangs-Relays veroeffentlichen. */
@@ -51,11 +60,33 @@ export async function buildPrivateDm(i: PrivateDmInput): Promise<PrivateDmOutput
   const senderPk = signer.publicKey();
   if (!HEX64.test(senderPk)) throw new Error("Absender muss ein 64-stelliger Hex-Schlüssel sein");
   const now = i.nowSecs ?? Math.floor(Date.now() / 1000);
-  const rumor = buildEvent(senderPk, KIND_PRIVATE_DM, [["p", i.recipientPk]], i.content, now);
+  const tags = [["p", i.recipientPk]];
+  const ablauf = i.ablaufSecs;
+  if (ablauf !== undefined) {
+    if (!Number.isSafeInteger(ablauf) || ablauf < 60 || ablauf > MAX_ABLAUF_SECS) {
+      throw new Error(`Ablauf ${ablauf} s außerhalb 60 s – 1 Jahr`);
+    }
+    tags.push(["expiration", String(now + ablauf)]);
+  }
+  // Auf dem Umschlag spaeter und zufaellig, je Umschlag neu: Ein exakter
+  // Ablauf verriete den Sendezeitpunkt (Ablauf minus Dauer) und machte den
+  // Zeitversatz aus NIP-59 wirkungslos. Relays loeschen also fruehestens nach
+  // der eingestellten Dauer; die App blendet genau nach ihr aus.
+  const optionen = (): GiftWrapOptions | undefined => ablauf === undefined ? i.wrapOptions : {
+    ...i.wrapOptions,
+    nowSecs: i.wrapOptions?.nowSecs ?? now,
+    ablaufBis: now + ablauf + zufallSecs(Math.min(ablauf, MAX_TIME_JITTER_SECS)),
+  };
+  const rumor = buildEvent(senderPk, KIND_PRIVATE_DM, tags, i.content, now);
   const rumorId = computeEventId(rumor);
-  const toRecipient = await giftWrapMitSigner(rumor, signer, i.recipientPk, i.wrapOptions);
-  const toSelf = await giftWrapMitSigner(rumor, signer, senderPk, i.wrapOptions);
+  const toRecipient = await giftWrapMitSigner(rumor, signer, i.recipientPk, optionen());
+  const toSelf = await giftWrapMitSigner(rumor, signer, senderPk, optionen());
   return { toRecipient, toSelf, rumorId };
+}
+
+/** Zufaellige Sekunden in [0, bis). */
+function zufallSecs(bis: number): number {
+  return bis > 0 ? crypto.getRandomValues(new Uint32Array(1))[0] % bis : 0;
 }
 
 /** Signer aus den Angaben: entweder ein Signer oder Schluessel samt passendem Pubkey. */
@@ -76,6 +107,13 @@ export interface PrivateDm {
   partner: string;
   createdAt: number;
   content: string;
+  /** Ablauf nach NIP-40 aus dem Inhalt (Unix-Sekunden), falls gesetzt. */
+  expiresAt?: number;
+}
+
+/** Ist die Nachricht abgelaufen? Dann zeigt die App sie nicht mehr (2.5). */
+export function dmAbgelaufen(dm: PrivateDm, nowSecs = Math.floor(Date.now() / 1000)): boolean {
+  return dm.expiresAt !== undefined && dm.expiresAt <= nowSecs;
 }
 
 export type OpenResult = { ok: true; dm: PrivateDm } | { ok: false; reason: string };
@@ -100,9 +138,14 @@ export async function openPrivateDm(wrap: NostrEvent, mySkOderSigner: Uint8Array
   if (!p || !HEX64.test(p)) return { ok: false, reason: "kein gültiger Empfänger im Inhalt" };
   if (from !== myPk && p !== myPk) return { ok: false, reason: "Nachricht betrifft mich nicht" };
   const partner = from === myPk ? p : from;
+  const ablauf = inner.tags.find((t) => t[0] === "expiration")?.[1];
+  const expiresAt = ablauf !== undefined && /^\d{1,12}$/.test(ablauf) ? Number(ablauf) : undefined;
   return {
     ok: true,
-    dm: { id: computeEventId(inner), from, partner, createdAt: inner.created_at, content: inner.content },
+    dm: {
+      id: computeEventId(inner), from, partner, createdAt: inner.created_at, content: inner.content,
+      ...(expiresAt !== undefined ? { expiresAt } : {}),
+    },
   };
 }
 
