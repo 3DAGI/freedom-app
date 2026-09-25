@@ -3456,3 +3456,48 @@ protocol bleibt 1022 (Szenario in bestehender Schleife, `zeit` ergänzt).
 Endstand: protocol 1022 · node 179 · app 248 · Leak-Tests 36 grün + 3 todo · 0
 rot · check-wiring `--streng` 0 offen · innerHTML streng 0 unbewertet ·
 Smoke-Test bestanden.
+
+## 90. Belege mit Empfängerprüfung (Schritt 4.8)
+
+**Zwei Lücken im Fee-Beweis:** Eine Lightning-Teilzahlung galt als „belegt“,
+sobald ein Preimage zu einem Payment-Hash passte – ein Provider konnte dafür
+jede eigene Zahlung vorlegen. Eine Solana-Teilzahlung galt als „belegt“, sobald
+*irgendeine* Transaktionssignatur beilag; geprüft wurde nichts.
+
+**bolt11 (`protocol/src/bolt11.ts`):** liest Rechnungen und prüft die Signatur –
+aus ihr folgt der Knoten des Empfängers (oder, wenn die Rechnung ihn im Feld
+`n` nennt, wird er geprüft). Der Test rechnet aus dem Vektor der BOLT-11-
+Spezifikation genau deren Knoten `03e7156a…` zurück; ein geänderter Betrag im
+Präfix ergibt einen anderen Knoten (der Betrag ist mitsigniert).
+
+**Fee-Beweis (`fee-proof.ts`):** je Teilzahlung zusätzlich `bolt11` und
+`lamports` (angehängt, alte Leser ignorieren sie). Lightning: „belegt“ nur mit
+Preimage, Rechnung vom angekündigten Knoten und passendem Betrag; Rechnung
+eines anderen Knotens → ungültig; Empfänger ist eine Lightning-Adresse → nur
+„angekündigt“ (Verwahrdienste teilen sich Knoten; die Begründung nennt den
+Knoten, an den gezahlt wurde); Preimage ohne Rechnung → „angekündigt“.
+Solana: `verifyFeeProofMitKette` lädt die Transaktion – belegt nur, wenn sie
+mindestens die angekündigten Lamports an den angekündigten Empfänger
+überweist; anderer Empfänger oder weniger → ungültig, unbekannt → angekündigt.
+
+**Knoten (`settlement.ts`):** `LnurlPayer` liest die Rechnung vor dem Zahlen
+und zahlt nur, wenn sie genau den gewollten Betrag nennt (vorher ungeprüft –
+ein LNURL-Server hätte eine teurere unterschieben können); der Hash kommt aus
+der signierten Rechnung, das Preimage muss dazu passen; die Rechnung wandert
+in den Beleg. Die Abrechnung zahlt an Lightning-Adressen – ihre Teile sind
+damit ehrlich „angekündigt, Zahlung an Knoten … belegt“.
+
+**App:** „Zahlung prüfen“ prüft mit der Kette (`solTransaktion`) und zeigt je
+Teilzahlung die Begründung; die Erklärung zu „angekündigt“ und die FAQ sagen
+jetzt, was „belegt“ heißt.
+
+**Tests:** drei Tests schrieben die alte, zu großzügige Regel fest (Preimage
+allein, Signatur allein, „3× belegt“ bei Lightning-Adressen) – die Karte
+verlangt die strengere, ihre Erwartungen sind entsprechend. protocol 1022 →
+1025 (`bolt11.test.ts`, Fee-Beweis richtiger/falscher Empfänger auf beiden
+Schienen), node 179 → 180 (LNURL: teurere und kaputte Rechnung nicht bezahlt,
+falsches Preimage fällt auf), app 248 → 249 (Verdrahtung).
+
+Endstand: protocol 1025 · node 180 · app 249 · Leak-Tests 36 grün + 3 todo · 0
+rot · check-wiring `--streng` 0 offen · innerHTML streng 0 unbewertet ·
+Smoke-Test bestanden.

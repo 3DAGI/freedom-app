@@ -38,6 +38,7 @@ import {
   powJeProvider,
   prueferKandidaten,
   signiere,
+  solTransaktion,
   state,
 } from "../state.js";
 import { aktualisiereKurs, aktuellerKurs } from "../marktkurs.js";
@@ -1191,7 +1192,7 @@ async function pruefeZahlung(
 
   out.textContent = "suche Beleg …";
   try {
-    const { verifyFeeProof, KIND_FEE_PROOF, clientFeePpm } = await import("@freedomstack/protocol");
+    const { verifyFeeProofMitKette, KIND_FEE_PROOF, clientFeePpm } = await import("@freedomstack/protocol");
     const pool = await ensurePool();
     const evs = await pool.query({ kinds: [KIND_FEE_PROOF], "#e": [resultEventId], limit: 5 });
 
@@ -1206,23 +1207,27 @@ async function pruefeZahlung(
     // Die Client-Gebuehr folgt nicht aus dem Protokoll — sie stand in unserem
     // eigenen Job-Event, also kennen wir sie.
     const fee = aktiveClientGebuehr();
-    const v = verifyFeeProof(evs[0], {
+    // Seit 4.8: Lightning-Teile mit Rechnung und Empfaengerknoten, Solana-Teile gegen die Kette.
+    out.textContent = "prüfe Beleg …";
+    const v = await verifyFeeProofMitKette(evs[0], {
       clientFeeMsat: fee ? Math.floor((amountMsat * fee.ppm) / 1_000_000) : 0,
-    });
+    }, solTransaktion);
     void clientFeePpm;
 
     const zeilen = v.legs.map((l) => {
       const farbe = l.status === "settled" ? "ok" : l.status === "invalid" ? "err" : "warn";
       const marke = l.status === "settled" ? "belegt" : l.status === "invalid" ? "FEHLER" : "angekündigt";
       return `<div class="usage-row"><span>${escapeHtml(l.leg)}</span>` +
-        `<span class="${farbe}">${(l.amountMsat / 1000).toFixed(2)} sats · ${marke}</span></div>`;
+        `<span class="${farbe}">${(l.amountMsat / 1000).toFixed(2)} sats · ${marke}</span></div>` +
+        `<div class="muted mono-sm">${escapeHtml(l.detail)}</div>`;
     }).join("");
 
     out.innerHTML =
       `<span class="${v.ok ? "ok" : "err"}">${escapeHtml(v.summary)}</span>${zeilen}` +
       (v.legs.some((l) => l.status === "announced")
-        ? `<div class="muted" style="margin-top:4px">„Angekündigt" heißt: rechnerisch korrekt, ` +
-          `aber ohne Preimage nicht beweisbar. Lightning hat kein öffentliches Ledger.</div>`
+        ? `<div class="muted" style="margin-top:4px">„Angekündigt“ heißt: rechnerisch korrekt, aber nicht belegt, ` +
+          `dass das Geld beim angekündigten Empfänger ankam – bei Lightning fehlt dafür eine Rechnung von seinem Knoten ` +
+          `(Lightning-Adressen liegen oft bei Verwahrdiensten), bei Solana der Nachweis auf der Kette.</div>`
         : "");
   } catch (e) {
     out.textContent = `Prüfung fehlgeschlagen: ${(e as Error).message}`;

@@ -53,8 +53,8 @@ export interface SettlementTargets {
 
 /** Was der Payer können muss. LND, NWC oder ein Testdouble erfüllen das. */
 export interface Payer {
-  /** Zahlt an eine Lightning-Adresse. Gibt das Preimage zurück. */
-  payToLightningAddress(lud16: string, amountMsat: number, memo: string): Promise<{ preimage: string; paymentHash: string }>;
+  /** Zahlt an eine Lightning-Adresse. Gibt das Preimage zurück – und die bezahlte Rechnung (Beleg, 4.8). */
+  payToLightningAddress(lud16: string, amountMsat: number, memo: string): Promise<{ preimage: string; paymentHash: string; bolt11?: string }>;
   /** Direktzahlung an einen Node-Pubkey ohne Rechnung. */
   keysend?(nodePubkey: string, amountMsat: number): Promise<{ preimage: string; paymentHash: string }>;
 }
@@ -66,6 +66,8 @@ export interface LegOutcome {
   paid: boolean;
   preimage?: string;
   paymentHash?: string;
+  /** Die bezahlte Rechnung – belegt Empfaengerknoten und Betrag (4.8). */
+  bolt11?: string;
   error?: string;
 }
 
@@ -240,7 +242,7 @@ export async function settleJobFees(args: {
       );
       legs.push({
         leg: p.leg, amountMsat: payable, recipient, paid: true,
-        preimage: res.preimage, paymentHash: res.paymentHash,
+        preimage: res.preimage, paymentHash: res.paymentHash, bolt11: res.bolt11,
       });
     } catch (e) {
       legs.push({ leg: p.leg, amountMsat: payable, recipient, paid: false, error: (e as Error).message });
@@ -270,6 +272,7 @@ export async function settleJobFees(args: {
         chain: "lightning" as const,
         paymentHash: l.paymentHash,
         preimage: l.preimage,
+        bolt11: l.bolt11,
       })),
     ];
     const unsigned = buildFeeProof({
@@ -312,7 +315,7 @@ export class LnurlPayer implements Payer {
     lud16: string,
     amountMsat: number,
     memo: string,
-  ): Promise<{ preimage: string; paymentHash: string }> {
+  ): Promise<{ preimage: string; paymentHash: string; bolt11: string }> {
     const [name, domain] = lud16.split("@");
     if (!name || !domain) throw new Error(`ungültige Lightning-Adresse: ${lud16}`);
 
@@ -338,12 +341,17 @@ export class LnurlPayer implements Payer {
     const inv = (await invRes.json()) as { pr?: string; reason?: string };
     if (!inv.pr) throw new Error(`keine Rechnung erhalten: ${inv.reason ?? "unbekannt"}`);
 
+    // Erst lesen, dann zahlen (4.8): Die Rechnung muss gueltig signiert sein
+    // und genau den gewollten Betrag nennen – sonst koennte der Server des
+    // Empfaengers eine teurere unterschieben.
+    const { leseBolt11, preimageMatches } = await import("@freedomstack/protocol");
+    const rechnung = leseBolt11(inv.pr);
+    if (rechnung.betragMsat !== amountMsat) {
+      throw new Error(`Rechnung über ${rechnung.betragMsat ?? "beliebig viele"} msat statt ${amountMsat} msat – nicht bezahlt`);
+    }
     const { preimage } = await this.payInvoice(inv.pr);
-    const { sha256 } = await import("@noble/hashes/sha2.js");
-    const { hexToBytes, bytesToHex } = await import("@noble/hashes/utils.js");
-    // Payment-Hash aus dem Preimage ableiten — damit ist der Beweis prüfbar,
-    // ohne dem Empfänger glauben zu müssen.
-    const paymentHash = preimage ? bytesToHex(sha256(hexToBytes(preimage))) : "";
-    return { preimage, paymentHash };
+    if (!preimageMatches(preimage, rechnung.zahlungsHash)) throw new Error("Preimage passt nicht zur bezahlten Rechnung");
+    // Der Hash kommt aus der signierten Rechnung, das Preimage belegt die Zahlung.
+    return { preimage, paymentHash: rechnung.zahlungsHash, bolt11: inv.pr };
   }
 }

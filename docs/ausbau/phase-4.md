@@ -169,7 +169,9 @@ Jede Funktion, in der Geld fließt, bietet beide Schienen mit gleichem Komfort.
 
 ---
 
-## 4.8 Belege mit Empfängerprüfung
+## 4.8 Belege mit Empfängerprüfung – CODE FERTIG (25.09.2026)
+
+> Umgesetzt: `bolt11.ts` (Signatur → Empfängerknoten), Fee-Beweis mit `bolt11`/`lamports`, Lightning belegt nur mit Rechnung vom angekündigten Knoten (Lightning-Adresse → angekündigt), Solana belegt nur mit der Kette (`verifyFeeProofMitKette`); `LnurlPayer` prüft den Rechnungsbetrag vor dem Zahlen; App „Zahlung prüfen“ mit Kette.
 
 - **Stellen:** `packages/protocol/src/fee-proof.ts` (`verifyFeeProof`),
   `packages/node/src/settlement.ts`, „Zahlung prüfen“ in der App.
