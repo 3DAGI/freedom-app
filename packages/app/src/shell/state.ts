@@ -217,6 +217,11 @@ export async function wireRpcSetting(): Promise<void> {
   };
 }
 
+/** Transaktion ueber den RPC-Pool laden (Pruefung von Belegen, Schritt 4.7b). */
+export async function solTransaktion(signatur: string): Promise<unknown> {
+  return (await ensureRpcPool()).getTransaction(signatur);
+}
+
 /** Beste erreichbare RPC-URL fuer Bibliotheken, die eine feste Adresse wollen. */
 export async function solRpcUrl(): Promise<string> {
   return (await ensureRpcPool()).bestUrl();

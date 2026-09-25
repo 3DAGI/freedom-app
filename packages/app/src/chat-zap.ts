@@ -14,7 +14,7 @@ import { standardSchiene } from "./standard-schiene.js";
 import { aktualisiereKurs, aktuellerKurs } from "./shell/marktkurs.js";
 // App-Zustand unter eigenem Namen: `state` ist hier der Zustand des Dialogs.
 // Vorher stand hier `window.state` – das gab es nie, der Zap brach ab.
-import { ensurePool, signiere, state as appState } from "./shell/state.js";
+import { ensurePool, signiere, solRpcUrl, state as appState } from "./shell/state.js";
 
 export interface ZapDialogState {
   recipientPubkey: string;
@@ -72,6 +72,9 @@ export function openZapDialog(recipientPubkey: string, recipientName: string): v
             <option value="solana"${state.walletType === "solana" ? " selected" : ""}>Solana (SOL)</option>
           </select>
         </div>
+        <div class="zap-field${state.walletType === "solana" ? "" : " hidden"}" id="zap-oeffentlich-feld">
+          <label class="mono-sm"><input type="checkbox" id="zap-oeffentlich" /> Beleg öffentlich – verknüpft deine Identität für alle sichtbar mit Betrag, Adresse und Transaktion</label>
+        </div>
         <div class="zap-status hidden" id="zap-status"></div>
       </div>
       <div class="zap-dialog-actions">
@@ -94,6 +97,8 @@ export function openZapDialog(recipientPubkey: string, recipientName: string): v
   };
   walletSel.onchange = () => {
     (document.getElementById("zap-unit") as HTMLSelectElement).value = walletSel.value === "solana" ? "sol" : "sats";
+    // Beleg (4.7) gibt es nur fuer SOL: dort die Wahl „oeffentlich“ anbieten.
+    document.getElementById("zap-oeffentlich-feld")!.classList.toggle("hidden", walletSel.value !== "solana");
     umrechnung();
   };
   (document.getElementById("zap-amount") as HTMLInputElement).oninput = umrechnung;
@@ -159,10 +164,22 @@ async function sendZap(state: ZapDialogState, el: HTMLElement): Promise<void> {
         if (!ziel) throw new Error("abgebrochen — keine Empfänger-Adresse");
       }
       statusEl.textContent = "warte auf wallet-signatur…";
-      const beleg = await zahle(zahlschienen(), {
-        ziel, betrag: { einheit: "lamports", wert: Math.round(state.amount * 1e9) }, zweck: "trinkgeld",
-      });
+      const lamports = Math.round(state.amount * 1e9);
+      const beleg = await zahle(zahlschienen(), { ziel, betrag: { einheit: "lamports", wert: lamports }, zweck: "trinkgeld" });
       statusEl.textContent = `◎ gesendet! sig: ${beleg.ref.slice(0, 12)}…`;
+      // Beleg an den Empfaenger (4.7): versiegelt, oeffentlich nur auf Wunsch.
+      // Scheitert er, ist das Geld trotzdem unterwegs – das sagt die Meldung.
+      try {
+        const { ketteAusRpc } = await import("./wallet-standard.js");
+        const { sendeTrinkgeldBeleg } = await import("./trinkgeld-beleg.js");
+        const oeffentlich = (document.getElementById("zap-oeffentlich") as HTMLInputElement | null)?.checked === true;
+        await sendeTrinkgeldBeleg(pool, appState.signer!, {
+          empfaenger: state.recipientPubkey, signatur: beleg.ref, lamports, an: ziel, kette: ketteAusRpc(await solRpcUrl()),
+        }, oeffentlich);
+        statusEl.textContent += oeffentlich ? " · Beleg öffentlich" : " · Beleg an den Empfänger";
+      } catch (e) {
+        statusEl.textContent += ` · Beleg nicht gesendet (${(e as Error).message})`;
+      }
     }
 
     state.status = "sent";

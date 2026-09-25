@@ -3418,3 +3418,41 @@ sind bis 4.7b begründet ausgenommen.
 Endstand: protocol 1022 · node 179 · app 244 · Leak-Tests 35 grün + 3 todo · 0
 rot · check-wiring `--streng` 0 offen · innerHTML streng 0 unbewertet ·
 Smoke-Test bestanden.
+
+## 89. SOL-Trinkgeld, Teil b: Beleg senden, empfangen, prüfen (Schritt 4.7)
+
+**Senden (`trinkgeld-beleg.ts`, aufgerufen aus `chat-zap.ts`):** Nach einem
+SOL-Trinkgeld geht der Beleg aus 4.7a versiegelt an den Empfänger und als
+eigene Kopie. Der Zap-Dialog zeigt bei Solana die Wahl „Beleg öffentlich“ –
+nicht vorausgewählt, mit dem Hinweis, dass das Identität, Betrag, Adresse und
+Transaktion für alle sichtbar verknüpft. Scheitert der Beleg, sagt die Meldung,
+dass das Geld trotzdem unterwegs ist.
+
+**Empfangen (`tabs/kommunikation.ts`):** `oeffneUmschlag()` erkennt nach der
+DM auch einen Trinkgeld-Beleg; er erscheint in der Unterhaltung (beide Kopien
+eine Zeile) als „◎ Trinkgeld 0,002 SOL ≈ … · wird geprüft …“. Die Prüfung gegen
+die Kette (`solTransaktion()` über den RPC-Pool) läuft im Hintergrund und
+zeichnet die offene Unterhaltung danach neu: „belegt ✓“, „unbestätigt (…)“ oder
+„falsch: …“. Ein Beleg für eine andere Kette als die eingestellte bleibt
+unbestätigt; Fehler der RPC nennen nur den Fehlernamen. Der Zeitpunkt kommt aus
+dem Kern, nicht aus dem verschleierten Umschlag.
+
+**Datenschutz:** Aussage „sol-trinkgeld“ belegt (Szenario in
+`privacy-facts.test.ts`: keine Adresse, keine Signatur, kein Betrag, keine Notiz,
+kein Absender auf den Relays); Leak-Szenario `test/leak/trinkgeld.test.ts` über
+den echten Versand der App.
+
+**E2E im Browser (zwei Nutzer, externe Test-Wallet, RPC gemockt):** Alice
+schickt Bob 0,002 SOL (Kette bestätigt), 0,003 SOL (Kette zeigt nur 1.000
+Lamports) und 0,003 SOL öffentlich → die Wahl „öffentlich“ erscheint nur bei
+Solana; vor dem Haken kein Kind 9736 auf den Relays, danach genau eines von
+Alice; in den Umschlägen weder Adresse noch Signatur. Bob sieht „belegt ✓“,
+„falsch: nur 1000 statt 3000000 Lamports“, „belegt ✓“. Der DM-E2E mit Ablauf
+(2.5a) läuft unverändert grün.
+
+**Tests:** app 244 → 248 (`trinkgeld-beleg.test.ts`), Leak-Tests 35 → 36;
+protocol bleibt 1022 (Szenario in bestehender Schleife, `zeit` ergänzt).
+
+Endstand: protocol 1022 · node 179 · app 248 · Leak-Tests 36 grün + 3 todo · 0
+rot · check-wiring `--streng` 0 offen · innerHTML streng 0 unbewertet ·
+Smoke-Test bestanden.

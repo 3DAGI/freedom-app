@@ -34,6 +34,7 @@ export const PRIVACY_FACTS: readonly PrivacyFact[] = [
   { id: "ki-antwort", aussage: "KI-Antworten sind für Relays nicht lesbar.", status: "belegt", regel: "kein-klartext" },
   { id: "ki-zahlung", aussage: "Anfragen, Antworten, Sitzungen und Belege deiner KI-Nutzung zeigen Relays keine Beträge, Rechnungen oder Adressen.", status: "belegt", regel: "keine-zahlungsdaten" },
   { id: "ki-reklamation", aussage: "Reklamationen sind nicht öffentlich – sie gehen versiegelt an den Provider und einen Prüfer deiner Wahl.", status: "belegt", regel: "keine-zahlungsdaten" },
+  { id: "sol-trinkgeld", aussage: "Belege für SOL-Trinkgeld sehen Relays nicht – sie gehen versiegelt an den Empfänger; öffentlich nur, wenn du es ausdrücklich wählst.", status: "belegt", regel: "keine-sol-adresse" },
   { id: "sol-adresse", aussage: "Deine Solana-Adresse steht in keinem öffentlichen Event (auch nicht beim Swap).", status: "offen", schritt: "4.9", regel: "keine-sol-adresse" },
   { id: "sol-frisch", aussage: "Jede SOL-Zahlung geht von einer frischen Adresse aus.", status: "offen", schritt: "4.9", regel: "sol-adresse-frisch" },
   { id: "ip", aussage: "Relays sehen deine IP-Adresse nicht.", status: "offen", schritt: "6.1/6.2" },

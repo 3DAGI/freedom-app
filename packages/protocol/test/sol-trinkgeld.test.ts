@@ -65,6 +65,7 @@ test("Privat: auf den Relays nur Umschlaege; Empfaenger und Absender oeffnen, Dr
   assert.equal(beimEmpfaenger?.absender, ich.publicKey());
   assert.equal(beimEmpfaenger?.lamports, 2_000_000);
   assert.equal(beimEmpfaenger?.notiz, "für die Antwort");
+  assert.equal(beimEmpfaenger?.zeit, JETZT, "Zeitpunkt aus dem Kern, nicht der verschleierte des Umschlags");
   assert.ok(await oeffnePrivatesSolTrinkgeld(wraps.find((w) => w.tags.some((t) => t[1] === ich.publicKey()))!, ich));
   assert.equal(await oeffnePrivatesSolTrinkgeld(wraps[0], dritter), null);
 });
