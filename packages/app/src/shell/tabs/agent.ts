@@ -11,8 +11,10 @@ import {
   MAX_CLIENT_FEE_PERCENT,
   PROTOCOL_FEE_PPM,
   PROTOCOL_POOL_SHARE_PERCENT,
+  type NostrEvent,
   buildEvent,
   buildJobRequest,
+  buildPrivateJobRequest,
   clientFeePpm,
   clientFeeTag,
   computeFeeSplit,
@@ -29,6 +31,7 @@ import {
   ensureSessionClient,
   findProviders,
   KIND_DVM_RESULT,
+  kiSitzungen,
   signiere,
   state,
 } from "../state.js";
@@ -322,6 +325,8 @@ export function updateTokenEstimate(): void {
 /** Mappt technische Fehler auf verstaendliche Ursachen. */
 function explainError(e: unknown): string {
   const m = ((e as Error)?.message ?? String(e)).toLowerCase();
+  // Klare eigene Meldung (3.1) – nicht als Timeout umdeuten.
+  if (m.includes("private anfragen")) return (e as Error).message;
   if (m.includes("relay") || m.includes("websocket") || m.includes("eose") || m.includes("pool")) return "relay-verbindung fehlgeschlagen — internet pruefen oder spaeter erneut versuchen";
   if (m.includes("kein provider") || m.includes("provider") && m.includes("antwort")) return "kein provider erreichbar — alle kandidaten haben ein timeout (gx10 offline?)";
   if (m.includes("bid zu niedrig") || m.includes("kein free-tier")) return "gebot zu niedrig und kein free-kontingent mehr — bid erhöhen oder morgen wieder gratis testen";
@@ -432,7 +437,7 @@ export async function askAi(): Promise<void> {
 async function askWithFailover(prompt: string, bid: number, tier: "free" | "classic" | "pro", maxMode = false): Promise<void> {
   const pool = await ensurePool();
   const sc = ensureSessionClient();
-  const candidates = await findProviders(tier);
+  const candidates = privatFaehig(await findProviders(tier));
 
   if (maxMode) {
     return askRace(prompt, bid, tier, candidates);
@@ -440,11 +445,17 @@ async function askWithFailover(prompt: string, bid: number, tier: "free" | "clas
 
   const pubkeyList = candidates.map((c) => c.caps.pubkey);
   // Bekannten Session-Provider zuerst (Kontinuitaet), dann beste Matches
-  if (state.lastProvider && sc.activeFor(state.lastProvider) && !pubkeyList.includes(state.lastProvider)) {
+  if (state.lastProvider && sc.activeFor(state.lastProvider) && powJeProvider.has(state.lastProvider)
+    && !pubkeyList.includes(state.lastProvider)) {
     pubkeyList.unshift(state.lastProvider);
   }
-  // Fallback: ohne Matchmaking ein offener Bid-Job (jeder Provider darf antworten)
-  const targets: Array<string | null> = pubkeyList.length > 0 ? pubkeyList.slice(0, 3) : [null];
+  // Private Anfragen brauchen einen Empfaenger – einen offenen Bid-Job an
+  // alle gibt es seit 3.1 nicht mehr (er stand im Klartext auf den Relays).
+  if (pubkeyList.length === 0) {
+    showAiError(new Error(KEIN_PRIVATER_PROVIDER), prompt, bid, tier);
+    return;
+  }
+  const targets = pubkeyList.slice(0, 3);
 
   // HEDGING: Nach HEDGE_AFTER_MS ohne Antwort wird derselbe Job ZUSÄTZLICH an
   // den nächsten Provider geschickt (der erste läuft weiter). Wer zuerst
@@ -458,11 +469,11 @@ async function askWithFailover(prompt: string, bid: number, tier: "free" | "clas
     const target = targets[i];
     // erster Kandidat: hedge-fenster + restlaufzeit (browser-suche braucht zeit)
     const timeoutMs = i === 0 ? HEDGE_AFTER_MS + Math.min(280_000, 300_000 - HEDGE_AFTER_MS) : 120_000;
-    const ev = await buildJobEvent(prompt, bid, tier, target, sc);
-    await pool.publish(ev);
-    activeJobIds.add(ev.id);
+    const { wrap, requestId } = await buildJobEvent(prompt, bid, tier, target, sc);
+    await pool.publish(wrap);
+    activeJobIds.add(requestId);
 
-    const answer = await waitForAnswer(ev.id, timeoutMs, target ?? undefined, {
+    const answer = await waitForAnswer(requestId, timeoutMs, target, {
       extraJobIds: activeJobIds,
       onFeedback: (msg) => { lastFeedbackError = msg; },
       signal: jobAbort?.signal,
@@ -486,7 +497,7 @@ async function askWithFailover(prompt: string, bid: number, tier: "free" | "clas
       // kein Feedback, nur langsam → Hedge: nächster Provider bekommt ihn JETZT,
       // der aktuelle bleibt aktiv (seine Antwort wird via activeJobIds noch
       // akzeptiert).
-      toast(`provider ${pkShort(target ?? "")} langsam — hedging zu naechstem…`);
+      toast(`provider ${pkShort(target)} langsam — hedging zu naechstem…`);
     }
   }
   // Alle Kandidaten versagt (Timeout oder Ablehnung):
@@ -567,17 +578,12 @@ async function askRace(prompt: string, bid: number, tier: "free" | "classic" | "
   const split = maxModeSplit(bid * 1000);
   toast(`max mode: ${racers.length} provider racen — gewinner ${Math.floor(split.winnerMsat / 1000)} sats, je verlierer ${Math.floor(split.loserMsatEach / 1000)}`);
 
-  // Job an ALLE racer gleichzeitig (race-tag + p-tag pro provider)
-  const jobs = await Promise.all(racers.map(async (r) => {
-    const ev = await buildJobEvent(prompt, bid, tier, r.caps.pubkey, sc);
-    ev.tags.push(["race", "1"]);
-    // re-sign wegen neuem tag
-    return await signiere({ pubkey: ev.pubkey, kind: ev.kind, tags: ev.tags, content: ev.content, created_at: ev.created_at });
-  }));
-  for (const j of jobs) await pool.publish(j);
+  // Job an ALLE racer gleichzeitig (race-tag im versiegelten Kern, je ein Umschlag)
+  const jobs = await Promise.all(racers.map((r) => buildJobEvent(prompt, bid, tier, r.caps.pubkey, sc, [["race", "1"]])));
+  for (const j of jobs) await pool.publish(j.wrap);
 
   // Erste Antwort gewinnt
-  const ids = new Set(jobs.map((j) => j.id));
+  const ids = new Set(jobs.map((j) => j.requestId));
   const deadline = Date.now() + 45_000;
   while (Date.now() < deadline) {
     const results = await pool.query({ kinds: [KIND_DVM_RESULT], limit: 20 });
@@ -606,7 +612,7 @@ async function askSwarm(prompt: string, bid: number, tier: "free" | "classic" | 
   const sc = ensureSessionClient();
   // Swarm = lokaler Provider mit beiden Modellen (nemotron + qwen3.8:27b)
   // Wir senden einen Job mit ["swarm", "1"] tag — der Provider erkennt das und nutzt beide Modelle
-  const candidates = await findProviders(tier);
+  const candidates = privatFaehig(await findProviders(tier));
   const target = candidates[0]?.caps.pubkey ?? null; // Erster Provider (lokaler GX10)
   const btn = $("#ai-send") as HTMLButtonElement;
   if (!target) {
@@ -615,10 +621,11 @@ async function askSwarm(prompt: string, bid: number, tier: "free" | "classic" | 
   }
 
   toast(`swarm: beide modelle (nemotron + qwen3.8:27b) denken parallel…`);
-  const ev = await buildJobEvent(prompt, bid, tier, target, sc);
-  ev.tags.push(["swarm", "1"]); // Tag fuer swarm-modus im provider
-  await pool.publish(ev);
-  const answer = await waitForAnswer(ev.id, 120_000, target);
+  // Tag fuer swarm-modus im provider – im versiegelten Kern. Frueher kam er nach
+  // der Signatur dazu, die Anfrage war dadurch ungueltig signiert.
+  const { wrap, requestId } = await buildJobEvent(prompt, bid, tier, target, sc, [["swarm", "1"]]);
+  await pool.publish(wrap);
+  const answer = await waitForAnswer(requestId, 120_000, target);
   if (answer) {
     if ("providerError" in answer && answer.providerError) {
       showAiError(new Error(answer.providerError), prompt, bid, tier, { swarm: true });
@@ -656,26 +663,37 @@ function maybeInsertModelSwitchSummary(newTier: string): void {
   lastTier = newTier;
 }
 
-/** Einmal pro Sitzung: KI-Anfragen sind derzeit oeffentlich lesbar (Schritt 3.1 behebt das). */
-function hinweisKiOeffentlich(): void {
-  try {
-    if (sessionStorage.getItem("freedom.hinweis.kiOeffentlich")) return;
-    sessionStorage.setItem("freedom.hinweis.kiOeffentlich", "1");
-    toast("Hinweis: KI-Anfragen sind derzeit öffentlich lesbar – bitte keine vertraulichen Daten senden.");
-  } catch {
-    // Ohne sessionStorage (z. B. im Test) kein Hinweis – die Anfrage selbst laeuft weiter.
-  }
+/**
+ * Private Anfragen (Schritt 3.1): nur an Provider, deren Angebot die verlangte
+ * Rechenarbeit nennt – aeltere Knoten lesen keine Umschlaege. Mehr als
+ * MAX_POW_APP Bits rechnet ein Handy zu lange; solche Angebote bleiben aussen vor.
+ */
+const MAX_POW_APP = 16;
+const KEIN_PRIVATER_PROVIDER = "Kein Provider für private Anfragen gefunden – die Knoten brauchen mindestens Stand 3.1.";
+const powJeProvider = new Map<string, number>();
+
+function privatFaehig(kandidaten: ScoredProvider[]): ScoredProvider[] {
+  const ok = kandidaten.filter((c) => c.caps.powBits !== undefined && c.caps.powBits <= MAX_POW_APP);
+  for (const c of ok) powJeProvider.set(c.caps.pubkey, c.caps.powBits!);
+  return ok;
 }
 
+/**
+ * Die Anfrage bauen und versiegeln (Schritt 3.1): Autor ist der
+ * Sitzungsschluessel fuer diesen Provider, nicht die Identitaet; sie reist als
+ * Kern im Umschlag mit der Rechenarbeit aus dem Angebot. Zusatz-Tags (race,
+ * swarm) gehoeren in den Kern, bevor versiegelt wird.
+ */
 async function buildJobEvent(
   prompt: string,
   bid: number,
   tier: string,
-  targetPubkey: string | null,
+  targetPubkey: string,
   sc: SessionClient,
-): Promise<import("@freedomstack/protocol").NostrEvent> {
-  hinweisKiOeffentlich();
+  zusatzTags: string[][] = [],
+): Promise<{ wrap: NostrEvent; requestId: string }> {
   if (!state.keypair) throw new Error("no keypair");
+  const sitzung = kiSitzungen.fuer(targetPubkey);
   // Modellwechsel: Verlauf-Summary als Kontext-Praefix (KV-cache-Ersatz)
   const fullPrompt = pendingContextSummary ? pendingContextSummary + prompt : prompt;
   // Extra-Tags: Anhang (multimodal) + angeforderte Tools + gewuenschtes Modell
@@ -701,24 +719,27 @@ async function buildJobEvent(
   if (modelSel && modelSel.value) {
     extraTags.push(["param", "model", modelSel.value]);
   }
-  const useSession = targetPubkey && sc.activeFor(targetPubkey);
-  if (useSession) {
-    return await signiere(buildEvent(state.keypair.pk, KIND_DVM_TEXT_GENERATION, [
+  const useSession = sc.activeFor(targetPubkey);
+  const request = useSession
+    ? buildEvent(sitzung.publicKey(), KIND_DVM_TEXT_GENERATION, [
         ["i", fullPrompt, "text"],
         ...sc.jobTags(targetPubkey, bid * 1000),
         ["tier", tier],
         ["p", targetPubkey],
         ...extraTags,
-      ], ""));
-  }
-  return await signiere(buildJobRequest({
-      customerPubkey: state.keypair.pk,
-      input: fullPrompt,
-      bidMsat: bid * 1000,
-      providerPubkey: targetPubkey ?? undefined,
-      params: [["tier", tier]],
-      extraTags,
-    }));
+        ...zusatzTags,
+      ], "")
+    : buildJobRequest({
+        customerPubkey: sitzung.publicKey(),
+        input: fullPrompt,
+        bidMsat: bid * 1000,
+        providerPubkey: targetPubkey,
+        params: [["tier", tier]],
+        extraTags: [...extraTags, ...zusatzTags],
+      });
+  return buildPrivateJobRequest({
+    request, sessionSigner: sitzung, providerPk: targetPubkey, powBits: powJeProvider.get(targetPubkey) ?? 0,
+  });
 }
 
 /**
@@ -1014,8 +1035,10 @@ async function reklamiere(
       toast(w.message, true);
       return;
     }
-    await (await ensurePool()).publish(await signiere(buildDispute({
-      jobId, customerPubkey: state.keypair.pk, providerPubkey: providerPk,
+    // Vom Sitzungsschluessel wie der Auftrag selbst (3.1) – nicht von der Identitaet.
+    const sitzung = kiSitzungen.fuer(providerPk);
+    await (await ensurePool()).publish(await sitzung.signEvent(buildDispute({
+      jobId, customerPubkey: sitzung.publicKey(), providerPubkey: providerPk,
       reason: art, amountMsat, note: prompt("Kurze Beschreibung (öffentlich):") ?? "",
     })));
     toast(`Reklamiert. ${w.message}`);

@@ -44,38 +44,16 @@ export function escrowIdent(): string {
 export let quotaExhausted = false;
 
 /**
- * Free-Quota beim aktuellen Provider abfragen und in der Sidebar zeigen.
- * Bei 0 restlichen Tokens: Wallet-Connect-CTA hervorheben.
+ * Gratis-Kontingent in der Sidebar. Seit Schritt 3.1 gibt es fuer private
+ * Anfragen kein Kontingent je Schluessel mehr – die Rechenarbeit ersetzt es.
+ * Die Abfrage beim Provider (mit dem eigenen Pubkey in der URL) entfaellt
+ * damit; sie verband die Identitaet mit dem Provider.
  */
 export async function refreshQuota(): Promise<void> {
-  const textEl = document.getElementById("nq-text");
-  const fill = document.getElementById("nq-fill") as HTMLElement | null;
   const quotaBox = document.getElementById("nb-quota");
-  const walletBtn = $("#nb-wallet") as HTMLButtonElement | null;
-  if (!textEl || !fill || !quotaBox) return;
-  if (!state.lastProvider || !state.keypair) {
-    quotaBox.style.display = "none";
-    return;
-  }
-  quotaBox.style.display = "";
-  try {
-    // Quota-API des Providers (gleicher Host wie der Gate, Port 3602)
-    const apiBase = (window as unknown as { FREEDOM_QUOTA_API?: string }).FREEDOM_QUOTA_API
-      ?? "http://" + location.hostname + ":3602";
-    const res = await fetch(`${apiBase}/api/quota?pk=${state.keypair.pk}`, { signal: AbortSignal.timeout(6000) });
-    if (!res.ok) throw new Error(`quota http ${res.status}`);
-    const q = await res.json() as { limitTokens: number; usedTokens: number; remainingTokens: number };
-    const pct = q.limitTokens > 0 ? Math.min(100, Math.round((q.remainingTokens / q.limitTokens) * 100)) : 0;
-    fill.style.width = `${pct}%`;
-    fill.className = "nq-fill" + (pct <= 15 ? " low" : "");
-    textEl.textContent = `${q.remainingTokens.toLocaleString("de-DE")} / ${q.limitTokens.toLocaleString("de-DE")} gratis tokens heute`;
-    // Bei erschöpftem Kontingent: Wallet-CTA pulsieren + beim Senden zum Wallet-Tab lenken
-    quotaExhausted = q.remainingTokens === 0;
-    if (walletBtn) walletBtn.classList.toggle("cta-pulse", quotaExhausted);
-  } catch {
-    // API nicht erreichbar (fremder provider) — Anzeige ausblenden
-    quotaBox.style.display = "none";
-  }
+  if (quotaBox) quotaBox.style.display = "none";
+  quotaExhausted = false;
+  ($("#nb-wallet") as HTMLButtonElement | null)?.classList.remove("cta-pulse");
 }
 
 export function updateSidebarBalances(): void {

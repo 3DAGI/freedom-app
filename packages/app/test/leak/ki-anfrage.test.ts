@@ -1,16 +1,17 @@
 /**
- * Leak-Szenario „KI-Anfrage“ (Schritt 1.5): Sitzung eroeffnen mit dem echten
- * `SessionClient`, dann die Anfrage so gebaut wie `buildJobEvent()` in
- * `tabs/agent.ts` – einmal mit Sitzung, einmal mit Gebot. Heute stehen Prompt
- * und Kunden-Schluessel offen in den Events; Schritt 3.1 verschluesselt beides.
+ * Leak-Szenario „KI-Anfrage“ (Schritt 1.5, seit 3.1 privat): Sitzung eroeffnen
+ * mit dem echten `SessionClient` und dem Sitzungsschluessel aus `KiSitzungen`,
+ * dann die Anfrage so gebaut wie `buildJobEvent()` in `tabs/agent.ts` – einmal
+ * mit Sitzung, einmal mit Gebot – und im Umschlag an den Provider.
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
-  KIND_DVM_TEXT_GENERATION, LocalSigner, buildEvent, buildJobRequest, generateKeypair,
+  KIND_DVM_TEXT_GENERATION, LocalSigner, buildEvent, buildJobRequest, buildPrivateJobRequest, generateKeypair,
   regelKeinBolt11, regelKeinKind4, regelKeinKlartextPrompt, regelKundeVerborgen,
 } from "@freedomstack/protocol";
+import { KiSitzungen } from "../../src/ki-sitzung.js";
 import { SessionClient } from "../../src/session-client.js";
 import { aufzeichnung } from "./aufzeichnung.js";
 
@@ -18,43 +19,59 @@ const PROMPT = "Fasse meinen Arztbrief vom Maerz zusammen";
 
 async function frage() {
   const { pool, relay } = aufzeichnung();
-  const signer = new LocalSigner(generateKeypair().sk);
-  const kunde = signer.publicKey();
+  const identitaet = new LocalSigner(generateKeypair().sk);
+  const sitzungen = new KiSitzungen();
   const provider = generateKeypair().pk;
-  const sc = new SessionClient({ signer, pool, defaultBudgetSats: 100, settleEverySats: 20, ttlSecs: 3600 });
+  const sc = new SessionClient({ signerFuer: (pk) => sitzungen.fuer(pk), pool, defaultBudgetSats: 100, settleEverySats: 20, ttlSecs: 3600 });
   await sc.openSession(provider);
+  const sitzung = sitzungen.fuer(provider);
   // Mit Sitzung – wie buildJobEvent(), wenn sc.activeFor(provider) gilt
-  await pool.publish(await signer.signEvent(buildEvent(kunde, KIND_DVM_TEXT_GENERATION, [
+  const mitSitzung = buildEvent(sitzung.publicKey(), KIND_DVM_TEXT_GENERATION, [
     ["i", PROMPT, "text"], ...sc.jobTags(provider, 21_000), ["tier", "standard"], ["p", provider],
-  ], "")));
+  ], "");
   // Ohne Sitzung – mit Gebot
-  await pool.publish(await signer.signEvent(buildJobRequest({
-    customerPubkey: kunde, input: PROMPT, bidMsat: 21_000, providerPubkey: provider, params: [["tier", "standard"]],
-  })));
-  return { gesendet: relay.gesendet, kunde };
+  const mitGebot = buildJobRequest({
+    customerPubkey: sitzung.publicKey(), input: PROMPT, bidMsat: 21_000, providerPubkey: provider, params: [["tier", "standard"]],
+  });
+  for (const request of [mitSitzung, mitGebot]) {
+    const { wrap } = await buildPrivateJobRequest({ request, sessionSigner: sitzung, providerPk: provider, powBits: 8 });
+    await pool.publish(wrap);
+  }
+  return { gesendet: relay.gesendet, identitaet: identitaet.publicKey(), sitzung: sitzung.publicKey() };
 }
 
-test("KI-Anfrage: Sitzung und Anfragen gehen ueber den Pool", async () => {
+test("KI-Anfrage: Sitzung und zwei Umschlaege gehen ueber den Pool, keine offene Anfrage", async () => {
   const { gesendet } = await frage();
-  assert.equal(gesendet.length, 3);
+  assert.deepEqual(gesendet.map((e) => e.kind).sort(), [1059, 1059, 38021]);
+  assert.equal(gesendet.filter((e) => e.kind >= 5000 && e.kind < 6000).length, 0);
   assert.deepEqual(regelKeinKind4(gesendet), []);
   assert.deepEqual(regelKeinBolt11(gesendet), []);
 });
 
-test("KI-Anfrage: kein Klartext-Prompt", { todo: "Schritt 3.1" }, async () => {
+test("KI-Anfrage: kein Klartext-Prompt", async () => {
   const { gesendet } = await frage();
   assert.deepEqual(regelKeinKlartextPrompt(gesendet, [PROMPT]), []);
+  // Auch ausserhalb von Kind 5xxx nicht – etwa im Umschlag.
+  assert.ok(gesendet.every((e) => !(e.content + JSON.stringify(e.tags)).includes(PROMPT)));
 });
 
-test("KI-Anfrage: Kunden-Schluessel in keinem Job-Event", { todo: "Schritt 3.1" }, async () => {
-  const { gesendet, kunde } = await frage();
-  assert.deepEqual(regelKundeVerborgen(gesendet, kunde), []);
+test("KI-Anfrage: Kunden-Schluessel in keinem Job-Event", async () => {
+  const { gesendet, identitaet, sitzung } = await frage();
+  assert.deepEqual(regelKundeVerborgen(gesendet, identitaet), []);
+  // Der Sitzungsschluessel zeigt sich nur in der Sitzungseroeffnung, nie an einer Anfrage.
+  assert.deepEqual(gesendet.filter((e) => e.pubkey === sitzung).map((e) => e.kind), [38021]);
 });
 
 test("Verdrahtung: buildJobEvent() baut die Anfrage wie das Szenario", () => {
   const agent = readFileSync(new URL("../../src/shell/tabs/agent.ts", import.meta.url), "utf8");
   const f = agent.slice(agent.indexOf("async function buildJobEvent("), agent.indexOf("function aktiveClientGebuehr("));
-  assert.match(f, /\["i", fullPrompt, "text"\],\s*\.\.\.sc\.jobTags\(targetPubkey/);
-  assert.match(f, /buildJobRequest\(\{\s*customerPubkey: state\.keypair\.pk,\s*input: fullPrompt,/);
-  assert.match(agent, /ensureSessionClient\(\)/);
+  assert.match(f, /const sitzung = kiSitzungen\.fuer\(targetPubkey\);/);
+  assert.match(f, /buildEvent\(sitzung\.publicKey\(\), KIND_DVM_TEXT_GENERATION, \[\s*\["i", fullPrompt, "text"\],\s*\.\.\.sc\.jobTags\(targetPubkey/);
+  assert.match(f, /buildJobRequest\(\{\s*customerPubkey: sitzung\.publicKey\(\),\s*input: fullPrompt,/);
+  assert.match(f, /return buildPrivateJobRequest\(\{\s*request, sessionSigner: sitzung, providerPk: targetPubkey,/);
+  assert.doesNotMatch(agent, /customerPubkey: state\.keypair\.pk/);
+  // Gesendet wird nur der Umschlag
+  assert.doesNotMatch(agent, /await buildJobEvent\([^)]*\);\s*await pool\.publish\(ev\)/);
+  const st = readFileSync(new URL("../../src/shell/state.ts", import.meta.url), "utf8");
+  assert.match(st, /signerFuer: \(providerPk\) => kiSitzungen\.fuer\(providerPk\)/);
 });

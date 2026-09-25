@@ -41,9 +41,9 @@ python3 scripts/smoke_test.py packages/app/dist         # braucht playwright + c
 bash scripts/build-site.sh /tmp/site                     # Website bauen (Ziel wird gelöscht!)
 ```
 
-Stand 24.09.2026 (nach 3.1b): protocol 985 grün (5 übersprungen), node 166 grün
+Stand 24.09.2026 (nach 3.1): protocol 985 grün (5 übersprungen), node 166 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 206 grün, Leak-Tests 21 grün + 6 `todo` (heutige Lecks,
+in `tools.test.ts`), app 207 grün, Leak-Tests 23 grün + 4 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test).
 
 ## Arbeitsweise
@@ -120,6 +120,10 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   und nur für das, was ohne ihn nicht geht (Sicherung, Nachfolge, Swap-Adressen,
   Export) – synchron, die Kopie wird danach genullt. Mit Bunker (`mitBunker()`)
   gibt es ihn nicht: solche Funktionen sperren, nicht scheitern lassen.
+- **KI-Anfragen nur privat** (seit 3.1): über `buildJobEvent()` – Autor ist der
+  Sitzungsschlüssel aus `kiSitzungen` (nie `state.keypair.pk`), gesendet wird nur
+  der Umschlag aus `buildPrivateJobRequest()`. Tags gehören vor dem Versiegeln in
+  den Kern; nie nach der Signatur anhängen. `test/leak/ki-anfrage.test.ts` prüft das.
 - **Geheimnisse nur über `geheim`** (`shell/tresor.ts`): Schlüssel, Wallet-Zugänge,
   Preimages, Unterhaltungen und Verläufe nie direkt in `localStorage` schreiben –
   mit Tresor landen sie sonst im Klartext. Vor neuen Geld-Geheimnissen

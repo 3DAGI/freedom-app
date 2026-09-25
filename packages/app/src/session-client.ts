@@ -30,8 +30,11 @@ import {
 } from "@freedomstack/protocol";
 
 export interface SessionClientConfig {
-  /** Signiert Session-Events – nie der rohe Schluessel (Schritt 1.3). */
-  signer: Signer;
+  /**
+   * Signer je Provider – der Sitzungsschluessel (Schritt 3.1), nie die
+   * Identitaet und nie der rohe Schluessel (Schritt 1.3).
+   */
+  signerFuer: (providerPubkey: string) => Signer;
   pool: OutboxPool;
   /** Standard-Budget pro Session in sats. */
   defaultBudgetSats: number;
@@ -69,7 +72,7 @@ export class SessionClient {
   constructor(private cfg: SessionClientConfig) {}
 
   private sessionIdFor(providerPubkey: string): string {
-    return `sess-${this.cfg.signer.publicKey().slice(0, 8)}-${providerPubkey.slice(0, 8)}-${Math.floor(Date.now() / 1000)}`;
+    return `sess-${this.cfg.signerFuer(providerPubkey).publicKey().slice(0, 8)}-${providerPubkey.slice(0, 8)}-${Math.floor(Date.now() / 1000)}`;
   }
 
   /** Aktive Session zu einem Provider (oder null). */
@@ -89,9 +92,10 @@ export class SessionClient {
     budgetSats = this.cfg.defaultBudgetSats,
   ): Promise<ActiveSession> {
     const sessionId = this.sessionIdFor(providerPubkey);
-    const ev = await this.cfg.signer.signEvent(
+    const signer = this.cfg.signerFuer(providerPubkey);
+    const ev = await signer.signEvent(
       buildSessionOpen({
-        customerPubkey: this.cfg.signer.publicKey(),
+        customerPubkey: signer.publicKey(),
         providerPubkey,
         sessionId,
         maxTotalMsat: budgetSats * 1000,
@@ -156,9 +160,10 @@ export class SessionClient {
     }
 
     const cumulativeMsat = session.paidMsat;
-    const payment = await this.cfg.signer.signEvent(
+    const signer = this.cfg.signerFuer(providerPubkey);
+    const payment = await signer.signEvent(
       buildSessionPayment({
-        customerPubkey: this.cfg.signer.publicKey(),
+        customerPubkey: signer.publicKey(),
         sessionId: session.open.sessionId,
         seq,
         cumulativeMsat,

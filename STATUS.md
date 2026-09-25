@@ -2568,3 +2568,49 @@ Anfrage neu verpackt zählen einmal). `openPrivateJobRequest` und
 Endstand: protocol 985 grün · node 166 grün (+5, 6 übersprungen) · app 206
 grün · Leak-Tests 21 grün + 6 todo · 0 rot · check-wiring `--streng` 0 offen
 · innerHTML streng 0 unbewertet · Smoke-Test (App unverändert) bestanden.
+
+## 66. Verschlüsselte Job-Anfragen, Teil c: App – 3.1 Code fertig
+
+**Sitzungsschlüssel** (`app/src/ki-sitzung.ts`): je Provider ein zufälliger
+Schlüssel, nicht aus dem Seed, nur im Speicher der Seite. `SessionClient` nimmt
+statt eines Signers `signerFuer(provider)`; Sitzung (38021), Belege (38022),
+Anfragen und Reklamation (`reklamiere()`) signiert der Sitzungsschlüssel. Zwei
+Provider sehen nicht denselben Schlüssel, keiner die Identität. Die Sitzungs-ID
+trug bisher die ersten 8 Zeichen der Identität – jetzt die des
+Sitzungsschlüssels.
+
+**Anfragen** (`tabs/agent.ts`): `buildJobEvent()` baut die Anfrage wie bisher,
+aber mit dem Sitzungsschlüssel als Autor, und gibt den Umschlag aus
+`buildPrivateJobRequest()` mit der Rechenarbeit aus dem Angebot zurück. Gesendet
+wird nur der Umschlag; Ergebnisse findet die App wie bisher über den e-Tag.
+Nur Provider, deren Angebot `pow` nennt (höchstens 16 Bits), kommen in Frage;
+einen offenen Bid-Job an alle gibt es nicht mehr – ohne passenden Provider sagt
+die App „Kein Provider für private Anfragen gefunden – die Knoten brauchen
+mindestens Stand 3.1“ (und `explainError()` deutet das nicht mehr als Timeout).
+Race und Swarm legen ihre Tags in den Kern. **Fund, behoben:** Swarm hängte
+`["swarm","1"]` nach der Signatur an – die Anfrage war ungültig signiert.
+
+**Entfernt:** `hinweisKiOeffentlich()` (Karte, Schritt 5) und die
+Kontingent-Abfrage `refreshQuota()` beim Provider – sie schickte den eigenen
+Pubkey in der URL an dessen HTTP-API und ist ohne Kontingent je Schlüssel
+gegenstandslos.
+
+**Datenschutzbericht:** „KI-Anfragen sind für Relays nicht lesbar“ und „…
+verraten nicht, wer fragt – der Provider sieht nur einen Schlüssel je Sitzung“
+sind belegt (Szenario in `privacy-facts.test.ts`); neu als Lücke: „KI-Antworten
+sind für Relays nicht lesbar“ (3.2).
+
+**Tests:** app 206 → 207 (`session-client.test.ts`: je Provider eigener
+Schlüssel, nie die Identität); Leak-Tests 21 + 6 todo → 23 + 4 todo – die
+beiden 3.1-Regeln sind grün, das Szenario folgt dem neuen Weg samt
+Verdrahtungstest. **E2E im Browser:** die gebaute App schickt über eine
+Relay-Nachbildung eine Anfrage an einen echten `DvmProvider` (Node,
+Bootstrap = gratis, 8 Bits): genau ein Umschlag mit Nonce, der Provider sieht
+den Prompt, die Antwort erscheint im Chat; kein Event der App enthält den
+Prompt, keine offene Anfrage, die Identität steht in keinem KI-Event (nur
+Umschlag, Sitzung, Beleg). Mit einem Provider ohne `pow` sendet die App nichts
+und nennt den Grund.
+
+Endstand: protocol 985 grün · node 166 grün · app 207 grün · Leak-Tests 23
+grün + 4 todo · 0 rot · check-wiring `--streng` 0 offen (183 begründet) ·
+innerHTML streng 0 unbewertet · Smoke-Test bestanden.
