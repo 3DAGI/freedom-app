@@ -605,6 +605,86 @@ function loadConversations(): void {
 function saveConversations(): void {
   void geheim.setItem("freedom.chats", JSON.stringify(conversations))
     .catch((e) => toast(`Unterhaltungen nicht gespeichert: ${(e as Error).message}`, true));
+  void sichereKontakte().catch(() => { /* offline – beim naechsten Speichern */ });
+}
+
+// ------------------------------------------ private Kontaktliste (2.5b)
+
+/** Einstellung „Kontakte verschlüsselt abgleichen“ – Standard aus. */
+export const LS_KONTAKTE_SICHERN = "freedom.kontakteSichern";
+export function kontakteSichernAn(): boolean {
+  return localStorage.getItem(LS_KONTAKTE_SICHERN) === "1";
+}
+
+/**
+ * Stand der Liste auf den Relays (zuletzt geladen oder gesichert). null = in
+ * dieser Sitzung noch nicht geladen – dann wird nicht gesichert, sonst
+ * ueberschriebe dieses Geraet die Kontakte der anderen.
+ */
+let gesicherterStand: string | null = null;
+
+/**
+ * Private Kontaktliste (NIP-51) veroeffentlichen, wenn eingeschaltet und die
+ * Kontakte sich geaendert haben – nicht bei jeder Nachricht, sonst verriete
+ * die Liste, wann jemand schreibt. `leeren` beim Ausschalten: eine leere
+ * Liste ersetzt die alte auf den Relays.
+ */
+export async function sichereKontakte(leeren = false): Promise<void> {
+  if (!state.signer || (!leeren && (!kontakteSichernAn() || gesicherterStand === null))) return;
+  const kontakte = leeren ? [] : conversations
+    .filter((c) => c.type === "dm")
+    .map((c) => ({ pk: c.id, name: c.name }))
+    .sort((a, b) => a.pk.localeCompare(b.pk));
+  const stand = JSON.stringify(kontakte);
+  if (stand === gesicherterStand) return;
+  const { buildPrivateKontaktliste } = await import("@freedomstack/protocol");
+  const ev = await signiere(await buildPrivateKontaktliste(kontakte, state.signer));
+  await (await ensurePool()).publish(ev);
+  gesicherterStand = stand;
+}
+
+/**
+ * Abgleich einschalten (2.5b): erst die Liste der anderen Geraete holen und
+ * zusammenfuehren, dann gemeinsam sichern. Scheitert das Laden, bleibt der
+ * Abgleich aus – sonst ueberschriebe eine leere oder halbe Liste die alte.
+ */
+export async function kontakteEinschalten(): Promise<number> {
+  localStorage.setItem(LS_KONTAKTE_SICHERN, "1");
+  try {
+    const neu = await ladeKontakte();
+    if (neu > 0) {
+      saveConversations();
+      loadChatList();
+    }
+    await sichereKontakte();
+    return neu;
+  } catch (e) {
+    localStorage.removeItem(LS_KONTAKTE_SICHERN);
+    throw e;
+  }
+}
+
+/** Eigene Liste laden (2.5b) und unbekannte Kontakte ergaenzen. Gibt die Zahl der neuen zurueck. */
+export async function ladeKontakte(): Promise<number> {
+  if (!kontakteSichernAn() || !state.signer || !state.keypair) return 0;
+  const { KIND_KONTAKTLISTE, D_KONTAKTE, oeffnePrivateKontaktliste } = await import("@freedomstack/protocol");
+  const pool = await ensurePool();
+  const listen = await pool.query({ kinds: [KIND_KONTAKTLISTE], authors: [state.keypair.pk], "#d": [D_KONTAKTE], limit: 5 });
+  const neueste = listen.sort((a, b) => b.created_at - a.created_at)[0];
+  if (!neueste) {
+    gesicherterStand = "[]";
+    return 0;
+  }
+  const entfernt = await oeffnePrivateKontaktliste(neueste, state.signer);
+  // Stand der Relays merken: Nur wenn die lokale Liste davon abweicht, wird neu gesichert.
+  gesicherterStand = JSON.stringify([...entfernt].sort((a, b) => a.pk.localeCompare(b.pk)));
+  let neu = 0;
+  for (const k of entfernt) {
+    if (conversations.some((c) => c.id === k.pk)) continue;
+    conversations.push({ id: k.pk, type: "dm", name: k.name || pkShort(k.pk), lastTs: 0 });
+    neu++;
+  }
+  return neu;
 }
 
 /**
@@ -885,8 +965,9 @@ async function syncDmInbox(): Promise<void> {
     if (eigene.length === 0) {
       await pool.publish(await signiere(buildDmRelayList(me.pk, RELAYS))).catch(() => { /* offline */ });
     }
+    // Kontakte von anderen Geraeten (2.5b, nur wenn eingeschaltet)
+    let neu = await ladeKontakte().catch(() => 0);
     const umschlaege = await pool.query({ kinds: [1059], "#p": [me.pk], limit: 200 });
-    let neu = 0;
     for (const w of umschlaege) {
       const e = await oeffneUmschlag(w);
       if (!e || e.partner === me.pk) continue;

@@ -9,7 +9,7 @@ import { buildPrivateDm } from "../src/private-dm.js";
 import { generateKeypair } from "../src/event.js";
 import {
   LEAK_REGELN, regelAutorNicht, regelKeinKind4, regelKeinKlartext, regelKeinKlartextPrompt, regelKeineZahlungsdaten,
-  regelKundeVerborgen, regelUploadVerschluesselt,
+  regelKundeVerborgen, regelPTagsNur, regelUploadVerschluesselt,
 } from "../src/leak-rules.js";
 import { LAYER_CELL_DEGREES, buildCoverageAnnouncement, toCell } from "../src/coverage.js";
 import { signEvent } from "../src/event.js";
@@ -17,6 +17,7 @@ import { buildJobRequest, buildJobResult } from "../src/dvm.js";
 import { buildPrivateDispute, buildPrivateJobRequest, buildPrivateJobResponse, buildPrivateSessionEvent } from "../src/private-job.js";
 import { buildDispute } from "../src/disputes-relays.js";
 import { verschluesseleDatei } from "../src/datei-krypto.js";
+import { buildPrivateKontaktliste } from "../src/kontaktliste.js";
 import { buildBlob } from "../src/blob.js";
 import { buildSessionOpen, buildSessionPayment } from "../src/stream.js";
 import { LocalSigner } from "../src/signer.js";
@@ -103,6 +104,13 @@ const SZENARIEN: Record<string, () => Promise<number>> = {
   "ki-zahlung": async () => {
     const { wraps } = await privateKiRunde();
     return regelKeineZahlungsdaten(wraps).length;
+  },
+  kontakte: async () => {
+    // Wie die App seit 2.5b, wenn eingeschaltet: alle Eintraege verschluesselt an sich selbst.
+    const ich = new LocalSigner(a.sk);
+    const liste = [{ pk: b.pk, name: "Beratungsstelle" }];
+    const ev = signEvent(await buildPrivateKontaktliste(liste, ich), a.sk);
+    return regelKeinKlartext([ev], [b.pk, "Beratungsstelle"]).length + regelPTagsNur([ev], []).length;
   },
   anhaenge: async () => {
     // Wie die App seit 2.4: nur das Chiffrat ins Blob-Netz, ohne Name und Typ.

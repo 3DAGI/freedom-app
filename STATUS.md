@@ -2996,3 +2996,46 @@ bei ihm ausgeblendet; die Einstellung übersteht das Neuladen.
 Endstand: protocol 1002 · node 176 · app 219 · Leak-Tests 33 grün + 3 todo · 0
 rot · check-wiring `--streng` 0 offen · innerHTML streng 0 unbewertet ·
 Smoke-Test bestanden.
+
+## 77. Metadaten minimieren, Teil b: private Kontaktliste – 2.5 Code fertig
+
+**Ausgangslage:** Die Unterhaltungen liegen nur lokal im Tresor; eine
+Kontaktliste veröffentlicht die App nicht. Wer mehrere Geräte nutzt, hatte
+also keinen Abgleich.
+
+**`protocol/kontaktliste.ts`:** `buildPrivateKontaktliste()` baut eine
+NIP-51-Liste (Kind 30000, `d` = `freedom-kontakte`), alle Einträge als
+NIP-44-Chiffrat an den eigenen Schlüssel – kein p-Tag offen. Über den Signer,
+also auch mit Bunker. `oeffnePrivateKontaktliste()` liest nur die eigene
+Liste, lehnt offene Einträge ab, sortiert kaputte, doppelte und fremde
+Einträge aus (höchstens 1000, Namen höchstens 100 Zeichen).
+
+**App:** Schalter in Settings → Datenschutz, Standard aus. Beim Einschalten
+holt `kontakteEinschalten()` zuerst die vorhandene Liste und führt sie mit den
+eigenen Unterhaltungen zusammen, erst dann wird gesichert. Scheitert das
+Laden, bleibt der Schalter aus. `sichereKontakte()` sendet nur, wenn sich die
+Kontaktmenge ändert – nicht bei jeder Nachricht, sonst verriete die Liste,
+wann jemand schreibt – und erst, wenn der Stand der Relays in dieser Sitzung
+geladen ist. Beim Ausschalten ersetzt eine leere Liste die alte. Der Abgleich
+führt zusammen; eine auf einem Gerät gelöschte Unterhaltung kommt vom anderen
+zurück.
+
+**Fund beim Test:** In der ersten Fassung hätte ein zweites Gerät beim
+Einschalten sofort seine leere Liste veröffentlicht und damit die Kontakte
+des ersten überschrieben. Die Reihenfolge „erst laden, dann sichern“ und die
+Sperre ohne geladenen Stand verhindern das; der Verdrahtungstest hält die
+Reihenfolge fest.
+
+**Datenschutzbericht:** belegt „Deine Kontaktliste veröffentlicht die App
+nicht – auf Wunsch liegt sie verschlüsselt auf den Relays.“ Szenario: Liste
+ohne Klartext und ohne p-Tag.
+
+**Tests:** protocol 1002 → 1005, Leak-Tests 33 → 35 grün + 3 todo
+(`kontakte.test.ts`). **E2E mit zwei Geräten derselben Identität:** Standard
+aus, ohne Schalter keine Liste; Gerät 1 sichert (auf dem Netz nur `d`);
+Gerät 2 schaltet ein, übernimmt den Kontakt und sendet keine neue Liste;
+Ausschalten auf Gerät 1 leert sie.
+
+Endstand: protocol 1005 · node 176 · app 219 · Leak-Tests 35 grün + 3 todo · 0
+rot · check-wiring `--streng` 0 offen · innerHTML streng 0 unbewertet ·
+Smoke-Test bestanden.
