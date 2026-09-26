@@ -285,6 +285,20 @@ test("Preimage aus LND: Hex oder base64, aber immer genau 32 Byte", () => {
   }
 });
 
+test("Vorab-Rechnung (4.6d): normale Rechnung, 10 Minuten gueltig, Hash aus LND", async () => {
+  const hash = new Uint8Array(32).fill(4);
+  const log: { url: string; body: unknown }[] = [];
+  const r = await mitFetch(fakeFetch({ "/v1/invoices": { r_hash: Buffer.from(hash).toString("base64"), payment_request: "lnbc100n1vorab" } }, log),
+    () => new LndLightningAdapter({ restUrl: LOKAL, macaroonHex: MAC }).createInvoice(10));
+  assert.deepEqual(r, { bolt11: "lnbc100n1vorab", paymentHash: hash, amountSats: 10 });
+  assert.deepEqual(log[0].body, { value: "10", memo: "FreedomStack: Vorab-Gebühr für einen Tausch", expiry: "600" });
+  await assert.rejects(
+    () => mitFetch(fakeFetch({ "/v1/invoices": { payment_request: "lnbc1" } }), () => new LndLightningAdapter({ restUrl: LOKAL, macaroonHex: MAC }).createInvoice(10)),
+    /unvollständige Rechnung|keine vollständige/,
+  );
+  await assert.rejects(() => new LndLightningAdapter({ restUrl: LOKAL, macaroonHex: MAC }).createInvoice(0), /positive ganze Zahl/);
+});
+
 test("Macaroon-Datei wird als Hex gelesen", async () => {
   const { mkdtemp, writeFile, rm } = await import("node:fs/promises");
   const { tmpdir } = await import("node:os");

@@ -1,6 +1,6 @@
 # Swaps zwischen Lightning und Solana
 
-Stand 26.09.2026 (Schritt 4.6c). Atomar über denselben Hash: Wer das Preimage
+Stand 26.09.2026 (Schritt 4.6d). Atomar über denselben Hash: Wer das Preimage
 kennt, kann auf beiden Seiten einlösen; läuft eine Frist ab, geht das Geld an
 den zurück, der gesperrt hat. Niemand verwahrt fremdes Geld.
 
@@ -114,9 +114,16 @@ App offen ist; bestätigt wird jede Rückholung in der Wallet.
 Wer sperrt, bindet Kapital – ein Angreifer könnte Swaps anstoßen und nie
 abschließen:
 
-- **Lightning → SOL (geplant: 4.6d):** Der LP sperrt zuerst. Er verlangt
-  vorab eine kleine, nicht erstattbare Gebühr (eigene kleine Rechnung), bevor
-  er SOL sperrt, und hält T_sol kurz (Stunden, nicht Tage).
+- **Lightning → SOL (4.6d):** Der LP sperrt zuerst. Deshalb verlangt er vorab
+  eine kleine, nicht erstattbare Gebühr, bevor er SOL sperrt, und hält T_sol
+  kurz (Stunden, nicht Tage). Das Angebot nennt sie (`["vorab_sats", N]`,
+  `LP_VORAB_SATS`, Standard 10, 0 = aus). Auf eine Anfrage antwortet der LP
+  zuerst mit `["status", "VORAB"]`, `["vorab_sats", N]` und einer normalen
+  Rechnung (10 Minuten gültig); erst wenn sie bezahlt ist, sperrt er und
+  schickt die Hold-Invoice wie bisher. Unbezahlt verfällt die Anfrage. Die App
+  zahlt nur Antworten des LP selbst, nur in der angekündigten Höhe (höchstens
+  1000 sats), nur mit gültiger Rechnung über genau diesen Betrag – und nach
+  Zustimmung, über die Zahlschiene. Die Gebühr mindert den Tausch nicht.
 - **SOL → Lightning (4.6b):** Der Kunde sperrt zuerst; das Risiko des LP ist
   eine Zahlung, die bis zum `cltv_limit` hängt. Begrenzt durch: `cltv_limit`
   aus der Frist der Sperre (nie länger), höchstens `LP_MAX_OFFENE_ZAHLUNGEN`

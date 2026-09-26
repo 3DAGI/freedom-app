@@ -122,6 +122,20 @@ export class LndLightningAdapter implements LightningAdapter {
     };
   }
 
+  /**
+   * Normale Rechnung des LP (4.6d: Vorab-Gebuehr). Gueltig 10 Minuten – so
+   * lange wartet der LP auf die Zahlung, bevor er die Anfrage verwirft.
+   */
+  async createInvoice(amountSats: number): Promise<{ bolt11: string; paymentHash: Uint8Array; amountSats: number }> {
+    if (!Number.isSafeInteger(amountSats) || amountSats <= 0) throw new Error("Betrag muss eine positive ganze Zahl sein");
+    const r = (await this.call("POST", "/v1/invoices", {
+      value: String(amountSats), memo: "FreedomStack: Vorab-Gebühr für einen Tausch", expiry: "600",
+    })) as { r_hash?: string; payment_request?: string };
+    const paymentHash = Uint8Array.from(Buffer.from(r.r_hash ?? "", "base64"));
+    if (paymentHash.length !== 32 || !r.payment_request) throw new Error("LND lieferte keine vollständige Rechnung");
+    return { bolt11: r.payment_request, paymentHash, amountSats };
+  }
+
   async payHoldInvoice(bolt11: string): Promise<void> {
     // SendPaymentV2 ist ein STREAMING-Endpunkt: LND sendet Status-Updates,
     // bis der Payment final ist. Bei einer Hold-Invoice bleibt der Payment

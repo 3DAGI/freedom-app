@@ -32,6 +32,7 @@
 import { sha256 } from "@noble/hashes/sha2.js";
 import { bytesToHex, hexToBytes } from "@noble/hashes/utils.js";
 import { anchorSighash, swapIdBytes, HTLC_PROGRAM_ID, WalletSigner } from "./sol-htlc.js";
+import { leseBolt11 } from "@freedomstack/protocol";
 
 export type SwapPhase =
   /** Anfrage raus, LP hat noch nicht geantwortet. */
@@ -447,6 +448,33 @@ export function preimageFits(preimageHex: string, hashlockHex: string): boolean 
   } catch {
     return false;
   }
+}
+
+/** Hoechste Vorab-Gebuehr, die die App zahlt (4.6d) – darueber ist es kein Blockadeschutz mehr. */
+export const MAX_VORAB_SATS = 1000;
+
+/**
+ * Vorab-Gebuehr des LP pruefen (4.6d), bevor irgendetwas gezahlt wird: nur,
+ * wenn das Angebot sie angekuendigt hat, genau in dieser Hoehe, und die
+ * Rechnung muss gueltig signiert sein und genau diesen Betrag nennen.
+ */
+export function pruefeVorab(
+  antwort: { tags: string[][]; content: string },
+  angekuendigt: number | undefined,
+): { ok: true; sats: number; bolt11: string } | { ok: false; grund: string } {
+  if (!angekuendigt) return { ok: false, grund: "Das Angebot nannte keine Vorab-Gebühr." };
+  const sats = Number(antwort.tags.find((t) => t[0] === "vorab_sats")?.[1]);
+  if (sats !== angekuendigt) return { ok: false, grund: `Verlangt sind ${sats} sats, angekündigt waren ${angekuendigt}.` };
+  if (sats > MAX_VORAB_SATS) return { ok: false, grund: `Eine Vorab-Gebühr über ${MAX_VORAB_SATS} sats zahlt die App nicht.` };
+  const bolt11 = antwort.content.trim();
+  let betragMsat: number | null;
+  try {
+    betragMsat = leseBolt11(bolt11).betragMsat;
+  } catch {
+    return { ok: false, grund: "Die Rechnung für die Vorab-Gebühr ist ungültig." };
+  }
+  if (betragMsat !== sats * 1000) return { ok: false, grund: "Die Rechnung nennt einen anderen Betrag als die Vorab-Gebühr." };
+  return { ok: true, sats, bolt11 };
 }
 
 /** Nächster sinnvoller Schritt für die Oberfläche. */

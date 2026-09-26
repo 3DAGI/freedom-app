@@ -141,8 +141,12 @@ export interface SwapSession {
   amountSats: number;
   amountLamports: number;
   hashlockHex: string;
-  phase: "OFFERED" | "SOL_LOCKED" | "INVOICE_CREATED" | "SETTLED" | "REFUNDED" | "FAILED";
+  /** VORAB: Vorab-Gebuehr gestellt, noch nicht bezahlt (4.6d). */
+  phase: "VORAB" | "OFFERED" | "SOL_LOCKED" | "INVOICE_CREATED" | "SETTLED" | "REFUNDED" | "FAILED";
 }
+
+/** So lange wartet der LP auf die Vorab-Gebuehr (so lange gilt auch ihre Rechnung). */
+export const VORAB_FRIST_SECS = 600;
 
 /** Wechselkurs-Quelle (spaeter: Orakel/Markt). v1: fixer Satz in Config. */
 export interface RateProvider {
@@ -164,6 +168,8 @@ export class LpDaemon {
   /** Zahlungen, die in diesem Prozess gerade laufen (requestId -> Ablauf). */
   private laufend = new Map<string, Promise<void>>();
   private angebotVeroeffentlicht = 0;
+  /** Hinrichtung: Anfragen, deren Vorab-Gebuehr noch aussteht (requestId -> …). */
+  private vorab = new Map<string, { paymentHash: Uint8Array; bis: number; H: Uint8Array; kundeSol: string }>();
 
   constructor(
     private cfg: LpConfig,
@@ -218,7 +224,7 @@ export class LpDaemon {
       "#p": [this.cfg.keypair.pk],
       since: now - 3600,
     });
-    const out: Array<SwapSession | RueckSitzung> = [];
+    const out: Array<SwapSession | RueckSitzung> = [...await this.vorabPruefen()];
     for (const ev of events) {
       if (this.seenRequests.has(ev.id)) continue;
       this.seenRequests.add(ev.id);
@@ -277,7 +283,54 @@ export class LpDaemon {
     };
     this.sessions.set(req.id, session);
 
-    // LP-Seite: SOL sperren + Hold-Invoice stellen (LP zahlt mit sats-Eingang)
+    // Gegen Blockaden (4.6d): erst eine kleine, nicht erstattbare Vorab-Gebuehr,
+    // dann sperren. Sonst koennte jeder mit Anfragen, die er nie bezahlt, die
+    // Liquiditaet des LP bis T_sol binden.
+    const vorabSats = this.cfg.offer.vorabSats ?? 0;
+    if (vorabSats > 0) {
+      if (!this.ln.createInvoice) throw new Error("Lightning-Adapter kann keine Vorab-Rechnung stellen");
+      const r = await this.ln.createInvoice(vorabSats);
+      this.vorab.set(req.id, { paymentHash: r.paymentHash, bis: this.jetzt() + VORAB_FRIST_SECS, H, kundeSol: customerSol });
+      session.phase = "VORAB";
+      await this.pool.publish(signEvent(buildEvent(this.cfg.keypair.pk, KIND_SWAP_RESPONSE, [
+        ["e", req.id], ["p", req.pubkey], ["status", "VORAB"], ["vorab_sats", String(vorabSats)],
+      ], r.bolt11), this.cfg.keypair.sk));
+      return session;
+    }
+    return this.sperreUndStelle(session, H, customerSol);
+  }
+
+  /**
+   * Vorab-Gebuehren nachsehen: bezahlt → jetzt sperren und die Hold-Invoice
+   * stellen; nach VORAB_FRIST_SECS unbezahlt → verwerfen.
+   */
+  private async vorabPruefen(): Promise<SwapSession[]> {
+    const now = this.jetzt();
+    const weiter: SwapSession[] = [];
+    for (const [id, v] of this.vorab) {
+      const session = this.sessions.get(id)!;
+      try {
+        if ((await this.ln.getInvoiceState(v.paymentHash)) === "SETTLED") {
+          this.vorab.delete(id);
+          weiter.push(await this.sperreUndStelle(session, v.H, v.kundeSol));
+        } else if (now >= v.bis) {
+          this.vorab.delete(id);
+          session.phase = "FAILED";
+        }
+      } catch (err) {
+        console.error(`Swap-Request ${id} nach Vorab-Gebuehr fehlgeschlagen:`, (err as Error).name);
+        this.vorab.delete(id);
+        session.phase = "FAILED";
+        await this.sende(id, session.customerPubkey, "ABGELEHNT", "Sperren fehlgeschlagen");
+      }
+    }
+    return weiter;
+  }
+
+  /** LP-Seite: SOL sperren + Hold-Invoice stellen (LP zahlt mit sats-Eingang). */
+  private async sperreUndStelle(session: SwapSession, H: Uint8Array, customerSol: string): Promise<SwapSession> {
+    const { requestId, amountSats, amountLamports } = session;
+    const req = { id: requestId, pubkey: session.customerPubkey };
     const swapId = `swap-${req.id.slice(0, 16)}`;
     const timelockUnix = Math.floor(Date.now() / 1000) + this.cfg.offer.tSolSecs;
     await this.sol.lock({

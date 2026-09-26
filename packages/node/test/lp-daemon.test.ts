@@ -8,10 +8,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  OutboxPool, MemoryRelay, generateKeypair, signEvent, buildEvent,
-  LpOffer, hashlock, generatePreimage, toHex,
+  OutboxPool, MemoryRelay, generateKeypair, signEvent, buildEvent, getTag,
+  LpOffer, hashlock, generatePreimage, toHex, parseLpOffer, KIND_LP_OFFER,
 } from "@freedomstack/protocol";
-import { LpDaemon, FixedRate, KIND_SWAP_REQUEST } from "../src/lp-daemon.js";
+import { LpDaemon, FixedRate, KIND_SWAP_REQUEST, KIND_SWAP_RESPONSE, VORAB_FRIST_SECS } from "../src/lp-daemon.js";
 
 const LP = generateKeypair();
 const KUNDE = generateKeypair();
@@ -32,8 +32,10 @@ const angebot: Omit<LpOffer, "expiry"> = {
 function adapter() {
   const locks: { swapId: string; amountLamports: number; recipient: string }[] = [];
   const invoices: { amountSats: number }[] = [];
+  /** Vorab-Rechnungen (4.6d): Hash -> bezahlt? */
+  const vorab = new Map<string, boolean>();
   return {
-    locks, invoices,
+    locks, invoices, vorab,
     sol: {
       async lock(p: { swapId: string; amountLamports: number; recipient: string }) { locks.push(p); },
       async claim() { /* nicht im Test */ },
@@ -47,19 +49,24 @@ function adapter() {
         return "lnbc1test";
       },
       async payHoldInvoice() { /* nicht im Test */ },
-      async getInvoiceState() { return "OPEN" as const; },
+      async createInvoice(amountSats: number) {
+        const paymentHash = hashlock(generatePreimage());
+        vorab.set(toHex(paymentHash), false);
+        return { bolt11: `lnbcvorab${amountSats}`, paymentHash, amountSats };
+      },
+      async getInvoiceState(h: Uint8Array) { return vorab.get(toHex(h)) ? "SETTLED" as const : "OPEN" as const; },
       async settleHoldInvoice() { /* nicht im Test */ },
       async cancelHoldInvoice() { /* nicht im Test */ },
     },
   };
 }
 
-function setup(over: Partial<typeof angebot> = {}, maxLamportsPerSwap = 1_000_000_000) {
+function setup(over: Partial<typeof angebot> = {}, maxLamportsPerSwap = 1_000_000_000, uhr?: { t: number }) {
   const pool = new OutboxPool([new MemoryRelay("mem://lp")], { minAcks: 1 });
   const a = adapter();
   const lp = new LpDaemon(
     { keypair: LP, offer: { ...angebot, ...over }, offerTtlSecs: 3600, maxLamportsPerSwap },
-    pool, a.ln as never, a.sol as never, new FixedRate(100),
+    pool, a.ln as never, a.sol as never, new FixedRate(100), uhr ? () => uhr.t : undefined,
   );
   return { pool, lp, a };
 }
@@ -197,4 +204,56 @@ test("Ein fehlgeschlagener Request blockiert die anderen nicht", async () => {
   const sessions = await lp.pollOnce();
   assert.equal(sessions.length, 1, "die gueltige Anfrage geht durch");
   assert.equal(a.locks.length, 1);
+});
+
+// ------------------------------------------------ Vorab-Gebuehr (4.6d)
+
+test("Vorab-Gebuehr: erst eine kleine Rechnung, gesperrt wird erst nach der Zahlung", async () => {
+  const { pool, lp, a } = setup({ vorabSats: 10 });
+  const anf = anfrage();
+  await pool.publish(anf);
+  const [s1] = await lp.pollOnce();
+  assert.equal(s1.phase, "VORAB");
+  assert.equal(a.locks.length, 0, "vor der Zahlung wird NICHTS gesperrt");
+  const [vorab] = await pool.query({ kinds: [KIND_SWAP_RESPONSE], "#e": [anf.id] });
+  assert.equal(getTag(vorab, "status"), "VORAB");
+  assert.equal(getTag(vorab, "vorab_sats"), "10");
+  assert.equal(vorab.content, "lnbcvorab10");
+  assert.equal(getTag(vorab, "swap_id"), undefined, "noch keine Sperre, keine Swap-ID");
+
+  assert.equal((await lp.pollOnce()).length, 0, "unbezahlt: weiter warten");
+  for (const k of a.vorab.keys()) a.vorab.set(k, true); // Kunde zahlt
+  const [s2] = await lp.pollOnce();
+  assert.equal(s2.phase, "INVOICE_CREATED");
+  assert.equal(a.locks.length, 1);
+  assert.equal(a.locks[0].amountLamports, 10_000 * 100, "die Vorab-Gebuehr mindert den Tausch nicht");
+  assert.equal(a.invoices.length, 1);
+  const antworten = await pool.query({ kinds: [KIND_SWAP_RESPONSE], "#e": [anf.id] });
+  assert.ok(antworten.some((e) => getTag(e, "swap_id")), "jetzt die Hold-Invoice mit Swap-ID");
+  assert.equal((await lp.pollOnce()).length, 0, "nur einmal gesperrt");
+  assert.equal(a.locks.length, 1);
+});
+
+test("Vorab-Gebuehr: unbezahlt nach der Frist verworfen – auch eine spaete Zahlung sperrt nichts mehr", async () => {
+  const uhr = { t: 1_790_000_000 };
+  const { pool, lp, a } = setup({ vorabSats: 10 }, 1_000_000_000, uhr);
+  await pool.publish(anfrage());
+  const [s] = await lp.pollOnce();
+  uhr.t += VORAB_FRIST_SECS;
+  await lp.pollOnce();
+  assert.equal(s.phase, "FAILED");
+  for (const k of a.vorab.keys()) a.vorab.set(k, true);
+  await lp.pollOnce();
+  assert.equal(a.locks.length, 0);
+});
+
+test("Vorab-Gebuehr steht im Angebot; ohne sie sperrt der LP wie bisher sofort", async () => {
+  const { pool, lp } = setup({ vorabSats: 10 });
+  await lp.publishOffer();
+  const [ev] = await pool.query({ kinds: [KIND_LP_OFFER], authors: [LP.pk] });
+  assert.equal(parseLpOffer(ev).vorabSats, 10);
+  const ohne = setup();
+  await ohne.pool.publish(anfrage());
+  assert.equal((await ohne.lp.pollOnce())[0].phase, "INVOICE_CREATED");
+  assert.equal(ohne.a.vorab.size, 0);
 });

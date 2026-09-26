@@ -3666,3 +3666,42 @@ Kunde, LP, PDA, Hashlock und 1.010.000 Lamports, Anfrage vom Wegwerf-Schlüssel,
 Endstand: protocol 1038 · node 199 · app 260 · Leak-Tests 37 grün + 4 todo ·
 0 rot · check-wiring `--streng` 0 offen · innerHTML streng 0 unbewertet ·
 Smoke-Test bestanden.
+
+## 94. Swaps in beide Richtungen, Teil d: Vorab-Gebühr der Hinrichtung (Schritt 4.6)
+
+**Warum:** In der Hinrichtung (sats → SOL) sperrt der LP zuerst. Wer Anfragen
+schickt und nie bezahlt, bindet seine Liquidität bis T_sol – für nichts als
+die eigenen Relay-Events.
+
+**LP (`lp-daemon.ts`):** Nennt das Angebot `vorab_sats` (`LP_VORAB_SATS`,
+Standard 10, 0 = aus), antwortet der LP auf eine gültige Anfrage zuerst mit
+`["status", "VORAB"]`, `["vorab_sats", N]` und einer normalen Rechnung
+(`LndLightningAdapter.createInvoice`, 10 Minuten gültig). Bei jedem Durchlauf
+sieht er nach (`vorabPruefen`): bezahlt → jetzt sperren und die Hold-Invoice
+stellen (`sperreUndStelle`, der Teil von `handleRequest` ab dem Sperren);
+unbezahlt nach `VORAB_FRIST_SECS` → verwerfen, auch eine spätere Zahlung
+sperrt nichts mehr. Scheitert das Sperren nach der Zahlung, antwortet er
+`ABGELEHNT`. Die Gebühr mindert den Tausch nicht.
+
+**App (`tabs/waehrung.ts`, `swap-client.ts`):** `pollSwapResponse` liest nur
+noch Antworten des LP selbst (`authors: [lpPubkey]`) – bisher las es jede
+Antwort auf die Anfrage, also hätte auch ein Fremder eine „Vorab-Rechnung“
+schicken können. `pruefeVorab()`: nur wenn das Angebot die Gebühr nannte, genau
+in dieser Höhe, höchstens 1000 sats, Rechnung gültig signiert und über genau
+diesen Betrag. Dann Dialog, dann `zahle(zahlschienen(), …)` mit Zweck `swap`.
+`ABGELEHNT` wird angezeigt.
+
+**Browser-E2E** (WebLN nachgebildet, Relays und RPC nachgebildet): Angebot
+„sats → SOL · 0.30 %“, Tresor eingerichtet, Anfrage, Dialog „vorab 10 sats“,
+bezahlt wird genau die Rechnung des LP – die eines Fremden nicht –, danach
+Hold-Invoice, Sperrprüfung auf der Kette „Geprüft“, Zahl-Link frei. Damit lief
+die Hinrichtung erstmals ganz im Browser, einschließlich des `DataView`-Fixes
+aus 4.6c.
+
+**Tests:** protocol 1038 → 1040 (`nostr-order` +1, `lnd-adapter` +1), node
+199 → 202 (`lp-daemon` +3: erst Rechnung, dann Sperre; Frist; Angebot), app
+260 → 263 (`swap-vorab.test.ts`).
+
+Endstand: protocol 1040 · node 202 · app 263 · Leak-Tests 37 grün + 4 todo ·
+0 rot · check-wiring `--streng` 0 offen · innerHTML streng 0 unbewertet ·
+Smoke-Test bestanden.

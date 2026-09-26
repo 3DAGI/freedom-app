@@ -62,3 +62,14 @@ test("Gegenrichtung (4.6b): Angebot nennt SOL-Konto und genauen Kurs – sonst u
   // Hinrichtung bleibt ohne beides gueltig
   assert.deepEqual(parseLpOffer(buildLpOffer(sample, KP.pk, 1_700_000_000)), sample);
 });
+
+test("Vorab-Gebuehr (4.6d): optional, nur als positive ganze Zahl", () => {
+  const mit: LpOffer = { ...sample, vorabSats: 10 };
+  assert.deepEqual(parseLpOffer(buildLpOffer(mit, KP.pk, 1_700_000_000)), mit);
+  assert.equal(buildLpOffer({ ...sample, vorabSats: 0 }, KP.pk).tags.some((t) => t[0] === "vorab_sats"), false, "0 = aus");
+  for (const falsch of ["0", "-5", "1.5", "zehn"]) {
+    const ev = buildLpOffer(mit, KP.pk);
+    ev.tags = ev.tags.map((t) => (t[0] === "vorab_sats" ? ["vorab_sats", falsch] : t));
+    assert.throws(() => parseLpOffer(ev), /vorab_sats/, falsch);
+  }
+});
