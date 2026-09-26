@@ -7,20 +7,17 @@
  *
  * Aus app.ts verschoben (Schritt 1.0) – woertlich, ohne Logikaenderung.
  */
-import { LocalSigner, type NostrEvent, OutboxPool, type Signer, type UnsignedEvent, WebSocketRelay } from "@freedomstack/protocol";
+import {
+  LocalSigner, type NostrEvent, OutboxPool, type Signer, type UnsignedEvent, WebSocketRelay, normalizeRelayUrl, startUrls,
+} from "@freedomstack/protocol";
 import { ScoredProvider, discoverProviders, matchProviders } from "../matchmaking.js";
 import { KiSitzungen } from "../ki-sitzung.js";
 import { SessionClient } from "../session-client.js";
 import { escapeHtml } from "../shell-logic.js";
+import { eigeneListenAbgleichen, ladeEigeneRelays, poolRelays } from "../relay-satz.js";
 import { $, toast } from "./ui.js";
 
 // ------------------------------------------------------------- Konstanten
-
-export const RELAYS = [
-  "wss://relay.damus.io",
-  "wss://nos.lol",
-  "wss://relay.nostr.band",
-];
 
 export const LS_KEY = "freedom.nsec";
 /** Bunker-Sitzung (Schritt 1.3f): Signer, Relays, Client-Schluessel – ein Geheimnis. */
@@ -235,14 +232,49 @@ export async function ensurePool(): Promise<OutboxPool> {
   // Gemerkte Funde aus der letzten Sitzung sofort mitnehmen: Wer beim Start
   // erst entdecken muesste, haengt beim ersten Job an denselben vier fremden
   // Servern wie vorher.
-  const gemerkt = ladeGemerkteRelays();
-  const urls = [...new Set([...RELAYS, ...gemerkt])];
+  // Seit 5.4: eigener Satz + wechselnd weitere aus der Startliste statt drei fester Relays.
+  const urls = poolRelays({ eigene: ladeEigeneRelays(localStorage), gemerkt: ladeGemerkteRelays() });
   const relays = urls.map((url) => new WebSocketRelay(url, { timeoutMs: 8000 }));
   state.pool = new OutboxPool(relays, { minAcks: 1 });
 
   // Entdeckung im Hintergrund — sie darf den ersten Job nicht verzoegern.
   void entdeckeRelays();
   return state.pool;
+}
+
+/**
+ * Nur an diese Relays (5.4) – etwa den Posteingang eines Empfaengers. Relays
+ * des Pools nutzen ihre Verbindung, andere bekommen eine kurze eigene, die
+ * danach geschlossen wird. Gibt zurueck, wie viele annahmen.
+ */
+export async function veroeffentlicheAn(ev: NostrEvent, urls: readonly string[]): Promise<number> {
+  const pool = await ensurePool();
+  const imPool = new Map(pool.urls.map((u) => [normalizeRelayUrl(u), u]));
+  const ziele = [...new Set(urls.map(normalizeRelayUrl))];
+  const fremd = ziele.filter((u) => !imPool.has(u)).map((u) => new WebSocketRelay(u, { timeoutMs: 8000, autoReconnect: false }));
+  const [ausPool, ...einzeln] = await Promise.allSettled([
+    pool.publishAn(ev, ziele.filter((u) => imPool.has(u)).map((u) => imPool.get(u)!)),
+    ...fremd.map((r) => r.publish(ev)),
+  ]);
+  for (const r of fremd) r.close();
+  return (ausPool.status === "fulfilled" ? ausPool.value.accepted.length : 0) + einzeln.filter((e) => e.status === "fulfilled").length;
+}
+
+/** Eigene Listen (Kind 10002/10050) weit streuen: an den Pool und die ganze Startliste – dort sucht sie jeder. */
+export async function veroeffentlicheWeit(ev: NostrEvent): Promise<boolean> {
+  const pool = await ensurePool();
+  return (await veroeffentlicheAn(ev, [...pool.urls, ...startUrls()])) > 0;
+}
+
+let listenAbgeglichen = false;
+
+/** Eigenen Relay-Satz einmal je Sitzung mit den veroeffentlichten Listen abgleichen (5.4a). */
+export async function eigeneRelayListen(): Promise<void> {
+  if (listenAbgeglichen || !state.keypair || !state.signer) return;
+  const eigene = await eigeneListenAbgleichen({
+    pool: await ensurePool(), pk: state.keypair.pk, signiere, weit: veroeffentlicheWeit, speicher: localStorage,
+  });
+  if (eigene) listenAbgeglichen = true;
 }
 
 const LS_RELAYS = "freedom.relays";
@@ -283,17 +315,18 @@ async function entdeckeRelays(): Promise<void> {
     // Wer nachweislich gearbeitet hat, dessen Relay-Angabe wiegt schwerer.
     // Eine blosse Anzahl liesse sich mit Wegwerf-Schluesseln erzeugen.
     const arbeiter = new Set(arbeit.map((e) => e.pubkey));
-    const { relays } = discoverRelays(listen, { trustedPubkeys: arbeiter, known: RELAYS });
+    const start = startUrls();
+    const { relays } = discoverRelays(listen, { trustedPubkeys: arbeiter, known: [...start, ...pool.urls] });
     if (relays.length === 0) return;
 
     const set = await buildRelaySet({
-      seedUrls: RELAYS,
+      seedUrls: start,
       discovered: relays,
       makeRelay: (u) => new WebSocketRelay(u, { timeoutMs: 6000 }),
-      maxTotal: 8,
+      maxTotal: start.length + 5,
     });
 
-    const neu = set.urls.filter((u) => !RELAYS.includes(u));
+    const neu = set.urls.filter((u) => !start.includes(u));
     if (neu.length > 0) {
       localStorage.setItem(LS_RELAYS, JSON.stringify(neu));
       console.log(`[relay] ${neu.length} Relay(s) des Netzes gefunden — beim naechsten Start aktiv`);

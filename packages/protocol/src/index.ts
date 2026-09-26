@@ -28,6 +28,7 @@ export * from "./swap-umgekehrt.js";
 export * from "./relayer.js";
 export * from "./swap-versiegelt.js";
 export * from "./trinkgeld-adresse.js";
+export * from "./relay-start.js";
 export * from "./profile.js";
 export * from "./outbox.js";
 export * from "./ws-relay.js";

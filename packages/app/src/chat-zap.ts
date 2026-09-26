@@ -149,7 +149,7 @@ async function sendZap(state: ZapDialogState, el: HTMLElement): Promise<void> {
         senderPubkey: appState.keypair!.pk,
         recipientPubkey: state.recipientPubkey,
         amountMsat: betragMsat,
-        relays: ["wss://relay.damus.io", "wss://nos.lol", "wss://relay.nostr.band"],
+        relays: pool.urls.slice(0, 5), // eigener Satz vorn (5.4) – dort liest die App die Quittung
       }));
       const { holeZapRechnung } = await import("./zap-zahlung.js");
       const rechnung = await holeZapRechnung({ lud16, betragMsat, zapRequest });

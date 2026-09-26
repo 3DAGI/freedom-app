@@ -42,7 +42,7 @@ const datei = "packages/app/dist/freedom.html";
 const html = await readFile(datei);
 const sha = createHash("sha256").update(html).digest("hex");
 
-const { buildReleaseManifest, signEvent, keypairFromSecret, OutboxPool, WebSocketRelay, nutzlast, RELEASE_MIN_SIGNATUREN } =
+const { buildReleaseManifest, signEvent, keypairFromSecret, OutboxPool, WebSocketRelay, nutzlast, RELEASE_MIN_SIGNATUREN, startUrls } =
   await import("../packages/protocol/src/index.ts");
 
 const sourcesRaw = process.env.RELEASE_SOURCES ?? "https://freedomstack.io/freedom.html";
@@ -69,7 +69,8 @@ const unsigned = buildReleaseManifest(
 );
 const ev = signEvent(unsigned, kp.sk);
 
-const relays = (process.env.RELEASE_RELAYS ?? "wss://relay.damus.io,wss://nos.lol,wss://relay.nostr.band")
+// Ohne RELEASE_RELAYS: die ganze Startliste (5.4) – jede App-Sitzung liest dort mit.
+const relays = (process.env.RELEASE_RELAYS ?? startUrls().join(","))
   .split(",").map((u) => new WebSocketRelay(u.trim()));
 const pool = new OutboxPool(relays, { minAcks: 1 });
 

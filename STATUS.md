@@ -4215,6 +4215,72 @@ node 213 (+ 7 übersprungen ohne Netz) · app 291 · Leak-Tests 47 grün + 2 tod
 0 rot · check-wiring `--streng` 0 offen (5 neue Ausnahmen bis 7.2b) ·
 innerHTML streng 0 unbewertet · Smoke-Test bestanden.
 
+## Schritt 5.4a – Startliste und eigener Relay-Satz
+
+**Ausgangslage:** App, Knoten, Release-Skript und Dashboard hingen an drei fest
+verdrahteten Relays (damus, nos.lol, nostr.band). Beim Bau dieses Schritts war
+relay.nostr.band nicht erreichbar – ein Drittel fehlte, ohne dass es jemand
+merkte. Direktnachrichten gingen zusätzlich an alle eigenen Relays.
+
+**Startliste** (`protocol/src/relay-start.ts`): acht Relays von acht
+Betreibern, per NIP-11 geprüft (damus, nos.lol, Primal, nostr.mom, 0xtr,
+offchain.pub, Wellorder, bitcoiner.social). relay.snort.social fiel heraus
+(nur im Speicher), relay.nostr.band ebenso. Keine .onion-Adresse – kein
+Betreiber veröffentlicht eine, die sich prüfen ließ (MENSCH-Punkt).
+
+**Eigener Satz:** Neue Nutzer bekommen vier zufällige Relays der Liste –
+die Last verteilt sich, kein Betreiber sieht alle. Die App veröffentlicht den
+Satz als NIP-65-Liste (Kind 10002) und Posteingang (Kind 10050), gestreut an
+den Pool und die ganze Startliste (`veroeffentlicheWeit`), dort sucht sie
+jeder. Die veröffentlichte Liste gilt: Ein zweites Gerät derselben Identität
+übernimmt sie, statt neu zu würfeln; „keine Liste“ zählt nur, wenn mindestens
+zwei Relays antworteten (`OutboxPool.queryMitBericht`). Wer von vor 5.4 kommt,
+behält seinen alten Posteingang und bekommt zwei neue dazu. Scheitert das
+Veröffentlichen, wird nichts gemerkt – beim nächsten Abgleich wieder.
+
+**Sitzung:** Pool = eigener Satz + drei weitere der Liste in wechselnder
+Auswahl + gemerkte Funde (`poolRelays`); beim allerersten Start die ganze
+Liste. Zwei Nutzer teilen so immer mindestens sechs Relays, auch ohne die
+Listen des anderen zu lesen (Test mit 50 Zufallspaaren). Lesen bei den
+Schreib-Relays der Kontakte folgt mit 5.4b – dann kann der wechselnde Teil
+kleiner werden.
+
+**Direktnachrichten:** nur noch an den Posteingang des Empfängers (NIP-17,
+`veroeffentlicheAn` über `OutboxPool.publishAn` – Relays des Pools mit ihrer
+Verbindung, andere kurz und danach geschlossen; vorher blieben diese
+Verbindungen offen), die eigene Kopie ebenso an den eigenen. Ohne Liste oder
+wenn kein Posteingang annimmt: die eigenen Relays wie bisher.
+
+**Knoten, Releases, Dashboard:** ohne eigene Einstellung die ganze Startliste
+(`RELAYS_DEFAULT = startUrls()`, `RELEASE_RELAYS`, `dashboard.html`) – so
+überschneidet sich jede App-Sitzung mit dem Knoten. Zap-Anfragen nennen den
+eigenen Satz statt der drei alten.
+
+**Abnahme im Browser** (Playwright, jeder Relay-Host mit eigenem Speicher wie
+im echten Netz; damus, nos.lol, nostr.band lehnen die Verbindung ab): beide
+Nutzer veröffentlichen ihre Listen auf allen erreichbaren Startrelays;
+Direktnachricht Alice → Bob und zurück kommt an, der Umschlag an Bob liegt nur
+auf seinen erreichbaren Posteingangs-Relays; nach einem Neustart verbindet
+sich Alice mit sieben Relays (eigene vier + drei) und bekommt die Antwort
+eines echten `DvmProvider`, der wie ohne `RELAYS` auf der Startliste
+veröffentlicht. Zweimal mit verschiedenen Zufallssätzen gelaufen.
+
+**Tests:** protocol 1074 → 1083 (`relay-start.test.ts` 9: Vielfalt, Satz,
+Sitzung, Überschneidung, Geräte, Altbestand, `publishAn`/`queryMitBericht`),
+app 291 → 300 (`relay-satz.test.ts` 9: Pool, Abgleich neu/zweites
+Gerät/Altbestand/zu wenige Antworten/Veröffentlichen gescheitert,
+Verdrahtung in `state.ts`, `kommunikation.ts`, `chat-zap.ts`, Knoten,
+Release-Skript, Dashboard).
+
+**MENSCH:** Am GX10 `RELAYS` nicht setzen (dann die Startliste) oder um die
+Startliste ergänzen – mit den drei alten hängt der Knoten nur an damus und
+nos.lol; fallen die aus, findet ihn keine App mehr. Eine geprüfte
+.onion-Adresse für die Liste.
+
+Endstand (nach dem Einmergen von 7.2a): protocol 1089 · node 214 · app 300 ·
+Leak-Tests 47 grün + 2 todo · 0 rot · check-wiring `--streng` 0 offen ·
+innerHTML streng 0 unbewertet · Smoke-Test bestanden.
+
 ## Schritt 7.2b – SOL ohne Internet, Teil b: App – 7.2 Code fertig
 
 **Wallet-Tab, eingebaute Wallet → „Ohne Internet zahlen“** (`shell/offline-zahlung.ts`):
