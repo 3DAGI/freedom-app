@@ -127,7 +127,7 @@ export async function loadGitRepos(): Promise<void> {
       ? sorted.map((ev) => {
           const name = ev.tags.find((t) => t[0] === "d")?.[1] ?? "?";
           return `<div class="stat"><span class="k">📦 ${escapeHtml(name)} <span class="mono-sm">${escapeHtml(pkShort(ev.pubkey))}</span></span>
-            <span><button class="ghost copy-btn git-clone-btn" data-blob="${escapeHtml(ev.tags.find((t) => t[0] === "blob")?.[1] ?? "")}" data-name="${escapeHtml(name)}" style="width:auto;padding:4px 8px">⇩ bundle</button></span></div>`;
+            <span><button class="ghost copy-btn git-clone-btn" data-ref="${escapeHtml(ev.id)}" data-blob="${escapeHtml(ev.tags.find((t) => t[0] === "blob")?.[1] ?? "")}" data-name="${escapeHtml(name)}" style="width:auto;padding:4px 8px">⇩ bundle</button></span></div>`;
         }).join("")
       : "<span>noch keine repos — publiziere das erste bundle!</span>";
     list.querySelectorAll(".git-clone-btn").forEach((btn) => {
@@ -135,11 +135,16 @@ export async function loadGitRepos(): Promise<void> {
         const el = btn as HTMLButtonElement;
         el.disabled = true;
         try {
-          const { downloadBlob } = await import("../../blob-client.js");
+          const { downloadBlob, oeffneAnhang } = await import("../../blob-client.js");
+          const { parseGitRepoRef } = await import("@freedomstack/protocol");
           const pool = await ensurePool();
           const res = await downloadBlob(el.dataset.blob!, pool as never);
           if (!res) { toast("bundle nicht rekonstruierbar", true); return; }
-          const url = URL.createObjectURL(new Blob([res.bytes as unknown as BlobPart], { type: "application/octet-stream" }));
+          // Seit 8.9b verschluesselt, der Schluessel steht oeffentlich in der Referenz; aeltere Bundles sind Klartext
+          const refEv = sorted.find((x) => x.id === el.dataset.ref);
+          const schluessel = refEv ? (() => { try { return parseGitRepoRef(refEv).schluessel; } catch { return undefined; } })() : undefined;
+          const bytes = schluessel ? await oeffneAnhang(res.bytes, schluessel) : res.bytes;
+          const url = URL.createObjectURL(new Blob([bytes as unknown as BlobPart], { type: "application/octet-stream" }));
           const a = document.createElement("a");
           a.href = url; a.download = `${el.dataset.name}.bundle`;
           a.click();

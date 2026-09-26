@@ -224,8 +224,8 @@ test("Auskunft: ueber keine Strecke geht Offenes (7.1)", () => {
     // Verschluesselte Direktnachrichten ja – alles Offene nein.
     assert.equal(holen(link, "Direktnachrichten"), true);
     for (const teil of ["Räume", "Profile", "Code", "Modellgewichte"]) assert.equal(holen(link, teil), false, `${teil} über ${link}`);
-    // Solana: Transport steht, offline signieren erst mit 7.2 – nicht als vorhanden ausgeben.
-    assert.equal(holen(link, "Solana"), false);
+    // Solana seit 7.2: mit Nonce-Konto offline signiert, ein Geraet mit Netz reicht ein.
+    assert.equal(holen(link, "Solana"), true);
   }
   // Ueber Funk nennt die Auskunft die Sendezeit-Grenze.
   assert.match(offlineCapabilities("lora").find((x) => x.feature === "Direktnachrichten")!.note, /1 % Sendezeit/);

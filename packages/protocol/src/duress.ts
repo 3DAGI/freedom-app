@@ -32,14 +32,25 @@ export interface WipeTarget {
 
 /** Was gelöscht wird, mit ausdrücklicher Benennung. */
 export const WIPE_TARGETS: WipeTarget[] = [
-  { label: "Identität (Schlüssel)", storageKeys: ["freedom.sk", "freedom.identity"], critical: true },
-  { label: "Unterhaltungen", storageKeys: ["freedom.conversations", "freedom.messages"], critical: false },
+  { label: "Identität (Schlüssel, Merkphrase-Sicherung)", storageKeys: ["freedom.nsec", "freedom.backup.mnemonic"], critical: true },
+  { label: "Tresor", storageKeys: ["freedom.vault", "freedom.vault.sperreMin"], critical: true },
+  { label: "Unterhaltungen und Verläufe", storageKeys: ["freedom.chats", "freedom.agentHistory", "freedom.swapHistory"], critical: false },
   { label: "Räume und Lesestände", storageKeys: ["freedom.spaces", "freedom.lastRead"], critical: false },
   { label: "Eigene Namen", storageKeys: ["freedom.petnames"], critical: false },
   { label: "Profil", storageKeys: ["freedom.profile"], critical: false },
-  { label: "Wallet-Verbindung", storageKeys: ["freedom.nwc", "freedom.wallet"], critical: true },
-  { label: "Gerätevollmachten", storageKeys: ["freedom.devices"], critical: true },
+  { label: "Wallet-Verbindung und eingebaute SOL-Wallet", storageKeys: ["freedom.nwc.uri", "freedom.solWallet"], critical: true },
+  { label: "Gerätevollmachten (Bunker-Sitzung)", storageKeys: ["freedom.bunker"], critical: true },
+  { label: "Suchindex (Schlüssel)", storageKeys: ["freedom.suche.schluessel"], critical: false },
 ];
+
+/**
+ * IndexedDB-Datenbanken der App: Tresor, Suchindex (8.13), Blob-Speicher.
+ * Geloescht wird zusaetzlich jede Datenbank, deren Name mit `freedom`
+ * beginnt – wie beim Praefix fuer localStorage.
+ */
+export const WIPE_DATENBANKEN = ["freedom-vault", "freedom-suche", "freedom-blobs"];
+
+const unsere = (name: string): boolean => name.startsWith("freedom");
 
 export interface WipeResult {
   cleared: string[];
@@ -88,6 +99,80 @@ export function wipeAll(storage: StorageLike): WipeResult {
         ? `${cleared.length} Einträge gelöscht. Dieses Gerät weiß nichts mehr.`
         : `${cleared.length} gelöscht, ${failed.length} NICHT — ${failed.join(", ")}. ` +
           `Von Hand nachsehen.`,
+  };
+}
+
+/** Was `loescheAllesLokal()` braucht – im Browser localStorage, sessionStorage, indexedDB. */
+export interface LoeschUmgebung {
+  local: StorageLike;
+  session?: StorageLike;
+  /** Namen aller Datenbanken (`indexedDB.databases()`); fehlt, wo der Browser es nicht kann. */
+  datenbanken?: () => Promise<string[]>;
+  loescheDatenbank: (name: string) => Promise<void>;
+}
+
+export interface LoeschBericht extends WipeResult {
+  /** Was nach dem Loeschen noch da ist – leer heisst: nachgeprueft, nichts uebrig. */
+  uebrig: string[];
+  /** false, wenn der Browser keine Liste der Datenbanken liefert. */
+  nachgeprueft: boolean;
+}
+
+async function namen(u: LoeschUmgebung): Promise<string[] | null> {
+  if (!u.datenbanken) return null;
+  try {
+    return (await u.datenbanken()).filter(unsere);
+  } catch {
+    return null;
+  }
+}
+
+function reste(s: StorageLike | undefined): string[] {
+  const r: string[] = [];
+  if (!s) return r;
+  for (let i = 0; i < s.length; i++) {
+    const k = s.key(i);
+    if (k && k.startsWith("freedom.")) r.push(k);
+  }
+  return r;
+}
+
+/**
+ * Notfall-Loeschung (Schritt 8.14): alles, was die App auf diesem Geraet
+ * hat – localStorage und sessionStorage (Praefix `freedom.`) und die
+ * Datenbanken –, danach nachpruefen, ob noch etwas da ist.
+ *
+ * RECHTLICHER HINWEIS: In vielen Laendern ist das Vernichten von
+ * Beweismitteln strafbar – etwa waehrend eines Verfahrens oder einer
+ * Durchsuchung. Die Oberflaeche zeigt deshalb vor dem Loeschen
+ * `wipeConfirmation()`, die das sagt. Relays erreicht die Loeschung nicht.
+ */
+export async function loescheAllesLokal(u: LoeschUmgebung): Promise<LoeschBericht> {
+  const lokal = wipeAll(u.local);
+  const sitzung = u.session ? wipeAll(u.session) : { cleared: [], failed: [] };
+  const cleared = [...lokal.cleared, ...sitzung.cleared];
+  const failed = [...lokal.failed, ...sitzung.failed];
+  const dbs = [...new Set([...WIPE_DATENBANKEN, ...((await namen(u)) ?? [])])];
+  for (const db of dbs) {
+    try {
+      await u.loescheDatenbank(db);
+      cleared.push(`db:${db}`);
+    } catch {
+      failed.push(`db:${db}`);
+    }
+  }
+  const nachher = await namen(u);
+  const uebrig = [...reste(u.local), ...reste(u.session), ...(nachher ?? []).map((n) => `db:${n}`)];
+  const offen = [...new Set([...failed, ...uebrig])];
+  return {
+    cleared,
+    failed,
+    uebrig,
+    nachgeprueft: nachher !== null,
+    message:
+      offen.length === 0
+        ? `${cleared.length} Einträge und Datenbanken gelöscht${nachher === null ? "" : " und nachgeprüft"}. Dieses Gerät weiß nichts mehr.`
+        : `${cleared.length} gelöscht, ${offen.length} NICHT — ${offen.join(", ")}. Von Hand nachsehen.`,
   };
 }
 
@@ -165,10 +250,17 @@ export function wipeConfirmation(): string {
   return [
     "Alles auf diesem Gerät löschen?",
     "",
-    "Gelöscht werden Schlüssel, Unterhaltungen, Räume, Namen und die",
-    "Wallet-Verbindung. Es gibt KEINE Wiederherstellung.",
+    "Gelöscht werden Schlüssel, Tresor, Unterhaltungen, Suchindex, Räume,",
+    "Namen, Wallet-Verbindung und die eingebaute SOL-Wallet.",
+    "Es gibt KEINE Wiederherstellung.",
     "",
-    "Ohne deine Merkphrase kommst du danach nicht zurück.",
+    "Ohne deine Merkphrase kommst du danach nicht zurück. Geld in laufenden",
+    "Tauschvorgängen oder Sperren kann verloren sein – ihre Geheimnisse",
+    "liegen nur hier.",
+    "",
+    "RECHTLICHER HINWEIS: In vielen Ländern ist das Vernichten von",
+    "Beweismitteln strafbar – etwa während eines Verfahrens oder einer",
+    "Durchsuchung. Das ist keine Rechtsberatung.",
     "",
     "Was NICHT gelöscht wird: alles, was schon auf Relays liegt.",
   ].join("\n");

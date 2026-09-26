@@ -6,7 +6,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { Keypair, NONCE_ACCOUNT_LENGTH, PublicKey, SystemProgram, Transaction } from "@solana/web3.js";
 import {
-  LAMPORTS_JE_SIGNATUR, NONCE_KONTO_BYTES, baueNonceKontoAnlegen, baueOfflineUeberweisung, leseNonceKonto,
+  LAMPORTS_JE_SIGNATUR, NONCE_KONTO_BYTES, baueNonceKontoAnlegen, baueNonceKontoSchliessen, baueOfflineUeberweisung, leseNonceKonto,
   nonceKontoKosten, pruefeOfflineUeberweisung, type NonceStand,
 } from "../src/sol-offline.js";
 import { MeshKind, pruefeMeshInhalt } from "../src/mesh-transport.js";
@@ -99,4 +99,17 @@ test("Pruefen: ohne Nonce, falsche Reihenfolge, Zusatz, fremde Autoritaet, unsig
   verfaelscht[verfaelscht.length - 1] ^= 1;
   assert.equal(pruefeOfflineUeberweisung(verfaelscht).ok, false);
   assert.equal(pruefeOfflineUeberweisung(new Uint8Array([1, 2, 3])).ok, false);
+});
+
+test("Nonce-Konto schliessen: ganzes Guthaben zurueck an die Autoritaet", () => {
+  const tx = baueNonceKontoSchliessen({ autoritaet: zahler.publicKey.toBase58(), nonceKonto: nonceKonto.publicKey.toBase58(), lamports: 1_447_680, blockhash: HASH });
+  assert.equal(tx.instructions.length, 1);
+  const ix = tx.instructions[0];
+  const d = new DataView(ix.data.buffer, ix.data.byteOffset, ix.data.byteLength);
+  assert.equal(d.getUint32(0, true), 5, "WithdrawNonceAccount");
+  assert.equal(d.getBigUint64(4, true), 1_447_680n);
+  assert.ok(ix.keys[1].pubkey.equals(zahler.publicKey), "zurück an die Autorität");
+  tx.sign(zahler);
+  assert.ok(tx.verifySignatures());
+  assert.throws(() => baueNonceKontoSchliessen({ autoritaet: zahler.publicKey.toBase58(), nonceKonto: nonceKonto.publicKey.toBase58(), lamports: 0, blockhash: HASH }), /Guthaben/);
 });

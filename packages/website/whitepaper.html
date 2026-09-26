@@ -107,6 +107,11 @@
   verloren geht.</p>
   <p>Jedes Stück wird über seinen Inhalt adressiert. Ein Stück, das nicht das ist,
   was es zu sein vorgibt, ist damit nicht auffindbar statt still falsch.</p>
+  <p><strong>Nur Verschlüsseltes.</strong> Speicherknoten halten nur Stücke, die als
+  verschlüsselt gekennzeichnet sind und wie Chiffrat aussehen. Beweisen können sie
+  es nicht – komprimierte Dateien sehen ebenfalls zufällig aus –, aber Text und
+  Rohdaten fallen auf. Fehlt ein Stück auf den Relays, veröffentlicht ein Knoten
+  es auf eine versiegelte Anfrage erneut.</p>
 <h2 id="mesh">Ohne Internet</h2>
 <p>Nachrichten werden in Funkpakete zerlegt (200 Byte Nutzlast), mit
   Sprungbegrenzung und Dublettenerkennung weitergereicht und beim Empfänger wieder
@@ -123,7 +128,7 @@
   Sendezeit ein: im EU-Band um 868 MHz meist 1 % je Stunde.</p>
   <table><thead><tr><th>Was</th><th>Über Funk</th></tr></thead><tbody>
   <tr><td>Verschlüsselte Nachricht (Umschlag)</td><td>ja, Sekunden – drei bis vier je Stunde (1 % Sendezeit)</td></tr>
-  <tr><td>Solana-Transaktion</td><td>Transport ja, ~7 Sekunden (≤1.232 Byte, voll signiert); offline signieren noch nicht</td></tr>
+  <tr><td>Solana-Transaktion</td><td>ja, ~2 Sekunden (~300 Byte, voll signiert) – mit Nonce-Konto (Durable Nonce), ein Gerät mit Netz reicht ein</td></tr>
   <tr><td>Profile, Räume, offene Events</td><td><strong>nein</strong> — tragen den Schlüssel des Autors oder Klartext</td></tr>
   <tr><td>Ecash-Token</td><td><strong>nein</strong> — nicht gebaut; offen gefunkt wäre ein Token Bargeld für jeden, der mithört</td></tr>
   <tr><td>Lightning-Zahlung</td><td><strong>nein</strong> — braucht mehrere Runden</td></tr>
@@ -139,7 +144,9 @@
   <p><strong>Nachfolge</strong> teilt den Schlüssel per Shamir auf mehrere
   Vertraute auf. Drei Schutzstufen wirken zusammen: eine Inaktivitätsfrist, eine
   Schwelle von mindestens zwei Personen, und eine Wartezeit — in der ein einziges
-  Lebenszeichen alles abbricht.</p>
+  Lebenszeichen alles abbricht. Die Teile gehen versiegelt (NIP-59) an die
+  Vertrauten und bei der Übergabe ebenso weiter; öffentlich ist nur der Plan,
+  also wer die Vertrauten sind.</p>
 <h2 id="namen">Namen</h2>
 <p>Es gibt <strong>keinen globalen Namensraum</strong>. Ein Name kann sicher,
   dezentral oder menschenlesbar sein; alle drei zugleich braucht eine vergebende

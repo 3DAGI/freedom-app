@@ -238,7 +238,8 @@ export function evaluateSuccession(
       letztes = Math.max(letztes, ev.created_at);
     }
   }
-  const tageStill = Math.floor((nowSecs - letztes) / TAG);
+  // Geht die eigene Uhr etwas nach, waere das sonst „vor -1 Tagen“
+  const tageStill = Math.max(0, Math.floor((nowSecs - letztes) / TAG));
 
   // Nur Meldungen von benannten Vertrauten, und nur solche NACH dem letzten
   // Lebenszeichen: Eine alte Meldung darf nicht wieder aufleben, wenn sich
@@ -328,6 +329,8 @@ export function successionWarning(plan: { guardians: number; threshold: number; 
     "    solange du lebst. Dagegen hilft keine Technik, nur die Auswahl.",
     `  · Du hast ${plan.graceDays} Tage Zeit zu widersprechen — aber nur, wenn du`,
     "    mitbekommst, dass es läuft.",
+    "  · Der Plan ist öffentlich: Wer deine Vertrauten sind, sieht jeder –",
+    "    damit Meldungen und Lebenszeichen für alle prüfbar bleiben.",
     "",
     "Wähle Menschen, die sich nicht kennen. Eine Familie zählt als einer.",
   ].join("\n");

@@ -54,7 +54,6 @@ contributor-funding.ts|verifyRound|Vergütung von Mitentwicklern, ohne Oberfläc
 
 derivation.ts|slip10PublicKey|SLIP-10-Ableitung aus 1.1, Verdrahtung mit der eingebauten SOL-Wallet (4.2)
 
-devices.ts|checkDeviceEvent|Geräte-Event prüfen, noch nicht angebunden (Geräte und Schlüsselwechsel, 8.6)
 
 disputes-relays.ts|buildResolution|Streitfälle und Relay-Vergütung ohne Oberfläche (Streitfall-Prüfer 5.6, Relay-Rolle 8.4)
 disputes-relays.ts|distributeToRelays|Streitfälle und Relay-Vergütung ohne Oberfläche (Streitfall-Prüfer 5.6, Relay-Rolle 8.4)
@@ -67,10 +66,8 @@ dm.ts|filterDMsForUser|Direktnachrichten nach Kind 4; seit 2.1 wird nur noch NIP
 dm.ts|isNip44Payload|Direktnachrichten nach Kind 4; seit 2.1 wird nur noch NIP-17 gesendet (2.1)
 dm.ts|parseDM|Direktnachrichten nach Kind 4; seit 2.1 wird nur noch NIP-17 gesendet (2.1)
 
-duress.ts|checkUnlock|Notfall-Löschung ohne Oberfläche (8.14)
-duress.ts|duressWarning|Notfall-Löschung ohne Oberfläche (8.14)
-duress.ts|wipeAll|Notfall-Löschung ohne Oberfläche (8.14)
-duress.ts|wipeConfirmation|Notfall-Löschung ohne Oberfläche (8.14)
+duress.ts|checkUnlock|Zwangsphrase nicht eingebaut – 8.14 verlangt nur die Löschung; Einbau ist eine MENSCH-Entscheidung
+duress.ts|duressWarning|Zwangsphrase nicht eingebaut – 8.14 verlangt nur die Löschung; Einbau ist eine MENSCH-Entscheidung
 
 dvm.ts|buildJobFeedback|Job-Feedback (NIP-90 Kind 7000) wird noch nicht gesendet (Antworten und Belege, 3.2)
 
@@ -86,7 +83,6 @@ git-contributors.ts|buildContribution|Mitwirkenden-Ansicht, noch nicht vollstän
 git-contributors.ts|contributorProfile|Mitwirkenden-Ansicht, noch nicht vollständig angebunden (Repositories, 8.10)
 
 git.ts|createGitBundle|Git über Blobs, noch ohne vollständige Oberfläche (Repositories, 8.10)
-git.ts|parseGitRepoRef|Git über Blobs, noch ohne vollständige Oberfläche (Repositories, 8.10)
 git.ts|restoreGitBundle|Git über Blobs, noch ohne vollständige Oberfläche (Repositories, 8.10)
 
 group-crypto.ts|buildEncryptedMessage|verschlüsselte Kanäle mit Schlüsselwechsel, ohne Oberfläche; Ablösung durch MLS geplant (2.2b, 2.3)
@@ -103,11 +99,6 @@ group-crypto.ts|planRotation|verschlüsselte Kanäle mit Schlüsselwechsel, ohne
 http-auth.ts|btoaBase64|NIP-98-Anmeldung auf Client-Seite, noch ohne Speicher-Client (Speicher, 8.9)
 http-auth.ts|buildHttpAuth|NIP-98-Anmeldung auf Client-Seite, noch ohne Speicher-Client (Speicher, 8.9)
 
-key-rotation.ts|parseRevocation|Schlüsselwechsel nach Diebstahl, noch nicht angebunden (Geräte und Schlüsselwechsel, 8.6)
-key-rotation.ts|parseRotationMandate|Schlüsselwechsel nach Diebstahl, noch nicht angebunden (Geräte und Schlüsselwechsel, 8.6)
-key-rotation.ts|resolveKey|Schlüsselwechsel nach Diebstahl, noch nicht angebunden (Geräte und Schlüsselwechsel, 8.6)
-key-rotation.ts|trustEvent|Schlüsselwechsel nach Diebstahl, noch nicht angebunden (Geräte und Schlüsselwechsel, 8.6)
-
 leak-rules.ts|regelAutorNicht|Prüfregeln der Leak-Tests, gehören in die Tests (1.5)
 leak-rules.ts|regelKeinBolt11|Prüfregeln der Leak-Tests, gehören in die Tests (1.5)
 leak-rules.ts|regelKeineSolAdresse|Prüfregeln der Leak-Tests, gehören in die Tests (1.5)
@@ -121,15 +112,9 @@ leak-rules.ts|regelPTagsNur|Prüfregeln der Leak-Tests, gehören in die Tests (1
 leak-rules.ts|regelSolAdresseFrisch|Prüfregeln der Leak-Tests, gehören in die Tests (1.5)
 leak-rules.ts|regelUploadVerschluesselt|Prüfregeln der Leak-Tests, gehören in die Tests (1.5)
 
-local-search.ts|buildIndexIncrementally|lokale Suche ohne Oberfläche (8.13)
-local-search.ts|emptyIndex|lokale Suche ohne Oberfläche (8.13)
-local-search.ts|indexDoc|lokale Suche ohne Oberfläche (8.13)
-local-search.ts|indexStats|lokale Suche ohne Oberfläche (8.13)
-local-search.ts|removeDoc|lokale Suche ohne Oberfläche (8.13)
-local-search.ts|searchInfo|lokale Suche ohne Oberfläche (8.13)
-local-search.ts|suggest|lokale Suche ohne Oberfläche (8.13)
-local-search.ts|search|lokale Suche ohne Oberfläche (8.13)
-local-search.ts|tokenize|lokale Suche ohne Oberfläche (8.13)
+local-search.ts|indexStats|Suche verdrahtet (8.13, suche.ts); Vorschläge und Statistik ohne Oberfläche
+local-search.ts|searchInfo|Suche verdrahtet (8.13, suche.ts); Vorschläge und Statistik ohne Oberfläche
+local-search.ts|suggest|Suche verdrahtet (8.13, suche.ts); Vorschläge und Statistik ohne Oberfläche
 
 merge.ts|emptySet|Zusammenführen nach Offline-Bearbeitung, noch nicht angebunden (Zustandssicherung, 8.12)
 merge.ts|mergeField|Zusammenführen nach Offline-Bearbeitung, noch nicht angebunden (Zustandssicherung, 8.12)
@@ -214,24 +199,15 @@ sol-deposit.ts|buildSolDepositSettle|Abschluss eines SOL-Deposits, noch nicht an
 sol-deposit.ts|checkSolDeposit|Abschluss eines SOL-Deposits, noch nicht angebunden (Verdienen in SOL, 4.5)
 sol-deposit.ts|parseSolDepositSettle|Abschluss eines SOL-Deposits, noch nicht angebunden (Verdienen in SOL, 4.5)
 
-sol-offline.ts|baueNonceKontoAnlegen|SOL ohne Internet (Durable Nonces), in der App erst mit 7.2b
-sol-offline.ts|baueOfflineUeberweisung|SOL ohne Internet (Durable Nonces), in der App erst mit 7.2b
-sol-offline.ts|leseNonceKonto|SOL ohne Internet (Durable Nonces), in der App erst mit 7.2b
-sol-offline.ts|nonceKontoKosten|SOL ohne Internet (Durable Nonces), in der App erst mit 7.2b
-sol-offline.ts|pruefeOfflineUeberweisung|SOL ohne Internet (Durable Nonces), in der App erst mit 7.2b
+spaces.ts|searchMessages|Suche in Raum-Nachrichten, ohne Oberfläche – die lokale Suche (8.13) deckt Direktnachrichten und Communities
 
-spaces.ts|searchMessages|Suche in Raum-Nachrichten, ohne Oberfläche (Lokale Suche, 8.13)
-
-state-backup.ts|checkExpiry|Zustandssicherung und ablaufende Nachrichten ohne Oberfläche (8.12)
-state-backup.ts|expirationTag|Zustandssicherung und ablaufende Nachrichten ohne Oberfläche (8.12)
-state-backup.ts|expiryWarning|Zustandssicherung und ablaufende Nachrichten ohne Oberfläche (8.12)
-state-backup.ts|filterExpired|Zustandssicherung und ablaufende Nachrichten ohne Oberfläche (8.12)
-state-backup.ts|stateFingerprint|Zustandssicherung und ablaufende Nachrichten ohne Oberfläche (8.12)
+state-backup.ts|checkExpiry|Ablauf allgemein, ohne Oberfläche – Direktnachrichten laufen seit 2.5 über private-dm.ts (dmAbgelaufen)
+state-backup.ts|expirationTag|Ablauf allgemein, ohne Oberfläche – Direktnachrichten laufen seit 2.5 über private-dm.ts (dmAbgelaufen)
+state-backup.ts|expiryWarning|Ablauf allgemein, ohne Oberfläche – Direktnachrichten laufen seit 2.5 über private-dm.ts (dmAbgelaufen)
+state-backup.ts|filterExpired|Ablauf allgemein, ohne Oberfläche – Direktnachrichten laufen seit 2.5 über private-dm.ts (dmAbgelaufen)
+state-backup.ts|stateFingerprint|Prüfsumme für eine automatische Sicherung bei Änderung – die App sichert von Hand (8.12)
 
 stream.ts|amountDue|Streaming-Abrechnung: fälliger Betrag, noch nicht angebunden (PaymentRail, 4.1)
-
-succession.ts|combineShares|Anteile zusammensetzen bei der Nachfolge, ohne Oberfläche (Nachfolge, 8.11)
-succession.ts|verifyRecovered|Anteile zusammensetzen bei der Nachfolge, ohne Oberfläche (Nachfolge, 8.11)
 
 swap-privacy.ts|swapPrivacyInfo|Hinweistext zu Swap-Adressen, ohne Oberfläche (Privatsphäre auf Solana, 4.9)
 

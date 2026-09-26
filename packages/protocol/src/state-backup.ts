@@ -84,6 +84,10 @@ export async function buildStateBackup(
   const at = createdAt ?? Math.floor(Date.now() / 1000);
   const payload: BackupPayload = { version: 1, createdAt: at, data };
   const klartext = JSON.stringify(payload);
+  const bytes = new TextEncoder().encode(klartext).length;
+  if (bytes > SICHERUNG_MAX_BYTES) {
+    throw new Error(`Sicherung zu groß (${Math.round(bytes / 1024)} KB, höchstens ${SICHERUNG_MAX_BYTES / 1000} KB) – nichts gesendet.`);
+  }
 
   // An sich selbst verschlüsseln: Absender und Empfänger sind dasselbe
   // abgeleitete Paar.
@@ -143,6 +147,70 @@ export async function restoreStateBackup(
   }
 }
 
+// ------------------------------------------- Was gesichert wird (8.12)
+
+/**
+ * Nur diese Eintraege kommen in die Sicherung – eine feste Liste, kein
+ * Praefix: Bis 8.12 nahm die App jeden `freedom.*`-Eintrag mit und filterte nur
+ * Namen auf `.sk`/`.identity`/`.secret` – der Schluessel heisst aber
+ * `freedom.nsec` und ging mit. Ein neuer Eintrag ist erst gesichert, wenn er
+ * hier steht; vergessen heisst „nicht gesichert“, nicht „Geheimnis auf Relays“.
+ */
+export const SICHERUNG_EINTRAEGE: readonly string[] = [
+  "freedom.chats",              // Unterhaltungen (Liste, Namen, Ablauf je Unterhaltung)
+  "freedom.spaces",             // Raeume
+  "freedom.lastRead",           // Lesestaende
+  "freedom.petnames",           // eigene Namen
+  "freedom.profile",            // Profil-Entwurf
+  "freedom.lang",
+  "freedom.relays",
+  "freedom.relays.eigene",
+  "freedom.kontakteSichern",
+  "freedom.standardSchiene",
+  "freedom.mandate",            // zuerst gesehene Mandate der Kontakte (8.6a)
+];
+/** Moderation je Community (`freedom.mod.<id>`): nur „an“/„aus“. */
+const SICHERUNG_PRAEFIXE = ["freedom.mod."];
+
+/**
+ * Was NIE in die Sicherung darf – auch nicht aus einer alten Sicherung
+ * zurueck: Schluessel und Zugaenge, Geld-Geheimnisse, fremde Anteile, und
+ * Schluessel von Gruppen (MLS, Epochen). Gruppenschluessel bewusst nicht:
+ * Forward Secrecy hiesse sonst nur „bis zur naechsten Sicherung“ – ein neues
+ * Geraet tritt Raeumen neu bei.
+ */
+export const SICHERUNG_NIE = [
+  /^freedom\.nsec$/, /^freedom\.bunker$/, /^freedom\.nwc\./, /^freedom\.swap\./, /^freedom\.htlc\./,
+  /^freedom\.solWallet/, /^freedom\.pending\./, /^freedom\.vault/, /^freedom\.suche\./, /^freedom\.nachfolge/,
+  /^freedom\.notfall\./, /^freedom\.(mls|gruppe|epoch)/,
+];
+
+/** Hoechstens so gross (NIP-44 fasst 65.535 Byte Klartext). */
+export const SICHERUNG_MAX_BYTES = 60_000;
+
+function gehoertDazu(k: string): boolean {
+  if (SICHERUNG_NIE.some((r) => r.test(k))) return false;
+  return SICHERUNG_EINTRAEGE.includes(k) || SICHERUNG_PRAEFIXE.some((p) => k.startsWith(p));
+}
+
+/** Die zu sichernden Eintraege; `lese` holt einen Wert (localStorage oder Tresor). */
+export function waehleSicherung(schluessel: readonly string[], lese: (k: string) => string | null): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const k of new Set([...SICHERUNG_EINTRAEGE, ...schluessel])) {
+    if (!gehoertDazu(k)) continue;
+    const v = lese(k);
+    if (typeof v === "string") out[k] = v;
+  }
+  return out;
+}
+
+/** Aus einer (auch alten oder fremden) Sicherung nur zurueckholen, was dazugehoert. */
+export function filtereWiederherstellung(data: Record<string, unknown>): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(data)) if (typeof v === "string" && gehoertDazu(k)) out[k] = v;
+  return out;
+}
+
 /** Die neueste Sicherung aus mehreren Ereignissen. */
 export function latestBackup(events: NostrEvent[]): NostrEvent | null {
   let neueste: NostrEvent | null = null;
@@ -165,7 +233,8 @@ export function backupInfo(sizeBytes: number, lastAt?: number): string {
     : "Noch keine Sicherung.";
   // Kurz halten: Was gesichert wird, wer es lesen kann, was man zum Zurueckholen braucht.
   return `${stand} Unterhaltungen, Räume und Namen, verschlüsselt — auch kein Relay kann sie lesen. ` +
-    "Deine Merkphrase allein genügt zur Wiederherstellung.";
+    "Deine Merkphrase allein genügt zur Wiederherstellung. Nie darin: dein Schlüssel, Wallet-Zugänge, " +
+    "laufende Tauschvorgänge und Gruppenschlüssel – ein neues Gerät tritt Räumen neu bei.";
 }
 
 // ----------------------------------------------------------- Ablauf

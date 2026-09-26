@@ -41,9 +41,9 @@ python3 scripts/smoke_test.py packages/app/dist         # braucht playwright + c
 bash scripts/build-site.sh /tmp/site                     # Website bauen (Ziel wird gelöscht!)
 ```
 
-Stand 26.09.2026 (nach 7.2a und 5.4a): protocol 1089 grün (6 übersprungen), node 214 grün
+Stand 26.09.2026 (nach 8.6c): protocol 1127 grün (6 übersprungen), node 226 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 300 grün, Leak-Tests 47 grün + 2 `todo` (heutige Lecks,
+in `tools.test.ts`), app 343 grün, Leak-Tests 49 grün + 2 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
 Ausnahme: gesendete SOL-Zahlungen von frischen Adressen, eine bewusste Grenze
 nach Entscheidung 4.9 A – im Datenschutzbericht unter „Bewusste Grenzen“).
@@ -171,7 +171,9 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   `node/test/klartext.test.ts` prüft das.
 - **Anhänge nur verschlüsselt** (seit 2.4): Chat-Dateien über `uploadAnhang()`
   (Blob-Netz) bzw. `verschluesseleDatei()` vor Blossom; der Schlüssel gehört nur
-  in die Nachricht. `uploadBlob()` direkt nur für bewusst Öffentliches (Git-Bundle).
+  in die Nachricht. Git-Bundles seit 8.9b ebenso verschlüsselt, der Schlüssel steht
+  öffentlich in der Referenz (38042); `uploadBlob()` direkt nur, wenn keine
+  Speicherknoten das halten sollen.
   Inline in DMs höchstens `INLINE_MAX_BYTES` – NIP-44 fasst 65.535 Byte.
 - **Geld nur über die Zahlschienen** (seit 4.1): zahlen mit
   `zahle(zahlschienen(), …)`; direkte Wallet-Zugriffe nur in `rails.ts` und
@@ -238,3 +240,51 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   Direktnachrichten nur an den Posteingang des Empfängers (`veroeffentlicheAn()`).
   Im Browser-Test ersetzt Playwrights `route_web_socket` `window.WebSocket` –
   tote Relays mit einer Hülle per `Object.defineProperty` nachstellen.
+- **SOL ohne Internet** (seit 7.2): nur über `zahleSolOffline()` (eingebaute
+  Wallet, Tageslimit, `sol-offline-zahlung.ts`) – ein Nonce-Wert zahlt genau
+  einmal und gilt danach als verbraucht, bis `frischeNonceAuf()` ihn mit Netz
+  neu liest. Einreichen nur über `reicheSolOfflineEin()` nach
+  `pruefeOfflineUeberweisung()`, mit Vorabsimulation.
+- **Lokale Daten nur mit Präfix** (seit 8.14): Schlüssel in localStorage,
+  sessionStorage und im Tresor beginnen mit `freedom.`, IndexedDB-Datenbanken
+  mit `freedom` und stehen in `WIPE_DATENBANKEN` – sonst entgehen sie der
+  Notfall-Löschung. Keine neue Speicherart (Cache Storage, OPFS, Cookies,
+  Service Worker), ohne `loescheAllesLokal()` zu erweitern.
+  `app/test/notfall.test.ts` prüft das.
+- **Nachfolge nur versiegelt** (seit 8.11): Anteile gehen mit
+  `baueAnteilUmschlag()` an je einen Vertrauten, Anfrage und Übergabe über
+  `baueAnteilAnfrage()`/`baueAnteilUebergabe()` – nie als Datei, nie offen.
+  Übergeben nur nach `darfUebergeben()`; gehaltene Anteile nur im Tresor
+  (`freedom.nachfolge`), ohne Tresor nur im Speicher.
+- **Zustandssicherung nur über die feste Liste** (seit 8.12): gesichert wird,
+  was in `SICHERUNG_EINTRAEGE` steht (`waehleSicherung()`), zurück nur über
+  `filtereWiederherstellung()`; nie Schlüssel, Zugänge, Geld-Geheimnisse,
+  Anteile oder Gruppenschlüssel (`SICHERUNG_NIE`). Neue Einträge, die ein neues
+  Gerät braucht, dort eintragen – und ob sie im Tresor liegen (`istGeheimnis()`).
+- **Speicherknoten nur verschlüsselt** (seit 8.9a): Wer ins Blob-Netz lädt,
+  was Knoten halten sollen, baut mit `buildBlob(…, { verschluesselt: true })`
+  und lädt nur Chiffrat hoch; Knoten nehmen Stücke nur über `nimmAuf()` →
+  `pruefeSpeicherStueck()` auf. Abruf nur versiegelt (`baueStueckAbruf()`); der
+  Knoten veröffentlicht das Stück-Event erneut, statt es in den Umschlag zu
+  packen (NIP-44 fasst 64 KB, ein Stück als Hex 128 KB).
+- **Werkzeuge nur in den Grenzen** (seit 8.7): Ausführung nur über
+  `ToolRegistry.run` (Eingabe-, Zeit-, Ausgabegrenze aus `WERKZEUG_GRENZEN`),
+  Netz nur über `safeFetch` + `leseBegrenzt`. Private Adressen nur mit
+  `isPrivateAddress()` aus dem Protokoll prüfen – `new URL` schreibt
+  IPv4-in-IPv6 als Hex (`[::ffff:7f00:1]`), eine Suche nach Punkten übersieht das.
+- **Schlüsselwechsel nur mit gemerktem Mandat** (seit 8.6a): Stand eines
+  Kontakts nur über `pruefeKontakte()`/`resolveKey(…, { gemerkt })` – das
+  zuerst gesehene Mandat gilt (`merkeMandate()`, Gedächtnis `freedom.mandate`
+  im Tresor), nie das mit dem ältesten Zeitstempel allein. Mandate haben eine
+  Adresse je Nachfolger (`rotation:<neu>`), damit ein Dieb sie nicht ersetzt.
+- **Direktnachrichten an jedes Gerät** (seit 8.6b): Chat-Nachrichten mit
+  `buildPrivateDm(…, { weitereEmpfaenger })` – Geräte des Kontakts und eigene
+  aus `geraeteBuch.kopienFuer()`, zugestellt am Posteingang der Person. Beim
+  Öffnen `auchFuer: geraeteBuch.alle(ich)` und danach `ordneDmZu()` – nie einem
+  Geräteschlüssel ohne gültige Vollmacht die Person glauben. Der Zeitstempel
+  eines entzogenen Geräts ist nur behauptet: „vorher geschrieben“ bleibt markiert.
+- **Als Gerät spricht die App für die Person** (seit 8.6c): „wer bin ich“ im
+  Chat über `sprichtFuer()`, nicht `state.keypair.pk` (das ist der
+  Geräteschlüssel); `alsGeraet()` sperrt, was der Hauptidentität gehört
+  (`nurHauptidentitaet()`). Die Person kommt nur aus dem Gerätecode
+  (`freedom.geraet.person`), nie aus einer Vollmacht vom Relay.

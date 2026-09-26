@@ -9,7 +9,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  MeshNode, fileTransport, unpackBundle, detectTransports,
+  MeshNode, fileTransport, packBundle, unpackBundle, detectTransports,
   eventToMesh, meshToEvent, MeshTransport,
 } from "../src/mesh-radio.js";
 import {
@@ -277,6 +277,11 @@ test("Datei-Weg und Funk-Weg sind fuer die Schicht darueber gleich", async () =>
   const empfaenger = node((p) => { empfangen = p; });
   empfaenger.receiveBundle(bundle!);
   assert.deepEqual(empfangen, original);
+});
+
+test("Buendel aus Rahmen: packBundle und unpackBundle passen zusammen (7.2: SOL als Datei)", () => {
+  const frames = fragment(umschlag(600), MeshKind.NostrEvent);
+  assert.deepEqual(unpackBundle(packBundle(frames)), frames);
 });
 
 test("Beschaedigtes Buendel bricht den Import nicht ab", () => {

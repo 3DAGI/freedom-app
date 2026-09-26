@@ -76,13 +76,22 @@
         </div></div>
             <div class="subpane" data-subpane="agent:repos"><div class="card">
           <h3><span class="ic" data-icon="git"></span> Repositories</h3>
-          <p class="mono-sm">Repositories, verteilt über das Speichernetz. Funktioniert auch offline.</p>
+          <p class="mono-sm">Git-Bundles liegen im Speichernetz; Zusammenarbeit (Patches, Annahme) läuft nach NIP-34.</p>
           <div class="composer-meta">
             <input id="git-repo-name" placeholder="repo-name" style="width:120px" />
             <button id="git-repo-publish" class="ghost copy-btn">⇪ Bundle publizieren</button>
             <input type="file" id="git-bundle-file" accept=".bundle" style="display:none" />
           </div>
           <div id="git-repo-list" class="mono-sm" style="margin-top:8px">lade…</div>
+          <h4 class="mono-sm" style="margin-top:12px">Zusammenarbeit (NIP-34)</h4>
+          <p class="mono-sm muted">Ankündigungen, Patches und Annahmen sind öffentlich und mit deinem Schlüssel signiert – wie bei jedem Git-Projekt. Andere Nostr-Clients (ngit, gitworkshop) lesen sie auch. Einen Patch erzeugst du mit <code>git format-patch -1</code>; angenommen ist er, wenn Eigentümer oder Maintainer es sagen.</p>
+          <div class="composer-meta">
+            <input id="nip34-id" placeholder="repo-kennung" style="width:120px" />
+            <input id="nip34-klon" placeholder="Klon-Adressen (https://…, rad:…), mit Komma" style="flex:1;min-width:160px" />
+            <button id="nip34-ankuendigen" class="ghost copy-btn">Repo ankündigen</button>
+          </div>
+          <input type="file" id="nip34-patch-datei" accept=".patch,.diff,.txt,text/plain" style="display:none" />
+          <div id="nip34-liste" class="mono-sm" style="margin-top:8px">lade…</div>
         </div></div>
             <div class="nb-quota agent-quota" id="nb-quota" title="Gratis-Kontingent heute">
               <span class="quota-label">Gratis-Kontingent</span>
@@ -209,6 +218,8 @@
                 <button id="chat-new-community" class="ghost mini" title="New community"><span class="ic" data-icon="home"></span></button>
               </span>
             </div>
+            <input id="chat-suche" class="chat-suche" type="search" placeholder="Suchen – nur auf diesem Gerät" aria-label="Nachrichten durchsuchen – nur auf diesem Gerät" autocomplete="off" />
+            <div id="chat-suche-treffer" class="chat-list chat-suche-treffer hidden"></div>
             <div id="chat-list" class="chat-list"></div>
           </aside>
           <div class="chat-main">
@@ -321,6 +332,17 @@
                 <button id="solw-frisch" class="ghost" style="width:auto;padding:6px 10px">frische Adresse</button>
                 <button id="solw-ergaenzen" class="ghost hidden" style="width:auto;padding:6px 10px">neue ableiten</button>
                 <button id="solw-entfernen" class="ghost" style="width:auto;padding:6px 10px">von diesem Gerät entfernen</button>
+              </div>
+              <div id="solo-box" style="margin-top:10px">
+                <div class="mono-sm"><b>Ohne Internet zahlen</b></div>
+                <div id="solo-status" class="mono-sm muted"></div>
+                <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
+                  <button id="solo-anlegen" class="ghost" style="width:auto;padding:6px 10px">Nonce-Konto anlegen</button>
+                  <button id="solo-auffrischen" class="ghost hidden" style="width:auto;padding:6px 10px">Wert auffrischen</button>
+                  <button id="solo-zahlen" class="ghost" style="width:auto;padding:6px 10px">offline zahlen</button>
+                  <button id="solo-schliessen" class="ghost hidden" style="width:auto;padding:6px 10px">Konto schließen</button>
+                </div>
+                <p class="mono-sm muted">Ein Nonce-Konto hält einen Wert, mit dem eine Überweisung ohne Netz gültig bleibt. Signiert wird hier, eingereicht von einem Gerät mit Netz – über Funk oder per Datei. Ein Wert zahlt einmal. Wer mithört, sieht – wie später auf der Kette – Adressen und Betrag.</p>
               </div>
             </div>
             <div id="solw-status" class="mono-sm"></div>
@@ -507,13 +529,18 @@
           </div>
         </div><div class="card">
           <h3><span class="ic" data-icon="shield"></span> Nachfolge &amp; Wiederherstellung</h3>
-          <p class="mono-sm">Vertraute können deinen Zugang wiederherstellen, wenn du dein Gerät verlierst oder nicht mehr da bist. Das geht erst nach einer Frist, und ein Lebenszeichen von dir bricht den Vorgang ab.</p>
+          <p class="mono-sm">Vertraute können deinen Zugang wiederherstellen, wenn du dein Gerät verlierst oder nicht mehr da bist. Jeder bekommt einen Teil deines Schlüssels versiegelt; zusammensetzen lässt die App erst nach einer Frist, und ein Lebenszeichen von dir bricht den Vorgang ab. Wer deine Vertrauten sind, steht öffentlich im Plan.</p>
           <div id="succession-status" class="mono-sm"></div>
+          <div id="vertraute-liste" class="mono-sm"></div>
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
             <button id="succ-setup" class="ghost" style="width:auto;padding:6px 10px">einrichten</button>
             <button id="succ-heartbeat" class="ghost" style="width:auto;padding:6px 10px">Lebenszeichen senden</button>
             <button id="succ-claim" class="ghost" style="width:auto;padding:6px 10px">für jemanden melden</button>
           </div>
+        </div><div class="card" id="notfall-karte">
+          <h3><span class="ic" data-icon="shield"></span> Notfall-Löschung</h3>
+          <p class="mono-sm">Löscht alles, was die App auf diesem Gerät hat – Schlüssel, Tresor, Unterhaltungen, Suchindex, Wallet-Zugänge – und prüft nach. Was auf Relays liegt, bleibt dort. Ohne Merkphrase gibt es kein Zurück. Vorher steht ein rechtlicher Hinweis.</p>
+          <button id="notfall-loeschen" class="ghost" style="width:auto;padding:6px 10px">alles auf diesem Gerät löschen …</button>
         </div></div>
             <div class="subpane" data-subpane="settings:devices"><h2 class="settings-h">Geräte</h2><div class="card">
           <h3><span class="ic" data-icon="server"></span> Verbundene Geräte</h3>
@@ -582,7 +609,7 @@
         </div></div>
             <div class="subpane" data-subpane="settings:mesh"><h2 class="settings-h">Mesh</h2><div class="card">
           <h3><span class="ic" data-icon="radio"></span> Ohne Internet</h3>
-          <p class="mono-sm">Verschlüsselte Nachrichten über Funk oder per Datei, wenn das Netz weg ist – nur Umschläge, ohne deinen Schlüssel und ohne Klartext. Funk sendet höchstens 1 % der Zeit (EU 868 MHz): drei bis vier kurze Nachrichten je Stunde. Lightning und KI-Anfragen gehen so nicht.</p>
+          <p class="mono-sm">Verschlüsselte Nachrichten über Funk oder per Datei, wenn das Netz weg ist – nur Umschläge, ohne deinen Schlüssel und ohne Klartext. Funk sendet höchstens 1 % der Zeit (EU 868 MHz): drei bis vier kurze Nachrichten je Stunde. SOL mit vorbereitetem Nonce-Konto (Wallet-Tab); empfangene SOL-Zahlungen reicht die App ein, sobald sie Netz hat. Lightning und KI-Anfragen gehen so nicht.</p>
           <div id="mesh-transport" class="mono-sm"></div>
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
             <button id="mesh-connect" class="ghost" style="width:auto;padding:6px 10px">USB-Gerät</button>

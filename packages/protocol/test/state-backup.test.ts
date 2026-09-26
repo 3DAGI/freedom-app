@@ -14,7 +14,9 @@ import {
   stateFingerprint, backupInfo,
   expirationTag, checkExpiry, filterExpired, expiryWarning,
   EXPIRY_SECONDS, KIND_STATE_BACKUP, TAG_EXPIRATION,
+  waehleSicherung, filtereWiederherstellung, SICHERUNG_EINTRAEGE, SICHERUNG_MAX_BYTES,
 } from "../src/state-backup.js";
+import { regelKeinKlartext } from "../src/leak-rules.js";
 
 const NOW = 1_800_000_000;
 const TAG = 86400;
@@ -174,4 +176,64 @@ test("DIE WICHTIGSTE MELDUNG: Ablauf ist eine Bitte, keine Garantie", () => {
 
 test("Ohne Ablauf wird das ebenso klar gesagt", () => {
   assert.match(expiryWarning("keiner"), /dauerhaft.*abrufbar/);
+});
+
+// ------------------------------------------------- Was gesichert wird (8.12)
+
+/** So sah localStorage eines Nutzers ohne Tresor aus – mit allem, was dort liegen kann. */
+const GERAET: Record<string, string> = {
+  "freedom.nsec": "ab".repeat(32),
+  "freedom.bunker": "bunker://geheim",
+  "freedom.nwc.uri": "nostr+walletconnect://x?secret=" + "cd".repeat(32),
+  ["freedom.swap." + "01".repeat(32)]: JSON.stringify({ preimageHex: "ef".repeat(32) }),
+  "freedom.htlc.x": JSON.stringify({ preimageHex: "7a".repeat(32) }),
+  "freedom.solWallet": "5b".repeat(32),
+  "freedom.nachfolge": JSON.stringify({ anteile: { x: { daten: "99".repeat(32) } } }),
+  "freedom.suche.schluessel": "11".repeat(32),
+  "freedom.mls.epoche": "gruppen-schluessel",
+  "freedom.chats": JSON.stringify([{ id: "c1", type: "dm", name: "Beratungsstelle", lastTs: 1 }]),
+  "freedom.petnames": JSON.stringify([["pk1", "Chef"]]),
+  "freedom.spaces": JSON.stringify(["raum-1"]),
+  "freedom.mod.raum-1": "off",
+  "freedom.lang": "de",
+  "andere.app": "fremd",
+};
+const GEHEIM_WERTE = ["ab".repeat(32), "bunker://geheim", "cd".repeat(32), "ef".repeat(32), "7a".repeat(32), "5b".repeat(32), "99".repeat(32), "11".repeat(32), "gruppen-schluessel"];
+
+test("8.12: gesichert wird nur die feste Liste – kein Schluessel, kein Zugang, keine Gruppenschluessel", () => {
+  const d = waehleSicherung(Object.keys(GERAET), (k) => GERAET[k] ?? null);
+  assert.deepEqual(Object.keys(d).sort(), ["freedom.chats", "freedom.lang", "freedom.mod.raum-1", "freedom.petnames", "freedom.spaces"]);
+  const alles = JSON.stringify(d);
+  for (const g of GEHEIM_WERTE) assert.ok(!alles.includes(g), `Geheimnis in der Sicherung: ${g.slice(0, 12)}`);
+  // Die Liste selbst nennt nichts Geheimes
+  assert.ok(SICHERUNG_EINTRAEGE.every((k) => !/nsec|bunker|nwc|swap|htlc|solWallet|vault|nachfolge|suche|mls|epoch/.test(k)));
+});
+
+test("8.12: WIEDERHERSTELLUNG OHNE KLARTEXT AUF RELAYS – und nur mit der eigenen Merkphrase", async () => {
+  const d = waehleSicherung(Object.keys(GERAET), (k) => GERAET[k] ?? null);
+  const key = deriveBackupKey(KP.sk);
+  const r = await buildStateBackup(KP.pk, key, d, NOW);
+  const ev = signEvent(r.event, KP.sk);
+  assert.deepEqual(regelKeinKlartext([ev], ["Beratungsstelle", "Chef", "raum-1", ...GEHEIM_WERTE]), []);
+  // Neues Geraet, dieselbe Merkphrase
+  const zurueck = await restoreStateBackup(ev, deriveBackupKey(KP.sk));
+  assert.equal(zurueck.ok, true);
+  assert.deepEqual(filtereWiederherstellung(zurueck.data!), d);
+  assert.equal((await restoreStateBackup(ev, deriveBackupKey(ANDERE.sk))).ok, false);
+});
+
+test("8.12: eine alte Sicherung mit Schluessel stellt den Schluessel NICHT wieder her", () => {
+  // Bis 8.12 ging freedom.nsec mit in die Sicherung – beim Zurueckholen bleibt es draussen.
+  const alt = { ...GERAET, "freedom.nsec": "ff".repeat(32), "freedom.zahl": 5 as unknown as string };
+  const w = filtereWiederherstellung(alt);
+  assert.equal(w["freedom.nsec"], undefined);
+  assert.equal(w["freedom.nwc.uri"], undefined);
+  assert.equal(w["freedom.mls.epoche"], undefined);
+  assert.equal(w["andere.app"], undefined);
+  assert.equal(w["freedom.chats"], GERAET["freedom.chats"]);
+});
+
+test("8.12: zu grosse Sicherung wird klar abgelehnt statt still abgeschnitten", async () => {
+  const gross = { "freedom.chats": "x".repeat(SICHERUNG_MAX_BYTES) };
+  await assert.rejects(buildStateBackup(KP.pk, deriveBackupKey(KP.sk), gross, NOW), /zu groß/);
 });

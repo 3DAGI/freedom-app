@@ -4,7 +4,7 @@
  *
  * Aus app.ts verschoben (Schritt 1.0) – wörtlich, ohne Logikänderung.
  */
-import { type DateiSchluessel, NostrEvent, type PrivateDm, buildEvent } from "@freedomstack/protocol";
+import { type DateiSchluessel, type KeyState, NostrEvent, type PrivateDm, buildEvent } from "@freedomstack/protocol";
 import {
   type ChatAttachment,
   escapeHtml,
@@ -15,7 +15,11 @@ import {
   renderAttachment,
 } from "../../shell-logic.js";
 import { aktuellerKurs } from "../marktkurs.js";
-import { eigeneRelayListen, ensurePool, signiere, solRpcUrl, solTransaktion, state, veroeffentlicheAn } from "../state.js";
+import { alsGeraet, eigeneRelayListen, ensurePool, signiere, solRpcUrl, solTransaktion, sprichtFuer, state, veroeffentlicheAn } from "../state.js";
+import { alsNachfolge } from "../nachfolge-ui.js";
+import { LS_MANDATE, leseGemerkt, nachDiebstahl, pruefeKontakte, warnt } from "../../schluessel-status.js";
+import { type DmZuordnung, GeraeteBuch, ordneDmZu } from "../../geraete-buch.js";
+import { sucheAufnehmen, wireSuche } from "../suche-ui.js";
 import { geheim } from "../tresor.js";
 import { $, toast } from "../ui.js";
 
@@ -569,6 +573,11 @@ export function wireKommunikation(): void {
   });
   document.getElementById("chat-back")?.addEventListener("click", () =>
     layout?.classList.remove("thread-open"));
+  // Lokale Suche (8.13): ein Treffer oeffnet seine Unterhaltung
+  wireSuche((cid) => {
+    openConversation(cid);
+    layout?.classList.add("thread-open");
+  }, (cid) => conversations.find((c) => c.id === cid)?.name ?? pkShort(cid));
   document.getElementById("rail-create")?.addEventListener("click", () =>
     document.getElementById("space-create")?.click());
   document.getElementById("rail-join")?.addEventListener("click", () =>
@@ -768,6 +777,7 @@ export function loadChatList(): void {
       </div>`,
     )
     .join("");
+  markiereSchluessel(list);
   list.querySelectorAll(".chat-item").forEach((el) => {
     el.addEventListener("click", () => openConversation((el as HTMLElement).dataset.cid!));
     // Rechtsklick vergibt einen eigenen Namen. Er gilt nur lokal und kann
@@ -861,7 +871,13 @@ async function ladeModeration(communityId: string): Promise<unknown | null> {
 }
 
 /** Eine DM zur Anzeige: entschluesselt; legacy = altes Kind-4-Format. */
-type DmAnzeige = NostrEvent & { legacy?: boolean };
+type DmAnzeige = NostrEvent & {
+  legacy?: boolean; /** Ablauf nach NIP-40 (2.5) – auch fuer den Suchindex (8.13). */ ablauf?: number;
+  /** Geschrieben von einem Geraet (8.6b): Hinweis mit Geraetenamen (Fremddaten). */ geraet?: { text: string; warnung: boolean };
+};
+
+/** Vollmachten der Geraete – eigene und die der Kontakte (8.6b). */
+export const geraeteBuch = new GeraeteBuch(async (f) => (await ensurePool()).query(f as never));
 
 /** Bereits geoeffnete Umschlaege (ID des Umschlags -> Ergebnis), damit nichts doppelt entschluesselt wird. */
 const dmCache = new Map<string, { partner: string; ev: DmAnzeige; dm: PrivateDm } | null>();
@@ -871,17 +887,29 @@ async function oeffneUmschlag(w: NostrEvent): Promise<{ partner: string; ev: DmA
   if (bekannt !== undefined) return bekannt;
   if (!state.signer) return null;
   const { openPrivateDm } = await import("@freedomstack/protocol");
+  const selbst = state.signer.publicKey();
+  const ich = sprichtFuer() ?? selbst;
   // Ueber den Signer (Schritt 1.3): Umschlag und Siegel entschluesselt er selbst.
-  const r = await openPrivateDm(w, state.signer);
-  const e = r.ok
+  // Seit 8.6b auch Kopien, die eigene Geraete geschrieben haben; als Geraet (8.6c) fuer die Person.
+  const r = await openPrivateDm(w, state.signer, undefined, { auchFuer: [ich, ...(await geraeteBuch.alle(ich).catch(() => []))] });
+  const z = r.ok
+    ? await ordneDmZu(r.dm, ich, geraeteBuch, (pk) => conversations.some((c) => c.type === "dm" && c.id === pk), selbst)
+      .catch((): DmZuordnung => ({ partner: r.dm.partner, autor: r.dm.from, vonMir: r.dm.from === ich }))
+    : null;
+  const e = r.ok && z
     ? {
-        partner: r.dm.partner,
-        ev: { id: r.dm.id, pubkey: r.dm.from, created_at: r.dm.createdAt, kind: 14, tags: [], content: r.dm.content, sig: "" },
+        partner: z.partner,
+        ev: {
+          // Eigene Geraete zeigen als „du“, gueltige Geraete eines Kontakts unter dessen Schluessel
+          id: r.dm.id, pubkey: z.autor, created_at: r.dm.createdAt, kind: 14, tags: [], content: r.dm.content, sig: "",
+          ...(r.dm.expiresAt !== undefined ? { ablauf: r.dm.expiresAt } : {}),
+          ...(z.hinweis ? { geraet: { text: z.hinweis, warnung: !!z.warnung } } : {}),
+        },
         // Mit Ablauf (2.5): ladeDmNachrichten() blendet danach aus.
         dm: r.dm,
       }
-    // Keine DM: vielleicht ein SOL-Trinkgeld-Beleg (4.7b) oder eine Adress-Anfrage (4.9d).
-    : (await alsTrinkgeld(w)) ?? (await alsAdressAnfrage(w));
+    // Keine DM: vielleicht ein SOL-Trinkgeld-Beleg (4.7b), eine Adress-Anfrage (4.9d) oder Nachfolge (8.11b).
+    : (await alsTrinkgeld(w)) ?? (await alsAdressAnfrage(w)) ?? (await alsNachfolge(w));
   dmCache.set(w.id, e);
   return e;
 }
@@ -932,6 +960,8 @@ async function alsAdressAnfrage(w: NostrEvent): Promise<null> {
  * meine eigenen Kopien) plus aeltere Kind-4-Nachrichten, die weiter lesbar
  * bleiben, aber nie mehr gesendet werden.
  */
+const ENTSCHLUESSELUNG_FEHLGESCHLAGEN = "[entschluesselung fehlgeschlagen]";
+
 async function ladeDmNachrichten(partner: string): Promise<DmAnzeige[]> {
   if (!state.keypair) return [];
   const me = state.keypair;
@@ -956,7 +986,7 @@ async function ladeDmNachrichten(partner: string): Promise<DmAnzeige[]> {
     try {
       text = await state.signer!.nip44Decrypt(ev.pubkey === me.pk ? partner : ev.pubkey, ev.content);
     } catch {
-      text = "[entschluesselung fehlgeschlagen]";
+      text = ENTSCHLUESSELUNG_FEHLGESCHLAGEN;
     }
     ergebnis.set(ev.id, { ...ev, content: text, legacy: true });
   }
@@ -969,7 +999,7 @@ async function ladeDmNachrichten(partner: string): Promise<DmAnzeige[]> {
  * saehe nur, wann dieser Schluessel Post bekommt. Ohne Liste oder wenn kein
  * Posteingang annimmt: an die eigenen Relays.
  */
-async function veroeffentlicheDm(wrap: NostrEvent, empfaenger: string): Promise<void> {
+export async function veroeffentlicheDm(wrap: NostrEvent, empfaenger: string): Promise<void> {
   const pool = await ensurePool();
   const { parseDmRelayList, KIND_DM_RELAYS } = await import("@freedomstack/protocol");
   let ziele: string[] = [];
@@ -1008,7 +1038,7 @@ async function syncDmInbox(): Promise<void> {
     const umschlaege = await pool.query({ kinds: [1059], "#p": [me.pk], limit: 200 });
     for (const w of umschlaege) {
       const e = await oeffneUmschlag(w);
-      if (!e || e.partner === me.pk) continue;
+      if (!e || e.partner === me.pk || e.partner === state.person) continue;
       const vorhanden = conversations.find((x) => x.id === e.partner);
       if (!vorhanden) {
         conversations.push({ id: e.partner, type: "dm", name: "Anfrage · " + pkShort(e.partner), lastTs: e.ev.created_at });
@@ -1021,9 +1051,85 @@ async function syncDmInbox(): Promise<void> {
       saveConversations();
       loadChatList();
     }
+    await aktualisiereSchluessel();
   } catch {
     /* offline */
   }
+}
+
+// ------------------------------------------------ Schluesselwechsel (8.6a)
+
+/** Stand der Schluessel meiner Kontakte (gueltig, abgeloest, widerrufen, streitig). */
+let schluesselStand = new Map<string, KeyState>();
+
+/** Mandate und Widerrufe der Kontakte laden, erste Mandate merken, Ansicht auffrischen. */
+async function aktualisiereSchluessel(): Promise<void> {
+  const kontakte = conversations.filter((c) => c.type === "dm").map((c) => c.id).filter((id) => /^[0-9a-f]{64}$/.test(id));
+  if (kontakte.length === 0) return;
+  const pool = await ensurePool();
+  const { KIND_ROTATION_MANDATE, KIND_KEY_REVOCATION } = await import("@freedomstack/protocol");
+  const [mandate, widerrufe] = await Promise.all([
+    pool.query({ kinds: [KIND_ROTATION_MANDATE], authors: kontakte, limit: 200 }),
+    pool.query({ kinds: [KIND_KEY_REVOCATION], "#p": kontakte, limit: 200 }),
+  ]);
+  const r = pruefeKontakte(kontakte, [...mandate, ...widerrufe], leseGemerkt(geheim.getItem(LS_MANDATE)));
+  if (r.geaendert) await geheim.setItem(LS_MANDATE, JSON.stringify(r.gemerkt)).catch(() => undefined);
+  const vorher = JSON.stringify([...schluesselStand].map(([k, v]) => [k, v.status, v.currentPubkey]));
+  schluesselStand = r.stand;
+  if (JSON.stringify([...schluesselStand].map(([k, v]) => [k, v.status, v.currentPubkey])) === vorher) return;
+  loadChatList();
+  if (activeConversation && schluesselStand.has(activeConversation)) void loadChatMessages(activeConversation);
+}
+
+/** ⚠ vor Kontakten, deren Schluessel nicht mehr (unstreitig) gilt – per textContent. */
+function markiereSchluessel(list: HTMLElement): void {
+  for (const [pk, st] of schluesselStand) {
+    if (!warnt(st)) continue;
+    const el = list.querySelector<HTMLElement>(`[data-cid="${CSS.escape(pk)}"]`);
+    const lbl = el?.querySelector<HTMLElement>(".label");
+    if (!el || !lbl || el.querySelector(".schluessel-warnung")) continue;
+    el.title = st.message;
+    // Eigenes Element: die Namensaufloesung ueberschreibt spaeter den Text des Labels
+    const w = document.createElement("span");
+    w.className = "schluessel-warnung warn";
+    w.textContent = "⚠";
+    lbl.before(w);
+  }
+}
+
+/** Hinweis ueber dem Verlauf: Stand des Schluessels, auf Wunsch zum Nachfolger wechseln. */
+function schluesselHinweis(thread: HTMLElement, partner: string): void {
+  const st = schluesselStand.get(partner);
+  if (!warnt(st)) return;
+  const box = document.createElement("div");
+  box.className = "bubble ai schluessel-hinweis";
+  const text = document.createElement("div");
+  text.className = "txt mono-sm warn";
+  text.textContent = `⚠ ${st!.message}`;
+  box.append(text);
+  if ((st!.status === "widerrufen" || st!.status === "abgeloest") && st!.currentPubkey !== partner) {
+    const b = document.createElement("button");
+    b.className = "ghost";
+    b.id = "schluessel-wechsel";
+    b.style.cssText = "width:auto;padding:3px 8px;margin-top:6px";
+    b.textContent = `zum neuen Schlüssel wechseln (${pkShort(st!.currentPubkey)})`;
+    b.addEventListener("click", () => wechsleZuNeuemSchluessel(partner, st!.currentPubkey));
+    box.append(b);
+  }
+  thread.prepend(box);
+}
+
+/** Die Unterhaltung mit dem Nachfolger weiterfuehren; die alte bleibt markiert stehen. */
+function wechsleZuNeuemSchluessel(alt: string, neu: string): void {
+  if (!/^[0-9a-f]{64}$/.test(neu)) return;
+  const c = conversations.find((x) => x.id === alt);
+  if (!conversations.some((x) => x.id === neu)) {
+    conversations.push({ id: neu, type: "dm", name: c?.name.replace(/^\(alter Schlüssel\) /, "") ?? pkShort(neu), lastTs: Math.floor(Date.now() / 1000), ...(c?.ablaufSecs ? { ablaufSecs: c.ablaufSecs } : {}) });
+  }
+  if (c && !c.name.startsWith("(alter Schlüssel) ")) c.name = `(alter Schlüssel) ${c.name}`;
+  saveConversations();
+  toast(`Weiter mit dem neuen Schlüssel ${pkShort(neu)} – die alte Unterhaltung bleibt markiert`);
+  openConversation(neu);
 }
 
 export async function loadChatMessages(cid: string): Promise<void> {
@@ -1059,7 +1165,7 @@ export async function loadChatMessages(cid: string): Promise<void> {
     thread.innerHTML = decrypted
       .sort((a, b) => a.created_at - b.created_at)
       .map((ev) => {
-        const mine = ev.pubkey === state.keypair!.pk;
+        const mine = [state.keypair!.pk, state.person].includes(ev.pubkey);
         // ev.content ist an dieser Stelle bereits entschluesselt (siehe oben).
         let text = ev.content;
         let atts: ChatAttachment[] = [];
@@ -1075,6 +1181,11 @@ export async function loadChatMessages(cid: string): Promise<void> {
         const body = escapeHtml(text);
         // Zap-Button neben jeder Nachricht (nur fuer DMs, nicht eigene)
         const v = versteckt.get(ev.id);
+        // Lokale Suche (8.13): was hier gezeigt wird, in den Index (mit Tresor verschluesselt gespeichert)
+        const ablauf = (ev as DmAnzeige).ablauf;
+        if (!v && text !== ENTSCHLUESSELUNG_FEHLGESCHLAGEN) {
+          sucheAufnehmen({ id: ev.id, text, scope: c.id, author: ev.pubkey, createdAt: ev.created_at, ...(ablauf !== undefined ? { ablauf } : {}) });
+        }
         if (v) {
           // Platzhalter statt spurlosem Entfernen: Eine Luecke, die man sieht,
           // ist Moderation. Eine, die man nicht sieht, ist Manipulation.
@@ -1084,12 +1195,20 @@ export async function loadChatMessages(cid: string): Promise<void> {
             `style="width:auto;padding:2px 6px;font-size:10px">trotzdem zeigen</button></div></div>`;
         }
         const zapBtn = !mine && c.type === "dm" ? `<button class="zap-msg-btn" data-pk="${escapeHtml(ev.pubkey)}" data-name="${escapeHtml(pkShort(ev.pubkey))}" title="zap senden">⚡</button>` : "";
+        // Nach dem Diebstahl (8.6a): nicht glauben, dass es von dieser Person ist
+        const diebstahl = c.type === "dm" && nachDiebstahl(ev, schluesselStand.get(c.id))
+          ? ` <span class="mono-sm warn" title="nach dem gemeldeten Diebstahl des Schlüssels">· ⚠ vielleicht nicht von dieser Person</span>`
+          : "";
         const alt = (ev as DmAnzeige).legacy
           ? ` <span class="mono-sm" title="ältere Verschlüsselung (Kind 4): Relays sehen Absender und Empfänger">· alt</span>`
           : "";
-        return `<div class="bubble ${mine ? "user" : "ai"}"><div class="who">${mine ? "du" : escapeHtml(pkShort(ev.pubkey))}${alt}${zapBtn}</div><div class="txt">${body}${media}</div></div>`;
+        // Von einem Geraet geschrieben (8.6b) – der Name steht in der Vollmacht (Fremddaten)
+        const g = (ev as DmAnzeige).geraet;
+        const geraet = g ? ` <span class="mono-sm geraet-hinweis${g.warnung ? " warn" : ""}">· ${escapeHtml(g.text)}</span>` : "";
+        return `<div class="bubble ${mine ? "user" : "ai"}"><div class="who">${mine ? "du" : escapeHtml(pkShort(ev.pubkey))}${alt}${diebstahl}${geraet}${zapBtn}</div><div class="txt">${body}${media}</div></div>`;
       })
       .join("");
+    if (c.type === "dm") schluesselHinweis(thread, c.id);
     thread.scrollTop = thread.scrollHeight;
     wireBlobButtons(thread);
     thread.querySelectorAll(".show-anyway").forEach((b) => {
@@ -1126,15 +1245,26 @@ export async function sendChatMessage(): Promise<void> {
         ? JSON.stringify({ text, attachments: chatAttachments })
         : text;
       if (!state.signer) return;
+      // Je eine Kopie an die Geraete des Kontakts und an die eigenen (8.6b) – ohne Netz nur die beiden.
+      // Als Geraet (8.6c) spricht die App fuer die Person: Kopie auch an sie, nur mit gueltiger Vollmacht.
+      const ich = sprichtFuer() ?? state.keypair.pk;
+      const [ihre, meine] = await Promise.all([c.id, ich].map((pk) => geraeteBuch.kopienFuer(pk).catch(() => [] as string[])));
+      if (alsGeraet() && !meine!.includes(state.keypair.pk)) {
+        toast("Dieses Gerät hat keine gültige Vollmacht (mehr) – Settings → Geräte", true);
+        return;
+      }
       const dm = await buildPrivateDm({
         signer: state.signer,
         recipientPk: c.id,
         content: payload,
         // Ablauf nach NIP-40 (2.5), falls fuer diese Unterhaltung gesetzt
         ...(c.ablaufSecs ? { ablaufSecs: c.ablaufSecs } : {}),
+        weitereEmpfaenger: [...ihre!, ...meine!, ich],
       });
       await veroeffentlicheDm(dm.toRecipient, c.id);
-      await veroeffentlicheDm(dm.toSelf, state.keypair.pk);
+      await veroeffentlicheDm(dm.toSelf, ich);
+      // Geraete lesen am Posteingang ihrer Person
+      for (const k of dm.weitere) await veroeffentlicheDm(k.wrap, k.an === ich || meine!.includes(k.an) ? ich : c.id);
     } else {
       // Community: kind 42 mit h-tag (channel-id)
       const ev = await signiere(buildEvent(state.keypair.pk, 42, [["h", c.id], ...imeta], text));

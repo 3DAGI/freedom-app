@@ -5,21 +5,31 @@
  * Aus app.ts verschoben (Schritt 1.0) – wörtlich, ohne Logikänderung.
  */
 import { DEFAULT_CLIENT_FEE_PERCENT, MAX_CLIENT_FEE_PERCENT } from "@freedomstack/protocol";
-import { escapeHtml } from "../../shell-logic.js";
+import { escapeHtml, pkShort } from "../../shell-logic.js";
 import { zeigeDatenschutz } from "../datenschutz.js";
-import { ensurePool, mitBunker, mitRohemSchluessel, signiere, state } from "../state.js";
-import { tresorEingerichtet, wireTresorKarte } from "../tresor.js";
+import { zeigeVertraute } from "../nachfolge-ui.js";
+import { alsGeraet, ensurePool, mitBunker, mitRohemSchluessel, signiere, state } from "../state.js";
+import { geheim, istGeheimnis, tresorEingerichtet, wireTresorKarte } from "../tresor.js";
 import { $, ganzeZahl, toast } from "../ui.js";
 import { ladeAbdeckung, trageAbdeckungEin } from "./earn.js";
-import { LS_KONTAKTE_SICHERN, kontakteEinschalten, kontakteSichernAn, sichereKontakte } from "./kommunikation.js";
+import { LS_KONTAKTE_SICHERN, geraeteBuch, kontakteEinschalten, kontakteSichernAn, sichereKontakte } from "./kommunikation.js";
 import { LS_STANDARD_SCHIENE, standardSchiene } from "../../standard-schiene.js";
 
 // ------------------------------------------------- Nachfolge & Modelle
+
+/** Als Geraet (8.6c) nicht: Nachfolge, Schluesselwechsel und Vollmachten gehoeren der Hauptidentitaet. */
+function nurHauptidentitaet(was: string): boolean {
+  if (!alsGeraet()) return true;
+  toast(`${was} geht nur mit der Hauptidentität, nicht auf einem Gerät`, true);
+  return false;
+}
 
 /** Stand der Nachfolge anzeigen. */
 export async function zeigeNachfolge(): Promise<void> {
   const box = $("#succession-status");
   if (!box || !state.keypair) return;
+  // Fuer wen ich selbst Vertrauter bin (8.11b)
+  void zeigeVertraute();
   try {
     const { parseSuccessionPlan, evaluateSuccession, KIND_SUCCESSION_PLAN, KIND_HEARTBEAT, KIND_RECOVERY_CLAIM } =
       await import("@freedomstack/protocol");
@@ -54,16 +64,23 @@ export async function zeigeNachfolge(): Promise<void> {
 
 /** Nachfolge einrichten — mit Aufklaerung ueber die Grenze. */
 export async function richteNachfolgeEin(): Promise<void> {
-  if (!state.keypair) return;
+  if (!state.keypair || !nurHauptidentitaet("Nachfolge einrichten")) return;
   const {
-    successionWarning, splitSecret, secretHashOf, buildSuccessionPlan, toHex: th,
+    successionWarning, splitSecret, secretHashOf, buildSuccessionPlan, baueAnteilUmschlag, neueTeilung,
   } = await import("@freedomstack/protocol");
+  const { decodeNpub } = await import("../../identity.js");
 
   const eingabe = prompt(
-    "Pubkeys der Vertrauten, kommagetrennt (mindestens 3 Personen, die sich NICHT kennen):",
+    "Schlüssel der Vertrauten (npub oder hex), kommagetrennt – mindestens 3 Personen, die sich NICHT kennen und FreedomStack nutzen:",
   );
   if (!eingabe) return;
-  const guardians = eingabe.split(",").map((x) => x.trim()).filter((x) => /^[0-9a-f]{64}$/.test(x));
+  const guardians = [...new Set(eingabe.split(",").map((x) => x.trim()).map((x) => {
+    try {
+      return x.startsWith("npub1") ? decodeNpub(x) : x.toLowerCase();
+    } catch {
+      return "";
+    }
+  }).filter((x) => /^[0-9a-f]{64}$/.test(x) && x !== state.keypair!.pk))];
   if (guardians.length < 3) {
     toast("Mindestens drei Vertraute — bei weniger ist eine Absprache zu leicht", true);
     return;
@@ -73,12 +90,24 @@ export async function richteNachfolgeEin(): Promise<void> {
   if (!confirm(successionWarning({ guardians: guardians.length, threshold, graceDays: 30 }))) return;
 
   try {
-    // Die Teile werden LOKAL erzeugt und muessen von Hand uebergeben werden.
-    // Sie ueber das Netz zu schicken waere bequemer und wuerde den ganzen
-    // Zweck aufheben: Wer die Uebertragung mitliest, hat sie alle.
+    // Die Teile entstehen LOKAL; jeder geht versiegelt (NIP-59) an genau
+    // seinen Vertrauten (8.11). Bis 8.11 gab es eine Datei mit allen Teilen –
+    // wer sie hatte, hatte alles.
     const { teile, hash } = mitRohemSchluessel("Die Nachfolge", (sk) => ({
       teile: splitSecret(sk, guardians.length, threshold), hash: secretHashOf(sk),
     }));
+    const teilung = neueTeilung();
+    const { veroeffentlicheDm } = await import("./kommunikation.js");
+    try {
+      for (const [i, t] of teile.entries()) {
+        const wrap = await baueAnteilUmschlag({
+          von: state.signer!, an: guardians[i]!, anteil: t, schwelle: threshold, anzahl: guardians.length, secretHash: hash, teilung,
+        });
+        await veroeffentlicheDm(wrap, guardians[i]!);
+      }
+    } finally {
+      for (const t of teile) t.data.fill(0);
+    }
     const pool = await ensurePool();
     await pool.publish(await signiere(buildSuccessionPlan({
       ownerPubkey: state.keypair.pk,
@@ -89,23 +118,9 @@ export async function richteNachfolgeEin(): Promise<void> {
       secretHash: hash,
     })));
 
-    const text = teile.map((t, i) =>
-      `Teil ${t.index} — fuer ${guardians[i]}\n${th(t.data)}\n`,
-    ).join("\n");
-    const url = URL.createObjectURL(new Blob([
-      "WICHTIG: Jeden Teil EINZELN und ueber einen SICHEREN Kanal uebergeben.\n" +
-      "Wer mehrere Teile in einer Hand hat, braucht die anderen nicht mehr.\n" +
-      `Schwelle: ${threshold} von ${guardians.length}.\n\n` + text,
-    ], { type: "text/plain" }));
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "freedom-nachfolge-teile.txt";
-    a.click();
-    URL.revokeObjectURL(url);
-
     localStorage.setItem("freedom.successionSet", "1");
     void aktualisiereSicherheitsStand();
-    toast("Eingerichtet. Übergib die Teile einzeln.");
+    toast(`Eingerichtet – ${guardians.length} Vertraute haben ihren Teil versiegelt bekommen.`);
     void zeigeSicherung();
     void zeigeGeraete();
     void zeigeNachfolge();
@@ -146,16 +161,15 @@ export function wireSicherheitsKnoepfe(): void {
 }
 
 /** Alles, was lokal liegt und bei Datenverlust verschwinden wuerde. */
-function sammleZustand(): Record<string, unknown> {
-  const out: Record<string, unknown> = {};
-  for (let i = 0; i < localStorage.length; i++) {
-    const k = localStorage.key(i);
-    // Schluessel NICHT mitsichern: Die Sicherung liegt oeffentlich auf
-    // Relays, und ihre Verschluesselung haengt an demselben Geheimnis.
-    if (!k || !k.startsWith("freedom.") || /\.(sk|identity|secret)$/.test(k)) continue;
-    out[k] = localStorage.getItem(k);
-  }
-  return out;
+/**
+ * Was gesichert wird: nur die feste Liste aus `waehleSicherung()` (8.12) –
+ * bis dahin ging jeder `freedom.*`-Eintrag mit, auch `freedom.nsec`, und mit
+ * Tresor fehlten die Unterhaltungen. Jeder Wert kommt aus seinem Speicher.
+ */
+async function sammleZustand(): Promise<Record<string, string>> {
+  const { waehleSicherung } = await import("@freedomstack/protocol");
+  const alle = Array.from({ length: localStorage.length }, (_, i) => localStorage.key(i) ?? "");
+  return waehleSicherung(alle, (k) => (istGeheimnis(k) ? geheim.getItem(k) : localStorage.getItem(k)));
 }
 
 export async function zeigeSicherung(): Promise<void> {
@@ -177,7 +191,7 @@ async function sichereZustand(): Promise<void> {
     const { deriveBackupKey, buildStateBackup } =
       await import("@freedomstack/protocol");
     const key = mitRohemSchluessel("Die Sicherung", deriveBackupKey);
-    const r = await buildStateBackup(state.keypair.pk, key, sammleZustand());
+    const r = await buildStateBackup(state.keypair.pk, key, await sammleZustand());
     await (await ensurePool()).publish(await signiere(r.event as never));
 
     localStorage.setItem("freedom.backupAt", String(Math.floor(Date.now() / 1000)));
@@ -193,7 +207,7 @@ async function sichereZustand(): Promise<void> {
 async function stelleZustandWieder(): Promise<void> {
   if (!state.keypair) return;
   try {
-    const { deriveBackupKey, restoreStateBackup, latestBackup, KIND_STATE_BACKUP } =
+    const { deriveBackupKey, restoreStateBackup, latestBackup, filtereWiederherstellung, KIND_STATE_BACKUP } =
       await import("@freedomstack/protocol");
     const pool = await ensurePool();
     const evs = await pool.query({
@@ -209,10 +223,12 @@ async function stelleZustandWieder(): Promise<void> {
       toast(r.message, true);
       return;
     }
-    if (!confirm(`${r.message}\n\nLokale Daten werden damit überschrieben. Fortfahren?`)) return;
-
-    for (const [k, v] of Object.entries(r.data)) {
-      if (typeof v === "string") localStorage.setItem(k, v);
+    // Nur, was in eine Sicherung gehoert – auch eine alte mit Schluessel stellt ihn nicht her
+    const daten = filtereWiederherstellung(r.data);
+    if (!confirm(`${r.message}\n\nUnterhaltungen, Räume und Namen auf diesem Gerät werden damit überschrieben. Fortfahren?`)) return;
+    for (const [k, v] of Object.entries(daten)) {
+      if (istGeheimnis(k)) await geheim.setItem(k, v);
+      else localStorage.setItem(k, v);
     }
     toast("Wiederhergestellt — die Seite wird neu geladen");
     setTimeout(() => location.reload(), 900);
@@ -228,7 +244,7 @@ async function stelleZustandWieder(): Promise<void> {
  * nichts mehr zu machen, wenn das Mandat fehlt.
  */
 async function bereiteWechselVor(): Promise<void> {
-  if (!state.keypair) return;
+  if (!state.keypair || !nurHauptidentitaet("Den Schlüsselwechsel vorbereiten")) return;
   const { rotationWarning, buildRotationMandate, generateKeypair, toHex: th } =
     await import("@freedomstack/protocol");
 
@@ -260,37 +276,59 @@ async function bereiteWechselVor(): Promise<void> {
   }
 }
 
-/** Gestohlenen Schluessel widerrufen. */
+/**
+ * Gestohlenen Schluessel widerrufen – mit dem Ersatzschluessel aus der
+ * Vorbereitung. Seit 8.6a werden die Eingaben geprueft (Hex vor fromHex) und
+ * es wird nur widerrufen, wenn auf den Relays ein Mandat genau diesen Ersatz
+ * nennt; sonst erkennt kein Kontakt den Widerruf an.
+ */
 async function widerrufeSchluessel(): Promise<void> {
-  const { revocationInstructions, buildRevocation, signEvent: se, fromHex } =
+  const { revocationInstructions, buildRevocation, signEvent: se, fromHex, parseRotationMandate, KIND_ROTATION_MANDATE, toHex: th } =
     await import("@freedomstack/protocol");
   if (!confirm(revocationInstructions())) return;
 
-  const alt = prompt("Welcher Schlüssel wurde gestohlen? (öffentlicher Schlüssel)");
-  if (!alt?.trim()) return;
-  const ersatzHex = prompt("Privater Ersatzschlüssel aus deiner Vorbereitung:");
-  if (!ersatzHex?.trim()) return;
+  let alt = prompt("Welcher Schlüssel wurde gestohlen? (öffentlicher Schlüssel, npub oder hex)", state.keypair?.pk ?? "")?.trim() ?? "";
+  if (!alt) return;
+  if (alt.startsWith("npub1")) {
+    try {
+      const { decodeNpub } = await import("../../identity.js");
+      alt = decodeNpub(alt);
+    } catch { alt = ""; }
+  }
+  alt = alt.toLowerCase();
+  if (!/^[0-9a-f]{64}$/.test(alt)) { toast("Kein gültiger öffentlicher Schlüssel", true); return; }
+  const ersatzHex = prompt("Privater Ersatzschlüssel aus deiner Vorbereitung (64 Zeichen hex):")?.trim().toLowerCase() ?? "";
+  if (!ersatzHex) return;
+  if (!/^[0-9a-f]{64}$/.test(ersatzHex)) { toast("Der Ersatzschlüssel muss 64 Zeichen hex sein", true); return; }
   const seit = prompt(
     "Seit wann vermutest du den Diebstahl? (JJJJ-MM-TT)\n" +
     "Lieber zu früh ansetzen — alles danach gilt als unglaubwürdig.",
   );
+  const seitUnix = seit?.trim() ? Math.floor(new Date(seit.trim()).getTime() / 1000) : undefined;
+  if (seit?.trim() && !Number.isFinite(seitUnix)) { toast("Datum nicht lesbar (JJJJ-MM-TT)", true); return; }
 
+  const sk = fromHex(ersatzHex);
   try {
     const { schnorr } = await import("@noble/curves/secp256k1.js");
-    const sk = fromHex(ersatzHex.trim());
-    const pk = Array.from(schnorr.getPublicKey(sk))
-      .map((b) => b.toString(16).padStart(2, "0")).join("");
-
-    const seitUnix = seit ? Math.floor(new Date(seit).getTime() / 1000) : undefined;
-    await (await ensurePool()).publish(se(buildRevocation({
-      oldPubkey: alt.trim(), newPubkey: pk, reason: "gestohlen",
-      compromisedSince: Number.isFinite(seitUnix) ? seitUnix : undefined,
+    const pk = th(schnorr.getPublicKey(sk));
+    const pool = await ensurePool();
+    const mandate = await pool.query({ kinds: [KIND_ROTATION_MANDATE], authors: [alt], limit: 50 });
+    const passt = mandate.some((ev) => { try { return parseRotationMandate(ev).newPubkey === pk; } catch { return false; } });
+    if (!passt) {
+      toast("Kein Mandat nennt diesen Ersatzschlüssel – Kontakte würden den Widerruf nicht anerkennen. Nichts gesendet.", true);
+      return;
+    }
+    await pool.publish(se(buildRevocation({
+      oldPubkey: alt, newPubkey: pk, reason: "gestohlen",
+      compromisedSince: seitUnix,
       note: "Schlüssel kompromittiert.",
     }), sk));
 
-    toast("Widerrufen — informiere deine Kontakte zusätzlich direkt");
+    toast("Widerrufen — melde dich mit dem Ersatzschlüssel an (Identität importieren) und sag es deinen Kontakten zusätzlich direkt");
   } catch (e) {
     toast((e as Error).message, true);
+  } finally {
+    sk.fill(0);
   }
 }
 
@@ -298,7 +336,17 @@ async function widerrufeSchluessel(): Promise<void> {
 export async function zeigeGeraete(): Promise<void> {
   const box = $("#device-list");
   if (!box || !state.keypair) return;
+  $("#device-add")?.classList.toggle("hidden", alsGeraet());
   try {
+    // Als Geraet (8.6c): der Stand der eigenen Vollmacht statt der Liste
+    if (state.person) {
+      const { geraeteStand } = await import("../../geraete-modus.js");
+      geraeteBuch.vergiss(state.person);
+      const st = geraeteStand(state.keypair.pk, state.person, await geraeteBuch.vonPerson(state.person));
+      box.textContent = `Dieses Gerät spricht für ${pkShort(state.person)} · ${st.text}`;
+      box.classList.toggle("warn", !st.darfSchreiben);
+      return;
+    }
     const { listDevices, KIND_DEVICE_GRANT, KIND_DEVICE_REVOKE } =
       await import("@freedomstack/protocol");
     const pool = await ensurePool();
@@ -329,9 +377,10 @@ export async function zeigeGeraete(): Promise<void> {
 }
 
 async function fuegeGeraetHinzu(): Promise<void> {
-  if (!state.keypair) return;
+  if (!state.keypair || !nurHauptidentitaet("Geräte hinzufügen")) return;
   const { defaultPermissions, deviceWarning, buildDeviceGrant, generateKeypair, toHex: th } =
     await import("@freedomstack/protocol");
+  const { geraeteCode } = await import("../../geraete-modus.js");
 
   const name = prompt("Wie heißt das Gerät? Zum Beispiel: Handy");
   if (!name?.trim()) return;
@@ -348,12 +397,15 @@ async function fuegeGeraetHinzu(): Promise<void> {
       ownerPubkey: state.keypair.pk, devicePubkey: geraet.pk, label: name.trim(),
       permissions: perms, expiresAt: Math.floor(Date.now() / 1000) + tage * 86400,
     })));
+    geraeteBuch.vergiss(state.keypair.pk); // ab jetzt bekommt das Geraet Kopien (8.6b)
 
+    // Geraetecode (8.6c): auf dem anderen Geraet unter „Identitaet importieren“ eingeben
     prompt(
-      "Diesen Schlüssel auf dem anderen Gerät eingeben.\n" +
-      "Er ersetzt NICHT deine Merkphrase — er handelt nur in deinem Namen:",
-      th(geraet.sk),
+      "Diesen Gerätecode auf dem anderen Gerät unter „Identität importieren“ eingeben.\n" +
+      "Er ersetzt NICHT deine Merkphrase — das Gerät schreibt nur in deinem Namen, bis du es entziehst:",
+      geraeteCode(state.keypair.pk, th(geraet.sk)),
     );
+    geraet.sk.fill(0);
     void zeigeGeraete();
   } catch (e) {
     toast((e as Error).message, true);
@@ -362,12 +414,14 @@ async function fuegeGeraetHinzu(): Promise<void> {
 
 async function entzieheGeraet(devicePk: string): Promise<void> {
   if (!state.keypair) return;
-  if (!confirm("Vollmacht entziehen?\n\nDer Entzug erreicht nur Clients, die ihn sehen. " +
-    "Was das Gerät vorher geschrieben hat, bleibt gültig.")) return;
+  if (!confirm("Vollmacht entziehen?\n\nDer Entzug erreicht nur Clients, die ihn sehen – bis dahin " +
+    "versiegeln sie weiter auch an dieses Gerät. Was das Gerät vorher geschrieben hat, bleibt gültig; " +
+    "zurückdatierte Nachrichten zeigen Kontakte mit Warnung.")) return;
   try {
     const { buildDeviceRevoke } = await import("@freedomstack/protocol");
     await (await ensurePool()).publish(
       await signiere(buildDeviceRevoke(state.keypair.pk, devicePk, "entzogen")));
+    geraeteBuch.vergiss(state.keypair.pk); // keine Kopien mehr an das Geraet (8.6b)
     toast("Entzogen");
     void zeigeGeraete();
   } catch (e) {
@@ -395,6 +449,48 @@ async function meldeFuerAnderen(): Promise<void> {
 // ------------------------------------------------------------- Mesh-Tab
 
 let meshNode: import("../../mesh-radio.js").MeshNode | null = null;
+
+/** Offline-SOL-Zahlungen, die ankamen, als dieses Geraet selbst offline war (nur im Speicher). */
+const wartendeSol: Uint8Array[] = [];
+
+/**
+ * Empfangene Offline-SOL-Zahlung (7.2) einreichen – dieses Geraet ist das
+ * Gateway. Ohne Netz bleibt sie im Speicher und geht raus, sobald Netz da ist;
+ * weitergereicht hat der Funkknoten sie ohnehin.
+ */
+async function reicheSolEin(roh: Uint8Array): Promise<void> {
+  const { netzDa } = await import("../ui.js");
+  if (!netzDa()) {
+    if (wartendeSol.length < 20) wartendeSol.push(roh);
+    toast("Offline-SOL-Zahlung empfangen – wird eingereicht, sobald hier Netz da ist");
+    return;
+  }
+  try {
+    const { reicheSolOfflineEin } = await import("../zahlschienen.js");
+    const signatur = await reicheSolOfflineEin(roh);
+    toast(`Offline-SOL-Zahlung empfangen und eingereicht: ${signatur.slice(0, 8)}…`);
+  } catch (e) {
+    toast(`Offline-SOL-Zahlung nicht eingereicht: ${(e as Error).message}`, true);
+  }
+}
+
+if (typeof window !== "undefined") {
+  window.addEventListener("online", () => {
+    for (const roh of wartendeSol.splice(0)) void reicheSolEin(roh);
+  });
+}
+
+/**
+ * Ueber das verbundene Funkgeraet senden (7.2: Offline-SOL-Zahlung). false,
+ * wenn keines verbunden ist – dann nimmt der Aufrufer den Datei-Weg.
+ */
+export async function sendeUeberFunk(payload: Uint8Array, kind: import("@freedomstack/protocol").MeshKind, label: string): Promise<boolean> {
+  const art = meshNode?.transportArt;
+  if (!meshNode || (art !== "seriell" && art !== "bluetooth")) return false;
+  const { MeshPriority } = await import("@freedomstack/protocol");
+  meshNode.enqueue(payload, kind, MeshPriority.Zahlung, label);
+  return true;
+}
 
 /**
  * Mesh-Knoten aufsetzen.
@@ -428,8 +524,7 @@ async function ensureMeshNode(): Promise<import("../../mesh-radio.js").MeshNode>
             toast("Verschlüsselte Nachricht über Funk empfangen und ans Netz gegeben");
           } catch { toast("Empfangenes Paket unlesbar", true); }
         } else if (kind === MeshKind.SolanaTx) {
-          // Ehrlich: Einreichen kommt erst mit 7.2 (Durable Nonces).
-          toast("Solana-Transaktion über Funk empfangen – einreichen kann die App sie noch nicht");
+          void reicheSolEin(payload);
         }
       })();
     },

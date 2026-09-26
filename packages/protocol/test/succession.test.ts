@@ -173,10 +173,19 @@ test("Nach Frist, Schwelle und Wartezeit wird freigegeben", () => {
   assert.equal(st.status, "freigegeben");
 });
 
+test("Eine nachgehende Uhr ergibt keine negativen Tage", () => {
+  // Lebenszeichen 30 Sekunden „in der Zukunft“ der eigenen Uhr
+  const st = evaluateSuccession(plan(), [puls(NOW + 30)], NOW);
+  assert.equal(st.daysSinceHeartbeat, 0);
+  assert.match(st.message, /vor 0 Tagen/);
+});
+
 test("Warnung nennt die Grenze, nicht nur den Nutzen", () => {
   const w = successionWarning({ guardians: 5, threshold: 3, graceDays: 30 });
   assert.match(w, /NICHT schützt/);
   assert.match(w, /koennen sie übernehmen|können sie übernehmen/);
   // Der praktischste Rat ueberhaupt.
   assert.match(w, /Eine Familie zählt als einer/);
+  // Seit 8.11: auch, dass die Vertrauten oeffentlich im Plan stehen
+  assert.match(w, /Der Plan ist öffentlich: Wer deine Vertrauten sind, sieht jeder/);
 });

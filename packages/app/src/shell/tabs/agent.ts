@@ -29,6 +29,8 @@ import { kontextPraefix } from "../../ki-kontext.js";
 import { SessionClient } from "../../session-client.js";
 import { escapeHtml, pkShort } from "../../shell-logic.js";
 import { ausMsat } from "../../preis-anzeige.js";
+import { werkzeugPreise, werkzeugPreisText } from "../../werkzeug-preise.js";
+import type { ToolPrice } from "@freedomstack/protocol";
 import { switchTab, zeigeOnboarding } from "../app.js";
 import {
   ensurePool,
@@ -89,6 +91,8 @@ export async function refreshModelDropdown(): Promise<void> {
       return na - nb || b[1].count - a[1].count;
     });
     (window as unknown as { __modelCatalog?: unknown }).__modelCatalog = entries;
+    // Kosten je Werkzeug (8.7): guenstigstes Angebot, in sats und SOL
+    zeigeWerkzeugPreise(providers.map((p) => p.caps));
 
     // Popover-Inhalt: Karten mit Name, Speed-Klasse, Preis/1k tokens, Provider-Count
     const pop = $("#model-popover");
@@ -1362,7 +1366,29 @@ function hideTyping(): void {
   document.getElementById("ai-typing")?.remove();
 }
 
+/**
+ * Preis an jedem Werkzeug-Knopf (8.7): Richtpreis beim Start, danach der
+ * guenstigste angebotene – in sats und SOL, per textContent.
+ */
+function zeigeWerkzeugPreise(angebote: ReadonlyArray<{ tools?: ToolPrice[] }> = []): void {
+  const preise = werkzeugPreise(angebote);
+  const kurs = aktuellerKurs();
+  document.querySelectorAll<HTMLElement>(".tool-chip").forEach((chip) => {
+    const text = werkzeugPreisText(preise.get(Number(chip.dataset.tool)), kurs);
+    chip.title = text;
+    let el = chip.querySelector<HTMLElement>(".tool-preis");
+    if (!el) {
+      el = document.createElement("span");
+      el.className = "tool-preis";
+      chip.append(el);
+    }
+    // Beide Einheiten am Knopf (Regel 4.4b), die Erklaerung im Tooltip
+    el.textContent = text.split(" je Aufruf")[0]!;
+  });
+}
+
 export function setupToolChips(): void {
+  zeigeWerkzeugPreise();
   document.querySelectorAll(".tool-chip").forEach((chip) => {
     chip.addEventListener("click", () => {
       const el = chip as HTMLElement;

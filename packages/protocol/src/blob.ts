@@ -13,10 +13,22 @@
  * Kinds:
  *   38040 BLOB_MANIFEST — Metadaten + Chunk-Hashliste
  *   38041 BLOB_CHUNK    — ein Erasure-Shard (content-addressed)
+ *
+ * Seit 8.9a: Speicherknoten halten NUR Verschluesseltes. Wer verschluesselt
+ * hochlaedt, kennzeichnet Manifest und Stuecke mit ["verschluesselt", "1"];
+ * jedes Stueck nennt ausserdem Groesse und Erasure-Parameter, damit ein Knoten
+ * es ohne Manifest pruefen kann (`pruefeSpeicherStueck`). Beweisen kann ein
+ * Knoten Verschluesselung nicht – er prueft das Kennzeichen und ob der echte
+ * Datenbereich wie Zufall aussieht. Das faengt Text und Rohdaten, nicht
+ * komprimierte Medien (JPEG, ZIP), die ebenfalls zufaellig wirken.
  */
 import { sha256, toHex } from "./htlc.js";
 import { UnsignedEvent, buildEvent, getTag } from "./event.js";
-import { KIND_BLOB_MANIFEST, KIND_BLOB_CHUNK } from "./kinds.js";
+import { KIND_BLOB_MANIFEST, KIND_BLOB_CHUNK, KIND_DVM_BLOB_FETCH } from "./kinds.js";
+import { buildJobRequest } from "./dvm.js";
+import { buildPrivateJobRequest } from "./private-job.js";
+import type { NostrEvent } from "./event.js";
+import type { Signer } from "./signer.js";
 
 // ------------------------------------------------------------- Konstanten
 
@@ -157,6 +169,7 @@ export interface BuildBlobResult {
 export async function buildBlob(
   file: { name: string; mime: string; bytes: Uint8Array },
   uploaderPubkey: string,
+  opts: { verschluesselt?: boolean } = {},
 ): Promise<BuildBlobResult> {
   const cls = pickBlobClass(file.bytes.length);
   const blobId = toHex(sha256(file.bytes));
@@ -176,7 +189,9 @@ export async function buildBlob(
     dataShards: cls.dataShards,
     parityShards: cls.parityShards,
     shardHashes,
+    ...(opts.verschluesselt ? { encrypted: true } : {}),
   };
+  const marke = opts.verschluesselt ? [["verschluesselt", "1"]] : [];
 
   // Manifest-Event: content = JSON, tags mit blob-id fuer Discovery
   const manifestEvent = buildEvent(uploaderPubkey, KIND_BLOB_MANIFEST, [
@@ -186,6 +201,7 @@ export async function buildBlob(
     ["size", String(file.bytes.length)],
     ["class", cls.name],
     ["shards", String(allShards.length)],
+    ...marke,
   ], JSON.stringify(manifest));
 
   // Chunk-Events: content = base64 der Shard-Daten? Nein — raw-bytes als hex
@@ -198,6 +214,11 @@ export async function buildBlob(
       ["index", String(i)],
       ["total", String(allShards.length)],
       ["chunk-size", String(cls.chunkSize)],
+      // Seit 8.9a: damit ein Speicherknoten das Stueck ohne Manifest pruefen kann
+      ["size", String(file.bytes.length)],
+      ["data-shards", String(cls.dataShards)],
+      ["parity-shards", String(cls.parityShards)],
+      ...marke,
     ], toHex(shard)),
   );
 
@@ -285,4 +306,93 @@ export function parseBlobChunk(ev: UnsignedEvent): ParsedShardRef {
     shardHash: sha,
     data: hexToBytes(ev.content),
   };
+}
+
+// ------------------------------------------------ Speicherknoten (8.9a)
+
+/**
+ * Wie viele Bytes am Anfang dieses Stuecks echte Daten sind; der Rest ist
+ * Fuellung aus Nullen. Daten-Stueck k deckt [k·C, (k+1)·C) der Datei, ein
+ * Paritaets-Stueck ist eine Linearkombination der Daten-Stuecke seiner Gruppe –
+ * also so lang wie deren laengstes.
+ */
+export function nutzLaenge(index: number, groesse: number, chunkSize: number, daten: number, paritaet: number): number {
+  const gruppe = Math.floor(index / (daten + paritaet));
+  const pos = index % (daten + paritaet);
+  const start = pos < daten ? (gruppe * daten + pos) * chunkSize : gruppe * daten * chunkSize;
+  return Math.max(0, Math.min(chunkSize, groesse - start));
+}
+
+/**
+ * Sieht das aus wie Zufall (Chiffrat)? Ab 1024 Byte Chi-Quadrat ueber die
+ * Byte-Haeufigkeiten (Zufall: im Mittel 255, Streuung ~23 – Grenze 400);
+ * darunter die Zahl verschiedener Bytewerte gegen die erwartete.
+ */
+export function wirktZufaellig(bytes: Uint8Array): boolean {
+  const n = bytes.length;
+  if (n === 0) return true;
+  const zaehler = new Uint32Array(256);
+  for (const b of bytes) zaehler[b]++;
+  if (n >= 1024) {
+    const erwartet = n / 256;
+    let chi = 0;
+    for (const z of zaehler) chi += (z - erwartet) ** 2 / erwartet;
+    return chi < 400;
+  }
+  let verschieden = 0;
+  for (const z of zaehler) if (z > 0) verschieden++;
+  const erwartet = 256 * (1 - (255 / 256) ** n);
+  return verschieden >= Math.floor(erwartet * 0.8);
+}
+
+const HEX = /^(?:[0-9a-f]{2})*$/;
+const ZAHL = /^\d{1,12}$/;
+
+export type SpeicherPruefung =
+  | { ok: true; blobId: string; index: number; bytes: Uint8Array }
+  | { ok: false; grund: string };
+
+/**
+ * Darf ein Speicherknoten dieses Stueck halten? Nur mit Kennzeichen, in
+ * gueltiger Form, passendem Hash, Nullen in der Fuellung und einem
+ * Datenbereich, der wie Zufall aussieht.
+ */
+export function pruefeSpeicherStueck(ev: UnsignedEvent): SpeicherPruefung {
+  if (ev.kind !== KIND_BLOB_CHUNK) return { ok: false, grund: "kein Blob-Stück" };
+  if (getTag(ev, "verschluesselt") !== "1") return { ok: false, grund: "nicht als verschlüsselt gekennzeichnet" };
+  const blobId = getTag(ev, "blob") ?? "";
+  const sha = getTag(ev, "sha256") ?? "";
+  const zahlen = ["index", "total", "chunk-size", "size", "data-shards", "parity-shards"].map((t) => getTag(ev, t) ?? "");
+  if (!/^[0-9a-f]{64}$/.test(blobId) || !/^[0-9a-f]{64}$/.test(sha) || !zahlen.every((z) => ZAHL.test(z))) {
+    return { ok: false, grund: "Stück unvollständig" };
+  }
+  const [index, total, chunkSize, groesse, daten, paritaet] = zahlen.map(Number) as [number, number, number, number, number, number];
+  if (daten < 1 || paritaet < 0 || total % (daten + paritaet) !== 0 || index >= total || chunkSize < 1 || chunkSize > 1024 * 1024) {
+    return { ok: false, grund: "Erasure-Angaben unstimmig" };
+  }
+  if (!HEX.test(ev.content) || ev.content.length !== chunkSize * 2) return { ok: false, grund: "Inhalt kein Hex der angegebenen Länge" };
+  const bytes = hexToBytes(ev.content);
+  if (toHex(sha256(bytes)) !== sha) return { ok: false, grund: "Hash passt nicht" };
+  const nutz = nutzLaenge(index, groesse, chunkSize, daten, paritaet);
+  for (let i = nutz; i < bytes.length; i++) if (bytes[i] !== 0) return { ok: false, grund: "Füllung nicht leer" };
+  if (!wirktZufaellig(bytes.subarray(0, nutz))) return { ok: false, grund: "sieht nicht verschlüsselt aus" };
+  return { ok: true, blobId, index, bytes };
+}
+
+/**
+ * Abruf bei einem Speicherknoten (8.9a), versiegelt vom Sitzungsschluessel:
+ * „Veroeffentliche Stueck `index` von `blobId` wieder.“ Das Stueck selbst
+ * passt in keinen Umschlag (64 KB als Hex, NIP-44 fasst 64 KB) – der Knoten
+ * veroeffentlicht das gespeicherte, ohnehin oeffentliche Stueck-Event erneut
+ * und antwortet versiegelt, ob er es hatte. Bezahlung folgt mit 8.9c.
+ */
+export async function baueStueckAbruf(p: {
+  sitzung: Signer; knotenPk: string; blobId: string; index: number; powBits?: number; nowSecs?: number;
+}): Promise<{ wrap: NostrEvent; requestId: string }> {
+  if (!/^[0-9a-f]{64}$/.test(p.blobId) || !Number.isInteger(p.index) || p.index < 0) throw new Error("Abruf ungültig");
+  const request = buildJobRequest({
+    kind: KIND_DVM_BLOB_FETCH, customerPubkey: p.sitzung.publicKey(), input: p.blobId, bidMsat: 0,
+    providerPubkey: p.knotenPk, params: [["shard", String(p.index)]],
+  }, p.nowSecs);
+  return buildPrivateJobRequest({ request, sessionSigner: p.sitzung, providerPk: p.knotenPk, powBits: p.powBits, nowSecs: p.nowSecs });
 }

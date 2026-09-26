@@ -14,6 +14,8 @@ import { escapeHtml, pkShort } from "../shell-logic.js";
 import { nimmBunkerAuf, wireBunkerKarte } from "./bunker.js";
 import { wireEingebauteWallet } from "./eingebaute-wallet.js";
 import { zeigeDatenschutz } from "./datenschutz.js";
+import { nachNotfallLoeschung, wireNotfallLoeschung } from "./notfall.js";
+import { LS_GERAET_PERSON, leseGeraeteCode } from "../geraete-modus.js";
 import {
   ensurePool,
   getOwnProviderFromUrl,
@@ -122,7 +124,9 @@ function loadOrCreateIdentity(): void {
   }
   const stored = ladeSchluessel();
   if (stored) {
-    setzeIdentitaet(fromHex(stored));
+    // Als Geraet einer Person angemeldet (8.6c)?
+    const person = localStorage.getItem(LS_GERAET_PERSON);
+    setzeIdentitaet(fromHex(stored), person && /^[0-9a-f]{64}$/.test(person) ? person : null);
   } else {
     // Neue Identitaeten bekommen eine Merkphrase. Frueher wurde hier still ein
     // Schluessel erzeugt — wer seine Browserdaten loeschte, verlor Identitaet,
@@ -268,15 +272,20 @@ function exportIdentity(): void {
 
 function importIdentity(): void {
   if (mitBunker()) { toast("Erst vom Bunker abmelden (Settings → Geräte)", true); return; }
-  const hex = prompt("Merkphrase, nsec1… oder 64 Zeichen Hex einfuegen:");
+  const eingabe = prompt("Merkphrase, nsec1…, 64 Zeichen Hex oder Gerätecode einfuegen:");
+  // Geraetecode (8.6c): Geraeteschluessel plus die Person, fuer die er spricht
+  const code = eingabe ? leseGeraeteCode(eingabe) : null;
+  const hex = code?.skHex ?? eingabe;
   if (!hex || !/^[0-9a-f]{64}$/i.test(hex)) {
-    if (hex !== null) toast("ungueltiger key", true);
+    if (eingabe !== null) toast("ungueltiger key", true);
     return;
   }
-  setzeIdentitaet(fromHex(hex));
+  setzeIdentitaet(fromHex(hex), code?.person ?? null);
+  if (state.person) localStorage.setItem(LS_GERAET_PERSON, state.person);
+  else localStorage.removeItem(LS_GERAET_PERSON);
   void speichereSchluessel(hex.toLowerCase()).catch((e) => toast(`nicht gespeichert: ${(e as Error).message}`, true));
   $("#ident").textContent = escrowIdent();
-  toast("Identitaet importiert");
+  toast(state.person ? `Als Gerät angemeldet – für ${pkShort(state.person)}` : "Identitaet importiert");
   updateFeePreview();
   loadChatList();
   loadWallet();
@@ -497,7 +506,8 @@ function checkOwnProvider(): void {
  * danach ist der Schluessel da und die App startet wie bisher.
  */
 export function boot(): void {
-  void entsperreBeimStart().then(starte);
+  // Notfall-Loeschung (8.14): kommt die App aus einer, zuerst ein zweiter Durchgang
+  void nachNotfallLoeschung().then(() => entsperreBeimStart()).then(starte);
 }
 
 function starte(): void {
@@ -529,6 +539,7 @@ function starte(): void {
   starteAutoSperre(beschaeftigt);
   wireBunkerKarte(beschaeftigt);
   wireSicherheitsKnoepfe();
+  wireNotfallLoeschung(geldVorgangLaeuft);
   checkOwnProvider();
   const enter = setupFlow();
   // Kein Gate: App öffnet direkt. Wallet-Connect/Deposit über sidebar-CTA
@@ -654,17 +665,16 @@ function starte(): void {
       try {
         const bytes = new Uint8Array(await file.arrayBuffer());
         // sha256 head aus bundle-name (der user macht lokal: git bundle create)
-        const { uploadBlob } = await import("../blob-client.js");
+        // Seit 8.9b verschluesselt, der Schluessel steht oeffentlich in der Referenz
+        // (Entscheidung 26.09.2026): lesen kann jeder, Speicherknoten halten nur Chiffrat.
+        const { uploadAnhang } = await import("../blob-client.js");
         const pool = await ensurePool();
         setGitStatus(`publiziere ${file.name} (${Math.round(bytes.length / 1024)}kb)…`);
-        const res = await uploadBlob(
-          new File([bytes], `${name}.bundle`, { type: "application/octet-stream" }),
-          pool as never, state.signer!,
-        );
+        const res = await uploadAnhang(new File([bytes], "", { type: "application/octet-stream" }), pool as never, state.signer!);
         // repo-ref-event (38042)
         const { buildGitRepoRef } = await import("@freedomstack/protocol");
         const ref = buildGitRepoRef(
-          { name, blobId: res.blobId, headSha: "local", branch: "main", message: `bundle ${file.name}`, version: Math.floor(Date.now() / 1000) },
+          { name, blobId: res.blobId, headSha: "local", branch: "main", message: `bundle ${file.name}`, version: Math.floor(Date.now() / 1000), schluessel: res.schluessel },
           state.keypair.pk,
         );
         await pool.publish(await signiere(ref));
@@ -676,6 +686,7 @@ function starte(): void {
     };
   }
   loadGitRepos();
+  void import("./tabs/repos.js").then((m) => m.wireNip34());
   $("#ai-send").onclick = askAi;
   $("#ai-bid").oninput = updateFeePreview;
   $("#wallet-refresh").onclick = loadWallet;

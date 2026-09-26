@@ -4281,6 +4281,720 @@ Endstand (nach dem Einmergen von 7.2a): protocol 1089 · node 214 · app 300 ·
 Leak-Tests 47 grün + 2 todo · 0 rot · check-wiring `--streng` 0 offen ·
 innerHTML streng 0 unbewertet · Smoke-Test bestanden.
 
+## Schritt 7.2b – SOL ohne Internet, Teil b: App – 7.2 Code fertig
+
+**Wallet-Tab, eingebaute Wallet → „Ohne Internet zahlen“** (`shell/offline-zahlung.ts`):
+Mit Netz legt die App ein Nonce-Konto an (Kosten vorher im Dialog: Miete, die im
+Konto bleibt, plus Gebühr), frischt den Wert auf oder schließt das Konto (die
+Miete geht zurück an die Wallet – `baueNonceKontoSchliessen`, neu im Protokoll).
+Ohne Netz: Adresse und Betrag eingeben, die Wallet signiert mit dem abgelegten
+Wert (`sol-offline-zahlung.ts`: Tageslimit wie jede Zahlung, darüber Dialog;
+Unfug wird vor der Freigabe abgelehnt und zählt nicht), der Wert gilt danach als
+verbraucht. Gesendet wird über ein verbundenes Funkgerät (`sendeUeberFunk`,
+Vorrang „Zahlung“), sonst als `.meshpkt`-Datei. Nur die eingebaute Wallet zahlt
+offline – externe Wallets brauchen zum Signieren oft selbst Netz.
+
+**Gateway:** Empfängt ein Gerät mit Netz eine Offline-Zahlung (Funk oder Settings
+→ Mesh → „Datei einlesen“), prüft es sie (`pruefeOfflineUeberweisung`) und
+reicht sie mit Vorabsimulation ein (`reicheSolOfflineEin`); ohne Netz hält es sie
+im Speicher und reicht ein, sobald Netz da ist. Weitergereicht hat der
+Funkknoten sie ohnehin. Netz-Funktionen stehen in `shell/zahlschienen.ts` – dem
+einzigen Ort für `sendRawTransaction` und die eingebaute Wallet (Zahlwege-Prüfung).
+
+**Texte:** Offline-Hinweis („SOL mit vorbereitetem Nonce-Konto“), „Was geht ohne
+Internet?“ (Solana-Zahlungen ✓), Mesh-Karte, FAQ, Whitepaper; Aussage „mesh“
+genauer: Nachrichten nur als Umschläge; eine Offline-SOL-Zahlung zeigt – wie
+später auf der Kette – Adressen und Betrag (auch in der Wallet-Karte gesagt).
+
+**Browser-E2E** (Playwright, vorgetäuschter Solana-RPC und -WebSocket): Wallet
+einrichten → Nonce-Konto anlegen (Kosten-Dialog, Transaktion gesendet, Wert
+gelesen) → Netz ab → Hinweis oben → offline zahlen (289 Byte, als Datei) → Wert
+verbraucht → zweites Gerät liest die Datei ein → reicht genau diese Transaktion
+ein; keine Seitenfehler.
+
+**Tests:** protocol +1 (Konto schließen), app +5 (Offline-Zahlung: signiert,
+geprüft, verbraucht; Tageslimit abgelehnt → nichts; Ablehnung vor der Freigabe;
+strenge Ablage; Bündel), Leak-Tests +1 (Offline-SOL über Funk ohne
+Nostr-Schlüssel und Nachrichtentext).
+
+Endstand (nach dem Einmergen von 5.4a): protocol 1090 (+ 6 übersprungen, davon
+der Validator-Test) · node 213 (+ 7 übersprungen ohne Netz) · app 305 ·
+Leak-Tests 48 grün + 2 todo · 0 rot ·
+check-wiring `--streng` 0 offen · innerHTML streng 0 unbewertet · Smoke-Test
+bestanden · Browser-E2E bestanden.
+
+## Schritt 8.10a – Repositories, Teil a: NIP-34 im Protokoll
+
+Bisher kannte die App nur eigene Repo-Verweise (Kind 38042, Bundle im
+Blob-Netz) – keine Patches, keine Annahme, nichts, was andere Nostr-Clients
+lesen. **`protocol/src/nip34.ts`** nach NIP-34: Repo-Ankündigung (30617:
+Kennung, Name, Beschreibung, Klon-Adressen – auch ein Radicle-Spiegel
+`rad:…` –, Web, erster Commit „euc“, Maintainer; streng gelesen, ungültige
+Adressen und Schlüssel fallen heraus), Patch (1617: nur Text aus
+`git format-patch`, adressiert an das Repo, benachrichtigt den Eigentümer,
+höchstens 60 KB; Commit und Betreff aus dem Patch selbst), Status (1630 offen,
+1631 angenommen samt `applied-as-commits`, 1632 geschlossen, 1633 Entwurf).
+`patchStatus()`: „angenommen“ zählt nur vom Eigentümer oder einem
+eingetragenen Maintainer – nicht vom Autor, nicht von Fremden –, sonst der
+neueste gültige Status von Autor oder Maintainer; ohne Status offen.
+
+**Fund beim Test mit echtem git:** `git format-patch` kodiert Umlaute im
+Betreff nach RFC 2047 (`=?UTF-8?q?…?=`) und bricht lange Betreffe um – der
+Betreff wird jetzt dekodiert (q und b, Folgezeilen).
+
+**Abnahme** („ein Patch über NIP-34 angenommen“, `nip34.test.ts`): echtes git
+in einem Temp-Ordner – Eigentümer-Repo, Klon mit einer Änderung,
+`git format-patch`; über ein Relay: ankündigen, Patch einreichen, der
+Maintainer liest ihn **nur aus dem Event**, spielt ihn mit `git am` ein und
+setzt „angenommen“ mit dem neuen Commit; `patchStatus()` sagt „angenommen“.
+
+Öffentlich mit Absicht: Code, Patches und Annahmen sind gemeinsame Arbeit und
+signiert. **Radicle:** Das Repo kündigt seinen Spiegel als Klon-Adresse an;
+spiegeln tut der Betreiber mit `rad` (MENSCH). Die Karte nannte „Tests bisher
+keine“ – `git-contributors.test.ts` und `git-e2e.test.ts` gab es schon.
+
+**Aufteilung:** a (dieser Teil) Protokoll und Abnahme; b App:
+Repositories-Karte mit NIP-34 (ankündigen, Patch senden, Patches mit Status,
+annehmen/schließen als Maintainer).
+
+**Tests:** protocol +6 (Ankündigung, Unfug, Patch-Text, RFC 2047, Status-Regeln,
+Abnahme mit git).
+
+Endstand: protocol 1096 (+ 6 übersprungen) · node 213 (+ 7 übersprungen ohne
+Netz) · app 305 · Leak-Tests 48 grün + 2 todo · 0 rot · check-wiring `--streng`
+0 offen (9 neue Ausnahmen bis 8.10b) · innerHTML streng 0 unbewertet ·
+Smoke-Test bestanden.
+
+## Schritt 8.10b – Repositories, Teil b: NIP-34 in der App – 8.10 Code fertig
+
+**Agent → Repositories → „Zusammenarbeit (NIP-34)“** (`shell/tabs/repos.ts`,
+Ansichtslogik in `repo-ansicht.ts`): Repo ankündigen (Kennung, Klon-Adressen –
+auch ein Radicle-Spiegel `rad:…`), je Repo „Patch senden“ (Datei aus
+`git format-patch -1`, geprüft, Rückfrage „öffentlich und mit deinem Schlüssel
+signiert“), Patches mit Status; Eigentümer und Maintainer nehmen an (optional
+mit dem eingespielten Commit) oder schließen, der Autor zieht seinen Patch
+zurück, Fremde sehen keine Knöpfe. Je Eigentümer und Kennung gilt die neueste
+Ankündigung. Die Liste wird per DOM und `textContent` gebaut – Namen,
+Betreffe und Adressen kommen von Fremden, nichts davon geht durch `innerHTML`.
+Die Karte sagte „Funktioniert auch offline“ – seit 7.1 gehen Repos nicht über
+Mesh; gestrichen.
+
+**Browser-E2E** (zwei Geräte, vorgetäuschtes Nostr-Relay über
+`route_web_socket`): A kündigt „demo“ mit HTTPS- und Radicle-Adresse an, B
+sendet einen echten `git format-patch` (Betreff mit Umlaut, RFC 2047), A sieht
+ihn mit „annehmen/schließen“, nimmt an, beide sehen „angenommen ✓“, B hat
+keine Knöpfe mehr; keine Seitenfehler.
+
+**Tests:** app +2 (Repos: neueste Ankündigung, Unfug fällt heraus; Patches:
+Rechte je Rolle, nur dieses Repo, entschieden heißt keine Knöpfe).
+
+Endstand: protocol 1096 (+ 6 übersprungen) · node 213 (+ 7 übersprungen ohne
+Netz) · app 307 · Leak-Tests 48 grün + 2 todo · 0 rot · check-wiring `--streng`
+0 offen · innerHTML streng 0 unbewertet · Smoke-Test bestanden · Browser-E2E
+bestanden.
+
+## Schritt 8.13 – Lokale Suche
+
+**Kommunikation → Suchfeld über der Unterhaltungsliste** (`shell/suche-ui.ts`,
+Index in `suche.ts` auf `local-search.ts`): Aufgenommen wird, was die App
+ohnehin entschlüsselt und zeigt – Direktnachrichten (NIP-17, ältere Kind 4) und
+Community-Nachrichten, je Kennung einmal, ausgeblendete (Moderation) und nicht
+entschlüsselbare nicht (`tabs/kommunikation.ts:1092`). Tippen zeigt Treffer
+statt der Liste; ein Treffer öffnet seine Unterhaltung
+(`tabs/kommunikation.ts:574`, `wireKommunikation()` aus `app.ts:690`). Treffer
+werden per DOM und `textContent` gezeigt – der Text kommt von Fremden.
+
+**Gespeichert nur verschlüsselt:** Mit Tresor liegt der Index als ein
+AES-GCM-256-Blob in IndexedDB „freedom-suche“ (`suche-ui.ts:24`), der Schlüssel
+im Tresor (`freedom.suche.schluessel`, auch in `geheimnisse()`). Ohne Tresor
+lebt der Index nur im Speicher bis zum Neuladen – ein Schlüssel im Klartext
+daneben wäre keine Verschlüsselung. Gespeichert werden die Dokumente, die
+Wortliste entsteht beim Laden neu, in Abschnitten (Oberfläche bleibt
+bedienbar); gespeichert wird verzögert (2 s) statt je Nachricht. Ablaufende
+Direktnachrichten (NIP-40, 2.5) verschwinden mit ihrem Ablauf auch aus dem
+Index. Passt der Schlüssel nicht (alter Index), wird neu aufgebaut.
+
+**Abnahme** (`app/test/suche.test.ts`): 10.000 Nachrichten – Aufbau ~0,1 s, je
+Suche ~0,6 ms (Grenze 16 ms, ein Bildschirmbild), Speichern + Laden ~0,4 s in
+über 40 Abschnitten; im gespeicherten Blob weder Wörter noch Schlüssel noch
+Unterhaltungs-Kennung; falscher Schlüssel liest nichts.
+
+**Browser-E2E** (zwei Geräte, vorgetäuschtes Relay): B richtet den Tresor ein,
+A schreibt B „Laborbefund Beratungsstelle Bahnhof“ (am Relay nur Umschläge),
+B öffnet die Anfrage, findet sie über das Suchfeld, der Treffer öffnet die
+Unterhaltung; nach Neustart mit stummem Relay findet B sie aus dem
+gespeicherten Index. Klartext-Scan über alle IndexedDB-Datenbanken und
+localStorage: auf B (mit Tresor) und A (ohne Tresor, keine Such-Datenbank)
+nichts; keine Seitenfehler.
+
+**Grenzen, ehrlich:** Gesucht wird nur in Nachrichten, die auf diesem Gerät
+schon geöffnet wurden (so sagt es auch die Leer-Meldung). Raum-Nachrichten
+(Kanäle) sind nicht im Index; der Such-Knopf in Räumen hatte schon vorher
+keine Funktion und hat weiter keine. Die Notfall-Löschung (8.14) muss den Index
+mit löschen (`sucheVergessen()`).
+
+**Tests:** app +6 (Rundreise, kein Klartext/falscher Schlüssel, Ablauf, ohne
+Tresor, Vergessen, Abnahme 10.000).
+
+Endstand: protocol 1096 (+ 6 übersprungen) · node 213 (+ 7 übersprungen ohne
+Netz) · app 313 · Leak-Tests 48 grün + 2 todo · 0 rot · check-wiring `--streng`
+0 offen (6 Ausnahmen weniger) · innerHTML streng 0 unbewertet · Smoke-Test
+bestanden · Browser-E2E bestanden.
+
+## Schritt 8.14 – Notfall-Löschung
+
+**Settings → Sicherheit → „Notfall-Löschung“** (`shell/notfall.ts`, Knopf aus
+`app.ts:534`): Vorher steht `wipeConfirmation()` – was gelöscht wird, keine
+Wiederherstellung, ohne Merkphrase kein Zurück, Geld in laufenden
+Tauschvorgängen kann verloren sein, und der **rechtliche Hinweis** (in vielen
+Ländern ist das Vernichten von Beweismitteln strafbar, etwa während eines
+Verfahrens oder einer Durchsuchung; keine Rechtsberatung); läuft gerade ein
+Tausch oder Deposit, eine Warnung dazu. Gelöscht wird erst nach Eintippen von
+LÖSCHEN. Der Dialog ist per DOM gebaut.
+
+**Was gelöscht wird** (`loescheAllesLokal()` in `duress.ts`): localStorage und
+sessionStorage mit dem Präfix `freedom.`, jede IndexedDB-Datenbank, deren Name
+mit `freedom` beginnt (Tresor, Suchindex, Blob-Speicher – auch künftige), dazu
+die bekannten aus `WIPE_DATENBANKEN`, falls der Browser keine Liste liefert.
+Danach **nachgeprüft**: Was noch da ist oder nicht gelöscht werden konnte
+(blockierte Datenbank), wird benannt. Fremde Schlüssel und Datenbanken
+derselben Herkunft (github.io) bleiben. `WIPE_TARGETS` nannte Schlüssel, die es
+nicht gibt (`freedom.sk`, `freedom.conversations`) – jetzt die echten.
+
+**Nichts schreibt zurück:** Die App startet sofort neu (`location.reload()`);
+der Suchindex hält vorher sein verzögertes Speichern an (`sucheVergessen()`,
+startet die Suche dafür nicht erst). Ohne Tresor landete sonst, was noch im
+Speicher ist (Unterhaltungen), im Klartext in localStorage. Ein Merker in
+sessionStorage lässt den Start ein **zweites Mal löschen, vor allem anderen**
+(`app.ts:502`), dann zeigt die leere App das Ergebnis; fehlt etwas, sagt eine
+Meldung was.
+
+**Wächter** (`app/test/notfall.test.ts`): Im Quelltext von App und Protokoll
+trägt jeder Schlüssel für localStorage, sessionStorage und Tresor das Präfix
+`freedom.`, jede Datenbank steht in `WIPE_DATENBANKEN`; Cache Storage, OPFS,
+Cookies, WebSQL und Service Worker kommen nicht vor. Gegenprobe: ein Schlüssel
+„lang“ und eine Datenbank „fremd-db“ lassen den Test scheitern.
+
+**Nachweis im Smoke-Test** (`scripts/smoke_test.py`, Befehlsliste): frisches
+Profil mit Geheimnissen, Sitzungsdaten, Blob-Speicher, Suchindex, einer
+künftigen Datenbank und Tresor; der Hinweis steht vorher, der Knopf ist bis
+„LÖSCHEN“ gesperrt; danach enthalten localStorage, sessionStorage und IndexedDB
+weder Schlüssel noch Probedaten, nur der neu angelegte leere Tresor-Speicher
+bleibt, die App startet leer mit neuer Identität und ohne Passphrase-Abfrage.
+
+**Grenzen, ehrlich:** Relays erreicht die Löschung nicht (steht im Text).
+Die **Zwangsphrase** (`checkUnlock`, `duressWarning`: eine zweite Passphrase,
+die beim Entsperren still löscht) ist nicht eingebaut – die Karte verlangt nur
+die Löschung, und ob die Funktion angeboten wird, ist eine MENSCH-Entscheidung
+(sie kann ihrem Nutzer schaden; ein gespeicherter Prüfwert verriete, dass es
+eine gibt). Was der Browser selbst hält (Verlauf, Cache der Seite), löscht die
+App nicht.
+
+**Tests:** protocol +4 (Löschen und Nachprüfen, Benennen, ohne Liste der
+Datenbanken, rechtlicher Hinweis), app +4 (Präfix aller Schlüssel, Datenbanken,
+keine unbekannte Speicherart, Verdrahtung); Smoke-Test +1 Szenario.
+
+Endstand: protocol 1100 (+ 6 übersprungen) · node 213 (+ 7 übersprungen ohne
+Netz) · app 317 · Leak-Tests 48 grün + 2 todo · 0 rot · check-wiring `--streng`
+0 offen (2 Ausnahmen weniger) · innerHTML streng 0 unbewertet · Smoke-Test
+bestanden (mit Notfall-Löschung).
+
+## Schritt 8.11a – Nachfolge, Teil a: Anteile versiegelt im Protokoll
+
+**Vorher:** Beim Einrichten lud die App alle Anteile als **eine Textdatei**
+herunter – wer die Datei hatte, hatte den Schlüssel, und die Weitergabe blieb
+dem Nutzer überlassen. Zusammensetzen konnte die App gar nicht
+(`combineShares`, `verifyRecovered` ohne Oberfläche).
+
+**Neu** (`nachfolge-anteile.ts`): Jeder Anteil geht im Umschlag (NIP-59) an
+genau seinen Vertrauten – innen Kind 38077 mit Index, Schwelle, Anzahl,
+Prüfsumme des Plans und der Kennung der Zerlegung („teilung“). Ist der Plan
+freigegeben, fragt ein Vertrauter als Sammler die anderen versiegelt an (38078);
+die geben ihren Anteil versiegelt an ihn (38079). `darfUebergeben()` lässt das
+nur zu, wenn der Plan beide als Vertraute nennt, der Anteil zum Plan passt und
+`evaluateSuccession()` „freigegeben“ sagt – ein Lebenszeichen des Besitzers
+sperrt wieder. `setzeNachfolgeZusammen()` mischt keine Anteile verschiedener
+Zerlegungen (richtet der Besitzer neu ein, passen alte nicht mehr) und gibt
+den Schlüssel nur mit passender Prüfsumme heraus. Übergaben von
+Nicht-Vertrauten und Unfug (Index 0, Schwelle 1, kein Hex) fallen heraus.
+Kinds 38077–38079 kommen nur innen im Umschlag vor.
+
+**Durchgespielt** (`nachfolge-anteile.test.ts`, Besitzer und drei Vertraute,
+2 von 3): Jeder öffnet genau seinen Anteil; im Öffentlichen (Plan, Umschläge,
+Anfrage, Übergabe) steht kein Anteil und kein Schlüssel, der Besitzer ist nicht
+Autor der Umschläge; übergeben erst nach Frist, Schwelle und Wartezeit, nicht
+an Fremde oder sich selbst; B sammelt von C und hat danach genau den Schlüssel
+des Besitzers.
+
+**Grenzen, benannt:** Der Plan ist öffentlich – wer die Vertrauten sind, sieht
+jeder (neue Aussage „nachfolge-plan“ als Grenze mit Grund; auch im Hinweistext
+`successionWarning()`). Genug Vertraute, die sich absprechen, können
+übernehmen; eine veränderte App muss die Freigabe nicht abwarten. Relays sehen,
+dass Vertraute Post bekommen. Die Aussage „nachfolge-anteile“ steht als offen
+(8.11b) – die App versiegelt noch nicht.
+
+**Aufteilung:** a (dieser Teil) Protokoll; b App: Einrichten ohne
+Klartext-Datei, Ansicht für Vertraute, Anfrage und Übergabe, Zusammensetzen,
+Browser-E2E mit drei Testkonten.
+
+**Tests:** protocol +5 (Öffnen und kein Klartext, Freigaberegeln, Nachfolge
+durchgespielt, Teilungen und Fremde, Unfug) und eine Zusicherung mehr im
+Hinweistext-Test.
+
+Endstand: protocol 1105 (+ 6 übersprungen) · node 213 (+ 7 übersprungen ohne
+Netz) · app 317 · Leak-Tests 48 grün + 2 todo · 0 rot · check-wiring `--streng`
+0 offen (9 neue Ausnahmen bis 8.11b) · innerHTML streng 0 unbewertet ·
+Smoke-Test bestanden.
+
+## Schritt 8.11b – Nachfolge, Teil b: in der App – 8.11 Code fertig
+
+**Besitzer** (Settings → Sicherheit → „Nachfolge & Wiederherstellung“ →
+einrichten, `richteNachfolgeEin()`): Vertraute als npub oder hex, mindestens
+drei, nicht man selbst; nach dem Hinweistext (jetzt mit „der Plan ist
+öffentlich“) geht jeder Teil **versiegelt an genau seinen Vertrauten**
+(`baueAnteilUmschlag`, an dessen Posteingang, `settings.ts:96`), danach werden
+die Teile im Speicher genullt und der Plan veröffentlicht. Die Datei mit allen
+Teilen gibt es nicht mehr.
+
+**Vertraute** (`nachfolge.ts` ohne DOM, Oberfläche `shell/nachfolge-ui.ts`):
+Der Posteingang ordnet Umschläge ein (`kommunikation.ts:894`) – eigener
+Anteil, Anfrage eines anderen Vertrauten, Übergabe (nur wenn man selbst
+angefragt hat). Gehalten wird im Tresor (`freedom.nachfolge`), ohne Tresor nur
+im Speicher; dann sagt die Ansicht, dass der Anteil nur auf den Relays liegt.
+„Du bist Vertrauter für …“ (`settings.ts:25`) zeigt je Besitzer Teil und Stand
+des Plans und bietet an: melden (einmal – danach „gemeldet“), nach der Freigabe
+Anteile anfordern (versiegelt an die anderen Vertrauten), eine Anfrage
+beantworten („übergeben“ nur, wenn `darfUebergeben()` zustimmt, nach Rückfrage,
+sonst steht der Grund da) und zusammensetzen – der Schlüssel wird mit der
+Prüfsumme des Plans geprüft und als Datei gegeben (mit Hinweis zum Import),
+die Kopie im Speicher danach genullt. Liste per DOM und `textContent`.
+Lesen-Ändern-Schreiben des Stands läuft nacheinander, damit parallele
+Abgleiche nichts verlieren.
+
+**Browser-E2E** (vier Konten, vorgetäuschtes Relay, gesteuerte Uhr): A richtet
+mit B, C, D ein – keine Datei, drei Umschläge, Plan öffentlich; B und C
+(mit Tresor) sehen ihren Teil; nach 181 Tagen melden beide; nach 213 Tagen ist
+freigegeben, B fordert an, C sieht die Anfrage und übergibt, B hat 2 von 2 und
+setzt zusammen – die Datei enthält genau A's Schlüssel. Am Relay: A's Schlüssel
+nirgends, Kinds 38077–38079 nie offen, zwei öffentliche Meldungen;
+localStorage von B ohne Nachfolge-Daten; keine Seitenfehler.
+
+**Fund behoben:** Geht die Uhr eines Vertrauten etwas nach, zeigte der Stand
+„Lebenszeichen vor -1 Tagen“ – `evaluateSuccession()` zählt jetzt ab 0.
+
+**Texte:** Karte in den Settings, FAQ und Whitepaper nennen die Versiegelung
+und dass öffentlich ist, wer die Vertrauten sind. Aussage „nachfolge-anteile“
+jetzt belegt (Szenario: Plan, Umschläge, Anfrage, Übergabe ohne Anteil und
+Schlüssel).
+
+**Grenzen, ehrlich:** Vertraute brauchen FreedomStack (andere Clients
+ignorieren die Umschläge). Wer zusammensetzt, bekommt den Schlüssel als Datei
+und importiert ihn selbst – eine Übernahme in der laufenden App gibt es nicht.
+Der Plan und die Meldungen sind öffentlich (Grenze „nachfolge-plan“).
+
+**Tests:** app +4 (Umschläge einordnen, Stand lesen, Ansicht vor/nach
+Freigabe, Verdrahtung), protocol +1 (keine negativen Tage); der
+Verdrahtungstest der Posteingangs-Kette (`trinkgeld-beleg.test.ts`) nennt jetzt
+auch `alsNachfolge`.
+
+Endstand: protocol 1106 (+ 6 übersprungen) · node 213 (+ 7 übersprungen ohne
+Netz) · app 321 · Leak-Tests 48 grün + 2 todo · 0 rot · check-wiring `--streng`
+0 offen (11 Ausnahmen weniger) · innerHTML streng 0 unbewertet · Smoke-Test
+bestanden · Browser-E2E bestanden.
+
+## Schritt 8.12 – Zustandssicherung
+
+**Fund:** `sammleZustand()` nahm jeden `freedom.*`-Eintrag aus localStorage mit
+und ließ nur Namen auf `.sk`, `.identity` oder `.secret` weg. Der Schlüssel
+heißt aber `freedom.nsec` – er ging mit, ohne Tresor ebenso NWC-Zugang,
+Swap-Preimages und die eingebaute SOL-Wallet (verschlüsselt, aber mit einem
+Schlüssel, der aus demselben Geheimnis abgeleitet ist – der Kommentar im Code
+wollte genau das verhindern). Mit Tresor fehlte dafür das Wichtigste: Die
+Unterhaltungen liegen dann im Tresor und kamen gar nicht in die Sicherung.
+Zurückgeholt wurde jeder Eintrag ungefiltert in localStorage – auch Geheimes
+im Klartext neben einem Tresor.
+
+**Jetzt** (`state-backup.ts`): eine feste Liste `SICHERUNG_EINTRAEGE`
+(Unterhaltungen, Räume, Lesestände, eigene Namen, Profil-Entwurf, Sprache,
+Relays, zwei Einstellungen, Moderation je Community) statt eines Präfixes – ein
+neuer Eintrag ist erst gesichert, wenn er dort steht. `SICHERUNG_NIE` schließt
+zusätzlich aus: Schlüssel, Bunker, Wallet-Zugänge, Swaps, Sperren, SOL-Wallet,
+Tresor, Suchschlüssel, Nachfolge-Anteile, Notfall-Merker und
+**Gruppenschlüssel (MLS, Epochen)** – Forward Secrecy hieße sonst nur „bis zur
+nächsten Sicherung“; ein neues Gerät tritt Räumen neu bei. Die App liest jeden
+Wert aus seinem Speicher (`istGeheimnis()` in `tresor.ts`, dieselbe Liste wie
+`geheimnisse()`, `settings.ts:162`) und schreibt beim Zurückholen nur
+Gefiltertes (`filtereWiederherstellung()`, `settings.ts:220`) – Geheimes in den
+Tresor, anderes in localStorage (`settings.ts:223`). Eine alte Sicherung mit
+Schlüssel stellt ihn nicht wieder her. Über 60 KB lehnt die Sicherung klar ab,
+statt am Rand von NIP-44 zu scheitern. Der Hinweistext nennt, was nie darin ist.
+
+**Browser-E2E** (zwei Geräte, vorgetäuschtes Relay): Gerät 1 mit Tresor, einer
+Unterhaltung, Raum und Namen sichert – am Relay eine Sicherung (30078), weder
+Schlüssel noch Name noch Raum noch Partner im Klartext. Gerät 2 importiert die
+Identität, richtet einen Tresor ein und holt zurück: gleiche Identität,
+Unterhaltung wieder in der Liste (im Tresor, nicht in localStorage), Räume und
+Namen da, kein Schlüssel im Klartext in localStorage; keine Seitenfehler.
+
+**Datenschutz:** neue Aussage „zustand-sicherung“ (belegt, Szenario: Gerät mit
+Schlüssel, Zugängen, Swap und Gruppenschlüssel – im Event nichts davon im
+Klartext).
+
+**Nebenbei:** Der Bunker-Test pinnte die Liste der Geheimnisse unter ihrem alten
+Namen (`const fest = …`); sie heißt jetzt `GEHEIM_FEST` und wird von
+`geheimnisse()` und `istGeheimnis()` geteilt – der Test prüft dasselbe.
+Die Ablauf-Funktionen in `state-backup.ts` bleiben ohne Oberfläche:
+Direktnachrichten haben ihren Ablauf seit 2.5 über `private-dm.ts`.
+
+**Tests:** protocol +4 (feste Liste, Wiederherstellung ohne Klartext, alte
+Sicherung mit Schlüssel, Größe), app +3 (Sichern, Zurückholen, Tresor-Einträge).
+
+Endstand: protocol 1110 (+ 6 übersprungen) · node 213 (+ 7 übersprungen ohne
+Netz) · app 324 · Leak-Tests 48 grün + 2 todo · 0 rot · check-wiring `--streng`
+0 offen · innerHTML streng 0 unbewertet · Smoke-Test bestanden · Browser-E2E
+bestanden.
+
+## Schritt 8.9a – Speicher, Teil a: nur Verschlüsseltes, Abruf von Knoten
+
+**Entscheidung MENSCH (26.09.2026):** 8.9 in Teilen. a (dieser Teil) Protokoll
+und Knoten; b App; **c Bezahlung in sats und SOL wartet wie 7.4 auf den
+Zahlkanal 4.3** – je Stück (um 10 msat) wäre eine SOL-Überweisung teurer als das
+Stück. Öffentliche Git-Bundles werden in b verschlüsselt hochgeladen, der
+Schlüssel steht öffentlich in der Repo-Ankündigung – Knoten halten dann auch
+dort nur Chiffrat. Geprüft wird per Kennzeichen und Zufallstest.
+
+**Vorher:** Knoten nahmen jedes Stück aus dem Relay-Feed auf, wandelten Hex
+ungeprüft (`parseInt` auf Fremddaten) und prüften den Hash nicht gegen das
+Tag. Ein Abruf-Auftrag (5075) hätte das Stück als Hex im Ergebnis geliefert –
+64 KB Stück, 128 KB Hex: in keinem Umschlag möglich, nur offen. Die App nutzte
+Knoten gar nicht.
+
+**Protokoll** (`blob.ts`): `buildBlob(…, { verschluesselt: true })` setzt
+`["verschluesselt", "1"]` an Manifest und Stücke (`encrypted` im Manifest); jedes
+Stück nennt jetzt Größe und Erasure-Parameter. `pruefeSpeicherStueck()`:
+Kennzeichen, Form (Zahlen, Hex fester Länge), Hash, Füllung hinter der
+Nutzlänge nur Nullen (`nutzLaenge()`: Daten-Stück k deckt [k·C, (k+1)·C),
+Parität so lang wie das längste Daten-Stück ihrer Gruppe), und der Datenbereich
+sieht wie Zufall aus (`wirktZufaellig()`: Chi-Quadrat über die
+Byte-Häufigkeiten, Grenze 400 bei Mittel 255; unter 1 KB die Zahl verschiedener
+Bytewerte). Das fängt Text und Rohdaten – auch in Paritäts-Stücken –, nicht
+komprimierte Medien; so steht es im Modul und im Whitepaper.
+`baueStueckAbruf()`: versiegelter Auftrag 5075 vom Sitzungsschlüssel.
+
+**Knoten:** Aufnahme nur über `StorageRole.nimmAuf()` (`main.ts:437`), dazu das
+signierte Event ohne Inhalt (`<blob>.<index>.json`). Ein Abruf läuft vor der
+Zahlungsprüfung (`dvm-provider.ts:735`), setzt das Event aus .json und .bin
+wieder zusammen (ID geprüft), veröffentlicht es erneut und antwortet
+„veroeffentlicht“ – versiegelt, wenn der Abruf es war; nicht Gehaltenes wird
+abgesagt. Betrag 0 bis 8.9c.
+
+**Abnahme** (`node/test/speicher-ausfall.test.ts`): eine verschlüsselte Datei
+(~190 KB, 24 Stücke), vier Knoten mit je 12 Stücken reihum, das Relay hat nur
+das Manifest. Für **jedes der sechs Paare** fallen zwei Knoten aus; die Kundin
+fragt die übrigen versiegelt ab, sie veröffentlichen ihre Stücke erneut, die
+Datei wird zusammengesetzt und entschlüsselt. Abruf und Antwort erscheinen nie
+offen. Ein einzelner Knoten mit 12 Stücken reicht nicht; Klartext (mit und ohne
+Kennzeichen) nimmt ein Knoten nicht auf.
+
+**Knoten-Stand:** Speicherknoten (`STORAGE_ENABLED=1`) brauchen `main` nach
+diesem Merge; KI-Aufträge sind nicht betroffen.
+
+**Tests:** protocol +5 (Kennzeichen und Prüfung, Klartext abgelehnt,
+Manipulation, Nutzlänge und Zufallstest, versiegelter Abruf), node +3
+(Abnahme für alle Paare, ein Knoten reicht nicht, Klartext abgelehnt).
+
+Endstand: protocol 1115 (+ 6 übersprungen) · node 216 (+ 7 übersprungen ohne
+Netz) · app 324 · Leak-Tests 48 grün + 2 todo · 0 rot · check-wiring `--streng`
+0 offen (1 Ausnahme bis 8.9b) · innerHTML streng 0 unbewertet · Smoke-Test
+bestanden.
+
+## Schritt 8.9b – Speicher, Teil b: in der App
+
+**Hochladen:** Chat-Anhänge gehen gekennzeichnet ins Blob-Netz
+(`uploadAnhang` → `uploadBlob(…, { verschluesselt: true })`,
+`blob-client.ts:115`) – nur solche Stücke halten Speicherknoten (8.9a).
+
+**Laden mit Speicherknoten** (`speicher-abruf.ts`, `blob-client.ts:189`):
+Findet die App auf den Relays zu wenige Stücke einer verschlüsselten Datei,
+nimmt sie bis zu vier Speicherknoten aus deren Angeboten (mit Speicher-Rolle,
+höchstens 24 Stunden alt, je Schlüssel das neueste), fragt jeden je fehlendem
+Stück versiegelt an – von einem frischen Sitzungsschlüssel je Download, mit
+der Rechenarbeit, die der Knoten verlangt – und liest danach bis zu zwölf
+Sekunden lang erneut vom Relay; jedes Stück wird gegen das Manifest geprüft.
+Unverschlüsselte (ältere) Blobs fragen keine Knoten an. Fund beim Bauen: die
+Veröffentlichen-Methode des Pools wurde ungebunden weitergereicht (`this`
+fehlte) – jetzt als Pfeilfunktion, ein Test hätte es sonst erst im Browser
+gezeigt.
+
+**Git-Bundles** (Entscheidung MENSCH 26.09.2026): verschlüsselt hochgeladen
+(`app.ts:665`), der Schlüssel steht öffentlich in der Referenz 38042
+(`["aes-gcm", key, nonce, ox]`, `git.ts`); beim Laden entschlüsselt die App mit
+ihm (`agent-netz.ts:146`). Lesen kann weiter jeder, Speicherknoten halten nur
+Chiffrat. Ältere Referenzen ohne Schlüssel bleiben lesbar (Klartext-Bundle).
+Der Leak-Test „Git-Bundle offen“ hielt die alte Entscheidung fest; er prüft
+jetzt die neue: `uploadAnhang` für das Bundle, Schlüssel in der Referenz, kein
+`uploadBlob` mehr in `app.ts`.
+
+**Browser-E2E** (vorgetäuschtes Relay, echtes `git bundle`): Gerät 1
+veröffentlicht – alle Stücke gekennzeichnet, Referenz mit Schlüssel, weder
+Dateiinhalt noch Bundle-Bytes im Klartext am Relay; Gerät 2 lädt das Bundle
+herunter, byte-gleich; keine Seitenfehler.
+
+**Datenschutz:** neue Aussage „speicher-abruf“ (belegt: Abrufe verraten weder
+Identität noch Datei).
+
+**Tests:** protocol +2 (Referenz mit Schlüssel, alte/kaputte Schlüssel), app +3
+(Knotenwahl, Download über Knoten, Unverschlüsseltes fragt keine Knoten).
+
+Endstand: protocol 1117 (+ 6 übersprungen) · node 216 (+ 7 übersprungen ohne
+Netz) · app 327 · Leak-Tests 48 grün + 2 todo · 0 rot · check-wiring `--streng`
+0 offen (2 Ausnahmen weniger) · innerHTML streng 0 unbewertet · Smoke-Test
+bestanden · Browser-E2E bestanden.
+
+## Schritt 8.7 – Agent und Werkzeuge
+
+**Sandbox je Werkzeug im Knoten** (`tools.ts`, aufgerufen aus
+`dvm-provider.ts:810` über `ToolRegistry.run`, `tools.ts:276`): zu lange
+Eingaben (über 2.000 Zeichen) werden abgelehnt – gekürzt schriebe file_io still
+eine halbe Datei –, jede Ausführung hat ein Zeitlimit (20 s, Bild/Video 10 min),
+die Ausgabe an den Kunden ist gekürzt. Netz nur über `safeFetch`
+(SSRF-Wächter, auch bei Weiterleitungen) und `leseBegrenzt` (höchstens 1 MB,
+danach wird die Verbindung geschlossen). web_search nur zu
+api.duckduckgo.com – die Suchanfrage ist Text und wählt kein Ziel;
+browser_use nur Text (kein Bild, kein Archiv); file_io nicht über Symlinks aus
+dem Workspace hinaus (echter Pfad gegen echten Workspace, Symlinks abgelehnt),
+Dateien höchstens 64 KB, im Ergebnis nur der Pfad im Workspace statt des
+absoluten Pfads beim Betreiber; Bild und Video nur über das vom Betreiber
+konfigurierte ComfyUI, im Ergebnis Dateinamen statt der internen Adresse
+(`http://127.0.0.1:8188/view?…`).
+
+**Fund – SSRF-Lücke:** `new URL("http://[::ffff:127.0.0.1]/")` liefert den Host
+`[::ffff:7f00:1]`. `isPrivateIPv6` suchte nur eine eingebettete IPv4 mit
+Punkten und hielt die Hex-Form für öffentlich – ein Fremder hätte über
+browser_use Ollama, LND-REST oder die Cloud-Metadaten erreicht. Jetzt wird
+IPv6 vollständig gelesen (acht Gruppen): mapped, compatible, NAT64 (64:ff9b::),
+6to4 (2002::), Multicast; unklare Formen gelten als privat. Die Prüfung liegt
+seit 8.7 im Protokoll (`adressbereich.ts`), der Knoten reicht sie weiter, die
+App nutzt dieselbe.
+
+**Lokale Werkzeuge der App** (`local-tools.ts:91`, eigener Browser als
+Fallback): browser_use nur zu öffentlichen http(s)-Zielen – ohne Zugangsdaten
+in der URL, ohne localhost/.local/.internal, ohne private Adressen –, ohne
+Cookies, ohne Weiterleitungen (deren Ziel ließe sich im Browser nicht vorher
+prüfen), nur Text, höchstens 1 MB. Grenze: Im Browser lässt sich ein Name
+nicht auflösen – ein öffentlicher Name auf eine private Adresse fällt dort
+nicht auf (CORS verhindert meist das Lesen).
+
+**Kosten je Werkzeug in sats und SOL** (`werkzeug-preise.ts`,
+`agent.ts:95`/`:1391`): an jedem Werkzeug-Knopf der günstigste angebotene
+Preis, sonst der Richtpreis, in beiden Einheiten über den Marktkurs; ohne Kurs
+„SOL: kein Kurs“. Bezahlt wird wie bisher über den Auftrag.
+
+**Abnahme – je Werkzeug ein Sandbox- und ein SSRF-Test**
+(`node/test/werkzeug-sandbox.test.ts`, ohne Netz: Auflösung austauschbar,
+`fetch` ersetzt, lokaler ComfyUI-Ersatz): web_search (fester Host, privat
+aufgelöst abgelehnt / riesige und hängende Antworten), file_io (Symlinks,
+Größen, nur Dateien / URL als Pfad nie abgerufen), browser_use (privat,
+Metadaten, IPv6-Loopback, Weiterleitung nach innen, Zugangsdaten / nur Text,
+begrenzt, Skripte weg), image_gen und video_gen (Eingabe wählt kein Ziel,
+keine interne Adresse im Ergebnis / zu langer Prompt abgelehnt, Video höchstens
+10 s und 720p, Zeitlimit bei stummem ComfyUI). Dazu Regressionstest für die
+Lücke und App-Tests für die lokalen Werkzeuge.
+
+**Grenze, ehrlich:** Werkzeuge laufen im Knotenprozess, nicht in einem eigenen
+Prozess mit eigenen Rechten. Nodes Rechte-Modell (`--permission`) funktioniert
+mit Node 22, braucht mit tsx aber `--allow-worker`, und das hebelt es aus.
+Isolation auf Betriebssystem-Ebene (systemd, Container, kein Zugang zu
+privaten Netzen) gehört zum Installer (8.2).
+
+**Tests:** node +9 (acht Sandbox/SSRF, ein Regressionstest), app +5 (vier lokale
+Werkzeuge, Preise).
+
+Endstand: protocol 1117 (+ 6 übersprungen) · node 225 (+ 7 übersprungen ohne
+Netz) · app 332 · Leak-Tests 48 grün + 2 todo · 0 rot · check-wiring `--streng`
+0 offen · innerHTML streng 0 unbewertet · Smoke-Test bestanden.
+
+## Schritt 8.6a – Geräte und Schlüsselwechsel, Teil a: Diebstahl-Wechsel
+
+**Entscheidungen MENSCH (26.09.2026):** Das Mandat wird nicht mehr ersetzbar,
+die Apps der Kontakte merken sich das erste Mandat, das sie sehen. Geräte:
+Absender versiegeln an jedes Gerät des Empfängers (Teile b und c).
+
+**Fund, zweifach:** (1) Das Mandat (38067) hatte den festen d-Tag „rotation“ –
+ein ersetzbares Event. Ein Dieb mit dem alten Schlüssel konnte es auf den
+Relays durch sein eigenes ersetzen. (2) „Das früheste Mandat gewinnt“
+vertraute dem `created_at`, das der Absender selbst setzt – ein Dieb konnte
+seines zurückdatieren. Dazu wertete keine App Widerrufe aus: Der vorbereitete
+Wechsel hatte bei Kontakten keine Wirkung.
+
+**Protokoll** (`key-rotation.ts`): Mandate haben eine eigene Adresse je
+Nachfolger (`rotation:<neu>`), ein zweites ersetzt das erste nicht mehr.
+`merkeMandate()` merkt je altem Schlüssel das zuerst gesehene Mandat;
+`resolveKey(…, { gemerkt })` nimmt dieses statt des ältesten Zeitstempels –
+auch wenn die Relays es inzwischen nicht mehr liefern. Der Hinweistext nennt
+die Grenze: Wer das Mandat vor dem Diebstahl nie gesehen hat, kann auf ein
+zurückdatiertes hereinfallen, bis es Zeitzeugen gibt (5.10).
+
+**App:** Beim Abgleich des Posteingangs (`kommunikation.ts:1038`) lädt die App
+Mandate und Widerrufe ihrer Kontakte, merkt neue Mandate (`freedom.mandate`,
+Tresor und Sicherung) und leitet den Stand ab (`schluessel-status.ts`).
+Gestohlene, abgelöste oder streitige Schlüssel bekommen ein ⚠ in der Liste
+und einen Hinweis über dem Verlauf (`kommunikation.ts:1085`) mit „zum neuen
+Schlüssel wechseln“ – die Unterhaltung geht mit dem Nachfolger weiter, die alte
+bleibt markiert stehen. Nachrichten des alten Schlüssels nach dem gemeldeten
+Diebstahl tragen „⚠ vielleicht nicht von dieser Person“ (`:1183`, statisches
+Markup, begründete innerHTML-Ausnahme). Der Widerruf in den Settings
+(`settings.ts:278`) prüft die Eingaben – der Ersatzschlüssel war ungeprüft an
+`fromHex` gegangen – und sendet nur, wenn ein Mandat genau diesen Ersatz nennt;
+der rohe Schlüssel wird danach genullt.
+
+**Browser-E2E** (drei Geräte, vorgetäuschtes Relay): A bereitet vor (Mandat
+mit eigener Adresse, Ersatzschlüssel als Datei), B legt A als Kontakt an und
+merkt das Mandat. Ein Dieb stellt mit A's Schlüssel ein auf 2020
+zurückdatiertes Mandat auf sich aus, widerruft selbst und schreibt B „Bitte
+schick mir sofort 0,5 SOL“. A widerruft mit dem Ersatzschlüssel (Diebstahl seit
+gestern). B sieht ⚠ und den Hinweis „gilt als gestohlen“, der Wechsel zeigt
+den **echten** Nachfolger, die Geld-Nachricht ist markiert; B wechselt und
+schreibt dem neuen Schlüssel, A2 (neues Gerät mit Ersatzschlüssel) empfängt
+es. Keine Seitenfehler.
+
+**Aufteilung:** a (dieser Teil) Schlüsselwechsel; b Geräte im Protokoll und
+beim Senden (an jedes Gerät versiegeln); c Geräte in der App (Anmelden als
+Gerät, Entzug), E2E mit zwei Geräten. MENSCH: einmal mit einem echten zweiten
+Gerät.
+
+**Tests:** protocol +5 (eigene Adresse, zurückdatiert, merken, Gedächtnis ohne
+Relay, Hinweistext), app +3 (Stand und Markierung, Gedächtnis streng,
+Verdrahtung).
+
+Endstand: protocol 1122 (+ 6 übersprungen) · node 225 (+ 7 übersprungen ohne
+Netz) · app 335 · Leak-Tests 48 grün + 2 todo · 0 rot · check-wiring `--streng`
+0 offen (4 Ausnahmen weniger) · innerHTML streng 0 unbewertet · Smoke-Test
+bestanden · Browser-E2E bestanden.
+
+## Schritt 8.6b – Geräte und Schlüsselwechsel, Teil b: an jedes Gerät versiegeln
+
+**Entscheidung MENSCH (26.09.2026):** Absender versiegeln an jedes Gerät des
+Empfängers. Bisher konnte ein Gerät (eigener Schlüssel mit Vollmacht 38070)
+keine Direktnachricht lesen – alle Umschläge gingen nur an die Hauptidentität.
+Schrieb ein Gerät, sahen Kontakte einen fremden Schlüssel.
+
+**Protokoll:** `buildPrivateDm(…, { weitereEmpfaenger })` versiegelt dieselbe
+Nachricht zusätzlich je Schlüssel in einem eigenen Umschlag (mit eigenem
+Zeitversatz, auch beim Ablauf); im Inneren bleibt `p` die Person. Doppelte,
+eigene und ungültige Schlüssel fallen weg. `openPrivateDm(…, { auchFuer })`
+liest auch für weitere Schlüssel – die Hauptidentität für ihre Geräte, ein
+Gerät für seine Person. `geraete-post.ts`: `nachrichtenGeraete()` (aktive
+Vollmachten mit „nachrichten“), `alleGeraete()` (auch entzogene – was sie
+vorher schrieben, bleibt lesbar), `absenderPerson()` (wer steckt hinter einem
+Absender). Nach einem Entzug gilt ein Gerät nicht mehr als die Person; was
+„vorher“ datiert ist, gilt, trägt aber `entzogen` – der Zeitstempel ist nur
+behauptet. Da jeder für jeden Schlüssel eine Vollmacht ausstellen kann, gewinnt
+bei mehreren Eigentümern der eine Kontakt, sonst keiner.
+
+**App:** `geraete-buch.ts` lädt Vollmachten und Entzüge je Person höchstens
+einmal pro Minute (nach eigenem Ausstellen oder Entziehen sofort,
+`settings.ts:382`, `:404`). Senden (`kommunikation.ts:1256`, `:1261`): Kopien
+an die Geräte des Kontakts und die eigenen, zugestellt am Posteingang der
+Person. Öffnen (`:893`, `:895`): Kopien eigener Geräte erscheinen als „du · von
+deinem Gerät …“, Nachrichten von Geräten eines Kontakts in dessen Unterhaltung
+als „über Gerät …“ (Autor und ⚡ die Person); nach dem Entzug steht die
+Nachricht unter dem Geräteschlüssel mit ⚠. Der Gerätename kommt aus der
+Vollmacht (Fremddaten) und geht nur durch `escapeHtml` ins HTML (`:1206`,
+begründete Ausnahme). Der Entzugsdialog nennt die Grenzen.
+
+**Datenschutz:** neue Aussagen „geraete-kopien“ (belegt, Szenario: vier
+Umschläge ohne Klartext, Absender verborgen, p nur Personen und Geräte) und
+„geraete-vollmacht“ (Grenze: Vollmachten sind öffentlich; der Posteingang sieht
+Umschläge an Person und Geräte gleichzeitig ankommen – wer das nicht will,
+nutzt NIP-46). Leak-Test „DM an Personen mit Geräten“.
+
+**Browser-E2E** (vorgetäuschtes Relay, Geräte als Skript – die App als Gerät
+folgt mit c): O und K legen je ein Gerät über die Settings an. K schreibt O:
+je ein Umschlag an O, K, Os Handy, Ks Tablet; das Handy liest ihn. Das Handy
+antwortet K, das Tablet schreibt O. Bei O: „du · von deinem Gerät „Handy““ und
+Ks Tablet-Nachricht in Ks Unterhaltung, keine neue Anfrage. Bei K: die
+Handy-Antwort unter Os Schlüssel, ⚡ an O. O entzieht das Handy: die nächste
+Nachricht geht nicht mehr ans Handy; was der Dieb danach mit dem Handy
+schreibt, landet bei K als eigene Anfrage mit „⚠ … Vollmacht entzogen“, nicht
+bei O; bei O steht es mit „⚠ … nach dem Entzug – nicht von dir“, die frühere
+Handy-Antwort mit „Zeitpunkt nicht belegt“. Keine Seitenfehler.
+
+**Grenzen:** Nur Chat-Nachrichten gehen an Geräte – Trinkgeld-Belege,
+Adress-Anfragen und Nachfolge-Anteile weiter nur an die Person. Ein Entzug
+wirkt bei Kontakten, sobald sie ihn sehen (höchstens eine Minute nach dem
+Abgleich). Anmelden als Gerät in der App ist Teil c.
+
+**Tests:** protocol +5 (Kopien und Ziele, Öffnen als Gerät, Antwort des
+Geräts, Entzug, fremde Vollmacht), app +4 (Buch und Frische, Zuordnung, Entzug
+und fremde Vollmacht, Verdrahtung), Leak +1.
+
+Endstand: protocol 1127 (+ 6 übersprungen) · node 225 (+ 7 übersprungen ohne
+Netz) · app 339 · Leak-Tests 49 grün + 2 todo · 0 rot · check-wiring `--streng`
+0 offen (1 Ausnahme weniger: `checkDeviceEvent` jetzt verdrahtet) · innerHTML
+streng 0 unbewertet · Smoke-Test bestanden · Browser-E2E bestanden.
+
+## Schritt 8.6c – Geräte und Schlüsselwechsel, Teil c: die App als Gerät
+
+**Gerätecode:** Beim Ausstellen einer Vollmacht zeigt die App statt des
+rohen Schlüssels einen Gerätecode `freedom-geraet:<person>:<geräteschlüssel>`
+(`geraete-modus.ts`; `settings.ts:406`, danach wird die Kopie des Schlüssels
+genullt). „Identität importieren“ nimmt ihn an (`app.ts:277`), merkt die Person
+in `freedom.geraet.person` und meldet sich beim Start wieder als Gerät an
+(`app.ts:129`). Ein gewöhnlicher Import beendet den Gerätemodus. Die Person
+steht im Code und kommt nicht aus einer Vollmacht vom Relay: Vollmachten kann
+jeder für jeden Schlüssel ausstellen – ein Fremder soll ein Gerät nicht still
+an sich binden.
+
+**Als Gerät:**
+- `sprichtFuer()` und `alsGeraet()` (`state.ts`).
+- Keine eigenen Relay-Listen; stattdessen kommen die Posteingangs-Relays der
+  Person in den Pool (`state.ts:290`, `:311`). Dorthin stellen Kontakte die
+  Kopien für Geräte zu (8.6b).
+- Beim Öffnen liest die App für die Person und ihre Geräte mit
+  (`kommunikation.ts:894`). Eigene Nachrichten, die der Person und die der
+  anderen Geräte erscheinen als „du“ (`:1168`).
+- Senden nur mit gültiger Vollmacht mit „nachrichten“ (`:1252`); die Kopie
+  geht an die Person und ihre Geräte, zugestellt an ihrem Posteingang.
+- Settings → Geräte zeigt den Stand der eigenen Vollmacht (`settings.ts:342`).
+  „Gerät hinzufügen“, „Schlüsselwechsel vorbereiten“ und „Nachfolge
+  einrichten“ sind gesperrt (`nurHauptidentitaet()`, `:67`, `:247`, `:380`) –
+  sie gehören der Hauptidentität.
+
+**Browser-E2E** (drei Apps, vorgetäuschtes Relay):
+1. O stellt eine Vollmacht „Handy“ aus.
+2. D importiert den Gerätecode und ist danach als Handy angemeldet: Settings
+   zeigen „spricht für O · Aktiv“, „Gerät hinzufügen“ ist ausgeblendet, der
+   Schlüsselwechsel ist gesperrt.
+3. K schreibt O. D liest mit und antwortet: je zwei Umschläge an O, K und das
+   Handy. D veröffentlicht keine eigenen Listen.
+4. K sieht die Antwort unter Os Schlüssel mit „über Gerät „Handy““, ohne neue
+   Anfrage. O sieht „du · von deinem Gerät „Handy““.
+5. O entzieht das Handy:
+   - D zeigt „Entzogen am …“.
+   - Ein Sendeversuch bricht mit Hinweis ab, ohne ein Event.
+   - Ks nächste Nachricht geht nicht mehr ans Handy.
+6. Keine Seitenfehler.
+
+Zusätzlich liefen das 8.6b-E2E (Geräte als Skript, Dieb nach dem Entzug) und
+das 8.6a-E2E (Diebstahl-Wechsel) erneut durch. Damit ist die Karte erfüllt:
+„Gerät entziehen und Diebstahl-Wechsel einmal vollständig durchgespielt“.
+
+**Grenzen:**
+- Als Gerät nur Direktnachrichten. Räume, Zahlungen, Profil und Sicherung laufen
+  unter dem Geräteschlüssel wie eine eigene Identität – wie vor 8.6c.
+- Beim ersten Start nach dem Import liest das Gerät den Posteingang, sobald
+  die Liste der Person geladen ist.
+- MENSCH: einmal mit einem echten zweiten Gerät durchspielen.
+
+**Tests:** app +4 (Gerätecode, Stand der Vollmacht, Zuordnung auf dem Gerät,
+Verdrahtung und Sperren).
+
+Endstand: protocol 1127 (+ 6 übersprungen) · node 225 (+ 7 übersprungen ohne
+Netz) · app 343 · Leak-Tests 49 grün + 2 todo · 0 rot · check-wiring `--streng`
+0 offen · innerHTML streng 0 unbewertet · Smoke-Test bestanden · drei
+Browser-E2E bestanden.
+
 ## Schritt 4.0 – Entscheidung Gebührenmodell: A+ (und 2.2b: WASM eingebettet)
 
 **4.0 (MENSCH, 26.09.2026): A+** – feste Aufteilung direkt beim Zahlen, kein

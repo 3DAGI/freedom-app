@@ -60,11 +60,16 @@ export interface BlobUploadResult {
   manifestEventId: string;
 }
 
-/** Datei hochladen: chunked + erasure + als Events publizieren – signiert ueber den Signer (1.3e). */
+/**
+ * Datei hochladen: chunked + erasure + als Events publizieren – signiert ueber
+ * den Signer (1.3e). `verschluesselt` nur fuer Chiffrat (8.9a): Speicherknoten
+ * halten nur so gekennzeichnete Stuecke.
+ */
 export async function uploadBlob(
   file: File,
   pool: { publish: (ev: NostrEvent) => Promise<unknown> },
   signer: Signer,
+  opts: { verschluesselt?: boolean } = {},
 ): Promise<BlobUploadResult> {
   const { buildBlob } = await import("@freedomstack/protocol");
   const bytes = new Uint8Array(await file.arrayBuffer());
@@ -72,6 +77,7 @@ export async function uploadBlob(
   const { manifestEvent, chunkEvents, manifest } = await buildBlob(
     { name: file.name, mime: file.type || "application/octet-stream", bytes },
     signer.publicKey(),
+    opts,
   );
 
   // eigene chunks zuerst cachen (wir seeden unsere eigenen uploads immer)
@@ -106,7 +112,7 @@ export async function uploadAnhang(
 ): Promise<{ blobId: string; schluessel: DateiSchluessel }> {
   const { verschluesseleDatei } = await import("@freedomstack/protocol");
   const { chiffrat, schluessel } = verschluesseleDatei(new Uint8Array(await file.arrayBuffer()));
-  const res = await uploadBlob(new File([chiffrat as BlobPart], "", { type: "application/octet-stream" }), pool, signer);
+  const res = await uploadBlob(new File([chiffrat as BlobPart], "", { type: "application/octet-stream" }), pool, signer, { verschluesselt: true });
   return { blobId: res.blobId, schluessel };
 }
 
@@ -116,11 +122,20 @@ export async function oeffneAnhang(chiffrat: Uint8Array, schluessel: DateiSchlue
   return entschluesseleDatei(chiffrat, schluessel);
 }
 
-/** Datei herunterladen: manifest -> shards aus cache+relay -> rekonstruieren. */
+/** So lange wartet ein Download auf Stuecke, die Speicherknoten erneut veroeffentlichen (8.9b). */
+const KNOTEN_WARTEN_MS = 12_000;
+const KNOTEN_TAKT_MS = 2_000;
+
+/**
+ * Datei herunterladen: manifest -> shards aus cache+relay -> rekonstruieren.
+ * Fehlen auf den Relays Stuecke, fragt die App Speicherknoten versiegelt an
+ * (8.9b) und liest danach erneut.
+ */
 export async function downloadBlob(
   manifestEventIdOrBlobId: string,
-  pool: { query: (f: unknown) => Promise<Array<Record<string, unknown>>> },
+  pool: { query: (f: unknown) => Promise<Array<Record<string, unknown>>>; publish?: (ev: NostrEvent) => Promise<unknown> },
   onProgress?: (have: number, need: number) => void,
+  pause: (ms: number) => Promise<void> = (ms) => new Promise((r) => setTimeout(r, ms)),
 ): Promise<{ bytes: Uint8Array; name: string; mime: string } | null> {
   const { parseBlobManifest, KIND_BLOB_MANIFEST, KIND_BLOB_CHUNK } = await import("@freedomstack/protocol");
 
@@ -143,7 +158,7 @@ export async function downloadBlob(
   }
   onProgress?.(chunks.size, manifest.dataShards);
 
-  if (chunks.size < manifest.dataShards) {
+  const vomRelay = async (): Promise<void> => {
     const { sha256, toHex } = await import("@freedomstack/protocol");
     const events = await pool.query({ kinds: [KIND_BLOB_CHUNK], "#blob": [manifest.blobId], limit: 500 });
     for (const ev of events) {
@@ -154,15 +169,31 @@ export async function downloadBlob(
       // Gegen den Hash aus dem Manifest pruefen. Bis 2.4 stand hier der Vergleich
       // des Hex-Inhalts mit dem Hash – er schlug immer fehl, und kein Chunk vom
       // Relay wurde angenommen: Empfaenger konnten grosse Anhaenge nie laden.
-      const bytes = hexToLocal(ev.content as string);
+      if (typeof ev.content !== "string" || !/^(?:[0-9a-f]{2})*$/.test(ev.content)) continue;
+      const bytes = hexToLocal(ev.content);
       if (sha !== manifest.shardHashes[idx] || toHex(sha256(bytes)) !== sha) continue;
-      chunks.set(idx, ev.content as string);
+      chunks.set(idx, ev.content);
       void cacheChunk(sha, bytes); // seeding: gefundene chunks cachen
       onProgress?.(Math.min(chunks.size, manifest.dataShards), manifest.dataShards);
       if (chunks.size >= manifest.dataShards) break;
     }
-    missingShards.length = 0;
+  };
+  if (chunks.size < manifest.dataShards) await vomRelay();
+
+  // Speicherknoten (8.9b): nur fuer gekennzeichnete, verschluesselte Blobs
+  if (chunks.size < manifest.dataShards && manifest.encrypted && pool.publish) {
+    const { KIND_PROVIDER_CAPABILITIES } = await import("@freedomstack/protocol");
+    const { frageKnotenAn, speicherKnoten } = await import("./speicher-abruf.js");
+    const knoten = speicherKnoten(await pool.query({ kinds: [KIND_PROVIDER_CAPABILITIES], limit: 200 }) as unknown as NostrEvent[]);
+    const fehlend = Array.from({ length: total }, (_, i) => i).filter((i) => !chunks.has(i));
+    if (knoten.length > 0 && (await frageKnotenAn({ pool: { publish: (ev) => pool.publish!(ev) }, knoten, blobId: manifest.blobId, fehlend })) > 0) {
+      for (let t = 0; t < KNOTEN_WARTEN_MS && chunks.size < manifest.dataShards; t += KNOTEN_TAKT_MS) {
+        await pause(KNOTEN_TAKT_MS);
+        await vomRelay();
+      }
+    }
   }
+  missingShards.length = 0;
 
   const { assembleBlob } = await import("@freedomstack/protocol");
   const result = await assembleBlob(manifest, chunks);

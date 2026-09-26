@@ -22,6 +22,9 @@
  * ein Netz ohne Zugriff auf private Bereiche — die systemd-Unit im Installer
  * ist dafür der richtige Ort.
  */
+// Adressbereiche seit 8.7 im Protokoll – dieselbe Pruefung fuer App und Knoten.
+import { isPrivateAddress } from "@freedomstack/protocol";
+export { isPrivateAddress, isPrivateIPv4, isPrivateIPv6 } from "@freedomstack/protocol";
 
 export interface UrlGuardOptions {
   /** Nur diese Hosts erlauben. Leer = alle öffentlichen Hosts. */
@@ -29,38 +32,8 @@ export interface UrlGuardOptions {
   /** Private Ziele zulassen — ausschließlich für lokale Tests. */
   allowPrivate?: boolean;
   maxRedirects?: number;
-}
-
-/** Prüft, ob eine IPv4-Adresse in einem nicht-öffentlichen Bereich liegt. */
-export function isPrivateIPv4(ip: string): boolean {
-  const p = ip.split(".").map(Number);
-  if (p.length !== 4 || p.some((n) => !Number.isInteger(n) || n < 0 || n > 255)) return true;
-  const [a, b] = p;
-  if (a === 10) return true;                        // 10.0.0.0/8
-  if (a === 127) return true;                       // Loopback
-  if (a === 0) return true;                         // "dieses Netz"
-  if (a === 172 && b >= 16 && b <= 31) return true; // 172.16.0.0/12
-  if (a === 192 && b === 168) return true;          // 192.168.0.0/16
-  if (a === 169 && b === 254) return true;          // Link-local INKL. Cloud-Metadaten
-  if (a === 100 && b >= 64 && b <= 127) return true;// CGNAT
-  if (a >= 224) return true;                        // Multicast + reserviert
-  return false;
-}
-
-/** Dasselbe für IPv6, inklusive der eingebetteten IPv4-Formen. */
-export function isPrivateIPv6(ip: string): boolean {
-  const s = ip.toLowerCase().replace(/^\[|\]$/g, "");
-  if (s === "::1" || s === "::") return true;
-  // IPv4-mapped (::ffff:127.0.0.1) und IPv4-compatible: innere Adresse prüfen.
-  const embedded = s.match(/(\d+\.\d+\.\d+\.\d+)$/);
-  if (embedded) return isPrivateIPv4(embedded[1]);
-  if (/^f[cd]/.test(s)) return true;   // fc00::/7 unique local
-  if (/^fe[89ab]/.test(s)) return true; // fe80::/10 link-local
-  return false;
-}
-
-export function isPrivateAddress(ip: string): boolean {
-  return ip.includes(":") ? isPrivateIPv6(ip) : isPrivateIPv4(ip);
+  /** Namensaufloesung – nur fuer Tests austauschbar (ohne Netz); Standard ist das System-DNS. */
+  aufloesen?: (host: string) => Promise<string[]>;
 }
 
 export interface GuardVerdict {
@@ -118,9 +91,9 @@ export async function checkUrlSafe(raw: string, opts: UrlGuardOptions = {}): Pro
   // Namen auflösen: eine String-Prüfung allein ist umgehbar, indem ein
   // Angreifer einen öffentlichen Namen auf 127.0.0.1 zeigen lässt.
   try {
-    const { lookup } = await import("node:dns/promises");
-    const records = await lookup(host, { all: true });
-    const addresses = records.map((r) => r.address);
+    const addresses = opts.aufloesen
+      ? await opts.aufloesen(host)
+      : (await (await import("node:dns/promises")).lookup(host, { all: true })).map((r) => r.address);
     if (addresses.length === 0) {
       return { allowed: false, reason: `${host} ließ sich nicht auflösen.` };
     }
@@ -170,4 +143,35 @@ export async function safeFetch(
     return res;
   }
   throw new Error(`Zu viele Weiterleitungen (>${maxRedirects}).`);
+}
+
+/**
+ * Antwort hoechstens bis `maxBytes` lesen (8.7) – ein fremder Server darf den
+ * Knoten nicht mit einer endlosen Antwort fuellen. Was darueber liegt, wird
+ * verworfen und die Verbindung geschlossen.
+ */
+export async function leseBegrenzt(res: Response, maxBytes: number): Promise<{ text: string; abgeschnitten: boolean }> {
+  const leser = res.body?.getReader();
+  if (!leser) return { text: "", abgeschnitten: false };
+  const teile: Uint8Array[] = [];
+  let n = 0;
+  let abgeschnitten = false;
+  for (;;) {
+    const { done, value } = await leser.read();
+    if (done) break;
+    const rest = maxBytes - n;
+    if (value.length > rest) {
+      teile.push(value.subarray(0, rest));
+      n += rest;
+      abgeschnitten = true;
+      await leser.cancel().catch(() => undefined);
+      break;
+    }
+    teile.push(value);
+    n += value.length;
+  }
+  const alles = new Uint8Array(n);
+  let o = 0;
+  for (const t of teile) { alles.set(t, o); o += t.length; }
+  return { text: new TextDecoder().decode(alles), abgeschnitten };
 }
