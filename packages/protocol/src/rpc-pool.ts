@@ -39,6 +39,15 @@ export interface RpcPoolOptions {
   /** Eigene Endpunkte des Nutzers — kommen zuerst. */
   userEndpoints?: string[];
   fetchImpl?: typeof fetch;
+  /**
+   * Anfragen auf die fremden Anbieter verteilen (Schritt 4.9) statt immer den
+   * schnellsten zu nehmen: Sonst sieht ein einziger Anbieter jede Adresse, die
+   * die App abfragt, samt IP-Adresse. Eigene Endpunkte bleiben vorn – sie sind
+   * keine fremde Partei.
+   */
+  verteilen?: boolean;
+  /** Zufall fuer die Verteilung – nur fuer Tests. */
+  zufall?: () => number;
 }
 
 /**
@@ -62,6 +71,8 @@ export const DEFAULT_DEVNET_RPCS: RpcEndpoint[] = [
 interface EndpointState {
   url: string;
   label?: string;
+  /** Vom Nutzer eingetragen – kommt beim Verteilen vor den fremden Anbietern. */
+  eigen?: boolean;
   /** Zeitpunkt, ab dem der Endpunkt wieder probiert wird. */
   skipUntil: number;
   failures: number;
@@ -83,6 +94,8 @@ export class RpcPool {
   private readonly timeoutMs: number;
   private readonly cooldownMs: number;
   private readonly fetchImpl: typeof fetch;
+  private readonly verteilen: boolean;
+  private readonly zufall: () => number;
 
   constructor(endpoints: RpcEndpoint[] = DEFAULT_MAINNET_RPCS, opts: RpcPoolOptions = {}) {
     // Eigene Endpunkte zuerst: Wer einen eigenen Knoten betreibt, soll ihn
@@ -90,13 +103,13 @@ export class RpcPool {
     const eigene = (opts.userEndpoints ?? [])
       .map((u) => u.trim())
       .filter((u) => /^https?:\/\//.test(u))
-      .map((url) => ({ url, label: "eigener Knoten" }));
+      .map((url) => ({ url, label: "eigener Knoten", eigen: true }));
 
     const alle = [...eigene, ...endpoints];
     const gesehen = new Set<string>();
     this.states = alle
       .filter((e) => (gesehen.has(e.url) ? false : (gesehen.add(e.url), true)))
-      .map((e) => ({ url: e.url, label: e.label, skipUntil: 0, failures: 0 }));
+      .map((e) => ({ url: e.url, label: e.label, eigen: "eigen" in e && e.eigen === true, skipUntil: 0, failures: 0 }));
 
     if (this.states.length === 0) throw new Error("RpcPool braucht mindestens einen Endpunkt");
     this.timeoutMs = opts.timeoutMs ?? 10_000;
@@ -104,6 +117,8 @@ export class RpcPool {
     // Nicht `fetch` selbst speichern: Als Methode dieses Objekts aufgerufen,
     // wirft es im Browser „Illegal invocation“ (Node merkt das nicht).
     this.fetchImpl = opts.fetchImpl ?? ((input, init) => fetch(input, init));
+    this.verteilen = opts.verteilen ?? false;
+    this.zufall = opts.zufall ?? Math.random;
   }
 
   get urls(): string[] {
@@ -127,6 +142,11 @@ export class RpcPool {
     // Sind alle in der Sperrfrist, wird trotzdem probiert — lieber ein
     // wahrscheinlicher Fehlschlag als gar kein Versuch.
     const liste = frei.length > 0 ? frei : [...this.states];
+    if (this.verteilen) {
+      // Eigene vorn, dann die fremden in zufaelliger Reihenfolge (weniger Fehler zuerst).
+      const los = new Map(liste.map((s) => [s, this.zufall()]));
+      return liste.sort((a, b) => Number(!!b.eigen) - Number(!!a.eigen) || a.failures - b.failures || los.get(a)! - los.get(b)!);
+    }
     return liste.sort((a, b) => a.failures - b.failures || (a.lastLatencyMs ?? 0) - (b.lastLatencyMs ?? 0));
   }
 

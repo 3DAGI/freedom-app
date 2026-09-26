@@ -74,6 +74,7 @@ export function openZapDialog(recipientPubkey: string, recipientName: string): v
         </div>
         <div class="zap-field${state.walletType === "solana" ? "" : " hidden"}" id="zap-oeffentlich-feld">
           <label class="mono-sm"><input type="checkbox" id="zap-oeffentlich" /> Beleg öffentlich – verknüpft deine Identität für alle sichtbar mit Betrag, Adresse und Transaktion</label>
+          <label class="mono-sm"><input type="checkbox" id="zap-rauschen" checked /> runden Betrag leicht verrauschen (höchstens +0,3 %) – runde Beträge verbinden Adressen auf der Kette wieder</label>
         </div>
         <div class="zap-status hidden" id="zap-status"></div>
       </div>
@@ -177,7 +178,14 @@ async function sendZap(state: ZapDialogState, el: HTMLElement): Promise<void> {
         if (!ziel) throw new Error("abgebrochen — keine Empfänger-Adresse");
       }
       statusEl.textContent = "warte auf wallet-signatur…";
-      const lamports = Math.round(state.amount * 1e9);
+      let lamports = Math.round(state.amount * 1e9);
+      // Betragsrauschen (4.9): Wer mehrfach denselben runden Betrag sendet,
+      // verbindet damit seine Adressen wieder. Nur nach oben, hoechstens 0,3 %.
+      if ((document.getElementById("zap-rauschen") as HTMLInputElement | null)?.checked !== false) {
+        const { checkAmount } = await import("@freedomstack/protocol");
+        const r = checkAmount(lamports);
+        if (r.suspicious && r.suggested) lamports = r.suggested;
+      }
       const beleg = await zahle(zahlschienen(), { ziel, betrag: { einheit: "lamports", wert: lamports }, zweck: "trinkgeld" });
       statusEl.textContent = `◎ gesendet! sig: ${beleg.ref.slice(0, 12)}…`;
       // Beleg an den Empfaenger (4.7): versiegelt, oeffentlich nur auf Wunsch.

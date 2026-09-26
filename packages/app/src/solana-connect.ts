@@ -212,6 +212,7 @@ export async function fetchSolBalance(
   const pool = new RpcPool(DEFAULT_MAINNET_RPCS, {
     userEndpoints: rpcUrl ? [rpcUrl] : [],
     timeoutMs,
+    verteilen: true, // 4.9: nicht jede Guthaben-Abfrage an denselben fremden Anbieter
   });
   const lamports = await pool.getBalance(pubkey);
   return { lamports, sol: lamports / 1_000_000_000 };
