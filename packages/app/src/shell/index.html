@@ -76,13 +76,22 @@
         </div></div>
             <div class="subpane" data-subpane="agent:repos"><div class="card">
           <h3><span class="ic" data-icon="git"></span> Repositories</h3>
-          <p class="mono-sm">Repositories, verteilt über das Speichernetz. Funktioniert auch offline.</p>
+          <p class="mono-sm">Git-Bundles liegen im Speichernetz; Zusammenarbeit (Patches, Annahme) läuft nach NIP-34.</p>
           <div class="composer-meta">
             <input id="git-repo-name" placeholder="repo-name" style="width:120px" />
             <button id="git-repo-publish" class="ghost copy-btn">⇪ Bundle publizieren</button>
             <input type="file" id="git-bundle-file" accept=".bundle" style="display:none" />
           </div>
           <div id="git-repo-list" class="mono-sm" style="margin-top:8px">lade…</div>
+          <h4 class="mono-sm" style="margin-top:12px">Zusammenarbeit (NIP-34)</h4>
+          <p class="mono-sm muted">Ankündigungen, Patches und Annahmen sind öffentlich und mit deinem Schlüssel signiert – wie bei jedem Git-Projekt. Andere Nostr-Clients (ngit, gitworkshop) lesen sie auch. Einen Patch erzeugst du mit <code>git format-patch -1</code>; angenommen ist er, wenn Eigentümer oder Maintainer es sagen.</p>
+          <div class="composer-meta">
+            <input id="nip34-id" placeholder="repo-kennung" style="width:120px" />
+            <input id="nip34-klon" placeholder="Klon-Adressen (https://…, rad:…), mit Komma" style="flex:1;min-width:160px" />
+            <button id="nip34-ankuendigen" class="ghost copy-btn">Repo ankündigen</button>
+          </div>
+          <input type="file" id="nip34-patch-datei" accept=".patch,.diff,.txt,text/plain" style="display:none" />
+          <div id="nip34-liste" class="mono-sm" style="margin-top:8px">lade…</div>
         </div></div>
             <div class="nb-quota agent-quota" id="nb-quota" title="Gratis-Kontingent heute">
               <span class="quota-label">Gratis-Kontingent</span>
