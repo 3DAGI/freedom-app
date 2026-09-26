@@ -46,6 +46,17 @@ test("Gueltiger Auftrag: Einloesung, dann Erstattung an den Relayer, Kunde hat s
   assert.deepEqual(pruefeRelayAuftrag(auftrag(), erwartet), { ok: true, empfaenger: kunde.publicKey.toBase58(), erstattung: 10_000 });
 });
 
+test("Pruefung laeuft auch ohne BigInt-Methoden des Buffers (wie im Browser, wo die App sich selbst prueft)", () => {
+  const proto = Buffer.prototype as unknown as Record<string, unknown>;
+  const weg = ["readBigUInt64LE", "readBigInt64LE", "readBigUint64LE"].map((n) => [n, proto[n]] as const);
+  for (const [n] of weg) delete proto[n];
+  try {
+    assert.deepEqual(pruefeRelayAuftrag(auftrag(), erwartet), { ok: true, empfaenger: kunde.publicKey.toBase58(), erstattung: 10_000 });
+  } finally {
+    for (const [n, f] of weg) if (f) proto[n] = f;
+  }
+});
+
 test("Relayer signiert NICHT mit, wenn …", () => {
   const faelle: Array<[RegExp, Uint8Array]> = [
     [/keine lesbare/, new Uint8Array([1, 2, 3])],

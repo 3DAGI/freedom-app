@@ -93,12 +93,15 @@ export function pruefeRelayAuftrag(
   const empfaenger = einl.keys[0]?.pubkey;
   if (!empfaenger || !einl.keys[0].isSigner) return { ok: false, grund: "Einloesung ohne signierenden Empfaenger" };
   if (einl.keys.some((k) => k.pubkey.toBase58() === erwartet.relayer)) return { ok: false, grund: "Relayer-Konto in der Einloesung" };
-  if (!erst.programId.equals(SystemProgram.programId) || erst.data.length !== 12 || Buffer.from(erst.data).readUInt32LE(0) !== 2) {
+  // DataView statt Buffer-Methoden: Die App prueft ihren Auftrag im Browser selbst,
+  // und dem Buffer-Polyfill dort fehlen die BigInt-Methoden.
+  const daten = new DataView(erst.data.buffer, erst.data.byteOffset, erst.data.byteLength);
+  if (!erst.programId.equals(SystemProgram.programId) || erst.data.length !== 12 || daten.getUint32(0, true) !== 2) {
     return { ok: false, grund: "zweite Anweisung ist keine Ueberweisung" };
   }
   const [von, an] = erst.keys;
   if (!von?.pubkey.equals(empfaenger) || !an || an.pubkey.toBase58() !== erwartet.relayer) return { ok: false, grund: "Erstattung nicht vom Empfaenger an den Relayer" };
-  const erstattung = Number(Buffer.from(erst.data).readBigUInt64LE(4));
+  const erstattung = Number(daten.getBigUint64(4, true));
   if (erstattung < erwartet.erstattungMin) return { ok: false, grund: `Erstattung ${erstattung} unter ${erwartet.erstattungMin} Lamports` };
   const sig = tx.signatures.find((s) => s.publicKey.equals(empfaenger))?.signature;
   if (!sig) return { ok: false, grund: "Empfaenger hat nicht signiert" };

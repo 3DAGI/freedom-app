@@ -313,7 +313,10 @@ async function pollSwapResponse(
         payLink.classList.remove("disabled");
         // Den Initiator merken: das Programm gibt ihm beim Einloesen die
         // Mietbefreiung zurueck, deshalb muss er in der Claim-Instruktion stehen.
-        activeSwap = { swapId, hashlockHex, solAddress, amountSats, initiator: chainLock!.initiator, timelockUnix: chainLock!.timelockUnix };
+        activeSwap = {
+          swapId, hashlockHex, solAddress, amountSats, initiator: chainLock!.initiator, timelockUnix: chainLock!.timelockUnix,
+          lpPubkey, lamports: chainLock!.amountLamports,
+        };
         $("#swap-claim").classList.remove("hidden");
         statusEl.innerHTML =
           `<strong>Geprueft.</strong> ${escapeHtml(verdict.summary)}<br>`
@@ -371,6 +374,10 @@ let activeSwap: {
   initiator: string;
   /** Frist des SOL-HTLC – Einloesen nur mit Sicherheitsabstand davor. */
   timelockUnix: number;
+  /** Der LP dieses Swaps – nie zugleich Relayer (4.6f). */
+  lpPubkey: string;
+  /** Gesperrter Betrag – fuer die Mindestmiete beim Einloesen ueber einen Relayer. */
+  lamports: number;
 } | null = null;
 
 /** Loest den SOL-HTLC ein und legt dabei das Preimage offen. */
@@ -394,19 +401,26 @@ export async function claimActiveSwap(): Promise<void> {
       return;
     }
 
-    const { Connection } = await import("@solana/web3.js");
+    const { Connection, PublicKey } = await import("@solana/web3.js");
     const { fromHex: fh } = await import("@freedomstack/protocol");
     const rpcUrl = await solRpcUrl();
+    const connection = new Connection(rpcUrl, "confirmed");
 
-    const r = await claimSwap({
-      connection: new Connection(rpcUrl, "confirmed"),
-      wallet: signer,
-      swapId: activeSwap.swapId,
-      preimage: fh(secret.preimageHex),
-      initiator: activeSwap.initiator,
-      timelockUnix: activeSwap.timelockUnix,
-      onProgress: (step) => { statusEl.textContent = step; },
-    });
+    // Kein SOL fuer die Gebuehr? Dann ueber einen Relayer (4.6f).
+    const { brauchtRelayer } = await import("../../relay-einloesung.js");
+    const guthaben = await connection.getBalance(new PublicKey(signer.publicKey.toBase58()));
+    const r = brauchtRelayer(guthaben)
+      ? await einloesenUeberRelayer({ connection, rpcUrl, signer, guthaben, preimage: fh(secret.preimageHex), swap: activeSwap, statusEl })
+      : await claimSwap({
+        connection,
+        wallet: signer,
+        swapId: activeSwap.swapId,
+        preimage: fh(secret.preimageHex),
+        initiator: activeSwap.initiator,
+        timelockUnix: activeSwap.timelockUnix,
+        onProgress: (step) => { statusEl.textContent = step; },
+      });
+    if (!r) return;
 
     statusEl.innerHTML =
       `<strong>Eingeloest.</strong> Die SOL sind auf deiner Adresse.<br>`
@@ -421,6 +435,64 @@ export async function claimActiveSwap(): Promise<void> {
     statusEl.textContent = (e as Error).message;
     statusEl.className = "mono-sm err";
   }
+}
+
+/**
+ * Einloesen ueber einen Relayer (4.6f): Er zahlt die Gebuehr, die Wallet
+ * signiert die Einloesung und eine Erstattung an ihn. Nie der LP selbst; bleibt
+ * die Einloesung aus, rechtzeitig der naechste.
+ */
+async function einloesenUeberRelayer(p: {
+  connection: import("@solana/web3.js").Connection; rpcUrl: string; signer: import("../../sol-htlc.js").WalletSigner;
+  guthaben: number; preimage: Uint8Array; swap: NonNullable<typeof activeSwap>; statusEl: HTMLElement;
+}): Promise<{ signature: string } | undefined> {
+  const {
+    KIND_GIFT_WRAP, KIND_RELAYER_ANGEBOT, buildRelayAuftrag, mieteReicht, oeffneRelayAntwort, parseRelayerAngebot,
+  } = await import("@freedomstack/protocol");
+  const [{ waehleRelayer, baueRelayEinloesung }, { claimAllowed }, { ketteAusRpc }] = await Promise.all([
+    import("../../relay-einloesung.js"), swapClient(), import("../../wallet-standard.js"),
+  ]);
+  const pool = await ensurePool();
+  const angebote = (await pool.query({ kinds: [KIND_RELAYER_ANGEBOT], limit: 50 })).flatMap((ev) => {
+    try { return [{ pubkey: ev.pubkey, created_at: ev.created_at, angebot: parseRelayerAngebot(ev) }]; } catch { return []; }
+  });
+  const kandidaten = waehleRelayer(angebote, { kette: ketteAusRpc(p.rpcUrl), lpPubkey: p.swap.lpPubkey, lpSol: p.swap.initiator });
+  if (!kandidaten.length) throw new Error("Du hast kein SOL für die Gebühr, und kein Relayer ist erreichbar. Lege etwas SOL auf deine Adresse und löse dann ein.");
+  const teuerster = kandidaten[kandidaten.length - 1].erstattungLamports;
+  if (!mieteReicht({ guthabenVorher: p.guthaben, eingeloest: p.swap.lamports, erstattung: teuerster })) {
+    throw new Error("Der Betrag reicht nach der Erstattung nicht für ein neues Solana-Konto (Mindestmiete). Lege etwas SOL auf deine Adresse und löse dann selbst ein.");
+  }
+  if (!confirm(`Du hast kein SOL für die Gebühr. Ein Relayer zahlt sie; du erstattest ihm höchstens ${solText(teuerster)} aus den eingelösten SOL. Einlösen?`)) return undefined;
+
+  for (const k of kandidaten) {
+    // Genug Zeit fuer Relayer und Kette – sonst lieber gar nicht (die Lightning-Zahlung laeuft dann zurueck).
+    const erlaubt = claimAllowed(p.swap.timelockUnix - 300);
+    if (!erlaubt.ok) throw new Error(erlaubt.reason);
+    p.statusEl.textContent = "Warte auf Bestätigung in der Wallet …";
+    const roh = await baueRelayEinloesung({ connection: p.connection, wallet: p.signer, swapId: p.swap.swapId, preimage: p.preimage, initiator: p.swap.initiator, relayer: k });
+    const einmal = new LocalSigner(generateKeypair().sk);
+    const { wrap, auftragId } = await buildRelayAuftrag({ tx: roh, kunde: einmal, relayerPk: k.pubkey });
+    await pool.publish(wrap);
+    p.statusEl.textContent = "Relayer löst ein …";
+    const ende = Date.now() + 90_000;
+    let abgelehnt = false;
+    while (Date.now() < ende && !abgelehnt) {
+      for (const w of await pool.query({ kinds: [KIND_GIFT_WRAP], "#p": [einmal.publicKey()] })) {
+        const a = await oeffneRelayAntwort(w, einmal, { relayerPk: k.pubkey, auftragId });
+        if (a?.status === "GESENDET" && a.signatur) {
+          const st = await p.connection.getSignatureStatuses([a.signatur]).catch(() => undefined);
+          const s0 = st?.value[0];
+          if (s0 && !s0.err && (s0.confirmationStatus === "confirmed" || s0.confirmationStatus === "finalized")) return { signature: a.signatur };
+        }
+        if (a?.status === "ABGELEHNT") {
+          p.statusEl.textContent = `Relayer lehnt ab: ${a.grund} – nächster …`;
+          abgelehnt = true;
+        }
+      }
+      if (!abgelehnt) await new Promise((r) => setTimeout(r, 4000));
+    }
+  }
+  throw new Error("Kein Relayer hat eingelöst. Lege etwas SOL auf deine Adresse und löse selbst ein – vor Ablauf der Frist.");
 }
 
 /** Sicherung aller offenen Preimages herunterladen. */

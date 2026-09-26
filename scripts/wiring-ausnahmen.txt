@@ -250,7 +250,3 @@ payment-rail.ts|betragText|Baustein 4.1a; Anzeige ab 4.1b
 zap.ts|buildZapReceipt|Quittung (Kind 9735) schreibt nach NIP-57 der LNURL-Server des Empfängers; die App baute sie bis 4.1b selbst (mit Preimage unter der eigenen Identität) – entfallen; ein eigener Zap-Server im Knoten wäre der künftige Nutzer
 price-ticker.ts|medianPrice|abgelöst durch marktKurs() – eine Stimme je Absender statt je Event (4.4); kein Pfad nutzt ihn mehr
 swap-umgekehrt.ts|runReverseSwap|Simulation der Gegenrichtung mit Adaptern (4.6a), wie runSwap für die Hinrichtung
-relayer.ts|buildRelayAuftrag|Kundenseite des Relayers (4.6e); die App-Einlösung über Relayer folgt in 4.6f
-relayer.ts|oeffneRelayAntwort|Kundenseite des Relayers (4.6e); App ab 4.6f
-relayer.ts|parseRelayerAngebot|Relayer finden (4.6e); App ab 4.6f
-relayer.ts|mieteReicht|Mindestmiete vor der Einlösung über Relayer prüfen (4.6e); App ab 4.6f
