@@ -48,8 +48,8 @@ je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test
 
 ## Arbeitsweise
 
-1. `docs/ausbau/FORTSCHRITT.md` lesen, den nächsten offenen Schritt nehmen –
-   **nur einen pro Sitzung**. Dann die passende Karte `docs/ausbau/phase-N.md`.
+1. `docs/ausbau/FORTSCHRITT.md` lesen, den nächsten offenen Schritt **der eigenen
+   Spur** nehmen (Abschnitt „Zwei Spuren“) – **nur einen pro Sitzung**. Dann die passende Karte `docs/ausbau/phase-N.md`.
 2. Vor jeder Änderung die Stellen mit `grep -rn` finden und lesen. Große Dateien
    (`tabs/agent.ts`, `tabs/kommunikation.ts`) nur in Ausschnitten lesen (Zeilenbereiche).
 3. Kleine, gezielte Änderungen; keine Umformatierung unbeteiligter Stellen.
@@ -62,6 +62,28 @@ je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test
    MENSCH bringt den GX10-Knoten danach auf den aktuellen `main`. Im PR steht,
    welcher Knoten-Stand nötig ist; bis zum Update dürfen KI-Anfragen der Live-App
    scheitern.
+
+## Zwei Agenten parallel (seit 26.09.2026)
+
+Zwei Agenten arbeiten gleichzeitig in getrennten Spuren (Tabelle in
+`docs/ausbau/FORTSCHRITT.md`). Damit sie sich nicht gegenseitig brechen:
+
+1. **Nur Schritte der eigenen Spur.** Muss ein Schritt Code der anderen Spur
+   ändern, klein halten und im Pull Request nennen.
+2. **Eigener Branch, eigene Pull Requests;** höchstens einer je Agent offen. Jeder
+   merged seine eigenen, sobald CI grün ist.
+3. **Vor dem Merge `main` holen:** Ist `main` seit dem letzten CI-Lauf weiter,
+   `main` in den eigenen Branch mergen (kein Rebase), alle Befehle erneut
+   ausführen, pushen, CI abwarten – erst dann mergen.
+4. **Gemeinsame Dateien:** In `FORTSCHRITT.md` nur die eigenen Zeilen ändern. In
+   `STATUS.md` neue Abschnitte am Ende als `## Schritt <ID> – <Titel>` (ohne
+   laufende Nummer). Die Zeile „Stand …“ oben zählt, wer merged, nach dem
+   Einmergen von `main` neu. Neue Fallstricke unten anhängen. Bei Konflikten in
+   diesen Dateien und in Sammelstellen (`protocol/src/index.ts`,
+   `node/src/main.ts`, `app/src/shell/app.ts`, `scripts/*ausnahmen*`) beide
+   Seiten behalten.
+5. **Knoten-Stand:** Ein Update des GX10-Knotens auf `main` deckt beide Spuren
+   ab; im Pull Request steht wie bisher, welcher Stand nötig ist.
 
 ## Definition of Done – alle Punkte, sonst nicht fertig
 

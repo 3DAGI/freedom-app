@@ -20,6 +20,18 @@ Pull Request eintragen.
 MENSCH-Aufgaben aus Phase 0 (0.D, 0.E, 0.F-Teile, 0.G) kann der Mensch
 jederzeit parallel erledigen.
 
+## Zwei Spuren (Entscheidung 26.09.2026)
+
+Ab jetzt arbeiten zwei Agenten gleichzeitig, jeder nur in seiner Spur, jeder auf
+eigenem Branch mit eigenen Pull Requests. Regeln dazu in `CLAUDE.md`
+(„Zwei Agenten parallel“).
+
+| Spur | Schritte (in dieser Reihenfolge) |
+|---|---|
+| **A – Netz, Geld, Vertrauen** | 5.4 (mit 8.4 Relay-Rolle), 5.8, 5.5 (mit 8.15 Dashboard), 5.6, 5.7 (mit 8.8 Modelle), 5.10, 5.9 (Repro-Build), 6.2, 6.3, 6.4, 8.3, 8.2; dazu alles, was an MENSCH-Entscheidungen hängt: 4.9, 4.0 → 5.1, 4.3, 4.5, 5.1b |
+| **B – Mesh und Bausteine** | 7.1, 7.3, 7.4, 7.2, dann 8.10, 8.13, 8.14, 8.11, 8.12, 8.9, 8.7, 8.6, 8.1 |
+| später, abgesprochen | 8.16 Übersetzungen (berührt jede Oberfläche – erst, wenn beide Spuren fertig sind), 8.5 (wartet auf MLS 2.2a), Phase 9 |
+
 ## Alle Schritte
 
 | ID | Schritt | Status | Pull Request | Notiz |
@@ -62,7 +74,7 @@ jederzeit parallel erledigen.
 | 4.9 | Privatsphäre auf Solana | offen |  |  |
 | 5.1 | Gebührenmodell umsetzen | offen |  |  |
 | 5.1b | Gesponserte Pools | offen |  | MENSCH: Devnet-Deploy |
-| 5.2 | Releases k-von-n | Code fertig | PR folgt | `release.ts`: echt erst, wenn `RELEASE_MIN_SIGNATUREN` (2) verschiedene Signierer aus `TRUSTED_SIGNERS` dieselbe Nutzlast (Version + Dateien, `nutzlast()`) bestätigen – fremde und doppelte Signaturen zählen nicht, abweichende Quellen schon; „Neuere Version“ nur mit k Signaturen; Version fixierbar (`pruefeFixierung`, Settings „Version fixieren“), beim Start Rückfrage bzw. Warnung, wenn eine andere Datei läuft (Pages liefert sonst still jede neue aus); `publish-release.mjs` zeigt den Nutzlast-Hash zum Abgleich; FAQ ehrlich. MENSCH: mindestens zwei Signierschlüssel (Personen/Geräte) erzeugen und in `TRUSTED_SIGNERS` eintragen – bis dahin meldet die Prüfung „nicht prüfbar“ |
+| 5.2 | Releases k-von-n | Code fertig | [#58](https://github.com/3DAGI/freedom-app/pull/58) | `release.ts`: echt erst, wenn `RELEASE_MIN_SIGNATUREN` (2) verschiedene Signierer aus `TRUSTED_SIGNERS` dieselbe Nutzlast (Version + Dateien, `nutzlast()`) bestätigen – fremde und doppelte Signaturen zählen nicht, abweichende Quellen schon; „Neuere Version“ nur mit k Signaturen; Version fixierbar (`pruefeFixierung`, Settings „Version fixieren“), beim Start Rückfrage bzw. Warnung, wenn eine andere Datei läuft (Pages liefert sonst still jede neue aus); `publish-release.mjs` zeigt den Nutzlast-Hash zum Abgleich; FAQ ehrlich. MENSCH: mindestens zwei Signierschlüssel (Personen/Geräte) erzeugen und in `TRUSTED_SIGNERS` eintragen – bis dahin meldet die Prüfung „nicht prüfbar“ |
 | 5.3 | Hosting-Spiegel | offen |  | MENSCH: Konten |
 | 5.4 | Relays: Outbox-Modell | offen |  |  |
 | 5.5 | Reputation aus Quittungen | offen |  |  |
