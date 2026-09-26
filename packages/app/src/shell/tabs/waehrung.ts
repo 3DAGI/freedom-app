@@ -23,13 +23,11 @@ import { hinAnfrage, liestUmschlaege, rueckAnfrage, swapAntworten, type SwapPost
 import {
   ensurePool,
   angebotVon,
-  mitBunker,
-  mitRohemSchluessel,
   signiere,
   solRpcUrl,
   state,
 } from "../state.js";
-import { zeigeEingebauteWallet } from "../eingebaute-wallet.js";
+import { eingebauterHtlcSigner, frischeEmpfangsadresse, zeigeEingebauteWallet } from "../eingebaute-wallet.js";
 import { aktualisiereKurs, zeigeKurs } from "../marktkurs.js";
 import { geheim, verlangeTresor } from "../tresor.js";
 import { $, toast, updateSidebarBalances } from "../ui.js";
@@ -137,8 +135,7 @@ async function startSwap(lpPubkey: string, offerId: string, vorabSats?: number):
   }[];
   const letzter = verlauf.length > 0 ? Math.max(...verlauf.map((v) => v.lastUsed)) : undefined;
 
-  const { swapPrivacyCheck, deriveSwapAddress, addressFingerprint } =
-    await import("@freedomstack/protocol");
+  const { swapPrivacyCheck } = await import("@freedomstack/protocol");
 
   const pruefung = swapPrivacyCheck({
     usage: verlauf,
@@ -155,18 +152,17 @@ async function startSwap(lpPubkey: string, offerId: string, vorabSats?: number):
     if (!weiter) return;
   }
 
-  // Frische Adresse vorschlagen — abgeleitet, also ohne zusaetzliche Sicherung
-  // wiederherstellbar. Mit Bunker gibt es keinen Schluessel zum Ableiten:
-  // dann ohne Vorschlag.
-  const frisch = mitBunker()
-    ? null
-    : mitRohemSchluessel("Eine frische Swap-Adresse", (sk) => deriveSwapAddress(sk, verlauf.length));
-  const solAddr = prompt(
+  // Frische Empfangsadresse der eingebauten Wallet (4.9c): nur fuer diesen
+  // Tausch, aus den 12 Woertern wiederherstellbar (Phantoms Konten 1, 2, …).
+  // Eingeloest wird dann mit ihrem Schluessel, ohne SOL ueber einen Relayer.
+  // Bis 4.9c stand hier nur ein Fingerabdruck – die Adresse selbst sah niemand.
+  const frisch = await frischeEmpfangsadresse().catch(() => undefined);
+  const solAddr = (prompt(
     `Deine Solana-Empfangsadresse:` + (frisch
-      ? `\n\nVorschlag: eine frische Adresse Nummer ${verlauf.length} ` +
-        `(${addressFingerprint(frisch)}…). Deine Merkphrase bringt sie zurueck.`
+      ? `\n\nVorgeschlagen: eine frische Adresse deiner eingebauten Wallet – nur für diesen Tausch.`
       : ""),
-  );
+    frisch ?? solWallet.pubkey ?? "",
+  ) ?? "").trim();
   if (!solAddr) return;
   // Adressverlauf und Preimage sind Geheimnisse – vor dem Speichern der Tresor.
   if (!(await verlangeTresor("den Tausch"))) return;
@@ -381,9 +377,12 @@ let activeSwap: {
 export async function claimActiveSwap(): Promise<void> {
   const statusEl = $("#swap-status");
   if (!activeSwap) return;
-  const signer = htlcSigner();
+  // Einloesen kann nur, wer die Empfangsadresse haelt: die verbundene Wallet
+  // oder die eingebaute (Hauptadresse oder frische Adresse, 4.9c).
+  const verbunden = htlcSigner();
+  const signer = verbunden?.publicKey.toBase58() === activeSwap.solAddress ? verbunden : eingebauterHtlcSigner(activeSwap.solAddress);
   if (!signer) {
-    statusEl.textContent = "Solana-Wallet verbinden, um einzuloesen.";
+    statusEl.textContent = "Die Empfangsadresse gehört keiner verbundenen Wallet – verbinde die Wallet mit dieser Adresse, um einzulösen.";
     statusEl.className = "mono-sm warn";
     return;
   }

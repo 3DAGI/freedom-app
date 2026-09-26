@@ -250,3 +250,5 @@ payment-rail.ts|betragText|Baustein 4.1a; Anzeige ab 4.1b
 zap.ts|buildZapReceipt|Quittung (Kind 9735) schreibt nach NIP-57 der LNURL-Server des Empfängers; die App baute sie bis 4.1b selbst (mit Preimage unter der eigenen Identität) – entfallen; ein eigener Zap-Server im Knoten wäre der künftige Nutzer
 price-ticker.ts|medianPrice|abgelöst durch marktKurs() – eine Stimme je Absender statt je Event (4.4); kein Pfad nutzt ihn mehr
 swap-umgekehrt.ts|runReverseSwap|Simulation der Gegenrichtung mit Adaptern (4.6a), wie runSwap für die Hinrichtung
+swap-privacy.ts|deriveSwapAddress|abgelöst durch den Vorrat frischer Adressen der eingebauten Wallet (4.9c, SLIP-10 wie Phantom); die HKDF-Ableitung aus dem Nostr-Schlüssel zeigte nur einen Fingerabdruck und war nicht einlösbar
+swap-privacy.ts|addressFingerprint|gehört zu deriveSwapAddress (abgelöst in 4.9c)

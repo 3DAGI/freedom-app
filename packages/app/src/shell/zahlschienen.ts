@@ -6,7 +6,7 @@
  */
 import type { PaymentRail } from "@freedomstack/protocol";
 import { LightningRail, SolanaRail, type SolanaWalletZugang } from "../rails.js";
-import type { SignierbareTx } from "../sol-wallet.js";
+import { type SignierbareTx, waehleAbsender } from "../sol-wallet.js";
 import { buildSolTransfer, solRpcUrl } from "../sol-transfer.js";
 import { benutzbareEingebauteWallet, bestaetigeUeberLimit } from "./eingebaute-wallet.js";
 import { nwc, verbundeneSolanaWallet } from "./tabs/waehrung.js";
@@ -42,6 +42,14 @@ function solanaWallet(): SolanaWalletZugang | undefined {
   if (!e || !adresse) return undefined;
   return {
     adresse,
+    // Frische Empfangsadressen (4.9c): gezahlt wird von einer, die allein reicht.
+    absender: async (lamports) => {
+      const { fetchSolBalance } = await import("../solana-connect.js");
+      const rpc = await solRpcUrl();
+      const adressen = e.eigeneAdressen();
+      const guthaben = await Promise.all(adressen.map(async (a) => ({ adresse: a, lamports: (await fetchSolBalance(a, rpc)).lamports })));
+      return waehleAbsender(guthaben, lamports);
+    },
     freigabe: (lamports, ziel) => e.freigabe(lamports, ziel, bestaetigeUeberLimit),
     signiereUndSende: async (tx) => {
       e.signiere(tx as SignierbareTx);

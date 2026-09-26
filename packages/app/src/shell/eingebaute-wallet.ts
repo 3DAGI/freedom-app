@@ -4,19 +4,49 @@
  * und ihr Abschnitt im Wallet-Tab – einrichten, Adresse zum Empfangen, Limit,
  * entfernen (4.2b). Mit Bunker (NIP-46) ist sie gesperrt – die 12 Woerter
  * gehoeren dann nicht auf dieses Geraet.
+ *
+ * Frische Empfangsadressen (4.9c): `frischeEmpfangsadresse()` fuer den Tausch,
+ * „frische Adresse“ im Wallet-Tab fuer alles andere; eingeloest wird mit
+ * `eingebauterHtlcSigner()` – ohne SOL auf der neuen Adresse ueber einen Relayer.
  */
-import { EingebauteSolWallet, type Nachfrage } from "../sol-wallet.js";
+import { EingebauteSolWallet, type Nachfrage, type SignierbareTx, VORRAT_GROESSE } from "../sol-wallet.js";
 import { ausLamports, solText } from "../preis-anzeige.js";
 import { aktuellerKurs } from "./marktkurs.js";
 import { mitBunker, solRpcUrl, state } from "./state.js";
 import { geheim, verlangeTresor } from "./tresor.js";
-import { $, toast } from "./ui.js";
+import { $, ganzeZahl, toast } from "./ui.js";
 
 export const eingebauteWallet = new EingebauteSolWallet(geheim);
 
 /** Die eingebaute Wallet, wenn sie hier benutzbar ist (eingerichtet, Tresor offen, kein Bunker). */
 export function benutzbareEingebauteWallet(): EingebauteSolWallet | undefined {
   return !mitBunker() && eingebauteWallet.eingerichtet() ? eingebauteWallet : undefined;
+}
+
+/** Die naechste frische Empfangsadresse – undefined ohne benutzbare Wallet oder ohne Vorrat. */
+export async function frischeEmpfangsadresse(): Promise<string | undefined> {
+  const e = benutzbareEingebauteWallet();
+  if (!e || e.vorratFrei() === 0) return undefined;
+  const adresse = await e.frischeAdresse();
+  zeigeEingebauteWallet();
+  return adresse;
+}
+
+/**
+ * Signierer fuer eine Einloesung an eine eigene Adresse der eingebauten Wallet
+ * (Hauptadresse oder vergebene frische). Keine Zahlung – das Geld kommt herein;
+ * die Erstattung an einen Relayer bestaetigt der Nutzer vorher im Dialog.
+ */
+export function eingebauterHtlcSigner(adresse: string): { publicKey: { toBase58(): string }; signTransaction(tx: unknown): Promise<unknown> } | undefined {
+  const e = benutzbareEingebauteWallet();
+  if (!e || !e.eigeneAdressen().includes(adresse)) return undefined;
+  return {
+    publicKey: { toBase58: () => adresse },
+    signTransaction: async (tx) => {
+      e.signiere(tx as SignierbareTx);
+      return tx;
+    },
+  };
 }
 
 /**
@@ -69,16 +99,74 @@ export function zeigeEingebauteWallet(): void {
   }
   $("#solw-adresse").textContent = adresse;
   ($("#solw-limit") as HTMLInputElement).value = String(eingebauteWallet.limit() / 1e9);
+  const frei = eingebauteWallet.vorratFrei();
+  $("#solw-vorrat").textContent = frei > 0
+    ? `Frische Empfangsadressen: noch ${frei}`
+    : "Keine frischen Empfangsadressen mehr – „neue ableiten“ (mit deinen 12 Wörtern).";
+  sichtbar("#solw-ergaenzen", frei < 5);
+  ($("#solw-frisch") as HTMLButtonElement).disabled = frei === 0;
   $("#solw-guthaben").textContent = "Guthaben: …";
+  const adressen = eingebauteWallet.eigeneAdressen();
   void (async () => {
     try {
       const { fetchSolBalance } = await import("../solana-connect.js");
-      const { lamports } = await fetchSolBalance(adresse, await solRpcUrl());
-      $("#solw-guthaben").textContent = `Guthaben: ${ausLamports(lamports, aktuellerKurs())}`;
+      const rpc = await solRpcUrl();
+      const je = await Promise.all(adressen.map(async (a) => (await fetchSolBalance(a, rpc)).lamports));
+      const summe = je.reduce((s, x) => s + x, 0);
+      const mit = je.filter((x) => x > 0).length;
+      $("#solw-guthaben").textContent = `Guthaben: ${ausLamports(summe, aktuellerKurs())}` + (mit > 1 ? ` – auf ${mit} Adressen verteilt` : "");
     } catch {
       $("#solw-guthaben").textContent = "Guthaben: nicht abrufbar (RPC)";
     }
   })();
+}
+
+/** Eine frische Adresse zum Empfangen herausgeben (kopieren) – jede nur einmal. */
+async function frischKopieren(): Promise<void> {
+  try {
+    const adresse = await frischeEmpfangsadresse();
+    if (!adresse) return;
+    await navigator.clipboard.writeText(adresse).catch(() => undefined);
+    $("#solw-adresse").textContent = adresse;
+    toast("Frische Adresse kopiert – gib sie nur für diesen einen Empfang heraus");
+  } catch (e) {
+    toast((e as Error).message, true);
+  }
+}
+
+/** Mit den 12 Woertern weitere frische Adressen ableiten. */
+async function ergaenzen(): Promise<void> {
+  if (!(await verlangeTresor("die eingebaute Wallet"))) return;
+  const box = document.createElement("div");
+  box.className = "modal-backdrop";
+  box.innerHTML = `<div class="modal">
+    <h3>Frische Adressen ableiten</h3>
+    <p class="mono-sm">Gib deine 12 Wörter ein. Die App leitet die nächsten ${ganzeZahl(VORRAT_GROESSE)} Adressen ab
+    (Phantoms Konten in derselben Reihenfolge) und speichert nur ihre Schlüssel im Tresor.</p>
+    <textarea id="solw-woerter2" rows="3" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="12 Wörter"></textarea>
+    <div id="solw-meldung2" class="mono-sm err"></div>
+    <button id="solw-ok2" class="send-btn">ableiten</button>
+    <button id="solw-abbrechen2" class="ghost">abbrechen</button>
+  </div>`;
+  document.body.appendChild(box);
+  const feld = box.querySelector("#solw-woerter2") as HTMLTextAreaElement;
+  feld.focus();
+  box.querySelector("#solw-abbrechen2")!.addEventListener("click", () => box.remove());
+  const ok = box.querySelector("#solw-ok2") as HTMLButtonElement;
+  ok.addEventListener("click", async () => {
+    ok.disabled = true;
+    try {
+      const frei = await eingebauteWallet.vorratErgaenzen(feld.value, state.keypair?.pk ?? "");
+      feld.value = "";
+      box.remove();
+      toast(`${frei} frische Adressen bereit`);
+      zeigeEingebauteWallet();
+    } catch (e) {
+      box.querySelector("#solw-meldung2")!.textContent = (e as Error).message;
+    } finally {
+      ok.disabled = false;
+    }
+  });
 }
 
 /** Einrichten: Tresor zuerst, dann die 12 Woerter einmal eintippen. */
@@ -141,6 +229,8 @@ export function wireEingebauteWallet(): void {
   $("#solw-einrichten").addEventListener("click", () => void einrichten());
   $("#solw-limit-speichern").addEventListener("click", () => void limitSpeichern());
   $("#solw-entfernen").addEventListener("click", () => void entfernen());
+  $("#solw-frisch").addEventListener("click", () => void frischKopieren());
+  $("#solw-ergaenzen").addEventListener("click", () => void ergaenzen());
   $("#solw-kopieren").addEventListener("click", () => {
     void navigator.clipboard.writeText($("#solw-adresse").textContent ?? "").then(() => toast("Adresse kopiert"));
   });

@@ -303,12 +303,13 @@
           <!-- Eingebaute Wallet (4.2): fuer alle ohne Browser-Wallet. Schluessel aus
                den 12 Woertern, nur im Tresor; Zahlungen ueber dem Tageslimit fragen nach. -->
           <div id="solw-box" style="margin-top:12px">
-            <div class="mono-sm"><b>Eingebaute Wallet</b> – ohne Browser-Wallet. Schlüssel aus deinen 12 Wörtern, nur im Tresor. Zahlt Zaps und Trinkgeld; Tausch und Deposit brauchen eine verbundene Wallet.</div>
+            <div class="mono-sm"><b>Eingebaute Wallet</b> – ohne Browser-Wallet. Schlüssel aus deinen 12 Wörtern, nur im Tresor. Zahlt Zaps und Trinkgeld und empfängt beim Tausch sats → SOL an einer frischen Adresse; SOL → sats und Deposit brauchen eine verbundene Wallet.</div>
             <button id="solw-einrichten" class="ghost hidden" style="width:auto;padding:6px 10px;margin-top:6px">einrichten</button>
             <div id="solw-bereit" class="hidden" style="margin-top:6px">
               <div class="mono-sm">Empfangen an:</div>
               <div id="solw-adresse" class="mono-sm" style="word-break:break-all"></div>
               <div id="solw-guthaben" class="mono-sm"></div>
+              <div id="solw-vorrat" class="mono-sm"></div>
               <div style="display:flex;gap:6px;align-items:center;margin-top:6px;flex-wrap:wrap">
                 <input id="solw-limit" type="number" min="0" step="0.01" class="mono-sm" style="width:7em" />
                 <span class="mono-sm">SOL in 24 Std. ohne Nachfrage</span>
@@ -316,6 +317,8 @@
               </div>
               <div style="display:flex;gap:6px;margin-top:6px">
                 <button id="solw-kopieren" class="ghost" style="width:auto;padding:6px 10px">Adresse kopieren</button>
+                <button id="solw-frisch" class="ghost" style="width:auto;padding:6px 10px">frische Adresse</button>
+                <button id="solw-ergaenzen" class="ghost hidden" style="width:auto;padding:6px 10px">neue ableiten</button>
                 <button id="solw-entfernen" class="ghost" style="width:auto;padding:6px 10px">von diesem Gerät entfernen</button>
               </div>
             </div>
