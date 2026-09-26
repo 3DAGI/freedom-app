@@ -427,20 +427,16 @@ async function main(): Promise<void> {
     const seenChunks = new Set<string>();
     setInterval(async () => {
       try {
+        // Seit 8.9a nur gekennzeichnete Stuecke, die wie Chiffrat aussehen (nimmAuf)
         const chunks = await pool.query({ kinds: [KIND_BLOB_CHUNK], limit: 200 });
+        let abgelehnt = 0;
         for (const ev of chunks) {
           if (seenChunks.has(ev.id)) continue;
           seenChunks.add(ev.id);
           if (seenChunks.size > 5000) seenChunks.clear(); // ring-buffer
-          const getTag = (n: string) => ev.tags.find((t) => t[0] === n)?.[1] ?? "";
-          const blobId = getTag("blob");
-          const idx = Number(getTag("index"));
-          // hex -> bytes
-          const hex = ev.content;
-          const bytes = new Uint8Array(hex.length / 2);
-          for (let i = 0; i < bytes.length; i++) bytes[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
-          await storage!.put(blobId, idx, bytes);
+          if (!(await storage!.nimmAuf(ev)).ok) abgelehnt++;
         }
+        if (abgelehnt > 0) console.log(`Speicher: ${abgelehnt} Stücke abgelehnt (nicht verschlüsselt oder unstimmig)`);
       } catch { /* relay offline */ }
     }, pollMs);
   }

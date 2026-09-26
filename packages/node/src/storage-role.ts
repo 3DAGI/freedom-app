@@ -9,10 +9,15 @@
  *
  * Non-custodial: der Seeder kann jederzeit kündigen — dank Erasure Coding
  * bleibt die Datei rekonstruierbar, solange genug andere Seeder existieren.
+ *
+ * Seit 8.9a: nur Verschluesseltes (`nimmAuf` → `pruefeSpeicherStueck`). Zu
+ * jedem Stueck merkt sich der Knoten das signierte Event ohne Inhalt
+ * (`<blob>.<index>.json`), um es auf Abruf wieder zu veroeffentlichen
+ * (`ereignis`) – der Inhalt kommt aus der .bin-Datei, die ID prueft beides.
  */
 import { promises as fs } from "node:fs";
 import { join } from "node:path";
-import { sha256, toHex } from "@freedomstack/protocol";
+import { computeEventId, pruefeSpeicherStueck, sha256, toHex, type NostrEvent } from "@freedomstack/protocol";
 
 export interface StorageConfig {
   /** Speicherort fuer Chunk-Dateien. */
@@ -89,6 +94,36 @@ export class StorageRole {
     this.lastAccess.set(hash, Date.now());
     await this.indexPut(blobId, shardIndex, hash);
     return { sha256Hex: hash, blobId, shardIndex, sizeBytes: bytes.length, storedAt: Date.now() };
+  }
+
+  /**
+   * Ein Stueck aus dem Relay-Feed aufnehmen – nur, wenn es als verschluesselt
+   * gekennzeichnet ist und die Pruefung besteht. Gibt den Grund der Ablehnung
+   * zurueck (nie den Inhalt).
+   */
+  async nimmAuf(ev: NostrEvent): Promise<{ ok: true } | { ok: false; grund: string }> {
+    const r = pruefeSpeicherStueck(ev);
+    if (!r.ok) return r;
+    await this.put(r.blobId, r.index, r.bytes);
+    const { content: _, ...ohneInhalt } = ev;
+    try {
+      await fs.writeFile(join(this.cfg.dir, `${r.blobId}.${r.index}.json`), JSON.stringify(ohneInhalt));
+    } catch { /* ohne Event kein Wiederveroeffentlichen – das Stueck bleibt gehalten */ }
+    return { ok: true };
+  }
+
+  /** Das gespeicherte Stueck-Event wieder zusammensetzen (fuer Abruf-Auftraege); null, wenn nicht gehalten. */
+  async ereignis(blobId: string, index: number): Promise<NostrEvent | null> {
+    if (!/^[0-9a-f]{64}$/.test(blobId) || !Number.isInteger(index) || index < 0) return null;
+    try {
+      const meta = JSON.parse(await fs.readFile(join(this.cfg.dir, `${blobId}.${index}.json`), "utf8")) as Omit<NostrEvent, "content">;
+      const bytes = await this.getByBlobIndex(blobId, index);
+      if (!bytes) return null;
+      const ev: NostrEvent = { ...meta, content: toHex(bytes) };
+      return computeEventId(ev) === ev.id ? ev : null;
+    } catch {
+      return null;
+    }
   }
 
   /** Index-Datei: blobId:idx -> sha256 (fuer Chunk-Fetch-Jobs). */

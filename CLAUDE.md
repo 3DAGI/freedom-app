@@ -41,7 +41,7 @@ python3 scripts/smoke_test.py packages/app/dist         # braucht playwright + c
 bash scripts/build-site.sh /tmp/site                     # Website bauen (Ziel wird gelöscht!)
 ```
 
-Stand 26.09.2026 (nach 8.12): protocol 1110 grün (6 übersprungen), node 214 grün
+Stand 26.09.2026 (nach 8.9a): protocol 1115 grün (6 übersprungen), node 217 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
 in `tools.test.ts`), app 324 grün, Leak-Tests 48 grün + 2 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
@@ -259,3 +259,9 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   `filtereWiederherstellung()`; nie Schlüssel, Zugänge, Geld-Geheimnisse,
   Anteile oder Gruppenschlüssel (`SICHERUNG_NIE`). Neue Einträge, die ein neues
   Gerät braucht, dort eintragen – und ob sie im Tresor liegen (`istGeheimnis()`).
+- **Speicherknoten nur verschlüsselt** (seit 8.9a): Wer ins Blob-Netz lädt,
+  was Knoten halten sollen, baut mit `buildBlob(…, { verschluesselt: true })`
+  und lädt nur Chiffrat hoch; Knoten nehmen Stücke nur über `nimmAuf()` →
+  `pruefeSpeicherStueck()` auf. Abruf nur versiegelt (`baueStueckAbruf()`); der
+  Knoten veröffentlicht das Stück-Event erneut, statt es in den Umschlag zu
+  packen (NIP-44 fasst 64 KB, ein Stück als Hex 128 KB).

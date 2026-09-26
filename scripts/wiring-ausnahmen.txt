@@ -20,6 +20,7 @@ antispam.ts|spamFilterInfo|Spam- und Flutschutz, weder im Relay des Knotens noch
 
 arweave-mirror.ts|readLatestAnnouncementFromArweave|Treasury-Archiv auf Arweave, hängt am Gebührenmodell (4.0)
 
+blob.ts|baueStueckAbruf|Abruf bei Speicherknoten: Protokoll und Knoten (8.9a), die App folgt in 8.9b
 blob.ts|parseBlobChunk|Blob-Stücke lesen, noch ohne Speicher-Client (Speicher, 8.9)
 
 client-fee.ts|explainFees|Client-Gebühr aufteilen und erklären, hängt am Gebührenmodell (4.0, 5.1)

@@ -578,37 +578,32 @@ export class DvmProvider {
     return processed;
   }
 
-  /** Chunk-Fetch-Job: [i, <blobId>], ["param","shard",<idx>] — liefert hex-Shard.
-   *  Micro-Bid pro Shard; Ergebnis als kind 6075 mit content=hex. */
+  /**
+   * Abruf eines Stuecks (5075, seit 8.9a): [i, <blobId>], ["param","shard",<idx>].
+   * Ein Stueck (64 KB, als Hex 128 KB) passt in keinen Umschlag – der Knoten
+   * veroeffentlicht das gespeicherte, ohnehin oeffentliche Stueck-Event erneut
+   * und antwortet (versiegelt, wenn die Anfrage es war) nur „veroeffentlicht“.
+   * Bis zur Bezahlung (8.9c, wartet auf den Zahlkanal 4.3) ohne Betrag.
+   */
   private async handleBlobFetch(request: NostrEvent, privat = false): Promise<ProcessedJob> {
     const start = Date.now();
-    const blobId = getTag(request, "i");
-    const shardIdx = Number(getTag(request, "param") === "shard" ? request.tags.find((t) => t[0] === "param" && t[1] === "shard")?.[2] ?? "-1" : "-1");
-    if (!blobId || shardIdx < 0) throw new Error("blob-fetch-job ohne blob/shard");
-
-    // chunk aus dem lokalen store suchen: wir kennen hash nicht direkt,
-    // daher alle blobs scannen ist teuer — stattdessen index-datei:
-    // storage-role haelt chunks nach hash; wir brauchen hash->bytes fuer (blobId, idx).
-    // Der Seeder speichert beim put() einen lookup: data/index.jsonl
-    const bytes = await this.storage!.getByBlobIndex(blobId, shardIdx);
-    if (!bytes) throw new Error(`chunk ${blobId}:${shardIdx} nicht gehalten`);
-
-    // micro-preis: bid des jobs (klein, z.b. 10 msat) oder default; gratis-jobs
-    // (bid=0 in bootstrap) werden mit 0 abgerechnet
-    const amountMsat = Number(getTag(request, "bid") ?? "0") || 10;
-    const feeSplit = computeFeeSplit(amountMsat, {
-      totalFeePpm: PROTOCOL_FEE_PPM,
-      poolSharePercent: PROTOCOL_POOL_SHARE_PERCENT,
-    });
-    const output = toHex(bytes);
+    if (!this.storage) throw new Error("keine Speicher-Rolle");
+    const blobId = getTag(request, "i") ?? "";
+    const shardTag = request.tags.find((t) => t[0] === "param" && t[1] === "shard")?.[2] ?? "";
+    if (!/^[0-9a-f]{64}$/.test(blobId) || !/^\d{1,6}$/.test(shardTag)) throw new Error("Abruf ohne gültigen Blob oder Stück");
+    const shardIdx = Number(shardTag);
+    const ev = await this.storage.ereignis(blobId, shardIdx);
+    if (!ev) throw new Error(`Stück ${blobId.slice(0, 8)}:${shardIdx} nicht gehalten`);
+    await this.pool.publish(ev);
+    const amountMsat = 0;
     const resultEvent = signEvent(
       buildJobResult({
         providerPubkey: this.cfg.keypair.pk,
         requestId: request.id,
         requestKind: request.kind,
         customerPubkey: request.pubkey,
-        output,
-        amountMsat: amountMsat === 0 ? 0 : amountMsat,
+        output: "veroeffentlicht",
+        amountMsat,
       }),
       this.cfg.keypair.sk,
     );
@@ -619,8 +614,8 @@ export class DvmProvider {
       resultEventId: resultEvent.id,
       customerPubkey: request.pubkey,
       amountMsat,
-      feeSplit,
-      outputPreview: `chunk ${blobId.slice(0, 8)}:${shardIdx} (${bytes.length}b)`,
+      feeSplit: computeFeeSplit(amountMsat, { totalFeePpm: PROTOCOL_FEE_PPM, poolSharePercent: PROTOCOL_POOL_SHARE_PERCENT }),
+      outputPreview: `Stück ${blobId.slice(0, 8)}:${shardIdx} wieder veröffentlicht`,
       durationMs: Date.now() - start,
     };
   }
@@ -735,6 +730,9 @@ export class DvmProvider {
   }
 
   private async handleJob(request: NostrEvent, privat = false): Promise<ProcessedJob> {
+    // Abruf eines Stuecks (5075): eigener Handler, kein LLM, vor der Zahlungspruefung –
+    // bis 8.9c ohne Bezahlung (Entscheidung 26.09.2026).
+    if (request.kind === 5075) return this.handleBlobFetch(request, privat);
     const input = getTag(request, "i");
     const bidMsat = Number(getTag(request, "bid") ?? "0");
     const sessionId = getTag(request, "session");
@@ -872,11 +870,6 @@ export class DvmProvider {
       const [, atype, aname] = attachTag;
       attachNote = `\n[Anhang: ${atype} "${aname}"]\n`;
     }
-    // Blob-Fetch-Jobs (5075) haben eigenen Handler (kein LLM!)
-    if (request.kind === 5075) {
-      return this.handleBlobFetch(request, privat);
-    }
-
     // WICHTIG: Wenn es Tool-Ergebnisse gibt, sende sie als SEPARATE Nachricht
     // (nicht als Teil des Prompts). Das LLM soll das Ergebnis als neue Eingabe sehen.
     let finalPrompt = input + attachNote;
