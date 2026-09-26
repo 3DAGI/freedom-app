@@ -45,7 +45,7 @@ bash packages/mls/bauen.sh --pruefen                     # nur bei Änderungen a
 
 Stand 26.09.2026 (nach 2.2b-d3 und 5.10a): protocol 1152 grün (6 übersprungen), node 240 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 408 grün, mls 10 grün, Leak-Tests 54 grün + 2 `todo` (heutige Lecks,
+in `tools.test.ts`), app 409 grün, mls 10 grün, Leak-Tests 54 grün + 2 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
 Ausnahme: gesendete SOL-Zahlungen von frischen Adressen, eine bewusste Grenze
 nach Entscheidung 4.9 A – im Datenschutzbericht unter „Bewusste Grenzen“).
