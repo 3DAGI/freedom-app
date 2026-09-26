@@ -48,6 +48,8 @@ export interface PaymentRail {
   readonly id: RailId;
   /** Ist auf diesem Geraet etwas verbunden, das zahlen kann? */
   verfuegbar(): Promise<boolean>;
+  /** Ist das Netz da, das die Schiene braucht (7.3)? Ohne die Methode: ja. */
+  online?(): boolean;
   quote(anfrage: Zahlanfrage): Promise<Angebot>;
   pay(anfrage: Zahlanfrage): Promise<Beleg>;
   /** Prueft einen Beleg – so weit die Schiene es ohne Dritte kann. */
@@ -79,6 +81,21 @@ export function pruefeAnfrage(rail: RailId, a: Zahlanfrage): void {
 }
 
 /**
+ * Ohne Netz (Schritt 7.3): Lightning braucht mehrere Runden Austausch mit
+ * Knoten, SOL einen RPC. Die App sagt das klar, statt an einem Netzfehler zu
+ * scheitern – und nennt, was offline geht. Ecash (Cashu) waere offline
+ * uebergebbar, haengt aber an verwahrenden Mints: nur nach MENSCH-Entscheidung.
+ */
+export const OFFLINE_HINWEIS =
+  "Offline: Nachrichten gehen verschlüsselt über Funk oder per Datei (Settings → Mesh). Sats und SOL, sobald wieder Netz da ist.";
+
+export function offlineZahlText(rail: RailId): string {
+  return rail === "lightning"
+    ? "Offline: Sats gehen erst wieder, wenn Netz da ist – Lightning braucht mehrere Runden Austausch. Nachrichten gehen über Funk oder per Datei."
+    : "Offline: SOL geht erst wieder, wenn Netz da ist – offline signieren kommt mit 7.2. Nachrichten gehen über Funk oder per Datei.";
+}
+
+/**
  * Schiene waehlen: die bevorzugte, wenn sie das Ziel bedienen kann und
  * verbunden ist; sonst keine – eine stille Umleitung auf die andere Schiene
  * waere eine Zahlung in einer Waehrung, die der Nutzer nicht gewaehlt hat.
@@ -88,6 +105,8 @@ export async function waehleRail(rails: readonly PaymentRail[], anfrage: Zahlanf
   if (!noetig) throw new Error("Unbekanntes Zahlungsziel");
   const rail = rails.find((r) => r.id === noetig);
   if (!rail) throw new Error(`Keine Schiene für ${noetig}`);
+  // Vor der Wallet-Frage: offline haengt NWC sonst, bis die Zeit ablaeuft.
+  if (rail.online && !rail.online()) throw new Error(offlineZahlText(noetig));
   if (!(await rail.verfuegbar())) {
     throw new Error(noetig === "lightning"
       ? "Keine Lightning-Wallet verbunden – im Wallet-Tab per NWC verbinden."

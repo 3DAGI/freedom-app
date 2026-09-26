@@ -50,6 +50,8 @@ export interface LightningQuellen {
   /** Fuer Lightning-Adressen (LNURL-pay). */
   holen?: typeof fetch;
   jetzt?: () => number;
+  /** Netz da (7.3)? Ohne Angabe: ja. */
+  online?: () => boolean;
 }
 
 export class LightningRail implements PaymentRail {
@@ -58,6 +60,10 @@ export class LightningRail implements PaymentRail {
 
   async verfuegbar(): Promise<boolean> {
     return !!(this.q.nwc?.() || this.q.webln?.());
+  }
+
+  online(): boolean {
+    return this.q.online?.() ?? true;
   }
 
   async quote(a: Zahlanfrage): Promise<Angebot> {
@@ -157,6 +163,8 @@ export interface SolanaQuellen {
   pruefeUeberweisung?: (signatur: string, an: string, lamports: number) => Promise<boolean>;
   guthaben?: (adresse: string) => Promise<number>;
   jetzt?: () => number;
+  /** Netz da (7.3)? Ohne Angabe: ja. */
+  online?: () => boolean;
 }
 
 export class SolanaRail implements PaymentRail {
@@ -165,6 +173,10 @@ export class SolanaRail implements PaymentRail {
 
   async verfuegbar(): Promise<boolean> {
     return !!this.q.wallet()?.adresse;
+  }
+
+  online(): boolean {
+    return this.q.online?.() ?? true;
   }
 
   async quote(a: Zahlanfrage): Promise<Angebot> {

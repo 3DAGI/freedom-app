@@ -6,7 +6,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   type Beleg, type PaymentRail, type RailId, type Zahlanfrage, betragText, inBeidenEinheiten, pruefeAnfrage, railFuerZiel,
-  waehleRail, zahle,
+  waehleRail, zahle, OFFLINE_HINWEIS, offlineZahlText,
 } from "../src/payment-rail.js";
 
 // Testvektor aus BOLT 11 – oeffentlich, kein Geheimnis.
@@ -64,4 +64,28 @@ test("Betraege in beiden Einheiten und lesbar", () => {
   assert.equal(betragText({ einheit: "msat", wert: 21_000 }), "21 sats");
   assert.equal(betragText({ einheit: "msat", wert: 7 }), "7 msat");
   assert.equal(betragText({ einheit: "lamports", wert: 5_000 }), "0,000005 SOL");
+});
+
+test("Offline (7.3): klare Absage statt Netzfehler – vor der Wallet-Frage, nichts gezahlt", async () => {
+  class OfflineRail extends MockRail {
+    gefragt = 0;
+    constructor(id: RailId, private netz: boolean) { super(id); }
+    online() { return this.netz; }
+    async verfuegbar() { this.gefragt++; return true; }
+  }
+  const ln = new OfflineRail("lightning", false), sol = new OfflineRail("solana", false);
+  await assert.rejects(zahle([ln, sol], { ziel: BOLT11, betrag: { einheit: "msat", wert: 21_000 }, zweck: "zap" }),
+    /Offline: Sats gehen erst wieder, wenn Netz da ist/);
+  await assert.rejects(zahle([ln, sol], { ziel: SOL, betrag: { einheit: "lamports", wert: 5_000 }, zweck: "trinkgeld" }),
+    /Offline: SOL geht erst wieder/);
+  assert.equal(ln.gefragt + sol.gefragt, 0, "NWC nicht erst fragen – offline haengt das");
+  assert.equal(ln.gezahlt.length + sol.gezahlt.length, 0);
+  // Mit Netz – oder ohne Angabe – wie bisher.
+  const mitNetz = new OfflineRail("lightning", true);
+  await zahle([mitNetz], { ziel: BOLT11, betrag: { einheit: "msat", wert: 21_000 }, zweck: "zap" });
+  assert.equal(mitNetz.gezahlt.length, 1);
+  // Der Hinweis nennt, was offline geht – und verspricht keine Sats.
+  assert.match(OFFLINE_HINWEIS, /Nachrichten gehen verschlüsselt über Funk oder per Datei/);
+  assert.match(OFFLINE_HINWEIS, /Sats und SOL, sobald wieder Netz da ist/);
+  assert.match(offlineZahlText("lightning"), /mehrere Runden/);
 });

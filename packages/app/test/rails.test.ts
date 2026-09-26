@@ -118,3 +118,14 @@ test("Solana: verbundene Wallet signiert die gebaute Ueberweisung; Pruefung nur 
   const leer = new SolanaRail({ wallet: () => undefined, baueUeberweisung: async () => ({}) });
   assert.equal(await leer.verfuegbar(), false);
 });
+
+test("Offline (7.3): beide Schienen fragen das Netz, zahle() sagt es klar", async () => {
+  const ln = new LightningRail({ nwc: () => ({ payInvoice: async () => ({ preimage: "00" }), getBalance: async () => 0 }), online: () => false });
+  const sol = new SolanaRail({ wallet: () => ({ adresse: SOL_ICH, signiereUndSende: async () => SIGNATUR }), baueUeberweisung: async () => ({}), online: () => false });
+  assert.equal(ln.online(), false);
+  assert.equal(sol.online(), false);
+  await assert.rejects(zahle([ln, sol], { ziel: BOLT11, betrag: { einheit: "msat", wert: 250_000_000 }, zweck: "zap" }), /Offline: Sats/);
+  await assert.rejects(zahle([ln, sol], { ziel: SOL_ZIEL, betrag: { einheit: "lamports", wert: 5000 }, zweck: "trinkgeld" }), /Offline: SOL/);
+  // Ohne Angabe gilt: Netz da.
+  assert.equal(new LightningRail({}).online(), true);
+});

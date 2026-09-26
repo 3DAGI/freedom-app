@@ -770,6 +770,12 @@ h3 .ic-svg, h3 .logo-btc, h3 .logo-sol { vertical-align: -2px; margin-right: 6px
 }
 .mnemonic-list li { padding: 2px 0; }
 
+/* Offline-Hinweis (7.3): was ohne Netz geht und was nicht. */
+.offline-hinweis {
+  padding: 8px 12px; border-bottom: 1px solid var(--line, #1E1E1E);
+  border-left: 3px solid var(--amber); font-size: 12px;
+}
+
 /* Onboarding-Leiste. Immer genau EIN naechster Schritt — eine Liste offener
    Punkte schreckt ab, obwohl man die meisten nie braucht. */
 #onboarding-bar {
