@@ -4089,3 +4089,8 @@ Umschläge statt Rohtext), Leak-Tests 43 → 46; protocol 1069 (Auskunft ersetzt
 über keine Strecke geht Offenes). `decrementTtl` ist ungenutzt (Ausnahme mit
 Grund); die Kurier-Pakete aus `mesh.ts` bleiben unverdrahtet – Kurier-Belohnung
 ist Geld ohne Karte.
+
+Endstand (nach dem Einmergen von 4.9d): protocol 1071 · node 213 (+ 7
+übersprungen ohne Netz) · app 288 · Leak-Tests 47 grün + 2 todo · 0 rot ·
+check-wiring `--streng` 0 offen · innerHTML streng 0 unbewertet · Smoke-Test
+bestanden.
