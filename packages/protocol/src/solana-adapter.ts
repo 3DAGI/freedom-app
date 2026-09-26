@@ -183,8 +183,12 @@ export class AnchorSolanaHtlc implements SolanaHtlcAdapter {
     const initiator = new PublicKey(d.subarray(off, off + 32)).toBase58(); off += 32;
     const recipient = new PublicKey(d.subarray(off, off + 32)).toBase58(); off += 32;
     const hashlock = new Uint8Array(d.subarray(off, off + 32)); off += 32;
-    const timelockUnix = Number(d.readBigInt64LE(off)); off += 8;
-    const amountLamports = Number(d.readBigUInt64LE(off)); off += 8;
+    // DataView statt d.readBigInt64LE: Das Buffer-Polyfill im Browser kennt
+    // die BigInt-Methoden nicht – bis 4.6c scheiterte dort jede Pruefung einer
+    // Sperre („d.readBigInt64LE is not a function“).
+    const dv = new DataView(d.buffer, d.byteOffset, d.byteLength);
+    const timelockUnix = Number(dv.getBigInt64(off, true)); off += 8;
+    const amountLamports = Number(dv.getBigUint64(off, true)); off += 8;
     const claimed = d[off] === 1; off += 1;
     const refunded = d[off] === 1; off += 1;
 

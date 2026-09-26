@@ -177,4 +177,6 @@ test("der Berichtstext trennt Belegtes und Offenes", () => {
   assert.match(t, /✓ KI-Antworten sind für Relays nicht lesbar\./);
   assert.match(t, /✓ Reklamationen sind nicht öffentlich – sie gehen versiegelt/);
   assert.match(t, /○ Noch nicht: Räume sind Ende-zu-Ende-verschlüsselt\. \(Ausbauplan 2\.3\)/);
+  // Seit 4.6c: Die Anfrage der Gegenrichtung traegt die Rechnung offen – als Luecke benannt.
+  assert.match(t, /○ Noch nicht: Beim Tausch SOL → sats sehen Relays deine Lightning-Rechnung nicht\. \(Ausbauplan 4\.9\)/);
 });

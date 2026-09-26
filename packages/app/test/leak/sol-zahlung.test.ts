@@ -61,6 +61,7 @@ test("SOL-Zahlung: jede Zahlung von einer frischen Adresse", { todo: "Schritt 4.
 
 test("Verdrahtung: startDeposit() sperrt mit lockDeposit und kuendigt mit buildSolDepositOpen an", () => {
   const w = readFileSync(new URL("../../src/shell/tabs/waehrung.ts", import.meta.url), "utf8");
-  assert.match(w, /await lockDeposit\(\{\s*connection: conn,\s*wallet: provider as never,/);
+  // Seit 4.6c mit dem Signierer aus der Verbindung (auch Wallet-Standard-Wallets)
+  assert.match(w, /await lockDeposit\(\{\s*connection: conn,\s*wallet: signer,/);
   assert.match(w, /signiere\(buildSolDepositOpen\(\{\s*customerPubkey: state\.keypair\.pk,/);
 });

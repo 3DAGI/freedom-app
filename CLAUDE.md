@@ -41,9 +41,9 @@ python3 scripts/smoke_test.py packages/app/dist         # braucht playwright + c
 bash scripts/build-site.sh /tmp/site                     # Website bauen (Ziel wird gelöscht!)
 ```
 
-Stand 26.09.2026 (nach 4.6b): protocol 1037 grün (5 übersprungen), node 199 grün
+Stand 26.09.2026 (nach 4.6c): protocol 1038 grün (5 übersprungen), node 199 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 249 grün, Leak-Tests 36 grün + 3 `todo` (heutige Lecks,
+in `tools.test.ts`), app 260 grün, Leak-Tests 37 grün + 4 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test).
 
 ## Arbeitsweise
@@ -175,6 +175,13 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   Kurs · 1000 msat – bis 4.4 stand im Knoten eine Tausend zu viel im Nenner.
   Ohne Kurs keinen SOL-Preis erfinden. In der App zeigen Preise beide Einheiten
   über `preis-anzeige.ts` mit `aktuellerKurs()` (`shell/marktkurs.ts`).
+- **HTLC-Transaktionen nur mit `htlcSigner()`** (`tabs/waehrung.ts`, seit 4.6c):
+  Wallets nach dem Wallet Standard haben kein `publicKey`-Feld – `solWallet.provider`
+  direkt als `WalletSigner` brach Einlösen, Deposit und Rückholen ab. Jede neue
+  Sperre vor dem Anlegen mit `rememberLock()` merken, damit der Rückhol-Wächter sie kennt.
+- **Kein `readBigInt64LE` & Co. in Code, der im Browser läuft:** Das
+  Buffer-Polyfill kennt die BigInt-Methoden nicht – `DataView` nehmen
+  (so scheiterte bis 4.6c jede Prüfung einer Sperre in der App).
 - **`fetch` nie als Methode speichern** (`this.f = fetch; this.f(…)`): Im Browser
   wirft das „Illegal invocation“, Node merkt es nicht – so scheiterte bis 4.2b
   jede Abfrage des `RpcPool` in der App. Stattdessen `(i, o) => fetch(i, o)`.

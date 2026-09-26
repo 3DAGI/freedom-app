@@ -1,6 +1,6 @@
 # Swaps zwischen Lightning und Solana
 
-Stand 26.09.2026 (Schritt 4.6b). Atomar über denselben Hash: Wer das Preimage
+Stand 26.09.2026 (Schritt 4.6c). Atomar über denselben Hash: Wer das Preimage
 kennt, kann auf beiden Seiten einlösen; läuft eine Frist ab, geht das Geld an
 den zurück, der gesperrt hat. Niemand verwahrt fremdes Geld.
 
@@ -78,6 +78,36 @@ fremder Empfänger, zu kurze Frist → LP zahlt gar nicht erst.
   fragt `nachholen()` LND nach dem Stand (`/v2/router/track`): erfolgreich →
   Preimage übernehmen und einlösen; gescheitert → abschließen; nie angekommen
   und Frist vorbei → abschließen. Gezahlt wird nie ein zweites Mal.
+
+### In der App (4.6c)
+
+Im Tab Währung → Tausch stehen die Angebote mit Richtung („SOL → sats“).
+`startRueckSwap()` (`tabs/waehrung.ts`) plant mit `planeRueckSwap()`
+(`rueck-swap.ts`), bevor irgendetwas gesperrt wird:
+
+1. Betrag in sats; die Rechnung erstellt die verbundene Lightning-Wallet (NWC
+   `make_invoice`), sonst fügt der Nutzer eine ein. Die App prüft Signatur und
+   Betrag (`leseBolt11`). Das Preimage verlässt die Wallet nie.
+2. Sperrbetrag `rueckSwapLamports()` mit Kurs und Gebühr aus dem Angebot;
+   Frist `lnCltvDeltaBlocks · 20 min + 1 h + 30 min Puffer` – so nimmt der LP
+   die Sperre auch nach Ablauf des Puffers mit vollem `cltv_limit` an. Mehr
+   als eine Woche Sperre lehnt die App ab. Vor dem Sperren nennt ein Dialog
+   Betrag, Gebühr und ab wann die SOL zurückkommen.
+3. Die Sperre wird **zuerst gemerkt**, dann angelegt (`lockRueckSwap`,
+   Vorabsimulation an).
+4. Die Anfrage geht von einem Wegwerf-Schlüssel aus, nicht vom eigenen npub,
+   und nennt keine SOL-Adresse. Die Rechnung steht darin noch offen – Lücke,
+   die 4.9 schließt (im Datenschutzbericht benannt).
+5. Die Antwort des LP wird nur als Anzeige genommen. Ob er wirklich
+   eingelöst hat, sagt die Kette.
+
+**Rückholen:** Der Rückhol-Wächter (`refund-watcher.ts`) läuft, sobald eine
+Solana-Wallet verbunden ist, und holt fällige Sperren – Swaps und Deposits –
+zurück. Vorher fragt er die Kette: Schon eingelöste oder nie angelegte Sperren
+schließt er ohne Wallet-Dialog ab, und in einer Rückholung stehen nur die noch
+offenen (eine eingelöste riss vorher die offene in derselben Transaktion mit).
+Die gemerkten Sperren liegen mit Tresor im Tresor. Er läuft nur, solange die
+App offen ist; bestätigt wird jede Rückholung in der Wallet.
 
 ## Gegen Blockaden
 

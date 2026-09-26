@@ -19,6 +19,7 @@ import {
   buildRefundInstruction,
   swapAddress,
   lockDeposit,
+  lockRueckSwap,
   refundDepositOnChain,
   HTLC_PROGRAM_ID,
   WalletSigner,
@@ -273,4 +274,35 @@ test("Refund: leere Liste fuehrt zu keiner Transaktion", async () => {
   });
   assert.equal(r.signature, undefined);
   assert.equal(r.refunded.length, 0);
+});
+
+// ------------------------------------------------ Gegenrichtung (4.6c)
+
+test("Rueck-Swap-Sperre: Hashlock = Hash der Rechnung, Empfaenger = LP, Vorabsimulation an", async () => {
+  let gesehen: { instructions: { data: Uint8Array; keys: { pubkey: PublicKey }[] }[] } | undefined;
+  let optionen: unknown;
+  const conn = fakeConnection() as unknown as { sendRawTransaction: (raw: unknown, o: unknown) => Promise<string> };
+  conn.sendRawTransaction = async (_raw, o) => { optionen = o; return "sig1111111111111111111111111111111111111111"; };
+  const hash = "ab".repeat(32);
+  const frist = Math.floor(Date.now() / 1000) + 50 * 3600;
+  const r = await lockRueckSwap({
+    connection: conn as never, wallet: fakeWallet((tx) => { gesehen = tx as never; }),
+    swapId: "c".repeat(64), paymentHashHex: hash, lamports: 1_010_000, timelockUnix: frist, lpSol: PROVIDER,
+  });
+  assert.match(r.signature, /^sig/);
+  const ix = gesehen!.instructions[0];
+  assert.equal(gesehen!.instructions.length, 1);
+  assert.equal(bytesToHex(ix.data.slice(8 + 32, 8 + 64)), hash, "Hashlock");
+  assert.equal(Buffer.from(ix.data).readBigUInt64LE(8 + 72), 1_010_000n, "Betrag");
+  assert.equal(Buffer.from(ix.data).readBigInt64LE(8 + 64), BigInt(frist), "Frist");
+  assert.equal(ix.keys[0].pubkey.toBase58(), KUNDE, "Kunde sperrt");
+  assert.equal(ix.keys[1].pubkey.toBase58(), PROVIDER, "fuer den LP");
+  assert.deepEqual(optionen, { skipPreflight: false, preflightCommitment: "confirmed" });
+});
+
+test("Rueck-Swap-Sperre: kaputter Hash, zu kurze Frist oder abgelehnte Transaktion", async () => {
+  const basis = { wallet: fakeWallet(), swapId: "x", lamports: 1, lpSol: PROVIDER, timelockUnix: Math.floor(Date.now() / 1000) + 50 * 3600 };
+  await assert.rejects(() => lockRueckSwap({ ...basis, connection: fakeConnection(), paymentHashHex: "ab" }), /Hash der Rechnung/);
+  await assert.rejects(() => lockRueckSwap({ ...basis, connection: fakeConnection(), paymentHashHex: "ab".repeat(32), timelockUnix: Math.floor(Date.now() / 1000) + 600 }), /Frist/);
+  await assert.rejects(() => lockRueckSwap({ ...basis, connection: fakeConnection({ InstructionError: [0, { Custom: 0 }] }), paymentHashHex: "ab".repeat(32) }), /Sperre abgelehnt/);
 });

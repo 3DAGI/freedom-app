@@ -3611,3 +3611,58 @@ Blockadeschutz, Dateispeicher 0600, Verdrahtung).
 Endstand: protocol 1037 · node 199 · app 249 · Leak-Tests 36 grün + 3 todo · 0
 rot · check-wiring `--streng` 0 offen · innerHTML streng 0 unbewertet ·
 Smoke-Test bestanden.
+
+## 93. Swaps in beide Richtungen, Teil c: SOL → sats in der App, Rückholen (Schritt 4.6)
+
+**Angebotsliste:** Zeilen per DOM und `textContent` statt `innerHTML` (zwei
+Ausnahmen weniger), mit Richtung („SOL → sats“ / „sats → SOL“). Die Gebühr
+stand als `feePpm / 100` Prozent da – 3000 ppm (0,30 %) hießen „30.0%“.
+
+**Ablauf SOL → sats (`rueck-swap.ts`, `startRueckSwap()`):** planen, bevor
+etwas gesperrt wird (`planeRueckSwap`: Angebot mit Konto und Kurs, Betrag im
+Rahmen, Rechnung mit genau diesem Betrag, Frist = `lnCltvDeltaBlocks` · 20 min
++ 1 h + 30 min Puffer, höchstens eine Woche). Die Rechnung erstellt die
+NWC-Wallet (sonst einfügen); ihr Preimage bleibt dort. Dialog mit Betrag,
+Gebühr, Kurswarnung gegen den Markt und Rückgabezeitpunkt. Dann: Sperre
+merken → `lockRueckSwap` → Anfrage vom Wegwerf-Schlüssel (nicht npub, keine
+SOL-Adresse) → Antwort des LP anzeigen. `ZU_SPAET` heißt: Der LP hat gezahlt –
+der Text sagt das, statt „nicht getauscht“ zu behaupten.
+
+**Rückhol-Wächter verdrahtet:** `refund-watcher.ts` gab es seit Langem, aber
+nichts rief ihn auf – FAQ und Whitepaper versprachen trotzdem ein
+automatisches Zurückholen. Jetzt startet er, sobald eine Solana-Wallet
+verbunden ist; gemerkt werden Rück-Swaps und Deposits, jeweils **vor** dem
+Sperren. Vor jeder Rückholung fragt er die Kette (`offen()`): eingelöste oder
+nie angelegte Sperren ohne Wallet-Dialog abschließen, sonst nur die offenen in
+die Transaktion (vorher riss eine eingelöste die offene mit). Ablage über
+`setzeSperrSpeicher(geheim)`, beim Einrichten des Tresors wandert
+`freedom.pending.*` mit hinein. FAQ und Whitepaper sagen jetzt, was gilt: Die
+App holt zurück, solange sie offen und die Wallet verbunden ist.
+
+**Zwei Fehler, die erst der Browser zeigte** (E2E mit Wallet-Standard-Wallet,
+nachgebildeten Relays und RPC):
+- Wallet-Standard-Wallets (4.2c) haben kein `publicKey`-Feld; `solWallet.provider`
+  wurde direkt als Signierer übergeben – Einlösen, Deposit, Deposit-Rückholung
+  brachen mit „reading 'toBase58'“ ab. Jetzt `htlcSigner()` mit der Adresse aus
+  der Verbindung, an allen fünf Stellen.
+- `AnchorSolanaHtlc.get()` las Frist und Betrag mit `readBigInt64LE`, das dem
+  Buffer-Polyfill im Browser fehlt – jede Prüfung einer Sperre in der App
+  scheiterte, auch die der Hinrichtung vor dem Bezahlen. Jetzt `DataView`;
+  Regressionstest entfernt die Methoden wie im Browser.
+
+**Datenschutz:** Die Anfrage der Gegenrichtung trägt die Rechnung offen (der LP
+liest nur offene Anfragen). Neues Leak-Szenario `test/leak/rueck-swap.test.ts`:
+nicht vom npub, keine SOL-Adresse (grün), keine Rechnung (`todo` 4.9); im
+Bericht als offene Aussage „Beim Tausch SOL → sats sehen Relays deine
+Lightning-Rechnung nicht (4.9)“.
+
+**Tests:** protocol 1037 → 1038 (`solana-lesen.test.ts`), app 249 → 260
+(`rueck-swap.test.ts` 6, `sol-htlc.test.ts` +2, `refund-watcher.test.ts` +3),
+Leak-Tests 36 → 37 grün, `todo` 3 → 4. Browser-E2E: Wächter holt eine fällige
+Sperre zurück, Angebot mit Richtung und 1,00 %, Sperre mit richtigem Programm,
+Kunde, LP, PDA, Hashlock und 1.010.000 Lamports, Anfrage vom Wegwerf-Schlüssel,
+„Fertig: 10000 sats“; Regression Wallet Standard (4.2c) grün.
+
+Endstand: protocol 1038 · node 199 · app 260 · Leak-Tests 37 grün + 4 todo ·
+0 rot · check-wiring `--streng` 0 offen · innerHTML streng 0 unbewertet ·
+Smoke-Test bestanden.

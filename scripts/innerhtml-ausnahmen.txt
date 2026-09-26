@@ -83,8 +83,6 @@ agent.ts|zeile("Tokens", `${ganzeZahl(usage.promptTokens)} rein, ${ganzeZahl(usa
 agent.ts|zeile("Diese Antwort", `${Math.floor(amountMsat / 1000)} sat`)|zeile() maskiert Schlüssel und Wert selbst
 agent.ts|zeilen|Templates mit escapeHtml(l.leg), festen Klassen und Marken, Zahl.toFixed(2)
 agent.ts|(Zuweisung) svg|icon(...) aus der festen Symboltabelle
-waehrung.ts|(Zuweisung) valid .map( ({ ev, offer }) => ` <div class="stat"> <span class="k">${escapeHtml(pkShort(ev.pubkey))} · ${Number(offer.m|Callback: Template mit escapeHtml und Number(...)
-waehrung.ts|(Number(offer.feePpm) / 100).toFixed(1)|Number(...).toFixed(1) – nur Ziffern und Punkt
 waehrung.ts|(Zuweisung) verdict.problems.map((p) => escapeHtml(p)).join("<br>")|jede Zeile mit escapeHtml
 earn.ts|(Zuweisung) sorted .map((ev) => { const get = (n: string) => ev.tags.find((t) => t[0] === n)?.[1] ?? "—"; return `<div class="stat">|Callback: Template mit escapeHtml(get(...)), Math.floor und timeAgo()
 earn.ts|timeAgo(ev.created_at)|timeAgo() rechnet: Zahl plus s/m/h/d

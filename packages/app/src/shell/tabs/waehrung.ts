@@ -6,15 +6,19 @@
  */
 import {
   KIND_LP_OFFER,
+  LocalSigner,
+  type LpOffer,
   NostrEvent,
   buildEvent,
+  generateKeypair,
   generatePreimage,
   hashlock,
   parseLpOffer,
   toHex,
 } from "@freedomstack/protocol";
 import { escapeHtml, pkShort } from "../../shell-logic.js";
-import { anbieterKursWarnung, depositDeckel } from "../../preis-anzeige.js";
+import { anbieterKursWarnung, depositDeckel, solText } from "../../preis-anzeige.js";
+import type { RueckPlan } from "../../rueck-swap.js";
 import {
   ensurePool,
   KIND_SWAP_REQUEST,
@@ -76,26 +80,33 @@ export async function loadWallet(): Promise<void> {
     const box = $("#lp-offers");
     // SICHERHEIT: offerId/pubkey kommen aus FREMDEN Relay-Events. Frueher
     // wurden sie in ein inline onclick="startSwap('...')" interpoliert — ein
-    // boesartiger LP konnte damit beliebiges JS im App-Kontext ausfuehren und
-    // den Nostr-Secret-Key aus localStorage abziehen. Jetzt: escapte
-    // data-Attribute + addEventListener, nie Code aus fremdem Text.
-    box.innerHTML = valid.length
-      ? valid
-          .map(
-            ({ ev, offer }) => `
-        <div class="stat">
-          <span class="k">${escapeHtml(pkShort(ev.pubkey))} · ${Number(offer.minSats)}–${Number(offer.maxSats)} sats · ${(Number(offer.feePpm) / 100).toFixed(1)}%</span>
-          <span><button class="ghost lp-swap-btn" style="width:auto;padding:6px 10px" data-lp="${escapeHtml(ev.pubkey)}" data-offer="${escapeHtml(offer.offerId)}">swap</button></span>
-        </div>`,
-          )
-          .join("")
-      : "<div class='mono-sm'>keine LP-Angebote gefunden</div>";
-    box.querySelectorAll(".lp-swap-btn").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const el = btn as HTMLElement;
-        void startSwap(el.dataset.lp ?? "", el.dataset.offer ?? "");
-      });
-    });
+    // boesartiger LP konnte damit beliebiges JS im App-Kontext ausfuehren.
+    // Seit 4.6c: Zeilen per DOM und textContent, das Angebot bleibt ein Objekt.
+    box.replaceChildren();
+    if (!valid.length) {
+      const leer = document.createElement("div");
+      leer.className = "mono-sm";
+      leer.textContent = "keine LP-Angebote gefunden";
+      box.appendChild(leer);
+    }
+    for (const { ev, offer } of valid) {
+      const rueck = offer.direction === "buy-sol";
+      const zeile = document.createElement("div");
+      zeile.className = "stat";
+      const text = document.createElement("span");
+      text.className = "k";
+      // fee_ppm: Millionstel – 3000 ppm sind 0,30 % (bis 4.6c stand hier „30.0%“).
+      text.textContent = `${pkShort(ev.pubkey)} · ${rueck ? "SOL → sats" : "sats → SOL"} · ${Number(offer.minSats)}–${Number(offer.maxSats)} sats · ${(Number(offer.feePpm) / 10_000).toFixed(2)} %`;
+      const knopf = document.createElement("button");
+      knopf.className = "ghost";
+      knopf.style.cssText = "width:auto;padding:6px 10px";
+      knopf.textContent = "tauschen";
+      knopf.addEventListener("click", () => void (rueck ? startRueckSwap(ev.pubkey, offer) : startSwap(ev.pubkey, offer.offerId)));
+      const rechts = document.createElement("span");
+      rechts.appendChild(knopf);
+      zeile.append(text, rechts);
+      box.appendChild(zeile);
+    }
   } catch (e) {
     toast(`Relay-Fehler: ${(e as Error).message}`, true);
   }
@@ -316,8 +327,8 @@ let activeSwap: {
 export async function claimActiveSwap(): Promise<void> {
   const statusEl = $("#swap-status");
   if (!activeSwap) return;
-  const provider = solWallet.provider;
-  if (!provider?.signTransaction) {
+  const signer = htlcSigner();
+  if (!signer) {
     statusEl.textContent = "Solana-Wallet verbinden, um einzuloesen.";
     statusEl.className = "mono-sm warn";
     return;
@@ -339,7 +350,7 @@ export async function claimActiveSwap(): Promise<void> {
 
     const r = await claimSwap({
       connection: new Connection(rpcUrl, "confirmed"),
-      wallet: provider as never,
+      wallet: signer,
       swapId: activeSwap.swapId,
       preimage: fh(secret.preimageHex),
       initiator: activeSwap.initiator,
@@ -363,6 +374,113 @@ export async function claimActiveSwap(): Promise<void> {
 }
 
 /** Sicherung aller offenen Preimages herunterladen. */
+// ------------------------------------------------ Gegenrichtung (4.6c)
+
+/** Rueckhol-Waechter laden; seine Ablage liegt im Tresor-Speicher. */
+async function sperren(): Promise<typeof import("../../refund-watcher.js")> {
+  const m = await import("../../refund-watcher.js");
+  m.setzeSperrSpeicher(geheim);
+  return m;
+}
+
+let waechterStop: (() => void) | undefined;
+
+/**
+ * Holt faellige Sperren (Swaps, Deposits) von selbst zurueck, solange die App
+ * offen und eine Wallet verbunden ist. Vorher wird die Kette gefragt – was
+ * schon eingeloest ist, braucht keinen Wallet-Dialog.
+ */
+async function starteRueckholWaechter(): Promise<void> {
+  const signer = htlcSigner();
+  if (waechterStop || !signer) return;
+  const [{ startRefundWatcher, walletRefundRunner }, { Connection }] = await Promise.all([sperren(), import("@solana/web3.js")]);
+  const conn = new Connection(await solRpcUrl(), "confirmed");
+  waechterStop = startRefundWatcher(walletRefundRunner(conn, signer), (r) => {
+    if (!r.zurueckgeholt) return;
+    toast(`${r.zurueckgeholt} Sperre(n) zurückgeholt: ${solText(r.lamports)}`);
+    updateSidebarBalances();
+  });
+}
+
+/**
+ * SOL geben, sats bekommen. Die Rechnung kommt aus der eigenen
+ * Lightning-Wallet – ihr Preimage verlaesst die Wallet nie; die App sperrt nur
+ * unter dessen Hash. Zahlt der LP nicht, holt der Waechter nach der Frist zurueck.
+ */
+async function startRueckSwap(lpPubkey: string, offer: LpOffer): Promise<void> {
+  const statusEl = $("#swap-status");
+  const melde = (text: string, art = ""): void => { statusEl.textContent = text; statusEl.className = `mono-sm ${art}`; };
+  const { istRueckAngebot, planeRueckSwap, baueRueckAnfrage, rueckText } = await import("../../rueck-swap.js");
+  if (!istRueckAngebot(offer)) return melde("Dieses Angebot nennt kein SOL-Konto oder keinen Kurs.", "err");
+  const signer = htlcSigner();
+  if (!signer) return melde("Erst eine Solana-Wallet verbinden – mit ihr werden die SOL gesperrt.", "warn");
+  const sats = Number(prompt(`Wie viele sats möchtest du bekommen? (${offer.minSats}–${offer.maxSats})`));
+  if (!Number.isSafeInteger(sats) || sats <= 0) return;
+  let bolt11: string;
+  try {
+    bolt11 = nwc
+      ? (await nwc.makeInvoice(sats * 1000, "FreedomStack: Tausch SOL → sats")).invoice
+      : (prompt(`Rechnung (bolt11) deiner Lightning-Wallet über genau ${sats} sats:`) ?? "").trim();
+  } catch (e) {
+    return melde(`Rechnung nicht erstellt: ${(e as Error).message}`, "err");
+  }
+  if (!bolt11) return;
+  let plan: RueckPlan;
+  try {
+    plan = planeRueckSwap(offer, bolt11, sats, Math.floor(Date.now() / 1000));
+  } catch (e) {
+    return melde((e as Error).message, "err");
+  }
+  const markt = await aktualisiereKurs();
+  const warnung = markt ? anbieterKursWarnung({ satsProSol: Math.round(1e9 / offer.lamportsPerSat) }, markt) : undefined;
+  if (!confirm(
+    `${warnung ? `${warnung} ` : ""}Du sperrst ${solText(plan.lamports)} (inkl. ${(offer.feePpm / 10_000).toFixed(2)} % Gebühr) für ${sats} sats. ` +
+    `Zahlt der LP nicht, bekommst du die SOL ab ${new Date(plan.timelockUnix * 1000).toLocaleString("de-DE")} zurück. Sperren?`,
+  )) return;
+
+  // Erst merken, dann sperren: Bricht die App dazwischen ab, holt der Waechter
+  // trotzdem zurueck (eine nie angelegte Sperre schliesst er ohne Transaktion ab).
+  const { rememberLock } = await sperren();
+  await rememberLock({ kind: "swap", reference: plan.swapId, swapIds: [plan.swapId], timelockUnix: plan.timelockUnix, amountLamports: plan.lamports, createdAt: Math.floor(Date.now() / 1000) });
+  try {
+    const [{ Connection }, { lockRueckSwap }] = await Promise.all([import("@solana/web3.js"), import("../../sol-htlc.js")]);
+    await lockRueckSwap({ connection: new Connection(await solRpcUrl(), "confirmed"), wallet: signer, ...plan, onProgress: (x) => melde(x) });
+  } catch (e) {
+    return melde(`Sperre nicht angelegt: ${(e as Error).message}`, "err");
+  }
+  void starteRueckholWaechter();
+
+  // Erst jetzt die Anfrage – von einem Wegwerf-Schluessel, nicht vom eigenen npub.
+  const einmal = new LocalSigner(generateKeypair().sk);
+  const anfrage = await einmal.signEvent(baueRueckAnfrage(einmal.publicKey(), lpPubkey, offer.offerId, bolt11, Math.floor(Date.now() / 1000)));
+  await (await ensurePool()).publish(anfrage);
+  melde(rueckText(undefined, plan));
+  void warteAufRueckAntwort(anfrage.id, lpPubkey, plan);
+}
+
+/** Antwort des LP abwarten (er prueft bis zu 10 Minuten nach der Anfrage). */
+async function warteAufRueckAntwort(requestId: string, lpPubkey: string, plan: RueckPlan): Promise<void> {
+  const { leseRueckAntwort, rueckText } = await import("../../rueck-swap.js");
+  const pool = await ensurePool();
+  const statusEl = $("#swap-status");
+  const ende = Date.now() + 12 * 60_000;
+  while (Date.now() < ende) {
+    const antwort = (await pool.query({ kinds: [KIND_SWAP_RESPONSE], "#e": [requestId], authors: [lpPubkey] }))
+      .map(leseRueckAntwort).find((x) => x !== undefined);
+    if (antwort) {
+      // Die Sperre bleibt gemerkt, auch bei EINGELOEST: Ob der LP wirklich
+      // eingeloest hat, sagt die Kette – der Waechter schliesst sie dann ab.
+      statusEl.textContent = rueckText(antwort, plan);
+      statusEl.className = `mono-sm ${antwort.status === "EINGELOEST" ? "ok" : "warn"}`;
+      if (antwort.status === "EINGELOEST") updateSidebarBalances();
+      return;
+    }
+    await new Promise((r) => setTimeout(r, 5000));
+  }
+  statusEl.textContent = `Keine Antwort des LP. ${rueckText(undefined, plan)}`;
+  statusEl.className = "mono-sm warn";
+}
+
 export async function exportSwapBackup(): Promise<void> {
   const { exportSwapSecrets } = await swapClient();
   const blob = new Blob([exportSwapSecrets()], { type: "application/json" });
@@ -391,6 +509,19 @@ const solWallet: SolanaWalletState = { connected: false, pubkey: null };
 /** Verbundene Solana-Wallet fuer die Zahlschiene (4.1b) – undefined, solange keine verbunden ist. */
 export function verbundeneSolanaWallet(): { adresse: string; provider: SolanaWalletState["provider"] } | undefined {
   return solWallet.connected && solWallet.pubkey ? { adresse: solWallet.pubkey, provider: solWallet.provider } : undefined;
+}
+
+/**
+ * Signierer fuer HTLC-Transaktionen (Sperren, Einloesen, Zurueckholen) aus der
+ * verbundenen Wallet. Wallets nach dem Wallet Standard (4.2c) haben kein
+ * `publicKey`-Feld – die Adresse kommt aus der Verbindung. Bis 4.6c brachen
+ * Einloesen, Deposit und Rueckholen mit solchen Wallets ab („reading 'toBase58'“).
+ */
+function htlcSigner(): import("../../sol-htlc.js").WalletSigner | undefined {
+  const provider = solWallet.provider;
+  const adresse = solWallet.pubkey;
+  if (!solWallet.connected || !adresse || !provider?.signTransaction) return undefined;
+  return { publicKey: { toBase58: () => adresse }, signTransaction: (tx) => provider.signTransaction!(tx) };
 }
 
 /** Name der zuletzt verbundenen Wallet (Wallet Standard) – kein Geheimnis. */
@@ -454,6 +585,7 @@ export async function connectSolana(silent = false): Promise<void> {
 
     statusEl.textContent = "verbunden";
     statusEl.className = "mono-sm ok";
+    void starteRueckholWaechter();
     const addrEl = $("#sol-addr");
     addrEl.textContent = conn.pubkey;
     (addrEl as HTMLInputElement).value = conn.pubkey;
@@ -613,8 +745,8 @@ export async function startDeposit(): Promise<void> {
     // Event zuerst kommen, stuende eine Ankuendigung auf den Relays, der nichts
     // entspricht; scheitert die Signatur, gaebe es keinen Weg, sie
     // zurueckzunehmen.
-    const provider = solWallet.provider;
-    if (!provider?.signTransaction) {
+    const signer = htlcSigner();
+    if (!signer) {
       statusEl.textContent = "Diese Wallet kann keine Transaktionen signieren.";
       statusEl.className = "mono-sm err";
       return;
@@ -636,9 +768,17 @@ export async function startDeposit(): Promise<void> {
 
     const { lockDeposit } = await import("../../sol-htlc.js");
     statusEl.className = "mono-sm";
+    // Fuer den Rueckhol-Waechter merken, BEVOR gesperrt wird (4.6c) – bis
+    // dahin versprach die App ein automatisches Zurueckholen, das nie lief.
+    const { rememberLock } = await sperren();
+    await rememberLock({
+      kind: "deposit", reference: sessionId, swapIds: [refundSwapId, spendSwapId],
+      timelockUnix: Math.floor(Date.now() / 1000) + 7200, amountLamports: totalLamports, createdAt: Math.floor(Date.now() / 1000),
+    });
+    void starteRueckholWaechter();
     const lock = await lockDeposit({
       connection: conn,
-      wallet: provider as never,
+      wallet: signer,
       providerSolAddress: providerSol,
       spendSwapId,
       refundSwapId,
@@ -697,8 +837,8 @@ export async function refundDeposit(): Promise<void> {
     statusEl.textContent = "keine aktive Deposit-Session";
     return;
   }
-  const provider = solWallet.provider;
-  if (!provider?.signTransaction) {
+  const signer = htlcSigner();
+  if (!signer) {
     statusEl.textContent = "Wallet verbinden, um zurueckzuholen.";
     statusEl.className = "mono-sm warn";
     return;
@@ -727,7 +867,7 @@ export async function refundDeposit(): Promise<void> {
     statusEl.className = "mono-sm";
     const res = await refundDepositOnChain({
       connection: new Connection(rpcUrl, "confirmed"),
-      wallet: provider as never,
+      wallet: signer,
       swapIds: [activeDeposit.refundSwapId, activeDeposit.spendSwapId],
       onProgress: (step) => { statusEl.textContent = step; },
     });

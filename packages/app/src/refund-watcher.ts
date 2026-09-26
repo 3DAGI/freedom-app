@@ -42,23 +42,46 @@ export interface PendingLock {
   lastError?: string;
 }
 
-const STORE_PREFIX = "freedom.pending.";
+export const STORE_PREFIX = "freedom.pending.";
 
-export function rememberLock(lock: PendingLock): void {
-  localStorage.setItem(STORE_PREFIX + lock.reference, JSON.stringify(lock));
+/**
+ * Wo die Sperren gemerkt werden. Sie zeigen, wann wie viel SOL wohin ging –
+ * mit Tresor liegen sie deshalb dort (4.6c, `setzeSperrSpeicher(geheim)`),
+ * sonst in localStorage.
+ */
+export interface SperrSpeicher {
+  getItem(key: string): string | null;
+  setItem(key: string, value: string): void | Promise<void>;
+  removeItem(key: string): void | Promise<void>;
+  keys(): string[];
 }
 
-export function forgetLock(reference: string): void {
-  localStorage.removeItem(STORE_PREFIX + reference);
+const lokal: SperrSpeicher = {
+  getItem: (k) => localStorage.getItem(k),
+  setItem: (k, v) => localStorage.setItem(k, v),
+  removeItem: (k) => localStorage.removeItem(k),
+  keys: () => Array.from({ length: localStorage.length }, (_, i) => localStorage.key(i)).filter((k): k is string => k !== null),
+};
+let speicher: SperrSpeicher = lokal;
+
+export function setzeSperrSpeicher(s: SperrSpeicher): void {
+  speicher = s;
+}
+
+export async function rememberLock(lock: PendingLock): Promise<void> {
+  await speicher.setItem(STORE_PREFIX + lock.reference, JSON.stringify(lock));
+}
+
+export async function forgetLock(reference: string): Promise<void> {
+  await speicher.removeItem(STORE_PREFIX + reference);
 }
 
 export function listPendingLocks(): PendingLock[] {
   const out: PendingLock[] = [];
-  for (let i = 0; i < localStorage.length; i++) {
-    const k = localStorage.key(i);
-    if (!k?.startsWith(STORE_PREFIX)) continue;
+  for (const k of speicher.keys()) {
+    if (!k.startsWith(STORE_PREFIX)) continue;
     try {
-      const l = JSON.parse(localStorage.getItem(k)!) as PendingLock;
+      const l = JSON.parse(speicher.getItem(k)!) as PendingLock;
       if (!l.settled) out.push(l);
     } catch { /* beschädigter Eintrag */ }
   }
@@ -115,6 +138,12 @@ export function viewLock(lock: PendingLock, nowUnix = Math.floor(Date.now() / 10
 
 export interface RefundRunner {
   refund(swapIds: string[]): Promise<{ signature?: string; refunded: string[]; failed: { swapId: string; reason: string }[] }>;
+  /**
+   * Welche dieser Sperren liegen noch offen auf der Kette (4.6c)? Eingeloeste,
+   * zurueckgeholte oder nie angelegte brauchen keinen Wallet-Dialog – und
+   * reissen in einer gemeinsamen Transaktion die offenen nicht mehr mit.
+   */
+  offen?(swapIds: string[]): Promise<string[]>;
 }
 
 export interface SweepResult {
@@ -148,20 +177,26 @@ export async function sweepPendingRefunds(
     }
 
     try {
-      const r = await runner.refund(lock.swapIds);
+      const offen = runner.offen ? await runner.offen(lock.swapIds) : lock.swapIds;
+      if (offen.length === 0) {
+        // Nichts mehr zurueckzuholen (eingeloest oder schon zurueck) – ohne Transaktion abschliessen.
+        await rememberLock({ ...lock, settled: true });
+        continue;
+      }
+      const r = await runner.refund(offen);
       if (r.refunded.length > 0) {
-        rememberLock({ ...lock, settled: true });
+        await rememberLock({ ...lock, settled: true });
         result.zurueckgeholt++;
         result.lamports += lock.amountLamports;
       } else {
         const grund = r.failed[0]?.reason ?? "unbekannt";
-        rememberLock({ ...lock, attempts: (lock.attempts ?? 0) + 1, lastError: grund });
+        await rememberLock({ ...lock, attempts: (lock.attempts ?? 0) + 1, lastError: grund });
         result.fehler.push({ reference: lock.reference, reason: grund });
         result.offen.push(viewLock({ ...lock, attempts: (lock.attempts ?? 0) + 1, lastError: grund }, nowUnix));
       }
     } catch (e) {
       const grund = (e as Error).message;
-      rememberLock({ ...lock, attempts: (lock.attempts ?? 0) + 1, lastError: grund });
+      await rememberLock({ ...lock, attempts: (lock.attempts ?? 0) + 1, lastError: grund });
       result.fehler.push({ reference: lock.reference, reason: grund });
     }
   }
@@ -210,6 +245,16 @@ export function walletRefundRunner(
     async refund(swapIds: string[]) {
       const { refundDepositOnChain } = await import("./sol-htlc.js");
       return refundDepositOnChain({ connection, wallet, swapIds });
+    },
+    async offen(swapIds: string[]) {
+      const { AnchorSolanaHtlc } = await import("@freedomstack/protocol");
+      const leser = AnchorSolanaHtlc.reader(connection);
+      const offen: string[] = [];
+      for (const id of swapIds) {
+        const l = await leser.get(id);
+        if (l && !l.claimed && !l.refunded) offen.push(id);
+      }
+      return offen;
     },
   };
 }

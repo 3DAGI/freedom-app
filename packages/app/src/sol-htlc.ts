@@ -24,7 +24,7 @@
  * zurück — auch das Verbrauchs-HTLC, soweit der Provider es nicht eingelöst hat.
  */
 import { sha256 } from "@noble/hashes/sha2.js";
-import { bytesToHex } from "@noble/hashes/utils.js";
+import { bytesToHex, hexToBytes } from "@noble/hashes/utils.js";
 
 /** Muss zur `declare_id!` des Anchor-Programms passen. */
 export const HTLC_PROGRAM_ID = "B6W19UfZ1iYDoJYaSesZDiP96TpeZACQu3Xs6VSJ4kJk";
@@ -209,6 +209,44 @@ export async function lockDeposit(p: DepositLockParams): Promise<DepositLockResu
     preimageHex: bytesToHex(preimage),
     hashlockHex: bytesToHex(hashlock),
   };
+}
+
+/**
+ * Gegenrichtung (4.6c): Der Kunde sperrt SOL fuer den LP – Hashlock ist der
+ * Hash seiner eigenen Rechnung, das Preimage kennt nur seine Lightning-Wallet.
+ * Die Vorabsimulation bleibt an; nach Ablauf holt der Kunde mit `refund`
+ * zurueck, falls der LP nicht einloest.
+ */
+export async function lockRueckSwap(p: {
+  connection: import("@solana/web3.js").Connection;
+  wallet: WalletSigner;
+  swapId: string;
+  paymentHashHex: string;
+  lamports: number;
+  timelockUnix: number;
+  lpSol: string;
+  onProgress?: (step: string) => void;
+}): Promise<{ signature: string }> {
+  const { Transaction, PublicKey } = await import("@solana/web3.js");
+  if (!/^[0-9a-f]{64}$/.test(p.paymentHashHex)) throw new Error("Hash der Rechnung ungültig");
+  if (p.timelockUnix <= Math.floor(Date.now() / 1000) + 3600) throw new Error("Die Frist muss mehr als eine Stunde in der Zukunft liegen.");
+  const initiator = p.wallet.publicKey.toBase58();
+  const ix = await buildLockInstruction(
+    { swapId: p.swapId, hashlock: hexToBytes(p.paymentHashHex), amountLamports: p.lamports, timelockUnix: p.timelockUnix, recipient: p.lpSol },
+    initiator,
+  );
+  const tx = new Transaction().add(ix);
+  p.onProgress?.("Warte auf Bestätigung in der Wallet …");
+  const { blockhash, lastValidBlockHeight } = await p.connection.getLatestBlockhash("confirmed");
+  tx.recentBlockhash = blockhash;
+  tx.feePayer = new PublicKey(initiator);
+  const signed = (await p.wallet.signTransaction(tx)) as import("@solana/web3.js").Transaction;
+  p.onProgress?.("Transaktion wird gesendet …");
+  const signature = await p.connection.sendRawTransaction(signed.serialize(), { skipPreflight: false, preflightCommitment: "confirmed" });
+  p.onProgress?.("Warte auf Bestätigung der Kette …");
+  const conf = await p.connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, "confirmed");
+  if (conf.value.err) throw new Error(`Sperre abgelehnt: ${JSON.stringify(conf.value.err)}`);
+  return { signature };
 }
 
 /** Baut die `refund`-Instruktion (nach Ablauf des Timelocks). */
