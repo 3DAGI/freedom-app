@@ -230,3 +230,11 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   DM-Kopie trägt den eigenen Schlüssel als Empfänger). Über Funk gilt die
   Sendezeit (`Sendezeitkonto`, 1 % je Stunde); Weiterreichen nur über die
   Warteschlange, nie `transport.send()` am Konto vorbei.
+- **Keine fest verdrahteten Relays** (seit 5.4a): Die Startliste steht nur in
+  `STARTRELAYS` (`protocol/src/relay-start.ts`, `startUrls()`); die App baut den
+  Pool mit `poolRelays()` (eigener Satz + wechselnd weitere). Eigene Listen
+  (Kind 10002/10050) nur über `eigeneListenAbgleichen()` – die veröffentlichte
+  NIP-65-Liste gilt, nie neu würfeln, wenn zu wenige Relays antworteten.
+  Direktnachrichten nur an den Posteingang des Empfängers (`veroeffentlicheAn()`).
+  Im Browser-Test ersetzt Playwrights `route_web_socket` `window.WebSocket` –
+  tote Relays mit einer Hülle per `Object.defineProperty` nachstellen.

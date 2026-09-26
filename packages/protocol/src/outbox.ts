@@ -144,6 +144,23 @@ export class OutboxPool {
   }
 
   /**
+   * Nur an einige Relays dieses Pools (Schritt 5.4) – etwa an den Posteingang
+   * eines Empfaengers nach NIP-17, statt an alle. Wirft nicht; der Bericht
+   * sagt, wer angenommen hat.
+   */
+  async publishAn(ev: NostrEvent, urls: readonly string[]): Promise<PublishReport> {
+    const ziel = this.relays.filter((r) => urls.includes(r.url));
+    const results = await Promise.allSettled(ziel.map((r) => r.publish(ev)));
+    const accepted: string[] = [];
+    const rejected: { url: string; reason: string }[] = [];
+    results.forEach((res, i) => {
+      if (res.status === "fulfilled") accepted.push(ziel[i].url);
+      else rejected.push({ url: ziel[i].url, reason: String(res.reason?.message ?? res.reason) });
+    });
+    return { eventId: ev.id, accepted, rejected, ok: accepted.length > 0 };
+  }
+
+  /**
    * Dauer-Abo ueber ALLE Relays, die es koennen.
    *
    * Dedupliziert, prueft Signaturen und meldet jedes Event genau einmal — auch
@@ -193,17 +210,27 @@ export class OutboxPool {
    * ungueltiger Signatur. Ein boesartiges Relay kann so nichts unterschieben.
    */
   async query(filter: RelayFilter): Promise<NostrEvent[]> {
+    return (await this.queryMitBericht(filter)).events;
+  }
+
+  /**
+   * Wie `query()`, dazu welche Relays geantwortet haben (Schritt 5.4): „nichts
+   * gefunden“ heisst nur dann „gibt es nicht“, wenn ueberhaupt jemand antwortete.
+   */
+  async queryMitBericht(filter: RelayFilter): Promise<{ events: NostrEvent[]; antworten: string[] }> {
     const results = await Promise.allSettled(this.relays.map((r) => r.query(filter)));
     const byId = new Map<string, NostrEvent>();
-    for (const res of results) {
+    const antworten: string[] = [];
+    for (const [i, res] of results.entries()) {
       if (res.status !== "fulfilled") continue;
+      antworten.push(this.relays[i].url);
       for (const ev of res.value) {
         if (byId.has(ev.id)) continue;
         if (!verifyEvent(ev)) continue; // gefaelschte/manipulierte Events raus
         byId.set(ev.id, ev);
       }
     }
-    return [...byId.values()].sort((a, b) => b.created_at - a.created_at);
+    return { events: [...byId.values()].sort((a, b) => b.created_at - a.created_at), antworten };
   }
 
   /**

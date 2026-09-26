@@ -59,6 +59,24 @@
   Relay-Rolle des Knotens mit NIP-42 und bezahltem Zugang in Sats oder SOL.
 - **Abnahme:** Test: Die App funktioniert, wenn die drei heutigen Start-Relays
   nicht erreichbar sind.
+- **Aufteilung (26.09.2026):**
+  - **5.4a – FERTIG:** Startliste mit acht Relays verschiedener Betreiber
+    (`protocol/src/relay-start.ts`, per NIP-11 geprüft); jeder Nutzer bekommt
+    einen festen Satz (vier zufällige), veröffentlicht als NIP-65-Liste
+    (Kind 10002) und Posteingang (Kind 10050) – die veröffentlichte Liste gilt,
+    so bleiben alle Geräte einer Identität beim selben Satz; je Sitzung drei
+    weitere wechselnd; Direktnachrichten nur an den Posteingang des
+    Empfängers; Knoten, Releases und Dashboard auf der ganzen Startliste.
+    Abnahme im Browser: damus, nos.lol, nostr.band tot → Listen, DMs in beide
+    Richtungen und KI-Anfrage an einen echten Knoten gehen.
+  - **5.4b:** Lesen bei den Schreib-Relays der Kontakte (Outbox beim Lesen:
+    Profile, Räume, Kontaktlisten); eigener Satz in den Settings sichtbar und
+    änderbar. Danach kann der wechselnde Teil kleiner werden.
+  - **5.4c (mit 8.4):** Relay-Rolle des Knotens mit NIP-42 und bezahltem
+    Zugang in Sats oder SOL.
+  - **.onion:** Kein Betreiber der Startliste veröffentlicht eine
+    .onion-Adresse, die sich prüfen ließ. MENSCH: eine geprüfte .onion-Adresse
+    (etwa den Relay des GX10 als Hidden Service) – dann kommt sie in die Liste.
 
 ## 5.5 Reputation aus Quittungen
 
