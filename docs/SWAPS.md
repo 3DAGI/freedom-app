@@ -269,3 +269,40 @@ Einstellungen der Gegenrichtung: `LP_DIRECTION` (`sell-sol` | `buy-sol` |
 `beide`), `LP_MAX_OFFENE_ZAHLUNGEN`, `LP_CLTV_DELTA` (Obergrenze für
 `cltv_limit`), `LP_LAMPORTS_PER_SAT`, `LP_FEE_PPM`. Das SOL-Konto des LP ist
 das aus `SOLANA_KEYPAIR` (nur mit `LP_SOL_MOCK=1` aus `LP_SOL_ADDRESS`).
+
+## Abnahme-Lauf des LP (Devnet + Lightning-Testnet, 8.3b)
+
+Der Lauf prüft beide Richtungen, je mit Erfolg und mit Ablauf, gegen echte
+Netze – dieselben vier Fälle, die `node/test/lp-abnahme.test.ts` mit Mocks
+prüft. Er bewegt nur Testgeld und bricht ab, wenn die Solana-Adresse nicht
+Devnet, Testnet oder lokal ist oder eine Probe-Rechnung des Kunden keine
+Testnet-, Signet- oder Regtest-Rechnung ist.
+
+**Man braucht:**
+- zwei LND-Knoten im Testnet (LP und Kunde) mit einem Kanal zwischen ihnen oder
+  einem Weg, der Liquidität in beide Richtungen hat;
+- für den LP eine eingeschränkte Macaroon (siehe oben; mit `admin.macaroon`
+  verweigert der Lauf den Start wie der Knoten); für den Kunden eine mit
+  `invoices:read/write` und `offchain:read/write`;
+- zwei Devnet-Konten mit etwas SOL (`solana airdrop 2`) und die richtige
+  Programm-ID in `HTLC_PROGRAM_ID` (offen: 0.G).
+
+**Aufruf:**
+
+```bash
+cd packages/node
+LND_LP_REST=https://lp:8080 LND_LP_MACAROON=~/freedom-lp.macaroon \
+LND_KUNDE_REST=https://kunde:8080 LND_KUNDE_MACAROON=~/kunde.macaroon \
+SOLANA_KEYPAIR_LP=~/lp.json SOLANA_KEYPAIR_KUNDE=~/kunde.json \
+HTLC_PROGRAM_ID=… npm run lp-abnahme -- hin hin-ablauf rueck rueck-ablauf
+```
+
+Weitere Einstellungen: `SOLANA_RPC` (Standard Devnet), `LND_INSECURE_TLS=1`,
+`ABNAHME_SATS` (10.000), `ABNAHME_LAMPORTS_PER_SAT` (100), `ABNAHME_CLTV`
+(144 Blöcke), `ABNAHME_HIN_SPERRE` (600 s).
+
+**Dauer:** Die Hinrichtung braucht mit 600 s Sperre etwa eine Viertelstunde
+für ihren Ablauf-Fall. Die Gegenrichtung sperrt wie die App
+`cltv · 20 min + 1,5 h` – mit 144 Blöcken rund 49 Stunden, so lange dauert
+`rueck-ablauf`; die Fälle lassen sich einzeln aufrufen. Ergebnis: je Fall ✓
+oder ✗ mit Grund und Dauer; Rückgabewert 0 nur, wenn alle bestehen.
