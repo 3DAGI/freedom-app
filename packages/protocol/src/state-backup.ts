@@ -182,7 +182,7 @@ const SICHERUNG_PRAEFIXE = ["freedom.mod."];
 export const SICHERUNG_NIE = [
   /^freedom\.nsec$/, /^freedom\.bunker$/, /^freedom\.nwc\./, /^freedom\.swap\./, /^freedom\.htlc\./,
   /^freedom\.solWallet/, /^freedom\.pending\./, /^freedom\.vault/, /^freedom\.suche\./, /^freedom\.nachfolge/,
-  /^freedom\.notfall\./, /^freedom\.(mls|gruppe|epoch)/,
+  /^freedom\.notfall\./, /^freedom\.(mls|gruppe|epoch)/, /^freedom\.merkphrase$/,
 ];
 
 /** Hoechstens so gross (NIP-44 fasst 65.535 Byte Klartext). */

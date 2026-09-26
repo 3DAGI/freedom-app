@@ -4995,6 +4995,68 @@ Netz) · app 343 · Leak-Tests 49 grün + 2 todo · 0 rot · check-wiring `--str
 0 offen · innerHTML streng 0 unbewertet · Smoke-Test bestanden · drei
 Browser-E2E bestanden.
 
+## Schritt 8.1a – Onboarding, Teil a: Sicherung und Führung, die stimmen
+
+**Entscheidungen MENSCH (26.09.2026):**
+- Nur Passphrase. Ein Passkey (Tresor per WebAuthn-PRF) wäre ein neuer
+  Krypto-Pfad und wird ein eigener späterer Schritt.
+- Die Merkphrase darf „später“ bestätigt werden; die Leiste mahnt.
+
+**Funde:**
+- `#onboarding-bar` und `#backup-warn` fehlten im HTML (bekannt seit 1.3e).
+  Führung und Sicherungs-Erinnerung erschienen deshalb nie.
+- Der Gratis-Zähler `freedom.freeLeft` wurde nirgends gesetzt und stand immer
+  auf 10 („Noch 10 Gratis-Anfragen übrig“).
+- Die Import-Aufforderung nannte „Merkphrase, nsec1…“, angenommen wurde nur Hex.
+
+**Sicherung:**
+- Eine neue Identität legt ihre Merkphrase bis zur Bestätigung in den
+  Geheimspeicher (`app.ts:150`, `LS_MERKPHRASE`). Mit Tresor liegt sie dort
+  verschlüsselt; die Notfall-Löschung erfasst sie; in eine Zustandssicherung
+  kommt sie nie (`SICHERUNG_NIE`).
+- Der Dialog hat „später bestätigen“ (`:191`). Nach der Bestätigung wird die
+  Merkphrase gelöscht (`:226`).
+- „Merkphrase anzeigen“ in Leiste oder Erinnerung zeigt dieselben Wörter erneut
+  (`:281`). Liegt sie nicht mehr auf dem Gerät, heißt der Knopf ehrlich
+  „Sicherungsdatei speichern“.
+
+**Führung:**
+- Beide Elemente stehen im HTML (`index.html:58`).
+- Die Erinnerung erscheint erst nach der ersten Nutzung und nicht doppelt zur
+  Leiste (`:264`); wer die Leiste wegklickt, behält sie.
+- „Wallet verbinden“ wird erst dringend, wenn ein Provider eine Gratis-Anfrage
+  ablehnt (`agent.ts:354` → `merkeGratisAbgelehnt()`, `app.ts:379`).
+- Texte: Im Gratis-Tarif kostet eine Anfrage kein Geld, solange Provider ihn
+  anbieten; das Gerät rechnet dafür kurz. Bezahlt wird in Sats oder SOL.
+
+**Import:**
+- Der Import nimmt jetzt Merkphrase, nsec, Hex und Gerätecode
+  (`identity.importIdentity`, `app.ts:322`). Ein npub bekommt eine klare Meldung.
+- Wer die Merkphrase eingibt, gilt als gesichert. Nach einem Import ohne
+  Merkphrase verspricht die App keine Wörter mehr (`markOhneMnemonic()`).
+
+**Browser-E2E** (frische Profile, ohne Netz nach außen):
+1. Neuer Nutzer wählt „später“: Die Wörter liegen im Geheimspeicher, die Leiste
+   sagt „Stell einfach eine Frage“, keine Mahnung.
+2. Nach der ersten Nutzung sagt die Leiste „Sichere deinen Zugang · Merkphrase
+   anzeigen“. Wegklicken lässt die Erinnerung stehen.
+3. „jetzt sichern“ zeigt dieselben zwölf Wörter; nach der Bestätigung sind sie
+   gelöscht, der nächste Schritt ist der Tresor.
+4. Import per Merkphrase und per Hex in frischen Profilen ergibt dieselbe
+   Identität; npub wird mit Meldung abgelehnt.
+5. Mit Tresor liegt weder Schlüssel noch Merkphrase offen in localStorage.
+6. Keine Seitenfehler.
+
+Das 8.6c-E2E (Gerätecode-Import) lief erneut durch.
+
+**Tests:** app +7 (Merkphrase im Geheimspeicher und nie in der Sicherung, HTML,
+Leiste ohne Zähler, Import, Texte ohne Zähler, Sicherung je nach Merkphrase).
+
+Endstand: protocol 1127 (+ 6 übersprungen) · node 225 (+ 7 übersprungen ohne
+Netz) · app 350 · Leak-Tests 49 grün + 2 todo · 0 rot · check-wiring `--streng`
+0 offen · innerHTML streng 0 unbewertet · Smoke-Test bestanden · Browser-E2E
+bestanden.
+
 ## Schritt 4.0 – Entscheidung Gebührenmodell: A+ (und 2.2b: WASM eingebettet)
 
 **4.0 (MENSCH, 26.09.2026): A+** – feste Aufteilung direkt beim Zahlen, kein

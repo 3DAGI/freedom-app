@@ -789,6 +789,11 @@ h3 .ic-svg, h3 .logo-btc, h3 .logo-sol { vertical-align: -2px; margin-right: 6px
 #onboarding-bar.urgency-hinweis { border-left: 3px solid #d9a441; }
 #onboarding-bar .ob-title { font-weight: 600; }
 #onboarding-bar .ob-body { color: #999; flex: 1 1 260px; }
+/* Sicherungs-Erinnerung (8.1a): bleibt, wenn man die Leiste wegklickt */
+#backup-warn {
+  padding: 8px 12px; border-bottom: 1px solid var(--line, #1E1E1E); border-left: 3px solid #d9534f;
+  display: flex; gap: 10px; align-items: center; flex-wrap: wrap; font-size: 12px;
+}
 
 /* Ausgeblendete Nachricht: sichtbar als Luecke, nicht spurlos entfernt.
    Eine Luecke, die man sieht, ist Moderation. Eine, die man nicht sieht,
