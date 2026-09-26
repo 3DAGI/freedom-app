@@ -14,8 +14,8 @@ import {
 import { LAYER_CELL_DEGREES, buildCoverageAnnouncement, toCell } from "../src/coverage.js";
 import { signEvent } from "../src/event.js";
 import { buildJobRequest, buildJobResult } from "../src/dvm.js";
-import { buildPrivateDispute, buildPrivateJobRequest, buildPrivateJobResponse, buildPrivateSessionEvent } from "../src/private-job.js";
-import { buildDispute } from "../src/disputes-relays.js";
+import { buildPrivateDispute, buildPrivateJobRequest, buildPrivateJobResponse, buildPrivateSessionEvent, buildPrivateUrteil } from "../src/private-job.js";
+import { buildDispute, buildResolution } from "../src/disputes-relays.js";
 import { verschluesseleDatei } from "../src/datei-krypto.js";
 import { buildPrivateKontaktliste } from "../src/kontaktliste.js";
 import { buildBlob } from "../src/blob.js";
@@ -81,11 +81,19 @@ const NOTIZ = "Antwort zum Laborbefund war unbrauchbar";
 /** Reklamation wie seit 3.4: vom Sitzungsschluessel, versiegelt an Provider (b) und Pruefer. */
 async function privateReklamation() {
   const sitzung = new LocalSigner(generateKeypair().sk);
+  // Seit 5.6: der Pruefer aus dem eigenen Netz, genannt in der Reklamation; sein Urteil geht versiegelt zurueck.
+  const pruefer = new LocalSigner(generateKeypair().sk);
   const dispute = buildDispute({
     jobId: "d".repeat(64), customerPubkey: sitzung.publicKey(), providerPubkey: b.pk, reason: "unbrauchbar", amountMsat: 7000, note: NOTIZ,
+    pruefer: [pruefer.publicKey()],
   });
-  const { wraps } = await buildPrivateDispute({ dispute, sessionSigner: sitzung, empfaenger: [{ pk: b.pk }, { pk: generateKeypair().pk }] });
-  return { wraps, sitzung: sitzung.publicKey() };
+  const { wraps } = await buildPrivateDispute({
+    dispute, sessionSigner: sitzung, empfaenger: [{ pk: b.pk }, { pk: pruefer.publicKey() }],
+    materialFuerPruefer: { frage: GEHEIM, antwort: NOTIZ },
+  });
+  const urteil = buildResolution({ jobId: "d".repeat(64), reviewerPubkey: pruefer.publicKey(), resolution: "erstattet", refundMsat: 7000, note: NOTIZ });
+  const { wraps: urteilWraps } = await buildPrivateUrteil({ urteil, prueferSigner: pruefer, kundePk: sitzung.publicKey(), providerPk: b.pk });
+  return { wraps, urteilWraps, sitzung: sitzung.publicKey(), pruefer: pruefer.publicKey() };
 }
 
 const SOL_ADRESSE = "7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU";
@@ -153,9 +161,12 @@ const SZENARIEN: Record<string, () => Promise<number>> = {
     return regelUploadVerschluesselt(events, datei).length;
   },
   "ki-reklamation": async () => {
-    const { wraps, sitzung } = await privateReklamation();
-    return regelKeineZahlungsdaten(wraps).length + regelKeinKlartext(wraps, [NOTIZ, "unbrauchbar"]).length
-      + regelKundeVerborgen(wraps, sitzung).length + regelKundeVerborgen(wraps, a.pk).length;
+    const { wraps, urteilWraps, sitzung, pruefer } = await privateReklamation();
+    const alle = [...wraps, ...urteilWraps];
+    // Das Urteil geht an den Sitzungsschluessel (wie jede KI-Antwort) und den Provider – an niemanden sonst.
+    return regelKeineZahlungsdaten(alle).length + regelKeinKlartext(alle, [NOTIZ, GEHEIM, "unbrauchbar", "erstattet"]).length
+      + regelKundeVerborgen(wraps, sitzung).length + regelKundeVerborgen(alle, a.pk).length + regelAutorNicht(alle, pruefer).length
+      + regelPTagsNur(urteilWraps, [sitzung, b.pk]).length;
   },
   "sol-trinkgeld": async () => {
     // Wie die App seit 4.7b: Beleg versiegelt an Empfaenger und eigene Kopie.

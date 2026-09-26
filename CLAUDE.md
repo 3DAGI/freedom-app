@@ -43,9 +43,9 @@ bash scripts/build-site.sh /tmp/site                     # Website bauen (Ziel w
 bash packages/mls/bauen.sh --pruefen                     # nur bei Änderungen an packages/mls: nachbauen + vergleichen (Rust, clang)
 ```
 
-Stand 26.09.2026 (nach 8.3b und 2.2b-c1): protocol 1131 grün (6 übersprungen), node 239 grün
+Stand 26.09.2026 (nach 5.6c und 2.2b-c1): protocol 1148 grün (6 übersprungen), node 240 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 372 grün, mls 10 grün, Leak-Tests 49 grün + 2 `todo` (heutige Lecks,
+in `tools.test.ts`), app 387 grün, mls 10 grün, Leak-Tests 50 grün + 2 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
 Ausnahme: gesendete SOL-Zahlungen von frischen Adressen, eine bewusste Grenze
 nach Entscheidung 4.9 A – im Datenschutzbericht unter „Bewusste Grenzen“).
@@ -324,3 +324,28 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   dann senden – sonst kann der private Teil eines veröffentlichten KeyPackages
   verloren sein. Der Platz (d-Tag) ist zufällig und bleibt; fremde KeyPackages
   nur über `waehleKeyPackages()` (Form nach Marmot, je Platz das neueste).
+- **RPC-Anbieter nur mit Stichprobe vergleichen** (seit 5.8): `RpcPool.stichprobe()`
+  – zwei Betreiber, Netz, Blockhash in beide Richtungen, ein Kontostand.
+  Nie mehrere eigene Adressen in eine Stichprobe (4.9c); ohne Adresse, wo es
+  nicht ums Guthaben geht. Ein eigener Devnet-Endpunkt in den Settings ergibt
+  die Warnung „verschiedene Ketten“ – das ist richtig, der Pool mischt sonst
+  Mainnet als Ausweichweg dazu.
+- **Modellkataloge ohne Vorauswahl** (seit 5.7): Kataloge sind NIP-51-Sets
+  (Kind 38080) über `baueModellKatalog()`/`leseModellKatalog()`; die App holt
+  alle (`{kinds:[38080]}`, nie nach Kurator filtern – das verriete die Abos)
+  und zeigt sie nur über `textContent`. Keine fest eingebaute Modell-Vorliebe
+  im Dropdown – die Reihenfolge kommt aus den Abos (`katalogRangJetzt()`) und
+  der Zahl der Provider.
+- **Streitfall-Prüfer nur aus dem eigenen Netz** (seit 5.6): Prüfer über
+  `netzPruefer()` (Kontakte, eigene Provider) – nie aus einer Rangliste; die
+  Reklamation nennt ihn, und nur sein Urteil zählt (`resolveDispute()`).
+  Frage und Antwort nur mit Zustimmung und nur über `materialFuerPruefer`.
+  Das Urteil nur versiegelt (`buildPrivateUrteil()`), an Sitzungsschlüssel und
+  Provider. Eigene Reklamationen tragen den Sitzungsschlüssel – nur im Tresor
+  (`freedom.reklamationen`, in `SICHERUNG_NIE`). Prüfaufträge kommen über den
+  Posteingang (`alsPruefauftrag()`); ihr Inhalt bleibt nur im Speicher.
+- **`check-wiring.py --streng` scheitert auch an veralteten Ausnahmen** (5.6b):
+  Wird ein ausgenommener Export verdrahtet, muss seine Zeile aus
+  `scripts/wiring-ausnahmen.txt` raus – sonst meldet das Skript „veraltete
+  Ausnahme“ und endet mit 1, obwohl die Zusammenfassung „0 offen“ sagt. Immer
+  den Exit-Code prüfen, nicht nur die letzte Zeile.

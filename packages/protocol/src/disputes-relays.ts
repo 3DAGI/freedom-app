@@ -49,8 +49,20 @@ export interface Dispute {
   reason: DisputeReason;
   amountMsat: number;
   note: string;
+  /**
+   * Prüfer, die der Kunde aus seinem Netz gewählt hat (Schritt 5.6) – nur
+   * deren Urteil zählt, und nur für diese Reklamation. Keiner genannt: Es
+   * urteilt niemand, auch kein Fremder.
+   */
+  pruefer: string[];
+  /** Frage und Antwort – nur in der Kopie für den Prüfer, nur wenn der Kunde zustimmt. */
+  material?: { frage: string; antwort: string };
   createdAt: number;
 }
+
+/** Höchstens so viel Frage und Antwort in der Kopie für den Prüfer (NIP-44 fasst 64 KB). */
+export const PRUEFMATERIAL_MAX_ZEICHEN = 8000;
+const HEX64 = /^[0-9a-f]{64}$/;
 
 /**
  * Frist, innerhalb derer reklamiert werden kann.
@@ -61,20 +73,27 @@ export interface Dispute {
  */
 export const DISPUTE_WINDOW_SECS = 3600;
 
-export function buildDispute(d: Omit<Dispute, "createdAt">, createdAt?: number): UnsignedEvent {
-  return buildEvent(
-    d.customerPubkey,
-    KIND_JOB_DISPUTE,
-    [
-      ["d", `dispute:${d.jobId}`],
-      ["e", d.jobId],
-      ["p", d.providerPubkey],
-      ["reason", d.reason],
-      ["amount_msat", String(d.amountMsat)],
-    ],
-    d.note,
-    createdAt,
-  );
+export function buildDispute(
+  d: Omit<Dispute, "createdAt" | "pruefer" | "material"> & Partial<Pick<Dispute, "pruefer" | "material">>,
+  createdAt?: number,
+): UnsignedEvent {
+  const pruefer = d.pruefer ?? [];
+  for (const pk of pruefer) {
+    if (!HEX64.test(pk)) throw new Error("Prüfer-Pubkey ungültig (64 Zeichen hex erwartet)");
+    if (pk === d.customerPubkey || pk === d.providerPubkey) throw new Error("Eine Partei prüft nicht selbst");
+  }
+  const tags: string[][] = [
+    ["d", `dispute:${d.jobId}`],
+    ["e", d.jobId],
+    ["p", d.providerPubkey],
+    ["reason", d.reason],
+    ["amount_msat", String(d.amountMsat)],
+    ...[...new Set(pruefer)].map((pk) => ["pruefer", pk]),
+  ];
+  if (d.material) {
+    tags.push(["frage", d.material.frage.slice(0, PRUEFMATERIAL_MAX_ZEICHEN)], ["antwort", d.material.antwort.slice(0, PRUEFMATERIAL_MAX_ZEICHEN)]);
+  }
+  return buildEvent(d.customerPubkey, KIND_JOB_DISPUTE, tags, d.note, createdAt);
 }
 
 export function parseDispute(ev: NostrEvent): Dispute {
@@ -84,6 +103,10 @@ export function parseDispute(ev: NostrEvent): Dispute {
   const betrag = Number(getTag(ev, "amount_msat") ?? "NaN");
   if (!jobId || !provider || !Number.isFinite(betrag)) throw new Error("Reklamation unvollständig");
   const grund = getTag(ev, "reason") ?? "unbrauchbar";
+  const pruefer = [...new Set(ev.tags.filter((t) => t[0] === "pruefer" && HEX64.test(t[1] ?? "")).map((t) => t[1]!))]
+    .filter((pk) => pk !== ev.pubkey && pk !== provider);
+  const frage = getTag(ev, "frage");
+  const antwort = getTag(ev, "antwort");
   return {
     jobId,
     customerPubkey: ev.pubkey,
@@ -91,6 +114,10 @@ export function parseDispute(ev: NostrEvent): Dispute {
     reason: (Object.keys(DISPUTE_LABEL).includes(grund) ? grund : "unbrauchbar") as DisputeReason,
     amountMsat: betrag,
     note: ev.content,
+    pruefer,
+    ...(frage !== undefined && antwort !== undefined
+      ? { material: { frage: frage.slice(0, PRUEFMATERIAL_MAX_ZEICHEN), antwort: antwort.slice(0, PRUEFMATERIAL_MAX_ZEICHEN) } }
+      : {}),
     createdAt: ev.created_at,
   };
 }
@@ -133,17 +160,17 @@ export interface DisputeVerdict {
 }
 
 export interface DisputeResolveOptions {
-  /** Prüfer, deren Urteil zählt — üblicherweise Provider mit Reputation. */
-  eligibleReviewers?: Set<string>;
   nowSecs?: number;
 }
 
 /**
  * Reklamation entscheiden.
  *
- * Kein Schiedsrichter: Ein zweiter Provider bearbeitet dieselbe Anfrage. Sein
- * Urteil zählt nur, wenn er weder Kunde noch beschuldigter Provider ist —
- * sonst entscheidet eine Partei über sich selbst.
+ * Kein Schiedsrichter und keine globale Zulassung (Schritt 5.6): Es zählt nur
+ * das Urteil der Prüfer, die der Kunde in der Reklamation nennt – jemand aus
+ * seinem Netz, den der Provider in seiner Kopie sieht. Das Urteil gilt nur
+ * zwischen den Beteiligten; es geht versiegelt an sie und fließt in keine
+ * öffentliche Wertung. Eine Partei urteilt nie über sich selbst.
  *
  * Bei „gar keine Antwort" braucht es keine Nachprüfung: Entweder liegt ein
  * Ergebnis vor oder nicht, und das ist nachsehbar.
@@ -166,9 +193,13 @@ export function resolveDispute(
   for (const ev of reviewEvents) {
     if (ev.kind !== KIND_DISPUTE_RESOLUTION) continue;
     if (getTag(ev, "e") !== dispute.jobId) continue;
-    // Eine Partei darf nicht über sich selbst urteilen.
+    // Eine Partei darf nicht über sich selbst urteilen – und nur, wen der Kunde genannt hat.
     if (ev.pubkey === dispute.customerPubkey || ev.pubkey === dispute.providerPubkey) continue;
-    if (opts.eligibleReviewers && !opts.eligibleReviewers.has(ev.pubkey)) continue;
+    if (!dispute.pruefer.includes(ev.pubkey)) continue;
+    // Ein Prüfer, eine Stimme: sein jüngstes Urteil.
+    if (urteile.some((u) => u.reviewerPubkey === ev.pubkey && u.createdAt >= ev.created_at)) continue;
+    const frueher = urteile.findIndex((u) => u.reviewerPubkey === ev.pubkey);
+    if (frueher >= 0) urteile.splice(frueher, 1);
 
     const res = getTag(ev, "result") ?? "unentschieden";
     urteile.push({
@@ -247,11 +278,11 @@ export function disputeWindowOpen(
 export function disputeInfo(): string {
   return [
     "Reklamation: Sie geht versiegelt an den Provider und, wenn du einen",
-    "wählst, an einen zweiten Provider als Prüfer. Relays sehen weder Grund",
-    "noch Betrag noch, wer reklamiert.",
+    "wählst, an einen Prüfer aus deinem Netz – einen Kontakt oder einen",
+    "eigenen Provider. Relays sehen weder Grund noch Betrag noch, wer reklamiert.",
     "",
-    "Noch nicht automatisch: Nachprüfung und Rückzahlung. Die Reklamation",
-    "benachrichtigt beide – eine Erstattung folgt daraus noch nicht von selbst.",
+    "Das Urteil des Prüfers gilt nur zwischen dir und dem Provider. Eine",
+    "Erstattung folgt daraus nicht von selbst – zahlen muss der Provider.",
     "",
     "Wofür sie gedacht ist: gar keine Antwort, abgebrochene Jobs, ein anderes",
     "Modell als vereinbart, offensichtlicher Unsinn.",

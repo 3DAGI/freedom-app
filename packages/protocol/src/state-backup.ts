@@ -168,6 +168,7 @@ export const SICHERUNG_EINTRAEGE: readonly string[] = [
   "freedom.kontakteSichern",
   "freedom.standardSchiene",
   "freedom.mandate",            // zuerst gesehene Mandate der Kontakte (8.6a)
+  "freedom.kataloge",           // abonnierte Modellkataloge (5.7)
 ];
 /** Moderation je Community (`freedom.mod.<id>`): nur „an“/„aus“. */
 const SICHERUNG_PRAEFIXE = ["freedom.mod."];
@@ -182,7 +183,7 @@ const SICHERUNG_PRAEFIXE = ["freedom.mod."];
 export const SICHERUNG_NIE = [
   /^freedom\.nsec$/, /^freedom\.bunker$/, /^freedom\.nwc\./, /^freedom\.swap\./, /^freedom\.htlc\./,
   /^freedom\.solWallet/, /^freedom\.pending\./, /^freedom\.vault/, /^freedom\.suche\./, /^freedom\.nachfolge/,
-  /^freedom\.notfall\./, /^freedom\.(mls|gruppe|epoch)/, /^freedom\.merkphrase$/,
+  /^freedom\.notfall\./, /^freedom\.(mls|gruppe|epoch)/, /^freedom\.merkphrase$/, /^freedom\.reklamationen$/,
 ];
 
 /** Hoechstens so gross (NIP-44 fasst 65.535 Byte Klartext). */

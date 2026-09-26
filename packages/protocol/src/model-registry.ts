@@ -19,7 +19,9 @@
  * Er beschreibt, was jemand anbietet, und prüft, ob die Datei echt ist. Was
  * gespiegelt wird, entscheiden die Betreiber — genau wie bei den Relays. Eine
  * kuratierte Liste wäre die zentrale Instanz, die das Projekt nicht haben
- * will, und der erste Ort, an dem jemand Druck ausüben würde.
+ * will, und der erste Ort, an dem jemand Druck ausüben würde. Empfehlungen
+ * machen Kuratoren in eigenen Katalogen (`modell-katalog.ts`, seit 5.7) –
+ * jeder kann einer sein, keiner ist voreingestellt.
  *
  * WAS DER KATALOG NICHT LEISTET
  * Er sagt nicht, ob ein Modell gut, sicher oder legal ist. Er sagt, ob die

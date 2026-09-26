@@ -129,20 +129,16 @@ export async function angebotVon(pk: string): Promise<ScoredProvider["caps"] | u
   return (await bekannteProvider()).find((c) => c.caps.pubkey === pk)?.caps;
 }
 
+/** Die Angebote aller bekannten Provider – fuer den Vergleich der Modellkataloge (8.8). */
+export async function alleAngebote(): Promise<ScoredProvider["caps"][]> {
+  return (await bekannteProvider()).map((p) => p.caps);
+}
+
 /** Auto-Matchmaking: beste Provider fuer ein Tier (5min Cache). Kein manuelles pubkey. */
 export async function findProviders(tier: string): Promise<ScoredProvider[]> {
   return matchProviders(await bekannteProvider(), tier as "free" | "classic" | "pro", { allowlist: getAllowlist() });
 }
 
-/**
- * Pruefer fuer eine Reklamation (Schritt 3.4): andere Provider als der
- * beschuldigte, die meisten erledigten Auftraege zuerst.
- */
-export async function prueferKandidaten(beschuldigt: string): Promise<ScoredProvider[]> {
-  return (await bekannteProvider())
-    .filter((c) => c.caps.pubkey !== beschuldigt)
-    .sort((x, y) => y.score - x.score);
-}
 
 
 /** Allowlist: eigene/vertraute provider (pubkeys), die immer prioritaet haben.
@@ -225,11 +221,23 @@ export async function wireRpcSetting(): Promise<void> {
           ? `<span class="ok">${name} · ${s.lastLatencyMs ?? "?"} ms</span>`
           : `<span class="err">${name} · ${escapeHtml(s.lastError ?? "keine Antwort")}</span>`;
       }).join("<br>");
+      // 5.8: zwei Anbieter gegeneinander – ohne Adresse, verraet nichts ueber den Nutzer.
+      const { stichprobeText } = await import("../rpc-stichprobe.js");
+      const t = stichprobeText(await pool.stichprobe());
+      const zeile = document.createElement("div");
+      zeile.className = t.stufe === "warnung" ? "err" : t.stufe === "ok" ? "ok" : "";
+      zeile.textContent = t.text;
+      status.append(zeile);
     } catch (e) {
       status.textContent = (e as Error).message;
       status.className = "mono-sm err";
     }
   };
+}
+
+/** Stichprobe gegen einen zweiten Anbieter (5.8) – `konto` nur eine eigene Adresse. */
+export async function rpcStichprobe(konto?: string): Promise<import("@freedomstack/protocol").StichprobeErgebnis> {
+  return (await ensureRpcPool()).stichprobe({ konto });
 }
 
 /** Transaktion ueber den RPC-Pool laden (Pruefung von Belegen, Schritt 4.7b). */

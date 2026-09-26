@@ -78,6 +78,7 @@ export * from "./coverage.js";
 export * from "./moderation.js";
 export * from "./git-contributors.js";
 export * from "./model-registry.js";
+export * from "./modell-katalog.js";
 export * from "./contributor-funding.js";
 export * from "./naming.js";
 export * from "./succession.js";

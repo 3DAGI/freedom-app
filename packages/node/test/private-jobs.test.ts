@@ -15,7 +15,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   KIND_DVM_TEXT_GENERATION, LocalSigner, MemoryRelay, OutboxPool, buildEvent, buildJobRequest,
-  buildDispute, buildPrivateDispute, buildPrivateJobRequest, buildPrivateSessionEvent, buildSessionOpen, buildSessionPayment, eventDifficulty,
+  buildDispute, buildPrivateDispute, buildPrivateUrteil, buildResolution, buildPrivateJobRequest, buildPrivateSessionEvent, buildSessionOpen, buildSessionPayment, eventDifficulty,
   generateKeypair, getTag, openPrivateJobResponse, parseJobResult,
   regelKeineZahlungsdaten, signEvent, type NostrEvent,
 } from "@freedomstack/protocol";
@@ -201,6 +201,46 @@ test("privat 3.2d: fremde oder ausgeschoepfte versiegelte Sitzung – Absage", a
   await pool.publish(await sitzungsAnfrage(kp.pk, voll, "sess-p3", "Budget leer"));
   assert.equal((await provider.pollOnce()).length, 0);
   assert.equal(backend.prompts.length, 0);
+});
+
+test("privat 5.6: Urteil des Pruefers versiegelt an den Knoten – ins Log ohne Begruendung, keine Arbeit, ohne Rechenarbeit verworfen", async () => {
+  const a = aufbau();
+  const pruefer = new LocalSigner(generateKeypair().sk);
+  const sitzung = generateKeypair().pk;
+  const begruendung = "Die Antwort zur Diagnose war erfunden";
+  const urteil = buildResolution({ jobId: "e".repeat(64), reviewerPubkey: pruefer.publicKey(), resolution: "erstattet", refundMsat: 7000, note: begruendung });
+  const { wraps } = await buildPrivateUrteil({ urteil, prueferSigner: pruefer, kundePk: sitzung, providerPk: a.kp.pk, providerPowBits: 8 });
+  await a.pool.publish(wraps[1]!);
+  const zeilen: string[] = [];
+  const [log, warn] = [console.log, console.warn];
+  console.log = (...xs: unknown[]) => { zeilen.push(xs.join(" ")); };
+  console.warn = (...xs: unknown[]) => { zeilen.push(xs.join(" ")); };
+  try {
+    assert.equal((await a.provider.pollOnce()).length, 0, "keine Arbeit");
+  } finally {
+    [console.log, console.warn] = [log, warn];
+  }
+  assert.deepEqual(zeilen.filter((z) => z.startsWith("[urteil]")), [
+    `[urteil] Job eeeeeeee: erstattet, 7000 msat zurueck (Pruefer ${pruefer.publicKey().slice(0, 8)}) – zahlt der Betreiber freiwillig`,
+  ]);
+  assert.ok(!zeilen.join("\n").includes(begruendung), "Begruendung nicht im Log");
+  assert.equal(a.backend.prompts.length, 0);
+  // Ohne Rechenarbeit: verworfen wie jeder andere Umschlag (ein Umschlag hat mit 1/256 trotzdem 8 Bits).
+  const b = aufbau();
+  let schwach: NostrEvent;
+  do {
+    schwach = (await buildPrivateUrteil({ urteil, prueferSigner: pruefer, kundePk: sitzung, providerPk: b.kp.pk })).wraps[1]!;
+  } while (eventDifficulty(schwach) >= 8);
+  await b.pool.publish(schwach);
+  const zeilen2: string[] = [];
+  const log2 = console.log;
+  console.log = (...xs: unknown[]) => { zeilen2.push(xs.join(" ")); };
+  try {
+    await b.provider.pollOnce();
+  } finally {
+    console.log = log2;
+  }
+  assert.ok(!zeilen2.some((z) => z.startsWith("[urteil]")), "ohne Rechenarbeit nicht angenommen");
 });
 
 test("privat 3.4: versiegelte Reklamation – Provider und Pruefer nehmen sie an, ins Log ohne Notiz, keine Arbeit", async () => {

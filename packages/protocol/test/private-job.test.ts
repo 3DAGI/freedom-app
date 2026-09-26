@@ -9,9 +9,9 @@ import { buildJobFeedback, buildJobRequest, buildJobResult, parseJobResult } fro
 import { giftWrapMitSigner } from "../src/gift-wrap.js";
 import {
   MAX_POW_BITS, buildPrivateDispute, buildPrivateJobRequest, buildPrivateJobResponse, buildPrivateSessionEvent,
-  openPrivateJobRequest, openPrivateJobResponse, openPrivateKundenEvent,
+  buildPrivateUrteil, openPrivateJobRequest, openPrivateJobResponse, openPrivateKundenEvent, openPrivateUrteil,
 } from "../src/private-job.js";
-import { buildDispute, parseDispute } from "../src/disputes-relays.js";
+import { PRUEFMATERIAL_MAX_ZEICHEN, buildDispute, buildResolution, parseDispute, resolveDispute } from "../src/disputes-relays.js";
 import { buildSessionOpen, buildSessionPayment, parseSessionOpen } from "../src/stream.js";
 import { eventDifficulty } from "../src/pow.js";
 import { LocalSigner } from "../src/signer.js";
@@ -293,4 +293,86 @@ test("privat 3.4: Reklamation – falsche Eingaben scheitern", async () => {
   await assert.rejects(bau(reklamation(sitzung), [{ pk: p, powBits: MAX_POW_BITS + 1 }]), /Rechenarbeit/);
   // Nur an den Provider geht auch – ohne Pruefer
   assert.equal((await bau(reklamation(sitzung), [{ pk: p }])).wraps.length, 1);
+});
+
+// ------------------------------------------------------------ Pruefer aus dem eigenen Netz (5.6)
+
+const FRAGE = "Darf ich mein Medikament mit Ibuprofen nehmen?";
+const KI_ANTWORT = "Ja, das ist ein Kuchenrezept.";
+
+test("privat 5.6: Frage und Antwort nur in der Kopie fuer den genannten Pruefer", async () => {
+  const sitzung = new LocalSigner(generateKeypair().sk);
+  const pruefer = new LocalSigner(generateKeypair().sk);
+  const dispute = buildDispute({
+    jobId: JOB, customerPubkey: sitzung.publicKey(), providerPubkey: provider.publicKey(), reason: "unbrauchbar",
+    amountMsat: 7000, note: NOTIZ, pruefer: [pruefer.publicKey()],
+  }, 1_790_000_000);
+  const { wraps } = await buildPrivateDispute({
+    dispute, sessionSigner: sitzung, empfaenger: [{ pk: provider.publicKey() }, { pk: pruefer.publicKey() }],
+    materialFuerPruefer: { frage: FRAGE, antwort: KI_ANTWORT + "x".repeat(PRUEFMATERIAL_MAX_ZEICHEN) },
+  });
+  const beimProvider = await openPrivateKundenEvent(wraps[0]!, provider);
+  const beimPruefer = await openPrivateKundenEvent(wraps[1]!, pruefer);
+  assert.ok(beimProvider.ok && beimPruefer.ok);
+  const dp = parseDispute({ ...beimProvider.request, sig: "" });
+  const dr = parseDispute({ ...beimPruefer.request, sig: "" });
+  assert.deepEqual(dp.pruefer, [pruefer.publicKey()], "der Provider sieht, wer prueft");
+  assert.equal(dp.material, undefined, "der Provider bekommt Frage und Antwort nicht noch einmal");
+  assert.equal(dr.material!.frage, FRAGE);
+  assert.equal(dr.material!.antwort.length, PRUEFMATERIAL_MAX_ZEICHEN, "gekuerzt – NIP-44 fasst 64 KB");
+  assert.deepEqual(regelKeinKlartext(wraps, [FRAGE, "Kuchenrezept"]), []);
+  // Wer genannt ist, muss sie bekommen; Material nie direkt in die Reklamation.
+  await assert.rejects(buildPrivateDispute({ dispute, sessionSigner: sitzung, empfaenger: [{ pk: provider.publicKey() }] }), /Genannter Prüfer/);
+  const mitMaterial = buildDispute({
+    jobId: JOB, customerPubkey: sitzung.publicKey(), providerPubkey: provider.publicKey(), reason: "unbrauchbar",
+    amountMsat: 7000, note: "", material: { frage: FRAGE, antwort: KI_ANTWORT },
+  });
+  await assert.rejects(buildPrivateDispute({ dispute: mitMaterial, sessionSigner: sitzung, empfaenger: [{ pk: provider.publicKey() }] }), /nur über materialFuerPruefer/);
+});
+
+test("privat 5.6: Urteil versiegelt nur an Kunde (Sitzung) und Provider – und es zaehlt", async () => {
+  const sitzung = new LocalSigner(generateKeypair().sk);
+  const pruefer = new LocalSigner(generateKeypair().sk);
+  const dispute = parseDispute(signEvent(buildDispute({
+    jobId: JOB, customerPubkey: sitzung.publicKey(), providerPubkey: provider.publicKey(), reason: "unbrauchbar",
+    amountMsat: 7000, note: NOTIZ, pruefer: [pruefer.publicKey()],
+  }, 1_790_000_000), generateKeypair().sk));
+  const urteil = buildResolution({ jobId: JOB, reviewerPubkey: pruefer.publicKey(), resolution: "erstattet", refundMsat: 7000, note: "Antwort passt nicht zur Frage" }, 1_790_000_100);
+  const { wraps, urteilId } = await buildPrivateUrteil({ urteil, prueferSigner: pruefer, kundePk: sitzung.publicKey(), providerPk: provider.publicKey() });
+  assert.deepEqual(wraps.map((w) => w.kind), [1059, 1059]);
+  assert.deepEqual(regelKeineZahlungsdaten(wraps), []);
+  assert.deepEqual(regelKeinKlartext(wraps, ["erstattet", "Antwort passt nicht", JOB, "7000"]), []);
+  assert.deepEqual(regelAutorNicht(wraps, pruefer.publicKey()), []);
+  const kunde = await openPrivateUrteil(wraps[0]!, sitzung);
+  const prov = await openPrivateUrteil(wraps[1]!, provider);
+  assert.ok(kunde.ok && prov.ok);
+  assert.equal(kunde.urteil.id, urteilId);
+  assert.equal(kunde.prueferPk, pruefer.publicKey());
+  // Der Knoten nimmt es ueber den Kunden-Oeffner an (Absender: der Pruefer).
+  const k = await openPrivateKundenEvent(wraps[1]!, provider);
+  assert.ok(k.ok && k.request.kind === 38073);
+  // Und es entscheidet – weil die Reklamation diesen Pruefer nennt.
+  assert.equal(resolveDispute(dispute, true, [{ ...kunde.urteil, sig: "" }]).resolution, "erstattet");
+  // Ein Dritter liest nichts; eine Antwort-Oeffnung nimmt kein Urteil.
+  assert.equal((await openPrivateUrteil(wraps[0]!, new LocalSigner(generateKeypair().sk))).ok, false);
+  assert.equal((await openPrivateJobResponse(wraps[0]!, sitzung)).ok, false);
+});
+
+test("privat 5.6: Urteil – falsche Eingaben scheitern", async () => {
+  const sitzung = generateKeypair().pk;
+  const pruefer = new LocalSigner(generateKeypair().sk);
+  const p = provider.publicKey();
+  const urteil = buildResolution({ jobId: JOB, reviewerPubkey: pruefer.publicKey(), resolution: "geteilt", refundMsat: 3500, note: "" });
+  const bau = (o: Partial<Parameters<typeof buildPrivateUrteil>[0]>) => buildPrivateUrteil({ urteil, prueferSigner: pruefer, kundePk: sitzung, providerPk: p, ...o });
+  await assert.rejects(bau({ urteil: reklamation(new LocalSigner(generateKeypair().sk)) }), /Kein Urteil/);
+  await assert.rejects(bau({ prueferSigner: new LocalSigner(generateKeypair().sk) }), /gehört nicht zum Prüfer/);
+  await assert.rejects(bau({ kundePk: "xyz" }), /ungültig/);
+  await assert.rejects(bau({ kundePk: p }), /verschieden/);
+  await assert.rejects(bau({ providerPk: pruefer.publicKey() }), /prüft nicht selbst/);
+  // Ein Umschlag mit etwas anderem ist kein Urteil.
+  const s = new LocalSigner(generateKeypair().sk);
+  const fremd = await giftWrapMitSigner(anfrage(s), s, p, { fixedJitter: 0 });
+  const r = await openPrivateUrteil(fremd, provider);
+  assert.equal(r.ok, false);
+  assert.match(!r.ok ? r.grund : "", /Kein Urteil/);
 });

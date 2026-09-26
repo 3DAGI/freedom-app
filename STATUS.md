@@ -5333,6 +5333,64 @@ Endstand (nach dem Einmergen von 8.3b): protocol 1131 · node 239 · app 355 ·
 mls 9 (neu) · Leak-Tests 49 grün + 2 todo · 0 rot · check-wiring `--streng` 0 offen · innerHTML streng 0
 unbewertet · Smoke-Test bestanden · Nachbau bitgleich.
 
+## Schritt 5.8 – RPC-Vielfalt: Stichprobe gegen einen zweiten Anbieter
+
+**Karte zum Teil schon erfüllt:** Vier Anbieter verschiedener Betreiber
+(Solana Labs, PublicNode, dRPC, Ankr) und eigener Endpunkt zuerst gab es
+schon; seit 4.9 verteilt der Pool die Anfragen der App. Der Test der
+Voreinstellung verlangt jetzt mindestens vier Betreiber statt drei. Es fehlte
+die Stichprobe – der Kopfkommentar sagte sogar „kein Vergleich der Antworten“.
+
+**Stichprobe** (`protocol/src/rpc-pool.ts:263`, `RpcPool.stichprobe()`):
+- Zwei Endpunkte verschiedener Betreiber (grob: die letzten zwei Namensteile),
+  der erste in der üblichen Reihenfolge – der eigene Knoten zuerst.
+- Netz: Genesis-Hash beider gleich? Sonst Warnung „verschiedene Ketten“
+  (Mainnet/Devnet/Testnet benannt), weiter wird nicht verglichen.
+- Letzter Blockhash in beide Richtungen: A nennt seinen (finalized), B prüft
+  ihn mit `isBlockhashValid` ab dem Stand von A (`minContextSlot`) – und
+  umgekehrt. So wird jeder der beiden einmal geprüft.
+- Kontostand (nur mit `konto`): bei beiden; weichen die Werte ab, zweimal ab
+  dem höheren Stand wiederholen – eine echte Änderung dazwischen ist kein
+  Befund, eine bleibende Abweichung schon.
+- Widerspruch → `warnungen`; was sich nicht vergleichen ließ (tot, hinkt
+  hinterher `-32016`, unbrauchbare Antwort, nur ein Betreiber) → `hinweise`.
+  Fremde Antworten werden vor dem Vergleich auf Form geprüft (Base58-Hash,
+  ganze Zahlen). Die Ausfallhistorie des Pools bleibt unberührt.
+- Ein Aufruf an genau einen Endpunkt steht jetzt in `anfrage()`; `call()`
+  nutzt ihn und verhält sich wie vorher.
+
+**App** (`app/src/rpc-stichprobe.ts`):
+- Settings → Verbindung → „erreichbarkeit prüfen“ (`shell/state.ts:230`):
+  nach der Erreichbarkeit die Stichprobe ohne Adresse – verrät nichts über den
+  Nutzer; Zeile grün (stimmt überein), rot (Widerspruch) oder neutral (nicht
+  möglich).
+- Eingebaute Wallet (`shell/eingebaute-wallet.ts:120`): nach dem Guthaben
+  höchstens alle zehn Minuten eine zufällige eigene Adresse
+  (`stichprobenKonto`) – je Stichprobe nur eine, damit kein Anbieter mehrere
+  zusammen sieht; nur ein Widerspruch wird gezeigt (`#solw-rpc`, Hinweis).
+- Anzeige nur über `textContent`; der Text in den Settings nennt die
+  Stichprobe.
+
+**Browser-Prüfung** (gefälschte Endpunkte im Playwright-Netz): eigener
+Endpunkt + Voreinstellung ehrlich → „Stichprobe eigener Knoten ↔ Ankr:
+letzter Blockhash stimmt überein.“; eigener Endpunkt im Devnet → rote Zeile
+„eigener Knoten (Devnet) und PublicNode (Mainnet) hängen an verschiedenen
+Ketten“. Keine Seitenfehler.
+
+**Tests:** protocol +6 (übereinstimmend, falscher Blockhash je Seite, falscher
+Kontostand und Änderung dazwischen, anderes Netz, nicht Vergleichbares,
+Ausfallhistorie unberührt; Voreinstellung ≥ 4 Betreiber), app +4 (Takt und
+Adresswahl, Texte, Warnung aus einem echten Pool, Verdrahtung).
+
+**Offen, bewusst:** Der Knoten prüft Deposits mit einer festen URL
+(`SOLANA_RPC_URL` oder `bestUrl()`); eine Stichprobe dort wäre ein eigener
+kleiner Schritt. Die Stichprobe fängt einen Anbieter, der plump lügt – nicht
+einen, der nur bei der Stichprobe schweigt oder ehrlich antwortet.
+
+Endstand: protocol 1137 (+ 6 übersprungen) · node 238 (+ 7 übersprungen ohne
+Netz) · app 359 · Leak-Tests 49 grün + 2 todo · 0 rot · check-wiring `--streng`
+0 offen · innerHTML streng 0 unbewertet · Smoke-Test bestanden.
+
 ## Schritt 2.2b-b – MLS-Engine in der App
 
 **Ergebnis:** Die MLS-Engine aus 2.2b-a steckt in `freedom.html`. Sie wird
@@ -5410,6 +5468,264 @@ Start verdrahtet).
 Endstand: protocol 1131 · node 239 · app 359 (+4) · mls 9 · Leak-Tests 49
 grün + 2 todo · 0 rot · check-wiring `--streng` 0 offen · innerHTML streng 0
 unbewertet · Website 5 Seiten ok · Smoke-Test bestanden (mit MLS-Teil).
+
+## Schritt 5.7a – Modellkataloge, Teil a: NIP-51-Liste eines Kurators (mit 8.8)
+
+**Aufteilung:** 5.7 und 8.8 zusammen wären rund 660 geänderte Zeilen. Teil a
+bringt das Protokoll, Teil b die App (Abos, Vergleich, Modell-Dropdown,
+Website).
+
+**Karte:** „Ein Katalog ist die NIP-51-Liste eines Kurators; Nutzer abonnieren
+mehrere; keine feste Vorauswahl durch das Projekt.“ 8.8: „Preise in beiden
+Einheiten; zwei Kataloge abonnierbar und vergleichbar.“ Bisher gab es nur den
+Katalog der Manifeste (`model-registry.ts`, Gewichte und Seeder), keine
+Empfehlungen.
+
+**Format** (`protocol/src/modell-katalog.ts`, Kind 38080, neu in
+`docs/PROTOCOL.md`):
+- NIP-51-Set, ersetzbar über `d`: `title`, `description`, je Modell
+  `["model", <kennung>, <notiz?>]`, Inhalt leer. Ein eigenes Kind, damit
+  Kataloge liest, wer Kataloge sucht; das Kind war in keinem Branch belegt.
+- Die Modell-Kennung ist die, die Provider in ihren Fähigkeiten nennen
+  (Ollama-Namen) oder die im Manifest steht; verglichen wird ohne Rücksicht
+  auf Groß- und Kleinschreibung.
+
+**Bauen und lesen:**
+- `baueModellKatalog()` wirft bei Unbrauchbarem, statt es still zu
+  veröffentlichen: Kennung, Titel 1–80, Beschreibung ≤ 280, Notiz ≤ 140,
+  höchstens 200 Modelle, keine doppelten (auch nicht in anderer Schreibweise).
+- `leseModellKatalog()` liest fremde streng: ungültige Einträge fallen weg,
+  Texte werden gekürzt, Steuer- und Richtungszeichen entfernt; ein leerer
+  Katalog ist erlaubt (der Kurator hat ihn geleert). Die Signatur prüft wie
+  immer `verifyEvent()` im Pool.
+- `neuesteKataloge()`: je Adresse der neueste, bei Gleichstand die kleinere ID
+  (NIP-01) – unabhängig von der Reihenfolge.
+
+**Vergleich (8.8):**
+- `modellAngebote()`: je Modell, wie viele Provider es anbieten, und der
+  günstigste Preis je 1.000 Tokens (msat) aus den Fähigkeiten; ein Provider
+  zählt einmal, ein Preis ohne Zahl nicht.
+- `vergleicheKataloge()`: je Modell, in welchen Katalogen es steht (mit den
+  Notizen), Provider und Preis; dazu „gemeinsam“ und „nur in“. Sortiert nach
+  Zahl der Kataloge, dann Providern – nie nach einer Vorliebe des Projekts.
+  Die App zeigt den Preis in sats und SOL (Teil b).
+
+**Tests:** protocol +6 (bauen/lesen, Bauen wirft, streng lesen mit Müll,
+neuester je Adresse mit Gleichstand, Angebote, zwei Kataloge vergleichen).
+Bis Teil b stehen die neuen Funktionen begründet in
+`scripts/wiring-ausnahmen.txt`.
+
+Endstand: protocol 1143 (+ 6 übersprungen) · node 238 (+ 7 übersprungen ohne
+Netz) · app 363 · mls 9 · Leak-Tests 49 grün + 2 todo · 0 rot · check-wiring
+`--streng` 0 offen · innerHTML streng 0 unbewertet · Smoke-Test bestanden.
+
+## Schritt 5.7b – Modellkataloge, Teil b: in der App abonnieren und vergleichen (mit 8.8)
+
+**Oberfläche** (Agent → Modelle → „Modellkataloge“, `shell/tabs/agent-netz.ts`,
+Logik in `app/src/modell-kataloge.ts`):
+- Voreingestellt ist kein Katalog. Die App holt alle Kataloge
+  (`{kinds:[38080], limit:500}`, ohne Filter nach Kurator) und wählt selbst –
+  die Relays erfahren nicht, welche abonniert sind.
+- „Gefundene Kataloge“ mit „abonnieren“; abonnierte mit „abbestellen“.
+  Höchstens 20 Abos, gespeichert als `freedom.kataloge` (Präfix für die
+  Notfall-Löschung, in `SICHERUNG_EINTRAEGE` – ein neues Gerät übernimmt sie).
+- Vergleich der abonnierten als Tabelle: je Katalog ✓ (Notiz des Kurators als
+  Titel), Zahl der Provider, günstigster Preis je 1.000 Tokens in sats und SOL
+  (`ausMsat()` mit dem Marktkurs; ohne Kurs „SOL: kein Kurs“), dazu
+  „Gemeinsam: n · nur in „…“: m“. Modelle ohne Angebot heißen „kein Angebot“.
+- „eigenen Katalog veröffentlichen“: Titel und Modelle (durch „;“ getrennt,
+  Notiz dahinter) per Abfrage; gleicher Titel ersetzt den alten (`d` aus dem
+  Titel). Als Gerät gesperrt – der Katalog gehört der Person.
+- Alles über `textContent` – Kataloge sind Fremddaten; keine neue
+  HTML-Zuweisung.
+
+**Modell-Dropdown** (`shell/tabs/agent.ts:88`): statt „nemotron zuerst“
+(eine feste Vorliebe des Projekts) stehen Modelle aus abonnierten Katalogen
+vorn, dann nach Zahl der Provider; die Karte nennt „in 2 Katalogen“. Ohne Abo
+zählt nur die Zahl der Provider.
+
+**Verdrahtet:** Laden beim Start und „aktualisieren“ in `shell/app.ts:837`
+und `:844` (danach wird das Dropdown neu geordnet), Veröffentlichen `:839`.
+**Fund dabei:** Dieselben Knöpfe wurden auch in `askAi()` nach jeder
+KI-Antwort erneut verdrahtet (Rest der Aufteilung aus 1.0) – die Kataloge
+hängen nur am Start, nicht dort.
+
+**Nebenbei (8.8):** „Modelle im Netz“ nennt gefährdete Modelle zuerst
+(`modelsAtRisk`) – die Liste ist nach Seedern sortiert und schnitt sie sonst ab.
+`fitsOnDevice` und `verifyFile` gehören zum Laden von Gewichten beim Provider,
+das es noch nicht gibt; ihre Ausnahme ist so begründet. Das Whitepaper nennt die
+Kataloge.
+
+**Browser-Prüfung** (drei Konten, Test-Relay, zwei Provider, zwei Kurse):
+Kurator A und B veröffentlichen je einen Katalog; C findet beide, abonniert,
+sieht „Gemeinsam: 1 · nur in „Zum Programmieren“: 1 · nur in „Klein &
+schnell“: 1“ und Preise wie „0,9 sats ≈ 0,000005961 SOL“; im Dropdown rückt
+mistral:7b („in 1 Katalog“) vor llama3.2:3b; nach Neuladen sind die Abos da,
+„abbestellen“ entfernt einen; die Relays sahen nur `{kinds:[38080], limit:500}`.
+Keine Seitenfehler.
+
+**Tests:** app +4 (Abos, Eingabe und Kennung, Rang, Verdrahtung ohne
+Vorauswahl und ohne Kurator-Filter).
+
+Endstand: protocol 1143 (+ 6 übersprungen) · node 238 (+ 7 übersprungen ohne
+Netz) · app 367 · mls 9 · Leak-Tests 49 grün + 2 todo · 0 rot · check-wiring
+`--streng` 0 offen · innerHTML streng 0 unbewertet · Smoke-Test bestanden.
+
+## Schritt 5.6a – Streitfall-Prüfer subjektiv, Teil a: nur der genannte Prüfer, Urteil versiegelt
+
+**Karte:** „Den Prüfer wählt der Nutzer aus seinem Netz; das Urteil gilt nur
+zwischen den Beteiligten; keine globale Zulassung.“ Zwei Teile: a Protokoll
+und Knoten, b App (Prüfer aus dem eigenen Netz, Prüfauftrag beantworten,
+Urteil anzeigen).
+
+**Fund:** Ein Urteil (Kind 38073) konnte bisher niemand abgeben –
+`buildResolution()` war unbenutzt. `resolveDispute()` hätte jedes Urteil eines
+Nicht-Beteiligten gezählt; einschränken ließ es sich nur über
+`eligibleReviewers`, eine globale Zulassung. Die App bot Prüfer aus einer
+globalen Rangliste der Provider an.
+
+**Protokoll** (`disputes-relays.ts`, `private-job.ts`):
+- Die Reklamation nennt den Prüfer (`["pruefer", pk]`). `buildDispute()`
+  prüft ihn (64 Zeichen hex, nie Kunde oder Provider), `parseDispute()` liest
+  fremde Tags streng. `buildPrivateDispute()` verlangt, dass jeder genannte
+  Prüfer die Reklamation auch bekommt.
+- `resolveDispute()` zählt nur Urteile der genannten Prüfer – keiner genannt,
+  urteilt niemand; ein Prüfer, eine Stimme (sein jüngstes Urteil). Die Option
+  `eligibleReviewers` ist entfernt. „Gar keine Antwort“ braucht weiter keinen
+  Prüfer.
+- Frage und Antwort nur mit Zustimmung und nur in der Kopie für den Prüfer
+  (`materialFuerPruefer`, je höchstens 8.000 Zeichen – NIP-44 fasst 64 KB);
+  der Provider sieht, wer prüft, bekommt das Material aber nicht noch einmal.
+  Direkt in der Reklamation ist es abgelehnt.
+- Das Urteil geht versiegelt nur an den Sitzungsschlüssel des Kunden (wie jede
+  KI-Antwort) und den Provider: `buildPrivateUrteil()` (mit der Rechenarbeit
+  aus dem Angebot des Providers), `openPrivateUrteil()`.
+
+**Knoten** (`dvm-provider.ts`): nimmt das Urteil über den Kunden-Öffner an
+(mit Rechenarbeit) und loggt nur Auftrag, Ergebnis, Betrag und Prüfer, nie die
+Begründung. Eine Rückzahlung löst es nicht aus – das entscheidet der
+Betreiber.
+
+**App (klein):** `reklamiere()` nennt den gewählten Prüfer schon in der
+Reklamation (`tabs/agent.ts`); die Wahl aus dem eigenen Netz kommt in b.
+
+**Tests:** protocol +6 (nur der genannte Prüfer; eine Stimme; Prüfer in der
+Reklamation geprüft; Material nur für den Prüfer; Urteil versiegelt und
+entscheidend; falsche Eingaben), die alten Mehrheits-Tests nennen ihre Prüfer
+jetzt in der Reklamation; der Test „Nur zugelassene Prüfer zählen“ ist durch
+„Nur der genannte Prüfer zählt“ ersetzt (die Karte verlangt keine globale
+Zulassung); Szenario „ki-reklamation“ prüft auch Material und Urteil. node +1
+(Urteil ins Log ohne Begründung, ohne Rechenarbeit verworfen).
+
+Endstand: protocol 1148 (+ 6 übersprungen) · node 239 (+ 7 übersprungen ohne
+Netz) · app 367 · mls 9 · Leak-Tests 49 grün + 2 todo · 0 rot · check-wiring
+`--streng` 0 offen · innerHTML streng 0 unbewertet · Smoke-Test bestanden.
+
+## Schritt 5.6b – Streitfall-Prüfer subjektiv, Teil b: der Kunde wählt aus seinem Netz
+
+**Aufteilung:** Der App-Teil kommt in zwei Stücken: b die Seite des Kunden
+(wählen, schicken, Urteil empfangen), c die Seite des Prüfers (Prüfaufträge
+beantworten).
+
+**Prüfer aus dem eigenen Netz** (`app/src/streitfall.ts`,
+`shell/streitfall-ui.ts`, `tabs/agent.ts:1037`):
+- `prueferAusNetz()`: Kontakte (Direktnachrichten) und eigene Provider
+  (Allowlist), ohne die Beteiligten und ohne einen selbst, höchstens neun.
+- Die globale Rangliste `prueferKandidaten()` ist entfernt. Ohne Netz geht die
+  Reklamation nur an den Provider; die App sagt, wer prüfen kann.
+
+**Reklamieren** (`reklamiere()`, `tabs/agent.ts:1060`):
+- Die Reklamation nennt den Prüfer.
+- Frage und Antwort gehen nur nach Nachfrage mit und nur in der Kopie für den
+  Prüfer. Die Frage reicht `handleAnswer()` an die Kosten-Blase weiter, nur im
+  Speicher.
+- Zustellung (`stelleZu()`): an Kontakte über ihren Posteingang (NIP-17, wie
+  Direktnachrichten), an eigene Provider über den Pool (mit deren
+  Rechenarbeit).
+- Die Reklamation samt Sitzungsschlüssel merkt sich die App nur im Tresor
+  (`freedom.reklamationen`, 30 Tage, nie in der Zustandssicherung). So ist
+  das Urteil auch nach einem Neustart lesbar; die Sitzungen selbst beginnen
+  nach dem Neuladen weiter neu (`KiSitzungen.schluesselHex()` gibt den Schlüssel
+  nur dafür heraus).
+
+**Urteil empfangen** (`pruefeUrteile()`, beim Start und alle zwei Minuten,
+solange eines offen ist, `shell/app.ts:846`): Umschläge nur an die
+Sitzungsschlüssel der offenen Reklamationen, geöffnet mit
+`openPrivateUrteil()`; es zählt nur das Urteil des genannten Prüfers
+(`resolveDispute()`). Karte „Deine Reklamationen“ (Agent → Aufgaben):
+„Anna gibt dir recht – 21 sats zurück. Das gilt nur zwischen dir und dem
+Provider; erstatten muss er selbst.“
+
+**Texte:** Datenschutz-Satz „ki-reklamation“ sagt „ein Prüfer aus deinem
+Netz“, der Hinweis vor dem Reklamieren (`disputeInfo()`) nennt Kontakt oder
+eigenen Provider, „gilt nur zwischen dir und dem Provider“ und „nicht von
+selbst“.
+
+**Browser-Prüfung:** Reklamation mit Sitzungsschlüssel im Speicher, zwei
+versiegelte Urteile auf dem Test-Relay – eines vom genannten Prüfer
+(„erstattet“), eines von einem Fremden („bestätigt“). Die Karte zeigt das des
+Prüfers, auch nach Neuladen; die Relays sahen nur `{kinds:[1059], "#p":[<Sitzung>]}`.
+Keine Seitenfehler.
+
+**Tests:** app +4 (Prüfer nur aus dem Netz; Reklamationen streng gelesen, 30
+Tage; Sitzungsschlüssel öffnet das Urteil nach Neustart, ein Fremder zählt
+nicht; Verdrahtung) und +1 Leak-Szenario (Material für den Prüfer: Relays
+sehen nichts, der Provider bekommt es nicht). Die Verdrahtungs-Prüfung in
+`leak/reklamation.test.ts` prüft jetzt den neuen Weg (genannter Prüfer,
+Material, Zustellung).
+
+Endstand: protocol 1148 (+ 6 übersprungen) · node 239 (+ 7 übersprungen ohne
+Netz) · app 371 · mls 9 · Leak-Tests 50 grün + 2 todo · 0 rot · check-wiring
+`--streng` 0 offen · innerHTML streng 0 unbewertet · Smoke-Test bestanden.
+
+## Schritt 5.6c – Streitfall-Prüfer subjektiv, Teil c: der Prüfer urteilt
+
+**Prüfaufträge** (`shell/pruefauftraege-ui.ts`, Logik in `app/src/streitfall.ts`):
+- Der Posteingang reicht Umschläge, die keine Direktnachricht sind, an
+  `alsPruefauftrag()` weiter – nach Trinkgeld, Adress-Anfrage und Nachfolge,
+  aus dem schon geöffneten Abgleich (`tabs/kommunikation.ts`), also ohne
+  zweiten Posteingang. Es zählt nur eine Reklamation, die mich als Prüfer
+  nennt (`pruefauftragAus()`).
+- Karte „Prüfaufträge“ (Agent → Aufgaben): Grund, Betrag, Provider, Notiz und –
+  wenn der Kunde zugestimmt hat – Frage und Antwort zum Aufklappen. Der Kunde
+  bleibt anonym (Sitzungsschlüssel).
+- Vier Urteile: Kunde hat recht, Provider hat recht, teilen, kann ich nicht
+  beurteilen – mit kurzer Begründung. Die Erstattung rechnet
+  `erstattungFuer()` wie `resolveDispute()`. Das Urteil geht versiegelt an den
+  Sitzungsschlüssel des Kunden und an den Provider (mit der Rechenarbeit aus
+  dessen Angebot) – sonst an niemanden.
+- Der Inhalt bleibt nur im Speicher (Klartext aus einem fremden Auftrag);
+  nach dem Neuladen holt ihn der Posteingang wieder. Gemerkt werden nur die
+  IDs beantworteter Aufträge (`freedom.pruefungen.erledigt`).
+- Als Gerät gesperrt: Der Auftrag nennt die Person, nicht das Gerät.
+
+**Texte:** Der Datenschutz-Satz „ki-reklamation“ nennt jetzt auch das
+versiegelte Urteil („sein Urteil geht ebenso versiegelt nur an dich und den
+Provider“); das Szenario prüft es seit 5.6a.
+
+**Browser-Prüfung** (zwei Browser, Test-Relay): Eine versiegelte Reklamation
+nennt B als Prüfer, mit Frage und Antwort. B sieht den Prüfauftrag („Antwort
+unbrauchbar · 21 sats“, Notiz, Frage und Antwort) und urteilt „Kunde hat
+recht“. Auf dem Relay landen Umschläge nur an den Sitzungsschlüssel und den
+Provider, ohne Klartext; lokal liegt nichts vom Inhalt; nach dem Neuladen ist
+der Auftrag erledigt. A (mit der gemerkten Reklamation) sieht „Bernd gibt dir
+recht – 21 sats zurück“. Keine Seitenfehler.
+
+**Fund:** Die CI von #96 war rot: `check-wiring.py --streng` meldet eine
+veraltete Ausnahme (`resolveDispute`, seit 5.6b verdrahtet) und endet mit 1,
+obwohl die Zusammenfassung „0 offen“ sagt – lokal war nur die letzte Zeile
+gelesen worden. Behoben in #96, Fallstrick in CLAUDE.md. Hier ebenso:
+`buildResolution` ist verdrahtet, seine Ausnahme entfernt; die übrigen drei
+betreffen nur noch die Relay-Rolle (8.4).
+
+**Tests:** app +3 (Prüfauftrag nur, wenn er mich nennt; Erstattung und
+erledigte IDs; Verdrahtung – Inhalt nur im Speicher, Urteil an Sitzung und
+Provider). Die Verdrahtungs-Prüfung des Trinkgeld-Belegs (4.7b) kennt die
+längere Kette im Posteingang.
+
+Endstand: protocol 1148 (+ 6 übersprungen) · node 239 (+ 7 übersprungen ohne
+Netz) · app 374 · mls 9 · Leak-Tests 50 grün + 2 todo · 0 rot · check-wiring
+`--streng` 0 offen, Exit 0 · innerHTML streng 0 unbewertet · Smoke-Test bestanden.
 
 ## Schritt 2.2b-c1 – MLS-Konto: Zustand verschlüsselt, KeyPackages, Routing
 
@@ -5495,7 +5811,7 @@ letzte ist. Der neue Eintrag steht deshalb davor; der Test ist unverändert.
 - `mls/test/mls.test.ts`, 1 neu: Routing – `h` der Nachrichten, Relays, bei
   allen Mitgliedern gleich, unbekannte Gruppe abgewiesen.
 
-Endstand: protocol 1131 · node 239 · app 372 (+13) · mls 10 (+1) · Leak-Tests
-49 grün + 2 todo · 0 rot · check-wiring `--streng` 0 offen · innerHTML streng 0
+Endstand (nach dem Einmergen von 5.7b und 5.6a–c): protocol 1148 · node 240 ·
+app 387 (+13) · mls 10 (+1) · Leak-Tests 50 grün + 2 todo · 0 rot · check-wiring `--streng` 0 offen · innerHTML streng 0
 unbewertet · Website 5 Seiten ok · Smoke-Test bestanden (mit MLS-Teil) ·
 Nachbau bitgleich.

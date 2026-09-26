@@ -66,7 +66,16 @@
             <button id="agent-new" class="btn-primary agent-new" type="button">
               <span class="ic" data-icon="plus"></span> Neue Aufgabe</button>
             <div class="seg" role="tablist" data-subtab-group="agent"><button role="tab" data-subtab="tasks" class="active">Aufgaben</button><button role="tab" data-subtab="models">Modelle</button><button role="tab" data-subtab="repos">Repos</button></div>
-            <div class="subpane active" data-subpane="agent:tasks"><div id="agent-history" class="agent-history"></div></div>
+            <div class="subpane active" data-subpane="agent:tasks"><div id="pruefauftraege" class="card hidden">
+          <h3><span class="ic" data-icon="shield"></span> Prüfaufträge</h3>
+          <p class="mono-sm">Jemand aus deinem Netz hat dich als Prüfer einer Reklamation genannt. Dein Urteil geht versiegelt nur an den Kunden und den Provider und gilt nur zwischen ihnen – eine Erstattung zahlt der Provider selbst.</p>
+          <div id="pruefauftraege-liste" class="mono-sm"></div>
+        </div><div id="reklamationen" class="card hidden">
+          <h3><span class="ic" data-icon="shield"></span> Deine Reklamationen</h3>
+          <p class="mono-sm">Den Prüfer hast du aus deinem Netz gewählt. Sein Urteil gilt nur zwischen dir und dem Provider – erstatten muss der Provider selbst.</p>
+          <div id="reklamationen-liste" class="mono-sm"></div>
+          <button id="reklamationen-pruefen" class="ghost" style="width:auto;padding:6px 10px;margin-top:6px">nach Urteilen sehen</button>
+        </div><div id="agent-history" class="agent-history"></div></div>
             <div class="subpane" data-subpane="agent:models"><div class="card">
           <h3><span class="ic" data-icon="server"></span> Modelle im Netz</h3>
           <p class="mono-sm">Was im Netz vorgehalten wird. Modelle mit nur einem Seeder sind gefährdet.</p>
@@ -75,6 +84,16 @@
             <button id="models-refresh" class="ghost" style="width:auto;padding:6px 10px">aktualisieren</button>
             <button id="models-seed" class="ghost" style="width:auto;padding:6px 10px">Modell vorhalten</button>
             <button id="models-publish" class="ghost" style="width:auto;padding:6px 10px">Modell ankündigen</button>
+          </div>
+        </div><div class="card">
+          <h3><span class="ic" data-icon="scroll"></span> Modellkataloge</h3>
+          <p class="mono-sm">Ein Katalog ist die Liste eines Kurators (NIP-51): welche Modelle er empfiehlt. Voreingestellt ist keiner – du abonnierst, wem du folgst, auch mehrere, und vergleichst sie mit dem, was Provider gerade anbieten. Ein Katalog sagt nur, wer ein Modell empfiehlt, nicht, ob es gut ist. Die App lädt alle Kataloge und wählt selbst aus; die Relays erfahren nicht, welche du abonniert hast.</p>
+          <div id="kataloge-abos" class="mono-sm"></div>
+          <div id="kataloge-vergleich" class="mono-sm" style="overflow-x:auto"></div>
+          <div id="kataloge-gefunden" class="mono-sm">lade …</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
+            <button id="kataloge-refresh" class="ghost" style="width:auto;padding:6px 10px">aktualisieren</button>
+            <button id="katalog-publish" class="ghost" style="width:auto;padding:6px 10px">eigenen Katalog veröffentlichen</button>
           </div>
         </div></div>
             <div class="subpane" data-subpane="agent:repos"><div class="card">
@@ -324,6 +343,7 @@
               <div class="mono-sm">Empfangen an:</div>
               <div id="solw-adresse" class="mono-sm" style="word-break:break-all"></div>
               <div id="solw-guthaben" class="mono-sm"></div>
+              <div id="solw-rpc" class="mono-sm err" role="status"></div>
               <div id="solw-vorrat" class="mono-sm"></div>
               <div style="display:flex;gap:6px;align-items:center;margin-top:6px;flex-wrap:wrap">
                 <input id="solw-limit" type="number" min="0" step="0.01" class="mono-sm" style="width:7em" />
@@ -563,7 +583,7 @@
         </div></div>
             <div class="subpane" data-subpane="settings:network"><h2 class="settings-h">Verbindung</h2><div class="card">
           <h3><span class="ic" data-icon="server"></span> Eigene Endpunkte</h3>
-          <p class="mono-sm">Eigene Solana-Endpunkte, kommagetrennt. Sie werden zuerst benutzt; fällt einer aus, nimmt die App den nächsten.</p>
+          <p class="mono-sm">Eigene Solana-Endpunkte, kommagetrennt. Sie werden zuerst benutzt; fällt einer aus, nimmt die App den nächsten. Voreingestellt sind vier Anbieter verschiedener Betreiber. Ab und zu fragt die App einen zweiten Anbieter nach demselben (Netz, letzter Blockhash, ein Kontostand) und warnt, wenn die Antworten sich widersprechen.</p>
           <input id="sol-rpcs" class="mono-sm" style="width:100%"
                  placeholder="https://mein-knoten.example, https://…" />
           <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">

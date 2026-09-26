@@ -21,10 +21,11 @@ const KUNDE = generateKeypair();
 const PROVIDER = generateKeypair();
 const PRUEFER_A = generateKeypair(), PRUEFER_B = generateKeypair(), PRUEFER_C = generateKeypair();
 
-const reklamation = (grund: Parameters<typeof buildDispute>[0]["reason"] = "unbrauchbar") =>
+// Seit 5.6 nennt die Reklamation, wer prüft – nur deren Urteil zählt.
+const reklamation = (grund: Parameters<typeof buildDispute>[0]["reason"] = "unbrauchbar", pruefer = [PRUEFER_A.pk, PRUEFER_B.pk, PRUEFER_C.pk]) =>
   parseDispute(signEvent(buildDispute({
     jobId: "job-1", customerPubkey: KUNDE.pk, providerPubkey: PROVIDER.pk,
-    reason: grund, amountMsat: 100_000, note: "Test",
+    reason: grund, amountMsat: 100_000, note: "Test", pruefer,
   }, NOW), KUNDE.sk));
 
 const urteil = (von: typeof PRUEFER_A, res: Resolution, at = NOW + 60) =>
@@ -110,13 +111,37 @@ test("Bei Gleichstand wird geteilt, nicht gewuerfelt", () => {
   assert.equal(v.refundMsat, 50_000);
 });
 
-test("Nur zugelassene Pruefer zaehlen", () => {
-  // Sonst stellt ein Kunde zehn Wegwerf-Schluessel auf und erstattet sich
-  // selbst.
-  const v = resolveDispute(reklamation(), true, [urteil(PRUEFER_A, "erstattet")], {
-    eligibleReviewers: new Set([PRUEFER_B.pk]),
-  });
+test("5.6: Nur der Pruefer, den die Reklamation nennt, zaehlt – keine globale Zulassung", () => {
+  // Wer nicht genannt ist, urteilt nicht mit – auch nicht zehn Fremde, die
+  // sich zu einem Streit melden, den sie nicht betrifft.
+  const v = resolveDispute(reklamation("unbrauchbar", [PRUEFER_B.pk]), true, [urteil(PRUEFER_A, "erstattet"), urteil(PRUEFER_C, "erstattet")]);
   assert.equal(v.resolution, "unentschieden");
+  assert.equal(resolveDispute(reklamation("unbrauchbar", [PRUEFER_B.pk]), true, [urteil(PRUEFER_B, "erstattet")]).resolution, "erstattet");
+  // Keiner genannt: Es urteilt niemand.
+  assert.equal(resolveDispute(reklamation("unbrauchbar", []), true, [urteil(PRUEFER_A, "erstattet")]).resolution, "unentschieden");
+  // „Gar keine Antwort“ braucht weiter keinen Pruefer.
+  assert.equal(resolveDispute(reklamation("nichts_geliefert", []), false, []).resolution, "erstattet");
+});
+
+test("5.6: ein Pruefer, eine Stimme – sein juengstes Urteil gilt", () => {
+  const d = reklamation("unbrauchbar", [PRUEFER_A.pk]);
+  const v = resolveDispute(d, true, [urteil(PRUEFER_A, "erstattet", NOW + 60), urteil(PRUEFER_A, "bestaetigt", NOW + 120), urteil(PRUEFER_A, "erstattet", NOW + 90)]);
+  assert.equal(v.resolution, "bestaetigt");
+  assert.match(v.message, /1 von 1/);
+});
+
+test("5.6: die Reklamation nennt den Pruefer – geprueft, ohne Parteien, ohne Doppelte", () => {
+  const d = reklamation("unbrauchbar", [PRUEFER_A.pk, PRUEFER_A.pk]);
+  assert.deepEqual(d.pruefer, [PRUEFER_A.pk]);
+  const bau = (pruefer: string[]) => () => buildDispute({ jobId: "j", customerPubkey: KUNDE.pk, providerPubkey: PROVIDER.pk, reason: "unbrauchbar", amountMsat: 1, note: "", pruefer });
+  assert.throws(bau(["nicht-hex"]), /Prüfer-Pubkey/);
+  assert.throws(bau([PROVIDER.pk]), /Partei prüft nicht selbst/);
+  assert.throws(bau([KUNDE.pk]), /Partei prüft nicht selbst/);
+  // Fremde Tags: kaputte und die Parteien fallen beim Lesen weg.
+  const roh = signEvent(buildEvent(KUNDE.pk, KIND_JOB_DISPUTE, [["e", "j"], ["p", PROVIDER.pk], ["amount_msat", "1"],
+    ["pruefer", "xyz"], ["pruefer", PROVIDER.pk], ["pruefer", KUNDE.pk], ["pruefer", PRUEFER_C.pk]], ""), KUNDE.sk);
+  assert.deepEqual(parseDispute(roh).pruefer, [PRUEFER_C.pk]);
+  assert.equal(parseDispute(roh).material, undefined);
 });
 
 test("Urteile zu fremden Jobs zaehlen nicht", () => {
@@ -142,6 +167,10 @@ test("Die Auskunft nennt, was das Verfahren NICHT kann", () => {
   assert.match(t, /NICHT abfängt/);
   assert.match(t, /gefällt mir nicht/);
   assert.match(t, /kein Richtig/);
+  // 5.6: Pruefer aus dem eigenen Netz, Urteil nur zwischen den Beteiligten, keine Erstattung von selbst.
+  assert.match(t.replace(/\n/g, " "), /Prüfer aus deinem Netz/);
+  assert.match(t.replace(/\n/g, " "), /gilt nur zwischen dir und dem Provider/);
+  assert.match(t.replace(/\n/g, " "), /nicht von selbst/);
 });
 
 // ------------------------------------------------------------- Relays
