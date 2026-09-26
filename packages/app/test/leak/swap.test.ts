@@ -1,32 +1,28 @@
 /**
- * Leak-Szenario „Swap starten“ (Schritt 1.5): die Swap-Anfrage (Kind 25001) so,
- * wie `startSwap()` in `tabs/waehrung.ts` sie baut. Heute steht die
- * Solana-Empfangsadresse offen im Event und verknuepft sie mit dem npub –
- * Schritt 4.9 aendert das.
+ * Leak-Szenario „Swap starten“ (Schritt 1.5, seit 4.9b versiegelt): die
+ * Swap-Anfrage so, wie `startSwap()` in `tabs/waehrung.ts` sie sendet – mit
+ * `hinAnfrage()` im Umschlag von einem Wegwerf-Schluessel an den LP. Bis 4.9
+ * stand die Solana-Empfangsadresse offen im Event, vom eigenen npub.
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { Keypair } from "@solana/web3.js";
 import {
-  LocalSigner, buildEvent, generateKeypair, generatePreimage, hashlock, regelKeinBolt11, regelKeinKind4,
-  regelKeineSolAdresse, toHex,
+  generateKeypair, generatePreimage, hashlock, regelAutorNicht, regelKeinBolt11, regelKeinKind4, regelKeineSolAdresse, toHex,
 } from "@freedomstack/protocol";
-import { KIND_SWAP_REQUEST } from "../../src/shell/state.js";
+import { hinAnfrage } from "../../src/swap-umschlag.js";
 import { aufzeichnung } from "./aufzeichnung.js";
 
 async function starte() {
   const { pool, relay } = aufzeichnung();
-  const signer = new LocalSigner(generateKeypair().sk);
+  const identitaet = generateKeypair().pk;
   const solAddr = Keypair.generate().publicKey.toBase58();
-  await pool.publish(await signer.signEvent(buildEvent(signer.publicKey(), KIND_SWAP_REQUEST, [
-    ["p", generateKeypair().pk],
-    ["offer", "angebot-1"],
-    ["amount_sats", "21000"],
-    ["hashlock", toHex(hashlock(generatePreimage()))],
-    ["solana_address", solAddr],
-  ], "")));
-  return { gesendet: relay.gesendet, solAddr };
+  const post = await hinAnfrage({
+    lpPk: generateKeypair().pk, offerId: "angebot-1", amountSats: 21000, hashlockHex: toHex(hashlock(generatePreimage())), solAdresse: solAddr,
+  });
+  await pool.publish(post.wrap);
+  return { gesendet: relay.gesendet, solAddr, identitaet };
 }
 
 test("Swap: Anfrage geht ueber den Pool, ohne Rechnung und ohne Kind 4", async () => {
@@ -36,13 +32,19 @@ test("Swap: Anfrage geht ueber den Pool, ohne Rechnung und ohne Kind 4", async (
   assert.deepEqual(regelKeinBolt11(gesendet), []);
 });
 
-test("Swap: keine SOL-Adresse im oeffentlichen Event", { todo: "Schritt 4.9" }, async () => {
+test("Swap: keine SOL-Adresse im oeffentlichen Event", async () => {
   const { gesendet, solAddr } = await starte();
   assert.deepEqual(regelKeineSolAdresse(gesendet, [solAddr]), []);
 });
 
-test("Verdrahtung: startSwap() baut die Anfrage wie das Szenario", () => {
+test("Swap: nicht vom eigenen npub", async () => {
+  const { gesendet, identitaet } = await starte();
+  assert.deepEqual(regelAutorNicht(gesendet, identitaet), []);
+});
+
+test("Verdrahtung: startSwap() sendet die Anfrage wie das Szenario – nur versiegelt", () => {
   const w = readFileSync(new URL("../../src/shell/tabs/waehrung.ts", import.meta.url), "utf8");
   const f = w.slice(w.indexOf("async function startSwap("), w.indexOf("async function pollSwapResponse("));
-  assert.match(f, /KIND_SWAP_REQUEST,\s*\[\s*\["p", lpPubkey\],\s*\["offer", offerId\],\s*\["amount_sats", String\(amount\)\],\s*\["hashlock", toHex\(H\)\],\s*\["solana_address", solAddr\],\s*\],/);
+  assert.match(f, /const post = await hinAnfrage\(\{ lpPk: lpPubkey, offerId, amountSats: amount, hashlockHex: toHex\(H\), solAdresse: solAddr \}\);\s*await pool\.publish\(post\.wrap\);/);
+  assert.doesNotMatch(f, /signiere\(|buildEvent\(/, "keine offene Anfrage mehr");
 });

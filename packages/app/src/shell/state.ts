@@ -22,9 +22,6 @@ export const RELAYS = [
   "wss://relay.nostr.band",
 ];
 
-
-export const KIND_SWAP_REQUEST = 25001;
-export const KIND_SWAP_RESPONSE = 25002;
 export const LS_KEY = "freedom.nsec";
 /** Bunker-Sitzung (Schritt 1.3f): Signer, Relays, Client-Schluessel – ein Geheimnis. */
 export const LS_BUNKER = "freedom.bunker";

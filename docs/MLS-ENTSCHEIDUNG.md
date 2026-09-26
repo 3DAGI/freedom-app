@@ -65,7 +65,10 @@ Der Preis ist hoch und gehört in die Entscheidung:
 
 ## MENSCH: bitte entscheiden
 
-- [ ] **A – MDK per WASM** (empfohlen), mit
+> **Entschieden 26.09.2026: A.** Ob die WASM-Datei eingebettet oder nachgeladen
+> wird, schlägt der Agent zu Beginn von 2.2b mit Messwerten vor.
+
+- [x] **A – MDK per WASM** (empfohlen), mit
   - CSP `'wasm-unsafe-eval'`,
   - Rust in CI und `pages.yml`,
   - entweder WASM eingebettet (~4 MB, eine Datei) **oder** nachgeladen (zweite Datei).

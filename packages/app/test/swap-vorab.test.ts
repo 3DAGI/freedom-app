@@ -38,8 +38,9 @@ test("Vorab-Gebuehr: in diesen Faellen zahlt die App nicht", () => {
 
 test("Verdrahtung (4.6d): nur Antworten des LP, Vorab erst pruefen, dann ueber die Zahlschiene zahlen", () => {
   const w = readFileSync(new URL("../src/shell/tabs/waehrung.ts", import.meta.url), "utf8");
-  assert.match(w, /pool\.query\(\{ kinds: \[KIND_SWAP_RESPONSE\], "#e": \[requestId\], authors: \[lpPubkey\] \}\)/);
-  assert.match(w, /void pollSwapResponse\(ev\.id, toHex\(H\), solAddr, amount, lpPubkey, vorabSats\)/);
+  // Seit 4.9b nur versiegelte Antworten des LP zur eigenen Anfrage (swapAntworten → oeffneSwapAntwort).
+  assert.match(w, /const alle = await swapAntworten\(pool, post\);/);
+  assert.match(w, /void pollSwapResponse\(post, toHex\(H\), solAddr, amount, vorabSats\)/);
   const f = w.slice(w.indexOf("async function zahleVorab("), w.indexOf("/** Laufender Swap"));
   const [pruefen, fragen, zahlen] = ["pruefeVorab(antwort, angekuendigt)", "confirm(", "await zahle(zahlschienen()"].map((x) => f.indexOf(x));
   assert.ok(pruefen > 0 && pruefen < fragen && fragen < zahlen, "pruefen → fragen → zahlen");

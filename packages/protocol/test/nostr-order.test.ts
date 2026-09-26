@@ -73,3 +73,12 @@ test("Vorab-Gebuehr (4.6d): optional, nur als positive ganze Zahl", () => {
     assert.throws(() => parseLpOffer(ev), /vorab_sats/, falsch);
   }
 });
+
+test("Versiegelt (4.9): Angebot sagt, ob der LP Anfragen im Umschlag liest", () => {
+  const mit: LpOffer = { ...sample, versiegelt: true };
+  assert.deepEqual(parseLpOffer(buildLpOffer(mit, KP.pk, 1_700_000_000)), mit);
+  assert.equal(buildLpOffer(sample, KP.pk).tags.some((t) => t[0] === "versiegelt"), false);
+  const ev = buildLpOffer(mit, KP.pk, 1_700_000_000);
+  ev.tags = ev.tags.map((t) => (t[0] === "versiegelt" ? ["versiegelt", "ja"] : t));
+  assert.equal(parseLpOffer(ev).versiegelt, undefined, "nur \"1\" zählt");
+});

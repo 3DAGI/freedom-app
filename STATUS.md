@@ -3818,6 +3818,93 @@ Endstand: protocol 1051 · node 209 · app 269 · Leak-Tests 37 grün + 4 todo �
 0 rot · check-wiring `--streng` 0 offen · innerHTML streng 0 unbewertet ·
 Smoke-Test bestanden.
 
+## Schritt 4.9a – Swap-Anfragen und -Antworten versiegelt (Protokoll + Knoten)
+
+**Entscheidungen 26.09.2026 (MENSCH):** 4.9 Variante A (frische
+Empfangsadressen, Trinkgeld-Adresse versiegelt auf Anfrage, Profilfeld optional
+mit Warnung – gesendete Zahlungen von frischen Adressen sind nicht Teil davon,
+weil das Auffüllen die Adressen auf der Kette wieder verknüpft); 2.2a MLS: A
+(MDK per WASM); 4.1c: KI-Aufträge bezahlen – ja, nach 4.0; 4.2c Mobile Wallet
+Adapter: später mit 6.1. 4.0 ist noch in Diskussion (Vorschlag „A+“: feste
+Aufteilung direkt beim Zahlen an alle Beteiligten, kein Topf). Neue
+Konvention seit „Zwei Spuren“: Abschnitte ohne laufende Nummer.
+
+4.9 ist über 400 Zeilen und in fünf Teile geteilt (Karte). **a** schließt die
+Lücke auf der Leitung, die alle Swaps offen ließen: Anfrage (Kind 25001) und
+Antwort (25002) standen offen auf den Relays – die SOL-Empfangsadresse neben
+dem npub, in der Gegenrichtung die Rechnung, in jeder Antwort Swap-ID und
+Rechnung des LP (über die Swap-ID findet jeder die Sperre und ihren Empfänger).
+
+**Protokoll:** `swap-versiegelt.ts` – derselbe Kern im Umschlag (NIP-59) von
+einem Wegwerf-Schlüssel an den LP (`versiegleSwapAnfrage`/`oeffneSwapAnfrage`),
+die Antwort ebenso zurück (`versiegleSwapAntwort`/`oeffneSwapAntwort`: nur vom
+erwarteten LP, nur zur eigenen Anfrage). Ohne Zeitversatz – der LP liest die
+letzte Stunde. Kerne werden streng geprüft (Kind, Absender = Siegel, Tags nur
+Texte, Inhalt ≤ 5000 Zeichen). Angebot: `["versiegelt", "1"]`.
+
+**Knoten:** Der LP-Daemon liest zusätzlich Umschläge an seinen Schlüssel, öffnet
+jeden nur einmal (Zwischenspeicher zwei Stunden) und bearbeitet den Kern wie
+eine offene Anfrage; geantwortet wird so, wie gefragt wurde – auch VORAB,
+Ablehnungen und Stände der Gegenrichtung. Versiegelte Sitzungen der
+Gegenrichtung bleiben es nach einem Neustart (`versiegelt` im Speicher). Offene
+Anfragen gehen für ältere Apps weiter. Der KI-Teil desselben Knotens meldet
+Swap-Umschläge im Log als „verworfen“ (keine Rechenarbeit) – harmlos.
+
+**Tests:** protocol 1051 → 1056 (`swap-versiegelt.test.ts` 4: nur der LP
+öffnet, kein Klartext im Umschlag, fremde Kerne → null, Antwort nur vom LP zur
+eigenen Anfrage; `nostr-order.test.ts` +1), node 209 → 214
+(`lp-versiegelt.test.ts` 5: Angebot, Hinrichtung, Vorab, fremde Umschläge,
+Gegenrichtung samt Ablehnung – in keinem Fall steht Adresse, Rechnung oder
+Swap-ID offen). Die App-Seite folgt in 4.9b; bis dahin zwei begründete
+Ausnahmen in `wiring-ausnahmen.txt`.
+
+Endstand: protocol 1056 · node 214 · app 269 · Leak-Tests 37 grün + 4 todo ·
+0 rot · check-wiring `--streng` 0 offen · innerHTML streng 0 unbewertet ·
+Smoke-Test bestanden.
+
+## Schritt 4.9b – Die App tauscht nur noch im Umschlag
+
+Die App-Seite zu 4.9a. Bis hierhin sendete die Hinrichtung (sats → SOL) ihre
+Anfrage **vom eigenen npub** mit der SOL-Empfangsadresse offen auf die Relays;
+die Gegenrichtung sendete schon vom Wegwerf-Schlüssel, aber mit der Rechnung;
+beide lasen offene Antworten mit Swap-ID und Rechnung des LP.
+
+**Neu:** `swap-umschlag.ts` (ohne DOM) – `hinAnfrage()` und `rueckAnfrage()`
+versiegeln die Anfrage von einem neuen Wegwerf-Schlüssel je Swap an den LP,
+`swapAntworten()` öffnet nur Umschläge an diesen Schlüssel, nur vom LP und nur
+zu dieser Anfrage (offene Antworten zählen nicht mehr), `liestUmschlaege()`
+prüft das Angebot. In `waehrung.ts`: `startSwap()`/`pollSwapResponse()` und
+`startRueckSwap()`/`warteAufRueckAntwort()` darauf umgestellt; die
+Angebotsliste zeigt LPs ohne `["versiegelt", "1"]` als „veraltet“ (Knopf aus)
+– ihnen ginge die Anfrage offen zu. Entfernt, weil tot: `baueRueckAnfrage`,
+`KIND_RUECK_*`, `KIND_SWAP_REQUEST/RESPONSE` in der App; die zwei
+Verdrahtungs-Ausnahmen aus 4.9a sind wieder weg.
+
+**Datenschutz:** Leak-`todo` „Swap: keine SOL-Adresse“ und „Tausch SOL → sats:
+keine Rechnung“ sind normale Tests und grün, neu „Swap: nicht vom eigenen npub“
+und die Verdrahtung der Gegenrichtung. Aussagen „sol-adresse“ (mit ehrlichem
+Zusatz: ein ausdrücklich öffentlicher Trinkgeld-Beleg führt über die Kette zur
+Adresse) und „swap-rechnung“ sind belegt – Szenario in `privacy-facts.test.ts`
+mit beiden Richtungen und Antworten.
+
+**Browser-E2E** (Playwright, nachgebildete Relays/RPC, LP öffnet die Umschläge):
+Hinrichtung mit Vorab-Gebühr bis „Geprüft“ – versiegelte Anfrage, nur die
+Rechnung des LP bezahlt, eine fremde versiegelte „Vorab-Rechnung“ nicht, der
+veraltete LP nicht anfragbar, und auf den Relays weder SOL-Adresse noch
+Vorab-/Hold-Rechnung noch Swap-ID noch npub in Swap-Events; Gegenrichtung bis
+„Fertig: 10000 sats“ samt Rückhol-Wächter, keine offene Anfrage, Rechnung nie
+sichtbar; Einlösen über Relayer (4.6f) weiter grün – an den LP geht genau ein
+Umschlag, die Swap-Anfrage, nie der Relay-Auftrag.
+
+**Tests:** app 269 → 273 (`swap-umschlag.test.ts` 4), Leak-Tests 37 + 4 todo →
+41 + 2 todo (übrig: Räume 2.3, frische Absenderadresse 4.9).
+
+**Knoten-Stand:** Die App fragt nur LPs ab 4.9a an – der GX10-LP muss auf `main`.
+
+Endstand: protocol 1056 · node 214 · app 273 · Leak-Tests 41 grün + 2 todo ·
+0 rot · check-wiring `--streng` 0 offen · innerHTML streng 0 unbewertet ·
+Smoke-Test bestanden.
+
 ## Schritt 7.1a – Mesh nur verschlüsselt, Teil a: Regel, Sendezeit, Planer
 
 Funk hört jeder in Reichweite mit, und ein Sender lässt sich anpeilen. Bisher

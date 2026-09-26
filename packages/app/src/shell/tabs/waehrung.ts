@@ -9,20 +9,19 @@ import {
   LocalSigner,
   type LpOffer,
   NostrEvent,
-  buildEvent,
   generateKeypair,
   generatePreimage,
   hashlock,
   parseLpOffer,
   toHex,
+  type UnsignedEvent,
 } from "@freedomstack/protocol";
 import { escapeHtml, pkShort } from "../../shell-logic.js";
 import { anbieterKursWarnung, depositDeckel, solText } from "../../preis-anzeige.js";
 import type { RueckPlan } from "../../rueck-swap.js";
+import { hinAnfrage, liestUmschlaege, rueckAnfrage, swapAntworten, type SwapPost } from "../../swap-umschlag.js";
 import {
   ensurePool,
-  KIND_SWAP_REQUEST,
-  KIND_SWAP_RESPONSE,
   angebotVon,
   mitBunker,
   mitRohemSchluessel,
@@ -101,6 +100,12 @@ export async function loadWallet(): Promise<void> {
       knopf.className = "ghost";
       knopf.style.cssText = "width:auto;padding:6px 10px";
       knopf.textContent = "tauschen";
+      if (!liestUmschlaege(offer)) {
+        // Seit 4.9b nur versiegelt: Einem LP, der keine Umschlaege liest, ginge die Anfrage offen zu.
+        knopf.textContent = "veraltet";
+        knopf.disabled = true;
+        knopf.title = "Dieser LP liest keine versiegelten Anfragen. Die App fragt ihn nicht an – Adresse bzw. Rechnung stünden sonst offen auf den Relays.";
+      }
       knopf.addEventListener("click", () => void (rueck ? startRueckSwap(ev.pubkey, offer) : startSwap(ev.pubkey, offer.offerId, offer.vorabSats)));
       const rechts = document.createElement("span");
       rechts.appendChild(knopf);
@@ -192,21 +197,12 @@ async function startSwap(lpPubkey: string, offerId: string, vorabSats?: number):
       createdAt: Math.floor(Date.now() / 1000),
     });
 
-    const ev = await signiere(buildEvent(
-        state.keypair.pk,
-        KIND_SWAP_REQUEST,
-        [
-          ["p", lpPubkey],
-          ["offer", offerId],
-          ["amount_sats", String(amount)],
-          ["hashlock", toHex(H)],
-          ["solana_address", solAddr],
-        ],
-        "",
-      ));
-    await pool.publish(ev);
+    // Versiegelt von einem Wegwerf-Schluessel (4.9b): Relays sehen weder den
+    // npub noch die Empfangsadresse – nur, dass der LP Post bekommt.
+    const post = await hinAnfrage({ lpPk: lpPubkey, offerId, amountSats: amount, hashlockHex: toHex(H), solAdresse: solAddr });
+    await pool.publish(post.wrap);
     toast("Swap-Request gesendet — warte auf Invoice…");
-    void pollSwapResponse(ev.id, toHex(H), solAddr, amount, lpPubkey, vorabSats);
+    void pollSwapResponse(post, toHex(H), solAddr, amount, vorabSats);
   } catch (e) {
     toast(`Fehler: ${(e as Error).message}`, true);
   }
@@ -215,22 +211,23 @@ async function startSwap(lpPubkey: string, offerId: string, vorabSats?: number):
 // (XSS-Fix in loadWallet), also bleibt startSwap jetzt im Modul-Scope.
 
 async function pollSwapResponse(
-  requestId: string,
+  post: SwapPost,
   hashlockHex: string,
   solAddress: string,
   amountSats: number,
-  lpPubkey: string,
   vorabSats?: number,
 ): Promise<void> {
   const pool = await ensurePool();
+  const lpPubkey = post.lpPk;
   const statusEl = $("#swap-status");
   let deadline = Date.now() + 90_000;
   let vorabGefragt = false;
 
   while (Date.now() < deadline) {
-    // Nur Antworten des LP selbst – eine fremde „Vorab-Rechnung“ darf nie bezahlt werden (4.6d).
-    const alle = await pool.query({ kinds: [KIND_SWAP_RESPONSE], "#e": [requestId], authors: [lpPubkey] });
-    const status = (r: NostrEvent) => r.tags.find((t) => t[0] === "status")?.[1];
+    // Nur versiegelte Antworten des LP selbst zu dieser Anfrage – eine fremde
+    // „Vorab-Rechnung“ darf nie bezahlt werden (4.6d, seit 4.9b im Umschlag).
+    const alle = await swapAntworten(pool, post);
+    const status = (r: UnsignedEvent) => r.tags.find((t) => t[0] === "status")?.[1];
     const resps = alle.filter((r) => !status(r));
     const abgelehnt = alle.find((r) => status(r) === "ABGELEHNT");
     const vorab = alle.find((r) => status(r) === "VORAB");
@@ -339,7 +336,7 @@ async function pollSwapResponse(
  * Vorab-Gebuehr (4.6d): Der LP verlangt sie, bevor er SOL sperrt. Gezahlt
  * wird nur nach Pruefung (`pruefeVorab`) und Zustimmung – ueber die Zahlschiene.
  */
-async function zahleVorab(antwort: NostrEvent, angekuendigt: number | undefined): Promise<boolean> {
+async function zahleVorab(antwort: UnsignedEvent, angekuendigt: number | undefined): Promise<boolean> {
   const statusEl = $("#swap-status");
   const { pruefeVorab } = await swapClient();
   const p = pruefeVorab(antwort, angekuendigt);
@@ -532,7 +529,7 @@ async function starteRueckholWaechter(): Promise<void> {
 async function startRueckSwap(lpPubkey: string, offer: LpOffer): Promise<void> {
   const statusEl = $("#swap-status");
   const melde = (text: string, art = ""): void => { statusEl.textContent = text; statusEl.className = `mono-sm ${art}`; };
-  const { istRueckAngebot, planeRueckSwap, baueRueckAnfrage, rueckText } = await import("../../rueck-swap.js");
+  const { istRueckAngebot, planeRueckSwap, rueckText } = await import("../../rueck-swap.js");
   if (!istRueckAngebot(offer)) return melde("Dieses Angebot nennt kein SOL-Konto oder keinen Kurs.", "err");
   const signer = htlcSigner();
   if (!signer) return melde("Erst eine Solana-Wallet verbinden – mit ihr werden die SOL gesperrt.", "warn");
@@ -572,23 +569,22 @@ async function startRueckSwap(lpPubkey: string, offer: LpOffer): Promise<void> {
   }
   void starteRueckholWaechter();
 
-  // Erst jetzt die Anfrage – von einem Wegwerf-Schluessel, nicht vom eigenen npub.
-  const einmal = new LocalSigner(generateKeypair().sk);
-  const anfrage = await einmal.signEvent(baueRueckAnfrage(einmal.publicKey(), lpPubkey, offer.offerId, bolt11, Math.floor(Date.now() / 1000)));
-  await (await ensurePool()).publish(anfrage);
+  // Erst jetzt die Anfrage – versiegelt von einem Wegwerf-Schluessel (4.9b):
+  // Relays sehen weder npub noch Rechnung.
+  const post = await rueckAnfrage({ lpPk: lpPubkey, offerId: offer.offerId, bolt11 });
+  await (await ensurePool()).publish(post.wrap);
   melde(rueckText(undefined, plan));
-  void warteAufRueckAntwort(anfrage.id, lpPubkey, plan);
+  void warteAufRueckAntwort(post, plan);
 }
 
 /** Antwort des LP abwarten (er prueft bis zu 10 Minuten nach der Anfrage). */
-async function warteAufRueckAntwort(requestId: string, lpPubkey: string, plan: RueckPlan): Promise<void> {
+async function warteAufRueckAntwort(post: SwapPost, plan: RueckPlan): Promise<void> {
   const { leseRueckAntwort, rueckText } = await import("../../rueck-swap.js");
   const pool = await ensurePool();
   const statusEl = $("#swap-status");
   const ende = Date.now() + 12 * 60_000;
   while (Date.now() < ende) {
-    const antwort = (await pool.query({ kinds: [KIND_SWAP_RESPONSE], "#e": [requestId], authors: [lpPubkey] }))
-      .map(leseRueckAntwort).find((x) => x !== undefined);
+    const antwort = (await swapAntworten(pool, post)).map(leseRueckAntwort).find((x) => x !== undefined);
     if (antwort) {
       // Die Sperre bleibt gemerkt, auch bei EINGELOEST: Ob der LP wirklich
       // eingeloest hat, sagt die Kette – der Waechter schliesst sie dann ab.

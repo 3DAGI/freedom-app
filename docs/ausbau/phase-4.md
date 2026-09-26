@@ -197,3 +197,23 @@ Jede Funktion, in der Geld fließt, bietet beide Schienen mit gleichem Komfort.
   `swap-privacy.ts` für alle SOL-Zahlungen; der RPC-Pool verteilt Anfragen.
 - **Abnahme:** Leak-Regeln „keine Verknüpfung von npub und SOL-Adresse in
   öffentlichen Events“ und „keine wiederverwendete Adresse“ grün.
+
+> **Entscheidung 26.09.2026 (MENSCH): Variante A.** Frische **Empfangs**adressen
+> je Swap, Deposit-Rückfluss und Trinkgeld aus der eingebauten Wallet; die
+> Adresse fürs Trinkgeld nur noch versiegelt auf Anfrage; das Profilfeld bleibt
+> vorerst optional, mit Warnung. Nicht Teil von A: jede *gesendete* Zahlung von
+> einer frischen Adresse – eine frische Absenderadresse müsste erst aus der
+> Hauptadresse aufgefüllt werden, und genau das verknüpft beide auf der Kette.
+> Der Datenschutzbericht sagt das offen.
+>
+> Aufteilung (zusammen über 400 Zeilen):
+> - **4.9a** Protokoll + Knoten: Swap-Anfragen und -Antworten versiegelt
+>   (`swap-versiegelt.ts`), LP liest Umschläge, antwortet versiegelt, Angebot
+>   `["versiegelt", "1"]`; offen nur noch für ältere Apps.
+> - **4.9b** App: Anfragen beider Richtungen nur versiegelt vom Wegwerf-Schlüssel,
+>   Antworten nur versiegelt; Leak-`todo` „Rechnung“ und „SOL-Adresse beim Swap“
+>   werden normale Tests.
+> - **4.9c** Frische Empfangsadressen der eingebauten Wallet (Swap-Empfang, Einlösen
+>   über Relayer, Guthaben über alle Adressen).
+> - **4.9d** Trinkgeld-Adresse versiegelt auf Anfrage; Profilfeld mit Warnung.
+> - **4.9e** Betragsrauschen für SOL-Zahlungen, RPC-Pool verteilt, Aussagen und Texte.
