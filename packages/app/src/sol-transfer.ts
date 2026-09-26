@@ -39,5 +39,7 @@ export async function solRpcUrl(): Promise<string> {
       ...(konfiguriert ? [konfiguriert] : []),
       ...parseUserEndpoints(localStorage.getItem("freedom.sol.rpcs")),
     ],
+    // Nicht immer derselbe fremde Anbieter (4.9) – er saehe jede Adresse samt IP.
+    verteilen: true,
   }).bestUrl();
 }

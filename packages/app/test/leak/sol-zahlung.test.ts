@@ -54,7 +54,7 @@ test("SOL-Zahlung: die Wallet-Adresse steht in keinem Nostr-Event", async () => 
   assert.deepEqual(regelKeineSolAdresse(events, [walletAdresse]), []);
 });
 
-test("SOL-Zahlung: jede Zahlung von einer frischen Adresse", { todo: "Schritt 4.9" }, async () => {
+test("SOL-Zahlung: jede Zahlung von einer frischen Adresse", { todo: "bewusste Grenze (Entscheidung 4.9 A): gesendete Zahlungen nicht von frischen Adressen" }, async () => {
   const { transaktionen } = await zweiDeposits();
   assert.deepEqual(regelSolAdresseFrisch(transaktionen.map((t) => t.feePayer)), []);
 });

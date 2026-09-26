@@ -200,3 +200,24 @@ test("ohne fetchImpl: das globale fetch wird ohne fremdes this aufgerufen (wie i
     globalThis.fetch = echt;
   }
 });
+
+test("Verteilen (4.9): fremde Anbieter abwechselnd statt immer derselbe – eigener Endpunkt bleibt vorn", async () => {
+  const alleOk = { [E(1)]: "ok", [E(2)]: "ok", [E(3)]: "ok", [E(9)]: "ok" } as const;
+  const log: string[] = [];
+  const zahlen = [0.9, 0.1, 0.5, 0.2, 0.8, 0.4];
+  let i = 0;
+  const pool = new RpcPool(endpoints, { fetchImpl: fakeFetch(alleOk, log), verteilen: true, zufall: () => zahlen[i++ % zahlen.length] });
+  for (let n = 0; n < 2; n++) await pool.getBalance("x");
+  assert.deepEqual(log, [E(2), E(1)], "mit dem Zufall wechselt der erste Anbieter");
+
+  const log2: string[] = [];
+  const eigener = new RpcPool(endpoints, { fetchImpl: fakeFetch(alleOk, log2), userEndpoints: [E(9)], verteilen: true, zufall: Math.random });
+  for (let n = 0; n < 5; n++) await eigener.getBalance("x");
+  assert.deepEqual(log2, Array(5).fill(E(9)), "eigener Knoten immer zuerst – er ist keine fremde Partei");
+
+  // Ohne Verteilen: Reihenfolge wie bisher nach Ausfaellen und Latenz – der Zufall wird nie gefragt.
+  let gefragt = 0;
+  const alt = new RpcPool(endpoints, { fetchImpl: fakeFetch(alleOk), zufall: () => { gefragt++; return 0.5; } });
+  for (let n = 0; n < 3; n++) await alt.getBalance("x");
+  assert.equal(gefragt, 0);
+});

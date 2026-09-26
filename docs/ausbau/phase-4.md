@@ -189,7 +189,7 @@ Jede Funktion, in der Geld fließt, bietet beide Schienen mit gleichem Komfort.
 
 ---
 
-## 4.9 Privatsphäre auf Solana
+## 4.9 Privatsphäre auf Solana – CODE FERTIG (26.09.2026)
 
 - **Vorgehen:** frische Adresse je Sitzung, Swap und Zahlung überall
   (`deriveSolana(seed, n)` über die Rails); keine SOL-Adresse mehr im Profil (Feld
@@ -217,3 +217,8 @@ Jede Funktion, in der Geld fließt, bietet beide Schienen mit gleichem Komfort.
 >   über Relayer, Guthaben über alle Adressen).
 > - **4.9d** Trinkgeld-Adresse versiegelt auf Anfrage; Profilfeld mit Warnung.
 > - **4.9e** Betragsrauschen für SOL-Zahlungen, RPC-Pool verteilt, Aussagen und Texte.
+>
+> Abnahme: „keine SOL-Adresse in öffentlichen Events“ grün (Swaps versiegelt,
+> Trinkgeld-Adresse versiegelt), „keine wiederverwendete Adresse“ grün für den
+> Empfang (`leak/sol-empfang.test.ts`); für gesendete Zahlungen als bewusste
+> Grenze im Datenschutzbericht (Status „grenze“), das `todo` benennt sie.

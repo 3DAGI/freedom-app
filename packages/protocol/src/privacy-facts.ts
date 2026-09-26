@@ -3,7 +3,8 @@
  *
  * Jede Aussage hat einen Status. "belegt" darf nur stehen, wenn ein Leak-Test
  * das Verhalten prueft – test/privacy-facts.test.ts erzwingt das. "offen"
- * nennt bekannte Luecken mit dem Schritt, der sie schliesst. So kann der
+ * nennt bekannte Luecken mit dem Schritt, der sie schliesst. "grenze" nennt,
+ * was bewusst nicht geschlossen wird, mit Grund (seit 4.9). So kann der
  * Bericht nichts versprechen, was der Code nicht haelt.
  *
  * Jede Aussage verweist auf ihre Regel aus `LEAK_REGELN` (leak-rules.ts). Nur
@@ -13,9 +14,11 @@
 export interface PrivacyFact {
   id: string;
   aussage: string;
-  status: "belegt" | "offen";
+  status: "belegt" | "offen" | "grenze";
   /** Bei "offen": der Schritt im Ausbauplan, der die Luecke schliesst. */
   schritt?: string;
+  /** Bei "grenze": warum sie bleibt. */
+  grund?: string;
   /** Die Leak-Regel, die die Aussage prueft (Name aus LEAK_REGELN). */
   regel?: string;
 }
@@ -38,7 +41,8 @@ export const PRIVACY_FACTS: readonly PrivacyFact[] = [
   { id: "sol-trinkgeld-adresse", aussage: "Die Adresse für ein SOL-Trinkgeld fragt die App versiegelt beim Empfänger an; er gibt jedem Kontakt eine eigene. Die öffentliche Adresse aus einem Profil nimmt sie nur nach Warnung.", status: "belegt", regel: "keine-sol-adresse" },
   { id: "sol-adresse", aussage: "Deine Solana-Adresse steht in keinem öffentlichen Event, auch nicht beim Tausch – Anfrage und Antwort gehen versiegelt an den LP. (Ein Trinkgeld-Beleg, den du ausdrücklich öffentlich machst, führt über die Kette zu ihr.)", status: "belegt", regel: "keine-sol-adresse" },
   { id: "swap-rechnung", aussage: "Beim Tausch SOL → sats sehen Relays deine Lightning-Rechnung nicht.", status: "belegt", regel: "kein-bolt11" },
-  { id: "sol-frisch", aussage: "Jede SOL-Zahlung geht von einer frischen Adresse aus.", status: "offen", schritt: "4.9", regel: "sol-adresse-frisch" },
+  { id: "sol-empfang", aussage: "Beim Tausch empfängst du SOL an einer frischen Adresse deiner eingebauten Wallet, nie an der Hauptadresse; für Trinkgeld gibt sie jedem Kontakt eine eigene.", status: "belegt", regel: "sol-adresse-frisch" },
+  { id: "sol-frisch", aussage: "Gesendete SOL-Zahlungen kommen nicht von frischen Adressen – mehrere Zahlungen von derselben Adresse sind auf der Kette verknüpfbar.", status: "grenze", grund: "Eine frische Absenderadresse müsste erst aus einer bestehenden aufgefüllt werden, und das verknüpft beide (Entscheidung 4.9 A). Die App zahlt von einer einzelnen Adresse, legt nie zusammen und verrauscht runde Beträge.", regel: "sol-adresse-frisch" },
   { id: "mesh", aussage: "Über Funk und per Datei gibt die App nur verschlüsselte Umschläge weiter – ohne deinen Schlüssel und ohne Klartext.", status: "belegt", regel: "mesh-verschluesselt" },
   { id: "ip", aussage: "Relays sehen deine IP-Adresse nicht.", status: "offen", schritt: "6.1/6.2" },
 ];
@@ -49,5 +53,6 @@ export function privacyFactsText(facts: readonly PrivacyFact[] = PRIVACY_FACTS):
   const offen = facts
     .filter((f) => f.status === "offen")
     .map((f) => `○ Noch nicht: ${f.aussage}${f.schritt ? ` (Ausbauplan ${f.schritt})` : ""}`);
-  return ["Durch Tests belegt:", ...belegt, "", "Bekannte Lücken:", ...offen].join("\n");
+  const grenzen = facts.filter((f) => f.status === "grenze").map((f) => `△ ${f.aussage} ${f.grund ?? ""}`.trim());
+  return ["Durch Tests belegt:", ...belegt, "", "Bekannte Lücken:", ...offen, ...(grenzen.length ? ["", "Bewusste Grenzen:", ...grenzen] : [])].join("\n");
 }

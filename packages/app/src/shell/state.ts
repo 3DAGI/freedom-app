@@ -175,6 +175,8 @@ async function ensureRpcPool(): Promise<import("@freedomstack/protocol").RpcPool
   const konfiguriert = (window as unknown as { FREEDOM_SOL_RPC?: string }).FREEDOM_SOL_RPC;
   rpcPool = new RpcPool(DEFAULT_MAINNET_RPCS, {
     userEndpoints: [...(konfiguriert ? [konfiguriert] : []), ...eigene],
+    // Nicht immer derselbe fremde Anbieter (4.9) – er saehe jede Adresse samt IP.
+    verteilen: true,
   });
   return rpcPool;
 }
