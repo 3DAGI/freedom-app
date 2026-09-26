@@ -17,6 +17,7 @@ import {
 import { aktuellerKurs } from "../marktkurs.js";
 import { alsGeraet, eigeneRelayListen, ensurePool, signiere, solRpcUrl, solTransaktion, sprichtFuer, state, veroeffentlicheAn } from "../state.js";
 import { alsNachfolge } from "../nachfolge-ui.js";
+import { alsPruefauftrag } from "../pruefauftraege-ui.js";
 import { LS_MANDATE, leseGemerkt, nachDiebstahl, pruefeKontakte, warnt } from "../../schluessel-status.js";
 import { type DmZuordnung, GeraeteBuch, ordneDmZu } from "../../geraete-buch.js";
 import { sucheAufnehmen, wireSuche } from "../suche-ui.js";
@@ -908,8 +909,8 @@ async function oeffneUmschlag(w: NostrEvent): Promise<{ partner: string; ev: DmA
         // Mit Ablauf (2.5): ladeDmNachrichten() blendet danach aus.
         dm: r.dm,
       }
-    // Keine DM: vielleicht ein SOL-Trinkgeld-Beleg (4.7b), eine Adress-Anfrage (4.9d) oder Nachfolge (8.11b).
-    : (await alsTrinkgeld(w)) ?? (await alsAdressAnfrage(w)) ?? (await alsNachfolge(w));
+    // Keine DM: vielleicht ein SOL-Trinkgeld-Beleg (4.7b), eine Adress-Anfrage (4.9d), Nachfolge (8.11b) oder ein Pruefauftrag (5.6c).
+    : (await alsTrinkgeld(w)) ?? (await alsAdressAnfrage(w)) ?? (await alsNachfolge(w)) ?? (await alsPruefauftrag(w));
   dmCache.set(w.id, e);
   return e;
 }
