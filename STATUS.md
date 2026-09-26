@@ -4498,3 +4498,50 @@ Endstand: protocol 1100 (+ 6 übersprungen) · node 213 (+ 7 übersprungen ohne
 Netz) · app 317 · Leak-Tests 48 grün + 2 todo · 0 rot · check-wiring `--streng`
 0 offen (2 Ausnahmen weniger) · innerHTML streng 0 unbewertet · Smoke-Test
 bestanden (mit Notfall-Löschung).
+
+## Schritt 8.11a – Nachfolge, Teil a: Anteile versiegelt im Protokoll
+
+**Vorher:** Beim Einrichten lud die App alle Anteile als **eine Textdatei**
+herunter – wer die Datei hatte, hatte den Schlüssel, und die Weitergabe blieb
+dem Nutzer überlassen. Zusammensetzen konnte die App gar nicht
+(`combineShares`, `verifyRecovered` ohne Oberfläche).
+
+**Neu** (`nachfolge-anteile.ts`): Jeder Anteil geht im Umschlag (NIP-59) an
+genau seinen Vertrauten – innen Kind 38077 mit Index, Schwelle, Anzahl,
+Prüfsumme des Plans und der Kennung der Zerlegung („teilung“). Ist der Plan
+freigegeben, fragt ein Vertrauter als Sammler die anderen versiegelt an (38078);
+die geben ihren Anteil versiegelt an ihn (38079). `darfUebergeben()` lässt das
+nur zu, wenn der Plan beide als Vertraute nennt, der Anteil zum Plan passt und
+`evaluateSuccession()` „freigegeben“ sagt – ein Lebenszeichen des Besitzers
+sperrt wieder. `setzeNachfolgeZusammen()` mischt keine Anteile verschiedener
+Zerlegungen (richtet der Besitzer neu ein, passen alte nicht mehr) und gibt
+den Schlüssel nur mit passender Prüfsumme heraus. Übergaben von
+Nicht-Vertrauten und Unfug (Index 0, Schwelle 1, kein Hex) fallen heraus.
+Kinds 38077–38079 kommen nur innen im Umschlag vor.
+
+**Durchgespielt** (`nachfolge-anteile.test.ts`, Besitzer und drei Vertraute,
+2 von 3): Jeder öffnet genau seinen Anteil; im Öffentlichen (Plan, Umschläge,
+Anfrage, Übergabe) steht kein Anteil und kein Schlüssel, der Besitzer ist nicht
+Autor der Umschläge; übergeben erst nach Frist, Schwelle und Wartezeit, nicht
+an Fremde oder sich selbst; B sammelt von C und hat danach genau den Schlüssel
+des Besitzers.
+
+**Grenzen, benannt:** Der Plan ist öffentlich – wer die Vertrauten sind, sieht
+jeder (neue Aussage „nachfolge-plan“ als Grenze mit Grund; auch im Hinweistext
+`successionWarning()`). Genug Vertraute, die sich absprechen, können
+übernehmen; eine veränderte App muss die Freigabe nicht abwarten. Relays sehen,
+dass Vertraute Post bekommen. Die Aussage „nachfolge-anteile“ steht als offen
+(8.11b) – die App versiegelt noch nicht.
+
+**Aufteilung:** a (dieser Teil) Protokoll; b App: Einrichten ohne
+Klartext-Datei, Ansicht für Vertraute, Anfrage und Übergabe, Zusammensetzen,
+Browser-E2E mit drei Testkonten.
+
+**Tests:** protocol +5 (Öffnen und kein Klartext, Freigaberegeln, Nachfolge
+durchgespielt, Teilungen und Fremde, Unfug) und eine Zusicherung mehr im
+Hinweistext-Test.
+
+Endstand: protocol 1105 (+ 6 übersprungen) · node 213 (+ 7 übersprungen ohne
+Netz) · app 317 · Leak-Tests 48 grün + 2 todo · 0 rot · check-wiring `--streng`
+0 offen (9 neue Ausnahmen bis 8.11b) · innerHTML streng 0 unbewertet ·
+Smoke-Test bestanden.

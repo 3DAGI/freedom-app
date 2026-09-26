@@ -179,4 +179,6 @@ test("Warnung nennt die Grenze, nicht nur den Nutzen", () => {
   assert.match(w, /koennen sie übernehmen|können sie übernehmen/);
   // Der praktischste Rat ueberhaupt.
   assert.match(w, /Eine Familie zählt als einer/);
+  // Seit 8.11: auch, dass die Vertrauten oeffentlich im Plan stehen
+  assert.match(w, /Der Plan ist öffentlich: Wer deine Vertrauten sind, sieht jeder/);
 });

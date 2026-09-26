@@ -81,6 +81,7 @@ export * from "./model-registry.js";
 export * from "./contributor-funding.js";
 export * from "./naming.js";
 export * from "./succession.js";
+export * from "./nachfolge-anteile.js";
 export * from "./quests.js";
 export * from "./spaces.js";
 export * from "./badges.js";

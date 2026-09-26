@@ -150,6 +150,16 @@ model-registry.ts|verifyFile|Modellkatalog-Prüfungen ohne Oberfläche (Modelle,
 moderation.ts|canModerate|Moderationsrechte und Hinweistext ohne Oberfläche (Räume und Moderation, 8.5)
 moderation.ts|moderationInfo|Moderationsrechte und Hinweistext ohne Oberfläche (Räume und Moderation, 8.5)
 
+nachfolge-anteile.ts|baueAnteilAnfrage|Nachfolge versiegelt: Protokoll (8.11a), App folgt in 8.11b
+nachfolge-anteile.ts|baueAnteilUebergabe|Nachfolge versiegelt: Protokoll (8.11a), App folgt in 8.11b
+nachfolge-anteile.ts|baueAnteilUmschlag|Nachfolge versiegelt: Protokoll (8.11a), App folgt in 8.11b
+nachfolge-anteile.ts|darfUebergeben|Nachfolge versiegelt: Protokoll (8.11a), App folgt in 8.11b
+nachfolge-anteile.ts|neueTeilung|Nachfolge versiegelt: Protokoll (8.11a), App folgt in 8.11b
+nachfolge-anteile.ts|oeffneAnteil|Nachfolge versiegelt: Protokoll (8.11a), App folgt in 8.11b
+nachfolge-anteile.ts|oeffneAnteilAnfrage|Nachfolge versiegelt: Protokoll (8.11a), App folgt in 8.11b
+nachfolge-anteile.ts|oeffneAnteilUebergabe|Nachfolge versiegelt: Protokoll (8.11a), App folgt in 8.11b
+nachfolge-anteile.ts|setzeNachfolgeZusammen|Nachfolge versiegelt: Protokoll (8.11a), App folgt in 8.11b
+
 naming.ts|searchByName|Namenssuche ohne Oberfläche (Lokale Suche, 8.13)
 
 network-capacity.ts|computeNetworkCapacity|dezentrale Gratis-Schwelle, noch nicht angebunden (Gebührenmodell, 5.1)

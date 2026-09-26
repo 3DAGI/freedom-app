@@ -29,6 +29,8 @@ import { buildAdressAnfrage, buildAdressAntwort } from "../src/trinkgeld-adresse
 import { regelKeinBolt11, regelSolAdresseFrisch } from "../src/leak-rules.js";
 import { deriveSolanaKey } from "../src/derivation.js";
 import { base58 } from "@scure/base";
+import { baueAnteilAnfrage, baueAnteilUebergabe, baueAnteilUmschlag, neueTeilung, oeffneAnteil, oeffneAnteilAnfrage } from "../src/nachfolge-anteile.js";
+import { buildSuccessionPlan, secretHashOf, splitSecret } from "../src/succession.js";
 
 const a = generateKeypair();
 const b = generateKeypair();
@@ -188,6 +190,23 @@ const SZENARIEN: Record<string, () => Promise<number>> = {
     const { wrap, anfrageId } = await buildAdressAnfrage({ von: new LocalSigner(a.sk), anPk: b.pk, kette: "solana:mainnet" });
     const antwort = await buildAdressAntwort({ von: new LocalSigner(b.sk), anPk: a.pk, anfrageId, adresse: SOL_ADRESSE, kette: "solana:mainnet" });
     return regelKeineSolAdresse([wrap, antwort], [SOL_ADRESSE]).length + regelAutorNicht([wrap, antwort], a.pk).length + regelAutorNicht([wrap, antwort], b.pk).length;
+  },
+  "nachfolge-anteile": async () => {
+    // Wie die App seit 8.11: Plan oeffentlich, Anteile versiegelt an die Vertrauten (b, c), Uebergabe versiegelt an den Sammler (b).
+    const c = generateKeypair();
+    const teilung = neueTeilung();
+    const secretHash = secretHashOf(a.sk);
+    const teile = splitSecret(a.sk, 2, 2);
+    const plan = signEvent(buildSuccessionPlan({ ownerPubkey: a.pk, guardians: [b.pk, c.pk], threshold: 2, inactivityDays: 180, graceDays: 30, secretHash }), a.sk);
+    const an = [b, c];
+    const umschlaege = await Promise.all(teile.map((t, i) => baueAnteilUmschlag({ von: new LocalSigner(a.sk), an: an[i]!.pk, anteil: t, schwelle: 2, anzahl: 2, secretHash, teilung })));
+    const { wrap: anfrage } = await baueAnteilAnfrage({ von: new LocalSigner(b.sk), an: c.pk, besitzer: a.pk, teilung });
+    const offen = (await oeffneAnteilAnfrage(anfrage, new LocalSigner(c.sk)))!;
+    const anteilC = (await oeffneAnteil(umschlaege[1]!, new LocalSigner(c.sk)))!;
+    const uebergabe = await baueAnteilUebergabe({ von: new LocalSigner(c.sk), anfrage: offen, anteil: anteilC });
+    const alle = [plan, ...umschlaege, anfrage, uebergabe];
+    const hex = (x: Uint8Array) => Array.from(x, (y) => y.toString(16).padStart(2, "0")).join("");
+    return regelKeinKlartext(alle, [...teile.map((t) => hex(t.data)), hex(a.sk)]).length + regelAutorNicht(umschlaege, a.pk).length;
   },
   "abdeckung-zelle": async () => {
     const [lat, lon] = [48.137154, 11.576124];
