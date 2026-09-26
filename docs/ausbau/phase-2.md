@@ -96,7 +96,26 @@ für Forward Secrecy. NIP-17 bleibt Rückfall für Kontakte ohne MLS.
     - **d2 – Senden:** 1:1 standardmäßig als MLS-Gruppe, NIP-17 als Rückfall;
       Datenschutzbericht und Texte. Einladungen von Fremden werden – wie ihre
       NIP-17-Nachrichten – zur „Anfrage“, sonst ginge ihre erste Nachricht verloren.
-  - **2.2b-e – Geräte:** mehrere Geräte als eigene Mitglieder.
+  - **2.2b-e – Geräte:** mehrere Geräte als eigene Mitglieder. **Wartet auf
+    MENSCH-Entscheidung** (26.09.2026). Bis dahin: Hat eine Seite Geräte (8.6),
+    bleibt es bei NIP-17 (2.2b-d3) – so bekommt jedes Gerät weiter jede
+    Nachricht. Die Frage: Marmot bindet ein Blatt an ein Konto über den
+    Kontobeweis (Kind 450) und das KeyPackage (Kind 30443), beide signiert mit
+    dem Kontoschlüssel – den hat ein Gerät (8.6c) nicht. Marmots eigenes
+    Mehrgeräte-Verfahren ist ein Entwurf („branch draft“, nicht übernommen).
+    - **A – Geräte als eigene Mitglieder unter ihrem Geräteschlüssel**
+      (Empfehlung): Wer eine Gruppe gründet oder erweitert, lädt die Person und
+      ihre Geräte mit gültiger Vollmacht (`geraeteBuch.kopienFuer()`, wie NIP-17
+      seit 8.6b); die App ordnet Geräte über die Vollmacht der Person zu; ein
+      Entzug entfernt das Gerät per Commit. Geht ohne Hauptgerät online, ohne
+      Entwurf. Nachteil: Andere Marmot-Apps (White Noise) sehen die Geräte als
+      eigene Mitglieder.
+    - **B – Geräte als weitere Blätter der Person** (Marmot-Weg): Das
+      Hauptgerät signiert Kontobeweis und KeyPackage je Gerät (beim Koppeln
+      und alle 30 Tage), Beitritt zu bestehenden Gruppen per Einladung oder
+      später per Marmot-Entwurf. Nachteil: Hauptgerät muss regelmäßig online
+      sein; Teile hängen am Entwurf.
+    - **C – vorerst nicht:** Mit Geräten bleibt es bei NIP-17 (heutiger Stand).
 
 ---
 

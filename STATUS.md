@@ -6090,6 +6090,39 @@ und Szenario „abdeckung-schluessel“; app +1 (Verdrahtung). Das Leak-Szenario
 die Identität nicht Autor ist – seine Verdrahtungs-Prüfung verlangte wörtlich
 den Aufruf mit der Identität, den dieser Schritt abschafft.
 
-Endstand: protocol 1151 (+ 6 übersprungen) · node 239 (+ 7 übersprungen ohne
-Netz) · app 375 · mls 9 · Leak-Tests 50 grün + 2 todo · 0 rot · check-wiring
-`--streng` Exit 0 · innerHTML streng 0 unbewertet · Smoke-Test bestanden.
+Endstand (nach dem Einmergen von 2.2b-d3): protocol 1152 (+ 6 übersprungen) ·
+node 239 (+ 7 übersprungen ohne Netz) · app 409 · mls 10 · Leak-Tests 54 grün
++ 2 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng 0
+unbewertet · Website 5 Seiten ok · Smoke-Test bestanden.
+
+## Schritt 2.2b-d3 – Mit Geräten bleibt es bei NIP-17; Entscheidung 2.2b-e vorgelegt
+
+**Lücke aus 2.2b-d2, behoben:**
+- Wer Geräte nutzt (8.6), bekam bisher jede Nachricht auch auf jedem Gerät: Die
+  App versiegelt je Gerät eine eigene NIP-17-Kopie (8.6b).
+- In einer MLS-Gruppe sind Geräte (bis 2.2b-e) nicht. Seit d2 hätte ein Gerät
+  deshalb MLS-Nachrichten nicht bekommen, weder vom Kontakt noch die eigenen.
+- Jetzt prüft `sendeUeberMls()` vor jedem MLS-Versuch die Geräte beider Seiten
+  (`geraeteBuch.kopienFuer()`). Hat eine Seite Geräte oder ist das nicht zu
+  klären (offline), geht die Nachricht per NIP-17 an alle Geräte.
+- Die Hinweise in der Unterhaltung und die Grenze „Forward Secrecy“ im
+  Datenschutzbericht nennen Geräte jetzt mit.
+
+**Entscheidung 2.2b-e (MENSCH)**, Vorlage in `phase-2.md`:
+- Marmot bindet ein Blatt über den Kontobeweis (Kind 450) und das KeyPackage
+  (Kind 30443) an ein Konto. Beides signiert der Kontoschlüssel, den ein Gerät
+  nicht hat.
+- Marmots Mehrgeräte-Verfahren ist noch ein Entwurf.
+- Die Möglichkeiten:
+  - **A:** Geräte als eigene Mitglieder unter ihrem Geräteschlüssel, zugeordnet
+    über die Vollmacht wie 8.6b (Empfehlung).
+  - **B:** Geräte als weitere Blätter der Person; das Hauptgerät signiert für
+    sie.
+  - **C:** vorerst nicht; mit Geräten bleibt es bei NIP-17 (heutiger Stand).
+
+**Tests:** `mls-verdrahtung.test.ts` +1. Geräte werden vor jedem MLS-Versuch
+geprüft; ein Fehler beim Prüfen zählt wie Geräte.
+
+Endstand: protocol 1149 · node 240 · app 408 (+1) · mls 10 · Leak-Tests 54
+grün + 2 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng 0
+unbewertet · Website 5 Seiten ok · Smoke-Test bestanden.

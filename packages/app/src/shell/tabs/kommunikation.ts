@@ -843,8 +843,8 @@ function dmHinweis(c: ChatConversation): string {
   if (c.ablaufSecs) return `${nip17} Mit Ablauf bleibt es bei NIP-17.`;
   if (mlsGesperrt()) return `${nip17} MLS geht hier nicht (mit Bunker oder als Gerät).`;
   return c.mls
-    ? "1:1 — über MLS (Marmot): mit Vorwärtsgeheimnis. Relays sehen nur eine zufällige Gruppen-Id und für jede Nachricht einen neuen Schlüssel."
-    : `${nip17} Kann der Kontakt MLS, geht deine nächste Nachricht darüber.`;
+    ? "1:1 — über MLS (Marmot): mit Vorwärtsgeheimnis. Relays sehen nur eine zufällige Gruppen-Id und für jede Nachricht einen neuen Schlüssel. Hat einer von euch Geräte, geht es per NIP-17, damit jedes Gerät die Nachricht bekommt."
+    : `${nip17} Kann der Kontakt MLS und hat keiner von euch Geräte, geht deine nächste Nachricht darüber.`;
 }
 
 /** Ablauf-Auswahl (2.5): nur bei DMs, zeigt den Wert der Unterhaltung. */
@@ -1354,6 +1354,11 @@ export async function sendChatMessage(): Promise<void> {
  */
 async function sendeUeberMls(c: ChatConversation, inhalt: string): Promise<boolean> {
   if (c.ablaufSecs || mlsGesperrt()) return false;
+  // Geraete (8.6b) bekommen ihre Kopie nur per NIP-17 – in der MLS-Gruppe sind sie
+  // (bis 2.2b-e) nicht. Hat eine Seite Geraete oder ist das unklar: NIP-17.
+  const ich = sprichtFuer() ?? state.keypair!.pk;
+  const geraete = await Promise.all([c.id, ich].map((pk) => geraeteBuch.kopienFuer(pk).catch(() => null)));
+  if (geraete.some((g) => g === null || g.length > 0)) return false;
   const gruppe = await mlsSendeAn(c.id, c.mls, inhalt).catch(() => null);
   if (!gruppe) return false;
   c.mls = gruppe;
