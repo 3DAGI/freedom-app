@@ -5277,3 +5277,61 @@ den Lauf ausführen und das Ergebnis im PR oder in `FORTSCHRITT.md` eintragen.
 Endstand: protocol 1131 (+ 6 übersprungen) · node 238 (+ 7 übersprungen ohne
 Netz) · app 355 · Leak-Tests 49 grün + 2 todo · 0 rot · check-wiring `--streng`
 0 offen · innerHTML streng 0 unbewertet · Smoke-Test bestanden.
+
+## Schritt 5.8 – RPC-Vielfalt: Stichprobe gegen einen zweiten Anbieter
+
+**Karte zum Teil schon erfüllt:** Vier Anbieter verschiedener Betreiber
+(Solana Labs, PublicNode, dRPC, Ankr) und eigener Endpunkt zuerst gab es
+schon; seit 4.9 verteilt der Pool die Anfragen der App. Der Test der
+Voreinstellung verlangt jetzt mindestens vier Betreiber statt drei. Es fehlte
+die Stichprobe – der Kopfkommentar sagte sogar „kein Vergleich der Antworten“.
+
+**Stichprobe** (`protocol/src/rpc-pool.ts:263`, `RpcPool.stichprobe()`):
+- Zwei Endpunkte verschiedener Betreiber (grob: die letzten zwei Namensteile),
+  der erste in der üblichen Reihenfolge – der eigene Knoten zuerst.
+- Netz: Genesis-Hash beider gleich? Sonst Warnung „verschiedene Ketten“
+  (Mainnet/Devnet/Testnet benannt), weiter wird nicht verglichen.
+- Letzter Blockhash in beide Richtungen: A nennt seinen (finalized), B prüft
+  ihn mit `isBlockhashValid` ab dem Stand von A (`minContextSlot`) – und
+  umgekehrt. So wird jeder der beiden einmal geprüft.
+- Kontostand (nur mit `konto`): bei beiden; weichen die Werte ab, zweimal ab
+  dem höheren Stand wiederholen – eine echte Änderung dazwischen ist kein
+  Befund, eine bleibende Abweichung schon.
+- Widerspruch → `warnungen`; was sich nicht vergleichen ließ (tot, hinkt
+  hinterher `-32016`, unbrauchbare Antwort, nur ein Betreiber) → `hinweise`.
+  Fremde Antworten werden vor dem Vergleich auf Form geprüft (Base58-Hash,
+  ganze Zahlen). Die Ausfallhistorie des Pools bleibt unberührt.
+- Ein Aufruf an genau einen Endpunkt steht jetzt in `anfrage()`; `call()`
+  nutzt ihn und verhält sich wie vorher.
+
+**App** (`app/src/rpc-stichprobe.ts`):
+- Settings → Verbindung → „erreichbarkeit prüfen“ (`shell/state.ts:230`):
+  nach der Erreichbarkeit die Stichprobe ohne Adresse – verrät nichts über den
+  Nutzer; Zeile grün (stimmt überein), rot (Widerspruch) oder neutral (nicht
+  möglich).
+- Eingebaute Wallet (`shell/eingebaute-wallet.ts:120`): nach dem Guthaben
+  höchstens alle zehn Minuten eine zufällige eigene Adresse
+  (`stichprobenKonto`) – je Stichprobe nur eine, damit kein Anbieter mehrere
+  zusammen sieht; nur ein Widerspruch wird gezeigt (`#solw-rpc`, Hinweis).
+- Anzeige nur über `textContent`; der Text in den Settings nennt die
+  Stichprobe.
+
+**Browser-Prüfung** (gefälschte Endpunkte im Playwright-Netz): eigener
+Endpunkt + Voreinstellung ehrlich → „Stichprobe eigener Knoten ↔ Ankr:
+letzter Blockhash stimmt überein.“; eigener Endpunkt im Devnet → rote Zeile
+„eigener Knoten (Devnet) und PublicNode (Mainnet) hängen an verschiedenen
+Ketten“. Keine Seitenfehler.
+
+**Tests:** protocol +6 (übereinstimmend, falscher Blockhash je Seite, falscher
+Kontostand und Änderung dazwischen, anderes Netz, nicht Vergleichbares,
+Ausfallhistorie unberührt; Voreinstellung ≥ 4 Betreiber), app +4 (Takt und
+Adresswahl, Texte, Warnung aus einem echten Pool, Verdrahtung).
+
+**Offen, bewusst:** Der Knoten prüft Deposits mit einer festen URL
+(`SOLANA_RPC_URL` oder `bestUrl()`); eine Stichprobe dort wäre ein eigener
+kleiner Schritt. Die Stichprobe fängt einen Anbieter, der plump lügt – nicht
+einen, der nur bei der Stichprobe schweigt oder ehrlich antwortet.
+
+Endstand: protocol 1137 (+ 6 übersprungen) · node 238 (+ 7 übersprungen ohne
+Netz) · app 359 · Leak-Tests 49 grün + 2 todo · 0 rot · check-wiring `--streng`
+0 offen · innerHTML streng 0 unbewertet · Smoke-Test bestanden.

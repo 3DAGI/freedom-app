@@ -13,7 +13,7 @@ import { EingebauteSolWallet, type Nachfrage, type SignierbareTx, VORRAT_GROESSE
 import { ausLamports, solText } from "../preis-anzeige.js";
 import { aktuellerKurs } from "./marktkurs.js";
 import { wireOfflineZahlung, zeigeOfflineZahlung } from "./offline-zahlung.js";
-import { mitBunker, solRpcUrl, state } from "./state.js";
+import { mitBunker, rpcStichprobe, solRpcUrl, state } from "./state.js";
 import { geheim, verlangeTresor } from "./tresor.js";
 import { $, ganzeZahl, toast } from "./ui.js";
 
@@ -117,10 +117,33 @@ export function zeigeEingebauteWallet(): void {
       const summe = je.reduce((s, x) => s + x, 0);
       const mit = je.filter((x) => x > 0).length;
       $("#solw-guthaben").textContent = `Guthaben: ${ausLamports(summe, aktuellerKurs())}` + (mit > 1 ? ` – auf ${mit} Adressen verteilt` : "");
+      void guthabenStichprobe(adressen);
     } catch {
       $("#solw-guthaben").textContent = "Guthaben: nicht abrufbar (RPC)";
     }
   })();
+}
+
+let letzteStichprobe: number | undefined;
+
+/**
+ * 5.8: Ab und zu eine eigene Adresse bei zwei Anbietern gegenpruefen – ein
+ * Anbieter, der ein falsches Guthaben zeigt, faellt so auf. Nur Widersprueche
+ * werden angezeigt; was sich nicht vergleichen liess, zeigt „erreichbarkeit
+ * pruefen“ in den Settings.
+ */
+async function guthabenStichprobe(adressen: readonly string[]): Promise<void> {
+  const { stichprobeFaellig, stichprobenKonto, stichprobeText } = await import("../rpc-stichprobe.js");
+  if (!stichprobeFaellig(letzteStichprobe, Date.now())) return;
+  letzteStichprobe = Date.now();
+  const feld = $("#solw-rpc");
+  try {
+    const t = stichprobeText(await rpcStichprobe(stichprobenKonto(adressen)));
+    feld.textContent = t.stufe === "warnung" ? t.text : "";
+    if (t.stufe === "warnung") toast("RPC-Anbieter widersprechen sich – Details in der Wallet", true);
+  } catch {
+    feld.textContent = "";
+  }
 }
 
 /** Eine frische Adresse zum Empfangen herausgeben (kopieren) – jede nur einmal. */

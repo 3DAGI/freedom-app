@@ -41,9 +41,9 @@ python3 scripts/smoke_test.py packages/app/dist         # braucht playwright + c
 bash scripts/build-site.sh /tmp/site                     # Website bauen (Ziel wird gelöscht!)
 ```
 
-Stand 26.09.2026 (nach 8.3b): protocol 1131 grün (6 übersprungen), node 239 grün
+Stand 26.09.2026 (nach 5.8): protocol 1137 grün (6 übersprungen), node 239 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 355 grün, Leak-Tests 49 grün + 2 `todo` (heutige Lecks,
+in `tools.test.ts`), app 359 grün, Leak-Tests 49 grün + 2 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
 Ausnahme: gesendete SOL-Zahlungen von frischen Adressen, eine bewusste Grenze
 nach Entscheidung 4.9 A – im Datenschutzbericht unter „Bewusste Grenzen“).
@@ -303,3 +303,9 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   `offchain:*`, optional `info:read`). Hinrichtung: erst ablegen
   (`hinSpeicher`), dann sperren; nach der Frist zuerst die SOL zurückholen,
   dann die Hold-Invoice abbrechen – nie umgekehrt. Fristen aus `this.jetzt()`.
+- **RPC-Anbieter nur mit Stichprobe vergleichen** (seit 5.8): `RpcPool.stichprobe()`
+  – zwei Betreiber, Netz, Blockhash in beide Richtungen, ein Kontostand.
+  Nie mehrere eigene Adressen in eine Stichprobe (4.9c); ohne Adresse, wo es
+  nicht ums Guthaben geht. Ein eigener Devnet-Endpunkt in den Settings ergibt
+  die Warnung „verschiedene Ketten“ – das ist richtig, der Pool mischt sonst
+  Mainnet als Ausweichweg dazu.
