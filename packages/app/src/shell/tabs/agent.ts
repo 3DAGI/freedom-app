@@ -56,7 +56,7 @@ import {
   toast,
   updateSidebarBalances,
 } from "../ui.js";
-import { haltevorModell, kuendigeModellAn, zeigeModelle } from "./agent-netz.js";
+import { haltevorModell, katalogRangJetzt, kuendigeModellAn, zeigeModelle } from "./agent-netz.js";
 import { zeigeMitwirkende } from "./earn.js";
 import { vergebeAbzeichen } from "./profil.js";
 import { richteNachfolgeEin, zeigeNachfolge } from "./settings.js";
@@ -83,13 +83,11 @@ export async function refreshModelDropdown(): Promise<void> {
         counts.set(m, cur);
       }
     }
-    const entries = [...counts.entries()].sort((a, b) => b[1].count - a[1].count);
-    // nemotron zuerst (schnellster, standard)
-    entries.sort((a, b) => {
-      const na = a[0].includes("nemotron") ? 0 : 1;
-      const nb = b[0].includes("nemotron") ? 0 : 1;
-      return na - nb || b[1].count - a[1].count;
-    });
+    // Reihenfolge (5.7): erst, was in abonnierten Katalogen steht, dann nach
+    // Zahl der Provider – keine feste Vorliebe des Projekts.
+    const rang = katalogRangJetzt();
+    const inKatalogen = (m: string) => rang.get(m.toLowerCase()) ?? 0;
+    const entries = [...counts.entries()].sort((a, b) => inKatalogen(b[0]) - inKatalogen(a[0]) || b[1].count - a[1].count);
     (window as unknown as { __modelCatalog?: unknown }).__modelCatalog = entries;
     // Kosten je Werkzeug (8.7): guenstigstes Angebot, in sats und SOL
     zeigeWerkzeugPreise(providers.map((p) => p.caps));
@@ -119,13 +117,18 @@ export async function refreshModelDropdown(): Promise<void> {
           const preis = ausMsat(info.priceMsat, aktuellerKurs());
           return `<button type="button" class="model-card ${current === m ? "selected" : ""}" data-model="${escapeHtml(m)}">
             <div class="mc-head"><b>${escapeHtml(short)}</b><span class="mc-speed ${sp.cls}">${sp.label}</span></div>
-            <div class="mc-sub">~${escapeHtml(preis)} /1k tokens · ${info.count} provider${info.tools.size ? " · " + icon("wrench", 11) : ""}</div>
+            <div class="mc-sub">~${escapeHtml(preis)} /1k tokens · ${info.count} provider${escapeHtml(katalogHinweis(inKatalogen(m)))}${info.tools.size ? " · " + icon("wrench", 11) : ""}</div>
           </button>`;
         }).join("")}`;
     }
     // button-label aktualisieren
     updateModelBtnLabel();
   } catch { /* dropdown bleibt bei auto */ }
+}
+
+/** „ · in 2 Katalogen“ – leer, wenn kein abonnierter Katalog das Modell nennt. */
+function katalogHinweis(n: number): string {
+  return n > 0 ? ` · in ${n} ${n === 1 ? "Katalog" : "Katalogen"}` : "";
 }
 
 /** Button-Label aus aktueller Modell-Wahl. */

@@ -5518,3 +5518,55 @@ Bis Teil b stehen die neuen Funktionen begründet in
 Endstand: protocol 1143 (+ 6 übersprungen) · node 238 (+ 7 übersprungen ohne
 Netz) · app 363 · mls 9 · Leak-Tests 49 grün + 2 todo · 0 rot · check-wiring
 `--streng` 0 offen · innerHTML streng 0 unbewertet · Smoke-Test bestanden.
+
+## Schritt 5.7b – Modellkataloge, Teil b: in der App abonnieren und vergleichen (mit 8.8)
+
+**Oberfläche** (Agent → Modelle → „Modellkataloge“, `shell/tabs/agent-netz.ts`,
+Logik in `app/src/modell-kataloge.ts`):
+- Voreingestellt ist kein Katalog. Die App holt alle Kataloge
+  (`{kinds:[38080], limit:500}`, ohne Filter nach Kurator) und wählt selbst –
+  die Relays erfahren nicht, welche abonniert sind.
+- „Gefundene Kataloge“ mit „abonnieren“; abonnierte mit „abbestellen“.
+  Höchstens 20 Abos, gespeichert als `freedom.kataloge` (Präfix für die
+  Notfall-Löschung, in `SICHERUNG_EINTRAEGE` – ein neues Gerät übernimmt sie).
+- Vergleich der abonnierten als Tabelle: je Katalog ✓ (Notiz des Kurators als
+  Titel), Zahl der Provider, günstigster Preis je 1.000 Tokens in sats und SOL
+  (`ausMsat()` mit dem Marktkurs; ohne Kurs „SOL: kein Kurs“), dazu
+  „Gemeinsam: n · nur in „…“: m“. Modelle ohne Angebot heißen „kein Angebot“.
+- „eigenen Katalog veröffentlichen“: Titel und Modelle (durch „;“ getrennt,
+  Notiz dahinter) per Abfrage; gleicher Titel ersetzt den alten (`d` aus dem
+  Titel). Als Gerät gesperrt – der Katalog gehört der Person.
+- Alles über `textContent` – Kataloge sind Fremddaten; keine neue
+  HTML-Zuweisung.
+
+**Modell-Dropdown** (`shell/tabs/agent.ts:88`): statt „nemotron zuerst“
+(eine feste Vorliebe des Projekts) stehen Modelle aus abonnierten Katalogen
+vorn, dann nach Zahl der Provider; die Karte nennt „in 2 Katalogen“. Ohne Abo
+zählt nur die Zahl der Provider.
+
+**Verdrahtet:** Laden beim Start und „aktualisieren“ in `shell/app.ts:837`
+und `:844` (danach wird das Dropdown neu geordnet), Veröffentlichen `:839`.
+**Fund dabei:** Dieselben Knöpfe wurden auch in `askAi()` nach jeder
+KI-Antwort erneut verdrahtet (Rest der Aufteilung aus 1.0) – die Kataloge
+hängen nur am Start, nicht dort.
+
+**Nebenbei (8.8):** „Modelle im Netz“ nennt gefährdete Modelle zuerst
+(`modelsAtRisk`) – die Liste ist nach Seedern sortiert und schnitt sie sonst ab.
+`fitsOnDevice` und `verifyFile` gehören zum Laden von Gewichten beim Provider,
+das es noch nicht gibt; ihre Ausnahme ist so begründet. Das Whitepaper nennt die
+Kataloge.
+
+**Browser-Prüfung** (drei Konten, Test-Relay, zwei Provider, zwei Kurse):
+Kurator A und B veröffentlichen je einen Katalog; C findet beide, abonniert,
+sieht „Gemeinsam: 1 · nur in „Zum Programmieren“: 1 · nur in „Klein &
+schnell“: 1“ und Preise wie „0,9 sats ≈ 0,000005961 SOL“; im Dropdown rückt
+mistral:7b („in 1 Katalog“) vor llama3.2:3b; nach Neuladen sind die Abos da,
+„abbestellen“ entfernt einen; die Relays sahen nur `{kinds:[38080], limit:500}`.
+Keine Seitenfehler.
+
+**Tests:** app +4 (Abos, Eingabe und Kennung, Rang, Verdrahtung ohne
+Vorauswahl und ohne Kurator-Filter).
+
+Endstand: protocol 1143 (+ 6 übersprungen) · node 238 (+ 7 übersprungen ohne
+Netz) · app 367 · mls 9 · Leak-Tests 49 grün + 2 todo · 0 rot · check-wiring
+`--streng` 0 offen · innerHTML streng 0 unbewertet · Smoke-Test bestanden.

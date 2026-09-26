@@ -43,9 +43,9 @@ bash scripts/build-site.sh /tmp/site                     # Website bauen (Ziel w
 bash packages/mls/bauen.sh --pruefen                     # nur bei Änderungen an packages/mls: nachbauen + vergleichen (Rust, clang)
 ```
 
-Stand 26.09.2026 (nach 5.7a): protocol 1143 grün (6 übersprungen), node 239 grün
+Stand 26.09.2026 (nach 5.7b): protocol 1143 grün (6 übersprungen), node 239 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 363 grün, mls 9 grün, Leak-Tests 49 grün + 2 `todo` (heutige Lecks,
+in `tools.test.ts`), app 367 grün, mls 9 grün, Leak-Tests 49 grün + 2 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
 Ausnahme: gesendete SOL-Zahlungen von frischen Adressen, eine bewusste Grenze
 nach Entscheidung 4.9 A – im Datenschutzbericht unter „Bewusste Grenzen“).
@@ -323,3 +323,9 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   nicht ums Guthaben geht. Ein eigener Devnet-Endpunkt in den Settings ergibt
   die Warnung „verschiedene Ketten“ – das ist richtig, der Pool mischt sonst
   Mainnet als Ausweichweg dazu.
+- **Modellkataloge ohne Vorauswahl** (seit 5.7): Kataloge sind NIP-51-Sets
+  (Kind 38080) über `baueModellKatalog()`/`leseModellKatalog()`; die App holt
+  alle (`{kinds:[38080]}`, nie nach Kurator filtern – das verriete die Abos)
+  und zeigt sie nur über `textContent`. Keine fest eingebaute Modell-Vorliebe
+  im Dropdown – die Reihenfolge kommt aus den Abos (`katalogRangJetzt()`) und
+  der Zahl der Provider.

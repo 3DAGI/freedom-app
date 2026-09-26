@@ -4,10 +4,13 @@
  *
  * Aus app.ts verschoben (Schritt 1.0) – wörtlich, ohne Logikänderung.
  */
-import { NostrEvent } from "@freedomstack/protocol";
+import { NostrEvent, type ModellKatalog } from "@freedomstack/protocol";
 import { t } from "../../i18n.js";
+import { LS_KATALOGE, katalogKennung, katalogRang, leseAbos, leseKatalogEingabe, mitAbo, ohneAbo } from "../../modell-kataloge.js";
+import { ausMsat } from "../../preis-anzeige.js";
 import { escapeHtml, pkShort } from "../../shell-logic.js";
-import { ensurePool, signiere, state } from "../state.js";
+import { aktualisiereKurs, aktuellerKurs } from "../marktkurs.js";
+import { alleAngebote, alsGeraet, ensurePool, signiere, state } from "../state.js";
 import { $, toast } from "../ui.js";
 
 /** Modelle im Netz anzeigen. */
@@ -15,7 +18,7 @@ export async function zeigeModelle(): Promise<void> {
   const box = $("#models-list");
   if (!box) return;
   try {
-    const { buildRegistry, KIND_MODEL_MANIFEST, KIND_MODEL_SEED } = await import("@freedomstack/protocol");
+    const { buildRegistry, KIND_MODEL_MANIFEST, KIND_MODEL_SEED, modelsAtRisk } = await import("@freedomstack/protocol");
     const pool = await ensurePool();
     const evs = await pool.query({ kinds: [KIND_MODEL_MANIFEST, KIND_MODEL_SEED], limit: 1000 });
     const r = buildRegistry(evs);
@@ -27,6 +30,15 @@ export async function zeigeModelle(): Promise<void> {
             `${m.manifest.quant ? ` · ${escapeHtml(m.manifest.quant)}` : ""}</span>` +
             `<span class="${cls}">${escapeHtml(m.note)}</span></div>`;
         }).join("");
+    // Gefaehrdete zuerst nennen (8.8) – die Liste oben ist nach Seedern sortiert und schneidet sie sonst ab.
+    const gefaehrdet = modelsAtRisk(r.models);
+    if (gefaehrdet.length > 0) {
+      const z = document.createElement("div");
+      z.className = "warn";
+      z.textContent = `Gefährdet: ${gefaehrdet.slice(0, 5).map((m) => m.manifest.name).join(", ")}` +
+        `${gefaehrdet.length > 5 ? ` und ${gefaehrdet.length - 5} weitere` : ""} – wer sie vorhält, hält sie im Netz.`;
+      box.prepend(z);
+    }
   } catch (e) {
     box.textContent = `Nicht abrufbar: ${(e as Error).message}`;
   }
@@ -101,6 +113,142 @@ export async function haltevorModell(): Promise<void> {
       localStorage.getItem("freedom.region") ?? undefined)));
     toast(`${liste.length} Datei(en) gemeldet`);
     void zeigeModelle();
+  } catch (e) {
+    toast((e as Error).message, true);
+  }
+}
+
+// ------------------------------------------------- Modellkataloge (5.7 mit 8.8)
+
+/** Die zuletzt geladenen abonnierten Kataloge – fuer die Reihenfolge im Modell-Dropdown. */
+let abonnierteKataloge: ModellKatalog[] = [];
+
+/** In wie vielen abonnierten Katalogen steht ein Modell? Leer, solange keine geladen sind. */
+export function katalogRangJetzt(): Map<string, number> {
+  return katalogRang(abonnierteKataloge);
+}
+
+function neu<K extends keyof HTMLElementTagNameMap>(tag: K, text?: string, cls?: string): HTMLElementTagNameMap[K] {
+  const e = document.createElement(tag);
+  if (text !== undefined) e.textContent = text;
+  if (cls) e.className = cls;
+  return e;
+}
+
+function knopf(text: string, aktion: () => void): HTMLButtonElement {
+  const b = neu("button", text, "ghost");
+  b.style.cssText = "width:auto;padding:2px 8px;margin-left:6px";
+  b.addEventListener("click", aktion);
+  return b;
+}
+
+function speichereAbos(abos: string[]): void {
+  localStorage.setItem(LS_KATALOGE, JSON.stringify(abos));
+}
+
+/**
+ * Kataloge anzeigen: abonnierte, ihr Vergleich mit den Angeboten der Provider
+ * (Anzahl, guenstigster Preis in sats und SOL) und gefundene zum Abonnieren.
+ * Alle Texte ueber `textContent` – Kataloge sind Fremddaten.
+ */
+export async function zeigeKataloge(): Promise<void> {
+  const aboBox = $("#kataloge-abos");
+  const vergleichBox = $("#kataloge-vergleich");
+  const gefundenBox = $("#kataloge-gefunden");
+  if (!aboBox || !vergleichBox || !gefundenBox) return;
+  try {
+    const { KIND_MODELL_KATALOG, modellAngebote, neuesteKataloge, vergleicheKataloge } = await import("@freedomstack/protocol");
+    const pool = await ensurePool();
+    // Alle holen und selbst auswaehlen: Ein Filter nach Kurator verriete den Relays die Abos.
+    const [evs, angebote] = await Promise.all([
+      pool.query({ kinds: [KIND_MODELL_KATALOG], limit: 500 }),
+      alleAngebote().catch(() => []),
+      aktualisiereKurs().catch(() => undefined),
+    ]);
+    const alle = neuesteKataloge(evs);
+    const abos = leseAbos(localStorage.getItem(LS_KATALOGE));
+    abonnierteKataloge = abos.map((a) => alle.get(a)).filter((k): k is ModellKatalog => k !== undefined);
+
+    aboBox.replaceChildren();
+    if (abos.length === 0) aboBox.append(neu("div", "Noch kein Katalog abonniert – unten einen wählen.", "muted"));
+    for (const a of abos) {
+      const k = alle.get(a);
+      const zeile = neu("div", k ? `${k.titel} · von ${pkShort(k.kurator)} · ${k.modelle.length} Modelle` : `${a.slice(6, 18)}… · auf den Relays nicht gefunden`, "usage-row");
+      zeile.append(knopf("abbestellen", () => {
+        speichereAbos(ohneAbo(leseAbos(localStorage.getItem(LS_KATALOGE)), a));
+        void zeigeKataloge();
+      }));
+      aboBox.append(zeile);
+    }
+
+    vergleichBox.replaceChildren();
+    if (abonnierteKataloge.length > 0) {
+      const v = vergleicheKataloge(abonnierteKataloge, modellAngebote(angebote));
+      const kurz = abonnierteKataloge.map((k) => k.titel);
+      if (abonnierteKataloge.length >= 2) {
+        vergleichBox.append(neu("div", `Gemeinsam: ${v.gemeinsam.length} · ` + kurz.map((titel, i) => `nur in „${titel}“: ${v.nurIn[i]!.length}`).join(" · ")));
+      }
+      const tabelle = neu("table");
+      tabelle.style.cssText = "width:100%;border-collapse:collapse;margin:6px 0";
+      const kopf = neu("tr");
+      for (const s of ["Modell", ...kurz, "Provider", "ab (1.000 Tokens)"]) kopf.append(neu("th", s));
+      tabelle.append(kopf);
+      const kurs = aktuellerKurs();
+      for (const z of v.zeilen.slice(0, 100)) {
+        const tr = neu("tr");
+        tr.append(neu("td", z.modell));
+        z.in.forEach((drin, i) => {
+          const td = neu("td", drin ? "✓" : "–", drin ? "ok" : "muted");
+          if (z.notizen[i]) td.title = z.notizen[i]!;
+          tr.append(td);
+        });
+        tr.append(neu("td", String(z.provider), z.provider > 0 ? "" : "err"));
+        tr.append(neu("td", z.preisMsat !== undefined ? ausMsat(z.preisMsat, kurs) : "kein Angebot"));
+        tabelle.append(tr);
+      }
+      vergleichBox.append(tabelle);
+    }
+
+    gefundenBox.replaceChildren();
+    const andere = [...alle.values()].filter((k) => !abos.includes(k.adresse)).sort((x, y) => y.createdAt - x.createdAt).slice(0, 20);
+    gefundenBox.append(neu("div", andere.length === 0 ? "Keine weiteren Kataloge gefunden." : "Gefundene Kataloge:", "muted"));
+    for (const k of andere) {
+      const beispiele = k.modelle.slice(0, 3).map((m) => m.modell).join(", ");
+      const zeile = neu("div", `${k.titel} · von ${pkShort(k.kurator)} · ${k.modelle.length} Modelle${beispiele ? ` (${beispiele}${k.modelle.length > 3 ? ", …" : ""})` : ""}`, "usage-row");
+      if (k.beschreibung) zeile.title = k.beschreibung;
+      zeile.append(knopf("abonnieren", () => {
+        try {
+          speichereAbos(mitAbo(leseAbos(localStorage.getItem(LS_KATALOGE)), k.adresse));
+          void zeigeKataloge();
+        } catch (e) {
+          toast((e as Error).message, true);
+        }
+      }));
+      gefundenBox.append(zeile);
+    }
+  } catch (e) {
+    gefundenBox.textContent = `Nicht abrufbar: ${(e as Error).message}`;
+  }
+}
+
+/** Einen eigenen Katalog veroeffentlichen – gleicher Titel ersetzt den alten. */
+export async function veroeffentlicheKatalog(): Promise<void> {
+  if (!state.keypair) return;
+  if (alsGeraet()) {
+    toast("Einen Katalog veröffentlicht nur die Hauptidentität, nicht ein Gerät", true);
+    return;
+  }
+  const titel = prompt("Titel des Katalogs (gleicher Titel ersetzt deinen alten):");
+  if (!titel?.trim()) return;
+  const eingabe = prompt("Modelle, getrennt durch „;“ – je Modell optional eine Notiz dahinter:\nqwen3.5:9b gut für Code; llama3.2:3b");
+  if (!eingabe?.trim()) return;
+  try {
+    const { baueModellKatalog } = await import("@freedomstack/protocol");
+    const modelle = leseKatalogEingabe(eingabe);
+    const ev = await signiere(baueModellKatalog({ kurator: state.keypair.pk, d: katalogKennung(titel), titel, modelle }));
+    await (await ensurePool()).publish(ev);
+    toast(`Katalog „${titel.trim()}“ mit ${modelle.length} Modellen veröffentlicht`);
+    void zeigeKataloge();
   } catch (e) {
     toast((e as Error).message, true);
   }

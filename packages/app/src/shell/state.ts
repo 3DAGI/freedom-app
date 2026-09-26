@@ -129,6 +129,11 @@ export async function angebotVon(pk: string): Promise<ScoredProvider["caps"] | u
   return (await bekannteProvider()).find((c) => c.caps.pubkey === pk)?.caps;
 }
 
+/** Die Angebote aller bekannten Provider – fuer den Vergleich der Modellkataloge (8.8). */
+export async function alleAngebote(): Promise<ScoredProvider["caps"][]> {
+  return (await bekannteProvider()).map((p) => p.caps);
+}
+
 /** Auto-Matchmaking: beste Provider fuer ein Tier (5min Cache). Kein manuelles pubkey. */
 export async function findProviders(tier: string): Promise<ScoredProvider[]> {
   return matchProviders(await bekannteProvider(), tier as "free" | "classic" | "pro", { allowlist: getAllowlist() });

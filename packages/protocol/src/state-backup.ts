@@ -168,6 +168,7 @@ export const SICHERUNG_EINTRAEGE: readonly string[] = [
   "freedom.kontakteSichern",
   "freedom.standardSchiene",
   "freedom.mandate",            // zuerst gesehene Mandate der Kontakte (8.6a)
+  "freedom.kataloge",           // abonnierte Modellkataloge (5.7)
 ];
 /** Moderation je Community (`freedom.mod.<id>`): nur „an“/„aus“. */
 const SICHERUNG_PRAEFIXE = ["freedom.mod."];
