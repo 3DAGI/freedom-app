@@ -87,7 +87,7 @@ eigenem Branch mit eigenen Pull Requests. Regeln dazu in `CLAUDE.md`
 | 6.2 | Ehrlicher PWA-Modus | offen |  |  |
 | 6.3 | Lightning privat | offen |  |  |
 | 6.4 | Verkehrsmuster | offen |  |  |
-| 7.1 | Mesh nur verschlüsselt | offen |  |  |
+| 7.1 | Mesh nur verschlüsselt | in Arbeit | (a: PR folgt) | a Protokoll: `pruefeMeshInhalt()` – über Mesh nur Umschläge (Kind 1059, gültig signiert, Inhalt NIP-44, nur p/expiration/nonce-Tags) und vollständig signierte Solana-Transaktionen (Legacy und v0, jede Signatur ed25519 geprüft), dazu die Bestandsmeldung des Abgleichs; beim Senden kein eigener Schlüssel, auch nicht als Empfänger; Klartext und Ecash nie, auch nicht weitergereicht; `Sendezeitkonto` (EU 868 MHz: 1 % je Stunde, gleitendes Fenster), Planer mit Sendezeit-Budget und Rahmenköpfen, nur Umschläge (Profile, Räume, Code, Kind 4 benannt, nicht gesendet); Leak-Regel `mesh-verschluesselt` (Schlüssel als Hex, npub, roh; Klartext); Aussage „mesh“ offen bis 7.1b; b App (Funkknoten, Chat-Export ohne npub, Texte, Abnahmetest). MLS-Nachrichten kommen mit 2.2b dazu; `offline-queue.ts` gibt es seit 4.1b nicht mehr |
 | 7.2 | SOL offline (Durable Nonces) | offen |  | MENSCH: Funkgeräte |
 | 7.3 | Sats offline – Hinweise | offen |  |  |
 | 7.4 | KI über Funk-Gateway | offen |  |  |

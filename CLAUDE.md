@@ -41,7 +41,7 @@ python3 scripts/smoke_test.py packages/app/dist         # braucht playwright + c
 bash scripts/build-site.sh /tmp/site                     # Website bauen (Ziel wird gelöscht!)
 ```
 
-Stand 26.09.2026 (nach 4.9d): protocol 1058 grün (5 übersprungen), node 214 grün
+Stand 26.09.2026 (nach 4.9d und 7.1a): protocol 1071 grün (5 übersprungen), node 214 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
 in `tools.test.ts`), app 282 grün, Leak-Tests 44 grün + 2 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test).

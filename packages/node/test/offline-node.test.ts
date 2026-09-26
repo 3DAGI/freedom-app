@@ -17,6 +17,13 @@ const KP = generateKeypair();
 const ev = (content = "x", kind = 4): NostrEvent =>
   signEvent(buildEvent(KP.pk, kind, [], content), KP.sk);
 
+/** Umschlag in der Form von NIP-59 – seit 7.1 das Einzige, was ueber Mesh geht. */
+const umschlag = (): NostrEvent => {
+  const w = generateKeypair();
+  const inhalt = Buffer.from([2, ...crypto.getRandomValues(new Uint8Array(300))]).toString("base64");
+  return signEvent(buildEvent(w.pk, 1059, [["p", KP.pk]], inhalt), w.sk);
+};
+
 async function mitOrdner<T>(fn: (dir: string) => Promise<T>): Promise<T> {
   const dir = await mkdtemp(join(tmpdir(), "freedom-offline-"));
   try {
@@ -157,15 +164,18 @@ test("Aus einem fremden Bestand ergibt sich die Differenz", async () => {
     const p = new OfflineCapablePool([new MemoryRelay("mem://a")], { spoolDir: dir });
     const meins: NostrEvent[] = [];
     for (let i = 0; i < 5; i++) {
-      const e = ev(`n${i}`);
+      const e = umschlag();
       meins.push(e);
       await p.publish(e);
     }
+    // Offen und mit Autor: bleibt im Ordner, geht aber nicht ueber Mesh (7.1).
+    await p.publish(ev("offen"));
 
     const { buildDigest } = await import("@freedomstack/protocol");
     const fremd = buildDigest([meins[0]]);
     const plan = await p.syncPlanFor(fremd.bits, fremd.count);
     assert.ok(plan.events.length >= 3, `nur ${plan.events.length} — Differenz nicht erkannt`);
+    assert.ok(plan.events.every((e) => e.kind === 1059), "nur Umschläge");
   });
 });
 

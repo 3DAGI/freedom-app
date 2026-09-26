@@ -13,7 +13,13 @@ import {
   Reassembler, ForwardingCache, MeshQueue,
   meshFeasibility, MeshKind, MeshPriority,
   LORA_MTU, MAX_PAYLOAD_PER_FRAME,
+  pruefeMeshInhalt, pruefeSolanaTx, Sendezeitkonto, luftBytes, BESTAND_BYTES, BESTAND_MARKE, FRAME_HEADER_BYTES,
 } from "../src/mesh-transport.js";
+import { buildEvent, generateKeypair, signEvent } from "../src/event.js";
+import { buildPrivateDm } from "../src/private-dm.js";
+import {
+  Keypair, PublicKey, SystemProgram, Transaction, TransactionMessage, VersionedTransaction,
+} from "@solana/web3.js";
 
 const text = (s: string) => new TextEncoder().encode(s);
 const NOW = 1_800_000_000;
@@ -150,26 +156,26 @@ test("Dieselbe Nachricht wird nicht zweimal weitergereicht", () => {
   // Ohne das wird aus jeder Nachricht eine Lawine, die den gemeinsamen
   // Funkkanal innerhalb von Sekunden stilllegt.
   const c = new ForwardingCache();
-  const f = fragment(text("hallo mesh"), MeshKind.PlainText)[0];
+  const f = fragment(text("hallo mesh"), MeshKind.NostrEvent)[0];
   assert.equal(c.shouldForward(f, NOW), true);
   assert.equal(c.shouldForward(f, NOW + 1), false);
 });
 
 test("Nach der Sperrfrist darf erneut weitergereicht werden", () => {
   const c = new ForwardingCache(60);
-  const f = fragment(text("hallo"), MeshKind.PlainText)[0];
+  const f = fragment(text("hallo"), MeshKind.NostrEvent)[0];
   c.shouldForward(f, NOW);
   assert.equal(c.shouldForward(f, NOW + 120), true);
 });
 
 test("Ausgelaufene Sprungzahl beendet die Weitergabe", () => {
   const c = new ForwardingCache();
-  const f = fragment(text("hallo"), MeshKind.PlainText, MeshPriority.Nachricht, 1)[0];
+  const f = fragment(text("hallo"), MeshKind.NostrEvent, MeshPriority.Nachricht, 1)[0];
   assert.equal(c.shouldForward(f, NOW), false, "sonst kreist ein Paket ewig");
 });
 
 test("Sprungzahl wird bei jeder Weitergabe verringert", () => {
-  let f: Uint8Array | null = fragment(text("hallo"), MeshKind.PlainText, MeshPriority.Nachricht, 3)[0];
+  let f: Uint8Array | null = fragment(text("hallo"), MeshKind.NostrEvent, MeshPriority.Nachricht, 3)[0];
   assert.equal(parseFrame(f).ttl, 3);
   f = decrementTtl(f);
   assert.equal(parseFrame(f!).ttl, 2);
@@ -181,7 +187,7 @@ test("Sprungzahl wird bei jeder Weitergabe verringert", () => {
 test("Weiterleitungs-Speicher waechst nicht unbegrenzt", () => {
   const c = new ForwardingCache(999_999, 50);
   for (let i = 0; i < 300; i++) {
-    c.shouldForward(fragment(text(`m${i}`), MeshKind.PlainText)[0], NOW + i);
+    c.shouldForward(fragment(text(`m${i}`), MeshKind.NostrEvent)[0], NOW + i);
   }
   assert.ok(c.size <= 50);
 });
@@ -262,4 +268,123 @@ test("Machbarkeit: eine Solana-Transaktion passt", () => {
 test("Kennung ist inhaltsabhaengig", () => {
   assert.equal(messageId(text("gleich")), messageId(text("gleich")));
   assert.notEqual(messageId(text("a")), messageId(text("b")));
+});
+
+// ------------------------------------------- Nur verschluesselt (7.1)
+
+const ALICE = generateKeypair();
+const BOB = generateKeypair();
+const json = (x: unknown) => text(JSON.stringify(x));
+
+test("Ein Umschlag darf ueber Mesh – ohne den Schluessel des Absenders", async () => {
+  const dm = await buildPrivateDm({ senderSk: ALICE.sk, senderPk: ALICE.pk, recipientPk: BOB.pk, content: "Treffen um 19 Uhr" });
+  assert.deepEqual(pruefeMeshInhalt(json(dm.toRecipient), MeshKind.NostrEvent, { eigeneSchluessel: [ALICE.pk] }), { ok: true, art: "umschlag" });
+  // Die eigene Kopie traegt den eigenen Schluessel als Empfaenger – ueber Funk
+  // verriete sie, wem das Geraet gehoert.
+  const r = pruefeMeshInhalt(json(dm.toSelf), MeshKind.NostrEvent, { eigeneSchluessel: [ALICE.pk] });
+  assert.equal(r.ok, false);
+  assert.match((r as { grund: string }).grund, /eigenen Schlüssel/);
+  // Beim Empfang (ohne eigene Schluessel) ist die Kopie ein gueltiger Umschlag.
+  assert.equal(pruefeMeshInhalt(json(dm.toSelf), MeshKind.NostrEvent).ok, true);
+});
+
+test("Offene Events, Klartext und Ecash gehen nicht ueber Mesh", async () => {
+  const offen = (kind: number, content: string) => json(signEvent(buildEvent(ALICE.pk, kind, [["p", BOB.pk]], content), ALICE.sk));
+  for (const kind of [0, 1, 4, 14, 42, 9734, 38030]) {
+    const r = pruefeMeshInhalt(offen(kind, "Treffen um 19 Uhr"), MeshKind.NostrEvent);
+    assert.equal(r.ok, false, `Kind ${kind}`);
+  }
+  assert.equal(pruefeMeshInhalt(text("HILFE am Bahnhof"), MeshKind.PlainText).ok, false);
+  assert.equal(pruefeMeshInhalt(text("cashuAeyJ0b2tlbiI6W3…"), MeshKind.Ecash).ok, false);
+  assert.equal(pruefeMeshInhalt(text("kein json"), MeshKind.NostrEvent).ok, false);
+  assert.equal(pruefeMeshInhalt(new Uint8Array([0xff, 0xfe, 0x7b]), MeshKind.NostrEvent).ok, false);
+});
+
+test("Ein veraenderter oder aufgefuellter Umschlag wird abgelehnt", async () => {
+  const { toRecipient: w } = await buildPrivateDm({ senderSk: ALICE.sk, senderPk: ALICE.pk, recipientPk: BOB.pk, content: "x" });
+  // Klartext in einem Zusatz-Tag: neu signiert, damit nur die Form scheitert.
+  const zusatz = signEvent(buildEvent(w.pubkey, 1059, [...w.tags, ["subject", "Treffen"]], w.content, w.created_at), generateKeypair().sk);
+  assert.match((pruefeMeshInhalt(json(zusatz), MeshKind.NostrEvent) as { grund: string }).grund, /nur Umschläge/);
+  // Inhalt veraendert: Signatur passt nicht mehr.
+  const falsch = { ...w, content: "A" + w.content.slice(2) + "B" };
+  assert.equal(pruefeMeshInhalt(json(falsch), MeshKind.NostrEvent).ok, false);
+  // Klartext statt NIP-44 im Inhalt.
+  const k = generateKeypair();
+  const klar = signEvent(buildEvent(k.pk, 1059, [["p", BOB.pk]], "Treffen um 19 Uhr am Bahnhof".repeat(6)), k.sk);
+  assert.equal(pruefeMeshInhalt(json(klar), MeshKind.NostrEvent).ok, false);
+});
+
+test("Die Bestandsmeldung des Abgleichs darf – nur in genau ihrer Form", () => {
+  const d = new Uint8Array(5 + BESTAND_BYTES);
+  d[0] = BESTAND_MARKE;
+  assert.deepEqual(pruefeMeshInhalt(d, MeshKind.NostrEvent), { ok: true, art: "bestand" });
+  assert.equal(pruefeMeshInhalt(d.subarray(0, 100), MeshKind.NostrEvent).ok, false);
+});
+
+const HASH = "11111111111111111111111111111111";
+function solanaTx(signieren = true): Uint8Array {
+  const zahler = Keypair.generate();
+  const tx = new Transaction({ feePayer: zahler.publicKey, recentBlockhash: HASH })
+    .add(SystemProgram.transfer({ fromPubkey: zahler.publicKey, toPubkey: Keypair.generate().publicKey, lamports: 5000 }));
+  if (signieren) tx.sign(zahler);
+  return new Uint8Array(tx.serialize({ requireAllSignatures: false, verifySignatures: false }));
+}
+
+test("Solana: nur vollstaendig signierte Transaktionen (Legacy und v0)", () => {
+  assert.deepEqual(pruefeMeshInhalt(solanaTx(), MeshKind.SolanaTx), { ok: true, art: "solana" });
+  assert.match((pruefeSolanaTx(solanaTx(false)) as { grund: string }).grund, /Signatur 1 von 1/);
+  const verfaelscht = solanaTx();
+  verfaelscht[verfaelscht.length - 1] ^= 1; // Betrag geaendert
+  assert.equal(pruefeSolanaTx(verfaelscht).ok, false);
+  assert.equal(pruefeSolanaTx(new Uint8Array(1300)).ok, false);
+  assert.equal(pruefeSolanaTx(new Uint8Array([1, 2, 3])).ok, false);
+  assert.equal(pruefeSolanaTx(new Uint8Array(0)).ok, false);
+
+  const zahler = Keypair.generate();
+  const msg = new TransactionMessage({
+    payerKey: zahler.publicKey, recentBlockhash: HASH,
+    instructions: [SystemProgram.transfer({ fromPubkey: zahler.publicKey, toPubkey: new PublicKey(HASH), lamports: 1 })],
+  }).compileToV0Message();
+  const v0 = new VersionedTransaction(msg);
+  assert.equal(pruefeSolanaTx(v0.serialize()).ok, false, "unsigniert");
+  v0.sign([zahler]);
+  assert.equal(pruefeSolanaTx(v0.serialize()).ok, true);
+});
+
+test("Klartext und Ecash werden nicht weitergereicht, Verschluesseltes schon", () => {
+  const c = new ForwardingCache();
+  assert.equal(c.shouldForward(fragment(text("HILFE"), MeshKind.PlainText)[0], NOW), false);
+  assert.equal(c.shouldForward(fragment(text("cashuA…"), MeshKind.Ecash)[0], NOW), false);
+  assert.equal(c.shouldForward(fragment(text("umschlag"), MeshKind.NostrEvent)[0], NOW), true);
+  assert.equal(c.shouldForward(fragment(text("transaktion"), MeshKind.SolanaTx)[0], NOW), true);
+});
+
+// ------------------------------------------------ Sendezeit (7.1)
+
+test("Sendezeitkonto: 1 % je Stunde, gleitendes Fenster", () => {
+  const k = new Sendezeitkonto();
+  assert.equal(k.budget, 36);
+  assert.equal(k.frei(NOW), 36);
+  assert.equal(k.wartezeit(10, NOW), 0);
+  k.buche(20, NOW);
+  k.buche(10, NOW + 100);
+  assert.equal(k.frei(NOW + 200), 6);
+  // 10 s brauchen 4 s mehr als frei: frei wird es, wenn die erste Buchung aus dem Fenster faellt.
+  assert.equal(k.wartezeit(10, NOW + 200), 3400);
+  assert.equal(k.wartezeit(6, NOW + 200), 0);
+  assert.equal(k.frei(NOW + 3601), 26, "die erste Buchung ist aus dem Fenster");
+  assert.equal(k.frei(NOW + 3701), 36);
+  assert.throws(() => k.wartezeit(40, NOW), /mehr als 36s/);
+});
+
+test("Sendezeit: ehrliche Dauer ueber das Budget hinaus", () => {
+  const k = new Sendezeitkonto();
+  assert.equal(k.dauer(30, NOW), 30);
+  // 46 s Sendezeit: 36 sofort, der Rest mit 1 % – also 1000 s.
+  assert.equal(k.dauer(46, NOW), 36 + 1000);
+});
+
+test("Luft-Byte: ein Rahmenkopf je Funkpaket", () => {
+  assert.equal(luftBytes(1), 1 + FRAME_HEADER_BYTES);
+  assert.equal(luftBytes(MAX_PAYLOAD_PER_FRAME + 1), MAX_PAYLOAD_PER_FRAME + 1 + 2 * FRAME_HEADER_BYTES);
 });
