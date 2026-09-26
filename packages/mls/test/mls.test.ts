@@ -174,3 +174,30 @@ test("Reihenfolge: eine Nachricht vor ihrem Commit wird zurückgehalten und dana
   assert.deepEqual(f.nachrichten.map((n) => n.text), ["nach dem Commit"]);
   assert.equal((await c.mls.empfangen(s.events[0])).ergebnis, "Ignored", "nicht doppelt");
 });
+
+test("Admins (2.2b-e): ohne Angabe nur der Gründer – dann lädt sonst niemand ein; als Admin gegründet darf ein Mitglied einladen und entfernen", async () => {
+  const { a, b, gruppe } = await gruppeZuDritt();
+  assert.deepEqual(b.mls.admins(gruppe), [a.pk]);
+  await assert.rejects(b.mls.einladen(gruppe, [await keyPackage(person())]), "Bob ist kein Admin");
+
+  const [x, y] = [person(), person()];
+  const g = await x.mls.gruppeAnlegen("", [await keyPackage(y)], RELAYS, [y.pk]);
+  await y.mls.beitreten(g.einladungen[0]);
+  assert.deepEqual(y.mls.admins(g.gruppe), [x.pk, y.pk].sort());
+  // Yvonne lädt ihr Gerät ein – auch als Admin – und entfernt es wieder
+  const geraet = person();
+  const inv = await y.mls.einladen(g.gruppe, [await keyPackage(geraet)], [geraet.pk]);
+  await y.mls.bestaetigt(inv.ausstehend!);
+  await x.mls.empfangen(inv.events[0]);
+  await konvergiere(x, g.gruppe);
+  assert.equal(await geraet.mls.beitreten(inv.einladungen[0]), g.gruppe);
+  assert.deepEqual(x.mls.admins(g.gruppe), [x.pk, y.pk, geraet.pk].sort());
+  const rm = await y.mls.entfernen(g.gruppe, [geraet.pk]);
+  await y.mls.bestaetigt(rm.ausstehend!);
+  await x.mls.empfangen(rm.events[0]);
+  await konvergiere(x, g.gruppe);
+  assert.deepEqual(x.mls.mitglieder(g.gruppe).sort(), [x.pk, y.pk].sort());
+
+  await assert.rejects(x.mls.gruppeAnlegen("", [await keyPackage(person())], RELAYS, [person().pk]), /not in the group/, "Admin muss Mitglied sein");
+  await assert.rejects(x.mls.gruppeAnlegen("", [await keyPackage(person())], RELAYS, ["abcd"]), /Mitglied ungültig/);
+});

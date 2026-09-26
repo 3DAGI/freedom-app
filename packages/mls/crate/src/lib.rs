@@ -180,6 +180,17 @@ fn gruppe(hex_id: &str) -> Result<GroupId, JsValue> {
     hex::decode(hex_id).map(GroupId::new).map_err(|_| fehler("Gruppen-Id ungültig"))
 }
 
+/// Identitäten (hex, 32 Byte) als Mitglieds-Ids – sonst Fehler, nie still gekürzt.
+fn mitglieder_ids(hex_ids: &[String]) -> Result<Vec<MemberId>, JsValue> {
+    hex_ids
+        .iter()
+        .map(|m| match hex::decode(m) {
+            Ok(b) if b.len() == 32 => Ok(MemberId::new(b)),
+            _ => Err(fehler("Mitglied ungültig")),
+        })
+        .collect()
+}
+
 fn json<T: Serialize>(v: &T) -> Result<JsValue, JsValue> {
     serde_json::to_string(v).map(|s| JsValue::from_str(&s)).map_err(fehler)
 }
@@ -347,18 +358,20 @@ impl MlsKonto {
 
     /// Gruppe mit den Kontakten aus ihren KeyPackage-Events anlegen; `relays`:
     /// wo die Gruppe ihre Nachrichten austauscht (steht verschlüsselt im
-    /// Gruppenzustand). Ergebnis: `{ gruppe, einladungen: [event] }` – die
-    /// Gruppe steht sofort.
+    /// Gruppenzustand); `admins`: Eingeladene, die wie der Gründer Mitglieder
+    /// einladen und entfernen dürfen (2.2b-e). Ergebnis: `{ gruppe,
+    /// einladungen: [event] }` – die Gruppe steht sofort.
     #[wasm_bindgen(js_name = gruppeAnlegen)]
-    pub fn gruppe_anlegen(&self, name: String, key_packages: Vec<String>, relays: Vec<String>) -> Promise {
+    pub fn gruppe_anlegen(&self, name: String, key_packages: Vec<String>, relays: Vec<String>, admins: Vec<String>) -> Promise {
         self.mit(move |mut i| async move {
             let r = async {
                 let members = key_packages.iter().map(|k| key_package(k)).collect::<Result<Vec<_>, _>>()?;
+                let initial_admins = mitglieder_ids(&admins)?;
                 let routing = NostrRoutingV1::new(rand::random::<[u8; 32]>(), relays).map_err(fehler)?;
                 let app_components = vec![AppComponentData { component_id: NOSTR_ROUTING_COMPONENT_ID, data: encode_nostr_routing_v1(&routing).map_err(fehler)? }];
                 let (gid, res) = i
                     .engine
-                    .create_group(CreateGroupRequest { name, description: String::new(), members, required_features: vec![], app_components, initial_admins: vec![] })
+                    .create_group(CreateGroupRequest { name, description: String::new(), members, required_features: vec![], app_components, initial_admins })
                     .await
                     .map_err(fehler)?;
                 let welcomes = match res {
@@ -401,12 +414,14 @@ impl MlsKonto {
         })
     }
 
-    /// Kontakte einladen (KeyPackage-Events).
-    pub fn einladen(&self, gruppe_id: String, key_packages: Vec<String>) -> Promise {
+    /// Kontakte einladen (KeyPackage-Events); `admins`: welche der Eingeladenen
+    /// Admin werden (2.2b-e) – nur ein Admin darf einladen.
+    pub fn einladen(&self, gruppe_id: String, key_packages: Vec<String>, admins: Vec<String>) -> Promise {
         self.mit(move |mut i| async move {
             let r = async {
                 let kps = key_packages.iter().map(|k| key_package(k)).collect::<Result<Vec<_>, _>>()?;
-                let res = i.engine.send(SendIntent::Invite { group_id: gruppe(&gruppe_id)?, key_packages: kps, initial_admins: vec![] }).await.map_err(fehler)?;
+                let initial_admins = mitglieder_ids(&admins)?;
+                let res = i.engine.send(SendIntent::Invite { group_id: gruppe(&gruppe_id)?, key_packages: kps, initial_admins }).await.map_err(fehler)?;
                 veroeffentlichen(&mut i, res)
             }
             .await;
@@ -418,7 +433,7 @@ impl MlsKonto {
     pub fn entfernen(&self, gruppe_id: String, mitglieder: Vec<String>) -> Promise {
         self.mit(move |mut i| async move {
             let r = async {
-                let members = mitglieder.iter().map(|m| hex::decode(m).map(MemberId::new).map_err(|_| fehler("Mitglied ungültig"))).collect::<Result<Vec<_>, _>>()?;
+                let members = mitglieder_ids(&mitglieder)?;
                 let res = i.engine.send(SendIntent::RemoveMembers { group_id: gruppe(&gruppe_id)?, members }).await.map_err(fehler)?;
                 veroeffentlichen(&mut i, res)
             }
@@ -505,6 +520,11 @@ impl MlsKonto {
     /// Mitglieder (Identitäten hex).
     pub fn mitglieder(&self, gruppe_id: String) -> Result<Vec<String>, JsValue> {
         self.lies(|i| Ok(i.engine.members(&gruppe(&gruppe_id)?).map_err(fehler)?.iter().map(|m| hex::encode(m.id.as_slice())).collect()))
+    }
+
+    /// Admins (Identitäten hex) – wer einladen und entfernen darf.
+    pub fn admins(&self, gruppe_id: String) -> Result<Vec<String>, JsValue> {
+        self.lies(|i| Ok(i.engine.admin_pubkeys(&gruppe(&gruppe_id)?).map_err(fehler)?.iter().map(hex::encode).collect()))
     }
 
     /// Alle Gruppen dieses Kontos.

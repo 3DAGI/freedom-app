@@ -6090,8 +6090,8 @@ und Szenario „abdeckung-schluessel“; app +1 (Verdrahtung). Das Leak-Szenario
 die Identität nicht Autor ist – seine Verdrahtungs-Prüfung verlangte wörtlich
 den Aufruf mit der Identität, den dieser Schritt abschafft.
 
-Endstand (nach dem Einmergen von 2.2b-d3): protocol 1152 (+ 6 übersprungen) ·
-node 239 (+ 7 übersprungen ohne Netz) · app 409 · mls 10 · Leak-Tests 54 grün
+Endstand (nach dem Einmergen von 2.2b-e2): protocol 1152 (+ 6 übersprungen) ·
+node 239 (+ 7 übersprungen ohne Netz) · app 419 · mls 11 · Leak-Tests 54 grün
 + 2 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng 0
 unbewertet · Website 5 Seiten ok · Smoke-Test bestanden.
 
@@ -6124,5 +6124,141 @@ unbewertet · Website 5 Seiten ok · Smoke-Test bestanden.
 geprüft; ein Fehler beim Prüfen zählt wie Geräte.
 
 Endstand: protocol 1149 · node 240 · app 408 (+1) · mls 10 · Leak-Tests 54
+grün + 2 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng 0
+unbewertet · Website 5 Seiten ok · Smoke-Test bestanden.
+
+## Schritt 2.2b-e1 – MLS nur mit Tresor, beide Seiten Admin, Geräte mit eigenem Konto
+
+**Entscheidungen vom 26.09.2026 (MENSCH):**
+- 2.2b-e: **A** – Geräte werden eigene Mitglieder unter ihrem Geräteschlüssel.
+- MLS verlangt einen Tresor.
+
+Geteilt in e1 (hier) und e2 (Gruppen mit Geräten, danach entfällt d3).
+
+**MLS nur mit Tresor** (`shell/mls-konto.ts`):
+- `mlsGesperrt()` meldet ohne Tresor „nur mit Tresor – richte ihn in den
+  Settings unter Sicherheit ein“. Ohne Tresor gibt es weder Engine noch
+  KeyPackage, Einladungen bleiben liegen, gesendet wird per NIP-17.
+- Der Hinweis in der Unterhaltung nennt den Grund. Hat die Unterhaltung schon
+  eine MLS-Gruppe (seit d2 ohne Tresor möglich), sagt er dazu: Was der Kontakt
+  darüber schickt, liest die App erst, wenn MLS wieder geht – solange die
+  Relays es halten. Beim Einrichten wandert der Schlüssel des Zustands in den
+  Tresor (`GEHEIM_FEST` seit c1), der Zustand bleibt.
+- Die Umgebung (`MlsUmgebung`) bekommt `geheim`, damit Tests mit einem echten
+  Tresor laufen.
+
+**Beide Seiten Admin:**
+- In MDK dürfen nur Admins einladen und entfernen. Ohne Angabe ist nur der
+  Gründer Admin – dann könnte der Kontakt nie seine Geräte aufnehmen oder
+  entzogene entfernen.
+- Crate: `gruppeAnlegen(…, admins)` und `einladen(…, admins)` reichen
+  `initial_admins` an MDK durch (MDK prüft: nur Mitglieder). Neu ist
+  `admins(gruppe)`. Mitglieds-Ids werden streng geprüft (32 Byte), auch beim
+  Entfernen. `dist/` neu gebaut (`bauen.sh`).
+- `gruendeGruppe`/`aendereGruppe` (`mls-nostr.ts`) nehmen `admins` optional;
+  ohne Angabe wie bisher nur der Gründer. Räume (2.3, Spur B) entscheiden
+  selbst.
+- `mlsSendeAn()` gründet 1:1-Gruppen mit dem Kontakt als Admin.
+
+**Als Gerät ein eigenes Konto:**
+- `mlsGesperrt()` sperrt Geräte nicht mehr. Das Konto ist der
+  Geräteschlüssel (der Kontobeweis signiert mit ihm).
+- Geräte haben keine eigene Relay-Liste. KeyPackage (und später eigene
+  Gruppen) gehen an die Schreib-Relays der Person aus deren NIP-65-Liste
+  (`schreibRelaysVon()`, aus `sucheKeyPackages()` herausgezogen). Ohne diese
+  Liste: kein KeyPackage.
+- Bis e2 schreibt ein Gerät weiter per NIP-17 (d3: die Person hat Geräte).
+
+**Nebenbei behoben:** Nach einem Wechsel der Identität ohne Neuladen galt das
+gemerkte KeyPackage der alten Identität noch als frisch – die neue hätte bis zu
+30 Tage keins veröffentlicht. `mlsErreichbar()` vergleicht jetzt die Identität.
+
+**Texte:** Settings-Karte (nur mit Tresor, mit Geräten NIP-17), Hinweis in der
+Unterhaltung, Grenze „Forward Secrecy“ im Datenschutzbericht (ohne Tresor statt
+„als Gerät“).
+
+**Tests:**
+- mls +1: Admins – ohne Angabe nur der Gründer (ein Mitglied kann dann nicht
+  einladen); als Admin gegründet lädt ein Mitglied sein Gerät ein und entfernt
+  es; Admin muss Mitglied sein; ungültige Id → Fehler.
+- `mls-konto.test.ts`: ohne Tresor gesperrt (kein Konto, kein KeyPackage, kein
+  Senden), mit Bunker gesperrt, als Gerät nicht; neu: als Gerät KeyPackage nur
+  an die Schreib-Relays der Person, ohne deren Liste keins, fällig trotz
+  KeyPackage der vorigen Identität.
+- `mls-verdrahtung.test.ts`: Tresor-Sperre statt Geräte-Sperre; neu: 1:1-Gruppen
+  mit dem Kontakt als Admin.
+
+Endstand: protocol 1149 · node 240 · app 410 (+2) · mls 11 (+1) · Leak-Tests
+54 grün + 2 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng 0
+unbewertet · Website 5 Seiten ok · Smoke-Test bestanden (MLS-Selbsttest mit der
+neu gebauten Engine).
+
+## Schritt 2.2b-e2 – Gruppen mit Geräten; d3 entfällt
+
+Zweiter Teil der Entscheidung 2.2b-e (A): Geräte sind eigene Mitglieder der
+1:1-Gruppe. Damit ist 2.2b im Code fertig.
+
+**Wer Mitglied ist** (`packages/app/src/mls-geraete.ts`, neu, ohne DOM):
+- `sollMitglieder()`: beide Personen und ihre Geräte mit gültiger Vollmacht
+  („nachrichten“, nicht entzogen – `geraeteBuch.kopienFuer()` wie NIP-17 seit
+  8.6b), je Mitglied die Person.
+- `abgleich()`: wer fehlt, wer nicht hineingehört (entzogen oder fremd).
+- `partnerDerGruppe()`: Eine Gruppe ist 1:1, wenn alle übrigen Mitglieder
+  einer Person gehören – nach deren eigenen Vollmachten. Der Einladende zählt
+  nicht; ein Fremder kann sich nicht als Gerät eines Kontakts ausgeben.
+
+**Senden** (`mlsSendeAn()`, `shell/mls-konto.ts`):
+- Gründen mit allen Soll-Mitgliedern, alle Admin. Für jedes Mitglied braucht
+  es ein KeyPackage (Geräte: an den Schreib-Relays ihrer Person,
+  `sucheKeyPackages({ listeVon })`) und einen Posteingang. Fehlt eins: NIP-17.
+- Einladungen an Geräte gehen an den Posteingang ihrer Person – Geräte lesen
+  dort mit (8.6b).
+- Vor jedem Senden in eine bestehende Gruppe `gleicheAb()`: entzogene und
+  fremde Mitglieder entfernen, fehlende einladen (als Admin). Geht das nicht
+  (Gerät ohne KeyPackage, nicht Admin, kein Relay nimmt an), geht die
+  Nachricht per NIP-17 an jedes Gerät; die Gruppe bleibt der Unterhaltung.
+- Mitglied ist nur, wer seine Einladung bekam: Nicht zugestellte werden gleich
+  wieder entfernt und beim nächsten Senden neu eingeladen.
+- Als Gerät ohne gültige Vollmacht nie über MLS (und per NIP-17 sperrt der
+  Chat wie seit 8.6c).
+- Ergebnis jetzt `{ gruppe?, gesendet }` – der Chat merkt sich die Gruppe auch,
+  wenn diese Nachricht per NIP-17 ging.
+
+**Empfangen:**
+- `mlsEinladungAnnehmen()` gibt Gruppe und Partner zurück; der Chat legt die
+  Gruppe in die Unterhaltung mit dem Partner (nicht mit dem Einladenden – das
+  kann ein Gerät sein).
+- MLS-Nachrichten im Chat laufen durch `ordneDmZu()` wie NIP-17-Kopien:
+  eigene Geräte als „du“, Geräte des Kontakts unter seinem Namen mit
+  Gerätehinweis, nach einem Entzug mit Warnung.
+
+**d3 entfällt:** `sendeUeberMls()` prüft Geräte nicht mehr pauschal – die
+Gruppe enthält sie.
+
+**Texte:** Hinweis in der Unterhaltung, Settings-Karte, Grenze
+„Forward Secrecy“ (per NIP-17 nur noch, wenn ein Gerät nicht in die Gruppe
+kommt).
+
+**Grenze:** Gruppen, die eine andere Marmot-App ohne dich als Admin gründete,
+lassen sich nicht um deine Geräte erweitern – dann geht deine Nachricht per
+NIP-17. Andere Marmot-Apps (White Noise) sehen Geräte als eigene Mitglieder.
+
+**Tests:**
+- `mls-geraete.test.ts` +4: Soll, Abgleich, Partner (auch als Gerät und mit
+  entzogenen), keine 1:1 (zu dritt, fremd, ohne mich, Fremder behauptet
+  Kontakt als Gerät).
+- `mls-konto.test.ts` +3 mit echter Engine:
+  - Gründen mit Geräten beider Seiten: alle Admin, Einladungen der Geräte am
+    Posteingang der Person, nur an das Gerät adressiert, von einem
+    Wegwerf-Schlüssel; jedes Gerät liest.
+  - Entzug entfernt das Gerät vor der nächsten Nachricht (liest nichts mehr);
+    ein neues Gerät wird eingeladen und liest ab seinem Beitritt; ein Gerät
+    ohne KeyPackage → NIP-17, Gruppe unverändert.
+  - Einladung mit Geräten → Unterhaltung mit der Person; mit Fremdem → keine.
+- `mls-verdrahtung.test.ts`: d3-Test ersetzt (Abgleich vor dem Senden, keine
+  pauschale Geräte-Sperre, Posteingang der Person, Partner aus den
+  Mitgliedern), neu: Zuordnung über `ordneDmZu`.
+
+Endstand: protocol 1149 · node 240 · app 418 (+8) · mls 11 · Leak-Tests 54
 grün + 2 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng 0
 unbewertet · Website 5 Seiten ok · Smoke-Test bestanden.

@@ -43,9 +43,9 @@ bash scripts/build-site.sh /tmp/site                     # Website bauen (Ziel w
 bash packages/mls/bauen.sh --pruefen                     # nur bei Änderungen an packages/mls: nachbauen + vergleichen (Rust, clang)
 ```
 
-Stand 26.09.2026 (nach 2.2b-d3 und 5.10a): protocol 1152 grün (6 übersprungen), node 240 grün
+Stand 26.09.2026 (nach 2.2b-e2 und 5.10a): protocol 1152 grün (6 übersprungen), node 240 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 409 grün, mls 10 grün, Leak-Tests 54 grün + 2 `todo` (heutige Lecks,
+in `tools.test.ts`), app 419 grün, mls 11 grün, Leak-Tests 54 grün + 2 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
 Ausnahme: gesendete SOL-Zahlungen von frischen Adressen, eine bewusste Grenze
 nach Entscheidung 4.9 A – im Datenschutzbericht unter „Bewusste Grenzen“).
@@ -334,17 +334,28 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   In der App nur über `shell/mls-konto.ts` (seit 2.2b-d1): `mlsKonto()` bindet
   Zustand und Verlauf an die Identität (eine andere verwirft beides samt
   Platz und KeyPackage – derselbe d-Tag verbände zwei Identitäten); gesperrt
-  mit Bunker und als Gerät (`mlsGesperrt()`). Die Engine lädt nur bei Bedarf –
+  mit Bunker und ohne Tresor (`mlsGesperrt()`). Die Engine lädt nur bei Bedarf –
   `mlsErreichbar()` nur beim Öffnen einer 1:1-Unterhaltung, nie im Abgleich.
   Empfangene Nachrichten zuerst in den Verlauf (`merken`), dann den Zustand
   sichern: Eine MLS-Nachricht lässt sich nur einmal entschlüsseln. Die Kette
   in `oeffneUmschlag()` prüfen zwei Tests wörtlich – Neues daneben anhängen.
   Senden (seit 2.2b-d2): 1:1 über `sendeUeberMls()` → `mlsSendeAn()`; liefert
-  es null, geht die Nachricht per NIP-17 – der NIP-17-Pfad bleibt Rückfall
-  (Kontakt ohne KeyPackage, Einladung nicht zustellbar, mit Ablauf, Bunker,
-  Gerät, Geräte auf einer Seite – seit 2.2b-d3, denn Geräte sind nicht in der
-  Gruppe) und wird nie entfernt. Eigene MLS-Nachrichten entschlüsselt MLS
+  es `gesendet: false`, geht die Nachricht per NIP-17 – der NIP-17-Pfad bleibt
+  Rückfall (Kontakt oder ein Gerät ohne KeyPackage, Einladung nicht
+  zustellbar, nicht Admin, mit Ablauf, Bunker, ohne Tresor) und wird nie
+  entfernt. Eigene MLS-Nachrichten entschlüsselt MLS
   nicht zurück – sie gehen beim Senden in den Verlauf.
+  Seit 2.2b-e1 nur mit Tresor (`mlsGesperrt()`); als Gerät ist das Konto der
+  Geräteschlüssel, KeyPackage an die Schreib-Relays der Person
+  (`schreibRelaysVon()`). Nur Admins laden ein und entfernen – 1:1-Gruppen mit
+  `admins` gründen (alle Mitglieder), sonst kann der Kontakt nie Geräte aufnehmen.
+  Geräte (seit 2.2b-e2): Mitglied sind beide Personen und ihre Geräte mit
+  gültiger Vollmacht (`sollMitglieder()`, `mls-geraete.ts`); vor jedem Senden
+  `gleicheAb()` – fehlende einladen, entzogene und fremde entfernen, sonst
+  NIP-17. Mitglied ist nur, wer seine Einladung bekam (nicht zugestellt →
+  wieder entfernen). Einladungen an Geräte an den Posteingang der Person; eine
+  Einladung ist 1:1 nur über `partnerDerGruppe()` (Vollmachten der Person,
+  nie der Einladende); MLS-Nachrichten im Chat über `ordneDmZu()`.
 - **RPC-Anbieter nur mit Stichprobe vergleichen** (seit 5.8): `RpcPool.stichprobe()`
   – zwei Betreiber, Netz, Blockhash in beide Richtungen, ein Kontostand.
   Nie mehrere eigene Adressen in eine Stichprobe (4.9c); ohne Adresse, wo es

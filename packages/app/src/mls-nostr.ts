@@ -45,10 +45,14 @@ async function zustellen(netz: MlsNetz, einladungen: readonly NostrEvent[]): Pro
   return offen;
 }
 
-/** Gruppe gründen und die ersten Mitglieder einladen. */
-export async function gruendeGruppe(p: Ablauf & { name: string; keyPackages: NostrEvent[]; relays: string[] }):
+/**
+ * Gruppe gründen und die ersten Mitglieder einladen. `admins`: welche
+ * Eingeladenen wie der Gründer einladen und entfernen dürfen (2.2b-e) – ohne
+ * Angabe nur der Gründer.
+ */
+export async function gruendeGruppe(p: Ablauf & { name: string; keyPackages: NostrEvent[]; relays: string[]; admins?: string[] }):
   Promise<{ gruppe: string; nichtZugestellt: string[] }> {
-  const g = await p.mls.gruppeAnlegen(p.name, p.keyPackages, p.relays);
+  const g = await p.mls.gruppeAnlegen(p.name, p.keyPackages, p.relays, p.admins);
   await p.sichern();
   return { gruppe: g.gruppe, nichtZugestellt: await zustellen(p.netz, g.einladungen) };
 }
@@ -74,14 +78,14 @@ export async function sendeInGruppe(p: Ablauf & { gruppe: string; text: string }
 }
 
 /**
- * Mitglieder einladen oder entfernen: Commit an die Relays der alten Epoche;
- * erst wenn er angenommen ist, gehen Einladungen hinaus. Nicht angenommen →
- * verworfen (`gescheitert`), niemand wird eingeladen.
+ * Mitglieder einladen oder entfernen (nur als Admin): Commit an die Relays der
+ * alten Epoche; erst wenn er angenommen ist, gehen Einladungen hinaus. Nicht
+ * angenommen → verworfen (`gescheitert`), niemand wird eingeladen.
  */
-export async function aendereGruppe(p: Ablauf & { gruppe: string } & ({ einladen: NostrEvent[] } | { entfernen: string[] })):
+export async function aendereGruppe(p: Ablauf & { gruppe: string } & ({ einladen: NostrEvent[]; admins?: string[] } | { entfernen: string[] })):
   Promise<{ angenommen: boolean; nichtZugestellt: string[] }> {
   const { relays } = p.mls.routing(p.gruppe);
-  const s = "einladen" in p ? await p.mls.einladen(p.gruppe, p.einladen) : await p.mls.entfernen(p.gruppe, p.entfernen);
+  const s = "einladen" in p ? await p.mls.einladen(p.gruppe, p.einladen, p.admins) : await p.mls.entfernen(p.gruppe, p.entfernen);
   await p.sichern();
   const angenommen = await veroeffentliche(p, relays, s);
   return { angenommen, nichtZugestellt: angenommen ? await zustellen(p.netz, s.einladungen) : [] };
