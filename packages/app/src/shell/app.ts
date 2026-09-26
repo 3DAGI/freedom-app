@@ -108,6 +108,7 @@ import {
   setzeLogo,
   toast,
   updateSidebarBalances,
+  wireOfflineHinweis,
 } from "./ui.js";
 export { activateCodeBlocks } from "./ui.js";
 
@@ -689,6 +690,7 @@ function starte(): void {
   zeigeVerlaeufe();
   document.getElementById("agent-new")?.addEventListener("click", neueAufgabe);
   void aktualisiereNavStatus();
+  wireOfflineHinweis();
   void aktualisiereSicherheitsStand();
   // Profil teilen: den oeffentlichen Schluessel kopieren — damit findet dich jeder Nostr-Client.
   document.getElementById("profile-share")?.addEventListener("click", async () => {

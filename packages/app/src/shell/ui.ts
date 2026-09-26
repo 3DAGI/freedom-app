@@ -5,6 +5,7 @@
  * escapeHtml/pkShort liegen weiter in ../shell-logic.ts (dort getestet), icon in
  * ../icons.ts. Aus app.ts verschoben (Schritt 1.0) – woertlich, ohne Logikaenderung.
  */
+import { OFFLINE_HINWEIS } from "@freedomstack/protocol";
 import { escapeHtml, pkShort } from "../shell-logic.js";
 import { ensurePool, state } from "./state.js";
 
@@ -115,6 +116,28 @@ export function markSvgCheck(): string {
   return `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--accent)"
     stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
     <path d="M5 12l5 5L20 7"/></svg>`;
+}
+
+/**
+ * Netz da? `navigator.onLine === false` heisst sicher offline; `true` kann
+ * luegen (WLAN ohne Internet) – dann scheitert eine Zahlung wie bisher am Netz.
+ */
+export function netzDa(nav: { onLine?: boolean } | undefined = (globalThis as { navigator?: { onLine?: boolean } }).navigator): boolean {
+  return nav?.onLine !== false;
+}
+
+/**
+ * Offline-Hinweis oben (Schritt 7.3): sagt, was ohne Netz geht – Nachrichten
+ * ueber Funk oder per Datei; Sats und SOL erst wieder mit Netz.
+ */
+export function wireOfflineHinweis(): void {
+  const el = document.getElementById("offline-hinweis");
+  if (!el) return;
+  el.textContent = OFFLINE_HINWEIS;
+  const zeige = (): void => { el.hidden = netzDa(); };
+  window.addEventListener("online", zeige);
+  window.addEventListener("offline", zeige);
+  zeige();
 }
 
 /** Relay-Stand unten in der Seitenleiste. */
