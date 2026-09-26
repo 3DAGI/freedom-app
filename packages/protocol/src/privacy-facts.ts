@@ -43,7 +43,7 @@ export const PRIVACY_FACTS: readonly PrivacyFact[] = [
   { id: "swap-rechnung", aussage: "Beim Tausch SOL → sats sehen Relays deine Lightning-Rechnung nicht.", status: "belegt", regel: "kein-bolt11" },
   { id: "sol-empfang", aussage: "Beim Tausch empfängst du SOL an einer frischen Adresse deiner eingebauten Wallet, nie an der Hauptadresse; für Trinkgeld gibt sie jedem Kontakt eine eigene.", status: "belegt", regel: "sol-adresse-frisch" },
   { id: "sol-frisch", aussage: "Gesendete SOL-Zahlungen kommen nicht von frischen Adressen – mehrere Zahlungen von derselben Adresse sind auf der Kette verknüpfbar.", status: "grenze", grund: "Eine frische Absenderadresse müsste erst aus einer bestehenden aufgefüllt werden, und das verknüpft beide (Entscheidung 4.9 A). Die App zahlt von einer einzelnen Adresse, legt nie zusammen und verrauscht runde Beträge.", regel: "sol-adresse-frisch" },
-  { id: "mesh", aussage: "Über Funk und per Datei gibt die App nur verschlüsselte Umschläge weiter – ohne deinen Schlüssel und ohne Klartext.", status: "offen", schritt: "7.1b", regel: "mesh-verschluesselt" },
+  { id: "mesh", aussage: "Über Funk und per Datei gibt die App nur verschlüsselte Umschläge weiter – ohne deinen Schlüssel und ohne Klartext.", status: "belegt", regel: "mesh-verschluesselt" },
   { id: "ip", aussage: "Relays sehen deine IP-Adresse nicht.", status: "offen", schritt: "6.1/6.2" },
 ];
 

@@ -26,9 +26,9 @@
  * Hardware gebunden — und damit an deren Hersteller.
  */
 import {
-  fragment, parseFrame, decrementTtl, Reassembler, ForwardingCache, MeshQueue,
-  MeshKind, MeshPriority, meshFeasibility, LORA_MTU,
-  buildDigest, planSync, type SyncDigest, type Link, type NostrEvent,
+  fragment, parseFrame, Reassembler, ForwardingCache, MeshQueue,
+  MeshKind, MeshPriority, meshFeasibility, LORA_MTU, pruefeMeshInhalt, Sendezeitkonto,
+  BESTAND_MARKE, buildDigest, planSync, type SyncDigest, type Link, type NostrEvent,
 } from "@freedomstack/protocol";
 
 export type TransportKind = "seriell" | "bluetooth" | "datei";
@@ -117,8 +117,8 @@ export async function connectSerial(baudRate = 115200): Promise<MeshTransport> {
  * Bluetooth-Verbindung zu einem Funkgeraet.
  *
  * Nordic-UART-Dienst, weil praktisch jedes LoRa-Geraet mit BLE ihn spricht.
- * Bluetooth traegt rund hundertmal mehr als LoRa — damit werden Git-Buendel
- * und kleine Dateien moeglich, die ueber Funk Stunden brauechten.
+ * Bluetooth ist hier nur der Weg zum Geraet – gesendet wird danach ueber Funk,
+ * mit dessen Durchsatz und Sendezeit-Grenze (7.1).
  *
  * Auf iOS gibt es Web Bluetooth im Browser NICHT. Das ist kein Versehen von
  * uns, sondern eine Entscheidung von Apple — deshalb bleibt der Datei-Weg die
@@ -264,8 +264,8 @@ export type EventSource = () => NostrEvent[];
 export interface MeshNodeEvents {
   /** Eine vollständige Nachricht ist angekommen. */
   onMessage: (payload: Uint8Array, kind: MeshKind) => void;
-  /** Fortschritt beim Senden oder Empfangen. */
-  onProgress?: (info: { sending: number; receiving: number; etaSeconds: number }) => void;
+  /** Fortschritt beim Senden oder Empfangen; `wartetSekunden`: Sendezeit aufgebraucht (7.1). */
+  onProgress?: (info: { sending: number; receiving: number; etaSeconds: number; wartetSekunden?: number }) => void;
   onLog?: (line: string) => void;
   /** Wie viel bei einem Treffen tatsaechlich ausgetauscht wird. */
   onSyncPlan?: (events: number, seconds: number, note: string) => void;
@@ -288,8 +288,23 @@ export class MeshNode {
 
   private eventSource: EventSource | null = null;
   private link: Link = "lora";
+  /** Schluessel des Nutzers: Beim Senden darf keiner davon im Paket stehen (7.1). */
+  private eigeneSchluessel: string[] = [];
+  private wecker: (() => void) | null = null;
 
-  constructor(private events: MeshNodeEvents, private bytesPerSecond = 200) {}
+  /**
+   * `konto`: Sendezeit ueber Funk (EU 868 MHz: 1 % je Stunde). Nur fuer Tests
+   * mit kleinerem Fenster austauschbar.
+   */
+  constructor(
+    private events: MeshNodeEvents,
+    private bytesPerSecond = 200,
+    private konto = new Sendezeitkonto(),
+  ) {}
+
+  setEigeneSchluessel(pks: string[]): void {
+    this.eigeneSchluessel = [...pks];
+  }
 
   /** Woher der Knoten seinen Bestand nimmt. */
   setEventSource(src: EventSource): void {
@@ -304,10 +319,10 @@ export class MeshNode {
     await this.detach();
     this.transport = t;
     this.stopped = false;
-    // Durchsatz und erlaubte Inhalte haengen an der Strecke: Ueber Bluetooth
-    // gehen Git-Buendel, ueber Funk nicht.
-    this.link = t.kind === "bluetooth" ? "bluetooth" : t.kind === "datei" ? "datei" : "lora";
-    this.bytesPerSecond = t.kind === "bluetooth" ? 20_000 : t.kind === "datei" ? 5_000_000 : 200;
+    // Durchsatz und Sendezeit haengen an der Strecke. Per USB und per Bluetooth
+    // spricht die App ein Funkgeraet an – beides geht danach ueber LoRa (7.1).
+    this.link = t.kind === "datei" ? "datei" : "lora";
+    this.bytesPerSecond = t.kind === "datei" ? 5_000_000 : 200;
     this.events.onLog?.(`verbunden: ${t.name}`);
     void this.pump();
     // Beim Verbinden den eigenen Bestand anbieten — sonst passiert bei einem
@@ -325,7 +340,7 @@ export class MeshNode {
     if (!this.transport || !this.eventSource) return;
     const d = buildDigest(this.eventSource());
     const paket = new Uint8Array(1 + 4 + d.bits.length);
-    paket[0] = 0x44; // "D" fuer Digest
+    paket[0] = BESTAND_MARKE;
     new DataView(paket.buffer).setUint32(1, d.count, false);
     paket.set(d.bits, 5);
     this.enqueue(paket, MeshKind.NostrEvent, MeshPriority.Nachricht, "Bestand");
@@ -345,22 +360,29 @@ export class MeshNode {
     const plan = planSync(this.eventSource(), fremd, {
       link: this.link,
       maxSeconds: this.link === "lora" ? 180 : 600,
+      sendezeitSekunden: this.konto.frei(Date.now() / 1000),
     });
     this.events.onLog?.(plan.note);
     this.events.onSyncPlan?.(plan.send.length, plan.estimatedSeconds, plan.note);
 
     for (const ev of plan.send) {
-      this.enqueue(
-        new TextEncoder().encode(JSON.stringify(ev)),
-        MeshKind.NostrEvent,
-        MeshPriority.Hintergrund,
-        `Abgleich ${ev.kind}`,
-      );
+      try {
+        this.enqueue(
+          new TextEncoder().encode(JSON.stringify(ev)),
+          MeshKind.NostrEvent,
+          MeshPriority.Hintergrund,
+          `Abgleich ${ev.kind}`,
+        );
+      } catch (e) {
+        // z. B. die eigene Kopie einer DM: traegt den eigenen Schluessel
+        this.events.onLog?.(`nicht gesendet: ${(e as Error).message}`);
+      }
     }
   }
 
   async detach(): Promise<void> {
     this.stopped = true;
+    this.wecker?.();
     if (this.transport) {
       await this.transport.close();
       this.transport = null;
@@ -374,16 +396,21 @@ export class MeshNode {
     priority: MeshPriority,
     label: string,
   ): { msgId: string; frames: number; etaSeconds: number; note: string } {
+    // Nur Verschluesseltes und nie der eigene Schluessel (7.1).
+    const pruefung = pruefeMeshInhalt(payload, kind, { eigeneSchluessel: this.eigeneSchluessel });
+    if (!pruefung.ok) throw new Error(pruefung.grund);
     const machbar = meshFeasibility(payload.length, this.bytesPerSecond);
     if (!machbar.feasible) throw new Error(machbar.note);
 
     const m = this.queue.enqueue(payload, kind, priority, label);
+    // Kommt die eigene Nachricht als Echo zurueck, wird sie nicht noch einmal gesendet.
+    this.forwarding.shouldForward(m.frames[0]);
     // Zahlen VOR dem Senden festhalten: pump() laeuft synchron bis zum ersten
     // await und haette sonst schon einen Rahmen entnommen — die zurueckgegebene
     // Paketzahl waere dann um eins zu klein. Im Betrieb faellt so etwas als
     // "der Balken stimmt nicht ganz" auf und wird nie gefunden.
     const frames = m.frames.length;
-    const etaSeconds = this.queue.estimateSeconds(this.bytesPerSecond);
+    const etaSeconds = this.dauer();
     this.meldeFortschritt();
     void this.pump();
     return { msgId: m.msgId, frames, etaSeconds, note: machbar.note };
@@ -406,28 +433,42 @@ export class MeshNode {
    * Schicht darüber unterscheidet die Herkunft nicht.
    */
   receive(raw: Uint8Array, nowSecs = Math.floor(Date.now() / 1000)): void {
-    // Erst weiterreichen, dann selbst auswerten: Bei Funk zählt jede Sekunde,
-    // und die eigene Verarbeitung kann warten.
-    if (this.forwarding.shouldForward(raw, nowSecs)) {
-      const weiter = decrementTtl(raw);
-      if (weiter && this.transport) {
-        void this.transport.send(weiter).catch(() => { /* Funk ist unzuverlaessig */ });
-      }
-    }
-
     const st = this.reassembler.add(raw, nowSecs);
     if (!st) return;
     this.meldeFortschritt();
 
     if (st.complete && st.payload) {
       this.events.onLog?.(`empfangen: ${st.total} Pakete, ${st.payload.length} Byte`);
+      // Nur Verschluesseltes weitergeben – Klartext, offene Events, Ecash nie (7.1).
+      const pruefung = pruefeMeshInhalt(st.payload, st.kind);
+      if (!pruefung.ok) {
+        this.events.onLog?.(`verworfen: ${pruefung.grund}`);
+        return;
+      }
       // Bestandsmeldung der Gegenseite: kein Inhalt, sondern eine Anfrage.
-      if (st.payload[0] === 0x44 && st.payload.length > 5) {
+      if (pruefung.art === "bestand") {
         this.handleDigest(st.payload);
         return;
       }
+      this.weiterreichen(st.payload, st.kind, st.priority, parseFrame(raw).ttl, nowSecs);
       this.events.onMessage(st.payload, st.kind);
     }
+  }
+
+  /**
+   * Weiterreichen erst nach der Prüfung (7.1): Über das eigene Funkgerät geht
+   * nur, was `pruefeMeshInhalt()` durchlässt – nie Klartext eines anderen,
+   * nie der eigene Schlüssel – und über die Warteschlange, also mit
+   * Sendezeit-Grenze. Bis 7.1 ging jeder Rahmen sofort und ungeprüft weiter.
+   */
+  private weiterreichen(payload: Uint8Array, kind: MeshKind, priority: MeshPriority, ttl: number, nowSecs: number): void {
+    if (!this.transport) return;
+    // Sprungzahl und Dubletten je Nachricht – am ersten Rahmen, gleich in welcher Reihenfolge sie kamen.
+    if (!this.forwarding.shouldForward(fragment(payload, kind, priority, ttl)[0], nowSecs)) return;
+    if (!pruefeMeshInhalt(payload, kind, { eigeneSchluessel: this.eigeneSchluessel }).ok) return;
+    this.queue.enqueue(payload, kind, priority, "Weitergabe", nowSecs, ttl - 1);
+    this.meldeFortschritt();
+    void this.pump();
   }
 
   /** Mehrere Rahmen aus einem Datei-Bündel einspielen. */
@@ -449,13 +490,25 @@ export class MeshNode {
     try {
       for (;;) {
         if (this.stopped || !this.transport) break;
+        if (!this.queue.pending.some((m) => m.framesLeft > 0)) break;
+        // Sendezeit ueber Funk (7.1): hoechstens 1 % je Stunde. Geprueft mit
+        // dem groessten Rahmen, bevor einer aus der Warteschlange geht.
+        if (this.link === "lora") {
+          const warte = this.konto.wartezeit(LORA_MTU / this.bytesPerSecond, Date.now() / 1000);
+          if (warte > 0) {
+            this.meldeFortschritt(warte);
+            await this.schlafe(Math.min(warte, 60) * 1000);
+            continue;
+          }
+        }
         const next = this.queue.next();
         if (!next) break;
         await this.transport.send(next.frame);
+        if (this.link === "lora") this.konto.buche(next.frame.length / this.bytesPerSecond, Date.now() / 1000);
         this.meldeFortschritt();
         // Takt einhalten: Ein Funkgeraet, das zugeschuettet wird, verwirft
         // Pakete still — und die Nachricht fehlt ohne Hinweis.
-        await new Promise((r) => setTimeout(r, (next.frame.length / this.bytesPerSecond) * 1000));
+        await this.schlafe((next.frame.length / this.bytesPerSecond) * 1000);
       }
     } catch (e) {
       this.events.onLog?.(`Sendefehler: ${(e as Error).message}`);
@@ -464,11 +517,26 @@ export class MeshNode {
     }
   }
 
-  private meldeFortschritt(): void {
+  /** Wartet, bis `ms` um sind oder der Knoten getrennt wird. */
+  private schlafe(ms: number): Promise<void> {
+    return new Promise((r) => {
+      const t = setTimeout(() => { this.wecker = null; r(); }, ms);
+      this.wecker = () => { clearTimeout(t); this.wecker = null; r(); };
+    });
+  }
+
+  /** Ehrliche Dauer: ueber Funk mit der Sendezeit-Grenze. */
+  private dauer(): number {
+    const sek = this.queue.estimateSeconds(this.bytesPerSecond);
+    return this.link === "lora" ? this.konto.dauer(sek, Date.now() / 1000) : sek;
+  }
+
+  private meldeFortschritt(wartetSekunden?: number): void {
     this.events.onProgress?.({
       sending: this.queue.pending.reduce((s, p) => s + p.framesLeft, 0),
       receiving: this.reassembler.pending,
-      etaSeconds: this.queue.estimateSeconds(this.bytesPerSecond),
+      etaSeconds: this.dauer(),
+      ...(wartetSekunden ? { wartetSekunden: Math.ceil(wartetSekunden) } : {}),
     });
   }
 }

@@ -22,6 +22,8 @@ import { buildBlob } from "../src/blob.js";
 import { buildSessionOpen, buildSessionPayment } from "../src/stream.js";
 import { LocalSigner } from "../src/signer.js";
 import { buildPrivateSolTrinkgeld } from "../src/sol-trinkgeld.js";
+import { MeshKind, fragment, pruefeMeshInhalt } from "../src/mesh-transport.js";
+import { regelMeshVerschluesselt } from "../src/leak-rules.js";
 import { versiegleSwapAnfrage, versiegleSwapAntwort } from "../src/swap-versiegelt.js";
 import { buildAdressAnfrage, buildAdressAntwort } from "../src/trinkgeld-adresse.js";
 import { regelKeinBolt11, regelSolAdresseFrisch } from "../src/leak-rules.js";
@@ -167,6 +169,19 @@ const SZENARIEN: Record<string, () => Promise<number>> = {
     const seed = crypto.getRandomValues(new Uint8Array(64));
     const adressen = [0, 1, 2, 3].map((i) => base58.encode(deriveSolanaKey(seed, i).publicKey));
     return regelSolAdresseFrisch(adressen).length;
+  },
+  mesh: async () => {
+    // Wie die App seit 7.1b: nur der Umschlag an den Empfaenger geht ueber Funk
+    // oder in die Datei – die eigene Kopie und alles Offene lehnt die Regel ab.
+    const d = await buildPrivateDm({ senderSk: a.sk, senderPk: a.pk, recipientPk: b.pk, content: GEHEIM });
+    const bytes = (x: unknown) => new TextEncoder().encode(JSON.stringify(x));
+    const darf = (x: unknown) => pruefeMeshInhalt(bytes(x), MeshKind.NostrEvent, { eigeneSchluessel: [a.pk] }).ok;
+    const offen = signEvent({ pubkey: a.pk, created_at: 1, kind: 4, tags: [["p", b.pk]], content: GEHEIM }, a.sk);
+    const abgelehnt = [d.toSelf, offen].filter(darf).length;
+    const gesendet = [d.toRecipient].filter(darf).map(bytes);
+    if (gesendet.length !== 1) return 1;
+    const pakete = [...gesendet, ...gesendet.flatMap((g) => fragment(g, MeshKind.NostrEvent))];
+    return abgelehnt + regelMeshVerschluesselt(pakete, { schluessel: [a.pk], klartexte: [GEHEIM] }).length;
   },
   "sol-trinkgeld-adresse": async () => {
     // Wie die App seit 4.9d: Anfrage von der Identitaet (a) an den Empfaenger (b), Antwort versiegelt zurueck.

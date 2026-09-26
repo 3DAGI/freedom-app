@@ -41,9 +41,9 @@ python3 scripts/smoke_test.py packages/app/dist         # braucht playwright + c
 bash scripts/build-site.sh /tmp/site                     # Website bauen (Ziel wird gelöscht!)
 ```
 
-Stand 26.09.2026 (nach 4.9e): protocol 1073 grün (5 übersprungen), node 214 grün
+Stand 26.09.2026 (nach 4.9e und 7.1b): protocol 1073 grün (5 übersprungen), node 214 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 284 grün, Leak-Tests 44 grün + 2 `todo` (heutige Lecks,
+in `tools.test.ts`), app 290 grün, Leak-Tests 47 grün + 2 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
 Ausnahme: gesendete SOL-Zahlungen von frischen Adressen, eine bewusste Grenze
 nach Entscheidung 4.9 A – im Datenschutzbericht unter „Bewusste Grenzen“).
@@ -224,3 +224,9 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
 - **SOL-Trinkgeld-Adresse nur versiegelt erfragen** (seit 4.9d): `frageAdresseAn()`
   bzw. die gemerkte Antwort (`trinkgeld-adresse.ts`); das Profilfeld `sol` nur
   nach Warnung. Antworten gibt die App nur Kontakten, mit einer Adresse je Kontakt.
+- **Mesh nur verschlüsselt** (seit 7.1): Was über Funk, Bluetooth oder Datei
+  geht, läuft durch `pruefeMeshInhalt()` – nur Umschläge (Kind 1059) und voll
+  signierte Solana-Transaktionen, beim Senden mit `eigeneSchluessel` (die eigene
+  DM-Kopie trägt den eigenen Schlüssel als Empfänger). Über Funk gilt die
+  Sendezeit (`Sendezeitkonto`, 1 % je Stunde); Weiterreichen nur über die
+  Warteschlange, nie `transport.send()` am Konto vorbei.

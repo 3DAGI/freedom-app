@@ -141,15 +141,13 @@ merge.ts|summarizeConflicts|Zusammenführen nach Offline-Bearbeitung, noch nicht
 
 mesh-sync.ts|blobFeasibility|Machbarkeit großer Dateien offline, ohne Oberfläche (Phase 7)
 
-mesh.ts|buildDeliveryReceipt|Mesh-Pakete und Zustellbelege, noch nicht angebunden (Mesh nur verschlüsselt, 7.1)
-mesh.ts|buildMeshPacket|Mesh-Pakete und Zustellbelege, noch nicht angebunden (Mesh nur verschlüsselt, 7.1)
-mesh.ts|parseDeliveryReceipt|Mesh-Pakete und Zustellbelege, noch nicht angebunden (Mesh nur verschlüsselt, 7.1)
-mesh.ts|parseMeshPacket|Mesh-Pakete und Zustellbelege, noch nicht angebunden (Mesh nur verschlüsselt, 7.1)
-mesh.ts|receiptMatchesPacket|Mesh-Pakete und Zustellbelege, noch nicht angebunden (Mesh nur verschlüsselt, 7.1)
+mesh.ts|buildDeliveryReceipt|Mesh-Pakete und Zustellbelege mit Kurier-Belohnung (Geld über HTLC, keine Karte); offen gebaut – über Mesh gingen sie seit 7.1 nur im Umschlag
+mesh.ts|buildMeshPacket|Mesh-Pakete und Zustellbelege mit Kurier-Belohnung (Geld über HTLC, keine Karte); offen gebaut – über Mesh gingen sie seit 7.1 nur im Umschlag
+mesh.ts|parseDeliveryReceipt|Mesh-Pakete und Zustellbelege mit Kurier-Belohnung (Geld über HTLC, keine Karte); offen gebaut – über Mesh gingen sie seit 7.1 nur im Umschlag
+mesh.ts|parseMeshPacket|Mesh-Pakete und Zustellbelege mit Kurier-Belohnung (Geld über HTLC, keine Karte); offen gebaut – über Mesh gingen sie seit 7.1 nur im Umschlag
+mesh.ts|receiptMatchesPacket|Mesh-Pakete und Zustellbelege mit Kurier-Belohnung (Geld über HTLC, keine Karte); offen gebaut – über Mesh gingen sie seit 7.1 nur im Umschlag
 
-mesh-transport.ts|Sendezeitkonto|Sendezeit-Budget im Funkknoten der App erst mit 7.1b (Mesh nur verschlüsselt)
-mesh-transport.ts|pruefeMeshInhalt|Prüfung beim Senden, Empfangen und Datei-Export erst in der App mit 7.1b (Mesh nur verschlüsselt)
-mesh-transport.ts|pruefeSolanaTx|über pruefeMeshInhalt, in der App erst mit 7.1b (Mesh nur verschlüsselt)
+mesh-transport.ts|decrementTtl|seit 7.1 ungenutzt: der Knoten reicht erst die geprüfte ganze Nachricht weiter (MeshQueue mit Sprungzahl − 1), nicht mehr einzelne Rahmen
 
 mocks.ts|MockLightning|Test-Attrappe für Lightning
 

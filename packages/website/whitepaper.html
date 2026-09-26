@@ -115,10 +115,17 @@
   <p>Drei Wege: serielle Verbindung, Bluetooth, oder <strong>Datei</strong>. Der
   dritte ist der wichtigste — „funktioniert ohne Internet“ darf nicht bedeuten
   „funktioniert, wenn du die richtige Hardware gekauft hast“.</p>
+  <p><strong>Nur Verschlüsseltes.</strong> Funk hört jeder in Reichweite mit, und
+  ein Sender lässt sich anpeilen – ein Paket mit dem Schlüssel des Absenders
+  verriete, wer wo ist. Über alle drei Wege gehen deshalb nur Umschläge nach
+  NIP-59 (Autor ist ein Wegwerf-Schlüssel) und vollständig signierte
+  Solana-Transaktionen. Knoten reichen nur Geprüftes weiter und halten die
+  Sendezeit ein: im EU-Band um 868 MHz meist 1 % je Stunde.</p>
   <table><thead><tr><th>Was</th><th>Über Funk</th></tr></thead><tbody>
-  <tr><td>Nostr-Nachricht</td><td>ja, Sekunden</td></tr>
-  <tr><td>Solana-Transaktion</td><td>ja, ~7 Sekunden (≤1.232 Byte)</td></tr>
-  <tr><td>Ecash-Token</td><td>ja, als Zeichenkette</td></tr>
+  <tr><td>Verschlüsselte Nachricht (Umschlag)</td><td>ja, Sekunden – drei bis vier je Stunde (1 % Sendezeit)</td></tr>
+  <tr><td>Solana-Transaktion</td><td>Transport ja, ~7 Sekunden (≤1.232 Byte, voll signiert); offline signieren noch nicht</td></tr>
+  <tr><td>Profile, Räume, offene Events</td><td><strong>nein</strong> — tragen den Schlüssel des Autors oder Klartext</td></tr>
+  <tr><td>Ecash-Token</td><td><strong>nein</strong> — nicht gebaut; offen gefunkt wäre ein Token Bargeld für jeden, der mithört</td></tr>
   <tr><td>Lightning-Zahlung</td><td><strong>nein</strong> — braucht mehrere Runden</td></tr>
   <tr><td>KI-Antwort</td><td><strong>nein</strong> — Stunden bei 500 Tokens</td></tr>
   </tbody></table>
