@@ -4001,3 +4001,41 @@ Endstand (nach dem Einmergen von 4.9a–c): protocol 1069 · node 213 (+ 7
 übersprungen ohne Netz) · app 279 · Leak-Tests 43 grün + 2 todo · 0 rot ·
 check-wiring `--streng` 0 offen (3 neue Ausnahmen bis 7.1b) · innerHTML streng 0
 unbewertet · Smoke-Test bestanden.
+
+## Schritt 4.9d – Trinkgeld-Adresse versiegelt anfragen
+
+Bis hierhin las das SOL-Trinkgeld die Adresse aus dem öffentlichen Profil
+(`sol` in Kind 0): jedes Trinkgeld war für jeden mit dem Empfänger verknüpft,
+und alle landeten auf derselben Adresse. Entscheidung 4.9 A: nur noch
+versiegelt auf Anfrage, das Profilfeld optional mit Warnung.
+
+**Protokoll:** `trinkgeld-adresse.ts` – Anfrage (Kind 25020, von der Identität
+des Gebers) und Antwort (25021, mit `sol_address` und `kette`), beide im
+Umschlag ohne Zeitversatz; der Geber nimmt nur die Antwort des gefragten
+Empfängers zu seiner Anfrage; streng gelesen (Kette, Adresse, Kern).
+
+**App (`trinkgeld-adresse.ts`):** Geber – gemerkte Adresse dieses Empfängers,
+sonst versiegelt anfragen und bis 75 s warten (Status im Zap-Dialog); ohne
+Antwort das Profilfeld nur nach deutlicher Rückfrage, sonst Eingabe.
+Empfänger – `kommunikation.ts` erkennt Anfragen im Posteingang
+(`alsAdressAnfrage`) und antwortet nur bekannten Kontakten, nur auf Anfragen
+der letzten 15 Minuten, mit einer eigenen, stabilen Adresse je Kontakt aus dem
+Vorrat der eingebauten Wallet (4.9c) – so leert niemand den Vorrat, und keine
+zwei Kontakte sehen dieselbe. Der Posteingang wird jetzt jede Minute
+abgeglichen, solange die App offen ist (vorher nur beim Öffnen der Chatliste).
+
+**Browser-E2E mit zwei Browsern:** Bob richtet die eingebaute Wallet ein und
+lässt die App offen; Alice gibt 0,002 SOL Trinkgeld – ihre App fragt
+versiegelt, Bobs App antwortet mit seinem Konto 1 (`Hh8Qw…`), Alice zahlt
+dorthin; das zweite Trinkgeld braucht keine neue Anfrage (gemerkt); Bob sieht
+beide Belege „belegt ✓“ – geprüft gegen die frische Adresse, nicht gegen die
+im Profil; die Adresse steht nie offen auf den Relays; Bobs Vorrat 20 → 19.
+
+**Tests:** protocol 1056 → 1058 (`trinkgeld-adresse.test.ts` 2; Szenario
+„sol-trinkgeld-adresse“ belegt), app 279 → 282 (`trinkgeld-adresse.test.ts` 3),
+Leak-Tests 43 → 44. Ein Verdrahtungstest aus 4.7b prüft die Zeile jetzt samt
+Adress-Anfrage (gleiche Aussage).
+
+Endstand (nach dem Einmergen von 7.1a): protocol 1071 · node 214 · app 282 ·
+Leak-Tests 44 grün + 2 todo · 0 rot · check-wiring `--streng` 0 offen ·
+innerHTML streng 0 unbewertet · Smoke-Test bestanden.

@@ -32,6 +32,28 @@ Transaktion; jeder, der den Beleg sieht, kann ihn gegen die Kette prüfen.
 `e` ist optional, alle anderen Tags sind Pflicht. `lamports` ist eine ganze
 Zahl ohne Exponent. Clients lehnen Belege mit ungültigen Angaben ab.
 
+## Adresse erfragen (4.9d)
+
+Statt die Adresse aus dem öffentlichen Profil (Feld `sol` in Kind 0) zu lesen,
+fragt der Geber versiegelt (NIP-59) beim Empfänger an; dessen Client antwortet
+ebenso versiegelt mit einer Adresse **nur für diesen Geber**:
+
+```
+Anfrage  innen Kind 25020, von der Identität des Gebers an die des Empfängers
+         tags: ["p", <empfänger>], ["kette", "solana:mainnet"|"solana:devnet"|…]
+Antwort  innen Kind 25021, vom Empfänger zurück
+         tags: ["e", <id der anfrage>], ["p", <geber>], ["sol_address", <adresse>], ["kette", …]
+```
+
+- Der Empfänger antwortet nur bekannten Kontakten und nur auf Anfragen der
+  letzten 15 Minuten; jeder Kontakt bekommt eine eigene, stabile Adresse (so
+  kann niemand seinen Vorrat leeren, und keine zwei Kontakte sehen dieselbe).
+- Der Geber nimmt nur die Antwort des gefragten Empfängers zu seiner Anfrage
+  und merkt sich die Adresse.
+- Kommt keine Antwort (Empfänger offline, ohne eingebaute Wallet), darf ein
+  Client auf das Profilfeld zurückgreifen – nur nach deutlicher Warnung: jedes
+  Trinkgeld dorthin ist öffentlich mit dem Empfänger verknüpft.
+
 ## Zustellen
 
 **Standard: privat.** Der Beleg ist der Kern eines Gift-Wraps (NIP-59,
