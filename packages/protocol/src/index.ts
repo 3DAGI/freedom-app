@@ -99,3 +99,4 @@ export * from "./duress.js";
 export * from "./local-search.js";
 export * from "./privacy-audit.js";
 export * from "./swap-privacy.js";
+export * from "./sol-offline.js";
