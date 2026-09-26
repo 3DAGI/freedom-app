@@ -157,8 +157,21 @@ async function sendZap(state: ZapDialogState, el: HTMLElement): Promise<void> {
       statusEl.textContent = `⚡ gezappt! ${state.amount} sats`;
     } else {
       if (state.unit !== "sol") throw new Error("Solana zahlt in SOL");
-      const { solAdresseAusProfil } = await import("./zap-zahlung.js");
-      let ziel = profile[0] ? solAdresseAusProfil(profile[0].content) : "";
+      // Adresse versiegelt beim Empfaenger anfragen (4.9d) – er gibt jedem
+      // Kontakt eine eigene. Die oeffentliche aus dem Profil nur mit Warnung.
+      const [{ solAdresseAusProfil }, { frageAdresseAn, gemerkteAdresse }, { ketteAusRpc }, { geheim }] = await Promise.all([
+        import("./zap-zahlung.js"), import("./trinkgeld-adresse.js"), import("./wallet-standard.js"), import("./shell/tresor.js"),
+      ]);
+      const kette = ketteAusRpc(await solRpcUrl());
+      let ziel = gemerkteAdresse(geheim, state.recipientPubkey, kette) ?? "";
+      if (!ziel) {
+        statusEl.textContent = "frage die Adresse versiegelt beim Empfänger an … (bis 75 s)";
+        ziel = await frageAdresseAn({ pool, speicher: geheim, signer: appState.signer!, empfaenger: state.recipientPubkey, kette }) ?? "";
+      }
+      const offen = profile[0] ? solAdresseAusProfil(profile[0].content) : "";
+      if (!ziel && offen && confirm(
+        `${state.recipientName} hat nicht geantwortet. In seinem Profil steht eine öffentliche SOL-Adresse – ein Trinkgeld dorthin ist für jeden sichtbar mit ihm verknüpft, und alle Trinkgelder landen auf derselben Adresse. Trotzdem dorthin?`,
+      )) ziel = offen;
       if (!ziel) {
         ziel = (prompt(`SOL-Adresse von ${state.recipientName}:`) ?? "").trim();
         if (!ziel) throw new Error("abgebrochen — keine Empfänger-Adresse");

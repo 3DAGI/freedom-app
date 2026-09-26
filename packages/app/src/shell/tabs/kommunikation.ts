@@ -880,8 +880,8 @@ async function oeffneUmschlag(w: NostrEvent): Promise<{ partner: string; ev: DmA
         // Mit Ablauf (2.5): ladeDmNachrichten() blendet danach aus.
         dm: r.dm,
       }
-    // Keine DM: vielleicht ein SOL-Trinkgeld-Beleg (4.7b).
-    : await alsTrinkgeld(w);
+    // Keine DM: vielleicht ein SOL-Trinkgeld-Beleg (4.7b) oder eine Adress-Anfrage (4.9d).
+    : (await alsTrinkgeld(w)) ?? (await alsAdressAnfrage(w));
   dmCache.set(w.id, e);
   return e;
 }
@@ -906,6 +906,25 @@ async function alsTrinkgeld(w: NostrEvent): Promise<{ partner: string; ev: DmAnz
     if (activeConversation === partner) void loadChatMessages(partner);
   })();
   return { partner, ev, dm: { id: ev.id, from: t.absender, partner, createdAt: t.zeit, content: ev.content } };
+}
+
+/**
+ * Adress-Anfrage fuer ein SOL-Trinkgeld (4.9d): beantworten, wenn sie von einem
+ * bekannten Kontakt kommt – mit dessen eigener Adresse aus der eingebauten
+ * Wallet. In der Unterhaltung erscheint nichts.
+ */
+async function alsAdressAnfrage(w: NostrEvent): Promise<null> {
+  const [{ beantworteAdressAnfrage }, { frischeEmpfangsadresse }, { ketteAusRpc }] = await Promise.all([
+    import("../../trinkgeld-adresse.js"), import("../eingebaute-wallet.js"), import("../../wallet-standard.js"),
+  ]);
+  await beantworteAdressAnfrage({
+    wrap: w, signer: state.signer!, speicher: geheim,
+    istKontakt: (pk) => conversations.some((c) => c.type === "dm" && c.id === pk),
+    frischeAdresse: frischeEmpfangsadresse,
+    kette: ketteAusRpc(await solRpcUrl()),
+    sende: veroeffentlicheDm,
+  }).catch(() => false);
+  return null;
 }
 
 /**
@@ -978,6 +997,11 @@ let letzterDmAbgleich = 0;
  * und die eigenen Posteingangs-Relays werden einmal als Kind 10050
  * veroeffentlicht. Hoechstens einmal pro Minute.
  */
+/** Posteingang abgleichen – auch regelmaessig im Hintergrund (4.9d: Adress-Anfragen beantworten). */
+export function posteingangAbgleichen(): Promise<void> {
+  return syncDmInbox();
+}
+
 async function syncDmInbox(): Promise<void> {
   if (!state.keypair || Date.now() - letzterDmAbgleich < 60_000) return;
   letzterDmAbgleich = Date.now();

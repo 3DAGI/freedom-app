@@ -61,6 +61,7 @@ import {
   newDm,
   sendChatMessage,
   setzeAblauf,
+  posteingangAbgleichen,
   wireKommunikation,
   wireSpacesTab,
   zeigeRaumLeiste,
@@ -711,6 +712,8 @@ function starte(): void {
     });
   });
   setInterval(() => void aktualisiereNavStatus(), 30_000);
+  // Posteingang jede Minute – so beantwortet die App Adress-Anfragen fuer Trinkgeld (4.9d), solange sie offen ist.
+  setInterval(() => void posteingangAbgleichen(), 60_000);
   void zeigeOnboarding();
   const succSetup = $("#succ-setup");
   if (succSetup) succSetup.onclick = () => void richteNachfolgeEin();

@@ -35,6 +35,7 @@ export const PRIVACY_FACTS: readonly PrivacyFact[] = [
   { id: "ki-zahlung", aussage: "Anfragen, Antworten, Sitzungen und Belege deiner KI-Nutzung zeigen Relays keine Beträge, Rechnungen oder Adressen.", status: "belegt", regel: "keine-zahlungsdaten" },
   { id: "ki-reklamation", aussage: "Reklamationen sind nicht öffentlich – sie gehen versiegelt an den Provider und einen Prüfer deiner Wahl.", status: "belegt", regel: "keine-zahlungsdaten" },
   { id: "sol-trinkgeld", aussage: "Belege für SOL-Trinkgeld sehen Relays nicht – sie gehen versiegelt an den Empfänger; öffentlich nur, wenn du es ausdrücklich wählst.", status: "belegt", regel: "keine-sol-adresse" },
+  { id: "sol-trinkgeld-adresse", aussage: "Die Adresse für ein SOL-Trinkgeld fragt die App versiegelt beim Empfänger an; er gibt jedem Kontakt eine eigene. Die öffentliche Adresse aus einem Profil nimmt sie nur nach Warnung.", status: "belegt", regel: "keine-sol-adresse" },
   { id: "sol-adresse", aussage: "Deine Solana-Adresse steht in keinem öffentlichen Event, auch nicht beim Tausch – Anfrage und Antwort gehen versiegelt an den LP. (Ein Trinkgeld-Beleg, den du ausdrücklich öffentlich machst, führt über die Kette zu ihr.)", status: "belegt", regel: "keine-sol-adresse" },
   { id: "swap-rechnung", aussage: "Beim Tausch SOL → sats sehen Relays deine Lightning-Rechnung nicht.", status: "belegt", regel: "kein-bolt11" },
   { id: "sol-frisch", aussage: "Jede SOL-Zahlung geht von einer frischen Adresse aus.", status: "offen", schritt: "4.9", regel: "sol-adresse-frisch" },

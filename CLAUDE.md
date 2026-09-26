@@ -41,9 +41,9 @@ python3 scripts/smoke_test.py packages/app/dist         # braucht playwright + c
 bash scripts/build-site.sh /tmp/site                     # Website bauen (Ziel wird gelöscht!)
 ```
 
-Stand 26.09.2026 (nach 4.9c und 7.1a): protocol 1069 grün (5 übersprungen), node 214 grün
+Stand 26.09.2026 (nach 4.9d und 7.1a): protocol 1071 grün (5 übersprungen), node 214 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 279 grün, Leak-Tests 43 grün + 2 `todo` (heutige Lecks,
+in `tools.test.ts`), app 282 grün, Leak-Tests 44 grün + 2 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test).
 
 ## Arbeitsweise
@@ -219,6 +219,9 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   von einer, die allein reicht (`waehleAbsender`) – nie zusammenlegen, das
   verbindet die Adressen auf der Kette. Einlösen nur mit dem Schlüssel der
   Empfangsadresse (`eingebauterHtlcSigner()` bzw. die verbundene Wallet).
+- **SOL-Trinkgeld-Adresse nur versiegelt erfragen** (seit 4.9d): `frageAdresseAn()`
+  bzw. die gemerkte Antwort (`trinkgeld-adresse.ts`); das Profilfeld `sol` nur
+  nach Warnung. Antworten gibt die App nur Kontakten, mit einer Adresse je Kontakt.
 - **Mesh nur verschlüsselt** (seit 7.1): Was über Funk, Bluetooth oder Datei
   geht, läuft durch `pruefeMeshInhalt()` – nur Umschläge (Kind 1059) und voll
   signierte Solana-Transaktionen, beim Senden mit `eigeneSchluessel` (die eigene
