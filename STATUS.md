@@ -5332,3 +5332,72 @@ abgewiesen), Brücken (signieren nur Kind 450 bzw. 13 der eigenen Identität).
 Endstand (nach dem Einmergen von 8.3b): protocol 1131 · node 239 · app 355 ·
 mls 9 (neu) · Leak-Tests 49 grün + 2 todo · 0 rot · check-wiring `--streng` 0 offen · innerHTML streng 0
 unbewertet · Smoke-Test bestanden · Nachbau bitgleich.
+
+## Schritt 2.2b-b – MLS-Engine in der App
+
+**Ergebnis:** Die MLS-Engine aus 2.2b-a steckt in `freedom.html`. Sie wird
+erst gestartet, wenn sie gebraucht wird. Unter der echten CSP läuft sie im
+Browser. Für Nachrichten wird sie noch nicht genutzt; das kommt mit c und d.
+
+**Einbau** (`packages/app/build.mjs`):
+- esbuild bündelt `@freedomstack/mls/wasm` (die `.wasm.gz`, 3,0 MB) als
+  Base64-Text ins eine Skript (Loader `base64`). Dieses Skript deckt der
+  CSP-Hash ab. Nachgeladen wird nichts, und es gibt weiter genau ein `<script>`.
+- `script-src` enthält jetzt zusätzlich `'wasm-unsafe-eval'`. Damit ist nur
+  das Übersetzen von WebAssembly erlaubt, kein `eval()`. Laden kann WASM nur ein
+  Skript, das schon laufen darf.
+- Vor dem Bündeln prüft der Build, dass die entpackte WASM zu
+  `packages/mls/dist/SHA256SUMS` passt. Sonst bricht er ab: Ins Release kommt
+  nur die Engine, die `bauen.sh` reproduzierbar baut.
+- Die wasm-bindgen-Hülle sucht die `.wasm` ohne übergebene Bytes über
+  `import.meta.url`. Im iife-Format gibt es das nicht. Ein kleines Build-Plugin
+  leert diesen toten Zweig ausdrücklich, statt ihn zu verschweigen, und bricht
+  ab, wenn sich die Hülle ändert.
+
+**Laden** (`packages/app/src/mls-engine.ts`, neu):
+- `mlsEngine()` dekodiert den Text beim ersten Aufruf. Es entpackt ihn mit
+  `DecompressionStream` und startet die Engine asynchron (`starteMls()`, neu im
+  Baustein). Chrome übersetzt große Module nicht synchron im Hauptthread.
+- Ein Fehlschlag wird nicht gemerkt: Der nächste Aufruf versucht es neu.
+- Fehlen `DecompressionStream` oder WebAssembly, kommt eine klare Meldung.
+- Blockiert die CSP (ein Browser ohne `'wasm-unsafe-eval'`), kommt nur der
+  Fehlername, nie Fremdtext.
+
+**Verdrahtet:** Settings → Datenschutz → „Gruppenverschlüsselung (MLS)“ →
+Selbsttest (`packages/app/src/shell/tabs/settings.ts`, `wireMeshTab`, beim
+Start verdrahtet).
+- `mlsSelbsttest()` legt ohne Netz und ohne die eigene Identität zwei
+  Wegwerf-Konten im Speicher an.
+- Ablauf: KeyPackage, Gruppe, Einladung, eine Nachricht. Geprüft wird, dass
+  das Event den Text nicht enthält und dass Empfänger und Absender stimmen.
+- Das Ergebnis ist ein fester Text (`textContent`).
+- Der Kartentext sagt ehrlich: eingebaut, in Chats noch nicht genutzt,
+  Direktnachrichten weiter über NIP-17.
+- Wozu: Man sieht auf echten Geräten (Safari, Firefox, Android), ob die Engine
+  dort läuft, bevor 2.2b-d Chats darauf stellt.
+
+**Größe:** `freedom.html` 2.409 → 6.351 KB (von MENSCH bestätigt: „etwa 6,3 MB“).
+
+**Tests:**
+- `app/test/mls-engine.test.ts`, 4 neu:
+  - Entpacken ergibt bitgleich die WASM; kein gzip ergibt einen Fehler.
+  - Ohne Engine scheitert der Selbsttest mit festem Text, ohne Fremdtext.
+  - Nach einem Fehlschlag gibt es einen neuen Versuch; danach nie ein zweites
+    Laden.
+  - Der Selbsttest besteht.
+- Smoke-Test, neuer Teil `mls`:
+  - `script-src` hat `'wasm-unsafe-eval'` und kein `'unsafe-eval'`.
+  - Beim Start wird kein WebAssembly übersetzt; gezählt werden alle
+    WebAssembly-Einstiege.
+  - Nach dem Klick auf „Selbsttest“ im gebauten `freedom.html` (ohne Netz):
+    „bestanden“, keine CSP-Verletzung, keine Skriptfehler.
+- Gegenprobe: dasselbe `freedom.html` ohne `'wasm-unsafe-eval'` →
+  `script-src`-Verletzung, „gescheitert: Die MLS-Engine startet in diesem
+  Browser nicht.“, Smoke-Test rot.
+
+**Nebenbei:** In `MLS-ENTSCHEIDUNG.md` stand „WASM 6,5 MB“. Richtig sind
+7,6 MB (7.567.621 Byte), gzip 3,0 MB.
+
+Endstand: protocol 1131 · node 239 · app 359 (+4) · mls 9 · Leak-Tests 49
+grün + 2 todo · 0 rot · check-wiring `--streng` 0 offen · innerHTML streng 0
+unbewertet · Website 5 Seiten ok · Smoke-Test bestanden (mit MLS-Teil).

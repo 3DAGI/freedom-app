@@ -9,7 +9,7 @@
  * - der Signer nur Siegel (Kind 13, NIP-59) der eigenen Identität für Einladungen.
  */
 import { computeEventId, type NostrEvent, type Signer, type UnsignedEvent } from "@freedomstack/protocol";
-import { MlsKonto, initSync } from "../dist/freedom_mls.js";
+import initAsync, { MlsKonto, initSync } from "../dist/freedom_mls.js";
 
 export const KIND_KEY_PACKAGE = 30443;
 export const KIND_GRUPPENNACHRICHT = 445;
@@ -24,6 +24,16 @@ let geladen = false;
 export function ladeMls(wasm: BufferSource): void {
   if (geladen) return;
   initSync({ module: wasm });
+  geladen = true;
+}
+
+/**
+ * Wie `ladeMls`, aber asynchron – so im Browser: Chrome übersetzt große
+ * Module (ab 8 MB) nicht synchron im Hauptthread, und die Seite bleibt bedienbar.
+ */
+export async function starteMls(wasm: BufferSource): Promise<void> {
+  if (geladen) return;
+  await initAsync({ module_or_path: wasm });
   geladen = true;
 }
 

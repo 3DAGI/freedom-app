@@ -5,7 +5,10 @@
   "description": "MLS nach Marmot (MDK als WASM) für FreedomStack – Schritt 2.2b",
   "exports": {
     ".": "./src/index.ts",
-    "./wasm": "./dist/freedom_mls_bg.wasm.gz"
+    "./wasm": {
+      "types": "./src/wasm.d.ts",
+      "default": "./dist/freedom_mls_bg.wasm.gz"
+    }
   },
   "scripts": {
     "test": "node --import tsx --test test/*.test.ts",

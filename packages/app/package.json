@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@freedomstack/protocol": "*",
+    "@freedomstack/mls": "*",
     "@solana/web3.js": "^1.98.4",
     "esbuild": "^0.28.1",
     "@scure/base": "^1.2.6",

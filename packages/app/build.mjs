@@ -14,6 +14,20 @@ const root = dirname(fileURLToPath(import.meta.url));
 
 await mkdir(join(root, "dist"), { recursive: true });
 
+// 0. MLS-Engine (Schritt 2.2b-b): Die .wasm.gz wird als Base64 ins Skript
+// gebuendelt (Loader unten). Vorher pruefen, dass sie genau die ist, die
+// packages/mls/bauen.sh reproduzierbar baut (SHA256SUMS) – sonst steckte eine
+// Engine im Release, die niemand nachbauen kann.
+{
+  const { gunzipSync } = await import("node:zlib");
+  const { createHash: h } = await import("node:crypto");
+  const mls = join(root, "../mls/dist");
+  const wasm = gunzipSync(await readFile(join(mls, "freedom_mls_bg.wasm.gz")));
+  const soll = (await readFile(join(mls, "SHA256SUMS"), "utf8")).match(/^([0-9a-f]{64})\s+freedom_mls_bg\.wasm$/m)?.[1];
+  const ist = h("sha256").update(wasm).digest("hex");
+  if (!soll || ist !== soll) throw new Error(`build: MLS-WASM passt nicht zu SHA256SUMS (${ist})`);
+}
+
 // 1. JS bundeln (iife, browser)
 const result = await build({
   entryPoints: [join(root, "src/shell/app.ts")],
@@ -45,6 +59,21 @@ const result = await build({
   // import bleibt external und wird im browser zu einem laufzeit-fehler, der
   // abgefangen wird (mirror ist opt-in via ARWEAVE_MIRROR=1, nur node).
   external: ["@ardrive/turbo-sdk"],
+  // MLS-Engine gzip-komprimiert als Base64-Text im einen Skript (mls-engine.ts)
+  loader: { ".gz": "base64" },
+  plugins: [{
+    // Die wasm-bindgen-Huelle sucht die .wasm nur ohne uebergebene Bytes neben
+    // sich (import.meta.url) – die App uebergibt sie immer. Im iife-Format gibt
+    // es import.meta nicht: den toten Zweig ausdruecklich leeren statt warnen.
+    name: "mls-ohne-import-meta",
+    setup(b) {
+      b.onLoad({ filter: /[\\/]mls[\\/]dist[\\/]freedom_mls\.js$/ }, async ({ path }) => {
+        const quelle = await readFile(path, "utf8");
+        if (quelle.split("import.meta.url").length !== 2) throw new Error("build: MLS-Huelle unerwartet (import.meta)");
+        return { contents: quelle.replace("import.meta.url", "undefined"), loader: "js" };
+      });
+    },
+  }],
   logLevel: "warning",
 });
 const js = result.outputFiles[0].text;
@@ -147,12 +176,15 @@ html = html.replace("<!-- APP_JS -->", () => `<script>${scriptBody}</script>`);
 // damit blockiert, selbst wenn irgendwo ein Escaping fehlt. Verbindungen
 // bleiben offen (Relays, RPC, LNURL, Blossom sind frei waehlbar); der Schutz
 // liegt bei script-src.
+// 'wasm-unsafe-eval' (seit 2.2b-b) erlaubt nur das Uebersetzen von WebAssembly
+// (die MLS-Engine), kein eval(): Ohne ein erlaubtes Skript kann niemand WASM
+// laden, und erlaubt ist weiter nur das eine per Hash.
 {
   const { createHash: h } = await import("node:crypto");
   const scriptHash = h("sha256").update(scriptBody, "utf8").digest("base64");
   const csp = [
     "default-src 'none'",
-    `script-src 'sha256-${scriptHash}'`,
+    `script-src 'sha256-${scriptHash}' 'wasm-unsafe-eval'`,
     "style-src 'unsafe-inline' https:",
     "img-src https: data: blob:",
     "media-src https: data: blob:",
