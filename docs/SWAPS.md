@@ -140,6 +140,23 @@ Swap-ID findet jeder die Sperre auf der Kette samt Empfänger.
   Swap-Umschläge als „verworfen“). Jeder Umschlag wird nur einmal geöffnet;
   Rechenarbeit wie bei KI-Anfragen verlangt der LP nicht.
 
+## Frische Empfangsadressen (4.9c)
+
+Mit der eingebauten Wallet schlägt der Tausch sats → SOL eine frische Adresse
+vor (`frischeEmpfangsadresse()`): Phantoms Konten 1, 2, … aus denselben 12
+Wörtern. Beim Einrichten leitet die Wallet einen Vorrat von 20 ab – die Wörter
+speichert sie nicht, also gibt es keine Ableitung bei Bedarf; ist der Vorrat
+leer, leitet „neue ableiten“ mit den Wörtern die nächsten ab. Jede Adresse geht
+nur einmal heraus (vergeben, bevor sie herausgeht). Eingelöst wird mit dem
+Schlüssel der Empfangsadresse (`eingebauterHtlcSigner`) – ohne SOL darauf über
+einen Relayer. Die App löst nur ein, wenn verbundene oder eingebaute Wallet die
+Empfangsadresse hält; vorher versuchte sie es mit jeder verbundenen Wallet.
+
+Gezahlt wird von einer einzelnen eigenen Adresse, die Betrag und Gebühr allein
+deckt und danach leer oder mietfrei ist (`waehleAbsender`, kleinste passende
+zuerst). Zusammenlegen würde die Adressen auf der Kette verbinden – die App
+tut es nicht, sie sagt es.
+
 ## Gegen Blockaden
 
 Wer sperrt, bindet Kapital – ein Angreifer könnte Swaps anstoßen und nie

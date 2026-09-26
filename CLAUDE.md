@@ -41,9 +41,9 @@ python3 scripts/smoke_test.py packages/app/dist         # braucht playwright + c
 bash scripts/build-site.sh /tmp/site                     # Website bauen (Ziel wird gelöscht!)
 ```
 
-Stand 26.09.2026 (nach 4.9b): protocol 1056 grün (5 übersprungen), node 214 grün
+Stand 26.09.2026 (nach 4.9c): protocol 1056 grün (5 übersprungen), node 214 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 273 grün, Leak-Tests 41 grün + 2 `todo` (heutige Lecks,
+in `tools.test.ts`), app 279 grün, Leak-Tests 43 grün + 2 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test).
 
 ## Arbeitsweise
@@ -214,3 +214,8 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   (`swap-umschlag.ts`) von einem Wegwerf-Schlüssel je Swap, Antworten nur über
   `swapAntworten()` – nie offen Kind 25001/25002 senden oder lesen, nie mit der
   eigenen Identität. LPs ohne `["versiegelt", "1"]` nicht anfragen.
+- **Eingebaute Wallet hat mehrere Adressen** (seit 4.9c): Hauptadresse plus
+  vergebene frische aus dem Vorrat. Guthaben über `eigeneAdressen()`, gezahlt
+  von einer, die allein reicht (`waehleAbsender`) – nie zusammenlegen, das
+  verbindet die Adressen auf der Kette. Einlösen nur mit dem Schlüssel der
+  Empfangsadresse (`eingebauterHtlcSigner()` bzw. die verbundene Wallet).
