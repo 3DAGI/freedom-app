@@ -13,6 +13,7 @@ import {
 } from "../src/merge.js";
 import {
   wipeAll, checkUnlock, duressWarning, wipeConfirmation, WIPE_TARGETS, StorageLike,
+  loescheAllesLokal, WIPE_DATENBANKEN,
 } from "../src/duress.js";
 
 const T0 = 1000, T1 = 2000, T2 = 3000;
@@ -239,4 +240,58 @@ test("Die Loeschbestaetigung nennt die Endgueltigkeit und die Grenze", () => {
   assert.match(t, /KEINE Wiederherstellung/);
   assert.match(t, /Merkphrase/);
   assert.match(t, /schon auf Relays liegt/);
+});
+
+// ------------------------------------------------- Notfall-Loeschung (8.14)
+
+function fakeDbs(namen: string[], kaputt: string[] = [], kommtWieder: string[] = []) {
+  const da = new Set(namen);
+  return {
+    da,
+    datenbanken: async () => [...da],
+    loescheDatenbank: async (n: string) => {
+      if (kaputt.includes(n)) throw new Error("blockiert");
+      da.delete(n);
+      if (kommtWieder.includes(n)) da.add(n);
+    },
+  };
+}
+
+test("8.14: loescht localStorage, sessionStorage und alle eigenen Datenbanken – und prueft nach", async () => {
+  const local = fakeStorage({ "freedom.nsec": "geheim", "freedom.chats": "[]", "freedom.neu": "x", "andere.app": "bleibt" });
+  const session = fakeStorage({ "freedom.sitzung": "y", "fremd": "bleibt" });
+  const dbs = fakeDbs(["freedom-vault", "freedom-suche", "freedom-blobs", "freedom-kuenftig", "andere-db"]);
+  const r = await loescheAllesLokal({ local, session, datenbanken: dbs.datenbanken, loescheDatenbank: dbs.loescheDatenbank });
+  assert.deepEqual(Object.keys(local.daten), ["andere.app"]);
+  assert.deepEqual(Object.keys(session.daten), ["fremd"]);
+  assert.deepEqual([...dbs.da], ["andere-db"], "eigene Datenbanken weg – auch eine, die in keiner Liste steht");
+  assert.deepEqual(r.uebrig, []);
+  assert.equal(r.nachgeprueft, true);
+  assert.ok(r.cleared.includes("db:freedom-kuenftig"));
+  assert.match(r.message, /nachgeprüft\. Dieses Gerät weiß nichts mehr/);
+});
+
+test("8.14: was blockiert oder wieder auftaucht, wird BENANNT", async () => {
+  const dbs = fakeDbs(["freedom-vault", "freedom-suche"], ["freedom-vault"], ["freedom-suche"]);
+  const r = await loescheAllesLokal({ local: fakeStorage({}), datenbanken: dbs.datenbanken, loescheDatenbank: dbs.loescheDatenbank });
+  assert.ok(r.failed.includes("db:freedom-vault"));
+  assert.ok(r.uebrig.includes("db:freedom-suche"));
+  assert.match(r.message, /NICHT — .*db:freedom-vault.*db:freedom-suche/);
+});
+
+test("8.14: ohne Liste der Datenbanken werden die bekannten geloescht, nachgeprueft ist dann nicht", async () => {
+  const geloescht: string[] = [];
+  const r = await loescheAllesLokal({ local: fakeStorage({ "freedom.nsec": "k" }), loescheDatenbank: async (n) => { geloescht.push(n); } });
+  assert.deepEqual(geloescht, WIPE_DATENBANKEN);
+  assert.equal(r.nachgeprueft, false);
+  assert.doesNotMatch(r.message, /nachgeprüft/);
+});
+
+test("8.14: der rechtliche Hinweis steht in der Loeschbestaetigung", () => {
+  const t = wipeConfirmation();
+  assert.match(t, /RECHTLICHER HINWEIS/);
+  assert.match(t, /Beweismitteln strafbar/);
+  assert.match(t, /keine Rechtsberatung/);
+  assert.match(t, /laufenden\s+Tauschvorgängen/);
+  assert.ok(t.indexOf("RECHTLICHER HINWEIS") < t.indexOf("Was NICHT gelöscht wird"));
 });

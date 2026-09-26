@@ -4440,3 +4440,61 @@ Endstand: protocol 1096 (+ 6 übersprungen) · node 213 (+ 7 übersprungen ohne
 Netz) · app 313 · Leak-Tests 48 grün + 2 todo · 0 rot · check-wiring `--streng`
 0 offen (6 Ausnahmen weniger) · innerHTML streng 0 unbewertet · Smoke-Test
 bestanden · Browser-E2E bestanden.
+
+## Schritt 8.14 – Notfall-Löschung
+
+**Settings → Sicherheit → „Notfall-Löschung“** (`shell/notfall.ts`, Knopf aus
+`app.ts:534`): Vorher steht `wipeConfirmation()` – was gelöscht wird, keine
+Wiederherstellung, ohne Merkphrase kein Zurück, Geld in laufenden
+Tauschvorgängen kann verloren sein, und der **rechtliche Hinweis** (in vielen
+Ländern ist das Vernichten von Beweismitteln strafbar, etwa während eines
+Verfahrens oder einer Durchsuchung; keine Rechtsberatung); läuft gerade ein
+Tausch oder Deposit, eine Warnung dazu. Gelöscht wird erst nach Eintippen von
+LÖSCHEN. Der Dialog ist per DOM gebaut.
+
+**Was gelöscht wird** (`loescheAllesLokal()` in `duress.ts`): localStorage und
+sessionStorage mit dem Präfix `freedom.`, jede IndexedDB-Datenbank, deren Name
+mit `freedom` beginnt (Tresor, Suchindex, Blob-Speicher – auch künftige), dazu
+die bekannten aus `WIPE_DATENBANKEN`, falls der Browser keine Liste liefert.
+Danach **nachgeprüft**: Was noch da ist oder nicht gelöscht werden konnte
+(blockierte Datenbank), wird benannt. Fremde Schlüssel und Datenbanken
+derselben Herkunft (github.io) bleiben. `WIPE_TARGETS` nannte Schlüssel, die es
+nicht gibt (`freedom.sk`, `freedom.conversations`) – jetzt die echten.
+
+**Nichts schreibt zurück:** Die App startet sofort neu (`location.reload()`);
+der Suchindex hält vorher sein verzögertes Speichern an (`sucheVergessen()`,
+startet die Suche dafür nicht erst). Ohne Tresor landete sonst, was noch im
+Speicher ist (Unterhaltungen), im Klartext in localStorage. Ein Merker in
+sessionStorage lässt den Start ein **zweites Mal löschen, vor allem anderen**
+(`app.ts:502`), dann zeigt die leere App das Ergebnis; fehlt etwas, sagt eine
+Meldung was.
+
+**Wächter** (`app/test/notfall.test.ts`): Im Quelltext von App und Protokoll
+trägt jeder Schlüssel für localStorage, sessionStorage und Tresor das Präfix
+`freedom.`, jede Datenbank steht in `WIPE_DATENBANKEN`; Cache Storage, OPFS,
+Cookies, WebSQL und Service Worker kommen nicht vor. Gegenprobe: ein Schlüssel
+„lang“ und eine Datenbank „fremd-db“ lassen den Test scheitern.
+
+**Nachweis im Smoke-Test** (`scripts/smoke_test.py`, Befehlsliste): frisches
+Profil mit Geheimnissen, Sitzungsdaten, Blob-Speicher, Suchindex, einer
+künftigen Datenbank und Tresor; der Hinweis steht vorher, der Knopf ist bis
+„LÖSCHEN“ gesperrt; danach enthalten localStorage, sessionStorage und IndexedDB
+weder Schlüssel noch Probedaten, nur der neu angelegte leere Tresor-Speicher
+bleibt, die App startet leer mit neuer Identität und ohne Passphrase-Abfrage.
+
+**Grenzen, ehrlich:** Relays erreicht die Löschung nicht (steht im Text).
+Die **Zwangsphrase** (`checkUnlock`, `duressWarning`: eine zweite Passphrase,
+die beim Entsperren still löscht) ist nicht eingebaut – die Karte verlangt nur
+die Löschung, und ob die Funktion angeboten wird, ist eine MENSCH-Entscheidung
+(sie kann ihrem Nutzer schaden; ein gespeicherter Prüfwert verriete, dass es
+eine gibt). Was der Browser selbst hält (Verlauf, Cache der Seite), löscht die
+App nicht.
+
+**Tests:** protocol +4 (Löschen und Nachprüfen, Benennen, ohne Liste der
+Datenbanken, rechtlicher Hinweis), app +4 (Präfix aller Schlüssel, Datenbanken,
+keine unbekannte Speicherart, Verdrahtung); Smoke-Test +1 Szenario.
+
+Endstand: protocol 1100 (+ 6 übersprungen) · node 213 (+ 7 übersprungen ohne
+Netz) · app 317 · Leak-Tests 48 grün + 2 todo · 0 rot · check-wiring `--streng`
+0 offen (2 Ausnahmen weniger) · innerHTML streng 0 unbewertet · Smoke-Test
+bestanden (mit Notfall-Löschung).

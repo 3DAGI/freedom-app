@@ -67,10 +67,8 @@ dm.ts|filterDMsForUser|Direktnachrichten nach Kind 4; seit 2.1 wird nur noch NIP
 dm.ts|isNip44Payload|Direktnachrichten nach Kind 4; seit 2.1 wird nur noch NIP-17 gesendet (2.1)
 dm.ts|parseDM|Direktnachrichten nach Kind 4; seit 2.1 wird nur noch NIP-17 gesendet (2.1)
 
-duress.ts|checkUnlock|Notfall-Löschung ohne Oberfläche (8.14)
-duress.ts|duressWarning|Notfall-Löschung ohne Oberfläche (8.14)
-duress.ts|wipeAll|Notfall-Löschung ohne Oberfläche (8.14)
-duress.ts|wipeConfirmation|Notfall-Löschung ohne Oberfläche (8.14)
+duress.ts|checkUnlock|Zwangsphrase nicht eingebaut – 8.14 verlangt nur die Löschung; Einbau ist eine MENSCH-Entscheidung
+duress.ts|duressWarning|Zwangsphrase nicht eingebaut – 8.14 verlangt nur die Löschung; Einbau ist eine MENSCH-Entscheidung
 
 dvm.ts|buildJobFeedback|Job-Feedback (NIP-90 Kind 7000) wird noch nicht gesendet (Antworten und Belege, 3.2)
 

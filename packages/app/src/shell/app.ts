@@ -14,6 +14,7 @@ import { escapeHtml, pkShort } from "../shell-logic.js";
 import { nimmBunkerAuf, wireBunkerKarte } from "./bunker.js";
 import { wireEingebauteWallet } from "./eingebaute-wallet.js";
 import { zeigeDatenschutz } from "./datenschutz.js";
+import { nachNotfallLoeschung, wireNotfallLoeschung } from "./notfall.js";
 import {
   ensurePool,
   getOwnProviderFromUrl,
@@ -497,7 +498,8 @@ function checkOwnProvider(): void {
  * danach ist der Schluessel da und die App startet wie bisher.
  */
 export function boot(): void {
-  void entsperreBeimStart().then(starte);
+  // Notfall-Loeschung (8.14): kommt die App aus einer, zuerst ein zweiter Durchgang
+  void nachNotfallLoeschung().then(() => entsperreBeimStart()).then(starte);
 }
 
 function starte(): void {
@@ -529,6 +531,7 @@ function starte(): void {
   starteAutoSperre(beschaeftigt);
   wireBunkerKarte(beschaeftigt);
   wireSicherheitsKnoepfe();
+  wireNotfallLoeschung(geldVorgangLaeuft);
   checkOwnProvider();
   const enter = setupFlow();
   // Kein Gate: App öffnet direkt. Wallet-Connect/Deposit über sidebar-CTA
