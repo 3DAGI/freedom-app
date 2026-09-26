@@ -5395,8 +5395,17 @@ Start verdrahtet).
   `script-src`-Verletzung, „gescheitert: Die MLS-Engine startet in diesem
   Browser nicht.“, Smoke-Test rot.
 
-**Nebenbei:** In `MLS-ENTSCHEIDUNG.md` stand „WASM 6,5 MB“. Richtig sind
-7,6 MB (7.567.621 Byte), gzip 3,0 MB.
+**Nebenbei:**
+- In `MLS-ENTSCHEIDUNG.md` stand „WASM 6,5 MB“. Richtig sind 7,6 MB
+  (7.567.621 Byte), gzip 3,0 MB.
+- Ein zufällig roter Test aus Spur B (8.9a), klein behoben: In
+  `protocol/test/blob-speicher.test.ts` („manipulierte Stücke fallen heraus“)
+  ersetzte der Test das erste Byte des Chiffrats durch `ff`. Begann das
+  zufällige Chiffrat schon mit `ff`, war das keine Änderung: Das Stück bestand
+  die Prüfung, und der Test war rot (etwa 1 von 256 Läufen, so in der CI dieses
+  Schritts). Nachgestellt: Bei `ff` am Anfang ergab die alte Manipulation
+  `ok: true`. Jetzt wird bei `ff` am Anfang `00` eingesetzt. Die Prüfung
+  selbst ist unverändert.
 
 Endstand: protocol 1131 · node 239 · app 359 (+4) · mls 9 · Leak-Tests 49
 grün + 2 todo · 0 rot · check-wiring `--streng` 0 offen · innerHTML streng 0
