@@ -23,6 +23,7 @@ import { buildSessionOpen, buildSessionPayment } from "../src/stream.js";
 import { LocalSigner } from "../src/signer.js";
 import { buildPrivateSolTrinkgeld } from "../src/sol-trinkgeld.js";
 import { versiegleSwapAnfrage, versiegleSwapAntwort } from "../src/swap-versiegelt.js";
+import { buildAdressAnfrage, buildAdressAntwort } from "../src/trinkgeld-adresse.js";
 import { regelKeinBolt11 } from "../src/leak-rules.js";
 
 const a = generateKeypair();
@@ -159,6 +160,12 @@ const SZENARIEN: Record<string, () => Promise<number>> = {
     return regelKeineSolAdresse(wraps, [SOL_ADRESSE]).length + regelAutorNicht(wraps, a.pk).length;
   },
   "swap-rechnung": async () => regelKeinBolt11(await versiegelterTausch()).length,
+  "sol-trinkgeld-adresse": async () => {
+    // Wie die App seit 4.9d: Anfrage von der Identitaet (a) an den Empfaenger (b), Antwort versiegelt zurueck.
+    const { wrap, anfrageId } = await buildAdressAnfrage({ von: new LocalSigner(a.sk), anPk: b.pk, kette: "solana:mainnet" });
+    const antwort = await buildAdressAntwort({ von: new LocalSigner(b.sk), anPk: a.pk, anfrageId, adresse: SOL_ADRESSE, kette: "solana:mainnet" });
+    return regelKeineSolAdresse([wrap, antwort], [SOL_ADRESSE]).length + regelAutorNicht([wrap, antwort], a.pk).length + regelAutorNicht([wrap, antwort], b.pk).length;
+  },
   "abdeckung-zelle": async () => {
     const [lat, lon] = [48.137154, 11.576124];
     const funde = (["lora", "bluetooth"] as const).flatMap((layer) => {
