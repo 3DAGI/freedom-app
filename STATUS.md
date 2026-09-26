@@ -5078,3 +5078,72 @@ eine Datei (etwa 2,2 → 4,1 MB). Eingetragen in `docs/MLS-ENTSCHEIDUNG.md`.
 
 **MENSCH vor 5.1 live:** Empfänger-Adressen der Entwicklung (Lightning über
 einen eigenen Knoten, SOL-Mehrfachsignatur).
+
+## Schritt 8.1b – Onboarding, Teil b: Einrichtung statt Willkommenskarte
+
+**Vorher:** Beim ersten Start kamen zwei Überlagerungen zugleich: der
+Merkphrasen-Dialog und eine Willkommenskarte mit drei Schritten („Verbinden“,
+„AI testen: 3 Gratis-Antworten“, „Zap senden: 1 sat an Provider“). Deren Knopf
+„Starten“ schloss nur die Karte.
+
+**Einrichtung** (`einrichtung.ts` ohne DOM, `shell/einrichtung-ui.ts`), in der
+Reihenfolge der Karte:
+1. Merkphrase und Sicherung (Dialog aus 8.1a, „später“ möglich).
+2. Schutz: Passphrase für den Tresor.
+3. Standard-Schiene: sats oder SOL.
+4. Private Voreinstellungen:
+   - Verbindung.
+   - Kontakte-Abgleich (Standard aus).
+   - Werber, nur wenn jemand über einen Link kam (Standard aus).
+   - Die Datenschutz-Sätze stehen wörtlich aus `PRIVACY_FACTS`: drei belegte,
+     die IP-Adresse als „noch nicht“.
+5. Vorhaben (KI, Nachrichten, Rechner vermieten): Die App öffnet den passenden
+   Reiter; die Onboarding-Leiste richtet sich danach.
+
+Verhalten:
+- Jede Seite ist überspringbar, „Einrichtung überspringen“ beendet sie.
+- Der Tresor-Schritt entfällt, wenn schon einer da ist oder die Anmeldung per
+  Bunker läuft.
+- Bricht jemand ab und lädt neu, geht es weiter (`app.ts:564`), ohne die
+  Merkphrase erneut aufzudrängen (Stand „laeuft“).
+- Der Sicherungsdialog öffnet sich nie zweimal übereinander (`:168`).
+- Einstellungen setzt die Einrichtung über die Bedienelemente der Settings
+  (`einrichtung-ui.ts:126`, `:133`). Deren Handler sortieren bei Tor die Relays
+  und sichern die Kontaktliste – dasselbe wie dort.
+
+**Fund:** Wer über einen Werbe-Link (`?ref=`) kam, veröffentlichte beim zweiten
+Start ungefragt die Werbebeziehung – eine öffentliche Verknüpfung zweier
+Schlüssel. Jetzt nur mit Zustimmung (`earn.ts:424`, `darfWerberNennen()`);
+die Werben-Karte sagt es auch.
+
+**Verdrahtet:**
+- Eine neue Identität startet die Einrichtung (`app.ts:156` → `:253`).
+- Die Willkommenskarte samt Stilen ist entfernt.
+
+**Browser-E2E** (vorgetäuschtes Relay, Werbe-Link):
+- **Durchlauf mit Zustimmung und ohne:**
+  - Folge sichern → schutz → zahlen → privat → los.
+  - Kontakte und Werber nicht vorausgewählt, der Satz zur IP-Adresse steht da.
+  - Tresor eingerichtet, Schiene SOL, Tor bevorzugt, auch in den Settings.
+  - Vorhaben „Nachrichten“ öffnet den Chat.
+  - Ein Werbe-Event gibt es nur mit Zustimmung, auch nach dem Neustart; die
+    Einrichtung erscheint nicht wieder.
+  - Nötig sind 6 Klicks und 6–7 Eingaben (drei Wörter, zweimal die Passphrase,
+    Verbindung, gegebenenfalls Werber).
+- **Überspringen:** Die Einrichtung ist sofort weg, die Leiste führt weiter.
+- Keine Seitenfehler.
+- Die E2Es aus 8.1a und 8.6c liefen erneut durch. Das 8.1a-E2E fand dabei die
+  zwei Fehler, die jetzt behoben sind: die Merkphrase beim Fortsetzen erneut,
+  und zwei Dialoge übereinander.
+
+**MENSCH:** Die Karte ist erfüllt, wenn ein Test-Durchlauf ohne Hilfe unter
+fünf Minuten bleibt. Automatisch dauert er 2,5 s. Ein Mensch braucht vor allem
+Zeit, um zwölf Wörter aufzuschreiben – mit einer fremden Person testen.
+
+**Tests:** app +5 (Seiten und Reihenfolge, einmal und Fortsetzen,
+Werber-Zustimmung samt Kartentext, Datenschutz wörtlich, Verdrahtung).
+
+Endstand: protocol 1127 (+ 6 übersprungen) · node 225 (+ 7 übersprungen ohne
+Netz) · app 355 · Leak-Tests 49 grün + 2 todo · 0 rot · check-wiring `--streng`
+0 offen · innerHTML streng 0 unbewertet · Smoke-Test bestanden · Browser-E2E
+bestanden.
