@@ -15,7 +15,7 @@ import {
   renderAttachment,
 } from "../../shell-logic.js";
 import { aktuellerKurs } from "../marktkurs.js";
-import { eigeneRelayListen, ensurePool, signiere, solRpcUrl, solTransaktion, state, veroeffentlicheAn } from "../state.js";
+import { alsGeraet, eigeneRelayListen, ensurePool, signiere, solRpcUrl, solTransaktion, sprichtFuer, state, veroeffentlicheAn } from "../state.js";
 import { alsNachfolge } from "../nachfolge-ui.js";
 import { LS_MANDATE, leseGemerkt, nachDiebstahl, pruefeKontakte, warnt } from "../../schluessel-status.js";
 import { type DmZuordnung, GeraeteBuch, ordneDmZu } from "../../geraete-buch.js";
@@ -887,12 +887,13 @@ async function oeffneUmschlag(w: NostrEvent): Promise<{ partner: string; ev: DmA
   if (bekannt !== undefined) return bekannt;
   if (!state.signer) return null;
   const { openPrivateDm } = await import("@freedomstack/protocol");
-  const ich = state.signer.publicKey();
+  const selbst = state.signer.publicKey();
+  const ich = sprichtFuer() ?? selbst;
   // Ueber den Signer (Schritt 1.3): Umschlag und Siegel entschluesselt er selbst.
-  // Seit 8.6b auch Kopien, die eigene Geraete geschrieben haben.
-  const r = await openPrivateDm(w, state.signer, undefined, { auchFuer: await geraeteBuch.alle(ich).catch(() => []) });
+  // Seit 8.6b auch Kopien, die eigene Geraete geschrieben haben; als Geraet (8.6c) fuer die Person.
+  const r = await openPrivateDm(w, state.signer, undefined, { auchFuer: [ich, ...(await geraeteBuch.alle(ich).catch(() => []))] });
   const z = r.ok
-    ? await ordneDmZu(r.dm, ich, geraeteBuch, (pk) => conversations.some((c) => c.type === "dm" && c.id === pk))
+    ? await ordneDmZu(r.dm, ich, geraeteBuch, (pk) => conversations.some((c) => c.type === "dm" && c.id === pk), selbst)
       .catch((): DmZuordnung => ({ partner: r.dm.partner, autor: r.dm.from, vonMir: r.dm.from === ich }))
     : null;
   const e = r.ok && z
@@ -1037,7 +1038,7 @@ async function syncDmInbox(): Promise<void> {
     const umschlaege = await pool.query({ kinds: [1059], "#p": [me.pk], limit: 200 });
     for (const w of umschlaege) {
       const e = await oeffneUmschlag(w);
-      if (!e || e.partner === me.pk) continue;
+      if (!e || e.partner === me.pk || e.partner === state.person) continue;
       const vorhanden = conversations.find((x) => x.id === e.partner);
       if (!vorhanden) {
         conversations.push({ id: e.partner, type: "dm", name: "Anfrage · " + pkShort(e.partner), lastTs: e.ev.created_at });
@@ -1164,7 +1165,7 @@ export async function loadChatMessages(cid: string): Promise<void> {
     thread.innerHTML = decrypted
       .sort((a, b) => a.created_at - b.created_at)
       .map((ev) => {
-        const mine = ev.pubkey === state.keypair!.pk;
+        const mine = [state.keypair!.pk, state.person].includes(ev.pubkey);
         // ev.content ist an dieser Stelle bereits entschluesselt (siehe oben).
         let text = ev.content;
         let atts: ChatAttachment[] = [];
@@ -1244,21 +1245,26 @@ export async function sendChatMessage(): Promise<void> {
         ? JSON.stringify({ text, attachments: chatAttachments })
         : text;
       if (!state.signer) return;
-      // Je eine Kopie an die Geraete des Kontakts und an die eigenen (8.6b) – ohne Netz nur die beiden
-      const ich = state.keypair.pk;
+      // Je eine Kopie an die Geraete des Kontakts und an die eigenen (8.6b) – ohne Netz nur die beiden.
+      // Als Geraet (8.6c) spricht die App fuer die Person: Kopie auch an sie, nur mit gueltiger Vollmacht.
+      const ich = sprichtFuer() ?? state.keypair.pk;
       const [ihre, meine] = await Promise.all([c.id, ich].map((pk) => geraeteBuch.kopienFuer(pk).catch(() => [] as string[])));
+      if (alsGeraet() && !meine!.includes(state.keypair.pk)) {
+        toast("Dieses Gerät hat keine gültige Vollmacht (mehr) – Settings → Geräte", true);
+        return;
+      }
       const dm = await buildPrivateDm({
         signer: state.signer,
         recipientPk: c.id,
         content: payload,
         // Ablauf nach NIP-40 (2.5), falls fuer diese Unterhaltung gesetzt
         ...(c.ablaufSecs ? { ablaufSecs: c.ablaufSecs } : {}),
-        weitereEmpfaenger: [...ihre!, ...meine!],
+        weitereEmpfaenger: [...ihre!, ...meine!, ich],
       });
       await veroeffentlicheDm(dm.toRecipient, c.id);
       await veroeffentlicheDm(dm.toSelf, ich);
       // Geraete lesen am Posteingang ihrer Person
-      for (const k of dm.weitere) await veroeffentlicheDm(k.wrap, meine!.includes(k.an) ? ich : c.id);
+      for (const k of dm.weitere) await veroeffentlicheDm(k.wrap, k.an === ich || meine!.includes(k.an) ? ich : c.id);
     } else {
       // Community: kind 42 mit h-tag (channel-id)
       const ev = await signiere(buildEvent(state.keypair.pk, 42, [["h", c.id], ...imeta], text));

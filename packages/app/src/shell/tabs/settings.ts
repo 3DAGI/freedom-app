@@ -5,10 +5,10 @@
  * Aus app.ts verschoben (Schritt 1.0) – wörtlich, ohne Logikänderung.
  */
 import { DEFAULT_CLIENT_FEE_PERCENT, MAX_CLIENT_FEE_PERCENT } from "@freedomstack/protocol";
-import { escapeHtml } from "../../shell-logic.js";
+import { escapeHtml, pkShort } from "../../shell-logic.js";
 import { zeigeDatenschutz } from "../datenschutz.js";
 import { zeigeVertraute } from "../nachfolge-ui.js";
-import { ensurePool, mitBunker, mitRohemSchluessel, signiere, state } from "../state.js";
+import { alsGeraet, ensurePool, mitBunker, mitRohemSchluessel, signiere, state } from "../state.js";
 import { geheim, istGeheimnis, tresorEingerichtet, wireTresorKarte } from "../tresor.js";
 import { $, ganzeZahl, toast } from "../ui.js";
 import { ladeAbdeckung, trageAbdeckungEin } from "./earn.js";
@@ -16,6 +16,13 @@ import { LS_KONTAKTE_SICHERN, geraeteBuch, kontakteEinschalten, kontakteSichernA
 import { LS_STANDARD_SCHIENE, standardSchiene } from "../../standard-schiene.js";
 
 // ------------------------------------------------- Nachfolge & Modelle
+
+/** Als Geraet (8.6c) nicht: Nachfolge, Schluesselwechsel und Vollmachten gehoeren der Hauptidentitaet. */
+function nurHauptidentitaet(was: string): boolean {
+  if (!alsGeraet()) return true;
+  toast(`${was} geht nur mit der Hauptidentität, nicht auf einem Gerät`, true);
+  return false;
+}
 
 /** Stand der Nachfolge anzeigen. */
 export async function zeigeNachfolge(): Promise<void> {
@@ -57,7 +64,7 @@ export async function zeigeNachfolge(): Promise<void> {
 
 /** Nachfolge einrichten — mit Aufklaerung ueber die Grenze. */
 export async function richteNachfolgeEin(): Promise<void> {
-  if (!state.keypair) return;
+  if (!state.keypair || !nurHauptidentitaet("Nachfolge einrichten")) return;
   const {
     successionWarning, splitSecret, secretHashOf, buildSuccessionPlan, baueAnteilUmschlag, neueTeilung,
   } = await import("@freedomstack/protocol");
@@ -237,7 +244,7 @@ async function stelleZustandWieder(): Promise<void> {
  * nichts mehr zu machen, wenn das Mandat fehlt.
  */
 async function bereiteWechselVor(): Promise<void> {
-  if (!state.keypair) return;
+  if (!state.keypair || !nurHauptidentitaet("Den Schlüsselwechsel vorbereiten")) return;
   const { rotationWarning, buildRotationMandate, generateKeypair, toHex: th } =
     await import("@freedomstack/protocol");
 
@@ -329,7 +336,17 @@ async function widerrufeSchluessel(): Promise<void> {
 export async function zeigeGeraete(): Promise<void> {
   const box = $("#device-list");
   if (!box || !state.keypair) return;
+  $("#device-add")?.classList.toggle("hidden", alsGeraet());
   try {
+    // Als Geraet (8.6c): der Stand der eigenen Vollmacht statt der Liste
+    if (state.person) {
+      const { geraeteStand } = await import("../../geraete-modus.js");
+      geraeteBuch.vergiss(state.person);
+      const st = geraeteStand(state.keypair.pk, state.person, await geraeteBuch.vonPerson(state.person));
+      box.textContent = `Dieses Gerät spricht für ${pkShort(state.person)} · ${st.text}`;
+      box.classList.toggle("warn", !st.darfSchreiben);
+      return;
+    }
     const { listDevices, KIND_DEVICE_GRANT, KIND_DEVICE_REVOKE } =
       await import("@freedomstack/protocol");
     const pool = await ensurePool();
@@ -360,9 +377,10 @@ export async function zeigeGeraete(): Promise<void> {
 }
 
 async function fuegeGeraetHinzu(): Promise<void> {
-  if (!state.keypair) return;
+  if (!state.keypair || !nurHauptidentitaet("Geräte hinzufügen")) return;
   const { defaultPermissions, deviceWarning, buildDeviceGrant, generateKeypair, toHex: th } =
     await import("@freedomstack/protocol");
+  const { geraeteCode } = await import("../../geraete-modus.js");
 
   const name = prompt("Wie heißt das Gerät? Zum Beispiel: Handy");
   if (!name?.trim()) return;
@@ -381,11 +399,13 @@ async function fuegeGeraetHinzu(): Promise<void> {
     })));
     geraeteBuch.vergiss(state.keypair.pk); // ab jetzt bekommt das Geraet Kopien (8.6b)
 
+    // Geraetecode (8.6c): auf dem anderen Geraet unter „Identitaet importieren“ eingeben
     prompt(
-      "Diesen Schlüssel auf dem anderen Gerät eingeben.\n" +
-      "Er ersetzt NICHT deine Merkphrase — er handelt nur in deinem Namen:",
-      th(geraet.sk),
+      "Diesen Gerätecode auf dem anderen Gerät unter „Identität importieren“ eingeben.\n" +
+      "Er ersetzt NICHT deine Merkphrase — das Gerät schreibt nur in deinem Namen, bis du es entziehst:",
+      geraeteCode(state.keypair.pk, th(geraet.sk)),
     );
+    geraet.sk.fill(0);
     void zeigeGeraete();
   } catch (e) {
     toast((e as Error).message, true);

@@ -41,9 +41,9 @@ python3 scripts/smoke_test.py packages/app/dist         # braucht playwright + c
 bash scripts/build-site.sh /tmp/site                     # Website bauen (Ziel wird gelöscht!)
 ```
 
-Stand 26.09.2026 (nach 8.6b): protocol 1127 grün (6 übersprungen), node 226 grün
+Stand 26.09.2026 (nach 8.6c): protocol 1127 grün (6 übersprungen), node 226 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 339 grün, Leak-Tests 49 grün + 2 `todo` (heutige Lecks,
+in `tools.test.ts`), app 343 grün, Leak-Tests 49 grün + 2 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
 Ausnahme: gesendete SOL-Zahlungen von frischen Adressen, eine bewusste Grenze
 nach Entscheidung 4.9 A – im Datenschutzbericht unter „Bewusste Grenzen“).
@@ -283,3 +283,8 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   Öffnen `auchFuer: geraeteBuch.alle(ich)` und danach `ordneDmZu()` – nie einem
   Geräteschlüssel ohne gültige Vollmacht die Person glauben. Der Zeitstempel
   eines entzogenen Geräts ist nur behauptet: „vorher geschrieben“ bleibt markiert.
+- **Als Gerät spricht die App für die Person** (seit 8.6c): „wer bin ich“ im
+  Chat über `sprichtFuer()`, nicht `state.keypair.pk` (das ist der
+  Geräteschlüssel); `alsGeraet()` sperrt, was der Hauptidentität gehört
+  (`nurHauptidentitaet()`). Die Person kommt nur aus dem Gerätecode
+  (`freedom.geraet.person`), nie aus einer Vollmacht vom Relay.

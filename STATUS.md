@@ -4933,3 +4933,64 @@ Endstand: protocol 1127 (+ 6 übersprungen) · node 225 (+ 7 übersprungen ohne
 Netz) · app 339 · Leak-Tests 49 grün + 2 todo · 0 rot · check-wiring `--streng`
 0 offen (1 Ausnahme weniger: `checkDeviceEvent` jetzt verdrahtet) · innerHTML
 streng 0 unbewertet · Smoke-Test bestanden · Browser-E2E bestanden.
+
+## Schritt 8.6c – Geräte und Schlüsselwechsel, Teil c: die App als Gerät
+
+**Gerätecode:** Beim Ausstellen einer Vollmacht zeigt die App statt des
+rohen Schlüssels einen Gerätecode `freedom-geraet:<person>:<geräteschlüssel>`
+(`geraete-modus.ts`; `settings.ts:406`, danach wird die Kopie des Schlüssels
+genullt). „Identität importieren“ nimmt ihn an (`app.ts:277`), merkt die Person
+in `freedom.geraet.person` und meldet sich beim Start wieder als Gerät an
+(`app.ts:129`). Ein gewöhnlicher Import beendet den Gerätemodus. Die Person
+steht im Code und kommt nicht aus einer Vollmacht vom Relay: Vollmachten kann
+jeder für jeden Schlüssel ausstellen – ein Fremder soll ein Gerät nicht still
+an sich binden.
+
+**Als Gerät:**
+- `sprichtFuer()` und `alsGeraet()` (`state.ts`).
+- Keine eigenen Relay-Listen; stattdessen kommen die Posteingangs-Relays der
+  Person in den Pool (`state.ts:290`, `:311`). Dorthin stellen Kontakte die
+  Kopien für Geräte zu (8.6b).
+- Beim Öffnen liest die App für die Person und ihre Geräte mit
+  (`kommunikation.ts:894`). Eigene Nachrichten, die der Person und die der
+  anderen Geräte erscheinen als „du“ (`:1168`).
+- Senden nur mit gültiger Vollmacht mit „nachrichten“ (`:1252`); die Kopie
+  geht an die Person und ihre Geräte, zugestellt an ihrem Posteingang.
+- Settings → Geräte zeigt den Stand der eigenen Vollmacht (`settings.ts:342`).
+  „Gerät hinzufügen“, „Schlüsselwechsel vorbereiten“ und „Nachfolge
+  einrichten“ sind gesperrt (`nurHauptidentitaet()`, `:67`, `:247`, `:380`) –
+  sie gehören der Hauptidentität.
+
+**Browser-E2E** (drei Apps, vorgetäuschtes Relay):
+1. O stellt eine Vollmacht „Handy“ aus.
+2. D importiert den Gerätecode und ist danach als Handy angemeldet: Settings
+   zeigen „spricht für O · Aktiv“, „Gerät hinzufügen“ ist ausgeblendet, der
+   Schlüsselwechsel ist gesperrt.
+3. K schreibt O. D liest mit und antwortet: je zwei Umschläge an O, K und das
+   Handy. D veröffentlicht keine eigenen Listen.
+4. K sieht die Antwort unter Os Schlüssel mit „über Gerät „Handy““, ohne neue
+   Anfrage. O sieht „du · von deinem Gerät „Handy““.
+5. O entzieht das Handy:
+   - D zeigt „Entzogen am …“.
+   - Ein Sendeversuch bricht mit Hinweis ab, ohne ein Event.
+   - Ks nächste Nachricht geht nicht mehr ans Handy.
+6. Keine Seitenfehler.
+
+Zusätzlich liefen das 8.6b-E2E (Geräte als Skript, Dieb nach dem Entzug) und
+das 8.6a-E2E (Diebstahl-Wechsel) erneut durch. Damit ist die Karte erfüllt:
+„Gerät entziehen und Diebstahl-Wechsel einmal vollständig durchgespielt“.
+
+**Grenzen:**
+- Als Gerät nur Direktnachrichten. Räume, Zahlungen, Profil und Sicherung laufen
+  unter dem Geräteschlüssel wie eine eigene Identität – wie vor 8.6c.
+- Beim ersten Start nach dem Import liest das Gerät den Posteingang, sobald
+  die Liste der Person geladen ist.
+- MENSCH: einmal mit einem echten zweiten Gerät durchspielen.
+
+**Tests:** app +4 (Gerätecode, Stand der Vollmacht, Zuordnung auf dem Gerät,
+Verdrahtung und Sperren).
+
+Endstand: protocol 1127 (+ 6 übersprungen) · node 225 (+ 7 übersprungen ohne
+Netz) · app 343 · Leak-Tests 49 grün + 2 todo · 0 rot · check-wiring `--streng`
+0 offen · innerHTML streng 0 unbewertet · Smoke-Test bestanden · drei
+Browser-E2E bestanden.

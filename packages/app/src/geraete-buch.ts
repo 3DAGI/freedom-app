@@ -95,12 +95,13 @@ const ZEIT_UNBELEGT = "Gerät inzwischen entzogen, Zeitpunkt nicht belegt";
 /**
  * Eine geoeffnete Nachricht zuordnen. `dm` kommt aus `openPrivateDm(…, {
  * auchFuer: buch.alle(ich) })`: Kopien eigener Geraete haben dort schon den
- * Kontakt als Partner.
+ * Kontakt als Partner. `ich` ist die Person; als Geraet (8.6c) ist `selbst`
+ * der eigene Geraeteschluessel.
  */
 export async function ordneDmZu(
-  dm: PrivateDm, ich: string, buch: GeraeteBuch, istKontakt: (pk: string) => boolean,
+  dm: PrivateDm, ich: string, buch: GeraeteBuch, istKontakt: (pk: string) => boolean, selbst: string = ich,
 ): Promise<DmZuordnung> {
-  if (dm.from === ich) return { partner: dm.partner, autor: ich, vonMir: true };
+  if (dm.from === ich || dm.from === selbst) return { partner: dm.partner, autor: ich, vonMir: true };
   if ((await buch.alle(ich)).includes(dm.from)) {
     const z = absenderPerson(dm.from, dm.createdAt, await buch.vonPerson(ich), { bevorzugt: (pk) => pk === ich });
     const name = z.geraet?.label ?? "?";
