@@ -46,6 +46,7 @@ export const PRIVACY_FACTS: readonly PrivacyFact[] = [
   { id: "mesh", aussage: "Nachrichten gibt die App über Funk und per Datei nur als verschlüsselte Umschläge weiter – ohne deinen Schlüssel und ohne Klartext. Eine Offline-SOL-Zahlung zeigt, wie später auf der Kette, Adressen und Betrag.", status: "belegt", regel: "mesh-verschluesselt" },
   { id: "nachfolge-anteile", aussage: "Die Teile deines Schlüssels für die Nachfolge gehen versiegelt an deine Vertrauten und bei der Übergabe versiegelt weiter – kein Relay sieht einen Teil.", status: "belegt", regel: "kein-klartext" },
   { id: "nachfolge-plan", aussage: "Wer deine Vertrauten für die Nachfolge sind, steht öffentlich in deinem Nachfolgeplan.", status: "grenze", grund: "Meldungen der Vertrauten und deine Lebenszeichen müssen für alle prüfbar sein – sonst liefe eine Übernahme unbemerkt. Wer das nicht will, richtet keine Nachfolge ein.", regel: "p-tags" },
+  { id: "zustand-sicherung", aussage: "Die Sicherung deiner Unterhaltungen, Räume und Namen liegt verschlüsselt auf den Relays – ohne deinen Schlüssel, Wallet-Zugänge, laufende Tauschvorgänge und Gruppenschlüssel.", status: "belegt", regel: "kein-klartext" },
   { id: "ip", aussage: "Relays sehen deine IP-Adresse nicht.", status: "offen", schritt: "6.1/6.2" },
 ];
 

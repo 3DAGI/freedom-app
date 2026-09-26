@@ -31,6 +31,7 @@ import { deriveSolanaKey } from "../src/derivation.js";
 import { base58 } from "@scure/base";
 import { baueAnteilAnfrage, baueAnteilUebergabe, baueAnteilUmschlag, neueTeilung, oeffneAnteil, oeffneAnteilAnfrage } from "../src/nachfolge-anteile.js";
 import { buildSuccessionPlan, secretHashOf, splitSecret } from "../src/succession.js";
+import { buildStateBackup, deriveBackupKey, waehleSicherung } from "../src/state-backup.js";
 
 const a = generateKeypair();
 const b = generateKeypair();
@@ -207,6 +208,17 @@ const SZENARIEN: Record<string, () => Promise<number>> = {
     const alle = [plan, ...umschlaege, anfrage, uebergabe];
     const hex = (x: Uint8Array) => Array.from(x, (y) => y.toString(16).padStart(2, "0")).join("");
     return regelKeinKlartext(alle, [...teile.map((t) => hex(t.data)), hex(a.sk)]).length + regelAutorNicht(umschlaege, a.pk).length;
+  },
+  "zustand-sicherung": async () => {
+    // Wie die App seit 8.12: nur die feste Liste, verschluesselt mit dem abgeleiteten Schluessel.
+    const geraet: Record<string, string> = {
+      "freedom.nsec": "ab".repeat(32), "freedom.nwc.uri": "nostr+walletconnect://x?secret=" + "cd".repeat(32),
+      "freedom.swap.x": "ef".repeat(32), "freedom.mls.epoche": "gruppen-schluessel",
+      "freedom.chats": JSON.stringify([{ id: b.pk, name: GEHEIM }]), "freedom.petnames": JSON.stringify([[b.pk, "Chef"]]),
+    };
+    const r = await buildStateBackup(a.pk, deriveBackupKey(a.sk), waehleSicherung(Object.keys(geraet), (k) => geraet[k] ?? null));
+    const ev = signEvent(r.event, a.sk);
+    return regelKeinKlartext([ev], [GEHEIM, "Chef", "ab".repeat(32), "cd".repeat(32), "ef".repeat(32), "gruppen-schluessel"]).length;
   },
   "abdeckung-zelle": async () => {
     const [lat, lon] = [48.137154, 11.576124];
