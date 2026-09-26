@@ -16,6 +16,7 @@ import {
 } from "../../shell-logic.js";
 import { aktuellerKurs } from "../marktkurs.js";
 import { eigeneRelayListen, ensurePool, signiere, solRpcUrl, solTransaktion, state, veroeffentlicheAn } from "../state.js";
+import { sucheAufnehmen, wireSuche } from "../suche-ui.js";
 import { geheim } from "../tresor.js";
 import { $, toast } from "../ui.js";
 
@@ -569,6 +570,11 @@ export function wireKommunikation(): void {
   });
   document.getElementById("chat-back")?.addEventListener("click", () =>
     layout?.classList.remove("thread-open"));
+  // Lokale Suche (8.13): ein Treffer oeffnet seine Unterhaltung
+  wireSuche((cid) => {
+    openConversation(cid);
+    layout?.classList.add("thread-open");
+  }, (cid) => conversations.find((c) => c.id === cid)?.name ?? pkShort(cid));
   document.getElementById("rail-create")?.addEventListener("click", () =>
     document.getElementById("space-create")?.click());
   document.getElementById("rail-join")?.addEventListener("click", () =>
@@ -861,7 +867,7 @@ async function ladeModeration(communityId: string): Promise<unknown | null> {
 }
 
 /** Eine DM zur Anzeige: entschluesselt; legacy = altes Kind-4-Format. */
-type DmAnzeige = NostrEvent & { legacy?: boolean };
+type DmAnzeige = NostrEvent & { legacy?: boolean; /** Ablauf nach NIP-40 (2.5) – auch fuer den Suchindex (8.13). */ ablauf?: number };
 
 /** Bereits geoeffnete Umschlaege (ID des Umschlags -> Ergebnis), damit nichts doppelt entschluesselt wird. */
 const dmCache = new Map<string, { partner: string; ev: DmAnzeige; dm: PrivateDm } | null>();
@@ -876,7 +882,10 @@ async function oeffneUmschlag(w: NostrEvent): Promise<{ partner: string; ev: DmA
   const e = r.ok
     ? {
         partner: r.dm.partner,
-        ev: { id: r.dm.id, pubkey: r.dm.from, created_at: r.dm.createdAt, kind: 14, tags: [], content: r.dm.content, sig: "" },
+        ev: {
+          id: r.dm.id, pubkey: r.dm.from, created_at: r.dm.createdAt, kind: 14, tags: [], content: r.dm.content, sig: "",
+          ...(r.dm.expiresAt !== undefined ? { ablauf: r.dm.expiresAt } : {}),
+        },
         // Mit Ablauf (2.5): ladeDmNachrichten() blendet danach aus.
         dm: r.dm,
       }
@@ -932,6 +941,8 @@ async function alsAdressAnfrage(w: NostrEvent): Promise<null> {
  * meine eigenen Kopien) plus aeltere Kind-4-Nachrichten, die weiter lesbar
  * bleiben, aber nie mehr gesendet werden.
  */
+const ENTSCHLUESSELUNG_FEHLGESCHLAGEN = "[entschluesselung fehlgeschlagen]";
+
 async function ladeDmNachrichten(partner: string): Promise<DmAnzeige[]> {
   if (!state.keypair) return [];
   const me = state.keypair;
@@ -956,7 +967,7 @@ async function ladeDmNachrichten(partner: string): Promise<DmAnzeige[]> {
     try {
       text = await state.signer!.nip44Decrypt(ev.pubkey === me.pk ? partner : ev.pubkey, ev.content);
     } catch {
-      text = "[entschluesselung fehlgeschlagen]";
+      text = ENTSCHLUESSELUNG_FEHLGESCHLAGEN;
     }
     ergebnis.set(ev.id, { ...ev, content: text, legacy: true });
   }
@@ -1075,6 +1086,11 @@ export async function loadChatMessages(cid: string): Promise<void> {
         const body = escapeHtml(text);
         // Zap-Button neben jeder Nachricht (nur fuer DMs, nicht eigene)
         const v = versteckt.get(ev.id);
+        // Lokale Suche (8.13): was hier gezeigt wird, in den Index (mit Tresor verschluesselt gespeichert)
+        const ablauf = (ev as DmAnzeige).ablauf;
+        if (!v && text !== ENTSCHLUESSELUNG_FEHLGESCHLAGEN) {
+          sucheAufnehmen({ id: ev.id, text, scope: c.id, author: ev.pubkey, createdAt: ev.created_at, ...(ablauf !== undefined ? { ablauf } : {}) });
+        }
         if (v) {
           // Platzhalter statt spurlosem Entfernen: Eine Luecke, die man sieht,
           // ist Moderation. Eine, die man nicht sieht, ist Manipulation.

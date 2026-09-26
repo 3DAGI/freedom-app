@@ -121,15 +121,9 @@ leak-rules.ts|regelPTagsNur|Prüfregeln der Leak-Tests, gehören in die Tests (1
 leak-rules.ts|regelSolAdresseFrisch|Prüfregeln der Leak-Tests, gehören in die Tests (1.5)
 leak-rules.ts|regelUploadVerschluesselt|Prüfregeln der Leak-Tests, gehören in die Tests (1.5)
 
-local-search.ts|buildIndexIncrementally|lokale Suche ohne Oberfläche (8.13)
-local-search.ts|emptyIndex|lokale Suche ohne Oberfläche (8.13)
-local-search.ts|indexDoc|lokale Suche ohne Oberfläche (8.13)
-local-search.ts|indexStats|lokale Suche ohne Oberfläche (8.13)
-local-search.ts|removeDoc|lokale Suche ohne Oberfläche (8.13)
-local-search.ts|searchInfo|lokale Suche ohne Oberfläche (8.13)
-local-search.ts|suggest|lokale Suche ohne Oberfläche (8.13)
-local-search.ts|search|lokale Suche ohne Oberfläche (8.13)
-local-search.ts|tokenize|lokale Suche ohne Oberfläche (8.13)
+local-search.ts|indexStats|Suche verdrahtet (8.13, suche.ts); Vorschläge und Statistik ohne Oberfläche
+local-search.ts|searchInfo|Suche verdrahtet (8.13, suche.ts); Vorschläge und Statistik ohne Oberfläche
+local-search.ts|suggest|Suche verdrahtet (8.13, suche.ts); Vorschläge und Statistik ohne Oberfläche
 
 merge.ts|emptySet|Zusammenführen nach Offline-Bearbeitung, noch nicht angebunden (Zustandssicherung, 8.12)
 merge.ts|mergeField|Zusammenführen nach Offline-Bearbeitung, noch nicht angebunden (Zustandssicherung, 8.12)
@@ -214,7 +208,7 @@ sol-deposit.ts|buildSolDepositSettle|Abschluss eines SOL-Deposits, noch nicht an
 sol-deposit.ts|checkSolDeposit|Abschluss eines SOL-Deposits, noch nicht angebunden (Verdienen in SOL, 4.5)
 sol-deposit.ts|parseSolDepositSettle|Abschluss eines SOL-Deposits, noch nicht angebunden (Verdienen in SOL, 4.5)
 
-spaces.ts|searchMessages|Suche in Raum-Nachrichten, ohne Oberfläche (Lokale Suche, 8.13)
+spaces.ts|searchMessages|Suche in Raum-Nachrichten, ohne Oberfläche – die lokale Suche (8.13) deckt Direktnachrichten und Communities
 
 state-backup.ts|checkExpiry|Zustandssicherung und ablaufende Nachrichten ohne Oberfläche (8.12)
 state-backup.ts|expirationTag|Zustandssicherung und ablaufende Nachrichten ohne Oberfläche (8.12)
