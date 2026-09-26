@@ -24,7 +24,9 @@ import { LocalSigner } from "../src/signer.js";
 import { buildPrivateSolTrinkgeld } from "../src/sol-trinkgeld.js";
 import { versiegleSwapAnfrage, versiegleSwapAntwort } from "../src/swap-versiegelt.js";
 import { buildAdressAnfrage, buildAdressAntwort } from "../src/trinkgeld-adresse.js";
-import { regelKeinBolt11 } from "../src/leak-rules.js";
+import { regelKeinBolt11, regelSolAdresseFrisch } from "../src/leak-rules.js";
+import { deriveSolanaKey } from "../src/derivation.js";
+import { base58 } from "@scure/base";
 
 const a = generateKeypair();
 const b = generateKeypair();
@@ -160,6 +162,12 @@ const SZENARIEN: Record<string, () => Promise<number>> = {
     return regelKeineSolAdresse(wraps, [SOL_ADRESSE]).length + regelAutorNicht(wraps, a.pk).length;
   },
   "swap-rechnung": async () => regelKeinBolt11(await versiegelterTausch()).length,
+  "sol-empfang": async () => {
+    // Wie die eingebaute Wallet seit 4.9c: Hauptadresse (Konto 0) und der Vorrat (Konten 1, 2, …) aus demselben Seed.
+    const seed = crypto.getRandomValues(new Uint8Array(64));
+    const adressen = [0, 1, 2, 3].map((i) => base58.encode(deriveSolanaKey(seed, i).publicKey));
+    return regelSolAdresseFrisch(adressen).length;
+  },
   "sol-trinkgeld-adresse": async () => {
     // Wie die App seit 4.9d: Anfrage von der Identitaet (a) an den Empfaenger (b), Antwort versiegelt zurueck.
     const { wrap, anfrageId } = await buildAdressAnfrage({ von: new LocalSigner(a.sk), anPk: b.pk, kette: "solana:mainnet" });
@@ -197,6 +205,12 @@ test("belegte Aussagen nennen ihre Regel, und jede genannte Regel gibt es", () =
   assert.deepEqual(PRIVACY_FACTS.filter((f) => !f.regel).map((f) => f.id).sort(), ["dm-forward-secrecy", "ip"]);
 });
 
+test("Grenzen nennen ihren Grund", () => {
+  for (const f of PRIVACY_FACTS.filter((x) => x.status === "grenze")) {
+    assert.ok(f.grund && f.grund.length > 20, `Grenze "${f.id}" ohne Grund`);
+  }
+});
+
 test("offene Aussagen nennen den Schritt, der sie schliesst", () => {
   for (const f of PRIVACY_FACTS.filter((x) => x.status === "offen")) {
     assert.ok(f.schritt, `Offene Aussage "${f.id}" ohne Schritt`);
@@ -213,5 +227,6 @@ test("der Berichtstext trennt Belegtes und Offenes", () => {
   assert.match(t, /○ Noch nicht: Räume sind Ende-zu-Ende-verschlüsselt\. \(Ausbauplan 2\.3\)/);
   // 4.6c benannte die offene Rechnung als Luecke, seit 4.9b ist sie versiegelt.
   assert.match(t, /✓ Beim Tausch SOL → sats sehen Relays deine Lightning-Rechnung nicht\./);
-  assert.match(t, /○ Noch nicht: Jede SOL-Zahlung geht von einer frischen Adresse aus\./);
+  // Seit 4.9 (Entscheidung A): gesendete Zahlungen als bewusste Grenze, mit Grund.
+  assert.match(t, /Bewusste Grenzen:\n△ Gesendete SOL-Zahlungen kommen nicht von frischen Adressen.*Entscheidung 4\.9 A/);
 });

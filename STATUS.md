@@ -4039,3 +4039,39 @@ Adress-Anfrage (gleiche Aussage).
 Endstand (nach dem Einmergen von 7.1a): protocol 1071 · node 214 · app 282 ·
 Leak-Tests 44 grün + 2 todo · 0 rot · check-wiring `--streng` 0 offen ·
 innerHTML streng 0 unbewertet · Smoke-Test bestanden.
+
+## Schritt 4.9e – Betragsrauschen, verteilte RPC-Anfragen, ehrliche Grenzen (4.9 im Code fertig)
+
+**Betragsrauschen:** Runde SOL-Trinkgelder (Vielfache von 0,01 SOL) gehen
+leicht erhöht hinaus – höchstens +0,3 %, nur nach oben (`checkAmount` aus
+`swap-privacy.ts`, das bisher nur der Tausch nutzte). Standard an, im
+Zap-Dialog abwählbar. Beleg und Kette nennen den tatsächlichen Betrag.
+Browser: 0,01 SOL → 10.024.710 Lamports, 0,003 SOL unverändert, Bob sieht
+„0,01002471 SOL · belegt ✓“.
+
+**RPC-Anfragen verteilt:** `RpcPool` nahm bisher immer den schnellsten
+Anbieter – der sah damit jede Adresse, die die App abfragt, samt IP. Neu
+`verteilen: true` (in der App an allen drei Stellen): eigene Endpunkte bleiben
+vorn (keine fremde Partei), die fremden kommen in zufälliger Reihenfolge,
+Ausfälle weiter nach hinten. Der Knoten bleibt beim schnellsten.
+
+**Datenschutzbericht:** neuer Status „grenze“ mit Grund. „Jede SOL-Zahlung
+geht von einer frischen Adresse aus“ war als offene Lücke für 4.9 gelistet –
+nach Entscheidung A wird sie nicht geschlossen (eine frische Absenderadresse
+müsste aus einer bestehenden aufgefüllt werden, das verknüpft beide). Jetzt:
+„Gesendete SOL-Zahlungen kommen nicht von frischen Adressen …“ unter
+„Bewusste Grenzen“, samt Grund; neu belegt „sol-empfang“ (Empfang an frischen
+Adressen). Das Leak-`todo` benennt die Grenze statt eines Schritts.
+
+**4.9 im Code fertig** (a–e): Swaps versiegelt, frische Empfangsadressen,
+Trinkgeld-Adresse versiegelt, Rauschen, verteilte Abfragen. Abnahme: keine
+SOL-Adresse in öffentlichen Events (grün), keine wiederverwendete Adresse beim
+Empfang (grün), beim Senden als Grenze benannt.
+
+**Tests:** protocol 1071 → 1073 (`rpc-pool.test.ts` +1, `privacy-facts.test.ts`
++1 „Grenzen nennen ihren Grund“; Szenario „sol-empfang“), app 282 → 284
+(`solana-privat.test.ts`).
+
+Endstand: protocol 1073 · node 214 · app 284 · Leak-Tests 44 grün + 2 todo ·
+0 rot · check-wiring `--streng` 0 offen · innerHTML streng 0 unbewertet ·
+Smoke-Test bestanden.
