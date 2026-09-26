@@ -38,6 +38,7 @@ export const PRIVACY_FACTS: readonly PrivacyFact[] = [
   { id: "sol-adresse", aussage: "Deine Solana-Adresse steht in keinem öffentlichen Event (auch nicht beim Swap).", status: "offen", schritt: "4.9", regel: "keine-sol-adresse" },
   { id: "swap-rechnung", aussage: "Beim Tausch SOL → sats sehen Relays deine Lightning-Rechnung nicht.", status: "offen", schritt: "4.9", regel: "kein-bolt11" },
   { id: "sol-frisch", aussage: "Jede SOL-Zahlung geht von einer frischen Adresse aus.", status: "offen", schritt: "4.9", regel: "sol-adresse-frisch" },
+  { id: "mesh", aussage: "Über Funk und per Datei gibt die App nur verschlüsselte Umschläge weiter – ohne deinen Schlüssel und ohne Klartext.", status: "offen", schritt: "7.1b", regel: "mesh-verschluesselt" },
   { id: "ip", aussage: "Relays sehen deine IP-Adresse nicht.", status: "offen", schritt: "6.1/6.2" },
 ];
 

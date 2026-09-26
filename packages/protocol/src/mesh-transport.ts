@@ -29,9 +29,19 @@
  *   ✗ KI-Inferenz. Ein Prompt passt vielleicht noch durch; eine Antwort mit
  *     500 Tokens braucht bei LoRa-Datenraten Stunden. Das gehört nicht
  *     versprochen.
+ *
+ * NUR VERSCHLÜSSELT (seit 7.1)
+ * Funk hört jeder in Reichweite mit, und ein Sender lässt sich anpeilen. Ein
+ * Paket mit dem Schlüssel des Absenders verrät deshalb, wer wo ist. Über Mesh
+ * gehen nur noch Umschläge (NIP-59, Autor ist ein Wegwerf-Schlüssel) und
+ * vollständig signierte Solana-Transaktionen – geprüft von `pruefeMeshInhalt()`
+ * beim Senden, Empfangen und im Abgleich. MLS-Nachrichten kommen mit 2.2b dazu.
  */
 import { sha256 } from "@noble/hashes/sha2.js";
 import { bytesToHex } from "@noble/hashes/utils.js";
+import { ed25519 } from "@noble/curves/ed25519.js";
+import { NostrEvent, hasValidEventShape, verifyEvent } from "./event.js";
+import { KIND_GIFT_WRAP } from "./gift-wrap.js";
 
 /** Nutzlast je Funkpaket. Konservativ — gilt auch bei ungünstigen Einstellungen. */
 export const LORA_MTU = 200;
@@ -85,6 +95,126 @@ const MAX_TTL = 7;
 /** Kennung einer Nachricht: kurz genug für den Rahmen, lang genug gegen Kollisionen. */
 export function messageId(payload: Uint8Array): string {
   return bytesToHex(sha256(payload)).slice(0, 8);
+}
+
+// ------------------------------------------------ Was über Mesh darf (7.1)
+
+/** Obergrenze einer Solana-Transaktion (Paketgröße im Netz). */
+export const SOLANA_TX_MAX_BYTES = 1232;
+
+/** Bestandsmeldung für den Abgleich: „D“, Anzahl (4 Byte), Bloom-Filter. */
+export const BESTAND_MARKE = 0x44;
+export const BESTAND_BYTES = 1024;
+
+/** Nur diese Arten reicht ein Knoten weiter – Klartext und Ecash nicht. */
+const VERSCHLUESSELTE_ARTEN = new Set<number>([MeshKind.NostrEvent, MeshKind.SolanaTx]);
+
+const HEX64 = /^[0-9a-f]{64}$/;
+/** NIP-44 v2: Base64, erstes Byte 0x02 („A…“), mindestens 99 Byte (132 Zeichen). */
+const NIP44 = /^A[A-Za-z0-9+/]{131,}={0,2}$/;
+
+export type MeshPruefung =
+  | { ok: true; art: "umschlag" | "bestand" | "solana" }
+  | { ok: false; grund: string };
+
+/**
+ * Ist das ein Umschlag nach NIP-59, wie er über Mesh darf? Nur die Form:
+ * Kind 1059, Inhalt NIP-44, genau ein Empfänger, sonst höchstens Ablauf
+ * (NIP-40) und Rechenarbeit (NIP-13). Jedes weitere Tag könnte Klartext tragen.
+ * Die Signatur prüft `pruefeMeshInhalt()`.
+ */
+export function istMeshUmschlag(ev: NostrEvent): boolean {
+  if (!hasValidEventShape(ev) || ev.kind !== KIND_GIFT_WRAP) return false;
+  if (!NIP44.test(ev.content) || ev.content.length % 4 !== 0) return false;
+  let empfaenger = 0;
+  for (const t of ev.tags) {
+    if (t[0] === "p" && t.length === 2 && HEX64.test(t[1])) empfaenger++;
+    else if (t[0] === "expiration" && t.length === 2 && /^\d{1,12}$/.test(t[1])) continue;
+    else if (t[0] === "nonce" && t.length === 3 && /^\d{1,16}$/.test(t[1]) && /^\d{1,3}$/.test(t[2])) continue;
+    else return false;
+  }
+  return empfaenger === 1;
+}
+
+/** compact-u16 der Solana-Serialisierung; null bei kaputter Kodierung. */
+function leseKurzzahl(b: Uint8Array, off: number): { wert: number; laenge: number } | null {
+  let wert = 0;
+  for (let i = 0; i < 3; i++) {
+    if (off + i >= b.length) return null;
+    const x = b[off + i];
+    wert |= (x & 0x7f) << (7 * i);
+    if ((x & 0x80) === 0) return { wert, laenge: i + 1 };
+  }
+  return null;
+}
+
+/**
+ * Vollständig signierte Solana-Transaktion (Legacy oder v0)? Jede verlangte
+ * Signatur muss zu ihrem Schlüssel und zur Nachricht passen – eine halb
+ * signierte Transaktion kann kein Gateway einreichen.
+ */
+export function pruefeSolanaTx(tx: Uint8Array): { ok: true } | { ok: false; grund: string } {
+  if (tx.length > SOLANA_TX_MAX_BYTES) return { ok: false, grund: `Solana-Transaktion zu groß (${tx.length} Byte)` };
+  const n = leseKurzzahl(tx, 0);
+  if (!n || n.wert < 1) return { ok: false, grund: "Solana-Transaktion ohne Signatur" };
+  const nachrichtAb = n.laenge + 64 * n.wert;
+  const nachricht = tx.subarray(nachrichtAb);
+  const kopf = nachricht.length > 0 && (nachricht[0] & 0x80) ? 1 : 0; // v0: Versionsbyte
+  if (kopf && nachricht[0] !== 0x80) return { ok: false, grund: "Solana-Transaktion mit unbekannter Version" };
+  if (nachricht.length < kopf + 3) return { ok: false, grund: "Solana-Transaktion unvollständig" };
+  if (nachricht[kopf] !== n.wert) return { ok: false, grund: "Signaturzahl passt nicht zur Nachricht" };
+  const k = leseKurzzahl(nachricht, kopf + 3);
+  if (!k || k.wert < n.wert) return { ok: false, grund: "Solana-Transaktion ohne Konten" };
+  const kontenAb = kopf + 3 + k.laenge;
+  if (nachricht.length < kontenAb + 32 * k.wert + 32) return { ok: false, grund: "Solana-Transaktion unvollständig" };
+  for (let i = 0; i < n.wert; i++) {
+    const sig = tx.subarray(n.laenge + 64 * i, n.laenge + 64 * (i + 1));
+    const konto = nachricht.subarray(kontenAb + 32 * i, kontenAb + 32 * (i + 1));
+    let gueltig = false;
+    try {
+      gueltig = ed25519.verify(sig, nachricht, konto);
+    } catch { /* kaputte Signatur */ }
+    if (!gueltig) return { ok: false, grund: `Signatur ${i + 1} von ${n.wert} fehlt oder ist ungültig` };
+  }
+  return { ok: true };
+}
+
+/**
+ * Darf diese Nutzlast über Mesh (Funk, Bluetooth, Datei)? Eine Stelle für
+ * Senden, Empfangen und Abgleich:
+ *   - Nostr-Art: nur ein gültig signierter Umschlag (`istMeshUmschlag`) oder
+ *     die Bestandsmeldung des Abgleichs (nur Bits eines Filters);
+ *   - Solana-Art: nur eine vollständig signierte Transaktion;
+ *   - Klartext und Ecash nie – ein Ecash-Token ist Bargeld für jeden, der mithört.
+ * `eigeneSchluessel`: Beim Senden darf keiner davon im Paket stehen – auch
+ * nicht als Empfänger. Ein Umschlag an sich selbst verriete über Funk, wem das
+ * Gerät gehört.
+ */
+export function pruefeMeshInhalt(
+  payload: Uint8Array,
+  kind: MeshKind,
+  opts: { eigeneSchluessel?: readonly string[] } = {},
+): MeshPruefung {
+  if (kind === MeshKind.SolanaTx) {
+    const r = pruefeSolanaTx(payload);
+    return r.ok ? { ok: true, art: "solana" } : r;
+  }
+  if (kind !== MeshKind.NostrEvent) return { ok: false, grund: "Über Mesh geht nur Verschlüsseltes – kein Klartext, kein Ecash" };
+  if (payload.length === 5 + BESTAND_BYTES && payload[0] === BESTAND_MARKE) return { ok: true, art: "bestand" };
+
+  let ev: NostrEvent;
+  try {
+    ev = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(payload)) as NostrEvent;
+  } catch {
+    return { ok: false, grund: "Kein Nostr-Event" };
+  }
+  if (!istMeshUmschlag(ev)) return { ok: false, grund: "Über Mesh gehen nur Umschläge (NIP-59)" };
+  if (!verifyEvent(ev)) return { ok: false, grund: "Umschlag mit ungültiger Signatur" };
+  const eigene = (opts.eigeneSchluessel ?? []).map((s) => s.toLowerCase());
+  if (eigene.includes(ev.pubkey) || ev.tags.some((t) => eigene.includes(t[1]))) {
+    return { ok: false, grund: "Umschlag trägt den eigenen Schlüssel" };
+  }
+  return { ok: true, art: "umschlag" };
 }
 
 /**
@@ -279,6 +409,9 @@ export class ForwardingCache {
       return false;
     }
     if (f.ttl <= 1) return false;
+    // Klartext und Ecash reicht kein Knoten weiter (7.1) – den Inhalt eines
+    // Umschlags prüft erst der Empfänger nach dem Zusammensetzen.
+    if (!VERSCHLUESSELTE_ARTEN.has(f.kind)) return false;
 
     const key = `${f.msgId}:${f.index}`;
     const zuletzt = this.gesehen.get(key);
@@ -408,4 +541,66 @@ export function meshFeasibility(
     feasible: true, frames, seconds,
     note: `${frames} Pakete, etwa ${seconds} Sekunden.`,
   };
+}
+
+// ------------------------------------------------------- Sendezeit (7.1)
+
+/**
+ * EU 868 MHz: In den meisten Teilbändern darf ein Gerät höchstens 1 % der
+ * Zeit senden, gemessen über eine Stunde (ETSI EN 300 220). Das sind 36
+ * Sekunden Sendezeit je Stunde – bei 200 Byte/s rund 7 KB, also wenige
+ * Umschläge. Wer mehr sendet, verstößt gegen die Zulassung und stört alle.
+ */
+export const SENDEZEIT_ANTEIL = 0.01;
+export const SENDEZEIT_FENSTER_SEKUNDEN = 3600;
+
+/** Byte in der Luft: Nutzlast plus ein Rahmenkopf je Funkpaket. */
+export function luftBytes(payloadBytes: number): number {
+  return payloadBytes + Math.ceil(payloadBytes / MAX_PAYLOAD_PER_FRAME) * FRAME_HEADER_BYTES;
+}
+
+/**
+ * Sendezeitkonto über ein gleitendes Fenster. Gebucht wird je gesendetem
+ * Rahmen; vor dem Senden sagt `wartezeit()`, wie lange das Gerät schweigen muss.
+ */
+export class Sendezeitkonto {
+  private gesendet: { at: number; sek: number }[] = [];
+
+  constructor(readonly anteil = SENDEZEIT_ANTEIL, readonly fenster = SENDEZEIT_FENSTER_SEKUNDEN) {}
+
+  /** Sendezeit je Fenster, z. B. 36 s je Stunde. */
+  get budget(): number {
+    return this.anteil * this.fenster;
+  }
+
+  /** Noch freie Sendezeit im aktuellen Fenster (Sekunden). */
+  frei(nowSecs: number): number {
+    this.gesendet = this.gesendet.filter((g) => g.at > nowSecs - this.fenster);
+    return Math.max(0, this.budget - this.gesendet.reduce((s, g) => s + g.sek, 0));
+  }
+
+  buche(sek: number, nowSecs: number): void {
+    this.gesendet.push({ at: nowSecs, sek });
+  }
+
+  /** Sekunden bis `sek` Sendezeit frei sind (0 = sofort). */
+  wartezeit(sek: number, nowSecs: number): number {
+    if (sek > this.budget) throw new Error(`Ein Rahmen braucht ${sek}s – mehr als ${this.budget}s je Fenster`);
+    let fehlt = sek - this.frei(nowSecs);
+    for (const g of this.gesendet) {
+      if (fehlt <= 0) break;
+      fehlt -= g.sek;
+      if (fehlt <= 0) return Math.max(0, g.at + this.fenster - nowSecs);
+    }
+    return 0;
+  }
+
+  /**
+   * Ehrliche Dauer für `sek` Sendezeit: im Budget sofort, darüber läuft der
+   * Rest nur mit dem erlaubten Anteil – bei 1 % hundertmal langsamer.
+   */
+  dauer(sek: number, nowSecs: number): number {
+    const frei = this.frei(nowSecs);
+    return Math.ceil(sek <= frei ? sek : frei + (sek - frei) / this.anteil);
+  }
 }

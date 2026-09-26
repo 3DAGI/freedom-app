@@ -3817,3 +3817,58 @@ app 268 → 269 (Verdrahtung).
 Endstand: protocol 1051 · node 209 · app 269 · Leak-Tests 37 grün + 4 todo ·
 0 rot · check-wiring `--streng` 0 offen · innerHTML streng 0 unbewertet ·
 Smoke-Test bestanden.
+
+## Schritt 7.1a – Mesh nur verschlüsselt, Teil a: Regel, Sendezeit, Planer
+
+Funk hört jeder in Reichweite mit, und ein Sender lässt sich anpeilen. Bisher
+durfte über Mesh alles: Kind-4-DMs, Raumnachrichten im Klartext, Profile – jedes
+mit dem Schlüssel des Absenders –, dazu Klartext- und Ecash-Pakete. Das verrät,
+wer wo sendet.
+
+**Eine Regel (`mesh-transport.ts`):** `pruefeMeshInhalt(nutzlast, art, {
+eigeneSchluessel })` lässt nur zu: einen Umschlag nach NIP-59 (Kind 1059, gültig
+signiert, Inhalt in der Form von NIP-44 v2, genau ein Empfänger, sonst nur
+Ablauf und Rechenarbeit – jedes weitere Tag könnte Klartext tragen), eine
+vollständig signierte Solana-Transaktion (`pruefeSolanaTx`: Legacy und v0, jede
+verlangte Signatur mit ed25519 gegen Konto und Nachricht geprüft, höchstens
+1.232 Byte) und die Bestandsmeldung des Abgleichs (nur Filter-Bits). Klartext
+und Ecash nie – ein Ecash-Token ist Bargeld für jeden, der mithört. Beim Senden
+darf kein eigener Schlüssel im Paket stehen, auch nicht als Empfänger: die
+eigene Kopie einer DM verriete über Funk, wem das Gerät gehört. Knoten reichen
+Klartext- und Ecash-Rahmen nicht mehr weiter (`ForwardingCache`).
+
+**Sendezeit:** `Sendezeitkonto` – EU 868 MHz, 1 % je Stunde (ETSI EN 300 220),
+gleitendes Fenster; `wartezeit()` sagt, wie lange das Gerät schweigen muss,
+`dauer()` schätzt ehrlich (über dem Budget hundertmal langsamer). Der Planer
+(`planSync`) füllt über Funk nur bis zur freien Sendezeit (Standard 36 s ≈ 7 KB,
+also wenige Umschläge) und zählt die Rahmenköpfe mit (`luftBytes`).
+
+**Planer nur mit Umschlägen:** Profile, Räume (bis 2.3), Code, Gewichte,
+offene Zahlungsbelege und Kind 4 nennt der Plan mit Grund, sendet sie aber
+nicht – über keine Strecke.
+
+**Leak-Regel** `mesh-verschluesselt`: Schlüssel des Nutzers als Hex, npub oder
+32 Byte roh, dazu Klartext, in Rahmen und zusammengesetzten Nutzlasten. Aussage
+„mesh“ steht als offen im Bericht, bis die App sie in 7.1b einhält.
+
+**Aufteilung:** a (dieser Teil) Protokoll; b verdrahtet die App (Funkknoten
+prüft beim Senden und Empfangen und hält die Sendezeit ein, Bluetooth-Funkgeräte
+zählen als Funk, Chat-Export nur mit Umschlägen und ohne npub, ehrliche Texte in
+App und Website, Abnahmetest mit Mitschnitt). MLS-Nachrichten kommen mit 2.2b
+dazu. `offline-queue.ts` aus der Karte gibt es seit 4.1b nicht mehr.
+
+**Tests:** protocol 1051 → 1064 (Regel: Umschlag ja, eigene Kopie nein, offene
+Kinds/Klartext/Ecash nein, Zusatz-Tag/verändert/Klartext-Inhalt nein,
+Bestandsmeldung; Solana signiert/unsigniert/verfälscht/zu groß, v0; keine
+Weitergabe von Klartext; Sendezeitkonto, Dauer, Luft-Byte; Planer: nur
+Umschläge, Zusatz-Tags, 1 % Sendezeit, Rahmenköpfe, großer Umschlag verdrängt
+keine kleinen; Leak-Regel). Bestehende Tests zu Planer, Weiterleitung und
+Abgleich (Protokoll, App, Knoten) belegen dasselbe jetzt mit Umschlägen statt
+Kind 4 bzw. mit verschlüsselter Paketart; drei sagen jetzt das Gegenteil, weil
+die Karte die Funktion entfernt: Code und Profile gehen über keine Mesh-Strecke
+mehr, und nur die Umschlag-Klasse hat Strecken. node 208 (+ 7 übersprungen; eine Live-Prüfung
+überspringt sich ohne Netz – Gesamtzahl 215 unverändert), app 269.
+
+Endstand: protocol 1064 · node 208 · app 269 · Leak-Tests 37 grün + 4 todo ·
+0 rot · check-wiring `--streng` 0 offen (3 neue Ausnahmen bis 7.1b) ·
+innerHTML streng 0 unbewertet · Smoke-Test bestanden.

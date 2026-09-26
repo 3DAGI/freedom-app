@@ -6,7 +6,8 @@
  * eingehalten.
  */
 import type { NostrEvent } from "./event.js";
-import { toHex } from "./htlc.js";
+import { fromHex, toHex } from "./htlc.js";
+import { bech32 } from "@scure/base";
 
 export interface LeakFinding {
   regel: string;
@@ -145,6 +146,42 @@ export function regelKeineZahlungsdaten(events: readonly NostrEvent[]): LeakFind
   return funde;
 }
 
+/** Steht `nadel` irgendwo in `heu`? */
+function enthaeltBytes(heu: Uint8Array, nadel: Uint8Array): boolean {
+  outer: for (let i = 0; i + nadel.length <= heu.length; i++) {
+    for (let j = 0; j < nadel.length; j++) if (heu[i + j] !== nadel[j]) continue outer;
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Mitgeschnittene Mesh-Pakete (Funk, Bluetooth, Datei) – Schritt 7.1: kein
+ * Schlüssel des Nutzers (Hex, npub oder die 32 Byte roh) und kein Klartext
+ * (ab 6 Zeichen). `pakete` sind Rahmen UND zusammengesetzte Nutzlasten – ein
+ * Schlüssel kann über zwei Rahmen verteilt sein.
+ */
+export function regelMeshVerschluesselt(
+  pakete: readonly Uint8Array[],
+  p: { schluessel: readonly string[]; klartexte: readonly string[] },
+): LeakFinding[] {
+  const enc = new TextEncoder();
+  const nadeln: { bytes: Uint8Array; was: string }[] = [];
+  for (const pk of p.schluessel) {
+    nadeln.push({ bytes: enc.encode(pk), was: `Schlüssel ${pk.slice(0, 8)}… (Hex)` });
+    nadeln.push({ bytes: enc.encode(bech32.encode("npub", bech32.toWords(fromHex(pk)))), was: `Schlüssel ${pk.slice(0, 8)}… (npub)` });
+    nadeln.push({ bytes: fromHex(pk), was: `Schlüssel ${pk.slice(0, 8)}… (roh)` });
+  }
+  for (const k of p.klartexte) if (k.length >= 6) nadeln.push({ bytes: enc.encode(k), was: `Klartext ${k.slice(0, 20)}…` });
+  const funde: LeakFinding[] = [];
+  pakete.forEach((b, i) => {
+    for (const n of nadeln) {
+      if (enthaeltBytes(b, n.bytes)) funde.push({ regel: "mesh-verschluesselt", eventId: `paket-${i}`, detail: `${n.was} im Mesh-Paket` });
+    }
+  });
+  return funde;
+}
+
 /** Alle Regeln mit ihrer Aussage – Datenschutz-Aussagen verweisen hierauf. */
 export const LEAK_REGELN: Readonly<Record<string, string>> = {
   "kein-kind4": "Keine Direktnachrichten im alten, offenen Format (Kind 4).",
@@ -158,4 +195,5 @@ export const LEAK_REGELN: Readonly<Record<string, string>> = {
   "sol-adresse-frisch": "Jede SOL-Zahlung an eine frische Adresse.",
   "upload-verschluesselt": "Anhänge nur verschlüsselt.",
   "keine-zahlungsdaten": "Keine Rechnung, keine Adresse, kein Betrag pro Kunde in öffentlichen Events.",
+  "mesh-verschluesselt": "Über Funk, Bluetooth und Datei nur Verschlüsseltes – ohne Schlüssel des Nutzers, ohne Klartext.",
 };

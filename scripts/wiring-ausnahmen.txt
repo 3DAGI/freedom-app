@@ -113,6 +113,7 @@ leak-rules.ts|regelKeinBolt11|Prüfregeln der Leak-Tests, gehören in die Tests 
 leak-rules.ts|regelKeineSolAdresse|Prüfregeln der Leak-Tests, gehören in die Tests (1.5)
 leak-rules.ts|regelKeineZahlungsdaten|Prüfregeln der Leak-Tests, gehören in die Tests (1.5)
 leak-rules.ts|regelKeinKind4|Prüfregeln der Leak-Tests, gehören in die Tests (1.5)
+leak-rules.ts|regelMeshVerschluesselt|Prüfregeln der Leak-Tests, gehören in die Tests (1.5)
 leak-rules.ts|regelKeinKlartext|Prüfregeln der Leak-Tests, gehören in die Tests (1.5)
 leak-rules.ts|regelKeinKlartextPrompt|Prüfregeln der Leak-Tests, gehören in die Tests (1.5)
 leak-rules.ts|regelKundeVerborgen|Prüfregeln der Leak-Tests, gehören in die Tests (1.5)
@@ -145,6 +146,10 @@ mesh.ts|buildMeshPacket|Mesh-Pakete und Zustellbelege, noch nicht angebunden (Me
 mesh.ts|parseDeliveryReceipt|Mesh-Pakete und Zustellbelege, noch nicht angebunden (Mesh nur verschlüsselt, 7.1)
 mesh.ts|parseMeshPacket|Mesh-Pakete und Zustellbelege, noch nicht angebunden (Mesh nur verschlüsselt, 7.1)
 mesh.ts|receiptMatchesPacket|Mesh-Pakete und Zustellbelege, noch nicht angebunden (Mesh nur verschlüsselt, 7.1)
+
+mesh-transport.ts|Sendezeitkonto|Sendezeit-Budget im Funkknoten der App erst mit 7.1b (Mesh nur verschlüsselt)
+mesh-transport.ts|pruefeMeshInhalt|Prüfung beim Senden, Empfangen und Datei-Export erst in der App mit 7.1b (Mesh nur verschlüsselt)
+mesh-transport.ts|pruefeSolanaTx|über pruefeMeshInhalt, in der App erst mit 7.1b (Mesh nur verschlüsselt)
 
 mocks.ts|MockLightning|Test-Attrappe für Lightning
 

@@ -120,7 +120,7 @@ test("Knoten reicht fremde Pakete weiter — sonst waere das Netz ein Geraet", a
   const t = fakeTransport();
   const n = node();
   await n.attach(t);
-  const fremd = fragment(text("fremde nachricht"), MeshKind.PlainText, MeshPriority.Nachricht, 5)[0];
+  const fremd = fragment(text("fremde nachricht"), MeshKind.NostrEvent, MeshPriority.Nachricht, 5)[0];
   n.receive(fremd);
   await new Promise((res) => setTimeout(res, 50));
   assert.equal(t.gesendet.length, 1, "das Paket muss weiter");
@@ -132,7 +132,7 @@ test("Dasselbe Paket wird nicht zweimal weitergereicht", async () => {
   const t = fakeTransport();
   const n = node();
   await n.attach(t);
-  const f = fragment(text("hallo"), MeshKind.PlainText, MeshPriority.Nachricht, 5)[0];
+  const f = fragment(text("hallo"), MeshKind.NostrEvent, MeshPriority.Nachricht, 5)[0];
   n.receive(f);
   n.receive(f);
   await new Promise((res) => setTimeout(res, 50));
@@ -143,7 +143,7 @@ test("Ausgelaufene Sprungzahl wird nicht weitergereicht", async () => {
   const t = fakeTransport();
   const n = node();
   await n.attach(t);
-  n.receive(fragment(text("ende"), MeshKind.PlainText, MeshPriority.Nachricht, 1)[0]);
+  n.receive(fragment(text("ende"), MeshKind.NostrEvent, MeshPriority.Nachricht, 1)[0]);
   await new Promise((res) => setTimeout(res, 50));
   assert.equal(t.gesendet.length, 0);
 });
@@ -230,9 +230,11 @@ test("Ohne Bestandsquelle wird nichts angeboten", async () => {
 
 test("Ein fremder Bestand loest den Abgleich aus", async () => {
   const { buildDigest } = await import("@freedomstack/protocol");
+  // Seit 7.1 gleicht der Abgleich nur Umschlaege ab (Form nach NIP-59).
   const meins = Array.from({ length: 5 }, (_, i) => ({
-    id: String(i).padEnd(64, "0"), kind: 4, created_at: 1000 + i, content: `n${i}`,
-    pubkey: "b".repeat(64), tags: [], sig: "c".repeat(128),
+    id: String(i).padEnd(64, "0"), kind: 1059, created_at: 1000 + i,
+    content: Buffer.from([2, ...crypto.getRandomValues(new Uint8Array(200))]).toString("base64"),
+    pubkey: "b".repeat(64), tags: [["p", "d".repeat(64)]], sig: "c".repeat(128),
   }));
 
   const t = fakeTransport();
