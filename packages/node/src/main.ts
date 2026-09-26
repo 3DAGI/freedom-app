@@ -505,6 +505,8 @@ async function main(): Promise<void> {
             feePpm: Number(process.env.LP_FEE_PPM ?? 3000),
             tSolSecs: Number(process.env.LP_T_SOL_SECS ?? 3600),
             lnCltvDeltaBlocks: Number(process.env.LP_CLTV_DELTA ?? 144),
+            // Gegen Blockaden (4.6d): Vorab-Gebuehr der Hinrichtung, 0 = aus.
+            ...(direction === "sell-sol" ? { vorabSats: Number(process.env.LP_VORAB_SATS ?? 10) } : {}),
           },
           offerTtlSecs: Number(process.env.LP_OFFER_TTL ?? 7200),
           maxLamportsPerSwap: Number(process.env.LP_MAX_LAMPORTS ?? 500_000_000),

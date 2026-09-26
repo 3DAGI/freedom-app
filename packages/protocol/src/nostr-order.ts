@@ -37,6 +37,11 @@ export interface LpOffer {
    */
   solAddress?: string;
   lamportsPerSat?: number;
+  /**
+   * Hinrichtung (sell-sol, 4.6d): nicht erstattbare Vorab-Gebuehr in sats,
+   * bevor der LP SOL sperrt – gegen Anfragen, die nur Liquiditaet binden.
+   */
+  vorabSats?: number;
 }
 
 import { UnsignedEvent } from "./event.js";
@@ -61,6 +66,7 @@ export function buildLpOffer(o: LpOffer, pubkey: string, createdAt = Math.floor(
       ["expiry", String(o.expiry)],
       ...(o.solAddress ? [["sol_address", o.solAddress]] : []),
       ...(o.lamportsPerSat !== undefined ? [["lamports_per_sat", String(o.lamportsPerSat)]] : []),
+      ...(o.vorabSats ? [["vorab_sats", String(o.vorabSats)]] : []),
     ],
     content: o.note ?? "",
   };
@@ -85,6 +91,9 @@ export function parseLpOffer(ev: UnsignedEvent): LpOffer {
   const lamportsPerSat = kurs === undefined ? undefined : Number(kurs);
   if (lamportsPerSat !== undefined && !(Number.isFinite(lamportsPerSat) && lamportsPerSat > 0)) throw new Error("ungueltiger lamports_per_sat");
   if (dir === "buy-sol" && (!solAddress || lamportsPerSat === undefined)) throw new Error("buy-sol ohne sol_address oder lamports_per_sat");
+  const vorab = tag(ev, "vorab_sats");
+  const vorabSats = vorab === undefined ? undefined : Number(vorab);
+  if (vorabSats !== undefined && !(Number.isSafeInteger(vorabSats) && vorabSats > 0)) throw new Error("ungueltiger vorab_sats");
   return {
     offerId: req("d"),
     pair: req("pair"),
@@ -98,6 +107,7 @@ export function parseLpOffer(ev: UnsignedEvent): LpOffer {
     note: ev.content || undefined,
     ...(solAddress ? { solAddress } : {}),
     ...(lamportsPerSat !== undefined ? { lamportsPerSat } : {}),
+    ...(vorabSats !== undefined ? { vorabSats } : {}),
   };
 }
 

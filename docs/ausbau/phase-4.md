@@ -134,7 +134,7 @@ Jede Funktion, in der Geld fließt, bietet beide Schienen mit gleichem Komfort.
 
 ## 4.6 Swaps in beide Richtungen
 
-> Aufgeteilt: a Protokoll ✓ (Fristregel der Gegenrichtung, Adapter, Prüfung des LP, Simulation, `docs/SWAPS.md`); b LP-Daemon Gegenrichtung ✓ (`buy-sol`, `cltv_limit` über LND, Speichern vor dem Zahlen, Nachholen nach Neustart, Blockadeschutz der Gegenrichtung); c App ✓ (Ablauf SOL → Lightning, Rückhol-Wächter verdrahtet – für Swaps und Deposits); d Vorab-Gebühr der Hinrichtung (LP + App – ändert den Ablauf Lightning → SOL, deshalb eigener Schritt); e Relayer für Nutzer ohne SOL. b allein brauchte gut 400 Zeilen Code; die Vorab-Gebühr hätte den Schritt verdoppelt.
+> Aufgeteilt: a Protokoll ✓ (Fristregel der Gegenrichtung, Adapter, Prüfung des LP, Simulation, `docs/SWAPS.md`); b LP-Daemon Gegenrichtung ✓ (`buy-sol`, `cltv_limit` über LND, Speichern vor dem Zahlen, Nachholen nach Neustart, Blockadeschutz der Gegenrichtung); c App ✓ (Ablauf SOL → Lightning, Rückhol-Wächter verdrahtet – für Swaps und Deposits); d Vorab-Gebühr der Hinrichtung ✓ (LP + App – ändert den Ablauf Lightning → SOL, deshalb eigener Schritt); e Relayer für Nutzer ohne SOL. b allein brauchte gut 400 Zeilen Code; die Vorab-Gebühr hätte den Schritt verdoppelt.
 
 - **Stellen:** `swap.ts`, `timelock.ts`, `packages/app/src/swap-client.ts`,
   `packages/node/src/lp-daemon.ts`, `refund-watcher.ts`, HTLC-Programm.

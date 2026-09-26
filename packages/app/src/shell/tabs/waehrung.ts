@@ -101,7 +101,7 @@ export async function loadWallet(): Promise<void> {
       knopf.className = "ghost";
       knopf.style.cssText = "width:auto;padding:6px 10px";
       knopf.textContent = "tauschen";
-      knopf.addEventListener("click", () => void (rueck ? startRueckSwap(ev.pubkey, offer) : startSwap(ev.pubkey, offer.offerId)));
+      knopf.addEventListener("click", () => void (rueck ? startRueckSwap(ev.pubkey, offer) : startSwap(ev.pubkey, offer.offerId, offer.vorabSats)));
       const rechts = document.createElement("span");
       rechts.appendChild(knopf);
       zeile.append(text, rechts);
@@ -119,7 +119,7 @@ async function swapClient(): Promise<typeof import("../../swap-client.js")> {
   return m;
 }
 
-async function startSwap(lpPubkey: string, offerId: string): Promise<void> {
+async function startSwap(lpPubkey: string, offerId: string, vorabSats?: number): Promise<void> {
   if (!state.keypair) return;
   const amountStr = prompt("Betrag in sats:");
   const amount = Number(amountStr);
@@ -206,7 +206,7 @@ async function startSwap(lpPubkey: string, offerId: string): Promise<void> {
       ));
     await pool.publish(ev);
     toast("Swap-Request gesendet — warte auf Invoice…");
-    void pollSwapResponse(ev.id, toHex(H), solAddr, amount);
+    void pollSwapResponse(ev.id, toHex(H), solAddr, amount, lpPubkey, vorabSats);
   } catch (e) {
     toast(`Fehler: ${(e as Error).message}`, true);
   }
@@ -219,13 +219,31 @@ async function pollSwapResponse(
   hashlockHex: string,
   solAddress: string,
   amountSats: number,
+  lpPubkey: string,
+  vorabSats?: number,
 ): Promise<void> {
   const pool = await ensurePool();
   const statusEl = $("#swap-status");
-  const deadline = Date.now() + 90_000;
+  let deadline = Date.now() + 90_000;
+  let vorabGefragt = false;
 
   while (Date.now() < deadline) {
-    const resps = await pool.query({ kinds: [KIND_SWAP_RESPONSE], "#e": [requestId] });
+    // Nur Antworten des LP selbst – eine fremde „Vorab-Rechnung“ darf nie bezahlt werden (4.6d).
+    const alle = await pool.query({ kinds: [KIND_SWAP_RESPONSE], "#e": [requestId], authors: [lpPubkey] });
+    const status = (r: NostrEvent) => r.tags.find((t) => t[0] === "status")?.[1];
+    const resps = alle.filter((r) => !status(r));
+    const abgelehnt = alle.find((r) => status(r) === "ABGELEHNT");
+    const vorab = alle.find((r) => status(r) === "VORAB");
+    if (!resps.length && abgelehnt) {
+      statusEl.textContent = `Der LP hat abgelehnt: ${abgelehnt.content.slice(0, 200)}`;
+      statusEl.className = "mono-sm err";
+      return;
+    }
+    if (!resps.length && vorab && !vorabGefragt) {
+      vorabGefragt = true;
+      if (!(await zahleVorab(vorab, vorabSats))) return;
+      deadline = Date.now() + 120_000; // der LP sieht die Zahlung beim naechsten Durchlauf
+    }
     if (resps.length > 0) {
       const resp = resps[0];
       const bolt11 = resp.content;
@@ -312,6 +330,38 @@ async function pollSwapResponse(
     await new Promise((r) => setTimeout(r, 4000));
   }
   toast("keine LP-Antwort in 90s", true);
+}
+
+/**
+ * Vorab-Gebuehr (4.6d): Der LP verlangt sie, bevor er SOL sperrt. Gezahlt
+ * wird nur nach Pruefung (`pruefeVorab`) und Zustimmung – ueber die Zahlschiene.
+ */
+async function zahleVorab(antwort: NostrEvent, angekuendigt: number | undefined): Promise<boolean> {
+  const statusEl = $("#swap-status");
+  const { pruefeVorab } = await swapClient();
+  const p = pruefeVorab(antwort, angekuendigt);
+  if (!p.ok) {
+    statusEl.textContent = `Nicht gezahlt: ${p.grund}`;
+    statusEl.className = "mono-sm err";
+    return false;
+  }
+  if (!confirm(`Der LP verlangt vorab ${p.sats} sats – nicht erstattbar, als Schutz gegen Anfragen, die nur Liquidität binden. Erst danach sperrt er die SOL. Zahlen?`)) {
+    statusEl.textContent = "Vorab-Gebühr nicht gezahlt – der Tausch findet nicht statt.";
+    statusEl.className = "mono-sm warn";
+    return false;
+  }
+  try {
+    // dynamisch: zahlschienen.ts importiert selbst aus diesem Modul
+    const [{ zahle }, { zahlschienen }] = await Promise.all([import("@freedomstack/protocol"), import("../zahlschienen.js")]);
+    await zahle(zahlschienen(), { ziel: p.bolt11, betrag: { einheit: "msat", wert: p.sats * 1000 }, zweck: "swap" });
+  } catch (e) {
+    statusEl.textContent = `Vorab-Gebühr nicht gezahlt: ${(e as Error).message}`;
+    statusEl.className = "mono-sm err";
+    return false;
+  }
+  statusEl.textContent = "Vorab-Gebühr bezahlt – warte, bis der LP die SOL sperrt …";
+  statusEl.className = "mono-sm";
+  return true;
 }
 
 /** Laufender Swap, fuer den das Einloesen noch aussteht. */
