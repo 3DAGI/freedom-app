@@ -52,7 +52,7 @@ für Forward Secrecy. NIP-17 bleibt Rückfall für Kontakte ohne MLS.
 
 ---
 
-## 2.2b MLS nach Marmot für 1:1 und Gruppen
+## 2.2b MLS nach Marmot für 1:1 und Gruppen – CODE FERTIG (26.09.2026)
 
 - **Voraussetzung:** 2.2a entschieden.
 - **Vorgehen:**
@@ -100,11 +100,11 @@ für Forward Secrecy. NIP-17 bleibt Rückfall für Kontakte ohne MLS.
     26.09.2026 (MENSCH): A**, dazu **MLS nur mit Tresor**. Bis e2: Hat eine
     Seite Geräte (8.6), bleibt es bei NIP-17 (2.2b-d3) – so bekommt jedes Gerät
     weiter jede Nachricht. Geteilt:
-    - **e1:** MLS nur mit Tresor; in 1:1-Gruppen sind beide Seiten Admin (in
+    - **e1 – FERTIG:** MLS nur mit Tresor; in 1:1-Gruppen sind beide Seiten Admin (in
       MDK dürfen nur Admins einladen und entfernen – sonst könnte niemand außer
       dem Gründer Geräte aufnehmen); als Gerät ein eigenes Konto unter dem
       Geräteschlüssel, KeyPackage an die Schreib-Relays der Person.
-    - **e2:** Gruppen mit Geräten: gründen mit Person und gültigen Geräten
+    - **e2 – FERTIG:** Gruppen mit Geräten: gründen mit Person und gültigen Geräten
       beider Seiten (alle Admin), Einladungen an Geräte an den Posteingang der
       Person; vor jedem Senden Mitglieder mit den Vollmachten abgleichen –
       fehlende einladen, entzogene und fremde entfernen, geht das nicht:

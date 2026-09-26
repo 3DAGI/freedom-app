@@ -6140,3 +6140,73 @@ Endstand: protocol 1149 · node 240 · app 410 (+2) · mls 11 (+1) · Leak-Tests
 54 grün + 2 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng 0
 unbewertet · Website 5 Seiten ok · Smoke-Test bestanden (MLS-Selbsttest mit der
 neu gebauten Engine).
+
+## Schritt 2.2b-e2 – Gruppen mit Geräten; d3 entfällt
+
+Zweiter Teil der Entscheidung 2.2b-e (A): Geräte sind eigene Mitglieder der
+1:1-Gruppe. Damit ist 2.2b im Code fertig.
+
+**Wer Mitglied ist** (`packages/app/src/mls-geraete.ts`, neu, ohne DOM):
+- `sollMitglieder()`: beide Personen und ihre Geräte mit gültiger Vollmacht
+  („nachrichten“, nicht entzogen – `geraeteBuch.kopienFuer()` wie NIP-17 seit
+  8.6b), je Mitglied die Person.
+- `abgleich()`: wer fehlt, wer nicht hineingehört (entzogen oder fremd).
+- `partnerDerGruppe()`: Eine Gruppe ist 1:1, wenn alle übrigen Mitglieder
+  einer Person gehören – nach deren eigenen Vollmachten. Der Einladende zählt
+  nicht; ein Fremder kann sich nicht als Gerät eines Kontakts ausgeben.
+
+**Senden** (`mlsSendeAn()`, `shell/mls-konto.ts`):
+- Gründen mit allen Soll-Mitgliedern, alle Admin. Für jedes Mitglied braucht
+  es ein KeyPackage (Geräte: an den Schreib-Relays ihrer Person,
+  `sucheKeyPackages({ listeVon })`) und einen Posteingang. Fehlt eins: NIP-17.
+- Einladungen an Geräte gehen an den Posteingang ihrer Person – Geräte lesen
+  dort mit (8.6b).
+- Vor jedem Senden in eine bestehende Gruppe `gleicheAb()`: entzogene und
+  fremde Mitglieder entfernen, fehlende einladen (als Admin). Geht das nicht
+  (Gerät ohne KeyPackage, nicht Admin, kein Relay nimmt an), geht die
+  Nachricht per NIP-17 an jedes Gerät; die Gruppe bleibt der Unterhaltung.
+- Mitglied ist nur, wer seine Einladung bekam: Nicht zugestellte werden gleich
+  wieder entfernt und beim nächsten Senden neu eingeladen.
+- Als Gerät ohne gültige Vollmacht nie über MLS (und per NIP-17 sperrt der
+  Chat wie seit 8.6c).
+- Ergebnis jetzt `{ gruppe?, gesendet }` – der Chat merkt sich die Gruppe auch,
+  wenn diese Nachricht per NIP-17 ging.
+
+**Empfangen:**
+- `mlsEinladungAnnehmen()` gibt Gruppe und Partner zurück; der Chat legt die
+  Gruppe in die Unterhaltung mit dem Partner (nicht mit dem Einladenden – das
+  kann ein Gerät sein).
+- MLS-Nachrichten im Chat laufen durch `ordneDmZu()` wie NIP-17-Kopien:
+  eigene Geräte als „du“, Geräte des Kontakts unter seinem Namen mit
+  Gerätehinweis, nach einem Entzug mit Warnung.
+
+**d3 entfällt:** `sendeUeberMls()` prüft Geräte nicht mehr pauschal – die
+Gruppe enthält sie.
+
+**Texte:** Hinweis in der Unterhaltung, Settings-Karte, Grenze
+„Forward Secrecy“ (per NIP-17 nur noch, wenn ein Gerät nicht in die Gruppe
+kommt).
+
+**Grenze:** Gruppen, die eine andere Marmot-App ohne dich als Admin gründete,
+lassen sich nicht um deine Geräte erweitern – dann geht deine Nachricht per
+NIP-17. Andere Marmot-Apps (White Noise) sehen Geräte als eigene Mitglieder.
+
+**Tests:**
+- `mls-geraete.test.ts` +4: Soll, Abgleich, Partner (auch als Gerät und mit
+  entzogenen), keine 1:1 (zu dritt, fremd, ohne mich, Fremder behauptet
+  Kontakt als Gerät).
+- `mls-konto.test.ts` +3 mit echter Engine:
+  - Gründen mit Geräten beider Seiten: alle Admin, Einladungen der Geräte am
+    Posteingang der Person, nur an das Gerät adressiert, von einem
+    Wegwerf-Schlüssel; jedes Gerät liest.
+  - Entzug entfernt das Gerät vor der nächsten Nachricht (liest nichts mehr);
+    ein neues Gerät wird eingeladen und liest ab seinem Beitritt; ein Gerät
+    ohne KeyPackage → NIP-17, Gruppe unverändert.
+  - Einladung mit Geräten → Unterhaltung mit der Person; mit Fremdem → keine.
+- `mls-verdrahtung.test.ts`: d3-Test ersetzt (Abgleich vor dem Senden, keine
+  pauschale Geräte-Sperre, Posteingang der Person, Partner aus den
+  Mitgliedern), neu: Zuordnung über `ordneDmZu`.
+
+Endstand: protocol 1149 · node 240 · app 418 (+8) · mls 11 · Leak-Tests 54
+grün + 2 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng 0
+unbewertet · Website 5 Seiten ok · Smoke-Test bestanden.
