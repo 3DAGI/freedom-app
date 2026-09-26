@@ -76,12 +76,26 @@ für Forward Secrecy. NIP-17 bleibt Rückfall für Kontakte ohne MLS.
     Tests nach der Abnahme der Karte (Node). Noch nicht in der App.
   - **2.2b-b – Einbau:** WASM gzip-komprimiert in `freedom.html`, CSP
     `'wasm-unsafe-eval'`, Laden erst bei Bedarf; Smoke-Test.
-  - **2.2b-c – Nostr:** KeyPackages veröffentlichen und erneuern, Einladungen und
-    Gruppennachrichten über die Relays der Gruppe; Zustand verschlüsselt
-    (Tresor, IndexedDB – er ist Megabytes groß); Leak-Regeln.
+  - **2.2b-c – Nostr**, geteilt (26.09.2026, zu groß für einen Schritt):
+    - **c1 – Konto:** Zustand verschlüsselt (eigene IndexedDB `freedom-mls`,
+      Schlüssel in `geheim`), KeyPackages (Platz, Form und Auswahl nach Marmot,
+      erneuern, veröffentlichen an die eigenen NIP-65-Schreib-Relays, beim
+      Kontakt suchen), Routing der Gruppe (`h`, Relays) aus der Engine.
+    - **c2 – Nachrichten:** Einladungen an den Posteingang (Kind 10050),
+      Commit vor Einladung, Gruppennachrichten an die Relays der Gruppe mit
+      Bestätigung, Abos `#h`, Empfang und Konvergenz; KeyPackage nach einer
+      Einladung erneuern; Leak-Regeln. Beides Bausteine – in der Oberfläche
+      erst mit d.
   - **2.2b-d – 1:1 als MLS-Gruppe:** in der Oberfläche; NIP-17 als Rückfall für
     Kontakte ohne KeyPackage; mit Bunker (NIP-46) gesperrt, weil der Kontobeweis
-    synchron signiert werden muss.
+    synchron signiert werden muss. Geteilt (26.09.2026):
+    - **d1 – Konto und Empfang:** Konto in der App (Engine, Zustand, Verlauf
+      verschlüsselt und an die Identität gebunden), KeyPackage beim Öffnen einer
+      1:1-Unterhaltung, Einladungen von Kontakten annehmen, Gruppennachrichten
+      abholen und im Chat zeigen („· MLS“); gesperrt mit Bunker und als Gerät.
+    - **d2 – Senden:** 1:1 standardmäßig als MLS-Gruppe, NIP-17 als Rückfall;
+      Datenschutzbericht und Texte. Einladungen von Fremden werden – wie ihre
+      NIP-17-Nachrichten – zur „Anfrage“, sonst ginge ihre erste Nachricht verloren.
   - **2.2b-e – Geräte:** mehrere Geräte als eigene Mitglieder.
 
 ---

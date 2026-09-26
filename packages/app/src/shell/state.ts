@@ -8,7 +8,7 @@
  * Aus app.ts verschoben (Schritt 1.0) – woertlich, ohne Logikaenderung.
  */
 import {
-  LocalSigner, type NostrEvent, OutboxPool, type Signer, type UnsignedEvent, WebSocketRelay, normalizeRelayUrl, startUrls,
+  LocalSigner, type NostrEvent, OutboxPool, type RelayFilter, type Signer, type UnsignedEvent, WebSocketRelay, normalizeRelayUrl, startUrls,
 } from "@freedomstack/protocol";
 import { ScoredProvider, discoverProviders, matchProviders } from "../matchmaking.js";
 import { KiSitzungen } from "../ki-sitzung.js";
@@ -285,6 +285,31 @@ export async function veroeffentlicheAn(ev: NostrEvent, urls: readonly string[])
   ]);
   for (const r of fremd) r.close();
   return (ausPool.status === "fulfilled" ? ausPool.value.accepted.length : 0) + einzeln.filter((e) => e.status === "fulfilled").length;
+}
+
+/**
+ * Nur an diesen Relays fragen (2.2b-d1) – etwa an den Relays einer MLS-Gruppe,
+ * über je eine kurze eigene Verbindung.
+ */
+export async function frageAn(filter: RelayFilter, urls: readonly string[]): Promise<NostrEvent[]> {
+  const relays = [...new Set(urls.map(normalizeRelayUrl))].map((u) => new WebSocketRelay(u, { timeoutMs: 8000, autoReconnect: false }));
+  const antworten = await Promise.allSettled(relays.map((r) => r.query(filter)));
+  for (const r of relays) r.close();
+  const alle = new Map<string, NostrEvent>();
+  for (const a of antworten) if (a.status === "fulfilled") for (const ev of a.value) alle.set(ev.id, ev);
+  return [...alle.values()];
+}
+
+/** Posteingang eines Kontos (Kind 10050, NIP-17); leer, wenn keiner gefunden wurde. */
+export async function posteingangVon(pk: string): Promise<string[]> {
+  const pool = await ensurePool();
+  const { parseDmRelayList, KIND_DM_RELAYS } = await import("@freedomstack/protocol");
+  try {
+    const listen = await pool.query({ kinds: [KIND_DM_RELAYS], authors: [pk], limit: 5 });
+    return parseDmRelayList(listen.filter((e) => e.pubkey === pk).sort((a, b) => b.created_at - a.created_at)[0]);
+  } catch {
+    return [];
+  }
 }
 
 /** Eigene Listen (Kind 10002/10050) weit streuen: an den Pool und die ganze Startliste – dort sucht sie jeder. */

@@ -182,6 +182,32 @@ export function regelMeshVerschluesselt(
   return funde;
 }
 
+/**
+ * Gruppennachrichten nach Marmot (Kind 445, Schritt 2.2b-c2): nur der h-Tag
+ * (dazu höchstens `expiration`), der nicht die MLS-Gruppen-Id ist, und jede
+ * von einem eigenen Wegwerf-Schlüssel – nie von einer Identität.
+ */
+export function regelMlsGruppe(
+  events: readonly NostrEvent[],
+  p: { gruppenIds: readonly string[]; identitaeten: readonly string[] },
+): LeakFinding[] {
+  const funde: LeakFinding[] = [];
+  const gesehen = new Set<string>();
+  const fund = (e: NostrEvent, detail: string) => funde.push({ regel: "mls-gruppe", eventId: e.id, detail });
+  for (const e of events.filter((x) => x.kind === 445)) {
+    const h = e.tags.filter((t) => t[0] === "h");
+    const andere = e.tags.filter((t) => t[0] !== "h" && t[0] !== "expiration");
+    if (h.length !== 1 || !/^[0-9a-f]{64}$/.test(h[0]![1] ?? "")) fund(e, "kein einzelner h-Tag mit 64 Hex");
+    else if (p.gruppenIds.includes(h[0]![1]!)) fund(e, "h-Tag ist die MLS-Gruppen-Id");
+    for (const t of andere) fund(e, `weiterer Tag ${t[0]}`);
+    if (p.identitaeten.includes(e.pubkey)) fund(e, "Identität ist Autor");
+    if (gesehen.has(e.pubkey)) fund(e, "Schlüssel wiederverwendet");
+    gesehen.add(e.pubkey);
+    for (const id of p.identitaeten) if (e.content.includes(id)) fund(e, "Identität im Inhalt");
+  }
+  return funde;
+}
+
 /** Alle Regeln mit ihrer Aussage – Datenschutz-Aussagen verweisen hierauf. */
 export const LEAK_REGELN: Readonly<Record<string, string>> = {
   "kein-kind4": "Keine Direktnachrichten im alten, offenen Format (Kind 4).",
@@ -196,4 +222,5 @@ export const LEAK_REGELN: Readonly<Record<string, string>> = {
   "upload-verschluesselt": "Anhänge nur verschlüsselt.",
   "keine-zahlungsdaten": "Keine Rechnung, keine Adresse, kein Betrag pro Kunde in öffentlichen Events.",
   "mesh-verschluesselt": "Über Funk, Bluetooth und Datei nur Verschlüsseltes – ohne Schlüssel des Nutzers, ohne Klartext.",
+  "mls-gruppe": "Gruppennachrichten nur mit gehashter Gruppen-Id, jede von einem eigenen Wegwerf-Schlüssel, nie von der Identität.",
 };

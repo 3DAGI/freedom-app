@@ -149,6 +149,18 @@ test("Brücken signieren nur ihr Eigenes: Kontobeweis nur Kind 450, Signer nur S
   await assert.rejects(signerBruecke(p.signer).signEvent(fremderAutor), /nur Siegel/);
 });
 
+test("Routing: h-Tag der Nachrichten und Relays der Gruppe – bei allen Mitgliedern gleich; unbekannte Gruppe abgewiesen", async () => {
+  const { a, b, c, gruppe } = await gruppeZuDritt();
+  const r = a.mls.routing(gruppe);
+  assert.match(r.h, /^[0-9a-f]{64}$/);
+  assert.notEqual(r.h, gruppe, "nicht die MLS-Gruppen-Id");
+  assert.deepEqual(r.relays, [...RELAYS].sort());
+  for (const p of [b, c]) assert.deepEqual(p.mls.routing(gruppe), r);
+  const s = await a.mls.senden(gruppe, "wohin");
+  assert.deepEqual(s.events[0].tags, [["h", r.h]]);
+  assert.throws(() => a.mls.routing("00".repeat(32)));
+});
+
 test("Reihenfolge: eine Nachricht vor ihrem Commit wird zurückgehalten und danach zugestellt", async () => {
   const { a, b, c, gruppe } = await gruppeZuDritt();
   const rm = await a.mls.entfernen(gruppe, [b.pk]);
