@@ -5056,3 +5056,25 @@ Endstand: protocol 1127 (+ 6 übersprungen) · node 225 (+ 7 übersprungen ohne
 Netz) · app 350 · Leak-Tests 49 grün + 2 todo · 0 rot · check-wiring `--streng`
 0 offen · innerHTML streng 0 unbewertet · Smoke-Test bestanden · Browser-E2E
 bestanden.
+
+## Schritt 4.0 – Entscheidung Gebührenmodell: A+ (und 2.2b: WASM eingebettet)
+
+**4.0 (MENSCH, 26.09.2026): A+** – feste Aufteilung direkt beim Zahlen, kein
+Topf. Die Quote hat der MENSCH dem Agenten übertragen („einmalig, für eine
+effektive und stabile Entwicklung“): je KI-Auftrag **95 % Provider, 3 %
+Entwicklung, 2 % Relays**, die ihn getragen haben. Zusammen 5 % wie bisher
+(2,5 % Protokoll + 2,5 % App), Kunden und Provider merken keinen Unterschied
+im Betrag – nur geht das Geld jetzt direkt an Arbeit statt in einen Topf.
+Regeln: nicht zuordenbar → Provider; Lightning-Anteile unter 100 sats sammelt
+die App des Zahlenden (keine Verwahrung); Obergrenze 10 %; Entwicklungsanteil
+voreingestellt an, abschaltbar; keine Anteile auf Zaps, Trinkgeld, Tausch,
+Relayer, Speicher, Prüfer; keine Werbeprovision; Sonderanreize über
+gesponserte Pools (5.1b). Vollständig in `docs/GEBUEHREN-ENTSCHEIDUNG.md`;
+Karten 4.0 und 5.1 angepasst. Code folgt mit 5.1 (Aufteilung, Rückbau von
+Pool, Werben, Treasury) und 4.3 (Zahlkanal).
+
+**2.2b (MENSCH, 26.09.2026):** MDK als WASM **eingebettet** – die App bleibt
+eine Datei (etwa 2,2 → 4,1 MB). Eingetragen in `docs/MLS-ENTSCHEIDUNG.md`.
+
+**MENSCH vor 5.1 live:** Empfänger-Adressen der Entwicklung (Lightning über
+einen eigenen Knoten, SOL-Mehrfachsignatur).

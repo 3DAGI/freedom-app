@@ -102,3 +102,90 @@ festgeschrieben, der Kanal bleibt einfach.
 
 - [ ] **A – Protokollgebühr 0 %** (App-Gebühr freiwillig, gesponserte Pools, Relays direkt)
 - [ ] **B – Pool offen als zentral verwaltete Belohnung** (nur SOL, Multisig, veröffentlichte Regeln und Berichte)
+- [x] **A+ – feste Aufteilung direkt beim Zahlen, kein Topf** (Entscheidung 26.09.2026, siehe unten)
+
+## Entscheidung 26.09.2026: A+
+
+Der MENSCH wollte eine Gebühr mit voreingestellter Aufteilung, damit alle Teile
+von FreedomStack belohnt werden – aber ohne Topf, auf den jemand Zugriff hat.
+Ein schlüsselloser Topf löst die Verwahrung, nicht die Verteilung (Umverteilung
+bräuchte Angaben, die die Kette nicht prüfen kann; in Sats gibt es keinen Topf
+ohne Verwahrer). Darum **A+**: Die Anteile gehen **beim Zahlen direkt** an die,
+die den Auftrag getragen haben. Nichts liegt herum, nichts wird verteilt.
+Die Quote hat der MENSCH dem Agenten übertragen („einmalig, für eine effektive
+und stabile Entwicklung“); sie steht hier und gilt ab 5.1.
+
+### Aufteilung einer KI-Zahlung
+
+| Anteil | Empfänger | Wie |
+|---:|---|---|
+| **95 %** | Provider | wie bisher |
+| **3 %** | Entwicklung | an selbstverwahrte Adressen des Projekts (Lightning über einen eigenen Knoten, z. B. `lnurl-server.ts`; SOL an eine Mehrfachsignatur), im Auftrag offen deklariert |
+| **2 %** | Relays | an die Relays, über die der Auftrag lief und deren Betreiber eine Zahladresse nennt (NIP-11 `pubkey` → Profil), zu gleichen Teilen, höchstens drei |
+
+**Warum diese Zahlen:**
+- **Zusammen 5 %, wie bisher** (2,5 % Protokollgebühr + 2,5 % App-Gebühr).
+  Kunden zahlen dasselbe, Provider behalten dieselben 95 %. Nur geht das Geld
+  jetzt direkt an Arbeit statt in einen Topf.
+- **3 % Entwicklung:** eine stetige Einnahme, die mit der Nutzung wächst, ohne
+  Topf und ohne Werbeprovision. Das ist mehr als die bisherige App-Gebühr
+  (2,5 %), weil der Pool wegfällt – Weiterentwicklung, Prüfungen und Betrieb
+  (Website, Spiegel, Test-Knoten) müssen davon leben.
+- **2 % Relays:** Sie tragen jeden Auftrag. Bisher war ihnen nur ein Anteil von
+  15 % am Pool versprochen, der auf Selbstauskünften beruhte und ohne gesetzte
+  Pool-Adresse leer blieb. 2 % je Auftrag sind echtes Geld für echte Zustellung. Wer eigene Relays betreibt (auch ein
+  Provider), verdient mit.
+
+### Regeln
+
+1. **Direkt beim Zahlen, kein Topf.** Bei Lightning zahlt die App jeden Anteil
+   als eigene Rechnung. Bei SOL teilt das Programm des Zahlkanals (4.3) jede
+   Abrechnung selbst auf (`fee_recipients`, fest bei Eröffnung).
+2. **Nicht zuordenbar heißt: an den Provider.** Nennt kein Relay eine
+   Zahladresse, bekommt der Provider die 2 %. Nie an einen Topf und nie an
+   die Entwicklung.
+3. **Kleine Beträge bündeln, ohne Verwahrung.** Lightning-Anteile unter
+   100 sats je Empfänger sammelt die App des Zahlenden und zahlt sie
+   gebündelt. Bis dahin bleibt das Geld beim Zahlenden, niemand sonst hält es.
+   Bei SOL gibt es die Schwelle nicht, der Kanal teilt bei jeder Abrechnung.
+4. **Obergrenze 10 %.** Alle Anteile außer dem Provider zusammen höchstens
+   10 %. Das prüft der Provider, bei SOL das Programm. Die Werte 3 % und 2 %
+   stehen ab 5.1 fest im Code und werden als Protokoll-Invariante von CI geprüft.
+   Ändern nur mit einem signierten Release (5.2) und vorher angekündigt.
+5. **Entwicklungsanteil: voreingestellt an, abschaltbar.** Er steht in jedem
+   Auftrag und ist in den Settings abschaltbar – freiwillig wie in A. Ein Fork
+   kann ihn ohnehin entfernen; das ist gewollt.
+6. **Keine Anteile auf:** Zaps und Trinkgeld zwischen Menschen, Tausch (der LP
+   nimmt die Gebühr seines Angebots), Relayer (Erstattung und eigene Gebühr),
+   Speicher (direkt je Upload), Prüfer (direkt je Fall). Werben bekommt keine
+   Provision.
+7. **Anreize darüber hinaus,** etwa für Provider in Randregionen: gesponserte
+   Pools (5.1b) mit offenen Regeln, ohne Verwahrer.
+
+### Wer woran verdient
+
+| Teil | Einnahme |
+|---|---|
+| Provider | 95 % je Auftrag |
+| Relays | 2 % je Auftrag; dazu bezahlter Zugang (5.4c/8.4) |
+| Entwicklung | 3 % je Auftrag (abschaltbar) |
+| Liquiditätsgeber | Gebühr des eigenen Angebots |
+| Relayer | eigene Gebühr in der Erstattung (4.6e) |
+| Speicher | direkt je Upload |
+| Prüfer | direkt je Streitfall |
+| Randregionen, Sonderanreize | gesponserte Pools (5.1b) |
+
+### Folgen
+
+- **5.1:** Die Protokollgebühr wird zur festen Aufteilung (Provider, Entwicklung,
+  Relays). Wegfallen: Pool-Verteiler, Reward-Claims und Belohnungen aus
+  Selbstauskunft, Werbeprovision, Treasury und Sweep. Settlement und Fee-Beweis
+  laufen auf die neuen Anteile. Texte in App und Website werden angepasst.
+- **4.3:** `fee_recipients` = Entwicklung (3 %) + bis zu drei Relays (2 %),
+  Summe ≤ 10 %, geprüft im Programm.
+- **AMLR:** Keine Stelle sammelt oder verteilt fremdes Geld. Der
+  Entwicklungsanteil geht an einen erkennbaren Empfänger, als Entgelt für die
+  Software. Kein Rechtsrat, siehe 9.4.
+- **MENSCH (vor 5.1 live):** Empfänger-Adressen der Entwicklung, d. h. eine
+  Lightning-Adresse über einen eigenen Knoten und eine SOL-Mehrfachsignatur
+  (Squads, 5.9).
