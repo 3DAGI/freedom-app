@@ -14,9 +14,11 @@ Jede Funktion, in der Geld fließt, bietet beide Schienen mit gleichem Komfort.
 
 ---
 
-## 4.0 Entscheidung Gebührenmodell – MENSCH (vor 4.3) – VORLAGE FERTIG (25.09.2026)
+## 4.0 Entscheidung Gebührenmodell – MENSCH (vor 4.3) – ENTSCHIEDEN: A+ (26.09.2026)
 
-> Vorlage mit Ist-Stand, Optionen A und B, betroffenen Dateien, Folgen für den Zahlkanal, AMLR-Angriffsfläche und Einnahmen: [`docs/GEBUEHREN-ENTSCHEIDUNG.md`](../GEBUEHREN-ENTSCHEIDUNG.md). Wartet auf die Entscheidung.
+> Vorlage mit Ist-Stand, Optionen A und B, betroffenen Dateien, Folgen für den Zahlkanal, AMLR-Angriffsfläche und Einnahmen: [`docs/GEBUEHREN-ENTSCHEIDUNG.md`](../GEBUEHREN-ENTSCHEIDUNG.md).
+>
+> **Entschieden 26.09.2026: A+** – feste Aufteilung direkt beim Zahlen, kein Topf: je KI-Auftrag 95 % Provider, 3 % Entwicklung (abschaltbar), 2 % Relays, die ihn getragen haben (nicht zuordenbar → Provider); Obergrenze 10 %; keine Anteile auf Zaps, Trinkgeld, Tausch, Speicher; keine Werbeprovision; Sonderanreize über gesponserte Pools (5.1b). Die Quote hat der MENSCH dem Agenten übertragen. Umsetzung in 5.1, Zahlkanal in 4.3.
 
 - **Du:** `docs/GEBUEHREN-ENTSCHEIDUNG.md` vorbereiten mit zwei Optionen:
   - **A (empfohlen):** Protokollgebühr 0 %; App-Gebühr freiwillig, offen

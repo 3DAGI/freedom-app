@@ -65,8 +65,9 @@ Der Preis ist hoch und gehört in die Entscheidung:
 
 ## MENSCH: bitte entscheiden
 
-> **Entschieden 26.09.2026: A.** Ob die WASM-Datei eingebettet oder nachgeladen
-> wird, schlägt der Agent zu Beginn von 2.2b mit Messwerten vor.
+> **Entschieden 26.09.2026: A.** Einbettung (MENSCH, 26.09.2026): **eingebettet** –
+> die App bleibt eine einzige Datei (Selbst-Export, Offline-Weitergabe, Funk,
+> Prüfsumme wie bisher); sie wächst von etwa 2,2 auf etwa 4,1 MB.
 
 - [x] **A – MDK per WASM** (empfohlen), mit
   - CSP `'wasm-unsafe-eval'`,

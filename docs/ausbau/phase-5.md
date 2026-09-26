@@ -4,7 +4,12 @@
 
 ## 5.1 Gebührenmodell umsetzen
 
-- **Voraussetzung:** Entscheidung 4.0.
+- **Voraussetzung:** Entscheidung 4.0 – **entschieden: A+** (26.09.2026). Es gilt
+  Option A mit fester Aufteilung direkt beim Zahlen: 95 % Provider, 3 %
+  Entwicklung, 2 % Relays (Regeln in `docs/GEBUEHREN-ENTSCHEIDUNG.md`). Die
+  Protokollgebühr wird zu dieser Aufteilung statt zu 0; Pool, Werbeprovision,
+  Treasury und Sweep fallen wie bei A weg; die App-Gebühr geht im
+  Entwicklungsanteil auf.
 - **Bei Option A:**
   1. `protocol-fee.ts`: Protokollgebühr 0; Konstanten, Tests und CI-Invarianten anpassen.
   2. `referral.ts`, `referral-graph.ts`, `pool-distributor.ts`, `treasury.ts`,
