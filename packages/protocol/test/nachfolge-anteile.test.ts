@@ -93,9 +93,10 @@ test("8.11a: NACHFOLGE DURCHGESPIELT – B sammelt von C, setzt zusammen, hat de
   assert.deepEqual(regelKeinKlartext([anfrageWrap, uebergabe], [ac.daten, ab.daten]), []);
 
   // B oeffnet und setzt zusammen
-  const erhalten = (await oeffneAnteilUebergabe(uebergabe, signer(b), plan))!;
+  const erhalten = (await oeffneAnteilUebergabe(uebergabe, signer(b), [plan]))!;
   assert.equal(erhalten.von, c.pk);
   assert.equal(erhalten.anfrageId, anfrage.anfrageId);
+  assert.equal(await oeffneAnteilUebergabe(uebergabe, signer(b), []), null, "ohne Plan dieses Besitzers nichts");
   const schluessel = setzeNachfolgeZusammen([ab, erhalten], plan);
   assert.equal(hex(schluessel), hex(besitzer.sk));
 });
@@ -111,7 +112,7 @@ test("8.11a: Uebergaben nur von Vertrauten; Anteile verschiedener Teilungen werd
   // Ein Fremder schickt einen „Anteil“ – wird nicht angenommen
   const anfrage = { von: b.pk, besitzer: besitzer.pk, teilung: neuC.teilung, anfrageId: "ab".repeat(32), zeit: T0 };
   const falsch = await baueAnteilUebergabe({ von: signer(fremd), anfrage, anteil: neuC });
-  assert.equal(await oeffneAnteilUebergabe(falsch, signer(b), neu.plan), null);
+  assert.equal(await oeffneAnteilUebergabe(falsch, signer(b), [neu.plan]), null);
   // Gefaelschte Daten passen nicht zur Pruefsumme
   const neuB = (await oeffneAnteil(neu.umschlaege[0]!, signer(b)))!;
   assert.throws(() => setzeNachfolgeZusammen([neuB, { ...neuC, daten: "00".repeat(32) }], neu.plan), /passen nicht/);

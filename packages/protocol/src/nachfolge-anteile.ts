@@ -192,14 +192,18 @@ export async function baueAnteilUebergabe(p: {
   return giftWrapMitSigner(kern, p.von, anfrage.von, { fixedJitter: 0, nowSecs: now });
 }
 
-/** Uebergabe als Sammler oeffnen – nur von einem Vertrauten des Plans. */
+/**
+ * Uebergabe als Sammler oeffnen – nur von einem Vertrauten des Plans ihres
+ * Besitzers. `plaene`: die Plaene, fuer die ich sammle (die App weiss vor dem
+ * Oeffnen nicht, zu welchem Besitzer eine Uebergabe gehoert).
+ */
 export async function oeffneAnteilUebergabe(
-  wrap: NostrEvent, signer: Signer, plan: SuccessionPlan,
+  wrap: NostrEvent, signer: Signer, plaene: readonly SuccessionPlan[],
 ): Promise<(GehaltenerAnteil & { von: string; anfrageId: string }) | null> {
   const r = await giftUnwrapMitSigner(wrap, signer);
   if (!r.ok || !kernOk(r.inner, KIND_NACHFOLGE_UEBERGABE, r.senderPubkey)) return null;
-  if (tag(r.inner, "p") !== signer.publicKey() || !plan.guardians.includes(r.inner.pubkey)) return null;
-  if (tag(r.inner, "besitzer") !== plan.ownerPubkey) return null;
+  const plan = plaene.find((x) => x.ownerPubkey === tag(r.inner!, "besitzer"));
+  if (!plan || tag(r.inner, "p") !== signer.publicKey() || !plan.guardians.includes(r.inner.pubkey)) return null;
   const anfrageId = tag(r.inner, "e") ?? "";
   const a = leseAnteil(r.inner, plan.ownerPubkey);
   if (!a || !HEX64.test(anfrageId)) return null;
