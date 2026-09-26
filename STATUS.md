@@ -3861,3 +3861,46 @@ Ausnahmen in `wiring-ausnahmen.txt`.
 Endstand: protocol 1056 · node 214 · app 269 · Leak-Tests 37 grün + 4 todo ·
 0 rot · check-wiring `--streng` 0 offen · innerHTML streng 0 unbewertet ·
 Smoke-Test bestanden.
+
+## Schritt 4.9b – Die App tauscht nur noch im Umschlag
+
+Die App-Seite zu 4.9a. Bis hierhin sendete die Hinrichtung (sats → SOL) ihre
+Anfrage **vom eigenen npub** mit der SOL-Empfangsadresse offen auf die Relays;
+die Gegenrichtung sendete schon vom Wegwerf-Schlüssel, aber mit der Rechnung;
+beide lasen offene Antworten mit Swap-ID und Rechnung des LP.
+
+**Neu:** `swap-umschlag.ts` (ohne DOM) – `hinAnfrage()` und `rueckAnfrage()`
+versiegeln die Anfrage von einem neuen Wegwerf-Schlüssel je Swap an den LP,
+`swapAntworten()` öffnet nur Umschläge an diesen Schlüssel, nur vom LP und nur
+zu dieser Anfrage (offene Antworten zählen nicht mehr), `liestUmschlaege()`
+prüft das Angebot. In `waehrung.ts`: `startSwap()`/`pollSwapResponse()` und
+`startRueckSwap()`/`warteAufRueckAntwort()` darauf umgestellt; die
+Angebotsliste zeigt LPs ohne `["versiegelt", "1"]` als „veraltet“ (Knopf aus)
+– ihnen ginge die Anfrage offen zu. Entfernt, weil tot: `baueRueckAnfrage`,
+`KIND_RUECK_*`, `KIND_SWAP_REQUEST/RESPONSE` in der App; die zwei
+Verdrahtungs-Ausnahmen aus 4.9a sind wieder weg.
+
+**Datenschutz:** Leak-`todo` „Swap: keine SOL-Adresse“ und „Tausch SOL → sats:
+keine Rechnung“ sind normale Tests und grün, neu „Swap: nicht vom eigenen npub“
+und die Verdrahtung der Gegenrichtung. Aussagen „sol-adresse“ (mit ehrlichem
+Zusatz: ein ausdrücklich öffentlicher Trinkgeld-Beleg führt über die Kette zur
+Adresse) und „swap-rechnung“ sind belegt – Szenario in `privacy-facts.test.ts`
+mit beiden Richtungen und Antworten.
+
+**Browser-E2E** (Playwright, nachgebildete Relays/RPC, LP öffnet die Umschläge):
+Hinrichtung mit Vorab-Gebühr bis „Geprüft“ – versiegelte Anfrage, nur die
+Rechnung des LP bezahlt, eine fremde versiegelte „Vorab-Rechnung“ nicht, der
+veraltete LP nicht anfragbar, und auf den Relays weder SOL-Adresse noch
+Vorab-/Hold-Rechnung noch Swap-ID noch npub in Swap-Events; Gegenrichtung bis
+„Fertig: 10000 sats“ samt Rückhol-Wächter, keine offene Anfrage, Rechnung nie
+sichtbar; Einlösen über Relayer (4.6f) weiter grün – an den LP geht genau ein
+Umschlag, die Swap-Anfrage, nie der Relay-Auftrag.
+
+**Tests:** app 269 → 273 (`swap-umschlag.test.ts` 4), Leak-Tests 37 + 4 todo →
+41 + 2 todo (übrig: Räume 2.3, frische Absenderadresse 4.9).
+
+**Knoten-Stand:** Die App fragt nur LPs ab 4.9a an – der GX10-LP muss auf `main`.
+
+Endstand: protocol 1056 · node 214 · app 273 · Leak-Tests 41 grün + 2 todo ·
+0 rot · check-wiring `--streng` 0 offen · innerHTML streng 0 unbewertet ·
+Smoke-Test bestanden.

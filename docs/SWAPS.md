@@ -95,9 +95,9 @@ Im Tab Währung → Tausch stehen die Angebote mit Richtung („SOL → sats“)
    Betrag, Gebühr und ab wann die SOL zurückkommen.
 3. Die Sperre wird **zuerst gemerkt**, dann angelegt (`lockRueckSwap`,
    Vorabsimulation an).
-4. Die Anfrage geht von einem Wegwerf-Schlüssel aus, nicht vom eigenen npub,
-   und nennt keine SOL-Adresse. Die Rechnung steht darin noch offen – Lücke,
-   die 4.9 schließt (im Datenschutzbericht benannt).
+4. Die Anfrage geht versiegelt (seit 4.9b) von einem Wegwerf-Schlüssel an den
+   LP, nicht vom eigenen npub, und nennt keine SOL-Adresse. Die Rechnung sehen
+   Relays nicht mehr (bis 4.9b stand sie offen darin).
 5. Die Antwort des LP wird nur als Anzeige genommen. Ob er wirklich
    eingelöst hat, sagt die Kette.
 
@@ -130,6 +130,11 @@ Swap-ID findet jeder die Sperre auf der Kette samt Empfänger.
 - **Übergang:** Der LP (ab 4.9a) liest beides und antwortet so, wie gefragt
   wurde; sein Angebot trägt `["versiegelt", "1"]`. Eine versiegelte Sitzung der
   Gegenrichtung bleibt es auch nach einem Neustart (`versiegelt` im Speicher).
+- **App (ab 4.9b, `swap-umschlag.ts`):** beide Richtungen nur noch versiegelt,
+  je Swap ein neuer Wegwerf-Schlüssel (`hinAnfrage`, `rueckAnfrage`); Antworten
+  nur aus Umschlägen dieses LP zu dieser Anfrage (`swapAntworten`) – offene
+  Antworten zählen nicht mehr. LPs ohne `["versiegelt", "1"]` zeigt die
+  Angebotsliste als „veraltet“ und fragt sie nicht an.
 - **Grenze:** Der LP öffnet jeden Umschlag an seinen Schlüssel (auch
   KI-Aufträge, die er nicht versteht – der KI-Teil desselben Knotens meldet
   Swap-Umschläge als „verworfen“). Jeder Umschlag wird nur einmal geöffnet;

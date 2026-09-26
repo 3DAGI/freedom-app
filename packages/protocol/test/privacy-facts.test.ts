@@ -22,6 +22,8 @@ import { buildBlob } from "../src/blob.js";
 import { buildSessionOpen, buildSessionPayment } from "../src/stream.js";
 import { LocalSigner } from "../src/signer.js";
 import { buildPrivateSolTrinkgeld } from "../src/sol-trinkgeld.js";
+import { versiegleSwapAnfrage, versiegleSwapAntwort } from "../src/swap-versiegelt.js";
+import { regelKeinBolt11 } from "../src/leak-rules.js";
 
 const a = generateKeypair();
 const b = generateKeypair();
@@ -75,6 +77,26 @@ async function privateReklamation() {
   });
   const { wraps } = await buildPrivateDispute({ dispute, sessionSigner: sitzung, empfaenger: [{ pk: b.pk }, { pk: generateKeypair().pk }] });
   return { wraps, sitzung: sitzung.publicKey() };
+}
+
+const SOL_ADRESSE = "7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU";
+
+/**
+ * Tausch in beiden Richtungen wie seit 4.9b: Anfragen versiegelt von je einem
+ * Wegwerf-Schluessel an den LP (b), Antworten versiegelt zurueck.
+ */
+async function versiegelterTausch() {
+  const lp = new LocalSigner(b.sk);
+  const hin = await versiegleSwapAnfrage({ kunde: new LocalSigner(generateKeypair().sk), lpPk: b.pk, tags: [
+    ["offer", "lp-1"], ["amount_sats", "21000"], ["hashlock", "ab".repeat(32)], ["solana_address", SOL_ADRESSE],
+  ] });
+  const rueckKunde = new LocalSigner(generateKeypair().sk);
+  const rueck = await versiegleSwapAnfrage({ kunde: rueckKunde, lpPk: b.pk, tags: [["offer", "lp-1-buy"], ["bolt11", BOLT11]] });
+  const antworten = await Promise.all([
+    versiegleSwapAntwort({ lp, kundePk: generateKeypair().pk, anfrageId: hin.anfrageId, tags: [["swap_id", "swap-1"], ["amount_lamports", "1000"]], content: BOLT11 }),
+    versiegleSwapAntwort({ lp, kundePk: rueckKunde.publicKey(), anfrageId: rueck.anfrageId, tags: [["status", "EINGELOEST"]], content: "" }),
+  ]);
+  return [hin.wrap, rueck.wrap, ...antworten];
 }
 
 const SZENARIEN: Record<string, () => Promise<number>> = {
@@ -132,6 +154,11 @@ const SZENARIEN: Record<string, () => Promise<number>> = {
     const wraps = await buildPrivateSolTrinkgeld({ empfaenger: b.pk, signatur: sig, lamports: 2_345_678, an, kette: "solana:mainnet", notiz: NOTIZ }, new LocalSigner(a.sk));
     return regelKeineSolAdresse(wraps, [an]).length + regelKeinKlartext(wraps, [sig, "2345678", NOTIZ]).length + regelAutorNicht(wraps, a.pk).length;
   },
+  "sol-adresse": async () => {
+    const wraps = await versiegelterTausch();
+    return regelKeineSolAdresse(wraps, [SOL_ADRESSE]).length + regelAutorNicht(wraps, a.pk).length;
+  },
+  "swap-rechnung": async () => regelKeinBolt11(await versiegelterTausch()).length,
   "abdeckung-zelle": async () => {
     const [lat, lon] = [48.137154, 11.576124];
     const funde = (["lora", "bluetooth"] as const).flatMap((layer) => {
@@ -177,6 +204,7 @@ test("der Berichtstext trennt Belegtes und Offenes", () => {
   assert.match(t, /✓ KI-Antworten sind für Relays nicht lesbar\./);
   assert.match(t, /✓ Reklamationen sind nicht öffentlich – sie gehen versiegelt/);
   assert.match(t, /○ Noch nicht: Räume sind Ende-zu-Ende-verschlüsselt\. \(Ausbauplan 2\.3\)/);
-  // Seit 4.6c: Die Anfrage der Gegenrichtung traegt die Rechnung offen – als Luecke benannt.
-  assert.match(t, /○ Noch nicht: Beim Tausch SOL → sats sehen Relays deine Lightning-Rechnung nicht\. \(Ausbauplan 4\.9\)/);
+  // 4.6c benannte die offene Rechnung als Luecke, seit 4.9b ist sie versiegelt.
+  assert.match(t, /✓ Beim Tausch SOL → sats sehen Relays deine Lightning-Rechnung nicht\./);
+  assert.match(t, /○ Noch nicht: Jede SOL-Zahlung geht von einer frischen Adresse aus\./);
 });
