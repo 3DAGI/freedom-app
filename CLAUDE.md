@@ -41,9 +41,9 @@ python3 scripts/smoke_test.py packages/app/dist         # braucht playwright + c
 bash scripts/build-site.sh /tmp/site                     # Website bauen (Ziel wird gelöscht!)
 ```
 
-Stand 26.09.2026 (nach 8.6c): protocol 1127 grün (6 übersprungen), node 226 grün
+Stand 26.09.2026 (nach 8.1a): protocol 1127 grün (6 übersprungen), node 226 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 343 grün, Leak-Tests 49 grün + 2 `todo` (heutige Lecks,
+in `tools.test.ts`), app 350 grün, Leak-Tests 49 grün + 2 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
 Ausnahme: gesendete SOL-Zahlungen von frischen Adressen, eine bewusste Grenze
 nach Entscheidung 4.9 A – im Datenschutzbericht unter „Bewusste Grenzen“).
@@ -288,3 +288,8 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   Geräteschlüssel); `alsGeraet()` sperrt, was der Hauptidentität gehört
   (`nurHauptidentitaet()`). Die Person kommt nur aus dem Gerätecode
   (`freedom.geraet.person`), nie aus einer Vollmacht vom Relay.
+- **Merkphrase nur bis zur Bestätigung und nur über `geheim`** (seit 8.1a):
+  `LS_MERKPHRASE` (`freedom.merkphrase`) steht in `GEHEIM_FEST` und
+  `SICHERUNG_NIE`; nach der Bestätigung `geheim.removeItem()`. Die Führung
+  zeigt nur, was stimmt: keine erfundenen Zähler (Gratis-Tarif entscheidet der
+  Provider), „Merkphrase anzeigen“ nur, wenn sie noch auf dem Gerät liegt.

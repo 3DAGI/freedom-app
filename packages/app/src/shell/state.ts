@@ -22,6 +22,11 @@ import { $, toast } from "./ui.js";
 export const LS_KEY = "freedom.nsec";
 /** Bunker-Sitzung (Schritt 1.3f): Signer, Relays, Client-Schluessel – ein Geheimnis. */
 export const LS_BUNKER = "freedom.bunker";
+/**
+ * Merkphrase bis zur Bestaetigung (8.1a): Wer „spaeter“ waehlt, soll sie spaeter
+ * noch sehen koennen. Ein Geheimnis wie der Schluessel, danach geloescht.
+ */
+export const LS_MERKPHRASE = "freedom.merkphrase";
 
 // ------------------------------------------------------------- State
 
