@@ -8,7 +8,7 @@
  * auch nach einem Neustart lesbar ist, merkt sich die App diesen Schlüssel für
  * die Reklamation – nur im Tresor (`geheim`), höchstens 30 Tage.
  */
-import type { DisputeReason, Resolution } from "@freedomstack/protocol";
+import { KIND_JOB_DISPUTE, type Dispute, type DisputeReason, type Resolution, type UnsignedEvent, parseDispute } from "@freedomstack/protocol";
 
 /** Eigene Reklamationen samt Sitzungsschlüssel – liegt nur im Tresor. */
 export const LS_REKLAMATIONEN = "freedom.reklamationen";
@@ -99,4 +99,38 @@ export function reklamationText(r: EigeneReklamation): string {
   if (!r.urteil) return `wartet auf das Urteil von ${r.prueferName}`;
   const betrag = r.urteil.erstattungMsat > 0 ? ` – ${Math.floor(r.urteil.erstattungMsat / 1000)} sats zurück` : "";
   return `${r.prueferName} ${WAS[r.urteil.ergebnis]}${betrag}. Das gilt nur zwischen dir und dem Provider; erstatten muss er selbst.`;
+}
+
+// ------------------------------------------------------------ als Pruefer (5.6c)
+
+/** Beantwortete Pruefauftraege (nur IDs der Reklamationen – nichts vom Inhalt). */
+export const LS_PRUEFUNGEN_ERLEDIGT = "freedom.pruefungen.erledigt";
+
+/**
+ * Ist dieser Kern ein Pruefauftrag an mich? Nur eine Reklamation, die mich als
+ * Pruefer nennt – sonst urteile ich ueber etwas, das niemand von mir wollte.
+ */
+export function pruefauftragAus(kern: UnsignedEvent & { id: string }, ich: string): (Dispute & { id: string }) | null {
+  if (kern.kind !== KIND_JOB_DISPUTE) return null;
+  try {
+    const d = parseDispute({ ...kern, sig: "" });
+    if (!d.pruefer.includes(ich) || !HEX64.test(d.jobId) || !HEX64.test(d.providerPubkey) || !ganz(d.amountMsat)) return null;
+    return { ...d, id: kern.id };
+  } catch {
+    return null;
+  }
+}
+
+/** Was bei welchem Urteil zurueckgeht – wie `resolveDispute()` es rechnet. */
+export function erstattungFuer(ergebnis: Resolution, betragMsat: number): number {
+  return ergebnis === "erstattet" ? betragMsat : ergebnis === "geteilt" ? Math.floor(betragMsat / 2) : 0;
+}
+
+export function leseErledigt(roh: string | null): string[] {
+  try {
+    const l = JSON.parse(roh ?? "[]") as unknown;
+    return Array.isArray(l) ? l.filter((x): x is string => typeof x === "string" && HEX64.test(x)).slice(-200) : [];
+  } catch {
+    return [];
+  }
 }

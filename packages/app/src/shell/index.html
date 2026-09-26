@@ -66,7 +66,11 @@
             <button id="agent-new" class="btn-primary agent-new" type="button">
               <span class="ic" data-icon="plus"></span> Neue Aufgabe</button>
             <div class="seg" role="tablist" data-subtab-group="agent"><button role="tab" data-subtab="tasks" class="active">Aufgaben</button><button role="tab" data-subtab="models">Modelle</button><button role="tab" data-subtab="repos">Repos</button></div>
-            <div class="subpane active" data-subpane="agent:tasks"><div id="reklamationen" class="card hidden">
+            <div class="subpane active" data-subpane="agent:tasks"><div id="pruefauftraege" class="card hidden">
+          <h3><span class="ic" data-icon="shield"></span> Prüfaufträge</h3>
+          <p class="mono-sm">Jemand aus deinem Netz hat dich als Prüfer einer Reklamation genannt. Dein Urteil geht versiegelt nur an den Kunden und den Provider und gilt nur zwischen ihnen – eine Erstattung zahlt der Provider selbst.</p>
+          <div id="pruefauftraege-liste" class="mono-sm"></div>
+        </div><div id="reklamationen" class="card hidden">
           <h3><span class="ic" data-icon="shield"></span> Deine Reklamationen</h3>
           <p class="mono-sm">Den Prüfer hast du aus deinem Netz gewählt. Sein Urteil gilt nur zwischen dir und dem Provider – erstatten muss der Provider selbst.</p>
           <div id="reklamationen-liste" class="mono-sm"></div>

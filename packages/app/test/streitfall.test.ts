@@ -7,12 +7,13 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
-  LocalSigner, SICHERUNG_EINTRAEGE, SICHERUNG_NIE, buildDispute, buildResolution, buildPrivateUrteil, generateKeypair, openPrivateUrteil,
+  LocalSigner, SICHERUNG_EINTRAEGE, SICHERUNG_NIE, buildDispute, computeEventId, buildResolution, buildPrivateUrteil, generateKeypair, openPrivateUrteil,
   parseDispute, resolveDispute, signEvent, toHex,
 } from "@freedomstack/protocol";
 import { KiSitzungen } from "../src/ki-sitzung.js";
 import {
-  LS_REKLAMATIONEN, REKLAMATION_AUFBEWAHREN_SECS, type EigeneReklamation, leseReklamationen, mitReklamation, prueferAusNetz, reklamationText,
+  LS_PRUEFUNGEN_ERLEDIGT, LS_REKLAMATIONEN, REKLAMATION_AUFBEWAHREN_SECS, type EigeneReklamation, erstattungFuer, leseErledigt,
+  leseReklamationen, mitReklamation, prueferAusNetz, pruefauftragAus, reklamationText,
 } from "../src/streitfall.js";
 
 const pk = (c: string) => c.repeat(64);
@@ -108,4 +109,42 @@ test("5.6b verdrahtet: Pruefer aus dem Netz, Material nur mit Zustimmung, Schlue
   assert.match(app, /starteStreitfall\(\);/);
   const html = readFileSync(new URL("../src/shell/index.html", import.meta.url), "utf8");
   assert.match(html, /<div id="reklamationen" class="card hidden">/);
+});
+
+// ------------------------------------------------------------ als Pruefer (5.6c)
+
+test("5.6c: ein Pruefauftrag ist nur eine Reklamation, die mich nennt", () => {
+  const ich = generateKeypair().pk, anderer = generateKeypair().pk, sitzung = generateKeypair().pk, provider = generateKeypair().pk;
+  const kern = (pruefer: string[], jobId = pk("1")) => {
+    const u = buildDispute({ jobId, customerPubkey: sitzung, providerPubkey: provider, reason: "falsches_modell", amountMsat: 21_000, note: "n", pruefer, material: { frage: "F", antwort: "A" } });
+    return { ...u, id: computeEventId(u) };
+  };
+  const d = pruefauftragAus(kern([ich]), ich)!;
+  assert.deepEqual([d.jobId, d.reason, d.amountMsat, d.material], [pk("1"), "falsches_modell", 21_000, { frage: "F", antwort: "A" }]);
+  assert.equal(d.id, kern([ich]).id);
+  assert.equal(pruefauftragAus(kern([anderer]), ich), null, "nennt mich nicht");
+  assert.equal(pruefauftragAus(kern([]), ich), null);
+  assert.equal(pruefauftragAus(kern([ich], "keine-hex-id"), ich), null);
+  assert.equal(pruefauftragAus({ ...kern([ich]), kind: 1 }, ich), null);
+});
+
+test("5.6c: Erstattung wie resolveDispute – und beantwortete Auftraege nur als IDs", () => {
+  assert.deepEqual((["erstattet", "bestaetigt", "geteilt", "unentschieden"] as const).map((e) => erstattungFuer(e, 21_001)), [21_001, 0, 10_500, 0]);
+  assert.deepEqual(leseErledigt(JSON.stringify([pk("a"), "x", 3, pk("b")])), [pk("a"), pk("b")]);
+  assert.deepEqual(leseErledigt("kaputt"), []);
+  assert.equal(LS_PRUEFUNGEN_ERLEDIGT, "freedom.pruefungen.erledigt");
+});
+
+test("5.6c verdrahtet: Posteingang reicht Pruefauftraege weiter, Urteil versiegelt an Sitzung und Provider, Inhalt nur im Speicher", () => {
+  const kom = readFileSync(new URL("../src/shell/tabs/kommunikation.ts", import.meta.url), "utf8");
+  assert.match(kom, /\?\? \(await alsNachfolge\(w\)\) \?\? \(await alsPruefauftrag\(w\)\);/);
+  const ui = readFileSync(new URL("../src/shell/pruefauftraege-ui.ts", import.meta.url), "utf8");
+  assert.match(ui, /const d = pruefauftragAus\(r\.request, signer\.publicKey\(\)\);/);
+  assert.match(ui, /if \(!signer \|\| alsGeraet\(\)\) return null;/, "als Geraet nicht – der Auftrag nennt die Person");
+  assert.match(ui, /buildPrivateUrteil\(\{\s*urteil, prueferSigner: signer, kundePk: d\.customerPubkey, providerPk: d\.providerPubkey,/);
+  assert.doesNotMatch(ui, /innerHTML/);
+  assert.doesNotMatch(ui, /geheim\./, "Inhalt nur im Speicher");
+  assert.deepEqual([...ui.matchAll(/localStorage\.setItem\(([^,]+),/g)].map((m) => m[1]), ["LS_PRUEFUNGEN_ERLEDIGT"], "gemerkt nur die IDs");
+  const html = readFileSync(new URL("../src/shell/index.html", import.meta.url), "utf8");
+  assert.match(html, /<div id="pruefauftraege" class="card hidden">/);
 });

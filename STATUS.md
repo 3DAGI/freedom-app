@@ -5677,3 +5677,52 @@ Material, Zustellung).
 Endstand: protocol 1148 (+ 6 übersprungen) · node 239 (+ 7 übersprungen ohne
 Netz) · app 371 · mls 9 · Leak-Tests 50 grün + 2 todo · 0 rot · check-wiring
 `--streng` 0 offen · innerHTML streng 0 unbewertet · Smoke-Test bestanden.
+
+## Schritt 5.6c – Streitfall-Prüfer subjektiv, Teil c: der Prüfer urteilt
+
+**Prüfaufträge** (`shell/pruefauftraege-ui.ts`, Logik in `app/src/streitfall.ts`):
+- Der Posteingang reicht Umschläge, die keine Direktnachricht sind, an
+  `alsPruefauftrag()` weiter – nach Trinkgeld, Adress-Anfrage und Nachfolge,
+  aus dem schon geöffneten Abgleich (`tabs/kommunikation.ts`), also ohne
+  zweiten Posteingang. Es zählt nur eine Reklamation, die mich als Prüfer
+  nennt (`pruefauftragAus()`).
+- Karte „Prüfaufträge“ (Agent → Aufgaben): Grund, Betrag, Provider, Notiz und –
+  wenn der Kunde zugestimmt hat – Frage und Antwort zum Aufklappen. Der Kunde
+  bleibt anonym (Sitzungsschlüssel).
+- Vier Urteile: Kunde hat recht, Provider hat recht, teilen, kann ich nicht
+  beurteilen – mit kurzer Begründung. Die Erstattung rechnet
+  `erstattungFuer()` wie `resolveDispute()`. Das Urteil geht versiegelt an den
+  Sitzungsschlüssel des Kunden und an den Provider (mit der Rechenarbeit aus
+  dessen Angebot) – sonst an niemanden.
+- Der Inhalt bleibt nur im Speicher (Klartext aus einem fremden Auftrag);
+  nach dem Neuladen holt ihn der Posteingang wieder. Gemerkt werden nur die
+  IDs beantworteter Aufträge (`freedom.pruefungen.erledigt`).
+- Als Gerät gesperrt: Der Auftrag nennt die Person, nicht das Gerät.
+
+**Texte:** Der Datenschutz-Satz „ki-reklamation“ nennt jetzt auch das
+versiegelte Urteil („sein Urteil geht ebenso versiegelt nur an dich und den
+Provider“); das Szenario prüft es seit 5.6a.
+
+**Browser-Prüfung** (zwei Browser, Test-Relay): Eine versiegelte Reklamation
+nennt B als Prüfer, mit Frage und Antwort. B sieht den Prüfauftrag („Antwort
+unbrauchbar · 21 sats“, Notiz, Frage und Antwort) und urteilt „Kunde hat
+recht“. Auf dem Relay landen Umschläge nur an den Sitzungsschlüssel und den
+Provider, ohne Klartext; lokal liegt nichts vom Inhalt; nach dem Neuladen ist
+der Auftrag erledigt. A (mit der gemerkten Reklamation) sieht „Bernd gibt dir
+recht – 21 sats zurück“. Keine Seitenfehler.
+
+**Fund:** Die CI von #96 war rot: `check-wiring.py --streng` meldet eine
+veraltete Ausnahme (`resolveDispute`, seit 5.6b verdrahtet) und endet mit 1,
+obwohl die Zusammenfassung „0 offen“ sagt – lokal war nur die letzte Zeile
+gelesen worden. Behoben in #96, Fallstrick in CLAUDE.md. Hier ebenso:
+`buildResolution` ist verdrahtet, seine Ausnahme entfernt; die übrigen drei
+betreffen nur noch die Relay-Rolle (8.4).
+
+**Tests:** app +3 (Prüfauftrag nur, wenn er mich nennt; Erstattung und
+erledigte IDs; Verdrahtung – Inhalt nur im Speicher, Urteil an Sitzung und
+Provider). Die Verdrahtungs-Prüfung des Trinkgeld-Belegs (4.7b) kennt die
+längere Kette im Posteingang.
+
+Endstand: protocol 1148 (+ 6 übersprungen) · node 239 (+ 7 übersprungen ohne
+Netz) · app 374 · mls 9 · Leak-Tests 50 grün + 2 todo · 0 rot · check-wiring
+`--streng` 0 offen, Exit 0 · innerHTML streng 0 unbewertet · Smoke-Test bestanden.
