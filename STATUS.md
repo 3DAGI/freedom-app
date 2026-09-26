@@ -4813,3 +4813,61 @@ Werkzeuge, Preise).
 Endstand: protocol 1117 (+ 6 übersprungen) · node 225 (+ 7 übersprungen ohne
 Netz) · app 332 · Leak-Tests 48 grün + 2 todo · 0 rot · check-wiring `--streng`
 0 offen · innerHTML streng 0 unbewertet · Smoke-Test bestanden.
+
+## Schritt 8.6a – Geräte und Schlüsselwechsel, Teil a: Diebstahl-Wechsel
+
+**Entscheidungen MENSCH (26.09.2026):** Das Mandat wird nicht mehr ersetzbar,
+die Apps der Kontakte merken sich das erste Mandat, das sie sehen. Geräte:
+Absender versiegeln an jedes Gerät des Empfängers (Teile b und c).
+
+**Fund, zweifach:** (1) Das Mandat (38067) hatte den festen d-Tag „rotation“ –
+ein ersetzbares Event. Ein Dieb mit dem alten Schlüssel konnte es auf den
+Relays durch sein eigenes ersetzen. (2) „Das früheste Mandat gewinnt“
+vertraute dem `created_at`, das der Absender selbst setzt – ein Dieb konnte
+seines zurückdatieren. Dazu wertete keine App Widerrufe aus: Der vorbereitete
+Wechsel hatte bei Kontakten keine Wirkung.
+
+**Protokoll** (`key-rotation.ts`): Mandate haben eine eigene Adresse je
+Nachfolger (`rotation:<neu>`), ein zweites ersetzt das erste nicht mehr.
+`merkeMandate()` merkt je altem Schlüssel das zuerst gesehene Mandat;
+`resolveKey(…, { gemerkt })` nimmt dieses statt des ältesten Zeitstempels –
+auch wenn die Relays es inzwischen nicht mehr liefern. Der Hinweistext nennt
+die Grenze: Wer das Mandat vor dem Diebstahl nie gesehen hat, kann auf ein
+zurückdatiertes hereinfallen, bis es Zeitzeugen gibt (5.10).
+
+**App:** Beim Abgleich des Posteingangs (`kommunikation.ts:1038`) lädt die App
+Mandate und Widerrufe ihrer Kontakte, merkt neue Mandate (`freedom.mandate`,
+Tresor und Sicherung) und leitet den Stand ab (`schluessel-status.ts`).
+Gestohlene, abgelöste oder streitige Schlüssel bekommen ein ⚠ in der Liste
+und einen Hinweis über dem Verlauf (`kommunikation.ts:1085`) mit „zum neuen
+Schlüssel wechseln“ – die Unterhaltung geht mit dem Nachfolger weiter, die alte
+bleibt markiert stehen. Nachrichten des alten Schlüssels nach dem gemeldeten
+Diebstahl tragen „⚠ vielleicht nicht von dieser Person“ (`:1183`, statisches
+Markup, begründete innerHTML-Ausnahme). Der Widerruf in den Settings
+(`settings.ts:278`) prüft die Eingaben – der Ersatzschlüssel war ungeprüft an
+`fromHex` gegangen – und sendet nur, wenn ein Mandat genau diesen Ersatz nennt;
+der rohe Schlüssel wird danach genullt.
+
+**Browser-E2E** (drei Geräte, vorgetäuschtes Relay): A bereitet vor (Mandat
+mit eigener Adresse, Ersatzschlüssel als Datei), B legt A als Kontakt an und
+merkt das Mandat. Ein Dieb stellt mit A's Schlüssel ein auf 2020
+zurückdatiertes Mandat auf sich aus, widerruft selbst und schreibt B „Bitte
+schick mir sofort 0,5 SOL“. A widerruft mit dem Ersatzschlüssel (Diebstahl seit
+gestern). B sieht ⚠ und den Hinweis „gilt als gestohlen“, der Wechsel zeigt
+den **echten** Nachfolger, die Geld-Nachricht ist markiert; B wechselt und
+schreibt dem neuen Schlüssel, A2 (neues Gerät mit Ersatzschlüssel) empfängt
+es. Keine Seitenfehler.
+
+**Aufteilung:** a (dieser Teil) Schlüsselwechsel; b Geräte im Protokoll und
+beim Senden (an jedes Gerät versiegeln); c Geräte in der App (Anmelden als
+Gerät, Entzug), E2E mit zwei Geräten. MENSCH: einmal mit einem echten zweiten
+Gerät.
+
+**Tests:** protocol +5 (eigene Adresse, zurückdatiert, merken, Gedächtnis ohne
+Relay, Hinweistext), app +3 (Stand und Markierung, Gedächtnis streng,
+Verdrahtung).
+
+Endstand: protocol 1122 (+ 6 übersprungen) · node 225 (+ 7 übersprungen ohne
+Netz) · app 335 · Leak-Tests 48 grün + 2 todo · 0 rot · check-wiring `--streng`
+0 offen (4 Ausnahmen weniger) · innerHTML streng 0 unbewertet · Smoke-Test
+bestanden · Browser-E2E bestanden.

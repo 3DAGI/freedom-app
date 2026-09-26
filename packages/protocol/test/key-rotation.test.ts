@@ -10,7 +10,7 @@ import assert from "node:assert/strict";
 import { generateKeypair, signEvent, buildEvent, NostrEvent } from "../src/event.js";
 import {
   buildRotationMandate, parseRotationMandate, buildRevocation, parseRevocation,
-  resolveKey, trustEvent, rotationWarning, revocationInstructions,
+  resolveKey, trustEvent, rotationWarning, revocationInstructions, merkeMandate,
   KIND_ROTATION_MANDATE,
 } from "../src/key-rotation.js";
 
@@ -185,4 +185,51 @@ test("Die Anleitung nennt, was der Widerruf NICHT kann", () => {
   assert.match(t, /NICHT kann/);
   assert.match(t, /bleiben auf den Relays/);
   assert.match(t, /Clients, die ihn sehen/);
+});
+
+// ------------------------------------------------ 8.6a: Ueberschreiben, Zurueckdatieren
+
+test("8.6a: jedes Mandat hat seine eigene Adresse – das des Diebs ersetzt das echte nicht", () => {
+  const echt = mandat(ALT, NEU.pk, NOW - 100 * TAG);
+  const dieb = mandat(ALT, DIEB.pk, NOW);
+  const d = (ev: NostrEvent) => ev.tags.find((t) => t[0] === "d")?.[1];
+  assert.equal(d(echt), `rotation:${NEU.pk}`);
+  assert.notEqual(d(echt), d(dieb), "verschiedene Adressen – ein Relay behaelt beide");
+});
+
+test("8.6a: ZURUECKDATIERT – das zuerst gesehene Mandat gewinnt, nicht der aelteste Zeitstempel", () => {
+  const echt = mandat(ALT, NEU.pk, NOW - 10 * TAG);
+  // Die App des Kontakts sieht das echte Mandat …
+  const { gemerkt } = merkeMandate({}, [echt], NOW - 9 * TAG);
+  assert.deepEqual(gemerkt[ALT.pk], { neu: NEU.pk, gesehen: NOW - 9 * TAG });
+  // … spaeter stellt der Dieb ein auf 2020 zurueckdatiertes aus und widerruft zuerst
+  const dieb = mandat(ALT, DIEB.pk, 1_577_836_800);
+  const nochmal = merkeMandate(gemerkt, [echt, dieb], NOW);
+  assert.equal(nochmal.neu, false, "nichts Neues gemerkt");
+  const events = [echt, dieb, widerruf(DIEB, ALT.pk, "gestohlen", NOW + 10), widerruf(NEU, ALT.pk, "gestohlen", NOW + 20)];
+  assert.equal(resolveKey(ALT.pk, events, { gemerkt }).currentPubkey, NEU.pk, "mit Gedaechtnis: der echte Nachfolger");
+  // Die Grenze, ehrlich: wer das echte nie sah, faellt auf den zurueckdatierten herein (bis 5.10)
+  assert.equal(resolveKey(ALT.pk, events).currentPubkey, DIEB.pk);
+});
+
+test("8.6a: ohne gemerktes Mandat bleibt es beim aeltesten; merken nimmt je Schluessel eines", () => {
+  const a = mandat(ALT, NEU.pk, NOW - 5);
+  const b = mandat(ALT, DIEB.pk, NOW);
+  const { gemerkt, neu } = merkeMandate({}, [b, a], NOW);
+  assert.equal(neu, true);
+  assert.equal(gemerkt[ALT.pk]!.neu, NEU.pk);
+  assert.deepEqual(merkeMandate(gemerkt, [], NOW + 1).gemerkt, gemerkt);
+});
+
+test("8.6a: ein gemerktes Mandat gilt auch, wenn die Relays es nicht mehr liefern", () => {
+  const { gemerkt } = merkeMandate({}, [mandat(ALT, NEU.pk, NOW - 10 * TAG)], NOW - 9 * TAG);
+  const st = resolveKey(ALT.pk, [widerruf(NEU, ALT.pk, "gestohlen", NOW, NOW - TAG)], { gemerkt });
+  assert.equal(st.status, "widerrufen");
+  assert.equal(st.currentPubkey, NEU.pk);
+  assert.equal(resolveKey(ALT.pk, [widerruf(NEU, ALT.pk, "gestohlen", NOW)]).status, "gueltig", "ohne Mandat kein Widerruf");
+});
+
+test("8.6a: die Warnung nennt die Grenze des Merkens", () => {
+  assert.match(rotationWarning(), /merken sich diese Erklärung/);
+  assert.match(rotationWarning(), /zurückdatierte des Diebs/);
 });

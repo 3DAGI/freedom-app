@@ -269,37 +269,59 @@ async function bereiteWechselVor(): Promise<void> {
   }
 }
 
-/** Gestohlenen Schluessel widerrufen. */
+/**
+ * Gestohlenen Schluessel widerrufen – mit dem Ersatzschluessel aus der
+ * Vorbereitung. Seit 8.6a werden die Eingaben geprueft (Hex vor fromHex) und
+ * es wird nur widerrufen, wenn auf den Relays ein Mandat genau diesen Ersatz
+ * nennt; sonst erkennt kein Kontakt den Widerruf an.
+ */
 async function widerrufeSchluessel(): Promise<void> {
-  const { revocationInstructions, buildRevocation, signEvent: se, fromHex } =
+  const { revocationInstructions, buildRevocation, signEvent: se, fromHex, parseRotationMandate, KIND_ROTATION_MANDATE, toHex: th } =
     await import("@freedomstack/protocol");
   if (!confirm(revocationInstructions())) return;
 
-  const alt = prompt("Welcher Schlüssel wurde gestohlen? (öffentlicher Schlüssel)");
-  if (!alt?.trim()) return;
-  const ersatzHex = prompt("Privater Ersatzschlüssel aus deiner Vorbereitung:");
-  if (!ersatzHex?.trim()) return;
+  let alt = prompt("Welcher Schlüssel wurde gestohlen? (öffentlicher Schlüssel, npub oder hex)", state.keypair?.pk ?? "")?.trim() ?? "";
+  if (!alt) return;
+  if (alt.startsWith("npub1")) {
+    try {
+      const { decodeNpub } = await import("../../identity.js");
+      alt = decodeNpub(alt);
+    } catch { alt = ""; }
+  }
+  alt = alt.toLowerCase();
+  if (!/^[0-9a-f]{64}$/.test(alt)) { toast("Kein gültiger öffentlicher Schlüssel", true); return; }
+  const ersatzHex = prompt("Privater Ersatzschlüssel aus deiner Vorbereitung (64 Zeichen hex):")?.trim().toLowerCase() ?? "";
+  if (!ersatzHex) return;
+  if (!/^[0-9a-f]{64}$/.test(ersatzHex)) { toast("Der Ersatzschlüssel muss 64 Zeichen hex sein", true); return; }
   const seit = prompt(
     "Seit wann vermutest du den Diebstahl? (JJJJ-MM-TT)\n" +
     "Lieber zu früh ansetzen — alles danach gilt als unglaubwürdig.",
   );
+  const seitUnix = seit?.trim() ? Math.floor(new Date(seit.trim()).getTime() / 1000) : undefined;
+  if (seit?.trim() && !Number.isFinite(seitUnix)) { toast("Datum nicht lesbar (JJJJ-MM-TT)", true); return; }
 
+  const sk = fromHex(ersatzHex);
   try {
     const { schnorr } = await import("@noble/curves/secp256k1.js");
-    const sk = fromHex(ersatzHex.trim());
-    const pk = Array.from(schnorr.getPublicKey(sk))
-      .map((b) => b.toString(16).padStart(2, "0")).join("");
-
-    const seitUnix = seit ? Math.floor(new Date(seit).getTime() / 1000) : undefined;
-    await (await ensurePool()).publish(se(buildRevocation({
-      oldPubkey: alt.trim(), newPubkey: pk, reason: "gestohlen",
-      compromisedSince: Number.isFinite(seitUnix) ? seitUnix : undefined,
+    const pk = th(schnorr.getPublicKey(sk));
+    const pool = await ensurePool();
+    const mandate = await pool.query({ kinds: [KIND_ROTATION_MANDATE], authors: [alt], limit: 50 });
+    const passt = mandate.some((ev) => { try { return parseRotationMandate(ev).newPubkey === pk; } catch { return false; } });
+    if (!passt) {
+      toast("Kein Mandat nennt diesen Ersatzschlüssel – Kontakte würden den Widerruf nicht anerkennen. Nichts gesendet.", true);
+      return;
+    }
+    await pool.publish(se(buildRevocation({
+      oldPubkey: alt, newPubkey: pk, reason: "gestohlen",
+      compromisedSince: seitUnix,
       note: "Schlüssel kompromittiert.",
     }), sk));
 
-    toast("Widerrufen — informiere deine Kontakte zusätzlich direkt");
+    toast("Widerrufen — melde dich mit dem Ersatzschlüssel an (Identität importieren) und sag es deinen Kontakten zusätzlich direkt");
   } catch (e) {
     toast((e as Error).message, true);
+  } finally {
+    sk.fill(0);
   }
 }
 

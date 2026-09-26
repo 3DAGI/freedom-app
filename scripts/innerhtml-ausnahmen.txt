@@ -65,6 +65,7 @@ agent.ts|(Zuweisung) tools.map((x) => `<div class="panel-row"> <span class="pane
 kommunikation.ts|(Zuweisung) conversations .sort((a, b) => b.lastTs - a.lastTs) .map( (c) => `<div class="chat-item ${c.id === activeConversation ? "|Callback: Template mit escapeHtml(c.id) und escapeHtml(c.name)
 kommunikation.ts|(Zuweisung) decrypted .sort((a, b) => a.created_at - b.created_at) .map((ev) => { const mine = ev.pubkey === state.keypair!.pk; let |Callback: Templates mit escapeHtml; alt, zapBtn, body, media siehe folgende Zeilen
 kommunikation.ts|alt|festes Markup oder leer
+kommunikation.ts|diebstahl|festes Markup oder leer (Warnung nach Schlüsseldiebstahl, 8.6a)
 kommunikation.ts|zapBtn|Template mit escapeHtml(ev.pubkey) und escapeHtml(pkShort(ev.pubkey))
 kommunikation.ts|body|body = escapeHtml(text)
 kommunikation.ts|media|renderAttachment() maskiert Name und URL und erlaubt nur sichere Schemata (shell-logic.ts)

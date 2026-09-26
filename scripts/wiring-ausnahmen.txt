@@ -100,11 +100,6 @@ group-crypto.ts|planRotation|verschlüsselte Kanäle mit Schlüsselwechsel, ohne
 http-auth.ts|btoaBase64|NIP-98-Anmeldung auf Client-Seite, noch ohne Speicher-Client (Speicher, 8.9)
 http-auth.ts|buildHttpAuth|NIP-98-Anmeldung auf Client-Seite, noch ohne Speicher-Client (Speicher, 8.9)
 
-key-rotation.ts|parseRevocation|Schlüsselwechsel nach Diebstahl, noch nicht angebunden (Geräte und Schlüsselwechsel, 8.6)
-key-rotation.ts|parseRotationMandate|Schlüsselwechsel nach Diebstahl, noch nicht angebunden (Geräte und Schlüsselwechsel, 8.6)
-key-rotation.ts|resolveKey|Schlüsselwechsel nach Diebstahl, noch nicht angebunden (Geräte und Schlüsselwechsel, 8.6)
-key-rotation.ts|trustEvent|Schlüsselwechsel nach Diebstahl, noch nicht angebunden (Geräte und Schlüsselwechsel, 8.6)
-
 leak-rules.ts|regelAutorNicht|Prüfregeln der Leak-Tests, gehören in die Tests (1.5)
 leak-rules.ts|regelKeinBolt11|Prüfregeln der Leak-Tests, gehören in die Tests (1.5)
 leak-rules.ts|regelKeineSolAdresse|Prüfregeln der Leak-Tests, gehören in die Tests (1.5)
