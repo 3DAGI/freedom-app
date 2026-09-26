@@ -5173,6 +5173,70 @@ ohne Stufen. Einzelheiten in `docs/GEBUEHREN-ENTSCHEIDUNG.md`; Karten 4.0 und
 **2.2b:** „eingebettet“ mit den gemessenen Zahlen bestätigt (App etwa 6,3 MB
 statt der geschätzten 4,1 MB).
 
+## Schritt 8.3a – Liquiditätsgeber, Teil a: Macaroon geprüft, Ablauf der Hinrichtung
+
+**Karte veraltet:** Sie nennt „Tests (bisher keine)“. Seit 4.6/4.9 gibt es
+Tests für Hinrichtung, Gegenrichtung und versiegelte Anfragen; beide
+Richtungen laufen.
+
+**Fund, dreifach, in der Hinrichtung (sats → SOL):**
+1. Löste der Kunde bis zur Frist nicht ein, holte der LP seine SOL nie zurück
+   – `refund()` wurde nirgends aufgerufen, die Hold-Invoice blieb stehen.
+2. Die Sitzungen lagen nur im Speicher: Ein Neustart vergaß jede Sperre.
+3. Die Frist kam aus `Date.now()` statt aus der Uhr des Daemons.
+
+Die Anleitung für eine eingeschränkte Macaroon stand schon in `docs/SWAPS.md`;
+geprüft wurde nichts, die Fehlermeldung verlangte sogar „Pfad zum
+admin.macaroon“.
+
+**Macaroon** (`protocol/src/lnd-macaroon.ts`):
+- `macaroonRechte()` liest die Rechte ohne LND aus der Macaroon: Binärformat
+  v2, darin die LND-Kennung (Version 3 + Protobuf `ops`).
+- `pruefeLpMacaroon()` lässt genau `invoices:read/write` und
+  `offchain:read/write` zu (`info:read` darf dabei sein) und nennt, was zu viel
+  ist oder fehlt.
+- Der Knoten startet den LP nur damit (`main.ts:464`); mit admin.macaroon
+  bricht er ab.
+- Der falsche Kommentar im LND-Adapter („settle braucht admin“) ist berichtigt.
+
+**Ablauf der Hinrichtung** (`lp-daemon.ts`):
+- Jede Sitzung wird abgelegt, **bevor** gesperrt wird: `SPERRT`, dann
+  `SOL_LOCKED`, dann `INVOICE_CREATED`, mit Swap-ID, Frist und Empfänger. Die
+  Ablage ist `~/.freedom/lp-hin.json`, nur für den Nutzer lesbar (`main.ts:524`).
+- `holeAbgelaufeneZurueck()` (`:473`, in der Hauptschleife `main.ts:793`)
+  läuft nach der Frist plus zwei Minuten Puffer:
+  - Hat der Kunde eingelöst, wird abgerechnet, auch wenn der LP zwischendurch
+    aus war.
+  - Sonst holt der LP eine offene Sperre zurück und bricht **danach** die
+    Hold-Invoice ab; eine bezahlte geht so an den Kunden zurück. Ein früher
+    Abbruch hätte dem Kunden die SOL geschenkt.
+  - Eine Sperre ohne Rechnung wird ebenso zurückgeholt; eine gescheiterte
+    Sperre gilt als `FAILED`.
+  - Ist die Sperre eingelöst oder ihr Konto schon geschlossen, das Preimage
+    aber noch nicht lesbar, bricht er nie ab. Beim echten Programm schließt das
+    Einlösen das Konto; ein Abbruch hätte dem Kunden SOL und sats gelassen. Er
+    sucht weiter und gibt erst nach dem Ende der Hold-Invoice auf.
+  - Fehler (Kette nicht erreichbar) versucht er in der nächsten Runde erneut.
+
+**Tests:** protocol +4 (Rechte lesen, admin abgelehnt, jedes Recht zu viel oder
+fehlend, Unlesbares), node +8:
+- nie bezahlt;
+- bezahlt, nicht eingelöst (Reihenfolge Rückholen vor Abbrechen, beide
+  bekommen ihr Geld);
+- eingelöst während der LP aus war;
+- Neustart;
+- Sperre ohne Rechnung und gescheiterte Sperre;
+- Konto geschlossen, Preimage erst später lesbar – nie abgebrochen;
+- Rückholung scheitert einmal;
+- Verdrahtung.
+
+**Offen (8.3b):** Abnahme-Lauf gegen echtes Devnet und Testnet in beiden
+Richtungen inklusive Ablauf. MENSCH: Testnet-Knoten.
+
+Endstand: protocol 1131 (+ 6 übersprungen) · node 233 (+ 7 übersprungen ohne
+Netz) · app 355 · Leak-Tests 49 grün + 2 todo · 0 rot · check-wiring `--streng`
+0 offen · innerHTML streng 0 unbewertet · Smoke-Test bestanden.
+
 ## Schritt 2.2b-a – MLS-Baustein: MDK als WASM
 
 **Ergebnis:** `packages/mls` – die Marmot-Engine von MDK (`cgka-engine`) samt

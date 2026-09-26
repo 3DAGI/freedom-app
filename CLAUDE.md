@@ -43,7 +43,7 @@ bash scripts/build-site.sh /tmp/site                     # Website bauen (Ziel w
 bash packages/mls/bauen.sh --pruefen                     # nur bei Änderungen an packages/mls: nachbauen + vergleichen (Rust, clang)
 ```
 
-Stand 26.09.2026 (nach 8.1b und 2.2b-a): protocol 1127 grün (6 übersprungen), node 226 grün
+Stand 26.09.2026 (nach 8.3a und 2.2b-a): protocol 1131 grün (6 übersprungen), node 234 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
 in `tools.test.ts`), app 355 grün, mls 9 grün, Leak-Tests 49 grün + 2 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
@@ -300,6 +300,11 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   aus, statt localStorage selbst zu schreiben – sonst täten Einrichtung und
   Settings Verschiedenes. Öffentliche Verknüpfungen (Werbebeziehung) nur mit
   Zustimmung (`darfWerberNennen()`); Datenschutz-Sätze nur aus `PRIVACY_FACTS`.
+- **LP nur mit eingeschränkter Macaroon und mit Ablage** (seit 8.3a): Der
+  Knoten startet den LP nur nach `pruefeLpMacaroon()` (genau `invoices:*`,
+  `offchain:*`, optional `info:read`). Hinrichtung: erst ablegen
+  (`hinSpeicher`), dann sperren; nach der Frist zuerst die SOL zurückholen,
+  dann die Hold-Invoice abbrechen – nie umgekehrt. Fristen aus `this.jetzt()`.
 - **MLS-Baustein** (seit 2.2b-a, `packages/mls`): `dist/` nie von Hand ändern –
   nur mit `bash packages/mls/bauen.sh` (fester MDK-Stand, `mdk.patch`,
   `Cargo.lock`); die CI baut nach und vergleicht (`mls.yml`). Die Engine sieht

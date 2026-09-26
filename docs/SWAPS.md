@@ -240,6 +240,31 @@ kein `macaroon`: Wer den Daemon übernimmt, kann weder On-Chain-Geld bewegen
 noch Kanäle schließen noch sich weitere Rechte backen. Die Datei gehört nur
 dem Nutzer, unter dem der Daemon läuft (`chmod 600`).
 
+Seit 8.3 prüft der Knoten das beim Start (`pruefeLpMacaroon()`): Er liest die
+Rechte aus der Macaroon selbst (Binärformat v2, Kennung Version 3) und startet
+nur, wenn sie genau `invoices:read/write` und `offchain:read/write` erlaubt
+(`info:read` darf dabei sein). Mit `admin.macaroon` oder einem zusätzlichen
+Recht bricht er mit der Liste ab, was zu viel ist.
+
+## LP-Daemon: Ablauf der Hinrichtung (sats → SOL)
+
+Der LP sperrt SOL für den Kunden und stellt eine Hold-Invoice. Löst der Kunde
+bis zur Frist `T_sol` nicht ein – ob er bezahlt hat oder nicht –, holt der LP
+seine SOL zurück (`holeAbgelaufeneZurueck()`, zwei Minuten Puffer für die Uhr
+der Kette) und bricht **danach** die Hold-Invoice ab; eine bezahlte geht so an
+den Kunden zurück. Die Reihenfolge ist Pflicht: Vor der Rückholung könnte der
+Kunde noch einlösen, ein früher Abbruch schenkte ihm die SOL. Hat der Kunde
+eingelöst, während der LP aus war, rechnet der LP danach ab – die Hold-Invoice
+läuft länger als die Sperre (`validateTimelockOrdering`). Ist die Sperre
+eingelöst oder das Konto schon geschlossen, das Preimage aber noch nicht
+lesbar, bricht der LP **nie** ab (der Kunde hätte sonst SOL und sats), sondern
+sucht weiter und gibt erst nach dem Ende der Hold-Invoice auf.
+
+Sitzungen mit Sperre liegen in `~/.freedom/lp-hin.json` (nur für den Nutzer
+lesbar), abgelegt **bevor** gesperrt wird. Ein Neustart vergisst keine Sperre;
+eine Sperre, zu der die Rechnung scheiterte, wird ebenso nach der Frist
+zurückgeholt.
+
 Einstellungen der Gegenrichtung: `LP_DIRECTION` (`sell-sol` | `buy-sol` |
 `beide`), `LP_MAX_OFFENE_ZAHLUNGEN`, `LP_CLTV_DELTA` (Obergrenze für
 `cltv_limit`), `LP_LAMPORTS_PER_SAT`, `LP_FEE_PPM`. Das SOL-Konto des LP ist
