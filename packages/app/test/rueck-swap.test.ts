@@ -7,11 +7,13 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
-  type LpOffer, generatePreimage, hashlock, toHex, rueckSwapId, rueckSwapLamports, pruefeRueckSwapSperre, fromHex,
+  type LpOffer, LocalSigner, generateKeypair, generatePreimage, hashlock, toHex, rueckSwapId, rueckSwapLamports, pruefeRueckSwapSperre, fromHex,
+  oeffneSwapAnfrage,
 } from "@freedomstack/protocol";
 import {
-  MAX_RUECK_FRIST_SECS, RUECK_PUFFER_SECS, baueRueckAnfrage, istRueckAngebot, leseRueckAntwort, planeRueckSwap, rueckText,
+  MAX_RUECK_FRIST_SECS, RUECK_PUFFER_SECS, istRueckAngebot, leseRueckAntwort, planeRueckSwap, rueckText,
 } from "../src/rueck-swap.js";
+import { rueckAnfrage } from "../src/swap-umschlag.js";
 import { knotenSchluessel, rechnung } from "../../protocol/test/bolt11-hilfe.js";
 
 const JETZT = 1_790_000_000;
@@ -61,12 +63,16 @@ test("Plan: in diesen Faellen wird gar nicht erst gesperrt", () => {
   assert.equal(istRueckAngebot(angebot), true);
 });
 
-test("Anfrage: nur Angebot und Rechnung – keine SOL-Adresse, kein Betrag daneben", () => {
+test("Anfrage: nur Angebot und Rechnung – keine SOL-Adresse, kein Betrag daneben; versiegelt (4.9b)", async () => {
   const bolt11 = rechnung(WALLET, "lnbc100u", generatePreimage());
-  const ev = baueRueckAnfrage("aa".repeat(32), "bb".repeat(32), "lp-1-buy", bolt11, JETZT);
-  assert.equal(ev.kind, 25001);
-  assert.deepEqual(ev.tags, [["p", "bb".repeat(32)], ["offer", "lp-1-buy"], ["bolt11", bolt11]]);
-  assert.equal(ev.pubkey, "aa".repeat(32));
+  const lp = new LocalSigner(generateKeypair().sk);
+  const post = await rueckAnfrage({ lpPk: lp.publicKey(), offerId: "lp-1-buy", bolt11, jetzt: JETZT });
+  assert.ok(!JSON.stringify(post.wrap).includes(bolt11.slice(0, 40)), "Rechnung nicht offen");
+  const ev = await oeffneSwapAnfrage(post.wrap, lp);
+  assert.equal(ev?.kind, 25001);
+  assert.deepEqual(ev?.tags, [["p", lp.publicKey()], ["offer", "lp-1-buy"], ["bolt11", bolt11]]);
+  assert.equal(ev?.pubkey, post.einmal.publicKey(), "vom Wegwerf-Schluessel");
+  assert.equal(ev?.id, post.anfrageId);
 });
 
 test("Antwort: nur bekannte Stati; Text gekuerzt", () => {
@@ -94,7 +100,7 @@ test("Verdrahtung (4.6c): Angebotsliste, Ablauf, Waechter, Deposit", () => {
   assert.match(w, /\(Number\(offer\.feePpm\) \/ 10_000\)\.toFixed\(2\)/, "Gebuehr in Prozent, nicht ppm/100");
   const f = w.slice(w.indexOf("async function startRueckSwap("), w.indexOf("async function warteAufRueckAntwort("));
   // Reihenfolge: planen → merken → sperren → Wegwerf-Schluessel → Anfrage
-  const reihenfolge = ["planeRueckSwap(offer, bolt11", "rememberLock({ kind: \"swap\"", "lockRueckSwap({", "new LocalSigner(generateKeypair().sk)", "baueRueckAnfrage(einmal.publicKey()", ".publish(anfrage)"];
+  const reihenfolge = ["planeRueckSwap(offer, bolt11", "rememberLock({ kind: \"swap\"", "lockRueckSwap({", "rueckAnfrage({ lpPk: lpPubkey, offerId: offer.offerId, bolt11 })", ".publish(post.wrap)"];
   const stellen = reihenfolge.map((x) => f.indexOf(x));
   assert.ok(stellen.every((i) => i >= 0), `alle Schritte vorhanden: ${stellen}`);
   assert.deepEqual([...stellen].sort((a, b) => a - b), stellen, "in dieser Reihenfolge");

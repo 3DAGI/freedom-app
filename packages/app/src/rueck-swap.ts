@@ -7,8 +7,9 @@
  *   2 SOL sperren: Swap-ID `rueckSwapId(Rechnung)`, Empfaenger das SOL-Konto
  *     aus dem Angebot, Betrag `rueckSwapLamports(…)` mit dem Kurs aus dem
  *     Angebot, Frist so lang, dass der LP sein ganzes `cltv_limit` nutzen kann.
- *   3 Erst nach bestaetigter Sperre die Anfrage an den LP (Kind 25001) – von
- *     einem Wegwerf-Schluessel, nicht von der eigenen Identitaet.
+ *   3 Erst nach bestaetigter Sperre die Anfrage an den LP (Kind 25001) –
+ *     versiegelt von einem Wegwerf-Schluessel (`rueckAnfrage()` in
+ *     `swap-umschlag.ts`, seit 4.9b), nicht von der eigenen Identitaet.
  *   4 Antwort lesen: `EINGELOEST` → die sats sind da. Alles andere: die SOL
  *     kommen nach Ablauf der Sperre zurueck (Rueckhol-Waechter).
  *
@@ -16,13 +17,9 @@
  * Frist zurueck; zahlt der LP, kennt er das Preimage erst durch die Zahlung.
  */
 import {
-  type LpOffer, type UnsignedEvent,
-  SLOW_BLOCK_SECS, buildEvent, leseBolt11, rueckSwapId, rueckSwapLamports, validateReverseTimelock,
+  type LpOffer,
+  SLOW_BLOCK_SECS, leseBolt11, rueckSwapId, rueckSwapLamports, validateReverseTimelock,
 } from "@freedomstack/protocol";
-
-/** Ephemere Swap-Signale (wie im LP-Daemon). */
-export const KIND_RUECK_ANFRAGE = 25001;
-export const KIND_RUECK_ANTWORT = 25002;
 
 /** Zeit fuer Bestaetigung der Sperre und Weg der Anfrage zum LP. */
 export const RUECK_PUFFER_SECS = 1800;
@@ -71,11 +68,6 @@ export function planeRueckSwap(o: LpOffer, bolt11: string, sats: number, jetzt: 
     lpSol: o.solAddress,
     timelockUnix: jetzt + frist,
   };
-}
-
-/** Anfrage an den LP (unsigniert; signiert wird mit einem Wegwerf-Schluessel). */
-export function baueRueckAnfrage(von: string, lpPubkey: string, offerId: string, bolt11: string, jetzt: number): UnsignedEvent {
-  return buildEvent(von, KIND_RUECK_ANFRAGE, [["p", lpPubkey], ["offer", offerId], ["bolt11", bolt11]], "", jetzt);
 }
 
 export type RueckStatus = "EINGELOEST" | "GESCHEITERT" | "ZU_SPAET" | "ABGELEHNT";

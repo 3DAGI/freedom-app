@@ -41,9 +41,9 @@ python3 scripts/smoke_test.py packages/app/dist         # braucht playwright + c
 bash scripts/build-site.sh /tmp/site                     # Website bauen (Ziel wird gelöscht!)
 ```
 
-Stand 26.09.2026 (nach 4.9a): protocol 1056 grün (5 übersprungen), node 214 grün
+Stand 26.09.2026 (nach 4.9b): protocol 1056 grün (5 übersprungen), node 214 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 269 grün, Leak-Tests 37 grün + 4 `todo` (heutige Lecks,
+in `tools.test.ts`), app 273 grün, Leak-Tests 41 grün + 2 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test).
 
 ## Arbeitsweise
@@ -210,3 +210,7 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
 - **`fetch` nie als Methode speichern** (`this.f = fetch; this.f(…)`): Im Browser
   wirft das „Illegal invocation“, Node merkt es nicht – so scheiterte bis 4.2b
   jede Abfrage des `RpcPool` in der App. Stattdessen `(i, o) => fetch(i, o)`.
+- **Swap-Anfragen nur versiegelt** (seit 4.9b): über `hinAnfrage()`/`rueckAnfrage()`
+  (`swap-umschlag.ts`) von einem Wegwerf-Schlüssel je Swap, Antworten nur über
+  `swapAntworten()` – nie offen Kind 25001/25002 senden oder lesen, nie mit der
+  eigenen Identität. LPs ohne `["versiegelt", "1"]` nicht anfragen.
