@@ -16,6 +16,8 @@ import { wireEingebauteWallet } from "./eingebaute-wallet.js";
 import { zeigeDatenschutz } from "./datenschutz.js";
 import { nachNotfallLoeschung, wireNotfallLoeschung } from "./notfall.js";
 import { LS_GERAET_PERSON, leseGeraeteCode } from "../geraete-modus.js";
+import { einrichtungOffen, merkphraseNochZeigen } from "../einrichtung.js";
+import { zeigeEinrichtung } from "./einrichtung-ui.js";
 import {
   LS_MERKPHRASE,
   ensurePool,
@@ -150,7 +152,8 @@ async function erzeugeIdentitaetMitPhrase(): Promise<void> {
   await geheim.setItem(LS_MERKPHRASE, id.mnemonic!);
   markHasMnemonic();
   $("#ident").textContent = escrowIdent();
-  await zeigeSicherungsDialog(id.mnemonic!);
+  // Einrichtung (8.1b): zuerst die Merkphrase, dann Schutz, Schiene, private Voreinstellungen
+  await starteEinrichtung(id.mnemonic!);
 }
 
 /**
@@ -159,7 +162,15 @@ async function erzeugeIdentitaetMitPhrase(): Promise<void> {
  * Der Nutzer tippt drei Woerter nach. Ein Haekchen "ich habe gesichert" wuerde
  * nur belegen, dass er das Haekchen gefunden hat.
  */
-async function zeigeSicherungsDialog(mnemonic: string): Promise<void> {
+/** Der offene Sicherungsdialog – aus Einrichtung, Leiste und Erinnerung nie zweimal übereinander (8.1b). */
+let offenerSicherungsDialog: Promise<void> | null = null;
+
+function zeigeSicherungsDialog(mnemonic: string): Promise<void> {
+  offenerSicherungsDialog ??= baueSicherungsDialog(mnemonic).finally(() => { offenerSicherungsDialog = null; });
+  return offenerSicherungsDialog;
+}
+
+async function baueSicherungsDialog(mnemonic: string): Promise<void> {
   const { pickChallengePositions, verifyMnemonicChallenge, markBackupConfirmed, buildBackupFile }
     = await import("../identity.js");
   const { createIdentity: _c, importIdentity: _i } = await import("../identity.js");
@@ -236,6 +247,15 @@ async function zeigeSicherungsDialog(mnemonic: string): Promise<void> {
       resolve();
     });
   });
+}
+
+/** Einrichtung (8.1b) – mit Merkphrase, solange sie noch nicht bestaetigt ist. */
+function starteEinrichtung(merkphrase: string | null): Promise<void> {
+  return zeigeEinrichtung({
+    ...(merkphrase ? { sichern: () => zeigeSicherungsDialog(merkphrase) } : {}),
+    oeffne: (tab) => switchTab(tab),
+    nenneWerber: () => void publishReferralClaim(),
+  }).then(() => zeigeOnboarding());
 }
 
 /** Zeigt die Onboarding-Leiste gerade den Schritt „sichern“? Dann keine zweite Mahnung (8.1a). */
@@ -538,7 +558,11 @@ function setupFlow(): () => void {
     $("#landing")?.classList.add("hidden");
     $("#gate")?.classList.add("hidden");
     $("#app").classList.remove("hidden");
-    checkOnboarding(); // Onboarding-Modal NACH dem App-Eintritt (echtes overlay)
+    // Einrichtung fortsetzen, falls sie beim letzten Mal nicht zu Ende lief (8.1b); eine
+    // neue Identitaet startet sie selbst, sobald sie angelegt ist.
+    if (state.keypair && einrichtungOffen(localStorage)) {
+      void starteEinrichtung(merkphraseNochZeigen(localStorage) ? geheim.getItem(LS_MERKPHRASE) : null);
+    }
     // App initialisieren (Tabs, etc.)
     updateFeePreview();
     updateBudgetBar();
@@ -859,58 +883,6 @@ function starte(): void {
 }
 
 /** Onboarding: 3-Schritt-Wizard fuer neue Nutzer. */
-function showOnboarding(): void {
-  const el = document.createElement("div");
-  el.className = "onboarding-overlay";
-  el.innerHTML = `
-    <div class="onboarding-card">
-      <h2>Willkommen bei Freedom</h2>
-      <p class="mono-sm">Dezentrale KI + Zahlungen. Kein Account. Kein Server.</p>
-      <div class="onboarding-steps">
-        <div class="step active" data-step="1">
-          <div class="step-num">1</div>
-          <div class="step-title">Verbinden</div>
-          <div class="step-desc">Nostr-Key oder Wallet</div>
-        </div>
-        <div class="step" data-step="2">
-          <div class="step-num">2</div>
-          <div class="step-title">AI testen</div>
-          <div class="step-desc">3 Gratis-Antworten</div>
-        </div>
-        <div class="step" data-step="3">
-          <div class="step-num">3</div>
-          <div class="step-title">Zap senden</div>
-          <div class="step-desc">1 sat an Provider</div>
-        </div>
-      </div>
-      <div class="onboarding-actions">
-        <button class="ghost" id="onboarding-skip">Ueberspringen</button>
-        <button class="cta" id="onboarding-start">Starten</button>
-      </div>
-    </div>
-  `;
-  document.body.appendChild(el);
-
-  const closeOnboarding = (): void => {
-    el.remove();
-    localStorage.setItem("freedom.onboarded", "1");
-  };
-  $("#onboarding-skip")!.onclick = closeOnboarding;
-  $("#onboarding-start")!.onclick = closeOnboarding;
-  // Klick auf den dunklen Hintergrund schließt ebenfalls
-  el.addEventListener("click", (e) => {
-    if (e.target === el) closeOnboarding();
-  });
-}
-
-/** Prueft ob Onboarding gezeigt werden soll. */
-function checkOnboarding(): void {
-  const onboarded = localStorage.getItem("freedom.onboarded");
-  if (!onboarded) {
-    showOnboarding();
-  }
-}
-
 /** Copy-Buttons: letzte antwort + ganze konversation. */
 function setupCopyButtons(): void {
   const copyLast = $("#copy-last");

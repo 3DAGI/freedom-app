@@ -419,6 +419,9 @@ export async function publishReferralClaim(): Promise<void> {
   if (localStorage.getItem("freedom.referrer.published") === "1") return;
   const referrer = localStorage.getItem("freedom.referrer");
   if (!referrer || referrer === state.keypair.pk) return;
+  // Nur mit Zustimmung (8.1b): Die Beziehung ist oeffentlich – bis dahin ging sie ungefragt raus.
+  const { darfWerberNennen } = await import("../../einrichtung.js");
+  if (!darfWerberNennen(localStorage)) return;
 
   try {
     const { buildReferralClaim } = await import("@freedomstack/protocol");
