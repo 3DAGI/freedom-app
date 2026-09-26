@@ -50,7 +50,10 @@ fremder Empfänger, zu kurze Frist → LP zahlt gar nicht erst.
 
 - **Angebot:** Kind 38001 mit `direction = buy-sol` (`LP_DIRECTION=buy-sol`
   oder `beide`; bei `beide` trägt das Angebot der Gegenrichtung die ID
-  `<LP_OFFER_ID>-buy`).
+  `<LP_OFFER_ID>-buy`). Es nennt – dort Pflicht – `["sol_address", …]` (das
+  Konto des LP, Empfänger der Sperre) und `["lamports_per_sat", …]` (sein
+  genauer Kurs; der Ticker ist gerundet). Der LP erneuert das Angebot, sobald
+  die Hälfte seiner Gültigkeit um ist.
 - **Sperre:** Swap-ID ist `rueckSwapId(bolt11)` = SHA-256 der Rechnung (hex).
   Die Sperre legt sich so auf genau diese Rechnung fest: Wer sie auf der Kette
   sieht, kennt zwar H, kann dem LP aber keine eigene Rechnung mit H

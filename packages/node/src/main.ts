@@ -747,6 +747,7 @@ async function main(): Promise<void> {
         for (const e of r.errors) console.warn(`[publish] ${e}`);
       }
       for (const lp of lps) {
+        if (await lp.erneuereAngebot()) console.log("[lp] Angebot erneuert");
         const swaps = await lp.pollOnce();
         for (const s of swaps) {
           console.log(`[lp] swap ${s.requestId.slice(0, 8)}: ${s.amountSats} sats <-> ${s.amountLamports} lamports (${s.phase})`);

@@ -99,6 +99,18 @@ test("Gueltige Anfrage: SOL gesperrt, Rechnung gestellt", async () => {
   assert.equal(a.invoices.length, 1);
 });
 
+test("Angebot wird vor Ablauf erneuert – sonst verschwaende der LP nach offerTtlSecs aus der App", async () => {
+  const { pool, lp } = setup();
+  const t0 = 1_790_000_000;
+  await lp.publishOffer(t0);
+  assert.equal(await lp.erneuereAngebot(t0 + 1799), undefined, "vor der Haelfte der Gueltigkeit nicht");
+  const neu = await lp.erneuereAngebot(t0 + 1800);
+  assert.ok(neu);
+  const ev = (await pool.query({ authors: [LP.pk], limit: 10 })).find((e) => e.id === neu)!;
+  assert.equal(ev.tags.find((t) => t[0] === "expiry")?.[1], String(t0 + 1800 + 3600));
+  assert.equal(await lp.erneuereAngebot(t0 + 1801), undefined, "danach wieder erst zur Haelfte");
+});
+
 test("Fremdes Angebot wird nicht bedient", async () => {
   const { pool, lp, a } = setup();
   await pool.publish(anfrage({ offer: "offer-von-jemand-anderem" }));

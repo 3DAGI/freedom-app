@@ -42,3 +42,23 @@ test("offerMatches: Betrag ausserhalb -> kein Match", () => {
 test("offerMatches: abgelaufen -> kein Match", () => {
   assert.ok(!offerMatches(sample, { pair: "LN-BTC/SOL", direction: "sell-sol", amountSats: 100_000, now: 2_100_000_000 }));
 });
+
+test("Gegenrichtung (4.6b): Angebot nennt SOL-Konto und genauen Kurs – sonst ungueltig", () => {
+  const rueck: LpOffer = { ...sample, direction: "buy-sol", solAddress: "LpSoL11111111111111111111111111111111111111", lamportsPerSat: 4321.5 };
+  assert.deepEqual(parseLpOffer(buildLpOffer(rueck, KP.pk)), rueck);
+  // Ohne Konto wuesste der Kunde nicht, fuer wen er sperrt; ohne Kurs nicht, wie viel.
+  const { solAddress: _a, ...ohneKonto } = rueck;
+  const { lamportsPerSat: _k, ...ohneKurs } = rueck;
+  assert.throws(() => parseLpOffer(buildLpOffer(ohneKonto, KP.pk)), /buy-sol ohne/);
+  assert.throws(() => parseLpOffer(buildLpOffer(ohneKurs, KP.pk)), /buy-sol ohne/);
+  const kaputt = (name: string, wert: string) => {
+    const ev = buildLpOffer(rueck, KP.pk);
+    ev.tags = ev.tags.map((t) => (t[0] === name ? [name, wert] : t));
+    return () => parseLpOffer(ev);
+  };
+  assert.throws(kaputt("sol_address", "<img src=x>"), /sol_address/);
+  assert.throws(kaputt("lamports_per_sat", "0"), /lamports_per_sat/);
+  assert.throws(kaputt("lamports_per_sat", "abc"), /lamports_per_sat/);
+  // Hinrichtung bleibt ohne beides gueltig
+  assert.deepEqual(parseLpOffer(buildLpOffer(sample, KP.pk, 1_700_000_000)), sample);
+});

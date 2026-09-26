@@ -11,7 +11,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   OutboxPool, MemoryRelay, generateKeypair, signEvent, buildEvent, getTag,
-  LpOffer, MockSolana, generatePreimage, hashlock, toHex, rueckSwapId,
+  LpOffer, MockSolana, generatePreimage, hashlock, toHex, rueckSwapId, rueckSwapLamports,
+  parseLpOffer, KIND_LP_OFFER,
 } from "@freedomstack/protocol";
 import { LpDaemon, FixedRate, KIND_SWAP_REQUEST, KIND_SWAP_RESPONSE, RueckSitzung, rueckSpeicher } from "../src/lp-daemon.js";
 import { knotenSchluessel, rechnung } from "../../protocol/test/bolt11-hilfe.js";
@@ -115,6 +116,19 @@ test("Gegenrichtung: gueltige Sperre – LP zahlt mit cltv_limit und loest die S
   assert.equal(a.sp.daten()[0].phase, "EINGELOEST");
   assert.match(a.sp.daten()[0].preimageHex!, /^[0-9a-f]{64}$/);
   assert.deepEqual(await antworten(a), ["EINGELOEST"]);
+});
+
+test("Angebot der Gegenrichtung nennt SOL-Konto und genauen Kurs – damit rechnet der Kunde den Sperrbetrag", async () => {
+  const a = aufbau();
+  await a.lp.publishOffer(JETZT);
+  const [ev] = await a.pool.query({ kinds: [KIND_LP_OFFER], authors: [LP.pk] });
+  const o = parseLpOffer(ev);
+  assert.equal(o.direction, "buy-sol");
+  assert.equal(o.solAddress, LP_SOL);
+  assert.equal(o.lamportsPerSat, 100);
+  assert.equal(rueckSwapLamports(10_000, o.lamportsPerSat!, o.feePpm), PREIS, "Kunde und LP kommen auf denselben Betrag");
+  // Ohne eigenes SOL-Konto kein Angebot, das niemand bedienen kann
+  await assert.rejects(() => aufbau(lightning(), { solAdresse: null }).lp.publishOffer(JETZT), /SOL-Adresse/);
 });
 
 test("cltv_limit richtet sich nach der Frist der Sperre, nie laenger als erlaubt", async () => {
@@ -376,4 +390,5 @@ test("Verdrahtung (4.6b): main.ts startet die Gegenrichtung mit Speicher, SOL-Ko
   assert.match(main, /lpSolAdresse = solKp\.publicKey\.toBase58\(\)/, "Empfaenger der Sperre = Konto, mit dem eingeloest wird");
   assert.match(main, /rueckSpeicher\(join\(process\.env\.HOME \?\? "\.", "\.freedom", "lp-rueck\.json"\)\)/);
   assert.match(main, /for \(const s of await lp\.nachholen\(\)\)/);
+  assert.match(main, /await lp\.erneuereAngebot\(\)/, "Angebot wird in der Schleife erneuert");
 });

@@ -3586,19 +3586,28 @@ Rechtefehler bleibt ein Fehler). Das Preimage liefert `lnrpc.Payment` als
 Hex-Text – bisher wurde es als base64 gelesen; `preimageAusLnd` nimmt beides
 und besteht auf 32 Byte.
 
+**Angebot:** Die Gegenrichtung braucht beim Kunden das SOL-Konto des LP und
+dessen genauen Kurs – beides stand in keinem Event. Das LP-Angebot (Kind 38001)
+trägt jetzt optional `sol_address` und `lamports_per_sat`, bei `buy-sol`
+Pflicht (`parseLpOffer` lehnt sonst ab). Nebenbefund: Das Angebot wurde nur
+beim Start veröffentlicht (Gültigkeit 2 h) und nie erneuert, obwohl der
+Kommentar es sagte – nach zwei Stunden verschwand jeder LP aus der App.
+`erneuereAngebot()` veröffentlicht zur Hälfte der Gültigkeit neu.
+
 **Verdrahtung (`main.ts`):** `LP_DIRECTION=sell-sol|buy-sol|beide` (ein Daemon
 je Richtung), SOL-Konto des LP = Schlüssel aus `SOLANA_KEYPAIR`, Speicher,
-`lp.nachholen()` in der Schleife. Drei 4.6a-Ausnahmen der Verdrahtungsprüfung
+`lp.erneuereAngebot()` und `lp.nachholen()` in der Schleife. Drei 4.6a-Ausnahmen der Verdrahtungsprüfung
 entfallen (jetzt verdrahtet).
 
-**Tests:** protocol 1030 → 1036 (`lnd-adapter.test.ts` +5,
-`swap-umgekehrt.test.ts` +1), node 180 → 197 (`lp-rueck.test.ts`, 17 Tests:
-Erfolg, `cltv_limit` aus der Frist, acht Ablehnungsgründe je mit Antwort
+**Tests:** protocol 1030 → 1037 (`lnd-adapter.test.ts` +5,
+`swap-umgekehrt.test.ts` +1, `nostr-order.test.ts` +1), node 180 → 199
+(`lp-daemon.test.ts` +1 Erneuerung; `lp-rueck.test.ts`, 18 Tests: Erfolg,
+Angebot mit Konto und Kurs, `cltv_limit` aus der Frist, acht Ablehnungsgründe je mit Antwort
 (fremdes Angebot still), Anfrage vor der Sperre,
 kaputte Rechnung, Vorwegnahme, doppelte Rechnung, Scheitern, zu spät,
 Verbindungsabbruch, falsches Preimage von LND, Neustart, nie angekommen,
 Blockadeschutz, Dateispeicher 0600, Verdrahtung).
 
-Endstand: protocol 1036 · node 197 · app 249 · Leak-Tests 36 grün + 3 todo · 0
+Endstand: protocol 1037 · node 199 · app 249 · Leak-Tests 36 grün + 3 todo · 0
 rot · check-wiring `--streng` 0 offen · innerHTML streng 0 unbewertet ·
 Smoke-Test bestanden.

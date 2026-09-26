@@ -163,6 +163,7 @@ export class LpDaemon {
   private rueck = new Map<string, RueckSitzung>();
   /** Zahlungen, die in diesem Prozess gerade laufen (requestId -> Ablauf). */
   private laufend = new Map<string, Promise<void>>();
+  private angebotVeroeffentlicht = 0;
 
   constructor(
     private cfg: LpConfig,
@@ -180,16 +181,34 @@ export class LpDaemon {
 
   /** LP-Angebot auf den Relays veroeffentlichen (ersetzbar via d-Tag). */
   async publishOffer(now = Math.floor(Date.now() / 1000)): Promise<string> {
+    // Gegenrichtung: Ohne SOL-Konto und genauen Kurs kann kein Kunde sperren.
+    const rueck = this.cfg.offer.direction === "buy-sol";
+    if (rueck && !this.cfg.solAdresse) throw new Error("buy-sol braucht eine SOL-Adresse des LP");
     const ev = signEvent(
       buildLpOffer(
-        { ...this.cfg.offer, expiry: now + this.cfg.offerTtlSecs },
+        {
+          ...this.cfg.offer,
+          expiry: now + this.cfg.offerTtlSecs,
+          ...(rueck ? { solAddress: this.cfg.solAdresse, lamportsPerSat: this.rate.lamportsPerSat() } : {}),
+        },
         this.cfg.keypair.pk,
         now,
       ),
       this.cfg.keypair.sk,
     );
     await this.pool.publish(ev);
+    this.angebotVeroeffentlicht = now;
     return ev.id;
+  }
+
+  /**
+   * Angebot erneuern, sobald die Haelfte seiner Gueltigkeit um ist – sonst
+   * verschwindet der LP nach `offerTtlSecs` aus jeder App. Liefert die
+   * Event-ID, wenn neu veroeffentlicht wurde.
+   */
+  async erneuereAngebot(now = Math.floor(Date.now() / 1000)): Promise<string | undefined> {
+    if (now - this.angebotVeroeffentlicht < this.cfg.offerTtlSecs / 2) return undefined;
+    return this.publishOffer(now);
   }
 
   /** Einmal pollen: neue Swap-Requests an diesen LP abarbeiten. */
