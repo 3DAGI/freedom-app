@@ -67,7 +67,11 @@ Der Preis ist hoch und gehört in die Entscheidung:
 
 > **Entschieden 26.09.2026: A.** Einbettung (MENSCH, 26.09.2026): **eingebettet** –
 > die App bleibt eine einzige Datei (Selbst-Export, Offline-Weitergabe, Funk,
-> Prüfsumme wie bisher); sie wächst von etwa 2,2 auf etwa 4,1 MB.
+> Prüfsumme wie bisher). Gemessen zu Beginn von 2.2b: MDK-Engine samt
+> SQLite-Speicher 6,5 MB WASM, gzip 2,9 MB; gzip-komprimiert eingebettet und im
+> Browser mit `DecompressionStream` entpackt wächst die App von 2,4 auf etwa
+> 6,3 MB (Übertragung etwa +3 MB). Die Schätzung von 4,1 MB galt nur dem
+> OpenMLS-Kern; der MENSCH hat „eingebettet“ mit den gemessenen Zahlen bestätigt.
 
 - [x] **A – MDK per WASM** (empfohlen), mit
   - CSP `'wasm-unsafe-eval'`,

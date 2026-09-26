@@ -5147,3 +5147,28 @@ Endstand: protocol 1127 (+ 6 übersprungen) · node 225 (+ 7 übersprungen ohne
 Netz) · app 355 · Leak-Tests 49 grün + 2 todo · 0 rot · check-wiring `--streng`
 0 offen · innerHTML streng 0 unbewertet · Smoke-Test bestanden · Browser-E2E
 bestanden.
+
+## Schritt 4.0 – Korrektur: Werbeanteil und Hosting (MENSCH, 26.09.2026)
+
+Die erste Fassung von A+ (95 % Provider, 3 % Entwicklung, 2 % Relays, „keine
+Werbeprovision“) ließ das Werben weg – ein Fehler beim Eintragen: Die
+Entscheidung betraf nur „nichts verwahren“, belohnt werden sollen **alle
+Teile sofort**. Der B-Agent hatte die Fassung gelesen, aber keinen Code
+geändert (8.1b machte nur die öffentliche Werbebeziehung zustimmungspflichtig –
+Datenschutz, bleibt richtig).
+
+**Stand im Code (bis 5.1):** 2,5 % je Auftrag, davon 0,5 % Werben – aber der
+Knoten zahlt es an **eine** feste Adresse aus seiner Konfiguration
+(`FEE_REFERRAL_LUD16`, standardmäßig leer); beim tatsächlichen Werber kommt
+nichts an. Stufen und zweite Ebene werden nur angezeigt; Hosting-Anteil (2 %)
+und Funk-Bonus (10 %) stehen als Konstanten da und werden nirgends benutzt.
+
+**Neue Aufteilung (vom MENSCH bestätigt):** je KI-Auftrag 94 % Provider,
+2,5 % Entwicklung, 1,5 % Relays, 0,5 % Werber des Kunden, 0,5 % Werber des
+Providers, 1 % Hosting (App-Spiegel) – direkt beim Zahlen an jeden, nicht
+zuordenbar → Provider, alles fest voreingestellt, Werben eine Ebene je Seite
+ohne Stufen. Einzelheiten in `docs/GEBUEHREN-ENTSCHEIDUNG.md`; Karten 4.0 und
+5.1 angepasst.
+
+**2.2b:** „eingebettet“ mit den gemessenen Zahlen bestätigt (App etwa 6,3 MB
+statt der geschätzten 4,1 MB).

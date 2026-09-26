@@ -18,7 +18,7 @@ Jede Funktion, in der Geld fließt, bietet beide Schienen mit gleichem Komfort.
 
 > Vorlage mit Ist-Stand, Optionen A und B, betroffenen Dateien, Folgen für den Zahlkanal, AMLR-Angriffsfläche und Einnahmen: [`docs/GEBUEHREN-ENTSCHEIDUNG.md`](../GEBUEHREN-ENTSCHEIDUNG.md).
 >
-> **Entschieden 26.09.2026: A+** – feste Aufteilung direkt beim Zahlen, kein Topf: je KI-Auftrag 95 % Provider, 3 % Entwicklung (abschaltbar), 2 % Relays, die ihn getragen haben (nicht zuordenbar → Provider); Obergrenze 10 %; keine Anteile auf Zaps, Trinkgeld, Tausch, Speicher; keine Werbeprovision; Sonderanreize über gesponserte Pools (5.1b). Die Quote hat der MENSCH dem Agenten übertragen. Umsetzung in 5.1, Zahlkanal in 4.3.
+> **Entschieden 26.09.2026: A+** – feste Aufteilung direkt beim Zahlen, kein Topf, sofortige Belohnung für alle Teile: je KI-Auftrag 94 % Provider, 2,5 % Entwicklung, 1,5 % Relays, die ihn getragen haben, 0,5 % Werber des Kunden, 0,5 % Werber des Providers, 1 % Hosting (App-Spiegel); nicht zuordenbar → Provider; alles fest voreingestellt, Obergrenze 10 %; Werben eine Ebene je Seite, keine Stufen; keine Anteile auf Zaps, Trinkgeld, Tausch, Speicher; Sonderanreize über gesponserte Pools (5.1b). Korrigiert am selben Tag: die erste Fassung (95/3/2, „keine Werbeprovision“) ließ das Werben weg. Die Quote hat der MENSCH dem Agenten übertragen. Umsetzung in 5.1, Zahlkanal in 4.3.
 
 - **Du:** `docs/GEBUEHREN-ENTSCHEIDUNG.md` vorbereiten mit zwei Optionen:
   - **A (empfohlen):** Protokollgebühr 0 %; App-Gebühr freiwillig, offen
