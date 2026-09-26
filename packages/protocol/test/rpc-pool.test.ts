@@ -215,9 +215,9 @@ test("Verteilen (4.9): fremde Anbieter abwechselnd statt immer derselbe – eige
   for (let n = 0; n < 5; n++) await eigener.getBalance("x");
   assert.deepEqual(log2, Array(5).fill(E(9)), "eigener Knoten immer zuerst – er ist keine fremde Partei");
 
-  // Ohne Verteilen: wie bisher der schnellste/erste
-  const log3: string[] = [];
-  const alt = new RpcPool(endpoints, { fetchImpl: fakeFetch(alleOk, log3) });
+  // Ohne Verteilen: Reihenfolge wie bisher nach Ausfaellen und Latenz – der Zufall wird nie gefragt.
+  let gefragt = 0;
+  const alt = new RpcPool(endpoints, { fetchImpl: fakeFetch(alleOk), zufall: () => { gefragt++; return 0.5; } });
   for (let n = 0; n < 3; n++) await alt.getBalance("x");
-  assert.equal(new Set(log3).size, 1);
+  assert.equal(gefragt, 0);
 });
