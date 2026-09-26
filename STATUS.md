@@ -3817,3 +3817,47 @@ app 268 → 269 (Verdrahtung).
 Endstand: protocol 1051 · node 209 · app 269 · Leak-Tests 37 grün + 4 todo ·
 0 rot · check-wiring `--streng` 0 offen · innerHTML streng 0 unbewertet ·
 Smoke-Test bestanden.
+
+## Schritt 4.9a – Swap-Anfragen und -Antworten versiegelt (Protokoll + Knoten)
+
+**Entscheidungen 26.09.2026 (MENSCH):** 4.9 Variante A (frische
+Empfangsadressen, Trinkgeld-Adresse versiegelt auf Anfrage, Profilfeld optional
+mit Warnung – gesendete Zahlungen von frischen Adressen sind nicht Teil davon,
+weil das Auffüllen die Adressen auf der Kette wieder verknüpft); 2.2a MLS: A
+(MDK per WASM); 4.1c: KI-Aufträge bezahlen – ja, nach 4.0; 4.2c Mobile Wallet
+Adapter: später mit 6.1. 4.0 ist noch in Diskussion (Vorschlag „A+“: feste
+Aufteilung direkt beim Zahlen an alle Beteiligten, kein Topf). Neue
+Konvention seit „Zwei Spuren“: Abschnitte ohne laufende Nummer.
+
+4.9 ist über 400 Zeilen und in fünf Teile geteilt (Karte). **a** schließt die
+Lücke auf der Leitung, die alle Swaps offen ließen: Anfrage (Kind 25001) und
+Antwort (25002) standen offen auf den Relays – die SOL-Empfangsadresse neben
+dem npub, in der Gegenrichtung die Rechnung, in jeder Antwort Swap-ID und
+Rechnung des LP (über die Swap-ID findet jeder die Sperre und ihren Empfänger).
+
+**Protokoll:** `swap-versiegelt.ts` – derselbe Kern im Umschlag (NIP-59) von
+einem Wegwerf-Schlüssel an den LP (`versiegleSwapAnfrage`/`oeffneSwapAnfrage`),
+die Antwort ebenso zurück (`versiegleSwapAntwort`/`oeffneSwapAntwort`: nur vom
+erwarteten LP, nur zur eigenen Anfrage). Ohne Zeitversatz – der LP liest die
+letzte Stunde. Kerne werden streng geprüft (Kind, Absender = Siegel, Tags nur
+Texte, Inhalt ≤ 5000 Zeichen). Angebot: `["versiegelt", "1"]`.
+
+**Knoten:** Der LP-Daemon liest zusätzlich Umschläge an seinen Schlüssel, öffnet
+jeden nur einmal (Zwischenspeicher zwei Stunden) und bearbeitet den Kern wie
+eine offene Anfrage; geantwortet wird so, wie gefragt wurde – auch VORAB,
+Ablehnungen und Stände der Gegenrichtung. Versiegelte Sitzungen der
+Gegenrichtung bleiben es nach einem Neustart (`versiegelt` im Speicher). Offene
+Anfragen gehen für ältere Apps weiter. Der KI-Teil desselben Knotens meldet
+Swap-Umschläge im Log als „verworfen“ (keine Rechenarbeit) – harmlos.
+
+**Tests:** protocol 1051 → 1056 (`swap-versiegelt.test.ts` 4: nur der LP
+öffnet, kein Klartext im Umschlag, fremde Kerne → null, Antwort nur vom LP zur
+eigenen Anfrage; `nostr-order.test.ts` +1), node 209 → 214
+(`lp-versiegelt.test.ts` 5: Angebot, Hinrichtung, Vorab, fremde Umschläge,
+Gegenrichtung samt Ablehnung – in keinem Fall steht Adresse, Rechnung oder
+Swap-ID offen). Die App-Seite folgt in 4.9b; bis dahin zwei begründete
+Ausnahmen in `wiring-ausnahmen.txt`.
+
+Endstand: protocol 1056 · node 214 · app 269 · Leak-Tests 37 grün + 4 todo ·
+0 rot · check-wiring `--streng` 0 offen · innerHTML streng 0 unbewertet ·
+Smoke-Test bestanden.

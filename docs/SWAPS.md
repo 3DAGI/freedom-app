@@ -109,6 +109,32 @@ offenen (eine eingelöste riss vorher die offene in derselben Transaktion mit).
 Die gemerkten Sperren liegen mit Tresor im Tresor. Er läuft nur, solange die
 App offen ist; bestätigt wird jede Rückholung in der Wallet.
 
+## Versiegelt (4.9)
+
+Anfrage und Antwort liegen in beiden Richtungen im Umschlag (NIP-59,
+`protocol/src/swap-versiegelt.ts`). Bis dahin standen sie offen auf den Relays:
+in der Hinrichtung die SOL-Empfangsadresse neben dem npub, in der Gegenrichtung
+die Rechnung; die Antwort nannte Swap-ID und Rechnung des LP, und über die
+Swap-ID findet jeder die Sperre auf der Kette samt Empfänger.
+
+- **Anfrage:** derselbe Kern (Kind 25001, gleiche Tags), versiegelt von einem
+  Wegwerf-Schlüssel an den LP (`versiegleSwapAnfrage`). Der LP öffnet mit
+  `oeffneSwapAnfrage` und bearbeitet ihn wie eine offene Anfrage; die ID des
+  Kerns ist die Anfrage-ID (Swap-ID der Hinrichtung: `swap-<ID[0..16]>`).
+- **Antwort:** Kind 25002 im Umschlag an den Wegwerf-Schlüssel
+  (`versiegleSwapAntwort`); der Kunde nimmt nur, was vom erwarteten LP zur
+  eigenen Anfrage kommt (`oeffneSwapAntwort`) – wie offen seit 4.6d.
+- **Ohne Zeitversatz:** Die Umschläge tragen den echten Zeitpunkt; der LP liest
+  die letzte Stunde, und Fristen laufen. Relays sehen, wann ein LP und ein
+  unbekannter Schlüssel Post bekommen – nicht, wer schreibt und was.
+- **Übergang:** Der LP (ab 4.9a) liest beides und antwortet so, wie gefragt
+  wurde; sein Angebot trägt `["versiegelt", "1"]`. Eine versiegelte Sitzung der
+  Gegenrichtung bleibt es auch nach einem Neustart (`versiegelt` im Speicher).
+- **Grenze:** Der LP öffnet jeden Umschlag an seinen Schlüssel (auch
+  KI-Aufträge, die er nicht versteht – der KI-Teil desselben Knotens meldet
+  Swap-Umschläge als „verworfen“). Jeder Umschlag wird nur einmal geöffnet;
+  Rechenarbeit wie bei KI-Anfragen verlangt der LP nicht.
+
 ## Gegen Blockaden
 
 Wer sperrt, bindet Kapital – ein Angreifer könnte Swaps anstoßen und nie

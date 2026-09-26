@@ -26,6 +26,11 @@
  * cltv_limit und loest mit dem Preimage die SOL ein – nur bis T_sol − 10
  * Minuten. Sitzungen werden gespeichert, BEVOR gezahlt wird: Nach einem
  * Neustart holt `nachholen()` das Preimage bei LND und loest trotzdem ein.
+ *
+ * Versiegelt (Schritt 4.9): Dieselben Anfragen kommen im Umschlag (NIP-59,
+ * `swap-versiegelt.ts`) von einem Wegwerf-Schluessel des Kunden; der LP
+ * antwortet dann ebenso versiegelt. Offen nur noch fuer aeltere Apps – das
+ * Angebot sagt mit ["versiegelt", "1"], dass dieser LP beides liest.
  */
 import {
   Keypair,
@@ -49,6 +54,11 @@ import {
   pruefeRueckSwapSperre,
   rueckSwapId,
   rueckSwapLamports,
+  LocalSigner,
+  KIND_GIFT_WRAP,
+  oeffneSwapAnfrage,
+  versiegleSwapAntwort,
+  type SwapAnfrage,
 } from "@freedomstack/protocol";
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
@@ -56,6 +66,9 @@ import { dirname } from "node:path";
 /** Ephemere Swap-Signal-Kinds (20000-29999: ephemerer Bereich). */
 export const KIND_SWAP_REQUEST = 25001;
 export const KIND_SWAP_RESPONSE = 25002;
+
+/** Was der LP von einer Anfrage braucht – offen (signiert) oder aus dem Umschlag. */
+type Anfrage = SwapAnfrage;
 
 export interface LpConfig {
   keypair: Keypair;
@@ -133,6 +146,8 @@ export interface RueckSitzung {
   preimageHex?: string;
   phase: "ZAHLT" | "BEZAHLT" | "EINGELOEST" | "GESCHEITERT" | "ZU_SPAET";
   grund?: string;
+  /** Anfrage kam im Umschlag – Antworten gehen ebenso versiegelt (4.9). */
+  versiegelt?: boolean;
 }
 
 export interface SwapSession {
@@ -143,6 +158,8 @@ export interface SwapSession {
   hashlockHex: string;
   /** VORAB: Vorab-Gebuehr gestellt, noch nicht bezahlt (4.6d). */
   phase: "VORAB" | "OFFERED" | "SOL_LOCKED" | "INVOICE_CREATED" | "SETTLED" | "REFUNDED" | "FAILED";
+  /** Anfrage kam im Umschlag – Antworten gehen ebenso versiegelt (4.9). */
+  versiegelt?: boolean;
 }
 
 /** So lange wartet der LP auf die Vorab-Gebuehr (so lange gilt auch ihre Rechnung). */
@@ -170,6 +187,9 @@ export class LpDaemon {
   private angebotVeroeffentlicht = 0;
   /** Hinrichtung: Anfragen, deren Vorab-Gebuehr noch aussteht (requestId -> …). */
   private vorab = new Map<string, { paymentHash: Uint8Array; bis: number; H: Uint8Array; kundeSol: string }>();
+  /** Geoeffnete Umschlaege (ID -> Anfrage oder null) – jeder wird nur einmal entschluesselt. */
+  private umschlaege = new Map<string, { createdAt: number; anfrage: SwapAnfrage | null }>();
+  private signer: LocalSigner;
 
   constructor(
     private cfg: LpConfig,
@@ -179,6 +199,7 @@ export class LpDaemon {
     private rate: RateProvider,
     private jetzt: () => number = () => Math.floor(Date.now() / 1000),
   ) {
+    this.signer = new LocalSigner(cfg.keypair.sk);
     for (const s of cfg.speicher?.lade() ?? []) {
       this.rueck.set(s.requestId, s);
       this.seenRequests.add(s.requestId);
@@ -194,6 +215,7 @@ export class LpDaemon {
       buildLpOffer(
         {
           ...this.cfg.offer,
+          versiegelt: true,
           expiry: now + this.cfg.offerTtlSecs,
           ...(rueck ? { solAddress: this.cfg.solAdresse, lamportsPerSat: this.rate.lamportsPerSat() } : {}),
         },
@@ -219,33 +241,52 @@ export class LpDaemon {
 
   /** Einmal pollen: neue Swap-Requests an diesen LP abarbeiten. */
   async pollOnce(now = Math.floor(Date.now() / 1000)): Promise<Array<SwapSession | RueckSitzung>> {
-    const events = await this.pool.query({
-      kinds: [KIND_SWAP_REQUEST],
-      "#p": [this.cfg.keypair.pk],
-      since: now - 3600,
-    });
+    const filter = { "#p": [this.cfg.keypair.pk], since: now - 3600 };
+    const [offen, umschlaege] = await Promise.all([
+      this.pool.query({ kinds: [KIND_SWAP_REQUEST], ...filter }),
+      this.pool.query({ kinds: [KIND_GIFT_WRAP], ...filter }),
+    ]);
+    const anfragen: Array<{ req: Anfrage; versiegelt: boolean }> = offen.map((req) => ({ req, versiegelt: false }));
+    for (const w of umschlaege) {
+      let u = this.umschlaege.get(w.id);
+      if (!u) {
+        // Auch Umschlaege anderer Dienste an denselben Schluessel (KI-Auftraege) – die ergeben null.
+        u = { createdAt: w.created_at, anfrage: await oeffneSwapAnfrage(w, this.signer).catch(() => null) };
+        this.umschlaege.set(w.id, u);
+      }
+      if (u.anfrage) anfragen.push({ req: u.anfrage, versiegelt: true });
+    }
+    for (const [id, u] of this.umschlaege) if (u.createdAt < now - 7200) this.umschlaege.delete(id);
+
     const out: Array<SwapSession | RueckSitzung> = [...await this.vorabPruefen()];
-    for (const ev of events) {
-      if (this.seenRequests.has(ev.id)) continue;
-      this.seenRequests.add(ev.id);
+    for (const { req, versiegelt } of anfragen) {
+      if (this.seenRequests.has(req.id)) continue;
+      this.seenRequests.add(req.id);
       // Anfragen an ein anderes Angebot desselben LP (andere Richtung) still uebergehen.
-      if (getTag(ev, "offer") !== this.cfg.offer.offerId) continue;
+      if (getTag(req, "offer") !== this.cfg.offer.offerId) continue;
       try {
-        out.push(this.cfg.offer.direction === "buy-sol" ? await this.handleRueckRequest(ev) : await this.handleRequest(ev));
+        out.push(this.cfg.offer.direction === "buy-sol" ? await this.handleRueckRequest(req, versiegelt) : await this.handleRequest(req, versiegelt));
       } catch (err) {
-        if (err instanceof NochKeineSperre && now - ev.created_at < WARTE_AUF_SPERRE_SECS) {
-          this.seenRequests.delete(ev.id); // beim naechsten Durchlauf erneut
+        if (err instanceof NochKeineSperre && now - req.created_at < WARTE_AUF_SPERRE_SECS) {
+          this.seenRequests.delete(req.id); // beim naechsten Durchlauf erneut
           continue;
         }
-        console.error(`Swap-Request ${ev.id} fehlgeschlagen:`, err);
+        console.error(`Swap-Request ${req.id} fehlgeschlagen:`, err);
         // Gegenrichtung: Der Kunde hat SOL gesperrt und muss wissen, dass er nach Ablauf zurueckholen muss.
-        if (this.cfg.offer.direction === "buy-sol") await this.sende(ev.id, ev.pubkey, "ABGELEHNT", (err as Error).message);
+        if (this.cfg.offer.direction === "buy-sol") await this.sende(req.id, req.pubkey, versiegelt, "ABGELEHNT", (err as Error).message);
       }
     }
     return out;
   }
 
-  private async handleRequest(req: NostrEvent): Promise<SwapSession> {
+  /** Antwort an den Kunden – versiegelt, wenn seine Anfrage versiegelt kam. */
+  private async antwortSenden(requestId: string, kunde: string, versiegelt: boolean | undefined, tags: string[][], content: string): Promise<void> {
+    await this.pool.publish(versiegelt
+      ? await versiegleSwapAntwort({ lp: this.signer, kundePk: kunde, anfrageId: requestId, tags, content })
+      : signEvent(buildEvent(this.cfg.keypair.pk, KIND_SWAP_RESPONSE, [["e", requestId], ["p", kunde], ...tags], content), this.cfg.keypair.sk));
+  }
+
+  private async handleRequest(req: Anfrage, versiegelt = false): Promise<SwapSession> {
     const offerId = getTag(req, "offer");
     const amountSats = Number(getTag(req, "amount_sats") ?? "0");
     const hashlockHex = getTag(req, "hashlock");
@@ -280,6 +321,7 @@ export class LpDaemon {
       amountLamports,
       hashlockHex,
       phase: "OFFERED",
+      ...(versiegelt ? { versiegelt } : {}),
     };
     this.sessions.set(req.id, session);
 
@@ -292,9 +334,7 @@ export class LpDaemon {
       const r = await this.ln.createInvoice(vorabSats);
       this.vorab.set(req.id, { paymentHash: r.paymentHash, bis: this.jetzt() + VORAB_FRIST_SECS, H, kundeSol: customerSol });
       session.phase = "VORAB";
-      await this.pool.publish(signEvent(buildEvent(this.cfg.keypair.pk, KIND_SWAP_RESPONSE, [
-        ["e", req.id], ["p", req.pubkey], ["status", "VORAB"], ["vorab_sats", String(vorabSats)],
-      ], r.bolt11), this.cfg.keypair.sk));
+      await this.antwortSenden(req.id, req.pubkey, versiegelt, [["status", "VORAB"], ["vorab_sats", String(vorabSats)]], r.bolt11);
       return session;
     }
     return this.sperreUndStelle(session, H, customerSol);
@@ -321,7 +361,7 @@ export class LpDaemon {
         console.error(`Swap-Request ${id} nach Vorab-Gebuehr fehlgeschlagen:`, (err as Error).name);
         this.vorab.delete(id);
         session.phase = "FAILED";
-        await this.sende(id, session.customerPubkey, "ABGELEHNT", "Sperren fehlgeschlagen");
+        await this.sende(id, session.customerPubkey, session.versiegelt, "ABGELEHNT", "Sperren fehlgeschlagen");
       }
     }
     return weiter;
@@ -350,22 +390,11 @@ export class LpDaemon {
     );
     session.phase = "INVOICE_CREATED";
 
-    // Antwort-Event: Kunde erhaelt die bolt11 zum Bezahlen
-    const response = signEvent(
-      buildEvent(
-        this.cfg.keypair.pk,
-        KIND_SWAP_RESPONSE,
-        [
-          ["e", req.id],
-          ["p", req.pubkey],
-          ["swap_id", swapId],
-          ["amount_lamports", String(amountLamports)],
-        ],
-        invoice.bolt11,
-      ),
-      this.cfg.keypair.sk,
-    );
-    await this.pool.publish(response);
+    // Antwort: Kunde erhaelt die bolt11 zum Bezahlen
+    await this.antwortSenden(req.id, req.pubkey, session.versiegelt, [
+      ["swap_id", swapId],
+      ["amount_lamports", String(amountLamports)],
+    ], invoice.bolt11);
     return session;
   }
 
@@ -391,7 +420,7 @@ export class LpDaemon {
 
   // ------------------------------------------------------ Gegenrichtung (4.6b)
 
-  private async handleRueckRequest(req: NostrEvent): Promise<RueckSitzung> {
+  private async handleRueckRequest(req: Anfrage, versiegelt = false): Promise<RueckSitzung> {
     const now = this.jetzt();
     if (getTag(req, "offer") !== this.cfg.offer.offerId) throw new Error("fremdes Angebot");
     const lpSol = this.cfg.solAdresse;
@@ -430,6 +459,7 @@ export class LpDaemon {
     const s: RueckSitzung = {
       requestId: req.id, customerPubkey: req.pubkey, swapId, kundeSol: sperre.initiator, bolt11,
       paymentHashHex: rechnung.zahlungsHash, amountSats, amountLamports, timelockUnix: sperre.timelockUnix, cltvLimit, phase: "ZAHLT",
+      ...(versiegelt ? { versiegelt } : {}),
     };
     // Erst speichern, dann zahlen: Ein Neustart waehrend der Zahlung darf das Preimage nicht kosten.
     this.rueck.set(req.id, s);
@@ -531,14 +561,12 @@ export class LpDaemon {
   }
 
   private async antworte(s: RueckSitzung): Promise<void> {
-    await this.sende(s.requestId, s.customerPubkey, s.phase, ANTWORT[s.phase], s.swapId);
+    await this.sende(s.requestId, s.customerPubkey, s.versiegelt, s.phase, ANTWORT[s.phase], s.swapId);
   }
 
-  private async sende(requestId: string, kunde: string, status: string, text: string, swapId?: string): Promise<void> {
+  private async sende(requestId: string, kunde: string, versiegelt: boolean | undefined, status: string, text: string, swapId?: string): Promise<void> {
     try {
-      await this.pool.publish(signEvent(buildEvent(this.cfg.keypair.pk, KIND_SWAP_RESPONSE, [
-        ["e", requestId], ["p", kunde], ...(swapId ? [["swap_id", swapId]] : []), ["status", status],
-      ], text), this.cfg.keypair.sk));
+      await this.antwortSenden(requestId, kunde, versiegelt, [...(swapId ? [["swap_id", swapId]] : []), ["status", status]], text);
     } catch { /* Antwort ist best-effort; der Kunde sieht den Stand auch auf der Kette */ }
   }
 
