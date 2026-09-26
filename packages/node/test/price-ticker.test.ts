@@ -91,7 +91,8 @@ test("Verdrahtung (4.4): LP veroeffentlicht seinen Kurs, das Angebot traegt den 
   const { readFileSync } = await import("node:fs");
   const main = readFileSync(new URL("../src/main.ts", import.meta.url), "utf8");
   assert.match(main, /rates: lpKurs && lpKurs\.lamportsPerSat\(\) > 0\n\s+\? \[\{ pair: "SOL\/BTC", satsPerUnit: Math\.round\(1e9 \/ lpKurs\.lamportsPerSat\(\)\) \}\]/);
-  assert.match(main, /\(lpKurs = new FixedRate\(/);
+  assert.match(main, /lpKurs = new FixedRate\(/);
+  assert.match(main, /sol,\n\s+lpKurs,\n/, "der LP tauscht zum veroeffentlichten Kurs");
   assert.match(main, /kurs: provider\.kurs\(\),/);
   // Manueller Kurs in Lamports/msat wird zu sats/SOL: 0,2 -> 5 Mio.
   const { DvmProvider } = await import("../src/dvm-provider.js");

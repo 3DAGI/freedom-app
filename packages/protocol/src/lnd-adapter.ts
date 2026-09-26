@@ -169,17 +169,82 @@ export class LndLightningAdapter implements LightningAdapter {
    * keinen prüfbaren Zahlungsbeweis für den Fee-Split.
    */
   async payInvoiceAndGetPreimage(bolt11: string, timeoutMs = 60_000): Promise<string> {
+    return this.zahleUndWarte({ payment_request: bolt11, timeout_seconds: Math.ceil(timeoutMs / 1000) }, timeoutMs);
+  }
+
+  /**
+   * Gegenrichtung (4.6b): zahlt die Rechnung des Kunden mit `cltv_limit` und
+   * wartet auf das Ergebnis. Haelt der Kunde das Preimage zurueck, bleibt die
+   * Zahlung bis zum cltv_limit in der Schwebe – deshalb die lange Wartezeit.
+   */
+  async payInvoice(bolt11: string, cltvLimitBlocks: number, timeoutMs = cltvLimitBlocks * 1200_000 + 600_000): Promise<{ preimage: Uint8Array }> {
+    if (!Number.isSafeInteger(cltvLimitBlocks) || cltvLimitBlocks <= 0) throw new Error("cltv_limit muss positiv sein");
+    const hex = await this.zahleUndWarte({ payment_request: bolt11, cltv_limit: cltvLimitBlocks, timeout_seconds: 120 }, timeoutMs);
+    return { preimage: fromHex(hex) };
+  }
+
+  /**
+   * Stand einer Zahlung (4.6b) – nach einem Neustart des Daemons: War sie
+   * erfolgreich, liefert LND das Preimage, und der LP kann noch einloesen.
+   */
+  async zahlungsstand(paymentHash: Uint8Array): Promise<{ status: "erfolgreich" | "gescheitert" | "laeuft" | "unbekannt"; preimage?: Uint8Array }> {
+    const b64url = Buffer.from(paymentHash).toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+    const res = await fetch(`${this.cfg.restUrl}/v2/router/track/${b64url}`, {
+      method: "GET",
+      headers: { "Grpc-Metadata-macaroon": this.cfg.macaroonHex },
+      signal: AbortSignal.timeout(30_000),
+      dispatcher: await this.dispatcher(),
+    } as RequestInit);
+    // Nie angekommen: 404 oder „payment isn't initiated“ (je nach Version als HTTP-Fehler oder im Strom).
+    const nieAngekommen = (text: string) => /isn't initiated|not initiated|not found/i.test(text);
+    if (res.status === 404) return { status: "unbekannt" };
+    if (!res.ok) {
+      const text = await res.text();
+      if (nieAngekommen(text)) return { status: "unbekannt" };
+      throw new Error(`LND trackpayment: HTTP ${res.status} ${text.slice(0, 200)}`);
+    }
+    // Der erste Eintrag des Stroms ist der aktuelle Stand.
+    const erster = await this.ersterEintrag(res);
+    if (erster?.error) {
+      const text = erster.error.message ?? JSON.stringify(erster.error);
+      if (nieAngekommen(text)) return { status: "unbekannt" };
+      throw new Error(`LND trackpayment: ${text.slice(0, 200)}`);
+    }
+    const r = erster?.result;
+    if (r?.status === "SUCCEEDED" && r.payment_preimage) return { status: "erfolgreich", preimage: preimageAusLnd(r.payment_preimage) };
+    if (r?.status === "FAILED") return { status: "gescheitert" };
+    if (r?.status === "IN_FLIGHT" || r?.status === "INITIATED") return { status: "laeuft" };
+    return { status: "unbekannt" };
+  }
+
+  private async ersterEintrag(res: Response): Promise<{ result?: { status?: string; payment_preimage?: string }; error?: { message?: string } } | undefined> {
+    const reader = res.body!.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    try {
+      for (;;) {
+        const { value, done } = await reader.read();
+        if (value) buffer += decoder.decode(value, { stream: true });
+        // Nur vollstaendige Zeilen – am Ende des Stroms auch die letzte.
+        const teile = buffer.split("\n");
+        const zeile = (done ? teile : teile.slice(0, -1)).find((z) => z.trim());
+        if (zeile) return JSON.parse(zeile);
+        if (done) return undefined;
+      }
+    } finally {
+      await reader.cancel().catch(() => {});
+    }
+  }
+
+  /** Zahlung ueber /v2/router/send; liest den Strom bis zum Endergebnis, liefert das Preimage (hex). */
+  private async zahleUndWarte(body: Record<string, unknown>, timeoutMs: number): Promise<string> {
     const res = await fetch(`${this.cfg.restUrl}/v2/router/send`, {
       method: "POST",
       headers: {
         "content-type": "application/json",
         "Grpc-Metadata-macaroon": this.cfg.macaroonHex,
       },
-      body: JSON.stringify({
-        payment_request: bolt11,
-        timeout_seconds: Math.ceil(timeoutMs / 1000),
-        no_inflight_updates: true, // uns interessiert nur das Endergebnis
-      }),
+      body: JSON.stringify({ ...body, no_inflight_updates: true }), // uns interessiert nur das Endergebnis
       signal: AbortSignal.timeout(timeoutMs),
       dispatcher: await this.dispatcher(),
     } as RequestInit);
@@ -210,8 +275,8 @@ export class LndLightningAdapter implements LightningAdapter {
             throw new Error(`Zahlung fehlgeschlagen: ${r.failure_reason ?? "Grund unbekannt"}`);
           }
           if (r?.status === "SUCCEEDED" && r.payment_preimage) {
-            // LND liefert base64 — der Beweis braucht Hex.
-            return toHex(Uint8Array.from(Buffer.from(r.payment_preimage, "base64")));
+            // Der Beweis braucht Hex.
+            return toHex(preimageAusLnd(r.payment_preimage));
           }
         }
       }
@@ -316,3 +381,14 @@ export async function loadMacaroonHex(path: string): Promise<string> {
 }
 
 export { toHex, fromHex };
+
+/**
+ * Preimage aus einer LND-Antwort: `lnrpc.Payment` nennt es als Hex-Text,
+ * andere Antworten als base64-Bytes. Beides wird angenommen – aber nur mit
+ * genau 32 Byte; alles andere waere ein Beleg, den niemand pruefen kann.
+ */
+export function preimageAusLnd(wert: string): Uint8Array {
+  const bytes = /^[0-9a-f]{64}$/i.test(wert) ? fromHex(wert) : Uint8Array.from(Buffer.from(wert, "base64"));
+  if (bytes.length !== 32) throw new Error("LND lieferte ein Preimage mit falscher Laenge");
+  return bytes;
+}

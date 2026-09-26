@@ -15,7 +15,7 @@
  * der LP nicht, ebenso. Niemand verliert Geld.
  */
 import type { LightningAdapter, SolanaHtlcAdapter } from "./adapters.js";
-import { toHex, verifyPreimage } from "./htlc.js";
+import { sha256, toHex, verifyPreimage } from "./htlc.js";
 import { validateReverseTimelock } from "./timelock.js";
 
 export interface ReverseSwapConfig {
@@ -38,6 +38,32 @@ export type ReverseSwapPhase = "ABORTED" | "SOL_LOCKED" | "LN_PAID" | "DONE" | "
 export interface ReverseSwapResult {
   phase: ReverseSwapPhase;
   log: string[];
+}
+
+/**
+ * Swap-ID der Gegenrichtung (4.6b): SHA-256 der Rechnung (hex). Die Sperre
+ * legt sich damit auf genau diese Rechnung fest. Wer die Sperre auf der Kette
+ * sieht, kann dem LP keine eigene Rechnung mit demselben Hash unterschieben –
+ * er muesste eine zweite Rechnung mit derselben ID finden.
+ */
+export function rueckSwapId(bolt11: string): string {
+  return toHex(sha256(new TextEncoder().encode(bolt11.trim().toLowerCase())));
+}
+
+/**
+ * Was der Kunde in der Gegenrichtung sperrt (4.6b): Wert der sats zum Kurs des
+ * LP plus dessen Gebuehr (fee_ppm), aufgerundet. App und LP rechnen mit genau
+ * dieser Funktion – ganzzahlig, damit keine Rundung die Sperre um ein Lamport
+ * verfehlt (dann zahlte der LP nicht).
+ */
+export function rueckSwapLamports(amountSats: number, lamportsPerSat: number, feePpm: number): number {
+  if (!Number.isSafeInteger(amountSats) || amountSats <= 0) throw new Error("Betrag in sats ungültig");
+  if (!Number.isFinite(lamportsPerSat) || lamportsPerSat <= 0) throw new Error("Kurs ungültig");
+  if (!Number.isSafeInteger(feePpm) || feePpm < 0 || feePpm >= 1_000_000) throw new Error("Gebühr ungültig");
+  const mikroLamportsProSat = BigInt(Math.round(lamportsPerSat * 1_000_000));
+  const zaehler = BigInt(amountSats) * mikroLamportsProSat * BigInt(1_000_000 + feePpm);
+  const nenner = 1_000_000n * 1_000_000n;
+  return Number((zaehler + nenner - 1n) / nenner);
 }
 
 /**

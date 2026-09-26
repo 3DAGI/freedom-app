@@ -446,12 +446,13 @@ async function main(): Promise<void> {
   // Optional: LP-Modus (Swap-Liquiditaet anbieten). Braucht Lightning-Adapter
   // (LND) + Solana-Adapter; ohne beide bleibt der Knoten reiner DVM-Provider.
   const lpEnabled = process.env.LP_ENABLED === "1";
-  let lp: import("./lp-daemon.js").LpDaemon | undefined;
+  // Ein Daemon je Richtung: LP_DIRECTION=sell-sol (Standard), buy-sol (4.6b) oder beide.
+  const lps: import("./lp-daemon.js").LpDaemon[] = [];
   // Kurs des LP: Er tauscht zu diesem Kurs und veroeffentlicht ihn (Schritt 4.4) –
   // die Kurs-Events der LPs sind die Quelle des Marktkurses.
   let lpKurs: import("./lp-daemon.js").RateProvider | undefined;
   if (lpEnabled) {
-    const { LpDaemon, FixedRate } = await import("./lp-daemon.js");
+    const { LpDaemon, FixedRate, rueckSpeicher } = await import("./lp-daemon.js");
     const { LndLightningAdapter, loadMacaroonHex, MockSolana } = await import("@freedomstack/protocol");
     const lndRest = process.env.LND_REST ?? "https://127.0.0.1:18080";
     const macPath = process.env.LND_MACAROON;
@@ -467,41 +468,61 @@ async function main(): Promise<void> {
     // Echter Solana-Adapter gegen das Devnet-HTLC (deployed in G).
     // Fallback auf Mock nur bei explizitem LP_SOL_MOCK=1 (Offline-Entwicklung).
     let sol: import("@freedomstack/protocol").SolanaHtlcAdapter;
+    // Empfaenger der Sperren in der Gegenrichtung: das Konto, mit dem der Adapter einloest.
+    let lpSolAdresse = process.env.LP_SOL_ADDRESS;
     if (process.env.LP_SOL_MOCK === "1") {
       const { MockSolana } = await import("@freedomstack/protocol");
       sol = new MockSolana(Number(process.env.LP_SOL_BALANCE ?? 1_000_000_000));
     } else {
       const { AnchorSolanaHtlc, loadSolanaKeypair } = await import("@freedomstack/protocol");
       const solKeypairPath = process.env.SOLANA_KEYPAIR ?? `${process.env.HOME}/.config/solana/id.json`;
+      const solKp = await loadSolanaKeypair(solKeypairPath);
+      lpSolAdresse = solKp.publicKey.toBase58();
       sol = new AnchorSolanaHtlc({
         rpcUrl: process.env.SOLANA_RPC ?? "https://api.devnet.solana.com",
-        keypair: await loadSolanaKeypair(solKeypairPath),
+        keypair: solKp,
       });
       console.log(`Solana-HTLC: echter Devnet-Adapter (${solKeypairPath})`);
     }
-    lp = new LpDaemon(
-      {
-        keypair,
-        offer: {
-          offerId: process.env.LP_OFFER_ID ?? `lp-${keypair.pk.slice(0, 8)}`,
-          pair: "LN-BTC/SOL",
-          direction: "sell-sol",
-          minSats: Number(process.env.LP_MIN_SATS ?? 1000),
-          maxSats: Number(process.env.LP_MAX_SATS ?? 500000),
-          feePpm: Number(process.env.LP_FEE_PPM ?? 3000),
-          tSolSecs: Number(process.env.LP_T_SOL_SECS ?? 3600),
-          lnCltvDeltaBlocks: Number(process.env.LP_CLTV_DELTA ?? 144),
+    lpKurs = new FixedRate(Number(process.env.LP_LAMPORTS_PER_SAT ?? 5000));
+    const richtung = process.env.LP_DIRECTION ?? "sell-sol";
+    if (!["sell-sol", "buy-sol", "beide"].includes(richtung)) {
+      console.error(`LP_DIRECTION=${richtung}? Erlaubt: sell-sol, buy-sol, beide`);
+      process.exit(1);
+    }
+    const basisId = process.env.LP_OFFER_ID ?? `lp-${keypair.pk.slice(0, 8)}`;
+    const richtungen = richtung === "beide" ? ["sell-sol", "buy-sol"] as const : [richtung as "sell-sol" | "buy-sol"];
+    for (const direction of richtungen) {
+      lps.push(new LpDaemon(
+        {
+          keypair,
+          offer: {
+            offerId: direction === "buy-sol" && richtung === "beide" ? `${basisId}-buy` : basisId,
+            pair: "LN-BTC/SOL",
+            direction,
+            minSats: Number(process.env.LP_MIN_SATS ?? 1000),
+            maxSats: Number(process.env.LP_MAX_SATS ?? 500000),
+            feePpm: Number(process.env.LP_FEE_PPM ?? 3000),
+            tSolSecs: Number(process.env.LP_T_SOL_SECS ?? 3600),
+            lnCltvDeltaBlocks: Number(process.env.LP_CLTV_DELTA ?? 144),
+          },
+          offerTtlSecs: Number(process.env.LP_OFFER_TTL ?? 7200),
+          maxLamportsPerSwap: Number(process.env.LP_MAX_LAMPORTS ?? 500_000_000),
+          solAdresse: lpSolAdresse,
+          maxOffeneZahlungen: Number(process.env.LP_MAX_OFFENE_ZAHLUNGEN ?? 3),
+          // Gegenrichtung: Sitzungen samt Preimage ueberdauern einen Neustart (nur fuer den Nutzer lesbar).
+          speicher: direction === "buy-sol" ? rueckSpeicher(join(process.env.HOME ?? ".", ".freedom", "lp-rueck.json")) : undefined,
         },
-        offerTtlSecs: Number(process.env.LP_OFFER_TTL ?? 7200),
-        maxLamportsPerSwap: Number(process.env.LP_MAX_LAMPORTS ?? 500_000_000),
-      },
-      pool,
-      ln,
-      sol,
-      (lpKurs = new FixedRate(Number(process.env.LP_LAMPORTS_PER_SAT ?? 5000))),
-    );
-    const offerEvId = await lp.publishOffer();
-    console.log(`LP-Angebot publiziert (${offerEvId.slice(0, 12)}...) fee=${process.env.LP_FEE_PPM ?? 3000}ppm`);
+        pool,
+        ln,
+        sol,
+        lpKurs,
+      ));
+    }
+    for (const lp of lps) {
+      const offerEvId = await lp.publishOffer();
+      console.log(`LP-Angebot publiziert (${offerEvId.slice(0, 12)}...) fee=${process.env.LP_FEE_PPM ?? 3000}ppm`);
+    }
   }
 
   // ------------------------------------------------- Fee-Auszahlung vorbereiten
@@ -725,14 +746,17 @@ async function main(): Promise<void> {
         }
         for (const e of r.errors) console.warn(`[publish] ${e}`);
       }
-      if (lp) {
+      for (const lp of lps) {
         const swaps = await lp.pollOnce();
         for (const s of swaps) {
-          console.log(`[lp] swap ${s.requestId.slice(0, 8)}: ${s.amountSats} sats -> ${s.amountLamports} lamports (${s.phase})`);
+          console.log(`[lp] swap ${s.requestId.slice(0, 8)}: ${s.amountSats} sats <-> ${s.amountLamports} lamports (${s.phase})`);
         }
         const settled = await lp.settleSweep();
         for (const id of settled) {
           console.log(`[lp] swap ${id.slice(0, 8)} SETTLED — sats kassiert`);
+        }
+        for (const s of await lp.nachholen()) {
+          console.log(`[lp] swap ${s.requestId.slice(0, 8)}: ${s.phase}`);
         }
       }
       // Verteilung steht nur einmal je Epoche an; die Pruefung ist billig.

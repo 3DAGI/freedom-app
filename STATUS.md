@@ -3539,3 +3539,66 @@ Exporte sind bis 4.6b/c begründet ausgenommen.
 Endstand: protocol 1030 · node 180 · app 249 · Leak-Tests 36 grün + 3 todo · 0
 rot · check-wiring `--streng` 0 offen · innerHTML streng 0 unbewertet ·
 Smoke-Test bestanden.
+
+## 92. Swaps in beide Richtungen, Teil b: LP-Daemon in der Gegenrichtung (Schritt 4.6)
+
+**Gegenrichtung im Daemon (`lp-daemon.ts`, Angebot `buy-sol`):** Der Kunde
+sperrt SOL für den LP und schickt nur Angebot und Rechnung. Der LP liest die
+Rechnung (`leseBolt11` – Signatur, ganzer sats-Betrag im Angebot), findet die
+Sperre unter `rueckSwapId(bolt11)`, prüft sie mit `pruefeRueckSwapSperre`
+(Empfänger = eigenes SOL-Konto, Betrag = `rueckSwapLamports`, Hashlock =
+Rechnungshash, Frist) und zahlt über LND mit `cltv_limit` = kleinstes von
+Angebot und `maxCltvLimitFuer(T_sol − jetzt)`. Mit dem Preimage löst er ein –
+nur bis T_sol − 10 min, sonst `ZU_SPAET`.
+
+**Swap-ID = SHA-256 der Rechnung:** Wer die Sperre auf der Kette sieht, kennt
+H. Ohne diese Bindung könnte er dem LP eine eigene Rechnung mit H schicken –
+der LP zahlte, die Zahlung hinge bis zum `cltv_limit`, und der echte Kunde
+bekäme „schon bearbeitet“. Test „Vorwegnahme“.
+
+**Sperrbetrag ganzzahlig (`rueckSwapLamports`):** In Fließkomma ergibt 1000 sats
+· 0,1 Lamport/sat · 10 % Gebühr 111 statt 110 – App und LP lägen ein Lamport
+auseinander, und der LP zahlte nie. Jetzt BigInt, eine Funktion für beide.
+
+**Kein Preimage verlieren:** Sitzung wird **vor** dem Zahlen gespeichert
+(`rueckSpeicher`, `~/.freedom/lp-rueck.json`, 0600, über Zwischendatei). Bricht
+die Verbindung zu LND ab oder startet der Daemon neu, fragt er den Stand ab
+(`LndLightningAdapter.zahlungsstand`, `/v2/router/track`): erfolgreich →
+Preimage (geprüft gegen den Hash) übernehmen und einlösen; gescheitert oder nie
+angekommen und Frist vorbei → abschließen. Eine hier laufende Zahlung wird nicht
+nachgeschlagen; gezahlt wird nie ein zweites Mal.
+
+**Blockadeschutz der Gegenrichtung:** höchstens `LP_MAX_OFFENE_ZAHLUNGEN`
+(Standard 3) Zahlungen gleichzeitig in der Schwebe; `cltv_limit` nie länger als
+die Sperre erlaubt. Die Vorab-Gebühr der Hinrichtung ändert deren Ablauf (LP +
+App) und ist jetzt eigener Schritt 4.6d.
+
+**Antworten:** Status `EINGELOEST`, `GESCHEITERT`, `ZU_SPAET`, `ABGELEHNT` – nur
+mit festen eigenen Texten; Meldungen von LND (Routen, Guthaben) bleiben beim LP.
+Kommt eine Anfrage vor der bestätigten Sperre, prüft der LP sie 10 Minuten lang
+bei jedem Durchlauf erneut. Fremde Rechnungen landen nicht im Log (die
+bech32-Bibliothek zitiert sie in ihren Fehlermeldungen).
+
+**LND-Adapter:** `payInvoice(bolt11, cltvLimit)` mit `cltv_limit` (ohne
+gültiges Limit geht nichts raus), `zahlungsstand()` (liest nur den ersten
+vollständigen Eintrag des Stroms; „payment isn't initiated“ = unbekannt, ein
+Rechtefehler bleibt ein Fehler). Das Preimage liefert `lnrpc.Payment` als
+Hex-Text – bisher wurde es als base64 gelesen; `preimageAusLnd` nimmt beides
+und besteht auf 32 Byte.
+
+**Verdrahtung (`main.ts`):** `LP_DIRECTION=sell-sol|buy-sol|beide` (ein Daemon
+je Richtung), SOL-Konto des LP = Schlüssel aus `SOLANA_KEYPAIR`, Speicher,
+`lp.nachholen()` in der Schleife. Drei 4.6a-Ausnahmen der Verdrahtungsprüfung
+entfallen (jetzt verdrahtet).
+
+**Tests:** protocol 1030 → 1036 (`lnd-adapter.test.ts` +5,
+`swap-umgekehrt.test.ts` +1), node 180 → 197 (`lp-rueck.test.ts`, 17 Tests:
+Erfolg, `cltv_limit` aus der Frist, acht Ablehnungsgründe je mit Antwort
+(fremdes Angebot still), Anfrage vor der Sperre,
+kaputte Rechnung, Vorwegnahme, doppelte Rechnung, Scheitern, zu spät,
+Verbindungsabbruch, falsches Preimage von LND, Neustart, nie angekommen,
+Blockadeschutz, Dateispeicher 0600, Verdrahtung).
+
+Endstand: protocol 1036 · node 197 · app 249 · Leak-Tests 36 grün + 3 todo · 0
+rot · check-wiring `--streng` 0 offen · innerHTML streng 0 unbewertet ·
+Smoke-Test bestanden.
