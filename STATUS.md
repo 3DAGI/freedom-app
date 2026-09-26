@@ -4653,3 +4653,57 @@ Endstand: protocol 1110 (+ 6 übersprungen) · node 213 (+ 7 übersprungen ohne
 Netz) · app 324 · Leak-Tests 48 grün + 2 todo · 0 rot · check-wiring `--streng`
 0 offen · innerHTML streng 0 unbewertet · Smoke-Test bestanden · Browser-E2E
 bestanden.
+
+## Schritt 8.9a – Speicher, Teil a: nur Verschlüsseltes, Abruf von Knoten
+
+**Entscheidung MENSCH (26.09.2026):** 8.9 in Teilen. a (dieser Teil) Protokoll
+und Knoten; b App; **c Bezahlung in sats und SOL wartet wie 7.4 auf den
+Zahlkanal 4.3** – je Stück (um 10 msat) wäre eine SOL-Überweisung teurer als das
+Stück. Öffentliche Git-Bundles werden in b verschlüsselt hochgeladen, der
+Schlüssel steht öffentlich in der Repo-Ankündigung – Knoten halten dann auch
+dort nur Chiffrat. Geprüft wird per Kennzeichen und Zufallstest.
+
+**Vorher:** Knoten nahmen jedes Stück aus dem Relay-Feed auf, wandelten Hex
+ungeprüft (`parseInt` auf Fremddaten) und prüften den Hash nicht gegen das
+Tag. Ein Abruf-Auftrag (5075) hätte das Stück als Hex im Ergebnis geliefert –
+64 KB Stück, 128 KB Hex: in keinem Umschlag möglich, nur offen. Die App nutzte
+Knoten gar nicht.
+
+**Protokoll** (`blob.ts`): `buildBlob(…, { verschluesselt: true })` setzt
+`["verschluesselt", "1"]` an Manifest und Stücke (`encrypted` im Manifest); jedes
+Stück nennt jetzt Größe und Erasure-Parameter. `pruefeSpeicherStueck()`:
+Kennzeichen, Form (Zahlen, Hex fester Länge), Hash, Füllung hinter der
+Nutzlänge nur Nullen (`nutzLaenge()`: Daten-Stück k deckt [k·C, (k+1)·C),
+Parität so lang wie das längste Daten-Stück ihrer Gruppe), und der Datenbereich
+sieht wie Zufall aus (`wirktZufaellig()`: Chi-Quadrat über die
+Byte-Häufigkeiten, Grenze 400 bei Mittel 255; unter 1 KB die Zahl verschiedener
+Bytewerte). Das fängt Text und Rohdaten – auch in Paritäts-Stücken –, nicht
+komprimierte Medien; so steht es im Modul und im Whitepaper.
+`baueStueckAbruf()`: versiegelter Auftrag 5075 vom Sitzungsschlüssel.
+
+**Knoten:** Aufnahme nur über `StorageRole.nimmAuf()` (`main.ts:437`), dazu das
+signierte Event ohne Inhalt (`<blob>.<index>.json`). Ein Abruf läuft vor der
+Zahlungsprüfung (`dvm-provider.ts:735`), setzt das Event aus .json und .bin
+wieder zusammen (ID geprüft), veröffentlicht es erneut und antwortet
+„veroeffentlicht“ – versiegelt, wenn der Abruf es war; nicht Gehaltenes wird
+abgesagt. Betrag 0 bis 8.9c.
+
+**Abnahme** (`node/test/speicher-ausfall.test.ts`): eine verschlüsselte Datei
+(~190 KB, 24 Stücke), vier Knoten mit je 12 Stücken reihum, das Relay hat nur
+das Manifest. Für **jedes der sechs Paare** fallen zwei Knoten aus; die Kundin
+fragt die übrigen versiegelt ab, sie veröffentlichen ihre Stücke erneut, die
+Datei wird zusammengesetzt und entschlüsselt. Abruf und Antwort erscheinen nie
+offen. Ein einzelner Knoten mit 12 Stücken reicht nicht; Klartext (mit und ohne
+Kennzeichen) nimmt ein Knoten nicht auf.
+
+**Knoten-Stand:** Speicherknoten (`STORAGE_ENABLED=1`) brauchen `main` nach
+diesem Merge; KI-Aufträge sind nicht betroffen.
+
+**Tests:** protocol +5 (Kennzeichen und Prüfung, Klartext abgelehnt,
+Manipulation, Nutzlänge und Zufallstest, versiegelter Abruf), node +3
+(Abnahme für alle Paare, ein Knoten reicht nicht, Klartext abgelehnt).
+
+Endstand: protocol 1115 (+ 6 übersprungen) · node 216 (+ 7 übersprungen ohne
+Netz) · app 324 · Leak-Tests 48 grün + 2 todo · 0 rot · check-wiring `--streng`
+0 offen (1 Ausnahme bis 8.9b) · innerHTML streng 0 unbewertet · Smoke-Test
+bestanden.
