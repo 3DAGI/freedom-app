@@ -5889,3 +5889,87 @@ App (seit 2.2b-b in `package.json`, in `yarn.lock` fehlte sie).
 Endstand: protocol 1149 (+1) · node 240 · app 393 (+6) · mls 10 · Leak-Tests
 54 grün (+4) + 2 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML
 streng 0 unbewertet · Website 5 Seiten ok · Smoke-Test bestanden.
+
+## Schritt 2.2b-d1 – MLS in der App: Konto und Empfang
+
+**Aufteilung:** 2.2b-d (1:1 als MLS-Gruppe) ist geteilt (`phase-2.md`):
+- d1: Konto und Empfang (dieser Schritt).
+- d2: Senden – 1:1 standardmäßig über MLS, NIP-17 als Rückfall.
+
+In d1 wird noch per NIP-17 gesendet. Empfangen kann die App MLS schon, zum
+Beispiel von White Noise.
+
+**Konto** (`packages/app/src/shell/mls-konto.ts`, neu):
+- `mlsKonto()` lädt Engine, Zustand und Verlauf dieses Geräts.
+- Beide sind verschlüsselt und an die Identität gebunden: Die Identität steht
+  in den Zusatzdaten von AES-GCM (`MlsZustand(…, bindung)`).
+- Der Import einer anderen Identität läuft ohne Neuladen. Ihr Stand wird nie
+  unter der neuen Identität geladen, sondern verworfen – samt KeyPackage-Platz
+  und KeyPackage. Derselbe d-Tag unter zwei Identitäten verbände beide.
+- Den Kontobeweis signiert das Konto über `mitRohemSchluessel("MLS-Kontobeweis")`.
+  Die Kopie des Schlüssels wird danach genullt.
+- Gesperrt (`mlsGesperrt()`):
+  - mit Bunker (NIP-46), weil der Beweis synchron signiert werden muss;
+  - als Gerät (8.6c), bis 2.2b-e.
+- Speicher und Netz werden hineingereicht (`MlsUmgebung`). In der App sind das
+  IndexedDB, `frageAn()` und `veroeffentlicheAn()`/`posteingangVon()`, in den
+  Tests RAM und Aufzeichnungs-Relays.
+
+**Wann die Engine lädt** – nie beim Start (der Smoke-Test zählt weiter 0
+übersetzte WebAssembly-Module), sondern nur in diesen Fällen:
+- `mlsErreichbar()` beim Öffnen einer 1:1-Unterhaltung, wenn das KeyPackage
+  fehlt oder fällig ist. Veröffentlicht wird an die eigenen Relays (5.4a).
+- Bei einer Einladung eines Kontakts.
+- Im Abgleich, wenn eine Unterhaltung eine MLS-Gruppe hat.
+
+**Empfang** (`tabs/kommunikation.ts`):
+- Umschläge, die keine DM sind, prüft `syncDmInbox()` einmal je Sitzung auf
+  eine MLS-Einladung (`alsMlsEinladung`).
+  - Angenommen wird nur von einem Kontakt.
+  - Ist die Gruppe eine 1:1-Gruppe mit ihm, gehört sie zu dessen Unterhaltung
+    (`mls`, eine neuere ersetzt die alte). Gruppen zu mehreren zeigt erst 2.3.
+  - Jede Einladung wird nur einmal bearbeitet (`freedom.mls.einladungen`).
+    Sonst lüde jeder Start die Engine erneut.
+- `mlsAbgleichen()` holt Kind 445 an den Relays der Gruppe (`frageAn()`, neu in
+  `state.ts`, kurze eigene Verbindungen).
+  - Neue Nachrichten gehen zuerst in den Verlauf (`merken`, neu in
+    `empfangeGruppe`/`schreiteFort`), der Zustand wird einmal am Ende gesichert.
+  - Warum diese Reihenfolge: Eine MLS-Nachricht lässt sich nur einmal
+    entschlüsseln. Geht dazwischen etwas verloren, stellt die Engine sie erneut
+    zu, und der Verlauf nimmt jede Id nur einmal.
+  - Nach der Wartezeit stellt `schreiteFort()` zurückgehaltene Nachrichten zu
+    und zeichnet die offene Unterhaltung neu.
+- Im Chat stehen Nachrichten aus dem Verlauf mit „· MLS“, nur die zwischen
+  beiden.
+
+**Verlauf** (`MlsVerlauf`, eigene IndexedDB `freedom-mls-verlauf`, in
+`WIPE_DATENBANKEN`): je Gruppe höchstens 1000 Nachrichten, je Id einmal, nach
+Zeit sortiert. Ein beschädigter Verlauf ergibt einen Fehler.
+
+**Nebenbei:**
+- `posteingangVon()` liegt jetzt in `state.ts` und wird von DM und MLS
+  gemeinsam genutzt. Es nimmt nur noch Listen des gefragten Autors.
+- Die Kette in `oeffneUmschlag()` prüfen zwei Tests wörtlich (5.6c, 4.7b).
+  Die MLS-Prüfung hängt deshalb daneben im Abgleich, nicht in der Kette
+  (Fallstrick in `CLAUDE.md`).
+
+**Tests:**
+- `app/test/mls-konto.test.ts`, 5 neu:
+  - gesperrt mit Bunker und als Gerät;
+  - KeyPackage nur mit eigenen Relays, nur an diese, danach nicht fällig;
+  - Einladung eines Kontakts: 1:1 angenommen, nicht zweimal, zwei Nachrichten
+    abgeholt, beim zweiten Abgleich nichts doppelt, beides verschlüsselt
+    abgelegt;
+  - Gruppe zu dritt: keine Unterhaltung;
+  - andere Identität verwirft Stand, Platz und KeyPackage.
+- `mls-speicher.test.ts` +2: Bindung, Verlauf.
+- `mls-nostr.test.ts` +1: erst merken, dann sichern.
+- `mls-verdrahtung.test.ts`, 3 neu:
+  - KeyPackage nur beim Öffnen einer 1:1-Unterhaltung;
+  - Einladungen nur aus Nicht-DMs und nur von Kontakten;
+  - gesperrt mit Bunker und als Gerät, roher Schlüssel nur für den Kontobeweis.
+
+Endstand: protocol 1149 · node 240 · app 404 (+11) · mls 10 · Leak-Tests 54
+grün + 2 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng 0
+unbewertet · Website 5 Seiten ok · Smoke-Test bestanden (beim Start 0
+WebAssembly übersetzt).

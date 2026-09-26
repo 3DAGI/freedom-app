@@ -15,12 +15,13 @@ import {
   renderAttachment,
 } from "../../shell-logic.js";
 import { aktuellerKurs } from "../marktkurs.js";
-import { alsGeraet, eigeneRelayListen, ensurePool, signiere, solRpcUrl, solTransaktion, sprichtFuer, state, veroeffentlicheAn } from "../state.js";
+import { alsGeraet, eigeneRelayListen, ensurePool, posteingangVon, signiere, solRpcUrl, solTransaktion, sprichtFuer, state, veroeffentlicheAn } from "../state.js";
 import { alsNachfolge } from "../nachfolge-ui.js";
 import { alsPruefauftrag } from "../pruefauftraege-ui.js";
 import { LS_MANDATE, leseGemerkt, nachDiebstahl, pruefeKontakte, warnt } from "../../schluessel-status.js";
 import { type DmZuordnung, GeraeteBuch, ordneDmZu } from "../../geraete-buch.js";
 import { sucheAufnehmen, wireSuche } from "../suche-ui.js";
+import { mlsAbgleichen, mlsBeiNeuem, mlsEinladungAnnehmen, mlsErreichbar, mlsGesperrt, mlsVerlauf } from "../mls-konto.js";
 import { geheim } from "../tresor.js";
 import { $, toast } from "../ui.js";
 
@@ -566,6 +567,11 @@ function setzeKommModus(modus: "dm" | "space"): void {
 
 export function wireKommunikation(): void {
   document.getElementById("comm-dm-btn")?.addEventListener("click", () => setzeKommModus("dm"));
+  // MLS (2.2b-d1): nach der Wartezeit zugestellte Nachrichten zeigen
+  mlsBeiNeuem((gruppe) => {
+    const c = conversations.find((x) => x.mls === gruppe);
+    if (c && activeConversation === c.id) void loadChatMessages(c.id);
+  });
   // Die Leistenknoepfe loesen die vorhandenen Aktionen aus — keine zweite Logik.
   // Mobil: eine Ebene zur Zeit, wie Discord — Liste, oder nach dem Antippen der Chat.
   const layout = document.querySelector<HTMLElement>(".comm-layout");
@@ -602,6 +608,8 @@ interface ChatConversation {
   lastTs: number;
   /** Ablauf nach NIP-40 fuer neue Nachrichten (Schritt 2.5), nur DMs; fehlt = aus. */
   ablaufSecs?: number;
+  /** MLS-Gruppe dieser 1:1-Unterhaltung (2.2b-d1), wenn der Kontakt eingeladen hat. */
+  mls?: string;
 }
 
 export let conversations: ChatConversation[] = [];
@@ -825,6 +833,8 @@ function openConversation(cid: string): void {
     `</div>`;
   zeigeAblauf(c);
   loadChatMessages(cid);
+  // Erst hier wird MLS gebraucht (2.2b-d1): eigenes KeyPackage, wenn keins da oder faellig
+  if (c?.type === "dm") void mlsErreichbar().catch(() => undefined);
 }
 
 /** Ablauf-Auswahl (2.5): nur bei DMs, zeigt den Wert der Unterhaltung. */
@@ -875,6 +885,7 @@ async function ladeModeration(communityId: string): Promise<unknown | null> {
 type DmAnzeige = NostrEvent & {
   legacy?: boolean; /** Ablauf nach NIP-40 (2.5) – auch fuer den Suchindex (8.13). */ ablauf?: number;
   /** Geschrieben von einem Geraet (8.6b): Hinweis mit Geraetenamen (Fremddaten). */ geraet?: { text: string; warnung: boolean };
+  /** Ueber MLS empfangen (2.2b-d1) – aus dem Verlauf auf diesem Geraet. */ mls?: boolean;
 };
 
 /** Vollmachten der Geraete – eigene und die der Kontakte (8.6b). */
@@ -956,6 +967,29 @@ async function alsAdressAnfrage(w: NostrEvent): Promise<null> {
   return null;
 }
 
+/** Umschlaege, die schon auf eine MLS-Einladung geprueft wurden (je Sitzung einmal). */
+const mlsGeprueft = new Set<string>();
+
+/**
+ * MLS-Einladung (2.2b-d1) in einem Umschlag, der keine DM ist: nur von einem
+ * Kontakt annehmen; eine 1:1-Gruppe gehoert dann zu dessen Unterhaltung (eine
+ * neuere ersetzt die alte). In der Unterhaltung selbst erscheint nichts.
+ */
+async function alsMlsEinladung(w: NostrEvent): Promise<null> {
+  if (mlsGesperrt() || mlsGeprueft.has(w.id)) return null;
+  mlsGeprueft.add(w.id);
+  const { oeffneEinladung } = await import("../../mls-nostr.js");
+  const e = await oeffneEinladung(w, state.signer!).catch(() => null);
+  const c = e ? conversations.find((x) => x.type === "dm" && x.id === e.von) : undefined;
+  if (!e || !c) return null;
+  const gruppe = await mlsEinladungAnnehmen(e).catch(() => null);
+  if (gruppe) {
+    c.mls = gruppe;
+    saveConversations();
+  }
+  return null;
+}
+
 /**
  * Alle Nachrichten einer 1:1-Unterhaltung: NIP-17-Umschlaege an mich (auch
  * meine eigenen Kopien) plus aeltere Kind-4-Nachrichten, die weiter lesbar
@@ -977,6 +1011,12 @@ async function ladeDmNachrichten(partner: string): Promise<DmAnzeige[]> {
     const e = await oeffneUmschlag(w);
     // Abgelaufene Nachrichten (NIP-40) zeigt die App nicht mehr – auch wenn ein Relay sie noch hat.
     if (e && e.partner === partner && !dmAbgelaufen(e.dm)) ergebnis.set(e.ev.id, e.ev);
+  }
+  // MLS (2.2b-d1): aus dem Verlauf auf diesem Geraet – nur von uns beiden
+  const gruppe = conversations.find((c) => c.type === "dm" && c.id === partner)?.mls;
+  for (const n of gruppe ? await mlsVerlauf(gruppe).catch(() => []) : []) {
+    if (n.von !== partner && n.von !== me.pk) continue;
+    ergebnis.set(`mls:${n.id}`, { id: `mls:${n.id}`, pubkey: n.von, created_at: n.zeit, kind: 445, tags: [], content: n.text, sig: "", mls: true });
   }
   for (const ev of alt) {
     // Nur Nachrichten zwischen genau uns beiden – nicht die des Partners an Dritte.
@@ -1001,15 +1041,8 @@ async function ladeDmNachrichten(partner: string): Promise<DmAnzeige[]> {
  * Posteingang annimmt: an die eigenen Relays.
  */
 export async function veroeffentlicheDm(wrap: NostrEvent, empfaenger: string): Promise<void> {
+  const ziele = await posteingangVon(empfaenger);
   const pool = await ensurePool();
-  const { parseDmRelayList, KIND_DM_RELAYS } = await import("@freedomstack/protocol");
-  let ziele: string[] = [];
-  try {
-    const listen = await pool.query({ kinds: [KIND_DM_RELAYS], authors: [empfaenger], limit: 5 });
-    ziele = parseDmRelayList(listen.sort((a, b) => b.created_at - a.created_at)[0]);
-  } catch {
-    /* ohne Liste: eigene Relays */
-  }
   if (ziele.length > 0 && (await veroeffentlicheAn(wrap, ziele)) > 0) return;
   await pool.publish(wrap);
 }
@@ -1039,6 +1072,8 @@ async function syncDmInbox(): Promise<void> {
     const umschlaege = await pool.query({ kinds: [1059], "#p": [me.pk], limit: 200 });
     for (const w of umschlaege) {
       const e = await oeffneUmschlag(w);
+      // Keine DM: vielleicht eine MLS-Einladung eines Kontakts (2.2b-d1)
+      if (!e) await alsMlsEinladung(w);
       if (!e || e.partner === me.pk || e.partner === state.person) continue;
       const vorhanden = conversations.find((x) => x.id === e.partner);
       if (!vorhanden) {
@@ -1046,6 +1081,16 @@ async function syncDmInbox(): Promise<void> {
         neu++;
       } else if (e.ev.created_at > (vorhanden.lastTs ?? 0)) {
         vorhanden.lastTs = e.ev.created_at;
+      }
+    }
+    // MLS-Gruppen (2.2b-d1): nur wenn es welche gibt – sonst bleibt die Engine ungeladen
+    const mitMls = conversations.filter((c) => c.type === "dm" && c.mls);
+    if (mitMls.length > 0 && !mlsGesperrt()) {
+      const zahlen = await mlsAbgleichen(mitMls.map((c) => c.mls!)).catch(() => new Map<string, number>());
+      for (const c of mitMls) if ((zahlen.get(c.mls!) ?? 0) > 0) {
+        c.lastTs = Math.max(c.lastTs ?? 0, Math.floor(Date.now() / 1000));
+        neu++;
+        if (activeConversation === c.id) void loadChatMessages(c.id);
       }
     }
     if (neu > 0) {
@@ -1202,7 +1247,9 @@ export async function loadChatMessages(cid: string): Promise<void> {
           : "";
         const alt = (ev as DmAnzeige).legacy
           ? ` <span class="mono-sm" title="ältere Verschlüsselung (Kind 4): Relays sehen Absender und Empfänger">· alt</span>`
-          : "";
+          : (ev as DmAnzeige).mls
+            ? ` <span class="mono-sm" title="MLS (Marmot): Gruppenschlüssel mit Vorwärtsgeheimnis">· MLS</span>`
+            : "";
         // Von einem Geraet geschrieben (8.6b) – der Name steht in der Vollmacht (Fremddaten)
         const g = (ev as DmAnzeige).geraet;
         const geraet = g ? ` <span class="mono-sm geraet-hinweis${g.warnung ? " warn" : ""}">· ${escapeHtml(g.text)}</span>` : "";
