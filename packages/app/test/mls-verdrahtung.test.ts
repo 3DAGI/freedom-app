@@ -16,7 +16,7 @@ test("2.2b-d1: KeyPackage erst beim Öffnen einer 1:1-Unterhaltung", () => {
 
 test("2.2b-d1: Einladungen nur aus Umschlägen, die keine DM sind; Gruppen nur, wenn es welche gibt", () => {
   assert.match(kom, /if \(!e\) await alsMlsEinladung\(w\);/);
-  assert.match(kom, /conversations\.find\(\(x\) => x\.type === "dm" && x\.id === e\.von\)/, "nur von Kontakten");
+  assert.match(kom, /conversations\.find\(\(x\) => x\.type === "dm" && x\.id === e\.von\)/, "vom Kontakt: in dessen Unterhaltung");
   assert.match(kom, /if \(mitMls\.length > 0 && !mlsGesperrt\(\)\) \{\s*const zahlen = await mlsAbgleichen\(/);
 });
 
@@ -25,4 +25,15 @@ test("2.2b-d1: gesperrt mit Bunker und als Gerät; der rohe Schlüssel nur für 
   assert.match(konto, /if \(alsGeraet\(\)\) return /);
   assert.deepEqual([...konto.matchAll(/mitRohemSchluessel\("([^"]+)"/g)].map((m) => m[1]), ["MLS-Kontobeweis"]);
   assert.match(konto, /new MlsZustand\(u\.zustand\(\), schluessel, pk\)/, "an die Identität gebunden");
+});
+
+test("2.2b-d2: Senden erst über MLS, sonst NIP-17; mit Ablauf, Bunker oder als Gerät nie MLS", () => {
+  assert.match(kom, /if \(c\.type === "dm" && \(await sendeUeberMls\(c, /);
+  assert.match(kom, /\} else if \(c\.type === "dm"\) \{\s*\/\/ NIP-17/, "der NIP-17-Pfad bleibt als Rückfall");
+  assert.match(kom, /if \(c\.ablaufSecs \|\| mlsGesperrt\(\)\) return false;/);
+  assert.match(kom, /Kann der Kontakt MLS, geht deine nächste Nachricht darüber\./, "ehrlicher Hinweis ohne MLS-Gruppe");
+});
+
+test("2.2b-d2: Einladung von Fremden wird zur Anfrage – wie eine NIP-17-Nachricht von ihnen", () => {
+  assert.match(kom, /c = \{ id: e\.von, type: "dm", name: "Anfrage · " \+ pkShort\(e\.von\)/);
 });

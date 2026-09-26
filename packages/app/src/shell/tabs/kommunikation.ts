@@ -21,7 +21,7 @@ import { alsPruefauftrag } from "../pruefauftraege-ui.js";
 import { LS_MANDATE, leseGemerkt, nachDiebstahl, pruefeKontakte, warnt } from "../../schluessel-status.js";
 import { type DmZuordnung, GeraeteBuch, ordneDmZu } from "../../geraete-buch.js";
 import { sucheAufnehmen, wireSuche } from "../suche-ui.js";
-import { mlsAbgleichen, mlsBeiNeuem, mlsEinladungAnnehmen, mlsErreichbar, mlsGesperrt, mlsVerlauf } from "../mls-konto.js";
+import { mlsAbgleichen, mlsBeiNeuem, mlsEinladungAnnehmen, mlsErreichbar, mlsGesperrt, mlsSendeAn, mlsVerlauf } from "../mls-konto.js";
 import { geheim } from "../tresor.js";
 import { $, toast } from "../ui.js";
 
@@ -829,12 +829,22 @@ function openConversation(cid: string): void {
   const c = conversations.find((x) => x.id === cid);
   const thread = $("#chat-thread");
   thread.innerHTML = `<div class="empty-state">${c ? escapeHtml(c.name) : ""}<br/>` +
-    (c?.type === "dm" ? "1:1 — Ende-zu-Ende verschlüsselt (NIP-17). Relays sehen nicht, wer schreibt – nur, dass du Post bekommst." : "community — opt-in gruppe.") +
+    (c?.type === "dm" ? escapeHtml(dmHinweis(c)) : "community — opt-in gruppe.") +
     `</div>`;
   zeigeAblauf(c);
   loadChatMessages(cid);
   // Erst hier wird MLS gebraucht (2.2b-d1): eigenes KeyPackage, wenn keins da oder faellig
   if (c?.type === "dm") void mlsErreichbar().catch(() => undefined);
+}
+
+/** Wie diese 1:1-Unterhaltung verschluesselt ist (2.2b-d2) – feste Texte. */
+function dmHinweis(c: ChatConversation): string {
+  const nip17 = "1:1 — Ende-zu-Ende verschlüsselt (NIP-17). Relays sehen nicht, wer schreibt – nur, dass du Post bekommst.";
+  if (c.ablaufSecs) return `${nip17} Mit Ablauf bleibt es bei NIP-17.`;
+  if (mlsGesperrt()) return `${nip17} MLS geht hier nicht (mit Bunker oder als Gerät).`;
+  return c.mls
+    ? "1:1 — über MLS (Marmot): mit Vorwärtsgeheimnis. Relays sehen nur eine zufällige Gruppen-Id und für jede Nachricht einen neuen Schlüssel."
+    : `${nip17} Kann der Kontakt MLS, geht deine nächste Nachricht darüber.`;
 }
 
 /** Ablauf-Auswahl (2.5): nur bei DMs, zeigt den Wert der Unterhaltung. */
@@ -971,22 +981,28 @@ async function alsAdressAnfrage(w: NostrEvent): Promise<null> {
 const mlsGeprueft = new Set<string>();
 
 /**
- * MLS-Einladung (2.2b-d1) in einem Umschlag, der keine DM ist: nur von einem
- * Kontakt annehmen; eine 1:1-Gruppe gehoert dann zu dessen Unterhaltung (eine
- * neuere ersetzt die alte). In der Unterhaltung selbst erscheint nichts.
+ * MLS-Einladung (2.2b-d1) in einem Umschlag, der keine DM ist. Eine
+ * 1:1-Gruppe gehoert dann zur Unterhaltung mit dem Einladenden (eine neuere
+ * ersetzt die alte); von Fremden wird sie – wie eine NIP-17-Nachricht von
+ * ihnen – zur „Anfrage“ (seit d2, sonst ginge ihre erste Nachricht verloren).
+ * In der Unterhaltung selbst erscheint nichts.
  */
 async function alsMlsEinladung(w: NostrEvent): Promise<null> {
   if (mlsGesperrt() || mlsGeprueft.has(w.id)) return null;
   mlsGeprueft.add(w.id);
   const { oeffneEinladung } = await import("../../mls-nostr.js");
   const e = await oeffneEinladung(w, state.signer!).catch(() => null);
-  const c = e ? conversations.find((x) => x.type === "dm" && x.id === e.von) : undefined;
-  if (!e || !c) return null;
+  if (!e || e.von === state.keypair?.pk) return null;
   const gruppe = await mlsEinladungAnnehmen(e).catch(() => null);
-  if (gruppe) {
-    c.mls = gruppe;
-    saveConversations();
+  if (!gruppe) return null;
+  let c = conversations.find((x) => x.type === "dm" && x.id === e.von);
+  if (!c) {
+    c = { id: e.von, type: "dm", name: "Anfrage · " + pkShort(e.von), lastTs: Math.floor(Date.now() / 1000) };
+    conversations.push(c);
   }
+  c.mls = gruppe;
+  saveConversations();
+  loadChatList();
   return null;
 }
 
@@ -1285,7 +1301,9 @@ export async function sendChatMessage(): Promise<void> {
     const imeta: string[][] = chatAttachments.map((a) => [
       "imeta", `url ${a.url}`, `m ${a.mime}`, `name ${a.name}`, ...imetaSchluessel(a),
     ]);
-    if (c.type === "dm") {
+    if (c.type === "dm" && (await sendeUeberMls(c, chatAttachments.length > 0 ? JSON.stringify({ text, attachments: chatAttachments }) : text))) {
+      // Ueber MLS gesendet (2.2b-d2)
+    } else if (c.type === "dm") {
       // NIP-17: Inhalt (Kind 14) im Siegel (Kind 13) im Umschlag (Kind 1059).
       // Relays sehen weder Inhalt noch Absender. Dazu eine Kopie an sich selbst.
       const { buildPrivateDm } = await import("@freedomstack/protocol");
@@ -1327,6 +1345,19 @@ export async function sendChatMessage(): Promise<void> {
   } catch (e) {
     toast(`Fehler: ${(e as Error).message}`, true);
   }
+}
+
+/**
+ * 1:1 ueber MLS (2.2b-d2), wenn der Kontakt es kann (KeyPackage). Mit Ablauf
+ * (2.5) bleibt es bei NIP-17 – den traegt MLS hier nicht; ebenso mit Bunker
+ * und als Geraet. false: der Chat sendet per NIP-17.
+ */
+async function sendeUeberMls(c: ChatConversation, inhalt: string): Promise<boolean> {
+  if (c.ablaufSecs || mlsGesperrt()) return false;
+  const gruppe = await mlsSendeAn(c.id, c.mls, inhalt).catch(() => null);
+  if (!gruppe) return false;
+  c.mls = gruppe;
+  return true;
 }
 
 export async function newDm(): Promise<void> {

@@ -5973,3 +5973,72 @@ Endstand: protocol 1149 · node 240 · app 404 (+11) · mls 10 · Leak-Tests 54
 grün + 2 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng 0
 unbewertet · Website 5 Seiten ok · Smoke-Test bestanden (beim Start 0
 WebAssembly übersetzt).
+
+## Schritt 2.2b-d2 – 1:1 über MLS, NIP-17 als Rückfall
+
+**Ergebnis:** 1:1-Nachrichten gehen jetzt standardmäßig über MLS, wenn der
+Kontakt es kann. Sonst gehen sie per NIP-17 wie bisher. Damit ist 2.2b-d fertig;
+offen bleibt 2.2b-e (mehrere Geräte als eigene Mitglieder).
+
+**Senden** (`sendChatMessage()` → `sendeUeberMls()` → `mlsSendeAn()` in
+`shell/mls-konto.ts`):
+- Hat die Unterhaltung eine Gruppe, geht die Nachricht dorthin.
+- Sonst sucht die App das KeyPackage des Kontakts an dessen NIP-65-Relays und
+  gründet eine Gruppe. Die Einladung geht an seinen Posteingang, die Gruppe
+  liest an den eigenen Relays.
+- Die Nachricht geht an die Relays der Gruppe. Die eigene kommt beim Senden in
+  den Verlauf, weil MLS eigene Nachrichten nicht zurück entschlüsselt.
+- Rückfall auf NIP-17:
+  - der Kontakt hat kein KeyPackage;
+  - keine eigenen Relays;
+  - die Einladung ist nicht zustellbar;
+  - kein Relay nimmt an;
+  - die Unterhaltung hat einen Ablauf (2.5; den trägt MLS hier nicht);
+  - mit Bunker oder als Gerät.
+- Anhänge reisen wie bei NIP-17 im verschlüsselten Inhalt.
+
+**Einladungen von Fremden:** Sie werden jetzt wie deren NIP-17-Nachrichten zur
+„Anfrage“. In d1 wurden sie übergangen; mit d2 ginge sonst die erste Nachricht
+eines neuen Kontakts verloren.
+
+**Ehrliche Texte:**
+- Die Unterhaltung sagt, wie sie verschlüsselt ist (`dmHinweis()`):
+  - über MLS mit Vorwärtsgeheimnis;
+  - per NIP-17, und dass die nächste Nachricht über MLS geht, sobald der
+    Kontakt es kann;
+  - mit Ablauf bleibt es bei NIP-17;
+  - mit Bunker oder als Gerät geht MLS nicht.
+- Die MLS-Karte in den Settings sagt dasselbe.
+
+**Datenschutzbericht** (`protocol/src/privacy-facts.ts`):
+- Neu belegt: „dm-mls“. Direktnachrichten an Kontakte, die MLS können, laufen
+  über MLS; Relays sehen eine zufällige Gruppen-Id und je Nachricht einen neuen
+  Schlüssel.
+  - Das Szenario in `privacy-facts.test.ts` nutzt die echte Engine.
+  - Sie wird dynamisch geladen, weil `packages/mls` außerhalb von `rootDir`
+    liegt.
+  - Dafür ist `@freedomstack/mls` jetzt devDependency des Protokoll-Pakets
+    (Workspace, nichts Neues geladen).
+- „dm-forward-secrecy“ ist jetzt eine Grenze statt offen: Forward Secrecy nur
+  über MLS, im Rückfall per NIP-17 nicht, mit Grund.
+- Die Grenze steht in der Liste hinter der SOL-Grenze. Der Berichtstest prüft
+  wörtlich deren Stelle; er prüft jetzt auch die beiden neuen Sätze.
+
+**Tests:**
+- `mls-konto.test.ts` +1: ohne KeyPackage null. Mit KeyPackage:
+  - die Gruppe wird gegründet, die Einladung geht an den Posteingang;
+  - genau eine Nachricht geht an die Gruppen-Relays;
+  - die eigene steht im Verlauf, die Gruppe wird wiederverwendet;
+  - der Kontakt liest beide.
+- `mls-verdrahtung.test.ts` +2:
+  - Senden erst über MLS, der NIP-17-Pfad bleibt Rückfall;
+  - mit Ablauf, Bunker oder als Gerät nie MLS;
+  - ehrlicher Hinweis;
+  - Einladung von Fremden wird zur Anfrage.
+- `privacy-facts.test.ts`: Szenario „dm-mls“ und zwei neue Prüfungen des
+  Berichtstexts.
+
+Endstand: protocol 1149 · node 240 · app 407 (+3) · mls 10 · Leak-Tests 54
+grün + 2 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng 0
+unbewertet · Website 5 Seiten ok · Smoke-Test bestanden (beim Start 0
+WebAssembly übersetzt).
