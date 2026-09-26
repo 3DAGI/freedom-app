@@ -7,6 +7,7 @@
 import { DEFAULT_CLIENT_FEE_PERCENT, MAX_CLIENT_FEE_PERCENT } from "@freedomstack/protocol";
 import { escapeHtml } from "../../shell-logic.js";
 import { zeigeDatenschutz } from "../datenschutz.js";
+import { zeigeVertraute } from "../nachfolge-ui.js";
 import { ensurePool, mitBunker, mitRohemSchluessel, signiere, state } from "../state.js";
 import { tresorEingerichtet, wireTresorKarte } from "../tresor.js";
 import { $, ganzeZahl, toast } from "../ui.js";
@@ -20,6 +21,8 @@ import { LS_STANDARD_SCHIENE, standardSchiene } from "../../standard-schiene.js"
 export async function zeigeNachfolge(): Promise<void> {
   const box = $("#succession-status");
   if (!box || !state.keypair) return;
+  // Fuer wen ich selbst Vertrauter bin (8.11b)
+  void zeigeVertraute();
   try {
     const { parseSuccessionPlan, evaluateSuccession, KIND_SUCCESSION_PLAN, KIND_HEARTBEAT, KIND_RECOVERY_CLAIM } =
       await import("@freedomstack/protocol");
@@ -56,14 +59,21 @@ export async function zeigeNachfolge(): Promise<void> {
 export async function richteNachfolgeEin(): Promise<void> {
   if (!state.keypair) return;
   const {
-    successionWarning, splitSecret, secretHashOf, buildSuccessionPlan, toHex: th,
+    successionWarning, splitSecret, secretHashOf, buildSuccessionPlan, baueAnteilUmschlag, neueTeilung,
   } = await import("@freedomstack/protocol");
+  const { decodeNpub } = await import("../../identity.js");
 
   const eingabe = prompt(
-    "Pubkeys der Vertrauten, kommagetrennt (mindestens 3 Personen, die sich NICHT kennen):",
+    "Schlüssel der Vertrauten (npub oder hex), kommagetrennt – mindestens 3 Personen, die sich NICHT kennen und FreedomStack nutzen:",
   );
   if (!eingabe) return;
-  const guardians = eingabe.split(",").map((x) => x.trim()).filter((x) => /^[0-9a-f]{64}$/.test(x));
+  const guardians = [...new Set(eingabe.split(",").map((x) => x.trim()).map((x) => {
+    try {
+      return x.startsWith("npub1") ? decodeNpub(x) : x.toLowerCase();
+    } catch {
+      return "";
+    }
+  }).filter((x) => /^[0-9a-f]{64}$/.test(x) && x !== state.keypair!.pk))];
   if (guardians.length < 3) {
     toast("Mindestens drei Vertraute — bei weniger ist eine Absprache zu leicht", true);
     return;
@@ -73,12 +83,24 @@ export async function richteNachfolgeEin(): Promise<void> {
   if (!confirm(successionWarning({ guardians: guardians.length, threshold, graceDays: 30 }))) return;
 
   try {
-    // Die Teile werden LOKAL erzeugt und muessen von Hand uebergeben werden.
-    // Sie ueber das Netz zu schicken waere bequemer und wuerde den ganzen
-    // Zweck aufheben: Wer die Uebertragung mitliest, hat sie alle.
+    // Die Teile entstehen LOKAL; jeder geht versiegelt (NIP-59) an genau
+    // seinen Vertrauten (8.11). Bis 8.11 gab es eine Datei mit allen Teilen –
+    // wer sie hatte, hatte alles.
     const { teile, hash } = mitRohemSchluessel("Die Nachfolge", (sk) => ({
       teile: splitSecret(sk, guardians.length, threshold), hash: secretHashOf(sk),
     }));
+    const teilung = neueTeilung();
+    const { veroeffentlicheDm } = await import("./kommunikation.js");
+    try {
+      for (const [i, t] of teile.entries()) {
+        const wrap = await baueAnteilUmschlag({
+          von: state.signer!, an: guardians[i]!, anteil: t, schwelle: threshold, anzahl: guardians.length, secretHash: hash, teilung,
+        });
+        await veroeffentlicheDm(wrap, guardians[i]!);
+      }
+    } finally {
+      for (const t of teile) t.data.fill(0);
+    }
     const pool = await ensurePool();
     await pool.publish(await signiere(buildSuccessionPlan({
       ownerPubkey: state.keypair.pk,
@@ -89,23 +111,9 @@ export async function richteNachfolgeEin(): Promise<void> {
       secretHash: hash,
     })));
 
-    const text = teile.map((t, i) =>
-      `Teil ${t.index} — fuer ${guardians[i]}\n${th(t.data)}\n`,
-    ).join("\n");
-    const url = URL.createObjectURL(new Blob([
-      "WICHTIG: Jeden Teil EINZELN und ueber einen SICHEREN Kanal uebergeben.\n" +
-      "Wer mehrere Teile in einer Hand hat, braucht die anderen nicht mehr.\n" +
-      `Schwelle: ${threshold} von ${guardians.length}.\n\n` + text,
-    ], { type: "text/plain" }));
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "freedom-nachfolge-teile.txt";
-    a.click();
-    URL.revokeObjectURL(url);
-
     localStorage.setItem("freedom.successionSet", "1");
     void aktualisiereSicherheitsStand();
-    toast("Eingerichtet. Übergib die Teile einzeln.");
+    toast(`Eingerichtet – ${guardians.length} Vertraute haben ihren Teil versiegelt bekommen.`);
     void zeigeSicherung();
     void zeigeGeraete();
     void zeigeNachfolge();

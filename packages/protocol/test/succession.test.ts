@@ -173,6 +173,13 @@ test("Nach Frist, Schwelle und Wartezeit wird freigegeben", () => {
   assert.equal(st.status, "freigegeben");
 });
 
+test("Eine nachgehende Uhr ergibt keine negativen Tage", () => {
+  // Lebenszeichen 30 Sekunden „in der Zukunft“ der eigenen Uhr
+  const st = evaluateSuccession(plan(), [puls(NOW + 30)], NOW);
+  assert.equal(st.daysSinceHeartbeat, 0);
+  assert.match(st.message, /vor 0 Tagen/);
+});
+
 test("Warnung nennt die Grenze, nicht nur den Nutzen", () => {
   const w = successionWarning({ guardians: 5, threshold: 3, graceDays: 30 });
   assert.match(w, /NICHT schützt/);

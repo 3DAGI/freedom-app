@@ -16,6 +16,7 @@ import {
 } from "../../shell-logic.js";
 import { aktuellerKurs } from "../marktkurs.js";
 import { eigeneRelayListen, ensurePool, signiere, solRpcUrl, solTransaktion, state, veroeffentlicheAn } from "../state.js";
+import { alsNachfolge } from "../nachfolge-ui.js";
 import { sucheAufnehmen, wireSuche } from "../suche-ui.js";
 import { geheim } from "../tresor.js";
 import { $, toast } from "../ui.js";
@@ -889,8 +890,8 @@ async function oeffneUmschlag(w: NostrEvent): Promise<{ partner: string; ev: DmA
         // Mit Ablauf (2.5): ladeDmNachrichten() blendet danach aus.
         dm: r.dm,
       }
-    // Keine DM: vielleicht ein SOL-Trinkgeld-Beleg (4.7b) oder eine Adress-Anfrage (4.9d).
-    : (await alsTrinkgeld(w)) ?? (await alsAdressAnfrage(w));
+    // Keine DM: vielleicht ein SOL-Trinkgeld-Beleg (4.7b), eine Adress-Anfrage (4.9d) oder Nachfolge (8.11b).
+    : (await alsTrinkgeld(w)) ?? (await alsAdressAnfrage(w)) ?? (await alsNachfolge(w));
   dmCache.set(w.id, e);
   return e;
 }
@@ -980,7 +981,7 @@ async function ladeDmNachrichten(partner: string): Promise<DmAnzeige[]> {
  * saehe nur, wann dieser Schluessel Post bekommt. Ohne Liste oder wenn kein
  * Posteingang annimmt: an die eigenen Relays.
  */
-async function veroeffentlicheDm(wrap: NostrEvent, empfaenger: string): Promise<void> {
+export async function veroeffentlicheDm(wrap: NostrEvent, empfaenger: string): Promise<void> {
   const pool = await ensurePool();
   const { parseDmRelayList, KIND_DM_RELAYS } = await import("@freedomstack/protocol");
   let ziele: string[] = [];

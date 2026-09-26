@@ -150,16 +150,6 @@ model-registry.ts|verifyFile|Modellkatalog-Prüfungen ohne Oberfläche (Modelle,
 moderation.ts|canModerate|Moderationsrechte und Hinweistext ohne Oberfläche (Räume und Moderation, 8.5)
 moderation.ts|moderationInfo|Moderationsrechte und Hinweistext ohne Oberfläche (Räume und Moderation, 8.5)
 
-nachfolge-anteile.ts|baueAnteilAnfrage|Nachfolge versiegelt: Protokoll (8.11a), App folgt in 8.11b
-nachfolge-anteile.ts|baueAnteilUebergabe|Nachfolge versiegelt: Protokoll (8.11a), App folgt in 8.11b
-nachfolge-anteile.ts|baueAnteilUmschlag|Nachfolge versiegelt: Protokoll (8.11a), App folgt in 8.11b
-nachfolge-anteile.ts|darfUebergeben|Nachfolge versiegelt: Protokoll (8.11a), App folgt in 8.11b
-nachfolge-anteile.ts|neueTeilung|Nachfolge versiegelt: Protokoll (8.11a), App folgt in 8.11b
-nachfolge-anteile.ts|oeffneAnteil|Nachfolge versiegelt: Protokoll (8.11a), App folgt in 8.11b
-nachfolge-anteile.ts|oeffneAnteilAnfrage|Nachfolge versiegelt: Protokoll (8.11a), App folgt in 8.11b
-nachfolge-anteile.ts|oeffneAnteilUebergabe|Nachfolge versiegelt: Protokoll (8.11a), App folgt in 8.11b
-nachfolge-anteile.ts|setzeNachfolgeZusammen|Nachfolge versiegelt: Protokoll (8.11a), App folgt in 8.11b
-
 naming.ts|searchByName|Namenssuche ohne Oberfläche (Lokale Suche, 8.13)
 
 network-capacity.ts|computeNetworkCapacity|dezentrale Gratis-Schwelle, noch nicht angebunden (Gebührenmodell, 5.1)
@@ -225,9 +215,6 @@ state-backup.ts|filterExpired|Zustandssicherung und ablaufende Nachrichten ohne 
 state-backup.ts|stateFingerprint|Zustandssicherung und ablaufende Nachrichten ohne Oberfläche (8.12)
 
 stream.ts|amountDue|Streaming-Abrechnung: fälliger Betrag, noch nicht angebunden (PaymentRail, 4.1)
-
-succession.ts|combineShares|Anteile zusammensetzen bei der Nachfolge, ohne Oberfläche (Nachfolge, 8.11)
-succession.ts|verifyRecovered|Anteile zusammensetzen bei der Nachfolge, ohne Oberfläche (Nachfolge, 8.11)
 
 swap-privacy.ts|swapPrivacyInfo|Hinweistext zu Swap-Adressen, ohne Oberfläche (Privatsphäre auf Solana, 4.9)
 
