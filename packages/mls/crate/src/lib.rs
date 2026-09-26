@@ -515,6 +515,21 @@ impl MlsKonto {
     pub fn epoche(&self, gruppe_id: String) -> Result<f64, JsValue> {
         self.lies(|i| Ok(i.engine.epoch(&gruppe(&gruppe_id)?).map_err(fehler)?.0 as f64))
     }
+
+    /// Nostr-Routing der Gruppe: `h` (Wert des h-Tags, hex) und ihre Relays –
+    /// dort abonnieren (Kind 445, `#h`) und dorthin senden.
+    pub fn routing(&self, gruppe_id: String) -> Result<JsValue, JsValue> {
+        self.lies(|i| {
+            let r = i.engine.nostr_routing(&gruppe(&gruppe_id)?).map_err(fehler)?.ok_or_else(|| fehler("Gruppe ohne Nostr-Routing"))?;
+            json(&Routing { h: hex::encode(r.nostr_group_id), relays: r.relays })
+        })
+    }
+}
+
+#[derive(Serialize)]
+struct Routing {
+    h: String,
+    relays: Vec<String>,
 }
 
 fn veroeffentlichen_roh(i: &mut Innen, res: SendResult) -> Result<Veroeffentlichen, JsValue> {

@@ -63,6 +63,11 @@ export class MlsKonto {
      */
     constructor(identitaet: string, beweis: Function, signer: any, zustand?: Uint8Array | null);
     /**
+     * Nostr-Routing der Gruppe: `h` (Wert des h-Tags, hex) und ihre Relays –
+     * dort abonnieren (Kind 445, `#h`) und dorthin senden.
+     */
+    routing(gruppe_id: string): any;
+    /**
      * Text in die Gruppe; Ergebnis wie bei `einladen` (Nachricht braucht keine Bestätigung).
      */
     senden(gruppe_id: string, text: string): Promise<any>;
@@ -94,6 +99,7 @@ export interface InitOutput {
     readonly mlskonto_keyPackageEvent: (a: number, b: number, c: number) => number;
     readonly mlskonto_mitglieder: (a: number, b: number, c: number, d: number) => void;
     readonly mlskonto_new: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => void;
+    readonly mlskonto_routing: (a: number, b: number, c: number, d: number) => void;
     readonly mlskonto_senden: (a: number, b: number, c: number, d: number, e: number) => number;
     readonly mlskonto_wartezeit: (a: number, b: number, c: number, d: number) => void;
     readonly mlskonto_zustand: (a: number, b: number) => void;
@@ -111,9 +117,9 @@ export interface InitOutput {
     readonly rustsecp256k1_v0_10_0_context_destroy: (a: number) => void;
     readonly rustsecp256k1_v0_10_0_default_error_callback_fn: (a: number, b: number) => void;
     readonly rustsecp256k1_v0_10_0_default_illegal_callback_fn: (a: number, b: number) => void;
-    readonly __wasm_bindgen_func_elem_25939: (a: number, b: number, c: number, d: number) => void;
-    readonly __wasm_bindgen_func_elem_25941: (a: number, b: number, c: number, d: number) => void;
-    readonly __wasm_bindgen_func_elem_19698: (a: number, b: number) => void;
+    readonly __wasm_bindgen_func_elem_25946: (a: number, b: number, c: number, d: number) => void;
+    readonly __wasm_bindgen_func_elem_25948: (a: number, b: number, c: number, d: number) => void;
+    readonly __wasm_bindgen_func_elem_19705: (a: number, b: number) => void;
     readonly __wbindgen_export: (a: number, b: number) => number;
     readonly __wbindgen_export2: (a: number, b: number, c: number, d: number) => number;
     readonly __wbindgen_export3: (a: number) => void;

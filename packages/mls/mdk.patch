@@ -19,6 +19,27 @@ index 7de16e1..5421239 100644
  tempfile = "3"
  uuid = { version = "1", features = ["v4"] }
  
+diff --git a/crates/cgka-engine/src/own_commit_intent.rs b/crates/cgka-engine/src/own_commit_intent.rs
+index a822ba5..6cb1c34 100644
+--- a/crates/cgka-engine/src/own_commit_intent.rs
++++ b/crates/cgka-engine/src/own_commit_intent.rs
+@@ -97,6 +97,16 @@ impl<S: StorageProvider> Engine<S> {
+             .ok_or_else(|| EngineError::UnknownGroup(group_id.clone()))
+     }
+ 
++    /// FreedomStack: Nostr-Routing einer lebenden Gruppe (Gruppen-Id des
++    /// `h`-Tags und Relays) aus ihrer MLS-Komponente – für Abos und Sendeziele.
++    pub fn nostr_routing(
++        &self,
++        group_id: &GroupId,
++    ) -> Result<Option<cgka_traits::NostrRoutingV1>, EngineError> {
++        self.ensure_group_live(group_id)?;
++        crate::app_components::nostr_routing_of_group(&self.load_mls_group(group_id)?)
++    }
++
+     /// Decide what becomes of the intent behind `commit_id` now that
+     /// convergence has superseded that commit. Returns `None` when this device
+     /// recorded no intent for it (a peer's commit, a self-update, or a record
 diff --git a/crates/storage-sqlite/Cargo.toml b/crates/storage-sqlite/Cargo.toml
 index 415a635..bd55990 100644
 --- a/crates/storage-sqlite/Cargo.toml

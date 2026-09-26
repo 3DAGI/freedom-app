@@ -5410,3 +5410,92 @@ Start verdrahtet).
 Endstand: protocol 1131 · node 239 · app 359 (+4) · mls 9 · Leak-Tests 49
 grün + 2 todo · 0 rot · check-wiring `--streng` 0 offen · innerHTML streng 0
 unbewertet · Website 5 Seiten ok · Smoke-Test bestanden (mit MLS-Teil).
+
+## Schritt 2.2b-c1 – MLS-Konto: Zustand verschlüsselt, KeyPackages, Routing
+
+**Aufteilung:** 2.2b-c war für einen Schritt zu groß (über 400 Zeilen). Deshalb
+zwei Teile (`phase-2.md`):
+- c1: das Konto (dieser Schritt).
+- c2: Einladungen und Gruppennachrichten über Nostr.
+
+Wie 2.2b-a ist c1 ein Baustein: getestet, aber noch nicht in der Oberfläche.
+Verdrahtet wird er mit c2 und d (1:1 in der Oberfläche).
+
+**Zustand verschlüsselt** (`packages/app/src/mls-speicher.ts`, neu):
+- Der MLS-Zustand ist MDKs SQLite-Datenbank, Megabytes groß. Er liegt in einer
+  eigenen IndexedDB `freedom-mls`, verschlüsselt mit AES-256-GCM (neuer IV je
+  Sicherung, AAD mit Version).
+- Nicht im Tresor-Blob selbst: Der wird bei jeder Änderung ganz neu
+  verschlüsselt.
+- Der Schlüssel (`freedom.mls.schluessel`) liegt in `geheim`:
+  - mit Tresor im Tresor (steht in `GEHEIM_FEST`);
+  - ohne Tresor wie die übrigen Geheimnisse in localStorage.
+- Ein gesperrter Tresor legt keinen neuen Schlüssel an und weicht nicht auf
+  localStorage aus.
+- Ist der Zustand beschädigt oder mit anderem Schlüssel verschlüsselt, gibt es
+  einen Fehler, keinen stillen Neuanfang.
+- Gleichzeitige Sicherungen laufen nacheinander; der zuletzt übergebene Stand
+  gewinnt.
+- `freedom-mls` steht in `WIPE_DATENBANKEN` (Notfall-Löschung, Code der
+  Spur B, eine Zeile). Die Sicherung schließt `freedom.mls…` schon aus
+  (`SICHERUNG_NIE`).
+
+**KeyPackages nach Marmot** (`packages/app/src/mls-keypackage.ts`, neu):
+- Platz (d-Tag): einmal 32 Zufallsbytes, bleibt für dieses Gerät; nie aus
+  Schlüsseln abgeleitet.
+- Form (`kpGueltig`):
+  - Kind 30443 vom angegebenen Autor, gültig signiert;
+  - `d` und `i` je genau einmal, 64 Hex;
+  - Version `1.0`;
+  - jede Id-Liste genau ein Tag, nicht leer, ohne Doppelte, Form `0x` plus
+    vier Hex-Ziffern klein;
+  - Ciphersuite `0x0001`, Komponente `0x8009` (Kontobeweis);
+  - Inhalt Base64.
+- Auswahl (`waehleKeyPackages`): je Platz das neueste, bei gleicher Zeit die
+  kleinere Id. Dann das neueste zuerst, bei Gleichstand das kleinere `i`.
+- Erneuern: wenn keins veröffentlicht ist, nach 30 Tagen (erlaubt sind höchstens
+  84), nach Verbrauch durch eine Einladung (`kpVerbraucht`) oder bei einem
+  Zeitstempel aus der Zukunft.
+- Veröffentlichen (`veroeffentlicheKeyPackage`): erst den Zustand sichern, dann
+  senden. Nimmt kein Relay an, gibt es einen Fehler, und nichts wird gemerkt.
+- Suchen (`sucheKeyPackages`): die NIP-65-Liste des Kontakts lesen, dann an
+  deren Schreib-Relays Kind 30443 abfragen.
+
+**Routing aus der Engine:**
+- Ein dritter kleiner Patch an MDK (`mdk.patch`, +10 Zeilen): Der neue
+  `Engine::nostr_routing()` macht das Routing einer lebenden Gruppe lesbar,
+  also die Gruppen-Id des `h`-Tags und ihre Relays. MDK führt es sonst nur
+  intern.
+- Crate `routing()`, TypeScript `Mls.routing()`. Die WASM ist neu gebaut; ein
+  Nachbau in einem zweiten Verzeichnis ist bitgleich.
+
+**Nebenbei:** Der Test `schluessel-status.test.ts` (Spur B, 8.6a) prüft
+wörtlich `"freedom.mandate"]`, also dass der Eintrag in `GEHEIM_FEST` der
+letzte ist. Der neue Eintrag steht deshalb davor; der Test ist unverändert.
+
+**Tests:**
+- `app/test/mls-speicher.test.ts`, 6 neu:
+  - Schlüssel einmal erzeugt;
+  - mit Tresor im Tresor, gesperrt kein neuer;
+  - verschlüsselt und ohne Klartext;
+  - verändert oder fremd ergibt einen Fehler;
+  - der letzte Stand gewinnt;
+  - echter Engine-Zustand nach Laden weiter Mitglied.
+- `app/test/mls-keypackage.test.ts`, 7 neu:
+  - Platz;
+  - Form des Engine-KeyPackages;
+  - zehn abgelehnte Formen;
+  - Auswahl;
+  - Erneuern;
+  - Veröffentlichen (Reihenfolge, Fehlschlag);
+  - Ende zu Ende über das Aufzeichnungs-Relay: Bob sichert verschlüsselt und
+    veröffentlicht; Alice findet das KeyPackage nur an Bobs Schreib-Relays und
+    lädt ein; Bob tritt nach dem Neuladen aus dem gesicherten Zustand bei und
+    liest mit.
+- `mls/test/mls.test.ts`, 1 neu: Routing – `h` der Nachrichten, Relays, bei
+  allen Mitgliedern gleich, unbekannte Gruppe abgewiesen.
+
+Endstand: protocol 1131 · node 239 · app 372 (+13) · mls 10 (+1) · Leak-Tests
+49 grün + 2 todo · 0 rot · check-wiring `--streng` 0 offen · innerHTML streng 0
+unbewertet · Website 5 Seiten ok · Smoke-Test bestanden (mit MLS-Teil) ·
+Nachbau bitgleich.

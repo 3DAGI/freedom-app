@@ -43,9 +43,9 @@ bash scripts/build-site.sh /tmp/site                     # Website bauen (Ziel w
 bash packages/mls/bauen.sh --pruefen                     # nur bei Änderungen an packages/mls: nachbauen + vergleichen (Rust, clang)
 ```
 
-Stand 26.09.2026 (nach 8.3b und 2.2b-b): protocol 1131 grün (6 übersprungen), node 239 grün
+Stand 26.09.2026 (nach 8.3b und 2.2b-c1): protocol 1131 grün (6 übersprungen), node 239 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 359 grün, mls 9 grün, Leak-Tests 49 grün + 2 `todo` (heutige Lecks,
+in `tools.test.ts`), app 372 grün, mls 10 grün, Leak-Tests 49 grün + 2 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
 Ausnahme: gesendete SOL-Zahlungen von frischen Adressen, eine bewusste Grenze
 nach Entscheidung 4.9 A – im Datenschutzbericht unter „Bewusste Grenzen“).
@@ -316,4 +316,11 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   laufenden wird mit „MLS beschäftigt“ abgewiesen. In der App (seit 2.2b-b) nur
   über `mlsEngine()` (`mls-engine.ts`): lädt die eingebettete `.wasm.gz` erst
   bei Bedarf, nie beim Start – der Smoke-Test zählt das. `build.mjs` baut nur,
-  wenn sie zu `packages/mls/dist/SHA256SUMS` passt.
+  wenn sie zu `packages/mls/dist/SHA256SUMS` passt. Zustand nur über
+  `MlsZustand` (`mls-speicher.ts`, seit 2.2b-c1): eigene IndexedDB
+  `freedom-mls`, AES-GCM, Schlüssel `freedom.mls.schluessel` in `geheim` – nie
+  in den Tresor-Blob selbst (Megabytes) und nie in die Sicherung. Eigene
+  KeyPackages nur über `veroeffentlicheKeyPackage()`: erst den Zustand sichern,
+  dann senden – sonst kann der private Teil eines veröffentlichten KeyPackages
+  verloren sein. Der Platz (d-Tag) ist zufällig und bleibt; fremde KeyPackages
+  nur über `waehleKeyPackages()` (Form nach Marmot, je Platz das neueste).

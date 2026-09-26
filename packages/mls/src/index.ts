@@ -169,6 +169,11 @@ export class Mls {
     return this.konto.epoche(gruppe);
   }
 
+  /** Nostr-Routing: `h` (Wert des h-Tags, hex) und die Relays der Gruppe – dort abonnieren, dorthin senden. */
+  routing(gruppe: string): { h: string; relays: string[] } {
+    return JSON.parse(this.konto.routing(gruppe) as string) as { h: string; relays: string[] };
+  }
+
   /** Ganzer Zustand (SQLite) – gehört verschlüsselt in den Tresor, nie offen abgelegt. */
   zustand(): Uint8Array {
     return this.konto.zustand();
