@@ -22,9 +22,15 @@
  * Die Bandbreiten liegen drei Größenordnungen auseinander. Eine Strecke zu
  * wählen, ohne die Größe zu kennen, führt dazu, dass ein Nutzer vier Stunden
  * auf etwas wartet, das er per Datei in Sekunden bekommen hätte.
+ *
+ * WAS ÜBERHAUPT GEHT (seit 7.1)
+ * Nur Umschläge (NIP-59). Profile, Räume, Code und offene Belege tragen den
+ * Schlüssel ihres Autors oder Klartext – der Abgleich nennt sie, sendet sie
+ * aber nicht. Über Funk begrenzt zusätzlich die Sendezeit (1 % je Stunde).
  */
 import { NostrEvent } from "./event.js";
 import { sha256 } from "@noble/hashes/sha2.js";
+import { BESTAND_BYTES, SENDEZEIT_ANTEIL, SENDEZEIT_FENSTER_SEKUNDEN, istMeshUmschlag, luftBytes } from "./mesh-transport.js";
 
 export type Link = "lora" | "bluetooth" | "datei";
 
@@ -50,6 +56,7 @@ export const LINK_LABEL: Record<Link, string> = {
  */
 export type SyncClass =
   | "nachricht"
+  | "altnachricht"
   | "community"
   | "zahlung"
   | "verzeichnis"
@@ -69,40 +76,47 @@ export interface ClassPolicy {
 
 export const SYNC_POLICY: ClassPolicy[] = [
   {
-    cls: "nachricht", label: "Nachrichten", priority: 0,
-    kinds: [4, 1059, 42],
+    cls: "nachricht", label: "Umschläge", priority: 0,
+    kinds: [1059],
     links: ["lora", "bluetooth", "datei"],
-    note: "Klein und dringend — geht über jede Strecke.",
+    note: "Verschlüsselt nach NIP-59 (Nachrichten, Belege, private Aufträge) – ohne Absender, ohne Klartext.",
+  },
+  // Ab hier: bekannt, aber nicht über Mesh (7.1) – `links` bleibt leer.
+  {
+    cls: "altnachricht", label: "Alte Direktnachrichten", priority: 1,
+    kinds: [4],
+    links: [],
+    note: "Kind 4 zeigt Absender und Empfänger offen – nicht über Mesh.",
   },
   {
-    cls: "zahlung", label: "Zahlungen", priority: 1,
+    cls: "zahlung", label: "Offene Zahlungsbelege", priority: 2,
     kinds: [9734, 9735, 38051],
-    links: ["lora", "bluetooth", "datei"],
-    note: "Signierte Transaktionen und Belege. Eine Solana-Transaktion passt in 1.232 Byte.",
+    links: [],
+    note: "Tragen Schlüssel und Rechnung offen – nicht über Mesh. Solana-Transaktionen gehen als eigene Paketart.",
   },
   {
-    cls: "community", label: "Räume", priority: 2,
-    kinds: [34700, 34701, 34702, 34550, 34551, 34552],
-    links: ["lora", "bluetooth", "datei"],
-    note: "Kanäle, Rollen, Moderation. Ohne sie erscheinen Nachrichten im luftleeren Raum.",
+    cls: "community", label: "Räume", priority: 3,
+    kinds: [42, 34700, 34701, 34702, 34550, 34551, 34552],
+    links: [],
+    note: "Räume sind noch nicht verschlüsselt (2.3) – bis dahin nicht über Mesh.",
   },
   {
-    cls: "verzeichnis", label: "Verzeichnis", priority: 3,
+    cls: "verzeichnis", label: "Verzeichnis", priority: 4,
     kinds: [0, 10002, 38055, 38057, 38062, 30009, 8],
-    links: ["lora", "bluetooth", "datei"],
-    note: "Profile, Relays, Namen, Abzeichen, Modell-Manifeste. Klein, aber macht alles andere lesbar.",
+    links: [],
+    note: "Öffentlich und mit dem Schlüssel des Autors – über Mesh geht nur Verschlüsseltes.",
   },
   {
-    cls: "code", label: "Code", priority: 4,
+    cls: "code", label: "Code", priority: 5,
     kinds: [38056, 30617],
-    links: ["bluetooth", "datei"],
-    note: "Git-Bündel sind zu groß für Funk — über Bluetooth machbar, per Datei problemlos.",
+    links: [],
+    note: "Öffentliche Bündel mit dem Schlüssel des Autors – nicht über Mesh.",
   },
   {
-    cls: "gewichte", label: "Modellgewichte", priority: 5,
+    cls: "gewichte", label: "Modellgewichte", priority: 6,
     kinds: [38058],
-    links: ["datei"],
-    note: "Gigabytes. Nur per Datei oder Stick — alles andere wäre ein leeres Versprechen.",
+    links: [],
+    note: "Gigabytes und öffentlich – nicht über Mesh.",
   },
 ];
 
@@ -112,7 +126,7 @@ export function policyFor(kind: number): ClassPolicy | undefined {
 
 // ------------------------------------------------------- Bestandsabgleich
 
-const FILTER_BITS = 8192; // 1 KB
+const FILTER_BITS = BESTAND_BYTES * 8; // 1 KB
 const HASHES = 4;
 
 /** Kompakter Bestand: „das habe ich", in 1 KB statt 32 KB. */
@@ -178,6 +192,11 @@ export interface PlanOptions {
   link: Link;
   /** Wie lange der Abgleich höchstens dauern darf. */
   maxSeconds?: number;
+  /**
+   * Freie Sendezeit über Funk (Sekunden, aus dem `Sendezeitkonto`). Ohne
+   * Angabe das volle Budget: 1 % je Stunde. Gilt nur für `lora`.
+   */
+  sendezeitSekunden?: number;
   nowSecs?: number;
 }
 
@@ -196,7 +215,13 @@ export function planSync(
 ): SyncPlan {
   const maxSec = opts.maxSeconds ?? 300;
   const rate = LINK_BYTES_PER_SEC[opts.link];
-  const budget = maxSec * rate;
+  const sendezeit = opts.link === "lora"
+    ? opts.sendezeitSekunden ?? SENDEZEIT_ANTEIL * SENDEZEIT_FENSTER_SEKUNDEN
+    : Infinity;
+  const budget = Math.min(maxSec, sendezeit) * rate;
+  const grenze = sendezeit < maxSec
+    ? `Funk: höchstens ${Math.round(SENDEZEIT_ANTEIL * 100)} % Sendezeit je Stunde`
+    : `höchstens ${maxSec}s`;
 
   const kandidaten: { ev: NostrEvent; p: ClassPolicy; bytes: number }[] = [];
   const uebersprungen = new Map<SyncClass, { count: number; reason: string }>();
@@ -212,14 +237,19 @@ export function planSync(
 
     const p = policyFor(ev.kind);
     if (!p) {
-      merke("verzeichnis", "unbekannte Ereignisart");
+      merke("verzeichnis", "unbekannte Ereignisart – über Mesh gehen nur Umschläge");
       continue;
     }
     if (!p.links.includes(opts.link)) {
-      merke(p.cls, `${p.label} gehen nicht über ${LINK_LABEL[opts.link]}`);
+      merke(p.cls, `${p.label} gehen nicht über ${LINK_LABEL[opts.link]}: ${p.note}`);
       continue;
     }
-    kandidaten.push({ ev, p, bytes: JSON.stringify(ev).length });
+    // Nur, was wirklich ein Umschlag ist – ein Kind 1059 mit Klartext-Tags nicht.
+    if (!istMeshUmschlag(ev)) {
+      merke(p.cls, "kein gültiger Umschlag – über Mesh geht nur Verschlüsseltes");
+      continue;
+    }
+    kandidaten.push({ ev, p, bytes: luftBytes(new TextEncoder().encode(JSON.stringify(ev)).length) });
   }
 
   kandidaten.sort((a, b) => a.p.priority - b.p.priority || b.ev.created_at - a.ev.created_at);
@@ -228,7 +258,7 @@ export function planSync(
   let bytes = 0;
   for (const k of kandidaten) {
     if (bytes + k.bytes > budget) {
-      merke(k.p.cls, `Zeitbudget von ${maxSec}s erschöpft`);
+      merke(k.p.cls, `Zeitbudget erschöpft (${grenze})`);
       continue;
     }
     send.push(k.ev);

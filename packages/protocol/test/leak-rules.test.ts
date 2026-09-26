@@ -9,8 +9,10 @@ import { buildEvent, generateKeypair, signEvent, type NostrEvent } from "../src/
 import {
   LEAK_REGELN, regelAutorNicht, regelKeinBolt11, regelKeinKind4, regelKeinKlartext, regelKeinKlartextPrompt,
   regelKeineSolAdresse, regelKeineZahlungsdaten, regelKundeVerborgen, regelPTagsNur, regelSolAdresseFrisch,
-  regelUploadVerschluesselt,
+  regelUploadVerschluesselt, regelMeshVerschluesselt,
 } from "../src/leak-rules.js";
+import { bech32 } from "@scure/base";
+import { fromHex } from "../src/htlc.js";
 
 const kunde = generateKeypair();
 const provider = generateKeypair();
@@ -78,6 +80,7 @@ test("jede Regel meldet unter einem Namen aus LEAK_REGELN", () => {
     ...regelSolAdresseFrisch([SOL, SOL]),
     ...regelUploadVerschluesselt([ev(1, [], "0102030405060708090a")], new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])),
     ...regelKeineZahlungsdaten([ev(6050, [["amount", "21000"]])]),
+    ...regelMeshVerschluesselt([new TextEncoder().encode(kunde.pk)], { schluessel: [kunde.pk], klartexte: [] }),
   ];
   const gemeldet = new Set(funde.map((f) => f.regel));
   assert.deepEqual([...gemeldet].sort(), Object.keys(LEAK_REGELN).sort());
@@ -104,4 +107,18 @@ test("keine-zahlungsdaten: Betrag, Rechnung, Adresse, Sitzung, Beleg – aber ni
   assert.equal(regelKeineZahlungsdaten([ev(38010, [["volume_msat", "21000"], ["units", "7"]])]).length, 0);
   assert.equal(regelKeineZahlungsdaten([ev(38022, [["units", "7"]])]).length, 1, "units im Beleg zaehlt");
   assert.equal(regelKeineZahlungsdaten([ev(1059, [["p", provider.pk]], "Chiffrat")]).length, 0, "Umschlag");
+});
+
+test("mesh-verschluesselt: Schluessel als Hex, npub oder roh und Klartext – nicht aber Zufall", () => {
+  const enc = new TextEncoder();
+  const npub = bech32.encode("npub", bech32.toWords(fromHex(kunde.pk)));
+  const regel = (b: Uint8Array) => regelMeshVerschluesselt([b], { schluessel: [kunde.pk], klartexte: ["Treffen um 19 Uhr"] });
+  assert.equal(regel(enc.encode(`{"pubkey":"${kunde.pk}"}`)).length, 1);
+  assert.match(regel(enc.encode(`an ${npub}`))[0].detail, /npub/);
+  const roh = new Uint8Array(50);
+  roh.set(fromHex(kunde.pk), 9);
+  assert.match(regel(roh)[0].detail, /roh/);
+  assert.match(regel(enc.encode("xx Treffen um 19 Uhr xx"))[0].detail, /Klartext/);
+  assert.equal(regel(crypto.getRandomValues(new Uint8Array(2000))).length, 0);
+  assert.equal(regel(enc.encode(provider.pk)).length, 0, "fremde Schlüssel sind kein Fund");
 });
