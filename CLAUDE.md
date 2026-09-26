@@ -43,9 +43,9 @@ bash scripts/build-site.sh /tmp/site                     # Website bauen (Ziel w
 bash packages/mls/bauen.sh --pruefen                     # nur bei Änderungen an packages/mls: nachbauen + vergleichen (Rust, clang)
 ```
 
-Stand 26.09.2026 (nach 8.3b und 2.2b-a): protocol 1131 grün (6 übersprungen), node 239 grün
+Stand 26.09.2026 (nach 8.3b und 2.2b-b): protocol 1131 grün (6 übersprungen), node 239 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 355 grün, mls 9 grün, Leak-Tests 49 grün + 2 `todo` (heutige Lecks,
+in `tools.test.ts`), app 359 grün, mls 9 grün, Leak-Tests 49 grün + 2 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
 Ausnahme: gesendete SOL-Zahlungen von frischen Adressen, eine bewusste Grenze
 nach Entscheidung 4.9 A – im Datenschutzbericht unter „Bewusste Grenzen“).
@@ -121,7 +121,8 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
 
 - **`build-site.sh` löscht sein Zielverzeichnis** vollständig. Nie in einen Git-Checkout bauen.
 - **CSP:** `build.mjs` erlaubt genau ein eingebettetes Skript (per Hash). Keine
-  Inline-Handler, kein `eval`. WASM bräuchte `'wasm-unsafe-eval'` → vorher fragen.
+  Inline-Handler, kein `eval`. `'wasm-unsafe-eval'` steht seit 2.2b-b drin – nur für
+  die MLS-Engine; weiteres WASM oder andere Lockerungen → vorher fragen.
 - **Fremddaten nie ungeprüft in `innerHTML`:** `escapeHtml()` für Text,
   `ganzeZahl()` für Zahlen, sonst `textContent`. `scripts/check_innerhtml.py` prüft
   jede HTML-Zuweisung streng (CI und `pages.yml`); neue sichere Stellen mit Begründung
@@ -312,4 +313,7 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   Marmot-Kontobeweis (Kind 450), `signerBruecke()` nur Siegel (Kind 13) der
   eigenen Identität. Der Zustand (`zustand()`, Megabytes) nur verschlüsselt
   ablegen. Aufrufe eines Kontos nicht verschränken – ein zweiter während eines
-  laufenden wird mit „MLS beschäftigt“ abgewiesen.
+  laufenden wird mit „MLS beschäftigt“ abgewiesen. In der App (seit 2.2b-b) nur
+  über `mlsEngine()` (`mls-engine.ts`): lädt die eingebettete `.wasm.gz` erst
+  bei Bedarf, nie beim Start – der Smoke-Test zählt das. `build.mjs` baut nur,
+  wenn sie zu `packages/mls/dist/SHA256SUMS` passt.
