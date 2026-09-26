@@ -95,17 +95,22 @@ export async function veroeffentlicheKeyPackage(p: {
   return ev;
 }
 
+type Abfrage = (filter: RelayFilter, urls?: readonly string[]) => Promise<NostrEvent[]>;
+
+/** Schreib-Relays eines Kontos aus seiner neuesten NIP-65-Liste (geprüft); leer ohne Liste. */
+export async function schreibRelaysVon(p: { pk: string; abfrage: Abfrage }): Promise<string[]> {
+  const listen = await p.abfrage({ kinds: [KIND_RELAY_LIST], authors: [p.pk], limit: 5 });
+  const liste = listen.filter((e) => e.kind === KIND_RELAY_LIST && e.pubkey === p.pk && verifyEvent(e))
+    .sort((a, b) => b.created_at - a.created_at)[0];
+  return schreibRelays(liste);
+}
+
 /**
  * KeyPackages eines Kontakts suchen: seine NIP-65-Liste lesen, an deren
  * Schreib-Relays Kind 30443 abfragen (ohne Liste: wo `abfrage` sonst sucht).
  */
-export async function sucheKeyPackages(p: {
-  pk: string; abfrage: (filter: RelayFilter, urls?: readonly string[]) => Promise<NostrEvent[]>;
-}): Promise<NostrEvent[]> {
-  const listen = await p.abfrage({ kinds: [KIND_RELAY_LIST], authors: [p.pk], limit: 5 });
-  const liste = listen.filter((e) => e.kind === KIND_RELAY_LIST && e.pubkey === p.pk && verifyEvent(e))
-    .sort((a, b) => b.created_at - a.created_at)[0];
-  const urls = schreibRelays(liste);
+export async function sucheKeyPackages(p: { pk: string; abfrage: Abfrage }): Promise<NostrEvent[]> {
+  const urls = await schreibRelaysVon(p);
   const evs = await p.abfrage({ kinds: [KIND_KEY_PACKAGE], authors: [p.pk], limit: 20 }, urls.length > 0 ? urls : undefined);
   return waehleKeyPackages(evs, p.pk);
 }

@@ -114,8 +114,9 @@ export class Mls {
     return JSON.parse(await this.konto.keyPackageEvent(platz)) as UnsignedEvent;
   }
 
-  async gruppeAnlegen(name: string, keyPackages: NostrEvent[], relays: string[]): Promise<{ gruppe: string; einladungen: NostrEvent[] }> {
-    const r = JSON.parse(await this.konto.gruppeAnlegen(name, keyPackages.map((k) => JSON.stringify(k)), relays)) as { gruppe: string; einladungen: string[] };
+  /** `admins`: Eingeladene (Identitäten hex), die wie der Gründer einladen und entfernen dürfen. */
+  async gruppeAnlegen(name: string, keyPackages: NostrEvent[], relays: string[], admins: string[] = []): Promise<{ gruppe: string; einladungen: NostrEvent[] }> {
+    const r = JSON.parse(await this.konto.gruppeAnlegen(name, keyPackages.map((k) => JSON.stringify(k)), relays, admins)) as { gruppe: string; einladungen: string[] };
     return { gruppe: r.gruppe, einladungen: alsEvents(r.einladungen) };
   }
 
@@ -127,8 +128,9 @@ export class Mls {
     return senden(await this.konto.senden(gruppe, text));
   }
 
-  async einladen(gruppe: string, keyPackages: NostrEvent[]): Promise<MlsSenden> {
-    return senden(await this.konto.einladen(gruppe, keyPackages.map((k) => JSON.stringify(k))));
+  /** Nur ein Admin darf einladen; `admins`: welche der Eingeladenen Admin werden. */
+  async einladen(gruppe: string, keyPackages: NostrEvent[], admins: string[] = []): Promise<MlsSenden> {
+    return senden(await this.konto.einladen(gruppe, keyPackages.map((k) => JSON.stringify(k)), admins));
   }
 
   async entfernen(gruppe: string, mitglieder: string[]): Promise<MlsSenden> {
@@ -159,6 +161,11 @@ export class Mls {
 
   mitglieder(gruppe: string): string[] {
     return this.konto.mitglieder(gruppe);
+  }
+
+  /** Wer einladen und entfernen darf (Identitäten hex). */
+  admins(gruppe: string): string[] {
+    return this.konto.admins(gruppe);
   }
 
   gruppen(): string[] {
