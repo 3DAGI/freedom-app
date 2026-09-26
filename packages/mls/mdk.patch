@@ -1,0 +1,232 @@
+diff --git a/Cargo.toml b/Cargo.toml
+index 7de16e1..5421239 100644
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -2,6 +2,7 @@
+ resolver = "3"
+ members = [
+     "crates/fs-private",
++    "crates/freedom-mls",
+     "crates/traits",
+     "crates/cgka-engine",
+     "crates/cgka-session",
+@@ -112,7 +113,7 @@ nostr-relay-builder = "0.44"
+ # reqwest/rustls stack, so the SDK's record-time histogram API is not needed.
+ opentelemetry-proto = { version = "0.32", default-features = false, features = ["gen-tonic-messages", "metrics"] }
+ prost = "0.14"
+-rusqlite = { version = "0.40.1", default-features = false, features = ["bundled-sqlcipher-vendored-openssl", "cache", "trace"] }
++rusqlite = { version = "0.40.1", default-features = false, features = ["bundled", "cache", "trace", "serialize", "ffi-sqlite-wasm-rs"] }
+ tempfile = "3"
+ uuid = { version = "1", features = ["v4"] }
+ 
+diff --git a/crates/storage-sqlite/Cargo.toml b/crates/storage-sqlite/Cargo.toml
+index 415a635..bd55990 100644
+--- a/crates/storage-sqlite/Cargo.toml
++++ b/crates/storage-sqlite/Cargo.toml
+@@ -20,6 +20,7 @@ sha2.workspace = true
+ thiserror.workspace = true
+ tracing.workspace = true
+ zeroize.workspace = true
++web-time.workspace = true
+ 
+ [dev-dependencies]
+ tempfile.workspace = true
+diff --git a/crates/storage-sqlite/src/account_recovery/plan.rs b/crates/storage-sqlite/src/account_recovery/plan.rs
+index 6f961f5..2e1b6ba 100644
+--- a/crates/storage-sqlite/src/account_recovery/plan.rs
++++ b/crates/storage-sqlite/src/account_recovery/plan.rs
+@@ -1112,7 +1112,7 @@ mod tests {
+             TRANSPORT_RECONCILIATION_MAX_ITEMS_PER_ROUTE, TRANSPORT_RECONCILIATION_RETENTION_SECS,
+             TransportReconciliationItem, TransportReconciliationRoute,
+         };
+-        let now = std::time::SystemTime::now()
++        let now = web_time::SystemTime::now()
+             .duration_since(std::time::UNIX_EPOCH)
+             .unwrap()
+             .as_secs();
+@@ -1291,7 +1291,7 @@ mod tests {
+             TRANSPORT_RECONCILIATION_RETENTION_SECS, TransportReconciliationItem,
+             TransportReconciliationRoute,
+         };
+-        let now = std::time::SystemTime::now()
++        let now = web_time::SystemTime::now()
+             .duration_since(std::time::UNIX_EPOCH)
+             .unwrap()
+             .as_secs();
+diff --git a/crates/storage-sqlite/src/codec.rs b/crates/storage-sqlite/src/codec.rs
+index db29a9c..817dbc4 100644
+--- a/crates/storage-sqlite/src/codec.rs
++++ b/crates/storage-sqlite/src/codec.rs
+@@ -1,6 +1,6 @@
+ use std::fmt;
+ use std::io::{self, Write};
+-use std::time::{SystemTime, UNIX_EPOCH};
++use web_time::{SystemTime, UNIX_EPOCH};
+ 
+ use cgka_traits::message::MessageState;
+ use cgka_traits::storage::{StorageError, StorageResult};
+diff --git a/crates/storage-sqlite/src/connection.rs b/crates/storage-sqlite/src/connection.rs
+index 77e9980..cd2d049 100644
+--- a/crates/storage-sqlite/src/connection.rs
++++ b/crates/storage-sqlite/src/connection.rs
+@@ -357,7 +357,7 @@ impl SharedConnection {
+         }
+     }
+ 
+-    fn start_timing(&self) -> Option<(SqliteTimingObserver, std::time::Instant)> {
++    fn start_timing(&self) -> Option<(SqliteTimingObserver, web_time::Instant)> {
+         if !self.inner.timing_enabled.load(Ordering::Acquire) {
+             return None;
+         }
+@@ -366,7 +366,7 @@ impl SharedConnection {
+             .lock()
+             .unwrap_or_else(|e| e.into_inner())
+             .clone()
+-            .map(|observer| (observer, std::time::Instant::now()))
++            .map(|observer| (observer, web_time::Instant::now()))
+     }
+ 
+     pub(crate) fn lock(&self) -> StorageResult<ConnectionGuard<'_>> {
+@@ -1016,6 +1016,23 @@ impl SqliteAccountStorage {
+         Self::from_connection_with_options(connection, options)
+     }
+ 
++    /// In-memory database restored from bytes produced by [`Self::export_bytes`].
++    /// For hosts without a filesystem (browser): the host keeps the bytes in
++    /// its own encrypted store.
++    pub fn in_memory_from_bytes(bytes: &[u8]) -> StorageResult<Self> {
++        let mut connection = rusqlite::Connection::open_in_memory().storage()?;
++        connection
++            .deserialize_read_exact(rusqlite::MAIN_DB, bytes, bytes.len(), false)
++            .storage()?;
++        Self::from_connection_with_options(connection, SqliteStorageOptions::default())
++    }
++
++    /// The whole database as bytes (SQLite serialization).
++    pub fn export_bytes(&self) -> StorageResult<Vec<u8>> {
++        let connection = self.connection.lock()?;
++        Ok(connection.serialize(rusqlite::MAIN_DB).storage()?.to_vec())
++    }
++
+     pub fn open_encrypted(path: impl AsRef<Path>, key: &SqlCipherKey) -> StorageResult<Self> {
+         Self::open_encrypted_with_options(path, key, SqliteStorageOptions::default())
+     }
+@@ -1047,7 +1064,7 @@ impl SqliteAccountStorage {
+     ) -> StorageResult<Self> {
+         apply_operational_pragmas(&connection, &options)?;
+         connection.set_prepared_statement_cache_capacity(PREPARED_STATEMENT_CACHE_CAPACITY);
+-        let migration_started = std::time::Instant::now();
++        let migration_started = web_time::Instant::now();
+         let migrations_applied = migrations::run_all(&mut connection)?;
+         let migration_duration = migration_started.elapsed();
+         let connection = SharedConnection::new(connection);
+@@ -2187,8 +2204,8 @@ mod tests {
+             result
+         });
+ 
+-        let deadline = std::time::Instant::now() + Duration::from_secs(1);
+-        while !connection.is_closed() && std::time::Instant::now() < deadline {
++        let deadline = web_time::Instant::now() + Duration::from_secs(1);
++        while !connection.is_closed() && web_time::Instant::now() < deadline {
+             std::thread::yield_now();
+         }
+         assert!(
+@@ -2335,7 +2352,7 @@ mod tests {
+ 
+         // Let the writer get going, then close out from under it.
+         std::thread::sleep(Duration::from_millis(50));
+-        let started_at = std::time::Instant::now();
++        let started_at = web_time::Instant::now();
+         store.close().unwrap();
+         let close_elapsed = started_at.elapsed();
+         writer.join().unwrap();
+diff --git a/crates/storage-sqlite/src/migrations.rs b/crates/storage-sqlite/src/migrations.rs
+index 856e8d0..f4d2a58 100644
+--- a/crates/storage-sqlite/src/migrations.rs
++++ b/crates/storage-sqlite/src/migrations.rs
+@@ -1795,8 +1795,8 @@ mod tests {
+             .stderr(Stdio::piped())
+             .spawn()
+             .unwrap();
+-        let deadline = std::time::Instant::now() + Duration::from_secs(30);
+-        while !ready_file.exists() && std::time::Instant::now() < deadline {
++        let deadline = web_time::Instant::now() + Duration::from_secs(30);
++        while !ready_file.exists() && web_time::Instant::now() < deadline {
+             if child.try_wait().unwrap().is_some() {
+                 break;
+             }
+diff --git a/crates/storage-sqlite/src/storage/groups.rs b/crates/storage-sqlite/src/storage/groups.rs
+index 4743750..429a0ec 100644
+--- a/crates/storage-sqlite/src/storage/groups.rs
++++ b/crates/storage-sqlite/src/storage/groups.rs
+@@ -345,7 +345,7 @@ mod tests {
+         store
+             .put_transport_group_route(&[0x04; 32], &bystander.id, EpochId(1))
+             .unwrap();
+-        let now = std::time::SystemTime::now()
++        let now = web_time::SystemTime::now()
+             .duration_since(std::time::UNIX_EPOCH)
+             .unwrap()
+             .as_secs();
+@@ -398,7 +398,7 @@ mod tests {
+         store
+             .put_transport_group_route(&[0xAA; 32], &group.id, EpochId(1))
+             .unwrap();
+-        let now = std::time::SystemTime::now()
++        let now = web_time::SystemTime::now()
+             .duration_since(std::time::UNIX_EPOCH)
+             .unwrap()
+             .as_secs();
+@@ -430,7 +430,7 @@ mod tests {
+         store
+             .put_transport_group_route(&[0xCC; 32], &group.id, EpochId(1))
+             .unwrap();
+-        let now = std::time::SystemTime::now()
++        let now = web_time::SystemTime::now()
+             .duration_since(std::time::UNIX_EPOCH)
+             .unwrap()
+             .as_secs();
+diff --git a/crates/storage-sqlite/src/storage/messages.rs b/crates/storage-sqlite/src/storage/messages.rs
+index fdbfe3a..c284258 100644
+--- a/crates/storage-sqlite/src/storage/messages.rs
++++ b/crates/storage-sqlite/src/storage/messages.rs
+@@ -1588,7 +1588,7 @@ mod tests {
+                 for repetition in 0..12 {
+                     for mode in [repetition % 2, 1 - repetition % 2] {
+                         super::FULL_MESSAGE_READS.with(|stats| stats.set((0, 0)));
+-                        let start = std::time::Instant::now();
++                        let start = web_time::Instant::now();
+                         let count = if mode == 0 {
+                             store
+                                 .list_messages_in_states(
+@@ -1970,7 +1970,7 @@ mod tests {
+         let mut measurements = Vec::new();
+         for sql in [legacy_sql, production_sql.as_str()] {
+             let mut statement = conn.prepare(sql).unwrap();
+-            let start = std::time::Instant::now();
++            let start = web_time::Instant::now();
+             for _ in 0..20 {
+                 conn.execute_batch("SAVEPOINT bench").unwrap();
+                 assert_eq!(
+@@ -1998,7 +1998,7 @@ mod tests {
+     #[test]
+     fn pending_replay_query_work() {
+         use rusqlite::StatementStatus;
+-        use std::time::Instant;
++        use web_time::Instant;
+ 
+         let store = SqliteAccountStorage::in_memory().unwrap();
+         let conn = store.lock().unwrap();
+diff --git a/crates/storage-sqlite/src/transport_reconciliation.rs b/crates/storage-sqlite/src/transport_reconciliation.rs
+index a406afe..8b55122 100644
+--- a/crates/storage-sqlite/src/transport_reconciliation.rs
++++ b/crates/storage-sqlite/src/transport_reconciliation.rs
+@@ -1,7 +1,7 @@
+ //! Durable, account-private NIP-77 set-reconciliation inventory.
+ 
+ use crate::connection::CachedSql;
+-use std::time::{SystemTime, UNIX_EPOCH};
++use web_time::{SystemTime, UNIX_EPOCH};
+ 
+ use crate::{SqliteAccountStorage, SqliteResultExt, connection::retry_on_busy};
+ use cgka_traits::storage::{StorageError, StorageResult};

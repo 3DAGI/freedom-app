@@ -1,0 +1,23 @@
+{
+  "name": "@freedomstack/mls",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "MLS nach Marmot (MDK als WASM) für FreedomStack – Schritt 2.2b",
+  "exports": {
+    ".": "./src/index.ts",
+    "./wasm": "./dist/freedom_mls_bg.wasm.gz"
+  },
+  "scripts": {
+    "test": "node --import tsx --test test/*.test.ts",
+    "bauen": "bash bauen.sh",
+    "pruefen": "bash bauen.sh --pruefen"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.1",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3"
+  },
+  "dependencies": {
+    "@freedomstack/protocol": "*"
+  }
+}

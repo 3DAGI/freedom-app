@@ -616,6 +616,12 @@
     "@solana/web3.js" "^1.98.4"
     esbuild "^0.28.1"
 
+"@freedomstack/mls@file:/home/user/freedom-app/packages/mls":
+  version "0.1.0"
+  resolved "file:packages/mls"
+  dependencies:
+    "@freedomstack/protocol" "*"
+
 "@freedomstack/node@file:/home/user/freedom-app/packages/node":
   version "0.1.0"
   resolved "file:packages/node"

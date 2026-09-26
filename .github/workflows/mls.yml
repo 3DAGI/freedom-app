@@ -1,0 +1,43 @@
+# Baut den MLS-Baustein (Schritt 2.2b) aus dem Quelltext nach und vergleicht
+# ihn mit der eingecheckten WASM-Datei in packages/mls/dist. Die App enthaelt
+# damit nur, was jeder aus MDK (fester Stand), mdk.patch und crate/ selbst
+# bauen kann. Laeuft nur, wenn sich der Baustein aendert (Bau: einige Minuten).
+
+name: MLS-Baustein
+
+on:
+  push:
+    branches: [main]
+    paths: ["packages/mls/**", ".github/workflows/mls.yml"]
+  pull_request:
+    paths: ["packages/mls/**", ".github/workflows/mls.yml"]
+  workflow_dispatch:
+
+jobs:
+  nachbau:
+    name: MLS-WASM nachbauen und vergleichen
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Rust-Werkzeuge zwischenspeichern
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/wasm-bindgen
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: mls-cargo-${{ hashFiles('packages/mls/Cargo.lock') }}
+
+      - name: wasm-bindgen 0.2.129
+        run: |
+          if [ "$(wasm-bindgen --version 2>/dev/null)" != "wasm-bindgen 0.2.129" ]; then
+            cargo install wasm-bindgen-cli --version 0.2.129 --locked
+          fi
+
+      - name: Nachbauen und vergleichen
+        # Rust kommt aus MDKs rust-toolchain.toml (rustup installiert ihn beim
+        # ersten cargo-Aufruf), clang (wasm32) fuer SQLite ist auf dem Runner.
+        run: bash packages/mls/bauen.sh --pruefen
