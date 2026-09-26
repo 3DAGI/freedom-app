@@ -129,7 +129,7 @@ test("Verdrahtung: Pool aus dem eigenen Satz, Listen je Sitzung abgeglichen, DMs
   assert.match(dm, /if \(ziele\.length > 0 && \(await veroeffentlicheAn\(wrap, ziele\)\) > 0\) return;\s*await pool\.publish\(wrap\);/);
   assert.match(kom, /await veroeffentlicheDm\(dm\.toRecipient, c\.id\);\s*await veroeffentlicheDm\(dm\.toSelf, ich\);/);
   // Seit 8.6b: Kopien an Geraete ebenfalls nur an den Posteingang ihrer Person
-  assert.match(kom, /for \(const k of dm\.weitere\) await veroeffentlicheDm\(k\.wrap, meine!\.includes\(k\.an\) \? ich : c\.id\);/);
+  assert.match(kom, /for \(const k of dm\.weitere\) await veroeffentlicheDm\(k\.wrap, k\.an === ich \|\| meine!\.includes\(k\.an\) \? ich : c\.id\);/);
 });
 
 test("Verdrahtung: keine fest verdrahteten alten Relays in App, Knoten und Veroeffentlichung", () => {

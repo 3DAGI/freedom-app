@@ -15,6 +15,7 @@ import { nimmBunkerAuf, wireBunkerKarte } from "./bunker.js";
 import { wireEingebauteWallet } from "./eingebaute-wallet.js";
 import { zeigeDatenschutz } from "./datenschutz.js";
 import { nachNotfallLoeschung, wireNotfallLoeschung } from "./notfall.js";
+import { LS_GERAET_PERSON, leseGeraeteCode } from "../geraete-modus.js";
 import {
   ensurePool,
   getOwnProviderFromUrl,
@@ -123,7 +124,9 @@ function loadOrCreateIdentity(): void {
   }
   const stored = ladeSchluessel();
   if (stored) {
-    setzeIdentitaet(fromHex(stored));
+    // Als Geraet einer Person angemeldet (8.6c)?
+    const person = localStorage.getItem(LS_GERAET_PERSON);
+    setzeIdentitaet(fromHex(stored), person && /^[0-9a-f]{64}$/.test(person) ? person : null);
   } else {
     // Neue Identitaeten bekommen eine Merkphrase. Frueher wurde hier still ein
     // Schluessel erzeugt — wer seine Browserdaten loeschte, verlor Identitaet,
@@ -269,15 +272,20 @@ function exportIdentity(): void {
 
 function importIdentity(): void {
   if (mitBunker()) { toast("Erst vom Bunker abmelden (Settings → Geräte)", true); return; }
-  const hex = prompt("Merkphrase, nsec1… oder 64 Zeichen Hex einfuegen:");
+  const eingabe = prompt("Merkphrase, nsec1…, 64 Zeichen Hex oder Gerätecode einfuegen:");
+  // Geraetecode (8.6c): Geraeteschluessel plus die Person, fuer die er spricht
+  const code = eingabe ? leseGeraeteCode(eingabe) : null;
+  const hex = code?.skHex ?? eingabe;
   if (!hex || !/^[0-9a-f]{64}$/i.test(hex)) {
-    if (hex !== null) toast("ungueltiger key", true);
+    if (eingabe !== null) toast("ungueltiger key", true);
     return;
   }
-  setzeIdentitaet(fromHex(hex));
+  setzeIdentitaet(fromHex(hex), code?.person ?? null);
+  if (state.person) localStorage.setItem(LS_GERAET_PERSON, state.person);
+  else localStorage.removeItem(LS_GERAET_PERSON);
   void speichereSchluessel(hex.toLowerCase()).catch((e) => toast(`nicht gespeichert: ${(e as Error).message}`, true));
   $("#ident").textContent = escrowIdent();
-  toast("Identitaet importiert");
+  toast(state.person ? `Als Gerät angemeldet – für ${pkShort(state.person)}` : "Identitaet importiert");
   updateFeePreview();
   loadChatList();
   loadWallet();

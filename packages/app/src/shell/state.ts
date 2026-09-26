@@ -46,9 +46,21 @@ interface AppState {
    * Stelle, um Geld an den Falschen zu sperren.
    */
   lastProviderSolAddress: string | null;
+  /** Seit 8.6c: die Person, deren Geraet diese App ist – sonst null. */
+  person: string | null;
 }
 
-export const state: AppState = { keypair: null, signer: null, pool: null, lud16: "", sessionClient: null, lastProvider: null, lastProviderSolAddress: null };
+export const state: AppState = { keypair: null, signer: null, pool: null, lud16: "", sessionClient: null, lastProvider: null, lastProviderSolAddress: null, person: null };
+
+/** Fuer wen die App im Chat spricht (8.6c): die Person, deren Geraet sie ist, sonst die eigene Identitaet. */
+export function sprichtFuer(): string | null {
+  return state.person ?? state.keypair?.pk ?? null;
+}
+
+/** true, wenn diese App als Geraet einer Person angemeldet ist (8.6c). */
+export function alsGeraet(): boolean {
+  return state.person !== null;
+}
 
 /**
  * Event signieren – ueber den Signer der Identitaet, nie mit dem rohen
@@ -61,16 +73,18 @@ export async function signiere(ev: UnsignedEvent): Promise<NostrEvent> {
 }
 
 /** Identitaet setzen: der Schluessel geht in den Signer, im Zustand bleibt nur der Pubkey. */
-export function setzeIdentitaet(sk: Uint8Array): void {
+export function setzeIdentitaet(sk: Uint8Array, person: string | null = null): void {
   const signer = new LocalSigner(sk);
   state.signer = signer;
   state.keypair = { pk: signer.publicKey() };
+  state.person = person !== null && person !== state.keypair.pk ? person : null;
 }
 
 /** Identitaet ueber einen entfernten Signer (Bunker, Schritt 1.3f): in der App nur der Pubkey. */
 export function setzeSigner(signer: Signer): void {
   state.signer = signer;
   state.keypair = { pk: signer.publicKey() };
+  state.person = null;
 }
 
 /** true, wenn ein entfernter Signer (Bunker) die Identitaet haelt – dann gibt es keinen rohen Schluessel. */
@@ -271,10 +285,32 @@ let listenAbgeglichen = false;
 /** Eigenen Relay-Satz einmal je Sitzung mit den veroeffentlichten Listen abgleichen (5.4a). */
 export async function eigeneRelayListen(): Promise<void> {
   if (listenAbgeglichen || !state.keypair || !state.signer) return;
+  // Als Geraet (8.6c): keine eigenen Listen – mitlesen am Posteingang der Person
+  if (state.person) {
+    listenAbgeglichen = await posteingangDerPerson(state.person);
+    return;
+  }
   const eigene = await eigeneListenAbgleichen({
     pool: await ensurePool(), pk: state.keypair.pk, signiere, weit: veroeffentlicheWeit, speicher: localStorage,
   });
   if (eigene) listenAbgeglichen = true;
+}
+
+/**
+ * Posteingang der Person (Kind 10050) in den Pool nehmen – dorthin stellen
+ * Kontakte die Kopien fuer ihre Geraete zu (8.6b). true, wenn die Liste gelesen wurde.
+ */
+async function posteingangDerPerson(person: string): Promise<boolean> {
+  const pool = await ensurePool();
+  const { KIND_DM_RELAYS, parseDmRelayList } = await import("@freedomstack/protocol");
+  const listen = await pool.query({ kinds: [KIND_DM_RELAYS], authors: [person], limit: 5 });
+  const neueste = listen.filter((e) => e.pubkey === person).sort((a, b) => b.created_at - a.created_at)[0];
+  if (!neueste) return false;
+  const da = new Set(pool.urls.map(normalizeRelayUrl));
+  for (const url of parseDmRelayList(neueste)) {
+    if (!da.has(normalizeRelayUrl(url))) pool.addRelay(new WebSocketRelay(url, { timeoutMs: 8000 }));
+  }
+  return true;
 }
 
 const LS_RELAYS = "freedom.relays";
