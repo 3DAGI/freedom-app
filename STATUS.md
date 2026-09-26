@@ -5570,3 +5570,53 @@ Vorauswahl und ohne Kurator-Filter).
 Endstand: protocol 1143 (+ 6 übersprungen) · node 238 (+ 7 übersprungen ohne
 Netz) · app 367 · mls 9 · Leak-Tests 49 grün + 2 todo · 0 rot · check-wiring
 `--streng` 0 offen · innerHTML streng 0 unbewertet · Smoke-Test bestanden.
+
+## Schritt 5.6a – Streitfall-Prüfer subjektiv, Teil a: nur der genannte Prüfer, Urteil versiegelt
+
+**Karte:** „Den Prüfer wählt der Nutzer aus seinem Netz; das Urteil gilt nur
+zwischen den Beteiligten; keine globale Zulassung.“ Zwei Teile: a Protokoll
+und Knoten, b App (Prüfer aus dem eigenen Netz, Prüfauftrag beantworten,
+Urteil anzeigen).
+
+**Fund:** Ein Urteil (Kind 38073) konnte bisher niemand abgeben –
+`buildResolution()` war unbenutzt. `resolveDispute()` hätte jedes Urteil eines
+Nicht-Beteiligten gezählt; einschränken ließ es sich nur über
+`eligibleReviewers`, eine globale Zulassung. Die App bot Prüfer aus einer
+globalen Rangliste der Provider an.
+
+**Protokoll** (`disputes-relays.ts`, `private-job.ts`):
+- Die Reklamation nennt den Prüfer (`["pruefer", pk]`). `buildDispute()`
+  prüft ihn (64 Zeichen hex, nie Kunde oder Provider), `parseDispute()` liest
+  fremde Tags streng. `buildPrivateDispute()` verlangt, dass jeder genannte
+  Prüfer die Reklamation auch bekommt.
+- `resolveDispute()` zählt nur Urteile der genannten Prüfer – keiner genannt,
+  urteilt niemand; ein Prüfer, eine Stimme (sein jüngstes Urteil). Die Option
+  `eligibleReviewers` ist entfernt. „Gar keine Antwort“ braucht weiter keinen
+  Prüfer.
+- Frage und Antwort nur mit Zustimmung und nur in der Kopie für den Prüfer
+  (`materialFuerPruefer`, je höchstens 8.000 Zeichen – NIP-44 fasst 64 KB);
+  der Provider sieht, wer prüft, bekommt das Material aber nicht noch einmal.
+  Direkt in der Reklamation ist es abgelehnt.
+- Das Urteil geht versiegelt nur an den Sitzungsschlüssel des Kunden (wie jede
+  KI-Antwort) und den Provider: `buildPrivateUrteil()` (mit der Rechenarbeit
+  aus dem Angebot des Providers), `openPrivateUrteil()`.
+
+**Knoten** (`dvm-provider.ts`): nimmt das Urteil über den Kunden-Öffner an
+(mit Rechenarbeit) und loggt nur Auftrag, Ergebnis, Betrag und Prüfer, nie die
+Begründung. Eine Rückzahlung löst es nicht aus – das entscheidet der
+Betreiber.
+
+**App (klein):** `reklamiere()` nennt den gewählten Prüfer schon in der
+Reklamation (`tabs/agent.ts`); die Wahl aus dem eigenen Netz kommt in b.
+
+**Tests:** protocol +6 (nur der genannte Prüfer; eine Stimme; Prüfer in der
+Reklamation geprüft; Material nur für den Prüfer; Urteil versiegelt und
+entscheidend; falsche Eingaben), die alten Mehrheits-Tests nennen ihre Prüfer
+jetzt in der Reklamation; der Test „Nur zugelassene Prüfer zählen“ ist durch
+„Nur der genannte Prüfer zählt“ ersetzt (die Karte verlangt keine globale
+Zulassung); Szenario „ki-reklamation“ prüft auch Material und Urteil. node +1
+(Urteil ins Log ohne Begründung, ohne Rechenarbeit verworfen).
+
+Endstand: protocol 1148 (+ 6 übersprungen) · node 239 (+ 7 übersprungen ohne
+Netz) · app 367 · mls 9 · Leak-Tests 49 grün + 2 todo · 0 rot · check-wiring
+`--streng` 0 offen · innerHTML streng 0 unbewertet · Smoke-Test bestanden.

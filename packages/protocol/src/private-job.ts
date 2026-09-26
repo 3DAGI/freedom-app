@@ -28,10 +28,16 @@
  * Eine Reklamation (Kind 38072) nennt Auftrag, Grund, Betrag und eine Notiz.
  * Sie geht nur versiegelt hinaus: je ein Umschlag an den Provider und an einen
  * Pruefer, den der Kunde waehlt – vom Sitzungsschluessel, wie der Auftrag.
+ *
+ * DAS URTEIL (Schritt 5.6)
+ * Den Pruefer waehlt der Kunde aus seinem Netz; die Reklamation nennt ihn, und
+ * nur seine Kopie traegt – wenn der Kunde zustimmt – Frage und Antwort. Sein
+ * Urteil (Kind 38073) geht ebenso versiegelt zurueck, an den
+ * Sitzungsschluessel des Kunden und an den Provider, sonst an niemanden.
  */
 import { type NostrEvent, type UnsignedEvent, computeEventId, getTag, verifyEvent } from "./event.js";
 import { KIND_GIFT_WRAP, giftUnwrapMitSigner, giftWrapMitSigner } from "./gift-wrap.js";
-import { KIND_JOB_DISPUTE } from "./disputes-relays.js";
+import { KIND_DISPUTE_RESOLUTION, KIND_JOB_DISPUTE, PRUEFMATERIAL_MAX_ZEICHEN } from "./disputes-relays.js";
 import { KIND_DVM_FEEDBACK, KIND_SESSION_OPEN, KIND_SESSION_PAYMENT, isDvmRequest, isDvmResult } from "./kinds.js";
 import { eventDifficulty } from "./pow.js";
 import type { Signer } from "./signer.js";
@@ -97,6 +103,8 @@ export async function buildPrivateDispute(p: {
   dispute: UnsignedEvent;
   sessionSigner: Signer;
   empfaenger: ReadonlyArray<{ pk: string; powBits?: number }>;
+  /** Frage und Antwort – nur in die Kopie fuer den Pruefer (5.6), nur mit Zustimmung des Kunden. */
+  materialFuerPruefer?: { frage: string; antwort: string };
   nowSecs?: number;
 }): Promise<{ wraps: NostrEvent[]; disputeId: string }> {
   if (p.dispute.kind !== KIND_JOB_DISPUTE) throw new Error(`Keine Reklamation: Kind ${p.dispute.kind}`);
@@ -115,11 +123,70 @@ export async function buildPrivateDispute(p: {
   if (pks.includes(selbst)) throw new Error("Wer reklamiert, prüft nicht selbst");
   const provider = p.dispute.tags.find((t) => t[0] === "p")?.[1];
   if (!provider || !pks.includes(provider)) throw new Error("Der Provider muss die Reklamation bekommen");
+  // Wer als Pruefer genannt ist, muss sie auch bekommen – sonst urteilt niemand.
+  for (const t of p.dispute.tags) {
+    if (t[0] === "pruefer" && !pks.includes(t[1] ?? "")) throw new Error("Genannter Prüfer bekommt die Reklamation nicht");
+  }
+  if (p.dispute.tags.some((t) => t[0] === "frage" || t[0] === "antwort")) throw new Error("Frage und Antwort nur über materialFuerPruefer");
   const wraps: NostrEvent[] = [];
   for (const e of p.empfaenger) {
-    wraps.push(await giftWrapMitSigner(p.dispute, p.sessionSigner, e.pk, { fixedJitter: 0, nowSecs: p.nowSecs, powBits: e.powBits ?? 0 }));
+    const kopie = e.pk !== provider && p.materialFuerPruefer
+      ? { ...p.dispute, tags: [...p.dispute.tags,
+        ["frage", p.materialFuerPruefer.frage.slice(0, PRUEFMATERIAL_MAX_ZEICHEN)],
+        ["antwort", p.materialFuerPruefer.antwort.slice(0, PRUEFMATERIAL_MAX_ZEICHEN)]] }
+      : p.dispute;
+    wraps.push(await giftWrapMitSigner(kopie, p.sessionSigner, e.pk, { fixedJitter: 0, nowSecs: p.nowSecs, powBits: e.powBits ?? 0 }));
   }
   return { wraps, disputeId: computeEventId(p.dispute) };
+}
+
+/**
+ * Urteil eines Pruefers versiegeln (Schritt 5.6): je ein Umschlag an den
+ * Sitzungsschluessel des Kunden (Autor der Reklamation) und an den Provider –
+ * das Urteil gilt nur zwischen ihnen und steht nirgends offen.
+ */
+export async function buildPrivateUrteil(p: {
+  urteil: UnsignedEvent;
+  prueferSigner: Signer;
+  kundePk: string;
+  providerPk: string;
+  /** Rechenarbeit laut Angebot des Providers – sonst verwirft sein Knoten den Umschlag. */
+  providerPowBits?: number;
+  nowSecs?: number;
+}): Promise<{ wraps: NostrEvent[]; urteilId: string }> {
+  if (p.urteil.kind !== KIND_DISPUTE_RESOLUTION) throw new Error(`Kein Urteil: Kind ${p.urteil.kind}`);
+  const selbst = p.prueferSigner.publicKey();
+  if (p.urteil.pubkey !== selbst) throw new Error("Urteil gehört nicht zum Prüfer");
+  for (const pk of [p.kundePk, p.providerPk]) if (!HEX64.test(pk)) throw new Error("Empfänger-Pubkey ungültig (64 Zeichen hex erwartet)");
+  if (p.kundePk === p.providerPk) throw new Error("Kunde und Provider sind verschieden");
+  if (p.kundePk === selbst || p.providerPk === selbst) throw new Error("Eine Partei prüft nicht selbst");
+  const bits = p.providerPowBits ?? 0;
+  if (!Number.isInteger(bits) || bits < 0 || bits > MAX_POW_BITS) throw new Error(`Rechenarbeit ${bits} außerhalb 0–${MAX_POW_BITS}`);
+  const wraps: NostrEvent[] = [];
+  for (const [pk, powBits] of [[p.kundePk, 0], [p.providerPk, bits]] as const) {
+    wraps.push(await giftWrapMitSigner(p.urteil, p.prueferSigner, pk, { fixedJitter: 0, nowSecs: p.nowSecs, powBits }));
+  }
+  return { wraps, urteilId: computeEventId(p.urteil) };
+}
+
+export type GeoeffnetesUrteil =
+  | { ok: true; urteil: UnsignedEvent & { id: string }; prueferPk: string }
+  | { ok: false; grund: string };
+
+/** Umschlag mit einem Urteil oeffnen – als Kunde (Sitzungsschluessel) oder Provider. */
+export async function openPrivateUrteil(wrap: NostrEvent, signer: Signer): Promise<GeoeffnetesUrteil> {
+  if (wrap.kind !== KIND_GIFT_WRAP) return { ok: false, grund: "Kein Umschlag" };
+  if (getTag(wrap, "p") !== signer.publicKey()) return { ok: false, grund: "Umschlag nicht an diesen Schlüssel" };
+  if (!verifyEvent(wrap)) return { ok: false, grund: "Umschlag-Signatur ungültig" };
+  const r = await giftUnwrapMitSigner(wrap, signer);
+  if (!r.ok || !r.inner || !r.senderPubkey) return { ok: false, grund: r.message };
+  const k = r.inner as Partial<UnsignedEvent>;
+  const form = Number.isInteger(k.kind) && Number.isInteger(k.created_at) && typeof k.content === "string"
+    && Array.isArray(k.tags) && k.tags.every((t) => Array.isArray(t) && t.every((x) => typeof x === "string"));
+  if (!form) return { ok: false, grund: "Urteil beschädigt" };
+  if (k.kind !== KIND_DISPUTE_RESOLUTION) return { ok: false, grund: `Kein Urteil: Kind ${k.kind}` };
+  const urteil: UnsignedEvent = { pubkey: r.senderPubkey, created_at: k.created_at!, kind: k.kind!, tags: k.tags!, content: k.content! };
+  return { ok: true, urteil: { ...urteil, id: computeEventId(urteil) }, prueferPk: r.senderPubkey };
 }
 
 export type GeoeffneterJob =
@@ -142,7 +209,8 @@ export async function openPrivateJobRequest(
 /**
  * Wie openPrivateJobRequest, nimmt aber auch Sitzung (38021) und Belege
  * (38022) an (Schritt 3.2) sowie Reklamationen (38072, Schritt 3.4) – auch als
- * Pruefer, an den der Umschlag geht.
+ * Pruefer, an den der Umschlag geht – und Urteile (38073, Schritt 5.6) ueber
+ * Reklamationen gegen diesen Provider; deren Absender ist der Pruefer.
  */
 export async function openPrivateKundenEvent(
   wrap: NostrEvent,
@@ -151,8 +219,8 @@ export async function openPrivateKundenEvent(
 ): Promise<GeoeffneterJob> {
   return oeffneVomKunden(
     wrap, providerSigner, minPowBits,
-    (k) => isDvmRequest(k) || istSitzungsEvent(k) || k === KIND_JOB_DISPUTE,
-    "Weder Anfrage noch Sitzungs-Event noch Reklamation",
+    (k) => isDvmRequest(k) || istSitzungsEvent(k) || k === KIND_JOB_DISPUTE || k === KIND_DISPUTE_RESOLUTION,
+    "Weder Anfrage noch Sitzungs-Event noch Reklamation noch Urteil",
   );
 }
 

@@ -40,6 +40,7 @@ import {
   LocalSigner,
   buildPrivateJobResponse,
   openPrivateKundenEvent,
+  KIND_DISPUTE_RESOLUTION,
   KIND_JOB_DISPUTE,
   parseDispute,
   KIND_PRICE_TICKER,
@@ -438,6 +439,10 @@ export class DvmProvider {
       this.meldeReklamation(request);
       return null;
     }
+    if (request.kind === KIND_DISPUTE_RESOLUTION) {
+      this.meldeUrteil(request);
+      return null;
+    }
     return request;
   }
 
@@ -456,6 +461,24 @@ export class DvmProvider {
     } catch (e) {
       console.warn(`[reklamation] unvollstaendig: ${(e as Error).message}`);
     }
+  }
+
+  /**
+   * Urteil eines Pruefers (Schritt 5.6), versiegelt an diesen Knoten: Der
+   * Kunde hat ihn aus seinem Netz gewaehlt, das Urteil gilt nur zwischen den
+   * Beteiligten. Eine Rueckzahlung loest es nicht aus – das entscheidet der
+   * Betreiber. Ins Log nur Auftrag, Ergebnis, Betrag und der Pruefer, nie die
+   * Begruendung (sie kann Klartext aus dem Auftrag tragen, 3.3).
+   */
+  private meldeUrteil(ev: NostrEvent): void {
+    const job = getTag(ev, "e") ?? "";
+    const ergebnis = getTag(ev, "result") ?? "";
+    const betrag = Number(getTag(ev, "refund_msat") ?? "0");
+    if (!/^[0-9a-f]{64}$/.test(job) || !["erstattet", "bestaetigt", "geteilt", "unentschieden"].includes(ergebnis)) {
+      console.warn("[urteil] unvollstaendig");
+      return;
+    }
+    console.log(`[urteil] Job ${job.slice(0, 8)}: ${ergebnis}, ${ganzeZahlLog(betrag)} msat zurueck (Pruefer ${ev.pubkey.slice(0, 8)}) – zahlt der Betreiber freiwillig`);
   }
 
   private async bearbeitePrivat(request: NostrEvent): Promise<ProcessedJob> {
