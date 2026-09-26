@@ -4039,3 +4039,58 @@ Adress-Anfrage (gleiche Aussage).
 Endstand (nach dem Einmergen von 7.1a): protocol 1071 · node 214 · app 282 ·
 Leak-Tests 44 grün + 2 todo · 0 rot · check-wiring `--streng` 0 offen ·
 innerHTML streng 0 unbewertet · Smoke-Test bestanden.
+
+## Schritt 7.1b – Mesh nur verschlüsselt, Teil b: App – 7.1 Code fertig
+
+**Funkknoten (`mesh-radio.ts`):** `MeshNode.enqueue()` prüft mit
+`pruefeMeshInhalt()` und dem eigenen Schlüssel (`setEigeneSchluessel`, aus
+`state.keypair` in Settings → Mesh) – Offenes, Klartext, Ecash und die eigene
+DM-Kopie werfen. Beim Empfang kommt nur Geprüftes bei der App an. **Fund:** Bis
+hier reichte der Knoten jeden Rahmen der Art „Nostr“ sofort und ungeprüft
+weiter – fremder Klartext ging so über das eigene Funkgerät, am Sendezeitkonto
+vorbei. Jetzt erst die ganze, geprüfte Nachricht, über die Warteschlange, mit
+Sprungzahl − 1 und nie mit eigenem Schlüssel (Post an mich funkt mein Gerät
+nicht weiter). Preis: Ein Knoten, dem ein Rahmen fehlt, hilft bei dieser
+Nachricht nicht mehr weiter. Eigene Nachrichten, die als Echo zurückkommen,
+gehen nicht noch einmal raus.
+
+**Sendezeit:** Über Funk bucht der Knoten jeden Rahmen im `Sendezeitkonto` und
+schweigt, wenn 1 % je Stunde verbraucht sind; die Oberfläche zeigt „Sendezeit
+aufgebraucht – weiter in etwa N min“, die Dauer-Schätzung rechnet die Grenze
+mit. **Fund:** Ein Funkgerät per Bluetooth galt als eigene Strecke mit 20 KB/s –
+es sendet aber über LoRa; jetzt zählt es als Funk.
+
+**Chat → ⇪ (`mesh-transfer.ts`, `app.ts`):** nimmt die Umschläge an den
+Kontakt mit, die die Relays haben (auch die eigenen), als Datei ohne Absender
+im Kopf (Version 2, neutraler Dateiname). Vorher: Kind-4-DMs bzw.
+Raumnachrichten im Klartext und `exportedBy` = eigener npub. Räume lehnt der
+Knopf bis 2.3 ab. ⇩ gibt nur geprüfte Umschläge ans Netz und nennt, wie viel
+Unverschlüsseltes abgelehnt wurde (auch aus alten Dateien).
+
+**Ehrliche Texte:** Mesh-Karte (nur Umschläge, 1 % Sendezeit ≈ drei bis vier
+kurze Nachrichten je Stunde – gemessen: ein kurzer DM-Umschlag hat 1,6–1,8 KB
+in der Luft), „Was geht ohne Internet?“ (Räume, Profile, Code, Gewichte: nein;
+Solana-Zahlungen: Transport steht, offline signieren erst mit 7.2 – vorher
+„✓“), FAQ und Whitepaper (Ecash stand dort als „ja“ – nie gebaut). Beim Empfang
+einer Solana-Transaktion sagt die App jetzt, dass sie sie noch nicht einreicht
+(vorher „wird beim nächsten Netzkontakt eingereicht“ – geschah nie). „Als
+Datei ausgeben“ sagt, wenn es nichts zu senden gibt.
+
+**Abnahme (`app/test/leak/mesh.test.ts`):** mitgeschnitten am Transport des
+echten `MeshNode` und in der Chat-Datei: DM an Bob, Abgleich aus gemischtem
+Bestand, Datei – weder Alices Schlüssel (Hex, npub, roh; in Rahmen und
+zusammengesetzt) noch Klartext; Gegenprobe: dieselbe Regel findet Alice in
+allem, was bis 7.1 gesendet werden konnte. Aussage „mesh“ belegt (Szenario im
+Protokoll).
+
+**Tests:** app 279 → 285 (Funkknoten: Ablehnung, eigene Kopie, Sendezeit über
+USB und Bluetooth, Empfang, nur Geprüftes weiter; bestehende Tests senden jetzt
+Umschläge statt Rohtext), Leak-Tests 43 → 46; protocol 1069 (Auskunft ersetzt:
+über keine Strecke geht Offenes). `decrementTtl` ist ungenutzt (Ausnahme mit
+Grund); die Kurier-Pakete aus `mesh.ts` bleiben unverdrahtet – Kurier-Belohnung
+ist Geld ohne Karte.
+
+Endstand (nach dem Einmergen von 4.9d): protocol 1071 · node 213 (+ 7
+übersprungen ohne Netz) · app 288 · Leak-Tests 47 grün + 2 todo · 0 rot ·
+check-wiring `--streng` 0 offen · innerHTML streng 0 unbewertet · Smoke-Test
+bestanden.

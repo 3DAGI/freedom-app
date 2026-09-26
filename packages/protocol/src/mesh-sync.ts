@@ -341,25 +341,29 @@ export function blobFeasibility(req: BlobRequest, link: Link): BlobVerdict {
  */
 export function offlineCapabilities(link: Link): { feature: string; works: boolean; note: string }[] {
   const ueberFunk = link === "lora";
+  const nurVerschluesselt = "Über Mesh geht nur Verschlüsseltes.";
   return [
-    { feature: "Direktnachrichten", works: true, note: "Verschlüsselt, klein, geht über jede Strecke." },
-    { feature: "Räume und Kanäle", works: true, note: "Nachrichten, Rollen und Moderation gleichen sich ab." },
-    { feature: "Solana-Zahlungen", works: true, note: "Signierte Transaktion, höchstens 1.232 Byte." },
+    {
+      feature: "Direktnachrichten", works: true,
+      note: "Nur als Umschlag – ohne Absender, ohne Klartext. Empfangene gibt die App ans Netz weiter; " +
+        "Post für einen Kontakt nimmst du im Chat als Datei mit." +
+        (ueberFunk ? " Funk: höchstens 1 % Sendezeit je Stunde – drei bis vier kurze Nachrichten." : ""),
+    },
+    { feature: "Räume und Kanäle", works: false, note: "Noch nicht verschlüsselt (2.3) – bis dahin nicht über Mesh." },
+    {
+      // Der Transport steht (pruefeSolanaTx), das Signieren ohne Netz nicht.
+      feature: "Solana-Zahlungen", works: false,
+      note: "Transport vorbereitet (signierte Transaktion, höchstens 1.232 Byte); offline signieren und einreichen kommt mit 7.2.",
+    },
     {
       // Stand heute NICHT gebaut. Eine Faehigkeit zu behaupten, die es nicht
       // gibt, ist schlimmer als sie wegzulassen — der Nutzer plant damit.
       feature: "Ecash-Token", works: false,
-      note: "Noch nicht gebaut. Waere als Zeichenkette uebertragbar — sogar vorgelesen.",
+      note: "Noch nicht gebaut – und nur verschlüsselt denkbar: Ein Token ist Bargeld für jeden, der mithört.",
     },
-    { feature: "Profile und Namen", works: true, note: "Klein und macht alles andere lesbar." },
-    {
-      feature: "Code (Git)", works: !ueberFunk,
-      note: ueberFunk ? "Zu groß für Funk. Über Bluetooth oder Stick." : "Bündel werden übertragen.",
-    },
-    {
-      feature: "Modellgewichte", works: link === "datei",
-      note: link === "datei" ? "Per Stick übertragbar." : "Gigabytes — nur per Datei oder Stick.",
-    },
+    { feature: "Profile und Namen", works: false, note: `Öffentlich, mit dem Schlüssel des Autors. ${nurVerschluesselt}` },
+    { feature: "Code (Git)", works: false, note: `Öffentliche Bündel mit dem Schlüssel des Autors. ${nurVerschluesselt}` },
+    { feature: "Modellgewichte", works: false, note: "Gigabytes – nicht über Mesh." },
     {
       feature: "Lightning-Zahlungen", works: false,
       note: "Braucht mehrere Runden Austausch. Das überlebt keine Offline-Strecke.",

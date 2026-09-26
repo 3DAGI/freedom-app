@@ -583,7 +583,8 @@ function starte(): void {
       openZapDialog(c.id, c.name);
     };
   }
-  // Mesh-Transfer (USB/offline): chat-verlauf exportieren / datei importieren
+  // Mesh-Transfer (USB/offline): Post fuer einen Kontakt mitnehmen / Datei einlesen.
+  // Seit 7.1 nur Umschlaege – ohne eigenen Schluessel, ohne Klartext.
   const meshExportBtn = $("#chat-mesh-export");
   const meshImportBtn = $("#chat-mesh-import");
   const meshFileInput = $("#chat-mesh-file") as HTMLInputElement | null;
@@ -591,17 +592,20 @@ function starte(): void {
     meshExportBtn.onclick = async () => {
       if (!state.keypair || !activeConversation) { toast("waehle erst einen chat", true); return; }
       try {
-        const pool = await ensurePool();
         const c = conversations.find((x) => x.id === activeConversation);
         if (!c) return;
-        const kinds = c.type === "dm" ? [4] : [42];
-        const filter = c.type === "dm"
-          ? { kinds, authors: [state.keypair.pk, c.id], limit: 200 }
-          : { kinds, "#h": [c.id], limit: 200 };
-        const events = await pool.query(filter as never);
+        if (c.type !== "dm") {
+          toast("Räume sind noch nicht verschlüsselt (2.3) – sie gehen nicht als Datei oder über Funk.", true);
+          return;
+        }
+        const pool = await ensurePool();
+        // Alle Umschlaege an den Kontakt, die die Relays haben – auch deine.
+        const events = await pool.query({ kinds: [1059], "#p": [c.id], limit: 200 });
         const { exportMeshFile } = await import("../mesh-transfer.js");
-        exportMeshFile(events, state.keypair.pk, c.name.replace(/[^a-z0-9]/gi, "-").slice(0, 20));
-        toast(`${events.length} events exportiert — auf USB/Bluetooth senden`);
+        const r = exportMeshFile(events, [state.keypair.pk]);
+        toast(r.exportiert === 0
+          ? "Keine Umschläge für diesen Kontakt gefunden."
+          : `${r.exportiert} verschlüsselte Umschläge als Datei – ohne deinen Schlüssel. Auf einem Gerät mit Netz einlesen.`);
       } catch (e) {
         toast(`export-fehler: ${(e as Error).message}`, true);
       }
@@ -615,17 +619,17 @@ function starte(): void {
       if (!file || !state.keypair) return;
       try {
         const { importMeshFile } = await import("../mesh-transfer.js");
-        const events = await importMeshFile(file);
-        // events ins netz publizieren (signaturen werden von relays geprueft)
+        // Nur Umschlaege mit gueltiger Signatur (7.1); Offenes bleibt draussen.
+        const { events, abgelehnt } = await importMeshFile(file);
         const pool = await ensurePool();
         let ok = 0;
         for (const ev of events) {
           try {
-            await pool.publish(ev as never);
+            await pool.publish(ev);
             ok++;
-          } catch { /* duplikat/ungueltig */ }
+          } catch { /* duplikat/offline */ }
         }
-        toast(`${ok}/${events.length} offline-events importiert`);
+        toast(`${ok}/${events.length} Umschläge ans Netz gegeben${abgelehnt ? ` – ${abgelehnt} unverschlüsselt abgelehnt` : ""}`);
         if (activeConversation) loadChatMessages(activeConversation);
       } catch (e) {
         toast(`import-fehler: ${(e as Error).message}`, true);
