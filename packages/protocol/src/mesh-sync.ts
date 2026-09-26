@@ -351,9 +351,9 @@ export function offlineCapabilities(link: Link): { feature: string; works: boole
     },
     { feature: "Räume und Kanäle", works: false, note: "Noch nicht verschlüsselt (2.3) – bis dahin nicht über Mesh." },
     {
-      // Der Transport steht (pruefeSolanaTx), das Signieren ohne Netz nicht.
-      feature: "Solana-Zahlungen", works: false,
-      note: "Transport vorbereitet (signierte Transaktion, höchstens 1.232 Byte); offline signieren und einreichen kommt mit 7.2.",
+      // Seit 7.2: Durable Nonce – die Transaktion bleibt gueltig, bis ein Geraet mit Netz sie einreicht.
+      feature: "Solana-Zahlungen", works: true,
+      note: "Mit vorbereitetem Nonce-Konto (eingebaute Wallet): offline signieren, über Funk oder als Datei weitergeben – ein Gerät mit Netz reicht ein. Ein Nonce-Wert zahlt einmal.",
     },
     {
       // Stand heute NICHT gebaut. Eine Faehigkeit zu behaupten, die es nicht

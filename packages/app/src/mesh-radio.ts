@@ -222,20 +222,23 @@ export function fileTransport(onBundle: (data: Uint8Array, count: number) => voi
     },
     async close() {
       if (gesammelt.length === 0) return;
-      // Längenpräfix je Rahmen, damit sie beim Import wieder trennbar sind.
-      const total = gesammelt.reduce((s, f) => s + f.length + 2, 0);
-      const out = new Uint8Array(total);
-      let off = 0;
-      for (const f of gesammelt) {
-        out[off] = f.length >> 8;
-        out[off + 1] = f.length & 0xff;
-        out.set(f, off + 2);
-        off += f.length + 2;
-      }
-      onBundle(out, gesammelt.length);
+      onBundle(packBundle(gesammelt), gesammelt.length);
       gesammelt.length = 0;
     },
   };
+}
+
+/** Rahmen zu einem Datei-Buendel: Laengenpraefix je Rahmen, damit sie beim Import wieder trennbar sind. */
+export function packBundle(frames: readonly Uint8Array[]): Uint8Array {
+  const out = new Uint8Array(frames.reduce((s, f) => s + f.length + 2, 0));
+  let off = 0;
+  for (const f of frames) {
+    out[off] = f.length >> 8;
+    out[off + 1] = f.length & 0xff;
+    out.set(f, off + 2);
+    off += f.length + 2;
+  }
+  return out;
 }
 
 /** Zerlegt ein Datei-Bündel wieder in einzelne Rahmen. */
@@ -313,6 +316,11 @@ export class MeshNode {
 
   get transportName(): string | null {
     return this.transport?.name ?? null;
+  }
+
+  /** Art der Verbindung – ein Funkgeraet (seriell, Bluetooth) oder der Datei-Weg. */
+  get transportArt(): TransportKind | null {
+    return this.transport?.kind ?? null;
   }
 
   async attach(t: MeshTransport): Promise<void> {

@@ -87,12 +87,12 @@ export function pruefeAnfrage(rail: RailId, a: Zahlanfrage): void {
  * uebergebbar, haengt aber an verwahrenden Mints: nur nach MENSCH-Entscheidung.
  */
 export const OFFLINE_HINWEIS =
-  "Offline: Nachrichten gehen verschlüsselt über Funk oder per Datei (Settings → Mesh). Sats und SOL, sobald wieder Netz da ist.";
+  "Offline: Nachrichten gehen verschlüsselt über Funk oder per Datei (Settings → Mesh), SOL mit vorbereitetem Nonce-Konto (Wallet-Tab). Sats, sobald wieder Netz da ist.";
 
 export function offlineZahlText(rail: RailId): string {
   return rail === "lightning"
     ? "Offline: Sats gehen erst wieder, wenn Netz da ist – Lightning braucht mehrere Runden Austausch. Nachrichten gehen über Funk oder per Datei."
-    : "Offline: SOL geht erst wieder, wenn Netz da ist – offline signieren kommt mit 7.2. Nachrichten gehen über Funk oder per Datei.";
+    : "Offline: Diese SOL-Zahlung braucht Netz. Ohne Netz zahlst du mit dem Nonce-Konto (Wallet-Tab → Ohne Internet zahlen) – ein Gerät mit Netz reicht ein.";
 }
 
 /**
