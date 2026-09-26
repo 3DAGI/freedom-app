@@ -77,7 +77,7 @@ test("Offline (7.3): klare Absage statt Netzfehler – vor der Wallet-Frage, nic
   await assert.rejects(zahle([ln, sol], { ziel: BOLT11, betrag: { einheit: "msat", wert: 21_000 }, zweck: "zap" }),
     /Offline: Sats gehen erst wieder, wenn Netz da ist/);
   await assert.rejects(zahle([ln, sol], { ziel: SOL, betrag: { einheit: "lamports", wert: 5_000 }, zweck: "trinkgeld" }),
-    /Offline: SOL geht erst wieder/);
+    /Offline: Diese SOL-Zahlung braucht Netz\. Ohne Netz zahlst du mit dem Nonce-Konto/);
   assert.equal(ln.gefragt + sol.gefragt, 0, "NWC nicht erst fragen – offline haengt das");
   assert.equal(ln.gezahlt.length + sol.gezahlt.length, 0);
   // Mit Netz – oder ohne Angabe – wie bisher.
@@ -86,6 +86,7 @@ test("Offline (7.3): klare Absage statt Netzfehler – vor der Wallet-Frage, nic
   assert.equal(mitNetz.gezahlt.length, 1);
   // Der Hinweis nennt, was offline geht – und verspricht keine Sats.
   assert.match(OFFLINE_HINWEIS, /Nachrichten gehen verschlüsselt über Funk oder per Datei/);
-  assert.match(OFFLINE_HINWEIS, /Sats und SOL, sobald wieder Netz da ist/);
+  assert.match(OFFLINE_HINWEIS, /SOL mit vorbereitetem Nonce-Konto/);
+  assert.match(OFFLINE_HINWEIS, /Sats, sobald wieder Netz da ist/);
   assert.match(offlineZahlText("lightning"), /mehrere Runden/);
 });

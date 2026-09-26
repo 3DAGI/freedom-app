@@ -8,9 +8,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  MeshKind, MeshPriority, Reassembler, buildDigest, buildEvent, buildPrivateDm, fragment,
+  MeshKind, MeshPriority, Reassembler, baueOfflineUeberweisung, buildDigest, buildEvent, buildPrivateDm, fragment,
   generateKeypair, regelMeshVerschluesselt, signEvent, type NostrEvent,
 } from "@freedomstack/protocol";
+import { Keypair } from "@solana/web3.js";
 import { MeshNode, eventToMesh, type MeshTransport } from "../../src/mesh-radio.js";
 import { baueMeshBuendel } from "../../src/mesh-transfer.js";
 
@@ -112,4 +113,23 @@ test("Datei: die Chat-Datei traegt nur Umschlaege und keinen Absender", async ()
   assert.equal(abgelehnt, 3);
   assert.equal("exportedBy" in bundle, false);
   assert.deepEqual(pruefe([text(JSON.stringify(bundle, null, 2))]), []);
+});
+
+test("Offline-SOL-Zahlung (7.2): ueber Funk ohne Nostr-Schluessel und ohne Nachrichtentext", async () => {
+  // Die SOL-Adresse ist eine andere (SLIP-10); sie steht – wie spaeter auf der Kette – in der Transaktion.
+  const sol = Keypair.generate();
+  const tx = baueOfflineUeberweisung({
+    von: sol.publicKey.toBase58(), an: Keypair.generate().publicKey.toBase58(), lamports: 1_000_000,
+    nonceKonto: Keypair.generate().publicKey.toBase58(),
+    stand: { autoritaet: sol.publicKey.toBase58(), nonce: Keypair.generate().publicKey.toBase58(), lamportsJeSignatur: 5000 },
+  });
+  tx.sign(sol);
+  const t = mitschnitt();
+  const n = new MeshNode({ onMessage: () => {} }, 100_000);
+  n.setEigeneSchluessel([alice.pk]);
+  await n.attach(t);
+  n.enqueue(new Uint8Array(tx.serialize()), MeshKind.SolanaTx, MeshPriority.Zahlung, "SOL offline");
+  await warte(100);
+  assert.ok(t.gesendet.length >= 1);
+  assert.deepEqual(pruefe(t.gesendet), []);
 });

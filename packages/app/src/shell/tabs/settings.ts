@@ -396,6 +396,48 @@ async function meldeFuerAnderen(): Promise<void> {
 
 let meshNode: import("../../mesh-radio.js").MeshNode | null = null;
 
+/** Offline-SOL-Zahlungen, die ankamen, als dieses Geraet selbst offline war (nur im Speicher). */
+const wartendeSol: Uint8Array[] = [];
+
+/**
+ * Empfangene Offline-SOL-Zahlung (7.2) einreichen – dieses Geraet ist das
+ * Gateway. Ohne Netz bleibt sie im Speicher und geht raus, sobald Netz da ist;
+ * weitergereicht hat der Funkknoten sie ohnehin.
+ */
+async function reicheSolEin(roh: Uint8Array): Promise<void> {
+  const { netzDa } = await import("../ui.js");
+  if (!netzDa()) {
+    if (wartendeSol.length < 20) wartendeSol.push(roh);
+    toast("Offline-SOL-Zahlung empfangen – wird eingereicht, sobald hier Netz da ist");
+    return;
+  }
+  try {
+    const { reicheSolOfflineEin } = await import("../zahlschienen.js");
+    const signatur = await reicheSolOfflineEin(roh);
+    toast(`Offline-SOL-Zahlung empfangen und eingereicht: ${signatur.slice(0, 8)}…`);
+  } catch (e) {
+    toast(`Offline-SOL-Zahlung nicht eingereicht: ${(e as Error).message}`, true);
+  }
+}
+
+if (typeof window !== "undefined") {
+  window.addEventListener("online", () => {
+    for (const roh of wartendeSol.splice(0)) void reicheSolEin(roh);
+  });
+}
+
+/**
+ * Ueber das verbundene Funkgeraet senden (7.2: Offline-SOL-Zahlung). false,
+ * wenn keines verbunden ist – dann nimmt der Aufrufer den Datei-Weg.
+ */
+export async function sendeUeberFunk(payload: Uint8Array, kind: import("@freedomstack/protocol").MeshKind, label: string): Promise<boolean> {
+  const art = meshNode?.transportArt;
+  if (!meshNode || (art !== "seriell" && art !== "bluetooth")) return false;
+  const { MeshPriority } = await import("@freedomstack/protocol");
+  meshNode.enqueue(payload, kind, MeshPriority.Zahlung, label);
+  return true;
+}
+
 /**
  * Mesh-Knoten aufsetzen.
  *
@@ -428,8 +470,7 @@ async function ensureMeshNode(): Promise<import("../../mesh-radio.js").MeshNode>
             toast("Verschlüsselte Nachricht über Funk empfangen und ans Netz gegeben");
           } catch { toast("Empfangenes Paket unlesbar", true); }
         } else if (kind === MeshKind.SolanaTx) {
-          // Ehrlich: Einreichen kommt erst mit 7.2 (Durable Nonces).
-          toast("Solana-Transaktion über Funk empfangen – einreichen kann die App sie noch nicht");
+          void reicheSolEin(payload);
         }
       })();
     },

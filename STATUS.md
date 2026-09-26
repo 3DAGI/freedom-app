@@ -4280,3 +4280,45 @@ nos.lol; fallen die aus, findet ihn keine App mehr. Eine geprüfte
 Endstand (nach dem Einmergen von 7.2a): protocol 1089 · node 214 · app 300 ·
 Leak-Tests 47 grün + 2 todo · 0 rot · check-wiring `--streng` 0 offen ·
 innerHTML streng 0 unbewertet · Smoke-Test bestanden.
+
+## Schritt 7.2b – SOL ohne Internet, Teil b: App – 7.2 Code fertig
+
+**Wallet-Tab, eingebaute Wallet → „Ohne Internet zahlen“** (`shell/offline-zahlung.ts`):
+Mit Netz legt die App ein Nonce-Konto an (Kosten vorher im Dialog: Miete, die im
+Konto bleibt, plus Gebühr), frischt den Wert auf oder schließt das Konto (die
+Miete geht zurück an die Wallet – `baueNonceKontoSchliessen`, neu im Protokoll).
+Ohne Netz: Adresse und Betrag eingeben, die Wallet signiert mit dem abgelegten
+Wert (`sol-offline-zahlung.ts`: Tageslimit wie jede Zahlung, darüber Dialog;
+Unfug wird vor der Freigabe abgelehnt und zählt nicht), der Wert gilt danach als
+verbraucht. Gesendet wird über ein verbundenes Funkgerät (`sendeUeberFunk`,
+Vorrang „Zahlung“), sonst als `.meshpkt`-Datei. Nur die eingebaute Wallet zahlt
+offline – externe Wallets brauchen zum Signieren oft selbst Netz.
+
+**Gateway:** Empfängt ein Gerät mit Netz eine Offline-Zahlung (Funk oder Settings
+→ Mesh → „Datei einlesen“), prüft es sie (`pruefeOfflineUeberweisung`) und
+reicht sie mit Vorabsimulation ein (`reicheSolOfflineEin`); ohne Netz hält es sie
+im Speicher und reicht ein, sobald Netz da ist. Weitergereicht hat der
+Funkknoten sie ohnehin. Netz-Funktionen stehen in `shell/zahlschienen.ts` – dem
+einzigen Ort für `sendRawTransaction` und die eingebaute Wallet (Zahlwege-Prüfung).
+
+**Texte:** Offline-Hinweis („SOL mit vorbereitetem Nonce-Konto“), „Was geht ohne
+Internet?“ (Solana-Zahlungen ✓), Mesh-Karte, FAQ, Whitepaper; Aussage „mesh“
+genauer: Nachrichten nur als Umschläge; eine Offline-SOL-Zahlung zeigt – wie
+später auf der Kette – Adressen und Betrag (auch in der Wallet-Karte gesagt).
+
+**Browser-E2E** (Playwright, vorgetäuschter Solana-RPC und -WebSocket): Wallet
+einrichten → Nonce-Konto anlegen (Kosten-Dialog, Transaktion gesendet, Wert
+gelesen) → Netz ab → Hinweis oben → offline zahlen (289 Byte, als Datei) → Wert
+verbraucht → zweites Gerät liest die Datei ein → reicht genau diese Transaktion
+ein; keine Seitenfehler.
+
+**Tests:** protocol +1 (Konto schließen), app +5 (Offline-Zahlung: signiert,
+geprüft, verbraucht; Tageslimit abgelehnt → nichts; Ablehnung vor der Freigabe;
+strenge Ablage; Bündel), Leak-Tests +1 (Offline-SOL über Funk ohne
+Nostr-Schlüssel und Nachrichtentext).
+
+Endstand (nach dem Einmergen von 5.4a): protocol 1090 (+ 6 übersprungen, davon
+der Validator-Test) · node 213 (+ 7 übersprungen ohne Netz) · app 305 ·
+Leak-Tests 48 grün + 2 todo · 0 rot ·
+check-wiring `--streng` 0 offen · innerHTML streng 0 unbewertet · Smoke-Test
+bestanden · Browser-E2E bestanden.

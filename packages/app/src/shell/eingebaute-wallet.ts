@@ -12,6 +12,7 @@
 import { EingebauteSolWallet, type Nachfrage, type SignierbareTx, VORRAT_GROESSE } from "../sol-wallet.js";
 import { ausLamports, solText } from "../preis-anzeige.js";
 import { aktuellerKurs } from "./marktkurs.js";
+import { wireOfflineZahlung, zeigeOfflineZahlung } from "./offline-zahlung.js";
 import { mitBunker, solRpcUrl, state } from "./state.js";
 import { geheim, verlangeTresor } from "./tresor.js";
 import { $, ganzeZahl, toast } from "./ui.js";
@@ -98,6 +99,7 @@ export function zeigeEingebauteWallet(): void {
     return;
   }
   $("#solw-adresse").textContent = adresse;
+  zeigeOfflineZahlung();
   ($("#solw-limit") as HTMLInputElement).value = String(eingebauteWallet.limit() / 1e9);
   const frei = eingebauteWallet.vorratFrei();
   $("#solw-vorrat").textContent = frei > 0
@@ -231,6 +233,7 @@ export function wireEingebauteWallet(): void {
   $("#solw-entfernen").addEventListener("click", () => void entfernen());
   $("#solw-frisch").addEventListener("click", () => void frischKopieren());
   $("#solw-ergaenzen").addEventListener("click", () => void ergaenzen());
+  wireOfflineZahlung();
   $("#solw-kopieren").addEventListener("click", () => {
     void navigator.clipboard.writeText($("#solw-adresse").textContent ?? "").then(() => toast("Adresse kopiert"));
   });

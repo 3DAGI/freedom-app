@@ -57,6 +57,22 @@ export function baueNonceKontoAnlegen(p: { zahler: string; nonceKonto: string; m
   return tx;
 }
 
+/**
+ * Nonce-Konto schliessen: das ganze Guthaben (die Miete) zurueck an die
+ * Autoritaet – danach gibt es das Konto nicht mehr. Mit Netz, signiert von der
+ * Autoritaet.
+ */
+export function baueNonceKontoSchliessen(p: { autoritaet: string; nonceKonto: string; lamports: number; blockhash: string }): Transaction {
+  if (!Number.isSafeInteger(p.lamports) || p.lamports <= 0) throw new Error("Guthaben ungültig");
+  const autoritaet = new PublicKey(p.autoritaet);
+  const tx = new Transaction().add(SystemProgram.nonceWithdraw({
+    noncePubkey: new PublicKey(p.nonceKonto), authorizedPubkey: autoritaet, toPubkey: autoritaet, lamports: p.lamports,
+  }));
+  tx.feePayer = autoritaet;
+  tx.recentBlockhash = p.blockhash;
+  return tx;
+}
+
 export interface NonceStand {
   /** Wer weiterschalten darf – hier immer der Zahler. */
   autoritaet: string;

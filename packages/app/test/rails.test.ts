@@ -125,7 +125,7 @@ test("Offline (7.3): beide Schienen fragen das Netz, zahle() sagt es klar", asyn
   assert.equal(ln.online(), false);
   assert.equal(sol.online(), false);
   await assert.rejects(zahle([ln, sol], { ziel: BOLT11, betrag: { einheit: "msat", wert: 250_000_000 }, zweck: "zap" }), /Offline: Sats/);
-  await assert.rejects(zahle([ln, sol], { ziel: SOL_ZIEL, betrag: { einheit: "lamports", wert: 5000 }, zweck: "trinkgeld" }), /Offline: SOL/);
+  await assert.rejects(zahle([ln, sol], { ziel: SOL_ZIEL, betrag: { einheit: "lamports", wert: 5000 }, zweck: "trinkgeld" }), /Offline: Diese SOL-Zahlung braucht Netz/);
   // Ohne Angabe gilt: Netz da.
   assert.equal(new LightningRail({}).online(), true);
 });

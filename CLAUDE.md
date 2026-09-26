@@ -41,9 +41,9 @@ python3 scripts/smoke_test.py packages/app/dist         # braucht playwright + c
 bash scripts/build-site.sh /tmp/site                     # Website bauen (Ziel wird gelöscht!)
 ```
 
-Stand 26.09.2026 (nach 7.2a und 5.4a): protocol 1089 grün (6 übersprungen), node 214 grün
+Stand 26.09.2026 (nach 5.4a und 7.2b): protocol 1090 grün (6 übersprungen), node 214 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 300 grün, Leak-Tests 47 grün + 2 `todo` (heutige Lecks,
+in `tools.test.ts`), app 305 grün, Leak-Tests 48 grün + 2 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
 Ausnahme: gesendete SOL-Zahlungen von frischen Adressen, eine bewusste Grenze
 nach Entscheidung 4.9 A – im Datenschutzbericht unter „Bewusste Grenzen“).
@@ -238,3 +238,8 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   Direktnachrichten nur an den Posteingang des Empfängers (`veroeffentlicheAn()`).
   Im Browser-Test ersetzt Playwrights `route_web_socket` `window.WebSocket` –
   tote Relays mit einer Hülle per `Object.defineProperty` nachstellen.
+- **SOL ohne Internet** (seit 7.2): nur über `zahleSolOffline()` (eingebaute
+  Wallet, Tageslimit, `sol-offline-zahlung.ts`) – ein Nonce-Wert zahlt genau
+  einmal und gilt danach als verbraucht, bis `frischeNonceAuf()` ihn mit Netz
+  neu liest. Einreichen nur über `reicheSolOfflineEin()` nach
+  `pruefeOfflineUeberweisung()`, mit Vorabsimulation.
