@@ -47,6 +47,7 @@ export const PRIVACY_FACTS: readonly PrivacyFact[] = [
   { id: "nachfolge-anteile", aussage: "Die Teile deines Schlüssels für die Nachfolge gehen versiegelt an deine Vertrauten und bei der Übergabe versiegelt weiter – kein Relay sieht einen Teil.", status: "belegt", regel: "kein-klartext" },
   { id: "nachfolge-plan", aussage: "Wer deine Vertrauten für die Nachfolge sind, steht öffentlich in deinem Nachfolgeplan.", status: "grenze", grund: "Meldungen der Vertrauten und deine Lebenszeichen müssen für alle prüfbar sein – sonst liefe eine Übernahme unbemerkt. Wer das nicht will, richtet keine Nachfolge ein.", regel: "p-tags" },
   { id: "zustand-sicherung", aussage: "Die Sicherung deiner Unterhaltungen, Räume und Namen liegt verschlüsselt auf den Relays – ohne deinen Schlüssel, Wallet-Zugänge, laufende Tauschvorgänge und Gruppenschlüssel.", status: "belegt", regel: "kein-klartext" },
+  { id: "speicher-abruf", aussage: "Fehlen Stücke einer Datei auf den Relays, fragt die App Speicherknoten versiegelt von einem Wegwerf-Schlüssel an – Relays sehen weder dich noch welche Datei.", status: "belegt", regel: "kein-klartext" },
   { id: "ip", aussage: "Relays sehen deine IP-Adresse nicht.", status: "offen", schritt: "6.1/6.2" },
 ];
 

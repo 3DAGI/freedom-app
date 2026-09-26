@@ -657,17 +657,16 @@ function starte(): void {
       try {
         const bytes = new Uint8Array(await file.arrayBuffer());
         // sha256 head aus bundle-name (der user macht lokal: git bundle create)
-        const { uploadBlob } = await import("../blob-client.js");
+        // Seit 8.9b verschluesselt, der Schluessel steht oeffentlich in der Referenz
+        // (Entscheidung 26.09.2026): lesen kann jeder, Speicherknoten halten nur Chiffrat.
+        const { uploadAnhang } = await import("../blob-client.js");
         const pool = await ensurePool();
         setGitStatus(`publiziere ${file.name} (${Math.round(bytes.length / 1024)}kb)…`);
-        const res = await uploadBlob(
-          new File([bytes], `${name}.bundle`, { type: "application/octet-stream" }),
-          pool as never, state.signer!,
-        );
+        const res = await uploadAnhang(new File([bytes], "", { type: "application/octet-stream" }), pool as never, state.signer!);
         // repo-ref-event (38042)
         const { buildGitRepoRef } = await import("@freedomstack/protocol");
         const ref = buildGitRepoRef(
-          { name, blobId: res.blobId, headSha: "local", branch: "main", message: `bundle ${file.name}`, version: Math.floor(Date.now() / 1000) },
+          { name, blobId: res.blobId, headSha: "local", branch: "main", message: `bundle ${file.name}`, version: Math.floor(Date.now() / 1000), schluessel: res.schluessel },
           state.keypair.pk,
         );
         await pool.publish(await signiere(ref));

@@ -4707,3 +4707,46 @@ Endstand: protocol 1115 (+ 6 übersprungen) · node 216 (+ 7 übersprungen ohne
 Netz) · app 324 · Leak-Tests 48 grün + 2 todo · 0 rot · check-wiring `--streng`
 0 offen (1 Ausnahme bis 8.9b) · innerHTML streng 0 unbewertet · Smoke-Test
 bestanden.
+
+## Schritt 8.9b – Speicher, Teil b: in der App
+
+**Hochladen:** Chat-Anhänge gehen gekennzeichnet ins Blob-Netz
+(`uploadAnhang` → `uploadBlob(…, { verschluesselt: true })`,
+`blob-client.ts:115`) – nur solche Stücke halten Speicherknoten (8.9a).
+
+**Laden mit Speicherknoten** (`speicher-abruf.ts`, `blob-client.ts:189`):
+Findet die App auf den Relays zu wenige Stücke einer verschlüsselten Datei,
+nimmt sie bis zu vier Speicherknoten aus deren Angeboten (mit Speicher-Rolle,
+höchstens 24 Stunden alt, je Schlüssel das neueste), fragt jeden je fehlendem
+Stück versiegelt an – von einem frischen Sitzungsschlüssel je Download, mit
+der Rechenarbeit, die der Knoten verlangt – und liest danach bis zu zwölf
+Sekunden lang erneut vom Relay; jedes Stück wird gegen das Manifest geprüft.
+Unverschlüsselte (ältere) Blobs fragen keine Knoten an. Fund beim Bauen: die
+Veröffentlichen-Methode des Pools wurde ungebunden weitergereicht (`this`
+fehlte) – jetzt als Pfeilfunktion, ein Test hätte es sonst erst im Browser
+gezeigt.
+
+**Git-Bundles** (Entscheidung MENSCH 26.09.2026): verschlüsselt hochgeladen
+(`app.ts:665`), der Schlüssel steht öffentlich in der Referenz 38042
+(`["aes-gcm", key, nonce, ox]`, `git.ts`); beim Laden entschlüsselt die App mit
+ihm (`agent-netz.ts:146`). Lesen kann weiter jeder, Speicherknoten halten nur
+Chiffrat. Ältere Referenzen ohne Schlüssel bleiben lesbar (Klartext-Bundle).
+Der Leak-Test „Git-Bundle offen“ hielt die alte Entscheidung fest; er prüft
+jetzt die neue: `uploadAnhang` für das Bundle, Schlüssel in der Referenz, kein
+`uploadBlob` mehr in `app.ts`.
+
+**Browser-E2E** (vorgetäuschtes Relay, echtes `git bundle`): Gerät 1
+veröffentlicht – alle Stücke gekennzeichnet, Referenz mit Schlüssel, weder
+Dateiinhalt noch Bundle-Bytes im Klartext am Relay; Gerät 2 lädt das Bundle
+herunter, byte-gleich; keine Seitenfehler.
+
+**Datenschutz:** neue Aussage „speicher-abruf“ (belegt: Abrufe verraten weder
+Identität noch Datei).
+
+**Tests:** protocol +2 (Referenz mit Schlüssel, alte/kaputte Schlüssel), app +3
+(Knotenwahl, Download über Knoten, Unverschlüsseltes fragt keine Knoten).
+
+Endstand: protocol 1117 (+ 6 übersprungen) · node 216 (+ 7 übersprungen ohne
+Netz) · app 327 · Leak-Tests 48 grün + 2 todo · 0 rot · check-wiring `--streng`
+0 offen (2 Ausnahmen weniger) · innerHTML streng 0 unbewertet · Smoke-Test
+bestanden · Browser-E2E bestanden.
