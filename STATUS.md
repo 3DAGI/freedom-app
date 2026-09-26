@@ -6074,3 +6074,69 @@ geprüft; ein Fehler beim Prüfen zählt wie Geräte.
 Endstand: protocol 1149 · node 240 · app 408 (+1) · mls 10 · Leak-Tests 54
 grün + 2 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng 0
 unbewertet · Website 5 Seiten ok · Smoke-Test bestanden.
+
+## Schritt 2.2b-e1 – MLS nur mit Tresor, beide Seiten Admin, Geräte mit eigenem Konto
+
+**Entscheidungen vom 26.09.2026 (MENSCH):**
+- 2.2b-e: **A** – Geräte werden eigene Mitglieder unter ihrem Geräteschlüssel.
+- MLS verlangt einen Tresor.
+
+Geteilt in e1 (hier) und e2 (Gruppen mit Geräten, danach entfällt d3).
+
+**MLS nur mit Tresor** (`shell/mls-konto.ts`):
+- `mlsGesperrt()` meldet ohne Tresor „nur mit Tresor – richte ihn in den
+  Settings unter Sicherheit ein“. Ohne Tresor gibt es weder Engine noch
+  KeyPackage, Einladungen bleiben liegen, gesendet wird per NIP-17.
+- Der Hinweis in der Unterhaltung nennt den Grund. Hat die Unterhaltung schon
+  eine MLS-Gruppe (seit d2 ohne Tresor möglich), sagt er dazu: Was der Kontakt
+  darüber schickt, liest die App erst, wenn MLS wieder geht – solange die
+  Relays es halten. Beim Einrichten wandert der Schlüssel des Zustands in den
+  Tresor (`GEHEIM_FEST` seit c1), der Zustand bleibt.
+- Die Umgebung (`MlsUmgebung`) bekommt `geheim`, damit Tests mit einem echten
+  Tresor laufen.
+
+**Beide Seiten Admin:**
+- In MDK dürfen nur Admins einladen und entfernen. Ohne Angabe ist nur der
+  Gründer Admin – dann könnte der Kontakt nie seine Geräte aufnehmen oder
+  entzogene entfernen.
+- Crate: `gruppeAnlegen(…, admins)` und `einladen(…, admins)` reichen
+  `initial_admins` an MDK durch (MDK prüft: nur Mitglieder). Neu ist
+  `admins(gruppe)`. Mitglieds-Ids werden streng geprüft (32 Byte), auch beim
+  Entfernen. `dist/` neu gebaut (`bauen.sh`).
+- `gruendeGruppe`/`aendereGruppe` (`mls-nostr.ts`) nehmen `admins` optional;
+  ohne Angabe wie bisher nur der Gründer. Räume (2.3, Spur B) entscheiden
+  selbst.
+- `mlsSendeAn()` gründet 1:1-Gruppen mit dem Kontakt als Admin.
+
+**Als Gerät ein eigenes Konto:**
+- `mlsGesperrt()` sperrt Geräte nicht mehr. Das Konto ist der
+  Geräteschlüssel (der Kontobeweis signiert mit ihm).
+- Geräte haben keine eigene Relay-Liste. KeyPackage (und später eigene
+  Gruppen) gehen an die Schreib-Relays der Person aus deren NIP-65-Liste
+  (`schreibRelaysVon()`, aus `sucheKeyPackages()` herausgezogen). Ohne diese
+  Liste: kein KeyPackage.
+- Bis e2 schreibt ein Gerät weiter per NIP-17 (d3: die Person hat Geräte).
+
+**Nebenbei behoben:** Nach einem Wechsel der Identität ohne Neuladen galt das
+gemerkte KeyPackage der alten Identität noch als frisch – die neue hätte bis zu
+30 Tage keins veröffentlicht. `mlsErreichbar()` vergleicht jetzt die Identität.
+
+**Texte:** Settings-Karte (nur mit Tresor, mit Geräten NIP-17), Hinweis in der
+Unterhaltung, Grenze „Forward Secrecy“ im Datenschutzbericht (ohne Tresor statt
+„als Gerät“).
+
+**Tests:**
+- mls +1: Admins – ohne Angabe nur der Gründer (ein Mitglied kann dann nicht
+  einladen); als Admin gegründet lädt ein Mitglied sein Gerät ein und entfernt
+  es; Admin muss Mitglied sein; ungültige Id → Fehler.
+- `mls-konto.test.ts`: ohne Tresor gesperrt (kein Konto, kein KeyPackage, kein
+  Senden), mit Bunker gesperrt, als Gerät nicht; neu: als Gerät KeyPackage nur
+  an die Schreib-Relays der Person, ohne deren Liste keins, fällig trotz
+  KeyPackage der vorigen Identität.
+- `mls-verdrahtung.test.ts`: Tresor-Sperre statt Geräte-Sperre; neu: 1:1-Gruppen
+  mit dem Kontakt als Admin.
+
+Endstand: protocol 1149 · node 240 · app 410 (+2) · mls 11 (+1) · Leak-Tests
+54 grün + 2 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng 0
+unbewertet · Website 5 Seiten ok · Smoke-Test bestanden (MLS-Selbsttest mit der
+neu gebauten Engine).

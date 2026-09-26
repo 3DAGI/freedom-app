@@ -2,38 +2,43 @@
  * MLS in der App (Schritt 2.2b-d1): das Konto dieses Geräts – Engine,
  * Zustand und Verlauf (verschlüsselt, an die Identität gebunden) –, das eigene
  * KeyPackage, Einladungen von Kontakten und Nachrichten aus den Gruppen.
- * Gesendet wird in d1 noch nicht über MLS; das kommt mit d2.
+ * Gesendet wird seit d2 über `mlsSendeAn()`.
  *
  * Die Engine lädt erst bei Bedarf: beim Öffnen einer 1:1-Unterhaltung, wenn
  * das KeyPackage fällig ist, bei einer Einladung eines Kontakts oder wenn eine
  * Unterhaltung eine MLS-Gruppe hat – nie beim Start.
  *
- * Gesperrt mit Bunker (NIP-46): Der Kontobeweis (Kind 450) muss synchron
- * signiert werden, das kann ein entfernter Signer nicht. Als Gerät (8.6c)
- * erst mit 2.2b-e.
+ * Nur mit Tresor (Entscheidung vom 26.09.2026): Der Schlüssel des Zustands
+ * soll nicht offen im Browser liegen. Gesperrt mit Bunker (NIP-46): Der
+ * Kontobeweis (Kind 450) muss synchron signiert werden, das kann ein
+ * entfernter Signer nicht.
+ *
+ * Als Gerät (8.6c, seit 2.2b-e1) ist das Konto der Geräteschlüssel – ein
+ * eigenes Mitglied (Entscheidung 2.2b-e: A). Sein KeyPackage liegt an den
+ * Schreib-Relays der Person; Geräte haben keine eigene Relay-Liste.
  */
 import { schnorr } from "@noble/curves/secp256k1.js";
 import { fromHex, toHex, type NostrEvent, type RelayFilter } from "@freedomstack/protocol";
 import { Mls, type MlsNachricht } from "@freedomstack/mls";
 import { mlsEngine } from "../mls-engine.js";
-import { LS_MLS_KP, LS_MLS_PLATZ, kpErneuern, sucheKeyPackages, veroeffentlicheKeyPackage } from "../mls-keypackage.js";
+import { LS_MLS_KP, LS_MLS_PLATZ, kpErneuern, schreibRelaysVon, sucheKeyPackages, veroeffentlicheKeyPackage } from "../mls-keypackage.js";
 import { empfangeGruppe, gruendeGruppe, gruppenAbos, nimmEinladungAn, schreiteFort, sendeInGruppe, type MlsEinladung, type MlsNetz } from "../mls-nostr.js";
 import { MlsVerlauf, MlsZustand, mlsDatenbank, mlsSchluessel, mlsVerlaufDatenbank, type VerlaufEintrag } from "../mls-speicher.js";
 import { ladeEigeneRelays } from "../relay-satz.js";
-import type { TresorSpeicher } from "../vault.js";
-import { alsGeraet, ensurePool, frageAn, mitBunker, mitRohemSchluessel, posteingangVon, state, veroeffentlicheAn } from "./state.js";
-import { geheim } from "./tresor.js";
+import type { GeheimSpeicher, TresorSpeicher } from "../vault.js";
+import { ensurePool, frageAn, mitBunker, mitRohemSchluessel, posteingangVon, state, veroeffentlicheAn } from "./state.js";
+import { geheim, tresorEingerichtet } from "./tresor.js";
 
 /** Wem der gespeicherte Zustand gehört – für eine andere Identität wird er verworfen, nie geladen. */
 export const LS_MLS_IDENTITAET = "freedom.mls.identitaet";
 /** Schon bearbeitete Einladungen (Umschlag-Ids) – sonst lüde jeder Start die Engine erneut. */
 export const LS_MLS_EINLADUNGEN = "freedom.mls.einladungen";
 
-/** Warum MLS hier nicht geht – oder null. */
+/** Warum MLS hier nicht geht – oder null. Feste Texte. */
 export function mlsGesperrt(): string | null {
   if (!state.keypair || !state.signer) return "keine Identität";
   if (mitBunker()) return "mit Bunker (NIP-46) nicht möglich – der Kontobeweis braucht den Schlüssel auf diesem Gerät";
-  if (alsGeraet()) return "als Gerät noch nicht (kommt mit 2.2b-e)";
+  if (!tresorEingerichtet()) return "nur mit Tresor – richte ihn in den Settings unter Sicherheit ein";
   return null;
 }
 
@@ -44,9 +49,11 @@ export interface MlsUmgebung {
   /** Ohne `urls`: wo die App sonst fragt (Pool). */
   frage: (filter: RelayFilter, urls?: readonly string[]) => Promise<NostrEvent[]>;
   netz: MlsNetz;
+  /** Hier liegt der Schlüssel des Zustands – mit Tresor im Tresor. */
+  geheim: GeheimSpeicher;
 }
 const APP: MlsUmgebung = {
-  zustand: mlsDatenbank, verlauf: mlsVerlaufDatenbank,
+  zustand: mlsDatenbank, verlauf: mlsVerlaufDatenbank, geheim,
   frage: async (f, urls) => (urls ? frageAn(f, urls) : (await ensurePool()).query(f)),
   netz: { sendeAn: veroeffentlicheAn, posteingang: posteingangVon },
 };
@@ -58,7 +65,7 @@ const beiNeuem: ((gruppe: string) => void)[] = [];
 async function starte(u: MlsUmgebung): Promise<Konto> {
   const pk = state.keypair!.pk;
   await mlsEngine();
-  const schluessel = await mlsSchluessel(geheim);
+  const schluessel = await mlsSchluessel(u.geheim);
   const zustand = new MlsZustand(u.zustand(), schluessel, pk);
   const verlauf = new MlsVerlauf(new MlsZustand(u.verlauf(), schluessel, pk));
   if (localStorage.getItem(LS_MLS_IDENTITAET) !== pk) {
@@ -93,12 +100,24 @@ export function mlsBeiNeuem(f: (gruppe: string) => void): void {
 }
 
 /**
+ * Wohin eigenes KeyPackage und eigene Gruppen gehen: die eigenen Relays
+ * (NIP-65, 5.4a); als Gerät die Schreib-Relays der Person (2.2b-e1).
+ */
+async function eigeneMlsRelays(u: MlsUmgebung): Promise<string[]> {
+  if (!state.person) return ladeEigeneRelays(localStorage);
+  return schreibRelaysVon({ pk: state.person, abfrage: u.frage }).catch(() => []);
+}
+
+/**
  * Beim Öffnen einer 1:1-Unterhaltung: das eigene KeyPackage veröffentlichen,
  * wenn keins da oder es fällig ist – an die eigenen Relays (NIP-65, 5.4a).
  */
 export async function mlsErreichbar(u: MlsUmgebung = APP): Promise<boolean> {
-  const eigene = ladeEigeneRelays(localStorage);
-  if (mlsGesperrt() || eigene.length === 0 || !kpErneuern(localStorage)) return false;
+  if (mlsGesperrt()) return false;
+  // Nach einem Wechsel der Identität gilt das gemerkte KeyPackage der alten nicht
+  if (!kpErneuern(localStorage) && localStorage.getItem(LS_MLS_IDENTITAET) === state.keypair!.pk) return false;
+  const eigene = await eigeneMlsRelays(u);
+  if (eigene.length === 0) return false;
   const k = await mlsKonto(u)!;
   await veroeffentlicheKeyPackage({
     mls: k.mls, signer: state.signer!, speicher: localStorage, sichern: k.sichern, senden: (ev) => u.netz.sendeAn(ev, eigene),
@@ -181,13 +200,15 @@ export async function mlsVerlauf(gruppe: string, u: MlsUmgebung = APP): Promise<
  */
 export async function mlsSendeAn(partner: string, gruppe: string | undefined, text: string, u: MlsUmgebung = APP): Promise<string | null> {
   const kl = mlsKonto(u);
-  const relays = ladeEigeneRelays(localStorage);
-  if (!kl || relays.length === 0) return null;
+  if (!kl) return null;
+  const relays = await eigeneMlsRelays(u);
+  if (relays.length === 0) return null;
   const k = await kl;
   let g = gruppe && k.mls.gruppen().includes(gruppe) ? gruppe : undefined;
   if (!g) {
     for (const kp of await sucheKeyPackages({ pk: partner, abfrage: k.u.frage }).catch(() => [])) {
-      const r = await gruendeGruppe({ mls: k.mls, netz: k.u.netz, sichern: k.sichern, name: "", keyPackages: [kp], relays }).catch(() => null);
+      // Beide sind Admin (2.2b-e): Jeder darf eigene Geräte aufnehmen und entzogene entfernen
+      const r = await gruendeGruppe({ mls: k.mls, netz: k.u.netz, sichern: k.sichern, name: "", keyPackages: [kp], relays, admins: [kp.pubkey] }).catch(() => null);
       if (r && r.nichtZugestellt.length === 0) { g = r.gruppe; break; }
     }
     if (!g) return null;

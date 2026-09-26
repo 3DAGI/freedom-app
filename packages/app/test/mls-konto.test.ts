@@ -1,5 +1,6 @@
 /**
- * Schritt 2.2b-d1: das MLS-Konto der App – gesperrt mit Bunker und als Gerät,
+ * Schritt 2.2b-d1: das MLS-Konto der App – gesperrt mit Bunker und ohne Tresor
+ * (2.2b-e1), als Gerät ein eigenes Konto (2.2b-e1),
  * KeyPackage erst bei Bedarf und nur an die eigenen Relays, Einladung eines
  * Kontakts (nur 1:1, jede nur einmal), Nachrichten abholen in den Verlauf,
  * eine andere Identität verwirft den alten Stand. Echte Engine, Speicher im RAM.
@@ -24,7 +25,8 @@ const { LS_MLS_EINLADUNGEN, LS_MLS_IDENTITAET, mlsAbgleichen, mlsEinladungAnnehm
 const { LS_MLS_KP, LS_MLS_PLATZ, sucheKeyPackages, veroeffentlicheKeyPackage } = await import("../src/mls-keypackage.js");
 const { empfangeGruppe, gruendeGruppe, gruppenAbos, nimmEinladungAn, oeffneEinladung, sendeInGruppe } = await import("../src/mls-nostr.js");
 const { mlsEngine } = await import("../src/mls-engine.js");
-const { SpeicherImRam } = await import("../src/vault.js");
+const { SpeicherImRam, createVault, geheimSpeicher } = await import("../src/vault.js");
+const { LS_TRESOR } = await import("../src/shell/tresor.js");
 const { LS_EIGENE_RELAYS } = await import("../src/relay-satz.js");
 const { AufzeichnungsRelay } = await import("./leak/aufzeichnung.js");
 
@@ -42,7 +44,9 @@ const netz = {
 const frage = async (f: RelayFilter, urls?: readonly string[]) => (await Promise.all((urls ?? [...relays.keys()]).map((u) => relay(u).query(f)))).flat();
 const zustandRam = new SpeicherImRam();
 const verlaufRam = new SpeicherImRam();
-const u = { zustand: () => zustandRam, verlauf: () => verlaufRam, frage, netz };
+// Mit Tresor (seit 2.2b-e1 Pflicht): der Schlüssel des Zustands liegt darin
+const tresor = await createVault("passphrase lang genug", new SpeicherImRam());
+const u = { zustand: () => zustandRam, verlauf: () => verlaufRam, frage, netz, geheim: geheimSpeicher(() => tresor, () => true, localStorage) };
 
 const EIGENE = ["wss://ich-eins.test", "wss://ich-zwei.test"];
 const ich = generateKeypair();
@@ -58,7 +62,12 @@ function kontakt(name: string) {
 const bob = kontakt("bob");
 const GRUPPE = ["wss://gruppe.test"];
 
-test("Gesperrt: mit Bunker und als Gerät – keine Engine, kein Konto", () => {
+test("Gesperrt: ohne Tresor und mit Bunker – keine Engine, kein Konto; als Gerät nicht (2.2b-e1)", async () => {
+  assert.match(mlsGesperrt()!, /nur mit Tresor/);
+  assert.equal(mlsKonto(u), null);
+  assert.equal(await mlsErreichbar(u), false, "ohne Tresor kein KeyPackage");
+  assert.equal(await mlsSendeAn(bob.pk, undefined, "x", u), null, "ohne Tresor nie über MLS");
+  ls.set(LS_TRESOR, "1");
   assert.equal(mlsGesperrt(), null);
   const fremd = new LocalSigner(generateKeypair().sk);
   const bunker: Signer = { publicKey: () => fremd.publicKey(), signEvent: (e) => fremd.signEvent(e), nip44Encrypt: (p, t) => fremd.nip44Encrypt(p, t), nip44Decrypt: (p, t) => fremd.nip44Decrypt(p, t) };
@@ -66,8 +75,7 @@ test("Gesperrt: mit Bunker und als Gerät – keine Engine, kein Konto", () => {
   assert.match(mlsGesperrt()!, /Bunker/);
   assert.equal(mlsKonto(u), null);
   setzeIdentitaet(generateKeypair().sk, generateKeypair().pk);
-  assert.match(mlsGesperrt()!, /Gerät/);
-  assert.equal(mlsKonto(u), null);
+  assert.equal(mlsGesperrt(), null, "als Gerät ein eigenes Konto");
   setzeIdentitaet(ich.sk);
 });
 
@@ -155,4 +163,22 @@ test("Senden (2.2b-d2): ohne KeyPackage des Kontakts null (Rückfall NIP-17); mi
     gelesen.push(...(await empfangeGruppe({ mls: dora.mls, sichern: dora.sichern, ev })).nachrichten.map((n) => n.text));
   }
   assert.deepEqual(gelesen, ["erste über MLS", "zweite"]);
+});
+
+test("Als Gerät (2.2b-e1): eigenes Konto unter dem Geräteschlüssel; KeyPackage nur an die Schreib-Relays der Person – ohne deren Liste keins", async () => {
+  const person = generateKeypair();
+  const geraet = generateKeypair();
+  setzeIdentitaet(geraet.sk, person.pk);
+  const vorher = EIGENE.map((r) => relay(r).gesendet.length);
+  assert.equal(await mlsErreichbar(u), false, "ohne NIP-65-Liste der Person kein Ziel");
+  const schreib = "wss://schreib-person.test";
+  const liste = await new LocalSigner(person.sk).signEvent({ pubkey: person.pk, created_at: Math.floor(Date.now() / 1000), kind: 10002, tags: [["r", schreib, "write"]], content: "" });
+  await netz.sendeAn(liste, [schreib]);
+  assert.equal(await mlsErreichbar(u), true, "fällig, obwohl die vorige Identität eins hatte");
+  assert.deepEqual(relay(schreib).gesendet.filter((e) => e.kind === 30443).map((e) => e.pubkey), [geraet.pk]);
+  assert.deepEqual(EIGENE.map((r, i) => relay(r).gesendet.slice(vorher[i]).length), [0, 0], "nicht an die Relays einer anderen Identität");
+  assert.equal((await mlsKonto(u)!).pk, geraet.pk);
+  assert.equal(ls.get(LS_MLS_IDENTITAET), geraet.pk);
+  assert.equal((await sucheKeyPackages({ pk: geraet.pk, abfrage: frage })).length, 1, "auffindbar");
+  setzeIdentitaet(ich.sk);
 });

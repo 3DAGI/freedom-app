@@ -841,7 +841,12 @@ function openConversation(cid: string): void {
 function dmHinweis(c: ChatConversation): string {
   const nip17 = "1:1 — Ende-zu-Ende verschlüsselt (NIP-17). Relays sehen nicht, wer schreibt – nur, dass du Post bekommst.";
   if (c.ablaufSecs) return `${nip17} Mit Ablauf bleibt es bei NIP-17.`;
-  if (mlsGesperrt()) return `${nip17} MLS geht hier nicht (mit Bunker oder als Gerät).`;
+  const gesperrt = mlsGesperrt();
+  if (gesperrt) {
+    return `${nip17} MLS geht hier nicht: ${gesperrt}.` + (c.mls
+      ? " Was dein Kontakt über eure MLS-Gruppe schickt, liest die App erst, wenn MLS hier wieder geht – solange die Relays es halten."
+      : "");
+  }
   return c.mls
     ? "1:1 — über MLS (Marmot): mit Vorwärtsgeheimnis. Relays sehen nur eine zufällige Gruppen-Id und für jede Nachricht einen neuen Schlüssel. Hat einer von euch Geräte, geht es per NIP-17, damit jedes Gerät die Nachricht bekommt."
     : `${nip17} Kann der Kontakt MLS und hat keiner von euch Geräte, geht deine nächste Nachricht darüber.`;
@@ -1350,12 +1355,12 @@ export async function sendChatMessage(): Promise<void> {
 /**
  * 1:1 ueber MLS (2.2b-d2), wenn der Kontakt es kann (KeyPackage). Mit Ablauf
  * (2.5) bleibt es bei NIP-17 – den traegt MLS hier nicht; ebenso mit Bunker
- * und als Geraet. false: der Chat sendet per NIP-17.
+ * und ohne Tresor (2.2b-e1). false: der Chat sendet per NIP-17.
  */
 async function sendeUeberMls(c: ChatConversation, inhalt: string): Promise<boolean> {
   if (c.ablaufSecs || mlsGesperrt()) return false;
   // Geraete (8.6b) bekommen ihre Kopie nur per NIP-17 – in der MLS-Gruppe sind sie
-  // (bis 2.2b-e) nicht. Hat eine Seite Geraete oder ist das unklar: NIP-17.
+  // (bis 2.2b-e2) nicht. Hat eine Seite Geraete oder ist das unklar: NIP-17.
   const ich = sprichtFuer() ?? state.keypair!.pk;
   const geraete = await Promise.all([c.id, ich].map((pk) => geraeteBuch.kopienFuer(pk).catch(() => null)));
   if (geraete.some((g) => g === null || g.length > 0)) return false;

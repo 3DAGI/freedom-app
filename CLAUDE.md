@@ -43,9 +43,9 @@ bash scripts/build-site.sh /tmp/site                     # Website bauen (Ziel w
 bash packages/mls/bauen.sh --pruefen                     # nur bei Änderungen an packages/mls: nachbauen + vergleichen (Rust, clang)
 ```
 
-Stand 26.09.2026 (nach 5.6c und 2.2b-d3): protocol 1149 grün (6 übersprungen), node 240 grün
+Stand 26.09.2026 (nach 5.6c und 2.2b-e1): protocol 1149 grün (6 übersprungen), node 240 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 408 grün, mls 10 grün, Leak-Tests 54 grün + 2 `todo` (heutige Lecks,
+in `tools.test.ts`), app 410 grün, mls 11 grün, Leak-Tests 54 grün + 2 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
 Ausnahme: gesendete SOL-Zahlungen von frischen Adressen, eine bewusste Grenze
 nach Entscheidung 4.9 A – im Datenschutzbericht unter „Bewusste Grenzen“).
@@ -345,6 +345,10 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   Gerät, Geräte auf einer Seite – seit 2.2b-d3, denn Geräte sind nicht in der
   Gruppe) und wird nie entfernt. Eigene MLS-Nachrichten entschlüsselt MLS
   nicht zurück – sie gehen beim Senden in den Verlauf.
+  Seit 2.2b-e1 nur mit Tresor (`mlsGesperrt()`); als Gerät ist das Konto der
+  Geräteschlüssel, KeyPackage an die Schreib-Relays der Person
+  (`schreibRelaysVon()`). Nur Admins laden ein und entfernen – 1:1-Gruppen mit
+  `admins` gründen (beide Seiten), sonst kann der Kontakt nie Geräte aufnehmen.
 - **RPC-Anbieter nur mit Stichprobe vergleichen** (seit 5.8): `RpcPool.stichprobe()`
   – zwei Betreiber, Netz, Blockhash in beide Richtungen, ein Kontostand.
   Nie mehrere eigene Adressen in eine Stichprobe (4.9c); ohne Adresse, wo es

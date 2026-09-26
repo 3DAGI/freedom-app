@@ -8,6 +8,10 @@ export class MlsKonto {
     free(): void;
     [Symbol.dispose](): void;
     /**
+     * Admins (Identitäten hex) – wer einladen und entfernen darf.
+     */
+    admins(gruppe_id: string): string[];
+    /**
      * Einladung (Kind 1059) annehmen; gibt die Gruppen-Id zurück.
      */
     beitreten(einladung: string): Promise<any>;
@@ -16,9 +20,10 @@ export class MlsKonto {
      */
     bestaetigt(ausstehend: string): Promise<any>;
     /**
-     * Kontakte einladen (KeyPackage-Events).
+     * Kontakte einladen (KeyPackage-Events); `admins`: welche der Eingeladenen
+     * Admin werden (2.2b-e) – nur ein Admin darf einladen.
      */
-    einladen(gruppe_id: string, key_packages: string[]): Promise<any>;
+    einladen(gruppe_id: string, key_packages: string[], admins: string[]): Promise<any>;
     /**
      * Ein empfangenes Event (Kind 445 oder 1059) verarbeiten.
      */
@@ -40,10 +45,11 @@ export class MlsKonto {
     /**
      * Gruppe mit den Kontakten aus ihren KeyPackage-Events anlegen; `relays`:
      * wo die Gruppe ihre Nachrichten austauscht (steht verschlüsselt im
-     * Gruppenzustand). Ergebnis: `{ gruppe, einladungen: [event] }` – die
-     * Gruppe steht sofort.
+     * Gruppenzustand); `admins`: Eingeladene, die wie der Gründer Mitglieder
+     * einladen und entfernen dürfen (2.2b-e). Ergebnis: `{ gruppe,
+     * einladungen: [event] }` – die Gruppe steht sofort.
      */
-    gruppeAnlegen(name: string, key_packages: string[], relays: string[]): Promise<any>;
+    gruppeAnlegen(name: string, key_packages: string[], relays: string[], admins: string[]): Promise<any>;
     /**
      * Alle Gruppen dieses Kontos.
      */
@@ -86,15 +92,16 @@ export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembl
 export interface InitOutput {
     readonly memory: WebAssembly.Memory;
     readonly __wbg_mlskonto_free: (a: number, b: number) => void;
+    readonly mlskonto_admins: (a: number, b: number, c: number, d: number) => void;
     readonly mlskonto_beitreten: (a: number, b: number, c: number) => number;
     readonly mlskonto_bestaetigt: (a: number, b: number, c: number) => number;
-    readonly mlskonto_einladen: (a: number, b: number, c: number, d: number, e: number) => number;
+    readonly mlskonto_einladen: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => number;
     readonly mlskonto_empfangen: (a: number, b: number, c: number) => number;
     readonly mlskonto_entfernen: (a: number, b: number, c: number, d: number, e: number) => number;
     readonly mlskonto_epoche: (a: number, b: number, c: number, d: number) => void;
     readonly mlskonto_fortschreiten: (a: number, b: number, c: number) => number;
     readonly mlskonto_gescheitert: (a: number, b: number, c: number) => number;
-    readonly mlskonto_gruppeAnlegen: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => number;
+    readonly mlskonto_gruppeAnlegen: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number) => number;
     readonly mlskonto_gruppen: (a: number, b: number) => void;
     readonly mlskonto_keyPackageEvent: (a: number, b: number, c: number) => number;
     readonly mlskonto_mitglieder: (a: number, b: number, c: number, d: number) => void;
@@ -117,9 +124,9 @@ export interface InitOutput {
     readonly rustsecp256k1_v0_10_0_context_destroy: (a: number) => void;
     readonly rustsecp256k1_v0_10_0_default_error_callback_fn: (a: number, b: number) => void;
     readonly rustsecp256k1_v0_10_0_default_illegal_callback_fn: (a: number, b: number) => void;
-    readonly __wasm_bindgen_func_elem_25946: (a: number, b: number, c: number, d: number) => void;
-    readonly __wasm_bindgen_func_elem_25948: (a: number, b: number, c: number, d: number) => void;
-    readonly __wasm_bindgen_func_elem_19705: (a: number, b: number) => void;
+    readonly __wasm_bindgen_func_elem_25964: (a: number, b: number, c: number, d: number) => void;
+    readonly __wasm_bindgen_func_elem_25966: (a: number, b: number, c: number, d: number) => void;
+    readonly __wasm_bindgen_func_elem_19723: (a: number, b: number) => void;
     readonly __wbindgen_export: (a: number, b: number) => number;
     readonly __wbindgen_export2: (a: number, b: number, c: number, d: number) => number;
     readonly __wbindgen_export3: (a: number) => void;

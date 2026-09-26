@@ -96,15 +96,28 @@ für Forward Secrecy. NIP-17 bleibt Rückfall für Kontakte ohne MLS.
     - **d2 – Senden:** 1:1 standardmäßig als MLS-Gruppe, NIP-17 als Rückfall;
       Datenschutzbericht und Texte. Einladungen von Fremden werden – wie ihre
       NIP-17-Nachrichten – zur „Anfrage“, sonst ginge ihre erste Nachricht verloren.
-  - **2.2b-e – Geräte:** mehrere Geräte als eigene Mitglieder. **Wartet auf
-    MENSCH-Entscheidung** (26.09.2026). Bis dahin: Hat eine Seite Geräte (8.6),
-    bleibt es bei NIP-17 (2.2b-d3) – so bekommt jedes Gerät weiter jede
-    Nachricht. Die Frage: Marmot bindet ein Blatt an ein Konto über den
+  - **2.2b-e – Geräte:** mehrere Geräte als eigene Mitglieder. **Entschieden
+    26.09.2026 (MENSCH): A**, dazu **MLS nur mit Tresor**. Bis e2: Hat eine
+    Seite Geräte (8.6), bleibt es bei NIP-17 (2.2b-d3) – so bekommt jedes Gerät
+    weiter jede Nachricht. Geteilt:
+    - **e1:** MLS nur mit Tresor; in 1:1-Gruppen sind beide Seiten Admin (in
+      MDK dürfen nur Admins einladen und entfernen – sonst könnte niemand außer
+      dem Gründer Geräte aufnehmen); als Gerät ein eigenes Konto unter dem
+      Geräteschlüssel, KeyPackage an die Schreib-Relays der Person.
+    - **e2:** Gruppen mit Geräten: gründen mit Person und gültigen Geräten
+      beider Seiten (alle Admin), Einladungen an Geräte an den Posteingang der
+      Person; vor jedem Senden Mitglieder mit den Vollmachten abgleichen –
+      fehlende einladen, entzogene und fremde entfernen, geht das nicht:
+      NIP-17; Einladung als 1:1 erkennen, wenn alle Mitglieder zu zwei Personen
+      gehören; Nachrichten von Geräten der Person zuordnen (`ordneDmZu`). Dann
+      entfällt d3. Grenze: Gruppen, die eine andere App ohne dich als Admin
+      gegründet hat, erreichen deine Geräte nicht.
+    Die Frage war: Marmot bindet ein Blatt an ein Konto über den
     Kontobeweis (Kind 450) und das KeyPackage (Kind 30443), beide signiert mit
     dem Kontoschlüssel – den hat ein Gerät (8.6c) nicht. Marmots eigenes
     Mehrgeräte-Verfahren ist ein Entwurf („branch draft“, nicht übernommen).
     - **A – Geräte als eigene Mitglieder unter ihrem Geräteschlüssel**
-      (Empfehlung): Wer eine Gruppe gründet oder erweitert, lädt die Person und
+      (Empfehlung, **gewählt**): Wer eine Gruppe gründet oder erweitert, lädt die Person und
       ihre Geräte mit gültiger Vollmacht (`geraeteBuch.kopienFuer()`, wie NIP-17
       seit 8.6b); die App ordnet Geräte über die Vollmacht der Person zu; ein
       Entzug entfernt das Gerät per Commit. Geht ohne Hauptgerät online, ohne

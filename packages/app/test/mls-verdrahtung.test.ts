@@ -20,14 +20,15 @@ test("2.2b-d1: Einladungen nur aus Umschlägen, die keine DM sind; Gruppen nur, 
   assert.match(kom, /if \(mitMls\.length > 0 && !mlsGesperrt\(\)\) \{\s*const zahlen = await mlsAbgleichen\(/);
 });
 
-test("2.2b-d1: gesperrt mit Bunker und als Gerät; der rohe Schlüssel nur für den Kontobeweis", () => {
+test("2.2b-d1/e1: gesperrt mit Bunker und ohne Tresor, als Gerät nicht; der rohe Schlüssel nur für den Kontobeweis", () => {
   assert.match(konto, /if \(mitBunker\(\)\) return /);
-  assert.match(konto, /if \(alsGeraet\(\)\) return /);
+  assert.match(konto, /if \(!tresorEingerichtet\(\)\) return "nur mit Tresor/);
+  assert.doesNotMatch(konto, /alsGeraet\(\)/, "als Gerät ein eigenes Konto (Entscheidung 2.2b-e: A)");
   assert.deepEqual([...konto.matchAll(/mitRohemSchluessel\("([^"]+)"/g)].map((m) => m[1]), ["MLS-Kontobeweis"]);
   assert.match(konto, /new MlsZustand\(u\.zustand\(\), schluessel, pk\)/, "an die Identität gebunden");
 });
 
-test("2.2b-d2: Senden erst über MLS, sonst NIP-17; mit Ablauf, Bunker oder als Gerät nie MLS", () => {
+test("2.2b-d2: Senden erst über MLS, sonst NIP-17; mit Ablauf, Bunker oder ohne Tresor nie MLS", () => {
   assert.match(kom, /if \(c\.type === "dm" && \(await sendeUeberMls\(c, /);
   assert.match(kom, /\} else if \(c\.type === "dm"\) \{\s*\/\/ NIP-17/, "der NIP-17-Pfad bleibt als Rückfall");
   assert.match(kom, /if \(c\.ablaufSecs \|\| mlsGesperrt\(\)\) return false;/);
@@ -43,4 +44,8 @@ test("2.2b-d3: Mit Geräten auf einer Seite (oder wenn das unklar ist) bleibt es
   assert.match(f, /\[c\.id, ich\]\.map\(\(pk\) => geraeteBuch\.kopienFuer\(pk\)\.catch\(\(\) => null\)\)/);
   assert.match(f, /if \(geraete\.some\(\(g\) => g === null \|\| g\.length > 0\)\) return false;/);
   assert.ok(f.indexOf("kopienFuer") < f.indexOf("mlsSendeAn("), "vor jedem MLS-Versuch");
+});
+
+test("2.2b-e1: In 1:1-Gruppen ist auch der Kontakt Admin – jeder darf eigene Geräte aufnehmen und entzogene entfernen", () => {
+  assert.match(konto, /gruendeGruppe\(\{[^}]*admins: \[kp\.pubkey\] \}\)/);
 });
