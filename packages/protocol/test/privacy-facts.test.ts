@@ -32,6 +32,7 @@ import { base58 } from "@scure/base";
 import { baueAnteilAnfrage, baueAnteilUebergabe, baueAnteilUmschlag, neueTeilung, oeffneAnteil, oeffneAnteilAnfrage } from "../src/nachfolge-anteile.js";
 import { buildSuccessionPlan, secretHashOf, splitSecret } from "../src/succession.js";
 import { buildStateBackup, deriveBackupKey, waehleSicherung } from "../src/state-backup.js";
+import { baueStueckAbruf } from "../src/blob.js";
 
 const a = generateKeypair();
 const b = generateKeypair();
@@ -219,6 +220,13 @@ const SZENARIEN: Record<string, () => Promise<number>> = {
     const r = await buildStateBackup(a.pk, deriveBackupKey(a.sk), waehleSicherung(Object.keys(geraet), (k) => geraet[k] ?? null));
     const ev = signEvent(r.event, a.sk);
     return regelKeinKlartext([ev], [GEHEIM, "Chef", "ab".repeat(32), "cd".repeat(32), "ef".repeat(32), "gruppen-schluessel"]).length;
+  },
+  "speicher-abruf": async () => {
+    // Wie die App seit 8.9b: frischer Sitzungsschluessel je Download, ein Umschlag je Knoten und Stueck.
+    const sitzung = new LocalSigner(generateKeypair().sk);
+    const blobId = "c3".repeat(32);
+    const wraps = await Promise.all([0, 1, 2].map(async (index) => (await baueStueckAbruf({ sitzung, knotenPk: b.pk, blobId, index })).wrap));
+    return regelKeinKlartext(wraps, [blobId]).length + regelAutorNicht(wraps, a.pk).length + regelAutorNicht(wraps, sitzung.publicKey()).length;
   },
   "abdeckung-zelle": async () => {
     const [lat, lon] = [48.137154, 11.576124];

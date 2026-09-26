@@ -41,9 +41,9 @@ python3 scripts/smoke_test.py packages/app/dist         # braucht playwright + c
 bash scripts/build-site.sh /tmp/site                     # Website bauen (Ziel wird gelöscht!)
 ```
 
-Stand 26.09.2026 (nach 8.9a): protocol 1115 grün (6 übersprungen), node 217 grün
+Stand 26.09.2026 (nach 8.9b): protocol 1117 grün (6 übersprungen), node 217 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 324 grün, Leak-Tests 48 grün + 2 `todo` (heutige Lecks,
+in `tools.test.ts`), app 327 grün, Leak-Tests 48 grün + 2 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
 Ausnahme: gesendete SOL-Zahlungen von frischen Adressen, eine bewusste Grenze
 nach Entscheidung 4.9 A – im Datenschutzbericht unter „Bewusste Grenzen“).
@@ -171,7 +171,9 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   `node/test/klartext.test.ts` prüft das.
 - **Anhänge nur verschlüsselt** (seit 2.4): Chat-Dateien über `uploadAnhang()`
   (Blob-Netz) bzw. `verschluesseleDatei()` vor Blossom; der Schlüssel gehört nur
-  in die Nachricht. `uploadBlob()` direkt nur für bewusst Öffentliches (Git-Bundle).
+  in die Nachricht. Git-Bundles seit 8.9b ebenso verschlüsselt, der Schlüssel steht
+  öffentlich in der Referenz (38042); `uploadBlob()` direkt nur, wenn keine
+  Speicherknoten das halten sollen.
   Inline in DMs höchstens `INLINE_MAX_BYTES` – NIP-44 fasst 65.535 Byte.
 - **Geld nur über die Zahlschienen** (seit 4.1): zahlen mit
   `zahle(zahlschienen(), …)`; direkte Wallet-Zugriffe nur in `rails.ts` und

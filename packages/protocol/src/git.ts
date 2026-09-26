@@ -14,9 +14,15 @@
  *
  * Die clone-url ist dann: freedom://git/<name> (in-app) oder man laedt das
  * bundle herunter und macht `git clone <file>.bundle` (normales git-cli!).
+ *
+ * Seit 8.9b (Entscheidung MENSCH 26.09.2026): Das Bundle geht verschluesselt
+ * ins Blob-Netz, der Schluessel steht OEFFENTLICH in der Referenz
+ * (["aes-gcm", key, nonce, ox]). Lesen kann weiter jeder – aber
+ * Speicherknoten halten nur Chiffrat (8.9a).
  */
 import { UnsignedEvent, buildEvent, getTag } from "./event.js";
 import { KIND_GIT_REPO_REF } from "./kinds.js";
+import { type DateiSchluessel, istDateiSchluessel } from "./datei-krypto.js";
 
 export interface GitRepoRef {
   /** Repo-name (d-tag, ersetzbar). */
@@ -31,6 +37,8 @@ export interface GitRepoRef {
   message: string;
   /** monoton steigende versionsnummer. */
   version: number;
+  /** Seit 8.9b: Schluessel des verschluesselten Bundles – oeffentlich. */
+  schluessel?: DateiSchluessel;
 }
 
 export function buildGitRepoRef(r: GitRepoRef, ownerPubkey: string): UnsignedEvent {
@@ -40,6 +48,7 @@ export function buildGitRepoRef(r: GitRepoRef, ownerPubkey: string): UnsignedEve
     ["head", r.headSha],
     ["branch", r.branch],
     ["version", String(r.version)],
+    ...(r.schluessel ? [["aes-gcm", r.schluessel.key, r.schluessel.nonce, r.schluessel.ox]] : []),
   ], r.message);
 }
 
@@ -58,7 +67,15 @@ export function parseGitRepoRef(ev: UnsignedEvent): GitRepoRef & { ownerPubkey: 
     branch: req("branch"),
     version: Number(req("version")),
     message: ev.content,
+    ...leseSchluessel(ev),
   };
+}
+
+/** Oeffentlicher Schluessel eines Bundles – nur in gueltiger Form, sonst keiner. */
+function leseSchluessel(ev: UnsignedEvent): { schluessel?: DateiSchluessel } {
+  const t = ev.tags.find((x) => x[0] === "aes-gcm");
+  const s = t ? { alg: "aes-gcm", key: t[1], nonce: t[2], ox: t[3] } : null;
+  return istDateiSchluessel(s) ? { schluessel: s } : {};
 }
 
 // ------------------------------------------------------------- Bundle-Helper

@@ -20,7 +20,6 @@ antispam.ts|spamFilterInfo|Spam- und Flutschutz, weder im Relay des Knotens noch
 
 arweave-mirror.ts|readLatestAnnouncementFromArweave|Treasury-Archiv auf Arweave, hängt am Gebührenmodell (4.0)
 
-blob.ts|baueStueckAbruf|Abruf bei Speicherknoten: Protokoll und Knoten (8.9a), die App folgt in 8.9b
 blob.ts|parseBlobChunk|Blob-Stücke lesen, noch ohne Speicher-Client (Speicher, 8.9)
 
 client-fee.ts|explainFees|Client-Gebühr aufteilen und erklären, hängt am Gebührenmodell (4.0, 5.1)
@@ -85,7 +84,6 @@ git-contributors.ts|buildContribution|Mitwirkenden-Ansicht, noch nicht vollstän
 git-contributors.ts|contributorProfile|Mitwirkenden-Ansicht, noch nicht vollständig angebunden (Repositories, 8.10)
 
 git.ts|createGitBundle|Git über Blobs, noch ohne vollständige Oberfläche (Repositories, 8.10)
-git.ts|parseGitRepoRef|Git über Blobs, noch ohne vollständige Oberfläche (Repositories, 8.10)
 git.ts|restoreGitBundle|Git über Blobs, noch ohne vollständige Oberfläche (Repositories, 8.10)
 
 group-crypto.ts|buildEncryptedMessage|verschlüsselte Kanäle mit Schlüsselwechsel, ohne Oberfläche; Ablösung durch MLS geplant (2.2b, 2.3)
