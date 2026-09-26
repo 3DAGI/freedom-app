@@ -22,13 +22,15 @@ import {
   WebSocketRelay,
   MemoryRelay,
   fromHex,
+  startUrls,
   toHex,
 } from "@freedomstack/protocol";
 import { DvmProvider, DEFAULT_PROVIDER_CONFIG } from "./dvm-provider.js";
 import { OllamaBackend } from "./inference.js";
 import http from "node:http";
 
-const RELAYS_DEFAULT = "wss://relay.damus.io,wss://nos.lol,wss://relay.nostr.band";
+/** Ohne RELAYS: die ganze Startliste (5.4) – so teilt jede App-Sitzung Relays mit dem Knoten. */
+const RELAYS_DEFAULT = startUrls().join(",");
 
 function loadKeypair() {
   const skHex = process.env.NODE_SECRET_KEY;

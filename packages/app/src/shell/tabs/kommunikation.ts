@@ -4,7 +4,7 @@
  *
  * Aus app.ts verschoben (Schritt 1.0) – wörtlich, ohne Logikänderung.
  */
-import { type DateiSchluessel, NostrEvent, OutboxPool, type PrivateDm, WebSocketRelay, buildEvent } from "@freedomstack/protocol";
+import { type DateiSchluessel, NostrEvent, type PrivateDm, buildEvent } from "@freedomstack/protocol";
 import {
   type ChatAttachment,
   escapeHtml,
@@ -15,7 +15,7 @@ import {
   renderAttachment,
 } from "../../shell-logic.js";
 import { aktuellerKurs } from "../marktkurs.js";
-import { ensurePool, RELAYS, signiere, solRpcUrl, solTransaktion, state } from "../state.js";
+import { eigeneRelayListen, ensurePool, signiere, solRpcUrl, solTransaktion, state, veroeffentlicheAn } from "../state.js";
 import { geheim } from "../tresor.js";
 import { $, toast } from "../ui.js";
 
@@ -964,8 +964,10 @@ async function ladeDmNachrichten(partner: string): Promise<DmAnzeige[]> {
 }
 
 /**
- * Umschlag an den Posteingang des Empfaengers (Kind 10050) und an die
- * eigenen Relays. Ohne veroeffentlichte Liste bleiben die gemeinsamen Relays.
+ * Umschlag nur an den Posteingang des Empfaengers (Kind 10050, NIP-17) –
+ * seit 5.4 nicht mehr zusaetzlich an alle eigenen Relays: Jedes weitere Relay
+ * saehe nur, wann dieser Schluessel Post bekommt. Ohne Liste oder wenn kein
+ * Posteingang annimmt: an die eigenen Relays.
  */
 async function veroeffentlicheDm(wrap: NostrEvent, empfaenger: string): Promise<void> {
   const pool = await ensurePool();
@@ -975,19 +977,10 @@ async function veroeffentlicheDm(wrap: NostrEvent, empfaenger: string): Promise<
     const listen = await pool.query({ kinds: [KIND_DM_RELAYS], authors: [empfaenger], limit: 5 });
     ziele = parseDmRelayList(listen.sort((a, b) => b.created_at - a.created_at)[0]);
   } catch {
-    /* ohne Liste: gemeinsame Relays */
+    /* ohne Liste: eigene Relays */
   }
+  if (ziele.length > 0 && (await veroeffentlicheAn(wrap, ziele)) > 0) return;
   await pool.publish(wrap);
-  const zusaetzlich = ziele.filter((u) => !RELAYS.includes(u)).slice(0, 3);
-  if (zusaetzlich.length === 0) return;
-  const extra = new OutboxPool(zusaetzlich.map((u) => new WebSocketRelay(u, { timeoutMs: 8000 })), { minAcks: 1 });
-  try {
-    await extra.publish(wrap);
-  } catch {
-    /* Posteingang nicht erreichbar – die gemeinsamen Relays haben den Umschlag */
-  } finally {
-    (extra as unknown as { close?: () => void }).close?.();
-  }
 }
 
 let letzterDmAbgleich = 0;
@@ -1008,11 +1001,8 @@ async function syncDmInbox(): Promise<void> {
   try {
     const me = state.keypair;
     const pool = await ensurePool();
-    const { KIND_DM_RELAYS, buildDmRelayList } = await import("@freedomstack/protocol");
-    const eigene = await pool.query({ kinds: [KIND_DM_RELAYS], authors: [me.pk], limit: 1 });
-    if (eigene.length === 0) {
-      await pool.publish(await signiere(buildDmRelayList(me.pk, RELAYS))).catch(() => { /* offline */ });
-    }
+    // Eigener Relay-Satz (5.4a): NIP-65-Liste und Posteingang einmal je Sitzung abgleichen
+    await eigeneRelayListen().catch(() => { /* offline – beim naechsten Abgleich wieder */ });
     // Kontakte von anderen Geraeten (2.5b, nur wenn eingeschaltet)
     let neu = await ladeKontakte().catch(() => 0);
     const umschlaege = await pool.query({ kinds: [1059], "#p": [me.pk], limit: 200 });
@@ -1144,7 +1134,7 @@ export async function sendChatMessage(): Promise<void> {
         ...(c.ablaufSecs ? { ablaufSecs: c.ablaufSecs } : {}),
       });
       await veroeffentlicheDm(dm.toRecipient, c.id);
-      await pool.publish(dm.toSelf);
+      await veroeffentlicheDm(dm.toSelf, state.keypair.pk);
     } else {
       // Community: kind 42 mit h-tag (channel-id)
       const ev = await signiere(buildEvent(state.keypair.pk, 42, [["h", c.id], ...imeta], text));
