@@ -4317,7 +4317,8 @@ geprüft, verbraucht; Tageslimit abgelehnt → nichts; Ablehnung vor der Freigab
 strenge Ablage; Bündel), Leak-Tests +1 (Offline-SOL über Funk ohne
 Nostr-Schlüssel und Nachrichtentext).
 
-Endstand: protocol 1081 (+ 6 übersprungen, davon der Validator-Test) · node 213
-(+ 7 übersprungen ohne Netz) · app 296 · Leak-Tests 48 grün + 2 todo · 0 rot ·
+Endstand (nach dem Einmergen von 5.4a): protocol 1090 (+ 6 übersprungen, davon
+der Validator-Test) · node 213 (+ 7 übersprungen ohne Netz) · app 305 ·
+Leak-Tests 48 grün + 2 todo · 0 rot ·
 check-wiring `--streng` 0 offen · innerHTML streng 0 unbewertet · Smoke-Test
 bestanden · Browser-E2E bestanden.
