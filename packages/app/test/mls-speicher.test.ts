@@ -10,7 +10,7 @@ import { gunzipSync } from "node:zlib";
 import { schnorr } from "@noble/curves/secp256k1.js";
 import { LocalSigner, SICHERUNG_NIE, WIPE_DATENBANKEN, fromHex, generateKeypair, toHex } from "@freedomstack/protocol";
 import { Mls, ladeMls } from "@freedomstack/mls";
-import { LS_MLS_SCHLUESSEL, MlsZustand, mlsSchluessel } from "../src/mls-speicher.js";
+import { LS_MLS_SCHLUESSEL, MlsVerlauf, MlsZustand, VERLAUF_MAX, mlsSchluessel } from "../src/mls-speicher.js";
 import { SpeicherImRam, createVault, geheimSpeicher } from "../src/vault.js";
 
 ladeMls(gunzipSync(readFileSync(new URL("../../mls/dist/freedom_mls_bg.wasm.gz", import.meta.url))));
@@ -111,4 +111,36 @@ test("Zustand der echten Engine: sichern, laden, weiter Mitglied; Notfall-Lösch
   assert.deepEqual((await b2.empfangen(s.events[0]!)).nachrichten.map((n) => n.text), ["nach dem Laden"]);
   assert.ok(WIPE_DATENBANKEN.includes("freedom-mls"));
   assert.ok(SICHERUNG_NIE.some((r) => r.test(LS_MLS_SCHLUESSEL)), "Schlüssel nie in der Zustandssicherung");
+});
+
+test("Bindung (2.2b-d1): unter einer anderen Identität lässt sich der Zustand nicht öffnen", async () => {
+  const sp = new SpeicherImRam();
+  const k = await mlsSchluessel(ohneTresor().geheim);
+  await new MlsZustand(sp, k, "a".repeat(64)).sichern(PROBE);
+  await assert.rejects(new MlsZustand(sp, k, "b".repeat(64)).laden(), /anderem Schlüssel/);
+  await assert.rejects(new MlsZustand(sp, k).laden(), /anderem Schlüssel/, "ohne Bindung auch nicht");
+  assert.deepEqual(await new MlsZustand(sp, k, "a".repeat(64)).laden(), PROBE);
+});
+
+test("Verlauf (2.2b-d1): je Id einmal, nach Zeit, höchstens VERLAUF_MAX; verschlüsselt zurück; beschädigt → Fehler", async () => {
+  const k = await mlsSchluessel(ohneTresor().geheim);
+  const sp = new SpeicherImRam();
+  const v = new MlsVerlauf(new MlsZustand(sp, k, "x"));
+  const e = (id: string, zeit: number) => ({ id, von: "ab".repeat(32), text: `Text ${id}`, zeit });
+  assert.equal(v.nimmAuf("g", [e("2", 20), e("1", 10)]), 2);
+  assert.equal(v.nimmAuf("g", [e("1", 10), e("3", 5)]), 1, "doppelte Id nicht noch einmal");
+  assert.deepEqual(v.nachrichten("g").map((x) => x.id), ["3", "1", "2"]);
+  assert.deepEqual(v.nachrichten("andere"), []);
+  v.nimmAuf("voll", Array.from({ length: VERLAUF_MAX + 5 }, (_, i) => e(`v${i}`, i)));
+  assert.equal(v.nachrichten("voll").length, VERLAUF_MAX);
+  assert.equal(v.nachrichten("voll")[0]!.id, "v5", "die ältesten fallen heraus");
+  await v.sichern();
+  assert.ok(!Buffer.from(sp.blob!, "base64").toString("latin1").includes("Text 3"));
+  const w = new MlsVerlauf(new MlsZustand(sp, k, "x"));
+  await w.laden();
+  assert.deepEqual(w.nachrichten("g"), v.nachrichten("g"));
+  await new MlsZustand(sp, k, "x").sichern(new TextEncoder().encode(JSON.stringify({ nichts: 1 })));
+  await assert.rejects(new MlsVerlauf(new MlsZustand(sp, k, "x")).laden(), /Verlauf beschädigt/);
+  await w.loeschen();
+  assert.equal(sp.blob, null);
 });

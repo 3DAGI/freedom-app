@@ -12,7 +12,7 @@
  *   von außen etwas davon sieht.
  * - Eine Einladung annehmen verbraucht das eigene KeyPackage (neu veröffentlichen).
  */
-import type { Mls, MlsEmpfang, MlsSenden } from "@freedomstack/mls";
+import type { Mls, MlsEmpfang, MlsNachricht, MlsSenden } from "@freedomstack/mls";
 import { KIND_GIFT_WRAP, giftUnwrapMitSigner, type NostrEvent, type RelayFilter, type Signer } from "@freedomstack/protocol";
 import { kpVerbraucht } from "./mls-keypackage.js";
 
@@ -96,12 +96,20 @@ export function gruppenAbos(mls: Mls): { gruppe: string; filter: RelayFilter; re
 }
 
 /**
+ * Nachrichten ablegen, BEVOR der Zustand gesichert wird (2.2b-d1): Eine
+ * MLS-Nachricht lässt sich nur einmal entschlüsseln. Geht zwischen beidem
+ * etwas verloren, stellt die Engine sie aus dem älteren Zustand erneut zu.
+ */
+export type Merken = (nachrichten: MlsNachricht[]) => Promise<void>;
+
+/**
  * Gruppennachricht empfangen. Nachrichten vor ihrem Commit hält die Engine
  * zurück; `wartezeit` sagt, wann `fortschreiten` sie zustellt.
  */
-export async function empfangeGruppe(p: { mls: Mls; sichern: () => Promise<void>; ev: NostrEvent }):
+export async function empfangeGruppe(p: { mls: Mls; sichern: () => Promise<void>; ev: NostrEvent; merken?: Merken }):
   Promise<MlsEmpfang & { wartezeit?: Record<string, number> }> {
   const r = await p.mls.empfangen(p.ev);
+  if (r.nachrichten.length > 0) await p.merken?.(r.nachrichten);
   if (r.nachrichten.length > 0 || r.geaendert.length > 0 || r.ergebnis !== "Ignored") await p.sichern();
   const wartezeit: Record<string, number> = {};
   for (const g of p.mls.gruppen()) {
@@ -116,9 +124,10 @@ export async function empfangeGruppe(p: { mls: Mls; sichern: () => Promise<void>
  * was die Engine dabei selbst sendet (etwa einen Commit), geht an die Relays
  * der Gruppe. Aufrufen, wenn `wartezeit` aus `empfangeGruppe` abgelaufen ist.
  */
-export async function schreiteFort(p: Ablauf & { gruppe: string }): Promise<MlsEmpfang> {
+export async function schreiteFort(p: Ablauf & { gruppe: string; merken?: Merken }): Promise<MlsEmpfang> {
   const { relays } = p.mls.routing(p.gruppe);
   const r = await p.mls.fortschreiten(p.gruppe);
+  if (r.nachrichten.length > 0) await p.merken?.(r.nachrichten);
   await p.sichern();
   if (r.events.length > 0) await veroeffentliche(p, relays, { events: r.events, ausstehend: r.ausstehend, einladungen: [] });
   return { ergebnis: r.ergebnis, nachrichten: r.nachrichten, geaendert: r.geaendert };

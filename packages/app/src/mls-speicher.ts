@@ -13,7 +13,6 @@ import { fromHex, toHex } from "@freedomstack/protocol";
 import { IndexedDbSpeicher, type GeheimSpeicher, type TresorSpeicher } from "./vault.js";
 
 export const LS_MLS_SCHLUESSEL = "freedom.mls.schluessel";
-const AAD = new TextEncoder().encode("freedom.mls.zustand.v1");
 const IV_BYTES = 12;
 
 function zuB64(b: Uint8Array): string {
@@ -42,11 +41,17 @@ export async function mlsSchluessel(geheim: GeheimSpeicher): Promise<CryptoKey> 
 
 /** Speicher der App: eine IndexedDB nur für den MLS-Zustand. */
 export const mlsDatenbank = (): TresorSpeicher => new IndexedDbSpeicher("freedom-mls", "zustand");
+/** … und eine für den Verlauf der Gruppen (2.2b-d1). */
+export const mlsVerlaufDatenbank = (): TresorSpeicher => new IndexedDbSpeicher("freedom-mls-verlauf", "verlauf");
 
 export class MlsZustand {
   #kette: Promise<unknown> = Promise.resolve();
+  readonly #zusatz: Uint8Array<ArrayBuffer>;
 
-  constructor(private speicher: TresorSpeicher, private schluessel: CryptoKey) {}
+  /** `bindung` (etwa die Identität) gehört zu den Zusatzdaten: unter einer anderen lässt sich nichts öffnen. */
+  constructor(private speicher: TresorSpeicher, private schluessel: CryptoKey, bindung = "") {
+    this.#zusatz = new TextEncoder().encode(`freedom.mls.zustand.v1${bindung ? `:${bindung}` : ""}`);
+  }
 
   /** Gespeicherten Zustand entschlüsseln; undefined, wenn es keinen gibt. */
   async laden(): Promise<Uint8Array | undefined> {
@@ -55,7 +60,7 @@ export class MlsZustand {
     const roh = ausB64(blob);
     try {
       const klar = await crypto.subtle.decrypt(
-        { name: "AES-GCM", iv: roh.subarray(0, IV_BYTES), additionalData: AAD }, this.schluessel, roh.subarray(IV_BYTES));
+        { name: "AES-GCM", iv: roh.subarray(0, IV_BYTES), additionalData: this.#zusatz }, this.schluessel, roh.subarray(IV_BYTES));
       return new Uint8Array(klar);
     } catch {
       throw new Error("MLS-Zustand beschädigt oder mit anderem Schlüssel verschlüsselt");
@@ -67,7 +72,7 @@ export class MlsZustand {
     const kopie = Uint8Array.from(zustand);
     const lauf = this.#kette.then(async () => {
       const iv = crypto.getRandomValues(new Uint8Array(IV_BYTES));
-      const ct = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv, additionalData: AAD }, this.schluessel, kopie));
+      const ct = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv, additionalData: this.#zusatz }, this.schluessel, kopie));
       const roh = new Uint8Array(IV_BYTES + ct.length);
       roh.set(iv);
       roh.set(ct, IV_BYTES);
@@ -79,5 +84,58 @@ export class MlsZustand {
 
   loeschen(): Promise<void> {
     return this.speicher.loeschen();
+  }
+}
+
+export interface VerlaufEintrag {
+  id: string;
+  /** Identität des Absenders (von MLS authentifiziert). */
+  von: string;
+  text: string;
+  zeit: number;
+}
+
+export const VERLAUF_MAX = 1000;
+
+/**
+ * Verlauf der MLS-Gruppen (Schritt 2.2b-d1). Eine MLS-Nachricht lässt sich
+ * nur einmal entschlüsseln – danach ist ihr Schlüssel weg (Vorwärtsgeheimnis).
+ * Was angezeigt werden soll, liegt deshalb verschlüsselt auf dem Gerät, je
+ * Gruppe höchstens `VERLAUF_MAX` Nachrichten. Vor dem Zustand sichern: Geht
+ * dazwischen etwas verloren, stellt die Engine die Nachricht erneut zu.
+ */
+export class MlsVerlauf {
+  #gruppen: Record<string, VerlaufEintrag[]> = {};
+
+  constructor(private ablage: MlsZustand) {}
+
+  async laden(): Promise<void> {
+    const roh = await this.ablage.laden();
+    if (!roh) return;
+    const d = JSON.parse(new TextDecoder().decode(roh)) as { gruppen?: unknown };
+    if (!d.gruppen || typeof d.gruppen !== "object") throw new Error("MLS-Verlauf beschädigt");
+    this.#gruppen = d.gruppen as Record<string, VerlaufEintrag[]>;
+  }
+
+  nachrichten(gruppe: string): VerlaufEintrag[] {
+    return [...(this.#gruppen[gruppe] ?? [])];
+  }
+
+  /** Neue Nachrichten aufnehmen (je Id einmal, nach Zeit); wie viele neu waren. */
+  nimmAuf(gruppe: string, neu: readonly VerlaufEintrag[]): number {
+    const alt = this.#gruppen[gruppe] ?? [];
+    const ids = new Set(alt.map((e) => e.id));
+    const dazu = neu.filter((e) => !ids.has(e.id) && ids.add(e.id));
+    if (dazu.length > 0) this.#gruppen[gruppe] = [...alt, ...dazu].sort((a, b) => a.zeit - b.zeit).slice(-VERLAUF_MAX);
+    return dazu.length;
+  }
+
+  sichern(): Promise<void> {
+    return this.ablage.sichern(new TextEncoder().encode(JSON.stringify({ gruppen: this.#gruppen })));
+  }
+
+  async loeschen(): Promise<void> {
+    this.#gruppen = {};
+    await this.ablage.loeschen();
   }
 }

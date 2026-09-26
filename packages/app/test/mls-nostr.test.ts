@@ -170,3 +170,16 @@ test("Entfernen: das entfernte Mitglied liest danach nichts mehr; Nachricht vor 
     assert.equal(r.nachrichten.length, 0, "Bob liest nichts");
   }
 });
+
+test("Merken vor Sichern (2.2b-d1): der Verlauf bekommt die Nachricht, bevor der Zustand gesichert wird", async () => {
+  const { netz, a, b, gruppe } = await gruppeZuDritt();
+  await sendeInGruppe({ mls: a.mls, netz, sichern: a.sichern, gruppe, text: "zuerst merken" });
+  const ablauf: string[] = [];
+  const r = await empfangeGruppe({
+    mls: b.mls, ev: netz.an(GRUPPE[0]!).at(-1)!,
+    merken: async (n) => { ablauf.push(`merken ${n.map((x) => x.text).join()}`); },
+    sichern: async () => { ablauf.push("sichern"); },
+  });
+  assert.deepEqual(ablauf, ["merken zuerst merken", "sichern"]);
+  assert.equal(r.nachrichten.length, 1);
+});
