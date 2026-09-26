@@ -28,9 +28,9 @@ eigenem Branch mit eigenen Pull Requests. Regeln dazu in `CLAUDE.md`
 
 | Spur | Schritte (in dieser Reihenfolge) |
 |---|---|
-| **A – Netz, Geld, Vertrauen** | 4.9 (entschieden: A), 2.2b und 2.3 (MLS, entschieden: A), 5.4 (mit 8.4 Relay-Rolle), 5.8, 5.5 (mit 8.15 Dashboard), 5.6, 5.7 (mit 8.8 Modelle), 5.10, 5.9 (Repro-Build), 6.2, 6.3, 6.4, 8.3, 8.2; dazu alles, was an MENSCH-Entscheidungen hängt: 4.9, 4.0 → 5.1, 4.3, 4.5, 5.1b |
-| **B – Mesh und Bausteine** | 7.1, 7.3, 7.4 (zurückgestellt bis 4.3, MENSCH 26.09.), 7.2, dann 8.10, 8.13, 8.14, 8.11, 8.12, 8.9, 8.7, 8.6, 8.1 |
-| später, abgesprochen | 8.16 Übersetzungen (berührt jede Oberfläche – erst, wenn beide Spuren fertig sind), 8.5 (wartet auf MLS 2.2a), Phase 9 |
+| **A – Netz, Geld, Vertrauen** | 4.9 ✓, 2.2b (MLS, entschieden: A, eingebettet), 5.4 (a ✓; b, c mit 8.4), Geld nach Entscheidung 4.0: 5.1, 4.3, 4.5, 5.1b; dann 6.3, 6.4, 5.9 (Repro-Build, nach dem MLS-Einbau), 8.2 |
+| **B – Mesh und Bausteine** | fertig: 7.1, 7.3, 7.2, 8.10, 8.13, 8.14, 8.11, 8.12, 8.9, 8.7, 8.6, 8.1. **Weiter (26.09., von A übernommen):** 8.3 (Liquiditätsgeber), 5.8 (RPC-Vielfalt), 5.7 mit 8.8 (Modellkataloge), 5.6 (Streitfall-Prüfer), 5.5 mit 8.15 (Reputation aus Quittungen, Dashboard), 5.10 (Zeitanker, Abdeckungskarte), 6.2 (ehrlicher PWA-Modus); **danach 2.3 mit 8.5** (Räume als MLS-Gruppen – der „Discord“-Teil), sobald der MLS-Baustein (2.2b a und b) auf `main` ist |
+| später, abgesprochen | 8.16 Übersetzungen (berührt jede Oberfläche – erst, wenn beide Spuren fertig sind), 7.4 (nach 4.3), Phase 9 |
 
 ## Alle Schritte
 
