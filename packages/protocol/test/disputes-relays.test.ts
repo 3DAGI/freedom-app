@@ -167,6 +167,10 @@ test("Die Auskunft nennt, was das Verfahren NICHT kann", () => {
   assert.match(t, /NICHT abfängt/);
   assert.match(t, /gefällt mir nicht/);
   assert.match(t, /kein Richtig/);
+  // 5.6: Pruefer aus dem eigenen Netz, Urteil nur zwischen den Beteiligten, keine Erstattung von selbst.
+  assert.match(t.replace(/\n/g, " "), /Prüfer aus deinem Netz/);
+  assert.match(t.replace(/\n/g, " "), /gilt nur zwischen dir und dem Provider/);
+  assert.match(t.replace(/\n/g, " "), /nicht von selbst/);
 });
 
 // ------------------------------------------------------------- Relays

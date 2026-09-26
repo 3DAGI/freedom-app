@@ -43,9 +43,9 @@ bash scripts/build-site.sh /tmp/site                     # Website bauen (Ziel w
 bash packages/mls/bauen.sh --pruefen                     # nur bei Änderungen an packages/mls: nachbauen + vergleichen (Rust, clang)
 ```
 
-Stand 26.09.2026 (nach 5.6a): protocol 1148 grün (6 übersprungen), node 240 grün
+Stand 26.09.2026 (nach 5.6b): protocol 1148 grün (6 übersprungen), node 240 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 367 grün, mls 9 grün, Leak-Tests 49 grün + 2 `todo` (heutige Lecks,
+in `tools.test.ts`), app 371 grün, mls 9 grün, Leak-Tests 50 grün + 2 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
 Ausnahme: gesendete SOL-Zahlungen von frischen Adressen, eine bewusste Grenze
 nach Entscheidung 4.9 A – im Datenschutzbericht unter „Bewusste Grenzen“).
@@ -329,3 +329,15 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   und zeigt sie nur über `textContent`. Keine fest eingebaute Modell-Vorliebe
   im Dropdown – die Reihenfolge kommt aus den Abos (`katalogRangJetzt()`) und
   der Zahl der Provider.
+- **Streitfall-Prüfer nur aus dem eigenen Netz** (seit 5.6): Prüfer über
+  `netzPruefer()` (Kontakte, eigene Provider) – nie aus einer Rangliste; die
+  Reklamation nennt ihn, und nur sein Urteil zählt (`resolveDispute()`).
+  Frage und Antwort nur mit Zustimmung und nur über `materialFuerPruefer`.
+  Das Urteil nur versiegelt (`buildPrivateUrteil()`), an Sitzungsschlüssel und
+  Provider. Eigene Reklamationen tragen den Sitzungsschlüssel – nur im Tresor
+  (`freedom.reklamationen`, in `SICHERUNG_NIE`).
+- **`check-wiring.py --streng` scheitert auch an veralteten Ausnahmen** (5.6b):
+  Wird ein ausgenommener Export verdrahtet, muss seine Zeile aus
+  `scripts/wiring-ausnahmen.txt` raus – sonst meldet das Skript „veraltete
+  Ausnahme“ und endet mit 1, obwohl die Zusammenfassung „0 offen“ sagt. Immer
+  den Exit-Code prüfen, nicht nur die letzte Zeile.

@@ -278,11 +278,11 @@ export function disputeWindowOpen(
 export function disputeInfo(): string {
   return [
     "Reklamation: Sie geht versiegelt an den Provider und, wenn du einen",
-    "wählst, an einen zweiten Provider als Prüfer. Relays sehen weder Grund",
-    "noch Betrag noch, wer reklamiert.",
+    "wählst, an einen Prüfer aus deinem Netz – einen Kontakt oder einen",
+    "eigenen Provider. Relays sehen weder Grund noch Betrag noch, wer reklamiert.",
     "",
-    "Noch nicht automatisch: Nachprüfung und Rückzahlung. Die Reklamation",
-    "benachrichtigt beide – eine Erstattung folgt daraus noch nicht von selbst.",
+    "Das Urteil des Prüfers gilt nur zwischen dir und dem Provider. Eine",
+    "Erstattung folgt daraus nicht von selbst – zahlen muss der Provider.",
     "",
     "Wofür sie gedacht ist: gar keine Antwort, abgebrochene Jobs, ein anderes",
     "Modell als vereinbart, offensichtlicher Unsinn.",

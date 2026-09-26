@@ -31,6 +31,7 @@ import {
   wireRpcSetting,
 } from "./state.js";
 import { haltevorModell, kuendigeModellAn, loadGitRepos, setGitStatus, veroeffentlicheKatalog, zeigeKataloge, zeigeModelle } from "./tabs/agent-netz.js";
+import { starteStreitfall } from "./streitfall-ui.js";
 import {
   askAi,
   neueAufgabe,
@@ -842,6 +843,7 @@ function starte(): void {
   void zeigeNachfolge();
   void zeigeModelle();
   void zeigeKataloge().then(() => refreshModelDropdown());
+  starteStreitfall();
   void zeigeMitwirkende();
   void wireRpcSetting();
   const exportBtn = $("#selfexport-btn");
