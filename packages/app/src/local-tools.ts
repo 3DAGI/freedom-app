@@ -7,7 +7,57 @@
  * WICHTIG: Das ist ein Convenience-Fallback fuer die Demo/eigenes Geraet.
  * Im dezentralen Modus laufen Tools+Inferenz beim PROVIDER (non-custodial).
  * Lokal heisst: der eigene Browser redet mit dem eigenen Ollama.
+ *
+ * SANDBOX/SSRF (8.7): Der Browser ist die Sandbox. browser_use ruft nur
+ * oeffentliche http(s)-Ziele ab – keine Zugangsdaten in der URL, kein
+ * localhost, keine privaten Adressen (Router, Ollama, Metadaten) –, liest
+ * hoechstens `LOKAL_MAX_BYTES` und nur Text. Im Browser laesst sich ein Name
+ * nicht aufloesen: ein oeffentlicher Name, der auf eine private Adresse zeigt,
+ * faellt hier nicht auf (CORS verhindert meist das Lesen der Antwort).
+ * Weiterleitungen folgt das lokale Werkzeug nicht – ihr Ziel liesse sich im
+ * Browser nicht vorher pruefen.
  */
+import { isPrivateAddress } from "@freedomstack/protocol";
+
+/** So viel liest ein lokales Werkzeug hoechstens von einer Antwort. */
+export const LOKAL_MAX_BYTES = 1_000_000;
+
+/** Darf das lokale Browser-Werkzeug dieses Ziel abrufen? Grund oder null. */
+export function lokalesZielVerboten(roh: string): string | null {
+  let u: URL;
+  try {
+    u = new URL(roh.trim());
+  } catch {
+    return "keine gültige URL";
+  }
+  if (u.protocol !== "http:" && u.protocol !== "https:") return "nur http und https";
+  if (u.username || u.password) return "keine Zugangsdaten in der URL";
+  const h = u.hostname.toLowerCase().replace(/^\[|\]$/g, "");
+  if (h === "localhost" || h.endsWith(".localhost") || h.endsWith(".local") || h.endsWith(".internal")) return "lokales Ziel";
+  // IP-Adressen (auch IPv6 mit eingebetteter IPv4, wie new URL sie schreibt) wie im Knoten pruefen
+  if ((/^\d+\.\d+\.\d+\.\d+$/.test(h) || h.includes(":")) && isPrivateAddress(h)) return "private Adresse";
+  return null;
+}
+
+async function leseText(res: Response): Promise<string> {
+  const leser = res.body?.getReader();
+  if (!leser) return "";
+  const teile: Uint8Array[] = [];
+  let n = 0;
+  for (;;) {
+    const { done, value } = await leser.read();
+    if (done) break;
+    if (n + value.length > LOKAL_MAX_BYTES) {
+      teile.push(value.subarray(0, LOKAL_MAX_BYTES - n));
+      await leser.cancel().catch(() => undefined);
+      break;
+    }
+    teile.push(value);
+    n += value.length;
+  }
+  const dec = new TextDecoder();
+  return teile.map((t) => dec.decode(t, { stream: true })).join("") + dec.decode();
+}
 
 export interface LocalToolOutcome {
   name: string;
@@ -23,7 +73,7 @@ export async function localWebSearch(query: string, timeoutMs = 8000): Promise<L
     const url = `https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1&no_redirect=1`;
     const res = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const d = (await res.json()) as { AbstractText?: string; AbstractURL?: string; Heading?: string; Answer?: string };
+    const d = JSON.parse(await leseText(res)) as { AbstractText?: string; AbstractURL?: string; Heading?: string; Answer?: string };
     const out =
       d.Answer ? `${d.Answer}` :
       d.AbstractText ? `${d.Heading ?? ""}: ${d.AbstractText} (${d.AbstractURL ?? ""})`.trim() :
@@ -38,9 +88,13 @@ export async function localWebSearch(query: string, timeoutMs = 8000): Promise<L
 export async function localBrowserFetch(url: string, timeoutMs = 9000): Promise<LocalToolOutcome> {
   const kind = 5062;
   try {
-    const res = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
+    const verboten = lokalesZielVerboten(url);
+    if (verboten) throw new Error(`Abruf abgelehnt: ${verboten}`);
+    const res = await fetch(url.trim(), { signal: AbortSignal.timeout(timeoutMs), credentials: "omit", redirect: "error" });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const html = await res.text();
+    const typ = (res.headers.get("content-type") ?? "").toLowerCase();
+    if (typ && !/^(text\/|application\/(json|xml|xhtml\+xml))/.test(typ)) throw new Error(`kein Text (${typ.split(";")[0]})`);
+    const html = await leseText(res);
     const text = html
       .replace(/<script[\s\S]*?<\/script>/gi, "")
       .replace(/<style[\s\S]*?<\/style>/gi, "")

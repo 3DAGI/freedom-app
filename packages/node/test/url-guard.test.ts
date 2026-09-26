@@ -138,3 +138,14 @@ test("Dateizugriff: normaler Pfad im Workspace funktioniert weiter", async () =>
     await rm(dir, { recursive: true, force: true });
   }
 });
+
+test("8.7 Fund: IPv4 in IPv6 auch in Hex-Schreibweise, NAT64 und 6to4 – wie new URL sie schreibt", async () => {
+  for (const u of ["http://[::ffff:127.0.0.1]/", "http://[::ffff:7f00:1]/", "http://[0:0:0:0:0:ffff:169.254.169.254]/",
+    "http://[::a00:1]/", "http://[64:ff9b::a9fe:a9fe]/", "http://[2002:c0a8:101::1]/", "http://[ff02::1]/", "http://[fd00::1]/"]) {
+    const v = await checkUrlSafe(u);
+    assert.equal(v.allowed, false, `${u} → ${new URL(u).hostname}`);
+  }
+  assert.equal(isPrivateIPv6("2606:4700:4700::1111"), false, "oeffentliches IPv6 bleibt erlaubt");
+  assert.equal(isPrivateIPv6("::ffff:8.8.8.8"), false);
+  assert.equal(isPrivateIPv6("kein:ipv6:::"), true, "unklare Form wird nicht erlaubt");
+});

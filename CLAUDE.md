@@ -41,9 +41,9 @@ python3 scripts/smoke_test.py packages/app/dist         # braucht playwright + c
 bash scripts/build-site.sh /tmp/site                     # Website bauen (Ziel wird gelöscht!)
 ```
 
-Stand 26.09.2026 (nach 8.9b): protocol 1117 grün (6 übersprungen), node 217 grün
+Stand 26.09.2026 (nach 8.7): protocol 1117 grün (6 übersprungen), node 226 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 327 grün, Leak-Tests 48 grün + 2 `todo` (heutige Lecks,
+in `tools.test.ts`), app 332 grün, Leak-Tests 48 grün + 2 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
 Ausnahme: gesendete SOL-Zahlungen von frischen Adressen, eine bewusste Grenze
 nach Entscheidung 4.9 A – im Datenschutzbericht unter „Bewusste Grenzen“).
@@ -267,3 +267,8 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   `pruefeSpeicherStueck()` auf. Abruf nur versiegelt (`baueStueckAbruf()`); der
   Knoten veröffentlicht das Stück-Event erneut, statt es in den Umschlag zu
   packen (NIP-44 fasst 64 KB, ein Stück als Hex 128 KB).
+- **Werkzeuge nur in den Grenzen** (seit 8.7): Ausführung nur über
+  `ToolRegistry.run` (Eingabe-, Zeit-, Ausgabegrenze aus `WERKZEUG_GRENZEN`),
+  Netz nur über `safeFetch` + `leseBegrenzt`. Private Adressen nur mit
+  `isPrivateAddress()` aus dem Protokoll prüfen – `new URL` schreibt
+  IPv4-in-IPv6 als Hex (`[::ffff:7f00:1]`), eine Suche nach Punkten übersieht das.
