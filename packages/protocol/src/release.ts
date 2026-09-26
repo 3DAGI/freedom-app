@@ -34,6 +34,14 @@ import { bytesToHex } from "@noble/hashes/utils.js";
 /** Signiertes Release-Manifest. */
 export const KIND_RELEASE_MANIFEST = 38054;
 
+/**
+ * k von n (Schritt 5.2): So viele verschiedene vertrauenswuerdige Signierer
+ * muessen dieselbe Nutzlast (Version + Dateien mit Pruefsumme) bestaetigen.
+ * Ein einzelner gestohlener Schluessel reicht dann nicht mehr fuer eine
+ * gefaelschte Version.
+ */
+export const RELEASE_MIN_SIGNATUREN = 2;
+
 export interface ReleaseArtifact {
   /** Dateiname, z. B. "freedom.html". */
   name: string;
@@ -103,6 +111,28 @@ export function parseReleaseManifest(ev: NostrEvent): ReleaseManifest {
   };
 }
 
+/**
+ * Die Nutzlast, ueber die signiert wird: Version und Dateien (Name, Pruefsumme,
+ * Groesse), sortiert. Quellen und Notizen duerfen je Signierer abweichen.
+ */
+export function nutzlast(m: Pick<ReleaseManifest, "version" | "artifacts">): string {
+  const dateien = [...m.artifacts].map((a) => [a.name, a.sha256, a.sizeBytes]).sort((x, y) => String(x[0]).localeCompare(String(y[0])));
+  return hashText(JSON.stringify([m.version, dateien]));
+}
+
+/** Je Nutzlast die verschiedenen vertrauenswuerdigen Signierer, die sie bestaetigen. */
+function bestaetigt(manifests: ReleaseManifest[], trustedSigners: string[]): Map<string, { manifest: ReleaseManifest; signierer: Set<string> }> {
+  const out = new Map<string, { manifest: ReleaseManifest; signierer: Set<string> }>();
+  for (const m of manifests) {
+    if (!trustedSigners.includes(m.signerPubkey)) continue;
+    const n = nutzlast(m);
+    const e = out.get(n) ?? { manifest: m, signierer: new Set<string>() };
+    e.signierer.add(m.signerPubkey);
+    out.set(n, e);
+  }
+  return out;
+}
+
 export type VerifyStatus = "echt" | "abweichend" | "unbekannt";
 
 export interface VerifyResult {
@@ -126,6 +156,7 @@ export function verifyArtifact(
   artifactName: string,
   manifests: ReleaseManifest[],
   trustedSigners: string[],
+  k = RELEASE_MIN_SIGNATUREN,
 ): VerifyResult {
   const hash = fileHash.toLowerCase();
   const vertrauenswuerdig = manifests.filter((m) => trustedSigners.includes(m.signerPubkey));
@@ -140,15 +171,26 @@ export function verifyArtifact(
     };
   }
 
-  for (const m of vertrauenswuerdig) {
+  // k von n: Nur eine Nutzlast, die k verschiedene Signierer bestaetigen, zaehlt.
+  let zuWenig: { version: string; anzahl: number } | undefined;
+  for (const { manifest: m, signierer } of bestaetigt(vertrauenswuerdig, trustedSigners).values()) {
     const a = m.artifacts.find((x) => x.name === artifactName);
-    if (a && a.sha256 === hash) {
+    if (!a || a.sha256 !== hash) continue;
+    if (signierer.size >= k) {
       return {
         status: "echt",
         version: m.version,
-        message: `Geprüft: Version ${m.version}, Prüfsumme stimmt mit dem signierten Manifest überein.`,
+        message: `Geprüft: Version ${m.version}, Prüfsumme stimmt – bestätigt von ${signierer.size} Signierern.`,
       };
     }
+    zuWenig = { version: m.version, anzahl: signierer.size };
+  }
+  if (zuWenig) {
+    return {
+      status: "unbekannt",
+      version: zuWenig.version,
+      message: `Version ${zuWenig.version} ist erst von ${zuWenig.anzahl} von ${k} nötigen Signierern bestätigt – noch nicht als echt ausgewiesen.`,
+    };
   }
 
   // Der Name kommt vor, die Prüfsumme nicht — das ist der interessante Fall.
@@ -172,11 +214,41 @@ export function verifyArtifact(
 export function latestRelease(
   manifests: ReleaseManifest[],
   trustedSigners: string[],
+  k = RELEASE_MIN_SIGNATUREN,
 ): ReleaseManifest | null {
-  const gueltig = manifests
-    .filter((m) => trustedSigners.includes(m.signerPubkey))
+  // Nur Versionen, die k Signierer bestaetigen – sonst koennte ein einzelner
+  // gestohlener Schluessel ein „Update“ ankuendigen.
+  const gueltig = [...bestaetigt(manifests, trustedSigners).values()]
+    .filter((e) => e.signierer.size >= k)
+    .map((e) => e.manifest)
     .sort((a, b) => b.releasedAt - a.releasedAt);
   return gueltig[0] ?? null;
+}
+
+/** Die Version, die der Nutzer ausdruecklich behalten will (5.2). */
+export interface Fixierung {
+  version: string;
+  sha256: string;
+}
+
+/**
+ * Laeuft die fixierte Version? Die Seite kann jederzeit eine andere Datei
+ * ausliefern – ohne Rueckfrage soll keine andere laufen. Ist die neue Datei
+ * von k Signierern bestaetigt, darf der Nutzer sie uebernehmen; sonst Warnung.
+ */
+export function pruefeFixierung(
+  fix: Fixierung | null,
+  dateiHash: string,
+  pruefung: VerifyResult,
+): { status: "passt" } | { status: "andere-echt"; meldung: string } | { status: "andere-unbestaetigt"; meldung: string } {
+  if (!fix || fix.sha256 === dateiHash.toLowerCase()) return { status: "passt" };
+  if (pruefung.status === "echt") {
+    return { status: "andere-echt", meldung: `Hier läuft Version ${pruefung.version}; fixiert hast du ${fix.version}. Die neue Version ist bestätigt – übernehmen?` };
+  }
+  return {
+    status: "andere-unbestaetigt",
+    meldung: `Hier läuft nicht deine fixierte Version ${fix.version}, und diese Datei ist nicht bestätigt. Im Zweifel nicht benutzen und die fixierte Version aus einer Bezugsquelle neu beziehen.`,
+  };
 }
 
 /**

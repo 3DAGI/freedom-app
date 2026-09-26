@@ -29,7 +29,9 @@
 
 ---
 
-## 5.2 Releases k-von-n signiert
+## 5.2 Releases k-von-n signiert – CODE FERTIG (26.09.2026)
+
+> Umsetzung: Nostr-Events tragen je eine Signatur – „mehrere Signaturen über dieselbe Nutzlast“ heißt deshalb: jeder Signierer veröffentlicht sein Manifest, die App zählt verschiedene vertrauenswürdige Signierer je Nutzlast (`nutzlast()` = Version + Dateien). Offen nur MENSCH: Schlüssel und `TRUSTED_SIGNERS`.
 
 - **Stellen:** `packages/protocol/src/release.ts`, `scripts/publish-release.mjs`,
   `TRUSTED_SIGNERS`, Echtheitsprüfung in der App.

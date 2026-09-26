@@ -697,29 +697,48 @@ export async function exportiereApp(): Promise<void> {
   }
 }
 
+/** Fixierte Version (5.2) – kein Geheimnis: nur Version und Pruefsumme. */
+const LS_RELEASE_FIX = "freedom.release.fix";
+
+function ladeFixierung(): import("@freedomstack/protocol").Fixierung | null {
+  try {
+    const f = JSON.parse(localStorage.getItem(LS_RELEASE_FIX) ?? "null") as { version?: unknown; sha256?: unknown } | null;
+    return f && typeof f.version === "string" && typeof f.sha256 === "string" && /^[0-9a-f]{64}$/.test(f.sha256)
+      ? { version: f.version, sha256: f.sha256 } : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Eigene Datei hashen und gegen die Manifeste im Netz pruefen (k von n). */
+async function echtheit() {
+  const {
+    hashText, parseReleaseManifest, verifyArtifact, latestRelease, allSources, pruefeFixierung,
+    KIND_RELEASE_MANIFEST,
+  } = await import("@freedomstack/protocol");
+  const res = await fetch(location.href, { cache: "no-store" });
+  const hash = hashText(await res.text());
+  const pool = await ensurePool();
+  const evs = await pool.query({ kinds: [KIND_RELEASE_MANIFEST], limit: 50 });
+  const manifeste = evs.map((e) => {
+    try { return parseReleaseManifest(e); } catch { return null; }
+  }).filter((m): m is NonNullable<typeof m> => m !== null);
+  const r = verifyArtifact(hash, "freedom.html", manifeste, TRUSTED_SIGNERS);
+  return {
+    hash, r,
+    neueste: latestRelease(manifeste, TRUSTED_SIGNERS),
+    quellen: allSources(manifeste, TRUSTED_SIGNERS),
+    fixierung: pruefeFixierung(ladeFixierung(), hash, r),
+  };
+}
+
 /** Prueft die eigene Datei gegen die signierten Manifeste im Netz. */
 export async function pruefeEigeneEchtheit(): Promise<void> {
   const box = $("#selfcheck-status");
   if (!box) return;
   try {
-    const {
-      hashText, parseReleaseManifest, verifyArtifact, latestRelease, allSources,
-      KIND_RELEASE_MANIFEST,
-    } = await import("@freedomstack/protocol");
-
-    const res = await fetch(location.href, { cache: "no-store" });
-    const hash = hashText(await res.text());
-
-    const pool = await ensurePool();
-    const evs = await pool.query({ kinds: [KIND_RELEASE_MANIFEST], limit: 50 });
-    const manifeste = evs.map((e) => {
-      try { return parseReleaseManifest(e); } catch { return null; }
-    }).filter((m): m is NonNullable<typeof m> => m !== null);
-
-    const r = verifyArtifact(hash, "freedom.html", manifeste, TRUSTED_SIGNERS);
+    const { hash, r, neueste, quellen, fixierung } = await echtheit();
     const cls = r.status === "echt" ? "ok" : r.status === "abweichend" ? "err" : "warn";
-    const neueste = latestRelease(manifeste, TRUSTED_SIGNERS);
-    const quellen = allSources(manifeste, TRUSTED_SIGNERS);
 
     box.innerHTML =
       `<span class="${cls}">${escapeHtml(r.message)}</span>` +
@@ -729,10 +748,47 @@ export async function pruefeEigeneEchtheit(): Promise<void> {
       (quellen.length > 0
         ? `<br><span class="muted">Bezugsquellen: ${quellen.map((q) => escapeHtml(q)).join(", ")}</span>`
         : "");
+    // Fixieren (5.2): Danach laeuft keine andere Version ohne Rueckfrage.
+    const fix = ladeFixierung();
+    const zeile = document.createElement("div");
+    if (fixierung.status !== "passt") zeile.textContent = fixierung.meldung;
+    else if (fix) zeile.textContent = `Fixiert: Version ${fix.version}.`;
+    box.appendChild(zeile);
+    const knopf = (text: string, tun: () => void) => {
+      const b = document.createElement("button");
+      b.className = "ghost";
+      b.style.cssText = "width:auto;padding:4px 8px;margin-top:4px";
+      b.textContent = text;
+      b.addEventListener("click", () => { tun(); void pruefeEigeneEchtheit(); });
+      box.appendChild(b);
+    };
+    if (r.status === "echt" && r.version && fix?.sha256 !== hash) {
+      const version = r.version;
+      knopf(`Version ${version} fixieren`, () => localStorage.setItem(LS_RELEASE_FIX, JSON.stringify({ version, sha256: hash })));
+    }
+    if (fix) knopf("Fixierung aufheben", () => localStorage.removeItem(LS_RELEASE_FIX));
   } catch (e) {
     box.textContent = `Echtheit nicht prüfbar: ${(e as Error).message}`;
     box.className = "mono-sm warn";
   }
+}
+
+/**
+ * Beim Start (5.2): Ist eine Version fixiert und laeuft eine andere, fragt die
+ * App nach – bestaetigte neue Version uebernehmen, sonst deutliche Warnung.
+ * Ohne Fixierung passiert nichts.
+ */
+export async function pruefeFixierungBeimStart(): Promise<void> {
+  if (!ladeFixierung()) return;
+  try {
+    const { hash, r, fixierung } = await echtheit();
+    if (fixierung.status === "andere-echt" && r.version && confirm(fixierung.meldung)) {
+      localStorage.setItem(LS_RELEASE_FIX, JSON.stringify({ version: r.version, sha256: hash }));
+      toast(`Version ${r.version} fixiert`);
+    } else if (fixierung.status !== "passt") {
+      toast(fixierung.meldung, true);
+    }
+  } catch { /* ohne Netz oder als lokale Datei nicht pruefbar – beim naechsten Start erneut */ }
 }
 
 /**
@@ -741,10 +797,12 @@ export async function pruefeEigeneEchtheit(): Promise<void> {
  * Ohne diese Liste koennte jeder ein Manifest fuer seine eigene manipulierte
  * Datei veroeffentlichen und sie als echt ausweisen. Die Pruefung ist genau so
  * viel wert wie diese Liste — deshalb steht sie im Quelltext und nicht in
- * einer Konfiguration, die sich unterwegs aendern laesst.
+ * einer Konfiguration, die sich unterwegs aendern laesst. Seit 5.2 muessen
+ * mindestens `RELEASE_MIN_SIGNATUREN` (2) von ihnen dieselbe Version
+ * bestaetigen – ein einzelner gestohlener Schluessel reicht nicht.
  */
 const TRUSTED_SIGNERS: string[] = [
-  // VOR DEM RELEASE SETZEN: Pubkey des Projekt-Signierschluessels.
+  // VOR DEM RELEASE SETZEN: Pubkeys der Signierschluessel (mindestens zwei Personen oder Geraete).
 ];
 
 /** Einstellung der App-Gebuehr: anzeigen, aendern, abschalten. */

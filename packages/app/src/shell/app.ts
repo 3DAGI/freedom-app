@@ -70,6 +70,7 @@ import {
   aktualisiereSicherheitsStand,
   exportiereApp,
   pruefeEigeneEchtheit,
+  pruefeFixierungBeimStart,
   richteNachfolgeEin,
   wireClientFeeSetting,
   wireMeshTab,
@@ -673,6 +674,7 @@ function starte(): void {
   $("#ai-bid").oninput = updateFeePreview;
   $("#wallet-refresh").onclick = loadWallet;
   void wireClientFeeSetting();
+  void pruefeFixierungBeimStart();
   void wireMeshTab();
   void wireSpacesTab();
   void wireProfil();
