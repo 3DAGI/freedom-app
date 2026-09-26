@@ -44,7 +44,10 @@ test("8.9a: manipulierte Stuecke fallen heraus", async () => {
   const ev = chunkEvents[0]!;
   const mit = (tags: string[][], content = ev.content) => ({ ...ev, tags, content });
   const tausche = (name: string, wert: string) => ev.tags.map((t) => (t[0] === name ? [name, wert] : t));
-  assert.equal((pruefeSpeicherStueck(mit(ev.tags, "ff" + ev.content.slice(2))) as { grund: string }).grund, "Hash passt nicht");
+  // Erstes Byte sicher ändern – beginnt das (zufällige) Chiffrat schon mit ff,
+  // wäre "ff" keine Änderung (so bis 2.2b-b: rot in etwa 1 von 256 Läufen).
+  const anders = ev.content.startsWith("ff") ? "00" : "ff";
+  assert.equal((pruefeSpeicherStueck(mit(ev.tags, anders + ev.content.slice(2))) as { grund: string }).grund, "Hash passt nicht");
   assert.equal((pruefeSpeicherStueck(mit(ev.tags, "zz" + ev.content.slice(2))) as { grund: string }).grund, "Inhalt kein Hex der angegebenen Länge");
   assert.equal((pruefeSpeicherStueck(mit(tausche("index", "99"))) as { grund: string }).grund, "Erasure-Angaben unstimmig");
   assert.equal((pruefeSpeicherStueck(mit(tausche("size", "-1"))) as { grund: string }).grund, "Stück unvollständig");

@@ -614,6 +614,18 @@ export async function wireMeshTab(): Promise<void> {
   }
   void zeigeDatenschutz();
 
+  // MLS-Engine (2.2b-b): erst der Selbsttest lädt sie – vorher bleibt sie gepackt.
+  const mlsKnopf = document.getElementById("mls-selbsttest") as HTMLButtonElement | null;
+  if (mlsKnopf) mlsKnopf.onclick = async () => {
+    const aus = document.getElementById("mls-ergebnis");
+    mlsKnopf.disabled = true;
+    if (aus) aus.textContent = "läuft …";
+    const { mlsSelbsttest } = await import("../../mls-engine.js");
+    const r = await mlsSelbsttest();
+    if (aus) aus.textContent = `${r.ok ? "bestanden" : "gescheitert"}: ${r.text} (${r.ms} ms)`;
+    mlsKnopf.disabled = false;
+  };
+
   // Standard-Schiene (4.1c): Vorgabe fuer Zaps und Trinkgeld
   const schiene = document.getElementById("standard-schiene") as HTMLSelectElement | null;
   if (schiene) {

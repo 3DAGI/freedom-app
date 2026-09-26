@@ -21,6 +21,9 @@ Prueft im Headless-Chromium:
     Hinweis steht vorher, geloescht wird erst nach „LÖSCHEN“; danach sind weder
     Schluessel noch Daten in localStorage, sessionStorage oder IndexedDB, und
     die App startet leer mit neuer Identitaet
+  - MLS-Engine (Schritt 2.2b-b): eingebettet, beim Start nicht geladen (kein
+    WebAssembly uebersetzt); der Selbsttest in den Settings laedt sie unter der
+    echten CSP ('wasm-unsafe-eval') ohne Netz und besteht; kein 'unsafe-eval'
 
 Verbindungsfehler zu Relays werden ignoriert (hängen vom Netz ab).
 
@@ -300,6 +303,39 @@ def loeschen_pruefen(browser, url: str) -> dict:
     return erg
 
 
+def mls_pruefen(browser, url: str) -> dict:
+    """MLS-Engine: erst bei Bedarf geladen, dann Selbsttest unter der echten CSP."""
+    erg = {"fehler": [], "csp": []}
+    ctx = browser.new_context()
+    basis = url.rsplit("/", 1)[0]
+    ctx.route("**/*", lambda r: r.continue_() if r.request.url.startswith(basis) else r.abort())
+    s = ctx.new_page()
+    s.on("pageerror", lambda e: erg["fehler"].append(str(e)[:300]))
+    # Jedes Uebersetzen von WebAssembly zaehlen – vor dem Selbsttest darf keines passieren.
+    s.add_init_script(
+        "window.__wasm = 0; for (const k of ['instantiate', 'compile', 'instantiateStreaming', 'compileStreaming']) {"
+        " const o = WebAssembly[k]; if (o) WebAssembly[k] = function (...a) { window.__wasm++; return o.apply(this, a); }; }"
+        " const M = WebAssembly.Module; WebAssembly.Module = function (...a) { window.__wasm++; return new M(...a); };"
+        " document.addEventListener('securitypolicyviolation', e => {"
+        " (window.__csp = window.__csp || []).push(e.violatedDirective); });")
+    s.goto(url, wait_until="load")
+    s.wait_for_timeout(2500)
+    csp = s.evaluate("document.querySelector('meta[http-equiv=\"Content-Security-Policy\"]').content")
+    script_src = next((d.strip() for d in csp.split(";") if d.strip().startswith("script-src")), "")
+    erg["script_src_ok"] = "'wasm-unsafe-eval'" in script_src and "'unsafe-eval'" not in script_src
+    erg["vorher_geladen"] = s.evaluate("window.__wasm")
+    s.evaluate("() => document.getElementById('mls-selbsttest').click()")
+    s.wait_for_function("() => /bestanden|gescheitert/.test(document.getElementById('mls-ergebnis').textContent)",
+                        timeout=60000)
+    erg["ergebnis"] = s.evaluate("document.getElementById('mls-ergebnis').textContent")
+    erg["nachher_geladen"] = s.evaluate("window.__wasm")
+    erg["csp"] = s.evaluate("window.__csp || []")
+    ctx.close()
+    erg["bestanden"] = (erg["script_src_ok"] and erg["vorher_geladen"] == 0 and erg["nachher_geladen"] >= 1
+                        and erg["ergebnis"].startswith("bestanden") and not erg["fehler"] and not erg["csp"])
+    return erg
+
+
 def main() -> int:
     dist = Path(sys.argv[1] if len(sys.argv) > 1 else "packages/app/dist").resolve()
     datei = dist / "freedom.html"
@@ -358,6 +394,10 @@ def main() -> int:
                 erg["notfall"] = loeschen_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
             except Exception as e:
                 erg["notfall"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
+            try:
+                erg["mls"] = mls_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
+            except Exception as e:
+                erg["mls"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
             browser.close()
     finally:
         srv.shutdown()
@@ -367,7 +407,8 @@ def main() -> int:
           and erg.get("fremd_als_text") is True
           and erg.get("tresor", {}).get("bestanden") is True
           and erg.get("sperre", {}).get("bestanden") is True
-          and erg.get("notfall", {}).get("bestanden") is True)
+          and erg.get("notfall", {}).get("bestanden") is True
+          and erg.get("mls", {}).get("bestanden") is True)
     erg["bestanden"] = bool(ok)
     print(json.dumps(erg, indent=1, ensure_ascii=False))
     return 0 if ok else 1

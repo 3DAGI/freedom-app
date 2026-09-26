@@ -98,5 +98,10 @@ Der Preis ist hoch und gehört in die Entscheidung:
   in MDKs App.
 - **Schlüssel:** Die Engine sieht den Identitätsschlüssel nie. Der Kontobeweis
   (Kind 450) wird synchron in der App signiert, Siegel über den Signer der App.
-- **Größe:** WASM 6,5 MB, gzip 3,0 MB.
+- **Größe:** WASM 7,6 MB, gzip 3,0 MB.
+- **In der App (2.2b-b):** die `.wasm.gz` als Base64 im einen Skript von
+  `freedom.html` (vom CSP-Hash gedeckt, nichts wird nachgeladen), `script-src`
+  mit `'wasm-unsafe-eval'`; entpackt und gestartet erst bei Bedarf
+  (`mls-engine.ts`). `freedom.html`: 2.409 → 6.351 KB. `build.mjs` baut nur,
+  wenn die WASM zu `SHA256SUMS` passt.
 
