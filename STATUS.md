@@ -5236,3 +5236,44 @@ Richtungen inklusive Ablauf. MENSCH: Testnet-Knoten.
 Endstand: protocol 1131 (+ 6 übersprungen) · node 233 (+ 7 übersprungen ohne
 Netz) · app 355 · Leak-Tests 49 grün + 2 todo · 0 rot · check-wiring `--streng`
 0 offen · innerHTML streng 0 unbewertet · Smoke-Test bestanden.
+
+## Schritt 8.3b – Liquiditätsgeber, Teil b: Abnahme-Lauf beide Richtungen mit Ablauf
+
+Die Karte ist erfüllt, wenn beide Richtungen auf Devnet und Testnet
+einschließlich Ablauf laufen. Dafür gibt es jetzt einen Lauf, der genau das
+prüft. Mit Mocks läuft er im Test, gegen echte Netze startet ihn der MENSCH.
+
+**Lauf** (`node/src/lp-abnahme.ts`): Die vier Fälle laufen mit eigenen Adaptern
+für LP und Kunde, über dieselben Schnittstellen wie der Knoten.
+- `hin`: Der LP sperrt und stellt die Hold-Invoice; der Kunde zahlt, löst mit R
+  ein, und der LP rechnet ab.
+- `hin-ablauf`: Der Kunde zahlt, löst aber nicht ein. Nach der Frist holt der LP
+  zurück und bricht die Rechnung ab.
+- `rueck`: Der Kunde sperrt unter dem Hash seiner Rechnung, der LP zahlt und löst
+  ein.
+- `rueck-ablauf`: Die Rechnung ist abgebrochen, die Zahlung scheitert, und der
+  LP löst nicht ein. Der Kunde holt nach seiner Frist zurück.
+
+Jeder Fall prüft das Ergebnis auf der Kette und bei Lightning. Ein Fehler endet
+nur in seinem Fall.
+
+**Echter Lauf** (`node/src/lp-abnahme-lauf.ts`, `npm run lp-abnahme`):
+- Die Einstellungen kommen aus der Umgebung; was fehlt, wird genannt.
+- Nie Mainnet: Die Solana-Adresse muss Devnet, Testnet oder lokal sein, und eine
+  Probe-Rechnung des Kunden muss Testnet, Signet oder Regtest sein.
+- Der LP nutzt wie im Betrieb nur eine eingeschränkte Macaroon.
+- Die Gegenrichtung sperrt wie die App (`cltv · 20 min + 1,5 h`, mit 144
+  Blöcken rund 49 h).
+- Die Anleitung steht in `docs/SWAPS.md` („Abnahme-Lauf“).
+
+**Tests:** node +5. Alle vier Fälle bestehen mit Mocks. Die Abnahme meldet
+Fehler, und ein Fall stoppt die anderen nicht. Unsichere Fristen fallen auf,
+bevor Geld bewegt wird. Nie Mainnet, fehlende Angaben werden genannt. Nur
+Testnet-Rechnungen, eingeschränkte Macaroon, npm-Skript.
+
+**MENSCH:** zwei LND-Knoten im Testnet, zwei Devnet-Konten, Programm-ID (0.G),
+den Lauf ausführen und das Ergebnis im PR oder in `FORTSCHRITT.md` eintragen.
+
+Endstand: protocol 1131 (+ 6 übersprungen) · node 238 (+ 7 übersprungen ohne
+Netz) · app 355 · Leak-Tests 49 grün + 2 todo · 0 rot · check-wiring `--streng`
+0 offen · innerHTML streng 0 unbewertet · Smoke-Test bestanden.
