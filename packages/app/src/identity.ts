@@ -188,6 +188,11 @@ export function markHasMnemonic(): void {
   localStorage.setItem(LS_HAS_MNEMONIC, "1");
 }
 
+/** Identitaet ohne Merkphrase eingesetzt (nsec, Hex, Geraetecode): keine Woerter versprechen (8.1a). */
+export function markOhneMnemonic(): void {
+  localStorage.removeItem(LS_HAS_MNEMONIC);
+}
+
 /**
  * Prüft eine Bestätigungsabfrage.
  *

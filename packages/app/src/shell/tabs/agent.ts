@@ -31,7 +31,7 @@ import { escapeHtml, pkShort } from "../../shell-logic.js";
 import { ausMsat } from "../../preis-anzeige.js";
 import { werkzeugPreise, werkzeugPreisText } from "../../werkzeug-preise.js";
 import type { ToolPrice } from "@freedomstack/protocol";
-import { switchTab, zeigeOnboarding } from "../app.js";
+import { merkeGratisAbgelehnt, switchTab, zeigeOnboarding } from "../app.js";
 import {
   ensurePool,
   ensureSessionClient,
@@ -350,6 +350,8 @@ function explainError(e: unknown): string {
 function showAiError(e: unknown, retryPrompt: string, retryBid: number, retryTier: "free" | "classic" | "pro", retryMode: { max?: boolean; swarm?: boolean } = {}): void {
   hideTyping();
   const cause = explainError(e);
+  // Gratis-Anfrage abgelehnt (8.1a): Die Fuehrung fragt jetzt nach der Wallet
+  if (retryTier === "free" && /bid zu niedrig/i.test((e as Error)?.message ?? String(e))) merkeGratisAbgelehnt();
   const el = document.createElement("div");
   el.className = "bubble ai error";
   el.innerHTML = `<div class="who">⚠️ fehler</div>

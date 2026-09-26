@@ -11,7 +11,7 @@ import { nextStep, pitchFor, providerNextStep, Readiness } from "../src/onboardi
 
 const neu: Readiness = {
   hasIdentity: true, backedUp: false, hasVault: false, hasWallet: false,
-  hasUsedOnce: false, freeTierLeft: 10,
+  hasUsedOnce: false, gratisErschoepft: false,
 };
 
 test("Neuer Nutzer wird NICHT nach einer Wallet gefragt", () => {
@@ -35,19 +35,37 @@ test("Nach der ersten Nutzung kommt die Sicherung — und zwar als Warnung", () 
   assert.match(s.body, /niemanden, der das zurücksetzen kann/);
 });
 
+test("8.1a: Sicherung nennt, was wirklich geht – Merkphrase nur, solange sie auf dem Geraet liegt", () => {
+  const mit = nextStep({ ...neu, hasUsedOnce: true, merkphraseDa: true });
+  assert.equal(mit.action, "Merkphrase anzeigen");
+  assert.match(mit.body, /Zwölf Wörter/);
+  const ohne = nextStep({ ...neu, hasUsedOnce: true });
+  assert.equal(ohne.action, "Sicherungsdatei speichern");
+  assert.doesNotMatch(ohne.body, /Zwölf Wörter/, "ohne gespeicherte Merkphrase keine Woerter versprechen");
+});
+
+test("8.1a: kein erfundener Zaehler fuer Gratis-Anfragen", () => {
+  for (const gratisErschoepft of [true, false]) {
+    for (const hasUsedOnce of [true, false]) {
+      const s = nextStep({ ...neu, hasUsedOnce, backedUp: true, hasVault: true, gratisErschoepft });
+      assert.doesNotMatch(s.body, /Noch \d+|\d+ Gratis/, s.body);
+    }
+  }
+});
+
 test("Sicherung ist ueberspringbar, aber nicht unsichtbar", () => {
   const s = nextStep({ ...neu, hasUsedOnce: true });
   assert.equal(s.skippable, true, "niemanden einsperren");
   assert.ok(s.action, "aber einen Weg anbieten");
 });
 
-test("Wallet wird erst verlangt, wenn das Gratis-Kontingent leer ist", () => {
-  const nochGratis = nextStep({ ...neu, hasUsedOnce: true, backedUp: true, hasVault: true, freeTierLeft: 5 });
+test("Wallet wird erst verlangt, wenn kein Provider mehr gratis antwortet", () => {
+  const nochGratis = nextStep({ ...neu, hasUsedOnce: true, backedUp: true, hasVault: true, gratisErschoepft: false });
   assert.equal(nochGratis.skippable, true);
   assert.equal(nochGratis.urgency, "info");
   assert.match(nochGratis.title, /Später/);
 
-  const leer = nextStep({ ...neu, hasUsedOnce: true, backedUp: true, hasVault: true, freeTierLeft: 0 });
+  const leer = nextStep({ ...neu, hasUsedOnce: true, backedUp: true, hasVault: true, gratisErschoepft: true });
   assert.equal(leer.id, "wallet");
   assert.equal(leer.skippable, false, "jetzt ist die Frage berechtigt");
 });
@@ -81,7 +99,7 @@ test("Tresor kommt erst nach der ersten Nutzung und nach der Sicherung", () => {
 
 test("Tresor geht der Wallet-Frage und der Verdienen-Anleitung vor", () => {
   // Wallet-Zugaenge kommen in den Tresor – also erst der Tresor.
-  const r = { ...neu, hasUsedOnce: true, backedUp: true, freeTierLeft: 0 };
+  const r = { ...neu, hasUsedOnce: true, backedUp: true, gratisErschoepft: true };
   assert.equal(nextStep(r).id, "tresor");
   assert.equal(nextStep(r, "verdienen").id, "tresor");
   assert.equal(nextStep({ ...r, hasVault: true }).id, "wallet");
@@ -94,7 +112,7 @@ test("Mit Tresor, aber ohne Sicherung: zuerst die Sicherung", () => {
 
 test("Alles erledigt: kein erfundener naechster Schritt", () => {
   const s = nextStep({
-    hasIdentity: true, backedUp: true, hasVault: true, hasWallet: true, hasUsedOnce: true, freeTierLeft: 0,
+    hasIdentity: true, backedUp: true, hasVault: true, hasWallet: true, hasUsedOnce: true, gratisErschoepft: true,
   });
   assert.equal(s.id, "fertig");
   assert.equal(s.action, undefined, "keine Beschaeftigungstherapie");
@@ -108,8 +126,8 @@ test("Es gibt IMMER genau einen naechsten Schritt", () => {
     for (const hasVault of [true, false]) {
       for (const hasWallet of [true, false]) {
         for (const hasUsedOnce of [true, false]) {
-          for (const freeTierLeft of [0, 5]) {
-            kombis.push({ hasIdentity: true, backedUp, hasVault, hasWallet, hasUsedOnce, freeTierLeft });
+          for (const gratisErschoepft of [true, false]) {
+            kombis.push({ hasIdentity: true, backedUp, hasVault, hasWallet, hasUsedOnce, gratisErschoepft });
           }
         }
       }

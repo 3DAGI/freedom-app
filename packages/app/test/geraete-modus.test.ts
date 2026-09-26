@@ -62,7 +62,7 @@ test("8.6c: auf dem Geraet – K schreibt O, D liest; D und O erscheinen als „
 test("8.6c: Verdrahtung – Import mit Code, Anmelden beim Start, Senden nur mit Vollmacht, Sperren, Posteingang der Person", () => {
   const src = (p: string) => readFileSync(new URL(p, import.meta.url), "utf8");
   const app = src("../src/shell/app.ts");
-  assert.match(app, /const code = eingabe \? leseGeraeteCode\(eingabe\) : null;/);
+  assert.match(app, /const code = leseGeraeteCode\(eingabe\);/);
   assert.match(app, /setzeIdentitaet\(fromHex\(hex\), code\?\.person \?\? null\);/);
   assert.match(app, /else localStorage\.removeItem\(LS_GERAET_PERSON\);/, "ein normaler Import beendet den Geraetemodus");
   assert.match(app, /const person = localStorage\.getItem\(LS_GERAET_PERSON\);\s*setzeIdentitaet\(fromHex\(stored\), person && \/\^\[0-9a-f\]\{64\}\$\/\.test\(person\) \? person : null\);/);

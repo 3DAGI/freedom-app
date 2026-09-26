@@ -33,8 +33,17 @@ export interface Readiness {
   hasWallet: boolean;
   /** Schon einmal etwas gemacht. */
   hasUsedOnce: boolean;
-  /** Gratis-Kontingent noch offen. */
-  freeTierLeft: number;
+  /**
+   * Gratis-Tarif erschoepft – ein Provider hat eine Anfrage ohne Gebot
+   * abgelehnt (8.1a). Einen Zaehler gibt es nicht: Wie viel gratis geht,
+   * entscheidet jeder Provider selbst.
+   */
+  gratisErschoepft: boolean;
+  /**
+   * Liegt die Merkphrase noch auf diesem Geraet, weil sie noch nicht bestaetigt
+   * ist (8.1a)? Sonst bleibt als Sicherung nur die Datei mit dem Schluessel.
+   */
+  merkphraseDa?: boolean;
 }
 
 export type StepId =
@@ -71,10 +80,11 @@ export function nextStep(r: Readiness, intent: Intent = "unbekannt"): NextStep {
       id: "los",
       title: "Stell einfach eine Frage",
       body:
-        r.freeTierLeft > 0
-          ? `Die ersten Anfragen sind kostenlos — du brauchst dafür nichts einzurichten. ` +
-            `Danach entscheidest du, ob du eine Wallet verbindest.`
-          : `Probier es aus. Falls gerade kein Gratis-Kontingent frei ist, findest du ` +
+        !r.gratisErschoepft
+          ? `Im Gratis-Tarif kostet eine Anfrage kein Geld, solange Provider ihn anbieten — ` +
+            `dein Gerät rechnet dafür kurz. Du brauchst nichts einzurichten; danach entscheidest ` +
+            `du, ob du eine Wallet verbindest.`
+          : `Probier es aus. Falls gerade kein Provider gratis antwortet, findest du ` +
             `unter „Wallet" heraus, wie du bezahlst.`,
       action: "Zur KI",
       skippable: false,
@@ -91,8 +101,10 @@ export function nextStep(r: Readiness, intent: Intent = "unbekannt"): NextStep {
       body:
         "Du hast jetzt eine Identität mit Verlauf und Reputation. Wenn du deine " +
         "Browserdaten löschst, ist beides weg — es gibt niemanden, der das " +
-        "zurücksetzen kann. Zwölf Wörter aufschreiben genügt.",
-      action: "Merkphrase anzeigen",
+        "zurücksetzen kann. " + (r.merkphraseDa
+          ? "Zwölf Wörter aufschreiben genügt."
+          : "Speichere die Sicherungsdatei an einem Ort außerhalb dieses Browsers."),
+      action: r.merkphraseDa ? "Merkphrase anzeigen" : "Sicherungsdatei speichern",
       skippable: true,
       urgency: "warnung",
     };
@@ -131,12 +143,12 @@ export function nextStep(r: Readiness, intent: Intent = "unbekannt"): NextStep {
   }
 
   // 5. Gratis aufgebraucht und keine Wallet: jetzt ist die Frage berechtigt.
-  if (!r.hasWallet && r.freeTierLeft <= 0) {
+  if (!r.hasWallet && r.gratisErschoepft) {
     return {
       id: "wallet",
       title: "Wallet verbinden",
       body:
-        "Das Gratis-Kontingent ist aufgebraucht. Zum Weitermachen brauchst du " +
+        "Gerade antwortet kein Provider gratis. Zum Weitermachen brauchst du " +
         "eine Lightning-Wallet — verbinden dauert eine Minute und funktioniert " +
         "auf Handy und Rechner gleich.",
       action: "Verbinden",
@@ -151,8 +163,8 @@ export function nextStep(r: Readiness, intent: Intent = "unbekannt"): NextStep {
       id: "wallet",
       title: "Später: Wallet verbinden",
       body:
-        `Noch ${r.freeTierLeft} Gratis-Anfragen übrig. Danach brauchst du eine ` +
-        `Wallet — du kannst das jetzt erledigen oder warten.`,
+        `Solange Provider gratis antworten, brauchst du keine Wallet — du kannst ` +
+        `sie jetzt verbinden oder warten, bis du sie brauchst.`,
       action: "Verbinden",
       skippable: true,
       urgency: "info",
@@ -181,7 +193,7 @@ export function pitchFor(intent: Intent): { headline: string; points: string[] }
         headline: "KI ohne Konto",
         points: [
           "Keine Anmeldung, keine E-Mail, keine Kreditkarte.",
-          "Bezahlt wird pro Anfrage in Sats — die ersten sind gratis.",
+          "Bezahlt wird pro Anfrage in Sats oder SOL — im Gratis-Tarif gar nicht.",
           "Kein Anbieter, der dich sperren kann: Fällt einer aus, übernimmt ein anderer.",
         ],
       };

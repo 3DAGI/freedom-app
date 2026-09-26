@@ -17,6 +17,7 @@ import { zeigeDatenschutz } from "./datenschutz.js";
 import { nachNotfallLoeschung, wireNotfallLoeschung } from "./notfall.js";
 import { LS_GERAET_PERSON, leseGeraeteCode } from "../geraete-modus.js";
 import {
+  LS_MERKPHRASE,
   ensurePool,
   getOwnProviderFromUrl,
   mitBunker,
@@ -96,6 +97,7 @@ import {
 } from "./tabs/waehrung.js";
 import {
   entsperreBeimStart,
+  geheim,
   ladeSchluessel,
   richteTresorEin,
   speichereSchluessel,
@@ -144,6 +146,8 @@ async function erzeugeIdentitaetMitPhrase(): Promise<void> {
   const id = createIdentity();
   setzeIdentitaet(id.sk);
   await speichereSchluessel(toHex(id.sk));
+  // Bis zur Bestaetigung aufheben – wer „spaeter“ waehlt, soll sie spaeter noch sehen (8.1a)
+  await geheim.setItem(LS_MERKPHRASE, id.mnemonic!);
   markHasMnemonic();
   $("#ident").textContent = escrowIdent();
   await zeigeSicherungsDialog(id.mnemonic!);
@@ -184,6 +188,8 @@ async function zeigeSicherungsDialog(mnemonic: string): Promise<void> {
       </div>
       <div id="bk-error" class="mono-sm err"></div>
       <button id="bk-done" class="send-btn" style="margin-top:8px">bestätigen</button>
+      <button id="bk-later" class="ghost" style="width:auto;padding:6px 10px;margin-top:8px">später bestätigen</button>
+      <p class="mono-sm muted">Bis du bestätigst, bleiben die Wörter auf diesem Gerät (im Tresor, sobald du einen einrichtest), und die App erinnert dich.</p>
     </div>`;
   document.body.appendChild(box);
 
@@ -216,21 +222,46 @@ async function zeigeSicherungsDialog(mnemonic: string): Promise<void> {
         return;
       }
       markBackupConfirmed();
+      // Bestaetigt: Die Woerter gehoeren jetzt nur noch auf das Papier (8.1a)
+      void geheim.removeItem(LS_MERKPHRASE);
       box.remove();
       toast("Identität gesichert");
+      void zeigeOnboarding();
+      resolve();
+    });
+    // Spaeter (8.1a): nichts bestaetigt, die Leiste erinnert nach der ersten Nutzung
+    box.querySelector("#bk-later")!.addEventListener("click", () => {
+      box.remove();
+      void zeigeOnboarding();
       resolve();
     });
   });
 }
 
-/** Erinnert dezent, solange die Sicherung fehlt. */
+/** Zeigt die Onboarding-Leiste gerade den Schritt „sichern“? Dann keine zweite Mahnung (8.1a). */
+let leisteZeigtSichern = false;
+
+/** In dieser Sitzung hat ein Provider eine Gratis-Anfrage abgelehnt (8.1a) – kein erfundener Zaehler. */
+let gratisAbgelehnt = false;
+
+/** Vom KI-Tab: Eine Anfrage ohne Gebot wurde abgelehnt – jetzt ist die Frage nach der Wallet berechtigt. */
+export function merkeGratisAbgelehnt(): void {
+  gratisAbgelehnt = true;
+  void zeigeOnboarding();
+}
+
+/**
+ * Erinnert dezent, solange die Sicherung fehlt – nach der ersten Nutzung
+ * (vorher hat man nichts zu verlieren) und nur, wenn die Leiste nicht schon
+ * dasselbe sagt. Sie bleibt, wenn man die Leiste mit „später“ wegklickt.
+ */
 async function zeigeBackupWarnung(): Promise<void> {
   try {
     const { backupStatus } = await import("../identity.js");
     const st = backupStatus();
     const el = $("#backup-warn");
     if (!el) return;
-    if (st.warning) {
+    if (st.warning && localStorage.getItem("freedom.usedOnce") === "1" && !leisteZeigtSichern) {
       el.innerHTML = `⚠ ${escapeHtml(st.warning)} <button id="bk-now" class="ghost" style="width:auto;padding:4px 8px">jetzt sichern</button>`;
       el.classList.remove("hidden");
       el.querySelector("#bk-now")?.addEventListener("click", () => void sichereJetzt());
@@ -246,6 +277,12 @@ const NUR_IM_SIGNER = "Mit Bunker liegt der Schlüssel nicht in der App – sich
 async function sichereJetzt(): Promise<void> {
   if (!state.keypair) return;
   if (mitBunker()) { toast(NUR_IM_SIGNER, true); return; }
+  // Noch nicht bestaetigte Merkphrase (8.1a): erneut zeigen und abfragen
+  const merkphrase = geheim.getItem(LS_MERKPHRASE);
+  if (merkphrase) {
+    await zeigeSicherungsDialog(merkphrase);
+    return;
+  }
   const { identityFromHex, buildBackupFile, markBackupConfirmed } = await import("../identity.js");
   const id = identityFromHex(mitRohemSchluessel("Die Sicherungsdatei", toHex));
   const blob = new Blob([buildBackupFile(id)], { type: "application/json" });
@@ -270,17 +307,37 @@ function exportIdentity(): void {
   );
 }
 
-function importIdentity(): void {
+async function importIdentity(): Promise<void> {
   if (mitBunker()) { toast("Erst vom Bunker abmelden (Settings → Geräte)", true); return; }
   const eingabe = prompt("Merkphrase, nsec1…, 64 Zeichen Hex oder Gerätecode einfuegen:");
+  if (eingabe === null) return;
   // Geraetecode (8.6c): Geraeteschluessel plus die Person, fuer die er spricht
-  const code = eingabe ? leseGeraeteCode(eingabe) : null;
-  const hex = code?.skHex ?? eingabe;
-  if (!hex || !/^[0-9a-f]{64}$/i.test(hex)) {
-    if (eingabe !== null) toast("ungueltiger key", true);
-    return;
+  const code = leseGeraeteCode(eingabe);
+  let hex = code?.skHex ?? null;
+  let mitMerkphrase = false;
+  if (!hex) {
+    // Seit 8.1a wirklich alle genannten Formen – bis dahin nur Hex
+    try {
+      const { importIdentity: leseIdentitaet } = await import("../identity.js");
+      const id = leseIdentitaet(eingabe);
+      hex = toHex(id.sk);
+      id.sk.fill(0);
+      mitMerkphrase = !!id.mnemonic;
+    } catch (e) {
+      toast((e as Error).message, true);
+      return;
+    }
   }
   setzeIdentitaet(fromHex(hex), code?.person ?? null);
+  // Eine noch offene Merkphrase gehoerte zur alten Identitaet (8.1a)
+  void geheim.removeItem(LS_MERKPHRASE);
+  const { markBackupConfirmed, markHasMnemonic, markOhneMnemonic } = await import("../identity.js");
+  if (mitMerkphrase) {
+    markHasMnemonic();
+    markBackupConfirmed();
+  } else {
+    markOhneMnemonic();
+  }
   if (state.person) localStorage.setItem(LS_GERAET_PERSON, state.person);
   else localStorage.removeItem(LS_GERAET_PERSON);
   void speichereSchluessel(hex.toLowerCase()).catch((e) => toast(`nicht gespeichert: ${(e as Error).message}`, true));
@@ -319,9 +376,12 @@ export async function zeigeOnboarding(): Promise<void> {
       hasVault: tresorEingerichtet(),
       hasWallet: !!nwc || !!(window as unknown as { webln?: unknown }).webln,
       hasUsedOnce: localStorage.getItem("freedom.usedOnce") === "1",
-      freeTierLeft: Number(localStorage.getItem("freedom.freeLeft") ?? "10"),
+      gratisErschoepft: gratisAbgelehnt,
+      merkphraseDa: geheim.getItem(LS_MERKPHRASE) !== null,
     }, (localStorage.getItem("freedom.intent") as never) ?? "unbekannt");
 
+    leisteZeigtSichern = schritt.id === "sichern";
+    void zeigeBackupWarnung();
     if (schritt.id === "fertig") {
       bar.classList.add("hidden");
       return;
@@ -347,7 +407,11 @@ export async function zeigeOnboarding(): Promise<void> {
     });
     // "Spaeter" blendet nur diesen Schritt aus, nicht die Fuehrung: Wer
     // dauerhaft wegklickt, verliert bei geloeschten Browserdaten alles.
-    bar.querySelector("#ob-skip")?.addEventListener("click", () => bar.classList.add("hidden"));
+    bar.querySelector("#ob-skip")?.addEventListener("click", () => {
+      bar.classList.add("hidden");
+      leisteZeigtSichern = false;
+      void zeigeBackupWarnung();
+    });
   } catch { /* Fuehrung ist optional */ }
 }
 
