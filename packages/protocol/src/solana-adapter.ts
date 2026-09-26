@@ -41,6 +41,8 @@ function sighash(name: string): Buffer {
 const PROGRAM_ID = new PublicKey(
   process.env.HTLC_PROGRAM_ID ?? "B6W19UfZ1iYDoJYaSesZDiP96TpeZACQu3Xs6VSJ4kJk",
 );
+/** Die Programm-ID, mit der dieser Adapter arbeitet (fuer den Relayer, 4.6e). */
+export const HTLC_PROGRAMM_ID = PROGRAM_ID.toBase58();
 
 export interface AnchorAdapterConfig {
   rpcUrl: string;

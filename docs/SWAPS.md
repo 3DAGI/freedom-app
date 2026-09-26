@@ -1,6 +1,6 @@
 # Swaps zwischen Lightning und Solana
 
-Stand 26.09.2026 (Schritt 4.6d). Atomar über denselben Hash: Wer das Preimage
+Stand 26.09.2026 (Schritt 4.6e). Atomar über denselben Hash: Wer das Preimage
 kennt, kann auf beiden Seiten einlösen; läuft eine Frist ab, geht das Geld an
 den zurück, der gesperrt hat. Niemand verwahrt fremdes Geld.
 
@@ -131,13 +131,40 @@ abschließen:
   wäre wirkungslos, weil jeder beliebig viele Schlüssel erzeugen kann – und
   die Gebühr `fee_ppm` im Sperrbetrag.
 
-## Für Nutzer ohne SOL (geplant: 4.6e)
+## Für Nutzer ohne SOL: Relayer (4.6e Protokoll + Knoten, 4.6f App)
 
-Einlösen kostet eine Transaktionsgebühr. Wer noch kein SOL hat, kann es nicht
-bezahlen. Lösung: ein Relayer als `feePayer`; der Empfänger signiert weiterhin
-selbst, der Relayer kann nichts umleiten. Vor dem Einlösen prüfen, ob das
-Zielkonto die Mindestmiete (rent-exempt) erreicht – sonst scheitert die
-Überweisung.
+Einlösen kostet eine Transaktionsgebühr. Wer per Lightning SOL kauft, hat oft
+noch keins. Ein **Relayer** zahlt sie als `feePayer`; der Empfänger signiert
+die Einlösung weiterhin selbst. Die Signatur deckt alle Anweisungen – der
+Relayer kann nichts umleiten, nur ablehnen. Seine Auslagen bekommt er in
+**derselben** Transaktion zurück (Überweisung vom Empfänger an ihn, nach der
+Einlösung, atomar).
+
+- **Angebot:** Kind 38032 (ersetzbar, `d = relayer`): `sol_address`,
+  `erstattung_lamports`, `kette`. Knoten: `RELAYER_ENABLED=1`,
+  `RELAYER_ERSTATTUNG` (Standard 10.000 Lamports), `RELAYER_MAX_PRO_STUNDE`
+  (Standard 30), Schlüssel aus `SOLANA_KEYPAIR` – er braucht etwas SOL.
+- **Auftrag:** versiegelt (NIP-59) an den Relayer, innen Kind 25010 mit der
+  teilsignierten Transaktion. Sie trägt das Preimage – offen auf den Relays
+  könnte es der LP lesen, bevor die Einlösung auf der Kette ist.
+- **Prüfung vor dem Mitsignieren** (`pruefeRelayAuftrag`): genau eine
+  Einlösung beim HTLC-Programm, danach genau eine Erstattung vom Empfänger an
+  den Relayer (mindestens sein Satz), Relayer nur Gebührenzahler und in keiner
+  Einlösung, Empfänger hat gültig signiert. Alles andere wird abgelehnt – sonst
+  könnte ein Auftrag das Guthaben des Relayers anders verwenden.
+- **Senden** mit Vorabsimulation, nie `skipPreflight`; Grenze je Stunde. Ins
+  Log nur Status und Fehlername.
+- **Antwort:** versiegelt, innen Kind 25011, `status` GESENDET (mit
+  `signatur`) oder ABGELEHNT (mit Grund).
+- **Mindestmiete:** Ein neues Empfängerkonto muss nach Einlösung und
+  Erstattung mindestens 890.880 Lamports halten (`mieteReicht`), sonst lehnt
+  die Kette die ganze Transaktion ab – die App prüft das vorher (4.6f).
+
+**Risiko, offen benannt:** Der Relayer kennt das Preimage, bevor die Einlösung
+auf der Kette ist. Hält er sie zurück und gibt R dem LP, könnte der LP die
+Lightning-Zahlung abrechnen und nach Ablauf die SOL zurückholen. Deshalb nimmt
+die App (4.6f) nie den LP selbst als Relayer, versucht bei ausbleibender
+Einlösung rechtzeitig den nächsten und hält die Frist `T_sol − 10 min` ein.
 
 ## LP-Daemon: eingeschränkte Macaroon
 
