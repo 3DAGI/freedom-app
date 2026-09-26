@@ -4750,3 +4750,66 @@ Endstand: protocol 1117 (+ 6 übersprungen) · node 216 (+ 7 übersprungen ohne
 Netz) · app 327 · Leak-Tests 48 grün + 2 todo · 0 rot · check-wiring `--streng`
 0 offen (2 Ausnahmen weniger) · innerHTML streng 0 unbewertet · Smoke-Test
 bestanden · Browser-E2E bestanden.
+
+## Schritt 8.7 – Agent und Werkzeuge
+
+**Sandbox je Werkzeug im Knoten** (`tools.ts`, aufgerufen aus
+`dvm-provider.ts:810` über `ToolRegistry.run`, `tools.ts:276`): zu lange
+Eingaben (über 2.000 Zeichen) werden abgelehnt – gekürzt schriebe file_io still
+eine halbe Datei –, jede Ausführung hat ein Zeitlimit (20 s, Bild/Video 10 min),
+die Ausgabe an den Kunden ist gekürzt. Netz nur über `safeFetch`
+(SSRF-Wächter, auch bei Weiterleitungen) und `leseBegrenzt` (höchstens 1 MB,
+danach wird die Verbindung geschlossen). web_search nur zu
+api.duckduckgo.com – die Suchanfrage ist Text und wählt kein Ziel;
+browser_use nur Text (kein Bild, kein Archiv); file_io nicht über Symlinks aus
+dem Workspace hinaus (echter Pfad gegen echten Workspace, Symlinks abgelehnt),
+Dateien höchstens 64 KB, im Ergebnis nur der Pfad im Workspace statt des
+absoluten Pfads beim Betreiber; Bild und Video nur über das vom Betreiber
+konfigurierte ComfyUI, im Ergebnis Dateinamen statt der internen Adresse
+(`http://127.0.0.1:8188/view?…`).
+
+**Fund – SSRF-Lücke:** `new URL("http://[::ffff:127.0.0.1]/")` liefert den Host
+`[::ffff:7f00:1]`. `isPrivateIPv6` suchte nur eine eingebettete IPv4 mit
+Punkten und hielt die Hex-Form für öffentlich – ein Fremder hätte über
+browser_use Ollama, LND-REST oder die Cloud-Metadaten erreicht. Jetzt wird
+IPv6 vollständig gelesen (acht Gruppen): mapped, compatible, NAT64 (64:ff9b::),
+6to4 (2002::), Multicast; unklare Formen gelten als privat. Die Prüfung liegt
+seit 8.7 im Protokoll (`adressbereich.ts`), der Knoten reicht sie weiter, die
+App nutzt dieselbe.
+
+**Lokale Werkzeuge der App** (`local-tools.ts:91`, eigener Browser als
+Fallback): browser_use nur zu öffentlichen http(s)-Zielen – ohne Zugangsdaten
+in der URL, ohne localhost/.local/.internal, ohne private Adressen –, ohne
+Cookies, ohne Weiterleitungen (deren Ziel ließe sich im Browser nicht vorher
+prüfen), nur Text, höchstens 1 MB. Grenze: Im Browser lässt sich ein Name
+nicht auflösen – ein öffentlicher Name auf eine private Adresse fällt dort
+nicht auf (CORS verhindert meist das Lesen).
+
+**Kosten je Werkzeug in sats und SOL** (`werkzeug-preise.ts`,
+`agent.ts:95`/`:1391`): an jedem Werkzeug-Knopf der günstigste angebotene
+Preis, sonst der Richtpreis, in beiden Einheiten über den Marktkurs; ohne Kurs
+„SOL: kein Kurs“. Bezahlt wird wie bisher über den Auftrag.
+
+**Abnahme – je Werkzeug ein Sandbox- und ein SSRF-Test**
+(`node/test/werkzeug-sandbox.test.ts`, ohne Netz: Auflösung austauschbar,
+`fetch` ersetzt, lokaler ComfyUI-Ersatz): web_search (fester Host, privat
+aufgelöst abgelehnt / riesige und hängende Antworten), file_io (Symlinks,
+Größen, nur Dateien / URL als Pfad nie abgerufen), browser_use (privat,
+Metadaten, IPv6-Loopback, Weiterleitung nach innen, Zugangsdaten / nur Text,
+begrenzt, Skripte weg), image_gen und video_gen (Eingabe wählt kein Ziel,
+keine interne Adresse im Ergebnis / zu langer Prompt abgelehnt, Video höchstens
+10 s und 720p, Zeitlimit bei stummem ComfyUI). Dazu Regressionstest für die
+Lücke und App-Tests für die lokalen Werkzeuge.
+
+**Grenze, ehrlich:** Werkzeuge laufen im Knotenprozess, nicht in einem eigenen
+Prozess mit eigenen Rechten. Nodes Rechte-Modell (`--permission`) funktioniert
+mit Node 22, braucht mit tsx aber `--allow-worker`, und das hebelt es aus.
+Isolation auf Betriebssystem-Ebene (systemd, Container, kein Zugang zu
+privaten Netzen) gehört zum Installer (8.2).
+
+**Tests:** node +9 (acht Sandbox/SSRF, ein Regressionstest), app +5 (vier lokale
+Werkzeuge, Preise).
+
+Endstand: protocol 1117 (+ 6 übersprungen) · node 225 (+ 7 übersprungen ohne
+Netz) · app 332 · Leak-Tests 48 grün + 2 todo · 0 rot · check-wiring `--streng`
+0 offen · innerHTML streng 0 unbewertet · Smoke-Test bestanden.
