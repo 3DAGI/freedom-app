@@ -6,7 +6,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  EIGENE_ANZAHL, ROTIERENDE_ANZAHL, STARTRELAYS, eigenerRelaySatz, listeVeraltet, schreibRelays, sitzungsRelays, startUrls, waehleEigeneRelays,
+  EIGENE_ANZAHL, OUTBOX_MAX_RELAYS, ROTIERENDE_ANZAHL, STARTRELAYS, eigenerRelaySatz, listeVeraltet, outboxPlan, schreibRelays, sitzungsRelays, startUrls,
+  waehleEigeneRelays,
 } from "../src/relay-start.js";
 import { buildRelayList, isPlausibleRelayUrl } from "../src/relay-discovery.js";
 import { buildDmRelayList } from "../src/private-dm.js";
@@ -104,3 +105,34 @@ test("Pool: publishAn schreibt nur an die genannten Relays; queryMitBericht nenn
   assert.deepEqual(antworten, ["wss://a.example", "wss://b.example"]);
   assert.equal((await pool.publishAn(ev, [])).ok, false, "keine Ziele – nichts angenommen, kein Wurf");
 });
+
+test("Outbox beim Lesen (5.4b): je Autor seine Schreib-Relays, gebündelt; neueste gültige Liste; ohne Liste nicht im Plan", () => {
+  const [a, b, c, d] = Array.from({ length: 4 }, () => generateKeypair());
+  const liste = (k: typeof a, urls: [string, "read" | "write" | undefined][], at = 1000) =>
+    signEvent(buildRelayList(k.pk, urls.map(([url, marker]) => ({ url, ...(marker === "read" ? { write: false } : marker === "write" ? { read: false } : {}) })), at), k.sk);
+  const listen = [
+    liste(a, [["wss://gemeinsam.test", undefined], ["wss://nur-a.test", "write"], ["wss://lesen-a.test", "read"]]),
+    liste(b, [["wss://alt-b.test", undefined]], 900),
+    liste(b, [["wss://gemeinsam.test", "write"]], 1000),
+  ];
+  const plan = outboxPlan(listen, [a.pk, b.pk, c.pk]);
+  assert.deepEqual([...plan], [["wss://gemeinsam.test", [a.pk, b.pk]], ["wss://nur-a.test", [a.pk]]], "Lese-Relays nicht; die ältere Liste nicht; c ohne Liste fehlt");
+  // Gefälscht: d gibt sich als a aus, oder die Signatur stimmt nicht
+  const faelschung = { ...liste(d, [["wss://falle.test", undefined]], 2000), pubkey: a.pk };
+  const kaputt = { ...liste(b, [["wss://falle.test", undefined]], 3000), content: "x" };
+  assert.ok(![...outboxPlan([...listen, faelschung, kaputt], [a.pk, b.pk]).keys()].includes("wss://falle.test"));
+  assert.deepEqual([...outboxPlan(listen, [d.pk]).keys()], [], "Liste von Nicht-Gesuchten zählt nicht");
+});
+
+test("Outbox beim Lesen (5.4b): höchstens drei Relays je Autor, höchstens OUTBOX_MAX_RELAYS insgesamt – die breitesten zuerst", () => {
+  const k = generateKeypair();
+  const viele = signEvent(buildRelayList(k.pk, ["wss://r1.test", "wss://r2.test", "wss://r3.test", "wss://r4.test"].map((url) => ({ url }))), k.sk);
+  assert.equal(outboxPlan([viele], [k.pk]).size, 3);
+  const autoren = Array.from({ length: 12 }, () => generateKeypair());
+  const listen = autoren.map((x, i) => signEvent(buildRelayList(x.pk, [{ url: "wss://alle.test" }, { url: `wss://eigen-${i}.test` }]), x.sk));
+  const plan = outboxPlan(listen, autoren.map((x) => x.pk));
+  assert.equal(plan.size, OUTBOX_MAX_RELAYS);
+  assert.equal([...plan.keys()][0], "wss://alle.test");
+  assert.equal(plan.get("wss://alle.test")!.length, 12);
+});
+

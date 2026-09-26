@@ -15,10 +15,12 @@
  *   stabil, sonst faenden Kontakte den Posteingang nicht mehr.
  * - **Rotierend:** Dazu kommen je Sitzung weitere Relays der Startliste in
  *   wechselnder Auswahl – fuer das Finden der Listen anderer und als Reserve.
+ * - **Outbox beim Lesen (5.4b):** Was Kontakte schreiben, liest die App dort,
+ *   wo sie es laut ihrer NIP-65-Liste hinschreiben (`outboxPlan()`).
  */
-import type { NostrEvent } from "./event.js";
+import { verifyEvent, type NostrEvent } from "./event.js";
 import { isUsableDmRelay, parseDmRelayList } from "./private-dm.js";
-import { isPlausibleRelayUrl, normalizeRelayUrl, parseRelayList } from "./relay-discovery.js";
+import { KIND_RELAY_LIST, isPlausibleRelayUrl, normalizeRelayUrl, parseRelayList } from "./relay-discovery.js";
 
 export interface StartRelay {
   url: string;
@@ -126,4 +128,37 @@ export function eigenerRelaySatz(p: { liste?: NostrEvent; posteingang?: NostrEve
     liste: ausListe.length === 0,
     posteingang: posteingangSoll.length > 0 && listeVeraltet(alterPosteingang.length ? alterPosteingang : undefined, posteingangSoll),
   };
+}
+
+/** So viele Schreib-Relays je Autor fragt die App höchstens (NIP-65 empfiehlt wenige). */
+export const OUTBOX_JE_AUTOR = 3;
+/** So viele fremde Relays öffnet eine Abfrage höchstens – der Rest liest im Pool. */
+export const OUTBOX_MAX_RELAYS = 8;
+
+/**
+ * Outbox beim Lesen (5.4b): an welchen Relays nach den Events welcher Autoren
+ * fragen. Je Autor die Schreib-Relays seiner neuesten gültigen NIP-65-Liste
+ * (höchstens `jeAutor`), gebündelt je Relay; zuerst die Relays, die die
+ * meisten Autoren abdecken, höchstens `maxRelays`. Autoren ohne Liste fehlen –
+ * für sie fragt der Aufrufer wie bisher im Pool. Fremde Listen werden geprüft
+ * (Signatur, Autor): Sonst könnte jeder die Leser eines Kontakts umleiten.
+ */
+export function outboxPlan(
+  listen: readonly NostrEvent[], autoren: readonly string[],
+  p: { jeAutor?: number; maxRelays?: number } = {},
+): Map<string, string[]> {
+  const gesucht = new Set(autoren);
+  const neueste = new Map<string, NostrEvent>();
+  for (const ev of listen) {
+    if (ev.kind !== KIND_RELAY_LIST || !gesucht.has(ev.pubkey)) continue;
+    const alt = neueste.get(ev.pubkey);
+    if (alt && alt.created_at >= ev.created_at) continue;
+    if (verifyEvent(ev)) neueste.set(ev.pubkey, ev);
+  }
+  const jeRelay = new Map<string, string[]>();
+  for (const [autor, liste] of neueste) {
+    for (const url of schreibRelays(liste).slice(0, p.jeAutor ?? OUTBOX_JE_AUTOR)) jeRelay.set(url, [...(jeRelay.get(url) ?? []), autor]);
+  }
+  const reihe = [...jeRelay].sort((a, b) => b[1].length - a[1].length || (a[0] < b[0] ? -1 : 1));
+  return new Map(reihe.slice(0, p.maxRelays ?? OUTBOX_MAX_RELAYS));
 }

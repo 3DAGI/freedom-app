@@ -15,7 +15,7 @@ import {
   renderAttachment,
 } from "../../shell-logic.js";
 import { aktuellerKurs } from "../marktkurs.js";
-import { alsGeraet, eigeneRelayListen, ensurePool, posteingangVon, signiere, solRpcUrl, solTransaktion, sprichtFuer, state, veroeffentlicheAn } from "../state.js";
+import { alsGeraet, eigeneRelayListen, ensurePool, frageBeiAutoren, posteingangVon, signiere, solRpcUrl, solTransaktion, sprichtFuer, state, veroeffentlicheAn } from "../state.js";
 import { alsNachfolge } from "../nachfolge-ui.js";
 import { alsPruefauftrag } from "../pruefauftraege-ui.js";
 import { LS_MANDATE, leseGemerkt, nachDiebstahl, pruefeKontakte, warnt } from "../../schluessel-status.js";
@@ -904,7 +904,9 @@ type DmAnzeige = NostrEvent & {
 };
 
 /** Vollmachten der Geraete – eigene und die der Kontakte (8.6b). */
-export const geraeteBuch = new GeraeteBuch(async (f) => (await ensurePool()).query(f as never));
+// Vollmachten einer Person auch an ihren Schreib-Relays (5.4b); „wer hat dieses Gerät“ (#p) im Pool
+export const geraeteBuch = new GeraeteBuch(async (f) =>
+  Array.isArray(f.authors) ? frageBeiAutoren(f as { authors: string[] }) : (await ensurePool()).query(f as never));
 
 /** Bereits geoeffnete Umschlaege (ID des Umschlags -> Ergebnis), damit nichts doppelt entschluesselt wird. */
 const dmCache = new Map<string, { partner: string; ev: DmAnzeige; dm: PrivateDm } | null>();
@@ -1145,7 +1147,8 @@ async function aktualisiereSchluessel(): Promise<void> {
   const pool = await ensurePool();
   const { KIND_ROTATION_MANDATE, KIND_KEY_REVOCATION } = await import("@freedomstack/protocol");
   const [mandate, widerrufe] = await Promise.all([
-    pool.query({ kinds: [KIND_ROTATION_MANDATE], authors: kontakte, limit: 200 }),
+    // Mandate schreiben die Kontakte selbst – auch an ihren Schreib-Relays lesen (5.4b)
+    frageBeiAutoren({ kinds: [KIND_ROTATION_MANDATE], authors: kontakte, limit: 200 }),
     pool.query({ kinds: [KIND_KEY_REVOCATION], "#p": kontakte, limit: 200 }),
   ]);
   const r = pruefeKontakte(kontakte, [...mandate, ...widerrufe], leseGemerkt(geheim.getItem(LS_MANDATE)));

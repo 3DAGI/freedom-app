@@ -6210,3 +6210,55 @@ NIP-17. Andere Marmot-Apps (White Noise) sehen Geräte als eigene Mitglieder.
 Endstand: protocol 1149 · node 240 · app 418 (+8) · mls 11 · Leak-Tests 54
 grün + 2 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng 0
 unbewertet · Website 5 Seiten ok · Smoke-Test bestanden.
+
+## Schritt 5.4b1 – Outbox beim Lesen
+
+Bisher las die App alles im eigenen Pool: eigener Satz, wechselnde Relays der
+Startliste, gemerkte Funde. Einen Kontakt, der ganz andere Relays nutzt, sah
+sie nur, wenn seine Events zufällig auch dort lagen. Jetzt liest sie, was
+Kontakte selbst schreiben, auch dort, wo sie es laut NIP-65 hinschreiben.
+
+**Protokoll** (`relay-start.ts`): `outboxPlan(listen, autoren)`:
+- je Autor die Schreib-Relays seiner neuesten gültigen NIP-65-Liste
+  (Signatur und Autor geprüft – sonst könnte jeder die Leser eines Kontakts
+  umleiten), höchstens `OUTBOX_JE_AUTOR` = 3;
+- gebündelt je Relay, die Relays mit den meisten Autoren zuerst, höchstens
+  `OUTBOX_MAX_RELAYS` = 8;
+- Autoren ohne Liste fehlen im Plan – für sie bleibt der Pool.
+
+**App** (`outbox-lesen.ts`, neu; `frageBeiAutoren()` in `shell/state.ts`):
+- fragt den Pool wie bisher und dazu die Relays aus dem Plan, die nicht schon
+  im Pool sind, über kurze eigene Verbindungen (`frageAn()`);
+- NIP-65-Listen der Autoren bleiben zehn Minuten gemerkt; nur gültige; offline
+  wird nichts gemerkt;
+- von fremden Relays zählt nur, was gültig signiert ist und von einem der
+  gefragten Autoren stammt (`WebSocketRelay` prüft Signaturen nicht selbst);
+- ein toter Relay kostet nur seine Antwort.
+
+**Verdrahtet:**
+- Schlüsselwechsel-Mandate der Kontakte (`aktualisiereSchluessel()`);
+- Geräte-Vollmachten einer Person (`geraeteBuch`, Abfragen mit `authors`;
+  „wer hat dieses Gerät bevollmächtigt“ mit `#p` bleibt im Pool);
+- Posteingänge (Kind 10050, `posteingangVon()`) – für DMs und
+  MLS-Einladungen;
+- das Profil beim Zap (Lightning-Adresse); das neueste gilt, nicht das erste.
+
+Nicht betroffen: Kontaktlisten anderer liest die App nicht; Räume gehören zu
+Spur B (2.3); KeyPackages lasen schon seit 2.2b-c1 an den Schreib-Relays.
+
+**Offen (b2):** eigener Satz in den Settings sichtbar und änderbar; danach
+prüfen, ob der wechselnde Teil (heute drei) kleiner werden kann.
+
+**Tests:**
+- protocol +2: Plan (Schreib- statt Lese-Relays, neueste Liste, ohne Liste
+  nicht, Fälschung mit fremdem Autor oder kaputter Signatur ignoriert, Listen
+  Nicht-Gesuchter ignoriert), Grenzen (drei je Autor, acht insgesamt, die
+  breitesten zuerst).
+- app +4 (`outbox-lesen.test.ts`): Profil nur am Schreib-Relay gefunden,
+  Pool-Relays nicht doppelt gefragt; ein böses Relay schiebt nichts unter;
+  Listen zehn Minuten gemerkt, ohne Liste nur Pool, toter Relay stört nicht;
+  Verdrahtung.
+
+Endstand: protocol 1151 (+2) · node 240 · app 422 (+4) · mls 11 · Leak-Tests
+54 grün + 2 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng 0
+unbewertet · Website 5 Seiten ok · Smoke-Test bestanden.

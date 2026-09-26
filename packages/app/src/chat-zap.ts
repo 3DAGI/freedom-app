@@ -14,7 +14,7 @@ import { standardSchiene } from "./standard-schiene.js";
 import { aktualisiereKurs, aktuellerKurs } from "./shell/marktkurs.js";
 // App-Zustand unter eigenem Namen: `state` ist hier der Zustand des Dialogs.
 // Vorher stand hier `window.state` – das gab es nie, der Zap brach ab.
-import { ensurePool, signiere, solRpcUrl, state as appState } from "./shell/state.js";
+import { ensurePool, frageBeiAutoren, signiere, solRpcUrl, state as appState } from "./shell/state.js";
 
 export interface ZapDialogState {
   recipientPubkey: string;
@@ -138,7 +138,8 @@ async function sendZap(state: ZapDialogState, el: HTMLElement): Promise<void> {
     const { zahle, parseProfileSafe, buildZapRequest } = await import("@freedomstack/protocol");
     const { zahlschienen } = await import("./shell/zahlschienen.js");
     const pool = await ensurePool();
-    const profile = await pool.query({ kinds: [0], authors: [state.recipientPubkey], limit: 1 });
+    // Profil auch an den Schreib-Relays des Empfängers (5.4b); das neueste gilt
+    const profile = (await frageBeiAutoren({ kinds: [0], authors: [state.recipientPubkey], limit: 1 })).sort((a, b) => b.created_at - a.created_at);
 
     if (state.walletType === "lightning") {
       if (state.unit !== "sats") throw new Error("Lightning zahlt in sats");

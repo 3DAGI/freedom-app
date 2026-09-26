@@ -78,7 +78,16 @@
     Richtungen und KI-Anfrage an einen echten Knoten gehen.
   - **5.4b:** Lesen bei den Schreib-Relays der Kontakte (Outbox beim Lesen:
     Profile, Räume, Kontaktlisten); eigener Satz in den Settings sichtbar und
-    änderbar. Danach kann der wechselnde Teil kleiner werden.
+    änderbar. Danach kann der wechselnde Teil kleiner werden. Geteilt:
+    - **b1 – FERTIG:** Outbox beim Lesen – `outboxPlan()` (Protokoll: je Autor
+      seine Schreib-Relays aus der geprüften NIP-65-Liste, gebündelt, höchstens
+      drei je Autor und acht insgesamt), `OutboxLeser` (App, Listen zehn Minuten
+      gemerkt, fremde Relays nur mit gültiger Signatur und gefragtem Autor).
+      Gelesen so: Schlüsselwechsel-Mandate der Kontakte, Geräte-Vollmachten,
+      Posteingänge (Kind 10050), das Profil beim Zap. Kontaktlisten anderer
+      liest die App nicht; Räume sind Spur B (2.3).
+    - **b2:** eigener Satz in den Settings sichtbar und änderbar; danach den
+      wechselnden Teil prüfen.
   - **5.4c (mit 8.4):** Relay-Rolle des Knotens mit NIP-42 und bezahltem
     Zugang in Sats oder SOL.
   - **.onion:** Kein Betreiber der Startliste veröffentlicht eine
