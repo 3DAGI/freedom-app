@@ -49,3 +49,18 @@ test("DM: keine Rechnung", async () => {
   const { gesendet } = await sende();
   assert.deepEqual(regelKeinBolt11(gesendet), []);
 });
+
+test("DM an Personen mit Geraeten (8.6b): je Geraet ein Umschlag – ohne Klartext, Absender verborgen, p nur Personen und ihre Geraete", async () => {
+  const { pool, relay } = aufzeichnung();
+  const ich = new LocalSigner(generateKeypair().sk);
+  const [meinHandy, partner, seinTablet] = [generateKeypair().pk, generateKeypair().pk, generateKeypair().pk];
+  const dm = await buildPrivateDm({ signer: ich, recipientPk: partner, content: GEHEIM, weitereEmpfaenger: [seinTablet, meinHandy] });
+  for (const w of [dm.toRecipient, dm.toSelf, ...dm.weitere.map((k) => k.wrap)]) await pool.publish(w);
+  assert.equal(relay.gesendet.length, 4);
+  assert.deepEqual(regelKeinKind4(relay.gesendet), []);
+  assert.deepEqual(regelKeinKlartext(relay.gesendet, [GEHEIM]), []);
+  assert.deepEqual(regelAutorNicht(relay.gesendet, ich.publicKey()), []);
+  assert.deepEqual(regelPTagsNur(relay.gesendet, [partner, ich.publicKey(), seinTablet, meinHandy]), []);
+  // Jeder Umschlag nennt genau einen Empfaenger – kein Relay sieht, welche Schluessel zusammengehoeren
+  assert.ok(relay.gesendet.every((ev) => ev.tags.filter((t) => t[0] === "p").length === 1));
+});

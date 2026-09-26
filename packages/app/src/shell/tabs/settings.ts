@@ -12,7 +12,7 @@ import { ensurePool, mitBunker, mitRohemSchluessel, signiere, state } from "../s
 import { geheim, istGeheimnis, tresorEingerichtet, wireTresorKarte } from "../tresor.js";
 import { $, ganzeZahl, toast } from "../ui.js";
 import { ladeAbdeckung, trageAbdeckungEin } from "./earn.js";
-import { LS_KONTAKTE_SICHERN, kontakteEinschalten, kontakteSichernAn, sichereKontakte } from "./kommunikation.js";
+import { LS_KONTAKTE_SICHERN, geraeteBuch, kontakteEinschalten, kontakteSichernAn, sichereKontakte } from "./kommunikation.js";
 import { LS_STANDARD_SCHIENE, standardSchiene } from "../../standard-schiene.js";
 
 // ------------------------------------------------- Nachfolge & Modelle
@@ -379,6 +379,7 @@ async function fuegeGeraetHinzu(): Promise<void> {
       ownerPubkey: state.keypair.pk, devicePubkey: geraet.pk, label: name.trim(),
       permissions: perms, expiresAt: Math.floor(Date.now() / 1000) + tage * 86400,
     })));
+    geraeteBuch.vergiss(state.keypair.pk); // ab jetzt bekommt das Geraet Kopien (8.6b)
 
     prompt(
       "Diesen Schlüssel auf dem anderen Gerät eingeben.\n" +
@@ -393,12 +394,14 @@ async function fuegeGeraetHinzu(): Promise<void> {
 
 async function entzieheGeraet(devicePk: string): Promise<void> {
   if (!state.keypair) return;
-  if (!confirm("Vollmacht entziehen?\n\nDer Entzug erreicht nur Clients, die ihn sehen. " +
-    "Was das Gerät vorher geschrieben hat, bleibt gültig.")) return;
+  if (!confirm("Vollmacht entziehen?\n\nDer Entzug erreicht nur Clients, die ihn sehen – bis dahin " +
+    "versiegeln sie weiter auch an dieses Gerät. Was das Gerät vorher geschrieben hat, bleibt gültig; " +
+    "zurückdatierte Nachrichten zeigen Kontakte mit Warnung.")) return;
   try {
     const { buildDeviceRevoke } = await import("@freedomstack/protocol");
     await (await ensurePool()).publish(
       await signiere(buildDeviceRevoke(state.keypair.pk, devicePk, "entzogen")));
+    geraeteBuch.vergiss(state.keypair.pk); // keine Kopien mehr an das Geraet (8.6b)
     toast("Entzogen");
     void zeigeGeraete();
   } catch (e) {

@@ -54,7 +54,6 @@ contributor-funding.ts|verifyRound|Vergütung von Mitentwicklern, ohne Oberfläc
 
 derivation.ts|slip10PublicKey|SLIP-10-Ableitung aus 1.1, Verdrahtung mit der eingebauten SOL-Wallet (4.2)
 
-devices.ts|checkDeviceEvent|Geräte-Event prüfen, noch nicht angebunden (Geräte und Schlüsselwechsel, 8.6)
 
 disputes-relays.ts|buildResolution|Streitfälle und Relay-Vergütung ohne Oberfläche (Streitfall-Prüfer 5.6, Relay-Rolle 8.4)
 disputes-relays.ts|distributeToRelays|Streitfälle und Relay-Vergütung ohne Oberfläche (Streitfall-Prüfer 5.6, Relay-Rolle 8.4)

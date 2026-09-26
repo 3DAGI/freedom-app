@@ -18,6 +18,7 @@ import { aktuellerKurs } from "../marktkurs.js";
 import { eigeneRelayListen, ensurePool, signiere, solRpcUrl, solTransaktion, state, veroeffentlicheAn } from "../state.js";
 import { alsNachfolge } from "../nachfolge-ui.js";
 import { LS_MANDATE, leseGemerkt, nachDiebstahl, pruefeKontakte, warnt } from "../../schluessel-status.js";
+import { type DmZuordnung, GeraeteBuch, ordneDmZu } from "../../geraete-buch.js";
 import { sucheAufnehmen, wireSuche } from "../suche-ui.js";
 import { geheim } from "../tresor.js";
 import { $, toast } from "../ui.js";
@@ -870,7 +871,13 @@ async function ladeModeration(communityId: string): Promise<unknown | null> {
 }
 
 /** Eine DM zur Anzeige: entschluesselt; legacy = altes Kind-4-Format. */
-type DmAnzeige = NostrEvent & { legacy?: boolean; /** Ablauf nach NIP-40 (2.5) – auch fuer den Suchindex (8.13). */ ablauf?: number };
+type DmAnzeige = NostrEvent & {
+  legacy?: boolean; /** Ablauf nach NIP-40 (2.5) – auch fuer den Suchindex (8.13). */ ablauf?: number;
+  /** Geschrieben von einem Geraet (8.6b): Hinweis mit Geraetenamen (Fremddaten). */ geraet?: { text: string; warnung: boolean };
+};
+
+/** Vollmachten der Geraete – eigene und die der Kontakte (8.6b). */
+export const geraeteBuch = new GeraeteBuch(async (f) => (await ensurePool()).query(f as never));
 
 /** Bereits geoeffnete Umschlaege (ID des Umschlags -> Ergebnis), damit nichts doppelt entschluesselt wird. */
 const dmCache = new Map<string, { partner: string; ev: DmAnzeige; dm: PrivateDm } | null>();
@@ -880,14 +887,22 @@ async function oeffneUmschlag(w: NostrEvent): Promise<{ partner: string; ev: DmA
   if (bekannt !== undefined) return bekannt;
   if (!state.signer) return null;
   const { openPrivateDm } = await import("@freedomstack/protocol");
+  const ich = state.signer.publicKey();
   // Ueber den Signer (Schritt 1.3): Umschlag und Siegel entschluesselt er selbst.
-  const r = await openPrivateDm(w, state.signer);
-  const e = r.ok
+  // Seit 8.6b auch Kopien, die eigene Geraete geschrieben haben.
+  const r = await openPrivateDm(w, state.signer, undefined, { auchFuer: await geraeteBuch.alle(ich).catch(() => []) });
+  const z = r.ok
+    ? await ordneDmZu(r.dm, ich, geraeteBuch, (pk) => conversations.some((c) => c.type === "dm" && c.id === pk))
+      .catch((): DmZuordnung => ({ partner: r.dm.partner, autor: r.dm.from, vonMir: r.dm.from === ich }))
+    : null;
+  const e = r.ok && z
     ? {
-        partner: r.dm.partner,
+        partner: z.partner,
         ev: {
-          id: r.dm.id, pubkey: r.dm.from, created_at: r.dm.createdAt, kind: 14, tags: [], content: r.dm.content, sig: "",
+          // Eigene Geraete zeigen als „du“, gueltige Geraete eines Kontakts unter dessen Schluessel
+          id: r.dm.id, pubkey: z.autor, created_at: r.dm.createdAt, kind: 14, tags: [], content: r.dm.content, sig: "",
           ...(r.dm.expiresAt !== undefined ? { ablauf: r.dm.expiresAt } : {}),
+          ...(z.hinweis ? { geraet: { text: z.hinweis, warnung: !!z.warnung } } : {}),
         },
         // Mit Ablauf (2.5): ladeDmNachrichten() blendet danach aus.
         dm: r.dm,
@@ -1186,7 +1201,10 @@ export async function loadChatMessages(cid: string): Promise<void> {
         const alt = (ev as DmAnzeige).legacy
           ? ` <span class="mono-sm" title="ältere Verschlüsselung (Kind 4): Relays sehen Absender und Empfänger">· alt</span>`
           : "";
-        return `<div class="bubble ${mine ? "user" : "ai"}"><div class="who">${mine ? "du" : escapeHtml(pkShort(ev.pubkey))}${alt}${diebstahl}${zapBtn}</div><div class="txt">${body}${media}</div></div>`;
+        // Von einem Geraet geschrieben (8.6b) – der Name steht in der Vollmacht (Fremddaten)
+        const g = (ev as DmAnzeige).geraet;
+        const geraet = g ? ` <span class="mono-sm geraet-hinweis${g.warnung ? " warn" : ""}">· ${escapeHtml(g.text)}</span>` : "";
+        return `<div class="bubble ${mine ? "user" : "ai"}"><div class="who">${mine ? "du" : escapeHtml(pkShort(ev.pubkey))}${alt}${diebstahl}${geraet}${zapBtn}</div><div class="txt">${body}${media}</div></div>`;
       })
       .join("");
     if (c.type === "dm") schluesselHinweis(thread, c.id);
@@ -1226,15 +1244,21 @@ export async function sendChatMessage(): Promise<void> {
         ? JSON.stringify({ text, attachments: chatAttachments })
         : text;
       if (!state.signer) return;
+      // Je eine Kopie an die Geraete des Kontakts und an die eigenen (8.6b) – ohne Netz nur die beiden
+      const ich = state.keypair.pk;
+      const [ihre, meine] = await Promise.all([c.id, ich].map((pk) => geraeteBuch.kopienFuer(pk).catch(() => [] as string[])));
       const dm = await buildPrivateDm({
         signer: state.signer,
         recipientPk: c.id,
         content: payload,
         // Ablauf nach NIP-40 (2.5), falls fuer diese Unterhaltung gesetzt
         ...(c.ablaufSecs ? { ablaufSecs: c.ablaufSecs } : {}),
+        weitereEmpfaenger: [...ihre!, ...meine!],
       });
       await veroeffentlicheDm(dm.toRecipient, c.id);
-      await veroeffentlicheDm(dm.toSelf, state.keypair.pk);
+      await veroeffentlicheDm(dm.toSelf, ich);
+      // Geraete lesen am Posteingang ihrer Person
+      for (const k of dm.weitere) await veroeffentlicheDm(k.wrap, meine!.includes(k.an) ? ich : c.id);
     } else {
       // Community: kind 42 mit h-tag (channel-id)
       const ev = await signiere(buildEvent(state.keypair.pk, 42, [["h", c.id], ...imeta], text));

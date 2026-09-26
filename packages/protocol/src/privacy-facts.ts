@@ -48,6 +48,8 @@ export const PRIVACY_FACTS: readonly PrivacyFact[] = [
   { id: "nachfolge-plan", aussage: "Wer deine Vertrauten für die Nachfolge sind, steht öffentlich in deinem Nachfolgeplan.", status: "grenze", grund: "Meldungen der Vertrauten und deine Lebenszeichen müssen für alle prüfbar sein – sonst liefe eine Übernahme unbemerkt. Wer das nicht will, richtet keine Nachfolge ein.", regel: "p-tags" },
   { id: "zustand-sicherung", aussage: "Die Sicherung deiner Unterhaltungen, Räume und Namen liegt verschlüsselt auf den Relays – ohne deinen Schlüssel, Wallet-Zugänge, laufende Tauschvorgänge und Gruppenschlüssel.", status: "belegt", regel: "kein-klartext" },
   { id: "speicher-abruf", aussage: "Fehlen Stücke einer Datei auf den Relays, fragt die App Speicherknoten versiegelt von einem Wegwerf-Schlüssel an – Relays sehen weder dich noch welche Datei.", status: "belegt", regel: "kein-klartext" },
+  { id: "geraete-kopien", aussage: "Hat jemand mehrere Geräte, versiegelt die App jede Nachricht einzeln an jedes davon – Relays sehen weder Inhalt noch Absender.", status: "belegt", regel: "autor-verborgen" },
+  { id: "geraete-vollmacht", aussage: "Welche Schlüssel deine Geräte sind, steht öffentlich in deinen Vollmachten; wer deinen Posteingang betreibt, sieht Umschläge an dich und deine Geräte zur selben Zeit ankommen.", status: "grenze", grund: "Kontakte müssen prüfen können, dass ein Gerät für dich spricht, und wissen, an welche Geräte sie versiegeln. Wer das nicht will, nutzt statt Geräteschlüsseln einen entfernten Signer (NIP-46).", regel: "p-tags" },
   { id: "ip", aussage: "Relays sehen deine IP-Adresse nicht.", status: "offen", schritt: "6.1/6.2" },
 ];
 
