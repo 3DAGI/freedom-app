@@ -328,6 +328,8 @@ export function successionWarning(plan: { guardians: number; threshold: number; 
     "    solange du lebst. Dagegen hilft keine Technik, nur die Auswahl.",
     `  · Du hast ${plan.graceDays} Tage Zeit zu widersprechen — aber nur, wenn du`,
     "    mitbekommst, dass es läuft.",
+    "  · Der Plan ist öffentlich: Wer deine Vertrauten sind, sieht jeder –",
+    "    damit Meldungen und Lebenszeichen für alle prüfbar bleiben.",
     "",
     "Wähle Menschen, die sich nicht kennen. Eine Familie zählt als einer.",
   ].join("\n");
