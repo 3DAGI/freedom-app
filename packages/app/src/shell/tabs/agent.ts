@@ -1088,9 +1088,11 @@ async function reklamiere(
     // Vom Sitzungsschluessel wie der Auftrag selbst (3.1) – nicht von der
     // Identitaet – und nur versiegelt an Provider und Pruefer (3.4).
     const sitzung = kiSitzungen.fuer(providerPk);
+    // Die Reklamation nennt den Pruefer (5.6) – nur sein Urteil zaehlt, und der Provider sieht, wer es ist.
     const dispute = buildDispute({
       jobId, customerPubkey: sitzung.publicKey(), providerPubkey: providerPk,
       reason: art, amountMsat, note: prompt("Kurze Beschreibung (nur für Provider und Prüfer):") ?? "",
+      pruefer: pruefer ? [pruefer] : [],
     });
     const empfaenger = [providerPk, ...(pruefer ? [pruefer] : [])]
       .map((pk) => ({ pk, powBits: powJeProvider.get(pk) ?? 0 }));
