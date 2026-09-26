@@ -3781,3 +3781,39 @@ Relayer betreiben) und die Rechnung in der offenen Anfrage (4.9).
 Endstand: protocol 1046 · node 209 · app 268 · Leak-Tests 37 grün + 4 todo ·
 0 rot · check-wiring `--streng` 0 offen · innerHTML streng 0 unbewertet ·
 Smoke-Test bestanden.
+
+## 97. Releases k von n (Schritt 5.2)
+
+**k von n (`release.ts`):** Eine Datei gilt erst als echt, wenn
+`RELEASE_MIN_SIGNATUREN` (2) verschiedene Signierer aus `TRUSTED_SIGNERS`
+dieselbe Nutzlast bestätigen. Nostr-Events tragen je eine Signatur; „mehrere
+Signaturen über dieselbe Nutzlast“ heißt deshalb: jeder Signierer
+veröffentlicht sein Manifest (Kind 38054), die App zählt je `nutzlast()`
+(Version + Dateien mit Prüfsumme, sortiert) die verschiedenen
+vertrauenswürdigen Signierer. Fremde Signaturen zählen nicht, derselbe
+Signierer nur einmal; Quellen und Notizen dürfen je Signierer abweichen. Mit
+nur einer Signatur: „erst von 1 von 2 Signierern bestätigt“. `latestRelease`
+kündigt nur Versionen mit k Signaturen an – sonst könnte ein einzelner
+gestohlener Schlüssel ein „Update“ melden.
+
+**Version fixierbar:** GitHub Pages liefert bei jedem Laden still die neueste
+Datei aus. Nach einer bestandenen Prüfung kann der Nutzer die Version fixieren
+(Settings → Weitergeben); beim Start vergleicht die App die laufende Datei
+(`pruefeFixierung`): bestätigte neue Version → Rückfrage, ob übernehmen;
+unbestätigte → deutliche Warnung. Ohne Fixierung passiert nichts. Im Browser
+geprüft (lokaler HTTP-Server): Warnung erscheint, ohne Fixierung still.
+
+**Skript:** `publish-release.mjs` zeigt den Nutzlast-Hash, damit die Signierer
+abgleichen können, und erklärt k von n. **FAQ** sagt dasselbe – und ehrlich,
+dass die Prüfung „nicht prüfbar“ meldet, solange `TRUSTED_SIGNERS` leer ist.
+
+**Tests:** protocol 1046 → 1051 (`release.test.ts` +5: eine Signatur → nicht
+echt, zwei → echt; fremde und doppelte zählen nicht; nur gleiche Nutzlast;
+keine Ankündigung mit einer Signatur; Fixierung). Vier bestehende Tests
+belegen „echt“ jetzt mit zwei Signierern statt einem – die Karte verlangt,
+dass eine einzelne Signatur nicht mehr reicht; ihre Aussage ist unverändert.
+app 268 → 269 (Verdrahtung).
+
+Endstand: protocol 1051 · node 209 · app 269 · Leak-Tests 37 grün + 4 todo ·
+0 rot · check-wiring `--streng` 0 offen · innerHTML streng 0 unbewertet ·
+Smoke-Test bestanden.

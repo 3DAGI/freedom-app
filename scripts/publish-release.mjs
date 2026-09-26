@@ -8,6 +8,14 @@
  * Pruefsumme an einem anderen Ort steht — signiert, auf Relays, die dem
  * Verteiler nicht gehoeren — ist sie ein Beweis.
  *
+ * K VON N (Schritt 5.2)
+ * Die App erkennt eine Version erst als echt, wenn mindestens
+ * RELEASE_MIN_SIGNATUREN (2) verschiedene Signierer aus TRUSTED_SIGNERS
+ * dieselbe Nutzlast (Version + Dateien mit Pruefsumme) veroeffentlicht haben.
+ * Jeder Signierer baut dieselbe Datei und fuehrt dieses Skript mit SEINEM
+ * Schluessel aus – auf seinem Geraet. Der ausgegebene Nutzlast-Hash muss bei
+ * allen gleich sein; Quellen und Notizen duerfen abweichen.
+ *
  * Aufruf:
  *   RELEASE_SECRET_KEY=<hex64> node scripts/publish-release.mjs 1.2.0
  */
@@ -34,7 +42,7 @@ const datei = "packages/app/dist/freedom.html";
 const html = await readFile(datei);
 const sha = createHash("sha256").update(html).digest("hex");
 
-const { buildReleaseManifest, signEvent, keypairFromSecret, OutboxPool, WebSocketRelay } =
+const { buildReleaseManifest, signEvent, keypairFromSecret, OutboxPool, WebSocketRelay, nutzlast, RELEASE_MIN_SIGNATUREN } =
   await import("../packages/protocol/src/index.ts");
 
 const sourcesRaw = process.env.RELEASE_SOURCES ?? "https://freedomstack.io/freedom.html";
@@ -48,11 +56,12 @@ if (sources.length < 2) {
 }
 
 const kp = keypairFromSecret(Uint8Array.from(Buffer.from(sk, "hex")));
+const artifacts = [{ name: "freedom.html", sha256: sha, sizeBytes: html.length }];
 const unsigned = buildReleaseManifest(
   {
     version,
     releasedAt: Math.floor(Date.now() / 1000),
-    artifacts: [{ name: "freedom.html", sha256: sha, sizeBytes: html.length }],
+    artifacts,
     sources,
     notes: process.env.RELEASE_NOTES,
   },
@@ -70,7 +79,9 @@ console.log(`sha256    : ${sha}`);
 console.log(`Signierer : ${kp.pk}`);
 console.log(`Quellen   : ${sources.join(", ")}`);
 console.log(`Relays ok : ${report.accepted.length}/${relays.length}`);
+console.log(`Nutzlast  : ${nutzlast({ version, artifacts })}`);
 console.log("");
-console.log("Diesen Pubkey in TRUSTED_SIGNERS der App eintragen, sonst prueft");
-console.log("die App gegen niemanden.");
+console.log(`Echt wird diese Version erst, wenn ${RELEASE_MIN_SIGNATUREN} Signierer aus TRUSTED_SIGNERS`);
+console.log("dieselbe Nutzlast veroeffentlicht haben – den Hash oben mit den anderen vergleichen.");
+console.log("Neue Signierer: Pubkey in TRUSTED_SIGNERS der App eintragen.");
 for (const r of relays) r.close?.();
