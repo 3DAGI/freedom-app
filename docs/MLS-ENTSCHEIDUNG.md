@@ -104,4 +104,8 @@ Der Preis ist hoch und gehört in die Entscheidung:
   mit `'wasm-unsafe-eval'`; entpackt und gestartet erst bei Bedarf
   (`mls-engine.ts`). `freedom.html`: 2.409 → 6.351 KB. `build.mjs` baut nur,
   wenn die WASM zu `SHA256SUMS` passt.
+- **Konto (2.2b-c1):** Zustand verschlüsselt in eigener IndexedDB, Schlüssel
+  in `geheim`; KeyPackages nach Marmot (Platz, Auswahl, Erneuern, NIP-65).
+  Dritter kleiner Patch an MDK: `Engine::nostr_routing()` macht das Routing
+  einer Gruppe (`h`, Relays) lesbar, das MDK nur intern führt.
 
