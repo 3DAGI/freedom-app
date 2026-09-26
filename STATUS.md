@@ -4209,3 +4209,8 @@ Einreichen durch ein Gerät mit Netz, ehrliche Texte.
 
 **Tests:** protocol 1072 → 1078 (+6: Kosten, Anlegen, Lesen, Offline-Überweisung
 samt Mesh-Regel, Negativfälle beim Bauen und Prüfen) + 1 übersprungen (Validator).
+
+Endstand (nach dem Einmergen von 4.9e): protocol 1080 (+ 6 übersprungen) ·
+node 213 (+ 7 übersprungen ohne Netz) · app 291 · Leak-Tests 47 grün + 2 todo ·
+0 rot · check-wiring `--streng` 0 offen (5 neue Ausnahmen bis 7.2b) ·
+innerHTML streng 0 unbewertet · Smoke-Test bestanden.
