@@ -9,7 +9,7 @@ import { escapeHtml } from "../../shell-logic.js";
 import { zeigeDatenschutz } from "../datenschutz.js";
 import { zeigeVertraute } from "../nachfolge-ui.js";
 import { ensurePool, mitBunker, mitRohemSchluessel, signiere, state } from "../state.js";
-import { tresorEingerichtet, wireTresorKarte } from "../tresor.js";
+import { geheim, istGeheimnis, tresorEingerichtet, wireTresorKarte } from "../tresor.js";
 import { $, ganzeZahl, toast } from "../ui.js";
 import { ladeAbdeckung, trageAbdeckungEin } from "./earn.js";
 import { LS_KONTAKTE_SICHERN, kontakteEinschalten, kontakteSichernAn, sichereKontakte } from "./kommunikation.js";
@@ -154,16 +154,15 @@ export function wireSicherheitsKnoepfe(): void {
 }
 
 /** Alles, was lokal liegt und bei Datenverlust verschwinden wuerde. */
-function sammleZustand(): Record<string, unknown> {
-  const out: Record<string, unknown> = {};
-  for (let i = 0; i < localStorage.length; i++) {
-    const k = localStorage.key(i);
-    // Schluessel NICHT mitsichern: Die Sicherung liegt oeffentlich auf
-    // Relays, und ihre Verschluesselung haengt an demselben Geheimnis.
-    if (!k || !k.startsWith("freedom.") || /\.(sk|identity|secret)$/.test(k)) continue;
-    out[k] = localStorage.getItem(k);
-  }
-  return out;
+/**
+ * Was gesichert wird: nur die feste Liste aus `waehleSicherung()` (8.12) –
+ * bis dahin ging jeder `freedom.*`-Eintrag mit, auch `freedom.nsec`, und mit
+ * Tresor fehlten die Unterhaltungen. Jeder Wert kommt aus seinem Speicher.
+ */
+async function sammleZustand(): Promise<Record<string, string>> {
+  const { waehleSicherung } = await import("@freedomstack/protocol");
+  const alle = Array.from({ length: localStorage.length }, (_, i) => localStorage.key(i) ?? "");
+  return waehleSicherung(alle, (k) => (istGeheimnis(k) ? geheim.getItem(k) : localStorage.getItem(k)));
 }
 
 export async function zeigeSicherung(): Promise<void> {
@@ -185,7 +184,7 @@ async function sichereZustand(): Promise<void> {
     const { deriveBackupKey, buildStateBackup } =
       await import("@freedomstack/protocol");
     const key = mitRohemSchluessel("Die Sicherung", deriveBackupKey);
-    const r = await buildStateBackup(state.keypair.pk, key, sammleZustand());
+    const r = await buildStateBackup(state.keypair.pk, key, await sammleZustand());
     await (await ensurePool()).publish(await signiere(r.event as never));
 
     localStorage.setItem("freedom.backupAt", String(Math.floor(Date.now() / 1000)));
@@ -201,7 +200,7 @@ async function sichereZustand(): Promise<void> {
 async function stelleZustandWieder(): Promise<void> {
   if (!state.keypair) return;
   try {
-    const { deriveBackupKey, restoreStateBackup, latestBackup, KIND_STATE_BACKUP } =
+    const { deriveBackupKey, restoreStateBackup, latestBackup, filtereWiederherstellung, KIND_STATE_BACKUP } =
       await import("@freedomstack/protocol");
     const pool = await ensurePool();
     const evs = await pool.query({
@@ -217,10 +216,12 @@ async function stelleZustandWieder(): Promise<void> {
       toast(r.message, true);
       return;
     }
-    if (!confirm(`${r.message}\n\nLokale Daten werden damit überschrieben. Fortfahren?`)) return;
-
-    for (const [k, v] of Object.entries(r.data)) {
-      if (typeof v === "string") localStorage.setItem(k, v);
+    // Nur, was in eine Sicherung gehoert – auch eine alte mit Schluessel stellt ihn nicht her
+    const daten = filtereWiederherstellung(r.data);
+    if (!confirm(`${r.message}\n\nUnterhaltungen, Räume und Namen auf diesem Gerät werden damit überschrieben. Fortfahren?`)) return;
+    for (const [k, v] of Object.entries(daten)) {
+      if (istGeheimnis(k)) await geheim.setItem(k, v);
+      else localStorage.setItem(k, v);
     }
     toast("Wiederhergestellt — die Seite wird neu geladen");
     setTimeout(() => location.reload(), 900);

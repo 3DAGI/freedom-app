@@ -208,11 +208,11 @@ sol-deposit.ts|parseSolDepositSettle|Abschluss eines SOL-Deposits, noch nicht an
 
 spaces.ts|searchMessages|Suche in Raum-Nachrichten, ohne Oberfläche – die lokale Suche (8.13) deckt Direktnachrichten und Communities
 
-state-backup.ts|checkExpiry|Zustandssicherung und ablaufende Nachrichten ohne Oberfläche (8.12)
-state-backup.ts|expirationTag|Zustandssicherung und ablaufende Nachrichten ohne Oberfläche (8.12)
-state-backup.ts|expiryWarning|Zustandssicherung und ablaufende Nachrichten ohne Oberfläche (8.12)
-state-backup.ts|filterExpired|Zustandssicherung und ablaufende Nachrichten ohne Oberfläche (8.12)
-state-backup.ts|stateFingerprint|Zustandssicherung und ablaufende Nachrichten ohne Oberfläche (8.12)
+state-backup.ts|checkExpiry|Ablauf allgemein, ohne Oberfläche – Direktnachrichten laufen seit 2.5 über private-dm.ts (dmAbgelaufen)
+state-backup.ts|expirationTag|Ablauf allgemein, ohne Oberfläche – Direktnachrichten laufen seit 2.5 über private-dm.ts (dmAbgelaufen)
+state-backup.ts|expiryWarning|Ablauf allgemein, ohne Oberfläche – Direktnachrichten laufen seit 2.5 über private-dm.ts (dmAbgelaufen)
+state-backup.ts|filterExpired|Ablauf allgemein, ohne Oberfläche – Direktnachrichten laufen seit 2.5 über private-dm.ts (dmAbgelaufen)
+state-backup.ts|stateFingerprint|Prüfsumme für eine automatische Sicherung bei Änderung – die App sichert von Hand (8.12)
 
 stream.ts|amountDue|Streaming-Abrechnung: fälliger Betrag, noch nicht angebunden (PaymentRail, 4.1)
 

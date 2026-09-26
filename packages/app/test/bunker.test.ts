@@ -142,7 +142,7 @@ test("Verdrahtung: Bunker vor dem lokalen Schluessel, Sitzung im Tresor, Knoepfe
   assert.match(starte, /wireSicherheitsKnoepfe\(\)/);
 
   const tresor = readFileSync(new URL("../src/shell/tresor.ts", import.meta.url), "utf8");
-  assert.match(tresor, /const fest = \[LS_KEY, LS_BUNKER,/);
+  assert.match(tresor, /const GEHEIM_FEST = \[LS_KEY, LS_BUNKER,/);
 
   // Frueher standen die Knoepfe am Ende von richteNachfolgeEin() – ohne Nachfolge waren sie tot.
   const settings = readFileSync(new URL("../src/shell/tabs/settings.ts", import.meta.url), "utf8");

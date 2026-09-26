@@ -41,9 +41,9 @@ python3 scripts/smoke_test.py packages/app/dist         # braucht playwright + c
 bash scripts/build-site.sh /tmp/site                     # Website bauen (Ziel wird gelöscht!)
 ```
 
-Stand 26.09.2026 (nach 8.11b): protocol 1106 grün (6 übersprungen), node 214 grün
+Stand 26.09.2026 (nach 8.12): protocol 1110 grün (6 übersprungen), node 214 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 321 grün, Leak-Tests 48 grün + 2 `todo` (heutige Lecks,
+in `tools.test.ts`), app 324 grün, Leak-Tests 48 grün + 2 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
 Ausnahme: gesendete SOL-Zahlungen von frischen Adressen, eine bewusste Grenze
 nach Entscheidung 4.9 A – im Datenschutzbericht unter „Bewusste Grenzen“).
@@ -254,3 +254,8 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   `baueAnteilAnfrage()`/`baueAnteilUebergabe()` – nie als Datei, nie offen.
   Übergeben nur nach `darfUebergeben()`; gehaltene Anteile nur im Tresor
   (`freedom.nachfolge`), ohne Tresor nur im Speicher.
+- **Zustandssicherung nur über die feste Liste** (seit 8.12): gesichert wird,
+  was in `SICHERUNG_EINTRAEGE` steht (`waehleSicherung()`), zurück nur über
+  `filtereWiederherstellung()`; nie Schlüssel, Zugänge, Geld-Geheimnisse,
+  Anteile oder Gruppenschlüssel (`SICHERUNG_NIE`). Neue Einträge, die ein neues
+  Gerät braucht, dort eintragen – und ob sie im Tresor liegen (`istGeheimnis()`).

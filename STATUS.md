@@ -4601,3 +4601,55 @@ Endstand: protocol 1106 (+ 6 übersprungen) · node 213 (+ 7 übersprungen ohne
 Netz) · app 321 · Leak-Tests 48 grün + 2 todo · 0 rot · check-wiring `--streng`
 0 offen (11 Ausnahmen weniger) · innerHTML streng 0 unbewertet · Smoke-Test
 bestanden · Browser-E2E bestanden.
+
+## Schritt 8.12 – Zustandssicherung
+
+**Fund:** `sammleZustand()` nahm jeden `freedom.*`-Eintrag aus localStorage mit
+und ließ nur Namen auf `.sk`, `.identity` oder `.secret` weg. Der Schlüssel
+heißt aber `freedom.nsec` – er ging mit, ohne Tresor ebenso NWC-Zugang,
+Swap-Preimages und die eingebaute SOL-Wallet (verschlüsselt, aber mit einem
+Schlüssel, der aus demselben Geheimnis abgeleitet ist – der Kommentar im Code
+wollte genau das verhindern). Mit Tresor fehlte dafür das Wichtigste: Die
+Unterhaltungen liegen dann im Tresor und kamen gar nicht in die Sicherung.
+Zurückgeholt wurde jeder Eintrag ungefiltert in localStorage – auch Geheimes
+im Klartext neben einem Tresor.
+
+**Jetzt** (`state-backup.ts`): eine feste Liste `SICHERUNG_EINTRAEGE`
+(Unterhaltungen, Räume, Lesestände, eigene Namen, Profil-Entwurf, Sprache,
+Relays, zwei Einstellungen, Moderation je Community) statt eines Präfixes – ein
+neuer Eintrag ist erst gesichert, wenn er dort steht. `SICHERUNG_NIE` schließt
+zusätzlich aus: Schlüssel, Bunker, Wallet-Zugänge, Swaps, Sperren, SOL-Wallet,
+Tresor, Suchschlüssel, Nachfolge-Anteile, Notfall-Merker und
+**Gruppenschlüssel (MLS, Epochen)** – Forward Secrecy hieße sonst nur „bis zur
+nächsten Sicherung“; ein neues Gerät tritt Räumen neu bei. Die App liest jeden
+Wert aus seinem Speicher (`istGeheimnis()` in `tresor.ts`, dieselbe Liste wie
+`geheimnisse()`, `settings.ts:162`) und schreibt beim Zurückholen nur
+Gefiltertes (`filtereWiederherstellung()`, `settings.ts:220`) – Geheimes in den
+Tresor, anderes in localStorage (`settings.ts:223`). Eine alte Sicherung mit
+Schlüssel stellt ihn nicht wieder her. Über 60 KB lehnt die Sicherung klar ab,
+statt am Rand von NIP-44 zu scheitern. Der Hinweistext nennt, was nie darin ist.
+
+**Browser-E2E** (zwei Geräte, vorgetäuschtes Relay): Gerät 1 mit Tresor, einer
+Unterhaltung, Raum und Namen sichert – am Relay eine Sicherung (30078), weder
+Schlüssel noch Name noch Raum noch Partner im Klartext. Gerät 2 importiert die
+Identität, richtet einen Tresor ein und holt zurück: gleiche Identität,
+Unterhaltung wieder in der Liste (im Tresor, nicht in localStorage), Räume und
+Namen da, kein Schlüssel im Klartext in localStorage; keine Seitenfehler.
+
+**Datenschutz:** neue Aussage „zustand-sicherung“ (belegt, Szenario: Gerät mit
+Schlüssel, Zugängen, Swap und Gruppenschlüssel – im Event nichts davon im
+Klartext).
+
+**Nebenbei:** Der Bunker-Test pinnte die Liste der Geheimnisse unter ihrem alten
+Namen (`const fest = …`); sie heißt jetzt `GEHEIM_FEST` und wird von
+`geheimnisse()` und `istGeheimnis()` geteilt – der Test prüft dasselbe.
+Die Ablauf-Funktionen in `state-backup.ts` bleiben ohne Oberfläche:
+Direktnachrichten haben ihren Ablauf seit 2.5 über `private-dm.ts`.
+
+**Tests:** protocol +4 (feste Liste, Wiederherstellung ohne Klartext, alte
+Sicherung mit Schlüssel, Größe), app +3 (Sichern, Zurückholen, Tresor-Einträge).
+
+Endstand: protocol 1110 (+ 6 übersprungen) · node 213 (+ 7 übersprungen ohne
+Netz) · app 324 · Leak-Tests 48 grün + 2 todo · 0 rot · check-wiring `--streng`
+0 offen · innerHTML streng 0 unbewertet · Smoke-Test bestanden · Browser-E2E
+bestanden.

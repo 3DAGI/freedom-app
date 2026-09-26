@@ -53,11 +53,17 @@ export const geheim: GeheimSpeicher = geheimSpeicher(() => tresor, tresorEingeri
  * tabs/kommunikation.ts, swap-client.ts, sol-wallet.ts, suche-ui.ts und
  * nachfolge.ts.
  */
+const GEHEIM_FEST = [LS_KEY, LS_BUNKER, "freedom.nwc.uri", "freedom.chats", "freedom.agentHistory", "freedom.swapHistory", "freedom.suche.schluessel", "freedom.nachfolge"];
+const GEHEIM_PRAEFIXE = ["freedom.swap.", "freedom.htlc.", "freedom.solWallet", "freedom.pending."];
+
 function geheimnisse(): string[] {
-  const fest = [LS_KEY, LS_BUNKER, "freedom.nwc.uri", "freedom.chats", "freedom.agentHistory", "freedom.swapHistory", "freedom.suche.schluessel", "freedom.nachfolge"];
-  const praefixe = ["freedom.swap.", "freedom.htlc.", "freedom.solWallet", "freedom.pending."];
   const alle = Array.from({ length: localStorage.length }, (_, i) => localStorage.key(i) ?? "");
-  return [...fest, ...alle.filter((k) => praefixe.some((p) => k.startsWith(p)))];
+  return [...new Set([...GEHEIM_FEST, ...alle.filter(istGeheimnis)])];
+}
+
+/** Liegt dieser Eintrag im Tresor (mit Tresor) – oder in localStorage? (Zustandssicherung, 8.12) */
+export function istGeheimnis(k: string): boolean {
+  return GEHEIM_FEST.includes(k) || GEHEIM_PRAEFIXE.some((p) => k.startsWith(p));
 }
 
 /** Privater Schluessel (hex): aus dem Tresor, wenn es einen gibt, sonst wie bisher. */
