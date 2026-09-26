@@ -31,6 +31,17 @@
  * Identität übernehmen. Deshalb gehört die Erklärung nicht auf dasselbe
  * Gerät. Und: Wer den Widerruf nie vorbereitet hat, kann nach einem Diebstahl
  * nichts mehr tun. Das steht im Hinweistext, nicht im Kleingedruckten.
+ *
+ * ZWEI LÜCKEN, DIE 8.6a SCHLIESST (Entscheidung MENSCH 26.09.2026)
+ * 1. Das Mandat war ein ersetzbares Event mit festem d-Tag („rotation“) –
+ *    ein Dieb mit dem alten Schlüssel konnte es auf den Relays durch sein
+ *    eigenes ERSETZEN. Seit 8.6a hat jedes Mandat seine eigene Adresse
+ *    (`rotation:<nachfolger>`); ein zweites ersetzt das erste nicht mehr.
+ * 2. `created_at` setzt der Absender selbst – ein Dieb kann sein Mandat
+ *    zurückdatieren. Die Apps der Kontakte merken sich deshalb das ERSTE
+ *    Mandat, das sie zu einer Person sehen (`merkeMandate`), und `resolveKey`
+ *    nimmt dieses statt des ältesten Zeitstempels. Wer das echte Mandat nie
+ *    gesehen hat, ist erst mit Zeitzeugen (5.10) geschützt.
  */
 import { NostrEvent, UnsignedEvent, buildEvent, getTag } from "./event.js";
 
@@ -67,10 +78,41 @@ export function buildRotationMandate(
   return buildEvent(
     oldPubkey,
     KIND_ROTATION_MANDATE,
-    [["d", "rotation"], ["p", newPubkey, "", "successor"]],
+    // Eigene Adresse je Nachfolger (8.6a) – ein spaeteres Mandat ersetzt dieses nicht.
+    [["d", `rotation:${newPubkey}`], ["p", newPubkey, "", "successor"]],
     "",
     createdAt,
   );
+}
+
+/** Zuerst gesehene Mandate: alter Schluessel → Nachfolger und wann gesehen. */
+export type GemerkteMandate = Record<string, { neu: string; gesehen: number }>;
+
+/**
+ * Mandate merken (8.6a): je altem Schluessel nur das erste, das diese App
+ * sieht – spaetere oder zurueckdatierte aendern nichts mehr. Liefert eine
+ * neue Karte und ob sie sich geaendert hat.
+ */
+export function merkeMandate(
+  bekannt: GemerkteMandate, events: readonly NostrEvent[], nowSecs = Math.floor(Date.now() / 1000),
+): { gemerkt: GemerkteMandate; neu: boolean } {
+  const gemerkt: GemerkteMandate = { ...bekannt };
+  let neu = false;
+  // Kommen mehrere zugleich zum ersten Mal, entscheidet mangels Besserem der Zeitstempel (bis 5.10).
+  const kandidaten = new Map<string, RotationMandate>();
+  for (const ev of events) {
+    if (ev.kind !== KIND_ROTATION_MANDATE) continue;
+    let m: RotationMandate;
+    try { m = parseRotationMandate(ev); } catch { continue; }
+    if (gemerkt[m.oldPubkey]) continue;
+    const k = kandidaten.get(m.oldPubkey);
+    if (!k || m.createdAt < k.createdAt) kandidaten.set(m.oldPubkey, m);
+  }
+  for (const m of kandidaten.values()) {
+    gemerkt[m.oldPubkey] = { neu: m.newPubkey, gesehen: nowSecs };
+    neu = true;
+  }
+  return { gemerkt, neu };
 }
 
 export function parseRotationMandate(ev: NostrEvent): RotationMandate {
@@ -145,6 +187,8 @@ export interface RotationOptions {
   /** Höchstlänge der Kette. Ohne Grenze wäre eine Schleife eine Endlosschleife. */
   maxChain?: number;
   nowSecs?: number;
+  /** Zuerst gesehene Mandate (8.6a) – haben Vorrang vor dem ältesten Zeitstempel. */
+  gemerkt?: GemerkteMandate;
 }
 
 /**
@@ -172,8 +216,16 @@ export function resolveKey(
     } catch {
       continue;
     }
+    // Ein gemerktes Mandat gilt; andere fuer denselben Schluessel werden ignoriert (8.6a)
+    const fest = opts.gemerkt?.[m.oldPubkey];
+    if (fest && fest.neu !== m.newPubkey) continue;
     const bisher = mandate.get(m.oldPubkey);
     if (!bisher || m.createdAt < bisher.createdAt) mandate.set(m.oldPubkey, m);
+  }
+  // Gemerkte Mandate gelten auch, wenn die Relays das Event nicht mehr liefern –
+  // die App hat es gesehen und geprueft, als es kam.
+  for (const [alt, fest] of Object.entries(opts.gemerkt ?? {})) {
+    if (!mandate.has(alt)) mandate.set(alt, { oldPubkey: alt, newPubkey: fest.neu, createdAt: fest.gesehen });
   }
 
   const widerrufe = new Map<string, Revocation>();
@@ -294,6 +346,10 @@ export function rotationWarning(): string {
     "",
     "Ohne diese Vorbereitung gilt: Wer deinen Schlüssel stiehlt, ist",
     "dauerhaft du — und du hast keine Möglichkeit zu widersprechen.",
+    "",
+    "Die Grenze: Die Apps deiner Kontakte merken sich diese Erklärung, sobald",
+    "sie sie sehen. Wer sie vor einem Diebstahl nie gesehen hat, kann auf eine",
+    "zurückdatierte des Diebs hereinfallen – bis es Zeitzeugen gibt.",
   ].join("\n");
 }
 

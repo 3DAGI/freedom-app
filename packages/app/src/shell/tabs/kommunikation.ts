@@ -4,7 +4,7 @@
  *
  * Aus app.ts verschoben (Schritt 1.0) – wörtlich, ohne Logikänderung.
  */
-import { type DateiSchluessel, NostrEvent, type PrivateDm, buildEvent } from "@freedomstack/protocol";
+import { type DateiSchluessel, type KeyState, NostrEvent, type PrivateDm, buildEvent } from "@freedomstack/protocol";
 import {
   type ChatAttachment,
   escapeHtml,
@@ -17,6 +17,7 @@ import {
 import { aktuellerKurs } from "../marktkurs.js";
 import { eigeneRelayListen, ensurePool, signiere, solRpcUrl, solTransaktion, state, veroeffentlicheAn } from "../state.js";
 import { alsNachfolge } from "../nachfolge-ui.js";
+import { LS_MANDATE, leseGemerkt, nachDiebstahl, pruefeKontakte, warnt } from "../../schluessel-status.js";
 import { sucheAufnehmen, wireSuche } from "../suche-ui.js";
 import { geheim } from "../tresor.js";
 import { $, toast } from "../ui.js";
@@ -775,6 +776,7 @@ export function loadChatList(): void {
       </div>`,
     )
     .join("");
+  markiereSchluessel(list);
   list.querySelectorAll(".chat-item").forEach((el) => {
     el.addEventListener("click", () => openConversation((el as HTMLElement).dataset.cid!));
     // Rechtsklick vergibt einen eigenen Namen. Er gilt nur lokal und kann
@@ -1033,9 +1035,85 @@ async function syncDmInbox(): Promise<void> {
       saveConversations();
       loadChatList();
     }
+    await aktualisiereSchluessel();
   } catch {
     /* offline */
   }
+}
+
+// ------------------------------------------------ Schluesselwechsel (8.6a)
+
+/** Stand der Schluessel meiner Kontakte (gueltig, abgeloest, widerrufen, streitig). */
+let schluesselStand = new Map<string, KeyState>();
+
+/** Mandate und Widerrufe der Kontakte laden, erste Mandate merken, Ansicht auffrischen. */
+async function aktualisiereSchluessel(): Promise<void> {
+  const kontakte = conversations.filter((c) => c.type === "dm").map((c) => c.id).filter((id) => /^[0-9a-f]{64}$/.test(id));
+  if (kontakte.length === 0) return;
+  const pool = await ensurePool();
+  const { KIND_ROTATION_MANDATE, KIND_KEY_REVOCATION } = await import("@freedomstack/protocol");
+  const [mandate, widerrufe] = await Promise.all([
+    pool.query({ kinds: [KIND_ROTATION_MANDATE], authors: kontakte, limit: 200 }),
+    pool.query({ kinds: [KIND_KEY_REVOCATION], "#p": kontakte, limit: 200 }),
+  ]);
+  const r = pruefeKontakte(kontakte, [...mandate, ...widerrufe], leseGemerkt(geheim.getItem(LS_MANDATE)));
+  if (r.geaendert) await geheim.setItem(LS_MANDATE, JSON.stringify(r.gemerkt)).catch(() => undefined);
+  const vorher = JSON.stringify([...schluesselStand].map(([k, v]) => [k, v.status, v.currentPubkey]));
+  schluesselStand = r.stand;
+  if (JSON.stringify([...schluesselStand].map(([k, v]) => [k, v.status, v.currentPubkey])) === vorher) return;
+  loadChatList();
+  if (activeConversation && schluesselStand.has(activeConversation)) void loadChatMessages(activeConversation);
+}
+
+/** ⚠ vor Kontakten, deren Schluessel nicht mehr (unstreitig) gilt – per textContent. */
+function markiereSchluessel(list: HTMLElement): void {
+  for (const [pk, st] of schluesselStand) {
+    if (!warnt(st)) continue;
+    const el = list.querySelector<HTMLElement>(`[data-cid="${CSS.escape(pk)}"]`);
+    const lbl = el?.querySelector<HTMLElement>(".label");
+    if (!el || !lbl || el.querySelector(".schluessel-warnung")) continue;
+    el.title = st.message;
+    // Eigenes Element: die Namensaufloesung ueberschreibt spaeter den Text des Labels
+    const w = document.createElement("span");
+    w.className = "schluessel-warnung warn";
+    w.textContent = "⚠";
+    lbl.before(w);
+  }
+}
+
+/** Hinweis ueber dem Verlauf: Stand des Schluessels, auf Wunsch zum Nachfolger wechseln. */
+function schluesselHinweis(thread: HTMLElement, partner: string): void {
+  const st = schluesselStand.get(partner);
+  if (!warnt(st)) return;
+  const box = document.createElement("div");
+  box.className = "bubble ai schluessel-hinweis";
+  const text = document.createElement("div");
+  text.className = "txt mono-sm warn";
+  text.textContent = `⚠ ${st!.message}`;
+  box.append(text);
+  if ((st!.status === "widerrufen" || st!.status === "abgeloest") && st!.currentPubkey !== partner) {
+    const b = document.createElement("button");
+    b.className = "ghost";
+    b.id = "schluessel-wechsel";
+    b.style.cssText = "width:auto;padding:3px 8px;margin-top:6px";
+    b.textContent = `zum neuen Schlüssel wechseln (${pkShort(st!.currentPubkey)})`;
+    b.addEventListener("click", () => wechsleZuNeuemSchluessel(partner, st!.currentPubkey));
+    box.append(b);
+  }
+  thread.prepend(box);
+}
+
+/** Die Unterhaltung mit dem Nachfolger weiterfuehren; die alte bleibt markiert stehen. */
+function wechsleZuNeuemSchluessel(alt: string, neu: string): void {
+  if (!/^[0-9a-f]{64}$/.test(neu)) return;
+  const c = conversations.find((x) => x.id === alt);
+  if (!conversations.some((x) => x.id === neu)) {
+    conversations.push({ id: neu, type: "dm", name: c?.name.replace(/^\(alter Schlüssel\) /, "") ?? pkShort(neu), lastTs: Math.floor(Date.now() / 1000), ...(c?.ablaufSecs ? { ablaufSecs: c.ablaufSecs } : {}) });
+  }
+  if (c && !c.name.startsWith("(alter Schlüssel) ")) c.name = `(alter Schlüssel) ${c.name}`;
+  saveConversations();
+  toast(`Weiter mit dem neuen Schlüssel ${pkShort(neu)} – die alte Unterhaltung bleibt markiert`);
+  openConversation(neu);
 }
 
 export async function loadChatMessages(cid: string): Promise<void> {
@@ -1101,12 +1179,17 @@ export async function loadChatMessages(cid: string): Promise<void> {
             `style="width:auto;padding:2px 6px;font-size:10px">trotzdem zeigen</button></div></div>`;
         }
         const zapBtn = !mine && c.type === "dm" ? `<button class="zap-msg-btn" data-pk="${escapeHtml(ev.pubkey)}" data-name="${escapeHtml(pkShort(ev.pubkey))}" title="zap senden">⚡</button>` : "";
+        // Nach dem Diebstahl (8.6a): nicht glauben, dass es von dieser Person ist
+        const diebstahl = c.type === "dm" && nachDiebstahl(ev, schluesselStand.get(c.id))
+          ? ` <span class="mono-sm warn" title="nach dem gemeldeten Diebstahl des Schlüssels">· ⚠ vielleicht nicht von dieser Person</span>`
+          : "";
         const alt = (ev as DmAnzeige).legacy
           ? ` <span class="mono-sm" title="ältere Verschlüsselung (Kind 4): Relays sehen Absender und Empfänger">· alt</span>`
           : "";
-        return `<div class="bubble ${mine ? "user" : "ai"}"><div class="who">${mine ? "du" : escapeHtml(pkShort(ev.pubkey))}${alt}${zapBtn}</div><div class="txt">${body}${media}</div></div>`;
+        return `<div class="bubble ${mine ? "user" : "ai"}"><div class="who">${mine ? "du" : escapeHtml(pkShort(ev.pubkey))}${alt}${diebstahl}${zapBtn}</div><div class="txt">${body}${media}</div></div>`;
       })
       .join("");
+    if (c.type === "dm") schluesselHinweis(thread, c.id);
     thread.scrollTop = thread.scrollHeight;
     wireBlobButtons(thread);
     thread.querySelectorAll(".show-anyway").forEach((b) => {

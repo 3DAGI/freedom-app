@@ -41,9 +41,9 @@ python3 scripts/smoke_test.py packages/app/dist         # braucht playwright + c
 bash scripts/build-site.sh /tmp/site                     # Website bauen (Ziel wird gelöscht!)
 ```
 
-Stand 26.09.2026 (nach 8.7): protocol 1117 grün (6 übersprungen), node 226 grün
+Stand 26.09.2026 (nach 8.6a): protocol 1122 grün (6 übersprungen), node 226 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 332 grün, Leak-Tests 48 grün + 2 `todo` (heutige Lecks,
+in `tools.test.ts`), app 335 grün, Leak-Tests 48 grün + 2 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
 Ausnahme: gesendete SOL-Zahlungen von frischen Adressen, eine bewusste Grenze
 nach Entscheidung 4.9 A – im Datenschutzbericht unter „Bewusste Grenzen“).
@@ -272,3 +272,8 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   Netz nur über `safeFetch` + `leseBegrenzt`. Private Adressen nur mit
   `isPrivateAddress()` aus dem Protokoll prüfen – `new URL` schreibt
   IPv4-in-IPv6 als Hex (`[::ffff:7f00:1]`), eine Suche nach Punkten übersieht das.
+- **Schlüsselwechsel nur mit gemerktem Mandat** (seit 8.6a): Stand eines
+  Kontakts nur über `pruefeKontakte()`/`resolveKey(…, { gemerkt })` – das
+  zuerst gesehene Mandat gilt (`merkeMandate()`, Gedächtnis `freedom.mandate`
+  im Tresor), nie das mit dem ältesten Zeitstempel allein. Mandate haben eine
+  Adresse je Nachfolger (`rotation:<neu>`), damit ein Dieb sie nicht ersetzt.
