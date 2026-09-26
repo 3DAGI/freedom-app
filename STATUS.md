@@ -3905,6 +3905,47 @@ Endstand: protocol 1056 · node 214 · app 273 · Leak-Tests 41 grün + 2 todo �
 0 rot · check-wiring `--streng` 0 offen · innerHTML streng 0 unbewertet ·
 Smoke-Test bestanden.
 
+## Schritt 4.9c – Frische Empfangsadressen der eingebauten Wallet
+
+Entscheidung 4.9 A verlangt frische **Empfangs**adressen. Bis hierhin gab es
+sie nur dem Anschein nach: `startSwap()` schlug „eine frische Adresse Nummer n“
+vor, zeigte aber nur ihren Fingerabdruck (HKDF aus dem Nostr-Schlüssel) – die
+Adresse selbst sah niemand, und einlösen hätte die App dorthin nicht können.
+
+**Wallet (`sol-wallet.ts`):** Beim Einrichten leitet sie außer der Hauptadresse
+einen Vorrat von 20 frischen Adressen ab – Phantoms Konten 1–20 aus denselben
+Wörtern (SLIP-10, wie 1.1). Die Wörter bleiben ungespeichert, deshalb ein
+Vorrat statt Ableitung bei Bedarf; `vorratErgaenzen()` leitet mit den Wörtern
+die nächsten ab (auch für Wallets von vor 4.9c) und prüft, dass sie dieselbe
+Wallet ergeben. `frischeAdresse()` vergibt, bevor die Adresse herausgeht.
+`signiere()` signiert für jede eigene Adresse, die die Transaktion verlangt.
+`waehleAbsender()` zahlt von einer einzelnen Adresse, die allein reicht und
+danach leer oder mietfrei ist – nie zusammenlegen. Ablage unter
+`freedom.solWallet.vorrat` (fällt unter das Tresor-Präfix).
+
+**App:** Tausch sats → SOL schlägt eine frische Adresse vor (vorbelegt, sonst
+die verbundene Wallet); Einlösen nur mit dem Schlüssel der Empfangsadresse –
+verbundene oder eingebaute Wallet (`eingebauterHtlcSigner`), ohne SOL über
+einen Relayer (4.6f). Vorher versuchte es die App mit jeder verbundenen
+Wallet, auch wenn die Adresse eine andere war. Solana-Schiene: `absender()`
+wählt die Adresse (`rails.ts`, `zahlschienen.ts`). Wallet-Tab: Guthaben über
+alle Adressen („auf N Adressen verteilt“), Vorrat, „frische Adresse“
+(kopieren) und „neue ableiten“. FAQ und Hinweistext angepasst.
+
+**Browser-E2E:** eingebaute Wallet eingerichtet (Tresor, 12 Wörter) → Tausch
+schlägt `Hh8Qw…` vor (Phantoms Konto 1) → versiegelte Anfrage → Sperre an diese
+Adresse → Einlösen über den Relayer, signiert mit ihrem Schlüssel → „Eingelöst“,
+Vorrat 20 → 19; keine eigene Adresse offen auf den Relays.
+
+**Tests:** app 273 → 279 (`sol-wallet-frisch.test.ts` 6), Leak-Tests 41 → 43
+(`leak/sol-empfang.test.ts`: jeder Tausch an eine frische Adresse). Die alte
+HKDF-Ableitung (`deriveSwapAddress`, `addressFingerprint`) ist in der App nicht
+mehr in Gebrauch – begründete Ausnahme in `wiring-ausnahmen.txt`.
+
+Endstand: protocol 1056 · node 214 · app 279 · Leak-Tests 43 grün + 2 todo ·
+0 rot · check-wiring `--streng` 0 offen · innerHTML streng 0 unbewertet ·
+Smoke-Test bestanden.
+
 ## Schritt 7.1a – Mesh nur verschlüsselt, Teil a: Regel, Sendezeit, Planer
 
 Funk hört jeder in Reichweite mit, und ein Sender lässt sich anpeilen. Bisher

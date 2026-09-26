@@ -136,6 +136,12 @@ export interface SolanaWalletZugang {
    * Tageslimit und fragt darueber nach. Externe Wallets fragen selbst.
    */
   freigabe?(lamports: number, ziel: string): Promise<boolean>;
+  /**
+   * Von welcher eigenen Adresse zahlen (4.9c)? Die eingebaute Wallet hat
+   * mehrere (frische Empfangsadressen) und waehlt eine, die den Betrag allein
+   * deckt. Ohne diese Funktion zahlt `adresse`.
+   */
+  absender?(lamports: number): Promise<string>;
 }
 
 export interface SolanaQuellen {
@@ -173,8 +179,10 @@ export class SolanaRail implements PaymentRail {
     const von = w?.adresse;
     if (!w || !von) throw new Error("Keine Solana-Wallet verbunden – im Wallet-Tab verbinden.");
     if (von === a.ziel) throw new Error("Überweisung an sich selbst");
+    const absender = w.absender ? await w.absender(a.betrag.wert) : von;
+    if (absender === a.ziel) throw new Error("Überweisung an sich selbst");
     if (w.freigabe && !(await w.freigabe(a.betrag.wert, a.ziel))) throw new Error("Zahlung nicht freigegeben – nichts gesendet.");
-    const tx = await this.q.baueUeberweisung(von, a.ziel, a.betrag.wert);
+    const tx = await this.q.baueUeberweisung(absender, a.ziel, a.betrag.wert);
     const signature = await w.signiereUndSende(tx);
     if (typeof signature !== "string" || !/^[1-9A-HJ-NP-Za-km-z]{64,90}$/.test(signature)) throw new Error("Wallet lieferte keine gültige Signatur");
     return { rail: this.id, ziel: a.ziel, betrag: a.betrag, ref: signature, zeit: this.q.jetzt?.() ?? Math.floor(Date.now() / 1000) };
