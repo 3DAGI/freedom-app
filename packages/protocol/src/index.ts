@@ -84,6 +84,7 @@ export * from "./succession.js";
 export * from "./nachfolge-anteile.js";
 export * from "./adressbereich.js";
 export * from "./geraete-post.js";
+export * from "./lnd-macaroon.js";
 export * from "./quests.js";
 export * from "./spaces.js";
 export * from "./badges.js";
