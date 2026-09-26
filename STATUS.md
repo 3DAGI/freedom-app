@@ -3744,3 +3744,40 @@ fremde Umschläge liegen lassen, Angebot, Verdrahtung).
 Endstand: protocol 1045 · node 209 · app 263 · Leak-Tests 37 grün + 4 todo ·
 0 rot · check-wiring `--streng` 0 offen · innerHTML streng 0 unbewertet ·
 Smoke-Test bestanden.
+
+## 96. Swaps in beide Richtungen, Teil f: Einlösen über Relayer in der App (Schritt 4.6 – Code fertig)
+
+**Ablauf (`relay-einloesung.ts`, `einloesenUeberRelayer()` in `tabs/waehrung.ts`):**
+Beim Einlösen fragt die App das Guthaben der Wallet. Unter 10.000 Lamports
+sucht sie Relayer-Angebote (Kind 38032) derselben Kette, je Schlüssel das
+neueste, günstigster zuerst, Erstattung höchstens 50.000 Lamports – und nie den
+LP dieses Swaps, weder über seinen Nostr-Schlüssel noch über sein SOL-Konto
+(er bekäme sonst das Preimage vor der Einlösung). Mindestmiete prüfen, einmal
+zustimmen lassen, Einlösung + Erstattung bauen, die Wallet signiert, die App
+prüft den Auftrag selbst mit `pruefeRelayAuftrag` (sonst legte ein abgelehnter
+Auftrag das Preimage umsonst offen), versiegelt ihn vom Wegwerf-Schlüssel.
+Erledigt ist es erst, wenn die Kette die Signatur bestätigt; bei Ablehnung
+sofort, sonst nach 90 s der nächste Relayer – nur mit mehr als 15 Minuten bis
+`T_sol`. `activeSwap` kennt dafür jetzt LP und Betrag.
+
+**Fehler, den erst der Browser zeigte:** `pruefeRelayAuftrag` las die
+Erstattung mit `readBigUInt64LE` – im Buffer-Polyfill nicht vorhanden, die
+Selbstprüfung der App scheiterte still. Jetzt `DataView`; Test entfernt die
+Methoden wie im Browser. CLAUDE.md: gilt auch für Protokoll-Code, den die App lädt.
+
+**Browser-E2E:** sats → SOL mit leerer Wallet bis zur Einlösung: Dialog „Ein
+Relayer zahlt sie“, genau ein versiegelter Auftrag an den richtigen Relayer –
+der LP, der ebenfalls ein Relayer-Angebot hatte, bekam keinen –, Auftrag besteht
+die Relayer-Prüfung (Einlösung + 10.000 Lamports), nach dem Mitsignieren
+vollständig signiert, Preimage passt zum Hashlock, „Eingeloest“.
+
+**4.6 im Code fertig:** a Protokoll der Gegenrichtung, b LP-Daemon, c App
+SOL → sats und Rückhol-Wächter, d Vorab-Gebühr, e Relayer (Protokoll + Knoten),
+f Einlösen über Relayer. Offen bleiben MENSCH-Aufgaben (Devnet + Polar,
+Relayer betreiben) und die Rechnung in der offenen Anfrage (4.9).
+
+**Tests:** protocol 1045 → 1046, app 263 → 268 (`relay-einloesung.test.ts`).
+
+Endstand: protocol 1046 · node 209 · app 268 · Leak-Tests 37 grün + 4 todo ·
+0 rot · check-wiring `--streng` 0 offen · innerHTML streng 0 unbewertet ·
+Smoke-Test bestanden.

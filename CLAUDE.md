@@ -41,9 +41,9 @@ python3 scripts/smoke_test.py packages/app/dist         # braucht playwright + c
 bash scripts/build-site.sh /tmp/site                     # Website bauen (Ziel wird gelöscht!)
 ```
 
-Stand 26.09.2026 (nach 4.6e): protocol 1045 grün (5 übersprungen), node 209 grün
+Stand 26.09.2026 (nach 4.6f): protocol 1046 grün (5 übersprungen), node 209 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 263 grün, Leak-Tests 37 grün + 4 `todo` (heutige Lecks,
+in `tools.test.ts`), app 268 grün, Leak-Tests 37 grün + 4 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test).
 
 ## Arbeitsweise
@@ -183,7 +183,8 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   Sperre vor dem Anlegen mit `rememberLock()` merken, damit der Rückhol-Wächter sie kennt.
 - **Kein `readBigInt64LE` & Co. in Code, der im Browser läuft:** Das
   Buffer-Polyfill kennt die BigInt-Methoden nicht – `DataView` nehmen
-  (so scheiterte bis 4.6c jede Prüfung einer Sperre in der App).
+  (so scheiterte bis 4.6c jede Prüfung einer Sperre in der App, bis 4.6f die
+  Selbstprüfung eines Relay-Auftrags). Das gilt auch für Protokoll-Code, den die App lädt.
 - **`fetch` nie als Methode speichern** (`this.f = fetch; this.f(…)`): Im Browser
   wirft das „Illegal invocation“, Node merkt es nicht – so scheiterte bis 4.2b
   jede Abfrage des `RpcPool` in der App. Stattdessen `(i, o) => fetch(i, o)`.

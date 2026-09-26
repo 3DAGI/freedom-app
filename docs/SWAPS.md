@@ -1,6 +1,6 @@
 # Swaps zwischen Lightning und Solana
 
-Stand 26.09.2026 (Schritt 4.6e). Atomar über denselben Hash: Wer das Preimage
+Stand 26.09.2026 (Schritt 4.6f). Atomar über denselben Hash: Wer das Preimage
 kennt, kann auf beiden Seiten einlösen; läuft eine Frist ab, geht das Geld an
 den zurück, der gesperrt hat. Niemand verwahrt fremdes Geld.
 
@@ -159,6 +159,16 @@ Einlösung, atomar).
 - **Mindestmiete:** Ein neues Empfängerkonto muss nach Einlösung und
   Erstattung mindestens 890.880 Lamports halten (`mieteReicht`), sonst lehnt
   die Kette die ganze Transaktion ab – die App prüft das vorher (4.6f).
+
+**In der App (4.6f):** Reicht das Guthaben nicht für die Gebühr (unter
+10.000 Lamports), sucht die App Relayer-Angebote derselben Kette – nie den LP
+dieses Swaps (weder seinen Schlüssel noch sein SOL-Konto), Erstattung höchstens
+50.000 Lamports, günstigster zuerst. Sie prüft die Mindestmiete, fragt einmal
+nach Zustimmung, lässt die Wallet Einlösung und Erstattung signieren, prüft den
+Auftrag selbst mit derselben Regel wie der Relayer und schickt ihn versiegelt
+von einem Wegwerf-Schlüssel. Als erledigt gilt erst die Bestätigung auf der
+Kette; lehnt ein Relayer ab oder bleibt es aus, kommt der nächste – nur,
+solange bis `T_sol` noch mehr als 15 Minuten bleiben.
 
 **Risiko, offen benannt:** Der Relayer kennt das Preimage, bevor die Einlösung
 auf der Kette ist. Hält er sie zurück und gibt R dem LP, könnte der LP die
