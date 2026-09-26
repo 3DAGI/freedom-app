@@ -848,8 +848,8 @@ function dmHinweis(c: ChatConversation): string {
       : "");
   }
   return c.mls
-    ? "1:1 — über MLS (Marmot): mit Vorwärtsgeheimnis. Relays sehen nur eine zufällige Gruppen-Id und für jede Nachricht einen neuen Schlüssel. Hat einer von euch Geräte, geht es per NIP-17, damit jedes Gerät die Nachricht bekommt."
-    : `${nip17} Kann der Kontakt MLS und hat keiner von euch Geräte, geht deine nächste Nachricht darüber.`;
+    ? "1:1 — über MLS (Marmot): mit Vorwärtsgeheimnis. Relays sehen nur eine zufällige Gruppen-Id und für jede Nachricht einen neuen Schlüssel. Eure Geräte sind eigene Mitglieder; fehlt einem das KeyPackage, geht die Nachricht per NIP-17, damit jedes Gerät sie bekommt."
+    : `${nip17} Können der Kontakt und eure Geräte MLS, geht deine nächste Nachricht darüber.`;
 }
 
 /** Ablauf-Auswahl (2.5): nur bei DMs, zeigt den Wert der Unterhaltung. */
@@ -987,10 +987,11 @@ const mlsGeprueft = new Set<string>();
 
 /**
  * MLS-Einladung (2.2b-d1) in einem Umschlag, der keine DM ist. Eine
- * 1:1-Gruppe gehoert dann zur Unterhaltung mit dem Einladenden (eine neuere
- * ersetzt die alte); von Fremden wird sie – wie eine NIP-17-Nachricht von
- * ihnen – zur „Anfrage“ (seit d2, sonst ginge ihre erste Nachricht verloren).
- * In der Unterhaltung selbst erscheint nichts.
+ * 1:1-Gruppe gehoert dann zur Unterhaltung mit dem Partner – der Person,
+ * der mit ihren Geraeten alle anderen Mitglieder gehoeren (2.2b-e2; eine
+ * neuere ersetzt die alte); von Fremden wird sie – wie eine NIP-17-Nachricht
+ * von ihnen – zur „Anfrage“ (seit d2, sonst ginge ihre erste Nachricht
+ * verloren). In der Unterhaltung selbst erscheint nichts.
  */
 async function alsMlsEinladung(w: NostrEvent): Promise<null> {
   if (mlsGesperrt() || mlsGeprueft.has(w.id)) return null;
@@ -998,14 +999,14 @@ async function alsMlsEinladung(w: NostrEvent): Promise<null> {
   const { oeffneEinladung } = await import("../../mls-nostr.js");
   const e = await oeffneEinladung(w, state.signer!).catch(() => null);
   if (!e || e.von === state.keypair?.pk) return null;
-  const gruppe = await mlsEinladungAnnehmen(e).catch(() => null);
-  if (!gruppe) return null;
-  let c = conversations.find((x) => x.type === "dm" && x.id === e.von);
+  const r = await mlsEinladungAnnehmen(e).catch(() => null);
+  if (!r) return null;
+  let c = conversations.find((x) => x.type === "dm" && x.id === r.partner);
   if (!c) {
-    c = { id: e.von, type: "dm", name: "Anfrage · " + pkShort(e.von), lastTs: Math.floor(Date.now() / 1000) };
+    c = { id: r.partner, type: "dm", name: "Anfrage · " + pkShort(r.partner), lastTs: Math.floor(Date.now() / 1000) };
     conversations.push(c);
   }
-  c.mls = gruppe;
+  c.mls = r.gruppe;
   saveConversations();
   loadChatList();
   return null;
@@ -1033,11 +1034,19 @@ async function ladeDmNachrichten(partner: string): Promise<DmAnzeige[]> {
     // Abgelaufene Nachrichten (NIP-40) zeigt die App nicht mehr – auch wenn ein Relay sie noch hat.
     if (e && e.partner === partner && !dmAbgelaufen(e.dm)) ergebnis.set(e.ev.id, e.ev);
   }
-  // MLS (2.2b-d1): aus dem Verlauf auf diesem Geraet – nur von uns beiden
+  // MLS (2.2b-d1): aus dem Verlauf auf diesem Geraet – nur von uns beiden. Seit
+  // 2.2b-e2 auch von Geraeten: zugeordnet wie NIP-17-Kopien (Vollmacht, Entzug)
   const gruppe = conversations.find((c) => c.type === "dm" && c.id === partner)?.mls;
+  const ich = sprichtFuer() ?? me.pk;
+  const istKontakt = (pk: string) => conversations.some((c) => c.type === "dm" && c.id === pk);
   for (const n of gruppe ? await mlsVerlauf(gruppe).catch(() => []) : []) {
-    if (n.von !== partner && n.von !== me.pk) continue;
-    ergebnis.set(`mls:${n.id}`, { id: `mls:${n.id}`, pubkey: n.von, created_at: n.zeit, kind: 445, tags: [], content: n.text, sig: "", mls: true });
+    const dm = { id: n.id, from: n.von, partner, createdAt: n.zeit, content: n.text };
+    const z = await ordneDmZu(dm, ich, geraeteBuch, istKontakt, me.pk).catch(() => null);
+    if (!z || z.partner !== partner) continue;
+    ergebnis.set(`mls:${n.id}`, {
+      id: `mls:${n.id}`, pubkey: z.autor, created_at: n.zeit, kind: 445, tags: [], content: n.text, sig: "", mls: true,
+      ...(z.hinweis ? { geraet: { text: z.hinweis, warnung: !!z.warnung } } : {}),
+    });
   }
   for (const ev of alt) {
     // Nur Nachrichten zwischen genau uns beiden – nicht die des Partners an Dritte.
@@ -1355,19 +1364,15 @@ export async function sendChatMessage(): Promise<void> {
 /**
  * 1:1 ueber MLS (2.2b-d2), wenn der Kontakt es kann (KeyPackage). Mit Ablauf
  * (2.5) bleibt es bei NIP-17 – den traegt MLS hier nicht; ebenso mit Bunker
- * und ohne Tresor (2.2b-e1). false: der Chat sendet per NIP-17.
+ * und ohne Tresor (2.2b-e1). Geraete beider Seiten sind seit 2.2b-e2 eigene
+ * Mitglieder; laesst sich die Gruppe nicht auf alle bringen, geht die Nachricht
+ * per NIP-17 an jedes Geraet. false: der Chat sendet per NIP-17.
  */
 async function sendeUeberMls(c: ChatConversation, inhalt: string): Promise<boolean> {
   if (c.ablaufSecs || mlsGesperrt()) return false;
-  // Geraete (8.6b) bekommen ihre Kopie nur per NIP-17 – in der MLS-Gruppe sind sie
-  // (bis 2.2b-e2) nicht. Hat eine Seite Geraete oder ist das unklar: NIP-17.
-  const ich = sprichtFuer() ?? state.keypair!.pk;
-  const geraete = await Promise.all([c.id, ich].map((pk) => geraeteBuch.kopienFuer(pk).catch(() => null)));
-  if (geraete.some((g) => g === null || g.length > 0)) return false;
-  const gruppe = await mlsSendeAn(c.id, c.mls, inhalt).catch(() => null);
-  if (!gruppe) return false;
-  c.mls = gruppe;
-  return true;
+  const r = await mlsSendeAn(c.id, c.mls, inhalt).catch(() => null);
+  if (r?.gruppe) c.mls = r.gruppe;
+  return !!r?.gesendet;
 }
 
 export async function newDm(): Promise<void> {

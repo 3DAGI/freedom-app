@@ -9,8 +9,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { schnorr } from "@noble/curves/secp256k1.js";
-import { LocalSigner, fromHex, generateKeypair, toHex, type NostrEvent, type RelayFilter, type Signer } from "@freedomstack/protocol";
-import { Mls } from "@freedomstack/mls";
+import { LocalSigner, buildDeviceGrant, buildDeviceRevoke, fromHex, generateKeypair, signEvent, toHex, type NostrEvent, type RelayFilter, type Signer } from "@freedomstack/protocol";
+import { Mls, type MlsNachricht } from "@freedomstack/mls";
 
 // tresor.ts liest localStorage beim Laden – vor dem Import bereitstellen.
 const ls = new Map<string, string>();
@@ -23,10 +23,11 @@ const { setzeIdentitaet, setzeSigner } = await import("../src/shell/state.js");
 const { LS_MLS_EINLADUNGEN, LS_MLS_IDENTITAET, mlsAbgleichen, mlsEinladungAnnehmen, mlsErreichbar, mlsGesperrt, mlsKonto, mlsSendeAn, mlsVerlauf } =
   await import("../src/shell/mls-konto.js");
 const { LS_MLS_KP, LS_MLS_PLATZ, sucheKeyPackages, veroeffentlicheKeyPackage } = await import("../src/mls-keypackage.js");
-const { empfangeGruppe, gruendeGruppe, gruppenAbos, nimmEinladungAn, oeffneEinladung, sendeInGruppe } = await import("../src/mls-nostr.js");
+const { empfangeGruppe, gruendeGruppe, gruppenAbos, nimmEinladungAn, oeffneEinladung, schreiteFort, sendeInGruppe } = await import("../src/mls-nostr.js");
 const { mlsEngine } = await import("../src/mls-engine.js");
 const { SpeicherImRam, createVault, geheimSpeicher } = await import("../src/vault.js");
 const { LS_TRESOR } = await import("../src/shell/tresor.js");
+const { GeraeteBuch } = await import("../src/geraete-buch.js");
 const { LS_EIGENE_RELAYS } = await import("../src/relay-satz.js");
 const { AufzeichnungsRelay } = await import("./leak/aufzeichnung.js");
 
@@ -46,7 +47,9 @@ const zustandRam = new SpeicherImRam();
 const verlaufRam = new SpeicherImRam();
 // Mit Tresor (seit 2.2b-e1 Pflicht): der Schlüssel des Zustands liegt darin
 const tresor = await createVault("passphrase lang genug", new SpeicherImRam());
-const u = { zustand: () => zustandRam, verlauf: () => verlaufRam, frage, netz, geheim: geheimSpeicher(() => tresor, () => true, localStorage) };
+// Vollmachten der Geräte (8.6b) aus demselben Netz
+const buch = new GeraeteBuch((f) => frage(f as RelayFilter));
+const u = { zustand: () => zustandRam, verlauf: () => verlaufRam, frage, netz, geheim: geheimSpeicher(() => tresor, () => true, localStorage), geraete: buch };
 
 const EIGENE = ["wss://ich-eins.test", "wss://ich-zwei.test"];
 const ich = generateKeypair();
@@ -66,7 +69,7 @@ test("Gesperrt: ohne Tresor und mit Bunker – keine Engine, kein Konto; als Ger
   assert.match(mlsGesperrt()!, /nur mit Tresor/);
   assert.equal(mlsKonto(u), null);
   assert.equal(await mlsErreichbar(u), false, "ohne Tresor kein KeyPackage");
-  assert.equal(await mlsSendeAn(bob.pk, undefined, "x", u), null, "ohne Tresor nie über MLS");
+  assert.deepEqual(await mlsSendeAn(bob.pk, undefined, "x", u), { gesendet: false }, "ohne Tresor nie über MLS");
   ls.set(LS_TRESOR, "1");
   assert.equal(mlsGesperrt(), null);
   const fremd = new LocalSigner(generateKeypair().sk);
@@ -94,7 +97,7 @@ test("Einladung eines Kontakts: 1:1-Gruppe angenommen, dieselbe nicht zweimal; N
   const wrap = relay("wss://eingang-ich.test").gesendet.at(-1)!;
   const { state } = await import("../src/shell/state.js");
   const e = (await oeffneEinladung(wrap, state.signer!))!;
-  assert.equal(await mlsEinladungAnnehmen(e, u), g.gruppe);
+  assert.deepEqual(await mlsEinladungAnnehmen(e, u), { gruppe: g.gruppe, partner: bob.pk });
   assert.equal(await mlsEinladungAnnehmen(e, u), null, "schon bearbeitet – kein zweiter Versuch, keine Engine");
   assert.ok(JSON.parse(ls.get(LS_MLS_EINLADUNGEN)!).includes(wrap.id));
   assert.equal(ls.get(LS_MLS_KP), undefined, "KeyPackage verbraucht – beim nächsten Öffnen neu");
@@ -135,7 +138,7 @@ test("Andere Identität: alter Stand, Platz und KeyPackage verworfen – nie unt
 
 test("Senden (2.2b-d2): ohne KeyPackage des Kontakts null (Rückfall NIP-17); mit – Gruppe gegründet, Nachricht nur an die Gruppen-Relays, eigene im Verlauf; die Gruppe wird wiederverwendet", async () => {
   const dora = kontakt("dora");
-  assert.equal(await mlsSendeAn(dora.pk, undefined, "hallo", u), null, "kein KeyPackage");
+  assert.deepEqual(await mlsSendeAn(dora.pk, undefined, "hallo", u), { gesendet: false }, "kein KeyPackage");
   // Dora: NIP-65-Liste und KeyPackage an ihre Schreib-Relays
   const schreib = "wss://schreib-dora.test";
   await netz.sendeAn(await dora.signer.signEvent({ pubkey: dora.pk, created_at: Math.floor(Date.now() / 1000), kind: 10002, tags: [["r", schreib]], content: "" }), [schreib]);
@@ -143,14 +146,14 @@ test("Senden (2.2b-d2): ohne KeyPackage des Kontakts null (Rückfall NIP-17); mi
   await veroeffentlicheKeyPackage({ mls: dora.mls, signer: dora.signer, speicher: leer, sichern: dora.sichern, senden: (ev) => netz.sendeAn(ev, [schreib]) });
 
   const vorher = EIGENE.map((r) => relay(r).gesendet.length);
-  const g = await mlsSendeAn(dora.pk, undefined, "erste über MLS", u);
-  assert.ok(g, "Gruppe gegründet");
+  const { gruppe: g, gesendet } = await mlsSendeAn(dora.pk, undefined, "erste über MLS", u);
+  assert.ok(g && gesendet, "Gruppe gegründet");
   const wrap = relay("wss://eingang-dora.test").gesendet.at(-1)!;
   assert.equal(wrap.kind, 1059, "Einladung an Doras Posteingang");
   const nachrichten = EIGENE.flatMap((r, i) => relay(r).gesendet.slice(vorher[i]).filter((e) => e.kind === 445));
   assert.equal(new Set(nachrichten.map((e) => e.id)).size, 1, "eine Nachricht an die Gruppen-Relays (eigener Satz)");
   assert.deepEqual((await mlsVerlauf(g!, u)).map((n) => n.text), ["erste über MLS"], "eigene Nachricht im Verlauf");
-  assert.equal(await mlsSendeAn(dora.pk, g!, "zweite", u), g, "dieselbe Gruppe");
+  assert.deepEqual(await mlsSendeAn(dora.pk, g!, "zweite", u), { gruppe: g, gesendet: true }, "dieselbe Gruppe");
 
   // Dora liest beide
   const e = (await oeffneEinladung(wrap, dora.signer))!;
@@ -182,3 +185,117 @@ test("Als Gerät (2.2b-e1): eigenes Konto unter dem Geräteschlüssel; KeyPackag
   assert.equal((await sucheKeyPackages({ pk: geraet.pk, abfrage: frage })).length, 1, "auffindbar");
   setzeIdentitaet(ich.sk);
 });
+
+// ---- 2.2b-e2: Gruppen mit Geräten (Entscheidung A) -----------------------
+
+const VOLLMACHTEN = "wss://vollmachten.test";
+const jetzt = () => Math.floor(Date.now() / 1000);
+const leerSpeicher = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
+async function vollmacht(person: { sk: Uint8Array; pk: string }, geraet: string) {
+  await netz.sendeAn(signEvent(buildDeviceGrant({ ownerPubkey: person.pk, devicePubkey: geraet, label: "Handy", permissions: ["nachrichten"], expiresAt: jetzt() + 86_400 }, jetzt() - 100), person.sk), [VOLLMACHTEN]);
+  buch.vergiss(person.pk);
+}
+async function nip65(person: { sk: Uint8Array; pk: string }, schreib: string) {
+  await netz.sendeAn(signEvent({ pubkey: person.pk, created_at: jetzt(), kind: 10002, tags: [["r", schreib, "write"]], content: "" }, person.sk), [schreib]);
+}
+/** Ein Gerät mit eigenem Mls (ohne eigenen Posteingang), KeyPackage an `schreib`. */
+async function mitKeyPackage(schreib: string) {
+  const kp = generateKeypair();
+  const signer = new LocalSigner(kp.sk);
+  const x = { pk: kp.pk, sk: kp.sk, signer, mls: new Mls(signer, (id) => toHex(schnorr.sign(fromHex(id), kp.sk))), sichern: async () => {} };
+  await veroeffentlicheKeyPackage({ mls: x.mls, signer: x.signer, speicher: leerSpeicher, sichern: x.sichern, senden: (ev) => netz.sendeAn(ev, [schreib]) });
+  return x;
+}
+/** Alles lesen, was an den Gruppen-Relays liegt – in der Reihenfolge des Sendens. */
+async function liesMit(p: { mls: Mls; sichern: () => Promise<void> }): Promise<string[]> {
+  const texte: string[] = [];
+  const merken = async (n: MlsNachricht[]) => { texte.push(...n.map((x) => x.text)); };
+  const evs = EIGENE.flatMap((r) => relay(r).gesendet).filter((e) => e.kind === 445);
+  for (const ev of [...new Map(evs.map((x) => [x.id, x])).values()]) await empfangeGruppe({ mls: p.mls, sichern: p.sichern, ev, merken }).catch(() => null);
+  for (const g of p.mls.gruppen()) {
+    const w = p.mls.wartezeit(g);
+    if (w !== undefined) {
+      await new Promise((r) => setTimeout(r, w + 20));
+      await schreiteFort({ mls: p.mls, netz, sichern: p.sichern, gruppe: g, merken }).catch(() => null);
+    }
+  }
+  return texte;
+}
+const einladungAn = (pk: string, eingang: string) => relay(eingang).gesendet.filter((w) => w.kind === 1059 && w.tags.some((t) => t[0] === "p" && t[1] === pk)).at(-1);
+
+const ICH = generateKeypair();
+const CLEO = generateKeypair();
+let cleoGruppe = "";
+let cleoHandy: Awaited<ReturnType<typeof mitKeyPackage>>;
+
+test("2.2b-e2: Gründen mit den Geräten beider Seiten – alle Admin, Einladungen an Geräte an den Posteingang ihrer Person, jedes Gerät liest", async () => {
+  setzeIdentitaet(ICH.sk);
+  eingaenge.set(ICH.pk, ["wss://eingang-ich2.test"]);
+  eingaenge.set(CLEO.pk, ["wss://eingang-cleo.test"]);
+  await nip65(ICH, "wss://schreib-ich.test");
+  await nip65(CLEO, "wss://schreib-cleo.test");
+  const meinHandy = await mitKeyPackage("wss://schreib-ich.test");
+  cleoHandy = await mitKeyPackage("wss://schreib-cleo.test");
+  const cleo = { pk: CLEO.pk, signer: new LocalSigner(CLEO.sk), mls: new Mls(new LocalSigner(CLEO.sk), (id) => toHex(schnorr.sign(fromHex(id), CLEO.sk))), sichern: async () => {} };
+  await veroeffentlicheKeyPackage({ mls: cleo.mls, signer: cleo.signer, speicher: leerSpeicher, sichern: cleo.sichern, senden: (ev) => netz.sendeAn(ev, ["wss://schreib-cleo.test"]) });
+  await vollmacht(ICH, meinHandy.pk);
+  await vollmacht(CLEO, cleoHandy.pk);
+
+  const r = await mlsSendeAn(CLEO.pk, undefined, "an alle Geräte", u);
+  assert.ok(r.gruppe && r.gesendet);
+  cleoGruppe = r.gruppe;
+  const { mls } = await mlsKonto(u)!;
+  const alle = [ICH.pk, meinHandy.pk, CLEO.pk, cleoHandy.pk].sort();
+  assert.deepEqual(mls.mitglieder(cleoGruppe).sort(), alle);
+  assert.deepEqual(mls.admins(cleoGruppe).sort(), alle, "jede Seite darf eigene Geräte aufnehmen und entzogene entfernen");
+  // Geräte haben keinen eigenen Posteingang: ihre Einladung liegt bei der Person
+  for (const [geraet, eingang] of [[meinHandy, "wss://eingang-ich2.test"], [cleoHandy, "wss://eingang-cleo.test"]] as const) {
+    const wrap = einladungAn(geraet.pk, eingang);
+    assert.ok(wrap, "Einladung an den Posteingang der Person");
+    assert.deepEqual(wrap!.tags.filter((t) => t[0] === "p").map((t) => t[1]), [geraet.pk], "adressiert nur an das Gerät");
+    assert.ok(![ICH.pk, CLEO.pk].includes(wrap!.pubkey), "Umschlag von einem Wegwerf-Schlüssel");
+    await nimmEinladungAn({ mls: geraet.mls, sichern: geraet.sichern, speicher: leerSpeicher, einladung: (await oeffneEinladung(wrap!, geraet.signer))! });
+    assert.deepEqual(await liesMit(geraet), ["an alle Geräte"]);
+  }
+});
+
+test("2.2b-e2: Entzug entfernt das Gerät vor der nächsten Nachricht; ein neues Gerät wird eingeladen; eins ohne KeyPackage → NIP-17, Gruppe bleibt", async () => {
+  const { mls } = await mlsKonto(u)!;
+  await netz.sendeAn(signEvent(buildDeviceRevoke(CLEO.pk, cleoHandy.pk, "verloren", jetzt()), CLEO.sk), [VOLLMACHTEN]);
+  buch.vergiss(CLEO.pk);
+  assert.deepEqual(await mlsSendeAn(CLEO.pk, cleoGruppe, "nach dem Entzug", u), { gruppe: cleoGruppe, gesendet: true });
+  assert.ok(!mls.mitglieder(cleoGruppe).includes(cleoHandy.pk), "entzogenes Gerät entfernt");
+  assert.deepEqual(await liesMit(cleoHandy), [], "und liest nichts mehr");
+
+  const neu = await mitKeyPackage("wss://schreib-cleo.test");
+  await vollmacht(CLEO, neu.pk);
+  assert.deepEqual(await mlsSendeAn(CLEO.pk, cleoGruppe, "mit dem neuen", u), { gruppe: cleoGruppe, gesendet: true });
+  assert.ok(mls.mitglieder(cleoGruppe).includes(neu.pk));
+  const wrap = einladungAn(neu.pk, "wss://eingang-cleo.test")!;
+  await nimmEinladungAn({ mls: neu.mls, sichern: neu.sichern, speicher: leerSpeicher, einladung: (await oeffneEinladung(wrap, neu.signer))! });
+  assert.deepEqual(await liesMit(neu), ["mit dem neuen"], "ab seinem Beitritt");
+
+  const ohne = generateKeypair();
+  await vollmacht(CLEO, ohne.pk);
+  const vorher = mls.mitglieder(cleoGruppe).sort();
+  assert.deepEqual(await mlsSendeAn(CLEO.pk, cleoGruppe, "per NIP-17", u), { gruppe: cleoGruppe, gesendet: false }, "sonst bekäme dieses Gerät die Nachricht nicht");
+  assert.deepEqual(mls.mitglieder(cleoGruppe).sort(), vorher);
+});
+
+test("2.2b-e2: Einladung mit Geräten ist die Unterhaltung mit der Person; mit einem Fremden keine", async () => {
+  const dana = generateKeypair();
+  const d = { signer: new LocalSigner(dana.sk), mls: new Mls(new LocalSigner(dana.sk), (id) => toHex(schnorr.sign(fromHex(id), dana.sk))), sichern: async () => {} };
+  const danaHandy = await mitKeyPackage("wss://schreib-dana.test");
+  await vollmacht(dana, danaHandy.pk);
+  const fremd = await mitKeyPackage("wss://schreib-fremd.test");
+  await mlsErreichbar(u);
+  for (const [dabei, partner] of [[[danaHandy], dana.pk], [[danaHandy, fremd], null]] as const) {
+    const meine = await sucheKeyPackages({ pk: ICH.pk, abfrage: async (f) => frage(f, EIGENE) });
+    const kps = [meine[0]!, ...(await Promise.all(dabei.map(async (x) => (await sucheKeyPackages({ pk: x.pk, abfrage: frage }))[0]!)))];
+    const g = await d.mls.gruppeAnlegen("", kps, GRUPPE);
+    const e = { von: dana.pk, relays: GRUPPE, wrap: g.einladungen.find((w) => w.tags.some((t) => t[1] === ICH.pk))! };
+    assert.deepEqual(await mlsEinladungAnnehmen(e, u), partner === null ? null : { gruppe: g.gruppe, partner });
+    await mlsErreichbar(u);
+  }
+});
+

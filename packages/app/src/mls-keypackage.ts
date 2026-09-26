@@ -108,9 +108,11 @@ export async function schreibRelaysVon(p: { pk: string; abfrage: Abfrage }): Pro
 /**
  * KeyPackages eines Kontakts suchen: seine NIP-65-Liste lesen, an deren
  * Schreib-Relays Kind 30443 abfragen (ohne Liste: wo `abfrage` sonst sucht).
+ * Für ein Gerät (2.2b-e2): `listeVon` ist die Person – Geräte haben keine
+ * eigene Liste, ihr KeyPackage liegt an den Schreib-Relays der Person.
  */
-export async function sucheKeyPackages(p: { pk: string; abfrage: Abfrage }): Promise<NostrEvent[]> {
-  const urls = await schreibRelaysVon(p);
+export async function sucheKeyPackages(p: { pk: string; listeVon?: string; abfrage: Abfrage }): Promise<NostrEvent[]> {
+  const urls = await schreibRelaysVon({ pk: p.listeVon ?? p.pk, abfrage: p.abfrage });
   const evs = await p.abfrage({ kinds: [KIND_KEY_PACKAGE], authors: [p.pk], limit: 20 }, urls.length > 0 ? urls : undefined);
   return waehleKeyPackages(evs, p.pk);
 }

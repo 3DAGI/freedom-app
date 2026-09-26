@@ -15,14 +15,17 @@
  *
  * Als Gerät (8.6c, seit 2.2b-e1) ist das Konto der Geräteschlüssel – ein
  * eigenes Mitglied (Entscheidung 2.2b-e: A). Sein KeyPackage liegt an den
- * Schreib-Relays der Person; Geräte haben keine eigene Relay-Liste.
+ * Schreib-Relays der Person; Geräte haben keine eigene Relay-Liste. Seit
+ * 2.2b-e2 sind in einer 1:1-Gruppe beide Personen und ihre Geräte mit
+ * gültiger Vollmacht – vor jedem Senden abgeglichen (`mls-geraete.ts`).
  */
 import { schnorr } from "@noble/curves/secp256k1.js";
 import { fromHex, toHex, type NostrEvent, type RelayFilter } from "@freedomstack/protocol";
 import { Mls, type MlsNachricht } from "@freedomstack/mls";
 import { mlsEngine } from "../mls-engine.js";
 import { LS_MLS_KP, LS_MLS_PLATZ, kpErneuern, schreibRelaysVon, sucheKeyPackages, veroeffentlicheKeyPackage } from "../mls-keypackage.js";
-import { empfangeGruppe, gruendeGruppe, gruppenAbos, nimmEinladungAn, schreiteFort, sendeInGruppe, type MlsEinladung, type MlsNetz } from "../mls-nostr.js";
+import { abgleich, partnerDerGruppe, sollMitglieder, type GeraeteQuelle } from "../mls-geraete.js";
+import { aendereGruppe, empfangeGruppe, gruendeGruppe, gruppenAbos, nimmEinladungAn, schreiteFort, sendeInGruppe, type MlsEinladung, type MlsNetz } from "../mls-nostr.js";
 import { MlsVerlauf, MlsZustand, mlsDatenbank, mlsSchluessel, mlsVerlaufDatenbank, type VerlaufEintrag } from "../mls-speicher.js";
 import { ladeEigeneRelays } from "../relay-satz.js";
 import type { GeheimSpeicher, TresorSpeicher } from "../vault.js";
@@ -51,9 +54,14 @@ export interface MlsUmgebung {
   netz: MlsNetz;
   /** Hier liegt der Schlüssel des Zustands – mit Tresor im Tresor. */
   geheim: GeheimSpeicher;
+  /** Vollmachten der Geräte (8.6b) – wer in eine 1:1-Gruppe gehört. */
+  geraete: GeraeteQuelle;
 }
+// Dasselbe Buch wie im Chat (erst beim Aufruf geladen – der Chat lädt dieses Modul)
+const buch = async () => (await import("./tabs/kommunikation.js")).geraeteBuch;
 const APP: MlsUmgebung = {
   zustand: mlsDatenbank, verlauf: mlsVerlaufDatenbank, geheim,
+  geraete: { kopienFuer: async (pk) => (await buch()).kopienFuer(pk), alle: async (pk) => (await buch()).alle(pk) },
   frage: async (f, urls) => (urls ? frageAn(f, urls) : (await ensurePool()).query(f)),
   netz: { sendeAn: veroeffentlicheAn, posteingang: posteingangVon },
 };
@@ -128,10 +136,11 @@ export async function mlsErreichbar(u: MlsUmgebung = APP): Promise<boolean> {
 const alsEintrag = (n: MlsNachricht): VerlaufEintrag => ({ id: n.id, von: n.von, text: n.text, zeit: n.zeit });
 
 /**
- * Einladung eines Kontakts annehmen. Die Gruppe, wenn sie eine 1:1-Gruppe mit
- * ihm ist – sonst null (Gruppen zu mehreren zeigt erst 2.3).
+ * Einladung annehmen. Gruppe und Partner, wenn sie eine 1:1-Gruppe ist – alle
+ * Mitglieder gehören zu mir oder zu genau einer anderen Person (mit ihren
+ * Geräten, 2.2b-e2) –, sonst null (Gruppen zu mehreren zeigt erst 2.3).
  */
-export async function mlsEinladungAnnehmen(e: MlsEinladung, u: MlsUmgebung = APP): Promise<string | null> {
+export async function mlsEinladungAnnehmen(e: MlsEinladung, u: MlsUmgebung = APP): Promise<{ gruppe: string; partner: string } | null> {
   const bearbeitet = JSON.parse(localStorage.getItem(LS_MLS_EINLADUNGEN) ?? "[]") as string[];
   if (bearbeitet.includes(e.wrap.id)) return null;
   localStorage.setItem(LS_MLS_EINLADUNGEN, JSON.stringify([...bearbeitet, e.wrap.id].slice(-200)));
@@ -139,8 +148,8 @@ export async function mlsEinladungAnnehmen(e: MlsEinladung, u: MlsUmgebung = APP
   if (!k) return null;
   const { mls, sichern, pk } = await k;
   const gruppe = await nimmEinladungAn({ mls, sichern, speicher: localStorage, einladung: e });
-  const m = mls.mitglieder(gruppe);
-  return m.length === 2 && m.includes(pk) && m.includes(e.von) ? gruppe : null;
+  const partner = await partnerDerGruppe(mls.mitglieder(gruppe), state.person ?? pk, pk, u.geraete).catch(() => null);
+  return partner ? { gruppe, partner } : null;
 }
 
 /** Nach der Wartezeit zurückgehaltene Nachrichten zustellen. */
@@ -191,31 +200,92 @@ export async function mlsVerlauf(gruppe: string, u: MlsUmgebung = APP): Promise<
   return k ? (await k).verlauf.nachrichten(gruppe) : [];
 }
 
+/** Ergebnis von `mlsSendeAn`: die Gruppe der Unterhaltung (auch wenn es diesmal NIP-17 war) und ob die Nachricht über MLS ging. */
+export interface MlsSendung {
+  gruppe?: string;
+  gesendet: boolean;
+}
+
+type Ablauf = { mls: Mls; netz: MlsNetz; sichern: () => Promise<void> };
+const HEX64 = /^[0-9a-f]{64}$/;
+
+/**
+ * Je Mitglied ein KeyPackage – Geräte an den Schreib-Relays ihrer Person –
+ * und ein Posteingang für die Einladung. Fehlt eins: null (dann NIP-17, damit
+ * jedes Gerät die Nachricht bekommt).
+ */
+async function vorbereiten(mitglieder: readonly string[], soll: ReadonlyMap<string, string>, a: Ablauf, u: MlsUmgebung): Promise<NostrEvent[] | null> {
+  const kps: NostrEvent[] = [];
+  for (const m of mitglieder) {
+    const person = soll.get(m)!;
+    const [kp] = await sucheKeyPackages({ pk: m, ...(person !== m ? { listeVon: person } : {}), abfrage: u.frage }).catch(() => []);
+    if (!kp || (await a.netz.posteingang(m).catch(() => [])).length === 0) return null;
+    kps.push(kp);
+  }
+  return kps;
+}
+
+/** Nicht zugestellte Einladungen: wieder entfernen – Mitglied ist nur, wer seine Einladung bekam. */
+async function ohneUnzugestellte(a: Ablauf, gruppe: string, offen: readonly string[]): Promise<boolean> {
+  if (offen.length === 0) return true;
+  await aendereGruppe({ ...a, gruppe, entfernen: offen.filter((m) => HEX64.test(m)) }).catch(() => undefined);
+  return false;
+}
+
+/**
+ * Gruppe mit dem Soll abgleichen (2.2b-e2): entzogene und fremde Mitglieder
+ * entfernen, fehlende einladen (als Admin). true, wenn danach genau das Soll
+ * Mitglied ist.
+ */
+async function gleicheAb(a: Ablauf, gruppe: string, soll: ReadonlyMap<string, string>, ich: string, u: MlsUmgebung): Promise<boolean> {
+  const { fehlen, zuViel } = abgleich(a.mls.mitglieder(gruppe), soll);
+  if (fehlen.length === 0 && zuViel.length === 0) return true;
+  if (!a.mls.admins(gruppe).includes(ich)) return false;
+  if (zuViel.length > 0 && !(await aendereGruppe({ ...a, gruppe, entfernen: zuViel }).catch(() => null))?.angenommen) return false;
+  if (fehlen.length === 0) return true;
+  const kps = await vorbereiten(fehlen, soll, a, u);
+  if (!kps) return false;
+  const r = await aendereGruppe({ ...a, gruppe, einladen: kps, admins: fehlen }).catch(() => null);
+  return !!r?.angenommen && (await ohneUnzugestellte(a, gruppe, r.nichtZugestellt));
+}
+
 /**
  * 1:1 über MLS senden (2.2b-d2): in die Gruppe der Unterhaltung; gibt es
- * keine, mit dem KeyPackage des Kontakts eine gründen (Einladung an seinen
- * Posteingang). Die Gruppe, wenn die Nachricht angenommen wurde – sonst null,
- * dann sendet der Chat per NIP-17 (Kontakt ohne KeyPackage, keine eigenen
- * Relays, Einladung nicht zustellbar, kein Relay nahm an).
+ * keine, eine gründen. Mitglieder sind beide Personen und ihre Geräte mit
+ * gültiger Vollmacht, alle Admin (2.2b-e2); Einladungen an Geräte gehen an den
+ * Posteingang ihrer Person. Vor dem Senden wird die Gruppe abgeglichen.
+ * `gesendet: false` – dann sendet der Chat per NIP-17: gesperrt, keine
+ * eigenen Relays, ein Mitglied ohne KeyPackage oder Posteingang, Einladung
+ * nicht zustellbar, nicht Admin, kein Relay nahm an, als Gerät ohne gültige
+ * Vollmacht.
  */
-export async function mlsSendeAn(partner: string, gruppe: string | undefined, text: string, u: MlsUmgebung = APP): Promise<string | null> {
+export async function mlsSendeAn(partner: string, gruppe: string | undefined, text: string, u: MlsUmgebung = APP): Promise<MlsSendung> {
   const kl = mlsKonto(u);
-  if (!kl) return null;
+  if (!kl) return { gesendet: false };
   const relays = await eigeneMlsRelays(u);
-  if (relays.length === 0) return null;
+  if (relays.length === 0) return { gesendet: false };
   const k = await kl;
+  const soll = await sollMitglieder(state.person ?? k.pk, partner, u.geraete).catch(() => null);
+  if (!soll?.has(k.pk)) return { gesendet: false };
+  // Einladungen an Geräte gehen an den Posteingang ihrer Person
+  const netz: MlsNetz = { sendeAn: (ev, urls) => k.u.netz.sendeAn(ev, urls), posteingang: (pk) => k.u.netz.posteingang(soll.get(pk) ?? pk) };
+  const a: Ablauf = { mls: k.mls, netz, sichern: k.sichern };
   let g = gruppe && k.mls.gruppen().includes(gruppe) ? gruppe : undefined;
-  if (!g) {
-    for (const kp of await sucheKeyPackages({ pk: partner, abfrage: k.u.frage }).catch(() => [])) {
-      // Beide sind Admin (2.2b-e): Jeder darf eigene Geräte aufnehmen und entzogene entfernen
-      const r = await gruendeGruppe({ mls: k.mls, netz: k.u.netz, sichern: k.sichern, name: "", keyPackages: [kp], relays, admins: [kp.pubkey] }).catch(() => null);
-      if (r && r.nichtZugestellt.length === 0) { g = r.gruppe; break; }
-    }
-    if (!g) return null;
+  if (g) {
+    if (!(await gleicheAb(a, g, soll, k.pk, u))) return { gruppe: g, gesendet: false };
+  } else {
+    const andere = [...soll.keys()].filter((m) => m !== k.pk);
+    const kps = await vorbereiten(andere, soll, a, u);
+    if (!kps) return { gesendet: false };
+    // Alle sind Admin: Jede Seite darf eigene Geräte aufnehmen und entzogene entfernen
+    const r = await gruendeGruppe({ ...a, name: "", keyPackages: kps, relays, admins: andere }).catch(() => null);
+    if (!r) return { gesendet: false };
+    g = r.gruppe;
+    if (!(await ohneUnzugestellte(a, g, r.nichtZugestellt))) return { gruppe: g, gesendet: false };
   }
-  if (!(await sendeInGruppe({ mls: k.mls, netz: k.u.netz, sichern: k.sichern, gruppe: g, text }))) return null;
+  if (!(await sendeInGruppe({ ...a, gruppe: g, text }))) return { gruppe: g, gesendet: false };
   // Eigene Nachrichten entschlüsselt MLS nicht zurück – in den Verlauf, wie gesendet
   k.verlauf.nimmAuf(g, [{ id: `eigen:${toHex(crypto.getRandomValues(new Uint8Array(16)))}`, von: k.pk, text, zeit: Math.floor(Date.now() / 1000) }]);
   await k.verlauf.sichern();
-  return g;
+  return { gruppe: g, gesendet: true };
 }
