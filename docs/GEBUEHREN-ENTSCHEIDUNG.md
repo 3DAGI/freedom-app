@@ -106,70 +106,91 @@ festgeschrieben, der Kanal bleibt einfach.
 
 ## Entscheidung 26.09.2026: A+
 
-Der MENSCH wollte eine Gebühr mit voreingestellter Aufteilung, damit alle Teile
-von FreedomStack belohnt werden – aber ohne Topf, auf den jemand Zugriff hat.
-Ein schlüsselloser Topf löst die Verwahrung, nicht die Verteilung (Umverteilung
-bräuchte Angaben, die die Kette nicht prüfen kann; in Sats gibt es keinen Topf
-ohne Verwahrer). Darum **A+**: Die Anteile gehen **beim Zahlen direkt** an die,
-die den Auftrag getragen haben. Nichts liegt herum, nichts wird verteilt.
-Die Quote hat der MENSCH dem Agenten übertragen („einmalig, für eine effektive
-und stabile Entwicklung“); sie steht hier und gilt ab 5.1.
+Der MENSCH wollte eine Gebühr mit voreingestellter Aufteilung, damit **alle
+Teile** von FreedomStack sofort belohnt werden – Provider, Hosting, Werben,
+Liquidität –, aber ohne Topf, auf den jemand Zugriff hat. Ein schlüsselloser
+Topf löst die Verwahrung, nicht die Verteilung (Umverteilung bräuchte Angaben,
+die die Kette nicht prüfen kann; in Sats gibt es keinen Topf ohne Verwahrer).
+Darum **A+**: Die Anteile gehen **beim Zahlen direkt** an die, die den Auftrag
+getragen haben. Nichts liegt herum, nichts wird verteilt. Die Quote hat der
+MENSCH dem Agenten übertragen („für eine effektive und stabile Entwicklung“).
+
+> **Korrigiert am selben Tag (MENSCH):** Die erste Fassung (95 % Provider, 3 %
+> Entwicklung, 2 % Relays, „keine Werbeprovision“) ließ das Werben weg. Es gibt
+> einen Werbeanteil – die Entscheidung betraf nur „nichts verwahren“. Es gilt
+> die Aufteilung unten.
 
 ### Aufteilung einer KI-Zahlung
 
 | Anteil | Empfänger | Wie |
 |---:|---|---|
-| **95 %** | Provider | wie bisher |
-| **3 %** | Entwicklung | an selbstverwahrte Adressen des Projekts (Lightning über einen eigenen Knoten, z. B. `lnurl-server.ts`; SOL an eine Mehrfachsignatur), im Auftrag offen deklariert |
-| **2 %** | Relays | an die Relays, über die der Auftrag lief und deren Betreiber eine Zahladresse nennt (NIP-11 `pubkey` → Profil), zu gleichen Teilen, höchstens drei |
+| **94 %** | Provider | wie bisher |
+| **2,5 %** | Entwicklung | an selbstverwahrte Adressen des Projekts (Lightning über einen eigenen Knoten, z. B. `lnurl-server.ts`; SOL an eine Mehrfachsignatur), im Auftrag offen deklariert |
+| **1,5 %** | Relays | an die Relays, über die der Auftrag lief und deren Betreiber eine Zahladresse nennt (NIP-11 `pubkey` → Profil), zu gleichen Teilen, höchstens drei |
+| **0,5 %** | Werber des Kunden | wer den Kunden geworben hat (aus dem Einladungslink, nur in der App des Kunden bekannt) |
+| **0,5 %** | Werber des Providers | wer den Provider geworben hat (nennt der Provider in seinem Angebot) |
+| **1 %** | Hosting | der App-Spiegel, von dem die App geladen wurde (Zahladresse im signierten Spiegel-Verzeichnis, 5.3) |
 
 **Warum diese Zahlen:**
-- **Zusammen 5 %, wie bisher** (2,5 % Protokollgebühr + 2,5 % App-Gebühr).
-  Kunden zahlen dasselbe, Provider behalten dieselben 95 %. Nur geht das Geld
-  jetzt direkt an Arbeit statt in einen Topf.
-- **3 % Entwicklung:** eine stetige Einnahme, die mit der Nutzung wächst, ohne
-  Topf und ohne Werbeprovision. Das ist mehr als die bisherige App-Gebühr
-  (2,5 %), weil der Pool wegfällt – Weiterentwicklung, Prüfungen und Betrieb
-  (Website, Spiegel, Test-Knoten) müssen davon leben.
-- **2 % Relays:** Sie tragen jeden Auftrag. Bisher war ihnen nur ein Anteil von
+- **Zusammen 6 %** (bisher 5 %: 2,5 % Protokollgebühr + 2,5 % App-Gebühr).
+  Provider behalten 94 % statt 95 %; dafür geht jeder Anteil direkt an Arbeit
+  statt in einen Topf, und jeder Teil verdient mit.
+- **2,5 % Entwicklung:** so viel wie die bisherige App-Gebühr; eine stetige
+  Einnahme, die mit der Nutzung wächst (Weiterentwicklung, Prüfungen, Betrieb).
+- **1,5 % Relays:** Sie tragen jeden Auftrag. Bisher war ihnen nur ein Anteil von
   15 % am Pool versprochen, der auf Selbstauskünften beruhte und ohne gesetzte
-  Pool-Adresse leer blieb. 2 % je Auftrag sind echtes Geld für echte Zustellung. Wer eigene Relays betreibt (auch ein
-  Provider), verdient mit.
+  Pool-Adresse leer blieb.
+- **1 % Werben** (doppelt so viel wie bisher 0,5 %): je Seite eine Ebene, für
+  jeden Auftrag, solange der Geworbene die App nutzt. Bisher ging der
+  Werbeanteil an **eine** feste Adresse aus der Knoten-Konfiguration
+  (standardmäßig leer) – beim tatsächlichen Werber kam nichts an.
+- **1 % Hosting:** Wer einen Spiegel der App betreibt, verdient an den
+  Aufträgen, die über seinen Spiegel laufen.
 
 ### Regeln
 
-1. **Direkt beim Zahlen, kein Topf.** Bei Lightning zahlt die App jeden Anteil
-   als eigene Rechnung. Bei SOL teilt das Programm des Zahlkanals (4.3) jede
-   Abrechnung selbst auf (`fee_recipients`, fest bei Eröffnung).
-2. **Nicht zuordenbar heißt: an den Provider.** Nennt kein Relay eine
-   Zahladresse, bekommt der Provider die 2 %. Nie an einen Topf und nie an
-   die Entwicklung.
+1. **Direkt beim Zahlen, kein Topf.** Die App des Kunden zahlt jeden Anteil
+   direkt an seinen Empfänger; der Provider bekommt seine 94 %. Bei Lightning
+   ist jeder Anteil eine eigene Zahlung. Bei SOL teilt das Programm des
+   Zahlkanals (4.3) jede Abrechnung selbst auf (`fee_recipients`, fest bei
+   Eröffnung) – sofort und vom Programm erzwungen.
+2. **Nicht zuordenbar heißt: an den Provider.** Fehlt ein Empfänger (kein
+   Werber, kein Spiegel mit Zahladresse, kein Relay mit Zahladresse), bekommt
+   den Anteil der Provider. Nie ein Topf, nie die Entwicklung.
 3. **Kleine Beträge bündeln, ohne Verwahrung.** Lightning-Anteile unter
    100 sats je Empfänger sammelt die App des Zahlenden und zahlt sie
    gebündelt. Bis dahin bleibt das Geld beim Zahlenden, niemand sonst hält es.
-   Bei SOL gibt es die Schwelle nicht, der Kanal teilt bei jeder Abrechnung.
-4. **Obergrenze 10 %.** Alle Anteile außer dem Provider zusammen höchstens
-   10 %. Das prüft der Provider, bei SOL das Programm. Die Werte 3 % und 2 %
-   stehen ab 5.1 fest im Code und werden als Protokoll-Invariante von CI geprüft.
-   Ändern nur mit einem signierten Release (5.2) und vorher angekündigt.
-5. **Entwicklungsanteil: voreingestellt an, abschaltbar.** Er steht in jedem
-   Auftrag und ist in den Settings abschaltbar – freiwillig wie in A. Ein Fork
-   kann ihn ohnehin entfernen; das ist gewollt.
+   Bei SOL gibt es die Schwelle nicht.
+4. **Fest voreingestellt.** Alle Anteile gelten für jeden Auftrag; keiner ist
+   einzeln abschaltbar. Die Werte stehen ab 5.1 fest im Code und werden als
+   Protokoll-Invariante von CI geprüft; ändern nur mit einem signierten Release
+   (5.2) und vorher angekündigt. Obergrenze für alle Anteile außer dem Provider
+   zusammen: 10 % (prüft der Provider, bei SOL das Programm). Ehrlich bleibt:
+   Bei Lightning zahlt die App die Anteile – ein veränderter Fork könnte sie
+   weglassen; bei SOL erzwingt es das Programm.
+5. **Werben: eine Ebene je Seite, keine Stufen.** Die bisherigen Stufen
+   (Bronze bis „Anker“) hingen an gezählten „aktiven Geworbenen“ –
+   Selbstauskunft, also fälschbar; eine zweite Ebene bräuchte öffentliche
+   Werbebeziehungen, die es seit 8.1b nur mit Zustimmung gibt. Belohnt wird nur
+   ein Anteil an echtem Umsatz, nichts fürs bloße Anwerben (kein Rechtsrat,
+   9.4). Selbst-Werbung lässt sich nicht verhindern, ist aber harmlos: Wer sich
+   selbst wirbt, spart 0,5 %.
 6. **Keine Anteile auf:** Zaps und Trinkgeld zwischen Menschen, Tausch (der LP
    nimmt die Gebühr seines Angebots), Relayer (Erstattung und eigene Gebühr),
-   Speicher (direkt je Upload), Prüfer (direkt je Fall). Werben bekommt keine
-   Provision.
+   Speicher (direkt je Upload), Prüfer (direkt je Fall).
 7. **Anreize darüber hinaus,** etwa für Provider in Randregionen: gesponserte
    Pools (5.1b) mit offenen Regeln, ohne Verwahrer.
 
-### Wer woran verdient
+### Wer woran verdient – sofort
 
 | Teil | Einnahme |
 |---|---|
-| Provider | 95 % je Auftrag |
-| Relays | 2 % je Auftrag; dazu bezahlter Zugang (5.4c/8.4) |
-| Entwicklung | 3 % je Auftrag (abschaltbar) |
-| Liquiditätsgeber | Gebühr des eigenen Angebots |
+| Provider | 94 % je Auftrag |
+| Relays | 1,5 % je Auftrag; dazu bezahlter Zugang (5.4c/8.4) |
+| Werben | 0,5 % je Auftrag des geworbenen Kunden, 0,5 % je Auftrag des geworbenen Providers |
+| Hosting (App-Spiegel) | 1 % je Auftrag über den eigenen Spiegel |
+| Entwicklung | 2,5 % je Auftrag |
+| Liquiditätsgeber | Gebühr des eigenen Angebots, atomar im Tausch |
 | Relayer | eigene Gebühr in der Erstattung (4.6e) |
 | Speicher | direkt je Upload |
 | Prüfer | direkt je Streitfall |
@@ -177,15 +198,18 @@ und stabile Entwicklung“); sie steht hier und gilt ab 5.1.
 
 ### Folgen
 
-- **5.1:** Die Protokollgebühr wird zur festen Aufteilung (Provider, Entwicklung,
-  Relays). Wegfallen: Pool-Verteiler, Reward-Claims und Belohnungen aus
-  Selbstauskunft, Werbeprovision, Treasury und Sweep. Settlement und Fee-Beweis
-  laufen auf die neuen Anteile. Texte in App und Website werden angepasst.
-- **4.3:** `fee_recipients` = Entwicklung (3 %) + bis zu drei Relays (2 %),
-  Summe ≤ 10 %, geprüft im Programm.
-- **AMLR:** Keine Stelle sammelt oder verteilt fremdes Geld. Der
-  Entwicklungsanteil geht an einen erkennbaren Empfänger, als Entgelt für die
-  Software. Kein Rechtsrat, siehe 9.4.
+- **5.1:** Die Protokollgebühr wird zur festen Aufteilung (Provider,
+  Entwicklung, Relays, Werber beider Seiten, Hosting). Wegfallen:
+  Pool-Verteiler, Reward-Claims und Belohnungen aus Selbstauskunft, die feste
+  Werbe-Adresse im Knoten, Werbe-Stufen und zweite Ebene, Treasury und Sweep.
+  Settlement und Fee-Beweis laufen auf die neuen Anteile; Werbelink trägt die
+  Zahladressen des Werbers; Angebote nennen den Werber des Providers; das
+  Spiegel-Verzeichnis (5.3) nennt die Zahladresse je Spiegel. Texte in App und
+  Website werden angepasst.
+- **4.3:** `fee_recipients` = Entwicklung, bis zu drei Relays, die beiden
+  Werber und der Spiegel; Summe ≤ 10 %, geprüft im Programm.
+- **AMLR:** Keine Stelle sammelt oder verteilt fremdes Geld. Kein Rechtsrat,
+  siehe 9.4.
 - **MENSCH (vor 5.1 live):** Empfänger-Adressen der Entwicklung, d. h. eine
   Lightning-Adresse über einen eigenen Knoten und eine SOL-Mehrfachsignatur
   (Squads, 5.9).
