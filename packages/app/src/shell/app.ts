@@ -676,6 +676,7 @@ function starte(): void {
     };
   }
   loadGitRepos();
+  void import("./tabs/repos.js").then((m) => m.wireNip34());
   $("#ai-send").onclick = askAi;
   $("#ai-bid").oninput = updateFeePreview;
   $("#wallet-refresh").onclick = loadWallet;

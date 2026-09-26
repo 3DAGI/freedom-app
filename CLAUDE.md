@@ -41,9 +41,9 @@ python3 scripts/smoke_test.py packages/app/dist         # braucht playwright + c
 bash scripts/build-site.sh /tmp/site                     # Website bauen (Ziel wird gelöscht!)
 ```
 
-Stand 26.09.2026 (nach 8.10a): protocol 1096 grün (6 übersprungen), node 214 grün
+Stand 26.09.2026 (nach 8.10b): protocol 1096 grün (6 übersprungen), node 214 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 305 grün, Leak-Tests 48 grün + 2 `todo` (heutige Lecks,
+in `tools.test.ts`), app 307 grün, Leak-Tests 48 grün + 2 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
 Ausnahme: gesendete SOL-Zahlungen von frischen Adressen, eine bewusste Grenze
 nach Entscheidung 4.9 A – im Datenschutzbericht unter „Bewusste Grenzen“).

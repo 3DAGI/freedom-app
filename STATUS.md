@@ -4364,3 +4364,31 @@ Endstand: protocol 1096 (+ 6 übersprungen) · node 213 (+ 7 übersprungen ohne
 Netz) · app 305 · Leak-Tests 48 grün + 2 todo · 0 rot · check-wiring `--streng`
 0 offen (9 neue Ausnahmen bis 8.10b) · innerHTML streng 0 unbewertet ·
 Smoke-Test bestanden.
+
+## Schritt 8.10b – Repositories, Teil b: NIP-34 in der App – 8.10 Code fertig
+
+**Agent → Repositories → „Zusammenarbeit (NIP-34)“** (`shell/tabs/repos.ts`,
+Ansichtslogik in `repo-ansicht.ts`): Repo ankündigen (Kennung, Klon-Adressen –
+auch ein Radicle-Spiegel `rad:…`), je Repo „Patch senden“ (Datei aus
+`git format-patch -1`, geprüft, Rückfrage „öffentlich und mit deinem Schlüssel
+signiert“), Patches mit Status; Eigentümer und Maintainer nehmen an (optional
+mit dem eingespielten Commit) oder schließen, der Autor zieht seinen Patch
+zurück, Fremde sehen keine Knöpfe. Je Eigentümer und Kennung gilt die neueste
+Ankündigung. Die Liste wird per DOM und `textContent` gebaut – Namen,
+Betreffe und Adressen kommen von Fremden, nichts davon geht durch `innerHTML`.
+Die Karte sagte „Funktioniert auch offline“ – seit 7.1 gehen Repos nicht über
+Mesh; gestrichen.
+
+**Browser-E2E** (zwei Geräte, vorgetäuschtes Nostr-Relay über
+`route_web_socket`): A kündigt „demo“ mit HTTPS- und Radicle-Adresse an, B
+sendet einen echten `git format-patch` (Betreff mit Umlaut, RFC 2047), A sieht
+ihn mit „annehmen/schließen“, nimmt an, beide sehen „angenommen ✓“, B hat
+keine Knöpfe mehr; keine Seitenfehler.
+
+**Tests:** app +2 (Repos: neueste Ankündigung, Unfug fällt heraus; Patches:
+Rechte je Rolle, nur dieses Repo, entschieden heißt keine Knöpfe).
+
+Endstand: protocol 1096 (+ 6 übersprungen) · node 213 (+ 7 übersprungen ohne
+Netz) · app 307 · Leak-Tests 48 grün + 2 todo · 0 rot · check-wiring `--streng`
+0 offen · innerHTML streng 0 unbewertet · Smoke-Test bestanden · Browser-E2E
+bestanden.
