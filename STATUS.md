@@ -4392,3 +4392,51 @@ Endstand: protocol 1096 (+ 6 übersprungen) · node 213 (+ 7 übersprungen ohne
 Netz) · app 307 · Leak-Tests 48 grün + 2 todo · 0 rot · check-wiring `--streng`
 0 offen · innerHTML streng 0 unbewertet · Smoke-Test bestanden · Browser-E2E
 bestanden.
+
+## Schritt 8.13 – Lokale Suche
+
+**Kommunikation → Suchfeld über der Unterhaltungsliste** (`shell/suche-ui.ts`,
+Index in `suche.ts` auf `local-search.ts`): Aufgenommen wird, was die App
+ohnehin entschlüsselt und zeigt – Direktnachrichten (NIP-17, ältere Kind 4) und
+Community-Nachrichten, je Kennung einmal, ausgeblendete (Moderation) und nicht
+entschlüsselbare nicht (`tabs/kommunikation.ts:1092`). Tippen zeigt Treffer
+statt der Liste; ein Treffer öffnet seine Unterhaltung
+(`tabs/kommunikation.ts:574`, `wireKommunikation()` aus `app.ts:690`). Treffer
+werden per DOM und `textContent` gezeigt – der Text kommt von Fremden.
+
+**Gespeichert nur verschlüsselt:** Mit Tresor liegt der Index als ein
+AES-GCM-256-Blob in IndexedDB „freedom-suche“ (`suche-ui.ts:24`), der Schlüssel
+im Tresor (`freedom.suche.schluessel`, auch in `geheimnisse()`). Ohne Tresor
+lebt der Index nur im Speicher bis zum Neuladen – ein Schlüssel im Klartext
+daneben wäre keine Verschlüsselung. Gespeichert werden die Dokumente, die
+Wortliste entsteht beim Laden neu, in Abschnitten (Oberfläche bleibt
+bedienbar); gespeichert wird verzögert (2 s) statt je Nachricht. Ablaufende
+Direktnachrichten (NIP-40, 2.5) verschwinden mit ihrem Ablauf auch aus dem
+Index. Passt der Schlüssel nicht (alter Index), wird neu aufgebaut.
+
+**Abnahme** (`app/test/suche.test.ts`): 10.000 Nachrichten – Aufbau ~0,1 s, je
+Suche ~0,6 ms (Grenze 16 ms, ein Bildschirmbild), Speichern + Laden ~0,4 s in
+über 40 Abschnitten; im gespeicherten Blob weder Wörter noch Schlüssel noch
+Unterhaltungs-Kennung; falscher Schlüssel liest nichts.
+
+**Browser-E2E** (zwei Geräte, vorgetäuschtes Relay): B richtet den Tresor ein,
+A schreibt B „Laborbefund Beratungsstelle Bahnhof“ (am Relay nur Umschläge),
+B öffnet die Anfrage, findet sie über das Suchfeld, der Treffer öffnet die
+Unterhaltung; nach Neustart mit stummem Relay findet B sie aus dem
+gespeicherten Index. Klartext-Scan über alle IndexedDB-Datenbanken und
+localStorage: auf B (mit Tresor) und A (ohne Tresor, keine Such-Datenbank)
+nichts; keine Seitenfehler.
+
+**Grenzen, ehrlich:** Gesucht wird nur in Nachrichten, die auf diesem Gerät
+schon geöffnet wurden (so sagt es auch die Leer-Meldung). Raum-Nachrichten
+(Kanäle) sind nicht im Index; der Such-Knopf in Räumen hatte schon vorher
+keine Funktion und hat weiter keine. Die Notfall-Löschung (8.14) muss den Index
+mit löschen (`sucheVergessen()`).
+
+**Tests:** app +6 (Rundreise, kein Klartext/falscher Schlüssel, Ablauf, ohne
+Tresor, Vergessen, Abnahme 10.000).
+
+Endstand: protocol 1096 (+ 6 übersprungen) · node 213 (+ 7 übersprungen ohne
+Netz) · app 313 · Leak-Tests 48 grün + 2 todo · 0 rot · check-wiring `--streng`
+0 offen (6 Ausnahmen weniger) · innerHTML streng 0 unbewertet · Smoke-Test
+bestanden · Browser-E2E bestanden.
