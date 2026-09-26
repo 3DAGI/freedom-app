@@ -527,6 +527,27 @@ async function main(): Promise<void> {
     }
   }
 
+  // Optional: Relayer (4.6e) – zahlt die Gebuehr fuer Einloesungen von Kunden
+  // ohne eigenes SOL; der Kunde erstattet sie in derselben Transaktion.
+  let relayer: import("./relayer-dienst.js").RelayerDienst | undefined;
+  if (process.env.RELAYER_ENABLED === "1") {
+    const { RelayerDienst } = await import("./relayer-dienst.js");
+    const { loadSolanaKeypair, LocalSigner, HTLC_PROGRAMM_ID } = await import("@freedomstack/protocol");
+    const { Connection } = await import("@solana/web3.js");
+    const rpc = process.env.SOLANA_RPC ?? "https://api.devnet.solana.com";
+    const conn = new Connection(rpc, "confirmed");
+    relayer = new RelayerDienst({
+      signer: new LocalSigner(keypair.sk),
+      solKeypair: await loadSolanaKeypair(process.env.SOLANA_KEYPAIR ?? `${process.env.HOME}/.config/solana/id.json`),
+      programmId: HTLC_PROGRAMM_ID,
+      erstattungLamports: Number(process.env.RELAYER_ERSTATTUNG ?? 10_000),
+      kette: /devnet/.test(rpc) ? "solana:devnet" : /testnet/.test(rpc) ? "solana:testnet" : "solana:mainnet",
+      maxProStunde: Number(process.env.RELAYER_MAX_PRO_STUNDE ?? 30),
+    }, pool, (roh) => conn.sendRawTransaction(roh, { skipPreflight: false, preflightCommitment: "confirmed" }));
+    await relayer.veroeffentlicheAngebot();
+    console.log(`Relayer aktiv (${relayer.solAdresse.slice(0, 8)}…)`);
+  }
+
   // ------------------------------------------------- Fee-Auszahlung vorbereiten
   const settlementTargets: SettlementTargets = {
     pool: { lud16: process.env.FEE_POOL_LUD16 ?? "" },
@@ -761,6 +782,9 @@ async function main(): Promise<void> {
         for (const s of await lp.nachholen()) {
           console.log(`[lp] swap ${s.requestId.slice(0, 8)}: ${s.phase}`);
         }
+      }
+      if (relayer) {
+        for (const r of await relayer.pollOnce()) console.log(`[relayer] ${r.status}${r.grund ? `: ${r.grund}` : ""}`);
       }
       // Verteilung steht nur einmal je Epoche an; die Pruefung ist billig.
       if (distributor?.isDue()) {

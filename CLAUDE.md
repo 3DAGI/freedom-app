@@ -41,7 +41,7 @@ python3 scripts/smoke_test.py packages/app/dist         # braucht playwright + c
 bash scripts/build-site.sh /tmp/site                     # Website bauen (Ziel wird gelöscht!)
 ```
 
-Stand 26.09.2026 (nach 4.6d): protocol 1040 grün (5 übersprungen), node 202 grün
+Stand 26.09.2026 (nach 4.6e): protocol 1045 grün (5 übersprungen), node 209 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
 in `tools.test.ts`), app 263 grün, Leak-Tests 37 grün + 4 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test).
@@ -115,6 +115,8 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   Dort ist die Swap-ID `rueckSwapId(bolt11)` und der Sperrbetrag `rueckSwapLamports()` –
   App und LP rechnen mit denselben Funktionen. Der LP speichert vor dem Zahlen und
   zahlt nie ein zweites Mal; nach außen nur feste Texte, nie Meldungen von LND.
+  Relayer (seit 4.6e) signieren nur, was `pruefeRelayAuftrag()` durchlässt (Einlösung +
+  Erstattung); Aufträge nur versiegelt – sie tragen das Preimage.
 - **Anchor-Fehler-Enum:** neue Varianten nur ANS ENDE – Fehlercodes dürfen sich nicht verschieben.
 - **Programm-ID ungeklärt:** Code nutzt `B6W19U…`, laut `DEPLOY.md` wurde nach
   `3UmRR…` deployt. Nicht ändern ohne MENSCH-Entscheidung (Schritt 0.G).

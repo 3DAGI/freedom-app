@@ -3705,3 +3705,42 @@ aus 4.6c.
 Endstand: protocol 1040 · node 202 · app 263 · Leak-Tests 37 grün + 4 todo ·
 0 rot · check-wiring `--streng` 0 offen · innerHTML streng 0 unbewertet ·
 Smoke-Test bestanden.
+
+## 95. Swaps in beide Richtungen, Teil e: Relayer für Nutzer ohne SOL (Schritt 4.6)
+
+**Problem:** Wer per Lightning SOL kauft, hat oft noch keins – und kann die
+Gebühr der Einlösung nicht zahlen. Ein Relayer zahlt sie als `feePayer`, der
+Empfänger signiert weiterhin selbst (das Programm verlangt nur seine
+Signatur). Die Signatur deckt alle Anweisungen: Der Relayer kann nichts
+umleiten, nur ablehnen. Er bekommt seine Auslagen in derselben Transaktion
+zurück.
+
+**Protokoll (`relayer.ts`):** Angebot Kind 38032 (`sol_address`,
+`erstattung_lamports`, `kette`); Auftrag und Antwort versiegelt (NIP-59, innen
+25010/25011, ohne Zeitversatz), weil die Transaktion das Preimage trägt.
+`pruefeRelayAuftrag` lässt nur durch: Einlösung beim HTLC-Programm, danach
+Erstattung vom Empfänger an den Relayer (mindestens sein Satz), Relayer nur
+Gebührenzahler und in keiner Einlösung, Empfänger hat gültig signiert – eine
+nach dem Signieren veränderte Erstattung fällt an der Signatur auf.
+`mieteReicht` prüft die Mindestmiete des Empfängerkontos. `HTLC_PROGRAMM_ID`
+wird exportiert (Wert unverändert).
+
+**Knoten (`relayer-dienst.ts`, `main.ts`):** `RELAYER_ENABLED=1` veröffentlicht
+das Angebot und arbeitet Aufträge in der Schleife ab: prüfen, mitsignieren,
+mit Vorabsimulation senden (nie `skipPreflight`), Grenze je Stunde. Ins Log
+nur Status und Fehlername – Fehlermeldungen der Kette können die Transaktion
+zitieren.
+
+**Risiko, offen benannt (`docs/SWAPS.md`):** Der Relayer kennt das Preimage vor
+der Einlösung. Die App (4.6f) nimmt deshalb nie den LP selbst und versucht
+rechtzeitig den nächsten Relayer.
+
+**Tests:** protocol 1040 → 1045 (`relayer.test.ts`: gültiger Auftrag, elf
+Ablehnungsgründe, Angebot, versiegelte Antwort nur vom richtigen Relayer zum
+eigenen Auftrag, Mindestmiete), node 202 → 209 (`relayer-dienst.test.ts`:
+mitsigniert und gesendet, ungültig abgelehnt, Grenze, kein Preimage im Log,
+fremde Umschläge liegen lassen, Angebot, Verdrahtung).
+
+Endstand: protocol 1045 · node 209 · app 263 · Leak-Tests 37 grün + 4 todo ·
+0 rot · check-wiring `--streng` 0 offen · innerHTML streng 0 unbewertet ·
+Smoke-Test bestanden.
