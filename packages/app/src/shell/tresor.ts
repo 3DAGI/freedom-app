@@ -47,12 +47,14 @@ export const geheim: GeheimSpeicher = geheimSpeicher(() => tresor, tresorEingeri
  * Schluessel, Bunker-Sitzung, Wallet-Verbindung (NWC), Preimages von Swaps und
  * Deposits, Unterhaltungen, Agent- und Swap-Verlauf, die eingebaute SOL-Wallet,
  * gemerkte Sperren (refund-watcher.ts, seit 4.6c), der Schluessel des
- * Suchindex (8.13; entsteht nur mit Tresor).
+ * Suchindex (8.13) und gehaltene Nachfolge-Anteile (8.11) – beide entstehen
+ * nur mit Tresor.
  * Die Namen stehen auch in tabs/waehrung.ts, tabs/agent.ts,
- * tabs/kommunikation.ts, swap-client.ts, sol-wallet.ts und suche-ui.ts.
+ * tabs/kommunikation.ts, swap-client.ts, sol-wallet.ts, suche-ui.ts und
+ * nachfolge.ts.
  */
 function geheimnisse(): string[] {
-  const fest = [LS_KEY, LS_BUNKER, "freedom.nwc.uri", "freedom.chats", "freedom.agentHistory", "freedom.swapHistory", "freedom.suche.schluessel"];
+  const fest = [LS_KEY, LS_BUNKER, "freedom.nwc.uri", "freedom.chats", "freedom.agentHistory", "freedom.swapHistory", "freedom.suche.schluessel", "freedom.nachfolge"];
   const praefixe = ["freedom.swap.", "freedom.htlc.", "freedom.solWallet", "freedom.pending."];
   const alle = Array.from({ length: localStorage.length }, (_, i) => localStorage.key(i) ?? "");
   return [...fest, ...alle.filter((k) => praefixe.some((p) => k.startsWith(p)))];

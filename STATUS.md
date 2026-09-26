@@ -4545,3 +4545,59 @@ Endstand: protocol 1105 (+ 6 übersprungen) · node 213 (+ 7 übersprungen ohne
 Netz) · app 317 · Leak-Tests 48 grün + 2 todo · 0 rot · check-wiring `--streng`
 0 offen (9 neue Ausnahmen bis 8.11b) · innerHTML streng 0 unbewertet ·
 Smoke-Test bestanden.
+
+## Schritt 8.11b – Nachfolge, Teil b: in der App – 8.11 Code fertig
+
+**Besitzer** (Settings → Sicherheit → „Nachfolge & Wiederherstellung“ →
+einrichten, `richteNachfolgeEin()`): Vertraute als npub oder hex, mindestens
+drei, nicht man selbst; nach dem Hinweistext (jetzt mit „der Plan ist
+öffentlich“) geht jeder Teil **versiegelt an genau seinen Vertrauten**
+(`baueAnteilUmschlag`, an dessen Posteingang, `settings.ts:96`), danach werden
+die Teile im Speicher genullt und der Plan veröffentlicht. Die Datei mit allen
+Teilen gibt es nicht mehr.
+
+**Vertraute** (`nachfolge.ts` ohne DOM, Oberfläche `shell/nachfolge-ui.ts`):
+Der Posteingang ordnet Umschläge ein (`kommunikation.ts:894`) – eigener
+Anteil, Anfrage eines anderen Vertrauten, Übergabe (nur wenn man selbst
+angefragt hat). Gehalten wird im Tresor (`freedom.nachfolge`), ohne Tresor nur
+im Speicher; dann sagt die Ansicht, dass der Anteil nur auf den Relays liegt.
+„Du bist Vertrauter für …“ (`settings.ts:25`) zeigt je Besitzer Teil und Stand
+des Plans und bietet an: melden (einmal – danach „gemeldet“), nach der Freigabe
+Anteile anfordern (versiegelt an die anderen Vertrauten), eine Anfrage
+beantworten („übergeben“ nur, wenn `darfUebergeben()` zustimmt, nach Rückfrage,
+sonst steht der Grund da) und zusammensetzen – der Schlüssel wird mit der
+Prüfsumme des Plans geprüft und als Datei gegeben (mit Hinweis zum Import),
+die Kopie im Speicher danach genullt. Liste per DOM und `textContent`.
+Lesen-Ändern-Schreiben des Stands läuft nacheinander, damit parallele
+Abgleiche nichts verlieren.
+
+**Browser-E2E** (vier Konten, vorgetäuschtes Relay, gesteuerte Uhr): A richtet
+mit B, C, D ein – keine Datei, drei Umschläge, Plan öffentlich; B und C
+(mit Tresor) sehen ihren Teil; nach 181 Tagen melden beide; nach 213 Tagen ist
+freigegeben, B fordert an, C sieht die Anfrage und übergibt, B hat 2 von 2 und
+setzt zusammen – die Datei enthält genau A's Schlüssel. Am Relay: A's Schlüssel
+nirgends, Kinds 38077–38079 nie offen, zwei öffentliche Meldungen;
+localStorage von B ohne Nachfolge-Daten; keine Seitenfehler.
+
+**Fund behoben:** Geht die Uhr eines Vertrauten etwas nach, zeigte der Stand
+„Lebenszeichen vor -1 Tagen“ – `evaluateSuccession()` zählt jetzt ab 0.
+
+**Texte:** Karte in den Settings, FAQ und Whitepaper nennen die Versiegelung
+und dass öffentlich ist, wer die Vertrauten sind. Aussage „nachfolge-anteile“
+jetzt belegt (Szenario: Plan, Umschläge, Anfrage, Übergabe ohne Anteil und
+Schlüssel).
+
+**Grenzen, ehrlich:** Vertraute brauchen FreedomStack (andere Clients
+ignorieren die Umschläge). Wer zusammensetzt, bekommt den Schlüssel als Datei
+und importiert ihn selbst – eine Übernahme in der laufenden App gibt es nicht.
+Der Plan und die Meldungen sind öffentlich (Grenze „nachfolge-plan“).
+
+**Tests:** app +4 (Umschläge einordnen, Stand lesen, Ansicht vor/nach
+Freigabe, Verdrahtung), protocol +1 (keine negativen Tage); der
+Verdrahtungstest der Posteingangs-Kette (`trinkgeld-beleg.test.ts`) nennt jetzt
+auch `alsNachfolge`.
+
+Endstand: protocol 1106 (+ 6 übersprungen) · node 213 (+ 7 übersprungen ohne
+Netz) · app 321 · Leak-Tests 48 grün + 2 todo · 0 rot · check-wiring `--streng`
+0 offen (11 Ausnahmen weniger) · innerHTML streng 0 unbewertet · Smoke-Test
+bestanden · Browser-E2E bestanden.

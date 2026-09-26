@@ -238,7 +238,8 @@ export function evaluateSuccession(
       letztes = Math.max(letztes, ev.created_at);
     }
   }
-  const tageStill = Math.floor((nowSecs - letztes) / TAG);
+  // Geht die eigene Uhr etwas nach, waere das sonst „vor -1 Tagen“
+  const tageStill = Math.max(0, Math.floor((nowSecs - letztes) / TAG));
 
   // Nur Meldungen von benannten Vertrauten, und nur solche NACH dem letzten
   // Lebenszeichen: Eine alte Meldung darf nicht wieder aufleben, wenn sich
