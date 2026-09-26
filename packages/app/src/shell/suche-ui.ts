@@ -39,9 +39,14 @@ export function sucheAufnehmen(doc: SuchDoc): void {
   void lokaleSuche().then((s) => s.aufnehmen(doc)).catch(() => undefined);
 }
 
-/** Index vergessen – im Speicher und auf dem Geraet (auch fuer die Notfall-Loeschung). */
+/**
+ * Index vergessen – im Speicher und auf dem Geraet; haelt auch das
+ * verzoegerte Speichern an (Notfall-Loeschung, 8.14). Laeuft die Suche noch
+ * nicht, wird sie dafuer nicht erst gestartet.
+ */
 export async function sucheVergessen(): Promise<void> {
-  await (await lokaleSuche()).vergessen();
+  if (!suche) return;
+  await (await suche).vergessen();
 }
 
 /**

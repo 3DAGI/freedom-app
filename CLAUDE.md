@@ -41,9 +41,9 @@ python3 scripts/smoke_test.py packages/app/dist         # braucht playwright + c
 bash scripts/build-site.sh /tmp/site                     # Website bauen (Ziel wird gelöscht!)
 ```
 
-Stand 26.09.2026 (nach 8.13): protocol 1096 grün (6 übersprungen), node 214 grün
+Stand 26.09.2026 (nach 8.14): protocol 1100 grün (6 übersprungen), node 214 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 313 grün, Leak-Tests 48 grün + 2 `todo` (heutige Lecks,
+in `tools.test.ts`), app 317 grün, Leak-Tests 48 grün + 2 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
 Ausnahme: gesendete SOL-Zahlungen von frischen Adressen, eine bewusste Grenze
 nach Entscheidung 4.9 A – im Datenschutzbericht unter „Bewusste Grenzen“).
@@ -243,3 +243,9 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   einmal und gilt danach als verbraucht, bis `frischeNonceAuf()` ihn mit Netz
   neu liest. Einreichen nur über `reicheSolOfflineEin()` nach
   `pruefeOfflineUeberweisung()`, mit Vorabsimulation.
+- **Lokale Daten nur mit Präfix** (seit 8.14): Schlüssel in localStorage,
+  sessionStorage und im Tresor beginnen mit `freedom.`, IndexedDB-Datenbanken
+  mit `freedom` und stehen in `WIPE_DATENBANKEN` – sonst entgehen sie der
+  Notfall-Löschung. Keine neue Speicherart (Cache Storage, OPFS, Cookies,
+  Service Worker), ohne `loescheAllesLokal()` zu erweitern.
+  `app/test/notfall.test.ts` prüft das.

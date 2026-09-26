@@ -16,6 +16,11 @@ Prueft im Headless-Chromium:
   - Tresor-Pflicht: eine neue Wallet-Verbindung ohne Tresor wird nicht gespeichert
   - Automatische Sperre (gesteuerte Uhr): nach 16 Minuten ohne Eingabe gesperrt,
     nach 14 noch nicht; nicht waehrend eines laufenden Auftrags; 0 = nie
+  - Notfall-Loeschung (Schritt 8.14): mit Tresor, Geheimnissen, Sitzung,
+    Blob-Speicher, Suchindex und einer kuenftigen Datenbank; der rechtliche
+    Hinweis steht vorher, geloescht wird erst nach „LÖSCHEN“; danach sind weder
+    Schluessel noch Daten in localStorage, sessionStorage oder IndexedDB, und
+    die App startet leer mit neuer Identitaet
 
 Verbindungsfehler zu Relays werden ignoriert (hängen vom Netz ab).
 
@@ -210,6 +215,91 @@ def sperre_pruefen(browser, url: str) -> dict:
     return erg
 
 
+def loeschen_pruefen(browser, url: str) -> dict:
+    """Notfall-Loeschung (8.14): alles Lokale weg, nachgeprueft, die App startet leer."""
+    erg = {"fehler": []}
+    ctx = browser.new_context()
+    basis = url.rsplit("/", 1)[0]
+    ctx.route("**/*", lambda r: r.continue_() if r.request.url.startswith(basis) else r.abort())
+    s = ctx.new_page()
+    s.on("pageerror", lambda e: erg["fehler"].append(str(e)[:300]))
+    s.on("dialog", lambda d: d.accept())
+    ev = s.evaluate
+
+    def warte(bedingung: str) -> None:
+        s.wait_for_function(bedingung, timeout=30000)
+
+    def felder(werte: dict, knopf: str) -> None:
+        ev("([w, k]) => { for (const [id, v] of Object.entries(w)) document.getElementById(id).value = v;"
+           " document.getElementById(k).click(); }", [werte, knopf])
+
+    s.goto(url, wait_until="load")
+    s.wait_for_timeout(2500)
+    woerter = ev("() => [...document.querySelectorAll('.mnemonic-list li')].map(l => l.textContent)")
+    ev("(w) => document.querySelectorAll('#bk-challenge input').forEach(i => i.value = w[+i.dataset.pos])", woerter)
+    ev("() => document.getElementById('bk-done').click()")
+    nsec = ev("() => localStorage.getItem('freedom.nsec')") or ""
+    ident = ev("() => document.getElementById('ident').textContent")
+    # Bestand: Geheimnisse, Sitzung, Blob-Speicher, Suchindex und eine kuenftige Datenbank
+    ev("""async (w) => {
+      for (const [k, v] of Object.entries(w)) localStorage.setItem(k, v);
+      sessionStorage.setItem('freedom.probe', 'ProbeSitzung');
+      const lege = (db, st, v) => new Promise((r) => { const q = indexedDB.open(db, 1);
+        q.onupgradeneeded = () => q.result.createObjectStore(st);
+        q.onsuccess = () => { const t = q.result.transaction(st, 'readwrite'); t.objectStore(st).put(v, 'probe');
+          t.oncomplete = () => { q.result.close(); r(); }; }; });
+      await lege('freedom-blobs', 'chunks', 'ProbeChunk');
+      await lege('freedom-suche', 'index', 'ProbeSuche');
+      await lege('freedom-kuenftig', 'x', 'ProbeKuenftig');
+    }""", PROBE_GEHEIM)
+    s.reload(wait_until="load")
+    s.wait_for_timeout(2000)
+    ev("() => document.querySelector('.app-nav button[data-tab=\"settings\"]').click()")
+    ev("() => document.querySelector('.sec-action[data-step=\"4\"]').click()")
+    felder({"tr-neu1": "smoke tresor 3", "tr-neu2": "smoke tresor 3"}, "tr-ok")
+    warte("() => !document.getElementById('tr-ok')")
+    s.reload(wait_until="load")
+    warte("() => !!document.getElementById('tr-pass')")
+    felder({"tr-pass": "smoke tresor 3"}, "tr-ok")
+    warte("() => !document.getElementById('tr-pass')")
+    s.wait_for_timeout(1000)
+    erg["vorher_da"] = ev("async () => (await indexedDB.databases()).map(d => d.name).sort().join(',')") == \
+        "freedom-blobs,freedom-kuenftig,freedom-suche,freedom-vault"
+
+    ev("() => document.querySelector('.app-nav button[data-tab=\"settings\"]').click()")
+    ev("() => document.getElementById('notfall-loeschen').click()")
+    warte("() => !!document.getElementById('notfall-los')")
+    erg["hinweis_vorher"] = ev("() => { const t = document.querySelector('.modal').textContent;"
+                               " return t.includes('RECHTLICHER HINWEIS') && t.includes('Beweismitteln strafbar')"
+                               " && document.getElementById('notfall-los').disabled; }")
+    ev("() => { const e = document.getElementById('notfall-bestaetigung'); e.value = 'löschen';"
+       " e.dispatchEvent(new Event('input')); document.getElementById('notfall-los').click(); }")
+    warte("() => (document.getElementById('toast')?.textContent || '').includes('nachgeprüft')")
+    scan = ev("""async () => {
+      const ls = Object.keys(localStorage).map(k => k + '=' + localStorage.getItem(k)).join('\\n');
+      const ss = Object.keys(sessionStorage).join(',');
+      const dbs = (await indexedDB.databases()).map(d => d.name).sort();
+      let tresorBlob = null;
+      if (dbs.includes('freedom-vault')) tresorBlob = await new Promise((r) => { const q = indexedDB.open('freedom-vault');
+        q.onsuccess = () => { const db = q.result; if (![...db.objectStoreNames].includes('tresor')) { db.close(); return r(null); }
+          const g = db.transaction('tresor').objectStore('tresor').get('blob');
+          g.onsuccess = () => { db.close(); r(g.result ?? null); }; }; q.onerror = () => r(null); });
+      return { ls, ss, dbs, tresorBlob, ident: document.getElementById('ident').textContent };
+    }""")
+    muster = [nsec, "ProbeSitzung"] + PROBE_MUSTER
+    erg["nichts_uebrig"] = (not any(m in scan["ls"] for m in muster)
+                            and not any(k + "=" in scan["ls"] for k in PROBE_GEHEIM)
+                            and "freedom.vault=1" not in scan["ls"] and scan["ss"] == ""
+                            and set(scan["dbs"]) <= {"freedom-vault"} and scan["tresorBlob"] is None)
+    erg["leer_neu_gestartet"] = scan["ident"] != ident and not ev("() => !!document.getElementById('tr-pass')")
+    if not erg["nichts_uebrig"]:
+        erg["fehler"].append(f"Rest: dbs={scan['dbs']} ss={scan['ss']!r}")
+    ctx.close()
+    erg["bestanden"] = (not erg["fehler"] and all(v is True for k, v in erg.items()
+                                                   if k not in ("fehler", "bestanden")))
+    return erg
+
+
 def main() -> int:
     dist = Path(sys.argv[1] if len(sys.argv) > 1 else "packages/app/dist").resolve()
     datei = dist / "freedom.html"
@@ -264,6 +354,10 @@ def main() -> int:
                 erg["sperre"] = sperre_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
             except Exception as e:
                 erg["sperre"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
+            try:
+                erg["notfall"] = loeschen_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
+            except Exception as e:
+                erg["notfall"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
             browser.close()
     finally:
         srv.shutdown()
@@ -272,7 +366,8 @@ def main() -> int:
           and erg.get("csp_gesetzt") and erg.get("xss_ausgefuehrt") is False
           and erg.get("fremd_als_text") is True
           and erg.get("tresor", {}).get("bestanden") is True
-          and erg.get("sperre", {}).get("bestanden") is True)
+          and erg.get("sperre", {}).get("bestanden") is True
+          and erg.get("notfall", {}).get("bestanden") is True)
     erg["bestanden"] = bool(ok)
     print(json.dumps(erg, indent=1, ensure_ascii=False))
     return 0 if ok else 1
