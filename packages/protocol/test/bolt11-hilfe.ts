@@ -20,3 +20,8 @@ export function rechnung(sk: Uint8Array, prefix: string, preimage: Uint8Array, n
   const sig = secp256k1.sign(new Uint8Array([...new TextEncoder().encode(prefix), ...inBytes(woerter)]), sk, { format: "recovered" });
   return bech32.encode(prefix, [...woerter, ...bech32.toWords(new Uint8Array([...sig.slice(1), sig[0]]))], false);
 }
+
+/** Neuer Knotenschluessel fuer Test-Rechnungen. */
+export function knotenSchluessel(): Uint8Array {
+  return secp256k1.utils.randomSecretKey();
+}

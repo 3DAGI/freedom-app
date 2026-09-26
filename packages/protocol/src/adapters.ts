@@ -42,6 +42,11 @@ export interface LightningAdapter {
    * Zahlung scheitert – dann bleiben die sats beim LP.
    */
   payInvoice?(bolt11: string, cltvLimitBlocks: number): Promise<{ preimage: Uint8Array }>;
+  /**
+   * Gegenrichtung (4.6b), LP: Stand einer eigenen Zahlung – nach einem
+   * Neustart, um ein Preimage nicht zu verlieren.
+   */
+  zahlungsstand?(paymentHash: Uint8Array): Promise<{ status: "erfolgreich" | "gescheitert" | "laeuft" | "unbekannt"; preimage?: Uint8Array }>;
 }
 
 export interface SolanaLock {

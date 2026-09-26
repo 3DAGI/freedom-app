@@ -8,7 +8,7 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { LndLightningAdapter, loadMacaroonHex } from "../src/lnd-adapter.js";
+import { LndLightningAdapter, loadMacaroonHex, preimageAusLnd } from "../src/lnd-adapter.js";
 import { toHex } from "../src/htlc.js";
 
 const LOKAL = "https://127.0.0.1:8080";
@@ -209,6 +209,80 @@ test("Fehler im Strom wird durchgereicht", async () => {
       .payInvoiceAndGetPreimage("lnbc1")),
     /insufficient balance/,
   );
+});
+
+// ------------------------------------------------ Gegenrichtung (4.6b)
+
+test("Zahlung der Gegenrichtung: cltv_limit geht mit, Preimage als Hex (lnrpc.Payment)", async () => {
+  const pre = new Uint8Array(32).fill(7);
+  const log: { url: string; body: unknown }[] = [];
+  const zeilen = JSON.stringify({ result: { status: "SUCCEEDED", payment_preimage: toHex(pre) } }) + "\n";
+  const r = await mitFetch(fakeFetch({ "/v2/router/send": new Response(zeilen) }, log),
+    () => new LndLightningAdapter({ restUrl: LOKAL, macaroonHex: MAC }).payInvoice("lnbc1", 30));
+  assert.deepEqual(r.preimage, pre);
+  assert.deepEqual(log[0].body, { payment_request: "lnbc1", cltv_limit: 30, timeout_seconds: 120, no_inflight_updates: true });
+});
+
+test("Zahlung der Gegenrichtung ohne gueltiges cltv_limit geht gar nicht erst raus", async () => {
+  const log: { url: string; body: unknown }[] = [];
+  for (const cltv of [0, -1, 1.5, Number.NaN]) {
+    await assert.rejects(
+      () => mitFetch(fakeFetch({}, log), () => new LndLightningAdapter({ restUrl: LOKAL, macaroonHex: MAC }).payInvoice("lnbc1", cltv)),
+      /cltv_limit/,
+    );
+  }
+  assert.equal(log.length, 0, "ohne Grenze koennte die Zahlung laenger haengen als die Sperre haelt");
+});
+
+test("Zahlungsstand nach einem Neustart: erfolgreich (mit Preimage), gescheitert, laeuft, unbekannt", async () => {
+  const pre = new Uint8Array(32).fill(5);
+  const hash = new Uint8Array(32).fill(0xfb); // base64 mit + und / -> muss URL-sicher werden
+  const lnd = new LndLightningAdapter({ restUrl: LOKAL, macaroonHex: MAC });
+  const log: { url: string; body: unknown }[] = [];
+  const stand = (result: unknown) => mitFetch(fakeFetch({ "/v2/router/track/": { result } }, log), () => lnd.zahlungsstand(hash));
+  assert.deepEqual(await stand({ status: "SUCCEEDED", payment_preimage: toHex(pre) }), { status: "erfolgreich", preimage: pre });
+  assert.match(log[0].url, /\/v2\/router\/track\/-_v7-/);
+  assert.ok(!/[+/=]/.test(log[0].url.split("/track/")[1]));
+  assert.deepEqual(await stand({ status: "FAILED", failure_reason: "FAILURE_REASON_TIMEOUT" }), { status: "gescheitert" });
+  assert.deepEqual(await stand({ status: "IN_FLIGHT" }), { status: "laeuft" });
+  assert.deepEqual(await stand({ status: "UNKNOWN" }), { status: "unbekannt" });
+  assert.deepEqual(await mitFetch(fakeFetch({}), () => lnd.zahlungsstand(hash)), { status: "unbekannt" }, "404: nie angekommen");
+  assert.deepEqual(await mitFetch(fakeFetch({ "/v2/router/track/": { error: { code: 2, message: "payment isn't initiated" } } }), () => lnd.zahlungsstand(hash)), { status: "unbekannt" });
+  assert.deepEqual(await mitFetch(fakeFetch({ "/v2/router/track/": new Response('{"message":"payment isn\'t initiated"}', { status: 500 }) }), () => lnd.zahlungsstand(hash)), { status: "unbekannt" });
+  await assert.rejects(
+    () => mitFetch(fakeFetch({ "/v2/router/track/": { error: { message: "permission denied" } } }), () => lnd.zahlungsstand(hash)),
+    /permission denied/,
+  );
+  await assert.rejects(
+    () => mitFetch(fakeFetch({ "/v2/router/track/": new Response("macaroon abgelaufen", { status: 401 }) }), () => lnd.zahlungsstand(hash)),
+    /HTTP 401/,
+    "ein Fehler ist kein „unbekannt“",
+  );
+});
+
+test("Zahlungsstand liest nur den ersten, vollstaendigen Eintrag des Stroms", async () => {
+  const pre = new Uint8Array(32).fill(3);
+  const erster = JSON.stringify({ result: { status: "SUCCEEDED", payment_preimage: toHex(pre) } });
+  const strom = new ReadableStream({
+    start(c) {
+      const b = new TextEncoder().encode(erster + "\n" + JSON.stringify({ result: { status: "FAILED" } }) + "\n");
+      for (let i = 0; i < b.length; i += 7) c.enqueue(b.slice(i, i + 7)); // in Stuecken, mitten in der Zeile getrennt
+      c.close();
+    },
+  });
+  const r = await mitFetch((async () => new Response(strom)) as unknown as typeof fetch,
+    () => new LndLightningAdapter({ restUrl: LOKAL, macaroonHex: MAC }).zahlungsstand(new Uint8Array(32)));
+  assert.deepEqual(r, { status: "erfolgreich", preimage: pre });
+});
+
+test("Preimage aus LND: Hex oder base64, aber immer genau 32 Byte", () => {
+  const pre = new Uint8Array(32).fill(0xab);
+  assert.deepEqual(preimageAusLnd(toHex(pre)), pre);
+  assert.deepEqual(preimageAusLnd(toHex(pre).toUpperCase()), pre);
+  assert.deepEqual(preimageAusLnd(Buffer.from(pre).toString("base64")), pre);
+  for (const falsch of ["", "abcd", toHex(pre).slice(2), Buffer.from(new Uint8Array(31)).toString("base64")]) {
+    assert.throws(() => preimageAusLnd(falsch), /falscher Laenge/, JSON.stringify(falsch));
+  }
 });
 
 test("Macaroon-Datei wird als Hex gelesen", async () => {

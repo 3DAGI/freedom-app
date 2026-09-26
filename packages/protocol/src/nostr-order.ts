@@ -29,6 +29,14 @@ export interface LpOffer {
   /** Unix-Sekunden, ab wann das Angebot ungueltig ist. */
   expiry: number;
   note?: string;
+  /**
+   * Gegenrichtung (buy-sol, 4.6b) – dort Pflicht: das SOL-Konto des LP
+   * (Empfaenger der Sperre) und sein genauer Kurs. Der Kunde sperrt
+   * `rueckSwapLamports(sats, lamportsPerSat, feePpm)`; ein gerundeter Kurs
+   * aus dem Ticker laege daneben.
+   */
+  solAddress?: string;
+  lamportsPerSat?: number;
 }
 
 import { UnsignedEvent } from "./event.js";
@@ -51,6 +59,8 @@ export function buildLpOffer(o: LpOffer, pubkey: string, createdAt = Math.floor(
       ["t_sol_secs", String(o.tSolSecs)],
       ["ln_cltv_delta_blocks", String(o.lnCltvDeltaBlocks)],
       ["expiry", String(o.expiry)],
+      ...(o.solAddress ? [["sol_address", o.solAddress]] : []),
+      ...(o.lamportsPerSat !== undefined ? [["lamports_per_sat", String(o.lamportsPerSat)]] : []),
     ],
     content: o.note ?? "",
   };
@@ -69,6 +79,12 @@ export function parseLpOffer(ev: UnsignedEvent): LpOffer {
   };
   const dir = req("direction");
   if (dir !== "sell-sol" && dir !== "buy-sol") throw new Error(`ungueltige direction: ${dir}`);
+  const solAddress = tag(ev, "sol_address");
+  if (solAddress !== undefined && !/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(solAddress)) throw new Error("ungueltige sol_address");
+  const kurs = tag(ev, "lamports_per_sat");
+  const lamportsPerSat = kurs === undefined ? undefined : Number(kurs);
+  if (lamportsPerSat !== undefined && !(Number.isFinite(lamportsPerSat) && lamportsPerSat > 0)) throw new Error("ungueltiger lamports_per_sat");
+  if (dir === "buy-sol" && (!solAddress || lamportsPerSat === undefined)) throw new Error("buy-sol ohne sol_address oder lamports_per_sat");
   return {
     offerId: req("d"),
     pair: req("pair"),
@@ -80,6 +96,8 @@ export function parseLpOffer(ev: UnsignedEvent): LpOffer {
     lnCltvDeltaBlocks: Number(req("ln_cltv_delta_blocks")),
     expiry: Number(req("expiry")),
     note: ev.content || undefined,
+    ...(solAddress ? { solAddress } : {}),
+    ...(lamportsPerSat !== undefined ? { lamportsPerSat } : {}),
   };
 }
 

@@ -6,7 +6,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { MockLightning, MockSolana } from "../src/mocks.js";
 import { maxCltvLimitFuer, SLOW_BLOCK_SECS, validateReverseTimelock } from "../src/timelock.js";
-import { pruefeRueckSwapSperre, runReverseSwap } from "../src/swap-umgekehrt.js";
+import { pruefeRueckSwapSperre, rueckSwapLamports, runReverseSwap } from "../src/swap-umgekehrt.js";
 import { hashlock } from "../src/htlc.js";
 
 const JETZT = 1_790_000_000;
@@ -87,4 +87,20 @@ test("LP prueft vor dem Zahlen: falscher Hashlock, zu wenig, fremder Empfaenger,
   const r = await runReverseSwap(kurz.ln, kurz.sol, kurz.cfg);
   assert.equal(r.phase, "ABORTED");
   assert.equal(kurz.sol.lpLamports, 5_000_000);
+});
+
+test("Sperrbetrag der Gegenrichtung: sats zum Kurs plus Gebuehr, ganzzahlig aufgerundet", () => {
+  assert.equal(rueckSwapLamports(10_000, 100, 10_000), 1_010_000);
+  assert.equal(rueckSwapLamports(10_000, 5000, 0), 50_000_000);
+  assert.equal(rueckSwapLamports(1, 1, 3000), 2, "angebrochene Lamports werden aufgerundet");
+  // In Fliesskomma laege das um ein Lamport daneben: 1000 · 0,1 · 1,1 = 110,00000000000001 -> 111.
+  // Die App saehe 110, der LP verlangte 111 – und zahlte nicht.
+  assert.equal(Math.ceil(1000 * 0.1 * (1 + 100_000 / 1e6)), 111);
+  assert.equal(rueckSwapLamports(1000, 0.1, 100_000), 110);
+  assert.equal(rueckSwapLamports(7, 0.1, 3000), 1);
+  assert.equal(rueckSwapLamports(123_457, 4321.5, 2500), 534_853_225);
+  assert.equal(rueckSwapLamports(500_000, 5000, 999_999), 4_999_997_500);
+  for (const [sats, kurs, ppm] of [[0, 100, 0], [1.5, 100, 0], [10, 0, 0], [10, Number.NaN, 0], [10, 100, -1], [10, 100, 1_000_000], [10, 100, 0.5]]) {
+    assert.throws(() => rueckSwapLamports(sats, kurs, ppm), /ungültig/);
+  }
 });
