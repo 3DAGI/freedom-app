@@ -26,6 +26,7 @@ export * from "./sol-trinkgeld.js";
 export * from "./bolt11.js";
 export * from "./swap-umgekehrt.js";
 export * from "./relayer.js";
+export * from "./swap-versiegelt.js";
 export * from "./profile.js";
 export * from "./outbox.js";
 export * from "./ws-relay.js";

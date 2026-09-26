@@ -42,6 +42,11 @@ export interface LpOffer {
    * bevor der LP SOL sperrt – gegen Anfragen, die nur Liquiditaet binden.
    */
   vorabSats?: number;
+  /**
+   * Der LP liest Anfragen im Umschlag und antwortet versiegelt (4.9,
+   * `swap-versiegelt.ts`). Die App fragt nur noch LPs mit diesem Tag an.
+   */
+  versiegelt?: boolean;
 }
 
 import { UnsignedEvent } from "./event.js";
@@ -67,6 +72,7 @@ export function buildLpOffer(o: LpOffer, pubkey: string, createdAt = Math.floor(
       ...(o.solAddress ? [["sol_address", o.solAddress]] : []),
       ...(o.lamportsPerSat !== undefined ? [["lamports_per_sat", String(o.lamportsPerSat)]] : []),
       ...(o.vorabSats ? [["vorab_sats", String(o.vorabSats)]] : []),
+      ...(o.versiegelt ? [["versiegelt", "1"]] : []),
     ],
     content: o.note ?? "",
   };
@@ -108,6 +114,7 @@ export function parseLpOffer(ev: UnsignedEvent): LpOffer {
     ...(solAddress ? { solAddress } : {}),
     ...(lamportsPerSat !== undefined ? { lamportsPerSat } : {}),
     ...(vorabSats !== undefined ? { vorabSats } : {}),
+    ...(tag(ev, "versiegelt") === "1" ? { versiegelt: true } : {}),
   };
 }
 
