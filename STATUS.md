@@ -3997,7 +3997,7 @@ die Karte die Funktion entfernt: Code und Profile gehen über keine Mesh-Strecke
 mehr, und nur die Umschlag-Klasse hat Strecken. node 208 (+ 7 übersprungen; eine Live-Prüfung
 überspringt sich ohne Netz – Gesamtzahl 215 unverändert), app 269.
 
-Endstand (nach dem Einmergen von 4.9a/b): protocol 1069 · node 213 (+ 7
-übersprungen ohne Netz) · app 273 · Leak-Tests 41 grün + 2 todo · 0 rot ·
+Endstand (nach dem Einmergen von 4.9a–c): protocol 1069 · node 213 (+ 7
+übersprungen ohne Netz) · app 279 · Leak-Tests 43 grün + 2 todo · 0 rot ·
 check-wiring `--streng` 0 offen (3 neue Ausnahmen bis 7.1b) · innerHTML streng 0
 unbewertet · Smoke-Test bestanden.
