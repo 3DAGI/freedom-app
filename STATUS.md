@@ -4322,3 +4322,45 @@ der Validator-Test) · node 213 (+ 7 übersprungen ohne Netz) · app 305 ·
 Leak-Tests 48 grün + 2 todo · 0 rot ·
 check-wiring `--streng` 0 offen · innerHTML streng 0 unbewertet · Smoke-Test
 bestanden · Browser-E2E bestanden.
+
+## Schritt 8.10a – Repositories, Teil a: NIP-34 im Protokoll
+
+Bisher kannte die App nur eigene Repo-Verweise (Kind 38042, Bundle im
+Blob-Netz) – keine Patches, keine Annahme, nichts, was andere Nostr-Clients
+lesen. **`protocol/src/nip34.ts`** nach NIP-34: Repo-Ankündigung (30617:
+Kennung, Name, Beschreibung, Klon-Adressen – auch ein Radicle-Spiegel
+`rad:…` –, Web, erster Commit „euc“, Maintainer; streng gelesen, ungültige
+Adressen und Schlüssel fallen heraus), Patch (1617: nur Text aus
+`git format-patch`, adressiert an das Repo, benachrichtigt den Eigentümer,
+höchstens 60 KB; Commit und Betreff aus dem Patch selbst), Status (1630 offen,
+1631 angenommen samt `applied-as-commits`, 1632 geschlossen, 1633 Entwurf).
+`patchStatus()`: „angenommen“ zählt nur vom Eigentümer oder einem
+eingetragenen Maintainer – nicht vom Autor, nicht von Fremden –, sonst der
+neueste gültige Status von Autor oder Maintainer; ohne Status offen.
+
+**Fund beim Test mit echtem git:** `git format-patch` kodiert Umlaute im
+Betreff nach RFC 2047 (`=?UTF-8?q?…?=`) und bricht lange Betreffe um – der
+Betreff wird jetzt dekodiert (q und b, Folgezeilen).
+
+**Abnahme** („ein Patch über NIP-34 angenommen“, `nip34.test.ts`): echtes git
+in einem Temp-Ordner – Eigentümer-Repo, Klon mit einer Änderung,
+`git format-patch`; über ein Relay: ankündigen, Patch einreichen, der
+Maintainer liest ihn **nur aus dem Event**, spielt ihn mit `git am` ein und
+setzt „angenommen“ mit dem neuen Commit; `patchStatus()` sagt „angenommen“.
+
+Öffentlich mit Absicht: Code, Patches und Annahmen sind gemeinsame Arbeit und
+signiert. **Radicle:** Das Repo kündigt seinen Spiegel als Klon-Adresse an;
+spiegeln tut der Betreiber mit `rad` (MENSCH). Die Karte nannte „Tests bisher
+keine“ – `git-contributors.test.ts` und `git-e2e.test.ts` gab es schon.
+
+**Aufteilung:** a (dieser Teil) Protokoll und Abnahme; b App:
+Repositories-Karte mit NIP-34 (ankündigen, Patch senden, Patches mit Status,
+annehmen/schließen als Maintainer).
+
+**Tests:** protocol +6 (Ankündigung, Unfug, Patch-Text, RFC 2047, Status-Regeln,
+Abnahme mit git).
+
+Endstand: protocol 1096 (+ 6 übersprungen) · node 213 (+ 7 übersprungen ohne
+Netz) · app 305 · Leak-Tests 48 grün + 2 todo · 0 rot · check-wiring `--streng`
+0 offen (9 neue Ausnahmen bis 8.10b) · innerHTML streng 0 unbewertet ·
+Smoke-Test bestanden.

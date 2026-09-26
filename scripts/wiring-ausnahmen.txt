@@ -163,6 +163,16 @@ naming.ts|searchByName|Namenssuche ohne Oberfläche (Lokale Suche, 8.13)
 network-capacity.ts|computeNetworkCapacity|dezentrale Gratis-Schwelle, noch nicht angebunden (Gebührenmodell, 5.1)
 network-capacity.ts|extractStorageCaps|dezentrale Gratis-Schwelle, noch nicht angebunden (Gebührenmodell, 5.1)
 
+nip34.ts|bauePatch|Git über Nostr (NIP-34), in der App erst mit 8.10b
+nip34.ts|baueRepoAnkuendigung|Git über Nostr (NIP-34), in der App erst mit 8.10b
+nip34.ts|baueStatus|Git über Nostr (NIP-34), in der App erst mit 8.10b
+nip34.ts|darfAnnehmen|Git über Nostr (NIP-34), in der App erst mit 8.10b
+nip34.ts|lesePatch|Git über Nostr (NIP-34), in der App erst mit 8.10b
+nip34.ts|lesePatchText|Git über Nostr (NIP-34), in der App erst mit 8.10b
+nip34.ts|leseRepoAnkuendigung|Git über Nostr (NIP-34), in der App erst mit 8.10b
+nip34.ts|patchStatus|Git über Nostr (NIP-34), in der App erst mit 8.10b
+nip34.ts|repoAdresse|Git über Nostr (NIP-34), in der App erst mit 8.10b
+
 nwc.ts|formatNwcUri|NWC-Verbindungstext erzeugen, ohne Oberfläche (Lightning privat, 6.3)
 
 nostr-order.ts|offerMatches|Angebot gegen Betrag prüfen; der Import in app.ts war unbenutzt und fiel mit 1.0 weg (Swaps in beide Richtungen, 4.6)
