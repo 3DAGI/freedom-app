@@ -18,6 +18,7 @@ import {
   MAX_REFUND_ATTEMPTS,
   PendingLock,
   RefundRunner,
+  setzeSperrSpeicher,
 } from "../src/refund-watcher.js";
 
 const NOW = 1_800_000_000;
@@ -251,5 +252,55 @@ test("Watcher: stop() beendet die Ueberwachung", async () => {
     const stand = r.aufrufe.length;
     await new Promise((res) => setTimeout(res, 80));
     assert.equal(r.aufrufe.length, stand, "nach stop() keine weiteren Versuche");
+  });
+});
+
+// ------------------------------------------------ Kette zuerst (4.6c)
+
+test("Kette zuerst: schon eingeloeste Sperren werden ohne Transaktion abgeschlossen", async () => {
+  await withStorage(async () => {
+    await rememberLock(lock({ timelockUnix: NOW - 1 }));
+    const r = runner();
+    const mitKette = { ...r, offen: async () => [] as string[] };
+    const res = await sweepPendingRefunds(mitKette, NOW);
+    assert.equal(r.aufrufe.length, 0, "kein Wallet-Dialog fuer nichts");
+    assert.equal(res.fehler.length, 0);
+    assert.equal(listPendingLocks().length, 0, "abgeschlossen");
+  });
+});
+
+test("Kette zuerst: nur die offenen Sperren kommen in die Rueckholung", async () => {
+  // Frueher riss ein eingeloestes HTLC in derselben Transaktion das offene mit.
+  await withStorage(async () => {
+    await rememberLock(lock({ timelockUnix: NOW - 1, swapIds: ["spend", "rest"] }));
+    const r = runner();
+    await sweepPendingRefunds({ ...r, offen: async (ids) => ids.filter((i) => i === "rest") }, NOW);
+    assert.deepEqual(r.aufrufe, [["rest"]]);
+  });
+});
+
+test("Speicher: mit Tresor liegen die Sperren dort, nicht in localStorage", async () => {
+  await withStorage(async () => {
+    const tresor = new Map<string, string>();
+    setzeSperrSpeicher({
+      getItem: (k) => tresor.get(k) ?? null,
+      setItem: async (k, v) => { tresor.set(k, v); },
+      removeItem: async (k) => { tresor.delete(k); },
+      keys: () => [...tresor.keys()],
+    });
+    try {
+      await rememberLock(lock({ reference: "im-tresor" }));
+      assert.equal(localStorage.length, 0);
+      assert.equal(listPendingLocks()[0].reference, "im-tresor");
+      await forgetLock("im-tresor");
+      assert.equal(tresor.size, 0);
+    } finally {
+      setzeSperrSpeicher({
+        getItem: (k) => localStorage.getItem(k),
+        setItem: (k, v) => localStorage.setItem(k, v),
+        removeItem: (k) => localStorage.removeItem(k),
+        keys: () => Array.from({ length: localStorage.length }, (_, i) => localStorage.key(i)).filter((k): k is string => k !== null),
+      });
+    }
   });
 });

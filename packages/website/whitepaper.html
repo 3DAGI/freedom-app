@@ -96,9 +96,11 @@
   bereits zurückgelaufen ist.</p>
   <p><strong>Vor dem Bezahlen wird geprüft</strong>, ob die Gegenleistung
   tatsächlich auf der Kette liegt: Betrag, Empfänger, Hashlock, Restlaufzeit. Ist
-  die Prüfung nicht möglich, bleibt der Zahl-Link gesperrt. Fällige Sperren werden
-  automatisch zurückgeholt — der häufigste Weg, hier Geld zu verlieren, ist nicht
-  Betrug, sondern Vergessen.</p>
+  die Prüfung nicht möglich, bleibt der Zahl-Link gesperrt. Fällige Sperren holt
+  die App selbst zurück, solange sie offen und die Wallet verbunden ist — der
+  häufigste Weg, hier Geld zu verlieren, ist nicht Betrug, sondern Vergessen.
+  In der Gegenrichtung (SOL → sats) sperrt der Kunde unter dem Hash seiner eigenen
+  Rechnung; der LP erfährt das Preimage erst, indem er sie bezahlt.</p>
 <h2 id="speicher">Speicher</h2>
 <p>Dateien werden in Stücke zerlegt, mit Erasure-Coding redundant gemacht und
   über Provider verteilt. Ein Teil der Knoten kann ausfallen, ohne dass etwas
