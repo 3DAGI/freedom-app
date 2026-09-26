@@ -43,9 +43,9 @@ bash scripts/build-site.sh /tmp/site                     # Website bauen (Ziel w
 bash packages/mls/bauen.sh --pruefen                     # nur bei Änderungen an packages/mls: nachbauen + vergleichen (Rust, clang)
 ```
 
-Stand 26.09.2026 (nach 5.6c und 2.2b-c1): protocol 1148 grün (6 übersprungen), node 240 grün
+Stand 26.09.2026 (nach 5.6c und 2.2b-c2): protocol 1149 grün (6 übersprungen), node 240 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 387 grün, mls 10 grün, Leak-Tests 50 grün + 2 `todo` (heutige Lecks,
+in `tools.test.ts`), app 393 grün, mls 10 grün, Leak-Tests 54 grün + 2 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
 Ausnahme: gesendete SOL-Zahlungen von frischen Adressen, eine bewusste Grenze
 nach Entscheidung 4.9 A – im Datenschutzbericht unter „Bewusste Grenzen“).
@@ -324,6 +324,13 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   dann senden – sonst kann der private Teil eines veröffentlichten KeyPackages
   verloren sein. Der Platz (d-Tag) ist zufällig und bleibt; fremde KeyPackages
   nur über `waehleKeyPackages()` (Form nach Marmot, je Platz das neueste).
+  Über Nostr nur mit `mls-nostr.ts` (seit 2.2b-c2): Gruppennachrichten (445)
+  nur an die Relays der Gruppe (`mls.routing()`, vor einem Commit festhalten),
+  Einladungen nur an den Posteingang der Eingeladenen und erst, wenn der
+  Commit angenommen ist (`aendereGruppe()`); nie `mls.senden()` & Co. direkt
+  veröffentlichen. Nach `wartezeit` `schreiteFort()` rufen – die Engine hält
+  Nachrichten nach einem Commit zurück. In Tests die Reihenfolge aus dem
+  Senden nehmen, nicht aus `query()` (sortiert nach Sekunden).
 - **RPC-Anbieter nur mit Stichprobe vergleichen** (seit 5.8): `RpcPool.stichprobe()`
   – zwei Betreiber, Netz, Blockhash in beide Richtungen, ein Kontostand.
   Nie mehrere eigene Adressen in eine Stichprobe (4.9c); ohne Adresse, wo es

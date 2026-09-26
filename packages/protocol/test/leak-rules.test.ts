@@ -9,7 +9,7 @@ import { buildEvent, generateKeypair, signEvent, type NostrEvent } from "../src/
 import {
   LEAK_REGELN, regelAutorNicht, regelKeinBolt11, regelKeinKind4, regelKeinKlartext, regelKeinKlartextPrompt,
   regelKeineSolAdresse, regelKeineZahlungsdaten, regelKundeVerborgen, regelPTagsNur, regelSolAdresseFrisch,
-  regelUploadVerschluesselt, regelMeshVerschluesselt,
+  regelUploadVerschluesselt, regelMeshVerschluesselt, regelMlsGruppe,
 } from "../src/leak-rules.js";
 import { bech32 } from "@scure/base";
 import { fromHex } from "../src/htlc.js";
@@ -81,9 +81,27 @@ test("jede Regel meldet unter einem Namen aus LEAK_REGELN", () => {
     ...regelUploadVerschluesselt([ev(1, [], "0102030405060708090a")], new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])),
     ...regelKeineZahlungsdaten([ev(6050, [["amount", "21000"]])]),
     ...regelMeshVerschluesselt([new TextEncoder().encode(kunde.pk)], { schluessel: [kunde.pk], klartexte: [] }),
+    ...regelMlsGruppe([ev(445, [])], { gruppenIds: [], identitaeten: [] }),
   ];
   const gemeldet = new Set(funde.map((f) => f.regel));
   assert.deepEqual([...gemeldet].sort(), Object.keys(LEAK_REGELN).sort());
+});
+
+test("mls-gruppe: nur h (nicht die Gruppen-Id), eigener Schlüssel je Nachricht, nie die Identität", () => {
+  const H = "ab".repeat(32);
+  const GRUPPE = "cd".repeat(32);
+  const weg = () => generateKeypair();
+  const regel = (evs: NostrEvent[]) => regelMlsGruppe(evs, { gruppenIds: [GRUPPE], identitaeten: [kunde.pk] }).map((f) => f.detail);
+  assert.deepEqual(regel([ev(445, [["h", H]], "Y2hpZmZyZQ==", weg()), ev(445, [["h", H], ["expiration", "1"]], "eA==", weg())]), [], "so soll es sein");
+  assert.deepEqual(regel([ev(1, [["h", GRUPPE]])]), [], "andere Arten zählen nicht");
+  assert.deepEqual(regel([ev(445, [["h", GRUPPE]], "", weg())]), ["h-Tag ist die MLS-Gruppen-Id"]);
+  assert.deepEqual(regel([ev(445, [], "", weg())]), ["kein einzelner h-Tag mit 64 Hex"]);
+  assert.deepEqual(regel([ev(445, [["h", H], ["h", H]], "", weg())]), ["kein einzelner h-Tag mit 64 Hex"]);
+  assert.deepEqual(regel([ev(445, [["h", H], ["p", provider.pk]], "", weg())]), ["weiterer Tag p"]);
+  assert.deepEqual(regel([ev(445, [["h", H]])]), ["Identität ist Autor"]);
+  const einer = weg();
+  assert.deepEqual(regel([ev(445, [["h", H]], "a", einer), ev(445, [["h", H]], "b", einer)]), ["Schlüssel wiederverwendet"]);
+  assert.deepEqual(regel([ev(445, [["h", H]], `x${kunde.pk}`, weg())]), ["Identität im Inhalt"]);
 });
 
 test("keine-zahlungsdaten: Betrag, Rechnung, Adresse, Sitzung, Beleg – aber nicht das Leistungs-Event", () => {
