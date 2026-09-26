@@ -66,6 +66,7 @@ kommunikation.ts|(Zuweisung) conversations .sort((a, b) => b.lastTs - a.lastTs) 
 kommunikation.ts|(Zuweisung) decrypted .sort((a, b) => a.created_at - b.created_at) .map((ev) => { const mine = ev.pubkey === state.keypair!.pk; let |Callback: Templates mit escapeHtml; alt, zapBtn, body, media siehe folgende Zeilen
 kommunikation.ts|alt|festes Markup oder leer
 kommunikation.ts|diebstahl|festes Markup oder leer (Warnung nach Schlüsseldiebstahl, 8.6a)
+kommunikation.ts|geraet|Template mit escapeHtml(g.text) oder leer (Gerätehinweis, 8.6b); die Klasse hängt nur am Wahrheitswert g.warnung
 kommunikation.ts|zapBtn|Template mit escapeHtml(ev.pubkey) und escapeHtml(pkShort(ev.pubkey))
 kommunikation.ts|body|body = escapeHtml(text)
 kommunikation.ts|media|renderAttachment() maskiert Name und URL und erlaubt nur sichere Schemata (shell-logic.ts)

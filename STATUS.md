@@ -4871,3 +4871,65 @@ Endstand: protocol 1122 (+ 6 übersprungen) · node 225 (+ 7 übersprungen ohne
 Netz) · app 335 · Leak-Tests 48 grün + 2 todo · 0 rot · check-wiring `--streng`
 0 offen (4 Ausnahmen weniger) · innerHTML streng 0 unbewertet · Smoke-Test
 bestanden · Browser-E2E bestanden.
+
+## Schritt 8.6b – Geräte und Schlüsselwechsel, Teil b: an jedes Gerät versiegeln
+
+**Entscheidung MENSCH (26.09.2026):** Absender versiegeln an jedes Gerät des
+Empfängers. Bisher konnte ein Gerät (eigener Schlüssel mit Vollmacht 38070)
+keine Direktnachricht lesen – alle Umschläge gingen nur an die Hauptidentität.
+Schrieb ein Gerät, sahen Kontakte einen fremden Schlüssel.
+
+**Protokoll:** `buildPrivateDm(…, { weitereEmpfaenger })` versiegelt dieselbe
+Nachricht zusätzlich je Schlüssel in einem eigenen Umschlag (mit eigenem
+Zeitversatz, auch beim Ablauf); im Inneren bleibt `p` die Person. Doppelte,
+eigene und ungültige Schlüssel fallen weg. `openPrivateDm(…, { auchFuer })`
+liest auch für weitere Schlüssel – die Hauptidentität für ihre Geräte, ein
+Gerät für seine Person. `geraete-post.ts`: `nachrichtenGeraete()` (aktive
+Vollmachten mit „nachrichten“), `alleGeraete()` (auch entzogene – was sie
+vorher schrieben, bleibt lesbar), `absenderPerson()` (wer steckt hinter einem
+Absender). Nach einem Entzug gilt ein Gerät nicht mehr als die Person; was
+„vorher“ datiert ist, gilt, trägt aber `entzogen` – der Zeitstempel ist nur
+behauptet. Da jeder für jeden Schlüssel eine Vollmacht ausstellen kann, gewinnt
+bei mehreren Eigentümern der eine Kontakt, sonst keiner.
+
+**App:** `geraete-buch.ts` lädt Vollmachten und Entzüge je Person höchstens
+einmal pro Minute (nach eigenem Ausstellen oder Entziehen sofort,
+`settings.ts:382`, `:404`). Senden (`kommunikation.ts:1256`, `:1261`): Kopien
+an die Geräte des Kontakts und die eigenen, zugestellt am Posteingang der
+Person. Öffnen (`:893`, `:895`): Kopien eigener Geräte erscheinen als „du · von
+deinem Gerät …“, Nachrichten von Geräten eines Kontakts in dessen Unterhaltung
+als „über Gerät …“ (Autor und ⚡ die Person); nach dem Entzug steht die
+Nachricht unter dem Geräteschlüssel mit ⚠. Der Gerätename kommt aus der
+Vollmacht (Fremddaten) und geht nur durch `escapeHtml` ins HTML (`:1206`,
+begründete Ausnahme). Der Entzugsdialog nennt die Grenzen.
+
+**Datenschutz:** neue Aussagen „geraete-kopien“ (belegt, Szenario: vier
+Umschläge ohne Klartext, Absender verborgen, p nur Personen und Geräte) und
+„geraete-vollmacht“ (Grenze: Vollmachten sind öffentlich; der Posteingang sieht
+Umschläge an Person und Geräte gleichzeitig ankommen – wer das nicht will,
+nutzt NIP-46). Leak-Test „DM an Personen mit Geräten“.
+
+**Browser-E2E** (vorgetäuschtes Relay, Geräte als Skript – die App als Gerät
+folgt mit c): O und K legen je ein Gerät über die Settings an. K schreibt O:
+je ein Umschlag an O, K, Os Handy, Ks Tablet; das Handy liest ihn. Das Handy
+antwortet K, das Tablet schreibt O. Bei O: „du · von deinem Gerät „Handy““ und
+Ks Tablet-Nachricht in Ks Unterhaltung, keine neue Anfrage. Bei K: die
+Handy-Antwort unter Os Schlüssel, ⚡ an O. O entzieht das Handy: die nächste
+Nachricht geht nicht mehr ans Handy; was der Dieb danach mit dem Handy
+schreibt, landet bei K als eigene Anfrage mit „⚠ … Vollmacht entzogen“, nicht
+bei O; bei O steht es mit „⚠ … nach dem Entzug – nicht von dir“, die frühere
+Handy-Antwort mit „Zeitpunkt nicht belegt“. Keine Seitenfehler.
+
+**Grenzen:** Nur Chat-Nachrichten gehen an Geräte – Trinkgeld-Belege,
+Adress-Anfragen und Nachfolge-Anteile weiter nur an die Person. Ein Entzug
+wirkt bei Kontakten, sobald sie ihn sehen (höchstens eine Minute nach dem
+Abgleich). Anmelden als Gerät in der App ist Teil c.
+
+**Tests:** protocol +5 (Kopien und Ziele, Öffnen als Gerät, Antwort des
+Geräts, Entzug, fremde Vollmacht), app +4 (Buch und Frische, Zuordnung, Entzug
+und fremde Vollmacht, Verdrahtung), Leak +1.
+
+Endstand: protocol 1127 (+ 6 übersprungen) · node 225 (+ 7 übersprungen ohne
+Netz) · app 339 · Leak-Tests 49 grün + 2 todo · 0 rot · check-wiring `--streng`
+0 offen (1 Ausnahme weniger: `checkDeviceEvent` jetzt verdrahtet) · innerHTML
+streng 0 unbewertet · Smoke-Test bestanden · Browser-E2E bestanden.

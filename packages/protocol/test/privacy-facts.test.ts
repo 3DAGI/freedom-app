@@ -228,6 +228,14 @@ const SZENARIEN: Record<string, () => Promise<number>> = {
     const wraps = await Promise.all([0, 1, 2].map(async (index) => (await baueStueckAbruf({ sitzung, knotenPk: b.pk, blobId, index })).wrap));
     return regelKeinKlartext(wraps, [blobId]).length + regelAutorNicht(wraps, a.pk).length + regelAutorNicht(wraps, sitzung.publicKey()).length;
   },
+  "geraete-kopien": async () => {
+    // Wie die App seit 8.6b: an die Person, sich selbst und je Geraet ein eigener Umschlag.
+    const [handy, tablet] = [generateKeypair().pk, generateKeypair().pk];
+    const dm = await buildPrivateDm({ signer: new LocalSigner(a.sk), recipientPk: b.pk, content: GEHEIM, weitereEmpfaenger: [tablet, handy] });
+    const alle = [dm.toRecipient, dm.toSelf, ...dm.weitere.map((k) => k.wrap)];
+    if (alle.length !== 4) return 1;
+    return regelKeinKlartext(alle, [GEHEIM]).length + regelAutorNicht(alle, a.pk).length + regelPTagsNur(alle, [a.pk, b.pk, handy, tablet]).length;
+  },
   "abdeckung-zelle": async () => {
     const [lat, lon] = [48.137154, 11.576124];
     const funde = (["lora", "bluetooth"] as const).flatMap((layer) => {

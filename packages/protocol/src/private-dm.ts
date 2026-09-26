@@ -39,6 +39,12 @@ export interface PrivateDmInput {
    * Umschlaegen (Relays sollen sie loeschen). Loeschen ist eine Bitte.
    */
   ablaufSecs?: number;
+  /**
+   * Weitere Schluessel, die eine eigene Kopie bekommen (Schritt 8.6b): die
+   * Geraete des Empfaengers und die eigenen. Im Inneren bleibt `p` der
+   * Empfaenger. Ungueltige und doppelte Schluessel fallen weg.
+   */
+  weitereEmpfaenger?: readonly string[];
 }
 
 /** Laengster Ablauf: ein Jahr. */
@@ -51,6 +57,8 @@ export interface PrivateDmOutput {
   toSelf: NostrEvent;
   /** Stabile ID der Nachricht (des inneren Kind-14-Events). */
   rumorId: string;
+  /** Kopien an `weitereEmpfaenger` (8.6b), je Schluessel ein Umschlag. */
+  weitere: { an: string; wrap: NostrEvent }[];
 }
 
 /** Baut eine private Direktnachricht samt Kopie an sich selbst. */
@@ -81,7 +89,12 @@ export async function buildPrivateDm(i: PrivateDmInput): Promise<PrivateDmOutput
   const rumorId = computeEventId(rumor);
   const toRecipient = await giftWrapMitSigner(rumor, signer, i.recipientPk, optionen());
   const toSelf = await giftWrapMitSigner(rumor, signer, senderPk, optionen());
-  return { toRecipient, toSelf, rumorId };
+  const weitere = [];
+  for (const an of new Set(i.weitereEmpfaenger ?? [])) {
+    if (!HEX64.test(an) || an === i.recipientPk || an === senderPk) continue;
+    weitere.push({ an, wrap: await giftWrapMitSigner(rumor, signer, an, optionen()) });
+  }
+  return { toRecipient, toSelf, rumorId, weitere };
 }
 
 /** Zufaellige Sekunden in [0, bis). */
@@ -122,7 +135,11 @@ export type OpenResult = { ok: true; dm: PrivateDm } | { ok: false; reason: stri
  * Oeffnet einen Umschlag und prueft Absender, Art und Empfaenger – mit rohem
  * Schluessel (mySk, myPk) oder ueber den Signer (Schritt 1.3).
  */
-export async function openPrivateDm(wrap: NostrEvent, mySkOderSigner: Uint8Array | Signer, myPkAngabe?: string): Promise<OpenResult> {
+export async function openPrivateDm(
+  wrap: NostrEvent, mySkOderSigner: Uint8Array | Signer, myPkAngabe?: string,
+  /** Seit 8.6b: Schluessel, fuer die ich auch lese – als Geraet meine Hauptidentitaet und meine anderen Geraete. */
+  opts: { auchFuer?: readonly string[] } = {},
+): Promise<OpenResult> {
   if (wrap.kind !== KIND_GIFT_WRAP) return { ok: false, reason: "kein Gift-Wrap" };
   const signer = mySkOderSigner instanceof Uint8Array
     ? signerAus(undefined, mySkOderSigner, myPkAngabe)
@@ -136,8 +153,9 @@ export async function openPrivateDm(wrap: NostrEvent, mySkOderSigner: Uint8Array
   if (!from || from !== r.senderPubkey) return { ok: false, reason: "Absender nicht belegt" };
   const p = inner.tags.find((t) => t[0] === "p")?.[1];
   if (!p || !HEX64.test(p)) return { ok: false, reason: "kein gültiger Empfänger im Inhalt" };
-  if (from !== myPk && p !== myPk) return { ok: false, reason: "Nachricht betrifft mich nicht" };
-  const partner = from === myPk ? p : from;
+  const ich = new Set([myPk, ...(opts.auchFuer ?? [])]);
+  if (!ich.has(from) && !ich.has(p)) return { ok: false, reason: "Nachricht betrifft mich nicht" };
+  const partner = ich.has(from) ? p : from;
   const ablauf = inner.tags.find((t) => t[0] === "expiration")?.[1];
   const expiresAt = ablauf !== undefined && /^\d{1,12}$/.test(ablauf) ? Number(ablauf) : undefined;
   return {
