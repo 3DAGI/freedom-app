@@ -29,6 +29,7 @@ export const PRIVACY_FACTS: readonly PrivacyFact[] = [
   { id: "dm-kein-kind4", aussage: "Die App sendet keine Direktnachrichten im alten Format (Kind 4) mehr.", status: "belegt", regel: "kein-kind4" },
   { id: "kontakte", aussage: "Deine Kontaktliste veröffentlicht die App nicht – auf Wunsch liegt sie verschlüsselt auf den Relays.", status: "belegt", regel: "kein-klartext" },
   { id: "abdeckung-zelle", aussage: "Abdeckungskarte: Nur die gerundete Zelle verlässt das Gerät, nie der genaue Standort.", status: "belegt", regel: "kein-klartext" },
+  { id: "abdeckung-schluessel", aussage: "Ein Eintrag in die Abdeckungskarte trägt einen Wegwerfschlüssel, nicht deine Identität, und läuft nach 7 Tagen ab – auf den Relays ist er aber einzeln sichtbar.", status: "belegt", regel: "autor-verborgen" },
   { id: "dm-forward-secrecy", aussage: "Direktnachrichten haben Forward Secrecy.", status: "offen", schritt: "2.2b" },
   { id: "anhaenge", aussage: "Anhänge liegen verschlüsselt auf den Speicher-Servern – öffnen kann sie nur, wer die Nachricht lesen kann.", status: "belegt", regel: "upload-verschluesselt" },
   { id: "raeume", aussage: "Räume sind Ende-zu-Ende-verschlüsselt.", status: "offen", schritt: "2.3", regel: "kein-klartext" },

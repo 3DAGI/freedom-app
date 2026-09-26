@@ -11,7 +11,7 @@ import { zeigeVertraute } from "../nachfolge-ui.js";
 import { alsGeraet, ensurePool, mitBunker, mitRohemSchluessel, signiere, state } from "../state.js";
 import { geheim, istGeheimnis, tresorEingerichtet, wireTresorKarte } from "../tresor.js";
 import { $, ganzeZahl, toast } from "../ui.js";
-import { ladeAbdeckung, trageAbdeckungEin } from "./earn.js";
+import { ladeAbdeckung, trageAbdeckungEin, widerrufeAbdeckung } from "./earn.js";
 import { LS_KONTAKTE_SICHERN, geraeteBuch, kontakteEinschalten, kontakteSichernAn, sichereKontakte } from "./kommunikation.js";
 import { LS_STANDARD_SCHIENE, standardSchiene } from "../../standard-schiene.js";
 
@@ -697,6 +697,8 @@ export async function wireMeshTab(): Promise<void> {
   if (refresh) refresh.onclick = () => void ladeAbdeckung();
   const join = $("#coverage-join");
   if (join) join.onclick = () => void trageAbdeckungEin();
+  const leave = $("#coverage-leave");
+  if (leave) leave.onclick = () => void widerrufeAbdeckung();
 
   void ladeAbdeckung();
   setInterval(() => zeigeWarteschlange(), 2000);

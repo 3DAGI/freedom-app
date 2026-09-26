@@ -53,7 +53,7 @@ export const geheim: GeheimSpeicher = geheimSpeicher(() => tresor, tresorEingeri
  * tabs/kommunikation.ts, swap-client.ts, sol-wallet.ts, suche-ui.ts und
  * nachfolge.ts.
  */
-const GEHEIM_FEST = [LS_KEY, LS_BUNKER, LS_MERKPHRASE, "freedom.nwc.uri", "freedom.chats", "freedom.agentHistory", "freedom.swapHistory", "freedom.suche.schluessel", "freedom.nachfolge", "freedom.reklamationen", "freedom.mandate"];
+const GEHEIM_FEST = [LS_KEY, LS_BUNKER, LS_MERKPHRASE, "freedom.nwc.uri", "freedom.chats", "freedom.agentHistory", "freedom.swapHistory", "freedom.suche.schluessel", "freedom.nachfolge", "freedom.reklamationen", "freedom.coverage.eintrag", "freedom.mandate"];
 const GEHEIM_PRAEFIXE = ["freedom.swap.", "freedom.htlc.", "freedom.solWallet", "freedom.pending."];
 
 function geheimnisse(): string[] {

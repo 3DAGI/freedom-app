@@ -11,7 +11,7 @@ import {
   LEAK_REGELN, regelAutorNicht, regelKeinKind4, regelKeinKlartext, regelKeinKlartextPrompt, regelKeineSolAdresse, regelKeineZahlungsdaten,
   regelKundeVerborgen, regelPTagsNur, regelUploadVerschluesselt,
 } from "../src/leak-rules.js";
-import { LAYER_CELL_DEGREES, buildCoverageAnnouncement, toCell } from "../src/coverage.js";
+import { LAYER_CELL_DEGREES, baueCoverageEintrag, baueCoverageWiderruf, buildCoverageAnnouncement, toCell } from "../src/coverage.js";
 import { signEvent } from "../src/event.js";
 import { buildJobRequest, buildJobResult } from "../src/dvm.js";
 import { buildPrivateDispute, buildPrivateJobRequest, buildPrivateJobResponse, buildPrivateSessionEvent, buildPrivateUrteil } from "../src/private-job.js";
@@ -254,6 +254,15 @@ const SZENARIEN: Record<string, () => Promise<number>> = {
       return regelKeinKlartext([ev], [String(lat), String(lon), lat.toFixed(4), lon.toFixed(4)]);
     });
     return funde.length;
+  },
+  "abdeckung-schluessel": async () => {
+    // Wie die App seit 5.10: je Eintrag ein Wegwerfschluessel, mit Ablauf; der Widerruf vom selben.
+    const [lat, lon] = [48.137154, 11.576124];
+    const eintraege = (["lora", "bluetooth"] as const).map((layer) => baueCoverageEintrag({ layer, cell: toCell(lat, lon, LAYER_CELL_DEGREES[layer]), region: "" }));
+    const events = [...eintraege.map((e) => e.event), baueCoverageWiderruf(eintraege[0]!.event.id, eintraege[0]!.wegwerfSk)];
+    const verschieden = new Set(eintraege.map((e) => e.event.pubkey)).size === eintraege.length ? 0 : 1;
+    const ohneAblauf = eintraege.filter((e) => !e.event.tags.some((t) => t[0] === "expiration")).length;
+    return regelAutorNicht(events, a.pk).length + verschieden + ohneAblauf;
   },
 };
 
