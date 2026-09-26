@@ -5329,6 +5329,6 @@ abgewiesen), Brücken (signieren nur Kind 450 bzw. 13 der eigenen Identität).
 **Noch nicht in der App** – Einbau (b), Nostr-Anbindung und Zustand im Tresor
 (c), 1:1 als MLS-Gruppe (d), Geräte (e) folgen; Aufteilung in `phase-2.md`.
 
-Endstand (nach dem Einmergen von 8.3a): protocol 1131 · node 234 · app 355 ·
+Endstand (nach dem Einmergen von 8.3b): protocol 1131 · node 239 · app 355 ·
 mls 9 (neu) · Leak-Tests 49 grün + 2 todo · 0 rot · check-wiring `--streng` 0 offen · innerHTML streng 0
 unbewertet · Smoke-Test bestanden · Nachbau bitgleich.
