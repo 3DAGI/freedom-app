@@ -4166,3 +4166,51 @@ Leak-Tests 47 grün + 2 todo · 0 rot · check-wiring `--streng` 0 offen ·
 innerHTML streng 0 unbewertet · Smoke-Test bestanden. Verteil-Test ohne
 Timing-Abhängigkeit (die erste Fassung hing an der gemessenen Latenz und war
 in der CI rot).
+
+## Schritt 7.4 – KI über Funk-Gateway: zurückgestellt (MENSCH 26.09.2026)
+
+Vor dem Bau drei STOPP-Gründe, dem MENSCHEN vorgelegt: (1) Die Karte lässt das
+Gateway die Antwort kürzen – Antworten sind seit 3.2 Ende-zu-Ende verschlüsselt,
+das Gateway kann sie nicht lesen. **Entscheidung:** Der Provider kürzt auf
+Wunsch (Parameter im versiegelten Auftrag, 500 Zeichen, keine Zwischenstände);
+das Gateway reicht nur Umschläge weiter und kennt nur den Sitzungsschlüssel.
+(2) Bezahlt werden soll per Zahlkanal-Gutschrift – den Zahlkanal (4.3) gibt es
+nicht, er wartet auf 4.0. **Entscheidung:** 7.4 zurückstellen, bis 4.3 da ist.
+(3) Anbindung des Knotens ans Funkgerät. **Entscheidung:** TCP-Brücke mit
+Längenpräfix (socat/ser2net), keine neue Abhängigkeit. Spur B macht mit 7.2
+weiter.
+
+## Schritt 7.2a – SOL ohne Internet, Teil a: Durable Nonces im Protokoll
+
+Eine Solana-Transaktion lebt mit ihrem Blockhash nur rund 150 Blöcke (etwa eine
+Minute) – zu kurz für Funk oder Stick. **`protocol/src/sol-offline.ts`:**
+`nonceKontoKosten()` (Miete für 80 Byte vom RPC, bleibt im Konto; dazu zwei
+Signaturen) für die Anzeige vor dem Anlegen; `baueNonceKontoAnlegen()`
+(Konto erzeugen und als Nonce einrichten, Zahler = Autorität; signieren Zahler
+und das neue Konto); `leseNonceKonto()` (80 Byte, eingerichtet, per DataView –
+kein Buffer-BigInt im Browser); `baueOfflineUeberweisung()` (erste Anweisung
+`AdvanceNonceAccount`, dann die Überweisung, der Nonce-Wert statt des
+Blockhashs – braucht kein Netz); `pruefeOfflineUeberweisung()` für Gateway und
+Empfänger (genau diese zwei Anweisungen, Zahler = Autorität = Gebührenzahler,
+alle Signaturen gültig; ob der Wert noch aktuell ist, weiß erst die Kette). Eine
+solche Überweisung hat rund 300 Byte – zwei Funkpakete – und besteht
+`pruefeMeshInhalt()`.
+
+**Abnahme** (`sol-offline-validator.test.ts`): am lokalen Validator Nonce-Konto
+anlegen, Offline-Überweisung signieren, warten, bis mehr als zwei Minuten um
+sind **und** ein normaler Blockhash abgelaufen ist (die Vergleichstransaktion
+wird abgelehnt), dann einreichen (mit Vorabsimulation) – kommt an; ein zweites
+Mal nicht, der Wert ist verbraucht. Läuft nur mit `solana-test-validator`; hier
+und in der CI gibt es keinen, der Test wird übersprungen (wie die Devnet-Tests).
+
+**Aufteilung:** a Protokoll (dieser Teil); b App: Wallet-Karte (Kosten zeigen,
+anlegen, Wert auffrischen, offline zahlen), Senden über Funk oder Datei,
+Einreichen durch ein Gerät mit Netz, ehrliche Texte.
+
+**Tests:** protocol 1072 → 1078 (+6: Kosten, Anlegen, Lesen, Offline-Überweisung
+samt Mesh-Regel, Negativfälle beim Bauen und Prüfen) + 1 übersprungen (Validator).
+
+Endstand (nach dem Einmergen von 4.9e): protocol 1080 (+ 6 übersprungen) ·
+node 213 (+ 7 übersprungen ohne Netz) · app 291 · Leak-Tests 47 grün + 2 todo ·
+0 rot · check-wiring `--streng` 0 offen (5 neue Ausnahmen bis 7.2b) ·
+innerHTML streng 0 unbewertet · Smoke-Test bestanden.

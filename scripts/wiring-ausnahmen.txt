@@ -214,6 +214,12 @@ sol-deposit.ts|buildSolDepositSettle|Abschluss eines SOL-Deposits, noch nicht an
 sol-deposit.ts|checkSolDeposit|Abschluss eines SOL-Deposits, noch nicht angebunden (Verdienen in SOL, 4.5)
 sol-deposit.ts|parseSolDepositSettle|Abschluss eines SOL-Deposits, noch nicht angebunden (Verdienen in SOL, 4.5)
 
+sol-offline.ts|baueNonceKontoAnlegen|SOL ohne Internet (Durable Nonces), in der App erst mit 7.2b
+sol-offline.ts|baueOfflineUeberweisung|SOL ohne Internet (Durable Nonces), in der App erst mit 7.2b
+sol-offline.ts|leseNonceKonto|SOL ohne Internet (Durable Nonces), in der App erst mit 7.2b
+sol-offline.ts|nonceKontoKosten|SOL ohne Internet (Durable Nonces), in der App erst mit 7.2b
+sol-offline.ts|pruefeOfflineUeberweisung|SOL ohne Internet (Durable Nonces), in der App erst mit 7.2b
+
 spaces.ts|searchMessages|Suche in Raum-Nachrichten, ohne Oberfläche (Lokale Suche, 8.13)
 
 state-backup.ts|checkExpiry|Zustandssicherung und ablaufende Nachrichten ohne Oberfläche (8.12)
