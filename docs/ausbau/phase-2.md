@@ -84,7 +84,8 @@ für Forward Secrecy. NIP-17 bleibt Rückfall für Kontakte ohne MLS.
     - **c2 – Nachrichten:** Einladungen an den Posteingang (Kind 10050),
       Commit vor Einladung, Gruppennachrichten an die Relays der Gruppe mit
       Bestätigung, Abos `#h`, Empfang und Konvergenz; KeyPackage nach einer
-      Einladung erneuern; Leak-Regeln.
+      Einladung erneuern; Leak-Regeln. Beides Bausteine – in der Oberfläche
+      erst mit d.
   - **2.2b-d – 1:1 als MLS-Gruppe:** in der Oberfläche; NIP-17 als Rückfall für
     Kontakte ohne KeyPackage; mit Bunker (NIP-46) gesperrt, weil der Kontobeweis
     synchron signiert werden muss.

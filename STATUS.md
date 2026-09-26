@@ -5815,3 +5815,77 @@ Endstand (nach dem Einmergen von 5.7b und 5.6a–c): protocol 1148 · node 240 �
 app 387 (+13) · mls 10 (+1) · Leak-Tests 50 grün + 2 todo · 0 rot · check-wiring `--streng` 0 offen · innerHTML streng 0
 unbewertet · Website 5 Seiten ok · Smoke-Test bestanden (mit MLS-Teil) ·
 Nachbau bitgleich.
+
+## Schritt 2.2b-c2 – MLS über Nostr: Einladungen, Gruppennachrichten, Leak-Regel
+
+**Ergebnis:** Der zweite Teil von 2.2b-c. `packages/app/src/mls-nostr.ts`
+(neu) bringt MLS-Gruppen über Nostr zum Laufen, nach dem Nostr-Transport von
+Marmot. Wie c1 ist das ein Baustein; in die Oberfläche kommt er mit d.
+
+**Senden:**
+- `gruendeGruppe()`: Gruppe anlegen, Zustand sichern, Einladungen zustellen.
+  Jede Einladung (Kind 1059) geht nur an den Posteingang (Kind 10050) ihres
+  Empfängers. Ohne Posteingang wird sie als „nicht zugestellt“ gemeldet, statt
+  sie irgendwohin zu senden.
+- `sendeInGruppe()`: Nachricht (Kind 445) nur an die Relays der Gruppe
+  (`mls.routing()`). Vorher wird gesichert.
+- `aendereGruppe()` (einladen oder entfernen):
+  - Das Routing wird vor dem Commit festgehalten; der Commit geht an die
+    Relays der alten Epoche.
+  - Erst wenn ein Relay ihn annimmt, wird er bestätigt, und erst dann gehen
+    Einladungen hinaus.
+  - Nimmt kein Relay an, ist er gescheitert: niemand wird eingeladen, die
+    Epoche bleibt.
+- `schreiteFort()`: Nach einem Commit hält die Engine Nachrichten bis zur
+  Wartezeit zurück. `schreiteFort()` stellt sie danach zu. Was die Engine
+  dabei selbst sendet, geht an die Gruppen-Relays.
+
+**Empfangen:**
+- `gruppenAbos()`: je Gruppe Kind 445 mit `#h` an ihren Relays.
+- `empfangeGruppe()`: meldet die `wartezeit` je Gruppe und sichert nach jeder
+  Änderung.
+- `oeffneEinladung()`: nur ein Umschlag an mich mit Kind 444 darin, genau
+  einem `e`- und einem `relays`-Tag. Der Absender kommt aus dem Siegel.
+  NIP-17-Nachrichten und fremde Umschläge ergeben `null`.
+- `nimmEinladungAn()`: beitreten, das eigene KeyPackage gilt als verbraucht
+  (wird neu veröffentlicht), sichern.
+
+**Leak-Regel `mls-gruppe`** (`protocol/src/leak-rules.ts`, in `LEAK_REGELN`),
+für Kind 445:
+- genau ein `h` mit 64 Hex, das nicht die MLS-Gruppen-Id ist;
+- sonst höchstens `expiration`;
+- nie eine Identität als Autor, kein Schlüssel zweimal, keine Identität im
+  Inhalt.
+
+Szenario `app/test/leak/mls.test.ts`: KeyPackages, Gründen, zwei Nachrichten,
+Einladen, Entfernen, eine Nachricht. Über alles, was irgendein Relay bekam:
+- kein Klartext und kein Gruppenname, kein Kind 4;
+- `mls-gruppe` eingehalten;
+- 445 nur an die Gruppen-Relays;
+- Umschläge nicht von einer Identität, `p` nur an Eingeladene, nur an deren
+  Posteingang;
+- offen sind nur Kinds 445, 1059 und 30443. Das KeyPackage trägt die
+  Identität mit Absicht, sonst fände es niemand (Marmot).
+
+Gegenprobe: Das später eingeladene Mitglied liest die letzte Nachricht. Die
+Aufzeichnung ist also echt und kein leerer Datenstrom.
+
+**Zufällig rote Tests vermieden:** `MemoryRelay.query()` sortiert nach
+Sekunden, neueste zuerst. Commit und Nachricht in verschiedenen Sekunden
+tauschten sonst die Reihenfolge. Die Tests nehmen die Reihenfolge deshalb aus
+dem Senden und prüfen das Abo getrennt (Fallstrick in `CLAUDE.md`).
+
+**Nebenbei:** `yarn.lock` nennt jetzt `@freedomstack/mls` als Abhängigkeit der
+App (seit 2.2b-b in `package.json`, in `yarn.lock` fehlte sie).
+
+**Tests:**
+- `app/test/mls-nostr.test.ts`, 6 neu: Gründen, Einladung erkennen und
+  annehmen, Nachricht, Einladen, Einladen scheitert, Entfernen samt
+  nachgereichter Nachricht.
+- `app/test/leak/mls.test.ts`, 4 neu.
+- `protocol/test/leak-rules.test.ts`: 1 neu, dazu `mls-gruppe` in der
+  Namensprüfung.
+
+Endstand: protocol 1149 (+1) · node 240 · app 393 (+6) · mls 10 · Leak-Tests
+54 grün (+4) + 2 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML
+streng 0 unbewertet · Website 5 Seiten ok · Smoke-Test bestanden.

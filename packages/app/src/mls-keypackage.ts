@@ -74,7 +74,7 @@ export function kpErneuern(s: Pick<Storage, "getItem">, jetzt = Math.floor(Date.
 }
 
 /** Eine Einladung hat das KeyPackage verbraucht – beim nächsten Mal ein neues. */
-export function kpVerbraucht(s: Speicher): void {
+export function kpVerbraucht(s: Pick<Storage, "removeItem">): void {
   s.removeItem(LS_MLS_KP);
 }
 
