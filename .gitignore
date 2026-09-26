@@ -11,3 +11,6 @@ dist/
 .ollama-freedom/
 packages/launcher/src-tauri/target/
 site/
+
+# MLS-Baustein: reproduzierbar gebaute WASM, eingecheckt (bauen.sh, CI mls.yml)
+!packages/mls/dist/

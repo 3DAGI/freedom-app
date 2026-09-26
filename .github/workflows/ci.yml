@@ -35,9 +35,9 @@ jobs:
         env:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
 
-      - name: Typpruefung (alle drei Pakete)
+      - name: Typpruefung (alle Pakete)
         run: |
-          for p in protocol node app; do
+          for p in protocol node app mls; do
             echo "--- tsc: $p"
             (cd "packages/$p" && npx tsc -p tsconfig.json --noEmit)
           done
@@ -50,6 +50,11 @@ jobs:
 
       - name: Tests app
         run: npm test --workspace @freedomstack/app
+
+      - name: Tests mls
+        # MLS nach Marmot (2.2b) mit der eingecheckten MDK-WASM aus
+        # packages/mls/dist – ob sie zum Quelltext passt, prueft mls.yml.
+        run: npm test --workspace @freedomstack/mls
 
       - name: Leak-Tests app
         # Schneidet mit, was die App veroeffentlicht, und prueft es gegen die

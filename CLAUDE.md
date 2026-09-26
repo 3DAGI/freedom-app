@@ -34,16 +34,18 @@ npm ci                                                   # einmal pro Sitzung
 cd packages/protocol && npx tsc -p tsconfig.json --noEmit && npm test && cd ../..
 cd packages/node     && npx tsc -p tsconfig.json --noEmit && npm test && cd ../..
 cd packages/app      && npx tsc -p tsconfig.json --noEmit && npm test && npm run test:leak && node build.mjs && cd ../..
+cd packages/mls      && npx tsc -p tsconfig.json && npm test && cd ../..     # MLS (MDK als WASM, aus dist/)
 python3 scripts/check-wiring.py --streng
 python3 scripts/check-website.py
 python3 scripts/check_innerhtml.py packages/app/src --ausnahmen scripts/innerhtml-ausnahmen.txt --streng
 python3 scripts/smoke_test.py packages/app/dist         # braucht playwright + chromium
 bash scripts/build-site.sh /tmp/site                     # Website bauen (Ziel wird gelöscht!)
+bash packages/mls/bauen.sh --pruefen                     # nur bei Änderungen an packages/mls: nachbauen + vergleichen (Rust, clang)
 ```
 
-Stand 26.09.2026 (nach 8.1b): protocol 1127 grün (6 übersprungen), node 226 grün
+Stand 26.09.2026 (nach 8.1b und 2.2b-a): protocol 1127 grün (6 übersprungen), node 226 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 355 grün, Leak-Tests 49 grün + 2 `todo` (heutige Lecks,
+in `tools.test.ts`), app 355 grün, mls 9 grün, Leak-Tests 49 grün + 2 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
 Ausnahme: gesendete SOL-Zahlungen von frischen Adressen, eine bewusste Grenze
 nach Entscheidung 4.9 A – im Datenschutzbericht unter „Bewusste Grenzen“).
@@ -298,3 +300,11 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   aus, statt localStorage selbst zu schreiben – sonst täten Einrichtung und
   Settings Verschiedenes. Öffentliche Verknüpfungen (Werbebeziehung) nur mit
   Zustimmung (`darfWerberNennen()`); Datenschutz-Sätze nur aus `PRIVACY_FACTS`.
+- **MLS-Baustein** (seit 2.2b-a, `packages/mls`): `dist/` nie von Hand ändern –
+  nur mit `bash packages/mls/bauen.sh` (fester MDK-Stand, `mdk.patch`,
+  `Cargo.lock`); die CI baut nach und vergleicht (`mls.yml`). Die Engine sieht
+  den Identitätsschlüssel nie: `beweisBruecke()` signiert nur den
+  Marmot-Kontobeweis (Kind 450), `signerBruecke()` nur Siegel (Kind 13) der
+  eigenen Identität. Der Zustand (`zustand()`, Megabytes) nur verschlüsselt
+  ablegen. Aufrufe eines Kontos nicht verschränken – ein zweiter während eines
+  laufenden wird mit „MLS beschäftigt“ abgewiesen.
