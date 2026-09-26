@@ -4094,3 +4094,37 @@ Endstand (nach dem Einmergen von 4.9d): protocol 1071 · node 213 (+ 7
 übersprungen ohne Netz) · app 288 · Leak-Tests 47 grün + 2 todo · 0 rot ·
 check-wiring `--streng` 0 offen · innerHTML streng 0 unbewertet · Smoke-Test
 bestanden.
+
+## Schritt 7.3 – Sats ohne Internet: ehrliche Hinweise
+
+Bisher sagte die App nirgends, was ohne Netz geht. Eine Zahlung offline hing an
+NWC, bis die Zeit ablief, oder endete mit einem Netzfehler.
+
+**Hinweis oben:** `wireOfflineHinweis()` (`shell/ui.ts`, aus `boot()`) zeigt
+unter der Kopfzeile, sobald der Browser offline meldet: „Offline: Nachrichten
+gehen verschlüsselt über Funk oder per Datei (Settings → Mesh). Sats und SOL,
+sobald wieder Netz da ist.“ – ein Text aus dem Protokoll (`OFFLINE_HINWEIS`),
+verschwindet mit dem Netz. `navigator.onLine === false` heißt sicher offline;
+`true` kann lügen (WLAN ohne Internet) – dann scheitert eine Zahlung wie bisher
+am Netz.
+
+**Zahlen:** `PaymentRail.online()` (optional, beide Schienen der App über
+`netzDa()`); `waehleRail()` lehnt offline **vor** der Wallet-Frage ab –
+Lightning: „Sats gehen erst wieder, wenn Netz da ist – Lightning braucht
+mehrere Runden Austausch“; SOL: „offline signieren kommt mit 7.2“. Gilt für
+jede Geldfunktion, die über `zahle()` geht (Zap, Trinkgeld, Vorab-Gebühr).
+
+**Karte vs. Code:** Die Karte nennt „Offline: Nachrichten und SOL“ – SOL offline
+gibt es erst mit 7.2 (Durable Nonces); bis dahin sagt der Hinweis ehrlich „Sats
+und SOL, sobald wieder Netz da ist“, 7.2 ergänzt ihn. Ecash (Cashu) ist nicht
+gebaut – nur nach MENSCH-Entscheidung, es hängt an verwahrenden Mints. FAQ
+ergänzt. Im Browser geprüft (Playwright, Netz ab und wieder an): Hinweis
+erscheint und verschwindet, keine Seitenfehler.
+
+**Tests:** protocol +1 (offline: Absage je Schiene vor der Wallet-Frage, nichts
+gezahlt; mit Netz wie bisher; Hinweistext), app +1 (beide Schienen fragen das
+Netz).
+
+Endstand: protocol 1072 · node 213 (+ 7 übersprungen ohne Netz) · app 289 ·
+Leak-Tests 47 grün + 2 todo · 0 rot · check-wiring `--streng` 0 offen ·
+innerHTML streng 0 unbewertet · Smoke-Test bestanden.

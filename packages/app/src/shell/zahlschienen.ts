@@ -9,6 +9,7 @@ import { LightningRail, SolanaRail, type SolanaWalletZugang } from "../rails.js"
 import { type SignierbareTx, waehleAbsender } from "../sol-wallet.js";
 import { buildSolTransfer, solRpcUrl } from "../sol-transfer.js";
 import { benutzbareEingebauteWallet, bestaetigeUeberLimit } from "./eingebaute-wallet.js";
+import { netzDa } from "./ui.js";
 import { nwc, verbundeneSolanaWallet } from "./tabs/waehrung.js";
 
 type WebLN = { enable(): Promise<void>; sendPayment(bolt11: string): Promise<{ preimage: string }> };
@@ -63,7 +64,8 @@ export function zahlschienen(): PaymentRail[] {
     new LightningRail({
       nwc: () => nwc,
       webln: () => (globalThis as { webln?: WebLN }).webln,
+      online: () => netzDa(),
     }),
-    new SolanaRail({ wallet: solanaWallet, baueUeberweisung: buildSolTransfer }),
+    new SolanaRail({ wallet: solanaWallet, baueUeberweisung: buildSolTransfer, online: () => netzDa() }),
   ];
 }
