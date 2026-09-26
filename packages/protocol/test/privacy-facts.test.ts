@@ -33,6 +33,23 @@ import { baueAnteilAnfrage, baueAnteilUebergabe, baueAnteilUmschlag, neueTeilung
 import { buildSuccessionPlan, secretHashOf, splitSecret } from "../src/succession.js";
 import { buildStateBackup, deriveBackupKey, waehleSicherung } from "../src/state-backup.js";
 import { baueStueckAbruf } from "../src/blob.js";
+import { regelMlsGruppe } from "../src/leak-rules.js";
+import { fromHex, toHex } from "../src/htlc.js";
+import type { NostrEvent, UnsignedEvent } from "../src/event.js";
+import { readFileSync } from "node:fs";
+import { gunzipSync } from "node:zlib";
+import { schnorr } from "@noble/curves/secp256k1.js";
+
+// MLS-Engine (2.2b-d2) – dynamisch geladen: packages/mls liegt ausserhalb von rootDir
+interface MlsKontoT {
+  keyPackage(platz: string): Promise<UnsignedEvent>;
+  gruppeAnlegen(name: string, kps: NostrEvent[], relays: string[]): Promise<{ gruppe: string; einladungen: NostrEvent[] }>;
+  senden(gruppe: string, text: string): Promise<{ events: NostrEvent[] }>;
+}
+interface MlsModulT {
+  Mls: new (signer: LocalSigner, beweis: (id: string) => string) => MlsKontoT;
+  ladeMls(wasm: Uint8Array): void;
+}
 
 const a = generateKeypair();
 const b = generateKeypair();
@@ -239,6 +256,20 @@ const SZENARIEN: Record<string, () => Promise<number>> = {
     const wraps = await Promise.all([0, 1, 2].map(async (index) => (await baueStueckAbruf({ sitzung, knotenPk: b.pk, blobId, index })).wrap));
     return regelKeinKlartext(wraps, [blobId]).length + regelAutorNicht(wraps, a.pk).length + regelAutorNicht(wraps, sitzung.publicKey()).length;
   },
+  "dm-mls": async () => {
+    // Wie die App 1:1 über MLS sendet (2.2b-d2): Einladung im Umschlag, Nachricht als Kind 445 – echte Engine
+    const { Mls, ladeMls } = (await import(["@freedomstack", "mls"].join("/"))) as MlsModulT;
+    ladeMls(gunzipSync(readFileSync(new URL("../../mls/dist/freedom_mls_bg.wasm.gz", import.meta.url))));
+    const konto = (k: typeof a) => new Mls(new LocalSigner(k.sk), (id) => toHex(schnorr.sign(fromHex(id), k.sk)));
+    const [ma, mb] = [konto(a), konto(b)];
+    const kpB = await new LocalSigner(b.sk).signEvent(await mb.keyPackage("ab".repeat(32)));
+    const g = await ma.gruppeAnlegen("", [kpB], ["wss://gruppe.test"]);
+    const s = await ma.senden(g.gruppe, GEHEIM);
+    const alle = [...g.einladungen, ...s.events];
+    if (g.einladungen.length !== 1 || s.events.length !== 1) return 1;
+    return regelKeinKlartext(alle, [GEHEIM]).length + regelAutorNicht(alle, a.pk).length + regelPTagsNur(g.einladungen, [b.pk]).length +
+      regelMlsGruppe(alle, { gruppenIds: [g.gruppe], identitaeten: [a.pk, b.pk] }).length;
+  },
   "geraete-kopien": async () => {
     // Wie die App seit 8.6b: an die Person, sich selbst und je Geraet ein eigener Umschlag.
     const [handy, tablet] = [generateKeypair().pk, generateKeypair().pk];
@@ -302,4 +333,7 @@ test("der Berichtstext trennt Belegtes und Offenes", () => {
   assert.match(t, /✓ Beim Tausch SOL → sats sehen Relays deine Lightning-Rechnung nicht\./);
   // Seit 4.9 (Entscheidung A): gesendete Zahlungen als bewusste Grenze, mit Grund.
   assert.match(t, /Bewusste Grenzen:\n△ Gesendete SOL-Zahlungen kommen nicht von frischen Adressen.*Entscheidung 4\.9 A/);
+  // Seit 2.2b-d2: 1:1 über MLS belegt; Forward Secrecy nur dort, der Rückfall NIP-17 als Grenze mit Grund.
+  assert.match(t, /✓ Direktnachrichten an Kontakte, die MLS können, laufen über MLS/);
+  assert.match(t, /△ Forward Secrecy haben Direktnachrichten nur über MLS\..*NIP-17 kennt keine Forward Secrecy/);
 });

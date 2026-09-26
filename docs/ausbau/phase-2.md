@@ -94,7 +94,8 @@ für Forward Secrecy. NIP-17 bleibt Rückfall für Kontakte ohne MLS.
       1:1-Unterhaltung, Einladungen von Kontakten annehmen, Gruppennachrichten
       abholen und im Chat zeigen („· MLS“); gesperrt mit Bunker und als Gerät.
     - **d2 – Senden:** 1:1 standardmäßig als MLS-Gruppe, NIP-17 als Rückfall;
-      Datenschutzbericht und Texte.
+      Datenschutzbericht und Texte. Einladungen von Fremden werden – wie ihre
+      NIP-17-Nachrichten – zur „Anfrage“, sonst ginge ihre erste Nachricht verloren.
   - **2.2b-e – Geräte:** mehrere Geräte als eigene Mitglieder.
 
 ---

@@ -108,4 +108,7 @@ Der Preis ist hoch und gehört in die Entscheidung:
   in `geheim`; KeyPackages nach Marmot (Platz, Auswahl, Erneuern, NIP-65).
   Dritter kleiner Patch an MDK: `Engine::nostr_routing()` macht das Routing
   einer Gruppe (`h`, Relays) lesbar, das MDK nur intern führt.
+- **In der App (2.2b-d):** Konto je Gerät (an die Identität gebunden),
+  KeyPackage beim Öffnen einer 1:1-Unterhaltung, Einladungen und Nachrichten
+  im Chat (d1); 1:1 standardmäßig über MLS, NIP-17 als Rückfall (d2).
 

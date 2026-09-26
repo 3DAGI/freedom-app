@@ -16,12 +16,12 @@ import { schnorr } from "@noble/curves/secp256k1.js";
 import { fromHex, toHex, type NostrEvent, type RelayFilter } from "@freedomstack/protocol";
 import { Mls, type MlsNachricht } from "@freedomstack/mls";
 import { mlsEngine } from "../mls-engine.js";
-import { LS_MLS_KP, LS_MLS_PLATZ, kpErneuern, veroeffentlicheKeyPackage } from "../mls-keypackage.js";
-import { empfangeGruppe, gruppenAbos, nimmEinladungAn, schreiteFort, type MlsEinladung, type MlsNetz } from "../mls-nostr.js";
+import { LS_MLS_KP, LS_MLS_PLATZ, kpErneuern, sucheKeyPackages, veroeffentlicheKeyPackage } from "../mls-keypackage.js";
+import { empfangeGruppe, gruendeGruppe, gruppenAbos, nimmEinladungAn, schreiteFort, sendeInGruppe, type MlsEinladung, type MlsNetz } from "../mls-nostr.js";
 import { MlsVerlauf, MlsZustand, mlsDatenbank, mlsSchluessel, mlsVerlaufDatenbank, type VerlaufEintrag } from "../mls-speicher.js";
 import { ladeEigeneRelays } from "../relay-satz.js";
 import type { TresorSpeicher } from "../vault.js";
-import { alsGeraet, frageAn, mitBunker, mitRohemSchluessel, posteingangVon, state, veroeffentlicheAn } from "./state.js";
+import { alsGeraet, ensurePool, frageAn, mitBunker, mitRohemSchluessel, posteingangVon, state, veroeffentlicheAn } from "./state.js";
 import { geheim } from "./tresor.js";
 
 /** Wem der gespeicherte Zustand gehört – für eine andere Identität wird er verworfen, nie geladen. */
@@ -41,11 +41,13 @@ export function mlsGesperrt(): string | null {
 export interface MlsUmgebung {
   zustand: () => TresorSpeicher;
   verlauf: () => TresorSpeicher;
-  frage: (filter: RelayFilter, urls: readonly string[]) => Promise<NostrEvent[]>;
+  /** Ohne `urls`: wo die App sonst fragt (Pool). */
+  frage: (filter: RelayFilter, urls?: readonly string[]) => Promise<NostrEvent[]>;
   netz: MlsNetz;
 }
 const APP: MlsUmgebung = {
-  zustand: mlsDatenbank, verlauf: mlsVerlaufDatenbank, frage: frageAn,
+  zustand: mlsDatenbank, verlauf: mlsVerlaufDatenbank,
+  frage: async (f, urls) => (urls ? frageAn(f, urls) : (await ensurePool()).query(f)),
   netz: { sendeAn: veroeffentlicheAn, posteingang: posteingangVon },
 };
 
@@ -168,4 +170,31 @@ export async function mlsAbgleichen(gruppen: readonly string[], u: MlsUmgebung =
 export async function mlsVerlauf(gruppe: string, u: MlsUmgebung = APP): Promise<VerlaufEintrag[]> {
   const k = mlsKonto(u);
   return k ? (await k).verlauf.nachrichten(gruppe) : [];
+}
+
+/**
+ * 1:1 über MLS senden (2.2b-d2): in die Gruppe der Unterhaltung; gibt es
+ * keine, mit dem KeyPackage des Kontakts eine gründen (Einladung an seinen
+ * Posteingang). Die Gruppe, wenn die Nachricht angenommen wurde – sonst null,
+ * dann sendet der Chat per NIP-17 (Kontakt ohne KeyPackage, keine eigenen
+ * Relays, Einladung nicht zustellbar, kein Relay nahm an).
+ */
+export async function mlsSendeAn(partner: string, gruppe: string | undefined, text: string, u: MlsUmgebung = APP): Promise<string | null> {
+  const kl = mlsKonto(u);
+  const relays = ladeEigeneRelays(localStorage);
+  if (!kl || relays.length === 0) return null;
+  const k = await kl;
+  let g = gruppe && k.mls.gruppen().includes(gruppe) ? gruppe : undefined;
+  if (!g) {
+    for (const kp of await sucheKeyPackages({ pk: partner, abfrage: k.u.frage }).catch(() => [])) {
+      const r = await gruendeGruppe({ mls: k.mls, netz: k.u.netz, sichern: k.sichern, name: "", keyPackages: [kp], relays }).catch(() => null);
+      if (r && r.nichtZugestellt.length === 0) { g = r.gruppe; break; }
+    }
+    if (!g) return null;
+  }
+  if (!(await sendeInGruppe({ mls: k.mls, netz: k.u.netz, sichern: k.sichern, gruppe: g, text }))) return null;
+  // Eigene Nachrichten entschlüsselt MLS nicht zurück – in den Verlauf, wie gesendet
+  k.verlauf.nimmAuf(g, [{ id: `eigen:${toHex(crypto.getRandomValues(new Uint8Array(16)))}`, von: k.pk, text, zeit: Math.floor(Date.now() / 1000) }]);
+  await k.verlauf.sichern();
+  return g;
 }

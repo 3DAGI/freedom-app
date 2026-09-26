@@ -19,10 +19,10 @@ const ls = new Map<string, string>();
   get length() { return ls.size; },
 };
 const { setzeIdentitaet, setzeSigner } = await import("../src/shell/state.js");
-const { LS_MLS_EINLADUNGEN, LS_MLS_IDENTITAET, mlsAbgleichen, mlsEinladungAnnehmen, mlsErreichbar, mlsGesperrt, mlsKonto, mlsVerlauf } =
+const { LS_MLS_EINLADUNGEN, LS_MLS_IDENTITAET, mlsAbgleichen, mlsEinladungAnnehmen, mlsErreichbar, mlsGesperrt, mlsKonto, mlsSendeAn, mlsVerlauf } =
   await import("../src/shell/mls-konto.js");
-const { LS_MLS_KP, LS_MLS_PLATZ, sucheKeyPackages } = await import("../src/mls-keypackage.js");
-const { gruendeGruppe, oeffneEinladung, sendeInGruppe } = await import("../src/mls-nostr.js");
+const { LS_MLS_KP, LS_MLS_PLATZ, sucheKeyPackages, veroeffentlicheKeyPackage } = await import("../src/mls-keypackage.js");
+const { empfangeGruppe, gruendeGruppe, gruppenAbos, nimmEinladungAn, oeffneEinladung, sendeInGruppe } = await import("../src/mls-nostr.js");
 const { mlsEngine } = await import("../src/mls-engine.js");
 const { SpeicherImRam } = await import("../src/vault.js");
 const { LS_EIGENE_RELAYS } = await import("../src/relay-satz.js");
@@ -39,7 +39,7 @@ const netz = {
   async sendeAn(ev: NostrEvent, urls: readonly string[]) { for (const u of urls) await relay(u).publish(ev); return urls.length; },
   async posteingang(pk: string) { return eingaenge.get(pk) ?? []; },
 };
-const frage = async (f: RelayFilter, urls: readonly string[]) => (await Promise.all(urls.map((u) => relay(u).query(f)))).flat();
+const frage = async (f: RelayFilter, urls?: readonly string[]) => (await Promise.all((urls ?? [...relays.keys()]).map((u) => relay(u).query(f)))).flat();
 const zustandRam = new SpeicherImRam();
 const verlaufRam = new SpeicherImRam();
 const u = { zustand: () => zustandRam, verlauf: () => verlaufRam, frage, netz };
@@ -123,4 +123,36 @@ test("Andere Identität: alter Stand, Platz und KeyPackage verworfen – nie unt
   assert.equal(ls.get(LS_MLS_KP), undefined);
   assert.equal(ls.get(LS_MLS_IDENTITAET), neu.pk);
   assert.equal(zustandRam.blob, null);
+});
+
+test("Senden (2.2b-d2): ohne KeyPackage des Kontakts null (Rückfall NIP-17); mit – Gruppe gegründet, Nachricht nur an die Gruppen-Relays, eigene im Verlauf; die Gruppe wird wiederverwendet", async () => {
+  const dora = kontakt("dora");
+  assert.equal(await mlsSendeAn(dora.pk, undefined, "hallo", u), null, "kein KeyPackage");
+  // Dora: NIP-65-Liste und KeyPackage an ihre Schreib-Relays
+  const schreib = "wss://schreib-dora.test";
+  await netz.sendeAn(await dora.signer.signEvent({ pubkey: dora.pk, created_at: Math.floor(Date.now() / 1000), kind: 10002, tags: [["r", schreib]], content: "" }), [schreib]);
+  const leer = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
+  await veroeffentlicheKeyPackage({ mls: dora.mls, signer: dora.signer, speicher: leer, sichern: dora.sichern, senden: (ev) => netz.sendeAn(ev, [schreib]) });
+
+  const vorher = EIGENE.map((r) => relay(r).gesendet.length);
+  const g = await mlsSendeAn(dora.pk, undefined, "erste über MLS", u);
+  assert.ok(g, "Gruppe gegründet");
+  const wrap = relay("wss://eingang-dora.test").gesendet.at(-1)!;
+  assert.equal(wrap.kind, 1059, "Einladung an Doras Posteingang");
+  const nachrichten = EIGENE.flatMap((r, i) => relay(r).gesendet.slice(vorher[i]).filter((e) => e.kind === 445));
+  assert.equal(new Set(nachrichten.map((e) => e.id)).size, 1, "eine Nachricht an die Gruppen-Relays (eigener Satz)");
+  assert.deepEqual((await mlsVerlauf(g!, u)).map((n) => n.text), ["erste über MLS"], "eigene Nachricht im Verlauf");
+  assert.equal(await mlsSendeAn(dora.pk, g!, "zweite", u), g, "dieselbe Gruppe");
+
+  // Dora liest beide
+  const e = (await oeffneEinladung(wrap, dora.signer))!;
+  await nimmEinladungAn({ mls: dora.mls, sichern: dora.sichern, speicher: leer, einladung: e });
+  const abo = gruppenAbos(dora.mls)[0]!;
+  const gelesen: string[] = [];
+  const evs = [...new Map((await frage(abo.filter, abo.relays)).map((x) => [x.id, x])).values()];
+  const reihenfolge = EIGENE.flatMap((r) => relay(r).gesendet).filter((x) => evs.some((y) => y.id === x.id));
+  for (const ev of [...new Map(reihenfolge.map((x) => [x.id, x])).values()]) {
+    gelesen.push(...(await empfangeGruppe({ mls: dora.mls, sichern: dora.sichern, ev })).nachrichten.map((n) => n.text));
+  }
+  assert.deepEqual(gelesen, ["erste über MLS", "zweite"]);
 });
