@@ -38,7 +38,6 @@ import {
   findProviders,
   kiSitzungen,
   powJeProvider,
-  prueferKandidaten,
   signiere,
   solTransaktion,
   state,
@@ -57,6 +56,8 @@ import {
   updateSidebarBalances,
 } from "../ui.js";
 import { haltevorModell, katalogRangJetzt, kuendigeModellAn, zeigeModelle } from "./agent-netz.js";
+import type { Pruefer } from "../../streitfall.js";
+import { merkeReklamation, netzPruefer, stelleZu } from "../streitfall-ui.js";
 import { zeigeMitwirkende } from "./earn.js";
 import { vergebeAbzeichen } from "./profil.js";
 import { richteNachfolgeEin, zeigeNachfolge } from "./settings.js";
@@ -504,7 +505,7 @@ async function askWithFailover(prompt: string, bid: number, tier: "free" | "clas
         addAiMessage("ai", "[abgebrochen]", "");
         return;
       }
-      await handleAnswer(answer.ev, answer.parsed!);
+      await handleAnswer(answer.ev, answer.parsed!, prompt);
       return;
     }
     if (i < targets.length - 1) {
@@ -625,7 +626,7 @@ async function askRace(prompt: string, bid: number, tier: "free" | "classic" | "
       }
       const winner = r.providerPubkey;
       toast(`${pkShort(winner)} gewinnt das race`);
-      await handleAnswer(hit, r);
+      await handleAnswer(hit, r, prompt);
       return;
     }
     await new Promise((res) => setTimeout(res, 2000));
@@ -660,7 +661,7 @@ async function askSwarm(prompt: string, bid: number, tier: "free" | "classic" | 
       return;
     }
     if (answer.aborted) { addAiMessage("ai", "[abgebrochen]", ""); return; }
-    await handleAnswer(answer.ev, answer.parsed!);
+    await handleAnswer(answer.ev, answer.parsed!, prompt);
     return;
   }
 
@@ -878,7 +879,7 @@ async function waitForAnswer(
   return null;
 }
 
-async function handleAnswer(ev: import("@freedomstack/protocol").NostrEvent, r: ReturnType<typeof parseJobResult>): Promise<void> {
+async function handleAnswer(ev: import("@freedomstack/protocol").NostrEvent, r: ReturnType<typeof parseJobResult>, frage?: string): Promise<void> {
   hideTyping();
   // Modell-name: aus usage (provider setzt es), sonst aus den provider-caps
   const model = r.usage?.model ?? lastProviderModel ?? undefined;
@@ -886,7 +887,8 @@ async function handleAnswer(ev: import("@freedomstack/protocol").NostrEvent, r: 
   const who = model ? `${model} · ${r.providerPubkey.slice(0, 12)}…` : `provider ${r.providerPubkey.slice(0, 12)}…`;
   // Streaming-Anzeige: buchstabenweise statt ganzer block
   addAiMessageStreaming("ai", r.output, "", who, () => {
-    addUsageBubble(r.usage ?? {}, r.amountMsat, r.providerPubkey, ev.id);
+    // Frage und Antwort nur im Speicher – fuer den Pruefer, wenn der Nutzer reklamiert und zustimmt (5.6).
+    addUsageBubble(r.usage ?? {}, r.amountMsat, r.providerPubkey, ev.id, frage !== undefined ? { frage, antwort: r.output } : undefined);
     // KEIN Zap-Button unter jeder Antwort — das wuerde die UX kaputt machen.
     // Zaps sind nur fuer besondere Antworten (manuell vom Nutzer gewaehlt).
   });
@@ -1028,22 +1030,24 @@ function addAiMessageStreaming(role: "ai", text: string, meta: string, model?: s
 
 /** Claude-Stil ausklappbare Kosten-/Usage-Bubble unter einer AI-Antwort. */
 /**
- * Pruefer fuer eine Reklamation waehlen (Schritt 3.4): ein zweiter Provider,
- * der Umschlaege liest. null = keiner, undefined = abgebrochen.
+ * Pruefer fuer eine Reklamation waehlen (Schritt 5.6): aus dem eigenen Netz –
+ * Kontakte und eigene Provider –, nie aus einer Rangliste des Netzes.
+ * null = keiner, undefined = abgebrochen.
  */
-async function waehlePruefer(beschuldigt: string): Promise<string | null | undefined> {
-  const kandidaten = privatFaehig(await prueferKandidaten(beschuldigt).catch(() => [])).slice(0, 5);
-  if (kandidaten.length === 0) return null;
-  const liste = kandidaten
-    .map((c, i) => `  ${i + 1} = ${pkShort(c.caps.pubkey)} · ${c.jobsCompleted} Aufträge`)
-    .join("\n");
+async function waehlePruefer(beschuldigt: string): Promise<Pruefer | null | undefined> {
+  const kandidaten = netzPruefer(beschuldigt);
+  if (kandidaten.length === 0) {
+    toast("Kein Prüfer in deinem Netz – die Reklamation geht nur an den Provider. Prüfen kann ein Kontakt oder ein eigener Provider.");
+    return null;
+  }
+  const liste = kandidaten.map((c, i) => `  ${i + 1} = ${c.name} (${c.art})`).join("\n");
   const wahl = prompt(
-    "Wer soll nachprüfen? Ein zweiter Provider bekommt die Reklamation versiegelt.\n" +
+    "Wer aus deinem Netz soll nachprüfen? Er bekommt die Reklamation versiegelt; sein Urteil gilt nur zwischen dir und dem Provider.\n" +
     `${liste}\n  leer = nur der Provider`,
     "1",
   );
   if (wahl === null) return undefined;
-  return kandidaten[Number(wahl) - 1]?.caps.pubkey ?? null;
+  return kandidaten[Number(wahl) - 1] ?? null;
 }
 
 /**
@@ -1054,7 +1058,7 @@ async function waehlePruefer(beschuldigt: string): Promise<string | null | undef
  * wenn sie dort erreichbar ist, wo der Kunde die schlechte Antwort sieht.
  */
 async function reklamiere(
-  jobId: string | undefined, providerPk: string, amountMsat: number,
+  jobId: string | undefined, providerPk: string, amountMsat: number, frageAntwort?: { frage: string; antwort: string },
 ): Promise<void> {
   if (!state.keypair || !jobId) {
     toast("Ohne Bezug zur Antwort nicht reklamierbar", true);
@@ -1085,6 +1089,11 @@ async function reklamiere(
     }
     const pruefer = await waehlePruefer(providerPk);
     if (pruefer === undefined) return;
+    // Frage und Antwort nur mit Zustimmung und nur fuer den Pruefer (5.6).
+    const material = pruefer && frageAntwort && confirm(
+      `Frage und Antwort an ${pruefer.name} mitschicken? Ohne sie sieht der Prüfer nur Grund und Notiz. ` +
+      "Der Provider bekommt sie nicht noch einmal, Relays sehen sie nicht.",
+    ) ? frageAntwort : undefined;
     // Vom Sitzungsschluessel wie der Auftrag selbst (3.1) – nicht von der
     // Identitaet – und nur versiegelt an Provider und Pruefer (3.4).
     const sitzung = kiSitzungen.fuer(providerPk);
@@ -1092,14 +1101,26 @@ async function reklamiere(
     const dispute = buildDispute({
       jobId, customerPubkey: sitzung.publicKey(), providerPubkey: providerPk,
       reason: art, amountMsat, note: prompt("Kurze Beschreibung (nur für Provider und Prüfer):") ?? "",
-      pruefer: pruefer ? [pruefer] : [],
+      pruefer: pruefer ? [pruefer.pk] : [],
     });
-    const empfaenger = [providerPk, ...(pruefer ? [pruefer] : [])]
-      .map((pk) => ({ pk, powBits: powJeProvider.get(pk) ?? 0 }));
-    const { wraps } = await buildPrivateDispute({ dispute, sessionSigner: sitzung, empfaenger });
-    const pool = await ensurePool();
-    for (const wrap of wraps) await pool.publish(wrap);
-    toast(`Reklamiert${pruefer ? " – Provider und Prüfer benachrichtigt" : ""}. ${w.message}`);
+    const empfaenger = [
+      { pk: providerPk, powBits: powJeProvider.get(providerPk) ?? 0 },
+      ...(pruefer ? [{ pk: pruefer.pk, powBits: pruefer.art === "eigener Provider" ? powJeProvider.get(pruefer.pk) ?? 0 : 0 }] : []),
+    ];
+    const { wraps } = await buildPrivateDispute({ dispute, sessionSigner: sitzung, empfaenger, materialFuerPruefer: material });
+    await (await ensurePool()).publish(wraps[0]!);
+    if (pruefer) {
+      await stelleZu(wraps[1]!, pruefer);
+      // Das Urteil kommt an den Sitzungsschluessel – ihn fuer diese Reklamation im Tresor merken.
+      const sk = kiSitzungen.schluesselHex(providerPk);
+      if (sk) {
+        await merkeReklamation({
+          jobId, providerPk, pruefer: pruefer.pk, prueferName: pruefer.name, sitzungSk: sk,
+          grund: art, betragMsat: amountMsat, at: Math.floor(Date.now() / 1000),
+        });
+      }
+    }
+    toast(`Reklamiert${pruefer ? ` – Provider und ${pruefer.name} benachrichtigt` : ""}. ${w.message}`);
   } catch (e) {
     toast((e as Error).message, true);
   }
@@ -1112,7 +1133,7 @@ function addUsageBubble(usage: {
   completionTokens?: number;
   toolCalls?: Array<{ name: string; kind: number; costMsat: number }>;
   sessionTotalMsat?: number;
-}, amountMsat: number, providerPk: string, resultEventId?: string): void {
+}, amountMsat: number, providerPk: string, resultEventId?: string, frageAntwort?: { frage: string; antwort: string }): void {
   const el = document.createElement("div");
   el.className = "usage-bubble";
   aktualisiereAgentPanel(usage.toolCalls ?? [], usage.sessionTotalMsat);
@@ -1167,7 +1188,7 @@ function addUsageBubble(usage: {
     void pruefeZahlung(el, resultEventId, amountMsat);
   });
   el.querySelector(".file-dispute")?.addEventListener("click", () => {
-    void reklamiere(resultEventId, providerPk, amountMsat);
+    void reklamiere(resultEventId, providerPk, amountMsat, frageAntwort);
   });
 
   el.querySelector(".usage-toggle")!.addEventListener("click", () => {

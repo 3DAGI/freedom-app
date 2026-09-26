@@ -56,7 +56,6 @@ derivation.ts|slip10PublicKey|SLIP-10-Ableitung aus 1.1, Verdrahtung mit der ein
 
 
 private-job.ts|buildPrivateUrteil|Urteil des Prüfers versiegelt: die App (Prüfauftrag beantworten) folgt in 5.6b
-private-job.ts|openPrivateUrteil|Urteil des Prüfers öffnen: die App (Urteil anzeigen) folgt in 5.6b
 
 disputes-relays.ts|buildResolution|Streitfälle und Relay-Vergütung ohne Oberfläche (Streitfall-Prüfer 5.6, Relay-Rolle 8.4)
 disputes-relays.ts|distributeToRelays|Streitfälle und Relay-Vergütung ohne Oberfläche (Streitfall-Prüfer 5.6, Relay-Rolle 8.4)

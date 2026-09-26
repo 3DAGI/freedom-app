@@ -66,7 +66,12 @@
             <button id="agent-new" class="btn-primary agent-new" type="button">
               <span class="ic" data-icon="plus"></span> Neue Aufgabe</button>
             <div class="seg" role="tablist" data-subtab-group="agent"><button role="tab" data-subtab="tasks" class="active">Aufgaben</button><button role="tab" data-subtab="models">Modelle</button><button role="tab" data-subtab="repos">Repos</button></div>
-            <div class="subpane active" data-subpane="agent:tasks"><div id="agent-history" class="agent-history"></div></div>
+            <div class="subpane active" data-subpane="agent:tasks"><div id="reklamationen" class="card hidden">
+          <h3><span class="ic" data-icon="shield"></span> Deine Reklamationen</h3>
+          <p class="mono-sm">Den Prüfer hast du aus deinem Netz gewählt. Sein Urteil gilt nur zwischen dir und dem Provider – erstatten muss der Provider selbst.</p>
+          <div id="reklamationen-liste" class="mono-sm"></div>
+          <button id="reklamationen-pruefen" class="ghost" style="width:auto;padding:6px 10px;margin-top:6px">nach Urteilen sehen</button>
+        </div><div id="agent-history" class="agent-history"></div></div>
             <div class="subpane" data-subpane="agent:models"><div class="card">
           <h3><span class="ic" data-icon="server"></span> Modelle im Netz</h3>
           <p class="mono-sm">Was im Netz vorgehalten wird. Modelle mit nur einem Seeder sind gefährdet.</p>

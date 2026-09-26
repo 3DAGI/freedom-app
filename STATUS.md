@@ -5620,3 +5620,60 @@ Zulassung); Szenario „ki-reklamation“ prüft auch Material und Urteil. node 
 Endstand: protocol 1148 (+ 6 übersprungen) · node 239 (+ 7 übersprungen ohne
 Netz) · app 367 · mls 9 · Leak-Tests 49 grün + 2 todo · 0 rot · check-wiring
 `--streng` 0 offen · innerHTML streng 0 unbewertet · Smoke-Test bestanden.
+
+## Schritt 5.6b – Streitfall-Prüfer subjektiv, Teil b: der Kunde wählt aus seinem Netz
+
+**Aufteilung:** Der App-Teil kommt in zwei Stücken: b die Seite des Kunden
+(wählen, schicken, Urteil empfangen), c die Seite des Prüfers (Prüfaufträge
+beantworten).
+
+**Prüfer aus dem eigenen Netz** (`app/src/streitfall.ts`,
+`shell/streitfall-ui.ts`, `tabs/agent.ts:1037`):
+- `prueferAusNetz()`: Kontakte (Direktnachrichten) und eigene Provider
+  (Allowlist), ohne die Beteiligten und ohne einen selbst, höchstens neun.
+- Die globale Rangliste `prueferKandidaten()` ist entfernt. Ohne Netz geht die
+  Reklamation nur an den Provider; die App sagt, wer prüfen kann.
+
+**Reklamieren** (`reklamiere()`, `tabs/agent.ts:1060`):
+- Die Reklamation nennt den Prüfer.
+- Frage und Antwort gehen nur nach Nachfrage mit und nur in der Kopie für den
+  Prüfer. Die Frage reicht `handleAnswer()` an die Kosten-Blase weiter, nur im
+  Speicher.
+- Zustellung (`stelleZu()`): an Kontakte über ihren Posteingang (NIP-17, wie
+  Direktnachrichten), an eigene Provider über den Pool (mit deren
+  Rechenarbeit).
+- Die Reklamation samt Sitzungsschlüssel merkt sich die App nur im Tresor
+  (`freedom.reklamationen`, 30 Tage, nie in der Zustandssicherung). So ist
+  das Urteil auch nach einem Neustart lesbar; die Sitzungen selbst beginnen
+  nach dem Neuladen weiter neu (`KiSitzungen.schluesselHex()` gibt den Schlüssel
+  nur dafür heraus).
+
+**Urteil empfangen** (`pruefeUrteile()`, beim Start und alle zwei Minuten,
+solange eines offen ist, `shell/app.ts:846`): Umschläge nur an die
+Sitzungsschlüssel der offenen Reklamationen, geöffnet mit
+`openPrivateUrteil()`; es zählt nur das Urteil des genannten Prüfers
+(`resolveDispute()`). Karte „Deine Reklamationen“ (Agent → Aufgaben):
+„Anna gibt dir recht – 21 sats zurück. Das gilt nur zwischen dir und dem
+Provider; erstatten muss er selbst.“
+
+**Texte:** Datenschutz-Satz „ki-reklamation“ sagt „ein Prüfer aus deinem
+Netz“, der Hinweis vor dem Reklamieren (`disputeInfo()`) nennt Kontakt oder
+eigenen Provider, „gilt nur zwischen dir und dem Provider“ und „nicht von
+selbst“.
+
+**Browser-Prüfung:** Reklamation mit Sitzungsschlüssel im Speicher, zwei
+versiegelte Urteile auf dem Test-Relay – eines vom genannten Prüfer
+(„erstattet“), eines von einem Fremden („bestätigt“). Die Karte zeigt das des
+Prüfers, auch nach Neuladen; die Relays sahen nur `{kinds:[1059], "#p":[<Sitzung>]}`.
+Keine Seitenfehler.
+
+**Tests:** app +4 (Prüfer nur aus dem Netz; Reklamationen streng gelesen, 30
+Tage; Sitzungsschlüssel öffnet das Urteil nach Neustart, ein Fremder zählt
+nicht; Verdrahtung) und +1 Leak-Szenario (Material für den Prüfer: Relays
+sehen nichts, der Provider bekommt es nicht). Die Verdrahtungs-Prüfung in
+`leak/reklamation.test.ts` prüft jetzt den neuen Weg (genannter Prüfer,
+Material, Zustellung).
+
+Endstand: protocol 1148 (+ 6 übersprungen) · node 239 (+ 7 übersprungen ohne
+Netz) · app 371 · mls 9 · Leak-Tests 50 grün + 2 todo · 0 rot · check-wiring
+`--streng` 0 offen · innerHTML streng 0 unbewertet · Smoke-Test bestanden.

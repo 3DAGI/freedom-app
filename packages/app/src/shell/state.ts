@@ -139,15 +139,6 @@ export async function findProviders(tier: string): Promise<ScoredProvider[]> {
   return matchProviders(await bekannteProvider(), tier as "free" | "classic" | "pro", { allowlist: getAllowlist() });
 }
 
-/**
- * Pruefer fuer eine Reklamation (Schritt 3.4): andere Provider als der
- * beschuldigte, die meisten erledigten Auftraege zuerst.
- */
-export async function prueferKandidaten(beschuldigt: string): Promise<ScoredProvider[]> {
-  return (await bekannteProvider())
-    .filter((c) => c.caps.pubkey !== beschuldigt)
-    .sort((x, y) => y.score - x.score);
-}
 
 
 /** Allowlist: eigene/vertraute provider (pubkeys), die immer prioritaet haben.

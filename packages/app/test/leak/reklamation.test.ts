@@ -66,9 +66,12 @@ test("Verdrahtung: reklamiere() versiegelt wie das Szenario, der KI-Verlauf lieg
   const f = agent.slice(agent.indexOf("async function reklamiere("), agent.indexOf("function addUsageBubble("));
   assert.match(f, /const sitzung = kiSitzungen\.fuer\(providerPk\);/);
   assert.match(f, /buildDispute\(\{\s*jobId, customerPubkey: sitzung\.publicKey\(\), providerPubkey: providerPk,/);
-  assert.match(f, /const empfaenger = \[providerPk, \.\.\.\(pruefer \? \[pruefer\] : \[\]\)\]/);
-  assert.match(f, /await buildPrivateDispute\(\{ dispute, sessionSigner: sitzung, empfaenger \}\);/);
-  assert.match(f, /for \(const wrap of wraps\) await pool\.publish\(wrap\);/);
+  // Seit 5.6b: Pruefer aus dem eigenen Netz, genannt in der Reklamation; Material nur fuer ihn.
+  assert.match(f, /const empfaenger = \[\s*\{ pk: providerPk, powBits: powJeProvider\.get\(providerPk\) \?\? 0 \},\s*\.\.\.\(pruefer \? \[\{ pk: pruefer\.pk,/);
+  assert.match(f, /pruefer: pruefer \? \[pruefer\.pk\] : \[\],/);
+  assert.match(f, /await buildPrivateDispute\(\{ dispute, sessionSigner: sitzung, empfaenger, materialFuerPruefer: material \}\);/);
+  assert.match(f, /await \(await ensurePool\(\)\)\.publish\(wraps\[0\]!\);/);
+  assert.match(f, /await stelleZu\(wraps\[1\]!, pruefer\);/);
   // Nie mehr offen: kein signiertes Reklamations-Event direkt in den Pool
   assert.doesNotMatch(f, /publish\(await sitzung\.signEvent\(/);
   assert.doesNotMatch(f, /\(öffentlich\)/);
@@ -78,4 +81,32 @@ test("Verdrahtung: reklamiere() versiegelt wie das Szenario, der KI-Verlauf lieg
   assert.doesNotMatch(agent, /localStorage\.setItem\("freedom\.(agentHistory|chats)/);
   const tresor = readFileSync(new URL("../../src/shell/tresor.ts", import.meta.url), "utf8");
   assert.match(tresor, /"freedom\.agentHistory"/);
+});
+
+test("5.6b: Pruefer aus dem Netz mit Frage und Antwort – Relays sehen nichts davon, nur der Pruefer liest es", async () => {
+  const { pool, relay } = aufzeichnung();
+  const provider = new LocalSigner(generateKeypair().sk);
+  const kontakt = new LocalSigner(generateKeypair().sk);
+  const sitzung = new KiSitzungen().fuer(provider.publicKey());
+  const FRAGE = "Wie hoch ist die Rate fuer meinen Kredit bei der Hausbank?";
+  const ANTWORT = "Ein Rezept fuer Apfelkuchen";
+  const dispute = buildDispute({
+    jobId: "b".repeat(64), customerPubkey: sitzung.publicKey(), providerPubkey: provider.publicKey(),
+    reason: "unbrauchbar", amountMsat: 21_000, note: NOTIZ, pruefer: [kontakt.publicKey()],
+  });
+  const { wraps } = await buildPrivateDispute({
+    dispute, sessionSigner: sitzung, empfaenger: [{ pk: provider.publicKey(), powBits: 8 }, { pk: kontakt.publicKey() }],
+    materialFuerPruefer: { frage: FRAGE, antwort: ANTWORT },
+  });
+  for (const w of wraps) await pool.publish(w);
+  assert.deepEqual(regelKeinKlartext(relay.gesendet, [FRAGE, ANTWORT, NOTIZ, "unbrauchbar"]), []);
+  assert.deepEqual(regelKeineZahlungsdaten(relay.gesendet), []);
+  assert.deepEqual(regelKundeVerborgen(relay.gesendet, sitzung.publicKey()), []);
+  assert.deepEqual(regelPTagsNur(relay.gesendet, [provider.publicKey(), kontakt.publicKey()]), []);
+  const beimKontakt = await openPrivateKundenEvent(relay.gesendet[1]!, kontakt);
+  assert.ok(beimKontakt.ok);
+  assert.deepEqual(parseDispute({ ...beimKontakt.request, sig: "" }).material, { frage: FRAGE, antwort: ANTWORT });
+  const beimProvider = await openPrivateKundenEvent(relay.gesendet[0]!, provider, 8);
+  assert.ok(beimProvider.ok);
+  assert.equal(parseDispute({ ...beimProvider.request, sig: "" }).material, undefined);
 });
