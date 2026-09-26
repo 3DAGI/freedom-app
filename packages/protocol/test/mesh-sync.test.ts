@@ -214,19 +214,21 @@ test("Auskunft sagt bei jeder Strecke dasselbe ueber Lightning und KI", () => {
   }
 });
 
-test("Auskunft unterscheidet, was ueber welche Strecke geht", () => {
+test("Auskunft: ueber keine Strecke geht Offenes (7.1)", () => {
   const holen = (link: "lora" | "bluetooth" | "datei", teil: string): boolean => {
     const eintrag = offlineCapabilities(link).find((x) => x.feature.includes(teil));
     assert.ok(eintrag, `kein Eintrag fuer "${teil}" bei ${link}`);
     return eintrag.works;
   };
-  // Code passt ueber Bluetooth und Datei, nicht ueber Funk.
-  assert.equal(holen("lora", "Code"), false);
-  assert.equal(holen("bluetooth", "Code"), true);
-  // Gewichte nur per Datei.
-  assert.equal(holen("datei", "Modellgewichte"), true);
-  assert.equal(holen("lora", "Modellgewichte"), false);
-  assert.equal(holen("bluetooth", "Modellgewichte"), false);
+  for (const link of ["lora", "bluetooth", "datei"] as const) {
+    // Verschluesselte Direktnachrichten ja – alles Offene nein.
+    assert.equal(holen(link, "Direktnachrichten"), true);
+    for (const teil of ["Räume", "Profile", "Code", "Modellgewichte"]) assert.equal(holen(link, teil), false, `${teil} über ${link}`);
+    // Solana: Transport steht, offline signieren erst mit 7.2 – nicht als vorhanden ausgeben.
+    assert.equal(holen(link, "Solana"), false);
+  }
+  // Ueber Funk nennt die Auskunft die Sendezeit-Grenze.
+  assert.match(offlineCapabilities("lora").find((x) => x.feature === "Direktnachrichten")!.note, /1 % Sendezeit/);
 });
 
 test("Jede Ereignisart hat eine Einordnung – ueber Mesh nur Umschlaege", () => {

@@ -19,11 +19,12 @@
  *   Nachricht in Minuten oder Stunden ankommt.
  *
  * WAS ÜBER MESH GEHT — UND WAS NICHT
- *   ✓ Nostr-Events: signiertes JSON, beliebig zerlegbar.
+ *   ✓ Umschläge (Nostr, NIP-59): signiertes JSON, beliebig zerlegbar.
  *   ✓ Solana-Transaktionen: maximal 1.232 Byte, brauchen keine Interaktivität.
  *     Mit Durable Nonce läuft auch der Blockhash nicht ab, während das Paket
  *     unterwegs ist.
- *   ✓ Ecash-Token: kurze Zeichenketten, offline übergebbar.
+ *   ✗ Offene Nostr-Events und Ecash-Token (seit 7.1): tragen den Absender
+ *     bzw. sind im Klartext Bargeld für jeden, der mithört.
  *   ✗ Lightning-Zahlungen. Sie brauchen mehrere Runden Hin und Her — das
  *     überlebt eine Funkstrecke mit Sekunden Latenz nicht.
  *   ✗ KI-Inferenz. Ein Prompt passt vielleicht noch durch; eine Antwort mit
@@ -467,8 +468,10 @@ export class MeshQueue {
     priority: MeshPriority,
     label: string,
     nowSecs = Math.floor(Date.now() / 1000),
+    /** Sprungzahl; beim Weiterreichen eine weniger als empfangen. */
+    ttl = MAX_TTL,
   ): QueuedMessage {
-    const frames = fragment(payload, kind, priority);
+    const frames = fragment(payload, kind, priority, ttl);
     const eintrag: QueuedMessage = {
       frames,
       priority,

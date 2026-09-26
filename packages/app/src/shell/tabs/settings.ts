@@ -405,39 +405,46 @@ let meshNode: import("../../mesh-radio.js").MeshNode | null = null;
  * Zustellung, nicht die Anwendung.
  */
 async function ensureMeshNode(): Promise<import("../../mesh-radio.js").MeshNode> {
-  if (meshNode) return meshNode;
+  // Eigener Schluessel: darf in keinem gesendeten Paket stehen (7.1).
+  if (meshNode) {
+    meshNode.setEigeneSchluessel(state.keypair ? [state.keypair.pk] : []);
+    return meshNode;
+  }
   const { MeshNode, meshToEvent } = await import("../../mesh-radio.js");
 
   meshNode = new MeshNode({
     onMessage: (payload, kind) => {
       void (async () => {
+        // Hier kommt nur an, was pruefeMeshInhalt() durchliess (7.1):
+        // gueltig signierte Umschlaege und signierte Solana-Transaktionen.
         const { MeshKind } = await import("@freedomstack/protocol");
         if (kind === MeshKind.NostrEvent) {
           try {
             const ev = meshToEvent(payload);
-            // Ueber den Pool weiterverteilen, sobald wieder Netz da ist:
-            // Eine Nachricht, die nur auf diesem Geraet ankommt, hat den
-            // halben Weg umsonst gemacht.
+            // Ueber den Pool weiterverteilen: Eine Nachricht, die nur auf
+            // diesem Geraet ankommt, hat den halben Weg umsonst gemacht.
             const pool = await ensurePool();
             await pool.publish(ev as never).catch(() => { /* offline */ });
-            toast("Nachricht ueber Funk empfangen");
+            toast("Verschlüsselte Nachricht über Funk empfangen und ans Netz gegeben");
           } catch { toast("Empfangenes Paket unlesbar", true); }
-        } else if (kind === MeshKind.PlainText) {
-          toast(`Funk: ${new TextDecoder().decode(payload).slice(0, 80)}`);
-        } else {
-          toast("Zahlung ueber Funk empfangen — wird beim naechsten Netzkontakt eingereicht");
+        } else if (kind === MeshKind.SolanaTx) {
+          // Ehrlich: Einreichen kommt erst mit 7.2 (Durable Nonces).
+          toast("Solana-Transaktion über Funk empfangen – einreichen kann die App sie noch nicht");
         }
       })();
     },
     onProgress: (info) => {
       const el = $("#mesh-status");
       if (!el) return;
-      el.textContent = info.sending > 0
-        ? `${info.sending} Pakete offen, etwa ${info.etaSeconds}s`
-        : info.receiving > 0 ? `${info.receiving} Nachricht(en) unvollstaendig` : "bereit";
+      el.textContent = info.wartetSekunden
+        ? `Sendezeit aufgebraucht (1 % je Stunde) – weiter in etwa ${Math.ceil(info.wartetSekunden / 60)} min, ${info.sending} Pakete offen`
+        : info.sending > 0
+          ? `${info.sending} Pakete offen, etwa ${info.etaSeconds}s`
+          : info.receiving > 0 ? `${info.receiving} Nachricht(en) unvollstaendig` : "bereit";
     },
     onLog: (line) => console.log(`[mesh] ${line}`),
   });
+  meshNode.setEigeneSchluessel(state.keypair ? [state.keypair.pk] : []);
   return meshNode;
 }
 
@@ -475,7 +482,8 @@ export async function wireMeshTab(): Promise<void> {
       const n = await ensureMeshNode();
       await n.attach(await connectBluetooth((raw) => n.receive(raw)));
       $("#mesh-status").textContent = `verbunden: ${n.transportName}`;
-      void zeigeOfflineFaehigkeiten("bluetooth");
+      // Das Bluetooth-Geraet ist ein Funkgeraet – es sendet ueber LoRa (7.1).
+      void zeigeOfflineFaehigkeiten("lora");
       toast("Bluetooth verbunden");
     } catch (e) {
       $("#mesh-status").textContent = (e as Error).message;
@@ -546,7 +554,9 @@ export async function wireMeshTab(): Promise<void> {
   if (exp) exp.onclick = async () => {
     const { fileTransport } = await import("../../mesh-radio.js");
     const n = await ensureMeshNode();
+    let ausgegeben = false;
     const t = fileTransport((data, count) => {
+      ausgegeben = true;
       const url = URL.createObjectURL(new Blob([data as BlobPart], { type: "application/octet-stream" }));
       const a = document.createElement("a");
       a.href = url;
@@ -557,7 +567,9 @@ export async function wireMeshTab(): Promise<void> {
     });
     await n.attach(t);
     // Kurz warten, damit die Warteschlange durchlaeuft, dann buendeln.
-    setTimeout(() => void t.close(), 500);
+    setTimeout(() => void t.close().then(() => {
+      if (!ausgegeben) toast("Nichts zu senden – Post für einen Kontakt nimmst du im Chat mit (⇪).");
+    }), 500);
   };
 
   const impBtn = $("#mesh-import");

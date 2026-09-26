@@ -11,6 +11,10 @@
  * beim Erstellen des Pakets in ein HTLC lockt. Empfaenger-Receipt (preimage)
  * oeffnet die Auszahlung an den Kurier. Non-custodial, on-chain erzwungen.
  *
+ * Seit 7.1 geht über Mesh nur Verschlüsseltes (`pruefeMeshInhalt`): Paket und
+ * Quittung tragen offen Absender, Empfänger und Preimage – sie dürften nur im
+ * Umschlag reisen. Angebunden sind sie nicht (Kurier-Belohnung ist Geld, ohne Karte).
+ *
  * Kinds:
  *   38030  MESH_PACKET    — zu transportierendes Paket (payload + reward + escrow)
  *   38031  DELIVERY_RECEIPT — Empfaenger-Bestätigung (oeffnet Kurier-Belohnung)

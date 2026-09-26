@@ -202,8 +202,8 @@
               <span data-i18n="chatTitle">Direktnachrichten</span>
               <span>
                 <button id="chat-new-dm" class="ghost mini" title="New message">＋</button>
-                <button id="chat-mesh-export" class="ghost mini" title="Chat offline exportieren (USB/Mesh)">⇪</button>
-                <button id="chat-mesh-import" class="ghost mini" title="Offline-Datei importieren (USB/Mesh)">⇩</button>
+                <button id="chat-mesh-export" class="ghost mini" title="Post für diesen Kontakt als Datei mitnehmen – nur verschlüsselt, ohne deinen Schlüssel">⇪</button>
+                <button id="chat-mesh-import" class="ghost mini" title="Mitgebrachte Post einlesen und ans Netz geben – nur Verschlüsseltes">⇩</button>
                 <input type="file" id="chat-mesh-file" accept=".json" style="display:none" />
                 <button id="chat-new-community" class="ghost mini" title="New community"><span class="ic" data-icon="home"></span></button>
               </span>
@@ -581,7 +581,7 @@
         </div></div>
             <div class="subpane" data-subpane="settings:mesh"><h2 class="settings-h">Mesh</h2><div class="card">
           <h3><span class="ic" data-icon="radio"></span> Ohne Internet</h3>
-          <p class="mono-sm">Nachrichten und Solana-Zahlungen über Funk oder per Datei, wenn das Netz weg ist. Lightning und KI-Anfragen gehen so nicht.</p>
+          <p class="mono-sm">Verschlüsselte Nachrichten über Funk oder per Datei, wenn das Netz weg ist – nur Umschläge, ohne deinen Schlüssel und ohne Klartext. Funk sendet höchstens 1 % der Zeit (EU 868 MHz): drei bis vier kurze Nachrichten je Stunde. Lightning und KI-Anfragen gehen so nicht.</p>
           <div id="mesh-transport" class="mono-sm"></div>
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
             <button id="mesh-connect" class="ghost" style="width:auto;padding:6px 10px">USB-Gerät</button>

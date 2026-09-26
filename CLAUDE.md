@@ -219,3 +219,9 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   von einer, die allein reicht (`waehleAbsender`) – nie zusammenlegen, das
   verbindet die Adressen auf der Kette. Einlösen nur mit dem Schlüssel der
   Empfangsadresse (`eingebauterHtlcSigner()` bzw. die verbundene Wallet).
+- **Mesh nur verschlüsselt** (seit 7.1): Was über Funk, Bluetooth oder Datei
+  geht, läuft durch `pruefeMeshInhalt()` – nur Umschläge (Kind 1059) und voll
+  signierte Solana-Transaktionen, beim Senden mit `eigeneSchluessel` (die eigene
+  DM-Kopie trägt den eigenen Schlüssel als Empfänger). Über Funk gilt die
+  Sendezeit (`Sendezeitkonto`, 1 % je Stunde); Weiterreichen nur über die
+  Warteschlange, nie `transport.send()` am Konto vorbei.
