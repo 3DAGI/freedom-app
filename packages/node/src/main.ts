@@ -450,17 +450,25 @@ async function main(): Promise<void> {
   // die Kurs-Events der LPs sind die Quelle des Marktkurses.
   let lpKurs: import("./lp-daemon.js").RateProvider | undefined;
   if (lpEnabled) {
-    const { LpDaemon, FixedRate, rueckSpeicher } = await import("./lp-daemon.js");
-    const { LndLightningAdapter, loadMacaroonHex, MockSolana } = await import("@freedomstack/protocol");
+    const { LpDaemon, FixedRate, hinSpeicher, rueckSpeicher } = await import("./lp-daemon.js");
+    const { LndLightningAdapter, loadMacaroonHex, MockSolana, pruefeLpMacaroon } = await import("@freedomstack/protocol");
     const lndRest = process.env.LND_REST ?? "https://127.0.0.1:18080";
     const macPath = process.env.LND_MACAROON;
     if (!macPath) {
-      console.error("LP_ENABLED=1 braucht LND_MACAROON (Pfad zum admin.macaroon)");
+      console.error("LP_ENABLED=1 braucht LND_MACAROON (Pfad zu einer eingeschränkten Macaroon, docs/SWAPS.md)");
+      process.exit(1);
+    }
+    // Nie admin.macaroon (8.3): Wer den Daemon uebernimmt, soll weder On-Chain-Geld
+    // bewegen noch Kanaele schliessen noch sich weitere Rechte backen koennen.
+    const macaroonHex = await loadMacaroonHex(macPath);
+    const macaroonOk = pruefeLpMacaroon(macaroonHex);
+    if (!macaroonOk.ok) {
+      console.error(`LND_MACAROON: ${macaroonOk.grund} – eine mit „lncli bakemacaroon“ gebackene nehmen (docs/SWAPS.md)`);
       process.exit(1);
     }
     const ln = new LndLightningAdapter({
       restUrl: lndRest,
-      macaroonHex: await loadMacaroonHex(macPath),
+      macaroonHex,
       allowInsecureTls: process.env.LND_INSECURE_TLS === "1",
     });
     // Echter Solana-Adapter gegen das Devnet-HTLC (deployed in G).
@@ -512,6 +520,8 @@ async function main(): Promise<void> {
           maxOffeneZahlungen: Number(process.env.LP_MAX_OFFENE_ZAHLUNGEN ?? 3),
           // Gegenrichtung: Sitzungen samt Preimage ueberdauern einen Neustart (nur fuer den Nutzer lesbar).
           speicher: direction === "buy-sol" ? rueckSpeicher(join(process.env.HOME ?? ".", ".freedom", "lp-rueck.json")) : undefined,
+          // Hinrichtung (8.3): gesperrte SOL ueberdauern einen Neustart und werden nach der Frist zurueckgeholt.
+          hinSpeicher: direction === "sell-sol" ? hinSpeicher(join(process.env.HOME ?? ".", ".freedom", "lp-hin.json")) : undefined,
         },
         pool,
         ln,
@@ -779,6 +789,9 @@ async function main(): Promise<void> {
         }
         for (const s of await lp.nachholen()) {
           console.log(`[lp] swap ${s.requestId.slice(0, 8)}: ${s.phase}`);
+        }
+        for (const s of await lp.holeAbgelaufeneZurueck()) {
+          console.log(`[lp] swap ${s.requestId.slice(0, 8)} nach Ablauf: ${s.phase}`);
         }
       }
       if (relayer) {

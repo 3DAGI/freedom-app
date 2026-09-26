@@ -26,7 +26,11 @@ import { toHex, fromHex, generatePreimage, sha256 } from "./htlc.js";
 export interface LndConfig {
   /** z. B. https://127.0.0.1:8080 */
   restUrl: string;
-  /** Admin-Macaroon als Hex-String (Read/Write reicht nicht: settle braucht admin). */
+  /**
+   * Macaroon als Hex-String. Fuer den LP genuegen `invoices:read/write` und
+   * `offchain:read/write` (settle ist `invoices:write`) – nie admin.macaroon;
+   * `pruefeLpMacaroon()` prueft das beim Start (8.3, docs/SWAPS.md).
+   */
   macaroonHex: string;
   /** HTTPS-Agent mit tls.cert; undefined = Zertifikatspruefung aus (NUR Regtest!). */
   allowInsecureTls?: boolean;

@@ -82,6 +82,12 @@ export interface LpConfig {
   /** Sitzungen der Gegenrichtung dauerhaft ablegen – ein Neustart darf kein Preimage kosten. */
   speicher?: { lade(): RueckSitzung[]; speichere(s: RueckSitzung[]): void };
   /**
+   * Sitzungen der Hinrichtung dauerhaft ablegen (8.3) – ein Neustart darf
+   * nicht vergessen, welche SOL gesperrt sind und nach der Frist zurueckgeholt
+   * werden muessen.
+   */
+  hinSpeicher?: { lade(): SwapSession[]; speichere(s: SwapSession[]): void };
+  /**
    * Gegen Blockaden (4.6b): hoechstens so viele Zahlungen gleichzeitig in der
    * Schwebe. Wer das Preimage zurueckhaelt, bindet sats des LP bis zum
    * cltv_limit – mehr als diese Zahl gleichzeitig geht nicht. Standard 3.
@@ -95,12 +101,21 @@ export interface LpConfig {
  * darf die letzte gute Fassung (mit dem Preimage) nicht zerstoeren.
  */
 export function rueckSpeicher(pfad: string): { lade(): RueckSitzung[]; speichere(s: RueckSitzung[]): void } {
+  return lpSpeicher<RueckSitzung>(pfad);
+}
+
+/** Sitzungen der Hinrichtung als Datei (8.3) – wie die der Gegenrichtung. */
+export function hinSpeicher(pfad: string): { lade(): SwapSession[]; speichere(s: SwapSession[]): void } {
+  return lpSpeicher<SwapSession>(pfad);
+}
+
+function lpSpeicher<T>(pfad: string): { lade(): T[]; speichere(s: T[]): void } {
   return {
     lade() {
       if (!existsSync(pfad)) return [];
       const daten = JSON.parse(readFileSync(pfad, "utf8")) as unknown;
       if (!Array.isArray(daten)) throw new Error(`${pfad}: keine Liste`);
-      return daten as RueckSitzung[];
+      return daten as T[];
     },
     speichere(sitzungen) {
       mkdirSync(dirname(pfad), { recursive: true, mode: 0o700 });
@@ -113,6 +128,12 @@ export function rueckSpeicher(pfad: string): { lade(): RueckSitzung[]; speichere
 
 /** Einloesen nur bis T_sol minus 10 Minuten (wie claimAllowed() in der App). */
 export const EINLOESE_ABSTAND_SECS = 600;
+
+/**
+ * Hinrichtung (8.3): Zurueckholen erst so lange nach der Frist – die Uhr der
+ * Kette darf etwas nachgehen, das Programm lehnt eine verfruehte Rueckholung ab.
+ */
+export const RUECKHOL_PUFFER_SECS = 120;
 
 /**
  * Kommt die Anfrage vor der bestaetigten Sperre, wird sie so lange (ab ihrem
@@ -156,8 +177,16 @@ export interface SwapSession {
   amountSats: number;
   amountLamports: number;
   hashlockHex: string;
-  /** VORAB: Vorab-Gebuehr gestellt, noch nicht bezahlt (4.6d). */
-  phase: "VORAB" | "OFFERED" | "SOL_LOCKED" | "INVOICE_CREATED" | "SETTLED" | "REFUNDED" | "FAILED";
+  /**
+   * VORAB: Vorab-Gebuehr gestellt, noch nicht bezahlt (4.6d). SPERRT: gespeichert,
+   * die Sperre ist unterwegs (8.3). REFUNDED: nach der Frist zurueckgeholt, die
+   * Hold-Invoice abgebrochen (8.3).
+   */
+  phase: "VORAB" | "OFFERED" | "SPERRT" | "SOL_LOCKED" | "INVOICE_CREATED" | "SETTLED" | "REFUNDED" | "FAILED";
+  /** Swap-ID, Frist und Empfaenger der Sperre (8.3) – noetig, um sie nach der Frist zurueckzuholen. */
+  swapId?: string;
+  timelockUnix?: number;
+  kundeSol?: string;
   /** Anfrage kam im Umschlag – Antworten gehen ebenso versiegelt (4.9). */
   versiegelt?: boolean;
 }
@@ -204,6 +233,15 @@ export class LpDaemon {
       this.rueck.set(s.requestId, s);
       this.seenRequests.add(s.requestId);
     }
+    for (const s of cfg.hinSpeicher?.lade() ?? []) {
+      this.sessions.set(s.requestId, s);
+      this.seenRequests.add(s.requestId);
+    }
+  }
+
+  /** Hinrichtung (8.3): Sitzungen mit Sperre ablegen – erledigte fallen heraus. */
+  private hinSpeichern(): void {
+    this.cfg.hinSpeicher?.speichere([...this.sessions.values()].filter((s) => s.swapId && ["SPERRT", "SOL_LOCKED", "INVOICE_CREATED"].includes(s.phase)));
   }
 
   /** LP-Angebot auf den Relays veroeffentlichen (ersetzbar via d-Tag). */
@@ -372,7 +410,10 @@ export class LpDaemon {
     const { requestId, amountSats, amountLamports } = session;
     const req = { id: requestId, pubkey: session.customerPubkey };
     const swapId = `swap-${req.id.slice(0, 16)}`;
-    const timelockUnix = Math.floor(Date.now() / 1000) + this.cfg.offer.tSolSecs;
+    const timelockUnix = this.jetzt() + this.cfg.offer.tSolSecs;
+    // Erst ablegen, dann sperren (8.3): Ein Neustart darf gesperrte SOL nicht vergessen.
+    Object.assign(session, { swapId, timelockUnix, kundeSol: customerSol, phase: "SPERRT" });
+    this.hinSpeichern();
     await this.sol.lock({
       swapId,
       hashlock: H,
@@ -382,13 +423,16 @@ export class LpDaemon {
       initiator: this.cfg.keypair.pk,
     });
     session.phase = "SOL_LOCKED";
+    this.hinSpeichern();
 
+    // Scheitert die Rechnung, bleibt die Sperre in der Ablage – nach der Frist holt der LP sie zurueck.
     const invoice = await this.ln.createHoldInvoice(
       H,
       amountSats,
       this.cfg.offer.lnCltvDeltaBlocks,
     );
     session.phase = "INVOICE_CREATED";
+    this.hinSpeichern();
 
     // Antwort: Kunde erhaelt die bolt11 zum Bezahlen
     await this.antwortSenden(req.id, req.pubkey, session.versiegelt, [
@@ -407,7 +451,7 @@ export class LpDaemon {
     const settled: string[] = [];
     for (const session of this.sessions.values()) {
       if (session.phase !== "INVOICE_CREATED") continue;
-      const swapId = `swap-${session.requestId.slice(0, 16)}`;
+      const swapId = session.swapId ?? `swap-${session.requestId.slice(0, 16)}`;
       const revealed = await this.sol.getRevealedPreimage(swapId);
       if (!revealed) continue;
       if (toHex(hashlock(revealed)) !== session.hashlockHex) continue;
@@ -415,7 +459,55 @@ export class LpDaemon {
       session.phase = "SETTLED";
       settled.push(session.requestId);
     }
+    if (settled.length > 0) this.hinSpeichern();
     return settled;
+  }
+
+  /**
+   * Ablauf der Hinrichtung (8.3): Hat der Kunde bis zur Frist nicht eingeloest,
+   * holt der LP seine SOL zurueck und bricht danach die Hold-Invoice ab – die
+   * Reihenfolge ist wichtig: Nach der Rueckholung kann niemand mehr einloesen,
+   * vorher waere ein Abbruch ein Geschenk (SOL weg, sats zurueck). Hat der
+   * Kunde doch eingeloest, wird abgerechnet. Fehler bleiben fuer die naechste Runde.
+   */
+  async holeAbgelaufeneZurueck(): Promise<SwapSession[]> {
+    const now = this.jetzt();
+    const erledigt: SwapSession[] = [];
+    for (const s of this.sessions.values()) {
+      if (!s.swapId || s.timelockUnix === undefined || !["SPERRT", "SOL_LOCKED", "INVOICE_CREATED"].includes(s.phase)) continue;
+      if (now < s.timelockUnix + RUECKHOL_PUFFER_SECS) continue;
+      try {
+        const offengelegt = await this.sol.getRevealedPreimage(s.swapId);
+        if (offengelegt && toHex(hashlock(offengelegt)) === s.hashlockHex) {
+          // Eingeloest: Die sats gehoeren dem LP – die Hold-Invoice laeuft laenger als die Sperre.
+          if (s.phase === "INVOICE_CREATED") await this.ln.settleHoldInvoice(offengelegt);
+          s.phase = "SETTLED";
+        } else {
+          const sperre = await this.sol.get(s.swapId);
+          if (sperre?.claimed || (!sperre && s.phase !== "SPERRT")) {
+            // Eingeloest oder schon geschlossen, das Preimage aber (noch) nicht lesbar: nie
+            // abbrechen – sonst haette der Kunde SOL und sats. Weiter nach dem Preimage suchen;
+            // erst wenn die Hold-Invoice ohnehin abgelaufen ist, aufgeben.
+            if (now < s.timelockUnix + this.cfg.offer.lnCltvDeltaBlocks * 600) continue;
+            s.phase = "FAILED";
+          } else {
+            if (sperre && !sperre.refunded) await this.sol.refund(s.swapId);
+            if (s.phase === "INVOICE_CREATED") {
+              await this.ln.cancelHoldInvoice(fromHex(s.hashlockHex)).catch((e) => {
+                // Schon abgelaufen oder abgebrochen: nichts mehr zu tun
+                console.warn(`[lp] Hold-Invoice ${s.swapId}: ${(e as Error).name}`);
+              });
+            }
+            s.phase = sperre ? "REFUNDED" : "FAILED";
+          }
+        }
+        erledigt.push(s);
+      } catch (e) {
+        console.error(`[lp] Ablauf ${s.swapId}:`, (e as Error).name);
+      }
+    }
+    if (erledigt.length > 0) this.hinSpeichern();
+    return erledigt;
   }
 
   // ------------------------------------------------------ Gegenrichtung (4.6b)
