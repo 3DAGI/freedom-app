@@ -5278,6 +5278,61 @@ Endstand: protocol 1131 (+ 6 übersprungen) · node 238 (+ 7 übersprungen ohne
 Netz) · app 355 · Leak-Tests 49 grün + 2 todo · 0 rot · check-wiring `--streng`
 0 offen · innerHTML streng 0 unbewertet · Smoke-Test bestanden.
 
+## Schritt 2.2b-a – MLS-Baustein: MDK als WASM
+
+**Ergebnis:** `packages/mls` – die Marmot-Engine von MDK (`cgka-engine`) samt
+MDKs eigenem Speicher (`storage-sqlite`) und Nostr-Teil
+(`transport-nostr-peeler`) läuft als WASM in Node und Chromium (dort unter der
+strengen CSP mit `'wasm-unsafe-eval'`, gzip-komprimiert eingebettet und mit
+`DecompressionStream` entpackt – geprüft mit einer Probeseite).
+
+**Vorprüfung:** MDK bietet im Browser nur eine „compile-only“-Grenze ohne
+Speicher. Statt rund 80 Speicher-Methoden selbst zu schreiben: SQLite als WASM
+(`sqlite-wasm-rs` über rusqlite) mit MDKs eigenem Speicher, die Datenbank im
+Speicher, Export/Import als Bytes für den Tresor. Dafür zwei kleine Patches an
+MDK (`mdk.patch`): gebündeltes SQLite statt SQLCipher, `std::time` →
+`web_time`; dazu `in_memory_from_bytes()`/`export_bytes()`. `nostr` braucht im
+Browser einen Zeitgeber (`universal-time`) – steht in der Crate.
+
+**Crate** (`crate/src/lib.rs`, wasm-bindgen): `MlsKonto` mit
+`keyPackageEvent` (Kind 30443 wie MDKs App: d, mls_protocol_version, i,
+Ciphersuite, Extensions, Proposals, App-Komponenten), `gruppeAnlegen` (mit
+Nostr-Routing-Komponente: zufällige Gruppen-Id und Relays),
+`beitreten`, `senden`, `einladen`, `entfernen`, `bestaetigt`/`gescheitert`,
+`empfangen` (Kind 445 und 1059), `wartezeit`/`fortschreiten` (Konvergenz),
+`mitglieder`, `gruppen`, `epoche`, `zustand`. Fähigkeiten wie MDKs App, damit
+White-Noise-Gruppen unsere KeyPackages annehmen. Zwei Aufrufe eines Kontos
+werden nie verschränkt.
+
+**Schlüssel:** Die Engine sieht den Identitätsschlüssel nie. Der Kontobeweis
+(Kind 450) wird in der App synchron signiert – `beweisBruecke()` prüft vorher
+Art, Autor, d-Tag und Text; Siegel der Einladungen gehen über den Signer der
+App – `signerBruecke()` signiert nur Kind 13 der eigenen Identität.
+
+**Reproduzierbar:** `bauen.sh` holt MDK auf festem Stand, wendet den Patch an,
+baut mit MDKs Rust-Version, `--locked`, festen Pfaden (remap) und
+wasm-bindgen 0.2.129. Zweimal in verschiedenen Verzeichnissen gebaut:
+bitgleich. Die CI baut bei Änderungen an `packages/mls` nach und vergleicht
+(`.github/workflows/mls.yml`); die normalen Tests nutzen die eingecheckte
+WASM (`dist/`, 3,0 MB gzip).
+
+**Tests** (`packages/mls/test/mls.test.ts`, 9, neu in der CI): KeyPackage
+(Tags, fremd signiert abgelehnt), Gruppe (Einladungen einzeln im Umschlag,
+nicht von der Identität), Nachricht (Kind 445 von Wegwerf-Schlüsseln, nur
+h-Tag, kein Klartext, Wiederholung ignoriert), Entfernen (entferntes Mitglied
+liest nach dem Commit nichts mehr), Hinzufügen (neues Mitglied liest keine
+alten Nachrichten), Reihenfolge (Nachricht vor ihrem Commit wird
+zurückgehalten und danach zugestellt), Zustand (Export, Neuladen,
+weiterschreiben), Manipulation (veränderte oder falsch signierte Events
+abgewiesen), Brücken (signieren nur Kind 450 bzw. 13 der eigenen Identität).
+
+**Noch nicht in der App** – Einbau (b), Nostr-Anbindung und Zustand im Tresor
+(c), 1:1 als MLS-Gruppe (d), Geräte (e) folgen; Aufteilung in `phase-2.md`.
+
+Endstand (nach dem Einmergen von 8.3b): protocol 1131 · node 239 · app 355 ·
+mls 9 (neu) · Leak-Tests 49 grün + 2 todo · 0 rot · check-wiring `--streng` 0 offen · innerHTML streng 0
+unbewertet · Smoke-Test bestanden · Nachbau bitgleich.
+
 ## Schritt 5.8 – RPC-Vielfalt: Stichprobe gegen einen zweiten Anbieter
 
 **Karte zum Teil schon erfüllt:** Vier Anbieter verschiedener Betreiber

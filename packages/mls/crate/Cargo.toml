@@ -1,0 +1,27 @@
+[package]
+name = "freedom-mls"
+description = "MLS nach Marmot für FreedomStack (Schritt 2.2b): MDK im Browser"
+edition.workspace = true
+version = "0.1.0"
+license.workspace = true
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+cgka-engine.workspace = true
+cgka-traits.workspace = true
+storage-sqlite.workspace = true
+transport-nostr-peeler.workspace = true
+nostr.workspace = true
+base64.workspace = true
+hex.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+rand.workspace = true
+web-time.workspace = true
+universal-time = "=0.3.1"
+wasm-bindgen = "=0.2.129"
+wasm-bindgen-futures = "=0.4.79"
+js-sys = "=0.3.106"

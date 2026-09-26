@@ -67,6 +67,22 @@ für Forward Secrecy. NIP-17 bleibt Rückfall für Kontakte ohne MLS.
   liest nach dem Commit nichts mehr), Reihenfolge und Wiederholung. Leak-Regeln:
   Relays sehen nur Chiffretext, gehashte Gruppen-IDs und nicht verknüpfbare Schlüssel.
 - **MENSCH:** Interop-Test mit White Noise.
+- **Aufteilung (26.09.2026):**
+  - **2.2b-a – Baustein:** `packages/mls` – MDK (fester Stand) + `mdk.patch` +
+    eigene Crate als WASM, reproduzierbar gebaut (`bauen.sh`, CI `mls.yml`);
+    API für KeyPackage (Kind 30443), Gruppe, Einladung (Kind 1059), Nachricht
+    (Kind 445), Hinzufügen, Entfernen, Konvergenz, Zustand; Brücken zum Signer
+    der App, die nur Kontobeweis (Kind 450) und Siegel (Kind 13) signieren;
+    Tests nach der Abnahme der Karte (Node). Noch nicht in der App.
+  - **2.2b-b – Einbau:** WASM gzip-komprimiert in `freedom.html`, CSP
+    `'wasm-unsafe-eval'`, Laden erst bei Bedarf; Smoke-Test.
+  - **2.2b-c – Nostr:** KeyPackages veröffentlichen und erneuern, Einladungen und
+    Gruppennachrichten über die Relays der Gruppe; Zustand verschlüsselt
+    (Tresor, IndexedDB – er ist Megabytes groß); Leak-Regeln.
+  - **2.2b-d – 1:1 als MLS-Gruppe:** in der Oberfläche; NIP-17 als Rückfall für
+    Kontakte ohne KeyPackage; mit Bunker (NIP-46) gesperrt, weil der Kontobeweis
+    synchron signiert werden muss.
+  - **2.2b-e – Geräte:** mehrere Geräte als eigene Mitglieder.
 
 ---
 

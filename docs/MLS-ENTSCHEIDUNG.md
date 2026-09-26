@@ -79,3 +79,24 @@ Der Preis ist hoch und gehört in die Entscheidung:
   - entweder WASM eingebettet (~4 MB, eine Datei) **oder** nachgeladen (zweite Datei).
 - [ ] **B – ts-mls** mit eigener Marmot-Schicht (Interop unsicher, ohne Audit).
 - [ ] **C – ts-mls ohne Marmot**: eigene Gruppenverschlüsselung, kein White Noise; Karte 2.2b anpassen.
+
+## Umsetzung (2.2b-a, 26.09.2026)
+
+- **Speicher:** statt eines eigenen `StorageProvider` (rund 80 Pflichtmethoden,
+  samt Schnappschuss und Rückrollen) läuft **MDKs eigener SQLite-Speicher**:
+  SQLite als WASM (`sqlite-wasm-rs`, über rusqlite), eine Datenbank im
+  Speicher; `zustand()` liefert sie als Bytes für den Tresor, `new Mls(…,
+  zustand)` stellt sie wieder her.
+- **MDK-Patch** (`packages/mls/mdk.patch`, gegen `a19feca`): rusqlite mit
+  gebündeltem SQLite statt SQLCipher (im Browser verschlüsselt der Tresor),
+  `std::time` → `web_time` in `storage-sqlite` (im Browser gibt es keine
+  Systemuhr), `in_memory_from_bytes()`/`export_bytes()`. Beides wären gute
+  Beiträge für MDK selbst.
+- **Transport:** MDKs Nostr-Teil (`transport-nostr-peeler`): Gruppennachrichten
+  Kind 445 von einem frischen Schlüssel je Nachricht, Einladungen als
+  Gift-Wrap (Kind 1059, Siegel von der Identität); KeyPackages Kind 30443 wie
+  in MDKs App.
+- **Schlüssel:** Die Engine sieht den Identitätsschlüssel nie. Der Kontobeweis
+  (Kind 450) wird synchron in der App signiert, Siegel über den Signer der App.
+- **Größe:** WASM 6,5 MB, gzip 3,0 MB.
+
