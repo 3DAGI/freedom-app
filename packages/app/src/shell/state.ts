@@ -225,11 +225,23 @@ export async function wireRpcSetting(): Promise<void> {
           ? `<span class="ok">${name} · ${s.lastLatencyMs ?? "?"} ms</span>`
           : `<span class="err">${name} · ${escapeHtml(s.lastError ?? "keine Antwort")}</span>`;
       }).join("<br>");
+      // 5.8: zwei Anbieter gegeneinander – ohne Adresse, verraet nichts ueber den Nutzer.
+      const { stichprobeText } = await import("../rpc-stichprobe.js");
+      const t = stichprobeText(await pool.stichprobe());
+      const zeile = document.createElement("div");
+      zeile.className = t.stufe === "warnung" ? "err" : t.stufe === "ok" ? "ok" : "";
+      zeile.textContent = t.text;
+      status.append(zeile);
     } catch (e) {
       status.textContent = (e as Error).message;
       status.className = "mono-sm err";
     }
   };
+}
+
+/** Stichprobe gegen einen zweiten Anbieter (5.8) – `konto` nur eine eigene Adresse. */
+export async function rpcStichprobe(konto?: string): Promise<import("@freedomstack/protocol").StichprobeErgebnis> {
+  return (await ensureRpcPool()).stichprobe({ konto });
 }
 
 /** Transaktion ueber den RPC-Pool laden (Pruefung von Belegen, Schritt 4.7b). */

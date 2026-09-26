@@ -152,7 +152,7 @@ test("Voreinstellung nutzt verschiedene Anbieter", () => {
   // Redundanz gegen Ausfall hilft nichts, wenn alle Endpunkte derselben Partei
   // gehoeren und diese Partei sperrt.
   const hosts = DEFAULT_MAINNET_RPCS.map((e) => new URL(e.url).hostname.split(".").slice(-2).join("."));
-  assert.ok(new Set(hosts).size >= 3, `nur ${new Set(hosts).size} verschiedene Anbieter`);
+  assert.ok(new Set(hosts).size >= 4, `nur ${new Set(hosts).size} verschiedene Anbieter`); // 5.8: mindestens vier
 });
 
 test("Statusanzeige meldet Ausfaelle mit Grund", async () => {
@@ -220,4 +220,120 @@ test("Verteilen (4.9): fremde Anbieter abwechselnd statt immer derselbe – eige
   const alt = new RpcPool(endpoints, { fetchImpl: fakeFetch(alleOk), zufall: () => { gefragt++; return 0.5; } });
   for (let n = 0; n < 3; n++) await alt.getBalance("x");
   assert.equal(gefragt, 0);
+});
+
+// ------------------------------------------------------------- Stichprobe (5.8)
+
+const G_MAIN = "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d";
+const G_DEV = "EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG";
+const H1 = "9zZkXyQm3vH7cP2rT8wLbN4sJfGdKa6uEo1xYiRqWn5B";
+const H2 = "4hQx8TzLk2WpRn7VbYc3MfJs9GdUe6NaHo5KiXwEt1Zr";
+const H_FALSCH = "7Fk2Lm9QwXv4RtYp8NbZc3HsJd6GeUa5Ko1WiTxEq2Mn";
+const KONTO = "Kunde1111111111111111111111111111111111111";
+
+interface Knoten {
+  genesis?: string; hash?: string; slot?: number; kennt?: string[];
+  /** Kontostaende nacheinander (der letzte bleibt). */
+  konto?: number[];
+  tot?: boolean; hinkt?: boolean; muell?: boolean;
+}
+
+/** Ein kleines Netz aus RPC-Knoten: ehrlich, solange nichts anderes gesagt ist. */
+function rpcNetz(knoten: Record<string, Knoten>, log: string[] = []) {
+  return (async (url: string | URL, init?: RequestInit) => {
+    const u = url.toString();
+    const { method, params } = JSON.parse(String(init?.body)) as { method: string; params: unknown[] };
+    const opt = params.at(-1) as { minContextSlot?: number } | undefined;
+    log.push(`${u} ${method}${opt?.minContextSlot !== undefined ? ` ab ${opt.minContextSlot}` : ""}`);
+    const k = { genesis: G_MAIN, hash: H1, slot: 100, kennt: [H1, H2], konto: [5], ...knoten[u] };
+    if (!(u in knoten) || k.tot) throw new Error("ECONNREFUSED");
+    const antwort = (result: unknown) => new Response(JSON.stringify({ jsonrpc: "2.0", id: 1, result }));
+    if (k.hinkt && opt?.minContextSlot !== undefined && opt.minContextSlot > k.slot) {
+      return new Response(JSON.stringify({ jsonrpc: "2.0", id: 1, error: { code: -32016, message: "Minimum context slot has not been reached" } }));
+    }
+    switch (method) {
+      case "getGenesisHash": return antwort(k.genesis);
+      case "getLatestBlockhash": return antwort(k.muell ? { value: {} } : { context: { slot: k.slot }, value: { blockhash: k.hash, lastValidBlockHeight: 1 } });
+      case "isBlockhashValid": return antwort({ context: { slot: k.slot }, value: k.kennt.includes(params[0] as string) });
+      case "getBalance": {
+        const wert = k.konto.length > 1 ? k.konto.shift()! : k.konto[0];
+        knoten[u]!.slot = k.slot + 1;
+        return antwort({ context: { slot: k.slot }, value: wert });
+      }
+      default: return antwort(null);
+    }
+  }) as unknown as typeof fetch;
+}
+
+test("Stichprobe (5.8): zwei ehrliche Anbieter stimmen ueberein – ein dritter wird nicht gefragt", async () => {
+  const log: string[] = [];
+  const pool = new RpcPool(endpoints, { fetchImpl: rpcNetz({ [E(1)]: {}, [E(2)]: { hash: H2 }, [E(3)]: {} }, log) });
+  const r = await pool.stichprobe({ konto: KONTO });
+  assert.deepEqual(r, { anbieter: ["rpc1", "rpc2"], verglichen: ["netz", "blockhash", "kontostand"], warnungen: [], hinweise: [] });
+  assert.ok(!log.some((z) => z.startsWith(E(3))), "nur zwei Anbieter");
+  assert.ok(log.includes(`${E(2)} isBlockhashValid ab 100`) && log.includes(`${E(1)} isBlockhashValid ab 100`), "Blockhash in beide Richtungen, ab dem Stand des Fragenden");
+});
+
+test("Stichprobe: ein falscher Blockhash faellt auf – egal, welcher der beiden luegt", async () => {
+  const pool = new RpcPool(endpoints, { fetchImpl: rpcNetz({ [E(1)]: { hash: H_FALSCH }, [E(2)]: {} }) });
+  const r = await pool.stichprobe();
+  assert.deepEqual(r.warnungen, ["rpc2 kennt den letzten Blockhash von rpc1 nicht – einer der beiden liefert eine falsche Kette."]);
+  assert.deepEqual(r.verglichen, ["netz", "blockhash"], "ohne Konto kein Kontostand");
+
+  const zweiter = new RpcPool(endpoints, { fetchImpl: rpcNetz({ [E(1)]: {}, [E(2)]: { kennt: [] } }) });
+  assert.match((await zweiter.stichprobe()).warnungen.join(), /rpc2 kennt den letzten Blockhash von rpc1 nicht/);
+});
+
+test("Stichprobe: ein falscher Kontostand faellt auf, eine Aenderung zwischen den Abfragen nicht", async () => {
+  const falsch = new RpcPool(endpoints, { fetchImpl: rpcNetz({ [E(1)]: { konto: [5_000] }, [E(2)]: { konto: [7_000] } }) });
+  const r = await falsch.stichprobe({ konto: KONTO });
+  assert.deepEqual(r.warnungen, ["Kontostand weicht ab: rpc1 meldet 5000 Lamports, rpc2 7000."]);
+
+  const log: string[] = [];
+  const geaendert = new RpcPool(endpoints, { fetchImpl: rpcNetz({ [E(1)]: { konto: [5_000, 7_000] }, [E(2)]: { konto: [7_000], slot: 120 } }, log) });
+  const r2 = await geaendert.stichprobe({ konto: KONTO });
+  assert.deepEqual(r2.warnungen, []);
+  assert.ok(log.includes(`${E(1)} getBalance ab 120`), "Wiederholung ab dem hoeheren Stand");
+});
+
+test("Stichprobe: eigener Knoten in einem anderen Netz – Warnung statt falscher Entwarnung", async () => {
+  const pool = new RpcPool(endpoints, {
+    userEndpoints: [E(9)], verteilen: true,
+    fetchImpl: rpcNetz({ [E(9)]: { genesis: G_DEV }, [E(1)]: {}, [E(2)]: {}, [E(3)]: {} }),
+  });
+  const r = await pool.stichprobe({ konto: KONTO });
+  assert.equal(r.anbieter[0], "eigener Knoten", "eigener Endpunkt zuerst");
+  assert.deepEqual(r.verglichen, ["netz"]);
+  assert.equal(r.warnungen.length, 1);
+  assert.match(r.warnungen[0]!, /^eigener Knoten \(Devnet\) und rpc\d \(Mainnet\) hängen an verschiedenen Ketten/);
+});
+
+test("Stichprobe: was sich nicht vergleichen laesst, ist ein Hinweis – kein Befund und kein Absturz", async () => {
+  // Tote Endpunkte werden uebersprungen.
+  const tot = await new RpcPool(endpoints, { fetchImpl: rpcNetz({ [E(1)]: { tot: true }, [E(2)]: {}, [E(3)]: {} }) }).stichprobe();
+  assert.deepEqual([tot.anbieter, tot.warnungen, tot.hinweise], [["rpc2", "rpc3"], [], ["rpc1: ECONNREFUSED"]]);
+
+  // Nur ein Betreiber (zwei Adressen derselben Partei) → keine Stichprobe.
+  const einer = await new RpcPool([{ url: "https://api.mainnet-beta.solana.com", label: "A" }, { url: "https://rpc.solana.com", label: "B" }], {
+    fetchImpl: rpcNetz({ "https://api.mainnet-beta.solana.com": {}, "https://rpc.solana.com": {} }),
+  }).stichprobe();
+  assert.deepEqual([einer.anbieter, einer.verglichen, einer.warnungen], [["A"], [], []]);
+  assert.match(einer.hinweise.join(), /Kein zweiter Anbieter erreichbar/);
+
+  // Einer hinkt hinterher → diese Richtung bleibt offen, die andere zaehlt.
+  const hinkt = await new RpcPool(endpoints, { fetchImpl: rpcNetz({ [E(1)]: {}, [E(2)]: { slot: 90, hash: H2, hinkt: true } }) }).stichprobe();
+  assert.deepEqual([hinkt.verglichen, hinkt.warnungen, hinkt.hinweise], [["netz", "blockhash"], [], ["Blockhash rpc1 → rpc2: hinkt hinterher"]]);
+
+  // Unbrauchbare Antworten und Adressen.
+  const muell = await new RpcPool(endpoints, { fetchImpl: rpcNetz({ [E(1)]: { muell: true }, [E(2)]: { genesis: "<b>kaputt</b>" }, [E(3)]: {} }) })
+    .stichprobe({ konto: "keine-adresse" });
+  assert.deepEqual(muell.anbieter, ["rpc1", "rpc3"]);
+  assert.deepEqual(muell.warnungen, []);
+  assert.deepEqual(muell.hinweise, ["rpc2: unerwartete Antwort", "Blockhash rpc1 → rpc3: unerwartete Antwort", "Kontostand: keine gültige Solana-Adresse."]);
+});
+
+test("Stichprobe veraendert die Ausfallhistorie des Pools nicht", async () => {
+  const pool = new RpcPool(endpoints, { fetchImpl: rpcNetz({ [E(1)]: { tot: true }, [E(2)]: {}, [E(3)]: {} }) });
+  await pool.stichprobe();
+  assert.ok(pool.status().every((s) => s.available && s.failures === 0));
 });
