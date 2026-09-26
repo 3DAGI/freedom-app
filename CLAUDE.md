@@ -336,3 +336,8 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   Das Urteil nur versiegelt (`buildPrivateUrteil()`), an Sitzungsschlüssel und
   Provider. Eigene Reklamationen tragen den Sitzungsschlüssel – nur im Tresor
   (`freedom.reklamationen`, in `SICHERUNG_NIE`).
+- **`check-wiring.py --streng` scheitert auch an veralteten Ausnahmen** (5.6b):
+  Wird ein ausgenommener Export verdrahtet, muss seine Zeile aus
+  `scripts/wiring-ausnahmen.txt` raus – sonst meldet das Skript „veraltete
+  Ausnahme“ und endet mit 1, obwohl die Zusammenfassung „0 offen“ sagt. Immer
+  den Exit-Code prüfen, nicht nur die letzte Zeile.

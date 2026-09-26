@@ -61,7 +61,6 @@ disputes-relays.ts|buildResolution|Streitfälle und Relay-Vergütung ohne Oberfl
 disputes-relays.ts|distributeToRelays|Streitfälle und Relay-Vergütung ohne Oberfläche (Streitfall-Prüfer 5.6, Relay-Rolle 8.4)
 disputes-relays.ts|parseRelayProof|Streitfälle und Relay-Vergütung ohne Oberfläche (Streitfall-Prüfer 5.6, Relay-Rolle 8.4)
 disputes-relays.ts|relayEconomicsInfo|Streitfälle und Relay-Vergütung ohne Oberfläche (Streitfall-Prüfer 5.6, Relay-Rolle 8.4)
-disputes-relays.ts|resolveDispute|Streitfälle und Relay-Vergütung ohne Oberfläche (Streitfall-Prüfer 5.6, Relay-Rolle 8.4)
 
 dm.ts|buildDM|Direktnachrichten nach Kind 4; seit 2.1 wird nur noch NIP-17 gesendet (2.1)
 dm.ts|filterDMsForUser|Direktnachrichten nach Kind 4; seit 2.1 wird nur noch NIP-17 gesendet (2.1)
