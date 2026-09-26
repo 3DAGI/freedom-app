@@ -31,9 +31,16 @@ test("2.2b-d2: Senden erst über MLS, sonst NIP-17; mit Ablauf, Bunker oder als 
   assert.match(kom, /if \(c\.type === "dm" && \(await sendeUeberMls\(c, /);
   assert.match(kom, /\} else if \(c\.type === "dm"\) \{\s*\/\/ NIP-17/, "der NIP-17-Pfad bleibt als Rückfall");
   assert.match(kom, /if \(c\.ablaufSecs \|\| mlsGesperrt\(\)\) return false;/);
-  assert.match(kom, /Kann der Kontakt MLS, geht deine nächste Nachricht darüber\./, "ehrlicher Hinweis ohne MLS-Gruppe");
+  assert.match(kom, /Kann der Kontakt MLS und hat keiner von euch Geräte, geht deine nächste Nachricht darüber\./, "ehrlicher Hinweis ohne MLS-Gruppe");
 });
 
 test("2.2b-d2: Einladung von Fremden wird zur Anfrage – wie eine NIP-17-Nachricht von ihnen", () => {
   assert.match(kom, /c = \{ id: e\.von, type: "dm", name: "Anfrage · " \+ pkShort\(e\.von\)/);
+});
+
+test("2.2b-d3: Mit Geräten auf einer Seite (oder wenn das unklar ist) bleibt es bei NIP-17 – jedes Gerät bekommt seine Kopie", () => {
+  const f = kom.slice(kom.indexOf("async function sendeUeberMls("), kom.indexOf("export async function newDm("));
+  assert.match(f, /\[c\.id, ich\]\.map\(\(pk\) => geraeteBuch\.kopienFuer\(pk\)\.catch\(\(\) => null\)\)/);
+  assert.match(f, /if \(geraete\.some\(\(g\) => g === null \|\| g\.length > 0\)\) return false;/);
+  assert.ok(f.indexOf("kopienFuer") < f.indexOf("mlsSendeAn("), "vor jedem MLS-Versuch");
 });
