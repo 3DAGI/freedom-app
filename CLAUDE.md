@@ -43,9 +43,9 @@ bash scripts/build-site.sh /tmp/site                     # Website bauen (Ziel w
 bash packages/mls/bauen.sh --pruefen                     # nur bei Änderungen an packages/mls: nachbauen + vergleichen (Rust, clang)
 ```
 
-Stand 26.09.2026 (nach 8.3b und 2.2b-b): protocol 1131 grün (6 übersprungen), node 239 grün
+Stand 26.09.2026 (nach 2.2b-b und 5.8): protocol 1137 grün (6 übersprungen), node 239 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 359 grün, mls 9 grün, Leak-Tests 49 grün + 2 `todo` (heutige Lecks,
+in `tools.test.ts`), app 363 grün, mls 9 grün, Leak-Tests 49 grün + 2 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
 Ausnahme: gesendete SOL-Zahlungen von frischen Adressen, eine bewusste Grenze
 nach Entscheidung 4.9 A – im Datenschutzbericht unter „Bewusste Grenzen“).
@@ -317,3 +317,9 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   über `mlsEngine()` (`mls-engine.ts`): lädt die eingebettete `.wasm.gz` erst
   bei Bedarf, nie beim Start – der Smoke-Test zählt das. `build.mjs` baut nur,
   wenn sie zu `packages/mls/dist/SHA256SUMS` passt.
+- **RPC-Anbieter nur mit Stichprobe vergleichen** (seit 5.8): `RpcPool.stichprobe()`
+  – zwei Betreiber, Netz, Blockhash in beide Richtungen, ein Kontostand.
+  Nie mehrere eigene Adressen in eine Stichprobe (4.9c); ohne Adresse, wo es
+  nicht ums Guthaben geht. Ein eigener Devnet-Endpunkt in den Settings ergibt
+  die Warnung „verschiedene Ketten“ – das ist richtig, der Pool mischt sonst
+  Mainnet als Ausweichweg dazu.

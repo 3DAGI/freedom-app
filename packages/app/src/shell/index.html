@@ -324,6 +324,7 @@
               <div class="mono-sm">Empfangen an:</div>
               <div id="solw-adresse" class="mono-sm" style="word-break:break-all"></div>
               <div id="solw-guthaben" class="mono-sm"></div>
+              <div id="solw-rpc" class="mono-sm err" role="status"></div>
               <div id="solw-vorrat" class="mono-sm"></div>
               <div style="display:flex;gap:6px;align-items:center;margin-top:6px;flex-wrap:wrap">
                 <input id="solw-limit" type="number" min="0" step="0.01" class="mono-sm" style="width:7em" />
@@ -563,7 +564,7 @@
         </div></div>
             <div class="subpane" data-subpane="settings:network"><h2 class="settings-h">Verbindung</h2><div class="card">
           <h3><span class="ic" data-icon="server"></span> Eigene Endpunkte</h3>
-          <p class="mono-sm">Eigene Solana-Endpunkte, kommagetrennt. Sie werden zuerst benutzt; fällt einer aus, nimmt die App den nächsten.</p>
+          <p class="mono-sm">Eigene Solana-Endpunkte, kommagetrennt. Sie werden zuerst benutzt; fällt einer aus, nimmt die App den nächsten. Voreingestellt sind vier Anbieter verschiedener Betreiber. Ab und zu fragt die App einen zweiten Anbieter nach demselben (Netz, letzter Blockhash, ein Kontostand) und warnt, wenn die Antworten sich widersprechen.</p>
           <input id="sol-rpcs" class="mono-sm" style="width:100%"
                  placeholder="https://mein-knoten.example, https://…" />
           <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">
