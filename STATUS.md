@@ -5468,3 +5468,53 @@ Start verdrahtet).
 Endstand: protocol 1131 · node 239 · app 359 (+4) · mls 9 · Leak-Tests 49
 grün + 2 todo · 0 rot · check-wiring `--streng` 0 offen · innerHTML streng 0
 unbewertet · Website 5 Seiten ok · Smoke-Test bestanden (mit MLS-Teil).
+
+## Schritt 5.7a – Modellkataloge, Teil a: NIP-51-Liste eines Kurators (mit 8.8)
+
+**Aufteilung:** 5.7 und 8.8 zusammen wären rund 660 geänderte Zeilen. Teil a
+bringt das Protokoll, Teil b die App (Abos, Vergleich, Modell-Dropdown,
+Website).
+
+**Karte:** „Ein Katalog ist die NIP-51-Liste eines Kurators; Nutzer abonnieren
+mehrere; keine feste Vorauswahl durch das Projekt.“ 8.8: „Preise in beiden
+Einheiten; zwei Kataloge abonnierbar und vergleichbar.“ Bisher gab es nur den
+Katalog der Manifeste (`model-registry.ts`, Gewichte und Seeder), keine
+Empfehlungen.
+
+**Format** (`protocol/src/modell-katalog.ts`, Kind 38080, neu in
+`docs/PROTOCOL.md`):
+- NIP-51-Set, ersetzbar über `d`: `title`, `description`, je Modell
+  `["model", <kennung>, <notiz?>]`, Inhalt leer. Ein eigenes Kind, damit
+  Kataloge liest, wer Kataloge sucht; das Kind war in keinem Branch belegt.
+- Die Modell-Kennung ist die, die Provider in ihren Fähigkeiten nennen
+  (Ollama-Namen) oder die im Manifest steht; verglichen wird ohne Rücksicht
+  auf Groß- und Kleinschreibung.
+
+**Bauen und lesen:**
+- `baueModellKatalog()` wirft bei Unbrauchbarem, statt es still zu
+  veröffentlichen: Kennung, Titel 1–80, Beschreibung ≤ 280, Notiz ≤ 140,
+  höchstens 200 Modelle, keine doppelten (auch nicht in anderer Schreibweise).
+- `leseModellKatalog()` liest fremde streng: ungültige Einträge fallen weg,
+  Texte werden gekürzt, Steuer- und Richtungszeichen entfernt; ein leerer
+  Katalog ist erlaubt (der Kurator hat ihn geleert). Die Signatur prüft wie
+  immer `verifyEvent()` im Pool.
+- `neuesteKataloge()`: je Adresse der neueste, bei Gleichstand die kleinere ID
+  (NIP-01) – unabhängig von der Reihenfolge.
+
+**Vergleich (8.8):**
+- `modellAngebote()`: je Modell, wie viele Provider es anbieten, und der
+  günstigste Preis je 1.000 Tokens (msat) aus den Fähigkeiten; ein Provider
+  zählt einmal, ein Preis ohne Zahl nicht.
+- `vergleicheKataloge()`: je Modell, in welchen Katalogen es steht (mit den
+  Notizen), Provider und Preis; dazu „gemeinsam“ und „nur in“. Sortiert nach
+  Zahl der Kataloge, dann Providern – nie nach einer Vorliebe des Projekts.
+  Die App zeigt den Preis in sats und SOL (Teil b).
+
+**Tests:** protocol +6 (bauen/lesen, Bauen wirft, streng lesen mit Müll,
+neuester je Adresse mit Gleichstand, Angebote, zwei Kataloge vergleichen).
+Bis Teil b stehen die neuen Funktionen begründet in
+`scripts/wiring-ausnahmen.txt`.
+
+Endstand: protocol 1143 (+ 6 übersprungen) · node 238 (+ 7 übersprungen ohne
+Netz) · app 363 · mls 9 · Leak-Tests 49 grün + 2 todo · 0 rot · check-wiring
+`--streng` 0 offen · innerHTML streng 0 unbewertet · Smoke-Test bestanden.

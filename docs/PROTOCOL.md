@@ -122,6 +122,7 @@ Bestehende Kinds sind reserviert und semantisch eingefroren:
 | 38040 / 38041 | Blob-Manifest / Blob-Chunk |
 | 38042 | Git-Repo-Referenz |
 | **38050** | Treasury-Payout-Announcement (wöchentliche Adresse) |
+| 38080 | Modellkatalog eines Kurators (NIP-51-Set: `d`, `title`, `description`, je Modell `["model", <kennung>, <notiz?>]`; `modell-katalog.ts`) |
 
 **Regel:** Neue Features bekommen NEUE Kinds. Bestehende Kinds ändern ihre
 Semantik nie. Ein Client, der ein unbekanntes Kind sieht, ignoriert es.
