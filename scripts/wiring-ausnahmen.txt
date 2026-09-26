@@ -136,17 +136,8 @@ mesh-transport.ts|decrementTtl|seit 7.1 ungenutzt: der Knoten reicht erst die ge
 
 mocks.ts|MockLightning|Test-Attrappe für Lightning
 
-modell-katalog.ts|baueModellKatalog|Modellkataloge: die App folgt in 5.7b (Aufteilung wegen Umfang)
-modell-katalog.ts|katalogAdresse|Modellkataloge: die App folgt in 5.7b (Aufteilung wegen Umfang)
-modell-katalog.ts|leseKatalogAdresse|Modellkataloge: die App folgt in 5.7b (Aufteilung wegen Umfang)
-modell-katalog.ts|leseModellKatalog|Modellkataloge: die App folgt in 5.7b (Aufteilung wegen Umfang)
-modell-katalog.ts|modellAngebote|Modellkataloge: die App folgt in 5.7b (Aufteilung wegen Umfang)
-modell-katalog.ts|neuesteKataloge|Modellkataloge: die App folgt in 5.7b (Aufteilung wegen Umfang)
-modell-katalog.ts|vergleicheKataloge|Modellkataloge: die App folgt in 5.7b (Aufteilung wegen Umfang)
-
-model-registry.ts|fitsOnDevice|Modellkatalog-Prüfungen ohne Oberfläche (Modelle, 8.8)
-model-registry.ts|modelsAtRisk|Modellkatalog-Prüfungen ohne Oberfläche (Modelle, 8.8)
-model-registry.ts|verifyFile|Modellkatalog-Prüfungen ohne Oberfläche (Modelle, 8.8)
+model-registry.ts|fitsOnDevice|gehört zum Laden von Gewichten beim Provider – das gibt es noch nicht (nach 8.8 offen; 8.8 brachte Kataloge und Preise)
+model-registry.ts|verifyFile|gehört zum Laden von Gewichten beim Provider – das gibt es noch nicht (nach 8.8 offen; 8.8 brachte Kataloge und Preise)
 
 moderation.ts|canModerate|Moderationsrechte und Hinweistext ohne Oberfläche (Räume und Moderation, 8.5)
 moderation.ts|moderationInfo|Moderationsrechte und Hinweistext ohne Oberfläche (Räume und Moderation, 8.5)

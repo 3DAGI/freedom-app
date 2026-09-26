@@ -30,7 +30,7 @@ import {
   state,
   wireRpcSetting,
 } from "./state.js";
-import { haltevorModell, kuendigeModellAn, loadGitRepos, setGitStatus, zeigeModelle } from "./tabs/agent-netz.js";
+import { haltevorModell, kuendigeModellAn, loadGitRepos, setGitStatus, veroeffentlicheKatalog, zeigeKataloge, zeigeModelle } from "./tabs/agent-netz.js";
 import {
   askAi,
   neueAufgabe,
@@ -832,10 +832,16 @@ function starte(): void {
   if (modelsSeed) modelsSeed.onclick = () => void haltevorModell();
   const modelsPub = $("#models-publish");
   if (modelsPub) modelsPub.onclick = () => void kuendigeModellAn();
+  // Modellkataloge (5.7): danach das Dropdown neu ordnen – abonnierte zuerst.
+  const katRefresh = $("#kataloge-refresh");
+  if (katRefresh) katRefresh.onclick = () => void zeigeKataloge().then(() => refreshModelDropdown());
+  const katPub = $("#katalog-publish");
+  if (katPub) katPub.onclick = () => void veroeffentlicheKatalog();
   const badgeCreate = $("#badge-create");
   if (badgeCreate) badgeCreate.onclick = () => void vergebeAbzeichen();
   void zeigeNachfolge();
   void zeigeModelle();
+  void zeigeKataloge().then(() => refreshModelDropdown());
   void zeigeMitwirkende();
   void wireRpcSetting();
   const exportBtn = $("#selfexport-btn");
