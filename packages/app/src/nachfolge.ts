@@ -12,6 +12,7 @@ import {
   type AnteilAnfrage, type GehaltenerAnteil, type NostrEvent, type Signer, type SuccessionPlan, type SuccessionState,
   darfUebergeben, evaluateSuccession, oeffneAnteil, oeffneAnteilAnfrage, oeffneAnteilUebergabe,
 } from "@freedomstack/protocol";
+import { t } from "./i18n.js";
 
 export const LS_NACHFOLGE = "freedom.nachfolge";
 
@@ -129,7 +130,7 @@ export function vertrautenZeilen(
       .filter((q) => q.besitzer === anteil.besitzer && q.teilung === anteil.teilung)
       .map((anfrage) => ({
         anfrage,
-        darf: plan ? darfUebergeben({ plan, events, anteil, ich, sammler: anfrage.von, nowSecs: jetzt }) : { ok: false as const, grund: "Plan nicht gefunden" },
+        darf: plan ? darfUebergeben({ plan, events, anteil, ich, sammler: anfrage.von, nowSecs: jetzt }) : { ok: false as const, grund: t("ein.planFehlt") },
       }));
     const indizes = new Set([anteil.index, ...(st.erhalten[anteil.besitzer] ?? []).filter((e) => e.teilung === anteil.teilung).map((e) => e.index)]);
     const freigegeben = passt && status?.status === "freigegeben";

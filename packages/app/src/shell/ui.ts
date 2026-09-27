@@ -6,6 +6,7 @@
  * ../icons.ts. Aus app.ts verschoben (Schritt 1.0) – woertlich, ohne Logikaenderung.
  */
 import { OFFLINE_HINWEIS } from "@freedomstack/protocol";
+import { t } from "../i18n.js";
 import { escapeHtml, pkShort } from "../shell-logic.js";
 import { ensurePool, state } from "./state.js";
 
@@ -17,11 +18,11 @@ export const $ = <T extends HTMLElement = HTMLElement>(sel: string): T =>
 
 
 export function toast(msg: string, isErr = false): void {
-  const t = $("#toast");
-  t.textContent = msg;
-  t.className = isErr ? "err" : "";
-  t.style.display = "block";
-  setTimeout(() => (t.style.display = "none"), 4000);
+  const box = $("#toast");
+  box.textContent = msg;
+  box.className = isErr ? "err" : "";
+  box.style.display = "block";
+  setTimeout(() => (box.style.display = "none"), 4000);
 }
 
 
@@ -34,7 +35,7 @@ export function timeAgo(ts: number): string {
 }
 
 export function escrowIdent(): string {
-  return state.keypair ? pkShort(state.keypair.pk) : "nicht verbunden";
+  return state.keypair ? pkShort(state.keypair.pk) : t("ein.keineIdentitaetKurz");
 }
 
 /**
@@ -73,14 +74,14 @@ export function updateSidebarBalances(): void {
     } catch { /* keine session */ }
     satsEl.textContent = left === null ? "—" : `${left}`;
     satsEl.className = left !== null && left < 10 ? "nb-val nb-warn" : "nb-val";
-    satsEl.title = "session-budget rest (non-custodial proxy)";
+    satsEl.title = t("ein.budgetRest");
   }
   // sol: escrow-guthaben (deposited, nutzbar für jobs) — nicht die wallet-balance
   if (solEl) {
     const lamports = Number(localStorage.getItem("freedom.escrow.lamports") ?? "0");
     solEl.textContent = lamports > 0 ? `${(lamports / 1e9).toFixed(4)}` : "—";
     solEl.className = lamports > 0 ? "nb-val" : "nb-val nb-muted";
-    solEl.title = "escrow-guthaben (eingezahlt, für jobs nutzbar)";
+    solEl.title = t("ein.escrowGuthaben");
   }
 }
 
@@ -102,7 +103,7 @@ export function setzeLogo(): void {
   const leiste = document.getElementById("nav-mark");
   if (leiste) leiste.innerHTML = markSvg(30);
   // Favicon aus demselben Zeichen, damit Tab und App gleich aussehen.
-  const svg = markSvg(64, "#7BC80A").replace("<svg ", `<svg xmlns="http://www.w3.org/2000/svg" `);
+  const svg = markSvg(64, "#7BC80A").replace("<svg ", `<svg xmlns="http://www.w3.org/2000/svg" `); // kein UI-Text
   let link = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
   if (!link) {
     link = document.createElement("link");
@@ -173,7 +174,7 @@ export function renderMarkdown(escaped: string): string {
     const id = "code-" + Math.random().toString(36).slice(2, 8);
     // Queue für nachträgliches Highlighting (nach innerHTML-Insert)
     pendingCodeBlocks.set(id, trimmed);
-    return `<div class="codeblock"><div class="cb-head"><span>code</span><button class="cb-copy" data-code-id="${id}">⧉ copy</button></div><pre><code id="${id}">${highlightCode(trimmed)}</code></pre></div>`;
+    return `<div class="codeblock"><div class="cb-head"><span>code</span><button class="cb-copy" data-code-id="${id}">⧉ ${escapeHtml(t("ein.kopieren"))}</button></div><pre><code id="${id}">${highlightCode(trimmed)}</code></pre></div>`;
   });
   // Inline code
   s = s.replace(/`([^`\n]+)`/g, "<code>$1</code>");
@@ -208,8 +209,8 @@ export function activateCodeBlocks(container: HTMLElement): void {
       if (!code) return;
       try {
         await navigator.clipboard.writeText(code);
-        el.textContent = "✓ kopiert";
-        setTimeout(() => { el.textContent = "⧉ copy"; }, 1500);
+        el.textContent = `✓ ${t("ein.kopiert")}`;
+        setTimeout(() => { el.textContent = `⧉ ${t("ein.kopieren")}`; }, 1500);
       } catch { /* clipboard denied */ }
     });
   });

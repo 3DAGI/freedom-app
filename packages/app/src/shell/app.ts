@@ -183,30 +183,28 @@ async function baueSicherungsDialog(mnemonic: string): Promise<void> {
 
   box.innerHTML = `
     <div class="modal">
-      <h3>Deine Wiederherstellungs-Phrase</h3>
-      <p class="mono-sm">Diese zwölf Wörter sind deine Identität. Wer sie hat, ist du.
-      Wer sie verliert, verliert Reputation, Nachrichten und gesperrte Beträge —
-      es gibt niemanden, der sie zurücksetzen kann.</p>
+      <h3>${escapeHtml(t("ein.phraseTitel"))}</h3>
+      <p class="mono-sm">${escapeHtml(t("ein.phraseText"))}</p>
       <ol class="mnemonic-list">${woerter.map((w) => `<li>${escapeHtml(w)}</li>`).join("")}</ol>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0">
-        <button id="bk-copy" class="ghost" style="width:auto;padding:6px 10px">kopieren</button>
-        <button id="bk-file" class="ghost" style="width:auto;padding:6px 10px">als Datei sichern</button>
+        <button id="bk-copy" class="ghost" style="width:auto;padding:6px 10px">${escapeHtml(t("ein.kopieren"))}</button>
+        <button id="bk-file" class="ghost" style="width:auto;padding:6px 10px">${escapeHtml(t("ein.alsDatei"))}</button>
       </div>
-      <p class="mono-sm">Zur Bestätigung: gib diese Wörter ein.</p>
+      <p class="mono-sm">${escapeHtml(t("ein.zurBestaetigung"))}</p>
       <div id="bk-challenge" style="display:flex;gap:6px;flex-wrap:wrap">
-        ${positionen.map((p) => `<label class="mono-sm">Nr. ${p + 1}
+        ${positionen.map((p) => `<label class="mono-sm">${escapeHtml(t("ein.nummer", { n: p + 1 }))}
           <input data-pos="${p}" class="mono-sm" style="width:110px" autocomplete="off" /></label>`).join("")}
       </div>
       <div id="bk-error" class="mono-sm err"></div>
-      <button id="bk-done" class="send-btn" style="margin-top:8px">bestätigen</button>
-      <button id="bk-later" class="ghost" style="width:auto;padding:6px 10px;margin-top:8px">später bestätigen</button>
-      <p class="mono-sm muted">Bis du bestätigst, bleiben die Wörter auf diesem Gerät (im Tresor, sobald du einen einrichtest), und die App erinnert dich.</p>
+      <button id="bk-done" class="send-btn" style="margin-top:8px">${escapeHtml(t("ein.bestaetigen"))}</button>
+      <button id="bk-later" class="ghost" style="width:auto;padding:6px 10px;margin-top:8px">${escapeHtml(t("ein.spaeterBestaetigen"))}</button>
+      <p class="mono-sm muted">${escapeHtml(t("ein.bisBestaetigt"))}</p>
     </div>`;
   document.body.appendChild(box);
 
   return new Promise<void>((resolve) => {
     box.querySelector("#bk-copy")!.addEventListener("click", () => {
-      void navigator.clipboard.writeText(mnemonic).then(() => toast("Phrase kopiert"));
+      void navigator.clipboard.writeText(mnemonic).then(() => toast(t("ein.phraseKopiert")));
     });
     box.querySelector("#bk-file")!.addEventListener("click", async () => {
       const { createIdentity } = await import("../identity.js");
@@ -228,15 +226,14 @@ async function baueSicherungsDialog(mnemonic: string): Promise<void> {
       const r = verifyMnemonicChallenge(mnemonic, positionen, antworten);
       if (!r.ok) {
         // Sagen, WELCHES Wort falsch war — sonst raet der Nutzer.
-        box.querySelector("#bk-error")!.textContent =
-          `Falsch: Wort ${r.wrong.map((p) => p + 1).join(", ")}. Nochmal vergleichen.`;
+        box.querySelector("#bk-error")!.textContent = t("ein.falschesWort", { n: r.wrong.map((p) => p + 1).join(", ") });
         return;
       }
       markBackupConfirmed();
       // Bestaetigt: Die Woerter gehoeren jetzt nur noch auf das Papier (8.1a)
       void geheim.removeItem(LS_MERKPHRASE);
       box.remove();
-      toast("Identität gesichert");
+      toast(t("ein.identitaetGesichert"));
       void zeigeOnboarding();
       resolve();
     });
@@ -282,7 +279,7 @@ async function zeigeBackupWarnung(): Promise<void> {
     const el = $("#backup-warn");
     if (!el) return;
     if (st.warning && localStorage.getItem("freedom.usedOnce") === "1" && !leisteZeigtSichern) {
-      el.innerHTML = `⚠ ${escapeHtml(st.warning)} <button id="bk-now" class="ghost" style="width:auto;padding:4px 8px">jetzt sichern</button>`;
+      el.innerHTML = `⚠ ${escapeHtml(st.warning)} <button id="bk-now" class="ghost" style="width:auto;padding:4px 8px">${escapeHtml(t("set.jetztSichern"))}</button>`;
       el.classList.remove("hidden");
       el.querySelector("#bk-now")?.addEventListener("click", () => void sichereJetzt());
     } else {
@@ -291,12 +288,12 @@ async function zeigeBackupWarnung(): Promise<void> {
   } catch { /* Anzeige ist optional */ }
 }
 
-const NUR_IM_SIGNER = "Mit Bunker liegt der Schlüssel nicht in der App – sichern und exportieren geht nur im Signer";
+const NUR_IM_SIGNER = "ein.nurImSigner";
 
 /** Nachtraegliche Sicherung — auch fuer Identitaeten ohne Phrase. */
 async function sichereJetzt(): Promise<void> {
   if (!state.keypair) return;
-  if (mitBunker()) { toast(NUR_IM_SIGNER, true); return; }
+  if (mitBunker()) { toast(t(NUR_IM_SIGNER), true); return; }
   // Noch nicht bestaetigte Merkphrase (8.1a): erneut zeigen und abfragen
   const merkphrase = geheim.getItem(LS_MERKPHRASE);
   if (merkphrase) {
@@ -304,7 +301,7 @@ async function sichereJetzt(): Promise<void> {
     return;
   }
   const { identityFromHex, buildBackupFile, markBackupConfirmed } = await import("../identity.js");
-  const id = identityFromHex(mitRohemSchluessel("Die Sicherungsdatei", toHex));
+  const id = identityFromHex(mitRohemSchluessel(t("ein.fuerSicherungsdatei"), toHex));
   const blob = new Blob([buildBackupFile(id)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -314,22 +311,22 @@ async function sichereJetzt(): Promise<void> {
   URL.revokeObjectURL(url);
   markBackupConfirmed();
   void zeigeBackupWarnung();
-  toast("Sicherungsdatei heruntergeladen — sicher aufbewahren");
+  toast(t("ein.dateiGeladen"));
 }
 
 function exportIdentity(): void {
   if (!state.keypair) return;
-  if (mitBunker()) { toast(NUR_IM_SIGNER, true); return; }
-  const hex = mitRohemSchluessel("Der Export", toHex);
+  if (mitBunker()) { toast(t(NUR_IM_SIGNER), true); return; }
+  const hex = mitRohemSchluessel(t("ein.fuerExport"), toHex);
   navigator.clipboard?.writeText(hex).then(
-    () => toast("nsec (hex) kopiert — sicher aufbewahren!"),
+    () => toast(t("ein.nsecKopiert")),
     () => toast(hex),
   );
 }
 
 async function importIdentity(): Promise<void> {
-  if (mitBunker()) { toast("Erst vom Bunker abmelden (Settings → Geräte)", true); return; }
-  const eingabe = prompt("Merkphrase, nsec1…, 64 Zeichen Hex oder Gerätecode einfuegen:");
+  if (mitBunker()) { toast(t("ein.erstAbmelden"), true); return; }
+  const eingabe = prompt(t("ein.importFrage"));
   if (eingabe === null) return;
   // Geraetecode (8.6c): Geraeteschluessel plus die Person, fuer die er spricht
   const code = leseGeraeteCode(eingabe);
@@ -360,9 +357,9 @@ async function importIdentity(): Promise<void> {
   }
   if (state.person) localStorage.setItem(LS_GERAET_PERSON, state.person);
   else localStorage.removeItem(LS_GERAET_PERSON);
-  void speichereSchluessel(hex.toLowerCase()).catch((e) => toast(`nicht gespeichert: ${(e as Error).message}`, true));
+  void speichereSchluessel(hex.toLowerCase()).catch((e) => toast(t("ein.nichtGespeichert", { fehler: (e as Error).message }), true));
   $("#ident").textContent = escrowIdent();
-  toast(state.person ? `Als Gerät angemeldet – für ${pkShort(state.person)}` : "Identitaet importiert");
+  toast(state.person ? t("ein.alsGeraet", { person: pkShort(state.person) }) : t("ein.importiert"));
   updateFeePreview();
   loadChatList();
   loadWallet();
@@ -415,7 +412,7 @@ export async function zeigeOnboarding(): Promise<void> {
         ? `<button id="ob-action" class="ghost" style="width:auto;padding:6px 10px">${escapeHtml(schritt.action)}</button>`
         : "") +
       (schritt.skippable
-        ? `<button id="ob-skip" class="ghost" style="width:auto;padding:4px 8px;font-size:10px">später</button>`
+        ? `<button id="ob-skip" class="ghost" style="width:auto;padding:4px 8px;font-size:10px">${escapeHtml(t("ein.spaeter"))}</button>`
         : "");
 
     bar.querySelector("#ob-action")?.addEventListener("click", () => {
@@ -526,6 +523,7 @@ function setupLangMenu(): void {
         // Was der Code zeichnet (Listen, Hinweise), folgt beim Neuzeichnen des offenen Tabs (8.16b)
         const offen = document.querySelector<HTMLElement>(".app-nav button.active")?.dataset.tab;
         if (offen) switchTab(offen);
+        void zeigeOnboarding();
         pairs.forEach(({ btnId, menuId }) => {
           const m2 = $(menuId);
           if (m2) renderMenu(m2);
@@ -591,7 +589,7 @@ function checkOwnProvider(): void {
   if (pk) {
     setOwnProvider(pk);
     console.log(`[provider] Eigener Provider gesetzt: ${pkShort(pk)}`);
-    toast(`Eigener Provider aktiv: ${pkShort(pk)}`);
+    toast(t("ein.eigenerProvider", { pk: pkShort(pk) }));
   }
 }
 
@@ -678,12 +676,12 @@ function starte(): void {
   if (zapBtn) {
     zapBtn.onclick = async () => {
       if (!activeConversation) {
-        toast("waehle erst einen chat", true);
+        toast(t("ein.erstChat"), true);
         return;
       }
       const c = conversations.find((x) => x.id === activeConversation);
       if (!c || c.type !== "dm") {
-        toast("zaps nur in 1:1-chats", true);
+        toast(t("ein.zapsNur11"), true);
         return;
       }
       const { openZapDialog } = await import("../chat-zap.js");
@@ -697,12 +695,12 @@ function starte(): void {
   const meshFileInput = $("#chat-mesh-file") as HTMLInputElement | null;
   if (meshExportBtn) {
     meshExportBtn.onclick = async () => {
-      if (!state.keypair || !activeConversation) { toast("waehle erst einen chat", true); return; }
+      if (!state.keypair || !activeConversation) { toast(t("ein.erstChat"), true); return; }
       try {
         const c = conversations.find((x) => x.id === activeConversation);
         if (!c) return;
         if (c.type !== "dm") {
-          toast("Räume sind noch nicht verschlüsselt (2.3) – sie gehen nicht als Datei oder über Funk.", true);
+          toast(t("ein.raeumeNichtMesh"), true);
           return;
         }
         const pool = await ensurePool();
@@ -710,11 +708,9 @@ function starte(): void {
         const events = await pool.query({ kinds: [1059], "#p": [c.id], limit: 200 });
         const { exportMeshFile } = await import("../mesh-transfer.js");
         const r = exportMeshFile(events, [state.keypair.pk]);
-        toast(r.exportiert === 0
-          ? "Keine Umschläge für diesen Kontakt gefunden."
-          : `${r.exportiert} verschlüsselte Umschläge als Datei – ohne deinen Schlüssel. Auf einem Gerät mit Netz einlesen.`);
+        toast(r.exportiert === 0 ? t("ein.keineUmschlaege") : t("ein.umschlaegeExportiert", { n: r.exportiert }));
       } catch (e) {
-        toast(`export-fehler: ${(e as Error).message}`, true);
+        toast(t("ein.exportFehler", { fehler: (e as Error).message }), true);
       }
     };
   }
@@ -736,10 +732,10 @@ function starte(): void {
             ok++;
           } catch { /* duplikat/offline */ }
         }
-        toast(`${ok}/${events.length} Umschläge ans Netz gegeben${abgelehnt ? ` – ${abgelehnt} unverschlüsselt abgelehnt` : ""}`);
+        toast(t("ein.umschlaegeImportiert", { ok, n: events.length }) + (abgelehnt ? t("ein.unverschluesseltAbgelehnt", { n: abgelehnt }) : ""));
         if (activeConversation) loadChatMessages(activeConversation);
       } catch (e) {
-        toast(`import-fehler: ${(e as Error).message}`, true);
+        toast(t("ein.importFehler", { fehler: (e as Error).message }), true);
       }
     };
   }
@@ -801,9 +797,9 @@ function starte(): void {
     if (!state.keypair) return;
     try {
       await navigator.clipboard.writeText(state.keypair.pk);
-      toast("Öffentlicher Schlüssel kopiert");
+      toast(t("ein.pubkeyKopiert"));
     } catch {
-      prompt("Öffentlicher Schlüssel:", state.keypair.pk);
+      prompt(t("ein.pubkey"), state.keypair.pk);
     }
   });
   const ziele: Record<string, string> = { "1": "backup-now", "2": "rotation-prepare", "3": "succ-setup" };
@@ -830,7 +826,7 @@ function starte(): void {
     if (!state.keypair) return;
     const { buildHeartbeat } = await import("@freedomstack/protocol");
     await (await ensurePool()).publish(await signiere(buildHeartbeat(state.keypair.pk)));
-    toast("Lebenszeichen gesendet — laufende Vorgänge sind abgebrochen");
+    toast(t("ein.lebenszeichenGesendet"));
     void zeigeNachfolge();
   };
   const modelsRefresh = $("#models-refresh");
@@ -910,15 +906,15 @@ function setupCopyButtons(): void {
   copyLast?.addEventListener("click", async () => {
     const bubbles = getBubbles().filter((b) => b.classList.contains("ai"));
     const last = bubbles[bubbles.length - 1];
-    if (!last) { toast("keine antwort zum kopieren", true); return; }
+    if (!last) { toast(t("ein.keineAntwort"), true); return; }
     await navigator.clipboard.writeText(bubbleText(last));
-    toast("letzte antwort kopiert");
+    toast(t("ein.antwortKopiert"));
   });
   copyAll?.addEventListener("click", async () => {
     const bubbles = getBubbles();
-    if (bubbles.length === 0) { toast("keine konversation", true); return; }
+    if (bubbles.length === 0) { toast(t("ein.keineKonversation"), true); return; }
     const text = bubbles.map(bubbleText).join("\n\n");
     await navigator.clipboard.writeText(text);
-    toast("konversation kopiert");
+    toast(t("ein.konversationKopiert"));
   });
 }

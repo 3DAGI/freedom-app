@@ -6,6 +6,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { LokaleSuche, type SuchSpeicher, neuerSuchSchluessel, suchSchluessel } from "../src/suche.js";
+import { setLang } from "../src/i18n.js";
+
+// Meldungen hier auf Deutsch prüfen (seit 8.16g1 über Schlüssel in der Sprache der Oberfläche)
+setLang("de");
 
 function speicher(): SuchSpeicher & { blob: string | null } {
   return {

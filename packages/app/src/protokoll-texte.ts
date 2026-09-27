@@ -4,7 +4,8 @@
  * Einige Bausteine des Protokolls liefern fertige deutsche Sätze (`healthNote`,
  * `busFactor().note`, `LAYER_LABEL`, `coverageAt().message`,
  * `coverageConsentText()`, `profileDisclosure()`, `inspectPicture().warning`,
- * `badgeSourceLabel()`, Titel und Stand der Aufgaben). Die App bildet sie aus den Feldern neu; die deutsche
+ * `badgeSourceLabel()`, Titel und Stand der Aufgaben, seit 8.16g1
+ * `wipeConfirmation()`). Die App bildet sie aus den Feldern neu; die deutsche
  * Fassung ist wortgleich mit der des Protokolls (`app/test/i18n.test.ts` prüft
  * das), damit jeder Client dieselbe Warnung zeigt.
  */
@@ -115,3 +116,6 @@ export function abzeichenHerkunft(b: { source: BadgeSource; basis?: string; defi
   if (b.source === "verliehen") return t("profil.herkunftVerliehen", { von: b.definition.issuerPubkey.slice(0, 8) });
   return t("profil.herkunftSelbst");
 }
+
+/** Rückfrage vor der Notfall-Löschung – wie `wipeConfirmation()` (fester Text mit rechtlichem Hinweis). */
+export const loeschRueckfrage = (): string => t("ein.wipeText");

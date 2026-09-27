@@ -7894,3 +7894,73 @@ check-wiring `--streng` Exit 0 · innerHTML streng 0 unbewertet · Website 5
 Seiten ok · Smoke-Test bestanden (inkl. „sprache“ mit Settings) · im Browser:
 Earn, Profil und Settings in Englisch, nach dem Wechsel in Deutsch – samt
 Abdeckung, Offenlegung und Stilnamen –, ohne Seitenfehler.
+
+## Schritt 8.16g1 – Übersetzungen: Einstieg und Dialoge
+
+**Fertig:** Einstieg und Dialoge stehen auf 0 rohen Texten, neuer Bereich
+`texte/einstieg.ts` (`ein.*`, rund 230 Schlüssel). Dazu gehören:
+- Führung (`onboarding.ts`) und Start, Sicherungsdialog, Import, Menü (`app.ts`);
+- Identität (`identity.ts`) und Tresor (`tresor.ts`, `vault.ts`);
+- Nachfolge als Vertrauter (`nachfolge-ui.ts`, `nachfolge.ts`);
+- Notfall-Löschung, Bunker, Einrichtung beim ersten Start;
+- Zustand und UI-Hilfen (`state.ts`, `ui.ts`, `shell-logic.ts`);
+- Geräte (`geraete-buch.ts`, `geraete-modus.ts`), eigener Relay-Satz,
+  Versand und lokale Suche.
+
+Offen bleiben 13 Dateien für 8.16g2 (Datenschutzbericht, Mesh, MLS,
+Werkzeuge, Shims) und die Sätze des Protokolls, die die App noch unverändert
+zeigt.
+
+**Einzelheiten:**
+- **Notfall-Löschung:**
+  - Die Rückfrage mit dem rechtlichen Hinweis bildet `protokoll-texte.ts`
+    nach (`loeschRueckfrage()`). Ein Test hält die deutsche Fassung
+    wortgleich mit `wipeConfirmation()`; die steht als deutsche Referenz in
+    `wiring-ausnahmen.txt`.
+  - Bestätigt wird mit LÖSCHEN (auch LOESCHEN) oder – wie der englische
+    Platzhalter sagt – DELETE.
+- **Ehrliche Texte:**
+  - Die alte Meldung beim Export eines Raums („Räume sind noch nicht
+    verschlüsselt (2.3)“) stimmte seit 2.3 nicht mehr. Jetzt: Räume gehen
+    (noch) nicht als Datei oder über Funk, nur 1:1-Unterhaltungen.
+  - Der Satz „In unterversorgten Regionen gibt es einen Aufschlag“
+    (`pitchFor("verdienen")`) stimmte seit 5.1.4 nicht mehr – den
+    Knappheitsbonus gibt es nicht. Jetzt: Wo erst wenige Provider arbeiten,
+    hilft ein neuer Knoten am meisten (so zählt es `scarcity.ts`).
+- **Zahlen und Zeiten:** `fmtSats()`, `fmtSol()`, `ago()` und die Trefferliste
+  der Suche nehmen `gebietsschema()` statt `"de-DE"`.
+- **Sprachwechsel:** Die Onboarding-Leiste zeichnet sich nach einem Wechsel
+  neu, wie der offene Tab.
+- **Code-Blöcke** in Antworten: „kopieren“/„kopiert“ in der Sprache der
+  Oberfläche.
+- **Namen lokaler Variablen:** Wo ein lokales `t` die Übersetzung verdeckt
+  hätte (`toast()`, Relay-Eingabe, Gerätecode, Suchindex, RPC-Prüfung),
+  heißt es jetzt anders.
+- **innerHTML:** Der Sicherungsdialog setzt die Nummer der abgefragten Wörter
+  über `escapeHtml(t(…))` – eine Ausnahme weniger. Die Begründung für die
+  Tresor-Dialoge nennt die neuen Einsetzungen (nur `escapeHtml(t(…))`).
+- **Noch unverändert (8.16g2):** Gründe aus Prüfungen des Protokolls, die
+  in fertigen Dateien durchgereicht werden: `isPlausibleRelayUrl` (Relay-Satz),
+  `darfUebergeben` und `evaluateSuccession` (Nachfolge), `absenderPerson` und
+  `listDevices().message` (Geräte).
+  Ebenso `OFFLINE_HINWEIS` und die Datenschutz-Aussagen in der Einrichtung
+  (`datenschutzKurz()` aus `PRIVACY_FACTS`).
+
+**Tests:**
+- +1 in `i18n.test.ts`:
+  - alle 19 Dateien fertig, kein `"de-DE"`;
+  - die Rückfrage vor dem Löschen deutsch wortgleich, englisch übersetzt;
+  - Bestätigungswort, Onboarding-Leiste beim Sprachwechsel.
+- +1 in `shell-logic.test.ts`: Ein böser Dateiname in der Meldung über einen
+  abgelehnten Link wird maskiert.
+- Deutsch gesetzt (`setLang("de")`), weil sie Meldungen wörtlich prüfen:
+  - `identity`, `vault`, `mls-speicher`, `shell-logic`;
+  - `geraete-buch`, `geraete-modus`, `relay-satz`;
+  - `bunker`, `onboarding`, `rohschluessel`, `suche`.
+- Zwei ältere Tests suchen die neue Stelle (nicht schwächer):
+  - `rpc-stichprobe`: Variable `probe`;
+  - `einrichtung`: Importfrage über `t("ein.importFrage")`. Dazu prüft der
+    Test, dass die Frage in beiden Sprachen alle vier Formen nennt.
+- Die Smoke-Prüfung „sprache“ liest zusätzlich den Titel des
+  Sicherungsdialogs („Deine Wiederherstellungs-Phrase“/„Your recovery
+  phrase“).

@@ -11,6 +11,7 @@ import {
   type AnteilAnfrage, KIND_HEARTBEAT, KIND_RECOVERY_CLAIM, KIND_SUCCESSION_PLAN, type NostrEvent, type SuccessionPlan,
   baueAnteilAnfrage, baueAnteilUebergabe, buildRecoveryClaim, parseSuccessionPlan, setzeNachfolgeZusammen,
 } from "@freedomstack/protocol";
+import { t } from "../i18n.js";
 import { pkShort } from "../shell-logic.js";
 import { type NachfolgeStand, type VertrautenZeile, leseStand, neuestePlaene, nimmUmschlag, schreibeStand, vertrautenZeilen } from "../nachfolge.js";
 import { ensurePool, signiere, state } from "./state.js";
@@ -100,32 +101,32 @@ export async function zeigeVertraute(): Promise<void> {
         .then(async (claims) => [...claims, ...(await pool.query({ kinds: [KIND_HEARTBEAT], authors: besitzer, limit: 200 }))]),
     ]);
     const zeilen = vertrautenZeilen(st, plaene, events, state.keypair.pk);
-    box.replaceChildren(el("div", "Du bist Vertrauter für:", "label"), ...zeilen.map(zeile));
+    box.replaceChildren(el("div", t("ein.vertrauterFuer"), "label"), ...zeilen.map(zeile));
     if (!tresorEingerichtet()) {
-      box.append(el("div", "Ohne Tresor bleibt dein Anteil nur auf den Relays – richte den Tresor ein, damit er auf diesem Gerät bleibt.", "mono-sm warn"));
+      box.append(el("div", t("ein.anteilOhneTresor"), "mono-sm warn"));
     }
   } catch {
-    box.textContent = "Relays nicht erreichbar";
+    box.textContent = t("ein.relaysNichtErreichbar");
   }
 }
 
 function zeile(z: VertrautenZeile): HTMLElement {
   const block = el("div", undefined, "usage-row");
   block.style.cssText = "display:block;margin-top:8px";
-  block.append(el("div", `${pkShort(z.besitzer)} · Teil ${z.anteil.index} von ${z.anteil.anzahl}, Schwelle ${z.anteil.schwelle}`));
-  if (!z.plan) block.append(el("div", "Plan nicht gefunden.", "mono-sm muted"));
-  else if (!z.passt) block.append(el("div", "Dein Anteil gehört zu einem älteren Plan – der Besitzer hat neu eingerichtet.", "mono-sm muted"));
+  block.append(el("div", t("ein.anteilZeile", { wer: pkShort(z.besitzer), teil: z.anteil.index, von: z.anteil.anzahl, schwelle: z.anteil.schwelle })));
+  if (!z.plan) block.append(el("div", t("ein.planFehltPunkt"), "mono-sm muted"));
+  else if (!z.passt) block.append(el("div", t("ein.aelterePlan"), "mono-sm muted"));
   else if (z.status) block.append(el("div", z.status.message, `mono-sm ${z.status.status === "aktiv" ? "ok" : "warn"}`));
   const knoepfe = el("div");
-  if (z.passt && !z.gemeldet) knoepfe.append(knopf("melden", () => void melde(z.besitzer)));
-  if (z.gemeldet) knoepfe.append(el("span", "gemeldet · ", "mono-sm muted"));
-  if (z.kannAnfordern) knoepfe.append(knopf("Anteile anfordern", () => void fordereAn(z)));
-  if (z.kannAnfordern) knoepfe.append(el("span", `${z.beisammen} von ${z.plan!.threshold} beisammen `, "mono-sm"));
-  if (z.kannZusammensetzen) knoepfe.append(knopf("zusammensetzen", () => void setzeZusammen(z)));
+  if (z.passt && !z.gemeldet) knoepfe.append(knopf(t("ein.melden"), () => void melde(z.besitzer)));
+  if (z.gemeldet) knoepfe.append(el("span", t("ein.gemeldet"), "mono-sm muted"));
+  if (z.kannAnfordern) knoepfe.append(knopf(t("ein.anfordern"), () => void fordereAn(z)));
+  if (z.kannAnfordern) knoepfe.append(el("span", t("ein.beisammen", { n: z.beisammen, von: z.plan!.threshold }), "mono-sm"));
+  if (z.kannZusammensetzen) knoepfe.append(knopf(t("ein.zusammensetzen"), () => void setzeZusammen(z)));
   block.append(knoepfe);
   for (const { anfrage, darf } of z.anfragen) {
-    const r = el("div", `${pkShort(anfrage.von)} bittet um deinen Anteil. `, "mono-sm");
-    if (darf.ok) r.append(knopf("übergeben", () => void uebergib(z, anfrage)));
+    const r = el("div", t("ein.bittetUmAnteil", { wer: pkShort(anfrage.von) }), "mono-sm");
+    if (darf.ok) r.append(knopf(t("ein.uebergeben"), () => void uebergib(z, anfrage)));
     else r.append(el("span", darf.grund, "muted"));
     block.append(r);
   }
@@ -135,11 +136,11 @@ function zeile(z: VertrautenZeile): HTMLElement {
 /** Oeffentlich melden: „Ich halte den Ausloeser fuer erfuellt.“ */
 async function melde(besitzer: string): Promise<void> {
   if (!state.keypair) return;
-  const grund = prompt(`Meldung für ${pkShort(besitzer)}: Warum? (wird veröffentlicht)`);
+  const grund = prompt(t("ein.meldungWarum", { wer: pkShort(besitzer) }));
   if (!grund?.trim()) return;
   try {
     await (await ensurePool()).publish(await signiere(buildRecoveryClaim(state.keypair.pk, besitzer, grund.trim())));
-    toast("Gemeldet — ein Lebenszeichen der Person bricht den Vorgang ab");
+    toast(t("ein.gemeldetToast"));
     void zeigeVertraute();
   } catch (e) {
     toast((e as Error).message, true);
@@ -158,7 +159,7 @@ async function fordereAn(z: VertrautenZeile): Promise<void> {
     const st = stand();
     st.angefragt[z.besitzer] = Math.floor(Date.now() / 1000);
     await merke(st);
-    toast(`${andere.length} Vertraute versiegelt angefragt – ihre Apps übergeben erst nach Freigabe`);
+    toast(t("ein.angefragt", { n: andere.length }));
   } catch (e) {
     toast((e as Error).message, true);
   }
@@ -167,13 +168,13 @@ async function fordereAn(z: VertrautenZeile): Promise<void> {
 /** Meinen Anteil an den Anfragenden uebergeben – nach Rueckfrage. */
 async function uebergib(z: VertrautenZeile, anfrage: AnteilAnfrage): Promise<void> {
   if (!state.signer) return;
-  if (!confirm(`Deinen Anteil für ${pkShort(z.besitzer)} an ${pkShort(anfrage.von)} übergeben?\n\nDer Plan ist freigegeben. Mit genug Anteilen kann ${pkShort(anfrage.von)} den Schlüssel zusammensetzen.`)) return;
+  if (!confirm(t("ein.uebergebenFrage", { besitzer: pkShort(z.besitzer), an: pkShort(anfrage.von) }))) return;
   try {
     await sende(await baueAnteilUebergabe({ von: state.signer, anfrage, anteil: z.anteil }), anfrage.von);
     const st = stand();
     st.anfragen = st.anfragen.filter((q) => q.anfrageId !== anfrage.anfrageId);
     await merke(st);
-    toast("Anteil versiegelt übergeben");
+    toast(t("ein.uebergebenToast"));
     void zeigeVertraute();
   } catch (e) {
     toast((e as Error).message, true);
@@ -188,16 +189,14 @@ function setzeZusammen(z: VertrautenZeile): void {
   try {
     schluessel = setzeNachfolgeZusammen([z.anteil, ...(st.erhalten[z.besitzer] ?? [])], z.plan);
     const hex = Array.from(schluessel, (b) => b.toString(16).padStart(2, "0")).join("");
-    const text = `Wiederhergestellter Schlüssel von ${z.besitzer}\n\nPrivater Schlüssel (hex):\n${hex}\n\n` +
-      "Wer diese Datei hat, IST diese Person im Netz. Sicher aufbewahren und nach dem Import löschen.\n" +
-      "Import: die App in einem eigenen Browserprofil öffnen → „Identität importieren“ → den Hex-Schlüssel einfügen.\n";
+    const text = t("ein.nachfolgeDatei", { besitzer: z.besitzer, hex });
     const url = URL.createObjectURL(new Blob([text], { type: "text/plain" }));
     const a = document.createElement("a");
     a.href = url;
     a.download = `freedom-nachfolge-${z.besitzer.slice(0, 8)}.txt`;
     a.click();
     URL.revokeObjectURL(url);
-    toast("Zusammengesetzt und geprüft – der Schlüssel liegt in der Datei");
+    toast(t("ein.zusammengesetzt"));
   } catch (e) {
     toast((e as Error).message, true);
   } finally {

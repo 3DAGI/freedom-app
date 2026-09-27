@@ -354,3 +354,38 @@ test("8.16f: Earn, Profil, Settings – über Schlüssel; Sätze des Protokolls 
     setLang(vorher);
   }
 });
+
+test("8.16g1: Einstieg und Dialoge – über Schlüssel; Rückfrage vor dem Löschen auf Deutsch wortgleich", async () => {
+  const fertig = [
+    "onboarding.ts", "shell/app.ts", "identity.ts", "vault.ts", "shell/tresor.ts", "nachfolge.ts", "shell/nachfolge-ui.ts",
+    "shell/notfall.ts", "shell/bunker.ts", "shell/einrichtung-ui.ts", "shell/state.ts", "shell/ui.ts", "shell-logic.ts",
+    "geraete-buch.ts", "geraete-modus.ts", "relay-satz.ts", "shell/versand.ts", "suche.ts", "shell/suche-ui.ts",
+  ];
+  for (const d of fertig) {
+    assert.ok(!(d in OFFEN_CODE), `${d} fertig`);
+    assert.doesNotMatch(readFileSync(pfad(SRC, d), "utf8"), /"de-DE"/, d);
+  }
+  // Die Rückfrage vor der Notfall-Löschung kommt aus protokoll-texte.ts, nicht mehr aus dem Protokoll
+  const notfall = readFileSync(pfad(SRC, "shell/notfall.ts"), "utf8");
+  assert.doesNotMatch(notfall, /import \{[^}]*wipeConfirmation/);
+  assert.match(notfall, /el\("p", loeschRueckfrage\(\), "mono-sm"\)/);
+  // Bestätigt wird mit LÖSCHEN oder – wie der englische Platzhalter sagt – DELETE
+  assert.match(notfall, /const BESTAETIGUNG = \/\^\(L\(Ö\|OE\)SCHEN\|DELETE\)\$\/;/);
+  // Die Onboarding-Leiste folgt einem Sprachwechsel
+  const app = readFileSync(pfad(SRC, "shell/app.ts"), "utf8");
+  assert.match(app, /if \(offen\) switchTab\(offen\);\s*void zeigeOnboarding\(\);/);
+
+  const P = await import("@freedomstack/protocol");
+  const T = await import("../src/protokoll-texte.js");
+  const vorher = getLang();
+  try {
+    setLang("de");
+    assert.equal(T.loeschRueckfrage(), P.wipeConfirmation());
+    assert.equal(t("ein.falschesWort", { n: "2, 7" }), "Falsch: Wort 2, 7. Nochmal vergleichen.");
+    setLang("en");
+    assert.match(T.loeschRueckfrage(), /^Delete everything on this device\?[\s\S]*LEGAL NOTICE[\s\S]*What is NOT deleted: everything already on relays\.$/);
+    assert.equal(t("ein.loeschenEintippen"), "type DELETE to confirm");
+  } finally {
+    setLang(vorher);
+  }
+});

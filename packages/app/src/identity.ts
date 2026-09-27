@@ -28,6 +28,7 @@ import { generateMnemonic, mnemonicToSeedSync, validateMnemonic } from "@scure/b
 import { wordlist } from "@scure/bip39/wordlists/english";
 import { schnorr } from "@noble/curves/secp256k1.js";
 import { bytesToHex, hexToBytes } from "@noble/hashes/utils.js";
+import { t } from "./i18n.js";
 
 /** NIP-06: der Ableitungspfad, auf den sich Nostr-Clients geeinigt haben. */
 export const NOSTR_DERIVATION_PATH = "m/44'/1237'/0'/0/0";
@@ -57,15 +58,15 @@ export function encodeNpub(pkHex: string): string {
 
 export function decodeNsec(nsec: string): Uint8Array {
   const { prefix, words } = bech32.decode(nsec.trim() as `${string}1${string}`, 200);
-  if (prefix !== "nsec") throw new Error(`Erwartet wurde ein nsec, gefunden: ${prefix}`);
+  if (prefix !== "nsec") throw new Error(t("ein.erwartetNsec", { prefix }));
   const bytes = bech32.fromWords(words);
-  if (bytes.length !== 32) throw new Error("nsec hat nicht 32 Bytes");
+  if (bytes.length !== 32) throw new Error(t("ein.nsecLaenge"));
   return Uint8Array.from(bytes);
 }
 
 export function decodeNpub(npub: string): string {
   const { prefix, words } = bech32.decode(npub.trim() as `${string}1${string}`, 200);
-  if (prefix !== "npub") throw new Error(`Erwartet wurde ein npub, gefunden: ${prefix}`);
+  if (prefix !== "npub") throw new Error(t("ein.erwartetNpub", { prefix }));
   return bytesToHex(Uint8Array.from(bech32.fromWords(words)));
 }
 
@@ -92,14 +93,11 @@ export function createIdentity(): Identity {
 export function identityFromMnemonic(mnemonic: string, passphrase = ""): Identity {
   const normalisiert = mnemonic.trim().toLowerCase().replace(/\s+/g, " ");
   if (!validateMnemonic(normalisiert, wordlist)) {
-    throw new Error(
-      "Die Merkphrase ist ungültig. Prüfe Reihenfolge und Schreibweise — " +
-      "BIP-39 erkennt einzelne Tippfehler an der Prüfsumme.",
-    );
+    throw new Error(t("ein.phraseUngueltig"));
   }
   const seed = mnemonicToSeedSync(normalisiert, passphrase);
   const sk = HDKey.fromMasterSeed(seed).derive(NOSTR_DERIVATION_PATH).privateKey;
-  if (!sk) throw new Error("Ableitung fehlgeschlagen");
+  if (!sk) throw new Error(t("ein.ableitungFehlgeschlagen"));
   return fromSecret(sk, normalisiert);
 }
 
@@ -112,22 +110,16 @@ export function identityFromMnemonic(mnemonic: string, passphrase = ""): Identit
  */
 export function importIdentity(input: string, passphrase = ""): Identity {
   const s = input.trim();
-  if (!s) throw new Error("Nichts eingegeben.");
+  if (!s) throw new Error(t("ein.nichtsEingegeben"));
 
   if (s.split(/\s+/).length >= 12) return identityFromMnemonic(s, passphrase);
   if (s.toLowerCase().startsWith("nsec1")) return fromSecret(decodeNsec(s));
   if (/^[0-9a-fA-F]{64}$/.test(s)) return fromSecret(hexToBytes(s.toLowerCase()));
 
   if (s.toLowerCase().startsWith("npub1")) {
-    throw new Error(
-      "Das ist ein öffentlicher Schlüssel (npub) — damit lässt sich nicht signieren. " +
-      "Nötig ist die Merkphrase oder der nsec.",
-    );
+    throw new Error(t("ein.istNpub"));
   }
-  throw new Error(
-    "Unbekanntes Format. Akzeptiert werden: 12-Wort-Merkphrase, nsec1… oder " +
-    "64 Zeichen Hex.",
-  );
+  throw new Error(t("ein.unbekanntesFormat"));
 }
 
 /** Rekonstruiert eine Identität aus dem gespeicherten Hex (Altbestand). */
@@ -164,17 +156,13 @@ export function backupStatus(): BackupCheck {
   if (!recoverable) {
     return {
       hasKey, confirmed, recoverable,
-      warning:
-        "Diese Identität stammt aus einer älteren Version und hat keine " +
-        "Merkphrase. Sichere den nsec — er ist der einzige Weg zurück.",
+      warning: t("ein.ohnePhrase"),
     };
   }
   if (!confirmed) {
     return {
       hasKey, confirmed, recoverable,
-      warning:
-        "Die Merkphrase ist noch nicht bestätigt. Ohne Sicherung sind bei " +
-        "Verlust der Browserdaten Reputation und gesperrte Beträge weg.",
+      warning: t("ein.nichtBestaetigt"),
     };
   }
   return { hasKey, confirmed, recoverable };
@@ -249,9 +237,7 @@ export function buildBackupFile(id: Identity): string {
     nsec: id.nsec,
     mnemonic: id.mnemonic,
     createdAt: new Date().toISOString(),
-    warning:
-      "Wer diese Datei hat, ist du: Nachrichten, Reputation, Guthaben. Nicht " +
-      "in eine Cloud legen, nicht per Messenger senden, nicht ausdrucken lassen.",
+    warning: t("ein.dateiWarnung"),
   };
   return JSON.stringify(f, null, 2);
 }
@@ -259,9 +245,9 @@ export function buildBackupFile(id: Identity): string {
 export function parseBackupFile(json: string): Identity {
   const f = JSON.parse(json) as Partial<BackupFile>;
   if (f.format !== "freedomstack-identity") {
-    throw new Error("Das ist keine FreedomStack-Sicherungsdatei.");
+    throw new Error(t("ein.keineSicherungsdatei"));
   }
   if (f.mnemonic) return identityFromMnemonic(f.mnemonic);
   if (f.nsec) return fromSecret(decodeNsec(f.nsec));
-  throw new Error("Die Sicherungsdatei enthält weder Merkphrase noch nsec.");
+  throw new Error(t("ein.dateiOhneSchluessel"));
 }

@@ -1,8 +1,9 @@
 /**
  * Notfall-Loeschung (Schritt 8.14): Settings → Sicherheit. Loescht alles
  * Lokale ueber `loescheAllesLokal()` (duress.ts) und prueft nach. Vorher
- * steht der Text aus `wipeConfirmation()` mit dem rechtlichen Hinweis;
- * bestaetigt wird durch Eintippen von LÖSCHEN.
+ * steht der Text aus `wipeConfirmation()` mit dem rechtlichen Hinweis (in der
+ * Sprache der Oberflaeche: `loeschRueckfrage()`); bestaetigt wird durch
+ * Eintippen von LÖSCHEN (englisch DELETE).
  *
  * Danach startet die App sofort neu: Was sie noch im Speicher hat
  * (Unterhaltungen, Zeitgeber), darf nicht zurueckgeschrieben werden – ohne
@@ -12,13 +13,15 @@
  *
  * Der Dialog wird mit DOM-Aufrufen gebaut, nicht per innerHTML.
  */
-import { type LoeschUmgebung, loescheAllesLokal, wipeConfirmation } from "@freedomstack/protocol";
+import { type LoeschUmgebung, loescheAllesLokal } from "@freedomstack/protocol";
+import { t } from "../i18n.js";
+import { loeschRueckfrage } from "../protokoll-texte.js";
 import { sucheVergessen } from "./suche-ui.js";
 import { toast } from "./ui.js";
 
 /** Nur zwischen Loeschen und Neustart gesetzt; der zweite Durchgang loescht ihn mit. */
 const MERKER = "freedom.notfall.geloescht";
-const BESTAETIGUNG = /^L(Ö|OE)SCHEN$/;
+const BESTAETIGUNG = /^(L(Ö|OE)SCHEN|DELETE)$/;
 
 function loescheDatenbank(name: string): Promise<void> {
   return new Promise((res, rej) => {
@@ -67,15 +70,15 @@ export async function nachNotfallLoeschung(): Promise<void> {
     erster = JSON.parse(merker) as typeof erster;
   } catch { /* unlesbar – der zweite Durchgang zaehlt */ }
   const zweiter = await loescheAllesLokal(umgebung()).catch(() => null);
-  const offen = zweiter ? [...new Set([...zweiter.failed, ...zweiter.uebrig])] : ["zweiter Durchgang gescheitert"];
+  const offen = zweiter ? [...new Set([...zweiter.failed, ...zweiter.uebrig])] : [t("ein.zweiterDurchgang")];
   // Was der erste nicht schaffte, der zweite aber schon, ist geloescht
   if (offen.length > 0 || !zweiter) {
-    setTimeout(() => alert(`Notfall-Löschung: NICHT alles gelöscht – ${offen.join(", ")}. Von Hand nachsehen (Browser-Einstellungen → Websitedaten).`), 0);
+    setTimeout(() => alert(t("ein.nichtAllesGeloescht", { offen: offen.join(", ") })), 0);
     return;
   }
   const n = Number.isSafeInteger(erster.n) ? erster.n : zweiter.cleared.length;
-  const pruef = zweiter.nachgeprueft ? " und nachgeprüft" : " (dieser Browser kann Datenbanken nicht auflisten – nicht nachgeprüft)";
-  setTimeout(() => toast(`Alles auf diesem Gerät gelöscht (${n} Einträge und Datenbanken)${pruef}. Die App ist leer – Relays haben weiter, was dort liegt.`), 1500);
+  const pruef = t(zweiter.nachgeprueft ? "ein.nachgeprueft" : "ein.nichtNachgeprueft");
+  setTimeout(() => toast(t("ein.allesGeloescht", { n: n ?? 0, pruef })), 1500);
 }
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, text?: string, klasse?: string): HTMLElementTagNameMap[K] {
@@ -89,19 +92,19 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, text?: string, klasse
 function frageNach(geldLaeuft: () => boolean): void {
   const box = el("div", undefined, "modal-backdrop");
   const modal = el("div", undefined, "modal");
-  const text = el("p", wipeConfirmation(), "mono-sm");
+  const text = el("p", loeschRueckfrage(), "mono-sm");
   text.style.whiteSpace = "pre-wrap";
   const eingabe = el("input");
   eingabe.id = "notfall-bestaetigung";
-  eingabe.placeholder = "zum Bestätigen LÖSCHEN eintippen";
+  eingabe.placeholder = t("ein.loeschenEintippen");
   eingabe.autocomplete = "off";
-  const los = el("button", "endgültig löschen", "send-btn");
+  const los = el("button", t("ein.endgueltigLoeschen"), "send-btn");
   los.id = "notfall-los";
   los.disabled = true;
-  const ab = el("button", "abbrechen", "ghost");
+  const ab = el("button", t("ein.abbrechen"), "ghost");
   ab.id = "notfall-abbruch";
-  modal.append(el("h3", "Notfall-Löschung"), text);
-  if (geldLaeuft()) modal.append(el("p", "Gerade läuft ein Tausch oder ein Deposit – sein Geld kann verloren sein.", "mono-sm warn"));
+  modal.append(el("h3", t("ein.notfallTitel")), text);
+  if (geldLaeuft()) modal.append(el("p", t("ein.geldLaeuft"), "mono-sm warn"));
   modal.append(eingabe, los, ab);
   box.append(modal);
   document.body.append(box);
@@ -112,12 +115,12 @@ function frageNach(geldLaeuft: () => boolean): void {
     if (los.disabled) return;
     los.disabled = true;
     ab.disabled = true;
-    los.textContent = "lösche …";
+    los.textContent = t("ein.loesche");
     void loescheJetzt().catch((e: unknown) => {
-      los.textContent = "endgültig löschen";
+      los.textContent = t("ein.endgueltigLoeschen");
       los.disabled = false;
       ab.disabled = false;
-      toast(`Löschen gescheitert: ${(e as Error).message}`, true);
+      toast(t("ein.loeschenGescheitert", { fehler: (e as Error).message }), true);
     });
   });
 }

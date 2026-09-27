@@ -68,13 +68,22 @@ Reihenfolge.
     und Abzeichen bildet `protokoll-texte.ts` nach; ein Test hält die deutsche
     Fassung wortgleich mit dem Protokoll. `QuestProgress` hat dafür einen
     Zählerstand (`zaehler`).
-  - **8.16g:** Einstieg, Dialoge und übrige Bausteine (`onboarding.ts`,
-    `app.ts`, Tresor, Identität, Nachfolge, Notfall, Bunker, Einrichtung,
-    Datenschutzbericht, Mesh, MLS, Werkzeuge, Suche …) – danach steht alles
-    auf 0 und die Zählung wird streng (keine Tabelle mehr). Dazu die
-    Fehlermeldungen des Protokolls, die die App noch unverändert zeigt
-    (Gründe aus Prüfungen wie `validateReverseTimelock`, `pruefeSolUeberweisung`,
-    `RpcPool.stichprobe`), und die Sätze des Protokolls in Settings
+  - **8.16g1 – FERTIG:** Einstieg und Dialoge über `ein.*` (`texte/einstieg.ts`):
+    Führung (`onboarding.ts`), Start und Sicherung (`app.ts`), Identität,
+    Tresor (`tresor.ts`, `vault.ts`), Nachfolge als Vertrauter, Notfall-Löschung,
+    Bunker, Einrichtung, Zustand und UI-Hilfen (`state.ts`, `ui.ts`,
+    `shell-logic.ts` samt Zeitangaben und Zahlen über `gebietsschema()`),
+    Geräte, eigener Relay-Satz, Versand und Suche. Die Rückfrage vor der
+    Notfall-Löschung bildet `protokoll-texte.ts` nach (`loeschRueckfrage()`,
+    deutsch wortgleich mit `wipeConfirmation()`); bestätigt wird mit LÖSCHEN
+    oder DELETE. Die Onboarding-Leiste folgt einem Sprachwechsel.
+  - **8.16g2:** übrige Bausteine (Datenschutzbericht und `PRIVACY_FACTS`,
+    Mesh, MLS, Werkzeuge, Shims) – danach steht alles auf 0 und die Zählung
+    wird streng (keine Tabelle mehr). Dazu die Sätze und Gründe des
+    Protokolls, die die App noch unverändert zeigt: Prüfungen
+    (`validateReverseTimelock`, `pruefeSolUeberweisung`, `RpcPool.stichprobe`,
+    `isPlausibleRelayUrl`, `darfUebergeben`, `absenderPerson`), Settings
     (Nachfolge-Stand und -Warnung, `backupInfo`, Schlüsselwechsel,
-    Gerätewarnung, Echtheit und Fixierung, Offline-Fähigkeiten, Tor-Reihenfolge).
+    Gerätewarnung und `listDevices().message`, Echtheit und Fixierung,
+    Offline-Fähigkeiten samt `OFFLINE_HINWEIS`, Tor-Reihenfolge).
   - **8.16h:** mit 0.F – Texte der Website an den Code angleichen.

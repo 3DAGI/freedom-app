@@ -13,6 +13,7 @@ import {
   buildIndexIncrementally, emptyIndex, indexDoc, removeDoc, search,
   type IndexedDoc, type SearchHit, type SearchIndex, type SearchOptions,
 } from "@freedomstack/protocol";
+import { t } from "./i18n.js";
 
 /** Wo der verschluesselte Index liegt (IndexedDB in der App, Speicher im Test). */
 export interface SuchSpeicher {
@@ -37,7 +38,7 @@ function ausB64(s: string): Uint8Array {
 
 /** Schluessel aus 32 Byte Hex (aus dem Tresor). */
 export async function suchSchluessel(hex: string): Promise<CryptoKey> {
-  if (!HEX64.test(hex)) throw new Error("Suchschlüssel ungültig");
+  if (!HEX64.test(hex)) throw new Error(t("ein.suchSchluessel"));
   const roh = Uint8Array.from(hex.match(/../g)!, (h) => parseInt(h, 16));
   return crypto.subtle.importKey("raw", roh as BufferSource, "AES-GCM", false, ["encrypt", "decrypt"]);
 }
@@ -85,11 +86,11 @@ export class LokaleSuche {
     const roh = await this.speicher.lesen();
     if (!roh) return 0;
     const { v, iv, ct } = JSON.parse(roh) as { v?: number; iv?: string; ct?: string };
-    if (v !== VERSION || typeof iv !== "string" || typeof ct !== "string") throw new Error("Suchindex unlesbar");
+    if (v !== VERSION || typeof iv !== "string" || typeof ct !== "string") throw new Error(t("ein.suchIndex"));
     const klar = await crypto.subtle.decrypt({ name: "AES-GCM", iv: ausB64(iv) as BufferSource }, this.schluessel, ausB64(ct) as BufferSource);
     const liste = (JSON.parse(new TextDecoder().decode(klar)) as unknown[]).map(alsDoc).filter((d): d is SuchDoc => !!d);
-    const t = this.jetzt();
-    const gueltig = liste.filter((d) => d.ablauf === undefined || d.ablauf > t);
+    const jetzt = this.jetzt();
+    const gueltig = liste.filter((d) => d.ablauf === undefined || d.ablauf > jetzt);
     for (const d of gueltig) if (d.ablauf !== undefined) this.ablauf.set(d.id, d.ablauf);
     const bau = buildIndexIncrementally(gueltig);
     for (let s = bau.next(); ; s = bau.next()) {
@@ -121,9 +122,9 @@ export class LokaleSuche {
   }
 
   private raeumeAuf(): void {
-    const t = this.jetzt();
+    const jetzt = this.jetzt();
     for (const [id, bis] of this.ablauf) {
-      if (bis > t) continue;
+      if (bis > jetzt) continue;
       removeDoc(this.idx, id);
       this.ablauf.delete(id);
       this.merkeAenderung();

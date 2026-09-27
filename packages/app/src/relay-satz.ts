@@ -13,6 +13,7 @@ import {
   normalizeRelayUrl, sitzungsRelays, startUrls,
   type NostrEvent, type OutboxPool, type UnsignedEvent,
 } from "@freedomstack/protocol";
+import { t } from "./i18n.js";
 
 /** Oeffentlich wie die Liste selbst – kein Geheimnis, darum nicht im Tresor. */
 export const LS_EIGENE_RELAYS = "freedom.relays.eigene";
@@ -79,20 +80,20 @@ export const MAX_EIGENE = 8;
  * Anzeigen (per textContent).
  */
 export function pruefeRelayEingabe(text: string): { relays: string[] } | { fehler: string } {
-  const teile = text.split(/[\s,]+/).map((t) => t.trim()).filter(Boolean);
-  if (teile.length === 0) return { fehler: "Mindestens ein Relay – sonst findet dich niemand." };
+  const teile = text.split(/[\s,]+/).map((x) => x.trim()).filter(Boolean);
+  if (teile.length === 0) return { fehler: t("ein.relayMindestens") };
   const relays: string[] = [];
-  for (const [i, t] of teile.entries()) {
-    const p = isPlausibleRelayUrl(t);
-    if (!p.ok) return { fehler: `Adresse ${i + 1}: ${p.reason}` };
-    const u = normalizeRelayUrl(t);
+  for (const [i, adresse] of teile.entries()) {
+    const p = isPlausibleRelayUrl(adresse);
+    if (!p.ok) return { fehler: t("ein.relayAdresse", { n: i + 1, grund: p.reason ?? "" }) };
+    const u = normalizeRelayUrl(adresse);
     if (!isUsableDmRelay(u) && !(u.startsWith("ws://") && new URL(u).hostname.endsWith(".onion"))) {
-      return { fehler: `Adresse ${i + 1}: nur wss:// (unverschlüsselt nur .onion) und kein lokales Netz` };
+      return { fehler: t("ein.relayNurWss", { n: i + 1 }) };
     }
     if (!relays.includes(u)) relays.push(u);
   }
-  if (relays.length > MAX_EIGENE) return { fehler: `Höchstens ${MAX_EIGENE} Relays – jeder weitere kostet Kontakte eine Verbindung.` };
-  if (!relays.some(isUsableDmRelay)) return { fehler: "Mindestens eins muss als Posteingang taugen (wss://)." };
+  if (relays.length > MAX_EIGENE) return { fehler: t("ein.relayHoechstens", { n: MAX_EIGENE }) };
+  if (!relays.some(isUsableDmRelay)) return { fehler: t("ein.relayPosteingang") };
   return { relays };
 }
 
