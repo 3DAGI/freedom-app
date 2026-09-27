@@ -32,6 +32,7 @@ export * from "./relay-start.js";
 export * from "./relay-zugang.js";
 export * from "./verkehr.js";
 export * from "./spiegel.js";
+export * from "./spiegel-upload.js";
 export * from "./profile.js";
 export * from "./outbox.js";
 export * from "./ws-relay.js";

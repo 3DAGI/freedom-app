@@ -43,7 +43,7 @@ bash scripts/build-site.sh /tmp/site                     # Website bauen (Ziel w
 bash packages/mls/bauen.sh --pruefen                     # nur bei Änderungen an packages/mls: nachbauen + vergleichen (Rust, clang)
 ```
 
-Stand 27.09.2026 (nach 6.4 und 5.3a): protocol 1171 grün (6 übersprungen), node 228 grün
+Stand 27.09.2026 (nach 6.4 und 5.3b): protocol 1176 grün (6 übersprungen), node 228 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
 in `tools.test.ts`), app 463 grün, mls 13 grün, Leak-Tests 57 grün + 1 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
@@ -469,3 +469,10 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   Herkunft), Quellen nur aus `spiegel/quellen.json` (`leseQuellen()`);
   `protocol/test/spiegel.test.ts` prüft, dass jedes Feld dort Platzhalter oder
   gültig ist.
+- **Spiegel nur beim Release und nur geprüft** (seit 5.3b): Uploads nur im
+  Job `spiegel` (`pages.yml`, Run workflow → „spiegeln“), nie bei jedem Push –
+  Uploads kosten Guthaben. Secrets nur in diesem Schritt, Meldungen der
+  Dienste nie ausgeben (nur Status). IPFS nur mit selbst gerechnetem CID
+  (`ipfsCid()`, gleich `ipfs add --cid-version=1`); `publish-release.mjs`
+  übernimmt ein Ergebnis nur bei gleicher Prüfsumme (`quellenAusErgebnis()`).
+  `check-wiring.py` zählt seit 5.3b auch `.mts`-Skripte als Aufrufer.

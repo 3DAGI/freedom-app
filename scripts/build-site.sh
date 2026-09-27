@@ -19,6 +19,7 @@ W="$ROOT/packages/website"
 
 rm -rf "$OUT"
 mkdir -p "$OUT"
+OUT="$(cd "$OUT" && pwd)"
 cp "$W"/index.html "$W"/dashboard.html "$W"/faq.html "$W"/roadmap.html "$W"/whitepaper.html "$OUT"/
 cp "$W"/manifest.json "$OUT"/
 cp -r "$W"/css "$OUT"/
@@ -39,8 +40,12 @@ PYEOF
 
 # Spiegel (5.3): wohin der Hosting-Anteil dieser Auslieferung geht – neben freedom.html.
 cp "$ROOT/spiegel/freedom-spiegel.json" "$OUT"/freedom-spiegel.json
+# Torrent (5.3b) mit dieser Auslieferung als Webseed – nur mit bekannter Adresse (pages.yml setzt sie).
+if [ -n "${SPIEGEL_BASIS_URL:-}" ]; then
+  (cd "$ROOT" && npx --no-install tsx scripts/mirror/torrent.mts "$OUT" "$SPIEGEL_BASIS_URL" >/dev/null)
+fi
 # Bezugsquellen in die Startseite – nur gesetzte, offene ehrlich als offen.
-QUELLEN="$(cd "$ROOT" && npx --no-install tsx scripts/spiegel-quellen.mts)"
+QUELLEN="$(cd "$ROOT" && npx --no-install tsx scripts/spiegel-quellen.mts "$OUT")"
 python3 - "$OUT/index.html" "$QUELLEN" <<'PYEOF'
 import html, json, re, sys
 p, q = sys.argv[1], json.loads(sys.argv[2])
@@ -48,7 +53,7 @@ namen = {"offiziell": "Offizielle Adresse", "codeberg": "Codeberg Pages", "onion
          "ipfs": "IPFS", "arweave": "Arweave", "blossom": "Blossom", "torrent": "Torrent (Magnet)"}
 zeilen = [f'<li>{html.escape(namen[x["art"]])}: <span class="mono">{html.escape(x["url"])}</span></li>' for x in q["gesetzt"]]
 zeilen += [f'<li>{html.escape(namen[a])}: <span class="muted">noch nicht eingerichtet</span></li>' for a in q["offen"]]
-zeilen.append('<li><span class="muted">IPFS, Arweave, Blossom und Torrent folgen je Version, sobald die Uploads eingerichtet sind.</span></li>')
+zeilen.append('<li><span class="muted">IPFS, Arweave und Blossom kommen je Release dazu, sobald die Konten eingerichtet sind – die Adressen stehen dann im signierten Release-Manifest.</span></li>')
 s = open(p, encoding="utf-8").read()
 neu, n = re.subn(r"<!-- QUELLEN -->.*?<!-- /QUELLEN -->", "<!-- QUELLEN -->\n        " + "\n        ".join(zeilen) + "\n      <!-- /QUELLEN -->", s, flags=re.S)
 assert n == 1, f"Quellen-Feld nicht gefunden ({n} Treffer) — Abbruch"

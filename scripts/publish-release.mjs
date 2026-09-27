@@ -18,6 +18,7 @@
  *
  * Aufruf:
  *   RELEASE_SECRET_KEY=<hex64> node scripts/publish-release.mjs 1.2.0
+ *   (optional SPIEGEL_ERGEBNIS=spiegel-ergebnis.json – Spiegel aus dem CI-Lauf, 5.3b)
  */
 import { readFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
@@ -46,9 +47,17 @@ const { buildReleaseManifest, signEvent, keypairFromSecret, OutboxPool, WebSocke
   await import("../packages/protocol/src/index.ts");
 
 // Ohne RELEASE_SOURCES: die gesetzten Quellen aus spiegel/quellen.json (5.3) – Platzhalter zaehlen nicht.
-const { leseQuellen } = await import("../packages/protocol/src/index.ts");
+const { leseQuellen, quellenAusErgebnis } = await import("../packages/protocol/src/index.ts");
 const ausDatei = leseQuellen(JSON.parse(await readFile("spiegel/quellen.json", "utf8"))).gesetzt.map((q) => q.url);
-const sources = (process.env.RELEASE_SOURCES ? process.env.RELEASE_SOURCES.split(",") : ausDatei).map((s) => s.trim()).filter(Boolean);
+// Dazu die Spiegel eines CI-Laufs (5.3b, Artefakt „spiegel-ergebnis“) – nur, wenn sie fuer genau diese Datei gelten.
+const ausLauf = process.env.SPIEGEL_ERGEBNIS
+  ? quellenAusErgebnis(JSON.parse(await readFile(process.env.SPIEGEL_ERGEBNIS, "utf8")), sha).map((q) => q.url)
+  : [];
+if (process.env.SPIEGEL_ERGEBNIS && ausLauf.length === 0) {
+  console.warn("! SPIEGEL_ERGEBNIS passt nicht zu dieser Datei (andere Pruefsumme oder leer) – nicht uebernommen.");
+}
+const sources = [...new Set([...(process.env.RELEASE_SOURCES ? process.env.RELEASE_SOURCES.split(",") : ausDatei), ...ausLauf]
+  .map((s) => s.trim()).filter(Boolean))];
 if (sources.length < 2) {
   console.warn(
     "! Nur eine Bezugsquelle angegeben. Faellt sie aus, hilft das Manifest nur\n" +

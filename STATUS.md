@@ -7123,3 +7123,54 @@ Endstand: protocol 1171 (+4, 6 übersprungen) · node 227 (7 übersprungen ohne
 Netz) · app 463 (+2) · mls 13 · Leak-Tests 57 grün + 1 todo · 0 rot ·
 check-wiring `--streng` Exit 0 · innerHTML streng 0 unbewertet · Website 5
 Seiten ok · Smoke-Test bestanden.
+
+## Schritt 5.3b – Spiegel: Torrent, IPFS, CI-Job
+
+5.3 ist dreigeteilt, damit jeder Teil unter etwa 400 Zeilen bleibt: **b**
+Torrent, IPFS und der CI-Job; **c** Blossom, Arweave und Codeberg im selben Job.
+
+**Torrent** (`baueTorrent()`, `protocol/src/spiegel-upload.ts`):
+- `.torrent` für freedom.html; die Auslieferung selbst ist der Webseed
+  (BEP 19). Laden geht so auch ohne Seeder.
+- Der Magnet-Link nennt die .torrent-Datei (`xs`), weil ein Webseed allein
+  keine Metadaten liefert.
+- Ohne Zeitstempel und Programmnamen: Dieselbe Datei an derselben Adresse
+  ergibt immer denselben Torrent.
+- Der Infohash ist gegen create-torrent/parse-torrent geprüft.
+- Jeder Bau legt `freedom.torrent` neben die App (`build-site.sh` mit
+  `SPIEGEL_BASIS_URL` aus `actions/configure-pages`). Der Magnet-Link steht
+  auf der Startseite.
+
+**IPFS** (`ipfsCid()`):
+- Der CID wird selbst gerechnet, wie `ipfs add --cid-version=1`: rohe Blätter
+  zu 256 KiB, darüber UnixFS-Knoten (dag-pb), ausgeglichen, höchstens 174
+  Verweise.
+- Acht Fälle gleichen die Referenz ipfs-unixfs-importer (Kubo-Voreinstellungen):
+  leere Datei, ein Blatt, zwei Ebenen, mehr als 174 Verweise.
+- Wer den CID nachrechnet, braucht dem Pinning-Dienst nicht zu glauben.
+
+**CI-Job `spiegel`** (`pages.yml`):
+- Er läuft nur beim Release (*Run workflow* → „spiegeln“), nach dem Deploy,
+  mit der eben veröffentlichten Seite. Bei jedem Push wäre es zu teuer
+  (Arweave kostet je Upload).
+- `scripts/mirror/spiegeln.mts` heftet die Datei bei Pinata an und übernimmt
+  den CID nur, wenn Pinata denselben meldet – sonst wird der Job rot.
+- Fehlt ein Secret, wird der Spiegel übersprungen, mit Grund.
+- Meldungen der Dienste gibt der Job nie aus, nur den Status.
+- Die Zusammenfassung nennt den Befehl für den GX10 (`ipfs pin add <cid>`).
+- Das Ergebnis (`spiegel-ergebnis.json`) ist ein Artefakt.
+
+**Release-Manifest:** `publish-release.mjs` nimmt mit `SPIEGEL_ERGEBNIS` die
+Quellen des Laufs dazu (`quellenAusErgebnis()`), aber nur, wenn die Prüfsumme
+zur selbst gebauten Datei passt, und nur in gültiger Form.
+
+**Weitere Änderungen:**
+- `check-wiring.py` zählt jetzt auch `.mts`-Skripte als Aufrufer (+1 Selbsttest).
+- `leseQuellen()` nimmt auch CIDs einzelner Blätter (`bafk…`).
+- `docs/KONTEN.md` beschreibt, wie ein Release gespiegelt wird.
+
+Endstand: protocol 1176 (+5, 6 übersprungen) · node 227 (7 übersprungen ohne
+Netz) · app 463 · mls 13 · Leak-Tests 57 grün + 1 todo · 0 rot · check-wiring
+`--streng` Exit 0 (Selbsttest 6) · innerHTML streng 0 unbewertet · Website 5
+Seiten ok · Smoke-Test bestanden · `build-site.sh` mit `SPIEGEL_BASIS_URL`:
+`freedom.torrent` + Magnet auf der Startseite.

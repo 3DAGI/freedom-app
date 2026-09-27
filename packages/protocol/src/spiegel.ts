@@ -49,7 +49,7 @@ const FORM: Record<QuellenArt, RegExp> = {
   codeberg: /^https:\/\/[a-z0-9-]+\.codeberg\.page\/[^\s"<>]*$/i,
   onion: /^https?:\/\/[a-z2-7]{56}\.onion(\/[^\s"<>]*)?$/,
   radicle: /^rad:z[1-9A-HJ-NP-Za-km-z]{20,60}$/,
-  ipfs: /^ipfs:\/\/(bafy[a-z2-7]{50,}|Qm[1-9A-HJ-NP-Za-km-z]{44})$/,
+  ipfs: /^ipfs:\/\/(baf[ky][a-z2-7]{50,}|Qm[1-9A-HJ-NP-Za-km-z]{44})$/,
   arweave: /^ar:\/\/[A-Za-z0-9_-]{43}$/,
   blossom: /^https:\/\/[a-z0-9.-]+\.[a-z]{2,}\/[0-9a-f]{64}(\.html)?$/i,
   torrent: /^magnet:\?xt=urn:btih:[0-9a-f]{40}(&[^\s"<>]*)?$/i,

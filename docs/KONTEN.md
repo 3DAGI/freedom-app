@@ -50,11 +50,15 @@ Applications → Generate Token*, Rechte nur `write:repository`. Mir gibst du:
 den Nutzernamen (für die URL). Das Token kommt als Secret `CODEBERG_TOKEN`.
 
 **A2 IPFS.** Empfehlung: zwei Kopien.
-- Eigener Knoten auf dem GX10 (Kubo, `ipfs init && ipfs daemon`, kein Konto) – pinnt dauerhaft.
-- Ein Pinning-Dienst als zweite Kopie: Pinata (kostenloser Tarif reicht für
-  eine Datei je Version) – *API Keys → New Key*, nur `pinFileToIPFS`; das JWT
-  als Secret `PINATA_JWT`. Alternativ Filebase (S3-Schlüssel).
-Mir gibst du: nichts – den CID schreibt der Upload in das Release-Manifest.
+- Ein Pinning-Dienst: Pinata (kostenloser Tarif reicht für eine Datei je
+  Version) – *API Keys → New Key*, nur `pinFileToIPFS`; das JWT als Secret
+  `PINATA_JWT`. Der Job rechnet den CID selbst nach und übernimmt ihn nur, wenn
+  Pinata denselben meldet.
+- Eigener Knoten auf dem GX10 (Kubo, `ipfs init && ipfs daemon`, kein Konto)
+  als dauerhafte zweite Kopie: nach jedem Release den Befehl aus der
+  Zusammenfassung des Jobs ausführen (`ipfs pin add <cid>`). Nicht
+  `ipfs add` ohne `--cid-version=1` – das ergäbe einen anderen CID.
+Mir gibst du: nichts – den CID schreibt der Job in sein Ergebnis.
 
 **A3 Arweave.** Wallet mit der Browser-Erweiterung *Wander* (früher ArConnect)
 oder auf der Kommandozeile erzeugen; die Schlüsseldatei (JWK, JSON) sicher
@@ -72,8 +76,9 @@ Dazu ein bis drei Blossom-Server wählen, die Dateien dieser Größe annehmen
 Abo in Sats). Mir gibst du: den npub des Spiegel-Schlüssels und die
 Server-Adressen. Der nsec kommt als Secret `SPIEGEL_NSEC`.
 
-**A5 Torrent.** Kein Konto. Der Build erzeugt `.torrent` und Magnet-Link mit
-der Pages-Adresse als Webseed – laden geht dann auch ohne Seeder. Optional:
+**A5 Torrent.** Kein Konto, läuft schon (5.3b): Jeder Bau legt
+`freedom.torrent` neben die App, mit der Pages-Adresse als Webseed – laden geht
+auch ohne Seeder; der Magnet-Link steht auf der Startseite. Optional:
 `transmission-daemon` auf dem GX10 als dauerhafter Seeder.
 
 **A6 .onion.** Tor auf dem GX10, in der `torrc`:
@@ -156,5 +161,18 @@ radicle: rad:…
 ```
 
 Die Secrets (`CODEBERG_TOKEN`, `PINATA_JWT`, `ARWEAVE_JWK`, `SPIEGEL_NSEC`)
-trägst du selbst in GitHub ein – dann laufen die Uploads beim nächsten Release
-von allein; fehlt eines, überspringt die CI diesen Spiegel mit einem Hinweis.
+trägst du selbst in GitHub ein; fehlt eines, überspringt die CI diesen Spiegel
+mit einem Hinweis.
+
+## Ein Release spiegeln
+
+Nicht bei jedem Push – Uploads kosten Guthaben und Kontingent. Für ein Release:
+1. GitHub → *Actions → pages → Run workflow*, Haken bei **spiegeln**. Der Job
+   `spiegel` lädt die eben veröffentlichte `freedom.html` hoch (heute: IPFS
+   über Pinata; Blossom, Arweave und Codeberg folgen mit 5.3c).
+2. In der Zusammenfassung des Laufs steht, was hochgeladen und was
+   übersprungen wurde, dazu der Befehl für den GX10 (`ipfs pin add …`).
+3. Das Artefakt **spiegel-ergebnis** herunterladen. Jeder Signierer ruft dann
+   `SPIEGEL_ERGEBNIS=spiegel-ergebnis.json node scripts/publish-release.mjs <version>`
+   auf – die Quellen kommen nur ins Manifest, wenn sie zur selbst gebauten
+   Datei passen (gleiche Prüfsumme).
