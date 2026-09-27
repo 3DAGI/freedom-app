@@ -43,7 +43,7 @@ bash scripts/build-site.sh /tmp/site                     # Website bauen (Ziel w
 bash packages/mls/bauen.sh --pruefen                     # nur bei Änderungen an packages/mls: nachbauen + vergleichen (Rust, clang)
 ```
 
-Stand 27.09.2026 (nach 6.4 und 5.3b): protocol 1176 grün (6 übersprungen), node 228 grün
+Stand 27.09.2026 (nach 6.4 und 5.3c): protocol 1178 grün (6 übersprungen), node 228 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
 in `tools.test.ts`), app 463 grün, mls 13 grün, Leak-Tests 57 grün + 1 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
@@ -475,4 +475,7 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   Dienste nie ausgeben (nur Status). IPFS nur mit selbst gerechnetem CID
   (`ipfsCid()`, gleich `ipfs add --cid-version=1`); `publish-release.mjs`
   übernimmt ein Ergebnis nur bei gleicher Prüfsumme (`quellenAusErgebnis()`).
-  `check-wiring.py` zählt seit 5.3b auch `.mts`-Skripte als Aufrufer.
+  Blossom (seit 5.3c) nur mit eigenem Spiegel-Schlüssel und einer Anmeldung je
+  Datei (`blossomAuth()`), übernommen nur über `blossomQuelle()`; das
+  Codeberg-Token nur in der Umgebung von git (`GIT_CONFIG_*`), nie auf der
+  Befehlszeile. `check-wiring.py` zählt seit 5.3b auch `.mts`-Skripte.

@@ -47,7 +47,9 @@ dahin leer (kein Anteil, keine Quelle, kein Upload).
 `freedom-app` anlegen, darin später der Branch `pages` – Codeberg liefert ihn als
 `https://<nutzer>.codeberg.page/freedom-app/` aus. Token: *Settings →
 Applications → Generate Token*, Rechte nur `write:repository`. Mir gibst du:
-den Nutzernamen (für die URL). Das Token kommt als Secret `CODEBERG_TOKEN`.
+den Nutzernamen (für die URL in `spiegel/quellen.json` – daraus liest der Job
+auch, wohin er pusht). Das Token kommt als Secret `CODEBERG_TOKEN`. Der Job
+ersetzt den Branch `pages` bei jedem Release durch die aktuelle Seite.
 
 **A2 IPFS.** Empfehlung: zwei Kopien.
 - Ein Pinning-Dienst: Pinata (kostenloser Tarif reicht für eine Datei je
@@ -73,8 +75,11 @@ du: die Arweave-Adresse (öffentlich). Die JWK kommt als Secret `ARWEAVE_JWK`
 `nak key generate`) – nicht die Projekt-Identität, nicht die Release-Signierer.
 Dazu ein bis drei Blossom-Server wählen, die Dateien dieser Größe annehmen
 (Bedingungen und Größenlimit vorher auf der Seite prüfen; manche verlangen ein
-Abo in Sats). Mir gibst du: den npub des Spiegel-Schlüssels und die
-Server-Adressen. Der nsec kommt als Secret `SPIEGEL_NSEC`.
+Abo in Sats). Mir gibst du: den npub des Spiegel-Schlüssels. Der nsec kommt
+als Secret `SPIEGEL_NSEC`; die Server-Adressen (nur `https://`, mit Komma
+getrennt) trägst du als **Variable** `BLOSSOM_SERVER` ein (*Settings → Secrets
+and variables → Actions → Variables*) – sie sind nicht geheim. Übernommen wird
+ein Server nur, wenn er dieselbe Prüfsumme meldet.
 
 **A5 Torrent.** Kein Konto, läuft schon (5.3b): Jeder Bau legt
 `freedom.torrent` neben die App, mit der Pages-Adresse als Webseed – laden geht
@@ -168,8 +173,8 @@ mit einem Hinweis.
 
 Nicht bei jedem Push – Uploads kosten Guthaben und Kontingent. Für ein Release:
 1. GitHub → *Actions → pages → Run workflow*, Haken bei **spiegeln**. Der Job
-   `spiegel` lädt die eben veröffentlichte `freedom.html` hoch (heute: IPFS
-   über Pinata; Blossom, Arweave und Codeberg folgen mit 5.3c).
+   `spiegel` lädt die eben veröffentlichte `freedom.html` hoch: IPFS (Pinata),
+   Blossom, Arweave (Turbo) und die ganze Seite nach Codeberg Pages.
 2. In der Zusammenfassung des Laufs steht, was hochgeladen und was
    übersprungen wurde, dazu der Befehl für den GX10 (`ipfs pin add …`).
 3. Das Artefakt **spiegel-ergebnis** herunterladen. Jeder Signierer ruft dann

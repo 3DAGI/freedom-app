@@ -80,7 +80,9 @@
   Signaturen zählen nicht.
 - **MENSCH:** zweite und dritte Person bzw. Gerät für Signierschlüssel.
 
-## 5.3 Hosting-Spiegel
+## 5.3 Hosting-Spiegel – CODE FERTIG (27.09.2026)
+
+> Umsetzung: a Platzhalter, Quellen, Hosting-Anteil; b Torrent, IPFS-CID, Job `spiegel` in `pages.yml` (nur beim Release); c Blossom, Arweave, Codeberg. Offen nur MENSCH: Konten und Secrets nach `docs/KONTEN.md`.
 
 > **Entschieden 27.09.2026 (MENSCH):** Die Konten legt der MENSCH an – Liste mit
 > Vorschlägen in `docs/KONTEN.md`; bis dahin Platzhalter (`PLATZHALTER:…`), die
