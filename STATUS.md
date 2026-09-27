@@ -6262,3 +6262,58 @@ NIP-17. Andere Marmot-Apps (White Noise) sehen Geräte als eigene Mitglieder.
 Endstand: protocol 1149 · node 240 · app 418 (+8) · mls 11 · Leak-Tests 54
 grün + 2 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng 0
 unbewertet · Website 5 Seiten ok · Smoke-Test bestanden.
+
+## Schritt 6.2 – Ehrlicher PWA-Modus: „IP verborgen“ nur mit erreichbarem .onion-Relay
+
+**Vorher:** Der Datenschutzbericht rechnete immer mit der direkten
+Verbindung. Wer „.onion-Relays bevorzugen“ gewählt hatte, bekam den
+Pauschalsatz „das kann die App nicht prüfen“ – auch im Tor Browser, wo es
+stimmte, und in jedem anderen Browser, wo die Einstellung nichts bewirkt.
+
+**Prüfung** (`packages/app/src/onion-pruefung.ts`): Eine Web-App kann Tor
+nicht herstellen, aber versuchen, ein .onion-Relay zu erreichen. Das gelingt
+nur, wenn der Browser über Tor läuft; gängige Browser lösen .onion-Namen gar
+nicht erst auf (RFC 7686). Scheitert es, kann auch nur das Relay aus sein –
+der Bericht sagt darum „läuft wohl nicht über Tor (oder die geprüften Relays
+sind gerade aus)“. `pruefeOnion()` versucht bis zu drei .onion-Relays
+zugleich (eingetragenes zuerst, dann eigener Satz und entdeckte Relays), mit
+10 Sekunden Zeitlimit, und schließt jede Verbindung wieder. Ergebnis:
+„erreichbar“, „nicht-erreichbar“ oder „keine-onion“ (nichts zu prüfen).
+
+**Aussage** (`privacy-facts.ts`): `ipFaktFuer()` ersetzt die Aussage „ip“ für
+diese Sitzung. Erreichbar: „IP-Adresse verborgen …“ unter „In dieser Sitzung
+geprüft“ (neuer Status „geprueft“, nie in der festen Liste), mit der Grenze:
+Wer nur .onion-Adressen über Tor leitet, zeigt anderen Relays seine IP
+weiter. Sonst bleibt die Lücke offen (jetzt Ausbauplan 6.1) mit „Native App
+oder Tor Browser nutzen“ bzw. „Prüfen ging nicht: Die App kennt kein
+.onion-Relay“.
+
+**Bericht** (`shell/datenschutz.ts`): prüft beim Öffnen (einmal je Liste der
+Kandidaten, „erneut prüfen“ prüft neu) und rechnet nur bei „erreichbar“ mit
+Tor (`network: "tor"`). Beim Start prüft die App nichts mehr – der
+Bericht entsteht erst im Settings-Tab. „Mixnetz“ kann sie nicht prüfen und
+sagt das. Neues Feld „.onion-Relay zum Prüfen“ (`freedom.onion.pruefrelay`,
+öffentlich wie jede Relay-Adresse, nur für die Prüfung).
+
+**Browser-Prüfung** (gebaute App, Test-Relays):
+- „Tor Browser“ (.onion-Verbindung geht auf): „✓ IP-Adresse verborgen“,
+  Bewertung „Relays sehen einen Tor-Ausgang“, Kurzfassung „hinter Tor“.
+- Ohne Tor (.onion geht ins echte Netz und scheitert): „○ Noch nicht … –
+  Diese Sitzung erreicht kein .onion-Relay … Native App oder Tor Browser
+  nutzen“, Bewertung kritisch.
+- Kein .onion-Relay bekannt: „Prüfen ging nicht …“, kein Versuch.
+- In keinem Fall ein .onion-Versuch beim Start; keine Seitenfehler.
+
+**Tests:** protocol +3 (feste Liste ohne „geprueft“, beide Fälle im Text);
+app +6 (erreichbar, nicht erreichbar, Zeitlimit, keine Kandidaten,
+Kandidatenwahl, Verdrahtung).
+
+**Nebenbei:** FORTSCHRITT 5.10 – a mit PR-Link, b (OpenTimestamps)
+zurückgestellt: Die Kalender-Server sind aus der Arbeitsumgebung nicht
+erreichbar, und ohne echte `.ots`-Testvektoren lässt sich die
+Zusammenarbeit mit anderen OTS-Werkzeugen nicht prüfen.
+
+Endstand: protocol 1155 (+3, + 6 übersprungen) · node 239 (+ 7 übersprungen
+ohne Netz) · app 425 (+6) · mls 11 · Leak-Tests 54 grün + 2 todo · 0 rot ·
+check-wiring `--streng` Exit 0 · innerHTML streng 0 unbewertet · Website 5
+Seiten ok · Smoke-Test bestanden.
