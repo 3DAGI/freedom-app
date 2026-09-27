@@ -5,15 +5,14 @@
  * Aus app.ts verschoben (Schritt 1.0) – wörtlich, ohne Logikänderung.
  */
 import {
-  ENTWICKLUNG,
   KIND_DVM_TEXT_GENERATION,
   KIND_GIFT_WRAP,
   type NostrEvent,
   buildEvent,
   buildJobRequest,
   buildPrivateJobRequest,
+  PROVIDER_PPM,
   parseJobResult,
-  teileAuf,
 } from "@freedomstack/protocol";
 import { t } from "../../i18n.js";
 import { icon } from "../../icons.js";
@@ -289,15 +288,13 @@ function aktualisiereAgentPanel(
 
 export function updateFeePreview(): void {
   const bid = Number(($("#ai-bid") as HTMLInputElement).value);
-  // Aufteilung A+ (5.1.3): was die App selbst an weitere Empfaenger zahlt; der
-  // Rest – auch nicht Zuordenbares – geht an den Provider. Werber des Providers
-  // kennt erst sein Angebot, deshalb „mindestens“.
+  // Aufteilung A+ (5.1.3): mindestens 94 % an den Provider, hoechstens 6 % an
+  // weitere Empfaenger – welche es gibt, zeigt erst der Auftrag (Angebot,
+  // Werbelink, Relays); ohne Empfaenger bekommt den Anteil der Provider.
   const msat = Number.isFinite(bid) && bid > 0 ? Math.floor(bid * 1000) : 0;
-  const { providerMsat } = teileAuf(msat, { entwicklung: ENTWICKLUNG }, "lightning");
-  const anteile = msat - providerMsat;
-  $("#ai-fee-preview").textContent = anteile > 0
-    ? `${ausMsat(msat, aktuellerKurs())} → provider ${Math.floor(providerMsat / 1000)} / anteile ${Math.ceil(anteile / 1000)}`
-    : `${ausMsat(msat, aktuellerKurs())} → provider (bis auf den Anteil seines Werbers)`;
+  const providerMin = Math.floor((msat * PROVIDER_PPM) / 1_000_000);
+  $("#ai-fee-preview").textContent =
+    `${ausMsat(msat, aktuellerKurs())} → provider mind. ${Math.floor(providerMin / 1000)} / anteile höchstens ${Math.ceil((msat - providerMin) / 1000)}`;
   updateTokenEstimate();
 }
 

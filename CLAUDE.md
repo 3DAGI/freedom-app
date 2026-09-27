@@ -43,9 +43,9 @@ bash scripts/build-site.sh /tmp/site                     # Website bauen (Ziel w
 bash packages/mls/bauen.sh --pruefen                     # nur bei Änderungen an packages/mls: nachbauen + vergleichen (Rust, clang)
 ```
 
-Stand 27.09.2026 (nach 5.1.3a und 8.4b): protocol 1162 grün (6 übersprungen), node 225 grün
+Stand 27.09.2026 (nach 5.1.3b und 8.4b): protocol 1162 grün (6 übersprungen), node 225 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 447 grün, mls 13 grün, Leak-Tests 57 grün + 1 `todo` (heutige Lecks,
+in `tools.test.ts`), app 453 grün, mls 13 grün, Leak-Tests 57 grün + 1 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
 Ausnahme: gesendete SOL-Zahlungen von frischen Adressen, eine bewusste Grenze
 nach Entscheidung 4.9 A – im Datenschutzbericht unter „Bewusste Grenzen“).
@@ -213,6 +213,9 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   nie von selbst wiederholt. Übrige Anteile nur über die Kasse
   (`anteile-kasse.ts`, `freedom.anteile` im Tresor). Adressen der Entwicklung
   nur in `ENTWICKLUNG` (leer bis MENSCH) – nie eine bei einem Verwahrer.
+  Den Werber des Kunden nur aus dem Werbelink (`werbung.ts`, erster Werber
+  bleibt, Adresse nur von ihm), Relay-Adressen nur über `RelayZahlziele`
+  (NIP-11 `pubkey` → signiertes Profil), beim Senden nur schon Bekanntes.
 - **Kurse und Umrechnung nur über `kurs.ts`** (seit 4.4): Marktkurs mit
   `marktKurs()` (eine Stimme je Absender), msat ↔ Lamports mit
   `msatZuLamports()`/`lamportsZuMsat()` (BigInt). 1 SOL = 1e9 Lamports =

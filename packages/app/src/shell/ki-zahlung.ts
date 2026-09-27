@@ -11,23 +11,42 @@
 import { ENTWICKLUNG, aufteilungTag, zahlbareAnteile, zahle, type Empfaenger, type Posten } from "@freedomstack/protocol";
 import { AnteilsKasse, rechneAb } from "../anteile-kasse.js";
 import { bolt11BetragMsat, rechnungVonAdresse } from "../rails.js";
+import { RelayZahlziele } from "../relay-zahlziel.js";
 import type { ProviderZahlung } from "../session-client.js";
-import { angebotVon } from "./state.js";
+import { werberZahlziel } from "../werbung.js";
+import { angebotVon, ensurePool, frageBeiAutoren, state } from "./state.js";
 import { geheim } from "./tresor.js";
 import { zahlschienen } from "./zahlschienen.js";
 
 export const kasse = new AnteilsKasse({ speicher: geheim });
 
+/** Zahladressen der Relays (NIP-11 → Profil des Betreibers), im Hintergrund gelernt. */
+const relayZiele = new RelayZahlziele({
+  profile: (autoren) => frageBeiAutoren({ kinds: [0], authors: autoren, limit: autoren.length * 2 }),
+  speicher: localStorage,
+});
+
 /** Je Anfrage: Empfänger der Anteile und was die App höchstens zahlt. */
 const anfragen = new Map<string, { empfaenger: Empfaenger; hoechstMsat: number }>();
 
 /**
- * Die Empfänger eines Auftrags – was fehlt, bleibt beim Provider. Werber des
- * Kunden und Relays folgen mit 5.1.3b, Hosting mit dem Spiegel-Verzeichnis (5.3).
+ * Die Empfänger eines Auftrags – was fehlt, bleibt beim Provider: Werber des
+ * Providers aus dem Angebot, der eigene Werber aus dem Werbelink (5.1.3b), die
+ * Relays des Pools – über sie geht der Auftrag –, soweit ihre Zahladresse schon
+ * bekannt ist. Hosting folgt mit dem Spiegel-Verzeichnis (5.3).
  */
 export async function empfaengerFuer(providerPk: string): Promise<Empfaenger> {
   const werber = (await angebotVon(providerPk).catch(() => undefined))?.werber;
-  return { entwicklung: ENTWICKLUNG, ...(werber ? { "werber-provider": { lud16: werber } } : {}) };
+  const kundenWerber = werberZahlziel(localStorage, state.keypair?.pk);
+  const urls = (await ensurePool()).urls;
+  void relayZiele.lerne(urls).catch(() => { /* beim nächsten Auftrag */ });
+  const relays = relayZiele.bekannte(urls);
+  return {
+    entwicklung: ENTWICKLUNG,
+    ...(werber ? { "werber-provider": { lud16: werber } } : {}),
+    ...(kundenWerber ? { "werber-kunde": kundenWerber } : {}),
+    ...(relays.length > 0 ? { relays } : {}),
+  };
 }
 
 /** Tag für den Kern des Auftrags – keiner, wenn die App nichts selbst zahlt. */

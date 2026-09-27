@@ -38,7 +38,13 @@ test("verdrahtet: Deklaration vor dem Versiegeln, Abrechnung bei der Antwort, Za
   assert.match(kz, /if \(bolt11BetragMsat\(rechnung\) !== msat\) throw/, "Betrag vor dem Zahlen geprüft – sonst nichts gezahlt, nicht unklar");
   assert.match(kz, /zahle\(zahlschienen\(\), \{ ziel: rechnung, betrag: \{ einheit: "msat", wert: msat \}, zweck: "job" \}\)/);
   assert.match(kz, /zahle\(zahlschienen\(\), \{ ziel: rechnung, betrag: \{ einheit: "msat", wert: msat \}, zweck: "gebuehr" \}\)/);
-  assert.match(kz, /return \{ entwicklung: ENTWICKLUNG, \.\.\.\(werber \? \{ "werber-provider": \{ lud16: werber \} \} : \{\}\) \};/);
+  // Empfänger (5.1.3b): Werber beider Seiten, Relays des Pools – nur bekannte, gelernt im Hintergrund
+  assert.match(kz, /const kundenWerber = werberZahlziel\(localStorage, state\.keypair\?\.pk\);/);
+  assert.match(kz, /void relayZiele\.lerne\(urls\)[\s\S]*const relays = relayZiele\.bekannte\(urls\);/);
+  assert.match(kz, /entwicklung: ENTWICKLUNG,\s*\.\.\.\(werber \? \{ "werber-provider": \{ lud16: werber \} \} : \{\}\),\s*\.\.\.\(kundenWerber \? \{ "werber-kunde": kundenWerber \} : \{\}\),\s*\.\.\.\(relays\.length > 0 \? \{ relays \} : \{\}\),/);
+  const earn = lies("shell/tabs/earn.ts");
+  assert.match(earn, /link\.value = werbeLink\(window\.location\.origin \+ window\.location\.pathname, pub, lud16\);/);
+  assert.match(earn, /merkeWerber\(window\.location\.search, localStorage\);/);
   assert.match(kz, /new AnteilsKasse\(\{ speicher: geheim \}\)/, "Stand nur über geheim");
   assert.match(lies("shell/tresor.ts"), /"freedom\.anteile"/, "im Tresor");
   assert.match(lies("shell/tabs/settings.ts"), /kasse\.klaere\(u\.rechnung, gezahlt\)/, "unklare Zahlungen klärt der Nutzer");
