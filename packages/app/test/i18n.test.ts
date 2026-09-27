@@ -374,6 +374,8 @@ test("8.16g1: Einstieg und Dialoge – über Schlüssel; Rückfrage vor dem Lös
   // Die Onboarding-Leiste folgt einem Sprachwechsel
   const app = readFileSync(pfad(SRC, "shell/app.ts"), "utf8");
   assert.match(app, /if \(offen\) switchTab\(offen\);\s*void zeigeOnboarding\(\);/);
+  // Die Sprache steht vor dem Entsperr-Dialog und der Meldung nach einer Notfall-Löschung fest (Smoke „tresor“)
+  assert.match(app, /export function boot\(\): void \{[^}]*setLang\(gespeicherteSprache\(localStorage\.getItem\("freedom\.lang"\)\) \?\? detectLang\(\)\);[^}]*nachNotfallLoeschung\(\)\.then\(\(\) => entsperreBeimStart\(\)\)/);
 
   const P = await import("@freedomstack/protocol");
   const T = await import("../src/protokoll-texte.js");

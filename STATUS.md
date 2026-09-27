@@ -7931,6 +7931,11 @@ zeigt.
   der Suche nehmen `gebietsschema()` statt `"de-DE"`.
 - **Sprachwechsel:** Die Onboarding-Leiste zeichnet sich nach einem Wechsel
   neu, wie der offene Tab.
+- **Sprache vor dem Entsperren (vom Smoke-Test gefunden):** `setLang()` lief
+  erst in `starte()`, also nach dem Entsperr-Dialog und der Meldung nach einer
+  Notfall-Löschung. Beide wären immer englisch gewesen; die Smoke-Prüfungen
+  „tresor“ und „notfall“ warteten vergeblich auf „falsch“. Jetzt setzt
+  `boot()` die Sprache zuerst; ein Test hält die Reihenfolge fest.
 - **Code-Blöcke** in Antworten: „kopieren“/„kopiert“ in der Sprache der
   Oberfläche.
 - **Namen lokaler Variablen:** Wo ein lokales `t` die Übersetzung verdeckt
@@ -7950,7 +7955,8 @@ zeigt.
 - +1 in `i18n.test.ts`:
   - alle 19 Dateien fertig, kein `"de-DE"`;
   - die Rückfrage vor dem Löschen deutsch wortgleich, englisch übersetzt;
-  - Bestätigungswort, Onboarding-Leiste beim Sprachwechsel.
+  - Bestätigungswort, Onboarding-Leiste beim Sprachwechsel;
+  - `boot()` setzt die Sprache vor dem Entsperren.
 - +1 in `shell-logic.test.ts`: Ein böser Dateiname in der Meldung über einen
   abgelehnten Link wird maskiert.
 - Deutsch gesetzt (`setLang("de")`), weil sie Meldungen wörtlich prüfen:
@@ -7964,3 +7970,13 @@ zeigt.
 - Die Smoke-Prüfung „sprache“ liest zusätzlich den Titel des
   Sicherungsdialogs („Deine Wiederherstellungs-Phrase“/„Your recovery
   phrase“).
+- +1 in `onboarding.test.ts`: Der Pitch verspricht keinen Aufschlag oder
+  Bonus (Deutsch und Englisch).
+
+Endstand: protocol 1064 (6 übersprungen) · node 225 (7 übersprungen ohne
+Netz) · app 481 (+3) · mls 13 · Leak-Tests 57 grün + 1 todo · 0 rot ·
+check-wiring `--streng` Exit 0 · innerHTML streng 0 unbewertet · Website 5
+Seiten ok · Smoke-Test bestanden (inkl. „sprache“ mit Sicherungsdialog,
+„tresor“, „notfall“) · im Browser: Sicherungsdialog, Einrichtung und
+Onboarding-Leiste in Deutsch und Englisch, nach einem Sprachwechsel folgt die
+Leiste, ohne Seitenfehler.

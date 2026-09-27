@@ -598,6 +598,10 @@ function checkOwnProvider(): void {
  * danach ist der Schluessel da und die App startet wie bisher.
  */
 export function boot(): void {
+  // Sprache (8.16) zuerst: Entsperr-Dialog und Meldung nach einer Notfall-Loeschung
+  // kommen vor starte() – gespeicherte Wahl, wenn es sie noch gibt, sonst die des Browsers
+  setLang(gespeicherteSprache(localStorage.getItem("freedom.lang")) ?? detectLang());
+  document.documentElement.lang = getLang();
   // Notfall-Loeschung (8.14): kommt die App aus einer, zuerst ein zweiter Durchgang
   void nachNotfallLoeschung().then(() => entsperreBeimStart()).then(starte);
 }
@@ -614,9 +618,7 @@ function starte(): void {
       el.innerHTML = icon(el.dataset.icon!);
     });
   });
-  // Sprache (8.16): gespeicherte, wenn es sie noch gibt, sonst die des Browsers (Deutsch oder Englisch)
-  setLang(gespeicherteSprache(localStorage.getItem("freedom.lang")) ?? detectLang());
-  document.documentElement.lang = getLang();
+  // Sprache (8.16): in boot() gesetzt – hier Knöpfe und Texte der Seite
   const langCode = getLang().toUpperCase();
   ($("#lang-btn") as HTMLButtonElement).textContent = `${langCode} ▾`;
   const appLangBtn = $("#lang-btn-app") as HTMLButtonElement | null;
