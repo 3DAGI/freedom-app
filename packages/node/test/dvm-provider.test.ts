@@ -143,9 +143,8 @@ test("Fee-Konstanten: ppm passt zur Prozentangabe, Anteile ergeben 100%", async 
   // Der urspruengliche Bug war die Umrechnung Prozent <-> ppm.
   assert.equal(PROTOCOL_FEE_PPM, PROTOCOL_FEE_PERCENT * 10_000);
 
-  // Die Protokollfee finanziert nur noch das Netz: Pool und Referral. Der
-  // Dev-Anteil ist in die Client-Schicht gewandert (client-fee.ts) und taucht
-  // hier bewusst nicht mehr auf.
+  // Alte Protokollfee (Pool und Referral) – abgeloest durch A+ (aufteilung.ts),
+  // faellt mit 5.1.4b samt referral.ts.
   assert.equal(FEE_POOL_SHARE_PERCENT + FEE_REFERRAL_SHARE_PERCENT, 100);
   assert.equal(FEE_POOL_PPM + FEE_REFERRAL_PPM, PROTOCOL_FEE_PPM);
   assert.equal(PROTOCOL_POOL_SHARE_PERCENT, FEE_POOL_SHARE_PERCENT);
@@ -159,36 +158,6 @@ test("Fee-Konstanten: ppm passt zur Prozentangabe, Anteile ergeben 100%", async 
   const s = splitFeeV1(amount);
   assert.equal(s.workerMsat + s.poolMsat + s.referralMsat, amount);
   assert.ok(s.workerMsat > 0 && s.poolMsat > 0 && s.referralMsat > 0);
-});
-
-test("Client-Gebuehr: gedeckelt, damit die offene Schicht nicht gegen den Nutzer wirkt", async () => {
-  const { checkClientFee, clientFeePpm, MAX_CLIENT_FEE_PERCENT, splitWithClientFee, splitFeeV1 } =
-    await import("@freedomstack/protocol");
-
-  // Ein Client koennte 90 % fuer sich deklarieren — der Provider lehnt ab.
-  const gierig = checkClientFee({ recipient: "a@b.c", ppm: clientFeePpm(90), clientName: "Gierig" });
-  assert.equal(gierig.accepted, false);
-  assert.match(gierig.reason, /Obergrenze/);
-
-  const normal = checkClientFee({ recipient: "a@b.c", ppm: clientFeePpm(2.5), clientName: "Freedom" });
-  assert.equal(normal.accepted, true);
-  assert.equal(normal.ppm, 25_000);
-
-  // Ohne Deklaration ist der Job voll gueltig — nichts wird erzwungen.
-  assert.equal(checkClientFee(null).accepted, true);
-  assert.equal(checkClientFee(null).ppm, 0);
-  assert.ok(MAX_CLIENT_FEE_PERCENT <= 10);
-
-  // Die Client-Gebuehr geht vom Provider-Anteil ab, nicht von Pool/Referral.
-  const amount = 1_000_000;
-  const p = splitFeeV1(amount);
-  const voll = splitWithClientFee(amount, p, clientFeePpm(2.5));
-  assert.equal(voll.poolMsat, p.poolMsat, "Pool unberuehrt");
-  assert.equal(voll.referralMsat, p.referralMsat, "Referral unberuehrt");
-  assert.equal(voll.workerMsat, p.workerMsat - voll.clientMsat);
-  assert.equal(voll.workerMsat + voll.poolMsat + voll.referralMsat + voll.clientMsat, amount);
-  // Fuer den Nutzer bleibt es bei 5 % gesamt wie vorher.
-  assert.equal(Number(voll.totalFeePercent.toFixed(1)), 5.0);
 });
 
 test("5.1.2: Aufteilung – der Provider stellt nur seinen Anteil in Rechnung; ungültige Deklaration abgelehnt, bevor gerechnet wird", async () => {

@@ -14,3 +14,6 @@ site/
 
 # MLS-Baustein: reproduzierbar gebaute WASM, eingecheckt (bauen.sh, CI mls.yml)
 !packages/mls/dist/
+
+# Kopie der App, erzeugt von packages/website/build.sh – veröffentlicht wird nur über build-site.sh (dist/)
+packages/website/freedom.html

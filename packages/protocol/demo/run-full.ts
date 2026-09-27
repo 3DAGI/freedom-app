@@ -7,20 +7,18 @@
  *   2 Outbox/Multi-Relay: Publikation ueberlebt ein zensierendes Relay (Luecke #1)
  *   3 KI-Job ueber NIP-90 DVM: Request -> Result
  *   4 Bezahlung per NIP-57 Zap, Zahlungsbeweis via Preimage
- *   5 Non-custodial Fee-Split -> Reward-Pool
+ *   5 Aufteilung A+ beim Zahlen (kein Topf, 5.1)
  *   6 Leistungs-Event (kind 38010) mit PoW
- *   7 Leaderboard mit Web-of-Trust (Sybil-Schutz)
- *   8 Proportionale Ausschuettung + Payout-Nachweis (kind 38011)
- *   9 Cross-Chain: Atomic Swap Lightning -> Solana (bestehender Kern)
+ *   7 Cross-Chain: Atomic Swap Lightning -> Solana (bestehender Kern)
  */
 import { generateKeypair, signEvent, verifyEvent } from "../src/event.js";
 import { buildProfile, parseProfile } from "../src/profile.js";
 import { OutboxPool, MemoryRelay } from "../src/outbox.js";
 import { buildJobRequest, buildJobResult, parseJobResult } from "../src/dvm.js";
 import { buildZapRequest, buildZapReceipt, parseZapReceipt, verifyZapPayment } from "../src/zap.js";
-import { computeFeeSplit, accumulatePool, buildLeaderboard, allocateProportional, totalAllocated } from "../src/rewards.js";
-import { buildPerformanceEvent, buildRewardPayout } from "../src/performance.js";
-import { buildSwapAttestation, buildLpOffer } from "../src/nostr-order.js";
+import { teileAuf } from "../src/aufteilung.js";
+import { buildPerformanceEvent } from "../src/performance.js";
+import { buildLpOffer } from "../src/nostr-order.js";
 import { mineEvent, eventDifficulty } from "../src/pow.js";
 import { generatePreimage, hashlock, toHex } from "../src/htlc.js";
 import { runSwap } from "../src/swap.js";
@@ -32,7 +30,6 @@ const T0 = 1_700_000_000;
 async function main() {
   // ---------------------------------------------------------------- 1
   hr("1) IDENTITAET: Mensch und KI-Agent, beide mit Lightning-Adresse");
-  const root = generateKeypair();      // Vertrauensanker
   const customer = generateKeypair();  // Mensch, kauft KI-Leistung
   const agent = generateKeypair();     // KI-Agent, erbringt Leistung
   const lp = generateKeypair();        // Liquiditaetsgeber
@@ -114,18 +111,19 @@ async function main() {
   console.log("   -> Gleiche Preimage/Hash-Logik wie im HTLC des Atomic Swaps.");
 
   // ---------------------------------------------------------------- 5
-  hr("5) NON-CUSTODIAL FEE-SPLIT");
-  const split = computeFeeSplit(50_000, { totalFeePpm: 30_000, poolSharePercent: 60 });
-  console.log(`   Zahlung gesamt:     ${split.totalMsat} msat`);
-  console.log(`   -> an Agent:        ${split.recipientMsat} msat`);
-  console.log(`   -> in Reward-Pool:  ${split.poolMsat} msat`);
-  console.log(`   -> an Protokoll:    ${split.protocolMsat} msat`);
-  console.log(`   Summe erhalten: ${split.recipientMsat + split.poolMsat + split.protocolMsat === split.totalMsat}`);
-  console.log("   -> Aufteilung an der Quelle: kein zentraler Topf, nichts zu verwahren.");
+  hr("5) AUFTEILUNG A+ BEIM ZAHLEN");
+  const split = teileAuf(50_000, {
+    "werber-provider": { lud16: "werber@wallet.example" },
+    relays: [{ lud16: "relay@wallet.example" }],
+  }, "lightning");
+  console.log(`   Zahlung gesamt:     50000 msat`);
+  console.log(`   -> an Agent:        ${split.providerMsat} msat`);
+  for (const p of split.posten) console.log(`   -> ${p.anteil.padEnd(16)} ${p.msat} msat an ${p.ziel}`);
+  console.log(`   Summe erhalten: ${split.providerMsat + split.posten.reduce((s, p) => s + p.msat, 0) === 50_000}`);
+  console.log("   -> Die App zahlt jeden Anteil selbst; ohne Empfaenger bleibt er beim Provider. Kein Topf.");
 
   // ---------------------------------------------------------------- 6
   hr("6) LEISTUNGS-EVENT (kind 38010) mit Proof-of-Work");
-  const sybil = generateKeypair();
   const mkPerf = (kp: { sk: Uint8Array; pk: string }, units: number, vol: number, t: number) =>
     signEvent(mineEvent(buildPerformanceEvent({
       workerPubkey: kp.pk, workType: "ai_job", units, volumeMsat: vol,
@@ -133,44 +131,11 @@ async function main() {
     }, t), 8), kp.sk);
 
   const perfAgent = mkPerf(agent, 1, 50_000, T0 + 50);
-  const perfSybil1 = mkPerf(sybil, 200, 10_000_000, T0 + 51); // massiv gefarmt
   await pool.publish(perfAgent);
   console.log(`   Agent-Leistung: 1 Job, PoW-Schwierigkeit ${eventDifficulty(perfAgent)} Bits`);
-  console.log(`   Sybil-Leistung: 200 Jobs behauptet (ohne Vertrauensanker)`);
 
   // ---------------------------------------------------------------- 7
-  hr("7) LEADERBOARD mit Web-of-Trust");
-  const attestations = [
-    signEvent(buildSwapAttestation({ swapId: "s1", counterpartyPubkey: agent.pk, success: true }, root.pk, T0 + 5), root.sk),
-    signEvent(buildSwapAttestation({ swapId: "s2", counterpartyPubkey: lp.pk, success: true }, root.pk, T0 + 6), root.sk),
-  ];
-  const board = buildLeaderboard([perfAgent, perfSybil1], attestations, "season-1", {
-    pointsPerUnit: { ai_job: 10, message: 1, liquidity: 5, relay: 2 },
-    pointsPerKMsat: 1, minPowDifficulty: 8,
-    wot: { roots: [root.pk], maxDepth: 3, decay: 0.5 },
-  });
-  for (const e of board) {
-    console.log(`   ${e.pubkey.slice(0, 10)}...  roh: ${e.rawPoints.toFixed(0).padStart(6)}  vertrauen: ${e.trustWeight}  SCORE: ${e.score.toFixed(1)}`);
-  }
-  console.log("   -> Sybil hat mehr Rohpunkte, aber Vertrauen 0 => Score 0.");
-
-  // ---------------------------------------------------------------- 8
-  hr("8) AUSSCHUETTUNG (pay-for-work) + Nachweis (kind 38011)");
-  const rewardPool = accumulatePool([split, split, split], "season-1", "lightning");
-  const allocs = allocateProportional(rewardPool, board);
-  console.log(`   Pool: ${rewardPool.balanceMsat} msat`);
-  for (const a of allocs) {
-    console.log(`   Rang ${a.rank}: ${a.pubkey.slice(0, 10)}... erhaelt ${a.amountMsat} msat`);
-    const payout = signEvent(buildRewardPayout({
-      pubkey: a.pubkey, seasonId: "season-1", recipientPubkey: a.pubkey,
-      amountMsat: a.amountMsat, chain: "lightning", settlementRef: zapReceipt.id, rank: a.rank,
-    }, T0 + 100), a.pubkey === agent.pk ? agent.sk : sybil.sk);
-    await pool.publish(payout);
-  }
-  console.log(`   verteilt gesamt: ${totalAllocated(allocs)} <= Pool ${rewardPool.balanceMsat}: ${totalAllocated(allocs) <= rewardPool.balanceMsat}`);
-
-  // ---------------------------------------------------------------- 9
-  hr("9) CROSS-CHAIN: Atomic Swap Lightning -> Solana");
+  hr("7) CROSS-CHAIN: Atomic Swap Lightning -> Solana");
   let t = T0; const now = () => t;
   const ln = new MockLightning(100_000);
   const sol = new MockSolana(500_000_000, now);
@@ -184,7 +149,7 @@ async function main() {
 
   hr("ZUSAMMENFASSUNG");
   console.log(`   Events publiziert und signaturgeprueft ueber ${pool.urls.length} Relays`);
-  console.log(`   KI-Leistung bezahlt, Fee non-custodial gesplittet, Reward verteilt`);
+  console.log(`   KI-Leistung bezahlt, Anteile direkt an ihre Empfaenger (A+)`);
   console.log(`   Wert chainuebergreifend getauscht - ohne Bridge, ohne Verwahrer.`);
   console.log("");
 }

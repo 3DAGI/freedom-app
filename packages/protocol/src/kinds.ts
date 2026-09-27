@@ -74,5 +74,4 @@ export function resultKindFor(requestKind: number): number {
 }
 
 // --- Transparenz-Kinds (Treasury + Fee-Beweis) ---
-export const KIND_TREASURY_ANNOUNCE = 38050; // woechentliche Treasury-Empfangsadresse
 // KIND_FEE_PROOF = 38051 wird in fee-proof.ts definiert (dort liegt die Logik).

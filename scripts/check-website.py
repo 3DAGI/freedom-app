@@ -37,6 +37,11 @@ class Pruefer(html.parser.HTMLParser):
                 pass
 
 
+# Seiten, die erst beim Bauen entstehen: build-site.sh kopiert die App aus
+# ihrem Build (packages/app/dist). Eine eingecheckte Kopie wäre veraltet (5.1.4a).
+ERZEUGT = {"freedom.html": os.path.join(BASIS, "..", "app", "dist", "freedom.html")}
+
+
 def main() -> int:
     fehler: list[str] = []
 
@@ -55,7 +60,8 @@ def main() -> int:
 
         # Jeder interne Link muss auf eine Datei zeigen, die es gibt.
         for link in sorted(set(re.findall(r'href="([a-z0-9_.-]+\.html)"', inhalt))):
-            if not os.path.exists(os.path.join(BASIS, link)):
+            ziel = ERZEUGT.get(link, os.path.join(BASIS, link))
+            if not os.path.exists(ziel):
                 fehler.append(f"{datei} verlinkt auf {link} — existiert nicht")
 
         # Eine Seite ohne Titel oder Beschreibung ist in Suchergebnissen blind.

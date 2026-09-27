@@ -7357,6 +7357,50 @@ Dialoge laufen über Schlüssel.
 - Die Smoke-Prüfung „sprache“ liest zusätzlich den Zurück-Knopf des Chats
   („‹ Zurück“/„‹ Back“).
 
+## Schritt 5.1.4a – Gebührenmodell A+: Protokoll und Knoten aufgeräumt
+
+5.1.4 ist geteilt (mehr als 400 Zeilen): **a** Protokoll und Knoten, **b** App
+und Texte (Werben-Tab, `referral*.ts`, `reward-claim.ts`, `protocol-fee.ts`,
+`fee-proof.ts`, Website, PROTOCOL.md). `protocol-fee.ts` und `fee-proof.ts`
+bleiben bis b stehen: Die Werbe-Stufen der App rechnen noch mit der alten
+Protokollgebühr, und die Aufgabe „erster Job“ (Abzeichen) liest Gebühren-Belege.
+
+**Entfernt (nichts im echten Pfad nutzte sie noch):**
+- `treasury.ts`, `treasury-sweep.ts`, `arweave-mirror.ts`: wöchentliche
+  Entwickler-Adressen, Sweep zur Haupt-Wallet, Arweave-Spiegel der Ansage
+  (Kind 38050); im Knoten der Sweep und der Spiegel. Alte Variablen
+  (`SWEEP_TARGET_WALLET`, `ARWEAVE_MIRROR`) lösen eine Warnung aus.
+- `rewards.ts`: Pool, Rangliste nach Punkten, anteilige Ausschüttung.
+- `client-fee.ts`: App-Gebühr – geht seit 5.1.3 im Entwicklungsanteil auf.
+- `scarcity.ts`: Knappheitsbonus, Stoßzeit-Faktor, Topf-Verteilung. Die
+  Regionen (`computeRegionStats`, `normalizeRegion`, `whereIsCapacityNeeded`
+  jetzt mit „fehlen bis Ziel“ statt Bonus-Faktor) bleiben für die
+  Abdeckungskarte.
+- `protocol-fee.ts`: Treasury-Schlüssel und die Platzhalter-Adresse bei einem
+  Verwahrer (`SET_BEFORE_MAINNET@…`).
+- `packages/website/freedom.html`: eine alte App-Kopie aus der Übergabe;
+  veröffentlicht wurde sie nie (`build-site.sh` nimmt den Build). Jetzt in
+  `.gitignore`; `check-website.py` prüft den Link gegen den Build.
+- Launcher: Platzhalter ohne Verwahrer-Adresse.
+- Gebühren-Karte: Hosting geht seit 5.3a an den Spiegel (`freedom-spiegel.json`)
+  – „Hosting folgt“ stimmte nicht mehr.
+- Demo `run-full.ts`: Schritt 5 zeigt die Aufteilung A+; Rangliste und
+  Ausschüttung entfallen.
+
+**Abnahme der Karte:** `grep -rn "walletofsatoshi\|TREASURY_\|SET_BEFORE_MAINNET"
+packages/` ist leer (auch im Build). Tests, die das Fehlen prüfen, schreiben das
+Muster mit Zeichenklasse.
+
+**Tests (entfernt, je mit ihrer Funktion):** protocol −49 – Treasury 9, Arweave 5,
+Knappheitsbonus 15 (die 5 Regionstests bleiben, die Empfehlung prüft jetzt
+„fehlen“), Pool/Rangliste 5 (`value-layer`), App-Gebühr 15 (`pricing-clientfee`,
+die Preistests bleiben); node −1 (App-Gebühr gedeckelt).
+
+Endstand (nach Einmergen von main mit 5.3 und 8.16): protocol 1129 (−49,
+begründet) · node 227 (−1, begründet) · app 473 · mls 13 · Leak-Tests 57 grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 ·
+innerHTML streng 0 unbewertet · Website 5 Seiten ok · Smoke-Test bestanden ·
+Demo `demo:full` läuft.
+
 ## Schritt 8.16d1 – Übersetzungen: Agent (Seite und agent.ts)
 
 **Fertig:** Die Agent-Seite in `index.html` – Aufgaben, Prüfaufträge,

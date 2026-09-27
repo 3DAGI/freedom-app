@@ -18,12 +18,9 @@ antispam.ts|powRequired|Spam- und Flutschutz, weder im Relay des Knotens noch in
 antispam.ts|sortIncoming|Spam- und Flutschutz, weder im Relay des Knotens noch in der App eingebunden (Relay-Rolle, 8.4)
 antispam.ts|spamFilterInfo|Spam- und Flutschutz, weder im Relay des Knotens noch in der App eingebunden (Relay-Rolle, 8.4)
 
-arweave-mirror.ts|readLatestAnnouncementFromArweave|Treasury-Archiv auf Arweave, hängt am Gebührenmodell (4.0)
 
 blob.ts|parseBlobChunk|Blob-Stücke lesen, noch ohne Speicher-Client (Speicher, 8.9)
 
-client-fee.ts|explainFees|Client-Gebühr aufteilen und erklären, hängt am Gebührenmodell (4.0, 5.1)
-client-fee.ts|splitWithClientFee|Client-Gebühr aufteilen und erklären, hängt am Gebührenmodell (4.0, 5.1)
 
 cluster.ts|buildClusterOffer|Cluster-Pairing ohne Oberfläche und ohne Anbindung im Knoten (Provider-Knoten, 8.2)
 cluster.ts|buildPairedEvent|Cluster-Pairing ohne Oberfläche und ohne Anbindung im Knoten (Provider-Knoten, 8.2)
@@ -146,7 +143,7 @@ nostr-order.ts|offerMatches|Angebot gegen Betrag prüfen; der Import in app.ts w
 performance.ts|buildRewardPayout|Saison und Reward-Ausschüttung, hängt am Gebührenmodell (4.0, 5.1)
 performance.ts|buildSeasonDef|Saison und Reward-Ausschüttung, hängt am Gebührenmodell (4.0, 5.1)
 
-pow.ts|verifyPow|nur von rewards.ts und antispam.ts aufgerufen, die selbst nicht verdrahtet sind
+pow.ts|verifyPow|nur von antispam.ts aufgerufen, das selbst nicht verdrahtet ist (rewards.ts fiel mit 5.1.4a)
 
 pricing.ts|textPriceSats|Preise für Text und Video, noch nicht angebunden (Preise und Kurse, 4.4)
 pricing.ts|videoPriceSats|Preise für Text und Video, noch nicht angebunden (Preise und Kurse, 4.4)
@@ -156,7 +153,6 @@ privacy-audit.ts|mixnetImpact|Auswirkung eines Mixnetzes, ohne Oberfläche (Verk
 private-job.ts|openPrivateJobRequest|Öffner nur für Anfragen (3.1); der Knoten nutzt seit 3.2d openPrivateKundenEvent, das auch Sitzungs-Events annimmt
 
 
-protocol-fee.ts|assertProtocolFeeConfigured|Prüfung vor Mainnet-Betrieb, vor dem Mainnet-Deploy einbinden (9.3)
 
 quests.ts|decidePayout|Aufgaben als Anreiz, ohne Oberfläche und noch ohne Schritt im Ausbauplan
 quests.ts|maxCostPerParticipant|Aufgaben als Anreiz, ohne Oberfläche und noch ohne Schritt im Ausbauplan
@@ -178,13 +174,9 @@ release.ts|hashBytes|Hash-Hilfe für Release-Dateien, noch nicht angebunden (Sig
 
 reward-claim.ts|parseRewardClaim|Reward-Anforderung lesen, hängt am Gebührenmodell (5.1)
 
-rewards.ts|accumulatePool|Reward-Pool und Rangliste, hängt am Gebührenmodell (4.0, 5.1)
-rewards.ts|allocateProportional|Reward-Pool und Rangliste, hängt am Gebührenmodell (4.0, 5.1)
-rewards.ts|buildLeaderboard|Reward-Pool und Rangliste, hängt am Gebührenmodell (4.0, 5.1)
-rewards.ts|totalAllocated|Reward-Pool und Rangliste, hängt am Gebührenmodell (4.0, 5.1)
 
-scarcity.ts|computeRegionStats|Knappheitsbonus nach Region, noch nicht angebunden (Abdeckungskarte, 5.10)
-scarcity.ts|whereIsCapacityNeeded|Knappheitsbonus nach Region, noch nicht angebunden (Abdeckungskarte, 5.10)
+scarcity.ts|computeRegionStats|Provider je Region, noch nicht angebunden (Abdeckungskarte, 5.10)
+scarcity.ts|whereIsCapacityNeeded|wo Provider fehlen, noch nicht angebunden (Abdeckungskarte, 5.10)
 
 sol-deposit.ts|buildSolDepositSettle|Abschluss eines SOL-Deposits, noch nicht angebunden (Verdienen in SOL, 4.5)
 sol-deposit.ts|checkSolDeposit|Abschluss eines SOL-Deposits, noch nicht angebunden (Verdienen in SOL, 4.5)
@@ -210,8 +202,6 @@ timestamps.ts|compareTrusted|Zeitstempel gegen Zeugen prüfen, noch nicht angebu
 timestamps.ts|countActiveDays|Zeitstempel gegen Zeugen prüfen, noch nicht angebunden (Zeitanker, 5.10)
 timestamps.ts|parseTimeWitness|Zeitstempel gegen Zeugen prüfen, noch nicht angebunden (Zeitanker, 5.10)
 
-treasury.ts|parsePayoutAnnouncement|Treasury-Auszahlung, hängt an der Entscheidung zum Gebührenmodell (4.0)
-treasury.ts|verifyWeekRecipient|Treasury-Auszahlung, hängt an der Entscheidung zum Gebührenmodell (4.0)
 
 wot.ts|trustOf|Vertrauenswert abfragen, noch nicht angebunden (Reputation aus Quittungen, 5.5)
 
@@ -228,19 +218,11 @@ price-ticker.ts|medianPrice|abgelöst durch marktKurs() – eine Stimme je Absen
 swap-umgekehrt.ts|runReverseSwap|Simulation der Gegenrichtung mit Adaptern (4.6a), wie runSwap für die Hinrichtung
 swap-privacy.ts|deriveSwapAddress|abgelöst durch den Vorrat frischer Adressen der eingebauten Wallet (4.9c, SLIP-10 wie Phantom); die HKDF-Ableitung aus dem Nostr-Schlüssel zeigte nur einen Fingerabdruck und war nicht einlösbar
 swap-privacy.ts|addressFingerprint|gehört zu deriveSwapAddress (abgelöst in 4.9c)
-client-fee.ts|checkClientFee|Client-Gebühr, seit 5.1.2 vom Knoten nicht mehr gelesen – geht im Entwicklungsanteil auf; Modul fällt mit 5.1.4
-client-fee.ts|parseClientFee|Client-Gebühr, seit 5.1.2 vom Knoten nicht mehr gelesen – geht im Entwicklungsanteil auf; Modul fällt mit 5.1.4
 fee-proof.ts|buildFeeProof|Gebühren-Beleg des Knotens, entfällt mit A+ (5.1.2: der Knoten zahlt nichts mehr aus); Umstellung oder Entfernen mit 5.1.3/5.1.4
-scarcity.ts|distributeScarcityBonus|Bonuslogik des Pool-Verteilers (entfernt mit 5.1.2); fällt mit 5.1.4 (Karte 5.1 Punkt 2)
-scarcity.ts|normalizeRegion|Bonuslogik des Pool-Verteilers (entfernt mit 5.1.2); fällt mit 5.1.4 (Karte 5.1 Punkt 2)
-scarcity.ts|peakMultiplier|Bonuslogik des Pool-Verteilers (entfernt mit 5.1.2); fällt mit 5.1.4 (Karte 5.1 Punkt 2)
-scarcity.ts|scarcityMultiplier|Bonuslogik des Pool-Verteilers (entfernt mit 5.1.2); fällt mit 5.1.4 (Karte 5.1 Punkt 2)
+scarcity.ts|normalizeRegion|Regionen, noch nicht angebunden (Abdeckungskarte, 5.10); der Bonus fiel mit 5.1.4a
 wot.ts|computeTrust|nur vom Pool-Verteiler genutzt (entfernt mit 5.1.2); Reputation aus Quittungen (5.5, zurückgestellt)
 wot.ts|extractEdges|nur vom Pool-Verteiler genutzt (entfernt mit 5.1.2); Reputation aus Quittungen (5.5, zurückgestellt)
-client-fee.ts|clientFeePpm|App-Gebühr, seit 5.1.3 nicht mehr deklariert – geht im Entwicklungsanteil auf (A+); Modul fällt mit 5.1.4
-client-fee.ts|clientFeeTag|App-Gebühr, seit 5.1.3 nicht mehr deklariert – geht im Entwicklungsanteil auf (A+); Modul fällt mit 5.1.4
 fee-proof.ts|parseFeeProof|Gebühren-Beleg des Knotens; seit 5.1.2 veröffentlicht er keinen, seit 5.1.3 prüft ihn die App nicht mehr – fällt mit 5.1.4
 fee-proof.ts|verifyFeeProof|Gebühren-Beleg des Knotens; seit 5.1.2 veröffentlicht er keinen, seit 5.1.3 prüft ihn die App nicht mehr – fällt mit 5.1.4
 fee-proof.ts|verifyFeeProofMitKette|Gebühren-Beleg des Knotens; seit 5.1.2 veröffentlicht er keinen, seit 5.1.3 prüft ihn die App nicht mehr – fällt mit 5.1.4
 protocol-fee.ts|splitFeeV1|Protokollgebühr alt (Pool/Werbe-Pool); seit 5.1.3 zeigt die App die Aufteilung A+ – fällt mit 5.1.4
-rewards.ts|computeFeeSplit|Aufteilung Pool/Protokoll alt; seit 5.1.3 zeigt die App die Aufteilung A+ – fällt mit 5.1.4

@@ -309,65 +309,10 @@ async function main(): Promise<void> {
     await relayRole.start();
   }
 
-  // Treasury-Sweep (optional): Wochen-Wallets automatisch zur Haupt-Wallet.
-  // SWEEP_TARGET_WALLET=<base58> + TREASURY_MASTER_SECRET_HEX (nur Treasury-Node!)
-  // Läuft alle 6h; verpasste Wochen (bis 12 zurück) werden nachgeholt —
-  // idempotent, Ausfälle sind kein Problem.
-  const sweepTarget = process.env.SWEEP_TARGET_WALLET;
-  const sweepSecret = process.env.TREASURY_MASTER_SECRET_HEX;
-  if (sweepTarget && sweepSecret) {
-    const runSweep = async () => {
-      try {
-        const { runSweepOnce } = await import("@freedomstack/protocol");
-        const summary = await runSweepOnce({
-          masterSecretHex: sweepSecret,
-          targetWalletBase58: sweepTarget,
-          rpcUrl: process.env.SOLANA_RPC,
-          lookbackWeeks: Number(process.env.SWEEP_LOOKBACK_WEEKS ?? 12),
-        });
-        console.log(summary);
-      } catch (e) {
-        console.error(`[treasury-sweep] Fehler: ${(e as Error).message.slice(0, 100)} — nächster Versuch in 6h`);
-      }
-    };
-    await runSweep(); // einmal beim Start
-    setInterval(runSweep, 6 * 3600 * 1000);
-  } else if (sweepTarget || sweepSecret) {
-    console.warn("[treasury-sweep] SWEEP_TARGET_WALLET und TREASURY_MASTER_SECRET_HEX müssen BEIDE gesetzt sein");
-  }
-
-  // Treasury-Arweave-Mirror (optional): Payout-Announcements dauerhaft spiegeln.
-  // Ausfallsicherheit: Wenn der Node lange offline ist, lesen Clients die letzte
-  // gültige Wochen-Adresse von AR.IO-Gateways statt nur vom Relay.
-  // ARWEAVE_MIRROR=1 + ARWEAVE_JWK_PATH=<pfad zur jwk>
-  if (process.env.ARWEAVE_MIRROR === "1") {
-    const mirrorRun = async () => {
-      try {
-        const { buildPayoutAnnouncement, deriveWeekRecipient, mirrorAnnouncement } =
-          await import("@freedomstack/protocol");
-        const master = process.env.TREASURY_MASTER_SECRET_HEX ?? "";
-        const week = Math.floor(Date.now() / (7 * 24 * 3600 * 1000));
-        const recipient = deriveWeekRecipient(master, week);
-        const { signEvent, buildEvent, toHex } = await import("@freedomstack/protocol");
-        // nostr-key des treasuries aus separater datei
-        const nostrSkPath = `${process.env.HOME}/.freedom/treasury/nostr-secret.hex`;
-        const fsMod = await import("node:fs/promises");
-        const nostrSkHex = (await fsMod.readFile(nostrSkPath, "utf8")).trim();
-        const nostrPk = toHex((await import("@noble/curves/secp256k1.js")).schnorr.getPublicKey(fromHex(nostrSkHex)));
-        const ann = buildPayoutAnnouncement(
-          { week, recipientAddressHex: recipient.pubkeyHex },
-          nostrPk,
-        );
-        const signed = signEvent(buildEvent(ann.pubkey, ann.kind, ann.tags, ann.content), fromHex(nostrSkHex));
-        await pool.publish(signed);
-        const res = await mirrorAnnouncement({ ...ann, id: signed.id });
-        console.log(`[treasury-mirror] woche ${week} gespiegelt: https://ar.io/${res.txId} (${res.sizeBytes}b)`);
-      } catch (e) {
-        console.error(`[treasury-mirror] Fehler: ${(e as Error).message.slice(0, 100)} — nächster Versuch in 24h`);
-      }
-    };
-    await mirrorRun();
-    setInterval(mirrorRun, 7 * 24 * 3600 * 1000); // wöchentlich
+  // Sweep der Wochen-Wallets und ihr Arweave-Spiegel sind seit 5.1.4a entfernt:
+  // Nach Gebührenmodell A+ gibt es keine Rücklage mehr, die jemand einsammelt.
+  if (process.env.SWEEP_TARGET_WALLET || process.env.ARWEAVE_MIRROR === "1") {
+    console.warn("[fee] SWEEP_TARGET_WALLET und ARWEAVE_MIRROR werden nicht mehr gelesen (Gebührenmodell A+, 5.1).");
   }
   // LNURL-Server (optional): Lightning-Fee-Empfang ohne KYC.
   // LNURL_ENABLED=1 LNURL_BASE_URL=https://... LNURL_BACKEND=blink|lnd

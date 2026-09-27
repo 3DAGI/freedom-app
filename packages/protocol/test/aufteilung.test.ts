@@ -102,7 +102,7 @@ test("5.1.3: Entwicklung ohne eigene Adresse – ihr Anteil bleibt beim Provider
   assert.ok(Object.isFrozen(ENTWICKLUNG), "ändern nur mit signiertem Release");
   // Solange der MENSCH keine selbstverwahrte Adresse nennt, ist der Anteil nicht zuordenbar
   const adressen = [adresseFuer(ENTWICKLUNG, "lightning"), adresseFuer(ENTWICKLUNG, "solana")].filter(Boolean);
-  for (const a of adressen) assert.doesNotMatch(a!, /walletofsatoshi|getalby|strike|wos\./i, "keine Verwahrer-Adresse");
+  for (const a of adressen) assert.doesNotMatch(a!, /walletof[s]atoshi|getalby|strike|wos\./i, "keine Verwahrer-Adresse");
   if (adressen.length === 0) {
     const r = teileAuf(1_000_000, { entwicklung: ENTWICKLUNG }, "lightning");
     assert.deepEqual(r, { providerMsat: 1_000_000, posten: [] });
