@@ -126,7 +126,7 @@ before(async () => {
 after(() => {
   // Die Websocket-Verbindung der Bestätigungen verbindet sonst endlos neu (max_reconnects:
   // Infinity) – auch nach close(), wenn sie gerade verbindet oder web3.js für ein offenes
-  // Abo neu aufbaut. Dann endet der Prozess nie.
+  // Abo neu aufbaut. Dann endet der Prozess nie (so lief der CI-Job von 4.3c1 bis zum Limit).
   const ws = (conn as unknown as { _rpcWebSocket?: { setAutoReconnect(an: boolean): void; close(): void } } | undefined)?._rpcWebSocket;
   ws?.setAutoReconnect(false);
   ws?.close();

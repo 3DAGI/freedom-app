@@ -247,6 +247,8 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   dieselbe Transaktion – mit eigenem Rechenlimit je Versuch unterscheiden.
   Auf Bestätigungen nur über `solangeValidator()` warten: Stirbt der
   Validator, wartet web3.js sonst endlos (`getBlockHeight` zählt als -1).
+  Den Websocket am Ende mit `setAutoReconnect(false)` schließen – sonst
+  verbindet er endlos neu, und der Job läuft bis zu seinem Limit.
 - **HTLC-Transaktionen nur mit `htlcSigner()`** (`tabs/waehrung.ts`, seit 4.6c):
   Wallets nach dem Wallet Standard haben kein `publicKey`-Feld – `solWallet.provider`
   direkt als `WalletSigner` brach Einlösen, Deposit und Rückholen ab. Jede neue
