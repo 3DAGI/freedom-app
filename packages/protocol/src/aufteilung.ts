@@ -65,6 +65,14 @@ export interface Zahlziel {
   sol?: string;
 }
 
+/**
+ * Selbstverwahrte Adressen der Entwicklung – ändern nur mit signiertem Release.
+ * MENSCH (vor 5.1 live): Lightning-Adresse über einen eigenen Knoten, SOL an
+ * eine Mehrfachsignatur (5.9). Bis dahin leer: Der Anteil ist nicht
+ * zuordenbar und bleibt beim Provider – nie eine Adresse bei einem Verwahrer.
+ */
+export const ENTWICKLUNG: Readonly<Zahlziel> = Object.freeze({});
+
 /** Die bekannten Empfänger eines Auftrags – was fehlt, bleibt beim Provider. */
 export interface Empfaenger {
   entwicklung?: Zahlziel;

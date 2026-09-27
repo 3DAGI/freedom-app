@@ -79,7 +79,7 @@ import {
   pruefeEigeneEchtheit,
   pruefeFixierungBeimStart,
   richteNachfolgeEin,
-  wireClientFeeSetting,
+  wireGebuehrenKarte,
   wireMeshTab,
   wireSicherheitsKnoepfe,
   zeigeGeraete,
@@ -779,7 +779,7 @@ function starte(): void {
   $("#ai-send").onclick = askAi;
   $("#ai-bid").oninput = updateFeePreview;
   $("#wallet-refresh").onclick = loadWallet;
-  void wireClientFeeSetting();
+  void wireGebuehrenKarte();
   void pruefeFixierungBeimStart();
   void wireMeshTab();
   void wireSpacesTab();

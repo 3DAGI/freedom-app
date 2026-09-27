@@ -81,3 +81,57 @@ test("SessionClient mit KiSitzungen: je Provider ein eigener Schluessel, nie die
   // Der Umschlag an b laesst sich mit a's Schluessel nicht oeffnen
   await assert.rejects(geoeffnet(gesendet[1], a.sk));
 });
+
+test("5.1.3: Anteil des Providers per Rechnung – ab dem Fenster, ganze sats, nie über das Budget, nach unklarem Ausgang nie wieder von selbst", async () => {
+  const kunde = generateKeypair();
+  const provider = generateKeypair();
+  const { pool, gesendet } = fakePool();
+  const sc = new SessionClient({
+    signerFuer: () => new LocalSigner(kunde.sk), pool, defaultBudgetSats: 100, settleEverySats: 20, ttlSecs: 3600,
+  });
+  const zahlungen: number[] = [];
+  let scheitert: "rechnung" | "zahlen" | null = null;
+  const wallet = {
+    async rechnung(msat: number) { if (scheitert === "rechnung") throw new Error("LNURL weg"); return `lnbc-${msat}`; },
+    async zahle(rechnung: string, msat: number) {
+      if (scheitert === "zahlen") throw new Error("Zeitüberschreitung");
+      assert.equal(rechnung, `lnbc-${msat}`);
+      zahlungen.push(msat);
+      return "ab".repeat(32);
+    },
+  };
+  const e = "e".repeat(64);
+  assert.equal((await sc.chargeForResult(provider.pk, 12_500, e, wallet)).settled, false, "unter 20 sats: nur Beleg");
+  const r = await sc.chargeForResult(provider.pk, 12_700, e, wallet);
+  assert.deepEqual([r.settled, r.gezahltMsat, r.faelligAbMsat], [true, 25_000, 20_000], "ganze sats – 200 msat bleiben offen");
+  // Der Beleg an den Provider nennt, was bezahlt ist
+  const beleg = await geoeffnet(gesendet.at(-1)!, provider.sk);
+  assert.equal(beleg.tags.find((t) => t[0] === "cumulative_msat")?.[1], "25000");
+
+  scheitert = "rechnung";
+  const ohne = await sc.chargeForResult(provider.pk, 30_000, e, wallet);
+  assert.deepEqual([ohne.settled, ohne.unklar], [false, false], "vor der Wallet gescheitert – beim nächsten Mal wieder");
+  scheitert = "zahlen";
+  const unklar = await sc.chargeForResult(provider.pk, 1_000, e, wallet);
+  assert.deepEqual([unklar.settled, unklar.unklar], [false, true]);
+  scheitert = null;
+  const danach = await sc.chargeForResult(provider.pk, 20_000, e, wallet);
+  assert.equal(danach.settled, false, "nie ein zweites Mal von selbst");
+  assert.deepEqual(zahlungen, [25_000]);
+
+  // Neue Sitzung (Budget 100 sats): nie mehr als das Budget
+  const sc2 = new SessionClient({
+    signerFuer: () => new LocalSigner(generateKeypair().sk), pool, defaultBudgetSats: 100, settleEverySats: 20, ttlSecs: 3600,
+  });
+  const gross = await sc2.chargeForResult(provider.pk, 250_000, e, wallet);
+  assert.equal(gross.gezahltMsat, 100_000);
+
+  // Zwei Antworten zugleich: dieselbe Schuld wird nur einmal gezahlt
+  const sc3 = new SessionClient({
+    signerFuer: () => new LocalSigner(generateKeypair().sk), pool, defaultBudgetSats: 100, settleEverySats: 20, ttlSecs: 3600,
+  });
+  await sc3.openSession(provider.pk);
+  zahlungen.length = 0;
+  await Promise.all([sc3.chargeForResult(provider.pk, 30_000, e, wallet), sc3.chargeForResult(provider.pk, 1_000, e, wallet)]);
+  assert.deepEqual(zahlungen, [30_000], "die zweite sieht die laufende Zahlung und wartet aufs nächste Mal");
+});

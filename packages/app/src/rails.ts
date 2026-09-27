@@ -42,6 +42,31 @@ export function bolt11ZahlungsHash(bolt11: string): string | null {
 
 // ------------------------------------------------------------ Lightning
 
+/**
+ * LNURL-pay: Lightning-Adresse -> Rechnung ueber genau diesen Betrag. Bewegt
+ * kein Geld – wer zweistufig zahlt (5.1.3: erst Rechnung, dann zahlen), weiss
+ * so, ob ein Fehler vor der Wallet lag.
+ */
+export async function rechnungVonAdresse(adresse: string, msat: number, notiz?: string, holen: typeof fetch = (i, o) => fetch(i, o)): Promise<string> {
+  const [name, host] = adresse.split("@");
+  const r = await holen(`https://${host}/.well-known/lnurlp/${encodeURIComponent(name)}`);
+  if (!r.ok) throw new Error(`Lightning-Adresse nicht erreichbar (HTTP ${r.status})`);
+  const d = (await r.json()) as { callback?: string; minSendable?: number; maxSendable?: number; tag?: string; commentAllowed?: number };
+  if (d.tag !== "payRequest" || typeof d.callback !== "string" || !d.callback.startsWith("https://")) {
+    throw new Error("Lightning-Adresse liefert keine gültige Zahlungsanfrage");
+  }
+  if ((d.minSendable !== undefined && msat < d.minSendable) || (d.maxSendable !== undefined && msat > d.maxSendable)) {
+    throw new Error(`Betrag außerhalb ${d.minSendable ?? 0}–${d.maxSendable ?? "∞"} msat`);
+  }
+  const cb = new URL(d.callback);
+  cb.searchParams.set("amount", String(msat));
+  if (notiz && d.commentAllowed) cb.searchParams.set("comment", notiz.slice(0, d.commentAllowed));
+  const rr = await holen(cb.toString());
+  const dd = (await rr.json()) as { pr?: string };
+  if (typeof dd.pr !== "string") throw new Error("Lightning-Adresse lieferte keine Rechnung");
+  return dd.pr;
+}
+
 export interface LightningQuellen {
   /** NWC-Verbindung, falls eingerichtet. */
   nwc?: () => { payInvoice(bolt11: string): Promise<{ preimage: string }>; getBalance(): Promise<number> } | null;
@@ -74,7 +99,7 @@ export class LightningRail implements PaymentRail {
 
   async pay(a: Zahlanfrage): Promise<Beleg> {
     pruefeAnfrage(this.id, a);
-    const rechnung = a.ziel.includes("@") ? await this.rechnungVonAdresse(a.ziel, a.betrag.wert, a.notiz) : a.ziel;
+    const rechnung = a.ziel.includes("@") ? await rechnungVonAdresse(a.ziel, a.betrag.wert, a.notiz, this.q.holen) : a.ziel;
     const verlangt = bolt11BetragMsat(rechnung);
     if (verlangt !== null && verlangt !== a.betrag.wert) {
       throw new Error(`Rechnung über ${verlangt} msat, gewollt ${a.betrag.wert} msat – nicht gezahlt`);
@@ -103,28 +128,6 @@ export class LightningRail implements PaymentRail {
     const nwc = this.q.nwc?.();
     if (!nwc) throw new Error("Guthaben nur über NWC abfragbar");
     return { einheit: "msat" as const, wert: await nwc.getBalance() };
-  }
-
-  /** LNURL-pay: Lightning-Adresse -> Rechnung ueber genau diesen Betrag. */
-  private async rechnungVonAdresse(adresse: string, msat: number, notiz?: string): Promise<string> {
-    const holen = this.q.holen ?? fetch;
-    const [name, host] = adresse.split("@");
-    const r = await holen(`https://${host}/.well-known/lnurlp/${encodeURIComponent(name)}`);
-    if (!r.ok) throw new Error(`Lightning-Adresse nicht erreichbar (HTTP ${r.status})`);
-    const d = (await r.json()) as { callback?: string; minSendable?: number; maxSendable?: number; tag?: string; commentAllowed?: number };
-    if (d.tag !== "payRequest" || typeof d.callback !== "string" || !d.callback.startsWith("https://")) {
-      throw new Error("Lightning-Adresse liefert keine gültige Zahlungsanfrage");
-    }
-    if ((d.minSendable !== undefined && msat < d.minSendable) || (d.maxSendable !== undefined && msat > d.maxSendable)) {
-      throw new Error(`Betrag außerhalb ${d.minSendable ?? 0}–${d.maxSendable ?? "∞"} msat`);
-    }
-    const cb = new URL(d.callback);
-    cb.searchParams.set("amount", String(msat));
-    if (notiz && d.commentAllowed) cb.searchParams.set("comment", notiz.slice(0, d.commentAllowed));
-    const rr = await holen(cb.toString());
-    const dd = (await rr.json()) as { pr?: string };
-    if (typeof dd.pr !== "string") throw new Error("Lightning-Adresse lieferte keine Rechnung");
-    return dd.pr;
   }
 
   private jetzt(): number {

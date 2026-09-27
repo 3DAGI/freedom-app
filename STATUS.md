@@ -6821,6 +6821,114 @@ ohne Netz) · app 439 · mls 13 · Leak-Tests 55 grün + 1 todo · 0 rot ·
 check-wiring `--streng` Exit 0 · innerHTML streng 0 unbewertet · Website 5
 Seiten ok · Smoke-Test bestanden.
 
+## Schritt 5.1.3a – Gebührenmodell A+: Die App zahlt
+
+**Aufteilung von 5.1.3** (mehr als 400 Zeilen): 5.1.3a die Zahlung selbst,
+5.1.3b Werber des Kunden (Werbelink mit Lightning-Adresse) und Relays (NIP-11 →
+Profil). Hosting folgt mit dem Spiegel-Verzeichnis (5.3).
+
+**Bezahlen im echten Pfad (`shell/ki-zahlung.ts`, `tabs/agent.ts`):**
+- Beim Senden hält `buildJobEvent()` die Empfänger fest (`empfaengerFuer()`:
+  Entwicklung, Werber des Providers aus dem Angebot) und legt die Deklaration
+  (`aufteilungTag()`) vor dem Versiegeln in den Kern; `merkeAnfrage()` merkt
+  Empfänger und Höchstbetrag je Anfrage.
+- Bei der Antwort rechnet `rechneAntwortAb()` → `rechneAb()` mit denselben
+  Empfängern (derselbe Provider-Anteil wie `providerAnteilMsat()` im Knoten) und
+  höchstens das Gebot plus Werkzeuge nach Preisliste (`hoechstMsat()`) – ohne
+  gemerkte Anfrage nichts. Verlangt ein Provider mehr, sagt es die App.
+- Den Anteil des Providers zahlt der Session-Client an die Lightning-Adresse aus
+  dem Angebot (5.1.2), sobald das Fenster (20 sats) erreicht ist, in ganzen
+  sats und nie über das Budget der Sitzung. Keysend gibt es nicht mehr – nie
+  benutzt, weil die App nie eine Wallet übergab.
+- Die übrigen Anteile sammelt die Kasse (`anteile-kasse.ts`, Stand in `geheim`
+  unter `freedom.anteile`) und zahlt sie ab 100 sats je Empfänger.
+- **Nie doppelt:** erst die Rechnung holen und ihren Betrag prüfen (scheitert
+  das, ist nichts gezahlt), dann zahlen. Scheitert das Zahlen, ist der Ausgang
+  unklar: Die Sitzung zahlt dann nicht mehr von selbst, die Kasse legt den
+  Betrag unter „unklar“ ab; der Nutzer klärt ihn in den Settings („kam an“ /
+  „kam nicht an“). Zwei Antworten zugleich zahlen dieselbe Schuld nicht zweimal.
+- Gezahlt wird nur über `zahle(zahlschienen(), …)` (Zweck `job` bzw. `gebuehr`).
+
+**Entwicklung:** `ENTWICKLUNG` (Protokoll) ist leer, bis der MENSCH
+selbstverwahrte Adressen nennt – ihr Anteil bleibt so lange beim Provider. Die
+App-Gebühr (`freedomstack@walletofsatoshi.com`, abschaltbar) ist entfernt; sie
+geht im Entwicklungsanteil auf.
+
+**Texte:** Settings → Gebühren zeigt die feste Aufteilung, was heute tatsächlich
+bezahlt wird, den Stand der Kasse und dass der Server hinter einer
+Lightning-Adresse beim Holen der Rechnung IP und Betrag sieht. Die Vorschau unter
+dem Gebot und die Blase unter jeder Antwort zeigen die Aufteilung A+ statt
+Pool/Protokoll und statt „Zahlung prüfen“ (den Gebühren-Beleg des Knotens gibt
+es seit 5.1.2 nicht mehr – die alte Anzeige hätte „nicht abgeführt“ behauptet).
+Werben-Karte und Einrichtung ohne „Protokollgebühr“ und zweite Ebene. Der
+Race-Modus versprach Zahlungen an Verlierer, die nie geschahen – jetzt: „bezahlt
+wird die schnellste Antwort“.
+
+**Knoten-Stand:** Der Provider muss 5.1.2 laufen (`NODE_LUD16` gesetzt), sonst
+nennt sein Angebot keine Lightning-Adresse, und die App legt wie bisher nur
+Belege an. Ein alter Knoten ignoriert die Deklaration und rechnet den ganzen
+Betrag.
+
+**Tests:**
+- app +8 (447): `anteile-kasse.test.ts` (+4: gleicher Provider-Anteil wie der
+  Knoten, Gebot als Obergrenze, Bündeln und ganze sats, unklar nie wiederholt,
+  Klären, parallele Läufe, Unlesbares), `ki-zahlung.test.ts` (+3: Höchstbetrag,
+  Verdrahtung, keine App-Gebühr/kein Keysend/keine Verwahrer-Adresse),
+  `session-client.test.ts` (+1: Fenster, ganze sats, Budget, unklar, parallel).
+  Ersetzt: der Test zu „Zahlung prüfen“ am Beleg des Knotens (4.8) durch einen
+  zur Anzeige der Aufteilung – die Funktion entfällt, weil der Knoten seit 5.1.2
+  keinen Beleg mehr veröffentlicht.
+- Leak +2 (57): Deklaration nur im versiegelten Kern; bezahlte Belege zeigen
+  offen weder Preimage noch Rechnung.
+- protocol +1 (1154): `ENTWICKLUNG` eingefroren, keine Verwahrer-Adresse, leer →
+  Anteil beim Provider.
+- check-wiring: Keysend-Regel verschärft (nirgends erlaubt); `teileAuf`,
+  `zahlbareAnteile`, `aufteilungTag` verdrahtet; ausgenommen bis 5.1.4, was die
+  App nicht mehr nutzt (Client-Gebühr, Gebühren-Beleg, alte Aufteilung).
+
+Endstand (nach Einmergen von main mit 8.4a/b): protocol 1162 (+1) · node 225 ·
+app 447 (+8) · mls 13 · Leak-Tests 57 grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 ·
+innerHTML streng 0 unbewertet · Website 5 Seiten ok · Smoke-Test bestanden.
+
+## Schritt 5.1.3b – Gebührenmodell A+: Werber des Kunden und Relays
+
+**Werber des Kunden (`werbung.ts`, `tabs/earn.ts`):** Der Werbelink trägt neben
+dem Schlüssel die Lightning-Adresse aus dem eigenen Profil
+(`?ref=<pk>&ln=<lud16>`, nur plausible Adressen). Die App des Geworbenen merkt
+beides (`merkeWerber()`): Der erste Werber bleibt, ein fremder Link verdrängt
+ihn nicht und schiebt keine Adresse unter; die Adresse gilt nur vom selben
+Werber und wird nicht überschrieben. `werberZahlziel()` liefert sie für die
+Aufteilung – nie an sich selbst. Öffentlich nennen bleibt freiwillig (8.1b) und
+zählt nur für die Statistik; gezahlt wird ohne Nennung. Werber und Adresse
+stehen in `SICHERUNG_EINTRAEGE`, damit ein neues Gerät weiter zahlt.
+
+**Relays (`relay-zahlziel.ts`):** Der Auftrag geht über den Pool
+(`pool.publish`); dessen Relays bekommen 1,5 %, höchstens drei, in der
+Reihenfolge des Pools (eigener Satz vorn). Der Betreiber kommt aus der
+Selbstauskunft (NIP-11 `pubkey`, nur wss, nie .onion, 5 s, höchstens 100 KB),
+die Adresse aus seinem Profil (Signatur geprüft, das neueste zählt). Gelernt
+wird im Hintergrund beim ersten Auftrag und gemerkt
+(`freedom.relays.zahlziele`, ein Tag, nach Fehlschlag eine Stunde); beim Senden
+zählt nur Bekanntes, nichts hält einen Auftrag auf. Einen eigenen NIP-11-Leser
+statt eines gemeinsamen, weil Spur B mit 8.4c die App-Seite des Relay-Zugangs
+baut – keine Überschneidung im Code.
+
+**Texte:** Gebühren-Karte (wer heute tatsächlich bekommt), Werben-Karte (Link
+mit Adresse; ältere Links ohne Adresse zahlen nichts), Hinweis unter dem
+Werbelink, Vorschau unter dem Gebot („Provider mind. 94 %, Anteile höchstens
+6 %“).
+
+**Tests:** app +6 (453): `werbung.test.ts` (+3: Link, erster Werber, keine
+untergeschobene Adresse, nie an sich selbst, in der Sicherung),
+`relay-zahlziel.test.ts` (+3: nur wss, Betreiber und Adresse in
+Pool-Reihenfolge, Fälschung und lokale Hosts zählen nicht, gemerkt einen Tag
+bzw. eine Stunde, parallele Läufe, Profile offline). Verdrahtungstest
+erweitert.
+
+Endstand: protocol 1162 · node 225 · app 453 (+6) · mls 13 · Leak-Tests 57
+grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng 0
+unbewertet · Website 5 Seiten ok · Smoke-Test bestanden.
+
 ## Schritt 8.4c – Relay-Zugang in der App: anmelden und kaufen
 
 **Anmelden (NIP-42)** – `WebSocketRelay` (`protocol/src/ws-relay.ts`):
@@ -6866,7 +6974,8 @@ Seiten ok · Smoke-Test bestanden.
   und kauft mit Sats (WebLN-Attrappe): „Bezahlt – Zugang bis 27.10.2026“.
 - **Nach dem Kauf:** Alice schreibt erneut – angenommen. Bob liest nur diese
   Nachricht, nicht die erste.
-- Bob hat sich einmal angemeldet, Alice nie. Keine Seitenfehler.
+- Bob hat sich einmal angemeldet, Alice nie. Keine Seitenfehler. Nach dem Einmergen von 5.1.3a/b
+  erneut bestanden.
 
 **Beobachtet (Spur A, klein):** Veröffentlicht die App den eigenen Satz in
 derselben Sekunde wie die automatische Liste, tragen beide Kind-10050-Events
@@ -6884,7 +6993,7 @@ dieselbe Zeit, und `posteingangVon()` nimmt irgendeine. Im Test umgangen
 - Der Verdrahtungstest aus 8.6c prüft jetzt `relayVerbindung(url, …)` statt
   `new WebSocketRelay(url, …)`.
 
-Endstand: protocol 1162 (+1, 6 übersprungen) · node 227 (+3, 7 übersprungen
-ohne Netz) · app 444 (+5) · mls 13 · Leak-Tests 55 grün + 1 todo · 0 rot ·
+Endstand (nach dem Einmergen von 5.1.3a/b): protocol 1163 (+1, 6 übersprungen) ·
+node 227 (+3, 7 übersprungen ohne Netz) · app 458 (+5) · mls 13 · Leak-Tests 57 grün + 1 todo · 0 rot ·
 check-wiring `--streng` Exit 0 · innerHTML streng 0 unbewertet · Website 5
 Seiten ok · Smoke-Test bestanden.

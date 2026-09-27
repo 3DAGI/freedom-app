@@ -106,8 +106,8 @@ function inhalt(seite: Seite): string {
           <input type="checkbox" id="ein-kontakte" /> Kontakte verschlüsselt zwischen Geräten abgleichen (Standard: aus)</label>
         ${mitWerber ? `<label class="mono-sm" style="display:block;margin:8px 0">
           <input type="checkbox" id="ein-werber" /> ${escapeHtml(pkShort(werber!))} öffentlich als meinen Werber nennen</label>
-          <p class="mono-sm muted">Standard: aus. Dann bekommt dein Werber seinen Anteil an den Protokollgebühren
-          deiner Zahlungen – und jeder kann sehen, dass ihr verbunden seid.</p>` : ""}
+          <p class="mono-sm muted">Standard: aus. Öffentlich genannt zählst du in seiner Statistik – und jeder kann
+          sehen, dass ihr verbunden seid. Für seinen Anteil an deinen KI-Zahlungen ist das nicht nötig.</p>` : ""}
         <p class="mono-sm muted">Alles später unter Settings → Datenschutz.</p>
         <button id="ein-weiter" class="cta" style="width:auto;padding:8px 18px">weiter</button>`;
     }

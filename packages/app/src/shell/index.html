@@ -425,10 +425,14 @@
         </div><div class="card">
           <h3><span class="ic" data-icon="link"></span> <span data-i18n="referral">Werben</span></h3>
           <p class="muted">
-            Du bekommst <strong>0,5 %</strong> jeder Zahlung deiner Geworbenen, solange sie aktiv sind —
-            und einen kleineren Anteil an deren Geworbenen. Wer über deinen Link kommt, entscheidet bei der
+            Du bekommst <strong>0,5 %</strong> jeder KI-Zahlung deiner Geworbenen – die App des Geworbenen zahlt
+            es dir direkt, eine Ebene, keine Stufen. Dafür trägt dein Werbelink deine Lightning-Adresse aus dem
+            Profil; ohne sie – oder bei Geworbenen über einen älteren Link ohne Adresse – bleibt der Anteil beim
+            Provider. Wer über deinen Link kommt,
+            entscheidet bei der
             Einrichtung selbst, ob er dich öffentlich als Werber nennt; ohne seine Zustimmung zählt er nicht.
-            <br><span class="mono-sm">Bezahlt aus der Protokollgebühr. Für das Anwerben allein gibt es nichts.</span>
+            Das gilt für die Statistik unten – deinen Anteil zahlt seine App auch ohne Nennung.
+            <br><span class="mono-sm">Für das Anwerben allein gibt es nichts.</span>
           </p>
           <div class="referral-box">
             <input id="referral-link" readonly class="mono-sm" value="" />
@@ -642,18 +646,21 @@
             <div class="subpane" data-subpane="settings:fees"><h2 class="settings-h">Gebühren</h2><div class="card">
           <h3><span class="ic" data-icon="info"></span> Aufteilung</h3>
           <p class="mono-sm">
-            Das <strong>Protokoll</strong> nimmt 2,5 %: 2,0 % für den Reward-Pool, 0,5 % für Werber.
+            Jede KI-Zahlung ist fest aufgeteilt: <strong>94 %</strong> Provider, 2,5 % Entwicklung, 1,5 % Relays,
+            je 0,5 % für deinen Werber und den des Providers, 1 % Hosting. Kein Topf: Die App zahlt jeden Anteil
+            selbst an seinen Empfänger – der Provider stellt nur seinen in Rechnung.
           </p>
-          <p class="mono-sm">
-            Diese <strong>App</strong> nimmt zusätzlich eine eigene Gebühr. Du kannst sie hier ändern oder auf 0 setzen.
+          <p class="mono-sm muted">
+            Fehlt ein Empfänger mit Lightning-Adresse, bekommt den Anteil der Provider – nie die Entwicklung.
+            Heute gehen die weiteren Anteile an die Werber beider Seiten, wenn die App sie kennt (Angebot des
+            Providers, dein Werbelink), und an bis zu drei Relays deines Pools, deren Betreiber per Selbstauskunft
+            (NIP-11) und Profil eine Lightning-Adresse nennt. Die Entwicklung hat noch keine eigene Adresse, Hosting folgt. Anteile unter 100 sats je Empfänger
+            sammelt die App; bis dahin bleibt das Geld bei dir. SOL-Aufträge gehen ganz an den Provider, bis der
+            Zahlkanal aufteilt. Ändern lässt sich die Aufteilung nur mit einem signierten Release. Beim Holen einer
+            Rechnung sieht der Server hinter der Lightning-Adresse deine IP-Adresse und den Betrag – wie bei jedem Zap.
           </p>
-          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-            <label class="mono-sm">App-Gebühr
-              <input id="clientfee-percent" type="number" min="0" max="10" step="0.5"
-                     style="width:80px" class="mono-sm" /> %</label>
-            <button id="clientfee-save" class="ghost" style="width:auto;padding:6px 10px">speichern</button>
-          </div>
-          <div id="clientfee-status" class="mono-sm"></div>
+          <div id="anteile-stand" class="mono-sm"></div>
+          <button id="anteile-zahlen" class="ghost" style="width:auto;padding:6px 10px" type="button">Fällige jetzt zahlen</button>
         </div><div class="card">
           <h3><span class="ic" data-icon="info"></span> Zahlen</h3>
           <label class="mono-sm" style="display:block;margin:8px 0">Standard-Schiene

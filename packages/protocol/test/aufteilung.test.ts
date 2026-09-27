@@ -7,7 +7,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  ANTEILE, ANTEILE_PPM, MAX_ANTEILE_PPM, PROVIDER_PPM, adresseFuer, aufteilungTag, providerAnteilMsat,
+  ANTEILE, ANTEILE_PPM, ENTWICKLUNG, MAX_ANTEILE_PPM, PROVIDER_PPM, adresseFuer, aufteilungTag, providerAnteilMsat,
   pruefeAufteilung, teileAuf, zahlbareAnteile, type Empfaenger,
 } from "../src/aufteilung.js";
 
@@ -96,4 +96,16 @@ test("Deklaration abgelehnt: unbekannt, doppelt, mehrfach, Werber des Providers 
   assert.match(nein([["aufteilung", "hosting"], ["aufteilung", "relays"]]), /mehrfach/);
   assert.match(nein([["aufteilung", "werber-provider"]]), /Werber des Providers/);
   assert.ok(pruefeAufteilung([["aufteilung", ...ANTEILE]], { hatWerber: true }).ok, "alle fünf: 6 % ≤ 10 %");
+});
+
+test("5.1.3: Entwicklung ohne eigene Adresse – ihr Anteil bleibt beim Provider, nie bei einem Verwahrer", () => {
+  assert.ok(Object.isFrozen(ENTWICKLUNG), "ändern nur mit signiertem Release");
+  // Solange der MENSCH keine selbstverwahrte Adresse nennt, ist der Anteil nicht zuordenbar
+  const adressen = [adresseFuer(ENTWICKLUNG, "lightning"), adresseFuer(ENTWICKLUNG, "solana")].filter(Boolean);
+  for (const a of adressen) assert.doesNotMatch(a!, /walletofsatoshi|getalby|strike|wos\./i, "keine Verwahrer-Adresse");
+  if (adressen.length === 0) {
+    const r = teileAuf(1_000_000, { entwicklung: ENTWICKLUNG }, "lightning");
+    assert.deepEqual(r, { providerMsat: 1_000_000, posten: [] });
+    assert.deepEqual(zahlbareAnteile({ entwicklung: ENTWICKLUNG }, "lightning"), []);
+  }
 });

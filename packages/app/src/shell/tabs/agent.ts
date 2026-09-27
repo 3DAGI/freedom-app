@@ -5,25 +5,18 @@
  * Aus app.ts verschoben (Schritt 1.0) – wörtlich, ohne Logikänderung.
  */
 import {
-  type ClientFee,
-  DEFAULT_CLIENT_FEE_PERCENT,
   KIND_DVM_TEXT_GENERATION,
   KIND_GIFT_WRAP,
-  MAX_CLIENT_FEE_PERCENT,
-  PROTOCOL_FEE_PPM,
-  PROTOCOL_POOL_SHARE_PERCENT,
   type NostrEvent,
   buildEvent,
   buildJobRequest,
   buildPrivateJobRequest,
-  clientFeePpm,
-  clientFeeTag,
-  computeFeeSplit,
+  PROVIDER_PPM,
   parseJobResult,
 } from "@freedomstack/protocol";
 import { t } from "../../i18n.js";
 import { icon } from "../../icons.js";
-import { DEFAULT_MAX_MODE, ScoredProvider, matchRaceProviders, maxModeSplit } from "../../matchmaking.js";
+import { DEFAULT_MAX_MODE, ScoredProvider, matchRaceProviders } from "../../matchmaking.js";
 import { type AntwortCache, oeffneAntworten } from "../../ki-antworten.js";
 import { kontextPraefix } from "../../ki-kontext.js";
 import { SessionClient } from "../../session-client.js";
@@ -39,11 +32,12 @@ import {
   kiSitzungen,
   powJeProvider,
   signiere,
-  solTransaktion,
   state,
 } from "../state.js";
 import { aktualisiereKurs, aktuellerKurs } from "../marktkurs.js";
 import { geheim } from "../tresor.js";
+import { deklaration, empfaengerFuer, merkeAnfrage, providerZahlung, rechneAntwortAb, zahleAnteile } from "../ki-zahlung.js";
+import { hoechstMsat } from "../../anteile-kasse.js";
 import {
   $,
   activateCodeBlocks,
@@ -294,20 +288,13 @@ function aktualisiereAgentPanel(
 
 export function updateFeePreview(): void {
   const bid = Number(($("#ai-bid") as HTMLInputElement).value);
-  const split = computeFeeSplit(bid * 1000, {
-    totalFeePpm: PROTOCOL_FEE_PPM,
-    poolSharePercent: PROTOCOL_POOL_SHARE_PERCENT,
-  });
-  const p = Math.floor(split.recipientMsat / 1000);
-  const pool = Math.floor(split.poolMsat / 1000);
-  const proto = Math.floor(split.protocolMsat / 1000);
-  const rest = bid - p - pool - proto;
-  // Ehrlich anzeigen: bei kleinen Betraegen rundet 1% auf 0 sats ab.
-  // Den Rundungsrest zeigen, damit die Summe immer stimmt (kein "verschwundener sat").
+  // Aufteilung A+ (5.1.3): mindestens 94 % an den Provider, hoechstens 6 % an
+  // weitere Empfaenger – welche es gibt, zeigt erst der Auftrag (Angebot,
+  // Werbelink, Relays); ohne Empfaenger bekommt den Anteil der Provider.
+  const msat = Number.isFinite(bid) && bid > 0 ? Math.floor(bid * 1000) : 0;
+  const providerMin = Math.floor((msat * PROVIDER_PPM) / 1_000_000);
   $("#ai-fee-preview").textContent =
-    rest > 0
-      ? `${ausMsat(bid * 1000, aktuellerKurs())} → provider ${p} / pool ${pool} / protokoll ${proto} (+${rest} rundung)`
-      : `${ausMsat(bid * 1000, aktuellerKurs())} → provider ${p} / pool ${pool} / protokoll ${proto}`;
+    `${ausMsat(msat, aktuellerKurs())} → provider mind. ${Math.floor(providerMin / 1000)} / anteile höchstens ${Math.ceil((msat - providerMin) / 1000)}`;
   updateTokenEstimate();
 }
 
@@ -602,8 +589,8 @@ async function askRace(prompt: string, bid: number, tier: "free" | "classic" | "
     showAiError(new Error("kein provider im tier 'max' erreichbar"), prompt, bid, tier, { max: true });
     return;
   }
-  const split = maxModeSplit(bid * 1000);
-  toast(`max mode: ${racers.length} provider racen — gewinner ${Math.floor(split.winnerMsat / 1000)} sats, je verlierer ${Math.floor(split.loserMsatEach / 1000)}`);
+  // Bezahlt wird nur die Antwort, die die App annimmt (5.1.3) – die übrigen nicht
+  toast(`max mode: ${racers.length} provider racen — bezahlt wird die schnellste antwort`);
 
   // Job an ALLE racer gleichzeitig (race-tag im versiegelten Kern, je ein Umschlag)
   const jobs = await Promise.all(racers.map((r) => buildJobEvent(prompt, bid, tier, r.caps.pubkey, sc, [["race", "1"]])));
@@ -724,15 +711,11 @@ async function buildJobEvent(
   // Extra-Tags: Anhang (multimodal) + angeforderte Tools + gewuenschtes Modell
   const extraTags: string[][] = [];
 
-  // CLIENT-GEBUEHR — offen deklariert, nicht im Protokoll versteckt.
-  //
-  // Der Entwickler-Anteil lag frueher im Protokoll: Jeder Provider fuehrte an
-  // eine feste Adresse ab, die er nicht aendern konnte. Damit gab es einen
-  // Betreiber, egal was die README sagte. Jetzt deklariert dieser Client seine
-  // Gebuehr selbst — sichtbar, gedeckelt, und von einem Fork entfernbar. Genau
-  // diese Entfernbarkeit ist der Beweis, dass niemand das Protokoll kontrolliert.
-  const clientFee = aktiveClientGebuehr();
-  if (clientFee) extraTags.push(clientFeeTag(clientFee));
+  // Gebuehrenmodell A+ (5.1.3): welche Anteile die App selbst zahlt – im Kern,
+  // also versiegelt; der Provider stellt nur den Rest in Rechnung. Die
+  // App-Gebuehr gibt es nicht mehr, sie geht im Anteil der Entwicklung auf.
+  const empfaenger = await empfaengerFuer(targetPubkey);
+  extraTags.push(...deklaration(empfaenger));
   if (attachment) {
     extraTags.push(["attach", attachment.type, attachment.name, attachment.dataUrl.slice(0, 2000)]);
   }
@@ -762,33 +745,12 @@ async function buildJobEvent(
         params: [["tier", tier]],
         extraTags: [...extraTags, ...zusatzTags],
       });
-  return buildPrivateJobRequest({
+  const auftrag = await buildPrivateJobRequest({
     request, sessionSigner: sitzung, providerPk: targetPubkey, powBits: powJeProvider.get(targetPubkey) ?? 0,
   });
+  merkeAnfrage(auftrag.requestId, empfaenger, hoechstMsat(bid, selectedTools));
+  return auftrag;
 }
-
-/**
- * Die Gebuehr dieses Clients.
- *
- * Der Nutzer kann sie in den Einstellungen auf 0 setzen. Das ist kein Fehler
- * im Design, sondern der Punkt: Eine Gebuehr, die man nicht abschalten kann,
- * ist eine Steuer — und wer eine Steuer erhebt, ist ein Betreiber.
- */
-function aktiveClientGebuehr(): ClientFee | null {
-  const gespeichert = localStorage.getItem("freedom.clientfee.percent");
-  const percent = gespeichert !== null ? Number(gespeichert) : DEFAULT_CLIENT_FEE_PERCENT;
-  if (!Number.isFinite(percent) || percent <= 0) return null;
-  return {
-    recipient: CLIENT_FEE_RECIPIENT,
-    ppm: clientFeePpm(Math.min(percent, MAX_CLIENT_FEE_PERCENT)),
-    clientName: "FreedomStack App",
-  };
-}
-
-/** Empfaenger der Client-Gebuehr dieser App. */
-const CLIENT_FEE_RECIPIENT =
-  (window as unknown as { FREEDOM_CLIENT_FEE_LUD16?: string }).FREEDOM_CLIENT_FEE_LUD16
-  ?? "freedomstack@walletofsatoshi.com";
 
 /** Abbruch-Signal für den laufenden AI-Job (Stop-Button). */
 let jobAbort: AbortController | null = null;
@@ -885,10 +847,13 @@ async function handleAnswer(ev: import("@freedomstack/protocol").NostrEvent, r: 
   const model = r.usage?.model ?? lastProviderModel ?? undefined;
   // DEBUG: zeige die provider-pubkey, damit wir wissen WER antwortet
   const who = model ? `${model} · ${r.providerPubkey.slice(0, 12)}…` : `provider ${r.providerPubkey.slice(0, 12)}…`;
+  // Abrechnung nach A+ (5.1.3) mit den beim Senden deklarierten Empfaengern –
+  // hoechstens das Gebot; die uebrigen Anteile gehen in die Kasse.
+  const abrechnung = await rechneAntwortAb(r.requestId, r.amountMsat);
   // Streaming-Anzeige: buchstabenweise statt ganzer block
   addAiMessageStreaming("ai", r.output, "", who, () => {
     // Frage und Antwort nur im Speicher – fuer den Pruefer, wenn der Nutzer reklamiert und zustimmt (5.6).
-    addUsageBubble(r.usage ?? {}, r.amountMsat, r.providerPubkey, ev.id, frage !== undefined ? { frage, antwort: r.output } : undefined);
+    addUsageBubble(r.usage ?? {}, r.amountMsat, r.providerPubkey, ev.id, frage !== undefined ? { frage, antwort: r.output } : undefined, abrechnung);
     // KEIN Zap-Button unter jeder Antwort — das wuerde die UX kaputt machen.
     // Zaps sind nur fuer besondere Antworten (manuell vom Nutzer gewaehlt).
   });
@@ -923,18 +888,25 @@ async function handleAnswer(ev: import("@freedomstack/protocol").NostrEvent, r: 
   if (r.solanaAddress) state.lastProviderSolAddress = r.solanaAddress;
   if (r.usage?.model) lastProviderModel = r.usage.model;
   const sc = ensureSessionClient();
-  const charge = await sc.chargeForResult(r.providerPubkey, r.amountMsat, ev.id);
+  // Den Anteil des Providers zahlt die Sitzung an seine Lightning-Adresse (5.1.3)
+  const { zahlung, grund } = await providerZahlung(r.providerPubkey);
+  const charge = await sc.chargeForResult(r.providerPubkey, abrechnung.providerMsat, ev.id, zahlung);
   updateBudgetBar();
-  if (r.amountMsat === 0) {
-    // Gratis-Job (free-tier/bootstrap) — kein settlement nötig
+  if (abrechnung.gekappt) toast(`Provider verlangte ${Math.ceil(r.amountMsat / 1000)} sats – mehr als dein Gebot; die App zahlt höchstens das Gebot`, true);
+  if (abrechnung.providerMsat === 0) {
+    // Gratis-Job (free-tier/bootstrap) — nichts zu zahlen
   } else if (charge.settled) {
-    toast(`settled: ${Math.floor(r.amountMsat / 1000)} sats via keysend`);
+    toast(`bezahlt: ${Math.floor((charge.gezahltMsat ?? 0) / 1000)} sats an den Provider`);
+  } else if (charge.unklar) {
+    toast("Zahlung an den Provider unklar – sieh in deiner Wallet nach. In dieser Sitzung zahlt die App nicht noch einmal.", true);
   } else {
-    // Beleg-only: Schuld dokumentiert, Zahlung gebündelt sobald wallet verbunden
-    const due = Math.floor(charge.remainingMsat / 1000);
-    toast(`beleg gespeichert — zahlung gebündelt später (wallet optional)`);
-    console.log(`[session] unsettled debt: ${due} sats remaining`);
+    // Beleg-only: Schuld dokumentiert und versiegelt beim Provider
+    toast(zahlung ? `Beleg gespeichert – gezahlt wird gesammelt ab ${Math.floor(charge.faelligAbMsat / 1000)} sats` : `Beleg gespeichert, nicht bezahlt: ${grund}`);
   }
+  // Gesammelte Anteile zahlen, wo 100 sats je Empfaenger erreicht sind
+  void zahleAnteile().then((a) => {
+    if (a.unklarMsat > 0) toast("Eine gesammelte Zahlung ist unklar – in den Settings unter Gebühren prüfen.", true);
+  }).catch(() => { /* beim naechsten Mal */ });
   void refreshQuota();
   resetSendBtn($("#ai-send") as HTMLButtonElement);
 }
@@ -1133,7 +1105,8 @@ function addUsageBubble(usage: {
   completionTokens?: number;
   toolCalls?: Array<{ name: string; kind: number; costMsat: number }>;
   sessionTotalMsat?: number;
-}, amountMsat: number, providerPk: string, resultEventId?: string, frageAntwort?: { frage: string; antwort: string }): void {
+}, amountMsat: number, providerPk: string, resultEventId?: string, frageAntwort?: { frage: string; antwort: string },
+abrechnung?: { providerMsat: number; posten: Array<{ anteil: string; msat: number }> }): void {
   const el = document.createElement("div");
   el.className = "usage-bubble";
   aktualisiereAgentPanel(usage.toolCalls ?? [], usage.sessionTotalMsat);
@@ -1172,20 +1145,14 @@ function addUsageBubble(usage: {
       ${usage.sessionTotalMsat !== undefined
         ? `<div class="usage-row total"><span>Sitzung gesamt</span><span>${Math.floor(usage.sessionTotalMsat / 1000)} sat</span></div>`
         : ""}
+      ${abrechnung && abrechnung.providerMsat > 0 ? aufteilungZeilen(abrechnung, zeile) : ""}
       ${amountMsat > 0 ? `<div class="usage-actions">
-        <button class="ghost verify-fee" type="button">Zahlung prüfen</button>
-        <button class="ghost file-dispute" type="button">Reklamieren</button></div>
-      <div class="fee-verdict mono-sm"></div>` : ""}
+        <button class="ghost file-dispute" type="button">Reklamieren</button></div>` : ""}
     </div>`;
-  // Der Fee-Beweis war gebaut, aber unsichtbar. Er ist das einzige Merkmal,
-  // das ein zentraler Anbieter prinzipiell nicht bieten kann — und lag brach.
   const toggle = el.querySelector<HTMLElement>(".usage-toggle");
   toggle?.addEventListener("click", () => {
     const offen = el.querySelector(".usage-body")?.classList.contains("hidden") === false;
     toggle.setAttribute("aria-expanded", String(offen));
-  });
-  el.querySelector(".verify-fee")?.addEventListener("click", () => {
-    void pruefeZahlung(el, resultEventId, amountMsat);
   });
   el.querySelector(".file-dispute")?.addEventListener("click", () => {
     void reklamiere(resultEventId, providerPk, amountMsat, frageAntwort);
@@ -1201,69 +1168,23 @@ function addUsageBubble(usage: {
   stickToBottom(() => el.scrollIntoView({ behavior: "smooth", block: "end" }));
 }
 
+const ANTEIL_NAME: Record<string, string> = {
+  entwicklung: "Entwicklung", relays: "Relay", "werber-kunde": "Dein Werber", "werber-provider": "Werber des Providers", hosting: "Hosting",
+};
+
+/** sats mit bis zu drei Nachkommastellen – Anteile sind oft Bruchteile. */
+const satText = (msat: number): string => `${(msat / 1000).toLocaleString("de-DE", { maximumFractionDigits: 3 })} sat`;
+
 /**
- * Prueft den Fee-Beweis zu einer Antwort.
- *
- * Zeigt, wohin das Geld gegangen ist — und was davon BELEGT ist. Der
- * Unterschied ist wichtig: Lightning hat kein oeffentliches Ledger, ohne
- * Preimage ist eine Zahlung angekuendigt, nicht bewiesen. Ein Knopf, der
- * "alles in Ordnung" sagt, obwohl er es nicht wissen kann, waere schlimmer
- * als gar keiner.
+ * Wohin diese Antwort geht (A+, 5.1.3): der Anteil des Providers, dann jeder
+ * weitere Anteil – gesammelt bis 100 sats je Empfaenger. Ohne Empfaenger
+ * bleibt ein Anteil beim Provider. Seit 5.1.2 gibt es keinen Fee-Beweis des
+ * Knotens mehr; die App zahlt selbst.
  */
-async function pruefeZahlung(
-  bubble: HTMLElement,
-  resultEventId: string | undefined,
-  amountMsat: number,
-): Promise<void> {
-  const out = bubble.querySelector(".fee-verdict") as HTMLElement | null;
-  if (!out) return;
-  if (!resultEventId) {
-    out.textContent = "Kein Bezug zur Antwort — nicht prüfbar.";
-    return;
-  }
-
-  out.textContent = "suche Beleg …";
-  try {
-    const { verifyFeeProofMitKette, KIND_FEE_PROOF, clientFeePpm } = await import("@freedomstack/protocol");
-    const pool = await ensurePool();
-    const evs = await pool.query({ kinds: [KIND_FEE_PROOF], "#e": [resultEventId], limit: 5 });
-
-    if (evs.length === 0) {
-      out.innerHTML =
-        `<span class="warn">Noch kein Beleg veröffentlicht.</span><br>` +
-        `<span class="muted">Provider veröffentlichen ihn nach der Abrechnung. ` +
-        `Fehlt er dauerhaft, hat der Provider die Fee nicht abgeführt.</span>`;
-      return;
-    }
-
-    // Die Client-Gebuehr folgt nicht aus dem Protokoll — sie stand in unserem
-    // eigenen Job-Event, also kennen wir sie.
-    const fee = aktiveClientGebuehr();
-    // Seit 4.8: Lightning-Teile mit Rechnung und Empfaengerknoten, Solana-Teile gegen die Kette.
-    out.textContent = "prüfe Beleg …";
-    const v = await verifyFeeProofMitKette(evs[0], {
-      clientFeeMsat: fee ? Math.floor((amountMsat * fee.ppm) / 1_000_000) : 0,
-    }, solTransaktion);
-    void clientFeePpm;
-
-    const zeilen = v.legs.map((l) => {
-      const farbe = l.status === "settled" ? "ok" : l.status === "invalid" ? "err" : "warn";
-      const marke = l.status === "settled" ? "belegt" : l.status === "invalid" ? "FEHLER" : "angekündigt";
-      return `<div class="usage-row"><span>${escapeHtml(l.leg)}</span>` +
-        `<span class="${farbe}">${(l.amountMsat / 1000).toFixed(2)} sats · ${marke}</span></div>` +
-        `<div class="muted mono-sm">${escapeHtml(l.detail)}</div>`;
-    }).join("");
-
-    out.innerHTML =
-      `<span class="${v.ok ? "ok" : "err"}">${escapeHtml(v.summary)}</span>${zeilen}` +
-      (v.legs.some((l) => l.status === "announced")
-        ? `<div class="muted" style="margin-top:4px">„Angekündigt“ heißt: rechnerisch korrekt, aber nicht belegt, ` +
-          `dass das Geld beim angekündigten Empfänger ankam – bei Lightning fehlt dafür eine Rechnung von seinem Knoten ` +
-          `(Lightning-Adressen liegen oft bei Verwahrdiensten), bei Solana der Nachweis auf der Kette.</div>`
-        : "");
-  } catch (e) {
-    out.textContent = `Prüfung fehlgeschlagen: ${(e as Error).message}`;
-  }
+function aufteilungZeilen(a: { providerMsat: number; posten: Array<{ anteil: string; msat: number }> }, zeile: (k: string, v: string) => string): string {
+  const weitere = a.posten.map((p) => zeile(ANTEIL_NAME[p.anteil] ?? p.anteil, `${satText(p.msat)} · gesammelt`)).join("");
+  return zeile("An den Provider", satText(a.providerMsat)) +
+    (weitere || zeile("Weitere Anteile", "kein Empfänger – beim Provider"));
 }
 
 /** Thinking-Orb (wie orbs.jakubantalik.com): animierte Kugel statt Text.

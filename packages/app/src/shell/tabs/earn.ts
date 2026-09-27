@@ -11,6 +11,7 @@ import { escapeHtml, pkShort } from "../../shell-logic.js";
 import { ensurePool, signiere, state } from "../state.js";
 import { geheim } from "../tresor.js";
 import { $, timeAgo, toast } from "../ui.js";
+import { merkeWerber, werbeLink } from "../../werbung.js";
 
 /** Mitwirkende am Projekt anzeigen. */
 export async function zeigeMitwirkende(): Promise<void> {
@@ -379,11 +380,16 @@ export function updateReferralLink(): void {
   const stats = $("#referral-stats");
   if (!link || !state.keypair) return;
   const pub = state.keypair.pk;
-  // Origin-basiert (funktioniert auf jeder Domain — nicht nur localhost):
-  const url = new URL(window.location.origin + window.location.pathname);
-  url.searchParams.set("ref", pub);
-  link.value = url.toString();
-  if (stats) stats.textContent = `dein Code: ${pkShort(pub)}`;
+  // Origin-basiert (funktioniert auf jeder Domain — nicht nur localhost); mit
+  // der Lightning-Adresse aus dem Profil, damit der Anteil ankommt (5.1.3b)
+  let lud16: string | undefined;
+  try { lud16 = (JSON.parse(localStorage.getItem("freedom.profile") ?? "{}") as { lud16?: string }).lud16; } catch { /* kein Profil */ }
+  link.value = werbeLink(window.location.origin + window.location.pathname, pub, lud16);
+  if (stats) {
+    stats.textContent = new URL(link.value).searchParams.has("ln")
+      ? `dein Code: ${pkShort(pub)} – mit deiner Lightning-Adresse`
+      : `dein Code: ${pkShort(pub)} – ohne Lightning-Adresse im Profil kommt dein Anteil nicht an`;
+  }
   void renderReferralTier();
 }
 
@@ -423,17 +429,13 @@ async function renderReferralTier(): Promise<void> {
   }
 }
 
-/** Referral aus URL lesen (?ref=pubkey) und speichern. */
+/**
+ * Werber aus dem Link lesen (?ref=pubkey&ln=lud16) und merken – nie
+ * ueberschreiben, damit ein spaeter geoeffneter fremder Link den
+ * urspruenglichen Werber nicht still verdraengt (werbung.ts).
+ */
 export function captureReferral(): void {
-  const ref = new URLSearchParams(window.location.search).get("ref");
-  if (ref && /^[0-9a-f]{64}$/.test(ref)) {
-    // Nicht ueberschreiben: Es zaehlt ohnehin die frueheste Angabe im Netz.
-    // Lokal dasselbe Verhalten, damit ein spaeter geoeffneter fremder Link
-    // den urspruenglichen Werber nicht still verdraengt.
-    if (!localStorage.getItem("freedom.referrer")) {
-      localStorage.setItem("freedom.referrer", ref);
-    }
-  }
+  merkeWerber(window.location.search, localStorage);
 }
 
 /**

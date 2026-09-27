@@ -42,7 +42,16 @@
   - **5.1.3 App:** zahlt die Anteile direkt über die Schienen, unter 100 sats je
     Empfänger gebündelt (bleibt bis dahin beim Kunden); Werbelink trägt die
     Zahladressen des Werbers; Relays mit Zahladresse (NIP-11 → Profil); die
-    App-Gebühr (`client-fee.ts`) geht im Entwicklungsanteil auf.
+    App-Gebühr (`client-fee.ts`) geht im Entwicklungsanteil auf. Aufgeteilt:
+    - **5.1.3a – FERTIG:** Zahlung im echten Pfad (`shell/ki-zahlung.ts`):
+      Provider-Anteil an die Lightning-Adresse aus dem Angebot, übrige Anteile
+      über die Kasse (`anteile-kasse.ts`), Deklaration im Kern, höchstens das
+      Gebot, erst Rechnung dann Geld, unklar nie wiederholt; App-Gebühr
+      entfernt, Entwicklung ohne Adresse bis MENSCH (`ENTWICKLUNG`); Texte.
+    - **5.1.3b – FERTIG:** Werber des Kunden (Werbelink `?ref=<pk>&ln=<lud16>`,
+      gemerkt ohne öffentliche Nennung, `werbung.ts`) und Relays des Pools, über
+      die der Auftrag geht (NIP-11 `pubkey` → Profil `lud16`, höchstens drei,
+      `relay-zahlziel.ts`).
   - **5.1.4 Aufräumen:** `protocol-fee.ts` (Pool/Werbe-Pool), `referral-graph.ts`,
     `treasury*.ts`, `reward-claim.ts`, `rewards.ts`, Bonuslogik in
     `scarcity.ts`; Werben-Tab → „Einladen“; Texte in App und Website. Abnahme
