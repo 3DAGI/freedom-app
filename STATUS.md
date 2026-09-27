@@ -7980,3 +7980,61 @@ Seiten ok · Smoke-Test bestanden (inkl. „sprache“ mit Sicherungsdialog,
 „tresor“, „notfall“) · im Browser: Sicherungsdialog, Einrichtung und
 Onboarding-Leiste in Deutsch und Englisch, nach einem Sprachwechsel folgt die
 Leiste, ohne Seitenfehler.
+
+## Schritt 8.16g2a – Übersetzungen: übrige Bausteine, Zählung streng
+
+**Fertig:** Die letzten 13 Dateien mit rohem Text stehen auf 0, neuer Bereich
+`texte/bausteine.ts` (`bau.*`, 56 Schlüssel). Das sind:
+- lokale Werkzeuge (`local-tools.ts`);
+- Mesh (`mesh-radio.ts`, `mesh-transfer.ts`): Wege zum Gerät, Namen der
+  Transporte, Warteschlange, Protokollzeilen;
+- MLS (`mls-engine.ts` samt Selbsttest, `mls-keypackage.ts`,
+  `mls-speicher.ts`, `mls-nostr.ts`, `shell/mls-konto.ts`);
+- private Räume (`shell/raum-mls.ts`);
+- die eigenen Hinweise im Datenschutzbericht (`shell/datenschutz.ts`);
+- die Shims.
+
+**Damit ist die Zählung streng:** kein roher Text in `index.html` und in
+keiner Datei des Codes. Die Tabelle der offenen Stellen
+(`test/i18n-offen.ts`) ist gelöscht.
+
+**Einzelheiten:**
+- **Kennungen bleiben Daten:**
+  - `mlsLadeEin()` gibt weiter „kein Admin“, „kein KeyPackage“, „nicht
+    zugestellt“ zurück (Typ `EinladungsErgebnis`). `ladeInPrivatenRaum()`
+    meldet „ohne Raumstand“ statt eines deutschen Satzes.
+  - Angezeigt wird über `einladungsText()`. Eine Fehlermeldung, die keine
+    Kennung ist, bleibt, wie sie ist.
+- **Selbsttest der MLS-Engine:** Er erkannte fehlende Browser-Fähigkeiten an
+  `startsWith("Dieser Browser")` – auf Englisch wäre das still falsch
+  gewesen. Jetzt gibt es eine eigene Fehlerart `BrowserKannNicht`.
+- **Daten mit `// kein UI-Text`:**
+  - Kanal- und Rollennamen privater Räume (wie bei offenen Räumen seit
+    8.16c);
+  - Anweisung an das Modell und der Werkzeug-Kontext (`local-tools.ts`);
+  - die Kennung „Ignored“ der Engine;
+  - Name und Probe des Selbsttests.
+- **Shims:** Ihre Meldungen sind Programmierfehler, die im Browser nie
+  auftreten. Sie tragen `// kein UI-Text`.
+- **Sprachwechsel:** Der Hinweis zum Weg ans Funkgerät (Settings → Mesh) stand
+  nur einmal beim Start da. Jetzt setzt ihn `zeigeMeshWeg()` beim Öffnen der
+  Settings neu.
+- **Noch unverändert (8.16g2b):** Sätze und Gründe des Protokolls.
+  - Datenschutzbericht: `privacyReport()`, `privacyFactsText()`,
+    `datenschutzKurz()`.
+  - Mesh: `planSync().note`, `pruefeMeshInhalt().grund`.
+  - Prüfungen und die Sätze in Settings, wie in 8.16g1 aufgezählt.
+
+**Tests:**
+- `i18n.test.ts`:
+  - die beiden Zähltests sind streng (überall 0, keine Tabelle); die
+    Schritt-Tests prüfen je Datei direkt `rohtexteImCode(…) = 0`;
+  - +1 für 8.16g2a: Einladungstext (Kennung → Anzeige, Fehlermeldung
+    bleibt), `BrowserKannNicht` statt Textvergleich, Transport-Hinweise
+    (auch beim Öffnen der Settings), Werkzeug-Gründe und Selbsttest auf
+    Englisch.
+- Deutsch gesetzt (`setLang("de")`), weil sie Meldungen wörtlich prüfen:
+  `local-tools`, `mls-engine`, `mls-keypackage`, `mls-konto`.
+- Ältere Tests suchen die neue Stelle (nicht schwächer):
+  - `local-tools`: „verfügbar“ mit Umlaut;
+  - `mls-verdrahtung`: `return t("bau.mlsTresor")`.

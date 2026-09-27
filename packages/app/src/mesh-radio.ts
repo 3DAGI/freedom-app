@@ -30,6 +30,7 @@ import {
   MeshKind, MeshPriority, meshFeasibility, LORA_MTU, pruefeMeshInhalt, Sendezeitkonto,
   BESTAND_MARKE, buildDigest, planSync, type SyncDigest, type Link, type NostrEvent,
 } from "@freedomstack/protocol";
+import { t } from "./i18n.js";
 
 export type TransportKind = "seriell" | "bluetooth" | "datei";
 
@@ -63,21 +64,18 @@ export function detectTransports(override?: Record<string, unknown>): TransportA
   if (serial) {
     return {
       serial, bluetooth, recommendation: "seriell",
-      note: "USB-Gerät anschließen und verbinden — der zuverlässigste Weg.",
+      note: t("bau.wegSeriell"),
     };
   }
   if (bluetooth) {
     return {
       serial, bluetooth, recommendation: "bluetooth",
-      note: "Funkgerät per Bluetooth koppeln.",
+      note: t("bau.wegBluetooth"),
     };
   }
   return {
     serial, bluetooth, recommendation: "datei",
-    note:
-      "Dieser Browser kann keine Geräte ansprechen (auf iOS die Regel). " +
-      "Nachrichten lassen sich als Datei exportieren und per Stick, Kamera " +
-      "oder anderem Weg übergeben.",
+    note: t("bau.wegDatei"),
   };
 }
 
@@ -86,7 +84,7 @@ export async function connectSerial(baudRate = 115200): Promise<MeshTransport> {
   const nav = navigator as unknown as {
     serial?: { requestPort(): Promise<SerialPortLike> };
   };
-  if (!nav.serial) throw new Error("Dieser Browser unterstützt keine serielle Verbindung.");
+  if (!nav.serial) throw new Error(t("bau.keinSeriell"));
 
   const port = await nav.serial.requestPort();
   await port.open({ baudRate });
@@ -94,13 +92,13 @@ export async function connectSerial(baudRate = 115200): Promise<MeshTransport> {
 
   return {
     kind: "seriell",
-    name: "USB-Funkgerät",
+    name: t("bau.usbFunk"),
     async send(frame: Uint8Array) {
       if (frame.length > LORA_MTU) {
         // Sollte nie vorkommen — fragment() hält die Grenze ein. Wenn doch,
         // ist ein zu grosser Rahmen schlimmer als ein Fehler: Das Geraet
         // verwirft ihn still, und die Nachricht fehlt ohne Hinweis.
-        throw new Error(`Rahmen zu groß für Funk: ${frame.length} > ${LORA_MTU} Byte`);
+        throw new Error(t("bau.rahmenZuGross", { n: frame.length, max: LORA_MTU }));
       }
       await writer.write(frame);
     },
@@ -138,10 +136,7 @@ export async function connectBluetooth(
     bluetooth?: { requestDevice(o: unknown): Promise<BluetoothDeviceLike> };
   };
   if (!nav.bluetooth) {
-    throw new Error(
-      "Dieser Browser kann kein Bluetooth. Auf iOS ist das die Regel — " +
-      "nimm den Datei-Weg.",
-    );
+    throw new Error(t("bau.keinBluetooth"));
   }
 
   const device = await nav.bluetooth.requestDevice({
@@ -164,7 +159,7 @@ export async function connectBluetooth(
 
   return {
     kind: "bluetooth",
-    name: device.name ?? "Bluetooth-Geraet",
+    name: device.name ?? t("bau.bluetoothGeraet"),
     async send(frame: Uint8Array) {
       // In BLE-Haeppchen zerlegen. Ein zu grosser Schreibvorgang wird still
       // verworfen — und die Nachricht fehlt ohne Hinweis.
@@ -216,7 +211,7 @@ export function fileTransport(onBundle: (data: Uint8Array, count: number) => voi
   const gesammelt: Uint8Array[] = [];
   return {
     kind: "datei",
-    name: "Datei / QR",
+    name: t("bau.dateiQr"),
     async send(frame: Uint8Array) {
       gesammelt.push(frame);
     },
@@ -351,7 +346,7 @@ export class MeshNode {
     paket[0] = BESTAND_MARKE;
     new DataView(paket.buffer).setUint32(1, d.count, false);
     paket.set(d.bits, 5);
-    this.enqueue(paket, MeshKind.NostrEvent, MeshPriority.Nachricht, "Bestand");
+    this.enqueue(paket, MeshKind.NostrEvent, MeshPriority.Nachricht, t("bau.bestand"));
   }
 
   /**
@@ -379,11 +374,11 @@ export class MeshNode {
           new TextEncoder().encode(JSON.stringify(ev)),
           MeshKind.NostrEvent,
           MeshPriority.Hintergrund,
-          `Abgleich ${ev.kind}`,
+          t("bau.abgleich", { kind: ev.kind }),
         );
       } catch (e) {
         // z. B. die eigene Kopie einer DM: traegt den eigenen Schluessel
-        this.events.onLog?.(`nicht gesendet: ${(e as Error).message}`);
+        this.events.onLog?.(t("bau.nichtGesendet", { fehler: (e as Error).message }));
       }
     }
   }
@@ -446,7 +441,7 @@ export class MeshNode {
     this.meldeFortschritt();
 
     if (st.complete && st.payload) {
-      this.events.onLog?.(`empfangen: ${st.total} Pakete, ${st.payload.length} Byte`);
+      this.events.onLog?.(t("bau.empfangen", { n: st.total, bytes: st.payload.length }));
       // Nur Verschluesseltes weitergeben – Klartext, offene Events, Ecash nie (7.1).
       const pruefung = pruefeMeshInhalt(st.payload, st.kind);
       if (!pruefung.ok) {
@@ -474,7 +469,7 @@ export class MeshNode {
     // Sprungzahl und Dubletten je Nachricht – am ersten Rahmen, gleich in welcher Reihenfolge sie kamen.
     if (!this.forwarding.shouldForward(fragment(payload, kind, priority, ttl)[0], nowSecs)) return;
     if (!pruefeMeshInhalt(payload, kind, { eigeneSchluessel: this.eigeneSchluessel }).ok) return;
-    this.queue.enqueue(payload, kind, priority, "Weitergabe", nowSecs, ttl - 1);
+    this.queue.enqueue(payload, kind, priority, t("bau.weitergabe"), nowSecs, ttl - 1);
     this.meldeFortschritt();
     void this.pump();
   }
@@ -519,7 +514,7 @@ export class MeshNode {
         await this.schlafe((next.frame.length / this.bytesPerSecond) * 1000);
       }
     } catch (e) {
-      this.events.onLog?.(`Sendefehler: ${(e as Error).message}`);
+      this.events.onLog?.(t("bau.sendefehler", { fehler: (e as Error).message }));
     } finally {
       this.sending = false;
     }

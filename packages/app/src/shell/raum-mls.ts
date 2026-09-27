@@ -15,7 +15,8 @@ import {
   baueRaumMeldung, gruppenRaum, oeffneRaumMeldung, raumDefinition, raumLoeschung, raumNachricht, raumRollen, raumZuweisung,
   type Channel, type GruppenRaum, type InneresSenden, type MeldeGrund, type NostrEvent, type RaumMeldung, type Role,
 } from "@freedomstack/protocol";
-import { mlsEntferne, mlsGesperrt, mlsGruende, mlsGruppenStand, mlsLadeEin, mlsSendeEvent, mlsSetzeAdmins } from "./mls-konto.js";
+import { t } from "../i18n.js";
+import { type EinladungsErgebnis, mlsEntferne, mlsGesperrt, mlsGruende, mlsGruppenStand, mlsLadeEin, mlsSendeEvent, mlsSetzeAdmins } from "./mls-konto.js";
 import { posteingangVon, state, veroeffentlicheAn } from "./state.js";
 import { geheim } from "./tresor.js";
 
@@ -45,22 +46,22 @@ export async function merkePrivatenRaum(gruppe: string): Promise<void> {
 /** Grundausstattung wie bei offenen Räumen – nur verschlüsselt. */
 const KANAELE: Channel[] = [
   { id: "allgemein", name: "allgemein", privacy: "verschluesselt", writeRoles: [], position: 0 },
-  { id: "ankuendigungen", name: "ankündigungen", privacy: "verschluesselt", writeRoles: ["mod"], position: 1 },
+  { id: "ankuendigungen", name: "ankündigungen", privacy: "verschluesselt", writeRoles: ["mod"], position: 1 }, // kein UI-Text
 ];
 const ROLLEN: Role[] = [
-  { id: "mod", name: "Redaktion", rank: 50, permissions: ["lesen", "schreiben", "threads", "anheften"] },
-  { id: "mitglied", name: "Mitglied", rank: 10, permissions: ["lesen", "schreiben", "threads"] },
+  { id: "mod", name: "Redaktion", rank: 50, permissions: ["lesen", "schreiben", "threads", "anheften"] }, // kein UI-Text
+  { id: "mitglied", name: "Mitglied", rank: 10, permissions: ["lesen", "schreiben", "threads"] }, // kein UI-Text
 ];
 
 /** Einen privaten Raum anlegen: Gruppe nur mit mir, dann Kanäle und Rollen hinein. */
 export async function legePrivatenRaumAn(name: string): Promise<string> {
   const gesperrt = mlsGesperrt();
-  if (gesperrt) throw new Error(`Private Räume: ${gesperrt}`);
+  if (gesperrt) throw new Error(t("bau.raeumeGesperrt", { grund: gesperrt }));
   const gruppe = await mlsGruende(name);
-  if (!gruppe) throw new Error("Private Räume: keine eigenen Relays oder Gruppe nicht angelegt");
+  if (!gruppe) throw new Error(t("bau.raeumeNichtAngelegt"));
   await merkePrivatenRaum(gruppe);
   for (const s of [raumDefinition(gruppe, { name, kanaele: KANAELE }), raumRollen(gruppe, ROLLEN)]) {
-    if (!(await mlsSendeEvent(gruppe, s))) throw new Error("Raum angelegt, aber Kanäle nicht gesendet – kein Relay nahm an");
+    if (!(await mlsSendeEvent(gruppe, s))) throw new Error(t("bau.kanaeleNichtGesendet"));
   }
   return gruppe;
 }
@@ -87,7 +88,7 @@ export function sendePrivat(gruppe: string, kanal: string, text: string): Promis
  * Jemanden einladen – danach den Raumstand erneut senden, sonst sähe der
  * Neue weder Kanäle noch Rollen (er liest nur, was nach seinem Eintritt kommt).
  */
-export async function ladeInPrivatenRaum(raum: PrivaterRaum, pk: string): Promise<string> {
+export async function ladeInPrivatenRaum(raum: PrivaterRaum, pk: string): Promise<EinladungsErgebnis | "ohne Raumstand"> { // kein UI-Text
   const r = await mlsLadeEin(raum.gruppe, pk);
   if (r !== "eingeladen") return r;
   const st = raum.zustand;
@@ -99,8 +100,22 @@ export async function ladeInPrivatenRaum(raum: PrivaterRaum, pk: string): Promis
     const eigene = ids.filter((id) => !id.startsWith("__") && id !== "mitglied");
     if (eigene.length > 0 && !raum.admins.includes(wer)) stand.push(raumZuweisung(raum.gruppe, wer, eigene));
   }
-  for (const s of stand) if (!(await mlsSendeEvent(raum.gruppe, s))) return "eingeladen – Raumstand nicht gesendet";
+  for (const s of stand) if (!(await mlsSendeEvent(raum.gruppe, s))) return "ohne Raumstand"; // kein UI-Text
   return "eingeladen";
+}
+
+/** Kennung → Schlüssel des Textes. */
+const EINLADUNG: Record<Exclude<EinladungsErgebnis, "eingeladen"> | "ohne Raumstand", string> = { // kein UI-Text
+  "kein Admin": "bau.einladungKeinAdmin", // kein UI-Text
+  "kein KeyPackage": "bau.einladungKeinKeyPackage", // kein UI-Text
+  "nicht zugestellt": "bau.einladungNichtZugestellt", // kein UI-Text
+  "ohne Raumstand": "bau.einladungOhneRaumstand", // kein UI-Text
+};
+
+/** Warum eine Einladung nicht (ganz) klappte – in der Sprache der Oberfläche; anderes (Fehlermeldung) bleibt. */
+export function einladungsText(r: string): string {
+  const k = (EINLADUNG as Record<string, string>)[r];
+  return k ? t(k) : r;
 }
 
 /** Moderatoren ernennen oder absetzen – die Admins der Gruppe, per Commit. Ich bleibe dabei. */

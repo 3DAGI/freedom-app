@@ -5,5 +5,6 @@
  * Shim wirft erst bei tatsaechlichem Aufruf, nicht beim Import.
  */
 export async function readFile(): Promise<never> {
-  throw new Error("fs nicht verfuegbar im Browser (Node-only-Adapter)");
+  // Programmierfehler, nie ein Text der Oberfläche
+  throw new Error("fs nicht verfuegbar im Browser (Node-only-Adapter)"); // kein UI-Text
 }

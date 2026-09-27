@@ -11,6 +11,7 @@
  */
 import { fromHex, toHex } from "@freedomstack/protocol";
 import { IndexedDbSpeicher, type GeheimSpeicher, type TresorSpeicher } from "./vault.js";
+import { t } from "./i18n.js";
 
 export const LS_MLS_SCHLUESSEL = "freedom.mls.schluessel";
 const IV_BYTES = 12;
@@ -35,7 +36,7 @@ export async function mlsSchluessel(geheim: GeheimSpeicher): Promise<CryptoKey> 
     hex = toHex(crypto.getRandomValues(new Uint8Array(32)));
     await geheim.setItem(LS_MLS_SCHLUESSEL, hex);
   }
-  if (!/^[0-9a-f]{64}$/.test(hex)) throw new Error("MLS-Schlüssel beschädigt");
+  if (!/^[0-9a-f]{64}$/.test(hex)) throw new Error(t("bau.mlsSchluessel"));
   return crypto.subtle.importKey("raw", fromHex(hex) as Uint8Array<ArrayBuffer>, "AES-GCM", false, ["encrypt", "decrypt"]);
 }
 
@@ -63,7 +64,7 @@ export class MlsZustand {
         { name: "AES-GCM", iv: roh.subarray(0, IV_BYTES), additionalData: this.#zusatz }, this.schluessel, roh.subarray(IV_BYTES));
       return new Uint8Array(klar);
     } catch {
-      throw new Error("MLS-Zustand beschädigt oder mit anderem Schlüssel verschlüsselt");
+      throw new Error(t("bau.mlsZustand"));
     }
   }
 
@@ -120,7 +121,7 @@ export class MlsVerlauf {
     const roh = await this.ablage.laden();
     if (!roh) return;
     const d = JSON.parse(new TextDecoder().decode(roh)) as { gruppen?: unknown };
-    if (!d.gruppen || typeof d.gruppen !== "object") throw new Error("MLS-Verlauf beschädigt");
+    if (!d.gruppen || typeof d.gruppen !== "object") throw new Error(t("bau.mlsVerlauf"));
     this.#gruppen = d.gruppen as Record<string, VerlaufEintrag[]>;
   }
 

@@ -541,6 +541,13 @@ async function ensureMeshNode(): Promise<import("../../mesh-radio.js").MeshNode>
   return meshNode;
 }
 
+/** Hinweis zum Weg ans Funkgerät – beim Öffnen der Settings neu, so folgt er einem Sprachwechsel (8.16g2a). */
+export async function zeigeMeshWeg(): Promise<void> {
+  const { detectTransports } = await import("../../mesh-radio.js");
+  const info = $("#mesh-transport");
+  if (info) info.textContent = detectTransports().note;
+}
+
 export async function wireMeshTab(): Promise<void> {
   const { detectTransports } = await import("../../mesh-radio.js");
   const info = $("#mesh-transport");

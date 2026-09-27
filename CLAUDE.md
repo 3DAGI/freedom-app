@@ -502,10 +502,9 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
 - **Texte nur über Schlüssel** (seit 8.16a): Sichtbare Texte stehen in
   `app/src/texte/<bereich>.ts` mit `de` und `en` (beide Pflicht), im HTML über
   `data-i18n` (`-ph`, `-title`, `-aria`), im Code über `t("schlüssel", { wert })`.
-  Nur Deutsch und Englisch. `app/test/i18n.test.ts` zählt rohen Text in
-  `index.html` je Bereich und im Code je Datei (`app/test/i18n-offen.ts`):
-  fertige stehen auf 0 und bleiben es, **neue Dateien sind von Anfang an
-  fertig** (nicht in der Tabelle = 0), offene dürfen nur sinken. Was Daten
+  Nur Deutsch und Englisch. `app/test/i18n.test.ts` findet rohen Text in
+  `index.html` und in jeder Datei des Codes – seit 8.16g2a streng: überall 0,
+  auch in neuen Dateien (keine Tabelle offener Stellen mehr). Was Daten
   sind (gesendet oder gespeichert, z. B. Kanalnamen eines Raums), trägt am
   Zeilenende `// kein UI-Text`. Zahlen und Daten mit `gebietsschema()`, nie
   fest `"de-DE"`. Der Smoke-Test läuft mit `locale="de-DE"`.
@@ -513,4 +512,8 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   sind Deutsch – die App bildet sie aus den Feldern neu (seit 8.16e, gesammelt
   in `protokoll-texte.ts`; ein Test hält die deutsche Fassung wortgleich). In Tests
   ist die Sprache Englisch; wer Meldungen wörtlich auf Deutsch prüft, setzt
-  `setLang("de")`.
+  `setLang("de")`. Kennungen, die der Code vergleicht (z. B. Ergebnis einer
+  Einladung), bleiben Daten – übersetzt wird erst die Anzeige
+  (`einladungsText()`); nie an einem deutschen Text erkennen, was geschah
+  (`BrowserKannNicht` statt `startsWith("Dieser Browser")`). Die Sprache setzt
+  `boot()` vor allem anderen – der Entsperr-Dialog kommt vor `starte()`.

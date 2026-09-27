@@ -11,6 +11,7 @@
 import { schnorr } from "@noble/curves/secp256k1.js";
 import { LocalSigner, fromHex, generateKeypair, toHex, type NostrEvent } from "@freedomstack/protocol";
 import { Mls, starteMls } from "@freedomstack/mls";
+import { t } from "./i18n.js";
 
 /** Liefert die Engine als Base64 der `.wasm.gz`. */
 export type WasmQuelle = () => Promise<string>;
@@ -19,10 +20,13 @@ export type WasmQuelle = () => Promise<string>;
 // Text wird aber erst beim ersten Aufruf dekodiert.
 const eingebettet: WasmQuelle = async () => (await import("@freedomstack/mls/wasm")).default;
 
+/** Dem Browser fehlt etwas, das die Engine braucht – die Meldung sagt was (Selbsttest zeigt sie). */
+export class BrowserKannNicht extends Error {}
+
 /** Base64 → gzip entpacken (DecompressionStream, im Browser und in Node). */
 export async function entpacke(base64: string): Promise<Uint8Array<ArrayBuffer>> {
   if (typeof DecompressionStream === "undefined") {
-    throw new Error("Dieser Browser kann die MLS-Engine nicht entpacken (DecompressionStream fehlt).");
+    throw new BrowserKannNicht(t("bau.mlsEntpacken"));
   }
   const bin = atob(base64);
   const gz = new Uint8Array(bin.length);
@@ -37,14 +41,14 @@ let start: Promise<void> | null = null;
 export function mlsEngine(quelle: WasmQuelle = eingebettet): Promise<void> {
   if (!start) {
     start = (async () => {
-      if (typeof WebAssembly === "undefined") throw new Error("Dieser Browser kann kein WebAssembly – MLS nicht verfügbar.");
+      if (typeof WebAssembly === "undefined") throw new BrowserKannNicht(t("bau.mlsWasm"));
       const wasm = await entpacke(await quelle());
       try {
         await starteMls(wasm);
       } catch (e) {
         // CSP ohne 'wasm-unsafe-eval' (älterer Browser) meldet sich als CompileError.
-        const name = e instanceof Error ? e.name : "Fehler";
-        throw new Error(`MLS-Engine startet nicht (${name}).`);
+        const name = e instanceof Error ? e.name : "Error"; // kein UI-Text
+        throw new Error(t("bau.mlsStartet", { name }));
       }
     })();
     // Gescheitert: beim nächsten Aufruf neu versuchen, nicht den Fehler merken.
@@ -79,21 +83,21 @@ export async function mlsSelbsttest(quelle?: WasmQuelle): Promise<Selbsttest> {
   try {
     await mlsEngine(quelle);
   } catch (e) {
-    return fertig(false, e instanceof Error && e.message.startsWith("Dieser Browser") ? e.message : "Die MLS-Engine startet in diesem Browser nicht.");
+    return fertig(false, e instanceof BrowserKannNicht ? e.message : t("bau.mlsStartetHierNicht"));
   }
   try {
     const [a, b] = [wegwerfKonto(), wegwerfKonto()];
     const kp: NostrEvent = await b.signer.signEvent(await b.mls.keyPackage("selbsttest"));
     // Die Gruppe braucht ein Relay in ihren Daten; gesendet wird nichts (.invalid löst nie auf).
-    const g = await a.mls.gruppeAnlegen("Selbsttest", [kp], ["wss://selbsttest.invalid"]);
-    if ((await b.mls.beitreten(g.einladungen[0])) !== g.gruppe) return fertig(false, "Beitritt scheiterte.");
-    const probe = "Probe " + toHex(crypto.getRandomValues(new Uint8Array(4)));
+    const g = await a.mls.gruppeAnlegen("Selbsttest", [kp], ["wss://selbsttest.invalid"]); // kein UI-Text
+    if ((await b.mls.beitreten(g.einladungen[0])) !== g.gruppe) return fertig(false, t("bau.mlsBeitritt"));
+    const probe = "Probe " + toHex(crypto.getRandomValues(new Uint8Array(4))); // kein UI-Text
     const s = await a.mls.senden(g.gruppe, probe);
-    if (s.events[0]?.content.includes(probe)) return fertig(false, "Nachricht nicht verschlüsselt.");
+    if (s.events[0]?.content.includes(probe)) return fertig(false, t("bau.mlsUnverschluesselt"));
     const r = await b.mls.empfangen(s.events[0]);
-    if (r.nachrichten[0]?.text !== probe || r.nachrichten[0]?.von !== a.pk) return fertig(false, "Nachricht kam nicht an.");
-    return fertig(true, "Gruppe angelegt, eingeladen, Nachricht verschlüsselt und gelesen.");
+    if (r.nachrichten[0]?.text !== probe || r.nachrichten[0]?.von !== a.pk) return fertig(false, t("bau.mlsNichtAngekommen"));
+    return fertig(true, t("bau.mlsOk"));
   } catch {
-    return fertig(false, "Der Ablauf scheiterte.");
+    return fertig(false, t("bau.mlsAblauf"));
   }
 }
