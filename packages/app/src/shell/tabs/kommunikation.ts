@@ -23,7 +23,7 @@ import { type DmZuordnung, GeraeteBuch, ordneDmZu } from "../../geraete-buch.js"
 import { sucheAufnehmen, wireSuche } from "../suche-ui.js";
 import { mlsAbgleichen, mlsBeiNeuem, mlsEinladungAnnehmen, mlsErreichbar, mlsGesperrt, mlsSendeAn, mlsVerlauf } from "../mls-konto.js";
 import {
-  PRIVAT, type PrivaterRaum, alsRaumMeldung, entferneAusRaum, gruppeVon, istPrivat, ladeInPrivatenRaum, ladePrivatenRaum, legePrivatenRaumAn,
+  PRIVAT, type PrivaterRaum, alsRaumMeldung, einladungsText, entferneAusRaum, gruppeVon, istPrivat, ladeInPrivatenRaum, ladePrivatenRaum, legePrivatenRaumAn,
   loescheImRaum, meldeImRaum, meldungErledigt, meldungenFuer, merkePrivatenRaum, privateRaeume, sendePrivat, setzeModeratoren, wennMeldung,
 } from "../raum-mls.js";
 import { geheim } from "../tresor.js";
@@ -499,7 +499,7 @@ async function ladeEin(): Promise<void> {
   }
   toast(t("komm.ladeEin"));
   const r = await ladeInPrivatenRaum(raum, pk).catch((e) => (e as Error).message);
-  toast(r === "eingeladen" ? t("komm.eingeladen", { name: kontaktName(pk) }) : t("komm.nichtEingeladen", { grund: r }), r !== "eingeladen");
+  toast(r === "eingeladen" ? t("komm.eingeladen", { name: kontaktName(pk) }) : t("komm.nichtEingeladen", { grund: einladungsText(r) }), r !== "eingeladen");
   await oeffneRaum(spacesUi.spaceId!);
 }
 

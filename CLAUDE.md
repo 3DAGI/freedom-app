@@ -44,9 +44,9 @@ bash packages/mls/bauen.sh --pruefen                     # nur bei Änderungen a
 bash contracts/solana-channel/pruefen.sh --werkzeuge     # nur bei Änderungen am Zahlkanal: bauen + Tests gegen Validator (Agave 3.1.10)
 ```
 
-Stand 27.09.2026 (nach 4.3b und 8.16g1): protocol 1064 grün (6 übersprungen), node 226 grün
+Stand 27.09.2026 (nach 4.3b und 8.16g2a): protocol 1064 grün (6 übersprungen), node 226 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 481 grün, mls 13 grün, Zahlkanal 6 grün (gegen Validator), Leak-Tests 57 grün + 1 `todo` (heutige Lecks,
+in `tools.test.ts`), app 482 grün, mls 13 grün, Zahlkanal 6 grün (gegen Validator), Leak-Tests 57 grün + 1 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
 Ausnahme: gesendete SOL-Zahlungen von frischen Adressen, eine bewusste Grenze
 nach Entscheidung 4.9 A – im Datenschutzbericht unter „Bewusste Grenzen“).
@@ -502,10 +502,9 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
 - **Texte nur über Schlüssel** (seit 8.16a): Sichtbare Texte stehen in
   `app/src/texte/<bereich>.ts` mit `de` und `en` (beide Pflicht), im HTML über
   `data-i18n` (`-ph`, `-title`, `-aria`), im Code über `t("schlüssel", { wert })`.
-  Nur Deutsch und Englisch. `app/test/i18n.test.ts` zählt rohen Text in
-  `index.html` je Bereich und im Code je Datei (`app/test/i18n-offen.ts`):
-  fertige stehen auf 0 und bleiben es, **neue Dateien sind von Anfang an
-  fertig** (nicht in der Tabelle = 0), offene dürfen nur sinken. Was Daten
+  Nur Deutsch und Englisch. `app/test/i18n.test.ts` findet rohen Text in
+  `index.html` und in jeder Datei des Codes – seit 8.16g2a streng: überall 0,
+  auch in neuen Dateien (keine Tabelle offener Stellen mehr). Was Daten
   sind (gesendet oder gespeichert, z. B. Kanalnamen eines Raums), trägt am
   Zeilenende `// kein UI-Text`. Zahlen und Daten mit `gebietsschema()`, nie
   fest `"de-DE"`. Der Smoke-Test läuft mit `locale="de-DE"`.
@@ -513,4 +512,8 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   sind Deutsch – die App bildet sie aus den Feldern neu (seit 8.16e, gesammelt
   in `protokoll-texte.ts`; ein Test hält die deutsche Fassung wortgleich). In Tests
   ist die Sprache Englisch; wer Meldungen wörtlich auf Deutsch prüft, setzt
-  `setLang("de")`.
+  `setLang("de")`. Kennungen, die der Code vergleicht (z. B. Ergebnis einer
+  Einladung), bleiben Daten – übersetzt wird erst die Anzeige
+  (`einladungsText()`); nie an einem deutschen Text erkennen, was geschah
+  (`BrowserKannNicht` statt `startsWith("Dieser Browser")`). Die Sprache setzt
+  `boot()` vor allem anderen – der Entsperr-Dialog kommt vor `starte()`.

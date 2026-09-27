@@ -81,6 +81,7 @@ import {
   wireMeshTab,
   wireSicherheitsKnoepfe,
   zeigeGeraete,
+  zeigeMeshWeg,
   zeigeNachfolge,
   zeigeSicherung,
 } from "./tabs/settings.js";
@@ -467,7 +468,7 @@ export function switchTab(name: string): void {
   // Kommunikation vereint die alten Seiten Chat und Raeume.
   if (name === "comm") { loadChatList(); void zeigeRaumLeiste(); }
   if (name === "profile") { loadTrust(); void zeigeAbzeichen(); void zeigeProfilVorschau(); zeigeProfilTexte(); }
-  if (name === "settings") { void zeigeSicherung(); void zeigeGeraete(); void zeigeDatenschutz(); void aktualisiereSicherheitsStand(); }
+  if (name === "settings") { void zeigeSicherung(); void zeigeGeraete(); void zeigeDatenschutz(); void aktualisiereSicherheitsStand(); void zeigeMeshWeg(); }
   // Verlauf und Budget neu zeichnen – so folgen sie auch einem Sprachwechsel (8.16d1)
   if (name === "ai") { zeigeVerlaeufe(); updateBudgetBar(); void refreshModelDropdown(); void refreshQuota(); }
   if (name === "wallet") loadWallet();

@@ -14,14 +14,15 @@ export function randomBytes(n: number): Uint8Array {
 // --- zusätzliche Exporte für turbo-sdk/arbundles (Browser-Builds nutzen
 // webcrypto direkt; diese Node-APIs werden im Browser nie ausgeführt) ---
 export const constants = {};
-export function createSign(): never { throw new Error("node-only: createSign"); }
+// Meldungen der Shims sind Programmierfehler, nie Texte der Oberfläche
+export function createSign(): never { throw new Error("node-only: createSign"); } // kein UI-Text
 const webcrypto = (globalThis as { crypto?: Crypto }).crypto;
 export default { randomBytes, webcrypto, constants, createSign };
 
 class Hash {
   private data: Uint8Array[] = [];
   constructor(private algo: string) {
-    if (algo !== "sha256") throw new Error(`shim: ${algo} nicht unterstuetzt`);
+    if (algo !== "sha256") throw new Error(`shim: ${algo} nicht unterstuetzt`); // kein UI-Text
   }
   update(d: Uint8Array | string): this {
     this.data.push(typeof d === "string" ? new TextEncoder().encode(d) : d);

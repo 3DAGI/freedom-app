@@ -77,10 +77,18 @@ Reihenfolge.
     Notfall-Löschung bildet `protokoll-texte.ts` nach (`loeschRueckfrage()`,
     deutsch wortgleich mit `wipeConfirmation()`); bestätigt wird mit LÖSCHEN
     oder DELETE. Die Onboarding-Leiste folgt einem Sprachwechsel.
-  - **8.16g2:** übrige Bausteine (Datenschutzbericht und `PRIVACY_FACTS`,
-    Mesh, MLS, Werkzeuge, Shims) – danach steht alles auf 0 und die Zählung
-    wird streng (keine Tabelle mehr). Dazu die Sätze und Gründe des
-    Protokolls, die die App noch unverändert zeigt: Prüfungen
+  - **8.16g2a – FERTIG:** übrige Bausteine über `bau.*` (`texte/bausteine.ts`):
+    lokale Werkzeuge, Mesh (Funk, Bluetooth, Datei), MLS (Engine, Selbsttest,
+    KeyPackage, Speicher, Konto), private Räume und die eigenen Hinweise im
+    Datenschutzbericht; Shims tragen `// kein UI-Text` (Programmierfehler).
+    Damit steht alles auf 0 und die Zählung ist streng – `i18n-offen.ts`
+    entfällt. Kennungen einer Einladung bleiben Daten, die Anzeige übersetzt
+    sie (`einladungsText()`); der Selbsttest erkennt fehlende
+    Browser-Fähigkeiten an `BrowserKannNicht`, nicht am deutschen Text.
+  - **8.16g2b:** Sätze und Gründe des Protokolls, die die App noch
+    unverändert zeigt – Datenschutzbericht (`privacyReport()`,
+    `privacyFactsText()`, `PRIVACY_FACTS`, `datenschutzKurz()`), Mesh
+    (`planSync().note`, `pruefeMeshInhalt().grund`), Prüfungen
     (`validateReverseTimelock`, `pruefeSolUeberweisung`, `RpcPool.stichprobe`,
     `isPlausibleRelayUrl`, `darfUebergeben`, `absenderPerson`), Settings
     (Nachfolge-Stand und -Warnung, `backupInfo`, Schlüsselwechsel,

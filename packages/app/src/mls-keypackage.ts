@@ -14,6 +14,7 @@
  */
 import { KIND_KEY_PACKAGE, type Mls } from "@freedomstack/mls";
 import { KIND_RELAY_LIST, schreibRelays, toHex, verifyEvent, type NostrEvent, type RelayFilter, type Signer } from "@freedomstack/protocol";
+import { t } from "./i18n.js";
 
 export const LS_MLS_PLATZ = "freedom.mls.platz";
 /** Zuletzt veröffentlichtes eigenes KeyPackage: `{ id, zeit }`. */
@@ -90,7 +91,7 @@ export async function veroeffentlicheKeyPackage(p: {
 }): Promise<NostrEvent> {
   const ev = await p.signer.signEvent(await p.mls.keyPackage(kpPlatz(p.speicher)));
   await p.sichern();
-  if ((await p.senden(ev)) === 0) throw new Error("KeyPackage: kein Relay nahm es an");
+  if ((await p.senden(ev)) === 0) throw new Error(t("bau.keyPackageRelay"));
   p.speicher.setItem(LS_MLS_KP, JSON.stringify({ id: ev.id, zeit: ev.created_at }));
   return ev;
 }

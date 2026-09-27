@@ -10,6 +10,7 @@
  * kein `exportedBy` mehr im Kopf – bis 7.1 stand dort der eigene npub.
  */
 import { MeshKind, pruefeMeshInhalt, type NostrEvent } from "@freedomstack/protocol";
+import { t } from "./i18n.js";
 
 export interface MeshBundle {
   format: "freedom-mesh";
@@ -56,10 +57,10 @@ export function leseMeshBuendel(text: string): { events: NostrEvent[]; abgelehnt
   try {
     parsed = JSON.parse(text);
   } catch {
-    throw new Error("keine gueltige JSON-datei");
+    throw new Error(t("bau.keinJson"));
   }
   if (parsed?.format !== "freedom-mesh" || !Array.isArray(parsed.events)) {
-    throw new Error("kein freedom-mesh-bundle");
+    throw new Error(t("bau.keinBundle"));
   }
   const events = parsed.events.filter((e): e is NostrEvent => erlaubt(e, []));
   return { events, abgelehnt: parsed.events.length - events.length };

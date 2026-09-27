@@ -18,6 +18,10 @@ import {
 import { MlsZustand, mlsSchluessel } from "../src/mls-speicher.js";
 import { SpeicherImRam, geheimSpeicher } from "../src/vault.js";
 import { aufzeichnung } from "./leak/aufzeichnung.js";
+import { setLang } from "../src/i18n.js";
+
+// Meldungen hier auf Deutsch prüfen (seit 8.16g2a über Schlüssel in der Sprache der Oberfläche)
+setLang("de");
 
 ladeMls(gunzipSync(readFileSync(new URL("../../mls/dist/freedom_mls_bg.wasm.gz", import.meta.url))));
 
