@@ -8325,7 +8325,7 @@ aussehen sollen. Code entsteht erst nach der Freigabe durch den MENSCHEN.
   - `FORTSCHRITT.md`: Überschrift „Spuren“, Zeile „C – Oberfläche“ in der
     Spur-Tabelle, Zeile C.0 in „Alle Schritte“.
 
-Endstand (unverändert, kein Code): protocol 1066 (6 übersprungen) · node 235
-(6 übersprungen, mit Netz) · app 483 · mls 13 · Leak-Tests 57 grün + 1 todo ·
-0 rot · check-wiring `--streng` Exit 0 · innerHTML streng 0 unbewertet ·
-Website 5 Seiten ok · Smoke-Test bestanden.
+Endstand nach dem Einmergen von `main` (4.3d1), kein eigener Code: protocol
+1066 (6 übersprungen) · node 235 (6 übersprungen, mit Netz) · app 493 · mls 13 ·
+Leak-Tests 58 grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 ·
+innerHTML streng Exit 0 · Website 5 Seiten ok · Smoke-Test bestanden.

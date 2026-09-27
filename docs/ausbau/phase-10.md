@@ -44,18 +44,18 @@ Oberfläche in `packages/app/src/shell/index.html`, Umschalten mit
 |---|---|---|
 | Neue Aufgabe, Verlauf | `#agent-new`, `#agent-history` | `shell/tabs/agent.ts:253` `neueAufgabe()`, `:213` `zeigeVerlaeufe()` |
 | Prüfaufträge (als Prüfer) | `#pruefauftraege` | `shell/pruefauftraege-ui.ts:54` |
-| eigene Reklamationen | `#reklamationen` | `shell/streitfall-ui.ts:49`, `:70`; reklamieren `agent.ts:1033` |
+| eigene Reklamationen | `#reklamationen` | `shell/streitfall-ui.ts:49`, `:70`; reklamieren `agent.ts:1049` |
 | Modelle im Netz, vorhalten, ankündigen | Unter-Reiter „Modelle“ | `shell/tabs/agent-netz.ts:27`, `:95`, `:65` |
 | Modellkataloge (NIP-51) | `#kataloge-*` | `agent-netz.ts:162`, `:243` |
 | Git-Bundles (38042) hochladen, laden | Unter-Reiter „Repos“, `#git-repo-*` | hochladen `shell/app.ts:747`, Liste `agent-netz.ts:266` |
 | Repos nach NIP-34: ankündigen, Patch senden, annehmen/schließen/zurückziehen | `#nip34-*` | `shell/tabs/repos.ts:38`, `:141`; Zeilen `repo-ansicht.ts` |
 | Gratis-Kontingent | `#nb-quota` | `shell/ui.ts:54` |
 | Anfrage stellen (auch Rennen, Schwarm, Video) | `#ai-prompt`, `#ai-send` | `agent.ts:372`, `:444`, `:589`, `:631`, `:536` |
-| Anhänge, Werkzeuge mit Preisen | `#attach-*`, `.tool-chip` | `agent.ts:1372`, `:1330`, `:1313` |
-| Stufe, Modell, Gebot, Gebühr, Budget | `#ai-tier`, `#ai-model-btn`, `#ai-bid` | `agent.ts:141`, `:65`, `:289`, `:935` |
+| Anhänge, Werkzeuge mit Preisen | `#attach-*`, `.tool-chip` | `agent.ts:1388`, `:1346`, `:1329` |
+| Stufe, Modell, Gebot, Gebühr, Budget | `#ai-tier`, `#ai-model-btn`, `#ai-bid` | `agent.ts:141`, `:65`, `:289`, `:951` |
 | Kopieren | `#copy-last`, `#copy-all` | `shell/app.ts` |
 | Arbeitsbereich, Werkzeuge, Kosten | `.agent-panel` | `agent.ts:267` |
-| Abrechnung je Antwort | Blase unter der Antwort | `agent.ts:1093`, `shell/ki-zahlung.ts` |
+| Abrechnung je Antwort | Blase unter der Antwort | `agent.ts:1109`, `shell/ki-zahlung.ts` |
 
 **Kommunikation** (`#page-comm`, `index.html:205`) – schon im Aufbau „Leiste, Kanäle, Verlauf, Mitglieder“
 
@@ -115,7 +115,7 @@ Oberfläche in `packages/app/src/shell/index.html`, Umschalten mit
 
 | Bereich | Inhalt | Code |
 |---|---|---|
-| Sicherheit | fünf Schritte; Tresor; Sicherung, Diebstahl, Widerruf; Nachfolge; Notfall-Löschung | `settings.ts:775`, `:144`, `:178`, `:249`, `:284`, `:34`; `shell/tresor.ts:326`; `shell/nachfolge-ui.ts:87`; `shell/notfall.ts:129` |
+| Sicherheit | fünf Schritte; Tresor; Sicherung, Diebstahl, Widerruf; Nachfolge; Notfall-Löschung | `settings.ts:775`, `:144`, `:178`, `:249`, `:284`, `:34`; `shell/tresor.ts:327`; `shell/nachfolge-ui.ts:87`; `shell/notfall.ts:129` |
 | Geräte | Geräte, Bunker (NIP-46) | `settings.ts:337`, `:380`, `:415`; `shell/bunker.ts:79` |
 | Verbindung | Solana-Endpunkte, eigene Relays, Relay-Zugang kaufen | `shell/state.ts:202`; `settings.ts:1101`, `:1021` |
 | Datenschutz | Netzmodus, .onion-Prüfung, Kontakte abgleichen, Verzögerung, Bericht, MLS-Selbsttest | `shell/datenschutz.ts:49`; `settings.ts:639`, `:646`, `:668`, `:689` |
@@ -151,7 +151,7 @@ Playwright nachgeprüft (Sichtbarkeit und Maße der Elemente).
 | B13 | mittel | Der eigene Standort liegt **genau** und im Klartext in `localStorage` (`freedom.coverage.cell`, `earn.ts:107`) – auch mit Tresor. Gebraucht wird nur die Zelle. | – | E6 |
 | B14 | mittel | Anordnung: Repos und Modelle unter „Agent“; Mesh unter „Settings“, Zahlen ohne Netz unter „Währung“, Post als Datei in der Liste der Direktnachrichten; Karte unter „Earn“; Mitwirkende unter „Earn › Werben“; Vertrauensstufe des Providers im Profil; Gebühren und Standard-Schiene in den Settings; der Reiter „Liquidität“ enthält das Hinterlegen beim Provider, keine Liquidität. | – | C.1b, C.6 |
 | B15 | klein | Mobil wird „Kommunikation“ in der unteren Leiste zu „KOMMUN…“ gekürzt. | – | C.1a |
-| B16 | klein | Nach jeder KI-Antwort verdrahtet `handleAnswer()` Knöpfe erneut (`agent.ts:869–886`, wie schon `app.ts:825–847`) – harmlos, aber überflüssig. | Datei der Spur A | später (nach 4.3d) |
+| B16 | klein | Nach jeder KI-Antwort verdrahtet `handleAnswer()` Knöpfe erneut (`agent.ts:877–894`, wie schon `app.ts:825–847`) – harmlos, aber überflüssig. | Datei der Spur A | später (nach 4.3d) |
 | B17 | klein | Rauminfo und der Titel der Vertraulichkeit zeigen den deutschen Satz aus `privacyInfo()` auch in der englischen Oberfläche (`kommunikation.ts:228`, `:641`). | gehört zu 8.16g2b2 (Spur B, übrige Sätze des Protokolls) | C.2b nutzt deren Text |
 
 ---
@@ -174,7 +174,7 @@ Playwright nachgeprüft (Sichtbarkeit und Maße der Elemente).
 5. **Dialoge statt `prompt()`.** Ein gemeinsamer Baustein `shell/dialog.ts`
    (DOM und `textContent`, `role="dialog"`, `aria-modal`, Fokus bleibt im
    Dialog, Esc schließt, Fokus kehrt zurück). Die heutigen Einzel-Dialoge
-   (`tresor.ts:89`, `eingebaute-wallet.ts:61` …) bleiben, bis ihr Bereich dran ist.
+   (`tresor.ts:90`, `eingebaute-wallet.ts:61` …) bleiben, bis ihr Bereich dran ist.
 6. **Keine Anwesenheit, keine neuen Metadaten.** Kein „online“, kein
    „schreibt gerade“, keine Lesebestätigungen – der Lesestand bleibt lokal
    (`kommunikation.ts:41`).
