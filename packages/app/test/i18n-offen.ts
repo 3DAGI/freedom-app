@@ -10,7 +10,7 @@ export const OFFEN_HTML: Record<string, number> = {
   "page-ai": 0,
   "page-comm": 0,
   "page-wallet": 39,
-  "page-earn": 27,
+  "page-earn": 19,
   "page-profile": 23,
   "page-settings": 118,
 };
@@ -61,7 +61,7 @@ export const OFFEN_CODE: Record<string, number> = {
   "shell/streitfall-ui.ts": 3,
   "shell/suche-ui.ts": 1,
   "shell/tabs/agent-netz.ts": 36,
-  "shell/tabs/earn.ts": 31,
+  "shell/tabs/earn.ts": 20,
   "shell/tabs/profil.ts": 10,
   "shell/tabs/repos.ts": 18,
   "shell/tabs/settings.ts": 121,

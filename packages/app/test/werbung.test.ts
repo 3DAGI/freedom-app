@@ -51,3 +51,19 @@ test("Zahlziel des Werbers: nur mit Adresse, nie an sich selbst; auf neuen Gerä
   assert.equal(werberZahlziel(s, pk("a")), undefined, "wer sich selbst wirbt, zahlt sich nichts");
   assert.ok(SICHERUNG_EINTRAEGE.includes(LS_WERBER) && SICHERUNG_EINTRAEGE.includes(LS_WERBER_LN));
 });
+
+test("5.1.4b: Earn-Tab ohne Belohnungsantrag, Rangliste, Stufen und Rechner – gezählt werden nur Nennungen", async () => {
+  const { readFileSync } = await import("node:fs");
+  const lies = (pfad: string) => readFileSync(new URL(`../src/${pfad}`, import.meta.url), "utf8");
+  const earn = lies("shell/tabs/earn.ts");
+  const html = lies("shell/index.html");
+  for (const alt of ["buildRewardClaim", "loadLeaderboard", "projectEarnings", "tierFor", "buildReferralGraph", "referrerOverview"]) {
+    assert.doesNotMatch(earn, new RegExp(alt), alt);
+  }
+  for (const id of ["claim-submit", "provider-leaderboard", "ref-calc-n"]) assert.doesNotMatch(html, new RegExp(`id="${id}"`), id);
+  // Je Geworbenem die früheste Nennung: erst die an mich, dann alle Nennungen dieser Autoren
+  assert.match(earn, /pool\.query\(\{ kinds: \[KIND_REFERRAL_CLAIM\], "#p": \[ich\], limit: 500 \}\)/);
+  assert.match(earn, /pool\.query\(\{ kinds: \[KIND_REFERRAL_CLAIM\], authors: autoren, limit: 1000 \}\)/);
+  assert.match(earn, /const n = zaehleNennungen\(\[\.\.\.anMich, \.\.\.alle\], ich\);/);
+  assert.match(earn, /void zeigeNennungen\(\);/);
+});

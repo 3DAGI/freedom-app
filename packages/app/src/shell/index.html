@@ -392,24 +392,12 @@
         <header class="page-head"><div><h1 class="page-title">Earn</h1><p class="page-sub">Rechenzeit, Speicher und Relays gegen Sats.</p></div></header>
         <div class="seg" role="tablist" data-subtab-group="earn"><button role="tab" data-subtab="overview" class="active">Übersicht</button><button role="tab" data-subtab="host">Hosten</button><button role="tab" data-subtab="refer">Werben</button><button role="tab" data-subtab="map">Karte</button></div>
         <div class="page-body">
-          <div class="subpane active" data-subpane="earn:overview"><div class="card"><h3>Einnahmen</h3><div id="earn-status" class="mono-sm">—</div><div id="earn-events" class="mono-sm"></div><button id="earn-refresh" class="ghost">Aktualisieren</button></div><div class="card">
-          <h3><span class="ic" data-icon="coins"></span> Belohnungen abholen</h3>
-          <p class="mono-sm" id="claim-summary">—</p>
-          <select id="claim-chain" class="tier-select">
-            <option value="lightning"><svg class="logo-btc" width="13" height="13" viewBox="10.5 0.8 12.6 22.4" fill="#f7931a" aria-label="Bitcoin"><path d="M16.15 12.03c1.44-.36 2.42-1.32 2.24-3.02-.23-2.13-1.98-2.85-4.23-3.05l-.01-2.44h-1.51l-.01 2.38c-.4 0-.81.01-1.21.01l.01-2.39H9.92l-.01 2.44c-.33.01-.65.01-.97.01v-.01H6.88l.01 1.62s1.11-.02 1.09-.01c.61 0 .81.36.87.67v2.77c.04 0 .1.01.16.03h-.16v3.88c-.03.19-.13.49-.54.49.02.01-1.09 0-1.09 0l-.3 1.81h2.55c.34 0 .68.01 1.01.01l.01 2.47h1.51l.01-2.44c.41.01.81.01 1.21.02l-.01 2.43h1.51l.01-2.46c2.58-.15 4.37-.8 4.59-3.18.18-1.93-.73-2.79-2.17-3.14zm-4.7-4.71c.86 0 3.57-.17 3.57 1.53 0 1.63-2.71 1.45-3.57 1.45zm0 7.63v-3.19c1.04 0 4.28-.19 4.28 1.6 0 1.71-3.24 1.59-4.28 1.59z"/></svg> Lightning</option>
-            <option value="solana">◎ Solana</option>
-          </select>
-          <input id="claim-address" class="mono-sm" placeholder="Auszahlungsadresse — leer lassen für deine eigene" />
-          <button id="claim-submit" class="ghost">Auszahlung anfordern</button>
-        </div></div>
+          <div class="subpane active" data-subpane="earn:overview"><div class="card"><h3>Einnahmen</h3><div id="earn-status" class="mono-sm">—</div><div id="earn-events" class="mono-sm"></div><button id="earn-refresh" class="ghost">Aktualisieren</button></div></div>
           <div class="subpane" data-subpane="earn:host"><div class="card">
           <h3><span class="ic" data-icon="globe"></span> <span data-i18n="hostReward">App verbreiten</span></h3>
           <p class="muted" data-i18n="hostSub">Leg freedom.html auf einen eigenen Server, IPFS oder Tor – mehr Kopien sind schwerer zu sperren. Legst du freedom-spiegel.json mit deinen Adressen daneben, bekommst du 1 % jeder KI-Zahlung, die über deine Kopie läuft.</p>
         </div></div>
           <div class="subpane" data-subpane="earn:refer"><div class="card">
-          <h3><span class="ic" data-icon="trophy"></span> Rangliste</h3>
-          <div id="provider-leaderboard"><div class='mono-sm'>lade…</div></div>
-        </div><div class="card">
           <h3><span class="ic" data-icon="link"></span> <span data-i18n="referral">Werben</span></h3>
           <p class="muted">
             Du bekommst <strong>0,5 %</strong> jeder KI-Zahlung deiner Geworbenen – die App des Geworbenen zahlt
@@ -418,7 +406,8 @@
             Provider. Wer über deinen Link kommt,
             entscheidet bei der
             Einrichtung selbst, ob er dich öffentlich als Werber nennt; ohne seine Zustimmung zählt er nicht.
-            Das gilt für die Statistik unten – deinen Anteil zahlt seine App auch ohne Nennung.
+            Das gilt für die Zählung unten – deinen Anteil zahlt seine App auch ohne Nennung. Was ankommt, siehst du
+            in deiner Lightning-Wallet; die App erfährt es nicht.
             <br><span class="mono-sm">Für das Anwerben allein gibt es nichts.</span>
           </p>
           <div class="referral-box">
@@ -427,16 +416,6 @@
           </div>
           <div id="referral-tier" class="mono-sm"></div>
           <p class="mono-sm" id="referral-stats">—</p>
-          <details style="margin-top:8px">
-            <summary class="mono-sm" style="cursor:pointer">Was wäre wenn …</summary>
-            <div style="display:flex;gap:6px;align-items:center;margin-top:6px;flex-wrap:wrap">
-              <input id="ref-calc-n" type="number" min="0" value="10" style="width:70px" class="mono-sm" />
-              <span class="mono-sm">Provider mit je</span>
-              <input id="ref-calc-sats" type="number" min="0" step="1000" value="100000" style="width:110px" class="mono-sm" />
-              <span class="mono-sm">sats/Monat</span>
-            </div>
-            <div id="ref-calc-out" class="mono-sm" style="margin-top:6px"></div>
-          </details>
         </div><div class="card">
           <h3><span class="ic" data-icon="code"></span> Mitwirkende</h3>
           <p class="mono-sm">Wer mitarbeitet und ob das Projekt an einer Person hängt. Gezählt werden aktive Tage.</p>

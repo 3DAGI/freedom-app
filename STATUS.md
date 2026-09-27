@@ -7458,3 +7458,272 @@ Netz) · app 474 (+1) · mls 13 · Leak-Tests 57 grün + 1 todo · 0 rot ·
 check-wiring `--streng` Exit 0 · innerHTML streng 0 unbewertet · Website 5
 Seiten ok · Smoke-Test bestanden (inkl. „sprache“ mit dem Agent) · im
 Browser: Agent und Kommunikation in Englisch, nach dem Wechsel in Deutsch.
+## Schritt 5.1.4b – Gebührenmodell A+: Earn-Tab ohne Topf und Stufen
+
+5.1.4 dreigeteilt: a Protokoll und Knoten (#126), **b Earn-Tab und Werben**, c
+Gebühren-Beleg, alte Protokollgebühr, Aufgaben-Topf, Website, PROTOCOL.md.
+
+**Earn-Tab (`tabs/earn.ts`, `index.html`, `app.ts`):**
+- „Belohnungen abholen“ entfernt: Der Antrag (Kind 38013) forderte eine
+  Auszahlung aus einem Pool an, den es seit A+ nicht gibt – niemand zahlte.
+- „Rangliste“ im Werben-Tab entfernt: Sie rechnete aus Selbstauskünften
+  (38010) Ränge und Stufen (Karte 5.1 Punkt 3).
+- Werbe-Stufen („Bronze“ …) und der Rechner „Was wäre wenn …“ entfernt. Der
+  Werben-Tab zeigt den Link, wie viele Geworbene dich öffentlich nennen, und
+  dass der Verdienst direkt in der eigenen Lightning-Wallet ankommt – die App
+  erfährt ihn nicht.
+- Die Vertrauensstufe im Profil bleibt: Sie entspricht der Reputation, nach
+  der die App Provider auswählt (5.5, bei Spur B zurückgestellt).
+
+**Protokoll:** `referral.ts` (Stufen, Topf-Anteile, Hochrechnung),
+`referral-graph.ts` (zweite Ebene, Kette, Übersicht) und `reward-claim.ts`
+entfernt, dazu `KIND_REWARD_CLAIM`. Die Nennung (Kind 38052) bleibt in
+`werbe-nennung.ts`: bauen, lesen und `zaehleNennungen()` – nur gültig
+signierte Angaben, je Geworbenem die früheste, keine Selbstwerbung.
+
+**Ausnahmelisten:** Verdrahtung – 8 veraltete Einträge raus; `payoutAddress`
+(`profile.ts`) war nie aufgerufen: Bis jetzt zählte eine gleichnamige Variable
+im Belohnungsantrag als Aufruf, jetzt steht es ehrlich als Ausnahme da.
+innerHTML – 8 Einträge der entfernten Rangliste und Stufen raus.
+
+**Tests:** protocol −39: entfernt `referral.test.ts` (22) und
+`referral-graph.test.ts` (17) mit ihren Modulen, 3 Tests zum Belohnungsantrag
+(`ticker-claim-relay`); neu `werbe-nennung.test.ts` (+3: Roundtrip und Unsinn,
+früheste Angabe je Geworbenem, Fälschungen zählen nicht). app +1: Earn-Tab ohne
+Antrag, Rangliste, Stufen, Rechner; Zählung verdrahtet.
+
+Endstand: protocol 1090 (−39, begründet) · node 227 · app 474 (+1) · mls 13 ·
+Leak-Tests 57 grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 ·
+innerHTML streng Exit 0 · Website 5 Seiten ok · Smoke-Test bestanden.
+
+## Schritt 5.1.4c – Gebührenmodell A+: Gebühren-Beleg, alte Protokollgebühr, Aufgaben-Topf
+
+5.1.4c war mit den Texten zusammen über 400 Zeilen – geteilt: **c Code**,
+d Texte (Website samt Dashboard, PROTOCOL.md §3/§13/§15/§16).
+
+**Gebühren-Beleg (`fee-proof.ts`, Kind 38051) entfernt:** Der Knoten
+veröffentlicht seit 5.1.2 keinen, die App prüft seit 5.1.3 keinen. Wer wem
+zahlte, belegt heute die eigene Wallet: Lightning über Preimage und die vom
+Empfängerknoten signierte Rechnung, Solana über die Kette
+(`pruefeSolUeberweisung()`, Trinkgeld-Belege und Relay-Kasse). `preimageMatches()`
+lebt weiter in `bolt11.ts` – `rails.ts` belegt damit Lightning-Zahlungen.
+Kinds 38050/38051 sind in `kinds.ts` als „nicht wiederverwenden“ vermerkt.
+
+**Alte Protokollgebühr (`protocol-fee.ts`) entfernt:** 2,5 % als Pool und
+Werbe-Pool – abgelöst durch `aufteilung.ts`. Mit ihr fallen der CI-Schritt
+„Fee-Konstanten sind in sich stimmig“ (die Aufteilung A+ prüft ihr eigener
+Schritt) und der Knoten-Test „Fee-Konstanten“.
+
+**Aufgaben (`quests.ts`) nur noch Abzeichen:** Topf, Anschub, Deckel,
+Tragfähigkeit und Auszahlungsentscheidung (`questBudgetFor`, `sustainability`,
+`decidePayout`, `maxCostPerParticipant`, `QUEST_SHARE_OF_POOL_PERCENT`,
+`BOOTSTRAP_FLOOR_MSAT`, `HARD_CAP_PER_EPOCH_MSAT`) entfernt, ebenso
+`rewardMsat` im Katalog: Mit A+ gibt es keinen Pool, aus dem Prämien kämen.
+Die Aufgaben „Erster bezahlter Job“ und „1.000 sats umgesetzt“ lasen die
+Gebühren-Belege – entfernt. Das Profil (`tabs/profil.ts`) fragt 38051 nicht
+mehr ab; verdiente Abzeichen kommen weiter aus den Leistungsnachweisen.
+
+**Ausnahmeliste Verdrahtung:** 10 Einträge raus (fee-proof 5, protocol-fee 1,
+quests 4).
+
+**Tests:** protocol −34: `fee-proof.test.ts` (16) mit dem Modul, davon
+`preimageMatches` nach `bolt11.test.ts` verschoben und um den positiven Fall
+erweitert (+1); `quests.test.ts` −19 (Prämien-Staffel, Topf, Anschub, Deckel,
+Tragfähigkeit, Auszahlung, die vier Umsatz-Tests aus Gebühren-Belegen); der
+Test „Sicherung ist die erste Aufgabe“ prüft jetzt zusätzlich, dass keine
+Aufgabe einen Betrag trägt und der Topf nicht zurückkehrt. node −1 (alte
+Fee-Konstanten). app +1: Profil ohne 38051.
+
+Endstand: protocol 1056 (−34, begründet) · node 226 (−1, begründet) · app 475
+(+1) · mls 13 · Leak-Tests 57 grün + 1 todo · 0 rot · check-wiring `--streng`
+Exit 0 · innerHTML streng Exit 0 · Website 5 Seiten ok · Smoke-Test bestanden.
+
+## Schritt 5.1.4d – Gebührenmodell A+: Texte und letzte Reste
+
+Letzter Teil von 5.1 (c Code, **d Texte**). Damit ist 5.1 im Code fertig;
+offen bleibt nur MENSCH: Adressen der Entwicklung (`ENTWICKLUNG`) und der
+Testnet-Test der Zahlung.
+
+**Website:**
+- Startseite (de/en): Die Aufteilung 94 / 2,5 / 1,5 / 0,5 / 0,5 / 1 ersetzt
+  „2,5 % Protokoll, 2,5 % App, abschaltbar“.
+- FAQ:
+  - Kosten nach A+, mit dem Hinweis, dass die Entwicklung noch keine Adresse
+    hat und SOL bis zum Zahlkanal ganz an den Provider geht;
+  - „Woher weiß ich, wohin mein Geld geht?“ statt Fee-Beweis;
+  - Reward-Pool gibt es nicht mehr;
+  - Verdienen ohne Knappheitsbonus, Aufgaben nur als Abzeichen;
+  - Werben: eine Ebene je Seite über den Werbelink;
+  - Entwicklungsanteil statt abschaltbarer App-Gebühr.
+- Whitepaper: Anreize, Gebühren-Tabelle, Begründung und Invariante 6 („nicht
+  Zuordenbares an den Provider, nie an die Entwicklung“ – geprüft von
+  `aufteilung.test.ts`).
+- Roadmap: Beleg-Prüfung durch Aufteilung ersetzt; Gebühren als entschieden
+  eingetragen.
+- Dashboard:
+  - Die Werber-Rangliste mit Stufen wird zur bloßen Zählung der Nennungen
+    (früheste je Geworbenem, wie `zaehleNennungen()`).
+  - Der Vergütungsfaktor der Regionen wird zu „fehlen bis 5“ (wie
+    `whereIsCapacityNeeded()`).
+  - Der Fee-Beweis-Zähler ist entfernt.
+  - Die Anmerkung sagt jetzt, dass Zahlungen nur die Beteiligten sehen und
+    dass die Seite keine Signaturen prüft.
+  - Im Browser gegen einen nachgestellten Relay geprüft: keine Fehler.
+
+**`check-website.py`:** Die neue Liste `VERALTET` weist Aussagen des alten
+Modells ab (Protokollfee, App-Gebühr, Reward-Pool-Anteil, Fee-Beweis,
+„bis zum Dreifachen“, Stufen-Code). Gegen die alten Seiten gelaufen: 12
+Treffer; gegen die neuen: 0.
+
+**PROTOCOL.md:**
+- §3 beschreibt A+: Anteile in ppm, Regeln, Deklaration, Bündeln, Grenzen.
+  Das Fee-Modell v1 ist als Historie vermerkt, samt der Lehre aus dem
+  ppm-Fehler.
+- §4: 38011/38012, 38013, 38050/38051 und 38053 als nicht mehr belegt,
+  38052 neu eingetragen; nicht mehr belegte Arten werden nicht
+  wiederverwendet.
+- §13: Werben eine Ebene je Seite, Regionen ohne Aufschlag, Aufgaben als
+  Abzeichen.
+- §15: Werbe-Nennung statt Graph.
+- §16: Verteiler entfernt; die Lehren bleiben für gesponserte Pools.
+
+**Letzte Reste im Code:** `buildSeasonDef` (Saison mit Pool-Regeln, 38012)
+und `buildRewardPayout` (Ausschüttungsnachweis, 38011) in `performance.ts`
+entfernt. Beide waren nie verdrahtet und ohne Tests. Die Verdrahtungs-
+Ausnahmen gehen um 2 Einträge zurück.
+
+Endstand: protocol 1056 · node 226 · app 475 · mls 13 · Leak-Tests 57 grün +
+1 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 ·
+Website 5 Seiten ok (mit Prüfung auf veraltete Aussagen) · Website-Bau ok ·
+Smoke-Test bestanden.
+
+## Schritt 4.3a – Solana-Zahlkanal: Format und Client
+
+4.3 ist geteilt (mehr als 400 Zeilen): **a Format und Client**, b Programm mit
+Tests gegen den Validator, c Knoten, d App.
+
+**Format (`docs/ZAHLKANAL.md`):**
+- Konto `Channel`: PDA aus `["channel", Kunde, Provider, nonce]`, 429 Bytes,
+  höchstens 8 Empfänger.
+- Anweisungen `open`, `settle` (Ed25519-Anweisung direkt davor, alle Offsets
+  auf sie selbst), `refund` (ab Ablauf, schließt das Konto) und `top_up`.
+- Gutschrift, 71 Bytes: Präfix `freedomstack-channel-v1`, Kanal-Adresse,
+  Betrag (u64 LE), Ablauf (i64 LE). Die Gutschriften sind kumulativ.
+- Aufteilung on-chain: abgerundet, der Rest geht an den Provider. Ergänzt
+  gegenüber der Karte: Ist ein Empfängerkonto ausführbar oder bliebe es unter
+  der Mietbefreiung, geht dessen Anteil an den Provider. Sonst könnte ein
+  leeres Konto jede Abrechnung blockieren (A+: nicht Zuordenbares an den
+  Provider).
+
+**Client (`packages/protocol/src/channel.ts`):**
+- `kanalAdresse()`, `gutschriftNachricht()`, `neuerSitzungsSchluessel()`,
+  `signiereGutschrift()`.
+- `pruefeGutschrift()`: Kanal, Ablauf, Signatur, steigend, höchstens die
+  Einlage.
+- `pruefeKanalEmpfaenger()`: höchstens 8, je mindestens 1 ppm, zusammen
+  höchstens 10 % wie `MAX_ANTEILE_PPM`.
+- Anweisungen `oeffneKanalIx()`, `rechneKanalAbIxs()` (Ed25519 plus settle),
+  `erstatteKanalIx()`, `stockeKanalAufIx()`.
+- `leseKanal()` und `teileKanalZahlung()`.
+- Läuft im Browser: `DataView`, `@noble` (schon Abhängigkeit), keine
+  Node-Module.
+- Programm-ID: ein Platzhalter aus den 32 Bytes von
+  „freedomstack-channel-platzhalter“. Zu dieser Adresse gibt es keinen
+  Schlüssel; den echten trägt der MENSCH beim Deploy ein.
+
+**Werkzeug für 4.3b geprüft:**
+- Agave 1.18 (cargo 1.75) und 3.0 (cargo 1.84) scheitern an der Lock-Datei
+  des HTLC-Programms (edition2024).
+- Agave 3.1.10 (platform-tools v1.52, Rust 1.89) baut es: 220 KB, deployt
+  waren 217 KB mit v1.53.
+- `solana-test-validator` läuft in der Umgebung und lädt das Programm.
+
+**Ausnahmen Verdrahtung:** 12 Exporte von `channel.ts`, bis 4.3c/d.
+
+**Tests:** protocol +8 (`channel.test.ts`):
+- Format mit festen Bytes;
+- PDA;
+- Gutschrift: gültig, sowie Replay aus einem anderen Kanal (auch
+  umetikettiert), gleicher oder niedrigerer Betrag, über der Einlage, anderer
+  Ablauf, fremder Schlüssel und kaputte Signatur;
+- `open` nach Borsh, mit Empfänger-Grenzen;
+- `settle` mit Ed25519-Offsets und Konten-Reihenfolge;
+- `refund` und `top_up`;
+- Konto lesen, samt abgelehnten fremden und kaputten Konten;
+- Aufteilung auf den Lamport.
+
+Endstand: protocol 1064 (+8) · node 226 · app 475 · mls 13 · Leak-Tests 57
+grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng
+Exit 0 · Website 5 Seiten ok · Smoke-Test bestanden.
+
+## Schritt 4.3b – Solana-Zahlkanal: Programm und Tests gegen den Validator
+
+**Programm (`contracts/solana-channel/`, Anchor 0.30.1):**
+- `open`:
+  - Einlage vom Kunden in den Kanal-PDA.
+  - Prüft Betrag > 0, Ablauf in der Zukunft, höchstens 8 Empfänger mit je
+    ≥ 1 ppm und zusammen ≤ 10 %, und dass kein Empfänger der Kanal selbst ist.
+- `settle`:
+  - Nur der Provider, nur vor Ablauf.
+  - Die Ed25519-Anweisung direkt davor wird über das Instruktions-Sysvar
+    gelesen: genau eine Signatur, alle Offsets auf sich selbst, Schlüssel =
+    Sitzungsschlüssel, Nachricht = Gutschrift. Die Signatur selbst verwirft
+    die Laufzeit.
+  - Ausgezahlt wird `min(Gutschrift, Einlage) − ausgezahlt`. Die Empfänger
+    kommen in der Reihenfolge des Kanals und müssen schreibbar sein; sonst
+    behielte der Provider ihren Anteil.
+  - Den Anteil eines ausführbaren oder leeren Kontos, das unter der
+    Mietbefreiung bliebe, bekommt der Provider.
+- `refund`: nur der Kunde, ab Ablauf; schließt das Konto (Rest und Miete an
+  den Kunden).
+- `top_up`: nur der Kunde, vor Ablauf.
+- Fehler-Enum `KanalFehler`: neue Varianten nur ans Ende.
+- Programm-ID: Platzhalter aus 4.3a.
+
+**Tests (`tests/kanal.test.ts`, 6 gegen `solana-test-validator`, mit dem
+Client `channel.ts`):**
+1. `open`: Konto nach Format. Zu hohe Anteile, Betrag 0 und ein Ablauf in
+   der Vergangenheit scheitern am Programm selbst (am Client vorbei).
+2. Mehrere Gutschriften, `settle` mit der letzten: Aufteilung auf den
+   Lamport. Das leere Empfängerkonto bekommt nichts, sein Anteil geht an den
+   Provider. Alle Gebühren zahlt ein eigenes Konto, damit die Beträge
+   Lamport-genau bleiben.
+3. Gleiche und niedrigere Gutschrift scheitern; eine höhere zahlt nur die
+   Differenz. Falsche oder fehlende Empfänger scheitern.
+4. Diese Fälle scheitern jeweils:
+   - falsche Signatur;
+   - gültig signiert von einem fremden Schlüssel;
+   - ohne Ed25519-Anweisung;
+   - Replay einer Gutschrift aus einem zweiten Kanal mit demselben
+     Sitzungsschlüssel;
+   - fremder Provider.
+5. `top_up`: Die Einlage steigt. Eine Gutschrift über der Einlage zahlt nur
+   bis zur Einlage; `top_up` durch Fremde scheitert.
+6. `refund` vor Ablauf scheitert, `settle` nach Ablauf scheitert, `refund`
+   durch Fremde scheitert. `refund` danach gibt Einlage und Miete zurück; das
+   Konto ist geschlossen.
+
+**Ausführen:**
+- `contracts/solana-channel/pruefen.sh` baut mit `cargo-build-sbf`, prüft
+  die Typen und lässt die Tests laufen. `--werkzeuge` lädt vorher
+  Agave 3.1.10.
+- Ohne Validator überspringen die Tests mit Grund. Mit
+  `KANAL_TESTS_PFLICHT=1` (`pruefen.sh`, CI) ist Überspringen ein Fehler –
+  gegengeprüft.
+- CI: `.github/workflows/zahlkanal.yml`, nur bei Änderungen an Programm,
+  Client oder Format, mit Zwischenspeicher für die Werkzeuge.
+- Lokal: Bau 58 s, Tests 14 s, alle 6 grün.
+
+**Gelernt:**
+- Die Websocket-Bestätigungen des Validators laufen auf RPC-Port + 1; der
+  Faucet gehört woandershin.
+- Ed25519 signiert deterministisch: Dieselbe Gutschrift zweimal ist dieselbe
+  Transaktion, und web3.js wartet dann auf einen neuen Blockhash. Ein eigenes
+  Rechenlimit je Versuch macht sie verschieden.
+- Ein leeres Provider-Konto lehnt kleine Auszahlungen ab (Mietbefreiung);
+  steht jetzt in `docs/ZAHLKANAL.md`.
+
+Endstand: protocol 1064 · node 226 · app 475 · mls 13 · Zahlkanal 6 (neu,
+gegen Validator) · Leak-Tests 57 grün + 1 todo · 0 rot · check-wiring
+`--streng` Exit 0 · innerHTML streng Exit 0 · Website 5 Seiten ok ·
+Smoke-Test bestanden.

@@ -18,8 +18,6 @@ import {
   MemoryRelay,
   KIND_DVM_TEXT_RESULT,
   KIND_PERFORMANCE,
-  PROTOCOL_FEE_PPM,
-  PROTOCOL_POOL_SHARE_PERCENT,
 } from "@freedomstack/protocol";
 import { DvmProvider } from "../src/dvm-provider.js";
 import { InferenceBackend, InferenceRequest, InferenceResult } from "../src/inference.js";
@@ -128,36 +126,6 @@ test("DVM-Provider: ignoriert Jobs unter Mindestgebot", async () => {
   );
   const processed = await dvm.pollOnce();
   assert.equal(processed.length, 0, "Job unter Mindestgebot ignoriert");
-});
-
-test("Fee-Konstanten: ppm passt zur Prozentangabe, Anteile ergeben 100%", async () => {
-  const {
-    PROTOCOL_FEE_PERCENT,
-    FEE_POOL_SHARE_PERCENT,
-    FEE_REFERRAL_SHARE_PERCENT,
-    FEE_POOL_PPM,
-    FEE_REFERRAL_PPM,
-    splitFeeV1,
-  } = await import("@freedomstack/protocol");
-
-  // Der urspruengliche Bug war die Umrechnung Prozent <-> ppm.
-  assert.equal(PROTOCOL_FEE_PPM, PROTOCOL_FEE_PERCENT * 10_000);
-
-  // Alte Protokollfee (Pool und Referral) – abgeloest durch A+ (aufteilung.ts),
-  // faellt mit 5.1.4b samt referral.ts.
-  assert.equal(FEE_POOL_SHARE_PERCENT + FEE_REFERRAL_SHARE_PERCENT, 100);
-  assert.equal(FEE_POOL_PPM + FEE_REFERRAL_PPM, PROTOCOL_FEE_PPM);
-  assert.equal(PROTOCOL_POOL_SHARE_PERCENT, FEE_POOL_SHARE_PERCENT);
-
-  // Absolut hat sich fuer Provider und Werber nichts geaendert.
-  assert.equal(FEE_POOL_PPM, 20_000, "weiterhin 2,0 % der Zahlung");
-  assert.equal(FEE_REFERRAL_PPM, 5_000, "weiterhin 0,5 % der Zahlung");
-
-  // Kein Satoshi verschwindet und keiner entsteht.
-  const amount = 1_000_000;
-  const s = splitFeeV1(amount);
-  assert.equal(s.workerMsat + s.poolMsat + s.referralMsat, amount);
-  assert.ok(s.workerMsat > 0 && s.poolMsat > 0 && s.referralMsat > 0);
 });
 
 test("5.1.2: Aufteilung – der Provider stellt nur seinen Anteil in Rechnung; ungültige Deklaration abgelehnt, bevor gerechnet wird", async () => {

@@ -38,7 +38,7 @@
 </details>
 <details class="faq-item">
   <summary>Wer betreibt das?</summary>
-  <div class="answer"><p>Niemand. Das ist keine Werbeaussage, sondern eine Eigenschaft: Es gibt keine Datenbank, keinen Vermittler und keine Adresse, an die das Protokoll zwingend etwas abführt.</p><p>Wir — die Firma hinter FreedomStack — bauen die App und nehmen dafür eine Gebühr. Die steht offen in jedem Auftrag, du kannst sie abschalten, und ein anderer Client kann sie weglassen. Genau das ist der Beweis, dass wir das Protokoll nicht kontrollieren.</p></div>
+  <div class="answer"><p>Niemand. Das ist keine Werbeaussage, sondern eine Eigenschaft: Es gibt keine Datenbank, keinen Vermittler und keine Adresse, an die das Protokoll zwingend etwas abführt.</p><p>Wir — die Firma hinter FreedomStack — bauen die App; dafür gehen 2,5 % jeder KI-Zahlung an die Entwicklung. Der Anteil steht in jedem Auftrag, den der Provider sieht, und deine App zahlt ihn selbst – ein anderer Client könnte ihn weglassen. Genau das zeigt, dass wir das Protokoll nicht kontrollieren.</p></div>
 </details>
 <details class="faq-item">
   <summary>Warum sollte ich das benutzen und nicht ChatGPT oder Discord?</summary>
@@ -68,23 +68,23 @@
 <h2 id="geld">Geld und Gebühren</h2>
 <details class="faq-item">
   <summary>Was kostet die Nutzung?</summary>
-  <div class="answer"><p>Du zahlst pro Anfrage, was der Provider verlangt. Dazu kommen <strong>2,5 % Protokollfee</strong> (2 % Reward-Pool, 0,5 % Werber) und <strong>2,5 % App-Gebühr</strong> für diese App. Zusammen 5 %.</p><p>Die App-Gebühr kannst du im Tab „Ich“ ändern oder abschalten. Die Protokollfee nicht — sie finanziert das Netz, nicht uns.</p></div>
+  <div class="answer"><p>Du zahlst pro Anfrage, was der Provider verlangt – mehr nicht. Diese Zahlung ist fest aufgeteilt: <strong>94 %</strong> an den Provider, 2,5 % an die Entwicklung, 1,5 % an die Relays, über die der Auftrag lief, je 0,5 % an deinen Werber und an den des Providers, 1 % an den Spiegel, von dem die App geladen wurde. Kein Topf: Die App zahlt jeden Anteil selbst direkt an seinen Empfänger.</p><p>Fehlt ein Empfänger mit Zahladresse, bekommt den Anteil der Provider – nie die Entwicklung. Die Entwicklung hat noch keine eigene Adresse; bis dahin bleibt auch ihr Anteil beim Provider. Einzeln abschalten lässt sich kein Anteil, geändert wird die Aufteilung nur mit einem signierten Release. Heute teilt die App Lightning-Zahlungen auf; SOL-Aufträge gehen ganz an den Provider, bis der Zahlkanal aufteilt.</p></div>
 </details>
 <details class="faq-item">
-  <summary>Woher weiß ich, dass die Gebühren wirklich abgeführt werden?</summary>
-  <div class="answer"><p>Unter jeder bezahlten Antwort steht „diese Zahlung prüfen“. Der Provider veröffentlicht einen signierten Beleg, den jeder nachrechnen kann.</p><p>Die Anzeige unterscheidet <strong>belegt</strong> von <strong>angekündigt</strong>. Belegt heißt: Das Geld kam nachweislich beim angekündigten Empfänger an – bei Lightning durch Preimage und eine Rechnung, die dessen Knoten signiert hat; bei Solana prüft die App die Transaktion auf der Kette. Lightning hat kein öffentliches Ledger: Ist der Empfänger nur eine Lightning-Adresse, liegt sie oft bei einem Verwahrdienst, dessen Knoten sich viele teilen – dann bleibt es bei „angekündigt“. Wir sagen das, statt „alles in Ordnung“ zu behaupten.</p></div>
+  <summary>Woher weiß ich, wohin mein Geld geht?</summary>
+  <div class="answer"><p>Du zahlst jeden Anteil selbst, aus deiner eigenen Wallet. Unter jeder bezahlten Antwort zeigt die App, wie viel an den Provider ging und welche Anteile an wen gehen; vor jeder Zahlung prüft sie, dass die Rechnung über genau diesen Betrag lautet. Anteile unter 100 sats je Empfänger sammelt die App, bis sie sich lohnen – bis dahin bleibt das Geld bei dir (Settings → Gebühren). Einen Beleg eines Dritten braucht es dafür nicht.</p><p>Wo die App eine fremde Zahlung anzeigt – etwa ein SOL-Trinkgeld –, unterscheidet sie <strong>belegt</strong> von <strong>angekündigt</strong>. Belegt heißt: Das Geld kam nachweislich beim angekündigten Empfänger an – bei Lightning durch Preimage und eine Rechnung, die dessen Knoten signiert hat; bei Solana prüft die App die Transaktion auf der Kette. Lightning hat kein öffentliches Ledger: Ist der Empfänger nur eine Lightning-Adresse, liegt sie oft bei einem Verwahrdienst, dessen Knoten sich viele teilen – dann bleibt es bei „angekündigt“. Wir sagen das, statt „alles in Ordnung“ zu behaupten.</p></div>
 </details>
 <details class="faq-item">
   <summary>Verwahrt ihr mein Geld?</summary>
-  <div class="answer"><p>Nein, an keiner Stelle. Zahlungen gehen direkt von deiner Wallet an den Provider. Bei Swaps liegt das Geld in einem HTLC auf der Kette, das niemand kontrolliert — nach Ablauf der Frist kann nur noch, wer gesperrt hat, es zurückholen. Solange die App offen und deine Wallet verbunden ist, tut sie das selbst; du bestätigst nur in der Wallet.</p></div>
+  <div class="answer"><p>Nein, an keiner Stelle. Zahlungen gehen direkt von deiner Wallet an den Provider und die übrigen Empfänger der Aufteilung. Bei Swaps liegt das Geld in einem HTLC auf der Kette, das niemand kontrolliert — nach Ablauf der Frist kann nur noch, wer gesperrt hat, es zurückholen. Solange die App offen und deine Wallet verbunden ist, tut sie das selbst; du bestätigst nur in der Wallet.</p></div>
 </details>
 <details class="faq-item">
   <summary>Brauche ich Phantom oder eine andere Solana-Wallet?</summary>
   <div class="answer"><p>Nein. Die App hat eine eingebaute Wallet: Ihr Schlüssel entsteht aus deinen zwölf Wörtern — dieselbe Adresse wie in Phantom — und liegt nur verschlüsselt im Tresor auf deinem Gerät. Die Wörter selbst speichert die App nicht.</p><p>Bis zu einem Tageslimit (Standard 0,1 SOL in 24 Stunden) zahlt sie ohne Nachfrage, darüber fragt sie jedes Mal. Beim Tausch sats → SOL empfängt sie an einer frischen Adresse – Phantoms Konten 1, 2, … aus denselben Wörtern – und löst auch ohne eigenes SOL ein, über einen Relayer. Gezahlt wird immer von einer einzelnen Adresse, die den Betrag allein deckt; zusammengelegt wird nichts, denn das verbände die Adressen auf der Kette. Runde Trinkgelder verrauscht sie leicht (höchstens +0,3 %), und die Adresse für ein Trinkgeld fragt sie versiegelt beim Empfänger an statt sie aus seinem öffentlichen Profil zu nehmen. Grenze: Wer mehrmals von derselben Adresse zahlt, ist auf der Kette verknüpfbar – das sagt auch der Datenschutzbericht. Tausch SOL → sats und Deposit brauchen vorerst eine verbundene Wallet. Wer sich per Bunker anmeldet, nutzt eine externe Wallet — die zwölf Wörter gehören dann nicht auf das Gerät.</p></div>
 </details>
 <details class="faq-item">
-  <summary>Was ist der Reward-Pool?</summary>
-  <div class="answer"><p>2 % jeder Zahlung fließen dorthin und werden wöchentlich an Provider ausgeschüttet — bevorzugt an solche in Regionen, wo Kapazität fehlt. Jede Verteilung wird als signierter Bericht veröffentlicht, den jeder nachrechnen kann.</p></div>
+  <summary>Gibt es einen Reward-Pool?</summary>
+  <div class="answer"><p>Nicht mehr. Früher sollten 2 % jeder Zahlung in einen Pool fließen und an Provider verteilt werden – dafür hätte jemand das Geld halten müssen. Seit dem Gebührenmodell A+ geht jeder Anteil beim Zahlen direkt an seinen Empfänger: Nichts liegt herum, nichts wird verteilt.</p><p>Anreize darüber hinaus, etwa für Provider in Regionen, wo Kapazität fehlt, sollen gesponserte Pools mit offenen Regeln bringen – geplant, noch nicht gebaut.</p></div>
 </details>
 <h2 id="technik">Technik</h2>
 <details class="faq-item">
@@ -110,15 +110,15 @@
 </details>
 <details class="faq-item">
   <summary>Was verdiene ich damit?</summary>
-  <div class="answer"><p>Das hängt davon ab, wie viel Nachfrage es gibt und wo du sitzt. In unterversorgten Regionen gibt es bis zum Dreifachen. Ehrlich: Im Moment ist das Netz klein, und niemand lebt davon.</p><p>Ohne GPU lohnt es sich kaum — auf dem Prozessor ist die Antwortzeit so lang, dass kaum ein Kunde deinen Knoten wählt.</p></div>
+  <div class="answer"><p>Das hängt davon ab, wie viel Nachfrage es gibt und wie schnell dein Knoten antwortet. Je Auftrag bekommst du 94 % der Zahlung, dazu jeden Anteil, für den sich kein anderer Empfänger findet. Ehrlich: Im Moment ist das Netz klein, und niemand lebt davon.</p><p>Ohne GPU lohnt es sich kaum — auf dem Prozessor ist die Antwortzeit so lang, dass kaum ein Kunde deinen Knoten wählt.</p></div>
 </details>
 <details class="faq-item">
   <summary>Was sind Aufgaben und Abzeichen?</summary>
-  <div class="answer"><p>Aufgaben belohnen nachweisbare Beiträge: eine Woche Provider, ein Relay betreiben, ein gefährdetes Modell spiegeln. Der Nachweis liegt als signiertes Ereignis vor, jeder kann ihn nachrechnen.</p><p>Für Dinge wie „folge uns“ gibt es <strong>kein Geld</strong>, nur Abzeichen. Solche Aufgaben bräuchten einen Prüfer bei einer fremden Plattform, und Wegwerf-Konten kosten fast nichts — das wäre ein offenes Scheunentor.</p></div>
+  <div class="answer"><p>Aufgaben ergeben Abzeichen für nachweisbare Beiträge: eine Woche Provider, ein Relay betreiben, ein gefährdetes Modell spiegeln. Der Nachweis liegt als signiertes Ereignis vor, jeder kann ihn nachrechnen.</p><p>Geld gibt es dafür <strong>nicht</strong> – ohne Topf keine Prämien, und wer ein Abzeichen erschwindelt, gewinnt nichts. Dinge wie „folge uns“ berechnet die App gar nicht: Sie bräuchten einen Prüfer bei einer fremden Plattform, und Wegwerf-Konten kosten fast nichts.</p></div>
 </details>
 <details class="faq-item">
   <summary>Wie funktioniert das Werben?</summary>
-  <div class="answer"><p>Du bekommst einen Anteil an jedem Job deiner Geworbenen, dauerhaft, plus einen kleineren an deren Geworbenen. Bezahlt wird aus der Protokollfee — dein Geworbener zahlt dadurch keinen Cent mehr.</p><p>Fürs bloße Anwerben gibt es nichts. Wer hundert Leute wirbt, die nie arbeiten, verdient exakt null. Das ist der Unterschied zu einem Schneeballsystem, und er ist im Code festgeschrieben.</p></div>
+  <div class="answer"><p>Dein Werbelink trägt deine Lightning-Adresse. Wer über ihn kommt, dessen App zahlt dir 0,5 % jeder KI-Zahlung – direkt, dauerhaft, eine Ebene, keine Stufen. Wirbst du einen Provider, nennt er dich in seinem Angebot, und du bekommst 0,5 % seiner Aufträge. Dein Geworbener zahlt dadurch keinen Cent mehr: Der Anteil gehört zur festen Aufteilung und ginge sonst an den Provider.</p><p>Fürs bloße Anwerben gibt es nichts. Wer hundert Leute wirbt, die nie etwas bezahlen, verdient exakt null. Das ist der Unterschied zu einem Schneeballsystem. Den Verdienst sieht deine Wallet, nicht die App.</p></div>
 </details>
 <h2 id="grenzen">Grenzen und Risiken</h2>
 <details class="faq-item">
@@ -135,7 +135,7 @@
 </details>
 <details class="faq-item">
   <summary>Ist das legal?</summary>
-  <div class="answer"><p>Die Software ist quelloffen und legal. Was du damit tust, unterliegt deinem Recht — das ist bei einem Browser nicht anders.</p><p>Wir sind eine österreichische Firma und nehmen eine Gebühr für unsere App. Das Protokoll selbst verwahrt nichts und hat keinen Empfänger.</p></div>
+  <div class="answer"><p>Die Software ist quelloffen und legal. Was du damit tust, unterliegt deinem Recht — das ist bei einem Browser nicht anders.</p><p>Wir sind eine österreichische Firma; an die Entwicklung gehen 2,5 % jeder KI-Zahlung. Das Protokoll selbst verwahrt nichts – jeder Anteil geht beim Zahlen direkt an seinen Empfänger.</p></div>
 </details>
 
 <h2 id="mehr">Noch eine Frage offen?</h2>

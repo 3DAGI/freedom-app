@@ -2,7 +2,9 @@
 
 ---
 
-## 5.1 Gebührenmodell umsetzen
+## 5.1 Gebührenmodell umsetzen – CODE FERTIG (27.09.2026)
+
+> Umsetzung: 5.1.1 Baustein, 5.1.2 Knoten, 5.1.3a/b App zahlt, 5.1.4a–d aufgeräumt. Offen nur MENSCH: Adressen der Entwicklung (`ENTWICKLUNG`), Testnet-Test der Zahlung.
 
 - **Voraussetzung:** Entscheidung 4.0 – **entschieden: A+** (26.09.2026). Feste
   Aufteilung direkt beim Zahlen: 94 % Provider, 2,5 % Entwicklung, 1,5 % Relays,
@@ -60,11 +62,23 @@
       `arweave-mirror.ts`, `rewards.ts`, `client-fee.ts`, Bonuslogik in
       `scarcity.ts`, Treasury-Konstanten; Sweep und Spiegel im Knoten; alte
       App-Kopie `packages/website/freedom.html`. Abnahme-Suche leer.
-    - **5.1.4b:** App und Texte: Werben-Tab → „Einladen“ ohne Stufen und
-      Rangliste, `referral.ts`, `referral-graph.ts`, `reward-claim.ts`,
-      `protocol-fee.ts` (samt alter CI-Invariante), `fee-proof.ts`
-      (`preimageMatches` bleibt), Aufgabe „erster Job“ ohne Gebühren-Belege;
-      Website, PROTOCOL.md §3/§16.
+    - **5.1.4b – FERTIG:** Earn-Tab: Belohnungsantrag, Rangliste, Werbe-Stufen
+      und Rechner raus; `referral.ts`, `referral-graph.ts` (Nennung →
+      `werbe-nennung.ts`), `reward-claim.ts`. Werben zeigt Link, Zählung der
+      Nennungen und dass der Verdienst in der eigenen Wallet ankommt (Karte:
+      „Werbelink und echten Verdienst statt Stufen“ – den Verdienst kennt nur
+      die Wallet).
+    - **5.1.4c – FERTIG:** Code: `protocol-fee.ts` (samt CI-Schritt
+      „Fee-Konstanten“ und Knoten-Test), `fee-proof.ts` (`preimageMatches`
+      nach `bolt11.ts`), Aufgaben-Topf und Aufgaben aus Gebühren-Belegen in
+      `quests.ts` – Aufgaben sind nur noch Abzeichen; das Profil fragt 38051
+      nicht mehr ab. (Mit den Texten zusammen über 400 Zeilen – geteilt.)
+    - **5.1.4d – FERTIG:** Texte nach A+: Website (Startseite de/en, FAQ,
+      Whitepaper, Roadmap, Dashboard ohne Werbe-Stufen, Vergütungsfaktor und
+      Fee-Beweis-Zähler), PROTOCOL.md §3, §4, §13, §15, §16;
+      `check-website.py` weist Aussagen des alten Modells ab (`VERALTET`).
+      Letzte Reste im Code: Saison mit Pool-Regeln und Ausschüttungsnachweis
+      (`performance.ts`, 38011/38012). **5.1 damit Code fertig.**
 
 ## 5.1b Gesponserte Pools (Solana-Programm)
 

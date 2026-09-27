@@ -41,11 +41,12 @@ python3 scripts/check_innerhtml.py packages/app/src --ausnahmen scripts/innerhtm
 python3 scripts/smoke_test.py packages/app/dist         # braucht playwright + chromium
 bash scripts/build-site.sh /tmp/site                     # Website bauen (Ziel wird gelöscht!)
 bash packages/mls/bauen.sh --pruefen                     # nur bei Änderungen an packages/mls: nachbauen + vergleichen (Rust, clang)
+bash contracts/solana-channel/pruefen.sh --werkzeuge     # nur bei Änderungen am Zahlkanal: bauen + Tests gegen Validator (Agave 3.1.10)
 ```
 
-Stand 27.09.2026 (nach 5.1.4a und 8.16d1): protocol 1129 grün (6 übersprungen), node 227 grün
+Stand 27.09.2026 (nach 4.3b und 8.16d1): protocol 1064 grün (6 übersprungen), node 226 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 474 grün, mls 13 grün, Leak-Tests 57 grün + 1 `todo` (heutige Lecks,
+in `tools.test.ts`), app 476 grün, mls 13 grün, Zahlkanal 6 grün (gegen Validator), Leak-Tests 57 grün + 1 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
 Ausnahme: gesendete SOL-Zahlungen von frischen Adressen, eine bewusste Grenze
 nach Entscheidung 4.9 A – im Datenschutzbericht unter „Bewusste Grenzen“).
@@ -196,10 +197,12 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
 - **Solana-RPC:** Die App spricht standardmäßig Mainnet an; für Devnet-Tests in
   den Settings `https://api.devnet.solana.com` eintragen.
 - **„Belegt“ heißt: beim angekündigten Empfänger angekommen** (seit 4.8):
-  Lightning nur mit Preimage + Rechnung, die dessen Knoten signiert hat
-  (`leseBolt11()`), Solana nur mit der Kette (`verifyFeeProofMitKette`). Ein
-  Preimage allein oder eine bloße Signatur ist „angekündigt“. Rechnungen von
-  LNURL-Servern vor dem Zahlen auf den Betrag prüfen.
+  Lightning nur mit Preimage (`preimageMatches()`) + Rechnung, die dessen
+  Knoten signiert hat (`leseBolt11()`), Solana nur mit der Kette
+  (`pruefeSolUeberweisung()`). Ein Preimage allein oder eine bloße Signatur
+  ist „angekündigt“. Rechnungen von LNURL-Servern vor dem Zahlen auf den
+  Betrag prüfen. Den Gebühren-Beleg des Knotens (38051) gibt es seit 5.1.4c
+  nicht mehr – 38050/38051 nicht wiederverwenden.
 - **Gebühren nur über `aufteilung.ts`** (Modell A+, seit 5.1.1): feste Anteile
   94 / 2,5 / 1,5 / 0,5 / 0,5 / 1 (CI-Invariante, ändern nur mit signiertem
   Release); nicht Zuordenbares und Rundungsreste an den Provider, nie an die
@@ -207,7 +210,10 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   `providerAnteilMsat()`) rechnen mit denselben Funktionen. SOL-Anteile erst
   mit dem Zahlkanal (4.3). Der Knoten zahlt seit 5.1.2 nichts aus – keinen
   Pool, keinen Verteiler, keine Rücklage wieder einführen (Treasury, Sweep,
-  Pool-Rangliste, Knappheitsbonus und App-Gebühr fielen mit 5.1.4a). Die App zahlt seit
+  Pool-Rangliste, Knappheitsbonus und App-Gebühr fielen mit 5.1.4a, alte
+  Protokollgebühr, Gebühren-Beleg und Aufgaben-Topf mit 5.1.4c – Aufgaben sind
+  nur Abzeichen; Aussagen des alten Modells auf der Website weist
+  `check-website.py` ab, Liste `VERALTET`). Die App zahlt seit
   5.1.3 nur über `shell/ki-zahlung.ts`: Deklaration vor dem Versiegeln,
   Abrechnung mit den gemerkten Empfängern (`rechneAb()`, höchstens das Gebot),
   erst die Rechnung samt Betrag prüfen, dann zahlen – ein unklarer Ausgang wird
@@ -215,7 +221,8 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   (`anteile-kasse.ts`, `freedom.anteile` im Tresor). Adressen der Entwicklung
   nur in `ENTWICKLUNG` (leer bis MENSCH) – nie eine bei einem Verwahrer.
   Den Werber des Kunden nur aus dem Werbelink (`werbung.ts`, erster Werber
-  bleibt, Adresse nur von ihm), Relay-Adressen nur über `RelayZahlziele`
+  bleibt, Adresse nur von ihm; die öffentliche Nennung 38052 zählt seit 5.1.4b
+  nur noch – `zaehleNennungen()`, keine Stufen), Relay-Adressen nur über `RelayZahlziele`
   (NIP-11 `pubkey` → signiertes Profil), beim Senden nur schon Bekanntes.
 - **Kurse und Umrechnung nur über `kurs.ts`** (seit 4.4): Marktkurs mit
   `marktKurs()` (eine Stimme je Absender), msat ↔ Lamports mit
@@ -223,6 +230,18 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   Kurs · 1000 msat – bis 4.4 stand im Knoten eine Tausend zu viel im Nenner.
   Ohne Kurs keinen SOL-Preis erfinden. In der App zeigen Preise beide Einheiten
   über `preis-anzeige.ts` mit `aktuellerKurs()` (`shell/marktkurs.ts`).
+- **Zahlkanal nur nach `docs/ZAHLKANAL.md`** (seit 4.3a): Client
+  `channel.ts`, Programm `contracts/solana-channel` – beide folgen dem Dokument;
+  ein anderes Format heißt neues Programm (Präfix `freedomstack-channel-v2`).
+  Gutschriften tragen Kanal-Adresse und Ablauf (`gutschriftNachricht()`), der
+  Provider nimmt sie nur nach `pruefeGutschrift()` an. Die Programm-ID ist bis
+  zum Deploy ein Platzhalter ohne Schlüssel (`KANAL_PROGRAMM_ID`) – nie einen
+  erfundenen Schlüssel eintragen, das tut der MENSCH beim Deploy. Bauen und
+  testen nur mit `contracts/solana-channel/pruefen.sh` (Agave 3.1.10,
+  platform-tools v1.52; ältere scheitern an der Lock-Datei); die CI
+  (`zahlkanal.yml`) tut dasselbe, Überspringen gilt dort als Fehler. In
+  Validator-Tests Ed25519 deterministisch: dieselbe Gutschrift zweimal ist
+  dieselbe Transaktion – mit eigenem Rechenlimit je Versuch unterscheiden.
 - **HTLC-Transaktionen nur mit `htlcSigner()`** (`tabs/waehrung.ts`, seit 4.6c):
   Wallets nach dem Wallet Standard haben kein `publicKey`-Feld – `solWallet.provider`
   direkt als `WalletSigner` brach Einlösen, Deposit und Rückholen ab. Jede neue

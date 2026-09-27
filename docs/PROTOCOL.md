@@ -31,68 +31,58 @@
 | Erasure Coding | Reed-Solomon über GF(256), 16 Daten + 8 Parity |
 | Atomic Swaps | HTLC: Timelock-Ordnung `T_sol < T_lightning` (zwingend) |
 
-## 3. Fee-Modell v1 (unveränderlich)
+## 3. Gebührenmodell A+ (fest voreingestellt)
 
-> **Abgelöst durch das Gebührenmodell A+** (Entscheidung 4.0 vom 26.09.2026,
-> umgesetzt ab Schritt 5.1): feste Aufteilung beim Zahlen – 94 % Provider,
-> 2,5 % Entwicklung, 1,5 % Relays, 0,5 % Werber des Kunden, 0,5 % Werber des
-> Providers, 1 % Hosting; die App des Kunden zahlt jeden Anteil direkt, der
-> Provider stellt nur seinen in Rechnung (`protocol/src/aufteilung.ts`, Regeln
-> in `docs/GEBUEHREN-ENTSCHEIDUNG.md`). Seit 5.1.2 zahlt der Knoten nichts mehr
-> aus. Der Text unten beschreibt das alte Modell und wird mit 5.1.4 ersetzt.
+Entscheidung 4.0 vom 26.09.2026, umgesetzt in Schritt 5.1. Regeln und
+Begründung: `docs/GEBUEHREN-ENTSCHEIDUNG.md`. **Eine Quelle im Code:**
+`protocol/src/aufteilung.ts`; CI prüft die Werte als Invariante.
 
-> **Korrektur-Hinweis (bleibt als Warnung stehen).**
-> Dieses Dokument schrieb bisher „5 % (5.000 ppm)". Die Prozentangaben waren
-> richtig, die ppm-Werte um Faktor 10 zu klein — 5 % sind **50.000 ppm**. Der
-> Code implementierte die falschen ppm und rechnete damit real mit 0,5 %;
-> parallel behauptete die README 1 % und ein Node-Test 10.000 ppm.
->
-> Behoben: es gibt genau eine Quelle, `PROTOCOL_FEE_PERCENT = 5` in
-> `protocol-fee.ts`. Alle ppm-Werte und Anteile werden daraus abgeleitet, das
-> Modul prüft sich beim Import selbst, und der Node-Test rechnet gegen die
-> Konstanten statt gegen eingetippte Zahlen.
-
-**Gesamt: 5 % (50.000 ppm)** jeder Job-Zahlung, aufgeteilt an der Quelle:
+Jede KI-Zahlung wird beim Zahlen fest aufgeteilt:
 
 ```
-   Anteil an der Fee            in ppm der Zahlung
-   50 %  Development-Treasury    25.000 ppm (2,5 %)
-   40 %  Reward-Pool             20.000 ppm (2,0 %)
-   10 %  Referral-Pool            5.000 ppm (0,5 %)
+   Anteil  Empfänger                                              in ppm
+   94 %    Provider                                              940.000
+   2,5 %   Entwicklung (selbstverwahrte Adressen des Projekts)    25.000
+   1,5 %   Relays, über die der Auftrag lief (≤ 3, gleiche Teile) 15.000
+   0,5 %   Werber des Kunden (aus dem Werbelink)                   5.000
+   0,5 %   Werber des Providers (nennt sein Angebot)               5.000
+   1 %     Hosting (Spiegel, von dem die App geladen wurde)       10.000
 ```
 
-- Die Aufteilung erfolgt als getrennte Zahlungsziele (kein Zwischen-Wallet).
-- Rundungsverlust geht immer zulasten der Fee, nie zulasten des Workers.
-- **Eine Quelle im Code:** `PROTOCOL_FEE_PERCENT` in `protocol-fee.ts`.
-- Änderung nach Launch = Fork mit neuem Namen.
+- **Direkt beim Zahlen, kein Topf.** Die App des Kunden zahlt jeden Anteil
+  selbst an seinen Empfänger (`teileAuf()`); der Provider stellt nur seinen
+  Anteil in Rechnung (`providerAnteilMsat()`). Niemand verwahrt fremdes Geld,
+  nichts wird verteilt.
+- **Nicht zuordenbar heißt: an den Provider.** Fehlt ein Empfänger mit Adresse
+  für die Schiene der Zahlung, bleibt der Anteil beim Provider – nie ein Topf,
+  nie die Entwicklung. Rundungsreste ebenso.
+- **Deklaration im versiegelten Auftrag.** Welche Anteile die App selbst zahlt,
+  steht im Tag `aufteilung` im Kern des Auftrags (`aufteilungTag()`). Der
+  Provider prüft ihn vor dem Rechnen (`pruefeAufteilung()`): nur bekannte
+  Anteile, jeder einmal, zusammen höchstens 10 %; ohne Tag stellt er den ganzen
+  Betrag in Rechnung.
+- **Kleine Beträge bündeln, ohne Verwahrung.** Lightning-Anteile unter
+  100 sats je Empfänger sammelt die App des Zahlenden; bis dahin bleibt das
+  Geld bei ihm.
+- **Ändern nur mit signiertem Release** (5.2), vorher angekündigt.
+- **Ehrlich:** Bei Lightning zahlt die App die Anteile – ein veränderter Client
+  könnte sie weglassen. Bei SOL erzwingt es erst das Programm des Zahlkanals
+  (4.3); bis dahin gehen SOL-Aufträge ganz an den Provider.
+- **Keine Anteile auf** Zaps und Trinkgeld, Tausch (der LP nimmt die Gebühr
+  seines Angebots), Relayer, Speicher und Prüfer – sie werden direkt bezahlt.
 
-**Noch nicht implementiert:** Die Aufteilung wird berechnet und geloggt, aber
-nirgends ausgezahlt. Es gibt keinen Lightning-Multi-Output, keinen SOL-Transfer
-an die Treasury und keinen Pool-Verteiler. Solange das so ist, kommt bei keinem
-der drei Empfänger etwas an.
+Beleg einer Zahlung ist die Wallet des Zahlenden: Lightning mit Preimage und
+der vom Empfängerknoten signierten Rechnung (`preimageMatches()`,
+`leseBolt11()`), Solana mit der Transaktion auf der Kette.
 
-### Treasury (Development-Empfänger)
-
-Der Empfänger des Development-Anteils ist ein **SOL-Pubkey**, der vor
-Launch einmalig hardcoded wird und danach nie geändert werden kann.
-
-Die tatsächliche Empfangsadresse **rotiert wöchentlich deterministisch:**
-
-```
-weekSeed(n)   = HMAC-SHA512(treasurySecret, "freedom-treasury-week-" + n)
-weekWallet(n) = Ed25519-Pubkey(weekSeed(n)[0..31])    ← SOL-kompatibel
-```
-
-Eigenschaften:
-- Adressen sind mit keiner Person verknüpfbar — nicht verschleiert, sondern
-  **nie dagewesen**.
-- Aus einer bekannten Wochen-Adresse lässt sich weder der Master noch eine
-  andere Woche ableiten (einwegige HMAC-Ableitung).
-- Der Treasury-Node publiziert wöchentlich das Announcement (**kind 38050**)
-  signiert mit dem festen Treasury-Nostr-Key. Jeder kann es prüfen:
-  Signatur gültig + Pubkey = hardcoded Treasury-Key → Adresse dieser Woche.
-- Sweep zur Haupt-Wallet (Hardware, offline): automatisch bei Schwelle
-  (100 sats Äquivalent). Die Haupt-Wallet taucht im Protokoll nirgends auf.
+> **Historie.** Das Fee-Modell v1 (erst 5 %, dann 2,5 % Protokollgebühr mit
+> Reward-Pool und Werbe-Pool; Entwicklungsanteil an eine wöchentlich
+> rotierende Treasury-Adresse, Ankündigung Kind 38050; öffentlicher
+> Gebühren-Beleg des Knotens, Kind 38051) wurde nie ausgezahlt. Es fiel mit
+> 5.1.2 (Knoten zahlt nichts aus) bis 5.1.4c (Code entfernt). Aus ihm stammt
+> eine Lehre, die bleibt: Die ppm-Werte standen um den Faktor 10 falsch im
+> Code, während die Prozentangaben stimmten – deshalb gibt es genau eine
+> Quelle und eine CI-Invariante, die gegen die Entscheidung prüft.
 
 ## 4. Event-Kinds (Registry v1)
 
@@ -122,18 +112,21 @@ Bestehende Kinds sind reserviert und semantisch eingefroren:
 | Kind | Bedeutung |
 |---|---|
 | 38010 | Performance-Beleg (Worker, Season) |
-| 38011 | Reward-Payout-Nachweis |
-| 38013 | Reward-Claim (Worker fordert Auszahlung an) |
+| 38011 / 38012 | *nicht mehr belegt* (Reward-Payout-Nachweis, Saison mit Pool-Regeln; nie veröffentlicht, entfernt mit 5.1.4d) |
+| 38013 | *nicht mehr belegt* (Reward-Claim, bis 5.1.4b) |
 | 38020–38022 | Sessions (Open/Payment/Close) |
 | 38027 | Provider-Capabilities (models, tools, storage, relay) |
 | 38030 / 38031 | Mesh-Packet / Delivery-Receipt |
 | 38040 / 38041 | Blob-Manifest / Blob-Chunk |
 | 38042 | Git-Repo-Referenz |
-| **38050** | Treasury-Payout-Announcement (wöchentliche Adresse) |
+| 38050 / 38051 | *nicht mehr belegt* (Treasury-Ankündigung bis 5.1.4a, Fee-Beweis des Knotens bis 5.1.4c) |
+| 38052 | Werbe-Nennung, signiert vom Geworbenen (§15) |
+| 38053 | *nicht mehr belegt* (Verteilungsbericht des Reward-Pools, bis 5.1.2) |
 | 38080 | Modellkatalog eines Kurators (NIP-51-Set: `d`, `title`, `description`, je Modell `["model", <kennung>, <notiz?>]`; `modell-katalog.ts`) |
 
 **Regel:** Neue Features bekommen NEUE Kinds. Bestehende Kinds ändern ihre
-Semantik nie. Ein Client, der ein unbekanntes Kind sieht, ignoriert es.
+Semantik nie; nicht mehr belegte werden nicht wiederverwendet – alte Events
+liegen noch auf Relays. Ein Client, der ein unbekanntes Kind sieht, ignoriert es.
 
 ## 5. Tag-Konventionen
 
@@ -273,67 +266,51 @@ Zahlungsankündigung verschwand damit spurlos.
 
 ## 13. Anreize ohne eigenen Token
 
-Ein Reward-Pool, der aus Token-Inflation gespeist wird, kann breit gießen. Ein
-Pool aus echten Einnahmen hat exakt so viel, wie eingenommen wurde. Daraus
-folgt: **gezielt zahlen statt gleich verteilen.**
+Wer Belohnungen aus Token-Inflation zahlt, kann breit gießen. Wer aus echten
+Einnahmen zahlt, hat genau so viel, wie eingenommen wurde. Seit dem
+Gebührenmodell A+ (§3) sammelt das Protokoll dafür nichts: Jeder, der einen
+Auftrag trägt, bekommt seinen Anteil beim Zahlen direkt. Kein Topf und keine
+Verteilung – also nichts, was jemand halten, schätzen oder falsch verteilen
+könnte.
 
-### Knappheitsbonus (`scarcity.ts`)
+### Werben – eine Ebene je Seite (`werbung.ts`)
 
-Der zwanzigste Knoten in Mitteleuropa bringt dem Netz fast nichts; der erste in
-einer unversorgten Region entscheidet für alle dortigen Nutzer, ob das Netz
-überhaupt benutzbar ist. Der Multiplikator steigt quadratisch, je weniger
-Provider eine Region hat — der Sprung von 0 auf 1 wiegt schwerer als der von
-4 auf 5.
+- Der Werbelink trägt Schlüssel und Lightning-Adresse des Werbers
+  (`?ref=<pk>&ln=<lud16>`). Die App des Geworbenen merkt sich den ersten Werber
+  und zahlt ihm 0,5 % jeder KI-Zahlung – ohne öffentliche Nennung; ein
+  späterer Link verdrängt ihn nicht.
+- Den Werber eines Providers nennt dessen Angebot (38027); die App des Kunden
+  zahlt ihm 0,5 % der Aufträge dieses Providers.
+- **Keine Stufen, keine zweite Ebene.** Stufen hingen an gezählten „aktiven
+  Geworbenen“ – Selbstauskunft, also fälschbar; eine zweite Ebene bräuchte
+  öffentliche Werbebeziehungen, die es nur mit Zustimmung gibt (§15).
+- Der Anteil gehört zur festen Aufteilung. Für den Geworbenen ändert sich
+  nichts; fehlt ein Werber, bekommt den Anteil der Provider.
+- Selbstwerbung lässt sich nicht verhindern, ist aber harmlos: Wer sich selbst
+  wirbt, spart 0,5 %.
 
-Der Stoßzeiten-Aufschlag hängt an der **gemessenen Auslastung**, nicht an der
-Uhrzeit: In einem weltweiten Netz ist „abends" für jede Zeitzone etwas anderes.
+**Es gibt keinen Cent fürs Anwerben.** Ein System, in dem der Verdienst
+hauptsächlich aus dem Anwerben stammt, ist ein Schneeballsystem und in
+Österreich verboten (§ 168a StGB, UWG Anh. Z14). Vergütet wird ausschließlich
+ein Anteil an echtem Umsatz: Wer hundert Leute wirbt, die nie etwas bezahlen,
+verdient exakt null. Kein Eintrittsgeld, kein Kaufzwang, keine käufliche
+Position.
 
-Drei Eigenschaften sind nicht verhandelbar:
+### Regionen (`scarcity.ts`)
 
-- **Der Topf wird nie überschritten.** Bei Überzeichnung wird anteilig gekürzt,
-  nicht abgeschnitten — sonst gingen zufällig die hinten Einsortierten leer aus.
-- **Der Bonus knüpft an nachgewiesene Arbeit an**, nicht an Anwesenheit. Sonst
-  wäre das Anmelden in einer leeren Region die günstigste Einnahmequelle im Netz.
-- **`unknown` bekommt nie einen Bonus.** Sonst wäre das Weglassen der
-  Regionsangabe die billigste Art, ihn zu kassieren.
+Der zwanzigste Knoten in Mitteleuropa bringt dem Netz fast nichts; der erste
+in einer unversorgten Region entscheidet für alle dortigen Nutzer, ob das Netz
+überhaupt benutzbar ist. `whereIsCapacityNeeded()` zeigt, wo Provider fehlen –
+aus Leistungsnachweisen, `unknown` zählt nie. Einen Aufschlag gibt es dafür
+nicht mehr: Der Knappheitsbonus wäre aus einem Topf gezahlt worden und fiel mit
+5.1.4a. Anreize für Randregionen sollen gesponserte Pools bringen (5.1b), mit
+offenen Regeln und ohne Verwahrer.
 
-### Referral (`referral.ts`) — dauerhaft
+### Aufgaben (`quests.ts`)
 
-**Der Werber verdient an jedem Job seiner Geworbenen, ohne Enddatum.** Dazu
-Ebene 2: auch an den Geworbenen seiner Geworbenen.
-
-Entscheidend ist, **woher** das Geld kommt. Ein ewiger Anteil, der zusätzlich
-vom Provider abgezogen wird, würde ihn dauerhaft teurer machen als einen
-nicht geworbenen — das hätte irgendwann jemand gemerkt und für unfair gehalten.
-Deshalb kommt das Budget aus `FEE_REFERRAL_PPM`, also aus der Fee, die ohnehin
-anfällt. Für den Provider ändert sich nichts. Ist kein Werber eingetragen,
-fällt der Anteil in den Reward-Pool zurück, nicht an den Provider.
-
-Damit ist eine dauerhafte Vergütung nebenwirkungsfrei: Es gibt keine Kosten,
-die mit der Zeit wachsen.
-
-**Stufen** (3 / 10 / 25 / 50 aktive Geworbene) erhöhen den Anteil bis auf das
-Doppelte — aber **innerhalb** des Budgets. Ein höherer Rang verschiebt zulasten
-von Ebene 2, er vergrößert den Topf nicht. Sonst würden erfolgreiche Werber
-irgendwann den Reward-Pool leerziehen. „Aktiv" heißt: hat in den letzten 30
-Tagen gearbeitet — Karteileichen bringen nichts.
-
-**Warum genau zwei Ebenen.** Ein System mit unbegrenzten Ebenen, in dem der
-Verdienst hauptsächlich aus dem Anwerben stammt, ist ein Schneeballsystem und
-in Österreich verboten (§ 168a StGB, UWG Anh. Z14). Die Linie, die dieses
-System klar auf der richtigen Seite hält: **Es gibt keinen Cent fürs Anwerben.**
-Vergütet wird ausschließlich ein Anteil an echtem Umsatz aus echter
-Rechenarbeit. Wer hundert Leute wirbt, die nie einen Job liefern, verdient
-exakt null — dafür gibt es einen eigenen Test. Kein Eintrittsgeld, kein
-Kaufzwang, keine käufliche Position.
-
-Auszahlungen erst ab 10 sats. Das ist Mechanik, keine Kürzung: Lightning kann
-darunter nicht zahlen, und alles Aufgelaufene wird später vollständig
-ausgezahlt.
-
-**Korrigiert:** `splitProviderPayment()` rechnete mit fest verdrahteten 1 %,
-während `protocol-fee.ts` 5 % vorgibt — zwei konkurrierende Wahrheiten, von
-denen eine nirgends aufgerufen wurde. Jetzt aus der einen Quelle.
+Nur für im Protokoll nachweisbare Beiträge (Leistungsnachweise an Kalendertagen)
+und nur als Abzeichen – ohne Topf keine Prämien (5.1.4c). Was einen externen
+Prüfer bräuchte, vergibt jemand von Hand (`BADGE_ONLY_TASKS`).
 
 ### Kein Staking
 
@@ -362,71 +339,33 @@ meist, dass die Gegenseite bereits eingelöst hat, und jeder weitere kostet nur
 Gebühren.
 
 
-## 15. Referral-Graph (kind 38052)
+## 15. Werbe-Nennung (kind 38052)
 
-Der Werber lag bisher nur in `localStorage` und war für das Netz unsichtbar —
-Stufen zeigten immer „Starter", eine Auszahlung wäre nur auf Zuruf möglich
-gewesen. Jetzt veröffentlicht der **Geworbene** einen signierten Claim
-(kind 38052, `d`-Tag `referral`).
+Wer will, nennt seinen Werber öffentlich: Der **Geworbene** veröffentlicht einen
+signierten Claim (kind 38052, `d`-Tag `referral`) – in der App nur mit seiner
+Zustimmung (Einrichtung). Seit A+ hängt daran kein Geld: Bezahlt wird das
+Werben direkt beim Zahlen (§13). Die Nennung wird nur gezählt
+(`werbe-nennung.ts`, `zaehleNennungen()`).
 
 **Warum der Geworbene und nicht der Werber.** Könnte ein Werber die Beziehung
-behaupten, würde er die Pubkeys aller erfolgreichen Provider eintragen.
-Umgekehrt hat der Geworbene keinen Anreiz zu lügen: Er gewinnt nichts dabei,
-und die Vergütung kommt aus der Protokollfee, nicht aus seiner Tasche.
+behaupten, würde er die Pubkeys aller erfolgreichen Provider eintragen. Nur
+gültig signierte Angaben zählen; Selbstwerbung wird verworfen.
 
-**Die früheste Angabe zählt, nicht die neueste.** Das Event ist ersetzbar —
-würde die jüngste Fassung gelten, könnte ein Provider seinen Werber
-nachträglich austauschen oder dazu gedrängt werden.
+**Die früheste Angabe zählt, nicht die neueste.** Das Event ist ersetzbar –
+würde die jüngste Fassung gelten, könnte jemand seinen Werber nachträglich
+austauschen oder dazu gedrängt werden.
 
-**Kreise werden aufgelöst.** A wirbt B, B wirbt A wäre eine Kette, in der beide
-unbegrenzt aneinander verdienen, ohne dass jemand hinzukommt. Der Graph wird in
-zeitlicher Reihenfolge aufgebaut und gegen die bereits akzeptierten Kanten
-geprüft: Nur die schließende Kante fällt weg. Prüfte man alle Angaben auf
-einmal, würden beide Seiten verworfen — und ein Angreifer könnte eine fremde,
-gültige Beziehung zerstören, indem er einfach die Gegenrichtung behauptet.
-
-**„Aktiv" wird gemessen, nicht behauptet:** Ein Geworbener zählt nur, wenn er
-in den letzten 30 Tagen einen Leistungsnachweis veröffentlicht hat.
-
-Der ganze Graph ist aus öffentlichen, signierten Ereignissen aufgebaut und
-damit von jedem unabhängig nachrechenbar. Für ein System, das Geld verteilt,
-ist das die Mindestanforderung.
+Keine zweite Ebene, keine Kette, keine Stufen: Der Graph dahinter (Kreise,
+Ketten, „aktive“ Geworbene) fiel mit 5.1.4b.
 
 
-## 16. Reward-Pool-Verteiler (kind 38053)
+## 16. Reward-Pool-Verteiler (kind 38053) – entfernt
 
-> **Entfernt mit 5.1.2** (Gebührenmodell A+): kein Pool, kein Verteiler,
-> kein Topf. Der Abschnitt bleibt bis 5.1.4 als Beschreibung des alten Modells.
-
-40 % der Fee gehen in den Reward-Pool. `settlement.ts` zahlt sie an die
-Pool-Adresse — danach lagen sie dort. Der Knappheitsbonus rechnete aus, wer wie
-viel bekommen sollte, und niemand führte es aus.
-
-Einmal je Epoche (Standard: eine Woche) wird verteilt und ein signierter
-Bericht veröffentlicht, den jeder mit `verifyDistributionReport()` nachrechnen
-kann.
-
-**Ausdrückliches opt-in** (`POOL_DISTRIBUTOR=1`). Nur der Knoten, der die
-Pool-Wallet hält, darf verteilen. Würde jeder Provider verteilen, gäbe es für
-dieselbe Epoche mehrere widersprüchliche Berichte — und im schlimmsten Fall
-mehrfache Auszahlungen aus einem Topf, der nur einmal gefüllt ist.
-
-**Nur abgeschlossene Epochen.** Die laufende Woche wird nie verteilt, sonst
-bekämen Provider, die später in der Woche arbeiten, systematisch nichts.
-
-**Der verfügbare Betrag wird nicht geschätzt.** `POOL_BALANCE_MSAT` muss gesetzt
-sein; ohne den Wert wird nicht verteilt. Ein Verteiler, der mehr zusagt als
-vorhanden ist, produziert Forderungen, die niemand einlösen kann.
-
-**Zustand überlebt Neustarts.** Ein Verteiler, der nach einem Neustart von vorn
-beginnt, leert den Pool an die zuletzt Aktiven — der teuerste denkbare Fehler in
-diesem Modul. Dafür gibt es einen eigenen Test mit echtem Dateiwechsel.
-
-**Kleine Töpfe werden angespart**, statt in Routing-Gebühren aufzugehen. Was
-nicht ausgezahlt werden konnte (fehlende Lightning-Adresse, fehlgeschlagene
-Zahlung), bleibt im Topf und wandert in die nächste Epoche — es fällt nicht dem
-Betreiber zu.
-
-**Der Bericht erscheint auch bei gescheiterten Zahlungen.** Eine Verteilung, über
-die es keine Aufzeichnung gibt, ist von einer Unterschlagung nicht zu
-unterscheiden.
+Mit dem Gebührenmodell A+ gibt es keinen Pool, also auch keinen Verteiler:
+`pool-distributor.ts` und der Verteilungsbericht (38053) fielen mit 5.1.2, der
+Knoten zahlt seitdem nichts aus. `POOL_DISTRIBUTOR`, `FEE_POOL_LUD16` und
+`FEE_REFERRAL_LUD16` liest er nicht mehr, er warnt nur, wenn sie noch gesetzt
+sind. Die Lehre des alten Verteilers bleibt für jede künftige Verteilung, etwa
+gesponserte Pools (5.1b): Nur abgeschlossene Epochen, der verfügbare Betrag
+wird nie geschätzt, der Zustand überlebt Neustarts, und über jede Verteilung
+gibt es eine Aufzeichnung – auch über gescheiterte Zahlungen.

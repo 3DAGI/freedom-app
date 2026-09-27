@@ -8,7 +8,7 @@ import { bech32 } from "@scure/base";
 import { secp256k1 } from "@noble/curves/secp256k1.js";
 import { sha256 } from "@noble/hashes/sha2.js";
 import { bytesToHex } from "@noble/hashes/utils.js";
-import { leseBolt11 } from "../src/bolt11.js";
+import { leseBolt11, preimageMatches } from "../src/bolt11.js";
 import { rechnung } from "./bolt11-hilfe.js";
 
 // Testvektor aus BOLT 11 – oeffentlich; signiert vom Schluessel der Spezifikation.
@@ -45,4 +45,15 @@ test("Eigene Rechnungen: Knoten, Betraege, genannter Knoten; Manipulation faellt
   assert.throws(() => leseBolt11("lnbc1kaputt"));
   assert.throws(() => leseBolt11("nostr1abc"));
   assert.throws(() => leseBolt11(bech32.encode("nostr", words, false)), /Präfix/);
+});
+
+test("preimageMatches: passendes Preimage ja (Hash auch groß geschrieben), falsches nein, robust gegen Müll", () => {
+  const pre = "11".repeat(32);
+  const hash = bytesToHex(sha256(Uint8Array.from({ length: 32 }, () => 0x11)));
+  assert.equal(preimageMatches(pre, hash), true);
+  assert.equal(preimageMatches(pre, hash.toUpperCase()), true);
+  assert.equal(preimageMatches("22".repeat(32), hash), false);
+  assert.equal(preimageMatches(pre, hash.slice(0, 62)), false);
+  assert.equal(preimageMatches("nichthex", "auchnicht"), false);
+  assert.equal(preimageMatches("", ""), false);
 });

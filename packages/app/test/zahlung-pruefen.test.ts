@@ -21,3 +21,9 @@ test("5.1.3: je Antwort die Aufteilung nach A+ statt „Zahlung prüfen“ am Be
   const kom = readFileSync(new URL("../src/shell/tabs/kommunikation.ts", import.meta.url), "utf8");
   assert.match(kom, /pruefeTrinkgeld\(t, ketteAusRpc\(await solRpcUrl\(\)\), solTransaktion\)/);
 });
+
+test("5.1.4c: Abzeichen ohne Gebühren-Belege – das Profil fragt Kind 38051 nicht mehr ab", () => {
+  const profil = readFileSync(new URL("../src/shell/tabs/profil.ts", import.meta.url), "utf8");
+  assert.doesNotMatch(profil, /KIND_FEE_PROOF|feeProofs|38051/);
+  assert.match(profil, /evaluateQuests\(\{\s*pubkey: state\.keypair\.pk, performances: arbeit,\s*\}\)/);
+});

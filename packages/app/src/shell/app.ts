@@ -48,12 +48,9 @@ import {
 import {
   captureReferral,
   loadEarnings,
-  loadLeaderboard,
   loadTrust,
   publishReferralClaim,
-  refreshClaimSummary,
   setupReferral,
-  submitRewardClaim,
   updateReferralLink,
   zeigeMitwirkende,
 } from "./tabs/earn.js";
@@ -476,7 +473,7 @@ export function switchTab(name: string): void {
   // Verlauf und Budget neu zeichnen – so folgen sie auch einem Sprachwechsel (8.16d1)
   if (name === "ai") { zeigeVerlaeufe(); updateBudgetBar(); void refreshModelDropdown(); void refreshQuota(); }
   if (name === "wallet") loadWallet();
-  if (name === "earn") { loadEarnings(); loadTrust(); loadLeaderboard(); refreshClaimSummary(); updateReferralLink(); }
+  if (name === "earn") { loadEarnings(); loadTrust(); updateReferralLink(); }
   updateSidebarBalances();
 }
 
@@ -745,8 +742,6 @@ function starte(): void {
     };
   }
   // Reward-Claim
-  const claimBtn = $("#claim-submit");
-  if (claimBtn) claimBtn.onclick = submitRewardClaim;
   // Freedom Git: bundle publizieren + repo-liste laden
   const gitPublishBtn = $("#git-repo-publish");
   const gitFileInput = $("#git-bundle-file") as HTMLInputElement | null;

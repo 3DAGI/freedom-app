@@ -43,8 +43,8 @@
   <div>
     <h3>Protokoll und Absicherung</h3>
     <div class="state">abgeschlossen</div>
-    <p>Nostr-Koordination, DVM-Marktplatz, Lightning-Abrechnung mit prüfbaren
-  Belegen, Solana-HTLC, Blob-Speicher mit Erasure-Coding, Räume mit Rollen,
+    <p>Nostr-Koordination, DVM-Marktplatz, Lightning-Abrechnung mit fester
+  Aufteilung, Solana-HTLC, Blob-Speicher mit Erasure-Coding, Räume mit Rollen,
   Namen, Nachfolge, Mesh-Transport, Anreize.</p>
   <p>Über 800 automatische Tests. Dabei behoben: ein Loch, durch das erfundene
   Session-Kennungen unbegrenzte Gratisnutzung erlaubten; eine
@@ -59,15 +59,15 @@
     <div class="state">läuft</div>
     <p>Das Solana-Programm auf Devnet kompilieren, deployen und die
   Rückerstattung der Miete prüfen. Danach ein vollständiger Job mit echtem LND:
-  Anfrage, Zahlung, Antwort, Beleg prüfen.</p>
+  Anfrage, Zahlung samt Aufteilung, Antwort.</p>
   <div class="doc-note">
     <strong>Der einzige harte Blocker.</strong> Programm und Client müssen
     zusammen ausgerollt werden — die Kodierung des Preimage hat sich geändert,
     und altes Programm plus neuer Client ergibt abgelehnte Transaktionen ohne
     verwertbare Fehlermeldung.
   </div>
-  <p><strong>Erreicht, wenn</strong> jemand Fremdes eine Frage stellen, bezahlen
-  und den Beleg prüfen kann.</p>
+  <p><strong>Erreicht, wenn</strong> jemand Fremdes eine Frage stellen und
+  bezahlen kann — und jeder Anteil bei seinem Empfänger ankommt.</p>
   </div>
 </div>
 <div class="phase ">
@@ -147,6 +147,11 @@
   schneller als jedes fehlende Feature. Zwei vertretbare Wege: ein Dienst, der
   nur „da ist etwas“ sendet — ohne Inhalt, ohne Absender —, oder die ehrliche
   Ansage, dass es keine gibt.
+</p>
+<p>
+  <strong>Gebühren</strong> — entschieden: feste Aufteilung direkt beim Zahlen,
+  94 % an den Provider, der Rest an Entwicklung, Relays, Werber und Hosting. Kein
+  Topf, keine Verteilung; was keinem Empfänger zuzuordnen ist, bekommt der Provider.
 </p>
 <p>
   <strong>Verschlüsselte Kanäle</strong> — entschieden: Private Räume sind
