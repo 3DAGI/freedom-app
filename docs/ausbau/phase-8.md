@@ -93,11 +93,23 @@ Reihenfolge.
     `privacyReport()`/`privacyFactsText()` für alle Einstellungen und jedes
     Ergebnis der .onion-Prüfung; die deutschen Sätze des Berichts haben
     echte Umlaute.
-  - **8.16g2b2:** übrige Sätze und Gründe des Protokolls – Mesh
-    (`planSync().note`, `pruefeMeshInhalt().grund`), Prüfungen
-    (`validateReverseTimelock`, `pruefeSolUeberweisung`, `RpcPool.stichprobe`,
-    `isPlausibleRelayUrl`, `darfUebergeben`, `absenderPerson`), Settings
-    (Nachfolge-Stand und -Warnung, `backupInfo`, Schlüsselwechsel,
-    Gerätewarnung und `listDevices().message`, Echtheit und Fixierung,
-    Offline-Fähigkeiten samt `OFFLINE_HINWEIS`, Tor-Reihenfolge).
+  - **8.16g2b2 – FERTIG:** Sätze des Protokolls in Settings und im Chat über
+    `protokoll-texte.ts` (Bereich `ps.*`): Nachfolge (Rückfrage, Stand),
+    Sicherung (Info, gesichert, wiederhergestellt), Schlüsselwechsel
+    (Rückfrage, Anleitung, Stand eines Kontakts), Geräte (Rückfrage, Rechte,
+    Stand), Echtheit und Fixierung, Weitergabe, ohne Internet (Hinweis,
+    Fähigkeiten, Wege), Tor-Reihenfolge. Das Protokoll liefert dafür
+    zusätzliche Felder (`KeyState.streit`/`vorbereitet`,
+    `RestoreResult.fehler`/`version`, `VerifyResult.fall`/`bestaetigt`/`noetig`);
+    die Räume-Zeile der Offline-Fähigkeiten stimmt wieder (seit 2.3
+    verschlüsselt, aber nicht über Mesh). Die Rohtext-Suche findet jetzt auch
+    „Wort: …“ vor einer Einsetzung und Text mit „…“ – so kamen acht
+    übersehene Stellen ans Licht (Mesh-Protokollzeilen, Git-Bündel, Modellwahl,
+    Anhang-Fehler).
+  - **8.16g2b3:** Gründe aus Prüfungen des Protokolls, die die App noch
+    unverändert zeigt – `claimAllowed`, `validateReverseTimelock`,
+    `pruefeOfflineUeberweisung`, `pruefeRelayAuftrag`, `disputeWindowOpen`,
+    `isPlausibleRelayUrl`, `darfUebergeben`, `absenderPerson`,
+    `planSync().note`, `pruefeMeshInhalt().grund`, `RpcPool.stichprobe`,
+    `pruefeSolUeberweisung`, Moderationsgrund-Vorgabe.
   - **8.16h:** mit 0.F – Texte der Website an den Code angleichen.

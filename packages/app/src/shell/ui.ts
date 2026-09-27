@@ -5,10 +5,10 @@
  * escapeHtml/pkShort liegen weiter in ../shell-logic.ts (dort getestet), icon in
  * ../icons.ts. Aus app.ts verschoben (Schritt 1.0) – woertlich, ohne Logikaenderung.
  */
-import { OFFLINE_HINWEIS } from "@freedomstack/protocol";
 import { t } from "../i18n.js";
 import { escapeHtml, pkShort } from "../shell-logic.js";
 import { ensurePool, state } from "./state.js";
+import { offlineHinweis } from "../protokoll-texte.js";
 
 // ------------------------------------------------------------- Helpers
 
@@ -134,7 +134,7 @@ export function netzDa(nav: { onLine?: boolean } | undefined = (globalThis as { 
 export function wireOfflineHinweis(): void {
   const el = document.getElementById("offline-hinweis");
   if (!el) return;
-  el.textContent = OFFLINE_HINWEIS;
+  el.textContent = offlineHinweis();
   const zeige = (): void => { el.hidden = netzDa(); };
   window.addEventListener("online", zeige);
   window.addEventListener("offline", zeige);

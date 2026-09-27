@@ -252,4 +252,6 @@ export const agent: Texte = {
   "agent.ohneMaterial": { de: "Frage und Antwort hat der Kunde nicht mitgeschickt.", en: "The customer didn't include question and answer." },
   "agent.begruendungFrage": { de: "Kurze Begründung (nur für Kunde und Provider):", en: "Short reasoning (only for customer and provider):" },
   "agent.urteilGesendet": { de: "Urteil versiegelt an Kunde und Provider geschickt – es gilt nur zwischen ihnen", en: "Verdict sent sealed to customer and provider – it applies only between them" },
+  "agent.modellGewaehlt": { de: "Modell: {modell}", en: "Model: {modell}" },
+  "agent.modellAuto": { de: "Modell: automatisch", en: "Model: automatic" },
 };

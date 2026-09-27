@@ -154,7 +154,7 @@ export function setupModelPicker(): void {
     sel.value = card.dataset.model ?? "";
     updateModelBtnLabel();
     pop.classList.add("hidden");
-    toast(sel.value ? `modell: ${sel.value.split(":")[0]}` : "modell: auto");
+    toast(sel.value ? t("agent.modellGewaehlt", { modell: sel.value.split(":")[0] ?? "" }) : t("agent.modellAuto"));
   });
   // klick außerhalb schließt
   document.addEventListener("click", (e) => {

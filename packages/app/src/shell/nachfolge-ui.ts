@@ -17,6 +17,7 @@ import { type NachfolgeStand, type VertrautenZeile, leseStand, neuestePlaene, ni
 import { ensurePool, signiere, state } from "./state.js";
 import { geheim, tresorEingerichtet } from "./tresor.js";
 import { toast } from "./ui.js";
+import { nachfolgeStand } from "../protokoll-texte.js";
 
 /** Ohne Tresor nur im Speicher – ein Anteil gehoert nie im Klartext in localStorage. */
 let imSpeicher: NachfolgeStand | undefined;
@@ -116,7 +117,7 @@ function zeile(z: VertrautenZeile): HTMLElement {
   block.append(el("div", t("ein.anteilZeile", { wer: pkShort(z.besitzer), teil: z.anteil.index, von: z.anteil.anzahl, schwelle: z.anteil.schwelle })));
   if (!z.plan) block.append(el("div", t("ein.planFehltPunkt"), "mono-sm muted"));
   else if (!z.passt) block.append(el("div", t("ein.aelterePlan"), "mono-sm muted"));
-  else if (z.status) block.append(el("div", z.status.message, `mono-sm ${z.status.status === "aktiv" ? "ok" : "warn"}`));
+  else if (z.status) block.append(el("div", nachfolgeStand(z.status, z.plan), `mono-sm ${z.status.status === "aktiv" ? "ok" : "warn"}`));
   const knoepfe = el("div");
   if (z.passt && !z.gemeldet) knoepfe.append(knopf(t("ein.melden"), () => void melde(z.besitzer)));
   if (z.gemeldet) knoepfe.append(el("span", t("ein.gemeldet"), "mono-sm muted"));

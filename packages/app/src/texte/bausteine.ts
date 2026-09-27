@@ -63,4 +63,6 @@ export const bausteine: Texte = {
   "bau.mixnetzHinweis": { de: "Mixnetz: Ob du eines nutzt, kann die App nicht prüfen. Deine IP-Adresse ist nur verborgen, wenn du die App selbst hinter einem Mixnetz öffnest – der Bericht rechnet deshalb mit der direkten Verbindung.", en: "Mixnet: the app cannot check whether you use one. Your IP address is only hidden if you open the app itself behind a mixnet – so the report assumes the direct connection." },
   "bau.torTipp": { de: "Tipp: Dein Browser läuft über Tor. Mit „.onion-Relays bevorzugen“ gehen Verbindungen zuerst an Onion-Dienste – ohne Tor-Ausgang dazwischen.", en: "Tip: your browser runs over Tor. With “prefer .onion relays” connections go to onion services first – without a Tor exit in between." },
   "bau.berichtFehler": { de: "Bericht nicht erstellbar: {fehler}", en: "Report cannot be created: {fehler}" },
+  "bau.verbunden": { de: "verbunden: {name}", en: "connected: {name}" },
+  "bau.verworfen": { de: "verworfen: {grund}", en: "discarded: {grund}" },
 };
