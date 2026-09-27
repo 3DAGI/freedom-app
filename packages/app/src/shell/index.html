@@ -21,25 +21,12 @@
       <canvas id="hero-gl"></canvas>
       <div class="hero-content">
         <h1 class="logo-xl">FREEDOM</h1>
-        <p class="tagline" data-i18n="tagline">Messaging, payments and AI without an operator</p>
-        <p class="sub" data-i18n="taglineSub">Pay per request in sats. No account, no token.</p>
+        <p class="tagline" data-i18n="tagline">Nachrichten, Zahlungen und KI ohne Betreiber</p>
+        <p class="sub" data-i18n="taglineSub">Bezahlt pro Anfrage in Sats. Kein Konto, kein Token.</p>
         <div class="hero-feats">
           <span><svg class="logo-btc" width="13" height="13" viewBox="10.5 0.8 12.6 22.4" fill="#f7931a" aria-label="Bitcoin"><path d="M16.15 12.03c1.44-.36 2.42-1.32 2.24-3.02-.23-2.13-1.98-2.85-4.23-3.05l-.01-2.44h-1.51l-.01 2.38c-.4 0-.81.01-1.21.01l.01-2.39H9.92l-.01 2.44c-.33.01-.65.01-.97.01v-.01H6.88l.01 1.62s1.11-.02 1.09-.01c.61 0 .81.36.87.67v2.77c.04 0 .1.01.16.03h-.16v3.88c-.03.19-.13.49-.54.49.02.01-1.09 0-1.09 0l-.3 1.81h2.55c.34 0 .68.01 1.01.01l.01 2.47h1.51l.01-2.44c.41.01.81.01 1.21.02l-.01 2.43h1.51l.01-2.46c2.58-.15 4.37-.8 4.59-3.18.18-1.93-.73-2.79-2.17-3.14zm-4.7-4.71c.86 0 3.57-.17 3.57 1.53 0 1.63-2.71 1.45-3.57 1.45zm0 7.63v-3.19c1.04 0 4.28-.19 4.28 1.6 0 1.71-3.24 1.59-4.28 1.59z"/></svg> <span data-i18n="featLightning">lightning</span></span><span><svg class="logo-sol" width="12" height="12" viewBox="0 0 397.7 311.7" aria-label="Solana"><defs><linearGradient id="solGrad" x1="360.9" y1="351.4" x2="141.4" y2="-69.3" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#9945FF"/><stop offset="1" stop-color="#14F195"/></linearGradient></defs><g fill="url(#solGrad)"><path d="M64.6 237.9c2.4-2.4 5.7-3.8 9.2-3.8h317.4c5.8 0 8.7 7 4.6 11.1l-62.7 62.7c-2.4 2.4-5.7 3.8-9.2 3.8H6.5c-5.8 0-8.7-7-4.6-11.1l62.7-62.7z"/><path d="M64.6 3.8C67.1 1.4 70.4 0 73.8 0h317.4c5.8 0 8.7 7 4.6 11.1l-62.7 62.7c-2.4 2.4-5.7 3.8-9.2 3.8H6.5c-5.8 0-8.7-7-4.6-11.1L64.6 3.8z"/><path d="M332.3 120.1c-2.4-2.4-5.7-3.8-9.2-3.8H5.7c-5.8 0-8.7 7-4.6 11.1l62.7 62.7c2.4 2.4 5.7 3.8 9.2 3.8h317.4c5.8 0 8.7-7 4.6-11.1l-62.7-62.7z"/></g></svg> <span data-i18n="featSolana">solana</span></span><span><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="8" width="16" height="12" rx="2"/><path d="M12 8V4M8 4h8"/></svg> <span data-i18n="featAi">ai</span></span><span><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8z"/></svg> <span data-i18n="featEncChat">encrypted chat</span></span>
         <p class="landing-hint" data-i18n="clickToEnter">Klicken zum Start</p>        </div>
       </div>
-    </div>
-  </div>
-
-  <!-- ============ WALLET-GATE (Login vor App, mit Partikel-BG) ============ -->
-  <div id="gate" class="hidden" style="display:none">
-    <canvas id="hero-gl"></canvas>
-    <div class="gate-card">
-      <h2 class="logo-lg">FREEDOM</h2>
-      <p class="gate-title" data-i18n="connectTitle">Connect to enter</p>
-      <p class="gate-sub" data-i18n="connectSub">non-custodial — your keys stay with you</p>
-      <button id="gate-lightning" class="gate-btn" data-i18n="connectLightning"><svg class="logo-btc" width="13" height="13" viewBox="10.5 0.8 12.6 22.4" fill="#f7931a" aria-label="Bitcoin"><path d="M16.15 12.03c1.44-.36 2.42-1.32 2.24-3.02-.23-2.13-1.98-2.85-4.23-3.05l-.01-2.44h-1.51l-.01 2.38c-.4 0-.81.01-1.21.01l.01-2.39H9.92l-.01 2.44c-.33.01-.65.01-.97.01v-.01H6.88l.01 1.62s1.11-.02 1.09-.01c.61 0 .81.36.87.67v2.77c.04 0 .1.01.16.03h-.16v3.88c-.03.19-.13.49-.54.49.02.01-1.09 0-1.09 0l-.3 1.81h2.55c.34 0 .68.01 1.01.01l.01 2.47h1.51l.01-2.44c.41.01.81.01 1.21.02l-.01 2.43h1.51l.01-2.46c2.58-.15 4.37-.8 4.59-3.18.18-1.93-.73-2.79-2.17-3.14zm-4.7-4.71c.86 0 3.57-.17 3.57 1.53 0 1.63-2.71 1.45-3.57 1.45zm0 7.63v-3.19c1.04 0 4.28-.19 4.28 1.6 0 1.71-3.24 1.59-4.28 1.59z"/></svg> Lightning (Nostr key)</button>
-      <button id="gate-solana" class="gate-btn" data-i18n="connectSolana"><svg class="logo-sol" width="12" height="12" viewBox="0 0 397.7 311.7" aria-label="Solana"><defs><linearGradient id="solGrad" x1="360.9" y1="351.4" x2="141.4" y2="-69.3" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#9945FF"/><stop offset="1" stop-color="#14F195"/></linearGradient></defs><g fill="url(#solGrad)"><path d="M64.6 237.9c2.4-2.4 5.7-3.8 9.2-3.8h317.4c5.8 0 8.7 7 4.6 11.1l-62.7 62.7c-2.4 2.4-5.7 3.8-9.2 3.8H6.5c-5.8 0-8.7-7-4.6-11.1l62.7-62.7z"/><path d="M64.6 3.8C67.1 1.4 70.4 0 73.8 0h317.4c5.8 0 8.7 7 4.6 11.1l-62.7 62.7c-2.4 2.4-5.7 3.8-9.2 3.8H6.5c-5.8 0-8.7-7-4.6-11.1L64.6 3.8z"/><path d="M332.3 120.1c-2.4-2.4-5.7-3.8-9.2-3.8H5.7c-5.8 0-8.7 7-4.6 11.1l62.7 62.7c2.4 2.4 5.7 3.8 9.2 3.8h317.4c5.8 0 8.7-7 4.6-11.1l-62.7-62.7z"/></g></svg> Solana wallet</button>
-      <button id="gate-local" class="gate-btn ghost" data-i18n="continueLocal">continue without wallet (local, free)</button>
     </div>
   </div>
 
@@ -48,8 +35,8 @@
     <header>
       <span class="logo"><span id="head-mark"></span>FREEDOM</span>
       <span style="display:flex;gap:10px;align-items:center">
-        <span id="balance" class="balance" title="guthaben">— sats</span>
-        <span id="ident" class="ident" title="pubkey — klick: nsec exportieren">…</span>
+        <span id="balance" class="balance" title="Guthaben" data-i18n-title="balanceTitle">— sats</span>
+        <span id="ident" class="ident" title="Pubkey – Klick: nsec exportieren" data-i18n-title="identTitle">…</span>
         <button id="btn-import" class="ghost" style="width:auto;padding:4px 8px;font-size:9px" data-i18n="import">import</button>
       </span>
     </header>
@@ -217,15 +204,15 @@
       <!-- KOMMUNIKATION: Discord-Aufbau -->
       <section id="page-comm" class="tab-page">
         <div class="comm-layout" data-comm-mode="dm">
-          <div class="comm-rail" role="navigation" aria-label="Direktnachrichten und Räume">
-            <button id="comm-dm-btn" class="space-pill dm-pill" aria-current="true" title="Direktnachrichten"
+          <div class="comm-rail" role="navigation" aria-label="Direktnachrichten und Räume" data-i18n-aria="komm.railAria">
+            <button id="comm-dm-btn" class="space-pill dm-pill" aria-current="true" title="Direktnachrichten" data-i18n-title="chatTitle"
               type="button"><span class="ic" data-icon="chat"></span></button>
             <div class="rail-sep"></div>
             <div id="space-rail" class="space-rail-list"></div>
             <button id="rail-create" class="space-pill rail-action" title="Raum anlegen" type="button"
-              aria-label="Raum anlegen"><span class="ic" data-icon="plus"></span></button>
+              aria-label="Raum anlegen" data-i18n-title="komm.raumAnlegen" data-i18n-aria="komm.raumAnlegen"><span class="ic" data-icon="plus"></span></button>
             <button id="rail-join" class="space-pill rail-action" title="Raum beitreten" type="button"
-              aria-label="Raum beitreten"><span class="ic" data-icon="search"></span></button>
+              aria-label="Raum beitreten" data-i18n-title="komm.raumBeitreten" data-i18n-aria="komm.raumBeitreten"><span class="ic" data-icon="search"></span></button>
           </div>
           <div class="comm-dm">
         <div class="chat-layout">
@@ -233,34 +220,34 @@
             <div class="chat-side-head">
               <span data-i18n="chatTitle">Direktnachrichten</span>
               <span>
-                <button id="chat-new-dm" class="ghost mini" title="New message">＋</button>
-                <button id="chat-mesh-export" class="ghost mini" title="Post für diesen Kontakt als Datei mitnehmen – nur verschlüsselt, ohne deinen Schlüssel">⇪</button>
-                <button id="chat-mesh-import" class="ghost mini" title="Mitgebrachte Post einlesen und ans Netz geben – nur Verschlüsseltes">⇩</button>
+                <button id="chat-new-dm" class="ghost mini" title="Neue Nachricht" data-i18n-title="komm.neueNachricht">＋</button>
+                <button id="chat-mesh-export" class="ghost mini" title="Post für diesen Kontakt als Datei mitnehmen – nur verschlüsselt, ohne deinen Schlüssel" data-i18n-title="komm.meshExport">⇪</button>
+                <button id="chat-mesh-import" class="ghost mini" title="Mitgebrachte Post einlesen und ans Netz geben – nur Verschlüsseltes" data-i18n-title="komm.meshImport">⇩</button>
                 <input type="file" id="chat-mesh-file" accept=".json" style="display:none" />
-                <button id="chat-new-community" class="ghost mini" title="New community"><span class="ic" data-icon="home"></span></button>
+                <button id="chat-new-community" class="ghost mini" title="Neue Community" data-i18n-title="komm.neueCommunity"><span class="ic" data-icon="home"></span></button>
               </span>
             </div>
-            <input id="chat-suche" class="chat-suche" type="search" placeholder="Suchen – nur auf diesem Gerät" aria-label="Nachrichten durchsuchen – nur auf diesem Gerät" autocomplete="off" />
+            <input id="chat-suche" class="chat-suche" type="search" placeholder="Suchen – nur auf diesem Gerät" aria-label="Nachrichten durchsuchen – nur auf diesem Gerät" data-i18n-ph="komm.suchePh" data-i18n-aria="komm.sucheAria" autocomplete="off" />
             <div id="chat-suche-treffer" class="chat-list chat-suche-treffer hidden"></div>
             <div id="chat-list" class="chat-list"></div>
           </aside>
           <div class="chat-main">
-          <button id="chat-back" class="chat-back" type="button" aria-label="Zurück zur Liste">‹ Zurück</button>
+          <button id="chat-back" class="chat-back" type="button" aria-label="Zurück zur Liste" data-i18n-aria="komm.zurueckAria" data-i18n="komm.zurueck">‹ Zurück</button>
             <div id="chat-thread" class="chat-thread">
-              <div class="empty-state">Wähl eine Unterhaltung.<br/>Direktnachrichten sind Ende-zu-Ende verschlüsselt.</div>
+              <div class="empty-state"><span data-i18n="komm.waehle">Wähl eine Unterhaltung.</span><br/><span data-i18n="komm.dmE2e">Direktnachrichten sind Ende-zu-Ende verschlüsselt.</span></div>
             </div>
             <div class="chat-composer">
-              <textarea id="chat-input" rows="1" data-i18n-ph="chatPlaceholder" placeholder="Message…"></textarea>
-              <button id="chat-media-btn" class="ghost copy-btn" title="bild/video/datei anhängen (über das Chunk-Netz)"><span class="ic" data-icon="paperclip"></span></button>
+              <textarea id="chat-input" rows="1" data-i18n-ph="chatPlaceholder" placeholder="Nachricht…"></textarea>
+              <button id="chat-media-btn" class="ghost copy-btn" title="Bild, Video oder Datei anhängen (über das Chunk-Netz)" data-i18n-title="komm.anhaengen"><span class="ic" data-icon="paperclip"></span></button>
               <input type="file" id="chat-file-input" accept="image/*,video/*,audio/*,.pdf,.txt,.zip" multiple style="display:none" />
-              <select id="chat-ablauf" class="ghost mini" hidden title="Neue Nachrichten verschwinden nach … (NIP-40). Löschen ist eine Bitte an die Relays." aria-label="Ablauf neuer Nachrichten">
-                <option value="">⏱ aus</option>
-                <option value="3600">⏱ 1 Stunde</option>
-                <option value="86400">⏱ 1 Tag</option>
-                <option value="604800">⏱ 7 Tage</option>
-                <option value="2592000">⏱ 30 Tage</option>
+              <select id="chat-ablauf" class="ghost mini" hidden title="Neue Nachrichten verschwinden nach … (NIP-40). Löschen ist eine Bitte an die Relays." aria-label="Ablauf neuer Nachrichten" data-i18n-title="komm.ablaufTitel" data-i18n-aria="komm.ablaufAria">
+                <option value="" data-i18n="komm.ablaufAus">⏱ aus</option>
+                <option value="3600" data-i18n="komm.ablauf1h">⏱ 1 Stunde</option>
+                <option value="86400" data-i18n="komm.ablauf1d">⏱ 1 Tag</option>
+                <option value="604800" data-i18n="komm.ablauf7d">⏱ 7 Tage</option>
+                <option value="2592000" data-i18n="komm.ablauf30d">⏱ 30 Tage</option>
               </select>
-              <button id="chat-zap" class="zap-btn" title="zap senden"><svg class="logo-btc" width="13" height="13" viewBox="10.5 0.8 12.6 22.4" fill="#f7931a" aria-label="Bitcoin"><path d="M16.15 12.03c1.44-.36 2.42-1.32 2.24-3.02-.23-2.13-1.98-2.85-4.23-3.05l-.01-2.44h-1.51l-.01 2.38c-.4 0-.81.01-1.21.01l.01-2.39H9.92l-.01 2.44c-.33.01-.65.01-.97.01v-.01H6.88l.01 1.62s1.11-.02 1.09-.01c.61 0 .81.36.87.67v2.77c.04 0 .1.01.16.03h-.16v3.88c-.03.19-.13.49-.54.49.02.01-1.09 0-1.09 0l-.3 1.81h2.55c.34 0 .68.01 1.01.01l.01 2.47h1.51l.01-2.44c.41.01.81.01 1.21.02l-.01 2.43h1.51l.01-2.46c2.58-.15 4.37-.8 4.59-3.18.18-1.93-.73-2.79-2.17-3.14zm-4.7-4.71c.86 0 3.57-.17 3.57 1.53 0 1.63-2.71 1.45-3.57 1.45zm0 7.63v-3.19c1.04 0 4.28-.19 4.28 1.6 0 1.71-3.24 1.59-4.28 1.59z"/></svg></button>
+              <button id="chat-zap" class="zap-btn" title="Zap senden" data-i18n-title="komm.zapSenden"><svg class="logo-btc" width="13" height="13" viewBox="10.5 0.8 12.6 22.4" fill="#f7931a" aria-label="Bitcoin"><path d="M16.15 12.03c1.44-.36 2.42-1.32 2.24-3.02-.23-2.13-1.98-2.85-4.23-3.05l-.01-2.44h-1.51l-.01 2.38c-.4 0-.81.01-1.21.01l.01-2.39H9.92l-.01 2.44c-.33.01-.65.01-.97.01v-.01H6.88l.01 1.62s1.11-.02 1.09-.01c.61 0 .81.36.87.67v2.77c.04 0 .1.01.16.03h-.16v3.88c-.03.19-.13.49-.54.49.02.01-1.09 0-1.09 0l-.3 1.81h2.55c.34 0 .68.01 1.01.01l.01 2.47h1.51l.01-2.44c.41.01.81.01 1.21.02l-.01 2.43h1.51l.01-2.46c2.58-.15 4.37-.8 4.59-3.18.18-1.93-.73-2.79-2.17-3.14zm-4.7-4.71c.86 0 3.57-.17 3.57 1.53 0 1.63-2.71 1.45-3.57 1.45zm0 7.63v-3.19c1.04 0 4.28-.19 4.28 1.6 0 1.71-3.24 1.59-4.28 1.59z"/></svg></button>
               <button id="chat-send" class="send-btn"><span class="ic" data-icon="send"></span></button>
             </div>
             <div id="chat-attach-list" class="mono-sm" style="padding:0 12px 8px"></div>
@@ -272,35 +259,35 @@
           
           <aside class="channel-col">
             <div class="space-head">
-              <h2 id="space-name">Kein Raum</h2>
-              <button id="space-info" class="ghost icon-btn" aria-label="Rauminfo">i</button>
+              <h2 id="space-name"><span data-i18n="komm.keinRaum">Kein Raum</span></h2>
+              <button id="space-info" class="ghost icon-btn" aria-label="Rauminfo" data-i18n-aria="komm.rauminfo">i</button>
             </div>
             <div id="channel-list" class="channel-list"></div>
-            <button id="space-invite" class="ghost hidden">einladen</button>
-            <button id="space-join" class="ghost">Raum beitreten</button>
-            <button id="space-create" class="ghost" title="Ende-zu-Ende-verschlüsselt (MLS) – nur Eingeladene lesen mit">Raum anlegen (privat)</button>
-            <button id="space-create-public" class="ghost" title="Jeder kann mitlesen, auch ohne diese App">öffentlichen Raum anlegen</button>
-            <button id="space-mods" class="ghost">Moderatoren</button>
+            <button id="space-invite" class="ghost hidden" data-i18n="komm.einladen">einladen</button>
+            <button id="space-join" class="ghost" data-i18n="komm.raumBeitreten">Raum beitreten</button>
+            <button id="space-create" class="ghost" title="Ende-zu-Ende-verschlüsselt (MLS) – nur Eingeladene lesen mit" data-i18n-title="komm.privatTitel" data-i18n="komm.anlegenPrivat">Raum anlegen (privat)</button>
+            <button id="space-create-public" class="ghost" title="Jeder kann mitlesen, auch ohne diese App" data-i18n-title="komm.oeffentlichTitel" data-i18n="komm.anlegenOeffentlich">öffentlichen Raum anlegen</button>
+            <button id="space-mods" class="ghost" data-i18n="komm.moderatoren">Moderatoren</button>
           </aside>
           <div class="channel-main">
-            <div id="space-oeffentlich" class="mono-sm warn hidden">Öffentlicher Raum – jeder kann mitlesen, auch ohne diese App. Die Nachrichten liegen unverschlüsselt auf den Relays.</div>
+            <div id="space-oeffentlich" class="mono-sm warn hidden" data-i18n="komm.oeffentlichHinweis">Öffentlicher Raum – jeder kann mitlesen, auch ohne diese App. Die Nachrichten liegen unverschlüsselt auf den Relays.</div>
             <div class="channel-head">
               <h3 id="channel-name">—</h3>
               <span id="channel-privacy" class="mono-sm"></span>
-              <button id="channel-search-btn" class="ghost icon-btn" aria-label="Suchen">⌕</button>
+              <button id="channel-search-btn" class="ghost icon-btn" aria-label="Suchen" data-i18n-aria="komm.suchen">⌕</button>
             </div>
             <div id="channel-thread" class="channel-thread"></div>
             <div id="channel-composer" class="channel-composer">
-              <label for="space-msg" class="visually-hidden">Nachricht</label>
-              <input id="space-msg" placeholder="Nachricht" autocomplete="off" />
-              <button id="space-send" class="send-btn">Senden</button>
+              <label for="space-msg" class="visually-hidden" data-i18n="komm.nachricht">Nachricht</label>
+              <input id="space-msg" placeholder="Nachricht" data-i18n-ph="komm.nachricht" autocomplete="off" />
+              <button id="space-send" class="send-btn" data-i18n="send">Senden</button>
             </div>
             <div id="channel-readonly" class="mono-sm hidden"></div>
           </div>
           <aside class="member-col">
-            <h3>Mitglieder</h3>
+            <h3 data-i18n="komm.mitglieder">Mitglieder</h3>
             <div id="member-list" class="mono-sm"></div>
-            <div id="raum-meldungen" class="mono-sm hidden" aria-label="Meldungen"></div>
+            <div id="raum-meldungen" class="mono-sm hidden" aria-label="Meldungen" data-i18n-aria="komm.meldungen"></div>
           </aside>
         </div>
       </div>
@@ -417,7 +404,7 @@
         </div></div>
           <div class="subpane" data-subpane="earn:host"><div class="card">
           <h3><span class="ic" data-icon="globe"></span> <span data-i18n="hostReward">App verbreiten</span></h3>
-          <p class="muted" data-i18n="hostSub">Leg freedom.html auf einen eigenen Server, IPFS oder Tor. Mehr Kopien sind schwerer zu sperren. Eine Vergütung gibt es dafür nicht.</p>
+          <p class="muted" data-i18n="hostSub">Leg freedom.html auf einen eigenen Server, IPFS oder Tor – mehr Kopien sind schwerer zu sperren. Legst du freedom-spiegel.json mit deinen Adressen daneben, bekommst du 1 % jeder KI-Zahlung, die über deine Kopie läuft.</p>
         </div></div>
           <div class="subpane" data-subpane="earn:refer"><div class="card">
           <h3><span class="ic" data-icon="trophy"></span> Rangliste</h3>
@@ -608,6 +595,17 @@
             <button id="eigene-relays-save" class="ghost" style="width:auto;padding:6px 10px" type="button">veröffentlichen</button>
           </div>
           <div id="eigene-relays-status" class="mono-sm" aria-live="polite"></div>
+        </div><div class="card" id="relay-zugang-karte">
+          <h3><span class="ic" data-icon="server"></span> Relay-Zugang kaufen</h3>
+          <p class="mono-sm">Manche Relays nehmen Post nur für Zahlende an und geben deine Umschläge nur an dich heraus, wenn du dich anmeldest (NIP-42). Die App meldet sich nur bei deinen eigenen Relays und bei Relays mit gekauftem Zugang an – nur, wenn der Relay es verlangt. Kaufen verrät dem Betreiber deinen Schlüssel und deine IP-Adresse; mit SOL auch deine Absenderadresse, und auf der Kette sieht jeder, dass sie diesen Relay bezahlt hat. Mit Sats sieht der Betreiber nur die Zahlung.</p>
+          <input id="relay-zugang-url" class="mono-sm" placeholder="wss://…" autocomplete="off" spellcheck="false" style="width:100%" aria-label="Relay-Adresse" />
+          <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">
+            <button id="relay-zugang-preis" class="ghost" style="width:auto;padding:6px 10px" type="button">Preis abfragen</button>
+            <button id="relay-zugang-sats" class="ghost hidden" style="width:auto;padding:6px 10px" type="button">mit Sats kaufen</button>
+            <button id="relay-zugang-sol" class="ghost hidden" style="width:auto;padding:6px 10px" type="button">mit SOL kaufen</button>
+            <button id="relay-zugang-pruefen" class="ghost hidden" style="width:auto;padding:6px 10px" type="button">Zahlung erneut prüfen</button>
+          </div>
+          <div id="relay-zugang-status" class="mono-sm" aria-live="polite"></div>
         </div></div>
             <div class="subpane" data-subpane="settings:privacy"><h2 class="settings-h">Datenschutz</h2><div class="card">
           <h3><span class="ic" data-icon="shield"></span> Was sichtbar ist</h3>
@@ -624,6 +622,14 @@
           <label class="mono-sm" style="display:block;margin:8px 0">
             <input type="checkbox" id="kontakte-sichern" /> Kontakte verschlüsselt zwischen Geräten abgleichen (NIP-51)</label>
           <p class="mono-sm muted">Standard: aus. Die Liste liegt verschlüsselt auf den Relays – sie sehen, dass es sie gibt, nicht, wen sie enthält.</p>
+          <label class="mono-sm" style="display:block;margin:8px 0">Direktnachrichten verzögert senden
+            <select id="versand-verzoegerung" class="mono-sm">
+              <option value="0">aus – sofort</option>
+              <option value="5">bis 5 Sekunden</option>
+              <option value="30">bis 30 Sekunden (Standard)</option>
+              <option value="120">bis 2 Minuten</option>
+            </select></label>
+          <p class="mono-sm muted">Jede Kopie einer Nachricht (an den Empfänger, an dich, an deine Geräte) geht mit eigener Zufallsverzögerung hinaus – so sieht ein Relay nicht am gleichen Zeitpunkt, wer mit wem schreibt. Die Nachricht steht sofort in deinem Verlauf; verlässt du die Seite, geht Wartendes sofort hinaus. Deine IP-Adresse verbirgt das nicht.</p>
           <div id="privacy-report" class="mono-sm"
             style="white-space:pre-wrap;max-height:340px;overflow-y:auto"></div>
         </div><div class="card">
@@ -696,13 +702,13 @@
 
     <nav class="app-nav">
       <a class="nav-brand" href="#" aria-label="FREEDOM"><span id="nav-mark"></span></a>
-      <button data-tab="ai" class="active"><span class="ic" data-icon="bot"></span><span>Agent</span></button>
-      <button data-tab="comm"><span class="ic" data-icon="chat"></span><span>Kommunikation</span></button>
-      <button data-tab="wallet"><span class="ic" data-icon="zap"></span><span>Währung</span></button>
-      <button data-tab="earn"><span class="ic" data-icon="monitor"></span><span>Earn</span></button>
-      <button data-tab="profile"><span class="ic" data-icon="user"></span><span>Profil</span></button>
-      <button data-tab="settings"><span class="ic" data-icon="settings"></span><span>Settings</span></button>
-      <div class="nav-status" title="Relays verbunden"><span id="nav-status-dot" class="status-dot"></span>
+      <button data-tab="ai" class="active"><span class="ic" data-icon="bot"></span><span data-i18n="navAi">Agent</span></button>
+      <button data-tab="comm"><span class="ic" data-icon="chat"></span><span data-i18n="navComm">Kommunikation</span></button>
+      <button data-tab="wallet"><span class="ic" data-icon="zap"></span><span data-i18n="navWallet">Währung</span></button>
+      <button data-tab="earn"><span class="ic" data-icon="monitor"></span><span data-i18n="navEarn">Earn</span></button>
+      <button data-tab="profile"><span class="ic" data-icon="user"></span><span data-i18n="navProfile">Profil</span></button>
+      <button data-tab="settings"><span class="ic" data-icon="settings"></span><span data-i18n="navSettings">Settings</span></button>
+      <div class="nav-status" title="Relays verbunden" data-i18n-title="relaysTitle"><span id="nav-status-dot" class="status-dot"></span>
         <span id="nav-status-text" class="mono-sm">—</span></div>
     </nav>
   </div>

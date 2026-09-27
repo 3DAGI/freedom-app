@@ -77,5 +77,6 @@ test("Verdrahtung (4.9d): Trinkgeld fragt erst versiegelt an, Profil nur mit War
   assert.match(k, /\(await alsTrinkgeld\(w\)\) \?\? \(await alsAdressAnfrage\(w\)\)/);
   assert.match(k, /istKontakt: \(pk\) => conversations\.some\(\(c\) => c\.type === "dm" && c\.id === pk\)/);
   const app = readFileSync(new URL("../src/shell/app.ts", import.meta.url), "utf8");
-  assert.match(app, /setInterval\(\(\) => void posteingangAbgleichen\(\), 60_000\)/);
+  // seit 6.4 im Abruftakt: jeder zweite Schlag, etwa jede Minute (mit Zufall)
+  assert.match(app, /abrufTakt\.melde\("posteingang", posteingangAbgleichen, 2\)/);
 });

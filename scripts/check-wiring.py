@@ -139,7 +139,7 @@ def konsumenten_bezeichner() -> set[str]:
     alle: set[str] = set()
     for ordner in KONSUMENTEN:
         for f in ordner.rglob("*"):
-            if f.suffix not in (".ts", ".mjs", ".js") or not f.is_file():
+            if f.suffix not in (".ts", ".mts", ".mjs", ".js") or not f.is_file():
                 continue
             if f.name.endswith(".test.ts") or any(a in f.parents for a in AUSGESCHLOSSEN):
                 continue

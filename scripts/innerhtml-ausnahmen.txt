@@ -26,9 +26,7 @@ kommunikation.ts|(Zuweisung) st.space.channels.map((c) => { const b = badges.get
 kommunikation.ts|b.mentions|lokal gezählt in unreadBadges()
 kommunikation.ts|schloss|feste Zeichen: Schloss-Entity oder #
 kommunikation.ts|marke|festes Markup oder Template mit dem lokalen Zähler b.mentions
-kommunikation.ts|(Zuweisung) topLevel.map((m) => { const t = threads.get(m.id); const antworten = t ? `<button class="thread-link" data-root="${escap|Callback: Templates mit escapeHtml für IDs, Autor, Zeit und Inhalt
-kommunikation.ts|t.replies.length|Länge eines lokal gebauten Arrays (Threads)
-kommunikation.ts|t.participants.length|Länge eines lokal gebauten Arrays (Threads)
+kommunikation.ts|(Zuweisung) topLevel.map((m) => { const faden = threads.get(m.id); const antworten = faden ? `<button class="thread-link" data-root=|Callback: Templates mit escapeHtml für IDs, Autor, Zeit und Inhalt
 kommunikation.ts|antworten|Template mit escapeHtml(m.id) und lokalen Zählern
 kommunikation.ts|modKnopf|Template mit escapeHtml(m.id) und escapeHtml(m.authorPubkey)
 kommunikation.ts|raumKnopf|Template mit escapeHtml(m.id), escapeHtml(m.authorPubkey) und escapeHtml des festen Aktionstexts (2.3c)

@@ -28,6 +28,8 @@ import {
 } from "../raum-mls.js";
 import { geheim } from "../tresor.js";
 import { $, toast } from "../ui.js";
+import { gebietsschema, t } from "../../i18n.js";
+import { abrufTakt, versendeVerzoegert } from "../versand.js";
 
 // ------------------------------------------------------------- Räume
 
@@ -92,7 +94,7 @@ export async function zeigeRaumLeiste(): Promise<void> {
   }
   // Namen privater Räume kommen aus ihrer Definition (Fremddaten) – nur textContent
   rail.replaceChildren(...ids.map((id) => {
-    const name = istPrivat(id) ? privatNamen.get(id) ?? "privater Raum" : id;
+    const name = istPrivat(id) ? privatNamen.get(id) ?? t("komm.privaterRaum") : id;
     const b = document.createElement("button");
     b.className = "space-pill";
     b.dataset.space = id;
@@ -119,7 +121,7 @@ async function oeffneRaum(spaceId: string): Promise<void> {
       spacesUi.privat = null;
       spacesUi.state = null;
       spacesUi.messages = [];
-      $("#space-name").textContent = `privater Raum nicht verfügbar${mlsGesperrt() ? ` – ${mlsGesperrt()}` : ""}`;
+      $("#space-name").textContent = `${t("komm.raumNichtVerfuegbar")}${mlsGesperrt() ? ` – ${mlsGesperrt()}` : ""}`;
       return;
     }
     spacesUi.privat = raum;
@@ -145,7 +147,7 @@ async function oeffneRaum(spaceId: string): Promise<void> {
     spacesUi.state = buildSpaceState(spaceId, struktur);
     spacesUi.messages = nachrichten;
   } catch (e) {
-    $("#space-name").textContent = `nicht erreichbar: ${(e as Error).message}`;
+    $("#space-name").textContent = t("komm.nichtErreichbar", { grund: (e as Error).message });
     return;
   }
   void zeigeRaumLeiste();
@@ -168,7 +170,7 @@ async function zeigeKanalliste(): Promise<void> {
   const box = $("#channel-list");
   const st = spacesUi.state as { space?: { name: string; channels: { id: string; name: string; privacy: string }[] } } | null;
   if (!box || !st?.space) {
-    if (box) box.innerHTML = `<span class="muted mono-sm">Raum nicht gefunden.</span>`;
+    if (box) box.innerHTML = `<span class="muted mono-sm">${escapeHtml(t("komm.raumNichtGefunden"))}</span>`;
     return;
   }
   $("#space-name").textContent = st.space.name;
@@ -221,7 +223,7 @@ async function oeffneKanal(channelId: string): Promise<void> {
   $("#channel-name").textContent = `#${kanal.name}`;
   const pInfo = $("#channel-privacy");
   if (pInfo) {
-    pInfo.textContent = kanal.privacy === "verschluesselt" ? "verschlüsselt" : "offen — jeder kann mitlesen";
+    pInfo.textContent = t(kanal.privacy === "verschluesselt" ? "komm.kanalVerschluesselt" : "komm.kanalOffen");
     pInfo.className = kanal.privacy === "verschluesselt" ? "mono-sm ok" : "mono-sm muted";
     pInfo.title = privacyInfo(kanal as never);
   }
@@ -230,18 +232,18 @@ async function oeffneKanal(channelId: string): Promise<void> {
   const thread = $("#channel-thread");
   if (thread) {
     thread.innerHTML = topLevel.length === 0
-      ? `<div class="muted mono-sm">Noch nichts hier. Fang an.</div>`
+      ? `<div class="muted mono-sm">${escapeHtml(t("komm.nochNichts"))}</div>`
       : topLevel.map((m) => {
-          const t = threads.get(m.id);
-          const antworten = t
+          const faden = threads.get(m.id);
+          const antworten = faden
             ? `<button class="thread-link" data-root="${escapeHtml(m.id)}">
-                 ${t.replies.length} Antwort${t.replies.length === 1 ? "" : "en"} ·
-                 ${t.participants.length} Beteiligte</button>`
+                 ${escapeHtml(t(faden.replies.length === 1 ? "komm.eineAntwort" : "komm.antworten", { n: faden.replies.length }))} ·
+                 ${escapeHtml(t("komm.beteiligte", { n: faden.participants.length }))}</button>`
             : "";
           // Private Räume moderieren über MLS (2.3c) – nie mit öffentlichen Sperr-Events
           const modKnopf = darfModerieren && !spacesUi.privat && m.authorPubkey !== state.keypair?.pk
             ? `<button class="thread-link mod-hide" data-id="${escapeHtml(m.id)}"
-                 data-pk="${escapeHtml(m.authorPubkey)}" style="color:#9A6A6A">moderieren</button>`
+                 data-pk="${escapeHtml(m.authorPubkey)}" style="color:#9A6A6A">${escapeHtml(t("komm.moderieren"))}</button>`
             : "";
           const raumKnopf = spacesUi.privat
             ? `<button class="thread-link raum-aktion" data-id="${escapeHtml(m.id)}"
@@ -250,7 +252,7 @@ async function oeffneKanal(channelId: string): Promise<void> {
           return `<div class="msg-group">
             <div class="msg-meta">
               <span class="msg-author">${escapeHtml(pkShort(m.authorPubkey))}</span>
-              <span class="msg-time">${escapeHtml(new Date(m.createdAt * 1000).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" }))}</span>
+              <span class="msg-time">${escapeHtml(new Date(m.createdAt * 1000).toLocaleTimeString(gebietsschema(), { hour: "2-digit", minute: "2-digit" }))}</span>
             </div>
             <div class="msg-text">${escapeHtml(m.content)}</div>${antworten}${modKnopf}${raumKnopf}</div>`;
         }).join("");
@@ -261,7 +263,7 @@ async function oeffneKanal(channelId: string): Promise<void> {
     thread.querySelectorAll(".mod-hide").forEach((b) => {
       b.addEventListener("click", () => {
         const el = b as HTMLElement;
-        const was = confirm("Nachricht ausblenden? Abbrechen = Absender sperren.");
+        const was = confirm(t("komm.ausblendenOderSperren"));
         void moderiere(was ? "hide" : "ban", was ? el.dataset.id! : el.dataset.pk!);
       });
     });
@@ -273,8 +275,7 @@ async function oeffneKanal(channelId: string): Promise<void> {
   const ro = $("#channel-readonly");
   if (ro) {
     ro.classList.toggle("hidden", darf);
-    ro.textContent = darf ? "" :
-      "Hier dürfen nur bestimmte Rollen schreiben. Lesen kannst du alles.";
+    ro.textContent = darf ? "" : t("komm.nurRollen");
   }
 
   merkeLesestand(channelId);
@@ -286,7 +287,7 @@ async function oeffneKanal(channelId: string): Promise<void> {
 function raumAktionText(autor: string): string {
   const raum = spacesUi.privat;
   if (!raum) return "";
-  return autor === raum.ich ? "löschen" : raum.admins.includes(raum.ich) ? "moderieren" : "melden";
+  return t(autor === raum.ich ? "komm.loeschen" : raum.admins.includes(raum.ich) ? "komm.moderieren" : "komm.melden");
 }
 
 /**
@@ -299,26 +300,26 @@ async function raumAktion(id: string, autor: string): Promise<void> {
   if (!raum) return;
   let ok: boolean;
   if (autor === raum.ich) {
-    if (!confirm("Eigene Nachricht löschen? Wer sie schon gelesen hat, hatte sie.")) return;
+    if (!confirm(t("komm.eigeneLoeschen"))) return;
     ok = await loescheImRaum(raum, id);
   } else if (raum.admins.includes(raum.ich)) {
-    const wahl = prompt("Moderieren: 1 = Nachricht für alle löschen, 2 = Absender aus dem Raum entfernen (neuer Schlüssel, keine Sperrliste)", "1");
+    const wahl = prompt(t("komm.moderierenWahl"), "1");
     if (wahl?.trim() === "1") ok = await loescheImRaum(raum, id);
     else if (wahl?.trim() === "2") ok = await entferneAusRaum(raum, autor);
     else return;
   } else {
-    const grund = prompt(`Melden – nur die Moderatoren erfahren es, versiegelt. Grund (${MELDE_GRUENDE.join(", ")}):`, "spam")?.trim();
+    const grund = prompt(t("komm.meldenGrund", { gruende: MELDE_GRUENDE.join(", ") }), "spam")?.trim();
     if (!grund) return;
     if (!(MELDE_GRUENDE as readonly string[]).includes(grund)) {
-      toast("Unbekannter Grund", true);
+      toast(t("komm.unbekannterGrund"), true);
       return;
     }
-    const notiz = prompt("Kurze Notiz (optional, nur für die Moderatoren):") ?? "";
+    const notiz = prompt(t("komm.meldenNotiz")) ?? "";
     const n = await meldeImRaum(raum, id, autor, grund as MeldeGrund, notiz).catch(() => 0);
-    toast(n > 0 ? `Gemeldet – versiegelt an ${n} Moderator(en)` : "Nicht gemeldet – kein Moderator erreichbar", n === 0);
+    toast(n > 0 ? t("komm.gemeldet", { n }) : t("komm.nichtGemeldet"), n === 0);
     return;
   }
-  toast(ok ? "Erledigt" : "Nicht geändert – kein Relay der Gruppe nahm an", !ok);
+  toast(t(ok ? "komm.erledigt" : "komm.nichtGeaendert"), !ok);
   await oeffneRaum(spacesUi.spaceId!);
 }
 
@@ -334,17 +335,17 @@ function zeigeMeldungen(): void {
     z.className = "member-row";
     z.style.display = "block";
     const text = document.createElement("div");
-    text.textContent = `Meldung von ${kontaktName(m.von)} über ${kontaktName(m.autor)} · ${m.grund}${m.notiz ? ` – ${m.notiz}` : ""}`;
+    text.textContent = `${t("komm.meldungVon", { von: kontaktName(m.von), autor: kontaktName(m.autor), grund: m.grund })}${m.notiz ? ` – ${m.notiz}` : ""}`;
     z.append(text);
     const aktionen: [string, () => Promise<boolean>][] = [
-      ["löschen", () => loescheImRaum(raum!, m.ziel)], ["entfernen", () => entferneAusRaum(raum!, m.autor)], ["erledigt", async () => true],
+      [t("komm.loeschen"), () => loescheImRaum(raum!, m.ziel)], [t("komm.entfernen"), () => entferneAusRaum(raum!, m.autor)], [t("komm.erledigtKnopf"), async () => true],
     ];
     for (const [label, tun] of aktionen) {
       const b = document.createElement("button");
       b.className = "ghost mini";
       b.textContent = label;
       b.addEventListener("click", async () => {
-        if (!(await tun().catch(() => false))) return toast("Nicht geändert – kein Relay der Gruppe nahm an", true);
+        if (!(await tun().catch(() => false))) return toast(t("komm.nichtGeaendert"), true);
         await meldungErledigt(wrapId);
         await oeffneRaum(spacesUi.spaceId!);
       });
@@ -366,8 +367,8 @@ async function zeigeMitglieder(): Promise<void> {
       z.className = "member-row";
       // Moderatoren haben jede Rolle – dort nur „Moderator“ zeigen
       const eigene = privat.admins.includes(pk) ? [] : (privat.zustand.grants.get(pk) ?? []).filter((r) => !r.startsWith("__") && r !== "mitglied").map((r) => rollen.get(r)?.name ?? r);
-      const text = `${pkShort(pk)}${privat.admins.includes(pk) ? " · Moderator" : ""}${eigene.length ? ` · ${eigene.join(", ")}` : ""}`;
-      z.textContent = pk === privat.ich ? `${text} (du)` : text;
+      const text = `${pkShort(pk)}${privat.admins.includes(pk) ? ` · ${t("komm.moderatorRolle")}` : ""}${eigene.length ? ` · ${eigene.join(", ")}` : ""}`;
+      z.textContent = pk === privat.ich ? `${text} (${t("komm.du")})` : text;
       return z;
     }));
     zeigeMeldungen();
@@ -382,7 +383,7 @@ async function zeigeMitglieder(): Promise<void> {
   const zeilen: string[] = [];
   if (st.ownerPubkey) {
     zeilen.push(`<div class="member-row"><span>${escapeHtml(pkShort(st.ownerPubkey))}</span>
-      <span class="msg-role" style="color:var(--acc,#C9A227)">Gründer</span></div>`);
+      <span class="msg-role" style="color:var(--acc,#C9A227)">${escapeHtml(t("komm.gruender"))}</span></div>`);
   }
   for (const [pk, rollen] of st.grants) {
     if (pk === st.ownerPubkey) continue;
@@ -390,7 +391,7 @@ async function zeigeMitglieder(): Promise<void> {
     zeilen.push(`<div class="member-row"><span>${escapeHtml(pkShort(pk))}</span>
       ${namen.map((n) => `<span class="msg-role">${escapeHtml(n!)}</span>`).join("")}</div>`);
   }
-  box.innerHTML = zeilen.length ? zeilen.join("") : `<span class="muted">niemand eingetragen</span>`;
+  box.innerHTML = zeilen.length ? zeilen.join("") : `<span class="muted">${escapeHtml(t("komm.niemand"))}</span>`;
 }
 
 /** Nachricht senden. */
@@ -403,7 +404,7 @@ async function sendeRaumNachricht(): Promise<void> {
     // Privat (2.3b): verschlüsselt in die Gruppe – Relays sehen nur Kind 445
     if (await sendePrivat(spacesUi.privat.gruppe, spacesUi.channelId, text).catch(() => false)) await oeffneRaum(spacesUi.spaceId);
     else {
-      toast("Nicht gesendet – kein Relay der Gruppe nahm an", true);
+      toast(t("komm.nichtGesendet"), true);
       input.value = text;
     }
     return;
@@ -433,14 +434,14 @@ async function sendeRaumNachricht(): Promise<void> {
 async function legeRaumAn(oeffentlich = false): Promise<void> {
   if (!state.keypair) return;
   // Neue Räume sind privat (2.3b); öffentlich nur ausdrücklich und mit Hinweis
-  if (oeffentlich && !confirm(OEFFENTLICH_WARNUNG)) return;
-  const name = prompt(oeffentlich ? "Name des öffentlichen Raums:" : "Name des privaten Raums:");
+  if (oeffentlich && !confirm(t("komm.oeffentlichWarnung"))) return;
+  const name = prompt(t(oeffentlich ? "komm.nameOeffentlich" : "komm.namePrivat"));
   if (!name?.trim()) return;
   if (!oeffentlich) {
     try {
       const gruppe = await legePrivatenRaumAn(name.trim());
       await oeffneRaum(PRIVAT + gruppe);
-      toast("Privater Raum angelegt – Mitglieder über „einladen“ hinzufügen");
+      toast(t("komm.privatAngelegt"));
     } catch (e) {
       toast((e as Error).message, true);
     }
@@ -459,29 +460,25 @@ async function legeRaumAn(oeffentlich = false): Promise<void> {
       spaceId, name: name.trim(), ownerPubkey: state.keypair.pk,
       channels: [
         { id: "allgemein", name: "allgemein", privacy: "offen", writeRoles: [], position: 0 },
-        { id: "ankuendigungen", name: "ankündigungen", privacy: "offen", writeRoles: ["mod"], position: 1 },
+        { id: "ankuendigungen", name: "ankündigungen", privacy: "offen", writeRoles: ["mod"], position: 1 }, // kein UI-Text
       ],
     } as never)));
 
     await pool.publish(await signiere(buildRoles(spaceId, state.keypair.pk, [
-      { id: "mod", name: "Moderator", rank: 50,
+      { id: "mod", name: "Moderator", rank: 50, // kein UI-Text
         permissions: ["lesen", "schreiben", "threads", "moderieren", "rollen_vergeben"] },
-      { id: "mitglied", name: "Mitglied", rank: 10,
+      { id: "mitglied", name: "Mitglied", rank: 10, // kein UI-Text
         permissions: ["lesen", "schreiben", "threads"] },
     ] as never)));
 
     raumBeitreten(spaceId);
     await oeffneRaum(spaceId);
     // Die Kennung ist der einzige Weg, wie jemand hereinkommt.
-    prompt("Raum angelegt. Diese Kennung weitergeben:", spaceId);
+    prompt(t("komm.raumAngelegt"), spaceId);
   } catch (e) {
     toast((e as Error).message, true);
   }
 }
-
-const OEFFENTLICH_WARNUNG =
-  "Öffentlicher Raum: Jeder kann mitlesen, auch ohne diese App – die Nachrichten liegen unverschlüsselt auf den Relays, " +
-  "mit deinem Schlüssel als Absender. Private Räume sind Ende-zu-Ende-verschlüsselt.\n\nTrotzdem öffentlich anlegen?";
 
 /** Name eines Kontakts, sonst der gekürzte Schlüssel. */
 const kontaktName = (pk: string) => conversations.find((c) => c.type === "dm" && c.id === pk)?.name ?? pkShort(pk);
@@ -492,17 +489,17 @@ async function ladeEin(): Promise<void> {
   if (!raum) return;
   const kontakte = conversations.filter((c) => c.type === "dm" && /^[0-9a-f]{64}$/.test(c.id) && !raum.mitglieder.includes(c.id));
   const liste = kontakte.map((c, i) => `${i + 1}: ${c.name}`).join("\n");
-  const eingabe = prompt(kontakte.length ? `Wen einladen? Nummer eines Kontakts oder ein Schlüssel (hex):\n${liste}` : "Wen einladen? Schlüssel (hex):");
+  const eingabe = prompt(kontakte.length ? t("komm.einladenListe", { liste }) : t("komm.einladenSchluessel"));
   if (!eingabe?.trim()) return;
   const n = Number(eingabe.trim());
   const pk = Number.isInteger(n) && n >= 1 && n <= kontakte.length ? kontakte[n - 1]!.id : eingabe.trim().toLowerCase();
   if (!/^[0-9a-f]{64}$/.test(pk)) {
-    toast("Kein gültiger Schlüssel", true);
+    toast(t("komm.keinSchluessel"), true);
     return;
   }
-  toast("Lade ein …");
+  toast(t("komm.ladeEin"));
   const r = await ladeInPrivatenRaum(raum, pk).catch((e) => (e as Error).message);
-  toast(r === "eingeladen" ? `${kontaktName(pk)} eingeladen – versiegelt an den Posteingang` : `Nicht eingeladen: ${r}`, r !== "eingeladen");
+  toast(r === "eingeladen" ? t("komm.eingeladen", { name: kontaktName(pk) }) : t("komm.nichtEingeladen", { grund: r }), r !== "eingeladen");
   await oeffneRaum(spacesUi.spaceId!);
 }
 
@@ -523,30 +520,30 @@ async function moderiere(aktion: "hide" | "ban" | "grant", ziel: string): Promis
     ? can(state.keypair.pk, "rollen_vergeben", st)
     : can(state.keypair.pk, "moderieren", st);
   if (!darf) {
-    toast("Dafür fehlt dir das Recht in diesem Raum", true);
+    toast(t("komm.keinRecht"), true);
     return;
   }
 
   try {
     const pool = await ensurePool();
     if (aktion === "grant") {
-      const rolle = prompt("Welche Rolle? (mod / mitglied)", "mitglied");
+      const rolle = prompt(t("komm.welcheRolle"), "mitglied");
       if (!rolle) return;
       await pool.publish(await signiere(buildRoleGrant(
         spacesUi.spaceId, state.keypair.pk, ziel, [rolle.trim()])));
-      toast("Rolle vergeben");
+      toast(t("komm.rolleVergeben"));
     } else {
       // Ohne Begruendung wirkt Moderation willkuerlich — und wird es meist auch.
-      const grund = prompt("Begründung (wird veröffentlicht):");
+      const grund = prompt(t("komm.begruendung"));
       if (!grund?.trim()) {
-        toast("Ohne Begründung nicht — sie gehört zur Maßnahme", true);
+        toast(t("komm.ohneBegruendung"), true);
         return;
       }
       const ev = aktion === "hide"
         ? buildHide(spacesUi.spaceId, state.keypair.pk, ziel, grund.trim())
         : buildBan(spacesUi.spaceId, state.keypair.pk, ziel, grund.trim());
       await pool.publish(await signiere(ev));
-      toast(aktion === "hide" ? "Nachricht ausgeblendet" : "Absender gesperrt");
+      toast(t(aktion === "hide" ? "komm.ausgeblendet" : "komm.gesperrt"));
     }
     await oeffneRaum(spacesUi.spaceId);
   } catch (e) {
@@ -567,41 +564,38 @@ async function ernenneModeratoren(): Promise<void> {
   if (raum) {
     // Privat (2.3b): Moderatoren sind die Admins der Gruppe – gesetzt per MLS-Commit, nie als Event
     if (!raum.admins.includes(raum.ich)) {
-      toast("Nur Moderatoren ernennen Moderatoren", true);
+      toast(t("komm.nurModsErnennen"), true);
       return;
     }
     const andere = raum.mitglieder.filter((m) => m !== raum.ich);
-    const liste = andere.map((m, i) => `${i + 1}: ${kontaktName(m)}${raum.admins.includes(m) ? " (Moderator)" : ""}`).join("\n");
+    const liste = andere.map((m, i) => `${i + 1}: ${kontaktName(m)}${raum.admins.includes(m) ? ` ${t("komm.moderatorMarke")}` : ""}`).join("\n");
     const vorher = andere.map((m, i) => (raum.admins.includes(m) ? String(i + 1) : "")).filter(Boolean).join(",");
-    const eingabe = prompt(`Wer soll Moderator sein? Nummern, kommagetrennt – du bleibst es:\n${liste}`, vorher);
+    const eingabe = prompt(t("komm.werModerator", { liste }), vorher);
     if (eingabe === null) return;
     const mods = eingabe.split(",").map((x) => andere[Number(x.trim()) - 1]).filter((x): x is string => !!x);
     if (await setzeModeratoren(raum, mods)) {
-      toast(`${mods.length} Moderator(en) neben dir`);
+      toast(t("komm.modsNebenDir", { n: mods.length }));
       await oeffneRaum(spacesUi.spaceId);
-    } else toast("Nicht geändert – kein Relay der Gruppe nahm an", true);
+    } else toast(t("komm.nichtGeaendert"), true);
     return;
   }
   const st = spacesUi.state as { ownerPubkey?: string } | null;
   if (st?.ownerPubkey !== state.keypair.pk) {
-    toast("Nur der Gründer kann Moderatoren benennen", true);
+    toast(t("komm.nurGruender"), true);
     return;
   }
 
-  const eingabe = prompt("Pubkeys der Moderatoren, kommagetrennt:");
+  const eingabe = prompt(t("komm.modPubkeys"));
   if (eingabe === null) return;
   const mods = eingabe.split(",").map((x) => x.trim()).filter((x) => /^[0-9a-f]{64}$/.test(x));
 
-  const regeln = prompt(
-    "Regeln dieses Raums (erscheinen bei jedem Mitglied):\n" +
-    "Ohne Regeln wirkt Moderation willkürlich.",
-  );
+  const regeln = prompt(t("komm.regeln"));
 
   try {
     const { buildModeratorList } = await import("@freedomstack/protocol");
     await (await ensurePool()).publish(await signiere(buildModeratorList(
       spacesUi.spaceId, state.keypair.pk, mods, regeln ?? undefined)));
-    toast(`${mods.length} Moderator(en) benannt`);
+    toast(t("komm.modsBenannt", { n: mods.length }));
     await oeffneRaum(spacesUi.spaceId);
   } catch (e) {
     toast((e as Error).message, true);
@@ -624,13 +618,13 @@ export async function wireSpacesTab(): Promise<void> {
   if (einladen) einladen.onclick = () => void ladeEin();
   // Meldungen (8.5) kommen über den Posteingang – für Moderatoren gleich zeigen
   wennMeldung(() => zeigeMeldungen());
-  // Private Räume (2.3b): solange einer offen und sichtbar ist, alle 30 s abgleichen
-  setInterval(() => {
+  // Private Räume (2.3b): solange einer offen und sichtbar ist, im Abruftakt abgleichen (6.4: etwa 30 s, mit Zufall)
+  abrufTakt.melde("raum", () => {
     if (spacesUi.privat && spacesUi.spaceId && !document.hidden && document.getElementById("channel-thread")?.offsetParent) void oeffneRaum(spacesUi.spaceId);
-  }, 30_000);
+  });
   const join = $("#space-join");
   if (join) join.onclick = () => {
-    const id = prompt("Raum-Kennung:");
+    const id = prompt(t("komm.raumKennung"));
     if (!id?.trim()) return;
     raumBeitreten(id.trim());
     void oeffneRaum(id.trim());
@@ -672,7 +666,7 @@ async function uploadToBlossom(file: File): Promise<string> {
       if (data.url || data.sha256) return data.url ?? `${server}/${data.sha256}`;
     } catch { /* naechster server */ }
   }
-  throw new Error("kein blossom-server erreichbar — datei zu gross fuer inline");
+  throw new Error(t("komm.keinBlossom"));
 }
 
 /**
@@ -700,7 +694,7 @@ export async function handleChatFiles(files: FileList | null): Promise<void> {
       } else {
         // gross (2.4): nur verschluesselt hinaus – Blob-Netz, Blossom als Ausweg.
         // Schluessel, Name und Typ reisen nur in der Nachricht.
-        setAttachStatus(listEl, `${file.name}: verschlüssele…`);
+        setAttachStatus(listEl, t("komm.verschluessele", { name: file.name }));
         try {
           const { uploadAnhang } = await import("../../blob-client.js");
           const pool = await ensurePool();
@@ -708,7 +702,7 @@ export async function handleChatFiles(files: FileList | null): Promise<void> {
           url = `freedom-blob:${res.blobId}`;
           enc = res.schluessel;
         } catch {
-          setAttachStatus(listEl, `${file.name}: blossom-fallback…`);
+          setAttachStatus(listEl, t("komm.blossomAusweg", { name: file.name }));
           const { verschluesseleDatei } = await import("@freedomstack/protocol");
           const { chiffrat, schluessel } = verschluesseleDatei(new Uint8Array(await file.arrayBuffer()));
           url = await uploadToBlossom(new File([chiffrat as BlobPart], "", { type: "application/octet-stream" }));
@@ -734,7 +728,7 @@ function wireBlobButtons(root: HTMLElement): void {
     btn.addEventListener("click", async () => {
       const el = btn as HTMLElement;
       const oldText = el.textContent ?? "";
-      el.textContent = "lade…";
+      el.textContent = t("komm.lade");
       try {
         const { downloadBlob, oeffneAnhang } = await import("../../blob-client.js");
         const pool = await ensurePool();
@@ -745,7 +739,7 @@ function wireBlobButtons(root: HTMLElement): void {
           let chiffrat: Uint8Array;
           if (d.blob) {
             const res = await downloadBlob(d.blob, pool as never);
-            if (!res) throw new Error("nicht genug shards im netz gefunden");
+            if (!res) throw new Error(t("komm.zuWenigStuecke"));
             chiffrat = res.bytes;
           } else {
             const r = await fetch(d.url!);
@@ -756,7 +750,7 @@ function wireBlobButtons(root: HTMLElement): void {
           datei = { bytes: await oeffneAnhang(chiffrat, schluessel), mime: d.mime || "application/octet-stream", name: d.name || "datei" };
         } else {
           const res = await downloadBlob(d.blob!, pool as never);
-          if (!res) throw new Error("nicht genug shards im netz gefunden");
+          if (!res) throw new Error(t("komm.zuWenigStuecke"));
           datei = { bytes: res.bytes, mime: res.mime, name: res.name || d.name || "datei" };
         }
         const url = URL.createObjectURL(new Blob([datei.bytes as BlobPart], { type: datei.mime }));
@@ -852,7 +846,7 @@ function loadConversations(): void {
 
 function saveConversations(): void {
   void geheim.setItem("freedom.chats", JSON.stringify(conversations))
-    .catch((e) => toast(`Unterhaltungen nicht gespeichert: ${(e as Error).message}`, true));
+    .catch((e) => toast(t("komm.nichtGespeichert", { grund: (e as Error).message }), true));
   void sichereKontakte().catch(() => { /* offline – beim naechsten Speichern */ });
 }
 
@@ -1003,7 +997,7 @@ export function loadChatList(): void {
   loadConversations();
   const list = $("#chat-list");
   if (conversations.length === 0) {
-    list.innerHTML = `<div class="mono-sm" style="padding:10px;color:var(--text-muted)">Noch keine Unterhaltungen. Mit + beginnst du eine.</div>`;
+    list.innerHTML = `<div class="mono-sm" style="padding:10px;color:var(--text-muted)">${escapeHtml(t("komm.keineUnterhaltungen"))}</div>`;
     return;
   }
   list.innerHTML = conversations
@@ -1026,13 +1020,10 @@ export function loadChatList(): void {
       const cid = (el as HTMLElement).dataset.cid!;
       const c = conversations.find((x) => x.id === cid);
       if (!c || c.type !== "dm") return;
-      const name = prompt(`Eigener Name für ${pkShort(cid)}:`, c.name);
+      const name = prompt(t("komm.eigenerName", { pk: pkShort(cid) }), c.name);
       if (name === null) return;
       const teilen = name.trim()
-        ? confirm(
-            `„${name.trim()}" auch veröffentlichen?\n\n` +
-            `Dann sehen andere diesen Namen als Hinweis — und erfahren, dass du ` +
-            `diese Person kennst. Abbrechen: gilt nur für dich.`)
+        ? confirm(t("komm.nameVeroeffentlichen", { name: name.trim() }))
         : false;
       setzePetname(cid, name, teilen);
       c.name = name.trim() || pkShort(cid);
@@ -1058,7 +1049,7 @@ function openConversation(cid: string): void {
   const c = conversations.find((x) => x.id === cid);
   const thread = $("#chat-thread");
   thread.innerHTML = `<div class="empty-state">${c ? escapeHtml(c.name) : ""}<br/>` +
-    (c?.type === "dm" ? escapeHtml(dmHinweis(c)) : "community — opt-in gruppe.") +
+    escapeHtml(c?.type === "dm" ? dmHinweis(c) : t("komm.community")) +
     `</div>`;
   zeigeAblauf(c);
   loadChatMessages(cid);
@@ -1068,17 +1059,11 @@ function openConversation(cid: string): void {
 
 /** Wie diese 1:1-Unterhaltung verschluesselt ist (2.2b-d2) – feste Texte. */
 function dmHinweis(c: ChatConversation): string {
-  const nip17 = "1:1 — Ende-zu-Ende verschlüsselt (NIP-17). Relays sehen nicht, wer schreibt – nur, dass du Post bekommst.";
-  if (c.ablaufSecs) return `${nip17} Mit Ablauf bleibt es bei NIP-17.`;
+  const nip17 = t("komm.nip17");
+  if (c.ablaufSecs) return `${nip17} ${t("komm.mitAblauf")}`;
   const gesperrt = mlsGesperrt();
-  if (gesperrt) {
-    return `${nip17} MLS geht hier nicht: ${gesperrt}.` + (c.mls
-      ? " Was dein Kontakt über eure MLS-Gruppe schickt, liest die App erst, wenn MLS hier wieder geht – solange die Relays es halten."
-      : "");
-  }
-  return c.mls
-    ? "1:1 — über MLS (Marmot): mit Vorwärtsgeheimnis. Relays sehen nur eine zufällige Gruppen-Id und für jede Nachricht einen neuen Schlüssel. Eure Geräte sind eigene Mitglieder; fehlt einem das KeyPackage, geht die Nachricht per NIP-17, damit jedes Gerät sie bekommt."
-    : `${nip17} Können der Kontakt und eure Geräte MLS, geht deine nächste Nachricht darüber.`;
+  if (gesperrt) return `${nip17} ${t("komm.mlsNicht", { grund: gesperrt })}${c.mls ? ` ${t("komm.mlsNichtLesen")}` : ""}`;
+  return c.mls ? t("komm.mlsAn") : `${nip17} ${t("komm.mlsKoennen")}`;
 }
 
 /** Ablauf-Auswahl (2.5): nur bei DMs, zeigt den Wert der Unterhaltung. */
@@ -1097,9 +1082,7 @@ export function setzeAblauf(wert: string): void {
   if (Number.isSafeInteger(secs) && secs > 0) c.ablaufSecs = secs;
   else delete c.ablaufSecs;
   saveConversations();
-  toast(c.ablaufSecs
-    ? "Neue Nachrichten laufen ab. Löschen ist eine Bitte an die Relays – wer sie schon hat, behält sie."
-    : "Neue Nachrichten laufen nicht mehr ab.");
+  toast(t(c.ablaufSecs ? "komm.ablaufAn" : "komm.ablaufAusToast"));
 }
 
 /**
@@ -1128,6 +1111,7 @@ async function ladeModeration(communityId: string): Promise<unknown | null> {
 /** Eine DM zur Anzeige: entschluesselt; legacy = altes Kind-4-Format. */
 type DmAnzeige = NostrEvent & {
   legacy?: boolean; /** Ablauf nach NIP-40 (2.5) – auch fuer den Suchindex (8.13). */ ablauf?: number;
+  /** Gesendet, aber die Kopien warten noch (6.4) – nur auf diesem Geraet, bis die eigene Kopie zurueck ist. */ wartet?: boolean;
   /** Geschrieben von einem Geraet (8.6b): Hinweis mit Geraetenamen (Fremddaten). */ geraet?: { text: string; warnung: boolean };
   /** Ueber MLS empfangen (2.2b-d1) – aus dem Verlauf auf diesem Geraet. */ mls?: boolean;
 };
@@ -1236,12 +1220,12 @@ async function alsMlsEinladung(w: NostrEvent): Promise<null> {
     // Eine Gruppe zu mehreren: ein privater Raum (2.3b)
     await merkePrivatenRaum(r.gruppe);
     void zeigeRaumLeiste();
-    toast(`Einladung in einen privaten Raum von ${kontaktName(e.von)} – in der Raumleiste`);
+    toast(t("komm.einladungRaum", { name: kontaktName(e.von) }));
     return null;
   }
   let c = conversations.find((x) => x.type === "dm" && x.id === r.partner);
   if (!c) {
-    c = { id: r.partner, type: "dm", name: "Anfrage · " + pkShort(r.partner), lastTs: Math.floor(Date.now() / 1000) };
+    c = { id: r.partner, type: "dm", name: t("komm.anfrage", { pk: pkShort(r.partner) }), lastTs: Math.floor(Date.now() / 1000) };
     conversations.push(c);
   }
   c.mls = r.gruppe;
@@ -1255,7 +1239,7 @@ async function alsMlsEinladung(w: NostrEvent): Promise<null> {
  * meine eigenen Kopien) plus aeltere Kind-4-Nachrichten, die weiter lesbar
  * bleiben, aber nie mehr gesendet werden.
  */
-const ENTSCHLUESSELUNG_FEHLGESCHLAGEN = "[entschluesselung fehlgeschlagen]";
+const entschluesselungFehlgeschlagen = () => t("komm.entschluesselungFehlgeschlagen");
 
 async function ladeDmNachrichten(partner: string): Promise<DmAnzeige[]> {
   if (!state.keypair) return [];
@@ -1295,7 +1279,7 @@ async function ladeDmNachrichten(partner: string): Promise<DmAnzeige[]> {
     try {
       text = await state.signer!.nip44Decrypt(ev.pubkey === me.pk ? partner : ev.pubkey, ev.content);
     } catch {
-      text = ENTSCHLUESSELUNG_FEHLGESCHLAGEN;
+      text = entschluesselungFehlgeschlagen();
     }
     ergebnis.set(ev.id, { ...ev, content: text, legacy: true });
   }
@@ -1345,7 +1329,7 @@ async function syncDmInbox(): Promise<void> {
       if (!e || e.partner === me.pk || e.partner === state.person) continue;
       const vorhanden = conversations.find((x) => x.id === e.partner);
       if (!vorhanden) {
-        conversations.push({ id: e.partner, type: "dm", name: "Anfrage · " + pkShort(e.partner), lastTs: e.ev.created_at });
+        conversations.push({ id: e.partner, type: "dm", name: t("komm.anfrage", { pk: pkShort(e.partner) }), lastTs: e.ev.created_at });
         neu++;
       } else if (e.ev.created_at > (vorhanden.lastTs ?? 0)) {
         vorhanden.lastTs = e.ev.created_at;
@@ -1427,25 +1411,31 @@ function schluesselHinweis(thread: HTMLElement, partner: string): void {
     b.className = "ghost";
     b.id = "schluessel-wechsel";
     b.style.cssText = "width:auto;padding:3px 8px;margin-top:6px";
-    b.textContent = `zum neuen Schlüssel wechseln (${pkShort(st!.currentPubkey)})`;
+    b.textContent = t("komm.neuerSchluessel", { pk: pkShort(st!.currentPubkey) });
     b.addEventListener("click", () => wechsleZuNeuemSchluessel(partner, st!.currentPubkey));
     box.append(b);
   }
   thread.prepend(box);
 }
 
+/** Markierung einer abgelösten Unterhaltung – steht im gespeicherten Namen, daher in beiden Sprachen erkannt. */
+const ALT_MARKE = /^\((alter Schlüssel|old key)\) /;
+
 /** Die Unterhaltung mit dem Nachfolger weiterfuehren; die alte bleibt markiert stehen. */
 function wechsleZuNeuemSchluessel(alt: string, neu: string): void {
   if (!/^[0-9a-f]{64}$/.test(neu)) return;
   const c = conversations.find((x) => x.id === alt);
   if (!conversations.some((x) => x.id === neu)) {
-    conversations.push({ id: neu, type: "dm", name: c?.name.replace(/^\(alter Schlüssel\) /, "") ?? pkShort(neu), lastTs: Math.floor(Date.now() / 1000), ...(c?.ablaufSecs ? { ablaufSecs: c.ablaufSecs } : {}) });
+    conversations.push({ id: neu, type: "dm", name: c?.name.replace(ALT_MARKE, "") ?? pkShort(neu), lastTs: Math.floor(Date.now() / 1000), ...(c?.ablaufSecs ? { ablaufSecs: c.ablaufSecs } : {}) });
   }
-  if (c && !c.name.startsWith("(alter Schlüssel) ")) c.name = `(alter Schlüssel) ${c.name}`;
+  if (c && !ALT_MARKE.test(c.name)) c.name = t("komm.alterSchluessel", { name: c.name });
   saveConversations();
-  toast(`Weiter mit dem neuen Schlüssel ${pkShort(neu)} – die alte Unterhaltung bleibt markiert`);
+  toast(t("komm.weiterNeuerSchluessel", { pk: pkShort(neu) }));
   openConversation(neu);
 }
+
+/** Gesendete Direktnachrichten, deren Kopien noch warten oder noch nicht zurueck sind (6.4) – nur im Speicher. */
+const unterwegs = new Map<string, DmAnzeige[]>();
 
 export async function loadChatMessages(cid: string): Promise<void> {
   // DMs: kind 4 (NIP-44, p-tag = partner). Communities: kind 42 (channel) mit h-tag.
@@ -1456,6 +1446,11 @@ export async function loadChatMessages(cid: string): Promise<void> {
     let events: NostrEvent[] = [];
     if (c.type === "dm") {
       events = await ladeDmNachrichten(c.id);
+      // Unterwegs (6.4): sofort sichtbar, bis die eigene Kopie vom Relay zurueck ist
+      const da = new Set(events.map((e) => e.id));
+      const offen = (unterwegs.get(c.id) ?? []).filter((e) => !da.has(e.id));
+      unterwegs.set(c.id, offen);
+      events = [...events, ...offen];
     } else {
       events = await pool.query({ kinds: [42], "#h": [c.id], limit: 50 });
     }
@@ -1498,31 +1493,32 @@ export async function loadChatMessages(cid: string): Promise<void> {
         const v = versteckt.get(ev.id);
         // Lokale Suche (8.13): was hier gezeigt wird, in den Index (mit Tresor verschluesselt gespeichert)
         const ablauf = (ev as DmAnzeige).ablauf;
-        if (!v && text !== ENTSCHLUESSELUNG_FEHLGESCHLAGEN) {
+        if (!v && text !== entschluesselungFehlgeschlagen()) {
           sucheAufnehmen({ id: ev.id, text, scope: c.id, author: ev.pubkey, createdAt: ev.created_at, ...(ablauf !== undefined ? { ablauf } : {}) });
         }
         if (v) {
           // Platzhalter statt spurlosem Entfernen: Eine Luecke, die man sieht,
           // ist Moderation. Eine, die man nicht sieht, ist Manipulation.
           return `<div class="bubble hidden-msg"><div class="txt mono-sm">` +
-            `[ausgeblendet: ${escapeHtml(v.reason)}] ` +
-            `<button class="ghost show-anyway" data-id="${escapeHtml(ev.id)}" ` +
-            `style="width:auto;padding:2px 6px;font-size:10px">trotzdem zeigen</button></div></div>`;
+            `${escapeHtml(t("komm.ausgeblendetMarke", { grund: v.reason }))} ` +
+            `<button class="ghost show-anyway" data-id="${escapeHtml(ev.id)}" style="width:auto;padding:2px 6px;font-size:10px">${escapeHtml(t("komm.trotzdemZeigen"))}</button></div></div>`;
         }
-        const zapBtn = !mine && c.type === "dm" ? `<button class="zap-msg-btn" data-pk="${escapeHtml(ev.pubkey)}" data-name="${escapeHtml(pkShort(ev.pubkey))}" title="zap senden">⚡</button>` : "";
+        const zapBtn = !mine && c.type === "dm" ? `<button class="zap-msg-btn" data-pk="${escapeHtml(ev.pubkey)}" data-name="${escapeHtml(pkShort(ev.pubkey))}" title="${escapeHtml(t("komm.zapSenden"))}">⚡</button>` : "";
         // Nach dem Diebstahl (8.6a): nicht glauben, dass es von dieser Person ist
         const diebstahl = c.type === "dm" && nachDiebstahl(ev, schluesselStand.get(c.id))
-          ? ` <span class="mono-sm warn" title="nach dem gemeldeten Diebstahl des Schlüssels">· ⚠ vielleicht nicht von dieser Person</span>`
+          ? ` <span class="mono-sm warn" title="${escapeHtml(t("komm.diebstahlTitel"))}">${escapeHtml(t("komm.diebstahl"))}</span>`
           : "";
         const alt = (ev as DmAnzeige).legacy
-          ? ` <span class="mono-sm" title="ältere Verschlüsselung (Kind 4): Relays sehen Absender und Empfänger">· alt</span>`
+          ? ` <span class="mono-sm" title="${escapeHtml(t("komm.altTitel"))}">${escapeHtml(t("komm.alt"))}</span>`
           : (ev as DmAnzeige).mls
-            ? ` <span class="mono-sm" title="MLS (Marmot): Gruppenschlüssel mit Vorwärtsgeheimnis">· MLS</span>`
-            : "";
+            ? ` <span class="mono-sm" title="${escapeHtml(t("komm.mlsTitel"))}">· MLS</span>`
+            : (ev as DmAnzeige).wartet
+              ? ` <span class="mono-sm" title="${escapeHtml(t("komm.wartetTitel"))}">${escapeHtml(t("komm.wartet"))}</span>`
+              : "";
         // Von einem Geraet geschrieben (8.6b) – der Name steht in der Vollmacht (Fremddaten)
         const g = (ev as DmAnzeige).geraet;
         const geraet = g ? ` <span class="mono-sm geraet-hinweis${g.warnung ? " warn" : ""}">· ${escapeHtml(g.text)}</span>` : "";
-        return `<div class="bubble ${mine ? "user" : "ai"}"><div class="who">${mine ? "du" : escapeHtml(pkShort(ev.pubkey))}${alt}${diebstahl}${geraet}${zapBtn}</div><div class="txt">${body}${media}</div></div>`;
+        return `<div class="bubble ${mine ? "user" : "ai"}"><div class="who">${escapeHtml(mine ? t("komm.du") : pkShort(ev.pubkey))}${alt}${diebstahl}${geraet}${zapBtn}</div><div class="txt">${body}${media}</div></div>`;
       })
       .join("");
     if (c.type === "dm") schluesselHinweis(thread, c.id);
@@ -1569,7 +1565,7 @@ export async function sendChatMessage(): Promise<void> {
       const ich = sprichtFuer() ?? state.keypair.pk;
       const [ihre, meine] = await Promise.all([c.id, ich].map((pk) => geraeteBuch.kopienFuer(pk).catch(() => [] as string[])));
       if (alsGeraet() && !meine!.includes(state.keypair.pk)) {
-        toast("Dieses Gerät hat keine gültige Vollmacht (mehr) – Settings → Geräte", true);
+        toast(t("komm.keineVollmacht"), true);
         return;
       }
       const dm = await buildPrivateDm({
@@ -1580,10 +1576,22 @@ export async function sendChatMessage(): Promise<void> {
         ...(c.ablaufSecs ? { ablaufSecs: c.ablaufSecs } : {}),
         weitereEmpfaenger: [...ihre!, ...meine!, ich],
       });
-      await veroeffentlicheDm(dm.toRecipient, c.id);
-      await veroeffentlicheDm(dm.toSelf, ich);
+      // Jede Kopie mit eigener Zufallsverzoegerung (6.4) – sonst verbindet der Zeitpunkt, was die Wegwerf-Schluessel trennen.
+      // Im eigenen Verlauf steht die Nachricht sofort, „wird gesendet“, bis beide Kopien hinaus sind.
+      const eintrag: DmAnzeige = {
+        id: dm.rumorId, pubkey: ich, created_at: Math.floor(Date.now() / 1000), kind: 14, tags: [], content: payload, sig: "", wartet: true,
+      };
+      unterwegs.set(c.id, [...(unterwegs.get(c.id) ?? []), eintrag]);
+      let ausstehend = 2;
+      const fertig = () => {
+        if (--ausstehend > 0) return;
+        eintrag.wartet = false;
+        if (activeConversation === c.id) void loadChatMessages(c.id);
+      };
+      versendeVerzoegert(() => veroeffentlicheDm(dm.toRecipient, c.id).then(fertig));
+      versendeVerzoegert(() => veroeffentlicheDm(dm.toSelf, ich).then(fertig));
       // Geraete lesen am Posteingang ihrer Person
-      for (const k of dm.weitere) await veroeffentlicheDm(k.wrap, k.an === ich || meine!.includes(k.an) ? ich : c.id);
+      for (const k of dm.weitere) versendeVerzoegert(() => veroeffentlicheDm(k.wrap, k.an === ich || meine!.includes(k.an) ? ich : c.id));
     } else {
       // Community: kind 42 mit h-tag (channel-id)
       const ev = await signiere(buildEvent(state.keypair.pk, 42, [["h", c.id], ...imeta], text));
@@ -1596,7 +1604,7 @@ export async function sendChatMessage(): Promise<void> {
     saveConversations();
     loadChatMessages(activeConversation);
   } catch (e) {
-    toast(`Fehler: ${(e as Error).message}`, true);
+    toast(t("komm.fehler", { grund: (e as Error).message }), true);
   }
 }
 
@@ -1615,7 +1623,7 @@ async function sendeUeberMls(c: ChatConversation, inhalt: string): Promise<boole
 }
 
 export async function newDm(): Promise<void> {
-  const eingabe = prompt("Schlüssel des Kontakts (npub oder hex):");
+  const eingabe = prompt(t("komm.kontaktSchluessel"));
   if (!eingabe) return;
   let id = eingabe.trim();
   if (id.startsWith("npub1")) {
@@ -1623,13 +1631,13 @@ export async function newDm(): Promise<void> {
       const { decodeNpub } = await import("../../identity.js");
       id = decodeNpub(id);
     } catch {
-      toast("Das ist kein gültiger npub.", true);
+      toast(t("komm.keinNpub"), true);
       return;
     }
   }
   id = id.toLowerCase();
   if (!/^[0-9a-f]{64}$/.test(id)) {
-    toast("Bitte einen npub oder einen 64-stelligen Hex-Schlüssel eingeben.", true);
+    toast(t("komm.npubOderHex"), true);
     return;
   }
   if (!conversations.find((c) => c.id === id)) {
@@ -1641,7 +1649,7 @@ export async function newDm(): Promise<void> {
 }
 
 export function newCommunity(): void {
-  const name = prompt("name der community:");
+  const name = prompt(t("komm.communityName"));
   if (!name) return;
   const id = "comm-" + Math.random().toString(36).slice(2, 10);
   conversations.push({ id, type: "community", name: name.trim(), lastTs: 0 });

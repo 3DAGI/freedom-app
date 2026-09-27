@@ -14,7 +14,7 @@ export type RailId = "lightning" | "solana";
 /** Betrag in der Einheit der Schiene: Millisatoshi oder Lamports. */
 export type Betrag = { einheit: "msat"; wert: number } | { einheit: "lamports"; wert: number };
 
-export type Zweck = "zap" | "job" | "sitzung" | "deposit" | "trinkgeld" | "gebuehr" | "swap";
+export type Zweck = "zap" | "job" | "sitzung" | "deposit" | "trinkgeld" | "gebuehr" | "swap" | "relay";
 
 export interface Zahlanfrage {
   /** bolt11-Rechnung oder Lightning-Adresse (name@host) bzw. Solana-Adresse. */
@@ -22,6 +22,8 @@ export interface Zahlanfrage {
   betrag: Betrag;
   zweck: Zweck;
   notiz?: string;
+  /** Nur Solana (8.4c): Referenz nach Solana Pay – zusaetzliches Konto der Ueberweisung, damit der Empfaenger sie seinem Angebot zuordnet. */
+  referenz?: string;
 }
 
 /** Was eine Schiene nach dem Zahlen zurueckgibt – der Nachweis. */
@@ -78,6 +80,7 @@ export function pruefeAnfrage(rail: RailId, a: Zahlanfrage): void {
   if (railFuerZiel(a.ziel) !== rail) throw new Error(`Ziel passt nicht zur Schiene ${rail}`);
   if (a.betrag.einheit !== RAIL_EINHEIT[rail]) throw new Error(`Betrag in ${a.betrag.einheit}, ${rail} rechnet in ${RAIL_EINHEIT[rail]}`);
   if (!Number.isSafeInteger(a.betrag.wert) || a.betrag.wert <= 0) throw new Error("Betrag muss eine positive ganze Zahl sein");
+  if (a.referenz !== undefined && (rail !== "solana" || !SOL_ADRESSE.test(a.referenz))) throw new Error("Referenz nur als Solana-Adresse");
 }
 
 /**

@@ -22,6 +22,34 @@ export function regelKeinKind4(events: readonly NostrEvent[]): LeakFinding[] {
     .map((e) => ({ regel: "kein-kind4", eventId: e.id, detail: "Kind-4-DM veröffentlicht" }));
 }
 
+/**
+ * Anmeldungen (NIP-42, Kind 22242) gehen nur als `["AUTH", …]` an den Relay,
+ * der sie verlangt – nie als veroeffentlichtes Event (8.4c). Ein Relay, das sie
+ * speicherte, verriete jedem, wer sich wann wo angemeldet hat.
+ */
+export function regelAnmeldungNichtOffen(events: readonly NostrEvent[]): LeakFinding[] {
+  return events
+    .filter((e) => e.kind === 22242)
+    .map((e) => ({ regel: "anmeldung-nicht-offen", eventId: e.id, detail: "Anmeldung (NIP-42) als Event veröffentlicht" }));
+}
+
+/**
+ * Die Kopien einer Nachricht (Umschläge, Kind 1059) gehen nicht im selben
+ * Augenblick hinaus (6.4): je zwei, die innerhalb von `fensterMs`
+ * veröffentlicht wurden, sind ein Verstoß – sonst verbindet der Zeitpunkt,
+ * was die Wegwerf-Schlüssel trennen.
+ */
+export function regelKopienEntkoppelt(sendungen: readonly { ev: NostrEvent; zeitMs: number }[], fensterMs = 1000): LeakFinding[] {
+  const u = sendungen.filter((s) => s.ev.kind === 1059).sort((a, b) => a.zeitMs - b.zeitMs);
+  const funde: LeakFinding[] = [];
+  for (let i = 1; i < u.length; i++) {
+    if (u[i]!.zeitMs - u[i - 1]!.zeitMs < fensterMs) {
+      funde.push({ regel: "kopien-entkoppelt", eventId: u[i]!.ev.id, detail: `${u[i]!.zeitMs - u[i - 1]!.zeitMs} ms nach dem vorigen Umschlag` });
+    }
+  }
+  return funde;
+}
+
 /** Kein Klartext (ab 6 Zeichen) im Inhalt oder in Tags. */
 export function regelKeinKlartext(events: readonly NostrEvent[], klartexte: readonly string[]): LeakFinding[] {
   const funde: LeakFinding[] = [];
@@ -223,4 +251,6 @@ export const LEAK_REGELN: Readonly<Record<string, string>> = {
   "keine-zahlungsdaten": "Keine Rechnung, keine Adresse, kein Betrag pro Kunde in öffentlichen Events.",
   "mesh-verschluesselt": "Über Funk, Bluetooth und Datei nur Verschlüsseltes – ohne Schlüssel des Nutzers, ohne Klartext.",
   "mls-gruppe": "Gruppennachrichten nur mit gehashter Gruppen-Id, jede von einem eigenen Wegwerf-Schlüssel, nie von der Identität.",
+  "anmeldung-nicht-offen": "Anmeldungen bei Relays (NIP-42) nie als veröffentlichtes Event.",
+  "kopien-entkoppelt": "Die Kopien einer Nachricht gehen nicht im selben Augenblick hinaus.",
 };

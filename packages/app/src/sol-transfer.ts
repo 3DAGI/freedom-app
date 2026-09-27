@@ -6,19 +6,20 @@
  */
 
 /** Ueberweisung in Lamports (Schritt 4.1b: fuer die Solana-Schiene). */
-export async function buildSolTransfer(fromPubkey: string, toPubkey: string, lamports: number): Promise<unknown> {
+export async function buildSolTransfer(fromPubkey: string, toPubkey: string, lamports: number, referenz?: string): Promise<unknown> {
   const web3 = await import("@solana/web3.js");
   if (!Number.isSafeInteger(lamports) || lamports <= 0) throw new Error("ungueltiger betrag");
 
   const connection = new web3.Connection(await solRpcUrl(), "confirmed");
 
-  const tx = new web3.Transaction().add(
-    web3.SystemProgram.transfer({
-      fromPubkey: new web3.PublicKey(fromPubkey),
-      toPubkey: new web3.PublicKey(toPubkey),
-      lamports,
-    }),
-  );
+  const ueberweisung = web3.SystemProgram.transfer({
+    fromPubkey: new web3.PublicKey(fromPubkey),
+    toPubkey: new web3.PublicKey(toPubkey),
+    lamports,
+  });
+  // Referenz nach Solana Pay (8.4c): nur lesend, nicht signierend – der Empfaenger findet so sein Angebot
+  if (referenz) ueberweisung.keys.push({ pubkey: new web3.PublicKey(referenz), isSigner: false, isWritable: false });
+  const tx = new web3.Transaction().add(ueberweisung);
   // blockhash holen (wallet signiert + sendet)
   const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash("confirmed");
   tx.recentBlockhash = blockhash;

@@ -21,3 +21,39 @@ Reihenfolge.
 | 8.14 | Notfall-Löschung | `duress.ts` | rechtlicher Hinweis direkt in der Funktion | Löschen entfernt nachweislich alle lokalen Daten | – |
 | 8.15 | Dashboard | `packages/website/dashboard.html` | nur Quittungen und freiwillige Angaben | keine Selbstauskünfte mehr | – |
 | 8.16 | Übersetzungen | `i18n.ts` | alle acht Sprachen vollständig oder weniger Sprachen | ein Test findet keinen fehlenden oder rohen Schlüssel | Muttersprachler prüfen |
+
+## 8.16 Übersetzungen – Aufteilung
+
+> **Entschieden 27.09.2026 (MENSCH): Variante B.** Deutsch und Englisch
+> vollständig, alle Texte über Schlüssel; die sechs übrigen Sprachen fallen
+> weg. In Teilschritten, je Bereich einer; `app/test/i18n.test.ts` zählt den
+> rohen Text je Bereich und Datei (`i18n-offen.ts`) – fertige stehen auf 0.
+
+- **8.16a – FERTIG:** Grundlage – nur `de`/`en`, Texte je Bereich in
+  `app/src/texte/*.ts` (jeder Schlüssel mit beiden Sprachen, sonst meldet es
+  der Compiler), `t()` mit Werten, `data-i18n-title`/`-aria`, Sprache aus der
+  gespeicherten Wahl (nur, wenn es sie noch gibt) oder dem Browser; Tests für
+  fehlende, unbenutzte und rohe Texte; Rahmen (Kopfzeile, Navigation, Start)
+  fertig; das nie gezeigte Wallet-Gate entfernt; Smoke-Test prüft beide Sprachen.
+- **8.16b – FERTIG:** Zählung im Code – `rohtexteImCode()` liest
+  String-Literale samt verschachtelter Vorlagen; `app/test/i18n-offen.ts`
+  hält je Bereich und je Datei, wie viel roher Text noch offen ist (neue
+  Dateien: 0); `gebietsschema()` für Zahlen und Daten; ein Sprachwechsel
+  zeichnet den offenen Tab neu.
+- **Neu geplant (Messung 27.09.2026):** Es sind rund 1.300 Texte (1.069 im Code
+  in 68 Dateien, 308 in `index.html`), nicht wie geschätzt 400–500. Mit der
+  Grenze von etwa 400 geänderten Zeilen je Schritt heißt das rund zwölf statt
+  sechs Teilschritte:
+  - **8.16c – FERTIG:** Kommunikation (Seite, `tabs/kommunikation.ts`): rund
+    130 Schlüssel `komm.*`; Daten eines öffentlichen Raums tragen `// kein UI-Text`.
+  - **8.16d:** Agent (Seite, `tabs/agent.ts`, `agent-netz.ts`, Streitfall).
+  - **8.16e:** Währung (Seite, `tabs/waehrung.ts`, eingebaute Wallet, offline).
+  - **8.16f:** Zahlwege und Swaps (Meldungen aus `swap-client.ts`,
+    `sol-htlc.ts`, `rueck-swap.ts`, `rails.ts`, `sol-wallet.ts` …).
+  - **8.16g:** Earn und Profil (Seiten, `tabs/earn.ts`, `tabs/profil.ts`, Repos).
+  - **8.16h/i:** Settings – Seite, dann `tabs/settings.ts`.
+  - **8.16j:** Einstieg und Dialoge (`onboarding.ts`, `app.ts`, Tresor,
+    Identität, Nachfolge, Notfall, Bunker, Einrichtung, Datenschutzbericht).
+  - **8.16k:** übrige Bausteine (Mesh, MLS, Werkzeuge, Suche …) – danach steht
+    alles auf 0.
+  - **8.16l:** mit 0.F – Texte der Website an den Code angleichen.

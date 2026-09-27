@@ -89,7 +89,17 @@
   Signaturen zählen nicht.
 - **MENSCH:** zweite und dritte Person bzw. Gerät für Signierschlüssel.
 
-## 5.3 Hosting-Spiegel
+## 5.3 Hosting-Spiegel – CODE FERTIG (27.09.2026)
+
+> Umsetzung: a Platzhalter, Quellen, Hosting-Anteil; b Torrent, IPFS-CID, Job `spiegel` in `pages.yml` (nur beim Release); c Blossom, Arweave, Codeberg. Offen nur MENSCH: Konten und Secrets nach `docs/KONTEN.md`.
+
+> **Entschieden 27.09.2026 (MENSCH):** Die Konten legt der MENSCH an – Liste mit
+> Vorschlägen in `docs/KONTEN.md`; bis dahin Platzhalter (`PLATZHALTER:…`), die
+> der Code wie „nicht gesetzt“ behandelt. Geteilt: **5.3a** Platzhalter,
+> Quellen auf der Startseite, Hosting-Anteil aus `freedom-spiegel.json`;
+> **5.3b** Torrent (Webseed), IPFS (CID selbst gerechnet, Pinata) und CI-Job
+> (nur beim Release, überspringt fehlende Konten); **5.3c** Blossom, Arweave,
+> Codeberg im selben Job.
 
 - **Vorgehen:** `scripts/mirror/` mit Skripten für Codeberg Pages, IPFS (CID
   berechnen, Pinning), Arweave, Blossom/Nostr und Torrent (Magnet-Link). Das
@@ -144,8 +154,9 @@
       LND (nur `invoices`-Rechte), SOL an die Adresse des Betreibers mit einer
       Referenz nach Solana Pay, auf der Kette geprüft; Preise in NIP-11; Events
       überdauern einen Neustart.
-    - **8.4c:** App – anmelden (nur bei eigenen Posteingangs-Relays und
-      Sitzungsschlüsseln), Zugang über die Zahlschienen kaufen, Abnahme im
+    - **8.4c – FERTIG:** App – anmelden nur auf Verlangen und nur bei eigenen
+      Relays und solchen mit gekauftem Zugang (nie mit einem Sitzungsschlüssel),
+      Zugang über die Zahlschienen kaufen (SOL mit Referenz), Abnahme im
       Browser: ein Relay wird nachweislich für die Zustellung bezahlt.
   - **.onion:** Kein Betreiber der Startliste veröffentlicht eine
     .onion-Adresse, die sich prüfen ließ. MENSCH: eine geprüfte .onion-Adresse

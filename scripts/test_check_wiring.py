@@ -98,6 +98,12 @@ class Verdrahtung(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("veraltete Ausnahme (verdrahtet oder entfernt): modul.ts|direkt", aus)
 
+    def test_skripte_als_mts_zaehlen(self):
+        # Schritt 5.3b: Skripte wie scripts/mirror/spiegeln.mts rufen Protokoll-Bausteine
+        (self.w / "scripts/mirror").mkdir()
+        (self.w / "scripts/mirror/lauf.mts").write_text("nurTest();\n", encoding="utf-8")
+        self.assertNotIn("nurTest", self.offen())
+
     def test_zahlwege_nur_ueber_die_schienen(self):
         # Schritt 4.1: ein Wallet-Zugriff ausserhalb der Schienen laesst --streng scheitern
         liste = self.w / "scripts/wiring-ausnahmen.txt"

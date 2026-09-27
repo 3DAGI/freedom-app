@@ -117,7 +117,7 @@
   <div class="wrap">
     <h2 data-i18n="dlTitle">Downloads — ohne App-Store, ohne KYC</h2>
     <p class="muted" style="margin-bottom:16px;font-size:12px">
-      Alle Builds auch über IPFS/Arweave/Tor erreichbar (Hashes unten).
+      Weitere Bezugsquellen stehen unten, sobald sie eingerichtet sind.
       Verifiziere die SHA256-Summe vor der Installation.
     </p>
 
@@ -155,13 +155,10 @@
     </div>
 
     <div class="card" style="margin-top:20px">
-      <h3 style="font-size:12px">Dezentrale Mirrors</h3>
-      <ul>
-        <li>IPFS: <span class="mono">ipfs://<span id="ipfs-cid">nach erstem deploy</span></span></li>
-        <li>Arweave: <span class="mono">ar://<span id="ar-tx">nach erstem deploy</span></span></li>
-        <li>Tor: <span class="mono">http://<span id="onion">nach onion-setup</span>.onion</span></li>
-        <li>Code (P2P): <span class="mono">radicle — nach mirror-setup</span></li>
-      </ul>
+      <h3 style="font-size:12px">Weitere Bezugsquellen</h3>
+      <ul id="quellen"><!-- QUELLEN -->
+        <li>Noch keine – die Liste füllt der Build aus spiegel/quellen.json.</li>
+      <!-- /QUELLEN --></ul>
     </div>
   </div>
 </section>

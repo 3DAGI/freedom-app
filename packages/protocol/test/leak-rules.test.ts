@@ -9,7 +9,7 @@ import { buildEvent, generateKeypair, signEvent, type NostrEvent } from "../src/
 import {
   LEAK_REGELN, regelAutorNicht, regelKeinBolt11, regelKeinKind4, regelKeinKlartext, regelKeinKlartextPrompt,
   regelKeineSolAdresse, regelKeineZahlungsdaten, regelKundeVerborgen, regelPTagsNur, regelSolAdresseFrisch,
-  regelUploadVerschluesselt, regelMeshVerschluesselt, regelMlsGruppe,
+  regelUploadVerschluesselt, regelMeshVerschluesselt, regelMlsGruppe, regelAnmeldungNichtOffen, regelKopienEntkoppelt,
 } from "../src/leak-rules.js";
 import { bech32 } from "@scure/base";
 import { fromHex } from "../src/htlc.js";
@@ -82,6 +82,8 @@ test("jede Regel meldet unter einem Namen aus LEAK_REGELN", () => {
     ...regelKeineZahlungsdaten([ev(6050, [["amount", "21000"]])]),
     ...regelMeshVerschluesselt([new TextEncoder().encode(kunde.pk)], { schluessel: [kunde.pk], klartexte: [] }),
     ...regelMlsGruppe([ev(445, [])], { gruppenIds: [], identitaeten: [] }),
+    ...regelAnmeldungNichtOffen([ev(22242, [["relay", "wss://r.test"], ["challenge", "c"]])]),
+    ...regelKopienEntkoppelt([{ ev: ev(1059, []), zeitMs: 0 }, { ev: ev(1059, [], "x"), zeitMs: 10 }]),
   ];
   const gemeldet = new Set(funde.map((f) => f.regel));
   assert.deepEqual([...gemeldet].sort(), Object.keys(LEAK_REGELN).sort());
@@ -139,4 +141,17 @@ test("mesh-verschluesselt: Schluessel als Hex, npub oder roh und Klartext – ni
   assert.match(regel(enc.encode("xx Treffen um 19 Uhr xx"))[0].detail, /Klartext/);
   assert.equal(regel(crypto.getRandomValues(new Uint8Array(2000))).length, 0);
   assert.equal(regel(enc.encode(provider.pk)).length, 0, "fremde Schlüssel sind kein Fund");
+});
+
+test("anmeldung-nicht-offen: eine veröffentlichte Anmeldung (22242) ist ein Verstoß, andere Events nicht", () => {
+  assert.equal(regelAnmeldungNichtOffen([ev(22242, [])]).length, 1);
+  assert.deepEqual(regelAnmeldungNichtOffen([ev(1, []), ev(1059, [["p", provider.pk]]), ev(24133, [])]), []);
+});
+
+test("kopien-entkoppelt: Umschläge innerhalb einer Sekunde sind ein Verstoß, andere Arten und Abstände nicht", () => {
+  const u = (inhalt: string) => ev(1059, [["p", provider.pk]], inhalt);
+  assert.equal(regelKopienEntkoppelt([{ ev: u("a"), zeitMs: 5000 }, { ev: u("b"), zeitMs: 5999 }]).length, 1);
+  assert.deepEqual(regelKopienEntkoppelt([{ ev: u("a"), zeitMs: 5000 }, { ev: u("b"), zeitMs: 6000 }, { ev: u("c"), zeitMs: 20_000 }]), []);
+  assert.deepEqual(regelKopienEntkoppelt([{ ev: u("a"), zeitMs: 5000 }, { ev: ev(1, []), zeitMs: 5001 }]), [], "nur Umschläge");
+  assert.equal(regelKopienEntkoppelt([{ ev: u("a"), zeitMs: 0 }, { ev: u("b"), zeitMs: 0 }, { ev: u("c"), zeitMs: 0 }]).length, 2);
 });

@@ -5,12 +5,23 @@
 # fehl, wird nichts veroeffentlicht — eine kaputte App geht nicht raus.
 #
 # Einmalig einrichten: Repository -> Settings -> Pages -> Source: "GitHub Actions".
+#
+# Spiegel (5.3b): Nur beim Release – Actions -> pages -> "Run workflow" mit
+# "spiegeln" – laedt der Job "spiegel" die eben veroeffentlichte freedom.html zu
+# den Spiegeln hoch (Konten: docs/KONTEN.md). Fehlt ein Secret, wird dieser
+# Spiegel mit Hinweis uebersprungen. Das Ergebnis ist das Artefakt
+# "spiegel-ergebnis" fuer publish-release.mjs.
 name: pages
 
 on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      spiegeln:
+        description: "Release: zu den Spiegeln hochladen (IPFS, Blossom, Arweave, Codeberg)"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -36,7 +47,12 @@ jobs:
           (cd packages/protocol && npm test)
           (cd packages/app && npm test)
           python3 scripts/check_innerhtml.py packages/app/src --ausnahmen scripts/innerhtml-ausnahmen.txt --streng
+      - id: pages
+        uses: actions/configure-pages@v5
       - name: Website zusammenstellen
+        env:
+          # Adresse dieser Auslieferung – Webseed des Torrents (5.3b)
+          SPIEGEL_BASIS_URL: ${{ steps.pages.outputs.base_url }}
         run: scripts/build-site.sh site
       - uses: actions/upload-pages-artifact@v3
         with:
@@ -51,3 +67,37 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
+
+  spiegel:
+    needs: deploy
+    if: github.event_name == 'workflow_dispatch' && inputs.spiegeln
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --workspaces --include-workspace-root
+      - uses: actions/download-artifact@v4
+        with:
+          name: github-pages
+          path: seite-archiv
+      - run: mkdir seite && tar -xf seite-archiv/artifact.tar -C seite
+      - name: Spiegel hochladen
+        shell: bash  # mit pipefail – ein gescheiterter Upload faerbt den Job rot
+        env:
+          # Konten: docs/KONTEN.md (A1–A4); fehlt eines, wird dieser Spiegel uebersprungen
+          PINATA_JWT: ${{ secrets.PINATA_JWT }}
+          SPIEGEL_NSEC: ${{ secrets.SPIEGEL_NSEC }}
+          BLOSSOM_SERVER: ${{ vars.BLOSSOM_SERVER }}
+          ARWEAVE_JWK: ${{ secrets.ARWEAVE_JWK }}
+          CODEBERG_TOKEN: ${{ secrets.CODEBERG_TOKEN }}
+        run: npx --no-install tsx scripts/mirror/spiegeln.mts seite spiegel-ergebnis.json | tee -a "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: spiegel-ergebnis
+          path: spiegel-ergebnis.json

@@ -21,6 +21,8 @@ Prueft im Headless-Chromium:
     Hinweis steht vorher, geloescht wird erst nach „LÖSCHEN“; danach sind weder
     Schluessel noch Daten in localStorage, sessionStorage oder IndexedDB, und
     die App startet leer mit neuer Identitaet
+  - Sprache (Schritt 8.16): Deutsch fuer einen deutschen Browser, sonst Englisch;
+    eine gespeicherte Wahl gilt, eine nicht mehr angebotene (fr) nicht
   - MLS-Engine (Schritt 2.2b-b): eingebettet, beim Start nicht geladen (kein
     WebAssembly uebersetzt); der Selbsttest in den Settings laedt sie unter der
     echten CSP ('wasm-unsafe-eval') ohne Netz und besteht; kein 'unsafe-eval'
@@ -61,10 +63,39 @@ PROBE_GEHEIM = {
 PROBE_MUSTER = ["cd" * 32, "ef" * 32, "7a" * 32, "ProbeChat", "ProbeVerlauf", "ProbeAdresse"]
 
 
+def sprache_pruefen(browser, url: str) -> dict:
+    """Sprache aus Browser oder gespeicherter Wahl; Rahmen in beiden Sprachen (8.16)."""
+    erg = {"fehler": []}
+    basis = url.rsplit("/", 1)[0]
+    for locale, gespeichert, soll_lang, soll_nav, soll_titel, soll_zurueck in [
+        ("de-DE", None, "de", "Kommunikation", "Guthaben", "‹ Zurück"),
+        ("en-US", None, "en", "Chat", "Balance", "‹ Back"),
+        ("en-US", "fr", "en", "Chat", "Balance", "‹ Back"),
+        ("en-US", "de", "de", "Kommunikation", "Guthaben", "‹ Zurück"),
+    ]:
+        ctx = browser.new_context(locale=locale)
+        ctx.route("**/*", lambda r: r.continue_() if r.request.url.startswith(basis) else r.abort())
+        s = ctx.new_page()
+        s.on("pageerror", lambda e: erg["fehler"].append(str(e)[:300]))
+        if gespeichert:
+            s.add_init_script(f"localStorage.setItem('freedom.lang', {json.dumps(gespeichert)});")
+        s.goto(url, wait_until="load")
+        s.wait_for_function("() => typeof window.freedomApp === 'object'", timeout=30000)
+        ist = s.evaluate("() => [document.documentElement.lang,"
+                         " document.querySelector('[data-tab=\"comm\"] [data-i18n]').textContent,"
+                         " document.getElementById('balance').title, document.getElementById('chat-back').textContent]")
+        erg[f"{locale}/{gespeichert}"] = ist
+        if ist != [soll_lang, soll_nav, soll_titel, soll_zurueck]:
+            erg["fehler"].append(f"{locale}/{gespeichert}: {ist}")
+        ctx.close()
+    erg["bestanden"] = not erg["fehler"]
+    return erg
+
+
 def tresor_pruefen(browser, url: str) -> dict:
     """Tresor-Ablauf in einem frischen Profil, ohne Netz nach aussen."""
     erg = {"fehler": []}
-    ctx = browser.new_context()
+    ctx = browser.new_context(locale="de-DE")
     basis = url.rsplit("/", 1)[0]
     ctx.route("**/*", lambda r: r.continue_() if r.request.url.startswith(basis) else r.abort())
     s = ctx.new_page()
@@ -131,7 +162,7 @@ def tresor_pruefen(browser, url: str) -> dict:
     ctx.close()
 
     # Tresor-Pflicht: frisches Profil ohne Tresor, neue Wallet-Verbindung
-    ctx = browser.new_context()
+    ctx = browser.new_context(locale="de-DE")
     ctx.route("**/*", lambda r: r.continue_() if r.request.url.startswith(basis) else r.abort())
     s = ctx.new_page()
     s.on("pageerror", lambda e: erg["fehler"].append(str(e)[:300]))
@@ -157,7 +188,7 @@ def tresor_pruefen(browser, url: str) -> dict:
 def sperre_pruefen(browser, url: str) -> dict:
     """Automatische Sperre mit gesteuerter Uhr – ohne 15 Minuten zu warten."""
     erg = {"fehler": []}
-    ctx = browser.new_context()
+    ctx = browser.new_context(locale="de-DE")
     basis = url.rsplit("/", 1)[0]
     ctx.route("**/*", lambda r: r.continue_() if r.request.url.startswith(basis) else r.abort())
     s = ctx.new_page()
@@ -221,7 +252,7 @@ def sperre_pruefen(browser, url: str) -> dict:
 def loeschen_pruefen(browser, url: str) -> dict:
     """Notfall-Loeschung (8.14): alles Lokale weg, nachgeprueft, die App startet leer."""
     erg = {"fehler": []}
-    ctx = browser.new_context()
+    ctx = browser.new_context(locale="de-DE")
     basis = url.rsplit("/", 1)[0]
     ctx.route("**/*", lambda r: r.continue_() if r.request.url.startswith(basis) else r.abort())
     s = ctx.new_page()
@@ -306,7 +337,7 @@ def loeschen_pruefen(browser, url: str) -> dict:
 def mls_pruefen(browser, url: str) -> dict:
     """MLS-Engine: erst bei Bedarf geladen, dann Selbsttest unter der echten CSP."""
     erg = {"fehler": [], "csp": []}
-    ctx = browser.new_context()
+    ctx = browser.new_context(locale="de-DE")
     basis = url.rsplit("/", 1)[0]
     ctx.route("**/*", lambda r: r.continue_() if r.request.url.startswith(basis) else r.abort())
     s = ctx.new_page()
@@ -358,7 +389,7 @@ def main() -> int:
     try:
         with sync_playwright() as p:
             browser = p.chromium.launch()
-            seite = browser.new_page()
+            seite = browser.new_page(locale="de-DE")  # die Pruefungen lesen deutsche Texte (8.16)
             seite.on("pageerror", lambda e: erg["pageerrors"].append(str(e)[:300]))
             seite.add_init_script(
                 "document.addEventListener('securitypolicyviolation', e => {"
@@ -395,6 +426,10 @@ def main() -> int:
             except Exception as e:
                 erg["notfall"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
             try:
+                erg["sprache"] = sprache_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
+            except Exception as e:
+                erg["sprache"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
+            try:
                 erg["mls"] = mls_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
             except Exception as e:
                 erg["mls"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
@@ -408,6 +443,7 @@ def main() -> int:
           and erg.get("tresor", {}).get("bestanden") is True
           and erg.get("sperre", {}).get("bestanden") is True
           and erg.get("notfall", {}).get("bestanden") is True
+          and erg.get("sprache", {}).get("bestanden") is True
           and erg.get("mls", {}).get("bestanden") is True)
     erg["bestanden"] = bool(ok)
     print(json.dumps(erg, indent=1, ensure_ascii=False))

@@ -15,6 +15,7 @@ import { RelayZahlziele } from "../relay-zahlziel.js";
 import type { ProviderZahlung } from "../session-client.js";
 import { werberZahlziel } from "../werbung.js";
 import { angebotVon, ensurePool, frageBeiAutoren, state } from "./state.js";
+import { hostingZahlziel } from "./hosting.js";
 import { geheim } from "./tresor.js";
 import { zahlschienen } from "./zahlschienen.js";
 
@@ -33,7 +34,7 @@ const anfragen = new Map<string, { empfaenger: Empfaenger; hoechstMsat: number }
  * Die Empfänger eines Auftrags – was fehlt, bleibt beim Provider: Werber des
  * Providers aus dem Angebot, der eigene Werber aus dem Werbelink (5.1.3b), die
  * Relays des Pools – über sie geht der Auftrag –, soweit ihre Zahladresse schon
- * bekannt ist. Hosting folgt mit dem Spiegel-Verzeichnis (5.3).
+ * bekannt ist; Hosting aus der Spiegel-Datei neben freedom.html (5.3).
  */
 export async function empfaengerFuer(providerPk: string): Promise<Empfaenger> {
   const werber = (await angebotVon(providerPk).catch(() => undefined))?.werber;
@@ -41,11 +42,13 @@ export async function empfaengerFuer(providerPk: string): Promise<Empfaenger> {
   const urls = (await ensurePool()).urls;
   void relayZiele.lerne(urls).catch(() => { /* beim nächsten Auftrag */ });
   const relays = relayZiele.bekannte(urls);
+  const hosting = await hostingZahlziel();
   return {
     entwicklung: ENTWICKLUNG,
     ...(werber ? { "werber-provider": { lud16: werber } } : {}),
     ...(kundenWerber ? { "werber-kunde": kundenWerber } : {}),
     ...(relays.length > 0 ? { relays } : {}),
+    ...(hosting ? { hosting } : {}),
   };
 }
 

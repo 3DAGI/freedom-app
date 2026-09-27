@@ -6929,6 +6929,434 @@ Endstand: protocol 1162 · node 225 · app 453 (+6) · mls 13 · Leak-Tests 57
 grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng 0
 unbewertet · Website 5 Seiten ok · Smoke-Test bestanden.
 
+## Schritt 8.4c – Relay-Zugang in der App: anmelden und kaufen
+
+**Anmelden (NIP-42)** – `WebSocketRelay` (`protocol/src/ws-relay.ts`):
+- Verlangt ein Relay eine Anmeldung (`auth-required:` bei `CLOSED` oder `OK`),
+  holt die Verbindung über `anmelden` ein signiertes Anmelde-Event.
+- Danach sendet sie die abgewiesene Anfrage bzw. das Event einmal erneut.
+- Einmal je Verbindung, nie von selbst. Liefert `anmelden` null, enden die
+  Wartenden sofort statt in der Zeitgrenze.
+- In der App (`shell/state.ts`, `relayVerbindung()`) nur bei eigenen Relays und
+  solchen mit gekauftem Zugang (`darfAnmelden()`), über `signiere()`.
+- Nie mit einem Sitzungsschlüssel – das verbände KI-Sitzung und Identität.
+
+**Kaufen** – Settings → Verbindung → „Relay-Zugang kaufen“ (`relay-kauf.ts`):
+- Der Preis kommt aus NIP-11. Die Kaufadresse gilt nur, wenn sie beim Relay
+  selbst liegt; eine fremde bekäme Schlüssel und Geld.
+- Das Angebot wird vor dem Zahlen geprüft: eigener Schlüssel, angekündigter
+  Preis, Rechnung auf genau diesen Betrag.
+- Gezahlt wird über die Zahlschienen. Bei SOL steht die Referenz nach Solana
+  Pay als zusätzliches Konto im Transfer (`Zahlanfrage.referenz`, `buildSolTransfer`).
+- Das Angebot ist gemerkt, bevor gezahlt wird. Bestätigt der Relay nicht
+  sofort, lässt es sich später erneut prüfen.
+- Ein Hinweis vor dem Kauf sagt, was der Betreiber sieht.
+
+**Knoten:** Umschläge standardmäßig nur an angemeldete Empfänger
+(`RELAY_UMSCHLAEGE_NUR_ANGEMELDET=0` schaltet ab).
+
+**Datenschutz:**
+- „relay-anmeldung“ belegt: neue Regel „anmeldung-nicht-offen“; das Szenario
+  prüft, dass die App sich nur auf Verlangen und genau einmal anmeldet und die
+  Anmeldung nie veröffentlicht.
+- „relay-zugang“ als Grenze: Kaufen verrät dem Betreiber Schlüssel und IP,
+  mit SOL auch die Absenderadresse.
+
+**Website:** FAQ, Whitepaper („Relays werden direkt bezahlt“), Roadmap.
+
+**Browser-Abnahme** (`scratchpad/relay_kauf_e2e.py`):
+- **Aufbau:** echte Relay-Rolle, beschränkt und mit Kasse, TLS davor als
+  `wss://relay.test`. Alle anderen Relays ersetzt ein Test-Relay, das
+  Umschläge verwirft – Post kommt also nur über den Knoten.
+- **Vor dem Kauf:** Bob nimmt den Relay in seinen Satz. Alice schreibt ihm –
+  der Relay nimmt nichts an.
+- **Kauf:** Bob fragt den Preis ab (30 Tage 1.000 sats, SOL-Knopf versteckt)
+  und kauft mit Sats (WebLN-Attrappe): „Bezahlt – Zugang bis 27.10.2026“.
+- **Nach dem Kauf:** Alice schreibt erneut – angenommen. Bob liest nur diese
+  Nachricht, nicht die erste.
+- Bob hat sich einmal angemeldet, Alice nie. Keine Seitenfehler. Nach dem Einmergen von 5.1.3a/b
+  erneut bestanden.
+
+**Beobachtet (Spur A, klein):** Veröffentlicht die App den eigenen Satz in
+derselben Sekunde wie die automatische Liste, tragen beide Kind-10050-Events
+dieselbe Zeit, und `posteingangVon()` nimmt irgendeine. Im Test umgangen
+(zwei Sekunden warten); nach NIP-01 gewönne die kleinere Id.
+
+**Tests:**
+- protocol +1: Regel „anmeldung-nicht-offen“; dazu das Szenario im
+  bestehenden Test.
+- node +3: Client gegen die echte Relay-Rolle – nur auf Verlangen, einmal je
+  Verbindung, Dauer-Abo; null bzw. fremder Schlüssel; Schreiben erst nach
+  Anmeldung.
+- app +5: NIP-11-Preise, Angebot prüfen, Kauf mit SOL samt Reihenfolge,
+  Referenz in der Solana-Schiene, Verdrahtung.
+- Der Verdrahtungstest aus 8.6c prüft jetzt `relayVerbindung(url, …)` statt
+  `new WebSocketRelay(url, …)`.
+
+Endstand (nach dem Einmergen von 5.1.3a/b): protocol 1163 (+1, 6 übersprungen) ·
+node 227 (+3, 7 übersprungen ohne Netz) · app 458 (+5) · mls 13 · Leak-Tests 57 grün + 1 todo · 0 rot ·
+check-wiring `--streng` Exit 0 · innerHTML streng 0 unbewertet · Website 5
+Seiten ok · Smoke-Test bestanden.
+
+## Schritt 6.4 – Verkehrsmuster: Kopien einzeln verzögert, Abrufe im Takt
+
+Von Spur A übernommen (27.09.2026).
+
+**Vorher:** Eine Direktnachricht ging als zwei bis vier Umschläge im selben
+Augenblick hinaus (an den Empfänger, an sich selbst, an Geräte). Jeder trägt
+einen Wegwerf-Schlüssel, aber ein Relay, das Posteingang beider Seiten ist, sah
+zwei Umschläge gleichzeitig ankommen – und damit, wer mit wem schreibt.
+Abfragen liefen in festen Rastern (60 s Posteingang, 30 s Räume, 120 s Urteile),
+an denen man die App erkennt. FAQ und Whitepaper sagten dazu, Relays sähen,
+welche Schlüssel miteinander schreiben – seit NIP-17 (2.1) stimmt das nicht
+mehr, verschwiegen aber den Zeitpunkt.
+
+**Jetzt:**
+- **Protokoll `verkehr.ts`:**
+  - `sichererZufall()` aus `crypto.getRandomValues`.
+  - `zufallsVerzoegerung()` und `mitZufall()`.
+  - `AbrufTakt`: gebündelte Abrufe, je Schlag ein neuer Zufallsabstand, `jedenNten`, Fehler einzeln geschluckt.
+- **App `shell/versand.ts`:** jede Kopie mit eigener Verzögerung
+  (`versendeVerzoegert()`), Standard bis 30 s. Einstellbar in Settings →
+  Datenschutz: aus, 5 s, 30 s, 2 min.
+- **Anzeige:** Im eigenen Verlauf steht die Nachricht sofort mit „· wird
+  gesendet“, bis beide Kopien hinaus sind. Sie verschwindet aus der Liste
+  „unterwegs“, sobald die eigene Kopie vom Relay zurück ist (Abgleich über die
+  Id des inneren Events).
+- **Verlassen der Seite:** Beim Verlassen (`pagehide`, Tab versteckt) geht alles
+  Wartende sofort hinaus – lieber ein Muster als eine verlorene Nachricht.
+  Scheitert ein verzögerter Versand, sagt es ein Hinweis.
+- **Abruftakt:** etwa 30 s, 15–45 s mit Zufall. Private Räume jeden Schlag,
+  Posteingang jeden zweiten, Urteile jeden vierten.
+- **MLS** (445) bleibt sofort: ein Event je Nachricht, keine Kopien.
+- **Mixnetz:** bewertet in `docs/MIXNET.md`. Nym geht im Browser nur über einen
+  Exit, bräuchte weiteres WASM (CSP) und kostet NYM-Token – nicht jetzt. Später
+  in den nativen Apps (6.1) neben Tor prüfen. Deckverkehr nicht ohne Absprache
+  mit Relay-Betreibern.
+
+**Datenschutz:** Aussage „versand-einzeln“ belegt (neue Regel
+„kopien-entkoppelt“: zwei Umschläge innerhalb einer Sekunde sind ein Verstoß).
+Szenario: dieselbe Funktion wie die App, fester Zufall. Ohne Verzögerung
+meldet die Regel alle Kopien.
+
+**Website:** FAQ („Kann jemand sehen, mit wem ich schreibe?“) und Whitepaper
+(Grenzen: Metadaten) sagen jetzt, was verborgen ist und was bleibt.
+
+**Browser-Prüfung** (`scratchpad/verkehr_e2e.py`, zwei Nutzer, Test-Relay mit
+Ankunftszeiten):
+- Standard 30 s.
+- Die Nachricht steht sofort mit „wird gesendet“ im Verlauf; der Hinweis ist
+  danach weg.
+- Die zwei Kopien kamen 4,8 s und 16,5 s nach dem Senden an (11,7 s Abstand).
+- Bob liest die Nachricht.
+- Mit 2 min Verzögerung und verstecktem Tab gingen beide Kopien binnen 3 s
+  hinaus.
+- Keine Seitenfehler.
+
+**Tests:**
+- protocol +4: Zufallsverzögerung, Abstand, Takt, Regel.
+- app +3: Einstellung, verzögerter Versand mit Zeitgeber-Attrappe, Verdrahtung.
+- Drei Verdrahtungstests prüfen jetzt den verzögerten Versand bzw. den Abruftakt
+  statt `await veroeffentlicheDm(…)` und `setInterval(…, 60_000)`: 8.6c,
+  5.4a (Spur A), 4.9d. Ihre Absicht ist dieselbe: Kopien an die Person bzw.
+  nur an den Posteingang, Posteingang etwa jede Minute.
+
+Endstand: protocol 1167 (+4, 6 übersprungen) · node 227 (7 übersprungen ohne
+Netz) · app 461 (+3) · mls 13 · Leak-Tests 57 grün + 1 todo · 0 rot ·
+check-wiring `--streng` Exit 0 · innerHTML streng 0 unbewertet · Website 5
+Seiten ok · Smoke-Test bestanden.
+
+## Schritt 5.3a – Spiegel: Platzhalter, Quellen, Hosting-Anteil
+
+Entscheidung MENSCH (27.09.2026): Die Konten legt der MENSCH an; bis dahin
+Platzhalter, die sich einfach ersetzen lassen. 5.3 geteilt: **a** Platzhalter,
+Quellen, Hosting-Anteil; **b** Upload-Skripte und CI-Job.
+
+**Kontenliste** (`docs/KONTEN.md`): alle Konten, Wallets und Schlüssel, auf
+die der Code wartet, je mit Zweck, Stelle im Code, Vorschlag zum Anlegen und
+was zurückkommt. Nur öffentliche Werte gehen an den Agenten; Geheimes in die
+GitHub-Secrets bzw. auf den GX10.
+
+Die Einträge:
+- **Spiegel:** Codeberg, IPFS, Arweave, Blossom, Torrent, .onion.
+- **Hosting-Adressen**, **Release-Signierer**, **Entwicklung** (Spur A).
+- **Test-Wallets**, **Relay-Domain** und **Radicle**.
+
+**Platzhalter:** Werte beginnen mit `PLATZHALTER:`; `istPlatzhalter()` lässt
+sie wie „nicht gesetzt“ gelten.
+- `spiegel/quellen.json`: offizielle Adresse, Codeberg, .onion, Radicle.
+- `spiegel/freedom-spiegel.json`: Hosting-Zahlziel, Lightning und SOL.
+
+**Hosting-Anteil** (1 %, Entscheidung 4.0, Aufteilung von Spur A):
+- Jede Auslieferung legt `freedom-spiegel.json` neben freedom.html.
+- Die App liest die Datei von ihrer eigenen Herkunft (`hostingZahlziel()`,
+  einmal je Sitzung) – dort ablegen kann nur der Betreiber des Spiegels. So
+  bekommt jeder Spiegel seinen Anteil, ohne dass jemand eine Liste pflegt.
+- Nur gültige Adressen zählen (`leseSpiegelDatei()` über `adresseFuer()`:
+  Lightning-Adresse ohne lokalen Host, SOL-Adresse).
+- Ohne Datei, lokal geöffnet oder mit Platzhaltern bleibt der Anteil beim
+  Provider.
+- `ki-zahlung.ts` (Spur A, eine Zeile) nimmt `hosting` in die Empfänger.
+
+**Quellen:**
+- `leseQuellen()` prüft die Form je Art (https, *.codeberg.page, v3-.onion,
+  rad:, ipfs://, ar://, Blossom-Hash, Magnet).
+- Die Startseite zeigt gesetzte Quellen und offene als „noch nicht
+  eingerichtet“ (`build-site.sh`). Vorher stand dort „Alle Builds auch über
+  IPFS/Arweave/Tor erreichbar“ – das stimmte nie.
+- `publish-release.mjs` nimmt ohne `RELEASE_SOURCES` die gesetzten Quellen
+  (vorher fest `freedomstack.io`).
+- Der Build legt `freedom-spiegel.json` neben die App.
+
+**App-Text:** Earn → „App verbreiten“ sagte „Eine Vergütung gibt es dafür
+nicht“ – jetzt: mit `freedom-spiegel.json` 1 % jeder KI-Zahlung über die
+eigene Kopie (Deutsch und Englisch).
+
+**Tests:**
+- protocol +4: Platzhalter, Spiegel-Datei, Quellen, die echten Dateien in
+  `spiegel/` – jedes Feld Platzhalter oder gültig, damit ein Tippfehler beim
+  Ersetzen auffällt.
+- app +2: Zahlziel von der eigenen Herkunft, einmal je Sitzung, Platzhalter
+  zählt nicht; Verdrahtung in Aufteilung, Build und Startseite.
+
+Endstand: protocol 1171 (+4, 6 übersprungen) · node 227 (7 übersprungen ohne
+Netz) · app 463 (+2) · mls 13 · Leak-Tests 57 grün + 1 todo · 0 rot ·
+check-wiring `--streng` Exit 0 · innerHTML streng 0 unbewertet · Website 5
+Seiten ok · Smoke-Test bestanden.
+
+## Schritt 5.3b – Spiegel: Torrent, IPFS, CI-Job
+
+5.3 ist dreigeteilt, damit jeder Teil unter etwa 400 Zeilen bleibt: **b**
+Torrent, IPFS und der CI-Job; **c** Blossom, Arweave und Codeberg im selben Job.
+
+**Torrent** (`baueTorrent()`, `protocol/src/spiegel-upload.ts`):
+- `.torrent` für freedom.html; die Auslieferung selbst ist der Webseed
+  (BEP 19). Laden geht so auch ohne Seeder.
+- Der Magnet-Link nennt die .torrent-Datei (`xs`), weil ein Webseed allein
+  keine Metadaten liefert.
+- Ohne Zeitstempel und Programmnamen: Dieselbe Datei an derselben Adresse
+  ergibt immer denselben Torrent.
+- Der Infohash ist gegen create-torrent/parse-torrent geprüft.
+- Jeder Bau legt `freedom.torrent` neben die App (`build-site.sh` mit
+  `SPIEGEL_BASIS_URL` aus `actions/configure-pages`). Der Magnet-Link steht
+  auf der Startseite.
+
+**IPFS** (`ipfsCid()`):
+- Der CID wird selbst gerechnet, wie `ipfs add --cid-version=1`: rohe Blätter
+  zu 256 KiB, darüber UnixFS-Knoten (dag-pb), ausgeglichen, höchstens 174
+  Verweise.
+- Acht Fälle gleichen die Referenz ipfs-unixfs-importer (Kubo-Voreinstellungen):
+  leere Datei, ein Blatt, zwei Ebenen, mehr als 174 Verweise.
+- Wer den CID nachrechnet, braucht dem Pinning-Dienst nicht zu glauben.
+
+**CI-Job `spiegel`** (`pages.yml`):
+- Er läuft nur beim Release (*Run workflow* → „spiegeln“), nach dem Deploy,
+  mit der eben veröffentlichten Seite. Bei jedem Push wäre es zu teuer
+  (Arweave kostet je Upload).
+- `scripts/mirror/spiegeln.mts` heftet die Datei bei Pinata an und übernimmt
+  den CID nur, wenn Pinata denselben meldet – sonst wird der Job rot.
+- Fehlt ein Secret, wird der Spiegel übersprungen, mit Grund.
+- Meldungen der Dienste gibt der Job nie aus, nur den Status.
+- Die Zusammenfassung nennt den Befehl für den GX10 (`ipfs pin add <cid>`).
+- Das Ergebnis (`spiegel-ergebnis.json`) ist ein Artefakt.
+
+**Release-Manifest:** `publish-release.mjs` nimmt mit `SPIEGEL_ERGEBNIS` die
+Quellen des Laufs dazu (`quellenAusErgebnis()`), aber nur, wenn die Prüfsumme
+zur selbst gebauten Datei passt, und nur in gültiger Form.
+
+**Weitere Änderungen:**
+- `check-wiring.py` zählt jetzt auch `.mts`-Skripte als Aufrufer (+1 Selbsttest).
+- `leseQuellen()` nimmt auch CIDs einzelner Blätter (`bafk…`).
+- `docs/KONTEN.md` beschreibt, wie ein Release gespiegelt wird.
+
+Endstand: protocol 1176 (+5, 6 übersprungen) · node 227 (7 übersprungen ohne
+Netz) · app 463 · mls 13 · Leak-Tests 57 grün + 1 todo · 0 rot · check-wiring
+`--streng` Exit 0 (Selbsttest 6) · innerHTML streng 0 unbewertet · Website 5
+Seiten ok · Smoke-Test bestanden · `build-site.sh` mit `SPIEGEL_BASIS_URL`:
+`freedom.torrent` + Magnet auf der Startseite.
+
+## Schritt 5.3c – Spiegel: Blossom, Arweave, Codeberg
+
+Der Job `spiegel` (`pages.yml`, nur beim Release) lädt jetzt zu allen Spiegeln
+hoch. 5.3 ist damit im Code fertig; offen sind nur die Konten (MENSCH,
+`docs/KONTEN.md`).
+
+**Blossom** (A4):
+- Eigener Spiegel-Schlüssel (`SPIEGEL_NSEC`, nsec oder Hex).
+- Je Server eine Anmeldung nach BUD-02 nur für diese Datei (`blossomAuth()`):
+  Kind 24242, `x` = Prüfsumme, zehn Minuten gültig; Kopf über `blossomKopf()`.
+- Übernommen wird nur eine Beschreibung mit derselben Prüfsumme und einer
+  https-Adresse in Quellen-Form (`blossomQuelle()`).
+- Server kommen aus der Variable `BLOSSOM_SERVER` (nicht geheim), nur https.
+
+**Arweave** (A3): über das vorhandene `@ardrive/turbo-sdk`, mit den Tags
+Content-Type, App-Name und SHA-256. Der Test lief gegen einen Turbo-Ersatz:
+Das SDK schickt das signierte Datenobjekt an `/v1/tx/arweave`, die Datei steht
+darin am Ende.
+
+**Codeberg** (A1):
+- Die ganze Seite geht als Branch `pages`, erzwungen, ein Commit.
+- Nutzer und Repository stehen in der Adresse aus `spiegel/quellen.json` –
+  solange dort ein Platzhalter steht, wird Codeberg übersprungen.
+- Das Token steht nur in der Umgebung von git (`GIT_CONFIG_*`), nie auf der
+  Befehlszeile; ein Fehler gibt nur einen festen Text aus.
+
+**Upload-Skript** `spiegeln.mts`, je Spiegel eine Funktion:
+- Feste Texte nur über `Meldung`, sonst nur der Fehlername.
+- Ein gescheiterter Spiegel färbt den Job rot; die anderen laufen weiter.
+
+**Tests** (+2):
+- Blossom-Bausteine.
+- Das Skript gegen Ersatz-Dienste:
+  - Der Blossom-Ersatz prüft die Anmeldung wie ein Server: Signatur, Kind,
+    `x` = Prüfsumme des Körpers, Ablauf. Ein zweiter meldet eine falsche
+    Prüfsumme – nicht übernommen, Job rot.
+  - Der Turbo-Ersatz nimmt das Datenobjekt mit der Datei an.
+  - Für Codeberg dient ein leeres git-Repository: Die Seite liegt im Branch
+    `pages`.
+  - Kein Geheimnis (nsec, Hex, JWK, Token, Basic-Kopf) steht in Ausgabe oder
+    Ergebnis.
+  - Kaputte Eingaben ergeben feste Texte.
+
+Endstand: protocol 1178 (+2, 6 übersprungen) · node 227 (7 übersprungen ohne
+Netz) · app 463 · mls 13 · Leak-Tests 57 grün + 1 todo · 0 rot · check-wiring
+`--streng` Exit 0 · innerHTML streng 0 unbewertet · Website 5 Seiten ok ·
+Smoke-Test bestanden.
+
+## Schritt 8.16a – Übersetzungen: Grundlage und Rahmen
+
+Entscheidung MENSCH (27.09.2026): Variante B – Deutsch und Englisch
+vollständig, die sechs übrigen Sprachen fallen weg. 8.16 kommt in sechs
+Teilschritten (Karte `phase-8.md`); dies ist der erste.
+
+**Grundlage** (`app/src/i18n.ts`):
+- Nur noch `de` und `en`; die Wörterbücher für es, fr, it, pt, zh und ja sind
+  entfernt. Sie deckten rund 30 Texte ab, der Rest der Oberfläche war ohnehin
+  deutsch.
+- Die Texte stehen je Bereich in `app/src/texte/*.ts` (Rahmen, Agent,
+  Kommunikation, Earn, Profil). Jeder Schlüssel trägt `{ de, en }` – fehlt
+  eine Sprache, meldet es der Compiler. Weniger Konflikte mit Spur A, weil
+  jeder Bereich eine eigene Datei hat.
+- `t(schlüssel, werte)` setzt `{name}` ein. Unbekannte Schlüssel erscheinen
+  sichtbar als sie selbst.
+- `applyI18n()` setzt auch `data-i18n-title` und `data-i18n-aria`.
+- Sprache beim Start: die gespeicherte Wahl, wenn es sie noch gibt
+  (`gespeicherteSprache()` – ein bis 8.16 gewähltes „fr“ gilt nicht mehr),
+  sonst die des Browsers (Deutsch → de, alles andere → en).
+  `<html lang>` folgt.
+- Zehn Schlüssel, die nirgends benutzt wurden, sind entfernt.
+
+**Rahmen:**
+- Kopfzeile (Tooltips), Navigation (sechs Tabs), Relay-Anzeige und Startbild
+  laufen über Schlüssel.
+- Das Wallet-Gate ist entfernt (HTML, Verdrahtung, CSS). Es wurde seit dem
+  Wegfall des Logins nie gezeigt, trug eine doppelte `id="hero-gl"` und Texte,
+  die `applyI18n()` wegen der Logos gar nicht übersetzen konnte.
+
+**Tests** (`app/test/i18n.test.ts`, +6):
+- Nur de/en; jeder Text in beiden Sprachen, nicht leer, mit denselben
+  Platzhaltern, in genau einem Bereich.
+- `t()` samt Werten; Spracherkennung und gespeicherte Wahl.
+- Jeder Schlüssel aus `index.html` und jedes `t("…")` existiert, jeder Text
+  wird benutzt.
+- Rohtext-Suche (`test/i18n-rohtext.ts`, mit Negativprobe): Textknoten ohne
+  `data-i18n` und Attribute ohne `data-i18n-*`, Eigennamen und Einheiten
+  ausgenommen, je Bereich gezählt.
+- `OFFEN`: der Rahmen steht auf 0. Offene Tabs dürfen nur sinken – Agent 60,
+  Kommunikation 41, Währung 39, Earn 27, Profil 23, Settings 118.
+
+**Smoke-Test:**
+- Alle Kontexte laufen mit `locale="de-DE"`, weil die Prüfungen deutsche
+  Texte lesen.
+- Neue Prüfung „sprache“:
+  - deutscher Browser → „Kommunikation“, „Guthaben“;
+  - englischer Browser → „Chat“, „Balance“;
+  - gespeichertes „fr“ → Englisch, gespeichertes „de“ → Deutsch.
+
+## Schritt 8.16b – Übersetzungen: Zählung im Code
+
+Grundlage für die Übersetzung der Texte, die der Code zeichnet.
+
+**Rohtext im Code** (`app/test/i18n-rohtext.ts`, `rohtexteImCode()`):
+- Die Suche liest String-Literale samt verschachtelter Vorlagen (`${…}`).
+- Als Text zählt: zwei Wörter, ein Umlaut, ein großgeschriebenes Wort,
+  Text mit „…“; in HTML-Vorlagen der Text zwischen den Tags und
+  `title`/`placeholder`/`aria-label`.
+- Nicht gezählt werden:
+  - Selektoren, Speicher-Schlüssel, Imports, Konsole;
+  - Klassennamen, Tastennamen, HTTP-Kopfzeilen;
+  - Zeilen mit `// kein UI-Text` (Daten, die so gesendet oder gespeichert
+    werden).
+- Negativprobe im Test.
+
+**Tabelle** (`app/test/i18n-offen.ts`):
+- `OFFEN_HTML` je Bereich und `OFFEN_CODE` je Datei, relativ zu `src/`.
+- Eine Datei, die dort fehlt, muss 0 haben – auch jede neue, auch von Spur A.
+- Offene Zahlen dürfen nur sinken; eine gestrichene Datei meldet der Test.
+
+**Messung:** 1.069 Texte in 68 Dateien plus 308 in `index.html` – rund
+1.300 statt der geschätzten 400–500. Mit der Grenze von etwa 400 geänderten
+Zeilen je Schritt werden es etwa zwölf Teilschritte (a–l, Karte
+`phase-8.md`) statt sechs.
+
+**Dazu:**
+- `gebietsschema()` (`i18n.ts`): `de-DE` bzw. `en-US` für Zahlen und Daten –
+  die Teilschritte ersetzen damit das feste `"de-DE"`.
+- Ein Sprachwechsel zeichnet den offenen Tab neu (`switchTab()`), damit auch
+  vom Code gezeichnete Texte folgen.
+
+**Tests** (`i18n.test.ts`, +3):
+- Suche im Code (Probe mit 15 Zeilen).
+- Zählung im Code je Datei.
+- `gebietsschema()` und Neuzeichnen beim Sprachwechsel.
+- Verdrahtet: die Uhrzeit der Raumnachrichten (`tabs/kommunikation.ts`) nutzt
+  schon `gebietsschema()`.
+
+Endstand: protocol 1178 (6 übersprungen) · node 227 (7 übersprungen ohne
+Netz) · app 472 (+3) · mls 13 · Leak-Tests 57 grün + 1 todo · 0 rot ·
+check-wiring `--streng` Exit 0 · innerHTML streng 0 unbewertet · Website 5
+Seiten ok · Smoke-Test bestanden.
+
+## Schritt 8.16c – Übersetzungen: Kommunikation
+
+**Fertig: Kommunikation.** Seite (`index.html`) und Code
+(`tabs/kommunikation.ts`) stehen auf 0 rohen Texten; die Datei ist aus
+`OFFEN_CODE` gestrichen.
+
+**Seite:** Leiste, Direktnachrichten, Ablauf-Auswahl, Räume und Mitglieder
+laufen über Schlüssel, ebenso Tooltips und aria-Beschriftungen.
+- „New message“/„New community“ waren im deutschen Standard englisch – jetzt
+  in beiden Sprachen richtig.
+- `#space-name` trägt seinen Platzhalter in einem eigenen `<span>`, damit ein
+  Sprachwechsel den gezeigten Raumnamen nicht überschreibt.
+
+**Code:** Räume, Moderation und Meldungen, Einladungen, Direktnachrichten,
+Hinweise zur Verschlüsselung (NIP-17/MLS), Anhänge, Schlüsselwechsel und
+Dialoge laufen über Schlüssel.
+- Rund 130 Schlüssel `komm.*` in `texte/kommunikation.ts`. Werte werden
+  eingesetzt (`{n}`, `{name}`, `{grund}` …), statt Sätze zusammenzukleben;
+  Einzahl und Mehrzahl haben eigene Schlüssel.
+- Daten eines öffentlichen Raums (Kanal- und Rollennamen, die veröffentlicht
+  werden) tragen `// kein UI-Text`.
+- Die Markierung „(alter Schlüssel)“ steht im gespeicherten Namen einer
+  Unterhaltung. Sie wird in beiden Sprachen erkannt (`ALT_MARKE`), auch nach
+  einem Sprachwechsel.
+- Die Namen „Anfrage · …“ entstehen in der Sprache, die beim Eintreffen gilt.
+- Texte in HTML-Vorlagen laufen über `escapeHtml(t(…))`.
+
+**Tests:**
+- +1 in `i18n.test.ts`: Kommunikation fertig; Markierung in beiden Sprachen;
+  Einzahl, Mehrzahl und Werte.
+- Drei ältere Tests prüfen Schlüssel und Text am neuen Ort (nicht schwächer):
+  - `mls-verdrahtung`: MLS-Hinweis, „Anfrage“;
+  - `raeume-privat`: Hinweis „Öffentlicher Raum“;
+  - `leak/raum`: Warnung vor öffentlichen Räumen.
+- innerHTML-Ausnahmeliste: Die Faden-Vorlage ist angepasst (Variable `faden`
+  statt `t`, das jetzt die Übersetzung ist); zwei Einträge entfallen, weil die
+  Zahlen jetzt in `escapeHtml(t(…))` stehen.
+- Die Smoke-Prüfung „sprache“ liest zusätzlich den Zurück-Knopf des Chats
+  („‹ Zurück“/„‹ Back“).
+
 ## Schritt 5.1.4a – Gebührenmodell A+: Protokoll und Knoten aufgeräumt
 
 5.1.4 ist geteilt (mehr als 400 Zeilen): **a** Protokoll und Knoten, **b** App

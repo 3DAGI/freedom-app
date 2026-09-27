@@ -1,0 +1,9 @@
+{
+  "hinweis": "Bezugsquellen der App (5.3). Werte mit PLATZHALTER: ersetzt der MENSCH (docs/KONTEN.md); bis dahin zeigt die Startseite sie als noch nicht eingerichtet und das Release-Manifest lässt sie weg. IPFS, Arweave, Blossom und Torrent schreibt der Upload je Version selbst.",
+  "quellen": [
+    { "art": "offiziell", "url": "PLATZHALTER:https://<eigene-domain oder 3dagi.github.io/freedom-app>/freedom.html" },
+    { "art": "codeberg", "url": "PLATZHALTER:https://<codeberg-nutzer>.codeberg.page/freedom-app/freedom.html" },
+    { "art": "onion", "url": "PLATZHALTER:http://<onion-adresse>.onion/freedom.html" },
+    { "art": "radicle", "url": "PLATZHALTER:rad:<repository-id>" }
+  ]
+}

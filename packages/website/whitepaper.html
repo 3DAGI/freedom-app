@@ -63,6 +63,13 @@
   Adressen in privaten Netzbereichen werden abgelehnt, und die Startliste wird nie
   vollständig verdrängt — sonst könnte jemand mit genug Ankündigungen einen Client
   auf eigene Server umlenken.</p>
+  <p><strong>Relays werden direkt bezahlt.</strong> Das Relay eines Knotens gibt
+  Umschläge (NIP-17) nur an den per NIP-42 angemeldeten Empfänger heraus. Auf
+  Wunsch nimmt es nur Post von und an Schlüssel mit Zugang an; den Zugang verkauft
+  es selbst, in Sats über eine Rechnung des eigenen Lightning-Knotens oder in SOL
+  mit einer Referenz nach Solana Pay – bezahlt ist erst, was beim Betreiber
+  angekommen ist. Die App meldet sich nur bei eigenen und gekauften Relays an, nie
+  mit einem Sitzungsschlüssel.</p>
 <h2 id="dvm">KI-Marktplatz — DVM</h2>
 <p>Ein Kunde veröffentlicht eine Anfrage mit Gebot, Provider antworten mit
   Ergebnis und Preis. Bezahlt wird pro Job in Sats, über eine Session mit Budget,
@@ -228,9 +235,11 @@
 
 <h2 id="grenzen">Grenzen</h2>
 <div class="doc-note">
-  <strong>Metadaten.</strong> Inhalte sind verschlüsselt, aber Relays sehen, welche
-  Schlüssel miteinander Ereignisse austauschen. Das vollständig zu verbergen wäre
-  ein anderes Systemdesign.
+  <strong>Metadaten.</strong> Inhalte und Absender von Direktnachrichten sind
+  verborgen; die Kopien einer Nachricht gehen einzeln mit zufälliger Verzögerung
+  hinaus, Abfragen mit Zufall im Takt. Zeitpunkte und IP-Adressen an beiden Enden
+  kann ein Beobachter weiter verbinden – das vollständig zu verbergen bräuchte ein
+  Mixnetz (bewertet in docs/MIXNET.md, nicht eingebaut).
 </div>
 <div class="doc-note">
   <strong>Client-seitige Regeln.</strong> Löschen, Ausblenden und Leserechte wirken

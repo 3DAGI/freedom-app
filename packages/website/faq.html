@@ -63,7 +63,7 @@
 </details>
 <details class="faq-item">
   <summary>Kann jemand sehen, mit wem ich schreibe?</summary>
-  <div class="answer"><p>Teilweise. Der Inhalt ist verschlüsselt, aber ein Relay sieht, dass zwei Schlüssel miteinander Ereignisse austauschen. Metadaten vollständig zu verbergen würde ein anderes Systemdesign erfordern — wir behaupten nicht, das zu leisten.</p></div>
+  <div class="answer"><p>Teilweise. Inhalt und Absender einer Direktnachricht sind verborgen: Ein Relay sieht nur, dass du Post bekommst – nicht von wem. Die Kopien einer Nachricht (an den Empfänger, an dich, an deine Geräte) gehen einzeln mit zufälliger Verzögerung hinaus, standardmäßig bis 30 Sekunden (Settings → Datenschutz), damit ein Relay sie nicht im selben Augenblick ankommen sieht; auch Abfragen laufen mit Zufall im Takt.</p><p>Was bleibt: Wer deine IP-Adresse und die Zeitpunkte an beiden Enden beobachtet, kann Gespräche weiter verbinden. Dagegen helfen Tor und ein Mixnetz – ein Mixnetz baut die App nicht ein (Bewertung in docs/MIXNET.md). Metadaten vollständig zu verbergen behaupten wir nicht.</p></div>
 </details>
 <h2 id="geld">Geld und Gebühren</h2>
 <details class="faq-item">
@@ -89,7 +89,7 @@
 <h2 id="technik">Technik</h2>
 <details class="faq-item">
   <summary>Was passiert, wenn die Relays abgeschaltet werden?</summary>
-  <div class="answer"><p>Die App startet mit einer festen Liste, entdeckt darüber aber die Relays der Provider und merkt sie sich. Die Startliste ist ein Ausgangspunkt, kein Fundament.</p><p>Jeder Provider kann selbst ein Relay betreiben und ankündigen. Je mehr das tun, desto weniger hängt das Netz an fremder Infrastruktur.</p></div>
+  <div class="answer"><p>Die App startet mit einer festen Liste, entdeckt darüber aber die Relays der Provider und merkt sie sich. Die Startliste ist ein Ausgangspunkt, kein Fundament.</p><p>Jeder Provider kann selbst ein Relay betreiben und ankündigen. Je mehr das tun, desto weniger hängt das Netz an fremder Infrastruktur.</p><p>Ein solches Relay gibt verschlüsselte Direktnachrichten nur an ihren Empfänger heraus: Wer seine Post abholt, meldet sich an (NIP-42). Die App tut das nur bei deinen eigenen Relays und bei Relays, deren Zugang du gekauft hast – und nur, wenn der Relay es verlangt. Den Zugang kann ein Betreiber verkaufen, in Sats oder SOL, direkt in der App (Settings → Verbindung). Wer kauft, verrät dem Betreiber Schlüssel und IP-Adresse; mit SOL auch die Absenderadresse, und auf der Kette sieht jeder, dass sie das Relay bezahlt hat.</p></div>
 </details>
 <details class="faq-item">
   <summary>Funktioniert es ohne Internet?</summary>

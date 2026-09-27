@@ -32,11 +32,12 @@ test("2.2b-d2: Senden erst über MLS, sonst NIP-17; mit Ablauf, Bunker oder ohne
   assert.match(kom, /if \(c\.type === "dm" && \(await sendeUeberMls\(c, /);
   assert.match(kom, /\} else if \(c\.type === "dm"\) \{\s*\/\/ NIP-17/, "der NIP-17-Pfad bleibt als Rückfall");
   assert.match(kom, /if \(c\.ablaufSecs \|\| mlsGesperrt\(\)\) return false;/);
-  assert.match(kom, /Können der Kontakt und eure Geräte MLS, geht deine nächste Nachricht darüber\./, "ehrlicher Hinweis ohne MLS-Gruppe");
+  assert.match(kom, /return c\.mls \? t\("komm\.mlsAn"\) : `\$\{nip17\} \$\{t\("komm\.mlsKoennen"\)\}`;/, "ehrlicher Hinweis ohne MLS-Gruppe");
+  assert.match(readFileSync(new URL("../src/texte/kommunikation.ts", import.meta.url), "utf8"), /Können der Kontakt und eure Geräte MLS, geht deine nächste Nachricht darüber\./);
 });
 
 test("2.2b-d2: Einladung von Fremden wird zur Anfrage – wie eine NIP-17-Nachricht von ihnen", () => {
-  assert.match(kom, /c = \{ id: r\.partner, type: "dm", name: "Anfrage · " \+ pkShort\(r\.partner\)/);
+  assert.match(kom, /c = \{ id: r\.partner, type: "dm", name: t\("komm\.anfrage", \{ pk: pkShort\(r\.partner\) \}\)/);
 });
 
 test("2.2b-e2: Geräte sind Mitglieder – vor jedem Senden abgeglichen; lässt sich das nicht herstellen, NIP-17 (ersetzt d3)", () => {

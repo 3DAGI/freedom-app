@@ -299,8 +299,8 @@ async function main(): Promise<void> {
       oeffentlicheUrl: process.env.RELAY_PUBLIC_URL,
       pubkey: keypair.pk,
       beschraenkt: process.env.RELAY_BESCHRAENKT === "1",
-      // Bis die App sich anmeldet (8.4c), nur auf Wunsch – sonst laesen Nutzer ihre Post hier nicht.
-      umschlaegeSchuetzen: process.env.RELAY_UMSCHLAEGE_NUR_ANGEMELDET === "1",
+      // Seit 8.4c meldet sich die App an – Umschlaege nur an den angemeldeten Empfaenger; =0 schaltet ab.
+      umschlaegeSchuetzen: process.env.RELAY_UMSCHLAEGE_NUR_ANGEMELDET !== "0",
       zugang,
       kasse,
       eventDatei: join(process.env.HOME ?? ".", ".freedom", "relay-events.json"),

@@ -43,9 +43,9 @@ bash scripts/build-site.sh /tmp/site                     # Website bauen (Ziel w
 bash packages/mls/bauen.sh --pruefen                     # nur bei Änderungen an packages/mls: nachbauen + vergleichen (Rust, clang)
 ```
 
-Stand 27.09.2026 (nach 5.1.3b und 8.4b): protocol 1162 grün (6 übersprungen), node 225 grün
+Stand 27.09.2026 (nach 5.3c und 8.16c): protocol 1178 grün (6 übersprungen), node 228 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 453 grün, mls 13 grün, Leak-Tests 57 grün + 1 `todo` (heutige Lecks,
+in `tools.test.ts`), app 473 grün, mls 13 grün, Leak-Tests 57 grün + 1 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
 Ausnahme: gesendete SOL-Zahlungen von frischen Adressen, eine bewusste Grenze
 nach Entscheidung 4.9 A – im Datenschutzbericht unter „Bewusste Grenzen“).
@@ -444,4 +444,49 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   `RelayKasse` (seit 8.4b): bezahlt heißt, der eigene LND meldet die Rechnung
   beglichen bzw. die Kette zeigt die Überweisung mit der Referenz des Angebots
   (`pruefeSolUeberweisung(…, { referenz })`); eine Signatur löst nur ein
-  Angebot ein; nach außen nur `KasseFehler`-Texte.
+  Angebot ein; nach außen nur `KasseFehler`-Texte. In der App (seit 8.4c)
+  Relay-Verbindungen nur über `relayVerbindung()` (`shell/state.ts`): anmelden
+  nur auf Verlangen und nur, wo `darfAnmelden()` es erlaubt (eigene Relays,
+  gekaufter Zugang), über `signiere()` – nie mit einem Sitzungsschlüssel. Kauf
+  nur über `kaufeRelayZugang()` (Angebot geprüft und gemerkt, bevor gezahlt wird).
+- **Browser-Tests mit eigenen TLS-Hosts:** HTTPS und WSS laufen in dieser
+  Umgebung über den Agent-Proxy, auch mit `--no-proxy-server`. Eigene Hosts nur mit
+  `launch(proxy={"server": HTTPS_PROXY, "bypass": "relay.test,app.test"})` plus
+  `--host-resolver-rules=MAP relay.test 127.0.0.1`; mit gesetztem Proxy schickt
+  Playwright auch 127.0.0.1 über den Proxy (405) – die App dann unter `app.test`
+  ausliefern. `pkill -f` nie mit einem Muster, das im eigenen Befehl steht.
+- **Verkehrsmuster** (seit 6.4): Direktnachrichten (NIP-17) nur über
+  `versendeVerzoegert()` (`shell/versand.ts`) – jede Kopie einzeln, nie alle
+  im selben Augenblick (Regel „kopien-entkoppelt“); was wartet, steht als
+  „wird gesendet“ im Verlauf (`unterwegs`) und geht beim Verlassen der Seite
+  sofort hinaus. Periodische Abrufe nur über `abrufTakt.melde()` (Zufall im
+  Abstand, gebündelt), kein neues `setInterval` fürs Netz. Zufall für
+  Datenschutz nur aus `sichererZufall()`, nie `Math.random`.
+- **Platzhalter für Konten** (seit 5.3a): Werte, die der MENSCH einträgt
+  (`docs/KONTEN.md`), beginnen mit `PLATZHALTER:` und gelten über
+  `istPlatzhalter()` als nicht gesetzt – nie einen erfundenen oder
+  „Beispiel“-Wert einsetzen. Der Hosting-Anteil kommt nur aus
+  `freedom-spiegel.json` neben freedom.html (`hostingZahlziel()`, eigene
+  Herkunft), Quellen nur aus `spiegel/quellen.json` (`leseQuellen()`);
+  `protocol/test/spiegel.test.ts` prüft, dass jedes Feld dort Platzhalter oder
+  gültig ist.
+- **Spiegel nur beim Release und nur geprüft** (seit 5.3b): Uploads nur im
+  Job `spiegel` (`pages.yml`, Run workflow → „spiegeln“), nie bei jedem Push –
+  Uploads kosten Guthaben. Secrets nur in diesem Schritt, Meldungen der
+  Dienste nie ausgeben (nur Status). IPFS nur mit selbst gerechnetem CID
+  (`ipfsCid()`, gleich `ipfs add --cid-version=1`); `publish-release.mjs`
+  übernimmt ein Ergebnis nur bei gleicher Prüfsumme (`quellenAusErgebnis()`).
+  Blossom (seit 5.3c) nur mit eigenem Spiegel-Schlüssel und einer Anmeldung je
+  Datei (`blossomAuth()`), übernommen nur über `blossomQuelle()`; das
+  Codeberg-Token nur in der Umgebung von git (`GIT_CONFIG_*`), nie auf der
+  Befehlszeile. `check-wiring.py` zählt seit 5.3b auch `.mts`-Skripte.
+- **Texte nur über Schlüssel** (seit 8.16a): Sichtbare Texte stehen in
+  `app/src/texte/<bereich>.ts` mit `de` und `en` (beide Pflicht), im HTML über
+  `data-i18n` (`-ph`, `-title`, `-aria`), im Code über `t("schlüssel", { wert })`.
+  Nur Deutsch und Englisch. `app/test/i18n.test.ts` zählt rohen Text in
+  `index.html` je Bereich und im Code je Datei (`app/test/i18n-offen.ts`):
+  fertige stehen auf 0 und bleiben es, **neue Dateien sind von Anfang an
+  fertig** (nicht in der Tabelle = 0), offene dürfen nur sinken. Was Daten
+  sind (gesendet oder gespeichert, z. B. Kanalnamen eines Raums), trägt am
+  Zeilenende `// kein UI-Text`. Zahlen und Daten mit `gebietsschema()`, nie
+  fest `"de-DE"`. Der Smoke-Test läuft mit `locale="de-DE"`.
