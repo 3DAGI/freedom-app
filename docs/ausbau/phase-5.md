@@ -86,8 +86,14 @@
       Gelesen so: Schlüsselwechsel-Mandate der Kontakte, Geräte-Vollmachten,
       Posteingänge (Kind 10050), das Profil beim Zap. Kontaktlisten anderer
       liest die App nicht; Räume sind Spur B (2.3).
-    - **b2:** eigener Satz in den Settings sichtbar und änderbar; danach den
-      wechselnden Teil prüfen.
+    - **b2 – FERTIG:** eigener Satz in den Settings (Verbindung → „Nostr-Relays
+      (dein Satz)“) sichtbar und änderbar: Eingabe geprüft (nur wss://,
+      unverschlüsselt nur .onion, kein lokales Netz, höchstens acht, einer
+      taugt als Posteingang), dann NIP-65-Liste und Posteingang weit neu
+      veröffentlicht, erst danach gemerkt und gleich in den Pool genommen;
+      als Gerät nur lesbar. Der wechselnde Teil bleibt bei drei: Er dient
+      dem Finden der Listen anderer, und die Outbox (b1) liest nur bei
+      Autoren mit bekannter Liste.
   - **5.4c (mit 8.4):** Relay-Rolle des Knotens mit NIP-42 und bezahltem
     Zugang in Sats oder SOL.
   - **.onion:** Kein Betreiber der Startliste veröffentlicht eine

@@ -9,7 +9,7 @@
  * beim naechsten Start gleich richtig aufgebaut ist.
  */
 import {
-  KIND_DM_RELAYS, KIND_RELAY_LIST, buildDmRelayList, buildRelayList, eigenerRelaySatz, isPlausibleRelayUrl,
+  KIND_DM_RELAYS, KIND_RELAY_LIST, buildDmRelayList, buildRelayList, eigenerRelaySatz, isPlausibleRelayUrl, isUsableDmRelay,
   normalizeRelayUrl, sitzungsRelays, startUrls,
   type NostrEvent, type OutboxPool, type UnsignedEvent,
 } from "@freedomstack/protocol";
@@ -67,3 +67,53 @@ export async function eigeneListenAbgleichen(p: {
   }
   return satz.eigene;
 }
+
+/** Höchstens so viele eigene Relays (wie `ladeEigeneRelays`). */
+export const MAX_EIGENE = 8;
+
+/**
+ * Eigenen Satz aus einer Eingabe (Settings, 5.4b2): Adressen durch Komma oder
+ * Leerraum, jede plausibel und verschlüsselt (`wss://`; `ws://` nur für
+ * .onion, dort verschlüsselt Tor), kein lokaler Host, ohne Doppelte, eine bis
+ * `MAX_EIGENE`, mindestens eine taugt als Posteingang. Sonst ein Fehler zum
+ * Anzeigen (per textContent).
+ */
+export function pruefeRelayEingabe(text: string): { relays: string[] } | { fehler: string } {
+  const teile = text.split(/[\s,]+/).map((t) => t.trim()).filter(Boolean);
+  if (teile.length === 0) return { fehler: "Mindestens ein Relay – sonst findet dich niemand." };
+  const relays: string[] = [];
+  for (const [i, t] of teile.entries()) {
+    const p = isPlausibleRelayUrl(t);
+    if (!p.ok) return { fehler: `Adresse ${i + 1}: ${p.reason}` };
+    const u = normalizeRelayUrl(t);
+    if (!isUsableDmRelay(u) && !(u.startsWith("ws://") && new URL(u).hostname.endsWith(".onion"))) {
+      return { fehler: `Adresse ${i + 1}: nur wss:// (unverschlüsselt nur .onion) und kein lokales Netz` };
+    }
+    if (!relays.includes(u)) relays.push(u);
+  }
+  if (relays.length > MAX_EIGENE) return { fehler: `Höchstens ${MAX_EIGENE} Relays – jeder weitere kostet Kontakte eine Verbindung.` };
+  if (!relays.some(isUsableDmRelay)) return { fehler: "Mindestens eins muss als Posteingang taugen (wss://)." };
+  return { relays };
+}
+
+/**
+ * Den eigenen Satz ändern (5.4b2): NIP-65-Liste und Posteingang (Kind 10050)
+ * neu veröffentlichen – weit, dort sucht sie jeder –, erst dann merken. Die
+ * veröffentlichte Liste gilt für alle Geräte (5.4a). false, wenn eine Liste
+ * nirgends ankam; dann bleibt der alte Satz.
+ */
+export async function setzeEigeneRelays(p: {
+  relays: readonly string[];
+  pk: string;
+  signiere: (ev: UnsignedEvent) => Promise<NostrEvent>;
+  weit: (ev: NostrEvent) => Promise<boolean>;
+  speicher: Pick<Storage, "setItem">;
+  /** Zeitstempel der neuen Listen (Sekunden) – eine ersetzbare Liste gilt nur, wenn sie neuer ist. */
+  jetzt?: number;
+}): Promise<boolean> {
+  if (!(await p.weit(await p.signiere(buildRelayList(p.pk, p.relays.map((url) => ({ url })), p.jetzt))))) return false;
+  if (!(await p.weit(await p.signiere(buildDmRelayList(p.pk, [...p.relays], p.jetzt))))) return false;
+  p.speicher.setItem(LS_EIGENE_RELAYS, JSON.stringify(p.relays));
+  return true;
+}
+

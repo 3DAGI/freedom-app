@@ -11,7 +11,7 @@ import {
   KIND_DM_RELAYS, KIND_RELAY_LIST, LocalSigner, MemoryRelay, OutboxPool, buildDmRelayList, generateKeypair, parseDmRelayList,
   schreibRelays, signEvent, startUrls, type NostrEvent, type Relay, type UnsignedEvent,
 } from "@freedomstack/protocol";
-import { LS_EIGENE_RELAYS, eigeneListenAbgleichen, ladeEigeneRelays, poolRelays } from "../src/relay-satz.js";
+import { LS_EIGENE_RELAYS, MAX_EIGENE, eigeneListenAbgleichen, ladeEigeneRelays, poolRelays, pruefeRelayEingabe, setzeEigeneRelays } from "../src/relay-satz.js";
 
 function speicher(start: Record<string, string> = {}) {
   const m = new Map(Object.entries(start));
@@ -142,3 +142,58 @@ test("Verdrahtung: keine fest verdrahteten alten Relays in App, Knoten und Veroe
   const liste = dash.slice(dash.indexOf("const RELAYS = ["), dash.indexOf("];", dash.indexOf("const RELAYS = [")));
   assert.deepEqual([...liste.matchAll(/"(wss:\/\/[^"]+)"/g)].map((m) => m[1]), startUrls(), "Dashboard liest die Startliste");
 });
+
+test("5.4b2: Eingabe – je Zeile oder Komma, normalisiert, ohne Doppelte; unverschlüsselt nur .onion; kein lokales Netz; höchstens acht", () => {
+  assert.deepEqual(pruefeRelayEingabe("wss://nos.lol/\n wss://nostr.mom, wss://nos.lol"), { relays: ["wss://nos.lol", "wss://nostr.mom"] });
+  const onion = "ws://" + "a".repeat(56) + ".onion";
+  assert.deepEqual(pruefeRelayEingabe(`${onion}\nwss://nostr.mom`), { relays: [onion, "wss://nostr.mom"] });
+  for (const [eingabe, grund] of [
+    ["", /Mindestens ein Relay/],
+    ["https://nos.lol", /Adresse 1/],
+    ["wss://nos.lol ws://relay.example", /Adresse 2: nur wss:\/\//],
+    ["wss://192.168.1.5", /Adresse 1/],
+    [onion, /Posteingang/],
+    [Array.from({ length: MAX_EIGENE + 1 }, (_, i) => `wss://r${i}.example`).join(" "), /Höchstens 8/],
+  ] as const) assert.match((pruefeRelayEingabe(eingabe) as { fehler: string }).fehler, grund, eingabe.slice(0, 40));
+});
+
+test("5.4b2: Satz ändern – erst beide Listen veröffentlichen, dann merken; scheitert eine, bleibt der alte; ein zweites Gerät übernimmt den neuen", async () => {
+  const { pool } = netz();
+  const kp = generateKeypair();
+  const g = geraet(kp.sk, pool);
+  const alt = await g.abgleichen();
+  const neu = ["wss://eigener.example", "wss://nostr.mom"];
+  const signer = new LocalSigner(kp.sk);
+  const gestreut: NostrEvent[] = [];
+  // Eine Sekunde nach der ersten Liste – in derselben Sekunde wäre offen, welche gilt
+  const spaeter = Math.floor(Date.now() / 1000) + 1;
+  const setze = (ok: (ev: NostrEvent) => boolean, s = g.s) => setzeEigeneRelays({
+    relays: neu, pk: kp.pk, speicher: s, signiere: (ev) => signer.signEvent(ev), jetzt: spaeter,
+    weit: async (ev) => { if (!ok(ev)) return false; gestreut.push(ev); await pool.publish(ev); return true; },
+  });
+  assert.equal(await setze(() => false), false);
+  assert.equal(await setze((ev) => ev.kind !== KIND_DM_RELAYS), false, "Posteingang kam nirgends an");
+  assert.deepEqual(ladeEigeneRelays(g.s), alt, "der alte Satz gilt weiter");
+  assert.equal(await setze(() => true), true);
+  assert.deepEqual(ladeEigeneRelays(g.s), neu);
+  assert.deepEqual(gestreut.slice(-2).map((e) => e.kind), [KIND_RELAY_LIST, KIND_DM_RELAYS]);
+  assert.deepEqual(schreibRelays(gestreut.at(-2)), neu);
+  assert.deepEqual(parseDmRelayList(gestreut.at(-1)), neu);
+  // Ein zweites Gerät derselben Identität liest die neue Liste – und würfelt nicht
+  const zweites = geraet(kp.sk, pool);
+  assert.deepEqual(await zweites.abgleichen(), neu);
+});
+
+test("5.4b2: verdrahtet – Karte in den Settings, als Gerät nur lesbar, neue Relays gleich in den Pool", () => {
+  const settings = readFileSync(new URL("../src/shell/tabs/settings.ts", import.meta.url), "utf8");
+  const html = readFileSync(new URL("../src/shell/index.html", import.meta.url), "utf8");
+  assert.match(html, /id="eigene-relays"/);
+  const f = settings.slice(settings.indexOf("function wireRelayKarte("));
+  assert.match(f, /if \(alsGeraet\(\)\) \{\s*feld\.readOnly = true;\s*knopf\.disabled = true;/);
+  assert.match(f, /pruefeRelayEingabe\(feld\.value\)/);
+  assert.match(f, /setzeEigeneRelays\(\{ relays: r\.relays, pk: state\.keypair\.pk, signiere, weit: veroeffentlicheWeit, speicher: localStorage \}\)/);
+  assert.ok(f.indexOf("setzeEigeneRelays(") < f.indexOf("nimmInPool(r.relays)"), "erst veröffentlichen, dann in den Pool");
+  assert.doesNotMatch(f, /innerHTML/, "Fehlertexte nur per textContent");
+  assert.match(settings, /wireRelayKarte\(\);/);
+});
+
