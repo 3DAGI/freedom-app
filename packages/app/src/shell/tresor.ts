@@ -51,12 +51,13 @@ export const geheim: GeheimSpeicher = geheimSpeicher(() => tresor, tresorEingeri
  * gemerkte Sperren (refund-watcher.ts, seit 4.6c), der Schluessel des
  * Suchindex (8.13) und gehaltene Nachfolge-Anteile (8.11) – beide entstehen
  * nur mit Tresor – sowie eigene Reklamationen mit ihrem Sitzungsschluessel (5.6b)
- * und der Schluessel des MLS-Zustands (2.2b-c) sowie die gesammelten Gebuehrenanteile (5.1.3).
+ * und der Schluessel des MLS-Zustands (2.2b-c) sowie die gesammelten Gebuehrenanteile (5.1.3)
+ * und die Zahlkanaele mit ihren Sitzungsschluesseln (4.3d).
  * Die Namen stehen auch in tabs/waehrung.ts, tabs/agent.ts,
  * tabs/kommunikation.ts, swap-client.ts, sol-wallet.ts, suche-ui.ts,
- * nachfolge.ts, mls-speicher.ts und anteile-kasse.ts.
+ * nachfolge.ts, mls-speicher.ts, anteile-kasse.ts und zahlkanal.ts.
  */
-const GEHEIM_FEST = [LS_KEY, LS_BUNKER, LS_MERKPHRASE, "freedom.nwc.uri", "freedom.chats", "freedom.agentHistory", "freedom.swapHistory", "freedom.suche.schluessel", "freedom.nachfolge", "freedom.reklamationen", "freedom.coverage.eintrag", "freedom.mls.schluessel", "freedom.raeume.privat", "freedom.raeume.meldungen.erledigt", "freedom.anteile", "freedom.mandate"];
+const GEHEIM_FEST = [LS_KEY, LS_BUNKER, LS_MERKPHRASE, "freedom.nwc.uri", "freedom.chats", "freedom.agentHistory", "freedom.swapHistory", "freedom.suche.schluessel", "freedom.nachfolge", "freedom.reklamationen", "freedom.coverage.eintrag", "freedom.mls.schluessel", "freedom.raeume.privat", "freedom.raeume.meldungen.erledigt", "freedom.anteile", "freedom.mandate", "freedom.kanaele"];
 const GEHEIM_PRAEFIXE = ["freedom.swap.", "freedom.htlc.", "freedom.solWallet", "freedom.pending."];
 
 function geheimnisse(): string[] {
