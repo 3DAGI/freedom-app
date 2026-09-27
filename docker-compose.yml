@@ -101,6 +101,13 @@ services:
       RELAY_PREIS_LAMPORTS: "${RELAY_PREIS_LAMPORTS:-}"
       RELAY_SOL_ADRESSE: "${RELAY_SOL_ADRESSE:-}"
       RELAY_MAX_EVENTS: "${RELAY_MAX_EVENTS:-100000}"
+      # 4.3c: Zahlkanal (SOL) – nur mit ZAHLKANAL=1. Der Knoten haelt dafuer einen
+      # Solana-Schluessel (SOLANA_KEYPAIR, im Volume ablegen) und loest Gutschriften
+      # selbst ein; NODE_SOL_ADDRESS muss die Adresse dieses Schluessels sein. Solange
+      # das Kanal-Programm nicht deployt ist (MENSCH), nimmt er keine Kanaele an.
+      ZAHLKANAL: "${ZAHLKANAL:-0}"
+      NODE_SOL_ADDRESS: "${NODE_SOL_ADDRESS:-}"
+      SOLANA_KEYPAIR: "${SOLANA_KEYPAIR:-/home/node/.freedom/solana-kanal.json}"
       QUOTA_API_PORT: "3602"
     volumes:
       # Identitaet und Bootstrap-Zeitpunkt ueberleben Neustarts. Ohne dieses

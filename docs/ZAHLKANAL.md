@@ -122,6 +122,20 @@ rechtzeitig vor `expiry` – danach kann nur noch der Kunde zurückholen. Das
 eigene Konto des Providers muss mietbefreit sein (er zahlt ohnehin die
 Gebühr der Einlösung); sonst lehnt die Laufzeit eine kleine Auszahlung ab.
 
+## Im Knoten (4.3c)
+
+- Kanäle nur mit `ZAHLKANAL=1` und einem Solana-Schlüssel (`SOLANA_KEYPAIR`),
+  dessen Adresse `NODE_SOL_ADDRESS` ist – sonst nähme der Knoten Gutschriften
+  an, die er nie einlösen kann (`kanalKasseAusUmgebung()`).
+- Das Angebot (38027) nennt dann `["kanal", <Adresse>, <Programm>]`.
+- Eine Anfrage mit Gutschrift gilt nur versiegelt; mit A+-Deklaration wird sie
+  abgelehnt (im Kanal teilt das Programm auf). Deckung: Gebot plus die
+  angefragten Werkzeuge in Lamports. Abgerechnet wird wie beim Gebot –
+  höchstens das Gebot, dazu die Werkzeuge; das Ergebnis nennt den Preis in
+  Lamports (`amount_lamports`). Gebucht wird vor dem Versand der Antwort.
+- Eingelöst wird alle fünf Minuten, was fällig ist (Schwelle, Vorlauf und
+  Mindestlaufzeit per Umgebung einstellbar).
+
 ## Nie
 
 - `--final` oder Änderungen an Upgrade-Rechten durch den Agenten.

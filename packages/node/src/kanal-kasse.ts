@@ -206,3 +206,53 @@ export function kanalSpeicher(pfad: string): { lade(): KanalEintrag[]; speichere
     },
   };
 }
+
+export interface KanalUmgebung {
+  /** `ZAHLKANAL=1`: Kanäle nur, wenn der Betreiber es will – der Knoten hält dafür einen Solana-Schlüssel. */
+  ZAHLKANAL?: string;
+  NODE_SOL_ADDRESS?: string;
+  SOLANA_KEYPAIR?: string;
+  KANAL_EINLOES_SCHWELLE_LAMPORTS?: string;
+  KANAL_EINLOES_VORLAUF_SEK?: string;
+  KANAL_MINDEST_REST_SEK?: string;
+}
+
+/**
+ * Die Kasse aus der Umgebung des Knotens (4.3c): nur mit `ZAHLKANAL=1` und nur,
+ * wenn der Schlüssel aus `SOLANA_KEYPAIR` zur Adresse `NODE_SOL_ADDRESS` passt –
+ * sonst könnte der Knoten Gutschriften annehmen, die er nie einlösen kann.
+ * Eingelöst wird mit Vorabsimulation (nie `skipPreflight`).
+ */
+export async function kanalKasseAusUmgebung(
+  env: KanalUmgebung,
+  o: { rpcUrl: string; datei: string; standardSchluessel: string },
+): Promise<{ kasse?: KanalKasse; grund?: string }> {
+  if (env.ZAHLKANAL !== "1") return { grund: "aus (ZAHLKANAL=1 setzen)" };
+  if (!env.NODE_SOL_ADDRESS) return { grund: "NODE_SOL_ADDRESS fehlt" };
+  const { Connection, PublicKey, Transaction, sendAndConfirmTransaction } = await import("@solana/web3.js");
+  const { loadSolanaKeypair } = await import("@freedomstack/protocol");
+  let schluessel;
+  try {
+    schluessel = await loadSolanaKeypair(env.SOLANA_KEYPAIR ?? o.standardSchluessel);
+  } catch (e) {
+    return { grund: `Solana-Schlüssel nicht lesbar (${(e as Error).name})` };
+  }
+  if (schluessel.publicKey.toBase58() !== env.NODE_SOL_ADDRESS) {
+    return { grund: "Schlüssel aus SOLANA_KEYPAIR passt nicht zu NODE_SOL_ADDRESS" };
+  }
+  const conn = new Connection(o.rpcUrl, "confirmed");
+  const zahl = (w: string | undefined): number | undefined => (w && /^\d{1,12}$/.test(w) ? Number(w) : undefined);
+  const kasse = new KanalKasse({
+    provider: env.NODE_SOL_ADDRESS,
+    lese: async (a) => {
+      const i = await conn.getAccountInfo(new PublicKey(a), "confirmed");
+      return i ? { owner: i.owner.toBase58(), daten: i.data } : null;
+    },
+    sende: (ixs) => sendAndConfirmTransaction(conn, new Transaction().add(...ixs), [schluessel], { commitment: "confirmed" }),
+    speicher: kanalSpeicher(o.datei),
+    mindestRestSek: zahl(env.KANAL_MINDEST_REST_SEK),
+    einloesVorlaufSek: zahl(env.KANAL_EINLOES_VORLAUF_SEK),
+    einloesSchwelle: zahl(env.KANAL_EINLOES_SCHWELLE_LAMPORTS) !== undefined ? BigInt(env.KANAL_EINLOES_SCHWELLE_LAMPORTS!) : undefined,
+  });
+  return { kasse };
+}

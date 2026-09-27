@@ -45,7 +45,11 @@ import {
   msatZuLamports,
   lamportsProMsat,
 } from "@freedomstack/protocol";
-import { verifyDepositOnChain, DepositVerificationCache, providerAnteilMsat, pruefeAufteilung, type Anteil } from "@freedomstack/protocol";
+import {
+  verifyDepositOnChain, DepositVerificationCache, providerAnteilMsat, pruefeAufteilung, type Anteil,
+  leseGutschriftTags, teileKanalZahlung, type KanalEmpfaenger,
+} from "@freedomstack/protocol";
+import type { KanalKasse } from "./kanal-kasse.js";
 import type { Connection } from "@solana/web3.js";
 import { InferenceBackend, OllamaBackend } from "./inference.js";
 import { ToolRegistry, ToolCall, defaultToolRegistry } from "./tools.js";
@@ -103,6 +107,11 @@ export interface ProviderConfig {
   solConnection?: Connection;
   /** Mindest-Restlaufzeit des Timelocks in Sekunden (Default 1 h). */
   depositMinRemainingSeconds?: number;
+  /**
+   * Zahlkanal (4.3c): Kasse für Gutschriften. Nur gesetzt, wenn der Knoten
+   * als Provider des Kanals einlösen kann (eigener Solana-Schlüssel = Adresse).
+   */
+  kanalKasse?: KanalKasse;
   /** Free-Tier (Provider-Marketing, lokal entschieden — KEIN Protokoll-Feature):
    *  Gratis-Tokens pro pubkey pro Tag. 0 = aus. Der Provider verschenkt
    *  eigene Rechenzeit als Werbung; es gibt keinen Topf und keinen Betreiber. */
@@ -284,6 +293,12 @@ export class DvmProvider {
       const markt = marktKurs(events, Math.floor(Date.now() / 1000));
       if (markt) this.tickerSatsPerSol = markt.satsProSol;
     } catch { /* Kurs optional – ohne ihn keine SOL-Preise */ }
+  }
+
+  /** Höchstkosten der angefragten Werkzeuge (msat) – für die Deckung im Kanal. */
+  private async werkzeugKostenMsat(request: NostrEvent): Promise<number> {
+    const { defaultToolPrice } = await import("@freedomstack/protocol");
+    return this.parseToolCalls(request).reduce((s, tc) => s + (defaultToolPrice(tc.kind)?.satsPerCall ?? 0) * 1000, 0);
   }
 
   /** msat -> Lamports (SOL-Betrag im Ergebnis), aufgerundet und ganzzahlig. */
@@ -754,6 +769,9 @@ export class DvmProvider {
     if (!input) throw new Error("Job ohne Input");
     // Gebührenmodell A+ (5.1): Deklaration prüfen, bevor gerechnet wird
     const aufteilung = aufteilungFuer(request, !!this.cfg.werber);
+    // Zahlkanal (4.3c): Gutschrift im versiegelten Kern – Vorauszahlung bis zum Gebot
+    const gutschrift = leseGutschriftTags(request.tags);
+    let kanalEmpfaenger: KanalEmpfaenger[] | undefined;
 
     // Session-Modus (Streaming-Sats, Stufe B): Job referenziert eine offene
     // Session statt eines Einzel-Gebots. Der Provider prueft Budget + Belege
@@ -772,7 +790,21 @@ export class DvmProvider {
     const skipBootstrap = process.env.SKIP_BOOTSTRAP === "1";
     const bootstrap = this.isInBootstrap(now) && !skipBootstrap;
 
-    if (sessionId) {
+    if (gutschrift) {
+      // Nie offen: Eine Gutschrift verrät Kanal und Betrag.
+      if (!privat) throw new Error("Zahlkanal: Gutschrift nur im versiegelten Auftrag");
+      if (!this.cfg.kanalKasse) throw new Error("Zahlkanal: dieser Knoten nimmt keine Kanäle an");
+      if (bootstrap) throw new Error("Bootstrap-Phase: neue Provider nehmen nur Gratis-Jobs");
+      if (!this.kurs()) throw new Error("Kein SOL-Kurs: Anbieter braucht SOL_PRICE_SATS oder Kurs-Events von Liquiditätsgebern");
+      // Im Kanal teilt das Programm auf – eine Deklaration hieße doppelt zahlen.
+      if (aufteilung.length > 0) throw new Error("Aufteilung abgelehnt: im Zahlkanal teilt das Programm auf");
+      if (!(bidMsat >= this.cfg.minBidMsat)) throw new Error(`Bid zu niedrig: ${bidMsat}`);
+      // Deckung: Gebot plus die angefragten Werkzeuge, in Lamports
+      const bedarf = BigInt(this.msatToLamports(bidMsat + (await this.werkzeugKostenMsat(request))));
+      const annahme = await this.cfg.kanalKasse.nimmAn(gutschrift, bedarf);
+      if (!annahme.ok) throw new Error(`Zahlkanal: ${annahme.grund}`);
+      kanalEmpfaenger = annahme.empfaenger;
+    } else if (sessionId) {
       if (bootstrap) throw new Error("Bootstrap-Phase: neue Provider nehmen nur Gratis-Jobs");
       session = await this.validateSession(sessionId, request.pubkey);
       if (!session) {
@@ -845,7 +877,9 @@ export class DvmProvider {
         swarm: true,
       });
       // Swarm-Result direkt zurueckgeben (keine Tool-Logik noetig)
-      const amountMsat = Math.ceil((result.completionTokens / 1000) * this.cfg.pricePerKTokenMsat);
+      const roh = Math.ceil((result.completionTokens / 1000) * this.cfg.pricePerKTokenMsat);
+      const amountMsat = kanalEmpfaenger ? Math.min(bidMsat, roh) : roh;
+      if (gutschrift && kanalEmpfaenger) this.cfg.kanalKasse!.verbuche(gutschrift.kanal, BigInt(this.msatToLamports(amountMsat)));
       const resultEvent = signEvent(
         buildJobResult({
           providerPubkey: this.cfg.keypair.pk,
@@ -925,6 +959,10 @@ export class DvmProvider {
     if (isFreeJob) {
       amountMsat = 0; // Gratis — Provider-Marketing, kein Topf (Tools in free auch 0)
       if (!privat) this.recordFreeUsage(request.pubkey, result.completionTokens);
+    } else if (kanalEmpfaenger) {
+      // Zahlkanal: wie ein Gebot – höchstens das Gebot, dazu die Werkzeuge
+      amountMsat = Math.min(bidMsat, rawPrice) + toolCostMsat;
+      chain = "solana";
     } else if (solDeposit) {
       // Deposit: Preis in msat (text-Rate gedeckelt auf Deposit-Rate) + Tools,
       // dann in lamports umgerechnet (msatToLamports beim Result).
@@ -942,13 +980,20 @@ export class DvmProvider {
     // Gebührenmodell A+ (5.1): Die App zahlt die deklarierten Anteile selbst,
     // der Provider bekommt den Rest – derselbe Betrag, den die App rechnet.
     // SOL-Aufträge ganz an den Provider, bis der Zahlkanal (4.3) aufteilt.
-    const providerMsat = chain === "solana" ? amountMsat : providerAnteilMsat(amountMsat, aufteilung);
+    // Im Kanal teilt das Programm: der Provider-Teil nach den Empfängern des Kanals.
+    const providerMsat = kanalEmpfaenger
+      ? Number(teileKanalZahlung(BigInt(amountMsat), kanalEmpfaenger).providerLamports)
+      : chain === "solana" ? amountMsat : providerAnteilMsat(amountMsat, aufteilung);
 
     // 3. Result publizieren (kind 6050), Multi-Relay via OutboxPool.
     // Bei Solana-Deposit: SOL-Adresse + lamports-Betrag als Zahloption mitgeben.
     // Der SOL-Betrag ist amountMsat (inkl. Tools) in lamports umgerechnet — so
     // sind ALLE Preise (text + tools) echt in SOL verfuegbar.
-    const usedLamports = solDeposit ? this.msatToLamports(amountMsat) : undefined;
+    const usedLamports = solDeposit || kanalEmpfaenger ? this.msatToLamports(amountMsat) : undefined;
+    // Zahlkanal: den Preis buchen, bevor das Ergebnis hinausgeht – gerechnet ist gerechnet
+    if (gutschrift && kanalEmpfaenger && usedLamports !== undefined) {
+      this.cfg.kanalKasse!.verbuche(gutschrift.kanal, BigInt(usedLamports));
+    }
     const resultEvent = signEvent(
       buildJobResult({
         providerPubkey: this.cfg.keypair.pk,

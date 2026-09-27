@@ -121,9 +121,11 @@ Jede Funktion, in der Geld fließt, bietet beide Schienen mit gleichem Komfort.
     versiegelten Kern) und Vorauszahlung bis zum Gebot festgelegt
     (`docs/ZAHLKANAL.md`); `KanalKasse` im Knoten (Kanal auf der Kette,
     Gutschrift, Deckung, Buchen, Einlösen ab Schwelle oder vor Ablauf, Datei
-    über Zwischendatei), gegen den Validator gegengeprüft. **4.3c2:** in
-    `dvm-provider.ts` und `main.ts` verdrahten (Anfrage mit Kanal-Tags, Preis
-    in Lamports buchen, Einlösen im Takt, Angebot nennt den Kanal).
+    über Zwischendatei), gegen den Validator gegengeprüft. **4.3c2 – FERTIG:** in
+    `dvm-provider.ts` und `main.ts` verdrahtet: Anfrage mit Kanal-Tags nur
+    versiegelt, Deckung Gebot + Werkzeuge, Preis in Lamports gebucht, Einlösen
+    alle 5 Minuten, Angebot nennt den Kanal; nur mit `ZAHLKANAL=1` und
+    passendem Schlüssel.
   - **4.3d:** App – Kanal öffnen (Empfänger aus A+), Gutschriften versiegelt
     mit der Anfrage, Rückholen nach Ablauf; SOL-Anteile damit erzwungen.
 
