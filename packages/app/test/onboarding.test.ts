@@ -8,6 +8,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { nextStep, pitchFor, providerNextStep, Readiness } from "../src/onboarding.js";
+import { setLang } from "../src/i18n.js";
+
+// Meldungen hier auf Deutsch prüfen (seit 8.16g1 über Schlüssel in der Sprache der Oberfläche)
+setLang("de");
 
 const neu: Readiness = {
   hasIdentity: true, backedUp: false, hasVault: false, hasWallet: false,
@@ -156,6 +160,19 @@ test("Erklaerung verspricht nichts Unhaltbares", () => {
   for (const i of ["nutzen", "verdienen", "kommunizieren", "unbekannt"] as const) {
     const text = pitchFor(i).headline + " " + pitchFor(i).points.join(" ");
     assert.doesNotMatch(text, /unzensierbar|unabschaltbar|für immer/i);
+  }
+});
+
+test("8.16g1: Erklaerung verspricht keinen Aufschlag – den Knappheitsbonus gibt es seit 5.1.4 nicht", () => {
+  try {
+    for (const [lang, verboten] of [["de", /Aufschlag|Bonus/i], ["en", /surcharge|bonus/i]] as const) {
+      setLang(lang);
+      for (const i of ["nutzen", "verdienen", "kommunizieren", "unbekannt"] as const) {
+        assert.doesNotMatch(pitchFor(i).points.join(" "), verboten, `${lang}/${i}`);
+      }
+    }
+  } finally {
+    setLang("de");
   }
 });
 

@@ -56,7 +56,7 @@ test("5.8: ein Anbieter mit falschem Kontostand wird in der App zur Warnung", as
 
 test("5.8 verdrahtet: Settings ohne Adresse, Wallet mit einer zufaelligen eigenen – Anzeige nur ueber textContent", () => {
   const state = readFileSync(new URL("../src/shell/state.ts", import.meta.url), "utf8");
-  assert.match(state, /const t = stichprobeText\(await pool\.stichprobe\(\)\);[\s\S]{0,200}zeile\.textContent = t\.text;\s*status\.append\(zeile\);/);
+  assert.match(state, /const probe = stichprobeText\(await pool\.stichprobe\(\)\);[\s\S]{0,200}zeile\.textContent = probe\.text;\s*status\.append\(zeile\);/);
   assert.match(state, /return \(await ensureRpcPool\(\)\)\.stichprobe\(\{ konto \}\);/);
 
   const wallet = readFileSync(new URL("../src/shell/eingebaute-wallet.ts", import.meta.url), "utf8");

@@ -16,6 +16,10 @@ import {
 } from "@freedomstack/protocol";
 import { mitRohemSchluessel, setzeIdentitaet, state } from "../src/shell/state.js";
 import { uploadBlob } from "../src/blob-client.js";
+import { setLang } from "../src/i18n.js";
+
+// Meldungen hier auf Deutsch prüfen (seit 8.16g1 über Schlüssel in der Sprache der Oberfläche)
+setLang("de");
 
 const SRC = fileURLToPath(new URL("../src/", import.meta.url));
 

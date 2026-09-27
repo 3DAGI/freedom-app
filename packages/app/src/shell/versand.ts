@@ -11,6 +11,7 @@
  * fester Zeitgeber je Funktion.
  */
 import { AbrufTakt, zufallsVerzoegerung } from "@freedomstack/protocol";
+import { t } from "../i18n.js";
 import { toast } from "./ui.js";
 
 export const LS_VERSAND_VERZOEGERUNG = "freedom.versand.verzoegerung";
@@ -25,7 +26,7 @@ export function maxVerzoegerungSek(s: Pick<Storage, "getItem"> = localStorage): 
 const wartend = new Map<number, { los: () => Promise<void>; uhr: ReturnType<typeof setTimeout> }>();
 let zaehler = 0;
 
-const melde = (e: unknown) => toast(`Nachricht nicht zugestellt: ${(e as Error).message}`, true);
+const melde = (e: unknown) => toast(t("ein.nichtZugestellt", { fehler: (e as Error).message }), true);
 
 /** Später senden – mit eigener Zufallsverzögerung; ohne Verzögerung sofort. */
 export function versendeVerzoegert(los: () => Promise<void>, maxSek = maxVerzoegerungSek()): void {

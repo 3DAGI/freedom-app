@@ -13,6 +13,7 @@
 import {
   Nip46Signer, type Nip46Transport, OutboxPool, WebSocketRelay, fromHex, generateKeypair, parseBunkerUri, toHex,
 } from "@freedomstack/protocol";
+import { t } from "../i18n.js";
 import { pkShort } from "../shell-logic.js";
 import { LS_BUNKER, mitBunker, setzeSigner } from "./state.js";
 import { geheim } from "./tresor.js";
@@ -83,30 +84,30 @@ export function wireBunkerKarte(beschaeftigt: () => boolean): void {
   if (!status || !feld || !verbinden || !abmelden) return;
   const s = mitBunker() ? ladeSitzung() : null;
   status.textContent = s
-    ? `Angemeldet über den Bunker ${pkShort(s.signerPubkey)} (${s.relays.join(", ")}). Jede Unterschrift fragt die App dort an.`
-    : "Nicht verbunden – die App nutzt den Schlüssel auf diesem Gerät.";
+    ? t("ein.bunkerAngemeldet", { signer: pkShort(s.signerPubkey), relays: s.relays.join(", ") })
+    : t("ein.bunkerNicht");
   feld.hidden = !!s;
   verbinden.hidden = !!s;
   abmelden.hidden = !s;
 
   verbinden.onclick = async () => {
-    if (beschaeftigt()) { toast("Erst den laufenden Tausch oder Auftrag abschließen", true); return; }
-    if (!confirm("Die App wechselt auf die Identität im Bunker. Der Schlüssel auf diesem Gerät bleibt gespeichert – Abmelden bringt ihn zurück. Weiter?")) return;
+    if (beschaeftigt()) { toast(t("ein.erstAbschliessen"), true); return; }
+    if (!confirm(t("ein.bunkerWechsel"))) return;
     verbinden.disabled = true;
-    status.textContent = "verbinde … (falls nötig im Signer bestätigen)";
+    status.textContent = t("ein.bunkerVerbinde");
     try {
       const pk = await meldeMitBunkerAn(feld.value);
       feld.value = "";
-      status.textContent = `Angemeldet als ${pkShort(pk)} – lade neu …`;
+      status.textContent = t("ein.bunkerAls", { pk: pkShort(pk) });
       setTimeout(() => location.reload(), 800);
     } catch (e) {
-      status.textContent = `Nicht verbunden: ${(e as Error).message}`;
+      status.textContent = t("ein.nichtVerbunden", { fehler: (e as Error).message });
       verbinden.disabled = false;
     }
   };
   abmelden.onclick = async () => {
-    if (beschaeftigt()) { toast("Erst den laufenden Tausch oder Auftrag abschließen", true); return; }
-    if (!confirm("Vom Bunker abmelden? Danach gilt wieder der Schlüssel auf diesem Gerät.")) return;
+    if (beschaeftigt()) { toast(t("ein.erstAbschliessen"), true); return; }
+    if (!confirm(t("ein.bunkerAbmelden"))) return;
     try {
       await meldeBunkerAb();
       location.reload();

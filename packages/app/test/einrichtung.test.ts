@@ -6,6 +6,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { SICHERUNG_NIE, filtereWiederherstellung, waehleSicherung } from "@freedomstack/protocol";
+import { einstieg as EINSTIEG } from "../src/texte/einstieg.js";
 
 const src = (p: string) => readFileSync(new URL(p, import.meta.url), "utf8");
 const app = src("../src/shell/app.ts");
@@ -54,7 +55,10 @@ test("8.1a: Leiste mit echtem Zustand – kein erfundener Gratis-Zaehler, Erinne
 
 test("8.1a: Import nimmt, was er ankuendigt – Merkphrase, nsec, Hex, Geraetecode", () => {
   const imp = funktion("async function importIdentity(");
-  assert.match(imp, /prompt\("Merkphrase, nsec1…, 64 Zeichen Hex oder Gerätecode einfuegen:"\)/);
+  assert.match(imp, /prompt\(t\("ein\.importFrage"\)\)/);
+  // Die Frage nennt alle vier Formen, die der Import nimmt – in beiden Sprachen (8.16g1)
+  assert.equal(EINSTIEG["ein.importFrage"]!.de, "Merkphrase, nsec1…, 64 Zeichen Hex oder Gerätecode einfügen:");
+  assert.match(EINSTIEG["ein.importFrage"]!.en, /recovery phrase, nsec1…, 64 hex characters or device code/);
   assert.match(imp, /const \{ importIdentity: leseIdentitaet \} = await import\("\.\.\/identity\.js"\);/);
   assert.match(imp, /if \(mitMerkphrase\) \{\s*markHasMnemonic\(\);\s*markBackupConfirmed\(\);\s*\} else \{\s*markOhneMnemonic\(\);/);
   assert.match(imp, /void geheim\.removeItem\(LS_MERKPHRASE\);/, "die offene Merkphrase gehoerte zur alten Identitaet");

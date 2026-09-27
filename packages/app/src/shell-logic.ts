@@ -15,6 +15,7 @@
  */
 
 import { type DateiSchluessel, istDateiSchluessel } from "@freedomstack/protocol";
+import { gebietsschema, t } from "./i18n.js";
 
 export interface ChatAttachment {
   name: string;
@@ -68,17 +69,17 @@ export function isSafeAttachmentUrl(url: string): boolean {
 
 /** Einen Anhang als HTML darstellen. `freedom-blob:` lädt on demand nach. */
 export function renderAttachment(a: ChatAttachment): string {
-  const name = escapeHtml(a.name || "datei");
+  const name = escapeHtml(a.name || t("ein.datei"));
 
   // Verschluesselt (2.4): nur als Knopf – laden, entschluesseln, speichern.
   // Schluessel und Typ kommen aus fremder Nachricht: erst pruefen, dann maskieren.
   if (a.enc !== undefined) {
-    if (!istDateiSchluessel(a.enc)) return `<div class="mono-sm">[Anhang mit ungültigem Schlüssel: ${name}]</div>`;
+    if (!istDateiSchluessel(a.enc)) return `<div class="mono-sm">[${escapeHtml(t("ein.anhangSchluessel", { name: a.name || t("ein.datei") }))}]</div>`;
     const ziel = a.url.startsWith("freedom-blob:")
       ? `data-blob="${escapeHtml(a.url.slice("freedom-blob:".length))}"`
       : a.url.startsWith("https://") && isSafeAttachmentUrl(a.url) ? `data-url="${escapeHtml(a.url)}"` : "";
-    if (!ziel) return `<div class="mono-sm">[Anhang mit nicht unterstuetztem Link: ${name}]</div>`;
-    return `<button class="ghost copy-btn chat-blob-btn" ${ziel} data-key="${a.enc.key}" data-nonce="${a.enc.nonce}" `
+    if (!ziel) return `<div class="mono-sm">[${escapeHtml(t("ein.anhangLink", { name: a.name || t("ein.datei") }))}]</div>`;
+    return `<button class="ghost copy-btn chat-blob-btn" ${ziel} data-key="${a.enc.key}" data-nonce="${a.enc.nonce}" ` // kein UI-Text
       + `data-ox="${a.enc.ox}" data-mime="${escapeHtml(a.mime || "application/octet-stream")}" data-name="${name}">🔒 ${name}</button>`;
   }
 
@@ -88,7 +89,7 @@ export function renderAttachment(a: ChatAttachment): string {
   }
 
   if (!isSafeAttachmentUrl(a.url)) {
-    return `<div class="mono-sm">[Anhang mit nicht unterstuetztem Link: ${name}]</div>`;
+    return `<div class="mono-sm">[${escapeHtml(t("ein.anhangLink", { name: a.name || t("ein.datei") }))}]</div>`;
   }
 
   const url = escapeHtml(a.url);
@@ -119,7 +120,7 @@ export function fmtSats(msat: number): string {
   if (msat < 1000) return `${msat} msat`;
   const sats = msat / 1000;
   if (sats < 1000) return `${sats.toFixed(sats < 10 ? 1 : 0)} sats`;
-  return `${Math.round(sats).toLocaleString("de-DE")} sats`;
+  return `${Math.round(sats).toLocaleString(gebietsschema())} sats`;
 }
 
 /** Lamports als SOL, mit genug Nachkommastellen für kleine Beträge. */
@@ -127,7 +128,7 @@ export function fmtSol(lamports: number): string {
   if (!Number.isFinite(lamports) || lamports < 0) return "—";
   const sol = lamports / 1e9;
   if (sol === 0) return "0 SOL";
-  if (sol < 0.0001) return `${lamports.toLocaleString("de-DE")} lamports`;
+  if (sol < 0.0001) return `${lamports.toLocaleString(gebietsschema())} lamports`;
   return `${sol.toFixed(4)} SOL`;
 }
 
@@ -147,7 +148,7 @@ export interface BudgetView {
  */
 export function budgetView(paidMsat: number, budgetMsat: number): BudgetView {
   if (!Number.isFinite(budgetMsat) || budgetMsat <= 0) {
-    return { text: "keine Session — die erste Anfrage startet eine", ratio: 0, level: "ok" };
+    return { text: t("ein.keineSession"), ratio: 0, level: "ok" };
   }
   const used = Math.max(0, Math.min(paidMsat, budgetMsat));
   const ratio = used / budgetMsat;
@@ -159,20 +160,19 @@ export function budgetView(paidMsat: number, budgetMsat: number): BudgetView {
 
   const text =
     ratio >= 1
-      ? `Budget aufgebraucht (${fmtSats(budgetMsat)}) — Session erneuern`
-      : `${fmtSats(rest)} von ${fmtSats(budgetMsat)} übrig`;
+      ? t("ein.budgetAufgebraucht", { budget: fmtSats(budgetMsat) })
+      : t("ein.budgetUebrig", { rest: fmtSats(rest), budget: fmtSats(budgetMsat) });
   return { text, ratio, level };
 }
 
 /** Relative Zeitangabe. */
 export function ago(unixSeconds: number, nowSeconds = Math.floor(Date.now() / 1000)): string {
   const s = nowSeconds - unixSeconds;
-  if (s < 0) return "gerade eben";
-  if (s < 60) return "gerade eben";
-  if (s < 3600) return `vor ${Math.floor(s / 60)} min`;
-  if (s < 86400) return `vor ${Math.floor(s / 3600)} h`;
-  if (s < 30 * 86400) return `vor ${Math.floor(s / 86400)} d`;
-  return new Date(unixSeconds * 1000).toLocaleDateString("de-DE");
+  if (s < 60) return t("ein.geradeEben");
+  if (s < 3600) return t("ein.vorMin", { n: Math.floor(s / 60) });
+  if (s < 86400) return t("ein.vorStd", { n: Math.floor(s / 3600) });
+  if (s < 30 * 86400) return t("ein.vorTagen", { n: Math.floor(s / 86400) });
+  return new Date(unixSeconds * 1000).toLocaleDateString(gebietsschema());
 }
 
 /**

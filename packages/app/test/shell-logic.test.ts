@@ -23,6 +23,10 @@ import {
   imetaSchluessel,
 } from "../src/shell-logic.js";
 import { verschluesseleDatei } from "@freedomstack/protocol";
+import { setLang } from "../src/i18n.js";
+
+// Meldungen und Zahlen hier auf Deutsch prüfen (seit 8.16g1 in der Sprache der Oberfläche)
+setLang("de");
 
 // ------------------------------------------------------------- Escaping
 
@@ -114,7 +118,13 @@ test("Anhang: boesartige URL wird nicht als Quelle gesetzt", () => {
     name: "bild", mime: "image/png", size: 1, url: "javascript:alert(1)",
   });
   assert.ok(!html.includes("javascript:"));
-  assert.match(html, /nicht unterstuetzt/);
+  assert.match(html, /nicht unterstützt/);
+});
+
+test("Anhang: boesartiger Name in der Meldung ueber einen abgelehnten Link wird maskiert (8.16g1)", () => {
+  const html = renderAttachment({ name: "<img src=x onerror=alert(1)>", mime: "image/png", size: 1, url: "javascript:alert(1)" });
+  assert.ok(!html.includes("<img"), html);
+  assert.match(html, /&#60;img src=x onerror=alert\(1\)&#62;/);
 });
 
 test("Anhang: Anfuehrungszeichen in der URL brechen das Attribut nicht auf", () => {
@@ -279,8 +289,8 @@ test("2.4: kaputter Schluessel, fremdes Schema, boesartiger Typ und Name", () =>
   const kaputt = renderAttachment({ name: "x", mime: "image/png", size: 1, url: "freedom-blob:a", enc: { ...ENC, key: `${ENC.key.slice(2)}"><script>` } });
   assert.match(kaputt, /ungültigem Schlüssel/);
   assert.doesNotMatch(kaputt, /<script/);
-  assert.match(renderAttachment({ name: "x", mime: "", size: 1, url: "javascript:alert(1)", enc: ENC }), /nicht unterstuetzt/);
-  assert.match(renderAttachment({ name: "x", mime: "", size: 1, url: "http://klartext.example/a", enc: ENC }), /nicht unterstuetzt/, "nur https");
+  assert.match(renderAttachment({ name: "x", mime: "", size: 1, url: "javascript:alert(1)", enc: ENC }), /nicht unterstützt/);
+  assert.match(renderAttachment({ name: "x", mime: "", size: 1, url: "http://klartext.example/a", enc: ENC }), /nicht unterstützt/, "nur https");
   const boese = renderAttachment({ name: `"><img src=x onerror=alert(1)>`, mime: `x" onclick="alert(1)`, size: 1, url: "freedom-blob:a", enc: ENC });
   // Maskiert bleibt es Text: kein neues Tag, kein ausbrechendes Attribut
   assert.doesNotMatch(boese, /<img|" onclick="/);

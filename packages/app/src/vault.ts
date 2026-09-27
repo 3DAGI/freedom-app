@@ -24,6 +24,8 @@
  * und veraenderte Daten sind fuer AES-GCM dasselbe: Beides scheitert am Tag.
  */
 
+import { t } from "./i18n.js";
+
 export const TRESOR_VERSION = 1;
 export const PBKDF2_ITERATIONEN = 600_000;
 /** Obergrenze, damit ein manipulierter Kopf das Entsperren nicht lahmlegt. */
@@ -41,7 +43,7 @@ export interface TresorSpeicher {
 
 export class FalschePassphrase extends Error {
   constructor() {
-    super("Passphrase falsch oder Tresor verändert");
+    super(t("ein.passFalschOderVeraendert"));
     this.name = "FalschePassphrase";
   }
 }
@@ -188,7 +190,7 @@ class OffenerTresor implements Vault {
   }
 
   private offen(): { werte: Map<string, string>; key: CryptoKey } {
-    if (!this.werte || !this.key) throw new Error("Tresor gesperrt");
+    if (!this.werte || !this.key) throw new Error(t("ein.tresorGesperrt"));
     return { werte: this.werte, key: this.key };
   }
 
@@ -201,7 +203,7 @@ class OffenerTresor implements Vault {
   }
 
   set(key: string, value: string): Promise<void> {
-    if (typeof value !== "string") return Promise.reject(new TypeError("Tresor speichert nur Text"));
+    if (typeof value !== "string") return Promise.reject(new TypeError(t("ein.nurText")));
     this.offen().werte.set(key, value);
     return this.speichern();
   }
@@ -255,9 +257,9 @@ export async function createVault(
   speicher: TresorSpeicher = new IndexedDbSpeicher(),
 ): Promise<Vault> {
   if (passphrase.normalize("NFC").length < MIN_PASSPHRASE) {
-    throw new Error(`Passphrase zu kurz – mindestens ${MIN_PASSPHRASE} Zeichen`);
+    throw new Error(t("ein.passZuKurz", { n: MIN_PASSPHRASE }));
   }
-  if (await vaultExists(speicher)) throw new Error("Es gibt schon einen Tresor");
+  if (await vaultExists(speicher)) throw new Error(t("ein.schonTresor"));
   const salt = crypto.getRandomValues(new Uint8Array(SALT_BYTES));
   const key = await schluessel(passphrase, salt, PBKDF2_ITERATIONEN);
   const tresor = new OffenerTresor(new Map(), key, zuB64(salt), PBKDF2_ITERATIONEN, speicher);
@@ -271,7 +273,7 @@ export async function unlock(
   speicher: TresorSpeicher = new IndexedDbSpeicher(),
 ): Promise<Vault> {
   const roh = await speicher.lesen();
-  if (roh === null) throw new Error("Kein Tresor vorhanden");
+  if (roh === null) throw new Error(t("ein.keinTresor"));
   let blob: TresorBlob;
   try { blob = kopfPruefen(JSON.parse(roh)); } catch { throw new FalschePassphrase(); }
   const salt = ausB64(blob.salt, SALT_BYTES);
@@ -312,7 +314,7 @@ export async function uebernehme(
   const kontrolle = await neuGeoeffnet();
   const abweichend = gefunden.filter((k) => kontrolle.get(k) !== quelle.getItem(k));
   kontrolle.lock();
-  if (abweichend.length > 0) throw new Error(`Übernahme nicht bestätigt: ${abweichend.join(", ")}`);
+  if (abweichend.length > 0) throw new Error(t("ein.uebernahmeUnbestaetigt", { schluessel: abweichend.join(", ") }));
   for (const k of gefunden) quelle.removeItem(k);
   return gefunden;
 }
@@ -339,7 +341,7 @@ export function geheimSpeicher(
 ): GeheimSpeicher {
   const offen = (): Vault => {
     const v = tresor();
-    if (!v || v.locked) throw new Error("Tresor gesperrt");
+    if (!v || v.locked) throw new Error(t("ein.tresorGesperrt"));
     return v;
   };
   return {

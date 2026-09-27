@@ -12,6 +12,10 @@ import {
   schreibRelays, signEvent, startUrls, type NostrEvent, type Relay, type UnsignedEvent,
 } from "@freedomstack/protocol";
 import { LS_EIGENE_RELAYS, MAX_EIGENE, eigeneListenAbgleichen, ladeEigeneRelays, poolRelays, pruefeRelayEingabe, setzeEigeneRelays } from "../src/relay-satz.js";
+import { setLang } from "../src/i18n.js";
+
+// Meldungen hier auf Deutsch prüfen (seit 8.16g1 über Schlüssel in der Sprache der Oberfläche)
+setLang("de");
 
 function speicher(start: Record<string, string> = {}) {
   const m = new Map(Object.entries(start));

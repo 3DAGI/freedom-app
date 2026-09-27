@@ -10,6 +10,10 @@ import {
   KIND_NIP46, LocalSigner, MemoryRelay, buildEvent, generateKeypair, getTag, verifyEvent,
   type NostrEvent, type Nip46Transport, type RelayFilter,
 } from "@freedomstack/protocol";
+import { setLang } from "../src/i18n.js";
+
+// Meldungen hier auf Deutsch prüfen (seit 8.16g1 über Schlüssel in der Sprache der Oberfläche)
+setLang("de");
 
 // tresor.ts liest localStorage beim Laden – vor dem Import bereitstellen.
 const ls = new Map<string, string>();

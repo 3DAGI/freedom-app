@@ -25,6 +25,8 @@ import {
   unlock,
   vaultExists,
 } from "../vault.js";
+import { t } from "../i18n.js";
+import { escapeHtml } from "../shell-logic.js";
 import { LS_BUNKER, LS_KEY, LS_MERKPHRASE } from "./state.js";
 import { $, toast } from "./ui.js";
 
@@ -78,7 +80,7 @@ export async function speichereSchluessel(hex: string): Promise<void> {
     localStorage.setItem(LS_KEY, hex);
     return;
   }
-  if (!tresor) throw new Error("Tresor gesperrt");
+  if (!tresor) throw new Error(t("ein.tresorGesperrt"));
   await tresor.set(LS_KEY, hex);
 }
 
@@ -118,11 +120,11 @@ function beiAbsenden(box: HTMLElement, knopf: string, f: () => Promise<void>): v
 function neuePassphrase(box: HTMLElement): string | null {
   const a = feld(box, "tr-neu1");
   if (a.normalize("NFC").length < MIN_PASSPHRASE) {
-    melde(box, "Mindestens 8 Zeichen – besser ein kurzer Satz.");
+    melde(box, t("ein.passMin", { n: MIN_PASSPHRASE }));
     return null;
   }
   if (a !== feld(box, "tr-neu2")) {
-    melde(box, "Die beiden Eingaben stimmen nicht überein.");
+    melde(box, t("ein.passUngleich"));
     return null;
   }
   return a;
@@ -135,20 +137,18 @@ function neuePassphrase(box: HTMLElement): string | null {
  */
 export function richteTresorEin(grund = ""): Promise<boolean> {
   if (tresorEingerichtet()) {
-    toast("Der Tresor ist schon eingerichtet");
+    toast(t("ein.tresorSchon"));
     return Promise.resolve(false);
   }
   const box = dialog(`
-    <h3>Tresor einrichten</h3>
+    <h3>${escapeHtml(t("ein.tresorAktion"))}</h3>
     <p id="tr-grund" class="mono-sm warn"></p>
-    <p class="mono-sm">Eine Passphrase verschlüsselt deinen Schlüssel, Wallet-Zugänge,
-    Swap-Geheimnisse und Unterhaltungen auf diesem Gerät. Beim Start fragt die App
-    danach. Vergisst du sie, hilft nur deine Merkphrase (12 Wörter) – sichere sie vorher.</p>
-    <input id="tr-neu1" type="password" autocomplete="new-password" placeholder="Passphrase (mind. 8 Zeichen)" />
-    <input id="tr-neu2" type="password" autocomplete="new-password" placeholder="noch einmal" />
+    <p class="mono-sm">${escapeHtml(t("ein.tresorErklaerung"))}</p>
+    <input id="tr-neu1" type="password" autocomplete="new-password" placeholder="${escapeHtml(t("ein.passNeu"))}" />
+    <input id="tr-neu2" type="password" autocomplete="new-password" placeholder="${escapeHtml(t("ein.nochEinmal"))}" />
     <div id="tr-meldung" class="mono-sm err"></div>
-    <button id="tr-ok" class="send-btn">einrichten</button>
-    <button id="tr-abbruch" class="ghost">abbrechen</button>`);
+    <button id="tr-ok" class="send-btn">${escapeHtml(t("ein.einrichten"))}</button>
+    <button id="tr-abbruch" class="ghost">${escapeHtml(t("ein.abbrechen"))}</button>`);
   const grundEl = box.querySelector("#tr-grund") as HTMLElement;
   grundEl.textContent = grund;
   grundEl.hidden = !grund;
@@ -160,10 +160,10 @@ export function richteTresorEin(grund = ""): Promise<boolean> {
       // Ohne Schluessel waere der Tresor leer – beim naechsten Start entstuende
       // eine neue Identitaet.
       if (localStorage.getItem(LS_KEY) === null) {
-        melde(box, "Kein Schlüssel zum Übernehmen gefunden – nichts geändert.");
+        melde(box, t("ein.keinSchluessel"));
         return;
       }
-      melde(box, "richte ein – das dauert einen Moment …");
+      melde(box, t("ein.richteEin"));
       const speicher = new IndexedDbSpeicher();
       try {
         const v = await createVault(pass, speicher);
@@ -177,10 +177,10 @@ export function richteTresorEin(grund = ""): Promise<boolean> {
         tresor = v;
         localStorage.setItem(LS_TRESOR, "1");
         box.remove();
-        toast("Tresor eingerichtet – deine Geheimnisse liegen jetzt verschlüsselt");
+        toast(t("ein.tresorEingerichtet"));
         resolve(true);
       } catch (e) {
-        melde(box, `Nicht eingerichtet: ${(e as Error).message}`);
+        melde(box, t("ein.nichtEingerichtet", { fehler: (e as Error).message }));
       }
     });
   });
@@ -192,8 +192,7 @@ export function richteTresorEin(grund = ""): Promise<boolean> {
  */
 export async function verlangeTresor(wofuer: string): Promise<boolean> {
   if (tresorEingerichtet()) return true;
-  return richteTresorEin(`Für ${wofuer} braucht die App zuerst den Tresor: ` +
-    "Das Geheimnis dazu soll nicht unverschlüsselt im Browser liegen.");
+  return richteTresorEin(t("ein.tresorZuerst", { wofuer }));
 }
 
 /** Beim Start: Gibt es einen Tresor, erst entsperren. Ohne Tresor sofort weiter. */
@@ -209,27 +208,27 @@ export async function entsperreBeimStart(): Promise<void> {
 
 function entsperrDialog(): Promise<void> {
   const box = dialog(`
-    <h3>Tresor entsperren</h3>
-    <p class="mono-sm">Dein Schlüssel liegt verschlüsselt auf diesem Gerät.</p>
-    <input id="tr-pass" type="password" autocomplete="current-password" placeholder="Passphrase" />
+    <h3>${escapeHtml(t("ein.entsperrenTitel"))}</h3>
+    <p class="mono-sm">${escapeHtml(t("ein.liegtVerschluesselt"))}</p>
+    <input id="tr-pass" type="password" autocomplete="current-password" placeholder="${escapeHtml(t("ein.passphrase"))}" />
     <div id="tr-meldung" class="mono-sm err"></div>
-    <button id="tr-ok" class="send-btn">entsperren</button>
-    <button id="tr-vergessen" class="ghost">Passphrase vergessen?</button>`);
+    <button id="tr-ok" class="send-btn">${escapeHtml(t("ein.entsperren"))}</button>
+    <button id="tr-vergessen" class="ghost">${escapeHtml(t("ein.vergessen"))}</button>`);
   return new Promise<void>((resolve) => {
     box.querySelector("#tr-vergessen")!.addEventListener("click", () => {
       box.remove();
       void neuBeginnen().then(resolve);
     });
     beiAbsenden(box, "tr-ok", async () => {
-      melde(box, "prüfe …");
+      melde(box, t("ein.pruefe"));
       try {
         tresor = await unlock(feld(box, "tr-pass"));
         box.remove();
         resolve();
       } catch (e) {
         melde(box, e instanceof FalschePassphrase
-          ? "Passphrase falsch."
-          : `${(e as Error).message} – über „Passphrase vergessen?“ mit der Merkphrase neu beginnen.`);
+          ? t("ein.passFalsch")
+          : t("ein.entsperrFehler", { fehler: (e as Error).message }));
       }
     });
   });
@@ -243,16 +242,14 @@ function entsperrDialog(): Promise<void> {
  */
 function neuBeginnen(): Promise<void> {
   const box = dialog(`
-    <h3>Mit der Merkphrase neu beginnen</h3>
-    <p class="mono-sm">Der alte Tresor wird gelöscht. Deine Identität kommt aus den
-    12 Wörtern (oder dem nsec) zurück. Unterhaltungen und Räume holst du danach über
-    die verschlüsselte Sicherung zurück (Settings → Sicherheit).</p>
-    <textarea id="tr-phrase" rows="3" autocomplete="off" placeholder="12 Wörter oder nsec1…"></textarea>
-    <input id="tr-neu1" type="password" autocomplete="new-password" placeholder="neue Passphrase (mind. 8 Zeichen)" />
-    <input id="tr-neu2" type="password" autocomplete="new-password" placeholder="noch einmal" />
+    <h3>${escapeHtml(t("ein.neuTitel"))}</h3>
+    <p class="mono-sm">${escapeHtml(t("ein.neuText"))}</p>
+    <textarea id="tr-phrase" rows="3" autocomplete="off" placeholder="${escapeHtml(t("ein.phraseOderNsec"))}"></textarea>
+    <input id="tr-neu1" type="password" autocomplete="new-password" placeholder="${escapeHtml(t("ein.passNeuNeu"))}" />
+    <input id="tr-neu2" type="password" autocomplete="new-password" placeholder="${escapeHtml(t("ein.nochEinmal"))}" />
     <div id="tr-meldung" class="mono-sm err"></div>
-    <button id="tr-ok" class="send-btn">neu einrichten</button>
-    <button id="tr-zurueck" class="ghost">zurück</button>`);
+    <button id="tr-ok" class="send-btn">${escapeHtml(t("ein.neuEinrichten"))}</button>
+    <button id="tr-zurueck" class="ghost">${escapeHtml(t("ein.zurueck"))}</button>`);
   return new Promise<void>((resolve) => {
     box.querySelector("#tr-zurueck")!.addEventListener("click", () => {
       box.remove();
@@ -269,7 +266,7 @@ function neuBeginnen(): Promise<void> {
       }
       const pass = neuePassphrase(box);
       if (!pass) return;
-      melde(box, "richte neu ein – das dauert einen Moment …");
+      melde(box, t("ein.richteNeuEin"));
       try {
         const speicher = new IndexedDbSpeicher();
         await speicher.loeschen();
@@ -284,10 +281,10 @@ function neuBeginnen(): Promise<void> {
         }
         tresor = v;
         box.remove();
-        toast("Tresor neu eingerichtet");
+        toast(t("ein.tresorNeu"));
         resolve();
       } catch (e) {
-        melde(box, `Nicht eingerichtet: ${(e as Error).message}`);
+        melde(box, t("ein.nichtEingerichtet", { fehler: (e as Error).message }));
       }
     });
   });
@@ -338,7 +335,7 @@ export function wireTresorKarte(): void {
       const min = sperrMinuten(feld.value);
       localStorage.setItem(LS_SPERRE, String(min));
       feld.value = String(min);
-      toast(min === 0 ? "Automatische Sperre aus" : `Sperrt nach ${min} Minuten ohne Eingabe`);
+      toast(min === 0 ? t("ein.sperreAus") : t("ein.sperrtNach", { n: min }));
     });
     $("#tresor-jetzt")?.addEventListener("click", sperreJetzt);
   }
