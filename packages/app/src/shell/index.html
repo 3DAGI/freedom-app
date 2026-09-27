@@ -596,6 +596,14 @@
             <button id="sol-rpcs-check" class="ghost" style="width:auto;padding:6px 10px">erreichbarkeit prüfen</button>
           </div>
           <div id="sol-rpcs-status" class="mono-sm"></div>
+        </div><div class="card" id="relay-karte">
+          <h3><span class="ic" data-icon="server"></span> Nostr-Relays (dein Satz)</h3>
+          <p class="mono-sm">Hier veröffentlichst du (NIP-65), und hier liegt dein Posteingang (Kind 10050): Kontakte lesen dort, was du schreibst, und stellen dir dort Nachrichten zu. Dazu liest die App bei den Relays deiner Kontakte und je Sitzung bei ein paar wechselnden der Startliste. Eine Adresse je Zeile, nur wss:// (unverschlüsselt nur .onion), höchstens acht. Nach dem Veröffentlichen gilt der Satz für alle deine Geräte; wer noch die alte Liste kennt, schreibt bis zum Nachladen an die alten Relays.</p>
+          <textarea id="eigene-relays" class="mono-sm" rows="4" style="width:100%" spellcheck="false" autocomplete="off" aria-label="Eigene Relays, eine Adresse je Zeile"></textarea>
+          <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">
+            <button id="eigene-relays-save" class="ghost" style="width:auto;padding:6px 10px" type="button">veröffentlichen</button>
+          </div>
+          <div id="eigene-relays-status" class="mono-sm" aria-live="polite"></div>
         </div></div>
             <div class="subpane" data-subpane="settings:privacy"><h2 class="settings-h">Datenschutz</h2><div class="card">
           <h3><span class="ic" data-icon="shield"></span> Was sichtbar ist</h3>

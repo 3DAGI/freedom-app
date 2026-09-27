@@ -9,7 +9,8 @@ import { escapeHtml, pkShort } from "../../shell-logic.js";
 import { zeigeDatenschutz } from "../datenschutz.js";
 import { LS_ONION_PRUEFRELAY, onionRelay } from "../../onion-pruefung.js";
 import { zeigeVertraute } from "../nachfolge-ui.js";
-import { alsGeraet, ensurePool, mitBunker, mitRohemSchluessel, signiere, state } from "../state.js";
+import { alsGeraet, ensurePool, mitBunker, mitRohemSchluessel, nimmInPool, signiere, state, veroeffentlicheWeit } from "../state.js";
+import { ladeEigeneRelays, pruefeRelayEingabe, setzeEigeneRelays } from "../../relay-satz.js";
 import { geheim, istGeheimnis, tresorEingerichtet, wireTresorKarte } from "../tresor.js";
 import { $, ganzeZahl, toast } from "../ui.js";
 import { ladeAbdeckung, trageAbdeckungEin, widerrufeAbdeckung } from "./earn.js";
@@ -634,6 +635,8 @@ export async function wireMeshTab(): Promise<void> {
   const pruefen = document.getElementById("onion-pruefen");
   if (pruefen) pruefen.onclick = () => void zeigeDatenschutz(true);
 
+  wireRelayKarte();
+
   // MLS-Engine (2.2b-b): erst der Selbsttest lädt sie – vorher bleibt sie gepackt.
   const mlsKnopf = document.getElementById("mls-selbsttest") as HTMLButtonElement | null;
   if (mlsKnopf) mlsKnopf.onclick = async () => {
@@ -975,3 +978,45 @@ export async function wireClientFeeSetting(): Promise<void> {
     toast(p <= 0 ? "App-Gebühr abgeschaltet" : `App-Gebühr auf ${p} % gesetzt`);
   };
 }
+
+/**
+ * Eigener Relay-Satz (5.4b2): sichtbar und änderbar. Veröffentlicht NIP-65-Liste
+ * und Posteingang neu (weit), erst dann gilt er; neue Relays kommen gleich in
+ * den Pool. Als Gerät nur sichtbar – der Satz gehört der Person (8.6c).
+ */
+function wireRelayKarte(): void {
+  const feld = document.getElementById("eigene-relays") as HTMLTextAreaElement | null;
+  const knopf = document.getElementById("eigene-relays-save") as HTMLButtonElement | null;
+  const status = document.getElementById("eigene-relays-status");
+  if (!feld || !knopf || !status) return;
+  feld.value = ladeEigeneRelays(localStorage).join("\n");
+  if (alsGeraet()) {
+    feld.readOnly = true;
+    knopf.disabled = true;
+    status.textContent = "Als Gerät nutzt du den Satz der Person – ändern nur auf dem Hauptgerät.";
+    return;
+  }
+  if (!feld.value) status.textContent = "Noch kein eigener Satz – die App legt ihn beim ersten Verbinden an.";
+  knopf.onclick = async () => {
+    const r = pruefeRelayEingabe(feld.value);
+    if ("fehler" in r) { status.textContent = r.fehler; return; }
+    if (!state.keypair) { status.textContent = "Keine Identität."; return; }
+    knopf.disabled = true;
+    status.textContent = "veröffentliche …";
+    try {
+      const ok = await setzeEigeneRelays({ relays: r.relays, pk: state.keypair.pk, signiere, weit: veroeffentlicheWeit, speicher: localStorage });
+      if (ok) {
+        await nimmInPool(r.relays);
+        feld.value = r.relays.join("\n");
+        status.textContent = `Veröffentlicht: ${r.relays.length} Relays – NIP-65-Liste und Posteingang.`;
+      } else {
+        status.textContent = "Nicht veröffentlicht – kein Relay nahm die Liste an. Der alte Satz gilt weiter.";
+      }
+    } catch (e) {
+      status.textContent = `Nicht veröffentlicht: ${(e as Error).message}`;
+    } finally {
+      knopf.disabled = false;
+    }
+  };
+}
+
