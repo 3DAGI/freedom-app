@@ -220,3 +220,6 @@ coverage.ts|coverageConsentText|deutsche Referenz; die App bildet den Text seit 
 profile.ts|profileDisclosure|deutsche Referenz; die App bildet die Sätze seit 8.16f in protokoll-texte.ts (profilOffenlegung) nach, ein Test hält sie wortgleich
 channel.ts|gutschriftTags|Zahlkanal (4.3c1): Transport der Gutschrift im Kern der Anfrage; App 4.3d
 duress.ts|wipeConfirmation|deutsche Referenz; die App bildet den Text seit 8.16g1 in protokoll-texte.ts (loeschRueckfrage) nach, ein Test hält ihn wortgleich
+privacy-audit.ts|privacyReport|deutsche Referenz; die App bildet den Bericht seit 8.16g2b1 in datenschutz-bericht.ts (berichtText) aus den Kennungen der Befunde nach, ein Test hält ihn für alle Einstellungen wortgleich
+privacy-audit.ts|kurzfassung|deutsche Referenz; die Zeile vorweg bildet seit 8.16g2b1 datenschutz-bericht.ts (berichtText) nach
+privacy-facts.ts|privacyFactsText|deutsche Referenz; die App bildet den Text seit 8.16g2b1 in datenschutz-bericht.ts (faktenText) nach, ein Test hält ihn für jedes Ergebnis der .onion-Prüfung wortgleich

@@ -11,6 +11,7 @@
  * nur die Karte schloss.
  */
 import { PRIVACY_FACTS } from "@freedomstack/protocol";
+import { faktAussage } from "./datenschutz-bericht.js";
 import type { Intent } from "./onboarding.js";
 
 /**
@@ -62,11 +63,12 @@ export function darfWerberNennen(speicher: Pick<Storage, "getItem">): boolean {
 
 /**
  * Was die Seite „privat“ ueber Relays sagt – woertlich aus den Aussagen des
- * Datenschutzberichts, damit sie nie mehr verspricht als der Code haelt.
+ * Datenschutzberichts, damit sie nie mehr verspricht als der Code haelt
+ * (seit 8.16g2b1 in der Sprache der Oberflaeche ueber `faktAussage()`).
  */
 export function datenschutzKurz(): { belegt: string[]; offen: string[] } {
   const text = (id: string) => PRIVACY_FACTS.find((f) => f.id === id);
-  const belegt = ["dm-inhalt", "dm-absender", "ki-prompt"].map(text).filter((f) => f?.status === "belegt").map((f) => f!.aussage);
-  const offen = ["ip"].map(text).filter((f) => f && f.status !== "belegt").map((f) => f!.aussage);
+  const belegt = ["dm-inhalt", "dm-absender", "ki-prompt"].map(text).filter((f) => f?.status === "belegt").map((f) => faktAussage(f!));
+  const offen = ["ip"].map(text).filter((f) => f && f.status !== "belegt").map((f) => faktAussage(f!));
   return { belegt, offen };
 }

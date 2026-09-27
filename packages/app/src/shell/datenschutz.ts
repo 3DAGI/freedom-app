@@ -51,8 +51,8 @@ export async function zeigeDatenschutz(erneut = false): Promise<void> {
   if (!box) return;
   const nr = ++bericht;
   try {
-    const { privacyReport, summarizePrivacy, auditPrivacy, DEFAULT_CONFIG, faktenDieserSitzung } =
-      await import("@freedomstack/protocol");
+    const { summarizePrivacy, auditPrivacy, DEFAULT_CONFIG } = await import("@freedomstack/protocol");
+    const { berichtText, faktenText } = await import("../datenschutz-bericht.js");
     const pruefung = onionPruefung(erneut);
     if (!onion?.fertig) {
       box.textContent = t("bau.pruefeOnion");
@@ -89,15 +89,15 @@ export async function zeigeDatenschutz(erneut = false): Promise<void> {
     // Belegte Aussagen und bekannte Luecken kommen aus privacy-facts.ts – dort
     // erzwingen Tests, dass "belegt" nur steht, was ein Leak-Test prueft.
     // Die Aussage „ip“ ersetzt das Ergebnis der .onion-Pruefung dieser Sitzung (6.2).
-    const { privacyFactsText } = await import("@freedomstack/protocol");
-    const hinweise: string[] = [privacyFactsText(faktenDieserSitzung(tor))];
+    // Die Saetze in der Sprache der Oberflaeche (8.16g2b1): datenschutz-bericht.ts.
+    const hinweise: string[] = [faktenText(tor)];
     if (netz === "mixnet") {
       hinweise.push(t("bau.mixnetzHinweis"));
     }
     if (tor === "erreichbar" && netz === "klar") {
       hinweise.push(t("bau.torTipp"));
     }
-    box.textContent = privacyReport(cfg as never) + "\n\n" + hinweise.join("\n");
+    box.textContent = berichtText(cfg as never) + "\n\n" + hinweise.join("\n");
     box.className = s.critical > 0 ? "mono-sm err" : s.warnings > 0 ? "mono-sm warn" : "mono-sm ok";
   } catch (e) {
     if (nr !== bericht) return;

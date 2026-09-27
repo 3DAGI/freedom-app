@@ -7,6 +7,10 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { SICHERUNG_NIE, filtereWiederherstellung, waehleSicherung } from "@freedomstack/protocol";
 import { einstieg as EINSTIEG } from "../src/texte/einstieg.js";
+import { setLang } from "../src/i18n.js";
+
+// Die Seite „privat“ wortgleich mit den deutschen Aussagen prüfen (seit 8.16g2b1 in der Sprache der Oberfläche)
+setLang("de");
 
 const src = (p: string) => readFileSync(new URL(p, import.meta.url), "utf8");
 const app = src("../src/shell/app.ts");

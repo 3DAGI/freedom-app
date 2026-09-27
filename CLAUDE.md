@@ -44,9 +44,9 @@ bash packages/mls/bauen.sh --pruefen                     # nur bei Änderungen a
 bash contracts/solana-channel/pruefen.sh --werkzeuge     # nur bei Änderungen am Zahlkanal: bauen + Tests gegen Validator (Agave 3.1.10)
 ```
 
-Stand 27.09.2026 (nach 4.3c2 und 8.16g2a): protocol 1066 grün (6 übersprungen), node 235 grün
+Stand 27.09.2026 (nach 4.3c2 und 8.16g2b1): protocol 1066 grün (6 übersprungen), node 235 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 482 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 57 grün + 1 `todo` (heutige Lecks,
+in `tools.test.ts`), app 483 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 57 grün + 1 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
 Ausnahme: gesendete SOL-Zahlungen von frischen Adressen, eine bewusste Grenze
 nach Entscheidung 4.9 A – im Datenschutzbericht unter „Bewusste Grenzen“).
@@ -137,6 +137,10 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
 - **Direktnachrichten nur nach NIP-17** (`buildPrivateDm`, Kind 1059). Nie Kind 4
   senden – `app/test/dm-verdrahtung.test.ts` prüft das.
 - **Datenschutzbericht:** Aussagen nur über `packages/protocol/src/privacy-facts.ts`.
+  Angezeigt wird er seit 8.16g2b1 über `app/src/datenschutz-bericht.ts`
+  (`berichtText()`, `faktenText()`, `faktAussage()`) – jede neue Aussage und
+  jeder neue Befund (`PrivacyFinding.id`) braucht dort einen Text in beiden
+  Sprachen; ein Test hält die deutsche Fassung wortgleich mit dem Protokoll.
 - **Swaps:** Einlösen nur bis Frist minus 10 Minuten (`claimAllowed()`), Vorabsimulation an.
   Richtung SOL → Lightning (seit 4.6): der LP zahlt nur mit `cltv_limit` nach
   `validateReverseTimelock()` – Lightning muss dort **vor** Solana enden. Regeln in `docs/SWAPS.md`.

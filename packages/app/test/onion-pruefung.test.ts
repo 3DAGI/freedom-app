@@ -82,7 +82,9 @@ test("6.2: Kandidaten – nur .onion-Relays, eingetragenes zuerst, ohne Doppelte
 test("6.2 verdrahtet: Bericht rechnet nur bei erreichbarem .onion-Relay mit Tor, Aussage aus privacy-facts", () => {
   const ds = readFileSync(new URL("../src/shell/datenschutz.ts", import.meta.url), "utf8");
   assert.match(ds, /network: tor === "erreichbar" \? "tor" : "klar",/);
-  assert.match(ds, /privacyFactsText\(faktenDieserSitzung\(tor\)\)/);
+  // Seit 8.16g2b1 in der Sprache der Oberfläche: faktenText() nimmt die Aussagen dieser Sitzung
+  assert.match(ds, /const hinweise: string\[\] = \[faktenText\(tor\)\];/);
+  assert.match(readFileSync(new URL("../src/datenschutz-bericht.ts", import.meta.url), "utf8"), /const facts = faktenDieserSitzung\(tor\);/);
   assert.match(ds, /pruefeOnion\(kandidaten, \(u\) => new WebSocket\(u\)\)/);
   assert.doesNotMatch(ds, /das kann die App nicht prüfen\./, "der alte Pauschalsatz ist weg");
   const settings = readFileSync(new URL("../src/shell/tabs/settings.ts", import.meta.url), "utf8");
