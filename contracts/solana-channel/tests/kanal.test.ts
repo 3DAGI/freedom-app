@@ -14,7 +14,7 @@
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
-import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -26,6 +26,7 @@ import {
   oeffneKanalIx, rechneKanalAbIxs, signiereGutschrift, stockeKanalAufIx, teileKanalZahlung,
   type Gutschrift, type KanalEmpfaenger,
 } from "../../../packages/protocol/src/channel.js";
+import { KanalKasse } from "../../../packages/node/src/kanal-kasse.js";
 
 const SO = fileURLToPath(new URL("../target/deploy/solana_channel.so", import.meta.url));
 const hatValidator = spawnSync("solana-test-validator", ["--version"]).status === 0;
@@ -37,6 +38,25 @@ const PORT = 20_000 + Math.floor(Math.random() * 200) * 50;
 let validator: ChildProcess | undefined;
 let ledger = "";
 let conn: Connection;
+// Endet der Validator vorzeitig, wartet web3.js auf Bestätigungen endlos (getBlockHeight
+// scheitert, zählt als -1) – dann scheitern die Tests sofort, mit dem Ende seines Logs.
+let validatorWeg: Promise<never> = new Promise(() => {});
+let beendet = false;
+
+function validatorLog(): string {
+  try {
+    const zeilen = readFileSync(join(ledger, "validator.log"), "utf8").trimEnd().split("\n");
+    const fehler = zeilen.filter((z) => / (ERROR|WARN) |panicked/.test(z));
+    return (fehler.length ? fehler : zeilen).slice(-15).join("\n");
+  } catch {
+    return "(kein validator.log)";
+  }
+}
+
+/** Wartet auf `p`, solange der Validator läuft. */
+function solangeValidator<T>(p: Promise<T>): Promise<T> {
+  return Promise.race([p, validatorWeg]);
+}
 const zahler = Keypair.generate(); // zahlt alle Gebühren – so bleiben die Beträge der Beteiligten Lamport-genau
 
 // Anchor-Fehlercodes (6000 + Stelle im Enum KanalFehler)
@@ -52,7 +72,7 @@ async function schicke(ixs: TransactionInstruction[], signer: Keypair[]): Promis
   // Byte für Byte dieselbe Transaktion. Ein eigenes Rechenlimit je Versuch macht sie verschieden.
   const tx = new Transaction().add(ComputeBudgetProgram.setComputeUnitLimit({ units: 400_000 + ++lauf }), ...ixs);
   tx.feePayer = zahler.publicKey;
-  return sendAndConfirmTransaction(conn, tx, [zahler, ...signer], { commitment: "confirmed" });
+  return solangeValidator(sendAndConfirmTransaction(conn, tx, [zahler, ...signer], { commitment: "confirmed" }));
 }
 
 async function scheitert(p: Promise<unknown>, code?: number): Promise<void> {
@@ -75,7 +95,7 @@ async function warteBis(zeit: bigint): Promise<void> {
 
 async function neuesKonto(sol = 2): Promise<Keypair> {
   const k = Keypair.generate();
-  await conn.confirmTransaction(await conn.requestAirdrop(k.publicKey, sol * LAMPORTS_PER_SOL), "confirmed");
+  await solangeValidator(conn.confirmTransaction(await conn.requestAirdrop(k.publicKey, sol * LAMPORTS_PER_SOL), "confirmed"));
   return k;
 }
 
@@ -90,16 +110,27 @@ before(async () => {
     "--reset", "--quiet", "--ledger", ledger, "--rpc-port", String(PORT), "--faucet-port", String(PORT + 2),
     "--dynamic-port-range", `${PORT + 3}-${PORT + 40}`, "--bpf-program", KANAL_PROGRAMM_ID, SO,
   ], { stdio: "ignore" });
+  validatorWeg = new Promise<never>((_, weg) => {
+    validator!.on("exit", (code, signal) => {
+      if (!beendet) weg(new Error(`Validator vorzeitig beendet (Code ${code}, Signal ${signal}):\n${validatorLog()}`));
+    });
+  });
+  validatorWeg.catch(() => {}); // wer nicht wartet, bekommt es nicht als unbehandelten Fehler
   conn = new Connection(`http://127.0.0.1:${PORT}`, "confirmed");
   for (let i = 0; i < 120; i++) {
     try { await conn.getVersion(); break; } catch { await new Promise((r) => setTimeout(r, 500)); }
   }
-  await conn.confirmTransaction(await conn.requestAirdrop(zahler.publicKey, 10 * LAMPORTS_PER_SOL), "confirmed");
+  await solangeValidator(conn.confirmTransaction(await conn.requestAirdrop(zahler.publicKey, 10 * LAMPORTS_PER_SOL), "confirmed"));
 });
 
 after(() => {
-  // Die Websocket-Verbindung der Bestätigungen verbindet sonst endlos neu
-  (conn as unknown as { _rpcWebSocket?: { close(): void } } | undefined)?._rpcWebSocket?.close();
+  // Die Websocket-Verbindung der Bestätigungen verbindet sonst endlos neu (max_reconnects:
+  // Infinity) – auch nach close(), wenn sie gerade verbindet oder web3.js für ein offenes
+  // Abo neu aufbaut. Dann endet der Prozess nie (so lief der CI-Job von 4.3c1 bis zum Limit).
+  const ws = (conn as unknown as { _rpcWebSocket?: { setAutoReconnect(an: boolean): void; close(): void } } | undefined)?._rpcWebSocket;
+  ws?.setAutoReconnect(false);
+  ws?.close();
+  beendet = true;
   validator?.kill("SIGKILL");
   if (ledger) rmSync(ledger, { recursive: true, force: true });
 });
@@ -238,4 +269,39 @@ test("refund vor Ablauf scheitert, settle nach Ablauf scheitert, refund danach: 
   await erstatten();
   assert.equal((await lamports(k3.kunde.publicKey)) - vorher, imKanal, "Einlage und Miete zurück");
   assert.equal(await conn.getAccountInfo(new PublicKey(k3.adresse), "confirmed"), null, "Konto geschlossen");
+});
+
+test("Kasse des Knotens (4.3c): nimmt Gutschriften an, bucht und löst sie gegen das Programm ein – Lamport-genau, nicht zweimal", { skip }, async () => {
+  const provider = await neuesKonto(1);
+  const werber = await neuesKonto(1);
+  const empfaenger = [{ adresse: werber.publicKey.toBase58(), ppm: 25_000 }];
+  const k = await oeffne({ nonce: 5n, betrag: 2_000_000n, laufzeit: 7_200n, empfaenger, provider });
+  const kasse = new KanalKasse({
+    provider: provider.publicKey.toBase58(),
+    lese: async (a) => {
+      const i = await conn.getAccountInfo(new PublicKey(a), "confirmed");
+      return i ? { owner: i.owner.toBase58(), daten: i.data } : null;
+    },
+    sende: (ixs) => schicke(ixs, [provider]),
+    einloesSchwelle: 1n,
+  });
+  const g = (b: bigint) => signiereGutschrift(k.sitzung.geheim, k.adresse, b, k.ablauf);
+  assert.deepEqual(await kasse.nimmAn(g(300_000n), 200_000n), { ok: true, empfaenger });
+  assert.equal(kasse.verbuche(k.adresse, 150_000n), 150_000n);
+  assert.deepEqual(await kasse.nimmAn(g(500_000n), 300_000n), { ok: true, empfaenger });
+  const vorher = await Promise.all([provider.publicKey, werber.publicKey].map(lamports));
+  const r = await kasse.loeseFaelligeEin();
+  assert.equal(r.length, 1);
+  assert.ok(r[0].signatur && !r[0].fehler, `Einlösen: ${r[0].fehler ?? "ohne Signatur"}`);
+  const nachher = await Promise.all([provider.publicKey, werber.publicKey].map(lamports));
+  assert.equal(nachher[0] - vorher[0], 487_500n, "Provider: 97,5 %");
+  assert.equal(nachher[1] - vorher[1], 12_500n, "Werber: 2,5 %");
+  assert.equal((await kanal(k.adresse)).ausgezahlt, 500_000n);
+  assert.deepEqual(await kasse.loeseFaelligeEin(), [], "schon eingelöst");
+  // Eine fremde Kasse (anderer Provider) nimmt die Gutschrift nicht an
+  const fremd = new KanalKasse({ provider: Keypair.generate().publicKey.toBase58(), lese: async (a) => {
+    const i = await conn.getAccountInfo(new PublicKey(a), "confirmed");
+    return i ? { owner: i.owner.toBase58(), daten: i.data } : null;
+  }, sende: async () => "nie" });
+  assert.deepEqual(await fremd.nimmAn(g(600_000n), 1n), { ok: false, grund: "Kanal für einen anderen Provider" });
 });

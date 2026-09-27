@@ -144,6 +144,27 @@ export function pruefeGutschrift(g: Gutschrift, kanal: { adresse: string; stand:
   return { ok: true };
 }
 
+/**
+ * Transport im versiegelten Kern der Anfrage (4.3c): `["kanal", Adresse]` und
+ * `["gutschrift", Betrag, Ablauf, Signatur]`. Nie offen – die Gutschrift
+ * verrät Kanal und Betrag.
+ */
+export function gutschriftTags(g: Gutschrift): string[][] {
+  return [["kanal", g.kanal], ["gutschrift", g.betrag.toString(), g.ablauf.toString(), g.signatur]];
+}
+
+/** Gutschrift aus den Tags einer Anfrage; undefined ohne Kanal, wirft bei kaputter Form. */
+export function leseGutschriftTags(tags: readonly string[][]): Gutschrift | undefined {
+  const kanal = tags.find((t) => t[0] === "kanal")?.[1];
+  if (kanal === undefined) return undefined;
+  const g = tags.find((t) => t[0] === "gutschrift");
+  if (!g || !/^\d{1,20}$/.test(g[1] ?? "") || !/^-?\d{1,19}$/.test(g[2] ?? "") || !/^[0-9a-f]{128}$/.test(g[3] ?? "")) {
+    throw new Error("Gutschrift fehlt oder hat nicht die Form");
+  }
+  schluessel(kanal);
+  return { kanal, betrag: BigInt(g[1]), ablauf: BigInt(g[2]), signatur: g[3] };
+}
+
 /** Empfänger prüfen wie das Programm: höchstens 8, je ≥ 1 ppm, zusammen ≤ 10 %. */
 export function pruefeKanalEmpfaenger(empfaenger: readonly KanalEmpfaenger[], kanal?: string): void {
   if (empfaenger.length > MAX_KANAL_EMPFAENGER) throw new Error(`höchstens ${MAX_KANAL_EMPFAENGER} Empfänger`);

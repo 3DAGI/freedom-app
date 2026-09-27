@@ -117,6 +117,13 @@ Jede Funktion, in der Geld fließt, bietet beide Schienen mit gleichem Komfort.
     (`cargo-build-sbf`, platform-tools v1.52, Rust 1.89) – ältere scheitern an
     der Lock-Datei (edition2024).
   - **4.3c:** Knoten – Kanal und Gutschriften prüfen, rechtzeitig einlösen.
+    Geteilt: **4.3c1 – FERTIG:** Transport (`gutschriftTags()`, Tags im
+    versiegelten Kern) und Vorauszahlung bis zum Gebot festgelegt
+    (`docs/ZAHLKANAL.md`); `KanalKasse` im Knoten (Kanal auf der Kette,
+    Gutschrift, Deckung, Buchen, Einlösen ab Schwelle oder vor Ablauf, Datei
+    über Zwischendatei), gegen den Validator gegengeprüft. **4.3c2:** in
+    `dvm-provider.ts` und `main.ts` verdrahten (Anfrage mit Kanal-Tags, Preis
+    in Lamports buchen, Einlösen im Takt, Angebot nennt den Kanal).
   - **4.3d:** App – Kanal öffnen (Empfänger aus A+), Gutschriften versiegelt
     mit der Anfrage, Rückholen nach Ablauf; SOL-Anteile damit erzwungen.
 
