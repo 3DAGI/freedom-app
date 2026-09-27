@@ -8,8 +8,9 @@
  * Aus app.ts verschoben (Schritt 1.0) – woertlich, ohne Logikaenderung.
  */
 import {
-  LocalSigner, type NostrEvent, OutboxPool, type RelayFilter, type Signer, type UnsignedEvent, WebSocketRelay, normalizeRelayUrl, startUrls,
+  LocalSigner, type NostrEvent, OutboxPool, type RelayFilter, type Signer, type UnsignedEvent, WebSocketRelay, baueRelayAuth, normalizeRelayUrl, startUrls,
 } from "@freedomstack/protocol";
+import { zugaenge } from "../relay-kauf.js";
 import { ScoredProvider, discoverProviders, matchProviders } from "../matchmaking.js";
 import { KiSitzungen } from "../ki-sitzung.js";
 import { SessionClient } from "../session-client.js";
@@ -252,6 +253,23 @@ export async function solRpcUrl(): Promise<string> {
 }
 
 
+/**
+ * Relay-Verbindung mit NIP-42 (8.4c): anmelden nur, wenn der Relay es verlangt,
+ * und nur bei eigenen Relays und solchen mit gekauftem Zugang – eine Anmeldung
+ * sagt dem Relay, wer diese Verbindung ist. Nie mit einem Sitzungsschluessel.
+ */
+export function darfAnmelden(url: string): boolean {
+  const n = normalizeRelayUrl(url);
+  return [...ladeEigeneRelays(localStorage), ...Object.keys(zugaenge(localStorage))].some((u) => normalizeRelayUrl(u) === n);
+}
+
+function relayVerbindung(url: string, opts: { timeoutMs: number; autoReconnect?: boolean }): WebSocketRelay {
+  return new WebSocketRelay(url, {
+    ...opts,
+    anmelden: async (u, challenge) => (state.keypair && darfAnmelden(u) ? signiere(baueRelayAuth(state.keypair.pk, u, challenge)) : null),
+  });
+}
+
 export async function ensurePool(): Promise<OutboxPool> {
   if (state.pool) {
     (window as unknown as { freedomPool?: OutboxPool }).freedomPool = state.pool;
@@ -262,7 +280,7 @@ export async function ensurePool(): Promise<OutboxPool> {
   // Servern wie vorher.
   // Seit 5.4: eigener Satz + wechselnd weitere aus der Startliste statt drei fester Relays.
   const urls = poolRelays({ eigene: ladeEigeneRelays(localStorage), gemerkt: ladeGemerkteRelays() });
-  const relays = urls.map((url) => new WebSocketRelay(url, { timeoutMs: 8000 }));
+  const relays = urls.map((url) => relayVerbindung(url, { timeoutMs: 8000 }));
   state.pool = new OutboxPool(relays, { minAcks: 1 });
 
   // Entdeckung im Hintergrund — sie darf den ersten Job nicht verzoegern.
@@ -279,7 +297,7 @@ export async function veroeffentlicheAn(ev: NostrEvent, urls: readonly string[])
   const pool = await ensurePool();
   const imPool = new Map(pool.urls.map((u) => [normalizeRelayUrl(u), u]));
   const ziele = [...new Set(urls.map(normalizeRelayUrl))];
-  const fremd = ziele.filter((u) => !imPool.has(u)).map((u) => new WebSocketRelay(u, { timeoutMs: 8000, autoReconnect: false }));
+  const fremd = ziele.filter((u) => !imPool.has(u)).map((u) => relayVerbindung(u, { timeoutMs: 8000, autoReconnect: false }));
   const [ausPool, ...einzeln] = await Promise.allSettled([
     pool.publishAn(ev, ziele.filter((u) => imPool.has(u)).map((u) => imPool.get(u)!)),
     ...fremd.map((r) => r.publish(ev)),
@@ -293,7 +311,7 @@ export async function veroeffentlicheAn(ev: NostrEvent, urls: readonly string[])
  * über je eine kurze eigene Verbindung.
  */
 export async function frageAn(filter: RelayFilter, urls: readonly string[]): Promise<NostrEvent[]> {
-  const relays = [...new Set(urls.map(normalizeRelayUrl))].map((u) => new WebSocketRelay(u, { timeoutMs: 8000, autoReconnect: false }));
+  const relays = [...new Set(urls.map(normalizeRelayUrl))].map((u) => relayVerbindung(u, { timeoutMs: 8000, autoReconnect: false }));
   const antworten = await Promise.allSettled(relays.map((r) => r.query(filter)));
   for (const r of relays) r.close();
   const alle = new Map<string, NostrEvent>();
@@ -362,7 +380,7 @@ export async function nimmInPool(urls: readonly string[]): Promise<void> {
   const pool = await ensurePool();
   const da = new Set(pool.urls.map(normalizeRelayUrl));
   for (const url of urls) {
-    if (!da.has(normalizeRelayUrl(url))) pool.addRelay(new WebSocketRelay(url, { timeoutMs: 8000 }));
+    if (!da.has(normalizeRelayUrl(url))) pool.addRelay(relayVerbindung(url, { timeoutMs: 8000 }));
   }
 }
 

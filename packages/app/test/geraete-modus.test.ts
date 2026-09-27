@@ -68,7 +68,8 @@ test("8.6c: Verdrahtung – Import mit Code, Anmelden beim Start, Senden nur mit
   assert.match(app, /const person = localStorage\.getItem\(LS_GERAET_PERSON\);\s*setzeIdentitaet\(fromHex\(stored\), person && \/\^\[0-9a-f\]\{64\}\$\/\.test\(person\) \? person : null\);/);
   const state = src("../src/shell/state.ts");
   assert.match(state, /if \(state\.person\) \{\s*listenAbgeglichen = await posteingangDerPerson\(state\.person\);\s*return;/, "als Geraet keine eigenen Listen");
-  assert.match(state, /pool\.addRelay\(new WebSocketRelay\(url, \{ timeoutMs: 8000 \}\)\)/);
+  // seit 8.4c ueber relayVerbindung() (WebSocketRelay mit Anmeldung nach NIP-42)
+  assert.match(state, /pool\.addRelay\(relayVerbindung\(url, \{ timeoutMs: 8000 \}\)\)/);
   const kom = src("../src/shell/tabs/kommunikation.ts");
   assert.match(kom, /if \(alsGeraet\(\) && !meine!\.includes\(state\.keypair\.pk\)\) \{\s*toast\(/);
   assert.match(kom, /await veroeffentlicheDm\(dm\.toSelf, ich\);/);

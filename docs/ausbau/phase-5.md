@@ -135,8 +135,9 @@
       LND (nur `invoices`-Rechte), SOL an die Adresse des Betreibers mit einer
       Referenz nach Solana Pay, auf der Kette geprüft; Preise in NIP-11; Events
       überdauern einen Neustart.
-    - **8.4c:** App – anmelden (nur bei eigenen Posteingangs-Relays und
-      Sitzungsschlüsseln), Zugang über die Zahlschienen kaufen, Abnahme im
+    - **8.4c – FERTIG:** App – anmelden nur auf Verlangen und nur bei eigenen
+      Relays und solchen mit gekauftem Zugang (nie mit einem Sitzungsschlüssel),
+      Zugang über die Zahlschienen kaufen (SOL mit Referenz), Abnahme im
       Browser: ein Relay wird nachweislich für die Zustellung bezahlt.
   - **.onion:** Kein Betreiber der Startliste veröffentlicht eine
     .onion-Adresse, die sich prüfen ließ. MENSCH: eine geprüfte .onion-Adresse

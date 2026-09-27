@@ -6928,3 +6928,72 @@ erweitert.
 Endstand: protocol 1162 · node 225 · app 453 (+6) · mls 13 · Leak-Tests 57
 grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng 0
 unbewertet · Website 5 Seiten ok · Smoke-Test bestanden.
+
+## Schritt 8.4c – Relay-Zugang in der App: anmelden und kaufen
+
+**Anmelden (NIP-42)** – `WebSocketRelay` (`protocol/src/ws-relay.ts`):
+- Verlangt ein Relay eine Anmeldung (`auth-required:` bei `CLOSED` oder `OK`),
+  holt die Verbindung über `anmelden` ein signiertes Anmelde-Event.
+- Danach sendet sie die abgewiesene Anfrage bzw. das Event einmal erneut.
+- Einmal je Verbindung, nie von selbst. Liefert `anmelden` null, enden die
+  Wartenden sofort statt in der Zeitgrenze.
+- In der App (`shell/state.ts`, `relayVerbindung()`) nur bei eigenen Relays und
+  solchen mit gekauftem Zugang (`darfAnmelden()`), über `signiere()`.
+- Nie mit einem Sitzungsschlüssel – das verbände KI-Sitzung und Identität.
+
+**Kaufen** – Settings → Verbindung → „Relay-Zugang kaufen“ (`relay-kauf.ts`):
+- Der Preis kommt aus NIP-11. Die Kaufadresse gilt nur, wenn sie beim Relay
+  selbst liegt; eine fremde bekäme Schlüssel und Geld.
+- Das Angebot wird vor dem Zahlen geprüft: eigener Schlüssel, angekündigter
+  Preis, Rechnung auf genau diesen Betrag.
+- Gezahlt wird über die Zahlschienen. Bei SOL steht die Referenz nach Solana
+  Pay als zusätzliches Konto im Transfer (`Zahlanfrage.referenz`, `buildSolTransfer`).
+- Das Angebot ist gemerkt, bevor gezahlt wird. Bestätigt der Relay nicht
+  sofort, lässt es sich später erneut prüfen.
+- Ein Hinweis vor dem Kauf sagt, was der Betreiber sieht.
+
+**Knoten:** Umschläge standardmäßig nur an angemeldete Empfänger
+(`RELAY_UMSCHLAEGE_NUR_ANGEMELDET=0` schaltet ab).
+
+**Datenschutz:**
+- „relay-anmeldung“ belegt: neue Regel „anmeldung-nicht-offen“; das Szenario
+  prüft, dass die App sich nur auf Verlangen und genau einmal anmeldet und die
+  Anmeldung nie veröffentlicht.
+- „relay-zugang“ als Grenze: Kaufen verrät dem Betreiber Schlüssel und IP,
+  mit SOL auch die Absenderadresse.
+
+**Website:** FAQ, Whitepaper („Relays werden direkt bezahlt“), Roadmap.
+
+**Browser-Abnahme** (`scratchpad/relay_kauf_e2e.py`):
+- **Aufbau:** echte Relay-Rolle, beschränkt und mit Kasse, TLS davor als
+  `wss://relay.test`. Alle anderen Relays ersetzt ein Test-Relay, das
+  Umschläge verwirft – Post kommt also nur über den Knoten.
+- **Vor dem Kauf:** Bob nimmt den Relay in seinen Satz. Alice schreibt ihm –
+  der Relay nimmt nichts an.
+- **Kauf:** Bob fragt den Preis ab (30 Tage 1.000 sats, SOL-Knopf versteckt)
+  und kauft mit Sats (WebLN-Attrappe): „Bezahlt – Zugang bis 27.10.2026“.
+- **Nach dem Kauf:** Alice schreibt erneut – angenommen. Bob liest nur diese
+  Nachricht, nicht die erste.
+- Bob hat sich einmal angemeldet, Alice nie. Keine Seitenfehler. Nach dem Einmergen von 5.1.3a/b
+  erneut bestanden.
+
+**Beobachtet (Spur A, klein):** Veröffentlicht die App den eigenen Satz in
+derselben Sekunde wie die automatische Liste, tragen beide Kind-10050-Events
+dieselbe Zeit, und `posteingangVon()` nimmt irgendeine. Im Test umgangen
+(zwei Sekunden warten); nach NIP-01 gewönne die kleinere Id.
+
+**Tests:**
+- protocol +1: Regel „anmeldung-nicht-offen“; dazu das Szenario im
+  bestehenden Test.
+- node +3: Client gegen die echte Relay-Rolle – nur auf Verlangen, einmal je
+  Verbindung, Dauer-Abo; null bzw. fremder Schlüssel; Schreiben erst nach
+  Anmeldung.
+- app +5: NIP-11-Preise, Angebot prüfen, Kauf mit SOL samt Reihenfolge,
+  Referenz in der Solana-Schiene, Verdrahtung.
+- Der Verdrahtungstest aus 8.6c prüft jetzt `relayVerbindung(url, …)` statt
+  `new WebSocketRelay(url, …)`.
+
+Endstand (nach dem Einmergen von 5.1.3a/b): protocol 1163 (+1, 6 übersprungen) ·
+node 227 (+3, 7 übersprungen ohne Netz) · app 458 (+5) · mls 13 · Leak-Tests 57 grün + 1 todo · 0 rot ·
+check-wiring `--streng` Exit 0 · innerHTML streng 0 unbewertet · Website 5
+Seiten ok · Smoke-Test bestanden.

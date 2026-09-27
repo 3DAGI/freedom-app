@@ -4,12 +4,15 @@
  *
  * Aus app.ts verschoben (Schritt 1.0) – wörtlich, ohne Logikänderung.
  */
+import { zahle } from "@freedomstack/protocol";
 import { escapeHtml, pkShort } from "../../shell-logic.js";
 import { zeigeDatenschutz } from "../datenschutz.js";
 import { LS_ONION_PRUEFRELAY, onionRelay } from "../../onion-pruefung.js";
 import { zeigeVertraute } from "../nachfolge-ui.js";
 import { alsGeraet, ensurePool, mitBunker, mitRohemSchluessel, nimmInPool, signiere, state, veroeffentlicheWeit } from "../state.js";
 import { ladeEigeneRelays, pruefeRelayEingabe, setzeEigeneRelays } from "../../relay-satz.js";
+import { kaufeRelayZugang, leseRelayPreise, merkeZugang, pruefeBeimRelay, zugaenge, type RelayPreise, type Schiene } from "../../relay-kauf.js";
+import { satsText, solText } from "../../preis-anzeige.js";
 import { geheim, istGeheimnis, tresorEingerichtet, wireTresorKarte } from "../tresor.js";
 import { $, ganzeZahl, toast } from "../ui.js";
 import { ladeAbdeckung, trageAbdeckungEin, widerrufeAbdeckung } from "./earn.js";
@@ -635,6 +638,7 @@ export async function wireMeshTab(): Promise<void> {
   if (pruefen) pruefen.onclick = () => void zeigeDatenschutz(true);
 
   wireRelayKarte();
+  wireRelayZugang();
 
   // MLS-Engine (2.2b-b): erst der Selbsttest lädt sie – vorher bleibt sie gepackt.
   const mlsKnopf = document.getElementById("mls-selbsttest") as HTMLButtonElement | null;
@@ -997,6 +1001,89 @@ export async function wireGebuehrenKarte(): Promise<void> {
       zeige();
     }
   };
+}
+
+/**
+ * Relay-Zugang kaufen (8.4c): Preis aus NIP-11, Angebot geprüft, bezahlt über
+ * die Zahlschienen, bestätigt vom Relay. Bleibt die Bestätigung aus, ist das
+ * Angebot gemerkt – „Zahlung erneut prüfen“. Als Gerät nicht: der Posteingang
+ * gehört der Person.
+ */
+function wireRelayZugang(): void {
+  const $e = <T extends HTMLElement>(id: string) => document.getElementById(id) as T | null;
+  const feld = $e<HTMLInputElement>("relay-zugang-url");
+  const [preisK, satsK, solK, pruefK] = ["relay-zugang-preis", "relay-zugang-sats", "relay-zugang-sol", "relay-zugang-pruefen"].map((id) => $e<HTMLButtonElement>(id));
+  const status = $e("relay-zugang-status");
+  if (!feld || !preisK || !satsK || !solK || !pruefK || !status) return;
+  if (alsGeraet()) {
+    preisK.disabled = true;
+    status.textContent = "Als Gerät kauft die Person den Zugang – auf dem Hauptgerät.";
+    return;
+  }
+  feld.value = ladeEigeneRelays(localStorage)[0] ?? "";
+  let preise: RelayPreise | null = null;
+  const relay = () => feld.value.trim();
+  const zeigeStand = (mitText = true) => {
+    const z = zugaenge(localStorage)[relay()];
+    pruefK.classList.toggle("hidden", !z?.offen);
+    if (mitText && z?.bis) status.textContent = `Zugang bis ${new Date(z.bis * 1000).toLocaleDateString("de-DE")}.`;
+  };
+  feld.oninput = () => { preise = null; satsK.classList.add("hidden"); solK.classList.add("hidden"); status.textContent = ""; zeigeStand(); };
+  preisK.onclick = async () => {
+    status.textContent = "frage den Relay …";
+    try {
+      preise = await leseRelayPreise(relay());
+    } catch {
+      preise = null;
+    }
+    satsK.classList.toggle("hidden", !preise?.msat);
+    solK.classList.toggle("hidden", !preise?.lamports);
+    status.textContent = !preise
+      ? "Dieser Relay verkauft keinen Zugang (oder ist nicht erreichbar)."
+      : `${preise.tage} Tage: ${[preise.msat ? satsText(preise.msat) : "", preise.lamports ? solText(preise.lamports) : ""].filter(Boolean).join(" oder ")}` +
+        `${preise.beschraenkt ? " · nimmt nur Post von und an Zahlende an" : ""}${preise.umschlaegeGeschuetzt ? " · Umschläge nur an Angemeldete" : ""}`;
+    zeigeStand(false);
+  };
+  const kaufe = async (schiene: Schiene) => {
+    if (!preise || !state.keypair) return;
+    const url = relay();
+    const hinweis = schiene === "solana"
+      ? "Der Betreiber sieht deine Absenderadresse, und auf der Kette sieht jeder, dass sie diesen Relay bezahlt hat."
+      : "Der Betreiber sieht nur die Zahlung.";
+    if (!confirm(`Zugang zu ${url} für ${preise.tage} Tage kaufen? ${hinweis}`)) return;
+    satsK.disabled = solK.disabled = true;
+    status.textContent = "hole Angebot und zahle …";
+    try {
+      const { zahlschienen } = await import("../zahlschienen.js");
+      const r = await kaufeRelayZugang({
+        relay: url, schiene, pubkey: state.keypair.pk, preise,
+        zahle: (a) => zahle(zahlschienen(), a),
+        merke: (z) => merkeZugang(localStorage, url, z),
+      });
+      status.textContent = r ? `Bezahlt – Zugang bis ${new Date(r.bis * 1000).toLocaleDateString("de-DE")}.` : "Bezahlt, aber der Relay bestätigt noch nicht – später „Zahlung erneut prüfen“.";
+    } catch (e) {
+      status.textContent = `Nicht gekauft: ${(e as Error).message}`;
+    } finally {
+      satsK.disabled = solK.disabled = false;
+      zeigeStand(false);
+    }
+  };
+  satsK.onclick = () => void kaufe("lightning");
+  solK.onclick = () => void kaufe("solana");
+  pruefK.onclick = async () => {
+    const offen = zugaenge(localStorage)[relay()]?.offen;
+    if (!offen) return;
+    status.textContent = "frage den Relay …";
+    try {
+      const r = await pruefeBeimRelay(offen, { versuche: 1 });
+      if (r) merkeZugang(localStorage, relay(), { bis: r.bis });
+      status.textContent = r ? "" : "Noch nicht bestätigt.";
+    } catch (e) {
+      status.textContent = `Nicht geprüft: ${(e as Error).message}`;
+    }
+    zeigeStand();
+  };
+  zeigeStand();
 }
 
 /**

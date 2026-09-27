@@ -63,6 +63,13 @@
   Adressen in privaten Netzbereichen werden abgelehnt, und die Startliste wird nie
   vollständig verdrängt — sonst könnte jemand mit genug Ankündigungen einen Client
   auf eigene Server umlenken.</p>
+  <p><strong>Relays werden direkt bezahlt.</strong> Das Relay eines Knotens gibt
+  Umschläge (NIP-17) nur an den per NIP-42 angemeldeten Empfänger heraus. Auf
+  Wunsch nimmt es nur Post von und an Schlüssel mit Zugang an; den Zugang verkauft
+  es selbst, in Sats über eine Rechnung des eigenen Lightning-Knotens oder in SOL
+  mit einer Referenz nach Solana Pay – bezahlt ist erst, was beim Betreiber
+  angekommen ist. Die App meldet sich nur bei eigenen und gekauften Relays an, nie
+  mit einem Sitzungsschlüssel.</p>
 <h2 id="dvm">KI-Marktplatz — DVM</h2>
 <p>Ein Kunde veröffentlicht eine Anfrage mit Gebot, Provider antworten mit
   Ergebnis und Preis. Bezahlt wird pro Job in Sats, über eine Session mit Budget,

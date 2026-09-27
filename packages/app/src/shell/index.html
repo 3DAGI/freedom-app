@@ -608,6 +608,17 @@
             <button id="eigene-relays-save" class="ghost" style="width:auto;padding:6px 10px" type="button">veröffentlichen</button>
           </div>
           <div id="eigene-relays-status" class="mono-sm" aria-live="polite"></div>
+        </div><div class="card" id="relay-zugang-karte">
+          <h3><span class="ic" data-icon="server"></span> Relay-Zugang kaufen</h3>
+          <p class="mono-sm">Manche Relays nehmen Post nur für Zahlende an und geben deine Umschläge nur an dich heraus, wenn du dich anmeldest (NIP-42). Die App meldet sich nur bei deinen eigenen Relays und bei Relays mit gekauftem Zugang an – nur, wenn der Relay es verlangt. Kaufen verrät dem Betreiber deinen Schlüssel und deine IP-Adresse; mit SOL auch deine Absenderadresse, und auf der Kette sieht jeder, dass sie diesen Relay bezahlt hat. Mit Sats sieht der Betreiber nur die Zahlung.</p>
+          <input id="relay-zugang-url" class="mono-sm" placeholder="wss://…" autocomplete="off" spellcheck="false" style="width:100%" aria-label="Relay-Adresse" />
+          <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">
+            <button id="relay-zugang-preis" class="ghost" style="width:auto;padding:6px 10px" type="button">Preis abfragen</button>
+            <button id="relay-zugang-sats" class="ghost hidden" style="width:auto;padding:6px 10px" type="button">mit Sats kaufen</button>
+            <button id="relay-zugang-sol" class="ghost hidden" style="width:auto;padding:6px 10px" type="button">mit SOL kaufen</button>
+            <button id="relay-zugang-pruefen" class="ghost hidden" style="width:auto;padding:6px 10px" type="button">Zahlung erneut prüfen</button>
+          </div>
+          <div id="relay-zugang-status" class="mono-sm" aria-live="polite"></div>
         </div></div>
             <div class="subpane" data-subpane="settings:privacy"><h2 class="settings-h">Datenschutz</h2><div class="card">
           <h3><span class="ic" data-icon="shield"></span> Was sichtbar ist</h3>
