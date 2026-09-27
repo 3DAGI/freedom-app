@@ -207,3 +207,15 @@ scarcity.ts|normalizeRegion|Regionen, noch nicht angebunden (Abdeckungskarte, 5.
 wot.ts|computeTrust|nur vom Pool-Verteiler genutzt (entfernt mit 5.1.2); Reputation aus Quittungen (5.5, zurückgestellt)
 wot.ts|extractEdges|nur vom Pool-Verteiler genutzt (entfernt mit 5.1.2); Reputation aus Quittungen (5.5, zurückgestellt)
 profile.ts|payoutAddress|Auszahladresse aus dem Profil – nie aufgerufen; bis 5.1.4b zählte eine gleichnamige Variable im Belohnungsantrag als Aufruf
+channel.ts|erstatteKanalIx|Zahlkanal (4.3a): Client nach docs/ZAHLKANAL.md; Programm 4.3b, Knoten 4.3c, App 4.3d
+channel.ts|gutschriftNachricht|Zahlkanal (4.3a): Client nach docs/ZAHLKANAL.md; Programm 4.3b, Knoten 4.3c, App 4.3d
+channel.ts|kanalAdresse|Zahlkanal (4.3a): Client nach docs/ZAHLKANAL.md; Programm 4.3b, Knoten 4.3c, App 4.3d
+channel.ts|leseKanal|Zahlkanal (4.3a): Client nach docs/ZAHLKANAL.md; Programm 4.3b, Knoten 4.3c, App 4.3d
+channel.ts|neuerSitzungsSchluessel|Zahlkanal (4.3a): Client nach docs/ZAHLKANAL.md; Programm 4.3b, Knoten 4.3c, App 4.3d
+channel.ts|oeffneKanalIx|Zahlkanal (4.3a): Client nach docs/ZAHLKANAL.md; Programm 4.3b, Knoten 4.3c, App 4.3d
+channel.ts|pruefeGutschrift|Zahlkanal (4.3a): Client nach docs/ZAHLKANAL.md; Programm 4.3b, Knoten 4.3c, App 4.3d
+channel.ts|pruefeKanalEmpfaenger|Zahlkanal (4.3a): Client nach docs/ZAHLKANAL.md; Programm 4.3b, Knoten 4.3c, App 4.3d
+channel.ts|rechneKanalAbIxs|Zahlkanal (4.3a): Client nach docs/ZAHLKANAL.md; Programm 4.3b, Knoten 4.3c, App 4.3d
+channel.ts|signiereGutschrift|Zahlkanal (4.3a): Client nach docs/ZAHLKANAL.md; Programm 4.3b, Knoten 4.3c, App 4.3d
+channel.ts|stockeKanalAufIx|Zahlkanal (4.3a): Client nach docs/ZAHLKANAL.md; Programm 4.3b, Knoten 4.3c, App 4.3d
+channel.ts|teileKanalZahlung|Zahlkanal (4.3a): Client nach docs/ZAHLKANAL.md; Programm 4.3b, Knoten 4.3c, App 4.3d

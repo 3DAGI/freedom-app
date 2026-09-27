@@ -7539,3 +7539,62 @@ Endstand: protocol 1056 · node 226 · app 475 · mls 13 · Leak-Tests 57 grün 
 1 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 ·
 Website 5 Seiten ok (mit Prüfung auf veraltete Aussagen) · Website-Bau ok ·
 Smoke-Test bestanden.
+
+## Schritt 4.3a – Solana-Zahlkanal: Format und Client
+
+4.3 ist geteilt (mehr als 400 Zeilen): **a Format und Client**, b Programm mit
+Tests gegen den Validator, c Knoten, d App.
+
+**Format (`docs/ZAHLKANAL.md`):**
+- Konto `Channel`: PDA aus `["channel", Kunde, Provider, nonce]`, 429 Bytes,
+  höchstens 8 Empfänger.
+- Anweisungen `open`, `settle` (Ed25519-Anweisung direkt davor, alle Offsets
+  auf sie selbst), `refund` (ab Ablauf, schließt das Konto) und `top_up`.
+- Gutschrift, 71 Bytes: Präfix `freedomstack-channel-v1`, Kanal-Adresse,
+  Betrag (u64 LE), Ablauf (i64 LE). Die Gutschriften sind kumulativ.
+- Aufteilung on-chain: abgerundet, der Rest geht an den Provider. Ergänzt
+  gegenüber der Karte: Ist ein Empfängerkonto ausführbar oder bliebe es unter
+  der Mietbefreiung, geht dessen Anteil an den Provider. Sonst könnte ein
+  leeres Konto jede Abrechnung blockieren (A+: nicht Zuordenbares an den
+  Provider).
+
+**Client (`packages/protocol/src/channel.ts`):**
+- `kanalAdresse()`, `gutschriftNachricht()`, `neuerSitzungsSchluessel()`,
+  `signiereGutschrift()`.
+- `pruefeGutschrift()`: Kanal, Ablauf, Signatur, steigend, höchstens die
+  Einlage.
+- `pruefeKanalEmpfaenger()`: höchstens 8, je mindestens 1 ppm, zusammen
+  höchstens 10 % wie `MAX_ANTEILE_PPM`.
+- Anweisungen `oeffneKanalIx()`, `rechneKanalAbIxs()` (Ed25519 plus settle),
+  `erstatteKanalIx()`, `stockeKanalAufIx()`.
+- `leseKanal()` und `teileKanalZahlung()`.
+- Läuft im Browser: `DataView`, `@noble` (schon Abhängigkeit), keine
+  Node-Module.
+- Programm-ID: ein Platzhalter aus den 32 Bytes von
+  „freedomstack-channel-platzhalter“. Zu dieser Adresse gibt es keinen
+  Schlüssel; den echten trägt der MENSCH beim Deploy ein.
+
+**Werkzeug für 4.3b geprüft:**
+- Agave 1.18 (cargo 1.75) und 3.0 (cargo 1.84) scheitern an der Lock-Datei
+  des HTLC-Programms (edition2024).
+- Agave 3.1.10 (platform-tools v1.52, Rust 1.89) baut es: 220 KB, deployt
+  waren 217 KB mit v1.53.
+- `solana-test-validator` läuft in der Umgebung und lädt das Programm.
+
+**Ausnahmen Verdrahtung:** 12 Exporte von `channel.ts`, bis 4.3c/d.
+
+**Tests:** protocol +8 (`channel.test.ts`):
+- Format mit festen Bytes;
+- PDA;
+- Gutschrift: gültig, sowie Replay aus einem anderen Kanal (auch
+  umetikettiert), gleicher oder niedrigerer Betrag, über der Einlage, anderer
+  Ablauf, fremder Schlüssel und kaputte Signatur;
+- `open` nach Borsh, mit Empfänger-Grenzen;
+- `settle` mit Ed25519-Offsets und Konten-Reihenfolge;
+- `refund` und `top_up`;
+- Konto lesen, samt abgelehnten fremden und kaputten Konten;
+- Aufteilung auf den Lamport.
+
+Endstand: protocol 1064 (+8) · node 226 · app 475 · mls 13 · Leak-Tests 57
+grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng
+Exit 0 · Website 5 Seiten ok · Smoke-Test bestanden.
