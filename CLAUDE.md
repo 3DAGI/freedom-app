@@ -54,7 +54,7 @@ nach Entscheidung 4.9 A – im Datenschutzbericht unter „Bewusste Grenzen“).
 ## Arbeitsweise
 
 1. `docs/ausbau/FORTSCHRITT.md` lesen, den nächsten offenen Schritt **der eigenen
-   Spur** nehmen (Abschnitt „Zwei Spuren“) – **nur einen pro Sitzung**. Dann die passende Karte `docs/ausbau/phase-N.md`.
+   Spur** nehmen (Abschnitt „Spuren“) – **nur einen pro Sitzung**. Dann die passende Karte `docs/ausbau/phase-N.md`.
 2. Vor jeder Änderung die Stellen mit `grep -rn` finden und lesen. Große Dateien
    (`tabs/agent.ts`, `tabs/kommunikation.ts`) nur in Ausschnitten lesen (Zeilenbereiche).
 3. Kleine, gezielte Änderungen; keine Umformatierung unbeteiligter Stellen.
@@ -68,13 +68,16 @@ nach Entscheidung 4.9 A – im Datenschutzbericht unter „Bewusste Grenzen“).
    welcher Knoten-Stand nötig ist; bis zum Update dürfen KI-Anfragen der Live-App
    scheitern.
 
-## Zwei Agenten parallel (seit 26.09.2026)
+## Drei Agenten parallel (zwei seit 26.09.2026, drei seit 27.09.2026)
 
-Zwei Agenten arbeiten gleichzeitig in getrennten Spuren (Tabelle in
-`docs/ausbau/FORTSCHRITT.md`). Damit sie sich nicht gegenseitig brechen:
+Drei Agenten arbeiten gleichzeitig in getrennten Spuren (Tabelle in
+`docs/ausbau/FORTSCHRITT.md`): A Netz, Geld, Vertrauen · B Mesh und Bausteine ·
+C Oberfläche (Karte `docs/ausbau/phase-10.md`). Damit sie sich nicht
+gegenseitig brechen:
 
-1. **Nur Schritte der eigenen Spur.** Muss ein Schritt Code der anderen Spur
-   ändern, klein halten und im Pull Request nennen.
+1. **Nur Schritte der eigenen Spur.** Muss ein Schritt Code einer anderen Spur
+   ändern, klein halten und im Pull Request nennen. Spur C baut nur Oberfläche
+   und baut Dateien, an denen eine andere Spur gerade arbeitet, erst danach um.
 2. **Eigener Branch, eigene Pull Requests;** höchstens einer je Agent offen. Jeder
    merged seine eigenen, sobald CI grün ist.
 3. **Vor dem Merge `main` holen:** Ist `main` seit dem letzten CI-Lauf weiter,
@@ -87,7 +90,7 @@ Zwei Agenten arbeiten gleichzeitig in getrennten Spuren (Tabelle in
    diesen Dateien und in Sammelstellen (`protocol/src/index.ts`,
    `node/src/main.ts`, `app/src/shell/app.ts`, `scripts/*ausnahmen*`) beide
    Seiten behalten.
-5. **Knoten-Stand:** Ein Update des GX10-Knotens auf `main` deckt beide Spuren
+5. **Knoten-Stand:** Ein Update des GX10-Knotens auf `main` deckt alle Spuren
    ab; im Pull Request steht wie bisher, welcher Stand nötig ist.
 
 ## Definition of Done – alle Punkte, sonst nicht fertig
