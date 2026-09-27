@@ -39,8 +39,7 @@ export const KIND_DVM_TEXT_RESULT = 6050;       // Result
 export const KIND_LP_OFFER = 38001;         // LP-Liquiditaetsangebot (Swap)
 export const KIND_SWAP_ATTESTATION = 38002; // Swap-Abschluss -> Reputation
 export const KIND_PERFORMANCE = 38010;      // Leistungs-Event (Nachricht/KI-Job/Liquiditaet)
-export const KIND_REWARD_PAYOUT = 38011;    // Reward-Ausschuettungsnachweis
-export const KIND_SEASON_DEF = 38012;       // Season-Definition (Start/Ende/Pool-Regeln)
+// 38011/38012 (Reward-Ausschuettung, Saison mit Pool-Regeln) nicht mehr belegt (5.1.4d)
 export const KIND_SESSION_OPEN = 38021;     // Streaming-Sats Session-Eroeffnung
 export const KIND_SESSION_PAYMENT = 38022;  // Streaming-Sats Zahlungs-Beleg
 export const KIND_SOL_DEPOSIT_OPEN = 38023; // Solana-Deposit-Session (Escrow)
@@ -73,6 +72,8 @@ export function resultKindFor(requestKind: number): number {
 }
 
 // --- Nicht mehr belegt ---
-// 38050 (Treasury-Ansage) und 38051 (Fee-Beweis des Knotens) fielen mit dem
-// Gebührenmodell A+ (5.1.4a/c) – nicht für Neues wiederverwenden: Alte Events
-// dieser Arten liegen noch auf Relays.
+// 38011/38012 (Reward-Ausschüttung, Saison mit Pool-Regeln), 38013
+// (Belohnungsantrag), 38050 (Treasury-Ansage), 38051 (Fee-Beweis des Knotens)
+// und 38053 (Verteilungsbericht) fielen mit dem Gebührenmodell A+ (5.1.2–5.1.4d)
+// – nicht für Neues wiederverwenden: Alte Events dieser Arten liegen noch auf
+// Relays.
