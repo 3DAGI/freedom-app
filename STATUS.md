@@ -7382,6 +7382,8 @@ Protokollgebühr, und die Aufgabe „erster Job“ (Abzeichen) liest Gebühren-B
   veröffentlicht wurde sie nie (`build-site.sh` nimmt den Build). Jetzt in
   `.gitignore`; `check-website.py` prüft den Link gegen den Build.
 - Launcher: Platzhalter ohne Verwahrer-Adresse.
+- Gebühren-Karte: Hosting geht seit 5.3a an den Spiegel (`freedom-spiegel.json`)
+  – „Hosting folgt“ stimmte nicht mehr.
 - Demo `run-full.ts`: Schritt 5 zeigt die Aufteilung A+; Rangliste und
   Ausschüttung entfallen.
 
@@ -7394,7 +7396,7 @@ Knappheitsbonus 15 (die 5 Regionstests bleiben, die Empfehlung prüft jetzt
 „fehlen“), Pool/Rangliste 5 (`value-layer`), App-Gebühr 15 (`pricing-clientfee`,
 die Preistests bleiben); node −1 (App-Gebühr gedeckelt).
 
-Endstand: protocol 1113 (−49, begründet) · node 224 (−1, begründet) · app 453 ·
-mls 13 · Leak-Tests 57 grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 ·
+Endstand (nach Einmergen von main mit 5.3 und 8.16): protocol 1129 (−49,
+begründet) · node 227 (−1, begründet) · app 473 · mls 13 · Leak-Tests 57 grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 ·
 innerHTML streng 0 unbewertet · Website 5 Seiten ok · Smoke-Test bestanden ·
 Demo `demo:full` läuft.
