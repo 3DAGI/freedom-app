@@ -9,6 +9,7 @@
  * Die Regeln stehen hier ohne Netz und ohne Uhr, damit Relay und App dieselben
  * benutzen und Tests sie ohne Server prüfen.
  */
+import { PublicKey } from "@solana/web3.js";
 import { NostrEvent, getTag, hasValidEventShape, verifyEvent } from "./event.js";
 
 export const KIND_RELAY_AUTH = 22242;
@@ -121,6 +122,8 @@ export interface RelayInfoEingabe {
   aufbewahrungTage: number;
   beschraenkt: boolean;
   umschlaegeGeschuetzt: boolean;
+  /** Zugang zu kaufen (8.4b): Preis je Zeitraum in der Einheit jeder angebotenen Schiene. */
+  kauf?: { tage: number; msat?: number; lamports?: number; url: string };
 }
 
 /** Selbstauskunft nach NIP-11 – was der Relay kann und verlangt. */
@@ -138,6 +141,27 @@ export function baueRelayInfo(e: RelayInfoEingabe): Record<string, unknown> {
       restricted_writes: e.beschraenkt,
     },
     retention: [{ time: e.aufbewahrungTage * 86400 }],
+    ...(e.kauf ? {
+      fees: {
+        subscription: [
+          ...(e.kauf.msat ? [{ amount: e.kauf.msat, unit: "msat", period: e.kauf.tage * 86400 }] : []),
+          ...(e.kauf.lamports ? [{ amount: e.kauf.lamports, unit: "lamports", period: e.kauf.tage * 86400 }] : []),
+        ],
+      },
+      payments_url: e.kauf.url,
+    } : {}),
     freedom: { umschlaege_nur_an_angemeldete: e.umschlaegeGeschuetzt },
   };
+}
+
+// ------------------------------------------------------------ Zugang kaufen (8.4b)
+
+/**
+ * Referenz nach Solana Pay: 32 Zufallsbytes als Adresse. Die App nimmt sie als
+ * zusätzliches Konto in die Überweisung; so gehört die Zahlung zu genau einem
+ * Angebot (`pruefeSolUeberweisung(…, { referenz })`).
+ */
+export function solReferenz(zufall: Uint8Array): string {
+  if (zufall.length !== 32) throw new Error("Referenz braucht 32 Zufallsbytes");
+  return new PublicKey(zufall).toBase58();
 }

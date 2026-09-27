@@ -89,11 +89,23 @@ export function macaroonRechte(hex: string): MacaroonRecht[] {
   });
 }
 
+/** Die Relay-Rolle (8.4b) stellt nur Rechnungen aus und fragt, ob sie bezahlt sind. */
+export const RELAY_RECHTE_NOETIG = ["invoices:read", "invoices:write"] as const;
+
 /**
  * Taugt diese Macaroon fuer den LP-Daemon? Genau die noetigen Rechte, nichts
  * darueber hinaus – sonst nennt `grund`, was zu viel ist oder fehlt.
  */
 export function pruefeLpMacaroon(hex: string): { ok: true } | { ok: false; grund: string } {
+  return pruefeRechte(hex, LP_RECHTE_NOETIG, LP_RECHTE_ERLAUBT);
+}
+
+/** Taugt diese Macaroon fuer die Relay-Rolle? Nur Rechnungen (`info:read` erlaubt) – wer den Relay uebernimmt, zahlt nichts aus. */
+export function pruefeRelayMacaroon(hex: string): { ok: true } | { ok: false; grund: string } {
+  return pruefeRechte(hex, RELAY_RECHTE_NOETIG, [...RELAY_RECHTE_NOETIG, "info:read"]);
+}
+
+function pruefeRechte(hex: string, noetig: readonly string[], erlaubt: readonly string[]): { ok: true } | { ok: false; grund: string } {
   let rechte: MacaroonRecht[];
   try {
     rechte = macaroonRechte(hex);
@@ -101,9 +113,9 @@ export function pruefeLpMacaroon(hex: string): { ok: true } | { ok: false; grund
     return { ok: false, grund: `Macaroon nicht lesbar (${(e as Error).message})` };
   }
   const hat = new Set(rechte.flatMap((r) => r.actions.map((a) => `${r.entity}:${a}`)));
-  const zuviel = [...hat].filter((r) => !(LP_RECHTE_ERLAUBT as readonly string[]).includes(r)).sort();
+  const zuviel = [...hat].filter((r) => !erlaubt.includes(r)).sort();
   if (zuviel.length > 0) return { ok: false, grund: `Macaroon erlaubt zu viel: ${zuviel.join(", ")}` };
-  const fehlt = LP_RECHTE_NOETIG.filter((r) => !hat.has(r));
+  const fehlt = noetig.filter((r) => !hat.has(r));
   if (fehlt.length > 0) return { ok: false, grund: `Macaroon fehlt: ${fehlt.join(", ")}` };
   return { ok: true };
 }

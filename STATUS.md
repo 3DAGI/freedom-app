@@ -6768,3 +6768,55 @@ Endstand: protocol 1158 (+5, mit 5.1.1/5.1.2 von Spur A; 6 übersprungen) · nod
 5.1.2 entfernte 40, 7 übersprungen ohne Netz) · app 439 (nach dem Einmergen von 5.4b2, 5.1.1 und 5.1.2) · mls 13 · Leak-Tests 55 grün + 1 todo · 0 rot ·
 check-wiring `--streng` Exit 0 · innerHTML streng 0 unbewertet · Website 5
 Seiten ok · Smoke-Test bestanden.
+
+## Schritt 8.4b – Relay-Zugang kaufen in Sats oder SOL
+
+**Jetzt** (`node/src/relay-kasse.ts`, `POST /zugang` auf dem Relay-Port):
+- **Sats:** eine Rechnung des eigenen LND. Die Macaroon darf nur Rechnungen
+  (`pruefeRelayMacaroon()`: `invoices:read`/`write`, `info:read` erlaubt) –
+  wer den Relay übernimmt, zahlt nichts aus. Bezahlt ist erst, was der eigene
+  Knoten als beglichen meldet.
+- **SOL:** an `RELAY_SOL_ADRESSE`, mit einer Referenz nach Solana Pay
+  (`solReferenz()`, 32 Zufallsbytes als Adresse). Bezahlt ist erst, was die
+  Kette zeigt: Überweisung an den Betreiber, Betrag, Erfolg und die Referenz
+  des Angebots als Konto (`pruefeSolUeberweisung(…, { referenz })`). Eine
+  Überweisung, die zwei Referenzen nennt, löst nur ein Angebot ein
+  (eingelöste Signaturen gemerkt, auch über einen Neustart).
+- Nie in einer Schiene, die nicht eingerichtet ist („Dieser Relay nimmt kein
+  SOL“ statt still Sats); höchstens drei offene Angebote je Schlüssel.
+- Angebote werden abgelegt, bevor sie herausgehen – wer während eines
+  Neustarts zahlt, bekommt den Zugang trotzdem. Zwei Prüfungen zugleich
+  gewähren ihn genau einmal.
+- Nach außen nur feste Texte (`KasseFehler`), nie Meldungen von LND oder vom
+  RPC; ein Fehler beim Kaufen beendet den Knoten nicht.
+- NIP-11 nennt Preise je Schiene (`fees.subscription` in msat und Lamports)
+  und die Kaufadresse (`payments_url`).
+- **Events überdauern einen Neustart:** jede Minute und beim Beenden in
+  `~/.freedom/relay-events.json`, beim Laden geprüft (gefälschte Einträge
+  verworfen); über `RELAY_MAX_EVENTS` lehnt der Relay ab statt still zu
+  verdrängen.
+
+**Abnahme** (Knoten-Test, echter WebSocket, LND und Kette als Stub):
+- Ein Umschlag an Bob wird abgewiesen, solange Bob keinen Zugang hat.
+- Bob kauft mit Sats; bis zur Zahlung heißt es „Noch nicht bezahlt“.
+- Danach wird derselbe Umschlag angenommen und nur an den angemeldeten Bob
+  ausgeliefert. Alice bekommt `CLOSED auth-required`.
+
+Echte Zahlungen (Testnet-Sats, Devnet-SOL) sind MENSCH-Aufgabe.
+
+**Verdrahtet:** `node/src/main.ts` (Kasse mit LND-Rechnungen und Kette,
+`RELAY_PREIS_SATS`, `RELAY_PREIS_LAMPORTS`, `RELAY_SOL_ADRESSE`,
+`RELAY_LND_MACAROON`, `RELAY_ZUGANG_TAGE`, `RELAY_MAX_EVENTS`; Relay beim
+Beenden gestoppt, damit die Events abgelegt werden); `docker-compose.yml`.
+`LndLightningAdapter.createInvoice()` nimmt Notiz und Gültigkeit (der LP
+bleibt beim alten Text).
+
+**Tests:** protocol +3 (Relay-Macaroon, NIP-11 mit Preisen, Referenz);
+node +7 (Sats, SOL mit fünf Fehlfällen und doppelter Referenz, keine fremde
+Schiene, Neustart, gleichzeitige Prüfungen, Abnahme über den Relay, Events
+über einen Neustart samt Fälschung und vollem Relay).
+
+Endstand: protocol 1161 (+3, 6 übersprungen) · node 224 (+7, 7 übersprungen
+ohne Netz) · app 439 · mls 13 · Leak-Tests 55 grün + 1 todo · 0 rot ·
+check-wiring `--streng` Exit 0 · innerHTML streng 0 unbewertet · Website 5
+Seiten ok · Smoke-Test bestanden.
