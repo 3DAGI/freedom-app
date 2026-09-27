@@ -423,3 +423,49 @@ test("8.16g2a: übrige Bausteine – Mesh, MLS, Werkzeuge, Räume, Hinweise im B
     setLang(vorher);
   }
 });
+
+test("8.16g2b1: Datenschutzbericht in der Sprache der Oberfläche – deutsch wortgleich mit dem Protokoll, jede Kennung mit Text", async () => {
+  const ds = readFileSync(pfad(SRC, "shell/datenschutz.ts"), "utf8");
+  assert.doesNotMatch(ds, /privacyReport\(|privacyFactsText\(/, "die App zeigt nicht mehr die deutschen Sätze des Protokolls");
+  assert.match(ds, /box\.textContent = berichtText\(cfg as never\) \+ "\\n\\n" \+ hinweise\.join\("\\n"\);/);
+  assert.match(readFileSync(pfad(SRC, "einrichtung.ts"), "utf8"), /\.map\(\(f\) => faktAussage\(f!\)\)/);
+
+  const P = await import("@freedomstack/protocol");
+  const B = await import("../src/datenschutz-bericht.js");
+  // Alle Einstellungen, die den Bericht ändern
+  const cfgs: import("@freedomstack/protocol").PrivacyConfig[] = [];
+  for (const network of ["klar", "tor", "mixnet"] as const) {
+    for (let bits = 0; bits < 1 << 9; bits++) {
+      const b = (i: number) => (bits & (1 << i)) !== 0;
+      cfgs.push({ ...P.DEFAULT_CONFIG, network, giftWrap: b(0), encryptedChannels: b(1), ownRelay: b(2), solanaInProfile: b(3), usesSwaps: b(4), custodialLightning: b(5), expiringMessages: b(6), externalAvatar: b(7), stateBackup: b(8) });
+    }
+  }
+  const vorher = getLang();
+  try {
+    setLang("de");
+    const ids = new Set<string>();
+    for (const cfg of cfgs) {
+      for (const f of P.auditPrivacy(cfg)) ids.add(f.id);
+      assert.equal(B.berichtText(cfg), P.privacyReport(cfg));
+    }
+    for (const id of ids) assert.ok(B.kenntBefund(id), `Befund ${id} ohne Text`);
+    assert.equal(ids.size, 17, "alle Fassungen der Befunde gesehen");
+    for (const f of P.PRIVACY_FACTS) assert.ok(B.kenntFakt(f.id), `Aussage ${f.id} ohne Text`);
+    for (const tor of [undefined, "erreichbar", "nicht-erreichbar", "keine-onion"] as const) {
+      assert.equal(B.faktenText(tor), P.privacyFactsText(P.faktenDieserSitzung(tor)), String(tor));
+    }
+    setLang("en");
+    const en = B.berichtText(P.DEFAULT_CONFIG);
+    assert.match(en, /^Privacy self-report — \d+ of 100\n\d serious leak\(s\)\. You are NOT anonymous\.\nIn short: content, sender: hidden; IP address: visible without Tor\n/);
+    assert.match(en, /!! Your IP address\n   EVERY relay you connect to sees your IP/);
+    assert.match(en, /\nBiggest win: Your IP address: Connect via Tor/);
+    const fakten = B.faktenText("nicht-erreichbar");
+    assert.match(fakten, /^Proven by tests:\n✓ Direct messages: the content is end-to-end encrypted\.\n/);
+    assert.match(fakten, /○ Not yet: Relays don't see your IP address\. \(roadmap 6\.1\) – This session reaches no \.onion relay/);
+    assert.match(fakten, /Deliberate limits:\n△ Sent SOL payments don't come from fresh addresses/);
+    assert.match(B.faktenText("erreichbar"), /Checked in this session:\n✓ IP address hidden:/);
+    assert.doesNotMatch(en + fakten, /[äöüÄÖÜß]/, "kein deutscher Satz im englischen Bericht");
+  } finally {
+    setLang(vorher);
+  }
+});

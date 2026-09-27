@@ -28,6 +28,8 @@
 export type Severity = "gut" | "hinweis" | "warnung" | "kritisch";
 
 export interface PrivacyFinding {
+  /** Feste Kennung je Befund und Fassung (seit 8.16g2b1) – die App bildet die Texte darüber in ihrer Sprache. */
+  id: string;
   layer: "inhalt" | "netz" | "kette" | "geraet";
   title: string;
   severity: Severity;
@@ -84,40 +86,41 @@ export function auditPrivacy(cfg: PrivacyConfig): PrivacyFinding[] {
 
   // ---------------------------------------------------------- Inhalt
   f.push({
+    id: "dm-inhalt",
     layer: "inhalt",
     title: "Direktnachrichten",
     severity: "gut",
-    whoSeesWhat: "Niemand ausser dem Empfaenger sieht den Inhalt (NIP-44).",
+    whoSeesWhat: "Niemand außer dem Empfänger sieht den Inhalt (NIP-44).",
     remedy: "Nichts zu tun.",
   });
 
   f.push(cfg.giftWrap
     ? {
-        layer: "inhalt", title: "Absender von Direktnachrichten", severity: "gut",
-        whoSeesWhat: "Relays sehen einen Wegwerfschluessel, nicht dich.",
-        remedy: "Nichts zu tun. Der EMPFAENGER bleibt sichtbar — das ist unvermeidbar.",
+        id: "absender-verborgen", layer: "inhalt", title: "Absender von Direktnachrichten", severity: "gut",
+        whoSeesWhat: "Relays sehen einen Wegwerfschlüssel, nicht dich.",
+        remedy: "Nichts zu tun. Der EMPFÄNGER bleibt sichtbar — das ist unvermeidbar.",
       }
     : {
-        layer: "inhalt", title: "Absender von Direktnachrichten", severity: "warnung",
-        whoSeesWhat: "Jedes Relay sieht, WER mit WEM schreibt. Daraus laesst sich dein vollstaendiger Sozialgraph rekonstruieren.",
+        id: "absender-sichtbar", layer: "inhalt", title: "Absender von Direktnachrichten", severity: "warnung",
+        whoSeesWhat: "Jedes Relay sieht, WER mit WEM schreibt. Daraus lässt sich dein vollständiger Sozialgraph rekonstruieren.",
         remedy: "Geschenkumschlag einschalten.",
       });
 
   f.push(cfg.encryptedChannels
     ? {
-        layer: "inhalt", title: "Kanaele", severity: "gut",
-        whoSeesWhat: "Relays sehen, DASS geschrieben wird, nicht was. Die Mitgliederliste ist oeffentlich.",
-        remedy: "Bedenke: Wer austritt, behaelt alles, was er vorher gelesen hat.",
+        id: "kanaele-verschluesselt", layer: "inhalt", title: "Kanäle", severity: "gut",
+        whoSeesWhat: "Relays sehen, DASS geschrieben wird, nicht was. Die Mitgliederliste ist öffentlich.",
+        remedy: "Bedenke: Wer austritt, behält alles, was er vorher gelesen hat.",
       }
     : {
-        layer: "inhalt", title: "Kanaele", severity: "warnung",
-        whoSeesWhat: "Offene Kanaele kann JEDER lesen, auch ohne diese App. Die Rechte regeln nur das Schreiben.",
-        remedy: "Verschluesselte Kanaele benutzen — kostet einen Schluesselwechsel bei jedem Austritt.",
+        id: "kanaele-offen", layer: "inhalt", title: "Kanäle", severity: "warnung",
+        whoSeesWhat: "Offene Kanäle kann JEDER lesen, auch ohne diese App. Die Rechte regeln nur das Schreiben.",
+        remedy: "Verschlüsselte Kanäle benutzen — kostet einen Schlüsselwechsel bei jedem Austritt.",
       });
 
   if (!cfg.expiringMessages) {
     f.push({
-      layer: "inhalt", title: "Aufbewahrung", severity: "hinweis",
+      id: "aufbewahrung", layer: "inhalt", title: "Aufbewahrung", severity: "hinweis",
       whoSeesWhat: "Alles bleibt dauerhaft auf allen Relays. Eine Nachricht von heute ist in drei Jahren noch abrufbar.",
       remedy: "Ablauf setzen. Das ist eine Bitte an die Relays, keine Garantie.",
     });
@@ -126,79 +129,80 @@ export function auditPrivacy(cfg: PrivacyConfig): PrivacyFinding[] {
   // ------------------------------------------------------------ Netz
   if (cfg.network === "klar") {
     f.push({
-      layer: "netz", title: "Deine IP-Adresse", severity: "kritisch",
+      id: "ip-klar", layer: "netz", title: "Deine IP-Adresse", severity: "kritisch",
       whoSeesWhat:
         "JEDES Relay, mit dem du dich verbindest, sieht deine IP — und damit " +
-        "ungefaehr, wo du bist und wer dein Anschlussinhaber ist. Das gilt auch " +
-        "fuer alle Nachrichten, deren Inhalt und Absender verborgen sind.",
+        "ungefähr, wo du bist und wer dein Anschlussinhaber ist. Das gilt auch " +
+        "für alle Nachrichten, deren Inhalt und Absender verborgen sind.",
       remedy:
-        "Ueber Tor verbinden und .onion-Relays bevorzugen. Kostet Geschwindigkeit, " +
-        "loest aber den groessten verbleibenden Abfluss.",
+        "Über Tor verbinden und .onion-Relays bevorzugen. Kostet Geschwindigkeit, " +
+        "löst aber den größten verbleibenden Abfluss.",
     });
   } else {
     f.push({
+      id: cfg.network === "mixnet" ? "ip-mixnet" : "ip-tor",
       layer: "netz", title: "Deine IP-Adresse", severity: cfg.network === "mixnet" ? "gut" : "hinweis",
       whoSeesWhat: cfg.network === "mixnet"
         ? "Relays sehen die Adresse eines Exit-Gateways, nicht deine."
         : "Relays sehen einen Tor-Ausgang, nicht dich. Der Ausgang selbst sieht, wohin du willst.",
       remedy: cfg.network === "mixnet"
-        ? "Bedenke: Wer Ein- und Ausgang gleichzeitig beobachtet, kann ueber Zeitmuster korrelieren."
-        : "Ein Mixnetz waere staerker gegen Beobachter, die das ganze Netz sehen.",
+        ? "Bedenke: Wer Ein- und Ausgang gleichzeitig beobachtet, kann über Zeitmuster korrelieren."
+        : "Ein Mixnetz wäre stärker gegen Beobachter, die das ganze Netz sehen.",
     });
   }
 
   f.push(cfg.ownRelay
     ? {
-        layer: "netz", title: "Relay-Betreiber", severity: "gut",
+        id: "relay-eigen", layer: "netz", title: "Relay-Betreiber", severity: "gut",
         whoSeesWhat: "Dein eigenes Relay. Du bist niemandem ausgeliefert.",
         remedy: "Nichts zu tun.",
       }
     : {
-        layer: "netz", title: "Relay-Betreiber", severity: "hinweis",
-        whoSeesWhat: "Fremde Betreiber sehen deine Verbindungszeiten und dein Datenvolumen — auch wenn sie den Inhalt nicht lesen koennen.",
+        id: "relay-fremd", layer: "netz", title: "Relay-Betreiber", severity: "hinweis",
+        whoSeesWhat: "Fremde Betreiber sehen deine Verbindungszeiten und dein Datenvolumen — auch wenn sie den Inhalt nicht lesen können.",
         remedy: "Ein eigenes Relay betreiben, oder wenigstens mehrere fremde nutzen.",
       });
 
   // ------------------------------------------------------------ Kette
   if (cfg.usesSwaps) {
     f.push({
-      layer: "kette", title: "Solana-Transaktionen", severity: "kritisch",
+      id: "sol-swaps", layer: "kette", title: "Solana-Transaktionen", severity: "kritisch",
       whoSeesWhat:
-        "JEDE Swap-Transaktion steht dauerhaft und oeffentlich in der Kette: " +
+        "JEDE Swap-Transaktion steht dauerhaft und öffentlich in der Kette: " +
         "Adresse, Betrag, Zeitpunkt. Wer eine deiner Adressen kennt, sieht dein " +
-        "gesamtes Verhalten — rueckwirkend und fuer immer. Kein Mixnetz aendert daran etwas.",
+        "gesamtes Verhalten — rückwirkend und für immer. Kein Mixnetz ändert daran etwas.",
       remedy:
-        "Fuer jeden Swap eine frische Adresse. Betraege nicht runden. " +
-        "Und die ehrlichste Massnahme: keine Swaps fuer Dinge, die niemanden angehen.",
+        "Für jeden Swap eine frische Adresse. Beträge nicht runden. " +
+        "Und die ehrlichste Maßnahme: keine Swaps für Dinge, die niemanden angehen.",
     });
   }
 
   if (cfg.solanaInProfile) {
     f.push({
-      layer: "kette", title: "Solana-Adresse im Profil", severity: "kritisch",
+      id: "sol-profil", layer: "kette", title: "Solana-Adresse im Profil", severity: "kritisch",
       whoSeesWhat:
-        "Du hast deine Identitaet oeffentlich mit einer Kettenadresse verknuepft. " +
+        "Du hast deine Identität öffentlich mit einer Kettenadresse verknüpft. " +
         "Damit ist deine gesamte Transaktionshistorie einem Namen zugeordnet.",
-      remedy: "Adresse aus dem Profil entfernen. Was bereits veroeffentlicht wurde, bleibt.",
+      remedy: "Adresse aus dem Profil entfernen. Was bereits veröffentlicht wurde, bleibt.",
     });
   }
 
   f.push(cfg.custodialLightning
     ? {
-        layer: "kette", title: "Lightning-Anbieter", severity: "warnung",
-        whoSeesWhat: "Dein Anbieter sieht jede Zahlung: Betrag, Zeitpunkt, Gegenseite. Er kennt vermutlich auch deine Identitaet.",
+        id: "lightning-anbieter", layer: "kette", title: "Lightning-Anbieter", severity: "warnung",
+        whoSeesWhat: "Dein Anbieter sieht jede Zahlung: Betrag, Zeitpunkt, Gegenseite. Er kennt vermutlich auch deine Identität.",
         remedy: "Eigener Knoten oder eine nicht-verwahrende Wallet.",
       }
     : {
-        layer: "kette", title: "Lightning", severity: "hinweis",
-        whoSeesWhat: "Routing-Knoten auf dem Weg sehen Betraege und Zeitpunkte, nicht aber die Gegenseite.",
+        id: "lightning", layer: "kette", title: "Lightning", severity: "hinweis",
+        whoSeesWhat: "Routing-Knoten auf dem Weg sehen Beträge und Zeitpunkte, nicht aber die Gegenseite.",
         remedy: "Das ist die Eigenschaft von Lightning, nicht von diesem System.",
       });
 
   // ----------------------------------------------------------- Geraet
   if (cfg.externalAvatar) {
     f.push({
-      layer: "geraet", title: "Profilbild auf fremdem Server", severity: "warnung",
+      id: "profilbild", layer: "geraet", title: "Profilbild auf fremdem Server", severity: "warnung",
       whoSeesWhat: "Wer das Bild dort ablegt, sieht die IP-Adresse JEDES Menschen, der dein Profil ansieht.",
       remedy: "Bild ins eigene Netz legen (freedom-blob:).",
     });
@@ -206,9 +210,9 @@ export function auditPrivacy(cfg: PrivacyConfig): PrivacyFinding[] {
 
   if (!cfg.stateBackup) {
     f.push({
-      layer: "geraet", title: "Zustandssicherung", severity: "hinweis",
-      whoSeesWhat: "Kein Abfluss — aber bei Datenverlust sind Unterhaltungen und Raeume weg.",
-      remedy: "Sicherung einrichten. Sie ist verschluesselt; auch Relays koennen sie nicht lesen.",
+      id: "sicherung", layer: "geraet", title: "Zustandssicherung", severity: "hinweis",
+      whoSeesWhat: "Kein Abfluss — aber bei Datenverlust sind Unterhaltungen und Räume weg.",
+      remedy: "Sicherung einrichten. Sie ist verschlüsselt; auch Relays können sie nicht lesen.",
     });
   }
 
@@ -250,7 +254,7 @@ export function summarizePrivacy(findings: PrivacyFinding[]): PrivacySummary {
     headline: kritisch > 0
       ? `${kritisch} schwerwiegende(r) Abfluss. Du bist NICHT anonym.`
       : warnungen > 0
-        ? `${warnungen} Schwachstelle(n). Inhalte sind geschuetzt, Metadaten nicht vollstaendig.`
+        ? `${warnungen} Schwachstelle(n). Inhalte sind geschützt, Metadaten nicht vollständig.`
         : "Inhalt, Netz und Kette sind so gut abgesichert, wie es hier geht.",
     biggestWin: schlimmstes ? `${schlimmstes.title}: ${schlimmstes.remedy}` : undefined,
   };
@@ -267,25 +271,25 @@ export function mixnetImpact(cfg: PrivacyConfig): {
   doesNotFix: string[];
   verdict: string;
 } {
-  const behebt = ["Deine IP-Adresse gegenueber Relays", "Verbindungszeiten und Datenvolumen"];
+  const behebt = ["Deine IP-Adresse gegenüber Relays", "Verbindungszeiten und Datenvolumen"];
   const behebtNicht: string[] = [
-    "Alles auf der Kette — Solana-Transaktionen bleiben oeffentlich",
-    "Wer der Empfaenger einer Nachricht ist",
-    "Was in offenen Kanaelen steht",
+    "Alles auf der Kette — Solana-Transaktionen bleiben öffentlich",
+    "Wer der Empfänger einer Nachricht ist",
+    "Was in offenen Kanälen steht",
   ];
-  if (cfg.custodialLightning) behebtNicht.push("Was dein Lightning-Anbieter ueber dich weiss");
-  if (cfg.solanaInProfile) behebtNicht.push("Die Verknuepfung deines Profils mit einer Kettenadresse");
+  if (cfg.custodialLightning) behebtNicht.push("Was dein Lightning-Anbieter über dich weiß");
+  if (cfg.solanaInProfile) behebtNicht.push("Die Verknüpfung deines Profils mit einer Kettenadresse");
 
   return {
     fixes: behebt,
     doesNotFix: behebtNicht,
     verdict:
       cfg.network === "klar"
-        ? "Ein Mixnetz waere hier die groesste einzelne Verbesserung — es schliesst den " +
+        ? "Ein Mixnetz wäre hier die größte einzelne Verbesserung — es schließt den " +
           "wichtigsten offenen Abfluss. Es macht dich aber nicht anonym, solange " +
-          "Zahlungen auf einer oeffentlichen Kette laufen."
-        : "Du bist bereits ueber ein anonymisierendes Netz verbunden. Ein Wechsel zu " +
-          "einem Mixnetz braechte Schutz gegen Beobachter, die das GANZE Netz sehen — " +
+          "Zahlungen auf einer öffentlichen Kette laufen."
+        : "Du bist bereits über ein anonymisierendes Netz verbunden. Ein Wechsel zu " +
+          "einem Mixnetz brächte Schutz gegen Beobachter, die das GANZE Netz sehen — " +
           "gegen alles andere nichts.",
   };
 }
@@ -315,6 +319,6 @@ export function privacyReport(cfg: PrivacyConfig): string {
     const marke = x.severity === "kritisch" ? "!!" : x.severity === "warnung" ? "! " : x.severity === "hinweis" ? "· " : "ok";
     zeilen.push(`${marke} ${x.title}`, `   ${x.whoSeesWhat}`, `   → ${x.remedy}`, "");
   }
-  if (s.biggestWin) zeilen.push(`Groesster Gewinn: ${s.biggestWin}`);
+  if (s.biggestWin) zeilen.push(`Größter Gewinn: ${s.biggestWin}`);
   return zeilen.join("\n");
 }
