@@ -10,9 +10,10 @@
  * anderen. Nach dem Neuladen holt der Posteingang ihn wieder von den Relays;
  * gemerkt werden nur die IDs beantworteter Auftraege.
  */
-import { DISPUTE_LABEL, type Dispute, type NostrEvent, type Resolution } from "@freedomstack/protocol";
+import type { Dispute, NostrEvent, Resolution } from "@freedomstack/protocol";
+import { t } from "../i18n.js";
 import { pkShort } from "../shell-logic.js";
-import { LS_PRUEFUNGEN_ERLEDIGT, erstattungFuer, leseErledigt, pruefauftragAus } from "../streitfall.js";
+import { GRUND_TEXT, LS_PRUEFUNGEN_ERLEDIGT, erstattungFuer, leseErledigt, pruefauftragAus } from "../streitfall.js";
 import { alsGeraet, angebotVon, ensurePool, state } from "./state.js";
 import { toast } from "./ui.js";
 
@@ -43,10 +44,10 @@ function el(tag: string, text?: string, klasse?: string): HTMLElement {
 }
 
 const URTEILE: Array<[Resolution, string]> = [
-  ["erstattet", "Kunde hat recht"],
-  ["bestaetigt", "Provider hat recht"],
-  ["geteilt", "teilen"],
-  ["unentschieden", "kann ich nicht beurteilen"],
+  ["erstattet", "agent.knopfKunde"],
+  ["bestaetigt", "agent.knopfProvider"],
+  ["geteilt", "agent.knopfTeilen"],
+  ["unentschieden", "agent.knopfUnklar"],
 ];
 
 /** Karte „Prüfaufträge“ (textContent) – verborgen, solange keiner offen ist. */
@@ -58,17 +59,17 @@ export function zeigePruefauftraege(): void {
   liste.replaceChildren(...[...offen.values()].map((d) => {
     const z = el("div", undefined, "usage-row");
     z.style.display = "block";
-    z.append(el("div", `Reklamation gegen Provider ${pkShort(d.providerPubkey)} · ${DISPUTE_LABEL[d.reason]} · ${Math.floor(d.amountMsat / 1000)} sats`));
-    if (d.note) z.append(el("div", `Notiz: ${d.note.slice(0, 500)}`, "muted"));
+    z.append(el("div", t("agent.auftragZeile", { provider: pkShort(d.providerPubkey), grund: t(GRUND_TEXT[d.reason]), sats: Math.floor(d.amountMsat / 1000) })));
+    if (d.note) z.append(el("div", t("agent.auftragNotiz", { notiz: d.note.slice(0, 500) }), "muted"));
     if (d.material) {
       const det = el("details");
-      det.append(el("summary", "Frage und Antwort"), el("div", `Frage: ${d.material.frage}`), el("div", `Antwort: ${d.material.antwort}`));
+      det.append(el("summary", t("agent.frageUndAntwort")), el("div", t("agent.auftragFrage", { text: d.material.frage })), el("div", t("agent.auftragAntwort", { text: d.material.antwort })));
       z.append(det);
     } else {
-      z.append(el("div", "Frage und Antwort hat der Kunde nicht mitgeschickt.", "muted"));
+      z.append(el("div", t("agent.ohneMaterial"), "muted"));
     }
-    for (const [ergebnis, text] of URTEILE) {
-      const b = el("button", text, "ghost") as HTMLButtonElement;
+    for (const [ergebnis, schluessel] of URTEILE) {
+      const b = el("button", t(schluessel), "ghost") as HTMLButtonElement;
       b.style.cssText = "width:auto;padding:3px 8px;margin:4px 4px 0 0";
       b.addEventListener("click", () => void urteile(d, ergebnis));
       z.append(b);
@@ -81,7 +82,7 @@ export function zeigePruefauftraege(): void {
 async function urteile(d: Dispute & { id: string }, ergebnis: Resolution): Promise<void> {
   const signer = state.signer;
   if (!signer || alsGeraet()) return;
-  const notiz = prompt("Kurze Begründung (nur für Kunde und Provider):");
+  const notiz = prompt(t("agent.begruendungFrage"));
   if (notiz === null) return;
   try {
     const { buildPrivateUrteil, buildResolution } = await import("@freedomstack/protocol");
@@ -97,7 +98,7 @@ async function urteile(d: Dispute & { id: string }, ergebnis: Resolution): Promi
     localStorage.setItem(LS_PRUEFUNGEN_ERLEDIGT, JSON.stringify([...erledigt(), d.id]));
     offen.delete(d.id);
     zeigePruefauftraege();
-    toast("Urteil versiegelt an Kunde und Provider geschickt – es gilt nur zwischen ihnen");
+    toast(t("agent.urteilGesendet"));
   } catch (e) {
     toast((e as Error).message, true);
   }

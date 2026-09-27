@@ -14,6 +14,10 @@ import {
   describeHtlcError,
   nextStep,
 } from "../src/swap-client.js";
+import { setLang } from "../src/i18n.js";
+
+// Meldungen hier auf Deutsch prüfen (seit 8.16e über Schlüssel in der Sprache der Oberfläche)
+setLang("de");
 
 const NOW = 1_800_000_000;
 

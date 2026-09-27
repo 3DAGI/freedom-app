@@ -4,6 +4,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { werkzeugPreise, werkzeugPreisText } from "../src/werkzeug-preise.js";
+import { setLang } from "../src/i18n.js";
+
+// Meldungen hier auf Deutsch prüfen (seit 8.16e über Schlüssel in der Sprache der Oberfläche)
+setLang("de");
 
 test("8.7: guenstigstes Angebot je Werkzeug, sonst Richtpreis – in beiden Einheiten", () => {
   const p = werkzeugPreise([

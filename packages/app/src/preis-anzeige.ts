@@ -6,9 +6,10 @@
  * steht dort ehrlich „kein Kurs“ statt einer erfundenen Zahl. Bis 4.4 rechnete
  * die App mit festen 150.000 sats pro SOL.
  */
-import { type MarktKurs, abweichung, lamportsZuMsat, msatZuLamports, KURS_WARN_ABWEICHUNG } from "@freedomstack/protocol";
+import { type MarktKurs, abweichung, lamportsZuMsat, msatZuLamports, KURS_MIN_QUELLEN, KURS_WARN_ABWEICHUNG } from "@freedomstack/protocol";
+import { gebietsschema, t } from "./i18n.js";
 
-const de = (n: number, stellen = 9) => n.toLocaleString("de-DE", { maximumFractionDigits: stellen });
+const de = (n: number, stellen = 9) => n.toLocaleString(gebietsschema(), { maximumFractionDigits: stellen });
 
 export function satsText(msat: number): string {
   const sats = msat / 1000;
@@ -22,20 +23,27 @@ export function solText(lamports: number): string {
 /** „21 sats ≈ 0,00014 SOL“ – ohne Kurs „21 sats (SOL: kein Kurs)“. */
 export function ausMsat(msat: number, kurs?: Pick<MarktKurs, "satsProSol">): string {
   const m = Math.max(0, Math.round(msat));
-  return kurs ? `${satsText(m)} ≈ ${solText(msatZuLamports(m, kurs.satsProSol))}` : `${satsText(m)} (SOL: kein Kurs)`;
+  return kurs ? `${satsText(m)} ≈ ${solText(msatZuLamports(m, kurs.satsProSol))}` : t("zahl.ohneKursSol", { betrag: satsText(m) });
 }
 
 /** „0,002 SOL ≈ 300 sats“ – ohne Kurs „0,002 SOL (sats: kein Kurs)“. */
 export function ausLamports(lamports: number, kurs?: Pick<MarktKurs, "satsProSol">): string {
   const l = Math.max(0, Math.round(lamports));
-  return kurs ? `${solText(l)} ≈ ${satsText(lamportsZuMsat(l, kurs.satsProSol))}` : `${solText(l)} (sats: kein Kurs)`;
+  return kurs ? `${solText(l)} ≈ ${satsText(lamportsZuMsat(l, kurs.satsProSol))}` : t("zahl.ohneKursSats", { betrag: solText(l) });
 }
 
 /** Kurszeile fuer die Anzeige: Kurs, Quellen, Warnungen. */
 export function kursZeile(kurs?: MarktKurs): { text: string; warnung: boolean } {
-  if (!kurs) return { text: "Kurs SOL/sats: keine Kurs-Events gefunden – SOL-Preise nicht verfügbar", warnung: true };
-  const basis = `Kurs: 1 SOL ≈ ${de(kurs.satsProSol, 0)} sats (Median aus ${kurs.quellen} Quelle${kurs.quellen === 1 ? "" : "n"})`;
-  return kurs.warnungen.length ? { text: `${basis} ⚠ ${kurs.warnungen.join("; ")}`, warnung: true } : { text: basis, warnung: false };
+  if (!kurs) return { text: t("zahl.keinKurs"), warnung: true };
+  const basis = t(kurs.quellen === 1 ? "zahl.kursEineQuelle" : "zahl.kursQuellen", { sats: de(kurs.satsProSol, 0), n: kurs.quellen });
+  // Warnungen aus den Zahlen (8.16e: die Texte von `marktKurs()` sind Deutsch). Die App fragt ohne
+  // Referenzkurs, also gibt es nur diese beiden; weicht die Zahl ab, gelten die des Protokolls.
+  const eigene = [
+    ...(kurs.quellen < KURS_MIN_QUELLEN ? [t("zahl.kursWenigeQuellen", { n: kurs.quellen })] : []),
+    ...(kurs.streuung > KURS_WARN_ABWEICHUNG ? [t("zahl.kursStreuung", { prozent: Math.round(kurs.streuung * 100) })] : []),
+  ];
+  const alle = eigene.length === kurs.warnungen.length ? eigene : kurs.warnungen;
+  return alle.length ? { text: `${basis} ⚠ ${alle.join("; ")}`, warnung: true } : { text: basis, warnung: false };
 }
 
 /**
@@ -44,7 +52,7 @@ export function kursZeile(kurs?: MarktKurs): { text: string; warnung: boolean } 
  * mit richtiger Umrechnung weit unter jedem Preis.
  */
 export function depositDeckel(textRateMsatPerK: number, kurs: Pick<MarktKurs, "satsProSol">): number {
-  if (!Number.isFinite(textRateMsatPerK) || textRateMsatPerK <= 0) throw new Error("Anbieter nennt keinen Preis");
+  if (!Number.isFinite(textRateMsatPerK) || textRateMsatPerK <= 0) throw new Error(t("zahl.anbieterOhnePreis"));
   return Math.ceil(msatZuLamports(Math.ceil(textRateMsatPerK), kurs.satsProSol) * 1.1);
 }
 
@@ -53,6 +61,6 @@ export function anbieterKursWarnung(anbieter: { satsProSol: number } | undefined
   if (!anbieter) return undefined;
   const a = abweichung(anbieter.satsProSol, markt.satsProSol);
   return a > KURS_WARN_ABWEICHUNG
-    ? `Der Anbieter rechnet mit 1 SOL ≈ ${de(anbieter.satsProSol, 0)} sats, der Markt mit ${de(markt.satsProSol, 0)} sats (${Math.round(a * 100)} % Abweichung).`
+    ? t("zahl.anbieterKurs", { anbieter: de(anbieter.satsProSol, 0), markt: de(markt.satsProSol, 0), prozent: Math.round(a * 100) })
     : undefined;
 }

@@ -15,6 +15,10 @@ import {
   LS_PRUEFUNGEN_ERLEDIGT, LS_REKLAMATIONEN, REKLAMATION_AUFBEWAHREN_SECS, type EigeneReklamation, erstattungFuer, leseErledigt,
   leseReklamationen, mitReklamation, prueferAusNetz, pruefauftragAus, reklamationText,
 } from "../src/streitfall.js";
+import { setLang } from "../src/i18n.js";
+
+// Meldungen hier auf Deutsch prüfen (seit 8.16e über Schlüssel in der Sprache der Oberfläche)
+setLang("de");
 
 const pk = (c: string) => c.repeat(64);
 
@@ -30,7 +34,7 @@ test("5.6b: Pruefer nur aus Kontakten und eigenen Providern – ohne Beteiligte,
   assert.deepEqual(p.map((x) => [x.pk, x.name, x.art]), [
     [pk("a"), "Anna", "kontakt"],
     [pk("b"), `${pk("b").slice(0, 8)}…`, "kontakt"],
-    [pk("d"), `${pk("d").slice(0, 8)}…`, "eigener Provider"],
+    [pk("d"), `${pk("d").slice(0, 8)}…`, "provider"],
   ]);
   const viele = Array.from({ length: 20 }, (_, i) => ({ id: i.toString(16).padStart(64, "0"), name: `K${i}`, type: "dm" }));
   assert.equal(prueferAusNetz(viele, [], []).length, 9);

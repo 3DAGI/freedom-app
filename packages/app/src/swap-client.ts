@@ -32,7 +32,8 @@
 import { sha256 } from "@noble/hashes/sha2.js";
 import { bytesToHex, hexToBytes } from "@noble/hashes/utils.js";
 import { anchorSighash, swapIdBytes, HTLC_PROGRAM_ID, WalletSigner } from "./sol-htlc.js";
-import { leseBolt11 } from "@freedomstack/protocol";
+import { type AddressUsage, checkAmount, checkReuse, checkTiming, leseBolt11 } from "@freedomstack/protocol";
+import { gebietsschema, t } from "./i18n.js";
 
 export type SwapPhase =
   /** Anfrage raus, LP hat noch nicht geantwortet. */
@@ -106,57 +107,40 @@ export function verifyCounterpartyLock(p: VerifySwapParams): SwapVerdict {
   if (!p.lock) {
     return {
       ok: false,
-      problems: ["Auf der Kette ist nichts gesperrt."],
-      summary:
-        "Der LP hat noch keine SOL hinterlegt. Diese Rechnung jetzt zu zahlen " +
-        "hieße, für nichts zu bezahlen.",
+      problems: [t("zahl.nichtsGesperrt")],
+      summary: t("zahl.nochKeineSol"),
     };
   }
 
-  if (p.lock.claimed) problems.push("Das SOL-HTLC wurde bereits eingelöst.");
-  if (p.lock.refunded) problems.push("Das SOL-HTLC wurde bereits zurückgeholt.");
+  if (p.lock.claimed) problems.push(t("zahl.htlcEingeloest"));
+  if (p.lock.refunded) problems.push(t("zahl.htlcZurueck"));
 
   if (bytesToHex(p.lock.hashlock) !== bytesToHex(p.expectedHashlock)) {
     // Ein fremder Hashlock heißt: nur wer dessen Preimage kennt, kommt an das
     // Geld — und das ist dann nicht der Kunde.
-    problems.push("Der Hashlock auf der Kette ist nicht der eigene — das Geld wäre nicht einlösbar.");
+    problems.push(t("zahl.fremderHashlock"));
   }
 
   if (p.lock.recipient !== p.expectedRecipient) {
-    problems.push(
-      `Empfänger ist ${p.lock.recipient.slice(0, 8)}…, erwartet war die eigene Adresse ` +
-        `${p.expectedRecipient.slice(0, 8)}….`,
-    );
+    problems.push(t("zahl.falscherEmpfaengerIst", { ist: p.lock.recipient.slice(0, 8), soll: p.expectedRecipient.slice(0, 8) }));
   }
 
   if (p.lock.amountLamports < p.expectedLamports) {
-    problems.push(
-      `Gesperrt sind ${p.lock.amountLamports} Lamports, zugesagt waren ${p.expectedLamports}.`,
-    );
+    problems.push(t("zahl.zuWenigGesperrt", { ist: p.lock.amountLamports, soll: p.expectedLamports }));
   }
 
   const solRemaining = p.lock.timelockUnix - now;
   if (solRemaining <= 0) {
-    problems.push("Die SOL-Frist ist bereits abgelaufen.");
+    problems.push(t("zahl.solFristAbgelaufen"));
   } else if (solRemaining < 600) {
-    problems.push(
-      `Die SOL-Frist läuft in ${Math.floor(solRemaining / 60)} Minuten ab — zu knapp, ` +
-        `um noch sicher einzulösen.`,
-    );
+    problems.push(t("zahl.solFristKnapp", { min: Math.floor(solRemaining / 60) }));
   }
 
   // Die zwingende Ordnung: T_sol < T_lightning, mit Abstand.
   if (p.lock.timelockUnix >= p.lightningExpiryUnix) {
-    problems.push(
-      "Die SOL-Frist endet nicht vor der Lightning-Frist. In dieser Reihenfolge " +
-        "kann der Swap einseitig schieflaufen.",
-    );
+    problems.push(t("zahl.fristReihenfolge"));
   } else if (p.lightningExpiryUnix - p.lock.timelockUnix < minGap) {
-    problems.push(
-      `Zwischen SOL- und Lightning-Frist liegen nur ` +
-        `${Math.floor((p.lightningExpiryUnix - p.lock.timelockUnix) / 60)} Minuten; ` +
-        `nötig sind mindestens ${Math.floor(minGap / 60)}.`,
-    );
+    problems.push(t("zahl.fristAbstand", { min: Math.floor((p.lightningExpiryUnix - p.lock.timelockUnix) / 60), noetig: Math.floor(minGap / 60) }));
   }
 
   const ok = problems.length === 0;
@@ -164,8 +148,7 @@ export function verifyCounterpartyLock(p: VerifySwapParams): SwapVerdict {
     ok,
     problems,
     summary: ok
-      ? `Gegenleistung geprüft: ${p.lock.amountLamports} Lamports gesperrt, einlösbar bis ` +
-        `${new Date(p.lock.timelockUnix * 1000).toLocaleTimeString("de-DE")}.`
+      ? t("zahl.gegenleistungGeprueft", { lamports: p.lock.amountLamports, bis: new Date(p.lock.timelockUnix * 1000).toLocaleTimeString(gebietsschema()) })
       : problems[0],
   };
 }
@@ -190,7 +173,7 @@ export async function buildClaimInstruction(
 ): Promise<import("@solana/web3.js").TransactionInstruction> {
   const { PublicKey, TransactionInstruction } = await import("@solana/web3.js");
   if (preimage.length !== 32) {
-    throw new Error(`Preimage muss 32 Bytes haben, hat ${preimage.length}`);
+    throw new Error(t("zahl.preimageLaenge", { n: preimage.length }));
   }
 
   const programId = new PublicKey(HTLC_PROGRAM_ID);
@@ -233,37 +216,31 @@ export function claimAllowed(
   nowUnix = Math.floor(Date.now() / 1000),
 ): { ok: boolean; reason?: string } {
   if (!Number.isFinite(timelockUnix) || timelockUnix <= 0) {
-    return { ok: false, reason: "Die Frist dieses Swaps ist unbekannt – ohne Frist wird nicht eingelöst." };
+    return { ok: false, reason: t("zahl.fristUnbekannt") };
   }
   const rest = timelockUnix - nowUnix;
   if (rest <= 0) {
-    return {
-      ok: false,
-      reason: "Die Frist ist abgelaufen. Nicht mehr einlösen – deine Lightning-Zahlung läuft von selbst zurück.",
-    };
+    return { ok: false, reason: t("zahl.fristAbgelaufen") };
   }
   if (rest <= CLAIM_SAFETY_MARGIN_SECS) {
-    return {
-      ok: false,
-      reason:
-        `Die Frist endet in ${Math.floor(rest / 60)} Minuten – zu knapp, um sicher einzulösen. ` +
-        `Deine Lightning-Zahlung läuft von selbst zurück.`,
-    };
+    return { ok: false, reason: t("zahl.fristZuKnapp", { min: Math.floor(rest / 60) }) };
   }
   return { ok: true };
 }
 
-/** Fehlercodes des HTLC-Programms (Anchor: 6000 + Position im Enum). */
+/** Fehlercodes des HTLC-Programms (Anchor: 6000 + Position im Enum) → Schlüssel des Texts. */
 const HTLC_ERRORS: Record<number, string> = {
-  6000: "Der Betrag muss größer als 0 sein.",
-  6001: "Die Frist liegt in der Vergangenheit.",
-  6002: "Der Swap ist bereits eingelöst oder zurückerstattet.",
-  6003: "Das Preimage passt nicht zum Hashlock.",
-  6004: "Falscher Empfänger.",
-  6005: "Falscher Initiator.",
-  6006: "Die Frist ist noch nicht abgelaufen.",
-  6007: "Frist abgelaufen – die SOL gehen an den Liquiditätsgeber zurück, deine Lightning-Zahlung wird erstattet.",
+  6000: "zahl.htlc6000",
+  6001: "zahl.htlc6001",
+  6002: "zahl.htlc6002",
+  6003: "zahl.htlc6003",
+  6004: "zahl.htlc6004",
+  6005: "zahl.htlc6005",
+  6006: "zahl.htlc6006",
+  6007: "zahl.htlc6007",
 };
+
+const htlcFehler = (code: number): string | undefined => (code in HTLC_ERRORS ? t(HTLC_ERRORS[code]!) : undefined);
 
 /**
  * Uebersetzt einen Fehler des HTLC-Programms in einen verstaendlichen Satz.
@@ -273,10 +250,10 @@ const HTLC_ERRORS: Record<number, string> = {
 export function describeHtlcError(err: unknown): string | undefined {
   const ie = (err as { InstructionError?: [number, unknown] } | null)?.InstructionError;
   const custom = (ie?.[1] as { Custom?: number } | undefined)?.Custom;
-  if (typeof custom === "number") return HTLC_ERRORS[custom];
+  if (typeof custom === "number") return htlcFehler(custom);
   const text = typeof err === "string" ? err : err instanceof Error ? err.message : "";
   const hex = /custom program error: 0x([0-9a-f]+)/i.exec(text);
-  if (hex) return HTLC_ERRORS[parseInt(hex[1], 16)];
+  if (hex) return htlcFehler(parseInt(hex[1], 16));
   return undefined;
 }
 
@@ -305,7 +282,7 @@ export async function claimSwap(p: ClaimParams): Promise<{ signature: string }> 
   const { Transaction, PublicKey } = await import("@solana/web3.js");
   const recipient = p.wallet.publicKey.toBase58();
 
-  p.onProgress?.("Einlösung wird vorbereitet …");
+  p.onProgress?.(t("zahl.einloesungVorbereiten"));
   const ix = await buildClaimInstruction(p.swapId, p.preimage, recipient, p.initiator);
   const tx = new Transaction().add(ix);
 
@@ -313,10 +290,10 @@ export async function claimSwap(p: ClaimParams): Promise<{ signature: string }> 
   tx.recentBlockhash = blockhash;
   tx.feePayer = new PublicKey(recipient);
 
-  p.onProgress?.("Warte auf Bestätigung in der Wallet …");
+  p.onProgress?.(t("zahl.warteWallet"));
   const signed = (await p.wallet.signTransaction(tx)) as import("@solana/web3.js").Transaction;
 
-  p.onProgress?.("Transaktion wird gesendet …");
+  p.onProgress?.(t("zahl.wirdGesendet"));
   // Zweite Pruefung: Die Bestaetigung in der Wallet kann Minuten dauern.
   const nachher = claimAllowed(p.timelockUnix);
   if (!nachher.ok) throw new Error(nachher.reason);
@@ -330,7 +307,7 @@ export async function claimSwap(p: ClaimParams): Promise<{ signature: string }> 
       preflightCommitment: "confirmed",
     });
   } catch (e) {
-    throw new Error(describeHtlcError(e) ?? `Einlösung abgelehnt: ${(e as Error).message}`);
+    throw new Error(describeHtlcError(e) ?? t("zahl.einloesungAbgelehnt", { fehler: (e as Error).message }));
   }
   const conf = await p.connection.confirmTransaction(
     { signature, blockhash, lastValidBlockHeight },
@@ -338,9 +315,7 @@ export async function claimSwap(p: ClaimParams): Promise<{ signature: string }> 
   );
   if (conf.value.err) {
     throw new Error(
-      describeHtlcError(conf.value.err) ??
-        `Einlösung abgelehnt: ${JSON.stringify(conf.value.err)} — meist, weil die Frist ` +
-          `abgelaufen ist oder das Preimage nicht passt.`,
+      describeHtlcError(conf.value.err) ?? t("zahl.einloesungAbgelehntMeist", { fehler: JSON.stringify(conf.value.err) }),
     );
   }
   return { signature };
@@ -430,9 +405,7 @@ export function swapSecretKeys(keys: string[]): string[] {
 export function exportSwapSecrets(): string {
   return JSON.stringify(
     {
-      hinweis:
-        "Diese Datei enthaelt die Preimages offener Swaps. Wer sie hat, kann die " +
-        "zugehoerigen SOL einloesen. Sicher aufbewahren, nicht weitergeben.",
+      hinweis: t("zahl.sicherungHinweis"),
       exportiertAm: new Date().toISOString(),
       swaps: listSwapSecrets(),
     },
@@ -462,18 +435,18 @@ export function pruefeVorab(
   antwort: { tags: string[][]; content: string },
   angekuendigt: number | undefined,
 ): { ok: true; sats: number; bolt11: string } | { ok: false; grund: string } {
-  if (!angekuendigt) return { ok: false, grund: "Das Angebot nannte keine Vorab-Gebühr." };
+  if (!angekuendigt) return { ok: false, grund: t("zahl.vorabNichtAngekuendigt") };
   const sats = Number(antwort.tags.find((t) => t[0] === "vorab_sats")?.[1]);
-  if (sats !== angekuendigt) return { ok: false, grund: `Verlangt sind ${sats} sats, angekündigt waren ${angekuendigt}.` };
-  if (sats > MAX_VORAB_SATS) return { ok: false, grund: `Eine Vorab-Gebühr über ${MAX_VORAB_SATS} sats zahlt die App nicht.` };
+  if (sats !== angekuendigt) return { ok: false, grund: t("zahl.vorabAnders", { sats, angekuendigt }) };
+  if (sats > MAX_VORAB_SATS) return { ok: false, grund: t("zahl.vorabZuHoch", { max: MAX_VORAB_SATS }) };
   const bolt11 = antwort.content.trim();
   let betragMsat: number | null;
   try {
     betragMsat = leseBolt11(bolt11).betragMsat;
   } catch {
-    return { ok: false, grund: "Die Rechnung für die Vorab-Gebühr ist ungültig." };
+    return { ok: false, grund: t("zahl.vorabRechnungUngueltig") };
   }
-  if (betragMsat !== sats * 1000) return { ok: false, grund: "Die Rechnung nennt einen anderen Betrag als die Vorab-Gebühr." };
+  if (betragMsat !== sats * 1000) return { ok: false, grund: t("zahl.vorabBetragAnders") };
   return { ok: true, sats, bolt11 };
 }
 
@@ -481,25 +454,62 @@ export function pruefeVorab(
 export function nextStep(state: SwapState, nowUnix = Math.floor(Date.now() / 1000)): string {
   switch (state.phase) {
     case "warte_auf_lp":
-      return "Warte auf die Antwort des Liquiditätsgebers.";
+      return t("zahl.schrittWarteLp");
     case "pruefe_sperre":
-      return "Rechnung ist da. Erst wird geprüft, ob die SOL wirklich gesperrt sind — noch nicht zahlen.";
+      return t("zahl.schrittPruefe");
     case "zahlbar":
-      return "Geprüft. Rechnung kann jetzt bezahlt werden.";
+      return t("zahl.schrittZahlbar");
     case "bezahlt": {
-      if (!state.solTimelockUnix) return "Bezahlt. Jetzt die SOL einlösen, damit der Tausch abschließt.";
+      if (!state.solTimelockUnix) return t("zahl.schrittBezahlt");
       const erlaubt = claimAllowed(state.solTimelockUnix, nowUnix);
-      if (!erlaubt.ok) return erlaubt.reason ?? "Einlösen ist nicht mehr sicher.";
+      if (!erlaubt.ok) return erlaubt.reason ?? t("zahl.schrittUnsicher");
       const rest = state.solTimelockUnix - nowUnix - CLAIM_SAFETY_MARGIN_SECS;
       return rest < 900
-        ? `Jetzt einlösen — in ${Math.max(1, Math.floor(rest / 60))} Minuten ist es zu spät.`
-        : "Bezahlt. Jetzt die SOL einlösen, damit der Tausch abschließt.";
+        ? t("zahl.schrittJetzt", { min: Math.max(1, Math.floor(rest / 60)) })
+        : t("zahl.schrittBezahlt");
     }
     case "abgeschlossen":
-      return "Fertig. Die SOL sind auf der eigenen Adresse.";
+      return t("zahl.schrittFertig");
     case "abgelaufen":
-      return "Die Frist ist abgelaufen. Der gezahlte Betrag läuft von selbst zurück.";
+      return t("zahl.schrittAbgelaufen");
     default:
       return state.message;
   }
+}
+
+/**
+ * Prüfung vor einem Tausch (8.16e) – dieselben Einzelprüfungen wie
+ * `swapPrivacyCheck()` im Protokoll (Wiederverwendung, runder Betrag, Zeit),
+ * aber mit Texten in der Sprache der Oberfläche; die des Protokolls sind Deutsch.
+ */
+export function tauschPruefung(input: {
+  usage: AddressUsage[];
+  lamports: number;
+  lastSwapAt?: number;
+  nowSecs?: number;
+  randomFn?: () => number;
+}): { ok: boolean; befunde: string[]; schritte: string[] } {
+  const jetzt = input.nowSecs ?? Math.floor(Date.now() / 1000);
+  const reuse = checkReuse(input.usage);
+  const betrag = checkAmount(input.lamports, input.randomFn);
+  const zeit = checkTiming(input.lastSwapAt, jetzt);
+  const befunde: string[] = [];
+  const schritte: string[] = [];
+  if (reuse.severity !== "frisch") {
+    const mehrfach = input.usage.reduce((m, u) => Math.max(m, u.uses), 0);
+    befunde.push(reuse.severity === "muster" ? t("zahl.pruefMuster", { n: mehrfach }) : t("zahl.pruefZweimal"));
+    schritte.push(t("zahl.pruefFrischeAdresse", { n: reuse.nextIndex }));
+  }
+  if (betrag.suspicious) {
+    const fmt = (l: number, stellen: number) => (l / 1e9).toLocaleString(gebietsschema(), { minimumFractionDigits: stellen, maximumFractionDigits: stellen });
+    befunde.push(t("zahl.pruefRund", { sol: fmt(input.lamports, 3) }));
+    schritte.push(t("zahl.pruefBetragAendern", { sol: fmt(betrag.suggested ?? 0, 6) }));
+  }
+  if (zeit.correlated && input.lastSwapAt !== undefined) {
+    const abstand = jetzt - input.lastSwapAt;
+    const min = Math.round(abstand / 60);
+    befunde.push(abstand < 300 ? t("zahl.pruefZeitKnapp", { min }) : t("zahl.pruefZeitMoeglich", { min }));
+    schritte.push(t("zahl.pruefWarten"));
+  }
+  return { ok: befunde.length === 0, befunde, schritte };
 }

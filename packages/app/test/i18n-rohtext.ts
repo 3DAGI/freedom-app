@@ -3,13 +3,15 @@
  * Vorfahren-Element mit `data-i18n` und Attribute (title, placeholder,
  * aria-label, alt) ohne ihr `data-i18n-*`. Je Bereich gezählt – ein Bereich
  * ist die Seite eines Tabs (`id="page-…"`), alles andere der Rahmen.
- * Eigennamen und Einheiten zählen nicht.
+ * Eigennamen, Einheiten und Befehle in <code> zählen nicht.
  */
 const LEER = new Set(["area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "source", "track", "wbr"]);
 const ATTRIBUTE: Record<string, string> = { title: "data-i18n-title", placeholder: "data-i18n-ph", "aria-label": "data-i18n-aria", alt: "data-i18n-aria" };
 const EIGENNAMEN = new Set([
   "freedom", "sats", "sat", "sol", "lightning", "solana", "nostr", "bitcoin", "nwc", "lnurl", "ipfs", "tor", "mls",
-  "blossom", "arweave", "codeberg", "radicle", "npub", "nsec", "pubkey",
+  "blossom", "arweave", "codeberg", "radicle", "npub", "nsec", "pubkey", "hd",
+  // Adress-Schemata und Eigennamen (8.16f): Platzhalter wie „wss://…“, „bunker://…“
+  "wss", "ws", "https", "onion", "bunker", "bluetooth",
 ]);
 
 export interface Rohtext { bereich: string; text: string }
@@ -35,7 +37,8 @@ export function rohtexte(html: string): Rohtext[] {
     const bereich = oben?.bereich ?? "rahmen";
     if (m[4] !== undefined) {
       const text = m[4].replace(/\s+/g, " ").trim();
-      if (text && zaehlt(text) && !stapel.some((e) => e.uebersetzt)) funde.push({ bereich, text });
+      // Befehle in <code> sind kein Text der Oberfläche
+      if (text && zaehlt(text) && !stapel.some((e) => e.uebersetzt || e.tag === "code")) funde.push({ bereich, text });
       continue;
     }
     const tag = m[2].toLowerCase();
@@ -131,8 +134,10 @@ const KOPFZEILEN = new Set(["Content-Type", "Authorization", "Accept", "User-Age
 
 function istCodeText(s: string, davor: string, zeile: string): boolean {
   if (/\/\/ kein UI-Text\s*$/.test(zeile) || KOPFZEILEN.has(s)) return false;
-  if (/(querySelector(All)?|getElementById|closest|matches|addEventListener|removeEventListener|classList\.\w+|setAttribute|getAttribute|getItem|setItem|removeItem|\bimport|\bfrom|console\.\w+|\$\$?|\bkey\s*===?|\bcode\s*===?)\s*\(?\s*$/.test(davor)) return false;
+  if (/(querySelector(All)?|getElementById|closest|matches|addEventListener|removeEventListener|classList\.\w+|setAttribute|getAttribute|getItem|setItem|removeItem|\bimport|\bfrom|console\.\w+|\$\$?|\bkey\s*===?|\bcode\s*===?)(<[\w.]+>)?\s*\(?\s*$/.test(davor)) return false;
   if (/className|class=/.test(zeile) && /^[a-z0-9 _-]*$/.test(s)) return false;
+  // Klassenliste als Argument (el("div", text, "mono-sm muted")): nur Klassennamen, mindestens einer mit Bindestrich
+  if (/^[a-z][a-z0-9-]*( [a-z][a-z0-9-]*)+$/.test(s) && /(^| )[a-z0-9]+-[a-z0-9-]+( |$)/.test(s) && !/(^| )[a-z]-/.test(s)) return false;
   const attr = [...s.matchAll(/(?:title|placeholder|aria-label|alt)="([^"]*)"/g)].map((m) => m[1]).join(" ");
   const sichtbar = `${s.replace(/<[^>]*>/g, " ")} ${attr}`;
   if (/[A-Za-zÄÖÜäöüß]{2,}[ ,]+[A-Za-zÄÖÜäöüß]{2,}/.test(sichtbar)) return true;

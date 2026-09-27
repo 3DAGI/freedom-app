@@ -10,6 +10,7 @@
  */
 import { baueOfflineUeberweisung, pruefeOfflineUeberweisung, railFuerZiel, type NonceStand } from "@freedomstack/protocol";
 import type { Nachfrage, SignierbareTx, WalletSpeicher } from "./sol-wallet.js";
+import { t } from "./i18n.js";
 
 export const LS_SOL_NONCE = "freedom.solWallet.nonce";
 
@@ -63,14 +64,14 @@ export async function erstelleOfflineZahlung(
   bestaetige: (n: Nachfrage) => Promise<boolean>,
 ): Promise<Uint8Array> {
   const a = leseAblage(s);
-  if (!a) throw new Error("Kein Nonce-Konto – erst mit Netz anlegen (Wallet-Tab).");
-  if (a.verbraucht) throw new Error("Der Nonce-Wert ist schon verbraucht – mit Netz auffrischen.");
+  if (!a) throw new Error(t("zahl.keinNonceKonto"));
+  if (a.verbraucht) throw new Error(t("zahl.nonceVerbraucht"));
   const von = w.adresse();
-  if (!von) throw new Error("Keine eingebaute Wallet eingerichtet");
-  if (railFuerZiel(p.an) !== "solana") throw new Error("Das ist keine Solana-Adresse");
+  if (!von) throw new Error(t("zahl.keineEingebaute"));
+  if (railFuerZiel(p.an) !== "solana") throw new Error(t("zahl.keineSolanaAdresse"));
   // Erst bauen: Unfug (an sich selbst, fremdes Nonce-Konto) zaehlt nicht zum Tageslimit.
   const tx = baueOfflineUeberweisung({ von, an: p.an, lamports: p.lamports, nonceKonto: a.konto, stand: a.stand });
-  if (!(await w.freigabe(p.lamports, p.an, bestaetige))) throw new Error("Zahlung nicht freigegeben – nichts erstellt.");
+  if (!(await w.freigabe(p.lamports, p.an, bestaetige))) throw new Error(t("zahl.nichtFreigegebenErstellt"));
   w.signiere(tx as unknown as SignierbareTx);
   const roh = new Uint8Array(tx.serialize());
   const pruefung = pruefeOfflineUeberweisung(roh);

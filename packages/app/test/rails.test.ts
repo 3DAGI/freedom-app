@@ -8,6 +8,10 @@ import { createHash } from "node:crypto";
 import { bech32 } from "@scure/base";
 import { zahle } from "@freedomstack/protocol";
 import { LightningRail, SolanaRail, bolt11BetragMsat, bolt11ZahlungsHash } from "../src/rails.js";
+import { setLang } from "../src/i18n.js";
+
+// Meldungen hier auf Deutsch prüfen (seit 8.16e über Schlüssel in der Sprache der Oberfläche)
+setLang("de");
 
 // Testvektor aus BOLT 11 – oeffentlich, kein Geheimnis.
 const BOLT11 = "lnbc2500u1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdq5xysxxatsyp3k7enxv4jsxqzpuaztrnwngzn3kdzw5hydlzf03qdgm2hdq27cqv3agm2awhz5se903vruatfhq77w3ls4evs3ch9zw97j25emudupq63nyw24cg27h2rspfj9srp";

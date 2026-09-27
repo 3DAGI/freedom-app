@@ -6,6 +6,10 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { Keypair, PublicKey, SystemProgram, Transaction } from "@solana/web3.js";
 import { type StandardWallet, alsAnbieter, ketteAusRpc, solanaWallets } from "../src/wallet-standard.js";
+import { setLang } from "../src/i18n.js";
+
+// Meldungen hier auf Deutsch prüfen (seit 8.16e über Schlüssel in der Sprache der Oberfläche)
+setLang("de");
 
 const ZIEL = "7EcDhSYGxXyscszYEp35KHN8vvw3svAuLKTzXwCFLtVb";
 

@@ -11,15 +11,16 @@ import {
   buildPrivateSolTrinkgeld, buildSolTrinkgeld, pruefeSolUeberweisung,
 } from "@freedomstack/protocol";
 import { ausLamports } from "./preis-anzeige.js";
+import { t } from "./i18n.js";
 
 type Veroeffentlicher = { publish(ev: NostrEvent): Promise<unknown> };
 
 /** Beleg senden: versiegelt immer, oeffentlich nur auf Wunsch. Liefert die Zahl der Events. */
-export async function sendeTrinkgeldBeleg(pool: Veroeffentlicher, signer: Signer, t: SolTrinkgeld, oeffentlich: boolean): Promise<number> {
-  const wraps = await buildPrivateSolTrinkgeld(t, signer);
+export async function sendeTrinkgeldBeleg(pool: Veroeffentlicher, signer: Signer, tg: SolTrinkgeld, oeffentlich: boolean): Promise<number> {
+  const wraps = await buildPrivateSolTrinkgeld(tg, signer);
   for (const w of wraps) await pool.publish(w);
   if (!oeffentlich) return wraps.length;
-  await pool.publish(await signer.signEvent(buildSolTrinkgeld(signer.publicKey(), t)));
+  await pool.publish(await signer.signEvent(buildSolTrinkgeld(signer.publicKey(), tg)));
   return wraps.length + 1;
 }
 
@@ -28,23 +29,23 @@ export async function sendeTrinkgeldBeleg(pool: Veroeffentlicher, signer: Signer
  * fuer eine andere Kette laesst sich hier nicht pruefen – dann „unbestaetigt“.
  */
 export async function pruefeTrinkgeld(
-  t: SolTrinkgeld,
+  tg: SolTrinkgeld,
   kette: string,
   ladeTransaktion: (signatur: string) => Promise<unknown>,
 ): Promise<SolPruefung> {
-  if (t.kette !== kette) return { status: "unbestaetigt", grund: `Beleg für ${t.kette}, eingestellt ist ${kette}` };
+  if (tg.kette !== kette) return { status: "unbestaetigt", grund: t("zahl.belegAndereKette", { beleg: tg.kette, kette }) };
   try {
-    return pruefeSolUeberweisung(await ladeTransaktion(t.signatur), { an: t.an, lamports: t.lamports });
+    return pruefeSolUeberweisung(await ladeTransaktion(tg.signatur), { an: tg.an, lamports: tg.lamports });
   } catch (e) {
-    return { status: "unbestaetigt", grund: `Kette nicht erreichbar (${(e as Error).name})` };
+    return { status: "unbestaetigt", grund: t("zahl.ketteNichtErreichbar", { fehler: (e as Error).name }) };
   }
 }
 
 /** Anzeige im Chat, z. B. „◎ Trinkgeld 0,002 SOL ≈ 310 sats · belegt ✓“. */
-export function trinkgeldText(t: SolTrinkgeld, p: SolPruefung | undefined, kurs?: { satsProSol: number }, notiz = t.notiz): string {
-  const stand = !p ? "wird geprüft …"
-    : p.status === "belegt" ? "belegt ✓"
-    : p.status === "unbestaetigt" ? `unbestätigt (${p.grund})`
-    : `falsch: ${p.grund}`;
-  return `◎ Trinkgeld ${ausLamports(t.lamports, kurs)} · ${stand}${notiz ? ` – „${notiz}“` : ""}`;
+export function trinkgeldText(tg: SolTrinkgeld, p: SolPruefung | undefined, kurs?: { satsProSol: number }, notiz = tg.notiz): string {
+  const stand = !p ? t("zahl.wirdGeprueft")
+    : p.status === "belegt" ? t("zahl.belegt")
+    : p.status === "unbestaetigt" ? t("zahl.unbestaetigt", { grund: p.grund ?? "" })
+    : t("zahl.falsch", { grund: p.grund ?? "" });
+  return t("zahl.trinkgeldZeile", { betrag: ausLamports(tg.lamports, kurs), stand }) + (notiz ? t("zahl.trinkgeldNotiz", { notiz }) : "");
 }

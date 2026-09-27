@@ -7401,6 +7401,64 @@ begründet) · node 227 (−1, begründet) · app 473 · mls 13 · Leak-Tests 57
 innerHTML streng 0 unbewertet · Website 5 Seiten ok · Smoke-Test bestanden ·
 Demo `demo:full` läuft.
 
+## Schritt 8.16d1 – Übersetzungen: Agent (Seite und agent.ts)
+
+**Fertig:** Die Agent-Seite in `index.html` – Aufgaben, Prüfaufträge,
+Reklamationen, Modelle, Kataloge, Repos, Eingabe, Werkzeuge, Arbeitsbereich –
+und `tabs/agent.ts` stehen auf 0 rohen Texten. Rund 150 Schlüssel `agent.*`
+in `texte/agent.ts`.
+
+**Einzelheiten:**
+- **Eigene Meldungen:**
+  - `EigeneMeldung` kennzeichnet Fehler, die die App selbst schon übersetzt
+    wirft (kein Provider, Max, Swarm, kein privater Provider).
+  - `explainError()` gibt sie unverändert weiter.
+  - Die übrigen Muster für technische Meldungen stehen jetzt als Regexe da,
+    nicht als Texte.
+- **Beispiel-Prompts:** Die Knöpfe tragen `data-prompt-key` – der gesendete
+  Prompt folgt der Sprache, nicht nur die Beschriftung.
+- **Werkzeug- und Anhangknöpfe:** Die Beschriftung steht in einem eigenen
+  `<span data-i18n>` neben dem Symbol; der Preis (`.tool-preis`) bleibt
+  daneben.
+- **Listen, die der Code füllt:** Der Platzhalter „lade …“ steht in einem
+  `<span>` und wird beim Füllen ersetzt, nicht beim Sprachwechsel
+  überschrieben.
+- **Anteile einer Antwort:** `ANTEIL_NAME` verweist auf Schlüssel.
+  `satText()` rechnet mit `gebietsschema()`.
+- **Geändert bei der Gelegenheit:**
+  - „copy last/copy all“ und „Ask the network…“ standen im deutschen Standard
+    englisch.
+  - Nach einem Auftrag hieß der Sendeknopf „Anfragen“ statt wie vorher
+    „Senden“ – jetzt überall derselbe Schlüssel.
+- **Kein UI-Text:**
+  - `"no keypair"` wird nur zugeordnet.
+  - `pruefer.art === "eigener Provider"` vergleicht einen Wert aus
+    `streitfall.ts`, der mit 8.16d2 eine Kennung bekommt.
+  - `" je Aufruf"` ist die Trennmarke der Werkzeugpreise (8.16d2).
+- **Rohtext-Suche:** Text in `<code>` (Befehle) und „HD“ zählen nicht.
+- **Neuzeichnen:** Der Browser-Test zeigte, dass Verlauf und Budget nach
+  einem Sprachwechsel in der alten Sprache blieben. `switchTab("ai")` zeichnet
+  beide jetzt beim Öffnen neu.
+- **innerHTML-Ausnahmeliste:** Fünf Einträge für `agent.ts` sind an die neuen
+  Ausdrücke angepasst, fünf entfallen, weil die Werte jetzt in
+  `escapeHtml(…)` stehen.
+
+**Tests:**
+- +1 in `i18n.test.ts`: Agent fertig; `EigeneMeldung`; Beispiel-Prompts über
+  Schlüssel; Englisch mit Werten.
+- Der Test „jeder Text wird benutzt“ kennt `data-prompt-key`.
+- Zwei ältere Tests prüfen den Schlüssel am neuen Ort (nicht schwächer):
+  - `preis-anzeige`: Schätzung;
+  - `zahlung-pruefen`: Aufteilung, der Text „kein Empfänger – beim Provider“
+    im Wörterbuch.
+- Die Smoke-Prüfung „sprache“ liest zusätzlich „Neue Aufgabe“/„New task“.
+
+Endstand: protocol 1178 (6 übersprungen) · node 227 (7 übersprungen ohne
+Netz) · app 474 (+1) · mls 13 · Leak-Tests 57 grün + 1 todo · 0 rot ·
+check-wiring `--streng` Exit 0 · innerHTML streng 0 unbewertet · Website 5
+Seiten ok · Smoke-Test bestanden (inkl. „sprache“ mit dem Agent) · im
+Browser: Agent und Kommunikation in Englisch, nach dem Wechsel in Deutsch.
+
 ## Schritt 5.1.4b – Gebührenmodell A+: Earn-Tab ohne Topf und Stufen
 
 5.1.4 dreigeteilt: a Protokoll und Knoten (#126), **b Earn-Tab und Werben**, c
@@ -7670,6 +7728,172 @@ Endstand: protocol 1064 · node 226 · app 475 · mls 13 · Zahlkanal 6 (neu,
 gegen Validator) · Leak-Tests 57 grün + 1 todo · 0 rot · check-wiring
 `--streng` Exit 0 · innerHTML streng Exit 0 · Website 5 Seiten ok ·
 Smoke-Test bestanden.
+
+## Schritt 8.16e – Übersetzungen: Agent-Rest, Währung, Zahlwege und Swaps
+
+**Fertig:** Der erste größere Schritt (MENSCH 27.09.: größere Pull Requests
+für die Übersetzung erlaubt). Auf 0 rohen Texten stehen:
+- die Währung-Seite in `index.html`;
+- 29 Dateien: Agent-Rest (`agent-netz.ts`, Streitfall, Prüfaufträge,
+  Werkzeugpreise, Kataloge, KI-Zahlung), Währung (`tabs/waehrung.ts`,
+  eingebaute Wallet, offline zahlen, Zahlschienen) und alle Zahlwege und Swaps
+  (`swap-client.ts`, `sol-htlc.ts`, `rueck-swap.ts`, `rails.ts`,
+  `sol-wallet.ts`, `solana-connect.ts`, `wallet-standard.ts`, Zap-Dialog,
+  Belege, Preise, RPC-Stichprobe, Relay-Kauf, Rückhol-Wächter …).
+
+Neu sind die Bereiche `texte/waehrung.ts` (`waehr.*`, rund 170 Schlüssel) und
+`texte/zahlung.ts` (`zahl.*`, rund 190); `texte/agent.ts` wächst um rund 75.
+
+**Einzelheiten:**
+- **Deutsche Sätze aus dem Protokoll:** Die App zeigte fertige Texte des
+  Protokolls an. Jetzt bildet sie diese aus den Feldern neu:
+  - Verfügbarkeit der Modelle über `modellNotiz()` aus Seedern und fehlenden
+    Dateien, wie `buildRegistry()` bewertet;
+  - Reklamationsgründe über `GRUND_TEXT` statt `DISPUTE_LABEL`;
+  - Kurswarnungen aus Quellen und Streuung (weicht ihre Zahl ab, gelten die
+    des Protokolls – keine Warnung geht verloren);
+  - der Zahlungshinweis aus `isMobile`/`webln`;
+  - die Prüfung vor dem Tausch über `tauschPruefung()` mit denselben
+    Einzelprüfungen (`checkReuse`, `checkAmount`, `checkTiming`).
+    `swapPrivacyCheck()` steht dafür mit Begründung in
+    `wiring-ausnahmen.txt`.
+- **Prüfer hat eine Art:** `Pruefer.art` ist `kontakt` oder `provider`
+  (vorher der Text „eigener Provider“). Angezeigt wird die Art über
+  `PRUEFER_ART`; der Vergleich in `agent.ts` braucht kein `// kein UI-Text`
+  mehr. Die Werkzeugpreise liefern den Preis am Knopf direkt, ohne
+  Trennmarke „ je Aufruf“.
+- **Knöpfe, deren Text der Code ändert** („Verbunden“, „+ SOL hinterlegen“),
+  tragen den neuen Schlüssel in `data-i18n` – ein Sprachwechsel setzt sie
+  nicht zurück.
+- **Zahlen und Zeiten mit `gebietsschema()`:** Swap-Fristen, Deposit,
+  Gebühr in Prozent, Lightning-Guthaben, Offline-Nonce.
+- **Geändert bei der Gelegenheit:**
+  - „deposit“/„refund“, „provider pubkey (auto)“ und „SOL address“ standen im
+    deutschen Standard englisch.
+  - Umlaute in Swap-Meldungen („Pruefe“, „einloesen“) sind korrigiert.
+  - „Nicht verbunden“ unter Solana blieb nach dem Verbinden stehen – jetzt
+    verborgen.
+  - Die Nachfrage zur öffentlichen SOL-Adresse spricht von „dieser Person“.
+- **Kein UI-Text:**
+  - der Verlaufs-Präfix für das Modell (`ki-kontext.ts`) – er geht ans
+    Modell;
+  - die Rechnungsbeschreibung „FreedomStack: Tausch SOL → sats“;
+  - die Notiz „Relay-Zugang“ einer Zahlanfrage.
+- **Noch unverändert (8.16g):** Gründe, die Prüfungen des Protokolls liefern
+  und die App in einen übersetzten Satz einsetzt (z. B.
+  `validateReverseTimelock`, `pruefeSolUeberweisung`, Hinweise der
+  RPC-Stichprobe).
+- **innerHTML-Ausnahmeliste:** Drei Einträge für `waehrung.ts` entfallen.
+  Die Werte stehen jetzt in `escapeHtml(…)` bzw. gehen über `textContent`.
+
+**Tests:**
+- +1 in `i18n.test.ts`:
+  - alle 29 Dateien fertig und ohne `"de-DE"`;
+  - keine deutschen Protokolltexte mehr in der Anzeige;
+  - Modellnotiz, Reklamation, Prüfer-Art, Tausch-Prüfung, HTLC-Fehler, nächster
+    Schritt, Kurszeile (auch Rückfall), Preise und Werkzeugpreis auf Englisch;
+  - Zahlenformat auf Deutsch.
+- 23 ältere Testdateien prüfen Meldungen weiter wörtlich auf Deutsch. Sie
+  stellen dafür `setLang("de")` ein – nicht schwächer.
+- Sechs Quelltext-Prüfungen suchen den Schlüssel an der neuen Stelle
+  (Kataloge, Stichprobe ×2, Rück-Swap ×2, eingebaute Wallet); der
+  Prüfer-Test erwartet die Art `provider`.
+- Die Smoke-Prüfung „sprache“ liest zusätzlich den Deposit-Knopf
+  („hinterlegen“/„deposit“).
+
+Endstand: protocol 1064 (6 übersprungen) · node 225 (7 übersprungen ohne
+Netz) · app 477 (+1) · mls 13 · Leak-Tests 57 grün + 1 todo · 0 rot ·
+check-wiring `--streng` Exit 0 · innerHTML streng 0 unbewertet · Website 5
+Seiten ok · Smoke-Test bestanden (inkl. „sprache“ mit dem Deposit-Knopf) ·
+im Browser: Währung-Seite samt Meldungen aus dem Code in Englisch, nach dem
+Wechsel in Deutsch, ohne Seitenfehler.
+
+## Schritt 8.16f – Übersetzungen: Earn, Profil, Settings
+
+**Fertig:** Earn, Profil und Settings – Seiten, `tabs/earn.ts`, `tabs/profil.ts`,
+`tabs/settings.ts`, `tabs/repos.ts` und `repo-ansicht.ts` – stehen auf 0 rohen
+Texten. Damit ist **ganz `index.html` fertig** (alle Bereiche 0). Neu ist der
+Bereich `texte/settings.ts` (`set.*`, rund 220 Schlüssel); `texte/earn.ts` und
+`texte/profil.ts` wachsen um die Seiten, Repos (`repo.*`) und die
+Protokoll-Sätze.
+
+**Einzelheiten:**
+- **Sätze des Protokolls (`protokoll-texte.ts`, neu, ohne DOM):**
+  - Die App bildet diese Sätze aus den Feldern in der Sprache der Oberfläche
+    nach:
+    - Repo-Zustand (`healthNote`) und Verteilung der Arbeit (`busFactor`);
+    - Ebenen, Zellenstufen, „Abdeckung hier“ und die Einwilligung vor dem
+      Eintragen (`coverageConsentText`);
+    - Profil-Offenlegung und Bildwarnung;
+    - Titel, Beschreibung und Stand der Aufgaben;
+    - Herkunft der Abzeichen.
+  - Ein Test vergleicht jede deutsche Fassung wortgleich mit dem Protokoll –
+    jeder Client zeigt dieselbe Warnung.
+  - `badgeSourceLabel`, `coverageConsentText` und `profileDisclosure` stehen
+    als deutsche Referenz in `wiring-ausnahmen.txt`.
+- **Protokoll (klein, andere Spur berührt):** `QuestProgress` hat einen
+  Zählerstand `zaehler: { ist, soll }`. So bildet die Oberfläche „7 von 7
+  Tagen.“ in ihrer Sprache. Das Feld ist nur zusätzlich, kein Event-Format;
+  der Test in `quests.test.ts` ist erweitert.
+- **Profil:**
+  - Die Warnfarbe der Offenlegung hängt am Befund (fremder Server), nicht mehr
+    am Text „IP-Adresse“.
+  - Stilwerte (`messing`, `schlicht` …) gehen weiter so ins Profil; angezeigt
+    werden sie über Schlüssel.
+  - Vertrauensstufe: Die Startwerte „0 XP · 0 jobs · free“ stehen als „—“, bis
+    der Code sie füllt.
+- **Settings:**
+  - Reiter, Überschriften, Karten, Knöpfe, Platzhalter und `aria-label` gehen
+    über `data-i18n`.
+  - Der Sprachknopf zeigt beim Start das Kürzel; im HTML steht ein neutrales
+    „🌐 ▾“ mit Beschriftung.
+  - Gerätestatus über `GERAET_STATUS`.
+  - Die Ersatzschlüssel-Datei kommt in der Sprache der Oberfläche.
+  - `"de-DE"` ist durch `gebietsschema()` ersetzt.
+- **Rohtext-Suche:**
+  - Klassenlisten als Argument (`el("div", t, "mono-sm muted")`) und
+    Selektoren mit Typparameter (`querySelectorAll<HTMLElement>(…)`) zählen
+    nicht mehr.
+  - Im HTML gelten Adress-Schemata (`wss://…`, `bunker://…`) und „Bluetooth“
+    als Eigennamen.
+  - Beides steht in der Probe des Tests.
+  - Dadurch sanken auch offene Dateien (`shell-logic.ts`, `app.ts`,
+    `nachfolge-ui.ts`, `notfall.ts`, `mesh-transfer.ts`).
+- **Neuzeichnen:** Der Browser-Test zeigte, dass „Abdeckung hier“, die
+  Profil-Offenlegung und die Stilnamen nach einem Sprachwechsel in der alten
+  Sprache blieben.
+  - Das Öffnen von Profil zeichnet sie jetzt neu (`zeigeProfilTexte()`).
+  - Earn lädt die Abdeckung neu; der Standort-Hinweis steht sofort da, ohne
+    auf die Relays zu warten.
+- **Noch unverändert (8.16g):** Die Sätze des Protokolls in Settings –
+  Nachfolge-Stand und -Warnung, `backupInfo`, Schlüsselwechsel, Gerätewarnung,
+  Echtheit und Fixierung, Offline-Fähigkeiten, Tor-Reihenfolge – und die
+  Meldungen der Bausteine `mesh-radio.ts`, `mls-engine.ts`, `relay-satz.ts`
+  und `geraete-modus.ts`.
+- **innerHTML-Ausnahmeliste:**
+  - Fünf Einträge sind an die neuen Ausdrücke angepasst.
+  - Sechs entfallen, weil die Werte jetzt in `escapeHtml(t(…))` stehen.
+
+**Tests:**
+- +1 in `i18n.test.ts`:
+  - Earn, Profil und Settings fertig, alle Bereiche von `index.html` auf 0;
+  - keine deutschen Protokoll-Sätze mehr in der Anzeige;
+  - jede nachgebildete deutsche Fassung wortgleich mit dem Protokoll;
+  - Englisch mit Werten.
+- Vier ältere Tests suchen die neue Stelle (nicht schwächer):
+  - `abdeckung`: Einwilligung über `abdeckungEinwilligung`;
+  - `versand`: Option mit Attribut;
+  - `einrichtung`: Werben-Text;
+  - `geraete-modus`: Gerätecode.
+- Die Smoke-Prüfung „sprache“ liest zusätzlich die Überschrift
+  „Sicherheit“/„Security“.
+
+Endstand: protocol 1064 (6 übersprungen) · node 225 (7 übersprungen ohne
+Netz) · app 478 (+1) · mls 13 · Leak-Tests 57 grün + 1 todo · 0 rot ·
+check-wiring `--streng` Exit 0 · innerHTML streng 0 unbewertet · Website 5
+Seiten ok · Smoke-Test bestanden (inkl. „sprache“ mit Settings) · im Browser:
+Earn, Profil und Settings in Englisch, nach dem Wechsel in Deutsch – samt
+Abdeckung, Offenlegung und Stilnamen –, ohne Seitenfehler.
 
 ## Schritt 4.3c1 – Solana-Zahlkanal: Kasse des Knotens
 

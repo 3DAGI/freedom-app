@@ -6,6 +6,7 @@
  * sats und SOL ueber den Marktkurs (`ausMsat`) – ohne Kurs steht „kein Kurs“.
  */
 import { DEFAULT_TOOL_PRICES, type MarktKurs, type ToolPrice } from "@freedomstack/protocol";
+import { t } from "./i18n.js";
 import { ausMsat } from "./preis-anzeige.js";
 
 export interface WerkzeugPreis {
@@ -30,6 +31,6 @@ export function werkzeugPreise(angebote: ReadonlyArray<{ tools?: readonly ToolPr
 
 /** „5 sats ≈ 0,00003 SOL je Aufruf“ bzw. mit „Richtpreis“. */
 export function werkzeugPreisText(p: WerkzeugPreis | undefined, kurs?: Pick<MarktKurs, "satsProSol">): string {
-  if (!p) return "Preis unbekannt";
-  return `${ausMsat(p.msat, kurs)} je Aufruf${p.angeboten ? "" : " (Richtpreis)"}`;
+  if (!p) return t("agent.preisUnbekannt");
+  return t(p.angeboten ? "agent.jeAufruf" : "agent.jeAufrufRichtpreis", { preis: ausMsat(p.msat, kurs) });
 }

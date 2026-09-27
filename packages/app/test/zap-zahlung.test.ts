@@ -11,6 +11,10 @@ import { bech32 } from "@scure/base";
 import { zahle } from "@freedomstack/protocol";
 import { LightningRail } from "../src/rails.js";
 import { holeZapRechnung, solAdresseAusProfil } from "../src/zap-zahlung.js";
+import { setLang } from "../src/i18n.js";
+
+// Meldungen hier auf Deutsch prüfen (seit 8.16e über Schlüssel in der Sprache der Oberfläche)
+setLang("de");
 
 const ZAP_REQUEST = { kind: 9734, pubkey: "a".repeat(64), sig: "b".repeat(128), tags: [["amount", "21000"]] };
 

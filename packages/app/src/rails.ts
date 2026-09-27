@@ -8,6 +8,7 @@ import { bech32 } from "@scure/base";
 import {
   type Angebot, type Beleg, type PaymentRail, type Zahlanfrage, preimageMatches, pruefeAnfrage,
 } from "@freedomstack/protocol";
+import { t } from "./i18n.js";
 
 // ------------------------------------------------------------ bolt11
 
@@ -50,20 +51,20 @@ export function bolt11ZahlungsHash(bolt11: string): string | null {
 export async function rechnungVonAdresse(adresse: string, msat: number, notiz?: string, holen: typeof fetch = (i, o) => fetch(i, o)): Promise<string> {
   const [name, host] = adresse.split("@");
   const r = await holen(`https://${host}/.well-known/lnurlp/${encodeURIComponent(name)}`);
-  if (!r.ok) throw new Error(`Lightning-Adresse nicht erreichbar (HTTP ${r.status})`);
+  if (!r.ok) throw new Error(t("zahl.adresseNichtErreichbar", { status: r.status }));
   const d = (await r.json()) as { callback?: string; minSendable?: number; maxSendable?: number; tag?: string; commentAllowed?: number };
   if (d.tag !== "payRequest" || typeof d.callback !== "string" || !d.callback.startsWith("https://")) {
-    throw new Error("Lightning-Adresse liefert keine gültige Zahlungsanfrage");
+    throw new Error(t("zahl.adresseOhneAnfrage"));
   }
   if ((d.minSendable !== undefined && msat < d.minSendable) || (d.maxSendable !== undefined && msat > d.maxSendable)) {
-    throw new Error(`Betrag außerhalb ${d.minSendable ?? 0}–${d.maxSendable ?? "∞"} msat`);
+    throw new Error(t("zahl.betragAusserhalb", { min: d.minSendable ?? 0, max: d.maxSendable ?? "∞" }));
   }
   const cb = new URL(d.callback);
   cb.searchParams.set("amount", String(msat));
   if (notiz && d.commentAllowed) cb.searchParams.set("comment", notiz.slice(0, d.commentAllowed));
   const rr = await holen(cb.toString());
   const dd = (await rr.json()) as { pr?: string };
-  if (typeof dd.pr !== "string") throw new Error("Lightning-Adresse lieferte keine Rechnung");
+  if (typeof dd.pr !== "string") throw new Error(t("zahl.adresseOhneRechnung"));
   return dd.pr;
 }
 
@@ -102,7 +103,7 @@ export class LightningRail implements PaymentRail {
     const rechnung = a.ziel.includes("@") ? await rechnungVonAdresse(a.ziel, a.betrag.wert, a.notiz, this.q.holen) : a.ziel;
     const verlangt = bolt11BetragMsat(rechnung);
     if (verlangt !== null && verlangt !== a.betrag.wert) {
-      throw new Error(`Rechnung über ${verlangt} msat, gewollt ${a.betrag.wert} msat – nicht gezahlt`);
+      throw new Error(t("zahl.rechnungUeber", { verlangt, gewollt: a.betrag.wert }));
     }
     const nwc = this.q.nwc?.();
     let preimage: string;
@@ -110,7 +111,7 @@ export class LightningRail implements PaymentRail {
       preimage = (await nwc.payInvoice(rechnung)).preimage;
     } else {
       const w = this.q.webln?.();
-      if (!w) throw new Error("Keine Lightning-Wallet verbunden – im Wallet-Tab per NWC verbinden.");
+      if (!w) throw new Error(t("zahl.keineLightningVerbinden"));
       await w.enable();
       preimage = (await w.sendPayment(rechnung)).preimage;
     }
@@ -126,7 +127,7 @@ export class LightningRail implements PaymentRail {
 
   async balance() {
     const nwc = this.q.nwc?.();
-    if (!nwc) throw new Error("Guthaben nur über NWC abfragbar");
+    if (!nwc) throw new Error(t("zahl.guthabenNurNwc"));
     return { einheit: "msat" as const, wert: await nwc.getBalance() };
   }
 
@@ -192,14 +193,14 @@ export class SolanaRail implements PaymentRail {
     pruefeAnfrage(this.id, a);
     const w = this.q.wallet();
     const von = w?.adresse;
-    if (!w || !von) throw new Error("Keine Solana-Wallet verbunden – im Wallet-Tab verbinden.");
-    if (von === a.ziel) throw new Error("Überweisung an sich selbst");
+    if (!w || !von) throw new Error(t("zahl.keineSolanaVerbinden"));
+    if (von === a.ziel) throw new Error(t("zahl.anSichSelbst"));
     const absender = w.absender ? await w.absender(a.betrag.wert) : von;
-    if (absender === a.ziel) throw new Error("Überweisung an sich selbst");
-    if (w.freigabe && !(await w.freigabe(a.betrag.wert, a.ziel))) throw new Error("Zahlung nicht freigegeben – nichts gesendet.");
+    if (absender === a.ziel) throw new Error(t("zahl.anSichSelbst"));
+    if (w.freigabe && !(await w.freigabe(a.betrag.wert, a.ziel))) throw new Error(t("zahl.nichtFreigegeben"));
     const tx = await this.q.baueUeberweisung(absender, a.ziel, a.betrag.wert, a.referenz);
     const signature = await w.signiereUndSende(tx);
-    if (typeof signature !== "string" || !/^[1-9A-HJ-NP-Za-km-z]{64,90}$/.test(signature)) throw new Error("Wallet lieferte keine gültige Signatur");
+    if (typeof signature !== "string" || !/^[1-9A-HJ-NP-Za-km-z]{64,90}$/.test(signature)) throw new Error(t("zahl.keineSignatur"));
     return { rail: this.id, ziel: a.ziel, betrag: a.betrag, ref: signature, zeit: this.q.jetzt?.() ?? Math.floor(Date.now() / 1000) };
   }
 
@@ -210,7 +211,7 @@ export class SolanaRail implements PaymentRail {
 
   async balance() {
     const adr = this.q.wallet()?.adresse;
-    if (!adr || !this.q.guthaben) throw new Error("Guthaben nicht abfragbar");
+    if (!adr || !this.q.guthaben) throw new Error(t("zahl.guthabenNichtAbfragbar"));
     return { einheit: "lamports" as const, wert: await this.q.guthaben(adr) };
   }
 }

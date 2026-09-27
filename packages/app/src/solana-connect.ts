@@ -21,6 +21,7 @@
  */
 
 import { alsAnbieter, solanaWallets } from "./wallet-standard.js";
+import { t } from "./i18n.js";
 
 export type SolanaConnectMethod = "standard" | "injected" | "mwa" | "deeplink" | "none";
 
@@ -73,23 +74,19 @@ export function detectSolanaEnvironment(userAgentOverride?: string): SolanaEnvir
   let hint: string;
   if (standard.length) {
     method = "standard";
-    hint = `Wallet erkannt: ${standard.join(", ")}.`;
+    hint = t("zahl.walletErkannt", { namen: standard.join(", ") });
   } else if (hasInjected) {
     method = "injected";
-    hint = inWalletBrowser
-      ? "Wallet-Browser erkannt — Verbinden funktioniert direkt."
-      : "Browser-Wallet erkannt (Phantom/Solflare).";
+    hint = t(inWalletBrowser ? "zahl.walletBrowser" : "zahl.browserWallet");
   } else if (isAndroid) {
     method = "mwa";
-    hint = "Android erkannt — die Wallet-App wird zum Bestätigen geöffnet.";
+    hint = t("zahl.android");
   } else if (isMobile) {
     method = "deeplink";
-    hint = "Auf dem Handy öffnet sich deine Wallet-App. Danach geht es hier weiter.";
+    hint = t("zahl.handy");
   } else {
     method = "none";
-    hint =
-      "Keine Solana-Wallet gefunden. Auf dem Desktop hilft eine Extension " +
-      "(Phantom oder Solflare), oder du nutzt die App auf dem Handy.";
+    hint = t("zahl.keineSolanaWallet");
   }
 
   return { isMobile, isIos, isAndroid, inWalletBrowser, hasInjected, hasMwa, method, hint };
@@ -166,7 +163,7 @@ export async function connectSolanaWallet(opts: ConnectOptions = {}): Promise<So
         return { pubkey: resp.publicKey.toBase58(), method: "standard", provider: anbieter, name: gewaehlt.name };
       } catch (e) {
         if (opts.silent) return null;
-        throw new Error(`Wallet hat die Verbindung abgelehnt: ${(e as Error).message}`);
+        throw new Error(t("zahl.verbindungAbgelehnt", { fehler: (e as Error).message }));
       }
     }
   }
@@ -179,7 +176,7 @@ export async function connectSolanaWallet(opts: ConnectOptions = {}): Promise<So
       return { pubkey: resp.publicKey.toBase58(), method: "injected", provider };
     } catch (e) {
       if (opts.silent) return null; // kein Vertrauen vorhanden — völlig normal
-      throw new Error(`Wallet hat die Verbindung abgelehnt: ${(e as Error).message}`);
+      throw new Error(t("zahl.verbindungAbgelehnt", { fehler: (e as Error).message }));
     }
   }
 

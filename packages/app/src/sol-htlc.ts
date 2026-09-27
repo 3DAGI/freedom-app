@@ -25,6 +25,7 @@
  */
 import { sha256 } from "@noble/hashes/sha2.js";
 import { bytesToHex, hexToBytes } from "@noble/hashes/utils.js";
+import { t } from "./i18n.js";
 
 /** Muss zur `declare_id!` des Anchor-Programms passen. */
 export const HTLC_PROGRAM_ID = "B6W19UfZ1iYDoJYaSesZDiP96TpeZACQu3Xs6VSJ4kJk";
@@ -70,10 +71,10 @@ export async function buildLockInstruction(
   const { PublicKey, SystemProgram, TransactionInstruction } = await import("@solana/web3.js");
 
   if (params.hashlock.length !== 32) {
-    throw new Error(`Hashlock muss 32 Bytes haben, hat ${params.hashlock.length}`);
+    throw new Error(t("zahl.hashlockLaenge", { n: params.hashlock.length }));
   }
   if (!Number.isInteger(params.amountLamports) || params.amountLamports <= 0) {
-    throw new Error("Betrag muss eine positive ganze Zahl in Lamports sein");
+    throw new Error(t("zahl.lamportsGanz"));
   }
 
   const idBytes = swapIdBytes(params.swapId);
@@ -154,20 +155,20 @@ export async function lockDeposit(p: DepositLockParams): Promise<DepositLockResu
   const { Transaction, PublicKey } = await import("@solana/web3.js");
 
   if (p.spendLamports <= 0 || p.refundLamports < 0) {
-    throw new Error("Ungültige Aufteilung: der Verbrauchsanteil muss positiv sein.");
+    throw new Error(t("zahl.aufteilungUngueltig"));
   }
   const now = Math.floor(Date.now() / 1000);
   if (p.timelockUnix <= now + 600) {
     // Ein Timelock, der gleich abläuft, ist für den Provider wertlos — er
     // würde das Deposit ablehnen, und der Nutzer hätte umsonst gezahlt.
-    throw new Error("Der Timelock muss mindestens 10 Minuten in der Zukunft liegen.");
+    throw new Error(t("zahl.timelockZehnMinuten"));
   }
 
   const preimage = p.preimage ?? crypto.getRandomValues(new Uint8Array(32));
   const hashlock = sha256(preimage);
   const initiator = p.wallet.publicKey.toBase58();
 
-  p.onProgress?.("Instruktionen werden gebaut …");
+  p.onProgress?.(t("zahl.instruktionen"));
   const ixSpend = await buildLockInstruction(
     { swapId: p.spendSwapId, hashlock, amountLamports: p.spendLamports, timelockUnix: p.timelockUnix, recipient: p.providerSolAddress },
     initiator,
@@ -183,23 +184,23 @@ export async function lockDeposit(p: DepositLockParams): Promise<DepositLockResu
     tx.add(ixRefund);
   }
 
-  p.onProgress?.("Warte auf Bestätigung in der Wallet …");
+  p.onProgress?.(t("zahl.warteWallet"));
   const { blockhash, lastValidBlockHeight } = await p.connection.getLatestBlockhash("confirmed");
   tx.recentBlockhash = blockhash;
   tx.feePayer = new PublicKey(initiator);
 
   const signed = (await p.wallet.signTransaction(tx)) as import("@solana/web3.js").Transaction;
 
-  p.onProgress?.("Transaktion wird gesendet …");
+  p.onProgress?.(t("zahl.wirdGesendet"));
   const signature = await p.connection.sendRawTransaction(signed.serialize());
 
-  p.onProgress?.("Warte auf Bestätigung der Kette …");
+  p.onProgress?.(t("zahl.warteKette"));
   const conf = await p.connection.confirmTransaction(
     { signature, blockhash, lastValidBlockHeight },
     "confirmed",
   );
   if (conf.value.err) {
-    throw new Error(`Transaktion abgelehnt: ${JSON.stringify(conf.value.err)}`);
+    throw new Error(t("zahl.txAbgelehnt", { fehler: JSON.stringify(conf.value.err) }));
   }
 
   return {
@@ -228,24 +229,24 @@ export async function lockRueckSwap(p: {
   onProgress?: (step: string) => void;
 }): Promise<{ signature: string }> {
   const { Transaction, PublicKey } = await import("@solana/web3.js");
-  if (!/^[0-9a-f]{64}$/.test(p.paymentHashHex)) throw new Error("Hash der Rechnung ungültig");
-  if (p.timelockUnix <= Math.floor(Date.now() / 1000) + 3600) throw new Error("Die Frist muss mehr als eine Stunde in der Zukunft liegen.");
+  if (!/^[0-9a-f]{64}$/.test(p.paymentHashHex)) throw new Error(t("zahl.rechnungsHashUngueltig"));
+  if (p.timelockUnix <= Math.floor(Date.now() / 1000) + 3600) throw new Error(t("zahl.fristEineStunde"));
   const initiator = p.wallet.publicKey.toBase58();
   const ix = await buildLockInstruction(
     { swapId: p.swapId, hashlock: hexToBytes(p.paymentHashHex), amountLamports: p.lamports, timelockUnix: p.timelockUnix, recipient: p.lpSol },
     initiator,
   );
   const tx = new Transaction().add(ix);
-  p.onProgress?.("Warte auf Bestätigung in der Wallet …");
+  p.onProgress?.(t("zahl.warteWallet"));
   const { blockhash, lastValidBlockHeight } = await p.connection.getLatestBlockhash("confirmed");
   tx.recentBlockhash = blockhash;
   tx.feePayer = new PublicKey(initiator);
   const signed = (await p.wallet.signTransaction(tx)) as import("@solana/web3.js").Transaction;
-  p.onProgress?.("Transaktion wird gesendet …");
+  p.onProgress?.(t("zahl.wirdGesendet"));
   const signature = await p.connection.sendRawTransaction(signed.serialize(), { skipPreflight: false, preflightCommitment: "confirmed" });
-  p.onProgress?.("Warte auf Bestätigung der Kette …");
+  p.onProgress?.(t("zahl.warteKette"));
   const conf = await p.connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, "confirmed");
-  if (conf.value.err) throw new Error(`Sperre abgelehnt: ${JSON.stringify(conf.value.err)}`);
+  if (conf.value.err) throw new Error(t("zahl.sperreAbgelehnt", { fehler: JSON.stringify(conf.value.err) }));
   return { signature };
 }
 
@@ -305,7 +306,7 @@ export async function refundDepositOnChain(p: {
     return { refunded: [], failed };
   }
 
-  p.onProgress?.("Warte auf Bestätigung in der Wallet …");
+  p.onProgress?.(t("zahl.warteWallet"));
   const { blockhash, lastValidBlockHeight } = await p.connection.getLatestBlockhash("confirmed");
   tx.recentBlockhash = blockhash;
   tx.feePayer = new PublicKey(initiator);
@@ -320,9 +321,7 @@ export async function refundDepositOnChain(p: {
       refunded: [],
       failed: included.map((swapId) => ({
         swapId,
-        reason:
-          "Rückholung abgelehnt — meist, weil der Timelock noch läuft oder ein " +
-          "Teil bereits eingelöst wurde.",
+        reason: t("zahl.rueckholungAbgelehnt"),
       })).concat(failed),
     };
   }

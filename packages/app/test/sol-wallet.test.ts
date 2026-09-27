@@ -12,6 +12,10 @@ import {
   EingebauteSolWallet, LS_SOL_AUSGABEN, LS_SOL_LIMIT, LS_SOL_WALLET, type Nachfrage, STANDARD_LIMIT, type WalletSpeicher,
   solSchluesselAusPhrase,
 } from "../src/sol-wallet.js";
+import { setLang } from "../src/i18n.js";
+
+// Meldungen hier auf Deutsch prüfen (seit 8.16e über Schlüssel in der Sprache der Oberfläche)
+setLang("de");
 
 // Oeffentliche BIP-39-Testphrasen – keine Geheimnisse.
 const PHRASE = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about";
@@ -148,7 +152,7 @@ test("Solana-Schiene: ohne Freigabe wird nichts gebaut und nichts gesendet", asy
 test("Verdrahtung (4.2b): Abschnitt im Wallet-Tab – Tresor zuerst, Bunker gesperrt, alle Knoepfe vorhanden", async () => {
   const { readFileSync } = await import("node:fs");
   const ui = readFileSync(new URL("../src/shell/eingebaute-wallet.ts", import.meta.url), "utf8");
-  assert.match(ui, /if \(!\(await verlangeTresor\("die eingebaute Wallet"\)\)\) return;/);
+  assert.match(ui, /if \(!\(await verlangeTresor\(t\("waehr\.fuerEingebaute"\)\)\)\) return;/);
   assert.match(ui, /const adresse = mitBunker\(\) \? undefined : eingebauteWallet\.adresse\(\);/);
   assert.match(ui, /await eingebauteWallet\.einrichten\(feld\.value, state\.keypair\?\.pk \?\? ""\);\n\s+feld\.value = "";/);
   const html = readFileSync(new URL("../src/shell/index.html", import.meta.url), "utf8");

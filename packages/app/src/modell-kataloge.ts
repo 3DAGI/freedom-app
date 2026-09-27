@@ -7,6 +7,7 @@
  * abonniert sind.
  */
 import { leseKatalogAdresse, type KatalogEintrag, type ModellKatalog } from "@freedomstack/protocol";
+import { t } from "./i18n.js";
 
 export const LS_KATALOGE = "freedom.kataloge";
 export const ABOS_MAX = 20;
@@ -25,9 +26,9 @@ export function leseAbos(roh: string | null): string[] {
 }
 
 export function mitAbo(abos: readonly string[], adresse: string): string[] {
-  if (leseKatalogAdresse(adresse) === null) throw new Error("Keine Katalog-Adresse");
+  if (leseKatalogAdresse(adresse) === null) throw new Error(t("agent.keineKatalogAdresse"));
   if (abos.includes(adresse)) return [...abos];
-  if (abos.length >= ABOS_MAX) throw new Error(`Höchstens ${ABOS_MAX} Kataloge – erst einen abbestellen`);
+  if (abos.length >= ABOS_MAX) throw new Error(t("agent.hoechstensKataloge", { n: ABOS_MAX }));
   return [...abos, adresse];
 }
 

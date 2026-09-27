@@ -61,9 +61,10 @@ export function patchZeilen(repo: GelesenesRepo, patches: readonly NostrEvent[],
   return zeilen.sort((a, b) => b.patch.zeit - a.patch.zeit);
 }
 
+/** Status eines Patches → Schlüssel des Texts (8.16f). */
 export const STATUS_TEXT: Record<PatchStatus, string> = {
-  offen: "offen",
-  angenommen: "angenommen ✓",
-  geschlossen: "geschlossen",
-  entwurf: "Entwurf",
+  offen: "repo.offen",
+  angenommen: "repo.angenommen",
+  geschlossen: "repo.geschlossen",
+  entwurf: "repo.entwurf",
 };

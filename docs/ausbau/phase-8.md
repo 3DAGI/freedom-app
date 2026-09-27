@@ -46,14 +46,35 @@ Reihenfolge.
   sechs Teilschritte:
   - **8.16c – FERTIG:** Kommunikation (Seite, `tabs/kommunikation.ts`): rund
     130 Schlüssel `komm.*`; Daten eines öffentlichen Raums tragen `// kein UI-Text`.
-  - **8.16d:** Agent (Seite, `tabs/agent.ts`, `agent-netz.ts`, Streitfall).
-  - **8.16e:** Währung (Seite, `tabs/waehrung.ts`, eingebaute Wallet, offline).
-  - **8.16f:** Zahlwege und Swaps (Meldungen aus `swap-client.ts`,
-    `sol-htlc.ts`, `rueck-swap.ts`, `rails.ts`, `sol-wallet.ts` …).
-  - **8.16g:** Earn und Profil (Seiten, `tabs/earn.ts`, `tabs/profil.ts`, Repos).
-  - **8.16h/i:** Settings – Seite, dann `tabs/settings.ts`.
-  - **8.16j:** Einstieg und Dialoge (`onboarding.ts`, `app.ts`, Tresor,
-    Identität, Nachfolge, Notfall, Bunker, Einrichtung, Datenschutzbericht).
-  - **8.16k:** übrige Bausteine (Mesh, MLS, Werkzeuge, Suche …) – danach steht
-    alles auf 0.
-  - **8.16l:** mit 0.F – Texte der Website an den Code angleichen.
+  - **8.16d1 – FERTIG:** Agent – Seite (samt Modelle, Kataloge, Repos) und
+    `tabs/agent.ts` über `agent.*`; eigene Meldungen als `EigeneMeldung`, damit
+    `explainError()` sie nicht nach deutschen Mustern umdeutet; Beispiel-Prompts
+    in der Sprache der Oberfläche.
+- **Größere Schritte (MENSCH 27.09.2026):** Für die Übersetzung sind größere
+  Pull Requests erlaubt – je Bereich einer statt je rund 400 Zeilen:
+  - **8.16e – FERTIG:** Agent-Rest (`agent-netz.ts`, Streitfall, Prüfaufträge,
+    Werkzeugpreise, Kataloge), Währung (Seite, `tabs/waehrung.ts`, eingebaute
+    Wallet, offline zahlen, Zahlschienen) und alle Zahlwege und Swaps
+    (`swap-client.ts`, `sol-htlc.ts`, `rueck-swap.ts`, `rails.ts`,
+    `sol-wallet.ts`, Zap-Dialog, Belege, Preise, RPC-Stichprobe …) über
+    `agent.*`, `waehr.*` und `zahl.*`. Deutsche Sätze des Protokolls
+    (Verfügbarkeit der Modelle, Reklamationsgründe, Kurswarnungen,
+    Zahlungshinweis, Prüfung vor dem Tausch) bildet die App aus den Feldern
+    neu; der Prüfer hat eine Art (`kontakt`/`provider`), keinen Text.
+  - **8.16f – FERTIG:** Earn, Profil und Settings (Seiten, `tabs/earn.ts`,
+    `tabs/profil.ts`, `tabs/settings.ts`, `tabs/repos.ts`) – damit steht ganz
+    `index.html` auf 0. Sätze des Protokolls zu Repo-Zustand, Abdeckung
+    (Ebenen, „hier“, Einwilligung), Profil-Offenlegung, Bildwarnung, Aufgaben
+    und Abzeichen bildet `protokoll-texte.ts` nach; ein Test hält die deutsche
+    Fassung wortgleich mit dem Protokoll. `QuestProgress` hat dafür einen
+    Zählerstand (`zaehler`).
+  - **8.16g:** Einstieg, Dialoge und übrige Bausteine (`onboarding.ts`,
+    `app.ts`, Tresor, Identität, Nachfolge, Notfall, Bunker, Einrichtung,
+    Datenschutzbericht, Mesh, MLS, Werkzeuge, Suche …) – danach steht alles
+    auf 0 und die Zählung wird streng (keine Tabelle mehr). Dazu die
+    Fehlermeldungen des Protokolls, die die App noch unverändert zeigt
+    (Gründe aus Prüfungen wie `validateReverseTimelock`, `pruefeSolUeberweisung`,
+    `RpcPool.stichprobe`), und die Sätze des Protokolls in Settings
+    (Nachfolge-Stand und -Warnung, `backupInfo`, Schlüsselwechsel,
+    Gerätewarnung, Echtheit und Fixierung, Offline-Fähigkeiten, Tor-Reihenfolge).
+  - **8.16h:** mit 0.F – Texte der Website an den Code angleichen.

@@ -15,6 +15,10 @@ import {
 } from "../src/rueck-swap.js";
 import { rueckAnfrage } from "../src/swap-umschlag.js";
 import { knotenSchluessel, rechnung } from "../../protocol/test/bolt11-hilfe.js";
+import { setLang } from "../src/i18n.js";
+
+// Meldungen hier auf Deutsch prüfen (seit 8.16e über Schlüssel in der Sprache der Oberfläche)
+setLang("de");
 
 const JETZT = 1_790_000_000;
 const LP_SOL = "LpSoL11111111111111111111111111111111111111";
@@ -97,7 +101,7 @@ test("Texte: ehrlich, wo das Geld ist", () => {
 test("Verdrahtung (4.6c): Angebotsliste, Ablauf, Waechter, Deposit", () => {
   const w = readFileSync(new URL("../src/shell/tabs/waehrung.ts", import.meta.url), "utf8");
   assert.match(w, /rueck \? startRueckSwap\(ev\.pubkey, offer\) : startSwap\(ev\.pubkey, offer\.offerId, offer\.vorabSats\)/);
-  assert.match(w, /\(Number\(offer\.feePpm\) \/ 10_000\)\.toFixed\(2\)/, "Gebuehr in Prozent, nicht ppm/100");
+  assert.match(w, /\(Number\(offer\.feePpm\) \/ 10_000\)\.toLocaleString\(gebietsschema\(\), \{ minimumFractionDigits: 2, maximumFractionDigits: 2 \}\)/, "Gebuehr in Prozent, nicht ppm/100");
   const f = w.slice(w.indexOf("async function startRueckSwap("), w.indexOf("async function warteAufRueckAntwort("));
   // Reihenfolge: planen → merken → sperren → Wegwerf-Schluessel → Anfrage
   const reihenfolge = ["planeRueckSwap(offer, bolt11", "rememberLock({ kind: \"swap\"", "lockRueckSwap({", "rueckAnfrage({ lpPk: lpPubkey, offerId: offer.offerId, bolt11 })", ".publish(post.wrap)"];
@@ -105,7 +109,7 @@ test("Verdrahtung (4.6c): Angebotsliste, Ablauf, Waechter, Deposit", () => {
   assert.ok(stellen.every((i) => i >= 0), `alle Schritte vorhanden: ${stellen}`);
   assert.deepEqual([...stellen].sort((a, b) => a - b), stellen, "in dieser Reihenfolge");
   assert.doesNotMatch(f, /signiere\(|state\.keypair/, "nie mit der eigenen Identitaet");
-  assert.match(w, /statusEl\.textContent = "verbunden";\s*statusEl\.className = "mono-sm ok";\s*void starteRueckholWaechter\(\);/);
+  assert.match(w, /statusEl\.textContent = t\("waehr\.verbunden"\);\s*statusEl\.className = "mono-sm ok";\s*void starteRueckholWaechter\(\);/);
   assert.match(w, /kind: "deposit", reference: sessionId, swapIds: \[refundSwapId, spendSwapId\]/);
   assert.match(w, /m\.setzeSperrSpeicher\(geheim\)/, "gemerkte Sperren liegen im Tresor-Speicher");
   const t = readFileSync(new URL("../src/shell/tresor.ts", import.meta.url), "utf8");
