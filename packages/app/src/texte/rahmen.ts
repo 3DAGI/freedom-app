@@ -12,14 +12,13 @@ export const rahmen: Texte = {
   clickToEnter: { de: "Klicken zum Starten", en: "Click anywhere to start" },
   // Kopfzeile
   balanceTitle: { de: "Guthaben", en: "Balance" },
-  identTitle: { de: "Pubkey – Klick: nsec exportieren", en: "Pubkey – click: export nsec" },
   import: { de: "Importieren", en: "import" },
   // Navigation
   navAi: { de: "Agent", en: "Agent" },
   navComm: { de: "Kommunikation", en: "Chat" },
   navWallet: { de: "Währung", en: "Wallet" },
-  navEarn: { de: "Earn", en: "Earn" },
+  navEarn: { de: "Verdienen", en: "Earn" },
   navProfile: { de: "Profil", en: "Profile" },
   navSettings: { de: "Settings", en: "Settings" },
-  relaysTitle: { de: "Relays verbunden", en: "Relays connected" },
+  relaysTitle: { de: "Relays im Pool", en: "Relays in the pool" },
 };
