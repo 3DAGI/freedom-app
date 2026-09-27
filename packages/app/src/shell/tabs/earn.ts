@@ -1,12 +1,11 @@
 /**
- * Tab Earn: Einnahmen, Vertrauensstufe, Rangliste, Belohnungen, Mitwirkende,
- * Abdeckungskarte und Werben.
+ * Tab Earn: Einnahmen, Vertrauensstufe, Mitwirkende, Abdeckungskarte und
+ * Werben. Rangliste, Belohnungsantrag und Werbe-Stufen fielen mit 5.1.4b
+ * (Gebührenmodell A+: kein Pool, keine Belohnung aus Selbstauskunft).
  *
  * Aus app.ts verschoben (Schritt 1.0) – wörtlich, ohne Logikänderung.
  */
 import { KIND_PERFORMANCE } from "@freedomstack/protocol";
-import { icon } from "../../icons.js";
-import { discoverProviders } from "../../matchmaking.js";
 import { escapeHtml, pkShort } from "../../shell-logic.js";
 import { ensurePool, signiere, state } from "../state.js";
 import { geheim } from "../tresor.js";
@@ -201,139 +200,10 @@ export async function loadEarnings(): Promise<void> {
   }
 }
 
-/** Provider-Leaderboard: alle Performance-Events im Netz, gruppiert nach Provider. */
-export async function loadLeaderboard(): Promise<void> {
-  const box = $("#provider-leaderboard");
-  if (!box) return;
-  // Skeleton-Zeilen während des Ladens
-  box.innerHTML = `<div class="lb-skeleton"></div>`.repeat(4);
-  // Timeout: Relay hängt → Error-State mit Retry statt endlos „lade…"
-  const timeout = new Promise<null>((res) => setTimeout(() => res(null), 12_000));
-  try {
-    const pool = await ensurePool();
-    const work = (async () => {
-      const events = await pool.query({ kinds: [KIND_PERFORMANCE], limit: 500 });
-      // Gruppieren: provider -> { jobs, sats }
-      const stats = new Map<string, { jobs: number; msat: number }>();
-      for (const ev of events) {
-        const get = (n: string) => ev.tags.find((t) => t[0] === n)?.[1] ?? "0";
-        const cur = stats.get(ev.pubkey) ?? { jobs: 0, msat: 0 };
-        cur.jobs += 1;
-        cur.msat += Number(get("volume_msat"));
-        stats.set(ev.pubkey, cur);
-      }
-      return [...stats.entries()].sort((a, b) => b[1].jobs - a[1].jobs).slice(0, 20);
-    })();
-    const ranked = await Promise.race([work, timeout]);
-    if (!ranked) {
-      box.innerHTML = `<div class="mono-sm err">relay-timeout — leaderboard nicht erreichbar</div>
-        <button class="ghost lb-retry" style="width:auto;margin-top:6px">↻ erneut versuchen</button>`;
-      box.querySelector(".lb-retry")?.addEventListener("click", () => loadLeaderboard());
-      return;
-    }
-    // dienste-uebersicht: modelle + tools der provider aus deren caps
-    const capsByPk = new Map<string, { models: string[]; tools: string[] }>();
-    try {
-      const providers = await discoverProviders(pool);
-      for (const p of providers) {
-        capsByPk.set(p.caps.pubkey, { models: p.caps.models ?? [], tools: (p.caps.tools ?? []).map((t: { name?: string } | string) => typeof t === "string" ? t : t.name ?? "") });
-      }
-    } catch { /* caps optional */ }
-    if (ranked.length === 0) {
-      box.innerHTML = `<div class="lb-empty">
-          <div class="lb-empty-icon">${icon("monitor", 28)}</div>
-          <div class="lb-empty-title">noch keine provider aktiv</div>
-          <div class="mono-sm">starte einen freedomstack-node — er erscheint hier automatisch</div>
-        </div>`;
-      return;
-    }
-    // Tabelle: Rang | Provider | Jobs | Verdient | Tier
-    const rows = ranked.map(([pk, s], i) => {
-      const xp = s.jobs * 2;
-      const tier = xp >= 50 ? "pro" : xp >= 10 ? "classic" : "free";
-      return `<tr>
-        <td class="lb-rank">${i + 1}</td>
-        <td class="lb-pk">${escapeHtml(pkShort(pk))}</td>
-        <td>${s.jobs}</td>
-        <td>${Math.floor(s.msat / 1000)}</td>
-        <td><span class="tier-badge tier-${tier}">${tier}</span></td>
-      </tr>`;
-    }).join("");
-    box.innerHTML = `<table class="lb-table">
-        <thead><tr><th>#</th><th>provider</th><th>jobs</th><th>sats</th><th>tier</th></tr></thead>
-        <tbody>${rows}</tbody>
-      </table>`;
-  } catch (e) {
-    box.innerHTML = `<div class='mono-sm err'>${escapeHtml((e as Error).message)}</div>
-      <button class="ghost lb-retry" style="width:auto;margin-top:6px">↻ erneut versuchen</button>`;
-    box.querySelector(".lb-retry")?.addEventListener("click", () => loadLeaderboard());
-  }
-}
-
-/** Reward-Claim: eigene Season-Summen aus Performance-Events, Claim (38013) publizieren. */
-export async function submitRewardClaim(): Promise<void> {
-  if (!state.keypair) return;
-  const chainSel = $("#claim-chain") as HTMLSelectElement;
-  const addrInput = $("#claim-address") as HTMLInputElement;
-  const btn = $("#claim-submit") as HTMLButtonElement;
-  try {
-    btn.disabled = true;
-    const pool = await ensurePool();
-    const events = await pool.query({ kinds: [KIND_PERFORMANCE], authors: [state.keypair.pk], limit: 1000 });
-    const seasonId = "season-" + new Date().getFullYear();
-    // nur events der aktuellen season zaehlen (heuristic: letzte 90 tage)
-    const cutoff = Math.floor(Date.now() / 1000) - 90 * 24 * 3600;
-    const mine = events.filter((ev) => ev.created_at >= cutoff);
-    const volumeMsat = mine.reduce((sum, ev) => {
-      const v = ev.tags.find((t) => t[0] === "volume_msat")?.[1] ?? "0";
-      return sum + Number(v);
-    }, 0);
-    if (mine.length === 0) {
-      toast("keine performance-events — erst jobs arbeiten", true);
-      return;
-    }
-    const payoutAddress = addrInput.value.trim() || undefined;
-    const { buildRewardClaim } = await import("@freedomstack/protocol");
-    const claim = buildRewardClaim(
-      {
-        seasonId,
-        jobCount: mine.length,
-        volumeMsat,
-        chain: chainSel.value as "lightning" | "solana",
-        payoutAddress: payoutAddress ?? "",
-      },
-      state.keypair.pk,
-    );
-    await pool.publish(await signiere(claim));
-    toast(`claim eingereicht: ${mine.length} jobs · ${Math.floor(volumeMsat / 1000)} sats`);
-  } catch (e) {
-    toast(`claim-fehler: ${(e as Error).message}`, true);
-  } finally {
-    btn.disabled = false;
-  }
-}
-
-/** Claim-Zusammenfassung im Earn-Tab aktualisieren. */
-export async function refreshClaimSummary(): Promise<void> {
-  const el = $("#claim-summary");
-  if (!el || !state.keypair) return;
-  try {
-    const pool = await ensurePool();
-    const events = await pool.query({ kinds: [KIND_PERFORMANCE], authors: [state.keypair.pk], limit: 1000 });
-    const cutoff = Math.floor(Date.now() / 1000) - 90 * 24 * 3600;
-    const mine = events.filter((ev) => ev.created_at >= cutoff);
-    const volumeMsat = mine.reduce((s, ev) => s + Number(ev.tags.find((t) => t[0] === "volume_msat")?.[1] ?? "0"), 0);
-    el.textContent = `Letzte 90 Tage: ${mine.length} Jobs, ${Math.floor(volumeMsat / 1000)} Sats`;
-  } catch {
-    el.textContent = "—";
-  }
-}
-
 /** Referral: link mit eigener pubkey generieren + copy. */
 export function setupReferral(): void {
   const link = $("#referral-link") as HTMLInputElement | null;
   const copyBtn = $("#referral-copy");
-  const stats = $("#referral-stats");
   if (!link || !copyBtn) return;
   copyBtn.addEventListener("click", async () => {
     try {
@@ -345,29 +215,6 @@ export function setupReferral(): void {
       toast("Referral-Link kopiert");
     }
   });
-
-  // Rechner: der Nutzer soll die Annahme selbst verstellen koennen. Eine feste
-  // Beispielzahl waere eine Verkaufszahl; eine, die er anfasst, ist eine
-  // Rechnung, die er nachvollzieht.
-  const n = $("#ref-calc-n") as HTMLInputElement | null;
-  const satsIn = $("#ref-calc-sats") as HTMLInputElement | null;
-  const out = $("#ref-calc-out");
-  if (n && satsIn && out) {
-    const rechne = async (): Promise<void> => {
-      const { projectEarnings } = await import("@freedomstack/protocol");
-      const p = projectEarnings({
-        activeReferrals: Math.max(0, Number(n.value) || 0),
-        avgMonthlySatsPerReferral: Math.max(0, Number(satsIn.value) || 0),
-      });
-      out.innerHTML =
-        `<strong>${p.monthlySats.toLocaleString("de-DE")} sats/Monat</strong> ` +
-        `(${p.yearlySats.toLocaleString("de-DE")} sats/Jahr), Stufe ${escapeHtml(p.tier)}.<br>` +
-        `<span class="muted">${escapeHtml(p.assumption)}</span>`;
-    };
-    n.addEventListener("input", () => void rechne());
-    satsIn.addEventListener("input", () => void rechne());
-    void rechne();
-  }
 }
 
 /**
@@ -390,42 +237,29 @@ export function updateReferralLink(): void {
       ? `dein Code: ${pkShort(pub)} – mit deiner Lightning-Adresse`
       : `dein Code: ${pkShort(pub)} – ohne Lightning-Adresse im Profil kommt dein Anteil nicht an`;
   }
-  void renderReferralTier();
+  void zeigeNennungen();
 }
 
-/** Eigene Stufe und der Weg zur naechsten. */
-async function renderReferralTier(): Promise<void> {
+/**
+ * Wie viele Geworbene dich öffentlich nennen (5.1.4b) – nur eine Zahl, keine
+ * Stufen: Geld gibt es nicht für Nennungen, sondern 0,5 % ihrer KI-Zahlungen.
+ * Je Geworbenem zählt die früheste Nennung, deshalb auch seine übrigen holen.
+ */
+async function zeigeNennungen(): Promise<void> {
   const box = $("#referral-tier");
   if (!box || !state.keypair) return;
+  const ich = state.keypair.pk;
   try {
-    const {
-      tierFor, nextTier, buildReferralGraph, referrerOverview,
-      KIND_REFERRAL_CLAIM, KIND_PERFORMANCE,
-    } = await import("@freedomstack/protocol");
+    const { KIND_REFERRAL_CLAIM, zaehleNennungen } = await import("@freedomstack/protocol");
     const pool = await ensurePool();
-    const since = Math.floor(Date.now() / 1000) - 30 * 24 * 3600;
-
-    // Aus SIGNIERTEN Netz-Ereignissen gerechnet, nicht aus einer lokalen Zahl.
-    // Damit kann jeder dieselbe Rechnung anstellen und das Ergebnis pruefen.
-    const [claims, perfs] = await Promise.all([
-      pool.query({ kinds: [KIND_REFERRAL_CLAIM], limit: 2000 }),
-      pool.query({ kinds: [KIND_PERFORMANCE], since, limit: 2000 }),
-    ]);
-    const graph = buildReferralGraph(claims, perfs);
-    const u = referrerOverview(state.keypair.pk, graph);
-
-    const t = tierFor(u.activeReferrals);
-    const next = nextTier(u.activeReferrals);
-    box.innerHTML =
-      `Stufe <strong>${escapeHtml(t.name)}</strong> — ${escapeHtml(t.perk)}<br>` +
-      `<span class="muted">${u.activeReferrals} aktiv von ${u.totalReferrals} geworben` +
-      (u.level2Count > 0 ? `, ${u.level2Count} auf Ebene 2` : "") + `.</span>` +
-      (next
-        ? `<br><span class="muted">Noch ${next.missing} aktive Geworbene bis ${escapeHtml(next.tier.name)}.</span>`
-        : `<br><span class="muted">Hoechste Stufe erreicht.</span>`);
+    const anMich = await pool.query({ kinds: [KIND_REFERRAL_CLAIM], "#p": [ich], limit: 500 });
+    const autoren = [...new Set(anMich.map((ev) => ev.pubkey))];
+    const alle = autoren.length > 0 ? await pool.query({ kinds: [KIND_REFERRAL_CLAIM], authors: autoren, limit: 1000 }) : [];
+    const n = zaehleNennungen([...anMich, ...alle], ich);
+    box.textContent = n === 0 ? "Noch niemand nennt dich öffentlich als Werber." : `${n} Geworbene nennen dich öffentlich als Werber.`;
   } catch {
     // Ohne Netz keine erfundene Zahl anzeigen.
-    box.innerHTML = `<span class="muted">Stufe wird beim naechsten Netzkontakt berechnet.</span>`;
+    box.textContent = "Wird beim nächsten Netzkontakt gezählt.";
   }
 }
 

@@ -7400,3 +7400,41 @@ Endstand (nach Einmergen von main mit 5.3 und 8.16): protocol 1129 (−49,
 begründet) · node 227 (−1, begründet) · app 473 · mls 13 · Leak-Tests 57 grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 ·
 innerHTML streng 0 unbewertet · Website 5 Seiten ok · Smoke-Test bestanden ·
 Demo `demo:full` läuft.
+
+## Schritt 5.1.4b – Gebührenmodell A+: Earn-Tab ohne Topf und Stufen
+
+5.1.4 dreigeteilt: a Protokoll und Knoten (#126), **b Earn-Tab und Werben**, c
+Gebühren-Beleg, alte Protokollgebühr, Aufgaben-Topf, Website, PROTOCOL.md.
+
+**Earn-Tab (`tabs/earn.ts`, `index.html`, `app.ts`):**
+- „Belohnungen abholen“ entfernt: Der Antrag (Kind 38013) forderte eine
+  Auszahlung aus einem Pool an, den es seit A+ nicht gibt – niemand zahlte.
+- „Rangliste“ im Werben-Tab entfernt: Sie rechnete aus Selbstauskünften
+  (38010) Ränge und Stufen (Karte 5.1 Punkt 3).
+- Werbe-Stufen („Bronze“ …) und der Rechner „Was wäre wenn …“ entfernt. Der
+  Werben-Tab zeigt den Link, wie viele Geworbene dich öffentlich nennen, und
+  dass der Verdienst direkt in der eigenen Lightning-Wallet ankommt – die App
+  erfährt ihn nicht.
+- Die Vertrauensstufe im Profil bleibt: Sie entspricht der Reputation, nach
+  der die App Provider auswählt (5.5, bei Spur B zurückgestellt).
+
+**Protokoll:** `referral.ts` (Stufen, Topf-Anteile, Hochrechnung),
+`referral-graph.ts` (zweite Ebene, Kette, Übersicht) und `reward-claim.ts`
+entfernt, dazu `KIND_REWARD_CLAIM`. Die Nennung (Kind 38052) bleibt in
+`werbe-nennung.ts`: bauen, lesen und `zaehleNennungen()` – nur gültig
+signierte Angaben, je Geworbenem die früheste, keine Selbstwerbung.
+
+**Ausnahmelisten:** Verdrahtung – 8 veraltete Einträge raus; `payoutAddress`
+(`profile.ts`) war nie aufgerufen: Bis jetzt zählte eine gleichnamige Variable
+im Belohnungsantrag als Aufruf, jetzt steht es ehrlich als Ausnahme da.
+innerHTML – 8 Einträge der entfernten Rangliste und Stufen raus.
+
+**Tests:** protocol −39: entfernt `referral.test.ts` (22) und
+`referral-graph.test.ts` (17) mit ihren Modulen, 3 Tests zum Belohnungsantrag
+(`ticker-claim-relay`); neu `werbe-nennung.test.ts` (+3: Roundtrip und Unsinn,
+früheste Angabe je Geworbenem, Fälschungen zählen nicht). app +1: Earn-Tab ohne
+Antrag, Rangliste, Stufen, Rechner; Zählung verdrahtet.
+
+Endstand: protocol 1090 (−39, begründet) · node 227 · app 474 (+1) · mls 13 ·
+Leak-Tests 57 grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 ·
+innerHTML streng Exit 0 · Website 5 Seiten ok · Smoke-Test bestanden.
