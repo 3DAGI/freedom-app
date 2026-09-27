@@ -67,7 +67,6 @@ duress.ts|duressWarning|Zwangsphrase nicht eingebaut – 8.14 verlangt nur die L
 
 dvm.ts|buildJobFeedback|Job-Feedback (NIP-90 Kind 7000) wird noch nicht gesendet (Antworten und Belege, 3.2)
 
-fee-proof.ts|feeLegsFor|Gebührenanteile berechnen; der Beleg wird bisher ohne sie geprüft (Belege mit Empfängerprüfung, 4.8)
 
 file-relay.ts|memStorage|Speicher im Arbeitsspeicher, Hilfe für Tests
 
@@ -154,10 +153,6 @@ private-job.ts|openPrivateJobRequest|Öffner nur für Anfragen (3.1); der Knoten
 
 
 
-quests.ts|decidePayout|Aufgaben als Anreiz, ohne Oberfläche und noch ohne Schritt im Ausbauplan
-quests.ts|maxCostPerParticipant|Aufgaben als Anreiz, ohne Oberfläche und noch ohne Schritt im Ausbauplan
-quests.ts|questBudgetFor|Aufgaben als Anreiz, ohne Oberfläche und noch ohne Schritt im Ausbauplan
-quests.ts|sustainability|Aufgaben als Anreiz, ohne Oberfläche und noch ohne Schritt im Ausbauplan
 
 
 
@@ -210,12 +205,7 @@ price-ticker.ts|medianPrice|abgelöst durch marktKurs() – eine Stimme je Absen
 swap-umgekehrt.ts|runReverseSwap|Simulation der Gegenrichtung mit Adaptern (4.6a), wie runSwap für die Hinrichtung
 swap-privacy.ts|deriveSwapAddress|abgelöst durch den Vorrat frischer Adressen der eingebauten Wallet (4.9c, SLIP-10 wie Phantom); die HKDF-Ableitung aus dem Nostr-Schlüssel zeigte nur einen Fingerabdruck und war nicht einlösbar
 swap-privacy.ts|addressFingerprint|gehört zu deriveSwapAddress (abgelöst in 4.9c)
-fee-proof.ts|buildFeeProof|Gebühren-Beleg des Knotens, entfällt mit A+ (5.1.2: der Knoten zahlt nichts mehr aus); Umstellung oder Entfernen mit 5.1.3/5.1.4
 scarcity.ts|normalizeRegion|Regionen, noch nicht angebunden (Abdeckungskarte, 5.10); der Bonus fiel mit 5.1.4a
 wot.ts|computeTrust|nur vom Pool-Verteiler genutzt (entfernt mit 5.1.2); Reputation aus Quittungen (5.5, zurückgestellt)
 wot.ts|extractEdges|nur vom Pool-Verteiler genutzt (entfernt mit 5.1.2); Reputation aus Quittungen (5.5, zurückgestellt)
-fee-proof.ts|parseFeeProof|Gebühren-Beleg des Knotens; seit 5.1.2 veröffentlicht er keinen, seit 5.1.3 prüft ihn die App nicht mehr – fällt mit 5.1.4
-fee-proof.ts|verifyFeeProof|Gebühren-Beleg des Knotens; seit 5.1.2 veröffentlicht er keinen, seit 5.1.3 prüft ihn die App nicht mehr – fällt mit 5.1.4
-fee-proof.ts|verifyFeeProofMitKette|Gebühren-Beleg des Knotens; seit 5.1.2 veröffentlicht er keinen, seit 5.1.3 prüft ihn die App nicht mehr – fällt mit 5.1.4
-protocol-fee.ts|splitFeeV1|Protokollgebühr alt (Pool/Werbe-Pool); seit 5.1.3 zeigt die App die Aufteilung A+ – fällt mit 5.1.4
 profile.ts|payoutAddress|Auszahladresse aus dem Profil – nie aufgerufen; bis 5.1.4b zählte eine gleichnamige Variable im Belohnungsantrag als Aufruf

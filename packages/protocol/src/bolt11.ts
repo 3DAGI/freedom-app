@@ -12,7 +12,8 @@
  */
 import { bech32 } from "@scure/base";
 import { secp256k1 } from "@noble/curves/secp256k1.js";
-import { bytesToHex } from "@noble/hashes/utils.js";
+import { sha256 } from "@noble/hashes/sha2.js";
+import { bytesToHex, hexToBytes } from "@noble/hashes/utils.js";
 
 export interface Bolt11 {
   /** Netz aus dem Praefix: bc (Mainnet), tb (Testnet), bcrt (Regtest), tbs (Signet). */
@@ -87,4 +88,17 @@ export function leseBolt11(rechnung: string): Bolt11 {
   }
   if (genannterKnoten && genannterKnoten !== knoten) throw new Error("Signatur passt nicht zum genannten Knoten");
   return { netz: m[1], betragMsat, zahlungsHash, empfaengerKnoten: knoten, zeit };
+}
+
+/**
+ * Passt ein Preimage zum Payment-Hash (Lightning-Zahlungsbeweis)? Belegt allein
+ * nur, dass *irgendeine* Rechnung mit diesem Hash bezahlt wurde – wem, sagt die
+ * Rechnung (`leseBolt11()`). Bis 5.1.4c in `fee-proof.ts`.
+ */
+export function preimageMatches(preimageHex: string, paymentHashHex: string): boolean {
+  try {
+    return bytesToHex(sha256(hexToBytes(preimageHex))) === paymentHashHex.toLowerCase();
+  } catch {
+    return false;
+  }
 }

@@ -66,10 +66,14 @@
       Nennungen und dass der Verdienst in der eigenen Wallet ankommt (Karte:
       „Werbelink und echten Verdienst statt Stufen“ – den Verdienst kennt nur
       die Wallet).
-    - **5.1.4c:** `protocol-fee.ts` (samt CI-Schritt „Fee-Konstanten“ und
-      Knoten-Test), `fee-proof.ts` (`preimageMatches` bleibt), Aufgaben-Topf
-      und Aufgaben aus Gebühren-Belegen in `quests.ts`; Website (auch
-      Dashboard-Stufen), PROTOCOL.md §3/§16.
+    - **5.1.4c – FERTIG:** Code: `protocol-fee.ts` (samt CI-Schritt
+      „Fee-Konstanten“ und Knoten-Test), `fee-proof.ts` (`preimageMatches`
+      nach `bolt11.ts`), Aufgaben-Topf und Aufgaben aus Gebühren-Belegen in
+      `quests.ts` – Aufgaben sind nur noch Abzeichen; das Profil fragt 38051
+      nicht mehr ab. (Mit den Texten zusammen über 400 Zeilen – geteilt.)
+    - **5.1.4d:** Texte nach A+: Website (Startseite, FAQ, Whitepaper,
+      Dashboard samt Werbe-Stufen und Fee-Beweis-Zähler), PROTOCOL.md §3, §13,
+      §15, §16.
 
 ## 5.1b Gesponserte Pools (Solana-Programm)
 

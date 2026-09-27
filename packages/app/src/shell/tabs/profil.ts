@@ -182,18 +182,17 @@ export async function zeigeAbzeichen(): Promise<void> {
   try {
     const {
       collectBadges, badgeSourceLabel, KIND_BADGE_DEFINITION, KIND_BADGE_AWARD,
-      evaluateQuests, KIND_PERFORMANCE, KIND_FEE_PROOF,
+      evaluateQuests, KIND_PERFORMANCE,
     } = await import("@freedomstack/protocol");
     const pool = await ensurePool();
-    const [abz, arbeit, gebuehren] = await Promise.all([
+    const [abz, arbeit] = await Promise.all([
       pool.query({ kinds: [KIND_BADGE_DEFINITION, KIND_BADGE_AWARD], limit: 500 }),
       pool.query({ kinds: [KIND_PERFORMANCE], authors: [state.keypair.pk], limit: 500 }),
-      pool.query({ kinds: [KIND_FEE_PROOF], limit: 500 }),
     ]);
 
-    // Verdiente Abzeichen kommen aus dem Aufgabensystem — nachrechenbar.
+    // Verdiente Abzeichen kommen aus dem Aufgabensystem — nachrechenbar, ohne Geld.
     const erledigt = evaluateQuests({
-      pubkey: state.keypair.pk, performances: arbeit, feeProofs: gebuehren,
+      pubkey: state.keypair.pk, performances: arbeit,
     }).filter((q) => q.done).map((q) => ({
       id: q.quest.id, name: q.quest.title, description: q.quest.description, basis: q.detail,
     }));

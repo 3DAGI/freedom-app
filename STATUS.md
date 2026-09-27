@@ -7438,3 +7438,45 @@ Antrag, Rangliste, Stufen, Rechner; Zählung verdrahtet.
 Endstand: protocol 1090 (−39, begründet) · node 227 · app 474 (+1) · mls 13 ·
 Leak-Tests 57 grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 ·
 innerHTML streng Exit 0 · Website 5 Seiten ok · Smoke-Test bestanden.
+
+## Schritt 5.1.4c – Gebührenmodell A+: Gebühren-Beleg, alte Protokollgebühr, Aufgaben-Topf
+
+5.1.4c war mit den Texten zusammen über 400 Zeilen – geteilt: **c Code**,
+d Texte (Website samt Dashboard, PROTOCOL.md §3/§13/§15/§16).
+
+**Gebühren-Beleg (`fee-proof.ts`, Kind 38051) entfernt:** Der Knoten
+veröffentlicht seit 5.1.2 keinen, die App prüft seit 5.1.3 keinen. Wer wem
+zahlte, belegt heute die eigene Wallet: Lightning über Preimage und die vom
+Empfängerknoten signierte Rechnung, Solana über die Kette
+(`pruefeSolUeberweisung()`, Trinkgeld-Belege und Relay-Kasse). `preimageMatches()`
+lebt weiter in `bolt11.ts` – `rails.ts` belegt damit Lightning-Zahlungen.
+Kinds 38050/38051 sind in `kinds.ts` als „nicht wiederverwenden“ vermerkt.
+
+**Alte Protokollgebühr (`protocol-fee.ts`) entfernt:** 2,5 % als Pool und
+Werbe-Pool – abgelöst durch `aufteilung.ts`. Mit ihr fallen der CI-Schritt
+„Fee-Konstanten sind in sich stimmig“ (die Aufteilung A+ prüft ihr eigener
+Schritt) und der Knoten-Test „Fee-Konstanten“.
+
+**Aufgaben (`quests.ts`) nur noch Abzeichen:** Topf, Anschub, Deckel,
+Tragfähigkeit und Auszahlungsentscheidung (`questBudgetFor`, `sustainability`,
+`decidePayout`, `maxCostPerParticipant`, `QUEST_SHARE_OF_POOL_PERCENT`,
+`BOOTSTRAP_FLOOR_MSAT`, `HARD_CAP_PER_EPOCH_MSAT`) entfernt, ebenso
+`rewardMsat` im Katalog: Mit A+ gibt es keinen Pool, aus dem Prämien kämen.
+Die Aufgaben „Erster bezahlter Job“ und „1.000 sats umgesetzt“ lasen die
+Gebühren-Belege – entfernt. Das Profil (`tabs/profil.ts`) fragt 38051 nicht
+mehr ab; verdiente Abzeichen kommen weiter aus den Leistungsnachweisen.
+
+**Ausnahmeliste Verdrahtung:** 10 Einträge raus (fee-proof 5, protocol-fee 1,
+quests 4).
+
+**Tests:** protocol −34: `fee-proof.test.ts` (16) mit dem Modul, davon
+`preimageMatches` nach `bolt11.test.ts` verschoben und um den positiven Fall
+erweitert (+1); `quests.test.ts` −19 (Prämien-Staffel, Topf, Anschub, Deckel,
+Tragfähigkeit, Auszahlung, die vier Umsatz-Tests aus Gebühren-Belegen); der
+Test „Sicherung ist die erste Aufgabe“ prüft jetzt zusätzlich, dass keine
+Aufgabe einen Betrag trägt und der Topf nicht zurückkehrt. node −1 (alte
+Fee-Konstanten). app +1: Profil ohne 38051.
+
+Endstand: protocol 1056 (−34, begründet) · node 226 (−1, begründet) · app 475
+(+1) · mls 13 · Leak-Tests 57 grün + 1 todo · 0 rot · check-wiring `--streng`
+Exit 0 · innerHTML streng Exit 0 · Website 5 Seiten ok · Smoke-Test bestanden.

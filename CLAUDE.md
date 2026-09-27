@@ -43,9 +43,9 @@ bash scripts/build-site.sh /tmp/site                     # Website bauen (Ziel w
 bash packages/mls/bauen.sh --pruefen                     # nur bei Änderungen an packages/mls: nachbauen + vergleichen (Rust, clang)
 ```
 
-Stand 27.09.2026 (nach 5.1.4b und 8.16c): protocol 1090 grün (6 übersprungen), node 227 grün
+Stand 27.09.2026 (nach 5.1.4c und 8.16c): protocol 1056 grün (6 übersprungen), node 226 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 474 grün, mls 13 grün, Leak-Tests 57 grün + 1 `todo` (heutige Lecks,
+in `tools.test.ts`), app 475 grün, mls 13 grün, Leak-Tests 57 grün + 1 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
 Ausnahme: gesendete SOL-Zahlungen von frischen Adressen, eine bewusste Grenze
 nach Entscheidung 4.9 A – im Datenschutzbericht unter „Bewusste Grenzen“).
@@ -196,10 +196,12 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
 - **Solana-RPC:** Die App spricht standardmäßig Mainnet an; für Devnet-Tests in
   den Settings `https://api.devnet.solana.com` eintragen.
 - **„Belegt“ heißt: beim angekündigten Empfänger angekommen** (seit 4.8):
-  Lightning nur mit Preimage + Rechnung, die dessen Knoten signiert hat
-  (`leseBolt11()`), Solana nur mit der Kette (`verifyFeeProofMitKette`). Ein
-  Preimage allein oder eine bloße Signatur ist „angekündigt“. Rechnungen von
-  LNURL-Servern vor dem Zahlen auf den Betrag prüfen.
+  Lightning nur mit Preimage (`preimageMatches()`) + Rechnung, die dessen
+  Knoten signiert hat (`leseBolt11()`), Solana nur mit der Kette
+  (`pruefeSolUeberweisung()`). Ein Preimage allein oder eine bloße Signatur
+  ist „angekündigt“. Rechnungen von LNURL-Servern vor dem Zahlen auf den
+  Betrag prüfen. Den Gebühren-Beleg des Knotens (38051) gibt es seit 5.1.4c
+  nicht mehr – 38050/38051 nicht wiederverwenden.
 - **Gebühren nur über `aufteilung.ts`** (Modell A+, seit 5.1.1): feste Anteile
   94 / 2,5 / 1,5 / 0,5 / 0,5 / 1 (CI-Invariante, ändern nur mit signiertem
   Release); nicht Zuordenbares und Rundungsreste an den Provider, nie an die
@@ -207,7 +209,9 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   `providerAnteilMsat()`) rechnen mit denselben Funktionen. SOL-Anteile erst
   mit dem Zahlkanal (4.3). Der Knoten zahlt seit 5.1.2 nichts aus – keinen
   Pool, keinen Verteiler, keine Rücklage wieder einführen (Treasury, Sweep,
-  Pool-Rangliste, Knappheitsbonus und App-Gebühr fielen mit 5.1.4a). Die App zahlt seit
+  Pool-Rangliste, Knappheitsbonus und App-Gebühr fielen mit 5.1.4a, alte
+  Protokollgebühr, Gebühren-Beleg und Aufgaben-Topf mit 5.1.4c – Aufgaben sind
+  nur Abzeichen). Die App zahlt seit
   5.1.3 nur über `shell/ki-zahlung.ts`: Deklaration vor dem Versiegeln,
   Abrechnung mit den gemerkten Empfängern (`rechneAb()`, höchstens das Gebot),
   erst die Rechnung samt Betrag prüfen, dann zahlen – ein unklarer Ausgang wird
