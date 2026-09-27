@@ -7936,6 +7936,14 @@ Abdeckung, Offenlegung und Stilnamen –, ohne Seitenfehler.
   und löst gegen das Programm ein, Lamport-genau (97,5 % Provider, 2,5 %
   Werber), nicht zweimal. Eine fremde Kasse lehnt ab.
 - Die CI (`zahlkanal.yml`) läuft jetzt auch bei Änderungen an der Kasse.
+- Nachtrag: Nach dem Einmergen von `main` hing der CI-Job bis zu seinem
+  Limit, ebenso einmal ein lokaler Lauf. Ein vorzeitig beendeter Validator
+  lässt web3.js endlos auf Bestätigungen warten (`getBlockHeight` scheitert
+  und zählt als -1). Jetzt scheitern die Tests sofort mit dem Ende von
+  `validator.log` (`solangeValidator()`). Dazu kommen ein Zeitlimit je Test
+  und `--test-force-exit` in `pruefen.sh`, und der Websocket verbindet nach
+  dem Ende nicht mehr neu. Gegenprobe: Validator nach 5, 7 und 9 s beendet –
+  der Lauf endet nach 5–10 s rot, mit Grund.
 
 Endstand: protocol 1065 (+1) · node 232 (+6) · app 475 · mls 13 ·
 Zahlkanal 7 (+1, gegen Validator) · Leak-Tests 57 grün + 1 todo · 0 rot ·

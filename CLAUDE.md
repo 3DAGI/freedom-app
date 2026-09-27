@@ -245,6 +245,8 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   (`zahlkanal.yml`) tut dasselbe, Überspringen gilt dort als Fehler. In
   Validator-Tests Ed25519 deterministisch: dieselbe Gutschrift zweimal ist
   dieselbe Transaktion – mit eigenem Rechenlimit je Versuch unterscheiden.
+  Auf Bestätigungen nur über `solangeValidator()` warten: Stirbt der
+  Validator, wartet web3.js sonst endlos (`getBlockHeight` zählt als -1).
 - **HTLC-Transaktionen nur mit `htlcSigner()`** (`tabs/waehrung.ts`, seit 4.6c):
   Wallets nach dem Wallet Standard haben kein `publicKey`-Feld – `solWallet.provider`
   direkt als `WalletSigner` brach Einlösen, Deposit und Rückholen ab. Jede neue

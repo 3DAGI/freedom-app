@@ -26,4 +26,6 @@ cargo-build-sbf --version
 # nutzen den Client aus packages/protocol/src/channel.ts.
 cd ../..
 npx tsc -p contracts/solana-channel/tsconfig.json
-KANAL_TESTS_PFLICHT=1 node --import tsx --test contracts/solana-channel/tests/*.test.ts
+# Zeitlimit je Test und Ende nach dem letzten: Stirbt der Validator, wartet web3.js
+# sonst endlos auf Bestaetigungen, und der Job laeuft bis zu seinem Limit.
+KANAL_TESTS_PFLICHT=1 node --import tsx --test --test-timeout=180000 --test-force-exit contracts/solana-channel/tests/*.test.ts
