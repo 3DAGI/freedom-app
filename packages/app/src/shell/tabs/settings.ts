@@ -4,7 +4,6 @@
  *
  * Aus app.ts verschoben (Schritt 1.0) – wörtlich, ohne Logikänderung.
  */
-import { DEFAULT_CLIENT_FEE_PERCENT, MAX_CLIENT_FEE_PERCENT } from "@freedomstack/protocol";
 import { escapeHtml, pkShort } from "../../shell-logic.js";
 import { zeigeDatenschutz } from "../datenschutz.js";
 import { LS_ONION_PRUEFRELAY, onionRelay } from "../../onion-pruefung.js";
@@ -949,33 +948,54 @@ const TRUSTED_SIGNERS: string[] = [
   // VOR DEM RELEASE SETZEN: Pubkeys der Signierschluessel (mindestens zwei Personen oder Geraete).
 ];
 
-/** Einstellung der App-Gebuehr: anzeigen, aendern, abschalten. */
-export async function wireClientFeeSetting(): Promise<void> {
-  const input = $("#clientfee-percent") as HTMLInputElement | null;
-  const save = $("#clientfee-save");
-  const status = $("#clientfee-status");
-  if (!input || !save || !status) return;
-
-  const gespeichert = localStorage.getItem("freedom.clientfee.percent");
-  input.value = String(gespeichert !== null ? Number(gespeichert) : DEFAULT_CLIENT_FEE_PERCENT);
-
+/**
+ * Gebühren (A+, 5.1.3): was die App an Anteilen gesammelt hat – gezahlt ab
+ * 100 sats je Empfänger. Zahlungen mit unklarem Ausgang klärt der Nutzer hier;
+ * von selbst zahlt die App sie nie ein zweites Mal.
+ */
+export async function wireGebuehrenKarte(): Promise<void> {
+  const box = document.getElementById("anteile-stand");
+  const knopf = document.getElementById("anteile-zahlen") as HTMLButtonElement | null;
+  if (!box || !knopf) return;
+  const { kasse, zahleAnteile } = await import("../ki-zahlung.js");
+  const sat = (msat: number) => `${(msat / 1000).toLocaleString("de-DE", { maximumFractionDigits: 3 })} sats`;
   const zeige = (): void => {
-    const p = Number(input.value);
-    const gesamt = 2.5 + Math.max(0, Math.min(p, MAX_CLIENT_FEE_PERCENT));
-    status.textContent =
-      p <= 0
-        ? `App-Gebühr aus. Gesamt 2,5 % — nur das Protokoll.`
-        : `Gesamt ${gesamt.toFixed(1)} %: 2,0 % Pool, 0,5 % Werber, ${p.toFixed(1)} % App.`;
+    box.replaceChildren();
+    const zeile = (text: string): HTMLElement => {
+      const d = document.createElement("div");
+      d.textContent = text;
+      box.append(d);
+      return d;
+    };
+    if (tresorEingerichtet() && geheim.keys().length === 0) { zeile("Tresor gesperrt – erst entsperren."); return; }
+    const { offen, unklar } = kasse.stand();
+    if (offen.length === 0 && unklar.length === 0) zeile("Nichts gesammelt.");
+    for (const o of offen) zeile(`${o.ziel}: ${sat(o.msat)} gesammelt`);
+    for (const u of unklar) {
+      const d = zeile(`${u.ziel}: ${sat(u.msat)} – Ausgang unklar, sieh in deiner Wallet nach: `);
+      for (const [text, gezahlt] of [["kam an", true], ["kam nicht an", false]] as const) {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = "ghost";
+        b.style.cssText = "width:auto;padding:2px 8px;margin-left:4px";
+        b.textContent = text;
+        b.onclick = () => void kasse.klaere(u.rechnung, gezahlt).then(zeige, (e: Error) => toast(e.message, true));
+        d.append(b);
+      }
+    }
   };
   zeige();
-  input.addEventListener("input", zeige);
-
-  save.onclick = () => {
-    const p = Math.max(0, Math.min(Number(input.value) || 0, MAX_CLIENT_FEE_PERCENT));
-    localStorage.setItem("freedom.clientfee.percent", String(p));
-    input.value = String(p);
-    zeige();
-    toast(p <= 0 ? "App-Gebühr abgeschaltet" : `App-Gebühr auf ${p} % gesetzt`);
+  knopf.onclick = async () => {
+    knopf.disabled = true;
+    try {
+      const r = await zahleAnteile();
+      toast(r.gezahltMsat > 0 ? `${sat(r.gezahltMsat)} an Anteile gezahlt` : "Nichts fällig – oder keine Lightning-Wallet verbunden");
+    } catch (e) {
+      toast((e as Error).message, true);
+    } finally {
+      knopf.disabled = false;
+      zeige();
+    }
   };
 }
 

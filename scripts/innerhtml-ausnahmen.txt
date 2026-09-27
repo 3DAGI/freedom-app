@@ -83,7 +83,7 @@ agent.ts|zeile("Modell", usage.model ?? "—")|zeile() maskiert Schlüssel und W
 agent.ts|zeile("Provider", pkShort(providerPk))|zeile() maskiert Schlüssel und Wert selbst
 agent.ts|zeile("Tokens", `${ganzeZahl(usage.promptTokens)} rein, ${ganzeZahl(usage.completionTokens)} raus`)|zeile() maskiert Schlüssel und Wert selbst
 agent.ts|zeile("Diese Antwort", `${Math.floor(amountMsat / 1000)} sat`)|zeile() maskiert Schlüssel und Wert selbst
-agent.ts|zeilen|Templates mit escapeHtml(l.leg), festen Klassen und Marken, Zahl.toFixed(2)
+agent.ts|aufteilungZeilen(abrechnung, zeile)|nur zeile(), das Schlüssel und Wert selbst maskiert; Namen der Anteile fest, Beträge lokal gerechnet (5.1.3)
 agent.ts|(Zuweisung) svg|icon(...) aus der festen Symboltabelle
 waehrung.ts|(Zuweisung) verdict.problems.map((p) => escapeHtml(p)).join("<br>")|jede Zeile mit escapeHtml
 earn.ts|(Zuweisung) sorted .map((ev) => { const get = (n: string) => ev.tags.find((t) => t[0] === n)?.[1] ?? "—"; return `<div class="stat">|Callback: Template mit escapeHtml(get(...)), Math.floor und timeAgo()
