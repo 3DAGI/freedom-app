@@ -105,7 +105,9 @@ Vor der Arbeit: Kanal auf der Kette lesen (Provider = er selbst, Ablauf mit
 Sicherheitsabstand in der Zukunft, Empfänger passen zur Deklaration im
 Auftrag). Je Gutschrift: Signatur gültig für `session_key`, Kanal und Ablauf
 stimmen, Betrag größer als die letzte und höchstens `deposited`. Eingelöst wird
-rechtzeitig vor `expiry` – danach kann nur noch der Kunde zurückholen.
+rechtzeitig vor `expiry` – danach kann nur noch der Kunde zurückholen. Das
+eigene Konto des Providers muss mietbefreit sein (er zahlt ohnehin die
+Gebühr der Einlösung); sonst lehnt die Laufzeit eine kleine Auszahlung ab.
 
 ## Nie
 
