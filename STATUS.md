@@ -7670,3 +7670,50 @@ Endstand: protocol 1064 · node 226 · app 475 · mls 13 · Zahlkanal 6 (neu,
 gegen Validator) · Leak-Tests 57 grün + 1 todo · 0 rot · check-wiring
 `--streng` Exit 0 · innerHTML streng Exit 0 · Website 5 Seiten ok ·
 Smoke-Test bestanden.
+
+## Schritt 4.3c1 – Solana-Zahlkanal: Kasse des Knotens
+
+4.3c ist geteilt: **c1 Kasse** (dieser Schritt), c2 Verdrahtung in
+`dvm-provider.ts` und `main.ts`.
+
+**Transport und Vorauszahlung (`docs/ZAHLKANAL.md`, `channel.ts`):**
+- Die Gutschrift reist als Tags `["kanal", …]` und `["gutschrift", Betrag,
+  Ablauf, Signatur]` im versiegelten Kern der Anfrage (`gutschriftTags()`,
+  `leseGutschriftTags()`).
+- Sie muss decken, was schon abgerechnet ist, plus das Gebot dieser Anfrage.
+  Der Provider arbeitet so nie ungedeckt.
+- Der Kunde riskiert höchstens Gebot minus Preis des letzten Auftrags, denn
+  eingelöst wird die höchste Gutschrift. Das steht im Dokument.
+
+**Kasse (`packages/node/src/kanal-kasse.ts`):**
+- `nimmAn()`:
+  - Kanal auf der Kette: Konto des Kanal-Programms, Provider = eigene
+    Adresse, mindestens 1 h Laufzeit.
+  - Neu gelesen wird nur, wenn der Kanal unbekannt ist oder die Gutschrift
+    über der bekannten Einlage liegt (Aufstockung).
+  - Gutschrift über `pruefeGutschrift()`; dieselbe noch einmal ist erlaubt.
+  - Deckung: abgerechnet + Gebot.
+- `verbuche()`: höchstens bis zur Gutschrift.
+- `loeseFaelligeEin()`:
+  - Eingelöst wird ab 0,01 SOL offen oder 30 Minuten vor Ablauf, mit
+    Ed25519-Anweisung und Empfängern.
+  - Fehler nur als Name.
+  - Abgelaufene Kanäle fallen weg und werden gemeldet, wenn Geld offen war.
+- Stand in einer Datei (Zwischendatei, 0600).
+- Doppeltes Einlösen ist unmöglich: Das Programm lehnt eine gleiche
+  Gutschrift ab.
+
+**Tests:**
+- node +6 (`kanal-kasse.test.ts`): Konto-Prüfungen, Gutschrift und Deckung,
+  Aufstockung, Einlösen (Schwelle, Vorlauf, nie zweimal), Fehler und Ablauf,
+  Neustart aus der Datei.
+- protocol +1 (Tags hin und zurück, kaputte Form).
+- Zahlkanal +1 gegen den Validator: Die Kasse des Knotens nimmt an, bucht
+  und löst gegen das Programm ein, Lamport-genau (97,5 % Provider, 2,5 %
+  Werber), nicht zweimal. Eine fremde Kasse lehnt ab.
+- Die CI (`zahlkanal.yml`) läuft jetzt auch bei Änderungen an der Kasse.
+
+Endstand: protocol 1065 (+1) · node 232 (+6) · app 475 · mls 13 ·
+Zahlkanal 7 (+1, gegen Validator) · Leak-Tests 57 grün + 1 todo · 0 rot ·
+check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 · Website 5 Seiten
+ok · Smoke-Test bestanden.

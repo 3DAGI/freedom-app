@@ -1,6 +1,7 @@
 # Baut das Zahlkanal-Programm (Schritt 4.3b) und laesst seine Tests gegen einen
-# lokalen Validator laufen – mit dem Client aus packages/protocol. Laeuft nur,
-# wenn sich Programm, Client oder Format aendern (Bau: einige Minuten).
+# lokalen Validator laufen – mit dem Client aus packages/protocol und der Kasse
+# des Knotens (4.3c). Laeuft nur, wenn sich Programm, Client, Kasse oder Format
+# aendern (Bau: einige Minuten).
 # Kein Deploy: Das Programm verlaesst den Runner nicht.
 
 name: Zahlkanal
@@ -11,12 +12,14 @@ on:
     paths:
       - "contracts/solana-channel/**"
       - "packages/protocol/src/channel.ts"
+      - "packages/node/src/kanal-kasse.ts"
       - "docs/ZAHLKANAL.md"
       - ".github/workflows/zahlkanal.yml"
   pull_request:
     paths:
       - "contracts/solana-channel/**"
       - "packages/protocol/src/channel.ts"
+      - "packages/node/src/kanal-kasse.ts"
       - "docs/ZAHLKANAL.md"
       - ".github/workflows/zahlkanal.yml"
   workflow_dispatch:

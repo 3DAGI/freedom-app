@@ -44,9 +44,9 @@ bash packages/mls/bauen.sh --pruefen                     # nur bei Änderungen a
 bash contracts/solana-channel/pruefen.sh --werkzeuge     # nur bei Änderungen am Zahlkanal: bauen + Tests gegen Validator (Agave 3.1.10)
 ```
 
-Stand 27.09.2026 (nach 4.3b und 8.16c): protocol 1064 grün (6 übersprungen), node 226 grün
+Stand 27.09.2026 (nach 4.3c1 und 8.16c): protocol 1065 grün (6 übersprungen), node 232 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 475 grün, mls 13 grün, Zahlkanal 6 grün (gegen Validator), Leak-Tests 57 grün + 1 `todo` (heutige Lecks,
+in `tools.test.ts`), app 475 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 57 grün + 1 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
 Ausnahme: gesendete SOL-Zahlungen von frischen Adressen, eine bewusste Grenze
 nach Entscheidung 4.9 A – im Datenschutzbericht unter „Bewusste Grenzen“).
@@ -233,8 +233,11 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
 - **Zahlkanal nur nach `docs/ZAHLKANAL.md`** (seit 4.3a): Client
   `channel.ts`, Programm `contracts/solana-channel` – beide folgen dem Dokument;
   ein anderes Format heißt neues Programm (Präfix `freedomstack-channel-v2`).
-  Gutschriften tragen Kanal-Adresse und Ablauf (`gutschriftNachricht()`), der
-  Provider nimmt sie nur nach `pruefeGutschrift()` an. Die Programm-ID ist bis
+  Gutschriften tragen Kanal-Adresse und Ablauf (`gutschriftNachricht()`) und
+  reisen nur im versiegelten Kern der Anfrage (`gutschriftTags()`); der Knoten
+  nimmt sie nur über `KanalKasse.nimmAn()` an (Kanal auf der Kette, Deckung
+  abgerechnet + Gebot) und löst sie nur über `loeseFaelligeEin()` ein – der
+  Stand liegt in einer Datei, nie nur im Speicher. Die Programm-ID ist bis
   zum Deploy ein Platzhalter ohne Schlüssel (`KANAL_PROGRAMM_ID`) – nie einen
   erfundenen Schlüssel eintragen, das tut der MENSCH beim Deploy. Bauen und
   testen nur mit `contracts/solana-channel/pruefen.sh` (Agave 3.1.10,
