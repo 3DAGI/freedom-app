@@ -47,6 +47,7 @@ import {
 } from "./tabs/agent.js";
 import {
   captureReferral,
+  ladeAbdeckung,
   loadEarnings,
   loadTrust,
   publishReferralClaim,
@@ -69,7 +70,7 @@ import {
   wireSpacesTab,
   zeigeRaumLeiste,
 } from "./tabs/kommunikation.js";
-import { vergebeAbzeichen, wireProfil, zeigeAbzeichen, zeigeProfilVorschau } from "./tabs/profil.js";
+import { vergebeAbzeichen, wireProfil, zeigeAbzeichen, zeigeProfilTexte, zeigeProfilVorschau } from "./tabs/profil.js";
 import {
   aktualisiereSicherheitsStand,
   exportiereApp,
@@ -468,12 +469,12 @@ export function switchTab(name: string): void {
   if (navBtn) navBtn.classList.add("active");
   // Kommunikation vereint die alten Seiten Chat und Raeume.
   if (name === "comm") { loadChatList(); void zeigeRaumLeiste(); }
-  if (name === "profile") { loadTrust(); void zeigeAbzeichen(); void zeigeProfilVorschau(); }
+  if (name === "profile") { loadTrust(); void zeigeAbzeichen(); void zeigeProfilVorschau(); zeigeProfilTexte(); }
   if (name === "settings") { void zeigeSicherung(); void zeigeGeraete(); void zeigeDatenschutz(); void aktualisiereSicherheitsStand(); }
   // Verlauf und Budget neu zeichnen – so folgen sie auch einem Sprachwechsel (8.16d1)
   if (name === "ai") { zeigeVerlaeufe(); updateBudgetBar(); void refreshModelDropdown(); void refreshQuota(); }
   if (name === "wallet") loadWallet();
-  if (name === "earn") { loadEarnings(); loadTrust(); updateReferralLink(); }
+  if (name === "earn") { loadEarnings(); loadTrust(); updateReferralLink(); void ladeAbdeckung(); }
   updateSidebarBalances();
 }
 

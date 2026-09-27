@@ -10,6 +10,8 @@ const ATTRIBUTE: Record<string, string> = { title: "data-i18n-title", placeholde
 const EIGENNAMEN = new Set([
   "freedom", "sats", "sat", "sol", "lightning", "solana", "nostr", "bitcoin", "nwc", "lnurl", "ipfs", "tor", "mls",
   "blossom", "arweave", "codeberg", "radicle", "npub", "nsec", "pubkey", "hd",
+  // Adress-Schemata und Eigennamen (8.16f): Platzhalter wie „wss://…“, „bunker://…“
+  "wss", "ws", "https", "onion", "bunker", "bluetooth",
 ]);
 
 export interface Rohtext { bereich: string; text: string }
@@ -132,8 +134,10 @@ const KOPFZEILEN = new Set(["Content-Type", "Authorization", "Accept", "User-Age
 
 function istCodeText(s: string, davor: string, zeile: string): boolean {
   if (/\/\/ kein UI-Text\s*$/.test(zeile) || KOPFZEILEN.has(s)) return false;
-  if (/(querySelector(All)?|getElementById|closest|matches|addEventListener|removeEventListener|classList\.\w+|setAttribute|getAttribute|getItem|setItem|removeItem|\bimport|\bfrom|console\.\w+|\$\$?|\bkey\s*===?|\bcode\s*===?)\s*\(?\s*$/.test(davor)) return false;
+  if (/(querySelector(All)?|getElementById|closest|matches|addEventListener|removeEventListener|classList\.\w+|setAttribute|getAttribute|getItem|setItem|removeItem|\bimport|\bfrom|console\.\w+|\$\$?|\bkey\s*===?|\bcode\s*===?)(<[\w.]+>)?\s*\(?\s*$/.test(davor)) return false;
   if (/className|class=/.test(zeile) && /^[a-z0-9 _-]*$/.test(s)) return false;
+  // Klassenliste als Argument (el("div", text, "mono-sm muted")): nur Klassennamen, mindestens einer mit Bindestrich
+  if (/^[a-z][a-z0-9-]*( [a-z][a-z0-9-]*)+$/.test(s) && /(^| )[a-z0-9]+-[a-z0-9-]+( |$)/.test(s) && !/(^| )[a-z]-/.test(s)) return false;
   const attr = [...s.matchAll(/(?:title|placeholder|aria-label|alt)="([^"]*)"/g)].map((m) => m[1]).join(" ");
   const sichtbar = `${s.replace(/<[^>]*>/g, " ")} ${attr}`;
   if (/[A-Za-zÄÖÜäöüß]{2,}[ ,]+[A-Za-zÄÖÜäöüß]{2,}/.test(sichtbar)) return true;

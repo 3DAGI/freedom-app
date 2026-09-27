@@ -20,8 +20,6 @@ agent-netz.ts|cls|feste Klassennamen ok/err/warn
 agent-netz.ts|(Zuweisung) r.models.slice(0, 20).map((m) => { const cls = m.availability === "gut" ? "ok" : m.availability === "knapp" ? "warn" : "|Callback liefert nur Templates; Name, Quantisierung, Hinweis mit escapeHtml
 settings.ts|cls|feste Klassennamen ok/warn/err
 earn.ts|(Zuweisung) o.contributors.slice(0, 15).map((c) => `<div class="usage-row"><span>${escapeHtml(pkShort(c.pubkey))}</span>` + `<span>$|Callback: Template mit escapeHtml(pkShort(c.pubkey)); Zahlen siehe folgende Zeilen
-earn.ts|c.activeDays|lokal gezählt in buildRepoOverview() (git-contributors.ts)
-earn.ts|c.contributions|lokal gezählt in buildRepoOverview() (git-contributors.ts: e.c.length)
 kommunikation.ts|(Zuweisung) st.space.channels.map((c) => { const b = badges.get(c.id); const marke = b?.mentions ? `<span class="mention">${b.mentio|Callback: Template mit escapeHtml(c.id) und escapeHtml(c.name); marke/schloss siehe folgende Zeilen
 kommunikation.ts|b.mentions|lokal gezählt in unreadBadges()
 kommunikation.ts|schloss|feste Zeichen: Schloss-Entity oder #
@@ -34,20 +32,17 @@ kommunikation.ts|(Zuweisung) zeilen.join("")|zeilen enthält nur Templates mit e
 profil.ts|farbe|aus der festen Tabelle ACCENT_HEX nach normalizeStyle()
 profil.ts|avatar|Template mit escapeHtml(bild) bzw. escapeHtml(Anfangsbuchstabe), direkt darüber gebaut
 profil.ts|farbe|aus der festen Tabelle ACCENT_HEX nach normalizeStyle()
-profil.ts|(Zuweisung) werte.map((w) => `<option value="${escapeHtml(w)}"${w === aktiv ? " selected" : ""}>${escapeHtml(w)}</option>`).join("")|Callback: Template mit escapeHtml(w); selected ist ein Vergleich
+profil.ts|(Zuweisung) werte.map((w) => `<option value="${escapeHtml(w)}"${w === aktiv ? " selected" : ""}>${escapeHtml(STIL[w] ? t(STIL[w]!) :|Callback: Template mit escapeHtml(w); selected ist ein Vergleich
 profil.ts|(Zuweisung) zeilen.map((z) => `<div>${escapeHtml(z)}</div>`).join("")|Callback: Template mit escapeHtml(z)
-profil.ts|(Zuweisung) alle.map((b) => `<div class="badge-row"> <span class="badge-chip ${escapeHtml(b.source)}">${escapeHtml(b.source)}</span>|Callback: Template, alle Werte mit escapeHtml
+profil.ts|(Zuweisung) alle.map((b) => `<div class="badge-row"> <span class="badge-chip ${escapeHtml(b.source)}">${escapeHtml(abzeichenQuelle(b|Callback: Template, alle Werte mit escapeHtml
 settings.ts|(Zuweisung) d.map((x) => { const cls = x.status === "aktiv" ? "ok" : x.status === "abgelaufen" ? "warn" : "muted"; return `<div clas|Callback: Templates mit escapeHtml(label, status, devicePubkey)
 settings.ts|cls|feste Klassennamen ok/warn/muted
 settings.ts|(Zuweisung) offlineCapabilities(link).map((f) => `<div class="usage-row"><span>${f.works ? "✓" : "✕"} ${escapeHtml(f.feature)}</span|Callback: Template mit escapeHtml; Haken/Kreuz fest
-settings.ts|(Zuweisung) p.map((m) => `${escapeHtml(m.label)} — ${m.framesLeft} Pakete offen`).join("<br>")|Callback: Template mit escapeHtml(m.label) und lokalem Zähler
-settings.ts|m.framesLeft|lokaler Zähler der eigenen Mesh-Warteschlange
-earn.ts|(Zuweisung) zusammen.map((z) => `<div class="usage-row"><span>${symbol[z.layer]} ${escapeHtml(z.label)}</span>` + `<span class="${z.|Callback: Template mit escapeHtml(z.label); Symbol und Zähler siehe folgende Zeilen
+settings.ts|(Zuweisung) p.map((m) => `${escapeHtml(m.label)} — ${escapeHtml(t("set.paketeOffenKurz", { n: m.framesLeft }))}`).join("<br>")|Callback: Template mit escapeHtml(m.label) und lokalem Zähler
+earn.ts|(Zuweisung) zusammen.map((z) => `<div class="usage-row"><span>${symbol[z.layer]} ${escapeHtml(ebeneName(z.layer))}</span>` + `<span|Callback: Template mit escapeHtml(z.label); Symbol und Zähler siehe folgende Zeilen
 earn.ts|symbol[z.layer]|Eintrag aus der festen Symboltabelle (oder undefined)
-earn.ts|z.cells|lokal gezählt in summarizeLayers()
-earn.ts|(Zuweisung) r.cells.slice(0, 15).map((c) => `${symbol[c.layer] ?? "•"} ${escapeHtml(c.region ¦¦ "?")} · ${escapeHtml(c.label)}`, ).j|Callback: Template mit escapeHtml(region, label); Symbol aus fester Tabelle
+earn.ts|(Zuweisung) r.cells.slice(0, 15).map((c) => `${symbol[c.layer] ?? "•"} ${escapeHtml(c.region ¦¦ "?")} · ${escapeHtml(zellenStufe(c.n|Callback: Template mit escapeHtml(region, label); Symbol aus fester Tabelle
 earn.ts|symbol[c.layer]|Eintrag aus der festen Symboltabelle (oder undefined)
-earn.ts|r.hiddenCells|lokal gezählt in buildCoverage()
 agent.ts|entries.map(([m, info]) => { const sp = speedOf(m); const short = m.split(":")[0]; const preis = ausMsat(info.priceMsat,|Callback: Template mit escapeHtml(m), escapeHtml(short) und escapeHtml(preis); übrige Werte siehe folgende Zeilen
 agent.ts|sp.cls|fester Klassenname aus speedOf()
 ui.ts|(Zuweisung) markSvg(18)|eigenes SVG mit fester Farbe
@@ -65,7 +60,6 @@ kommunikation.ts|zapBtn|Template mit escapeHtml(ev.pubkey) und escapeHtml(pkShor
 kommunikation.ts|body|body = escapeHtml(text)
 kommunikation.ts|media|renderAttachment() maskiert Name und URL und erlaubt nur sichere Schemata (shell-logic.ts)
 settings.ts|cls|feste Klassennamen ok/err/warn
-settings.ts|quellen.map((q) => escapeHtml(q)).join(", ")|jede Quelle mit escapeHtml
 agent.ts|whoLabel|fest du, sonst agent plus escapeHtml(model)
 agent.ts|body|renderMarkdown(escapeHtml(text)) oder escapeHtml(text)
 agent.ts|whoLabel|agent plus escapeHtml(model)

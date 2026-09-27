@@ -14,6 +14,7 @@ import { agent } from "./texte/agent.js";
 import { kommunikation } from "./texte/kommunikation.js";
 import { earn } from "./texte/earn.js";
 import { profil } from "./texte/profil.js";
+import { settings } from "./texte/settings.js";
 import { waehrung } from "./texte/waehrung.js";
 import { zahlung } from "./texte/zahlung.js";
 
@@ -26,7 +27,7 @@ export const LANGS: Array<{ code: Lang; label: string }> = [
 ];
 
 /** Je Bereich eine Datei – ein Schlüssel gehört genau einem Bereich (Test). */
-export const BEREICHE: Record<string, Texte> = { rahmen, agent, kommunikation, waehrung, zahlung, earn, profil };
+export const BEREICHE: Record<string, Texte> = { rahmen, agent, kommunikation, waehrung, zahlung, earn, profil, settings };
 const TEXTE: Texte = Object.assign({}, ...Object.values(BEREICHE));
 
 let current: Lang = "en";

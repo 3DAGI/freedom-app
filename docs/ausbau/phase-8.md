@@ -61,13 +61,20 @@ Reihenfolge.
     (Verfügbarkeit der Modelle, Reklamationsgründe, Kurswarnungen,
     Zahlungshinweis, Prüfung vor dem Tausch) bildet die App aus den Feldern
     neu; der Prüfer hat eine Art (`kontakt`/`provider`), keinen Text.
-  - **8.16f:** Earn, Profil und Settings (Seiten, `tabs/earn.ts`,
-    `tabs/profil.ts`, `tabs/settings.ts`, `tabs/repos.ts`).
+  - **8.16f – FERTIG:** Earn, Profil und Settings (Seiten, `tabs/earn.ts`,
+    `tabs/profil.ts`, `tabs/settings.ts`, `tabs/repos.ts`) – damit steht ganz
+    `index.html` auf 0. Sätze des Protokolls zu Repo-Zustand, Abdeckung
+    (Ebenen, „hier“, Einwilligung), Profil-Offenlegung, Bildwarnung, Aufgaben
+    und Abzeichen bildet `protokoll-texte.ts` nach; ein Test hält die deutsche
+    Fassung wortgleich mit dem Protokoll. `QuestProgress` hat dafür einen
+    Zählerstand (`zaehler`).
   - **8.16g:** Einstieg, Dialoge und übrige Bausteine (`onboarding.ts`,
     `app.ts`, Tresor, Identität, Nachfolge, Notfall, Bunker, Einrichtung,
     Datenschutzbericht, Mesh, MLS, Werkzeuge, Suche …) – danach steht alles
     auf 0 und die Zählung wird streng (keine Tabelle mehr). Dazu die
     Fehlermeldungen des Protokolls, die die App noch unverändert zeigt
     (Gründe aus Prüfungen wie `validateReverseTimelock`, `pruefeSolUeberweisung`,
-    `RpcPool.stichprobe`).
+    `RpcPool.stichprobe`), und die Sätze des Protokolls in Settings
+    (Nachfolge-Stand und -Warnung, `backupInfo`, Schlüsselwechsel,
+    Gerätewarnung, Echtheit und Fixierung, Offline-Fähigkeiten, Tor-Reihenfolge).
   - **8.16h:** mit 0.F – Texte der Website an den Code angleichen.

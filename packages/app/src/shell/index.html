@@ -389,10 +389,10 @@
 
       <!-- EARN -->
       <section id="page-earn" class="tab-page">
-        <header class="page-head"><div><h1 class="page-title">Earn</h1><p class="page-sub">Rechenzeit, Speicher und Relays gegen Sats.</p></div></header>
-        <div class="seg" role="tablist" data-subtab-group="earn"><button role="tab" data-subtab="overview" class="active">Übersicht</button><button role="tab" data-subtab="host">Hosten</button><button role="tab" data-subtab="refer">Werben</button><button role="tab" data-subtab="map">Karte</button></div>
+        <header class="page-head"><div><h1 class="page-title" data-i18n="navEarn">Earn</h1><p class="page-sub" data-i18n="earn.untertitel">Rechenzeit, Speicher und Relays gegen Sats.</p></div></header>
+        <div class="seg" role="tablist" data-subtab-group="earn"><button role="tab" data-subtab="overview" class="active" data-i18n="waehr.tabUebersicht">Übersicht</button><button role="tab" data-subtab="host" data-i18n="earn.tabHosten">Hosten</button><button role="tab" data-subtab="refer" data-i18n="referral">Werben</button><button role="tab" data-subtab="map" data-i18n="earn.tabKarte">Karte</button></div>
         <div class="page-body">
-          <div class="subpane active" data-subpane="earn:overview"><div class="card"><h3>Einnahmen</h3><div id="earn-status" class="mono-sm">—</div><div id="earn-events" class="mono-sm"></div><button id="earn-refresh" class="ghost">Aktualisieren</button></div></div>
+          <div class="subpane active" data-subpane="earn:overview"><div class="card"><h3 data-i18n="earn.einnahmen">Einnahmen</h3><div id="earn-status" class="mono-sm">—</div><div id="earn-events" class="mono-sm"></div><button id="earn-refresh" class="ghost" data-i18n="waehr.aktualisieren">Aktualisieren</button></div></div>
           <div class="subpane" data-subpane="earn:host"><div class="card">
           <h3><span class="ic" data-icon="globe"></span> <span data-i18n="hostReward">App verbreiten</span></h3>
           <p class="muted" data-i18n="hostSub">Leg freedom.html auf einen eigenen Server, IPFS oder Tor – mehr Kopien sind schwerer zu sperren. Legst du freedom-spiegel.json mit deinen Adressen daneben, bekommst du 1 % jeder KI-Zahlung, die über deine Kopie läuft.</p>
@@ -400,36 +400,34 @@
           <div class="subpane" data-subpane="earn:refer"><div class="card">
           <h3><span class="ic" data-icon="link"></span> <span data-i18n="referral">Werben</span></h3>
           <p class="muted">
-            Du bekommst <strong>0,5 %</strong> jeder KI-Zahlung deiner Geworbenen – die App des Geworbenen zahlt
+            <span data-i18n="earn.werbenText">Du bekommst 0,5 % jeder KI-Zahlung deiner Geworbenen – die App des Geworbenen zahlt
             es dir direkt, eine Ebene, keine Stufen. Dafür trägt dein Werbelink deine Lightning-Adresse aus dem
             Profil; ohne sie – oder bei Geworbenen über einen älteren Link ohne Adresse – bleibt der Anteil beim
-            Provider. Wer über deinen Link kommt,
-            entscheidet bei der
+            Provider. Wer über deinen Link kommt, entscheidet bei der
             Einrichtung selbst, ob er dich öffentlich als Werber nennt; ohne seine Zustimmung zählt er nicht.
-            Das gilt für die Zählung unten – deinen Anteil zahlt seine App auch ohne Nennung. Was ankommt, siehst du
-            in deiner Lightning-Wallet; die App erfährt es nicht.
-            <br><span class="mono-sm">Für das Anwerben allein gibt es nichts.</span>
+            Das gilt für die Zählung unten – deinen Anteil zahlt seine App auch ohne Nennung. Was ankommt, siehst du in deiner Lightning-Wallet; die App erfährt es nicht.</span>
+            <br><span class="mono-sm" data-i18n="earn.werbenNichts">Für das Anwerben allein gibt es nichts.</span>
           </p>
           <div class="referral-box">
             <input id="referral-link" readonly class="mono-sm" value="" />
-            <button id="referral-copy" class="ghost" data-i18n="copy">copy</button>
+            <button id="referral-copy" class="ghost" data-i18n="copy">Kopieren</button>
           </div>
           <div id="referral-tier" class="mono-sm"></div>
           <p class="mono-sm" id="referral-stats">—</p>
         </div><div class="card">
-          <h3><span class="ic" data-icon="code"></span> Mitwirkende</h3>
-          <p class="mono-sm">Wer mitarbeitet und ob das Projekt an einer Person hängt. Gezählt werden aktive Tage.</p>
-          <div id="contrib-list" class="mono-sm">lade …</div>
+          <h3><span class="ic" data-icon="code"></span> <span data-i18n="earn.mitwirkende">Mitwirkende</span></h3>
+          <p class="mono-sm" data-i18n="earn.mitwirkendeText">Wer mitarbeitet und ob das Projekt an einer Person hängt. Gezählt werden aktive Tage.</p>
+          <div id="contrib-list" class="mono-sm"><span data-i18n="earn.lade">lade …</span></div>
         </div></div>
           <div class="subpane" data-subpane="earn:map"><div class="card">
-          <h3><span class="ic" data-icon="globe"></span> Abdeckung</h3>
-          <p class="mono-sm">Wo es Provider und Funk gibt. Funkknoten erscheinen erst ab drei pro Gebiet, damit sich niemand verorten lässt. Ein Eintrag trägt einen Wegwerfschlüssel, nicht deine Identität, und läuft nach 7 Tagen ab. Auf den Relays ist jeder Eintrag einzeln sichtbar – die Schwelle gilt nur für die Anzeige hier.</p>
+          <h3><span class="ic" data-icon="globe"></span> <span data-i18n="earn.abdeckung">Abdeckung</span></h3>
+          <p class="mono-sm" data-i18n="earn.abdeckungText">Wo es Provider und Funk gibt. Funkknoten erscheinen erst ab drei pro Gebiet, damit sich niemand verorten lässt. Ein Eintrag trägt einen Wegwerfschlüssel, nicht deine Identität, und läuft nach 7 Tagen ab. Auf den Relays ist jeder Eintrag einzeln sichtbar – die Schwelle gilt nur für die Anzeige hier.</p>
           <div id="coverage-here" class="mono-sm"></div>
           <div id="coverage-list" class="mono-sm"></div>
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
-            <button id="coverage-refresh" class="ghost" style="width:auto;padding:6px 10px">aktualisieren</button>
-            <button id="coverage-join" class="ghost" style="width:auto;padding:6px 10px">selbst eintragen</button>
-            <button id="coverage-leave" class="ghost" style="width:auto;padding:6px 10px">austragen</button>
+            <button id="coverage-refresh" class="ghost" style="width:auto;padding:6px 10px" data-i18n="earn.aktualisieren">aktualisieren</button>
+            <button id="coverage-join" class="ghost" style="width:auto;padding:6px 10px" data-i18n="earn.eintragen">selbst eintragen</button>
+            <button id="coverage-leave" class="ghost" style="width:auto;padding:6px 10px" data-i18n="earn.austragen">austragen</button>
           </div>
         </div></div>
         </div>
@@ -442,34 +440,34 @@
           <div class="card profile-hero" id="profile-card">
           <div class="profile-top">
             <div id="profile-preview"></div>
-            <button id="profile-share" class="ghost" type="button"><span class="ic" data-icon="link"></span> Teilen</button>
+            <button id="profile-share" class="ghost" type="button"><span class="ic" data-icon="link"></span> <span data-i18n="profil.teilen">Teilen</span></button>
           </div>
           <details style="margin-top:10px">
-            <summary style="cursor:pointer;font-size:13px;font-weight:600">Profil bearbeiten</summary>
+            <summary style="cursor:pointer;font-size:13px;font-weight:600" data-i18n="profil.bearbeiten">Profil bearbeiten</summary>
             <div style="display:flex;flex-direction:column;gap:8px;margin-top:10px">
-              <label class="mono-sm">Name
+              <label class="mono-sm"><span data-i18n="profil.name">Name</span>
                 <input id="pf-name" class="mono-sm" maxlength="40" style="width:100%" /></label>
-              <label class="mono-sm">Über dich
+              <label class="mono-sm"><span data-i18n="profil.ueberDich">Über dich</span>
                 <textarea id="pf-about" class="mono-sm" rows="3" maxlength="500"
                   style="width:100%;resize:vertical"></textarea></label>
-              <label class="mono-sm">Bild
+              <label class="mono-sm"><span data-i18n="profil.bild">Bild</span>
                 <input id="pf-picture" class="mono-sm" style="width:100%"
-                  placeholder="freedom-blob:… oder https://…" /></label>
-              <label class="mono-sm">Lightning-Adresse
-                <input id="pf-lud16" class="mono-sm" style="width:100%" placeholder="du@wallet.cash" /></label>
+                  placeholder="freedom-blob:… oder https://…" data-i18n-ph="profil.bildPh" /></label>
+              <label class="mono-sm"><span data-i18n="profil.lightningAdresse">Lightning-Adresse</span>
+                <input id="pf-lud16" class="mono-sm" style="width:100%" placeholder="du@wallet.cash" data-i18n-ph="profil.lud16Ph" /></label>
 
               <div style="display:flex;gap:10px;flex-wrap:wrap">
-                <label class="mono-sm">Farbe
+                <label class="mono-sm"><span data-i18n="profil.farbe">Farbe</span>
                   <select id="pf-accent" class="mono-sm"></select></label>
-                <label class="mono-sm">Anordnung
+                <label class="mono-sm"><span data-i18n="profil.anordnung">Anordnung</span>
                   <select id="pf-layout" class="mono-sm"></select></label>
-                <label class="mono-sm">Muster
+                <label class="mono-sm"><span data-i18n="profil.muster">Muster</span>
                   <select id="pf-pattern" class="mono-sm"></select></label>
               </div>
 
               <div id="pf-disclosure" class="mono-sm"
                 style="border-left:2px solid var(--line,#2A2A2A);padding-left:9px"></div>
-              <button id="pf-save" class="send-btn" style="width:auto;padding:8px 14px">Profil speichern</button>
+              <button id="pf-save" class="send-btn" style="width:auto;padding:8px 14px" data-i18n="profil.speichern">Profil speichern</button>
             </div>
           </details>
         </div>
@@ -478,20 +476,19 @@
           <div class="trust-bar-wrap">
             <div class="trust-bar" id="trust-bar-track">
               <div id="trust-fill" class="trust-fill" style="width:0%"></div>
-              <span class="trust-marker m10" style="left:20%" title="classic ab 10 XP"><i>Classic</i></span>
-              <span class="trust-marker m50" style="left:100%" title="pro ab 50 XP"><i>Pro</i></span>
+              <span class="trust-marker m10" style="left:20%" title="classic ab 10 XP" data-i18n-title="profil.classicAb"><i data-i18n="profil.stufeClassic">Classic</i></span>
+              <span class="trust-marker m50" style="left:100%" title="pro ab 50 XP" data-i18n-title="profil.proAb"><i data-i18n="profil.stufePro">Pro</i></span>
             </div>
-            <div class="trust-meta mono-sm"><span id="trust-xp">0 XP</span> · <span id="trust-jobs">0 jobs</span> · <span id="trust-tier">free</span></div>
+            <div class="trust-meta mono-sm"><span id="trust-xp">—</span> · <span id="trust-jobs">—</span> · <span id="trust-tier">—</span></div>
           </div>
           <p class="muted" data-i18n="trustSub">Wächst mit erledigten Jobs. Sie bestimmt, welche Stufe du bedienen kannst.</p>
         </div><div class="card">
-          <h3><span class="ic" data-icon="shield"></span> Abzeichen</h3>
-          <div id="badge-list" class="mono-sm">lade …</div>
-          <button id="badge-create" class="ghost" style="width:auto;padding:6px 10px;margin-top:8px">
-            Abzeichen vergeben</button>
+          <h3><span class="ic" data-icon="shield"></span> <span data-i18n="profil.abzeichen">Abzeichen</span></h3>
+          <div id="badge-list" class="mono-sm"><span data-i18n="earn.lade">lade …</span></div>
+          <button id="badge-create" class="ghost" style="width:auto;padding:6px 10px;margin-top:8px" data-i18n="profil.abzeichenVergebenKnopf">Abzeichen vergeben</button>
         </div></div>
         <div class="ident-row">
-            <span class="nb-ident" id="nb-ident" title="Öffentlicher Schlüssel — Klick exportiert den privaten">…</span>
+            <span class="nb-ident" id="nb-ident" title="Öffentlicher Schlüssel — Klick exportiert den privaten" data-i18n-title="profil.identTitel">…</span>
             <button id="nb-import" class="ghost" type="button" data-i18n="import">Importieren</button>
           </div></div>
       </section>
@@ -500,131 +497,127 @@
       <section id="page-settings" class="tab-page">
         <div class="settings-layout">
           <div class="settings-nav" data-subtab-group="settings" role="tablist">
-            <h1 class="settings-title">Settings</h1>
+            <h1 class="settings-title" data-i18n="set.titel">Settings</h1>
             <button role="tab" data-subtab="security" class="active"><span class="ic" data-icon="shield"></span>
-              Sicherheit <span id="settings-security-badge" class="nav-badge"></span></button>
-            <button role="tab" data-subtab="devices"><span class="ic" data-icon="monitor"></span> Geräte</button>
-            <button role="tab" data-subtab="network"><span class="ic" data-icon="globe"></span> Verbindung</button>
-            <button role="tab" data-subtab="privacy"><span class="ic" data-icon="shield"></span> Datenschutz</button>
-            <button role="tab" data-subtab="fees"><span class="ic" data-icon="coins"></span> Gebühren</button>
-            <button role="tab" data-subtab="mesh"><span class="ic" data-icon="radio"></span> Mesh</button>
-            <button role="tab" data-subtab="share"><span class="ic" data-icon="link"></span> Weitergeben</button>
+              <span data-i18n="set.tabSicherheit">Sicherheit</span> <span id="settings-security-badge" class="nav-badge"></span></button>
+            <button role="tab" data-subtab="devices"><span class="ic" data-icon="monitor"></span> <span data-i18n="set.tabGeraete">Geräte</span></button>
+            <button role="tab" data-subtab="network"><span class="ic" data-icon="globe"></span> <span data-i18n="set.tabVerbindung">Verbindung</span></button>
+            <button role="tab" data-subtab="privacy"><span class="ic" data-icon="shield"></span> <span data-i18n="set.tabDatenschutz">Datenschutz</span></button>
+            <button role="tab" data-subtab="fees"><span class="ic" data-icon="coins"></span> <span data-i18n="set.tabGebuehren">Gebühren</span></button>
+            <button role="tab" data-subtab="mesh"><span class="ic" data-icon="radio"></span> <span data-i18n="set.tabMesh">Mesh</span></button>
+            <button role="tab" data-subtab="share"><span class="ic" data-icon="link"></span> <span data-i18n="set.tabWeitergeben">Weitergeben</span></button>
             <div class="nav-lang settings-lang">
               <div class="lang-dropdown">
-                <button id="lang-btn-app" class="ghost lang-toggle" type="button">Sprache ▾</button>
+                <button id="lang-btn-app" class="ghost lang-toggle" type="button" aria-label="Sprache" data-i18n-aria="set.sprache">🌐 ▾</button>
                 <div id="lang-menu-app" class="lang-menu hidden"></div>
               </div>
             </div>
           </div>
           <div class="settings-body">
-            <div class="subpane active" data-subpane="settings:security"><h2 class="settings-h">Sicherheit</h2><p class="settings-lead">Zwei der fünf Schritte gehen nur vorher.</p><div class="sec-steps"><div class="sec-progress"><span></span><span></span><span></span><span></span><span></span></div><div class="sec-step" data-sec-step="0"><span class="sec-dot">1</span><div class="sec-text"><div class="sec-title">Merkphrase gesichert</div><div class="sec-sub">Zwölf Wörter, beim ersten Start bestätigt.</div></div></div><div class="sec-step" data-sec-step="1"><span class="sec-dot">2</span><div class="sec-text"><div class="sec-title">Zustand gesichert</div><div class="sec-sub">Unterhaltungen, Räume und Namen, verschlüsselt.</div></div><button class="sec-action" data-step="1" type="button">Einrichten</button></div><div class="sec-step" data-sec-step="2"><span class="sec-dot">3</span><div class="sec-text"><div class="sec-title">Diebstahl vorbeugen</div><div class="sec-sub">Ein Ersatzschlüssel, getrennt aufbewahrt. Nur vorher einrichtbar.</div></div><button class="sec-action" data-step="2" type="button">Einrichten</button></div><div class="sec-step" data-sec-step="3"><span class="sec-dot">4</span><div class="sec-text"><div class="sec-title">Nachfolge</div><div class="sec-sub">Vertraute stellen deinen Zugang wieder her.</div></div><button class="sec-action" data-step="3" type="button">Einrichten</button></div><div class="sec-step" data-sec-step="4"><span class="sec-dot">5</span><div class="sec-text"><div class="sec-title">Tresor</div><div class="sec-sub">Schlüssel, Wallet-Zugänge und Unterhaltungen mit einer Passphrase verschlüsselt, beim Start entsperren.</div></div><button class="sec-action" data-step="4" type="button">Einrichten</button></div></div><h3 class="settings-sub">Details</h3><div class="card" id="tresor-karte" hidden><h3><span class="ic" data-icon="shield"></span> Tresor</h3><p class="mono-sm">Sperrt nach Minuten ohne Eingabe – nie, während ein Tausch, ein Deposit oder ein Auftrag läuft. 0 = nie.</p><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><input id="tresor-sperre" type="number" min="0" max="1440" step="1" style="width:90px" aria-label="Minuten bis zur Sperre" /><span class="mono-sm">Minuten</span><button id="tresor-jetzt" class="ghost" style="width:auto;padding:6px 10px">jetzt sperren</button></div></div><div class="card">
-          <h3><span class="ic" data-icon="shield"></span> Sicherung &amp; Schlüsselwechsel</h3>
+            <div class="subpane active" data-subpane="settings:security"><h2 class="settings-h" data-i18n="set.tabSicherheit">Sicherheit</h2><p class="settings-lead" data-i18n="set.lead">Zwei der fünf Schritte gehen nur vorher.</p><div class="sec-steps"><div class="sec-progress"><span></span><span></span><span></span><span></span><span></span></div><div class="sec-step" data-sec-step="0"><span class="sec-dot">1</span><div class="sec-text"><div class="sec-title" data-i18n="set.schritt1">Merkphrase gesichert</div><div class="sec-sub" data-i18n="set.schritt1Text">Zwölf Wörter, beim ersten Start bestätigt.</div></div></div><div class="sec-step" data-sec-step="1"><span class="sec-dot">2</span><div class="sec-text"><div class="sec-title" data-i18n="set.schritt2">Zustand gesichert</div><div class="sec-sub" data-i18n="set.schritt2Text">Unterhaltungen, Räume und Namen, verschlüsselt.</div></div><button class="sec-action" data-step="1" type="button" data-i18n="set.einrichten">Einrichten</button></div><div class="sec-step" data-sec-step="2"><span class="sec-dot">3</span><div class="sec-text"><div class="sec-title" data-i18n="set.schritt3">Diebstahl vorbeugen</div><div class="sec-sub" data-i18n="set.schritt3Text">Ein Ersatzschlüssel, getrennt aufbewahrt. Nur vorher einrichtbar.</div></div><button class="sec-action" data-step="2" type="button" data-i18n="set.einrichten">Einrichten</button></div><div class="sec-step" data-sec-step="3"><span class="sec-dot">4</span><div class="sec-text"><div class="sec-title" data-i18n="set.schritt4">Nachfolge</div><div class="sec-sub" data-i18n="set.schritt4Text">Vertraute stellen deinen Zugang wieder her.</div></div><button class="sec-action" data-step="3" type="button" data-i18n="set.einrichten">Einrichten</button></div><div class="sec-step" data-sec-step="4"><span class="sec-dot">5</span><div class="sec-text"><div class="sec-title" data-i18n="set.schritt5">Tresor</div><div class="sec-sub" data-i18n="set.schritt5Text">Schlüssel, Wallet-Zugänge und Unterhaltungen mit einer Passphrase verschlüsselt, beim Start entsperren.</div></div><button class="sec-action" data-step="4" type="button" data-i18n="set.einrichten">Einrichten</button></div></div><h3 class="settings-sub" data-i18n="set.details">Details</h3><div class="card" id="tresor-karte" hidden><h3><span class="ic" data-icon="shield"></span> <span data-i18n="set.schritt5">Tresor</span></h3><p class="mono-sm" data-i18n="set.tresorText">Sperrt nach Minuten ohne Eingabe – nie, während ein Tausch, ein Deposit oder ein Auftrag läuft. 0 = nie.</p><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><input id="tresor-sperre" type="number" min="0" max="1440" step="1" style="width:90px" aria-label="Minuten bis zur Sperre" data-i18n-aria="set.tresorMinutenAria" /><span class="mono-sm" data-i18n="set.minuten">Minuten</span><button id="tresor-jetzt" class="ghost" style="width:auto;padding:6px 10px" data-i18n="set.jetztSperren">jetzt sperren</button></div></div><div class="card">
+          <h3><span class="ic" data-icon="shield"></span> <span data-i18n="set.sicherungTitel">Sicherung &amp; Schlüsselwechsel</span></h3>
           <div id="backup-status" class="mono-sm"></div>
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
-            <button id="backup-now" class="ghost" style="width:auto;padding:6px 10px">jetzt sichern</button>
-            <button id="backup-restore" class="ghost" style="width:auto;padding:6px 10px">wiederherstellen</button>
-            <button id="rotation-prepare" class="ghost" style="width:auto;padding:6px 10px">Diebstahl vorbeugen</button>
-            <button id="rotation-revoke" class="ghost" style="width:auto;padding:6px 10px">Schlüssel widerrufen</button>
+            <button id="backup-now" class="ghost" style="width:auto;padding:6px 10px" data-i18n="set.jetztSichern">jetzt sichern</button>
+            <button id="backup-restore" class="ghost" style="width:auto;padding:6px 10px" data-i18n="set.wiederherstellen">wiederherstellen</button>
+            <button id="rotation-prepare" class="ghost" style="width:auto;padding:6px 10px" data-i18n="set.schritt3">Diebstahl vorbeugen</button>
+            <button id="rotation-revoke" class="ghost" style="width:auto;padding:6px 10px" data-i18n="set.widerrufen">Schlüssel widerrufen</button>
           </div>
         </div><div class="card">
-          <h3><span class="ic" data-icon="shield"></span> Nachfolge &amp; Wiederherstellung</h3>
-          <p class="mono-sm">Vertraute können deinen Zugang wiederherstellen, wenn du dein Gerät verlierst oder nicht mehr da bist. Jeder bekommt einen Teil deines Schlüssels versiegelt; zusammensetzen lässt die App erst nach einer Frist, und ein Lebenszeichen von dir bricht den Vorgang ab. Wer deine Vertrauten sind, steht öffentlich im Plan.</p>
+          <h3><span class="ic" data-icon="shield"></span> <span data-i18n="set.nachfolgeTitel">Nachfolge &amp; Wiederherstellung</span></h3>
+          <p class="mono-sm" data-i18n="set.nachfolgeText">Vertraute können deinen Zugang wiederherstellen, wenn du dein Gerät verlierst oder nicht mehr da bist. Jeder bekommt einen Teil deines Schlüssels versiegelt; zusammensetzen lässt die App erst nach einer Frist, und ein Lebenszeichen von dir bricht den Vorgang ab. Wer deine Vertrauten sind, steht öffentlich im Plan.</p>
           <div id="succession-status" class="mono-sm"></div>
           <div id="vertraute-liste" class="mono-sm"></div>
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
-            <button id="succ-setup" class="ghost" style="width:auto;padding:6px 10px">einrichten</button>
-            <button id="succ-heartbeat" class="ghost" style="width:auto;padding:6px 10px">Lebenszeichen senden</button>
-            <button id="succ-claim" class="ghost" style="width:auto;padding:6px 10px">für jemanden melden</button>
+            <button id="succ-setup" class="ghost" style="width:auto;padding:6px 10px" data-i18n="set.einrichtenKlein">einrichten</button>
+            <button id="succ-heartbeat" class="ghost" style="width:auto;padding:6px 10px" data-i18n="set.lebenszeichen">Lebenszeichen senden</button>
+            <button id="succ-claim" class="ghost" style="width:auto;padding:6px 10px" data-i18n="set.melden">für jemanden melden</button>
           </div>
         </div><div class="card" id="notfall-karte">
-          <h3><span class="ic" data-icon="shield"></span> Notfall-Löschung</h3>
-          <p class="mono-sm">Löscht alles, was die App auf diesem Gerät hat – Schlüssel, Tresor, Unterhaltungen, Suchindex, Wallet-Zugänge – und prüft nach. Was auf Relays liegt, bleibt dort. Ohne Merkphrase gibt es kein Zurück. Vorher steht ein rechtlicher Hinweis.</p>
-          <button id="notfall-loeschen" class="ghost" style="width:auto;padding:6px 10px">alles auf diesem Gerät löschen …</button>
+          <h3><span class="ic" data-icon="shield"></span> <span data-i18n="set.notfallTitel">Notfall-Löschung</span></h3>
+          <p class="mono-sm" data-i18n="set.notfallText">Löscht alles, was die App auf diesem Gerät hat – Schlüssel, Tresor, Unterhaltungen, Suchindex, Wallet-Zugänge – und prüft nach. Was auf Relays liegt, bleibt dort. Ohne Merkphrase gibt es kein Zurück. Vorher steht ein rechtlicher Hinweis.</p>
+          <button id="notfall-loeschen" class="ghost" style="width:auto;padding:6px 10px" data-i18n="set.notfallKnopf">alles auf diesem Gerät löschen …</button>
         </div></div>
-            <div class="subpane" data-subpane="settings:devices"><h2 class="settings-h">Geräte</h2><div class="card">
-          <h3><span class="ic" data-icon="server"></span> Verbundene Geräte</h3>
-          <div id="device-list" class="mono-sm">lade …</div>
-          <button id="device-add" class="ghost" style="width:auto;padding:6px 10px;margin-top:8px">
+            <div class="subpane" data-subpane="settings:devices"><h2 class="settings-h" data-i18n="set.tabGeraete">Geräte</h2><div class="card">
+          <h3><span class="ic" data-icon="server"></span> <span data-i18n="set.geraeteTitel">Verbundene Geräte</span></h3>
+          <div id="device-list" class="mono-sm"><span data-i18n="earn.lade">lade …</span></div>
+          <button id="device-add" class="ghost" style="width:auto;padding:6px 10px;margin-top:8px" data-i18n="set.geraetHinzufuegen">
             Gerät hinzufügen</button>
         </div><div class="card" id="bunker-karte">
-          <h3><span class="ic" data-icon="shield"></span> Anmelden per Bunker (NIP-46)</h3>
-          <p class="mono-sm">Dein Schlüssel bleibt in einem Signer, z. B. Amber oder nsecBunker; die App fragt jede Unterschrift dort an. Ohne den Schlüssel selbst gehen nicht: Sicherungsdatei, Export, Zustandssicherung, Nachfolge und abgeleitete Swap-Adressen.</p>
+          <h3><span class="ic" data-icon="shield"></span> <span data-i18n="set.bunkerTitel">Anmelden per Bunker (NIP-46)</span></h3>
+          <p class="mono-sm" data-i18n="set.bunkerText">Dein Schlüssel bleibt in einem Signer, z. B. Amber oder nsecBunker; die App fragt jede Unterschrift dort an. Ohne den Schlüssel selbst gehen nicht: Sicherungsdatei, Export, Zustandssicherung, Nachfolge und abgeleitete Swap-Adressen.</p>
           <div id="bunker-status" class="mono-sm"></div>
-          <input id="bunker-uri" type="text" autocomplete="off" spellcheck="false" placeholder="bunker://…" aria-label="bunker://-Adresse" />
+          <input id="bunker-uri" type="text" autocomplete="off" spellcheck="false" placeholder="bunker://…" aria-label="bunker://-Adresse" data-i18n-aria="set.bunkerAria" />
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
-            <button id="bunker-verbinden" class="ghost" style="width:auto;padding:6px 10px">verbinden</button>
-            <button id="bunker-abmelden" class="ghost" style="width:auto;padding:6px 10px" hidden>abmelden</button>
+            <button id="bunker-verbinden" class="ghost" style="width:auto;padding:6px 10px" data-i18n="set.verbinden">verbinden</button>
+            <button id="bunker-abmelden" class="ghost" style="width:auto;padding:6px 10px" hidden data-i18n="set.abmelden">abmelden</button>
           </div>
         </div></div>
-            <div class="subpane" data-subpane="settings:network"><h2 class="settings-h">Verbindung</h2><div class="card">
-          <h3><span class="ic" data-icon="server"></span> Eigene Endpunkte</h3>
-          <p class="mono-sm">Eigene Solana-Endpunkte, kommagetrennt. Sie werden zuerst benutzt; fällt einer aus, nimmt die App den nächsten. Voreingestellt sind vier Anbieter verschiedener Betreiber. Ab und zu fragt die App einen zweiten Anbieter nach demselben (Netz, letzter Blockhash, ein Kontostand) und warnt, wenn die Antworten sich widersprechen.</p>
+            <div class="subpane" data-subpane="settings:network"><h2 class="settings-h" data-i18n="set.tabVerbindung">Verbindung</h2><div class="card">
+          <h3><span class="ic" data-icon="server"></span> <span data-i18n="set.endpunkteTitel">Eigene Endpunkte</span></h3>
+          <p class="mono-sm" data-i18n="set.endpunkteText">Eigene Solana-Endpunkte, kommagetrennt. Sie werden zuerst benutzt; fällt einer aus, nimmt die App den nächsten. Voreingestellt sind vier Anbieter verschiedener Betreiber. Ab und zu fragt die App einen zweiten Anbieter nach demselben (Netz, letzter Blockhash, ein Kontostand) und warnt, wenn die Antworten sich widersprechen.</p>
           <input id="sol-rpcs" class="mono-sm" style="width:100%"
-                 placeholder="https://mein-knoten.example, https://…" />
+                 placeholder="https://mein-knoten.example, https://…" data-i18n-ph="set.endpunktePh" />
           <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">
-            <button id="sol-rpcs-save" class="ghost" style="width:auto;padding:6px 10px">speichern</button>
-            <button id="sol-rpcs-check" class="ghost" style="width:auto;padding:6px 10px">erreichbarkeit prüfen</button>
+            <button id="sol-rpcs-save" class="ghost" style="width:auto;padding:6px 10px" data-i18n="waehr.speichern">speichern</button>
+            <button id="sol-rpcs-check" class="ghost" style="width:auto;padding:6px 10px" data-i18n="set.erreichbarkeit">erreichbarkeit prüfen</button>
           </div>
           <div id="sol-rpcs-status" class="mono-sm"></div>
         </div><div class="card" id="relay-karte">
-          <h3><span class="ic" data-icon="server"></span> Nostr-Relays (dein Satz)</h3>
-          <p class="mono-sm">Hier veröffentlichst du (NIP-65), und hier liegt dein Posteingang (Kind 10050): Kontakte lesen dort, was du schreibst, und stellen dir dort Nachrichten zu. Dazu liest die App bei den Relays deiner Kontakte und je Sitzung bei ein paar wechselnden der Startliste. Eine Adresse je Zeile, nur wss:// (unverschlüsselt nur .onion), höchstens acht. Nach dem Veröffentlichen gilt der Satz für alle deine Geräte; wer noch die alte Liste kennt, schreibt bis zum Nachladen an die alten Relays.</p>
-          <textarea id="eigene-relays" class="mono-sm" rows="4" style="width:100%" spellcheck="false" autocomplete="off" aria-label="Eigene Relays, eine Adresse je Zeile"></textarea>
+          <h3><span class="ic" data-icon="server"></span> <span data-i18n="set.relaysTitel">Nostr-Relays (dein Satz)</span></h3>
+          <p class="mono-sm" data-i18n="set.relaysText">Hier veröffentlichst du (NIP-65), und hier liegt dein Posteingang (Kind 10050): Kontakte lesen dort, was du schreibst, und stellen dir dort Nachrichten zu. Dazu liest die App bei den Relays deiner Kontakte und je Sitzung bei ein paar wechselnden der Startliste. Eine Adresse je Zeile, nur wss:// (unverschlüsselt nur .onion), höchstens acht. Nach dem Veröffentlichen gilt der Satz für alle deine Geräte; wer noch die alte Liste kennt, schreibt bis zum Nachladen an die alten Relays.</p>
+          <textarea id="eigene-relays" class="mono-sm" rows="4" style="width:100%" spellcheck="false" autocomplete="off" aria-label="Eigene Relays, eine Adresse je Zeile" data-i18n-aria="set.relaysAria"></textarea>
           <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">
-            <button id="eigene-relays-save" class="ghost" style="width:auto;padding:6px 10px" type="button">veröffentlichen</button>
+            <button id="eigene-relays-save" class="ghost" style="width:auto;padding:6px 10px" type="button" data-i18n="set.veroeffentlichen">veröffentlichen</button>
           </div>
           <div id="eigene-relays-status" class="mono-sm" aria-live="polite"></div>
         </div><div class="card" id="relay-zugang-karte">
-          <h3><span class="ic" data-icon="server"></span> Relay-Zugang kaufen</h3>
-          <p class="mono-sm">Manche Relays nehmen Post nur für Zahlende an und geben deine Umschläge nur an dich heraus, wenn du dich anmeldest (NIP-42). Die App meldet sich nur bei deinen eigenen Relays und bei Relays mit gekauftem Zugang an – nur, wenn der Relay es verlangt. Kaufen verrät dem Betreiber deinen Schlüssel und deine IP-Adresse; mit SOL auch deine Absenderadresse, und auf der Kette sieht jeder, dass sie diesen Relay bezahlt hat. Mit Sats sieht der Betreiber nur die Zahlung.</p>
-          <input id="relay-zugang-url" class="mono-sm" placeholder="wss://…" autocomplete="off" spellcheck="false" style="width:100%" aria-label="Relay-Adresse" />
+          <h3><span class="ic" data-icon="server"></span> <span data-i18n="set.zugangTitel">Relay-Zugang kaufen</span></h3>
+          <p class="mono-sm" data-i18n="set.zugangText">Manche Relays nehmen Post nur für Zahlende an und geben deine Umschläge nur an dich heraus, wenn du dich anmeldest (NIP-42). Die App meldet sich nur bei deinen eigenen Relays und bei Relays mit gekauftem Zugang an – nur, wenn der Relay es verlangt. Kaufen verrät dem Betreiber deinen Schlüssel und deine IP-Adresse; mit SOL auch deine Absenderadresse, und auf der Kette sieht jeder, dass sie diesen Relay bezahlt hat. Mit Sats sieht der Betreiber nur die Zahlung.</p>
+          <input id="relay-zugang-url" class="mono-sm" placeholder="wss://…" autocomplete="off" spellcheck="false" style="width:100%" aria-label="Relay-Adresse" data-i18n-aria="set.zugangAria" />
           <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">
-            <button id="relay-zugang-preis" class="ghost" style="width:auto;padding:6px 10px" type="button">Preis abfragen</button>
-            <button id="relay-zugang-sats" class="ghost hidden" style="width:auto;padding:6px 10px" type="button">mit Sats kaufen</button>
-            <button id="relay-zugang-sol" class="ghost hidden" style="width:auto;padding:6px 10px" type="button">mit SOL kaufen</button>
-            <button id="relay-zugang-pruefen" class="ghost hidden" style="width:auto;padding:6px 10px" type="button">Zahlung erneut prüfen</button>
+            <button id="relay-zugang-preis" class="ghost" style="width:auto;padding:6px 10px" type="button" data-i18n="set.preisAbfragen">Preis abfragen</button>
+            <button id="relay-zugang-sats" class="ghost hidden" style="width:auto;padding:6px 10px" type="button" data-i18n="set.mitSats">mit Sats kaufen</button>
+            <button id="relay-zugang-sol" class="ghost hidden" style="width:auto;padding:6px 10px" type="button" data-i18n="set.mitSol">mit SOL kaufen</button>
+            <button id="relay-zugang-pruefen" class="ghost hidden" style="width:auto;padding:6px 10px" type="button" data-i18n="set.zahlungPruefen">Zahlung erneut prüfen</button>
           </div>
           <div id="relay-zugang-status" class="mono-sm" aria-live="polite"></div>
         </div></div>
-            <div class="subpane" data-subpane="settings:privacy"><h2 class="settings-h">Datenschutz</h2><div class="card">
-          <h3><span class="ic" data-icon="shield"></span> Was sichtbar ist</h3>
-          <p class="mono-sm muted">Was in deiner Einstellung für andere sichtbar ist.</p>
-          <label class="mono-sm" style="display:block;margin:8px 0">Verbindung
+            <div class="subpane" data-subpane="settings:privacy"><h2 class="settings-h" data-i18n="set.tabDatenschutz">Datenschutz</h2><div class="card">
+          <h3><span class="ic" data-icon="shield"></span> <span data-i18n="set.sichtbarTitel">Was sichtbar ist</span></h3>
+          <p class="mono-sm muted" data-i18n="set.sichtbarText">Was in deiner Einstellung für andere sichtbar ist.</p>
+          <label class="mono-sm" style="display:block;margin:8px 0"><span data-i18n="set.verbindungLabel">Verbindung</span>
             <select id="net-mode" class="mono-sm">
-              <option value="klar">direkt (Relays sehen deine IP)</option>
-              <option value="tor">.onion-Relays bevorzugen (nur im Tor Browser wirksam)</option>
-              <option value="mixnet">Mixnetz (nur wirksam, wenn du selbst eines nutzt)</option>
+              <option value="klar" data-i18n="set.netzKlar">direkt (Relays sehen deine IP)</option>
+              <option value="tor" data-i18n="set.netzTor">.onion-Relays bevorzugen (nur im Tor Browser wirksam)</option>
+              <option value="mixnet" data-i18n="set.netzMixnet">Mixnetz (nur wirksam, wenn du selbst eines nutzt)</option>
             </select></label>
-          <p class="mono-sm muted">Ob deine IP-Adresse verborgen ist, prüft die App, wenn du diesen Bericht öffnest: Erreicht sie ein .onion-Relay, läuft dein Browser über Tor. Sie versucht bis zu drei .onion-Relays, die sie kennt, höchstens 10 Sekunden. <button id="onion-pruefen" class="ghost mini" type="button">erneut prüfen</button></p>
-          <label class="mono-sm" style="display:block;margin:8px 0">.onion-Relay zum Prüfen (optional – nur für diese Prüfung)
+          <p class="mono-sm muted"><span data-i18n="set.onionText">Ob deine IP-Adresse verborgen ist, prüft die App, wenn du diesen Bericht öffnest: Erreicht sie ein .onion-Relay, läuft dein Browser über Tor. Sie versucht bis zu drei .onion-Relays, die sie kennt, höchstens 10 Sekunden.</span> <button id="onion-pruefen" class="ghost mini" type="button" data-i18n="set.erneutPruefen">erneut prüfen</button></p>
+          <label class="mono-sm" style="display:block;margin:8px 0"><span data-i18n="set.onionLabel">.onion-Relay zum Prüfen (optional – nur für diese Prüfung)</span>
             <input id="onion-pruefrelay" class="mono-sm" placeholder="ws://….onion" autocomplete="off" spellcheck="false" style="width:100%" /></label>
           <label class="mono-sm" style="display:block;margin:8px 0">
-            <input type="checkbox" id="kontakte-sichern" /> Kontakte verschlüsselt zwischen Geräten abgleichen (NIP-51)</label>
-          <p class="mono-sm muted">Standard: aus. Die Liste liegt verschlüsselt auf den Relays – sie sehen, dass es sie gibt, nicht, wen sie enthält.</p>
-          <label class="mono-sm" style="display:block;margin:8px 0">Direktnachrichten verzögert senden
+            <input type="checkbox" id="kontakte-sichern" /> <span data-i18n="set.kontakteSichern">Kontakte verschlüsselt zwischen Geräten abgleichen (NIP-51)</span></label>
+          <p class="mono-sm muted" data-i18n="set.kontakteText">Standard: aus. Die Liste liegt verschlüsselt auf den Relays – sie sehen, dass es sie gibt, nicht, wen sie enthält.</p>
+          <label class="mono-sm" style="display:block;margin:8px 0"><span data-i18n="set.verzoegerungLabel">Direktnachrichten verzögert senden</span>
             <select id="versand-verzoegerung" class="mono-sm">
-              <option value="0">aus – sofort</option>
-              <option value="5">bis 5 Sekunden</option>
-              <option value="30">bis 30 Sekunden (Standard)</option>
-              <option value="120">bis 2 Minuten</option>
+              <option value="0" data-i18n="set.verzoegerung0">aus – sofort</option>
+              <option value="5" data-i18n="set.verzoegerung5">bis 5 Sekunden</option>
+              <option value="30" data-i18n="set.verzoegerung30">bis 30 Sekunden (Standard)</option>
+              <option value="120" data-i18n="set.verzoegerung120">bis 2 Minuten</option>
             </select></label>
-          <p class="mono-sm muted">Jede Kopie einer Nachricht (an den Empfänger, an dich, an deine Geräte) geht mit eigener Zufallsverzögerung hinaus – so sieht ein Relay nicht am gleichen Zeitpunkt, wer mit wem schreibt. Die Nachricht steht sofort in deinem Verlauf; verlässt du die Seite, geht Wartendes sofort hinaus. Deine IP-Adresse verbirgt das nicht.</p>
+          <p class="mono-sm muted" data-i18n="set.verzoegerungText">Jede Kopie einer Nachricht (an den Empfänger, an dich, an deine Geräte) geht mit eigener Zufallsverzögerung hinaus – so sieht ein Relay nicht am gleichen Zeitpunkt, wer mit wem schreibt. Die Nachricht steht sofort in deinem Verlauf; verlässt du die Seite, geht Wartendes sofort hinaus. Deine IP-Adresse verbirgt das nicht.</p>
           <div id="privacy-report" class="mono-sm"
             style="white-space:pre-wrap;max-height:340px;overflow-y:auto"></div>
         </div><div class="card">
-          <h3><span class="ic" data-icon="shield"></span> Gruppenverschlüsselung (MLS)</h3>
-          <p class="mono-sm muted">Eingebaut (MLS nach Marmot), nur mit Tresor: 1:1-Nachrichten gehen darüber, wenn der Kontakt es kann – eure Geräte sind eigene Mitglieder. Sonst, mit Ablauf, mit Bunker, ohne Tresor oder wenn einem Gerät das KeyPackage fehlt, weiter über NIP-17. Der Selbsttest lädt die Engine in diesem Browser und spielt ohne Netz eine Gruppe mit zwei Wegwerf-Identitäten durch.</p>
-          <button id="mls-selbsttest" class="ghost" style="width:auto;padding:6px 10px" type="button">Selbsttest</button>
+          <h3><span class="ic" data-icon="shield"></span> <span data-i18n="set.mlsTitel">Gruppenverschlüsselung (MLS)</span></h3>
+          <p class="mono-sm muted" data-i18n="set.mlsText">Eingebaut (MLS nach Marmot), nur mit Tresor: 1:1-Nachrichten gehen darüber, wenn der Kontakt es kann – eure Geräte sind eigene Mitglieder. Sonst, mit Ablauf, mit Bunker, ohne Tresor oder wenn einem Gerät das KeyPackage fehlt, weiter über NIP-17. Der Selbsttest lädt die Engine in diesem Browser und spielt ohne Netz eine Gruppe mit zwei Wegwerf-Identitäten durch.</p>
+          <button id="mls-selbsttest" class="ghost" style="width:auto;padding:6px 10px" type="button" data-i18n="set.selbsttest">Selbsttest</button>
           <p id="mls-ergebnis" class="mono-sm" aria-live="polite"></p>
         </div></div>
-            <div class="subpane" data-subpane="settings:fees"><h2 class="settings-h">Gebühren</h2><div class="card">
-          <h3><span class="ic" data-icon="info"></span> Aufteilung</h3>
-          <p class="mono-sm">
-            Jede KI-Zahlung ist fest aufgeteilt: <strong>94 %</strong> Provider, 2,5 % Entwicklung, 1,5 % Relays,
-            je 0,5 % für deinen Werber und den des Providers, 1 % Hosting. Kein Topf: Die App zahlt jeden Anteil
-            selbst an seinen Empfänger – der Provider stellt nur seinen in Rechnung.
-          </p>
-          <p class="mono-sm muted">
+            <div class="subpane" data-subpane="settings:fees"><h2 class="settings-h" data-i18n="set.tabGebuehren">Gebühren</h2><div class="card">
+          <h3><span class="ic" data-icon="info"></span> <span data-i18n="set.aufteilungTitel">Aufteilung</span></h3>
+          <p class="mono-sm" data-i18n="set.aufteilungText">Jede KI-Zahlung ist fest aufgeteilt: 94 % Provider, 2,5 % Entwicklung, 1,5 % Relays, je 0,5 % für deinen Werber und den des Providers, 1 % Hosting. Kein Topf: Die App zahlt jeden Anteil selbst an seinen Empfänger – der Provider stellt nur seinen in Rechnung.</p>
+          <p class="mono-sm muted" data-i18n="set.aufteilungDetails">
             Fehlt ein Empfänger mit Lightning-Adresse, bekommt den Anteil der Provider – nie die Entwicklung.
             Heute gehen die weiteren Anteile an die Werber beider Seiten, wenn die App sie kennt (Angebot des
             Providers, dein Werbelink), und an bis zu drei Relays deines Pools, deren Betreiber per Selbstauskunft
@@ -635,42 +628,42 @@
             Rechnung sieht der Server hinter der Lightning-Adresse deine IP-Adresse und den Betrag – wie bei jedem Zap.
           </p>
           <div id="anteile-stand" class="mono-sm"></div>
-          <button id="anteile-zahlen" class="ghost" style="width:auto;padding:6px 10px" type="button">Fällige jetzt zahlen</button>
+          <button id="anteile-zahlen" class="ghost" style="width:auto;padding:6px 10px" type="button" data-i18n="set.faelligeZahlen">Fällige jetzt zahlen</button>
         </div><div class="card">
-          <h3><span class="ic" data-icon="info"></span> Zahlen</h3>
-          <label class="mono-sm" style="display:block;margin:8px 0">Standard-Schiene
+          <h3><span class="ic" data-icon="info"></span> <span data-i18n="set.zahlenTitel">Zahlen</span></h3>
+          <label class="mono-sm" style="display:block;margin:8px 0"><span data-i18n="set.standardSchiene">Standard-Schiene</span>
             <select id="standard-schiene" class="mono-sm">
-              <option value="lightning">Lightning (sats)</option>
-              <option value="solana">Solana (SOL)</option>
+              <option value="lightning" data-i18n="zahl.optLightning">Lightning (sats)</option>
+              <option value="solana" data-i18n="zahl.optSolana">Solana (SOL)</option>
             </select></label>
-          <p class="mono-sm muted">Vorgabe für Zaps und Trinkgeld – bei jeder Zahlung änderbar. Die App zahlt nie still in der anderen Währung.</p>
+          <p class="mono-sm muted" data-i18n="set.schieneText">Vorgabe für Zaps und Trinkgeld – bei jeder Zahlung änderbar. Die App zahlt nie still in der anderen Währung.</p>
         </div></div>
-            <div class="subpane" data-subpane="settings:mesh"><h2 class="settings-h">Mesh</h2><div class="card">
-          <h3><span class="ic" data-icon="radio"></span> Ohne Internet</h3>
-          <p class="mono-sm">Verschlüsselte Nachrichten über Funk oder per Datei, wenn das Netz weg ist – nur Umschläge, ohne deinen Schlüssel und ohne Klartext. Funk sendet höchstens 1 % der Zeit (EU 868 MHz): drei bis vier kurze Nachrichten je Stunde. SOL mit vorbereitetem Nonce-Konto (Wallet-Tab); empfangene SOL-Zahlungen reicht die App ein, sobald sie Netz hat. Lightning und KI-Anfragen gehen so nicht.</p>
+            <div class="subpane" data-subpane="settings:mesh"><h2 class="settings-h" data-i18n="set.tabMesh">Mesh</h2><div class="card">
+          <h3><span class="ic" data-icon="radio"></span> <span data-i18n="set.ohneInternet">Ohne Internet</span></h3>
+          <p class="mono-sm" data-i18n="set.meshText">Verschlüsselte Nachrichten über Funk oder per Datei, wenn das Netz weg ist – nur Umschläge, ohne deinen Schlüssel und ohne Klartext. Funk sendet höchstens 1 % der Zeit (EU 868 MHz): drei bis vier kurze Nachrichten je Stunde. SOL mit vorbereitetem Nonce-Konto (Wallet-Tab); empfangene SOL-Zahlungen reicht die App ein, sobald sie Netz hat. Lightning und KI-Anfragen gehen so nicht.</p>
           <div id="mesh-transport" class="mono-sm"></div>
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
-            <button id="mesh-connect" class="ghost" style="width:auto;padding:6px 10px">USB-Gerät</button>
+            <button id="mesh-connect" class="ghost" style="width:auto;padding:6px 10px" data-i18n="set.usbGeraet">USB-Gerät</button>
             <button id="mesh-bt" class="ghost" style="width:auto;padding:6px 10px">Bluetooth</button>
-            <button id="mesh-export" class="ghost" style="width:auto;padding:6px 10px">als Datei ausgeben</button>
+            <button id="mesh-export" class="ghost" style="width:auto;padding:6px 10px" data-i18n="set.alsDatei">als Datei ausgeben</button>
             <input type="file" id="mesh-import-input" accept=".meshpkt,.bin" style="display:none" />
-            <button id="mesh-import" class="ghost" style="width:auto;padding:6px 10px">Datei einlesen</button>
+            <button id="mesh-import" class="ghost" style="width:auto;padding:6px 10px" data-i18n="set.dateiEinlesen">Datei einlesen</button>
           </div>
           <div id="mesh-status" class="mono-sm"></div>
           <details style="margin-top:8px">
-            <summary class="mono-sm" style="cursor:pointer">Was geht ohne Internet?</summary>
+            <summary class="mono-sm" style="cursor:pointer" data-i18n="set.wasOffline">Was geht ohne Internet?</summary>
             <div id="offline-caps" class="mono-sm" style="margin-top:6px"></div>
           </details>
         </div><div class="card">
-          <h3>Warteschlange</h3>
-          <div id="mesh-queue" class="mono-sm">nichts zu senden</div>
+          <h3 data-i18n="set.warteschlange">Warteschlange</h3>
+          <div id="mesh-queue" class="mono-sm"><span data-i18n="set.nichtsZuSenden">nichts zu senden</span></div>
         </div></div>
-            <div class="subpane" data-subpane="settings:share"><h2 class="settings-h">Weitergeben</h2><div class="card">
-          <h3><span class="ic" data-icon="download"></span> Als Datei</h3>
-          <p class="mono-sm">Die App ist eine einzige Datei. Du kannst sie exportieren und weitergeben; ihre Echtheit lässt sich gegen das signierte Manifest prüfen.</p>
+            <div class="subpane" data-subpane="settings:share"><h2 class="settings-h" data-i18n="set.tabWeitergeben">Weitergeben</h2><div class="card">
+          <h3><span class="ic" data-icon="download"></span> <span data-i18n="set.alsDateiTitel">Als Datei</span></h3>
+          <p class="mono-sm" data-i18n="set.weitergebenText">Die App ist eine einzige Datei. Du kannst sie exportieren und weitergeben; ihre Echtheit lässt sich gegen das signierte Manifest prüfen.</p>
           <div style="display:flex;gap:6px;flex-wrap:wrap">
-            <button id="selfexport-btn" class="ghost" style="width:auto;padding:6px 10px">App exportieren</button>
-            <button id="selfcheck-btn" class="ghost" style="width:auto;padding:6px 10px">eigene Echtheit prüfen</button>
+            <button id="selfexport-btn" class="ghost" style="width:auto;padding:6px 10px" data-i18n="set.appExportieren">App exportieren</button>
+            <button id="selfcheck-btn" class="ghost" style="width:auto;padding:6px 10px" data-i18n="set.echtheitPruefen">eigene Echtheit prüfen</button>
           </div>
           <div id="selfexport-status" class="mono-sm"></div>
           <div id="selfcheck-status" class="mono-sm"></div>
