@@ -16,6 +16,7 @@
 import { UnsignedEvent, buildEvent, getTag, getTags } from "./event.js";
 import { KIND_PROVIDER_CAPABILITIES } from "./kinds.js";
 import { MAX_POW_BITS } from "./private-job.js";
+import { adresseFuer } from "./aufteilung.js";
 
 export type ProviderTier = "free" | "classic" | "pro";
 
@@ -47,6 +48,16 @@ export interface ProviderCapabilities {
    * und woher er stammt – manuell gesetzt oder Median der Kurs-Events.
    */
   kurs?: { satsProSol: number; quelle: "manuell" | "markt" };
+  /**
+   * Lightning-Adresse des Providers (5.1): dorthin zahlt die App seinen Anteil
+   * eines Auftrags.
+   */
+  lud16?: string;
+  /**
+   * Lightning-Adresse seines Werbers (5.1, Gebührenmodell A+): die App des
+   * Kunden zahlt ihm 0,5 % direkt. Ohne Angabe bleibt der Anteil beim Provider.
+   */
+  werber?: string;
   /** Gueltig ab (ersetzbar via d-Tag = pubkey). */
   updatedAt: number;
 }
@@ -68,6 +79,10 @@ export function buildCapabilities(
   }
   if (c.powBits !== undefined) tags.push(["pow", String(c.powBits)]);
   if (c.kurs) tags.push(["kurs", "SOL/BTC", String(c.kurs.satsProSol), c.kurs.quelle]);
+  const lud16 = adresseFuer({ lud16: c.lud16 }, "lightning");
+  if (lud16) tags.push(["lud16", lud16]);
+  const werber = adresseFuer({ lud16: c.werber }, "lightning");
+  if (werber) tags.push(["werber", werber]);
   return buildEvent(c.pubkey, KIND_PROVIDER_CAPABILITIES, tags, "", createdAt);
 }
 
@@ -109,6 +124,9 @@ export function parseCapabilities(ev: UnsignedEvent): ProviderCapabilities {
   const kurs = kt && /^\d{1,10}$/.test(kt[2] ?? "") && Number(kt[2]) > 0 && (kt[3] === "manuell" || kt[3] === "markt")
     ? { satsProSol: Number(kt[2]), quelle: kt[3] as "manuell" | "markt" }
     : undefined;
+  // Zahladressen (5.1): fremde Angaben – nur plausible Lightning-Adressen
+  const lud16 = adresseFuer({ lud16: getTag(ev, "lud16") }, "lightning");
+  const werber = adresseFuer({ lud16: getTag(ev, "werber") }, "lightning");
 
   return {
     pubkey: ev.pubkey,
@@ -122,6 +140,8 @@ export function parseCapabilities(ev: UnsignedEvent): ProviderCapabilities {
       : {}),
     ...(powBits !== undefined ? { powBits } : {}),
     ...(kurs ? { kurs } : {}),
+    ...(lud16 ? { lud16 } : {}),
+    ...(werber ? { werber } : {}),
     updatedAt: ev.created_at,
   };
 }

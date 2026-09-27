@@ -33,6 +33,14 @@
 
 ## 3. Fee-Modell v1 (unveränderlich)
 
+> **Abgelöst durch das Gebührenmodell A+** (Entscheidung 4.0 vom 26.09.2026,
+> umgesetzt ab Schritt 5.1): feste Aufteilung beim Zahlen – 94 % Provider,
+> 2,5 % Entwicklung, 1,5 % Relays, 0,5 % Werber des Kunden, 0,5 % Werber des
+> Providers, 1 % Hosting; die App des Kunden zahlt jeden Anteil direkt, der
+> Provider stellt nur seinen in Rechnung (`protocol/src/aufteilung.ts`, Regeln
+> in `docs/GEBUEHREN-ENTSCHEIDUNG.md`). Seit 5.1.2 zahlt der Knoten nichts mehr
+> aus. Der Text unten beschreibt das alte Modell und wird mit 5.1.4 ersetzt.
+
 > **Korrektur-Hinweis (bleibt als Warnung stehen).**
 > Dieses Dokument schrieb bisher „5 % (5.000 ppm)". Die Prozentangaben waren
 > richtig, die ppm-Werte um Faktor 10 zu klein — 5 % sind **50.000 ppm**. Der
@@ -386,6 +394,9 @@ ist das die Mindestanforderung.
 
 
 ## 16. Reward-Pool-Verteiler (kind 38053)
+
+> **Entfernt mit 5.1.2** (Gebührenmodell A+): kein Pool, kein Verteiler,
+> kein Topf. Der Abschnitt bleibt bis 5.1.4 als Beschreibung des alten Modells.
 
 40 % der Fee gehen in den Reward-Pool. `settlement.ts` zahlt sie an die
 Pool-Adresse — danach lagen sie dort. Der Knappheitsbonus rechnete aus, wer wie
