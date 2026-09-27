@@ -43,9 +43,9 @@ bash scripts/build-site.sh /tmp/site                     # Website bauen (Ziel w
 bash packages/mls/bauen.sh --pruefen                     # nur bei Änderungen an packages/mls: nachbauen + vergleichen (Rust, clang)
 ```
 
-Stand 26.09.2026 (nach 5.6c und 5.4b1): protocol 1151 grün (6 übersprungen), node 240 grün
+Stand 27.09.2026 (nach 2.3c und 5.4b1): protocol 1145 grün (6 übersprungen), node 240 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 422 grün, mls 11 grün, Leak-Tests 54 grün + 2 `todo` (heutige Lecks,
+in `tools.test.ts`), app 436 grün, mls 13 grün, Leak-Tests 55 grün + 1 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
 Ausnahme: gesendete SOL-Zahlungen von frischen Adressen, eine bewusste Grenze
 nach Entscheidung 4.9 A – im Datenschutzbericht unter „Bewusste Grenzen“).
@@ -384,3 +384,34 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   `scripts/wiring-ausnahmen.txt` raus – sonst meldet das Skript „veraltete
   Ausnahme“ und endet mit 1, obwohl die Zusammenfassung „0 offen“ sagt. Immer
   den Exit-Code prüfen, nicht nur die letzte Zeile.
+- **Abdeckungskarte nur mit Wegwerfschlüssel** (seit 5.10a): Einträge über
+  `baueCoverageEintrag()` (eigener Schlüssel je Eintrag, NIP-40-Ablauf), nie mit
+  `signiere()`/der Identität; Widerruf nur über `baueCoverageWiderruf()`, der
+  Schlüssel liegt nur im Tresor (`freedom.coverage.eintrag`). Die k-Schwelle
+  schützt nur die Anzeige – Texte dürfen nichts anderes versprechen.
+- **„IP verborgen“ nur geprüft** (seit 6.2): Die Aussage „ip“ im
+  Datenschutzbericht kommt nur über `faktenDieserSitzung(onionPruefung())` –
+  „verborgen“ nur, wenn `pruefeOnion()` ein .onion-Relay erreicht hat; der
+  Status „geprueft“ steht nie in `PRIVACY_FACTS`. Die Prüfung läuft erst beim
+  Öffnen des Berichts, nie beim Start, und nur gegen .onion-Adressen.
+- **Räume als MLS-Gruppen** (seit 2.3a): Innere Events nur mit den Bausteinen
+  aus `raum-gruppe.ts` über `sendenEvent()` bzw. `sendeEventInGruppe()`; den
+  Raum nur über `gruppenRaum()` auswerten. Moderatoren sind die Admins der
+  Gruppe (`adminsSetzen()`, ein Commit) – nie aus einem Event ableiten. Den
+  Admin-Stand beim Senden (`admin`) belegt MDK nur für 4891/1985; sonst zählt
+  `mls.admins()`. Der Verlauf nimmt alle Arten auf, der 1:1-Chat zeigt und zählt
+  nur Art 9 (`mlsVerlauf`). Verweise auf Nachrichten (Antwort, Löschen) nur über
+  die Id des inneren Events (`inneres`) – die MLS-Nachrichten-Id kennt der
+  Absender nicht. Eine Gruppe mit Namen ist ein Raum, auch zu zweit – 1:1-Gruppen
+  ohne Namen gründen (seit 2.3b). Private Räume stehen nur im Tresor
+  (`freedom.raeume.privat`), nie in `freedom.spaces`; nach jeder Einladung den
+  Raumstand erneut senden (`ladeInPrivatenRaum`). Die Crate nur mit
+  `bauen.sh` neu bauen – vorher mit `--pruefen` zeigen, dass der alte Stand
+  bitgleich entsteht (Rust, `wasm-bindgen` 0.2.129).
+- **Moderation privater Räume nur in der Gruppe** (seit 2.3c/8.5): löschen über
+  `loescheImRaum()` (4891 als Moderator, sonst 5), entfernen über
+  `entferneAusRaum()` (Commit) – nie `buildHide`/`buildBan` oder andere offene
+  Events für private Räume. Meldungen nur über `meldeImRaum()` →
+  `baueRaumMeldung()`: je Moderator ein Umschlag an seinen Posteingang, nie in
+  die Gruppe (sonst erführen es alle Mitglieder). Beim Moderator bleiben sie nur
+  im Speicher (`alsRaumMeldung()`, am Ende der Kette in `oeffneUmschlag()`).

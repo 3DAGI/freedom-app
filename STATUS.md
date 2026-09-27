@@ -6043,6 +6043,58 @@ grün + 2 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng 0
 unbewertet · Website 5 Seiten ok · Smoke-Test bestanden (beim Start 0
 WebAssembly übersetzt).
 
+## Schritt 5.10a – Abdeckungskarte: Wegwerfschlüssel je Eintrag, Ablauf, Austragen
+
+**Aufteilung:** 5.10 hat zwei unabhängige Teile – a die Abdeckungskarte, b
+Zeitanker (OpenTimestamps) für geld- und namensrelevante Events.
+
+**Fund:** Ein Eintrag in die Abdeckungskarte war mit der Identität signiert
+(`signiere(buildCoverageAnnouncement({ pubkey: state.keypair.pk, … }))`). Die
+k-Schwelle schützte nur die Anzeige in der App – wer die Relays las, sah
+„diese Person hat Funk in dieser Zelle“. Die Einwilligung versprach „kein
+Verlauf“ und „jederzeit widerrufbar“; beides war nicht umgesetzt.
+
+**Protokoll** (`coverage.ts`):
+- `baueCoverageEintrag()`: je Eintrag ein neuer Wegwerfschlüssel, Ablauf nach
+  NIP-40 in 7 Tagen (`COVERAGE_GUELTIG_SECS`) – ein neuer Eintrag ist mit dem
+  alten nicht verknüpft.
+- `baueCoverageWiderruf()`: Löschwunsch nach NIP-09, vom Wegwerfschlüssel
+  des Eintrags.
+- `buildCoverage()` blendet Abgelaufenes aus, auch wenn ein Relay es noch hält.
+- `coverageConsentText()` sagt für jede Ebene: Wegwerfschlüssel, 7 Tage, und
+  „Auf den Relays ist jeder Eintrag einzeln sichtbar. Die Schwelle von 3
+  Knoten gilt nur für die Anzeige in der App“.
+
+**App** (`tabs/earn.ts`, `tabs/settings.ts`, Karte „Abdeckung“):
+- „selbst eintragen“: erst die Einwilligung, dann ein früherer Eintrag
+  widerrufen, dann der neue mit Wegwerfschlüssel; den Schlüssel (für den
+  Widerruf) nur im Tresor (`freedom.coverage.eintrag`, nie in der
+  Zustandssicherung).
+- Neu: „austragen“ – Widerruf vom Wegwerfschlüssel, danach ist er vergessen.
+- Der Kartentext nennt Wegwerfschlüssel, Ablauf und die Sichtbarkeit auf den
+  Relays.
+
+**Datenschutz:** neue Aussage „abdeckung-schluessel“ (belegt, Regel
+„autor-verborgen“) mit Szenario: Einträge und Widerruf nie von der
+Identität, verschiedene Schlüssel je Eintrag, jeder mit Ablauf.
+
+**Browser-Prüfung** (Standort gesetzt, Test-Relay): Die Einwilligung nennt
+die Sichtbarkeit auf den Relays; der Eintrag trägt einen Wegwerfschlüssel,
+nicht die Identität, mit Ablauf und gerundeter Zelle (`48.00,11.50`); der
+Tresor-Eintrag passt zur ID; „austragen“ sendet Kind 5 vom selben Schlüssel
+und vergisst ihn. Keine Seitenfehler.
+
+**Tests:** protocol +3 (Wegwerfschlüssel und Ablauf, Widerruf, Einwilligung)
+und Szenario „abdeckung-schluessel“; app +1 (Verdrahtung). Das Leak-Szenario
+„Abdeckung eintragen“ (1.5) prüft jetzt den neuen Weg und zusätzlich, dass
+die Identität nicht Autor ist – seine Verdrahtungs-Prüfung verlangte wörtlich
+den Aufruf mit der Identität, den dieser Schritt abschafft.
+
+Endstand (nach dem Einmergen von 2.2b-e2): protocol 1152 (+ 6 übersprungen) ·
+node 239 (+ 7 übersprungen ohne Netz) · app 419 · mls 11 · Leak-Tests 54 grün
++ 2 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng 0
+unbewertet · Website 5 Seiten ok · Smoke-Test bestanden.
+
 ## Schritt 2.2b-d3 – Mit Geräten bleibt es bei NIP-17; Entscheidung 2.2b-e vorgelegt
 
 **Lücke aus 2.2b-d2, behoben:**
@@ -6262,3 +6314,250 @@ prüfen, ob der wechselnde Teil (heute drei) kleiner werden kann.
 Endstand: protocol 1151 (+2) · node 240 · app 422 (+4) · mls 11 · Leak-Tests
 54 grün + 2 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng 0
 unbewertet · Website 5 Seiten ok · Smoke-Test bestanden.
+
+## Schritt 6.2 – Ehrlicher PWA-Modus: „IP verborgen“ nur mit erreichbarem .onion-Relay
+
+**Vorher:** Der Datenschutzbericht rechnete immer mit der direkten
+Verbindung. Wer „.onion-Relays bevorzugen“ gewählt hatte, bekam den
+Pauschalsatz „das kann die App nicht prüfen“ – auch im Tor Browser, wo es
+stimmte, und in jedem anderen Browser, wo die Einstellung nichts bewirkt.
+
+**Prüfung** (`packages/app/src/onion-pruefung.ts`): Eine Web-App kann Tor
+nicht herstellen, aber versuchen, ein .onion-Relay zu erreichen. Das gelingt
+nur, wenn der Browser über Tor läuft; gängige Browser lösen .onion-Namen gar
+nicht erst auf (RFC 7686). Scheitert es, kann auch nur das Relay aus sein –
+der Bericht sagt darum „läuft wohl nicht über Tor (oder die geprüften Relays
+sind gerade aus)“. `pruefeOnion()` versucht bis zu drei .onion-Relays
+zugleich (eingetragenes zuerst, dann eigener Satz und entdeckte Relays), mit
+10 Sekunden Zeitlimit, und schließt jede Verbindung wieder. Ergebnis:
+„erreichbar“, „nicht-erreichbar“ oder „keine-onion“ (nichts zu prüfen).
+
+**Aussage** (`privacy-facts.ts`): `ipFaktFuer()` ersetzt die Aussage „ip“ für
+diese Sitzung. Erreichbar: „IP-Adresse verborgen …“ unter „In dieser Sitzung
+geprüft“ (neuer Status „geprueft“, nie in der festen Liste), mit der Grenze:
+Wer nur .onion-Adressen über Tor leitet, zeigt anderen Relays seine IP
+weiter. Sonst bleibt die Lücke offen (jetzt Ausbauplan 6.1) mit „Native App
+oder Tor Browser nutzen“ bzw. „Prüfen ging nicht: Die App kennt kein
+.onion-Relay“.
+
+**Bericht** (`shell/datenschutz.ts`): prüft beim Öffnen (einmal je Liste der
+Kandidaten, „erneut prüfen“ prüft neu) und rechnet nur bei „erreichbar“ mit
+Tor (`network: "tor"`). Beim Start prüft die App nichts mehr – der
+Bericht entsteht erst im Settings-Tab. „Mixnetz“ kann sie nicht prüfen und
+sagt das. Neues Feld „.onion-Relay zum Prüfen“ (`freedom.onion.pruefrelay`,
+öffentlich wie jede Relay-Adresse, nur für die Prüfung).
+
+**Browser-Prüfung** (gebaute App, Test-Relays):
+- „Tor Browser“ (.onion-Verbindung geht auf): „✓ IP-Adresse verborgen“,
+  Bewertung „Relays sehen einen Tor-Ausgang“, Kurzfassung „hinter Tor“.
+- Ohne Tor (.onion geht ins echte Netz und scheitert): „○ Noch nicht … –
+  Diese Sitzung erreicht kein .onion-Relay … Native App oder Tor Browser
+  nutzen“, Bewertung kritisch.
+- Kein .onion-Relay bekannt: „Prüfen ging nicht …“, kein Versuch.
+- In keinem Fall ein .onion-Versuch beim Start; keine Seitenfehler.
+
+**Tests:** protocol +3 (feste Liste ohne „geprueft“, beide Fälle im Text);
+app +6 (erreichbar, nicht erreichbar, Zeitlimit, keine Kandidaten,
+Kandidatenwahl, Verdrahtung).
+
+**Nebenbei:** FORTSCHRITT 5.10 – a mit PR-Link, b (OpenTimestamps)
+zurückgestellt: Die Kalender-Server sind aus der Arbeitsumgebung nicht
+erreichbar, und ohne echte `.ots`-Testvektoren lässt sich die
+Zusammenarbeit mit anderen OTS-Werkzeugen nicht prüfen.
+
+Endstand: protocol 1155 (+3, + 6 übersprungen) · node 239 (+ 7 übersprungen
+ohne Netz) · app 425 (+6) · mls 11 · Leak-Tests 54 grün + 2 todo · 0 rot ·
+check-wiring `--streng` Exit 0 · innerHTML streng 0 unbewertet · Website 5
+Seiten ok · Smoke-Test bestanden.
+
+## Schritt 2.3a – Räume als MLS-Gruppen: Baustein
+
+**Aufteilung:** 2.3 braucht weit mehr als 400 Zeilen. a ist der Baustein
+(MLS-Crate, Raum-Logik, Engine-Test mit 50 Mitgliedern), b die Räume in der
+App (privat als Standard, öffentlich nur ausdrücklich mit Hinweis), c die
+Moderation zusammen mit 8.5.
+
+**MLS-Baustein** (`packages/mls`, Code von Spur A – klein gehalten):
+- Bis hier konnte die Crate nur Chat-Text senden (Kind 9 ohne Tags) und gab
+  andere Arten beim Empfang gar nicht weiter. Marmot trägt in jeder
+  Nachricht ein inneres Event mit Art und Tags; das reicht die Crate jetzt
+  durch: `sendenEvent(gruppe, art, tags, text)`, beim Empfang `art` und
+  `tags`.
+- `adminsSetzen(gruppe, admins)`: Admins per Commit neu setzen – so werden
+  Moderatoren ernannt und abgesetzt („Rollen über MLS-Proposals“). Nur ein
+  Admin darf das; MDK prüft, dass alle Genannten Mitglied sind.
+- `admin`: ob der Absender beim Senden Admin war – von MLS belegt. MDK stellt
+  das nur für Moderations-Arten fest (4891 Löschen, 1985); sonst fehlt es,
+  und es zählt, wer heute Admin ist.
+- Der 1:1-Chat nimmt nur Art 9 in den Verlauf (`nurChat`), sonst stünden
+  Raum-Events als Zeilen darin.
+- `dist/` neu gebaut mit `bauen.sh`; vorher bestätigt, dass der Nachbau des
+  alten Stands bitgleich ist.
+
+**Raum-Logik** (`protocol/src/raum-gruppe.ts`): Ein privater Raum ist eine
+MLS-Gruppe; Definition (Kanäle), Rollenliste, Zuweisungen, Nachrichten und
+Löschungen sind innere Events. `gruppenRaum()` baut daraus den Zustand, mit
+dem die Auswertung aus `spaces.ts` weiter gilt (`can`, `canWriteTo`,
+`buildThreads`):
+- Moderatoren sind die Admins der Gruppe – sie haben alle Rechte.
+- Definition und Rollenliste zählen nur von Admins; die neueste gilt.
+- Zuweisungen von Admins, sonst nur mit `rollen_vergeben` unter dem eigenen
+  Rang; eine leere schaltet stumm.
+- Mitglieder ohne Zuweisung: Rolle „mitglied“ bzw. lesen, schreiben, Threads.
+- Löschen: Admin jede Nachricht (4891, Admin-Stand von MLS belegt), jeder die
+  eigene (5).
+- Schreibrecht je Nachricht nach heutiger Rollenlage.
+- Alle Mitglieder lesen alle Kanäle – ein Kanal ordnet, er verschlüsselt
+  nicht eigens (ein Kanal nur für wenige wäre eine eigene Gruppe).
+
+**Engine-Test** (`packages/mls/test/raeume.test.ts`, echte MDK-Engine):
+- 50 Mitglieder (Gründer, ein Moderator als Admin, 48 weitere): Kanäle und
+  Rollenliste kommen bei allen mit Art und Tags an; die Definition eines
+  Mitglieds zählt nicht.
+- Ein Mitglied darf weder entfernen noch Admins setzen.
+- Der Moderator entfernt ein Mitglied: neue Epoche, 49 Mitglieder; die
+  nächste Nachricht lesen alle außer dem Entfernten.
+- Moderator ernennen per `adminsSetzen`; sein Löschen (4891) kommt mit
+  belegtem Admin-Stand an. Ein Mitglied kann 4891 gar nicht erst senden –
+  MDK lehnt es schon beim Senden ab.
+- Innere Events: Art prüft der Wrapper, Tags kommen unverändert an, Relays
+  sehen nur Kind 445 ohne Klartext.
+
+**Tests:** protocol +6 (`raum-gruppe.test.ts`: Definition nur von Admins,
+Moderatoren = Admins, Zuweisungen mit Rang und Stummschalten, Schreibrecht
+je Nachricht auch nach Absetzung, Löschen, Bausteine); mls +2; app: der
+Abgleich eines 1:1-Chats nimmt ein Raum-Event nicht in den Verlauf
+(bestehender Test erweitert, ohne den Filter rot).
+
+Endstand: protocol 1161 (+6, + 6 übersprungen) · node 239 (+ 7 übersprungen
+ohne Netz) · app 425 · mls 13 (+2) · Leak-Tests 54 grün + 2 todo · 0 rot ·
+check-wiring `--streng` Exit 0 (6 neue Ausnahmen „2.3b“) · innerHTML streng 0
+unbewertet · Website 5 Seiten ok · Smoke-Test bestanden · `bauen.sh
+--pruefen` vor der Änderung bitgleich, danach `dist/` neu gebaut.
+
+## Schritt 2.3b – Private Räume in der App, öffentlich nur ausdrücklich
+
+**Vorher:** Räume waren offen (Kind 42 mit Kanal-Tags): Jeder konnte mitlesen,
+auch ohne die App. Die Aussage „Räume sind Ende-zu-Ende-verschlüsselt“ stand
+als Lücke im Bericht, der Leak-Test als `todo`.
+
+**Jetzt** (`shell/raum-mls.ts`, `tabs/kommunikation.ts`):
+- „Raum anlegen (privat)“ gründet eine MLS-Gruppe nur mit mir (mit Namen),
+  dann Kanäle und Rollen als innere Events. MLS gibt es nur mit Tresor –
+  ohne ihn sagt die App das.
+- „öffentlichen Raum anlegen“ ist ein eigener Knopf mit Warnung; über offenen
+  Räumen steht sichtbar „Öffentlicher Raum – jeder kann mitlesen …“.
+- „einladen“ (nur Moderatoren): Kontakt wählen, KeyPackage suchen, Einladung
+  versiegelt an seinen Posteingang; danach den Raumstand (Definition, Rollen,
+  Zuweisungen) erneut – Neue lesen nichts von vor ihrem Eintritt.
+- Eine Einladung in eine benannte Gruppe wird ein Raum in der Raumleiste –
+  auch zu zweit. Vorher wäre ein Raum zu zweit als 1:1-Chat gebucht worden und
+  hätte die Unterhaltung mit dem Einladenden ersetzt (in der Browser-Prüfung
+  gefunden). Die Crate kann dafür den Gruppennamen lesen (`name()`).
+- Öffnen gleicht die Gruppe ab und baut den Raum über `gruppenRaum()`; ein
+  offener privater Raum wird alle 30 s abgeglichen. Senden verschlüsselt in
+  die Gruppe, das Eigene gleich in den Verlauf.
+- Moderatoren ernennen: per Commit (`setzeModeratoren` → `adminsSetzen`), nie
+  als öffentliches Event. Der alte Moderationsknopf erscheint in privaten
+  Räumen nicht – er schriebe öffentliche Sperr-Events (Löschen und Entfernen
+  über MLS folgen in 2.3c).
+- Die Liste privater Räume liegt nur im Tresor (`freedom.raeume.privat`), nie
+  in `freedom.spaces`; Raumnamen nur als `textContent` (die Raumleiste baut
+  jetzt ohne `innerHTML`).
+
+**MLS-Baustein** (klein, Code von Spur A): die Id des inneren Events
+(`inneres`) beim Empfang und beim Senden – bei allen gleich, damit Antworten
+und Löschen dieselbe Nachricht meinen (die MLS-Nachrichten-Id kennt der
+Absender nicht); `name(gruppe)`. Der Verlauf nimmt alle Arten auf, der
+1:1-Chat zeigt und zählt nur Chat; Steuer-Events (Kanäle, Rollen) verdrängt
+die Grenze von 1000 Nachrichten nicht.
+
+**Datenschutz:** Aussage „raeume“ jetzt belegt (Regel „mls-gruppe“, Szenario
+mit der echten Engine); öffentliche Räume und Communities stehen in der
+Aussage als das, was sie sind. Leak-Test „Privater Raum“: nur Kind 445 und
+Umschläge, weder Text noch Name noch Kanal.
+
+**Website:** FAQ (Räume standardmäßig privat; über Funk gehen Räume weiter
+nicht), Whitepaper (Abschnitt Räume), Roadmap (Entscheidung „Verschlüsselte
+Kanäle“).
+
+**Browser-Prüfung** (zwei Nutzer, gemeinsames Test-Relay, Tresor):
+- A legt einen privaten Raum an und lädt B ein. B bekommt die Einladung beim
+  Abgleich des Posteingangs, sieht den Namen „Werkstatt E2E“ und die Kanäle
+  und liest A's Nachricht. B antwortet, A liest die Antwort.
+- B sieht A als Moderator und sich selbst („du“); „einladen“ sieht B nicht.
+- Auf den Relays kein Klartext (Text, Raumname, Kanäle); nur Kinds 445, 1059,
+  10002, 10050, 30443; keine 445-Nachricht von einer Identität.
+- Öffentlicher Raum: erst die Warnung, dann Hinweis über dem Raum sichtbar;
+  er liegt, wie angekündigt, offen auf den Relays (34700).
+
+**Tests:** app +5 (Raum-Grundfunktionen mit der echten Engine inkl. Raum zu
+zweit; Verdrahtung: Tresor-Liste, Einladung → Raum, Raumstand nach dem
+Einladen, Moderatoren per Commit, Hinweis und `textContent`); Leak +1 (aus
+`todo`); Szenario „raeume“. Zwei bestehende Tests an die neue Bedeutung
+angepasst (Einladung in eine Gruppe zu mehreren: statt `null` jetzt
+`partner: null`, also ein Raum) – ihre Prüfungen sind dabei genauer geworden.
+
+Endstand: protocol 1161 (+ 6 übersprungen) · node 239 (+ 7 übersprungen ohne
+Netz) · app 430 (+5) · mls 13 · Leak-Tests 55 grün + 1 todo · 0 rot ·
+check-wiring `--streng` Exit 0 · innerHTML streng 0 unbewertet · Website 5
+Seiten ok · Smoke-Test bestanden · `bauen.sh --pruefen` bitgleich.
+
+## Schritt 2.3c mit 8.5 – Moderation privater Räume, private Meldungen
+
+**Vorher (nach 2.3b):** In privaten Räumen war der Moderationsknopf
+ausgeblendet – er hätte öffentliche Ausblend- und Sperr-Events geschrieben.
+Löschen, Entfernen und Melden gab es dort nicht. `group-crypto.ts`
+(Epochenschlüssel für Kanäle) war nie verdrahtet; die Karte ersetzt es durch
+MLS.
+
+**Jetzt:**
+- **Aktionen an jeder Nachricht** (`raumAktion()`): die eigene löschen
+  (Kind 5); als Moderator für alle löschen (4891 – MDK lehnt das für
+  Nicht-Admins schon beim Senden ab) oder den Absender entfernen (Commit,
+  neuer Schlüssel); alle anderen melden.
+- **Melden (8.5):** `baueRaumMeldung()` (protocol) – eine Meldung nach NIP-56
+  (Kind 1984, Grund, Notiz), je Moderator ein eigener Umschlag an seinen
+  Posteingang, nie in die Gruppe. Relays sehen nur Umschläge; die anderen
+  Mitglieder erfahren nichts. `oeffneRaumMeldung()` nimmt nur echte Meldungen
+  an.
+- **Beim Moderator:** Der Posteingang reicht Meldungen zu eigenen privaten
+  Räumen an `alsRaumMeldung()`. Sie bleiben nur im Speicher und stehen unter
+  den Mitgliedern mit „löschen“, „entfernen“ und „erledigt“. Erledigte Ids
+  liegen im Tresor.
+- **Keine öffentliche Sperrliste:** Entfernen ist ein MLS-Commit, kein
+  Event. Die Moderation offener Communities (Kind 34550–34552) bleibt, wie
+  sie war – öffentlich wie die Communities selbst.
+- **`group-crypto.ts` entfernt** samt 20 Tests und 10 Wiring-Ausnahmen:
+  Verschlüsselte Kanäle macht jetzt MLS (2.3a/b). Die Protokoll-Tests sinken
+  deshalb von 1161 auf 1143 (+2 für Meldungen).
+- `privacyInfo()` für verschlüsselte Kanäle beschreibt MLS: Entfernen wechselt
+  den Schlüssel, Neue lesen nur ab ihrem Eintritt.
+
+**Datenschutz:** neue Aussage „raum-meldung“ (belegt, Regel
+„autor-verborgen“, Szenario: je Moderator ein Umschlag, Melder nie Autor,
+kein Klartext, p-Tags nur an Moderatoren).
+
+**Website:** Whitepaper (Moderation privater Räume; „Client-seitige Regeln“
+nennt, dass nur das Entfernen für alle wirkt), Roadmap, FAQ.
+
+**Browser-Prüfung** (zwei Nutzer, wie 2.3b, weitergeführt):
+- B meldet A's Nachricht: genau ein Umschlag (1059) mit einem p-Tag, kein
+  Klartext.
+- A sieht die Meldung nach dem Abgleich des Posteingangs und löscht die
+  Nachricht; auch bei B ist sie weg.
+- A entfernt B: danach ist A allein, und B liest A's nächste Nachricht nicht.
+- Kein offenes Moderations-Event (34550–34552, 1984) auf den Relays; keine
+  Seitenfehler.
+
+**Tests:** protocol +2 (Meldung: je Moderator ein Umschlag, nie an sich
+selbst, kein Klartext; nur der Moderator öffnet sie, eine DM ist keine
+Meldung, ungültige Angaben scheitern), −20 (`group-crypto.ts`); app +2
+(Verdrahtung Moderation und Meldungen), der Raum-Test entfernt jetzt auch
+(`mlsEntferne`, danach liest der Entfernte nichts). Zwei Tests der
+Posteingangs-Kette um `alsRaumMeldung` erweitert.
+
+Endstand: protocol 1143 (−18, + 6 übersprungen) · node 239 (+ 7 übersprungen
+ohne Netz) · app 432 (+2) · mls 13 · Leak-Tests 55 grün + 1 todo · 0 rot ·
+check-wiring `--streng` Exit 0 · innerHTML streng 0 unbewertet · Website 5
+Seiten ok · Smoke-Test bestanden.

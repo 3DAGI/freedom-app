@@ -276,11 +276,14 @@
               <button id="space-info" class="ghost icon-btn" aria-label="Rauminfo">i</button>
             </div>
             <div id="channel-list" class="channel-list"></div>
+            <button id="space-invite" class="ghost hidden">einladen</button>
             <button id="space-join" class="ghost">Raum beitreten</button>
-            <button id="space-create" class="ghost">Raum anlegen</button>
+            <button id="space-create" class="ghost" title="Ende-zu-Ende-verschlüsselt (MLS) – nur Eingeladene lesen mit">Raum anlegen (privat)</button>
+            <button id="space-create-public" class="ghost" title="Jeder kann mitlesen, auch ohne diese App">öffentlichen Raum anlegen</button>
             <button id="space-mods" class="ghost">Moderatoren</button>
           </aside>
           <div class="channel-main">
+            <div id="space-oeffentlich" class="mono-sm warn hidden">Öffentlicher Raum – jeder kann mitlesen, auch ohne diese App. Die Nachrichten liegen unverschlüsselt auf den Relays.</div>
             <div class="channel-head">
               <h3 id="channel-name">—</h3>
               <span id="channel-privacy" class="mono-sm"></span>
@@ -297,6 +300,7 @@
           <aside class="member-col">
             <h3>Mitglieder</h3>
             <div id="member-list" class="mono-sm"></div>
+            <div id="raum-meldungen" class="mono-sm hidden" aria-label="Meldungen"></div>
           </aside>
         </div>
       </div>
@@ -449,12 +453,13 @@
         </div></div>
           <div class="subpane" data-subpane="earn:map"><div class="card">
           <h3><span class="ic" data-icon="globe"></span> Abdeckung</h3>
-          <p class="mono-sm">Wo es Provider und Funk gibt. Funkknoten erscheinen erst ab drei pro Gebiet, damit sich niemand verorten lässt.</p>
+          <p class="mono-sm">Wo es Provider und Funk gibt. Funkknoten erscheinen erst ab drei pro Gebiet, damit sich niemand verorten lässt. Ein Eintrag trägt einen Wegwerfschlüssel, nicht deine Identität, und läuft nach 7 Tagen ab. Auf den Relays ist jeder Eintrag einzeln sichtbar – die Schwelle gilt nur für die Anzeige hier.</p>
           <div id="coverage-here" class="mono-sm"></div>
           <div id="coverage-list" class="mono-sm"></div>
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
             <button id="coverage-refresh" class="ghost" style="width:auto;padding:6px 10px">aktualisieren</button>
             <button id="coverage-join" class="ghost" style="width:auto;padding:6px 10px">selbst eintragen</button>
+            <button id="coverage-leave" class="ghost" style="width:auto;padding:6px 10px">austragen</button>
           </div>
         </div></div>
         </div>
@@ -601,6 +606,9 @@
               <option value="tor">.onion-Relays bevorzugen (nur im Tor Browser wirksam)</option>
               <option value="mixnet">Mixnetz (nur wirksam, wenn du selbst eines nutzt)</option>
             </select></label>
+          <p class="mono-sm muted">Ob deine IP-Adresse verborgen ist, prüft die App, wenn du diesen Bericht öffnest: Erreicht sie ein .onion-Relay, läuft dein Browser über Tor. Sie versucht bis zu drei .onion-Relays, die sie kennt, höchstens 10 Sekunden. <button id="onion-pruefen" class="ghost mini" type="button">erneut prüfen</button></p>
+          <label class="mono-sm" style="display:block;margin:8px 0">.onion-Relay zum Prüfen (optional – nur für diese Prüfung)
+            <input id="onion-pruefrelay" class="mono-sm" placeholder="ws://….onion" autocomplete="off" spellcheck="false" style="width:100%" /></label>
           <label class="mono-sm" style="display:block;margin:8px 0">
             <input type="checkbox" id="kontakte-sichern" /> Kontakte verschlüsselt zwischen Geräten abgleichen (NIP-51)</label>
           <p class="mono-sm muted">Standard: aus. Die Liste liegt verschlüsselt auf den Relays – sie sehen, dass es sie gibt, nicht, wen sie enthält.</p>

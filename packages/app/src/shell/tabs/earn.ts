@@ -9,6 +9,7 @@ import { icon } from "../../icons.js";
 import { discoverProviders } from "../../matchmaking.js";
 import { escapeHtml, pkShort } from "../../shell-logic.js";
 import { ensurePool, signiere, state } from "../state.js";
+import { geheim } from "../tresor.js";
 import { $, timeAgo, toast } from "../ui.js";
 
 /** Mitwirkende am Projekt anzeigen. */
@@ -82,7 +83,7 @@ export async function ladeAbdeckung(): Promise<void> {
 /** Sich selbst eintragen — mit Aufklaerung vorher. */
 export async function trageAbdeckungEin(): Promise<void> {
   if (!state.keypair) return;
-  const { coverageConsentText, toCell, buildCoverageAnnouncement } =
+  const { coverageConsentText, toCell, baueCoverageEintrag, toHex } =
     await import("@freedomstack/protocol");
 
   const art = prompt("Was trägst du ein? (funk / bluetooth)", "funk");
@@ -92,22 +93,51 @@ export async function trageAbdeckungEin(): Promise<void> {
 
   navigator.geolocation.getCurrentPosition(async (pos) => {
     try {
-      // Runden passiert LOKAL. Die genauen Koordinaten verlassen das Geraet nie.
       // Runden passiert LOKAL, und die Zellgroesse haengt an der Ebene:
       // Bluetooth reicht nur Meter, also wird GROEBER gerundet, nicht feiner.
+      // Die genauen Koordinaten verlassen das Geraet nie.
       const { LAYER_CELL_DEGREES } = await import("@freedomstack/protocol");
       const cell = toCell(pos.coords.latitude, pos.coords.longitude, LAYER_CELL_DEGREES[layer]);
       localStorage.setItem("freedom.coverage.cell", JSON.stringify([pos.coords.latitude, pos.coords.longitude]));
-      const pool = await ensurePool();
-      await pool.publish(await signiere(buildCoverageAnnouncement({
-        pubkey: state.keypair!.pk, layer, cell, region: "",
-      })));
-      toast("Eingetragen — jederzeit widerrufbar");
+      // Seit 5.10 mit einem Wegwerfschluessel je Eintrag, nicht mit der Identitaet;
+      // ein frueherer Eintrag wird zuerst widerrufen. Den Schluessel braucht nur
+      // der Widerruf – er liegt nur im Tresor.
+      await widerrufeAbdeckung(false);
+      const { event, wegwerfSk } = baueCoverageEintrag({ layer, cell, region: "" });
+      await (await ensurePool()).publish(event);
+      await geheim.setItem(LS_ABDECKUNG_EINTRAG, JSON.stringify({ id: event.id, sk: toHex(wegwerfSk) }));
+      wegwerfSk.fill(0);
+      toast("Eingetragen – mit Wegwerfschlüssel, 7 Tage gültig, jederzeit widerrufbar");
       void ladeAbdeckung();
     } catch (e) {
       toast((e as Error).message, true);
     }
   }, () => toast("Standort nicht verfuegbar", true));
+}
+
+/** Eigener Abdeckungs-Eintrag (5.10): ID und Wegwerfschluessel – nur im Tresor. */
+export const LS_ABDECKUNG_EINTRAG = "freedom.coverage.eintrag";
+
+/** Den eigenen Eintrag widerrufen (NIP-09, vom Wegwerfschluessel) und den Schluessel vergessen. */
+export async function widerrufeAbdeckung(melden = true): Promise<void> {
+  let e: { id?: unknown; sk?: unknown } | null = null;
+  try {
+    e = JSON.parse(geheim.getItem(LS_ABDECKUNG_EINTRAG) ?? "null") as { id?: unknown; sk?: unknown } | null;
+  } catch { /* kaputt: nur vergessen */ }
+  if (e && typeof e.id === "string" && typeof e.sk === "string" && /^[0-9a-f]{64}$/.test(e.sk)) {
+    const { baueCoverageWiderruf, fromHex } = await import("@freedomstack/protocol");
+    const sk = fromHex(e.sk);
+    await (await ensurePool()).publish(baueCoverageWiderruf(e.id, sk)).catch(() => undefined);
+    sk.fill(0);
+  } else if (melden) {
+    toast("Kein eigener Eintrag auf diesem Gerät");
+    return;
+  }
+  await geheim.removeItem(LS_ABDECKUNG_EINTRAG);
+  if (melden) {
+    toast("Widerrufen – Relays, die Löschwünsche beachten, entfernen den Eintrag; spätestens nach 7 Tagen läuft er ab");
+    void ladeAbdeckung();
+  }
 }
 
 /** Trust-Level (XP) des eigenen providers — wie ein spiel-level. */

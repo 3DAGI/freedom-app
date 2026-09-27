@@ -74,7 +74,21 @@ export interface MlsNachricht {
   text: string;
   zeit: number;
   id: string;
+  /** Id des inneren Events (NIP-01) – bei Absender und Empfängern gleich (Räume, 2.3b). */
+  inneres: string;
+  /** Art des inneren Events: 9 = Chat; Räume (2.3) nutzen weitere. */
+  art: number;
+  tags: string[][];
+  /**
+   * War der Absender in der Epoche des Sendens Admin? Von MLS belegt – MDK
+   * stellt das nur für Moderations-Arten fest (4891 Löschen, 1985); sonst
+   * fehlt es, und es zählt, wer heute Admin ist (`admins()`).
+   */
+  admin?: boolean;
 }
+
+/** Innere Event-Art einer Chat-Nachricht (Marmot). */
+export const ART_CHAT = 9;
 
 export interface MlsEmpfang {
   /** `Processed`, `Buffered`, `Ignored`, `LocalState`, … bzw. `beigetreten`. */
@@ -91,13 +105,15 @@ export interface MlsSenden {
   ausstehend: string | null;
   /** Einladungen (Kind 1059) an neue Mitglieder. */
   einladungen: NostrEvent[];
+  /** Id des gesendeten inneren Events – wie `MlsNachricht.inneres` bei den Empfängern. */
+  inneres?: string;
 }
 
 const alsEvents = (l: string[]): NostrEvent[] => l.map((e) => JSON.parse(e) as NostrEvent);
 
 function senden(json: string): MlsSenden {
-  const r = JSON.parse(json) as { events: string[]; ausstehend: string | null; einladungen: string[] };
-  return { events: alsEvents(r.events), ausstehend: r.ausstehend ?? null, einladungen: alsEvents(r.einladungen ?? []) };
+  const r = JSON.parse(json) as { events: string[]; ausstehend: string | null; einladungen: string[]; inneres?: string };
+  return { events: alsEvents(r.events), ausstehend: r.ausstehend ?? null, einladungen: alsEvents(r.einladungen ?? []), ...(r.inneres ? { inneres: r.inneres } : {}) };
 }
 
 /** Ein MLS-Konto: eine Identität auf diesem Gerät, Zustand im Speicher. */
@@ -128,9 +144,20 @@ export class Mls {
     return senden(await this.konto.senden(gruppe, text));
   }
 
+  /** Inneres Event mit Art und Tags (Räume, 2.3) – verschlüsselt wie ein Chat. */
+  async sendenEvent(gruppe: string, art: number, tags: string[][], text: string): Promise<MlsSenden> {
+    if (!Number.isInteger(art) || art < 0 || art > 0xffff) throw new Error("Art ungültig");
+    return senden(await this.konto.sendenEvent(gruppe, art, JSON.stringify(tags), text));
+  }
+
   /** Nur ein Admin darf einladen; `admins`: welche der Eingeladenen Admin werden. */
   async einladen(gruppe: string, keyPackages: NostrEvent[], admins: string[] = []): Promise<MlsSenden> {
     return senden(await this.konto.einladen(gruppe, keyPackages.map((k) => JSON.stringify(k)), admins));
+  }
+
+  /** Admins neu setzen (Räume: Moderatoren) – ein Commit; nur ein Admin darf es. */
+  async adminsSetzen(gruppe: string, admins: string[]): Promise<MlsSenden> {
+    return senden(await this.konto.adminsSetzen(gruppe, admins));
   }
 
   async entfernen(gruppe: string, mitglieder: string[]): Promise<MlsSenden> {
@@ -166,6 +193,11 @@ export class Mls {
   /** Wer einladen und entfernen darf (Identitäten hex). */
   admins(gruppe: string): string[] {
     return this.konto.admins(gruppe);
+  }
+
+  /** Name der Gruppe – Räume (2.3b) tragen einen, 1:1-Gruppen nicht. */
+  name(gruppe: string): string {
+    return this.konto.name(gruppe);
   }
 
   gruppen(): string[] {

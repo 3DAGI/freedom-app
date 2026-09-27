@@ -20,12 +20,15 @@
  * gültiger Vollmacht – vor jedem Senden abgeglichen (`mls-geraete.ts`).
  */
 import { schnorr } from "@noble/curves/secp256k1.js";
-import { fromHex, toHex, type NostrEvent, type RelayFilter } from "@freedomstack/protocol";
-import { Mls, type MlsNachricht } from "@freedomstack/mls";
+import { fromHex, toHex, type InneresEvent, type InneresSenden, type NostrEvent, type RelayFilter } from "@freedomstack/protocol";
+import { ART_CHAT, Mls, type MlsNachricht } from "@freedomstack/mls";
 import { mlsEngine } from "../mls-engine.js";
 import { LS_MLS_KP, LS_MLS_PLATZ, kpErneuern, schreibRelaysVon, sucheKeyPackages, veroeffentlicheKeyPackage } from "../mls-keypackage.js";
 import { abgleich, partnerDerGruppe, sollMitglieder, type GeraeteQuelle } from "../mls-geraete.js";
-import { aendereGruppe, empfangeGruppe, gruendeGruppe, gruppenAbos, nimmEinladungAn, schreiteFort, sendeInGruppe, type MlsEinladung, type MlsNetz } from "../mls-nostr.js";
+import {
+  aendereGruppe, empfangeGruppe, gruendeGruppe, gruppenAbos, nimmEinladungAn, schreiteFort, sendeEventInGruppe, sendeInGruppe, setzeAdmins,
+  type MlsEinladung, type MlsNetz,
+} from "../mls-nostr.js";
 import { MlsVerlauf, MlsZustand, mlsDatenbank, mlsSchluessel, mlsVerlaufDatenbank, type VerlaufEintrag } from "../mls-speicher.js";
 import { ladeEigeneRelays } from "../relay-satz.js";
 import type { GeheimSpeicher, TresorSpeicher } from "../vault.js";
@@ -133,14 +136,29 @@ export async function mlsErreichbar(u: MlsUmgebung = APP): Promise<boolean> {
   return true;
 }
 
-const alsEintrag = (n: MlsNachricht): VerlaufEintrag => ({ id: n.id, von: n.von, text: n.text, zeit: n.zeit });
+const alsEintrag = (n: MlsNachricht): VerlaufEintrag => ({
+  id: n.id, von: n.von, text: n.text, zeit: n.zeit, inneres: n.inneres,
+  ...(n.art !== ART_CHAT ? { art: n.art } : {}), ...(n.tags.length > 0 ? { tags: n.tags } : {}), ...(n.admin !== undefined ? { admin: n.admin } : {}),
+});
+const istChat = (e: VerlaufEintrag) => (e.art ?? ART_CHAT) === ART_CHAT;
+/**
+ * Alles in den Verlauf – Räume (2.3b) brauchen Kanäle und Rollen –, gezählt
+ * wird nur Chat. Der 1:1-Chat zeigt nur Chat (`mlsVerlauf`).
+ */
+function nimmAuf(k: Konto, gruppe: string, n: MlsNachricht[]): number {
+  const alle = n.map(alsEintrag);
+  k.verlauf.nimmAuf(gruppe, alle.filter((e) => !istChat(e)));
+  return k.verlauf.nimmAuf(gruppe, alle.filter(istChat));
+}
 
 /**
- * Einladung annehmen. Gruppe und Partner, wenn sie eine 1:1-Gruppe ist – alle
- * Mitglieder gehören zu mir oder zu genau einer anderen Person (mit ihren
- * Geräten, 2.2b-e2) –, sonst null (Gruppen zu mehreren zeigt erst 2.3).
+ * Einladung annehmen. Gruppe und Partner, wenn sie eine 1:1-Gruppe ist – ohne
+ * Namen, alle Mitglieder gehören zu mir oder zu genau einer anderen Person
+ * (mit ihren Geräten, 2.2b-e2) –, sonst `partner: null`: ein privater Raum
+ * (2.3b). Räume tragen einen Namen – auch einer zu zweit ist kein 1:1-Chat.
+ * null, wenn schon bearbeitet oder gesperrt.
  */
-export async function mlsEinladungAnnehmen(e: MlsEinladung, u: MlsUmgebung = APP): Promise<{ gruppe: string; partner: string } | null> {
+export async function mlsEinladungAnnehmen(e: MlsEinladung, u: MlsUmgebung = APP): Promise<{ gruppe: string; partner: string | null } | null> {
   const bearbeitet = JSON.parse(localStorage.getItem(LS_MLS_EINLADUNGEN) ?? "[]") as string[];
   if (bearbeitet.includes(e.wrap.id)) return null;
   localStorage.setItem(LS_MLS_EINLADUNGEN, JSON.stringify([...bearbeitet, e.wrap.id].slice(-200)));
@@ -148,15 +166,16 @@ export async function mlsEinladungAnnehmen(e: MlsEinladung, u: MlsUmgebung = APP
   if (!k) return null;
   const { mls, sichern, pk } = await k;
   const gruppe = await nimmEinladungAn({ mls, sichern, speicher: localStorage, einladung: e });
+  if (mls.name(gruppe).trim()) return { gruppe, partner: null };
   const partner = await partnerDerGruppe(mls.mitglieder(gruppe), state.person ?? pk, pk, u.geraete).catch(() => null);
-  return partner ? { gruppe, partner } : null;
+  return { gruppe, partner: partner ?? null };
 }
 
 /** Nach der Wartezeit zurückgehaltene Nachrichten zustellen. */
 async function nachWartezeit(k: Konto, gruppe: string): Promise<void> {
   let neu = 0;
   const merken = async (n: MlsNachricht[]) => {
-    neu = k.verlauf.nimmAuf(gruppe, n.map(alsEintrag));
+    neu = nimmAuf(k, gruppe, n);
     await k.verlauf.sichern();
   };
   await schreiteFort({ mls: k.mls, netz: k.u.netz, sichern: k.sichern, gruppe, merken }).catch(() => undefined);
@@ -180,7 +199,7 @@ export async function mlsAbgleichen(gruppen: readonly string[], u: MlsUmgebung =
     const evs = (await k.u.frage({ ...abo.filter, limit: 200 }, abo.relays)).sort((a, b) => a.created_at - b.created_at);
     let n = 0;
     const merken = async (m: MlsNachricht[]) => {
-      n += k.verlauf.nimmAuf(abo.gruppe, m.map(alsEintrag));
+      n += nimmAuf(k, abo.gruppe, m);
       await k.verlauf.sichern();
     };
     for (const ev of evs) {
@@ -194,10 +213,82 @@ export async function mlsAbgleichen(gruppen: readonly string[], u: MlsUmgebung =
   return neu;
 }
 
-/** Verlauf einer Gruppe (zum Anzeigen). */
+/** Verlauf einer 1:1-Gruppe (zum Anzeigen) – nur Chat. */
 export async function mlsVerlauf(gruppe: string, u: MlsUmgebung = APP): Promise<VerlaufEintrag[]> {
   const k = mlsKonto(u);
-  return k ? (await k).verlauf.nachrichten(gruppe) : [];
+  return k ? (await k).verlauf.nachrichten(gruppe).filter(istChat) : [];
+}
+
+// ------------------------------------------------------------ Räume (2.3b)
+
+/** Stand einer Raum-Gruppe: alle inneren Events, heutige Admins und Mitglieder, ich. */
+export async function mlsGruppenStand(gruppe: string, u: MlsUmgebung = APP): Promise<{ ereignisse: InneresEvent[]; admins: string[]; mitglieder: string[]; ich: string } | null> {
+  const kl = mlsKonto(u);
+  if (!kl) return null;
+  const k = await kl;
+  if (!k.mls.gruppen().includes(gruppe)) return null;
+  const ereignisse = k.verlauf.nachrichten(gruppe).map((e): InneresEvent => ({
+    id: e.inneres ?? e.id, von: e.von, art: e.art ?? ART_CHAT, tags: e.tags ?? [], text: e.text, zeit: e.zeit, ...(e.admin !== undefined ? { admin: e.admin } : {}),
+  }));
+  return { ereignisse, admins: k.mls.admins(gruppe), mitglieder: k.mls.mitglieder(gruppe), ich: k.pk };
+}
+
+/** Eine Gruppe nur mit mir gründen – ein neuer privater Raum – an meinen Relays. */
+export async function mlsGruende(name: string, u: MlsUmgebung = APP): Promise<string | null> {
+  const kl = mlsKonto(u);
+  if (!kl) return null;
+  const relays = await eigeneMlsRelays(u);
+  if (relays.length === 0) return null;
+  const k = await kl;
+  const r = await gruendeGruppe({ mls: k.mls, netz: k.u.netz, sichern: k.sichern, name, keyPackages: [], relays }).catch(() => null);
+  return r?.gruppe ?? null;
+}
+
+/** Inneres Event in die Gruppe; eigene entschlüsselt MLS nicht zurück – darum gleich in den Verlauf. */
+export async function mlsSendeEvent(gruppe: string, s: InneresSenden, u: MlsUmgebung = APP): Promise<boolean> {
+  const kl = mlsKonto(u);
+  if (!kl) return false;
+  const k = await kl;
+  const inneres = await sendeEventInGruppe({ mls: k.mls, netz: k.u.netz, sichern: k.sichern, gruppe, ...s }).catch(() => null);
+  if (!inneres) return false;
+  k.verlauf.nimmAuf(gruppe, [{
+    id: `eigen:${inneres}`, inneres, von: k.pk, text: s.text, zeit: Math.floor(Date.now() / 1000),
+    ...(s.art !== ART_CHAT ? { art: s.art } : {}), ...(s.tags.length > 0 ? { tags: s.tags } : {}),
+  }]);
+  await k.verlauf.sichern();
+  return true;
+}
+
+/** Jemanden einladen (nur als Admin): KeyPackage und Posteingang nötig; nicht zugestellt → wieder entfernen. */
+export async function mlsLadeEin(gruppe: string, pk: string, u: MlsUmgebung = APP): Promise<"eingeladen" | "kein Admin" | "kein KeyPackage" | "nicht zugestellt"> {
+  const kl = mlsKonto(u);
+  if (!kl || !HEX64.test(pk)) return "kein KeyPackage";
+  const k = await kl;
+  if (!k.mls.admins(gruppe).includes(k.pk)) return "kein Admin";
+  const a: Ablauf = { mls: k.mls, netz: k.u.netz, sichern: k.sichern };
+  const kps = await vorbereiten([pk], new Map([[pk, pk]]), a, u);
+  if (!kps) return "kein KeyPackage";
+  const r = await aendereGruppe({ ...a, gruppe, einladen: kps }).catch(() => null);
+  return r?.angenommen && (await ohneUnzugestellte(a, gruppe, r.nichtZugestellt)) ? "eingeladen" : "nicht zugestellt";
+}
+
+/** Mitglied entfernen (nur als Admin): ein Commit – danach liest es nichts mehr (neuer Schlüssel). */
+export async function mlsEntferne(gruppe: string, pk: string, u: MlsUmgebung = APP): Promise<boolean> {
+  const kl = mlsKonto(u);
+  if (!kl || !HEX64.test(pk)) return false;
+  const k = await kl;
+  if (!k.mls.admins(gruppe).includes(k.pk) || !k.mls.mitglieder(gruppe).includes(pk) || pk === k.pk) return false;
+  const r = await aendereGruppe({ mls: k.mls, netz: k.u.netz, sichern: k.sichern, gruppe, entfernen: [pk] }).catch(() => null);
+  return !!r?.angenommen;
+}
+
+/** Moderatoren (Admins der Gruppe) neu setzen – ein Commit; nur als Admin. */
+export async function mlsSetzeAdmins(gruppe: string, admins: string[], u: MlsUmgebung = APP): Promise<boolean> {
+  const kl = mlsKonto(u);
+  if (!kl) return false;
+  const k = await kl;
+  if (!k.mls.admins(gruppe).includes(k.pk)) return false;
+  return setzeAdmins({ mls: k.mls, netz: k.u.netz, sichern: k.sichern, gruppe, admins }).catch(() => false);
 }
 
 /** Ergebnis von `mlsSendeAn`: die Gruppe der Unterhaltung (auch wenn es diesmal NIP-17 war) und ob die Nachricht über MLS ging. */

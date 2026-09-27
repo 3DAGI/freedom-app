@@ -141,6 +141,13 @@ für Forward Secrecy. NIP-17 bleibt Rückfall für Kontakte ohne MLS.
 - **Abnahme:** Tests mit 50 Mitgliedern, Entfernen samt Schlüsselwechsel,
   Moderatorrechte; der Hinweis bei öffentlichen Räumen ist sichtbar.
 
+> Drei Teile (26.09.2026, Spur B): **a** Baustein – innere Events mit Art und
+> Tags im MLS-Baustein, Moderatoren = Admins der Gruppe (per Commit),
+> `raum-gruppe.ts`, Engine-Test mit 50 Mitgliedern; **b** Räume in der App
+> (privat als Standard, öffentlich nur ausdrücklich); **c** Moderation
+> zusammen mit 8.5. Kanäle sind in a eine Ordnung innerhalb der Gruppe – alle
+> Mitglieder lesen alle Kanäle; ein Kanal nur für wenige wäre eine eigene Gruppe.
+
 ---
 
 ## 2.4 Verschlüsselte Anhänge – CODE FERTIG (25.09.2026)

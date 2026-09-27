@@ -4,14 +4,14 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { PRIVACY_FACTS, privacyFactsText } from "../src/privacy-facts.js";
+import { PRIVACY_FACTS, faktenDieserSitzung, ipFaktFuer, privacyFactsText } from "../src/privacy-facts.js";
 import { buildPrivateDm } from "../src/private-dm.js";
 import { generateKeypair } from "../src/event.js";
 import {
   LEAK_REGELN, regelAutorNicht, regelKeinKind4, regelKeinKlartext, regelKeinKlartextPrompt, regelKeineSolAdresse, regelKeineZahlungsdaten,
   regelKundeVerborgen, regelPTagsNur, regelUploadVerschluesselt,
 } from "../src/leak-rules.js";
-import { LAYER_CELL_DEGREES, buildCoverageAnnouncement, toCell } from "../src/coverage.js";
+import { LAYER_CELL_DEGREES, baueCoverageEintrag, baueCoverageWiderruf, buildCoverageAnnouncement, toCell } from "../src/coverage.js";
 import { signEvent } from "../src/event.js";
 import { buildJobRequest, buildJobResult } from "../src/dvm.js";
 import { buildPrivateDispute, buildPrivateJobRequest, buildPrivateJobResponse, buildPrivateSessionEvent, buildPrivateUrteil } from "../src/private-job.js";
@@ -34,6 +34,7 @@ import { buildSuccessionPlan, secretHashOf, splitSecret } from "../src/successio
 import { buildStateBackup, deriveBackupKey, waehleSicherung } from "../src/state-backup.js";
 import { baueStueckAbruf } from "../src/blob.js";
 import { regelMlsGruppe } from "../src/leak-rules.js";
+import { baueRaumMeldung, raumDefinition, raumNachricht } from "../src/raum-gruppe.js";
 import { fromHex, toHex } from "../src/htlc.js";
 import type { NostrEvent, UnsignedEvent } from "../src/event.js";
 import { readFileSync } from "node:fs";
@@ -45,6 +46,7 @@ interface MlsKontoT {
   keyPackage(platz: string): Promise<UnsignedEvent>;
   gruppeAnlegen(name: string, kps: NostrEvent[], relays: string[]): Promise<{ gruppe: string; einladungen: NostrEvent[] }>;
   senden(gruppe: string, text: string): Promise<{ events: NostrEvent[] }>;
+  sendenEvent(gruppe: string, art: number, tags: string[][], text: string): Promise<{ events: NostrEvent[] }>;
 }
 interface MlsModulT {
   Mls: new (signer: LocalSigner, beweis: (id: string) => string) => MlsKontoT;
@@ -270,6 +272,31 @@ const SZENARIEN: Record<string, () => Promise<number>> = {
     return regelKeinKlartext(alle, [GEHEIM]).length + regelAutorNicht(alle, a.pk).length + regelPTagsNur(g.einladungen, [b.pk]).length +
       regelMlsGruppe(alle, { gruppenIds: [g.gruppe], identitaeten: [a.pk, b.pk] }).length;
   },
+  "raeume": async () => {
+    // Wie die App private Räume anlegt und schreibt (2.3b): Kanäle und Nachricht als innere Events – echte Engine
+    const { Mls, ladeMls } = (await import(["@freedomstack", "mls"].join("/"))) as MlsModulT;
+    ladeMls(gunzipSync(readFileSync(new URL("../../mls/dist/freedom_mls_bg.wasm.gz", import.meta.url))));
+    const konto = (k: typeof a) => new Mls(new LocalSigner(k.sk), (id) => toHex(schnorr.sign(fromHex(id), k.sk)));
+    const [ma, mb] = [konto(a), konto(b)];
+    const kpB = await new LocalSigner(b.sk).signEvent(await mb.keyPackage("cd".repeat(32)));
+    const g = await ma.gruppeAnlegen("Werkstatt am Fluss", [kpB], ["wss://gruppe.test"]);
+    const def = raumDefinition(g.gruppe, { name: "Werkstatt am Fluss", kanaele: [{ id: "geheimplanung", name: "geheimplanung", privacy: "verschluesselt", writeRoles: [], position: 0 }] });
+    const msg = raumNachricht({ kanal: "geheimplanung", text: GEHEIM, erwaehnt: [b.pk] });
+    const events: NostrEvent[] = [];
+    for (const s of [def, msg]) events.push(...(await ma.sendenEvent(g.gruppe, s.art, s.tags, s.text)).events);
+    const alle = [...g.einladungen, ...events];
+    if (events.length !== 2) return 1;
+    return regelKeinKlartext(alle, [GEHEIM, "Werkstatt am Fluss", "geheimplanung"]).length + regelAutorNicht(alle, a.pk).length +
+      regelPTagsNur(g.einladungen, [b.pk]).length + regelMlsGruppe(alle, { gruppenIds: [g.gruppe], identitaeten: [a.pk, b.pk] }).length;
+  },
+  "raum-meldung": async () => {
+    // Wie die App seit 8.5 meldet: je Moderator ein Umschlag, nie in die Gruppe, nie offen
+    const mods = [generateKeypair(), generateKeypair()];
+    const ziel = "d4".repeat(32);
+    const wraps = await baueRaumMeldung({ von: new LocalSigner(a.sk), moderatoren: mods.map((m) => m.pk), gruppe: "c3".repeat(16), ziel, autor: b.pk, grund: "spam", notiz: GEHEIM });
+    if (wraps.length !== 2) return 1;
+    return regelAutorNicht(wraps, a.pk).length + regelKeinKlartext(wraps, [GEHEIM, ziel, b.pk]).length + regelPTagsNur(wraps, mods.map((m) => m.pk)).length;
+  },
   "geraete-kopien": async () => {
     // Wie die App seit 8.6b: an die Person, sich selbst und je Geraet ein eigener Umschlag.
     const [handy, tablet] = [generateKeypair().pk, generateKeypair().pk];
@@ -285,6 +312,15 @@ const SZENARIEN: Record<string, () => Promise<number>> = {
       return regelKeinKlartext([ev], [String(lat), String(lon), lat.toFixed(4), lon.toFixed(4)]);
     });
     return funde.length;
+  },
+  "abdeckung-schluessel": async () => {
+    // Wie die App seit 5.10: je Eintrag ein Wegwerfschluessel, mit Ablauf; der Widerruf vom selben.
+    const [lat, lon] = [48.137154, 11.576124];
+    const eintraege = (["lora", "bluetooth"] as const).map((layer) => baueCoverageEintrag({ layer, cell: toCell(lat, lon, LAYER_CELL_DEGREES[layer]), region: "" }));
+    const events = [...eintraege.map((e) => e.event), baueCoverageWiderruf(eintraege[0]!.event.id, eintraege[0]!.wegwerfSk)];
+    const verschieden = new Set(eintraege.map((e) => e.event.pubkey)).size === eintraege.length ? 0 : 1;
+    const ohneAblauf = eintraege.filter((e) => !e.event.tags.some((t) => t[0] === "expiration")).length;
+    return regelAutorNicht(events, a.pk).length + verschieden + ohneAblauf;
   },
 };
 
@@ -328,7 +364,8 @@ test("der Berichtstext trennt Belegtes und Offenes", () => {
   assert.match(t, /✓ KI-Anfragen sind für Relays nicht lesbar\./);
   assert.match(t, /✓ KI-Antworten sind für Relays nicht lesbar\./);
   assert.match(t, /✓ Reklamationen sind nicht öffentlich – sie gehen versiegelt/);
-  assert.match(t, /○ Noch nicht: Räume sind Ende-zu-Ende-verschlüsselt\. \(Ausbauplan 2\.3\)/);
+  // Seit 2.3b: private Räume belegt (MLS); öffentlich nur ausdrücklich
+  assert.match(t, /✓ Private Räume – der Standard – sind Ende-zu-Ende-verschlüsselt \(MLS\)/);
   // 4.6c benannte die offene Rechnung als Luecke, seit 4.9b ist sie versiegelt.
   assert.match(t, /✓ Beim Tausch SOL → sats sehen Relays deine Lightning-Rechnung nicht\./);
   // Seit 4.9 (Entscheidung A): gesendete Zahlungen als bewusste Grenze, mit Grund.
@@ -336,4 +373,42 @@ test("der Berichtstext trennt Belegtes und Offenes", () => {
   // Seit 2.2b-d2: 1:1 über MLS belegt; Forward Secrecy nur dort, der Rückfall NIP-17 als Grenze mit Grund.
   assert.match(t, /✓ Direktnachrichten an Kontakte, die MLS können, laufen über MLS/);
   assert.match(t, /△ Forward Secrecy haben Direktnachrichten nur über MLS\..*NIP-17 kennt keine Forward Secrecy/);
+});
+
+// ------------------------------------------------------------ 6.2: IP je Sitzung geprueft
+
+test("6.2: „geprüft“ steht nie in der festen Liste – nur als Ergebnis der .onion-Prüfung", () => {
+  assert.equal(PRIVACY_FACTS.filter((f) => f.status === "geprueft").length, 0);
+  const ip = PRIVACY_FACTS.find((f) => f.id === "ip")!;
+  assert.equal(ip.status, "offen");
+  assert.equal(ip.schritt, "6.1", "offen bleibt nur die native App");
+});
+
+test("6.2: .onion-Relay erreichbar → Bericht sagt „IP-Adresse verborgen“, mit der Grenze", () => {
+  const f = ipFaktFuer("erreichbar");
+  assert.equal(f.status, "geprueft");
+  const t = privacyFactsText(faktenDieserSitzung("erreichbar"));
+  assert.match(t, /In dieser Sitzung geprüft:\n✓ IP-Adresse verborgen: Diese Sitzung erreicht ein \.onion-Relay/);
+  assert.match(t, /leitest du nur \.onion-Adressen über Tor, sehen andere Relays deine IP weiter/);
+  assert.doesNotMatch(t, /Noch nicht: Relays sehen deine IP-Adresse nicht/);
+  // Die Pruefung ersetzt nur die Aussage „ip“ – alles andere bleibt, wie es ist.
+  assert.equal(faktenDieserSitzung("erreichbar").length, PRIVACY_FACTS.length);
+  assert.deepEqual(faktenDieserSitzung("erreichbar").filter((x) => x.id !== "ip"), PRIVACY_FACTS.filter((x) => x.id !== "ip"));
+});
+
+test("6.2: nicht erreichbar → nie „verborgen“, sondern Lücke mit „native App oder Tor Browser“", () => {
+  for (const p of ["nicht-erreichbar", "keine-onion"] as const) {
+    const f = ipFaktFuer(p);
+    assert.equal(f.status, "offen");
+    assert.match(f.hinweis ?? "", /Native App oder Tor Browser nutzen/);
+    const t = privacyFactsText(faktenDieserSitzung(p));
+    assert.doesNotMatch(t, /IP-Adresse verborgen|In dieser Sitzung geprüft/);
+    assert.match(t, /○ Noch nicht: Relays sehen deine IP-Adresse nicht\. \(Ausbauplan 6\.1\) – /);
+  }
+  // Ein nicht erreichbares Relay kann auch nur aus sein – keine Gewissheit behaupten.
+  assert.match(ipFaktFuer("nicht-erreichbar").hinweis!, /erreicht kein \.onion-Relay – dein Browser läuft wohl nicht über Tor \(oder die geprüften Relays sind gerade aus\)/);
+  assert.match(ipFaktFuer("keine-onion").hinweis!, /Prüfen ging nicht: Die App kennt kein \.onion-Relay/);
+  // Ohne Pruefung: der Text wie bisher, ohne Hinweis.
+  assert.equal(privacyFactsText(faktenDieserSitzung()), privacyFactsText());
+  assert.match(privacyFactsText(), /○ Noch nicht: Relays sehen deine IP-Adresse nicht\. \(Ausbauplan 6\.1\)\n/);
 });
