@@ -31,6 +31,7 @@ kommunikation.ts|t.replies.length|Länge eines lokal gebauten Arrays (Threads)
 kommunikation.ts|t.participants.length|Länge eines lokal gebauten Arrays (Threads)
 kommunikation.ts|antworten|Template mit escapeHtml(m.id) und lokalen Zählern
 kommunikation.ts|modKnopf|Template mit escapeHtml(m.id) und escapeHtml(m.authorPubkey)
+kommunikation.ts|raumKnopf|Template mit escapeHtml(m.id), escapeHtml(m.authorPubkey) und escapeHtml des festen Aktionstexts (2.3c)
 kommunikation.ts|(Zuweisung) zeilen.join("")|zeilen enthält nur Templates mit escapeHtml (direkt darüber gebaut)
 profil.ts|farbe|aus der festen Tabelle ACCENT_HEX nach normalizeStyle()
 profil.ts|avatar|Template mit escapeHtml(bild) bzw. escapeHtml(Anfangsbuchstabe), direkt darüber gebaut

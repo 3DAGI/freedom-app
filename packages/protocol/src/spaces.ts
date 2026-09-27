@@ -435,12 +435,13 @@ export function searchMessages(
  */
 export function privacyInfo(channel: Channel): string {
   if (channel.privacy === "verschluesselt") {
+    // Seit 2.3: private Räume sind MLS-Gruppen – Entfernen ist ein Schlüsselwechsel
     return [
-      "Verschlüsselt: Nur Mitglieder können mitlesen.",
+      "Verschlüsselt (MLS): Nur Mitglieder können mitlesen – alle Kanäle des Raums.",
       "",
-      "Grenze: Wer den Raum verlässt, behält den Schlüssel für alles, was er",
-      "vorher gesehen hat. Erst ein Schlüsselwechsel sperrt ihn aus — und der",
-      "erreicht nur, wer danach online kommt.",
+      "Grenze: Wer entfernt wird, behält den Schlüssel für alles, was er vorher",
+      "gesehen hat. Das Entfernen wechselt den Schlüssel – danach liest er nichts",
+      "mehr. Neue Mitglieder lesen nur, was nach ihrem Eintritt kommt.",
     ].join("\n");
   }
   return [

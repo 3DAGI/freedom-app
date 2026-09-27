@@ -6450,3 +6450,62 @@ Endstand: protocol 1161 (+ 6 übersprungen) · node 239 (+ 7 übersprungen ohne
 Netz) · app 430 (+5) · mls 13 · Leak-Tests 55 grün + 1 todo · 0 rot ·
 check-wiring `--streng` Exit 0 · innerHTML streng 0 unbewertet · Website 5
 Seiten ok · Smoke-Test bestanden · `bauen.sh --pruefen` bitgleich.
+
+## Schritt 2.3c mit 8.5 – Moderation privater Räume, private Meldungen
+
+**Vorher (nach 2.3b):** In privaten Räumen war der Moderationsknopf
+ausgeblendet – er hätte öffentliche Ausblend- und Sperr-Events geschrieben.
+Löschen, Entfernen und Melden gab es dort nicht. `group-crypto.ts`
+(Epochenschlüssel für Kanäle) war nie verdrahtet; die Karte ersetzt es durch
+MLS.
+
+**Jetzt:**
+- **Aktionen an jeder Nachricht** (`raumAktion()`): die eigene löschen
+  (Kind 5); als Moderator für alle löschen (4891 – MDK lehnt das für
+  Nicht-Admins schon beim Senden ab) oder den Absender entfernen (Commit,
+  neuer Schlüssel); alle anderen melden.
+- **Melden (8.5):** `baueRaumMeldung()` (protocol) – eine Meldung nach NIP-56
+  (Kind 1984, Grund, Notiz), je Moderator ein eigener Umschlag an seinen
+  Posteingang, nie in die Gruppe. Relays sehen nur Umschläge; die anderen
+  Mitglieder erfahren nichts. `oeffneRaumMeldung()` nimmt nur echte Meldungen
+  an.
+- **Beim Moderator:** Der Posteingang reicht Meldungen zu eigenen privaten
+  Räumen an `alsRaumMeldung()`. Sie bleiben nur im Speicher und stehen unter
+  den Mitgliedern mit „löschen“, „entfernen“ und „erledigt“. Erledigte Ids
+  liegen im Tresor.
+- **Keine öffentliche Sperrliste:** Entfernen ist ein MLS-Commit, kein
+  Event. Die Moderation offener Communities (Kind 34550–34552) bleibt, wie
+  sie war – öffentlich wie die Communities selbst.
+- **`group-crypto.ts` entfernt** samt 20 Tests und 10 Wiring-Ausnahmen:
+  Verschlüsselte Kanäle macht jetzt MLS (2.3a/b). Die Protokoll-Tests sinken
+  deshalb von 1161 auf 1143 (+2 für Meldungen).
+- `privacyInfo()` für verschlüsselte Kanäle beschreibt MLS: Entfernen wechselt
+  den Schlüssel, Neue lesen nur ab ihrem Eintritt.
+
+**Datenschutz:** neue Aussage „raum-meldung“ (belegt, Regel
+„autor-verborgen“, Szenario: je Moderator ein Umschlag, Melder nie Autor,
+kein Klartext, p-Tags nur an Moderatoren).
+
+**Website:** Whitepaper (Moderation privater Räume; „Client-seitige Regeln“
+nennt, dass nur das Entfernen für alle wirkt), Roadmap, FAQ.
+
+**Browser-Prüfung** (zwei Nutzer, wie 2.3b, weitergeführt):
+- B meldet A's Nachricht: genau ein Umschlag (1059) mit einem p-Tag, kein
+  Klartext.
+- A sieht die Meldung nach dem Abgleich des Posteingangs und löscht die
+  Nachricht; auch bei B ist sie weg.
+- A entfernt B: danach ist A allein, und B liest A's nächste Nachricht nicht.
+- Kein offenes Moderations-Event (34550–34552, 1984) auf den Relays; keine
+  Seitenfehler.
+
+**Tests:** protocol +2 (Meldung: je Moderator ein Umschlag, nie an sich
+selbst, kein Klartext; nur der Moderator öffnet sie, eine DM ist keine
+Meldung, ungültige Angaben scheitern), −20 (`group-crypto.ts`); app +2
+(Verdrahtung Moderation und Meldungen), der Raum-Test entfernt jetzt auch
+(`mlsEntferne`, danach liest der Entfernte nichts). Zwei Tests der
+Posteingangs-Kette um `alsRaumMeldung` erweitert.
+
+Endstand: protocol 1143 (−18, + 6 übersprungen) · node 239 (+ 7 übersprungen
+ohne Netz) · app 432 (+2) · mls 13 · Leak-Tests 55 grün + 1 todo · 0 rot ·
+check-wiring `--streng` Exit 0 · innerHTML streng 0 unbewertet · Website 5
+Seiten ok · Smoke-Test bestanden.

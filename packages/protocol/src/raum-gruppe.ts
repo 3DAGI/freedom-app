@@ -24,7 +24,9 @@
  * - **Löschen:** ein Admin jede Nachricht (Kind 4891 nach Marmot), jeder die
  *   eigene (Kind 5).
  */
-import type { NostrEvent } from "./event.js";
+import type { NostrEvent, UnsignedEvent } from "./event.js";
+import { giftUnwrapMitSigner, giftWrapMitSigner } from "./gift-wrap.js";
+import type { Signer } from "./signer.js";
 import {
   ALL_PERMISSIONS, KIND_CHANNEL_MESSAGE, KIND_ROLE_GRANT, KIND_SPACE, KIND_SPACE_ROLES,
   type Channel, type Permission, type Role, type SpaceState, buildRoleGrant, buildRoles, buildSpace, canWriteTo, parseRoles, parseSpace,
@@ -193,4 +195,59 @@ export function gruppenRaum(raumId: string, ereignisse: readonly InneresEvent[],
     nachrichten.push(alsEvent(e, KIND_CHANNEL_MESSAGE, [["space", raumId], ...e.tags.filter((t) => t[0] !== "space")]));
   }
   return { zustand, nachrichten, verworfen };
+}
+
+// ------------------------------------------------------------ Meldungen (8.5)
+
+/** Meldung nach NIP-56 (Kind 1984) – in privaten Räumen nur versiegelt an die Moderatoren. */
+export const KIND_RAUM_MELDUNG = 1984;
+/** Gründe nach NIP-56. */
+export const MELDE_GRUENDE = ["spam", "illegal", "nudity", "profanity", "impersonation", "malware", "other"] as const;
+export type MeldeGrund = (typeof MELDE_GRUENDE)[number];
+const GRUPPE_HEX = /^[0-9a-f]{32,64}$/;
+
+export interface RaumMeldung {
+  /** Wer meldet – aus dem Siegel, nicht aus dem Umschlag. */
+  von: string;
+  gruppe: string;
+  /** Id des inneren Events der gemeldeten Nachricht. */
+  ziel: string;
+  autor: string;
+  grund: MeldeGrund;
+  notiz: string;
+  zeit: number;
+}
+
+/**
+ * Eine Nachricht melden (8.5): je Moderator ein eigener Umschlag, nie in die
+ * Gruppe – die anderen Mitglieder erfahren nichts, die Relays sehen nur
+ * Umschläge. Nicht an sich selbst.
+ */
+export async function baueRaumMeldung(p: {
+  von: Signer; moderatoren: readonly string[]; gruppe: string; ziel: string; autor: string; grund: MeldeGrund; notiz?: string; nowSecs?: number;
+}): Promise<NostrEvent[]> {
+  if (!GRUPPE_HEX.test(p.gruppe) || !HEX64.test(p.ziel) || !HEX64.test(p.autor)) throw new Error("Meldung unvollständig");
+  if (!MELDE_GRUENDE.includes(p.grund)) throw new Error("Grund ungültig");
+  const ich = p.von.publicKey();
+  const an = [...new Set(p.moderatoren)].filter((m) => HEX64.test(m) && m !== ich);
+  if (an.length === 0) throw new Error("kein Moderator außer dir");
+  const now = p.nowSecs ?? Math.floor(Date.now() / 1000);
+  const kern: UnsignedEvent = {
+    pubkey: ich, kind: KIND_RAUM_MELDUNG, created_at: now,
+    tags: [["e", p.ziel, p.grund], ["p", p.autor, p.grund], ["h", p.gruppe]],
+    content: (p.notiz ?? "").slice(0, 500),
+  };
+  return Promise.all(an.map((m) => giftWrapMitSigner(kern, p.von, m, { nowSecs: now })));
+}
+
+/** Umschlag öffnen: eine Meldung an mich? Sonst null (dann ist es etwas anderes). */
+export async function oeffneRaumMeldung(wrap: NostrEvent, signer: Signer): Promise<RaumMeldung | null> {
+  const u = await giftUnwrapMitSigner(wrap, signer).catch(() => null);
+  if (!u?.ok || !u.inner || !u.senderPubkey || u.inner.kind !== KIND_RAUM_MELDUNG) return null;
+  const e = u.inner.tags.find((t) => t[0] === "e");
+  const autor = tag(u.inner, "p");
+  const gruppe = tag(u.inner, "h");
+  const grund = e?.[2] as MeldeGrund | undefined;
+  if (!e || !HEX64.test(e[1] ?? "") || !autor || !HEX64.test(autor) || !gruppe || !GRUPPE_HEX.test(gruppe) || !grund || !MELDE_GRUENDE.includes(grund)) return null;
+  return { von: u.senderPubkey, gruppe, ziel: e[1]!, autor, grund, notiz: u.inner.content.slice(0, 500), zeit: u.inner.created_at };
 }

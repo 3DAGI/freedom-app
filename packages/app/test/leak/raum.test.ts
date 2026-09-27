@@ -77,6 +77,7 @@ test("Verdrahtung: private Räume sind der Standard und senden über MLS; offene
   // Offene Räume und Communities wie im Szenario oben
   assert.match(kom, /signiere\(buildChannelMessage\(\{\s*authorPubkey: state\.keypair\.pk, spaceId: spacesUi\.spaceId,\s*channelId: spacesUi\.channelId, content: text,/);
   assert.match(kom, /signiere\(buildEvent\(state\.keypair\.pk, 42, \[\["h", c\.id\], \.\.\.imeta\], text\)\)/);
-  // Private Räume moderieren nie mit öffentlichen Sperr-Events
+  // Private Räume moderieren nie mit öffentlichen Sperr-Events; Meldungen nur versiegelt (8.5)
   assert.match(kom, /const modKnopf = darfModerieren && !spacesUi\.privat && /);
+  assert.match(raum, /const wraps = await baueRaumMeldung\(/);
 });

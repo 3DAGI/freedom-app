@@ -99,7 +99,6 @@ export * from "./state-backup.js";
 export * from "./gift-wrap.js";
 export * from "./devices.js";
 export * from "./disputes-relays.js";
-export * from "./group-crypto.js";
 export * from "./merge.js";
 export * from "./duress.js";
 export * from "./local-search.js";

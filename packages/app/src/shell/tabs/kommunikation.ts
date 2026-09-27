@@ -4,7 +4,7 @@
  *
  * Aus app.ts verschoben (Schritt 1.0) – wörtlich, ohne Logikänderung.
  */
-import { type DateiSchluessel, type KeyState, NostrEvent, type PrivateDm, buildEvent } from "@freedomstack/protocol";
+import { type DateiSchluessel, type KeyState, MELDE_GRUENDE, type MeldeGrund, NostrEvent, type PrivateDm, buildEvent } from "@freedomstack/protocol";
 import {
   type ChatAttachment,
   escapeHtml,
@@ -23,8 +23,8 @@ import { type DmZuordnung, GeraeteBuch, ordneDmZu } from "../../geraete-buch.js"
 import { sucheAufnehmen, wireSuche } from "../suche-ui.js";
 import { mlsAbgleichen, mlsBeiNeuem, mlsEinladungAnnehmen, mlsErreichbar, mlsGesperrt, mlsSendeAn, mlsVerlauf } from "../mls-konto.js";
 import {
-  PRIVAT, type PrivaterRaum, gruppeVon, istPrivat, ladeInPrivatenRaum, ladePrivatenRaum, legePrivatenRaumAn, merkePrivatenRaum,
-  privateRaeume, sendePrivat, setzeModeratoren,
+  PRIVAT, type PrivaterRaum, alsRaumMeldung, entferneAusRaum, gruppeVon, istPrivat, ladeInPrivatenRaum, ladePrivatenRaum, legePrivatenRaumAn,
+  loescheImRaum, meldeImRaum, meldungErledigt, meldungenFuer, merkePrivatenRaum, privateRaeume, sendePrivat, setzeModeratoren, wennMeldung,
 } from "../raum-mls.js";
 import { geheim } from "../tresor.js";
 import { $, toast } from "../ui.js";
@@ -243,14 +243,21 @@ async function oeffneKanal(channelId: string): Promise<void> {
             ? `<button class="thread-link mod-hide" data-id="${escapeHtml(m.id)}"
                  data-pk="${escapeHtml(m.authorPubkey)}" style="color:#9A6A6A">moderieren</button>`
             : "";
+          const raumKnopf = spacesUi.privat
+            ? `<button class="thread-link raum-aktion" data-id="${escapeHtml(m.id)}"
+                 data-pk="${escapeHtml(m.authorPubkey)}">${escapeHtml(raumAktionText(m.authorPubkey))}</button>`
+            : "";
           return `<div class="msg-group">
             <div class="msg-meta">
               <span class="msg-author">${escapeHtml(pkShort(m.authorPubkey))}</span>
               <span class="msg-time">${escapeHtml(new Date(m.createdAt * 1000).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" }))}</span>
             </div>
-            <div class="msg-text">${escapeHtml(m.content)}</div>${antworten}${modKnopf}</div>`;
+            <div class="msg-text">${escapeHtml(m.content)}</div>${antworten}${modKnopf}${raumKnopf}</div>`;
         }).join("");
     thread.scrollTop = thread.scrollHeight;
+    thread.querySelectorAll(".raum-aktion").forEach((b) => {
+      b.addEventListener("click", () => void raumAktion((b as HTMLElement).dataset.id!, (b as HTMLElement).dataset.pk!));
+    });
     thread.querySelectorAll(".mod-hide").forEach((b) => {
       b.addEventListener("click", () => {
         const el = b as HTMLElement;
@@ -275,6 +282,78 @@ async function oeffneKanal(channelId: string): Promise<void> {
   void zeigeKanalliste();
 }
 
+/** Private Räume (2.3c): was ich mit einer Nachricht tun kann. */
+function raumAktionText(autor: string): string {
+  const raum = spacesUi.privat;
+  if (!raum) return "";
+  return autor === raum.ich ? "löschen" : raum.admins.includes(raum.ich) ? "moderieren" : "melden";
+}
+
+/**
+ * Private Räume (2.3c, 8.5): eigene Nachricht löschen, als Moderator löschen
+ * oder den Absender entfernen (MLS-Commit, neuer Schlüssel), sonst melden –
+ * versiegelt nur an die Moderatoren. Nie ein öffentliches Event.
+ */
+async function raumAktion(id: string, autor: string): Promise<void> {
+  const raum = spacesUi.privat;
+  if (!raum) return;
+  let ok: boolean;
+  if (autor === raum.ich) {
+    if (!confirm("Eigene Nachricht löschen? Wer sie schon gelesen hat, hatte sie.")) return;
+    ok = await loescheImRaum(raum, id);
+  } else if (raum.admins.includes(raum.ich)) {
+    const wahl = prompt("Moderieren: 1 = Nachricht für alle löschen, 2 = Absender aus dem Raum entfernen (neuer Schlüssel, keine Sperrliste)", "1");
+    if (wahl?.trim() === "1") ok = await loescheImRaum(raum, id);
+    else if (wahl?.trim() === "2") ok = await entferneAusRaum(raum, autor);
+    else return;
+  } else {
+    const grund = prompt(`Melden – nur die Moderatoren erfahren es, versiegelt. Grund (${MELDE_GRUENDE.join(", ")}):`, "spam")?.trim();
+    if (!grund) return;
+    if (!(MELDE_GRUENDE as readonly string[]).includes(grund)) {
+      toast("Unbekannter Grund", true);
+      return;
+    }
+    const notiz = prompt("Kurze Notiz (optional, nur für die Moderatoren):") ?? "";
+    const n = await meldeImRaum(raum, id, autor, grund as MeldeGrund, notiz).catch(() => 0);
+    toast(n > 0 ? `Gemeldet – versiegelt an ${n} Moderator(en)` : "Nicht gemeldet – kein Moderator erreichbar", n === 0);
+    return;
+  }
+  toast(ok ? "Erledigt" : "Nicht geändert – kein Relay der Gruppe nahm an", !ok);
+  await oeffneRaum(spacesUi.spaceId!);
+}
+
+/** Meldungen zum offenen Raum – nur Moderatoren sehen sie, nur aus dem Speicher (8.5). */
+function zeigeMeldungen(): void {
+  const box = document.getElementById("raum-meldungen");
+  if (!box) return;
+  const raum = spacesUi.privat;
+  const liste = raum ? meldungenFuer(raum) : [];
+  box.classList.toggle("hidden", liste.length === 0);
+  box.replaceChildren(...liste.map(([wrapId, m]) => {
+    const z = document.createElement("div");
+    z.className = "member-row";
+    z.style.display = "block";
+    const text = document.createElement("div");
+    text.textContent = `Meldung von ${kontaktName(m.von)} über ${kontaktName(m.autor)} · ${m.grund}${m.notiz ? ` – ${m.notiz}` : ""}`;
+    z.append(text);
+    const aktionen: [string, () => Promise<boolean>][] = [
+      ["löschen", () => loescheImRaum(raum!, m.ziel)], ["entfernen", () => entferneAusRaum(raum!, m.autor)], ["erledigt", async () => true],
+    ];
+    for (const [label, tun] of aktionen) {
+      const b = document.createElement("button");
+      b.className = "ghost mini";
+      b.textContent = label;
+      b.addEventListener("click", async () => {
+        if (!(await tun().catch(() => false))) return toast("Nicht geändert – kein Relay der Gruppe nahm an", true);
+        await meldungErledigt(wrapId);
+        await oeffneRaum(spacesUi.spaceId!);
+      });
+      z.append(b);
+    }
+    return z;
+  }));
+}
+
 /** Mitglieder mit ihren Rollen. */
 async function zeigeMitglieder(): Promise<void> {
   const box = $("#member-list");
@@ -291,6 +370,7 @@ async function zeigeMitglieder(): Promise<void> {
       z.textContent = pk === privat.ich ? `${text} (du)` : text;
       return z;
     }));
+    zeigeMeldungen();
     return;
   }
   const st = spacesUi.state as {
@@ -542,6 +622,8 @@ export async function wireSpacesTab(): Promise<void> {
   if (oeffentlich) oeffentlich.onclick = () => void legeRaumAn(true);
   const einladen = $("#space-invite");
   if (einladen) einladen.onclick = () => void ladeEin();
+  // Meldungen (8.5) kommen über den Posteingang – für Moderatoren gleich zeigen
+  wennMeldung(() => zeigeMeldungen());
   // Private Räume (2.3b): solange einer offen und sichtbar ist, alle 30 s abgleichen
   setInterval(() => {
     if (spacesUi.privat && spacesUi.spaceId && !document.hidden && document.getElementById("channel-thread")?.offsetParent) void oeffneRaum(spacesUi.spaceId);
@@ -1083,7 +1165,7 @@ async function oeffneUmschlag(w: NostrEvent): Promise<{ partner: string; ev: DmA
         dm: r.dm,
       }
     // Keine DM: vielleicht ein SOL-Trinkgeld-Beleg (4.7b), eine Adress-Anfrage (4.9d), Nachfolge (8.11b) oder ein Pruefauftrag (5.6c).
-    : (await alsTrinkgeld(w)) ?? (await alsAdressAnfrage(w)) ?? (await alsNachfolge(w)) ?? (await alsPruefauftrag(w));
+    : (await alsTrinkgeld(w)) ?? (await alsAdressAnfrage(w)) ?? (await alsNachfolge(w)) ?? (await alsPruefauftrag(w)) ?? (await alsRaumMeldung(w));
   dmCache.set(w.id, e);
   return e;
 }
