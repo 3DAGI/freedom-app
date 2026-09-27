@@ -6561,3 +6561,49 @@ Endstand: protocol 1143 (−18, + 6 übersprungen) · node 239 (+ 7 übersprunge
 ohne Netz) · app 432 (+2) · mls 13 · Leak-Tests 55 grün + 1 todo · 0 rot ·
 check-wiring `--streng` Exit 0 · innerHTML streng 0 unbewertet · Website 5
 Seiten ok · Smoke-Test bestanden.
+
+## Schritt 5.4b2 – Eigener Relay-Satz in den Settings
+
+Der eigene Satz (seit 5.4a zufällig aus der Startliste, als NIP-65-Liste und
+Posteingang veröffentlicht) war bisher unsichtbar. Jetzt steht er in den
+Settings unter Verbindung → „Nostr-Relays (dein Satz)“ und lässt sich ändern.
+
+**Prüfen** (`pruefeRelayEingabe()`, `relay-satz.ts`):
+- Adressen je Zeile, durch Komma oder Leerraum; normalisiert, ohne Doppelte;
+- jede plausibel und verschlüsselt: `wss://`, unverschlüsselt nur `.onion`
+  (dort verschlüsselt Tor); kein lokales Netz;
+- eine bis acht (`MAX_EIGENE`, wie `ladeEigeneRelays()`); mindestens eine
+  taugt als Posteingang;
+- Fehler als feste Texte, angezeigt per `textContent`.
+
+**Ändern** (`setzeEigeneRelays()`):
+- erst die NIP-65-Liste, dann den Posteingang (Kind 10050) weit
+  veröffentlichen (Pool und ganze Startliste, dort sucht sie jeder);
+- erst danach merken – kommt eine Liste nirgends an, gilt der alte Satz weiter;
+  stand die NIP-65-Liste schon, übernimmt der nächste Abgleich sie
+  (`eigeneListenAbgleichen()` liest die veröffentlichte) und veröffentlicht
+  den Posteingang nach;
+- die neuen Relays gleich in den Pool (`nimmInPool()`, aus
+  `posteingangDerPerson()` herausgezogen), damit Nachrichten an den neuen
+  Posteingang ohne Neustart ankommen;
+- ein zweites Gerät derselben Identität übernimmt den neuen Satz beim
+  nächsten Abgleich, statt neu zu würfeln.
+
+**Als Gerät** nur lesbar – der Satz gehört der Person (8.6c).
+
+**Der wechselnde Teil bleibt bei drei:** Er dient dem Finden der Listen
+anderer (wer eine NIP-65-Liste hat, streut sie über die Startliste). Die
+Outbox beim Lesen (b1) hilft nur bei Autoren, deren Liste man schon kennt.
+
+**Tests:** app +3 (`relay-satz.test.ts`):
+- Eingabe: Trennzeichen, Normalisieren, Doppelte, `.onion`; abgewiesen: leer,
+  kein Relay-Schema, `ws://` ohne .onion, lokales Netz, nur .onion (kein
+  Posteingang), mehr als acht;
+- Ändern: scheitert die erste oder zweite Liste, bleibt der alte Satz; sonst
+  beide Listen veröffentlicht und gemerkt; ein zweites Gerät übernimmt ihn;
+- Verdrahtung: Karte, als Gerät nur lesbar, erst veröffentlichen, dann in den
+  Pool, kein `innerHTML`.
+
+Endstand: protocol 1145 · node 240 · app 439 (+3) · mls 13 · Leak-Tests 55
+grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng 0
+unbewertet · Website 5 Seiten ok · Smoke-Test bestanden.

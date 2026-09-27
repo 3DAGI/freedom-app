@@ -353,11 +353,17 @@ async function posteingangDerPerson(person: string): Promise<boolean> {
   const listen = await pool.query({ kinds: [KIND_DM_RELAYS], authors: [person], limit: 5 });
   const neueste = listen.filter((e) => e.pubkey === person).sort((a, b) => b.created_at - a.created_at)[0];
   if (!neueste) return false;
+  await nimmInPool(parseDmRelayList(neueste));
+  return true;
+}
+
+/** Relays sofort in den Pool nehmen – etwa einen neuen eigenen Satz (5.4b2); vorhandene bleiben. */
+export async function nimmInPool(urls: readonly string[]): Promise<void> {
+  const pool = await ensurePool();
   const da = new Set(pool.urls.map(normalizeRelayUrl));
-  for (const url of parseDmRelayList(neueste)) {
+  for (const url of urls) {
     if (!da.has(normalizeRelayUrl(url))) pool.addRelay(new WebSocketRelay(url, { timeoutMs: 8000 }));
   }
-  return true;
 }
 
 const LS_RELAYS = "freedom.relays";
