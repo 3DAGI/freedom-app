@@ -8091,3 +8091,9 @@ Die App bildet die Sätze über Kennungen:
 - `einrichtung`: Deutsch gesetzt (die Seite „privat“ prüft wortgleich).
 - `onion-pruefung`: sucht die neue Stelle (`faktenText(tor)`, darin
   `faktenDieserSitzung(tor)`) – nicht schwächer.
+
+Endstand: protocol 1064 (6 übersprungen) · node 225 (7 übersprungen ohne
+Netz) · app 483 (+1) · mls 13 · Leak-Tests 57 grün + 1 todo · 0 rot ·
+check-wiring `--streng` Exit 0 · innerHTML streng 0 unbewertet · Website 5
+Seiten ok · Smoke-Test bestanden · im Browser: Datenschutzbericht und die
+Seite „privat“ der Einrichtung in Englisch und Deutsch, ohne Seitenfehler.
