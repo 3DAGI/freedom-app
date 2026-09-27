@@ -1,18 +1,17 @@
 /**
- * Tests fuer Kursticker, Belohnungsantrag und Datei-Relay.
+ * Tests fuer Kursticker und Datei-Relay. (Den Belohnungsantrag gibt es seit
+ * 5.1.4b nicht mehr – ohne Pool gibt es nichts zu beantragen.)
  *
  * Der Ticker bestimmt Wechselkurse — ein manipulierter Kurs kostet bei jedem
- * Swap Geld. Der Antrag ist eine Selbstauskunft und muss als solche behandelt
- * werden. Das Datei-Relay ist der Weg, auf dem Ereignisse ohne Netz
+ * Swap Geld. Das Datei-Relay ist der Weg, auf dem Ereignisse ohne Netz
  * weiterwandern.
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { generateKeypair, signEvent, buildEvent } from "../src/event.js";
 import { buildPriceTicker, parsePriceTicker, medianPrice } from "../src/price-ticker.js";
-import { buildRewardClaim, parseRewardClaim } from "../src/reward-claim.js";
 import { FileRelay, memStorage } from "../src/file-relay.js";
-import { KIND_PRICE_TICKER, KIND_REWARD_CLAIM } from "../src/kinds.js";
+import { KIND_PRICE_TICKER } from "../src/kinds.js";
 
 const NOW = 1_800_000_000;
 const A = generateKeypair(), B = generateKeypair(), C = generateKeypair();
@@ -62,37 +61,6 @@ test("Ohne Kurse gibt es undefined, nicht null oder 0", () => {
 
 test("Ein einzelner Kurs ist sein eigener Median", () => {
   assert.equal(medianPrice([ticker(A, 250_000)], "SOL/BTC", 3600, NOW), 250_000);
-});
-
-// ------------------------------------------------------------- Antrag
-
-test("Antrag: Roundtrip", () => {
-  const ev = signEvent(buildRewardClaim({
-    seasonId: "2026-q3", jobCount: 42, volumeMsat: 1_000_000,
-    chain: "lightning", payoutAddress: "du@wallet.cash",
-  }, A.pk), A.sk);
-  const c = parseRewardClaim(ev);
-  assert.equal(c.workerPubkey, A.pk);
-  assert.equal(c.jobCount, 42);
-  assert.equal(c.chain, "lightning");
-});
-
-test("Ein Antrag ist eine SELBSTAUSKUNFT, kein Beweis", () => {
-  // Nichts hindert jemanden daran, hier beliebige Zahlen einzutragen. Der
-  // Verteiler muss sie gegen die Leistungsnachweise halten — der Antrag
-  // selbst belegt nur, WER etwas will.
-  const ev = signEvent(buildRewardClaim({
-    seasonId: "s", jobCount: 999_999, volumeMsat: 9_999_999_999,
-    chain: "lightning", payoutAddress: "gierig@wallet.cash",
-  }, A.pk), A.sk);
-  const c = parseRewardClaim(ev);
-  assert.equal(c.jobCount, 999_999, "die Zahl wird uebernommen, nicht geprueft");
-  assert.equal(c.workerPubkey, A.pk, "aber der Absender steht fest");
-});
-
-test("Unvollstaendiger Antrag wird abgelehnt", () => {
-  const ev = signEvent(buildEvent(A.pk, KIND_REWARD_CLAIM, [["season", "s"]], ""), A.sk);
-  assert.throws(() => parseRewardClaim(ev));
 });
 
 // ------------------------------------------------------------- Datei-Relay

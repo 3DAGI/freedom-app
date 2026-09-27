@@ -1,7 +1,8 @@
 /**
  * ABGELÖST durch das Gebührenmodell A+ (`aufteilung.ts`, Entscheidung 4.0).
- * Nur noch für die Werbe-Stufen in `referral.ts` da; fällt mit 5.1.4b. Treasury
- * und feste Empfänger-Adressen sind seit 5.1.4a entfernt.
+ * Nur noch für den alten Gebühren-Beleg (`fee-proof.ts`) da; fällt mit 5.1.4c.
+ * Treasury und feste Empfänger-Adressen sind seit 5.1.4a entfernt, die
+ * Werbe-Stufen (`referral.ts`) seit 5.1.4b.
  *
  * Protokoll-Fee (einzige Stelle, an der die Fee definiert wird).
  *

@@ -60,11 +60,16 @@
       `arweave-mirror.ts`, `rewards.ts`, `client-fee.ts`, Bonuslogik in
       `scarcity.ts`, Treasury-Konstanten; Sweep und Spiegel im Knoten; alte
       App-Kopie `packages/website/freedom.html`. Abnahme-Suche leer.
-    - **5.1.4b:** App und Texte: Werben-Tab → „Einladen“ ohne Stufen und
-      Rangliste, `referral.ts`, `referral-graph.ts`, `reward-claim.ts`,
-      `protocol-fee.ts` (samt alter CI-Invariante), `fee-proof.ts`
-      (`preimageMatches` bleibt), Aufgabe „erster Job“ ohne Gebühren-Belege;
-      Website, PROTOCOL.md §3/§16.
+    - **5.1.4b – FERTIG:** Earn-Tab: Belohnungsantrag, Rangliste, Werbe-Stufen
+      und Rechner raus; `referral.ts`, `referral-graph.ts` (Nennung →
+      `werbe-nennung.ts`), `reward-claim.ts`. Werben zeigt Link, Zählung der
+      Nennungen und dass der Verdienst in der eigenen Wallet ankommt (Karte:
+      „Werbelink und echten Verdienst statt Stufen“ – den Verdienst kennt nur
+      die Wallet).
+    - **5.1.4c:** `protocol-fee.ts` (samt CI-Schritt „Fee-Konstanten“ und
+      Knoten-Test), `fee-proof.ts` (`preimageMatches` bleibt), Aufgaben-Topf
+      und Aufgaben aus Gebühren-Belegen in `quests.ts`; Website (auch
+      Dashboard-Stufen), PROTOCOL.md §3/§16.
 
 ## 5.1b Gesponserte Pools (Solana-Programm)
 

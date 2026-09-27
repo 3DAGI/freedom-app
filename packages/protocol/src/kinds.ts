@@ -23,7 +23,6 @@ export const KIND_DM = 4;                   // NIP-44 (verschluesselte DM)
 export const KIND_BLOB_MANIFEST = 38040;    // Freedom Blob: "Torrent-Datei"
 export const KIND_BLOB_CHUNK = 38041;       // Freedom Blob: ein Erasure-Shard
 export const KIND_GIT_REPO_REF = 38042;     // Freedom Git: repo -> blob-manifest
-export const KIND_REWARD_CLAIM = 38013;     // Provider fordert Season-Belohnung an
 
 // --- NIP-90 Data Vending Machines (bezahlte KI-Jobs) ---
 export const KIND_DVM_REQUEST_MIN = 5000;

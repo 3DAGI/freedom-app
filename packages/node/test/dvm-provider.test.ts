@@ -144,7 +144,7 @@ test("Fee-Konstanten: ppm passt zur Prozentangabe, Anteile ergeben 100%", async 
   assert.equal(PROTOCOL_FEE_PPM, PROTOCOL_FEE_PERCENT * 10_000);
 
   // Alte Protokollfee (Pool und Referral) – abgeloest durch A+ (aufteilung.ts),
-  // faellt mit 5.1.4b samt referral.ts.
+  // faellt mit 5.1.4c samt fee-proof.ts.
   assert.equal(FEE_POOL_SHARE_PERCENT + FEE_REFERRAL_SHARE_PERCENT, 100);
   assert.equal(FEE_POOL_PPM + FEE_REFERRAL_PPM, PROTOCOL_FEE_PPM);
   assert.equal(PROTOCOL_POOL_SHARE_PERCENT, FEE_POOL_SHARE_PERCENT);
