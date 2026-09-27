@@ -1,349 +1,52 @@
 /**
- * i18n: 8 Sprachen, vollständig übersetzte Kern-UI.
- * Fehlende Keys fallen auf EN zurück.
+ * Übersetzungen (8.16, Entscheidung MENSCH 27.09.2026: Variante B): Deutsch
+ * und Englisch vollständig, die übrigen sechs Sprachen gibt es nicht mehr –
+ * halb übersetzte Oberflächen versprachen mehr, als da war.
+ *
+ * Die Texte stehen je Bereich in `texte/*.ts`, jeder Schlüssel mit beiden
+ * Sprachen (fehlt eine, meldet das der Compiler). In der Oberfläche über
+ * `data-i18n` (Text), `data-i18n-ph` (Platzhalter), `data-i18n-title`
+ * (Tooltip) und `data-i18n-aria` (aria-label), im Code über `t()`.
+ * `app/test/i18n.test.ts` findet fehlende, unbenutzte und rohe Texte.
  */
+import { rahmen } from "./texte/rahmen.js";
+import { agent } from "./texte/agent.js";
+import { kommunikation } from "./texte/kommunikation.js";
+import { earn } from "./texte/earn.js";
+import { profil } from "./texte/profil.js";
 
-export type Lang = "en" | "de" | "es" | "fr" | "pt" | "it" | "zh" | "ja";
+export type Lang = "de" | "en";
+export type Texte = Record<string, { de: string; en: string }>;
 
 export const LANGS: Array<{ code: Lang; label: string }> = [
-  { code: "en", label: "English" },
   { code: "de", label: "Deutsch" },
-  { code: "es", label: "Español" },
-  { code: "fr", label: "Français" },
-  { code: "it", label: "Italiano" },
-  { code: "pt", label: "Português" },
-  { code: "zh", label: "中文" },
-  { code: "ja", label: "日本語" },
+  { code: "en", label: "English" },
 ];
 
-const en: Record<string, string> = {
-  import: "import",
-  // landing (app-interne landing — website-landing hat eigenes dict)
-  tagline: "Messaging, payments and AI without an operator",
-  taglineSub: "Pay per request in sats. No account, no token.",
-  featLightning: "lightning",
-  featSolana: "solana",
-  featAi: "ai",
-  featEncChat: "encrypted chat",
-  clickToEnter: "Click anywhere to start",
-  openApp: "Open app",
-  emptySub: "Ask a question. You pay per request.",
-  emptyHint: "Choose a model · attach tools",
-  // gate
-  connectTitle: "Connect to enter",
-  connectSub: "Your keys stay on your device.",
-  connectLightning: "Lightning (Nostr key)",
-  connectSolana: "Solana wallet",
-  continueLocal: "continue without wallet (local, free)",
-  // nav
-  navAi: "Agent",
-  navChat: "Chat",
-  navFeed: "Feed",
-  navWallet: "Wallet",
-  navEarn: "Earn",
-  // earn/referral
-  referralSub: "Share your link. You get 0.5% of every payment your referrals make, for as long as they are active.",
-  referralCode: "your code:",
-  trustLevel: "Trust level",
-  trustSub: "Earned through completed jobs. It decides which tier you can serve.",
-  hostReward: "Distribute the app",
-  hostSub: "Put freedom.html on your own server, IPFS or Tor – more copies are harder to block. Put freedom-spiegel.json with your addresses next to it and you get 1% of every AI payment made through your copy.",
-  // ai
-  aiPlaceholder: "Message the agent",
-  send: "Send",
-  thinking: "thinking…",
-  connecting: "connecting…",
-  researching: "researching…",
-  creating: "creating…",
-  copyLast: "Copy last",
-  copyAll: "Copy all",
-  bid: "Bid (sats)",
-  // chat
-  chatTitle: "Messages",
-  chatNewDm: "New message",
-  chatNewCommunity: "New community",
-  chatPlaceholder: "Message…",
-  attach: "attach",
-  balance: "balance",
-  copy: "Copy",
-  referral: "Referrals",
-  tierFree: "Free — small model",
-  tierClassic: "Classic — balanced",
-  tierPro: "Pro — trusted providers",
-  tierMax: "Max — fastest wins",
-  tierSwarm: "Swarm — best of several",
-};
-
-const de: Record<string, string> = {
-  import: "Importieren",
-  tagline: "Nachrichten, Zahlungen und KI ohne Betreiber",
-  taglineSub: "Bezahlt pro Anfrage in Sats. Kein Konto, kein Token.",
-  featLightning: "Lightning",
-  featSolana: "Solana",
-  featAi: "KI",
-  featEncChat: "verschlüsselter Chat",
-  clickToEnter: "Klicken zum Starten",
-  openApp: "App öffnen",
-  emptySub: "Stell eine Frage. Du zahlst pro Anfrage.",
-  emptyHint: "Modell wählen · Werkzeuge anhängen",
-  connectTitle: "Verbinden zum Start",
-  connectSub: "Deine Schlüssel bleiben auf deinem Gerät.",
-  connectLightning: "Lightning (Nostr-Key)",
-  connectSolana: "Solana-Wallet",
-  continueLocal: "Ohne Wallet fortfahren",
-  navAi: "Agent",
-  navChat: "Chat",
-  navFeed: "Feed",
-  navWallet: "Wallet",
-  navEarn: "Verdienen",
-  referralSub: "Teile deinen Link. Du bekommst 0,5 % jeder Zahlung deiner Geworbenen, solange sie aktiv sind.",
-  referralCode: "dein Code:",
-  trustLevel: "Vertrauensstufe",
-  trustSub: "Wächst mit erledigten Jobs. Sie bestimmt, welche Stufe du bedienen kannst.",
-  hostReward: "App verbreiten",
-  hostSub: "Leg freedom.html auf einen eigenen Server, IPFS oder Tor – mehr Kopien sind schwerer zu sperren. Legst du freedom-spiegel.json mit deinen Adressen daneben, bekommst du 1 % jeder KI-Zahlung, die über deine Kopie läuft.",
-  aiPlaceholder: "Nachricht an den Agenten",
-  send: "Senden",
-  thinking: "denkt nach…",
-  connecting: "verbindet…",
-  researching: "recherchiert…",
-  creating: "erstellt…",
-  copyLast: "Letzte kopieren",
-  copyAll: "Alle kopieren",
-  bid: "Gebot (sats)",
-  chatTitle: "Direktnachrichten",
-  chatNewDm: "Neue Nachricht",
-  chatNewCommunity: "Neue Community",
-  chatPlaceholder: "Nachricht…",
-  attach: "anhängen",
-  balance: "Guthaben",
-  copy: "Kopieren",
-  referral: "Werben",
-  tierFree: "Free — kleines Modell",
-  tierClassic: "Classic — ausgewogen",
-  tierPro: "Pro — vertrauenswürdige Anbieter",
-  tierMax: "Max — schnellster gewinnt",
-  tierSwarm: "Swarm — bestes aus mehreren",
-};
-
-const es: Record<string, string> = {
-  ...en,
-  featEncChat: "chat cifrado",
-  clickToEnter: "Haz clic para empezar",
-  openApp: "Abrir app",
-  emptyHint: "Elige un modelo · adjunta herramientas · pregunta",
-  connectTitle: "Conéctate para entrar",
-  connectLightning: "Lightning (clave Nostr)",
-  connectSolana: "Cartera Solana",
-  continueLocal: "continuar sin cartera (local, gratis)",
-  navAi: "Agente",
-  navChat: "Chat",
-  navFeed: "Feed",
-  navWallet: "Cartera",
-  navEarn: "Ganar",
-  referralCode: "tu código:",
-  trustLevel: "Tu nivel de confianza",
-  aiPlaceholder: "Pregunta a la red…",
-  send: "Enviar",
-  thinking: "pensando…",
-  connecting: "conectando…",
-  researching: "investigando…",
-  creating: "creando…",
-  copyLast: "copiar último",
-  copyAll: "copiar todo",
-  bid: "Oferta (sats)",
-  chatTitle: "Mensajes",
-  chatNewDm: "Nuevo mensaje",
-  chatNewCommunity: "Nueva comunidad",
-  chatPlaceholder: "Mensaje…",
-  attach: "adjuntar",
-  balance: "saldo",
-};
-
-const fr: Record<string, string> = {
-  ...en,
-  featEncChat: "chat chiffré",
-  clickToEnter: "Cliquez pour commencer",
-  openApp: "Ouvrir l'app",
-  emptyHint: "Choisissez un modèle · joignez des outils · lancez-vous",
-  connectTitle: "Connectez-vous pour entrer",
-  connectLightning: "Lightning (clé Nostr)",
-  connectSolana: "Portefeuille Solana",
-  continueLocal: "continuer sans portefeuille (local, gratuit)",
-  navAi: "Agent",
-  navChat: "Discussion",
-  navFeed: "Flux",
-  navWallet: "Portefeuille",
-  navEarn: "Gagner",
-  referralCode: "votre code :",
-  trustLevel: "Votre niveau de confiance",
-  aiPlaceholder: "Demandez au réseau…",
-  send: "Envoyer",
-  thinking: "réflexion…",
-  connecting: "connexion…",
-  researching: "recherche…",
-  creating: "création…",
-  copyLast: "copier le dernier",
-  copyAll: "tout copier",
-  bid: "Enchère (sats)",
-  chatTitle: "Messages",
-  chatNewDm: "Nouveau message",
-  chatNewCommunity: "Nouvelle communauté",
-  chatPlaceholder: "Message…",
-  attach: "joindre",
-  balance: "solde",
-};
-
-const it: Record<string, string> = {
-  ...en,
-  featEncChat: "chat crittografata",
-  clickToEnter: "Clicca per iniziare",
-  openApp: "Apri l'app",
-  emptyHint: "Scegli un modello · allega strumenti · fai la tua domanda",
-  connectTitle: "Connettiti per entrare",
-  connectLightning: "Lightning (chiave Nostr)",
-  connectSolana: "Wallet Solana",
-  continueLocal: "continua senza wallet (locale, gratuito)",
-  navAi: "Agente",
-  navChat: "Chat",
-  navFeed: "Feed",
-  navWallet: "Wallet",
-  navEarn: "Guadagna",
-  referralCode: "il tuo codice:",
-  trustLevel: "Il tuo livello di fiducia",
-  aiPlaceholder: "Chiedi alla rete…",
-  send: "Invia",
-  thinking: "sta pensando…",
-  connecting: "connessione…",
-  researching: "ricerca…",
-  creating: "creazione…",
-  copyLast: "copia ultimo",
-  copyAll: "copia tutto",
-  bid: "Offerta (sats)",
-  chatTitle: "Messaggi",
-  chatNewDm: "Nuovo messaggio",
-  chatNewCommunity: "Nuova community",
-  chatPlaceholder: "Messaggio…",
-  attach: "allega",
-  balance: "saldo",
-};
-
-const pt: Record<string, string> = {
-  ...en,
-  featEncChat: "chat criptografado",
-  clickToEnter: "Clique para começar",
-  openApp: "Abrir app",
-  emptyHint: "Escolha um modelo · anexe ferramentas · pergunte",
-  connectTitle: "Conecte-se para entrar",
-  connectLightning: "Lightning (chave Nostr)",
-  connectSolana: "Carteira Solana",
-  continueLocal: "continuar sem carteira (local, grátis)",
-  navAi: "Agente",
-  navChat: "Conversa",
-  navFeed: "Feed",
-  navWallet: "Carteira",
-  navEarn: "Ganhar",
-  referralCode: "seu código:",
-  trustLevel: "Seu nível de confiança",
-  aiPlaceholder: "Pergunte à rede…",
-  send: "Enviar",
-  thinking: "pensando…",
-  connecting: "conectando…",
-  researching: "pesquisando…",
-  creating: "criando…",
-  copyLast: "copiar último",
-  copyAll: "copiar tudo",
-  bid: "Lance (sats)",
-  chatTitle: "Mensagens",
-  chatNewDm: "Nova mensagem",
-  chatNewCommunity: "Nova comunidade",
-  chatPlaceholder: "Mensagem…",
-  attach: "anexar",
-  balance: "saldo",
-};
-
-const zh: Record<string, string> = {
-  ...en,
-  featEncChat: "加密聊天",
-  clickToEnter: "点击任意处开始",
-  openApp: "打开应用",
-  emptyHint: "选择模型 · 附加工具 · 开始提问",
-  connectTitle: "连接以进入",
-  connectLightning: "闪电网络（Nostr 密钥）",
-  connectSolana: "Solana 钱包",
-  continueLocal: "不连接钱包继续（本地、免费）",
-  navAi: "智能体",
-  navChat: "聊天",
-  navFeed: "动态",
-  navWallet: "钱包",
-  navEarn: "赚钱",
-  referralCode: "你的代码：",
-  trustLevel: "你的信任等级",
-  aiPlaceholder: "向网络提问…",
-  send: "发送",
-  thinking: "思考中…",
-  connecting: "连接中…",
-  researching: "研究中…",
-  creating: "创建中…",
-  copyLast: "复制上一条",
-  copyAll: "复制全部",
-  bid: "出价（sats）",
-  chatTitle: "消息",
-  chatNewDm: "新消息",
-  chatNewCommunity: "新社区",
-  chatPlaceholder: "消息…",
-  attach: "附加",
-  balance: "余额",
-};
-
-const ja: Record<string, string> = {
-  ...en,
-  featEncChat: "暗号化チャット",
-  clickToEnter: "クリックして開始",
-  openApp: "アプリを開く",
-  emptyHint: "モデルを選択 · ツールを添付 · 質問する",
-  connectTitle: "接続して入場",
-  connectLightning: "Lightning（Nostr キー）",
-  connectSolana: "Solana ウォレット",
-  continueLocal: "ウォレットなしで続行（ローカル・無料）",
-  navAi: "エージェント",
-  navChat: "チャット",
-  navFeed: "フィード",
-  navWallet: "ウォレット",
-  navEarn: "稼ぐ",
-  referralCode: "あなたのコード：",
-  trustLevel: "あなたのトラストレベル",
-  aiPlaceholder: "ネットワークに聞く…",
-  send: "送信",
-  thinking: "思考中…",
-  connecting: "接続中…",
-  researching: "調査中…",
-  creating: "作成中…",
-  copyLast: "前回をコピー",
-  copyAll: "すべてコピー",
-  bid: "入札（sats）",
-  chatTitle: "メッセージ",
-  chatNewDm: "新規メッセージ",
-  chatNewCommunity: "新規コミュニティ",
-  chatPlaceholder: "メッセージ…",
-  attach: "添付",
-  balance: "残高",
-};
-
-const DICTS: Record<Lang, Record<string, string>> = { en, de, es, fr, it, pt, zh, ja };
+/** Je Bereich eine Datei – ein Schlüssel gehört genau einem Bereich (Test). */
+export const BEREICHE: Record<string, Texte> = { rahmen, agent, kommunikation, earn, profil };
+const TEXTE: Texte = Object.assign({}, ...Object.values(BEREICHE));
 
 let current: Lang = "en";
 
 export function setLang(l: Lang): void { current = l; }
 export function getLang(): Lang { return current; }
 
-/** Uebersetzung: aktuelle Sprache, Fallback EN, Fallback Key. */
-export function t(key: string): string {
-  return DICTS[current]?.[key] ?? en[key] ?? key;
+/**
+ * Text in der aktuellen Sprache; `{name}` wird aus `werte` eingesetzt. Ein
+ * unbekannter Schlüssel erscheint als er selbst – sichtbar statt still leer.
+ */
+export function t(key: string, werte?: Record<string, string | number>): string {
+  const s = TEXTE[key]?.[current] ?? key;
+  return werte ? s.replace(/\{(\w+)\}/g, (m, n: string) => (n in werte ? String(werte[n]) : m)) : s;
 }
 
-/** Erkennt Browser-Sprache (default en). */
-export function detectLang(): Lang {
-  const nav = (typeof navigator !== "undefined" ? navigator.language : "en").slice(0, 2).toLowerCase();
-  return (LANGS.find((l) => l.code === nav)?.code) ?? "en";
+/** Browser-Sprache: Deutsch, wenn der Browser Deutsch bevorzugt, sonst Englisch. */
+export function detectLang(sprache: string = typeof navigator !== "undefined" ? navigator.language : "en"): Lang {
+  return sprache.toLowerCase().startsWith("de") ? "de" : "en";
+}
+
+/** Gespeicherte Wahl nur, wenn es die Sprache noch gibt (bis 8.16 waren es acht). */
+export function gespeicherteSprache(roh: string | null): Lang | null {
+  return LANGS.some((l) => l.code === roh) ? (roh as Lang) : null;
 }
