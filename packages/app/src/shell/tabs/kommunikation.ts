@@ -28,6 +28,7 @@ import {
 } from "../raum-mls.js";
 import { geheim } from "../tresor.js";
 import { $, toast } from "../ui.js";
+import { abrufTakt, versendeVerzoegert } from "../versand.js";
 
 // ------------------------------------------------------------- Räume
 
@@ -624,10 +625,10 @@ export async function wireSpacesTab(): Promise<void> {
   if (einladen) einladen.onclick = () => void ladeEin();
   // Meldungen (8.5) kommen über den Posteingang – für Moderatoren gleich zeigen
   wennMeldung(() => zeigeMeldungen());
-  // Private Räume (2.3b): solange einer offen und sichtbar ist, alle 30 s abgleichen
-  setInterval(() => {
+  // Private Räume (2.3b): solange einer offen und sichtbar ist, im Abruftakt abgleichen (6.4: etwa 30 s, mit Zufall)
+  abrufTakt.melde("raum", () => {
     if (spacesUi.privat && spacesUi.spaceId && !document.hidden && document.getElementById("channel-thread")?.offsetParent) void oeffneRaum(spacesUi.spaceId);
-  }, 30_000);
+  });
   const join = $("#space-join");
   if (join) join.onclick = () => {
     const id = prompt("Raum-Kennung:");
@@ -1128,6 +1129,7 @@ async function ladeModeration(communityId: string): Promise<unknown | null> {
 /** Eine DM zur Anzeige: entschluesselt; legacy = altes Kind-4-Format. */
 type DmAnzeige = NostrEvent & {
   legacy?: boolean; /** Ablauf nach NIP-40 (2.5) – auch fuer den Suchindex (8.13). */ ablauf?: number;
+  /** Gesendet, aber die Kopien warten noch (6.4) – nur auf diesem Geraet, bis die eigene Kopie zurueck ist. */ wartet?: boolean;
   /** Geschrieben von einem Geraet (8.6b): Hinweis mit Geraetenamen (Fremddaten). */ geraet?: { text: string; warnung: boolean };
   /** Ueber MLS empfangen (2.2b-d1) – aus dem Verlauf auf diesem Geraet. */ mls?: boolean;
 };
@@ -1447,6 +1449,9 @@ function wechsleZuNeuemSchluessel(alt: string, neu: string): void {
   openConversation(neu);
 }
 
+/** Gesendete Direktnachrichten, deren Kopien noch warten oder noch nicht zurueck sind (6.4) – nur im Speicher. */
+const unterwegs = new Map<string, DmAnzeige[]>();
+
 export async function loadChatMessages(cid: string): Promise<void> {
   // DMs: kind 4 (NIP-44, p-tag = partner). Communities: kind 42 (channel) mit h-tag.
   const c = conversations.find((x) => x.id === cid);
@@ -1456,6 +1461,11 @@ export async function loadChatMessages(cid: string): Promise<void> {
     let events: NostrEvent[] = [];
     if (c.type === "dm") {
       events = await ladeDmNachrichten(c.id);
+      // Unterwegs (6.4): sofort sichtbar, bis die eigene Kopie vom Relay zurueck ist
+      const da = new Set(events.map((e) => e.id));
+      const offen = (unterwegs.get(c.id) ?? []).filter((e) => !da.has(e.id));
+      unterwegs.set(c.id, offen);
+      events = [...events, ...offen];
     } else {
       events = await pool.query({ kinds: [42], "#h": [c.id], limit: 50 });
     }
@@ -1518,7 +1528,9 @@ export async function loadChatMessages(cid: string): Promise<void> {
           ? ` <span class="mono-sm" title="ältere Verschlüsselung (Kind 4): Relays sehen Absender und Empfänger">· alt</span>`
           : (ev as DmAnzeige).mls
             ? ` <span class="mono-sm" title="MLS (Marmot): Gruppenschlüssel mit Vorwärtsgeheimnis">· MLS</span>`
-            : "";
+            : (ev as DmAnzeige).wartet
+              ? ` <span class="mono-sm" title="Jede Kopie geht mit eigener Zufallsverzögerung hinaus (Settings → Datenschutz)">· wird gesendet</span>`
+              : "";
         // Von einem Geraet geschrieben (8.6b) – der Name steht in der Vollmacht (Fremddaten)
         const g = (ev as DmAnzeige).geraet;
         const geraet = g ? ` <span class="mono-sm geraet-hinweis${g.warnung ? " warn" : ""}">· ${escapeHtml(g.text)}</span>` : "";
@@ -1580,10 +1592,22 @@ export async function sendChatMessage(): Promise<void> {
         ...(c.ablaufSecs ? { ablaufSecs: c.ablaufSecs } : {}),
         weitereEmpfaenger: [...ihre!, ...meine!, ich],
       });
-      await veroeffentlicheDm(dm.toRecipient, c.id);
-      await veroeffentlicheDm(dm.toSelf, ich);
+      // Jede Kopie mit eigener Zufallsverzoegerung (6.4) – sonst verbindet der Zeitpunkt, was die Wegwerf-Schluessel trennen.
+      // Im eigenen Verlauf steht die Nachricht sofort, „wird gesendet“, bis beide Kopien hinaus sind.
+      const eintrag: DmAnzeige = {
+        id: dm.rumorId, pubkey: ich, created_at: Math.floor(Date.now() / 1000), kind: 14, tags: [], content: payload, sig: "", wartet: true,
+      };
+      unterwegs.set(c.id, [...(unterwegs.get(c.id) ?? []), eintrag]);
+      let ausstehend = 2;
+      const fertig = () => {
+        if (--ausstehend > 0) return;
+        eintrag.wartet = false;
+        if (activeConversation === c.id) void loadChatMessages(c.id);
+      };
+      versendeVerzoegert(() => veroeffentlicheDm(dm.toRecipient, c.id).then(fertig));
+      versendeVerzoegert(() => veroeffentlicheDm(dm.toSelf, ich).then(fertig));
       // Geraete lesen am Posteingang ihrer Person
-      for (const k of dm.weitere) await veroeffentlicheDm(k.wrap, k.an === ich || meine!.includes(k.an) ? ich : c.id);
+      for (const k of dm.weitere) versendeVerzoegert(() => veroeffentlicheDm(k.wrap, k.an === ich || meine!.includes(k.an) ? ich : c.id));
     } else {
       // Community: kind 42 mit h-tag (channel-id)
       const ev = await signiere(buildEvent(state.keypair.pk, 42, [["h", c.id], ...imeta], text));

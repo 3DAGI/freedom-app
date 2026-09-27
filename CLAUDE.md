@@ -43,9 +43,9 @@ bash scripts/build-site.sh /tmp/site                     # Website bauen (Ziel w
 bash packages/mls/bauen.sh --pruefen                     # nur bei Änderungen an packages/mls: nachbauen + vergleichen (Rust, clang)
 ```
 
-Stand 27.09.2026 (nach 5.1.3b und 8.4c): protocol 1163 grün (6 übersprungen), node 228 grün
+Stand 27.09.2026 (nach 5.1.3b und 6.4): protocol 1167 grün (6 übersprungen), node 228 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 458 grün, mls 13 grün, Leak-Tests 57 grün + 1 `todo` (heutige Lecks,
+in `tools.test.ts`), app 461 grün, mls 13 grün, Leak-Tests 57 grün + 1 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
 Ausnahme: gesendete SOL-Zahlungen von frischen Adressen, eine bewusste Grenze
 nach Entscheidung 4.9 A – im Datenschutzbericht unter „Bewusste Grenzen“).
@@ -454,3 +454,10 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   `--host-resolver-rules=MAP relay.test 127.0.0.1`; mit gesetztem Proxy schickt
   Playwright auch 127.0.0.1 über den Proxy (405) – die App dann unter `app.test`
   ausliefern. `pkill -f` nie mit einem Muster, das im eigenen Befehl steht.
+- **Verkehrsmuster** (seit 6.4): Direktnachrichten (NIP-17) nur über
+  `versendeVerzoegert()` (`shell/versand.ts`) – jede Kopie einzeln, nie alle
+  im selben Augenblick (Regel „kopien-entkoppelt“); was wartet, steht als
+  „wird gesendet“ im Verlauf (`unterwegs`) und geht beim Verlassen der Seite
+  sofort hinaus. Periodische Abrufe nur über `abrufTakt.melde()` (Zufall im
+  Abstand, gebündelt), kein neues `setInterval` fürs Netz. Zufall für
+  Datenschutz nur aus `sichererZufall()`, nie `Math.random`.

@@ -14,6 +14,7 @@ import { ensurePool, sprichtFuer, state } from "./state.js";
 import { conversations, veroeffentlicheDm } from "./tabs/kommunikation.js";
 import { geheim } from "./tresor.js";
 import { $, toast } from "./ui.js";
+import { abrufTakt } from "./versand.js";
 
 const jetzt = () => Math.floor(Date.now() / 1000);
 
@@ -109,6 +110,6 @@ export async function pruefeUrteile(): Promise<void> {
 export function starteStreitfall(): void {
   zeigeReklamationen();
   void pruefeUrteile();
-  setInterval(() => void pruefeUrteile(), 120_000);
+  abrufTakt.melde("urteile", pruefeUrteile, 4); // etwa alle zwei Minuten, im Abruftakt (6.4)
   $("#reklamationen-pruefen")?.addEventListener("click", () => void pruefeUrteile());
 }

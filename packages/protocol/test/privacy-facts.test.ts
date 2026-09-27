@@ -9,8 +9,9 @@ import { buildPrivateDm } from "../src/private-dm.js";
 import { buildEvent, generateKeypair } from "../src/event.js";
 import {
   LEAK_REGELN, regelAutorNicht, regelKeinKind4, regelKeinKlartext, regelKeinKlartextPrompt, regelKeineSolAdresse, regelKeineZahlungsdaten,
-  regelKundeVerborgen, regelPTagsNur, regelUploadVerschluesselt, regelAnmeldungNichtOffen,
+  regelKundeVerborgen, regelPTagsNur, regelUploadVerschluesselt, regelAnmeldungNichtOffen, regelKopienEntkoppelt,
 } from "../src/leak-rules.js";
+import { zufallsVerzoegerung } from "../src/verkehr.js";
 import { WebSocketRelay } from "../src/ws-relay.js";
 import { baueRelayAuth } from "../src/relay-zugang.js";
 import { LAYER_CELL_DEGREES, baueCoverageEintrag, baueCoverageWiderruf, buildCoverageAnnouncement, toCell } from "../src/coverage.js";
@@ -337,6 +338,17 @@ const SZENARIEN: Record<string, () => Promise<number>> = {
     } finally {
       if (vorher) g.WebSocket = vorher; else delete g.WebSocket;
     }
+  },
+  "versand-einzeln": async () => {
+    // Wie die App seit 6.4 (shell/versand.ts): je Kopie eine eigene Verzoegerung aus zufallsVerzoegerung(30 s).
+    // Fester Zufall, damit das Szenario wiederholbar ist; ohne Verzoegerung gingen alle im selben Augenblick.
+    const handy = generateKeypair().pk;
+    const dm = await buildPrivateDm({ signer: new LocalSigner(a.sk), recipientPk: b.pk, content: GEHEIM, weitereEmpfaenger: [handy] });
+    const kopien = [dm.toRecipient, dm.toSelf, ...dm.weitere.map((k) => k.wrap)];
+    const werte = [0.11, 0.52, 0.93];
+    const mit = kopien.map((ev, i) => ({ ev, zeitMs: 1_000_000 + zufallsVerzoegerung(30_000, () => werte[i]!) }));
+    const ohne = kopien.map((ev) => ({ ev, zeitMs: 1_000_000 + zufallsVerzoegerung(0) }));
+    return regelKopienEntkoppelt(mit).length + (regelKopienEntkoppelt(ohne).length === kopien.length - 1 ? 0 : 1);
   },
   "raum-meldung": async () => {
     // Wie die App seit 8.5 meldet: je Moderator ein Umschlag, nie in die Gruppe, nie offen

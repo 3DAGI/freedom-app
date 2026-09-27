@@ -13,6 +13,7 @@ import { alsGeraet, ensurePool, mitBunker, mitRohemSchluessel, nimmInPool, signi
 import { ladeEigeneRelays, pruefeRelayEingabe, setzeEigeneRelays } from "../../relay-satz.js";
 import { kaufeRelayZugang, leseRelayPreise, merkeZugang, pruefeBeimRelay, zugaenge, type RelayPreise, type Schiene } from "../../relay-kauf.js";
 import { satsText, solText } from "../../preis-anzeige.js";
+import { LS_VERSAND_VERZOEGERUNG, maxVerzoegerungSek } from "../versand.js";
 import { geheim, istGeheimnis, tresorEingerichtet, wireTresorKarte } from "../tresor.js";
 import { $, ganzeZahl, toast } from "../ui.js";
 import { ladeAbdeckung, trageAbdeckungEin, widerrufeAbdeckung } from "./earn.js";
@@ -680,6 +681,17 @@ export async function wireMeshTab(): Promise<void> {
         kontakte.checked = kontakteSichernAn();
         toast(`Kontaktliste: ${(e as Error).message}`, true);
       }
+    };
+  }
+
+  // Versandverzoegerung (6.4): jede Kopie einer Direktnachricht mit eigener Zufallsverzoegerung
+  const verzoegerung = document.getElementById("versand-verzoegerung") as HTMLSelectElement | null;
+  if (verzoegerung) {
+    verzoegerung.value = String(maxVerzoegerungSek());
+    verzoegerung.onchange = () => {
+      localStorage.setItem(LS_VERSAND_VERZOEGERUNG, verzoegerung.value);
+      verzoegerung.value = String(maxVerzoegerungSek());
+      toast(verzoegerung.value === "0" ? "Direktnachrichten gehen sofort hinaus." : `Direktnachrichten gehen bis zu ${verzoegerung.value} s verzögert hinaus – jede Kopie einzeln.`);
     };
   }
 
