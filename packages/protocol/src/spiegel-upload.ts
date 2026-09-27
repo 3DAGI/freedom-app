@@ -7,6 +7,9 @@
  * - IPFS-Adresse (CID) wie `ipfs add --cid-version=1`: Stücke zu 256 KiB als
  *   rohe Blätter, darüber UnixFS-Knoten (dag-pb) mit höchstens 174 Verweisen.
  *   Wer den CID nachrechnet, braucht dem Pinning-Dienst nicht zu glauben.
+ * - Blossom (BUD-02, seit 5.3c): Anmeldung als Kind 24242 nur für diesen
+ *   Upload (`x` = Prüfsumme, zehn Minuten); übernommen wird nur eine
+ *   Beschreibung mit derselben Prüfsumme.
  * - Das Ergebnis eines Laufs (`spiegel-ergebnis.json`) gilt nur für die Datei
  *   mit derselben Prüfsumme; Quellen nur in der Form aus `leseQuellen()`.
  *
@@ -15,7 +18,8 @@
 import { sha256 } from "@noble/hashes/sha2.js";
 import { sha1 } from "@noble/hashes/legacy.js";
 import { bytesToHex } from "@noble/hashes/utils.js";
-import { base32nopad } from "@scure/base";
+import { base32nopad, base64 } from "@scure/base";
+import type { NostrEvent, UnsignedEvent } from "./event.js";
 import { leseQuellen, type Quelle, type QuellenArt } from "./spiegel.js";
 
 const utf8 = new TextEncoder();
@@ -118,6 +122,24 @@ export function ipfsCid(datei: Uint8Array, opt: { stueck?: number; maxVerweise?:
     ebene = naechste;
   } while (ebene.length > 1);
   return "b" + base32nopad.encode(ebene[0].cid).toLowerCase();
+}
+
+// ── Blossom ──────────────────────────────────────────────────────────────
+
+/** Anmeldung für genau einen Upload (BUD-02): Kind 24242, `x` = Prüfsumme, zehn Minuten gültig. */
+export function blossomAuth(sha: string, pubkey: string, jetzt: number): UnsignedEvent {
+  if (!/^[0-9a-f]{64}$/.test(sha)) throw new Error("blossom: Prüfsumme als Hex");
+  return { pubkey, created_at: jetzt, kind: 24242, content: "freedom.html spiegeln", tags: [["t", "upload"], ["x", sha], ["expiration", String(jetzt + 600)]] };
+}
+
+/** Kopfzeile `Authorization` (BUD-01). */
+export const blossomKopf = (ev: NostrEvent): string => `Nostr ${base64.encode(utf8.encode(JSON.stringify(ev)))}`;
+
+/** Blob-Beschreibung des Servers: nur mit derselben Prüfsumme und einer Adresse in Quellen-Form. */
+export function blossomQuelle(roh: unknown, sha: string): Quelle | null {
+  const d = roh as { sha256?: unknown; url?: unknown } | null;
+  if (!d || d.sha256 !== sha || typeof d.url !== "string" || !d.url.includes(sha)) return null;
+  return leseQuellen({ quellen: [{ art: "blossom", url: d.url }] }).gesetzt[0] ?? null;
 }
 
 // ── Ergebnis eines Laufs ─────────────────────────────────────────────────

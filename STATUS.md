@@ -7174,3 +7174,51 @@ Netz) · app 463 · mls 13 · Leak-Tests 57 grün + 1 todo · 0 rot · check-wir
 `--streng` Exit 0 (Selbsttest 6) · innerHTML streng 0 unbewertet · Website 5
 Seiten ok · Smoke-Test bestanden · `build-site.sh` mit `SPIEGEL_BASIS_URL`:
 `freedom.torrent` + Magnet auf der Startseite.
+
+## Schritt 5.3c – Spiegel: Blossom, Arweave, Codeberg
+
+Der Job `spiegel` (`pages.yml`, nur beim Release) lädt jetzt zu allen Spiegeln
+hoch. 5.3 ist damit im Code fertig; offen sind nur die Konten (MENSCH,
+`docs/KONTEN.md`).
+
+**Blossom** (A4):
+- Eigener Spiegel-Schlüssel (`SPIEGEL_NSEC`, nsec oder Hex).
+- Je Server eine Anmeldung nach BUD-02 nur für diese Datei (`blossomAuth()`):
+  Kind 24242, `x` = Prüfsumme, zehn Minuten gültig; Kopf über `blossomKopf()`.
+- Übernommen wird nur eine Beschreibung mit derselben Prüfsumme und einer
+  https-Adresse in Quellen-Form (`blossomQuelle()`).
+- Server kommen aus der Variable `BLOSSOM_SERVER` (nicht geheim), nur https.
+
+**Arweave** (A3): über das vorhandene `@ardrive/turbo-sdk`, mit den Tags
+Content-Type, App-Name und SHA-256. Der Test lief gegen einen Turbo-Ersatz:
+Das SDK schickt das signierte Datenobjekt an `/v1/tx/arweave`, die Datei steht
+darin am Ende.
+
+**Codeberg** (A1):
+- Die ganze Seite geht als Branch `pages`, erzwungen, ein Commit.
+- Nutzer und Repository stehen in der Adresse aus `spiegel/quellen.json` –
+  solange dort ein Platzhalter steht, wird Codeberg übersprungen.
+- Das Token steht nur in der Umgebung von git (`GIT_CONFIG_*`), nie auf der
+  Befehlszeile; ein Fehler gibt nur einen festen Text aus.
+
+**Upload-Skript** `spiegeln.mts`, je Spiegel eine Funktion:
+- Feste Texte nur über `Meldung`, sonst nur der Fehlername.
+- Ein gescheiterter Spiegel färbt den Job rot; die anderen laufen weiter.
+
+**Tests** (+2):
+- Blossom-Bausteine.
+- Das Skript gegen Ersatz-Dienste:
+  - Der Blossom-Ersatz prüft die Anmeldung wie ein Server: Signatur, Kind,
+    `x` = Prüfsumme des Körpers, Ablauf. Ein zweiter meldet eine falsche
+    Prüfsumme – nicht übernommen, Job rot.
+  - Der Turbo-Ersatz nimmt das Datenobjekt mit der Datei an.
+  - Für Codeberg dient ein leeres git-Repository: Die Seite liegt im Branch
+    `pages`.
+  - Kein Geheimnis (nsec, Hex, JWK, Token, Basic-Kopf) steht in Ausgabe oder
+    Ergebnis.
+  - Kaputte Eingaben ergeben feste Texte.
+
+Endstand: protocol 1178 (+2, 6 übersprungen) · node 227 (7 übersprungen ohne
+Netz) · app 463 · mls 13 · Leak-Tests 57 grün + 1 todo · 0 rot · check-wiring
+`--streng` Exit 0 · innerHTML streng 0 unbewertet · Website 5 Seiten ok ·
+Smoke-Test bestanden.

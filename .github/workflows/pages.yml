@@ -19,7 +19,7 @@ on:
   workflow_dispatch:
     inputs:
       spiegeln:
-        description: "Release: freedom.html zu den Spiegeln hochladen (IPFS …)"
+        description: "Release: zu den Spiegeln hochladen (IPFS, Blossom, Arweave, Codeberg)"
         type: boolean
         default: false
 
@@ -89,7 +89,12 @@ jobs:
       - name: Spiegel hochladen
         shell: bash  # mit pipefail – ein gescheiterter Upload faerbt den Job rot
         env:
+          # Konten: docs/KONTEN.md (A1–A4); fehlt eines, wird dieser Spiegel uebersprungen
           PINATA_JWT: ${{ secrets.PINATA_JWT }}
+          SPIEGEL_NSEC: ${{ secrets.SPIEGEL_NSEC }}
+          BLOSSOM_SERVER: ${{ vars.BLOSSOM_SERVER }}
+          ARWEAVE_JWK: ${{ secrets.ARWEAVE_JWK }}
+          CODEBERG_TOKEN: ${{ secrets.CODEBERG_TOKEN }}
         run: npx --no-install tsx scripts/mirror/spiegeln.mts seite spiegel-ergebnis.json | tee -a "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         if: always()
