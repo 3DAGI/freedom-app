@@ -1,4 +1,8 @@
 /**
+ * ABGELÖST durch das Gebührenmodell A+ (`aufteilung.ts`, Entscheidung 4.0).
+ * Nur noch für die Werbe-Stufen in `referral.ts` da; fällt mit 5.1.4b. Treasury
+ * und feste Empfänger-Adressen sind seit 5.1.4a entfernt.
+ *
  * Protokoll-Fee (einzige Stelle, an der die Fee definiert wird).
  *
  * FREEDOM PROTOCOL v1 — DIESE WERTE SIND PROTOKOLL-INVARIANTEN.
@@ -77,40 +81,6 @@ if (FEE_POOL_SHARE_PERCENT + FEE_REFERRAL_SHARE_PERCENT !== 100) {
 }
 if (PROTOCOL_FEE_PPM <= 0 || PROTOCOL_FEE_PPM > 100_000) {
   throw new Error(`protocol-fee: PROTOCOL_FEE_PPM=${PROTOCOL_FEE_PPM} unplausibel (>10%?)`);
-}
-
-/**
- * ENTFERNT: TREASURY_SOL_PUBKEY.
- *
- * Hier stand eine im Protokoll verankerte Development-Adresse. Sie wird nicht
- * mehr gebraucht, seit der Entwickler-Anteil in die Client-Schicht gewandert
- * ist — und eine ungenutzte Verankerung ist schlimmer als keine: Sie stellt
- * genau die Angriffsflaeche wieder her, die die Umschichtung beseitigt hat.
- * Wer eine Empfaengeradresse braucht, deklariert sie im Client (client-fee.ts).
- */
-
-/**
- * Treasury-Nostr-Key (pubkey): Signiert die wöchentlichen Payout-Announcements
- * (kind 38050). Der zugehörige Secret Key liegt NUR auf dem Treasury-Node.
- */
-export const TREASURY_NOSTR_PUBKEY =
-  process.env.TREASURY_NOSTR_PUBKEY ?? "9a7cb46eda84d6b16c1764fecfc9a7120238cf9ca0ab28685ec227501bf2724a";
-
-/**
- * Legacy: lud16 für reine Lightning-Fee-Splits (kleine Beträge, wo ein
- * Multi-Output-Split unpraktisch ist). Zeigt auf den Treasury-LNURL-Endpunkt,
- * der intern auf die aktuelle Wochen-Adresse mappt.
- */
-export const PROTOCOL_FEE_RECIPIENT_LUD16 =
-  process.env.PROTOCOL_FEE_LUD16 ?? "SET_BEFORE_MAINNET@walletofsatoshi.com";
-
-export function assertProtocolFeeConfigured(): void {
-  if (PROTOCOL_FEE_RECIPIENT_LUD16.startsWith("SET_BEFORE_MAINNET")) {
-    throw new Error(
-      "PROTOCOL_FEE_LUD16 nicht gesetzt. Vor Mainnet-Betrieb konfigurieren " +
-        "(einmalig — danach unveränderbar, siehe PROTOCOL.md v1).",
-    );
-  }
 }
 
 /**

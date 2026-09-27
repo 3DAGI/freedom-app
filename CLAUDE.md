@@ -206,7 +206,8 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   Entwicklung; App (`teileAuf()`) und Knoten (`pruefeAufteilung()`,
   `providerAnteilMsat()`) rechnen mit denselben Funktionen. SOL-Anteile erst
   mit dem Zahlkanal (4.3). Der Knoten zahlt seit 5.1.2 nichts aus – keinen
-  Pool, keinen Verteiler, keine Rücklage wieder einführen. Die App zahlt seit
+  Pool, keinen Verteiler, keine Rücklage wieder einführen (Treasury, Sweep,
+  Pool-Rangliste, Knappheitsbonus und App-Gebühr fielen mit 5.1.4a). Die App zahlt seit
   5.1.3 nur über `shell/ki-zahlung.ts`: Deklaration vor dem Versiegeln,
   Abrechnung mit den gemerkten Empfängern (`rechneAb()`, höchstens das Gebot),
   erst die Rechnung samt Betrag prüfen, dann zahlen – ein unklarer Ausgang wird

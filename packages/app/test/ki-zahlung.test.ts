@@ -58,6 +58,6 @@ test("keine App-Gebühr und kein Keysend mehr; keine Verwahrer-Adresse in der Ap
   });
   for (const f of dateien(wurzel)) {
     const s = readFileSync(f, "utf8");
-    assert.doesNotMatch(s, /walletofsatoshi|clientFeeTag|aktiveClientGebuehr|clientfee-percent|\.keysend\(/, f);
+    assert.doesNotMatch(s, /walletof[s]atoshi|clientFeeTag|aktiveClientGebuehr|clientfee-percent|\.keysend\(/, f);
   }
 });

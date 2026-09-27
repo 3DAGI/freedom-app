@@ -55,7 +55,16 @@
   - **5.1.4 Aufräumen:** `protocol-fee.ts` (Pool/Werbe-Pool), `referral-graph.ts`,
     `treasury*.ts`, `reward-claim.ts`, `rewards.ts`, Bonuslogik in
     `scarcity.ts`; Werben-Tab → „Einladen“; Texte in App und Website. Abnahme
-    wie oben.
+    wie oben. Aufgeteilt:
+    - **5.1.4a – FERTIG:** Protokoll + Knoten: `treasury*.ts`,
+      `arweave-mirror.ts`, `rewards.ts`, `client-fee.ts`, Bonuslogik in
+      `scarcity.ts`, Treasury-Konstanten; Sweep und Spiegel im Knoten; alte
+      App-Kopie `packages/website/freedom.html`. Abnahme-Suche leer.
+    - **5.1.4b:** App und Texte: Werben-Tab → „Einladen“ ohne Stufen und
+      Rangliste, `referral.ts`, `referral-graph.ts`, `reward-claim.ts`,
+      `protocol-fee.ts` (samt alter CI-Invariante), `fee-proof.ts`
+      (`preimageMatches` bleibt), Aufgabe „erster Job“ ohne Gebühren-Belege;
+      Website, PROTOCOL.md §3/§16.
 
 ## 5.1b Gesponserte Pools (Solana-Programm)
 
