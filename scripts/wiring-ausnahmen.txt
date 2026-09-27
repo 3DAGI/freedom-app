@@ -220,3 +220,6 @@ channel.ts|rechneKanalAbIxs|Zahlkanal (4.3a): Client nach docs/ZAHLKANAL.md; Pro
 channel.ts|signiereGutschrift|Zahlkanal (4.3a): Client nach docs/ZAHLKANAL.md; Programm 4.3b, Knoten 4.3c, App 4.3d
 channel.ts|stockeKanalAufIx|Zahlkanal (4.3a): Client nach docs/ZAHLKANAL.md; Programm 4.3b, Knoten 4.3c, App 4.3d
 channel.ts|teileKanalZahlung|Zahlkanal (4.3a): Client nach docs/ZAHLKANAL.md; Programm 4.3b, Knoten 4.3c, App 4.3d
+badges.ts|badgeSourceLabel|deutsche Referenz; die App bildet den Satz seit 8.16f in protokoll-texte.ts (abzeichenHerkunft) nach, ein Test hält ihn wortgleich
+coverage.ts|coverageConsentText|deutsche Referenz; die App bildet den Text seit 8.16f in protokoll-texte.ts (abdeckungEinwilligung) nach, ein Test hält ihn wortgleich
+profile.ts|profileDisclosure|deutsche Referenz; die App bildet die Sätze seit 8.16f in protokoll-texte.ts (profilOffenlegung) nach, ein Test hält sie wortgleich

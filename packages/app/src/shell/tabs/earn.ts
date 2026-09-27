@@ -6,6 +6,8 @@
  * Aus app.ts verschoben (Schritt 1.0) – wörtlich, ohne Logikänderung.
  */
 import { KIND_PERFORMANCE } from "@freedomstack/protocol";
+import { t } from "../../i18n.js";
+import { abdeckungEinwilligung, abdeckungHier, busFaktorText, ebeneName, repoZustand, zellenStufe } from "../../protokoll-texte.js";
 import { escapeHtml, pkShort } from "../../shell-logic.js";
 import { ensurePool, signiere, state } from "../state.js";
 import { geheim } from "../tresor.js";
@@ -24,16 +26,18 @@ export async function zeigeMitwirkende(): Promise<void> {
     const o = buildRepoOverview(repo, evs);
     const bf = busFactor(o.contributors);
 
+    // Sätze aus den Feldern – die fertigen Sätze des Protokolls sind Deutsch (8.16f)
+    const zustand = repoZustand(o);
     box.innerHTML = o.contributors.length === 0
-      ? `<span class="muted">${escapeHtml(o.healthNote)}</span>`
-      : `<div class="mono-sm">${escapeHtml(o.healthNote)}</div>` +
-        `<div class="mono-sm muted" style="margin-bottom:6px">${escapeHtml(bf.note)}</div>` +
+      ? `<span class="muted">${escapeHtml(zustand)}</span>`
+      : `<div class="mono-sm">${escapeHtml(zustand)}</div>` +
+        `<div class="mono-sm muted" style="margin-bottom:6px">${escapeHtml(busFaktorText(bf.count, o.contributors))}</div>` +
         o.contributors.slice(0, 15).map((c) =>
           `<div class="usage-row"><span>${escapeHtml(pkShort(c.pubkey))}</span>` +
-          `<span>${c.activeDays} aktive Tage · ${c.contributions} Beiträge</span></div>`,
+          `<span>${escapeHtml(t("earn.aktiveTage", { tage: c.activeDays, n: c.contributions }))}</span></div>`,
         ).join("");
   } catch (e) {
-    box.textContent = `Nicht abrufbar: ${(e as Error).message}`;
+    box.textContent = t("agent.nichtAbrufbar", { fehler: (e as Error).message });
   }
 }
 
@@ -41,6 +45,8 @@ export async function zeigeMitwirkende(): Promise<void> {
 export async function ladeAbdeckung(): Promise<void> {
   const liste = $("#coverage-list");
   const hier = $("#coverage-here");
+  // Ohne gemerkten Standort hängt der Hinweis nicht an den Relays – gleich setzen (auch nach einem Sprachwechsel)
+  if (hier && !localStorage.getItem("freedom.coverage.cell")) hier.textContent = t("earn.standortGebraucht");
   try {
     const { buildCoverage, coverageAt, KIND_COVERAGE } = await import("@freedomstack/protocol");
     const pool = await ensurePool();
@@ -48,23 +54,23 @@ export async function ladeAbdeckung(): Promise<void> {
     const r = buildCoverage(evs);
 
     if (liste) {
-      const { summarizeLayers, LAYER_LABEL } = await import("@freedomstack/protocol");
+      const { summarizeLayers } = await import("@freedomstack/protocol");
       const zusammen = summarizeLayers(r.cells, r.hiddenCells);
       const symbol: Record<string, string> = { online: "🌐", lora: "📡", bluetooth: "🔵" };
 
       liste.innerHTML =
         // Kopfzeile je Ebene: Was gibt es ueberhaupt, bevor es um Orte geht.
         zusammen.map((z) =>
-          `<div class="usage-row"><span>${symbol[z.layer]} ${escapeHtml(z.label)}</span>` +
-          `<span class="${z.cells > 0 ? "ok" : "muted"}">${z.cells} Gebiet(e)</span></div>`,
+          `<div class="usage-row"><span>${symbol[z.layer]} ${escapeHtml(ebeneName(z.layer))}</span>` +
+          `<span class="${z.cells > 0 ? "ok" : "muted"}">${escapeHtml(t("earn.gebiete", { n: z.cells }))}</span></div>`,
         ).join("") +
         (r.cells.length === 0
-          ? `<div class="muted" style="margin-top:8px">Noch keine Eintraege. Eintragen ist freiwillig — es kann trotzdem Abdeckung geben.</div>`
+          ? `<div class="muted" style="margin-top:8px">${escapeHtml(t("earn.keineEintraege"))}</div>`
           : `<div style="margin-top:8px">` + r.cells.slice(0, 15).map((c) =>
-              `${symbol[c.layer] ?? "•"} ${escapeHtml(c.region || "?")} · ${escapeHtml(c.label)}`,
+              `${symbol[c.layer] ?? "•"} ${escapeHtml(c.region || "?")} · ${escapeHtml(zellenStufe(c.nodes))}`,
             ).join("<br>") + `</div>`) +
         (r.hiddenCells > 0
-          ? `<div class="muted" style="margin-top:6px">${r.hiddenCells} Gebiet(e) nicht angezeigt: zu wenige Knoten, um niemanden zu verorten.</div>`
+          ? `<div class="muted" style="margin-top:6px">${escapeHtml(t("earn.verborgen", { n: r.hiddenCells }))}</div>`
           : "");
     }
 
@@ -72,24 +78,24 @@ export async function ladeAbdeckung(): Promise<void> {
     if (hier) {
       const gemerkt = localStorage.getItem("freedom.coverage.cell");
       hier.textContent = gemerkt
-        ? coverageAt(...(JSON.parse(gemerkt) as [number, number]), r.cells).message
-        : "Fuer die Anzeige, ob es hier Abdeckung gibt, wird dein Standort gebraucht — nur lokal, nichts wird gesendet.";
+        ? abdeckungHier(coverageAt(...(JSON.parse(gemerkt) as [number, number]), r.cells))
+        : t("earn.standortGebraucht");
     }
   } catch (e) {
-    if (liste) liste.textContent = `Abdeckung nicht abrufbar: ${(e as Error).message}`;
+    if (liste) liste.textContent = t("earn.abdeckungFehler", { fehler: (e as Error).message });
   }
 }
 
 /** Sich selbst eintragen — mit Aufklaerung vorher. */
 export async function trageAbdeckungEin(): Promise<void> {
   if (!state.keypair) return;
-  const { coverageConsentText, toCell, baueCoverageEintrag, toHex } =
+  const { toCell, baueCoverageEintrag, toHex } =
     await import("@freedomstack/protocol");
 
-  const art = prompt("Was trägst du ein? (funk / bluetooth)", "funk");
+  const art = prompt(t("earn.wasEintragen"), t("earn.funk"));
   if (!art) return;
   const layer = art.trim().toLowerCase().startsWith("b") ? "bluetooth" : "lora";
-  if (!confirm(coverageConsentText(layer))) return;
+  if (!confirm(abdeckungEinwilligung(layer))) return;
 
   navigator.geolocation.getCurrentPosition(async (pos) => {
     try {
@@ -107,12 +113,12 @@ export async function trageAbdeckungEin(): Promise<void> {
       await (await ensurePool()).publish(event);
       await geheim.setItem(LS_ABDECKUNG_EINTRAG, JSON.stringify({ id: event.id, sk: toHex(wegwerfSk) }));
       wegwerfSk.fill(0);
-      toast("Eingetragen – mit Wegwerfschlüssel, 7 Tage gültig, jederzeit widerrufbar");
+      toast(t("earn.eingetragen"));
       void ladeAbdeckung();
     } catch (e) {
       toast((e as Error).message, true);
     }
-  }, () => toast("Standort nicht verfuegbar", true));
+  }, () => toast(t("earn.standortFehlt"), true));
 }
 
 /** Eigener Abdeckungs-Eintrag (5.10): ID und Wegwerfschluessel – nur im Tresor. */
@@ -130,12 +136,12 @@ export async function widerrufeAbdeckung(melden = true): Promise<void> {
     await (await ensurePool()).publish(baueCoverageWiderruf(e.id, sk)).catch(() => undefined);
     sk.fill(0);
   } else if (melden) {
-    toast("Kein eigener Eintrag auf diesem Gerät");
+    toast(t("earn.keinEintrag"));
     return;
   }
   await geheim.removeItem(LS_ABDECKUNG_EINTRAG);
   if (melden) {
-    toast("Widerrufen – Relays, die Löschwünsche beachten, entfernen den Eintrag; spätestens nach 7 Tagen läuft er ab");
+    toast(t("earn.widerrufen"));
     void ladeAbdeckung();
   }
 }
@@ -157,7 +163,7 @@ export async function loadTrust(): Promise<void> {
     const xpEl = document.getElementById("trust-xp");
     if (xpEl) xpEl.textContent = `${xp} XP`;
     const jobsEl = document.getElementById("trust-jobs");
-    if (jobsEl) jobsEl.textContent = `${jobs} jobs`;
+    if (jobsEl) jobsEl.textContent = t("profil.jobs", { n: jobs });
     const tierEl = document.getElementById("trust-tier");
     if (tierEl) tierEl.textContent = tier;
     // Tier-Marker positionieren (10 XP / 50 XP Schwellen relativ zum nächsten Ziel)
@@ -177,7 +183,7 @@ export async function loadTrust(): Promise<void> {
 export async function loadEarnings(): Promise<void> {
   if (!state.keypair) return;
   const box = $("#earn-events");
-  box.innerHTML = "<div class='mono-sm'>lade…</div>";
+  box.innerHTML = `<div class='mono-sm'>${escapeHtml(t("earn.lade"))}</div>`;
   try {
     const pool = await ensurePool();
     const events = await pool.query({
@@ -190,11 +196,11 @@ export async function loadEarnings(): Promise<void> {
       ? sorted
           .map((ev) => {
             const get = (n: string) => ev.tags.find((t) => t[0] === n)?.[1] ?? "—";
-            return `<div class="stat"><span class="k">${escapeHtml(get("work_type"))} · ${escapeHtml(get("units"))} units</span>
+            return `<div class="stat"><span class="k">${escapeHtml(get("work_type"))} · ${escapeHtml(t("earn.einheiten", { n: get("units") }))}</span>
               <span>${Math.floor(Number(get("volume_msat")) / 1000)} sats · ${timeAgo(ev.created_at)}</span></div>`;
           })
           .join("")
-      : "<div class='mono-sm'>Noch keine Einnahmen. Sie erscheinen, sobald dein Provider-Knoten Jobs erledigt.</div>";
+      : `<div class='mono-sm'>${escapeHtml(t("earn.keineEinnahmen"))}</div>`;
   } catch (e) {
     box.innerHTML = `<div class='mono-sm err'>${escapeHtml((e as Error).message)}</div>`;
   }
@@ -208,11 +214,11 @@ export function setupReferral(): void {
   copyBtn.addEventListener("click", async () => {
     try {
       await navigator.clipboard.writeText(link.value);
-      toast("Referral-Link kopiert");
+      toast(t("earn.linkKopiert"));
     } catch {
       link.select();
       document.execCommand("copy");
-      toast("Referral-Link kopiert");
+      toast(t("earn.linkKopiert"));
     }
   });
 }
@@ -233,9 +239,7 @@ export function updateReferralLink(): void {
   try { lud16 = (JSON.parse(localStorage.getItem("freedom.profile") ?? "{}") as { lud16?: string }).lud16; } catch { /* kein Profil */ }
   link.value = werbeLink(window.location.origin + window.location.pathname, pub, lud16);
   if (stats) {
-    stats.textContent = new URL(link.value).searchParams.has("ln")
-      ? `dein Code: ${pkShort(pub)} – mit deiner Lightning-Adresse`
-      : `dein Code: ${pkShort(pub)} – ohne Lightning-Adresse im Profil kommt dein Anteil nicht an`;
+    stats.textContent = t(new URL(link.value).searchParams.has("ln") ? "earn.codeMitAdresse" : "earn.codeOhneAdresse", { code: pkShort(pub) });
   }
   void zeigeNennungen();
 }
@@ -256,10 +260,10 @@ async function zeigeNennungen(): Promise<void> {
     const autoren = [...new Set(anMich.map((ev) => ev.pubkey))];
     const alle = autoren.length > 0 ? await pool.query({ kinds: [KIND_REFERRAL_CLAIM], authors: autoren, limit: 1000 }) : [];
     const n = zaehleNennungen([...anMich, ...alle], ich);
-    box.textContent = n === 0 ? "Noch niemand nennt dich öffentlich als Werber." : `${n} Geworbene nennen dich öffentlich als Werber.`;
+    box.textContent = n === 0 ? t("earn.keineNennung") : t("earn.nennungen", { n });
   } catch {
     // Ohne Netz keine erfundene Zahl anzeigen.
-    box.textContent = "Wird beim nächsten Netzkontakt gezählt.";
+    box.textContent = t("earn.spaeterGezaehlt");
   }
 }
 

@@ -67,6 +67,11 @@ test("Provider-Aufgabe zaehlt TAGE, nicht Jobs", () => {
     performances: [0, 1, 2, 3, 4, 5, 6].map((d) => arbeit(ICH.pk, d)),
   });
   assert.equal(sieben.done, true);
+  // Zählerstand als Zahlen (8.16f) – die Oberfläche bildet den Satz in ihrer Sprache
+  assert.deepEqual(sieben.zaehler, { ist: 7, soll: 7 });
+  assert.equal(sieben.detail, "7 von 7 Tagen.");
+  assert.deepEqual(einTag.zaehler, { ist: 1, soll: 7 });
+  assert.equal(stand("zugang_gesichert").zaehler, undefined, "ja/nein-Aufgaben zählen nicht");
 });
 
 test("Fremde Arbeit zaehlt nicht fuer mich", () => {

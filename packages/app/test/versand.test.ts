@@ -66,5 +66,5 @@ test("6.4: Verdrahtung – Direktnachrichten je Kopie verzögert, Abrufe im Takt
   const versand = q("../src/shell/versand.ts");
   assert.match(versand, /addEventListener\("pagehide", \(\) => sendeWartendeSofort\(\)\);/);
   assert.match(versand, /const ms = zufallsVerzoegerung\(maxSek \* 1000\);/);
-  assert.match(q("../src/shell/index.html"), /<select id="versand-verzoegerung"[\s\S]*?<option value="30">bis 30 Sekunden \(Standard\)<\/option>/);
+  assert.match(q("../src/shell/index.html"), /<select id="versand-verzoegerung"[\s\S]*?<option value="30"[^>]*>bis 30 Sekunden \(Standard\)<\/option>/);
 });

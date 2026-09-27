@@ -11,7 +11,8 @@ import { SICHERUNG_EINTRAEGE, SICHERUNG_NIE } from "@freedomstack/protocol";
 test("5.10a verdrahtet: Eintrag nie mit der Identitaet, Schluessel nur im Tresor, Austragen per Widerruf", () => {
   const earn = readFileSync(new URL("../src/shell/tabs/earn.ts", import.meta.url), "utf8");
   const ein = earn.slice(earn.indexOf("export async function trageAbdeckungEin"), earn.indexOf("export const LS_ABDECKUNG_EINTRAG"));
-  assert.match(ein, /if \(!confirm\(coverageConsentText\(layer\)\)\) return;/, "erst die Einwilligung");
+  // seit 8.16f in der Sprache der Oberfläche – auf Deutsch wortgleich mit coverageConsentText() (i18n.test.ts)
+  assert.match(ein, /if \(!confirm\(abdeckungEinwilligung\(layer\)\)\) return;/, "erst die Einwilligung");
   assert.match(ein, /const \{ event, wegwerfSk \} = baueCoverageEintrag\(\{ layer, cell, region: "" \}\);/);
   assert.match(ein, /await geheim\.setItem\(LS_ABDECKUNG_EINTRAG, /);
   assert.match(ein, /await widerrufeAbdeckung\(false\);/, "ein frueherer Eintrag wird zuerst widerrufen");

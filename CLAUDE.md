@@ -44,9 +44,9 @@ bash packages/mls/bauen.sh --pruefen                     # nur bei Änderungen a
 bash contracts/solana-channel/pruefen.sh --werkzeuge     # nur bei Änderungen am Zahlkanal: bauen + Tests gegen Validator (Agave 3.1.10)
 ```
 
-Stand 27.09.2026 (nach 4.3b und 8.16e): protocol 1064 grün (6 übersprungen), node 226 grün
+Stand 27.09.2026 (nach 4.3b und 8.16f): protocol 1064 grün (6 übersprungen), node 226 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 477 grün, mls 13 grün, Zahlkanal 6 grün (gegen Validator), Leak-Tests 57 grün + 1 `todo` (heutige Lecks,
+in `tools.test.ts`), app 478 grün, mls 13 grün, Zahlkanal 6 grün (gegen Validator), Leak-Tests 57 grün + 1 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
 Ausnahme: gesendete SOL-Zahlungen von frischen Adressen, eine bewusste Grenze
 nach Entscheidung 4.9 A – im Datenschutzbericht unter „Bewusste Grenzen“).
@@ -510,6 +510,7 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   Zeilenende `// kein UI-Text`. Zahlen und Daten mit `gebietsschema()`, nie
   fest `"de-DE"`. Der Smoke-Test läuft mit `locale="de-DE"`.
   Fertige Sätze aus dem Protokoll (`note`, `DISPUTE_LABEL`, Kurswarnungen …)
-  sind Deutsch – die App bildet sie aus den Feldern neu (seit 8.16e). In Tests
+  sind Deutsch – die App bildet sie aus den Feldern neu (seit 8.16e, gesammelt
+  in `protokoll-texte.ts`; ein Test hält die deutsche Fassung wortgleich). In Tests
   ist die Sprache Englisch; wer Meldungen wörtlich auf Deutsch prüft, setzt
   `setLang("de")`.

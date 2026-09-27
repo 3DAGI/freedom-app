@@ -7807,3 +7807,90 @@ check-wiring `--streng` Exit 0 · innerHTML streng 0 unbewertet · Website 5
 Seiten ok · Smoke-Test bestanden (inkl. „sprache“ mit dem Deposit-Knopf) ·
 im Browser: Währung-Seite samt Meldungen aus dem Code in Englisch, nach dem
 Wechsel in Deutsch, ohne Seitenfehler.
+
+## Schritt 8.16f – Übersetzungen: Earn, Profil, Settings
+
+**Fertig:** Earn, Profil und Settings – Seiten, `tabs/earn.ts`, `tabs/profil.ts`,
+`tabs/settings.ts`, `tabs/repos.ts` und `repo-ansicht.ts` – stehen auf 0 rohen
+Texten. Damit ist **ganz `index.html` fertig** (alle Bereiche 0). Neu ist der
+Bereich `texte/settings.ts` (`set.*`, rund 220 Schlüssel); `texte/earn.ts` und
+`texte/profil.ts` wachsen um die Seiten, Repos (`repo.*`) und die
+Protokoll-Sätze.
+
+**Einzelheiten:**
+- **Sätze des Protokolls (`protokoll-texte.ts`, neu, ohne DOM):**
+  - Die App bildet diese Sätze aus den Feldern in der Sprache der Oberfläche
+    nach:
+    - Repo-Zustand (`healthNote`) und Verteilung der Arbeit (`busFactor`);
+    - Ebenen, Zellenstufen, „Abdeckung hier“ und die Einwilligung vor dem
+      Eintragen (`coverageConsentText`);
+    - Profil-Offenlegung und Bildwarnung;
+    - Titel, Beschreibung und Stand der Aufgaben;
+    - Herkunft der Abzeichen.
+  - Ein Test vergleicht jede deutsche Fassung wortgleich mit dem Protokoll –
+    jeder Client zeigt dieselbe Warnung.
+  - `badgeSourceLabel`, `coverageConsentText` und `profileDisclosure` stehen
+    als deutsche Referenz in `wiring-ausnahmen.txt`.
+- **Protokoll (klein, andere Spur berührt):** `QuestProgress` hat einen
+  Zählerstand `zaehler: { ist, soll }`. So bildet die Oberfläche „7 von 7
+  Tagen.“ in ihrer Sprache. Das Feld ist nur zusätzlich, kein Event-Format;
+  der Test in `quests.test.ts` ist erweitert.
+- **Profil:**
+  - Die Warnfarbe der Offenlegung hängt am Befund (fremder Server), nicht mehr
+    am Text „IP-Adresse“.
+  - Stilwerte (`messing`, `schlicht` …) gehen weiter so ins Profil; angezeigt
+    werden sie über Schlüssel.
+  - Vertrauensstufe: Die Startwerte „0 XP · 0 jobs · free“ stehen als „—“, bis
+    der Code sie füllt.
+- **Settings:**
+  - Reiter, Überschriften, Karten, Knöpfe, Platzhalter und `aria-label` gehen
+    über `data-i18n`.
+  - Der Sprachknopf zeigt beim Start das Kürzel; im HTML steht ein neutrales
+    „🌐 ▾“ mit Beschriftung.
+  - Gerätestatus über `GERAET_STATUS`.
+  - Die Ersatzschlüssel-Datei kommt in der Sprache der Oberfläche.
+  - `"de-DE"` ist durch `gebietsschema()` ersetzt.
+- **Rohtext-Suche:**
+  - Klassenlisten als Argument (`el("div", t, "mono-sm muted")`) und
+    Selektoren mit Typparameter (`querySelectorAll<HTMLElement>(…)`) zählen
+    nicht mehr.
+  - Im HTML gelten Adress-Schemata (`wss://…`, `bunker://…`) und „Bluetooth“
+    als Eigennamen.
+  - Beides steht in der Probe des Tests.
+  - Dadurch sanken auch offene Dateien (`shell-logic.ts`, `app.ts`,
+    `nachfolge-ui.ts`, `notfall.ts`, `mesh-transfer.ts`).
+- **Neuzeichnen:** Der Browser-Test zeigte, dass „Abdeckung hier“, die
+  Profil-Offenlegung und die Stilnamen nach einem Sprachwechsel in der alten
+  Sprache blieben.
+  - Das Öffnen von Profil zeichnet sie jetzt neu (`zeigeProfilTexte()`).
+  - Earn lädt die Abdeckung neu; der Standort-Hinweis steht sofort da, ohne
+    auf die Relays zu warten.
+- **Noch unverändert (8.16g):** Die Sätze des Protokolls in Settings –
+  Nachfolge-Stand und -Warnung, `backupInfo`, Schlüsselwechsel, Gerätewarnung,
+  Echtheit und Fixierung, Offline-Fähigkeiten, Tor-Reihenfolge – und die
+  Meldungen der Bausteine `mesh-radio.ts`, `mls-engine.ts`, `relay-satz.ts`
+  und `geraete-modus.ts`.
+- **innerHTML-Ausnahmeliste:**
+  - Fünf Einträge sind an die neuen Ausdrücke angepasst.
+  - Sechs entfallen, weil die Werte jetzt in `escapeHtml(t(…))` stehen.
+
+**Tests:**
+- +1 in `i18n.test.ts`:
+  - Earn, Profil und Settings fertig, alle Bereiche von `index.html` auf 0;
+  - keine deutschen Protokoll-Sätze mehr in der Anzeige;
+  - jede nachgebildete deutsche Fassung wortgleich mit dem Protokoll;
+  - Englisch mit Werten.
+- Vier ältere Tests suchen die neue Stelle (nicht schwächer):
+  - `abdeckung`: Einwilligung über `abdeckungEinwilligung`;
+  - `versand`: Option mit Attribut;
+  - `einrichtung`: Werben-Text;
+  - `geraete-modus`: Gerätecode.
+- Die Smoke-Prüfung „sprache“ liest zusätzlich die Überschrift
+  „Sicherheit“/„Security“.
+
+Endstand: protocol 1064 (6 übersprungen) · node 225 (7 übersprungen ohne
+Netz) · app 478 (+1) · mls 13 · Leak-Tests 57 grün + 1 todo · 0 rot ·
+check-wiring `--streng` Exit 0 · innerHTML streng 0 unbewertet · Website 5
+Seiten ok · Smoke-Test bestanden (inkl. „sprache“ mit Settings) · im Browser:
+Earn, Profil und Settings in Englisch, nach dem Wechsel in Deutsch – samt
+Abdeckung, Offenlegung und Stilnamen –, ohne Seitenfehler.

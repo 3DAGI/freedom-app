@@ -67,11 +67,11 @@ def sprache_pruefen(browser, url: str) -> dict:
     """Sprache aus Browser oder gespeicherter Wahl; Rahmen in beiden Sprachen (8.16)."""
     erg = {"fehler": []}
     basis = url.rsplit("/", 1)[0]
-    for locale, gespeichert, soll_lang, soll_nav, soll_titel, soll_zurueck, soll_aufgabe, soll_deposit in [
-        ("de-DE", None, "de", "Kommunikation", "Guthaben", "‹ Zurück", "Neue Aufgabe", "hinterlegen"),
-        ("en-US", None, "en", "Chat", "Balance", "‹ Back", "New task", "deposit"),
-        ("en-US", "fr", "en", "Chat", "Balance", "‹ Back", "New task", "deposit"),
-        ("en-US", "de", "de", "Kommunikation", "Guthaben", "‹ Zurück", "Neue Aufgabe", "hinterlegen"),
+    for locale, gespeichert, soll_lang, soll_nav, soll_titel, soll_zurueck, soll_aufgabe, soll_deposit, soll_sicherheit in [
+        ("de-DE", None, "de", "Kommunikation", "Guthaben", "‹ Zurück", "Neue Aufgabe", "hinterlegen", "Sicherheit"),
+        ("en-US", None, "en", "Chat", "Balance", "‹ Back", "New task", "deposit", "Security"),
+        ("en-US", "fr", "en", "Chat", "Balance", "‹ Back", "New task", "deposit", "Security"),
+        ("en-US", "de", "de", "Kommunikation", "Guthaben", "‹ Zurück", "Neue Aufgabe", "hinterlegen", "Sicherheit"),
     ]:
         ctx = browser.new_context(locale=locale)
         ctx.route("**/*", lambda r: r.continue_() if r.request.url.startswith(basis) else r.abort())
@@ -85,9 +85,10 @@ def sprache_pruefen(browser, url: str) -> dict:
                          " document.querySelector('[data-tab=\"comm\"] [data-i18n]').textContent,"
                          " document.getElementById('balance').title, document.getElementById('chat-back').textContent,"
                          " document.querySelector('#agent-new [data-i18n]').textContent,"
-                         " document.getElementById('dep-start').textContent]")
+                         " document.getElementById('dep-start').textContent,"
+                         " document.querySelector('[data-subpane=\"settings:security\"] .settings-h').textContent]")
         erg[f"{locale}/{gespeichert}"] = ist
-        if ist != [soll_lang, soll_nav, soll_titel, soll_zurueck, soll_aufgabe, soll_deposit]:
+        if ist != [soll_lang, soll_nav, soll_titel, soll_zurueck, soll_aufgabe, soll_deposit, soll_sicherheit]:
             erg["fehler"].append(f"{locale}/{gespeichert}: {ist}")
         ctx.close()
     erg["bestanden"] = not erg["fehler"]

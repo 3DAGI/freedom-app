@@ -104,6 +104,8 @@ export interface QuestProgress {
   /** 0..1, für die Anzeige. */
   progress: number;
   detail: string;
+  /** Zählerstand der zählbaren Aufgaben – damit eine Oberfläche `detail` in ihrer Sprache bilden kann (8.16f). */
+  zaehler?: { ist: number; soll: number };
 }
 
 export interface EvaluateInput {
@@ -152,16 +154,16 @@ export function evaluateQuests(input: EvaluateInput): QuestProgress[] {
           detail: input.backedUp ? "Gesichert." : "Noch nicht bestätigt." };
       case "provider_7_tage":
         return { quest: q, done: tage >= 7, progress: Math.min(1, tage / 7),
-          detail: `${tage} von 7 Tagen.` };
+          detail: `${tage} von 7 Tagen.`, zaehler: { ist: tage, soll: 7 } };
       case "provider_30_tage":
         return { quest: q, done: tage >= 30, progress: Math.min(1, tage / 30),
-          detail: `${tage} von 30 Tagen.` };
+          detail: `${tage} von 30 Tagen.`, zaehler: { ist: tage, soll: 30 } };
       case "relay_betrieben":
         return { quest: q, done: relayTage >= 7, progress: Math.min(1, relayTage / 7),
-          detail: `${relayTage} von 7 Tagen erreichbar.` };
+          detail: `${relayTage} von 7 Tagen erreichbar.`, zaehler: { ist: relayTage, soll: 7 } };
       case "geworben_aktiv":
         return { quest: q, done: geworben >= 3, progress: Math.min(1, geworben / 3),
-          detail: `${geworben} von 3 aktiv.` };
+          detail: `${geworben} von 3 aktiv.`, zaehler: { ist: geworben, soll: 3 } };
       default:
         return { quest: q, done: false, progress: 0, detail: "Noch offen." };
     }

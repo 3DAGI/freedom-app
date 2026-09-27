@@ -102,9 +102,12 @@ test("8.16: Rohtext-Suche im Code – findet sichtbaren Text, auch in Vorlagen, 
     'box.innerHTML = `<div class="muted">${items.map((i) => `<b title="Zap senden">${i}</b>`).join("")}</div>`;',
     'const s = `${n} Antwort ·`;',
     'document.querySelector("button span");',
+    'document.querySelectorAll<HTMLElement>(".sec-progress span");',
     'localStorage.getItem("freedom.lang");',
     'console.warn("nur für Entwickler");',
     'el.className = "mono-sm muted";',
+    'block.append(el("div", r.text, "mono-sm muted"));',
+    'const s = "e-mail senden";',
     'if (e.key === "Enter") senden();',
     'const h = { "Content-Type": "text/html" };',
     'const re = /Nicht gesendet/;',
@@ -118,6 +121,7 @@ test("8.16: Rohtext-Suche im Code – findet sichtbaren Text, auch in Vorlagen, 
     [3, "Raum-Kennung:"],
     [4, '<b title="Zap senden"> </b>'],
     [5, "  Antwort ·"],
+    [12, "e-mail senden"],
   ]);
 });
 
@@ -268,6 +272,84 @@ test("8.16e: Agent-Rest, Währung, Zahlwege und Swaps – über Schlüssel; Text
     setLang("de");
     assert.equal(ausMsat(1_500_000, { satsProSol: 150_000 }), "1.500 sats ≈ 0,01 SOL");
     assert.match(tauschPruefung({ usage: [], lamports: 1_000_000_000, randomFn: () => 0 }).befunde[0]!, /^1,000 SOL ist ein runder Betrag\./);
+  } finally {
+    setLang(vorher);
+  }
+});
+
+test("8.16f: Earn, Profil, Settings – über Schlüssel; Sätze des Protokolls auf Deutsch wortgleich, auf Englisch übersetzt", async () => {
+  for (const d of ["shell/tabs/earn.ts", "shell/tabs/profil.ts", "shell/tabs/repos.ts", "shell/tabs/settings.ts", "repo-ansicht.ts", "protokoll-texte.ts"]) {
+    assert.ok(!(d in OFFEN_CODE), `${d} fertig`);
+    assert.doesNotMatch(readFileSync(pfad(SRC, d), "utf8"), /"de-DE"/, d);
+  }
+  for (const b of Object.keys(OFFEN_HTML)) assert.equal(OFFEN_HTML[b], 0, `${b}: index.html fertig`);
+  // Deutsche Sätze des Protokolls werden nicht mehr angezeigt – die App bildet sie aus den Feldern
+  const earn = readFileSync(pfad(SRC, "shell/tabs/earn.ts"), "utf8");
+  const profil = readFileSync(pfad(SRC, "shell/tabs/profil.ts"), "utf8");
+  assert.doesNotMatch(earn, /healthNote\)|bf\.note|z\.label|c\.label|r\.cells\)\.message|coverageConsentText/);
+  assert.doesNotMatch(profil, /profileDisclosure|badgeSourceLabel|q\.quest\.title|q\.detail|bild\.warning|\/IP-Adresse\//);
+  // Was der Code einmal füllt, zeichnet das Öffnen des Tabs in der neuen Sprache neu (Browser-Test 8.16f)
+  const app = readFileSync(pfad(SRC, "shell/app.ts"), "utf8");
+  assert.match(app, /if \(name === "profile"\) \{[^}]*zeigeProfilTexte\(\);/);
+  assert.match(app, /if \(name === "earn"\) \{[^}]*void ladeAbdeckung\(\);/);
+  assert.match(earn, /if \(hier && !localStorage\.getItem\("freedom\.coverage\.cell"\)\) hier\.textContent = t\("earn\.standortGebraucht"\);/);
+
+  const P = await import("@freedomstack/protocol");
+  const T = await import("../src/protokoll-texte.js");
+  const vorher = getLang();
+  try {
+    setLang("de");
+    // Repo-Zustand und Verteilung der Arbeit
+    const jetzt = 1_800_000_000;
+    const beitrag = (autor: string, alterTage: number) => ({
+      ...P.buildContribution({ repoId: "r", authorPubkey: autor, kind: "push", summary: "x", ref: `${autor}${alterTage}` }, jetzt - alterTage * 86400),
+      id: "0".repeat(64), sig: "0".repeat(128), pubkey: autor,
+    });
+    const [a, b, c] = ["a", "b", "c"].map((x) => x.repeat(64));
+    for (const evs of [[], [beitrag(a!, 3)], [beitrag(a!, 60)], [beitrag(a!, 400)]]) {
+      const o = P.buildRepoOverview("r", evs as never, jetzt);
+      assert.equal(T.repoZustand(o, jetzt), o.healthNote);
+    }
+    for (const evs of [[], [beitrag(a!, 1)], [beitrag(a!, 1), beitrag(a!, 2), beitrag(a!, 3), beitrag(b!, 1)], [beitrag(a!, 1), beitrag(b!, 2), beitrag(c!, 3)]]) {
+      const o = P.buildRepoOverview("r", evs as never, jetzt);
+      const bf = P.busFactor(o.contributors);
+      assert.equal(T.busFaktorText(bf.count, o.contributors), bf.note);
+    }
+    // Abdeckung: Ebenen, „hier“ und die Einwilligung vor dem Eintragen
+    const lagen = ["online", "lora", "bluetooth"] as const;
+    for (const l of lagen) {
+      assert.equal(T.ebeneName(l), P.LAYER_LABEL[l]);
+      assert.equal(T.abdeckungEinwilligung(l), P.coverageConsentText(l));
+    }
+    const zelle = (layer: (typeof lagen)[number]) => ({ cell: P.toCell(52.5, 13.4, P.LAYER_CELL_DEGREES[layer]), layer, nodes: 3, center: null, region: "", label: "" });
+    for (const auswahl of [[], ["online"], ["lora"], ["online", "lora"], ["online", "lora", "bluetooth"], ["bluetooth"]] as const) {
+      const hier = P.coverageAt(52.5, 13.4, auswahl.map(zelle));
+      assert.equal(T.abdeckungHier(hier), hier.message, auswahl.join("+"));
+    }
+    // Profil, Bild, Aufgaben, Abzeichen
+    for (const p of [{}, { name: "A", about: "B", lud16: "a@b.c" }, { picture: "https://x.example/a.png" }, { picture: "freedom-blob:abc", website: "https://w", chains: { solana: "S" } }]) {
+      assert.deepEqual(T.profilOffenlegung(p), P.profileDisclosure(p));
+    }
+    for (const url of [undefined, "https://x.example/a.png", "javascript:alert(1)", "freedom-blob:x"]) assert.equal(T.bildWarnung(url), P.inspectPicture(url).warning);
+    for (const q of P.QUESTS) {
+      assert.equal(T.aufgabeTitel(q.id), q.title);
+      assert.equal(T.aufgabeText(q.id), q.description);
+    }
+    for (const eingabe of [{}, { backedUp: true, relayDays: 9, activeReferrals: 2 }]) {
+      for (const q of P.evaluateQuests({ pubkey: a!, performances: [], ...eingabe })) assert.equal(T.aufgabeStand(q), q.detail, q.quest.id);
+    }
+    const def = { id: "x", name: "X", description: "", issuerPubkey: b! };
+    for (const held of [{ definition: def, source: "verdient" as const, awardedAt: 1, basis: "7 von 7 Tagen." }, { definition: def, source: "verdient" as const, awardedAt: 1 }, { definition: def, source: "verliehen" as const, awardedAt: 1 }, { definition: def, source: "selbst" as const, awardedAt: 1 }]) {
+      assert.equal(T.abzeichenHerkunft(held), P.badgeSourceLabel(held as never));
+    }
+    // Englisch
+    setLang("en");
+    assert.equal(T.abdeckungHier({ online: true, lora: false, bluetooth: false }), "Providers available in your area. In a network outage there is no radio coverage here — a node would close the gap.");
+    assert.equal(T.busFaktorText(1, [{} as never]), "One person alone. If they drop out, the project stops.");
+    assert.equal(T.profilOffenlegung({})[0], "An empty profile reveals nothing. That is a valid choice.");
+    assert.equal(T.aufgabeStand({ quest: P.QUESTS.find((q) => q.id === "provider_7_tage")!, done: true, zaehler: { ist: 9, soll: 7 } }), "9 of 7 days.");
+    assert.match(T.abdeckungEinwilligung("lora"), /^THINK ABOUT THIS\.[\s\S]*Only from 3 nodes[\s\S]*expires\nafter 7 days/);
+    assert.equal(t("set.nfPlan", { schwelle: 2, von: 3, frist: 180, warte: 30 }), "2 of 3 trusted people, inactivity period 180 days, waiting time 30 days.");
   } finally {
     setLang(vorher);
   }

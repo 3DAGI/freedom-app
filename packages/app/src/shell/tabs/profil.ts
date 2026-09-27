@@ -3,6 +3,8 @@
  *
  * Aus app.ts verschoben (Schritt 1.0) – wörtlich, ohne Logikänderung.
  */
+import { t } from "../../i18n.js";
+import { abzeichenHerkunft, abzeichenQuelle, aufgabeStand, aufgabeText, aufgabeTitel, bildWarnung, profilOffenlegung } from "../../protokoll-texte.js";
 import { escapeHtml, pkShort } from "../../shell-logic.js";
 import { ensurePool, signiere, state } from "../state.js";
 import { $, toast } from "../ui.js";
@@ -15,14 +17,14 @@ import { $, toast } from "../ui.js";
  */
 export async function vergebeAbzeichen(): Promise<void> {
   if (!state.keypair) return;
-  const name = prompt("Name des Abzeichens:");
+  const name = prompt(t("profil.abzeichenName"));
   if (!name?.trim()) return;
-  const empfaenger = prompt("An wen? (Pubkeys, kommagetrennt)");
+  const empfaenger = prompt(t("profil.abzeichenAnWen"));
   if (!empfaenger?.trim()) return;
 
   const pks = empfaenger.split(",").map((x) => x.trim()).filter((x) => /^[0-9a-f]{64}$/.test(x));
   if (pks.length === 0) {
-    toast("Keine gültige Pubkey dabei", true);
+    toast(t("profil.keinPubkey"), true);
     return;
   }
 
@@ -34,14 +36,14 @@ export async function vergebeAbzeichen(): Promise<void> {
 
     await pool.publish(await signiere(buildBadgeDefinition({
       id, name: name.trim(),
-      description: prompt("Wofür? (erscheint bei jedem Träger)") ?? "",
+      description: prompt(t("profil.abzeichenWofuer")) ?? "",
       issuerPubkey: state.keypair.pk,
     })));
     await pool.publish(await signiere(buildBadgeAward(id, state.keypair.pk, pks)));
 
     // Die ehrliche Einordnung gehoert dazu, sonst ueberschaetzt der Vergeber
     // die Wirkung.
-    toast(`An ${pks.length} vergeben — wert so viel wie dein Ruf`);
+    toast(t("profil.abzeichenVergeben", { n: pks.length }));
     void zeigeAbzeichen();
   } catch (e) {
     toast((e as Error).message, true);
@@ -70,7 +72,7 @@ export async function zeigeProfilVorschau(): Promise<void> {
       ${avatar}
       <div class="profile-text">
         <h3 style="color:#E8E8E8">${escapeHtml(gespeichert.name || pkShort(state.keypair.pk))}</h3>
-        <p>${escapeHtml(gespeichert.about || "Noch keine Beschreibung.")}</p>
+        <p>${escapeHtml(gespeichert.about || t("profil.keineBeschreibung"))}</p>
         ${gespeichert.lud16 ? `<p style="color:${farbe}">⚡ ${escapeHtml(gespeichert.lud16)}</p>` : ""}
       </div>
     </div>`;
@@ -89,23 +91,40 @@ function ladeProfilEntwurf(): ProfilEntwurf {
   }
 }
 
+/** Namen der Stilwerte (die Werte selbst gehen so ins Profil). */
+const STIL: Record<string, string> = {
+  messing: "profil.stilMessing", orange: "profil.stilOrange", tinte: "profil.stilTinte", moos: "profil.stilMoos", pflaume: "profil.stilPflaume", stahl: "profil.stilStahl",
+  schlicht: "profil.stilSchlicht", karte: "profil.stilKarte", breit: "profil.stilBreit",
+  keines: "profil.stilKeines", raster: "profil.stilRaster", wellen: "profil.stilWellen", verlauf: "profil.stilVerlauf",
+};
+
+/** Auswahllisten und Offenlegung neu in der Sprache der Oberfläche (gesetzt von `wireProfil`). */
+let texteNeu: (() => void) | undefined;
+
+/** Nach einem Sprachwechsel beim Öffnen des Tabs (8.16f) – Stilnamen und Offenlegung füllt der Code. */
+export function zeigeProfilTexte(): void {
+  texteNeu?.();
+}
+
 /** Formular verdrahten. */
 export async function wireProfil(): Promise<void> {
-  const { ACCENTS, LAYOUTS, PATTERNS, normalizeStyle, profileDisclosure, inspectAbout } =
+  const { ACCENTS, LAYOUTS, PATTERNS, normalizeStyle, inspectAbout, inspectPicture } =
     await import("@freedomstack/protocol");
 
   const fuelle = (id: string, werte: readonly string[], aktiv: string): void => {
     const el = $(id) as HTMLSelectElement | null;
     if (!el) return;
     el.innerHTML = werte.map((w) =>
-      `<option value="${escapeHtml(w)}"${w === aktiv ? " selected" : ""}>${escapeHtml(w)}</option>`).join("");
+      `<option value="${escapeHtml(w)}"${w === aktiv ? " selected" : ""}>${escapeHtml(STIL[w] ? t(STIL[w]!) : w)}</option>`).join("");
   };
 
+  const fuelleStil = (stil: { accent: string; layout: string; pattern: string }): void => {
+    fuelle("#pf-accent", ACCENTS, stil.accent);
+    fuelle("#pf-layout", LAYOUTS, stil.layout);
+    fuelle("#pf-pattern", PATTERNS, stil.pattern);
+  };
   const e = ladeProfilEntwurf();
-  const stil = normalizeStyle(e.freedom_style);
-  fuelle("#pf-accent", ACCENTS, stil.accent);
-  fuelle("#pf-layout", LAYOUTS, stil.layout);
-  fuelle("#pf-pattern", PATTERNS, stil.pattern);
+  fuelleStil(normalizeStyle(e.freedom_style));
 
   const felder: Record<string, string | undefined> = {
     "#pf-name": e.name, "#pf-about": e.about, "#pf-picture": e.picture, "#pf-lud16": e.lud16,
@@ -136,9 +155,11 @@ export async function wireProfil(): Promise<void> {
   const zeigeOffenlegung = (): void => {
     const box = $("#pf-disclosure");
     if (!box) return;
-    const zeilen = profileDisclosure(sammeln() as never);
+    const entwurf = sammeln();
+    const zeilen = profilOffenlegung(entwurf as never);
     box.innerHTML = zeilen.map((z) => `<div>${escapeHtml(z)}</div>`).join("");
-    box.className = zeilen.some((z) => /IP-Adresse/.test(z)) ? "mono-sm warn" : "mono-sm muted";
+    // Warnfarbe am Befund, nicht am Text: ein fremder Server sieht die IP der Betrachter
+    box.className = inspectPicture(entwurf.picture).kind === "extern" ? "mono-sm warn" : "mono-sm muted";
   };
 
   for (const id of ["#pf-name", "#pf-about", "#pf-picture", "#pf-lud16",
@@ -150,21 +171,25 @@ export async function wireProfil(): Promise<void> {
     });
   }
   zeigeOffenlegung();
+  texteNeu = () => {
+    fuelleStil(normalizeStyle(sammeln().freedom_style));
+    zeigeOffenlegung();
+  };
 
   const save = $("#pf-save");
   if (save) save.onclick = async () => {
     if (!state.keypair) return;
     try {
-      const { buildProfile, inspectPicture } = await import("@freedomstack/protocol");
+      const { buildProfile } = await import("@freedomstack/protocol");
       const entwurf = sammeln();
       const bild = inspectPicture(entwurf.picture);
       if (!bild.ok) {
-        toast(bild.warning ?? "Bildadresse nicht verwendbar", true);
+        toast(bildWarnung(entwurf.picture) ?? t("profil.bildNichtVerwendbar"), true);
         return;
       }
       localStorage.setItem("freedom.profile", JSON.stringify(entwurf));
       await (await ensurePool()).publish(await signiere(buildProfile(state.keypair.pk, entwurf as never)));
-      toast("Profil gespeichert");
+      toast(t("profil.gespeichert"));
       void zeigeProfilVorschau();
     } catch (err) {
       toast((err as Error).message, true);
@@ -181,7 +206,7 @@ export async function zeigeAbzeichen(): Promise<void> {
   if (!box || !state.keypair) return;
   try {
     const {
-      collectBadges, badgeSourceLabel, KIND_BADGE_DEFINITION, KIND_BADGE_AWARD,
+      collectBadges, KIND_BADGE_DEFINITION, KIND_BADGE_AWARD,
       evaluateQuests, KIND_PERFORMANCE,
     } = await import("@freedomstack/protocol");
     const pool = await ensurePool();
@@ -194,19 +219,19 @@ export async function zeigeAbzeichen(): Promise<void> {
     const erledigt = evaluateQuests({
       pubkey: state.keypair.pk, performances: arbeit,
     }).filter((q) => q.done).map((q) => ({
-      id: q.quest.id, name: q.quest.title, description: q.quest.description, basis: q.detail,
+      id: q.quest.id, name: aufgabeTitel(q.quest.id), description: aufgabeText(q.quest.id), basis: aufgabeStand(q),
     }));
 
     const alle = collectBadges(state.keypair.pk, abz, erledigt);
     box.innerHTML = alle.length === 0
-      ? `<span class="muted">Noch keine. Verdiente Abzeichen entstehen aus Arbeit im Netz.</span>`
+      ? `<span class="muted">${escapeHtml(t("profil.keineAbzeichen"))}</span>`
       : alle.map((b) => `<div class="badge-row">
-          <span class="badge-chip ${escapeHtml(b.source)}">${escapeHtml(b.source)}</span>
+          <span class="badge-chip ${escapeHtml(b.source)}">${escapeHtml(abzeichenQuelle(b.source))}</span>
           <span style="min-width:0">
             <span style="font-weight:600;font-size:12px">${escapeHtml(b.definition.name)}</span><br>
-            <span class="muted" style="font-size:11px">${escapeHtml(badgeSourceLabel(b))}</span>
+            <span class="muted" style="font-size:11px">${escapeHtml(abzeichenHerkunft(b))}</span>
           </span></div>`).join("");
   } catch (e) {
-    box.textContent = `Nicht abrufbar: ${(e as Error).message}`;
+    box.textContent = t("agent.nichtAbrufbar", { fehler: (e as Error).message });
   }
 }
