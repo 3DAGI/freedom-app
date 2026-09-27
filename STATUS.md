@@ -6820,3 +6820,72 @@ Endstand: protocol 1161 (+3, 6 übersprungen) · node 224 (+7, 7 übersprungen
 ohne Netz) · app 439 · mls 13 · Leak-Tests 55 grün + 1 todo · 0 rot ·
 check-wiring `--streng` Exit 0 · innerHTML streng 0 unbewertet · Website 5
 Seiten ok · Smoke-Test bestanden.
+
+## Schritt 5.1.3a – Gebührenmodell A+: Die App zahlt
+
+**Aufteilung von 5.1.3** (mehr als 400 Zeilen): 5.1.3a die Zahlung selbst,
+5.1.3b Werber des Kunden (Werbelink mit Lightning-Adresse) und Relays (NIP-11 →
+Profil). Hosting folgt mit dem Spiegel-Verzeichnis (5.3).
+
+**Bezahlen im echten Pfad (`shell/ki-zahlung.ts`, `tabs/agent.ts`):**
+- Beim Senden hält `buildJobEvent()` die Empfänger fest (`empfaengerFuer()`:
+  Entwicklung, Werber des Providers aus dem Angebot) und legt die Deklaration
+  (`aufteilungTag()`) vor dem Versiegeln in den Kern; `merkeAnfrage()` merkt
+  Empfänger und Höchstbetrag je Anfrage.
+- Bei der Antwort rechnet `rechneAntwortAb()` → `rechneAb()` mit denselben
+  Empfängern (derselbe Provider-Anteil wie `providerAnteilMsat()` im Knoten) und
+  höchstens das Gebot plus Werkzeuge nach Preisliste (`hoechstMsat()`) – ohne
+  gemerkte Anfrage nichts. Verlangt ein Provider mehr, sagt es die App.
+- Den Anteil des Providers zahlt der Session-Client an die Lightning-Adresse aus
+  dem Angebot (5.1.2), sobald das Fenster (20 sats) erreicht ist, in ganzen
+  sats und nie über das Budget der Sitzung. Keysend gibt es nicht mehr – nie
+  benutzt, weil die App nie eine Wallet übergab.
+- Die übrigen Anteile sammelt die Kasse (`anteile-kasse.ts`, Stand in `geheim`
+  unter `freedom.anteile`) und zahlt sie ab 100 sats je Empfänger.
+- **Nie doppelt:** erst die Rechnung holen und ihren Betrag prüfen (scheitert
+  das, ist nichts gezahlt), dann zahlen. Scheitert das Zahlen, ist der Ausgang
+  unklar: Die Sitzung zahlt dann nicht mehr von selbst, die Kasse legt den
+  Betrag unter „unklar“ ab; der Nutzer klärt ihn in den Settings („kam an“ /
+  „kam nicht an“). Zwei Antworten zugleich zahlen dieselbe Schuld nicht zweimal.
+- Gezahlt wird nur über `zahle(zahlschienen(), …)` (Zweck `job` bzw. `gebuehr`).
+
+**Entwicklung:** `ENTWICKLUNG` (Protokoll) ist leer, bis der MENSCH
+selbstverwahrte Adressen nennt – ihr Anteil bleibt so lange beim Provider. Die
+App-Gebühr (`freedomstack@walletofsatoshi.com`, abschaltbar) ist entfernt; sie
+geht im Entwicklungsanteil auf.
+
+**Texte:** Settings → Gebühren zeigt die feste Aufteilung, was heute tatsächlich
+bezahlt wird, den Stand der Kasse und dass der Server hinter einer
+Lightning-Adresse beim Holen der Rechnung IP und Betrag sieht. Die Vorschau unter
+dem Gebot und die Blase unter jeder Antwort zeigen die Aufteilung A+ statt
+Pool/Protokoll und statt „Zahlung prüfen“ (den Gebühren-Beleg des Knotens gibt
+es seit 5.1.2 nicht mehr – die alte Anzeige hätte „nicht abgeführt“ behauptet).
+Werben-Karte und Einrichtung ohne „Protokollgebühr“ und zweite Ebene. Der
+Race-Modus versprach Zahlungen an Verlierer, die nie geschahen – jetzt: „bezahlt
+wird die schnellste Antwort“.
+
+**Knoten-Stand:** Der Provider muss 5.1.2 laufen (`NODE_LUD16` gesetzt), sonst
+nennt sein Angebot keine Lightning-Adresse, und die App legt wie bisher nur
+Belege an. Ein alter Knoten ignoriert die Deklaration und rechnet den ganzen
+Betrag.
+
+**Tests:**
+- app +8 (447): `anteile-kasse.test.ts` (+4: gleicher Provider-Anteil wie der
+  Knoten, Gebot als Obergrenze, Bündeln und ganze sats, unklar nie wiederholt,
+  Klären, parallele Läufe, Unlesbares), `ki-zahlung.test.ts` (+3: Höchstbetrag,
+  Verdrahtung, keine App-Gebühr/kein Keysend/keine Verwahrer-Adresse),
+  `session-client.test.ts` (+1: Fenster, ganze sats, Budget, unklar, parallel).
+  Ersetzt: der Test zu „Zahlung prüfen“ am Beleg des Knotens (4.8) durch einen
+  zur Anzeige der Aufteilung – die Funktion entfällt, weil der Knoten seit 5.1.2
+  keinen Beleg mehr veröffentlicht.
+- Leak +2 (57): Deklaration nur im versiegelten Kern; bezahlte Belege zeigen
+  offen weder Preimage noch Rechnung.
+- protocol +1 (1154): `ENTWICKLUNG` eingefroren, keine Verwahrer-Adresse, leer →
+  Anteil beim Provider.
+- check-wiring: Keysend-Regel verschärft (nirgends erlaubt); `teileAuf`,
+  `zahlbareAnteile`, `aufteilungTag` verdrahtet; ausgenommen bis 5.1.4, was die
+  App nicht mehr nutzt (Client-Gebühr, Gebühren-Beleg, alte Aufteilung).
+
+Endstand (nach Einmergen von main mit 8.4a/b): protocol 1162 (+1) · node 225 ·
+app 447 (+8) · mls 13 · Leak-Tests 57 grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 ·
+innerHTML streng 0 unbewertet · Website 5 Seiten ok · Smoke-Test bestanden.

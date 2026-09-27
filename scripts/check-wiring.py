@@ -189,8 +189,8 @@ ZAHLWEGE = {
     r"\bbuildSolTransfer\b": {"sol-transfer.ts", "shell/zahlschienen.ts"},
     # Treuhand-Programme (HTLC-Deposit, Swap) senden eigene Anweisungen, keine Ueberweisung.
     r"sendRawTransaction": {"shell/zahlschienen.ts", "sol-htlc.ts", "swap-client.ts"},
-    # Keysend der Sitzung: nie mit Wallet aufgerufen; die KI-Bezahlung wartet auf 4.0/4.3.
-    r"\.keysend\(": {"session-client.ts"},
+    # Keysend nirgends: KI-Auftraege zahlt die App seit 5.1.3 per Rechnung ueber die Schiene.
+    r"\.keysend\(": set(),
     # Eingebaute SOL-Wallet (4.2a): roh signiert nur sie selbst, zahlen nur ueber die Schiene.
     r"\.addSignature\(": {"sol-wallet.ts"},
     r"\bbenutzbareEingebauteWallet\b": {"shell/eingebaute-wallet.ts", "shell/zahlschienen.ts"},

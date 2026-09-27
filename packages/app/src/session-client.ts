@@ -4,14 +4,15 @@
  * Ablauf aus User-Sicht:
  *   1. Erste Frage an einen Provider: Session wird eroeffnet (kind 38021,
  *      Budget + Rate-Deckel). Noch keine Zahlung.
- *   2. Jede Antwort: App prueft usage, publiziert Zahlungs-Beleg (38022)
- *      und loest Keysend-Settlement aus, sobald das Fenster faellig ist.
+ *   2. Jede Antwort: App verbucht den Anteil des Providers (5.1.3), zahlt ihn,
+ *      sobald das Fenster faellig ist, an seine Lightning-Adresse und
+ *      publiziert den Zahlungs-Beleg (38022).
  *   3. Budget-Warnung bei 80%, Session-Close wenn leer oder TTL abgelaufen.
  *
- * Ohne verbundene Lightning-Wallet laeuft der "Beleg-only"-Modus: Die App
- * dokumentiert die Schuld signiert (38022), Settlement erfolgt dann beim
- * naechsten Wallet-Connect oder manuell. Der Provider sieht beides und
- * entscheidet selbst, wie viel Kredit er gibt (Betrugsrisiko = 1 Intervall).
+ * Ohne verbundene Lightning-Wallet (oder ohne Adresse im Angebot) laeuft der
+ * "Beleg-only"-Modus: Die App dokumentiert die Schuld signiert (38022). Der
+ * Provider sieht das und entscheidet selbst, wie viel Kredit er gibt
+ * (Betrugsrisiko = 1 Intervall).
  */
 import {
   type NostrEvent,
@@ -62,14 +63,25 @@ export interface ActiveSession {
   payments: ParsedSessionPayment[];
   /** Gesamte aufgelaufene Schuld in msat (monoton, aus Results). */
   chargedMsat: number;
-  /** Bereits per Keysend bezahlte Summe in msat. */
+  /** Bereits bezahlte Summe in msat. */
   paidMsat: number;
+  /**
+   * Rechnung einer Zahlung mit unklarem Ausgang: Ob das Geld ging, weiss nur
+   * die Wallet – in dieser Sitzung zahlt die App dann nie wieder automatisch.
+   */
+  unklar?: string;
+  /** Laeuft gerade eine Zahlung? Dann zahlt eine zweite Antwort nicht dieselbe Schuld. */
+  zahlt?: boolean;
 }
 
-/** Keysend-Schnittstelle der App (WebLN/LND-Bridge; injizierbar fuer Tests). */
-export interface KeysendWallet {
-  /** Ziel = Provider-Lightning-Node-Pubkey oder lud16-alias. Gibt payment_ref zurueck. */
-  keysend(destPubkey: string, amountMsat: number): Promise<string>;
+/**
+ * Zahlung an den Provider (5.1.3), zweistufig: erst die Rechnung (bewegt kein
+ * Geld), dann zahlen – so ist klar, ob ein Fehler vor der Wallet lag.
+ */
+export interface ProviderZahlung {
+  rechnung(amountMsat: number): Promise<string>;
+  /** Gibt den Nachweis zurueck (Preimage). */
+  zahle(rechnung: string, amountMsat: number): Promise<string>;
 }
 
 export class SessionClient {
@@ -132,16 +144,16 @@ export class SessionClient {
   }
 
   /**
-   * Nach empfangener Antwort: Schuld verbuchen, Beleg publizieren,
-   * Settlement ausloesen wenn Fenster erreicht.
-   * Gibt { settled, paymentRef } zurueck (settled=false im Beleg-only-Modus).
+   * Nach empfangener Antwort: den Anteil des Providers verbuchen, faellige
+   * Summe zahlen (ganze sats, hoechstens bis zum Budget), Beleg publizieren.
+   * settled=false im Beleg-only-Modus; unklar=true, wenn das Zahlen scheiterte.
    */
   async chargeForResult(
     providerPubkey: string,
     amountMsat: number,
     resultEventId: string,
-    wallet?: KeysendWallet,
-  ): Promise<{ settled: boolean; paymentRef?: string; remainingMsat: number }> {
+    wallet?: ProviderZahlung,
+  ): Promise<{ settled: boolean; unklar?: boolean; gezahltMsat?: number; faelligAbMsat: number; paymentRef?: string; remainingMsat: number }> {
     let session = this.activeFor(providerPubkey);
     if (!session) session = await this.openSession(providerPubkey);
 
@@ -149,20 +161,32 @@ export class SessionClient {
     const seq = (this.seqCounters.get(session.open.sessionId) ?? 0) + 1;
     this.seqCounters.set(session.open.sessionId, seq);
 
-    // Settlement-Fenster erreicht?
-    const due = session.chargedMsat - session.paidMsat;
+    // Settlement-Fenster erreicht? Nie ueber das Budget der Sitzung hinaus.
+    const offen = Math.min(session.chargedMsat, session.open.maxTotalMsat) - session.paidMsat;
+    const due = offen - (offen % 1000);
     let paymentRef: string | undefined;
     let settled = false;
+    let unklar = false;
 
-    if (due >= session.open.settleEveryMsat && wallet) {
-      // Keysend an den Provider (sein Nostr-pubkey-als-Node ist eine
-      // Konvention; Produktion: Node-Pubkey aus dem Profil/Result-Tag).
+    if (due > 0 && due >= session.open.settleEveryMsat && wallet && !session.unklar && !session.zahlt) {
+      session.zahlt = true;
       try {
-        paymentRef = await wallet.keysend(providerPubkey, due);
-        settled = true;
-        session.paidMsat += due;
-      } catch {
-        settled = false; // Beleg-only: Schuld bleibt dokumentiert
+        let rechnung: string | undefined;
+        try {
+          rechnung = await wallet.rechnung(due);
+        } catch { /* nichts gezahlt – Beleg-only, beim naechsten Mal wieder */ }
+        if (rechnung) {
+          try {
+            paymentRef = await wallet.zahle(rechnung, due);
+            settled = true;
+            session.paidMsat += due;
+          } catch {
+            session.unklar = rechnung;
+            unklar = true;
+          }
+        }
+      } finally {
+        session.zahlt = false;
       }
     }
 
@@ -184,6 +208,9 @@ export class SessionClient {
 
     return {
       settled,
+      unklar,
+      gezahltMsat: settled ? due : 0,
+      faelligAbMsat: session.open.settleEveryMsat,
       paymentRef,
       remainingMsat: session.open.maxTotalMsat - session.chargedMsat,
     };
