@@ -13,6 +13,7 @@ import { LS_ONION_PRUEFRELAY, onionKandidaten, pruefeOnion } from "../onion-prue
 import { ladeEigeneRelays } from "../relay-satz.js";
 import { geheim } from "./tresor.js";
 import { $ } from "./ui.js";
+import { t } from "../i18n.js";
 
 let onion: { kandidaten: string; ergebnis: Promise<OnionPruefung>; fertig: boolean } | null = null;
 
@@ -54,7 +55,7 @@ export async function zeigeDatenschutz(erneut = false): Promise<void> {
       await import("@freedomstack/protocol");
     const pruefung = onionPruefung(erneut);
     if (!onion?.fertig) {
-      box.textContent = "Prüfe, ob dieser Browser ein .onion-Relay erreicht (höchstens 10 Sekunden) …";
+      box.textContent = t("bau.pruefeOnion");
       box.className = "mono-sm muted";
     }
     const tor = await pruefung;
@@ -91,19 +92,16 @@ export async function zeigeDatenschutz(erneut = false): Promise<void> {
     const { privacyFactsText } = await import("@freedomstack/protocol");
     const hinweise: string[] = [privacyFactsText(faktenDieserSitzung(tor))];
     if (netz === "mixnet") {
-      hinweise.push(
-        "Mixnetz: Ob du eines nutzt, kann die App nicht prüfen. Deine IP-Adresse ist nur verborgen, " +
-        "wenn du die App selbst hinter einem Mixnetz öffnest – der Bericht rechnet deshalb mit der direkten Verbindung.",
-      );
+      hinweise.push(t("bau.mixnetzHinweis"));
     }
     if (tor === "erreichbar" && netz === "klar") {
-      hinweise.push("Tipp: Dein Browser läuft über Tor. Mit „.onion-Relays bevorzugen“ gehen Verbindungen zuerst an Onion-Dienste – ohne Tor-Ausgang dazwischen.");
+      hinweise.push(t("bau.torTipp"));
     }
     box.textContent = privacyReport(cfg as never) + "\n\n" + hinweise.join("\n");
     box.className = s.critical > 0 ? "mono-sm err" : s.warnings > 0 ? "mono-sm warn" : "mono-sm ok";
   } catch (e) {
     if (nr !== bericht) return;
-    box.textContent = `Bericht nicht erstellbar: ${(e as Error).message}`;
+    box.textContent = t("bau.berichtFehler", { fehler: (e as Error).message });
   }
 }
 

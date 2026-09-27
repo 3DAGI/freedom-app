@@ -8,6 +8,10 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { gunzipSync } from "node:zlib";
 import { entpacke, mlsEngine, mlsSelbsttest } from "../src/mls-engine.js";
+import { setLang } from "../src/i18n.js";
+
+// Meldungen hier auf Deutsch prüfen (seit 8.16g2a über Schlüssel in der Sprache der Oberfläche)
+setLang("de");
 
 const gz = readFileSync(new URL("../../mls/dist/freedom_mls_bg.wasm.gz", import.meta.url));
 const echt = async () => gz.toString("base64");

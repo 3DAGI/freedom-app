@@ -5,6 +5,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { LOKAL_MAX_BYTES, localBrowserFetch, localWebSearch, lokalesZielVerboten, runLocalTools } from "../src/local-tools.js";
+import { setLang } from "../src/i18n.js";
+
+// Meldungen hier auf Deutsch prüfen (seit 8.16g2a über Schlüssel in der Sprache der Oberfläche)
+setLang("de");
 
 const echt = globalThis.fetch;
 function mitFetch(antwort: (url: string, init?: RequestInit) => Response) {
@@ -69,7 +73,7 @@ test("andere Werkzeuge laufen lokal nicht", async () => {
   const f = mitFetch(() => new Response("nie"));
   try {
     const { outcomes } = await runLocalTools([{ kind: 5061, name: "file_io", input: "read /etc/passwd" }, { kind: 5070, name: "image_gen", input: "http://127.0.0.1/" }]);
-    assert.ok(outcomes.every((o) => !o.ok && /lokal nicht verfuegbar/.test(o.output)));
+    assert.ok(outcomes.every((o) => !o.ok && /lokal nicht verfügbar/.test(o.output)));
     assert.equal(f.aufrufe.length, 0);
   } finally { f.zurueck(); }
 });

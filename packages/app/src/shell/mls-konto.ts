@@ -34,6 +34,7 @@ import { ladeEigeneRelays } from "../relay-satz.js";
 import type { GeheimSpeicher, TresorSpeicher } from "../vault.js";
 import { ensurePool, frageAn, mitBunker, mitRohemSchluessel, posteingangVon, state, veroeffentlicheAn } from "./state.js";
 import { geheim, tresorEingerichtet } from "./tresor.js";
+import { t } from "../i18n.js";
 
 /** Wem der gespeicherte Zustand gehört – für eine andere Identität wird er verworfen, nie geladen. */
 export const LS_MLS_IDENTITAET = "freedom.mls.identitaet";
@@ -42,9 +43,9 @@ export const LS_MLS_EINLADUNGEN = "freedom.mls.einladungen";
 
 /** Warum MLS hier nicht geht – oder null. Feste Texte. */
 export function mlsGesperrt(): string | null {
-  if (!state.keypair || !state.signer) return "keine Identität";
-  if (mitBunker()) return "mit Bunker (NIP-46) nicht möglich – der Kontobeweis braucht den Schlüssel auf diesem Gerät";
-  if (!tresorEingerichtet()) return "nur mit Tresor – richte ihn in den Settings unter Sicherheit ein";
+  if (!state.keypair || !state.signer) return t("bau.mlsKeineIdentitaet");
+  if (mitBunker()) return t("bau.mlsBunker");
+  if (!tresorEingerichtet()) return t("bau.mlsTresor");
   return null;
 }
 
@@ -259,17 +260,20 @@ export async function mlsSendeEvent(gruppe: string, s: InneresSenden, u: MlsUmge
   return true;
 }
 
+/** Ergebnis einer Einladung – Kennungen; angezeigt über `einladungsText()` (raum-mls.ts). */
+export type EinladungsErgebnis = "eingeladen" | "kein Admin" | "kein KeyPackage" | "nicht zugestellt"; // kein UI-Text
+
 /** Jemanden einladen (nur als Admin): KeyPackage und Posteingang nötig; nicht zugestellt → wieder entfernen. */
-export async function mlsLadeEin(gruppe: string, pk: string, u: MlsUmgebung = APP): Promise<"eingeladen" | "kein Admin" | "kein KeyPackage" | "nicht zugestellt"> {
+export async function mlsLadeEin(gruppe: string, pk: string, u: MlsUmgebung = APP): Promise<EinladungsErgebnis> {
   const kl = mlsKonto(u);
-  if (!kl || !HEX64.test(pk)) return "kein KeyPackage";
+  if (!kl || !HEX64.test(pk)) return "kein KeyPackage"; // kein UI-Text
   const k = await kl;
-  if (!k.mls.admins(gruppe).includes(k.pk)) return "kein Admin";
+  if (!k.mls.admins(gruppe).includes(k.pk)) return "kein Admin"; // kein UI-Text
   const a: Ablauf = { mls: k.mls, netz: k.u.netz, sichern: k.sichern };
   const kps = await vorbereiten([pk], new Map([[pk, pk]]), a, u);
-  if (!kps) return "kein KeyPackage";
+  if (!kps) return "kein KeyPackage"; // kein UI-Text
   const r = await aendereGruppe({ ...a, gruppe, einladen: kps }).catch(() => null);
-  return r?.angenommen && (await ohneUnzugestellte(a, gruppe, r.nichtZugestellt)) ? "eingeladen" : "nicht zugestellt";
+  return r?.angenommen && (await ohneUnzugestellte(a, gruppe, r.nichtZugestellt)) ? "eingeladen" : "nicht zugestellt"; // kein UI-Text
 }
 
 /** Mitglied entfernen (nur als Admin): ein Commit – danach liest es nichts mehr (neuer Schlüssel). */

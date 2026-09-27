@@ -14,6 +14,10 @@ import {
   type NostrEvent, type RelayFilter, type Signer,
 } from "@freedomstack/protocol";
 import { Mls, type MlsNachricht } from "@freedomstack/mls";
+import { setLang } from "../src/i18n.js";
+
+// Meldungen hier auf Deutsch prüfen (seit 8.16g2a über Schlüssel in der Sprache der Oberfläche)
+setLang("de");
 
 // tresor.ts liest localStorage beim Laden – vor dem Import bereitstellen.
 const ls = new Map<string, string>();

@@ -22,7 +22,7 @@ test("2.2b-d1: Einladungen nur aus Umschlägen, die keine DM sind; Gruppen nur, 
 
 test("2.2b-d1/e1: gesperrt mit Bunker und ohne Tresor, als Gerät nicht; der rohe Schlüssel nur für den Kontobeweis", () => {
   assert.match(konto, /if \(mitBunker\(\)\) return /);
-  assert.match(konto, /if \(!tresorEingerichtet\(\)\) return "nur mit Tresor/);
+  assert.match(konto, /if \(!tresorEingerichtet\(\)\) return t\("bau\.mlsTresor"\);/);
   assert.doesNotMatch(konto, /alsGeraet\(\)/, "als Gerät ein eigenes Konto (Entscheidung 2.2b-e: A)");
   assert.deepEqual([...konto.matchAll(/mitRohemSchluessel\("([^"]+)"/g)].map((m) => m[1]), ["MLS-Kontobeweis"]);
   assert.match(konto, /new MlsZustand\(u\.zustand\(\), schluessel, pk\)/, "an die Identität gebunden");

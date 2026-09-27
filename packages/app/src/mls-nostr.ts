@@ -134,7 +134,8 @@ export async function empfangeGruppe(p: { mls: Mls; sichern: () => Promise<void>
   Promise<MlsEmpfang & { wartezeit?: Record<string, number> }> {
   const r = await p.mls.empfangen(p.ev);
   if (r.nachrichten.length > 0) await p.merken?.(r.nachrichten);
-  if (r.nachrichten.length > 0 || r.geaendert.length > 0 || r.ergebnis !== "Ignored") await p.sichern();
+  // „Ignored“ ist eine Kennung der Engine
+  if (r.nachrichten.length > 0 || r.geaendert.length > 0 || r.ergebnis !== "Ignored") await p.sichern(); // kein UI-Text
   const wartezeit: Record<string, number> = {};
   for (const g of p.mls.gruppen()) {
     const w = p.mls.wartezeit(g);

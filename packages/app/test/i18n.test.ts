@@ -1,9 +1,8 @@
 /**
  * Schritt 8.16 (Variante B): Deutsch und Englisch vollständig. Findet
- * fehlende, unbenutzte und rohe Texte. Rohtext zählt in index.html je
- * Bereich und im Code je Datei (`i18n-offen.ts`): fertige stehen auf 0,
- * offene dürfen nur sinken, neue Dateien sind von Anfang an fertig.
- * Fertig: Rahmen (8.16a), Kommunikation (8.16c), Agent-Seite und tabs/agent.ts (8.16d1).
+ * fehlende, unbenutzte und rohe Texte. Seit 8.16g2a streng: kein roher Text
+ * in index.html und in keiner Datei des Codes – die Tabelle der offenen
+ * Stellen (`i18n-offen.ts`) gibt es nicht mehr.
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -11,7 +10,6 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { join as pfad, relative } from "node:path";
 import { BEREICHE, LANGS, detectLang, gebietsschema, gespeicherteSprache, getLang, setLang, t } from "../src/i18n.js";
-import { OFFEN_CODE, OFFEN_HTML } from "./i18n-offen.js";
 import { rohtexte, rohtexteImCode } from "./i18n-rohtext.js";
 
 const SRC = new URL("../src/", import.meta.url).pathname;
@@ -22,6 +20,9 @@ const dateien = (dir: string): string[] =>
 const quellen = dateien(SRC).map((f) => ({ datei: relative(SRC, f), text: readFileSync(f, "utf8") }));
 const code = quellen.map((q) => q.text).join("\n");
 const alle = Object.assign({}, ...Object.values(BEREICHE)) as Record<string, { de: string; en: string }>;
+/** Rohe Texte einer Datei bzw. eines Bereichs von index.html – seit 8.16g2a überall 0. */
+const offenImCode = (d: string): number => rohtexteImCode(readFileSync(join(SRC, d), "utf8")).length;
+const offenImHtml = (b: string): number => rohtexte(html).filter((r) => r.bereich === b).length;
 
 test("8.16: nur Deutsch und Englisch – jeder Text in beiden, nicht leer, mit denselben Platzhaltern, in genau einem Bereich", () => {
   assert.deepEqual(LANGS.map((l) => l.code), ["de", "en"]);
@@ -84,14 +85,9 @@ test("8.16: Rohtext-Suche – findet Text und Attribute ohne Schlüssel, übersi
   ]);
 });
 
-test("8.16: kein roher Text in fertigen Bereichen von index.html, in offenen nicht mehr als bisher", () => {
-  const je: Record<string, string[]> = {};
-  for (const r of rohtexte(html)) (je[r.bereich] ??= []).push(r.text);
-  for (const bereich of new Set([...Object.keys(je), ...Object.keys(OFFEN_HTML)])) {
-    const gefunden = je[bereich] ?? [];
-    assert.ok(bereich in OFFEN_HTML, `neuer Bereich ${bereich}: in OFFEN_HTML eintragen`);
-    assert.ok(gefunden.length <= OFFEN_HTML[bereich], `${bereich}: ${gefunden.length} rohe Texte (erlaubt ${OFFEN_HTML[bereich]})${OFFEN_HTML[bereich] === 0 ? `: ${gefunden.join(" | ")}` : ""}`);
-  }
+test("8.16: kein roher Text in index.html (seit 8.16g2a streng)", () => {
+  const gefunden = rohtexte(html);
+  assert.deepEqual(gefunden.map((r) => `${r.bereich}: ${r.text}`), []);
 });
 
 test("8.16: Rohtext-Suche im Code – findet sichtbaren Text, auch in Vorlagen, übersieht Code und Vermerktes", () => {
@@ -125,14 +121,12 @@ test("8.16: Rohtext-Suche im Code – findet sichtbaren Text, auch in Vorlagen, 
   ]);
 });
 
-test("8.16: kein roher Text im Code fertiger und neuer Dateien, in offenen nicht mehr als bisher", () => {
+test("8.16: kein roher Text in irgendeiner Datei des Codes (seit 8.16g2a streng)", () => {
+  assert.ok(quellen.length > 80, "alle Dateien gelesen");
   for (const { datei, text } of quellen) {
     const gefunden = rohtexteImCode(text);
-    const erlaubt = OFFEN_CODE[datei] ?? 0;
-    assert.ok(gefunden.length <= erlaubt,
-      `${datei}: ${gefunden.length} rohe Texte (erlaubt ${erlaubt})${erlaubt === 0 ? `: ${gefunden.map((f) => `${f.zeile}: ${f.text}`).join(" | ")}` : ""}`);
+    assert.equal(gefunden.length, 0, `${datei}: ${gefunden.map((f) => `${f.zeile}: ${f.text}`).join(" | ")}`);
   }
-  for (const datei of Object.keys(OFFEN_CODE)) assert.ok(quellen.some((q) => q.datei === datei), `${datei} gibt es nicht mehr – aus OFFEN_CODE streichen`);
 });
 
 test("8.16a: Rahmen – Navigation und Kopfzeile über Schlüssel, gespeicherte Sprache geprüft, das nie gezeigte Wallet-Gate ist weg", () => {
@@ -164,7 +158,7 @@ test("8.16c: Kommunikation – Texte über Schlüssel; die Markierung abgelöste
   const kom = readFileSync(pfad(SRC, "shell/tabs/kommunikation.ts"), "utf8");
   assert.match(kom, /import \{ gebietsschema, t \} from "\.\.\/\.\.\/i18n\.js";/);
   assert.doesNotMatch(kom, /"de-DE"/);
-  assert.ok(!("shell/tabs/kommunikation.ts" in OFFEN_CODE) && OFFEN_HTML["page-comm"] === 0, "fertig: Seite und Code auf 0");
+  assert.ok(offenImCode("shell/tabs/kommunikation.ts") === 0 && offenImHtml("page-comm") === 0, "fertig: Seite und Code auf 0");
   // Die Markierung steht im gespeicherten Namen – eine Unterhaltung aus der anderen Sprache bleibt erkannt
   const marke = /^\((alter Schlüssel|old key)\) /;
   assert.match(kom, /const ALT_MARKE = \/\^\\\(\(alter Schlüssel\|old key\)\\\) \/;/);
@@ -186,7 +180,7 @@ test("8.16c: Kommunikation – Texte über Schlüssel; die Markierung abgelöste
 
 test("8.16d1: Agent – Seite und tabs/agent.ts über Schlüssel; eigene Meldungen nicht umgedeutet, Beispiel-Prompts in der Sprache", () => {
   const ag = readFileSync(pfad(SRC, "shell/tabs/agent.ts"), "utf8");
-  assert.ok(!("shell/tabs/agent.ts" in OFFEN_CODE) && OFFEN_HTML["page-ai"] === 0, "fertig: Seite und Code auf 0");
+  assert.ok(offenImCode("shell/tabs/agent.ts") === 0 && offenImHtml("page-ai") === 0, "fertig: Seite und Code auf 0");
   assert.doesNotMatch(ag, /"de-DE"/);
   // Eigene Meldungen sind schon übersetzt – explainError deutet sie nicht nach deutschen Mustern um
   assert.match(ag, /if \(e instanceof EigeneMeldung\) return e\.message;/);
@@ -217,10 +211,10 @@ test("8.16e: Agent-Rest, Währung, Zahlwege und Swaps – über Schlüssel; Text
     "relay-einloesung.ts", "preis-anzeige.ts",
   ];
   for (const d of fertig) {
-    assert.ok(!(d in OFFEN_CODE), `${d} fertig`);
+    assert.equal(offenImCode(d), 0, `${d} fertig`);
     assert.doesNotMatch(readFileSync(pfad(SRC, d), "utf8"), /"de-DE"/, d);
   }
-  assert.equal(OFFEN_HTML["page-wallet"], 0);
+  assert.equal(offenImHtml("page-wallet"), 0);
   const lies = (d: string) => readFileSync(pfad(SRC, d), "utf8");
   // Deutsche Texte des Protokolls nicht mehr anzeigen – die App bildet sie aus den Feldern
   assert.doesNotMatch(lies("shell/tabs/agent-netz.ts"), /m\.note\b/);
@@ -279,10 +273,10 @@ test("8.16e: Agent-Rest, Währung, Zahlwege und Swaps – über Schlüssel; Text
 
 test("8.16f: Earn, Profil, Settings – über Schlüssel; Sätze des Protokolls auf Deutsch wortgleich, auf Englisch übersetzt", async () => {
   for (const d of ["shell/tabs/earn.ts", "shell/tabs/profil.ts", "shell/tabs/repos.ts", "shell/tabs/settings.ts", "repo-ansicht.ts", "protokoll-texte.ts"]) {
-    assert.ok(!(d in OFFEN_CODE), `${d} fertig`);
+    assert.equal(offenImCode(d), 0, `${d} fertig`);
     assert.doesNotMatch(readFileSync(pfad(SRC, d), "utf8"), /"de-DE"/, d);
   }
-  for (const b of Object.keys(OFFEN_HTML)) assert.equal(OFFEN_HTML[b], 0, `${b}: index.html fertig`);
+  assert.equal(rohtexte(html).length, 0, "index.html fertig");
   // Deutsche Sätze des Protokolls werden nicht mehr angezeigt – die App bildet sie aus den Feldern
   const earn = readFileSync(pfad(SRC, "shell/tabs/earn.ts"), "utf8");
   const profil = readFileSync(pfad(SRC, "shell/tabs/profil.ts"), "utf8");
@@ -362,7 +356,7 @@ test("8.16g1: Einstieg und Dialoge – über Schlüssel; Rückfrage vor dem Lös
     "geraete-buch.ts", "geraete-modus.ts", "relay-satz.ts", "shell/versand.ts", "suche.ts", "shell/suche-ui.ts",
   ];
   for (const d of fertig) {
-    assert.ok(!(d in OFFEN_CODE), `${d} fertig`);
+    assert.equal(offenImCode(d), 0, `${d} fertig`);
     assert.doesNotMatch(readFileSync(pfad(SRC, d), "utf8"), /"de-DE"/, d);
   }
   // Die Rückfrage vor der Notfall-Löschung kommt aus protokoll-texte.ts, nicht mehr aus dem Protokoll
@@ -387,6 +381,44 @@ test("8.16g1: Einstieg und Dialoge – über Schlüssel; Rückfrage vor dem Lös
     setLang("en");
     assert.match(T.loeschRueckfrage(), /^Delete everything on this device\?[\s\S]*LEGAL NOTICE[\s\S]*What is NOT deleted: everything already on relays\.$/);
     assert.equal(t("ein.loeschenEintippen"), "type DELETE to confirm");
+  } finally {
+    setLang(vorher);
+  }
+});
+
+test("8.16g2a: übrige Bausteine – Mesh, MLS, Werkzeuge, Räume, Hinweise im Bericht über Schlüssel; Kennungen bleiben, Anzeige übersetzt", async () => {
+  // Kennungen einer Einladung bleiben Daten; die Anzeige übersetzt sie, Fehlermeldungen bleiben, wie sie sind
+  const kom = readFileSync(pfad(SRC, "shell/tabs/kommunikation.ts"), "utf8");
+  assert.match(kom, /t\("komm\.nichtEingeladen", \{ grund: einladungsText\(r\) \}\)/);
+  // Der Selbsttest erkennt fehlende Browser-Fähigkeiten an der Art des Fehlers, nicht am deutschen Text
+  const engine = readFileSync(pfad(SRC, "mls-engine.ts"), "utf8");
+  assert.match(engine, /e instanceof BrowserKannNicht \? e\.message : t\("bau\.mlsStartetHierNicht"\)/);
+  assert.doesNotMatch(engine, /startsWith\("Dieser Browser"\)/);
+  // Der Hinweis zum Weg ans Funkgerät folgt einem Sprachwechsel beim Öffnen der Settings
+  const app = readFileSync(pfad(SRC, "shell/app.ts"), "utf8");
+  assert.match(app, /if \(name === "settings"\) \{[^}]*void zeigeMeshWeg\(\);/);
+
+  // raum-mls.ts liest beim Laden localStorage (über state.ts) – hier genügt ein leerer
+  const g = globalThis as { localStorage?: unknown };
+  const d = new Map<string, string>();
+  g.localStorage ??= { getItem: (k: string) => d.get(k) ?? null, setItem: (k: string, v: string) => void d.set(k, v), removeItem: (k: string) => void d.delete(k), key: () => null, get length() { return d.size; } };
+  const { einladungsText } = await import("../src/shell/raum-mls.js");
+  const { detectTransports } = await import("../src/mesh-radio.js");
+  const { lokalesZielVerboten } = await import("../src/local-tools.js");
+  const { mlsSelbsttest } = await import("../src/mls-engine.js");
+  const vorher = getLang();
+  try {
+    setLang("de");
+    assert.equal(einladungsText("kein KeyPackage"), "kein KeyPackage");
+    assert.equal(einladungsText("ohne Raumstand"), "eingeladen – Raumstand nicht gesendet");
+    assert.equal(detectTransports({}).note, "Dieser Browser kann keine Geräte ansprechen (auf iOS die Regel). Nachrichten lassen sich als Datei exportieren und per Stick, Kamera oder anderem Weg übergeben.");
+    setLang("en");
+    assert.equal(einladungsText("kein Admin"), "not an admin");
+    assert.equal(einladungsText("nicht zugestellt"), "not delivered");
+    assert.equal(einladungsText("Relay weg"), "Relay weg", "eine Fehlermeldung bleibt");
+    assert.equal(detectTransports({ serial: {} }).note, "Plug in the USB device and connect — the most reliable way.");
+    assert.equal(lokalesZielVerboten("http://127.0.0.1/"), "private address");
+    assert.equal((await mlsSelbsttest(async () => { throw new Error("<b>fremd</b>"); })).text, "The MLS engine does not start in this browser.");
   } finally {
     setLang(vorher);
   }

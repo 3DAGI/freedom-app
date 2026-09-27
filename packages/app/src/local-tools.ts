@@ -18,6 +18,7 @@
  * Browser nicht vorher pruefen.
  */
 import { isPrivateAddress } from "@freedomstack/protocol";
+import { t } from "./i18n.js";
 
 /** So viel liest ein lokales Werkzeug hoechstens von einer Antwort. */
 export const LOKAL_MAX_BYTES = 1_000_000;
@@ -28,14 +29,14 @@ export function lokalesZielVerboten(roh: string): string | null {
   try {
     u = new URL(roh.trim());
   } catch {
-    return "keine gültige URL";
+    return t("bau.urlUngueltig");
   }
-  if (u.protocol !== "http:" && u.protocol !== "https:") return "nur http und https";
-  if (u.username || u.password) return "keine Zugangsdaten in der URL";
+  if (u.protocol !== "http:" && u.protocol !== "https:") return t("bau.nurHttp");
+  if (u.username || u.password) return t("bau.keineZugangsdaten");
   const h = u.hostname.toLowerCase().replace(/^\[|\]$/g, "");
-  if (h === "localhost" || h.endsWith(".localhost") || h.endsWith(".local") || h.endsWith(".internal")) return "lokales Ziel";
+  if (h === "localhost" || h.endsWith(".localhost") || h.endsWith(".local") || h.endsWith(".internal")) return t("bau.lokalesZiel");
   // IP-Adressen (auch IPv6 mit eingebetteter IPv4, wie new URL sie schreibt) wie im Knoten pruefen
-  if ((/^\d+\.\d+\.\d+\.\d+$/.test(h) || h.includes(":")) && isPrivateAddress(h)) return "private Adresse";
+  if ((/^\d+\.\d+\.\d+\.\d+$/.test(h) || h.includes(":")) && isPrivateAddress(h)) return t("bau.privateAdresse");
   return null;
 }
 
@@ -77,10 +78,10 @@ export async function localWebSearch(query: string, timeoutMs = 8000): Promise<L
     const out =
       d.Answer ? `${d.Answer}` :
       d.AbstractText ? `${d.Heading ?? ""}: ${d.AbstractText} (${d.AbstractURL ?? ""})`.trim() :
-      "keine Instant-Answer gefunden — versuche eine spezifischere Frage";
+      t("bau.keineAntwort");
     return { name: "web_search", kind, output: out, ok: true };
   } catch (e) {
-    return { name: "web_search", kind, output: `web_search fehler: ${(e as Error).message}`, ok: false };
+    return { name: "web_search", kind, output: t("bau.sucheFehler", { fehler: (e as Error).message }), ok: false };
   }
 }
 
@@ -89,11 +90,11 @@ export async function localBrowserFetch(url: string, timeoutMs = 9000): Promise<
   const kind = 5062;
   try {
     const verboten = lokalesZielVerboten(url);
-    if (verboten) throw new Error(`Abruf abgelehnt: ${verboten}`);
+    if (verboten) throw new Error(t("bau.abrufAbgelehnt", { grund: verboten }));
     const res = await fetch(url.trim(), { signal: AbortSignal.timeout(timeoutMs), credentials: "omit", redirect: "error" });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const typ = (res.headers.get("content-type") ?? "").toLowerCase();
-    if (typ && !/^(text\/|application\/(json|xml|xhtml\+xml))/.test(typ)) throw new Error(`kein Text (${typ.split(";")[0]})`);
+    if (typ && !/^(text\/|application\/(json|xml|xhtml\+xml))/.test(typ)) throw new Error(t("bau.keinText", { typ: typ.split(";")[0] ?? "" }));
     const html = await leseText(res);
     const text = html
       .replace(/<script[\s\S]*?<\/script>/gi, "")
@@ -103,7 +104,7 @@ export async function localBrowserFetch(url: string, timeoutMs = 9000): Promise<
       .trim();
     return { name: "browser_use", kind, output: text.slice(0, 3000), ok: true };
   } catch (e) {
-    return { name: "browser_use", kind, output: `browser fehler (ggf. CORS): ${(e as Error).message}`, ok: false };
+    return { name: "browser_use", kind, output: t("bau.browserFehler", { fehler: (e as Error).message }), ok: false };
   }
 }
 
@@ -113,13 +114,14 @@ export async function runLocalTools(
 ): Promise<{ context: string; outcomes: LocalToolOutcome[] }> {
   const outcomes: LocalToolOutcome[] = [];
   let context = "";
-  for (const t of tools) {
+  for (const w of tools) {
     let o: LocalToolOutcome;
-    if (t.kind === 5060) o = await localWebSearch(t.input);
-    else if (t.kind === 5062) o = await localBrowserFetch(t.input);
-    else o = { name: t.name, kind: t.kind, output: `${t.name} lokal nicht verfuegbar`, ok: false };
+    if (w.kind === 5060) o = await localWebSearch(w.input);
+    else if (w.kind === 5062) o = await localBrowserFetch(w.input);
+    else o = { name: w.name, kind: w.kind, output: t("bau.lokalNicht", { name: w.name }), ok: false };
     outcomes.push(o);
-    context += `\n[Tool ${o.name} Ergebnis]:\n${o.output}\n`;
+    // Kontext für das Modell, nicht für die Oberfläche
+    context += `\n[Tool ${o.name} Ergebnis]:\n${o.output}\n`; // kein UI-Text
   }
   return { context, outcomes };
 }
@@ -146,7 +148,8 @@ export async function localInfer(
     body: JSON.stringify({
       model,
       messages: [
-        { role: "system", content: "You are a helpful assistant. Answer the user's question directly and concisely in their language. Do not output JSON, quizzes, or structured formats unless asked. Just answer the question." },
+        // Anweisung an das Modell, nicht für die Oberfläche
+        { role: "system", content: "You are a helpful assistant. Answer the user's question directly and concisely in their language. Do not output JSON, quizzes, or structured formats unless asked. Just answer the question." }, // kein UI-Text
         { role: "user", content: prompt },
       ],
       stream: false,
@@ -154,7 +157,7 @@ export async function localInfer(
     }),
     signal: AbortSignal.timeout(timeoutMs),
   });
-  if (!res.ok) throw new Error(`Ollama HTTP ${res.status}`);
+  if (!res.ok) throw new Error(t("bau.ollamaHttp", { status: res.status }));
   const d = (await res.json()) as { message?: { content?: string }; eval_count?: number; prompt_eval_count?: number };
   return {
     output: d.message?.content ?? "",
