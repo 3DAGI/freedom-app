@@ -6043,6 +6043,58 @@ grün + 2 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng 0
 unbewertet · Website 5 Seiten ok · Smoke-Test bestanden (beim Start 0
 WebAssembly übersetzt).
 
+## Schritt 5.10a – Abdeckungskarte: Wegwerfschlüssel je Eintrag, Ablauf, Austragen
+
+**Aufteilung:** 5.10 hat zwei unabhängige Teile – a die Abdeckungskarte, b
+Zeitanker (OpenTimestamps) für geld- und namensrelevante Events.
+
+**Fund:** Ein Eintrag in die Abdeckungskarte war mit der Identität signiert
+(`signiere(buildCoverageAnnouncement({ pubkey: state.keypair.pk, … }))`). Die
+k-Schwelle schützte nur die Anzeige in der App – wer die Relays las, sah
+„diese Person hat Funk in dieser Zelle“. Die Einwilligung versprach „kein
+Verlauf“ und „jederzeit widerrufbar“; beides war nicht umgesetzt.
+
+**Protokoll** (`coverage.ts`):
+- `baueCoverageEintrag()`: je Eintrag ein neuer Wegwerfschlüssel, Ablauf nach
+  NIP-40 in 7 Tagen (`COVERAGE_GUELTIG_SECS`) – ein neuer Eintrag ist mit dem
+  alten nicht verknüpft.
+- `baueCoverageWiderruf()`: Löschwunsch nach NIP-09, vom Wegwerfschlüssel
+  des Eintrags.
+- `buildCoverage()` blendet Abgelaufenes aus, auch wenn ein Relay es noch hält.
+- `coverageConsentText()` sagt für jede Ebene: Wegwerfschlüssel, 7 Tage, und
+  „Auf den Relays ist jeder Eintrag einzeln sichtbar. Die Schwelle von 3
+  Knoten gilt nur für die Anzeige in der App“.
+
+**App** (`tabs/earn.ts`, `tabs/settings.ts`, Karte „Abdeckung“):
+- „selbst eintragen“: erst die Einwilligung, dann ein früherer Eintrag
+  widerrufen, dann der neue mit Wegwerfschlüssel; den Schlüssel (für den
+  Widerruf) nur im Tresor (`freedom.coverage.eintrag`, nie in der
+  Zustandssicherung).
+- Neu: „austragen“ – Widerruf vom Wegwerfschlüssel, danach ist er vergessen.
+- Der Kartentext nennt Wegwerfschlüssel, Ablauf und die Sichtbarkeit auf den
+  Relays.
+
+**Datenschutz:** neue Aussage „abdeckung-schluessel“ (belegt, Regel
+„autor-verborgen“) mit Szenario: Einträge und Widerruf nie von der
+Identität, verschiedene Schlüssel je Eintrag, jeder mit Ablauf.
+
+**Browser-Prüfung** (Standort gesetzt, Test-Relay): Die Einwilligung nennt
+die Sichtbarkeit auf den Relays; der Eintrag trägt einen Wegwerfschlüssel,
+nicht die Identität, mit Ablauf und gerundeter Zelle (`48.00,11.50`); der
+Tresor-Eintrag passt zur ID; „austragen“ sendet Kind 5 vom selben Schlüssel
+und vergisst ihn. Keine Seitenfehler.
+
+**Tests:** protocol +3 (Wegwerfschlüssel und Ablauf, Widerruf, Einwilligung)
+und Szenario „abdeckung-schluessel“; app +1 (Verdrahtung). Das Leak-Szenario
+„Abdeckung eintragen“ (1.5) prüft jetzt den neuen Weg und zusätzlich, dass
+die Identität nicht Autor ist – seine Verdrahtungs-Prüfung verlangte wörtlich
+den Aufruf mit der Identität, den dieser Schritt abschafft.
+
+Endstand (nach dem Einmergen von 2.2b-e2): protocol 1152 (+ 6 übersprungen) ·
+node 239 (+ 7 übersprungen ohne Netz) · app 419 · mls 11 · Leak-Tests 54 grün
++ 2 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng 0
+unbewertet · Website 5 Seiten ok · Smoke-Test bestanden.
+
 ## Schritt 2.2b-d3 – Mit Geräten bleibt es bei NIP-17; Entscheidung 2.2b-e vorgelegt
 
 **Lücke aus 2.2b-d2, behoben:**

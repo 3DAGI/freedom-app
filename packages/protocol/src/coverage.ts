@@ -34,7 +34,7 @@
  * Abschaltung plant, eine nützliche Information. Der Nutzen für die Nutzer
  * überwiegt meiner Einschätzung nach, aber es ist ein Tausch, kein Gewinn.
  */
-import { NostrEvent, UnsignedEvent, buildEvent, getTag } from "./event.js";
+import { NostrEvent, UnsignedEvent, buildEvent, generateKeypair, getTag, keypairFromSecret, signEvent } from "./event.js";
 
 /** Abdeckungs-Ankündigung eines Knotens. */
 export const KIND_COVERAGE = 38055;
@@ -125,6 +125,39 @@ export function buildCoverageAnnouncement(
   return buildEvent(a.pubkey, KIND_COVERAGE, tags, "", createdAt);
 }
 
+/**
+ * Wie lange ein Eintrag gilt (Schritt 5.10): Er traegt ein Ablaufdatum nach
+ * NIP-40, danach verwerfen ihn Relays und Karte. Kein Verlauf – wer weiter
+ * erscheinen will, traegt sich neu ein.
+ */
+export const COVERAGE_GUELTIG_SECS = 7 * 24 * 3600;
+
+/** Loeschwunsch nach NIP-09. */
+export const KIND_LOESCHUNG = 5;
+
+/**
+ * Eintrag mit einem Wegwerfschluessel (Schritt 5.10) statt der Identitaet:
+ * Jeder Eintrag bekommt einen eigenen Schluessel, ein neuer ist mit dem alten
+ * nicht verknuepft. Den Schluessel braucht nur, wer den Eintrag widerrufen
+ * will – der Aufrufer verwahrt ihn (App: nur im Tresor).
+ */
+export function baueCoverageEintrag(
+  a: Omit<CoverageAnnouncement, "createdAt" | "pubkey">,
+  nowSecs = Math.floor(Date.now() / 1000),
+): { event: NostrEvent; wegwerfSk: Uint8Array } {
+  const kp = generateKeypair();
+  const e = buildCoverageAnnouncement({ ...a, pubkey: kp.pk }, nowSecs);
+  e.tags.push(["expiration", String(nowSecs + COVERAGE_GUELTIG_SECS)]);
+  return { event: signEvent(e, kp.sk), wegwerfSk: kp.sk };
+}
+
+/** Eintrag widerrufen (NIP-09), signiert vom Wegwerfschluessel des Eintrags. */
+export function baueCoverageWiderruf(eintragId: string, wegwerfSk: Uint8Array, nowSecs?: number): NostrEvent {
+  if (!/^[0-9a-f]{64}$/.test(eintragId)) throw new Error("Eintrag-ID ungültig");
+  const pk = keypairFromSecret(wegwerfSk).pk;
+  return signEvent(buildEvent(pk, KIND_LOESCHUNG, [["e", eintragId], ["k", String(KIND_COVERAGE)]], "Abdeckung widerrufen", nowSecs), wegwerfSk);
+}
+
 export function parseCoverageAnnouncement(ev: NostrEvent): CoverageAnnouncement {
   if (ev.kind !== KIND_COVERAGE) throw new Error(`keine Abdeckungs-Meldung: kind ${ev.kind}`);
   const layer = getTag(ev, "layer");
@@ -194,6 +227,9 @@ export function buildCoverage(
       continue;
     }
     if (now - a.createdAt > maxAge) continue;
+    // Abgelaufen (NIP-40, seit 5.10): nicht mehr zeigen, auch wenn ein Relay ihn noch haelt.
+    const ablauf = Number(getTag(ev, "expiration") ?? "NaN");
+    if (Number.isFinite(ablauf) && ablauf <= now) continue;
 
     const key = `${a.layer}:${a.cell}`;
     const e = byCell.get(key) ?? { layer: a.layer, region: a.region, pubkeys: new Set<string>() };
@@ -327,7 +363,25 @@ export function summarizeLayers(
  * Client dieselbe Warnung zeigen kann. Eine Zustimmung ohne Verständnis ist
  * keine Zustimmung.
  */
+/**
+ * Was fuer jeden Eintrag gilt (Schritt 5.10): Wegwerfschluessel, Ablauf – und
+ * dass die Schwelle nur die Anzeige schuetzt, nicht die Relays.
+ */
+function sichtbarkeitAufRelays(): string {
+  return [
+    "Dein Eintrag trägt einen Wegwerfschlüssel, nicht deine Identität, und läuft",
+    `nach ${COVERAGE_GUELTIG_SECS / 86400} Tagen ab – danach trägst du dich neu ein.`,
+    "Aber: Auf den Relays ist jeder Eintrag einzeln sichtbar. Die Schwelle von",
+    `${K_ANONYMITY} Knoten gilt nur für die Anzeige in der App – wer die Relays direkt`,
+    "liest, sieht auch eine Zelle mit einem einzigen Eintrag.",
+  ].join("\n");
+}
+
 export function coverageConsentText(layer: CoverageLayer): string {
+  return `${coverageConsentKern(layer)}\n\n${sichtbarkeitAufRelays()}`;
+}
+
+function coverageConsentKern(layer: CoverageLayer): string {
   if (layer === "bluetooth") {
     return [
       "Bluetooth reicht nur wenige Meter.",

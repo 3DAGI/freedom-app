@@ -7,12 +7,12 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { generateKeypair, signEvent, buildEvent } from "../src/event.js";
+import { generateKeypair, signEvent, buildEvent, keypairFromSecret, verifyEvent } from "../src/event.js";
 import {
   buildCoverageAnnouncement, parseCoverageAnnouncement, buildCoverage,
   coverageAt, toCell, cellCenter, coverageConsentText,
   K_ANONYMITY, LAYER_CELL_DEGREES, KIND_COVERAGE, LAYER_LABEL, summarizeLayers,
-  CoverageLayer,
+  CoverageLayer, COVERAGE_GUELTIG_SECS, KIND_LOESCHUNG, baueCoverageEintrag, baueCoverageWiderruf,
 } from "../src/coverage.js";
 
 const NOW = 1_800_000_000;
@@ -241,4 +241,41 @@ test("Zustimmungstext fuer Online ist angemessen kurz", () => {
   const t = coverageConsentText("online");
   assert.match(t, /ohnehin sichtbar/);
   assert.ok(t.length < coverageConsentText("lora").length, "keine Panikmache, wo kein Risiko ist");
+});
+
+// ------------------------------------------------------------ Wegwerfschluessel und Ablauf (5.10)
+
+test("5.10: jeder Eintrag hat einen eigenen Wegwerfschluessel und laeuft ab", () => {
+  const JETZT = 1_790_000_000;
+  const e1 = baueCoverageEintrag({ layer: "lora", cell: "52.00,13.00", region: "" }, JETZT);
+  const e2 = baueCoverageEintrag({ layer: "lora", cell: "52.00,13.00", region: "" }, JETZT);
+  assert.ok(verifyEvent(e1.event) && verifyEvent(e2.event));
+  assert.notEqual(e1.event.pubkey, e2.event.pubkey, "neuer Eintrag, neuer Schluessel – nicht verknuepfbar");
+  assert.equal(keypairFromSecret(e1.wegwerfSk).pk, e1.event.pubkey);
+  assert.deepEqual(e1.event.tags.find((t) => t[0] === "expiration"), ["expiration", String(JETZT + COVERAGE_GUELTIG_SECS)]);
+  // Drei Eintraege → Zelle sichtbar; nach Ablauf nicht mehr, auch wenn ein Relay sie noch haelt.
+  const drei = [e1, e2, baueCoverageEintrag({ layer: "lora", cell: "52.00,13.00", region: "" }, JETZT)].map((e) => e.event);
+  assert.equal(buildCoverage(drei, { nowSecs: JETZT + 60 }).cells.length, 1);
+  const abgelaufen = drei.map((ev) => ({ ...ev, tags: ev.tags.map((t) => (t[0] === "expiration" ? ["expiration", String(JETZT + 30)] : t)) }));
+  assert.equal(buildCoverage(abgelaufen, { nowSecs: JETZT + 60 }).cells.length, 0);
+});
+
+test("5.10: Widerruf nach NIP-09 – vom Wegwerfschluessel des Eintrags, nie von der Identitaet", () => {
+  const e = baueCoverageEintrag({ layer: "bluetooth", cell: "48.00,11.00", region: "" });
+  const w = baueCoverageWiderruf(e.event.id, e.wegwerfSk, 1_790_000_100);
+  assert.ok(verifyEvent(w));
+  assert.equal(w.kind, KIND_LOESCHUNG);
+  assert.equal(w.pubkey, e.event.pubkey);
+  assert.deepEqual(w.tags, [["e", e.event.id], ["k", "38055"]]);
+  assert.throws(() => baueCoverageWiderruf("kaputt", e.wegwerfSk), /Eintrag-ID/);
+});
+
+test("5.10: die Einwilligung sagt, dass Relays jeden Eintrag einzeln zeigen", () => {
+  for (const layer of ["lora", "bluetooth", "online"] as const) {
+    const t = coverageConsentText(layer).replace(/\n/g, " ");
+    assert.match(t, /Wegwerfschlüssel, nicht deine Identität/, layer);
+    assert.match(t, /Auf den Relays ist jeder Eintrag einzeln sichtbar/, layer);
+    assert.match(t, /gilt nur für die Anzeige in der App/, layer);
+    assert.match(t, /nach 7 Tagen ab/, layer);
+  }
 });
