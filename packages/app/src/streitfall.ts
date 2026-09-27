@@ -9,6 +9,7 @@
  * die Reklamation – nur im Tresor (`geheim`), höchstens 30 Tage.
  */
 import { KIND_JOB_DISPUTE, type Dispute, type DisputeReason, type Resolution, type UnsignedEvent, parseDispute } from "@freedomstack/protocol";
+import { t } from "./i18n.js";
 
 /** Eigene Reklamationen samt Sitzungsschlüssel – liegt nur im Tresor. */
 export const LS_REKLAMATIONEN = "freedom.reklamationen";
@@ -19,7 +20,8 @@ const HEX64 = /^[0-9a-f]{64}$/;
 export interface Pruefer {
   pk: string;
   name: string;
-  art: "kontakt" | "eigener Provider";
+  /** Kontakt (Direktnachrichten) oder eigener Provider – angezeigt über `PRUEFER_ART`. */
+  art: "kontakt" | "provider";
 }
 
 /**
@@ -39,7 +41,7 @@ export function prueferAusNetz(
   }
   for (const pk of eigeneProvider) {
     if (!HEX64.test(pk) || raus.has(pk) || out.has(pk)) continue;
-    out.set(pk, { pk, name: `${pk.slice(0, 8)}…`, art: "eigener Provider" });
+    out.set(pk, { pk, name: `${pk.slice(0, 8)}…`, art: "provider" });
   }
   return [...out.values()].slice(0, 9);
 }
@@ -87,18 +89,26 @@ export function mitReklamation(liste: readonly EigeneReklamation[], r: EigeneRek
   return [...liste.filter((x) => x.jobId !== r.jobId), r].slice(-MAX_REKLAMATIONEN);
 }
 
+/** Art des Prüfers → Schlüssel des Texts (8.16e). */
+export const PRUEFER_ART: Record<Pruefer["art"], string> = { kontakt: "agent.prueferKontakt", provider: "agent.prueferProvider" };
+
+/** Grund einer Reklamation → Schlüssel des Texts (statt `DISPUTE_LABEL` aus dem Protokoll, das Deutsch ist). */
+export const GRUND_TEXT: Record<DisputeReason, string> = {
+  nichts_geliefert: "agent.grundNichts", unbrauchbar: "agent.grundUnbrauchbar", falsches_modell: "agent.grundModell", abgebrochen: "agent.grundAbgebrochen",
+};
+
 const WAS: Record<Resolution, string> = {
-  erstattet: "gibt dir recht",
-  bestaetigt: "gibt dem Provider recht",
-  geteilt: "schlägt vor, den Betrag zu teilen",
-  unentschieden: "kann es nicht beurteilen",
+  erstattet: "agent.urteilErstattet",
+  bestaetigt: "agent.urteilBestaetigt",
+  geteilt: "agent.urteilGeteilt",
+  unentschieden: "agent.urteilUnentschieden",
 };
 
 /** Eine Zeile für die Anzeige (textContent). */
 export function reklamationText(r: EigeneReklamation): string {
-  if (!r.urteil) return `wartet auf das Urteil von ${r.prueferName}`;
-  const betrag = r.urteil.erstattungMsat > 0 ? ` – ${Math.floor(r.urteil.erstattungMsat / 1000)} sats zurück` : "";
-  return `${r.prueferName} ${WAS[r.urteil.ergebnis]}${betrag}. Das gilt nur zwischen dir und dem Provider; erstatten muss er selbst.`;
+  if (!r.urteil) return t("agent.wartetAufUrteil", { name: r.prueferName });
+  const betrag = r.urteil.erstattungMsat > 0 ? t("agent.urteilZurueck", { sats: Math.floor(r.urteil.erstattungMsat / 1000) }) : "";
+  return t("agent.urteilZeile", { name: r.prueferName, was: t(WAS[r.urteil.ergebnis]), betrag });
 }
 
 // ------------------------------------------------------------ als Pruefer (5.6c)

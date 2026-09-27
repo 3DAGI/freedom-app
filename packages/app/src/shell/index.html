@@ -296,13 +296,13 @@
 
       <!-- WAEHRUNG -->
       <section id="page-wallet" class="tab-page">
-        <header class="page-head"><div><h1 class="page-title">Währung</h1><p class="page-sub">Lightning, Solana, Tausch und Liquidität.</p></div>
+        <header class="page-head"><div><h1 class="page-title" data-i18n="navWallet">Währung</h1><p class="page-sub" data-i18n="waehr.untertitel">Lightning, Solana, Tausch und Liquidität.</p></div>
           <div class="nav-balances head-balances" id="nav-balances">
             <div class="nb-row"><span class="nb-label">Sats</span><span class="nb-val" id="nb-sats">—</span></div>
             <div class="nb-row"><span class="nb-label">SOL</span><span class="nb-val" id="nb-sol">—</span></div>
-            <button id="nb-wallet" class="ghost" type="button">Wallet verbinden</button>
+            <button id="nb-wallet" class="ghost" type="button" data-i18n="waehr.walletVerbinden">Wallet verbinden</button>
           </div></header>
-        <div class="seg" role="tablist" data-subtab-group="wallet"><button role="tab" data-subtab="overview" class="active">Übersicht</button><button role="tab" data-subtab="swap">Tauschen</button><button role="tab" data-subtab="lp">Liquidität</button></div>
+        <div class="seg" role="tablist" data-subtab-group="wallet"><button role="tab" data-subtab="overview" class="active" data-i18n="waehr.tabUebersicht">Übersicht</button><button role="tab" data-subtab="swap" data-i18n="waehr.tabTauschen">Tauschen</button><button role="tab" data-subtab="lp" data-i18n="waehr.tabLiquiditaet">Liquidität</button></div>
         <div class="page-body">
           <div class="subpane active" data-subpane="wallet:overview"><div class="grid-2"><div class="card">
           <h3>Lightning</h3>
@@ -311,78 +311,78 @@
           <!-- NWC statt nur WebLN: funktioniert auf Handy wie Desktop, weil es
                ueber die Nostr-Relays laeuft und keine Browser-Extension braucht. -->
           <div id="nwc-box" style="margin-top:10px">
-            <input id="nwc-uri" class="mono-sm" placeholder="nostr+walletconnect://… (aus deiner Wallet)" style="width:100%" />
+            <input id="nwc-uri" class="mono-sm" placeholder="nostr+walletconnect://… (aus deiner Wallet)" data-i18n-ph="waehr.nwcPh" style="width:100%" />
             <div style="display:flex;gap:6px;margin-top:6px">
-              <button id="nwc-connect" class="ghost" style="width:auto;padding:6px 10px">wallet verbinden</button>
-              <button id="nwc-disconnect" class="ghost hidden" style="width:auto;padding:6px 10px">trennen</button>
+              <button id="nwc-connect" class="ghost" style="width:auto;padding:6px 10px" data-i18n="waehr.walletVerbinden">Wallet verbinden</button>
+              <button id="nwc-disconnect" class="ghost hidden" style="width:auto;padding:6px 10px" data-i18n="waehr.trennen">trennen</button>
             </div>
             <div id="nwc-status" class="mono-sm"></div>
           </div>
         </div><div class="card">
           <h3>Solana</h3>
           <div id="kurs-info" class="mono-sm"></div>
-          <div id="sol-pubkey" class="mono-sm">Nicht verbunden</div>
+          <div id="sol-pubkey" class="mono-sm" data-i18n="waehr.nichtVerbunden">Nicht verbunden</div>
           <div id="sol-status" class="mono-sm"></div>
-          <input id="sol-addr" class="mono-sm hidden" placeholder="SOL address" />
-          <button id="sol-connect" class="ghost">Verbinden</button>
+          <input id="sol-addr" class="mono-sm hidden" placeholder="SOL-Adresse" data-i18n-ph="waehr.solAdressePh" />
+          <button id="sol-connect" class="ghost" data-i18n="waehr.verbinden">Verbinden</button>
           <!-- Eingebaute Wallet (4.2): fuer alle ohne Browser-Wallet. Schluessel aus
                den 12 Woertern, nur im Tresor; Zahlungen ueber dem Tageslimit fragen nach. -->
           <div id="solw-box" style="margin-top:12px">
-            <div class="mono-sm"><b>Eingebaute Wallet</b> – ohne Browser-Wallet. Schlüssel aus deinen 12 Wörtern, nur im Tresor. Zahlt Zaps und Trinkgeld und empfängt beim Tausch sats → SOL an einer frischen Adresse; SOL → sats und Deposit brauchen eine verbundene Wallet.</div>
-            <button id="solw-einrichten" class="ghost hidden" style="width:auto;padding:6px 10px;margin-top:6px">einrichten</button>
+            <div class="mono-sm"><b data-i18n="waehr.eingebaut">Eingebaute Wallet</b> <span data-i18n="waehr.eingebautText">– ohne Browser-Wallet. Schlüssel aus deinen 12 Wörtern, nur im Tresor. Zahlt Zaps und Trinkgeld und empfängt beim Tausch sats → SOL an einer frischen Adresse; SOL → sats und Deposit brauchen eine verbundene Wallet.</span></div>
+            <button id="solw-einrichten" class="ghost hidden" style="width:auto;padding:6px 10px;margin-top:6px" data-i18n="waehr.einrichten">einrichten</button>
             <div id="solw-bereit" class="hidden" style="margin-top:6px">
-              <div class="mono-sm">Empfangen an:</div>
+              <div class="mono-sm" data-i18n="waehr.empfangenAn">Empfangen an:</div>
               <div id="solw-adresse" class="mono-sm" style="word-break:break-all"></div>
               <div id="solw-guthaben" class="mono-sm"></div>
               <div id="solw-rpc" class="mono-sm err" role="status"></div>
               <div id="solw-vorrat" class="mono-sm"></div>
               <div style="display:flex;gap:6px;align-items:center;margin-top:6px;flex-wrap:wrap">
                 <input id="solw-limit" type="number" min="0" step="0.01" class="mono-sm" style="width:7em" />
-                <span class="mono-sm">SOL in 24 Std. ohne Nachfrage</span>
-                <button id="solw-limit-speichern" class="ghost" style="width:auto;padding:6px 10px">speichern</button>
+                <span class="mono-sm" data-i18n="waehr.limitText">SOL in 24 Std. ohne Nachfrage</span>
+                <button id="solw-limit-speichern" class="ghost" style="width:auto;padding:6px 10px" data-i18n="waehr.speichern">speichern</button>
               </div>
               <div style="display:flex;gap:6px;margin-top:6px">
-                <button id="solw-kopieren" class="ghost" style="width:auto;padding:6px 10px">Adresse kopieren</button>
-                <button id="solw-frisch" class="ghost" style="width:auto;padding:6px 10px">frische Adresse</button>
-                <button id="solw-ergaenzen" class="ghost hidden" style="width:auto;padding:6px 10px">neue ableiten</button>
-                <button id="solw-entfernen" class="ghost" style="width:auto;padding:6px 10px">von diesem Gerät entfernen</button>
+                <button id="solw-kopieren" class="ghost" style="width:auto;padding:6px 10px" data-i18n="waehr.adresseKopieren">Adresse kopieren</button>
+                <button id="solw-frisch" class="ghost" style="width:auto;padding:6px 10px" data-i18n="waehr.frischeAdresse">frische Adresse</button>
+                <button id="solw-ergaenzen" class="ghost hidden" style="width:auto;padding:6px 10px" data-i18n="waehr.neueAbleiten">neue ableiten</button>
+                <button id="solw-entfernen" class="ghost" style="width:auto;padding:6px 10px" data-i18n="waehr.entfernen">von diesem Gerät entfernen</button>
               </div>
               <div id="solo-box" style="margin-top:10px">
-                <div class="mono-sm"><b>Ohne Internet zahlen</b></div>
+                <div class="mono-sm"><b data-i18n="waehr.offlineTitel">Ohne Internet zahlen</b></div>
                 <div id="solo-status" class="mono-sm muted"></div>
                 <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
-                  <button id="solo-anlegen" class="ghost" style="width:auto;padding:6px 10px">Nonce-Konto anlegen</button>
-                  <button id="solo-auffrischen" class="ghost hidden" style="width:auto;padding:6px 10px">Wert auffrischen</button>
-                  <button id="solo-zahlen" class="ghost" style="width:auto;padding:6px 10px">offline zahlen</button>
-                  <button id="solo-schliessen" class="ghost hidden" style="width:auto;padding:6px 10px">Konto schließen</button>
+                  <button id="solo-anlegen" class="ghost" style="width:auto;padding:6px 10px" data-i18n="waehr.nonceAnlegen">Nonce-Konto anlegen</button>
+                  <button id="solo-auffrischen" class="ghost hidden" style="width:auto;padding:6px 10px" data-i18n="waehr.wertAuffrischen">Wert auffrischen</button>
+                  <button id="solo-zahlen" class="ghost" style="width:auto;padding:6px 10px" data-i18n="waehr.offlineZahlen">offline zahlen</button>
+                  <button id="solo-schliessen" class="ghost hidden" style="width:auto;padding:6px 10px" data-i18n="waehr.kontoSchliessen">Konto schließen</button>
                 </div>
-                <p class="mono-sm muted">Ein Nonce-Konto hält einen Wert, mit dem eine Überweisung ohne Netz gültig bleibt. Signiert wird hier, eingereicht von einem Gerät mit Netz – über Funk oder per Datei. Ein Wert zahlt einmal. Wer mithört, sieht – wie später auf der Kette – Adressen und Betrag.</p>
+                <p class="mono-sm muted" data-i18n="waehr.nonceText">Ein Nonce-Konto hält einen Wert, mit dem eine Überweisung ohne Netz gültig bleibt. Signiert wird hier, eingereicht von einem Gerät mit Netz – über Funk oder per Datei. Ein Wert zahlt einmal. Wer mithört, sieht – wie später auf der Kette – Adressen und Betrag.</p>
               </div>
             </div>
             <div id="solw-status" class="mono-sm"></div>
           </div>
         </div></div></div>
-          <div class="subpane" data-subpane="wallet:swap"><div class="card"><h3>Tauschangebote</h3><div id="swap-book" class="mono-sm">—</div><div id="lp-offers" class="mono-sm"></div><div id="swap-invoice" class="mono-sm hidden">
+          <div class="subpane" data-subpane="wallet:swap"><div class="card"><h3 data-i18n="waehr.tauschangebote">Tauschangebote</h3><div id="swap-book" class="mono-sm">—</div><div id="lp-offers" class="mono-sm"></div><div id="swap-invoice" class="mono-sm hidden">
             <!-- Der Zahl-Link bleibt gesperrt, bis die Gegenleistung auf der
                  Kette geprueft ist. Genau hier verliert ein Kunde sonst Geld. -->
             <div id="swap-bolt11" class="mono-sm" style="word-break:break-all"></div>
-            <a id="swap-pay-link" class="ghost disabled" style="width:auto;padding:6px 10px;display:inline-block;margin-top:6px">in Wallet zahlen</a>
-            <button id="swap-claim" class="ghost hidden" style="width:auto;padding:6px 10px;margin-top:6px">SOL einlösen</button>
+            <a id="swap-pay-link" class="ghost disabled" style="width:auto;padding:6px 10px;display:inline-block;margin-top:6px" data-i18n="waehr.inWalletZahlen">in Wallet zahlen</a>
+            <button id="swap-claim" class="ghost hidden" style="width:auto;padding:6px 10px;margin-top:6px" data-i18n="waehr.solEinloesen">SOL einlösen</button>
           </div>
           <div id="swap-status" class="mono-sm"></div>
-          <button id="swap-backup" class="ghost" style="width:auto;padding:4px 8px;font-size:10px">Preimage-Sicherung</button>
-          <button id="wallet-refresh" class="ghost">Aktualisieren</button></div></div>
+          <button id="swap-backup" class="ghost" style="width:auto;padding:4px 8px;font-size:10px" data-i18n="waehr.preimageSicherung">Preimage-Sicherung</button>
+          <button id="wallet-refresh" class="ghost" data-i18n="waehr.aktualisieren">Aktualisieren</button></div></div>
           <div class="subpane" data-subpane="wallet:lp"><div class="card">
-          <h3>SOL hinterlegen</h3>
-          <input id="dep-amount" type="number" step="any" placeholder="Betrag in SOL" class="mono-sm" />
-          <input id="dep-provider" placeholder="provider pubkey (auto)" class="mono-sm" />
+          <h3 data-i18n="waehr.solHinterlegen">SOL hinterlegen</h3>
+          <input id="dep-amount" type="number" step="any" placeholder="Betrag in SOL" data-i18n-ph="waehr.betragSolPh" class="mono-sm" />
+          <input id="dep-provider" placeholder="Pubkey des Providers (auto)" data-i18n-ph="waehr.providerPh" class="mono-sm" />
           <!-- Wird aus dem Job-Ergebnis uebernommen. Manuell nur als Notausgang:
                eine abgetippte Empfaengeradresse ist die naheliegendste Stelle,
                um Geld an den Falschen zu sperren. -->
-          <input id="dep-provider-sol" placeholder="SOL-Adresse des Providers (auto)" class="mono-sm" />
+          <input id="dep-provider-sol" placeholder="SOL-Adresse des Providers (auto)" data-i18n-ph="waehr.providerSolPh" class="mono-sm" />
           <div id="dep-status" class="mono-sm">—</div>
-          <button id="dep-start" class="ghost">deposit</button>
-          <button id="dep-refund" class="ghost hidden">refund</button>
+          <button id="dep-start" class="ghost" data-i18n="waehr.hinterlegen">hinterlegen</button>
+          <button id="dep-refund" class="ghost hidden" data-i18n="waehr.zurueckholen">zurückholen</button>
         </div></div>
         </div>
       </section>

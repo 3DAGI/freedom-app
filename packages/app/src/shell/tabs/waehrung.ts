@@ -16,6 +16,7 @@ import {
   toHex,
   type UnsignedEvent,
 } from "@freedomstack/protocol";
+import { gebietsschema, t } from "../../i18n.js";
 import { escapeHtml, pkShort } from "../../shell-logic.js";
 import { anbieterKursWarnung, depositDeckel, solText } from "../../preis-anzeige.js";
 import type { RueckPlan } from "../../rueck-swap.js";
@@ -42,7 +43,8 @@ export async function loadWallet(): Promise<void> {
     const { detectPaymentCapabilities } = await import("@freedomstack/protocol");
     const caps = detectPaymentCapabilities();
     const hintEl = $("#ln-hint");
-    if (hintEl) hintEl.textContent = caps.note;
+    // Aus den Feldern – der fertige Hinweis des Protokolls ist Deutsch (8.16e)
+    if (hintEl) hintEl.textContent = t(caps.isMobile ? "waehr.lnHinweisHandy" : caps.webln ? "waehr.lnHinweisBrowser" : "waehr.lnHinweisNwc");
   } catch { /* Hinweis ist optional */ }
 
   if (!nwc && geheim.getItem(NWC_KEY)) {
@@ -83,7 +85,7 @@ export async function loadWallet(): Promise<void> {
     if (!valid.length) {
       const leer = document.createElement("div");
       leer.className = "mono-sm";
-      leer.textContent = "keine LP-Angebote gefunden";
+      leer.textContent = t("waehr.keineAngebote");
       box.appendChild(leer);
     }
     for (const { ev, offer } of valid) {
@@ -93,16 +95,16 @@ export async function loadWallet(): Promise<void> {
       const text = document.createElement("span");
       text.className = "k";
       // fee_ppm: Millionstel – 3000 ppm sind 0,30 % (bis 4.6c stand hier „30.0%“).
-      text.textContent = `${pkShort(ev.pubkey)} · ${rueck ? "SOL → sats" : "sats → SOL"} · ${Number(offer.minSats)}–${Number(offer.maxSats)} sats · ${(Number(offer.feePpm) / 10_000).toFixed(2)} %`;
+      text.textContent = `${pkShort(ev.pubkey)} · ${rueck ? "SOL → sats" : "sats → SOL"} · ${Number(offer.minSats)}–${Number(offer.maxSats)} sats · ${(Number(offer.feePpm) / 10_000).toLocaleString(gebietsschema(), { minimumFractionDigits: 2, maximumFractionDigits: 2 })} %`;
       const knopf = document.createElement("button");
       knopf.className = "ghost";
       knopf.style.cssText = "width:auto;padding:6px 10px";
-      knopf.textContent = "tauschen";
+      knopf.textContent = t("waehr.tauschen");
       if (!liestUmschlaege(offer)) {
         // Seit 4.9b nur versiegelt: Einem LP, der keine Umschlaege liest, ginge die Anfrage offen zu.
-        knopf.textContent = "veraltet";
+        knopf.textContent = t("waehr.veraltet");
         knopf.disabled = true;
-        knopf.title = "Dieser LP liest keine versiegelten Anfragen. Die App fragt ihn nicht an – Adresse bzw. Rechnung stünden sonst offen auf den Relays.";
+        knopf.title = t("waehr.veraltetTitel");
       }
       knopf.addEventListener("click", () => void (rueck ? startRueckSwap(ev.pubkey, offer) : startSwap(ev.pubkey, offer.offerId, offer.vorabSats)));
       const rechts = document.createElement("span");
@@ -111,7 +113,7 @@ export async function loadWallet(): Promise<void> {
       box.appendChild(zeile);
     }
   } catch (e) {
-    toast(`Relay-Fehler: ${(e as Error).message}`, true);
+    toast(t("waehr.relayFehler", { fehler: (e as Error).message }), true);
   }
 }
 
@@ -124,7 +126,7 @@ async function swapClient(): Promise<typeof import("../../swap-client.js")> {
 
 async function startSwap(lpPubkey: string, offerId: string, vorabSats?: number): Promise<void> {
   if (!state.keypair) return;
-  const amountStr = prompt("Betrag in sats:");
+  const amountStr = prompt(t("waehr.betragSats"));
   const amount = Number(amountStr);
   if (!amount || amount <= 0) return;
   // Adressverlauf: Die Kette ist der Abfluss, gegen den weder Tor noch
@@ -135,20 +137,19 @@ async function startSwap(lpPubkey: string, offerId: string, vorabSats?: number):
   }[];
   const letzter = verlauf.length > 0 ? Math.max(...verlauf.map((v) => v.lastUsed)) : undefined;
 
-  const { swapPrivacyCheck } = await import("@freedomstack/protocol");
+  const { tauschPruefung } = await swapClient();
 
-  const pruefung = swapPrivacyCheck({
+  const pruefung = tauschPruefung({
     usage: verlauf,
     lamports: amount * 1000,
     lastSwapAt: letzter,
   });
 
   if (!pruefung.ok) {
-    const weiter = confirm(
-      `Bevor du das machst:\n\n${pruefung.findings.join("\n\n")}\n\n` +
-      `Empfohlen:\n${pruefung.actions.map((a) => `  · ${a}`).join("\n")}\n\n` +
-      `Trotzdem fortfahren?`,
-    );
+    const weiter = confirm(t("waehr.bevorDuTauschst", {
+      befunde: pruefung.befunde.join("\n\n"),
+      schritte: pruefung.schritte.map((a) => `  · ${a}`).join("\n"),
+    }));
     if (!weiter) return;
   }
 
@@ -158,14 +159,12 @@ async function startSwap(lpPubkey: string, offerId: string, vorabSats?: number):
   // Bis 4.9c stand hier nur ein Fingerabdruck – die Adresse selbst sah niemand.
   const frisch = await frischeEmpfangsadresse().catch(() => undefined);
   const solAddr = (prompt(
-    `Deine Solana-Empfangsadresse:` + (frisch
-      ? `\n\nVorgeschlagen: eine frische Adresse deiner eingebauten Wallet – nur für diesen Tausch.`
-      : ""),
+    t(frisch ? "waehr.empfangsadresseFrisch" : "waehr.empfangsadresse"),
     frisch ?? solWallet.pubkey ?? "",
   ) ?? "").trim();
   if (!solAddr) return;
   // Adressverlauf und Preimage sind Geheimnisse – vor dem Speichern der Tresor.
-  if (!(await verlangeTresor("den Tausch"))) return;
+  if (!(await verlangeTresor(t("waehr.fuerTausch")))) return;
 
   // Benutzung mitschreiben, damit die naechste Pruefung etwas weiss.
   const vorhanden = verlauf.find((v) => v.address === solAddr);
@@ -197,10 +196,10 @@ async function startSwap(lpPubkey: string, offerId: string, vorabSats?: number):
     // npub noch die Empfangsadresse – nur, dass der LP Post bekommt.
     const post = await hinAnfrage({ lpPk: lpPubkey, offerId, amountSats: amount, hashlockHex: toHex(H), solAdresse: solAddr });
     await pool.publish(post.wrap);
-    toast("Swap-Request gesendet — warte auf Invoice…");
+    toast(t("waehr.anfrageGesendet"));
     void pollSwapResponse(post, toHex(H), solAddr, amount, vorabSats);
   } catch (e) {
-    toast(`Fehler: ${(e as Error).message}`, true);
+    toast(t("waehr.fehler", { fehler: (e as Error).message }), true);
   }
 }
 // Frueher global exportiert, weil ein inline onclick es brauchte. Der ist weg
@@ -228,7 +227,7 @@ async function pollSwapResponse(
     const abgelehnt = alle.find((r) => status(r) === "ABGELEHNT");
     const vorab = alle.find((r) => status(r) === "VORAB");
     if (!resps.length && abgelehnt) {
-      statusEl.textContent = `Der LP hat abgelehnt: ${abgelehnt.content.slice(0, 200)}`;
+      statusEl.textContent = t("waehr.lpAbgelehnt", { grund: abgelehnt.content.slice(0, 200) });
       statusEl.className = "mono-sm err";
       return;
     }
@@ -256,12 +255,11 @@ async function pollSwapResponse(
       const payLink = $("#swap-pay-link") as HTMLAnchorElement;
       payLink.removeAttribute("href");
       payLink.classList.add("disabled");
-      statusEl.textContent = "Rechnung erhalten. Pruefe die Sperre auf der Kette — noch nicht zahlen.";
+      statusEl.textContent = t("waehr.rechnungErhalten");
       statusEl.className = "mono-sm warn";
 
       if (!swapId) {
-        statusEl.textContent =
-          "Der LP hat keine swap_id mitgeschickt — die Gegenleistung ist nicht pruefbar. Nicht zahlen.";
+        statusEl.textContent = t("waehr.ohneSwapId");
         statusEl.className = "mono-sm err";
         return;
       }
@@ -295,7 +293,7 @@ async function pollSwapResponse(
 
         if (!verdict.ok) {
           statusEl.innerHTML =
-            `<strong>Nicht zahlen.</strong><br>`
+            `<strong>${escapeHtml(t("waehr.nichtZahlen"))}</strong><br>`
             + verdict.problems.map((p) => escapeHtml(p)).join("<br>");
           statusEl.className = "mono-sm err";
           return;
@@ -312,20 +310,19 @@ async function pollSwapResponse(
         };
         $("#swap-claim").classList.remove("hidden");
         statusEl.innerHTML =
-          `<strong>Geprueft.</strong> ${escapeHtml(verdict.summary)}<br>`
-          + `Nach dem Bezahlen unten einloesen — sonst laeuft der Tausch zurueck.`;
+          `<strong>${escapeHtml(t("waehr.geprueft"))}</strong> ${escapeHtml(verdict.summary)}<br>`
+          + escapeHtml(t("waehr.nachDemBezahlen"));
         statusEl.className = "mono-sm ok";
-        toast("Gegenleistung geprueft — Rechnung kann bezahlt werden");
+        toast(t("waehr.gegenleistungGeprueft"));
       } catch (e) {
-        statusEl.textContent =
-          `Pruefung nicht moeglich (${(e as Error).message}). Im Zweifel nicht zahlen.`;
+        statusEl.textContent = t("waehr.pruefungUnmoeglich", { fehler: (e as Error).message });
         statusEl.className = "mono-sm err";
       }
       return;
     }
     await new Promise((r) => setTimeout(r, 4000));
   }
-  toast("keine LP-Antwort in 90s", true);
+  toast(t("waehr.keineLpAntwort"), true);
 }
 
 /**
@@ -337,12 +334,12 @@ async function zahleVorab(antwort: UnsignedEvent, angekuendigt: number | undefin
   const { pruefeVorab } = await swapClient();
   const p = pruefeVorab(antwort, angekuendigt);
   if (!p.ok) {
-    statusEl.textContent = `Nicht gezahlt: ${p.grund}`;
+    statusEl.textContent = t("waehr.nichtGezahlt", { grund: p.grund });
     statusEl.className = "mono-sm err";
     return false;
   }
-  if (!confirm(`Der LP verlangt vorab ${p.sats} sats – nicht erstattbar, als Schutz gegen Anfragen, die nur Liquidität binden. Erst danach sperrt er die SOL. Zahlen?`)) {
-    statusEl.textContent = "Vorab-Gebühr nicht gezahlt – der Tausch findet nicht statt.";
+  if (!confirm(t("waehr.vorabFrage", { sats: p.sats }))) {
+    statusEl.textContent = t("waehr.vorabAbgelehnt");
     statusEl.className = "mono-sm warn";
     return false;
   }
@@ -351,11 +348,11 @@ async function zahleVorab(antwort: UnsignedEvent, angekuendigt: number | undefin
     const [{ zahle }, { zahlschienen }] = await Promise.all([import("@freedomstack/protocol"), import("../zahlschienen.js")]);
     await zahle(zahlschienen(), { ziel: p.bolt11, betrag: { einheit: "msat", wert: p.sats * 1000 }, zweck: "swap" });
   } catch (e) {
-    statusEl.textContent = `Vorab-Gebühr nicht gezahlt: ${(e as Error).message}`;
+    statusEl.textContent = t("waehr.vorabFehler", { fehler: (e as Error).message });
     statusEl.className = "mono-sm err";
     return false;
   }
-  statusEl.textContent = "Vorab-Gebühr bezahlt – warte, bis der LP die SOL sperrt …";
+  statusEl.textContent = t("waehr.vorabBezahlt");
   statusEl.className = "mono-sm";
   return true;
 }
@@ -382,7 +379,7 @@ export async function claimActiveSwap(): Promise<void> {
   const verbunden = htlcSigner();
   const signer = verbunden?.publicKey.toBase58() === activeSwap.solAddress ? verbunden : eingebauterHtlcSigner(activeSwap.solAddress);
   if (!signer) {
-    statusEl.textContent = "Die Empfangsadresse gehört keiner verbundenen Wallet – verbinde die Wallet mit dieser Adresse, um einzulösen.";
+    statusEl.textContent = t("waehr.adresseOhneWallet");
     statusEl.className = "mono-sm warn";
     return;
   }
@@ -391,8 +388,7 @@ export async function claimActiveSwap(): Promise<void> {
       await swapClient();
     const secret = loadSwapSecret(activeSwap.hashlockHex);
     if (!secret || !preimageFits(secret.preimageHex, activeSwap.hashlockHex)) {
-      statusEl.textContent =
-        "Preimage nicht gefunden oder unpassend — ohne es ist kein Einloesen moeglich.";
+      statusEl.textContent = t("waehr.preimageFehlt");
       statusEl.className = "mono-sm err";
       return;
     }
@@ -419,7 +415,7 @@ export async function claimActiveSwap(): Promise<void> {
     if (!r) return;
 
     statusEl.innerHTML =
-      `<strong>Eingeloest.</strong> Die SOL sind auf deiner Adresse.<br>`
+      `<strong>${escapeHtml(t("waehr.eingeloest"))}</strong> ${escapeHtml(t("waehr.solAufAdresse"))}<br>`
       + `<span class="mono-sm">tx ${escapeHtml(r.signature.slice(0, 16))}…</span>`;
     statusEl.className = "mono-sm ok";
     // Aufraeumen darf ein gelungenes Einloesen nicht als Fehler melden.
@@ -453,23 +449,23 @@ async function einloesenUeberRelayer(p: {
     try { return [{ pubkey: ev.pubkey, created_at: ev.created_at, angebot: parseRelayerAngebot(ev) }]; } catch { return []; }
   });
   const kandidaten = waehleRelayer(angebote, { kette: ketteAusRpc(p.rpcUrl), lpPubkey: p.swap.lpPubkey, lpSol: p.swap.initiator });
-  if (!kandidaten.length) throw new Error("Du hast kein SOL für die Gebühr, und kein Relayer ist erreichbar. Lege etwas SOL auf deine Adresse und löse dann ein.");
+  if (!kandidaten.length) throw new Error(t("waehr.keinRelayer"));
   const teuerster = kandidaten[kandidaten.length - 1].erstattungLamports;
   if (!mieteReicht({ guthabenVorher: p.guthaben, eingeloest: p.swap.lamports, erstattung: teuerster })) {
-    throw new Error("Der Betrag reicht nach der Erstattung nicht für ein neues Solana-Konto (Mindestmiete). Lege etwas SOL auf deine Adresse und löse dann selbst ein.");
+    throw new Error(t("waehr.mieteReichtNicht"));
   }
-  if (!confirm(`Du hast kein SOL für die Gebühr. Ein Relayer zahlt sie; du erstattest ihm höchstens ${solText(teuerster)} aus den eingelösten SOL. Einlösen?`)) return undefined;
+  if (!confirm(t("waehr.relayerFrage", { betrag: solText(teuerster) }))) return undefined;
 
   for (const k of kandidaten) {
     // Genug Zeit fuer Relayer und Kette – sonst lieber gar nicht (die Lightning-Zahlung laeuft dann zurueck).
     const erlaubt = claimAllowed(p.swap.timelockUnix - 300);
     if (!erlaubt.ok) throw new Error(erlaubt.reason);
-    p.statusEl.textContent = "Warte auf Bestätigung in der Wallet …";
+    p.statusEl.textContent = t("zahl.warteWallet");
     const roh = await baueRelayEinloesung({ connection: p.connection, wallet: p.signer, swapId: p.swap.swapId, preimage: p.preimage, initiator: p.swap.initiator, relayer: k });
     const einmal = new LocalSigner(generateKeypair().sk);
     const { wrap, auftragId } = await buildRelayAuftrag({ tx: roh, kunde: einmal, relayerPk: k.pubkey });
     await pool.publish(wrap);
-    p.statusEl.textContent = "Relayer löst ein …";
+    p.statusEl.textContent = t("waehr.relayerLoestEin");
     const ende = Date.now() + 90_000;
     let abgelehnt = false;
     while (Date.now() < ende && !abgelehnt) {
@@ -481,14 +477,14 @@ async function einloesenUeberRelayer(p: {
           if (s0 && !s0.err && (s0.confirmationStatus === "confirmed" || s0.confirmationStatus === "finalized")) return { signature: a.signatur };
         }
         if (a?.status === "ABGELEHNT") {
-          p.statusEl.textContent = `Relayer lehnt ab: ${a.grund} – nächster …`;
+          p.statusEl.textContent = t("waehr.relayerLehntAb", { grund: a.grund });
           abgelehnt = true;
         }
       }
       if (!abgelehnt) await new Promise((r) => setTimeout(r, 4000));
     }
   }
-  throw new Error("Kein Relayer hat eingelöst. Lege etwas SOL auf deine Adresse und löse selbst ein – vor Ablauf der Frist.");
+  throw new Error(t("waehr.keinRelayerEingeloest"));
 }
 
 /** Sicherung aller offenen Preimages herunterladen. */
@@ -515,7 +511,7 @@ async function starteRueckholWaechter(): Promise<void> {
   const conn = new Connection(await solRpcUrl(), "confirmed");
   waechterStop = startRefundWatcher(walletRefundRunner(conn, signer), (r) => {
     if (!r.zurueckgeholt) return;
-    toast(`${r.zurueckgeholt} Sperre(n) zurückgeholt: ${solText(r.lamports)}`);
+    toast(t("waehr.sperrenZurueck", { n: r.zurueckgeholt, betrag: solText(r.lamports) }));
     updateSidebarBalances();
   });
 }
@@ -529,18 +525,18 @@ async function startRueckSwap(lpPubkey: string, offer: LpOffer): Promise<void> {
   const statusEl = $("#swap-status");
   const melde = (text: string, art = ""): void => { statusEl.textContent = text; statusEl.className = `mono-sm ${art}`; };
   const { istRueckAngebot, planeRueckSwap, rueckText } = await import("../../rueck-swap.js");
-  if (!istRueckAngebot(offer)) return melde("Dieses Angebot nennt kein SOL-Konto oder keinen Kurs.", "err");
+  if (!istRueckAngebot(offer)) return melde(t("waehr.angebotOhneKonto"), "err");
   const signer = htlcSigner();
-  if (!signer) return melde("Erst eine Solana-Wallet verbinden – mit ihr werden die SOL gesperrt.", "warn");
-  const sats = Number(prompt(`Wie viele sats möchtest du bekommen? (${offer.minSats}–${offer.maxSats})`));
+  if (!signer) return melde(t("waehr.erstSolanaWallet"), "warn");
+  const sats = Number(prompt(t("waehr.wievieleSats", { min: offer.minSats, max: offer.maxSats })));
   if (!Number.isSafeInteger(sats) || sats <= 0) return;
   let bolt11: string;
   try {
     bolt11 = nwc
-      ? (await nwc.makeInvoice(sats * 1000, "FreedomStack: Tausch SOL → sats")).invoice
-      : (prompt(`Rechnung (bolt11) deiner Lightning-Wallet über genau ${sats} sats:`) ?? "").trim();
+      ? (await nwc.makeInvoice(sats * 1000, "FreedomStack: Tausch SOL → sats")).invoice // kein UI-Text
+      : (prompt(t("waehr.rechnungFrage", { sats })) ?? "").trim();
   } catch (e) {
-    return melde(`Rechnung nicht erstellt: ${(e as Error).message}`, "err");
+    return melde(t("waehr.rechnungNichtErstellt", { fehler: (e as Error).message }), "err");
   }
   if (!bolt11) return;
   let plan: RueckPlan;
@@ -551,10 +547,12 @@ async function startRueckSwap(lpPubkey: string, offer: LpOffer): Promise<void> {
   }
   const markt = await aktualisiereKurs();
   const warnung = markt ? anbieterKursWarnung({ satsProSol: Math.round(1e9 / offer.lamportsPerSat) }, markt) : undefined;
-  if (!confirm(
-    `${warnung ? `${warnung} ` : ""}Du sperrst ${solText(plan.lamports)} (inkl. ${(offer.feePpm / 10_000).toFixed(2)} % Gebühr) für ${sats} sats. ` +
-    `Zahlt der LP nicht, bekommst du die SOL ab ${new Date(plan.timelockUnix * 1000).toLocaleString("de-DE")} zurück. Sperren?`,
-  )) return;
+  if (!confirm((warnung ? `${warnung} ` : "") + t("waehr.sperrenFrage", {
+    betrag: solText(plan.lamports),
+    gebuehr: (offer.feePpm / 10_000).toLocaleString(gebietsschema(), { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+    sats,
+    ab: new Date(plan.timelockUnix * 1000).toLocaleString(gebietsschema()),
+  }))) return;
 
   // Erst merken, dann sperren: Bricht die App dazwischen ab, holt der Waechter
   // trotzdem zurueck (eine nie angelegte Sperre schliesst er ohne Transaktion ab).
@@ -564,7 +562,7 @@ async function startRueckSwap(lpPubkey: string, offer: LpOffer): Promise<void> {
     const [{ Connection }, { lockRueckSwap }] = await Promise.all([import("@solana/web3.js"), import("../../sol-htlc.js")]);
     await lockRueckSwap({ connection: new Connection(await solRpcUrl(), "confirmed"), wallet: signer, ...plan, onProgress: (x) => melde(x) });
   } catch (e) {
-    return melde(`Sperre nicht angelegt: ${(e as Error).message}`, "err");
+    return melde(t("waehr.sperreNichtAngelegt", { fehler: (e as Error).message }), "err");
   }
   void starteRueckholWaechter();
 
@@ -594,7 +592,7 @@ async function warteAufRueckAntwort(post: SwapPost, plan: RueckPlan): Promise<vo
     }
     await new Promise((r) => setTimeout(r, 5000));
   }
-  statusEl.textContent = `Keine Antwort des LP. ${rueckText(undefined, plan)}`;
+  statusEl.textContent = t("waehr.keineAntwortLp", { text: rueckText(undefined, plan) });
   statusEl.className = "mono-sm warn";
 }
 
@@ -607,7 +605,7 @@ export async function exportSwapBackup(): Promise<void> {
   a.download = `freedom-swap-backup-${Date.now()}.json`;
   a.click();
   URL.revokeObjectURL(url);
-  toast("Sicherung heruntergeladen — sicher aufbewahren");
+  toast(t("waehr.sicherungGeladen"));
 }
 
 // ------------------------------------------------------------- Solana-Tab
@@ -647,7 +645,7 @@ const LS_SOL_WALLET_NAME = "freedom.sol.walletName";
 /** Mehrere Wallets angemeldet: als Knoepfe anbieten (Namen per textContent). */
 function waehleWallet(statusEl: HTMLElement, namen: string[]): Promise<number | null> {
   statusEl.className = "mono-sm";
-  statusEl.textContent = "Welche Wallet?";
+  statusEl.textContent = t("waehr.welcheWallet");
   const zeile = document.createElement("div");
   zeile.style.cssText = "display:flex;gap:6px;flex-wrap:wrap;margin-top:6px";
   statusEl.appendChild(zeile);
@@ -681,8 +679,8 @@ export async function connectSolana(silent = false): Promise<void> {
         statusEl.className = "mono-sm";
         statusEl.innerHTML =
           `${escapeHtml(hint)}<div style="display:flex;gap:6px;margin-top:6px">` +
-          `<a class="ghost" style="width:auto;padding:6px 10px" href="${escapeHtml(links.phantom)}">Phantom öffnen</a>` +
-          `<a class="ghost" style="width:auto;padding:6px 10px" href="${escapeHtml(links.solflare)}">Solflare öffnen</a></div>`;
+          `<a class="ghost" style="width:auto;padding:6px 10px" href="${escapeHtml(links.phantom)}">${escapeHtml(t("waehr.phantomOeffnen"))}</a>` +
+          `<a class="ghost" style="width:auto;padding:6px 10px" href="${escapeHtml(links.solflare)}">${escapeHtml(t("waehr.solflareOeffnen"))}</a></div>`;
       },
     });
 
@@ -700,15 +698,17 @@ export async function connectSolana(silent = false): Promise<void> {
     solWallet.signTransaction = conn.provider?.signTransaction?.bind(conn.provider);
     solWallet.provider = conn.provider as SolanaWalletState["provider"];
 
-    statusEl.textContent = "verbunden";
+    statusEl.textContent = t("waehr.verbunden");
     statusEl.className = "mono-sm ok";
     void starteRueckholWaechter();
+    $("#sol-pubkey").classList.add("hidden");
     const addrEl = $("#sol-addr");
     addrEl.textContent = conn.pubkey;
     (addrEl as HTMLInputElement).value = conn.pubkey;
     addrEl.classList.remove("hidden");
     const btn = $("#sol-connect") as HTMLButtonElement;
-    btn.textContent = "Verbunden";
+    btn.dataset.i18n = "waehr.knopfVerbunden";
+    btn.textContent = t("waehr.knopfVerbunden");
     btn.disabled = true;
 
     try {
@@ -738,7 +738,7 @@ export async function connectNwc(uri?: string, silent = false): Promise<void> {
   const raw = (uri ?? input?.value ?? "").trim() || gespeichert || "";
   if (!raw) {
     if (!silent) {
-      statusEl.textContent = "Verbindungs-URI aus der Wallet einfuegen (Alby Hub, Coinos, Mutiny …).";
+      statusEl.textContent = t("waehr.nwcEinfuegen");
       statusEl.className = "mono-sm warn";
     }
     return;
@@ -750,8 +750,8 @@ export async function connectNwc(uri?: string, silent = false): Promise<void> {
     const conn = parseNwcUri(raw);
 
     // Eine NEUE Wallet-Verbindung ist ein Geld-Geheimnis – erst der Tresor.
-    if (raw !== gespeichert && !(await verlangeTresor("die Wallet-Verbindung (NWC)"))) {
-      statusEl.textContent = "Nicht verbunden: Die Verbindung wird nur im Tresor gespeichert.";
+    if (raw !== gespeichert && !(await verlangeTresor(t("waehr.fuerNwc")))) {
+      statusEl.textContent = t("waehr.nurImTresor");
       statusEl.className = "mono-sm warn";
       return;
     }
@@ -764,7 +764,7 @@ export async function connectNwc(uri?: string, silent = false): Promise<void> {
     );
     const client = new NwcClient(conn, walletPool, 30_000);
 
-    statusEl.textContent = "verbinde …";
+    statusEl.textContent = t("waehr.verbinde");
     statusEl.className = "mono-sm";
     const info = await client.init();
     const balance = await client.getBalance();
@@ -775,8 +775,8 @@ export async function connectNwc(uri?: string, silent = false): Promise<void> {
     await geheim.setItem(NWC_KEY, raw);
     if (input) input.value = redactNwcUri(raw);
 
-    $("#ln-balance").innerHTML = `${Math.floor(balance / 1000).toLocaleString()} <small>sats</small>`;
-    statusEl.textContent = `verbunden (${info.encryption}, ${info.methods.length || "?"} Methoden)`;
+    $("#ln-balance").innerHTML = `${Math.floor(balance / 1000).toLocaleString(gebietsschema())} <small>sats</small>`;
+    statusEl.textContent = t("waehr.nwcVerbunden", { verschluesselung: info.encryption, n: info.methods.length || "?" });
     statusEl.className = "mono-sm ok";
     $("#nwc-disconnect").classList.remove("hidden");
     updateSidebarBalances();
@@ -789,11 +789,11 @@ export async function connectNwc(uri?: string, silent = false): Promise<void> {
 
 export function disconnectNwc(): void {
   nwc = null;
-  void geheim.removeItem(NWC_KEY).catch((e) => toast(`nicht gelöscht: ${(e as Error).message}`, true));
+  void geheim.removeItem(NWC_KEY).catch((e) => toast(t("waehr.nichtGeloescht", { fehler: (e as Error).message }), true));
   const input = $("#nwc-uri") as HTMLInputElement | null;
   if (input) input.value = "";
   $("#ln-balance").innerHTML = `— <small>sats</small>`;
-  $("#nwc-status").textContent = "getrennt";
+  $("#nwc-status").textContent = t("waehr.getrennt");
   $("#nwc-status").className = "mono-sm";
   $("#nwc-disconnect").classList.add("hidden");
   updateSidebarBalances();
@@ -812,20 +812,20 @@ export async function startDeposit(): Promise<void> {
   if (!state.keypair) return;
   const statusEl = $("#dep-status");
   if (!solWallet.connected || !solWallet.pubkey) {
-    statusEl.textContent = "erst Solana-Wallet verbinden";
+    statusEl.textContent = t("waehr.erstSolanaVerbinden");
     statusEl.className = "mono-sm warn";
     return;
   }
   const amountSol = Number(($("#dep-amount") as HTMLInputElement).value);
   if (!amountSol || amountSol <= 0) {
-    statusEl.textContent = "ungueltiger Betrag";
+    statusEl.textContent = t("waehr.ungueltigerBetrag");
     statusEl.className = "mono-sm err";
     return;
   }
   const providerPk =
     ($("#dep-provider") as HTMLInputElement).value.trim() || state.lastProvider;
   if (!providerPk) {
-    statusEl.textContent = "kein Provider — erst eine KI-Anfrage stellen oder pubkey angeben";
+    statusEl.textContent = t("waehr.keinProvider");
     statusEl.className = "mono-sm warn";
     return;
   }
@@ -833,17 +833,15 @@ export async function startDeposit(): Promise<void> {
   // vorher fest 1000 Lamports, mit richtiger Umrechnung weit unter jedem Preis.
   const [markt, angebot] = await Promise.all([aktualisiereKurs(), angebotVon(providerPk)]);
   if (!markt || !angebot) {
-    statusEl.textContent = !markt
-      ? "Kein Marktkurs SOL/sats gefunden – ohne ihn wäre der Preis in SOL geraten."
-      : "Angebot des Providers nicht gefunden – sein Preis ist unbekannt.";
+    statusEl.textContent = t(!markt ? "waehr.keinMarktkurs" : "waehr.keinAngebotProvider");
     statusEl.className = "mono-sm warn";
     return;
   }
   const kursWarnung = anbieterKursWarnung(angebot.kurs, markt);
-  if (kursWarnung && !confirm(`${kursWarnung} Trotzdem hinterlegen?`)) return;
+  if (kursWarnung && !confirm(t("waehr.trotzdemHinterlegen", { warnung: kursWarnung }))) return;
   const maxLamportsPerKToken = depositDeckel(angebot.textRatePerKTokenMsat, markt);
   // Das Preimage des Deposits ist ein Geld-Geheimnis – vor dem Sperren der Tresor.
-  if (!(await verlangeTresor("das Deposit"))) return;
+  if (!(await verlangeTresor(t("waehr.fuerDeposit")))) return;
 
   const totalLamports = Math.floor(amountSol * 1e9);
   // Zwei-HTLC-Muster: 40% Verbrauch (Provider), 60% Rest (User, refundbar)
@@ -864,7 +862,7 @@ export async function startDeposit(): Promise<void> {
     // zurueckzunehmen.
     const signer = htlcSigner();
     if (!signer) {
-      statusEl.textContent = "Diese Wallet kann keine Transaktionen signieren.";
+      statusEl.textContent = t("waehr.kannNichtSignieren");
       statusEl.className = "mono-sm err";
       return;
     }
@@ -872,9 +870,7 @@ export async function startDeposit(): Promise<void> {
     const providerSol = ($("#dep-provider-sol") as HTMLInputElement | null)?.value.trim()
       || state.lastProviderSolAddress;
     if (!providerSol) {
-      statusEl.textContent =
-        "SOL-Adresse des Providers unbekannt — erst eine KI-Anfrage stellen, "
-        + "damit der Provider sie mitteilt.";
+      statusEl.textContent = t("waehr.providerSolUnbekannt");
       statusEl.className = "mono-sm warn";
       return;
     }
@@ -934,16 +930,16 @@ export async function startDeposit(): Promise<void> {
 
     activeDeposit = { sessionId, spendSwapId, refundSwapId };
     statusEl.innerHTML =
-      `<strong>Deposit gedeckt.</strong> ${escapeHtml(String(amountSol))} SOL auf der Kette gesperrt.<br>`
+      `<strong>${escapeHtml(t("waehr.depositGedeckt"))}</strong> ${escapeHtml(t("waehr.depositGesperrt", { sol: amountSol.toLocaleString(gebietsschema(), { maximumFractionDigits: 9 }) }))}<br>`
       + `<span class="mono-sm">tx ${escapeHtml(lock.signature.slice(0, 16))}…</span><br>`
-      + `Rueckholbar ab ${new Date((Math.floor(Date.now() / 1000) + 7200) * 1000).toLocaleTimeString("de-DE")}.`;
+      + escapeHtml(t("waehr.rueckholbarAb", { zeit: new Date((Math.floor(Date.now() / 1000) + 7200) * 1000).toLocaleTimeString(gebietsschema()) }));
     statusEl.className = "mono-sm ok";
     ($("#dep-refund") as HTMLButtonElement).classList.remove("hidden");
-    toast("Deposit gesperrt und angekuendigt");
+    toast(t("waehr.depositAngekuendigt"));
     updateBudgetBar();
     updateSidebarBalances()
   } catch (e) {
-    statusEl.textContent = `Fehler: ${(e as Error).message}`;
+    statusEl.textContent = t("waehr.fehler", { fehler: (e as Error).message });
     statusEl.className = "mono-sm err";
   }
 }
@@ -951,12 +947,12 @@ export async function startDeposit(): Promise<void> {
 export async function refundDeposit(): Promise<void> {
   const statusEl = $("#dep-status");
   if (!activeDeposit) {
-    statusEl.textContent = "keine aktive Deposit-Session";
+    statusEl.textContent = t("waehr.keinDeposit");
     return;
   }
   const signer = htlcSigner();
   if (!signer) {
-    statusEl.textContent = "Wallet verbinden, um zurueckzuholen.";
+    statusEl.textContent = t("waehr.walletZumZurueckholen");
     statusEl.className = "mono-sm warn";
     return;
   }
@@ -968,10 +964,7 @@ export async function refundDeposit(): Promise<void> {
   const now = Math.floor(Date.now() / 1000);
   if (meta && now < meta.timelockUnix) {
     const restMin = Math.ceil((meta.timelockUnix - now) / 60);
-    statusEl.innerHTML =
-      `Der Timelock laeuft noch ${restMin} Minuten. Vorher kann die Kette nichts `
-      + `freigeben — das ist die Absicherung, die den Provider ohne Vertrauen `
-      + `arbeiten laesst. Danach hier erneut klicken.`;
+    statusEl.textContent = t("waehr.timelockLaeuft", { min: restMin });
     statusEl.className = "mono-sm warn";
     return;
   }
@@ -991,14 +984,14 @@ export async function refundDeposit(): Promise<void> {
 
     if (res.refunded.length > 0) {
       statusEl.innerHTML =
-        `<strong>Zurueckgeholt.</strong> ${res.refunded.length} HTLC(s) freigegeben.<br>`
+        `<strong>${escapeHtml(t("waehr.zurueckgeholt"))}</strong> ${escapeHtml(t("waehr.htlcFrei", { n: res.refunded.length }))}<br>`
         + `<span class="mono-sm">tx ${escapeHtml((res.signature ?? "").slice(0, 16))}…</span>`;
       statusEl.className = "mono-sm ok";
       await geheim.removeItem(`freedom.htlc.${activeDeposit.sessionId}`).catch(() => undefined);
       activeDeposit = null;
       ($("#dep-refund") as HTMLButtonElement).classList.add("hidden");
     } else {
-      statusEl.textContent = res.failed[0]?.reason ?? "Rueckholung nicht moeglich.";
+      statusEl.textContent = res.failed[0]?.reason ?? t("waehr.rueckholungUnmoeglich");
       statusEl.className = "mono-sm err";
     }
     updateSidebarBalances();

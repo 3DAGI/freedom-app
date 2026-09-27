@@ -27,6 +27,7 @@ import { mnemonicToSeedSync } from "@scure/bip39";
 import { ed25519 } from "@noble/curves/ed25519.js";
 import { type Ausgabe, type LimitPruefung, MIETE_LEERES_KONTO, deriveSolanaKey, imFenster, pruefeTageslimit } from "@freedomstack/protocol";
 import { identityFromMnemonic } from "./identity.js";
+import { t } from "./i18n.js";
 
 /** Schluessel (64 Zeichen Hex) – nur ueber `geheim`. */
 export const LS_SOL_WALLET = "freedom.solWallet";
@@ -78,7 +79,7 @@ export function solSchluesselAusPhrase(phrase: string, nostrPk: string): Uint8Ar
 export function solSchluesselReihe(phrase: string, nostrPk: string, von: number, anzahl: number): Uint8Array[] {
   const id = identityFromMnemonic(phrase); // prueft die Pruefsumme und normalisiert
   id.sk.fill(0);
-  if (id.pk !== nostrPk) throw new Error("Diese Wörter gehören nicht zu deiner Identität.");
+  if (id.pk !== nostrPk) throw new Error(t("zahl.woerterFremd"));
   const seed = mnemonicToSeedSync(id.mnemonic!);
   try {
     return Array.from({ length: anzahl }, (_, i) => {
@@ -108,8 +109,8 @@ export function waehleAbsender(guthaben: Array<{ adresse: string; lamports: numb
   if (passend.length) return passend[0].adresse;
   const summe = guthaben.reduce((s, g) => s + g.lamports, 0);
   throw new Error(summe >= betrag + UEBERWEISUNG_GEBUEHR
-    ? `Keine einzelne deiner ${guthaben.length} Adressen deckt den Betrag. Die App legt sie nicht zusammen – das verbände sie auf der Kette.`
-    : "Nicht genug SOL in der eingebauten Wallet.");
+    ? t("zahl.keineAdresseReicht", { n: guthaben.length })
+    : t("zahl.nichtGenugSol"));
 }
 
 export class EingebauteSolWallet {
@@ -140,7 +141,7 @@ export class EingebauteSolWallet {
     const v = this.vorrat();
     const [haupt, ...neu] = solSchluesselReihe(phrase, nostrPk, 0, 1 + v.schluessel.length + VORRAT_GROESSE);
     try {
-      if (alsHex(haupt) !== this.s.getItem(LS_SOL_WALLET)) throw new Error("Diese Wörter ergeben eine andere Wallet.");
+      if (alsHex(haupt) !== this.s.getItem(LS_SOL_WALLET)) throw new Error(t("zahl.andereWallet"));
       await this.s.setItem(LS_SOL_VORRAT, JSON.stringify({ vergeben: v.vergeben, schluessel: neu.map(alsHex) }));
       return neu.length - v.vergeben;
     } finally {
@@ -161,7 +162,7 @@ export class EingebauteSolWallet {
    */
   async frischeAdresse(): Promise<string> {
     const v = this.vorrat();
-    if (v.vergeben >= v.schluessel.length) throw new Error("Keine frische Adresse mehr – gib deine 12 Wörter ein, um neue abzuleiten.");
+    if (v.vergeben >= v.schluessel.length) throw new Error(t("zahl.keineFrischeAdresse"));
     await this.s.setItem(LS_SOL_VORRAT, JSON.stringify({ vergeben: v.vergeben + 1, schluessel: v.schluessel }));
     return adresseVon(v.schluessel[v.vergeben]);
   }
@@ -190,7 +191,7 @@ export class EingebauteSolWallet {
   }
 
   async setzeLimit(lamports: number): Promise<void> {
-    if (!Number.isSafeInteger(lamports) || lamports < 0) throw new Error("Limit muss eine nicht negative ganze Zahl sein");
+    if (!Number.isSafeInteger(lamports) || lamports < 0) throw new Error(t("zahl.limitGanz"));
     await this.s.setItem(LS_SOL_LIMIT, String(lamports));
   }
 
@@ -218,7 +219,7 @@ export class EingebauteSolWallet {
    * zustimmt. Freigegebene Betraege zaehlen sofort zum Tag.
    */
   async freigabe(lamports: number, ziel: string, bestaetige: (n: Nachfrage) => Promise<boolean>): Promise<boolean> {
-    if (!this.eingerichtet()) throw new Error("Keine eingebaute Wallet eingerichtet");
+    if (!this.eingerichtet()) throw new Error(t("zahl.keineEingebaute"));
     const pruefung = this.pruefe(lamports);
     if (!pruefung.ohneNachfrage && !(await bestaetige({ lamports, ziel, limit: this.limit(), pruefung }))) return false;
     // Nur das Fenster wird gespeichert – aeltere Eintraege fallen heraus.
@@ -244,7 +245,7 @@ export class EingebauteSolWallet {
         signiert++;
       }, hex);
     }
-    if (!signiert) throw new Error("Die Transaktion verlangt keine Signatur dieser Wallet");
+    if (!signiert) throw new Error(t("zahl.keineSignaturVerlangt"));
   }
 
   private vorrat(): { vergeben: number; schluessel: string[] } {
@@ -260,7 +261,7 @@ export class EingebauteSolWallet {
 
   private mitSchluessel<T>(fn: (sk: Uint8Array) => T, hexVorgabe?: string): T {
     const hex = hexVorgabe ?? this.s.getItem(LS_SOL_WALLET) ?? "";
-    if (!HEX64.test(hex)) throw new Error("Eingebaute Wallet nicht verfügbar (Tresor gesperrt?)");
+    if (!HEX64.test(hex)) throw new Error(t("zahl.eingebauteGesperrt"));
     const sk = ausHex(hex);
     try {
       return fn(sk);

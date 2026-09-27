@@ -6,6 +6,10 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { anbieterKursWarnung, ausLamports, ausMsat, depositDeckel, kursZeile, satsText, solText } from "../src/preis-anzeige.js";
+import { setLang } from "../src/i18n.js";
+
+// Meldungen hier auf Deutsch prüfen (seit 8.16e über Schlüssel in der Sprache der Oberfläche)
+setLang("de");
 
 const KURS = { satsProSol: 150_000, quellen: 3, streuung: 0.01, warnungen: [] as string[] };
 

@@ -24,6 +24,10 @@ import {
   HTLC_PROGRAM_ID,
   WalletSigner,
 } from "../src/sol-htlc.js";
+import { setLang } from "../src/i18n.js";
+
+// Meldungen hier auf Deutsch prüfen (seit 8.16e über Schlüssel in der Sprache der Oberfläche)
+setLang("de");
 
 const KUNDE = "So11111111111111111111111111111111111111112";
 const PROVIDER = "SysvarC1ock11111111111111111111111111111111";

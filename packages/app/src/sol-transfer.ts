@@ -4,11 +4,12 @@
  * Genutzt von der Solana-Schiene (shell/zahlschienen.ts). Laedt web3.js nur,
  * wenn tatsaechlich SOL ueberwiesen wird — haelt das Bundle klein.
  */
+import { t } from "./i18n.js";
 
 /** Ueberweisung in Lamports (Schritt 4.1b: fuer die Solana-Schiene). */
 export async function buildSolTransfer(fromPubkey: string, toPubkey: string, lamports: number, referenz?: string): Promise<unknown> {
   const web3 = await import("@solana/web3.js");
-  if (!Number.isSafeInteger(lamports) || lamports <= 0) throw new Error("ungueltiger betrag");
+  if (!Number.isSafeInteger(lamports) || lamports <= 0) throw new Error(t("zahl.ungueltigerBetrag"));
 
   const connection = new web3.Connection(await solRpcUrl(), "confirmed");
 

@@ -8,6 +8,7 @@
  *   gezahlt wird ueber die Zahlschienen (Schritt 4.1b)
  */
 
+import { t } from "./i18n.js";
 import { escapeHtml } from "./shell-logic.js";
 import { ausLamports, ausMsat } from "./preis-anzeige.js";
 import { standardSchiene } from "./standard-schiene.js";
@@ -48,39 +49,39 @@ export function openZapDialog(recipientPubkey: string, recipientName: string): v
   el.innerHTML = `
     <div class="zap-dialog-card">
       <div class="zap-dialog-header">
-        <span>⚡ Zap senden</span>
+        <span>⚡ ${escapeHtml(t("zahl.zapSenden"))}</span>
         <button class="ghost" id="zap-close">×</button>
       </div>
       <div class="zap-dialog-body">
         <div class="zap-field">
-          <label>Empfaenger</label>
+          <label>${escapeHtml(t("zahl.empfaenger"))}</label>
           <div class="zap-recipient">${escapeHtml(recipientName)}</div>
         </div>
         <div class="zap-field">
-          <label>Betrag</label>
+          <label>${escapeHtml(t("zahl.betrag"))}</label>
           <input type="number" id="zap-amount" value="${state.amount}" min="0" step="any" />
           <select id="zap-unit">
-            <option value="sats"${state.unit === "sats" ? " selected" : ""}>sats</option>
-            <option value="sol"${state.unit === "sol" ? " selected" : ""}>SOL</option>
+            <option value="sats"${state.unit === "sats" ? " selected" : ""}>${escapeHtml(t("zahl.einheitSats"))}</option>
+            <option value="sol"${state.unit === "sol" ? " selected" : ""}>${escapeHtml(t("zahl.einheitSol"))}</option>
           </select>
           <div class="mono-sm" id="zap-umrechnung"></div>
         </div>
         <div class="zap-field">
-          <label>Wallet</label>
+          <label>${escapeHtml(t("zahl.wallet"))}</label>
           <select id="zap-wallet">
-            <option value="lightning"${state.walletType === "lightning" ? " selected" : ""}>Lightning (sats)</option>
-            <option value="solana"${state.walletType === "solana" ? " selected" : ""}>Solana (SOL)</option>
+            <option value="lightning"${state.walletType === "lightning" ? " selected" : ""}>${escapeHtml(t("zahl.optLightning"))}</option>
+            <option value="solana"${state.walletType === "solana" ? " selected" : ""}>${escapeHtml(t("zahl.optSolana"))}</option>
           </select>
         </div>
         <div class="zap-field${state.walletType === "solana" ? "" : " hidden"}" id="zap-oeffentlich-feld">
-          <label class="mono-sm"><input type="checkbox" id="zap-oeffentlich" /> Beleg öffentlich – verknüpft deine Identität für alle sichtbar mit Betrag, Adresse und Transaktion</label>
-          <label class="mono-sm"><input type="checkbox" id="zap-rauschen" checked /> runden Betrag leicht verrauschen (höchstens +0,3 %) – runde Beträge verbinden Adressen auf der Kette wieder</label>
+          <label class="mono-sm"><input type="checkbox" id="zap-oeffentlich" /> ${escapeHtml(t("zahl.belegOeffentlichWahl"))}</label>
+          <label class="mono-sm"><input type="checkbox" id="zap-rauschen" checked /> ${escapeHtml(t("zahl.rauschenWahl"))}</label>
         </div>
         <div class="zap-status hidden" id="zap-status"></div>
       </div>
       <div class="zap-dialog-actions">
-        <button class="ghost" id="zap-cancel">Abbrechen</button>
-        <button class="cta" id="zap-send">Senden</button>
+        <button class="ghost" id="zap-cancel">${escapeHtml(t("zahl.abbrechen"))}</button>
+        <button class="cta" id="zap-send">${escapeHtml(t("send"))}</button>
       </div>
     </div>
   `;
@@ -131,10 +132,10 @@ async function sendZap(state: ZapDialogState, el: HTMLElement): Promise<void> {
   const sendBtn = document.getElementById("zap-send") as HTMLButtonElement;
   try {
     state.status = "connecting";
-    statusEl.textContent = "hole zahlungsziel…";
+    statusEl.textContent = t("zahl.holeZiel");
     statusEl.classList.remove("hidden");
     sendBtn.disabled = true;
-    if (!Number.isFinite(state.amount) || state.amount <= 0) throw new Error("Betrag fehlt");
+    if (!Number.isFinite(state.amount) || state.amount <= 0) throw new Error(t("zahl.betragFehlt"));
     const { zahle, parseProfileSafe, buildZapRequest } = await import("@freedomstack/protocol");
     const { zahlschienen } = await import("./shell/zahlschienen.js");
     const pool = await ensurePool();
@@ -142,10 +143,10 @@ async function sendZap(state: ZapDialogState, el: HTMLElement): Promise<void> {
     const profile = (await frageBeiAutoren({ kinds: [0], authors: [state.recipientPubkey], limit: 1 })).sort((a, b) => b.created_at - a.created_at);
 
     if (state.walletType === "lightning") {
-      if (state.unit !== "sats") throw new Error("Lightning zahlt in sats");
+      if (state.unit !== "sats") throw new Error(t("zahl.lightningInSats"));
       const betragMsat = Math.round(state.amount * 1000);
       const lud16 = profile[0] ? parseProfileSafe(profile[0]).lud16 ?? "" : "";
-      if (!lud16) throw new Error("Empfänger hat keine Lightning-Adresse (lud16)");
+      if (!lud16) throw new Error(t("zahl.ohneLud16"));
       const zapRequest = await signiere(buildZapRequest({
         senderPubkey: appState.keypair!.pk,
         recipientPubkey: state.recipientPubkey,
@@ -154,11 +155,11 @@ async function sendZap(state: ZapDialogState, el: HTMLElement): Promise<void> {
       }));
       const { holeZapRechnung } = await import("./zap-zahlung.js");
       const rechnung = await holeZapRechnung({ lud16, betragMsat, zapRequest });
-      statusEl.textContent = "warte auf wallet…";
+      statusEl.textContent = t("zahl.warteAufWallet");
       await zahle(zahlschienen(), { ziel: rechnung, betrag: { einheit: "msat", wert: betragMsat }, zweck: "zap" });
-      statusEl.textContent = `⚡ gezappt! ${state.amount} sats`;
+      statusEl.textContent = `⚡ ${t("zahl.gezappt", { sats: state.amount })}`;
     } else {
-      if (state.unit !== "sol") throw new Error("Solana zahlt in SOL");
+      if (state.unit !== "sol") throw new Error(t("zahl.solanaInSol"));
       // Adresse versiegelt beim Empfaenger anfragen (4.9d) – er gibt jedem
       // Kontakt eine eigene. Die oeffentliche aus dem Profil nur mit Warnung.
       const [{ solAdresseAusProfil }, { frageAdresseAn, gemerkteAdresse }, { ketteAusRpc }, { geheim }] = await Promise.all([
@@ -167,18 +168,16 @@ async function sendZap(state: ZapDialogState, el: HTMLElement): Promise<void> {
       const kette = ketteAusRpc(await solRpcUrl());
       let ziel = gemerkteAdresse(geheim, state.recipientPubkey, kette) ?? "";
       if (!ziel) {
-        statusEl.textContent = "frage die Adresse versiegelt beim Empfänger an … (bis 75 s)";
+        statusEl.textContent = t("zahl.frageAdresse");
         ziel = await frageAdresseAn({ pool, speicher: geheim, signer: appState.signer!, empfaenger: state.recipientPubkey, kette }) ?? "";
       }
       const offen = profile[0] ? solAdresseAusProfil(profile[0].content) : "";
-      if (!ziel && offen && confirm(
-        `${state.recipientName} hat nicht geantwortet. In seinem Profil steht eine öffentliche SOL-Adresse – ein Trinkgeld dorthin ist für jeden sichtbar mit ihm verknüpft, und alle Trinkgelder landen auf derselben Adresse. Trotzdem dorthin?`,
-      )) ziel = offen;
+      if (!ziel && offen && confirm(t("zahl.oeffentlicheAdresseFrage", { name: state.recipientName }))) ziel = offen;
       if (!ziel) {
-        ziel = (prompt(`SOL-Adresse von ${state.recipientName}:`) ?? "").trim();
-        if (!ziel) throw new Error("abgebrochen — keine Empfänger-Adresse");
+        ziel = (prompt(t("zahl.solAdresseVon", { name: state.recipientName })) ?? "").trim();
+        if (!ziel) throw new Error(t("zahl.ohneEmpfaengerAdresse"));
       }
-      statusEl.textContent = "warte auf wallet-signatur…";
+      statusEl.textContent = t("zahl.warteAufSignatur");
       let lamports = Math.round(state.amount * 1e9);
       // Betragsrauschen (4.9): Wer mehrfach denselben runden Betrag sendet,
       // verbindet damit seine Adressen wieder. Nur nach oben, hoechstens 0,3 %.
@@ -188,7 +187,7 @@ async function sendZap(state: ZapDialogState, el: HTMLElement): Promise<void> {
         if (r.suspicious && r.suggested) lamports = r.suggested;
       }
       const beleg = await zahle(zahlschienen(), { ziel, betrag: { einheit: "lamports", wert: lamports }, zweck: "trinkgeld" });
-      statusEl.textContent = `◎ gesendet! sig: ${beleg.ref.slice(0, 12)}…`;
+      statusEl.textContent = `◎ ${t("zahl.gesendetSig", { sig: beleg.ref.slice(0, 12) })}`;
       // Beleg an den Empfaenger (4.7): versiegelt, oeffentlich nur auf Wunsch.
       // Scheitert er, ist das Geld trotzdem unterwegs – das sagt die Meldung.
       try {
@@ -198,9 +197,9 @@ async function sendZap(state: ZapDialogState, el: HTMLElement): Promise<void> {
         await sendeTrinkgeldBeleg(pool, appState.signer!, {
           empfaenger: state.recipientPubkey, signatur: beleg.ref, lamports, an: ziel, kette: ketteAusRpc(await solRpcUrl()),
         }, oeffentlich);
-        statusEl.textContent += oeffentlich ? " · Beleg öffentlich" : " · Beleg an den Empfänger";
+        statusEl.textContent += ` · ${t(oeffentlich ? "zahl.belegOeffentlich" : "zahl.belegAnEmpfaenger")}`;
       } catch (e) {
-        statusEl.textContent += ` · Beleg nicht gesendet (${(e as Error).message})`;
+        statusEl.textContent += ` · ${t("zahl.belegNichtGesendet", { fehler: (e as Error).message })}`;
       }
     }
 
@@ -209,7 +208,7 @@ async function sendZap(state: ZapDialogState, el: HTMLElement): Promise<void> {
   } catch (e) {
     state.status = "error";
     state.error = (e as Error).message;
-    statusEl.textContent = `fehler: ${(e as Error).message}`;
+    statusEl.textContent = t("zahl.fehler", { fehler: (e as Error).message });
     sendBtn.disabled = false;
   }
 }

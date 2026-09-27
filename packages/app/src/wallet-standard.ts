@@ -12,6 +12,7 @@
  * App schon kennt (`connect`, `signTransaction`, `signAndSendTransaction`).
  */
 import { base58 } from "@scure/base";
+import { t } from "./i18n.js";
 
 export interface StandardKonto {
   address: string;
@@ -85,16 +86,16 @@ export function alsAnbieter(w: StandardWallet, kette: () => Promise<string>) {
   let konto: StandardKonto | undefined;
   const feature = <T>(name: string): T => {
     const f = w.features[name] as T | undefined;
-    if (!f) throw new Error(`${w.name} kann ${name} nicht`);
+    if (!f) throw new Error(t("zahl.walletKannNicht", { wallet: w.name, was: name }));
     return f;
   };
   const verbundenesKonto = (): StandardKonto => {
-    if (!konto) throw new Error("Wallet nicht verbunden");
+    if (!konto) throw new Error(t("zahl.walletNichtVerbunden"));
     return konto;
   };
   const passendeKette = async (): Promise<string> => {
     const k = await kette();
-    if (!w.chains.includes(k)) throw new Error(`${w.name} unterstützt ${k} nicht`);
+    if (!w.chains.includes(k)) throw new Error(t("zahl.walletOhneKette", { wallet: w.name, kette: k }));
     return k;
   };
   const anbieter: {
@@ -107,7 +108,7 @@ export function alsAnbieter(w: StandardWallet, kette: () => Promise<string>) {
     async connect(opts) {
       const { accounts } = await feature<Verbinden>("standard:connect").connect(opts?.onlyIfTrusted ? { silent: true } : undefined);
       konto = accounts.find((a) => !a.chains || a.chains.some((c) => c.startsWith("solana:")));
-      if (!konto || !/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(konto.address)) throw new Error(`${w.name} gab kein Solana-Konto frei`);
+      if (!konto || !/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(konto.address)) throw new Error(t("zahl.walletOhneKonto", { wallet: w.name }));
       const adresse = konto.address;
       return { publicKey: { toBase58: () => adresse } };
     },
@@ -128,7 +129,7 @@ export function alsAnbieter(w: StandardWallet, kette: () => Promise<string>) {
       const [r] = await feature<SignierenUndSenden>("solana:signAndSendTransaction").signAndSendTransaction({
         account: verbundenesKonto(), transaction: serialisiere(tx as Tx), chain: await passendeKette(),
       });
-      if (!(r?.signature instanceof Uint8Array) || r.signature.length !== 64) throw new Error(`${w.name} lieferte keine gültige Signatur`);
+      if (!(r?.signature instanceof Uint8Array) || r.signature.length !== 64) throw new Error(t("zahl.walletOhneSignatur", { wallet: w.name }));
       return { signature: base58.encode(r.signature) };
     };
   }

@@ -9,6 +9,8 @@
  * „frische Adresse“ im Wallet-Tab fuer alles andere; eingeloest wird mit
  * `eingebauterHtlcSigner()` – ohne SOL auf der neuen Adresse ueber einen Relayer.
  */
+import { t } from "../i18n.js";
+import { escapeHtml } from "../shell-logic.js";
 import { EingebauteSolWallet, type Nachfrage, type SignierbareTx, VORRAT_GROESSE } from "../sol-wallet.js";
 import { ausLamports, solText } from "../preis-anzeige.js";
 import { aktuellerKurs } from "./marktkurs.js";
@@ -58,12 +60,12 @@ export function bestaetigeUeberLimit(n: Nachfrage): Promise<boolean> {
   const box = document.createElement("div");
   box.className = "modal-backdrop";
   box.innerHTML = `<div class="modal">
-    <h3>Über dem Tageslimit</h3>
-    <p class="mono-sm">Diese Zahlung liegt über dem, was die eingebaute Wallet ohne Nachfrage sendet.</p>
-    <p class="mono-sm">Betrag: <b id="lim-betrag"></b><br>an: <span id="lim-ziel" class="mono"></span></p>
-    <p class="mono-sm">Limit: <span id="lim-limit"></span> in 24 Stunden · schon gesendet: <span id="lim-verbraucht"></span></p>
-    <button id="lim-ja" class="send-btn">trotzdem senden</button>
-    <button id="lim-nein" class="ghost">abbrechen</button>
+    <h3>${escapeHtml(t("waehr.ueberLimit"))}</h3>
+    <p class="mono-sm">${escapeHtml(t("waehr.ueberLimitText"))}</p>
+    <p class="mono-sm">${escapeHtml(t("waehr.limBetrag"))} <b id="lim-betrag"></b><br>${escapeHtml(t("waehr.limAn"))} <span id="lim-ziel" class="mono"></span></p>
+    <p class="mono-sm">${escapeHtml(t("waehr.limLimit"))} <span id="lim-limit"></span> ${escapeHtml(t("waehr.limIn24"))} · ${escapeHtml(t("waehr.limSchon"))} <span id="lim-verbraucht"></span></p>
+    <button id="lim-ja" class="send-btn">${escapeHtml(t("waehr.trotzdemSenden"))}</button>
+    <button id="lim-nein" class="ghost">${escapeHtml(t("zahl.abbrechen"))}</button>
   </div>`;
   const setze = (id: string, text: string) => { box.querySelector(`#${id}`)!.textContent = text; };
   setze("lim-betrag", solText(n.lamports));
@@ -91,7 +93,7 @@ export function zeigeEingebauteWallet(): void {
   sichtbar("#solw-bereit", !!adresse);
   status.className = "mono-sm";
   if (mitBunker()) {
-    status.textContent = "Mit Bunker gesperrt: Die 12 Wörter gehören dann nicht auf dieses Gerät – verbinde eine externe Wallet.";
+    status.textContent = t("waehr.mitBunker");
     return;
   }
   if (!adresse) {
@@ -102,12 +104,10 @@ export function zeigeEingebauteWallet(): void {
   zeigeOfflineZahlung();
   ($("#solw-limit") as HTMLInputElement).value = String(eingebauteWallet.limit() / 1e9);
   const frei = eingebauteWallet.vorratFrei();
-  $("#solw-vorrat").textContent = frei > 0
-    ? `Frische Empfangsadressen: noch ${frei}`
-    : "Keine frischen Empfangsadressen mehr – „neue ableiten“ (mit deinen 12 Wörtern).";
+  $("#solw-vorrat").textContent = frei > 0 ? t("waehr.vorratNoch", { n: frei }) : t("waehr.vorratLeer");
   sichtbar("#solw-ergaenzen", frei < 5);
   ($("#solw-frisch") as HTMLButtonElement).disabled = frei === 0;
-  $("#solw-guthaben").textContent = "Guthaben: …";
+  $("#solw-guthaben").textContent = t("waehr.guthaben", { betrag: "…" });
   const adressen = eingebauteWallet.eigeneAdressen();
   void (async () => {
     try {
@@ -116,10 +116,10 @@ export function zeigeEingebauteWallet(): void {
       const je = await Promise.all(adressen.map(async (a) => (await fetchSolBalance(a, rpc)).lamports));
       const summe = je.reduce((s, x) => s + x, 0);
       const mit = je.filter((x) => x > 0).length;
-      $("#solw-guthaben").textContent = `Guthaben: ${ausLamports(summe, aktuellerKurs())}` + (mit > 1 ? ` – auf ${mit} Adressen verteilt` : "");
+      $("#solw-guthaben").textContent = t("waehr.guthaben", { betrag: ausLamports(summe, aktuellerKurs()) }) + (mit > 1 ? t("waehr.verteilt", { n: mit }) : "");
       void guthabenStichprobe(adressen);
     } catch {
-      $("#solw-guthaben").textContent = "Guthaben: nicht abrufbar (RPC)";
+      $("#solw-guthaben").textContent = t("waehr.guthabenRpc");
     }
   })();
 }
@@ -138,9 +138,9 @@ async function guthabenStichprobe(adressen: readonly string[]): Promise<void> {
   letzteStichprobe = Date.now();
   const feld = $("#solw-rpc");
   try {
-    const t = stichprobeText(await rpcStichprobe(stichprobenKonto(adressen)));
-    feld.textContent = t.stufe === "warnung" ? t.text : "";
-    if (t.stufe === "warnung") toast("RPC-Anbieter widersprechen sich – Details in der Wallet", true);
+    const probe = stichprobeText(await rpcStichprobe(stichprobenKonto(adressen)));
+    feld.textContent = probe.stufe === "warnung" ? probe.text : "";
+    if (probe.stufe === "warnung") toast(t("waehr.rpcWiderspruch"), true);
   } catch {
     feld.textContent = "";
   }
@@ -153,7 +153,7 @@ async function frischKopieren(): Promise<void> {
     if (!adresse) return;
     await navigator.clipboard.writeText(adresse).catch(() => undefined);
     $("#solw-adresse").textContent = adresse;
-    toast("Frische Adresse kopiert – gib sie nur für diesen einen Empfang heraus");
+    toast(t("waehr.frischKopiert"));
   } catch (e) {
     toast((e as Error).message, true);
   }
@@ -161,17 +161,16 @@ async function frischKopieren(): Promise<void> {
 
 /** Mit den 12 Woertern weitere frische Adressen ableiten. */
 async function ergaenzen(): Promise<void> {
-  if (!(await verlangeTresor("die eingebaute Wallet"))) return;
+  if (!(await verlangeTresor(t("waehr.fuerEingebaute")))) return;
   const box = document.createElement("div");
   box.className = "modal-backdrop";
   box.innerHTML = `<div class="modal">
-    <h3>Frische Adressen ableiten</h3>
-    <p class="mono-sm">Gib deine 12 Wörter ein. Die App leitet die nächsten ${ganzeZahl(VORRAT_GROESSE)} Adressen ab
-    (Phantoms Konten in derselben Reihenfolge) und speichert nur ihre Schlüssel im Tresor.</p>
-    <textarea id="solw-woerter2" rows="3" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="12 Wörter"></textarea>
+    <h3>${escapeHtml(t("waehr.ableitenTitel"))}</h3>
+    <p class="mono-sm">${escapeHtml(t("waehr.ableitenText", { n: ganzeZahl(VORRAT_GROESSE) }))}</p>
+    <textarea id="solw-woerter2" rows="3" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="${escapeHtml(t("waehr.zwoelfWoerter"))}"></textarea>
     <div id="solw-meldung2" class="mono-sm err"></div>
-    <button id="solw-ok2" class="send-btn">ableiten</button>
-    <button id="solw-abbrechen2" class="ghost">abbrechen</button>
+    <button id="solw-ok2" class="send-btn">${escapeHtml(t("waehr.ableiten"))}</button>
+    <button id="solw-abbrechen2" class="ghost">${escapeHtml(t("zahl.abbrechen"))}</button>
   </div>`;
   document.body.appendChild(box);
   const feld = box.querySelector("#solw-woerter2") as HTMLTextAreaElement;
@@ -184,7 +183,7 @@ async function ergaenzen(): Promise<void> {
       const frei = await eingebauteWallet.vorratErgaenzen(feld.value, state.keypair?.pk ?? "");
       feld.value = "";
       box.remove();
-      toast(`${frei} frische Adressen bereit`);
+      toast(t("waehr.frischeBereit", { n: frei }));
       zeigeEingebauteWallet();
     } catch (e) {
       box.querySelector("#solw-meldung2")!.textContent = (e as Error).message;
@@ -197,17 +196,16 @@ async function ergaenzen(): Promise<void> {
 /** Einrichten: Tresor zuerst, dann die 12 Woerter einmal eintippen. */
 async function einrichten(): Promise<void> {
   if (mitBunker()) return zeigeEingebauteWallet();
-  if (!(await verlangeTresor("die eingebaute Wallet"))) return;
+  if (!(await verlangeTresor(t("waehr.fuerEingebaute")))) return;
   const box = document.createElement("div");
   box.className = "modal-backdrop";
   box.innerHTML = `<div class="modal">
-    <h3>Eingebaute Wallet einrichten</h3>
-    <p class="mono-sm">Gib deine 12 Wörter ein. Die App leitet daraus deine Solana-Adresse ab
-    (dieselbe wie in Phantom) und speichert nur den Schlüssel dazu im Tresor – die Wörter nicht.</p>
-    <textarea id="solw-woerter" rows="3" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="12 Wörter"></textarea>
+    <h3>${escapeHtml(t("waehr.einrichtenTitel"))}</h3>
+    <p class="mono-sm">${escapeHtml(t("waehr.einrichtenText"))}</p>
+    <textarea id="solw-woerter" rows="3" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="${escapeHtml(t("waehr.zwoelfWoerter"))}"></textarea>
     <div id="solw-meldung" class="mono-sm err"></div>
-    <button id="solw-ok" class="send-btn">einrichten</button>
-    <button id="solw-abbrechen" class="ghost">abbrechen</button>
+    <button id="solw-ok" class="send-btn">${escapeHtml(t("waehr.einrichten"))}</button>
+    <button id="solw-abbrechen" class="ghost">${escapeHtml(t("zahl.abbrechen"))}</button>
   </div>`;
   document.body.appendChild(box);
   const feld = box.querySelector("#solw-woerter") as HTMLTextAreaElement;
@@ -220,7 +218,7 @@ async function einrichten(): Promise<void> {
       const adresse = await eingebauteWallet.einrichten(feld.value, state.keypair?.pk ?? "");
       feld.value = "";
       box.remove();
-      toast(`Eingebaute Wallet bereit: ${adresse.slice(0, 6)}…`);
+      toast(t("waehr.eingebauteBereit", { adresse: adresse.slice(0, 6) }));
       zeigeEingebauteWallet();
     } catch (e) {
       box.querySelector("#solw-meldung")!.textContent = (e as Error).message;
@@ -235,7 +233,7 @@ async function limitSpeichern(): Promise<void> {
   const lamports = Math.round(sol * 1e9);
   try {
     await eingebauteWallet.setzeLimit(lamports);
-    toast(`Ohne Nachfrage höchstens ${solText(lamports)} in 24 Stunden`);
+    toast(t("waehr.limitGesetzt", { betrag: solText(lamports) }));
   } catch (e) {
     toast((e as Error).message, true);
   }
@@ -243,9 +241,9 @@ async function limitSpeichern(): Promise<void> {
 }
 
 async function entfernen(): Promise<void> {
-  if (!confirm("Eingebaute Wallet von diesem Gerät entfernen? Das Guthaben bleibt auf der Kette – mit deinen 12 Wörtern richtest du sie wieder ein (hier oder in Phantom).")) return;
+  if (!confirm(t("waehr.entfernenFrage"))) return;
   await eingebauteWallet.entfernen();
-  toast("Eingebaute Wallet entfernt");
+  toast(t("waehr.eingebauteEntfernt"));
   zeigeEingebauteWallet();
 }
 
@@ -258,6 +256,6 @@ export function wireEingebauteWallet(): void {
   $("#solw-ergaenzen").addEventListener("click", () => void ergaenzen());
   wireOfflineZahlung();
   $("#solw-kopieren").addEventListener("click", () => {
-    void navigator.clipboard.writeText($("#solw-adresse").textContent ?? "").then(() => toast("Adresse kopiert"));
+    void navigator.clipboard.writeText($("#solw-adresse").textContent ?? "").then(() => toast(t("waehr.adresseKopiert")));
   });
 }

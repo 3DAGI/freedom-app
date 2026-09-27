@@ -11,6 +11,10 @@ import { generateKeypair, solReferenz, zahle, type Beleg, type Zahlanfrage } fro
 import { kaufeRelayZugang, leseRelayPreise, merkeZugang, pruefeAngebot, zugaenge, type RelayPreise } from "../src/relay-kauf.js";
 import { SolanaRail } from "../src/rails.js";
 import { knotenSchluessel, rechnung } from "../../protocol/test/bolt11-hilfe.js";
+import { setLang } from "../src/i18n.js";
+
+// Meldungen hier auf Deutsch prüfen (seit 8.16e über Schlüssel in der Sprache der Oberfläche)
+setLang("de");
 
 const RELAY = "wss://relay.example";
 const ich = generateKeypair().pk;

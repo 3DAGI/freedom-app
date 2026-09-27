@@ -9,6 +9,7 @@
  * gemerkt und laesst sich spaeter erneut pruefen – bezahlt ist bezahlt.
  */
 import { leseBolt11, relayHost, type Beleg, type Zahlanfrage } from "@freedomstack/protocol";
+import { t } from "./i18n.js";
 
 /** Relays mit gekauftem Zugang (bis wann) und noch nicht bestaetigte Kaeufe. Kein Geheimnis, aber nur hier. */
 export const LS_RELAY_ZUGANG = "freedom.relays.zugang";
@@ -70,21 +71,21 @@ export async function leseRelayPreise(relay: string, f: typeof fetch = (i, o) =>
 async function post(f: typeof fetch, url: string, body: unknown): Promise<Record<string, unknown>> {
   const res = await f(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), signal: AbortSignal.timeout(15_000) });
   const d = (await res.json().catch(() => ({}))) as Record<string, unknown>;
-  if (!res.ok) throw new Error(typeof d.fehler === "string" ? d.fehler.slice(0, 120) : `Relay antwortet ${res.status}`);
+  if (!res.ok) throw new Error(typeof d.fehler === "string" ? d.fehler.slice(0, 120) : t("zahl.relayAntwortet", { status: res.status }));
   return d;
 }
 
 /** Angebot vor dem Zahlen pruefen – eigener Schluessel, angekuendigter Preis, Rechnung auf genau diesen Betrag. */
 export function pruefeAngebot(a: Record<string, unknown>, p: { pubkey: string; schiene: Schiene; preise: RelayPreise }): Zahlanfrage & { id: string } {
-  if (typeof a.id !== "string" || !/^[0-9a-f]{32}$/.test(a.id) || a.pubkey !== p.pubkey || a.schiene !== p.schiene) throw new Error("Angebot passt nicht zur Anfrage");
+  if (typeof a.id !== "string" || !/^[0-9a-f]{32}$/.test(a.id) || a.pubkey !== p.pubkey || a.schiene !== p.schiene) throw new Error(t("zahl.angebotPasstNicht"));
   if (p.schiene === "lightning") {
-    if (!p.preise.msat || a.sats !== p.preise.msat / 1000 || typeof a.bolt11 !== "string") throw new Error("Angebot nennt einen anderen Preis");
+    if (!p.preise.msat || a.sats !== p.preise.msat / 1000 || typeof a.bolt11 !== "string") throw new Error(t("zahl.angebotAndererPreis"));
     const r = leseBolt11(a.bolt11);
-    if (r.betragMsat !== p.preise.msat || r.zahlungsHash !== a.hash) throw new Error("Rechnung lautet auf einen anderen Betrag");
-    return { id: a.id, ziel: a.bolt11, betrag: { einheit: "msat", wert: p.preise.msat }, zweck: "relay", notiz: "Relay-Zugang" };
+    if (r.betragMsat !== p.preise.msat || r.zahlungsHash !== a.hash) throw new Error(t("zahl.rechnungAndererBetrag"));
+    return { id: a.id, ziel: a.bolt11, betrag: { einheit: "msat", wert: p.preise.msat }, zweck: "relay", notiz: "Relay-Zugang" }; // kein UI-Text
   }
-  if (!p.preise.lamports || a.lamports !== p.preise.lamports) throw new Error("Angebot nennt einen anderen Preis");
-  if (typeof a.adresse !== "string" || !SOL.test(a.adresse) || typeof a.referenz !== "string" || !SOL.test(a.referenz)) throw new Error("Angebot ohne gültige Adresse oder Referenz");
+  if (!p.preise.lamports || a.lamports !== p.preise.lamports) throw new Error(t("zahl.angebotAndererPreis"));
+  if (typeof a.adresse !== "string" || !SOL.test(a.adresse) || typeof a.referenz !== "string" || !SOL.test(a.referenz)) throw new Error(t("zahl.angebotOhneAdresse"));
   return { id: a.id, ziel: a.adresse, betrag: { einheit: "lamports", wert: p.preise.lamports }, zweck: "relay", referenz: a.referenz };
 }
 
