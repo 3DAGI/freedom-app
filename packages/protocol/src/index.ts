@@ -71,6 +71,7 @@ export * from "./scarcity.js";
 export * from "./referral-graph.js";
 export * from "./relay-discovery.js";
 export * from "./client-fee.js";
+export * from "./aufteilung.js";
 export * from "./release.js";
 export * from "./rpc-pool.js";
 export * from "./mesh-transport.js";

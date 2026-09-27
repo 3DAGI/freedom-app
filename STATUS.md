@@ -6607,3 +6607,49 @@ Outbox beim Lesen (b1) hilft nur bei Autoren, deren Liste man schon kennt.
 Endstand: protocol 1145 · node 240 · app 439 (+3) · mls 13 · Leak-Tests 55
 grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng 0
 unbewertet · Website 5 Seiten ok · Smoke-Test bestanden.
+
+## Schritt 5.1.1 – Gebührenmodell A+: Protokoll-Baustein
+
+Entscheidung 4.0 (A+, 26.09.2026): Eine KI-Zahlung wird beim Zahlen fest
+aufgeteilt – 94 % Provider, 2,5 % Entwicklung, 1,5 % Relays, 0,5 % Werber des
+Kunden, 0,5 % Werber des Providers, 1 % Hosting. Kein Topf, niemand verwahrt
+fremdes Geld.
+
+**Heute** zahlt der Kunde dem Provider alles; dessen Knoten zahlt Pool,
+Werbe-Pool und App-Gebühr aus und veröffentlicht einen Gebühren-Beleg
+(`settlement.ts`). **Bei A+** zahlt die App des Kunden jeden Anteil selbst,
+der Provider stellt nur seinen in Rechnung. Das ändert Knoten, App und Belege
+zugleich – darum vier Teile (`phase-5.md`): 5.1.1 Protokoll (hier), 5.1.2
+Knoten, 5.1.3 App, 5.1.4 Aufräumen.
+
+**`packages/protocol/src/aufteilung.ts`** (neu):
+- `PROVIDER_PPM`, `ANTEILE_PPM` – fest; Selbstprüfung beim Import (Summe 100 %,
+  ohne Provider höchstens 10 %) und neue CI-Invariante „Aufteilung A+“
+  (`ci.yml`, neben der alten, die mit 5.1.2/5.1.4 geht).
+- `adresseFuer()`: Lightning nur als Lightning-Adresse ohne lokalen Host, SOL
+  nur Base58; den Betrag der Rechnung prüft die Zahlung selbst (4.8).
+- `zahlbareAnteile()` / `teileAuf()`: nur Anteile mit Empfänger auf der Schiene
+  der Zahlung; nicht Zuordenbares bleibt beim Provider, nie bei der
+  Entwicklung; jeder Anteil abgerundet, Reste beim Provider; Relays höchstens
+  drei, ohne Doppelte, zu gleichen Teilen, der Rest an den ersten; keine
+  Null-Zahlungen. **SOL vorerst ganz an den Provider** – die Aufteilung
+  erzwingt dort erst das Programm des Zahlkanals (4.3); einzelne
+  SOL-Überweisungen je Anteil verbänden die Adresse des Kunden mit allen
+  Empfängern.
+- Deklaration im versiegelten Auftrag: `aufteilungTag()` nennt die Anteile, die
+  die App selbst zahlt; der Provider prüft mit `pruefeAufteilung()` (bekannt,
+  jeder einmal, höchstens 10 %, Werber des Providers nur, wenn sein Angebot
+  einen nennt) und stellt `providerAnteilMsat()` in Rechnung – derselbe Betrag,
+  den die App berechnet. Ohne Tag: der ganze Betrag.
+
+Noch nicht verdrahtet: Ausnahmen in `wiring-ausnahmen.txt` nennen 5.1.2/5.1.3.
+
+**Tests:** protocol +7 (`aufteilung.test.ts`): feste Werte; alle Empfänger
+bekannt (exakte Beträge, drei Relays); Summe bei jedem Betrag, nie unter 94 %,
+keine Null-Zahlungen, Relay-Rest; nicht Zuordenbares (fehlend, ungültig,
+lokal) an den Provider; SOL ganz an den Provider; Deklaration → derselbe
+Rechnungsbetrag; abgelehnte Deklarationen.
+
+Endstand: protocol 1152 (+7) · node 240 · app 439 · mls 13 · Leak-Tests 55
+grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 · CI-Invariante lokal
+ausgeführt.
