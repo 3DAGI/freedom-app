@@ -68,14 +68,18 @@
   <h2>Wo Kapazität fehlt</h2>
   <p class="muted" style="font-size:13px;max-width:60ch">
     Ein Knoten in einer unterversorgten Region ist für das Netz mehr wert als
-    der zwanzigste in Mitteleuropa — und wird entsprechend höher vergütet.
+    der zwanzigste in Mitteleuropa. Einen Aufschlag gibt es dafür nicht — ohne
+    Topf zahlt jeder Kunde nur seinen Auftrag; Anreize für Randregionen sollen
+    gesponserte Pools bringen (geplant).
   </p>
   <div id="regions"><p class="muted">lade …</p></div>
 
-  <h2>Werber-Rangliste</h2>
+  <h2>Werbe-Nennungen</h2>
   <p class="muted" style="font-size:13px;max-width:60ch">
-    Sortiert nach dem, was die Geworbenen tatsächlich erarbeitet haben — nicht
-    danach, wie viele jemand eingetragen hat. Fürs Anwerben allein gibt es nichts.
+    Wie viele Geworbene jemanden öffentlich als Werber nennen — nur, wer dem
+    zugestimmt hat, je Geworbenem die früheste Angabe. Bezahlt wird das Werben
+    nicht nach dieser Liste, sondern direkt beim Zahlen (0,5 % je Seite); Stufen
+    gibt es keine.
   </p>
   <div id="referrers"><p class="muted">lade …</p></div>
 
@@ -89,7 +93,7 @@
 // ---------------------------------------------------------------------------
 // Alles unten läuft im Browser des Besuchers. Kein Backend, keine Datenbank,
 // kein Analytics. Die Zahlen entstehen aus signierten Events (kind 38010
-// Leistungsnachweise, 38025 Provider-Fähigkeiten, 38051 Fee-Beweise).
+// Leistungsnachweise, 38025 Provider-Fähigkeiten, 38052 Werbe-Nennungen).
 // ---------------------------------------------------------------------------
 
 // Die Startliste der App (packages/protocol/src/relay-start.ts, Schritt 5.4) –
@@ -107,7 +111,6 @@ const RELAYS = [
 
 const KIND_PERFORMANCE = 38010;
 const KIND_CAPABILITIES = 38025;
-const KIND_FEE_PROOF = 38051;
 const KIND_REFERRAL_CLAIM = 38052;
 const LOOKBACK_SECONDS = 7 * 24 * 3600;
 
@@ -154,7 +157,6 @@ function renderKpis(stats) {
     { num: fmt(stats.jobs), lbl: "belegte Jobs", sub: "signierte Leistungsnachweise" },
     { num: fmt(Math.round(stats.volumeSats)), lbl: "sats verrechnet", sub: "Summe über alle Nachweise" },
     { num: fmt(stats.models), lbl: "verschiedene Modelle", sub: "angeboten im Netz" },
-    { num: fmt(stats.feeProofs), lbl: "Fee-Beweise", sub: stats.feeSettled + " davon per Preimage belegt" },
   ];
   el("kpis").innerHTML = cards.map((c) => `
     <div class="kpi">
@@ -193,56 +195,41 @@ const REGION_NAMES = {
 };
 const TARGET_PER_REGION = 5;
 
-/** Dieselbe quadratische Kurve wie scarcity.ts im Protokoll. */
-function scarcityMult(present) {
-  if (present >= TARGET_PER_REGION) return 1;
-  const gap = (TARGET_PER_REGION - present) / TARGET_PER_REGION;
-  return 1 + 2 * gap * gap;
-}
-
+/** Wie whereIsCapacityNeeded() in scarcity.ts: wie viele bis zum Ziel fehlen. */
 function renderRegions(byRegion) {
   const rows = Object.keys(REGION_NAMES).map((r) => {
     const n = byRegion.get(r) || 0;
-    return { region: r, providers: n, mult: scarcityMult(n) };
-  }).sort((a, b) => b.mult - a.mult || a.providers - b.providers);
+    return { region: r, providers: n, fehlen: Math.max(0, TARGET_PER_REGION - n) };
+  }).sort((a, b) => b.fehlen - a.fehlen || a.providers - b.providers);
 
   el("regions").innerHTML = `
     <table class="dash">
-      <thead><tr><th>Region</th><th>Provider</th><th>Vergütung</th><th></th></tr></thead>
+      <thead><tr><th>Region</th><th>Provider</th><th>fehlen bis ${TARGET_PER_REGION}</th><th></th></tr></thead>
       <tbody>${rows.map((r) => `
         <tr>
           <td>${esc(REGION_NAMES[r.region])}</td>
           <td>${fmt(r.providers)}</td>
-          <td>${r.mult > 1 ? `<span class="ok">×${r.mult.toFixed(2)}</span>` : "normal"}</td>
+          <td>${r.fehlen > 0 ? `<span class="warn">${fmt(r.fehlen)}</span>` : "—"}</td>
           <td class="muted">${r.providers === 0
             ? "Noch niemand — der erste versorgt eine ganze Region."
-            : r.mult > 1 ? "unterversorgt" : "ausreichend"}</td>
+            : r.fehlen > 0 ? "unterversorgt" : "ausreichend"}</td>
         </tr>`).join("")}
       </tbody>
     </table>`;
 }
 
-/** Stufen wie in referral.ts — identisch, sonst verspricht die Anzeige anderes. */
-const TIERS = [
-  { name: "Starter", min: 0 }, { name: "Bronze", min: 3 },
-  { name: "Silber", min: 10 }, { name: "Gold", min: 25 }, { name: "Anker", min: 50 },
-];
-const tierName = (n) => TIERS.filter((t) => n >= t.min).pop().name;
-
 function renderReferrers(rows) {
   if (!rows.length) {
-    el("referrers").innerHTML = `<p class="muted">Noch keine Werbebeziehungen im Netz.</p>`;
+    el("referrers").innerHTML = `<p class="muted">Noch keine öffentlichen Nennungen im Netz.</p>`;
     return;
   }
   el("referrers").innerHTML = `
     <table class="dash">
-      <thead><tr><th>Werber</th><th>aktiv</th><th>geworben</th><th>Stufe</th></tr></thead>
+      <thead><tr><th>Werber</th><th>genannt von</th></tr></thead>
       <tbody>${rows.slice(0, 20).map((r) => `
         <tr>
           <td class="mono">${esc(short(r.pubkey))}</td>
-          <td>${fmt(r.active)}</td>
-          <td class="muted">${fmt(r.total)}</td>
-          <td>${esc(tierName(r.active))}</td>
+          <td>${fmt(r.total)}</td>
         </tr>`).join("")}
       </tbody>
     </table>`;
@@ -274,7 +261,6 @@ async function load() {
   const filters = [
     { kinds: [KIND_PERFORMANCE], since, limit: 2000 },
     { kinds: [KIND_CAPABILITIES], since, limit: 500 },
-    { kinds: [KIND_FEE_PROOF], since, limit: 500 },
     { kinds: [KIND_REFERRAL_CLAIM], limit: 2000 },
   ];
 
@@ -306,7 +292,7 @@ async function load() {
   const regionProviders = new Map();
   // Frueheste Angabe je Geworbenem — spaetere Wechsel zaehlen nicht.
   const claims = new Map();
-  let jobs = 0, volumeSats = 0, feeProofs = 0, feeSettled = 0;
+  let jobs = 0, volumeSats = 0;
   const day = Math.floor(Date.now() / 1000) - 86400;
   let providers24h = 0;
 
@@ -344,11 +330,6 @@ async function load() {
         const prev = claims.get(ev.pubkey);
         if (!prev || ev.created_at < prev.at) claims.set(ev.pubkey, { referrer, at: ev.created_at });
       }
-    } else if (ev.kind === KIND_FEE_PROOF) {
-      feeProofs += 1;
-      // Ein Leg gilt nur mit Preimage als belegt — sonst ist es angekündigt.
-      const belegt = ev.tags.some((t) => t[0] === "leg" && t[6]);
-      if (belegt) feeSettled += 1;
     }
   }
 
@@ -361,22 +342,18 @@ async function load() {
     jobs,
     volumeSats,
     models: modelCount.size,
-    feeProofs,
-    feeSettled,
   });
   renderProviders(list);
   renderRegions(new Map([...regionProviders].map(([r, set]) => [r, set.size])));
 
-  // Werber auswerten: aktiv heisst, der Geworbene hat im Zeitfenster gearbeitet.
-  const aktive = new Set(list.filter((x) => x.jobs > 0).map((x) => x.pubkey));
+  // Nennungen zaehlen wie zaehleNennungen() in werbe-nennung.ts – nur zaehlen, keine Stufen.
   const werber = new Map();
-  for (const [referred, c] of claims) {
-    const w = werber.get(c.referrer) || { pubkey: c.referrer, active: 0, total: 0 };
+  for (const c of claims.values()) {
+    const w = werber.get(c.referrer) || { pubkey: c.referrer, total: 0 };
     w.total += 1;
-    if (aktive.has(referred)) w.active += 1;
     werber.set(c.referrer, w);
   }
-  renderReferrers([...werber.values()].sort((a, b) => b.active - a.active || b.total - a.total));
+  renderReferrers([...werber.values()].sort((a, b) => b.total - a.total));
   renderModels([...modelCount.entries()].map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count));
 
   el("status").innerHTML =
@@ -388,11 +365,12 @@ async function load() {
     Leistungsnachweis (kind ${KIND_PERFORMANCE}) und seine Fähigkeiten
     (kind ${KIND_CAPABILITIES}). Diese Seite summiert, was auf den Relays liegt.<br><br>
     <strong>Was die Zahlen nicht sind.</strong>
-    Ein Nachweis belegt, dass ein Provider Arbeit <em>behauptet</em> — belegt ist
-    eine Zahlung erst durch ein Preimage im Fee-Beweis (kind ${KIND_FEE_PROOF}).
-    Deshalb steht oben getrennt, wie viele Beweise vorliegen und wie viele davon
-    tatsächlich belegt sind. Relays speichern zudem unterschiedlich lange; die
-    Summen sind Untergrenzen, keine Gesamtzahlen.
+    Ein Nachweis belegt, dass ein Provider Arbeit <em>behauptet</em> — nicht,
+    dass bezahlt wurde. Zahlungen sehen nur die Beteiligten: KI-Aufträge sind
+    privat, und jeder Anteil geht direkt von der Wallet des Kunden an seinen
+    Empfänger; einen öffentlichen Beleg gibt es nicht. Signaturen prüft diese
+    Seite nicht — die App tut das. Relays speichern zudem unterschiedlich lange;
+    die Summen sind Untergrenzen, keine Gesamtzahlen.
   `;
 }
 

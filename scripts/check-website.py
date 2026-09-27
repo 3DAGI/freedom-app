@@ -41,6 +41,16 @@ class Pruefer(html.parser.HTMLParser):
 # ihrem Build (packages/app/dist). Eine eingecheckte Kopie wäre veraltet (5.1.4a).
 ERZEUGT = {"freedom.html": os.path.join(BASIS, "..", "app", "dist", "freedom.html")}
 
+# Aussagen des alten Gebührenmodells (bis 5.1.4): Seit A+ gibt es keine
+# Protokollgebühr mit Pool, keine abschaltbare App-Gebühr, keinen Fee-Beweis
+# des Knotens, keinen Knappheitsbonus und keine Werbe-Stufen. Die Website muss
+# dasselbe sagen wie der Code (5.1.4d).
+VERALTET = [
+    "Protokollfee", "Protokollgebühr", "App-Gebühr", "App-Gebuehr", "für den Reward-Pool",
+    "Fee-Beweis", "bis zum Dreifachen", "referral.ts", "scarcityMult", "tierName",
+    "protocol takes", "reward pool,",
+]
+
 
 def main() -> int:
     fehler: list[str] = []
@@ -63,6 +73,10 @@ def main() -> int:
             ziel = ERZEUGT.get(link, os.path.join(BASIS, link))
             if not os.path.exists(ziel):
                 fehler.append(f"{datei} verlinkt auf {link} — existiert nicht")
+
+        for alt in VERALTET:
+            if alt in inhalt:
+                fehler.append(f"{datei}: veraltete Gebühren-Aussage „{alt}“ (Modell A+, 5.1.4d)")
 
         # Eine Seite ohne Titel oder Beschreibung ist in Suchergebnissen blind.
         if "<title>" not in inhalt:

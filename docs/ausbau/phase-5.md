@@ -2,7 +2,9 @@
 
 ---
 
-## 5.1 Gebührenmodell umsetzen
+## 5.1 Gebührenmodell umsetzen – CODE FERTIG (27.09.2026)
+
+> Umsetzung: 5.1.1 Baustein, 5.1.2 Knoten, 5.1.3a/b App zahlt, 5.1.4a–d aufgeräumt. Offen nur MENSCH: Adressen der Entwicklung (`ENTWICKLUNG`), Testnet-Test der Zahlung.
 
 - **Voraussetzung:** Entscheidung 4.0 – **entschieden: A+** (26.09.2026). Feste
   Aufteilung direkt beim Zahlen: 94 % Provider, 2,5 % Entwicklung, 1,5 % Relays,
@@ -71,9 +73,12 @@
       nach `bolt11.ts`), Aufgaben-Topf und Aufgaben aus Gebühren-Belegen in
       `quests.ts` – Aufgaben sind nur noch Abzeichen; das Profil fragt 38051
       nicht mehr ab. (Mit den Texten zusammen über 400 Zeilen – geteilt.)
-    - **5.1.4d:** Texte nach A+: Website (Startseite, FAQ, Whitepaper,
-      Dashboard samt Werbe-Stufen und Fee-Beweis-Zähler), PROTOCOL.md §3, §13,
-      §15, §16.
+    - **5.1.4d – FERTIG:** Texte nach A+: Website (Startseite de/en, FAQ,
+      Whitepaper, Roadmap, Dashboard ohne Werbe-Stufen, Vergütungsfaktor und
+      Fee-Beweis-Zähler), PROTOCOL.md §3, §4, §13, §15, §16;
+      `check-website.py` weist Aussagen des alten Modells ab (`VERALTET`).
+      Letzte Reste im Code: Saison mit Pool-Regeln und Ausschüttungsnachweis
+      (`performance.ts`, 38011/38012). **5.1 damit Code fertig.**
 
 ## 5.1b Gesponserte Pools (Solana-Programm)
 

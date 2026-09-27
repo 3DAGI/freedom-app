@@ -45,7 +45,7 @@
 </p>
 <p>
   Jede Behauptung des Systems über sich selbst ist nachrechenbar: Gebühren,
-  Belohnungen, Rollen, Abzeichen, Releases. Wo etwas nicht beweisbar ist, sagt
+  Rollen, Abzeichen, Releases. Wo etwas nicht beweisbar ist, sagt
   das System das — statt Sicherheit zu behaupten, die es nicht hat.
 </p>
 
@@ -189,36 +189,48 @@
   über der eigenen. Ohne sie macht sich ein Moderator selbst zum Besitzer.</p>
 <h2 id="anreize">Anreize ohne eigenen Token</h2>
 <p>Wer Belohnungen aus Token-Inflation zahlt, kann breit gießen. Wer sie aus
-  echten Einnahmen zahlt, hat exakt so viel, wie er einnimmt — und muss gezielt
-  zahlen.</p>
-  <p><strong>Knappheitsbonus:</strong> bis zum Dreifachen in unterversorgten
-  Regionen, dazu ein Aufschlag nach gemessener Auslastung — nicht nach Uhrzeit, denn
-  in einem weltweiten Netz ist „abends“ für jede Zeitzone etwas anderes.</p>
-  <p><strong>Werben:</strong> dauerhaft, zwei Ebenen, aus der Protokollfee bezahlt.
-  Fürs bloße Anwerben gibt es nichts — vergütet wird ausschließlich ein Anteil an
-  echtem Umsatz. Das ist die Linie zum Schneeballsystem, und sie ist im Code
-  festgeschrieben.</p>
-  <p><strong>Aufgaben:</strong> nur für im Protokoll nachweisbare Beiträge. Alles,
-  was einen externen Prüfer bräuchte, ist ein Abzeichen ohne Geld.</p>
+  echten Einnahmen zahlt, hat exakt so viel, wie er einnimmt. FreedomStack
+  sammelt dafür nichts: Jeder, der einen Auftrag trägt, bekommt seinen Anteil
+  beim Zahlen direkt — Provider, Relays, Werber, Hosting, Entwicklung. Kein Topf,
+  den jemand halten, und keine Verteilung, der man glauben müsste.</p>
+  <p><strong>Werben:</strong> dauerhaft, eine Ebene je Seite, keine Stufen. Der
+  Werbelink trägt die Lightning-Adresse des Werbers; die App des Geworbenen zahlt
+  ihm 0,5 % jeder KI-Zahlung, der Werber eines Providers bekommt 0,5 % von dessen
+  Aufträgen. Fürs bloße Anwerben gibt es nichts — vergütet wird ausschließlich ein
+  Anteil an echtem Umsatz. Das ist die Linie zum Schneeballsystem.</p>
+  <p><strong>Aufgaben:</strong> nur für im Protokoll nachweisbare Beiträge, und nur
+  als Abzeichen — ohne Topf keine Prämien, und wer ein Abzeichen erschwindelt,
+  gewinnt nichts.</p>
+  <p><strong>Randregionen:</strong> Anreize darüber hinaus sollen gesponserte Pools
+  bringen, mit offenen Regeln und ohne Verwahrer — geplant, noch nicht gebaut.</p>
 
 <h2 id="gebuehren">Gebühren</h2>
 <table>
-<thead><tr><th>Schicht</th><th>Anteil</th><th>Empfänger</th><th>Abschaltbar</th></tr></thead>
+<thead><tr><th>Anteil</th><th>Empfänger</th><th>Fehlt der Empfänger</th></tr></thead>
 <tbody>
-<tr><td rowspan="2">Protokoll</td><td>2,0 %</td><td>Reward-Pool</td><td>nein</td></tr>
-<tr><td>0,5 %</td><td>Werber</td><td>nein</td></tr>
-<tr><td>Client</td><td>2,5 %</td><td>die genutzte App</td><td><strong>ja</strong></td></tr>
+<tr><td>94 %</td><td>Provider</td><td>—</td></tr>
+<tr><td>2,5 %</td><td>Entwicklung (selbstverwahrte Adressen)</td><td>an den Provider</td></tr>
+<tr><td>1,5 %</td><td>Relays, über die der Auftrag lief (höchstens drei)</td><td>an den Provider</td></tr>
+<tr><td>0,5 %</td><td>Werber des Kunden</td><td>an den Provider</td></tr>
+<tr><td>0,5 %</td><td>Werber des Providers</td><td>an den Provider</td></tr>
+<tr><td>1 %</td><td>Hosting: der Spiegel, von dem die App geladen wurde</td><td>an den Provider</td></tr>
 </tbody></table>
 <p>
-  Der Entwickler-Anteil lag früher im Protokoll. Damit führte jeder Provider
-  automatisch an eine Adresse ab, die er nicht ändern konnte — die Definition
+  Früher führte jeder Provider aus seinem Erlös an Adressen ab, die er nicht
+  ändern konnte, und ein Pool hätte das Geld halten müssen — die Definition
   eines Intermediärs. <strong>Solange eine Gebühr nicht entfernt werden kann,
   gibt es einen Betreiber</strong>, egal was ein Whitepaper behauptet.
 </p>
 <p>
-  Jetzt deklariert der Client seine Gebühr selbst, im Auftrag, sichtbar für
-  jeden. Provider akzeptieren höchstens 10 % — ohne diese Grenze wäre die
-  Offenheit der Schicht ein Werkzeug gegen den Nutzer.
+  Jetzt zahlt die App des Kunden jeden Anteil selbst, direkt an seinen
+  Empfänger; der Provider stellt nur seinen Anteil in Rechnung. Welche Anteile
+  sie zahlt, deklariert sie im versiegelten Auftrag — der Provider akzeptiert
+  höchstens 10 %, ohne diese Grenze wäre die Offenheit der Schicht ein Werkzeug
+  gegen ihn. Die Werte sind fest voreingestellt und ändern sich nur mit einem
+  signierten Release. Ehrlich bleibt: Bei Lightning zahlt die App die Anteile —
+  ein veränderter Client könnte sie weglassen. Heute teilt die App
+  Lightning-Zahlungen auf; SOL-Aufträge gehen ganz an den Provider, bis der
+  Zahlkanal aufteilt.
 </p>
 
 <h2 id="invarianten">Was sich nicht ändern wird</h2>
@@ -229,8 +241,9 @@
   <li><strong>Kein eigener Token.</strong> BTC und SOL, sonst nichts.</li>
   <li><strong>Keine Bridge.</strong> Nur atomare Swaps.</li>
   <li><strong>Mehrere Relays, nie eines.</strong></li>
-  <li><strong>Die Protokollfee hat keinen privilegierten Empfänger.</strong>
-      Ein automatischer Test schlägt fehl, sobald wieder einer auftaucht.</li>
+  <li><strong>Nicht Zuordenbares geht an den Provider, nie an die Entwicklung.</strong>
+      Die Aufteilung ist eine Protokoll-Invariante; ein automatischer Test schlägt
+      fehl, sobald sie sich ändert.</li>
 </ol>
 
 <h2 id="grenzen">Grenzen</h2>

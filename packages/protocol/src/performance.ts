@@ -1,15 +1,17 @@
 /**
- * Leistungs-Events (kind 38010) und Reward-Ausschuettungsnachweise (38011).
+ * Leistungs-Events (kind 38010).
  *
  * Jede abrechenbare Aktion erzeugt ein signiertes Leistungs-Event: wer, was,
- * welcher Betrag, welche Chain. Diese Events sind der Rohstoff fuer Leaderboard
- * und Reward-Verteilung - faelschungssicher, oeffentlich pruefbar, off-chain.
+ * welcher Betrag, welche Chain. Daraus entstehen Reputation, Abzeichen
+ * (`quests.ts`) und die Karte, wo Kapazität fehlt – öffentlich prüfbar,
+ * off-chain. Geld hängt daran nicht: Saisons mit Pool-Regeln (38012) und
+ * Ausschüttungsnachweise (38011) fielen mit dem Gebührenmodell A+ (5.1.4d).
  *
  * Bewusst als Nostr-Event modelliert (Buzz-Muster: neue Funktion = neue Kind),
  * damit die Events auf jedem Relay liegen koennen und kein Server noetig ist.
  */
 import { UnsignedEvent, NostrEvent, buildEvent, getTag } from "./event.js";
-import { KIND_PERFORMANCE, KIND_REWARD_PAYOUT, KIND_SEASON_DEF } from "./kinds.js";
+import { KIND_PERFORMANCE } from "./kinds.js";
 
 export type WorkType = "message" | "ai_job" | "liquidity" | "relay";
 export type Chain = "lightning" | "solana" | "polygon" | "ton";
@@ -76,57 +78,4 @@ export function parsePerformance(ev: NostrEvent): ParsedPerformance {
     eventId: ev.id,
     createdAt: ev.created_at,
   };
-}
-
-export interface SeasonDef {
-  seasonId: string;
-  startUnix: number;
-  endUnix: number;
-  chain: Chain;
-  /** Fee-Anteil in Parts-per-Million, der in den Pool geht. */
-  poolFeePpm: number;
-  /** Anteil, der pro Leistung (statt saisonal) ausgeschuettet wird, in Prozent. */
-  perWorkPercent: number;
-}
-
-export function buildSeasonDef(pubkey: string, s: SeasonDef, createdAt?: number): UnsignedEvent {
-  return buildEvent(
-    pubkey,
-    KIND_SEASON_DEF,
-    [
-      ["d", s.seasonId],
-      ["start", String(s.startUnix)],
-      ["end", String(s.endUnix)],
-      ["chain", s.chain],
-      ["pool_fee_ppm", String(s.poolFeePpm)],
-      ["per_work_percent", String(s.perWorkPercent)],
-    ],
-    "",
-    createdAt,
-  );
-}
-
-export interface RewardPayoutParams {
-  /** Wer den Nachweis publiziert (Verteil-Contract-Betreiber ODER Worker selbst). */
-  pubkey: string;
-  seasonId: string;
-  recipientPubkey: string;
-  amountMsat: number;
-  chain: Chain;
-  /** Beleg der tatsaechlichen Zahlung (Zap-Receipt-ID / Tx-Hash). */
-  settlementRef: string;
-  rank?: number;
-}
-
-export function buildRewardPayout(p: RewardPayoutParams, createdAt?: number): UnsignedEvent {
-  const tags: string[][] = [
-    ["d", `${p.seasonId}:${p.recipientPubkey}`],
-    ["season", p.seasonId],
-    ["p", p.recipientPubkey],
-    ["amount_msat", String(p.amountMsat)],
-    ["chain", p.chain],
-    ["settlement", p.settlementRef],
-  ];
-  if (p.rank !== undefined) tags.push(["rank", String(p.rank)]);
-  return buildEvent(p.pubkey, KIND_REWARD_PAYOUT, tags, "", createdAt);
 }

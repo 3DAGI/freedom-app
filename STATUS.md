@@ -7480,3 +7480,62 @@ Fee-Konstanten). app +1: Profil ohne 38051.
 Endstand: protocol 1056 (−34, begründet) · node 226 (−1, begründet) · app 475
 (+1) · mls 13 · Leak-Tests 57 grün + 1 todo · 0 rot · check-wiring `--streng`
 Exit 0 · innerHTML streng Exit 0 · Website 5 Seiten ok · Smoke-Test bestanden.
+
+## Schritt 5.1.4d – Gebührenmodell A+: Texte und letzte Reste
+
+Letzter Teil von 5.1 (c Code, **d Texte**). Damit ist 5.1 im Code fertig;
+offen bleibt nur MENSCH: Adressen der Entwicklung (`ENTWICKLUNG`) und der
+Testnet-Test der Zahlung.
+
+**Website:**
+- Startseite (de/en): Die Aufteilung 94 / 2,5 / 1,5 / 0,5 / 0,5 / 1 ersetzt
+  „2,5 % Protokoll, 2,5 % App, abschaltbar“.
+- FAQ:
+  - Kosten nach A+, mit dem Hinweis, dass die Entwicklung noch keine Adresse
+    hat und SOL bis zum Zahlkanal ganz an den Provider geht;
+  - „Woher weiß ich, wohin mein Geld geht?“ statt Fee-Beweis;
+  - Reward-Pool gibt es nicht mehr;
+  - Verdienen ohne Knappheitsbonus, Aufgaben nur als Abzeichen;
+  - Werben: eine Ebene je Seite über den Werbelink;
+  - Entwicklungsanteil statt abschaltbarer App-Gebühr.
+- Whitepaper: Anreize, Gebühren-Tabelle, Begründung und Invariante 6 („nicht
+  Zuordenbares an den Provider, nie an die Entwicklung“ – geprüft von
+  `aufteilung.test.ts`).
+- Roadmap: Beleg-Prüfung durch Aufteilung ersetzt; Gebühren als entschieden
+  eingetragen.
+- Dashboard:
+  - Die Werber-Rangliste mit Stufen wird zur bloßen Zählung der Nennungen
+    (früheste je Geworbenem, wie `zaehleNennungen()`).
+  - Der Vergütungsfaktor der Regionen wird zu „fehlen bis 5“ (wie
+    `whereIsCapacityNeeded()`).
+  - Der Fee-Beweis-Zähler ist entfernt.
+  - Die Anmerkung sagt jetzt, dass Zahlungen nur die Beteiligten sehen und
+    dass die Seite keine Signaturen prüft.
+  - Im Browser gegen einen nachgestellten Relay geprüft: keine Fehler.
+
+**`check-website.py`:** Die neue Liste `VERALTET` weist Aussagen des alten
+Modells ab (Protokollfee, App-Gebühr, Reward-Pool-Anteil, Fee-Beweis,
+„bis zum Dreifachen“, Stufen-Code). Gegen die alten Seiten gelaufen: 12
+Treffer; gegen die neuen: 0.
+
+**PROTOCOL.md:**
+- §3 beschreibt A+: Anteile in ppm, Regeln, Deklaration, Bündeln, Grenzen.
+  Das Fee-Modell v1 ist als Historie vermerkt, samt der Lehre aus dem
+  ppm-Fehler.
+- §4: 38011/38012, 38013, 38050/38051 und 38053 als nicht mehr belegt,
+  38052 neu eingetragen; nicht mehr belegte Arten werden nicht
+  wiederverwendet.
+- §13: Werben eine Ebene je Seite, Regionen ohne Aufschlag, Aufgaben als
+  Abzeichen.
+- §15: Werbe-Nennung statt Graph.
+- §16: Verteiler entfernt; die Lehren bleiben für gesponserte Pools.
+
+**Letzte Reste im Code:** `buildSeasonDef` (Saison mit Pool-Regeln, 38012)
+und `buildRewardPayout` (Ausschüttungsnachweis, 38011) in `performance.ts`
+entfernt. Beide waren nie verdrahtet und ohne Tests. Die Verdrahtungs-
+Ausnahmen gehen um 2 Einträge zurück.
+
+Endstand: protocol 1056 · node 226 · app 475 · mls 13 · Leak-Tests 57 grün +
+1 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 ·
+Website 5 Seiten ok (mit Prüfung auf veraltete Aussagen) · Website-Bau ok ·
+Smoke-Test bestanden.

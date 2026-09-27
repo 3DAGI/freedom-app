@@ -139,8 +139,6 @@ nwc.ts|formatNwcUri|NWC-Verbindungstext erzeugen, ohne Oberfläche (Lightning pr
 
 nostr-order.ts|offerMatches|Angebot gegen Betrag prüfen; der Import in app.ts war unbenutzt und fiel mit 1.0 weg (Swaps in beide Richtungen, 4.6)
 
-performance.ts|buildRewardPayout|Saison und Reward-Ausschüttung, hängt am Gebührenmodell (4.0, 5.1)
-performance.ts|buildSeasonDef|Saison und Reward-Ausschüttung, hängt am Gebührenmodell (4.0, 5.1)
 
 pow.ts|verifyPow|nur von antispam.ts aufgerufen, das selbst nicht verdrahtet ist (rewards.ts fiel mit 5.1.4a)
 

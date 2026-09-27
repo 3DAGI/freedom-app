@@ -43,7 +43,7 @@ bash scripts/build-site.sh /tmp/site                     # Website bauen (Ziel w
 bash packages/mls/bauen.sh --pruefen                     # nur bei Änderungen an packages/mls: nachbauen + vergleichen (Rust, clang)
 ```
 
-Stand 27.09.2026 (nach 5.1.4c und 8.16c): protocol 1056 grün (6 übersprungen), node 226 grün
+Stand 27.09.2026 (nach 5.1.4d und 8.16c): protocol 1056 grün (6 übersprungen), node 226 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
 in `tools.test.ts`), app 475 grün, mls 13 grün, Leak-Tests 57 grün + 1 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
@@ -211,7 +211,8 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   Pool, keinen Verteiler, keine Rücklage wieder einführen (Treasury, Sweep,
   Pool-Rangliste, Knappheitsbonus und App-Gebühr fielen mit 5.1.4a, alte
   Protokollgebühr, Gebühren-Beleg und Aufgaben-Topf mit 5.1.4c – Aufgaben sind
-  nur Abzeichen). Die App zahlt seit
+  nur Abzeichen; Aussagen des alten Modells auf der Website weist
+  `check-website.py` ab, Liste `VERALTET`). Die App zahlt seit
   5.1.3 nur über `shell/ki-zahlung.ts`: Deklaration vor dem Versiegeln,
   Abrechnung mit den gemerkten Empfängern (`rechneAb()`, höchstens das Gebot),
   erst die Rechnung samt Betrag prüfen, dann zahlen – ein unklarer Ausgang wird
