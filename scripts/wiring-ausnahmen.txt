@@ -178,6 +178,7 @@ state-backup.ts|stateFingerprint|Prüfsumme für eine automatische Sicherung bei
 stream.ts|amountDue|Streaming-Abrechnung: fälliger Betrag, noch nicht angebunden (PaymentRail, 4.1)
 
 swap-privacy.ts|swapPrivacyInfo|Hinweistext zu Swap-Adressen, ohne Oberfläche (Privatsphäre auf Solana, 4.9)
+swap-privacy.ts|swapPrivacyCheck|Gesamtbericht mit deutschen Sätzen; die App ruft seit 8.16e die Einzelprüfungen (checkReuse, checkAmount, checkTiming) über tauschPruefung() und bildet die Texte in der Sprache der Oberfläche
 
 swap.ts|runSwap|Referenz-Ablauf eines Swaps für Tests; die App nutzt swap-client.ts (Swaps in beide Richtungen, 4.6)
 

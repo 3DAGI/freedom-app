@@ -16,6 +16,7 @@ import {
 } from "@freedomstack/protocol";
 import { buildClaimInstruction } from "./swap-client.js";
 import { HTLC_PROGRAM_ID, type WalletSigner } from "./sol-htlc.js";
+import { t } from "./i18n.js";
 
 /** Unter diesem Guthaben (Lamports) reicht es nicht fuer die Gebuehr – dann ueber einen Relayer. */
 export const GEBUEHR_PUFFER_LAMPORTS = 10_000;
@@ -75,6 +76,6 @@ export async function baueRelayEinloesung(p: {
   const signiert = (await p.wallet.signTransaction(tx)) as import("@solana/web3.js").Transaction;
   const roh = Uint8Array.from(signiert.serialize({ requireAllSignatures: false, verifySignatures: false }));
   const selbst = pruefeRelayAuftrag(roh, { relayer: p.relayer.solAdresse, programmId: HTLC_PROGRAM_ID, erstattungMin: p.relayer.erstattungLamports });
-  if (!selbst.ok) throw new Error(`Einlösung für den Relayer unvollständig: ${selbst.grund}`);
+  if (!selbst.ok) throw new Error(t("zahl.relayerUnvollstaendig", { grund: selbst.grund ?? "" }));
   return roh;
 }

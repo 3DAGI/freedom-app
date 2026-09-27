@@ -16,6 +16,10 @@ import { SolanaRail } from "../src/rails.js";
 import {
   EingebauteSolWallet, LS_SOL_VORRAT, UEBERWEISUNG_GEBUEHR, VORRAT_GROESSE, type WalletSpeicher, waehleAbsender,
 } from "../src/sol-wallet.js";
+import { setLang } from "../src/i18n.js";
+
+// Meldungen hier auf Deutsch prüfen (seit 8.16e über Schlüssel in der Sprache der Oberfläche)
+setLang("de");
 
 // Oeffentliche BIP-39-Testphrasen – keine Geheimnisse.
 const PHRASE = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about";

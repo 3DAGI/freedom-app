@@ -28,6 +28,10 @@ import {
   SwapState,
 } from "../src/swap-client.js";
 import { anchorSighash, WalletSigner } from "../src/sol-htlc.js";
+import { setLang } from "../src/i18n.js";
+
+// Meldungen hier auf Deutsch prüfen (seit 8.16e über Schlüssel in der Sprache der Oberfläche)
+setLang("de");
 
 const KUNDE = "So11111111111111111111111111111111111111112";
 const FREMD = "SysvarC1ock11111111111111111111111111111111";

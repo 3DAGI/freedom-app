@@ -9,6 +9,7 @@
  * wird nur über die Zahlschienen, erst die Rechnung, dann das Geld.
  */
 import { ENTWICKLUNG, aufteilungTag, zahlbareAnteile, zahle, type Empfaenger, type Posten } from "@freedomstack/protocol";
+import { t } from "../i18n.js";
 import { AnteilsKasse, rechneAb } from "../anteile-kasse.js";
 import { bolt11BetragMsat, rechnungVonAdresse } from "../rails.js";
 import { RelayZahlziele } from "../relay-zahlziel.js";
@@ -77,7 +78,7 @@ export async function rechneAntwortAb(requestId: string, amountMsat: number): Pr
  */
 async function rechnungUeber(lud16: string, msat: number): Promise<string> {
   const rechnung = await rechnungVonAdresse(lud16, msat);
-  if (bolt11BetragMsat(rechnung) !== msat) throw new Error("Rechnung über einen anderen Betrag – nicht gezahlt");
+  if (bolt11BetragMsat(rechnung) !== msat) throw new Error(t("zahl.andererBetrag"));
   return rechnung;
 }
 
@@ -88,8 +89,8 @@ async function lightningDa(): Promise<boolean> {
 /** Zahlung an den Provider – nur mit Lightning-Wallet und seiner Adresse im Angebot. */
 export async function providerZahlung(providerPk: string): Promise<{ zahlung?: ProviderZahlung; grund?: string }> {
   const lud16 = (await angebotVon(providerPk).catch(() => undefined))?.lud16;
-  if (!lud16) return { grund: "der Provider nennt keine Lightning-Adresse" };
-  if (!(await lightningDa())) return { grund: "keine Lightning-Wallet verbunden" };
+  if (!lud16) return { grund: t("zahl.providerOhneAdresse") };
+  if (!(await lightningDa())) return { grund: t("zahl.keineLightningWallet") };
   return {
     zahlung: {
       rechnung: (msat) => rechnungUeber(lud16, msat),

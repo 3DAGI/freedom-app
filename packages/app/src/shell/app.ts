@@ -656,7 +656,8 @@ function starte(): void {
     nbWallet.onclick = () => switchTab("wallet");
     // Bereits verbunden? → Button zeigt "deposit" und öffnet trotzdem wallet-tab
     if (localStorage.getItem("freedom.sol.pubkey") || localStorage.getItem("freedom.sol.balance")) {
-      nbWallet.textContent = "+ SOL deposit";
+      nbWallet.dataset.i18n = "waehr.solDeposit";
+      nbWallet.textContent = t("waehr.solDeposit");
     }
   }
   $("#chat-send").onclick = sendChatMessage;

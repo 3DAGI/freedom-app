@@ -7458,6 +7458,7 @@ Netz) · app 474 (+1) · mls 13 · Leak-Tests 57 grün + 1 todo · 0 rot ·
 check-wiring `--streng` Exit 0 · innerHTML streng 0 unbewertet · Website 5
 Seiten ok · Smoke-Test bestanden (inkl. „sprache“ mit dem Agent) · im
 Browser: Agent und Kommunikation in Englisch, nach dem Wechsel in Deutsch.
+
 ## Schritt 5.1.4b – Gebührenmodell A+: Earn-Tab ohne Topf und Stufen
 
 5.1.4 dreigeteilt: a Protokoll und Knoten (#126), **b Earn-Tab und Werben**, c
@@ -7727,3 +7728,82 @@ Endstand: protocol 1064 · node 226 · app 475 · mls 13 · Zahlkanal 6 (neu,
 gegen Validator) · Leak-Tests 57 grün + 1 todo · 0 rot · check-wiring
 `--streng` Exit 0 · innerHTML streng Exit 0 · Website 5 Seiten ok ·
 Smoke-Test bestanden.
+
+## Schritt 8.16e – Übersetzungen: Agent-Rest, Währung, Zahlwege und Swaps
+
+**Fertig:** Der erste größere Schritt (MENSCH 27.09.: größere Pull Requests
+für die Übersetzung erlaubt). Auf 0 rohen Texten stehen:
+- die Währung-Seite in `index.html`;
+- 29 Dateien: Agent-Rest (`agent-netz.ts`, Streitfall, Prüfaufträge,
+  Werkzeugpreise, Kataloge, KI-Zahlung), Währung (`tabs/waehrung.ts`,
+  eingebaute Wallet, offline zahlen, Zahlschienen) und alle Zahlwege und Swaps
+  (`swap-client.ts`, `sol-htlc.ts`, `rueck-swap.ts`, `rails.ts`,
+  `sol-wallet.ts`, `solana-connect.ts`, `wallet-standard.ts`, Zap-Dialog,
+  Belege, Preise, RPC-Stichprobe, Relay-Kauf, Rückhol-Wächter …).
+
+Neu sind die Bereiche `texte/waehrung.ts` (`waehr.*`, rund 170 Schlüssel) und
+`texte/zahlung.ts` (`zahl.*`, rund 190); `texte/agent.ts` wächst um rund 75.
+
+**Einzelheiten:**
+- **Deutsche Sätze aus dem Protokoll:** Die App zeigte fertige Texte des
+  Protokolls an. Jetzt bildet sie diese aus den Feldern neu:
+  - Verfügbarkeit der Modelle über `modellNotiz()` aus Seedern und fehlenden
+    Dateien, wie `buildRegistry()` bewertet;
+  - Reklamationsgründe über `GRUND_TEXT` statt `DISPUTE_LABEL`;
+  - Kurswarnungen aus Quellen und Streuung (weicht ihre Zahl ab, gelten die
+    des Protokolls – keine Warnung geht verloren);
+  - der Zahlungshinweis aus `isMobile`/`webln`;
+  - die Prüfung vor dem Tausch über `tauschPruefung()` mit denselben
+    Einzelprüfungen (`checkReuse`, `checkAmount`, `checkTiming`).
+    `swapPrivacyCheck()` steht dafür mit Begründung in
+    `wiring-ausnahmen.txt`.
+- **Prüfer hat eine Art:** `Pruefer.art` ist `kontakt` oder `provider`
+  (vorher der Text „eigener Provider“). Angezeigt wird die Art über
+  `PRUEFER_ART`; der Vergleich in `agent.ts` braucht kein `// kein UI-Text`
+  mehr. Die Werkzeugpreise liefern den Preis am Knopf direkt, ohne
+  Trennmarke „ je Aufruf“.
+- **Knöpfe, deren Text der Code ändert** („Verbunden“, „+ SOL hinterlegen“),
+  tragen den neuen Schlüssel in `data-i18n` – ein Sprachwechsel setzt sie
+  nicht zurück.
+- **Zahlen und Zeiten mit `gebietsschema()`:** Swap-Fristen, Deposit,
+  Gebühr in Prozent, Lightning-Guthaben, Offline-Nonce.
+- **Geändert bei der Gelegenheit:**
+  - „deposit“/„refund“, „provider pubkey (auto)“ und „SOL address“ standen im
+    deutschen Standard englisch.
+  - Umlaute in Swap-Meldungen („Pruefe“, „einloesen“) sind korrigiert.
+  - „Nicht verbunden“ unter Solana blieb nach dem Verbinden stehen – jetzt
+    verborgen.
+  - Die Nachfrage zur öffentlichen SOL-Adresse spricht von „dieser Person“.
+- **Kein UI-Text:**
+  - der Verlaufs-Präfix für das Modell (`ki-kontext.ts`) – er geht ans
+    Modell;
+  - die Rechnungsbeschreibung „FreedomStack: Tausch SOL → sats“;
+  - die Notiz „Relay-Zugang“ einer Zahlanfrage.
+- **Noch unverändert (8.16g):** Gründe, die Prüfungen des Protokolls liefern
+  und die App in einen übersetzten Satz einsetzt (z. B.
+  `validateReverseTimelock`, `pruefeSolUeberweisung`, Hinweise der
+  RPC-Stichprobe).
+- **innerHTML-Ausnahmeliste:** Drei Einträge für `waehrung.ts` entfallen.
+  Die Werte stehen jetzt in `escapeHtml(…)` bzw. gehen über `textContent`.
+
+**Tests:**
+- +1 in `i18n.test.ts`:
+  - alle 29 Dateien fertig und ohne `"de-DE"`;
+  - keine deutschen Protokolltexte mehr in der Anzeige;
+  - Modellnotiz, Reklamation, Prüfer-Art, Tausch-Prüfung, HTLC-Fehler, nächster
+    Schritt, Kurszeile (auch Rückfall), Preise und Werkzeugpreis auf Englisch;
+  - Zahlenformat auf Deutsch.
+- 23 ältere Testdateien prüfen Meldungen weiter wörtlich auf Deutsch. Sie
+  stellen dafür `setLang("de")` ein – nicht schwächer.
+- Sechs Quelltext-Prüfungen suchen den Schlüssel an der neuen Stelle
+  (Kataloge, Stichprobe ×2, Rück-Swap ×2, eingebaute Wallet); der
+  Prüfer-Test erwartet die Art `provider`.
+- Die Smoke-Prüfung „sprache“ liest zusätzlich den Deposit-Knopf
+  („hinterlegen“/„deposit“).
+
+Endstand: protocol 1064 (6 übersprungen) · node 225 (7 übersprungen ohne
+Netz) · app 477 (+1) · mls 13 · Leak-Tests 57 grün + 1 todo · 0 rot ·
+check-wiring `--streng` Exit 0 · innerHTML streng 0 unbewertet · Website 5
+Seiten ok · Smoke-Test bestanden (inkl. „sprache“ mit dem Deposit-Knopf) ·
+im Browser: Währung-Seite samt Meldungen aus dem Code in Englisch, nach dem
+Wechsel in Deutsch, ohne Seitenfehler.

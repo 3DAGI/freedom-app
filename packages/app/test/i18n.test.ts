@@ -202,3 +202,73 @@ test("8.16d1: Agent – Seite und tabs/agent.ts über Schlüssel; eigene Meldung
     setLang(vorher);
   }
 });
+
+test("8.16e: Agent-Rest, Währung, Zahlwege und Swaps – über Schlüssel; Texte des Protokolls aus den Zahlen neu gebildet", async () => {
+  const fertig = [
+    "shell/tabs/agent-netz.ts", "streitfall.ts", "shell/streitfall-ui.ts", "shell/pruefauftraege-ui.ts", "shell/ki-zahlung.ts",
+    "modell-kataloge.ts", "werkzeug-preise.ts", "ki-kontext.ts", "shell/tabs/waehrung.ts", "shell/eingebaute-wallet.ts",
+    "shell/offline-zahlung.ts", "shell/zahlschienen.ts", "swap-client.ts", "sol-htlc.ts", "rueck-swap.ts", "rails.ts",
+    "sol-wallet.ts", "solana-connect.ts", "zap-zahlung.ts", "refund-watcher.ts", "relay-kauf.ts", "rpc-stichprobe.ts",
+    "sol-offline-zahlung.ts", "wallet-standard.ts", "trinkgeld-beleg.ts", "chat-zap.ts", "sol-transfer.ts",
+    "relay-einloesung.ts", "preis-anzeige.ts",
+  ];
+  for (const d of fertig) {
+    assert.ok(!(d in OFFEN_CODE), `${d} fertig`);
+    assert.doesNotMatch(readFileSync(pfad(SRC, d), "utf8"), /"de-DE"/, d);
+  }
+  assert.equal(OFFEN_HTML["page-wallet"], 0);
+  const lies = (d: string) => readFileSync(pfad(SRC, d), "utf8");
+  // Deutsche Texte des Protokolls nicht mehr anzeigen – die App bildet sie aus den Feldern
+  assert.doesNotMatch(lies("shell/tabs/agent-netz.ts"), /m\.note\b/);
+  assert.doesNotMatch(lies("shell/pruefauftraege-ui.ts"), /DISPUTE_LABEL/);
+  assert.doesNotMatch(lies("shell/tabs/waehrung.ts"), /caps\.note|swapPrivacyCheck/);
+  assert.match(lies("shell/tabs/waehrung.ts"), /const pruefung = tauschPruefung\(\{/);
+  // Der Prüfer hat eine Art, keinen Text – angezeigt über den Schlüssel
+  assert.match(lies("shell/tabs/agent.ts"), /pruefer\.art === "provider" \?/);
+  assert.doesNotMatch(lies("shell/tabs/agent.ts"), /eigener Provider| je Aufruf/);
+  // Knöpfe, deren Text der Code ändert, tragen den neuen Schlüssel – ein Sprachwechsel setzt nicht zurück
+  assert.match(lies("shell/tabs/waehrung.ts"), /btn\.dataset\.i18n = "waehr\.knopfVerbunden";\s*btn\.textContent = t\("waehr\.knopfVerbunden"\);/);
+  assert.match(lies("shell/app.ts"), /nbWallet\.dataset\.i18n = "waehr\.solDeposit";/);
+
+  const { modellNotiz } = await import("../src/shell/tabs/agent-netz.js");
+  const { reklamationText, prueferAusNetz, PRUEFER_ART } = await import("../src/streitfall.js");
+  const { tauschPruefung, describeHtlcError, nextStep } = await import("../src/swap-client.js");
+  const { kursZeile, ausMsat } = await import("../src/preis-anzeige.js");
+  const { werkzeugPreisText } = await import("../src/werkzeug-preise.js");
+  const vorher = getLang();
+  try {
+    setLang("en");
+    assert.equal(modellNotiz({ seeders: 1, missingFiles: [] }), "A single seeder. If it disappears, the model is gone.");
+    assert.equal(modellNotiz({ seeders: 3, missingFiles: ["b"] }), "1 file(s) missing in the network – not loadable like this, even with 3 seeders.");
+    assert.equal(modellNotiz({ seeders: 5, missingFiles: [] }), "5 seeders, complete.");
+    const r = { jobId: "a".repeat(64), providerPk: "b".repeat(64), pruefer: "c".repeat(64), prueferName: "Anna", sitzungSk: "d".repeat(64), grund: "unbrauchbar" as const, betragMsat: 21_000, at: 1 };
+    assert.equal(reklamationText(r), "waiting for the verdict of Anna");
+    assert.equal(reklamationText({ ...r, urteil: { ergebnis: "erstattet", erstattungMsat: 21_000, notiz: "", at: 2 } }),
+      "Anna rules in your favor – 21 sats back. This applies only between you and the provider; the provider has to refund you.");
+    const [p] = prueferAusNetz([], ["e".repeat(64)], []);
+    assert.equal(t(PRUEFER_ART[p!.art]), "own provider");
+    // Prüfung vor dem Tausch: dieselben Befunde wie das Protokoll, in der Sprache der Oberfläche
+    const jetzt = 1_800_000_000;
+    const befund = tauschPruefung({ usage: [{ address: "x", uses: 2, firstUsed: 1, lastUsed: 2 }], lamports: 1_000_000_000, lastSwapAt: jetzt - 120, nowSecs: jetzt, randomFn: () => 0.5 });
+    assert.equal(befund.ok, false);
+    assert.equal(befund.befunde.length, 3);
+    assert.match(befund.befunde[0]!, /^An address was used twice\./);
+    assert.match(befund.befunde[1]!, /^1\.000 SOL is a round amount\./);
+    assert.match(befund.befunde[2]!, /^The last swap was 2 minutes ago\./);
+    assert.deepEqual(befund.schritte, ["Use a fresh address (number 1).", "Change the amount to 1.001500 SOL.", "Wait, if it matters."]);
+    assert.equal(tauschPruefung({ usage: [], lamports: 123_456_789 }).ok, true);
+    assert.equal(describeHtlcError("custom program error: 0x1773"), "The preimage doesn't match the hashlock.");
+    assert.equal(nextStep({ phase: "zahlbar", message: "", safeToPay: true }), "Checked. The invoice can be paid now.");
+    // Kurswarnungen aus den Zahlen; weicht ihre Zahl ab (anderer Aufruf), gelten die des Protokolls
+    const kurs = { satsProSol: 150_000, quellen: 2, streuung: 0.2, warnungen: ["a", "b"] };
+    assert.deepEqual(kursZeile(kurs), { text: "Rate: 1 SOL ≈ 150,000 sats (median of 2 sources) ⚠ Rate from only 2 source(s); Rate sources differ by up to 20%", warnung: true });
+    assert.equal(kursZeile({ ...kurs, warnungen: ["a", "b", "c"] }).text, "Rate: 1 SOL ≈ 150,000 sats (median of 2 sources) ⚠ a; b; c");
+    assert.equal(ausMsat(21_000), "21 sats (SOL: no rate)");
+    assert.equal(werkzeugPreisText({ msat: 5000, angeboten: false }, { satsProSol: 100_000 }), "5 sats ≈ 0.00005 SOL per call (guide price)");
+    setLang("de");
+    assert.equal(ausMsat(1_500_000, { satsProSol: 150_000 }), "1.500 sats ≈ 0,01 SOL");
+    assert.match(tauschPruefung({ usage: [], lamports: 1_000_000_000, randomFn: () => 0 }).befunde[0]!, /^1,000 SOL ist ein runder Betrag\./);
+  } finally {
+    setLang(vorher);
+  }
+});

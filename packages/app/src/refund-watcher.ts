@@ -23,6 +23,7 @@
  * was der Gegenüber bereits rechtmäßig eingelöst hat.
  */
 import { WalletSigner } from "./sol-htlc.js";
+import { t } from "./i18n.js";
 
 export type PendingKind = "swap" | "deposit";
 
@@ -115,24 +116,19 @@ export function viewLock(lock: PendingLock, nowUnix = Math.floor(Date.now() / 10
   if ((lock.attempts ?? 0) >= MAX_REFUND_ATTEMPTS) {
     return {
       lock, status: "aufgegeben", secondsLeft: left,
-      text:
-        `${sol} SOL: Rückholung mehrfach abgelehnt. Meist heißt das, dass die ` +
-        `Gegenseite bereits eingelöst hat — dann ist nichts mehr offen. ` +
-        (lock.lastError ? `Letzte Meldung: ${lock.lastError}` : ""),
+      text: t("zahl.sperreAufgegeben", { sol }) + (lock.lastError ? ` ${t("zahl.letzteMeldung", { fehler: lock.lastError })}` : ""),
     };
   }
   if (left > 0) {
     const min = Math.ceil(left / 60);
     return {
       lock, status: "laeuft", secondsLeft: left,
-      text:
-        `${sol} SOL gesperrt, rückholbar in ${min > 60 ? `${Math.ceil(min / 60)} h` : `${min} min`}. ` +
-        `Die Wartezeit ist die Absicherung — vorher kann die Kette nichts freigeben.`,
+      text: t("zahl.sperreLaeuft", { sol, dauer: min > 60 ? `${Math.ceil(min / 60)} h` : `${min} min` }),
     };
   }
   return {
     lock, status: "faellig", secondsLeft: 0,
-    text: `${sol} SOL sind fällig und werden zurückgeholt.`,
+    text: t("zahl.sperreFaellig", { sol }),
   };
 }
 

@@ -9,6 +9,10 @@ import { readFileSync } from "node:fs";
 import { generatePreimage } from "@freedomstack/protocol";
 import { MAX_VORAB_SATS, pruefeVorab } from "../src/swap-client.js";
 import { knotenSchluessel, rechnung } from "../../protocol/test/bolt11-hilfe.js";
+import { setLang } from "../src/i18n.js";
+
+// Meldungen hier auf Deutsch prüfen (seit 8.16e über Schlüssel in der Sprache der Oberfläche)
+setLang("de");
 
 const LP_KNOTEN = knotenSchluessel();
 const antwort = (sats: string, bolt11: string) => ({ tags: [["status", "VORAB"], ["vorab_sats", sats]], content: bolt11 });

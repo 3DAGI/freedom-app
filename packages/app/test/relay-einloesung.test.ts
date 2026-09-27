@@ -10,6 +10,10 @@ import { Keypair, Transaction } from "@solana/web3.js";
 import { pruefeRelayAuftrag, MAX_ERSTATTUNG_LAMPORTS } from "@freedomstack/protocol";
 import { GEBUEHR_PUFFER_LAMPORTS, baueRelayEinloesung, brauchtRelayer, waehleRelayer } from "../src/relay-einloesung.js";
 import { HTLC_PROGRAM_ID, type WalletSigner } from "../src/sol-htlc.js";
+import { setLang } from "../src/i18n.js";
+
+// Meldungen hier auf Deutsch prüfen (seit 8.16e über Schlüssel in der Sprache der Oberfläche)
+setLang("de");
 
 const LP_SOL = Keypair.generate().publicKey.toBase58();
 const angebot = (solAdresse: string, erstattungLamports: number, kette = "solana:devnet") => ({ solAdresse, erstattungLamports, kette });

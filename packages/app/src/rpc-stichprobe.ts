@@ -8,6 +8,7 @@
  * mehrere Adressen zusammen sieht (4.9c).
  */
 import type { StichprobeErgebnis } from "@freedomstack/protocol";
+import { t } from "./i18n.js";
 
 /** Mindestabstand zweier Stichproben aus der Wallet-Ansicht. */
 export const STICHPROBE_ABSTAND_MS = 10 * 60_000;
@@ -23,9 +24,9 @@ export function stichprobenKonto(adressen: readonly string[], zufall: () => numb
 }
 
 const WAS: Record<StichprobeErgebnis["verglichen"][number], string> = {
-  netz: "Netz",
-  blockhash: "letzter Blockhash",
-  kontostand: "Kontostand",
+  netz: "zahl.vergleichNetz",
+  blockhash: "zahl.vergleichBlockhash",
+  kontostand: "zahl.vergleichKontostand",
 };
 
 /**
@@ -35,12 +36,12 @@ const WAS: Record<StichprobeErgebnis["verglichen"][number], string> = {
  */
 export function stichprobeText(r: StichprobeErgebnis): { text: string; stufe: "ok" | "warnung" | "offen" } {
   if (r.warnungen.length > 0) {
-    return { text: `Achtung, RPC-Anbieter widersprechen sich: ${r.warnungen.join(" ")}`, stufe: "warnung" };
+    return { text: t("zahl.rpcWiderspruch", { warnungen: r.warnungen.join(" ") }), stufe: "warnung" };
   }
   const geprueft = r.verglichen.filter((v) => v !== "netz");
   if (geprueft.length > 0) {
-    const verb = geprueft.length === 1 ? "stimmt" : "stimmen";
-    return { text: `Stichprobe ${r.anbieter.join(" ↔ ")}: ${geprueft.map((v) => WAS[v]).join(" und ")} ${verb} überein.`, stufe: "ok" };
+    const was = geprueft.map((v) => t(WAS[v])).join(t("zahl.und"));
+    return { text: t(geprueft.length === 1 ? "zahl.stichprobeStimmt" : "zahl.stichprobeStimmen", { anbieter: r.anbieter.join(" ↔ "), was }), stufe: "ok" };
   }
-  return { text: `Stichprobe nicht möglich: ${r.hinweise.join("; ") || "keine Antwort"}`, stufe: "offen" };
+  return { text: t("zahl.stichprobeUnmoeglich", { grund: r.hinweise.join("; ") || t("zahl.keineAntwort") }), stufe: "offen" };
 }

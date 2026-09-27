@@ -36,5 +36,6 @@ export function kontextPraefix(nachrichten: readonly KontextNachricht[]): string
     zeilen.unshift(zeile);
     rest -= zeile.length;
   }
-  return zeilen.length ? `[Bisheriger Verlauf]:\n${zeilen.join("\n")}\n\n[Neue Nachricht]:\n` : "";
+  // Geht ans Modell, nicht in die Oberfläche – bleibt in jeder Sprache gleich
+  return zeilen.length ? `[Bisheriger Verlauf]:\n${zeilen.join("\n")}\n\n[Neue Nachricht]:\n` : ""; // kein UI-Text
 }

@@ -8,6 +8,10 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { RpcPool } from "@freedomstack/protocol";
 import { STICHPROBE_ABSTAND_MS, stichprobeFaellig, stichprobenKonto, stichprobeText } from "../src/rpc-stichprobe.js";
+import { setLang } from "../src/i18n.js";
+
+// Meldungen hier auf Deutsch prüfen (seit 8.16e über Schlüssel in der Sprache der Oberfläche)
+setLang("de");
 
 test("5.8: hoechstens alle zehn Minuten, je Stichprobe genau eine eigene Adresse", () => {
   assert.equal(stichprobeFaellig(undefined, 1_000), true);
@@ -56,11 +60,11 @@ test("5.8 verdrahtet: Settings ohne Adresse, Wallet mit einer zufaelligen eigene
   assert.match(state, /return \(await ensureRpcPool\(\)\)\.stichprobe\(\{ konto \}\);/);
 
   const wallet = readFileSync(new URL("../src/shell/eingebaute-wallet.ts", import.meta.url), "utf8");
-  const nachGuthaben = wallet.slice(wallet.indexOf('$("#solw-guthaben").textContent = `Guthaben: '));
+  const nachGuthaben = wallet.slice(wallet.indexOf('$("#solw-guthaben").textContent = t("waehr.guthaben", { betrag: ausLamports('));
   assert.match(nachGuthaben.slice(0, 250), /void guthabenStichprobe\(adressen\);/, "nach der Guthaben-Anzeige");
   assert.match(wallet, /if \(!stichprobeFaellig\(letzteStichprobe, Date\.now\(\)\)\) return;/);
   assert.match(wallet, /await rpcStichprobe\(stichprobenKonto\(adressen\)\)/);
-  assert.match(wallet, /feld\.textContent = t\.stufe === "warnung" \? t\.text : "";/);
+  assert.match(wallet, /feld\.textContent = probe\.stufe === "warnung" \? probe\.text : "";/);
 
   const html = readFileSync(new URL("../src/shell/index.html", import.meta.url), "utf8");
   assert.match(html, /<div id="solw-rpc" class="mono-sm err" role="status"><\/div>/);

@@ -11,6 +11,10 @@ import { LocalSigner, MemoryRelay, OutboxPool, generateKeypair, type NostrEvent 
 import { identityFromMnemonic } from "../src/identity.js";
 import { EingebauteSolWallet, type WalletSpeicher } from "../src/sol-wallet.js";
 import { ANFRAGE_GUELTIG_SECS, beantworteAdressAnfrage, frageAdresseAn, gemerkteAdresse } from "../src/trinkgeld-adresse.js";
+import { setLang } from "../src/i18n.js";
+
+// Meldungen hier auf Deutsch prüfen (seit 8.16e über Schlüssel in der Sprache der Oberfläche)
+setLang("de");
 
 // Oeffentliche BIP-39-Testphrase – kein Geheimnis.
 const PHRASE = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about";

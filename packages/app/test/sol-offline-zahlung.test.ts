@@ -9,6 +9,10 @@ import { pruefeOfflineUeberweisung } from "@freedomstack/protocol";
 import { identityFromMnemonic } from "../src/identity.js";
 import { EingebauteSolWallet, type Nachfrage, type WalletSpeicher } from "../src/sol-wallet.js";
 import { LS_SOL_NONCE, type NonceAblage, erstelleOfflineZahlung, leseAblage, schreibeAblage } from "../src/sol-offline-zahlung.js";
+import { setLang } from "../src/i18n.js";
+
+// Meldungen hier auf Deutsch prüfen (seit 8.16e über Schlüssel in der Sprache der Oberfläche)
+setLang("de");
 
 // Oeffentliche BIP-39-Testphrase – kein Geheimnis.
 const PHRASE = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about";

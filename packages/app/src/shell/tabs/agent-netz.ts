@@ -4,7 +4,7 @@
  *
  * Aus app.ts verschoben (Schritt 1.0) – wörtlich, ohne Logikänderung.
  */
-import { NostrEvent, type ModellKatalog } from "@freedomstack/protocol";
+import { NostrEvent, type ModelEntry, type ModellKatalog } from "@freedomstack/protocol";
 import { t } from "../../i18n.js";
 import { LS_KATALOGE, katalogKennung, katalogRang, leseAbos, leseKatalogEingabe, mitAbo, ohneAbo } from "../../modell-kataloge.js";
 import { ausMsat } from "../../preis-anzeige.js";
@@ -12,6 +12,16 @@ import { escapeHtml, pkShort } from "../../shell-logic.js";
 import { aktualisiereKurs, aktuellerKurs } from "../marktkurs.js";
 import { alleAngebote, alsGeraet, ensurePool, signiere, state } from "../state.js";
 import { $, toast } from "../ui.js";
+
+/**
+ * Verfügbarkeit eines Modells in der Sprache der Oberfläche (8.16e) – aus den
+ * Zahlen, wie `buildRegistry()` sie bewertet; dessen `note` ist Deutsch.
+ */
+export function modellNotiz(m: Pick<ModelEntry, "seeders" | "missingFiles">): string {
+  if (m.missingFiles.length > 0) return m.seeders === 0 ? t("agent.notizWeg") : t("agent.notizFehlen", { n: m.missingFiles.length, seeder: m.seeders });
+  if (m.seeders >= 5) return t("agent.notizGut", { n: m.seeders });
+  return m.seeders >= 2 ? t("agent.notizKnapp", { n: m.seeders }) : t("agent.notizEiner");
+}
 
 /** Modelle im Netz anzeigen. */
 export async function zeigeModelle(): Promise<void> {
@@ -23,24 +33,26 @@ export async function zeigeModelle(): Promise<void> {
     const evs = await pool.query({ kinds: [KIND_MODEL_MANIFEST, KIND_MODEL_SEED], limit: 1000 });
     const r = buildRegistry(evs);
     box.innerHTML = r.models.length === 0
-      ? `<span class="muted">Noch keine Modelle angekündigt.</span>`
+      ? `<span class="muted">${escapeHtml(t("agent.keineModelle"))}</span>`
       : r.models.slice(0, 20).map((m) => {
           const cls = m.availability === "gut" ? "ok" : m.availability === "knapp" ? "warn" : "err";
           return `<div class="usage-row"><span>${escapeHtml(m.manifest.name)}` +
             `${m.manifest.quant ? ` · ${escapeHtml(m.manifest.quant)}` : ""}</span>` +
-            `<span class="${cls}">${escapeHtml(m.note)}</span></div>`;
+            `<span class="${cls}">${escapeHtml(modellNotiz(m))}</span></div>`;
         }).join("");
     // Gefaehrdete zuerst nennen (8.8) – die Liste oben ist nach Seedern sortiert und schneidet sie sonst ab.
     const gefaehrdet = modelsAtRisk(r.models);
     if (gefaehrdet.length > 0) {
       const z = document.createElement("div");
       z.className = "warn";
-      z.textContent = `Gefährdet: ${gefaehrdet.slice(0, 5).map((m) => m.manifest.name).join(", ")}` +
-        `${gefaehrdet.length > 5 ? ` und ${gefaehrdet.length - 5} weitere` : ""} – wer sie vorhält, hält sie im Netz.`;
+      z.textContent = t("agent.gefaehrdet", {
+        namen: gefaehrdet.slice(0, 5).map((m) => m.manifest.name).join(", "),
+        mehr: gefaehrdet.length > 5 ? t("agent.undWeitere", { n: gefaehrdet.length - 5 }) : "",
+      });
       box.prepend(z);
     }
   } catch (e) {
-    box.textContent = `Nicht abrufbar: ${(e as Error).message}`;
+    box.textContent = t("agent.nichtAbrufbar", { fehler: (e as Error).message });
   }
 }
 
@@ -52,13 +64,9 @@ export async function zeigeModelle(): Promise<void> {
  */
 export async function kuendigeModellAn(): Promise<void> {
   if (!state.keypair) return;
-  const id = prompt("Modell-Kennung (z. B. qwen3.5:9b-q4):");
+  const id = prompt(t("agent.modellKennungFrage"));
   if (!id?.trim()) return;
-  const dateien = prompt(
-    "Dateien, je Zeile: name sha256 groesse\n" +
-    "Die Pruefsummen sind der ganze Sinn — ohne sie kann niemand pruefen, " +
-    "ob die geladene Datei die angekuendigte ist.",
-  );
+  const dateien = prompt(t("agent.dateienFrage"));
   if (!dateien?.trim()) return;
 
   const files = dateien.split("\n").map((z) => {
@@ -67,7 +75,7 @@ export async function kuendigeModellAn(): Promise<void> {
   }).filter((f) => f.name && /^[0-9a-f]{64}$/.test(f.sha256) && f.sizeBytes > 0);
 
   if (files.length === 0) {
-    toast("Keine Zeile war brauchbar — Format: name sha256 groesse", true);
+    toast(t("agent.keineZeileBrauchbar"), true);
     return;
   }
 
@@ -76,7 +84,7 @@ export async function kuendigeModellAn(): Promise<void> {
     await (await ensurePool()).publish(await signiere(buildModelManifest({
       modelId: id.trim(), name: id.trim(), files, publisherPubkey: state.keypair.pk,
     } as never)));
-    toast(`${files.length} Datei(en) angekündigt`);
+    toast(t("agent.dateienAngekuendigt", { n: files.length }));
     void zeigeModelle();
   } catch (e) {
     toast((e as Error).message, true);
@@ -86,9 +94,9 @@ export async function kuendigeModellAn(): Promise<void> {
 /** Melden, dass man ein Modell vorhaelt. */
 export async function haltevorModell(): Promise<void> {
   if (!state.keypair) return;
-  const id = prompt("Welches Modell hältst du vor?");
+  const id = prompt(t("agent.welchesModell"));
   if (!id?.trim()) return;
-  const dateien = prompt("Welche Dateien? (kommagetrennt, leer = alle)") ?? "";
+  const dateien = prompt(t("agent.welcheDateien")) ?? "";
 
   try {
     const { buildModelSeed, buildRegistry, KIND_MODEL_MANIFEST } =
@@ -102,7 +110,7 @@ export async function haltevorModell(): Promise<void> {
       const evs = await pool.query({ kinds: [KIND_MODEL_MANIFEST], limit: 500 });
       const m = buildRegistry(evs).models.find((x) => x.manifest.modelId === id.trim());
       if (!m) {
-        toast("Für dieses Modell gibt es kein Manifest — erst ankündigen", true);
+        toast(t("agent.keinManifest"), true);
         return;
       }
       liste = m.manifest.files.map((f) => f.name);
@@ -111,7 +119,7 @@ export async function haltevorModell(): Promise<void> {
     await pool.publish(await signiere(buildModelSeed(
       id.trim(), state.keypair.pk, liste,
       localStorage.getItem("freedom.region") ?? undefined)));
-    toast(`${liste.length} Datei(en) gemeldet`);
+    toast(t("agent.dateienGemeldet", { n: liste.length }));
     void zeigeModelle();
   } catch (e) {
     toast((e as Error).message, true);
@@ -170,11 +178,11 @@ export async function zeigeKataloge(): Promise<void> {
     abonnierteKataloge = abos.map((a) => alle.get(a)).filter((k): k is ModellKatalog => k !== undefined);
 
     aboBox.replaceChildren();
-    if (abos.length === 0) aboBox.append(neu("div", "Noch kein Katalog abonniert – unten einen wählen.", "muted"));
+    if (abos.length === 0) aboBox.append(neu("div", t("agent.keinAbo"), "muted"));
     for (const a of abos) {
       const k = alle.get(a);
-      const zeile = neu("div", k ? `${k.titel} · von ${pkShort(k.kurator)} · ${k.modelle.length} Modelle` : `${a.slice(6, 18)}… · auf den Relays nicht gefunden`, "usage-row");
-      zeile.append(knopf("abbestellen", () => {
+      const zeile = neu("div", k ? t("agent.katalogZeile", { titel: k.titel, kurator: pkShort(k.kurator), n: k.modelle.length }) : t("agent.katalogFehlt", { kennung: a.slice(6, 18) }), "usage-row");
+      zeile.append(knopf(t("agent.abbestellen"), () => {
         speichereAbos(ohneAbo(leseAbos(localStorage.getItem(LS_KATALOGE)), a));
         void zeigeKataloge();
       }));
@@ -186,12 +194,12 @@ export async function zeigeKataloge(): Promise<void> {
       const v = vergleicheKataloge(abonnierteKataloge, modellAngebote(angebote));
       const kurz = abonnierteKataloge.map((k) => k.titel);
       if (abonnierteKataloge.length >= 2) {
-        vergleichBox.append(neu("div", `Gemeinsam: ${v.gemeinsam.length} · ` + kurz.map((titel, i) => `nur in „${titel}“: ${v.nurIn[i]!.length}`).join(" · ")));
+        vergleichBox.append(neu("div", [t("agent.gemeinsam", { n: v.gemeinsam.length }), ...kurz.map((titel, i) => t("agent.nurIn", { titel, n: v.nurIn[i]!.length }))].join(" · ")));
       }
       const tabelle = neu("table");
       tabelle.style.cssText = "width:100%;border-collapse:collapse;margin:6px 0";
       const kopf = neu("tr");
-      for (const s of ["Modell", ...kurz, "Provider", "ab (1.000 Tokens)"]) kopf.append(neu("th", s));
+      for (const s of [t("agent.modell"), ...kurz, t("agent.provider"), t("agent.abTausend")]) kopf.append(neu("th", s));
       tabelle.append(kopf);
       const kurs = aktuellerKurs();
       for (const z of v.zeilen.slice(0, 100)) {
@@ -203,7 +211,7 @@ export async function zeigeKataloge(): Promise<void> {
           tr.append(td);
         });
         tr.append(neu("td", String(z.provider), z.provider > 0 ? "" : "err"));
-        tr.append(neu("td", z.preisMsat !== undefined ? ausMsat(z.preisMsat, kurs) : "kein Angebot"));
+        tr.append(neu("td", z.preisMsat !== undefined ? ausMsat(z.preisMsat, kurs) : t("agent.keinAngebot")));
         tabelle.append(tr);
       }
       vergleichBox.append(tabelle);
@@ -211,12 +219,12 @@ export async function zeigeKataloge(): Promise<void> {
 
     gefundenBox.replaceChildren();
     const andere = [...alle.values()].filter((k) => !abos.includes(k.adresse)).sort((x, y) => y.createdAt - x.createdAt).slice(0, 20);
-    gefundenBox.append(neu("div", andere.length === 0 ? "Keine weiteren Kataloge gefunden." : "Gefundene Kataloge:", "muted"));
+    gefundenBox.append(neu("div", andere.length === 0 ? t("agent.keineKataloge") : t("agent.gefundeneKataloge"), "muted"));
     for (const k of andere) {
       const beispiele = k.modelle.slice(0, 3).map((m) => m.modell).join(", ");
-      const zeile = neu("div", `${k.titel} · von ${pkShort(k.kurator)} · ${k.modelle.length} Modelle${beispiele ? ` (${beispiele}${k.modelle.length > 3 ? ", …" : ""})` : ""}`, "usage-row");
+      const zeile = neu("div", t("agent.katalogZeile", { titel: k.titel, kurator: pkShort(k.kurator), n: k.modelle.length }) + (beispiele ? ` (${beispiele}${k.modelle.length > 3 ? ", …" : ""})` : ""), "usage-row");
       if (k.beschreibung) zeile.title = k.beschreibung;
-      zeile.append(knopf("abonnieren", () => {
+      zeile.append(knopf(t("agent.abonnieren"), () => {
         try {
           speichereAbos(mitAbo(leseAbos(localStorage.getItem(LS_KATALOGE)), k.adresse));
           void zeigeKataloge();
@@ -227,7 +235,7 @@ export async function zeigeKataloge(): Promise<void> {
       gefundenBox.append(zeile);
     }
   } catch (e) {
-    gefundenBox.textContent = `Nicht abrufbar: ${(e as Error).message}`;
+    gefundenBox.textContent = t("agent.nichtAbrufbar", { fehler: (e as Error).message });
   }
 }
 
@@ -235,19 +243,19 @@ export async function zeigeKataloge(): Promise<void> {
 export async function veroeffentlicheKatalog(): Promise<void> {
   if (!state.keypair) return;
   if (alsGeraet()) {
-    toast("Einen Katalog veröffentlicht nur die Hauptidentität, nicht ein Gerät", true);
+    toast(t("agent.nurHauptKatalog"), true);
     return;
   }
-  const titel = prompt("Titel des Katalogs (gleicher Titel ersetzt deinen alten):");
+  const titel = prompt(t("agent.katalogTitelFrage"));
   if (!titel?.trim()) return;
-  const eingabe = prompt("Modelle, getrennt durch „;“ – je Modell optional eine Notiz dahinter:\nqwen3.5:9b gut für Code; llama3.2:3b");
+  const eingabe = prompt(t("agent.katalogModelleFrage"));
   if (!eingabe?.trim()) return;
   try {
     const { baueModellKatalog } = await import("@freedomstack/protocol");
     const modelle = leseKatalogEingabe(eingabe);
     const ev = await signiere(baueModellKatalog({ kurator: state.keypair.pk, d: katalogKennung(titel), titel, modelle }));
     await (await ensurePool()).publish(ev);
-    toast(`Katalog „${titel.trim()}“ mit ${modelle.length} Modellen veröffentlicht`);
+    toast(t("agent.katalogVeroeffentlicht", { titel: titel.trim(), n: modelle.length }));
     void zeigeKataloge();
   } catch (e) {
     toast((e as Error).message, true);
@@ -277,7 +285,7 @@ export async function loadGitRepos(): Promise<void> {
           return `<div class="stat"><span class="k">📦 ${escapeHtml(name)} <span class="mono-sm">${escapeHtml(pkShort(ev.pubkey))}</span></span>
             <span><button class="ghost copy-btn git-clone-btn" data-ref="${escapeHtml(ev.id)}" data-blob="${escapeHtml(ev.tags.find((t) => t[0] === "blob")?.[1] ?? "")}" data-name="${escapeHtml(name)}" style="width:auto;padding:4px 8px">⇩ bundle</button></span></div>`;
         }).join("")
-      : "<span>noch keine repos — publiziere das erste bundle!</span>";
+      : `<span>${escapeHtml(t("agent.keineRepos"))}</span>`;
     list.querySelectorAll(".git-clone-btn").forEach((btn) => {
       btn.addEventListener("click", async () => {
         const el = btn as HTMLButtonElement;
@@ -287,7 +295,7 @@ export async function loadGitRepos(): Promise<void> {
           const { parseGitRepoRef } = await import("@freedomstack/protocol");
           const pool = await ensurePool();
           const res = await downloadBlob(el.dataset.blob!, pool as never);
-          if (!res) { toast("bundle nicht rekonstruierbar", true); return; }
+          if (!res) { toast(t("agent.bundleKaputt"), true); return; }
           // Seit 8.9b verschluesselt, der Schluessel steht oeffentlich in der Referenz; aeltere Bundles sind Klartext
           const refEv = sorted.find((x) => x.id === el.dataset.ref);
           const schluessel = refEv ? (() => { try { return parseGitRepoRef(refEv).schluessel; } catch { return undefined; } })() : undefined;
@@ -297,15 +305,15 @@ export async function loadGitRepos(): Promise<void> {
           a.href = url; a.download = `${el.dataset.name}.bundle`;
           a.click();
           URL.revokeObjectURL(url);
-          toast(`bundle geladen — git clone ${el.dataset.name}.bundle`);
+          toast(t("agent.bundleGeladen", { datei: `${el.dataset.name}.bundle` }));
         } catch (e) {
-          toast(`fehler: ${(e as Error).message}`, true);
+          toast(t("agent.fehlerText", { fehler: (e as Error).message }), true);
         }
         el.disabled = false;
       });
     });
   } catch {
-    list.innerHTML = "<span>relay offline</span>";
+    list.innerHTML = `<span>${escapeHtml(t("agent.relayOffline"))}</span>`;
   }
 }
 

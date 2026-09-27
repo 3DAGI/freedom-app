@@ -50,7 +50,7 @@ import {
   updateSidebarBalances,
 } from "../ui.js";
 import { haltevorModell, katalogRangJetzt, kuendigeModellAn, zeigeModelle } from "./agent-netz.js";
-import type { Pruefer } from "../../streitfall.js";
+import { PRUEFER_ART, type Pruefer } from "../../streitfall.js";
 import { merkeReklamation, netzPruefer, stelleZu } from "../streitfall-ui.js";
 import { zeigeMitwirkende } from "./earn.js";
 import { vergebeAbzeichen } from "./profil.js";
@@ -1017,7 +1017,7 @@ async function waehlePruefer(beschuldigt: string): Promise<Pruefer | null | unde
     toast(t("agent.keinPruefer"));
     return null;
   }
-  const liste = kandidaten.map((c, i) => `  ${i + 1} = ${c.name} (${c.art})`).join("\n");
+  const liste = kandidaten.map((c, i) => `  ${i + 1} = ${c.name} (${t(PRUEFER_ART[c.art])})`).join("\n");
   const wahl = prompt(t("agent.werPrueft", { liste }), "1");
   if (wahl === null) return undefined;
   return kandidaten[Number(wahl) - 1] ?? null;
@@ -1068,7 +1068,7 @@ async function reklamiere(
     });
     const empfaenger = [
       { pk: providerPk, powBits: powJeProvider.get(providerPk) ?? 0 },
-      ...(pruefer ? [{ pk: pruefer.pk, powBits: pruefer.art === "eigener Provider" ? powJeProvider.get(pruefer.pk) ?? 0 : 0 }] : []), // kein UI-Text
+      ...(pruefer ? [{ pk: pruefer.pk, powBits: pruefer.art === "provider" ? powJeProvider.get(pruefer.pk) ?? 0 : 0 }] : []),
     ];
     const { wraps } = await buildPrivateDispute({ dispute, sessionSigner: sitzung, empfaenger, materialFuerPruefer: material });
     await (await ensurePool()).publish(wraps[0]!);
@@ -1314,8 +1314,8 @@ function zeigeWerkzeugPreise(angebote: ReadonlyArray<{ tools?: ToolPrice[] }> = 
   const preise = werkzeugPreise(angebote);
   const kurs = aktuellerKurs();
   document.querySelectorAll<HTMLElement>(".tool-chip").forEach((chip) => {
-    const text = werkzeugPreisText(preise.get(Number(chip.dataset.tool)), kurs);
-    chip.title = text;
+    const preis = preise.get(Number(chip.dataset.tool));
+    chip.title = werkzeugPreisText(preis, kurs);
     let el = chip.querySelector<HTMLElement>(".tool-preis");
     if (!el) {
       el = document.createElement("span");
@@ -1323,7 +1323,7 @@ function zeigeWerkzeugPreise(angebote: ReadonlyArray<{ tools?: ToolPrice[] }> = 
       chip.append(el);
     }
     // Beide Einheiten am Knopf (Regel 4.4b), die Erklaerung im Tooltip
-    el.textContent = text.split(" je Aufruf")[0]!; // kein UI-Text
+    el.textContent = preis ? ausMsat(preis.msat, kurs) : t("agent.preisUnbekannt");
   });
 }
 

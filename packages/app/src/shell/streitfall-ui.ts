@@ -7,6 +7,7 @@
  * genau diese Schluessel – nie an die Identitaet.
  */
 import { LocalSigner, fromHex, type Dispute, type NostrEvent } from "@freedomstack/protocol";
+import { t } from "../i18n.js";
 import {
   LS_REKLAMATIONEN, type EigeneReklamation, type Pruefer, leseReklamationen, mitReklamation, prueferAusNetz, reklamationText,
 } from "../streitfall.js";
@@ -54,7 +55,7 @@ export function zeigeReklamationen(): void {
   liste.replaceChildren(...alle.slice().reverse().map((r) => {
     const z = document.createElement("div");
     z.className = r.urteil ? "usage-row" : "usage-row muted";
-    z.textContent = `Auftrag ${r.jobId.slice(0, 8)}… · ${Math.floor(r.betragMsat / 1000)} sats: ${reklamationText(r)}`;
+    z.textContent = t("agent.reklamationZeile", { auftrag: r.jobId.slice(0, 8), sats: Math.floor(r.betragMsat / 1000), text: reklamationText(r) });
     return z;
   }));
 }
@@ -96,7 +97,7 @@ export async function pruefeUrteile(): Promise<void> {
     if (neu > 0) {
       const alle = reklamationen().map((r) => offen.find((o) => o.jobId === r.jobId && o.urteil) ?? r);
       await geheim.setItem(LS_REKLAMATIONEN, JSON.stringify(alle));
-      toast(neu === 1 ? "Ein Urteil zu deiner Reklamation ist da (Agent → Aufgaben)" : `${neu} Urteile zu deinen Reklamationen sind da`);
+      toast(neu === 1 ? t("agent.einUrteilDa") : t("agent.urteileDa", { n: neu }));
       zeigeReklamationen();
     }
   } catch {

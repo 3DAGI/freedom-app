@@ -82,9 +82,6 @@ waehrung.ts|(Zuweisung) verdict.problems.map((p) => escapeHtml(p)).join("<br>")|
 earn.ts|(Zuweisung) sorted .map((ev) => { const get = (n: string) => ev.tags.find((t) => t[0] === n)?.[1] ?? "—"; return `<div class="stat">|Callback: Template mit escapeHtml(get(...)), Math.floor und timeAgo()
 earn.ts|timeAgo(ev.created_at)|timeAgo() rechnet: Zahl plus s/m/h/d
 agent-netz.ts|(Zuweisung) sorted.map((ev) => { const name = ev.tags.find((t) => t[0] === "d")?.[1] ?? "?"; return `<div class="stat"><span class="|Callback: Template mit escapeHtml(name), escapeHtml(pkShort(...)) und escapeHtml(blob)
-waehrung.ts|new Date((Math.floor(Date.now() / 1000) + 7200) * 1000).toLocaleTimeString("de-DE")|lokal berechnete Uhrzeit
-waehrung.ts|restMin|Math.ceil(...) – Zahl
-waehrung.ts|res.refunded.length|Länge eines Arrays aus dem eigenen Refund-Ergebnis
 app.ts|(Zuweisung) LANGS.map( (l) => `<button type="button" data-lang="${l.code}" class="${l.code === getLang() ? "active" : ""}">${l.code.|Callback: Template aus der festen Sprachliste LANGS
 app.ts|l.code|feste Sprachliste LANGS (i18n.ts)
 app.ts|l.code.toUpperCase()|feste Sprachliste LANGS (i18n.ts)

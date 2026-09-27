@@ -8,6 +8,10 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { SICHERUNG_EINTRAEGE, baueModellKatalog, generateKeypair, leseModellKatalog, signEvent } from "@freedomstack/protocol";
 import { ABOS_MAX, LS_KATALOGE, katalogKennung, katalogRang, leseAbos, leseKatalogEingabe, mitAbo, ohneAbo } from "../src/modell-kataloge.js";
+import { setLang } from "../src/i18n.js";
+
+// Meldungen hier auf Deutsch prüfen (seit 8.16e über Schlüssel in der Sprache der Oberfläche)
+setLang("de");
 
 const A = generateKeypair();
 const B = generateKeypair();
@@ -61,7 +65,7 @@ test("5.7/8.8 verdrahtet: alle Kataloge holen und lokal waehlen, Anzeige ohne in
   assert.doesNotMatch(zeige, /innerHTML/, "Kataloge sind Fremddaten – nur textContent");
   assert.match(zeige, /vergleicheKataloge\(abonnierteKataloge, modellAngebote\(angebote\)\)/);
   assert.match(zeige, /ausMsat\(z\.preisMsat, kurs\)/, "Preis in sats und SOL");
-  assert.match(netz, /const gefaehrdet = modelsAtRisk\(r\.models\);[\s\S]{0,120}z\.textContent = `Gefährdet: /, "gefaehrdete Modelle zuerst nennen (8.8)");
+  assert.match(netz, /const gefaehrdet = modelsAtRisk\(r\.models\);[\s\S]{0,120}z\.textContent = t\("agent\.gefaehrdet", /, "gefaehrdete Modelle zuerst nennen (8.8)");
   const pub = netz.slice(netz.indexOf("export async function veroeffentlicheKatalog"));
   assert.match(pub, /if \(alsGeraet\(\)\) \{/, "als Geraet nicht – der Katalog gehoert der Person");
   assert.match(pub, /await signiere\(baueModellKatalog\(/);

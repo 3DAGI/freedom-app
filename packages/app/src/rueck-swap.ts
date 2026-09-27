@@ -20,6 +20,7 @@ import {
   type LpOffer,
   SLOW_BLOCK_SECS, leseBolt11, rueckSwapId, rueckSwapLamports, validateReverseTimelock,
 } from "@freedomstack/protocol";
+import { gebietsschema, t } from "./i18n.js";
 
 /** Zeit fuer Bestaetigung der Sperre und Weg der Anfrage zum LP. */
 export const RUECK_PUFFER_SECS = 1800;
@@ -47,19 +48,19 @@ export function istRueckAngebot(o: LpOffer): o is LpOffer & { solAddress: string
  * gesperrt wird. Wirft mit einem Satz fuer den Nutzer, wenn etwas nicht passt.
  */
 export function planeRueckSwap(o: LpOffer, bolt11: string, sats: number, jetzt: number): RueckPlan {
-  if (!istRueckAngebot(o)) throw new Error("Dieses Angebot tauscht nicht SOL gegen sats.");
-  if (o.expiry <= jetzt) throw new Error("Das Angebot ist abgelaufen.");
+  if (!istRueckAngebot(o)) throw new Error(t("zahl.keinRueckAngebot"));
+  if (o.expiry <= jetzt) throw new Error(t("zahl.angebotAbgelaufen"));
   if (!Number.isSafeInteger(sats) || sats < o.minSats || sats > o.maxSats) {
-    throw new Error(`Der LP tauscht ${o.minSats}–${o.maxSats} sats.`);
+    throw new Error(t("zahl.lpTauscht", { min: o.minSats, max: o.maxSats }));
   }
   const r = leseBolt11(bolt11);
-  if (r.betragMsat !== sats * 1000) throw new Error("Die Rechnung nennt einen anderen Betrag.");
+  if (r.betragMsat !== sats * 1000) throw new Error(t("zahl.rechnungAndererBetrag"));
   // Der LP zahlt mit cltv_limit ≤ lnCltvDeltaBlocks; seine Regel verlangt
   // cltv_limit · 20 min + 1 h ≤ Restfrist. Mit Puffer fuer Bestaetigung und Weg.
   const frist = o.lnCltvDeltaBlocks * SLOW_BLOCK_SECS + 3600 + RUECK_PUFFER_SECS;
   const regel = validateReverseTimelock({ tSolSecs: frist - RUECK_PUFFER_SECS, lnCltvLimitBlocks: o.lnCltvDeltaBlocks });
-  if (!regel.ok) throw new Error(`Die Fristen des Angebots passen nicht: ${regel.reason}`);
-  if (frist > MAX_RUECK_FRIST_SECS) throw new Error("Das Angebot verlangt eine Sperre von mehr als einer Woche.");
+  if (!regel.ok) throw new Error(t("zahl.fristenPassenNicht", { grund: regel.reason ?? "" }));
+  if (frist > MAX_RUECK_FRIST_SECS) throw new Error(t("zahl.sperreUeberWoche"));
   return {
     sats,
     lamports: rueckSwapLamports(sats, o.lamportsPerSat, o.feePpm),
@@ -81,13 +82,13 @@ export function leseRueckAntwort(ev: { tags: string[][]; content: string }): { s
 
 /** Was der Nutzer zum Stand erfaehrt. */
 export function rueckText(a: { status: RueckStatus; text: string } | undefined, plan: RueckPlan): string {
-  const zurueck = `Deine SOL kommen nach Ablauf der Sperre zurück (ab ${new Date(plan.timelockUnix * 1000).toLocaleString("de-DE")}); ` +
-    "solange die App offen ist, holt sie sie selbst zurück.";
-  if (!a) return `Gesperrt. Warte auf den LP … ${zurueck.replace("Deine SOL kommen", "Zahlt er nicht, kommen deine SOL")}`;
-  if (a.status === "EINGELOEST") return `Fertig: ${plan.sats} sats sind in deiner Lightning-Wallet.`;
+  const ab = new Date(plan.timelockUnix * 1000).toLocaleString(gebietsschema());
+  const zurueck = t("zahl.solKommenZurueck", { ab });
+  if (!a) return t("zahl.gesperrtWarte", { ab });
+  if (a.status === "EINGELOEST") return t("zahl.rueckFertig", { sats: plan.sats });
   // Der LP hat gezahlt, aber die SOL nicht mehr vor der Frist eingeloest: Nach
   // den Regeln der Sperre gehen sie an den zurueck, der gesperrt hat.
-  if (a.status === "ZU_SPAET") return `Der LP hat deine Rechnung bezahlt (${plan.sats} sats), die SOL aber nicht rechtzeitig eingelöst. ${zurueck}`;
-  const warum = a.status === "ABGELEHNT" ? `abgelehnt: ${a.text}` : "Zahlung gescheitert";
-  return `Der LP hat nicht getauscht (${warum}). ${zurueck}`;
+  if (a.status === "ZU_SPAET") return t("zahl.rueckZuSpaet", { sats: plan.sats, zurueck });
+  const warum = a.status === "ABGELEHNT" ? t("zahl.rueckAbgelehnt", { text: a.text }) : t("zahl.rueckGescheitert");
+  return t("zahl.rueckNichtGetauscht", { warum, zurueck });
 }

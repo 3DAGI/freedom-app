@@ -7,6 +7,10 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { KIND_GIFT_WRAP, KIND_SOL_TRINKGELD, LocalSigner, generateKeypair, type NostrEvent, type SolTrinkgeld } from "@freedomstack/protocol";
 import { pruefeTrinkgeld, sendeTrinkgeldBeleg, trinkgeldText } from "../src/trinkgeld-beleg.js";
+import { setLang } from "../src/i18n.js";
+
+// Meldungen hier auf Deutsch prüfen (seit 8.16e über Schlüssel in der Sprache der Oberfläche)
+setLang("de");
 
 const AN = "7EcDhSYGxXyscszYEp35KHN8vvw3svAuLKTzXwCFLtVb";
 const SIG = "4".repeat(88);

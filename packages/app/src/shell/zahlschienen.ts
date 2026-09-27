@@ -7,6 +7,7 @@
 import {
   NONCE_KONTO_BYTES, baueNonceKontoAnlegen, baueNonceKontoSchliessen, leseNonceKonto, nonceKontoKosten, pruefeOfflineUeberweisung, type PaymentRail,
 } from "@freedomstack/protocol";
+import { t } from "../i18n.js";
 import { LightningRail, SolanaRail, type SolanaWalletZugang } from "../rails.js";
 import { type NonceAblage, erstelleOfflineZahlung, leseAblage, schreibeAblage } from "../sol-offline-zahlung.js";
 import { type EingebauteSolWallet, type SignierbareTx, waehleAbsender } from "../sol-wallet.js";
@@ -34,7 +35,7 @@ async function sende(signiert: unknown): Promise<string> {
  */
 async function signiereUndSende(anbieter: Anbieter | undefined, tx: unknown): Promise<string> {
   if (anbieter?.signAndSendTransaction) return (await anbieter.signAndSendTransaction(tx)).signature;
-  if (!anbieter?.signTransaction) throw new Error("Die Wallet kann keine Transaktion signieren");
+  if (!anbieter?.signTransaction) throw new Error(t("zahl.walletKannNichtSignieren"));
   return sende(await anbieter.signTransaction(tx));
 }
 
@@ -79,7 +80,7 @@ export function zahlschienen(): PaymentRail[] {
 /** Die eingebaute Wallet – nur sie signiert offline sicher (externe Wallets brauchen oft Netz). */
 function offlineWallet(): EingebauteSolWallet {
   const e = benutzbareEingebauteWallet();
-  if (!e?.adresse()) throw new Error("Ohne Internet zahlt nur die eingebaute Wallet – im Wallet-Tab einrichten.");
+  if (!e?.adresse()) throw new Error(t("zahl.offlineNurEingebaut"));
   return e;
 }
 
@@ -87,7 +88,7 @@ function offlineWallet(): EingebauteSolWallet {
 async function legeStandAb(konto: string): Promise<NonceAblage> {
   const { Connection, PublicKey } = await import("@solana/web3.js");
   const info = await new Connection(await solRpcUrl(), "confirmed").getAccountInfo(new PublicKey(konto), "confirmed");
-  if (!info) throw new Error("Nonce-Konto nicht gefunden");
+  if (!info) throw new Error(t("zahl.nonceNichtGefunden"));
   const ablage: NonceAblage = { konto, stand: leseNonceKonto(new Uint8Array(info.data)), gelesen: Math.floor(Date.now() / 1000), verbraucht: false };
   await schreibeAblage(geheim, ablage);
   return ablage;
@@ -102,7 +103,7 @@ export async function legeNonceKontoAn(bestaetige: (k: { miete: number; gebuehr:
   const { Connection, Keypair } = await import("@solana/web3.js");
   const c = new Connection(await solRpcUrl(), "confirmed");
   const miete = await c.getMinimumBalanceForRentExemption(NONCE_KONTO_BYTES);
-  if (!(await bestaetige(nonceKontoKosten(miete)))) throw new Error("Abgebrochen – nichts gesendet.");
+  if (!(await bestaetige(nonceKontoKosten(miete)))) throw new Error(t("zahl.abgebrochenNichtsGesendet"));
   const konto = Keypair.generate();
   const { blockhash, lastValidBlockHeight } = await c.getLatestBlockhash("confirmed");
   const tx = baueNonceKontoAnlegen({ zahler: e.adresse()!, nonceKonto: konto.publicKey.toBase58(), mieteLamports: miete, blockhash });
@@ -116,7 +117,7 @@ export async function legeNonceKontoAn(bestaetige: (k: { miete: number; gebuehr:
 /** Den Wert neu lesen (mit Netz) – danach ist wieder eine Offline-Zahlung moeglich. */
 export async function frischeNonceAuf(): Promise<NonceAblage> {
   const a = leseAblage(geheim);
-  if (!a) throw new Error("Kein Nonce-Konto angelegt");
+  if (!a) throw new Error(t("zahl.keinNonceAngelegt"));
   return legeStandAb(a.konto);
 }
 
@@ -124,7 +125,7 @@ export async function frischeNonceAuf(): Promise<NonceAblage> {
 export async function schliesseNonceKonto(): Promise<number> {
   const e = offlineWallet();
   const a = leseAblage(geheim);
-  if (!a) throw new Error("Kein Nonce-Konto angelegt");
+  if (!a) throw new Error(t("zahl.keinNonceAngelegt"));
   const { Connection, PublicKey } = await import("@solana/web3.js");
   const c = new Connection(await solRpcUrl(), "confirmed");
   const guthaben = await c.getBalance(new PublicKey(a.konto), "confirmed");

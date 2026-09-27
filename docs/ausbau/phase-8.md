@@ -50,14 +50,24 @@ Reihenfolge.
     `tabs/agent.ts` über `agent.*`; eigene Meldungen als `EigeneMeldung`, damit
     `explainError()` sie nicht nach deutschen Mustern umdeutet; Beispiel-Prompts
     in der Sprache der Oberfläche.
-  - **8.16d2:** `agent-netz.ts`, Streitfall, Prüfaufträge, Werkzeugpreise.
-  - **8.16e:** Währung (Seite, `tabs/waehrung.ts`, eingebaute Wallet, offline).
-  - **8.16f:** Zahlwege und Swaps (Meldungen aus `swap-client.ts`,
-    `sol-htlc.ts`, `rueck-swap.ts`, `rails.ts`, `sol-wallet.ts` …).
-  - **8.16g:** Earn und Profil (Seiten, `tabs/earn.ts`, `tabs/profil.ts`, Repos).
-  - **8.16h/i:** Settings – Seite, dann `tabs/settings.ts`.
-  - **8.16j:** Einstieg und Dialoge (`onboarding.ts`, `app.ts`, Tresor,
-    Identität, Nachfolge, Notfall, Bunker, Einrichtung, Datenschutzbericht).
-  - **8.16k:** übrige Bausteine (Mesh, MLS, Werkzeuge, Suche …) – danach steht
-    alles auf 0.
-  - **8.16l:** mit 0.F – Texte der Website an den Code angleichen.
+- **Größere Schritte (MENSCH 27.09.2026):** Für die Übersetzung sind größere
+  Pull Requests erlaubt – je Bereich einer statt je rund 400 Zeilen:
+  - **8.16e – FERTIG:** Agent-Rest (`agent-netz.ts`, Streitfall, Prüfaufträge,
+    Werkzeugpreise, Kataloge), Währung (Seite, `tabs/waehrung.ts`, eingebaute
+    Wallet, offline zahlen, Zahlschienen) und alle Zahlwege und Swaps
+    (`swap-client.ts`, `sol-htlc.ts`, `rueck-swap.ts`, `rails.ts`,
+    `sol-wallet.ts`, Zap-Dialog, Belege, Preise, RPC-Stichprobe …) über
+    `agent.*`, `waehr.*` und `zahl.*`. Deutsche Sätze des Protokolls
+    (Verfügbarkeit der Modelle, Reklamationsgründe, Kurswarnungen,
+    Zahlungshinweis, Prüfung vor dem Tausch) bildet die App aus den Feldern
+    neu; der Prüfer hat eine Art (`kontakt`/`provider`), keinen Text.
+  - **8.16f:** Earn, Profil und Settings (Seiten, `tabs/earn.ts`,
+    `tabs/profil.ts`, `tabs/settings.ts`, `tabs/repos.ts`).
+  - **8.16g:** Einstieg, Dialoge und übrige Bausteine (`onboarding.ts`,
+    `app.ts`, Tresor, Identität, Nachfolge, Notfall, Bunker, Einrichtung,
+    Datenschutzbericht, Mesh, MLS, Werkzeuge, Suche …) – danach steht alles
+    auf 0 und die Zählung wird streng (keine Tabelle mehr). Dazu die
+    Fehlermeldungen des Protokolls, die die App noch unverändert zeigt
+    (Gründe aus Prüfungen wie `validateReverseTimelock`, `pruefeSolUeberweisung`,
+    `RpcPool.stichprobe`).
+  - **8.16h:** mit 0.F – Texte der Website an den Code angleichen.
