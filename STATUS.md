@@ -6317,3 +6317,68 @@ Endstand: protocol 1155 (+3, + 6 übersprungen) · node 239 (+ 7 übersprungen
 ohne Netz) · app 425 (+6) · mls 11 · Leak-Tests 54 grün + 2 todo · 0 rot ·
 check-wiring `--streng` Exit 0 · innerHTML streng 0 unbewertet · Website 5
 Seiten ok · Smoke-Test bestanden.
+
+## Schritt 2.3a – Räume als MLS-Gruppen: Baustein
+
+**Aufteilung:** 2.3 braucht weit mehr als 400 Zeilen. a ist der Baustein
+(MLS-Crate, Raum-Logik, Engine-Test mit 50 Mitgliedern), b die Räume in der
+App (privat als Standard, öffentlich nur ausdrücklich mit Hinweis), c die
+Moderation zusammen mit 8.5.
+
+**MLS-Baustein** (`packages/mls`, Code von Spur A – klein gehalten):
+- Bis hier konnte die Crate nur Chat-Text senden (Kind 9 ohne Tags) und gab
+  andere Arten beim Empfang gar nicht weiter. Marmot trägt in jeder
+  Nachricht ein inneres Event mit Art und Tags; das reicht die Crate jetzt
+  durch: `sendenEvent(gruppe, art, tags, text)`, beim Empfang `art` und
+  `tags`.
+- `adminsSetzen(gruppe, admins)`: Admins per Commit neu setzen – so werden
+  Moderatoren ernannt und abgesetzt („Rollen über MLS-Proposals“). Nur ein
+  Admin darf das; MDK prüft, dass alle Genannten Mitglied sind.
+- `admin`: ob der Absender beim Senden Admin war – von MLS belegt. MDK stellt
+  das nur für Moderations-Arten fest (4891 Löschen, 1985); sonst fehlt es,
+  und es zählt, wer heute Admin ist.
+- Der 1:1-Chat nimmt nur Art 9 in den Verlauf (`nurChat`), sonst stünden
+  Raum-Events als Zeilen darin.
+- `dist/` neu gebaut mit `bauen.sh`; vorher bestätigt, dass der Nachbau des
+  alten Stands bitgleich ist.
+
+**Raum-Logik** (`protocol/src/raum-gruppe.ts`): Ein privater Raum ist eine
+MLS-Gruppe; Definition (Kanäle), Rollenliste, Zuweisungen, Nachrichten und
+Löschungen sind innere Events. `gruppenRaum()` baut daraus den Zustand, mit
+dem die Auswertung aus `spaces.ts` weiter gilt (`can`, `canWriteTo`,
+`buildThreads`):
+- Moderatoren sind die Admins der Gruppe – sie haben alle Rechte.
+- Definition und Rollenliste zählen nur von Admins; die neueste gilt.
+- Zuweisungen von Admins, sonst nur mit `rollen_vergeben` unter dem eigenen
+  Rang; eine leere schaltet stumm.
+- Mitglieder ohne Zuweisung: Rolle „mitglied“ bzw. lesen, schreiben, Threads.
+- Löschen: Admin jede Nachricht (4891, Admin-Stand von MLS belegt), jeder die
+  eigene (5).
+- Schreibrecht je Nachricht nach heutiger Rollenlage.
+- Alle Mitglieder lesen alle Kanäle – ein Kanal ordnet, er verschlüsselt
+  nicht eigens (ein Kanal nur für wenige wäre eine eigene Gruppe).
+
+**Engine-Test** (`packages/mls/test/raeume.test.ts`, echte MDK-Engine):
+- 50 Mitglieder (Gründer, ein Moderator als Admin, 48 weitere): Kanäle und
+  Rollenliste kommen bei allen mit Art und Tags an; die Definition eines
+  Mitglieds zählt nicht.
+- Ein Mitglied darf weder entfernen noch Admins setzen.
+- Der Moderator entfernt ein Mitglied: neue Epoche, 49 Mitglieder; die
+  nächste Nachricht lesen alle außer dem Entfernten.
+- Moderator ernennen per `adminsSetzen`; sein Löschen (4891) kommt mit
+  belegtem Admin-Stand an. Ein Mitglied kann 4891 gar nicht erst senden –
+  MDK lehnt es schon beim Senden ab.
+- Innere Events: Art prüft der Wrapper, Tags kommen unverändert an, Relays
+  sehen nur Kind 445 ohne Klartext.
+
+**Tests:** protocol +6 (`raum-gruppe.test.ts`: Definition nur von Admins,
+Moderatoren = Admins, Zuweisungen mit Rang und Stummschalten, Schreibrecht
+je Nachricht auch nach Absetzung, Löschen, Bausteine); mls +2; app: der
+Abgleich eines 1:1-Chats nimmt ein Raum-Event nicht in den Verlauf
+(bestehender Test erweitert, ohne den Filter rot).
+
+Endstand: protocol 1161 (+6, + 6 übersprungen) · node 239 (+ 7 übersprungen
+ohne Netz) · app 425 · mls 13 (+2) · Leak-Tests 54 grün + 2 todo · 0 rot ·
+check-wiring `--streng` Exit 0 (6 neue Ausnahmen „2.3b“) · innerHTML streng 0
+unbewertet · Website 5 Seiten ok · Smoke-Test bestanden · `bauen.sh
+--pruefen` vor der Änderung bitgleich, danach `dist/` neu gebaut.

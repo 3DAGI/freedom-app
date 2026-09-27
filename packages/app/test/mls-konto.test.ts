@@ -23,7 +23,7 @@ const { setzeIdentitaet, setzeSigner } = await import("../src/shell/state.js");
 const { LS_MLS_EINLADUNGEN, LS_MLS_IDENTITAET, mlsAbgleichen, mlsEinladungAnnehmen, mlsErreichbar, mlsGesperrt, mlsKonto, mlsSendeAn, mlsVerlauf } =
   await import("../src/shell/mls-konto.js");
 const { LS_MLS_KP, LS_MLS_PLATZ, sucheKeyPackages, veroeffentlicheKeyPackage } = await import("../src/mls-keypackage.js");
-const { empfangeGruppe, gruendeGruppe, gruppenAbos, nimmEinladungAn, oeffneEinladung, schreiteFort, sendeInGruppe } = await import("../src/mls-nostr.js");
+const { empfangeGruppe, gruendeGruppe, gruppenAbos, nimmEinladungAn, oeffneEinladung, schreiteFort, sendeEventInGruppe, sendeInGruppe } = await import("../src/mls-nostr.js");
 const { mlsEngine } = await import("../src/mls-engine.js");
 const { SpeicherImRam, createVault, geheimSpeicher } = await import("../src/vault.js");
 const { LS_TRESOR } = await import("../src/shell/tresor.js");
@@ -103,6 +103,8 @@ test("Einladung eines Kontakts: 1:1-Gruppe angenommen, dieselbe nicht zweimal; N
   assert.equal(ls.get(LS_MLS_KP), undefined, "KeyPackage verbraucht – beim nächsten Öffnen neu");
 
   await sendeInGruppe({ mls: bob.mls, netz, sichern: bob.sichern, gruppe: g.gruppe, text: "Hallo über MLS" });
+  // Ein Raum-Event (2.3a) ist keine Chat-Zeile – der 1:1-Verlauf nimmt nur Art 9
+  assert.equal(await sendeEventInGruppe({ mls: bob.mls, netz, sichern: bob.sichern, gruppe: g.gruppe, art: 34700, tags: [["space", g.gruppe], ["name", "kein Chat"]], text: "" }), true);
   await sendeInGruppe({ mls: bob.mls, netz, sichern: bob.sichern, gruppe: g.gruppe, text: "zweite" });
   assert.deepEqual([...(await mlsAbgleichen([g.gruppe], u))], [[g.gruppe, 2]]);
   assert.deepEqual((await mlsVerlauf(g.gruppe, u)).map((n) => [n.text, n.von]), [["Hallo über MLS", bob.pk], ["zweite", bob.pk]]);

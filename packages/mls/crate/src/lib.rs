@@ -26,9 +26,10 @@ use cgka_engine::key_package::key_package_metadata;
 use cgka_engine::{Engine, EngineBuilder};
 use cgka_engine::feature_registry::FeatureRegistry;
 use cgka_traits::app_components::{
-    AGENT_TEXT_STREAM_QUIC_COMPONENT_ID, AppComponentData, GROUP_AVATAR_URL_COMPONENT_ID, GROUP_BLOSSOM_IMAGE_COMPONENT_ID,
-    GROUP_ENCRYPTED_MEDIA_V1_COMPONENT_ID, GROUP_ENCRYPTED_MEDIA_V2_COMPONENT_ID, GROUP_MESSAGE_RETENTION_COMPONENT_ID,
-    NOSTR_ROUTING_COMPONENT_ID, NostrRoutingV1, default_group_components, encode_nostr_routing_v1,
+    AGENT_TEXT_STREAM_QUIC_COMPONENT_ID, AppComponentData, GROUP_ADMIN_POLICY_COMPONENT_ID, GROUP_AVATAR_URL_COMPONENT_ID,
+    GROUP_BLOSSOM_IMAGE_COMPONENT_ID, GROUP_ENCRYPTED_MEDIA_V1_COMPONENT_ID, GROUP_ENCRYPTED_MEDIA_V2_COMPONENT_ID,
+    GROUP_MESSAGE_RETENTION_COMPONENT_ID, NOSTR_ROUTING_COMPONENT_ID, NostrRoutingV1, default_group_components,
+    encode_nostr_routing_v1, encode_quic_varint,
 };
 use cgka_traits::capabilities::{Capability, CapabilityRequirement, Feature, RequirementLevel};
 use cgka_traits::app_event::{MARMOT_APP_EVENT_KIND_CHAT, MarmotAppEvent};
@@ -233,6 +234,13 @@ struct Nachricht {
     text: String,
     zeit: u64,
     id: String,
+    /// Art des inneren Events (9 = Chat; Räume 2.3: Definition, Rollen, Moderation).
+    art: u64,
+    tags: Vec<Vec<String>>,
+    /// War der Absender in der Epoche des Sendens Admin? Von MLS belegt – MDK
+    /// stellt das nur für Moderations-Arten fest (4891, 1985); sonst fehlt es.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    admin: Option<bool>,
 }
 
 #[derive(Serialize, Default)]
@@ -288,6 +296,22 @@ impl MlsKonto {
             let (innen, r) = f(innen).await;
             *zelle.borrow_mut() = Some(innen);
             r
+        })
+    }
+
+    /// Inneres Event (Art, Tags, Text) verschlüsselt in die Gruppe.
+    fn sende_inneres(&self, gruppe_id: String, art: u64, tags: Vec<Vec<String>>, text: String) -> Promise {
+        let ich = self.ich.clone();
+        self.mit(move |mut i| async move {
+            let r = async {
+                let gid = gruppe(&gruppe_id)?;
+                let jetzt = web_time::SystemTime::now().duration_since(web_time::UNIX_EPOCH).map_err(fehler)?.as_secs();
+                let payload = MarmotAppEvent::new(ich, jetzt, art, tags, text).encode().map_err(fehler)?;
+                let res = i.engine.send(SendIntent::AppMessage { group_id: gid, payload, expected_epoch: None }).await.map_err(fehler)?;
+                veroeffentlichen(&mut i, res)
+            }
+            .await;
+            (i, r)
         })
     }
 
@@ -400,18 +424,14 @@ impl MlsKonto {
 
     /// Text in die Gruppe; Ergebnis wie bei `einladen` (Nachricht braucht keine Bestätigung).
     pub fn senden(&self, gruppe_id: String, text: String) -> Promise {
-        let ich = self.ich.clone();
-        self.mit(move |mut i| async move {
-            let r = async {
-                let gid = gruppe(&gruppe_id)?;
-                let jetzt = web_time::SystemTime::now().duration_since(web_time::UNIX_EPOCH).map_err(fehler)?.as_secs();
-                let payload = MarmotAppEvent::new(ich, jetzt, MARMOT_APP_EVENT_KIND_CHAT, vec![], text).encode().map_err(fehler)?;
-                let res = i.engine.send(SendIntent::AppMessage { group_id: gid, payload, expected_epoch: None }).await.map_err(fehler)?;
-                veroeffentlichen(&mut i, res)
-            }
-            .await;
-            (i, r)
-        })
+        self.sende_inneres(gruppe_id, MARMOT_APP_EVENT_KIND_CHAT, vec![], text)
+    }
+
+    /// Inneres Event beliebiger Art mit Tags (Räume, 2.3); `tags` als JSON-Liste von Listen.
+    #[wasm_bindgen(js_name = sendenEvent)]
+    pub fn senden_event(&self, gruppe_id: String, art: u32, tags: String, text: String) -> Result<Promise, JsValue> {
+        let tags: Vec<Vec<String>> = serde_json::from_str(&tags).map_err(fehler)?;
+        Ok(self.sende_inneres(gruppe_id, u64::from(art), tags, text))
     }
 
     /// Kontakte einladen (KeyPackage-Events); `admins`: welche der Eingeladenen
@@ -422,6 +442,33 @@ impl MlsKonto {
                 let kps = key_packages.iter().map(|k| key_package(k)).collect::<Result<Vec<_>, _>>()?;
                 let initial_admins = mitglieder_ids(&admins)?;
                 let res = i.engine.send(SendIntent::Invite { group_id: gruppe(&gruppe_id)?, key_packages: kps, initial_admins }).await.map_err(fehler)?;
+                veroeffentlichen(&mut i, res)
+            }
+            .await;
+            (i, r)
+        })
+    }
+
+    /// Admins der Gruppe neu setzen (Räume, 2.3: Moderatoren ernennen oder
+    /// absetzen) – ein Commit wie beim Entfernen; nur ein Admin darf das, und
+    /// MDK prüft, dass alle Genannten Mitglied sind. Mindestens einer bleibt.
+    #[wasm_bindgen(js_name = adminsSetzen)]
+    pub fn admins_setzen(&self, gruppe_id: String, admins: Vec<String>) -> Promise {
+        self.mit(move |mut i| async move {
+            let r = async {
+                let mut ids = mitglieder_ids(&admins)?.iter().map(|m| m.as_slice().to_vec()).collect::<Vec<_>>();
+                ids.sort();
+                ids.dedup();
+                if ids.is_empty() {
+                    return Err(fehler("mindestens ein Admin"));
+                }
+                // Kodierung der Admin-Liste nach Marmot: Länge (QUIC-varint), dann die 32-Byte-Ids sortiert
+                let roh = ids.concat();
+                let mut data = Vec::with_capacity(roh.len() + 4);
+                encode_quic_varint(roh.len() as u64, &mut data);
+                data.extend_from_slice(&roh);
+                let updates = vec![AppComponentData { component_id: GROUP_ADMIN_POLICY_COMPONENT_ID, data }];
+                let res = i.engine.send(SendIntent::UpdateAppComponents { group_id: gruppe(&gruppe_id)?, updates }).await.map_err(fehler)?;
                 veroeffentlichen(&mut i, res)
             }
             .await;
@@ -578,17 +625,20 @@ fn veroeffentlichen(i: &mut Innen, res: SendResult) -> Result<JsValue, JsValue> 
 fn sammle(i: &mut Innen, e: &mut Ergebnis) {
     for ev in i.engine.drain_events() {
         match ev {
-            GroupEvent::MessageReceived { group_id, message_id, sender, payload, .. } => {
+            GroupEvent::MessageReceived { group_id, message_id, sender, payload, authority, .. } => {
+                // Die Engine hat Absender und id schon geprüft; jede Art geht
+                // weiter – was Chat ist, entscheidet `art` (9) im Aufrufer.
                 if let Ok(app) = MarmotAppEvent::decode(&payload) {
-                    if app.kind == MARMOT_APP_EVENT_KIND_CHAT {
-                        e.nachrichten.push(Nachricht {
-                            gruppe: hex::encode(group_id.as_slice()),
-                            von: hex::encode(sender.as_slice()),
-                            text: app.content,
-                            zeit: app.created_at,
-                            id: hex::encode(message_id.as_slice()),
-                        });
-                    }
+                    e.nachrichten.push(Nachricht {
+                        gruppe: hex::encode(group_id.as_slice()),
+                        von: hex::encode(sender.as_slice()),
+                        text: app.content,
+                        zeit: app.created_at,
+                        id: hex::encode(message_id.as_slice()),
+                        art: app.kind,
+                        tags: app.tags,
+                        admin: authority.map(|a| a.moderation_grant),
+                    });
                 }
             }
             GroupEvent::GroupStateChanged { group_id, .. } | GroupEvent::GroupJoined { group_id, .. } => {
