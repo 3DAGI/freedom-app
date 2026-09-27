@@ -44,9 +44,9 @@ bash packages/mls/bauen.sh --pruefen                     # nur bei Änderungen a
 bash contracts/solana-channel/pruefen.sh --werkzeuge     # nur bei Änderungen am Zahlkanal: bauen + Tests gegen Validator (Agave 3.1.10)
 ```
 
-Stand 27.09.2026 (nach 4.3c2 und 8.16g2b1): protocol 1066 grün (6 übersprungen), node 235 grün
+Stand 27.09.2026 (nach 4.3d1 und 8.16g2b1): protocol 1066 grün (6 übersprungen), node 235 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 483 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 57 grün + 1 `todo` (heutige Lecks,
+in `tools.test.ts`), app 493 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 58 grün + 1 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
 Ausnahme: gesendete SOL-Zahlungen von frischen Adressen, eine bewusste Grenze
 nach Entscheidung 4.9 A – im Datenschutzbericht unter „Bewusste Grenzen“).
@@ -259,6 +259,12 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   Validator, wartet web3.js sonst endlos (`getBlockHeight` zählt als -1).
   Den Websocket am Ende mit `setAutoReconnect(false)` schließen – sonst
   verbindet er endlos neu, und der Job läuft bis zu seinem Limit.
+  In der App (seit 4.3d1) nur über `KanalBuch` (`zahlkanal.ts`, Tresor
+  `freedom.kanaele`, in `SICHERUNG_NIE`) und `kanalGutschrift()`/`kanalAntwort()`
+  (`shell/ki-zahlung.ts`): Gutschrift statt Deklaration vor dem Versiegeln,
+  gemerkt vor dem Senden; eine Kanal-Antwort zahlt Lightning nie (`perKanal()`
+  aus dem Speicher, nicht aus dem Tresor). Deckt der Kanal nicht, geht nichts
+  hinaus. Kanäle holt der Wächter als `kind: "kanal"` zurück.
 - **HTLC-Transaktionen nur mit `htlcSigner()`** (`tabs/waehrung.ts`, seit 4.6c):
   Wallets nach dem Wallet Standard haben kein `publicKey`-Feld – `solWallet.provider`
   direkt als `WalletSigner` brach Einlösen, Deposit und Rückholen ab. Jede neue

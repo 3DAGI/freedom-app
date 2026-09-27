@@ -7,6 +7,10 @@
  * Providers zahlt die Sitzung an seine Lightning-Adresse aus dem Angebot, die
  * übrigen sammelt die Kasse und zahlt sie ab 100 sats je Empfänger. Gezahlt
  * wird nur über die Zahlschienen, erst die Rechnung, dann das Geld.
+ *
+ * Mit Zahlkanal zum Provider (4.3d) trägt die Anfrage statt der Deklaration
+ * eine Gutschrift – im Kanal teilt das Programm auf, und nach der Antwort zahlt
+ * Lightning nichts; die App verbucht nur den Preis.
  */
 import { ENTWICKLUNG, aufteilungTag, zahlbareAnteile, zahle, type Empfaenger, type Posten } from "@freedomstack/protocol";
 import { t } from "../i18n.js";
@@ -15,6 +19,7 @@ import { bolt11BetragMsat, rechnungVonAdresse } from "../rails.js";
 import { RelayZahlziele } from "../relay-zahlziel.js";
 import type { ProviderZahlung } from "../session-client.js";
 import { werberZahlziel } from "../werbung.js";
+import { KanalBuch, bedarfLamports } from "../zahlkanal.js";
 import { angebotVon, ensurePool, frageBeiAutoren, state } from "./state.js";
 import { hostingZahlziel } from "./hosting.js";
 import { geheim } from "./tresor.js";
@@ -28,8 +33,11 @@ const relayZiele = new RelayZahlziele({
   speicher: localStorage,
 });
 
-/** Je Anfrage: Empfänger der Anteile und was die App höchstens zahlt. */
-const anfragen = new Map<string, { empfaenger: Empfaenger; hoechstMsat: number }>();
+/** Je Anfrage: Empfänger der Anteile, was die App höchstens zahlt, und ob der Zahlkanal zahlt. */
+const anfragen = new Map<string, { empfaenger: Empfaenger; hoechstMsat: number; kanal?: boolean }>();
+
+/** Zahlkanäle (4.3d) – mit ihrem Sitzungsschlüssel im Tresor. */
+export const kanalBuch = new KanalBuch(geheim);
 
 /**
  * Die Empfänger eines Auftrags – was fehlt, bleibt beim Provider: Werber des
@@ -59,10 +67,38 @@ export function deklaration(e: Empfaenger): string[][] {
   return anteile.length > 0 ? [aufteilungTag(anteile)] : [];
 }
 
-export function merkeAnfrage(requestId: string, empfaenger: Empfaenger, hoechst: number): void {
-  anfragen.set(requestId, { empfaenger, hoechstMsat: hoechst });
+export function merkeAnfrage(requestId: string, empfaenger: Empfaenger, hoechst: number, kanal = false): void {
+  anfragen.set(requestId, { empfaenger, hoechstMsat: hoechst, ...(kanal ? { kanal } : {}) });
   // Nur die letzten – Antworten kommen gleich, nicht nach Tagen
   if (anfragen.size > 200) anfragen.delete(anfragen.keys().next().value!);
+}
+
+/**
+ * Zahlkanal zu diesem Provider (4.3d)? Dann Gutschrift-Tags für den Kern der
+ * Anfrage – zum Kurs aus seinem Angebot – und `merke()`, sobald die Anfrage
+ * steht (vor dem Senden). Kein Kanal oder Gratis-Auftrag: undefined. Deckt der
+ * Kanal das Gebot nicht (mehr) oder fehlt der Kurs: Fehler – nie still über
+ * Lightning zahlen, wenn der Nutzer einen Kanal für diesen Provider hat.
+ */
+export async function kanalGutschrift(providerPk: string, hoechst: number): Promise<{ tags: string[][]; merke(requestId: string): Promise<void> } | undefined> {
+  const jetzt = Math.floor(Date.now() / 1000);
+  if (hoechst <= 0 || !kanalBuch.fuerProvider(providerPk, jetzt)) return undefined;
+  const kurs = (await angebotVon(providerPk).catch(() => undefined))?.kurs;
+  if (!kurs) throw new Error(t("zahl.kanalOhneKurs"));
+  const wahl = kanalBuch.gutschriftFuer({ provider: providerPk, bedarf: bedarfLamports(hoechst, kurs.satsProSol), jetzt });
+  if (wahl.art === "erschoepft") throw new Error(t("zahl.kanalErschoepft"));
+  if (wahl.art !== "kanal") return undefined;
+  return { tags: wahl.tags, merke: (requestId) => kanalBuch.gesendet(wahl.eintrag.kanal, wahl.betrag, requestId) };
+}
+
+/** Zahlt für diese Anfrage der Zahlkanal? (Aus dem Speicher dieser Sitzung – gilt auch bei gesperrtem Tresor.) */
+export function perKanal(requestId: string): boolean {
+  return anfragen.get(requestId)?.kanal === true;
+}
+
+/** Antwort über den Zahlkanal: den Preis verbuchen. Gesperrter Tresor → bleibt offen, die nächste Gutschrift rechnet vorsichtig. */
+export async function kanalAntwort(requestId: string, preisLamports: number | undefined): Promise<void> {
+  await kanalBuch.beantwortet(requestId, preisLamports).catch(() => { /* bleibt offen */ });
 }
 
 /** Eine Antwort abrechnen; die Posten der übrigen Anteile gehen in die Kasse. */

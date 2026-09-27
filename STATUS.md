@@ -8213,6 +8213,68 @@ check-wiring `--streng` Exit 0 · innerHTML streng 0 unbewertet · Website 5
 Seiten ok · Smoke-Test bestanden · im Browser: Datenschutzbericht und die
 Seite „privat“ der Einrichtung in Englisch und Deutsch, ohne Seitenfehler.
 
+## Schritt 4.3d1 – Solana-Zahlkanal: Gutschriften und Rückholen in der App
+
+4.3d ist geteilt, damit die App nie einen Kanal öffnen lässt, den sie noch
+nicht nutzt: **d1** Logik und Verdrahtung (dieser Schritt, ohne neue
+Oberfläche), **d2** Öffnen, Übersicht, Texte und Datenschutz-Aussage.
+
+**Kanal-Buch (`app/src/zahlkanal.ts`):**
+- Im Tresor unter `freedom.kanaele` (in `GEHEIM_FEST`), nie in der Sicherung
+  (`SICHERUNG_NIE`): Kanal, Provider, Ablauf, Einlage, Sitzungsschlüssel,
+  letzte Gutschrift, Summe der Preise, Anfragen ohne Antwort.
+- Gutschrift je Anfrage: `max(letzte, Basis + Bedarf)`, höchstens die Einlage.
+  - Die Basis ist die Summe der Preise aus den Antworten.
+  - Fehlt zu einer Anfrage die Antwort, ist die Basis die letzte Gutschrift.
+    Sonst deckte die nächste nicht, wenn der Provider gebucht hat, und der
+    Kanal hinge. Verlieren kann der Kunde höchstens das Gebot einer Anfrage
+    ohne Antwort.
+  - Bedarf: Gebot plus Werkzeuge zum Kurs aus dem Angebot des Providers (mit
+    dem prüft der Knoten), plus 2 % Spielraum.
+  - Genutzt wird ein Kanal nur mit mindestens zwei Stunden Restlaufzeit.
+- Antwort: Preis (`amount_lamports`) verbucht, höchstens bis zur letzten
+  Gutschrift; ohne gültigen Preis zählt die ganze Gutschrift.
+
+**Verdrahtung:**
+- `buildJobEvent()` (`shell/tabs/agent.ts`):
+  - Mit Kanal zum Provider trägt die Anfrage die Gutschrift statt der
+    Deklaration, vor dem Versiegeln, und keine Sitzungs-Tags.
+  - Gemerkt wird sie, bevor die Anfrage hinausgeht.
+  - Deckt der Kanal nicht oder fehlt der Kurs, geht nichts hinaus – nie still
+    über Lightning.
+- `handleAnswer()`: Antworten über den Kanal zahlt Lightning nicht; die App
+  verbucht nur den Preis. Ob eine Anfrage über den Kanal lief, steht auch im
+  Speicher (`perKanal()`), damit ein gesperrter Tresor keine zweite Zahlung
+  auslöst.
+- Rückhol-Wächter (`refund-watcher.ts`): Sperren der Art `kanal`.
+  - Offen ist ein Kanal, solange sein Konto beim Programm liegt.
+  - `refund` mit der verbundenen Wallet als Kunde, mit Vorabsimulation.
+  - Kanäle einer anderen Wallet: keine Transaktion, Grund genannt.
+- Leak-Regel `keine-zahlungsdaten` kennt jetzt das Tag `gutschrift`.
+- `check-wiring.py`: Der Zahlkanal darf wie HTLC und Swap eigene Anweisungen
+  senden (Treuhand, keine Überweisung). Drei Ausnahmen raus
+  (`erstatteKanalIx`, `gutschriftTags`, `signiereGutschrift` sind verdrahtet).
+
+**Tests:**
+- app +10 (`zahlkanal.test.ts`):
+  - Bedarf (Rundung, Spielraum);
+  - Gutschrift erst Bedarf, dann Preis + Bedarf, nie unter der letzten; jede
+    Gutschrift so geprüft wie im Knoten (`pruefeGutschrift`);
+  - ohne Antwort vorsichtig; Preis fehlt, zu hoch oder negativ;
+  - kein Kanal, fremder Provider, zu kurz, erschöpft;
+  - kaputte Einträge;
+  - Rückholen gegen eine nachgestellte Kette (offen, fremdes Programm, fremde
+    Wallet), der Wächter reicht die Art weiter;
+  - Verdrahtung in `agent.ts`, `ki-zahlung.ts`, Tresor und Sicherung.
+- Leak +1: Anfrage mit Gutschrift nur als Umschlag, weder Kanal noch Signatur
+  offen; Gegenprobe: offen meldet die Regel die Gutschrift.
+- Zwei Verdrahtungstests nachgezogen (Deklaration oder Gutschrift vor dem
+  Versiegeln; Gedächtnis im Tresor) – sie prüfen dasselbe wie vorher.
+
+Endstand: protocol 1066 · node 235 · app 493 (+10) · mls 13 · Zahlkanal 7 ·
+Leak-Tests 58 grün (+1) + 1 todo · 0 rot · check-wiring `--streng` Exit 0 ·
+innerHTML streng Exit 0 · Website 5 Seiten ok · Smoke-Test bestanden.
+
 ## Schritt C.0 – Oberfläche: Bestandsaufnahme und Entwurf
 
 **Fertig (nur Dokumente, kein Code):** Neue dritte Spur C (Oberfläche). Die

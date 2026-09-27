@@ -25,7 +25,8 @@
 import { WalletSigner } from "./sol-htlc.js";
 import { t } from "./i18n.js";
 
-export type PendingKind = "swap" | "deposit";
+/** Sperren: HTLC eines Tauschs oder Deposits – oder ein Zahlkanal (4.3d, swapIds = [Kanal-Adresse]). */
+export type PendingKind = "swap" | "deposit" | "kanal";
 
 export interface PendingLock {
   kind: PendingKind;
@@ -133,13 +134,13 @@ export function viewLock(lock: PendingLock, nowUnix = Math.floor(Date.now() / 10
 }
 
 export interface RefundRunner {
-  refund(swapIds: string[]): Promise<{ signature?: string; refunded: string[]; failed: { swapId: string; reason: string }[] }>;
+  refund(swapIds: string[], kind?: PendingKind): Promise<{ signature?: string; refunded: string[]; failed: { swapId: string; reason: string }[] }>;
   /**
    * Welche dieser Sperren liegen noch offen auf der Kette (4.6c)? Eingeloeste,
    * zurueckgeholte oder nie angelegte brauchen keinen Wallet-Dialog – und
    * reissen in einer gemeinsamen Transaktion die offenen nicht mehr mit.
    */
-  offen?(swapIds: string[]): Promise<string[]>;
+  offen?(swapIds: string[], kind?: PendingKind): Promise<string[]>;
 }
 
 export interface SweepResult {
@@ -173,13 +174,13 @@ export async function sweepPendingRefunds(
     }
 
     try {
-      const offen = runner.offen ? await runner.offen(lock.swapIds) : lock.swapIds;
+      const offen = runner.offen ? await runner.offen(lock.swapIds, lock.kind) : lock.swapIds;
       if (offen.length === 0) {
         // Nichts mehr zurueckzuholen (eingeloest oder schon zurueck) – ohne Transaktion abschliessen.
         await rememberLock({ ...lock, settled: true });
         continue;
       }
-      const r = await runner.refund(offen);
+      const r = await runner.refund(offen, lock.kind);
       if (r.refunded.length > 0) {
         await rememberLock({ ...lock, settled: true });
         result.zurueckgeholt++;
@@ -238,11 +239,22 @@ export function walletRefundRunner(
   wallet: WalletSigner,
 ): RefundRunner {
   return {
-    async refund(swapIds: string[]) {
+    async refund(swapIds: string[], kind?: PendingKind) {
+      if (kind === "kanal") {
+        const { erstatteKanaele } = await import("./zahlkanal.js");
+        return erstatteKanaele(connection, wallet, swapIds);
+      }
       const { refundDepositOnChain } = await import("./sol-htlc.js");
       return refundDepositOnChain({ connection, wallet, swapIds });
     },
-    async offen(swapIds: string[]) {
+    async offen(swapIds: string[], kind?: PendingKind) {
+      if (kind === "kanal") {
+        // Ein Kanal ist offen, solange sein Konto besteht – refund schließt es
+        const { kanalAufKette } = await import("./zahlkanal.js");
+        const offen: string[] = [];
+        for (const kanal of swapIds) if (await kanalAufKette(connection, kanal)) offen.push(kanal);
+        return offen;
+      }
       const { AnchorSolanaHtlc } = await import("@freedomstack/protocol");
       const leser = AnchorSolanaHtlc.reader(connection);
       const offen: string[] = [];
