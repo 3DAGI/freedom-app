@@ -43,7 +43,7 @@ bash scripts/build-site.sh /tmp/site                     # Website bauen (Ziel w
 bash packages/mls/bauen.sh --pruefen                     # nur bei Änderungen an packages/mls: nachbauen + vergleichen (Rust, clang)
 ```
 
-Stand 27.09.2026 (nach 5.1.4d und 8.16c): protocol 1056 grün (6 übersprungen), node 226 grün
+Stand 27.09.2026 (nach 4.3a und 8.16c): protocol 1064 grün (6 übersprungen), node 226 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
 in `tools.test.ts`), app 475 grün, mls 13 grün, Leak-Tests 57 grün + 1 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
@@ -229,6 +229,15 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   Kurs · 1000 msat – bis 4.4 stand im Knoten eine Tausend zu viel im Nenner.
   Ohne Kurs keinen SOL-Preis erfinden. In der App zeigen Preise beide Einheiten
   über `preis-anzeige.ts` mit `aktuellerKurs()` (`shell/marktkurs.ts`).
+- **Zahlkanal nur nach `docs/ZAHLKANAL.md`** (seit 4.3a): Client
+  `channel.ts`, Programm `contracts/solana-channel` – beide folgen dem Dokument;
+  ein anderes Format heißt neues Programm (Präfix `freedomstack-channel-v2`).
+  Gutschriften tragen Kanal-Adresse und Ablauf (`gutschriftNachricht()`), der
+  Provider nimmt sie nur nach `pruefeGutschrift()` an. Die Programm-ID ist bis
+  zum Deploy ein Platzhalter ohne Schlüssel (`KANAL_PROGRAMM_ID`) – nie einen
+  erfundenen Schlüssel eintragen, das tut der MENSCH beim Deploy. Bauen mit
+  Agave 3.1.10 (`cargo-build-sbf`, platform-tools v1.52); ältere scheitern an
+  der Lock-Datei.
 - **HTLC-Transaktionen nur mit `htlcSigner()`** (`tabs/waehrung.ts`, seit 4.6c):
   Wallets nach dem Wallet Standard haben kein `publicKey`-Feld – `solWallet.provider`
   direkt als `WalletSigner` brach Einlösen, Deposit und Rückholen ab. Jede neue

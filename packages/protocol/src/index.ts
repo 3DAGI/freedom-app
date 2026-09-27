@@ -67,6 +67,7 @@ export * from "./scarcity.js";
 export * from "./werbe-nennung.js";
 export * from "./relay-discovery.js";
 export * from "./aufteilung.js";
+export * from "./channel.js";
 export * from "./release.js";
 export * from "./rpc-pool.js";
 export * from "./mesh-transport.js";
