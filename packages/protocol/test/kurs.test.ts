@@ -80,3 +80,19 @@ test("Angebot: Kurs des Anbieters mit Quelle; fremde Unsinnswerte fallen weg", (
     assert.equal(parseCapabilities(ev).kurs, undefined, tag.join(" "));
   }
 });
+
+test("Angebot (5.1): Lightning-Adresse des Providers und seines Werbers – nur plausible, sonst keine", () => {
+  const basis = { pubkey: generateKeypair().pk, tier: "classic" as const, models: ["m"], textRatePerKTokenMsat: 1000, tools: [], currentlyFree: false };
+  const mit = parseCapabilities(buildCapabilities({ ...basis, lud16: "Provider@Wallet.example", werber: "werber@wallet.example" }, JETZT));
+  assert.equal(mit.lud16, "provider@wallet.example");
+  assert.equal(mit.werber, "werber@wallet.example");
+  const ohne = parseCapabilities(buildCapabilities({ ...basis, lud16: "kaputt", werber: "x@localhost" }, JETZT));
+  assert.equal(ohne.lud16, undefined);
+  assert.equal(ohne.werber, undefined);
+  const ev = buildCapabilities(basis, JETZT);
+  ev.tags.push(["lud16", "boese@192.168.0.1"], ["werber", "nichts"]);
+  const fremd = parseCapabilities(ev);
+  assert.equal(fremd.lud16, undefined, "fremde Angabe geprüft");
+  assert.equal(fremd.werber, undefined);
+});
+

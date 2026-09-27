@@ -35,7 +35,7 @@
     Provider – bis 4.3), Deklaration im versiegelten Auftrag
     (`aufteilungTag()`), Prüfung beim Provider (`pruefeAufteilung()`, höchstens
     10 %) und derselbe Rechnungsbetrag auf beiden Seiten (`providerAnteilMsat()`).
-  - **5.1.2 Knoten:** Rechnung nur über den eigenen Anteil (Deklaration
+  - **5.1.2 – FERTIG:** Knoten: Rechnung nur über den eigenen Anteil (Deklaration
     geprüft); ohne Deklaration der ganze Betrag; keine Auszahlungen an Pool und
     Werbe-Pool mehr (`pool-distributor.ts`, Werbe-Adresse der Konfiguration);
     Angebot nennt den Werber des Providers.

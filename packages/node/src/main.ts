@@ -15,7 +15,6 @@
 import { schnorr } from "@noble/curves/secp256k1.js";
 import { join } from "node:path";
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
-import { settleJobFees, FeeAccumulator, LnurlPayer, Payer, SettlementTargets } from "./settlement.js";
 import {
   generateKeypair,
   OutboxPool,
@@ -98,26 +97,21 @@ function defaultSolanaRpc(): string {
   }
 }
 
-async function collectProviderAddresses(
-  pool: import("@freedomstack/protocol").OutboxPool,
-): Promise<Map<string, string>> {
-  const out = new Map<string, string>();
-  try {
-    const caps = await pool.query({ kinds: [38025], limit: 2000 });
-    for (const ev of caps) {
-      const lud16 = ev.tags.find((t) => t[0] === "lud16")?.[1];
-      if (lud16 && lud16.includes("@")) out.set(ev.pubkey, lud16);
-    }
-  } catch (e) {
-    console.warn(`[pool] Adressen nicht abrufbar: ${(e as Error).message}`);
-  }
-  return out;
-}
-
 async function main(): Promise<void> {
   const lud16 = process.env.NODE_LUD16;
   if (!lud16) {
     console.error("NODE_LUD16 (eigene Lightning-Adresse fuer Zap-Empfang) fehlt.");
+    process.exit(1);
+  }
+  const { adresseFuer } = await import("@freedomstack/protocol");
+  if (!adresseFuer({ lud16 }, "lightning")) {
+    console.error("NODE_LUD16 ist keine Lightning-Adresse (name@domain) – dorthin zahlt die App den Anteil des Providers.");
+    process.exit(1);
+  }
+  // Werber dieses Providers (5.1): bekommt 0,5 % jedes Auftrags direkt von der App des Kunden
+  const werber = process.env.PROVIDER_WERBER_LUD16 ? adresseFuer({ lud16: process.env.PROVIDER_WERBER_LUD16 }, "lightning") : undefined;
+  if (process.env.PROVIDER_WERBER_LUD16 && !werber) {
+    console.error("PROVIDER_WERBER_LUD16 ist keine Lightning-Adresse (name@domain).");
     process.exit(1);
   }
   const storageEnabled = process.env.STORAGE_ENABLED === "1";
@@ -153,6 +147,7 @@ async function main(): Promise<void> {
     {
       keypair,
       lud16,
+      werber,
       pricePerKTokenMsat: Number(process.env.PRICE_PER_K_TOKEN_MSAT ?? DEFAULT_PROVIDER_CONFIG.pricePerKTokenMsat),
       minBidMsat: Number(process.env.MIN_BID_MSAT ?? DEFAULT_PROVIDER_CONFIG.minBidMsat),
       powDifficulty: Number(process.env.POW_DIFFICULTY ?? DEFAULT_PROVIDER_CONFIG.powDifficulty),
@@ -388,6 +383,10 @@ async function main(): Promise<void> {
       powBits: privatePowBits,
       // Mit diesem Kurs rechnet der Anbieter SOL-Preise (4.4); ohne Kurs keiner.
       kurs: provider.kurs(),
+      // Gebührenmodell A+ (5.1): hierhin zahlt die App den Anteil des Providers,
+      // und dem Werber (falls genannt) 0,5 % direkt
+      lud16,
+      werber,
     });
     return { ev: signEvent(caps, keypair.sk), tier, models };
   };
@@ -567,68 +566,11 @@ async function main(): Promise<void> {
     console.log(`Relayer aktiv (${relayer.solAdresse.slice(0, 8)}…)`);
   }
 
-  // ------------------------------------------------- Fee-Auszahlung vorbereiten
-  const settlementTargets: SettlementTargets = {
-    pool: { lud16: process.env.FEE_POOL_LUD16 ?? "" },
-    referral: { lud16: process.env.FEE_REFERRAL_LUD16 ?? "" },
-    dev: process.env.FEE_DEV_LUD16 ? { lud16: process.env.FEE_DEV_LUD16 } : undefined,
-  };
-  const feeAccumulator = new FeeAccumulator(join(process.env.HOME ?? ".", ".freedom", "pending-fees.json"));
-  await feeAccumulator.load();
-  if (feeAccumulator.totalPending() > 0) {
-    console.log(`[fee] ${feeAccumulator.totalPending()} msat aus frueheren Jobs noch offen`);
-  }
-
-  // Ohne LND kann der Knoten nichts ueberweisen. Dann wird weiterhin gerechnet
-  // und offengelegt, aber ehrlich als "angekuendigt" statt als "bezahlt".
-  let feePayer: Payer | undefined;
-  const lndUrl = process.env.LND_REST_URL;
-  if (lndUrl && process.env.LND_MACAROON_HEX) {
-    const { LndLightningAdapter } = await import("@freedomstack/protocol");
-    const lnd = new LndLightningAdapter({
-      restUrl: lndUrl,
-      macaroonHex: process.env.LND_MACAROON_HEX,
-      allowInsecureTls: process.env.LND_ALLOW_SELF_SIGNED === "1",
-    });
-    feePayer = new LnurlPayer(async (bolt11: string) => {
-      const preimage = await lnd.payInvoiceAndGetPreimage(bolt11);
-      return { preimage };
-    });
-    console.log("[fee] Auszahlung ueber LND aktiv");
-  } else {
-    console.warn(
-      "[fee] Kein LND konfiguriert — Fee-Anteile werden gerechnet und im Beweis " +
-      "offengelegt, aber nicht ueberwiesen. LND_REST_URL + LND_MACAROON_HEX setzen.",
-    );
-  }
-
-  // ------------------------------------------------- Reward-Pool-Verteiler
-  //
-  // Ausdrueckliches opt-in: Nur der Knoten, der die Pool-Wallet haelt, darf
-  // verteilen. Wuerde jeder Provider verteilen, gaebe es fuer dieselbe Epoche
-  // mehrere widerspruechliche Berichte — und im schlimmsten Fall mehrfache
-  // Auszahlungen aus einem Topf, der nur einmal gefuellt ist.
-  let distributor: import("./pool-distributor.js").PoolDistributor | undefined;
-  if (process.env.POOL_DISTRIBUTOR === "1") {
-    const { PoolDistributor } = await import("./pool-distributor.js");
-    distributor = new PoolDistributor(
-      {
-        keypair,
-        epochSeconds: process.env.POOL_EPOCH_SECONDS ? Number(process.env.POOL_EPOCH_SECONDS) : undefined,
-        statePath: join(process.env.HOME ?? ".", ".freedom", "pool-distributor.json"),
-        minPoolMsat: process.env.POOL_MIN_MSAT ? Number(process.env.POOL_MIN_MSAT) : undefined,
-      },
-      pool,
-      feePayer,
-    );
-    await distributor.load();
-    console.log(
-      `[pool] Verteiler aktiv (bisher ${distributor.currentState.totalDistributedMsat} msat verteilt, ` +
-      `${distributor.currentState.carryOverMsat} msat Uebertrag)`,
-    );
-    if (!feePayer) {
-      console.warn("[pool] Kein LND — der Verteiler rechnet und berichtet, zahlt aber nicht aus.");
-    }
+  // Gebührenmodell A+ (5.1): Der Knoten zahlt nichts mehr aus. Die App des
+  // Kunden zahlt jeden Anteil direkt an seinen Empfänger, der Provider bekommt
+  // seinen. Pool-Verteiler, Werbe-Pool und Rücklage gibt es nicht mehr.
+  if (process.env.FEE_POOL_LUD16 || process.env.FEE_REFERRAL_LUD16 || process.env.POOL_DISTRIBUTOR === "1") {
+    console.warn("[fee] FEE_POOL_LUD16, FEE_REFERRAL_LUD16 und POOL_DISTRIBUTOR werden nicht mehr gelesen (Gebührenmodell A+, 5.1).");
   }
 
   // Eigenen Relay ANKUENDIGEN. Ein Relay, den niemand findet, traegt nichts
@@ -693,43 +635,13 @@ async function main(): Promise<void> {
   process.on("SIGINT", () => beenden("SIGINT"));
   process.on("SIGTERM", () => beenden("SIGTERM"));
 
-  /** Ein fertiger Job: protokollieren und die Fee abfuehren. */
+  /** Ein fertiger Job: protokollieren. Auszahlen muss der Knoten nichts mehr (5.1). */
   const finishJob = async (j: Awaited<ReturnType<typeof provider.pollOnce>>[number]): Promise<void> => {
+        const anteile = j.aufteilung.length > 0 ? ` (App zahlt selbst: ${j.aufteilung.join(", ")})` : "";
         console.log(
-          `[dvm] ${j.requestId.slice(0, 8)} -> ${j.amountMsat} msat ` +
-            `(provider ${j.feeSplit.recipientMsat} / pool ${j.feeSplit.poolMsat} / protocol ${j.feeSplit.protocolMsat}) ` +
+          `[dvm] ${j.requestId.slice(0, 8)} -> ${j.amountMsat} msat, davon Provider ${j.providerMsat}${anteile} ` +
             `${j.durationMs}ms${j.outputPreview ? ` :: ${j.outputPreview.replace(/\n/g, " ")}` : ""}`,
         );
-
-        // Fee tatsaechlich abfuehren und den Beweis veroeffentlichen.
-        // Frueher endete es bei der Logzeile darueber — gerechnet, nie gezahlt.
-        if (j.amountMsat > 0) {
-          try {
-            const res = await settleJobFees({
-              totalMsat: j.amountMsat,
-              // Client-Gebuehr kommt aus dem Job-Event, nicht aus dem Protokoll.
-              clientFeeMsat: j.clientFeeMsat,
-              clientFeeRecipient: j.clientFeeRecipient,
-              resultEventId: j.resultEventId,
-              providerKeypair: keypair,
-              providerLud16: lud16,
-              customerPubkey: j.customerPubkey,
-              targets: settlementTargets,
-              payer: feePayer,
-              pool,
-              accumulator: feeAccumulator,
-            });
-            const offen = res.unsettledMsat > 0 ? ` | ${res.unsettledMsat} msat offen` : "";
-            console.log(
-              `[fee] ${res.legs.filter((l) => l.paid).length}/${res.legs.length} Teilzahlungen ` +
-                `ausgefuehrt${offen}${res.proofEventId ? ` | Beweis ${res.proofEventId.slice(0, 8)}` : ""}`,
-            );
-          } catch (e) {
-            // Ein Fee-Problem darf den Job-Loop nie anhalten — der Kunde hat
-            // seine Antwort bereits, die Fee ist eine Sache des Providers.
-            console.warn(`[fee] Settlement fehlgeschlagen: ${(e as Error).message}`);
-          }
-        }
   };
 
   // Bevorzugt ein Dauer-Abo: ein Job kommt an, sobald er veroeffentlicht ist,
@@ -807,34 +719,6 @@ async function main(): Promise<void> {
       }
       if (relayer) {
         for (const r of await relayer.pollOnce()) console.log(`[relayer] ${r.status}${r.grund ? `: ${r.grund}` : ""}`);
-      }
-      // Verteilung steht nur einmal je Epoche an; die Pruefung ist billig.
-      if (distributor?.isDue()) {
-        try {
-          const balance = Number(process.env.POOL_BALANCE_MSAT ?? "0");
-          if (balance <= 0) {
-            console.warn(
-              "[pool] Verteilung faellig, aber POOL_BALANCE_MSAT ist 0 — der " +
-              "verfuegbare Betrag wird NICHT geschaetzt, sonst entstuenden " +
-              "Forderungen, die niemand einloesen kann.",
-            );
-          } else {
-            const lud16Of = await collectProviderAddresses(pool);
-            const res = await distributor.distribute({ poolMsat: balance, lud16Of });
-            if (res.skipped) {
-              console.log(`[pool] ${res.skipped}`);
-            } else {
-              console.log(
-                `[pool] Epoche ${res.epoch}: ${res.distributedMsat} msat an ` +
-                `${res.payouts.filter((p) => p.paid).length} Provider, ` +
-                `${res.carryOverMsat} msat Uebertrag` +
-                (res.reportEventId ? ` | Bericht ${res.reportEventId.slice(0, 8)}` : ""),
-              );
-            }
-          }
-        } catch (e) {
-          console.error(`[pool] Verteilung fehlgeschlagen: ${(e as Error).message}`);
-        }
       }
     } catch (err) {
       console.error("[poll] Fehler:", err);

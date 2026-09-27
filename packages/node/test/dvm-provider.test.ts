@@ -3,7 +3,7 @@
  *
  * Prueft den kompletten Loop: Kunde publiziert Job (5050) -> Provider arbeitet
  * -> Result (6050) auf dem Relay -> Leistungs-Event (38010) mit PoW ->
- * 1%-Fee-Split korrekt berechnet.
+ * Anteil des Providers nach dem Gebührenmodell A+ (5.1).
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -38,7 +38,7 @@ class FakeBackend implements InferenceBackend {
   }
 }
 
-test("DVM-Provider: kompletter Job-Loop mit Fee-Split und Leistungs-Event", async () => {
+test("DVM-Provider: kompletter Job-Loop mit Provider-Anteil und Leistungs-Event", async () => {
   const customer = generateKeypair();
   const provider = generateKeypair();
   const relay = new MemoryRelay("mem://a");
@@ -75,14 +75,10 @@ test("DVM-Provider: kompletter Job-Loop mit Fee-Split und Leistungs-Event", asyn
   // 1000 Tokens * 1000 msat/1k = 1000 msat (< bid, also gedeckelt auf Preis)
   assert.equal(job.amountMsat, 1000);
 
-  // Fee-Split gegen die Konstanten gerechnet, nicht gegen Magic Numbers:
-  // sonst laufen Test und protocol-fee.ts wieder auseinander (Faktor-10-Bug).
-  const expectedFee = Math.floor((1000 * PROTOCOL_FEE_PPM) / 1_000_000);
-  const expectedPool = Math.floor((expectedFee * PROTOCOL_POOL_SHARE_PERCENT) / 100);
-  assert.equal(job.feeSplit.recipientMsat, 1000 - expectedFee);
-  assert.equal(job.feeSplit.poolMsat + job.feeSplit.protocolMsat, expectedFee);
-  assert.equal(job.feeSplit.poolMsat, expectedPool);
-  assert.ok(expectedFee > 0, "Fee darf bei 1000 msat nicht auf 0 runden");
+  // Gebührenmodell A+ (5.1): ohne Deklaration zahlt die App keine Anteile selbst –
+  // der Provider bekommt den ganzen Betrag, der Knoten zahlt nichts aus
+  assert.equal(job.providerMsat, 1000);
+  assert.deepEqual(job.aufteilung, []);
 
   // Result-Event liegt auf dem Relay und ist valide
   const results = await pool.query({ kinds: [KIND_DVM_TEXT_RESULT] });
@@ -194,3 +190,46 @@ test("Client-Gebuehr: gedeckelt, damit die offene Schicht nicht gegen den Nutzer
   // Fuer den Nutzer bleibt es bei 5 % gesamt wie vorher.
   assert.equal(Number(voll.totalFeePercent.toFixed(1)), 5.0);
 });
+
+test("5.1.2: Aufteilung – der Provider stellt nur seinen Anteil in Rechnung; ungültige Deklaration abgelehnt, bevor gerechnet wird", async () => {
+  const { KIND_DVM_FEEDBACK, providerAnteilMsat } = await import("@freedomstack/protocol");
+  const customer = generateKeypair();
+  const provider = generateKeypair();
+  const pool = new OutboxPool([new MemoryRelay("mem://aufteilung")], { minAcks: 1 });
+  let aufrufe = 0;
+  class ZaehlBackend extends FakeBackend {
+    override async complete(req: InferenceRequest): Promise<InferenceResult> { aufrufe++; return super.complete(req); }
+  }
+  const dvm = (werber?: string) => new DvmProvider(
+    { keypair: provider, lud16: "provider@wallet.cash", ...(werber ? { werber } : {}), pricePerKTokenMsat: 1000, minBidMsat: 100, powDifficulty: 4, seasonId: "s" },
+    pool, new ZaehlBackend(),
+  );
+  const auftrag = async (aufteilung: string[]) => {
+    const ev = signEvent(buildJobRequest({ customerPubkey: customer.pk, input: "Frage", bidMsat: 10_000, extraTags: [aufteilung] }), customer.sk);
+    await pool.publish(ev);
+    return ev;
+  };
+
+  const ohneWerber = dvm();
+  const nur = async (p: DvmProvider, ev: { id: string }) => (await p.pollOnce()).filter((j) => j.requestId === ev.id);
+  const erster = await auftrag(["aufteilung", "entwicklung", "relays", "werber-kunde", "hosting"]);
+  const [job] = await nur(ohneWerber, erster);
+  assert.deepEqual(job!.aufteilung, ["entwicklung", "relays", "werber-kunde", "hosting"]);
+  assert.equal(job!.providerMsat, 1000 - 25 - 15 - 5 - 10, "94,5 % – dieselbe Rechnung wie in der App");
+  assert.equal(job!.providerMsat, providerAnteilMsat(1000, job!.aufteilung));
+  assert.equal(job!.amountMsat, 1000, "das Ergebnis nennt weiter den ganzen Preis");
+
+  const vorher = aufrufe;
+  const abgelehnt = await auftrag(["aufteilung", "werber-provider"]);
+  assert.deepEqual(await nur(ohneWerber, abgelehnt), [], "Werber des Providers ohne Angabe im Angebot");
+  assert.equal(aufrufe, vorher, "nicht gerechnet");
+  const fb = (await pool.query({ kinds: [KIND_DVM_FEEDBACK] })).filter((e) => e.tags.some((t) => t[0] === "e" && t[1] === abgelehnt.id));
+  assert.match(fb[0]!.content, /Aufteilung abgelehnt/);
+  const unbekannt = await auftrag(["aufteilung", "treasury"]);
+  assert.deepEqual(await nur(ohneWerber, unbekannt), [], "unbekannter Anteil");
+
+  const zweiter = await auftrag(["aufteilung", "werber-provider"]);
+  const [mitWerber] = await nur(dvm("werber@wallet.example"), zweiter);
+  assert.equal(mitWerber!.providerMsat, 995, "mit Werber im Angebot: 0,5 % zahlt die App ihm direkt");
+});
+
