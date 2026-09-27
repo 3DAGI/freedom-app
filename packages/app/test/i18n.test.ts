@@ -560,7 +560,7 @@ test("8.16g2b2: Sätze des Protokolls in Settings und im Chat – deutsch wortgl
     for (const d of geraete) assert.equal(T.geraetStatusText(d, NOW), d.message, d.status);
     // Echtheit und Fixierung
     const [s1, s2, s3] = [g1!.pk, g2!.pk, g3!.pk];
-    const manifest = (signer: string, sha: string, name = "freedom.html") => ({ version: "1.4.0", releasedAt: NOW, artifacts: [{ name, sha256: sha }], sources: ["https://x.example"], signerPubkey: signer });
+    const manifest = (signer: string, sha: string, name = "freedom.html") => ({ version: "1.4.0", releasedAt: NOW, artifacts: [{ name, sha256: sha, sizeBytes: 1 }], sources: ["https://x.example"], signerPubkey: signer });
     const hash = "a".repeat(64);
     for (const [fall, ms] of [
       ["kein-manifest", []], ["echt", [manifest(s1, hash), manifest(s2, hash)]], ["zu-wenig", [manifest(s1, hash)]],
