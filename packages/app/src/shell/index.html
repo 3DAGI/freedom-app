@@ -383,6 +383,21 @@
           <div id="dep-status" class="mono-sm">—</div>
           <button id="dep-start" class="ghost" data-i18n="waehr.hinterlegen">hinterlegen</button>
           <button id="dep-refund" class="ghost hidden" data-i18n="waehr.zurueckholen">zurückholen</button>
+        </div>
+        <!-- Zahlkanal (4.3d): einmal einzahlen, je Antwort eine versiegelte Gutschrift.
+             Provider wie beim Deposit (Feld oben oder letzter Auftrag). -->
+        <div class="card" id="kanal-karte">
+          <h3 data-i18n="waehr.kanalTitel">Zahlkanal (SOL)</h3>
+          <p class="mono-sm" data-i18n="waehr.kanalErklaerung">Einmal SOL einzahlen, dann bezahlt jede KI-Antwort dieses Providers eine versiegelte Gutschrift – ohne Transaktion je Antwort.</p>
+          <input id="kanal-betrag" type="number" step="any" placeholder="Betrag in SOL" data-i18n-ph="waehr.betragSolPh" class="mono-sm" />
+          <select id="kanal-laufzeit" class="mono-sm">
+            <option value="1" data-i18n="waehr.kanalEinTag">1 Tag</option>
+            <option value="7" selected data-i18n="waehr.kanalSiebenTage">7 Tage</option>
+            <option value="30" data-i18n="waehr.kanalDreissigTage">30 Tage</option>
+          </select>
+          <div id="kanal-status" class="mono-sm">—</div>
+          <button id="kanal-start" class="ghost" data-i18n="waehr.kanalOeffnen">Kanal öffnen</button>
+          <div id="kanal-liste" class="mono-sm"></div>
         </div></div>
         </div>
       </section>

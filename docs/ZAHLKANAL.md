@@ -164,7 +164,17 @@ Gebühr der Einlösung); sonst lehnt die Laufzeit eine kleine Auszahlung ab.
   Konto beim Programm liegt; nach Ablauf holt die verbundene Wallet mit
   `refund` Rest und Miete zurück. Gehört der Kanal einer anderen Wallet, geht
   keine Transaktion hinaus, die App nennt den Grund.
-- Öffnen, Übersicht, Texte und die Aussage im Datenschutzbericht: 4.3d2.
+- **Öffnen** (4.3d2, Währung → Unterseite mit dem Deposit, `shell/zahlkanal-ui.ts`):
+  nur mit verbundener Wallet und nur, wenn der Provider im Angebot einen Kanal
+  bei genau diesem Programm nennt und das Programm auf der Kette liegt (bis zum
+  Deploy nicht – dann öffnet die App keinen Kanal). Empfänger sind die Anteile
+  nach A+ mit SOL-Adresse (`kanalEmpfaenger()`), nie Provider oder Kunde
+  selbst. Erst Tresor, dann merken (Kanal-Buch, Sperre für den Wächter), dann
+  einzahlen; scheitert die Einzahlung und zeigt die Kette keinen Kanal, fliegt
+  er aus dem Kanal-Buch. Laufzeit 1, 7 oder 30 Tage. Aufstocken bietet die App
+  nicht an – ein neuer Kanal tut es auch.
+- Der Datenschutzbericht nennt als Grenze, was auf der Kette steht (Aussage
+  „zahlkanal“).
 
 ## Nie
 

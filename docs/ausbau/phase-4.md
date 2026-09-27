@@ -68,7 +68,7 @@ Jede Funktion, in der Geld fließt, bietet beide Schienen mit gleichem Komfort.
 
 ---
 
-## 4.3 Solana-Zahlkanal (neues Anchor-Programm)
+## 4.3 Solana-Zahlkanal (neues Anchor-Programm) – CODE FERTIG (27.09.2026, Deploy MENSCH)
 
 - **Voraussetzung:** 4.0 entschieden, 4.1 fertig.
 - **Stellen:** neu `contracts/solana-channel/`; Client
@@ -131,9 +131,11 @@ Jede Funktion, in der Geld fließt, bietet beide Schienen mit gleichem Komfort.
     jeder Anfrage statt der Deklaration (`max(letzte, Basis + Bedarf)`, zum
     Kurs des Providers, vorsichtig bei fehlender Antwort), Antwort verbuchen
     ohne Lightning-Zahlung, Rückholen nach Ablauf über den Wächter
-    (`kind: "kanal"`), Leak-Szenario. **4.3d2:** Kanal öffnen (Empfänger aus A+
-    mit SOL-Adresse, `kanalEmpfaenger()`), Übersicht, Texte, Aussage im
-    Datenschutzbericht; SOL-Anteile damit erzwungen.
+    (`kind: "kanal"`), Leak-Szenario. **4.3d2 – FERTIG:** Kanal öffnen
+    (Empfänger aus A+ mit SOL-Adresse, `kanalEmpfaenger()`; nur, wenn das
+    Programm auf der Kette liegt), Übersicht, Texte, Aussage „zahlkanal“ im
+    Datenschutzbericht; SOL-Anteile damit erzwungen. **4.3 Code fertig** –
+    offen nur MENSCH: Devnet-Deploy, dann ein KI-Auftrag über den Kanal.
 
 ---
 

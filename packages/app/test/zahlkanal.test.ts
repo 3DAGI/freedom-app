@@ -12,10 +12,12 @@ import { readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { Keypair, PublicKey, type Transaction } from "@solana/web3.js";
 import {
-  KANAL_KONTO_BYTES, KANAL_PROGRAMM_ID, SICHERUNG_NIE, kanalAdresse, leseGutschriftTags, msatZuLamports,
-  neuerSitzungsSchluessel, pruefeGutschrift, toHex, type KanalStand,
+  KANAL_KONTO_BYTES, KANAL_PROGRAMM_ID, SICHERUNG_NIE, fromHex, kanalAdresse, leseGutschriftTags, msatZuLamports,
+  neuerSitzungsSchluessel, pruefeGutschrift, signiereGutschrift, toHex, type KanalStand,
 } from "@freedomstack/protocol";
-import { KanalBuch, LS_KANAELE, bedarfLamports, erstatteKanaele, kanalAufKette, type KanalEintrag } from "../src/zahlkanal.js";
+import {
+  KANAL_NUTZBAR_SEK, KanalBuch, LS_KANAELE, bedarfLamports, erstatteKanaele, kanalAufKette, planeKanal, programmBereit, type KanalEintrag,
+} from "../src/zahlkanal.js";
 import { setzeSperrSpeicher, sweepPendingRefunds, walletRefundRunner, type PendingKind } from "../src/refund-watcher.js";
 
 const JETZT = 1_900_000_000;
@@ -230,4 +232,76 @@ test("Verdrahtung: Gutschrift vor dem Versiegeln statt Deklaration, gemerkt vor 
   assert.match(zahlung, /if \(wahl\.art === "erschoepft"\) throw new Error\(t\("zahl\.kanalErschoepft"\)\);/, "nie still auf Lightning");
   assert.match(tresor, /const GEHEIM_FEST = \[[^\]]*"freedom\.kanaele"/, "im Tresor");
   assert.ok(SICHERUNG_NIE.some((r) => r.test(LS_KANAELE)), "nie in der Zustandssicherung");
+});
+
+// ------------------------------------------------ Öffnen (4.3d2)
+
+test("4.3d2: Kanal planen – Adresse nach den Seeds, Anweisung nach docs/ZAHLKANAL.md, Sitzungsschlüssel passt", () => {
+  const empfaenger = [{ adresse: Keypair.generate().publicKey.toBase58(), ppm: 25_000 }];
+  const { eintrag, ix } = planeKanal({ provider: PROVIDER, providerSol, kunde, lamports: 50_000_000n, laufzeitSek: 7 * 86_400, empfaenger, jetzt: JETZT });
+  assert.equal(eintrag.kanal, kanalAdresse(kunde, providerSol, BigInt(eintrag.nonce)).adresse);
+  assert.deepEqual([eintrag.ablauf, eintrag.eingezahlt, eintrag.letzte, eintrag.abgerechnet, eintrag.offen], [JETZT + 7 * 86_400, "50000000", "0", "0", []]);
+  assert.equal(ix.programId.toBase58(), KANAL_PROGRAMM_ID);
+  assert.deepEqual(ix.keys.map((k) => [k.pubkey.toBase58(), k.isSigner, k.isWritable]).slice(0, 3), [[kunde, true, true], [providerSol, false, false], [eintrag.kanal, false, true]]);
+  // Daten: Diskriminator, nonce, Betrag, Ablauf, Sitzungsschlüssel, Empfänger
+  const d = Buffer.from(ix.data);
+  assert.equal(d.readBigUInt64LE(8), BigInt(eintrag.nonce));
+  assert.equal(d.readBigUInt64LE(16), 50_000_000n);
+  assert.equal(d.readBigInt64LE(24), BigInt(JETZT + 7 * 86_400));
+  const sitzungOeffentlich = new PublicKey(d.subarray(32, 64)).toBase58();
+  // Der gemerkte Schlüssel signiert, was das Programm mit dem Schlüssel aus der Anweisung prüft
+  const g = signiereGutschrift(fromHex(eintrag.sitzung), eintrag.kanal, 1_000n, BigInt(eintrag.ablauf));
+  const stand: KanalStand = {
+    kunde, provider: providerSol, sitzungsSchluessel: sitzungOeffentlich, nonce: BigInt(eintrag.nonce), eingezahlt: 50_000_000n,
+    ausgezahlt: 0n, ablauf: BigInt(eintrag.ablauf), empfaenger, bump: 255,
+  };
+  assert.deepEqual(pruefeGutschrift(g, { adresse: eintrag.kanal, stand }, 0n), { ok: true });
+  assert.equal(d.readUInt32LE(64), 1);
+  // Jeder Kanal eine eigene Nonce
+  assert.notEqual(planeKanal({ provider: PROVIDER, providerSol, kunde, lamports: 1n, laufzeitSek: KANAL_NUTZBAR_SEK, empfaenger: [], jetzt: JETZT }).eintrag.nonce, eintrag.nonce);
+});
+
+test("4.3d2: Kanal planen lehnt ab – Betrag 0, zu kurze Laufzeit, zu hohe Anteile", () => {
+  const p = { provider: PROVIDER, providerSol, kunde, lamports: 1n, laufzeitSek: 86_400, empfaenger: [], jetzt: JETZT };
+  assert.throws(() => planeKanal({ ...p, lamports: 0n }));
+  assert.throws(() => planeKanal({ ...p, laufzeitSek: KANAL_NUTZBAR_SEK - 1 }));
+  assert.throws(() => planeKanal({ ...p, empfaenger: [{ adresse: Keypair.generate().publicKey.toBase58(), ppm: 100_001 }] }), /10 %/);
+});
+
+test("4.3d2: Programm bereit nur, wenn es ausführbar auf der Kette liegt; Kanal-Buch räumt lange Abgelaufene weg", async () => {
+  const kette = (i: unknown) => ({ getAccountInfo: async () => i }) as unknown as import("@solana/web3.js").Connection;
+  assert.equal(await programmBereit(kette({ executable: true })), true);
+  assert.equal(await programmBereit(kette({ executable: false })), false);
+  assert.equal(await programmBereit(kette(null)), false, "bis zum Deploy: Platzhalter ohne Programm");
+  const { buch } = await buchMit(kanal({ ablauf: JETZT - 31 * 86_400 }).eintrag);
+  const frisch = kanal({ ablauf: JETZT - 86_400 }).eintrag;
+  await buch.merke(frisch);
+  await buch.raeumeAuf(JETZT);
+  assert.deepEqual(buch.alle().map((e) => e.kanal), [frisch.kanal], "vor 31 Tagen abgelaufen: weg; gestern: bleibt");
+  await buch.entferne(frisch.kanal);
+  assert.deepEqual(buch.alle(), []);
+});
+
+test("4.3d2 Verdrahtung: Programm und Angebot prüfen, Tresor, merken, dann einzahlen; gescheitert und nicht auf der Kette → aus dem Kanal-Buch", () => {
+  const ui = readFileSync(new URL("../src/shell/zahlkanal-ui.ts", import.meta.url), "utf8");
+  const f = ui.slice(ui.indexOf("export async function oeffneZahlkanal("), ui.indexOf("export async function zeigeKanaele("));
+  const i = (s: string) => { const n = f.indexOf(s); assert.ok(n >= 0, s); return n; };
+  assert.ok(i("if (angebot.kanal.programm !== KANAL_PROGRAMM_ID)") < i("await programmBereit(conn)"));
+  assert.ok(i("await programmBereit(conn)") < i("await verlangeTresor("));
+  i("kanalEmpfaenger(await empfaengerFuer(providerPk), [angebot.kanal.adresse, kunde])");
+  assert.ok(i("await verlangeTresor(") < i("await kanalBuch.merke(plan.eintrag);"));
+  assert.ok(i("await kanalBuch.merke(plan.eintrag);") < i("await rememberLock({"));
+  assert.ok(i("await rememberLock({") < i("await sendeMitWallet(conn, signer, [plan.ix]"));
+  i('kind: "kanal", reference: plan.eintrag.kanal, swapIds: [plan.eintrag.kanal]');
+  i("=== null) await kanalBuch.entferne(kanal)");
+  assert.doesNotMatch(ui, /innerHTML/, "Übersicht nur über textContent");
+  const app = readFileSync(new URL("../src/shell/app.ts", import.meta.url), "utf8");
+  assert.match(app, /if \(name === "wallet"\) \{ loadWallet\(\); void zeigeKanaele\(\); \}/);
+  assert.match(app, /\$\("#kanal-start"\)\.onclick = \(\) => void oeffneZahlkanal\(\);/);
+  const waehrung = readFileSync(new URL("../src/shell/tabs/waehrung.ts", import.meta.url), "utf8");
+  assert.match(waehrung, /return activeSwap !== null \|\| activeDeposit !== null \|\| kanalEinzahlung;/, "Tresor sperrt nicht während der Einzahlung");
+  assert.ok(i("setzeKanalEinzahlung(true);") < i("await sendeMitWallet(") && i("await sendeMitWallet(") < i("setzeKanalEinzahlung(false);"));
+  const html = readFileSync(new URL("../src/shell/index.html", import.meta.url), "utf8");
+  const lp = html.slice(html.indexOf('data-subpane="wallet:lp"'), html.indexOf("<!-- EARN -->"));
+  for (const id of ["kanal-karte", "kanal-betrag", "kanal-laufzeit", "kanal-status", "kanal-start", "kanal-liste"]) assert.match(lp, new RegExp(`id="${id}"`));
 });
