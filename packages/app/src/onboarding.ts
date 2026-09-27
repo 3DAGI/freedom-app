@@ -19,6 +19,7 @@
  * genau EINEN empfohlenen nächsten Schritt, und der hängt davon ab, was der
  * Nutzer vorhat.
  */
+import { t } from "./i18n.js";
 
 export type Intent = "unbekannt" | "nutzen" | "verdienen" | "kommunizieren";
 
@@ -78,15 +79,9 @@ export function nextStep(r: Readiness, intent: Intent = "unbekannt"): NextStep {
   if (!r.hasUsedOnce) {
     return {
       id: "los",
-      title: "Stell einfach eine Frage",
-      body:
-        !r.gratisErschoepft
-          ? `Im Gratis-Tarif kostet eine Anfrage kein Geld, solange Provider ihn anbieten — ` +
-            `dein Gerät rechnet dafür kurz. Du brauchst nichts einzurichten; danach entscheidest ` +
-            `du, ob du eine Wallet verbindest.`
-          : `Probier es aus. Falls gerade kein Provider gratis antwortet, findest du ` +
-            `unter „Wallet" heraus, wie du bezahlst.`,
-      action: "Zur KI",
+      title: t("ein.losTitel"),
+      body: t(!r.gratisErschoepft ? "ein.losGratis" : "ein.losProbier"),
+      action: t("ein.losAktion"),
       skippable: false,
       urgency: "info",
     };
@@ -97,14 +92,9 @@ export function nextStep(r: Readiness, intent: Intent = "unbekannt"): NextStep {
   if (!r.backedUp) {
     return {
       id: "sichern",
-      title: "Sichere deinen Zugang",
-      body:
-        "Du hast jetzt eine Identität mit Verlauf und Reputation. Wenn du deine " +
-        "Browserdaten löschst, ist beides weg — es gibt niemanden, der das " +
-        "zurücksetzen kann. " + (r.merkphraseDa
-          ? "Zwölf Wörter aufschreiben genügt."
-          : "Speichere die Sicherungsdatei an einem Ort außerhalb dieses Browsers."),
-      action: r.merkphraseDa ? "Merkphrase anzeigen" : "Sicherungsdatei speichern",
+      title: t("ein.sichernTitel"),
+      body: `${t("ein.sichernText")} ${t(r.merkphraseDa ? "ein.sichernWoerter" : "ein.sichernDatei")}`,
+      action: t(r.merkphraseDa ? "ein.merkphraseAnzeigen" : "ein.dateiSpeichern"),
       skippable: true,
       urgency: "warnung",
     };
@@ -116,12 +106,9 @@ export function nextStep(r: Readiness, intent: Intent = "unbekannt"): NextStep {
   if (!r.hasVault) {
     return {
       id: "tresor",
-      title: "Schütze deinen Schlüssel",
-      body:
-        "Noch liegt dein Schlüssel unverschlüsselt im Browser — jede Erweiterung " +
-        "mit Seitenzugriff kann ihn lesen. Eine Passphrase verschlüsselt ihn auf " +
-        "diesem Gerät; beim Start fragt die App danach.",
-      action: "Tresor einrichten",
+      title: t("ein.tresorTitel"),
+      body: t("ein.tresorText"),
+      action: t("ein.tresorAktion"),
       skippable: true,
       urgency: "hinweis",
     };
@@ -131,12 +118,9 @@ export function nextStep(r: Readiness, intent: Intent = "unbekannt"): NextStep {
   if (intent === "verdienen") {
     return {
       id: "provider-anleitung",
-      title: "Rechner vermieten",
-      body:
-        "Ein Befehl richtet alles ein: Modell, Dienst, Auszahlungsadresse. " +
-        "Ohne eigene GPU lohnt es sich kaum — mit einer läuft er, während du " +
-        "nichts damit machst.",
-      action: "Anleitung",
+      title: t("ein.vermietenTitel"),
+      body: t("ein.vermietenText"),
+      action: t("ein.anleitung"),
       skippable: true,
       urgency: "info",
     };
@@ -146,12 +130,9 @@ export function nextStep(r: Readiness, intent: Intent = "unbekannt"): NextStep {
   if (!r.hasWallet && r.gratisErschoepft) {
     return {
       id: "wallet",
-      title: "Wallet verbinden",
-      body:
-        "Gerade antwortet kein Provider gratis. Zum Weitermachen brauchst du " +
-        "eine Lightning-Wallet — verbinden dauert eine Minute und funktioniert " +
-        "auf Handy und Rechner gleich.",
-      action: "Verbinden",
+      title: t("waehr.walletVerbinden"),
+      body: t("ein.walletNoetig"),
+      action: t("waehr.verbinden"),
       skippable: false,
       urgency: "hinweis",
     };
@@ -161,11 +142,9 @@ export function nextStep(r: Readiness, intent: Intent = "unbekannt"): NextStep {
   if (!r.hasWallet) {
     return {
       id: "wallet",
-      title: "Später: Wallet verbinden",
-      body:
-        `Solange Provider gratis antworten, brauchst du keine Wallet — du kannst ` +
-        `sie jetzt verbinden oder warten, bis du sie brauchst.`,
-      action: "Verbinden",
+      title: t("ein.walletSpaeter"),
+      body: t("ein.walletSpaeterText"),
+      action: t("waehr.verbinden"),
       skippable: true,
       urgency: "info",
     };
@@ -173,8 +152,8 @@ export function nextStep(r: Readiness, intent: Intent = "unbekannt"): NextStep {
 
   return {
     id: "fertig",
-    title: "Alles eingerichtet",
-    body: "Identität gesichert, Wallet verbunden. Nichts weiter zu tun.",
+    title: t("ein.fertigTitel"),
+    body: t("ein.fertigText"),
     skippable: true,
     urgency: "info",
   };
@@ -189,41 +168,13 @@ export function nextStep(r: Readiness, intent: Intent = "unbekannt"): NextStep {
 export function pitchFor(intent: Intent): { headline: string; points: string[] } {
   switch (intent) {
     case "nutzen":
-      return {
-        headline: "KI ohne Konto",
-        points: [
-          "Keine Anmeldung, keine E-Mail, keine Kreditkarte.",
-          "Bezahlt wird pro Anfrage in Sats oder SOL — im Gratis-Tarif gar nicht.",
-          "Kein Anbieter, der dich sperren kann: Fällt einer aus, übernimmt ein anderer.",
-        ],
-      };
+      return { headline: t("ein.pitchNutzen"), points: [t("ein.pitchNutzen1"), t("ein.pitchNutzen2"), t("ein.pitchNutzen3")] };
     case "verdienen":
-      return {
-        headline: "Rechenzeit vermieten",
-        points: [
-          "Deine GPU arbeitet, während du sie nicht brauchst.",
-          "Auszahlung direkt an deine Lightning-Adresse, kein Zwischenkonto.",
-          "In unterversorgten Regionen gibt es einen Aufschlag.",
-        ],
-      };
+      return { headline: t("ein.pitchVerdienen"), points: [t("ein.pitchVerdienen1"), t("ein.pitchVerdienen2"), t("ein.pitchVerdienen3")] };
     case "kommunizieren":
-      return {
-        headline: "Nachrichten, die weiterlaufen",
-        points: [
-          "Verschlüsselt, ohne Telefonnummer.",
-          "Läuft weiter, wenn das Netz ausfällt — über Funk oder per Datei.",
-          "Deine Kontakte gehören dir, nicht einer Plattform.",
-        ],
-      };
+      return { headline: t("ein.pitchKommunizieren"), points: [t("ein.pitchKommunizieren1"), t("ein.pitchKommunizieren2"), t("ein.pitchKommunizieren3")] };
     default:
-      return {
-        headline: "KI, Nachrichten und Zahlungen — ohne Anbieter dazwischen",
-        points: [
-          "Nichts einzurichten zum Ausprobieren.",
-          "Läuft weiter, wenn einzelne Teile ausfallen.",
-          "Du behältst deine Schlüssel.",
-        ],
-      };
+      return { headline: t("ein.pitch"), points: [t("ein.pitch1"), t("ein.pitch2"), t("ein.pitch3")] };
   }
 }
 
@@ -241,36 +192,21 @@ export interface ProviderCheck {
  */
 export function providerNextStep(c: ProviderCheck): { title: string; command?: string; body: string } {
   if (!c.lightningAddress) {
-    return {
-      title: "Zuerst: Auszahlungsadresse",
-      body:
-        "Ohne Lightning-Adresse gibt es niemanden, an den ausgezahlt werden " +
-        "kann. Eine beliebige Wallet mit Adresse der Form name@anbieter.tld " +
-        "genügt — das ist in fünf Minuten erledigt.",
-    };
+    return { title: t("ein.provAdresse"), body: t("ein.provAdresseText") };
   }
   if (!c.ollama) {
     return {
-      title: "Inferenz-Software fehlt",
-      command: "curl -fsSL https://ollama.com/install.sh | sh",
-      body:
-        "Ollama führt die Modelle aus. Der Installer richtet danach alles " +
-        "Weitere ein — oder du nimmst gleich das Container-Paket, das beides " +
-        "zusammen startet.",
+      title: t("ein.provOllama"),
+      command: "curl -fsSL https://ollama.com/install.sh | sh", // kein UI-Text
+      body: t("ein.provOllamaText"),
     };
   }
   if (!c.gpu) {
-    return {
-      title: "Läuft, aber langsam",
-      body:
-        "Ohne GPU rechnet der Knoten auf dem Prozessor. Das funktioniert, ist " +
-        "aber so langsam, dass sich kaum ein Kunde dafür entscheidet. " +
-        "Ehrlicher Hinweis vorab, statt später Enttäuschung.",
-    };
+    return { title: t("ein.provLangsam"), body: t("ein.provLangsamText") };
   }
   return {
-    title: "Bereit",
-    command: "NODE_LUD16=du@wallet.cash bash <(curl -fsSL https://freedomstack.io/install.sh)",
-    body: "Ein Befehl richtet Dienst, Modell und Region ein.",
+    title: t("ein.provBereit"),
+    command: "NODE_LUD16=du@wallet.cash bash <(curl -fsSL https://freedomstack.io/install.sh)", // kein UI-Text
+    body: t("ein.provBereitText"),
   };
 }

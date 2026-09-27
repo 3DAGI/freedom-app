@@ -8,6 +8,7 @@ import {
   LS_EINRICHTUNG, LS_INTENT, LS_WERBER_ZUSTIMMUNG, datenschutzKurz, einrichtungsSeiten, zielNachEinrichtung,
   type Seite,
 } from "../einrichtung.js";
+import { t } from "../i18n.js";
 import type { Intent } from "../onboarding.js";
 import { escapeHtml, pkShort } from "../shell-logic.js";
 import { LS_STANDARD_SCHIENE, standardSchiene } from "../standard-schiene.js";
@@ -55,8 +56,8 @@ function zeigeSeite(
   p: { oeffne: (tab: string) => void; nenneWerber: () => void },
 ): Promise<"weiter" | "abbrechen"> {
   box.innerHTML = `<div class="onboarding-card" data-seite="${escapeHtml(seite)}">${inhalt(seite)}` +
-    `<p class="mono-sm muted" style="margin-top:14px">Schritt ${ganzeZahl(nr)} von ${ganzeZahl(von)} · ` +
-    `<button id="ein-abbrechen" class="ghost" style="width:auto;padding:2px 8px;font-size:10px">Einrichtung überspringen</button></p></div>`;
+    `<p class="mono-sm muted" style="margin-top:14px">${escapeHtml(t("ein.schrittVon", { nr: ganzeZahl(nr), von: ganzeZahl(von) }))} · ` +
+    `<button id="ein-abbrechen" class="ghost" style="width:auto;padding:2px 8px;font-size:10px">${escapeHtml(t("ein.ueberspringen"))}</button></p></div>`;
   return new Promise((fertig) => {
     const knopf = (id: string, fn: () => unknown) => box.querySelector(`#${id}`)?.addEventListener("click", () => {
       void Promise.resolve(fn()).then(() => fertig("weiter"));
@@ -77,46 +78,43 @@ function zeigeSeite(
 function inhalt(seite: Seite): string {
   switch (seite) {
     case "schutz":
-      return `<h2>Schutz</h2>
-        <p class="mono-sm">Eine Passphrase verschlüsselt deinen Schlüssel, Wallet-Zugänge und Unterhaltungen
-        auf diesem Gerät; beim Start fragt die App danach. Vergisst du sie, hilft nur die Merkphrase.</p>
-        <button id="ein-tresor" class="cta" style="width:auto;padding:8px 18px">Passphrase festlegen</button>
-        <button id="ein-weiter" ${KNOPF}>später</button>`;
+      return `<h2>${escapeHtml(t("ein.schutz"))}</h2>
+        <p class="mono-sm">${escapeHtml(t("ein.schutzText"))}</p>
+        <button id="ein-tresor" class="cta" style="width:auto;padding:8px 18px">${escapeHtml(t("ein.passFestlegen"))}</button>
+        <button id="ein-weiter" ${KNOPF}>${escapeHtml(t("ein.spaeter"))}</button>`;
     case "zahlen": {
       const jetzt = standardSchiene();
-      return `<h2>Womit zahlst du?</h2>
-        <p class="mono-sm">Vorgabe für Trinkgeld und Zaps – bei jeder Zahlung änderbar. Die App zahlt nie still
-        in der anderen Währung. Eine Wallet brauchst du erst, wenn du bezahlst.</p>
-        <button id="ein-lightning" ${KNOPF}>${jetzt === "lightning" ? "✓ " : ""}sats (Lightning)</button>
-        <button id="ein-solana" ${KNOPF}>${jetzt === "solana" ? "✓ " : ""}SOL (Solana)</button>`;
+      return `<h2>${escapeHtml(t("ein.womitZahlen"))}</h2>
+        <p class="mono-sm">${escapeHtml(t("ein.womitZahlenText"))}</p>
+        <button id="ein-lightning" ${KNOPF}>${jetzt === "lightning" ? "✓ " : ""}${escapeHtml(t("zahl.optLightning"))}</button>
+        <button id="ein-solana" ${KNOPF}>${jetzt === "solana" ? "✓ " : ""}${escapeHtml(t("zahl.optSolana"))}</button>`;
     }
     case "privat": {
       const { belegt, offen } = datenschutzKurz();
       const werber = localStorage.getItem("freedom.referrer");
       const mitWerber = !!werber && /^[0-9a-f]{64}$/.test(werber) && werber !== state.keypair?.pk;
-      return `<h2>Privat von Anfang an</h2>
-        <p class="mono-sm">${belegt.map((a) => `✓ ${escapeHtml(a)}`).join("<br>")}${offen.map((a) => `<br>○ Noch nicht: ${escapeHtml(a)}`).join("")}</p>
-        <label class="mono-sm" style="display:block;margin:8px 0">Verbindung
+      return `<h2>${escapeHtml(t("ein.privat"))}</h2>
+        <p class="mono-sm">${belegt.map((a) => `✓ ${escapeHtml(a)}`).join("<br>")}${offen.map((a) => `<br>○ ${escapeHtml(t("ein.nochNicht", { was: a }))}`).join("")}</p>
+        <label class="mono-sm" style="display:block;margin:8px 0">${escapeHtml(t("ein.verbindung"))}
           <select id="ein-netz" class="mono-sm">
-            <option value="klar">direkt (Relays sehen deine IP)</option>
-            <option value="tor">.onion-Relays bevorzugen (nur im Tor Browser wirksam)</option>
-            <option value="mixnet">Mixnetz (nur wirksam, wenn du selbst eines nutzt)</option>
+            <option value="klar">${escapeHtml(t("set.netzKlar"))}</option>
+            <option value="tor">${escapeHtml(t("set.netzTor"))}</option>
+            <option value="mixnet">${escapeHtml(t("set.netzMixnet"))}</option>
           </select></label>
         <label class="mono-sm" style="display:block;margin:8px 0">
-          <input type="checkbox" id="ein-kontakte" /> Kontakte verschlüsselt zwischen Geräten abgleichen (Standard: aus)</label>
+          <input type="checkbox" id="ein-kontakte" /> ${escapeHtml(t("ein.kontakteAbgleichen"))}</label>
         ${mitWerber ? `<label class="mono-sm" style="display:block;margin:8px 0">
-          <input type="checkbox" id="ein-werber" /> ${escapeHtml(pkShort(werber!))} öffentlich als meinen Werber nennen</label>
-          <p class="mono-sm muted">Standard: aus. Öffentlich genannt zählst du in seiner Statistik – und jeder kann
-          sehen, dass ihr verbunden seid. Für seinen Anteil an deinen KI-Zahlungen ist das nicht nötig.</p>` : ""}
-        <p class="mono-sm muted">Alles später unter Settings → Datenschutz.</p>
-        <button id="ein-weiter" class="cta" style="width:auto;padding:8px 18px">weiter</button>`;
+          <input type="checkbox" id="ein-werber" /> ${escapeHtml(t("ein.werberNennen", { wer: pkShort(werber!) }))}</label>
+          <p class="mono-sm muted">${escapeHtml(t("ein.werberText"))}</p>` : ""}
+        <p class="mono-sm muted">${escapeHtml(t("ein.spaeterSettings"))}</p>
+        <button id="ein-weiter" class="cta" style="width:auto;padding:8px 18px">${escapeHtml(t("ein.weiter"))}</button>`;
     }
     case "los":
-      return `<h2>Womit fängst du an?</h2>
-        <p class="mono-sm">Die Onboarding-Leiste oben zeigt danach immer genau einen nächsten Schritt.</p>
-        <button id="ein-nutzen" ${KNOPF}>KI fragen</button>
-        <button id="ein-kommunizieren" ${KNOPF}>Nachrichten schreiben</button>
-        <button id="ein-verdienen" ${KNOPF}>Rechner vermieten</button>`;
+      return `<h2>${escapeHtml(t("ein.womitAnfangen"))}</h2>
+        <p class="mono-sm">${escapeHtml(t("ein.leisteDanach"))}</p>
+        <button id="ein-nutzen" ${KNOPF}>${escapeHtml(t("ein.kiFragen"))}</button>
+        <button id="ein-kommunizieren" ${KNOPF}>${escapeHtml(t("ein.nachrichtenSchreiben"))}</button>
+        <button id="ein-verdienen" ${KNOPF}>${escapeHtml(t("ein.vermietenTitel"))}</button>`;
     default:
       return "";
   }

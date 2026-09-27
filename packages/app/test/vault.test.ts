@@ -20,6 +20,10 @@ import {
   unlock,
   vaultExists,
 } from "../src/vault.js";
+import { setLang } from "../src/i18n.js";
+
+// Meldungen hier auf Deutsch prüfen (seit 8.16g1 über Schlüssel in der Sprache der Oberfläche)
+setLang("de");
 
 const PASS = "korrekt pferd batterie";
 // Ein Test-Schluessel, nur fuer diese Datei erzeugt – kein echtes Geheimnis.

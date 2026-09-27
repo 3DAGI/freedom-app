@@ -9,8 +9,7 @@
 #
 # Pruefen: python3 scripts/check_innerhtml.py packages/app/src --ausnahmen scripts/innerhtml-ausnahmen.txt --streng
 app.ts|woerter.map((w) => `<li>${escapeHtml(w)}</li>`).join("")|Callback liefert nur ein Template mit escapeHtml(w)
-app.ts|positionen.map((p) => `<label class="mono-sm">Nr. ${p + 1} <input data-pos="${p}" class="mono-sm" style="width:110px" au|Callback liefert nur ein Template; einzige Werte sind die Positionen p
-app.ts|p|Zahl: Position aus pickChallengePositions(), lokal erzeugt
+app.ts|positionen.map((p) => `<label class="mono-sm">${escapeHtml(t("ein.nummer", { n: p + 1 }))} <input data-pos="${p}" class=|Callback liefert nur ein Template; einzige Werte sind die Positionen p, die Nummer über escapeHtml(t(…)) (8.16g1)
 app.ts|p|Zahl: Position aus pickChallengePositions(), lokal erzeugt
 state.ts|(Zuweisung) st.map((s) => { const name = escapeHtml(s.label ?? new URL(s.url).hostname); return s.available ? `<span class="ok">${na|Callback liefert nur Templates; Name und Fehlertext mit escapeHtml
 state.ts|name|name = escapeHtml(label oder hostname), eine Zeile darüber
@@ -80,6 +79,6 @@ app.ts|(Zuweisung) LANGS.map( (l) => `<button type="button" data-lang="${l.code}
 app.ts|l.code|feste Sprachliste LANGS (i18n.ts)
 app.ts|l.code.toUpperCase()|feste Sprachliste LANGS (i18n.ts)
 app.ts|l.label|feste Sprachliste LANGS (i18n.ts)
-tresor.ts|html|dialog() ist modulintern; alle drei Aufrufer übergeben feste Text-Literale ohne Einsetzungen, Eingaben und Meldungen laufen über textContent
+tresor.ts|html|dialog() ist modulintern; alle drei Aufrufer übergeben feste Templates, deren einzige Einsetzungen escapeHtml(t(…)) sind (8.16g1); Eingaben und Meldungen laufen über textContent
 chat-zap.ts|state.amount|feste Zahl aus der Standard-Schiene (10 bzw. 0,01), keine Fremddaten
 einrichtung-ui.ts|inhalt(seite)|feste Seiten der Einrichtung aus diesem Modul (8.1b); Fremddaten darin nur über escapeHtml (Werber-Schlüssel, Datenschutz-Aussagen)

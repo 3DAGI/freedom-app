@@ -17,6 +17,10 @@ import {
   NOSTR_DERIVATION_PATH,
   backupStatus,
 } from "../src/identity.js";
+import { setLang } from "../src/i18n.js";
+
+// Meldungen hier auf Deutsch prüfen (seit 8.16g1 über Schlüssel in der Sprache der Oberfläche)
+setLang("de");
 
 // ------------------------------------------------------------- Erzeugen
 

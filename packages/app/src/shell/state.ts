@@ -14,6 +14,7 @@ import { zugaenge } from "../relay-kauf.js";
 import { ScoredProvider, discoverProviders, matchProviders } from "../matchmaking.js";
 import { KiSitzungen } from "../ki-sitzung.js";
 import { SessionClient } from "../session-client.js";
+import { t } from "../i18n.js";
 import { escapeHtml } from "../shell-logic.js";
 import { eigeneListenAbgleichen, ladeEigeneRelays, poolRelays } from "../relay-satz.js";
 import { OutboxLeser } from "../outbox-lesen.js";
@@ -75,7 +76,7 @@ export function alsGeraet(): boolean {
  * einem entfernten Signer (NIP-46).
  */
 export async function signiere(ev: UnsignedEvent): Promise<NostrEvent> {
-  if (!state.signer) throw new Error("Keine Identität – nichts zu signieren");
+  if (!state.signer) throw new Error(t("ein.keineIdentitaet"));
   return state.signer.signEvent(ev);
 }
 
@@ -106,7 +107,7 @@ export function mitBunker(): boolean {
  */
 export function mitRohemSchluessel<T>(wofuer: string, fn: (sk: Uint8Array) => T): T {
   if (!(state.signer instanceof LocalSigner)) {
-    throw new Error(`${wofuer} geht nur mit dem Schlüssel auf diesem Gerät, nicht über einen Bunker`);
+    throw new Error(t("ein.nurMitSchluessel", { wofuer }));
   }
   return state.signer.mitSchluessel(fn);
 }
@@ -208,11 +209,11 @@ export async function wireRpcSetting(): Promise<void> {
   save.onclick = () => {
     localStorage.setItem("freedom.sol.rpcs", input.value.trim());
     rpcPool = null; // beim naechsten Zugriff neu aufbauen
-    toast("Endpunkte gespeichert");
+    toast(t("ein.endpunkteGespeichert"));
   };
 
   check.onclick = async () => {
-    status.textContent = "prüfe …";
+    status.textContent = t("ein.pruefe");
     try {
       rpcPool = null;
       const pool = await ensureRpcPool();
@@ -221,14 +222,14 @@ export async function wireRpcSetting(): Promise<void> {
         const name = escapeHtml(s.label ?? new URL(s.url).hostname);
         return s.available
           ? `<span class="ok">${name} · ${s.lastLatencyMs ?? "?"} ms</span>`
-          : `<span class="err">${name} · ${escapeHtml(s.lastError ?? "keine Antwort")}</span>`;
+          : `<span class="err">${name} · ${escapeHtml(s.lastError ?? t("ein.keineAntwortRpc"))}</span>`;
       }).join("<br>");
       // 5.8: zwei Anbieter gegeneinander – ohne Adresse, verraet nichts ueber den Nutzer.
       const { stichprobeText } = await import("../rpc-stichprobe.js");
-      const t = stichprobeText(await pool.stichprobe());
+      const probe = stichprobeText(await pool.stichprobe());
       const zeile = document.createElement("div");
-      zeile.className = t.stufe === "warnung" ? "err" : t.stufe === "ok" ? "ok" : "";
-      zeile.textContent = t.text;
+      zeile.className = probe.stufe === "warnung" ? "err" : probe.stufe === "ok" ? "ok" : "";
+      zeile.textContent = probe.text;
       status.append(zeile);
     } catch (e) {
       status.textContent = (e as Error).message;
@@ -453,7 +454,7 @@ export const powJeProvider = new Map<string, number>();
 
 export function ensureSessionClient(): SessionClient {
   if (state.sessionClient) return state.sessionClient;
-  if (!state.pool) throw new Error("Pool fehlt");
+  if (!state.pool) throw new Error(t("ein.poolFehlt"));
   state.sessionClient = new SessionClient({
     signerFuer: (providerPk) => kiSitzungen.fuer(providerPk),
     powFuer: (providerPk) => powJeProvider.get(providerPk) ?? 0,

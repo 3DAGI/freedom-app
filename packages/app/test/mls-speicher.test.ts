@@ -12,6 +12,10 @@ import { LocalSigner, SICHERUNG_NIE, WIPE_DATENBANKEN, fromHex, generateKeypair,
 import { Mls, ladeMls } from "@freedomstack/mls";
 import { LS_MLS_SCHLUESSEL, MlsVerlauf, MlsZustand, VERLAUF_MAX, mlsSchluessel } from "../src/mls-speicher.js";
 import { SpeicherImRam, createVault, geheimSpeicher } from "../src/vault.js";
+import { setLang } from "../src/i18n.js";
+
+// Meldungen hier auf Deutsch prüfen (seit 8.16g1 über Schlüssel in der Sprache der Oberfläche)
+setLang("de");
 
 ladeMls(gunzipSync(readFileSync(new URL("../../mls/dist/freedom_mls_bg.wasm.gz", import.meta.url))));
 

@@ -8,6 +8,7 @@
 import { LokaleSuche, type SuchDoc, neuerSuchSchluessel, suchSchluessel } from "../suche.js";
 import { IndexedDbSpeicher } from "../vault.js";
 import { geheim, tresorEingerichtet } from "./tresor.js";
+import { gebietsschema, t } from "../i18n.js";
 
 export const LS_SUCH_SCHLUESSEL = "freedom.suche.schluessel";
 
@@ -66,7 +67,7 @@ export function wireSuche(oeffne: (scope: string) => void, name: (scope: string)
     if (!q) return;
     const hits = (await lokaleSuche()).suche(q, { limit: 50 });
     if (hits.length === 0) {
-      treffer.replaceChildren(Object.assign(document.createElement("div"), { className: "mono-sm muted", textContent: "Nichts gefunden – gesucht wird nur in Nachrichten, die hier schon geöffnet wurden." }));
+      treffer.replaceChildren(Object.assign(document.createElement("div"), { className: "mono-sm muted", textContent: t("ein.nichtsGefunden") }));
       return;
     }
     treffer.replaceChildren(...hits.map((h) => {
@@ -74,7 +75,7 @@ export function wireSuche(oeffne: (scope: string) => void, name: (scope: string)
       e.className = "chat-item";
       const kopf = document.createElement("div");
       kopf.className = "label";
-      kopf.textContent = `${h.doc.scope ? name(h.doc.scope) : "?"} · ${new Date(h.doc.createdAt * 1000).toLocaleDateString("de-DE")}`;
+      kopf.textContent = `${h.doc.scope ? name(h.doc.scope) : "?"} · ${new Date(h.doc.createdAt * 1000).toLocaleDateString(gebietsschema())}`;
       const text = document.createElement("div");
       text.className = "mono-sm muted";
       text.textContent = h.snippet;

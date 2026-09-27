@@ -11,6 +11,10 @@ import {
 } from "@freedomstack/protocol";
 import { LS_GERAET_PERSON, geraeteCode, geraeteStand, leseGeraeteCode } from "../src/geraete-modus.js";
 import { GeraeteBuch, ordneDmZu } from "../src/geraete-buch.js";
+import { setLang } from "../src/i18n.js";
+
+// Meldungen hier auf Deutsch prüfen (seit 8.16g1 über Schlüssel in der Sprache der Oberfläche)
+setLang("de");
 
 const T = 1_790_000_000;
 const [o, d, d2, k] = Array.from({ length: 4 }, () => generateKeypair());
