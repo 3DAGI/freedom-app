@@ -38,7 +38,7 @@ export const PRIVACY_FACTS: readonly PrivacyFact[] = [
   { id: "abdeckung-schluessel", aussage: "Ein Eintrag in die Abdeckungskarte trägt einen Wegwerfschlüssel, nicht deine Identität, und läuft nach 7 Tagen ab – auf den Relays ist er aber einzeln sichtbar.", status: "belegt", regel: "autor-verborgen" },
   { id: "dm-mls", aussage: "Direktnachrichten an Kontakte, die MLS können, laufen über MLS (Marmot): Relays sehen eine zufällige Gruppen-Id und für jede Nachricht einen neuen Schlüssel – nie dich, nie den Kontakt.", status: "belegt", regel: "mls-gruppe" },
   { id: "anhaenge", aussage: "Anhänge liegen verschlüsselt auf den Speicher-Servern – öffnen kann sie nur, wer die Nachricht lesen kann.", status: "belegt", regel: "upload-verschluesselt" },
-  { id: "raeume", aussage: "Räume sind Ende-zu-Ende-verschlüsselt.", status: "offen", schritt: "2.3", regel: "kein-klartext" },
+  { id: "raeume", aussage: "Private Räume – der Standard – sind Ende-zu-Ende-verschlüsselt (MLS): Relays sehen weder Namen noch Kanäle noch Nachrichten, und keine Nachricht trägt deinen Schlüssel. Öffentliche Räume und Communities liest jeder mit; öffentlich legt die App einen Raum nur auf ausdrücklichen Wunsch an.", status: "belegt", regel: "mls-gruppe" },
   { id: "ki-prompt", aussage: "KI-Anfragen sind für Relays nicht lesbar.", status: "belegt", regel: "kein-klartext-prompt" },
   { id: "ki-kunde", aussage: "KI-Anfragen verraten Relays nicht, wer fragt – der Provider sieht nur einen Schlüssel je Sitzung.", status: "belegt", regel: "kunde-verborgen" },
   { id: "ki-antwort", aussage: "KI-Antworten sind für Relays nicht lesbar.", status: "belegt", regel: "kein-klartext" },

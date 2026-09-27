@@ -34,6 +34,7 @@ import { buildSuccessionPlan, secretHashOf, splitSecret } from "../src/successio
 import { buildStateBackup, deriveBackupKey, waehleSicherung } from "../src/state-backup.js";
 import { baueStueckAbruf } from "../src/blob.js";
 import { regelMlsGruppe } from "../src/leak-rules.js";
+import { raumDefinition, raumNachricht } from "../src/raum-gruppe.js";
 import { fromHex, toHex } from "../src/htlc.js";
 import type { NostrEvent, UnsignedEvent } from "../src/event.js";
 import { readFileSync } from "node:fs";
@@ -45,6 +46,7 @@ interface MlsKontoT {
   keyPackage(platz: string): Promise<UnsignedEvent>;
   gruppeAnlegen(name: string, kps: NostrEvent[], relays: string[]): Promise<{ gruppe: string; einladungen: NostrEvent[] }>;
   senden(gruppe: string, text: string): Promise<{ events: NostrEvent[] }>;
+  sendenEvent(gruppe: string, art: number, tags: string[][], text: string): Promise<{ events: NostrEvent[] }>;
 }
 interface MlsModulT {
   Mls: new (signer: LocalSigner, beweis: (id: string) => string) => MlsKontoT;
@@ -270,6 +272,23 @@ const SZENARIEN: Record<string, () => Promise<number>> = {
     return regelKeinKlartext(alle, [GEHEIM]).length + regelAutorNicht(alle, a.pk).length + regelPTagsNur(g.einladungen, [b.pk]).length +
       regelMlsGruppe(alle, { gruppenIds: [g.gruppe], identitaeten: [a.pk, b.pk] }).length;
   },
+  "raeume": async () => {
+    // Wie die App private Räume anlegt und schreibt (2.3b): Kanäle und Nachricht als innere Events – echte Engine
+    const { Mls, ladeMls } = (await import(["@freedomstack", "mls"].join("/"))) as MlsModulT;
+    ladeMls(gunzipSync(readFileSync(new URL("../../mls/dist/freedom_mls_bg.wasm.gz", import.meta.url))));
+    const konto = (k: typeof a) => new Mls(new LocalSigner(k.sk), (id) => toHex(schnorr.sign(fromHex(id), k.sk)));
+    const [ma, mb] = [konto(a), konto(b)];
+    const kpB = await new LocalSigner(b.sk).signEvent(await mb.keyPackage("cd".repeat(32)));
+    const g = await ma.gruppeAnlegen("Werkstatt am Fluss", [kpB], ["wss://gruppe.test"]);
+    const def = raumDefinition(g.gruppe, { name: "Werkstatt am Fluss", kanaele: [{ id: "geheimplanung", name: "geheimplanung", privacy: "verschluesselt", writeRoles: [], position: 0 }] });
+    const msg = raumNachricht({ kanal: "geheimplanung", text: GEHEIM, erwaehnt: [b.pk] });
+    const events: NostrEvent[] = [];
+    for (const s of [def, msg]) events.push(...(await ma.sendenEvent(g.gruppe, s.art, s.tags, s.text)).events);
+    const alle = [...g.einladungen, ...events];
+    if (events.length !== 2) return 1;
+    return regelKeinKlartext(alle, [GEHEIM, "Werkstatt am Fluss", "geheimplanung"]).length + regelAutorNicht(alle, a.pk).length +
+      regelPTagsNur(g.einladungen, [b.pk]).length + regelMlsGruppe(alle, { gruppenIds: [g.gruppe], identitaeten: [a.pk, b.pk] }).length;
+  },
   "geraete-kopien": async () => {
     // Wie die App seit 8.6b: an die Person, sich selbst und je Geraet ein eigener Umschlag.
     const [handy, tablet] = [generateKeypair().pk, generateKeypair().pk];
@@ -337,7 +356,8 @@ test("der Berichtstext trennt Belegtes und Offenes", () => {
   assert.match(t, /✓ KI-Anfragen sind für Relays nicht lesbar\./);
   assert.match(t, /✓ KI-Antworten sind für Relays nicht lesbar\./);
   assert.match(t, /✓ Reklamationen sind nicht öffentlich – sie gehen versiegelt/);
-  assert.match(t, /○ Noch nicht: Räume sind Ende-zu-Ende-verschlüsselt\. \(Ausbauplan 2\.3\)/);
+  // Seit 2.3b: private Räume belegt (MLS); öffentlich nur ausdrücklich
+  assert.match(t, /✓ Private Räume – der Standard – sind Ende-zu-Ende-verschlüsselt \(MLS\)/);
   // 4.6c benannte die offene Rechnung als Luecke, seit 4.9b ist sie versiegelt.
   assert.match(t, /✓ Beim Tausch SOL → sats sehen Relays deine Lightning-Rechnung nicht\./);
   // Seit 4.9 (Entscheidung A): gesendete Zahlungen als bewusste Grenze, mit Grund.

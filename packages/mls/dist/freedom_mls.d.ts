@@ -70,6 +70,10 @@ export class MlsKonto {
      */
     mitglieder(gruppe_id: string): string[];
     /**
+     * Name der Gruppe (Marmot-Profil) – Räume (2.3b) tragen einen, 1:1-Gruppen nicht.
+     */
+    name(gruppe_id: string): string;
+    /**
      * `identitaet`: eigener öffentlicher Schlüssel (hex); `beweis`, `signer`:
      * siehe Modulbeschreibung; `zustand`: Bytes aus `zustand()` oder leer.
      */
@@ -116,6 +120,7 @@ export interface InitOutput {
     readonly mlskonto_gruppen: (a: number, b: number) => void;
     readonly mlskonto_keyPackageEvent: (a: number, b: number, c: number) => number;
     readonly mlskonto_mitglieder: (a: number, b: number, c: number, d: number) => void;
+    readonly mlskonto_name: (a: number, b: number, c: number, d: number) => void;
     readonly mlskonto_new: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => void;
     readonly mlskonto_routing: (a: number, b: number, c: number, d: number) => void;
     readonly mlskonto_senden: (a: number, b: number, c: number, d: number, e: number) => number;
@@ -136,9 +141,9 @@ export interface InitOutput {
     readonly rustsecp256k1_v0_10_0_context_destroy: (a: number) => void;
     readonly rustsecp256k1_v0_10_0_default_error_callback_fn: (a: number, b: number) => void;
     readonly rustsecp256k1_v0_10_0_default_illegal_callback_fn: (a: number, b: number) => void;
-    readonly __wasm_bindgen_func_elem_26004: (a: number, b: number, c: number, d: number) => void;
-    readonly __wasm_bindgen_func_elem_26006: (a: number, b: number, c: number, d: number) => void;
-    readonly __wasm_bindgen_func_elem_19753: (a: number, b: number) => void;
+    readonly __wasm_bindgen_func_elem_26014: (a: number, b: number, c: number, d: number) => void;
+    readonly __wasm_bindgen_func_elem_26016: (a: number, b: number, c: number, d: number) => void;
+    readonly __wasm_bindgen_func_elem_19763: (a: number, b: number) => void;
     readonly __wbindgen_export: (a: number, b: number) => number;
     readonly __wbindgen_export2: (a: number, b: number, c: number, d: number) => number;
     readonly __wbindgen_export3: (a: number) => void;

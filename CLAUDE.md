@@ -43,9 +43,9 @@ bash scripts/build-site.sh /tmp/site                     # Website bauen (Ziel w
 bash packages/mls/bauen.sh --pruefen                     # nur bei Änderungen an packages/mls: nachbauen + vergleichen (Rust, clang)
 ```
 
-Stand 26.09.2026 (nach 2.2b-e2 und 2.3a): protocol 1161 grün (6 übersprungen), node 240 grün
+Stand 27.09.2026 (nach 2.2b-e2 und 2.3b): protocol 1161 grün (6 übersprungen), node 240 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 425 grün, mls 13 grün, Leak-Tests 54 grün + 2 `todo` (heutige Lecks,
+in `tools.test.ts`), app 430 grün, mls 13 grün, Leak-Tests 55 grün + 1 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
 Ausnahme: gesendete SOL-Zahlungen von frischen Adressen, eine bewusste Grenze
 nach Entscheidung 4.9 A – im Datenschutzbericht unter „Bewusste Grenzen“).
@@ -396,6 +396,12 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   Raum nur über `gruppenRaum()` auswerten. Moderatoren sind die Admins der
   Gruppe (`adminsSetzen()`, ein Commit) – nie aus einem Event ableiten. Den
   Admin-Stand beim Senden (`admin`) belegt MDK nur für 4891/1985; sonst zählt
-  `mls.admins()`. In den 1:1-Verlauf nur Art 9 (`nurChat`). Die Crate nur mit
+  `mls.admins()`. Der Verlauf nimmt alle Arten auf, der 1:1-Chat zeigt und zählt
+  nur Art 9 (`mlsVerlauf`). Verweise auf Nachrichten (Antwort, Löschen) nur über
+  die Id des inneren Events (`inneres`) – die MLS-Nachrichten-Id kennt der
+  Absender nicht. Eine Gruppe mit Namen ist ein Raum, auch zu zweit – 1:1-Gruppen
+  ohne Namen gründen (seit 2.3b). Private Räume stehen nur im Tresor
+  (`freedom.raeume.privat`), nie in `freedom.spaces`; nach jeder Einladung den
+  Raumstand erneut senden (`ladeInPrivatenRaum`). Die Crate nur mit
   `bauen.sh` neu bauen – vorher mit `--pruefen` zeigen, dass der alte Stand
   bitgleich entsteht (Rust, `wasm-bindgen` 0.2.129).

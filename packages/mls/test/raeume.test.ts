@@ -56,6 +56,7 @@ test("Raum mit 50 Mitgliedern: Kanäle als innere Events, Entfernen mit Schlüss
   for (const p of eingeladen) assert.equal(await p.mls.beitreten(fuer(g.einladungen, p.pk)), g.gruppe);
   const alle = [gruender, ...eingeladen];
   assert.equal(gruender.mls.mitglieder(g.gruppe).length, 50);
+  assert.equal(andere[10]!.mls.name(g.gruppe), "Werkstatt", "Räume tragen einen Namen – 1:1-Gruppen nicht");
   assert.deepEqual(andere[0]!.mls.admins(g.gruppe), [gruender.pk, moderator.pk].sort());
 
   // Kanäle und Rollenliste als innere Events vom Gründer – bei allen mit Art und Tags

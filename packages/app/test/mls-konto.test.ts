@@ -9,7 +9,10 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { schnorr } from "@noble/curves/secp256k1.js";
-import { LocalSigner, buildDeviceGrant, buildDeviceRevoke, fromHex, generateKeypair, signEvent, toHex, type NostrEvent, type RelayFilter, type Signer } from "@freedomstack/protocol";
+import {
+  LocalSigner, buildDeviceGrant, buildDeviceRevoke, fromHex, generateKeypair, gruppenRaum, raumDefinition, raumNachricht, signEvent, toHex,
+  type NostrEvent, type RelayFilter, type Signer,
+} from "@freedomstack/protocol";
 import { Mls, type MlsNachricht } from "@freedomstack/mls";
 
 // tresor.ts liest localStorage beim Laden – vor dem Import bereitstellen.
@@ -20,8 +23,10 @@ const ls = new Map<string, string>();
   get length() { return ls.size; },
 };
 const { setzeIdentitaet, setzeSigner } = await import("../src/shell/state.js");
-const { LS_MLS_EINLADUNGEN, LS_MLS_IDENTITAET, mlsAbgleichen, mlsEinladungAnnehmen, mlsErreichbar, mlsGesperrt, mlsKonto, mlsSendeAn, mlsVerlauf } =
-  await import("../src/shell/mls-konto.js");
+const {
+  LS_MLS_EINLADUNGEN, LS_MLS_IDENTITAET, mlsAbgleichen, mlsEinladungAnnehmen, mlsErreichbar, mlsGesperrt, mlsGruende, mlsGruppenStand, mlsKonto,
+  mlsLadeEin, mlsSendeAn, mlsSendeEvent, mlsSetzeAdmins, mlsVerlauf,
+} = await import("../src/shell/mls-konto.js");
 const { LS_MLS_KP, LS_MLS_PLATZ, sucheKeyPackages, veroeffentlicheKeyPackage } = await import("../src/mls-keypackage.js");
 const { empfangeGruppe, gruendeGruppe, gruppenAbos, nimmEinladungAn, oeffneEinladung, schreiteFort, sendeEventInGruppe, sendeInGruppe } = await import("../src/mls-nostr.js");
 const { mlsEngine } = await import("../src/mls-engine.js");
@@ -104,7 +109,7 @@ test("Einladung eines Kontakts: 1:1-Gruppe angenommen, dieselbe nicht zweimal; N
 
   await sendeInGruppe({ mls: bob.mls, netz, sichern: bob.sichern, gruppe: g.gruppe, text: "Hallo über MLS" });
   // Ein Raum-Event (2.3a) ist keine Chat-Zeile – der 1:1-Verlauf nimmt nur Art 9
-  assert.equal(await sendeEventInGruppe({ mls: bob.mls, netz, sichern: bob.sichern, gruppe: g.gruppe, art: 34700, tags: [["space", g.gruppe], ["name", "kein Chat"]], text: "" }), true);
+  assert.match((await sendeEventInGruppe({ mls: bob.mls, netz, sichern: bob.sichern, gruppe: g.gruppe, art: 34700, tags: [["space", g.gruppe], ["name", "kein Chat"]], text: "" }))!, /^[0-9a-f]{64}$/);
   await sendeInGruppe({ mls: bob.mls, netz, sichern: bob.sichern, gruppe: g.gruppe, text: "zweite" });
   assert.deepEqual([...(await mlsAbgleichen([g.gruppe], u))], [[g.gruppe, 2]]);
   assert.deepEqual((await mlsVerlauf(g.gruppe, u)).map((n) => [n.text, n.von]), [["Hallo über MLS", bob.pk], ["zweite", bob.pk]]);
@@ -113,15 +118,16 @@ test("Einladung eines Kontakts: 1:1-Gruppe angenommen, dieselbe nicht zweimal; N
   assert.ok(!Buffer.from(verlaufRam.blob!, "base64").toString("latin1").includes("Hallo über MLS"));
 });
 
-test("Einladung in eine Gruppe zu dritt: beigetreten, aber keine 1:1-Unterhaltung", async () => {
+test("Einladung in eine Gruppe zu dritt: beigetreten, aber keine 1:1-Unterhaltung – ein Raum (2.3b)", async () => {
   await mlsErreichbar(u);
   const carol = kontakt("carol");
   const kps = [...(await sucheKeyPackages({ pk: ich.pk, abfrage: async (f) => frage(f, EIGENE) })).slice(0, 1),
     await carol.signer.signEvent(await carol.mls.keyPackage("cd".repeat(32)))];
-  await gruendeGruppe({ mls: bob.mls, netz, sichern: bob.sichern, name: "", keyPackages: kps, relays: GRUPPE });
+  const g = await gruendeGruppe({ mls: bob.mls, netz, sichern: bob.sichern, name: "", keyPackages: kps, relays: GRUPPE });
   const { state } = await import("../src/shell/state.js");
   const e = (await oeffneEinladung(relay("wss://eingang-ich.test").gesendet.at(-1)!, state.signer!))!;
-  assert.equal(await mlsEinladungAnnehmen(e, u), null);
+  assert.deepEqual(await mlsEinladungAnnehmen(e, u), { gruppe: g.gruppe, partner: null }, "kein Partner – eine Gruppe zu mehreren");
+  assert.equal(await mlsEinladungAnnehmen(e, u), null, "schon bearbeitet");
 });
 
 test("Andere Identität: alter Stand, Platz und KeyPackage verworfen – nie unter der neuen geladen", async () => {
@@ -284,7 +290,7 @@ test("2.2b-e2: Entzug entfernt das Gerät vor der nächsten Nachricht; ein neues
   assert.deepEqual(mls.mitglieder(cleoGruppe).sort(), vorher);
 });
 
-test("2.2b-e2: Einladung mit Geräten ist die Unterhaltung mit der Person; mit einem Fremden keine", async () => {
+test("2.2b-e2: Einladung mit Geräten ist die Unterhaltung mit der Person; mit einem Fremden keine (seit 2.3b: eine Gruppe zu mehreren)", async () => {
   const dana = generateKeypair();
   const d = { signer: new LocalSigner(dana.sk), mls: new Mls(new LocalSigner(dana.sk), (id) => toHex(schnorr.sign(fromHex(id), dana.sk))), sichern: async () => {} };
   const danaHandy = await mitKeyPackage("wss://schreib-dana.test");
@@ -296,8 +302,40 @@ test("2.2b-e2: Einladung mit Geräten ist die Unterhaltung mit der Person; mit e
     const kps = [meine[0]!, ...(await Promise.all(dabei.map(async (x) => (await sucheKeyPackages({ pk: x.pk, abfrage: frage }))[0]!)))];
     const g = await d.mls.gruppeAnlegen("", kps, GRUPPE);
     const e = { von: dana.pk, relays: GRUPPE, wrap: g.einladungen.find((w) => w.tags.some((t) => t[1] === ICH.pk))! };
-    assert.deepEqual(await mlsEinladungAnnehmen(e, u), partner === null ? null : { gruppe: g.gruppe, partner });
+    assert.deepEqual(await mlsEinladungAnnehmen(e, u), { gruppe: g.gruppe, partner });
     await mlsErreichbar(u);
   }
 });
 
+
+test("2.3b: Raum – nur mit mir gegründet, eigene Kanäle im Stand; einladen nur mit KeyPackage, Einladung an den Posteingang; der Eingeladene liest ab dem Eintritt; Moderator per Commit", async () => {
+  const g = (await mlsGruende("Werkstatt", u))!;
+  assert.ok(g, "Gruppe an den eigenen Relays");
+  const kanaele = [{ id: "allgemein", name: "allgemein", privacy: "verschluesselt" as const, writeRoles: [], position: 0 }];
+  assert.equal(await mlsSendeEvent(g, raumDefinition(g, { name: "Werkstatt", kanaele }), u), true);
+  const vorher = (await mlsGruppenStand(g, u))!;
+  assert.deepEqual([vorher.admins, vorher.mitglieder], [[ICH.pk], [ICH.pk]]);
+  assert.equal(gruppenRaum(g, vorher.ereignisse, vorher).zustand.space?.name, "Werkstatt", "eigene Definition im Stand – MLS entschlüsselt sie nicht zurück");
+  assert.match(vorher.ereignisse[0]!.id, /^[0-9a-f]{64}$/, "Id des inneren Events, wie bei den Empfängern");
+  assert.deepEqual(await mlsVerlauf(g, u), [], "kein Chat – der 1:1-Verlauf zeigt die Definition nicht");
+
+  assert.equal(await mlsLadeEin(g, generateKeypair().pk, u), "kein KeyPackage");
+  const eva = await mitKeyPackage("wss://schreib-eva.test");
+  eingaenge.set(eva.pk, ["wss://eingang-eva.test"]);
+  assert.equal(await mlsLadeEin(g, eva.pk, u), "eingeladen");
+  const wrap = einladungAn(eva.pk, "wss://eingang-eva.test")!;
+  assert.equal(await eva.mls.beitreten(wrap), g);
+  assert.equal(await mlsSendeEvent(g, raumNachricht({ kanal: "allgemein", text: "Willkommen" }), u), true);
+  assert.deepEqual(await liesMit(eva), ["Willkommen"], "ab dem Eintritt – die Definition davor nicht (darum sendet 2.3b den Raumstand neu)");
+
+  // Ein Raum zu zweit ist kein 1:1-Chat: benannte Gruppe → Raum (sonst ersetzte er die Unterhaltung mit dem Einladenden)
+  const meine = await sucheKeyPackages({ pk: ICH.pk, abfrage: async (f) => frage(f, EIGENE) });
+  const zuZweit = await eva.mls.gruppeAnlegen("Evas Raum", [meine[0]!], GRUPPE);
+  const e = { von: eva.pk, relays: GRUPPE, wrap: zuZweit.einladungen[0]! };
+  assert.deepEqual(await mlsEinladungAnnehmen(e, u), { gruppe: zuZweit.gruppe, partner: null });
+  await mlsErreichbar(u);
+
+  assert.equal(await mlsSetzeAdmins(g, [ICH.pk, eva.pk], u), true);
+  assert.deepEqual((await mlsGruppenStand(g, u))!.admins, [ICH.pk, eva.pk].sort());
+  assert.equal(await mlsGruppenStand("ab".repeat(16), u), null, "fremde Gruppe");
+});

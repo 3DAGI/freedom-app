@@ -236,9 +236,4 @@ price-ticker.ts|medianPrice|abgelöst durch marktKurs() – eine Stimme je Absen
 swap-umgekehrt.ts|runReverseSwap|Simulation der Gegenrichtung mit Adaptern (4.6a), wie runSwap für die Hinrichtung
 swap-privacy.ts|deriveSwapAddress|abgelöst durch den Vorrat frischer Adressen der eingebauten Wallet (4.9c, SLIP-10 wie Phantom); die HKDF-Ableitung aus dem Nostr-Schlüssel zeigte nur einen Fingerabdruck und war nicht einlösbar
 swap-privacy.ts|addressFingerprint|gehört zu deriveSwapAddress (abgelöst in 4.9c)
-raum-gruppe.ts|gruppenRaum|private Räume als MLS-Gruppen: Baustein und Engine-Test da, Oberfläche folgt (2.3b)
-raum-gruppe.ts|raumDefinition|private Räume als MLS-Gruppen: Baustein und Engine-Test da, Oberfläche folgt (2.3b)
-raum-gruppe.ts|raumLoeschung|private Räume als MLS-Gruppen: Baustein und Engine-Test da, Oberfläche folgt (2.3b)
-raum-gruppe.ts|raumNachricht|private Räume als MLS-Gruppen: Baustein und Engine-Test da, Oberfläche folgt (2.3b)
-raum-gruppe.ts|raumRollen|private Räume als MLS-Gruppen: Baustein und Engine-Test da, Oberfläche folgt (2.3b)
-raum-gruppe.ts|raumZuweisung|private Räume als MLS-Gruppen: Baustein und Engine-Test da, Oberfläche folgt (2.3b)
+raum-gruppe.ts|raumLoeschung|Löschen in privaten Räumen: Baustein und Engine-Test da, Moderation in der Oberfläche folgt (2.3c mit 8.5)

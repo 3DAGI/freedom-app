@@ -248,6 +248,37 @@ export class MlsKonto {
         }
     }
     /**
+     * Name der Gruppe (Marmot-Profil) – Räume (2.3b) tragen einen, 1:1-Gruppen nicht.
+     * @param {string} gruppe_id
+     * @returns {string}
+     */
+    name(gruppe_id) {
+        let deferred3_0;
+        let deferred3_1;
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            const ptr0 = passStringToWasm0(gruppe_id, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+            const len0 = WASM_VECTOR_LEN;
+            wasm.mlskonto_name(retptr, this.__wbg_ptr, ptr0, len0);
+            var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+            var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+            var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
+            var r3 = getDataViewMemory0().getInt32(retptr + 4 * 3, true);
+            var ptr2 = r0;
+            var len2 = r1;
+            if (r3) {
+                ptr2 = 0; len2 = 0;
+                throw takeObject(r2);
+            }
+            deferred3_0 = ptr2;
+            deferred3_1 = len2;
+            return getStringFromWasm0(ptr2, len2);
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+            wasm.__wbindgen_export5(deferred3_0, deferred3_1, 1);
+        }
+    }
+    /**
      * `identitaet`: eigener öffentlicher Schlüssel (hex); `beweis`, `signer`:
      * siehe Modulbeschreibung; `zustand`: Bytes aus `zustand()` oder leer.
      * @param {string} identitaet
@@ -521,7 +552,7 @@ function __wbg_get_imports() {
                     const a = state0.a;
                     state0.a = 0;
                     try {
-                        return __wasm_bindgen_func_elem_26006(a, state0.b, arg0, arg1);
+                        return __wasm_bindgen_func_elem_26016(a, state0.b, arg0, arg1);
                     } finally {
                         state0.a = a;
                     }
@@ -627,12 +658,12 @@ function __wbg_get_imports() {
         },
         __wbindgen_generic_0000000000000001: function(arg0, arg1) {
             // Cast intrinsic for `Closure(Closure { owned: true, function: Function { arguments: [Externref], shim_idx: 2066, ret: Result(Unit), inner_ret: Some(Result(Unit)) }, mutable: true }) -> Externref`.
-            const ret = makeMutClosure(arg0, arg1, __wasm_bindgen_func_elem_26004);
+            const ret = makeMutClosure(arg0, arg1, __wasm_bindgen_func_elem_26014);
             return addHeapObject(ret);
         },
         __wbindgen_generic_0000000000000002: function(arg0, arg1) {
             // Cast intrinsic for `Closure(Closure { owned: true, function: Function { arguments: [], shim_idx: 1660, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
-            const ret = makeMutClosure(arg0, arg1, __wasm_bindgen_func_elem_19753);
+            const ret = makeMutClosure(arg0, arg1, __wasm_bindgen_func_elem_19763);
             return addHeapObject(ret);
         },
         __wbindgen_generic_0000000000000003: function(arg0) {
@@ -664,18 +695,18 @@ function __wbg_get_imports() {
     };
 }
 
-function __wasm_bindgen_func_elem_19753(arg0, arg1) {
-    wasm.__wasm_bindgen_func_elem_19753(arg0, arg1);
+function __wasm_bindgen_func_elem_19763(arg0, arg1) {
+    wasm.__wasm_bindgen_func_elem_19763(arg0, arg1);
 }
 
-function __wasm_bindgen_func_elem_26006(arg0, arg1, arg2, arg3) {
-    wasm.__wasm_bindgen_func_elem_26006(arg0, arg1, addHeapObject(arg2), addHeapObject(arg3));
+function __wasm_bindgen_func_elem_26016(arg0, arg1, arg2, arg3) {
+    wasm.__wasm_bindgen_func_elem_26016(arg0, arg1, addHeapObject(arg2), addHeapObject(arg3));
 }
 
-function __wasm_bindgen_func_elem_26004(arg0, arg1, arg2) {
+function __wasm_bindgen_func_elem_26014(arg0, arg1, arg2) {
     try {
         const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
-        wasm.__wasm_bindgen_func_elem_26004(retptr, arg0, arg1, addHeapObject(arg2));
+        wasm.__wasm_bindgen_func_elem_26014(retptr, arg0, arg1, addHeapObject(arg2));
         var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
         var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
         if (r1) {

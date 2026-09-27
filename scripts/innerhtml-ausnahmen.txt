@@ -22,7 +22,6 @@ settings.ts|cls|feste Klassennamen ok/warn/err
 earn.ts|(Zuweisung) o.contributors.slice(0, 15).map((c) => `<div class="usage-row"><span>${escapeHtml(pkShort(c.pubkey))}</span>` + `<span>$|Callback: Template mit escapeHtml(pkShort(c.pubkey)); Zahlen siehe folgende Zeilen
 earn.ts|c.activeDays|lokal gezählt in buildRepoOverview() (git-contributors.ts)
 earn.ts|c.contributions|lokal gezählt in buildRepoOverview() (git-contributors.ts: e.c.length)
-kommunikation.ts|(Zuweisung) ids.map((id) => { const kurz = id.slice(0, 2).toUpperCase(); return `<button class="space-pill" data-space="${escapeHtml|Callback: Template mit escapeHtml(id) und escapeHtml(kurz); aria-current ist ein Vergleich
 kommunikation.ts|(Zuweisung) st.space.channels.map((c) => { const b = badges.get(c.id); const marke = b?.mentions ? `<span class="mention">${b.mentio|Callback: Template mit escapeHtml(c.id) und escapeHtml(c.name); marke/schloss siehe folgende Zeilen
 kommunikation.ts|b.mentions|lokal gezählt in unreadBadges()
 kommunikation.ts|schloss|feste Zeichen: Schloss-Entity oder #

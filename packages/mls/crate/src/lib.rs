@@ -234,6 +234,9 @@ struct Nachricht {
     text: String,
     zeit: u64,
     id: String,
+    /// Id des inneren Events (NIP-01) – bei Absender und Empfängern gleich; Räume
+    /// (2.3b) verweisen damit auf Nachrichten (Antwort, Löschen).
+    inneres: String,
     /// Art des inneren Events (9 = Chat; Räume 2.3: Definition, Rollen, Moderation).
     art: u64,
     tags: Vec<Vec<String>>,
@@ -260,6 +263,9 @@ struct Veroeffentlichen {
     ausstehend: Option<String>,
     /// Einladungen (Kind 1059) an die neuen Mitglieder.
     einladungen: Vec<String>,
+    /// Id des gesendeten inneren Events (NIP-01) – dieselbe, die Empfänger als `inneres` sehen (2.3b).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    inneres: Option<String>,
 }
 
 fn ergebnis_name(o: &IngestOutcome) -> String {
@@ -306,9 +312,12 @@ impl MlsKonto {
             let r = async {
                 let gid = gruppe(&gruppe_id)?;
                 let jetzt = web_time::SystemTime::now().duration_since(web_time::UNIX_EPOCH).map_err(fehler)?.as_secs();
-                let payload = MarmotAppEvent::new(ich, jetzt, art, tags, text).encode().map_err(fehler)?;
+                let app = MarmotAppEvent::new(ich, jetzt, art, tags, text);
+                let payload = app.encode().map_err(fehler)?;
                 let res = i.engine.send(SendIntent::AppMessage { group_id: gid, payload, expected_epoch: None }).await.map_err(fehler)?;
-                veroeffentlichen(&mut i, res)
+                let mut v = veroeffentlichen_roh(&mut i, res)?;
+                v.inneres = Some(app.id);
+                json(&v)
             }
             .await;
             (i, r)
@@ -574,6 +583,11 @@ impl MlsKonto {
         self.lies(|i| Ok(i.engine.admin_pubkeys(&gruppe(&gruppe_id)?).map_err(fehler)?.iter().map(hex::encode).collect()))
     }
 
+    /// Name der Gruppe (Marmot-Profil) – Räume (2.3b) tragen einen, 1:1-Gruppen nicht.
+    pub fn name(&self, gruppe_id: String) -> Result<String, JsValue> {
+        self.lies(|i| Ok(i.engine.group_record(&gruppe(&gruppe_id)?).map_err(fehler)?.name))
+    }
+
     /// Alle Gruppen dieses Kontos.
     pub fn gruppen(&self) -> Result<Vec<String>, JsValue> {
         self.lies(|i| Ok(i.engine.live_group_ids().map_err(fehler)?.iter().map(|g| hex::encode(g.as_slice())).collect()))
@@ -600,7 +614,7 @@ struct Routing {
 }
 
 fn veroeffentlichen_roh(i: &mut Innen, res: SendResult) -> Result<Veroeffentlichen, JsValue> {
-    let mut v = Veroeffentlichen { events: vec![], ausstehend: None, einladungen: vec![] };
+    let mut v = Veroeffentlichen { events: vec![], ausstehend: None, einladungen: vec![], inneres: None };
     match res {
         SendResult::ApplicationMessage { msg, .. } | SendResult::Proposal { msg } => v.events.push(als_event(&msg)?),
         SendResult::GroupEvolution { msg, welcomes, pending } => {
@@ -635,6 +649,7 @@ fn sammle(i: &mut Innen, e: &mut Ergebnis) {
                         text: app.content,
                         zeit: app.created_at,
                         id: hex::encode(message_id.as_slice()),
+                        inneres: app.id,
                         art: app.kind,
                         tags: app.tags,
                         admin: authority.map(|a| a.moderation_grant),

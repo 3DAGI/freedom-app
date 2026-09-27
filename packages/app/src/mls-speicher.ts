@@ -93,7 +93,14 @@ export interface VerlaufEintrag {
   von: string;
   text: string;
   zeit: number;
+  /** Räume (2.3b): Id des inneren Events (bei allen gleich), Art (fehlt = Chat, 9), Tags, von MLS belegter Admin-Stand. */
+  inneres?: string;
+  art?: number;
+  tags?: string[][];
+  admin?: boolean;
 }
+
+const istChat = (e: VerlaufEintrag) => (e.art ?? 9) === 9;
 
 export const VERLAUF_MAX = 1000;
 
@@ -121,12 +128,20 @@ export class MlsVerlauf {
     return [...(this.#gruppen[gruppe] ?? [])];
   }
 
-  /** Neue Nachrichten aufnehmen (je Id einmal, nach Zeit); wie viele neu waren. */
+  /**
+   * Neue Nachrichten aufnehmen (je Id einmal, nach Zeit); wie viele neu waren.
+   * Die Grenze gilt für Chat und Steuer-Events (Kanäle, Rollen – 2.3b) je für
+   * sich: Viele Nachrichten verdrängen nie die Definition eines Raums.
+   */
   nimmAuf(gruppe: string, neu: readonly VerlaufEintrag[]): number {
     const alt = this.#gruppen[gruppe] ?? [];
     const ids = new Set(alt.map((e) => e.id));
     const dazu = neu.filter((e) => !ids.has(e.id) && ids.add(e.id));
-    if (dazu.length > 0) this.#gruppen[gruppe] = [...alt, ...dazu].sort((a, b) => a.zeit - b.zeit).slice(-VERLAUF_MAX);
+    if (dazu.length > 0) {
+      const alle = [...alt, ...dazu].sort((a, b) => a.zeit - b.zeit);
+      const behalten = new Set([...alle.filter(istChat).slice(-VERLAUF_MAX), ...alle.filter((e) => !istChat(e)).slice(-VERLAUF_MAX)]);
+      this.#gruppen[gruppe] = alle.filter((e) => behalten.has(e));
+    }
     return dazu.length;
   }
 

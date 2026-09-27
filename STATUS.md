@@ -6382,3 +6382,71 @@ ohne Netz) · app 425 · mls 13 (+2) · Leak-Tests 54 grün + 2 todo · 0 rot ·
 check-wiring `--streng` Exit 0 (6 neue Ausnahmen „2.3b“) · innerHTML streng 0
 unbewertet · Website 5 Seiten ok · Smoke-Test bestanden · `bauen.sh
 --pruefen` vor der Änderung bitgleich, danach `dist/` neu gebaut.
+
+## Schritt 2.3b – Private Räume in der App, öffentlich nur ausdrücklich
+
+**Vorher:** Räume waren offen (Kind 42 mit Kanal-Tags): Jeder konnte mitlesen,
+auch ohne die App. Die Aussage „Räume sind Ende-zu-Ende-verschlüsselt“ stand
+als Lücke im Bericht, der Leak-Test als `todo`.
+
+**Jetzt** (`shell/raum-mls.ts`, `tabs/kommunikation.ts`):
+- „Raum anlegen (privat)“ gründet eine MLS-Gruppe nur mit mir (mit Namen),
+  dann Kanäle und Rollen als innere Events. MLS gibt es nur mit Tresor –
+  ohne ihn sagt die App das.
+- „öffentlichen Raum anlegen“ ist ein eigener Knopf mit Warnung; über offenen
+  Räumen steht sichtbar „Öffentlicher Raum – jeder kann mitlesen …“.
+- „einladen“ (nur Moderatoren): Kontakt wählen, KeyPackage suchen, Einladung
+  versiegelt an seinen Posteingang; danach den Raumstand (Definition, Rollen,
+  Zuweisungen) erneut – Neue lesen nichts von vor ihrem Eintritt.
+- Eine Einladung in eine benannte Gruppe wird ein Raum in der Raumleiste –
+  auch zu zweit. Vorher wäre ein Raum zu zweit als 1:1-Chat gebucht worden und
+  hätte die Unterhaltung mit dem Einladenden ersetzt (in der Browser-Prüfung
+  gefunden). Die Crate kann dafür den Gruppennamen lesen (`name()`).
+- Öffnen gleicht die Gruppe ab und baut den Raum über `gruppenRaum()`; ein
+  offener privater Raum wird alle 30 s abgeglichen. Senden verschlüsselt in
+  die Gruppe, das Eigene gleich in den Verlauf.
+- Moderatoren ernennen: per Commit (`setzeModeratoren` → `adminsSetzen`), nie
+  als öffentliches Event. Der alte Moderationsknopf erscheint in privaten
+  Räumen nicht – er schriebe öffentliche Sperr-Events (Löschen und Entfernen
+  über MLS folgen in 2.3c).
+- Die Liste privater Räume liegt nur im Tresor (`freedom.raeume.privat`), nie
+  in `freedom.spaces`; Raumnamen nur als `textContent` (die Raumleiste baut
+  jetzt ohne `innerHTML`).
+
+**MLS-Baustein** (klein, Code von Spur A): die Id des inneren Events
+(`inneres`) beim Empfang und beim Senden – bei allen gleich, damit Antworten
+und Löschen dieselbe Nachricht meinen (die MLS-Nachrichten-Id kennt der
+Absender nicht); `name(gruppe)`. Der Verlauf nimmt alle Arten auf, der
+1:1-Chat zeigt und zählt nur Chat; Steuer-Events (Kanäle, Rollen) verdrängt
+die Grenze von 1000 Nachrichten nicht.
+
+**Datenschutz:** Aussage „raeume“ jetzt belegt (Regel „mls-gruppe“, Szenario
+mit der echten Engine); öffentliche Räume und Communities stehen in der
+Aussage als das, was sie sind. Leak-Test „Privater Raum“: nur Kind 445 und
+Umschläge, weder Text noch Name noch Kanal.
+
+**Website:** FAQ (Räume standardmäßig privat; über Funk gehen Räume weiter
+nicht), Whitepaper (Abschnitt Räume), Roadmap (Entscheidung „Verschlüsselte
+Kanäle“).
+
+**Browser-Prüfung** (zwei Nutzer, gemeinsames Test-Relay, Tresor):
+- A legt einen privaten Raum an und lädt B ein. B bekommt die Einladung beim
+  Abgleich des Posteingangs, sieht den Namen „Werkstatt E2E“ und die Kanäle
+  und liest A's Nachricht. B antwortet, A liest die Antwort.
+- B sieht A als Moderator und sich selbst („du“); „einladen“ sieht B nicht.
+- Auf den Relays kein Klartext (Text, Raumname, Kanäle); nur Kinds 445, 1059,
+  10002, 10050, 30443; keine 445-Nachricht von einer Identität.
+- Öffentlicher Raum: erst die Warnung, dann Hinweis über dem Raum sichtbar;
+  er liegt, wie angekündigt, offen auf den Relays (34700).
+
+**Tests:** app +5 (Raum-Grundfunktionen mit der echten Engine inkl. Raum zu
+zweit; Verdrahtung: Tresor-Liste, Einladung → Raum, Raumstand nach dem
+Einladen, Moderatoren per Commit, Hinweis und `textContent`); Leak +1 (aus
+`todo`); Szenario „raeume“. Zwei bestehende Tests an die neue Bedeutung
+angepasst (Einladung in eine Gruppe zu mehreren: statt `null` jetzt
+`partner: null`, also ein Raum) – ihre Prüfungen sind dabei genauer geworden.
+
+Endstand: protocol 1161 (+ 6 übersprungen) · node 239 (+ 7 übersprungen ohne
+Netz) · app 430 (+5) · mls 13 · Leak-Tests 55 grün + 1 todo · 0 rot ·
+check-wiring `--streng` Exit 0 · innerHTML streng 0 unbewertet · Website 5
+Seiten ok · Smoke-Test bestanden · `bauen.sh --pruefen` bitgleich.
