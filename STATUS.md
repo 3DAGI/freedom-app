@@ -8038,3 +8038,11 @@ keiner Datei des Codes. Die Tabelle der offenen Stellen
 - Ältere Tests suchen die neue Stelle (nicht schwächer):
   - `local-tools`: „verfügbar“ mit Umlaut;
   - `mls-verdrahtung`: `return t("bau.mlsTresor")`.
+
+Endstand: protocol 1064 (6 übersprungen) · node 225 (7 übersprungen ohne
+Netz) · app 482 (+1) · mls 13 · Leak-Tests 57 grün + 1 todo · 0 rot ·
+check-wiring `--streng` Exit 0 · innerHTML streng 0 unbewertet · Website 5
+Seiten ok · Smoke-Test bestanden · im Browser: Settings in Englisch und
+Deutsch – Weg ans Funkgerät (folgt dem Sprachwechsel), MLS-Selbsttest
+„passed“/„bestanden“ – ohne Seitenfehler; der Text des Datenschutzberichts
+ist noch deutsch (8.16g2b).
