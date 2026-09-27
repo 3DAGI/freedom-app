@@ -68,16 +68,18 @@ test("Privater Raum (2.3b): kein Klartext – weder Text noch Name noch Kanal; n
 
 test("Verdrahtung: private Räume sind der Standard und senden über MLS; offene wie das Szenario", () => {
   const kom = readFileSync(new URL("../../src/shell/tabs/kommunikation.ts", import.meta.url), "utf8");
+  // Der Raum-Teil steht seit C.2a wörtlich in raeume.ts; Communities bleiben in kommunikation.ts
+  const raeume = readFileSync(new URL("../../src/shell/tabs/raeume.ts", import.meta.url), "utf8");
   const raum = readFileSync(new URL("../../src/shell/raum-mls.ts", import.meta.url), "utf8");
   assert.match(raum, /return mlsSendeEvent\(gruppe, raumNachricht\(\{ kanal, text \}\)\);/);
-  assert.match(kom, /if \(spacesUi\.privat\) \{\s*\/\/ Privat \(2\.3b\)[^\n]*\n\s*if \(await sendePrivat\(spacesUi\.privat\.gruppe, spacesUi\.channelId, text\)/);
-  assert.match(kom, /async function legeRaumAn\(oeffentlich = false\)/);
-  assert.match(kom, /create\.onclick = \(\) => void legeRaumAn\(\);/, "der Knopf „Raum anlegen“ legt privat an");
-  assert.match(kom, /if \(oeffentlich && !confirm\(t\("komm\.oeffentlichWarnung"\)\)\) return;/);
+  assert.match(raeume, /if \(spacesUi\.privat\) \{\s*\/\/ Privat \(2\.3b\)[^\n]*\n\s*if \(await sendePrivat\(spacesUi\.privat\.gruppe, spacesUi\.channelId, text\)/);
+  assert.match(raeume, /async function legeRaumAn\(oeffentlich = false\)/);
+  assert.match(raeume, /create\.onclick = \(\) => void legeRaumAn\(\);/, "der Knopf „Raum anlegen“ legt privat an");
+  assert.match(raeume, /if \(oeffentlich && !confirm\(t\("komm\.oeffentlichWarnung"\)\)\) return;/);
   // Offene Räume und Communities wie im Szenario oben
-  assert.match(kom, /signiere\(buildChannelMessage\(\{\s*authorPubkey: state\.keypair\.pk, spaceId: spacesUi\.spaceId,\s*channelId: spacesUi\.channelId, content: text,/);
+  assert.match(raeume, /signiere\(buildChannelMessage\(\{\s*authorPubkey: state\.keypair\.pk, spaceId: spacesUi\.spaceId,\s*channelId: spacesUi\.channelId, content: text,/);
   assert.match(kom, /signiere\(buildEvent\(state\.keypair\.pk, 42, \[\["h", c\.id\], \.\.\.imeta\], text\)\)/);
   // Private Räume moderieren nie mit öffentlichen Sperr-Events; Meldungen nur versiegelt (8.5)
-  assert.match(kom, /const modKnopf = darfModerieren && !spacesUi\.privat && /);
+  assert.match(raeume, /const modKnopf = darfModerieren && !spacesUi\.privat && /);
   assert.match(raum, /const wraps = await baueRaumMeldung\(/);
 });

@@ -20,7 +20,7 @@ vollständig fertig. Ausführlich: `docs/ausbau/UEBERSICHT.md`.
 |---|---|
 | `packages/protocol` | Protokollbausteine (TypeScript), Tests in `test/` |
 | `packages/node` | Provider-Knoten (TypeScript), Tests in `test/` |
-| `packages/app` | Web-App; `src/shell/app.ts` (Einstieg: `boot()`, `switchTab()`, Identität, Onboarding), `state.ts` (Zustand, Pools), `ui.ts` (Hilfsfunktionen), `datenschutz.ts` (Bericht), `tresor.ts` (Tresor-Dialoge; Krypto in `src/vault.ts`), `bunker.ts` (Anmelden per NIP-46), `tabs/` (je Tab ein Modul: `kommunikation.ts`, `agent.ts` + `agent-netz.ts`, `waehrung.ts`, `earn.ts`, `profil.ts`, `settings.ts`); Build → `dist/freedom.html` |
+| `packages/app` | Web-App; `src/shell/app.ts` (Einstieg: `boot()`, `switchTab()`, Identität, Onboarding), `state.ts` (Zustand, Pools), `ui.ts` (Hilfsfunktionen), `datenschutz.ts` (Bericht), `tresor.ts` (Tresor-Dialoge; Krypto in `src/vault.ts`), `bunker.ts` (Anmelden per NIP-46), `tabs/` (je Tab ein Modul: `kommunikation.ts` + `raeume.ts`, `agent.ts` + `agent-netz.ts`, `waehrung.ts`, `earn.ts`, `profil.ts`, `settings.ts`); Build → `dist/freedom.html` |
 | `packages/website` | Startseite, Whitepaper, FAQ, Roadmap, Dashboard |
 | `contracts/solana-htlc` | Anchor-Programm (Rust) für Swaps und Deposits |
 | `scripts/` | Build, Prüfungen, `smoke_test.py`, `check_innerhtml.py` |
@@ -44,9 +44,9 @@ bash packages/mls/bauen.sh --pruefen                     # nur bei Änderungen a
 bash contracts/solana-channel/pruefen.sh --werkzeuge     # nur bei Änderungen am Zahlkanal: bauen + Tests gegen Validator (Agave 3.1.10)
 ```
 
-Stand 27.09.2026 (nach 4.3d2, 8.16g2b1 und C.1b): protocol 1067 grün (6 übersprungen), node 235 grün
+Stand 27.09.2026 (nach 4.3d2, 8.16g2b1 und C.2a): protocol 1067 grün (6 übersprungen), node 235 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 504 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 58 grün + 1 `todo` (heutige Lecks,
+in `tools.test.ts`), app 505 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 58 grün + 1 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
 Ausnahme: gesendete SOL-Zahlungen von frischen Adressen, eine bewusste Grenze
 nach Entscheidung 4.9 A – im Datenschutzbericht unter „Bewusste Grenzen“).

@@ -8512,3 +8512,43 @@ check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 · Website 5 Seiten
 ok · Smoke-Test bestanden (mit „rahmen“) · im Browser: alle 16 Ansichten in
 Desktop und Mobil per `scripts/screenshots.py` durchgesehen, ohne
 Seitenfehler.
+
+## Schritt C.2a – Oberfläche: Räume in eigene Datei
+
+**Fertig:** Reines Verschieben (E7). Der Raum-Teil aus
+`shell/tabs/kommunikation.ts` steht jetzt in `shell/tabs/raeume.ts`: offene und
+private Räume, Leiste, Kanäle, Verlauf, Mitglieder, Moderation, Meldungen,
+Anlegen, Beitreten, Einladen – bisher Zeilen 34–647.
+`kommunikation.ts` hat noch 1.036 statt 1.659 Zeilen.
+
+**Einzelheiten:**
+- **Wörtlich:** Ein Vergleich Zeichen für Zeichen bestätigt, dass Raum-Teil und
+  Rest unverändert sind. Einzige Ausnahme: `kontaktName` ist jetzt exportiert,
+  weil die Einladung in eine MLS-Gruppe (Rest) es braucht.
+- **Importe:** Nur die Namen, die jetzt allein der Raum-Teil braucht, sind aus
+  `kommunikation.ts` herausgenommen. Sonst ist dort nichts umformatiert.
+  - `raeume.ts` holt `conversations` aus `kommunikation.ts`;
+    `kommunikation.ts` holt `kontaktName` und `zeigeRaumLeiste` aus
+    `raeume.ts`.
+  - Das ist ein Kreis, aber nur in Funktionsrümpfen genutzt – für ES-Module
+    und esbuild unkritisch.
+  - `app.ts` holt `wireSpacesTab` und `zeigeRaumLeiste` aus `raeume.ts`.
+- **`scripts/innerhtml-ausnahmen.txt`:** Die neun Stellen des Raum-Teils stehen
+  unter `raeume.ts`, mit denselben Begründungen.
+- **Tests, die Raum-Code im Quelltext suchen,** lesen jetzt `raeume.ts`: in
+  `raeume-privat`, `i18n` (Uhrzeit im Raum, Gebietsschema, Einladungstext),
+  `versand` (Abruftakt der Räume) und `leak/raum`. Die Prüfungen sind gleich
+  streng; wo es um die ganze Kommunikation geht (kein `"de-DE"`, 0 roher Text),
+  prüfen sie beide Dateien.
+- **`dialog.ts`** rückt nach C.2b, wo er zum ersten Mal benutzt wird – sonst
+  wäre er in C.2a nicht verdrahtet (Definition of Done 1).
+- **CLAUDE.md:** `raeume.ts` im Aufbau.
+
+**Tests:** +1 in `raeume-privat.test.ts`: Die Raum-Funktionen stehen in
+`raeume.ts` und nicht mehr in `kommunikation.ts`; `app.ts` und
+`kommunikation.ts` holen sie von dort.
+
+Endstand: protocol 1067 (6 übersprungen) · node 235 (6 übersprungen, mit
+Netz) · app 505 (+1) · mls 13 · Leak-Tests 58 grün + 1 todo · 0 rot ·
+check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 · Website 5 Seiten
+ok · Smoke-Test bestanden (mit „rahmen“).
