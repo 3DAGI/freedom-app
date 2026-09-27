@@ -11,7 +11,7 @@ import { ed25519 } from "@noble/curves/ed25519.js";
 import { sha256 } from "@noble/hashes/sha2.js";
 import {
   GUTSCHRIFT_LAENGE, GUTSCHRIFT_PRAEFIX, KANAL_KONTO_BYTES, KANAL_PROGRAMM_ID,
-  erstatteKanalIx, gutschriftNachricht, kanalAdresse, leseKanal, neuerSitzungsSchluessel, oeffneKanalIx,
+  erstatteKanalIx, gutschriftNachricht, gutschriftTags, kanalAdresse, leseGutschriftTags, leseKanal, neuerSitzungsSchluessel, oeffneKanalIx,
   pruefeGutschrift, pruefeKanalEmpfaenger, rechneKanalAbIxs, signiereGutschrift, stockeKanalAufIx, teileKanalZahlung,
   type KanalStand,
 } from "../src/channel.js";
@@ -164,4 +164,18 @@ test("Aufteilung: abgerundet je Empfänger, Rest an den Provider – auf den Lam
   assert.deepEqual(r.anteile, [24n, 14n, 9n]);
   assert.equal(r.providerLamports + r.anteile.reduce((x, y) => x + y, 0n), 999n);
   assert.deepEqual(teileKanalZahlung(5n, []), { providerLamports: 5n, anteile: [] });
+});
+
+test("Transport: Gutschrift als Tags im Kern der Anfrage und zurück; kaputte Form wirft", () => {
+  const s = neuerSitzungsSchluessel();
+  const kanal = kanalAdresse(kunde, provider, 4n).adresse;
+  const g = signiereGutschrift(s.geheim, kanal, 12_345n, ABLAUF);
+  const tags = gutschriftTags(g);
+  assert.deepEqual(tags, [["kanal", kanal], ["gutschrift", "12345", String(ABLAUF), g.signatur]]);
+  assert.deepEqual(leseGutschriftTags([["i", "frage"], ...tags]), g);
+  assert.equal(leseGutschriftTags([["i", "frage"]]), undefined, "ohne Kanal keine Gutschrift");
+  assert.throws(() => leseGutschriftTags([["kanal", kanal]]), /Form/);
+  assert.throws(() => leseGutschriftTags([["kanal", kanal], ["gutschrift", "-5", "1", g.signatur]]), /Form/);
+  assert.throws(() => leseGutschriftTags([["kanal", kanal], ["gutschrift", "5", "1", "abc"]]), /Form/);
+  assert.throws(() => leseGutschriftTags([["kanal", "kein-schluessel"], ["gutschrift", "5", "1", g.signatur]]));
 });

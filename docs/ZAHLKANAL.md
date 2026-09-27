@@ -85,6 +85,19 @@ expiry                      i64 little-endian, wie im Konto
 - Der Kunde schickt Gutschriften nur versiegelt mit der Anfrage (wie jede
   KI-Nachricht seit 3.1).
 
+## Transport und Vorauszahlung
+
+Die Gutschrift reist im versiegelten Kern der Anfrage (wie jede KI-Nachricht
+seit 3.1), als Tags `["kanal", <Adresse>]` und
+`["gutschrift", <Betrag>, <Ablauf>, <Signatur hex>]` (`gutschriftTags()`).
+
+**Vorauszahlung bis zum Gebot:** Die Gutschrift einer Anfrage muss decken, was
+der Provider schon abgerechnet hat, plus das Gebot dieser Anfrage in Lamports.
+Der Kunde signiert also `max(letzte Gutschrift, abgerechnet + Gebot)`. Der
+Provider arbeitet so nie ungedeckt; der Kunde riskiert höchstens den
+Unterschied zwischen Gebot und Preis seines letzten Auftrags – denn eingelöst
+wird die höchste Gutschrift. Ein knappes Gebot hält diesen Rest klein.
+
 ## Aufteilung beim Einlösen
 
 `auszahlbar` wird so geteilt (ganzzahlig, abgerundet):
