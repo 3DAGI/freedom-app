@@ -524,6 +524,9 @@ function setupLangMenu(): void {
         localStorage.setItem("freedom.lang", code);
         document.documentElement.lang = code;
         applyI18n();
+        // Was der Code zeichnet (Listen, Hinweise), folgt beim Neuzeichnen des offenen Tabs (8.16b)
+        const offen = document.querySelector<HTMLElement>(".app-nav button.active")?.dataset.tab;
+        if (offen) switchTab(offen);
         pairs.forEach(({ btnId, menuId }) => {
           const m2 = $(menuId);
           if (m2) renderMenu(m2);

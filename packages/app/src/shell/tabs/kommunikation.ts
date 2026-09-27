@@ -28,6 +28,7 @@ import {
 } from "../raum-mls.js";
 import { geheim } from "../tresor.js";
 import { $, toast } from "../ui.js";
+import { gebietsschema } from "../../i18n.js";
 import { abrufTakt, versendeVerzoegert } from "../versand.js";
 
 // ------------------------------------------------------------- Räume
@@ -251,7 +252,7 @@ async function oeffneKanal(channelId: string): Promise<void> {
           return `<div class="msg-group">
             <div class="msg-meta">
               <span class="msg-author">${escapeHtml(pkShort(m.authorPubkey))}</span>
-              <span class="msg-time">${escapeHtml(new Date(m.createdAt * 1000).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" }))}</span>
+              <span class="msg-time">${escapeHtml(new Date(m.createdAt * 1000).toLocaleTimeString(gebietsschema(), { hour: "2-digit", minute: "2-digit" }))}</span>
             </div>
             <div class="msg-text">${escapeHtml(m.content)}</div>${antworten}${modKnopf}${raumKnopf}</div>`;
         }).join("");

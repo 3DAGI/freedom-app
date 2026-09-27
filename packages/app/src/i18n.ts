@@ -41,6 +41,9 @@ export function t(key: string, werte?: Record<string, string | number>): string 
   return werte ? s.replace(/\{(\w+)\}/g, (m, n: string) => (n in werte ? String(werte[n]) : m)) : s;
 }
 
+/** Gebietsschema für Zahlen und Daten in der aktuellen Sprache. */
+export const gebietsschema = (): string => (current === "de" ? "de-DE" : "en-US");
+
 /** Browser-Sprache: Deutsch, wenn der Browser Deutsch bevorzugt, sonst Englisch. */
 export function detectLang(sprache: string = typeof navigator !== "undefined" ? navigator.language : "en"): Lang {
   return sprache.toLowerCase().startsWith("de") ? "de" : "en";

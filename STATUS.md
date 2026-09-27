@@ -7272,3 +7272,47 @@ Teilschritten (Karte `phase-8.md`); dies ist der erste.
   - deutscher Browser → „Kommunikation“, „Guthaben“;
   - englischer Browser → „Chat“, „Balance“;
   - gespeichertes „fr“ → Englisch, gespeichertes „de“ → Deutsch.
+
+## Schritt 8.16b – Übersetzungen: Zählung im Code
+
+Grundlage für die Übersetzung der Texte, die der Code zeichnet.
+
+**Rohtext im Code** (`app/test/i18n-rohtext.ts`, `rohtexteImCode()`):
+- Die Suche liest String-Literale samt verschachtelter Vorlagen (`${…}`).
+- Als Text zählt: zwei Wörter, ein Umlaut, ein großgeschriebenes Wort,
+  Text mit „…“; in HTML-Vorlagen der Text zwischen den Tags und
+  `title`/`placeholder`/`aria-label`.
+- Nicht gezählt werden:
+  - Selektoren, Speicher-Schlüssel, Imports, Konsole;
+  - Klassennamen, Tastennamen, HTTP-Kopfzeilen;
+  - Zeilen mit `// kein UI-Text` (Daten, die so gesendet oder gespeichert
+    werden).
+- Negativprobe im Test.
+
+**Tabelle** (`app/test/i18n-offen.ts`):
+- `OFFEN_HTML` je Bereich und `OFFEN_CODE` je Datei, relativ zu `src/`.
+- Eine Datei, die dort fehlt, muss 0 haben – auch jede neue, auch von Spur A.
+- Offene Zahlen dürfen nur sinken; eine gestrichene Datei meldet der Test.
+
+**Messung:** 1.069 Texte in 68 Dateien plus 308 in `index.html` – rund
+1.300 statt der geschätzten 400–500. Mit der Grenze von etwa 400 geänderten
+Zeilen je Schritt werden es etwa zwölf Teilschritte (a–l, Karte
+`phase-8.md`) statt sechs.
+
+**Dazu:**
+- `gebietsschema()` (`i18n.ts`): `de-DE` bzw. `en-US` für Zahlen und Daten –
+  die Teilschritte ersetzen damit das feste `"de-DE"`.
+- Ein Sprachwechsel zeichnet den offenen Tab neu (`switchTab()`), damit auch
+  vom Code gezeichnete Texte folgen.
+
+**Tests** (`i18n.test.ts`, +3):
+- Suche im Code (Probe mit 15 Zeilen).
+- Zählung im Code je Datei.
+- `gebietsschema()` und Neuzeichnen beim Sprachwechsel.
+- Verdrahtet: die Uhrzeit der Raumnachrichten (`tabs/kommunikation.ts`) nutzt
+  schon `gebietsschema()`.
+
+Endstand: protocol 1178 (6 übersprungen) · node 227 (7 übersprungen ohne
+Netz) · app 472 (+3) · mls 13 · Leak-Tests 57 grün + 1 todo · 0 rot ·
+check-wiring `--streng` Exit 0 · innerHTML streng 0 unbewertet · Website 5
+Seiten ok · Smoke-Test bestanden.
