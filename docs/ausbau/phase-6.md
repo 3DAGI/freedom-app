@@ -35,7 +35,11 @@ Relays, RPC-Anbietern und Lightning-Diensten.
 - **Abnahme:** Leak-Regel: keine Rechnung und keine Lightning-Adresse öffentlich
   neben einer Identität.
 
-## 6.4 Verkehrsmuster
+## 6.4 Verkehrsmuster – FERTIG (27.09.2026, Spur B)
+
+> Umgesetzt: Kopien einzeln mit Zufallsverzögerung (Standard bis 30 s), Abrufe
+> gebündelt im Takt mit Zufall, Bewertung in `docs/MIXNET.md`. Einzelheiten in
+> `FORTSCHRITT.md` und `STATUS.md`.
 
 - **Vorgehen:** Gift-Wraps mit zufälliger Verzögerung senden (0–30 Sekunden,
   einstellbar), Abrufe bündeln, Abfrage-Intervalle mit Zufall versehen. Mixnetz

@@ -6997,3 +6997,71 @@ Endstand (nach dem Einmergen von 5.1.3a/b): protocol 1163 (+1, 6 übersprungen) 
 node 227 (+3, 7 übersprungen ohne Netz) · app 458 (+5) · mls 13 · Leak-Tests 57 grün + 1 todo · 0 rot ·
 check-wiring `--streng` Exit 0 · innerHTML streng 0 unbewertet · Website 5
 Seiten ok · Smoke-Test bestanden.
+
+## Schritt 6.4 – Verkehrsmuster: Kopien einzeln verzögert, Abrufe im Takt
+
+Von Spur A übernommen (27.09.2026).
+
+**Vorher:** Eine Direktnachricht ging als zwei bis vier Umschläge im selben
+Augenblick hinaus (an den Empfänger, an sich selbst, an Geräte). Jeder trägt
+einen Wegwerf-Schlüssel, aber ein Relay, das Posteingang beider Seiten ist, sah
+zwei Umschläge gleichzeitig ankommen – und damit, wer mit wem schreibt.
+Abfragen liefen in festen Rastern (60 s Posteingang, 30 s Räume, 120 s Urteile),
+an denen man die App erkennt. FAQ und Whitepaper sagten dazu, Relays sähen,
+welche Schlüssel miteinander schreiben – seit NIP-17 (2.1) stimmt das nicht
+mehr, verschwiegen aber den Zeitpunkt.
+
+**Jetzt:**
+- **Protokoll `verkehr.ts`:**
+  - `sichererZufall()` aus `crypto.getRandomValues`.
+  - `zufallsVerzoegerung()` und `mitZufall()`.
+  - `AbrufTakt`: gebündelte Abrufe, je Schlag ein neuer Zufallsabstand, `jedenNten`, Fehler einzeln geschluckt.
+- **App `shell/versand.ts`:** jede Kopie mit eigener Verzögerung
+  (`versendeVerzoegert()`), Standard bis 30 s. Einstellbar in Settings →
+  Datenschutz: aus, 5 s, 30 s, 2 min.
+- **Anzeige:** Im eigenen Verlauf steht die Nachricht sofort mit „· wird
+  gesendet“, bis beide Kopien hinaus sind. Sie verschwindet aus der Liste
+  „unterwegs“, sobald die eigene Kopie vom Relay zurück ist (Abgleich über die
+  Id des inneren Events).
+- **Verlassen der Seite:** Beim Verlassen (`pagehide`, Tab versteckt) geht alles
+  Wartende sofort hinaus – lieber ein Muster als eine verlorene Nachricht.
+  Scheitert ein verzögerter Versand, sagt es ein Hinweis.
+- **Abruftakt:** etwa 30 s, 15–45 s mit Zufall. Private Räume jeden Schlag,
+  Posteingang jeden zweiten, Urteile jeden vierten.
+- **MLS** (445) bleibt sofort: ein Event je Nachricht, keine Kopien.
+- **Mixnetz:** bewertet in `docs/MIXNET.md`. Nym geht im Browser nur über einen
+  Exit, bräuchte weiteres WASM (CSP) und kostet NYM-Token – nicht jetzt. Später
+  in den nativen Apps (6.1) neben Tor prüfen. Deckverkehr nicht ohne Absprache
+  mit Relay-Betreibern.
+
+**Datenschutz:** Aussage „versand-einzeln“ belegt (neue Regel
+„kopien-entkoppelt“: zwei Umschläge innerhalb einer Sekunde sind ein Verstoß).
+Szenario: dieselbe Funktion wie die App, fester Zufall. Ohne Verzögerung
+meldet die Regel alle Kopien.
+
+**Website:** FAQ („Kann jemand sehen, mit wem ich schreibe?“) und Whitepaper
+(Grenzen: Metadaten) sagen jetzt, was verborgen ist und was bleibt.
+
+**Browser-Prüfung** (`scratchpad/verkehr_e2e.py`, zwei Nutzer, Test-Relay mit
+Ankunftszeiten):
+- Standard 30 s.
+- Die Nachricht steht sofort mit „wird gesendet“ im Verlauf; der Hinweis ist
+  danach weg.
+- Die zwei Kopien kamen 4,8 s und 16,5 s nach dem Senden an (11,7 s Abstand).
+- Bob liest die Nachricht.
+- Mit 2 min Verzögerung und verstecktem Tab gingen beide Kopien binnen 3 s
+  hinaus.
+- Keine Seitenfehler.
+
+**Tests:**
+- protocol +4: Zufallsverzögerung, Abstand, Takt, Regel.
+- app +3: Einstellung, verzögerter Versand mit Zeitgeber-Attrappe, Verdrahtung.
+- Drei Verdrahtungstests prüfen jetzt den verzögerten Versand bzw. den Abruftakt
+  statt `await veroeffentlicheDm(…)` und `setInterval(…, 60_000)`: 8.6c,
+  5.4a (Spur A), 4.9d. Ihre Absicht ist dieselbe: Kopien an die Person bzw.
+  nur an den Posteingang, Posteingang etwa jede Minute.
+
+Endstand: protocol 1167 (+4, 6 übersprungen) · node 227 (7 übersprungen ohne
+Netz) · app 461 (+3) · mls 13 · Leak-Tests 57 grün + 1 todo · 0 rot ·
+check-wiring `--streng` Exit 0 · innerHTML streng 0 unbewertet · Website 5
+Seiten ok · Smoke-Test bestanden.

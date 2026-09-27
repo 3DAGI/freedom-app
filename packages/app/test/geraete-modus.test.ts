@@ -72,7 +72,7 @@ test("8.6c: Verdrahtung – Import mit Code, Anmelden beim Start, Senden nur mit
   assert.match(state, /pool\.addRelay\(relayVerbindung\(url, \{ timeoutMs: 8000 \}\)\)/);
   const kom = src("../src/shell/tabs/kommunikation.ts");
   assert.match(kom, /if \(alsGeraet\(\) && !meine!\.includes\(state\.keypair\.pk\)\) \{\s*toast\(/);
-  assert.match(kom, /await veroeffentlicheDm\(dm\.toSelf, ich\);/);
+  assert.match(kom, /versendeVerzoegert\(\(\) => veroeffentlicheDm\(dm\.toSelf, ich\)\.then\(fertig\)\);/); // seit 6.4 je Kopie verzögert
   const settings = src("../src/shell/tabs/settings.ts");
   for (const f of ["export async function richteNachfolgeEin(", "async function bereiteWechselVor(", "async function fuegeGeraetHinzu("]) {
     const rumpf = settings.slice(settings.indexOf(f), settings.indexOf(f) + 200);
