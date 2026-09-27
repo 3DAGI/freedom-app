@@ -6712,6 +6712,115 @@ Endstand: protocol 1153 (+1) · node 209 (−31, begründet) · app 439 · mls 1
 Leak-Tests 55 grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 ·
 innerHTML streng 0 unbewertet · Website 5 Seiten ok · Smoke-Test bestanden.
 
+## Schritt 8.4a – Relay-Rolle als Posteingang: NIP-42, Zugang, NIP-11
+
+Von Spur A übernommen (27.09.2026, zusammen mit 5.4c, 6.4, 8.16 mit 0.F,
+ggf. 5.3). 8.4 geteilt (mehr als 400 Zeilen): **a** Relay als Posteingang,
+**b** Zugang kaufen in Sats oder SOL, **c** App.
+
+**Vorher:** Der Relay des Knotens nahm alles an und gab alles heraus – auch
+jeden Umschlag an jeden, der danach fragte. Ersetzbare Events (Relay-Listen,
+Posteingänge) lagen in jeder Fassung, `limit` galt nicht (bis zu 5000 der
+ältesten), flüchtige Events (NIP-46) wurden gespeichert, `expiration` nicht
+beachtet. Abos hingen nur an ihrer Id: Benutzten zwei Clients dieselbe
+(„s1“), bekam nur noch der zweite Events.
+
+**Jetzt** (`protocol/src/relay-zugang.ts`, `node/src/relay-role.ts`):
+- **NIP-42:** jede Verbindung bekommt eine Challenge; `pruefeRelayAuth()`
+  nimmt nur Kind 22242 mit gültiger Signatur, derselben Challenge, dem Host
+  dieses Relays (`RELAY_PUBLIC_URL` oder der Host der Verbindung) und einer
+  Zeit im Fenster (±10 min). Mit `RELAY_PUBLIC_URL` gilt nur deren Host,
+  nicht der Host-Kopf der Verbindung – sonst könnte ein fremder Relay unsere
+  Challenge an seinen Nutzer durchreichen und sich als Mittelsmann anmelden.
+- **Umschläge nur an Angemeldete** (`RELAY_UMSCHLAEGE_NUR_ANGEMELDET=1`,
+  beschränkt immer): Kind 1059 nur an Verbindungen, die als ein Empfänger (`p`)
+  angemeldet sind – gespeichert wie live; fragt ein Filter danach, antwortet
+  der Relay `CLOSED auth-required:`. Standard aus, bis die App sich anmeldet
+  (8.4c) – sonst läsen Nutzer ihre Post hier nicht mehr.
+- **Zugang** (`RELAY_BESCHRAENKT=1`): nur Events von Schlüsseln mit Zugang
+  oder an sie (`p`) – der Posteingang eines Zahlenden bleibt für Umschläge von
+  Wegwerf-Schlüsseln erreichbar. Zugangsbuch `~/.freedom/relay-zugang.json`
+  (verlängert ab dem laufenden Ende), dauerhaft der Betreiber und
+  `RELAY_ZUGANG`. Bezahlt wird ab 8.4b.
+- **Aufbewahrung:** ersetzbare und adressierbare Events nur in der neuesten
+  Fassung (NIP-01), flüchtige nur weitergereicht, `limit` mit den neuesten
+  zuerst, Abgelaufenes (NIP-40) weder angenommen noch ausgeliefert und alle
+  zehn Minuten entfernt, sonst nach `RELAY_RETENTION_DAYS` ab Eingang (die
+  neueste Fassung ersetzbarer Events bleibt).
+- **NIP-11** auf demselben Port (CORS offen): Schlüssel des Betreibers – für
+  5.1 (Spur A) die Zahladresse über sein Profil –, NIPs 1, 11, 40, 42, Grenzen,
+  ob beschränkt und ob Umschläge geschützt sind.
+
+**Verdrahtet:** `node/src/main.ts` (Relay-Rolle mit Zugangsbuch, Schlüssel,
+öffentlicher Adresse); `docker-compose.yml` mit den neuen Schaltern.
+
+Nebenbei: WebSocket-Nachrichten höchstens doppelt so groß wie ein Event
+(vorher bis 100 MB), Schreiben des Zugangsbuchs nacheinander.
+
+**Tests:** protocol +5 (Anmeldung mit acht Fehlfällen, Annahme mit Zugang,
+Ausliefern und Nachfragen, Aufbewahrung, NIP-11); node +9 gegen einen echten
+WebSocket (Anmeldung, Mittelsmann über den Host-Kopf, Umschläge nur an Bob – auch live, nicht an Carol,
+nicht an ein offenes Abo –, beschränkt samt Ablauf des Zugangs, Zugangsbuch
+in der Datei samt zwei Zahlungen zugleich, ersetzbar/flüchtig/limit, NIP-40 und Aufbewahrung, gleiche
+Abo-Ids, NIP-11). Die bestehenden Relay-Tests überspringen die Challenge.
+
+Endstand: protocol 1158 (+5, mit 5.1.1/5.1.2 von Spur A; 6 übersprungen) · node 217 (+9;
+5.1.2 entfernte 40, 7 übersprungen ohne Netz) · app 439 (nach dem Einmergen von 5.4b2, 5.1.1 und 5.1.2) · mls 13 · Leak-Tests 55 grün + 1 todo · 0 rot ·
+check-wiring `--streng` Exit 0 · innerHTML streng 0 unbewertet · Website 5
+Seiten ok · Smoke-Test bestanden.
+
+## Schritt 8.4b – Relay-Zugang kaufen in Sats oder SOL
+
+**Jetzt** (`node/src/relay-kasse.ts`, `POST /zugang` auf dem Relay-Port):
+- **Sats:** eine Rechnung des eigenen LND. Die Macaroon darf nur Rechnungen
+  (`pruefeRelayMacaroon()`: `invoices:read`/`write`, `info:read` erlaubt) –
+  wer den Relay übernimmt, zahlt nichts aus. Bezahlt ist erst, was der eigene
+  Knoten als beglichen meldet.
+- **SOL:** an `RELAY_SOL_ADRESSE`, mit einer Referenz nach Solana Pay
+  (`solReferenz()`, 32 Zufallsbytes als Adresse). Bezahlt ist erst, was die
+  Kette zeigt: Überweisung an den Betreiber, Betrag, Erfolg und die Referenz
+  des Angebots als Konto (`pruefeSolUeberweisung(…, { referenz })`). Eine
+  Überweisung, die zwei Referenzen nennt, löst nur ein Angebot ein
+  (eingelöste Signaturen gemerkt, auch über einen Neustart).
+- Nie in einer Schiene, die nicht eingerichtet ist („Dieser Relay nimmt kein
+  SOL“ statt still Sats); höchstens drei offene Angebote je Schlüssel.
+- Angebote werden abgelegt, bevor sie herausgehen – wer während eines
+  Neustarts zahlt, bekommt den Zugang trotzdem. Zwei Prüfungen zugleich
+  gewähren ihn genau einmal.
+- Nach außen nur feste Texte (`KasseFehler`), nie Meldungen von LND oder vom
+  RPC; ein Fehler beim Kaufen beendet den Knoten nicht.
+- NIP-11 nennt Preise je Schiene (`fees.subscription` in msat und Lamports)
+  und die Kaufadresse (`payments_url`).
+- **Events überdauern einen Neustart:** jede Minute und beim Beenden in
+  `~/.freedom/relay-events.json`, beim Laden geprüft (gefälschte Einträge
+  verworfen); über `RELAY_MAX_EVENTS` lehnt der Relay ab statt still zu
+  verdrängen.
+
+**Abnahme** (Knoten-Test, echter WebSocket, LND und Kette als Stub):
+- Ein Umschlag an Bob wird abgewiesen, solange Bob keinen Zugang hat.
+- Bob kauft mit Sats; bis zur Zahlung heißt es „Noch nicht bezahlt“.
+- Danach wird derselbe Umschlag angenommen und nur an den angemeldeten Bob
+  ausgeliefert. Alice bekommt `CLOSED auth-required`.
+
+Echte Zahlungen (Testnet-Sats, Devnet-SOL) sind MENSCH-Aufgabe.
+
+**Verdrahtet:** `node/src/main.ts` (Kasse mit LND-Rechnungen und Kette,
+`RELAY_PREIS_SATS`, `RELAY_PREIS_LAMPORTS`, `RELAY_SOL_ADRESSE`,
+`RELAY_LND_MACAROON`, `RELAY_ZUGANG_TAGE`, `RELAY_MAX_EVENTS`; Relay beim
+Beenden gestoppt, damit die Events abgelegt werden); `docker-compose.yml`.
+`LndLightningAdapter.createInvoice()` nimmt Notiz und Gültigkeit (der LP
+bleibt beim alten Text).
+
+**Tests:** protocol +3 (Relay-Macaroon, NIP-11 mit Preisen, Referenz);
+node +7 (Sats, SOL mit fünf Fehlfällen und doppelter Referenz, keine fremde
+Schiene, Neustart, gleichzeitige Prüfungen, Abnahme über den Relay, Events
+über einen Neustart samt Fälschung und vollem Relay).
+
+Endstand: protocol 1161 (+3, 6 übersprungen) · node 224 (+7, 7 übersprungen
+ohne Netz) · app 439 · mls 13 · Leak-Tests 55 grün + 1 todo · 0 rot ·
+check-wiring `--streng` Exit 0 · innerHTML streng 0 unbewertet · Website 5
+Seiten ok · Smoke-Test bestanden.
+
 ## Schritt 5.1.3a – Gebührenmodell A+: Die App zahlt
 
 **Aufteilung von 5.1.3** (mehr als 400 Zeilen): 5.1.3a die Zahlung selbst,
@@ -6777,6 +6886,6 @@ Betrag.
   `zahlbareAnteile`, `aufteilungTag` verdrahtet; ausgenommen bis 5.1.4, was die
   App nicht mehr nutzt (Client-Gebühr, Gebühren-Beleg, alte Aufteilung).
 
-Endstand: protocol 1154 (+1) · node 209 · app 447 (+8) · mls 13 ·
-Leak-Tests 57 grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 ·
+Endstand (nach Einmergen von main mit 8.4a/b): protocol 1162 (+1) · node 225 ·
+app 447 (+8) · mls 13 · Leak-Tests 57 grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 ·
 innerHTML streng 0 unbewertet · Website 5 Seiten ok · Smoke-Test bestanden.

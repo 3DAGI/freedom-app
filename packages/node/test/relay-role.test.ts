@@ -34,7 +34,9 @@ function sprich(url: string, nachrichten: unknown[], erwarte = 1, timeoutMs = 40
     const timer = setTimeout(() => { ws.close(); resolve(antworten); }, timeoutMs);
     ws.on("open", () => { for (const n of nachrichten) ws.send(JSON.stringify(n)); });
     ws.on("message", (raw) => {
-      antworten.push(JSON.parse(String(raw)) as unknown[]);
+      const m = JSON.parse(String(raw)) as unknown[];
+      if (m[0] === "AUTH") return; // NIP-42-Challenge beim Verbinden (8.4) – hier nicht gefragt
+      antworten.push(m);
       if (antworten.length >= erwarte) {
         clearTimeout(timer);
         ws.close();

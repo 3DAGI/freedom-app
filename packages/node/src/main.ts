@@ -247,11 +247,64 @@ async function main(): Promise<void> {
   const relayEnabled = process.env.RELAY_ENABLED === "1";
   let relayRole: import("./relay-role.js").RelayRole | undefined;
   if (relayEnabled) {
-    const { RelayRole } = await import("./relay-role.js");
+    const { RelayRole, RelayZugang } = await import("./relay-role.js");
+    // Zugang (8.4): RELAY_BESCHRAENKT=1 nimmt nur von und an Schluessel mit Zugang an;
+    // dauerhaft in RELAY_ZUGANG (kommagetrennt, hex), sonst aus der Datei.
+    const dauerhaft = [keypair.pk, ...(process.env.RELAY_ZUGANG ?? "").split(",").map((s) => s.trim()).filter((s) => /^[0-9a-f]{64}$/.test(s))];
+    const zugang = new RelayZugang(join(process.env.HOME ?? ".", ".freedom", "relay-zugang.json"), dauerhaft);
+    await zugang.laden();
+    // Zugang kaufen (8.4b): RELAY_PREIS_SATS je RELAY_ZUGANG_TAGE ueber eine Rechnung des eigenen LND
+    // (RELAY_LND_MACAROON: nur invoices-Rechte), RELAY_PREIS_LAMPORTS an RELAY_SOL_ADRESSE, geprueft auf der Kette.
+    const { RelayKasse } = await import("./relay-kasse.js");
+    const { LndLightningAdapter: Lnd, RpcPool, fromHex, loadMacaroonHex, pruefeRelayMacaroon, toHex } = await import("@freedomstack/protocol");
+    const preisSats = Number(process.env.RELAY_PREIS_SATS ?? 0);
+    const preisLamports = Number(process.env.RELAY_PREIS_LAMPORTS ?? 0);
+    let rechnungen: import("./relay-kasse.js").Rechnungen | undefined;
+    if (Number.isSafeInteger(preisSats) && preisSats > 0 && process.env.RELAY_LND_MACAROON) {
+      const hex = await loadMacaroonHex(process.env.RELAY_LND_MACAROON);
+      const ok = pruefeRelayMacaroon(hex);
+      if (!ok.ok) {
+        console.error(`[relay] RELAY_LND_MACAROON: ${ok.grund} – keine Sats (lncli bakemacaroon invoices:read invoices:write)`);
+      } else {
+        const ln = new Lnd({ restUrl: process.env.LND_REST ?? "https://127.0.0.1:8080", macaroonHex: hex, allowInsecureTls: process.env.LND_INSECURE_TLS === "1" });
+        rechnungen = {
+          rechnung: async (sats, notiz, gueltigSek) => {
+            const r = await ln.createInvoice(sats, { notiz, gueltigSek });
+            return { bolt11: r.bolt11, hash: toHex(r.paymentHash) };
+          },
+          bezahlt: async (hash) => (await ln.getInvoiceState(fromHex(hash))) === "SETTLED",
+        };
+      }
+    }
+    const solAdresse = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(process.env.RELAY_SOL_ADRESSE ?? "") ? process.env.RELAY_SOL_ADRESSE : undefined;
+    // Ein eigener Endpunkt allein – sonst mischte der Pool Mainnet dazu (Devnet-Tests)
+    const rpc = process.env.SOLANA_RPC_URL ? new RpcPool([{ url: process.env.SOLANA_RPC_URL }]) : new RpcPool();
+    const kasse = new RelayKasse({
+      tage: Number.isSafeInteger(Number(process.env.RELAY_ZUGANG_TAGE)) && Number(process.env.RELAY_ZUGANG_TAGE) > 0 ? Number(process.env.RELAY_ZUGANG_TAGE) : 30,
+      sats: Number.isSafeInteger(preisSats) && preisSats > 0 ? preisSats : undefined,
+      lamports: Number.isSafeInteger(preisLamports) && preisLamports > 0 ? preisLamports : undefined,
+      solAdresse,
+      rechnungen,
+      ladeTransaktion: solAdresse ? (sig) => rpc.getTransaction(sig) : undefined,
+      zugang,
+      datei: join(process.env.HOME ?? ".", ".freedom", "relay-angebote.json"),
+      jetzt: () => Math.floor(Date.now() / 1000),
+    });
+    await kasse.laden();
+    if (kasse.schienen().length > 0) console.log(`[relay] Zugang zu kaufen: ${kasse.schienen().join(", ")}`);
     relayRole = new RelayRole({
       port: Number(process.env.RELAY_PORT ?? 7777),
       retentionDays: Number(process.env.RELAY_RETENTION_DAYS ?? 30),
       maxEventBytes: Number(process.env.RELAY_MAX_EVENT_BYTES ?? 262144),
+      oeffentlicheUrl: process.env.RELAY_PUBLIC_URL,
+      pubkey: keypair.pk,
+      beschraenkt: process.env.RELAY_BESCHRAENKT === "1",
+      // Bis die App sich anmeldet (8.4c), nur auf Wunsch – sonst laesen Nutzer ihre Post hier nicht.
+      umschlaegeSchuetzen: process.env.RELAY_UMSCHLAEGE_NUR_ANGEMELDET === "1",
+      zugang,
+      kasse,
+      eventDatei: join(process.env.HOME ?? ".", ".freedom", "relay-events.json"),
+      maxEvents: Number(process.env.RELAY_MAX_EVENTS ?? 100_000),
     });
     await relayRole.start();
   }
@@ -716,6 +769,8 @@ async function main(): Promise<void> {
   }
   // Abo sauber abmelden, sonst bleibt beim Relay eine tote Subscription liegen.
   stopSubscription?.();
+  // Relay: Events ablegen (8.4b), sonst waere die Post der letzten Minute weg
+  relayRole?.stop();
   console.log("freedomstack-node beendet.");
   process.exit(0);
 }

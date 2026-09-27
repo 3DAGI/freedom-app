@@ -43,7 +43,7 @@ bash scripts/build-site.sh /tmp/site                     # Website bauen (Ziel w
 bash packages/mls/bauen.sh --pruefen                     # nur bei Änderungen an packages/mls: nachbauen + vergleichen (Rust, clang)
 ```
 
-Stand 27.09.2026 (nach 2.3c und 5.1.3a): protocol 1154 grün (6 übersprungen), node 209 grün
+Stand 27.09.2026 (nach 5.1.3a und 8.4b): protocol 1162 grün (6 übersprungen), node 225 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
 in `tools.test.ts`), app 447 grün, mls 13 grün, Leak-Tests 57 grün + 1 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
@@ -430,3 +430,14 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   `baueRaumMeldung()`: je Moderator ein Umschlag an seinen Posteingang, nie in
   die Gruppe (sonst erführen es alle Mitglieder). Beim Moderator bleiben sie nur
   im Speicher (`alsRaumMeldung()`, am Ende der Kette in `oeffneUmschlag()`).
+- **Relay-Rolle nur nach den Regeln aus `relay-zugang.ts`** (seit 8.4a):
+  annehmen über `relayNimmtAn()` (beschränkt: vom oder an einen Schlüssel mit
+  Zugang), ausliefern über `darfAusliefern()` – Umschläge (1059) nur an den
+  per NIP-42 angemeldeten Empfänger, Anmeldung nur über `pruefeRelayAuth()`.
+  Der Relay schickt beim Verbinden `["AUTH", challenge]` – Test-Clients, die
+  Antworten zählen, überspringen sie. Abos gehören zur Verbindung (gleiche
+  Ids zweier Clients überschrieben sich bis 8.4a). Zugang nur über
+  `RelayKasse` (seit 8.4b): bezahlt heißt, der eigene LND meldet die Rechnung
+  beglichen bzw. die Kette zeigt die Überweisung mit der Referenz des Angebots
+  (`pruefeSolUeberweisung(…, { referenz })`); eine Signatur löst nur ein
+  Angebot ein; nach außen nur `KasseFehler`-Texte.

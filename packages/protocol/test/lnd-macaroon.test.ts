@@ -4,7 +4,7 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { LP_RECHTE_NOETIG, macaroonRechte, pruefeLpMacaroon } from "../src/lnd-macaroon.js";
+import { LP_RECHTE_NOETIG, macaroonRechte, pruefeLpMacaroon, pruefeRelayMacaroon } from "../src/lnd-macaroon.js";
 
 /** Varint und Felder wie in LND (Macaroon v2 binaer, Kennung Version 3 + Protobuf). */
 const varint = (n: number): number[] => { const o: number[] = []; while (n >= 0x80) { o.push((n & 0x7f) | 0x80); n = Math.floor(n / 128); } o.push(n); return o; };
@@ -56,4 +56,13 @@ test("8.3: Unlesbares wird abgelehnt, nicht durchgewinkt", () => {
     assert.equal(r.ok, false, kaputt);
     assert.match((r as { grund: string }).grund, /nicht lesbar/);
   }
+});
+
+test("8.4b: Relay-Macaroon – nur Rechnungen; die LP-Macaroon (Zahlungen) ist schon zu viel", () => {
+  assert.deepEqual(pruefeRelayMacaroon(macaroon({ invoices: ["read", "write"] })), { ok: true });
+  assert.deepEqual(pruefeRelayMacaroon(macaroon({ info: ["read"], invoices: ["read", "write"] })), { ok: true });
+  assert.match((pruefeRelayMacaroon(macaroon(LP)) as { grund: string }).grund, /zu viel: offchain:read, offchain:write/);
+  assert.match((pruefeRelayMacaroon(macaroon(ADMIN)) as { grund: string }).grund, /zu viel/);
+  assert.match((pruefeRelayMacaroon(macaroon({ invoices: ["read"] })) as { grund: string }).grund, /fehlt: invoices:write/);
+  assert.match((pruefeRelayMacaroon("zz") as { grund: string }).grund, /nicht lesbar/);
 });
