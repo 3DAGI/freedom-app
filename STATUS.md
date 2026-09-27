@@ -8106,6 +8106,62 @@ Deutsch – Weg ans Funkgerät (folgt dem Sprachwechsel), MLS-Selbsttest
 „passed“/„bestanden“ – ohne Seitenfehler; der Text des Datenschutzberichts
 ist noch deutsch (8.16g2b).
 
+## Schritt 4.3c2 – Solana-Zahlkanal: im Knoten verdrahtet
+
+**Knoten (`dvm-provider.ts`):**
+- Eine Anfrage mit `["kanal", …]` und `["gutschrift", …]` wird nur
+  versiegelt angenommen, nie offen.
+- Abgelehnt wird sie in folgenden Fällen:
+  - ohne Kasse;
+  - in der Bootstrap-Phase;
+  - ohne SOL-Kurs;
+  - mit A+-Deklaration – im Kanal teilt das Programm auf, sonst würde doppelt
+    gezahlt;
+  - mit einem Gebot unter dem Mindestgebot.
+- Deckung: Gebot plus Höchstkosten der angefragten Werkzeuge in Lamports,
+  über `KanalKasse.nimmAn()`.
+- Abgerechnet wird wie beim Gebot, höchstens das Gebot plus Werkzeuge (auch
+  im Swarm-Pfad).
+- Der Preis wird in Lamports gebucht, bevor die Antwort hinausgeht.
+- `providerMsat` ist der Teil nach den Empfängern des Kanals.
+
+**Protokoll:**
+- Das Ergebnis trägt `amount_lamports` auch ohne `solana_address`, denn im
+  Kanal ist schon bezahlt.
+- Das Angebot (`tiers.ts`) nennt `["kanal", Adresse, Programm]`; fremde
+  Angaben gelten nur mit zwei gültigen Solana-Adressen.
+
+**Start (`main.ts`, `kanalKasseAusUmgebung()`):**
+- Nur mit `ZAHLKANAL=1` und einem Schlüssel aus `SOLANA_KEYPAIR`, der zu
+  `NODE_SOL_ADDRESS` passt. Sonst nähme der Knoten Gutschriften an, die er
+  nie einlösen kann.
+- Die Datei liegt unter `~/.freedom/kanaele.json`.
+- Eingelöst wird alle 5 Minuten mit Vorabsimulation, nie zwei Durchgänge
+  zugleich; ins Log kommen nur Kanal, Betrag und Fehlername.
+- Schwelle, Vorlauf und Mindestlaufzeit sind per Umgebung einstellbar.
+- `docker-compose.yml` nennt die Einstellungen.
+- Solange das Programm nicht deployt ist, gehört kein Konto dem Platzhalter,
+  also nimmt der Knoten keine Kanäle an.
+
+**Tests:**
+- node +3:
+  - Kanal-Auftrag gedeckt: Preis unter dem Gebot, Provider-Teil 488 von 500,
+    5.000 Lamports gebucht, Antwort versiegelt mit `amount_lamports`,
+    nichts offen; eine zweite Anfrage ungedeckt, danach mit höherer
+    Gutschrift wieder gedeckt.
+  - Ungedeckt, offen, ohne Kasse, mit Deklaration, Gebot zu niedrig, über
+    der Einlage, kaputte Signatur: jeweils nichts gerechnet und nichts
+    gebucht.
+  - Setup aus der Umgebung (aus, Adresse fehlt, Schlüssel fehlt, passt
+    nicht, passt) und die Verdrahtung in `main.ts`.
+- protocol +1: Angebot mit Kanal, Unsinn fällt weg.
+- Verdrahtungs-Ausnahmen `leseGutschriftTags` und `teileKanalZahlung` raus.
+
+Endstand: protocol 1066 (+1) · node 235 (+3) · app 483 · mls 13 · Zahlkanal 7
+(gegen Validator) · Leak-Tests 57 grün + 1 todo · 0 rot · check-wiring
+`--streng` Exit 0 · innerHTML streng Exit 0 · Website 5 Seiten ok ·
+Smoke-Test bestanden.
+
 ## Schritt 8.16g2b1 – Übersetzungen: Datenschutzbericht
 
 **Fertig:** Der Datenschutzbericht (Settings → Datenschutz) und die Seite

@@ -58,6 +58,12 @@ export interface ProviderCapabilities {
    * Kunden zahlt ihm 0,5 % direkt. Ohne Angabe bleibt der Anteil beim Provider.
    */
   werber?: string;
+  /**
+   * Zahlkanal (4.3c): Der Knoten nimmt Gutschriften für Kanäle an, deren
+   * Provider diese Solana-Adresse ist, beim genannten Programm. Ohne Angabe
+   * zahlt die App nicht über einen Kanal.
+   */
+  kanal?: { adresse: string; programm: string };
   /** Gueltig ab (ersetzbar via d-Tag = pubkey). */
   updatedAt: number;
 }
@@ -83,6 +89,8 @@ export function buildCapabilities(
   if (lud16) tags.push(["lud16", lud16]);
   const werber = adresseFuer({ lud16: c.werber }, "lightning");
   if (werber) tags.push(["werber", werber]);
+  const kanal = c.kanal && adresseFuer({ sol: c.kanal.adresse }, "solana") && adresseFuer({ sol: c.kanal.programm }, "solana");
+  if (kanal) tags.push(["kanal", c.kanal!.adresse, c.kanal!.programm]);
   return buildEvent(c.pubkey, KIND_PROVIDER_CAPABILITIES, tags, "", createdAt);
 }
 
@@ -127,6 +135,11 @@ export function parseCapabilities(ev: UnsignedEvent): ProviderCapabilities {
   // Zahladressen (5.1): fremde Angaben – nur plausible Lightning-Adressen
   const lud16 = adresseFuer({ lud16: getTag(ev, "lud16") }, "lightning");
   const werber = adresseFuer({ lud16: getTag(ev, "werber") }, "lightning");
+  // Zahlkanal (4.3c): fremde Angabe – nur zwei plausible Solana-Adressen
+  const kt2 = ev.tags.find((t) => t[0] === "kanal");
+  const kanalAdr = adresseFuer({ sol: kt2?.[1] }, "solana");
+  const kanalProg = adresseFuer({ sol: kt2?.[2] }, "solana");
+  const kanal = kanalAdr && kanalProg ? { adresse: kanalAdr, programm: kanalProg } : undefined;
 
   return {
     pubkey: ev.pubkey,
@@ -142,6 +155,7 @@ export function parseCapabilities(ev: UnsignedEvent): ProviderCapabilities {
     ...(kurs ? { kurs } : {}),
     ...(lud16 ? { lud16 } : {}),
     ...(werber ? { werber } : {}),
+    ...(kanal ? { kanal } : {}),
     updatedAt: ev.created_at,
   };
 }

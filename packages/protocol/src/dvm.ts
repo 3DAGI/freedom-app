@@ -87,10 +87,10 @@ export function buildJobResult(p: JobResultParams, createdAt?: number): Unsigned
     ["p", p.customerPubkey],
     p.bolt11 ? ["amount", String(p.amountMsat), p.bolt11] : ["amount", String(p.amountMsat)],
   ];
-  if (p.solanaAddress) {
-    tags.push(["solana_address", p.solanaAddress]);
-    if (p.amountLamports !== undefined) tags.push(["amount_lamports", String(p.amountLamports)]);
-  }
+  if (p.solanaAddress) tags.push(["solana_address", p.solanaAddress]);
+  // Preis in Lamports: mit Zahladresse (Deposit) oder ohne, wenn schon über
+  // den Zahlkanal gedeckt (4.3c)
+  if (p.amountLamports !== undefined) tags.push(["amount_lamports", String(p.amountLamports)]);
   if (p.usage) {
     // Kompaktes JSON-Tag (einzeilig), vom Client gerendert als aufklappbare Bubble
     tags.push(["usage", JSON.stringify(p.usage)]);

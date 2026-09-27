@@ -44,7 +44,7 @@ bash packages/mls/bauen.sh --pruefen                     # nur bei Änderungen a
 bash contracts/solana-channel/pruefen.sh --werkzeuge     # nur bei Änderungen am Zahlkanal: bauen + Tests gegen Validator (Agave 3.1.10)
 ```
 
-Stand 27.09.2026 (nach 4.3c1 und 8.16g2b1): protocol 1065 grün (6 übersprungen), node 232 grün
+Stand 27.09.2026 (nach 4.3c2 und 8.16g2b1): protocol 1066 grün (6 übersprungen), node 235 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
 in `tools.test.ts`), app 483 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 57 grün + 1 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
@@ -241,7 +241,10 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   reisen nur im versiegelten Kern der Anfrage (`gutschriftTags()`); der Knoten
   nimmt sie nur über `KanalKasse.nimmAn()` an (Kanal auf der Kette, Deckung
   abgerechnet + Gebot) und löst sie nur über `loeseFaelligeEin()` ein – der
-  Stand liegt in einer Datei, nie nur im Speicher. Die Programm-ID ist bis
+  Stand liegt in einer Datei, nie nur im Speicher. Kanäle nimmt der Knoten nur
+  mit `ZAHLKANAL=1` und einem Schlüssel passend zu `NODE_SOL_ADDRESS`
+  (`kanalKasseAusUmgebung()`); eine Gutschrift in einer offenen Anfrage wird
+  abgelehnt. Die Programm-ID ist bis
   zum Deploy ein Platzhalter ohne Schlüssel (`KANAL_PROGRAMM_ID`) – nie einen
   erfundenen Schlüssel eintragen, das tut der MENSCH beim Deploy. Bauen und
   testen nur mit `contracts/solana-channel/pruefen.sh` (Agave 3.1.10,

@@ -6,7 +6,7 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Ed25519Program, Keypair, PublicKey, type TransactionInstruction } from "@solana/web3.js";
@@ -15,7 +15,7 @@ import {
   KANAL_KONTO_BYTES, KANAL_PROGRAMM_ID, kanalAdresse, neuerSitzungsSchluessel, signiereGutschrift,
   type KanalEmpfaenger,
 } from "@freedomstack/protocol";
-import { EINLOES_SCHWELLE, KanalKasse, kanalSpeicher, type KanalKonto } from "../src/kanal-kasse.js";
+import { EINLOES_SCHWELLE, KanalKasse, kanalKasseAusUmgebung, kanalSpeicher, type KanalKonto } from "../src/kanal-kasse.js";
 
 const JETZT = 1_900_000_000;
 const provider = Keypair.generate().publicKey.toBase58();
@@ -154,4 +154,29 @@ test("Neustart: Gutschriften und Buchungen liegen in der Datei und kommen zurüc
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test("4.3c2: Kasse nur mit ZAHLKANAL=1 und einem Schlüssel, der zu NODE_SOL_ADDRESS passt; verdrahtet in main.ts", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "kanal-umgebung-"));
+  try {
+    const schluessel = Keypair.generate();
+    const pfad = join(dir, "id.json");
+    writeFileSync(pfad, JSON.stringify([...schluessel.secretKey]));
+    const o = { rpcUrl: "http://127.0.0.1:1", datei: join(dir, "kanaele.json"), standardSchluessel: join(dir, "fehlt.json") };
+    const adresse = schluessel.publicKey.toBase58();
+    assert.deepEqual(await kanalKasseAusUmgebung({ NODE_SOL_ADDRESS: adresse, SOLANA_KEYPAIR: pfad }, o), { grund: "aus (ZAHLKANAL=1 setzen)" });
+    assert.deepEqual(await kanalKasseAusUmgebung({ ZAHLKANAL: "1", SOLANA_KEYPAIR: pfad }, o), { grund: "NODE_SOL_ADDRESS fehlt" });
+    assert.match((await kanalKasseAusUmgebung({ ZAHLKANAL: "1", NODE_SOL_ADDRESS: adresse }, o)).grund!, /nicht lesbar/);
+    assert.deepEqual(await kanalKasseAusUmgebung({ ZAHLKANAL: "1", NODE_SOL_ADDRESS: Keypair.generate().publicKey.toBase58(), SOLANA_KEYPAIR: pfad }, o),
+      { grund: "Schlüssel aus SOLANA_KEYPAIR passt nicht zu NODE_SOL_ADDRESS" });
+    const r = await kanalKasseAusUmgebung({ ZAHLKANAL: "1", NODE_SOL_ADDRESS: adresse, SOLANA_KEYPAIR: pfad, KANAL_EINLOES_SCHWELLE_LAMPORTS: "5000" }, o);
+    assert.ok(r.kasse instanceof KanalKasse);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+  const main = readFileSync(new URL("../src/main.ts", import.meta.url), "utf8");
+  assert.match(main, /const \{ kasse: kanalKasse, grund: kanalGrund \} = await kanalKasseAusUmgebung\(process\.env, \{/);
+  assert.match(main, /solanaAddress: process\.env\.NODE_SOL_ADDRESS \|\| undefined,\s*kanalKasse,/, "an den Provider");
+  assert.match(main, /kanal: kanalKasse && process\.env\.NODE_SOL_ADDRESS \? \{ adresse: process\.env\.NODE_SOL_ADDRESS, programm: KANAL_PROGRAMM_ID \} : undefined,/, "Angebot nur mit Kasse");
+  assert.match(main, /kanalKasse\.loeseFaelligeEin\(\)/, "Einlösen im Takt");
 });
