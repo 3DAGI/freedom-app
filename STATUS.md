@@ -7065,3 +7065,61 @@ Endstand: protocol 1167 (+4, 6 übersprungen) · node 227 (7 übersprungen ohne
 Netz) · app 461 (+3) · mls 13 · Leak-Tests 57 grün + 1 todo · 0 rot ·
 check-wiring `--streng` Exit 0 · innerHTML streng 0 unbewertet · Website 5
 Seiten ok · Smoke-Test bestanden.
+
+## Schritt 5.3a – Spiegel: Platzhalter, Quellen, Hosting-Anteil
+
+Entscheidung MENSCH (27.09.2026): Die Konten legt der MENSCH an; bis dahin
+Platzhalter, die sich einfach ersetzen lassen. 5.3 geteilt: **a** Platzhalter,
+Quellen, Hosting-Anteil; **b** Upload-Skripte und CI-Job.
+
+**Kontenliste** (`docs/KONTEN.md`): alle Konten, Wallets und Schlüssel, auf
+die der Code wartet, je mit Zweck, Stelle im Code, Vorschlag zum Anlegen und
+was zurückkommt. Nur öffentliche Werte gehen an den Agenten; Geheimes in die
+GitHub-Secrets bzw. auf den GX10.
+
+Die Einträge:
+- **Spiegel:** Codeberg, IPFS, Arweave, Blossom, Torrent, .onion.
+- **Hosting-Adressen**, **Release-Signierer**, **Entwicklung** (Spur A).
+- **Test-Wallets**, **Relay-Domain** und **Radicle**.
+
+**Platzhalter:** Werte beginnen mit `PLATZHALTER:`; `istPlatzhalter()` lässt
+sie wie „nicht gesetzt“ gelten.
+- `spiegel/quellen.json`: offizielle Adresse, Codeberg, .onion, Radicle.
+- `spiegel/freedom-spiegel.json`: Hosting-Zahlziel, Lightning und SOL.
+
+**Hosting-Anteil** (1 %, Entscheidung 4.0, Aufteilung von Spur A):
+- Jede Auslieferung legt `freedom-spiegel.json` neben freedom.html.
+- Die App liest die Datei von ihrer eigenen Herkunft (`hostingZahlziel()`,
+  einmal je Sitzung) – dort ablegen kann nur der Betreiber des Spiegels. So
+  bekommt jeder Spiegel seinen Anteil, ohne dass jemand eine Liste pflegt.
+- Nur gültige Adressen zählen (`leseSpiegelDatei()` über `adresseFuer()`:
+  Lightning-Adresse ohne lokalen Host, SOL-Adresse).
+- Ohne Datei, lokal geöffnet oder mit Platzhaltern bleibt der Anteil beim
+  Provider.
+- `ki-zahlung.ts` (Spur A, eine Zeile) nimmt `hosting` in die Empfänger.
+
+**Quellen:**
+- `leseQuellen()` prüft die Form je Art (https, *.codeberg.page, v3-.onion,
+  rad:, ipfs://, ar://, Blossom-Hash, Magnet).
+- Die Startseite zeigt gesetzte Quellen und offene als „noch nicht
+  eingerichtet“ (`build-site.sh`). Vorher stand dort „Alle Builds auch über
+  IPFS/Arweave/Tor erreichbar“ – das stimmte nie.
+- `publish-release.mjs` nimmt ohne `RELEASE_SOURCES` die gesetzten Quellen
+  (vorher fest `freedomstack.io`).
+- Der Build legt `freedom-spiegel.json` neben die App.
+
+**App-Text:** Earn → „App verbreiten“ sagte „Eine Vergütung gibt es dafür
+nicht“ – jetzt: mit `freedom-spiegel.json` 1 % jeder KI-Zahlung über die
+eigene Kopie (Deutsch und Englisch).
+
+**Tests:**
+- protocol +4: Platzhalter, Spiegel-Datei, Quellen, die echten Dateien in
+  `spiegel/` – jedes Feld Platzhalter oder gültig, damit ein Tippfehler beim
+  Ersetzen auffällt.
+- app +2: Zahlziel von der eigenen Herkunft, einmal je Sitzung, Platzhalter
+  zählt nicht; Verdrahtung in Aufteilung, Build und Startseite.
+
+Endstand: protocol 1171 (+4, 6 übersprungen) · node 227 (7 übersprungen ohne
+Netz) · app 463 (+2) · mls 13 · Leak-Tests 57 grün + 1 todo · 0 rot ·
+check-wiring `--streng` Exit 0 · innerHTML streng 0 unbewertet · Website 5
+Seiten ok · Smoke-Test bestanden.

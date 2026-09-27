@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "name": "offizieller Spiegel",
+  "hinweis": "Liegt neben freedom.html. Wer die App ausliefert, bekommt 1 % jeder KI-Zahlung über diese Auslieferung (Entscheidung 4.0) – an diese Adressen. Selbstverwahrt, nie bei einem Verwahrer (docs/KONTEN.md, A7).",
+  "zahlziel": {
+    "lud16": "PLATZHALTER:hosting-lightning-adresse (name@domain, eigener Knoten)",
+    "sol": "PLATZHALTER:hosting-sol-adresse"
+  }
+}

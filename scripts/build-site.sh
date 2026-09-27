@@ -37,6 +37,24 @@ assert n == 1, f"Pruefsummen-Feld nicht gefunden ({n} Treffer) — Abbruch"
 open(p, "w", encoding="utf-8").write(neu)
 PYEOF
 
+# Spiegel (5.3): wohin der Hosting-Anteil dieser Auslieferung geht – neben freedom.html.
+cp "$ROOT/spiegel/freedom-spiegel.json" "$OUT"/freedom-spiegel.json
+# Bezugsquellen in die Startseite – nur gesetzte, offene ehrlich als offen.
+QUELLEN="$(cd "$ROOT" && npx --no-install tsx scripts/spiegel-quellen.mts)"
+python3 - "$OUT/index.html" "$QUELLEN" <<'PYEOF'
+import html, json, re, sys
+p, q = sys.argv[1], json.loads(sys.argv[2])
+namen = {"offiziell": "Offizielle Adresse", "codeberg": "Codeberg Pages", "onion": "Tor (.onion)", "radicle": "Code (Radicle)",
+         "ipfs": "IPFS", "arweave": "Arweave", "blossom": "Blossom", "torrent": "Torrent (Magnet)"}
+zeilen = [f'<li>{html.escape(namen[x["art"]])}: <span class="mono">{html.escape(x["url"])}</span></li>' for x in q["gesetzt"]]
+zeilen += [f'<li>{html.escape(namen[a])}: <span class="muted">noch nicht eingerichtet</span></li>' for a in q["offen"]]
+zeilen.append('<li><span class="muted">IPFS, Arweave, Blossom und Torrent folgen je Version, sobald die Uploads eingerichtet sind.</span></li>')
+s = open(p, encoding="utf-8").read()
+neu, n = re.subn(r"<!-- QUELLEN -->.*?<!-- /QUELLEN -->", "<!-- QUELLEN -->\n        " + "\n        ".join(zeilen) + "\n      <!-- /QUELLEN -->", s, flags=re.S)
+assert n == 1, f"Quellen-Feld nicht gefunden ({n} Treffer) — Abbruch"
+open(p, "w", encoding="utf-8").write(neu)
+PYEOF
+
 # GitHub Pages verarbeitet Seiten sonst mit Jekyll — unnoetig und langsamer.
 touch "$OUT"/.nojekyll
 

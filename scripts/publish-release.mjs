@@ -45,8 +45,10 @@ const sha = createHash("sha256").update(html).digest("hex");
 const { buildReleaseManifest, signEvent, keypairFromSecret, OutboxPool, WebSocketRelay, nutzlast, RELEASE_MIN_SIGNATUREN, startUrls } =
   await import("../packages/protocol/src/index.ts");
 
-const sourcesRaw = process.env.RELEASE_SOURCES ?? "https://freedomstack.io/freedom.html";
-const sources = sourcesRaw.split(",").map((s) => s.trim()).filter(Boolean);
+// Ohne RELEASE_SOURCES: die gesetzten Quellen aus spiegel/quellen.json (5.3) – Platzhalter zaehlen nicht.
+const { leseQuellen } = await import("../packages/protocol/src/index.ts");
+const ausDatei = leseQuellen(JSON.parse(await readFile("spiegel/quellen.json", "utf8"))).gesetzt.map((q) => q.url);
+const sources = (process.env.RELEASE_SOURCES ? process.env.RELEASE_SOURCES.split(",") : ausDatei).map((s) => s.trim()).filter(Boolean);
 if (sources.length < 2) {
   console.warn(
     "! Nur eine Bezugsquelle angegeben. Faellt sie aus, hilft das Manifest nur\n" +
