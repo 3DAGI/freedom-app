@@ -72,5 +72,7 @@ export function resultKindFor(requestKind: number): number {
   return requestKind + 1000;
 }
 
-// --- Transparenz-Kinds (Treasury + Fee-Beweis) ---
-// KIND_FEE_PROOF = 38051 wird in fee-proof.ts definiert (dort liegt die Logik).
+// --- Nicht mehr belegt ---
+// 38050 (Treasury-Ansage) und 38051 (Fee-Beweis des Knotens) fielen mit dem
+// Gebührenmodell A+ (5.1.4a/c) – nicht für Neues wiederverwenden: Alte Events
+// dieser Arten liegen noch auf Relays.
