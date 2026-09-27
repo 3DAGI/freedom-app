@@ -38,7 +38,7 @@ test("2.3b: Moderatoren privater Räume nur per Commit (mlsSetzeAdmins) – nie 
 });
 
 test("2.3b: offener Raum trägt den Hinweis sichtbar; Raumnamen nur als textContent", () => {
-  assert.match(html, /id="space-oeffentlich" class="mono-sm warn hidden">Öffentlicher Raum – jeder kann mitlesen/);
+  assert.match(html, /id="space-oeffentlich" class="mono-sm warn hidden" data-i18n="komm\.oeffentlichHinweis">Öffentlicher Raum – jeder kann mitlesen/);
   assert.match(kom, /document\.getElementById\("space-oeffentlich"\)\?\.classList\.toggle\("hidden", privat\);/);
   assert.match(html, /id="space-create"[^>]*>Raum anlegen \(privat\)</);
   assert.match(kom, /b\.textContent = istPrivat\(id\) \?/);

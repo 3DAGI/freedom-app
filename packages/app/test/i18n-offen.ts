@@ -8,7 +8,7 @@
 export const OFFEN_HTML: Record<string, number> = {
   rahmen: 0,
   "page-ai": 60,
-  "page-comm": 41,
+  "page-comm": 0,
   "page-wallet": 39,
   "page-earn": 27,
   "page-profile": 23,
@@ -63,7 +63,6 @@ export const OFFEN_CODE: Record<string, number> = {
   "shell/tabs/agent-netz.ts": 36,
   "shell/tabs/agent.ts": 97,
   "shell/tabs/earn.ts": 31,
-  "shell/tabs/kommunikation.ts": 100,
   "shell/tabs/profil.ts": 10,
   "shell/tabs/repos.ts": 18,
   "shell/tabs/settings.ts": 121,

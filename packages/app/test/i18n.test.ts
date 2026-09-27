@@ -3,7 +3,7 @@
  * fehlende, unbenutzte und rohe Texte. Rohtext zählt in index.html je
  * Bereich und im Code je Datei (`i18n-offen.ts`): fertige stehen auf 0,
  * offene dürfen nur sinken, neue Dateien sind von Anfang an fertig.
- * Fertig: Rahmen (8.16a).
+ * Fertig: Rahmen (8.16a), Kommunikation (8.16c).
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -154,4 +154,28 @@ test("8.16b: Zahlen und Daten im Gebietsschema der Sprache; ein Sprachwechsel ze
   assert.match(readFileSync(pfad(SRC, "shell/tabs/kommunikation.ts"), "utf8"), /toLocaleTimeString\(gebietsschema\(\), \{/, "Uhrzeit im Raum");
   const app = readFileSync(pfad(SRC, "shell/app.ts"), "utf8");
   assert.match(app, /applyI18n\(\);\s*\/\/[^\n]*\n\s*const offen = document\.querySelector<HTMLElement>\("\.app-nav button\.active"\)\?\.dataset\.tab;\s*if \(offen\) switchTab\(offen\);/);
+});
+
+test("8.16c: Kommunikation – Texte über Schlüssel; die Markierung abgelöster Unterhaltungen in beiden Sprachen erkannt", () => {
+  const kom = readFileSync(pfad(SRC, "shell/tabs/kommunikation.ts"), "utf8");
+  assert.match(kom, /import \{ gebietsschema, t \} from "\.\.\/\.\.\/i18n\.js";/);
+  assert.doesNotMatch(kom, /"de-DE"/);
+  assert.ok(!("shell/tabs/kommunikation.ts" in OFFEN_CODE) && OFFEN_HTML["page-comm"] === 0, "fertig: Seite und Code auf 0");
+  // Die Markierung steht im gespeicherten Namen – eine Unterhaltung aus der anderen Sprache bleibt erkannt
+  const marke = /^\((alter Schlüssel|old key)\) /;
+  assert.match(kom, /const ALT_MARKE = \/\^\\\(\(alter Schlüssel\|old key\)\\\) \/;/);
+  const vorher = getLang();
+  try {
+    for (const l of ["de", "en"] as const) {
+      setLang(l);
+      assert.match(t("komm.alterSchluessel", { name: "Ana" }), marke, l);
+    }
+    setLang("en");
+    assert.equal(t("komm.gemeldet", { n: 2 }), "Reported – sealed to 2 moderator(s)");
+    setLang("de");
+    assert.equal(t("komm.eineAntwort", { n: 1 }), "1 Antwort");
+    assert.equal(t("komm.antworten", { n: 3 }), "3 Antworten");
+  } finally {
+    setLang(vorher);
+  }
 });
