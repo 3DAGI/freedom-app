@@ -24,7 +24,6 @@ import {
   signEvent,
   getTag,
   toHex,
-  computeFeeSplit,
   mineEvent,
   buildPerformanceEvent,
   parseSessionOpen,
@@ -34,8 +33,6 @@ import {
   KIND_SESSION_PAYMENT,
   parseSolDepositOpen,
   ParsedSolDepositOpen,
-  PROTOCOL_FEE_PPM,
-  PROTOCOL_POOL_SHARE_PERCENT,
   KIND_GIFT_WRAP,
   LocalSigner,
   buildPrivateJobResponse,
@@ -48,7 +45,7 @@ import {
   msatZuLamports,
   lamportsProMsat,
 } from "@freedomstack/protocol";
-import { verifyDepositOnChain, DepositVerificationCache, parseClientFee, checkClientFee } from "@freedomstack/protocol";
+import { verifyDepositOnChain, DepositVerificationCache, providerAnteilMsat, pruefeAufteilung, type Anteil } from "@freedomstack/protocol";
 import type { Connection } from "@solana/web3.js";
 import { InferenceBackend, OllamaBackend } from "./inference.js";
 import { ToolRegistry, ToolCall, defaultToolRegistry } from "./tools.js";
@@ -56,8 +53,13 @@ import { ToolRegistry, ToolCall, defaultToolRegistry } from "./tools.js";
 export interface ProviderConfig {
   /** Nostr-Keypair des Providers. */
   keypair: Keypair;
-  /** Eigene Lightning-Adresse fuer Zap-Empfang. */
+  /** Eigene Lightning-Adresse – dorthin zahlt die App den Anteil des Providers (5.1). */
   lud16: string;
+  /**
+   * Lightning-Adresse des Werbers dieses Providers (5.1, Gebührenmodell A+):
+   * steht im Angebot; die App des Kunden zahlt ihm 0,5 % direkt.
+   */
+  werber?: string;
   /** Optional: eigene Solana-Adresse (2. Zahloption). Wenn gesetzt, bietet
    *  der Provider SOL-Zahlung im Result an. */
   solanaAddress?: string;
@@ -129,26 +131,16 @@ export const DEFAULT_PROVIDER_CONFIG: Omit<ProviderConfig, "keypair" | "lud16"> 
 };
 
 /**
- * Liest die vom Client deklarierte Gebuehr aus dem Job-Event.
- *
- * Der Provider entscheidet, ob er sie akzeptiert — nicht der Client. Ohne
- * Obergrenze koennte eine manipulierte App den Nutzer ausnehmen, und die
- * Offenheit der Client-Schicht waere ein Nachteil statt eines Vorteils.
+ * Gebührenmodell A+ (5.1): Welche Anteile zahlt die App des Kunden selbst?
+ * Die Deklaration steht im (versiegelten) Auftrag; geprüft mit
+ * `pruefeAufteilung()` – unbekannt, doppelt oder über 10 % wird abgelehnt,
+ * den Werber des Providers nur, wenn das Angebot einen nennt. Ohne
+ * Deklaration: nichts einbehalten, der Provider bekommt den ganzen Betrag.
  */
-function clientFeeFor(
-  request: NostrEvent,
-  amountMsat: number,
-): { clientFeeMsat?: number; clientFeeRecipient?: string } {
-  const fee = parseClientFee(request.tags);
-  const verdict = checkClientFee(fee);
-  if (!verdict.accepted || !fee) {
-    if (fee) console.warn(`[fee] Client-Gebuehr abgelehnt: ${verdict.reason}`);
-    return {};
-  }
-  return {
-    clientFeeMsat: Math.floor((amountMsat * verdict.ppm) / 1_000_000),
-    clientFeeRecipient: fee.recipient,
-  };
+function aufteilungFuer(request: NostrEvent, hatWerber: boolean): Anteil[] {
+  const r = pruefeAufteilung(request.tags, { hatWerber });
+  if (!r.ok) throw new Error(`Aufteilung abgelehnt: ${r.grund}`);
+  return r.anteile;
 }
 
 /** Betrag fuers Log: nur ganze, nicht negative Zahlen – sonst "?". */
@@ -158,15 +150,15 @@ function ganzeZahlLog(n: number): string {
 
 export interface ProcessedJob {
   requestId: string;
-  /** Vom Client deklarierte Gebuehr (msat) — 0, wenn keine deklariert wurde. */
-  clientFeeMsat?: number;
-  /** Empfaenger der Client-Gebuehr aus dem Job-Event. */
-  clientFeeRecipient?: string;
-  /** ID des veroeffentlichten Ergebnis-Events — Anker fuer den Fee-Beweis. */
+  /** ID des veroeffentlichten Ergebnis-Events. */
   resultEventId: string;
   customerPubkey: string;
+  /** Preis des Auftrags (msat) – davon zahlt die App die deklarierten Anteile selbst (5.1). */
   amountMsat: number;
-  feeSplit: { recipientMsat: number; poolMsat: number; protocolMsat: number };
+  /** Was die App des Kunden dem Provider zahlt: der Preis ohne die deklarierten Anteile. */
+  providerMsat: number;
+  /** Anteile, die die App des Kunden laut Deklaration selbst zahlt. */
+  aufteilung: Anteil[];
   /** Antwort-Anfang fuers Log – leer, solange `klartextProtokoll` aus ist (3.3). */
   outputPreview: string;
   durationMs: number;
@@ -633,11 +625,11 @@ export class DvmProvider {
     await this.antworte(resultEvent, request, privat);
     return {
       requestId: request.id,
-      ...clientFeeFor(request, amountMsat),
       resultEventId: resultEvent.id,
       customerPubkey: request.pubkey,
       amountMsat,
-      feeSplit: computeFeeSplit(amountMsat, { totalFeePpm: PROTOCOL_FEE_PPM, poolSharePercent: PROTOCOL_POOL_SHARE_PERCENT }),
+      providerMsat: amountMsat,
+      aufteilung: [],
       outputPreview: `Stück ${blobId.slice(0, 8)}:${shardIdx} wieder veröffentlicht`,
       durationMs: Date.now() - start,
     };
@@ -760,6 +752,8 @@ export class DvmProvider {
     const bidMsat = Number(getTag(request, "bid") ?? "0");
     const sessionId = getTag(request, "session");
     if (!input) throw new Error("Job ohne Input");
+    // Gebührenmodell A+ (5.1): Deklaration prüfen, bevor gerechnet wird
+    const aufteilung = aufteilungFuer(request, !!this.cfg.werber);
 
     // Session-Modus (Streaming-Sats, Stufe B): Job referenziert eine offene
     // Session statt eines Einzel-Gebots. Der Provider prueft Budget + Belege
@@ -788,6 +782,9 @@ export class DvmProvider {
         if (solDeposit && !this.kurs()) {
           throw new Error("Kein SOL-Kurs: Anbieter braucht SOL_PRICE_SATS oder Kurs-Events von Liquiditätsgebern");
         }
+        // Auf SOL teilt erst der Zahlkanal (4.3) auf – bis dahin zahlt die App
+        // dort keine Anteile; eine Deklaration hieße doppelt zahlen.
+        if (solDeposit && aufteilung.length > 0) throw new Error("Aufteilung abgelehnt: auf SOL erst mit dem Zahlkanal");
         if (!solDeposit) {
           // Ungueltige Session (abgelaufen, fremder Provider, Budget leer,
           // inkonsistente Belege). Frueher wurde der Job hier bedingungslos
@@ -849,10 +846,6 @@ export class DvmProvider {
       });
       // Swarm-Result direkt zurueckgeben (keine Tool-Logik noetig)
       const amountMsat = Math.ceil((result.completionTokens / 1000) * this.cfg.pricePerKTokenMsat);
-      const feeSplit = computeFeeSplit(amountMsat, {
-        totalFeePpm: PROTOCOL_FEE_PPM,
-        poolSharePercent: PROTOCOL_POOL_SHARE_PERCENT,
-      });
       const resultEvent = signEvent(
         buildJobResult({
           providerPubkey: this.cfg.keypair.pk,
@@ -872,15 +865,11 @@ export class DvmProvider {
       await this.antworte(resultEvent, request, privat);
       return {
         requestId: request.id,
-        ...clientFeeFor(request, amountMsat),
         resultEventId: resultEvent.id,
         customerPubkey: request.pubkey,
         amountMsat,
-        feeSplit: {
-          recipientMsat: feeSplit.recipientMsat,
-          poolMsat: feeSplit.poolMsat,
-          protocolMsat: feeSplit.protocolMsat,
-        },
+        providerMsat: providerAnteilMsat(amountMsat, aufteilung),
+        aufteilung,
         outputPreview: this.vorschau(result.output),
         durationMs: result.durationMs,
       };
@@ -950,11 +939,10 @@ export class DvmProvider {
       amountMsat = Math.min(bidMsat, rawPrice) + toolCostMsat;
     }
 
-    // 1%-Fee-Split AN DER QUELLE berechnen (Aufteilung, nicht Verwahrung)
-    const feeSplit = computeFeeSplit(amountMsat, {
-      totalFeePpm: PROTOCOL_FEE_PPM,
-      poolSharePercent: PROTOCOL_POOL_SHARE_PERCENT,
-    });
+    // Gebührenmodell A+ (5.1): Die App zahlt die deklarierten Anteile selbst,
+    // der Provider bekommt den Rest – derselbe Betrag, den die App rechnet.
+    // SOL-Aufträge ganz an den Provider, bis der Zahlkanal (4.3) aufteilt.
+    const providerMsat = chain === "solana" ? amountMsat : providerAnteilMsat(amountMsat, aufteilung);
 
     // 3. Result publizieren (kind 6050), Multi-Relay via OutboxPool.
     // Bei Solana-Deposit: SOL-Adresse + lamports-Betrag als Zahloption mitgeben.
@@ -1013,15 +1001,11 @@ export class DvmProvider {
 
     return {
       requestId: request.id,
-      ...clientFeeFor(request, amountMsat),
       resultEventId: resultEvent.id,
       customerPubkey: request.pubkey,
       amountMsat,
-      feeSplit: {
-        recipientMsat: feeSplit.recipientMsat,
-        poolMsat: feeSplit.poolMsat,
-        protocolMsat: feeSplit.protocolMsat,
-      },
+      providerMsat,
+      aufteilung: chain === "solana" ? [] : aufteilung,
       outputPreview: this.vorschau(result.output),
       durationMs: result.durationMs,
     };

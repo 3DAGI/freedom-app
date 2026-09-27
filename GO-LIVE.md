@@ -143,11 +143,16 @@ Menschen, die ihr kennt.
 
 ### 3.3 Erste Auszahlung
 
-- [ ] Reward-Pool füllen (Fee fließt automatisch dorthin)
-- [ ] `POOL_DISTRIBUTOR=1` und `POOL_BALANCE_MSAT` auf **einem** Knoten setzen
-- [ ] Erste Verteilung im Probelauf (`dryRun`) ansehen, dann echt laufen lassen
-- [ ] **Verteilungsbericht prüfen** — jeder muss ihn nachrechnen können
-- [ ] Provider fragen, ob das Geld angekommen ist. Nicht annehmen: fragen.
+Seit 5.1 (Gebührenmodell A+) gibt es keinen Pool und keine Verteilung mehr: Die
+App des Kunden zahlt jeden Anteil direkt (`docs/GEBUEHREN-ENTSCHEIDUNG.md`).
+
+- [ ] Empfänger-Adressen der Entwicklung festlegen (Lightning über einen
+      eigenen Knoten, SOL-Mehrfachsignatur) – bis dahin bleibt der
+      Entwicklungsanteil beim Provider
+- [ ] Provider mit `NODE_LUD16` und, falls geworben, `PROVIDER_WERBER_LUD16`
+      starten; im Angebot (Kind 38027) stehen beide
+- [ ] Einen bezahlten Auftrag laufen lassen und bei jedem Empfänger nachsehen,
+      ob sein Anteil ankam. Nicht annehmen: fragen.
 
 **Meilenstein 3: ✅ wenn ein Job läuft, ohne dass ihr beteiligt seid, und der Provider bezahlt wurde.**
 

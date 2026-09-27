@@ -6653,3 +6653,61 @@ Rechnungsbetrag; abgelehnte Deklarationen.
 Endstand: protocol 1152 (+7) · node 240 · app 439 · mls 13 · Leak-Tests 55
 grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 · CI-Invariante lokal
 ausgeführt.
+
+## Schritt 5.1.2 – Gebührenmodell A+: Knoten
+
+**Befund beim Lesen:** Die App bezahlt KI-Aufträge heute nicht – sie legt nur
+Belege an (`chargeForResult()` ohne Wallet, bekannt seit 4.1, Entscheidung
+26.09.: „Agent-Bezahlung ja, nach 4.0 – erst Lightning je Auftrag“). Der Knoten
+zahlte trotzdem nach jedem Auftrag aus eigener Tasche Pool, Werbe-Pool und
+App-Gebühr aus (an standardmäßig leere Adressen) und veröffentlichte einen
+Gebühren-Beleg (38051) mit Betrag und Sitzungsschlüssel. 5.1.2 und 5.1.3 bauen
+darum die echte Bezahlung je Auftrag gleich nach A+.
+
+**Knoten (`dvm-provider.ts`):**
+- Die Deklaration im Auftrag (`["aufteilung", …]`, 5.1.1) wird geprüft, bevor
+  gerechnet wird (`pruefeAufteilung()`): unbekannt, doppelt, mehrfach oder
+  „Werber des Providers“ ohne Werber im Angebot → abgelehnt, mit Rückmeldung
+  (Kind 7000, fester Text). Auf SOL keine Deklaration – dort teilt erst der
+  Zahlkanal (4.3) auf, sonst zahlte der Kunde doppelt.
+- `ProcessedJob` nennt `providerMsat` (= `providerAnteilMsat()`, derselbe Betrag,
+  den die App rechnet) und die deklarierten Anteile; SOL-Aufträge ganz an den
+  Provider. Das Ergebnis (6050) nennt weiter den ganzen Preis.
+- Die Client-Gebühr (`clientFeeFor`) liest der Knoten nicht mehr – sie geht im
+  Entwicklungsanteil auf.
+
+**Nichts mehr auszahlen (`main.ts`):**
+- `settlement.ts` und `pool-distributor.ts` entfernt, mit ihren Tests (je 16):
+  Die Karte streicht Pool-Verteiler und Werbe-Pool; die Auszahlung aus der
+  Tasche des Providers entfällt, weil die App jeden Anteil selbst zahlt. Damit
+  fällt auch der öffentliche Gebühren-Beleg (38051) weg.
+- Alte Umgebungsvariablen (`FEE_POOL_LUD16`, `FEE_REFERRAL_LUD16`,
+  `POOL_DISTRIBUTOR`) lösen eine Warnung aus, statt still zu wirken.
+
+**Angebot (38027, `tiers.ts`):** `lud16` (dorthin zahlt die App den Anteil des
+Providers) und `werber` (Lightning-Adresse seines Werbers, 0,5 %); beim Bauen
+und Lesen nur plausible Lightning-Adressen. Der Knoten liest `NODE_LUD16`
+(jetzt geprüft) und neu `PROVIDER_WERBER_LUD16`.
+
+**Doku:** PROTOCOL.md §3 und §16 als abgelöst markiert (Neufassung mit 5.1.4),
+GO-LIVE.md 3.3 ohne Pool.
+
+**Texte der App:** folgen mit 5.1.3 (die App zahlt dann die Anteile). Bis der
+GX10-Knoten aktualisiert ist, zahlt der Live-Knoten noch nach dem alten Modell –
+die heutigen Texte bleiben bis dahin zutreffend.
+
+**Tests:**
+- node −31: `settlement.test.ts` und `pool-distributor.test.ts` (32) entfernt
+  (Karte 5.1 Punkt 2; der Knoten zahlt nichts mehr aus); neu +1: Aufteilung im
+  Knoten – Provider-Anteil 94,5 % bei vier deklarierten Anteilen, derselbe Wert
+  wie `providerAnteilMsat()`; abgelehnt ohne zu rechnen (Werber ohne Angebot,
+  unbekannter Anteil) mit Rückmeldung; mit Werber im Angebot 99,5 %. Der
+  Job-Loop-Test prüft statt des alten Fee-Splits den Provider-Anteil.
+- protocol +1: Angebot mit Lightning-Adresse und Werber, fremde Angaben geprüft.
+- check-wiring: drei Funktionen aus `aufteilung.ts` verdrahtet (Ausnahmen raus);
+  neu ausgenommen, was nur der Pool-Verteiler nutzte (Knappheitsbonus, WoT) und
+  was mit 5.1.3/5.1.4 fällt (Client-Gebühr lesen, Gebühren-Beleg bauen).
+
+Endstand: protocol 1153 (+1) · node 209 (−31, begründet) · app 439 · mls 13 ·
+Leak-Tests 55 grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 ·
+innerHTML streng 0 unbewertet · Website 5 Seiten ok · Smoke-Test bestanden.
