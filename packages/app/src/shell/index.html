@@ -35,9 +35,8 @@
     <header>
       <span class="logo"><span id="head-mark"></span>FREEDOM</span>
       <span style="display:flex;gap:10px;align-items:center">
-        <span id="balance" class="balance" title="Guthaben" data-i18n-title="balanceTitle">— sats</span>
-        <span id="ident" class="ident" title="Pubkey – Klick: nsec exportieren" data-i18n-title="identTitle">…</span>
-        <button id="btn-import" class="ghost" style="width:auto;padding:4px 8px;font-size:9px" data-i18n="import">import</button>
+        <span id="balance" class="balance" role="button" tabindex="0" title="Guthaben" data-i18n-title="balanceTitle">— sats</span>
+        <span id="ident" class="ident" role="button" tabindex="0" title="Profil öffnen" data-i18n-title="nav.zumProfil">…</span>
       </span>
     </header>
     <div id="offline-hinweis" class="offline-hinweis" role="status" hidden></div>
@@ -50,6 +49,7 @@
       <section id="page-ai" class="tab-page">
         <div class="agent-layout">
           <aside class="agent-side">
+            <button id="agent-seite-zurueck" class="ghost agent-nur-mobil" type="button" aria-label="Zurück zum Gespräch" data-i18n-aria="nav.zurueckAria" data-i18n="nav.zurueck">‹ Zurück</button>
             <button id="agent-new" class="btn-primary agent-new" type="button">
               <span class="ic" data-icon="plus"></span> <span data-i18n="agent.neueAufgabe">Neue Aufgabe</span></button>
             <div class="seg" role="tablist" data-subtab-group="agent"><button role="tab" data-subtab="tasks" class="active" data-i18n="agent.tabAufgaben">Aufgaben</button><button role="tab" data-subtab="models" data-i18n="agent.tabModelle">Modelle</button><button role="tab" data-subtab="repos" data-i18n="agent.tabRepos">Repos</button></div>
@@ -109,6 +109,10 @@
             </div>
           </aside>
           <div class="agent-main">
+        <div class="agent-mobil-leiste agent-nur-mobil">
+          <button id="agent-zu-verlauf" class="ghost" type="button"><span class="ic" data-icon="scroll"></span> <span data-i18n="nav.verlauf">Verlauf</span></button>
+          <button id="agent-zu-modelle" class="ghost" type="button"><span class="ic" data-icon="server"></span> <span data-i18n="nav.modelle">Modelle</span></button>
+        </div>
         <div id="ai-thread" class="ai-thread">
           <div id="ai-empty" class="ai-empty">
             <div class="ai-empty-logo">FREEDOM</div>
@@ -686,17 +690,35 @@
           </div>
         </div>
       </section>
+
+      <!-- MEHR (C.1a): mobil alles, was nicht in die untere Leiste passt -->
+      <section id="page-mehr" class="tab-page">
+        <div class="page-body narrow mehr-liste" role="navigation" aria-label="Weitere Seiten" data-i18n-aria="nav.mehrAria">
+          <h1 class="page-title" data-i18n="nav.mehr">Mehr</h1>
+          <button class="mehr-zeile" type="button" data-geh="earn"><span class="ic" data-icon="monitor"></span><span data-i18n="navEarn">Verdienen</span><span class="mehr-pfeil">›</span></button>
+          <button class="mehr-zeile" type="button" data-geh="profile"><span class="ic" data-icon="user"></span><span data-i18n="navProfile">Profil</span><span class="mehr-pfeil">›</span></button>
+          <button class="mehr-zeile" type="button" data-geh="settings"><span class="ic" data-icon="settings"></span><span data-i18n="navSettings">Settings</span><span class="mehr-pfeil">›</span></button>
+          <div class="mehr-zeile mehr-sprache"><span class="ic" data-icon="globe"></span><span data-i18n="set.sprache">Sprache</span>
+            <div class="lang-dropdown">
+              <button id="lang-btn-mehr" class="ghost lang-toggle" type="button" aria-label="Sprache" data-i18n-aria="set.sprache">▾</button>
+              <div id="lang-menu-mehr" class="lang-menu hidden"></div>
+            </div>
+          </div>
+          <p id="mehr-relays" class="mono-sm muted" role="status"></p>
+        </div>
+      </section>
     </main>
 
-    <nav class="app-nav">
+    <nav class="app-nav" aria-label="Hauptnavigation" data-i18n-aria="nav.hauptAria">
       <a class="nav-brand" href="#" aria-label="FREEDOM"><span id="nav-mark"></span></a>
       <button data-tab="ai" class="active"><span class="ic" data-icon="bot"></span><span data-i18n="navAi">Agent</span></button>
-      <button data-tab="comm"><span class="ic" data-icon="chat"></span><span data-i18n="navComm">Kommunikation</span></button>
+      <button data-tab="comm"><span class="ic" data-icon="chat"></span><span data-i18n="navComm">Kommunikation</span><span class="nav-kurz" data-i18n="nav.chatKurz">Chat</span></button>
       <button data-tab="wallet"><span class="ic" data-icon="zap"></span><span data-i18n="navWallet">Währung</span></button>
-      <button data-tab="earn"><span class="ic" data-icon="monitor"></span><span data-i18n="navEarn">Earn</span></button>
-      <button data-tab="profile"><span class="ic" data-icon="user"></span><span data-i18n="navProfile">Profil</span></button>
-      <button data-tab="settings"><span class="ic" data-icon="settings"></span><span data-i18n="navSettings">Settings</span></button>
-      <div class="nav-status" title="Relays verbunden" data-i18n-title="relaysTitle"><span id="nav-status-dot" class="status-dot"></span>
+      <button data-tab="earn" class="nav-mehr-teil"><span class="ic" data-icon="monitor"></span><span data-i18n="navEarn">Earn</span></button>
+      <button data-tab="profile" class="nav-mehr-teil"><span class="ic" data-icon="user"></span><span data-i18n="navProfile">Profil</span></button>
+      <button data-tab="settings" class="nav-mehr-teil"><span class="ic" data-icon="settings"></span><span data-i18n="navSettings">Settings</span></button>
+      <button data-tab="mehr"><span class="ic" data-icon="menu"></span><span data-i18n="nav.mehr">Mehr</span></button>
+      <div class="nav-status" title="Relays im Pool" data-i18n-title="relaysTitle"><span id="nav-status-dot" class="status-dot"></span>
         <span id="nav-status-text" class="mono-sm">—</span></div>
     </nav>
   </div>

@@ -8386,3 +8386,80 @@ Endstand nach dem Einmergen von `main` (4.3d2), kein eigener Code: protocol
 1067 (6 übersprungen) · node 235 (6 übersprungen, mit Netz) · app 497 · mls 13 ·
 Leak-Tests 58 grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 ·
 innerHTML streng Exit 0 · Website 5 Seiten ok · Smoke-Test bestanden.
+
+## Schritt C.1a – Oberfläche: Rahmen und Navigation
+
+**Fertig:** Der Rahmen der App ordnet Desktop und Handy je für sich (Karte
+`phase-10.md`, Entwurf freigegeben mit E1–E8). Behoben sind B1, B2, B4, B5 und
+B15 aus der Bestandsaufnahme.
+
+**Einzelheiten:**
+- **Desktop (B1):** `#app` ist ab 1024 px ein Raster statt einer Flex-Zeile.
+  - Die Leiste steht links über die volle Höhe.
+  - Hinweisleisten (offline, Onboarding, Sicherung) stehen über der Seite.
+  - Vorher nahm die Onboarding-Leiste die ganze Breite, `main` hatte die
+    Breite 0 und die Leiste stand rechts. Das traf jeden neuen Nutzer, Spur A
+    sah es in 4.3d2 an der Währungs-Seite.
+  - Profil, Settings und der Relay-Stand stehen unten in der Leiste.
+- **Mobil (E1, B15):**
+  - Unten stehen nur noch Agent · Chat · Währung · Mehr; „Chat“ ist eine
+    eigene kurze Beschriftung.
+  - „Mehr“ ist eine neue Seite: Verdienen, Profil, Settings, Sprache (B4 –
+    vorher mobil unerreichbar) und der Relay-Stand. Solange eine dieser Seiten
+    offen ist, ist „Mehr“ hervorgehoben.
+- **Agent mobil (B2):** Oben stehen „Verlauf“ und „Modelle“. Sie öffnen die
+  Seitenleiste als eigene Ebene, mit „‹ Zurück“. Damit sind Aufgaben,
+  Modelle, Kataloge, Repos, Prüfaufträge, Reklamationen und das Kontingent
+  erreichbar. Eine gewählte Aufgabe führt zurück ins Gespräch. `agent.ts`
+  (Spur A) ist dafür nicht angefasst – nur `index.html`, CSS und
+  `navigation.ts`.
+- **`shell/navigation.ts` (neu):**
+  - Seiten ↔ Adresse (`#/chat`, `#/agent/verlauf`) über `zielAusAdresse()`
+    und `adresseFuer()`. Nie eine Kennung, auch nicht in `history.state` –
+    den Browserverlauf leert die Notfall-Löschung nicht.
+  - Zurück und Vor über `popstate`. Die App startet mit der Seite aus der
+    Adresse.
+  - `seiteGezeigt()` am Ende von `switchTab()` zieht Adresse, „Mehr“ und
+    `aria-current` nach.
+- **Kopfzeile mobil:**
+  - Das Guthaben führt zur Währung, der gekürzte Schlüssel zum Profil – beides
+    auch per Tastatur.
+  - „Importieren“ und der Export des geheimen Schlüssels per Klick sind aus
+    der Kopfzeile verschwunden; beides geht im Profil wie bisher.
+- **Relay-Stand (B5, E8):**
+  - Er zeigt „8 Relays im Pool“ statt „Relays verbunden“ – verbunden zählt die
+    App nicht.
+  - Der Punkt leuchtet nur, solange der Browser Netz meldet, und folgt
+    `online`/`offline`.
+  - Ohne Pool zeigt er „—“ statt des rohen Worts „offline“.
+- **Texte:**
+  - Neuer Bereich `texte/navigation.ts` (`nav.*`).
+  - In `rahmen.ts` (Spur B, klein) sind nur Werte geändert: `navEarn` heißt
+    auf Deutsch „Verdienen“ (E2), `relaysTitle` „Relays im Pool“.
+  - `identTitle` fällt weg.
+  - Neues Symbol `menu` in `icons.ts`.
+- **Werkzeug:** `scripts/screenshots.py` nimmt jede Ansicht über ihre
+  Adresse auf, in Desktop und Mobil. Es ist nicht in der CI und nimmt den
+  Sicherungsdialog nie auf.
+
+**Tests:**
+- +6 in `app/test/navigation.test.ts`:
+  - Adresse hin und zurück;
+  - keine Kennung in der Adresse – Hex, npub, Unterpfade und Unbekanntes
+    gelten nicht;
+  - jede Seite mit Knopf und Bereich, mobil der Rest unter „Mehr“;
+  - verdrahtet in `switchTab()` und beim Start;
+  - Raster ab 1024 px;
+  - Relay-Stand ohne „verbunden“.
+- Smoke-Test „rahmen“, Desktop und Mobil ab dem ersten Start:
+  - Desktop: `main` 1208 px breit neben der Leiste bei x = 0, die
+    Onboarding-Leiste darüber; Adresse und Zurück; Titel „im Pool“.
+  - Mobil: vier Ziele unten, Verlauf/Zurück/Modelle des Agenten, „Mehr“ mit
+    Sprache und Relay-Stand, Settings erreichbar.
+
+Endstand: protocol 1067 (6 übersprungen) · node 235 (6 übersprungen, mit
+Netz) · app 503 (+6) · mls 13 · Leak-Tests 58 grün + 1 todo · 0 rot ·
+check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 · Website 5 Seiten
+ok · Smoke-Test bestanden (mit „rahmen“) · im Browser: alle Seiten in Desktop
+1280×800 und Mobil 390×844 per `scripts/screenshots.py` durchgesehen, ohne
+Seitenfehler.

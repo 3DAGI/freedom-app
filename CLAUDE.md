@@ -44,9 +44,9 @@ bash packages/mls/bauen.sh --pruefen                     # nur bei Änderungen a
 bash contracts/solana-channel/pruefen.sh --werkzeuge     # nur bei Änderungen am Zahlkanal: bauen + Tests gegen Validator (Agave 3.1.10)
 ```
 
-Stand 27.09.2026 (nach 4.3d2 und 8.16g2b1): protocol 1067 grün (6 übersprungen), node 235 grün
+Stand 27.09.2026 (nach 4.3d2, 8.16g2b1 und C.1a): protocol 1067 grün (6 übersprungen), node 235 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 497 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 58 grün + 1 `todo` (heutige Lecks,
+in `tools.test.ts`), app 503 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 58 grün + 1 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
 Ausnahme: gesendete SOL-Zahlungen von frischen Adressen, eine bewusste Grenze
 nach Entscheidung 4.9 A – im Datenschutzbericht unter „Bewusste Grenzen“).
@@ -543,3 +543,12 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   (`einladungsText()`); nie an einem deutschen Text erkennen, was geschah
   (`BrowserKannNicht` statt `startsWith("Dieser Browser")`). Die Sprache setzt
   `boot()` vor allem anderen – der Entsperr-Dialog kommt vor `starte()`.
+- **Navigation nur über `switchTab()` und `shell/navigation.ts`** (seit C.1a):
+  Die Adresse nennt nur die Seite (`#/chat`, `#/agent/verlauf`), nie eine
+  Kennung (Kontakt, Raum, Repo, Patch) – auch nicht in `history.state`: Den
+  Browserverlauf leert die Notfall-Löschung nicht. Neue Seiten in `SEITEN`
+  eintragen und mit `data-tab`-Knopf und `#page-<name>`; mobil nichts nur
+  ausblenden, ohne einen anderen Weg zu bieten – der Smoke-Test („rahmen“)
+  prüft die Erreichbarkeit auf Desktop und Handy. `#app` ist ab 1024 px ein
+  Raster: neue Kinder von `#app` brauchen dort eine Zelle (sonst verdrängen sie
+  `main`, so war es bis C.1a mit der Onboarding-Leiste).

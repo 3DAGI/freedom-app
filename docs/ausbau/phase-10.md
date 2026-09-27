@@ -7,8 +7,9 @@ Karte der Abdeckung und eine Navigation, die auf Desktop und Handy je für sich
 Sinn ergibt. Protokoll, Krypto, Zahlungen und Event-Formate bleiben, wie sie
 sind; sonst gilt die STOPP-Regel aus `CLAUDE.md`.
 
-Stand dieser Karte: **C.0 fertig.** Der MENSCH hat den Entwurf am 27.09.2026
-freigegeben – E1–E8 wie vorgeschlagen (Abschnitt 10.3). Nächster Schritt: C.1a.
+Stand dieser Karte: **C.0 und C.1a fertig.** Der MENSCH hat den Entwurf am
+27.09.2026 freigegeben – E1–E8 wie vorgeschlagen (Abschnitt 10.3). Nächster
+Schritt: C.1b.
 
 ---
 
@@ -431,7 +432,21 @@ Pull Request. Dateien der Spur A (`waehrung.ts`, `agent.ts`, `ki-zahlung.ts`,
 | **C.5** | Feinschliff Mobil: Berührflächen, Safe-Area, Querformat, Kürzungen, Tastatur über dem Eingabefeld, einheitliche Abstände; Durchgang aller Seiten mit Screenshots | `app.css`, `index.html` (~300) | Rest | C.2–C.4 |
 | **C.6** | *nach 4.3d (Spur A, fertig seit #142) und Absprache:* a **reines Verschieben** – Settings › Gebühren (Aufteilung, Anteile, Standard-Schiene) → Währung › Zahlen; „Liquidität“ heißt „Hinterlegen“ (Deposit und Zahlkanal; neuer Schlüssel für die Beschriftung); Modell vorhalten/ankündigen → Verdienen; b Agent: doppelte Verdrahtung (B16), rechtes Feld auch unter 1200 px als Unterseite | a ~250, b ~200 | B14, B16 | 4.3d |
 
-Reihenfolge: C.1a → C.1b → C.2a–d → C.3a–c → C.4a–b → C.5 → C.6. C.1a zuerst, weil B1 jeden neuen Nutzer am Desktop trifft
+Reihenfolge: C.1a → C.1b → C.2a–d → C.3a–c → C.4a–b → C.5 → C.6.
+
+**C.1a – fertig (27.09.2026).** Wie oben, mit diesen Abweichungen:
+- Kopfzeile mobil: statt des eigenen Bildes vorerst der gekürzte Schlüssel als
+  Knopf zum Profil (das Bild kommt mit C.5); das Guthaben führt zur Währung.
+  Den geheimen Schlüssel exportiert die Kopfzeile nicht mehr per Klick – das
+  geht im Profil wie bisher.
+- „Zurück“ von Verdienen, Profil und Settings: über „Mehr“ in der Leiste (dort
+  hervorgehoben) oder die Zurück-Taste; einen eigenen Knopf hat nur die
+  Seitenleiste des Agenten.
+- Relay-Stand (E8): „8 Relays im Pool“; der Punkt leuchtet nur, solange der
+  Browser Netz meldet.
+- Beschriftungen: `navEarn` heißt auf Deutsch „Verdienen“, `relaysTitle`
+  „Relays im Pool“ (Werte geändert, Schlüssel bleiben); `identTitle` fällt weg.
+- `scripts/screenshots.py` nimmt jede Ansicht über ihre Adresse auf (`#/…`). C.1a zuerst, weil B1 jeden neuen Nutzer am Desktop trifft
 und B2 halbe Seiten am Handy unerreichbar macht.
 
 ---

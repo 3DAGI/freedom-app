@@ -1,0 +1,15 @@
+/** Texte der Navigation (Schritt C.1a): untere Leiste, „Mehr“, Unterseiten des Agenten. */
+import type { Texte } from "../i18n.js";
+
+export const navigation: Texte = {
+  "nav.chatKurz": { de: "Chat", en: "Chat" },
+  "nav.mehr": { de: "Mehr", en: "More" },
+  "nav.mehrAria": { de: "Weitere Seiten", en: "More pages" },
+  "nav.hauptAria": { de: "Hauptnavigation", en: "Main navigation" },
+  "nav.relaysImPool": { de: "{n} Relays im Pool", en: "{n} relays in the pool" },
+  "nav.zumProfil": { de: "Profil öffnen", en: "Open profile" },
+  "nav.verlauf": { de: "Verlauf", en: "History" },
+  "nav.modelle": { de: "Modelle", en: "Models" },
+  "nav.zurueck": { de: "‹ Zurück", en: "‹ Back" },
+  "nav.zurueckAria": { de: "Zurück zum Gespräch", en: "Back to the conversation" },
+};
