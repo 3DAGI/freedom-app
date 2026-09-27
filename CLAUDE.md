@@ -43,9 +43,9 @@ bash scripts/build-site.sh /tmp/site                     # Website bauen (Ziel w
 bash packages/mls/bauen.sh --pruefen                     # nur bei Änderungen an packages/mls: nachbauen + vergleichen (Rust, clang)
 ```
 
-Stand 27.09.2026 (nach 6.4 und 5.3c): protocol 1178 grün (6 übersprungen), node 228 grün
+Stand 27.09.2026 (nach 5.3c und 8.16b): protocol 1178 grün (6 übersprungen), node 228 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 463 grün, mls 13 grün, Leak-Tests 57 grün + 1 `todo` (heutige Lecks,
+in `tools.test.ts`), app 472 grün, mls 13 grün, Leak-Tests 57 grün + 1 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
 Ausnahme: gesendete SOL-Zahlungen von frischen Adressen, eine bewusste Grenze
 nach Entscheidung 4.9 A – im Datenschutzbericht unter „Bewusste Grenzen“).
@@ -482,6 +482,10 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
 - **Texte nur über Schlüssel** (seit 8.16a): Sichtbare Texte stehen in
   `app/src/texte/<bereich>.ts` mit `de` und `en` (beide Pflicht), im HTML über
   `data-i18n` (`-ph`, `-title`, `-aria`), im Code über `t("schlüssel", { wert })`.
-  Nur Deutsch und Englisch. `app/test/i18n.test.ts` zählt rohen Text je
-  Bereich (`OFFEN`): fertige Bereiche stehen auf 0 und bleiben es – dort
-  keinen neuen Text ohne Schlüssel. Der Smoke-Test läuft mit `locale="de-DE"`.
+  Nur Deutsch und Englisch. `app/test/i18n.test.ts` zählt rohen Text in
+  `index.html` je Bereich und im Code je Datei (`app/test/i18n-offen.ts`):
+  fertige stehen auf 0 und bleiben es, **neue Dateien sind von Anfang an
+  fertig** (nicht in der Tabelle = 0), offene dürfen nur sinken. Was Daten
+  sind (gesendet oder gespeichert, z. B. Kanalnamen eines Raums), trägt am
+  Zeilenende `// kein UI-Text`. Zahlen und Daten mit `gebietsschema()`, nie
+  fest `"de-DE"`. Der Smoke-Test läuft mit `locale="de-DE"`.

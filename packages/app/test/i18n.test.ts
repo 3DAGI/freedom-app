@@ -1,34 +1,27 @@
 /**
  * Schritt 8.16 (Variante B): Deutsch und Englisch vollständig. Findet
- * fehlende, unbenutzte und rohe Texte. Rohtext in index.html zählt je
- * Bereich: fertige Bereiche stehen auf 0, offene dürfen nur sinken – jeder
- * Teilschritt setzt seinen Bereich auf 0 (8.16a: Rahmen).
+ * fehlende, unbenutzte und rohe Texte. Rohtext zählt in index.html je
+ * Bereich und im Code je Datei (`i18n-offen.ts`): fertige stehen auf 0,
+ * offene dürfen nur sinken, neue Dateien sind von Anfang an fertig.
+ * Fertig: Rahmen (8.16a).
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { BEREICHE, LANGS, detectLang, gespeicherteSprache, getLang, setLang, t } from "../src/i18n.js";
-import { rohtexte } from "./i18n-rohtext.js";
+import { join as pfad, relative } from "node:path";
+import { BEREICHE, LANGS, detectLang, gebietsschema, gespeicherteSprache, getLang, setLang, t } from "../src/i18n.js";
+import { OFFEN_CODE, OFFEN_HTML } from "./i18n-offen.js";
+import { rohtexte, rohtexteImCode } from "./i18n-rohtext.js";
 
 const SRC = new URL("../src/", import.meta.url).pathname;
 const html = readFileSync(join(SRC, "shell/index.html"), "utf8");
 const dateien = (dir: string): string[] =>
   readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
     e.isDirectory() ? (e.name === "texte" ? [] : dateien(join(dir, e.name))) : e.name.endsWith(".ts") && e.name !== "i18n.ts" ? [join(dir, e.name)] : []);
-const code = dateien(SRC).map((f) => readFileSync(f, "utf8")).join("\n");
+const quellen = dateien(SRC).map((f) => ({ datei: relative(SRC, f), text: readFileSync(f, "utf8") }));
+const code = quellen.map((q) => q.text).join("\n");
 const alle = Object.assign({}, ...Object.values(BEREICHE)) as Record<string, { de: string; en: string }>;
-
-/** Offene Rohtexte je Bereich – dürfen nur sinken; fertig heißt 0. */
-const OFFEN: Record<string, number> = {
-  rahmen: 0,
-  "page-ai": 60,
-  "page-comm": 41,
-  "page-wallet": 39,
-  "page-earn": 27,
-  "page-profile": 23,
-  "page-settings": 118,
-};
 
 test("8.16: nur Deutsch und Englisch – jeder Text in beiden, nicht leer, mit denselben Platzhaltern, in genau einem Bereich", () => {
   assert.deepEqual(LANGS.map((l) => l.code), ["de", "en"]);
@@ -94,11 +87,48 @@ test("8.16: Rohtext-Suche – findet Text und Attribute ohne Schlüssel, übersi
 test("8.16: kein roher Text in fertigen Bereichen von index.html, in offenen nicht mehr als bisher", () => {
   const je: Record<string, string[]> = {};
   for (const r of rohtexte(html)) (je[r.bereich] ??= []).push(r.text);
-  for (const bereich of new Set([...Object.keys(je), ...Object.keys(OFFEN)])) {
+  for (const bereich of new Set([...Object.keys(je), ...Object.keys(OFFEN_HTML)])) {
     const gefunden = je[bereich] ?? [];
-    assert.ok(bereich in OFFEN, `neuer Bereich ${bereich}: in OFFEN eintragen`);
-    assert.ok(gefunden.length <= OFFEN[bereich], `${bereich}: ${gefunden.length} rohe Texte (erlaubt ${OFFEN[bereich]})${OFFEN[bereich] === 0 ? `: ${gefunden.join(" | ")}` : ""}`);
+    assert.ok(bereich in OFFEN_HTML, `neuer Bereich ${bereich}: in OFFEN_HTML eintragen`);
+    assert.ok(gefunden.length <= OFFEN_HTML[bereich], `${bereich}: ${gefunden.length} rohe Texte (erlaubt ${OFFEN_HTML[bereich]})${OFFEN_HTML[bereich] === 0 ? `: ${gefunden.join(" | ")}` : ""}`);
   }
+});
+
+test("8.16: Rohtext-Suche im Code – findet sichtbaren Text, auch in Vorlagen, übersieht Code und Vermerktes", () => {
+  const probe = [
+    'toast("Nicht gesendet – kein Relay");',
+    'el.textContent = "lade…";',
+    'const x = prompt("Raum-Kennung:");',
+    'box.innerHTML = `<div class="muted">${items.map((i) => `<b title="Zap senden">${i}</b>`).join("")}</div>`;',
+    'const s = `${n} Antwort ·`;',
+    'document.querySelector("button span");',
+    'localStorage.getItem("freedom.lang");',
+    'console.warn("nur für Entwickler");',
+    'el.className = "mono-sm muted";',
+    'if (e.key === "Enter") senden();',
+    'const h = { "Content-Type": "text/html" };',
+    'const re = /Nicht gesendet/;',
+    '// toast("im Kommentar");',
+    'const kanal = { name: "ankündigungen" }; // kein UI-Text',
+    'toast(t("komm.erledigt"));',
+  ].join("\n");
+  assert.deepEqual(rohtexteImCode(probe).map((f) => [f.zeile, f.text]), [
+    [1, "Nicht gesendet – kein Relay"],
+    [2, "lade…"],
+    [3, "Raum-Kennung:"],
+    [4, '<b title="Zap senden"> </b>'],
+    [5, "  Antwort ·"],
+  ]);
+});
+
+test("8.16: kein roher Text im Code fertiger und neuer Dateien, in offenen nicht mehr als bisher", () => {
+  for (const { datei, text } of quellen) {
+    const gefunden = rohtexteImCode(text);
+    const erlaubt = OFFEN_CODE[datei] ?? 0;
+    assert.ok(gefunden.length <= erlaubt,
+      `${datei}: ${gefunden.length} rohe Texte (erlaubt ${erlaubt})${erlaubt === 0 ? `: ${gefunden.map((f) => `${f.zeile}: ${f.text}`).join(" | ")}` : ""}`);
+  }
+  for (const datei of Object.keys(OFFEN_CODE)) assert.ok(quellen.some((q) => q.datei === datei), `${datei} gibt es nicht mehr – aus OFFEN_CODE streichen`);
 });
 
 test("8.16a: Rahmen – Navigation und Kopfzeile über Schlüssel, gespeicherte Sprache geprüft, das nie gezeigte Wallet-Gate ist weg", () => {
@@ -109,4 +139,19 @@ test("8.16a: Rahmen – Navigation und Kopfzeile über Schlüssel, gespeicherte 
   for (const k of ["navAi", "navComm", "navWallet", "navEarn", "navProfile", "navSettings"]) assert.match(html, new RegExp(`<span data-i18n="${k}">`));
   assert.doesNotMatch(html, /id="gate"|gate-lightning|gate-solana|gate-local/);
   assert.doesNotMatch(app, /#gate/);
+});
+
+test("8.16b: Zahlen und Daten im Gebietsschema der Sprache; ein Sprachwechsel zeichnet den offenen Tab neu", () => {
+  const vorher = getLang();
+  try {
+    setLang("en");
+    assert.equal(gebietsschema(), "en-US");
+    setLang("de");
+    assert.equal(gebietsschema(), "de-DE");
+  } finally {
+    setLang(vorher);
+  }
+  assert.match(readFileSync(pfad(SRC, "shell/tabs/kommunikation.ts"), "utf8"), /toLocaleTimeString\(gebietsschema\(\), \{/, "Uhrzeit im Raum");
+  const app = readFileSync(pfad(SRC, "shell/app.ts"), "utf8");
+  assert.match(app, /applyI18n\(\);\s*\/\/[^\n]*\n\s*const offen = document\.querySelector<HTMLElement>\("\.app-nav button\.active"\)\?\.dataset\.tab;\s*if \(offen\) switchTab\(offen\);/);
 });
