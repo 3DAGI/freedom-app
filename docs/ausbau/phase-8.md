@@ -44,7 +44,8 @@ Reihenfolge.
   in 68 Dateien, 308 in `index.html`), nicht wie geschätzt 400–500. Mit der
   Grenze von etwa 400 geänderten Zeilen je Schritt heißt das rund zwölf statt
   sechs Teilschritte:
-  - **8.16c:** Kommunikation (Seite, `tabs/kommunikation.ts`).
+  - **8.16c – FERTIG:** Kommunikation (Seite, `tabs/kommunikation.ts`): rund
+    130 Schlüssel `komm.*`; Daten eines öffentlichen Raums tragen `// kein UI-Text`.
   - **8.16d:** Agent (Seite, `tabs/agent.ts`, `agent-netz.ts`, Streitfall).
   - **8.16e:** Währung (Seite, `tabs/waehrung.ts`, eingebaute Wallet, offline).
   - **8.16f:** Zahlwege und Swaps (Meldungen aus `swap-client.ts`,

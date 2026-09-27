@@ -7316,3 +7316,43 @@ Endstand: protocol 1178 (6 übersprungen) · node 227 (7 übersprungen ohne
 Netz) · app 472 (+3) · mls 13 · Leak-Tests 57 grün + 1 todo · 0 rot ·
 check-wiring `--streng` Exit 0 · innerHTML streng 0 unbewertet · Website 5
 Seiten ok · Smoke-Test bestanden.
+
+## Schritt 8.16c – Übersetzungen: Kommunikation
+
+**Fertig: Kommunikation.** Seite (`index.html`) und Code
+(`tabs/kommunikation.ts`) stehen auf 0 rohen Texten; die Datei ist aus
+`OFFEN_CODE` gestrichen.
+
+**Seite:** Leiste, Direktnachrichten, Ablauf-Auswahl, Räume und Mitglieder
+laufen über Schlüssel, ebenso Tooltips und aria-Beschriftungen.
+- „New message“/„New community“ waren im deutschen Standard englisch – jetzt
+  in beiden Sprachen richtig.
+- `#space-name` trägt seinen Platzhalter in einem eigenen `<span>`, damit ein
+  Sprachwechsel den gezeigten Raumnamen nicht überschreibt.
+
+**Code:** Räume, Moderation und Meldungen, Einladungen, Direktnachrichten,
+Hinweise zur Verschlüsselung (NIP-17/MLS), Anhänge, Schlüsselwechsel und
+Dialoge laufen über Schlüssel.
+- Rund 130 Schlüssel `komm.*` in `texte/kommunikation.ts`. Werte werden
+  eingesetzt (`{n}`, `{name}`, `{grund}` …), statt Sätze zusammenzukleben;
+  Einzahl und Mehrzahl haben eigene Schlüssel.
+- Daten eines öffentlichen Raums (Kanal- und Rollennamen, die veröffentlicht
+  werden) tragen `// kein UI-Text`.
+- Die Markierung „(alter Schlüssel)“ steht im gespeicherten Namen einer
+  Unterhaltung. Sie wird in beiden Sprachen erkannt (`ALT_MARKE`), auch nach
+  einem Sprachwechsel.
+- Die Namen „Anfrage · …“ entstehen in der Sprache, die beim Eintreffen gilt.
+- Texte in HTML-Vorlagen laufen über `escapeHtml(t(…))`.
+
+**Tests:**
+- +1 in `i18n.test.ts`: Kommunikation fertig; Markierung in beiden Sprachen;
+  Einzahl, Mehrzahl und Werte.
+- Drei ältere Tests prüfen Schlüssel und Text am neuen Ort (nicht schwächer):
+  - `mls-verdrahtung`: MLS-Hinweis, „Anfrage“;
+  - `raeume-privat`: Hinweis „Öffentlicher Raum“;
+  - `leak/raum`: Warnung vor öffentlichen Räumen.
+- innerHTML-Ausnahmeliste: Die Faden-Vorlage ist angepasst (Variable `faden`
+  statt `t`, das jetzt die Übersetzung ist); zwei Einträge entfallen, weil die
+  Zahlen jetzt in `escapeHtml(t(…))` stehen.
+- Die Smoke-Prüfung „sprache“ liest zusätzlich den Zurück-Knopf des Chats
+  („‹ Zurück“/„‹ Back“).

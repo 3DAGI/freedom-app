@@ -73,7 +73,7 @@ test("Verdrahtung: private Räume sind der Standard und senden über MLS; offene
   assert.match(kom, /if \(spacesUi\.privat\) \{\s*\/\/ Privat \(2\.3b\)[^\n]*\n\s*if \(await sendePrivat\(spacesUi\.privat\.gruppe, spacesUi\.channelId, text\)/);
   assert.match(kom, /async function legeRaumAn\(oeffentlich = false\)/);
   assert.match(kom, /create\.onclick = \(\) => void legeRaumAn\(\);/, "der Knopf „Raum anlegen“ legt privat an");
-  assert.match(kom, /if \(oeffentlich && !confirm\(OEFFENTLICH_WARNUNG\)\) return;/);
+  assert.match(kom, /if \(oeffentlich && !confirm\(t\("komm\.oeffentlichWarnung"\)\)\) return;/);
   // Offene Räume und Communities wie im Szenario oben
   assert.match(kom, /signiere\(buildChannelMessage\(\{\s*authorPubkey: state\.keypair\.pk, spaceId: spacesUi\.spaceId,\s*channelId: spacesUi\.channelId, content: text,/);
   assert.match(kom, /signiere\(buildEvent\(state\.keypair\.pk, 42, \[\["h", c\.id\], \.\.\.imeta\], text\)\)/);
