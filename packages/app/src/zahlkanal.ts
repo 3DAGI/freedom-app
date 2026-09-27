@@ -19,8 +19,8 @@
  */
 import type { Connection, TransactionInstruction } from "@solana/web3.js";
 import {
-  KANAL_PROGRAMM_ID, erstatteKanalIx, fromHex, gutschriftTags, leseKanal, msatZuLamports, signiereGutschrift,
-  type KanalEmpfaenger, type KanalStand,
+  KANAL_PROGRAMM_ID, erstatteKanalIx, fromHex, gutschriftTags, kanalAdresse, leseKanal, msatZuLamports,
+  neuerSitzungsSchluessel, oeffneKanalIx, signiereGutschrift, toHex, type KanalEmpfaenger, type KanalStand,
 } from "@freedomstack/protocol";
 import type { WalletSigner } from "./sol-htlc.js";
 import { t } from "./i18n.js";
@@ -88,6 +88,17 @@ export class KanalBuch {
     await this.speicher.setItem(LS_KANAELE, JSON.stringify([...this.alle().filter((x) => x.kanal !== e.kanal), e]));
   }
 
+  async entferne(kanal: string): Promise<void> {
+    await this.speicher.setItem(LS_KANAELE, JSON.stringify(this.alle().filter((e) => e.kanal !== kanal)));
+  }
+
+  /** Einträge, deren Kanal seit `tage` abgelaufen ist, fallen weg (zurückgeholt hat der Wächter). */
+  async raeumeAuf(jetzt: number, tage = 30): Promise<void> {
+    const alle = this.alle();
+    const rest = alle.filter((e) => e.ablauf + tage * 86_400 > jetzt);
+    if (rest.length !== alle.length) await this.speicher.setItem(LS_KANAELE, JSON.stringify(rest));
+  }
+
   /** Der Kanal zu diesem Provider mit der längsten Laufzeit – nur, wenn er noch lange genug läuft. */
   fuerProvider(provider: string, jetzt: number): KanalEintrag | undefined {
     return this.alle()
@@ -136,6 +147,34 @@ export class KanalBuch {
 
 }
 
+/**
+ * Einen Kanal planen: Adresse, Sitzungsschlüssel, Anweisung. Noch nichts
+ * gesendet – erst merken (Kanal-Buch, Sperre für den Wächter), dann
+ * `sendeMitWallet`.
+ */
+export function planeKanal(p: {
+  provider: string; providerSol: string; kunde: string; lamports: bigint; laufzeitSek: number;
+  empfaenger: KanalEmpfaenger[]; jetzt: number;
+}): { eintrag: KanalEintrag; ix: TransactionInstruction } {
+  if (p.lamports <= 0n) throw new Error(t("waehr.ungueltigerBetrag"));
+  if (!(p.laufzeitSek >= KANAL_NUTZBAR_SEK)) throw new Error(t("zahl.kanalLaufzeitZuKurz"));
+  const zufall = crypto.getRandomValues(new Uint32Array(2));
+  const nonce = (BigInt(zufall[0]!) << 32n) | BigInt(zufall[1]!);
+  const sitzung = neuerSitzungsSchluessel();
+  const ablauf = p.jetzt + Math.floor(p.laufzeitSek);
+  const ix = oeffneKanalIx({
+    kunde: p.kunde, provider: p.providerSol, nonce, betrag: p.lamports, ablauf: BigInt(ablauf),
+    sitzungsSchluessel: sitzung.oeffentlich, empfaenger: p.empfaenger,
+  });
+  const eintrag: KanalEintrag = {
+    kanal: kanalAdresse(p.kunde, p.providerSol, nonce).adresse, provider: p.provider, providerSol: p.providerSol,
+    kunde: p.kunde, nonce: nonce.toString(), ablauf, eingezahlt: p.lamports.toString(), empfaenger: p.empfaenger,
+    sitzung: toHex(sitzung.geheim), letzte: "0", abgerechnet: "0", offen: [],
+  };
+  sitzung.geheim.fill(0);
+  return { eintrag, ix };
+}
+
 /** Anweisungen mit der Wallet signieren und senden – mit Vorabsimulation, bis bestätigt. */
 export async function sendeMitWallet(
   conn: Connection, wallet: WalletSigner, ixs: TransactionInstruction[], fortschritt?: (schritt: string) => void,
@@ -165,6 +204,12 @@ export async function kanalAufKette(conn: Connection, kanal: string): Promise<Ka
   } catch {
     return null;
   }
+}
+
+/** Liegt das Kanal-Programm auf dieser Kette? (Bis zum Deploy nicht – dann kein Kanal.) */
+export async function programmBereit(conn: Connection): Promise<boolean> {
+  const { PublicKey } = await import("@solana/web3.js");
+  return (await conn.getAccountInfo(new PublicKey(KANAL_PROGRAMM_ID), "confirmed"))?.executable === true;
 }
 
 /**

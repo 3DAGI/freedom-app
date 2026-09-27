@@ -97,6 +97,7 @@ import {
   refundDeposit,
   startDeposit,
 } from "./tabs/waehrung.js";
+import { oeffneZahlkanal, zeigeKanaele } from "./zahlkanal-ui.js";
 import {
   entsperreBeimStart,
   geheim,
@@ -471,7 +472,7 @@ export function switchTab(name: string): void {
   if (name === "settings") { void zeigeSicherung(); void zeigeGeraete(); void zeigeDatenschutz(); void aktualisiereSicherheitsStand(); void zeigeMeshWeg(); }
   // Verlauf und Budget neu zeichnen – so folgen sie auch einem Sprachwechsel (8.16d1)
   if (name === "ai") { zeigeVerlaeufe(); updateBudgetBar(); void refreshModelDropdown(); void refreshQuota(); }
-  if (name === "wallet") loadWallet();
+  if (name === "wallet") { loadWallet(); void zeigeKanaele(); }
   if (name === "earn") { loadEarnings(); loadTrust(); updateReferralLink(); void ladeAbdeckung(); }
   updateSidebarBalances();
 }
@@ -869,6 +870,7 @@ function starte(): void {
   if (nwcDisconnectBtn) nwcDisconnectBtn.onclick = disconnectNwc;
   $("#dep-start").onclick = startDeposit;
   $("#dep-refund").onclick = refundDeposit;
+  $("#kanal-start").onclick = () => void oeffneZahlkanal();
   $("#chat-new-dm").onclick = () => void newDm();
   $("#chat-new-community").onclick = newCommunity;
   setupAttach();

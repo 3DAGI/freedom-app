@@ -491,7 +491,7 @@ async function einloesenUeberRelayer(p: {
 // ------------------------------------------------ Gegenrichtung (4.6c)
 
 /** Rueckhol-Waechter laden; seine Ablage liegt im Tresor-Speicher. */
-async function sperren(): Promise<typeof import("../../refund-watcher.js")> {
+export async function sperren(): Promise<typeof import("../../refund-watcher.js")> {
   const m = await import("../../refund-watcher.js");
   m.setzeSperrSpeicher(geheim);
   return m;
@@ -504,7 +504,7 @@ let waechterStop: (() => void) | undefined;
  * offen und eine Wallet verbunden ist. Vorher wird die Kette gefragt – was
  * schon eingeloest ist, braucht keinen Wallet-Dialog.
  */
-async function starteRueckholWaechter(): Promise<void> {
+export async function starteRueckholWaechter(): Promise<void> {
   const signer = htlcSigner();
   if (waechterStop || !signer) return;
   const [{ startRefundWatcher, walletRefundRunner }, { Connection }] = await Promise.all([sperren(), import("@solana/web3.js")]);
@@ -632,7 +632,7 @@ export function verbundeneSolanaWallet(): { adresse: string; provider: SolanaWal
  * `publicKey`-Feld – die Adresse kommt aus der Verbindung. Bis 4.6c brachen
  * Einloesen, Deposit und Rueckholen mit solchen Wallets ab („reading 'toBase58'“).
  */
-function htlcSigner(): import("../../sol-htlc.js").WalletSigner | undefined {
+export function htlcSigner(): import("../../sol-htlc.js").WalletSigner | undefined {
   const provider = solWallet.provider;
   const adresse = solWallet.pubkey;
   if (!solWallet.connected || !adresse || !provider?.signTransaction) return undefined;
@@ -803,9 +803,15 @@ export function disconnectNwc(): void {
 /** Aktive Deposit-Session (RAM). */
 let activeDeposit: { sessionId: string; spendSwapId: string; refundSwapId: string } | null = null;
 
-/** Laeuft gerade ein Tausch oder ein Deposit? Dann sperrt der Tresor nicht (1.2d). */
+/** Wird gerade ein Zahlkanal eingezahlt (4.3d, `zahlkanal-ui.ts`)? */
+let kanalEinzahlung = false;
+export function setzeKanalEinzahlung(laeuft: boolean): void {
+  kanalEinzahlung = laeuft;
+}
+
+/** Laeuft gerade ein Tausch, ein Deposit oder eine Kanal-Einzahlung? Dann sperrt der Tresor nicht (1.2d). */
 export function geldVorgangLaeuft(): boolean {
-  return activeSwap !== null || activeDeposit !== null;
+  return activeSwap !== null || activeDeposit !== null || kanalEinzahlung;
 }
 
 export async function startDeposit(): Promise<void> {
