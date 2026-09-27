@@ -469,12 +469,14 @@ export function switchTab(name: string): void {
   if (navBtn) navBtn.classList.add("active");
   // Kommunikation vereint die alten Seiten Chat und Raeume.
   if (name === "comm") { loadChatList(); void zeigeRaumLeiste(); }
-  if (name === "profile") { loadTrust(); void zeigeAbzeichen(); void zeigeProfilVorschau(); zeigeProfilTexte(); }
-  if (name === "settings") { void zeigeSicherung(); void zeigeGeraete(); void zeigeDatenschutz(); void aktualisiereSicherheitsStand(); void zeigeMeshWeg(); }
+  if (name === "profile") { void zeigeAbzeichen(); void zeigeProfilVorschau(); zeigeProfilTexte(); }
+  if (name === "settings") { void zeigeSicherung(); void zeigeGeraete(); void zeigeDatenschutz(); void aktualisiereSicherheitsStand(); }
   // Verlauf und Budget neu zeichnen – so folgen sie auch einem Sprachwechsel (8.16d1)
   if (name === "ai") { zeigeVerlaeufe(); updateBudgetBar(); void refreshModelDropdown(); void refreshQuota(); }
   if (name === "wallet") { loadWallet(); void zeigeKanaele(); }
-  if (name === "earn") { loadEarnings(); loadTrust(); updateReferralLink(); void ladeAbdeckung(); }
+  if (name === "earn") { loadEarnings(); loadTrust(); updateReferralLink(); }
+  // Karte und Mesh stehen seit C.1b auf der Seite „Netz“
+  if (name === "netz") { void ladeAbdeckung(); void zeigeMeshWeg(); }
   if (name === "mehr") void aktualisiereNavStatus();
   updateSidebarBalances();
   // Adresse (nur die Seite, nie eine Kennung) und „Mehr“ nachziehen (C.1a)

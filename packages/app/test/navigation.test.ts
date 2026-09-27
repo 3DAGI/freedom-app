@@ -75,3 +75,30 @@ test("C.1a: Relay-Stand ehrlich – „im Pool“, nie „verbunden“ (B5)", ()
   }
   setLang("en");
 });
+
+/** Inhalt eines Bereichs `#page-<name>` aus index.html. */
+const bereich = (name: string): string => {
+  const a = html.indexOf(`<section id="page-${name}"`);
+  assert.ok(a >= 0, name);
+  return html.slice(a, html.indexOf("</section>", a));
+};
+
+test("C.1b: reines Verschieben – jeder Block steht genau einmal, auf seiner neuen Seite", () => {
+  const ziele: Record<string, string[]> = {
+    repos: ["git-repo-list", "git-repo-publish", "nip34-liste", "nip34-ankuendigen", "contrib-list"],
+    netz: ["coverage-list", "coverage-join", "coverage-leave", "mesh-connect", "mesh-queue", "offline-caps"],
+    earn: ["trust-fill", "trust-xp", "referral-link"],
+    profile: ["badge-list", "nb-import"],
+  };
+  for (const [seite, ids] of Object.entries(ziele)) {
+    for (const id of ids) {
+      assert.equal(html.split(`id="${id}"`).length - 1, 1, `${id} genau einmal`);
+      assert.ok(bereich(seite).includes(`id="${id}"`), `${id} auf ${seite}`);
+    }
+  }
+  // Die alten Reiter sind weg
+  for (const alt of ['data-subpane="agent:repos"', 'data-subpane="earn:map"', 'data-subpane="settings:mesh"', 'data-subtab="mesh"><span']) {
+    assert.ok(!html.includes(alt), alt);
+  }
+  assert.match(app, /if \(name === "netz"\) \{ void ladeAbdeckung\(\); void zeigeMeshWeg\(\); \}/);
+});

@@ -285,7 +285,8 @@ test("8.16f: Earn, Profil, Settings – über Schlüssel; Sätze des Protokolls 
   // Was der Code einmal füllt, zeichnet das Öffnen des Tabs in der neuen Sprache neu (Browser-Test 8.16f)
   const app = readFileSync(pfad(SRC, "shell/app.ts"), "utf8");
   assert.match(app, /if \(name === "profile"\) \{[^}]*zeigeProfilTexte\(\);/);
-  assert.match(app, /if \(name === "earn"\) \{[^}]*void ladeAbdeckung\(\);/);
+  // Die Karte steht seit C.1b auf der Seite „Netz“
+  assert.match(app, /if \(name === "netz"\) \{[^}]*void ladeAbdeckung\(\);/);
   assert.match(earn, /if \(hier && !localStorage\.getItem\("freedom\.coverage\.cell"\)\) hier\.textContent = t\("earn\.standortGebraucht"\);/);
 
   const P = await import("@freedomstack/protocol");
@@ -394,9 +395,9 @@ test("8.16g2a: übrige Bausteine – Mesh, MLS, Werkzeuge, Räume, Hinweise im B
   const engine = readFileSync(pfad(SRC, "mls-engine.ts"), "utf8");
   assert.match(engine, /e instanceof BrowserKannNicht \? e\.message : t\("bau\.mlsStartetHierNicht"\)/);
   assert.doesNotMatch(engine, /startsWith\("Dieser Browser"\)/);
-  // Der Hinweis zum Weg ans Funkgerät folgt einem Sprachwechsel beim Öffnen der Settings
+  // Der Hinweis zum Weg ans Funkgerät folgt einem Sprachwechsel beim Öffnen der Seite „Netz“ (seit C.1b, vorher Settings)
   const app = readFileSync(pfad(SRC, "shell/app.ts"), "utf8");
-  assert.match(app, /if \(name === "settings"\) \{[^}]*void zeigeMeshWeg\(\);/);
+  assert.match(app, /if \(name === "netz"\) \{[^}]*void zeigeMeshWeg\(\);/);
 
   // raum-mls.ts liest beim Laden localStorage (über state.ts) – hier genügt ein leerer
   const g = globalThis as { localStorage?: unknown };

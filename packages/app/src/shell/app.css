@@ -1310,6 +1310,8 @@ main { min-width: 0; }
   .app-nav button[data-tab="profile"] { margin-top: auto; }
   .app-nav .nav-status { margin-top: 10px; }
   .app-nav button[data-tab="mehr"] { display: none; }
+  /* Repos und Netz (C.1b) wie Währung und Verdienen: Kopf und Reiter bis an den Rand */
+  #app > main:has(#page-repos.active), #app > main:has(#page-netz.active) { padding: 0; }
 }
 
 /* Mobil: Agent · Chat · Währung · Mehr (E1); „Chat“ als kurze Beschriftung (B15) */

@@ -29,8 +29,9 @@ Prueft im Headless-Chromium:
   - Rahmen (Schritt C.1a): Desktop – Leiste links, die Seite neben ihr auch mit
     sichtbarer Onboarding-Leiste (vorher Breite 0), Adresse nur mit Seitennamen,
     Zurück; Mobil – unten Agent, Chat, Waehrung, Mehr; Verlauf und Modelle des
-    Agenten erreichbar; unter „Mehr“ Verdienen, Profil, Settings, Sprache und
-    der Relay-Stand „im Pool“
+    Agenten erreichbar; unter „Mehr“ Repos, Verdienen, Netz, Profil, Settings,
+    Sprache und der Relay-Stand „im Pool“; seit C.1b Repos und Netz als Seiten
+    mit ihren Inhalten (Repositories, Mitwirkende, Abdeckung, Mesh)
 
 Verbindungsfehler zu Relays werden ignoriert (hängen vom Netz ab).
 
@@ -412,7 +413,7 @@ def rahmen_pruefen(browser, url: str) -> dict:
             if m["leiste"] is None or m["main"]["width"] < 800 or m["nav"]["x"] != 0 or m["main"]["x"] < m["nav"]["width"] \
                     or m["leiste"]["bottom"] > m["main"]["y"] + 1:
                 erg["fehler"].append(f"desktop: Leiste links, Seite daneben, Onboarding darüber – {m}")
-            if sichtbare != ["ai", "comm", "wallet", "earn", "profile", "settings"]:
+            if sichtbare != ["ai", "comm", "repos", "wallet", "earn", "netz", "profile", "settings"]:
                 erg["fehler"].append(f"desktop: Leiste {sichtbare}")
             klick('.app-nav button[data-tab="comm"]')
             klick('.app-nav button[data-tab="wallet"]')
@@ -426,6 +427,18 @@ def rahmen_pruefen(browser, url: str) -> dict:
             titel = ev("() => document.querySelector('.nav-status').title")
             if "im Pool" not in titel:
                 erg["fehler"].append(f"desktop: Relay-Stand {titel!r}")
+            # C.1b: die verschobenen Inhalte stehen auf ihren neuen Seiten
+            inhalte = {}
+            for tab, sels in [("repos", ["#git-repo-list", "#nip34-liste", "#contrib-list"]),
+                              ("netz", ["#coverage-refresh"]), ("earn", ["#trust-bar-track"])]:
+                klick(f'.app-nav button[data-tab="{tab}"]')
+                inhalte[tab] = all(sichtbar(x) for x in sels)
+            klick('.app-nav button[data-tab="netz"]')
+            klick('[data-subtab-group="netz"] [data-subtab="mesh"]')
+            inhalte["mesh"] = sichtbar("#mesh-queue") and sichtbar("#mesh-connect")
+            erg["desktop"]["inhalte"] = inhalte
+            if not all(inhalte.values()):
+                erg["fehler"].append(f"desktop: Inhalte {inhalte}")
         else:
             erg["mobil"] = {"leiste": sichtbare}
             if sichtbare != ["ai", "comm", "wallet", "mehr"] or not sichtbar('[data-tab="comm"] .nav-kurz'):
@@ -447,7 +460,7 @@ def rahmen_pruefen(browser, url: str) -> dict:
             settings = ev("""() => [document.getElementById('page-settings').classList.contains('active'),
               document.querySelector('.app-nav button[data-tab="mehr"]').classList.contains('active')]""")
             erg["mobil"]["mehr"] = [mehr, sprache, settings]
-            if mehr[0] != ["earn", "profile", "settings"] or "im Pool" not in mehr[1] or not sprache or settings != [True, True]:
+            if mehr[0] != ["repos", "earn", "netz", "profile", "settings"] or "im Pool" not in mehr[1] or not sprache or settings != [True, True]:
                 erg["fehler"].append(f"mobil: Mehr {erg['mobil']['mehr']}")
         ctx.close()
     erg["bestanden"] = not erg["fehler"]

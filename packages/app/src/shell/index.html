@@ -52,7 +52,7 @@
             <button id="agent-seite-zurueck" class="ghost agent-nur-mobil" type="button" aria-label="Zurück zum Gespräch" data-i18n-aria="nav.zurueckAria" data-i18n="nav.zurueck">‹ Zurück</button>
             <button id="agent-new" class="btn-primary agent-new" type="button">
               <span class="ic" data-icon="plus"></span> <span data-i18n="agent.neueAufgabe">Neue Aufgabe</span></button>
-            <div class="seg" role="tablist" data-subtab-group="agent"><button role="tab" data-subtab="tasks" class="active" data-i18n="agent.tabAufgaben">Aufgaben</button><button role="tab" data-subtab="models" data-i18n="agent.tabModelle">Modelle</button><button role="tab" data-subtab="repos" data-i18n="agent.tabRepos">Repos</button></div>
+            <div class="seg" role="tablist" data-subtab-group="agent"><button role="tab" data-subtab="tasks" class="active" data-i18n="agent.tabAufgaben">Aufgaben</button><button role="tab" data-subtab="models" data-i18n="agent.tabModelle">Modelle</button></div>
             <div class="subpane active" data-subpane="agent:tasks"><div id="pruefauftraege" class="card hidden">
           <h3><span class="ic" data-icon="shield"></span> <span data-i18n="agent.pruefauftraege">Prüfaufträge</span></h3>
           <p class="mono-sm" data-i18n="agent.pruefauftraegeText">Jemand aus deinem Netz hat dich als Prüfer einer Reklamation genannt. Dein Urteil geht versiegelt nur an den Kunden und den Provider und gilt nur zwischen ihnen – eine Erstattung zahlt der Provider selbst.</p>
@@ -82,25 +82,6 @@
             <button id="kataloge-refresh" class="ghost" style="width:auto;padding:6px 10px" data-i18n="agent.aktualisieren">aktualisieren</button>
             <button id="katalog-publish" class="ghost" style="width:auto;padding:6px 10px" data-i18n="agent.katalogVeroeffentlichen">eigenen Katalog veröffentlichen</button>
           </div>
-        </div></div>
-            <div class="subpane" data-subpane="agent:repos"><div class="card">
-          <h3><span class="ic" data-icon="git"></span> <span data-i18n="agent.repositories">Repositories</span></h3>
-          <p class="mono-sm" data-i18n="agent.reposText">Git-Bundles liegen im Speichernetz; Zusammenarbeit (Patches, Annahme) läuft nach NIP-34.</p>
-          <div class="composer-meta">
-            <input id="git-repo-name" placeholder="Repo-Name" data-i18n-ph="agent.repoNamePh" style="width:120px" />
-            <button id="git-repo-publish" class="ghost copy-btn" data-i18n="agent.bundlePublizieren">⇪ Bundle publizieren</button>
-            <input type="file" id="git-bundle-file" accept=".bundle" style="display:none" />
-          </div>
-          <div id="git-repo-list" class="mono-sm" style="margin-top:8px"><span data-i18n="agent.lade">lade …</span></div>
-          <h4 class="mono-sm" style="margin-top:12px" data-i18n="agent.zusammenarbeit">Zusammenarbeit (NIP-34)</h4>
-          <p class="mono-sm muted"><span data-i18n="agent.nip34Text1">Ankündigungen, Patches und Annahmen sind öffentlich und mit deinem Schlüssel signiert – wie bei jedem Git-Projekt. Andere Nostr-Clients (ngit, gitworkshop) lesen sie auch. Einen Patch erzeugst du mit</span> <code>git format-patch -1</code><span data-i18n="agent.nip34Text2">; angenommen ist er, wenn Eigentümer oder Maintainer es sagen.</span></p>
-          <div class="composer-meta">
-            <input id="nip34-id" placeholder="Repo-Kennung" data-i18n-ph="agent.repoKennungPh" style="width:120px" />
-            <input id="nip34-klon" placeholder="Klon-Adressen (https://…, rad:…), mit Komma" data-i18n-ph="agent.klonPh" style="flex:1;min-width:160px" />
-            <button id="nip34-ankuendigen" class="ghost copy-btn" data-i18n="agent.repoAnkuendigen">Repo ankündigen</button>
-          </div>
-          <input type="file" id="nip34-patch-datei" accept=".patch,.diff,.txt,text/plain" style="display:none" />
-          <div id="nip34-liste" class="mono-sm" style="margin-top:8px"><span data-i18n="agent.lade">lade …</span></div>
         </div></div>
             <div class="nb-quota agent-quota" id="nb-quota" title="Gratis-Kontingent heute" data-i18n-title="agent.quotaTitel">
               <span class="quota-label" data-i18n="agent.quota">Gratis-Kontingent</span>
@@ -409,9 +390,20 @@
       <!-- EARN -->
       <section id="page-earn" class="tab-page">
         <header class="page-head"><div><h1 class="page-title" data-i18n="navEarn">Earn</h1><p class="page-sub" data-i18n="earn.untertitel">Rechenzeit, Speicher und Relays gegen Sats.</p></div></header>
-        <div class="seg" role="tablist" data-subtab-group="earn"><button role="tab" data-subtab="overview" class="active" data-i18n="waehr.tabUebersicht">Übersicht</button><button role="tab" data-subtab="host" data-i18n="earn.tabHosten">Hosten</button><button role="tab" data-subtab="refer" data-i18n="referral">Werben</button><button role="tab" data-subtab="map" data-i18n="earn.tabKarte">Karte</button></div>
+        <div class="seg" role="tablist" data-subtab-group="earn"><button role="tab" data-subtab="overview" class="active" data-i18n="waehr.tabUebersicht">Übersicht</button><button role="tab" data-subtab="host" data-i18n="earn.tabHosten">Hosten</button><button role="tab" data-subtab="refer" data-i18n="referral">Werben</button></div>
         <div class="page-body">
-          <div class="subpane active" data-subpane="earn:overview"><div class="card"><h3 data-i18n="earn.einnahmen">Einnahmen</h3><div id="earn-status" class="mono-sm">—</div><div id="earn-events" class="mono-sm"></div><button id="earn-refresh" class="ghost" data-i18n="waehr.aktualisieren">Aktualisieren</button></div></div>
+          <div class="subpane active" data-subpane="earn:overview"><div class="card"><h3 data-i18n="earn.einnahmen">Einnahmen</h3><div id="earn-status" class="mono-sm">—</div><div id="earn-events" class="mono-sm"></div><button id="earn-refresh" class="ghost" data-i18n="waehr.aktualisieren">Aktualisieren</button></div><div class="card">
+          <h3><span class="ic" data-icon="star"></span> <span data-i18n="trustLevel">Vertrauensstufe</span></h3>
+          <div class="trust-bar-wrap">
+            <div class="trust-bar" id="trust-bar-track">
+              <div id="trust-fill" class="trust-fill" style="width:0%"></div>
+              <span class="trust-marker m10" style="left:20%" title="classic ab 10 XP" data-i18n-title="profil.classicAb"><i data-i18n="profil.stufeClassic">Classic</i></span>
+              <span class="trust-marker m50" style="left:100%" title="pro ab 50 XP" data-i18n-title="profil.proAb"><i data-i18n="profil.stufePro">Pro</i></span>
+            </div>
+            <div class="trust-meta mono-sm"><span id="trust-xp">—</span> · <span id="trust-jobs">—</span> · <span id="trust-tier">—</span></div>
+          </div>
+          <p class="muted" data-i18n="trustSub">Wächst mit erledigten Jobs. Sie bestimmt, welche Stufe du bedienen kannst.</p>
+        </div></div>
           <div class="subpane" data-subpane="earn:host"><div class="card">
           <h3><span class="ic" data-icon="globe"></span> <span data-i18n="hostReward">App verbreiten</span></h3>
           <p class="muted" data-i18n="hostSub">Leg freedom.html auf einen eigenen Server, IPFS oder Tor – mehr Kopien sind schwerer zu sperren. Legst du freedom-spiegel.json mit deinen Adressen daneben, bekommst du 1 % jeder KI-Zahlung, die über deine Kopie läuft.</p>
@@ -433,12 +425,46 @@
           </div>
           <div id="referral-tier" class="mono-sm"></div>
           <p class="mono-sm" id="referral-stats">—</p>
+        </div></div>
+        </div>
+      </section>
+
+      <!-- REPOS (C.1b): Repositories und Mitwirkende – vorher unter Agent und Earn -->
+      <section id="page-repos" class="tab-page">
+        <header class="page-head"><div><h1 class="page-title" data-i18n="agent.repositories">Repositories</h1></div></header>
+        <div class="page-body">
+          <div class="card">
+          <h3><span class="ic" data-icon="git"></span> <span data-i18n="agent.repositories">Repositories</span></h3>
+          <p class="mono-sm" data-i18n="agent.reposText">Git-Bundles liegen im Speichernetz; Zusammenarbeit (Patches, Annahme) läuft nach NIP-34.</p>
+          <div class="composer-meta">
+            <input id="git-repo-name" placeholder="Repo-Name" data-i18n-ph="agent.repoNamePh" style="width:120px" />
+            <button id="git-repo-publish" class="ghost copy-btn" data-i18n="agent.bundlePublizieren">⇪ Bundle publizieren</button>
+            <input type="file" id="git-bundle-file" accept=".bundle" style="display:none" />
+          </div>
+          <div id="git-repo-list" class="mono-sm" style="margin-top:8px"><span data-i18n="agent.lade">lade …</span></div>
+          <h4 class="mono-sm" style="margin-top:12px" data-i18n="agent.zusammenarbeit">Zusammenarbeit (NIP-34)</h4>
+          <p class="mono-sm muted"><span data-i18n="agent.nip34Text1">Ankündigungen, Patches und Annahmen sind öffentlich und mit deinem Schlüssel signiert – wie bei jedem Git-Projekt. Andere Nostr-Clients (ngit, gitworkshop) lesen sie auch. Einen Patch erzeugst du mit</span> <code>git format-patch -1</code><span data-i18n="agent.nip34Text2">; angenommen ist er, wenn Eigentümer oder Maintainer es sagen.</span></p>
+          <div class="composer-meta">
+            <input id="nip34-id" placeholder="Repo-Kennung" data-i18n-ph="agent.repoKennungPh" style="width:120px" />
+            <input id="nip34-klon" placeholder="Klon-Adressen (https://…, rad:…), mit Komma" data-i18n-ph="agent.klonPh" style="flex:1;min-width:160px" />
+            <button id="nip34-ankuendigen" class="ghost copy-btn" data-i18n="agent.repoAnkuendigen">Repo ankündigen</button>
+          </div>
+          <input type="file" id="nip34-patch-datei" accept=".patch,.diff,.txt,text/plain" style="display:none" />
+          <div id="nip34-liste" class="mono-sm" style="margin-top:8px"><span data-i18n="agent.lade">lade …</span></div>
         </div><div class="card">
           <h3><span class="ic" data-icon="code"></span> <span data-i18n="earn.mitwirkende">Mitwirkende</span></h3>
           <p class="mono-sm" data-i18n="earn.mitwirkendeText">Wer mitarbeitet und ob das Projekt an einer Person hängt. Gezählt werden aktive Tage.</p>
           <div id="contrib-list" class="mono-sm"><span data-i18n="earn.lade">lade …</span></div>
-        </div></div>
-          <div class="subpane" data-subpane="earn:map"><div class="card">
+        </div>
+        </div>
+      </section>
+
+      <!-- NETZ (C.1b): Abdeckungskarte und Mesh – vorher unter Earn und Settings -->
+      <section id="page-netz" class="tab-page">
+        <header class="page-head"><div><h1 class="page-title" data-i18n="nav.netz">Netz</h1><p class="page-sub" data-i18n="nav.netzUntertitel">Wo es Provider und Funk gibt – und Nachrichten ohne Internet.</p></div></header>
+        <div class="seg" role="tablist" data-subtab-group="netz"><button role="tab" data-subtab="map" class="active" data-i18n="earn.tabKarte">Karte</button><button role="tab" data-subtab="mesh" data-i18n="set.tabMesh">Mesh</button></div>
+        <div class="page-body">
+          <div class="subpane active" data-subpane="netz:map"><div class="card">
           <h3><span class="ic" data-icon="globe"></span> <span data-i18n="earn.abdeckung">Abdeckung</span></h3>
           <p class="mono-sm" data-i18n="earn.abdeckungText">Wo es Provider und Funk gibt. Funkknoten erscheinen erst ab drei pro Gebiet, damit sich niemand verorten lässt. Ein Eintrag trägt einen Wegwerfschlüssel, nicht deine Identität, und läuft nach 7 Tagen ab. Auf den Relays ist jeder Eintrag einzeln sichtbar – die Schwelle gilt nur für die Anzeige hier.</p>
           <div id="coverage-here" class="mono-sm"></div>
@@ -448,6 +474,26 @@
             <button id="coverage-join" class="ghost" style="width:auto;padding:6px 10px" data-i18n="earn.eintragen">selbst eintragen</button>
             <button id="coverage-leave" class="ghost" style="width:auto;padding:6px 10px" data-i18n="earn.austragen">austragen</button>
           </div>
+        </div></div>
+          <div class="subpane" data-subpane="netz:mesh"><div class="card">
+          <h3><span class="ic" data-icon="radio"></span> <span data-i18n="set.ohneInternet">Ohne Internet</span></h3>
+          <p class="mono-sm" data-i18n="set.meshText">Verschlüsselte Nachrichten über Funk oder per Datei, wenn das Netz weg ist – nur Umschläge, ohne deinen Schlüssel und ohne Klartext. Funk sendet höchstens 1 % der Zeit (EU 868 MHz): drei bis vier kurze Nachrichten je Stunde. SOL mit vorbereitetem Nonce-Konto (Wallet-Tab); empfangene SOL-Zahlungen reicht die App ein, sobald sie Netz hat. Lightning und KI-Anfragen gehen so nicht.</p>
+          <div id="mesh-transport" class="mono-sm"></div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
+            <button id="mesh-connect" class="ghost" style="width:auto;padding:6px 10px" data-i18n="set.usbGeraet">USB-Gerät</button>
+            <button id="mesh-bt" class="ghost" style="width:auto;padding:6px 10px">Bluetooth</button>
+            <button id="mesh-export" class="ghost" style="width:auto;padding:6px 10px" data-i18n="set.alsDatei">als Datei ausgeben</button>
+            <input type="file" id="mesh-import-input" accept=".meshpkt,.bin" style="display:none" />
+            <button id="mesh-import" class="ghost" style="width:auto;padding:6px 10px" data-i18n="set.dateiEinlesen">Datei einlesen</button>
+          </div>
+          <div id="mesh-status" class="mono-sm"></div>
+          <details style="margin-top:8px">
+            <summary class="mono-sm" style="cursor:pointer" data-i18n="set.wasOffline">Was geht ohne Internet?</summary>
+            <div id="offline-caps" class="mono-sm" style="margin-top:6px"></div>
+          </details>
+        </div><div class="card">
+          <h3 data-i18n="set.warteschlange">Warteschlange</h3>
+          <div id="mesh-queue" class="mono-sm"><span data-i18n="set.nichtsZuSenden">nichts zu senden</span></div>
         </div></div>
         </div>
       </section>
@@ -490,22 +536,11 @@
             </div>
           </details>
         </div>
-          <div class="grid-2"><div class="card">
-          <h3><span class="ic" data-icon="star"></span> <span data-i18n="trustLevel">Vertrauensstufe</span></h3>
-          <div class="trust-bar-wrap">
-            <div class="trust-bar" id="trust-bar-track">
-              <div id="trust-fill" class="trust-fill" style="width:0%"></div>
-              <span class="trust-marker m10" style="left:20%" title="classic ab 10 XP" data-i18n-title="profil.classicAb"><i data-i18n="profil.stufeClassic">Classic</i></span>
-              <span class="trust-marker m50" style="left:100%" title="pro ab 50 XP" data-i18n-title="profil.proAb"><i data-i18n="profil.stufePro">Pro</i></span>
-            </div>
-            <div class="trust-meta mono-sm"><span id="trust-xp">—</span> · <span id="trust-jobs">—</span> · <span id="trust-tier">—</span></div>
-          </div>
-          <p class="muted" data-i18n="trustSub">Wächst mit erledigten Jobs. Sie bestimmt, welche Stufe du bedienen kannst.</p>
-        </div><div class="card">
+          <div class="card">
           <h3><span class="ic" data-icon="shield"></span> <span data-i18n="profil.abzeichen">Abzeichen</span></h3>
           <div id="badge-list" class="mono-sm"><span data-i18n="earn.lade">lade …</span></div>
           <button id="badge-create" class="ghost" style="width:auto;padding:6px 10px;margin-top:8px" data-i18n="profil.abzeichenVergebenKnopf">Abzeichen vergeben</button>
-        </div></div>
+        </div>
         <div class="ident-row">
             <span class="nb-ident" id="nb-ident" title="Öffentlicher Schlüssel — Klick exportiert den privaten" data-i18n-title="profil.identTitel">…</span>
             <button id="nb-import" class="ghost" type="button" data-i18n="import">Importieren</button>
@@ -523,7 +558,6 @@
             <button role="tab" data-subtab="network"><span class="ic" data-icon="globe"></span> <span data-i18n="set.tabVerbindung">Verbindung</span></button>
             <button role="tab" data-subtab="privacy"><span class="ic" data-icon="shield"></span> <span data-i18n="set.tabDatenschutz">Datenschutz</span></button>
             <button role="tab" data-subtab="fees"><span class="ic" data-icon="coins"></span> <span data-i18n="set.tabGebuehren">Gebühren</span></button>
-            <button role="tab" data-subtab="mesh"><span class="ic" data-icon="radio"></span> <span data-i18n="set.tabMesh">Mesh</span></button>
             <button role="tab" data-subtab="share"><span class="ic" data-icon="link"></span> <span data-i18n="set.tabWeitergeben">Weitergeben</span></button>
             <div class="nav-lang settings-lang">
               <div class="lang-dropdown">
@@ -657,26 +691,6 @@
             </select></label>
           <p class="mono-sm muted" data-i18n="set.schieneText">Vorgabe für Zaps und Trinkgeld – bei jeder Zahlung änderbar. Die App zahlt nie still in der anderen Währung.</p>
         </div></div>
-            <div class="subpane" data-subpane="settings:mesh"><h2 class="settings-h" data-i18n="set.tabMesh">Mesh</h2><div class="card">
-          <h3><span class="ic" data-icon="radio"></span> <span data-i18n="set.ohneInternet">Ohne Internet</span></h3>
-          <p class="mono-sm" data-i18n="set.meshText">Verschlüsselte Nachrichten über Funk oder per Datei, wenn das Netz weg ist – nur Umschläge, ohne deinen Schlüssel und ohne Klartext. Funk sendet höchstens 1 % der Zeit (EU 868 MHz): drei bis vier kurze Nachrichten je Stunde. SOL mit vorbereitetem Nonce-Konto (Wallet-Tab); empfangene SOL-Zahlungen reicht die App ein, sobald sie Netz hat. Lightning und KI-Anfragen gehen so nicht.</p>
-          <div id="mesh-transport" class="mono-sm"></div>
-          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
-            <button id="mesh-connect" class="ghost" style="width:auto;padding:6px 10px" data-i18n="set.usbGeraet">USB-Gerät</button>
-            <button id="mesh-bt" class="ghost" style="width:auto;padding:6px 10px">Bluetooth</button>
-            <button id="mesh-export" class="ghost" style="width:auto;padding:6px 10px" data-i18n="set.alsDatei">als Datei ausgeben</button>
-            <input type="file" id="mesh-import-input" accept=".meshpkt,.bin" style="display:none" />
-            <button id="mesh-import" class="ghost" style="width:auto;padding:6px 10px" data-i18n="set.dateiEinlesen">Datei einlesen</button>
-          </div>
-          <div id="mesh-status" class="mono-sm"></div>
-          <details style="margin-top:8px">
-            <summary class="mono-sm" style="cursor:pointer" data-i18n="set.wasOffline">Was geht ohne Internet?</summary>
-            <div id="offline-caps" class="mono-sm" style="margin-top:6px"></div>
-          </details>
-        </div><div class="card">
-          <h3 data-i18n="set.warteschlange">Warteschlange</h3>
-          <div id="mesh-queue" class="mono-sm"><span data-i18n="set.nichtsZuSenden">nichts zu senden</span></div>
-        </div></div>
             <div class="subpane" data-subpane="settings:share"><h2 class="settings-h" data-i18n="set.tabWeitergeben">Weitergeben</h2><div class="card">
           <h3><span class="ic" data-icon="download"></span> <span data-i18n="set.alsDateiTitel">Als Datei</span></h3>
           <p class="mono-sm" data-i18n="set.weitergebenText">Die App ist eine einzige Datei. Du kannst sie exportieren und weitergeben; ihre Echtheit lässt sich gegen das signierte Manifest prüfen.</p>
@@ -695,7 +709,9 @@
       <section id="page-mehr" class="tab-page">
         <div class="page-body narrow mehr-liste" role="navigation" aria-label="Weitere Seiten" data-i18n-aria="nav.mehrAria">
           <h1 class="page-title" data-i18n="nav.mehr">Mehr</h1>
+          <button class="mehr-zeile" type="button" data-geh="repos"><span class="ic" data-icon="git"></span><span data-i18n="agent.tabRepos">Repos</span><span class="mehr-pfeil">›</span></button>
           <button class="mehr-zeile" type="button" data-geh="earn"><span class="ic" data-icon="monitor"></span><span data-i18n="navEarn">Verdienen</span><span class="mehr-pfeil">›</span></button>
+          <button class="mehr-zeile" type="button" data-geh="netz"><span class="ic" data-icon="radio"></span><span data-i18n="nav.netz">Netz</span><span class="mehr-pfeil">›</span></button>
           <button class="mehr-zeile" type="button" data-geh="profile"><span class="ic" data-icon="user"></span><span data-i18n="navProfile">Profil</span><span class="mehr-pfeil">›</span></button>
           <button class="mehr-zeile" type="button" data-geh="settings"><span class="ic" data-icon="settings"></span><span data-i18n="navSettings">Settings</span><span class="mehr-pfeil">›</span></button>
           <div class="mehr-zeile mehr-sprache"><span class="ic" data-icon="globe"></span><span data-i18n="set.sprache">Sprache</span>
@@ -713,8 +729,10 @@
       <a class="nav-brand" href="#" aria-label="FREEDOM"><span id="nav-mark"></span></a>
       <button data-tab="ai" class="active"><span class="ic" data-icon="bot"></span><span data-i18n="navAi">Agent</span></button>
       <button data-tab="comm"><span class="ic" data-icon="chat"></span><span data-i18n="navComm">Kommunikation</span><span class="nav-kurz" data-i18n="nav.chatKurz">Chat</span></button>
+      <button data-tab="repos" class="nav-mehr-teil"><span class="ic" data-icon="git"></span><span data-i18n="agent.tabRepos">Repos</span></button>
       <button data-tab="wallet"><span class="ic" data-icon="zap"></span><span data-i18n="navWallet">Währung</span></button>
       <button data-tab="earn" class="nav-mehr-teil"><span class="ic" data-icon="monitor"></span><span data-i18n="navEarn">Earn</span></button>
+      <button data-tab="netz" class="nav-mehr-teil"><span class="ic" data-icon="radio"></span><span data-i18n="nav.netz">Netz</span></button>
       <button data-tab="profile" class="nav-mehr-teil"><span class="ic" data-icon="user"></span><span data-i18n="navProfile">Profil</span></button>
       <button data-tab="settings" class="nav-mehr-teil"><span class="ic" data-icon="settings"></span><span data-i18n="navSettings">Settings</span></button>
       <button data-tab="mehr"><span class="ic" data-icon="menu"></span><span data-i18n="nav.mehr">Mehr</span></button>
