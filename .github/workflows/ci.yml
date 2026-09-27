@@ -180,6 +180,31 @@ jobs:
           EOF
           cp /tmp/inv.mts . && node --import tsx inv.mts && rm inv.mts
 
+      - name: Aufteilung A+ ist in sich stimmig (5.1)
+        # Entscheidung 4.0 (26.09.2026): 94 / 2,5 / 1,5 / 0,5 / 0,5 / 1. Aendern nur
+        # mit signiertem Release (5.2) und vorher angekuendigt.
+        run: |
+          cd packages/protocol
+          cat > /tmp/aufteilung.mts <<'EOF'
+          import { ANTEILE, ANTEILE_PPM, MAX_ANTEILE_PPM, PROVIDER_PPM, teileAuf } from "./src/aufteilung.js";
+          const fail = (m: string) => { console.error("INVARIANTE VERLETZT: " + m); process.exit(1); };
+          const soll = { entwicklung: 25_000, relays: 15_000, "werber-kunde": 5_000, "werber-provider": 5_000, hosting: 10_000 };
+          if (PROVIDER_PPM !== 940_000) fail(`Provider-Anteil ${PROVIDER_PPM} ppm statt 940.000`);
+          if (JSON.stringify(ANTEILE_PPM) !== JSON.stringify(soll)) fail("Anteile weichen von der Entscheidung 4.0 ab");
+          if (MAX_ANTEILE_PPM !== 100_000) fail("Obergrenze ist nicht 10 %");
+          if (PROVIDER_PPM + ANTEILE.reduce((s, a) => s + ANTEILE_PPM[a], 0) !== 1_000_000) fail("Anteile ergeben nicht 100 %");
+          const alle = { entwicklung: { lud16: "d@e.example" }, relays: [{ lud16: "r@e.example" }, { lud16: "s@e.example" }],
+            "werber-kunde": { lud16: "k@e.example" }, "werber-provider": { lud16: "p@e.example" }, hosting: { lud16: "h@e.example" } };
+          for (const betrag of [0, 1, 999, 1000, 123_457, 10_000_000]) {
+            const r = teileAuf(betrag, alle, "lightning");
+            const summe = r.providerMsat + r.posten.reduce((s, p) => s + p.msat, 0);
+            if (summe !== betrag) fail(`Bei ${betrag} msat gehen ${betrag - summe} msat verloren`);
+            if (r.providerMsat < Math.floor(betrag * 0.94)) fail(`Provider bekommt bei ${betrag} msat weniger als 94 %`);
+          }
+          console.log("Aufteilung A+ ok (94 / 2,5 / 1,5 / 0,5 / 0,5 / 1)");
+          EOF
+          cp /tmp/aufteilung.mts . && node --import tsx aufteilung.mts && rm aufteilung.mts
+
       - name: Keine Geheimnisse im Repo
         run: |
           # Ein versehentlich eingecheckter Treasury-Key waere nicht rueckholbar.

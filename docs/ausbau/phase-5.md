@@ -25,6 +25,28 @@
 - **Abnahme:** `grep -rn "walletofsatoshi\|TREASURY_\|SET_BEFORE_MAINNET" packages/`
   ist leer; keine Adresse im Code empfängt Geld Dritter; entfernte Tests sind im
   Bericht einzeln begründet.
+- **Aufteilung (27.09.2026, mehr als 400 Zeilen):** Heute zahlt der Kunde dem
+  Provider alles, und dessen Knoten zahlt Pool, Werbe-Pool und App-Gebühr aus
+  (`settlement.ts`). Bei A+ zahlt die App des Kunden jeden Anteil selbst; der
+  Provider stellt nur seinen in Rechnung.
+  - **5.1.1 – FERTIG:** Protokoll-Baustein `aufteilung.ts`: feste Anteile
+    (CI-Invariante), `teileAuf()` (nicht Zuordenbares und Rundungsreste an den
+    Provider, Relays höchstens drei zu gleichen Teilen, SOL vorerst ganz an den
+    Provider – bis 4.3), Deklaration im versiegelten Auftrag
+    (`aufteilungTag()`), Prüfung beim Provider (`pruefeAufteilung()`, höchstens
+    10 %) und derselbe Rechnungsbetrag auf beiden Seiten (`providerAnteilMsat()`).
+  - **5.1.2 Knoten:** Rechnung nur über den eigenen Anteil (Deklaration
+    geprüft); ohne Deklaration der ganze Betrag; keine Auszahlungen an Pool und
+    Werbe-Pool mehr (`pool-distributor.ts`, Werbe-Adresse der Konfiguration);
+    Angebot nennt den Werber des Providers.
+  - **5.1.3 App:** zahlt die Anteile direkt über die Schienen, unter 100 sats je
+    Empfänger gebündelt (bleibt bis dahin beim Kunden); Werbelink trägt die
+    Zahladressen des Werbers; Relays mit Zahladresse (NIP-11 → Profil); die
+    App-Gebühr (`client-fee.ts`) geht im Entwicklungsanteil auf.
+  - **5.1.4 Aufräumen:** `protocol-fee.ts` (Pool/Werbe-Pool), `referral-graph.ts`,
+    `treasury*.ts`, `reward-claim.ts`, `rewards.ts`, Bonuslogik in
+    `scarcity.ts`; Werben-Tab → „Einladen“; Texte in App und Website. Abnahme
+    wie oben.
 
 ## 5.1b Gesponserte Pools (Solana-Programm)
 
