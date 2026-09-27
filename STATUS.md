@@ -6889,3 +6889,42 @@ Betrag.
 Endstand (nach Einmergen von main mit 8.4a/b): protocol 1162 (+1) · node 225 ·
 app 447 (+8) · mls 13 · Leak-Tests 57 grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 ·
 innerHTML streng 0 unbewertet · Website 5 Seiten ok · Smoke-Test bestanden.
+
+## Schritt 5.1.3b – Gebührenmodell A+: Werber des Kunden und Relays
+
+**Werber des Kunden (`werbung.ts`, `tabs/earn.ts`):** Der Werbelink trägt neben
+dem Schlüssel die Lightning-Adresse aus dem eigenen Profil
+(`?ref=<pk>&ln=<lud16>`, nur plausible Adressen). Die App des Geworbenen merkt
+beides (`merkeWerber()`): Der erste Werber bleibt, ein fremder Link verdrängt
+ihn nicht und schiebt keine Adresse unter; die Adresse gilt nur vom selben
+Werber und wird nicht überschrieben. `werberZahlziel()` liefert sie für die
+Aufteilung – nie an sich selbst. Öffentlich nennen bleibt freiwillig (8.1b) und
+zählt nur für die Statistik; gezahlt wird ohne Nennung. Werber und Adresse
+stehen in `SICHERUNG_EINTRAEGE`, damit ein neues Gerät weiter zahlt.
+
+**Relays (`relay-zahlziel.ts`):** Der Auftrag geht über den Pool
+(`pool.publish`); dessen Relays bekommen 1,5 %, höchstens drei, in der
+Reihenfolge des Pools (eigener Satz vorn). Der Betreiber kommt aus der
+Selbstauskunft (NIP-11 `pubkey`, nur wss, nie .onion, 5 s, höchstens 100 KB),
+die Adresse aus seinem Profil (Signatur geprüft, das neueste zählt). Gelernt
+wird im Hintergrund beim ersten Auftrag und gemerkt
+(`freedom.relays.zahlziele`, ein Tag, nach Fehlschlag eine Stunde); beim Senden
+zählt nur Bekanntes, nichts hält einen Auftrag auf. Einen eigenen NIP-11-Leser
+statt eines gemeinsamen, weil Spur B mit 8.4c die App-Seite des Relay-Zugangs
+baut – keine Überschneidung im Code.
+
+**Texte:** Gebühren-Karte (wer heute tatsächlich bekommt), Werben-Karte (Link
+mit Adresse; ältere Links ohne Adresse zahlen nichts), Hinweis unter dem
+Werbelink, Vorschau unter dem Gebot („Provider mind. 94 %, Anteile höchstens
+6 %“).
+
+**Tests:** app +6 (453): `werbung.test.ts` (+3: Link, erster Werber, keine
+untergeschobene Adresse, nie an sich selbst, in der Sicherung),
+`relay-zahlziel.test.ts` (+3: nur wss, Betreiber und Adresse in
+Pool-Reihenfolge, Fälschung und lokale Hosts zählen nicht, gemerkt einen Tag
+bzw. eine Stunde, parallele Läufe, Profile offline). Verdrahtungstest
+erweitert.
+
+Endstand: protocol 1162 · node 225 · app 453 (+6) · mls 13 · Leak-Tests 57
+grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng 0
+unbewertet · Website 5 Seiten ok · Smoke-Test bestanden.

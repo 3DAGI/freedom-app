@@ -48,9 +48,10 @@
       über die Kasse (`anteile-kasse.ts`), Deklaration im Kern, höchstens das
       Gebot, erst Rechnung dann Geld, unklar nie wiederholt; App-Gebühr
       entfernt, Entwicklung ohne Adresse bis MENSCH (`ENTWICKLUNG`); Texte.
-    - **5.1.3b:** Werber des Kunden (Werbelink `?ref=<pk>&ln=<lud16>`, gemerkt
-      ohne öffentliche Nennung) und Relays, über die der Auftrag lief (NIP-11
-      `pubkey` → Profil `lud16`, höchstens drei).
+    - **5.1.3b – FERTIG:** Werber des Kunden (Werbelink `?ref=<pk>&ln=<lud16>`,
+      gemerkt ohne öffentliche Nennung, `werbung.ts`) und Relays des Pools, über
+      die der Auftrag geht (NIP-11 `pubkey` → Profil `lud16`, höchstens drei,
+      `relay-zahlziel.ts`).
   - **5.1.4 Aufräumen:** `protocol-fee.ts` (Pool/Werbe-Pool), `referral-graph.ts`,
     `treasury*.ts`, `reward-claim.ts`, `rewards.ts`, Bonuslogik in
     `scarcity.ts`; Werben-Tab → „Einladen“; Texte in App und Website. Abnahme
