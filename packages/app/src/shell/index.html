@@ -602,6 +602,9 @@
               <option value="tor">.onion-Relays bevorzugen (nur im Tor Browser wirksam)</option>
               <option value="mixnet">Mixnetz (nur wirksam, wenn du selbst eines nutzt)</option>
             </select></label>
+          <p class="mono-sm muted">Ob deine IP-Adresse verborgen ist, prüft die App, wenn du diesen Bericht öffnest: Erreicht sie ein .onion-Relay, läuft dein Browser über Tor. Sie versucht bis zu drei .onion-Relays, die sie kennt, höchstens 10 Sekunden. <button id="onion-pruefen" class="ghost mini" type="button">erneut prüfen</button></p>
+          <label class="mono-sm" style="display:block;margin:8px 0">.onion-Relay zum Prüfen (optional – nur für diese Prüfung)
+            <input id="onion-pruefrelay" class="mono-sm" placeholder="ws://….onion" autocomplete="off" spellcheck="false" style="width:100%" /></label>
           <label class="mono-sm" style="display:block;margin:8px 0">
             <input type="checkbox" id="kontakte-sichern" /> Kontakte verschlüsselt zwischen Geräten abgleichen (NIP-51)</label>
           <p class="mono-sm muted">Standard: aus. Die Liste liegt verschlüsselt auf den Relays – sie sehen, dass es sie gibt, nicht, wen sie enthält.</p>

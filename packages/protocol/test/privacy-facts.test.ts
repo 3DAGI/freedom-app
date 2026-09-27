@@ -4,7 +4,7 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { PRIVACY_FACTS, privacyFactsText } from "../src/privacy-facts.js";
+import { PRIVACY_FACTS, faktenDieserSitzung, ipFaktFuer, privacyFactsText } from "../src/privacy-facts.js";
 import { buildPrivateDm } from "../src/private-dm.js";
 import { generateKeypair } from "../src/event.js";
 import {
@@ -345,4 +345,42 @@ test("der Berichtstext trennt Belegtes und Offenes", () => {
   // Seit 2.2b-d2: 1:1 über MLS belegt; Forward Secrecy nur dort, der Rückfall NIP-17 als Grenze mit Grund.
   assert.match(t, /✓ Direktnachrichten an Kontakte, die MLS können, laufen über MLS/);
   assert.match(t, /△ Forward Secrecy haben Direktnachrichten nur über MLS\..*NIP-17 kennt keine Forward Secrecy/);
+});
+
+// ------------------------------------------------------------ 6.2: IP je Sitzung geprueft
+
+test("6.2: „geprüft“ steht nie in der festen Liste – nur als Ergebnis der .onion-Prüfung", () => {
+  assert.equal(PRIVACY_FACTS.filter((f) => f.status === "geprueft").length, 0);
+  const ip = PRIVACY_FACTS.find((f) => f.id === "ip")!;
+  assert.equal(ip.status, "offen");
+  assert.equal(ip.schritt, "6.1", "offen bleibt nur die native App");
+});
+
+test("6.2: .onion-Relay erreichbar → Bericht sagt „IP-Adresse verborgen“, mit der Grenze", () => {
+  const f = ipFaktFuer("erreichbar");
+  assert.equal(f.status, "geprueft");
+  const t = privacyFactsText(faktenDieserSitzung("erreichbar"));
+  assert.match(t, /In dieser Sitzung geprüft:\n✓ IP-Adresse verborgen: Diese Sitzung erreicht ein \.onion-Relay/);
+  assert.match(t, /leitest du nur \.onion-Adressen über Tor, sehen andere Relays deine IP weiter/);
+  assert.doesNotMatch(t, /Noch nicht: Relays sehen deine IP-Adresse nicht/);
+  // Die Pruefung ersetzt nur die Aussage „ip“ – alles andere bleibt, wie es ist.
+  assert.equal(faktenDieserSitzung("erreichbar").length, PRIVACY_FACTS.length);
+  assert.deepEqual(faktenDieserSitzung("erreichbar").filter((x) => x.id !== "ip"), PRIVACY_FACTS.filter((x) => x.id !== "ip"));
+});
+
+test("6.2: nicht erreichbar → nie „verborgen“, sondern Lücke mit „native App oder Tor Browser“", () => {
+  for (const p of ["nicht-erreichbar", "keine-onion"] as const) {
+    const f = ipFaktFuer(p);
+    assert.equal(f.status, "offen");
+    assert.match(f.hinweis ?? "", /Native App oder Tor Browser nutzen/);
+    const t = privacyFactsText(faktenDieserSitzung(p));
+    assert.doesNotMatch(t, /IP-Adresse verborgen|In dieser Sitzung geprüft/);
+    assert.match(t, /○ Noch nicht: Relays sehen deine IP-Adresse nicht\. \(Ausbauplan 6\.1\) – /);
+  }
+  // Ein nicht erreichbares Relay kann auch nur aus sein – keine Gewissheit behaupten.
+  assert.match(ipFaktFuer("nicht-erreichbar").hinweis!, /erreicht kein \.onion-Relay – dein Browser läuft wohl nicht über Tor \(oder die geprüften Relays sind gerade aus\)/);
+  assert.match(ipFaktFuer("keine-onion").hinweis!, /Prüfen ging nicht: Die App kennt kein \.onion-Relay/);
+  // Ohne Pruefung: der Text wie bisher, ohne Hinweis.
+  assert.equal(privacyFactsText(faktenDieserSitzung()), privacyFactsText());
+  assert.match(privacyFactsText(), /○ Noch nicht: Relays sehen deine IP-Adresse nicht\. \(Ausbauplan 6\.1\)\n/);
 });

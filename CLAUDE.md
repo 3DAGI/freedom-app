@@ -43,9 +43,9 @@ bash scripts/build-site.sh /tmp/site                     # Website bauen (Ziel w
 bash packages/mls/bauen.sh --pruefen                     # nur bei Änderungen an packages/mls: nachbauen + vergleichen (Rust, clang)
 ```
 
-Stand 26.09.2026 (nach 2.2b-e2 und 5.10a): protocol 1152 grün (6 übersprungen), node 240 grün
+Stand 26.09.2026 (nach 2.2b-e2 und 6.2): protocol 1155 grün (6 übersprungen), node 240 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 419 grün, mls 11 grün, Leak-Tests 54 grün + 2 `todo` (heutige Lecks,
+in `tools.test.ts`), app 425 grün, mls 11 grün, Leak-Tests 54 grün + 2 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
 Ausnahme: gesendete SOL-Zahlungen von frischen Adressen, eine bewusste Grenze
 nach Entscheidung 4.9 A – im Datenschutzbericht unter „Bewusste Grenzen“).
@@ -386,3 +386,8 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   `signiere()`/der Identität; Widerruf nur über `baueCoverageWiderruf()`, der
   Schlüssel liegt nur im Tresor (`freedom.coverage.eintrag`). Die k-Schwelle
   schützt nur die Anzeige – Texte dürfen nichts anderes versprechen.
+- **„IP verborgen“ nur geprüft** (seit 6.2): Die Aussage „ip“ im
+  Datenschutzbericht kommt nur über `faktenDieserSitzung(onionPruefung())` –
+  „verborgen“ nur, wenn `pruefeOnion()` ein .onion-Relay erreicht hat; der
+  Status „geprueft“ steht nie in `PRIVACY_FACTS`. Die Prüfung läuft erst beim
+  Öffnen des Berichts, nie beim Start, und nur gegen .onion-Adressen.

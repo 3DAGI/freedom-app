@@ -10,13 +10,19 @@
  * Jede Aussage verweist auf ihre Regel aus `LEAK_REGELN` (leak-rules.ts). Nur
  * Forward Secrecy und IP-Adresse haben keine: Ein Mitschnitt der Events kann
  * sie nicht pruefen. Die App-Szenarien stehen in packages/app/test/leak/.
+ *
+ * Die IP-Adresse prueft die App stattdessen je Sitzung (seit 6.2, `ipFaktFuer`):
+ * "geprueft" steht nie in der festen Liste, nur als Ergebnis dieser Pruefung.
  */
 export interface PrivacyFact {
   id: string;
   aussage: string;
-  status: "belegt" | "offen" | "grenze";
+  /** "geprueft": nur fuer diese Sitzung festgestellt (6.2), nie in PRIVACY_FACTS. */
+  status: "belegt" | "offen" | "grenze" | "geprueft";
   /** Bei "offen": der Schritt im Ausbauplan, der die Luecke schliesst. */
   schritt?: string;
+  /** Bei "offen": was du jetzt selbst tun kannst (aus einer Pruefung dieser Sitzung). */
+  hinweis?: string;
   /** Bei "grenze": warum sie bleibt. */
   grund?: string;
   /** Die Leak-Regel, die die Aussage prueft (Name aus LEAK_REGELN). */
@@ -52,15 +58,58 @@ export const PRIVACY_FACTS: readonly PrivacyFact[] = [
   { id: "speicher-abruf", aussage: "Fehlen Stücke einer Datei auf den Relays, fragt die App Speicherknoten versiegelt von einem Wegwerf-Schlüssel an – Relays sehen weder dich noch welche Datei.", status: "belegt", regel: "kein-klartext" },
   { id: "geraete-kopien", aussage: "Hat jemand mehrere Geräte, versiegelt die App jede Nachricht einzeln an jedes davon – Relays sehen weder Inhalt noch Absender.", status: "belegt", regel: "autor-verborgen" },
   { id: "geraete-vollmacht", aussage: "Welche Schlüssel deine Geräte sind, steht öffentlich in deinen Vollmachten; wer deinen Posteingang betreibt, sieht Umschläge an dich und deine Geräte zur selben Zeit ankommen.", status: "grenze", grund: "Kontakte müssen prüfen können, dass ein Gerät für dich spricht, und wissen, an welche Geräte sie versiegeln. Wer das nicht will, nutzt statt Geräteschlüsseln einen entfernten Signer (NIP-46).", regel: "p-tags" },
-  { id: "ip", aussage: "Relays sehen deine IP-Adresse nicht.", status: "offen", schritt: "6.1/6.2" },
+  { id: "ip", aussage: "Relays sehen deine IP-Adresse nicht.", status: "offen", schritt: "6.1" },
 ];
+
+/**
+ * Ergebnis der .onion-Pruefung der App (Schritt 6.2): Ein .onion-Relay
+ * erreicht der Browser nur, wenn er ueber Tor laeuft.
+ */
+export type OnionPruefung = "erreichbar" | "nicht-erreichbar" | "keine-onion";
+
+/**
+ * Die Aussage „ip“ fuer diese Sitzung (Schritt 6.2). Eine Web-App kann Tor
+ * nicht herstellen, aber pruefen: Erreicht sie ein .onion-Relay, laeuft der
+ * Browser ueber Tor. Nur dann heisst es „IP-Adresse verborgen“ – als Pruefung
+ * dieser Sitzung, nicht als Test-Beleg. Sonst bleibt die Luecke offen, mit dem
+ * Weg, sie zu schliessen.
+ */
+export function ipFaktFuer(p: OnionPruefung): PrivacyFact {
+  const ip = PRIVACY_FACTS.find((f) => f.id === "ip")!;
+  if (p === "erreichbar") {
+    return {
+      id: "ip",
+      aussage: "IP-Adresse verborgen: Diese Sitzung erreicht ein .onion-Relay, dein Browser läuft also über Tor – " +
+        "Relays sehen einen Tor-Ausgang, nicht dich. Das gilt für jede Verbindung, wenn der ganze Browser über Tor " +
+        "läuft (Tor Browser); leitest du nur .onion-Adressen über Tor, sehen andere Relays deine IP weiter.",
+      status: "geprueft",
+    };
+  }
+  return {
+    ...ip,
+    hinweis: p === "nicht-erreichbar"
+      ? "Diese Sitzung erreicht kein .onion-Relay – dein Browser läuft wohl nicht über Tor (oder die geprüften Relays sind gerade aus). Native App oder Tor Browser nutzen."
+      : "Prüfen ging nicht: Die App kennt kein .onion-Relay. Native App oder Tor Browser nutzen – dort ein .onion-Relay zum Prüfen eintragen.",
+  };
+}
+
+/** Die Aussagen mit dem Ergebnis der .onion-Pruefung dieser Sitzung (ohne Pruefung: unveraendert). */
+export function faktenDieserSitzung(p?: OnionPruefung, facts: readonly PrivacyFact[] = PRIVACY_FACTS): PrivacyFact[] {
+  return p ? facts.map((f) => (f.id === "ip" ? ipFaktFuer(p) : f)) : [...facts];
+}
 
 /** Klartext fuer den Datenschutzbericht der App. */
 export function privacyFactsText(facts: readonly PrivacyFact[] = PRIVACY_FACTS): string {
   const belegt = facts.filter((f) => f.status === "belegt").map((f) => `✓ ${f.aussage}`);
+  const geprueft = facts.filter((f) => f.status === "geprueft").map((f) => `✓ ${f.aussage}`);
   const offen = facts
     .filter((f) => f.status === "offen")
-    .map((f) => `○ Noch nicht: ${f.aussage}${f.schritt ? ` (Ausbauplan ${f.schritt})` : ""}`);
+    .map((f) => `○ Noch nicht: ${f.aussage}${f.schritt ? ` (Ausbauplan ${f.schritt})` : ""}${f.hinweis ? ` – ${f.hinweis}` : ""}`);
   const grenzen = facts.filter((f) => f.status === "grenze").map((f) => `△ ${f.aussage} ${f.grund ?? ""}`.trim());
-  return ["Durch Tests belegt:", ...belegt, "", "Bekannte Lücken:", ...offen, ...(grenzen.length ? ["", "Bewusste Grenzen:", ...grenzen] : [])].join("\n");
+  return [
+    "Durch Tests belegt:", ...belegt,
+    ...(geprueft.length ? ["", "In dieser Sitzung geprüft:", ...geprueft] : []),
+    "", "Bekannte Lücken:", ...offen,
+    ...(grenzen.length ? ["", "Bewusste Grenzen:", ...grenzen] : []),
+  ].join("\n");
 }

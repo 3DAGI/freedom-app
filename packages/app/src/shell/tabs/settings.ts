@@ -7,6 +7,7 @@
 import { DEFAULT_CLIENT_FEE_PERCENT, MAX_CLIENT_FEE_PERCENT } from "@freedomstack/protocol";
 import { escapeHtml, pkShort } from "../../shell-logic.js";
 import { zeigeDatenschutz } from "../datenschutz.js";
+import { LS_ONION_PRUEFRELAY, onionRelay } from "../../onion-pruefung.js";
 import { zeigeVertraute } from "../nachfolge-ui.js";
 import { alsGeraet, ensurePool, mitBunker, mitRohemSchluessel, signiere, state } from "../state.js";
 import { geheim, istGeheimnis, tresorEingerichtet, wireTresorKarte } from "../tresor.js";
@@ -612,7 +613,26 @@ export async function wireMeshTab(): Promise<void> {
       void zeigeDatenschutz();
     };
   }
-  void zeigeDatenschutz();
+  // Ehrlicher Modus (6.2): Der Bericht prueft beim Oeffnen (switchTab), ob ein
+  // .onion-Relay erreichbar ist – nicht schon beim Start.
+  const pruefRelay = document.getElementById("onion-pruefrelay") as HTMLInputElement | null;
+  if (pruefRelay) {
+    pruefRelay.value = localStorage.getItem(LS_ONION_PRUEFRELAY) ?? "";
+    pruefRelay.onchange = () => {
+      const roh = pruefRelay.value.trim();
+      const url = onionRelay(roh);
+      if (roh && !url) {
+        toast("Keine .onion-Relay-Adresse (ws://….onion oder wss://….onion)", true);
+        return;
+      }
+      if (url) localStorage.setItem(LS_ONION_PRUEFRELAY, url);
+      else localStorage.removeItem(LS_ONION_PRUEFRELAY);
+      pruefRelay.value = url ?? "";
+      void zeigeDatenschutz();
+    };
+  }
+  const pruefen = document.getElementById("onion-pruefen");
+  if (pruefen) pruefen.onclick = () => void zeigeDatenschutz(true);
 
   // MLS-Engine (2.2b-b): erst der Selbsttest lädt sie – vorher bleibt sie gepackt.
   const mlsKnopf = document.getElementById("mls-selbsttest") as HTMLButtonElement | null;
