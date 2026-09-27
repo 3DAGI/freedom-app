@@ -47,7 +47,7 @@ const en: Record<string, string> = {
   trustLevel: "Trust level",
   trustSub: "Earned through completed jobs. It decides which tier you can serve.",
   hostReward: "Distribute the app",
-  hostSub: "Put freedom.html on your own server, IPFS or Tor. More copies make it harder to block. There is no payment for this.",
+  hostSub: "Put freedom.html on your own server, IPFS or Tor – more copies are harder to block. Put freedom-spiegel.json with your addresses next to it and you get 1% of every AI payment made through your copy.",
   // ai
   aiPlaceholder: "Message the agent",
   send: "Send",
@@ -101,7 +101,7 @@ const de: Record<string, string> = {
   trustLevel: "Vertrauensstufe",
   trustSub: "Wächst mit erledigten Jobs. Sie bestimmt, welche Stufe du bedienen kannst.",
   hostReward: "App verbreiten",
-  hostSub: "Leg freedom.html auf einen eigenen Server, IPFS oder Tor. Mehr Kopien sind schwerer zu sperren. Eine Vergütung gibt es dafür nicht.",
+  hostSub: "Leg freedom.html auf einen eigenen Server, IPFS oder Tor – mehr Kopien sind schwerer zu sperren. Legst du freedom-spiegel.json mit deinen Adressen daneben, bekommst du 1 % jeder KI-Zahlung, die über deine Kopie läuft.",
   aiPlaceholder: "Nachricht an den Agenten",
   send: "Senden",
   thinking: "denkt nach…",

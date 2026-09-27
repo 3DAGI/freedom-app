@@ -82,6 +82,12 @@
 
 ## 5.3 Hosting-Spiegel
 
+> **Entschieden 27.09.2026 (MENSCH):** Die Konten legt der MENSCH an – Liste mit
+> Vorschlägen in `docs/KONTEN.md`; bis dahin Platzhalter (`PLATZHALTER:…`), die
+> der Code wie „nicht gesetzt“ behandelt. Geteilt: **5.3a** Platzhalter,
+> Quellen auf der Startseite, Hosting-Anteil aus `freedom-spiegel.json`;
+> **5.3b** Upload-Skripte und CI-Job (überspringt fehlende Konten).
+
 - **Vorgehen:** `scripts/mirror/` mit Skripten für Codeberg Pages, IPFS (CID
   berechnen, Pinning), Arweave, Blossom/Nostr und Torrent (Magnet-Link). Das
   Manifest listet alle Quellen; die Startseite zeigt sie.
