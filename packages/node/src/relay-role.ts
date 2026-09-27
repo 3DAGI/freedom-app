@@ -21,7 +21,9 @@
  */
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { randomBytes } from "node:crypto";
+import { readFileSync, renameSync, writeFileSync } from "node:fs";
 import { readFile, rename, writeFile } from "node:fs/promises";
+import { KasseFehler, type RelayKasse, type Schiene } from "./relay-kasse.js";
 import { WebSocketServer, WebSocket } from "ws";
 import {
   ablaufVon, baueRelayInfo, brauchtAnmeldung, relayNimmtAn, darfAusliefern, ersetzSchluessel, hasValidEventShape, istFluechtig,
@@ -41,6 +43,12 @@ export interface RelayConfig {
   /** Umschlaege nur an angemeldete Empfaenger; Standard: wenn beschraenkt. */
   umschlaegeSchuetzen?: boolean;
   zugang?: RelayZugang;
+  /** Zugang kaufen (8.4b) – ueber `POST /zugang` auf demselben Port. */
+  kasse?: RelayKasse;
+  /** Events ueberdauern einen Neustart (8.4b): hier abgelegt, jede Minute und beim Beenden. */
+  eventDatei?: string;
+  /** Hoechstens so viele Events; darueber lehnt der Relay ab statt still zu verdraengen. */
+  maxEvents?: number;
   /** Unix-Sekunden (Tests). */
   jetzt?: () => number;
 }
@@ -107,6 +115,8 @@ export class RelayRole {
   private http?: Server;
   private wss?: WebSocketServer;
   private putzer?: NodeJS.Timeout;
+  private sicherer?: NodeJS.Timeout;
+  private geaendert = false;
   private readonly zugang: RelayZugang;
   private readonly schuetzen: boolean;
   private readonly jetzt: () => number;
@@ -118,7 +128,12 @@ export class RelayRole {
   }
 
   async start(): Promise<void> {
-    this.http = createServer((req, res) => this.selbstauskunft(req, res));
+    this.ladeEvents();
+    // Ein Fehler beim Kaufen (etwa die Platte voll) darf den Knoten nicht beenden
+    this.http = createServer((req, res) => this.beantworte(req, res).catch(() => {
+      if (!res.headersSent) res.statusCode = 500;
+      res.end();
+    }));
     this.wss = new WebSocketServer({ server: this.http, maxPayload: Math.max(2 * this.cfg.maxEventBytes, 65_536) });
     this.wss.on("connection", (ws: WebSocket, req: IncomingMessage) => {
       const v: Verbindung = {
@@ -137,6 +152,10 @@ export class RelayRole {
     await new Promise<void>((ok) => this.http!.listen(this.cfg.port, ok));
     this.putzer = setInterval(() => this.aufraeumen(), 10 * 60_000);
     this.putzer.unref();
+    if (this.cfg.eventDatei) {
+      this.sicherer = setInterval(() => this.sichereEvents(), 60_000);
+      this.sicherer.unref();
+    }
     console.log(
       `Relay-Rolle aktiv: ws://0.0.0.0:${this.cfg.port} (retention ${this.cfg.retentionDays}d` +
       `${this.cfg.beschraenkt ? ", nur mit Zugang" : ""}${this.schuetzen ? ", Umschlaege nur an Angemeldete" : ""})`,
@@ -145,22 +164,28 @@ export class RelayRole {
 
   stop(): void {
     clearInterval(this.putzer);
+    clearInterval(this.sicherer);
+    this.sichereEvents();
     for (const ws of this.verbindungen.keys()) ws.terminate();
     this.wss?.close();
     this.http?.close();
   }
 
-  /** NIP-11 auf demselben Port; sonst ein kurzer Hinweis. */
-  private selbstauskunft(req: IncomingMessage, res: ServerResponse): void {
+  /** NIP-11 und Zugang kaufen auf demselben Port; sonst ein kurzer Hinweis. */
+  private async beantworte(req: IncomingMessage, res: ServerResponse): Promise<void> {
     res.setHeader("Access-Control-Allow-Origin", "*");
-    res.setHeader("Access-Control-Allow-Headers", "Accept");
+    res.setHeader("Access-Control-Allow-Headers", "Accept, Content-Type");
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST");
     if (req.method === "OPTIONS") {
       res.statusCode = 204;
       res.end();
       return;
     }
+    const pfad = (req.url ?? "/").split("?")[0];
+    if (req.method === "POST" && /^\/zugang(\/[0-9a-f]{32})?$/.test(pfad)) return this.kauf(req, res, pfad.slice("/zugang/".length));
     if (req.method === "GET" && /application\/nostr\+json/.test(req.headers.accept ?? "")) {
       res.setHeader("Content-Type", "application/nostr+json");
+      const kasse = this.cfg.kasse && this.cfg.kasse.schienen().length > 0 ? this.cfg.kasse : undefined;
       res.end(JSON.stringify(baueRelayInfo({
         name: "Freedom-Relay",
         beschreibung: "Relay-Rolle eines FreedomStack-Knotens",
@@ -169,11 +194,86 @@ export class RelayRole {
         aufbewahrungTage: this.cfg.retentionDays,
         beschraenkt: this.cfg.beschraenkt === true,
         umschlaegeGeschuetzt: this.schuetzen,
+        kauf: kasse ? { ...kasse.preise(), url: `${this.httpBasis(req)}/zugang` } : undefined,
       })));
       return;
     }
     res.setHeader("Content-Type", "text/plain; charset=utf-8");
     res.end("Freedom-Relay – mit einem Nostr-Client verbinden.\n");
+  }
+
+  /** Oeffentliche HTTP-Adresse dieses Relays (fuer `payments_url`). */
+  private httpBasis(req: IncomingMessage): string {
+    const u = this.cfg.oeffentlicheUrl;
+    if (u && relayHost(u)) return u.replace(/^ws/, "http").replace(/\/+$/, "");
+    return `http://${req.headers.host ?? "localhost"}`;
+  }
+
+  /**
+   * `POST /zugang` {pubkey, schiene} → Angebot; `POST /zugang/<id>` {signatur?}
+   * → bezahlt oder nicht. Nur feste Texte, nie Meldungen von LND oder vom RPC.
+   */
+  private async kauf(req: IncomingMessage, res: ServerResponse, id: string): Promise<void> {
+    const antworte = (status: number, daten: unknown) => {
+      res.statusCode = status;
+      res.setHeader("Content-Type", "application/json");
+      res.end(JSON.stringify(daten));
+    };
+    const kasse = this.cfg.kasse;
+    if (!kasse || kasse.schienen().length === 0) return antworte(404, { fehler: "Dieser Relay verkauft keinen Zugang" });
+    const stuecke: Buffer[] = [];
+    let laenge = 0;
+    for await (const stueck of req) {
+      stuecke.push(stueck as Buffer);
+      laenge += (stueck as Buffer).length;
+      if (laenge > 4096) return antworte(413, { fehler: "Anfrage zu groß" });
+    }
+    let body: Record<string, unknown>;
+    try {
+      body = JSON.parse(Buffer.concat(stuecke).toString("utf8") || "{}") as Record<string, unknown>;
+      if (typeof body !== "object" || body === null) throw new Error();
+    } catch {
+      return antworte(400, { fehler: "Kein JSON" });
+    }
+    if (!id) {
+      if (body.schiene !== "lightning" && body.schiene !== "solana") return antworte(400, { fehler: "Schiene: lightning oder solana" });
+      try {
+        return antworte(200, await kasse.angebot(String(body.pubkey ?? ""), body.schiene as Schiene));
+      } catch (e) {
+        return antworte(400, { fehler: e instanceof KasseFehler ? e.message : "Angebot konnte nicht erstellt werden" });
+      }
+    }
+    return antworte(200, await kasse.pruefe(id, typeof body.signatur === "string" ? body.signatur : undefined));
+  }
+
+  private ladeEvents(): void {
+    if (!this.cfg.eventDatei) return;
+    let l: unknown;
+    try {
+      l = JSON.parse(readFileSync(this.cfg.eventDatei, "utf8"));
+    } catch {
+      return; // noch keine Datei
+    }
+    for (const x of Array.isArray(l) ? l : []) {
+      const { ev, seit } = (x ?? {}) as { ev?: unknown; seit?: unknown };
+      if (!hasValidEventShape(ev) || !Number.isSafeInteger(seit) || !verifyEvent(ev)) continue;
+      this.speichere(ev, seit as number);
+    }
+    this.geaendert = false;
+    const weg = this.aufraeumen();
+    console.log(`[relay] ${this.events.size} Events geladen${weg ? `, ${weg} abgelaufen` : ""}`);
+  }
+
+  private sichereEvents(): void {
+    const datei = this.cfg.eventDatei;
+    if (!datei || !this.geaendert) return;
+    try {
+      writeFileSync(`${datei}.tmp`, JSON.stringify([...this.events.values()]), { mode: 0o600 });
+      renameSync(`${datei}.tmp`, datei);
+      this.geaendert = false;
+    } catch (e) {
+      console.warn(`[relay] Events nicht gesichert: ${(e as Error).name}`);
+    }
   }
 
   private handleMessage(ws: WebSocket, v: Verbindung, raw: string): void {
@@ -228,6 +328,9 @@ export class RelayRole {
       this.reply(ws, ["OK", ev.id, true, ""]);
       return this.verteile(ev);
     }
+    if (this.events.size >= (this.cfg.maxEvents ?? 100_000) && !this.events.has(ev.id) && !ersetzSchluessel(ev)) {
+      return this.reply(ws, ["OK", ev.id, false, "error: Relay voll – später erneut versuchen"]);
+    }
     const s = this.speichere(ev, jetzt);
     this.reply(ws, ["OK", ev.id, true, s === "neu" ? "" : s === "doppelt" ? "duplicate: schon vorhanden" : "duplicate: neuere Fassung liegt vor"]);
     if (s === "neu") this.verteile(ev);
@@ -244,6 +347,7 @@ export class RelayRole {
       this.neueste.set(schluessel, ev.id);
     }
     this.events.set(ev.id, { ev, seit: jetzt });
+    this.geaendert = true;
     return "neu";
   }
 
@@ -285,6 +389,7 @@ export class RelayRole {
       if ((ablauf !== null && ablauf <= jetzt) || (!schluessel && seit < grenze)) {
         this.events.delete(id);
         if (schluessel && this.neueste.get(schluessel) === id) this.neueste.delete(schluessel);
+        this.geaendert = true;
         weg++;
       }
     }

@@ -111,13 +111,19 @@ type Anweisung = { program?: string; parsed?: { type?: string; info?: { source?:
 /**
  * Prueft eine Transaktion (Antwort von `getTransaction` mit `jsonParsed`):
  * erfolgreich, und die System-Ueberweisungen an `an` (von `von`, falls
- * angegeben) ergeben mindestens `lamports`.
+ * angegeben) ergeben mindestens `lamports`. Mit `referenz` (Solana Pay, 8.4b)
+ * muss die Transaktion diese Adresse als Konto nennen – so gehoert sie zu
+ * genau einem Angebot und laesst sich keinem anderen unterschieben.
  */
-export function pruefeSolUeberweisung(tx: unknown, erwartet: { an: string; lamports: number; von?: string }): SolPruefung {
+export function pruefeSolUeberweisung(tx: unknown, erwartet: { an: string; lamports: number; von?: string; referenz?: string }): SolPruefung {
   if (tx === null || tx === undefined) return { status: "unbestaetigt", grund: "Transaktion (noch) nicht gefunden" };
-  const t = tx as { meta?: { err?: unknown }; transaction?: { message?: { instructions?: Anweisung[] } } };
+  const t = tx as { meta?: { err?: unknown }; transaction?: { message?: { instructions?: Anweisung[]; accountKeys?: unknown[] } } };
   if (!t.meta) return { status: "unbestaetigt", grund: "Transaktion ohne Ergebnis" };
   if (t.meta.err !== null && t.meta.err !== undefined) return { status: "falsch", grund: "Transaktion ist gescheitert" };
+  if (erwartet.referenz !== undefined) {
+    const konten = (t.transaction?.message?.accountKeys ?? []).map((k) => (typeof k === "string" ? k : (k as { pubkey?: unknown })?.pubkey));
+    if (!konten.includes(erwartet.referenz)) return { status: "falsch", grund: "Referenz fehlt – die Zahlung gehört zu keinem Angebot" };
+  }
   let summe = 0;
   for (const a of t.transaction?.message?.instructions ?? []) {
     const info = a.parsed?.info;

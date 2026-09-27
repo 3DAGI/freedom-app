@@ -92,6 +92,15 @@ services:
       RELAY_BESCHRAENKT: "${RELAY_BESCHRAENKT:-0}"
       RELAY_ZUGANG: "${RELAY_ZUGANG:-}"
       RELAY_UMSCHLAEGE_NUR_ANGEMELDET: "${RELAY_UMSCHLAEGE_NUR_ANGEMELDET:-0}"
+      # 8.4b: Zugang zu kaufen (POST /zugang auf dem Relay-Port) – Sats ueber eine Rechnung
+      # des eigenen LND (RELAY_LND_MACAROON: Pfad zu einer Macaroon NUR mit invoices:read/write,
+      # dazu LND_REST), SOL an RELAY_SOL_ADRESSE (geprueft ueber SOLANA_RPC_URL). Leer = nicht zu kaufen.
+      RELAY_ZUGANG_TAGE: "${RELAY_ZUGANG_TAGE:-30}"
+      RELAY_PREIS_SATS: "${RELAY_PREIS_SATS:-}"
+      RELAY_LND_MACAROON: "${RELAY_LND_MACAROON:-}"
+      RELAY_PREIS_LAMPORTS: "${RELAY_PREIS_LAMPORTS:-}"
+      RELAY_SOL_ADRESSE: "${RELAY_SOL_ADRESSE:-}"
+      RELAY_MAX_EVENTS: "${RELAY_MAX_EVENTS:-100000}"
       QUOTA_API_PORT: "3602"
     volumes:
       # Identitaet und Bootstrap-Zeitpunkt ueberleben Neustarts. Ohne dieses

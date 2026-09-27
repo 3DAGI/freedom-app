@@ -6,7 +6,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   ablaufVon, baueRelayInfo, brauchtAnmeldung, buildEvent, darfAusliefern, ersetzSchluessel, generateKeypair, istFluechtig, istNeuer,
-  pruefeRelayAuth, relayHost, relayNimmtAn, signEvent, type NostrEvent,
+  pruefeRelayAuth, pruefeSolUeberweisung, relayHost, relayNimmtAn, signEvent, solReferenz, type NostrEvent,
 } from "../src/index.js";
 
 const T0 = 1_800_000_000;
@@ -91,4 +91,35 @@ test("8.4a: NIP-11 nennt Schlüssel, NIPs, Grenzen und ob Umschläge geschützt 
   assert.deepEqual(info.limitation, { max_message_length: 1000, auth_required: false, payment_required: false, restricted_writes: false });
   assert.equal(info.retention[0].time, 30 * 86400);
   assert.equal(info.freedom.umschlaege_nur_an_angemeldete, true);
+});
+
+test("8.4b: NIP-11 nennt Preise je Schiene und die Kaufadresse – nur für eingerichtete Schienen", () => {
+  const basis = { name: "n", beschreibung: "b", pubkey: kp.pk, maxNachricht: 1, aufbewahrungTage: 1, beschraenkt: true, umschlaegeGeschuetzt: true };
+  const info = baueRelayInfo({ ...basis, kauf: { tage: 30, msat: 1_000_000, lamports: 5_000_000, url: "https://relay.example/zugang" } }) as {
+    fees: { subscription: { amount: number; unit: string; period: number }[] }; payments_url: string;
+  };
+  assert.deepEqual(info.fees.subscription, [
+    { amount: 1_000_000, unit: "msat", period: 30 * 86400 }, { amount: 5_000_000, unit: "lamports", period: 30 * 86400 },
+  ]);
+  assert.equal(info.payments_url, "https://relay.example/zugang");
+  const nurSol = baueRelayInfo({ ...basis, kauf: { tage: 7, lamports: 1, url: "u" } }) as { fees: { subscription: { unit: string }[] } };
+  assert.deepEqual(nurSol.fees.subscription.map((f) => f.unit), ["lamports"]);
+  assert.equal("fees" in baueRelayInfo(basis), false);
+});
+
+test("8.4b: Solana-Pay-Referenz – 32 Zufallsbytes als Adresse; die Überweisung muss sie nennen", () => {
+  const ref = solReferenz(new Uint8Array(32).fill(7));
+  assert.match(ref, /^[1-9A-HJ-NP-Za-km-z]{32,44}$/);
+  assert.throws(() => solReferenz(new Uint8Array(31)));
+  const an = solReferenz(new Uint8Array(32).fill(1));
+  const tx = (konten: unknown[]) => ({ meta: { err: null }, transaction: { message: {
+    accountKeys: konten,
+    instructions: [{ program: "system", parsed: { type: "transfer", info: { source: "x", destination: an, lamports: 500 } } }],
+  } } });
+  assert.deepEqual(pruefeSolUeberweisung(tx([{ pubkey: "x" }, { pubkey: an }, { pubkey: ref }]), { an, lamports: 500, referenz: ref }), { status: "belegt" });
+  assert.deepEqual(pruefeSolUeberweisung(tx(["x", an, ref]), { an, lamports: 500, referenz: ref }), { status: "belegt" });
+  const ohne = pruefeSolUeberweisung(tx([{ pubkey: "x" }, { pubkey: an }]), { an, lamports: 500, referenz: ref });
+  assert.equal(ohne.status, "falsch");
+  assert.match((ohne as { grund: string }).grund, /Referenz fehlt/);
+  assert.deepEqual(pruefeSolUeberweisung(tx([]), { an, lamports: 500 }), { status: "belegt" }, "ohne Referenz wie bisher");
 });

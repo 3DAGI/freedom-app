@@ -43,7 +43,7 @@ bash scripts/build-site.sh /tmp/site                     # Website bauen (Ziel w
 bash packages/mls/bauen.sh --pruefen                     # nur bei Änderungen an packages/mls: nachbauen + vergleichen (Rust, clang)
 ```
 
-Stand 27.09.2026 (nach 5.1.2 und 8.4a): protocol 1158 grün (6 übersprungen), node 218 grün
+Stand 27.09.2026 (nach 5.1.2 und 8.4b): protocol 1161 grün (6 übersprungen), node 225 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
 in `tools.test.ts`), app 439 grün, mls 13 grün, Leak-Tests 55 grün + 1 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
@@ -430,4 +430,8 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   per NIP-42 angemeldeten Empfänger, Anmeldung nur über `pruefeRelayAuth()`.
   Der Relay schickt beim Verbinden `["AUTH", challenge]` – Test-Clients, die
   Antworten zählen, überspringen sie. Abos gehören zur Verbindung (gleiche
-  Ids zweier Clients überschrieben sich bis 8.4a).
+  Ids zweier Clients überschrieben sich bis 8.4a). Zugang nur über
+  `RelayKasse` (seit 8.4b): bezahlt heißt, der eigene LND meldet die Rechnung
+  beglichen bzw. die Kette zeigt die Überweisung mit der Referenz des Angebots
+  (`pruefeSolUeberweisung(…, { referenz })`); eine Signatur löst nur ein
+  Angebot ein; nach außen nur `KasseFehler`-Texte.

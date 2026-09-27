@@ -122,9 +122,9 @@
       angemeldeten Empfänger (einstellbar, beschränkt immer), Zugang aus einem
       Zugangsbuch (nur von und an Schlüssel mit Zugang), ersetzbare/flüchtige
       Events, `limit`, NIP-40, NIP-11 mit dem Schlüssel des Betreibers.
-    - **8.4b:** Zugang kaufen – Sats über eine Rechnung des eigenen LND (nur
-      `invoices`-Rechte), SOL an die Adresse des Betreibers mit einer Referenz
-      nach Solana Pay, auf der Kette geprüft; Preise in NIP-11; Events
+    - **8.4b – FERTIG:** Zugang kaufen – Sats über eine Rechnung des eigenen
+      LND (nur `invoices`-Rechte), SOL an die Adresse des Betreibers mit einer
+      Referenz nach Solana Pay, auf der Kette geprüft; Preise in NIP-11; Events
       überdauern einen Neustart.
     - **8.4c:** App – anmelden (nur bei eigenen Posteingangs-Relays und
       Sitzungsschlüsseln), Zugang über die Zahlschienen kaufen, Abnahme im
