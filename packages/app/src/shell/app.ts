@@ -9,7 +9,7 @@
  */
 import { fromHex, toHex } from "@freedomstack/protocol";
 import { startHero } from "../hero.js";
-import { LANGS, Lang, detectLang, getLang, setLang, t } from "../i18n.js";
+import { LANGS, Lang, detectLang, gespeicherteSprache, getLang, setLang, t } from "../i18n.js";
 import { escapeHtml, pkShort } from "../shell-logic.js";
 import { nimmBunkerAuf, wireBunkerKarte } from "./bunker.js";
 import { wireEingebauteWallet } from "./eingebaute-wallet.js";
@@ -481,7 +481,7 @@ export function switchTab(name: string): void {
 
 // ------------------------------------------------------------- Init (v0.2)
 
-/** Wendet die aktuelle Sprache auf alle [data-i18n]/[data-i18n-ph] an. */
+/** Wendet die aktuelle Sprache auf alle [data-i18n]/[data-i18n-ph]/[data-i18n-title]/[data-i18n-aria] an. */
 function applyI18n(): void {
   document.querySelectorAll("[data-i18n]").forEach((el) => {
     // Nur reine Text-Nodes setzen — Elemente mit Kind-Elementen (z.B.
@@ -498,11 +498,17 @@ function applyI18n(): void {
   document.querySelectorAll("[data-i18n-ph]").forEach((el) => {
     (el as HTMLInputElement).placeholder = t(el.getAttribute("data-i18n-ph")!);
   });
+  document.querySelectorAll("[data-i18n-title]").forEach((el) => {
+    el.setAttribute("title", t(el.getAttribute("data-i18n-title")!));
+  });
+  document.querySelectorAll("[data-i18n-aria]").forEach((el) => {
+    el.setAttribute("aria-label", t(el.getAttribute("data-i18n-aria")!));
+  });
 }
 
 function setupLangMenu(): void {
   // Zwei Umschalter: Landing (#lang-btn) + App-Sidebar (#lang-btn-app).
-  // Beide teilen dasselbe menü-verhalten; nur DE/EN angeboten (rest = EN-fallback).
+  // Beide teilen dasselbe Menü-Verhalten; nur Deutsch und Englisch (8.16).
   const pairs: Array<{ btnId: string; menuId: string }> = [
     { btnId: "#lang-btn", menuId: "#lang-menu" },
     { btnId: "#lang-btn-app", menuId: "#lang-menu-app" },
@@ -542,7 +548,7 @@ function setupLangMenu(): void {
   });
 }
 
-/** Landing -> Gate -> App. */
+/** Landing -> App (das Wallet-Gate ist seit 8.16a entfernt – es wurde nie gezeigt). */
 function setupFlow(): () => void {
   // Hero-Hintergrund (circuit-partikel) — läuft in der App als Ambient-Effekt
   const heroCanvas = document.getElementById("hero-gl") as HTMLCanvasElement | null;
@@ -558,7 +564,6 @@ function setupFlow(): () => void {
   }
   const enter = () => {
     $("#landing")?.classList.add("hidden");
-    $("#gate")?.classList.add("hidden");
     $("#app").classList.remove("hidden");
     // Einrichtung fortsetzen, falls sie beim letzten Mal nicht zu Ende lief (8.1b); eine
     // neue Identitaet startet sie selbst, sobald sie angelegt ist.
@@ -575,9 +580,6 @@ function setupFlow(): () => void {
     // Modell-Katalog + Quota laden (async, sobald provider-discovery fertig)
     void refreshModelDropdown().then(() => refreshQuota());
   };
-  $("#gate-lightning").onclick = () => { loadOrCreateIdentity(); checkOwnProvider(); enter(); };
-  $("#gate-local").onclick = () => { loadOrCreateIdentity(); checkOwnProvider(); enter(); };
-  $("#gate-solana").onclick = async () => { loadOrCreateIdentity(); await connectSolana(); checkOwnProvider(); enter(); };
   return enter;
 }
 
@@ -612,9 +614,9 @@ function starte(): void {
       el.innerHTML = icon(el.dataset.icon!);
     });
   });
-  // Sprache: gespeicherte oder Browser-Default (en)
-  const saved = (localStorage.getItem("freedom.lang") as Lang | null);
-  setLang(saved ?? detectLang());
+  // Sprache (8.16): gespeicherte, wenn es sie noch gibt, sonst die des Browsers (Deutsch oder Englisch)
+  setLang(gespeicherteSprache(localStorage.getItem("freedom.lang")) ?? detectLang());
+  document.documentElement.lang = getLang();
   const langCode = getLang().toUpperCase();
   ($("#lang-btn") as HTMLButtonElement).textContent = `${langCode} ▾`;
   const appLangBtn = $("#lang-btn-app") as HTMLButtonElement | null;

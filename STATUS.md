@@ -7222,3 +7222,53 @@ Endstand: protocol 1178 (+2, 6 übersprungen) · node 227 (7 übersprungen ohne
 Netz) · app 463 · mls 13 · Leak-Tests 57 grün + 1 todo · 0 rot · check-wiring
 `--streng` Exit 0 · innerHTML streng 0 unbewertet · Website 5 Seiten ok ·
 Smoke-Test bestanden.
+
+## Schritt 8.16a – Übersetzungen: Grundlage und Rahmen
+
+Entscheidung MENSCH (27.09.2026): Variante B – Deutsch und Englisch
+vollständig, die sechs übrigen Sprachen fallen weg. 8.16 kommt in sechs
+Teilschritten (Karte `phase-8.md`); dies ist der erste.
+
+**Grundlage** (`app/src/i18n.ts`):
+- Nur noch `de` und `en`; die Wörterbücher für es, fr, it, pt, zh und ja sind
+  entfernt. Sie deckten rund 30 Texte ab, der Rest der Oberfläche war ohnehin
+  deutsch.
+- Die Texte stehen je Bereich in `app/src/texte/*.ts` (Rahmen, Agent,
+  Kommunikation, Earn, Profil). Jeder Schlüssel trägt `{ de, en }` – fehlt
+  eine Sprache, meldet es der Compiler. Weniger Konflikte mit Spur A, weil
+  jeder Bereich eine eigene Datei hat.
+- `t(schlüssel, werte)` setzt `{name}` ein. Unbekannte Schlüssel erscheinen
+  sichtbar als sie selbst.
+- `applyI18n()` setzt auch `data-i18n-title` und `data-i18n-aria`.
+- Sprache beim Start: die gespeicherte Wahl, wenn es sie noch gibt
+  (`gespeicherteSprache()` – ein bis 8.16 gewähltes „fr“ gilt nicht mehr),
+  sonst die des Browsers (Deutsch → de, alles andere → en).
+  `<html lang>` folgt.
+- Zehn Schlüssel, die nirgends benutzt wurden, sind entfernt.
+
+**Rahmen:**
+- Kopfzeile (Tooltips), Navigation (sechs Tabs), Relay-Anzeige und Startbild
+  laufen über Schlüssel.
+- Das Wallet-Gate ist entfernt (HTML, Verdrahtung, CSS). Es wurde seit dem
+  Wegfall des Logins nie gezeigt, trug eine doppelte `id="hero-gl"` und Texte,
+  die `applyI18n()` wegen der Logos gar nicht übersetzen konnte.
+
+**Tests** (`app/test/i18n.test.ts`, +6):
+- Nur de/en; jeder Text in beiden Sprachen, nicht leer, mit denselben
+  Platzhaltern, in genau einem Bereich.
+- `t()` samt Werten; Spracherkennung und gespeicherte Wahl.
+- Jeder Schlüssel aus `index.html` und jedes `t("…")` existiert, jeder Text
+  wird benutzt.
+- Rohtext-Suche (`test/i18n-rohtext.ts`, mit Negativprobe): Textknoten ohne
+  `data-i18n` und Attribute ohne `data-i18n-*`, Eigennamen und Einheiten
+  ausgenommen, je Bereich gezählt.
+- `OFFEN`: der Rahmen steht auf 0. Offene Tabs dürfen nur sinken – Agent 60,
+  Kommunikation 41, Währung 39, Earn 27, Profil 23, Settings 118.
+
+**Smoke-Test:**
+- Alle Kontexte laufen mit `locale="de-DE"`, weil die Prüfungen deutsche
+  Texte lesen.
+- Neue Prüfung „sprache“:
+  - deutscher Browser → „Kommunikation“, „Guthaben“;
+  - englischer Browser → „Chat“, „Balance“;
+  - gespeichertes „fr“ → Englisch, gespeichertes „de“ → Deutsch.

@@ -33,21 +33,6 @@
 .cta:hover { transform: translateY(-2px); box-shadow: 0 6px 24px rgba(123,200,10,0.4); }
 .hero-feats { display: flex; gap: 18px; justify-content: center; margin-top: 30px; color: var(--text-muted); font-size: 11px; letter-spacing: 1px; }
 
-/* ---------- Wallet-Gate ---------- */
-#gate { position: fixed; inset: 0; z-index: 90; background: var(--bg); display: flex; align-items: center; justify-content: center; overflow: hidden; }
-#gate #hero-gl { position: absolute; inset: 0; width: 100%; height: 100%; opacity: .8; }
-.gate-card { position: relative; z-index: 1; background: rgba(12,14,12,.92); border: 1px solid var(--border); border-radius: 4px; padding: 36px 30px; max-width: 380px; width: 92%; text-align: center; }
-.logo-lg { color: var(--accent); font-size: 30px; font-weight: 800; letter-spacing: 3px; margin-bottom: 18px; }
-.gate-title { color: var(--text); font-size: 17px; font-weight: 700; font-family: ui-sans-serif, system-ui, sans-serif; }
-.gate-sub { color: var(--text-muted); font-size: 12px; margin: 6px 0 24px; font-family: ui-sans-serif, system-ui, sans-serif; }
-.gate-btn {
-  display: block; width: 100%; background: var(--accent); color: #000; border: none; border-radius: 3px;
-  padding: 13px; font-size: 14px; font-weight: 700; margin-bottom: 10px; cursor: pointer; transition: opacity .15s;
-}
-.gate-btn:hover { opacity: 0.88; }
-.gate-btn.ghost { background: transparent; color: var(--text-muted); border: 1px solid var(--border); font-weight: 400; font-size: 12px; }
-.gate-btn.ghost:hover { border-color: var(--accent); color: var(--accent); opacity: 1; }
-
 /* ---------- Sprach-Dropdown ---------- */
 .lang-dropdown { position: relative; }
 .lang-toggle { width: auto; padding: 4px 8px; font-size: 11px; }
@@ -604,7 +589,6 @@ input:focus, textarea:focus, select:focus {
 
 /* ---------- Brand-Logos + Icon-Text-Ausrichtung ---------- */
 .logo-btc, .logo-sol { flex-shrink: 0; vertical-align: -2px; }
-.gate-btn { display: inline-flex !important; align-items: center; gap: 8px; justify-content: center; }
 .tool-chip { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
 .tool-chip .ic-svg, .tool-chip .ic svg { flex-shrink: 0; }
 .ai-example { display: flex; align-items: center; gap: 8px; text-align: left; }
@@ -687,7 +671,7 @@ h3 .ic-svg, h3 .logo-btc, h3 .logo-sol { vertical-align: -2px; margin-right: 6px
 .lang-menu button.active { color: var(--accent); }
 .nb-val.nb-muted { opacity: .45; font-weight: 400; }
 
-/* ---------- Landing: klick-zum-start (gate direkt danach) ---------- */
+/* ---------- Landing: klick-zum-start (App direkt danach) ---------- */
 #landing { cursor: pointer; }
 .landing-hint {
   margin-top: 34px; font-size: 12px; letter-spacing: 1.5px;

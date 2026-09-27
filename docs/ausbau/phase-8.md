@@ -21,3 +21,24 @@ Reihenfolge.
 | 8.14 | Notfall-Löschung | `duress.ts` | rechtlicher Hinweis direkt in der Funktion | Löschen entfernt nachweislich alle lokalen Daten | – |
 | 8.15 | Dashboard | `packages/website/dashboard.html` | nur Quittungen und freiwillige Angaben | keine Selbstauskünfte mehr | – |
 | 8.16 | Übersetzungen | `i18n.ts` | alle acht Sprachen vollständig oder weniger Sprachen | ein Test findet keinen fehlenden oder rohen Schlüssel | Muttersprachler prüfen |
+
+## 8.16 Übersetzungen – Aufteilung
+
+> **Entschieden 27.09.2026 (MENSCH): Variante B.** Deutsch und Englisch
+> vollständig, alle Texte über Schlüssel; die sechs übrigen Sprachen fallen
+> weg. In Teilschritten, je Bereich einer; `app/test/i18n.test.ts` zählt den
+> rohen Text je Bereich (`OFFEN`) – fertige Bereiche stehen auf 0.
+
+- **8.16a – FERTIG:** Grundlage – nur `de`/`en`, Texte je Bereich in
+  `app/src/texte/*.ts` (jeder Schlüssel mit beiden Sprachen, sonst meldet es
+  der Compiler), `t()` mit Werten, `data-i18n-title`/`-aria`, Sprache aus der
+  gespeicherten Wahl (nur, wenn es sie noch gibt) oder dem Browser; Tests für
+  fehlende, unbenutzte und rohe Texte; Rahmen (Kopfzeile, Navigation, Start)
+  fertig; das nie gezeigte Wallet-Gate entfernt; Smoke-Test prüft beide Sprachen.
+- **8.16b:** Kommunikation (Seite + `tabs/kommunikation.ts` und was der Chat
+  zeigt); dabei auch Texte im Code (`t()`) mit einer Zählung je Datei.
+- **8.16c:** Agent (`tabs/agent.ts`, `agent-netz.ts`, Streitfall).
+- **8.16d:** Währung und Earn (`tabs/waehrung.ts`, eingebaute Wallet, `tabs/earn.ts`).
+- **8.16e:** Profil, Settings und Dialoge (Tresor, Bunker, Einrichtung,
+  Datenschutzbericht) – danach kein roher Text mehr, die Zählung wird streng.
+- **8.16f:** mit 0.F – Texte der Website an den Code angleichen.

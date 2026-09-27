@@ -479,3 +479,9 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   Datei (`blossomAuth()`), übernommen nur über `blossomQuelle()`; das
   Codeberg-Token nur in der Umgebung von git (`GIT_CONFIG_*`), nie auf der
   Befehlszeile. `check-wiring.py` zählt seit 5.3b auch `.mts`-Skripte.
+- **Texte nur über Schlüssel** (seit 8.16a): Sichtbare Texte stehen in
+  `app/src/texte/<bereich>.ts` mit `de` und `en` (beide Pflicht), im HTML über
+  `data-i18n` (`-ph`, `-title`, `-aria`), im Code über `t("schlüssel", { wert })`.
+  Nur Deutsch und Englisch. `app/test/i18n.test.ts` zählt rohen Text je
+  Bereich (`OFFEN`): fertige Bereiche stehen auf 0 und bleiben es – dort
+  keinen neuen Text ohne Schlüssel. Der Smoke-Test läuft mit `locale="de-DE"`.
