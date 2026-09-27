@@ -276,11 +276,14 @@
               <button id="space-info" class="ghost icon-btn" aria-label="Rauminfo">i</button>
             </div>
             <div id="channel-list" class="channel-list"></div>
+            <button id="space-invite" class="ghost hidden">einladen</button>
             <button id="space-join" class="ghost">Raum beitreten</button>
-            <button id="space-create" class="ghost">Raum anlegen</button>
+            <button id="space-create" class="ghost" title="Ende-zu-Ende-verschlüsselt (MLS) – nur Eingeladene lesen mit">Raum anlegen (privat)</button>
+            <button id="space-create-public" class="ghost" title="Jeder kann mitlesen, auch ohne diese App">öffentlichen Raum anlegen</button>
             <button id="space-mods" class="ghost">Moderatoren</button>
           </aside>
           <div class="channel-main">
+            <div id="space-oeffentlich" class="mono-sm warn hidden">Öffentlicher Raum – jeder kann mitlesen, auch ohne diese App. Die Nachrichten liegen unverschlüsselt auf den Relays.</div>
             <div class="channel-head">
               <h3 id="channel-name">—</h3>
               <span id="channel-privacy" class="mono-sm"></span>

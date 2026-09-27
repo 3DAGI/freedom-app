@@ -22,6 +22,10 @@ import { LS_MANDATE, leseGemerkt, nachDiebstahl, pruefeKontakte, warnt } from ".
 import { type DmZuordnung, GeraeteBuch, ordneDmZu } from "../../geraete-buch.js";
 import { sucheAufnehmen, wireSuche } from "../suche-ui.js";
 import { mlsAbgleichen, mlsBeiNeuem, mlsEinladungAnnehmen, mlsErreichbar, mlsGesperrt, mlsSendeAn, mlsVerlauf } from "../mls-konto.js";
+import {
+  PRIVAT, type PrivaterRaum, gruppeVon, istPrivat, ladeInPrivatenRaum, ladePrivatenRaum, legePrivatenRaumAn, merkePrivatenRaum,
+  privateRaeume, sendePrivat, setzeModeratoren,
+} from "../raum-mls.js";
 import { geheim } from "../tresor.js";
 import { $, toast } from "../ui.js";
 
@@ -34,10 +38,12 @@ interface SpaceUiState {
   messages: unknown[];
   /** Lesestand je Kanal. Bleibt lokal: Er verriete, wann jemand online war. */
   lastRead: Map<string, number>;
+  /** Privater Raum (MLS-Gruppe, 2.3b) – sonst null (offener Raum, Kind 42). */
+  privat: PrivaterRaum | null;
 }
 
 const spacesUi: SpaceUiState = {
-  spaceId: null, channelId: null, state: null, messages: [], lastRead: new Map(),
+  spaceId: null, channelId: null, state: null, messages: [], lastRead: new Map(), privat: null,
 };
 
 function ladeLesestand(): void {
@@ -52,8 +58,8 @@ function merkeLesestand(channelId: string): void {
   localStorage.setItem("freedom.lastRead", JSON.stringify([...spacesUi.lastRead]));
 }
 
-/** Beigetretene Räume. */
-function meineRaeume(): string[] {
+/** Beigetretene offene Räume (Kind 42) – öffentlich wie ihr Inhalt. */
+function oeffentlicheRaeume(): string[] {
   try {
     return JSON.parse(localStorage.getItem("freedom.spaces") ?? "[]") as string[];
   } catch {
@@ -61,8 +67,16 @@ function meineRaeume(): string[] {
   }
 }
 
+/** Alle Räume: private (MLS, 2.3b) zuerst – ihre Liste liegt nur im Tresor. */
+function meineRaeume(): string[] {
+  return [...privateRaeume().map((g) => PRIVAT + g), ...oeffentlicheRaeume()];
+}
+
+/** Namen privater Räume aus ihrer Definition – nur im Speicher. */
+const privatNamen = new Map<string, string>();
+
 function raumBeitreten(id: string): void {
-  const alle = new Set(meineRaeume());
+  const alle = new Set(oeffentlicheRaeume());
   alle.add(id);
   localStorage.setItem("freedom.spaces", JSON.stringify([...alle]));
 }
@@ -76,19 +90,50 @@ export async function zeigeRaumLeiste(): Promise<void> {
     rail.innerHTML = "";
     return;
   }
-  rail.innerHTML = ids.map((id) => {
-    const kurz = id.slice(0, 2).toUpperCase();
-    return `<button class="space-pill" data-space="${escapeHtml(id)}"
-      aria-current="${id === spacesUi.spaceId}" title="${escapeHtml(id)}">${escapeHtml(kurz)}</button>`;
-  }).join("");
-  rail.querySelectorAll(".space-pill").forEach((b) => {
-    b.addEventListener("click", () => void oeffneRaum((b as HTMLElement).dataset.space!));
-  });
+  // Namen privater Räume kommen aus ihrer Definition (Fremddaten) – nur textContent
+  rail.replaceChildren(...ids.map((id) => {
+    const name = istPrivat(id) ? privatNamen.get(id) ?? "privater Raum" : id;
+    const b = document.createElement("button");
+    b.className = "space-pill";
+    b.dataset.space = id;
+    b.setAttribute("aria-current", String(id === spacesUi.spaceId));
+    b.title = name;
+    b.textContent = istPrivat(id) ? `🔒${name.slice(0, 1).toUpperCase()}` : id.slice(0, 2).toUpperCase();
+    b.addEventListener("click", () => void oeffneRaum(id));
+    return b;
+  }));
 }
 
 /** Einen Raum laden: Definition, Rollen, Zuweisungen, Nachrichten. */
 async function oeffneRaum(spaceId: string): Promise<void> {
+  if (spacesUi.spaceId !== spaceId) spacesUi.channelId = null;
   spacesUi.spaceId = spaceId;
+  zeigeRaumArt(spaceId);
+  if (istPrivat(spaceId)) {
+    // Privat (2.3b): Gruppe abgleichen, dann aus den inneren Events bauen
+    const gruppe = gruppeVon(spaceId);
+    await mlsAbgleichen([gruppe]).catch(() => undefined);
+    const raum = await ladePrivatenRaum(gruppe).catch(() => null);
+    if (!raum) {
+      // Nie in den zuvor offenen Raum weiterschreiben
+      spacesUi.privat = null;
+      spacesUi.state = null;
+      spacesUi.messages = [];
+      $("#space-name").textContent = `privater Raum nicht verfügbar${mlsGesperrt() ? ` – ${mlsGesperrt()}` : ""}`;
+      return;
+    }
+    spacesUi.privat = raum;
+    spacesUi.state = raum.zustand;
+    spacesUi.messages = raum.nachrichten;
+    if (raum.zustand.space) privatNamen.set(spaceId, raum.zustand.space.name);
+    zeigeRaumArt(spaceId);
+    void zeigeRaumLeiste();
+    await zeigeKanalliste();
+    // Offenen Kanal neu zeichnen (nach dem Senden, beim Abgleich alle 30 s)
+    if (spacesUi.channelId) await oeffneKanal(spacesUi.channelId);
+    return;
+  }
+  spacesUi.privat = null;
   const { buildSpaceState, KIND_SPACE, KIND_SPACE_ROLES, KIND_ROLE_GRANT, KIND_CHANNEL_MESSAGE } =
     await import("@freedomstack/protocol");
   try {
@@ -105,6 +150,17 @@ async function oeffneRaum(spaceId: string): Promise<void> {
   }
   void zeigeRaumLeiste();
   await zeigeKanalliste();
+}
+
+/**
+ * Art des Raums sichtbar machen (2.3b): Offene Räume liest jeder mit – der
+ * Hinweis steht über dem Raum. Einladen nur privat und als Moderator.
+ */
+function zeigeRaumArt(spaceId: string): void {
+  const privat = istPrivat(spaceId);
+  document.getElementById("space-oeffentlich")?.classList.toggle("hidden", privat);
+  const moderator = !!spacesUi.privat && spacesUi.privat.admins.includes(spacesUi.privat.ich);
+  document.getElementById("space-invite")?.classList.toggle("hidden", !privat || !moderator);
 }
 
 /** Kanäle mit Ungelesenem. */
@@ -182,7 +238,8 @@ async function oeffneKanal(channelId: string): Promise<void> {
                  ${t.replies.length} Antwort${t.replies.length === 1 ? "" : "en"} ·
                  ${t.participants.length} Beteiligte</button>`
             : "";
-          const modKnopf = darfModerieren && m.authorPubkey !== state.keypair?.pk
+          // Private Räume moderieren über MLS (2.3c) – nie mit öffentlichen Sperr-Events
+          const modKnopf = darfModerieren && !spacesUi.privat && m.authorPubkey !== state.keypair?.pk
             ? `<button class="thread-link mod-hide" data-id="${escapeHtml(m.id)}"
                  data-pk="${escapeHtml(m.authorPubkey)}" style="color:#9A6A6A">moderieren</button>`
             : "";
@@ -221,6 +278,21 @@ async function oeffneKanal(channelId: string): Promise<void> {
 /** Mitglieder mit ihren Rollen. */
 async function zeigeMitglieder(): Promise<void> {
   const box = $("#member-list");
+  const privat = spacesUi.privat;
+  if (box && privat) {
+    // Privat (2.3b): Mitglieder der Gruppe; Moderatoren sind ihre Admins
+    const rollen = privat.zustand.roles;
+    box.replaceChildren(...privat.mitglieder.map((pk) => {
+      const z = document.createElement("div");
+      z.className = "member-row";
+      // Moderatoren haben jede Rolle – dort nur „Moderator“ zeigen
+      const eigene = privat.admins.includes(pk) ? [] : (privat.zustand.grants.get(pk) ?? []).filter((r) => !r.startsWith("__") && r !== "mitglied").map((r) => rollen.get(r)?.name ?? r);
+      const text = `${pkShort(pk)}${privat.admins.includes(pk) ? " · Moderator" : ""}${eigene.length ? ` · ${eigene.join(", ")}` : ""}`;
+      z.textContent = pk === privat.ich ? `${text} (du)` : text;
+      return z;
+    }));
+    return;
+  }
   const st = spacesUi.state as {
     grants?: Map<string, string[]>; roles?: Map<string, { name: string; color?: string }>;
     ownerPubkey?: string;
@@ -247,6 +319,15 @@ async function sendeRaumNachricht(): Promise<void> {
   if (!input?.value.trim() || !state.keypair || !spacesUi.spaceId || !spacesUi.channelId) return;
   const text = input.value.trim();
   input.value = "";
+  if (spacesUi.privat) {
+    // Privat (2.3b): verschlüsselt in die Gruppe – Relays sehen nur Kind 445
+    if (await sendePrivat(spacesUi.privat.gruppe, spacesUi.channelId, text).catch(() => false)) await oeffneRaum(spacesUi.spaceId);
+    else {
+      toast("Nicht gesendet – kein Relay der Gruppe nahm an", true);
+      input.value = text;
+    }
+    return;
+  }
   try {
     const { buildChannelMessage } = await import("@freedomstack/protocol");
     const ev = await signiere(buildChannelMessage({
@@ -269,10 +350,22 @@ async function sendeRaumNachricht(): Promise<void> {
  * erzeugen. Damit war die gesamte Raum-Funktion unbenutzbar: Protokoll und
  * Oberflaeche waren da, aber niemand konnte den ersten Schritt tun.
  */
-async function legeRaumAn(): Promise<void> {
+async function legeRaumAn(oeffentlich = false): Promise<void> {
   if (!state.keypair) return;
-  const name = prompt("Name des Raums:");
+  // Neue Räume sind privat (2.3b); öffentlich nur ausdrücklich und mit Hinweis
+  if (oeffentlich && !confirm(OEFFENTLICH_WARNUNG)) return;
+  const name = prompt(oeffentlich ? "Name des öffentlichen Raums:" : "Name des privaten Raums:");
   if (!name?.trim()) return;
+  if (!oeffentlich) {
+    try {
+      const gruppe = await legePrivatenRaumAn(name.trim());
+      await oeffneRaum(PRIVAT + gruppe);
+      toast("Privater Raum angelegt – Mitglieder über „einladen“ hinzufügen");
+    } catch (e) {
+      toast((e as Error).message, true);
+    }
+    return;
+  }
 
   const { buildSpace, buildRoles } = await import("@freedomstack/protocol");
   const spaceId = `${name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 24)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -304,6 +397,33 @@ async function legeRaumAn(): Promise<void> {
   } catch (e) {
     toast((e as Error).message, true);
   }
+}
+
+const OEFFENTLICH_WARNUNG =
+  "Öffentlicher Raum: Jeder kann mitlesen, auch ohne diese App – die Nachrichten liegen unverschlüsselt auf den Relays, " +
+  "mit deinem Schlüssel als Absender. Private Räume sind Ende-zu-Ende-verschlüsselt.\n\nTrotzdem öffentlich anlegen?";
+
+/** Name eines Kontakts, sonst der gekürzte Schlüssel. */
+const kontaktName = (pk: string) => conversations.find((c) => c.type === "dm" && c.id === pk)?.name ?? pkShort(pk);
+
+/** In einen privaten Raum einladen (2.3b): Kontakt wählen, KeyPackage suchen, Einladung versiegelt an seinen Posteingang. */
+async function ladeEin(): Promise<void> {
+  const raum = spacesUi.privat;
+  if (!raum) return;
+  const kontakte = conversations.filter((c) => c.type === "dm" && /^[0-9a-f]{64}$/.test(c.id) && !raum.mitglieder.includes(c.id));
+  const liste = kontakte.map((c, i) => `${i + 1}: ${c.name}`).join("\n");
+  const eingabe = prompt(kontakte.length ? `Wen einladen? Nummer eines Kontakts oder ein Schlüssel (hex):\n${liste}` : "Wen einladen? Schlüssel (hex):");
+  if (!eingabe?.trim()) return;
+  const n = Number(eingabe.trim());
+  const pk = Number.isInteger(n) && n >= 1 && n <= kontakte.length ? kontakte[n - 1]!.id : eingabe.trim().toLowerCase();
+  if (!/^[0-9a-f]{64}$/.test(pk)) {
+    toast("Kein gültiger Schlüssel", true);
+    return;
+  }
+  toast("Lade ein …");
+  const r = await ladeInPrivatenRaum(raum, pk).catch((e) => (e as Error).message);
+  toast(r === "eingeladen" ? `${kontaktName(pk)} eingeladen – versiegelt an den Posteingang` : `Nicht eingeladen: ${r}`, r !== "eingeladen");
+  await oeffneRaum(spacesUi.spaceId!);
 }
 
 /**
@@ -363,6 +483,25 @@ async function moderiere(aktion: "hide" | "ban" | "grant", ziel: string): Promis
  */
 async function ernenneModeratoren(): Promise<void> {
   if (!state.keypair || !spacesUi.spaceId) return;
+  const raum = spacesUi.privat;
+  if (raum) {
+    // Privat (2.3b): Moderatoren sind die Admins der Gruppe – gesetzt per MLS-Commit, nie als Event
+    if (!raum.admins.includes(raum.ich)) {
+      toast("Nur Moderatoren ernennen Moderatoren", true);
+      return;
+    }
+    const andere = raum.mitglieder.filter((m) => m !== raum.ich);
+    const liste = andere.map((m, i) => `${i + 1}: ${kontaktName(m)}${raum.admins.includes(m) ? " (Moderator)" : ""}`).join("\n");
+    const vorher = andere.map((m, i) => (raum.admins.includes(m) ? String(i + 1) : "")).filter(Boolean).join(",");
+    const eingabe = prompt(`Wer soll Moderator sein? Nummern, kommagetrennt – du bleibst es:\n${liste}`, vorher);
+    if (eingabe === null) return;
+    const mods = eingabe.split(",").map((x) => andere[Number(x.trim()) - 1]).filter((x): x is string => !!x);
+    if (await setzeModeratoren(raum, mods)) {
+      toast(`${mods.length} Moderator(en) neben dir`);
+      await oeffneRaum(spacesUi.spaceId);
+    } else toast("Nicht geändert – kein Relay der Gruppe nahm an", true);
+    return;
+  }
   const st = spacesUi.state as { ownerPubkey?: string } | null;
   if (st?.ownerPubkey !== state.keypair.pk) {
     toast("Nur der Gründer kann Moderatoren benennen", true);
@@ -399,6 +538,14 @@ export async function wireSpacesTab(): Promise<void> {
   });
   const create = $("#space-create");
   if (create) create.onclick = () => void legeRaumAn();
+  const oeffentlich = $("#space-create-public");
+  if (oeffentlich) oeffentlich.onclick = () => void legeRaumAn(true);
+  const einladen = $("#space-invite");
+  if (einladen) einladen.onclick = () => void ladeEin();
+  // Private Räume (2.3b): solange einer offen und sichtbar ist, alle 30 s abgleichen
+  setInterval(() => {
+    if (spacesUi.privat && spacesUi.spaceId && !document.hidden && document.getElementById("channel-thread")?.offsetParent) void oeffneRaum(spacesUi.spaceId);
+  }, 30_000);
   const join = $("#space-join");
   if (join) join.onclick = () => {
     const id = prompt("Raum-Kennung:");
@@ -1001,6 +1148,13 @@ async function alsMlsEinladung(w: NostrEvent): Promise<null> {
   if (!e || e.von === state.keypair?.pk) return null;
   const r = await mlsEinladungAnnehmen(e).catch(() => null);
   if (!r) return null;
+  if (!r.partner) {
+    // Eine Gruppe zu mehreren: ein privater Raum (2.3b)
+    await merkePrivatenRaum(r.gruppe);
+    void zeigeRaumLeiste();
+    toast(`Einladung in einen privaten Raum von ${kontaktName(e.von)} – in der Raumleiste`);
+    return null;
+  }
   let c = conversations.find((x) => x.type === "dm" && x.id === r.partner);
   if (!c) {
     c = { id: r.partner, type: "dm", name: "Anfrage · " + pkShort(r.partner), lastTs: Math.floor(Date.now() / 1000) };

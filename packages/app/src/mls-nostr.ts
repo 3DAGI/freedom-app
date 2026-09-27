@@ -77,12 +77,16 @@ export async function sendeInGruppe(p: Ablauf & { gruppe: string; text: string }
   return veroeffentliche(p, relays, s);
 }
 
-/** Inneres Event (Art, Tags) in die Gruppe – Räume (2.3): Kanalnachricht, Rollenliste, Moderation. */
-export async function sendeEventInGruppe(p: Ablauf & { gruppe: string; art: number; tags: string[][]; text: string }): Promise<boolean> {
+/**
+ * Inneres Event (Art, Tags) in die Gruppe – Räume (2.3): Kanalnachricht,
+ * Rollenliste, Moderation. Ergebnis: die Id des inneren Events, wenn ein Relay
+ * annahm, sonst null.
+ */
+export async function sendeEventInGruppe(p: Ablauf & { gruppe: string; art: number; tags: string[][]; text: string }): Promise<string | null> {
   const { relays } = p.mls.routing(p.gruppe);
   const s = await p.mls.sendenEvent(p.gruppe, p.art, p.tags, p.text);
   await p.sichern();
-  return veroeffentliche(p, relays, s);
+  return (await veroeffentliche(p, relays, s)) ? s.inneres ?? null : null;
 }
 
 /**
@@ -97,6 +101,14 @@ export async function aendereGruppe(p: Ablauf & { gruppe: string } & ({ einladen
   await p.sichern();
   const angenommen = await veroeffentliche(p, relays, s);
   return { angenommen, nichtZugestellt: angenommen ? await zustellen(p.netz, s.einladungen) : [] };
+}
+
+/** Admins neu setzen (Räume, 2.3b: Moderatoren) – ein Commit wie beim Entfernen, nur als Admin. */
+export async function setzeAdmins(p: Ablauf & { gruppe: string; admins: string[] }): Promise<boolean> {
+  const { relays } = p.mls.routing(p.gruppe);
+  const s = await p.mls.adminsSetzen(p.gruppe, p.admins);
+  await p.sichern();
+  return veroeffentliche(p, relays, s);
 }
 
 /** Abos für alle Gruppen: Kind 445 mit `#h` an deren Relays. */

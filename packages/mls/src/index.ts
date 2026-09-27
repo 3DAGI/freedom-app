@@ -74,6 +74,8 @@ export interface MlsNachricht {
   text: string;
   zeit: number;
   id: string;
+  /** Id des inneren Events (NIP-01) – bei Absender und Empfängern gleich (Räume, 2.3b). */
+  inneres: string;
   /** Art des inneren Events: 9 = Chat; Räume (2.3) nutzen weitere. */
   art: number;
   tags: string[][];
@@ -103,13 +105,15 @@ export interface MlsSenden {
   ausstehend: string | null;
   /** Einladungen (Kind 1059) an neue Mitglieder. */
   einladungen: NostrEvent[];
+  /** Id des gesendeten inneren Events – wie `MlsNachricht.inneres` bei den Empfängern. */
+  inneres?: string;
 }
 
 const alsEvents = (l: string[]): NostrEvent[] => l.map((e) => JSON.parse(e) as NostrEvent);
 
 function senden(json: string): MlsSenden {
-  const r = JSON.parse(json) as { events: string[]; ausstehend: string | null; einladungen: string[] };
-  return { events: alsEvents(r.events), ausstehend: r.ausstehend ?? null, einladungen: alsEvents(r.einladungen ?? []) };
+  const r = JSON.parse(json) as { events: string[]; ausstehend: string | null; einladungen: string[]; inneres?: string };
+  return { events: alsEvents(r.events), ausstehend: r.ausstehend ?? null, einladungen: alsEvents(r.einladungen ?? []), ...(r.inneres ? { inneres: r.inneres } : {}) };
 }
 
 /** Ein MLS-Konto: eine Identität auf diesem Gerät, Zustand im Speicher. */
@@ -189,6 +193,11 @@ export class Mls {
   /** Wer einladen und entfernen darf (Identitäten hex). */
   admins(gruppe: string): string[] {
     return this.konto.admins(gruppe);
+  }
+
+  /** Name der Gruppe – Räume (2.3b) tragen einen, 1:1-Gruppen nicht. */
+  name(gruppe: string): string {
+    return this.konto.name(gruppe);
   }
 
   gruppen(): string[] {
