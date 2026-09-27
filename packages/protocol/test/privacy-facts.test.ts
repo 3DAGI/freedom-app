@@ -34,7 +34,7 @@ import { buildSuccessionPlan, secretHashOf, splitSecret } from "../src/successio
 import { buildStateBackup, deriveBackupKey, waehleSicherung } from "../src/state-backup.js";
 import { baueStueckAbruf } from "../src/blob.js";
 import { regelMlsGruppe } from "../src/leak-rules.js";
-import { raumDefinition, raumNachricht } from "../src/raum-gruppe.js";
+import { baueRaumMeldung, raumDefinition, raumNachricht } from "../src/raum-gruppe.js";
 import { fromHex, toHex } from "../src/htlc.js";
 import type { NostrEvent, UnsignedEvent } from "../src/event.js";
 import { readFileSync } from "node:fs";
@@ -288,6 +288,14 @@ const SZENARIEN: Record<string, () => Promise<number>> = {
     if (events.length !== 2) return 1;
     return regelKeinKlartext(alle, [GEHEIM, "Werkstatt am Fluss", "geheimplanung"]).length + regelAutorNicht(alle, a.pk).length +
       regelPTagsNur(g.einladungen, [b.pk]).length + regelMlsGruppe(alle, { gruppenIds: [g.gruppe], identitaeten: [a.pk, b.pk] }).length;
+  },
+  "raum-meldung": async () => {
+    // Wie die App seit 8.5 meldet: je Moderator ein Umschlag, nie in die Gruppe, nie offen
+    const mods = [generateKeypair(), generateKeypair()];
+    const ziel = "d4".repeat(32);
+    const wraps = await baueRaumMeldung({ von: new LocalSigner(a.sk), moderatoren: mods.map((m) => m.pk), gruppe: "c3".repeat(16), ziel, autor: b.pk, grund: "spam", notiz: GEHEIM });
+    if (wraps.length !== 2) return 1;
+    return regelAutorNicht(wraps, a.pk).length + regelKeinKlartext(wraps, [GEHEIM, ziel, b.pk]).length + regelPTagsNur(wraps, mods.map((m) => m.pk)).length;
   },
   "geraete-kopien": async () => {
     // Wie die App seit 8.6b: an die Person, sich selbst und je Geraet ein eigener Umschlag.

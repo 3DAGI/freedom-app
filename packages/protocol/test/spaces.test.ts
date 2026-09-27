@@ -241,4 +241,7 @@ test("Verschluesselter Kanal nennt seine Grenze", () => {
   assert.match(t, /Nur Mitglieder/);
   // Die unbequeme Wahrheit gehoert dazu.
   assert.match(t, /behält den Schlüssel/);
+  // Seit 2.3: MLS – Entfernen wechselt den Schlüssel, Neue lesen nichts von vorher
+  assert.match(t, /Das Entfernen wechselt den Schlüssel/);
+  assert.match(t, /Neue Mitglieder lesen nur, was nach ihrem Eintritt kommt/);
 });

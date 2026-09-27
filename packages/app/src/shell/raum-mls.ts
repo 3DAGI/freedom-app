@@ -12,10 +12,11 @@
  * MLS gibt es ohnehin nur mit Tresor.
  */
 import {
-  gruppenRaum, raumDefinition, raumNachricht, raumRollen, raumZuweisung,
-  type Channel, type GruppenRaum, type InneresSenden, type Role,
+  baueRaumMeldung, gruppenRaum, oeffneRaumMeldung, raumDefinition, raumLoeschung, raumNachricht, raumRollen, raumZuweisung,
+  type Channel, type GruppenRaum, type InneresSenden, type MeldeGrund, type NostrEvent, type RaumMeldung, type Role,
 } from "@freedomstack/protocol";
-import { mlsGesperrt, mlsGruende, mlsGruppenStand, mlsLadeEin, mlsSendeEvent, mlsSetzeAdmins } from "./mls-konto.js";
+import { mlsEntferne, mlsGesperrt, mlsGruende, mlsGruppenStand, mlsLadeEin, mlsSendeEvent, mlsSetzeAdmins } from "./mls-konto.js";
+import { posteingangVon, state, veroeffentlicheAn } from "./state.js";
 import { geheim } from "./tresor.js";
 
 export const LS_PRIVATE_RAEUME = "freedom.raeume.privat";
@@ -106,4 +107,74 @@ export async function ladeInPrivatenRaum(raum: PrivaterRaum, pk: string): Promis
 export function setzeModeratoren(raum: PrivaterRaum, moderatoren: string[]): Promise<boolean> {
   const neu = [...new Set([raum.ich, ...moderatoren.filter((m) => raum.mitglieder.includes(m))])];
   return mlsSetzeAdmins(raum.gruppe, neu);
+}
+
+// ------------------------------------------------------------ Moderation (2.3c, 8.5)
+
+/**
+ * Löschen: als Moderator jede Nachricht (4891, MDK prüft beim Senden, dass
+ * ich Admin bin), sonst nur die eigene (5). Nie ein öffentliches Event.
+ */
+export function loescheImRaum(raum: PrivaterRaum, id: string): Promise<boolean> {
+  return mlsSendeEvent(raum.gruppe, raumLoeschung(id, raum.admins.includes(raum.ich)));
+}
+
+/** Mitglied entfernen (nur Moderatoren): Commit, neuer Schlüssel – keine Sperrliste irgendwo. */
+export function entferneAusRaum(raum: PrivaterRaum, pk: string): Promise<boolean> {
+  return mlsEntferne(raum.gruppe, pk);
+}
+
+/**
+ * Melden (8.5): versiegelt an jeden Moderator einzeln, an seinen Posteingang –
+ * nie in die Gruppe. Ergebnis: an wie viele Moderatoren es ging.
+ */
+export async function meldeImRaum(raum: PrivaterRaum, ziel: string, autor: string, grund: MeldeGrund, notiz: string): Promise<number> {
+  if (!state.signer) return 0;
+  const wraps = await baueRaumMeldung({ von: state.signer, moderatoren: raum.admins, gruppe: raum.gruppe, ziel, autor, grund, notiz });
+  let zugestellt = 0;
+  for (const w of wraps) {
+    const an = w.tags.find((t) => t[0] === "p")?.[1] ?? "";
+    const ziele = await posteingangVon(an).catch(() => [] as string[]);
+    if (ziele.length > 0 && (await veroeffentlicheAn(w, ziele)) > 0) zugestellt++;
+  }
+  return zugestellt;
+}
+
+/** Erledigte Meldungen (nur die Ids der Umschläge – nichts vom Inhalt); im Tresor wie die Raumliste. */
+export const LS_MELDUNGEN_ERLEDIGT = "freedom.raeume.meldungen.erledigt";
+const offeneMeldungen = new Map<string, RaumMeldung>();
+const erledigt = (): string[] => {
+  try {
+    const l = JSON.parse(geheim.getItem(LS_MELDUNGEN_ERLEDIGT) ?? "[]") as unknown;
+    return Array.isArray(l) ? l.filter((x): x is string => typeof x === "string") : [];
+  } catch {
+    return [];
+  }
+};
+let beiMeldung: () => void = () => {};
+export const wennMeldung = (f: () => void) => { beiMeldung = f; };
+
+/**
+ * Posteingang (aus tabs/kommunikation.ts): eine Meldung zu einem meiner
+ * privaten Räume? Nur im Speicher – sie trägt, was jemand über andere sagt.
+ */
+export async function alsRaumMeldung(w: NostrEvent): Promise<null> {
+  if (!state.signer || offeneMeldungen.has(w.id) || erledigt().includes(w.id)) return null;
+  const m = await oeffneRaumMeldung(w, state.signer);
+  if (m && privateRaeume().includes(m.gruppe)) {
+    offeneMeldungen.set(w.id, m);
+    beiMeldung();
+  }
+  return null;
+}
+
+/** Offene Meldungen zu einem Raum – nur für seine Moderatoren. */
+export function meldungenFuer(raum: PrivaterRaum): [string, RaumMeldung][] {
+  if (!raum.admins.includes(raum.ich)) return [];
+  return [...offeneMeldungen].filter(([, m]) => m.gruppe === raum.gruppe);
+}
+
+export async function meldungErledigt(wrapId: string): Promise<void> {
+  offeneMeldungen.delete(wrapId);
+  await geheim.setItem(LS_MELDUNGEN_ERLEDIGT, JSON.stringify([...erledigt(), wrapId].slice(-500)));
 }

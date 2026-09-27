@@ -10,6 +10,11 @@ import {
   gruppenRaum, raumDefinition, raumLoeschung, raumNachricht, raumRollen, raumZuweisung,
 } from "../src/raum-gruppe.js";
 import { buildThreads, can, canWriteTo, type Channel } from "../src/spaces.js";
+import { KIND_RAUM_MELDUNG, baueRaumMeldung, oeffneRaumMeldung } from "../src/raum-gruppe.js";
+import { buildPrivateDm } from "../src/private-dm.js";
+import { generateKeypair } from "../src/event.js";
+import { LocalSigner } from "../src/signer.js";
+import { regelAutorNicht, regelKeinKlartext, regelPTagsNur } from "../src/leak-rules.js";
 
 const RAUM = "a".repeat(64);
 const [ADMIN, MOD, ANNA, BERT, EX] = ["1", "2", "3", "4", "5"].map((c) => c.repeat(64));
@@ -125,4 +130,34 @@ test("2.3a: Kanalnachricht – h-Tag, Thread nach NIP-10, Erwähnungen; Rollenli
   assert.deepEqual(s.tags, [["h", "allgemein"], ["e", "r", "", "root"], ["e", "q", "", "reply"], ["p", ANNA, "", "mention"]]);
   const rollen = raumRollen(RAUM, [{ id: "__admin", name: "x", rank: 1, permissions: [] }, { id: "mod", name: "Mod", rank: 5, permissions: ["lesen"] }]);
   assert.deepEqual(rollen.tags.filter((t) => t[0] === "role").map((t) => t[1]), ["mod"]);
+});
+
+test("8.5: Meldung – je Moderator ein Umschlag, nie an sich selbst; Relays sehen weder Melder noch Inhalt", async () => {
+  const [melder, mod1, mod2] = [generateKeypair(), generateKeypair(), generateKeypair()];
+  const gruppe = "c".repeat(32);
+  const ziel = "d".repeat(64);
+  const wraps = await baueRaumMeldung({
+    von: new LocalSigner(melder.sk), moderatoren: [mod1.pk, mod2.pk, mod1.pk, melder.pk], gruppe, ziel, autor: ANNA, grund: "spam", notiz: "Werbung im Kanal",
+  });
+  assert.equal(wraps.length, 2, "je Moderator einmal, nicht an den Melder");
+  assert.deepEqual(wraps.map((w) => w.kind), [1059, 1059]);
+  assert.deepEqual(regelPTagsNur(wraps, [mod1.pk, mod2.pk]), []);
+  assert.deepEqual(regelAutorNicht(wraps, melder.pk), []);
+  assert.deepEqual(regelKeinKlartext(wraps, ["Werbung im Kanal", ziel, gruppe, ANNA]), []);
+  const anMod2 = wraps.find((w) => w.tags.some((t) => t[0] === "p" && t[1] === mod2.pk))!;
+  const m = (await oeffneRaumMeldung(anMod2, new LocalSigner(mod2.sk)))!;
+  assert.deepEqual([m.von, m.gruppe, m.ziel, m.autor, m.grund, m.notiz], [melder.pk, gruppe, ziel, ANNA, "spam", "Werbung im Kanal"]);
+});
+
+test("8.5: Meldung – nur der Moderator öffnet sie; eine DM ist keine Meldung; ungültige Angaben scheitern", async () => {
+  const [melder, mod, fremd] = [generateKeypair(), generateKeypair(), generateKeypair()];
+  const [w] = await baueRaumMeldung({ von: new LocalSigner(melder.sk), moderatoren: [mod.pk], gruppe: "c".repeat(32), ziel: "d".repeat(64), autor: ANNA, grund: "illegal" });
+  assert.equal(await oeffneRaumMeldung(w!, new LocalSigner(fremd.sk)), null);
+  const dm = await buildPrivateDm({ signer: new LocalSigner(melder.sk), recipientPk: mod.pk, content: "hallo" });
+  assert.equal(await oeffneRaumMeldung(dm.toRecipient, new LocalSigner(mod.sk)), null);
+  const s = new LocalSigner(melder.sk);
+  await assert.rejects(baueRaumMeldung({ von: s, moderatoren: [mod.pk], gruppe: "c".repeat(32), ziel: "d".repeat(64), autor: ANNA, grund: "unbekannt" as never }), /Grund ungültig/);
+  await assert.rejects(baueRaumMeldung({ von: s, moderatoren: [mod.pk], gruppe: "zz", ziel: "d".repeat(64), autor: ANNA, grund: "spam" }), /unvollständig/);
+  await assert.rejects(baueRaumMeldung({ von: s, moderatoren: [melder.pk], gruppe: "c".repeat(32), ziel: "d".repeat(64), autor: ANNA, grund: "spam" }), /kein Moderator/);
+  assert.equal(KIND_RAUM_MELDUNG, 1984, "NIP-56");
 });

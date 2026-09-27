@@ -84,16 +84,6 @@ git-contributors.ts|contributorProfile|Mitwirkenden-Ansicht, noch nicht vollstä
 git.ts|createGitBundle|Git über Blobs, noch ohne vollständige Oberfläche (Repositories, 8.10)
 git.ts|restoreGitBundle|Git über Blobs, noch ohne vollständige Oberfläche (Repositories, 8.10)
 
-group-crypto.ts|buildEncryptedMessage|verschlüsselte Kanäle mit Schlüsselwechsel, ohne Oberfläche; Ablösung durch MLS geplant (2.2b, 2.3)
-group-crypto.ts|buildEpochKeyGrant|verschlüsselte Kanäle mit Schlüsselwechsel, ohne Oberfläche; Ablösung durch MLS geplant (2.2b, 2.3)
-group-crypto.ts|buildKeyring|verschlüsselte Kanäle mit Schlüsselwechsel, ohne Oberfläche; Ablösung durch MLS geplant (2.2b, 2.3)
-group-crypto.ts|decryptChannelMessage|verschlüsselte Kanäle mit Schlüsselwechsel, ohne Oberfläche; Ablösung durch MLS geplant (2.2b, 2.3)
-group-crypto.ts|encryptionInfo|verschlüsselte Kanäle mit Schlüsselwechsel, ohne Oberfläche; Ablösung durch MLS geplant (2.2b, 2.3)
-group-crypto.ts|epochKeyId|verschlüsselte Kanäle mit Schlüsselwechsel, ohne Oberfläche; Ablösung durch MLS geplant (2.2b, 2.3)
-group-crypto.ts|generateEpochKey|verschlüsselte Kanäle mit Schlüsselwechsel, ohne Oberfläche; Ablösung durch MLS geplant (2.2b, 2.3)
-group-crypto.ts|openEpochKey|verschlüsselte Kanäle mit Schlüsselwechsel, ohne Oberfläche; Ablösung durch MLS geplant (2.2b, 2.3)
-group-crypto.ts|parseEpochKeyGrant|verschlüsselte Kanäle mit Schlüsselwechsel, ohne Oberfläche; Ablösung durch MLS geplant (2.2b, 2.3)
-group-crypto.ts|planRotation|verschlüsselte Kanäle mit Schlüsselwechsel, ohne Oberfläche; Ablösung durch MLS geplant (2.2b, 2.3)
 
 http-auth.ts|btoaBase64|NIP-98-Anmeldung auf Client-Seite, noch ohne Speicher-Client (Speicher, 8.9)
 http-auth.ts|buildHttpAuth|NIP-98-Anmeldung auf Client-Seite, noch ohne Speicher-Client (Speicher, 8.9)
@@ -236,4 +226,3 @@ price-ticker.ts|medianPrice|abgelöst durch marktKurs() – eine Stimme je Absen
 swap-umgekehrt.ts|runReverseSwap|Simulation der Gegenrichtung mit Adaptern (4.6a), wie runSwap für die Hinrichtung
 swap-privacy.ts|deriveSwapAddress|abgelöst durch den Vorrat frischer Adressen der eingebauten Wallet (4.9c, SLIP-10 wie Phantom); die HKDF-Ableitung aus dem Nostr-Schlüssel zeigte nur einen Fingerabdruck und war nicht einlösbar
 swap-privacy.ts|addressFingerprint|gehört zu deriveSwapAddress (abgelöst in 4.9c)
-raum-gruppe.ts|raumLoeschung|Löschen in privaten Räumen: Baustein und Engine-Test da, Moderation in der Oberfläche folgt (2.3c mit 8.5)

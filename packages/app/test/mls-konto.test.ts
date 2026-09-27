@@ -25,7 +25,7 @@ const ls = new Map<string, string>();
 const { setzeIdentitaet, setzeSigner } = await import("../src/shell/state.js");
 const {
   LS_MLS_EINLADUNGEN, LS_MLS_IDENTITAET, mlsAbgleichen, mlsEinladungAnnehmen, mlsErreichbar, mlsGesperrt, mlsGruende, mlsGruppenStand, mlsKonto,
-  mlsLadeEin, mlsSendeAn, mlsSendeEvent, mlsSetzeAdmins, mlsVerlauf,
+  mlsEntferne, mlsLadeEin, mlsSendeAn, mlsSendeEvent, mlsSetzeAdmins, mlsVerlauf,
 } = await import("../src/shell/mls-konto.js");
 const { LS_MLS_KP, LS_MLS_PLATZ, sucheKeyPackages, veroeffentlicheKeyPackage } = await import("../src/mls-keypackage.js");
 const { empfangeGruppe, gruendeGruppe, gruppenAbos, nimmEinladungAn, oeffneEinladung, schreiteFort, sendeEventInGruppe, sendeInGruppe } = await import("../src/mls-nostr.js");
@@ -338,4 +338,12 @@ test("2.3b: Raum – nur mit mir gegründet, eigene Kanäle im Stand; einladen n
   assert.equal(await mlsSetzeAdmins(g, [ICH.pk, eva.pk], u), true);
   assert.deepEqual((await mlsGruppenStand(g, u))!.admins, [ICH.pk, eva.pk].sort());
   assert.equal(await mlsGruppenStand("ab".repeat(16), u), null, "fremde Gruppe");
+
+  // 2.3c/8.5: entfernen per Commit – danach liest Eva nichts mehr; mich selbst entferne ich so nicht
+  assert.equal(await mlsEntferne(g, ICH.pk, u), false);
+  assert.equal(await mlsEntferne(g, eva.pk, u), true);
+  assert.deepEqual((await mlsGruppenStand(g, u))!.mitglieder, [ICH.pk]);
+  assert.equal(await mlsEntferne(g, eva.pk, u), false, "kein Mitglied mehr");
+  assert.equal(await mlsSendeEvent(g, raumNachricht({ kanal: "allgemein", text: "ohne Eva" }), u), true);
+  assert.ok(!(await liesMit(eva)).includes("ohne Eva"), "entfernt – neuer Schlüssel");
 });

@@ -169,6 +169,10 @@
   der Gruppe, gesetzt per MLS-Commit; wer entfernt wird, liest ab dem nächsten
   Schlüssel nichts mehr. Alle Mitglieder lesen alle Kanäle — ein Kanal ordnet, er
   verschlüsselt nicht eigens.</p>
+  <p>Moderation in privaten Räumen bleibt in der Gruppe: Moderatoren löschen
+  Nachrichten und entfernen Mitglieder per Schlüsselwechsel. Meldungen gehen
+  versiegelt nur an die Moderatoren — die anderen Mitglieder und die Relays
+  erfahren nicht, wer was meldet. Eine öffentliche Sperrliste gibt es nicht.</p>
   <p>Für <strong>öffentliche Räume</strong>, die es nur ausdrücklich gibt, gilt eine
   Grenze, die ausgesprochen gehört: <strong>Ein Leserecht ist keine
   Verschlüsselung.</strong> Liegt ein Kanal offen auf Relays, kann ihn jeder
@@ -229,8 +233,10 @@
   ein anderes Systemdesign.
 </div>
 <div class="doc-note">
-  <strong>Client-seitige Regeln.</strong> Moderation und Leserechte wirken nur bei
-  Clients, die sich daran halten. Sie sind eine Hausordnung, keine Sperre.
+  <strong>Client-seitige Regeln.</strong> Löschen, Ausblenden und Leserechte wirken
+  nur bei Clients, die sich daran halten — eine Hausordnung, keine Sperre. Wer eine
+  Nachricht schon gelesen hat, hatte sie. Nur das Entfernen aus einem privaten Raum
+  wirkt für alle: Es wechselt den Schlüssel.
 </div>
 <div class="doc-note">
   <strong>Lightning ist nicht öffentlich prüfbar.</strong> Ohne Preimage bleibt

@@ -272,6 +272,16 @@ export async function mlsLadeEin(gruppe: string, pk: string, u: MlsUmgebung = AP
   return r?.angenommen && (await ohneUnzugestellte(a, gruppe, r.nichtZugestellt)) ? "eingeladen" : "nicht zugestellt";
 }
 
+/** Mitglied entfernen (nur als Admin): ein Commit – danach liest es nichts mehr (neuer Schlüssel). */
+export async function mlsEntferne(gruppe: string, pk: string, u: MlsUmgebung = APP): Promise<boolean> {
+  const kl = mlsKonto(u);
+  if (!kl || !HEX64.test(pk)) return false;
+  const k = await kl;
+  if (!k.mls.admins(gruppe).includes(k.pk) || !k.mls.mitglieder(gruppe).includes(pk) || pk === k.pk) return false;
+  const r = await aendereGruppe({ mls: k.mls, netz: k.u.netz, sichern: k.sichern, gruppe, entfernen: [pk] }).catch(() => null);
+  return !!r?.angenommen;
+}
+
 /** Moderatoren (Admins der Gruppe) neu setzen – ein Commit; nur als Admin. */
 export async function mlsSetzeAdmins(gruppe: string, admins: string[], u: MlsUmgebung = APP): Promise<boolean> {
   const kl = mlsKonto(u);
