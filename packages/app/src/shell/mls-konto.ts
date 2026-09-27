@@ -21,7 +21,7 @@
  */
 import { schnorr } from "@noble/curves/secp256k1.js";
 import { fromHex, toHex, type NostrEvent, type RelayFilter } from "@freedomstack/protocol";
-import { Mls, type MlsNachricht } from "@freedomstack/mls";
+import { ART_CHAT, Mls, type MlsNachricht } from "@freedomstack/mls";
 import { mlsEngine } from "../mls-engine.js";
 import { LS_MLS_KP, LS_MLS_PLATZ, kpErneuern, schreibRelaysVon, sucheKeyPackages, veroeffentlicheKeyPackage } from "../mls-keypackage.js";
 import { abgleich, partnerDerGruppe, sollMitglieder, type GeraeteQuelle } from "../mls-geraete.js";
@@ -134,6 +134,8 @@ export async function mlsErreichbar(u: MlsUmgebung = APP): Promise<boolean> {
 }
 
 const alsEintrag = (n: MlsNachricht): VerlaufEintrag => ({ id: n.id, von: n.von, text: n.text, zeit: n.zeit });
+/** In den Chat-Verlauf nur Chat-Nachrichten – andere Arten (Räume, 2.3) sind keine Zeilen. */
+const nurChat = (n: MlsNachricht[]): VerlaufEintrag[] => n.filter((x) => x.art === ART_CHAT).map(alsEintrag);
 
 /**
  * Einladung annehmen. Gruppe und Partner, wenn sie eine 1:1-Gruppe ist – alle
@@ -156,7 +158,7 @@ export async function mlsEinladungAnnehmen(e: MlsEinladung, u: MlsUmgebung = APP
 async function nachWartezeit(k: Konto, gruppe: string): Promise<void> {
   let neu = 0;
   const merken = async (n: MlsNachricht[]) => {
-    neu = k.verlauf.nimmAuf(gruppe, n.map(alsEintrag));
+    neu = k.verlauf.nimmAuf(gruppe, nurChat(n));
     await k.verlauf.sichern();
   };
   await schreiteFort({ mls: k.mls, netz: k.u.netz, sichern: k.sichern, gruppe, merken }).catch(() => undefined);
@@ -180,7 +182,7 @@ export async function mlsAbgleichen(gruppen: readonly string[], u: MlsUmgebung =
     const evs = (await k.u.frage({ ...abo.filter, limit: 200 }, abo.relays)).sort((a, b) => a.created_at - b.created_at);
     let n = 0;
     const merken = async (m: MlsNachricht[]) => {
-      n += k.verlauf.nimmAuf(abo.gruppe, m.map(alsEintrag));
+      n += k.verlauf.nimmAuf(abo.gruppe, nurChat(m));
       await k.verlauf.sichern();
     };
     for (const ev of evs) {

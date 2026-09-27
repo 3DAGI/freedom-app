@@ -88,6 +88,7 @@ export * from "./geraete-post.js";
 export * from "./lnd-macaroon.js";
 export * from "./quests.js";
 export * from "./spaces.js";
+export * from "./raum-gruppe.js";
 export * from "./badges.js";
 export * from "./mesh-sync.js";
 export * from "./http-auth.js";

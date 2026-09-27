@@ -77,6 +77,14 @@ export async function sendeInGruppe(p: Ablauf & { gruppe: string; text: string }
   return veroeffentliche(p, relays, s);
 }
 
+/** Inneres Event (Art, Tags) in die Gruppe – Räume (2.3): Kanalnachricht, Rollenliste, Moderation. */
+export async function sendeEventInGruppe(p: Ablauf & { gruppe: string; art: number; tags: string[][]; text: string }): Promise<boolean> {
+  const { relays } = p.mls.routing(p.gruppe);
+  const s = await p.mls.sendenEvent(p.gruppe, p.art, p.tags, p.text);
+  await p.sichern();
+  return veroeffentliche(p, relays, s);
+}
+
 /**
  * Mitglieder einladen oder entfernen (nur als Admin): Commit an die Relays der
  * alten Epoche; erst wenn er angenommen ist, gehen Einladungen hinaus. Nicht

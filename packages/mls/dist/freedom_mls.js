@@ -15,6 +15,22 @@ export class MlsKonto {
         wasm.__wbg_mlskonto_free(ptr, 0);
     }
     /**
+     * Admins der Gruppe neu setzen (Räume, 2.3: Moderatoren ernennen oder
+     * absetzen) – ein Commit wie beim Entfernen; nur ein Admin darf das, und
+     * MDK prüft, dass alle Genannten Mitglied sind. Mindestens einer bleibt.
+     * @param {string} gruppe_id
+     * @param {string[]} admins
+     * @returns {Promise<any>}
+     */
+    adminsSetzen(gruppe_id, admins) {
+        const ptr0 = passStringToWasm0(gruppe_id, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passArrayJsValueToWasm0(admins, wasm.__wbindgen_export);
+        const len1 = WASM_VECTOR_LEN;
+        const ret = wasm.mlskonto_adminsSetzen(this.__wbg_ptr, ptr0, len0, ptr1, len1);
+        return takeObject(ret);
+    }
+    /**
      * Admins (Identitäten hex) – wer einladen und entfernen darf.
      * @param {string} gruppe_id
      * @returns {string[]}
@@ -284,6 +300,35 @@ export class MlsKonto {
         }
     }
     /**
+     * Inneres Event beliebiger Art mit Tags (Räume, 2.3); `tags` als JSON-Liste von Listen.
+     * @param {string} gruppe_id
+     * @param {number} art
+     * @param {string} tags
+     * @param {string} text
+     * @returns {Promise<any>}
+     */
+    sendenEvent(gruppe_id, art, tags, text) {
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            const ptr0 = passStringToWasm0(gruppe_id, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+            const len0 = WASM_VECTOR_LEN;
+            const ptr1 = passStringToWasm0(tags, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+            const len1 = WASM_VECTOR_LEN;
+            const ptr2 = passStringToWasm0(text, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+            const len2 = WASM_VECTOR_LEN;
+            wasm.mlskonto_sendenEvent(retptr, this.__wbg_ptr, ptr0, len0, art, ptr1, len1, ptr2, len2);
+            var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+            var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+            var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
+            if (r2) {
+                throw takeObject(r1);
+            }
+            return takeObject(r0);
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+        }
+    }
+    /**
      * Text in die Gruppe; Ergebnis wie bei `einladen` (Nachricht braucht keine Bestätigung).
      * @param {string} gruppe_id
      * @param {string} text
@@ -476,7 +521,7 @@ function __wbg_get_imports() {
                     const a = state0.a;
                     state0.a = 0;
                     try {
-                        return __wasm_bindgen_func_elem_25966(a, state0.b, arg0, arg1);
+                        return __wasm_bindgen_func_elem_26006(a, state0.b, arg0, arg1);
                     } finally {
                         state0.a = a;
                     }
@@ -581,13 +626,13 @@ function __wbg_get_imports() {
             return addHeapObject(ret);
         },
         __wbindgen_generic_0000000000000001: function(arg0, arg1) {
-            // Cast intrinsic for `Closure(Closure { owned: true, function: Function { arguments: [Externref], shim_idx: 2061, ret: Result(Unit), inner_ret: Some(Result(Unit)) }, mutable: true }) -> Externref`.
-            const ret = makeMutClosure(arg0, arg1, __wasm_bindgen_func_elem_25964);
+            // Cast intrinsic for `Closure(Closure { owned: true, function: Function { arguments: [Externref], shim_idx: 2066, ret: Result(Unit), inner_ret: Some(Result(Unit)) }, mutable: true }) -> Externref`.
+            const ret = makeMutClosure(arg0, arg1, __wasm_bindgen_func_elem_26004);
             return addHeapObject(ret);
         },
         __wbindgen_generic_0000000000000002: function(arg0, arg1) {
-            // Cast intrinsic for `Closure(Closure { owned: true, function: Function { arguments: [], shim_idx: 1655, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
-            const ret = makeMutClosure(arg0, arg1, __wasm_bindgen_func_elem_19723);
+            // Cast intrinsic for `Closure(Closure { owned: true, function: Function { arguments: [], shim_idx: 1660, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
+            const ret = makeMutClosure(arg0, arg1, __wasm_bindgen_func_elem_19753);
             return addHeapObject(ret);
         },
         __wbindgen_generic_0000000000000003: function(arg0) {
@@ -619,18 +664,18 @@ function __wbg_get_imports() {
     };
 }
 
-function __wasm_bindgen_func_elem_19723(arg0, arg1) {
-    wasm.__wasm_bindgen_func_elem_19723(arg0, arg1);
+function __wasm_bindgen_func_elem_19753(arg0, arg1) {
+    wasm.__wasm_bindgen_func_elem_19753(arg0, arg1);
 }
 
-function __wasm_bindgen_func_elem_25966(arg0, arg1, arg2, arg3) {
-    wasm.__wasm_bindgen_func_elem_25966(arg0, arg1, addHeapObject(arg2), addHeapObject(arg3));
+function __wasm_bindgen_func_elem_26006(arg0, arg1, arg2, arg3) {
+    wasm.__wasm_bindgen_func_elem_26006(arg0, arg1, addHeapObject(arg2), addHeapObject(arg3));
 }
 
-function __wasm_bindgen_func_elem_25964(arg0, arg1, arg2) {
+function __wasm_bindgen_func_elem_26004(arg0, arg1, arg2) {
     try {
         const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
-        wasm.__wasm_bindgen_func_elem_25964(retptr, arg0, arg1, addHeapObject(arg2));
+        wasm.__wasm_bindgen_func_elem_26004(retptr, arg0, arg1, addHeapObject(arg2));
         var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
         var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
         if (r1) {
