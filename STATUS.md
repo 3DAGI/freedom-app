@@ -7598,3 +7598,75 @@ Tests gegen den Validator, c Knoten, d App.
 Endstand: protocol 1064 (+8) · node 226 · app 475 · mls 13 · Leak-Tests 57
 grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng
 Exit 0 · Website 5 Seiten ok · Smoke-Test bestanden.
+
+## Schritt 4.3b – Solana-Zahlkanal: Programm und Tests gegen den Validator
+
+**Programm (`contracts/solana-channel/`, Anchor 0.30.1):**
+- `open`:
+  - Einlage vom Kunden in den Kanal-PDA.
+  - Prüft Betrag > 0, Ablauf in der Zukunft, höchstens 8 Empfänger mit je
+    ≥ 1 ppm und zusammen ≤ 10 %, und dass kein Empfänger der Kanal selbst ist.
+- `settle`:
+  - Nur der Provider, nur vor Ablauf.
+  - Die Ed25519-Anweisung direkt davor wird über das Instruktions-Sysvar
+    gelesen: genau eine Signatur, alle Offsets auf sich selbst, Schlüssel =
+    Sitzungsschlüssel, Nachricht = Gutschrift. Die Signatur selbst verwirft
+    die Laufzeit.
+  - Ausgezahlt wird `min(Gutschrift, Einlage) − ausgezahlt`. Die Empfänger
+    kommen in der Reihenfolge des Kanals und müssen schreibbar sein; sonst
+    behielte der Provider ihren Anteil.
+  - Den Anteil eines ausführbaren oder leeren Kontos, das unter der
+    Mietbefreiung bliebe, bekommt der Provider.
+- `refund`: nur der Kunde, ab Ablauf; schließt das Konto (Rest und Miete an
+  den Kunden).
+- `top_up`: nur der Kunde, vor Ablauf.
+- Fehler-Enum `KanalFehler`: neue Varianten nur ans Ende.
+- Programm-ID: Platzhalter aus 4.3a.
+
+**Tests (`tests/kanal.test.ts`, 6 gegen `solana-test-validator`, mit dem
+Client `channel.ts`):**
+1. `open`: Konto nach Format. Zu hohe Anteile, Betrag 0 und ein Ablauf in
+   der Vergangenheit scheitern am Programm selbst (am Client vorbei).
+2. Mehrere Gutschriften, `settle` mit der letzten: Aufteilung auf den
+   Lamport. Das leere Empfängerkonto bekommt nichts, sein Anteil geht an den
+   Provider. Alle Gebühren zahlt ein eigenes Konto, damit die Beträge
+   Lamport-genau bleiben.
+3. Gleiche und niedrigere Gutschrift scheitern; eine höhere zahlt nur die
+   Differenz. Falsche oder fehlende Empfänger scheitern.
+4. Diese Fälle scheitern jeweils:
+   - falsche Signatur;
+   - gültig signiert von einem fremden Schlüssel;
+   - ohne Ed25519-Anweisung;
+   - Replay einer Gutschrift aus einem zweiten Kanal mit demselben
+     Sitzungsschlüssel;
+   - fremder Provider.
+5. `top_up`: Die Einlage steigt. Eine Gutschrift über der Einlage zahlt nur
+   bis zur Einlage; `top_up` durch Fremde scheitert.
+6. `refund` vor Ablauf scheitert, `settle` nach Ablauf scheitert, `refund`
+   durch Fremde scheitert. `refund` danach gibt Einlage und Miete zurück; das
+   Konto ist geschlossen.
+
+**Ausführen:**
+- `contracts/solana-channel/pruefen.sh` baut mit `cargo-build-sbf`, prüft
+  die Typen und lässt die Tests laufen. `--werkzeuge` lädt vorher
+  Agave 3.1.10.
+- Ohne Validator überspringen die Tests mit Grund. Mit
+  `KANAL_TESTS_PFLICHT=1` (`pruefen.sh`, CI) ist Überspringen ein Fehler –
+  gegengeprüft.
+- CI: `.github/workflows/zahlkanal.yml`, nur bei Änderungen an Programm,
+  Client oder Format, mit Zwischenspeicher für die Werkzeuge.
+- Lokal: Bau 58 s, Tests 14 s, alle 6 grün.
+
+**Gelernt:**
+- Die Websocket-Bestätigungen des Validators laufen auf RPC-Port + 1; der
+  Faucet gehört woandershin.
+- Ed25519 signiert deterministisch: Dieselbe Gutschrift zweimal ist dieselbe
+  Transaktion, und web3.js wartet dann auf einen neuen Blockhash. Ein eigenes
+  Rechenlimit je Versuch macht sie verschieden.
+- Ein leeres Provider-Konto lehnt kleine Auszahlungen ab (Mietbefreiung);
+  steht jetzt in `docs/ZAHLKANAL.md`.
+
+Endstand: protocol 1064 · node 226 · app 475 · mls 13 · Zahlkanal 6 (neu,
+gegen Validator) · Leak-Tests 57 grün + 1 todo · 0 rot · check-wiring
+`--streng` Exit 0 · innerHTML streng Exit 0 · Website 5 Seiten ok ·
+Smoke-Test bestanden.

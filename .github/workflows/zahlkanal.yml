@@ -1,0 +1,54 @@
+# Baut das Zahlkanal-Programm (Schritt 4.3b) und laesst seine Tests gegen einen
+# lokalen Validator laufen – mit dem Client aus packages/protocol. Laeuft nur,
+# wenn sich Programm, Client oder Format aendern (Bau: einige Minuten).
+# Kein Deploy: Das Programm verlaesst den Runner nicht.
+
+name: Zahlkanal
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "contracts/solana-channel/**"
+      - "packages/protocol/src/channel.ts"
+      - "docs/ZAHLKANAL.md"
+      - ".github/workflows/zahlkanal.yml"
+  pull_request:
+    paths:
+      - "contracts/solana-channel/**"
+      - "packages/protocol/src/channel.ts"
+      - "docs/ZAHLKANAL.md"
+      - ".github/workflows/zahlkanal.yml"
+  workflow_dispatch:
+
+jobs:
+  programm:
+    name: Zahlkanal bauen und gegen den Validator testen
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - run: npm install --workspaces --include-workspace-root --no-audit --no-fund
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+
+      - name: Solana-Werkzeuge zwischenspeichern
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/freedom-solana
+            ~/.cache/solana
+            ~/.cargo/registry
+          key: zahlkanal-agave-v3.1.10-${{ hashFiles('contracts/solana-channel/Cargo.lock') }}
+
+      - name: Bauen und testen
+        # Agave 3.1.10 (cargo-build-sbf, platform-tools v1.52, solana-test-validator);
+        # ueberspringen gilt hier als Fehler (KANAL_TESTS_PFLICHT in pruefen.sh).
+        run: bash contracts/solana-channel/pruefen.sh --werkzeuge

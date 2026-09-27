@@ -110,10 +110,12 @@ Jede Funktion, in der Geld fließt, bietet beide Schienen mit gleichem Komfort.
     Deploy. Ergänzt gegenüber der Karte: Ein Anteil geht an den Provider,
     wenn das Empfängerkonto ausführbar ist oder unter der Mietbefreiung bliebe
     – sonst blockierte ein leeres Empfängerkonto jede Abrechnung.
-  - **4.3b:** Programm `contracts/solana-channel/` (Anchor 0.30.1) und die
-    Tests der Karte gegen `solana-test-validator` mit dem Client aus 4.3a.
-    Werkzeug: Agave 3.1.10 (`cargo-build-sbf`, platform-tools v1.52,
-    Rust 1.89) – ältere scheitern an der Lock-Datei (edition2024).
+  - **4.3b – FERTIG:** Programm `contracts/solana-channel/` (Anchor 0.30.1)
+    und die Tests der Karte gegen `solana-test-validator` mit dem Client aus
+    4.3a (`pruefen.sh`, CI `zahlkanal.yml` bei Änderungen an Programm, Client
+    oder Format; Überspringen gilt dort als Fehler). Werkzeug: Agave 3.1.10
+    (`cargo-build-sbf`, platform-tools v1.52, Rust 1.89) – ältere scheitern an
+    der Lock-Datei (edition2024).
   - **4.3c:** Knoten – Kanal und Gutschriften prüfen, rechtzeitig einlösen.
   - **4.3d:** App – Kanal öffnen (Empfänger aus A+), Gutschriften versiegelt
     mit der Anfrage, Rückholen nach Ablauf; SOL-Anteile damit erzwungen.
