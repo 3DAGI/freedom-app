@@ -14,7 +14,7 @@ import {
   PROVIDER_PPM,
   parseJobResult,
 } from "@freedomstack/protocol";
-import { t } from "../../i18n.js";
+import { gebietsschema, t } from "../../i18n.js";
 import { icon } from "../../icons.js";
 import { DEFAULT_MAX_MODE, ScoredProvider, matchRaceProviders } from "../../matchmaking.js";
 import { type AntwortCache, oeffneAntworten } from "../../ki-antworten.js";
@@ -91,19 +91,19 @@ export async function refreshModelDropdown(): Promise<void> {
     const pop = $("#model-popover");
     if (pop) {
       const speedOf = (m: string): { label: string; cls: string } => {
-        if (m.includes("nemotron")) return { label: "⚡⚡ schnell", cls: "fast" };
+        if (m.includes("nemotron")) return { label: t("agent.schnell"), cls: "fast" };
         if (/(\d+)b/.test(m)) {
           const size = Number(RegExp.$1);
-          if (size <= 8) return { label: "⚡⚡ schnell", cls: "fast" };
-          if (size <= 15) return { label: "⚡ mittel", cls: "mid" };
-          return { label: "🐢 tiefgründig", cls: "deep" };
+          if (size <= 8) return { label: t("agent.schnell"), cls: "fast" };
+          if (size <= 15) return { label: t("agent.mittel"), cls: "mid" };
+          return { label: t("agent.tief"), cls: "deep" };
         }
-        return { label: "⚡ mittel", cls: "mid" };
+        return { label: t("agent.mittel"), cls: "mid" };
       };
       pop.innerHTML = `
         <button type="button" class="model-card ${current === "" ? "selected" : ""}" data-model="">
-          <div class="mc-head"><b>Auto</b><span class="mc-speed fast">schnellste</span></div>
-          <div class="mc-sub">netz wählt das beste verfügbare modell</div>
+          <div class="mc-head"><b>${escapeHtml(t("agent.auto"))}</b><span class="mc-speed fast">${escapeHtml(t("agent.schnellste"))}</span></div>
+          <div class="mc-sub">${escapeHtml(t("agent.autoSub"))}</div>
         </button>
         ${entries.map(([m, info]) => {
           const sp = speedOf(m);
@@ -111,8 +111,8 @@ export async function refreshModelDropdown(): Promise<void> {
           // Beide Einheiten aus dem Marktkurs (4.4b) – vorher fest 150.000 sats/SOL.
           const preis = ausMsat(info.priceMsat, aktuellerKurs());
           return `<button type="button" class="model-card ${current === m ? "selected" : ""}" data-model="${escapeHtml(m)}">
-            <div class="mc-head"><b>${escapeHtml(short)}</b><span class="mc-speed ${sp.cls}">${sp.label}</span></div>
-            <div class="mc-sub">~${escapeHtml(preis)} /1k tokens · ${info.count} provider${escapeHtml(katalogHinweis(inKatalogen(m)))}${info.tools.size ? " · " + icon("wrench", 11) : ""}</div>
+            <div class="mc-head"><b>${escapeHtml(short)}</b><span class="mc-speed ${sp.cls}">${escapeHtml(sp.label)}</span></div>
+            <div class="mc-sub">${escapeHtml(t("agent.mcSub", { preis, n: info.count }))}${escapeHtml(katalogHinweis(inKatalogen(m)))}${info.tools.size ? " · " + icon("wrench", 11) : ""}</div>
           </button>`;
         }).join("")}`;
     }
@@ -123,7 +123,7 @@ export async function refreshModelDropdown(): Promise<void> {
 
 /** „ · in 2 Katalogen“ – leer, wenn kein abonnierter Katalog das Modell nennt. */
 function katalogHinweis(n: number): string {
-  return n > 0 ? ` · in ${n} ${n === 1 ? "Katalog" : "Katalogen"}` : "";
+  return n > 0 ? ` · ${t(n === 1 ? "agent.inKatalog" : "agent.inKatalogen", { n })}` : "";
 }
 
 /** Button-Label aus aktueller Modell-Wahl. */
@@ -134,7 +134,7 @@ function updateModelBtnLabel(): void {
   const v = sel.value;
   btn.innerHTML = v
     ? `${icon("bot", 14)} ${escapeHtml(v.split(":")[0])}`
-    : `${icon("bot", 14)} auto (schnellste)`;
+    : `${icon("bot", 14)} ${escapeHtml(t("agent.autoSchnellste"))}`;
 }
 
 /** Modell-Popover öffnen/schliessen. */
@@ -197,7 +197,7 @@ function merkeNachricht(role: "user" | "ai", text: string, meta: string, model?:
     if (role !== "user") return;
     aktuellerVerlauf = {
       id: String(Date.now()),
-      title: text.replace(/\s+/g, " ").trim().slice(0, 60) || "Aufgabe",
+      title: text.replace(/\s+/g, " ").trim().slice(0, 60) || t("agent.aufgabe"),
       at: Math.floor(Date.now() / 1000),
       messages: [],
     };
@@ -215,20 +215,20 @@ export function zeigeVerlaeufe(): void {
   if (!box) return;
   const alle = ladeVerlaeufe();
   if (alle.length === 0) {
-    box.innerHTML = `<p class="muted mono-sm history-empty">Noch keine Aufgaben.</p>`;
+    box.innerHTML = `<p class="muted mono-sm history-empty">${escapeHtml(t("agent.keineAufgaben"))}</p>`;
     return;
   }
   const heute = new Date().toDateString();
   let letzteGruppe = "";
   box.innerHTML = alle.map((v) => {
     const d = new Date(v.at * 1000);
-    const gruppe = d.toDateString() === heute ? "Heute" : "Früher";
-    const kopf = gruppe !== letzteGruppe ? `<div class="history-group">${gruppe}</div>` : "";
+    const gruppe = t(d.toDateString() === heute ? "agent.heute" : "agent.frueher");
+    const kopf = gruppe !== letzteGruppe ? `<div class="history-group">${escapeHtml(gruppe)}</div>` : "";
     letzteGruppe = gruppe;
     const aktiv = aktuellerVerlauf?.id === v.id ? " active" : "";
     return `${kopf}<button class="history-item${aktiv}" data-hid="${escapeHtml(v.id)}" type="button">
       <span class="history-title">${escapeHtml(v.title)}</span>
-      <span class="history-sub">${v.messages.length} Nachrichten</span></button>`;
+      <span class="history-sub">${escapeHtml(t("agent.nachrichten", { n: v.messages.length }))}</span></button>`;
   }).join("");
   box.querySelectorAll<HTMLElement>(".history-item").forEach((b) => {
     b.addEventListener("click", () => oeffneVerlauf(b.dataset.hid!));
@@ -268,10 +268,10 @@ function aktualisiereAgentPanel(
   tools: { name: string; costMsat: number }[],
   sessionTotalMsat?: number,
 ): void {
-  const t = document.getElementById("agent-tools");
-  if (t && tools.length > 0) {
-    t.classList.remove("muted");
-    t.innerHTML = tools.map((x) => `<div class="panel-row">
+  const box = document.getElementById("agent-tools");
+  if (box && tools.length > 0) {
+    box.classList.remove("muted");
+    box.innerHTML = tools.map((x) => `<div class="panel-row">
       <span class="panel-check">${markSvgCheck()}</span>
       <span class="panel-name">${escapeHtml(x.name)}</span>
       <span class="panel-meta">${Math.floor(x.costMsat / 1000)} sat</span></div>`).join("");
@@ -279,7 +279,7 @@ function aktualisiereAgentPanel(
   const c = document.getElementById("agent-cost");
   if (c && sessionTotalMsat !== undefined) {
     c.classList.remove("muted");
-    c.innerHTML = `<div class="panel-row"><span class="panel-name">Diese Sitzung</span>
+    c.innerHTML = `<div class="panel-row"><span class="panel-name">${escapeHtml(t("agent.dieseSitzung"))}</span>
       <span class="panel-meta">${Math.floor(sessionTotalMsat / 1000)} sat</span></div>`;
   }
 }
@@ -293,8 +293,9 @@ export function updateFeePreview(): void {
   // Werbelink, Relays); ohne Empfaenger bekommt den Anteil der Provider.
   const msat = Number.isFinite(bid) && bid > 0 ? Math.floor(bid * 1000) : 0;
   const providerMin = Math.floor((msat * PROVIDER_PPM) / 1_000_000);
-  $("#ai-fee-preview").textContent =
-    `${ausMsat(msat, aktuellerKurs())} → provider mind. ${Math.floor(providerMin / 1000)} / anteile höchstens ${Math.ceil((msat - providerMin) / 1000)}`;
+  $("#ai-fee-preview").textContent = t("agent.gebuehrVorschau", {
+    betrag: ausMsat(msat, aktuellerKurs()), provider: Math.floor(providerMin / 1000), anteile: Math.ceil((msat - providerMin) / 1000),
+  });
   updateTokenEstimate();
 }
 
@@ -318,22 +319,26 @@ export function updateTokenEstimate(): void {
     if (hit) rate = hit[1].priceMsat;
   } catch { /* default */ }
   const estSats = Math.max(1, Math.ceil((estTokens / 1000) * rate / 1000));
-  el.textContent = `~${estTokens} tokens ≈ ${ausMsat(estSats * 1000, aktuellerKurs())}`;
+  el.textContent = t("agent.schaetzung", { tokens: estTokens, preis: ausMsat(estSats * 1000, aktuellerKurs()) });
 }
 
 // ------------------------------------------------------------- Fehler-UX (Phase 1.2)
+/** Eine Meldung der App selbst, schon in der Sprache der Oberfläche (8.16d1). */
+class EigeneMeldung extends Error {}
+
 /** Mappt technische Fehler auf verstaendliche Ursachen. */
 function explainError(e: unknown): string {
   const m = ((e as Error)?.message ?? String(e)).toLowerCase();
-  // Klare eigene Meldung (3.1) – nicht als Timeout umdeuten.
-  if (m.includes("private anfragen")) return (e as Error).message;
-  if (m.includes("relay") || m.includes("websocket") || m.includes("eose") || m.includes("pool")) return "relay-verbindung fehlgeschlagen — internet pruefen oder spaeter erneut versuchen";
-  if (m.includes("kein provider") || m.includes("provider") && m.includes("antwort")) return "kein provider erreichbar — alle kandidaten haben ein timeout (gx10 offline?)";
-  if (m.includes("bid zu niedrig") || m.includes("kein free-tier")) return "gebot zu niedrig und kein free-kontingent mehr — bid erhöhen oder morgen wieder gratis testen";
-  if (m.includes("identitaet") || m.includes("keypair") || m.includes("session")) return "identitaet fehlt — bitte neu einloggen";
-  if (m.includes("timeout")) return "timeout — provider zu langsam oder offline";
-  if (m.includes("comfy")) return "comfyui nicht erreichbar (port 8188) — video/image-gen braucht laufendes comfyui";
-  if (m.includes("fetch") || m.includes("network") || m.includes("failed to fetch")) return "netzwerk-fehler — verbindung zum relay/server unterbrochen";
+  // Eigene, schon übersetzte Meldungen (3.1, 8.16d1) nicht umdeuten.
+  if (e instanceof EigeneMeldung) return e.message;
+  // Muster auf technische Meldungen (Relay, Knoten, Browser) – Regexe, keine Texte der Oberfläche
+  if (/relay|websocket|eose|pool/.test(m)) return t("agent.fehlerRelay");
+  if (/kein provider|provider.*antwort/.test(m)) return t("agent.fehlerKeinProvider");
+  if (/bid zu niedrig|kein free-tier/.test(m)) return t("agent.fehlerGebot");
+  if (/identitaet|keypair|session/.test(m)) return t("agent.fehlerIdentitaet");
+  if (/timeout/.test(m)) return t("agent.fehlerTimeout");
+  if (/comfy/.test(m)) return t("agent.fehlerComfy");
+  if (/fetch|network/.test(m)) return t("agent.fehlerNetz");
   return (e as Error)?.message ?? String(e);
 }
 
@@ -345,11 +350,11 @@ function showAiError(e: unknown, retryPrompt: string, retryBid: number, retryTie
   if (retryTier === "free" && /bid zu niedrig/i.test((e as Error)?.message ?? String(e))) merkeGratisAbgelehnt();
   const el = document.createElement("div");
   el.className = "bubble ai error";
-  el.innerHTML = `<div class="who">⚠️ fehler</div>
-    <div class="body">Ursache: <b>${escapeHtml(cause)}</b></div>`;
+  el.innerHTML = `<div class="who">${escapeHtml(t("agent.fehler"))}</div>
+    <div class="body">${escapeHtml(t("agent.ursache"))} <b>${escapeHtml(cause)}</b></div>`;
   const btn = document.createElement("button");
   btn.className = "btn-retry";
-  btn.textContent = "↻ erneut versuchen";
+  btn.textContent = t("agent.erneut");
   btn.onclick = () => {
     btn.remove();
     ($("#ai-prompt") as HTMLTextAreaElement).value = retryPrompt;
@@ -379,7 +384,7 @@ export async function askAi(): Promise<void> {
   }
   btn.dataset.running = "1";
   btn.classList.add("stop-mode");
-  btn.textContent = "■ Stop";
+  btn.textContent = t("agent.stop");
   // Retry-Kontext ausserhalb des try-Blocks (catch braucht ihn)
   const selTier = ($("#ai-tier") as HTMLSelectElement).value;
   const maxMode = selTier === "max";
@@ -391,7 +396,7 @@ export async function askAi(): Promise<void> {
     if (quotaExhausted) {
       const hasFunds = Number(localStorage.getItem("freedom.escrow.lamports") ?? "0") > 0;
       if (!hasFunds) {
-        toast("gratis-kontingent aufgebraucht — erst guthaben einzahlen", true);
+        toast(t("agent.kontingentAufgebraucht"), true);
         switchTab("wallet");
         resetSendBtn(btn);
         return;
@@ -454,7 +459,7 @@ async function askWithFailover(prompt: string, bid: number, tier: "free" | "clas
   // Private Anfragen brauchen einen Empfaenger – einen offenen Bid-Job an
   // alle gibt es seit 3.1 nicht mehr (er stand im Klartext auf den Relays).
   if (pubkeyList.length === 0) {
-    showAiError(new Error(KEIN_PRIVATER_PROVIDER), prompt, bid, tier);
+    showAiError(keinPrivaterProvider(), prompt, bid, tier);
     return;
   }
   const targets = pubkeyList.slice(0, 3);
@@ -485,11 +490,11 @@ async function askWithFailover(prompt: string, bid: number, tier: "free" | "clas
         // Ablehnung durch DIESEN Provider → Failover zum nächsten (die meisten
         // Ablehnungen sind provider-spezifisch: quota, bootstrap, preis).
         lastFeedbackError = answer.providerError;
-        toast(`provider lehnt ab (${answer.providerError.slice(0, 50)}) — naechster…`);
+        toast(t("agent.providerLehntAb", { grund: answer.providerError.slice(0, 50) }));
         continue; // Failover!
       }
       if (answer.aborted) {
-        addAiMessage("ai", "[abgebrochen]", "");
+        addAiMessage("ai", t("agent.abgebrochen"), "");
         return;
       }
       await handleAnswer(answer.ev, answer.parsed!, prompt);
@@ -499,12 +504,12 @@ async function askWithFailover(prompt: string, bid: number, tier: "free" | "clas
       // kein Feedback, nur langsam → Hedge: nächster Provider bekommt ihn JETZT,
       // der aktuelle bleibt aktiv (seine Antwort wird via activeJobIds noch
       // akzeptiert).
-      toast(`provider ${pkShort(target)} langsam — hedging zu naechstem…`);
+      toast(t("agent.providerLangsam", { pk: pkShort(target) }));
     }
   }
   // Alle Kandidaten versagt (Timeout oder Ablehnung):
   showAiError(
-    new Error(lastFeedbackError || "kein provider im netz geantwortet"),
+    lastFeedbackError ? new Error(lastFeedbackError) : new EigeneMeldung(t("agent.keinProviderAntwort")),
     prompt, bid, tier,
   );
 }
@@ -535,7 +540,7 @@ async function generateVideo(prompt: string): Promise<void> {
   const qual = (document.getElementById("video-quality") as HTMLSelectElement | null)?.value ?? "std";
   const size = qual === "hd" ? { width: 1280, height: 720 } : qual === "low" ? { width: 480, height: 270 } : { width: 768, height: 432 };
   const length = Math.max(17, Math.min(121, dur * 24 + 5)); // 17k+5 grid
-  addAiMessage("ai", `[video] wird generiert (${size.width}×${size.height}, ~${dur}s) — das dauert ~1-2 min`, "");
+  addAiMessage("ai", t("agent.videoWird", { breite: size.width, hoehe: size.height, dauer: dur }), "");
   try {
     // ueber den gate-proxy (/comfy) auf gleicher origin
     const base = `${location.origin}/comfy`;
@@ -565,18 +570,18 @@ async function generateVideo(prompt: string): Promise<void> {
         const files = Object.values(entry.outputs ?? {}).flatMap((o: unknown) => (o as { images?: Array<{ filename: string }> }).images ?? []);
         if (files.length > 0) {
           const fname = (files[0] as { filename: string }).filename;
-          addAiMessage("ai", `✅ video fertig: <a href="${base}/view?filename=${encodeURIComponent(fname)}" target="_blank">${fname}</a>`, "");
+          addAiMessage("ai", `${t("agent.videoFertig")} <a href="${base}/view?filename=${encodeURIComponent(fname)}" target="_blank">${fname}</a>`, "");
           return;
         }
       }
       if (entry?.status?.status_str === "error") {
-        addAiMessage("ai", `(video-fehler: ${entry.status.messages?.find((m: string[]) => m[0] === "execution_error")?.[1]?.exception_message ?? "unbekannt"})`, "");
+        addAiMessage("ai", t("agent.videoFehler", { grund: entry.status.messages?.find((m: string[]) => m[0] === "execution_error")?.[1]?.exception_message ?? t("agent.unbekannt") }), "");
         return;
       }
     }
-    addAiMessage("ai", "(video-timeout — versuch es kuerzer oder spaeter)", "");
+    addAiMessage("ai", t("agent.videoTimeout"), "");
   } catch (e) {
-    addAiMessage("ai", `(video-fehler: ${(e as Error).message})`, "");
+    addAiMessage("ai", t("agent.videoFehler", { grund: (e as Error).message }), "");
   }
 }
 
@@ -586,11 +591,11 @@ async function askRace(prompt: string, bid: number, tier: "free" | "classic" | "
   const sc = ensureSessionClient();
   const racers = matchRaceProviders(candidates, tier, DEFAULT_MAX_MODE);
   if (racers.length === 0) {
-    showAiError(new Error("kein provider im tier 'max' erreichbar"), prompt, bid, tier, { max: true });
+    showAiError(new EigeneMeldung(t("agent.maxKeinProvider")), prompt, bid, tier, { max: true });
     return;
   }
   // Bezahlt wird nur die Antwort, die die App annimmt (5.1.3) – die übrigen nicht
-  toast(`max mode: ${racers.length} provider racen — bezahlt wird die schnellste antwort`);
+  toast(t("agent.maxStart", { n: racers.length }));
 
   // Job an ALLE racer gleichzeitig (race-tag im versiegelten Kern, je ein Umschlag)
   const jobs = await Promise.all(racers.map((r) => buildJobEvent(prompt, bid, tier, r.caps.pubkey, sc, [["race", "1"]])));
@@ -612,14 +617,14 @@ async function askRace(prompt: string, bid: number, tier: "free" | "classic" | "
         r = { requestId: hit.id, customerPubkey: "", providerPubkey: hit.pubkey, output: hit.content, amountMsat: 0 } as ReturnType<typeof parseJobResult>;
       }
       const winner = r.providerPubkey;
-      toast(`${pkShort(winner)} gewinnt das race`);
+      toast(t("agent.maxGewinner", { pk: pkShort(winner) }));
       await handleAnswer(hit, r, prompt);
       return;
     }
     await new Promise((res) => setTimeout(res, 2000));
   }
   hideTyping();
-  showAiError(new Error("max mode: kein racer geantwortet"), prompt, bid, tier, { max: true });
+  showAiError(new EigeneMeldung(t("agent.maxKeiner")), prompt, bid, tier, { max: true });
 }
 
 /** SWARM: N Responder antworten, Judge waehlt/synthetisiert die beste. */
@@ -632,11 +637,11 @@ async function askSwarm(prompt: string, bid: number, tier: "free" | "classic" | 
   const target = candidates[0]?.caps.pubkey ?? null; // Erster Provider (lokaler GX10)
   const btn = $("#ai-send") as HTMLButtonElement;
   if (!target) {
-    showAiError(new Error("kein provider fuer swarm — freedomstack-node laeuft nicht"), prompt, bid, tier, { swarm: true });
+    showAiError(new EigeneMeldung(t("agent.swarmKeinProvider")), prompt, bid, tier, { swarm: true });
     return;
   }
 
-  toast(`swarm: beide modelle (nemotron + qwen3.8:27b) denken parallel…`);
+  toast(t("agent.swarmStart"));
   // Tag fuer swarm-modus im provider – im versiegelten Kern. Frueher kam er nach
   // der Signatur dazu, die Anfrage war dadurch ungueltig signiert.
   const { wrap, requestId } = await buildJobEvent(prompt, bid, tier, target, sc, [["swarm", "1"]]);
@@ -647,13 +652,13 @@ async function askSwarm(prompt: string, bid: number, tier: "free" | "classic" | 
       showAiError(new Error(answer.providerError), prompt, bid, tier, { swarm: true });
       return;
     }
-    if (answer.aborted) { addAiMessage("ai", "[abgebrochen]", ""); return; }
+    if (answer.aborted) { addAiMessage("ai", t("agent.abgebrochen"), ""); return; }
     await handleAnswer(answer.ev, answer.parsed!, prompt);
     return;
   }
 
   hideTyping();
-  showAiError(new Error("swarm: provider keine antwort — timeout"), prompt, bid, tier, { swarm: true });
+  showAiError(new EigeneMeldung(t("agent.swarmTimeout")), prompt, bid, tier, { swarm: true });
 }
 
 /** Kontext fuer den naechsten Job (Schritt 3.3): Der Knoten merkt sich keinen
@@ -669,7 +674,7 @@ function maybeInsertModelSwitchSummary(newTier: string): void {
   if (lastTier && lastTier !== newTier && pendingContextSummary) {
     const note = document.createElement("div");
     note.className = "model-switch";
-    note.innerHTML = `<div class="model-switch-inner">⇄ modell gewechselt zu <b>${escapeHtml(newTier)}</b> — kontext wird mitgegeben (${msgs.length} nachrichten)</div>`;
+    note.innerHTML = `<div class="model-switch-inner">${escapeHtml(t("agent.modellGewechselt"))} <b>${escapeHtml(newTier)}</b> — ${escapeHtml(t("agent.kontextMit", { n: msgs.length }))}</div>`;
     thread.appendChild(note);
     stickToBottom(() => note.scrollIntoView({ behavior: "smooth", block: "end" }));
   }
@@ -682,7 +687,7 @@ function maybeInsertModelSwitchSummary(newTier: string): void {
  * MAX_POW_APP Bits rechnet ein Handy zu lange; solche Angebote bleiben aussen vor.
  */
 const MAX_POW_APP = 16;
-const KEIN_PRIVATER_PROVIDER = "Kein Provider für private Anfragen gefunden – die Knoten brauchen mindestens Stand 3.1.";
+const keinPrivaterProvider = () => new EigeneMeldung(t("agent.keinPrivaterProvider"));
 
 function privatFaehig(kandidaten: ScoredProvider[]): ScoredProvider[] {
   const ok = kandidaten.filter((c) => c.caps.powBits !== undefined && c.caps.powBits <= MAX_POW_APP);
@@ -704,7 +709,7 @@ async function buildJobEvent(
   sc: SessionClient,
   zusatzTags: string[][] = [],
 ): Promise<{ wrap: NostrEvent; requestId: string }> {
-  if (!state.keypair) throw new Error("no keypair");
+  if (!state.keypair) throw new Error("no keypair"); // kein UI-Text
   const sitzung = kiSitzungen.fuer(targetPubkey);
   // Kontext des Verlaufs (3.3): reist versiegelt mit dem Prompt, der Knoten merkt sich nichts
   const fullPrompt = pendingContextSummary ? pendingContextSummary + prompt : prompt;
@@ -802,7 +807,7 @@ async function waitForAnswer(
       }
       if (/thinking|processing|working/i.test(fbMsg) && !/^error/i.test(fbMsg)) {
         // Alte Provider ohne status-tag aber klar progressivem Text
-        setTypingLabel("denkt nach…");
+        setTypingLabel(t("thinking"));
         await new Promise((res) => setTimeout(res, 3000));
         continue;
       }
@@ -846,7 +851,7 @@ async function handleAnswer(ev: import("@freedomstack/protocol").NostrEvent, r: 
   // Modell-name: aus usage (provider setzt es), sonst aus den provider-caps
   const model = r.usage?.model ?? lastProviderModel ?? undefined;
   // DEBUG: zeige die provider-pubkey, damit wir wissen WER antwortet
-  const who = model ? `${model} · ${r.providerPubkey.slice(0, 12)}…` : `provider ${r.providerPubkey.slice(0, 12)}…`;
+  const who = model ? `${model} · ${r.providerPubkey.slice(0, 12)}…` : t("agent.providerKurz", { pk: r.providerPubkey.slice(0, 12) });
   // Abrechnung nach A+ (5.1.3) mit den beim Senden deklarierten Empfaengern –
   // hoechstens das Gebot; die uebrigen Anteile gehen in die Kasse.
   const abrechnung = await rechneAntwortAb(r.requestId, r.amountMsat);
@@ -868,7 +873,7 @@ async function handleAnswer(ev: import("@freedomstack/protocol").NostrEvent, r: 
     if (!state.keypair) return;
     const { buildHeartbeat } = await import("@freedomstack/protocol");
     await (await ensurePool()).publish(await signiere(buildHeartbeat(state.keypair.pk)));
-    toast("Lebenszeichen gesendet — laufende Vorgänge sind abgebrochen");
+    toast(t("agent.lebenszeichen"));
     void zeigeNachfolge();
   };
   const modelsRefresh = $("#models-refresh");
@@ -892,20 +897,20 @@ async function handleAnswer(ev: import("@freedomstack/protocol").NostrEvent, r: 
   const { zahlung, grund } = await providerZahlung(r.providerPubkey);
   const charge = await sc.chargeForResult(r.providerPubkey, abrechnung.providerMsat, ev.id, zahlung);
   updateBudgetBar();
-  if (abrechnung.gekappt) toast(`Provider verlangte ${Math.ceil(r.amountMsat / 1000)} sats – mehr als dein Gebot; die App zahlt höchstens das Gebot`, true);
+  if (abrechnung.gekappt) toast(t("agent.providerVerlangte", { sats: Math.ceil(r.amountMsat / 1000) }), true);
   if (abrechnung.providerMsat === 0) {
     // Gratis-Job (free-tier/bootstrap) — nichts zu zahlen
   } else if (charge.settled) {
-    toast(`bezahlt: ${Math.floor((charge.gezahltMsat ?? 0) / 1000)} sats an den Provider`);
+    toast(t("agent.bezahlt", { sats: Math.floor((charge.gezahltMsat ?? 0) / 1000) }));
   } else if (charge.unklar) {
-    toast("Zahlung an den Provider unklar – sieh in deiner Wallet nach. In dieser Sitzung zahlt die App nicht noch einmal.", true);
+    toast(t("agent.zahlungUnklar"), true);
   } else {
     // Beleg-only: Schuld dokumentiert und versiegelt beim Provider
-    toast(zahlung ? `Beleg gespeichert – gezahlt wird gesammelt ab ${Math.floor(charge.faelligAbMsat / 1000)} sats` : `Beleg gespeichert, nicht bezahlt: ${grund}`);
+    toast(zahlung ? t("agent.belegGesammelt", { sats: Math.floor(charge.faelligAbMsat / 1000) }) : t("agent.belegNichtBezahlt", { grund: grund ?? "" }));
   }
   // Gesammelte Anteile zahlen, wo 100 sats je Empfaenger erreicht sind
   void zahleAnteile().then((a) => {
-    if (a.unklarMsat > 0) toast("Eine gesammelte Zahlung ist unklar – in den Settings unter Gebühren prüfen.", true);
+    if (a.unklarMsat > 0) toast(t("agent.anteilUnklar"), true);
   }).catch(() => { /* beim naechsten Mal */ });
   void refreshQuota();
   resetSendBtn($("#ai-send") as HTMLButtonElement);
@@ -916,7 +921,7 @@ function resetSendBtn(btn: HTMLButtonElement): void {
   btn.dataset.running = "";
   btn.classList.remove("stop-mode");
   btn.disabled = false;
-  btn.textContent = "Anfragen";
+  btn.textContent = t("send");
 }
 
 async function pollAiAnswer(requestId: string): Promise<void> {
@@ -931,19 +936,19 @@ export function updateBudgetBar(): void {
   const el = $("#ai-budget");
   const bal = $("#balance");
   if (!state.lastProvider || !state.sessionClient) {
-    el.textContent = "Noch keine Sitzung. Die erste Anfrage startet eine.";
+    el.textContent = t("agent.keineSitzung");
     el.className = "mono-sm";
     if (bal) bal.textContent = "— sats";
     return;
   }
   const b = state.sessionClient.budgetState(state.lastProvider);
   if (!b) {
-    el.textContent = "Noch keine Sitzung. Die erste Anfrage startet eine.";
+    el.textContent = t("agent.keineSitzung");
     el.className = "mono-sm";
     if (bal) bal.textContent = "— sats";
     return;
   }
-  el.textContent = `session: ${Math.floor(b.charged / 1000)}/${Math.floor(b.max / 1000)} sats (${b.pct}%)`;
+  el.textContent = t("agent.sitzung", { bezahlt: Math.floor(b.charged / 1000), max: Math.floor(b.max / 1000), pct: b.pct });
   el.className = b.pct >= 80 ? "mono-sm warn" : "mono-sm";
   // Header-Guthaben: verbleibendes Session-Budget (non-custodial proxy)
   if (bal) {
@@ -960,7 +965,7 @@ function addAiMessage(role: "user" | "ai", text: string, meta: string, model?: s
   // AI-Antworten: Markdown rendern. User: plain (escaped).
   const body = role === "ai" ? renderMarkdown(escapeHtml(text)) : escapeHtml(text);
   // Der Modellname kommt vom Provider (usage.model, Ankuendigung) – nie roh ins HTML.
-  const whoLabel = role === "user" ? "du" : `agent${model ? ` · ${escapeHtml(model)}` : ""}`;
+  const whoLabel = role === "user" ? escapeHtml(t("komm.du")) : `agent${model ? ` · ${escapeHtml(model)}` : ""}`;
   el.innerHTML = `<div class="who">${whoLabel}</div>
     <div class="body">${body}</div>${meta ? `<div class="cost">${escapeHtml(meta)}</div>` : ""}`;
   $("#ai-thread").appendChild(el);
@@ -1009,15 +1014,11 @@ function addAiMessageStreaming(role: "ai", text: string, meta: string, model?: s
 async function waehlePruefer(beschuldigt: string): Promise<Pruefer | null | undefined> {
   const kandidaten = netzPruefer(beschuldigt);
   if (kandidaten.length === 0) {
-    toast("Kein Prüfer in deinem Netz – die Reklamation geht nur an den Provider. Prüfen kann ein Kontakt oder ein eigener Provider.");
+    toast(t("agent.keinPruefer"));
     return null;
   }
   const liste = kandidaten.map((c, i) => `  ${i + 1} = ${c.name} (${c.art})`).join("\n");
-  const wahl = prompt(
-    "Wer aus deinem Netz soll nachprüfen? Er bekommt die Reklamation versiegelt; sein Urteil gilt nur zwischen dir und dem Provider.\n" +
-    `${liste}\n  leer = nur der Provider`,
-    "1",
-  );
+  const wahl = prompt(t("agent.werPrueft", { liste }), "1");
   if (wahl === null) return undefined;
   return kandidaten[Number(wahl) - 1] ?? null;
 }
@@ -1033,7 +1034,7 @@ async function reklamiere(
   jobId: string | undefined, providerPk: string, amountMsat: number, frageAntwort?: { frage: string; antwort: string },
 ): Promise<void> {
   if (!state.keypair || !jobId) {
-    toast("Ohne Bezug zur Antwort nicht reklamierbar", true);
+    toast(t("agent.ohneBezug"), true);
     return;
   }
   const { disputeInfo, buildDispute, buildPrivateDispute, disputeWindowOpen } =
@@ -1041,14 +1042,7 @@ async function reklamiere(
 
   if (!confirm(disputeInfo())) return;
 
-  const grund = prompt(
-    "Was war das Problem?\n" +
-    "  1 = gar keine Antwort\n" +
-    "  2 = Antwort unbrauchbar\n" +
-    "  3 = anderes Modell als vereinbart\n" +
-    "  4 = mittendrin abgebrochen",
-    "2",
-  );
+  const grund = prompt(t("agent.problem"), "2");
   if (!grund) return;
   const arten = ["nichts_geliefert", "unbrauchbar", "falsches_modell", "abgebrochen"] as const;
   const art = arten[Number(grund) - 1] ?? "unbrauchbar";
@@ -1062,22 +1056,19 @@ async function reklamiere(
     const pruefer = await waehlePruefer(providerPk);
     if (pruefer === undefined) return;
     // Frage und Antwort nur mit Zustimmung und nur fuer den Pruefer (5.6).
-    const material = pruefer && frageAntwort && confirm(
-      `Frage und Antwort an ${pruefer.name} mitschicken? Ohne sie sieht der Prüfer nur Grund und Notiz. ` +
-      "Der Provider bekommt sie nicht noch einmal, Relays sehen sie nicht.",
-    ) ? frageAntwort : undefined;
+    const material = pruefer && frageAntwort && confirm(t("agent.materialMitschicken", { name: pruefer.name })) ? frageAntwort : undefined;
     // Vom Sitzungsschluessel wie der Auftrag selbst (3.1) – nicht von der
     // Identitaet – und nur versiegelt an Provider und Pruefer (3.4).
     const sitzung = kiSitzungen.fuer(providerPk);
     // Die Reklamation nennt den Pruefer (5.6) – nur sein Urteil zaehlt, und der Provider sieht, wer es ist.
     const dispute = buildDispute({
       jobId, customerPubkey: sitzung.publicKey(), providerPubkey: providerPk,
-      reason: art, amountMsat, note: prompt("Kurze Beschreibung (nur für Provider und Prüfer):") ?? "",
+      reason: art, amountMsat, note: prompt(t("agent.beschreibung")) ?? "",
       pruefer: pruefer ? [pruefer.pk] : [],
     });
     const empfaenger = [
       { pk: providerPk, powBits: powJeProvider.get(providerPk) ?? 0 },
-      ...(pruefer ? [{ pk: pruefer.pk, powBits: pruefer.art === "eigener Provider" ? powJeProvider.get(pruefer.pk) ?? 0 : 0 }] : []),
+      ...(pruefer ? [{ pk: pruefer.pk, powBits: pruefer.art === "eigener Provider" ? powJeProvider.get(pruefer.pk) ?? 0 : 0 }] : []), // kein UI-Text
     ];
     const { wraps } = await buildPrivateDispute({ dispute, sessionSigner: sitzung, empfaenger, materialFuerPruefer: material });
     await (await ensurePool()).publish(wraps[0]!);
@@ -1092,7 +1083,7 @@ async function reklamiere(
         });
       }
     }
-    toast(`Reklamiert${pruefer ? ` – Provider und ${pruefer.name} benachrichtigt` : ""}. ${w.message}`);
+    toast(pruefer ? t("agent.reklamiertMit", { name: pruefer.name, info: w.message }) : t("agent.reklamiert", { info: w.message }));
   } catch (e) {
     toast((e as Error).message, true);
   }
@@ -1115,10 +1106,10 @@ abrechnung?: { providerMsat: number; posten: Array<{ anteil: string; msat: numbe
   const haken = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--accent)"
     stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7"/></svg>`;
   const toolRows = (usage.toolCalls ?? [])
-    .map((t) => `<div class="tool-card">
+    .map((w) => `<div class="tool-card">
       <span class="tool-check">${haken}</span>
-      <span class="tool-name">${escapeHtml(t.name)}</span>
-      <span class="tool-cost">${Math.floor(t.costMsat / 1000)} sat</span></div>`)
+      <span class="tool-name">${escapeHtml(w.name)}</span>
+      <span class="tool-cost">${Math.floor(w.costMsat / 1000)} sat</span></div>`)
     .join("");
 
   // Nimmt Klartext und maskiert selbst – so kann kein Aufrufer es vergessen.
@@ -1132,22 +1123,22 @@ abrechnung?: { providerMsat: number; posten: Array<{ anteil: string; msat: numbe
   el.innerHTML = `
     <button class="usage-toggle" type="button" aria-expanded="false">
       <span class="tool-check">${haken}</span>
-      <span class="usage-title">${escapeHtml(usage.model ?? "Antwort")}</span>
-      <span class="usage-meta">${ganzeZahl(usage.completionTokens)} Tokens · ${Math.floor(amountMsat / 1000)} sat</span>
+      <span class="usage-title">${escapeHtml(usage.model ?? t("agent.antwort"))}</span>
+      <span class="usage-meta">${escapeHtml(t("agent.tokensMeta", { n: ganzeZahl(usage.completionTokens), sat: Math.floor(amountMsat / 1000) }))}</span>
       <span class="usage-chev" aria-hidden="true">›</span>
     </button>
     <div class="usage-body hidden">
       ${werkzeugTeil}
-      ${zeile("Modell", usage.model ?? "—")}
-      ${zeile("Provider", pkShort(providerPk))}
-      ${zeile("Tokens", `${ganzeZahl(usage.promptTokens)} rein, ${ganzeZahl(usage.completionTokens)} raus`)}
-      ${zeile("Diese Antwort", `${Math.floor(amountMsat / 1000)} sat`)}
+      ${zeile(t("agent.modell"), usage.model ?? "—")}
+      ${zeile(t("agent.provider"), pkShort(providerPk))}
+      ${zeile(t("agent.tokens"), t("agent.reinRaus", { rein: ganzeZahl(usage.promptTokens), raus: ganzeZahl(usage.completionTokens) }))}
+      ${zeile(t("agent.dieseAntwort"), `${Math.floor(amountMsat / 1000)} sat`)}
       ${usage.sessionTotalMsat !== undefined
-        ? `<div class="usage-row total"><span>Sitzung gesamt</span><span>${Math.floor(usage.sessionTotalMsat / 1000)} sat</span></div>`
+        ? `<div class="usage-row total"><span>${escapeHtml(t("agent.sitzungGesamt"))}</span><span>${Math.floor(usage.sessionTotalMsat / 1000)} sat</span></div>`
         : ""}
       ${abrechnung && abrechnung.providerMsat > 0 ? aufteilungZeilen(abrechnung, zeile) : ""}
       ${amountMsat > 0 ? `<div class="usage-actions">
-        <button class="ghost file-dispute" type="button">Reklamieren</button></div>` : ""}
+        <button class="ghost file-dispute" type="button">${escapeHtml(t("agent.reklamieren"))}</button></div>` : ""}
     </div>`;
   const toggle = el.querySelector<HTMLElement>(".usage-toggle");
   toggle?.addEventListener("click", () => {
@@ -1162,18 +1153,18 @@ abrechnung?: { providerMsat: number; posten: Array<{ anteil: string; msat: numbe
     const body = el.querySelector(".usage-body")!;
     const tog = el.querySelector(".usage-toggle")!;
     const open = body.classList.toggle("hidden");
-    tog.textContent = `${open ? "▸" : "▾"} details · ${Math.floor(amountMsat / 1000)} sats`;
+    tog.textContent = t("agent.details", { pfeil: open ? "▸" : "▾", sats: Math.floor(amountMsat / 1000) });
   });
   $("#ai-thread").appendChild(el);
   stickToBottom(() => el.scrollIntoView({ behavior: "smooth", block: "end" }));
 }
 
 const ANTEIL_NAME: Record<string, string> = {
-  entwicklung: "Entwicklung", relays: "Relay", "werber-kunde": "Dein Werber", "werber-provider": "Werber des Providers", hosting: "Hosting",
+  entwicklung: "agent.anteilEntwicklung", relays: "agent.anteilRelays", "werber-kunde": "agent.anteilWerberKunde", "werber-provider": "agent.anteilWerberProvider", hosting: "agent.anteilHosting",
 };
 
 /** sats mit bis zu drei Nachkommastellen – Anteile sind oft Bruchteile. */
-const satText = (msat: number): string => `${(msat / 1000).toLocaleString("de-DE", { maximumFractionDigits: 3 })} sat`;
+const satText = (msat: number): string => `${(msat / 1000).toLocaleString(gebietsschema(), { maximumFractionDigits: 3 })} sat`;
 
 /**
  * Wohin diese Antwort geht (A+, 5.1.3): der Anteil des Providers, dann jeder
@@ -1182,9 +1173,9 @@ const satText = (msat: number): string => `${(msat / 1000).toLocaleString("de-DE
  * Knotens mehr; die App zahlt selbst.
  */
 function aufteilungZeilen(a: { providerMsat: number; posten: Array<{ anteil: string; msat: number }> }, zeile: (k: string, v: string) => string): string {
-  const weitere = a.posten.map((p) => zeile(ANTEIL_NAME[p.anteil] ?? p.anteil, `${satText(p.msat)} · gesammelt`)).join("");
-  return zeile("An den Provider", satText(a.providerMsat)) +
-    (weitere || zeile("Weitere Anteile", "kein Empfänger – beim Provider"));
+  const weitere = a.posten.map((p) => zeile(ANTEIL_NAME[p.anteil] ? t(ANTEIL_NAME[p.anteil]!) : p.anteil, t("agent.gesammelt", { betrag: satText(p.msat) }))).join("");
+  return zeile(t("agent.anDenProvider"), satText(a.providerMsat)) +
+    (weitere || zeile(t("agent.weitereAnteile"), t("agent.keinEmpfaenger")));
 }
 
 /** Thinking-Orb (wie orbs.jakubantalik.com): animierte Kugel statt Text.
@@ -1211,10 +1202,10 @@ function addStepIcon(stepKey: string): void {
   if (!rail) return;
   const iconFor = (k: string): { svg: string; title: string } => {
     switch (k) {
-      case "connecting": return { svg: icon("zap", 12), title: "Verbinde mit dem Provider-Netz" };
-      case "researching": return { svg: icon("search", 12), title: "Recherchiert online (web_search / browser)" };
-      case "thinking": return { svg: icon("bot", 12), title: "Modell verarbeitet die Anfrage" };
-      case "creating": return { svg: icon("image", 12), title: "Erstellt Medien (Bild/Video)" };
+      case "connecting": return { svg: icon("zap", 12), title: t("agent.schrittVerbinden") };
+      case "researching": return { svg: icon("search", 12), title: t("agent.schrittRecherche") };
+      case "thinking": return { svg: icon("bot", 12), title: t("agent.schrittModell") };
+      case "creating": return { svg: icon("image", 12), title: t("agent.schrittMedien") };
       default: return { svg: icon("wrench", 12), title: k };
     }
   };
@@ -1234,10 +1225,10 @@ function addStepIcon(stepKey: string): void {
 
 /** Tool-Name → lesbares Label für die Schritt-Leiste. */
 function toolLabel(tool: string): string {
-  if (/web_search/i.test(tool)) return "sucht im web…";
-  if (/browser/i.test(tool)) return "liest webseiten…";
-  if (/image/i.test(tool)) return "erstellt bild…";
-  if (/video/i.test(tool)) return "erstellt video…";
+  if (/web_search/i.test(tool)) return t("agent.suchtWeb");
+  if (/browser/i.test(tool)) return t("agent.liestSeiten");
+  if (/image/i.test(tool)) return t("agent.erstelltBild");
+  if (/video/i.test(tool)) return t("agent.erstelltVideo");
   return `${tool}…`;
 }
 
@@ -1259,7 +1250,7 @@ function setTypingLabel(text: string): void {
   // thinking" → "denkt nach…" — der Nutzer will wissen WAS passiert,
   // nicht WER denkt.
   let t2 = text.trim();
-  t2 = t2.replace(/^\S+\s+is\s+thinking\s*\.?$/i, "denkt nach…");
+  t2 = t2.replace(/^\S+\s+is\s+thinking\s*\.?$/i, t("thinking"));
   t2 = t2.replace(/^[a-z0-9]{6,}\s+is\s+/i, "").replace(/\s*\.?$/, "…");
   if (t2.length > 60) t2 = t2.slice(0, 57) + "…";
   el.textContent = t2;
@@ -1332,7 +1323,7 @@ function zeigeWerkzeugPreise(angebote: ReadonlyArray<{ tools?: ToolPrice[] }> = 
       chip.append(el);
     }
     // Beide Einheiten am Knopf (Regel 4.4b), die Erklaerung im Tooltip
-    el.textContent = text.split(" je Aufruf")[0]!;
+    el.textContent = text.split(" je Aufruf")[0]!; // kein UI-Text
   });
 }
 
@@ -1361,7 +1352,7 @@ export function setupToolChips(): void {
 export function setupEmptyState(): void {
   document.querySelectorAll(".ai-example").forEach((b) => {
     b.addEventListener("click", () => {
-      const prompt = (b as HTMLElement).dataset.prompt ?? "";
+      const prompt = t((b as HTMLElement).dataset.promptKey ?? "");
       ($("#ai-prompt") as HTMLTextAreaElement).value = prompt;
       ($("#ai-prompt") as HTMLTextAreaElement).focus();
     });
@@ -1413,7 +1404,7 @@ export function setupAttach(): void {
     const reader = new FileReader();
     reader.onload = () => {
       attachment = { type: input.dataset.atype ?? "file", name: f.name, dataUrl: String(reader.result) };
-      status.textContent = `${f.name} angehängt`;
+      status.textContent = t("agent.angehaengt", { name: f.name });
       status.className = "mono-sm ok";
       if (attachment.type === "image" || attachment.type === "camera") {
         status.innerHTML = `${escapeHtml(f.name)} <img class="attach-thumb" src="${escapeHtml(attachment.dataUrl)}" />`;

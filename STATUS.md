@@ -7356,3 +7356,61 @@ Dialoge laufen über Schlüssel.
   Zahlen jetzt in `escapeHtml(t(…))` stehen.
 - Die Smoke-Prüfung „sprache“ liest zusätzlich den Zurück-Knopf des Chats
   („‹ Zurück“/„‹ Back“).
+
+## Schritt 8.16d1 – Übersetzungen: Agent (Seite und agent.ts)
+
+**Fertig:** Die Agent-Seite in `index.html` – Aufgaben, Prüfaufträge,
+Reklamationen, Modelle, Kataloge, Repos, Eingabe, Werkzeuge, Arbeitsbereich –
+und `tabs/agent.ts` stehen auf 0 rohen Texten. Rund 150 Schlüssel `agent.*`
+in `texte/agent.ts`.
+
+**Einzelheiten:**
+- **Eigene Meldungen:**
+  - `EigeneMeldung` kennzeichnet Fehler, die die App selbst schon übersetzt
+    wirft (kein Provider, Max, Swarm, kein privater Provider).
+  - `explainError()` gibt sie unverändert weiter.
+  - Die übrigen Muster für technische Meldungen stehen jetzt als Regexe da,
+    nicht als Texte.
+- **Beispiel-Prompts:** Die Knöpfe tragen `data-prompt-key` – der gesendete
+  Prompt folgt der Sprache, nicht nur die Beschriftung.
+- **Werkzeug- und Anhangknöpfe:** Die Beschriftung steht in einem eigenen
+  `<span data-i18n>` neben dem Symbol; der Preis (`.tool-preis`) bleibt
+  daneben.
+- **Listen, die der Code füllt:** Der Platzhalter „lade …“ steht in einem
+  `<span>` und wird beim Füllen ersetzt, nicht beim Sprachwechsel
+  überschrieben.
+- **Anteile einer Antwort:** `ANTEIL_NAME` verweist auf Schlüssel.
+  `satText()` rechnet mit `gebietsschema()`.
+- **Geändert bei der Gelegenheit:**
+  - „copy last/copy all“ und „Ask the network…“ standen im deutschen Standard
+    englisch.
+  - Nach einem Auftrag hieß der Sendeknopf „Anfragen“ statt wie vorher
+    „Senden“ – jetzt überall derselbe Schlüssel.
+- **Kein UI-Text:**
+  - `"no keypair"` wird nur zugeordnet.
+  - `pruefer.art === "eigener Provider"` vergleicht einen Wert aus
+    `streitfall.ts`, der mit 8.16d2 eine Kennung bekommt.
+  - `" je Aufruf"` ist die Trennmarke der Werkzeugpreise (8.16d2).
+- **Rohtext-Suche:** Text in `<code>` (Befehle) und „HD“ zählen nicht.
+- **Neuzeichnen:** Der Browser-Test zeigte, dass Verlauf und Budget nach
+  einem Sprachwechsel in der alten Sprache blieben. `switchTab("ai")` zeichnet
+  beide jetzt beim Öffnen neu.
+- **innerHTML-Ausnahmeliste:** Fünf Einträge für `agent.ts` sind an die neuen
+  Ausdrücke angepasst, fünf entfallen, weil die Werte jetzt in
+  `escapeHtml(…)` stehen.
+
+**Tests:**
+- +1 in `i18n.test.ts`: Agent fertig; `EigeneMeldung`; Beispiel-Prompts über
+  Schlüssel; Englisch mit Werten.
+- Der Test „jeder Text wird benutzt“ kennt `data-prompt-key`.
+- Zwei ältere Tests prüfen den Schlüssel am neuen Ort (nicht schwächer):
+  - `preis-anzeige`: Schätzung;
+  - `zahlung-pruefen`: Aufteilung, der Text „kein Empfänger – beim Provider“
+    im Wörterbuch.
+- Die Smoke-Prüfung „sprache“ liest zusätzlich „Neue Aufgabe“/„New task“.
+
+Endstand: protocol 1178 (6 übersprungen) · node 227 (7 übersprungen ohne
+Netz) · app 474 (+1) · mls 13 · Leak-Tests 57 grün + 1 todo · 0 rot ·
+check-wiring `--streng` Exit 0 · innerHTML streng 0 unbewertet · Website 5
+Seiten ok · Smoke-Test bestanden (inkl. „sprache“ mit dem Agent) · im
+Browser: Agent und Kommunikation in Englisch, nach dem Wechsel in Deutsch.

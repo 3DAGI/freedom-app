@@ -12,8 +12,9 @@ import { readFileSync } from "node:fs";
 test("5.1.3: je Antwort die Aufteilung nach A+ statt „Zahlung prüfen“ am Beleg des Knotens; Kettenprüfung bleibt über den RPC-Pool", () => {
   const agent = readFileSync(new URL("../src/shell/tabs/agent.ts", import.meta.url), "utf8");
   assert.match(agent, /\$\{abrechnung && abrechnung\.providerMsat > 0 \? aufteilungZeilen\(abrechnung, zeile\) : ""\}/);
-  assert.match(agent, /zeile\("An den Provider", satText\(a\.providerMsat\)\)/);
-  assert.match(agent, /zeile\("Weitere Anteile", "kein Empfänger – beim Provider"\)/, "nicht Zuordenbares sichtbar beim Provider");
+  assert.match(agent, /zeile\(t\("agent\.anDenProvider"\), satText\(a\.providerMsat\)\)/);
+  assert.match(agent, /zeile\(t\("agent\.weitereAnteile"\), t\("agent\.keinEmpfaenger"\)\)/, "nicht Zuordenbares sichtbar beim Provider");
+  assert.match(readFileSync(new URL("../src/texte/agent.ts", import.meta.url), "utf8"), /"agent\.keinEmpfaenger": \{ de: "kein Empfänger – beim Provider"/);
   assert.doesNotMatch(agent, /verifyFeeProof|KIND_FEE_PROOF|Zahlung prüfen/, "kein Beleg des Knotens mehr – sonst hieße es fälschlich „nicht abgeführt“");
   const state = readFileSync(new URL("../src/shell/state.ts", import.meta.url), "utf8");
   assert.match(state, /return \(await ensureRpcPool\(\)\)\.getTransaction\(signatur\);/);

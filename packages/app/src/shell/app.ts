@@ -473,7 +473,8 @@ export function switchTab(name: string): void {
   if (name === "comm") { loadChatList(); void zeigeRaumLeiste(); }
   if (name === "profile") { loadTrust(); void zeigeAbzeichen(); void zeigeProfilVorschau(); }
   if (name === "settings") { void zeigeSicherung(); void zeigeGeraete(); void zeigeDatenschutz(); void aktualisiereSicherheitsStand(); }
-  if (name === "ai") { void refreshModelDropdown(); void refreshQuota(); }
+  // Verlauf und Budget neu zeichnen – so folgen sie auch einem Sprachwechsel (8.16d1)
+  if (name === "ai") { zeigeVerlaeufe(); updateBudgetBar(); void refreshModelDropdown(); void refreshQuota(); }
   if (name === "wallet") loadWallet();
   if (name === "earn") { loadEarnings(); loadTrust(); loadLeaderboard(); refreshClaimSummary(); updateReferralLink(); }
   updateSidebarBalances();
