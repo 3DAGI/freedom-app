@@ -6,11 +6,13 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { PRIVACY_FACTS, faktenDieserSitzung, ipFaktFuer, privacyFactsText } from "../src/privacy-facts.js";
 import { buildPrivateDm } from "../src/private-dm.js";
-import { generateKeypair } from "../src/event.js";
+import { buildEvent, generateKeypair } from "../src/event.js";
 import {
   LEAK_REGELN, regelAutorNicht, regelKeinKind4, regelKeinKlartext, regelKeinKlartextPrompt, regelKeineSolAdresse, regelKeineZahlungsdaten,
-  regelKundeVerborgen, regelPTagsNur, regelUploadVerschluesselt,
+  regelKundeVerborgen, regelPTagsNur, regelUploadVerschluesselt, regelAnmeldungNichtOffen,
 } from "../src/leak-rules.js";
+import { WebSocketRelay } from "../src/ws-relay.js";
+import { baueRelayAuth } from "../src/relay-zugang.js";
 import { LAYER_CELL_DEGREES, baueCoverageEintrag, baueCoverageWiderruf, buildCoverageAnnouncement, toCell } from "../src/coverage.js";
 import { signEvent } from "../src/event.js";
 import { buildJobRequest, buildJobResult } from "../src/dvm.js";
@@ -288,6 +290,53 @@ const SZENARIEN: Record<string, () => Promise<number>> = {
     if (events.length !== 2) return 1;
     return regelKeinKlartext(alle, [GEHEIM, "Werkstatt am Fluss", "geheimplanung"]).length + regelAutorNicht(alle, a.pk).length +
       regelPTagsNur(g.einladungen, [b.pk]).length + regelMlsGruppe(alle, { gruppenIds: [g.gruppe], identitaeten: [a.pk, b.pk] }).length;
+  },
+  "relay-anmeldung": async () => {
+    // Wie die App seit 8.4c: WebSocketRelay mit `anmelden` – gegen einen Relay, der
+    // Umschlaege nur Angemeldeten gibt. Mitgeschnitten wird, was die App sendet.
+    const gesendet: unknown[][] = [];
+    class Leitung {
+      static OPEN = 1;
+      readyState = 1;
+      onopen: (() => void) | null = null;
+      onclose: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+      onmessage: ((m: { data: string }) => void) | null = null;
+      private angemeldet = false;
+      constructor(public url: string) {
+        setTimeout(() => { this.onopen?.(); this.an(["AUTH", "challenge-1"]); }, 0);
+      }
+      private an(m: unknown[]): void { this.onmessage?.({ data: JSON.stringify(m) }); }
+      send(d: string): void {
+        const m = JSON.parse(d) as [string, { id: string; kinds?: number[] }, { kinds?: number[] }?];
+        gesendet.push(m);
+        if (m[0] === "AUTH") { this.angemeldet = true; this.an(["OK", m[1].id, true, ""]); }
+        else if (m[0] === "EVENT") this.an(["OK", m[1].id, true, ""]);
+        else if (m[0] === "REQ") this.an(this.angemeldet || !(m[2]?.kinds ?? []).includes(1059) ? ["EOSE", m[1]] : ["CLOSED", m[1], "auth-required: anmelden"]);
+      }
+      close(): void { this.readyState = 3; this.onclose?.(); }
+    }
+    const g = globalThis as { WebSocket?: unknown };
+    const vorher = g.WebSocket;
+    g.WebSocket = Leitung;
+    try {
+      const r = new WebSocketRelay("wss://relay.test", {
+        autoReconnect: false, timeoutMs: 2000, anmelden: async (u, c) => signEvent(baueRelayAuth(a.pk, u, c), a.sk),
+      });
+      await r.publish(signEvent(buildEvent(a.pk, 1, [], "hallo"), a.sk));
+      await r.query({ kinds: [1] });
+      const vonSelbst = gesendet.filter((m) => m[0] === "AUTH").length; // nie ohne Verlangen
+      await r.query({ kinds: [1059], "#p": [a.pk] });
+      r.close();
+      const anmeldungen = gesendet.filter((m) => m[0] === "AUTH").map((m) => m[1] as NostrEvent);
+      const richtig = anmeldungen.length === 1 && anmeldungen[0]!.kind === 22242 && anmeldungen[0]!.pubkey === a.pk
+        && anmeldungen[0]!.tags.some((t) => t[0] === "challenge" && t[1] === "challenge-1");
+      const nochmal = gesendet.filter((m) => m[0] === "REQ" && ((m[2] as { kinds?: number[] })?.kinds ?? []).includes(1059)).length === 2;
+      const veroeffentlicht = gesendet.filter((m) => m[0] === "EVENT").map((m) => m[1] as NostrEvent);
+      return vonSelbst + (richtig ? 0 : 1) + (nochmal ? 0 : 1) + regelAnmeldungNichtOffen(veroeffentlicht).length;
+    } finally {
+      if (vorher) g.WebSocket = vorher; else delete g.WebSocket;
+    }
   },
   "raum-meldung": async () => {
     // Wie die App seit 8.5 meldet: je Moderator ein Umschlag, nie in die Gruppe, nie offen

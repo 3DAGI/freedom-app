@@ -10,13 +10,18 @@
  * benutzen und Tests sie ohne Server prüfen.
  */
 import { PublicKey } from "@solana/web3.js";
-import { NostrEvent, getTag, hasValidEventShape, verifyEvent } from "./event.js";
+import { NostrEvent, UnsignedEvent, buildEvent, getTag, hasValidEventShape, verifyEvent } from "./event.js";
 
 export const KIND_RELAY_AUTH = 22242;
 /** So weit darf die Zeit einer Anmeldung von der Uhr des Relays abweichen (NIP-42: „etwa zehn Minuten“). */
 export const AUTH_FENSTER_SEK = 600;
 /** Nur an angemeldete Empfänger: Umschläge. */
 export const GESCHUETZTE_KINDS: readonly number[] = [1059];
+
+/** Anmeldung bauen (Client, 8.4c): signieren muss der Aufrufer – über den Signer. */
+export function baueRelayAuth(pubkey: string, relayUrl: string, challenge: string, jetzt = Math.floor(Date.now() / 1000)): UnsignedEvent {
+  return buildEvent(pubkey, KIND_RELAY_AUTH, [["relay", relayUrl], ["challenge", challenge]], "", jetzt);
+}
 
 /** Host eines Relays (`relay.example:443` → `relay.example:443`), null bei allem außer ws/wss. */
 export function relayHost(url: string): string | null {

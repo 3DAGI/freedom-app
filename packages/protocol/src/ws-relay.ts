@@ -20,6 +20,13 @@ export interface WebSocketRelayOptions {
   timeoutMs?: number;
   /** Automatischer Reconnect mit Backoff. */
   autoReconnect?: boolean;
+  /**
+   * NIP-42 (8.4c): Verlangt der Relay eine Anmeldung (`auth-required:`), holt
+   * die Verbindung hier ein signiertes Anmelde-Event – null heisst: nicht
+   * anmelden. Nie von selbst: Eine Anmeldung sagt dem Relay, wer diese
+   * Verbindung ist.
+   */
+  anmelden?: (relayUrl: string, challenge: string) => Promise<NostrEvent | null>;
 }
 
 export class WebSocketRelay implements Relay {
@@ -54,6 +61,11 @@ export class WebSocketRelay implements Relay {
   private timeoutMs: number;
 
   private readonly autoReconnect: boolean;
+  private readonly anmelden?: WebSocketRelayOptions["anmelden"];
+  /** Je Verbindung: letzte Challenge, laufende Anmeldung, schon nach Anmeldung Wiederholtes. */
+  private challenge: string | null = null;
+  private anmeldung: Promise<boolean> | null = null;
+  private wiederholt = new Set<string>();
 
   constructor(
     public url: string,
@@ -63,6 +75,7 @@ export class WebSocketRelay implements Relay {
     // Default an: ein abgerissenes Abo, das niemand wiederherstellt, sieht aus
     // wie "es kommen keine Jobs".
     this.autoReconnect = opts.autoReconnect ?? true;
+    this.anmelden = opts.anmelden;
   }
 
   private connect(): Promise<void> {
@@ -85,6 +98,9 @@ export class WebSocketRelay implements Relay {
       ws.onclose = () => {
         this.ws = null;
         this.connectPromise = null;
+        this.challenge = null;
+        this.anmeldung = null;
+        this.wiederholt.clear();
         // Ein abgerissenes Abo, das niemand wiederherstellt, sieht aus wie
         // "es kommen keine Jobs" — der schlimmste Fehlerzustand, weil er
         // wie Normalbetrieb aussieht.
@@ -133,8 +149,11 @@ export class WebSocketRelay implements Relay {
         p.resolve(p.events);
       }
       this.subscriptions.get(subId)?.onEose?.();
+    } else if (type === "AUTH") {
+      if (typeof rest[0] === "string") this.challenge = rest[0];
     } else if (type === "OK") {
-      const [id, ok] = rest as [string, boolean, string?];
+      const [id, ok, meldung] = rest as [string, boolean, string?];
+      if (!ok && this.nachAnmeldung(`e:${id}`, meldung, () => this.pendingEvents.get(id))) return;
       const w = this.okWaiters.get(id);
       if (w) {
         clearTimeout(w.timer);
@@ -142,7 +161,9 @@ export class WebSocketRelay implements Relay {
         w.resolve(ok);
       }
     } else if (type === "CLOSED") {
-      const [subId] = rest as [string];
+      const [subId, meldung] = rest as [string, string?];
+      const req = this.pending.has(subId) || this.subscriptions.has(subId) ? this.reqs.get(subId) : undefined;
+      if (this.nachAnmeldung(`r:${subId}`, meldung, () => req)) return;
       const p = this.pending.get(subId);
       if (p) {
         clearTimeout(p.timer);
@@ -150,6 +171,59 @@ export class WebSocketRelay implements Relay {
         p.resolve(p.events);
       }
     }
+  }
+
+  /** Gesendete, noch nicht bestaetigte Nachrichten – fuer die eine Wiederholung nach der Anmeldung. */
+  private pendingEvents = new Map<string, string>();
+  private reqs = new Map<string, string>();
+
+  /**
+   * Lehnte der Relay mit `auth-required:` ab, einmal anmelden und die Nachricht
+   * erneut senden. true: wird erledigt (Antwort kommt spaeter); false: wie
+   * bisher behandeln.
+   */
+  private nachAnmeldung(schluessel: string, meldung: string | undefined, nachricht: () => string | undefined): boolean {
+    const n = nachricht();
+    if (!n || !meldung?.startsWith("auth-required:") || !this.anmelden || this.wiederholt.has(schluessel)) return false;
+    this.wiederholt.add(schluessel);
+    void this.melde().then((ok) => {
+      if (!ok) return this.gibAuf(schluessel);
+      try {
+        this.ws?.send(n);
+      } catch { /* Verbindung zu – die Wartenden laufen in ihre Zeitgrenze */ }
+    });
+    return true;
+  }
+
+  /** Anmeldung gescheitert: Wartende sofort beenden statt in die Zeitgrenze laufen lassen. */
+  private gibAuf(schluessel: string): void {
+    const id = schluessel.slice(2);
+    if (schluessel.startsWith("e:")) {
+      const w = this.okWaiters.get(id);
+      if (w) { clearTimeout(w.timer); this.okWaiters.delete(id); w.resolve(false); }
+    } else {
+      const p = this.pending.get(id);
+      if (p) { clearTimeout(p.timer); this.pending.delete(id); p.resolve(p.events); }
+    }
+  }
+
+  /** Einmal je Verbindung anmelden – nur mit Challenge und nur, wenn `anmelden` ein Event liefert. */
+  private melde(): Promise<boolean> {
+    if (this.anmeldung) return this.anmeldung;
+    const challenge = this.challenge;
+    const ws = this.ws;
+    if (!this.anmelden || !challenge || !ws) return Promise.resolve(false);
+    this.anmeldung = (async () => {
+      const ev = await this.anmelden!(this.url, challenge).catch(() => null);
+      if (!ev || this.ws !== ws) return false;
+      const ok = new Promise<boolean>((resolve) => {
+        const timer = setTimeout(() => { this.okWaiters.delete(ev.id); resolve(false); }, this.timeoutMs);
+        this.okWaiters.set(ev.id, { resolve, timer });
+      });
+      ws.send(JSON.stringify(["AUTH", ev]));
+      return ok;
+    })();
+    return this.anmeldung;
   }
 
   async publish(ev: NostrEvent): Promise<void> {
@@ -162,8 +236,10 @@ export class WebSocketRelay implements Relay {
       }, this.timeoutMs);
       this.okWaiters.set(ev.id, { resolve, timer });
     });
-    ws.send(JSON.stringify(["EVENT", ev]));
+    this.pendingEvents.set(ev.id, JSON.stringify(["EVENT", ev]));
+    ws.send(this.pendingEvents.get(ev.id)!);
     const ok = await ack;
+    this.pendingEvents.delete(ev.id);
     if (!ok) throw new Error(`Relay ${this.url} lehnte Event ${ev.id.slice(0, 8)} ab oder Timeout`);
   }
 
@@ -179,8 +255,10 @@ export class WebSocketRelay implements Relay {
       }, this.timeoutMs);
       this.pending.set(subId, { events: [], resolve, timer });
     });
-    ws.send(JSON.stringify(["REQ", subId, filter]));
+    this.reqs.set(subId, JSON.stringify(["REQ", subId, filter]));
+    ws.send(this.reqs.get(subId)!);
     const events = await result;
+    this.reqs.delete(subId);
     try {
       ws.send(JSON.stringify(["CLOSE", subId]));
     } catch {
@@ -203,10 +281,12 @@ export class WebSocketRelay implements Relay {
     await this.connect();
     const subId = `s${++this.subCounter}`;
     this.subscriptions.set(subId, { filter, onEvent, onEose, seen: new Set() });
-    this.ws!.send(JSON.stringify(["REQ", subId, filter]));
+    this.reqs.set(subId, JSON.stringify(["REQ", subId, filter]));
+    this.ws!.send(this.reqs.get(subId)!);
 
     return () => {
       this.subscriptions.delete(subId);
+      this.reqs.delete(subId);
       try {
         this.ws?.send(JSON.stringify(["CLOSE", subId]));
       } catch { /* Verbindung evtl. schon zu */ }
