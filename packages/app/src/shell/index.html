@@ -51,59 +51,59 @@
         <div class="agent-layout">
           <aside class="agent-side">
             <button id="agent-new" class="btn-primary agent-new" type="button">
-              <span class="ic" data-icon="plus"></span> Neue Aufgabe</button>
-            <div class="seg" role="tablist" data-subtab-group="agent"><button role="tab" data-subtab="tasks" class="active">Aufgaben</button><button role="tab" data-subtab="models">Modelle</button><button role="tab" data-subtab="repos">Repos</button></div>
+              <span class="ic" data-icon="plus"></span> <span data-i18n="agent.neueAufgabe">Neue Aufgabe</span></button>
+            <div class="seg" role="tablist" data-subtab-group="agent"><button role="tab" data-subtab="tasks" class="active" data-i18n="agent.tabAufgaben">Aufgaben</button><button role="tab" data-subtab="models" data-i18n="agent.tabModelle">Modelle</button><button role="tab" data-subtab="repos" data-i18n="agent.tabRepos">Repos</button></div>
             <div class="subpane active" data-subpane="agent:tasks"><div id="pruefauftraege" class="card hidden">
-          <h3><span class="ic" data-icon="shield"></span> Prüfaufträge</h3>
-          <p class="mono-sm">Jemand aus deinem Netz hat dich als Prüfer einer Reklamation genannt. Dein Urteil geht versiegelt nur an den Kunden und den Provider und gilt nur zwischen ihnen – eine Erstattung zahlt der Provider selbst.</p>
+          <h3><span class="ic" data-icon="shield"></span> <span data-i18n="agent.pruefauftraege">Prüfaufträge</span></h3>
+          <p class="mono-sm" data-i18n="agent.pruefauftraegeText">Jemand aus deinem Netz hat dich als Prüfer einer Reklamation genannt. Dein Urteil geht versiegelt nur an den Kunden und den Provider und gilt nur zwischen ihnen – eine Erstattung zahlt der Provider selbst.</p>
           <div id="pruefauftraege-liste" class="mono-sm"></div>
         </div><div id="reklamationen" class="card hidden">
-          <h3><span class="ic" data-icon="shield"></span> Deine Reklamationen</h3>
-          <p class="mono-sm">Den Prüfer hast du aus deinem Netz gewählt. Sein Urteil gilt nur zwischen dir und dem Provider – erstatten muss der Provider selbst.</p>
+          <h3><span class="ic" data-icon="shield"></span> <span data-i18n="agent.reklamationen">Deine Reklamationen</span></h3>
+          <p class="mono-sm" data-i18n="agent.reklamationenText">Den Prüfer hast du aus deinem Netz gewählt. Sein Urteil gilt nur zwischen dir und dem Provider – erstatten muss der Provider selbst.</p>
           <div id="reklamationen-liste" class="mono-sm"></div>
-          <button id="reklamationen-pruefen" class="ghost" style="width:auto;padding:6px 10px;margin-top:6px">nach Urteilen sehen</button>
+          <button id="reklamationen-pruefen" class="ghost" style="width:auto;padding:6px 10px;margin-top:6px" data-i18n="agent.nachUrteilen">nach Urteilen sehen</button>
         </div><div id="agent-history" class="agent-history"></div></div>
             <div class="subpane" data-subpane="agent:models"><div class="card">
-          <h3><span class="ic" data-icon="server"></span> Modelle im Netz</h3>
-          <p class="mono-sm">Was im Netz vorgehalten wird. Modelle mit nur einem Seeder sind gefährdet.</p>
-          <div id="models-list" class="mono-sm">lade …</div>
+          <h3><span class="ic" data-icon="server"></span> <span data-i18n="agent.modelleImNetz">Modelle im Netz</span></h3>
+          <p class="mono-sm" data-i18n="agent.modelleText">Was im Netz vorgehalten wird. Modelle mit nur einem Seeder sind gefährdet.</p>
+          <div id="models-list" class="mono-sm"><span data-i18n="agent.lade">lade …</span></div>
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
-            <button id="models-refresh" class="ghost" style="width:auto;padding:6px 10px">aktualisieren</button>
-            <button id="models-seed" class="ghost" style="width:auto;padding:6px 10px">Modell vorhalten</button>
-            <button id="models-publish" class="ghost" style="width:auto;padding:6px 10px">Modell ankündigen</button>
+            <button id="models-refresh" class="ghost" style="width:auto;padding:6px 10px" data-i18n="agent.aktualisieren">aktualisieren</button>
+            <button id="models-seed" class="ghost" style="width:auto;padding:6px 10px" data-i18n="agent.modellVorhalten">Modell vorhalten</button>
+            <button id="models-publish" class="ghost" style="width:auto;padding:6px 10px" data-i18n="agent.modellAnkuendigen">Modell ankündigen</button>
           </div>
         </div><div class="card">
-          <h3><span class="ic" data-icon="scroll"></span> Modellkataloge</h3>
-          <p class="mono-sm">Ein Katalog ist die Liste eines Kurators (NIP-51): welche Modelle er empfiehlt. Voreingestellt ist keiner – du abonnierst, wem du folgst, auch mehrere, und vergleichst sie mit dem, was Provider gerade anbieten. Ein Katalog sagt nur, wer ein Modell empfiehlt, nicht, ob es gut ist. Die App lädt alle Kataloge und wählt selbst aus; die Relays erfahren nicht, welche du abonniert hast.</p>
+          <h3><span class="ic" data-icon="scroll"></span> <span data-i18n="agent.kataloge">Modellkataloge</span></h3>
+          <p class="mono-sm" data-i18n="agent.katalogeText">Ein Katalog ist die Liste eines Kurators (NIP-51): welche Modelle er empfiehlt. Voreingestellt ist keiner – du abonnierst, wem du folgst, auch mehrere, und vergleichst sie mit dem, was Provider gerade anbieten. Ein Katalog sagt nur, wer ein Modell empfiehlt, nicht, ob es gut ist. Die App lädt alle Kataloge und wählt selbst aus; die Relays erfahren nicht, welche du abonniert hast.</p>
           <div id="kataloge-abos" class="mono-sm"></div>
           <div id="kataloge-vergleich" class="mono-sm" style="overflow-x:auto"></div>
-          <div id="kataloge-gefunden" class="mono-sm">lade …</div>
+          <div id="kataloge-gefunden" class="mono-sm"><span data-i18n="agent.lade">lade …</span></div>
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
-            <button id="kataloge-refresh" class="ghost" style="width:auto;padding:6px 10px">aktualisieren</button>
-            <button id="katalog-publish" class="ghost" style="width:auto;padding:6px 10px">eigenen Katalog veröffentlichen</button>
+            <button id="kataloge-refresh" class="ghost" style="width:auto;padding:6px 10px" data-i18n="agent.aktualisieren">aktualisieren</button>
+            <button id="katalog-publish" class="ghost" style="width:auto;padding:6px 10px" data-i18n="agent.katalogVeroeffentlichen">eigenen Katalog veröffentlichen</button>
           </div>
         </div></div>
             <div class="subpane" data-subpane="agent:repos"><div class="card">
-          <h3><span class="ic" data-icon="git"></span> Repositories</h3>
-          <p class="mono-sm">Git-Bundles liegen im Speichernetz; Zusammenarbeit (Patches, Annahme) läuft nach NIP-34.</p>
+          <h3><span class="ic" data-icon="git"></span> <span data-i18n="agent.repositories">Repositories</span></h3>
+          <p class="mono-sm" data-i18n="agent.reposText">Git-Bundles liegen im Speichernetz; Zusammenarbeit (Patches, Annahme) läuft nach NIP-34.</p>
           <div class="composer-meta">
-            <input id="git-repo-name" placeholder="repo-name" style="width:120px" />
-            <button id="git-repo-publish" class="ghost copy-btn">⇪ Bundle publizieren</button>
+            <input id="git-repo-name" placeholder="Repo-Name" data-i18n-ph="agent.repoNamePh" style="width:120px" />
+            <button id="git-repo-publish" class="ghost copy-btn" data-i18n="agent.bundlePublizieren">⇪ Bundle publizieren</button>
             <input type="file" id="git-bundle-file" accept=".bundle" style="display:none" />
           </div>
-          <div id="git-repo-list" class="mono-sm" style="margin-top:8px">lade…</div>
-          <h4 class="mono-sm" style="margin-top:12px">Zusammenarbeit (NIP-34)</h4>
-          <p class="mono-sm muted">Ankündigungen, Patches und Annahmen sind öffentlich und mit deinem Schlüssel signiert – wie bei jedem Git-Projekt. Andere Nostr-Clients (ngit, gitworkshop) lesen sie auch. Einen Patch erzeugst du mit <code>git format-patch -1</code>; angenommen ist er, wenn Eigentümer oder Maintainer es sagen.</p>
+          <div id="git-repo-list" class="mono-sm" style="margin-top:8px"><span data-i18n="agent.lade">lade …</span></div>
+          <h4 class="mono-sm" style="margin-top:12px" data-i18n="agent.zusammenarbeit">Zusammenarbeit (NIP-34)</h4>
+          <p class="mono-sm muted"><span data-i18n="agent.nip34Text1">Ankündigungen, Patches und Annahmen sind öffentlich und mit deinem Schlüssel signiert – wie bei jedem Git-Projekt. Andere Nostr-Clients (ngit, gitworkshop) lesen sie auch. Einen Patch erzeugst du mit</span> <code>git format-patch -1</code><span data-i18n="agent.nip34Text2">; angenommen ist er, wenn Eigentümer oder Maintainer es sagen.</span></p>
           <div class="composer-meta">
-            <input id="nip34-id" placeholder="repo-kennung" style="width:120px" />
-            <input id="nip34-klon" placeholder="Klon-Adressen (https://…, rad:…), mit Komma" style="flex:1;min-width:160px" />
-            <button id="nip34-ankuendigen" class="ghost copy-btn">Repo ankündigen</button>
+            <input id="nip34-id" placeholder="Repo-Kennung" data-i18n-ph="agent.repoKennungPh" style="width:120px" />
+            <input id="nip34-klon" placeholder="Klon-Adressen (https://…, rad:…), mit Komma" data-i18n-ph="agent.klonPh" style="flex:1;min-width:160px" />
+            <button id="nip34-ankuendigen" class="ghost copy-btn" data-i18n="agent.repoAnkuendigen">Repo ankündigen</button>
           </div>
           <input type="file" id="nip34-patch-datei" accept=".patch,.diff,.txt,text/plain" style="display:none" />
-          <div id="nip34-liste" class="mono-sm" style="margin-top:8px">lade…</div>
+          <div id="nip34-liste" class="mono-sm" style="margin-top:8px"><span data-i18n="agent.lade">lade …</span></div>
         </div></div>
-            <div class="nb-quota agent-quota" id="nb-quota" title="Gratis-Kontingent heute">
-              <span class="quota-label">Gratis-Kontingent</span>
+            <div class="nb-quota agent-quota" id="nb-quota" title="Gratis-Kontingent heute" data-i18n-title="agent.quotaTitel">
+              <span class="quota-label" data-i18n="agent.quota">Gratis-Kontingent</span>
               <div class="nq-bar"><div class="nq-fill" id="nq-fill"></div></div>
               <span class="nq-text" id="nq-text"></span>
             </div>
@@ -114,9 +114,9 @@
             <div class="ai-empty-logo">FREEDOM</div>
             <p class="ai-empty-sub" data-i18n="emptySub">Stell eine Frage. Du zahlst pro Anfrage.</p>
             <div class="ai-empty-examples">
-              <button class="ai-example" data-prompt="Erkläre mir das Nostr-Protokoll in einem Satz."><span class="ic ic-inline" data-icon="chat"></span>„Erkläre mir das Nostr-Protokoll…“</button>
-              <button class="ai-example" data-prompt="Schreibe eine kurze Zusammenfassung der wichtigsten Vorteile von Lightning."><svg class="logo-btc" width="13" height="13" viewBox="10.5 0.8 12.6 22.4" fill="#f7931a" aria-label="Bitcoin"><path d="M16.15 12.03c1.44-.36 2.42-1.32 2.24-3.02-.23-2.13-1.98-2.85-4.23-3.05l-.01-2.44h-1.51l-.01 2.38c-.4 0-.81.01-1.21.01l.01-2.39H9.92l-.01 2.44c-.33.01-.65.01-.97.01v-.01H6.88l.01 1.62s1.11-.02 1.09-.01c.61 0 .81.36.87.67v2.77c.04 0 .1.01.16.03h-.16v3.88c-.03.19-.13.49-.54.49.02.01-1.09 0-1.09 0l-.3 1.81h2.55c.34 0 .68.01 1.01.01l.01 2.47h1.51l.01-2.44c.41.01.81.01 1.21.02l-.01 2.43h1.51l.01-2.46c2.58-.15 4.37-.8 4.59-3.18.18-1.93-.73-2.79-2.17-3.14zm-4.7-4.71c.86 0 3.57-.17 3.57 1.53 0 1.63-2.71 1.45-3.57 1.45zm0 7.63v-3.19c1.04 0 4.28-.19 4.28 1.6 0 1.71-3.24 1.59-4.28 1.59z"/></svg> „Vorteile von Lightning…“</button>
-              <button class="ai-example" data-prompt="Erstelle ein Bild: ein Leuchtturm bei Nacht."><span class="ic ic-inline" data-icon="image"></span>„Bild: Leuchtturm bei Nacht…“</button>
+              <button class="ai-example" data-prompt-key="agent.beispiel1Prompt"><span class="ic ic-inline" data-icon="chat"></span><span data-i18n="agent.beispiel1">„Erkläre mir das Nostr-Protokoll…“</span></button>
+              <button class="ai-example" data-prompt-key="agent.beispiel2Prompt"><svg class="logo-btc" width="13" height="13" viewBox="10.5 0.8 12.6 22.4" fill="#f7931a" aria-label="Bitcoin"><path d="M16.15 12.03c1.44-.36 2.42-1.32 2.24-3.02-.23-2.13-1.98-2.85-4.23-3.05l-.01-2.44h-1.51l-.01 2.38c-.4 0-.81.01-1.21.01l.01-2.39H9.92l-.01 2.44c-.33.01-.65.01-.97.01v-.01H6.88l.01 1.62s1.11-.02 1.09-.01c.61 0 .81.36.87.67v2.77c.04 0 .1.01.16.03h-.16v3.88c-.03.19-.13.49-.54.49.02.01-1.09 0-1.09 0l-.3 1.81h2.55c.34 0 .68.01 1.01.01l.01 2.47h1.51l.01-2.44c.41.01.81.01 1.21.02l-.01 2.43h1.51l.01-2.46c2.58-.15 4.37-.8 4.59-3.18.18-1.93-.73-2.79-2.17-3.14zm-4.7-4.71c.86 0 3.57-.17 3.57 1.53 0 1.63-2.71 1.45-3.57 1.45zm0 7.63v-3.19c1.04 0 4.28-.19 4.28 1.6 0 1.71-3.24 1.59-4.28 1.59z"/></svg> <span data-i18n="agent.beispiel2">„Vorteile von Lightning…“</span></button>
+              <button class="ai-example" data-prompt-key="agent.beispiel3Prompt"><span class="ic ic-inline" data-icon="image"></span><span data-i18n="agent.beispiel3">„Bild: Leuchtturm bei Nacht…“</span></button>
             </div>
             <p class="ai-empty-hint" data-i18n="emptyHint">Modell wählen · Werkzeuge anhängen</p>
           </div>
@@ -128,26 +128,26 @@
               <div class="attach-dropdown">
                 <button type="button" id="attach-btn" class="ghost attach-toggle"><span class="ic" data-icon="paperclip"></span></button>
                 <div id="attach-menu" class="attach-menu hidden">
-                  <button type="button" data-attach="image"><span class="ic ic-inline" data-icon="image"></span>image</button>
-                  <button type="button" data-attach="file"><span class="ic ic-inline" data-icon="file"></span>file</button>
-                  <button type="button" data-attach="audio"><span class="ic ic-inline" data-icon="mic"></span>audio</button>
-                  <button type="button" data-attach="video"><span class="ic ic-inline" data-icon="video"></span>video</button>
-                  <button type="button" data-attach="camera"><span class="ic ic-inline" data-icon="camera"></span>camera</button>
+                  <button type="button" data-attach="image"><span class="ic ic-inline" data-icon="image"></span><span data-i18n="agent.anhangBild">Bild</span></button>
+                  <button type="button" data-attach="file"><span class="ic ic-inline" data-icon="file"></span><span data-i18n="agent.anhangDatei">Datei</span></button>
+                  <button type="button" data-attach="audio"><span class="ic ic-inline" data-icon="mic"></span><span data-i18n="agent.anhangAudio">Audio</span></button>
+                  <button type="button" data-attach="video"><span class="ic ic-inline" data-icon="video"></span><span data-i18n="agent.anhangVideo">Video</span></button>
+                  <button type="button" data-attach="camera"><span class="ic ic-inline" data-icon="camera"></span><span data-i18n="agent.anhangKamera">Kamera</span></button>
                 </div>
               </div>
               <div class="tool-row">
-                <button type="button" class="tool-chip" data-tool="5060" data-name="web_search"><span class="ic" data-icon="search"></span>web</button>
-                <button type="button" class="tool-chip" data-tool="5062" data-name="browser_use"><span class="ic" data-icon="browser"></span>browser</button>
-                <button type="button" class="tool-chip" data-tool="5070" data-name="image_gen"><span class="ic" data-icon="image"></span>image</button>
-                <button type="button" class="tool-chip" data-tool="5071" data-name="video_gen"><span class="ic" data-icon="video"></span>video</button>
+                <button type="button" class="tool-chip" data-tool="5060" data-name="web_search"><span class="ic" data-icon="search"></span><span data-i18n="agent.werkzeugWeb">Web</span></button>
+                <button type="button" class="tool-chip" data-tool="5062" data-name="browser_use"><span class="ic" data-icon="browser"></span><span data-i18n="agent.werkzeugBrowser">Browser</span></button>
+                <button type="button" class="tool-chip" data-tool="5070" data-name="image_gen"><span class="ic" data-icon="image"></span><span data-i18n="agent.werkzeugBild">Bild</span></button>
+                <button type="button" class="tool-chip" data-tool="5071" data-name="video_gen"><span class="ic" data-icon="video"></span><span data-i18n="agent.werkzeugVideo">Video</span></button>
               </div>
               <div id="video-opts" class="video-opts hidden">
-                <select id="video-duration" class="video-sel" title="länge">
+                <select id="video-duration" class="video-sel" title="Länge" data-i18n-title="agent.laenge">
                   <option value="2">~2s</option>
                   <option value="3" selected>~3s</option>
                   <option value="5">~5s</option>
                 </select>
-                <select id="video-quality" class="video-sel" title="qualität">
+                <select id="video-quality" class="video-sel" title="Qualität" data-i18n-title="agent.qualitaet">
                   <option value="low">480p</option>
                   <option value="std" selected>768p</option>
                   <option value="hd">720p hd</option>
@@ -157,12 +157,12 @@
               <input type="file" id="attach-input" class="hidden" />
             </div>
             <div class="composer-row">
-              <textarea id="ai-prompt" rows="1" data-i18n-ph="aiPlaceholder" placeholder="Ask the network…"></textarea>
-              <button id="ai-send" class="send-btn" data-i18n="send">Send</button>
+              <textarea id="ai-prompt" rows="1" data-i18n-ph="aiPlaceholder" placeholder="Nachricht an den Agenten"></textarea>
+              <button id="ai-send" class="send-btn" data-i18n="send">Senden</button>
             </div>
             <div class="composer-actions">
-              <button id="copy-last" class="ghost copy-btn" title="letzte antwort kopieren">⧉ <span data-i18n="copyLast">copy last</span></button>
-              <button id="copy-all" class="ghost copy-btn" title="ganze konversation kopieren">⧉ <span data-i18n="copyAll">copy all</span></button>
+              <button id="copy-last" class="ghost copy-btn" title="Letzte Antwort kopieren" data-i18n-title="agent.kopierenLetzte">⧉ <span data-i18n="copyLast">Letzte kopieren</span></button>
+              <button id="copy-all" class="ghost copy-btn" title="Ganze Unterhaltung kopieren" data-i18n-title="agent.kopierenAlle">⧉ <span data-i18n="copyAll">Alle kopieren</span></button>
             </div>
             <div class="composer-meta">
               <select id="ai-tier" class="tier-select">
@@ -173,7 +173,7 @@
                 <option value="swarm" data-i18n="tierSwarm">swarm — judge picks best of N</option>
               </select>
               <div class="model-picker-wrap">
-                <button type="button" id="ai-model-btn" class="tier-select model-btn" title="modell wählen">auto (schnellste)</button>
+                <button type="button" id="ai-model-btn" class="tier-select model-btn" title="Modell wählen" data-i18n-title="agent.modellWaehlen"><span data-i18n="agent.autoSchnellste">auto (schnellste)</span></button>
                 <input type="hidden" id="ai-model" value="" />
                 <div id="model-popover" class="model-popover hidden"></div>
               </div>
@@ -184,17 +184,17 @@
           </div>
         </div>
       </div>
-          <aside class="agent-panel" aria-label="Arbeitsbereich">
+          <aside class="agent-panel" aria-label="Arbeitsbereich" data-i18n-aria="agent.arbeitsbereich">
             <div class="panel-block">
-              <h2 class="panel-title">Arbeitsbereich</h2>
-              <div id="agent-workspace" class="mono-sm muted">Kein Repository verbunden.</div>
+              <h2 class="panel-title" data-i18n="agent.arbeitsbereich">Arbeitsbereich</h2>
+              <div id="agent-workspace" class="mono-sm muted" data-i18n="agent.keinRepo">Kein Repository verbunden.</div>
             </div>
             <div class="panel-block">
-              <h2 class="panel-title">Werkzeuge</h2>
-              <div id="agent-tools" class="mono-sm muted">Noch keine in dieser Sitzung.</div>
+              <h2 class="panel-title" data-i18n="agent.werkzeuge">Werkzeuge</h2>
+              <div id="agent-tools" class="mono-sm muted"><span data-i18n="agent.nochKeineWerkzeuge">Noch keine in dieser Sitzung.</span></div>
             </div>
             <div class="panel-block">
-              <h2 class="panel-title">Kosten</h2>
+              <h2 class="panel-title" data-i18n="agent.kosten">Kosten</h2>
               <div id="agent-cost" class="mono-sm muted">—</div>
             </div>
           </aside>

@@ -3,7 +3,7 @@
  * fehlende, unbenutzte und rohe Texte. Rohtext zählt in index.html je
  * Bereich und im Code je Datei (`i18n-offen.ts`): fertige stehen auf 0,
  * offene dürfen nur sinken, neue Dateien sind von Anfang an fertig.
- * Fertig: Rahmen (8.16a), Kommunikation (8.16c).
+ * Fertig: Rahmen (8.16a), Kommunikation (8.16c), Agent-Seite und tabs/agent.ts (8.16d1).
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -61,7 +61,7 @@ test("8.16: t() – aktuelle Sprache, Werte eingesetzt, Unbekanntes sichtbar; Sp
 });
 
 test("8.16: Oberfläche – jeder Schlüssel aus index.html und jedes t(…) im Code existiert, jeder Text wird benutzt", () => {
-  const ausHtml = [...html.matchAll(/data-i18n(?:-ph|-title|-aria)?="([^"]+)"/g)].map((m) => m[1]);
+  const ausHtml = [...html.matchAll(/data-(?:i18n(?:-ph|-title|-aria)?|prompt-key)="([^"]+)"/g)].map((m) => m[1]);
   const ausCode = [...code.matchAll(/\bt\(\s*["'`]([\w.-]+)["'`]/g)].map((m) => m[1]);
   assert.ok(ausHtml.length > 30);
   for (const k of [...ausHtml, ...ausCode]) assert.ok(k in alle, `Schlüssel fehlt: ${k}`);
@@ -175,6 +175,29 @@ test("8.16c: Kommunikation – Texte über Schlüssel; die Markierung abgelöste
     setLang("de");
     assert.equal(t("komm.eineAntwort", { n: 1 }), "1 Antwort");
     assert.equal(t("komm.antworten", { n: 3 }), "3 Antworten");
+  } finally {
+    setLang(vorher);
+  }
+});
+
+test("8.16d1: Agent – Seite und tabs/agent.ts über Schlüssel; eigene Meldungen nicht umgedeutet, Beispiel-Prompts in der Sprache", () => {
+  const ag = readFileSync(pfad(SRC, "shell/tabs/agent.ts"), "utf8");
+  assert.ok(!("shell/tabs/agent.ts" in OFFEN_CODE) && OFFEN_HTML["page-ai"] === 0, "fertig: Seite und Code auf 0");
+  assert.doesNotMatch(ag, /"de-DE"/);
+  // Eigene Meldungen sind schon übersetzt – explainError deutet sie nicht nach deutschen Mustern um
+  assert.match(ag, /if \(e instanceof EigeneMeldung\) return e\.message;/);
+  assert.match(ag, /if \(\/relay\|websocket\|eose\|pool\/\.test\(m\)\) return t\("agent\.fehlerRelay"\);/);
+  // Beispiele: der gesendete Prompt folgt der Sprache, nicht nur die Beschriftung
+  assert.match(ag, /const prompt = t\(\(b as HTMLElement\)\.dataset\.promptKey \?\? ""\);/);
+  for (const n of [1, 2, 3]) assert.match(html, new RegExp(`data-prompt-key="agent\\.beispiel${n}Prompt"`));
+  assert.doesNotMatch(html, /data-prompt="/);
+  // Beim Öffnen des Tabs neu gezeichnet – so folgen Verlauf und Budget einem Sprachwechsel
+  assert.match(readFileSync(pfad(SRC, "shell/app.ts"), "utf8"), /if \(name === "ai"\) \{ zeigeVerlaeufe\(\); updateBudgetBar\(\);/);
+  const vorher = getLang();
+  try {
+    setLang("en");
+    assert.equal(t("agent.beispiel1Prompt"), "Explain the Nostr protocol in one sentence.");
+    assert.equal(t("agent.sitzung", { bezahlt: 3, max: 10, pct: 30 }), "session: 3/10 sats (30%)");
   } finally {
     setLang(vorher);
   }

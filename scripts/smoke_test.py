@@ -67,11 +67,11 @@ def sprache_pruefen(browser, url: str) -> dict:
     """Sprache aus Browser oder gespeicherter Wahl; Rahmen in beiden Sprachen (8.16)."""
     erg = {"fehler": []}
     basis = url.rsplit("/", 1)[0]
-    for locale, gespeichert, soll_lang, soll_nav, soll_titel, soll_zurueck in [
-        ("de-DE", None, "de", "Kommunikation", "Guthaben", "‹ Zurück"),
-        ("en-US", None, "en", "Chat", "Balance", "‹ Back"),
-        ("en-US", "fr", "en", "Chat", "Balance", "‹ Back"),
-        ("en-US", "de", "de", "Kommunikation", "Guthaben", "‹ Zurück"),
+    for locale, gespeichert, soll_lang, soll_nav, soll_titel, soll_zurueck, soll_aufgabe in [
+        ("de-DE", None, "de", "Kommunikation", "Guthaben", "‹ Zurück", "Neue Aufgabe"),
+        ("en-US", None, "en", "Chat", "Balance", "‹ Back", "New task"),
+        ("en-US", "fr", "en", "Chat", "Balance", "‹ Back", "New task"),
+        ("en-US", "de", "de", "Kommunikation", "Guthaben", "‹ Zurück", "Neue Aufgabe"),
     ]:
         ctx = browser.new_context(locale=locale)
         ctx.route("**/*", lambda r: r.continue_() if r.request.url.startswith(basis) else r.abort())
@@ -83,9 +83,10 @@ def sprache_pruefen(browser, url: str) -> dict:
         s.wait_for_function("() => typeof window.freedomApp === 'object'", timeout=30000)
         ist = s.evaluate("() => [document.documentElement.lang,"
                          " document.querySelector('[data-tab=\"comm\"] [data-i18n]').textContent,"
-                         " document.getElementById('balance').title, document.getElementById('chat-back').textContent]")
+                         " document.getElementById('balance').title, document.getElementById('chat-back').textContent,"
+                         " document.querySelector('#agent-new [data-i18n]').textContent]")
         erg[f"{locale}/{gespeichert}"] = ist
-        if ist != [soll_lang, soll_nav, soll_titel, soll_zurueck]:
+        if ist != [soll_lang, soll_nav, soll_titel, soll_zurueck, soll_aufgabe]:
             erg["fehler"].append(f"{locale}/{gespeichert}: {ist}")
         ctx.close()
     erg["bestanden"] = not erg["fehler"]

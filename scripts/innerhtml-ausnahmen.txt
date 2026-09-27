@@ -50,15 +50,11 @@ earn.ts|symbol[c.layer]|Eintrag aus der festen Symboltabelle (oder undefined)
 earn.ts|r.hiddenCells|lokal gezählt in buildCoverage()
 agent.ts|entries.map(([m, info]) => { const sp = speedOf(m); const short = m.split(":")[0]; const preis = ausMsat(info.priceMsat,|Callback: Template mit escapeHtml(m), escapeHtml(short) und escapeHtml(preis); übrige Werte siehe folgende Zeilen
 agent.ts|sp.cls|fester Klassenname aus speedOf()
-agent.ts|sp.label|festes Label aus speedOf()
-agent.ts|info.count|lokal gezählt (Provider je Modell)
 ui.ts|(Zuweisung) markSvg(18)|eigenes SVG mit fester Farbe
 ui.ts|(Zuweisung) markSvg(30)|eigenes SVG mit fester Farbe
-agent.ts|(Zuweisung) alle.map((v) => { const d = new Date(v.at * 1000); const gruppe = d.toDateString() === heute ? "Heute" : "Früher"; const|Callback: Template mit escapeHtml(v.id) und escapeHtml(v.title); übrige Werte siehe folgende Zeilen
-agent.ts|gruppe|fest: Heute oder Früher
+agent.ts|(Zuweisung) alle.map((v) => { const d = new Date(v.at * 1000); const gruppe = t(d.toDateString() === heute ? "agent.heute" : "agent.|Callback: Template mit escapeHtml(v.id) und escapeHtml(v.title); übrige Werte siehe folgende Zeilen
 agent.ts|kopf|Template mit dem festen Gruppennamen oder leer
 agent.ts|aktiv|fest: active oder leer
-agent.ts|v.messages.length|Länge des lokal gespeicherten Verlaufs
 agent.ts|(Zuweisung) tools.map((x) => `<div class="panel-row"> <span class="panel-check">${markSvgCheck()}</span> <span class="panel-name">${|Callback: Template mit escapeHtml(x.name) und Math.floor
 kommunikation.ts|(Zuweisung) conversations .sort((a, b) => b.lastTs - a.lastTs) .map( (c) => `<div class="chat-item ${c.id === activeConversation ? "|Callback: Template mit escapeHtml(c.id) und escapeHtml(c.name)
 kommunikation.ts|(Zuweisung) decrypted .sort((a, b) => a.created_at - b.created_at) .map((ev) => { const mine = [state.keypair!.pk, state.person].inc|Callback: Templates mit escapeHtml; alt, zapBtn, body, media siehe folgende Zeilen
@@ -68,7 +64,6 @@ kommunikation.ts|geraet|Template mit escapeHtml(g.text) oder leer (Gerätehinwei
 kommunikation.ts|zapBtn|Template mit escapeHtml(ev.pubkey) und escapeHtml(pkShort(ev.pubkey))
 kommunikation.ts|body|body = escapeHtml(text)
 kommunikation.ts|media|renderAttachment() maskiert Name und URL und erlaubt nur sichere Schemata (shell-logic.ts)
-agent.ts|msgs.length|Anzahl Nachrichten im eigenen Verlauf (lokal, seit 3.3)
 settings.ts|cls|feste Klassennamen ok/err/warn
 settings.ts|quellen.map((q) => escapeHtml(q)).join(", ")|jede Quelle mit escapeHtml
 agent.ts|whoLabel|fest du, sonst agent plus escapeHtml(model)
@@ -77,10 +72,10 @@ agent.ts|whoLabel|agent plus escapeHtml(model)
 agent.ts|(Zuweisung) renderMarkdown(escapeHtml(text))|Eingabe vorher maskiert; renderMarkdown() erzeugt nur feste Tags
 agent.ts|haken|eigenes SVG, Konstante
 agent.ts|werkzeugTeil|Template mit toolRows: escapeHtml(t.name) und Math.floor
-agent.ts|zeile("Modell", usage.model ?? "—")|zeile() maskiert Schlüssel und Wert selbst
-agent.ts|zeile("Provider", pkShort(providerPk))|zeile() maskiert Schlüssel und Wert selbst
-agent.ts|zeile("Tokens", `${ganzeZahl(usage.promptTokens)} rein, ${ganzeZahl(usage.completionTokens)} raus`)|zeile() maskiert Schlüssel und Wert selbst
-agent.ts|zeile("Diese Antwort", `${Math.floor(amountMsat / 1000)} sat`)|zeile() maskiert Schlüssel und Wert selbst
+agent.ts|zeile(t("agent.modell"), usage.model ?? "—")|zeile() maskiert Schlüssel und Wert selbst
+agent.ts|zeile(t("agent.provider"), pkShort(providerPk))|zeile() maskiert Schlüssel und Wert selbst
+agent.ts|zeile(t("agent.tokens"), t("agent.reinRaus", { rein: ganzeZahl(usage.promptTokens), raus: ganzeZahl(usage.completionToke|zeile() maskiert Schlüssel und Wert selbst
+agent.ts|zeile(t("agent.dieseAntwort"), `${Math.floor(amountMsat / 1000)} sat`)|zeile() maskiert Schlüssel und Wert selbst
 agent.ts|aufteilungZeilen(abrechnung, zeile)|nur zeile(), das Schlüssel und Wert selbst maskiert; Namen der Anteile fest, Beträge lokal gerechnet (5.1.3)
 agent.ts|(Zuweisung) svg|icon(...) aus der festen Symboltabelle
 waehrung.ts|(Zuweisung) verdict.problems.map((p) => escapeHtml(p)).join("<br>")|jede Zeile mit escapeHtml

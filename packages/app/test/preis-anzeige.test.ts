@@ -43,7 +43,7 @@ test("Verdrahtung: kein fester SOL-Kurs mehr, Kurs in Modellwahl, Schaetzung, Za
   const agent = lies("../src/shell/tabs/agent.ts");
   assert.ok(!agent.includes("FREEDOM_SOL_PRICE_SATS") && !agent.includes("150_000"), "fester Kurs entfernt");
   assert.match(agent, /const preis = ausMsat\(info\.priceMsat, aktuellerKurs\(\)\);/);
-  assert.match(agent, /tokens ≈ \$\{ausMsat\(estSats \* 1000, aktuellerKurs\(\)\)\}/);
+  assert.match(agent, /t\("agent\.schaetzung", \{ tokens: estTokens, preis: ausMsat\(estSats \* 1000, aktuellerKurs\(\)\) \}\)/);
   const zap = lies("../src/chat-zap.ts");
   assert.match(zap, /id="zap-umrechnung"/);
   assert.match(zap, /einheit === "sol" \? ausLamports\(wert \* 1e9, aktuellerKurs\(\)\) : ausMsat\(wert \* 1000, aktuellerKurs\(\)\)/);

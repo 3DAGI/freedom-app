@@ -46,7 +46,11 @@ Reihenfolge.
   sechs Teilschritte:
   - **8.16c – FERTIG:** Kommunikation (Seite, `tabs/kommunikation.ts`): rund
     130 Schlüssel `komm.*`; Daten eines öffentlichen Raums tragen `// kein UI-Text`.
-  - **8.16d:** Agent (Seite, `tabs/agent.ts`, `agent-netz.ts`, Streitfall).
+  - **8.16d1 – FERTIG:** Agent – Seite (samt Modelle, Kataloge, Repos) und
+    `tabs/agent.ts` über `agent.*`; eigene Meldungen als `EigeneMeldung`, damit
+    `explainError()` sie nicht nach deutschen Mustern umdeutet; Beispiel-Prompts
+    in der Sprache der Oberfläche.
+  - **8.16d2:** `agent-netz.ts`, Streitfall, Prüfaufträge, Werkzeugpreise.
   - **8.16e:** Währung (Seite, `tabs/waehrung.ts`, eingebaute Wallet, offline).
   - **8.16f:** Zahlwege und Swaps (Meldungen aus `swap-client.ts`,
     `sol-htlc.ts`, `rueck-swap.ts`, `rails.ts`, `sol-wallet.ts` …).
