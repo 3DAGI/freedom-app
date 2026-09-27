@@ -8275,6 +8275,62 @@ Endstand: protocol 1066 · node 235 · app 493 (+10) · mls 13 · Zahlkanal 7 ·
 Leak-Tests 58 grün (+1) + 1 todo · 0 rot · check-wiring `--streng` Exit 0 ·
 innerHTML streng Exit 0 · Website 5 Seiten ok · Smoke-Test bestanden.
 
+## Schritt 4.3d2 – Solana-Zahlkanal: Kanal öffnen in der App
+
+Mit diesem Schritt ist 4.3 im Code fertig. Offen ist nur der MENSCH-Teil:
+Devnet-Deploy des Programms, dann ein KI-Auftrag über den Kanal.
+
+**Öffnen (`shell/zahlkanal-ui.ts`, Karte „Zahlkanal (SOL)“ im Währungs-Tab
+neben dem Deposit):**
+- Nur mit verbundener Wallet. Nur, wenn der Provider im Angebot einen Kanal bei
+  genau diesem Programm nennt und das Programm auf der Kette liegt – bis zum
+  Deploy also nie.
+- Empfänger: die Anteile nach A+ mit SOL-Adresse (`kanalEmpfaenger()` in
+  `aufteilung.ts`), Relays wie bei Lightning höchstens drei, doppelte
+  Adressen zusammengefasst, Provider und Kunde selbst nie.
+- Reihenfolge: Tresor → Kanal-Buch (Sitzungsschlüssel) → Sperre für den
+  Wächter → Einzahlung (`planeKanal()`, `sendeMitWallet()`, mit
+  Vorabsimulation). Scheitert die Einzahlung und zeigt die Kette keinen Kanal,
+  fliegt er aus dem Kanal-Buch – sonst trügen weitere Anfragen Gutschriften
+  für einen Kanal, den es nicht gibt.
+- Die Rückfrage nennt Betrag, Provider, Sperrfrist, die Zahl der Empfänger und
+  dass Kanal, Einlage und Einlösungen öffentlich auf der Kette stehen.
+- Übersicht: je Kanal Einlage, was noch frei ist, Ablauf; seit 30 Tagen
+  abgelaufene fallen weg. Nur über `textContent`.
+- Während der Einzahlung sperrt der Tresor nicht (`geldVorgangLaeuft()`).
+- Laufzeit 1, 7 oder 30 Tage. Aufstocken bietet die App nicht an.
+
+**Datenschutzbericht:** neue Grenze „zahlkanal“ – auf der Kette stehen die
+zahlende SOL-Adresse, die des Providers, Einlage, Ablauf, Empfänger und jede
+Einlösung; die Gutschriften reisen nur versiegelt (Regel
+`keine-zahlungsdaten`). Texte in Deutsch und Englisch.
+
+**Tests:**
+- protocol +1: `kanalEmpfaenger()` (nur SOL-Adressen, Relays, doppelte,
+  Provider und Kunde nie).
+- app +4:
+  - Plan nach `docs/ZAHLKANAL.md` (Adresse, Anweisung, der gemerkte
+    Schlüssel signiert, was das Programm prüft);
+  - Ablehnungen (Betrag 0, zu kurz, über 10 %);
+  - Programm bereit nur ausführbar; Aufräumen;
+  - Verdrahtung und Reihenfolge in `zahlkanal-ui.ts`, `app.ts`, `index.html`.
+- Verdrahtungs-Ausnahmen: vier raus (`kanalAdresse`, `neuerSitzungsSchluessel`,
+  `oeffneKanalIx`, `pruefeKanalEmpfaenger`); `stockeKanalAufIx` bleibt mit
+  neuer Begründung.
+
+**Website:** FAQ und Whitepaper sagten „SOL-Aufträge gehen ganz an den
+Provider, bis der Zahlkanal aufteilt“. Jetzt steht dort, dass über einen
+SOL-Zahlkanal das Programm auf der Kette aufteilt, und dass es gebaut, aber
+noch nicht veröffentlicht ist.
+
+**Befund für Spur C:** Im Browser liegt auf dem Desktop nach dem ersten Start
+die ganze Währungs-Seite rechts außerhalb des Bildes (28 px breit) – auf
+`main` genauso, unabhängig von diesem Schritt. Auf dem Handy passt sie.
+
+Endstand: protocol 1067 (+1) · node 235 · app 497 (+4) · mls 13 · Zahlkanal 7 ·
+Leak-Tests 58 grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 ·
+innerHTML streng Exit 0 · Website 5 Seiten ok · Smoke-Test bestanden.
+
 ## Schritt C.0 – Oberfläche: Bestandsaufnahme und Entwurf
 
 **Fertig (nur Dokumente, kein Code):** Neue dritte Spur C (Oberfläche). Die
@@ -8313,7 +8369,8 @@ aussehen sollen. Code entsteht erst nach der Freigabe durch den MENSCHEN.
   `buildCoverage()`.
 - **Teilschritte** C.1a bis C.6, je höchstens etwa 400 Zeilen; Dateien der
   Spur A erst nach 4.3d (C.6).
-- **Offene Fragen E1–E8** an den MENSCHEN, je mit Vorschlag, u. a.:
+- **Fragen E1–E8** an den MENSCHEN, je mit Vorschlag – **entschieden
+  27.09.2026: alle Vorschläge angenommen**, u. a.:
   - untere Leiste mit vier Zielen;
   - Communities nicht mehr neu anlegen;
   - Git-Bundles in der App lesen (neuer Baustein ohne Abhängigkeit);
@@ -8325,7 +8382,7 @@ aussehen sollen. Code entsteht erst nach der Freigabe durch den MENSCHEN.
   - `FORTSCHRITT.md`: Überschrift „Spuren“, Zeile „C – Oberfläche“ in der
     Spur-Tabelle, Zeile C.0 in „Alle Schritte“.
 
-Endstand nach dem Einmergen von `main` (4.3d1), kein eigener Code: protocol
-1066 (6 übersprungen) · node 235 (6 übersprungen, mit Netz) · app 493 · mls 13 ·
+Endstand nach dem Einmergen von `main` (4.3d2), kein eigener Code: protocol
+1067 (6 übersprungen) · node 235 (6 übersprungen, mit Netz) · app 497 · mls 13 ·
 Leak-Tests 58 grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 ·
 innerHTML streng Exit 0 · Website 5 Seiten ok · Smoke-Test bestanden.

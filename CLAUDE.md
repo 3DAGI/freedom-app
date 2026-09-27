@@ -44,9 +44,9 @@ bash packages/mls/bauen.sh --pruefen                     # nur bei Änderungen a
 bash contracts/solana-channel/pruefen.sh --werkzeuge     # nur bei Änderungen am Zahlkanal: bauen + Tests gegen Validator (Agave 3.1.10)
 ```
 
-Stand 27.09.2026 (nach 4.3d1 und 8.16g2b1): protocol 1066 grün (6 übersprungen), node 235 grün
+Stand 27.09.2026 (nach 4.3d2 und 8.16g2b1): protocol 1067 grün (6 übersprungen), node 235 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 493 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 58 grün + 1 `todo` (heutige Lecks,
+in `tools.test.ts`), app 497 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 58 grün + 1 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
 Ausnahme: gesendete SOL-Zahlungen von frischen Adressen, eine bewusste Grenze
 nach Entscheidung 4.9 A – im Datenschutzbericht unter „Bewusste Grenzen“).
@@ -214,8 +214,8 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   94 / 2,5 / 1,5 / 0,5 / 0,5 / 1 (CI-Invariante, ändern nur mit signiertem
   Release); nicht Zuordenbares und Rundungsreste an den Provider, nie an die
   Entwicklung; App (`teileAuf()`) und Knoten (`pruefeAufteilung()`,
-  `providerAnteilMsat()`) rechnen mit denselben Funktionen. SOL-Anteile erst
-  mit dem Zahlkanal (4.3). Der Knoten zahlt seit 5.1.2 nichts aus – keinen
+  `providerAnteilMsat()`) rechnen mit denselben Funktionen. SOL-Anteile nur
+  über den Zahlkanal (seit 4.3d, `kanalEmpfaenger()`). Der Knoten zahlt seit 5.1.2 nichts aus – keinen
   Pool, keinen Verteiler, keine Rücklage wieder einführen (Treasury, Sweep,
   Pool-Rangliste, Knappheitsbonus und App-Gebühr fielen mit 5.1.4a, alte
   Protokollgebühr, Gebühren-Beleg und Aufgaben-Topf mit 5.1.4c – Aufgaben sind
@@ -264,7 +264,10 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   (`shell/ki-zahlung.ts`): Gutschrift statt Deklaration vor dem Versiegeln,
   gemerkt vor dem Senden; eine Kanal-Antwort zahlt Lightning nie (`perKanal()`
   aus dem Speicher, nicht aus dem Tresor). Deckt der Kanal nicht, geht nichts
-  hinaus. Kanäle holt der Wächter als `kind: "kanal"` zurück.
+  hinaus. Kanäle holt der Wächter als `kind: "kanal"` zurück. Geöffnet wird
+  nur über `oeffneZahlkanal()` (`shell/zahlkanal-ui.ts`, seit 4.3d2): Angebot
+  nennt diesen Kanal, Programm liegt auf der Kette, Tresor, dann merken, dann
+  einzahlen; Empfänger nur über `kanalEmpfaenger()`.
 - **HTLC-Transaktionen nur mit `htlcSigner()`** (`tabs/waehrung.ts`, seit 4.6c):
   Wallets nach dem Wallet Standard haben kein `publicKey`-Feld – `solWallet.provider`
   direkt als `WalletSigner` brach Einlösen, Deposit und Rückholen ab. Jede neue

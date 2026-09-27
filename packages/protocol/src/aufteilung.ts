@@ -146,6 +146,32 @@ export function teileAuf(betragMsat: number, e: Empfaenger, schiene: Schiene): {
   return { providerMsat: providerAnteilMsat(betragMsat, [...new Set(posten.map((p) => p.anteil))]), posten };
 }
 
+/**
+ * Empfänger eines Zahlkanals (4.3d): die Anteile mit SOL-Adresse, je mit ihrem
+ * Satz in ppm – beim Einlösen teilt das Programm auf (docs/ZAHLKANAL.md).
+ * Relays wie in `teileAuf()`: höchstens drei, zu gleichen Teilen, der Rest an
+ * den ersten. Eine Adresse, die mehrere Anteile bekommt, steht einmal da (mit
+ * der Summe); `ausser` (Provider, Kunde) bekommt keinen – was fehlt, bleibt
+ * beim Provider.
+ */
+export function kanalEmpfaenger(e: Empfaenger, ausser: readonly string[] = []): Array<{ adresse: string; ppm: number }> {
+  const ppm = new Map<string, number>();
+  const plus = (adresse: string, n: number) => {
+    if (n > 0 && !ausser.includes(adresse)) ppm.set(adresse, (ppm.get(adresse) ?? 0) + n);
+  };
+  for (const a of ANTEILE) {
+    if (a !== "relays") {
+      const ziel = adresseFuer(e[a], "solana");
+      if (ziel) plus(ziel, ANTEILE_PPM[a]);
+      continue;
+    }
+    const ziele = [...new Set((e.relays ?? []).map((r) => adresseFuer(r, "solana")).filter((x): x is string => !!x))].slice(0, MAX_RELAYS);
+    const je = Math.floor(ANTEILE_PPM.relays / Math.max(ziele.length, 1));
+    ziele.forEach((ziel, i) => plus(ziel, je + (i === 0 ? ANTEILE_PPM.relays - je * ziele.length : 0)));
+  }
+  return [...ppm].map(([adresse, n]) => ({ adresse, ppm: n }));
+}
+
 /** Was der Provider in Rechnung stellt, wenn die App diese Anteile selbst zahlt. */
 export function providerAnteilMsat(betragMsat: number, anteile: readonly Anteil[]): number {
   return betragMsat - [...new Set(anteile)].reduce((s, a) => s + anteilMsat(betragMsat, a), 0);

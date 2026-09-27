@@ -204,6 +204,7 @@ export const zahlung: Texte = {
   "zahl.belegOeffentlich": { de: "Beleg öffentlich", en: "public receipt" },
   "zahl.belegAnEmpfaenger": { de: "Beleg an den Empfänger", en: "receipt to the recipient" },
   "zahl.belegNichtGesendet": { de: "Beleg nicht gesendet ({fehler})", en: "receipt not sent ({fehler})" },
+  "zahl.kanalLaufzeitZuKurz": { de: "Ein Zahlkanal muss mindestens zwei Stunden laufen.", en: "A payment channel must run for at least two hours." },
   "zahl.kanalAndereWallet": { de: "Der Kanal gehört einer anderen Wallet ({adresse}) – verbinde sie zum Zurückholen.", en: "The channel belongs to another wallet ({adresse}) – connect it to reclaim." },
   "zahl.kanalOhneKurs": { de: "Der Provider nennt in seinem Angebot keinen SOL-Kurs – ohne ihn lässt sich die Gutschrift nicht berechnen. Nichts gesendet.", en: "The provider's offer names no SOL rate – without it the credit cannot be computed. Nothing sent." },
   "zahl.kanalErschoepft": { de: "Der Zahlkanal zu diesem Provider deckt kein weiteres Gebot mehr. Nichts gesendet – öffne einen neuen Kanal oder warte, bis dieser abläuft.", en: "The payment channel to this provider cannot cover another bid. Nothing sent – open a new channel or wait until this one expires." },

@@ -7,8 +7,8 @@ Karte der Abdeckung und eine Navigation, die auf Desktop und Handy je für sich
 Sinn ergibt. Protokoll, Krypto, Zahlungen und Event-Formate bleiben, wie sie
 sind; sonst gilt die STOPP-Regel aus `CLAUDE.md`.
 
-Stand dieser Karte: **C.0 – Bestandsaufnahme und Entwurf.** Code entsteht
-erst, wenn der MENSCH den Entwurf freigegeben hat (Abschnitt „Offene Fragen“).
+Stand dieser Karte: **C.0 fertig.** Der MENSCH hat den Entwurf am 27.09.2026
+freigegeben – E1–E8 wie vorgeschlagen (Abschnitt 10.3). Nächster Schritt: C.1a.
 
 ---
 
@@ -32,11 +32,14 @@ erst, wenn der MENSCH den Entwurf freigegeben hat (Abschnitt „Offene Fragen“
   Der Sicherungsdialog beim Start ist nicht abgelegt: Er zeigt eine Merkphrase,
   auch wenn sie nur zum Wegwerfen war.
 
+  Stand der Bilder: `main` nach 4.3d1. Die Karte „Zahlkanal“ unter
+  „Liquidität“ (4.3d2) fehlt darin; die Tabellen unten sind nach 4.3d2 gezählt.
+
 ### Was es heute gibt – je Tab
 
 Oberfläche in `packages/app/src/shell/index.html`, Umschalten mit
-`switchTab()` (`shell/app.ts:462`), Unter-Reiter mit `wireSubtabs()`
-(`shell/app.ts:442`). Pfade unten relativ zu `packages/app/src/`.
+`switchTab()` (`shell/app.ts:463`), Unter-Reiter mit `wireSubtabs()`
+(`shell/app.ts:443`). Pfade unten relativ zu `packages/app/src/`.
 
 **Agent** (`#page-ai`, `index.html:50`) – links Seitenleiste, Mitte Chat, rechts Arbeitsbereich
 
@@ -47,7 +50,7 @@ Oberfläche in `packages/app/src/shell/index.html`, Umschalten mit
 | eigene Reklamationen | `#reklamationen` | `shell/streitfall-ui.ts:49`, `:70`; reklamieren `agent.ts:1049` |
 | Modelle im Netz, vorhalten, ankündigen | Unter-Reiter „Modelle“ | `shell/tabs/agent-netz.ts:27`, `:95`, `:65` |
 | Modellkataloge (NIP-51) | `#kataloge-*` | `agent-netz.ts:162`, `:243` |
-| Git-Bundles (38042) hochladen, laden | Unter-Reiter „Repos“, `#git-repo-*` | hochladen `shell/app.ts:747`, Liste `agent-netz.ts:266` |
+| Git-Bundles (38042) hochladen, laden | Unter-Reiter „Repos“, `#git-repo-*` | hochladen `shell/app.ts:748`, Liste `agent-netz.ts:266` |
 | Repos nach NIP-34: ankündigen, Patch senden, annehmen/schließen/zurückziehen | `#nip34-*` | `shell/tabs/repos.ts:38`, `:141`; Zeilen `repo-ansicht.ts` |
 | Gratis-Kontingent | `#nb-quota` | `shell/ui.ts:54` |
 | Anfrage stellen (auch Rennen, Schwarm, Video) | `#ai-prompt`, `#ai-send` | `agent.ts:372`, `:444`, `:589`, `:631`, `:536` |
@@ -66,8 +69,8 @@ Oberfläche in `packages/app/src/shell/index.html`, Umschalten mit
 | Namen für Kontakte | Klick auf den Namen | `:971` `setzePetname()` |
 | Lokale Suche | `#chat-suche` | `shell/suche-ui.ts:57` |
 | Anhänge, Ablauf (NIP-40) | `#chat-media-btn`, `#chat-ablauf` | `:679`, `:1078` |
-| Zap | `#chat-zap` | `shell/app.ts:678`, `chat-zap.ts:31` |
-| Post als Datei mitnehmen/einlesen (Mesh) | `#chat-mesh-*` | `shell/app.ts:696` |
+| Zap | `#chat-zap` | `shell/app.ts:679`, `chat-zap.ts:31` |
+| Post als Datei mitnehmen/einlesen (Mesh) | `#chat-mesh-*` | `shell/app.ts:697` |
 | „Communities“ (offen, Kind 42 mit `h`) | `#chat-new-community` | `:1651`, Moderation `:1095` |
 | Raum öffnen, Kanäle, Kanal | `#space-rail`, `#channel-list`, `#channel-thread` | `:110`, `:169`, `:211` |
 | senden | `#space-msg` | `:398` |
@@ -84,15 +87,16 @@ Oberfläche in `packages/app/src/shell/index.html`, Umschalten mit
 
 | Funktion | Bedienelemente | Code |
 |---|---|---|
-| Guthaben sats/SOL, „Wallet verbinden“ | `#nav-balances` | `shell/ui.ts:61`, `shell/app.ts:655` |
+| Guthaben sats/SOL, „Wallet verbinden“ | `#nav-balances` | `shell/ui.ts:61`, `shell/app.ts:659` |
 | Lightning über NWC | `#nwc-*` | `shell/tabs/waehrung.ts:734`, `:790` |
 | Solana-Wallet verbinden, Kurs | `#sol-connect`, `#kurs-info` | `waehrung.ts:664`, `shell/marktkurs.ts` |
 | Eingebaute SOL-Wallet | `#solw-*` | `shell/eingebaute-wallet.ts:86`, `:251` |
 | Ohne Internet zahlen (Nonce) | `#solo-*` | `shell/offline-zahlung.ts:14`, `:93` |
 | Tauschen in beide Richtungen, einlösen, Preimage-Sicherung | Unter-Reiter „Tauschen“ | `waehrung.ts:39`, `:127`, `:374`, `:524`, `:599` |
-| SOL beim Provider hinterlegen, zurückholen | Unter-Reiter „Liquidität“ | `waehrung.ts:811`, `:947` |
+| SOL beim Provider hinterlegen, zurückholen | Unter-Reiter „Liquidität“ | `waehrung.ts:817`, `:953` |
+| SOL-Zahlkanal öffnen, offene Kanäle (seit 4.3d2) | „Liquidität“, `#kanal-*` | `shell/zahlkanal-ui.ts:32`, `:91` |
 
-**Earn** (`#page-earn`, `index.html:391`)
+**Earn** (`#page-earn`, `index.html:406`)
 
 | Funktion | Bedienelemente | Code |
 |---|---|---|
@@ -102,16 +106,16 @@ Oberfläche in `packages/app/src/shell/index.html`, Umschalten mit
 | Mitwirkende (38056) | „Werben“, zweite Karte | `earn.ts:18` |
 | Abdeckung: Liste, eintragen, austragen | „Karte“, `#coverage-*` | `earn.ts:45`, `:90`, `:128`; verdrahtet `shell/tabs/settings.ts:735` |
 
-**Profil** (`#page-profile`, `index.html:437`)
+**Profil** (`#page-profile`, `index.html:452`)
 
 | Funktion | Bedienelemente | Code |
 |---|---|---|
-| Profilkarte, bearbeiten, teilen | `#profile-card`, `#pf-*` | `shell/tabs/profil.ts:56`, `:110`; teilen `shell/app.ts:799` |
+| Profilkarte, bearbeiten, teilen | `#profile-card`, `#pf-*` | `shell/tabs/profil.ts:56`, `:110`; teilen `shell/app.ts:800` |
 | Vertrauensstufe (XP des Providers) | `#trust-*` | `earn.ts:150` |
 | Abzeichen ansehen, vergeben | `#badge-*` | `profil.ts:204`, `:18` |
-| Identität exportieren, importieren | `#nb-ident`, `#nb-import` | `shell/app.ts:318`, `:328` |
+| Identität exportieren, importieren | `#nb-ident`, `#nb-import` | `shell/app.ts:319`, `:329` |
 
-**Settings** (`#page-settings`, `index.html:497`) – eigene Seitenleiste mit sieben Bereichen
+**Settings** (`#page-settings`, `index.html:512`) – eigene Seitenleiste mit sieben Bereichen
 
 | Bereich | Inhalt | Code |
 |---|---|---|
@@ -122,10 +126,10 @@ Oberfläche in `packages/app/src/shell/index.html`, Umschalten mit
 | Gebühren | Aufteilung, fällige Anteile, Standard-Schiene | `settings.ts:969`, `:658` |
 | Mesh | USB, Bluetooth, Datei, Warteschlange | `settings.ts:551`, `:753`, `:765` |
 | Weitergeben | App exportieren, Echtheit prüfen | `settings.ts:813`, `:892` |
-| Sprache | `#lang-btn-app` | `shell/app.ts:506` |
+| Sprache | `#lang-btn-app` | `shell/app.ts:507` |
 
 **Rahmen:** Kopfzeile nur mobil (Guthaben, Schlüssel, „Importieren“),
-Navigation `.app-nav` (`index.html:676`: mobil unten, ab 1024 px als Leiste),
+Navigation `.app-nav` (`index.html:691`: mobil unten, ab 1024 px als Leiste),
 Hinweisleisten `#offline-hinweis`, `#onboarding-bar`, `#backup-warn`,
 Einrichtung als Overlay (`shell/einrichtung-ui.ts`).
 
@@ -136,7 +140,7 @@ Playwright nachgeprüft (Sichtbarkeit und Maße der Elemente).
 
 | Nr. | Schwere | Befund | Ursache | Teilschritt |
 |---|---|---|---|---|
-| B1 | hoch | **Desktop: Solange die Onboarding-Leiste sichtbar ist, ist die App leer.** Gemessen: `main` hat die Breite 0, die Navigation steht rechts. Das trifft jeden neuen Nutzer am Desktop, bis er „Später“ wählt (Bild `befund-desktop-leiste.jpg`). | `#app` ist ab 1024 px eine Flex-Zeile; die Leiste ist dort ein Geschwister von `main` und nimmt die Breite. `#app > nav { order: 0 }` (`app.css:401`) überstimmt `.app-nav { order: -1 }` (`app.css:931`). | C.1a |
+| B1 | hoch | **Desktop: Solange die Onboarding-Leiste sichtbar ist, ist die App leer.** Gemessen: `main` hat die Breite 0, die Navigation steht rechts. Das trifft jeden neuen Nutzer am Desktop, bis er „Später“ wählt (Bild `befund-desktop-leiste.jpg`). Spur A sah dasselbe in 4.3d2 (Währungs-Seite 28 px breit). | `#app` ist ab 1024 px eine Flex-Zeile; die Leiste ist dort ein Geschwister von `main` und nimmt die Breite. `#app > nav { order: 0 }` (`app.css:401`) überstimmt `.app-nav { order: -1 }` (`app.css:931`). | C.1a |
 | B2 | hoch | **Mobil (unter 860 px) sind Verlauf, Modelle, Kataloge, Repos, Prüfaufträge, Reklamationen und das Gratis-Kontingent nicht erreichbar.** Arbeitsbereich, Werkzeuge und Kosten erst ab 1200 px. | `app.css:1059–1060` blenden `.agent-panel` und `.agent-side` aus, ohne anderen Weg dorthin. | C.1a |
 | B3 | hoch | **Unter 1100 px fehlt die Mitgliederliste – und mit ihr die Meldungen an Moderatoren** (`#raum-meldungen` steht in `.member-col`). Ein Moderator am Handy sieht keine Meldung. | `app.css:1093` | C.2d |
 | B4 | mittel | Mobil ist die Sprachwahl der App nicht erreichbar (nur auf dem Startbild). | `.settings-lang` in der waagrechten Leiste nicht sichtbar | C.1a |
@@ -145,13 +149,13 @@ Playwright nachgeprüft (Sichtbarkeit und Maße der Elemente).
 | B7 | mittel | Räume werden über `prompt()`/`confirm()`/`alert()` bedient (21 Stellen in `kommunikation.ts`): Moderation „1 oder 2“ (`:306`), Einladen per Nummer aus einer Liste (`:492`), Moderatoren als Nummern mit Komma (`:573`), Meldegrund als getipptes englisches Wort (`:311`). | – | C.2b |
 | B8 | mittel | **„n Antworten“ an einer Nachricht tut nichts** – der Knopf hat keinen Handler; Threads sind nicht zu öffnen, Antworten nicht zu schreiben. Das Protokoll kann beides (`raumNachricht({ threadRoot, replyTo })`, `buildThreads()`), `sendePrivat()` reicht es nur nicht durch (`raum-mls.ts:83`). | `kommunikation.ts:239` | C.2c |
 | B9 | mittel | Im Raum stehen gekürzte Schlüssel statt Namen (`kommunikation.ts:254`, `:370`, `:391`), obwohl Namen für Kontakte bekannt sind (`kontaktName()`). | – | C.2b |
-| B10 | mittel | Repos in zwei getrennten Listen unter „Agent“: Git-Bundles (38042) und NIP-34 – ohne Verbindung. Patches ohne Diff, der Commit beim Annehmen per `prompt()` (`repos.ts:112`). Beim Hochladen steht im Bundle-Verweis immer `head: local`, `branch: main` (`app.ts:769`). | – | C.3 |
-| B11 | klein | Rohe Texte am Bundle-Upload: „publiziere …“, „… publiziert“, „git-fehler“ (`app.ts:764`, `:773`, `:776`), „⇩ bundle“ (`agent-netz.ts:286`). `rohtexteImCode()` erkennt einzelne klein geschriebene Wörter nicht. | – | C.3a |
+| B10 | mittel | Repos in zwei getrennten Listen unter „Agent“: Git-Bundles (38042) und NIP-34 – ohne Verbindung. Patches ohne Diff, der Commit beim Annehmen per `prompt()` (`repos.ts:112`). Beim Hochladen steht im Bundle-Verweis immer `head: local`, `branch: main` (`app.ts:770`). | – | C.3 |
+| B11 | klein | Rohe Texte am Bundle-Upload: „publiziere …“, „… publiziert“, „git-fehler“ (`app.ts:765`, `:774`, `:777`), „⇩ bundle“ (`agent-netz.ts:286`). `rohtexteImCode()` erkennt einzelne klein geschriebene Wörter nicht. | – | C.3a |
 | B12 | mittel | Keine Karte: eine Liste mit höchstens 15 Gebieten (`earn.ts:69`). Eigene Einträge tragen `region: ""` (`earn.ts:112`), die Liste zeigt dann „?“. | – | C.4a |
 | B13 | mittel | Der eigene Standort liegt **genau** und im Klartext in `localStorage` (`freedom.coverage.cell`, `earn.ts:107`) – auch mit Tresor. Gebraucht wird nur die Zelle. | – | E6 |
-| B14 | mittel | Anordnung: Repos und Modelle unter „Agent“; Mesh unter „Settings“, Zahlen ohne Netz unter „Währung“, Post als Datei in der Liste der Direktnachrichten; Karte unter „Earn“; Mitwirkende unter „Earn › Werben“; Vertrauensstufe des Providers im Profil; Gebühren und Standard-Schiene in den Settings; der Reiter „Liquidität“ enthält das Hinterlegen beim Provider, keine Liquidität. | – | C.1b, C.6 |
+| B14 | mittel | Anordnung: Repos und Modelle unter „Agent“; Mesh unter „Settings“, Zahlen ohne Netz unter „Währung“, Post als Datei in der Liste der Direktnachrichten; Karte unter „Earn“; Mitwirkende unter „Earn › Werben“; Vertrauensstufe des Providers im Profil; Gebühren und Standard-Schiene in den Settings; der Reiter „Liquidität“ enthält das Hinterlegen beim Provider und seit 4.3d2 den Zahlkanal, keine Liquidität. | – | C.1b, C.6 |
 | B15 | klein | Mobil wird „Kommunikation“ in der unteren Leiste zu „KOMMUN…“ gekürzt. | – | C.1a |
-| B16 | klein | Nach jeder KI-Antwort verdrahtet `handleAnswer()` Knöpfe erneut (`agent.ts:877–894`, wie schon `app.ts:825–847`) – harmlos, aber überflüssig. | Datei der Spur A | später (nach 4.3d) |
+| B16 | klein | Nach jeder KI-Antwort verdrahtet `handleAnswer()` Knöpfe erneut (`agent.ts:877–894`, wie schon `app.ts:826–848`) – harmlos, aber überflüssig. | Datei der Spur A | später (nach 4.3d) |
 | B17 | klein | Rauminfo und der Titel der Vertraulichkeit zeigen den deutschen Satz aus `privacyInfo()` auch in der englischen Oberfläche (`kommunikation.ts:228`, `:641`). | gehört zu 8.16g2b2 (Spur B, übrige Sätze des Protokolls) | C.2b nutzt deren Text |
 
 ---
@@ -408,33 +412,36 @@ Heute eine Liste (Bild `heute-karte-desktop.jpg`).
 Je höchstens etwa 400 geänderte Zeilen, reines Verschieben getrennt. Jeder
 Schritt nach der Definition of Done, mit Screenshots Desktop und Mobil im
 Pull Request. Dateien der Spur A (`waehrung.ts`, `agent.ts`, `ki-zahlung.ts`,
-`refund-watcher.ts`) bleiben unberührt, bis 4.3d fertig ist.
+`refund-watcher.ts`, `zahlkanal-ui.ts`) kommen erst mit C.6 dran. 4.3d ist seit
+#142 fertig; vor C.6 mit Spur A abstimmen, was ihr nächster Schritt berührt.
 
 | ID | Inhalt | Dateien (Schätzung) | behebt | hängt an |
 |---|---|---|---|---|
-| **C.1a** | Rahmen: `navigation.ts` (Seiten, Adresse ohne Kennungen, Zurück), Leiste links repariert, untere Leiste mit „Mehr“, Hinweisleisten über dem Inhalt, Sprache mobil, ehrlicher Relay-Stand („im Pool“ statt „verbunden“, E8), Agent mobil mit „Verlauf“/„Modelle“, `scripts/screenshots.py`, Smoke: Erreichbarkeit | `index.html`, `app.css`, `app.ts` (klein), `ui.ts:145`, neu `navigation.ts`, `texte/navigation.ts`, Tests (~380) | B1, B2, B4, B5, B15 | Freigabe E1, E2, E8 |
+| **C.1a** | Rahmen: `navigation.ts` (Seiten, Adresse ohne Kennungen, Zurück), Leiste links repariert, untere Leiste mit „Mehr“, Hinweisleisten über dem Inhalt, Sprache mobil, ehrlicher Relay-Stand („im Pool“ statt „verbunden“, E8), Agent mobil mit „Verlauf“/„Modelle“, `scripts/screenshots.py`, Smoke: Erreichbarkeit | `index.html`, `app.css`, `app.ts` (klein), `ui.ts:145`, neu `navigation.ts`, `texte/navigation.ts`, Tests (~380) | B1, B2, B4, B5, B15 | C.0 (E1, E2, E8 entschieden) |
 | **C.1b** | Seiten umziehen, **reines Verschieben**: neue Seiten „Repos“ (Repo-Karten aus Agent, Mitwirkende aus Earn) und „Netz“ (Karte aus Earn, Mesh aus Settings); Vertrauensstufe zu „Verdienen“; Aufrufe in `switchTab()` mitziehen | `index.html`, `app.ts` (Sammelstelle, klein), Smoke-Selektoren (~250) | B14 (teilweise) | C.1a |
-| **C.2a** | `dialog.ts` und **reines Verschieben** des Raum-Teils aus `kommunikation.ts` (`:34–648`) nach `tabs/raeume.ts`, wörtlich | ~600 verschoben, ~100 neu | – | C.1a; Freigabe der Größe (E7) |
+| **C.2a** | `dialog.ts` und **reines Verschieben** des Raum-Teils aus `kommunikation.ts` (`:34–648`) nach `tabs/raeume.ts`, wörtlich | ~600 verschoben, ~100 neu | – | C.1a; Größe freigegeben (E7) |
 | **C.2b** | Verlauf gruppiert mit Namen, Menü an Nachrichten, Raum-Menü ▾, Dialoge für Einladen, Moderatoren, Moderieren, Melden, Anlegen, Beitreten, Rauminfo | `raeume.ts`, `app.css`, `index.html`, `texte/raeume.ts`, Tests (~400) | B7, B9 | C.2a |
 | **C.2c** | Antworten und Threads: Zeile „Antwort an …“, Thread-Spalte bzw. Unterseite, `sendePrivat()` mit `replyTo`/`threadRoot`, offen über `buildChannelMessage()`; Test: Antwort kommt in privaten und offenen Räumen mit Verweis an | `raeume.ts`, `raum-mls.ts`, Tests (~300) | B8 | C.2b |
 | **C.2d** | Mitglieder mit Rollen und Menü, Meldungen auch mobil, Kanal anlegen, mobile Ebenen (Kanal → Mitglieder, Thread) | `raeume.ts`, `app.css`, Tests (~350) | B3 | C.2c |
-| **C.3a** | Repo-Liste und Repo-Seite: 30617 + 38042 verbunden, Klonen, Bundle hoch- und herunterladen, Einstellungen des Eigentümers, Mitwirkende; Texte über Schlüssel | `repo-seite.ts`, `repos.ts`, `agent-netz.ts:266`, `app.ts:747` (zieht um), `texte/repos.ts`, Tests (~400) | B10, B11 | C.1b |
+| **C.3a** | Repo-Liste und Repo-Seite: 30617 + 38042 verbunden, Klonen, Bundle hoch- und herunterladen, Einstellungen des Eigentümers, Mitwirkende; Texte über Schlüssel | `repo-seite.ts`, `repos.ts`, `agent-netz.ts:266`, `app.ts:748` (zieht um), `texte/repos.ts`, Tests (~400) | B10, B11 | C.1b |
 | **C.3b** | Patch-Seite: Diff-Leser (ohne DOM, Tests mit feindlichen Eingaben), Diff-Ansicht, Status-Dialoge (annehmen, schließen, wieder öffnen, Entwurf, zurückziehen), Patch mit Vorschau senden | `diff-ansicht.ts`, `repo-seite.ts`, Tests (~400) | B10 | C.3a |
-| **C.3c** | *nur nach E4:* Bundle-Leser (Git-Bundle v2/v3, Packfile, `DecompressionStream`, Deltas; Grenzen für Größe, Objektzahl, Tiefe) und die Reiter „Code“ (README, Dateibaum) und „Commits“ | c1 Leser + Tests (~350), c2 Ansicht (~250) | B10 | C.3b, E4 |
+| **C.3c** | *(E4: ja)* Bundle-Leser (Git-Bundle v2/v3, Packfile, `DecompressionStream`, Deltas; Grenzen für Größe, Objektzahl, Tiefe) und die Reiter „Code“ (README, Dateibaum) und „Commits“ | c1 Leser + Tests (~350), c2 Ansicht (~250) | B10 | C.3b |
 | **C.4a** | Karte als SVG: Projektion, Gradnetz, Zellen nach Ebene, Schalter, Legende, Zoom und Verschieben mit Maus, Touch und Tastatur, Angaben je Zelle, „Karte / Liste“ | `karte-ansicht.ts` (ohne DOM, Tests: nur Zellen über k, keine Einträge), `tabs/karte.ts`, `texte/karte.ts` (~400) | B12 | C.1b |
-| **C.4b** | *nach E5/E6:* Umrisse eingebettet (höchstens 40 KB); eigene Zelle umrandet; Standort nur gerundet gespeichert | Daten + ~150 | B13 | C.4a |
+| **C.4b** | *(E5, E6: ja)* Umrisse eingebettet (höchstens 40 KB); eigene Zelle umrandet; Standort nur gerundet gespeichert | Daten + ~150 | B13 | C.4a |
 | **C.5** | Feinschliff Mobil: Berührflächen, Safe-Area, Querformat, Kürzungen, Tastatur über dem Eingabefeld, einheitliche Abstände; Durchgang aller Seiten mit Screenshots | `app.css`, `index.html` (~300) | Rest | C.2–C.4 |
-| **C.6** | *nach 4.3d (Spur A):* a **reines Verschieben** – Settings › Gebühren (Aufteilung, Anteile, Standard-Schiene) → Währung › Zahlen; „Liquidität“ heißt „Hinterlegen“ (neuer Schlüssel für die Beschriftung); Modell vorhalten/ankündigen → Verdienen; b Agent: doppelte Verdrahtung (B16), rechtes Feld auch unter 1200 px als Unterseite | a ~250, b ~200 | B14, B16 | 4.3d |
+| **C.6** | *nach 4.3d (Spur A, fertig seit #142) und Absprache:* a **reines Verschieben** – Settings › Gebühren (Aufteilung, Anteile, Standard-Schiene) → Währung › Zahlen; „Liquidität“ heißt „Hinterlegen“ (Deposit und Zahlkanal; neuer Schlüssel für die Beschriftung); Modell vorhalten/ankündigen → Verdienen; b Agent: doppelte Verdrahtung (B16), rechtes Feld auch unter 1200 px als Unterseite | a ~250, b ~200 | B14, B16 | 4.3d |
 
-Reihenfolge: C.1a → C.1b → C.2a–d → C.3a–b (C.3c nach E4) → C.4a (C.4b nach
-E5/E6) → C.5 → C.6. C.1a zuerst, weil B1 jeden neuen Nutzer am Desktop trifft
+Reihenfolge: C.1a → C.1b → C.2a–d → C.3a–c → C.4a–b → C.5 → C.6. C.1a zuerst, weil B1 jeden neuen Nutzer am Desktop trifft
 und B2 halbe Seiten am Handy unerreichbar macht.
 
 ---
 
-## 10.3 Offene Fragen an den MENSCH
+## 10.3 Fragen an den MENSCH – entschieden
 
-| Nr. | Frage | Vorschlag |
+> **Entschieden 27.09.2026 (MENSCH):** alle acht Vorschläge angenommen (E1–E8
+> wie in der rechten Spalte).
+
+| Nr. | Frage | Vorschlag = Entscheidung |
 |---|---|---|
 | E1 | Untere Leiste mobil: vier Ziele (Agent · Chat · Währung · Mehr, Profil über das Bild oben) oder fünf (dazu Repos)? | **vier** – drei Kernfunktionen des Projekts plus „Mehr“ |
 | E2 | Seitennamen: „Earn“ → „Verdienen“ (en „Earn“), neue Seiten „Repos“ und „Netz“, „Liquidität“ → „Hinterlegen“? Neue Beschriftungen bekommen neue Schlüssel; die alten bleiben, bis nichts sie mehr nutzt. | ja |
