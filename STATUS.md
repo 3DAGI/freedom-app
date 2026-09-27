@@ -8046,3 +8046,48 @@ Seiten ok · Smoke-Test bestanden · im Browser: Settings in Englisch und
 Deutsch – Weg ans Funkgerät (folgt dem Sprachwechsel), MLS-Selbsttest
 „passed“/„bestanden“ – ohne Seitenfehler; der Text des Datenschutzberichts
 ist noch deutsch (8.16g2b).
+
+## Schritt 8.16g2b1 – Übersetzungen: Datenschutzbericht
+
+**Fertig:** Der Datenschutzbericht (Settings → Datenschutz) und die Seite
+„privat“ der Einrichtung stehen in der Sprache der Oberfläche. Neu sind der
+Bereich `texte/datenschutz.ts` (`ds.*`, 102 Schlüssel) und
+`app/src/datenschutz-bericht.ts` (ohne DOM). Das Protokoll bewertet weiter:
+- `auditPrivacy()` liefert Befunde und Reihenfolge,
+- `summarizePrivacy()` Punktzahl und Zählung,
+- `faktenDieserSitzung()` die Aussagen.
+
+Die App bildet die Sätze über Kennungen:
+- `berichtText()` wie `privacyReport()`,
+- `faktenText()` wie `privacyFactsText()`,
+- `faktAussage()` für einzelne Aussagen (auch in `datenschutzKurz()`).
+
+**Einzelheiten:**
+- **Protokoll (klein, andere Spur berührt):**
+  - `PrivacyFinding` hat eine feste Kennung `id` je Befund und Fassung,
+    17 Stück, z. B. `ip-klar`, `ip-tor`, `ip-mixnet`. Das Feld ist nur
+    zusätzlich, kein Event-Format.
+  - Die deutschen Sätze in `privacy-audit.ts` haben echte Umlaute statt
+    „ae/oe/ue“ („Größter Gewinn“ statt „Groesster Gewinn“). Die Tests dort
+    ließen beide Schreibweisen schon zu.
+- **Wortgleich:** Ein Test vergleicht die deutsche Fassung
+  - des Berichts für alle 1.536 Kombinationen der Einstellungen,
+  - der Aussagen für jedes Ergebnis der .onion-Prüfung.
+
+  Jede Kennung aus dem Protokoll muss einen Text haben, sonst ist der Test
+  rot. Eine unbekannte Kennung zeigt zur Laufzeit die deutschen Sätze des
+  Protokolls statt nichts.
+- `privacyReport`, `kurzfassung` und `privacyFactsText` stehen als deutsche
+  Referenz in `wiring-ausnahmen.txt`.
+- **CLAUDE.md, Fallstrick „Datenschutzbericht“:** Eine neue Aussage oder ein
+  neuer Befund braucht einen Text in `datenschutz-bericht.ts`.
+
+**Tests:**
+- +1 in `i18n.test.ts`:
+  - deutsch wortgleich (Bericht und Aussagen);
+  - jede Kennung mit Text, alle 17 Fassungen der Befunde gesehen;
+  - Englisch: Kopf, Befund, größter Gewinn, Lücke mit Hinweis, Grenze,
+    geprüfte IP, kein deutscher Buchstabe.
+- `einrichtung`: Deutsch gesetzt (die Seite „privat“ prüft wortgleich).
+- `onion-pruefung`: sucht die neue Stelle (`faktenText(tor)`, darin
+  `faktenDieserSitzung(tor)`) – nicht schwächer.

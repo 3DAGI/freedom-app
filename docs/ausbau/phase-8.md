@@ -85,9 +85,15 @@ Reihenfolge.
     entfällt. Kennungen einer Einladung bleiben Daten, die Anzeige übersetzt
     sie (`einladungsText()`); der Selbsttest erkennt fehlende
     Browser-Fähigkeiten an `BrowserKannNicht`, nicht am deutschen Text.
-  - **8.16g2b:** Sätze und Gründe des Protokolls, die die App noch
-    unverändert zeigt – Datenschutzbericht (`privacyReport()`,
-    `privacyFactsText()`, `PRIVACY_FACTS`, `datenschutzKurz()`), Mesh
+  - **8.16g2b1 – FERTIG:** Datenschutzbericht in der Sprache der Oberfläche
+    (`datenschutz-bericht.ts`, Bereich `ds.*`): Befunde über eine feste
+    Kennung (`PrivacyFinding.id`, neu im Protokoll), Aussagen über ihre
+    Kennung; `berichtText()`, `faktenText()`, `faktAussage()` (auch für die
+    Seite „privat“ der Einrichtung). Deutsch wortgleich mit
+    `privacyReport()`/`privacyFactsText()` für alle Einstellungen und jedes
+    Ergebnis der .onion-Prüfung; die deutschen Sätze des Berichts haben
+    echte Umlaute.
+  - **8.16g2b2:** übrige Sätze und Gründe des Protokolls – Mesh
     (`planSync().note`, `pruefeMeshInhalt().grund`), Prüfungen
     (`validateReverseTimelock`, `pruefeSolUeberweisung`, `RpcPool.stichprobe`,
     `isPlausibleRelayUrl`, `darfUebergeben`, `absenderPerson`), Settings
