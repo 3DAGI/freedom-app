@@ -43,9 +43,9 @@ bash scripts/build-site.sh /tmp/site                     # Website bauen (Ziel w
 bash packages/mls/bauen.sh --pruefen                     # nur bei Änderungen an packages/mls: nachbauen + vergleichen (Rust, clang)
 ```
 
-Stand 27.09.2026 (nach 2.2b-e2 und 2.3c): protocol 1143 grün (6 übersprungen), node 240 grün
+Stand 27.09.2026 (nach 2.3c und 5.4b1): protocol 1145 grün (6 übersprungen), node 240 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 432 grün, mls 13 grün, Leak-Tests 55 grün + 1 `todo` (heutige Lecks,
+in `tools.test.ts`), app 436 grün, mls 13 grün, Leak-Tests 55 grün + 1 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
 Ausnahme: gesendete SOL-Zahlungen von frischen Adressen, eine bewusste Grenze
 nach Entscheidung 4.9 A – im Datenschutzbericht unter „Bewusste Grenzen“).
@@ -241,6 +241,9 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   (Kind 10002/10050) nur über `eigeneListenAbgleichen()` – die veröffentlichte
   NIP-65-Liste gilt, nie neu würfeln, wenn zu wenige Relays antworteten.
   Direktnachrichten nur an den Posteingang des Empfängers (`veroeffentlicheAn()`).
+  Was Kontakte selbst schreiben (Profil, Mandate, Vollmachten, Posteingang),
+  seit 5.4b über `frageBeiAutoren()` lesen – auch an deren Schreib-Relays
+  (`outboxPlan()`, fremde Relays nur mit Signaturprüfung).
   Im Browser-Test ersetzt Playwrights `route_web_socket` `window.WebSocket` –
   tote Relays mit einer Hülle per `Object.defineProperty` nachstellen.
 - **SOL ohne Internet** (seit 7.2): nur über `zahleSolOffline()` (eingebaute

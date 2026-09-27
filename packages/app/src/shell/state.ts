@@ -15,6 +15,7 @@ import { KiSitzungen } from "../ki-sitzung.js";
 import { SessionClient } from "../session-client.js";
 import { escapeHtml } from "../shell-logic.js";
 import { eigeneListenAbgleichen, ladeEigeneRelays, poolRelays } from "../relay-satz.js";
+import { OutboxLeser } from "../outbox-lesen.js";
 import { $, toast } from "./ui.js";
 
 // ------------------------------------------------------------- Konstanten
@@ -300,12 +301,20 @@ export async function frageAn(filter: RelayFilter, urls: readonly string[]): Pro
   return [...alle.values()];
 }
 
+/** Outbox beim Lesen (5.4b): Events von Kontakten auch an deren Schreib-Relays (NIP-65). */
+const outbox = new OutboxLeser({ pool: ensurePool, frageAn });
+
+/** Events dieser Autoren – aus dem Pool und dort, wo sie laut NIP-65 schreiben (5.4b). */
+export function frageBeiAutoren(filter: RelayFilter & { authors: string[] }): Promise<NostrEvent[]> {
+  return outbox.frage(filter);
+}
+
 /** Posteingang eines Kontos (Kind 10050, NIP-17); leer, wenn keiner gefunden wurde. */
 export async function posteingangVon(pk: string): Promise<string[]> {
-  const pool = await ensurePool();
   const { parseDmRelayList, KIND_DM_RELAYS } = await import("@freedomstack/protocol");
   try {
-    const listen = await pool.query({ kinds: [KIND_DM_RELAYS], authors: [pk], limit: 5 });
+    // Auch an den Schreib-Relays des Kontos (5.4b) – nicht nur, wo die App selbst liest
+    const listen = await frageBeiAutoren({ kinds: [KIND_DM_RELAYS], authors: [pk], limit: 5 });
     return parseDmRelayList(listen.filter((e) => e.pubkey === pk).sort((a, b) => b.created_at - a.created_at)[0]);
   } catch {
     return [];
