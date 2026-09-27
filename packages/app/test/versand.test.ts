@@ -58,7 +58,7 @@ test("6.4: Verdrahtung – Direktnachrichten je Kopie verzögert, Abrufe im Takt
   assert.match(kom, /id: dm\.rumorId, pubkey: ich,/);
   assert.match(kom, /for \(const k of dm\.weitere\) versendeVerzoegert\(\(\) => veroeffentlicheDm\(k\.wrap, /);
   assert.doesNotMatch(kom, /await veroeffentlicheDm\(dm\.to(Recipient|Self)/, "nie mehr alle Kopien im selben Augenblick");
-  assert.match(kom, /abrufTakt\.melde\("raum", /);
+  assert.match(q("../src/shell/tabs/raeume.ts"), /abrufTakt\.melde\("raum", /); // Räume seit C.2a in raeume.ts
   const app = q("../src/shell/app.ts");
   assert.match(app, /abrufTakt\.melde\("posteingang", posteingangAbgleichen, 2\);\s*starteVerkehr\(\);/);
   assert.doesNotMatch(app, /setInterval\(\(\) => void posteingangAbgleichen\(\)/);

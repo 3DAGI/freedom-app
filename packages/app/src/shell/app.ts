@@ -67,9 +67,8 @@ import {
   setzeAblauf,
   posteingangAbgleichen,
   wireKommunikation,
-  wireSpacesTab,
-  zeigeRaumLeiste,
 } from "./tabs/kommunikation.js";
+import { wireSpacesTab, zeigeRaumLeiste } from "./tabs/raeume.js";
 import { vergebeAbzeichen, wireProfil, zeigeAbzeichen, zeigeProfilTexte, zeigeProfilVorschau } from "./tabs/profil.js";
 import {
   aktualisiereSicherheitsStand,
