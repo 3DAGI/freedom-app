@@ -7,9 +7,9 @@ Karte der Abdeckung und eine Navigation, die auf Desktop und Handy je für sich
 Sinn ergibt. Protokoll, Krypto, Zahlungen und Event-Formate bleiben, wie sie
 sind; sonst gilt die STOPP-Regel aus `CLAUDE.md`.
 
-Stand dieser Karte: **C.0 und C.1a fertig.** Der MENSCH hat den Entwurf am
-27.09.2026 freigegeben – E1–E8 wie vorgeschlagen (Abschnitt 10.3). Nächster
-Schritt: C.1b.
+Stand dieser Karte: **C.0, C.1a und C.1b fertig.** Der MENSCH hat den Entwurf
+am 27.09.2026 freigegeben – E1–E8 wie vorgeschlagen (Abschnitt 10.3).
+Nächster Schritt: C.2a.
 
 ---
 
@@ -446,7 +446,22 @@ Reihenfolge: C.1a → C.1b → C.2a–d → C.3a–c → C.4a–b → C.5 → C.
   Browser Netz meldet.
 - Beschriftungen: `navEarn` heißt auf Deutsch „Verdienen“, `relaysTitle`
   „Relays im Pool“ (Werte geändert, Schlüssel bleiben); `identTitle` fällt weg.
-- `scripts/screenshots.py` nimmt jede Ansicht über ihre Adresse auf (`#/…`). C.1a zuerst, weil B1 jeden neuen Nutzer am Desktop trifft
+- `scripts/screenshots.py` nimmt jede Ansicht über ihre Adresse auf (`#/…`).
+
+**C.1b – fertig (27.09.2026).** Reines Verschieben, IDs unverändert:
+- neue Seite **Repos** (`#/repos`): Repositories (Bundles und NIP-34) aus
+  Agent › Repos, Mitwirkende aus Verdienen › Werben;
+- neue Seite **Netz** (`#/netz`) mit den Reitern Karte (aus Verdienen › Karte)
+  und Mesh (aus Settings › Mesh);
+- Vertrauensstufe aus dem Profil nach Verdienen › Übersicht; das Profil zeigt
+  die Abzeichen jetzt in voller Breite.
+- Die Beschriftungen nutzen vorhandene Schlüssel (`agent.tabRepos`,
+  `agent.repositories`, `earn.tabKarte`, `set.tabMesh`); neu nur `nav.netz`
+  und `nav.netzUntertitel`.
+- Texte, die den alten Ort nannten („Settings → Mesh“), sagen jetzt „Netz →
+  Mesh“: `waehr.alsDateiGespeichert` und `OFFLINE_HINWEIS` im Protokoll (ein
+  Wort, andere Spur).
+- Offen bleibt aus B14 nur, was Dateien der Spur A berührt (C.6). C.1a zuerst, weil B1 jeden neuen Nutzer am Desktop trifft
 und B2 halbe Seiten am Handy unerreichbar macht.
 
 ---

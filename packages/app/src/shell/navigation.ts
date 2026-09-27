@@ -6,13 +6,15 @@
  * Notfall-Löschung nicht leeren. Was offen ist (Unterhaltung, Raum), hält die
  * App im Speicher.
  *
- * Mobil zeigt die untere Leiste Agent, Chat, Währung und „Mehr“; Verdienen,
- * Profil und Settings stehen unter „Mehr“ (Entscheidung E1, `phase-10.md`).
+ * Mobil zeigt die untere Leiste Agent, Chat, Währung und „Mehr“; Repos,
+ * Verdienen, Netz, Profil und Settings stehen unter „Mehr“ (Entscheidung E1,
+ * `phase-10.md`).
  */
 
 /** Seite wie in `switchTab()` → Name in der Adresse. */
 export const SEITEN = {
-  ai: "agent", comm: "chat", wallet: "waehrung", earn: "verdienen", profile: "profil", settings: "settings", mehr: "mehr",
+  ai: "agent", comm: "chat", repos: "repos", wallet: "waehrung", earn: "verdienen", netz: "netz", profile: "profil", settings: "settings",
+  mehr: "mehr",
 } as const;
 export type Seite = keyof typeof SEITEN;
 
@@ -22,7 +24,7 @@ const UNTERSEITEN: Partial<Record<Seite, readonly string[]>> = { ai: ["verlauf",
 const AGENT_REITER: Record<string, string> = { verlauf: "tasks", modelle: "models" };
 
 /** Mobil unter „Mehr“ statt in der unteren Leiste. */
-export const UNTER_MEHR: readonly Seite[] = ["earn", "profile", "settings"];
+export const UNTER_MEHR: readonly Seite[] = ["repos", "earn", "netz", "profile", "settings"];
 
 export interface Ziel { seite: Seite; unterseite?: string }
 

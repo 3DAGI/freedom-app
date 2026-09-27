@@ -19,11 +19,11 @@ GROESSEN = {"desktop": {"width": 1280, "height": 800}, "mobil": {"width": 390, "
 # (Name, Adresse, Unter-Reiter als "gruppe:reiter" oder "")
 ANSICHTEN = [
     ("agent", "#/agent", ""), ("agent-verlauf", "#/agent/verlauf", ""), ("agent-modelle", "#/agent/modelle", ""),
-    ("agent-repos", "#/agent/modelle", "agent:repos"), ("chat", "#/chat", ""), ("waehrung", "#/waehrung", ""),
+    ("chat", "#/chat", ""), ("repos", "#/repos", ""), ("waehrung", "#/waehrung", ""),
     ("waehrung-tauschen", "#/waehrung", "wallet:swap"), ("waehrung-hinterlegen", "#/waehrung", "wallet:lp"),
     ("verdienen", "#/verdienen", ""), ("verdienen-werben", "#/verdienen", "earn:refer"),
-    ("verdienen-karte", "#/verdienen", "earn:map"), ("profil", "#/profil", ""), ("settings", "#/settings", ""),
-    ("settings-verbindung", "#/settings", "settings:network"), ("settings-mesh", "#/settings", "settings:mesh"),
+    ("netz-karte", "#/netz", ""), ("netz-mesh", "#/netz", "netz:mesh"), ("profil", "#/profil", ""),
+    ("settings", "#/settings", ""), ("settings-verbindung", "#/settings", "settings:network"),
     ("mehr", "#/mehr", ""),
 ]
 

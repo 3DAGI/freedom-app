@@ -8463,3 +8463,52 @@ check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 · Website 5 Seiten
 ok · Smoke-Test bestanden (mit „rahmen“) · im Browser: alle Seiten in Desktop
 1280×800 und Mobil 390×844 per `scripts/screenshots.py` durchgesehen, ohne
 Seitenfehler.
+
+## Schritt C.1b – Oberfläche: Seiten Repos und Netz
+
+**Fertig:** Reines Verschieben nach dem Entwurf (`phase-10.md`, E2). Jede
+Funktion steht an einem Ort, der zu ihr passt. Alle IDs bleiben gleich, damit
+die bestehende Verdrahtung unverändert greift – auch `einrichtung-ui.ts`, das
+Handler über IDs auslöst.
+
+**Einzelheiten:**
+- **Neue Seite „Repos“** (`#/repos`): Repositories (Bundles und NIP-34) aus
+  Agent › Repos, Mitwirkende aus Verdienen › Werben.
+- **Neue Seite „Netz“** (`#/netz`) mit zwei Reitern: Karte (Abdeckung, aus
+  Verdienen › Karte) und Mesh (Funk, Bluetooth, Datei, Warteschlange, aus
+  Settings › Mesh).
+- **Vertrauensstufe** (XP des Providers) vom Profil nach Verdienen › Übersicht.
+  Das Profil zeigt die Abzeichen in voller Breite.
+- **Navigation:**
+  - Desktop: Agent, Kommunikation, Repos, Währung, Verdienen, Netz; unten
+    Profil und Settings.
+  - Mobil: Repos und Netz unter „Mehr“ (`UNTER_MEHR`).
+- **`switchTab()`:** Die Aufrufe folgen den Blöcken – „Netz“ lädt Abdeckung und
+  Mesh-Hinweis; „Settings“ und „Profil“ laden sie nicht mehr.
+- **Texte:**
+  - Vorhandene Schlüssel wiederverwendet (`agent.tabRepos`,
+    `agent.repositories`, `earn.tabKarte`, `set.tabMesh`); neu nur `nav.netz`
+    und `nav.netzUntertitel`.
+  - Wo ein Text den alten Ort nannte, steht jetzt „Netz → Mesh“:
+    `waehr.alsDateiGespeichert` (de/en) und `OFFLINE_HINWEIS` im Protokoll –
+    ein Wort, andere Spur.
+  - Der Kommentar in `leak/mesh.test.ts` nennt ebenfalls den neuen Ort.
+- **`i18n.test.ts`** (Spur B, zwei Zeilen): Die Prüfung, dass Karte und
+  Mesh-Hinweis beim Öffnen neu gezeichnet werden, zeigt jetzt auf die Seite
+  „Netz“ statt auf Earn und Settings – gleich streng.
+
+**Tests:**
+- +1 in `navigation.test.ts`: Jeder verschobene Block steht genau einmal, auf
+  seiner neuen Seite; die alten Reiter sind weg; „Netz“ lädt Karte und Mesh.
+- Smoke-Test „rahmen“: Die Leiste zeigt am Desktop die acht Seiten, mobil „Mehr“
+  fünf Ziele. Auf Repos, Netz (Karte und Mesh) und Verdienen sind die
+  verschobenen Inhalte sichtbar. Die Prüfung schlug im ersten Lauf an der
+  eigenen Reihenfolge fehl (Mesh-Reiter geklickt, während „Verdienen“ offen
+  war) – korrigiert, danach bestanden.
+
+Endstand: protocol 1067 (6 übersprungen) · node 235 (6 übersprungen, mit
+Netz) · app 504 (+1) · mls 13 · Leak-Tests 58 grün + 1 todo · 0 rot ·
+check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 · Website 5 Seiten
+ok · Smoke-Test bestanden (mit „rahmen“) · im Browser: alle 16 Ansichten in
+Desktop und Mobil per `scripts/screenshots.py` durchgesehen, ohne
+Seitenfehler.

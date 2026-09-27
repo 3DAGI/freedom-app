@@ -1,6 +1,6 @@
 /**
  * Leak-Szenario „Mesh nur verschluesselt“ (Schritt 7.1, Abnahme): Was der
- * Funkknoten der App (`MeshNode`, Settings → Mesh) und die Chat-Datei
+ * Funkknoten der App (`MeshNode`, Netz → Mesh) und die Chat-Datei
  * (`baueMeshBuendel`, Chat → ⇪) ausgeben, wird mitgeschnitten. Darin steht
  * weder der Schluessel des Absenders (Hex, npub, roh) noch Klartext – auch
  * nicht, wenn Offenes zu senden versucht wird.

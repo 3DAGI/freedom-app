@@ -185,5 +185,5 @@ export const waehrung: Texte = {
   "waehr.wievielSol": { de: "Wie viel SOL?", en: "How much SOL?" },
   "waehr.funkName": { de: "SOL offline", en: "SOL offline" },
   "waehr.anFunkGegeben": { de: "{betrag} signiert und ans Funkgerät gegeben – ein Gerät mit Netz reicht die Zahlung ein.", en: "{betrag} signed and handed to the radio – a device with a network submits the payment." },
-  "waehr.alsDateiGespeichert": { de: "{betrag} signiert und als Datei gespeichert – auf einem Gerät mit Netz unter Settings → Mesh → „Datei einlesen“.", en: "{betrag} signed and saved as a file – on a device with a network under Settings → Mesh → “Import file”." },
+  "waehr.alsDateiGespeichert": { de: "{betrag} signiert und als Datei gespeichert – auf einem Gerät mit Netz unter „Netz“ → Mesh → „Datei einlesen“.", en: "{betrag} signed and saved as a file – on a device with a network under “Network” → Mesh → “Import file”." },
 };
