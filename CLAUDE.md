@@ -43,7 +43,7 @@ bash scripts/build-site.sh /tmp/site                     # Website bauen (Ziel w
 bash packages/mls/bauen.sh --pruefen                     # nur bei Änderungen an packages/mls: nachbauen + vergleichen (Rust, clang)
 ```
 
-Stand 27.09.2026 (nach 5.4b2 und 8.4a): protocol 1150 grün (6 übersprungen), node 249 grün
+Stand 27.09.2026 (nach 5.1.1 und 8.4a): protocol 1157 grün (6 übersprungen), node 249 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
 in `tools.test.ts`), app 439 grün, mls 13 grün, Leak-Tests 55 grün + 1 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
@@ -200,6 +200,12 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   (`leseBolt11()`), Solana nur mit der Kette (`verifyFeeProofMitKette`). Ein
   Preimage allein oder eine bloße Signatur ist „angekündigt“. Rechnungen von
   LNURL-Servern vor dem Zahlen auf den Betrag prüfen.
+- **Gebühren nur über `aufteilung.ts`** (Modell A+, seit 5.1.1): feste Anteile
+  94 / 2,5 / 1,5 / 0,5 / 0,5 / 1 (CI-Invariante, ändern nur mit signiertem
+  Release); nicht Zuordenbares und Rundungsreste an den Provider, nie an die
+  Entwicklung; App (`teileAuf()`) und Knoten (`pruefeAufteilung()`,
+  `providerAnteilMsat()`) rechnen mit denselben Funktionen. SOL-Anteile erst
+  mit dem Zahlkanal (4.3).
 - **Kurse und Umrechnung nur über `kurs.ts`** (seit 4.4): Marktkurs mit
   `marktKurs()` (eine Stimme je Absender), msat ↔ Lamports mit
   `msatZuLamports()`/`lamportsZuMsat()` (BigInt). 1 SOL = 1e9 Lamports =
