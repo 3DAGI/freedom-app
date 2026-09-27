@@ -126,8 +126,14 @@ Jede Funktion, in der Geld fließt, bietet beide Schienen mit gleichem Komfort.
     versiegelt, Deckung Gebot + Werkzeuge, Preis in Lamports gebucht, Einlösen
     alle 5 Minuten, Angebot nennt den Kanal; nur mit `ZAHLKANAL=1` und
     passendem Schlüssel.
-  - **4.3d:** App – Kanal öffnen (Empfänger aus A+), Gutschriften versiegelt
-    mit der Anfrage, Rückholen nach Ablauf; SOL-Anteile damit erzwungen.
+  - **4.3d:** App. Geteilt, damit die App nie einen Kanal öffnen lässt, den sie
+    noch nicht nutzt: **4.3d1 – FERTIG:** Kanal-Buch im Tresor, Gutschrift mit
+    jeder Anfrage statt der Deklaration (`max(letzte, Basis + Bedarf)`, zum
+    Kurs des Providers, vorsichtig bei fehlender Antwort), Antwort verbuchen
+    ohne Lightning-Zahlung, Rückholen nach Ablauf über den Wächter
+    (`kind: "kanal"`), Leak-Szenario. **4.3d2:** Kanal öffnen (Empfänger aus A+
+    mit SOL-Adresse, `kanalEmpfaenger()`), Übersicht, Texte, Aussage im
+    Datenschutzbericht; SOL-Anteile damit erzwungen.
 
 ---
 
