@@ -8330,3 +8330,59 @@ die ganze Währungs-Seite rechts außerhalb des Bildes (28 px breit) – auf
 Endstand: protocol 1067 (+1) · node 235 · app 497 (+4) · mls 13 · Zahlkanal 7 ·
 Leak-Tests 58 grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 ·
 innerHTML streng Exit 0 · Website 5 Seiten ok · Smoke-Test bestanden.
+
+## Schritt C.0 – Oberfläche: Bestandsaufnahme und Entwurf
+
+**Fertig (nur Dokumente, kein Code):** Neue dritte Spur C (Oberfläche). Die
+Karte `docs/ausbau/phase-10.md` hält fest, was es heute gibt, was dabei
+auffällt und wie Räume, Repositories, die Abdeckungskarte und die Navigation
+aussehen sollen. Code entsteht erst nach der Freigabe durch den MENSCHEN.
+
+**Einzelheiten:**
+- **Bestandsaufnahme:** jede Funktion der sechs Tabs mit Bedienelement und
+  Ort im Code (Datei:Zeile). Dazu Screenshots aus `dist/freedom.html` mit
+  Playwright:
+  - frisches Profil, `de-DE`, ohne Netz;
+  - Desktop 1280×800 und Mobil 390×844, alle 21 Ansichten;
+  - abgelegt in `docs/ausbau/bilder/c0/` als zwei Übersichten und vier
+    Einzelbilder, rund 0,6 MB. Der Sicherungsdialog ist nicht dabei (Merkphrase).
+- **Befunde B1–B17**, gemessen (Sichtbarkeit und Maße der Elemente), u. a.:
+  - B1: Am Desktop nimmt die Onboarding-Leiste die ganze Breite, `main` hat
+    die Breite 0, die Navigation steht rechts (`app.css:401` überstimmt
+    `app.css:931`). Das trifft jeden neuen Nutzer, bis er „Später“ wählt.
+  - B2: Unter 860 px sind Verlauf, Modelle, Kataloge, Repos, Prüfaufträge,
+    Reklamationen und das Kontingent nicht erreichbar (`app.css:1060`).
+  - B3: Unter 1100 px fehlen die Mitglieder und mit ihnen die Meldungen an
+    Moderatoren (`app.css:1093`).
+  - B5: „Relays verbunden“ zählt den Pool, nicht die Verbindungen – auch ohne
+    Netz grün.
+  - B8: „n Antworten“ im Raum hat keinen Handler; Antworten und Threads gibt
+    es im Protokoll, in der Oberfläche nicht.
+  - B13: Der eigene Standort liegt genau und im Klartext in `localStorage`.
+- **Entwurf:** Seiten Agent, Kommunikation, Repos (neu), Währung, Netz (neu:
+  Karte und Mesh), Verdienen, Profil, Settings. Desktop mit Leiste links, mobil
+  untere Leiste „Agent · Chat · Währung · Mehr“. Die Adresse nennt nur die
+  Seite, nie eine Kennung – den Browserverlauf leert die Notfall-Löschung nicht.
+  Räume wie Discord (Menüs, Dialoge statt `prompt()`, Antworten, Threads,
+  Mitglieder mit Rollen), Repos wie GitHub (Repo-Seite, Patches als Pull
+  Requests mit Diff, Aktionen der Maintainer), Karte als eigenes SVG nur aus
+  `buildCoverage()`.
+- **Teilschritte** C.1a bis C.6, je höchstens etwa 400 Zeilen; Dateien der
+  Spur A erst nach 4.3d (C.6).
+- **Fragen E1–E8** an den MENSCHEN, je mit Vorschlag – **entschieden
+  27.09.2026: alle Vorschläge angenommen**, u. a.:
+  - untere Leiste mit vier Zielen;
+  - Communities nicht mehr neu anlegen;
+  - Git-Bundles in der App lesen (neuer Baustein ohne Abhängigkeit);
+  - eingebettete Küstenlinien (gemeinfrei, höchstens 40 KB);
+  - Standort nur gerundet speichern.
+- **Geteilte Dateien, klein:**
+  - `CLAUDE.md`: „Zwei Agenten parallel“ → „Drei Agenten parallel“, mit den
+    drei Spuren und dem Verweis auf den Abschnitt „Spuren“;
+  - `FORTSCHRITT.md`: Überschrift „Spuren“, Zeile „C – Oberfläche“ in der
+    Spur-Tabelle, Zeile C.0 in „Alle Schritte“.
+
+Endstand nach dem Einmergen von `main` (4.3d2), kein eigener Code: protocol
+1067 (6 übersprungen) · node 235 (6 übersprungen, mit Netz) · app 497 · mls 13 ·
+Leak-Tests 58 grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 ·
+innerHTML streng Exit 0 · Website 5 Seiten ok · Smoke-Test bestanden.
