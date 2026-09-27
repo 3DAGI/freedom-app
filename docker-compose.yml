@@ -86,6 +86,12 @@ services:
       # Ein Relay ohne oeffentliche Adresse ist fuer das Netz unsichtbar —
       # deshalb hier standardmaessig aus, statt still nichts beizutragen.
       RELAY_PUBLIC_URL: "${RELAY_PUBLIC_URL:-}"
+      # 8.4: nur von und an Schluessel mit Zugang (RELAY_ZUGANG: hex, kommagetrennt;
+      # sonst ~/.freedom/relay-zugang.json). Umschlaege nur an angemeldete Empfaenger
+      # (NIP-42) – beschraenkt immer, sonst erst, wenn die App sich anmeldet (8.4c).
+      RELAY_BESCHRAENKT: "${RELAY_BESCHRAENKT:-0}"
+      RELAY_ZUGANG: "${RELAY_ZUGANG:-}"
+      RELAY_UMSCHLAEGE_NUR_ANGEMELDET: "${RELAY_UMSCHLAEGE_NUR_ANGEMELDET:-0}"
       QUOTA_API_PORT: "3602"
     volumes:
       # Identitaet und Bootstrap-Zeitpunkt ueberleben Neustarts. Ohne dieses

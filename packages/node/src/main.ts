@@ -252,11 +252,22 @@ async function main(): Promise<void> {
   const relayEnabled = process.env.RELAY_ENABLED === "1";
   let relayRole: import("./relay-role.js").RelayRole | undefined;
   if (relayEnabled) {
-    const { RelayRole } = await import("./relay-role.js");
+    const { RelayRole, RelayZugang } = await import("./relay-role.js");
+    // Zugang (8.4): RELAY_BESCHRAENKT=1 nimmt nur von und an Schluessel mit Zugang an;
+    // dauerhaft in RELAY_ZUGANG (kommagetrennt, hex), sonst aus der Datei.
+    const dauerhaft = [keypair.pk, ...(process.env.RELAY_ZUGANG ?? "").split(",").map((s) => s.trim()).filter((s) => /^[0-9a-f]{64}$/.test(s))];
+    const zugang = new RelayZugang(join(process.env.HOME ?? ".", ".freedom", "relay-zugang.json"), dauerhaft);
+    await zugang.laden();
     relayRole = new RelayRole({
       port: Number(process.env.RELAY_PORT ?? 7777),
       retentionDays: Number(process.env.RELAY_RETENTION_DAYS ?? 30),
       maxEventBytes: Number(process.env.RELAY_MAX_EVENT_BYTES ?? 262144),
+      oeffentlicheUrl: process.env.RELAY_PUBLIC_URL,
+      pubkey: keypair.pk,
+      beschraenkt: process.env.RELAY_BESCHRAENKT === "1",
+      // Bis die App sich anmeldet (8.4c), nur auf Wunsch – sonst laesen Nutzer ihre Post hier nicht.
+      umschlaegeSchuetzen: process.env.RELAY_UMSCHLAEGE_NUR_ANGEMELDET === "1",
+      zugang,
     });
     await relayRole.start();
   }

@@ -88,8 +88,19 @@
       liest die App nicht; Räume sind Spur B (2.3).
     - **b2:** eigener Satz in den Settings sichtbar und änderbar; danach den
       wechselnden Teil prüfen.
-  - **5.4c (mit 8.4):** Relay-Rolle des Knotens mit NIP-42 und bezahltem
-    Zugang in Sats oder SOL.
+  - **5.4c (mit 8.4, seit 27.09. Spur B):** Relay-Rolle des Knotens mit NIP-42
+    und bezahltem Zugang in Sats oder SOL. Geteilt:
+    - **8.4a – FERTIG:** Relay als Posteingang – NIP-42, Umschläge nur an den
+      angemeldeten Empfänger (einstellbar, beschränkt immer), Zugang aus einem
+      Zugangsbuch (nur von und an Schlüssel mit Zugang), ersetzbare/flüchtige
+      Events, `limit`, NIP-40, NIP-11 mit dem Schlüssel des Betreibers.
+    - **8.4b:** Zugang kaufen – Sats über eine Rechnung des eigenen LND (nur
+      `invoices`-Rechte), SOL an die Adresse des Betreibers mit einer Referenz
+      nach Solana Pay, auf der Kette geprüft; Preise in NIP-11; Events
+      überdauern einen Neustart.
+    - **8.4c:** App – anmelden (nur bei eigenen Posteingangs-Relays und
+      Sitzungsschlüsseln), Zugang über die Zahlschienen kaufen, Abnahme im
+      Browser: ein Relay wird nachweislich für die Zustellung bezahlt.
   - **.onion:** Kein Betreiber der Startliste veröffentlicht eine
     .onion-Adresse, die sich prüfen ließ. MENSCH: eine geprüfte .onion-Adresse
     (etwa den Relay des GX10 als Hidden Service) – dann kommt sie in die Liste.

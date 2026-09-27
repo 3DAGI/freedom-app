@@ -43,7 +43,7 @@ bash scripts/build-site.sh /tmp/site                     # Website bauen (Ziel w
 bash packages/mls/bauen.sh --pruefen                     # nur bei Änderungen an packages/mls: nachbauen + vergleichen (Rust, clang)
 ```
 
-Stand 27.09.2026 (nach 2.3c und 5.4b1): protocol 1145 grün (6 übersprungen), node 240 grün
+Stand 27.09.2026 (nach 5.4b1 und 8.4a): protocol 1150 grün (6 übersprungen), node 249 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
 in `tools.test.ts`), app 436 grün, mls 13 grün, Leak-Tests 55 grün + 1 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
@@ -415,3 +415,10 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   `baueRaumMeldung()`: je Moderator ein Umschlag an seinen Posteingang, nie in
   die Gruppe (sonst erführen es alle Mitglieder). Beim Moderator bleiben sie nur
   im Speicher (`alsRaumMeldung()`, am Ende der Kette in `oeffneUmschlag()`).
+- **Relay-Rolle nur nach den Regeln aus `relay-zugang.ts`** (seit 8.4a):
+  annehmen über `relayNimmtAn()` (beschränkt: vom oder an einen Schlüssel mit
+  Zugang), ausliefern über `darfAusliefern()` – Umschläge (1059) nur an den
+  per NIP-42 angemeldeten Empfänger, Anmeldung nur über `pruefeRelayAuth()`.
+  Der Relay schickt beim Verbinden `["AUTH", challenge]` – Test-Clients, die
+  Antworten zählen, überspringen sie. Abos gehören zur Verbindung (gleiche
+  Ids zweier Clients überschrieben sich bis 8.4a).
