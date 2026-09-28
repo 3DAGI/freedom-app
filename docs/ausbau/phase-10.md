@@ -7,9 +7,9 @@ Karte der Abdeckung und eine Navigation, die auf Desktop und Handy je für sich
 Sinn ergibt. Protokoll, Krypto, Zahlungen und Event-Formate bleiben, wie sie
 sind; sonst gilt die STOPP-Regel aus `CLAUDE.md`.
 
-Stand dieser Karte: **C.0, C.1a, C.1b, C.2a–d (Räume), C.3a und C.3b1 fertig.** Der MENSCH hat den
+Stand dieser Karte: **C.0, C.1a, C.1b, C.2a–d (Räume), C.3a und C.3b fertig.** Der MENSCH hat den
 Entwurf am 27.09.2026 freigegeben – E1–E8 wie vorgeschlagen (Abschnitt 10.3).
-Nächster Schritt: C.3b2.
+Nächster Schritt: C.3c.
 
 ---
 
@@ -653,6 +653,21 @@ Patch-Seite, C.3b2 Status-Dialoge mit Begründung.
 - Bekannte Grenze: Die Signatur „-- “ am Ende von `git format-patch` ist bei
   falscher Zählung im Kopf von einer entfernten Zeile „- “ nicht zu
   unterscheiden; bei richtiger Zählung wird sie nie gelesen.
+
+**C.3b2 – fertig (28.09.2026).** Damit ist C.3b fertig.
+- Wer was darf, steht in `patchAktionen()` (`repo-ansicht.ts`, ohne DOM) und
+  bietet nur an, was `patchStatus()` auch zählt: Maintainer annehmen, als
+  Entwurf, wieder öffnen, schließen; der Autor als Entwurf, wieder öffnen,
+  zurückziehen. Einen Patch, den ein Maintainer geschlossen hat, öffnet der
+  Autor in der App nicht wieder (das Protokoll ließe es zu). Angenommen ist
+  endgültig.
+- Jede Aktion ist ein Dialog mit „Begründung (optional, öffentlich)“ – die
+  `notiz` aus `baueStatus()`; annehmen zusätzlich mit Commit, schließen und
+  zurückziehen rot. Die Rückfrage entfällt, der Dialog sagt „öffentlich und
+  signiert“.
+- Die Patch-Seite zeigt den geltenden Status: wer, wann, als welche Commits
+  eingespielt, die Begründung – nur aus dem Event, das `patchStatus()`
+  zählt, gekürzt und nur als Text.
 
 ---
 
