@@ -9955,7 +9955,8 @@ Von Hand: der SOL-Schritt des Installers in einem Wegwerf-Verzeichnis
 (Schlüssel einmalig, 600, kaputte Adresse samt eingeschleustem Shell-Text
 abgewiesen, ohne Adresse nur Lightning) und `npm run pruefen` ohne Netz.
 
-Endstand (nach dem Einmergen von `main` mit 5.5b): protocol 1088 (6
-übersprungen) · node 250 (+5; 6 übersprungen, mit Netz) · app 554 · mls 13 · Leak-Tests 59 grün + 1 todo · 0 rot ·
+Endstand (nach dem Einmergen von `main` mit 5.5b und 5.5c): protocol 1088
+(6 übersprungen) · node 250 (+5; 6 übersprungen, mit Netz) · app 562 · mls 13 ·
+Leak-Tests 62 grün + 1 todo · 0 rot ·
 check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 · Website 5 Seiten
 ok · Smoke-Test bestanden · `bash -n` für den Installer.
