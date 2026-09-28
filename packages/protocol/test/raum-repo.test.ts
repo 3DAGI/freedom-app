@@ -89,3 +89,56 @@ test("11.4a: Patch-Status zählt Raum-Pfleger – nach Entzug nicht mehr", () =>
   const entzogen = [...raum(), s(buildRoleGrant(SPACE, besitzer.pk, pfleger.pk, ["mitglied"], 1_790_000_200), besitzer)];
   assert.equal(patchStatus(patch, mitRaumRechten(repo, raumZustandFuer(ADRESSE, entzogen)), [angenommen]).status, "offen", "Rechte gelten, wie der Raum sie jetzt vergibt");
 });
+
+// ------------------------------------------------------------ 11.4b: private Räume
+
+test("11.4b: innere Events – NIP-34-Bausteine mit Raum, ohne Verweis auf einen öffentlichen Raum", async () => {
+  const { raumRepoAnkuendigung, raumRepoBundle, raumRepoPatch, raumRepoStatus, RAUM_REPO_ARTEN } = await import("../src/raum-repo.js");
+  const a = raumRepoAnkuendigung("gruppe1", { id: "app", name: "App", klon: [], raum: ADRESSE, maintainer: [pfleger.pk] });
+  assert.equal(a.art, 30617);
+  assert.deepEqual(a.tags[0], ["space", "gruppe1"]);
+  assert.ok(!a.tags.some((t) => t[0] === "a"), "privat nie mit Verweis auf einen öffentlichen Raum");
+  const b = raumRepoBundle("gruppe1", { name: "app", blobId: "b".repeat(64), headSha: "c".repeat(40), branch: "main", message: "m", version: 2, schluessel: { alg: "aes-gcm", key: "5a".repeat(32), nonce: "6b".repeat(12), ox: "7c".repeat(32) } });
+  assert.equal(b.art, 38042);
+  assert.ok(b.tags.some((t) => t[0] === "aes-gcm"), "der Schlüssel reist nur hier – in der Gruppe");
+  const text = `From ${"1".repeat(40)} Mon Sep 17 00:00:00 2001\nSubject: [PATCH] T\n\n---\ndiff --git a/a b/a\n`;
+  const p = raumRepoPatch("gruppe1", { repo: { eigentuemer: besitzer.pk, id: "app" }, text });
+  assert.equal(p.art, 1617);
+  assert.equal(p.text, text);
+  const st = raumRepoStatus("gruppe1", { patch: { id: "d".repeat(64), autor: pfleger.pk, repoAdresse: `30617:${besitzer.pk}:app` }, status: "geschlossen", eigentuemer: besitzer.pk });
+  assert.equal(st.art, 1632);
+  assert.ok([a, b, p, st].every((x) => RAUM_REPO_ARTEN.includes(x.art) && x.tags[0][0] === "space"));
+});
+
+test("11.4b: Repos des privaten Raums – nur von Pflegern angekündigt, Pfleger als Maintainer, Status nach ihnen", async () => {
+  const { gruppenRaum } = await import("../src/raum-gruppe.js");
+  const { raumRepoAnkuendigung, raumRepoPatch, raumRepoStatus, raumReposPrivat } = await import("../src/raum-repo.js");
+  const admin = besitzer.pk;
+  let n = 0;
+  const innen = (von: string, s: { art: number; tags: string[][]; text: string }, zeit = 1_790_000_000 + n) =>
+    ({ id: (++n).toString(16).padStart(64, "0"), von, art: s.art, tags: s.tags, text: s.text, zeit });
+  const text = `From ${"1".repeat(40)} Mon Sep 17 00:00:00 2001\nSubject: [PATCH] T\n\n---\ndiff --git a/a b/a\n`;
+  const ank = innen(admin, raumRepoAnkuendigung("g", { id: "app", name: "App", klon: [] }));
+  const vomGast = innen(mitglied.pk, raumRepoAnkuendigung("g", { id: "gast", name: "Gast", klon: [] }));
+  const anderswo = innen(admin, raumRepoAnkuendigung("anderer-raum", { id: "x", name: "X", klon: [] }));
+  const patch = innen(mitglied.pk, raumRepoPatch("g", { repo: { eigentuemer: admin, id: "app" }, text }));
+  const zu = innen(pfleger.pk, raumRepoStatus("g", { patch: { id: patch.id, autor: mitglied.pk, repoAdresse: `30617:${admin}:app` }, status: "angenommen", eigentuemer: admin }));
+  const alle = [ank, vomGast, anderswo, patch, zu];
+
+  const ohneRecht = gruppenRaum("g", alle, { admins: [admin], mitglieder: [admin, pfleger.pk, mitglied.pk] }).zustand;
+  const r1 = raumReposPrivat("g", alle, ohneRecht);
+  assert.deepEqual(r1.ankuendigungen.map((e) => e.tags.find((t) => t[0] === "d")?.[1]), ["app"], "nur vom Admin, nur aus diesem Raum");
+  const repo1 = leseRepoAnkuendigung(r1.ankuendigungen[0]);
+  assert.equal(repo1.eigentuemer, admin);
+  assert.deepEqual(repo1.maintainer, [], "ohne Zuweisung pflegt nur der Admin");
+  const gelesen = lesePatch(r1.patches[0]);
+  assert.equal(patchStatus(gelesen, repo1, r1.status).status, "offen", "der Status eines Nicht-Pflegers zählt nicht");
+
+  const rollen = innen(admin, { art: 34701, tags: [["space", "g"], ["role", "pflege", "Pflege", "lesen|schreiben|repos_pflegen", "40", ""]], text: "" });
+  const zuweisung = innen(admin, { art: 34702, tags: [["space", "g"], ["p", pfleger.pk], ["role", "pflege"]], text: "" });
+  const mitRecht = gruppenRaum("g", [...alle, rollen, zuweisung], { admins: [admin], mitglieder: [admin, pfleger.pk, mitglied.pk] }).zustand;
+  const r2 = raumReposPrivat("g", alle, mitRecht);
+  const repo2 = leseRepoAnkuendigung(r2.ankuendigungen[0]);
+  assert.deepEqual(repo2.maintainer, [pfleger.pk], "mit „repos_pflegen“ pflegt er mit");
+  assert.equal(patchStatus(gelesen, repo2, r2.status).status, "angenommen");
+});

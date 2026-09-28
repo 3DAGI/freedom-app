@@ -94,6 +94,7 @@ leak-rules.ts|regelAnmeldungNichtOffen|Prüfregeln der Leak-Tests, gehören in d
 leak-rules.ts|regelKopienEntkoppelt|Prüfregeln der Leak-Tests, gehören in die Tests (1.5, 6.4)
 leak-rules.ts|regelKeineLnAdresse|Prüfregeln der Leak-Tests, gehören in die Tests (1.5, 6.3)
 leak-rules.ts|regelZapAnonym|Prüfregeln der Leak-Tests, gehören in die Tests (1.5, 6.3)
+leak-rules.ts|regelRaumRepoPrivat|Prüfregeln der Leak-Tests, gehören in die Tests (1.5, 11.4b)
 leak-rules.ts|regelKeinKlartext|Prüfregeln der Leak-Tests, gehören in die Tests (1.5)
 leak-rules.ts|regelKeinKlartextPrompt|Prüfregeln der Leak-Tests, gehören in die Tests (1.5)
 leak-rules.ts|regelKundeVerborgen|Prüfregeln der Leak-Tests, gehören in die Tests (1.5)
@@ -225,3 +226,8 @@ devices.ts|deviceWarning|deutsche Referenz; die App bildet die Rückfrage seit 8
 release.ts|sharingInstructions|deutsche Referenz; die App bildet den Begleittext seit 8.16g2b2 in protokoll-texte.ts (weitergabeText) nach, ein Test hält ihn wortgleich
 mesh-sync.ts|offlineCapabilities|deutsche Referenz; die App bildet die Liste seit 8.16g2b2 in protokoll-texte.ts (offlineFaehigkeiten) nach, ein Test hält sie gleich
 spaces.ts|privacyInfo|deutsche Referenz; die App bildet die Rauminfo seit C.2b2 in protokoll-texte.ts (kanalVertraulichkeit) nach, ein Test hält sie wortgleich
+raum-repo.ts|raumRepoAnkuendigung|Baustein aus 11.4b1 – die App verdrahtet ihn in 11.4b2 (dann Zeile entfernen)
+raum-repo.ts|raumRepoBundle|Baustein aus 11.4b1 – die App verdrahtet ihn in 11.4b2 (dann Zeile entfernen)
+raum-repo.ts|raumRepoPatch|Baustein aus 11.4b1 – die App verdrahtet ihn in 11.4b2 (dann Zeile entfernen)
+raum-repo.ts|raumRepoStatus|Baustein aus 11.4b1 – die App verdrahtet ihn in 11.4b2 (dann Zeile entfernen)
+raum-repo.ts|raumReposPrivat|Baustein aus 11.4b1 – die App verdrahtet ihn in 11.4b2 (dann Zeile entfernen)
