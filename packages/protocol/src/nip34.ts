@@ -19,6 +19,7 @@
  */
 import { type NostrEvent, type UnsignedEvent, buildEvent, getTag, getTags } from "./event.js";
 import { ProtokollFehler } from "./fehler.js";
+import { leseRaumAdresse } from "./spaces.js";
 
 export const KIND_REPO_ANKUENDIGUNG = 30617;
 export const KIND_PATCH = 1617;
@@ -48,6 +49,8 @@ export interface RepoAnkuendigung {
   ersterCommit?: string;
   /** Weitere Maintainer (Pubkeys) neben dem Eigentuemer. */
   maintainer?: string[];
+  /** Öffentlicher Raum, zu dem das Repo gehört (`raumAdresse()`, 11.4a) – Tag „a“. */
+  raum?: string;
 }
 
 export function repoAdresse(eigentuemer: string, id: string): string {
@@ -59,12 +62,14 @@ export function baueRepoAnkuendigung(r: RepoAnkuendigung, eigentuemer: string): 
   for (const k of r.klon) if (!KLON.test(k)) throw new ProtokollFehler("repo-klon", `Keine Klon-Adresse: ${k.slice(0, 40)}`, { adresse: k.slice(0, 40) });
   for (const m of r.maintainer ?? []) if (!HEX64.test(m)) throw new ProtokollFehler("repo-maintainer", "Maintainer muss ein 64-stelliger Hex-Schlüssel sein");
   if (r.ersterCommit !== undefined && !SHA1.test(r.ersterCommit)) throw new ProtokollFehler("repo-erster-commit", "Erster Commit muss ein SHA-1 sein");
+  if (r.raum !== undefined && !leseRaumAdresse(r.raum)) throw new ProtokollFehler("repo-raum", "Kein öffentlicher Raum (34700:<Schlüssel>:space:<Kennung>)");
   const tags: string[][] = [["d", r.id], ["name", r.name.slice(0, 100)]];
   if (r.beschreibung) tags.push(["description", r.beschreibung.slice(0, 500)]);
   if (r.klon.length) tags.push(["clone", ...r.klon]);
   if (r.web?.length) tags.push(["web", ...r.web]);
   if (r.ersterCommit) tags.push(["r", r.ersterCommit, "euc"]);
   if (r.maintainer?.length) tags.push(["maintainers", ...r.maintainer]);
+  if (r.raum) tags.push(["a", r.raum]);
   return buildEvent(eigentuemer, KIND_REPO_ANKUENDIGUNG, tags, "");
 }
 
@@ -77,6 +82,7 @@ export function leseRepoAnkuendigung(ev: UnsignedEvent): GelesenesRepo {
   if (!REPO_ID.test(id)) throw new Error("Repo ohne gültige Kennung");
   const alle = (name: string) => getTags(ev, name).flatMap((t) => t.slice(1));
   const euc = ev.tags.find((t) => t[0] === "r" && t[2] === "euc")?.[1];
+  const raum = ev.tags.find((t) => t[0] === "a" && leseRaumAdresse(t[1]))?.[1];
   return {
     id,
     name: (getTag(ev, "name") ?? id).slice(0, 100),
@@ -85,6 +91,7 @@ export function leseRepoAnkuendigung(ev: UnsignedEvent): GelesenesRepo {
     web: alle("web").filter((w) => /^https?:\/\/[^\s]{1,300}$/.test(w)),
     ersterCommit: euc && SHA1.test(euc) ? euc : undefined,
     maintainer: alle("maintainers").filter((m) => HEX64.test(m) && m !== ev.pubkey),
+    ...(raum ? { raum } : {}),
     eigentuemer: ev.pubkey,
     adresse: repoAdresse(ev.pubkey, id),
   };

@@ -5,7 +5,7 @@
  */
 import {
   KIND_GIT_REPO_REF, KIND_REPO_ANKUENDIGUNG, KIND_STATUS_ANGENOMMEN, KIND_STATUS_ENTWURF, KIND_STATUS_GESCHLOSSEN, KIND_STATUS_OFFEN,
-  darfAnnehmen, lesePatch, leseRepoAnkuendigung, patchStatus,
+  KIND_SPACE, RAUM_REPO_RECHT, can, darfAnnehmen, lesePatch, leseRepoAnkuendigung, mitRaumRechten, patchStatus, raumAdresse, raumZustandFuer,
   type GelesenerPatch, type GelesenesRepo, type NostrEvent, type PatchStatus, type RepoAnkuendigung,
 } from "@freedomstack/protocol";
 
@@ -116,6 +116,8 @@ export interface RepoKarte {
   repo?: GelesenesRepo;
   /** Neueste Bundle-Referenz desselben Eigentümers und derselben Kennung. */
   bundle?: NostrEvent;
+  /** Gehört das Repo bestätigt zu seinem Raum (11.4a)? Dann zählen die Raum-Pfleger als Maintainer. */
+  raumBestaetigt?: boolean;
   zeilen: PatchZeile[];
   offen: number;
   /** Letzte Aktivität (Sekunden): Ankündigung, Bundle, Patch oder Status. */
@@ -125,6 +127,8 @@ export interface RepoKarte {
 export function repoKarten(
   ankuendigungen: readonly NostrEvent[], bundles: readonly NostrEvent[], patches: readonly NostrEvent[],
   status: readonly NostrEvent[], ich: string | undefined,
+  /** Struktur der öffentlichen Räume, auf die Repos verweisen (34700–34702, 11.4a). */
+  raumEvents: readonly NostrEvent[] = [],
 ): RepoKarte[] {
   const karten = new Map<string, RepoKarte>();
   const zeitVon = new Map<string, number>();
@@ -132,12 +136,14 @@ export function repoKarten(
     const d = ev.tags.find((t) => t[0] === "d")?.[1] ?? "";
     zeitVon.set(`${ev.pubkey}:${d}`, Math.max(zeitVon.get(`${ev.pubkey}:${d}`) ?? 0, ev.created_at));
   }
-  for (const repo of repoZeilen(ankuendigungen)) {
+  for (const gelesen of repoZeilen(ankuendigungen)) {
+    // Rechte aus den Raum-Rollen (11.4a): Pfleger des Raums zählen wie Maintainer
+    const { raumBestaetigt, ...repo } = mitRaumRechten(gelesen, gelesen.raum ? raumZustandFuer(gelesen.raum, raumEvents) : undefined);
     const zeilen = patchZeilen(repo, patches, status, ich);
     const schluessel = `${repo.eigentuemer}:${repo.id}`;
     const zuletzt = Math.max(zeitVon.get(schluessel) ?? 0, ...zeilen.map((z) => z.patch.zeit));
     karten.set(schluessel, {
-      schluessel, id: repo.id, name: repo.name, eigentuemer: repo.eigentuemer, repo, zeilen,
+      schluessel, id: repo.id, name: repo.name, eigentuemer: repo.eigentuemer, repo, zeilen, ...(repo.raum ? { raumBestaetigt } : {}),
       ...(repo.beschreibung ? { beschreibung: repo.beschreibung } : {}),
       offen: zeilen.filter((z) => z.status === "offen" || z.status === "entwurf").length, zuletzt,
     });
@@ -174,6 +180,8 @@ export interface EinstellungFelder {
   web: string;
   maintainer: string;
   ersterCommit: string;
+  /** Adresse des öffentlichen Raums (11.4a) oder leer. */
+  raum?: string;
 }
 
 /** Höchstens so viele Adressen bzw. Maintainer je Feld – mehr ist Unfug. */
@@ -192,11 +200,32 @@ export function ankuendigungAusFeldern(id: string, f: EinstellungFelder): RepoAn
   const web = liste(f.web);
   const maintainer = liste(f.maintainer, true);
   const ersterCommit = f.ersterCommit.trim().toLowerCase();
+  const raum = f.raum?.trim() ?? "";
   return {
     id, name: f.name.trim() || id, klon: liste(f.klon),
     ...(beschreibung ? { beschreibung } : {}), ...(web.length ? { web } : {}),
     ...(maintainer.length ? { maintainer } : {}), ...(ersterCommit ? { ersterCommit } : {}),
+    ...(raum ? { raum } : {}),
   };
+}
+
+/**
+ * Räume, denen ich ein Repo zuordnen darf (11.4a): aus der Struktur der
+ * öffentlichen Räume, in denen ich bin – je Definition eine Adresse, und nur,
+ * wo ich nach dem Zustand dieses Besitzers „repos_pflegen“ habe.
+ */
+export function raumAuswahl(raumEvents: readonly NostrEvent[], ich: string): { adresse: string; name: string }[] {
+  const adressen = new Set<string>();
+  for (const ev of raumEvents) {
+    const id = ev.kind === KIND_SPACE ? ev.tags.find((t) => t[0] === "space")?.[1] : undefined;
+    try { if (id) adressen.add(raumAdresse(ev.pubkey, id)); } catch { /* ungültige Kennung */ }
+  }
+  const out: { adresse: string; name: string }[] = [];
+  for (const adresse of adressen) {
+    const z = raumZustandFuer(adresse, raumEvents);
+    if (z?.space && can(ich, RAUM_REPO_RECHT, z)) out.push({ adresse, name: z.space.name.slice(0, 80) });
+  }
+  return out.sort((a, b) => a.name.localeCompare(b.name));
 }
 
 /** Web-Adressen fremder Repos: anklickbar nur mit https und ohne Zugangsdaten in der Adresse. */

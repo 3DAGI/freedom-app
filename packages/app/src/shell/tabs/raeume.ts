@@ -56,7 +56,7 @@ function merkeLesestand(channelId: string): void {
 }
 
 /** Beigetretene offene Räume (Kind 42) – öffentlich wie ihr Inhalt. */
-function oeffentlicheRaeume(): string[] {
+export function oeffentlicheRaeume(): string[] {
   try {
     return JSON.parse(localStorage.getItem("freedom.spaces") ?? "[]") as string[];
   } catch {
@@ -703,7 +703,7 @@ async function legeRaumAn(oeffentlich = false): Promise<void> {
 
     await pool.publish(await signiere(buildRoles(spaceId, state.keypair.pk, [
       { id: "mod", name: "Moderator", rank: 50, // kein UI-Text
-        permissions: ["lesen", "schreiben", "threads", "moderieren", "rollen_vergeben"] },
+        permissions: ["lesen", "schreiben", "threads", "moderieren", "rollen_vergeben", "repos_pflegen"] },
       { id: "mitglied", name: "Mitglied", rank: 10, // kein UI-Text
         permissions: ["lesen", "schreiben", "threads"] },
     ] as never)));
