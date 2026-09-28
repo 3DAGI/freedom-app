@@ -10053,7 +10053,7 @@ Selbstprüfung aus 8.2a erkennt den Server über HTTP als gute Adresse;
 Verdrahtung), +1 in `protocol/test/lnd-adapter.test.ts` (`value_msat`,
 `description_hash`, Fehler).
 
-Endstand: protocol 1089 (+1; 6 übersprungen) · node 255 (+5; 6 übersprungen,
-mit Netz) · app 562 · mls 13 · Leak-Tests 62 grün + 1 todo · 0 rot ·
+Endstand (nach dem Einmergen von `main` mit 8.15): protocol 1089 (+1; 6
+übersprungen) · node 255 (+5; 6 übersprungen, mit Netz) · app 567 · mls 13 · Leak-Tests 62 grün + 1 todo · 0 rot ·
 check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 · Website 5 Seiten
 ok · Smoke-Test bestanden · `bash -n` für den Installer.
