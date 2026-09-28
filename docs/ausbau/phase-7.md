@@ -72,6 +72,18 @@
     simuliertem Funkkanal gegen den echten `DvmProvider`. Ehrlich: eine
     Antwort mit 500 Zeichen ist als Umschlag rund 3 KB, also etwa 15 s
     Sendezeit – ein Gateway schafft rund zwei Antworten je Stunde.
-  - **7.4c:** App – KI-Anfrage über Mesh (Gateway wählen, Auftrag mit
-    `kurzParam()` und Zahlkanal-Gutschrift, Weiterleitung), Antwort aus dem
-    Mesh öffnen und zeigen; ehrliche Texte zu Dauer und Kosten.
+  - **7.4c1 – FERTIG:** Gerätestrecken der App mit Längenpräfix wie die
+    Brücke des Knotens (`mitLaenge()`/`LaengenRahmen`, aus dem Knoten ins
+    Protokoll gezogen): USB liest jetzt (bis dahin kam über USB keine Antwort
+    an), Bluetooth setzt aus BLE-Häppchen wieder Rahmen zusammen (bis dahin war
+    ein Rahmen über 180 Byte nie lesbar). `serielleStrecke()`/
+    `bluetoothStrecke()` testbar ohne Gerät.
+  - **7.4c2:** App-Logik (`shell/ki-funk.ts`) – Gateway merken, solange Netz
+    da ist (signiertes Angebot mit `["funk","gateway"]`), Auftrag mit
+    `kurzParam()` und Zahlkanal-Gutschrift (Kurs aus dem gemerkten Angebot;
+    ohne Kanal nur gratis – Lightning geht ohne Netz nicht), Weiterleitung und
+    Auftrag über den Funkknoten, Antwort aus dem Mesh öffnen und im Agenten
+    zeigen.
+  - **7.4c3:** Oberfläche – Gateway wählen (Seite Netz), „über Funk senden“
+    im Agenten, ehrliche Texte zu Dauer (rund zwei Antworten je Stunde und
+    Gateway) und Kosten; Smoke-Test.

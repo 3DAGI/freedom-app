@@ -568,7 +568,7 @@ export async function wireMeshTab(): Promise<void> {
     try {
       const { connectSerial } = await import("../../mesh-radio.js");
       const n = await ensureMeshNode();
-      await n.attach(await connectSerial());
+      await n.attach(await connectSerial(115200, (raw) => n.receive(raw)));
       $("#mesh-status").textContent = t("set.verbundenMit", { name: n.transportName ?? "" });
       toast(t("set.funkVerbunden"));
     } catch (e) {
