@@ -1,6 +1,6 @@
 # Provider werden – in beiden Schienen verdienen
 
-Stand 8.2b (28.09.2026). Kurzfassung für Betreiber eines Knotens; Einzelheiten
+Stand 8.2c (28.09.2026). Kurzfassung für Betreiber eines Knotens; Einzelheiten
 zum Zahlkanal in `docs/ZAHLKANAL.md`, zum Tausch in `docs/SWAPS.md`.
 
 ## Einrichten
@@ -60,6 +60,30 @@ der Container vertraut – ein selbstsigniertes nimmt der Knoten nur lokal an.
 Der Server nimmt keine Kommentare an, stellt höchstens 30 Rechnungen je
 Minute aus (`LNURL_PRO_MINUTE`) und gibt nach außen nie Meldungen von LND
 weiter. Die Rechnung trägt als Beschreibung den Hash der Metadaten (LUD-06).
+
+## Tor (8.2c)
+
+Mit `TOR_SOCKS=127.0.0.1:9050` (ein laufender Tor-Dienst) gehen alle
+Verbindungen des Knotens zu Relays durch Tor: Die Relays sehen die Adresse
+eines Tor-Ausgangs statt deiner. Den Namen eines Relays löst Tor auf, nicht
+dein Rechner – `.onion`-Relays gehen damit auch. Ist `TOR_SOCKS` gesetzt, aber
+ungültig, startet der Knoten nicht; ist Tor nicht erreichbar, verbindet er
+gar nicht – nie still ohne Tor.
+
+**Nicht** über Tor gehen: Solana-RPC (sieht die Adresse deines Knotens),
+LND, Ollama, die Abrufe der Werkzeuge des Agenten, Modell-Downloads und die
+Selbstprüfung.
+
+Der eigene Relay als Onion-Dienst, in der `torrc`:
+
+```
+HiddenServiceDir /var/lib/tor/freedom-relay/
+HiddenServicePort 80 127.0.0.1:7777
+```
+
+Dann `RELAY_PUBLIC_URL=ws://<adresse>.onion` (aus
+`/var/lib/tor/freedom-relay/hostname`). Erreichbar ist er nur für Clients mit
+Tor – die App erkennt das und sagt es im Datenschutzbericht (6.2).
 
 ## Was die Kette zeigt
 

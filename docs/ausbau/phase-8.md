@@ -35,9 +35,11 @@ Reihenfolge.
 > `lnurl-server.ts` (Treasury, Blink) ist jetzt die Lightning-Adresse des
 > Providers beim eigenen LND (nur `invoices`-Macaroon, Beschreibung = Hash der
 > Metadaten, feste Fehlertexte, Betrag geprüft, Bremse) – statt eines
-> verwahrenden Dienstes; Anleitung `docs/PROVIDER.md`. **c** Tor: Verbindungen des
-> Knotens über einen SOCKS-Proxy (ohne neue Abhängigkeit), der eigene Relay
-> als .onion.
+> verwahrenden Dienstes; Anleitung `docs/PROVIDER.md`. **c** Tor ✓: alle
+> Relay-Verbindungen des Knotens über SOCKS5 (`tor.ts`, ohne neue Abhängigkeit;
+> den Namen löst Tor auf, .onion geht; ungültig → kein Start, Tor weg → keine
+> Verbindung), der eigene Relay als Onion-Dienst (Anleitung). **8.2 im Code
+> fertig**; offen nur MENSCH: mit einem echten Provider testen.
 
 ## 8.16 Übersetzungen – Aufteilung
 

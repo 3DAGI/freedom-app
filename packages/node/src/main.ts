@@ -27,6 +27,7 @@ import {
 import { DvmProvider, DEFAULT_PROVIDER_CONFIG } from "./dvm-provider.js";
 import { kanalKasseAusUmgebung, kanalOrte } from "./kanal-kasse.js";
 import { befundeText, holeJson, kettenBlick, pruefeEinrichtung } from "./einrichtung.js";
+import { torAusUmgebung, torWebSocket } from "./tor.js";
 import { OllamaBackend } from "./inference.js";
 import http from "node:http";
 
@@ -132,9 +133,18 @@ async function main(): Promise<void> {
   // ersten Publish sichtbar; OutboxPool toleriert Teilausfaelle (minAcks).
   const relayUrls = (process.env.RELAYS ?? RELAYS_DEFAULT).split(",").map((s) => s.trim());
   const useMemory = process.env.MEMORY_RELAY === "1";
+  // Tor (8.2c): mit TOR_SOCKS gehen alle Relay-Verbindungen durch Tor. Ungültig → kein Start,
+  // sonst ginge der Knoten still ohne Tor ins Netz
+  const { proxy: torProxy, grund: torGrund } = torAusUmgebung(process.env);
+  if (torGrund) {
+    console.error(`[tor] ${torGrund} – der Knoten startet nicht ohne Tor, wenn Tor verlangt ist`);
+    process.exit(1);
+  }
+  if (torProxy) console.log(`[tor] Relays über Tor (SOCKS ${torProxy.host}:${torProxy.port}) – Solana-RPC, LND und Ollama nicht`);
+  const verbinde = torProxy ? torWebSocket(torProxy) : undefined;
   const relays = useMemory
     ? [new MemoryRelay("mem://local")]
-    : relayUrls.map((url) => new WebSocketRelay(url));
+    : relayUrls.map((url) => new WebSocketRelay(url, { verbinde }));
   const pool = new OutboxPool(relays, { minAcks: useMemory ? 1 : Math.min(2, relays.length) });
 
   // Rechenarbeit fuer private Anfragen (3.1) – steht im Angebot. Ueber 24 rechnet

@@ -10057,3 +10057,43 @@ Endstand (nach dem Einmergen von `main` mit 8.15): protocol 1089 (+1; 6
 übersprungen) · node 255 (+5; 6 übersprungen, mit Netz) · app 567 · mls 13 · Leak-Tests 62 grün + 1 todo · 0 rot ·
 check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 · Website 5 Seiten
 ok · Smoke-Test bestanden · `bash -n` für den Installer.
+
+## Schritt 8.2c – Provider-Knoten: Relays über Tor
+
+**Warum:** Letzter Teil der Karte 8.2 („Tor“). Jeder Relay sah bisher die
+IP-Adresse des Knotens – und damit, wo ein Provider steht. Tor für den Knoten
+gab es nicht; `WebSocketRelay` nutzte das eingebaute `WebSocket` von Node, in
+das sich kein Proxy einhängen lässt.
+
+**Was:**
+- **`node/src/tor.ts`:** `socksVerbinde()` – SOCKS5 ohne neue Abhängigkeit,
+  nur „ohne Anmeldung“, der Hostname geht an den Proxy (Adresstyp 3): Der
+  Knoten fragt nie selbst einen DNS-Server nach einem Relay, `.onion` geht;
+  Antworten des Proxys werden zu festen Texten (`SocksFehler`). Zwei Agents
+  für `ws` (http/https) bauen jede Verbindung durch den Tunnel, bei `wss` mit
+  TLS und Zertifikatsprüfung gegen den Hostnamen. `torWebSocket()` liefert
+  die Fabrik, `torAusUmgebung()` liest `TOR_SOCKS=host:port`.
+- **`protocol/src/ws-relay.ts`:** Option `verbinde` – eigene Verbindung statt
+  des eingebauten WebSocket (ohne sie wie bisher).
+- **Verdrahtet:** `node/src/main.ts` – die einzige Stelle, an der der Knoten
+  Relay-Verbindungen anlegt, bekommt `verbinde`. Ungültiges `TOR_SOCKS`
+  beendet den Start (sonst ginge er still ohne Tor ins Netz); ist Tor nicht
+  erreichbar, scheitern die Verbindungen, statt direkt zu gehen.
+- **Doku:** `docs/PROVIDER.md` (Tor: was darüber geht und was nicht –
+  Solana-RPC, LND, Ollama, Werkzeuge, Modell-Downloads, Selbstprüfung; der
+  eigene Relay als Onion-Dienst), `docker-compose.yml` (`TOR_SOCKS`),
+  Karte 8.2 (im Code fertig), FORTSCHRITT, CLAUDE.md.
+
+**Tests:** +5 in `node/test/tor.test.ts` mit einer SOCKS5-Attrappe vor einem
+lokalen Relay: Anfrage über Tor, der Name `relay.test` kommt nur beim Proxy
+an (Adresstyp 3); `wss` schickt den TLS-Handshake mit Servernamen durch den
+Tunnel; ist der Proxy weg, erreicht keine Verbindung den Relay; Antworten des
+Proxys (abgelehnt, Anmeldung verlangt) und ungültige Ziele als feste Texte;
+`TOR_SOCKS` und Verdrahtung (ungültig → kein Start, genau eine Stelle mit
+`new WebSocketRelay`).
+
+Endstand: protocol 1089 (6 übersprungen) · node 260 (+5; 6 übersprungen,
+mit Netz) · app 567 · mls 13 · Leak-Tests 62 grün + 1 todo · 0 rot ·
+check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 · Website 5 Seiten
+ok · Smoke-Test bestanden. Damit ist 8.2 im Code fertig (a–c); offen nur
+MENSCH: mit einem echten Provider in beiden Schienen testen.
