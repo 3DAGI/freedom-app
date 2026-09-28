@@ -7,9 +7,9 @@ Karte der Abdeckung und eine Navigation, die auf Desktop und Handy je für sich
 Sinn ergibt. Protokoll, Krypto, Zahlungen und Event-Formate bleiben, wie sie
 sind; sonst gilt die STOPP-Regel aus `CLAUDE.md`.
 
-Stand dieser Karte: **C.0, C.1a, C.1b, C.2a–d (Räume), C.3a und C.3b fertig.** Der MENSCH hat den
+Stand dieser Karte: **C.0, C.1a, C.1b, C.2a–d (Räume), C.3a, C.3b und C.3c1 fertig.** Der MENSCH hat den
 Entwurf am 27.09.2026 freigegeben – E1–E8 wie vorgeschlagen (Abschnitt 10.3).
-Nächster Schritt: C.3c.
+Nächster Schritt: C.3c2.
 
 ---
 
@@ -433,7 +433,8 @@ Pull Request. Dateien der Spur A (`waehrung.ts`, `agent.ts`, `ki-zahlung.ts`,
 | **C.3a2** | Einstellungen des Eigentümers, „Neue Version hochladen“ auf der Repo-Seite (`app.ts:760` zieht um), Mitwirkende als Reiter | `repo-seite.ts`, `app.ts`, Tests (~300) | B11 | C.3a1 |
 | **C.3b1** | Diff-Leser (ohne DOM, Tests mit feindlichen Eingaben), Patch-Seite mit Änderungen (Dateiliste, Abschnitte, Zeilennummern, +/−), „Als Datei laden“, neuer Patch erst als Vorschau, dann senden | `diff-ansicht.ts`, `patch-seite.ts`, `repo-seite.ts`, Tests (~450) | B10 | C.3a |
 | **C.3b2** | Status-Dialoge mit Begründung (`notiz`): annehmen, schließen, wieder öffnen, als Entwurf; Autor: zurückziehen, wieder öffnen (was `patchStatus()` erlaubt) | `repo-ansicht.ts`, `repo-seite.ts`, Tests (~250) | – | C.3b1 |
-| **C.3c** | *(E4: ja)* Bundle-Leser (Git-Bundle v2/v3, Packfile, `DecompressionStream`, Deltas; Grenzen für Größe, Objektzahl, Tiefe) und die Reiter „Code“ (README, Dateibaum) und „Commits“ | c1 Leser + Tests (~350), c2 Ansicht (~250) | B10 | C.3b |
+| **C.3c1** | *(E4: ja)* Bundle-Leser `git-bundle.ts` (v2/v3, Packfile, `DecompressionStream`, Ende über Adler-32, OFS-/REF-Deltas; Grenzen für Größe, Objektzahl, Tiefe; Prüfsumme und Kennungen nachgerechnet) und ein erster echter Pfad: Reiter „Code“ mit letztem Commit, oberstem Ordner und README | `git-bundle.ts`, `code-reiter.ts`, Tests (~450) | B10 | C.3b |
+| **C.3c2** | Reiter „Code“ ganz: Ordner öffnen, Dateien als Text (binär ehrlich), Pfad zurück; Reiter „Commits“ (erste Eltern, Autor, Zeit, Nachricht; ohne Bundle die angenommenen Patches mit `applied-as-commits`) | `code-reiter.ts`, `repo-seite.ts`, Tests (~300) | B10 | C.3c1 |
 | **C.4a** | Karte als SVG: Projektion, Gradnetz, Zellen nach Ebene, Schalter, Legende, Zoom und Verschieben mit Maus, Touch und Tastatur, Angaben je Zelle, „Karte / Liste“ | `karte-ansicht.ts` (ohne DOM, Tests: nur Zellen über k, keine Einträge), `tabs/karte.ts`, `texte/karte.ts` (~400) | B12 | C.1b |
 | **C.4b** | *(E5, E6: ja)* Umrisse eingebettet (höchstens 40 KB); eigene Zelle umrandet; Standort nur gerundet gespeichert | Daten + ~150 | B13 | C.4a |
 | **C.5** | Feinschliff Mobil: Berührflächen, Safe-Area, Querformat, Kürzungen, Tastatur über dem Eingabefeld, einheitliche Abstände; Durchgang aller Seiten mit Screenshots | `app.css`, `index.html` (~300) | Rest | C.2–C.4 |
@@ -668,6 +669,24 @@ Patch-Seite, C.3b2 Status-Dialoge mit Begründung.
 - Die Patch-Seite zeigt den geltenden Status: wer, wann, als welche Commits
   eingespielt, die Begründung – nur aus dem Event, das `patchStatus()`
   zählt, gekürzt und nur als Text.
+
+**C.3c1 – fertig (28.09.2026).** C.3c ist geteilt: C.3c1 Bundle-Leser mit
+einem ersten echten Pfad, C.3c2 der Reiter „Code“ ganz und „Commits“.
+- `leseBundle()` (`git-bundle.ts`, ohne DOM, ohne neue Abhängigkeit): Kopf
+  v2/v3 (nur SHA-1-Repos), Refs und Voraussetzungen streng geprüft; Pack
+  Version 2/3, Prüfsumme nachgerechnet; Objekte entpackt mit
+  `DecompressionStream`. Packfiles nennen die gepackte Länge nicht – das Ende
+  findet der Leser über die Adler-32-Summe am Ende jedes zlib-Stroms und
+  entpackt das Stück bis dort noch einmal sauber. Deltas (Versatz und
+  Kennung) mit Tiefe höchstens 50 über beide Arten; jede Kennung über
+  `crypto.subtle` nachgerechnet. Grenzen: 32 MB, 10 000 Objekte, 128 MB
+  entpackt, 16 MB je Objekt. Fehler nur als `BundleFehler` mit Kennung.
+- `leseCommit()`, `leseBaum()` (Namen ohne „/“, „.“, „..“; Ordner zuerst, Groß/klein
+  egal, unabhängig von der Sprache), `kopfCommit()`, `commitsAb()`.
+- Reiter „Code“ (`code-reiter.ts`): „Code laden“ holt das Bundle erst auf
+  Knopfdruck (`holeBundle()`, geteilt mit „Bundle laden“), liest es im
+  Speicher (höchstens drei) und zeigt den letzten Commit, den obersten Ordner
+  und die README als Text. Chromium: 1 MB mit 353 Objekten in 0,15 s.
 
 ---
 

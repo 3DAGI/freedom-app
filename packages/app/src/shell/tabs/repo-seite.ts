@@ -17,6 +17,7 @@ import { bestaetige, dialog } from "../dialog.js";
 import { ensurePool, signiere, state } from "../state.js";
 import { mitwirkendeListe } from "../mitwirkende.js";
 import { toast } from "../ui.js";
+import { codeReiter, holeBundle } from "./code-reiter.js";
 import { zeigePatch } from "./patch-seite.js";
 import { kontaktName } from "./raeume.js";
 
@@ -120,7 +121,7 @@ export function zeigeRepoSeite(box: HTMLElement, k: RepoKarte, h: RepoSeiteHilfe
   };
   leiste.append(reiterKnopf("code", t("repo.code")), reiterKnopf("patches", t("repo.patchesZahl", { n: k.offen })), reiterKnopf("mitwirkende", t("earn.mitwirkende")));
   if (eigentuemer) leiste.append(reiterKnopf("einstellungen", t("repo.einstellungen")));
-  inhalt.append(...(reiter === "code" ? codeReiter(k) : reiter === "patches" ? patchReiter(k, h, () => zeigeRepoSeite(box, k, h, "patches"))
+  inhalt.append(...(reiter === "code" ? codeReiter(k.bundle, () => zeigeRepoSeite(box, k, h, "code")) : reiter === "patches" ? patchReiter(k, h, () => zeigeRepoSeite(box, k, h, "patches"))
     : reiter === "mitwirkende" ? mitwirkendeReiter(k, h) : einstellungenReiter(k, h)));
   box.replaceChildren(...teile, leiste, inhalt);
 }
@@ -154,16 +155,12 @@ async function ladeBundle(b: HTMLButtonElement, k: RepoKarte): Promise<void> {
   if (!k.bundle) return;
   b.disabled = true;
   try {
-    const { downloadBlob, oeffneAnhang } = await import("../../blob-client.js");
-    const { parseGitRepoRef } = await import("@freedomstack/protocol");
-    const ref = parseGitRepoRef(k.bundle);
-    const res = await downloadBlob(ref.blobId, (await ensurePool()) as never);
-    if (!res) {
+    // Seit 8.9b verschlüsselt, der Schlüssel steht öffentlich in der Referenz (holeBundle, seit C.3c1 geteilt mit „Code“)
+    const bytes = await holeBundle(k.bundle);
+    if (!bytes) {
       toast(t("agent.bundleKaputt"), true);
       return;
     }
-    // Seit 8.9b verschlüsselt, der Schlüssel steht öffentlich in der Referenz; ältere Bundles sind Klartext
-    const bytes = ref.schluessel ? await oeffneAnhang(res.bytes, ref.schluessel) : res.bytes;
     const url = URL.createObjectURL(new Blob([bytes as unknown as BlobPart], { type: "application/octet-stream" }));
     const a = document.createElement("a");
     a.href = url;
@@ -176,11 +173,6 @@ async function ladeBundle(b: HTMLButtonElement, k: RepoKarte): Promise<void> {
   } finally {
     b.disabled = false;
   }
-}
-
-/** Code: Die App liest Bundles noch nicht selbst (C.3c) – ehrlich sagen, wie man an den Code kommt. */
-function codeReiter(k: RepoKarte): HTMLElement[] {
-  return [el("p", t(k.bundle ? "repo.codeMitBundle" : "repo.codeOhneBundle"), "mono-sm muted")];
 }
 
 function patchReiter(k: RepoKarte, h: RepoSeiteHilfe, neu: () => void): HTMLElement[] {

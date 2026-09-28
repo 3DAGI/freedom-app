@@ -17,7 +17,7 @@ import functools, http.server, re, socket, sys, threading
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from smoke_test import ProbeRelay, raum_probe  # noqa: E402
+from smoke_test import PROBE_BUNDLE, ProbeRelay, raum_probe  # noqa: E402
 
 GROESSEN = {"desktop": {"width": 1280, "height": 800}, "mobil": {"width": 390, "height": 844}}
 # (Name, Adresse, Unter-Reiter als "gruppe:reiter" oder ""[, Knopf, der einen Dialog öffnet])
@@ -177,6 +177,20 @@ def main() -> int:
                 s.keyboard.press("Control+Enter")
                 s.wait_for_timeout(1200)
                 s.screenshot(path=str(ziel / f"{groesse}-{nr + 14:02d}-patch-angenommen.jpg"), type="jpeg", quality=70)
+                # Seit C.3c1: das eigene Repo bekommt ein echtes Bundle, der Reiter „Code“ liest es in der App
+                s.evaluate("""() => { document.querySelector('.repo-zurueck')?.click();
+                  [...document.querySelectorAll('#repos-karten .repo-karte')].find(k => k.querySelector('.repo-name').textContent === 'meins')?.click();
+                  document.querySelector('#repo-seite [data-reiter=einstellungen]')?.click(); }""")
+                s.wait_for_timeout(200)
+                datei = "#repo-seite .repo-hochladen input[type=file]"
+                if s.evaluate(f"() => !!document.querySelector('{datei}')"):
+                    s.set_input_files(datei, files=[{"name": "meins.bundle", "mimeType": "application/octet-stream", "buffer": PROBE_BUNDLE}])
+                    s.wait_for_timeout(2500)
+                s.evaluate("() => document.querySelector('#repo-seite [data-reiter=code]')?.click()")
+                s.wait_for_timeout(200)
+                s.evaluate("() => document.querySelector('#repo-seite .code-laden')?.click()")
+                s.wait_for_timeout(2500)
+                s.screenshot(path=str(ziel / f"{groesse}-{nr + 15:02d}-code.jpg"), type="jpeg", quality=70)
             ctx.close()
         browser.close()
     srv.shutdown()

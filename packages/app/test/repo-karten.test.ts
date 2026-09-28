@@ -67,7 +67,9 @@ test("C.3a: Seite verdrahtet – nur DOM, Adresse ohne Kennung, Dialoge statt pr
   assert.match(seite, /gefahr: aktion === "schliessen" \|\| aktion === "zurueckziehen",/);
   assert.match(seite, /const ev = baueStatus\(\{ patch, status: AKTION_STATUS\[aktion\], eigentuemer: k\.repo\.eigentuemer,/);
   // Bundle laden: verschlüsselt geladen, mit dem Schlüssel aus der Referenz entschlüsselt
-  assert.match(seite, /const bytes = ref\.schluessel \? await oeffneAnhang\(res\.bytes, ref\.schluessel\) : res\.bytes;/);
+  // (seit C.3c1 in holeBundle(), geteilt mit dem Reiter „Code“)
+  assert.match(quelle("../src/shell/tabs/code-reiter.ts"), /return r\.schluessel \? oeffneAnhang\(res\.bytes, r\.schluessel\) : res\.bytes;/);
+  assert.match(seite, /const bytes = await holeBundle\(k\.bundle\);/);
   // Eine Liste statt zwei (B10): die alten Listen sind weg
   for (const alt of ['id="git-repo-list"', 'id="nip34-liste"', 'id="nip34-id"', 'id="nip34-klon"']) assert.ok(!html.includes(alt), alt);
   assert.doesNotMatch(quelle("../src/shell/tabs/agent-netz.ts"), /export async function loadGitRepos/);

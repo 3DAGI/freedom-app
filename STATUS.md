@@ -10423,3 +10423,65 @@ Endstand (nach dem Einmergen von `main` mit 11.0 und 11.1a): protocol 1096 (6
 check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 (67 Ausnahmen) ·
 Website 5 Seiten ok · Smoke-Test bestanden (mit „rahmen“, „dialog“ und
 „raum“ samt Begründung, Entwurf und wieder öffnen).
+
+## Schritt C.3c1 – Oberfläche: Git-Bundle-Leser und Reiter „Code“ (erster Teil)
+
+**Fertig:** Die App liest Git-Bundles selbst (Entscheidung E4) und zeigt im
+Reiter „Code“ den letzten Commit, den obersten Ordner und die README. C.3c
+ist geteilt: C.3c2 bringt Ordner, Dateien und den Reiter „Commits“.
+
+**Einzelheiten:**
+- **Bundle-Leser** `leseBundle()` (`git-bundle.ts`, ohne DOM, ohne neue
+  Abhängigkeit):
+  - Kopf v2 und v3 (nur SHA-1-Repos), Refs und Voraussetzungen streng
+    geprüft (Kennung 40 hex, Namen ohne Steuerzeichen, höchstens 255
+    Zeichen, höchstens 1000 Kopfzeilen).
+  - Pack Version 2/3; die SHA-1 am Ende wird nachgerechnet.
+  - Objekte entpackt mit `DecompressionStream`. Packfiles nennen die
+    gepackte Länge nicht: Der Leser entpackt, sucht die Adler-32-Summe des
+    Inhalts und entpackt das Stück genau bis dort noch einmal sauber – so
+    ist das Ende sicher bekannt.
+  - Deltas nach Versatz und nach Kennung; Tiefe höchstens 50 über beide
+    Arten; jede Objekt-Kennung über `crypto.subtle` nachgerechnet.
+  - Grenzen (`BUNDLE_GRENZEN`): 32 MB, 10 000 Objekte, 128 MB entpackt (auch
+    aufgelöste Deltas), 16 MB je Objekt. Fehler nur als `BundleFehler` mit
+    Kennung, übersetzt in der Oberfläche.
+  - Dazu `leseCommit()`, `leseBaum()` (Namen ohne „/“, „.“, „..“; Ordner
+    zuerst, Groß/klein egal, unabhängig von der Sprache), `kopfCommit()`
+    (HEAD, main, master) und `commitsAb()` (erste Eltern).
+  - In Chromium: 1 MB mit 353 Objekten in 0,15 s.
+- **Reiter „Code“** (`shell/tabs/code-reiter.ts`):
+  - „Code laden“ holt das Bundle erst auf Knopfdruck über `holeBundle()`
+    (geteilt mit „Bundle laden“), liest es nur im Speicher (höchstens drei)
+    und zeigt letzten Commit, obersten Ordner und README – nur als Text,
+    binäre READMEs nicht.
+  - Ohne Bundle bleibt der ehrliche Hinweis (neu formuliert).
+- **CLAUDE.md:** ein Fallstrick „Git-Bundles nur über `leseBundle()`“.
+- **Screenshots** (`docs/ausbau/bilder/c3c1/`): Desktop und Handy, eigenes
+  Repo „meins“ nach dem Hochladen des Probe-Bundles: „Liste ergänzt · Probe ·
+  2. Sept. 2026 · 590c7cf“, darunter `src/`, `bild.bin`, `README.md` und die
+  README „# Werkzeug …“.
+
+**Tests:**
+- +5 in `git-bundle.test.ts`:
+  - Echte Bundles von git (`test/fixtures/probe-v2.bundle`, `probe-v3.bundle`,
+    je 1,5 KB, mit zwei Deltas): Refs, zehn Objekte, Commits, Baum, README,
+    die Liste aus dem Delta.
+  - Deltas nach Versatz und nach Kennung, von Hand gebaut.
+  - Feindlich: Kopf, Prüfsumme, Anzahl, unbekannter Typ, Größe, gelogene
+    Länge, fehlende Basis, Kopieren über die Basis hinaus, reservierter
+    Befehl, Tiefe und Gesamtgröße über kleinere Grenzen.
+  - Commit und Baum streng gelesen.
+  - Verdrahtung des Reiters.
+- `repo-karten.test.ts`: das Entschlüsseln steht jetzt in `holeBundle()` –
+  gleich streng geprüft.
+- Smoke-Test „raum“ auf Desktop und Handy: „Neue Version hochladen“ lädt
+  jetzt das echte Probe-Bundle hoch (verschlüsselt über die Relay-Attrappe);
+  „Code laden“ holt es zurück, entschlüsselt und liest es – Commit-Zeile,
+  Dateien und README wie erwartet.
+
+Endstand: protocol 1096 (6 übersprungen) · node 260 (6 übersprungen, mit
+Netz) · app 590 (+5) · mls 13 · Leak-Tests 62 grün + 1 todo · 0 rot ·
+check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 (67 Ausnahmen) ·
+Website 5 Seiten ok · Smoke-Test bestanden (mit „rahmen“, „dialog“ und
+„raum“ samt echtem Bundle im Reiter „Code“).
