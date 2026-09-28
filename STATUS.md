@@ -8767,7 +8767,7 @@ Website 5 Seiten ok · Smoke-Test bestanden.
     (8.4b). Vorher stand dort als dritte „das Netz wächst“.
   - Verdienen-Tab: Er zeigt die Leistungs-Events des eigenen Schlüssels –
     die des Knotens nur, wenn App und Knoten denselben Schlüssel nutzen.
-- **Whitepaper:** „Der Kern in drei Sätzen“ (es waren vier) → „Der Kern in
+- **Whitepaper:** „Der Kern in drei Sätzen“ (es sind sechs) → „Der Kern in
   Kürze“; „Das Solana-Programm ist unveränderlich“ → „wird unveränderlich
   gemacht“ (bis zum Ende der Testphase gibt es eine Upgrade-Autorität);
   KI-Antwort über Funk nachgerechnet.
