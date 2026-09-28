@@ -21,6 +21,7 @@ import {
   SLOW_BLOCK_SECS, leseBolt11, rueckSwapId, rueckSwapLamports, validateReverseTimelock,
 } from "@freedomstack/protocol";
 import { gebietsschema, t } from "./i18n.js";
+import { fristGrund } from "./protokoll-texte.js";
 
 /** Zeit fuer Bestaetigung der Sperre und Weg der Anfrage zum LP. */
 export const RUECK_PUFFER_SECS = 1800;
@@ -59,7 +60,7 @@ export function planeRueckSwap(o: LpOffer, bolt11: string, sats: number, jetzt: 
   // cltv_limit · 20 min + 1 h ≤ Restfrist. Mit Puffer fuer Bestaetigung und Weg.
   const frist = o.lnCltvDeltaBlocks * SLOW_BLOCK_SECS + 3600 + RUECK_PUFFER_SECS;
   const regel = validateReverseTimelock({ tSolSecs: frist - RUECK_PUFFER_SECS, lnCltvLimitBlocks: o.lnCltvDeltaBlocks });
-  if (!regel.ok) throw new Error(t("zahl.fristenPassenNicht", { grund: regel.reason ?? "" }));
+  if (!regel.ok) throw new Error(t("zahl.fristenPassenNicht", { grund: fristGrund(regel) }));
   if (frist > MAX_RUECK_FRIST_SECS) throw new Error(t("zahl.sperreUeberWoche"));
   return {
     sats,

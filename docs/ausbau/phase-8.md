@@ -107,9 +107,23 @@ Reihenfolge.
     übersehene Stellen ans Licht (Mesh-Protokollzeilen, Git-Bündel, Modellwahl,
     Anhang-Fehler).
   - **8.16g2b3:** Gründe aus Prüfungen des Protokolls, die die App noch
-    unverändert zeigt – `claimAllowed`, `validateReverseTimelock`,
-    `pruefeOfflineUeberweisung`, `pruefeRelayAuftrag`, `disputeWindowOpen`,
-    `isPlausibleRelayUrl`, `darfUebergeben`, `absenderPerson`,
-    `planSync().note`, `pruefeMeshInhalt().grund`, `RpcPool.stichprobe`,
-    `pruefeSolUeberweisung`, Moderationsgrund-Vorgabe.
+    unverändert zeigt – rund 90 Sätze, deshalb geteilt:
+    - **8.16g2b3a – FERTIG:** Geld und Netz. Die Prüfungen liefern zusätzlich
+      eine Kennung `fall` (samt Zahlen), die App bildet daraus den Text
+      (`protokoll-texte.ts`, Bereich `pg.*`): Fristen
+      (`validateReverseTimelock`, `validateTimelockOrdering`), Relay-Auftrag
+      (`pruefeRelayAuftrag`), Offline-Überweisung (`pruefeOfflineUeberweisung`
+      samt `pruefeSolanaTx`), Mesh-Inhalt (`pruefeMeshInhalt`), Überweisung
+      auf der Kette (`pruefeSolUeberweisung`), RPC-Stichprobe
+      (`StichprobeErgebnis.befunde`/`luecken`). `claimAllowed` war schon
+      übersetzt (App-Code).
+    - **8.16g2b3b:** Mesh und Vertrauen – `planSync().note` samt
+      übersprungener Gründe, `meshFeasibility().note`, `SYNC_POLICY`-Notizen
+      (dort steht noch „Räume sind noch nicht verschlüsselt (2.3)“),
+      `darfUebergeben`, `absenderPerson`, `disputeWindowOpen` und
+      `resolveDispute().message`, `isPlausibleRelayUrl`,
+      Moderationsgrund-Vorgabe („ausgeblendet“).
+    - Danach offen: Fehlermeldungen, die das Protokoll wirft und die App über
+      `(e as Error).message` zeigt (z. B. „Kein Solana-Endpunkt erreichbar“);
+      Gründe, die ein Relayer selbst schickt, bleiben dessen Text.
   - **8.16h:** mit 0.F – Texte der Website an den Code angleichen.

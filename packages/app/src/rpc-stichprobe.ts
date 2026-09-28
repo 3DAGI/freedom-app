@@ -9,6 +9,7 @@
  */
 import type { StichprobeErgebnis } from "@freedomstack/protocol";
 import { t } from "./i18n.js";
+import { stichprobeBefund, stichprobeLuecke } from "./protokoll-texte.js";
 
 /** Mindestabstand zweier Stichproben aus der Wallet-Ansicht. */
 export const STICHPROBE_ABSTAND_MS = 10 * 60_000;
@@ -35,13 +36,16 @@ const WAS: Record<StichprobeErgebnis["verglichen"][number], string> = {
  * keine Entwarnung.
  */
 export function stichprobeText(r: StichprobeErgebnis): { text: string; stufe: "ok" | "warnung" | "offen" } {
-  if (r.warnungen.length > 0) {
-    return { text: t("zahl.rpcWiderspruch", { warnungen: r.warnungen.join(" ") }), stufe: "warnung" };
+  // Befunde und Lücken als Daten (8.16g2b3a) in der Sprache der Oberfläche; ohne sie die Sätze des Protokolls.
+  const warnungen = r.befunde?.map(stichprobeBefund) ?? r.warnungen;
+  const hinweise = r.luecken?.map(stichprobeLuecke) ?? r.hinweise;
+  if (warnungen.length > 0) {
+    return { text: t("zahl.rpcWiderspruch", { warnungen: warnungen.join(" ") }), stufe: "warnung" };
   }
   const geprueft = r.verglichen.filter((v) => v !== "netz");
   if (geprueft.length > 0) {
     const was = geprueft.map((v) => t(WAS[v])).join(t("zahl.und"));
     return { text: t(geprueft.length === 1 ? "zahl.stichprobeStimmt" : "zahl.stichprobeStimmen", { anbieter: r.anbieter.join(" ↔ "), was }), stufe: "ok" };
   }
-  return { text: t("zahl.stichprobeUnmoeglich", { grund: r.hinweise.join("; ") || t("zahl.keineAntwort") }), stufe: "offen" };
+  return { text: t("zahl.stichprobeUnmoeglich", { grund: hinweise.join("; ") || t("zahl.keineAntwort") }), stufe: "offen" };
 }

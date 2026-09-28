@@ -9,7 +9,7 @@ import { createHash } from "node:crypto";
 import { Keypair, PublicKey, SystemProgram, Transaction, TransactionInstruction } from "@solana/web3.js";
 import {
   KIND_RELAYER_ANGEBOT, MIETE_LEERES_KONTO, buildRelayAntwort, buildRelayAuftrag, buildRelayerAngebot, mieteReicht,
-  oeffneRelayAntwort, oeffneRelayAuftrag, parseRelayerAngebot, pruefeRelayAuftrag,
+  oeffneRelayAntwort, oeffneRelayAuftrag, parseRelayerAngebot, pruefeRelayAuftrag, type RelayFehler,
 } from "../src/relayer.js";
 import { HTLC_PROGRAMM_ID } from "../src/solana-adapter.js";
 import { LocalSigner } from "../src/signer.js";
@@ -58,25 +58,29 @@ test("Pruefung laeuft auch ohne BigInt-Methoden des Buffers (wie im Browser, wo 
 });
 
 test("Relayer signiert NICHT mit, wenn …", () => {
-  const faelle: Array<[RegExp, Uint8Array]> = [
-    [/keine lesbare/, new Uint8Array([1, 2, 3])],
-    [/nicht Gebuehrenzahler/, auftrag({ zahler: kunde.publicKey })],
-    [/sonst nichts/, auftrag({ ixs: [einloesung(), erstattung(), erstattung(5_000_000, fremd.publicKey)] })],
-    [/sonst nichts/, auftrag({ ixs: [einloesung()] })],
-    [/keine Einloesung beim HTLC/, auftrag({ ixs: [erstattung(), erstattung()] })],
-    [/keine Einloesung/, auftrag({ ixs: [einloesung(kunde.publicKey, "refund"), erstattung()] })],
-    [/Relayer-Konto in der Einloesung/, auftrag({ ixs: [einloesung(relayer.publicKey), erstattung(10_000, relayer.publicKey, relayer.publicKey)], signierer: [] })],
-    [/nicht vom Empfaenger an den Relayer/, auftrag({ ixs: [einloesung(), erstattung(10_000, fremd.publicKey)] })],
-    [/unter 10000/, auftrag({ ixs: [einloesung(), erstattung(9_999)] })],
-    [/nicht signiert/, auftrag({ signierer: [] })],
+  const faelle: Array<[RegExp, RelayFehler, Uint8Array]> = [
+    [/keine lesbare/, "unlesbar", new Uint8Array([1, 2, 3])],
+    [/nicht Gebührenzahler/, "gebuehrenzahler", auftrag({ zahler: kunde.publicKey })],
+    [/sonst nichts/, "anweisungen", auftrag({ ixs: [einloesung(), erstattung(), erstattung(5_000_000, fremd.publicKey)] })],
+    [/sonst nichts/, "anweisungen", auftrag({ ixs: [einloesung()] })],
+    [/keine Einlösung beim HTLC/, "programm", auftrag({ ixs: [erstattung(), erstattung()] })],
+    [/keine Einlösung/, "keine-einloesung", auftrag({ ixs: [einloesung(kunde.publicKey, "refund"), erstattung()] })],
+    [/Relayer-Konto in der Einlösung/, "relayer-konto", auftrag({ ixs: [einloesung(relayer.publicKey), erstattung(10_000, relayer.publicKey, relayer.publicKey)], signierer: [] })],
+    [/nicht vom Empfänger an den Relayer/, "erstattung-weg", auftrag({ ixs: [einloesung(), erstattung(10_000, fremd.publicKey)] })],
+    [/unter 10000/, "erstattung-klein", auftrag({ ixs: [einloesung(), erstattung(9_999)] })],
+    [/nicht signiert/, "unsigniert", auftrag({ signierer: [] })],
     // Nach dem Signieren veraendert (Betrag der Erstattung): Signatur passt nicht mehr
-    [/ungueltig/, auftrag({ nachher: (tx) => { tx.instructions[1].data.writeBigUInt64LE(20_000n, 4); } })],
+    [/ungültig/, "signatur", auftrag({ nachher: (tx) => { tx.instructions[1].data.writeBigUInt64LE(20_000n, 4); } })],
   ];
-  for (const [grund, roh] of faelle) {
+  for (const [grund, fall, roh] of faelle) {
     const r = pruefeRelayAuftrag(roh, erwartet);
     assert.equal(r.ok, false, String(grund));
     assert.match((r as { grund: string }).grund, grund);
+    // Die Kennung des Falls (8.16g2b3): Daraus bildet die App den Text in ihrer Sprache.
+    assert.equal((r as { fall: RelayFehler }).fall, fall, String(grund));
   }
+  const klein = pruefeRelayAuftrag(auftrag({ ixs: [einloesung(), erstattung(9_999)] }), erwartet);
+  assert.deepEqual(!klein.ok && [klein.erstattung, klein.mindest], [9_999, 10_000]);
 });
 
 test("Angebot: SOL-Konto, Erstattung, Kette – sonst ungueltig", () => {

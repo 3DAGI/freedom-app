@@ -16,6 +16,7 @@ import {
   MeshKind, MeshPriority, fragment, parseFrame, Sendezeitkonto,
   buildEvent, buildPrivateDm, generateKeypair, signEvent, type NostrEvent,
 } from "@freedomstack/protocol";
+import { setLang } from "../src/i18n.js";
 
 const text = (s: string) => new TextEncoder().encode(s);
 
@@ -107,10 +108,17 @@ test("Klartext, offene Events und Ecash werden nicht gesendet", () => {
   const n = node();
   const kp = generateKeypair();
   const offen = eventToMesh(signEvent(buildEvent(kp.pk, 1, [], "Treffen um 19 Uhr"), kp.sk));
-  assert.throws(() => n.enqueue(text("HILFE am Bahnhof"), MeshKind.PlainText, MeshPriority.Notfall, "x"), /nur Verschlüsseltes/);
-  assert.throws(() => n.enqueue(text("cashuAeyJ0b2tlbiI6"), MeshKind.Ecash, MeshPriority.Zahlung, "x"), /nur Verschlüsseltes/);
-  assert.throws(() => n.enqueue(offen, MeshKind.NostrEvent, MeshPriority.Nachricht, "x"), /nur Umschläge/);
-  assert.throws(() => n.enqueue(text("x".repeat(600)), MeshKind.NostrEvent, MeshPriority.Nachricht, "x"), /Kein Nostr-Event/);
+  setLang("de"); // Gründe wörtlich auf Deutsch (seit 8.16g2b3a in der Sprache der Oberfläche)
+  try {
+    assert.throws(() => n.enqueue(text("HILFE am Bahnhof"), MeshKind.PlainText, MeshPriority.Notfall, "x"), /nur Verschlüsseltes/);
+    assert.throws(() => n.enqueue(text("cashuAeyJ0b2tlbiI6"), MeshKind.Ecash, MeshPriority.Zahlung, "x"), /nur Verschlüsseltes/);
+    assert.throws(() => n.enqueue(offen, MeshKind.NostrEvent, MeshPriority.Nachricht, "x"), /nur Umschläge/);
+    assert.throws(() => n.enqueue(text("x".repeat(600)), MeshKind.NostrEvent, MeshPriority.Nachricht, "x"), /Kein Nostr-Event/);
+  } finally {
+    setLang("en");
+  }
+  assert.throws(() => n.enqueue(text("HILFE am Bahnhof"), MeshKind.PlainText, MeshPriority.Notfall, "x"), /Only encrypted content goes over mesh/);
+  assert.throws(() => n.enqueue(offen, MeshKind.NostrEvent, MeshPriority.Nachricht, "x"), /Only envelopes \(NIP-59\)/);
   assert.equal(n.pending.length, 0);
 });
 
@@ -119,7 +127,13 @@ test("Die eigene Kopie einer DM geht nicht ueber Mesh – sie traegt den eigenen
   const dm = await buildPrivateDm({ senderSk: alice.sk, senderPk: alice.pk, recipientPk: bob.pk, content: "hallo" });
   const n = node();
   n.setEigeneSchluessel([alice.pk]);
-  assert.throws(() => n.enqueue(eventToMesh(dm.toSelf), MeshKind.NostrEvent, MeshPriority.Nachricht, "x"), /eigenen Schlüssel/);
+  setLang("de");
+  try {
+    assert.throws(() => n.enqueue(eventToMesh(dm.toSelf), MeshKind.NostrEvent, MeshPriority.Nachricht, "x"), /eigenen Schlüssel/);
+  } finally {
+    setLang("en");
+  }
+  assert.throws(() => n.enqueue(eventToMesh(dm.toSelf), MeshKind.NostrEvent, MeshPriority.Nachricht, "x"), /Envelope carries your own key/);
   assert.ok(n.enqueue(eventToMesh(dm.toRecipient), MeshKind.NostrEvent, MeshPriority.Nachricht, "an Bob").frames > 1);
 });
 

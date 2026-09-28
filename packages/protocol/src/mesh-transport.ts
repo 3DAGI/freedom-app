@@ -114,9 +114,21 @@ const HEX64 = /^[0-9a-f]{64}$/;
 /** NIP-44 v2: Base64, erstes Byte 0x02 („A…“), mindestens 99 Byte (132 Zeichen). */
 const NIP44 = /^A[A-Za-z0-9+/]{131,}={0,2}$/;
 
+/** Warum eine Solana-Transaktion nicht vollständig signiert ist (8.16g2b3) – die App bildet daraus den Text. */
+export type SolanaTxFehler =
+  | "zu-gross" | "ohne-signatur" | "version" | "unvollstaendig" | "signaturzahl" | "ohne-konten" | "signatur";
+
+/** Ergebnis von `pruefeSolanaTx()`; `bytes` bei "zu-gross", `signatur`/`signaturen` bei "signatur". */
+export type SolanaTxPruefung =
+  | { ok: true }
+  | { ok: false; grund: string; fall: SolanaTxFehler; bytes?: number; signatur?: number; signaturen?: number };
+
+/** Warum eine Nutzlast nicht über Mesh darf (8.16g2b3). */
+export type MeshFehler = SolanaTxFehler | "klartext" | "kein-event" | "kein-umschlag" | "umschlag-signatur" | "eigener-schluessel";
+
 export type MeshPruefung =
   | { ok: true; art: "umschlag" | "bestand" | "solana" }
-  | { ok: false; grund: string };
+  | { ok: false; grund: string; fall: MeshFehler; bytes?: number; signatur?: number; signaturen?: number };
 
 /**
  * Ist das ein Umschlag nach NIP-59, wie er über Mesh darf? Nur die Form:
@@ -154,20 +166,20 @@ function leseKurzzahl(b: Uint8Array, off: number): { wert: number; laenge: numbe
  * Signatur muss zu ihrem Schlüssel und zur Nachricht passen – eine halb
  * signierte Transaktion kann kein Gateway einreichen.
  */
-export function pruefeSolanaTx(tx: Uint8Array): { ok: true } | { ok: false; grund: string } {
-  if (tx.length > SOLANA_TX_MAX_BYTES) return { ok: false, grund: `Solana-Transaktion zu groß (${tx.length} Byte)` };
+export function pruefeSolanaTx(tx: Uint8Array): SolanaTxPruefung {
+  if (tx.length > SOLANA_TX_MAX_BYTES) return { ok: false, grund: `Solana-Transaktion zu groß (${tx.length} Byte)`, fall: "zu-gross", bytes: tx.length };
   const n = leseKurzzahl(tx, 0);
-  if (!n || n.wert < 1) return { ok: false, grund: "Solana-Transaktion ohne Signatur" };
+  if (!n || n.wert < 1) return { ok: false, grund: "Solana-Transaktion ohne Signatur", fall: "ohne-signatur" };
   const nachrichtAb = n.laenge + 64 * n.wert;
   const nachricht = tx.subarray(nachrichtAb);
   const kopf = nachricht.length > 0 && (nachricht[0] & 0x80) ? 1 : 0; // v0: Versionsbyte
-  if (kopf && nachricht[0] !== 0x80) return { ok: false, grund: "Solana-Transaktion mit unbekannter Version" };
-  if (nachricht.length < kopf + 3) return { ok: false, grund: "Solana-Transaktion unvollständig" };
-  if (nachricht[kopf] !== n.wert) return { ok: false, grund: "Signaturzahl passt nicht zur Nachricht" };
+  if (kopf && nachricht[0] !== 0x80) return { ok: false, grund: "Solana-Transaktion mit unbekannter Version", fall: "version" };
+  if (nachricht.length < kopf + 3) return { ok: false, grund: "Solana-Transaktion unvollständig", fall: "unvollstaendig" };
+  if (nachricht[kopf] !== n.wert) return { ok: false, grund: "Signaturzahl passt nicht zur Nachricht", fall: "signaturzahl" };
   const k = leseKurzzahl(nachricht, kopf + 3);
-  if (!k || k.wert < n.wert) return { ok: false, grund: "Solana-Transaktion ohne Konten" };
+  if (!k || k.wert < n.wert) return { ok: false, grund: "Solana-Transaktion ohne Konten", fall: "ohne-konten" };
   const kontenAb = kopf + 3 + k.laenge;
-  if (nachricht.length < kontenAb + 32 * k.wert + 32) return { ok: false, grund: "Solana-Transaktion unvollständig" };
+  if (nachricht.length < kontenAb + 32 * k.wert + 32) return { ok: false, grund: "Solana-Transaktion unvollständig", fall: "unvollstaendig" };
   for (let i = 0; i < n.wert; i++) {
     const sig = tx.subarray(n.laenge + 64 * i, n.laenge + 64 * (i + 1));
     const konto = nachricht.subarray(kontenAb + 32 * i, kontenAb + 32 * (i + 1));
@@ -175,7 +187,7 @@ export function pruefeSolanaTx(tx: Uint8Array): { ok: true } | { ok: false; grun
     try {
       gueltig = ed25519.verify(sig, nachricht, konto);
     } catch { /* kaputte Signatur */ }
-    if (!gueltig) return { ok: false, grund: `Signatur ${i + 1} von ${n.wert} fehlt oder ist ungültig` };
+    if (!gueltig) return { ok: false, grund: `Signatur ${i + 1} von ${n.wert} fehlt oder ist ungültig`, fall: "signatur", signatur: i + 1, signaturen: n.wert };
   }
   return { ok: true };
 }
@@ -200,20 +212,20 @@ export function pruefeMeshInhalt(
     const r = pruefeSolanaTx(payload);
     return r.ok ? { ok: true, art: "solana" } : r;
   }
-  if (kind !== MeshKind.NostrEvent) return { ok: false, grund: "Über Mesh geht nur Verschlüsseltes – kein Klartext, kein Ecash" };
+  if (kind !== MeshKind.NostrEvent) return { ok: false, grund: "Über Mesh geht nur Verschlüsseltes – kein Klartext, kein Ecash", fall: "klartext" };
   if (payload.length === 5 + BESTAND_BYTES && payload[0] === BESTAND_MARKE) return { ok: true, art: "bestand" };
 
   let ev: NostrEvent;
   try {
     ev = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(payload)) as NostrEvent;
   } catch {
-    return { ok: false, grund: "Kein Nostr-Event" };
+    return { ok: false, grund: "Kein Nostr-Event", fall: "kein-event" };
   }
-  if (!istMeshUmschlag(ev)) return { ok: false, grund: "Über Mesh gehen nur Umschläge (NIP-59)" };
-  if (!verifyEvent(ev)) return { ok: false, grund: "Umschlag mit ungültiger Signatur" };
+  if (!istMeshUmschlag(ev)) return { ok: false, grund: "Über Mesh gehen nur Umschläge (NIP-59)", fall: "kein-umschlag" };
+  if (!verifyEvent(ev)) return { ok: false, grund: "Umschlag mit ungültiger Signatur", fall: "umschlag-signatur" };
   const eigene = (opts.eigeneSchluessel ?? []).map((s) => s.toLowerCase());
   if (eigene.includes(ev.pubkey) || ev.tags.some((t) => eigene.includes(t[1]))) {
-    return { ok: false, grund: "Umschlag trägt den eigenen Schlüssel" };
+    return { ok: false, grund: "Umschlag trägt den eigenen Schlüssel", fall: "eigener-schluessel" };
   }
   return { ok: true, art: "umschlag" };
 }

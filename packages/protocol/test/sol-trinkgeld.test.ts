@@ -77,9 +77,9 @@ test("Kette: belegt nur mit Empfaenger und Betrag; gefaelschte Signatur und fals
   // Gefaelschte Signatur: Die Kette kennt die Transaktion nicht
   assert.equal(pruefeSolUeberweisung(null, erwartet).status, "unbestaetigt");
   // Falscher Betrag, falscher Empfaenger, gescheiterte Transaktion, fremder Absender
-  assert.deepEqual(pruefeSolUeberweisung(tx([{ an: AN, lamports: 1_999_999 }]), erwartet), { status: "falsch", grund: "nur 1999999 statt 2000000 Lamports" });
+  assert.deepEqual(pruefeSolUeberweisung(tx([{ an: AN, lamports: 1_999_999 }]), erwartet), { status: "falsch", grund: "nur 1999999 statt 2000000 Lamports", fall: "zu-wenig", lamports: 1_999_999, erwartet: 2_000_000 });
   assert.equal(pruefeSolUeberweisung(tx([{ an: VON, lamports: 2_000_000 }]), erwartet).status, "falsch");
-  assert.deepEqual(pruefeSolUeberweisung(tx([{ an: AN, lamports: 2_000_000 }], { InstructionError: [0, "Custom"] }), erwartet), { status: "falsch", grund: "Transaktion ist gescheitert" });
+  assert.deepEqual(pruefeSolUeberweisung(tx([{ an: AN, lamports: 2_000_000 }], { InstructionError: [0, "Custom"] }), erwartet), { status: "falsch", grund: "Transaktion ist gescheitert", fall: "gescheitert" });
   assert.equal(pruefeSolUeberweisung(tx([{ an: AN, lamports: 2_000_000, von: AN }]), { ...erwartet, von: VON }).status, "falsch");
   // Andere Programme zaehlen nicht
   const fremd = tx([{ an: AN, lamports: 2_000_000 }]);
