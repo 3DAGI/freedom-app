@@ -223,3 +223,7 @@ key-rotation.ts|revocationInstructions|deutsche Referenz; die App bildet die Anl
 devices.ts|deviceWarning|deutsche Referenz; die App bildet die Rückfrage seit 8.16g2b2 in protokoll-texte.ts (geraetWarnung) nach, ein Test hält sie wortgleich
 release.ts|sharingInstructions|deutsche Referenz; die App bildet den Begleittext seit 8.16g2b2 in protokoll-texte.ts (weitergabeText) nach, ein Test hält ihn wortgleich
 mesh-sync.ts|offlineCapabilities|deutsche Referenz; die App bildet die Liste seit 8.16g2b2 in protokoll-texte.ts (offlineFaehigkeiten) nach, ein Test hält sie gleich
+funk-gateway.ts|GatewayBuch|KI über Funk (7.4a): die Gateway-Rolle des Knotens verdrahtet das Buch in 7.4b
+funk-gateway.ts|baueWeiterleitung|KI über Funk (7.4a): baut die App in 7.4c, wenn sie eine KI-Anfrage über Mesh schickt
+funk-gateway.ts|oeffneWeiterleitung|KI über Funk (7.4a): öffnet die Gateway-Rolle des Knotens in 7.4b
+funk-gateway.ts|kurzParam|KI über Funk (7.4a): setzt die App in 7.4c in die Anfrage über Mesh; der Provider liest ihn schon (leseKurzWunsch)

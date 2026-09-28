@@ -34,3 +34,28 @@
   einen Provider weiter und kürzt die Antwort (höchstens 500 Zeichen, komprimiert).
   Bezahlt wird per Zahlkanal-Gutschrift.
 - **Abnahme:** Test mit simuliertem Funkkanal (Paketgröße, Verzögerung, Verlust).
+- **Entschieden (MENSCH 26.09.):** Der Provider kürzt auf Wunsch (Parameter im
+  versiegelten Auftrag) auf 500 Zeichen ohne Zwischenstände – Ende-zu-Ende
+  bleibt; das Gateway reicht nur Umschläge weiter und kennt nur den
+  Sitzungsschlüssel; der Knoten hängt über eine TCP-Brücke (Längenpräfix,
+  z. B. socat/ser2net) am Funkgerät, keine neue Abhängigkeit.
+- **Aufteilung:**
+  - **7.4a – FERTIG:** Protokoll `funk-gateway.ts`: `kurzParam()` /
+    `leseKurzWunsch()` (`["param","max_zeichen","<n>"]`, höchstens 500),
+    `kuerzeAntwort()`; versiegelter Weiterleitungsauftrag (Kind 25030, Autor =
+    Sitzungsschlüssel, Ablauf höchstens 1 h, auch am Umschlag) –
+    `baueWeiterleitung()`/`oeffneWeiterleitung()`; `GatewayBuch` (nur Umschläge
+    an gemerkte, laufende Sitzungen, höchstens 3 je Sitzung, keine doppelt,
+    höchstens 50 Sitzungen). Der Provider kürzt, bittet das Modell um Kürze und
+    schickt keine Zwischenstände. Abnahme auf Protokollebene: Auftrag und
+    Weiterleitung über einen simulierten Funkkanal (Pakete ≤ 200 Byte,
+    Verzögerung, Verlust mit gezieltem Nachfordern, Dubletten), Antwort zurück,
+    in der Sendezeit einer Stunde.
+  - **7.4b:** Gateway-Rolle im Knoten – TCP-Brücke zum Funkgerät
+    (Längenpräfix), Umschläge aus dem Funk ins Netz, Post an gemerkte
+    Sitzungen über die Warteschlange mit Sendezeitkonto zurück, Nachfordern
+    fehlender Pakete; Abnahme mit simuliertem Funkkanal gegen den echten
+    `DvmProvider`.
+  - **7.4c:** App – KI-Anfrage über Mesh (Gateway wählen, Auftrag mit
+    `kurzParam()` und Zahlkanal-Gutschrift, Weiterleitung), Antwort aus dem
+    Mesh öffnen und zeigen; ehrliche Texte zu Dauer und Kosten.

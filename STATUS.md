@@ -8903,3 +8903,49 @@ ohne Netz 234 + 7) · app 510 (+1) · mls 13 · Leak-Tests 58 grün + 1 todo · 
 ok · Smoke-Test bestanden · im Browser: eine ungültige Bunker-Adresse meldet
 englisch „Not connected: Not a valid bunker:// address“, deutsch „Nicht
 verbunden: Keine gültige bunker://-Adresse“, keine Seitenfehler.
+
+## Schritt 7.4a – KI über ein Funk-Gateway: Protokoll und Provider
+
+**Fertig:** Die Bausteine, mit denen eine KI-Anfrage ohne Internet über Funk
+zu einem Gateway mit Netz geht und eine kurze Antwort zurückkommt. 7.4 war
+zurückgestellt (MENSCH 26.09.), bis der Zahlkanal (4.3) steht – der ist im
+Code fertig. Aufgeteilt: **a** Protokoll und Provider (dieser Schritt),
+**b** Gateway-Rolle im Knoten, **c** App.
+
+- **Protokoll `funk-gateway.ts`:**
+  - Kurze Antwort auf Wunsch: `kurzParam()` setzt `["param","max_zeichen","<n>"]`
+    in den versiegelten Auftrag (höchstens 500); `leseKurzWunsch()` liest ihn
+    (Unbrauchbares heißt: wie immer); `kuerzeAntwort()` kürzt nach
+    Codepunkten, gekürzt endet mit „…“.
+  - Weiterleitungsauftrag (Kind 25030): versiegelt an das Gateway, Autor ist
+    der Sitzungsschlüssel, Ablauf höchstens 1 h (auch am Umschlag, NIP-40) –
+    `baueWeiterleitung()`/`oeffneWeiterleitung()`. Das Gateway erfährt nur den
+    Sitzungsschlüssel; die Signatur zeigt, dass der Auftraggeber ihn hält.
+  - `GatewayBuch`: zurück über Funk nur Umschläge an gemerkte, laufende
+    Sitzungen, höchstens drei je Sitzung, keiner doppelt, höchstens 50
+    Sitzungen zugleich.
+- **Provider (`dvm-provider.ts`):** Mit `max_zeichen` bittet er das Modell um
+  Kürze, kürzt das Ergebnis hart (auch im Schwarm-Modus) und schickt keine
+  Zwischenstände (Kind 7000) – jede Rückmeldung kostete Sendezeit. Ohne den
+  Parameter bleibt alles wie bisher.
+- `offline-node.ts`: Der Kommentar „500 Tokens bräuchte Stunden“ stimmt jetzt
+  mit der Rechnung aus 8.16h überein.
+- `wiring-ausnahmen.txt`: vier Bausteine, die 7.4b (Gateway) und 7.4c (App)
+  verdrahten.
+
+**Tests:**
+- +4 in `protocol/test/funk-gateway.test.ts`:
+  - Parameter gedeckelt, Unbrauchbares ignoriert, Kürzen ohne halbes Emoji;
+  - Weiterleitung: geht als Umschlag über Mesh, Sitzung nur im Kern, fremdes
+    Gateway, abgelaufen und über 1 h abgelehnt;
+  - Gateway-Buch: fremde Sitzung, kein Umschlag, doppelt, mehr als drei,
+    abgelaufen, Buch voll;
+  - **Abnahme auf Protokollebene:** Auftrag und Weiterleitung über einen
+    simulierten Funkkanal (Pakete ≤ 200 Byte, Verzögerung – Reihenfolge
+    umgedreht –, Verlust mit gezieltem Nachfordern, Dubletten) ans Gateway,
+    ins Netz zum Provider, kurze Antwort versiegelt an die Sitzung, über das
+    Buch und den Funkkanal zurück; die Antwort passt in die Sendezeit einer
+    Stunde und öffnet nur mit dem Sitzungsschlüssel.
+- +2 in `node/test/funk-kurz.test.ts`: mit `max_zeichen` höchstens 500 Zeichen,
+  erkennbar gekürzt, keine Zwischenstände, Bitte um Kürze im Prompt; ohne ihn
+  wie bisher (ganze Antwort, ein Zwischenstand).

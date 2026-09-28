@@ -44,7 +44,7 @@ bash packages/mls/bauen.sh --pruefen                     # nur bei Änderungen a
 bash contracts/solana-channel/pruefen.sh --werkzeuge     # nur bei Änderungen am Zahlkanal: bauen + Tests gegen Validator (Agave 3.1.10)
 ```
 
-Stand 28.09.2026 (nach 4.3d2, C.2a und 8.16i2): protocol 1071 grün (6 übersprungen), node 235 grün
+Stand 28.09.2026 (nach 4.3d2, C.2a und 7.4a): protocol 1075 grün (6 übersprungen), node 237 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
 in `tools.test.ts`), app 510 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 58 grün + 1 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
@@ -296,7 +296,12 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   signierte Solana-Transaktionen, beim Senden mit `eigeneSchluessel` (die eigene
   DM-Kopie trägt den eigenen Schlüssel als Empfänger). Über Funk gilt die
   Sendezeit (`Sendezeitkonto`, 1 % je Stunde); Weiterreichen nur über die
-  Warteschlange, nie `transport.send()` am Konto vorbei.
+  Warteschlange, nie `transport.send()` am Konto vorbei. KI über Funk (seit 7.4a)
+  nur über ein Gateway: der Auftrag mit `kurzParam()` (höchstens 500 Zeichen,
+  keine Zwischenstände – der Provider liest `leseKurzWunsch()`), das Gateway
+  erfährt den Sitzungsschlüssel nur aus dem versiegelten Weiterleitungsauftrag
+  (`baueWeiterleitung()`, Kind 25030) und funkt nur zurück, was
+  `GatewayBuch.zurueck()` durchlässt.
 - **Keine fest verdrahteten Relays** (seit 5.4a): Die Startliste steht nur in
   `STARTRELAYS` (`protocol/src/relay-start.ts`, `startUrls()`); die App baut den
   Pool mit `poolRelays()` (eigener Satz + wechselnd weitere). Eigene Listen
