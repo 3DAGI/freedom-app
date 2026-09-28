@@ -45,9 +45,9 @@ bash packages/mls/bauen.sh --pruefen                     # nur bei Änderungen a
 bash contracts/solana-channel/pruefen.sh --werkzeuge     # nur bei Änderungen am Zahlkanal: bauen + Tests gegen Validator (Agave 3.1.10)
 ```
 
-Stand 28.09.2026 (nach 8.2c, 5.5a–c, 8.15, 11.1a, C.3c2, 11.1b, 5.9a–b, 6.3a–b2, 11.4a und 11.4b1): protocol 1111 grün (6 übersprungen), node 263 grün
+Stand 28.09.2026 (nach 8.2c, 5.5a–c, 8.15, 11.1a, C.3c2, 11.1b, 5.9a–b, 6.3a–b2, 11.4a, 11.4b1 und C.4a): protocol 1111 grün (6 übersprungen), node 263 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 611 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 65 grün + 1 `todo` (heutige Lecks,
+in `tools.test.ts`), app 618 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 65 grün + 1 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
 Ausnahme: gesendete SOL-Zahlungen von frischen Adressen, eine bewusste Grenze
 nach Entscheidung 4.9 A – im Datenschutzbericht unter „Bewusste Grenzen“).
@@ -658,6 +658,13 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   `DecompressionStream` meldet Daten nach dem Ende als Fehler, liefert den
   Inhalt aber vorher. `crypto.subtle` gibt es nur in sicheren Kontexten
   (https, localhost) – Browser-Tests nie auf `about:blank`.
+- **Abdeckungskarte nur aus `buildCoverage()`** (seit C.4a): Die Karte
+  (`shell/tabs/karte.ts`) bekommt nur `r.cells`/`r.hiddenCells`, nie Events
+  oder Schlüssel; Rechnung ohne DOM in `karte-ansicht.ts` (Zellkennung nur in
+  der Form von `toCell()`). Gezeichnet nur mit `createElementNS` und
+  `textContent`, keine Kacheln, nichts von außen. Je Gebiet nur die Stufe
+  (`zellenStufe()`), nie die Zahl der Einträge. Zeiger erst beim Ziehen
+  festhalten (`setPointerCapture`) – sonst trifft ein Klick nie eine Zelle.
 - **QR-Codes nur über `shell/qr-ui.ts`** (seit 11.1b): erzeugt mit `qrCode()`
   (`protocol/src/qr.ts`, 11.1a, Bit für Bit gegen python-qrcode – die Referenz
   nur mit `scripts/qr-referenz.py` neu erzeugen), gezeigt nur als SVG über

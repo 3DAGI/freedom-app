@@ -15,6 +15,7 @@ import { $, timeAgo, toast } from "../ui.js";
 import { merkeWerber, werbeLink } from "../../werbung.js";
 import { knotenSchluessel } from "../verdienst-ui.js";
 import { mitwirkendeListe } from "../mitwirkende.js";
+import { gebietText, zeigeKarte } from "./karte.js";
 import { qrKnopf } from "../qr-ui.js";
 
 /** Mitwirkende am Projekt anzeigen. */
@@ -44,26 +45,36 @@ export async function ladeAbdeckung(): Promise<void> {
     const pool = await ensurePool();
     const evs = await pool.query({ kinds: [KIND_COVERAGE], limit: 2000 });
     const r = buildCoverage(evs);
+    zeigeKarte(r.cells, r.hiddenCells);
 
     if (liste) {
       const { summarizeLayers } = await import("@freedomstack/protocol");
       const zusammen = summarizeLayers(r.cells, r.hiddenCells);
       const symbol: Record<string, string> = { online: "🌐", lora: "📡", bluetooth: "🔵" };
 
-      liste.innerHTML =
-        // Kopfzeile je Ebene: Was gibt es ueberhaupt, bevor es um Orte geht.
-        zusammen.map((z) =>
-          `<div class="usage-row"><span>${symbol[z.layer]} ${escapeHtml(ebeneName(z.layer))}</span>` +
-          `<span class="${z.cells > 0 ? "ok" : "muted"}">${escapeHtml(t("earn.gebiete", { n: z.cells }))}</span></div>`,
-        ).join("") +
-        (r.cells.length === 0
-          ? `<div class="muted" style="margin-top:8px">${escapeHtml(t("earn.keineEintraege"))}</div>`
-          : `<div style="margin-top:8px">` + r.cells.slice(0, 15).map((c) =>
-              `${symbol[c.layer] ?? "•"} ${escapeHtml(c.region || "?")} · ${escapeHtml(zellenStufe(c.nodes))}`,
-            ).join("<br>") + `</div>`) +
-        (r.hiddenCells > 0
-          ? `<div class="muted" style="margin-top:6px">${escapeHtml(t("earn.verborgen", { n: r.hiddenCells }))}</div>`
-          : "");
+      // Seit C.4a als DOM, alle Gebiete, ohne Namen mit ihrer Mitte (B12) – wie die Karte
+      const div = (text: string, klasse: string) => {
+        const d = document.createElement("div");
+        d.className = klasse;
+        d.textContent = text;
+        return d;
+      };
+      // Kopfzeile je Ebene: Was gibt es ueberhaupt, bevor es um Orte geht.
+      const kopf = zusammen.map((z) => {
+        const zeile = div("", "usage-row");
+        const name = document.createElement("span");
+        name.textContent = `${symbol[z.layer] ?? "•"} ${ebeneName(z.layer)}`;
+        const zahl = document.createElement("span");
+        zahl.className = z.cells > 0 ? "ok" : "muted"; // kein UI-Text
+        zahl.textContent = t("earn.gebiete", { n: z.cells });
+        zeile.append(name, zahl);
+        return zeile;
+      });
+      const orte = r.cells.length === 0
+        ? [div(t("earn.keineEintraege"), "muted abdeckung-orte")]
+        : r.cells.map((c) => div(`${symbol[c.layer] ?? "•"} ${gebietText(c)} · ${zellenStufe(c.nodes)}`, "abdeckung-ort"));
+      const verborgen = r.hiddenCells > 0 ? [div(t("earn.verborgen", { n: r.hiddenCells }), "muted abdeckung-orte")] : [];
+      liste.replaceChildren(...kopf, ...orte, ...verborgen);
     }
 
     // Standort nur auf ausdruecklichen Wunsch — nicht beim Oeffnen des Tabs.

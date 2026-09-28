@@ -7,9 +7,9 @@ Karte der Abdeckung und eine Navigation, die auf Desktop und Handy je für sich
 Sinn ergibt. Protokoll, Krypto, Zahlungen und Event-Formate bleiben, wie sie
 sind; sonst gilt die STOPP-Regel aus `CLAUDE.md`.
 
-Stand dieser Karte: **C.0, C.1a, C.1b, C.2 (Räume) und C.3 (Repositories) fertig.** Der MENSCH hat den
+Stand dieser Karte: **C.0, C.1a, C.1b, C.2 (Räume), C.3 (Repositories) und C.4a fertig.** Der MENSCH hat den
 Entwurf am 27.09.2026 freigegeben – E1–E8 wie vorgeschlagen (Abschnitt 10.3).
-Nächster Schritt: C.4a.
+Nächster Schritt: C.4b.
 
 ---
 
@@ -700,6 +700,26 @@ einem ersten echten Pfad, C.3c2 der Reiter „Code“ ganz und „Commits“.
   die Commits ab HEAD entlang der ersten Eltern (höchstens 100), je Commit die
   ganze Nachricht zum Aufklappen (`<details>`); ohne Bundle die angenommenen
   Patches mit den Commits aus `applied-as-commits`.
+
+**C.4a – fertig (28.09.2026).**
+- `karte-ansicht.ts` (ohne DOM): Plattkarte 360 × 180, Zelle als Rechteck an
+  der Südwest-Ecke in der Größe ihrer Ebene; die Kennung kommt aus fremden
+  Events und gilt nur in der Form von `toCell()` (sonst kein Rechteck).
+  Gezeichnet wird nur, was `buildCoverage()` ausgibt – das Modul kennt weder
+  Events noch Schlüssel. Zoom 1–32, der Ausschnitt bleibt in der Welt, der
+  Punkt unter Zeiger oder Fingern bleibt stehen. Gradnetz alle 30°, ab Zoom 3
+  alle 10°.
+- `tabs/karte.ts`: SVG nur mit `createElementNS`/`textContent`. Je Ebene
+  eigene Farbe **und** Schraffur (45°, −45°, waagrecht); die Schalter der
+  Ebenen sind zugleich die Legende (`aria-pressed`). Maus: Rad, Ziehen, Klick;
+  Touch: ziehen, zwei Finger; Tastatur: Pfeile, `+`/`−`, `0`, Tab springt
+  durch die Gebiete im Ausschnitt, Enter zeigt Ebene, Gebiet und Stufe (nie
+  die Zahl der Einträge). Unter der Karte der Satz zur Schwelle – ehrlich:
+  Provider im Netz ab einem Eintrag, Funk und Bluetooth ab drei; sie schützt
+  nur die Anzeige.
+- „Karte / Liste“: Die Liste ist jetzt DOM, zeigt alle Gebiete (nicht mehr
+  höchstens 15) und statt „?“ die Mitte eines Gebiets ohne Namen (B12).
+- Welt-Umrisse, eigene Zelle und gerundeter Standort folgen mit C.4b.
 
 ---
 

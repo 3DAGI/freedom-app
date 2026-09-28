@@ -500,7 +500,25 @@
           <h3><span class="ic" data-icon="globe"></span> <span data-i18n="earn.abdeckung">Abdeckung</span></h3>
           <p class="mono-sm" data-i18n="earn.abdeckungText">Wo es Provider und Funk gibt. Funkknoten erscheinen erst ab drei pro Gebiet, damit sich niemand verorten lässt. Ein Eintrag trägt einen Wegwerfschlüssel, nicht deine Identität, und läuft nach 7 Tagen ab. Auf den Relays ist jeder Eintrag einzeln sichtbar – die Schwelle gilt nur für die Anzeige hier.</p>
           <div id="coverage-here" class="mono-sm"></div>
-          <div id="coverage-list" class="mono-sm"></div>
+          <div id="coverage-ansicht" class="seg karte-umschalter" role="group" aria-label="Ansicht der Abdeckung" data-i18n-aria="karte.ansichtAria">
+            <button type="button" data-ansicht="karte" class="active" aria-pressed="true" data-i18n="earn.tabKarte">Karte</button>
+            <button type="button" data-ansicht="liste" aria-pressed="false" data-i18n="karte.liste">Liste</button>
+          </div>
+          <div id="coverage-karte" class="karte">
+            <div class="karte-leiste">
+              <div id="coverage-ebenen" class="karte-ebenen" role="group" aria-label="Ebenen ein- und ausblenden" data-i18n-aria="karte.ebenenAria"></div>
+              <div class="karte-zoom">
+                <button id="coverage-naeher" type="button" class="ghost mini" aria-label="Näher heran" title="Näher heran" data-i18n-aria="karte.naeher" data-i18n-title="karte.naeher">+</button>
+                <button id="coverage-weiter" type="button" class="ghost mini" aria-label="Weiter weg" title="Weiter weg" data-i18n-aria="karte.weiter" data-i18n-title="karte.weiter">−</button>
+                <button id="coverage-welt" type="button" class="ghost mini" data-i18n="karte.welt">Ganze Welt</button>
+              </div>
+            </div>
+            <div id="coverage-svg" class="karte-flaeche"></div>
+            <p id="coverage-zelle" class="karte-angaben" role="status" aria-live="polite"></p>
+            <p id="coverage-karte-hinweis" class="muted karte-klein"></p>
+            <p class="muted karte-klein" data-i18n="karte.bedienung">Ziehen oder Pfeiltasten verschieben, Mausrad, zwei Finger oder Plus/Minus zoomen. Ein Gebiet antippen (oder Enter) zeigt seine Angaben.</p>
+          </div>
+          <div id="coverage-list" class="mono-sm hidden"></div>
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
             <button id="coverage-refresh" class="ghost" style="width:auto;padding:6px 10px" data-i18n="earn.aktualisieren">aktualisieren</button>
             <button id="coverage-join" class="ghost" style="width:auto;padding:6px 10px" data-i18n="earn.eintragen">selbst eintragen</button>

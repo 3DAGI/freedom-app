@@ -10968,3 +10968,77 @@ Endstand: protocol 1111 (+3, 6 übersprungen) · node 262 + 7 übersprungen
 rot · check-wiring `--streng` Exit 0 (fünf Bausteine bis 11.4b2 ausgenommen)
 · innerHTML streng Exit 0 · Website ok · Smoke-Test bestanden · Website-Bau
 ok. Knoten-Stand: unverändert.
+
+
+## Schritt C.4a – Oberfläche: Abdeckungskarte als SVG
+
+**Fertig:** Die Abdeckung (Netz › Karte) ist jetzt eine eigene Karte als SVG
+statt einer Liste mit höchstens 15 Gebieten (B12). Keine Kacheln, nichts von
+außen, keine neue Abhängigkeit.
+
+**Einzelheiten:**
+- **Rechnung ohne DOM** (`karte-ansicht.ts`):
+  - Plattkarte 360 × 180 (Länge → x, Breite → y). Eine Zelle ist ein
+    Rechteck an ihrer Südwest-Ecke in der Größe ihrer Ebene
+    (`LAYER_CELL_DEGREES`). Die Kennung kommt aus fremden Events und gilt
+    nur in der Form von `toCell()` – sonst kein Rechteck.
+  - `kartenZellen()` nimmt nur, was `buildCoverage()` ausgibt (Zellen über
+    der Schwelle), gröbere Ebenen zuerst. Das Modul kennt weder Events noch
+    Schlüssel.
+  - Zoom 1–32; der Ausschnitt bleibt in der Welt; der Punkt unter Zeiger
+    oder Fingern bleibt stehen. Gradnetz alle 30°, ab Zoom 3 alle 10°.
+- **Karte** (`shell/tabs/karte.ts`, verdrahtet in `ladeAbdeckung()`,
+  `earn.ts:47`):
+  - Nur `createElementNS` und `textContent`. Je Ebene eigene Farbe **und**
+    Schraffur (45°, −45°, waagrecht) – auch ohne Farbsehen unterscheidbar.
+  - Die Schalter der Ebenen sind zugleich die Legende (Probe mit derselben
+    Schraffur, `aria-pressed`).
+  - Maus: Rad zoomt um den Zeiger, Ziehen verschiebt, Klick wählt ein
+    Gebiet. Touch: ziehen, zwei Finger zoomen und verschieben. Tastatur:
+    Pfeile, `+`/`−`, `0` (ganze Welt); Tab springt durch die Gebiete im
+    Ausschnitt, Enter zeigt die Angaben. Dazu Knöpfe „+“, „−“, „Ganze Welt“.
+  - Angaben je Gebiet: Ebene, Gebiet (Name aus dem Eintrag, gekürzt, oder
+    die Mitte in Grad), Stufe (wenige, mehrere, viele) – nie die Zahl der
+    Einträge. Angesagt über `role="status"`.
+  - Unter der Karte ehrlich: Funk und Bluetooth ab 3 Einträgen je Gebiet,
+    Provider im Netz ab einem (so rechnet `buildCoverage()`); die Schwelle
+    schützt nur die Anzeige. Dazu wie bisher „n Gebiete nicht angezeigt“.
+- **„Karte / Liste“:** Die Liste bleibt als gleichwertige Ansicht, jetzt als
+  DOM (4 innerHTML-Ausnahmen weniger), mit allen Gebieten und statt „?“ der
+  Mitte eines Gebiets ohne Namen – eigene Einträge tragen keinen.
+- Neue Texte in `texte/karte.ts` (de + en).
+- **Screenshots** (`docs/ausbau/bilder/c4a/`): Desktop die ganze Welt mit
+  drei Gebieten und Europa näher mit gewähltem Funk-Gebiet; Handy Europa
+  näher (Angaben, Schwelle, Bedienung) und die Liste.
+- Welt-Umrisse (E5), die eigene Zelle und der gerundete Standort (E6)
+  folgen mit C.4b.
+
+**Tests:**
+- +7 in `karte-ansicht.test.ts`:
+  - Projektion und Rechtecke der drei Ebenen.
+  - Unfug in der Kennung ergibt kein Rechteck (13 Formen, unbekannte Ebene).
+  - Nur Zellen über der Schwelle aus echten Einträgen: zwei Funkknoten und
+    zwei Bluetooth-Geräte erscheinen nicht, drei Funkknoten und ein Provider
+    schon; die Karte bekommt nur Zellfelder.
+  - Angaben je Zelle mit Stufe statt Zahl, deutsch und englisch; fremde
+    Namen gekürzt.
+  - Zoom und Verschieben an den Grenzen, Punkt unter dem Zeiger bleibt.
+  - Gradnetz und „im Ausschnitt“.
+  - Verdrahtung: Karte gleich nach `buildCoverage()`, kein `innerHTML`,
+    keine Events oder Schlüssel in Karte und Rechnung, Liste ohne
+    `innerHTML` und ohne Grenze 15.
+- Neuer Smoke-Test „karte“ (Desktop und Handy) mit Probe-Einträgen aus
+  `scripts/raum-probe.mts` (je Eintrag ein Wegwerfschlüssel):
+  - Drei Gebiete, nie das mit zwei Funkknoten; „1 Gebiet(e) nicht
+    angezeigt“; ein Name mit `<b>` bleibt Text.
+  - Tastatur `+`, Pfeil, `−`, `0`, Tab, Enter; Desktop Rad, Ziehen, Klick;
+    Handy zwei Finger über Europa (achtmal näher, der Punkt bleibt) und
+    Antippen.
+  - Ebene aus- und wieder einschalten; „Liste“ mit allen Gebieten; keine
+    waagrechte Laufleiste.
+
+Endstand (nach dem Einmergen von 11.1b bis 11.4b1): protocol 1111
+(6 übersprungen) · node 263 (6 übersprungen, mit Netz) · app 618 (+7) ·
+mls 13 · Leak-Tests 65 grün + 1 todo · 0 rot · check-wiring `--streng`
+Exit 0 · innerHTML streng Exit 0 · Website 5 Seiten ok · Smoke-Test
+bestanden (mit „rahmen“, „dialog“, „raum“, „karte“ und „qr“).

@@ -201,6 +201,19 @@ def main() -> int:
                 s.evaluate("() => document.querySelector('#repo-seite .code-commits details summary')?.click()")
                 s.wait_for_timeout(200)
                 s.screenshot(path=str(ziel / f"{groesse}-{nr + 17:02d}-commits.jpg"), type="jpeg", quality=70)
+                # Seit C.4a: Abdeckungskarte aus den Probe-Einträgen – Welt, näher an Europa mit gewähltem Gebiet, Liste
+                s.evaluate("() => { location.hash = '#/netz'; document.querySelector(\"[data-subtab-group='netz'] [data-subtab='map']\")?.click(); }")
+                s.wait_for_timeout(1500)
+                s.screenshot(path=str(ziel / f"{groesse}-{nr + 18:02d}-karte-welt.jpg"), type="jpeg", quality=70)
+                s.evaluate("""() => { for (let i = 0; i < 10; i++) { const k = document.querySelector('#coverage-svg svg'); const r = k.getBoundingClientRect();
+                    k.dispatchEvent(new WheelEvent('wheel', { deltaY: -100, clientX: r.left + 189 / 360 * r.width, clientY: r.top + 42 / 180 * r.height, bubbles: true, cancelable: true })); }
+                  document.querySelector('#coverage-svg [data-zelle="lora:48.00,11.00"]')?.dispatchEvent(new MouseEvent('click', { bubbles: true })); }""")
+                s.wait_for_timeout(300)
+                s.evaluate("() => document.querySelector('#coverage-karte').scrollIntoView({ block: 'start' })")
+                s.screenshot(path=str(ziel / f"{groesse}-{nr + 19:02d}-karte-europa.jpg"), type="jpeg", quality=70)
+                s.evaluate("() => document.querySelector('#coverage-ansicht [data-ansicht=liste]')?.click()")
+                s.wait_for_timeout(200)
+                s.screenshot(path=str(ziel / f"{groesse}-{nr + 20:02d}-karte-liste.jpg"), type="jpeg", quality=70)
             ctx.close()
         browser.close()
     srv.shutdown()

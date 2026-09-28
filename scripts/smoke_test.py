@@ -1187,6 +1187,134 @@ def raum_pruefen(browser, url: str) -> dict:
     return erg
 
 
+def karte_pruefen(browser, url: str) -> dict:
+    """Abdeckungskarte (C.4a): eigenes SVG, nur Zellen über der Schwelle, fremde Namen als Text,
+    Tastatur (Pfeile, +/−, 0, Tab, Enter), Maus (Rad, Ziehen, Klick) bzw. Antippen, Ebenen, „Karte | Liste“."""
+    erg = {"fehler": []}
+    basis = url.rsplit("/", 1)[0]
+    probe = raum_probe("0" * 64)  # Abdeckung hängt nicht am eigenen Schlüssel
+    for groesse, vp in [("desktop", {"width": 1280, "height": 800}), ("mobil", {"width": 390, "height": 844})]:
+        mobil = groesse == "mobil"
+        relay = ProbeRelay()
+        relay.events = list(probe)
+        ctx = browser.new_context(locale="de-DE", viewport=vp, is_mobile=mobil, has_touch=mobil)
+        ctx.route("**/*", lambda r: r.continue_() if r.request.url.startswith(basis) else r.abort())
+        ctx.route_web_socket(re.compile(r"^wss?://"), relay.verbinde)
+        s = ctx.new_page()
+        s.on("pageerror", lambda e: erg["fehler"].append(str(e)[:300]))
+        ev = s.evaluate
+        s.goto(url, wait_until="load")
+        s.wait_for_selector("#bk-done", timeout=30000)
+        w = ev("() => [...document.querySelectorAll('.mnemonic-list li')].map(l => l.textContent)")
+        ev("(w) => document.querySelectorAll('#bk-challenge input').forEach(i => i.value = w[+i.dataset.pos])", w)
+        ev("() => document.getElementById('bk-done').click()")
+        s.wait_for_timeout(1500)
+        ev("() => document.getElementById('ein-abbrechen')?.click()")
+        ev("() => { location.hash = '#/netz'; }")
+        try:
+            s.wait_for_function("() => document.querySelectorAll('#coverage-svg .karte-zelle').length > 0", timeout=15000)
+        except Exception:
+            pass
+        stand = """() => { const k = document.querySelector('#coverage-svg svg'); const r = (e) => e.getBoundingClientRect();
+          return { zellen: [...document.querySelectorAll('#coverage-svg .karte-zelle')].map(z => z.dataset.zelle),
+            viewBox: k?.getAttribute('viewBox').split(' ').map(v => Math.round(+v * 10) / 10).join(' '), fett: document.querySelectorAll('#coverage-svg b, #coverage-list b').length,
+            titel: [...document.querySelectorAll('#coverage-svg .karte-zelle title')].map(t => t.textContent),
+            info: document.getElementById('coverage-zelle').textContent,
+            hinweis: document.getElementById('coverage-karte-hinweis').textContent,
+            fokus: document.activeElement?.dataset?.zelle || document.activeElement?.tagName || null,
+            breite: k ? Math.round(r(k).width) : 0, hoehe: k ? Math.round(r(k).height) : 0,
+            ueberlauf: document.documentElement.scrollWidth > innerWidth,
+            legende: [...document.querySelectorAll('#coverage-ebenen button')].map(b => [b.textContent, b.getAttribute('aria-pressed'), !!b.querySelector('.karte-probe')]),
+            muster: [...document.querySelectorAll('#coverage-svg pattern')].map(p => p.id) }; }"""
+        erst = ev(stand)
+        erg[groesse] = {"erst": erst}
+        soll_zellen = ["online:50.00,8.00", "bluetooth:47.00,8.00", "lora:48.00,11.00"]
+        if erst["zellen"] != soll_zellen or erst["viewBox"] != "0 0 360 180" or erst["fett"] != 0 \
+                or not any("<b>fett</b> Tal" in t for t in erst["titel"]) or "1 Gebiet(e) nicht angezeigt" not in erst["hinweis"] \
+                or erst["muster"] != ["muster-online", "muster-lora", "muster-bluetooth"] or erst["ueberlauf"] \
+                or [l[1:] for l in erst["legende"]] != [["true", True]] * 3 or abs(erst["breite"] - 2 * erst["hoehe"]) > 2 or erst["breite"] < 300:
+            erg["fehler"].append(f"{groesse}: Karte {erst}")
+        # Tastatur: + zoomt, Pfeil verschiebt, 0 zurück; Tab springt zur ersten Zelle, Enter zeigt ihre Angaben
+        ev("() => document.querySelector('#coverage-svg svg').focus()")
+        schritte = {}
+        for taste in ["+", "ArrowLeft", "-", "0"]:
+            s.keyboard.press(taste)
+            s.wait_for_timeout(50)
+            schritte[taste] = ev(stand)["viewBox"]
+        s.keyboard.press("Tab")
+        s.keyboard.press("Enter")
+        s.wait_for_timeout(100)
+        tasten = ev(stand)
+        erg[groesse]["tastatur"] = {"viewBox": schritte, "info": tasten["info"], "fokus": tasten["fokus"]}
+        if schritte != {"+": "60 30 240 120", "ArrowLeft": "36 30 240 120", "-": "0 0 360 180", "0": "0 0 360 180"} \
+                or tasten["info"] != "Provider im Netz: Probe-Stadt – wenige" or tasten["fokus"] != "online:50.00,8.00":
+            erg["fehler"].append(f"{groesse}: Tastatur {erg[groesse]['tastatur']}")
+        # Zeiger: am Desktop Rad, Ziehen und Klick; mobil zwei Finger über Europa, dann Antippen
+        box = s.locator("#coverage-svg svg").bounding_box()
+        zahlen = lambda v: [float(x) for x in v.split(" ")]
+        if not mobil:
+            s.mouse.move(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2)
+            s.mouse.wheel(0, -100)
+            s.wait_for_timeout(100)
+            gezoomt = ev(stand)["viewBox"]
+            s.mouse.down()
+            s.mouse.move(box["x"] + box["width"] / 2 + 100, box["y"] + box["height"] / 2, steps=5)
+            s.mouse.up()
+            s.wait_for_timeout(100)
+            gezogen = ev(stand)["viewBox"]
+            ev("() => document.getElementById('coverage-welt').click()")
+            s.wait_for_timeout(100)
+            try:
+                s.locator('#coverage-svg [data-zelle="bluetooth:47.00,8.00"]').click(timeout=5000)
+            except Exception as e:
+                erg["fehler"].append(f"desktop: Klick {str(e)[:120]}")
+            zeiger = {"rad": gezoomt, "gezogen": gezogen}
+            g = zahlen(gezogen)
+            if gezoomt != "36 18 288 144" or not (0 < g[0] < 36) or g[1:] != [18, 288, 144]:
+                erg["fehler"].append(f"desktop: Rad und Ziehen {zeiger}")
+        else:
+            ev("""() => { const k = document.querySelector('#coverage-svg svg'); const r = k.getBoundingClientRect();
+              const x = r.left + 188.5 / 360 * r.width, y = r.top + 42.5 / 180 * r.height;
+              const p = (typ, id, dx) => k.dispatchEvent(new PointerEvent(typ, { pointerId: id, clientX: x + dx, clientY: y, bubbles: true, pointerType: 'touch', isPrimary: id === 1 }));
+              p('pointerdown', 1, -10); p('pointerdown', 2, 10); p('pointermove', 1, -80); p('pointermove', 2, 80); p('pointerup', 1, -80); p('pointerup', 2, 80); }""")
+            s.wait_for_timeout(100)
+            zwei = ev(stand)["viewBox"]
+            z = zahlen(zwei)
+            zeiger = {"zweiFinger": zwei}
+            # 20 → 90 → 160 Pixel Abstand: achtmal näher; der Punkt zwischen den Fingern (8,5° O, 47,5° N) bleibt
+            # an seiner Stelle auf dem Schirm – bei 188,5 von 360 der Breite und 42,5 von 180 der Höhe
+            if z[2:] != [45, 22.5] or abs(z[0] + 45 * 188.5 / 360 - 188.5) > 0.2 or abs(z[1] + 22.5 * 42.5 / 180 - 42.5) > 0.2:
+                erg["fehler"].append(f"mobil: zwei Finger {zeiger}")
+            try:
+                s.locator('#coverage-svg [data-zelle="bluetooth:47.00,8.00"]').tap(timeout=5000)
+            except Exception as e:
+                erg["fehler"].append(f"mobil: Antippen {str(e)[:120]}")
+        s.wait_for_timeout(100)
+        zeiger["info"] = ev(stand)["info"]
+        erg[groesse]["zeiger"] = zeiger
+        if zeiger["info"] != "Bluetooth: <b>fett</b> Tal – wenige":
+            erg["fehler"].append(f"{groesse}: Zelle wählen {zeiger}")
+        # Ebenen: „Provider im Netz“ aus – die Zelle verschwindet, der Schalter meldet es
+        ev("() => document.querySelector('#coverage-ebenen [data-ebene=online]').click()")
+        s.wait_for_timeout(100)
+        ohne = ev(stand)
+        ev("() => document.querySelector('#coverage-ebenen [data-ebene=online]').click()")
+        # Liste als gleichwertige Ansicht: alle Gebiete, ohne Namen mit ihrer Mitte, Fremdes als Text
+        ev("() => document.querySelector('#coverage-ansicht [data-ansicht=liste]').click()")
+        s.wait_for_timeout(100)
+        liste = ev("""() => ({ karte: getComputedStyle(document.getElementById('coverage-karte')).display,
+          zeilen: [...document.querySelectorAll('#coverage-list .abdeckung-ort')].map(z => z.textContent),
+          gedrueckt: [...document.querySelectorAll('#coverage-ansicht button')].map(b => b.getAttribute('aria-pressed')) })""")
+        erg[groesse]["ebenen_liste"] = {"ohne": ohne["zellen"], "legende": ohne["legende"][0][1], "liste": liste}
+        if ohne["zellen"] != soll_zellen[1:] or ohne["legende"][0][1] != "false" or liste["karte"] != "none" \
+                or liste["gedrueckt"] != ["false", "true"] \
+                or sorted(liste["zeilen"]) != sorted(["🌐 Probe-Stadt · wenige", "🔵 <b>fett</b> Tal · wenige", "📡 um 48,25° N, 11,25° O · wenige"]):
+            erg["fehler"].append(f"{groesse}: Ebenen und Liste {erg[groesse]['ebenen_liste']}")
+        ctx.close()
+    erg["bestanden"] = not erg["fehler"]
+    return erg
+
+
 def main() -> int:
     dist = Path(sys.argv[1] if len(sys.argv) > 1 else "packages/app/dist").resolve()
     datei = dist / "freedom.html"
@@ -1266,6 +1394,10 @@ def main() -> int:
             except Exception as e:
                 erg["raum"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
             try:
+                erg["karte"] = karte_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
+            except Exception as e:
+                erg["karte"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
+            try:
                 erg["qr"] = qr_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
             except Exception as e:
                 erg["qr"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
@@ -1284,6 +1416,7 @@ def main() -> int:
           and erg.get("rahmen", {}).get("bestanden") is True
           and erg.get("dialog", {}).get("bestanden") is True
           and erg.get("raum", {}).get("bestanden") is True
+          and erg.get("karte", {}).get("bestanden") is True
           and erg.get("qr", {}).get("bestanden") is True)
     erg["bestanden"] = bool(ok)
     print(json.dumps(erg, indent=1, ensure_ascii=False))

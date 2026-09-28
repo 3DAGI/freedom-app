@@ -4,7 +4,7 @@
 // Aufruf: npx tsx scripts/raum-probe.mts <eigener-pubkey-hex>  ->  {"spaceId": "...", "events": [...]}
 // Der eigene Schlüssel bekommt die Rolle „mod“, damit die Aktionen an Nachrichten erscheinen.
 import {
-  baueRepoAnkuendigung, bauePatch, buildChannelMessage, buildContribution, buildGitRepoRef, buildRoleGrant, buildRoles, buildSpace, generateKeypair,
+  baueCoverageEintrag, baueRepoAnkuendigung, bauePatch, buildChannelMessage, buildContribution, buildGitRepoRef, buildRoleGrant, buildRoles, buildSpace, generateKeypair,
   leseRepoAnkuendigung, signEvent,
 } from "../packages/protocol/src/index.ts";
 
@@ -66,4 +66,16 @@ events.push(
 const beitrag = (von: typeof ada, repo: string, zeit: number) =>
   signEvent(buildContribution({ repoId: repo, authorPubkey: von.pk, kind: "patch", summary: "Beitrag", ref: `${repo}-${zeit}` }, zeit), von.sk);
 events.push(beitrag(ada, "werkzeug", gestern - 86_400), beitrag(ada, "werkzeug", gestern), beitrag(bo, "werkzeug", gestern + 400), beitrag(bo, "anderes", gestern));
+// Seit C.4a Abdeckung (38055) für die Karte, je Eintrag ein Wegwerfschlüssel: drei Funkknoten in einem
+// Gebiet (gezeigt), zwei in einem anderen (unter der Schwelle), ein Provider im Netz mit Namen, drei
+// Bluetooth-Geräte mit einem Namen, der Text bleiben muss
+const vorEinerStunde = Math.floor(Date.now() / 1000) - 3600;
+const abdeckung = (layer: "online" | "lora" | "bluetooth", cell: string, region = "") =>
+  baueCoverageEintrag({ layer, cell, region }, vorEinerStunde).event;
+events.push(
+  ...[1, 2, 3].map(() => abdeckung("lora", "48.00,11.00")),
+  ...[1, 2].map(() => abdeckung("lora", "52.00,13.00")),
+  abdeckung("online", "50.00,8.00", "Probe-Stadt"),
+  ...[1, 2, 3].map(() => abdeckung("bluetooth", "47.00,8.00", "<b>fett</b> Tal")),
+);
 console.log(JSON.stringify({ spaceId, events }));

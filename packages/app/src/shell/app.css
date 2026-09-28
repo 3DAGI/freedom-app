@@ -1558,3 +1558,41 @@ button.menue-punkt.menue-gefahr { color: var(--red); }
 .code-commit-zeile { cursor: pointer; display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; }
 .code-commit-betreff { overflow-wrap: anywhere; }
 .code-commit-nachricht { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; margin: 6px 0 0 14px; }
+
+/* ---------- Abdeckungskarte (C.4a): eigenes SVG, Farbe und Schraffur je Ebene ---------- */
+.karte { --karte-online: var(--accent); --karte-lora: var(--amber); --karte-bluetooth: #5B8FD9; margin-top: 8px; }
+.karte-umschalter { padding: 0; margin: 10px 0 0; }
+.karte-leiste { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.karte-ebenen, .karte-zoom { display: flex; flex-wrap: wrap; gap: 6px; }
+.karte button { width: auto; text-transform: none; letter-spacing: normal; }
+.karte-ebene { display: inline-flex; gap: 6px; align-items: center; min-height: 32px; }
+.karte-ebene[aria-pressed="false"] { opacity: 0.55; text-decoration: line-through; }
+.karte-zoom button { min-width: 32px; min-height: 32px; }
+.karte-probe { width: 14px; height: 14px; border: 1px solid currentColor; border-radius: 2px; flex: none;
+  background: repeating-linear-gradient(var(--winkel, 45deg), var(--probe) 0 2px, transparent 2px 5px); }
+.karte-probe.ebene-online { --probe: var(--karte-online); --winkel: 45deg; color: var(--karte-online); }
+.karte-probe.ebene-lora { --probe: var(--karte-lora); --winkel: -45deg; color: var(--karte-lora); }
+.karte-probe.ebene-bluetooth { --probe: var(--karte-bluetooth); --winkel: 0deg; color: var(--karte-bluetooth); }
+.karte-svg { display: block; width: min(100%, 110vh); margin: 0 auto; height: auto; aspect-ratio: 2 / 1; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); touch-action: none; cursor: grab; user-select: none; }
+.karte-svg:active { cursor: grabbing; }
+.karte-svg:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.karte-meer { fill: var(--card); }
+.karte-netz line { stroke: var(--line2, #2A2A2A); stroke-width: 1px; vector-effect: non-scaling-stroke; }
+.karte-netz line.karte-aequator { stroke: var(--text-muted); stroke-dasharray: 4 3; }
+.muster-grund.ebene-online { fill: var(--karte-online); fill-opacity: 0.25; }
+.muster-grund.ebene-lora { fill: var(--karte-lora); fill-opacity: 0.25; }
+.muster-grund.ebene-bluetooth { fill: var(--karte-bluetooth); fill-opacity: 0.25; }
+.muster-linie { stroke-width: 1.5px; vector-effect: non-scaling-stroke; }
+.muster-linie.ebene-online { stroke: var(--karte-online); }
+.muster-linie.ebene-lora { stroke: var(--karte-lora); }
+.muster-linie.ebene-bluetooth { stroke: var(--karte-bluetooth); }
+.karte-zelle { stroke-width: 1.5px; vector-effect: non-scaling-stroke; cursor: pointer; }
+.karte-zelle.ebene-online { stroke: var(--karte-online); }
+.karte-zelle.ebene-lora { stroke: var(--karte-lora); }
+.karte-zelle.ebene-bluetooth { stroke: var(--karte-bluetooth); }
+.karte-zelle:focus { outline: none; }
+.karte-zelle:focus-visible, .karte-zelle.gewaehlt { stroke: var(--text); stroke-width: 3px; }
+.card .karte p.karte-angaben { min-height: 1.5em; margin: 6px 0 0; font-size: 13px; color: var(--text); overflow-wrap: anywhere; }
+.card .karte p.karte-klein { font-size: 12px; line-height: 1.5; margin: 4px 0 0; }
+.abdeckung-orte, .usage-row + .abdeckung-ort { margin-top: 8px; }
+.abdeckung-ort { overflow-wrap: anywhere; }
