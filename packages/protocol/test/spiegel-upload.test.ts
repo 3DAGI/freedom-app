@@ -149,7 +149,11 @@ test("5.3b: Verdrahtung – Bau legt den Torrent an, pages.yml lädt nur beim Re
   const schritt = /- name: Spiegel hochladen[\s\S]*?run: npx --no-install tsx scripts\/mirror\/spiegeln\.mts seite spiegel-ergebnis\.json/.exec(pages)?.[0] ?? "";
   for (const n of ["PINATA_JWT", "SPIEGEL_NSEC", "ARWEAVE_JWK", "CODEBERG_TOKEN"]) assert.match(schritt, new RegExp(`${n}: \\$\\{\\{ secrets\\.${n} \\}\\}`));
   assert.match(schritt, /BLOSSOM_SERVER: \$\{\{ vars\.BLOSSOM_SERVER \}\}/, "Server-Adressen sind nicht geheim");
-  assert.equal((pages.match(/secrets\./g) ?? []).length, 4, "Secrets nur im Upload-Schritt");
+  // Secrets nur im Upload-Schritt – und seit 5.9b der Spiegel-Schlüssel im Schritt der NIP-34-Ankündigung, sonst nirgends
+  const nip34 = /- name: Repository per NIP-34 ankuendigen[\s\S]*?run: npx --no-install tsx scripts\/mirror\/repo-ankuendigung\.mts/.exec(pages)?.[0] ?? "";
+  assert.deepEqual(nip34.match(/secrets\.\w+/g), ["secrets.SPIEGEL_NSEC"]);
+  assert.equal((schritt.match(/secrets\./g) ?? []).length, 4);
+  assert.equal((pages.match(/secrets\./g) ?? []).length, 5, "Secrets nur im Upload-Schritt und im NIP-34-Schritt");
   assert.match(q("scripts/publish-release.mjs"), /quellenAusErgebnis\(JSON\.parse\(await readFile\(process\.env\.SPIEGEL_ERGEBNIS, "utf8"\)\), sha\)/);
 });
 

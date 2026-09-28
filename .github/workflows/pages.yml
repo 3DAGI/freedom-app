@@ -81,9 +81,11 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # der erste Commit fuer die NIP-34-Ankuendigung (5.9b)
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: npm
       - run: npm ci --workspaces --include-workspace-root
       - uses: actions/download-artifact@v4
@@ -101,6 +103,14 @@ jobs:
           ARWEAVE_JWK: ${{ secrets.ARWEAVE_JWK }}
           CODEBERG_TOKEN: ${{ secrets.CODEBERG_TOKEN }}
         run: npx --no-install tsx scripts/mirror/spiegeln.mts seite spiegel-ergebnis.json | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Repository per NIP-34 ankuendigen
+        # 5.9b: Kind 30617 mit GitHub und – sobald in spiegel/quellen.json gesetzt – Radicle,
+        # signiert mit dem Spiegel-Schluessel. Ohne SPIEGEL_NSEC uebersprungen.
+        shell: bash
+        env:
+          SPIEGEL_NSEC: ${{ secrets.SPIEGEL_NSEC }}
+          REPO_MAINTAINER: ${{ vars.REPO_MAINTAINER }}
+        run: npx --no-install tsx scripts/mirror/repo-ankuendigung.mts | tee -a "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         if: always()
         with:

@@ -45,7 +45,7 @@ bash packages/mls/bauen.sh --pruefen                     # nur bei Änderungen a
 bash contracts/solana-channel/pruefen.sh --werkzeuge     # nur bei Änderungen am Zahlkanal: bauen + Tests gegen Validator (Agave 3.1.10)
 ```
 
-Stand 28.09.2026 (nach 8.2c, 5.5a–c, 8.15, 11.1a, C.3c2, 11.1b und 5.9a): protocol 1096 grün (6 übersprungen), node 260 grün
+Stand 28.09.2026 (nach 8.2c, 5.5a–c, 8.15, 11.1a, C.3c2, 11.1b und 5.9a–b): protocol 1097 grün (6 übersprungen), node 263 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
 in `tools.test.ts`), app 597 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 62 grün + 1 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
@@ -679,3 +679,10 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   Last später – bis es da ist warten, mit Frist (`funk-kurz.test.ts`, von
   Spur A und B unabhängig gefunden, gilt die Fassung aus 11.1b). Eine feste
   Pause von 20 ms war im vollen Lauf gelegentlich zu kurz.
+- **Repository per NIP-34 nur aus dem Release-Job** (seit 5.9b): Die
+  Ankündigung des Projekt-Repositorys (Kind 30617) baut nur `projektRepo()`
+  (Klon-Adressen nur GitHub und die gesetzte Radicle-Kennung aus
+  `spiegel/quellen.json`), signiert mit dem Spiegel-Schlüssel im Job
+  „spiegel“ (`repo-ankuendigung.mts`, ganzer Verlauf für den ersten Commit).
+  Upgrade-Rechte der Programme ändert nur der MENSCH nach
+  `docs/SOLANA-UPGRADE-AUTHORITY.md`.
