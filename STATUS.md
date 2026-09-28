@@ -10927,3 +10927,44 @@ Endstand: protocol 1108 (+4, 6 übersprungen) · node 262 + 7 übersprungen
 (ohne Netz, unverändert) · app 611 (+3) · mls 13 · Leak-Tests 65 grün + 1 todo
 · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 · Website ok
 · Smoke-Test bestanden · Website-Bau ok. Knoten-Stand: unverändert.
+
+## Schritt 11.4b1 – Repos in privaten Räumen: Protokoll
+
+Spur B, Karte `phase-11.md` (11.4b, aufgeteilt in b1 Protokoll und b2 App).
+
+**Was:**
+- `raum-repo.ts`: Repo-Events privater Räume nur als innere Events der
+  MLS-Gruppe, je mit `["space", <raum>]` vorn – `raumRepoAnkuendigung()`
+  (30617, ohne `a`-Verweis auf einen öffentlichen Raum), `raumRepoBundle()`
+  (38042 samt `aes-gcm`-Schlüssel, der öffentlich offen stünde),
+  `raumRepoPatch()` (1617), `raumRepoStatus()` (1630–1633).
+- `raumReposPrivat()`: die Repos aus den inneren Events in der Form, die die
+  Repo-Ansicht liest – Ankündigungen und Bundles nur von Pflegern (Admins der
+  Gruppe oder `repos_pflegen`), je Autor und Kennung die neueste, alle
+  Pfleger als `maintainers`; Patches von jedem Mitglied; Status wertet
+  `patchStatus()` nach den Pflegern aus.
+- Leak-Regel `raum-repo-privat` (kein offenes 30617/38042/1617/163x zu den
+  Kennungen, der Bundle-Schlüssel nirgends im Klartext; 1059 und 445 zählen
+  nicht). Aussage „raum-repos“ (belegt) mit Szenario gegen die echte
+  MLS-Engine: Ankündigung, Bundle-Verweis mit Schlüssel und Patch gehen in die
+  Gruppe – die Relays sehen weder Kennung noch Name noch Betreff noch
+  Schlüssel, nur Kind 445 mit fremdem Schlüssel.
+- Format in `docs/PROTOCOL.md` (18, „Private Räume“).
+- Die App verdrahtet die Bausteine in 11.4b2; bis dahin stehen sie mit Grund in
+  `scripts/wiring-ausnahmen.txt` – `check-wiring.py --streng` meldet die Zeilen
+  als veraltet, sobald sie verdrahtet sind, 11.4b2 muss sie also entfernen.
+
+**Tests:** +2 in `protocol/test/raum-repo.test.ts` (innere Events mit Raum,
+ohne öffentlichen Verweis, Schlüssel nur im Bundle-Verweis; Repos des
+privaten Raums nur von Pflegern und nur aus diesem Raum, ohne Zuweisung
+pflegt nur der Admin, mit `repos_pflegen` pflegt der Zugewiesene mit und
+sein Status zählt), +1 in `leak-rules.test.ts` (Regel findet offene
+Repo-Events und den Schlüssel, nicht Umschläge, Gruppen-Nachrichten, fremde
+Repos; im Metatest eingetragen); Szenario „raum-repos“ in
+`privacy-facts.test.ts` mit der echten MLS-Engine.
+
+Endstand: protocol 1111 (+3, 6 übersprungen) · node 262 + 7 übersprungen
+(ohne Netz, unverändert) · app 611 · mls 13 · Leak-Tests 65 grün + 1 todo · 0
+rot · check-wiring `--streng` Exit 0 (fünf Bausteine bis 11.4b2 ausgenommen)
+· innerHTML streng Exit 0 · Website ok · Smoke-Test bestanden · Website-Bau
+ok. Knoten-Stand: unverändert.

@@ -131,6 +131,26 @@ export function regelZapAnonym(zapAnfragen: readonly NostrEvent[], identitaet: s
     .map((e) => ({ regel: "zap-anonym", eventId: e.id, detail: e.pubkey === identitaet ? "Zap-Anfrage von der Identität" : "Zap-Anfrage ohne anon" }));
 }
 
+/**
+ * Repos privater Räume nie offen (Schritt 11.4b): kein offenes Event der
+ * Arten 30617, 38042, 1617, 1630–1633 zu ihren Kennungen, und ihr
+ * Bundle-Schlüssel nirgends im Klartext. Umschläge (1059) und
+ * Gruppen-Nachrichten (445) sind verschlüsselt und zählen nicht.
+ */
+export function regelRaumRepoPrivat(events: readonly NostrEvent[], p: { repoIds: readonly string[]; schluessel: readonly string[] }): LeakFinding[] {
+  const arten = new Set([30617, 38042, 1617, 1630, 1631, 1632, 1633]);
+  const schluessel = p.schluessel.filter((k) => k.length >= 16).map((k) => k.toLowerCase());
+  return events.filter((e) => e.kind !== 1059 && e.kind !== 445).flatMap((e) => {
+    const d = e.tags.find((t) => t[0] === "d")?.[1];
+    const a = e.tags.filter((t) => t[0] === "a").map((t) => t[1] ?? "");
+    const zumRepo = arten.has(e.kind) && p.repoIds.some((id) => d === id || a.some((x) => x.endsWith(`:${id}`)));
+    const klartext = (e.content + "\n" + JSON.stringify(e.tags)).toLowerCase();
+    if (zumRepo) return [{ regel: "raum-repo-privat", eventId: e.id, detail: `Repo eines privaten Raums offen (Kind ${e.kind})` }];
+    if (schluessel.some((k) => klartext.includes(k))) return [{ regel: "raum-repo-privat", eventId: e.id, detail: `Bundle-Schlüssel sichtbar (Kind ${e.kind})` }];
+    return [];
+  });
+}
+
 /** Die Solana-Adressen des Nutzers in keinem oeffentlichen Event – Schritt 4.9. */
 export function regelKeineSolAdresse(events: readonly NostrEvent[], adressen: readonly string[]): LeakFinding[] {
   const funde: LeakFinding[] = [];
@@ -277,4 +297,5 @@ export const LEAK_REGELN: Readonly<Record<string, string>> = {
   "kopien-entkoppelt": "Die Kopien einer Nachricht gehen nicht im selben Augenblick hinaus.",
   "keine-ln-adresse": "Keine Lightning-Adresse des Nutzers in öffentlichen Events – im Profil nur auf ausdrücklichen Wunsch.",
   "zap-anonym": "Zap-Anfragen tragen nie die Identität des Zahlers.",
+  "raum-repo-privat": "Repos privater Räume – Ankündigung, Bundle-Schlüssel, Patches, Status – nur in der MLS-Gruppe, nie offen.",
 };

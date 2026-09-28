@@ -51,6 +51,7 @@ const FAKT: Record<string, readonly [string, string?]> = {
   "versand-einzeln": ["ds.fVersandEinzeln"],
   "raum-meldung": ["ds.fRaumMeldung"],
   "raeume": ["ds.fRaeume"],
+  "raum-repos": ["ds.fRaumRepos"],
   "ki-prompt": ["ds.fKiPrompt"],
   "ki-kunde": ["ds.fKiKunde"],
   "ki-antwort": ["ds.fKiAntwort"],

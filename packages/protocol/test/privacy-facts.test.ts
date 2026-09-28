@@ -43,7 +43,8 @@ import { buildProfile, oeffentlichesProfil } from "../src/profile.js";
 import { buildAnonZapRequest, buildZapRequest } from "../src/zap.js";
 import { buildRechnungsAnfrage, buildRechnungsAntwort } from "../src/ln-rechnung.js";
 import { knotenSchluessel, rechnung } from "./bolt11-hilfe.js";
-import { regelKeineLnAdresse, regelZapAnonym } from "../src/leak-rules.js";
+import { regelKeineLnAdresse, regelRaumRepoPrivat, regelZapAnonym } from "../src/leak-rules.js";
+import { raumRepoAnkuendigung, raumRepoBundle, raumRepoPatch } from "../src/raum-repo.js";
 import { fromHex, toHex } from "../src/htlc.js";
 import type { NostrEvent, UnsignedEvent } from "../src/event.js";
 import { readFileSync } from "node:fs";
@@ -387,6 +388,29 @@ const SZENARIEN: Record<string, () => Promise<number>> = {
     const gesendet = wraps.map((ev, i) => ({ ev, zeitMs: 1_000_000 + i * 15_000 }));
     return regelAutorNicht(wraps, a.pk).length + regelKeinKlartext(wraps, [provider, "421000", "9876543"]).length
       + regelPTagsNur(wraps, [k1, k2]).length + regelKeineZahlungsdaten(wraps).length + regelKopienEntkoppelt(gesendet).length;
+  },
+  "raum-repos": async () => {
+    // Wie die App seit 11.4b: Repo, Bundle-Verweis mit Schlüssel, Patch und Status als innere Events – echte Engine
+    const { Mls, ladeMls } = (await import(["@freedomstack", "mls"].join("/"))) as MlsModulT;
+    ladeMls(gunzipSync(readFileSync(new URL("../../mls/dist/freedom_mls_bg.wasm.gz", import.meta.url))));
+    const konto = (k: typeof a) => new Mls(new LocalSigner(k.sk), (id) => toHex(schnorr.sign(fromHex(id), k.sk)));
+    const [ma, mb] = [konto(a), konto(b)];
+    const kpB = await new LocalSigner(b.sk).signEvent(await mb.keyPackage("ef".repeat(32)));
+    const g = await ma.gruppeAnlegen("", [kpB], ["wss://gruppe.test"]);
+    const KEY = "5a".repeat(32);
+    const repo = { eigentuemer: a.pk, id: "geheimprojekt" };
+    const patchText = `From ${"1".repeat(40)} Mon Sep 17 00:00:00 2001\nSubject: [PATCH] Geheime Änderung\n\n---\ndiff --git a/a b/a\n--- a/a\n+++ b/a\n@@ -1 +1 @@\n-x\n+y\n`;
+    const innen = [
+      raumRepoAnkuendigung(g.gruppe, { id: repo.id, name: "Geheimprojekt", klon: [] }),
+      raumRepoBundle(g.gruppe, { name: repo.id, blobId: "b".repeat(64), headSha: "c".repeat(40), branch: "main", message: "Stand", version: 1, schluessel: { alg: "aes-gcm", key: KEY, nonce: "6b".repeat(12), ox: "7c".repeat(32) } }),
+      raumRepoPatch(g.gruppe, { repo, text: patchText }),
+    ];
+    const events: NostrEvent[] = [];
+    for (const s of innen) events.push(...(await ma.sendenEvent(g.gruppe, s.art, s.tags, s.text)).events);
+    const alle = [...g.einladungen, ...events];
+    if (events.length !== innen.length) return 1;
+    return regelRaumRepoPrivat(alle, { repoIds: [repo.id], schluessel: [KEY] }).length + regelKeinKlartext(alle, ["Geheimprojekt", "Geheime Änderung", KEY]).length +
+      regelAutorNicht(alle, a.pk).length + regelMlsGruppe(alle, { gruppenIds: [g.gruppe], identitaeten: [a.pk, b.pk] }).length;
   },
   "raum-meldung": async () => {
     // Wie die App seit 8.5 meldet: je Moderator ein Umschlag, nie in die Gruppe, nie offen

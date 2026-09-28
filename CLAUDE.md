@@ -45,7 +45,7 @@ bash packages/mls/bauen.sh --pruefen                     # nur bei Änderungen a
 bash contracts/solana-channel/pruefen.sh --werkzeuge     # nur bei Änderungen am Zahlkanal: bauen + Tests gegen Validator (Agave 3.1.10)
 ```
 
-Stand 28.09.2026 (nach 8.2c, 5.5a–c, 8.15, 11.1a, C.3c2, 11.1b, 5.9a–b, 6.3a–b2 und 11.4a): protocol 1108 grün (6 übersprungen), node 263 grün
+Stand 28.09.2026 (nach 8.2c, 5.5a–c, 8.15, 11.1a, C.3c2, 11.1b, 5.9a–b, 6.3a–b2, 11.4a und 11.4b1): protocol 1111 grün (6 übersprungen), node 263 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
 in `tools.test.ts`), app 611 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 65 grün + 1 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
@@ -709,4 +709,7 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   Zustand nur über `raumZustandFuer()` bauen – nie `buildSpaceState()` direkt
   mit fremden Definitionen derselben Kennung. Karten werten Raum-Rechte in
   `repoKarten(…, raumEvents)` aus; `darfAnnehmen()`/`patchStatus()` bleiben
-  unverändert und bekommen das erweiterte Repo.
+  unverändert und bekommen das erweiterte Repo. In privaten Räumen (seit
+  11.4b1) Repo-Events nur als innere Events über `raumRepo…()` – nie
+  `publish()`, auch nicht den Bundle-Verweis (er trägt den Schlüssel);
+  gelesen über `raumReposPrivat()`. Leak-Regel `raum-repo-privat`.
