@@ -10670,3 +10670,52 @@ Nach dem Einmergen von `main` (bis #180: 11.1a, C.3c1, C.3c2 u. a.): protocol
 Nach dem Einmergen von `main` (#181, 11.1b): protocol 1096 · node 259 + 7
 übersprungen (ohne Netz; mit Netz 260 + 6) · app 597 · mls 13 · Leak-Tests 62
 + 1 todo · 0 rot; alle Prüfungen erneut grün.
+
+## Schritt 5.9b – Upgrade-Recht, Radicle, Repository per NIP-34
+
+Spur B, von Spur A übernommen (Entscheidung 28.09.), Karte `phase-5.md` (5.9).
+
+**Was:**
+- `docs/SOLANA-UPGRADE-AUTHORITY.md` (neu, für den MENSCHEN): warum das
+  Upgrade-Recht zählt (heute ein Schlüssel, `DEPLOY.md`), Ziel in der
+  Testphase Squads v4 (2 von 3, Zeitverzögerung länger als die längste
+  Sperre), Vault als Upgrade-Recht (`set-upgrade-authority … --skip-new-
+  upgrade-authority-signer-check`, Adresse doppelt prüfen), Upgrades über
+  Buffer und Vorschlag, Prüfung mit `solana-verify`, später `--final` nur als
+  Vorschlag derselben Mehrfachsignatur; Checkliste (0.G, Devnet üben,
+  Mainnet). Der Agent führt nichts davon aus. `GO-LIVE.md` verweist darauf.
+- `docs/RADICLE.md` (neu): einrichten (`rad auth`, `rad node start`),
+  `rad init`, nach jedem Merge nachschieben (nur, was auf GitHub steht),
+  Kennung in `spiegel/quellen.json`.
+- NIP-34-Spiegel: `projektRepo()` (`protocol/src/spiegel.ts`) baut die
+  Ankündigung des Projekt-Repositorys – Klon GitHub und, sobald gesetzt, die
+  Radicle-Kennung (Platzhalter bleibt draußen), nur gültige Maintainer;
+  `scripts/mirror/repo-ankuendigung.mts` signiert sie mit dem
+  Spiegel-Schlüssel und sendet an die Startrelays (ohne Schlüssel
+  übersprungen, `--trocken` gibt nur aus); im Job „spiegel“ von `pages.yml`
+  nach den Uploads, mit ganzem Verlauf (erster Commit, NIP-34 „euc“).
+  Das Lesen des Spiegel-Schlüssels liegt jetzt in `scripts/mirror/schluessel.mts`
+  (von `spiegeln.mts` mitbenutzt).
+- `docs/KONTEN.md`: F2 (NIP-34, optional Variable `REPO_MAINTAINER`), F3
+  (Upgrade-Recht).
+- „Über `git.ts`“ (Karte) umgesetzt über die NIP-34-Bausteine aus 8.10: ein
+  Bundle des ganzen Repositorys (38042) gehört nicht auf öffentliche Relays.
+
+**Tests:** +1 in `protocol/test/spiegel.test.ts` (Platzhalter bleibt
+draußen, Radicle mit, Maintainer geprüft, Event lesbar wie jedes NIP-34-Repo,
+echte `quellen.json` ergibt eine gültige Ankündigung); +3 in
+`node/test/repo-ankuendigung.test.ts`: das Skript gegen die echte Relay-Rolle
+(signiert vom Spiegel-Schlüssel, lesbar, Schlüssel nie in der Ausgabe), ohne
+Schlüssel übersprungen, unlesbarer Schlüssel mit fester Meldung, kein Relay
+erreichbar → rot, `--trocken`; Verdrahtung im Release-Job.
+
+Nachweis zu 5.9a aus der CI von #173: Der Job „Reproduzierbarer Build“ ergab
+für den Stand zweimal `e3487e52…` (Node 22.23.2); lokal (Node 22.22.2)
+ergibt `repro-build.sh --vergleiche e3487e52… 07e3d16` dieselbe Summe – bitgleich
+über Rechner und Node-Patchstände hinweg.
+
+Endstand: protocol 1097 (+1, 6 übersprungen) · node 262 + 7 übersprungen (+3;
+ohne Netz, mit Netz 263 + 6) · app 597 · mls 13 · Leak-Tests 62 grün + 1 todo ·
+0 rot · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 · Website ok
+· Smoke-Test bestanden · Website-Bau ok. Knoten-Stand: unverändert (nur Tests
+und Skripte).

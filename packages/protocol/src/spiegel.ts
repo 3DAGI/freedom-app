@@ -11,6 +11,7 @@
  * `PLATZHALTER:` – sie gelten als nicht gesetzt: kein Anteil, keine Quelle.
  */
 import { adresseFuer, type Zahlziel } from "./aufteilung.js";
+import type { RepoAnkuendigung } from "./nip34.js";
 
 export const PLATZHALTER_PRAEFIX = "PLATZHALTER:";
 export const istPlatzhalter = (v: unknown): boolean => typeof v === "string" && v.trim().startsWith(PLATZHALTER_PRAEFIX);
@@ -72,4 +73,26 @@ export function leseQuellen(roh: unknown): { gesetzt: Quelle[]; offen: QuellenAr
     else offen.push(a);
   }
   return { gesetzt, offen };
+}
+
+/** Das Repository des Projekts (5.9b): GitHub ist die Quelle der Änderungen, Radicle ein Spiegel. */
+export const PROJEKT_REPO = { id: "freedom-app", name: "FreedomStack", github: "https://github.com/3DAGI/freedom-app" } as const;
+
+/**
+ * NIP-34-Ankündigung des eigenen Repositorys (Kind 30617, über
+ * `baueRepoAnkuendigung()`): Klon-Adressen GitHub und – sobald gesetzt – der
+ * Radicle-Spiegel aus `spiegel/quellen.json`; ein Platzhalter bleibt draußen.
+ */
+export function projektRepo(quellen: unknown, o: { ersterCommit?: string; maintainer?: string[] } = {}): RepoAnkuendigung {
+  const rad = leseQuellen(quellen).gesetzt.find((q) => q.art === "radicle")?.url;
+  const maintainer = [...new Set((o.maintainer ?? []).map((m) => m.trim()).filter((m) => /^[0-9a-f]{64}$/.test(m)))];
+  return {
+    id: PROJEKT_REPO.id,
+    name: PROJEKT_REPO.name,
+    beschreibung: "Nachrichten, Zahlungen und KI-Anfragen ohne Betreiber – Nostr, Lightning (Sats) und Solana (SOL).",
+    klon: [`${PROJEKT_REPO.github}.git`, ...(rad ? [rad] : [])],
+    web: [PROJEKT_REPO.github],
+    ...(o.ersterCommit && /^[0-9a-f]{40}$/.test(o.ersterCommit) ? { ersterCommit: o.ersterCommit } : {}),
+    ...(maintainer.length ? { maintainer } : {}),
+  };
 }

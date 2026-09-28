@@ -256,8 +256,15 @@
     Pfaden (CI-Job „Reproduzierbarer Build“), `--vergleiche <sha256>` prüft
     gegen eine Summe (`pages.yml` veröffentlicht nur, was ein frischer Build
     bitgleich ergibt). CI und Pages bauen mit `.nvmrc`.
-  - **5.9b:** `docs/SOLANA-UPGRADE-AUTHORITY.md` (Squads mit Zeitverzögerung,
-    MENSCH führt aus), NIP-34-Spiegel des Repositorys im Release-Job, Radicle-Anleitung.
+  - **5.9b – FERTIG:** `docs/SOLANA-UPGRADE-AUTHORITY.md` (Squads v4 mit
+    Zeitverzögerung, Vault als Upgrade-Recht, Upgrade über Buffer, Prüfung mit
+    `solana-verify`; MENSCH führt aus), `docs/RADICLE.md` (einrichten,
+    aktuell halten, Kennung in `spiegel/quellen.json`), NIP-34-Spiegel: der Job
+    „spiegel“ kündigt das Repository als Kind 30617 an
+    (`scripts/mirror/repo-ankuendigung.mts`, `projektRepo()`, Spiegel-Schlüssel,
+    Klon GitHub + Radicle sobald gesetzt, erster Commit). „Über `git.ts`“
+    heißt hier: über die NIP-34-Bausteine aus 8.10 (`nip34.ts`) – ein Bundle des
+    ganzen Repositorys (`git.ts`, 38042) gehört nicht auf öffentliche Relays.
 
 ## 5.10 Zeitanker und Abdeckungskarte
 

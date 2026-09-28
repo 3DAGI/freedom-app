@@ -40,6 +40,8 @@ dahin leer (kein Anteil, keine Quelle, kein Upload).
 | D2 | Lightning-Testnetz (Tests) | 8.3, 8.4, 4.x | Polar oder Testnet-LND | Macaroons (siehe unten) |
 | E1 | Relay des GX10 (öffentlich) | 8.4 | Domain + TLS | `RELAY_PUBLIC_URL`, `RELAY_*` (docker-compose) |
 | F1 | Radicle-Spiegel des Codes | 8.10 | Radicle-Identität | – |
+| F2 | NIP-34-Ankündigung des Repositorys | 5.9b | – (Spiegel-Schlüssel aus A4) | optional Variable `REPO_MAINTAINER` |
+| F3 | Upgrade-Recht der Programme | 5.9 | Squads-Mehrfachsignatur, Hardware-Wallets | – (`docs/SOLANA-UPGRADE-AUTHORITY.md`) |
 
 ## A – Spiegel der App (5.3)
 
@@ -144,8 +146,17 @@ nötigen Rechten backen:
 ## F – Code-Spiegel (8.10)
 
 **F1** Radicle: `rad auth` erzeugt eine Identität (kein Konto), dann
-`rad init` im Repository und einen Seed-Knoten wählen. Mir gibst du: die
-`rad:`-Adresse des Repositories.
+`rad init` im Repository und einen Seed-Knoten wählen – Schritt für Schritt in
+`docs/RADICLE.md`. Mir gibst du: die `rad:`-Adresse des Repositories.
+
+**F2** NIP-34 (5.9b): Beim Release kündigt der Job „spiegel“ das Repository als
+Kind 30617 an, signiert mit dem Spiegel-Schlüssel aus A4 (kein neues Konto).
+Wer Patches aus der App annehmen darf, trägst du optional als **Variable**
+`REPO_MAINTAINER` ein (Pubkeys in Hex, mit Komma) – sonst nur der
+Spiegel-Schlüssel, den nur die CI hat.
+
+**F3** Upgrade-Recht der Solana-Programme: Squads-Mehrfachsignatur mit
+Zeitverzögerung, Schritt für Schritt in `docs/SOLANA-UPGRADE-AUTHORITY.md`.
 
 ## Rückgabe an mich
 
