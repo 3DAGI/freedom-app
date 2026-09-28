@@ -451,6 +451,16 @@
             <button id="referral-copy" class="ghost" data-i18n="copy">Kopieren</button>
           </div>
           <div id="referral-qr"></div>
+          <div class="werben-adresse">
+            <label for="werben-adresse" class="mono-sm" data-i18n="earn.adresseLabel">Eigene Adresse der App – leer: die, unter der sie gerade läuft</label>
+            <div class="referral-box">
+              <input id="werben-adresse" class="mono-sm" placeholder="https://…" data-i18n-ph="earn.adressePh" autocomplete="off" spellcheck="false" />
+              <button id="werben-adresse-setzen" class="ghost" data-i18n="earn.adresseSetzen">Übernehmen</button>
+              <button id="werben-adresse-pruefen" class="ghost" data-i18n="earn.adressePruefen">Prüfen</button>
+            </div>
+            <p class="mono-sm muted" data-i18n="earn.adresseText">Liegt dort deine Kopie von freedom.html, laden Geworbene die App von dort. Legst du freedom-spiegel.json mit deinen Adressen daneben, bekommst du zusätzlich 1 % jeder KI-Zahlung über diese Kopie. „Prüfen“ fragt die Adresse ab – der Server sieht dabei deine IP.</p>
+            <div id="werben-adresse-status" class="mono-sm" aria-live="polite"></div>
+          </div>
           <div id="referral-tier" class="mono-sm"></div>
           <p class="mono-sm" id="referral-stats">—</p>
         </div></div>

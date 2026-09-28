@@ -1385,6 +1385,9 @@ button.dlg-gefahr:hover { background: #A52A2A; }
 .qr-hinweis { margin: 0; color: var(--text-muted); }
 .qr-hinweis:empty { display: none; }
 
+.werben-adresse { margin-top: 12px; }
+.werben-adresse .muted { margin: 4px 0; }
+
 /* ---------- Räume: Verlauf und Menüs (Schritt C.2b2) ---------- */
 .msg-tag {
   display: flex; align-items: center; gap: 10px; margin: 10px 0 4px;
