@@ -15,6 +15,7 @@ export * from "./solana-adapter.js";
 export * from "./kinds.js";
 export * from "./event.js";
 export * from "./fehler.js";
+export * from "./funk-gateway.js";
 export * from "./signer.js";
 export * from "./nip46.js";
 export * from "./private-job.js";
