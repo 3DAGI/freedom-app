@@ -118,6 +118,8 @@ export interface RepoKarte {
   bundle?: NostrEvent;
   /** Gehört das Repo bestätigt zu seinem Raum (11.4a)? Dann zählen die Raum-Pfleger als Maintainer. */
   raumBestaetigt?: boolean;
+  /** Repo eines privaten Raums (11.4b2): jede Aktion geht nur in diese MLS-Gruppe. */
+  privatRaum?: string;
   zeilen: PatchZeile[];
   offen: number;
   /** Letzte Aktivität (Sekunden): Ankündigung, Bundle, Patch oder Status. */
@@ -162,6 +164,19 @@ export function repoKarten(
     }
   }
   return [...karten.values()].sort((a, b) => b.zuletzt - a.zuletzt || a.name.localeCompare(b.name));
+}
+
+/**
+ * Karten eines privaten Raums (11.4b2) aus `raumReposPrivat()`: eigener
+ * Schlüssel je Raum – nie mit einem öffentlichen Repo gleicher Kennung
+ * vermischt –, und `privatRaum` leitet jede Aktion in die Gruppe.
+ */
+export function privateRaumKarten(
+  r: { gruppe: string; ankuendigungen: readonly NostrEvent[]; bundles: readonly NostrEvent[]; patches: readonly NostrEvent[]; status: readonly NostrEvent[] },
+  ich: string | undefined,
+): RepoKarte[] {
+  return repoKarten(r.ankuendigungen, r.bundles, r.patches, r.status, ich)
+    .map((k) => ({ ...k, schluessel: `mls:${r.gruppe}:${k.schluessel}`, privatRaum: r.gruppe }));
 }
 
 /** Suche (nur lokal) und „Meine“: Name, Kennung oder Beschreibung enthält die Suche, ohne Groß/klein. */

@@ -11290,3 +11290,54 @@ Netz) · app 630 (+2) · mls 13 · Leak-Tests 65 grün + 1 todo · 0 rot ·
 check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 (63 Ausnahmen) ·
 Website 5 Seiten ok · Smoke-Test bestanden (mit „rahmen“, „dialog“, „raum“,
 „karte“, „qr“ und „mobil“).
+
+## Schritt 11.4b2 – Repos in privaten Räumen: App
+
+Spur B, Karte `phase-11.md` (11.4b). Damit ist 11.4 in Spur B fertig; die
+Oberfläche der Raum-Repos (im Raum, Kennzeichen, Liste) baut Spur C in 11.4c.
+
+**Was:**
+- `shell/raum-repos.ts` (neu): `privateRaumRepos()` liest die Repos jedes
+  privaten Raums aus dem MLS-Verlauf (`mlsGruppenStand()` →
+  `gruppenRaum()` → `raumReposPrivat()`, dazu Name und ob ich pflegen darf) –
+  leer ohne private Räume, mit Bunker oder ohne Tresor, die Engine lädt also
+  nur, wenn es private Räume gibt. `sendeInRaum()` schickt ein Repo-Event in
+  die Gruppe und scheitert laut („Nichts ging offen hinaus“), statt auf ein
+  Relay auszuweichen.
+- `repo-ansicht.ts`: `privateRaumKarten()` – eigene Karten je Raum
+  (Schlüssel `mls:<gruppe>:…`, nie mit einem öffentlichen Repo gleicher
+  Kennung vermischt), `privatRaum` auf der Karte.
+- Weichen (`repos.ts`, `repo-seite.ts`): Ankündigen mit „Wo“ (öffentlich oder
+  ein privater Raum, in dem ich `repos_pflegen` habe), Einstellungen,
+  Patch senden, Status setzen und neue Version hochladen gehen bei
+  `privatRaum` nur über `sendeInRaum()` mit den Bausteinen aus 11.4b1; das
+  Bundle geht wie immer verschlüsselt ins Speichernetz, der Verweis mit dem
+  Schlüssel nur in die Gruppe. Private Repos zeigen keinen Verweis auf einen
+  öffentlichen Raum. Karte mit Marke „privater Raum“; Texte sagen „nur im
+  privaten Raum, verschlüsselt (MLS)“ statt „öffentlich“.
+- Die fünf Ausnahmen aus 11.4b1 in `scripts/wiring-ausnahmen.txt` sind raus.
+
+**Verdrahtet:** `app/src/shell/tabs/repos.ts` (`ladeNip34Repos()` →
+`privateRaumRepos()` → `privateRaumKarten()`; `kuendigeAn()`, `sendePatch()`,
+`ladeBundleHoch()` → `sendeInRaum()`), `app/src/shell/tabs/repo-seite.ts`
+(Status, `speichereEinstellungen()`, Hochladen, Vorschau).
+
+**Tests:** App +2 in `test/raum-repos-privat.test.ts` (Karten privater Räume
+mit eigenem Schlüssel, nie mit einem öffentlichen Repo gleicher Kennung
+vermischt; Verdrahtung: jede Aktion an einem privaten Repo nur über
+`sendeInRaum()`, nie `publish()`, ohne private Räume lädt die Engine nicht).
+Leak +1 `leak/raum-repo.test.ts` mit der echten MLS-Engine: Ankündigung,
+Bundle-Verweis samt Schlüssel und Patch gehen über `sendeEventInGruppe()`
+hinaus – die Relays sehen nur 445 und die Einladung, weder Kennung noch Name
+noch Betreff noch Schlüssel; ein Mitglied liest sie zurück, und
+`privateRaumKarten()` baut die Karte samt Schlüssel und Patch. Fünf
+Verdrahtungstests prüfen die geänderten Aufrufe wörtlich neu
+(`diff-ansicht`, `raum-repos`, `repo-karten` zweimal, `repo-einstellungen` –
+dort zusätzlich: im privaten Raum erst fragen, dann in die Gruppe).
+
+Endstand (nach dem Einmergen von `main` mit C.4a–b, C.5a–b, C.6b): protocol
+1111 (6 übersprungen) · node 262 + 7 übersprungen (ohne Netz) · app 632 (+2)
+· mls 13 · Leak-Tests 66 grün (+1) + 1 todo · 0 rot · check-wiring
+`--streng` Exit 0 (die fünf Ausnahmen aus 11.4b1 entfernt) · innerHTML streng
+Exit 0 · Website ok · Smoke-Test bestanden · Website-Bau ok. Knoten-Stand:
+unverändert.

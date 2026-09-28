@@ -61,11 +61,11 @@ test("C.3a: Seite verdrahtet – nur DOM, Adresse ohne Kennung, Dialoge statt pr
     assert.doesNotMatch(ohneKommentare(s), /innerHTML|\b(prompt|confirm|alert)\(/, datei);
     assert.doesNotMatch(s, /location\.hash|history\.(push|replace)State/, `${datei}: offenes Repo nur im Speicher`);
   }
-  assert.match(liste, /karten = repoKarten\(ankuendigungen, bundles, patches, status, state\.keypair\?\.pk, await raumStruktur\(raumIds\)\);/);
+  assert.match(liste, /karten = \[\.\.\.repoKarten\(ankuendigungen, bundles, patches, status, state\.keypair\?\.pk, await raumStruktur\(raumIds\)\),/);
   // Annehmen mit optionalem Commit (SHA-1 geprüft); seit C.3b2 jede Aktion ein Dialog mit Begründung, Schließen/Zurückziehen rot
   assert.match(seite, /pruefe: \(w\) => \{ const c = String\(w\.commit \?\? ""\)\.trim\(\)\.toLowerCase\(\); return !c \|\| SHA1\.test\(c\) \? null : t\("repo\.keinSha1"\); \},/);
   assert.match(seite, /gefahr: aktion === "schliessen" \|\| aktion === "zurueckziehen",/);
-  assert.match(seite, /const ev = baueStatus\(\{ patch, status: AKTION_STATUS\[aktion\], eigentuemer: k\.repo\.eigentuemer,/);
+  assert.match(seite, /const angaben = \{ patch, status: AKTION_STATUS\[aktion\], eigentuemer: k\.repo\.eigentuemer,[\s\S]*?else await \(await ensurePool\(\)\)\.publish\(await signiere\(baueStatus\(angaben, state\.keypair\.pk\)\)\);/);
   // Bundle laden: verschlüsselt geladen, mit dem Schlüssel aus der Referenz entschlüsselt
   // (seit C.3c1 in holeBundle(), geteilt mit dem Reiter „Code“)
   assert.match(quelle("../src/shell/tabs/code-reiter.ts"), /return r\.schluessel \? oeffneAnhang\(res\.bytes, r\.schluessel\) : res\.bytes;/);

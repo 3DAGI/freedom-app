@@ -107,7 +107,7 @@ test("C.3b1: verdrahtet – Patch-Seite nur DOM, Vorschau geprüft vor dem Sende
   assert.doesNotMatch(repo, /location\.hash|history\.(push|replace)State/);
   // Vorschau erst nach lesePatchText(), senden nur aus der Vorschau, danach neu laden
   assert.match(repo, /vorschau = \{ schluessel: k\.schluessel, text, \.\.\.lesePatchText\(text\) \};/);
-  assert.match(repo, /if \(await h\.patchSenden\(repo, v\.text\)\) \{\n\s+vorschau = null;\n\s+await h\.neuLaden\(\);/);
+  assert.match(repo, /if \(await h\.patchSenden\(repo, v\.text, gruppe\)\) \{\n\s+vorschau = null;\n\s+await h\.neuLaden\(\);/);
   assert.match(repos, /await \(await ensurePool\(\)\)\.publish\(await signiere\(bauePatch\(\{ repo: r, text \}, state\.keypair\.pk\)\)\);/);
   assert.doesNotMatch(quelle("../src/shell/index.html"), /nip34-patch-datei/);
 });

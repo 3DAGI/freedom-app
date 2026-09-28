@@ -70,7 +70,7 @@ test("11.4a: Auswahl – nur Räume, in denen ich Repos pflegen darf; Einstellun
 test("Verdrahtung (11.4a): Karten mit Raum-Struktur, Auswahl in den Einstellungen, neue Moderatoren pflegen Repos", () => {
   const lies = (p: string) => readFileSync(new URL(`../src/${p}`, import.meta.url), "utf8");
   const repos = lies("shell/tabs/repos.ts");
-  assert.match(repos, /karten = repoKarten\(ankuendigungen, bundles, patches, status, state\.keypair\?\.pk, await raumStruktur\(raumIds\)\);/);
+  assert.match(repos, /karten = \[\.\.\.repoKarten\(ankuendigungen, bundles, patches, status, state\.keypair\?\.pk, await raumStruktur\(raumIds\)\),/);
   assert.match(repos, /return raumAuswahl\(await raumStruktur\(oeffentlicheRaeume\(\)\), state\.keypair\.pk\);/);
   const seite = lies("shell/tabs/repo-seite.ts");
   assert.match(seite, /raum\.id = "repo-feld-raum";/);
