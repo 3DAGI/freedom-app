@@ -8956,3 +8956,59 @@ mit Netz; ohne Netz 236 + 7) · app 510 · mls 13 · Leak-Tests 58 grün + 1 tod
 Seiten ok · Smoke-Test bestanden. Knoten-Stand: Das Kürzen braucht den
 Provider-Knoten auf diesem `main` – ältere Knoten übergehen `max_zeichen` und
 antworten wie bisher (nichts bricht, nur lang).
+
+## Schritt 7.4b1 – Fehlende Rahmen nachfordern (Protokoll und Funkknoten der App)
+
+**Warum:** Über Funk geht jeder zwanzigste Rahmen verloren. Eine Antwort aus
+elf Rahmen käme ohne Nachforderung fast jedes zweite Mal gar nicht an – für
+das Funk-Gateway (7.4b2) und für Chat über Funk gleichermaßen. 7.4b ist
+aufgeteilt: b1 die Nachforderung (dieser Schritt), b2 die Gateway-Rolle im
+Knoten; so bleibt jeder Teil unter 400 Zeilen.
+
+**Was:**
+- **Protokoll (`mesh-transport.ts`):**
+  - Nachforderung als eigene Nutzlast (37 Byte: „N“, Kennung der Nachricht,
+    Bitfeld der fehlenden Nummern) – `baueNachforderung()`/`leseNachforderung()`.
+    Sie trägt nur, was ohnehin in jedem Rahmenkopf steht; `pruefeMeshInhalt()`
+    erkennt sie als Art „nachforderung“ (nur als Nostr-Art, Bit 255 gesetzt
+    heißt Müll).
+  - Empfänger: `Reassembler.faelligeNachforderungen()` – nach 20 s ohne neuen
+    Rahmen, höchstens dreimal je Nachricht, die Ruhe davor verdreifacht sich
+    (die Gegenseite wartet vielleicht nur auf ihre Sendezeit); ein doppelter
+    Rahmen zählt nicht als Fortschritt.
+  - Sender: `Sendegedaechtnis` (20 Nachrichten, 1 h, höchstens zweimal je
+    Nachricht, `kennt()`), nachgesendet über `MeshQueue.enqueueFrames()` – mit
+    Vorrang und Sendezeit wie alles andere.
+  - Der Kopfkommentar sagt jetzt, was seit 7.4 über Funk geht (kurze
+    KI-Antwort über ein Gateway), statt „KI-Inferenz gar nicht“.
+- **App (`mesh-radio.ts`):** Der Funkknoten merkt, was er sendet und
+  weiterreicht, beantwortet Nachforderungen aus dem Gedächtnis, reicht fremde
+  weiter (eigene, schon zweimal nachgesendete nicht) und fordert über Funk alle
+  10 s fällige Lücken nach (`nachfordern()`); der Datei-Weg hat keinen Rückweg
+  und fordert nicht. Eine Nachforderung ist keine Nachricht – sie erreicht
+  `onMessage` nie (sonst meldete die App „Paket unlesbar“). Zwei Texte
+  (`bau.nachforderung`, `bau.nachgesendet`) in beiden Sprachen.
+
+**Tests:**
+- +5 in `protocol/test/mesh-nachforderung.test.ts`: Form und Grenzen
+  (Kennung, leere Liste, Nummer 255, falsche Länge/Marke, Bit 255, nicht mit
+  dem Bestand verwechselt); Zeitplan des Empfängers (Ruhe, dreifacher
+  Abstand, neuer Rahmen setzt zurück, doppelter nicht, höchstens dreimal);
+  Gedächtnis (unbekannt, Nummer außerhalb, höchstens zweimal, älter als eine
+  Stunde, älteste fällt heraus, Kopie unabhängig von der Warteschlange);
+  Vorrang nachgesendeter Rahmen; Ende zu Ende über einen verlustreichen Kanal
+  (zwei Rahmen verloren, Nachforderung zerlegt zurück, nachgesendet, Inhalt
+  passt zur Kennung).
+- +2 in `app/test/mesh-radio.test.ts`: zwei Funkknoten, zwei Rahmen gehen
+  verloren – genau die zwei kommen nach, die Nachricht einmal an, die
+  Nachforderung nie als Nachricht; nur Eigenes, höchstens zweimal, Fremdes
+  weitergereicht (mit verringerter Sprungzahl), ohne Gerät keine
+  Nachforderung.
+- +1 Leak-Test (`leak/mesh.test.ts`): Lücke nachfordern und nachsenden – im
+  Mitschnitt beider Seiten weder Alices noch Bobs Schlüssel noch Klartext.
+
+Endstand: protocol 1080 (+5, 6 übersprungen) · node 237 (6 übersprungen, mit
+Netz; ohne Netz 236 + 7) · app 512 (+2) · mls 13 · Leak-Tests 59 grün (+1) +
+1 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 ·
+Website 5 Seiten ok · Smoke-Test bestanden. Knoten-Stand: unverändert (nur
+Protokoll und App).

@@ -29,6 +29,7 @@ import {
   fragment, parseFrame, Reassembler, ForwardingCache, MeshQueue,
   MeshKind, MeshPriority, meshFeasibility, LORA_MTU, pruefeMeshInhalt, Sendezeitkonto,
   BESTAND_MARKE, buildDigest, falsePositiveRate, planSync, type SyncDigest, type Link, type NostrEvent,
+  Sendegedaechtnis, baueNachforderung, leseNachforderung,
 } from "@freedomstack/protocol";
 import { t } from "./i18n.js";
 import { fehlerText, funkText, meshGrund, syncNotiz } from "./protokoll-texte.js";
@@ -281,6 +282,9 @@ export class MeshNode {
   private queue = new MeshQueue();
   private reassembler = new Reassembler();
   private forwarding = new ForwardingCache();
+  /** Gesendetes, damit fehlende Rahmen nachgesendet werden können (7.4b). */
+  private gedaechtnis = new Sendegedaechtnis();
+  private lueckenTakt: ReturnType<typeof setInterval> | null = null;
   private transport: MeshTransport | null = null;
   private sending = false;
   private stopped = false;
@@ -328,6 +332,9 @@ export class MeshNode {
     this.link = tr.kind === "datei" ? "datei" : "lora";
     this.bytesPerSecond = tr.kind === "datei" ? 5_000_000 : 200;
     this.events.onLog?.(t("bau.verbunden", { name: tr.name }));
+    // Über Funk gehen Rahmen verloren: Lücken nachfordern (7.4b). Der Datei-Weg
+    // ist ein Bündel ohne Rückweg – dort nicht.
+    if (this.link === "lora") this.lueckenTakt = setInterval(() => this.nachfordern(), 10_000);
     void this.pump();
     // Beim Verbinden den eigenen Bestand anbieten — sonst passiert bei einem
     // Treffen nichts, bis jemand von Hand etwas sendet.
@@ -388,6 +395,8 @@ export class MeshNode {
   async detach(): Promise<void> {
     this.stopped = true;
     this.wecker?.();
+    if (this.lueckenTakt) clearInterval(this.lueckenTakt);
+    this.lueckenTakt = null;
     if (this.transport) {
       await this.transport.close();
       this.transport = null;
@@ -408,6 +417,7 @@ export class MeshNode {
     if (!machbar.feasible) throw new Error(funkText(machbar, payload.length));
 
     const m = this.queue.enqueue(payload, kind, priority, label);
+    this.gedaechtnis.merke(m.msgId, m.frames);
     // Kommt die eigene Nachricht als Echo zurueck, wird sie nicht noch einmal gesendet.
     this.forwarding.shouldForward(m.frames[0]);
     // Zahlen VOR dem Senden festhalten: pump() laeuft synchron bis zum ersten
@@ -455,6 +465,11 @@ export class MeshNode {
         this.handleDigest(st.payload);
         return;
       }
+      // Nachforderung (7.4b): fehlende Rahmen einer Nachricht, die hier durchkam
+      if (pruefung.art === "nachforderung") {
+        this.beantworteNachforderung(st.payload, st.priority, parseFrame(raw).ttl, nowSecs);
+        return;
+      }
       this.weiterreichen(st.payload, st.kind, st.priority, parseFrame(raw).ttl, nowSecs);
       this.events.onMessage(st.payload, st.kind);
     }
@@ -471,9 +486,45 @@ export class MeshNode {
     // Sprungzahl und Dubletten je Nachricht – am ersten Rahmen, gleich in welcher Reihenfolge sie kamen.
     if (!this.forwarding.shouldForward(fragment(payload, kind, priority, ttl)[0], nowSecs)) return;
     if (!pruefeMeshInhalt(payload, kind, { eigeneSchluessel: this.eigeneSchluessel }).ok) return;
-    this.queue.enqueue(payload, kind, priority, t("bau.weitergabe"), nowSecs, ttl - 1);
+    const m = this.queue.enqueue(payload, kind, priority, t("bau.weitergabe"), nowSecs, ttl - 1);
+    this.gedaechtnis.merke(m.msgId, m.frames, nowSecs);
     this.meldeFortschritt();
     void this.pump();
+  }
+
+  /**
+   * Fehlende Rahmen nachsenden (7.4b) – nur aus dem Gedächtnis, begrenzt und
+   * über die Warteschlange (Sendezeit). Kam die Nachricht nicht von hier,
+   * reicht der Knoten die Nachforderung weiter; eigene, schon zweimal
+   * nachgesendete nicht.
+   */
+  private beantworteNachforderung(payload: Uint8Array, priority: MeshPriority, ttl: number, nowSecs: number): void {
+    const n = leseNachforderung(payload);
+    if (!n || !this.transport) return;
+    const frames = this.gedaechtnis.nachsenden(n, nowSecs);
+    if (frames.length === 0) {
+      if (!this.gedaechtnis.kennt(n.msgId, nowSecs)) this.weiterreichen(payload, MeshKind.NostrEvent, priority, ttl, nowSecs);
+      return;
+    }
+    this.queue.enqueueFrames(frames, n.msgId, priority, t("bau.nachgesendet", { n: frames.length }), nowSecs);
+    this.meldeFortschritt();
+    void this.pump();
+  }
+
+  /** Lücken in empfangenen Nachrichten nachfordern (7.4b); Zahl der Nachforderungen. */
+  nachfordern(nowSecs = Math.floor(Date.now() / 1000)): number {
+    if (!this.transport) return 0;
+    const faellig = this.reassembler.faelligeNachforderungen(nowSecs);
+    for (const f of faellig) {
+      const m = this.queue.enqueue(baueNachforderung(f.msgId, f.fehlend), MeshKind.NostrEvent, f.priority, t("bau.nachforderung"), nowSecs);
+      // Kommt sie als Echo zurück, geht sie nicht noch einmal hinaus
+      this.forwarding.shouldForward(m.frames[0], nowSecs);
+    }
+    if (faellig.length > 0) {
+      this.meldeFortschritt();
+      void this.pump();
+    }
+    return faellig.length;
   }
 
   /** Mehrere Rahmen aus einem Datei-Bündel einspielen. */

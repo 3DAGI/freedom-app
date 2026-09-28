@@ -13,7 +13,7 @@ import {
   eventToMesh, meshToEvent, MeshTransport,
 } from "../src/mesh-radio.js";
 import {
-  MeshKind, MeshPriority, fragment, parseFrame, Sendezeitkonto,
+  MeshKind, MeshPriority, fragment, parseFrame, Sendezeitkonto, baueNachforderung, leseNachforderung,
   buildEvent, buildPrivateDm, generateKeypair, signEvent, type NostrEvent,
 } from "@freedomstack/protocol";
 import { setLang } from "../src/i18n.js";
@@ -262,6 +262,66 @@ test("Weitergereicht wird nur Geprueftes – kein fremder Klartext, keine Post a
   assert.equal(t.gesendet.length, 0, "fremder Klartext geht nicht über mein Gerät");
   assert.equal(an, 1, "die Post an mich kommt an");
   assert.equal(t2.gesendet.length, 0, "und wird nicht mit meinem Schlüssel weitergefunkt");
+});
+
+// ------------------------------------------------------------- Nachfordern (7.4b)
+
+test("Verlorene Rahmen werden nachgefordert und nachgesendet (7.4b)", async () => {
+  const original = umschlag(900);
+  const beiB: Uint8Array[] = [];
+  const beiA: Uint8Array[] = [];
+  const a = node((p) => { beiA.push(p); });
+  const b = node((p) => { beiB.push(p); });
+  let n = 0;
+  // Hin gehen beim ersten Mal die Rahmen 1 und 4 verloren
+  await a.attach({ ...fakeTransport(), async send(f) { if (n++ !== 1 && n !== 5) b.receive(f); } });
+  await b.attach({ ...fakeTransport(), async send(f) { a.receive(f); } });
+  const r = a.enqueue(original, MeshKind.NostrEvent, MeshPriority.Nachricht, "Test");
+  assert.ok(r.frames >= 5);
+  await new Promise((res) => setTimeout(res, 100));
+  assert.equal(beiB.length, 0, "unvollständig");
+  assert.equal(b.nachfordern(Math.floor(Date.now() / 1000) + 5), 0, "noch keine Ruhe");
+
+  assert.equal(b.nachfordern(Math.floor(Date.now() / 1000) + 30), 1);
+  await new Promise((res) => setTimeout(res, 100));
+  assert.equal(beiB.length, 1);
+  assert.deepEqual(beiB[0], original);
+  assert.equal(n, r.frames + 2, "genau die zwei fehlenden nachgesendet");
+  assert.ok(beiA.every((p) => p.length !== 37), "die Nachforderung ist keine Nachricht");
+  assert.equal(b.nachfordern(Math.floor(Date.now() / 1000) + 999), 0, "nichts mehr offen");
+  await a.detach();
+  await b.detach();
+});
+
+test("Nachgesendet wird nur Eigenes und höchstens zweimal – Fremdes geht weiter (7.4b)", async () => {
+  const t = fakeTransport();
+  const n = node();
+  await n.attach(t);
+  const r = n.enqueue(umschlag(600), MeshKind.NostrEvent, MeshPriority.Nachricht, "Test");
+  await new Promise((res) => setTimeout(res, 50));
+  const vorher = t.gesendet.length;
+  const fordere = (msgId: string, fehlend: number[]) => {
+    for (const f of fragment(baueNachforderung(msgId, fehlend), MeshKind.NostrEvent, MeshPriority.Nachricht, 5)) n.receive(f);
+  };
+  fordere(r.msgId, [0]);
+  fordere(r.msgId, [1, 2]);
+  fordere(r.msgId, [0, 1, 2]);
+  await new Promise((res) => setTimeout(res, 50));
+  assert.equal(t.gesendet.length, vorher + 3, "zweimal nachgesendet, dann nicht mehr");
+  assert.ok(t.gesendet.slice(vorher).every((f) => parseFrame(f).msgId === r.msgId));
+
+  fordere("ffffffff", [0]);
+  await new Promise((res) => setTimeout(res, 50));
+  const weiter = t.gesendet.slice(vorher + 3);
+  assert.equal(weiter.length, 1, "unbekannt: die Nachforderung selbst geht weiter");
+  assert.deepEqual(leseNachforderung(parseFrame(weiter[0]).data), { msgId: "ffffffff", fehlend: [0] });
+  assert.equal(parseFrame(weiter[0]).ttl, 4);
+
+  // Ohne Gerät keine Nachforderung
+  const ohne = node();
+  for (const f of fragment(umschlag(600), MeshKind.NostrEvent).slice(1)) ohne.receive(f, 1000);
+  assert.equal(ohne.nachfordern(2000), 0);
+  await n.detach();
 });
 
 // ------------------------------------------------------------- Datei-Weg

@@ -30,6 +30,8 @@ export const bausteine: Texte = {
   "bau.nichtGesendet": { de: "nicht gesendet: {fehler}", en: "not sent: {fehler}" },
   "bau.empfangen": { de: "empfangen: {n} Pakete, {bytes} Byte", en: "received: {n} packets, {bytes} bytes" },
   "bau.weitergabe": { de: "Weitergabe", en: "Relay" },
+  "bau.nachforderung": { de: "Nachforderung", en: "Re-request" },
+  "bau.nachgesendet": { de: "{n} Rahmen nachgesendet", en: "{n} frames re-sent" },
   "bau.sendefehler": { de: "Sendefehler: {fehler}", en: "Send error: {fehler}" },
   "bau.keinJson": { de: "keine gültige JSON-Datei", en: "not a valid JSON file" },
   "bau.keinBundle": { de: "kein freedom-mesh-Bündel", en: "not a freedom-mesh bundle" },
