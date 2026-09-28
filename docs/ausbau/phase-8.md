@@ -31,10 +31,11 @@ Reihenfolge.
 > der Kette, SOL für Gebühren, Auszahlung), beim Start ins Log und als
 > `npm run pruefen`; der Installer legt den SOL-Schlüssel des Knotens an
 > (Datei 600), fragt die Auszahlungsadresse, schreibt beide Schienen in die
-> Umgebung und prüft am Ende. **b** eigener Lightning-Empfang: der alte
-> `lnurl-server.ts` (Treasury, Blink) wird zur Lightning-Adresse des Providers
-> beim eigenen LND (nur `invoices`-Macaroon, feste Fehlertexte, Betrag
-> geprüft) – statt eines verwahrenden Dienstes. **c** Tor: Verbindungen des
+> Umgebung und prüft am Ende. **b** eigener Lightning-Empfang ✓: der alte
+> `lnurl-server.ts` (Treasury, Blink) ist jetzt die Lightning-Adresse des
+> Providers beim eigenen LND (nur `invoices`-Macaroon, Beschreibung = Hash der
+> Metadaten, feste Fehlertexte, Betrag geprüft, Bremse) – statt eines
+> verwahrenden Dienstes; Anleitung `docs/PROVIDER.md`. **c** Tor: Verbindungen des
 > Knotens über einen SOCKS-Proxy (ohne neue Abhängigkeit), der eigene Relay
 > als .onion.
 

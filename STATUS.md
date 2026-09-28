@@ -10014,3 +10014,46 @@ unverändert.
 Nach dem Einmergen von `main` (8.2a): protocol 1088 · node 249 + 7
 übersprungen (ohne Netz; mit Netz 250 + 6) · app 567 · mls 13 · Leak-Tests 62
 + 1 todo · 0 rot; alle Prüfungen erneut grün.
+
+## Schritt 8.2b – Provider-Knoten: Lightning-Adresse beim eigenen LND
+
+**Warum:** Die Karte 8.2 verlangt „eigenen Empfang statt verwahrender
+Dienste“. Die App zahlt den Anteil des Providers an seine Lightning-Adresse –
+meist eine bei einem Dienst, dem das Geld bis zur Auszahlung gehört. Im Knoten
+lag noch der LNURL-Server des alten Treasury-Modells: für Blink (entgegen dem
+Kommentar ein verwahrender Dienst) oder LND, mit Wochen-Wallets, Rechnungen
+ohne `description_hash` (Wallets, die LUD-06 prüfen, lehnen sie ab) und roher
+Fehlermeldung nach außen.
+
+**Was:**
+- **`node/src/lnurl-server.ts` neu:** `LnurlDienst` beantwortet nur den
+  eigenen Namen (`/.well-known/lnurlp/<name>`) und stellt Rechnungen aus
+  (`/lnurlp/<name>/rechnung?amount=<msat>`): nur ganze msat im Bereich (auch
+  „1.5e3“ und „0x…“ abgewiesen), Beschreibung = SHA-256 der Metadaten (LUD-06),
+  keine Kommentare, höchstens `LNURL_PRO_MINUTE` (Standard 30) Rechnungen je
+  Minute, nach außen nur feste Texte. `starteLnurlServer()`: nur GET, CORS `*`,
+  JSON, lauscht nur auf 127.0.0.1 (Reverse-Proxy davor).
+  `lnurlAusUmgebung()`: `LNURL_BASE_URL` nur `https://<domain>`, Name geprüft,
+  Macaroon nur für Rechnungen (`pruefeRelayMacaroon()`), selbstsigniertes TLS
+  nur lokal; `LNURL_BACKEND=blink` wird mit Grund abgewiesen.
+- **`protocol/src/lnd-adapter.ts`:** `createLnurlInvoice(msat, hash)` –
+  `value_msat` und `description_hash` statt Notiz.
+- **Verdrahtet:** `node/src/main.ts` startet ihn mit `LNURL_ENABLED=1` (sonst
+  nennt das Log den Grund) und warnt, wenn `NODE_LUD16` nicht auf ihn zeigt.
+  Ob er von außen klappt, prüft die Selbstprüfung aus 8.2a.
+- **Doku:** neu `docs/PROVIDER.md` (einrichten, prüfen, Lightning beim eigenen
+  Knoten mit Caddy-Beispiel, Docker-Hinweis, die Grenze „eine SOL-Adresse“);
+  `docker-compose.yml` (LNURL-Werte, Port 3601 nur lokal), Installer-Hinweis,
+  FAQ „Wie werde ich Provider?“, Karte 8.2, FORTSCHRITT, CLAUDE.md.
+
+**Tests:** +5 in `node/test/lnurl-server.test.ts` (Parameter nur für den
+eigenen Namen, Hash der Metadaten; Beträge, Bremse, keine LND-Meldung;
+Einrichtung – https, Name, Macaroon, Blink, fremdes TLS; Durchstich: die
+Selbstprüfung aus 8.2a erkennt den Server über HTTP als gute Adresse;
+Verdrahtung), +1 in `protocol/test/lnd-adapter.test.ts` (`value_msat`,
+`description_hash`, Fehler).
+
+Endstand (nach dem Einmergen von `main` mit 8.15): protocol 1089 (+1; 6
+übersprungen) · node 255 (+5; 6 übersprungen, mit Netz) · app 567 · mls 13 · Leak-Tests 62 grün + 1 todo · 0 rot ·
+check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 · Website 5 Seiten
+ok · Smoke-Test bestanden · `bash -n` für den Installer.

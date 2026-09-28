@@ -44,7 +44,7 @@ bash packages/mls/bauen.sh --pruefen                     # nur bei Änderungen a
 bash contracts/solana-channel/pruefen.sh --werkzeuge     # nur bei Änderungen am Zahlkanal: bauen + Tests gegen Validator (Agave 3.1.10)
 ```
 
-Stand 28.09.2026 (nach 8.2a, C.2d2, 5.5a–c und 8.15): protocol 1088 grün (6 übersprungen), node 250 grün
+Stand 28.09.2026 (nach 8.2b, C.2d2, 5.5a–c und 8.15): protocol 1089 grün (6 übersprungen), node 255 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
 in `tools.test.ts`), app 567 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 62 grün + 1 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
@@ -637,3 +637,9 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   Argumente an `node` geben, nie in den Code einsetzen; Schlüsseldateien mit
   `umask 077` anlegen. Leere Werte aus der Umgebungsdatei (`SOLANA_RPC_URL=`)
   mit `||` behandeln, nicht mit `??`.
+  Eigener Lightning-Empfang (seit 8.2b) nur über `LnurlDienst`
+  (`lnurl-server.ts`): LND nur mit einer Macaroon für Rechnungen
+  (`pruefeRelayMacaroon()`), Rechnung mit `createLnurlInvoice()` (Hash der
+  Metadaten, LUD-06), Beträge nur als ganze msat im Bereich, Bremse je Minute,
+  nach außen feste Texte. Kein Backend bei einem verwahrenden Dienst (Blink fiel
+  mit 8.2b).
