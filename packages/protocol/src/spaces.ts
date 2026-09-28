@@ -37,12 +37,30 @@ export type Permission =
   | "anheften"
   | "moderieren"
   | "kanaele_verwalten"
-  | "rollen_vergeben";
+  | "rollen_vergeben"
+  /** Repos des Raums pflegen: ankündigen, Patches annehmen und schließen (11.4a). */
+  | "repos_pflegen";
 
 export const ALL_PERMISSIONS: Permission[] = [
   "lesen", "schreiben", "threads", "anheften", "moderieren",
-  "kanaele_verwalten", "rollen_vergeben",
+  "kanaele_verwalten", "rollen_vergeben", "repos_pflegen",
 ];
+
+const HEX64 = /^[0-9a-f]{64}$/;
+const SPACE_ID = /^[A-Za-z0-9._-]{1,64}$/;
+
+/** Adresse eines öffentlichen Raums (NIP-01 „a“) – an den Besitzer gebunden (11.4a). */
+export function raumAdresse(besitzer: string, spaceId: string): string {
+  if (!HEX64.test(besitzer) || !SPACE_ID.test(spaceId)) throw new Error("Raum-Adresse ungültig");
+  return `${KIND_SPACE}:${besitzer}:space:${spaceId}`;
+}
+
+/** Raum-Adresse lesen (fremde Daten); null, wenn es keine ist. */
+export function leseRaumAdresse(a: unknown): { besitzer: string; spaceId: string } | null {
+  if (typeof a !== "string") return null;
+  const m = /^34700:([0-9a-f]{64}):space:([A-Za-z0-9._-]{1,64})$/.exec(a);
+  return m ? { besitzer: m[1], spaceId: m[2] } : null;
+}
 
 /**
  * Vertraulichkeit eines Kanals.

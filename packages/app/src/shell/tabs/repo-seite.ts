@@ -56,6 +56,8 @@ export interface RepoSeiteHilfe {
   mitwirkende: () => Promise<NostrEvent[]>;
   /** Bundle verschlüsselt hochladen und die Referenz (38042) mit dieser Kennung veröffentlichen. */
   hochladen: (datei: File, kennung: string) => Promise<boolean>;
+  /** Öffentliche Räume, denen ich Repos zuordnen darf (11.4a). */
+  raeume: () => Promise<{ adresse: string; name: string }[]>;
 }
 
 export type RepoReiter = "code" | "commits" | "patches" | "mitwirkende" | "einstellungen";
@@ -366,6 +368,27 @@ function einstellungenReiter(k: RepoKarte, h: RepoSeiteHilfe): HTMLElement[] {
   feld("web", t("repo.feldWeb"), (r?.web ?? []).join("\n"), true, true);
   feld("maintainer", t("repo.feldMaintainer"), (r?.maintainer ?? []).join("\n"), true, true);
   feld("ersterCommit", t("repo.feldErsterCommit"), r?.ersterCommit ?? "", false, true);
+  // Öffentlicher Raum (11.4a): nur Räume, in denen ich Repos pflegen darf; ein gesetzter bleibt wählbar
+  const raum = el("select");
+  raum.id = "repo-feld-raum";
+  raum.name = "raum";
+  const option = (wert: string, text: string) => {
+    const o = el("option", text);
+    o.value = wert;
+    return o;
+  };
+  raum.append(option("", t("repo.keinRaum")), ...(r?.raum ? [option(r.raum, t("repo.bisherigerRaum"))] : []));
+  raum.value = r?.raum ?? "";
+  const raumLabel = el("label", t("repo.feldRaum"));
+  raumLabel.htmlFor = raum.id;
+  form.append(raumLabel, raum, el("p", t("repo.raumHinweis"), "mono-sm muted"));
+  void h.raeume().then((liste) => {
+    for (const x of liste) {
+      const vorhanden = [...raum.options].find((o) => o.value === x.adresse);
+      if (vorhanden) vorhanden.textContent = x.name;
+      else raum.append(option(x.adresse, x.name));
+    }
+  }).catch(() => undefined);
   const fehler = el("p", undefined, "repo-fehler");
   fehler.setAttribute("role", "alert");
   const speichern = el("button", t(r ? "repo.speichern" : "agent.repoAnkuendigen"));
@@ -401,7 +424,7 @@ async function speichereEinstellungen(k: RepoKarte, form: HTMLFormElement, fehle
     const { baueRepoAnkuendigung } = await import("@freedomstack/protocol");
     const ev = baueRepoAnkuendigung(ankuendigungAusFeldern(k.id, {
       name: wert("name"), beschreibung: wert("beschreibung"), klon: wert("klon"), web: wert("web"),
-      maintainer: wert("maintainer"), ersterCommit: wert("ersterCommit"),
+      maintainer: wert("maintainer"), ersterCommit: wert("ersterCommit"), raum: wert("raum"),
     }), state.keypair.pk);
     if (!await bestaetige({ titel: t("repo.speichern"), text: t("repo.speichernFrage"), ok: t("repo.speichern") })) return;
     await (await ensurePool()).publish(await signiere(ev));

@@ -72,6 +72,7 @@ export const fehler: Texte = {
   "pf.repoKlon": { de: "Keine Klon-Adresse: {adresse}", en: "Not a clone address: {adresse}" },
   "pf.repoMaintainer": { de: "Maintainer muss ein 64-stelliger Hex-Schlüssel sein", en: "A maintainer must be a 64-character hex key" },
   "pf.repoErsterCommit": { de: "Erster Commit muss ein SHA-1 sein", en: "The first commit must be a SHA-1" },
+  "pf.repoRaum": { de: "Kein öffentlicher Raum (34700:<Schlüssel>:space:<Kennung>)", en: "Not a public room (34700:<key>:space:<id>)" },
   "pf.patchGross": { de: "Patch zu groß (höchstens {kb} KB) – größere Änderungen als Bundle", en: "Patch too large (at most {kb} KB) – larger changes as a bundle" },
   "pf.patchFormat": { de: "Kein Patch aus `git format-patch` (erste Zeile „From <commit> …“ fehlt)", en: "Not a patch from `git format-patch` (first line “From <commit> …” is missing)" },
   "pf.patchBetreff": { de: "Patch ohne Betreff", en: "Patch without a subject" },

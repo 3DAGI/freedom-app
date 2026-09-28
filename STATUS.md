@@ -10880,3 +10880,50 @@ Endstand: protocol 1104 (+2, 6 übersprungen) · node 262 + 7 übersprungen
 (ohne Netz, unverändert) · app 608 (+4) · mls 13 · Leak-Tests 65 grün + 1 todo
 · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 · Website ok
 · Smoke-Test bestanden · Website-Bau ok. Knoten-Stand: unverändert.
+
+## Schritt 11.4a – Repos in öffentlichen Räumen
+
+Spur B, Karte `phase-11.md` (11.4a). Die Oberfläche im Raum und auf der
+Repo-Seite (Kennzeichen, Liste der Raum-Repos) baut Spur C in 11.4c.
+
+**Was:**
+- Protokoll: Recht `repos_pflegen` für Raum-Rollen (`spaces.ts`, in
+  `ALL_PERMISSIONS` – der Besitzer hat es immer), `raumAdresse()` /
+  `leseRaumAdresse()` (`34700:<besitzer>:space:<kennung>`). Die
+  Repo-Ankündigung (30617) trägt den Verweis als `a`-Tag (`raum`, geprüft beim
+  Bauen, streng beim Lesen; Fehlerkennung `repo-raum`).
+- `raum-repo.ts`: `raumZustandFuer()` baut den Raum-Zustand nur aus der
+  Definition des Besitzers aus der Adresse (eine neuere Definition eines
+  anderen mit derselben Kennung zählt nicht); `mitRaumRechten()` bestätigt den
+  Verweis nur, wenn der Eigentümer des Repos im Raum `repos_pflegen` hat, und
+  nimmt dann alle mit dem Recht (und den Besitzer) als Maintainer auf –
+  `darfAnnehmen()`, `patchStatus()` und `patchAktionen()` bleiben unverändert.
+- App: `repoKarten(…, raumEvents)` wertet die Raum-Struktur aus (geladen in
+  `ladeNip34Repos()` für die Räume, auf die Repos verweisen), die Karte trägt
+  `raumBestaetigt`. In den Repo-Einstellungen eine Auswahl „Öffentlicher Raum“
+  – nur Räume, in denen ich `repos_pflegen` habe (`raumAuswahl()`), ein
+  gesetzter bleibt wählbar; gespeichert über `ankuendigungAusFeldern()`. Neue
+  öffentliche Räume geben der Moderatoren-Rolle das Recht.
+- Format in `docs/PROTOCOL.md` (Abschnitt 18), wie die Karte verlangt.
+
+**Verdrahtet:** `app/src/shell/tabs/repos.ts` (`ladeNip34Repos()` →
+`raumStruktur()` → `repoKarten()`; `meineRepoRaeume()` → `raumAuswahl()`),
+`app/src/shell/tabs/repo-seite.ts` (`einstellungenReiter()` Auswahl,
+`speichereEinstellungen()` → `raum`), `app/src/shell/tabs/raeume.ts`
+(Moderatoren-Rolle neuer Räume).
+
+**Tests:** +4 in `protocol/test/raum-repo.test.ts` (Adresse gebunden und
+streng gelesen; gehört zum Raum nur mit Recht, dann pflegen alle mit dem
+Recht, Gäste und Fremde nicht, Adresse eines anderen Besitzers passt nicht;
+Zustand nur aus der Definition des Besitzers – eine unterschobene neuere
+zählt nicht; Patch-Status zählt Raum-Pfleger, nach Entzug nicht mehr). App:
++3 in `test/raum-repos.test.ts` (Karte: Status des Raum-Pflegers zählt, ohne
+Struktur nicht; Aktionen für Gast und Pfleger; Auswahl nur mit Recht, fremde
+Kopie derselben Kennung nicht; Einstellungen speichern den Verweis;
+Verdrahtung). Der Verdrahtungstest in `repo-karten.test.ts` prüft den neuen
+Aufruf wörtlich.
+
+Endstand: protocol 1108 (+4, 6 übersprungen) · node 262 + 7 übersprungen
+(ohne Netz, unverändert) · app 611 (+3) · mls 13 · Leak-Tests 65 grün + 1 todo
+· 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 · Website ok
+· Smoke-Test bestanden · Website-Bau ok. Knoten-Stand: unverändert.

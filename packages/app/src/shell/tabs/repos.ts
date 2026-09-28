@@ -12,10 +12,11 @@
 import type { GelesenesRepo, NostrEvent } from "@freedomstack/protocol";
 import { gebietsschema, t } from "../../i18n.js";
 import { fehlerText } from "../../protokoll-texte.js";
-import { type RepoKarte, filtereKarten, repoKarten } from "../../repo-ansicht.js";
+import { type RepoKarte, filtereKarten, raumAuswahl, repoKarten } from "../../repo-ansicht.js";
 import { bestaetige, dialog } from "../dialog.js";
 import { ensurePool, signiere, state } from "../state.js";
 import { toast } from "../ui.js";
+import { oeffentlicheRaeume } from "./raeume.js";
 import { eigentuemerName, vergissReiter, zeigeRepoSeite } from "./repo-seite.js";
 
 const STATUS_KINDS = [1630, 1631, 1632, 1633];
@@ -48,12 +49,28 @@ export async function ladeNip34Repos(): Promise<void> {
     const adressen = ankuendigungen.map((ev) => `${KIND_REPO_ANKUENDIGUNG}:${ev.pubkey}:${ev.tags.find((x) => x[0] === "d")?.[1] ?? ""}`);
     const patches: NostrEvent[] = adressen.length ? await pool.query({ kinds: [KIND_PATCH], "#a": adressen, limit: 300 }) : [];
     const status = patches.length ? await pool.query({ kinds: STATUS_KINDS, "#e": patches.map((p) => p.id), limit: 1000 }) : [];
-    karten = repoKarten(ankuendigungen, bundles, patches, status, state.keypair?.pk);
+    // Räume, auf die Repos verweisen (11.4a): ihre Rollen bestimmen, wer mitpflegt
+    const { leseRaumAdresse } = await import("@freedomstack/protocol");
+    const raumIds = [...new Set(ankuendigungen.flatMap((ev) => ev.tags.filter((x) => x[0] === "a").map((x) => leseRaumAdresse(x[1])?.spaceId ?? "")).filter(Boolean))];
+    karten = repoKarten(ankuendigungen, bundles, patches, status, state.keypair?.pk, await raumStruktur(raumIds));
     beitraege = null;
     zeige();
   } catch {
     box.textContent = t("repo.relaysWeg");
   }
+}
+
+/** Struktur öffentlicher Räume (Definition, Rollen, Zuweisungen) – ausgewertet wird in `raumZustandFuer()`. */
+async function raumStruktur(ids: readonly string[]): Promise<NostrEvent[]> {
+  if (ids.length === 0) return [];
+  const { KIND_SPACE, KIND_SPACE_ROLES, KIND_ROLE_GRANT } = await import("@freedomstack/protocol");
+  return (await ensurePool()).query({ kinds: [KIND_SPACE, KIND_SPACE_ROLES, KIND_ROLE_GRANT], "#space": ids.slice(0, 50), limit: 500 });
+}
+
+/** Meine öffentlichen Räume, in denen ich Repos pflegen darf (11.4a) – für die Einstellungen eines Repos. */
+async function meineRepoRaeume(): Promise<{ adresse: string; name: string }[]> {
+  if (!state.keypair) return [];
+  return raumAuswahl(await raumStruktur(oeffentlicheRaeume()), state.keypair.pk);
 }
 
 /** Liste oder – wenn eines offen ist – die Repo-Seite; `fokus`: gerade geöffnet, Fokus auf „‹ Alle Repos“. */
@@ -76,6 +93,7 @@ function zeige(fokus = false): void {
       patchSenden: sendePatch,
       mitwirkende: ladeBeitraege,
       hochladen: ladeBundleHoch,
+      raeume: meineRepoRaeume,
     });
     if (fokus) seite.querySelector<HTMLElement>(".repo-zurueck")?.focus();
     return;
