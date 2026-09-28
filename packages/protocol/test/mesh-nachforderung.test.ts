@@ -68,6 +68,10 @@ test("7.4b1: Empfänger fordert nach Ruhe nach – höchstens dreimal, mit wachs
   // Vollständig: nichts mehr offen
   assert.ok(r.add(frames[3], 100_000)?.complete);
   assert.equal(r.pending, 0);
+  // 7.4b2: Eine späte Dublette nach dem Zusammensetzen ist keine Lücke
+  r.add(frames[0], 100_010);
+  assert.deepEqual(r.faelligeNachforderungen(100_100), []);
+  assert.equal(r.pending, 0);
 });
 
 test("7.4b1: Sender sendet nur aus dem Gedächtnis nach – unbekannt, zu alt, zu oft: nichts", () => {

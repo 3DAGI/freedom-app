@@ -33,6 +33,8 @@ export const WEITERLEITUNG_MAX_SECS = 3600;
 export const WEITERLEITUNG_MAX_ANTWORTEN = 3;
 /** So viele Sitzungen hält ein Gateway höchstens gleichzeitig. */
 export const WEITERLEITUNG_MAX_OFFEN = 50;
+/** Uhren von Handy, Gateway und Provider dürfen so weit auseinanderliegen (Sekunden). */
+export const WEITERLEITUNG_UHR_TOLERANZ = 600;
 
 const HEX64 = /^[0-9a-f]{64}$/;
 
@@ -66,6 +68,11 @@ export interface Weiterleitung {
   sitzung: string;
   /** Bis dahin (Unix-Sekunden) – danach nichts mehr. */
   bis: number;
+  /**
+   * Erstellt um (Unix-Sekunden, 7.4b2): Ältere Post an die Sitzung – etwa
+   * Antworten aus der Zeit mit Netz – funkt das Gateway nicht zurück.
+   */
+  ab: number;
   auftragId: string;
 }
 
@@ -86,7 +93,7 @@ export async function baueWeiterleitung(p: {
     tags: [["p", p.gatewayPk], ["expiration", String(bis)]], content: "",
   };
   const wrap = await giftWrapMitSigner(kern, p.sitzung, p.gatewayPk, { fixedJitter: 0, nowSecs: now, ablaufBis: bis });
-  return { wrap, weiterleitung: { sitzung: kern.pubkey, bis, auftragId: computeEventId(kern) } };
+  return { wrap, weiterleitung: { sitzung: kern.pubkey, bis, ab: now, auftragId: computeEventId(kern) } };
 }
 
 /** Als Gateway öffnen; null, wenn es kein gültiger, noch laufender Weiterleitungsauftrag ist. */
@@ -98,27 +105,33 @@ export async function oeffneWeiterleitung(wrap: NostrEvent, gateway: Signer, now
   if (!HEX64.test(k.pubkey) || getTag(k as NostrEvent, "p") !== gateway.publicKey()) return null;
   const bis = Number(getTag(k as NostrEvent, "expiration"));
   if (!Number.isSafeInteger(bis) || bis <= nowSecs || bis - k.created_at > WEITERLEITUNG_MAX_SECS) return null;
-  return { sitzung: k.pubkey, bis, auftragId: computeEventId(k) };
+  return { sitzung: k.pubkey, bis, ab: k.created_at, auftragId: computeEventId(k) };
 }
 
 /**
  * Was ein Gateway zurückfunkt – eine Stelle für die Regeln: nur Umschläge an
- * eine gemerkte, noch laufende Sitzung, höchstens drei je Sitzung, keiner
- * doppelt, höchstens 50 Sitzungen zugleich. Alles andere bleibt im Netz.
+ * eine gemerkte, noch laufende Sitzung, die nicht älter als ihr Auftrag sind
+ * (7.4b2), höchstens drei je Auftrag, keiner doppelt, höchstens 50 Sitzungen
+ * zugleich. Alles andere bleibt im Netz.
  */
 export class GatewayBuch {
-  private sitzungen = new Map<string, { bis: number; gesendet: Set<string> }>();
+  private sitzungen = new Map<string, { bis: number; ab: number; auftragId: string; zaehler: number; gesendet: Set<string> }>();
 
-  /** Weiterleitung merken; false, wenn das Buch voll ist (dann nichts zurückfunken). */
+  /**
+   * Weiterleitung merken; false, wenn das Buch voll ist (dann nichts
+   * zurückfunken). Ein neuerer Auftrag derselben Sitzung ersetzt den alten –
+   * mit neuer Frist und neuen drei Umschlägen (schon Gefunktes bleibt
+   * gefunkt); ein älterer (wiederholt gefunkter) ändert nichts.
+   */
   merke(w: Weiterleitung, nowSecs = Math.floor(Date.now() / 1000)): boolean {
     this.raeumeAuf(nowSecs);
     const alt = this.sitzungen.get(w.sitzung);
     if (alt) {
-      alt.bis = Math.max(alt.bis, w.bis);
+      if (w.ab > alt.ab && w.auftragId !== alt.auftragId) Object.assign(alt, { bis: w.bis, ab: w.ab, auftragId: w.auftragId, zaehler: 0 });
       return true;
     }
     if (this.sitzungen.size >= WEITERLEITUNG_MAX_OFFEN) return false;
-    this.sitzungen.set(w.sitzung, { bis: w.bis, gesendet: new Set() });
+    this.sitzungen.set(w.sitzung, { bis: w.bis, ab: w.ab, auftragId: w.auftragId, zaehler: 0, gesendet: new Set() });
     return true;
   }
 
@@ -133,7 +146,10 @@ export class GatewayBuch {
     if (wrap.kind !== KIND_GIFT_WRAP) return false;
     const s = this.sitzungen.get(getTag(wrap, "p") ?? "");
     if (!s || s.bis <= nowSecs || s.gesendet.has(wrap.id)) return false;
-    if (s.gesendet.size >= WEITERLEITUNG_MAX_ANTWORTEN) return false;
+    // Antworten tragen ihre echte Zeit (ohne Streuung) – was vor dem Auftrag entstand, ist alte Post
+    if (!(wrap.created_at >= s.ab - WEITERLEITUNG_UHR_TOLERANZ)) return false;
+    if (s.zaehler >= WEITERLEITUNG_MAX_ANTWORTEN) return false;
+    s.zaehler++;
     s.gesendet.add(wrap.id);
     return true;
   }

@@ -10,13 +10,14 @@ import { LocalSigner } from "../src/signer.js";
 import { buildJobRequest } from "../src/dvm.js";
 import { buildPrivateJobRequest, buildPrivateJobResponse, openPrivateJobRequest, openPrivateJobResponse } from "../src/private-job.js";
 import { MemoryRelay } from "../src/outbox.js";
+import { buildCapabilities, parseCapabilities } from "../src/tiers.js";
 import {
   LORA_MTU, MeshKind, MeshPriority, Reassembler, SENDEZEIT_ANTEIL, SENDEZEIT_FENSTER_SEKUNDEN,
   fragment, luftBytes, pruefeMeshInhalt,
 } from "../src/mesh-transport.js";
 import { LINK_BYTES_PER_SEC } from "../src/mesh-sync.js";
 import {
-  FUNK_MAX_ZEICHEN, GatewayBuch, KIND_FUNK_WEITERLEITUNG, WEITERLEITUNG_MAX_ANTWORTEN, WEITERLEITUNG_MAX_OFFEN,
+  FUNK_MAX_ZEICHEN, GatewayBuch, KIND_FUNK_WEITERLEITUNG, WEITERLEITUNG_MAX_ANTWORTEN, WEITERLEITUNG_MAX_OFFEN, WEITERLEITUNG_UHR_TOLERANZ,
   baueWeiterleitung, kuerzeAntwort, kurzParam, leseKurzWunsch, oeffneWeiterleitung,
 } from "../src/funk-gateway.js";
 
@@ -63,21 +64,30 @@ test("7.4a: Weiterleitungsauftrag – versiegelt ans Gateway, vom Sitzungsschlü
 test("7.4a: Gateway-Buch – nur Post an gemerkte, laufende Sitzungen, höchstens drei je Sitzung, keine doppelt, begrenzte Zahl", () => {
   const buch = new GatewayBuch();
   const s = generateKeypair().pk;
-  assert.ok(buch.merke({ sitzung: s, bis: JETZT + 600, auftragId: "x" }, JETZT));
+  assert.ok(buch.merke({ sitzung: s, bis: JETZT + 600, ab: JETZT, auftragId: "x" }, JETZT));
   assert.deepEqual(buch.offene(JETZT), [s]);
-  const umschlag = (an: string, n: number) => ({ id: String(n).padStart(64, "0"), kind: 1059, tags: [["p", an]] }) as unknown as NostrEvent;
+  const umschlag = (an: string, n: number, zeit = JETZT) => ({ id: String(n).padStart(64, "0"), kind: 1059, created_at: zeit, tags: [["p", an]] }) as unknown as NostrEvent;
+  // 7.4b2: Post von vor dem Auftrag (über die Uhr-Toleranz hinaus) bleibt im Netz
+  assert.equal(buch.zurueck(umschlag(s, 50, JETZT - WEITERLEITUNG_UHR_TOLERANZ - 1), JETZT), false, "alte Post");
   assert.equal(buch.zurueck(umschlag(generateKeypair().pk, 1), JETZT), false, "fremde Sitzung");
   assert.equal(buch.zurueck({ ...umschlag(s, 2), kind: 1 } as NostrEvent, JETZT), false, "kein Umschlag");
   assert.equal(buch.zurueck(umschlag(s, 3), JETZT), true);
   assert.equal(buch.zurueck(umschlag(s, 3), JETZT), false, "nicht doppelt");
   for (let i = 4; i < 3 + WEITERLEITUNG_MAX_ANTWORTEN; i++) assert.equal(buch.zurueck(umschlag(s, i), JETZT), true);
   assert.equal(buch.zurueck(umschlag(s, 99), JETZT), false, "höchstens drei");
-  assert.equal(buch.zurueck(umschlag(s, 100), JETZT + 600), false, "abgelaufen");
-  assert.deepEqual(buch.offene(JETZT + 600), []);
+  // Ein wiederholt gefunkter, älterer Auftrag ändert nichts; ein neuer bringt drei neue Umschläge
+  assert.ok(buch.merke({ sitzung: s, bis: JETZT + 600, ab: JETZT - 10, auftragId: "alt" }, JETZT));
+  assert.equal(buch.zurueck(umschlag(s, 98), JETZT), false);
+  assert.ok(buch.merke({ sitzung: s, bis: JETZT + 900, ab: JETZT + 5, auftragId: "y" }, JETZT + 5));
+  assert.equal(buch.zurueck(umschlag(s, 3, JETZT + 6), JETZT + 6), false, "schon gefunkt bleibt gefunkt");
+  assert.equal(buch.zurueck(umschlag(s, 7, JETZT + 6), JETZT + 6), true, "neuer Auftrag, neue drei");
+  assert.equal(buch.zurueck(umschlag(s, 101, JETZT + 5 - WEITERLEITUNG_UHR_TOLERANZ - 1), JETZT + 6), false, "vor dem neuen Auftrag");
+  assert.equal(buch.zurueck(umschlag(s, 100), JETZT + 900), false, "abgelaufen");
+  assert.deepEqual(buch.offene(JETZT + 900), []);
 
   const voll = new GatewayBuch();
-  for (let i = 0; i < WEITERLEITUNG_MAX_OFFEN; i++) assert.ok(voll.merke({ sitzung: generateKeypair().pk, bis: JETZT + 600, auftragId: "x" }, JETZT));
-  assert.equal(voll.merke({ sitzung: generateKeypair().pk, bis: JETZT + 600, auftragId: "x" }, JETZT), false, "Buch voll");
+  for (let i = 0; i < WEITERLEITUNG_MAX_OFFEN; i++) assert.ok(voll.merke({ sitzung: generateKeypair().pk, bis: JETZT + 600, ab: JETZT, auftragId: "x" }, JETZT));
+  assert.equal(voll.merke({ sitzung: generateKeypair().pk, bis: JETZT + 600, ab: JETZT, auftragId: "x" }, JETZT), false, "Buch voll");
 });
 
 /**
@@ -156,4 +166,16 @@ test("7.4a ABNAHME: KI über Funk – Auftrag und Weiterleitung hin, kurze Antwo
   assert.ok(offen.ok);
   assert.equal(offen.response.content, antwortText);
   assert.ok([...offen.response.content].length <= FUNK_MAX_ZEICHEN);
+});
+
+test("7.4b2: Angebot nennt das Funk-Gateway – nur wenn es läuft, fremde Werte zählen nicht", () => {
+  const kp = generateKeypair();
+  const basis = { pubkey: kp.pk, tier: "classic" as const, models: ["m"], textRatePerKTokenMsat: 1000, tools: [], currentlyFree: false };
+  const mit = buildCapabilities({ ...basis, funkGateway: true });
+  assert.deepEqual(mit.tags.filter((t) => t[0] === "funk"), [["funk", "gateway"]]);
+  assert.equal(parseCapabilities(mit).funkGateway, true);
+  const ohne = buildCapabilities({ ...basis, funkGateway: false });
+  assert.equal(ohne.tags.some((t) => t[0] === "funk"), false);
+  assert.equal("funkGateway" in parseCapabilities(ohne), false);
+  assert.equal(parseCapabilities({ ...ohne, tags: [...ohne.tags, ["funk", "ja"]] }).funkGateway, undefined);
 });
