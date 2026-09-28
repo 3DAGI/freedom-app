@@ -25,7 +25,8 @@ class LangesBackend implements InferenceBackend {
   }
 }
 
-async function lauf(params: string[][]) {
+/** `erwartet`: so viele Antworten, bis gezählt wird – die Rückmeldung geht nebenher („best effort“) hinaus. */
+async function lauf(params: string[][], erwartet: number) {
   const relay = new MemoryRelay(`mem://funk-${Math.random()}`);
   const pool = new OutboxPool([relay], { minAcks: 1 });
   const kp = generateKeypair();
@@ -38,15 +39,19 @@ async function lauf(params: string[][]) {
   const request = buildJobRequest({ customerPubkey: sitzung.publicKey(), input: "Wie reinige ich Wasser?", bidMsat: 0, providerPubkey: kp.pk, params });
   await pool.publish((await buildPrivateJobRequest({ request, sessionSigner: sitzung, providerPk: kp.pk, powBits: 8 })).wrap);
   assert.equal((await provider.pollOnce()).length, 1);
-  // Ein wenig Zeit für die Rückmeldungen, die „best effort“ nebenher laufen
-  await new Promise((r) => setTimeout(r, 20));
-  const antworten = (await Promise.all((await relay.query({ kinds: [1059], "#p": [sitzung.publicKey()] })).map((w) => openPrivateJobResponse(w, sitzung))))
+  // Warten, bis die erwarteten Antworten da sind – eine feste Pause reichte unter Last
+  // nicht (die Rückmeldung wird nebenher versiegelt). Danach kurz auf Nachzügler.
+  const ende = Date.now() + 5000;
+  const post = () => relay.query({ kinds: [1059], "#p": [sitzung.publicKey()] });
+  while ((await post()).length < erwartet && Date.now() < ende) await new Promise((r) => setTimeout(r, 10));
+  await new Promise((r) => setTimeout(r, 50));
+  const antworten = (await Promise.all((await post()).map((w) => openPrivateJobResponse(w, sitzung))))
     .flatMap((r) => (r.ok ? [r.response] : []));
   return { backend, antworten };
 }
 
 test("7.4a: max_zeichen – gekürzt auf höchstens 500 Zeichen, keine Zwischenstände, das Modell wird um Kürze gebeten", async () => {
-  const { backend, antworten } = await lauf([kurzParam()]);
+  const { backend, antworten } = await lauf([kurzParam()], 1);
   assert.equal(antworten.filter((a) => a.kind === KIND_DVM_FEEDBACK).length, 0, "keine Zwischenstände");
   const ergebnis = antworten.find((a) => a.kind === KIND_DVM_TEXT_GENERATION + 1000)!;
   const text = parseJobResult(ergebnis).output;
@@ -56,7 +61,7 @@ test("7.4a: max_zeichen – gekürzt auf höchstens 500 Zeichen, keine Zwischens
 });
 
 test("7.4a: ohne max_zeichen bleibt alles wie bisher – ganze Antwort, Zwischenstand, keine Bitte um Kürze", async () => {
-  const { backend, antworten } = await lauf([]);
+  const { backend, antworten } = await lauf([], 2);
   assert.equal(antworten.filter((a) => a.kind === KIND_DVM_FEEDBACK).length, 1, "Zwischenstand wie bisher");
   const text = parseJobResult(antworten.find((a) => a.kind === KIND_DVM_TEXT_GENERATION + 1000)!).output;
   assert.ok([...text].length > FUNK_MAX_ZEICHEN);

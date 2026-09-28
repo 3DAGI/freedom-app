@@ -25,7 +25,8 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          # Dieselbe Node-Hauptversion wie der reproduzierbare Build (5.9)
+          node-version-file: .nvmrc
           cache: npm
 
       - name: Abhaengigkeiten installieren
@@ -132,6 +133,27 @@ jobs:
             console.log('dashboard.html: Skript syntaktisch ok');
           "
           node --check packages/website/js/dashboard-daten.js
+
+  repro:
+    name: Reproduzierbarer Build
+    # 5.9: Zwei frische Builds desselben Commits an zwei Pfaden (je npm ci nach
+    # package-lock.json) muessen dieselbe SHA-256 ergeben – sonst rot. Wer die
+    # Summe aus dem Release-Manifest nachpruefen will:
+    #   scripts/repro-build.sh --vergleiche <sha256> <commit>
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Zweimal bauen, dieselbe Summe
+        shell: bash  # mit pipefail – sonst zaehlte nur tee
+        run: bash scripts/repro-build.sh --pruefen | tee -a "$GITHUB_STEP_SUMMARY"
 
   invariants:
     name: Protokoll-Invarianten

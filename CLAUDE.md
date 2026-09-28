@@ -40,6 +40,7 @@ python3 scripts/check-website.py
 python3 scripts/check_innerhtml.py packages/app/src --ausnahmen scripts/innerhtml-ausnahmen.txt --streng
 python3 scripts/smoke_test.py packages/app/dist         # braucht playwright + chromium
 bash scripts/build-site.sh /tmp/site                     # Website bauen (Ziel wird gelöscht!)
+bash scripts/repro-build.sh --pruefen                    # reproduzierbar? zwei frische Builds, eine Summe (~2 min)
 bash packages/mls/bauen.sh --pruefen                     # nur bei Änderungen an packages/mls: nachbauen + vergleichen (Rust, clang)
 bash contracts/solana-channel/pruefen.sh --werkzeuge     # nur bei Änderungen am Zahlkanal: bauen + Tests gegen Validator (Agave 3.1.10)
 ```
@@ -637,3 +638,13 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   Argumente an `node` geben, nie in den Code einsetzen; Schlüsseldateien mit
   `umask 077` anlegen. Leere Werte aus der Umgebungsdatei (`SOLANA_RPC_URL=`)
   mit `||` behandeln, nicht mit `??`.
+- **Reproduzierbarer Build** (seit 5.9a): `freedom.html` muss aus einem
+  frischen Checkout bitgleich entstehen – in `build.mjs` nichts Zeit-, Pfad-
+  oder Zufallsabhängiges (kein `Date.now()`, keine absoluten Pfade im Bundle).
+  Die CI baut zweimal an zwei Pfaden (`repro-build.sh --pruefen`), `pages.yml`
+  veröffentlicht nur, was ein frischer Build bitgleich ergibt. Die
+  Node-Hauptversion nur über `.nvmrc` ändern (CI und Pages lesen sie).
+- **Nebenläufiges im Test nie mit fester Pause abwarten** (seit 5.9a): Was der
+  Knoten „best effort“ ohne `await` sendet (Rückmeldungen, 7000), kommt unter
+  Last später – bis es da ist warten, mit Frist (`funk-kurz.test.ts`). Eine
+  feste Pause von 20 ms war im vollen Lauf gelegentlich zu kurz.
