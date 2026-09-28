@@ -137,6 +137,13 @@ def main() -> int:
                 s.wait_for_timeout(200)
                 s.screenshot(path=str(ziel / f"{groesse}-{nr + 7:02d}-kanal-anlegen.jpg"), type="jpeg", quality=70)
                 s.keyboard.press("Escape")
+                # Repos (seit C.3a): Liste mit einer Karte, dann die Repo-Seite mit dem offenen Patch
+                s.evaluate("() => { location.hash = '#/repos'; }")
+                s.wait_for_timeout(1500)
+                s.screenshot(path=str(ziel / f"{groesse}-{nr + 8:02d}-repos.jpg"), type="jpeg", quality=70)
+                s.evaluate("() => document.querySelector('#repos-karten .repo-karte')?.click()")
+                s.wait_for_timeout(300)
+                s.screenshot(path=str(ziel / f"{groesse}-{nr + 9:02d}-repo-seite.jpg"), type="jpeg", quality=70)
             ctx.close()
         browser.close()
     srv.shutdown()

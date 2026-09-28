@@ -437,7 +437,8 @@ def rahmen_pruefen(browser, url: str) -> dict:
                 erg["fehler"].append(f"desktop: Relay-Stand {titel!r}")
             # C.1b: die verschobenen Inhalte stehen auf ihren neuen Seiten
             inhalte = {}
-            for tab, sels in [("repos", ["#git-repo-list", "#nip34-liste", "#contrib-list"]),
+            # seit C.3a eine Liste mit Suche statt zwei Listen
+            for tab, sels in [("repos", ["#repos-karten", "#repos-suche", "#contrib-list"]),
                               ("netz", ["#coverage-refresh"]), ("earn", ["#trust-bar-track"])]:
                 klick(f'.app-nav button[data-tab="{tab}"]')
                 inhalte[tab] = all(sichtbar(x) for x in sels)
@@ -779,6 +780,56 @@ def raum_pruefen(browser, url: str) -> dict:
             if rechte != [True, True] or not any(k.endswith("Technik & Co") for k in kanaele) \
                     or neu != [["channel", "technik-co", "Technik & Co", "offen", "2", "mod", ""]]:
                 erg["fehler"].append(f"desktop: eigener Raum, Kanal anlegen {erg['desktop']['eigener_raum']}")
+        # Repos (C.3a): eine Karte aus Ankündigung und Bundle, Suche, „Meine“, Repo-Seite, Patch annehmen per Dialog
+        ev("() => { location.hash = '#/repos'; }")
+        try:
+            s.wait_for_function("() => document.querySelectorAll('#repos-karten .repo-karte').length > 0", timeout=10000)
+        except Exception:
+            pass
+        karte = """() => [...document.querySelectorAll('#repos-karten .repo-karte')].map(k => [k.querySelector('.repo-name').textContent,
+          !!k.querySelector('.msg-role')])"""
+        liste = ev(karte)
+        ev("() => { const s = document.getElementById('repos-suche'); s.value = 'gibt-es-nicht'; s.dispatchEvent(new Event('input')); }")
+        leer = ev(karte)
+        ev("() => { const s = document.getElementById('repos-suche'); s.value = 'WERKZEUGE'; s.dispatchEvent(new Event('input')); }")
+        gesucht = ev(karte)
+        ev("() => document.querySelector('#repos-filter [data-filter=meine]').click()")
+        meine = ev(karte)
+        ev("() => document.querySelector('#repos-karten .repo-karte').click()")
+        s.wait_for_timeout(200)
+        seite = ev("""() => ({ sichtbar: document.getElementById('repo-seite').getBoundingClientRect().height > 0,
+          liste: document.getElementById('repos-liste-ansicht').getBoundingClientRect().height > 0,
+          klon: document.querySelector('.repo-klon input')?.value, fokus: document.activeElement?.classList.contains('repo-zurueck'),
+          patches: [...document.querySelectorAll('.repo-patch')].map(p => [p.querySelector('.repo-patch-betreff').textContent,
+            [...p.querySelectorAll('button')].map(b => b.textContent)]) })""")
+        ev("() => document.querySelector('.repo-patch button').click()")  # annehmen
+        s.wait_for_timeout(200)
+        s.keyboard.type("xyz")
+        s.keyboard.press("Enter")
+        s.wait_for_timeout(100)
+        falsch = ev("() => document.querySelector('[role=dialog] [role=alert]')?.textContent ?? null")
+        s.keyboard.press("Control+A")
+        s.keyboard.type("c" * 40)
+        s.keyboard.press("Enter")
+        s.wait_for_timeout(800)
+        patch_id = next(e["id"] for e in relay.events if e.get("kind") == 1617)
+        status = [e for e in relay.gesendet if e.get("kind") == 1631]
+        verweis = [t[1] for t in (status[0]["tags"] if status else []) if t[0] == "e"]
+        commit = [t[1] for t in (status[0]["tags"] if status else []) if t[0] == "applied-as-commits"]
+        ev("() => document.querySelector('.repo-zurueck').click()")
+        s.wait_for_timeout(200)
+        zurueck = ev("() => [document.getElementById('repos-liste-ansicht').getBoundingClientRect().height > 0, document.activeElement?.classList.contains('repo-karte')]")
+        erg[groesse]["repos"] = {"liste": liste, "leer": leer, "gesucht": gesucht, "meine": meine, "seite": seite, "falsch": falsch,
+                                 "status": len({e["id"] for e in status}), "verweis": verweis, "commit": commit, "zurueck": zurueck}
+        if liste != [["werkzeug", True]] or leer != [] or gesucht != liste or meine != liste:
+            erg["fehler"].append(f"{groesse}: Repo-Liste {liste} {leer} {gesucht} {meine}")
+        if not (seite["sichtbar"] and not seite["liste"] and seite["klon"] == "git clone https://example.org/werkzeug.git" and seite["fokus"]
+                and seite["patches"] == [["Hammer schärfen", ["annehmen", "schließen"]]]):
+            erg["fehler"].append(f"{groesse}: Repo-Seite {seite}")
+        if not falsch or "SHA-1" not in falsch or verweis[:1] != [patch_id] or commit != ["c" * 40]:
+            erg["fehler"].append(f"{groesse}: Patch annehmen {falsch} {verweis} {commit}")
+        if zurueck != [True, True]:
+            erg["fehler"].append(f"{groesse}: zurück zur Liste {zurueck}")
         ctx.close()
     erg["bestanden"] = not erg["fehler"]
     return erg

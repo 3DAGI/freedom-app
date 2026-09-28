@@ -95,7 +95,6 @@ export const profil: Texte = {
   "repo.keineRepos": { de: "Noch keine Repos nach NIP-34 – kündige das erste an.", en: "No NIP-34 repos yet – announce the first one." },
   "repo.relaysWeg": { de: "Relays nicht erreichbar", en: "Relays not reachable" },
   "repo.patchSenden": { de: "Patch senden", en: "Send patch" },
-  "repo.klonen": { de: "Klonen: {adressen}", en: "Clone: {adressen}" },
   "repo.keinePatches": { de: "Keine Patches.", en: "No patches." },
   "repo.patchFrage": { de: "Patch „{betreff}“ an {repo} senden?\n\nÖffentlich und mit deinem Schlüssel signiert – wie bei jedem Git-Projekt.", en: "Send patch “{betreff}” to {repo}?\n\nPublic and signed with your key – like in every Git project." },
   "repo.patchGesendet": { de: "Patch gesendet: {betreff}", en: "Patch sent: {betreff}" },

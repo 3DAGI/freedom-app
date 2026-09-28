@@ -9690,3 +9690,66 @@ Netz) · app 547 (+4) · mls 13 · Leak-Tests 59 grün + 1 todo · 0 rot ·
 check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 · Website 5 Seiten
 ok · Smoke-Test bestanden (mit „rahmen“, „dialog“ und „raum“ samt Thread,
 Mitgliedern und eigenem Raum mit neuem Kanal).
+
+## Schritt C.3a1 – Oberfläche: Repo-Liste und Repo-Seite
+
+**Fertig:** Die Seite „Repos“ zeigt eine Liste statt zwei, und jedes Repo hat
+eine eigene Seite mit Klonen, Bundle und Patches. C.3a ist geteilt: C.3a2
+bringt die Einstellungen des Eigentümers, „Neue Version hochladen“ auf der
+Repo-Seite und die Mitwirkenden als Reiter.
+
+**Einzelheiten:**
+- **B10 – eine Liste:** `repoKarten()` (`repo-ansicht.ts`, ohne DOM)
+  verbindet Ankündigung (30617) und Bundle-Verweis (38042) desselben
+  Eigentümers mit derselben Kennung – nur in der Anzeige, kein neues Format.
+  - Fremde Bundles mit gleichem Namen bleiben eigene Repos.
+  - Repos nur mit Bundle erscheinen auch, mit Hinweis: Patches gehen erst,
+    wenn der Eigentümer ankündigt.
+  - Kennungen, die fehlen oder länger als 100 Zeichen sind, fallen heraus.
+- **Liste** (`repos.ts`):
+  - Suche nur lokal über Name, Kennung und Beschreibung; „Alle / Meine“
+    (Eigentümer oder Maintainer).
+  - Karten mit Eigentümer, Name, Marke „Bundle“, Beschreibung, offenen
+    Patches und letzter Aktivität; nur DOM und `textContent`.
+  - „Repo ankündigen“ als Dialog (Kennung, Beschreibung, Klon-Adressen).
+- **Repo-Seite** (`repo-seite.ts`, neu):
+  - Kopf „Eigentümer / Name“, Beschreibung, Maintainer.
+  - „Klonen“: `git clone …` zum Kopieren; „Bundle laden“ lädt verschlüsselt
+    und entschlüsselt mit dem Schlüssel der Referenz (zog aus
+    `agent-netz.ts` um, samt der alten Liste).
+  - Reiter „Code“ sagt ehrlich, dass die App Bundles erst mit C.3c liest.
+  - Reiter „Patches“ mit offen / angenommen / geschlossen samt Zahlen.
+    Annehmen per Dialog mit optionalem Commit (SHA-1 mit 40 Zeichen
+    geprüft), Schließen und Zurückziehen nach Rückfrage, Patch senden nach
+    Rückfrage – in den Repos gibt es kein `prompt()`/`confirm()` mehr.
+  - Welches Repo offen ist, steht nur im Speicher; „‹ Alle Repos“ führt
+    zurück und setzt den Fokus auf die Karte.
+- **Aufgeräumt:** `loadGitRepos()`/`setGitStatus()` und die Texte
+  `agent.zusammenarbeit`, `agent.keineRepos`, `agent.relayOffline`,
+  `repo.klonen` entfallen; neue Texte im Bereich `repos`
+  (`texte/repos.ts`, de + en).
+- **Screenshots** (`docs/ausbau/bilder/c3a1/`): Desktop-Liste mit Suche,
+  Filter und der Karte „werkzeug“ (Marke Bundle, 1 offener Patch); Repo-Seite
+  auf Desktop und Handy mit Klon-Kasten und dem offenen Patch.
+
+**Tests:**
+- +4 in `repo-karten.test.ts`:
+  - Ankündigung und Bundle desselben Eigentümers sind eine Karte, fremde
+    Bundles nicht.
+  - Offene Patches, Suche, „Meine“.
+  - Fehlende und überlange Kennungen fallen heraus.
+  - Seite verdrahtet: nur DOM, Adresse ohne Kennung, Dialoge.
+- `navigation.test.ts`: die Repo-Seite hat neue IDs (gleich streng).
+- Smoke-Test „raum“ auf Desktop und Handy (Probe-Repo in
+  `scripts/raum-probe.mts`): Karte, Suche ohne und mit Treffer, „Meine“,
+  Repo-Seite mit Klon-Befehl, Patch annehmen erst mit ungültigem, dann mit
+  gültigem Commit – gesendet wird Status 1631 mit Verweis auf den Patch und
+  `applied-as-commits`; zurück zur Liste mit Fokus. „rahmen“ prüft die neuen
+  Elemente.
+
+Endstand: protocol 1082 (6 übersprungen) · node 245 (6 übersprungen, mit
+Netz) · app 551 (+4) · mls 13 · Leak-Tests 59 grün + 1 todo · 0 rot ·
+check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 (68 Ausnahmen, 1
+weniger – die alte Bundle-Liste) · Website 5 Seiten ok · Smoke-Test bestanden
+(mit „rahmen“, „dialog“ und „raum“ samt Repo-Liste, Repo-Seite und
+angenommenem Patch).

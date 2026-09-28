@@ -7,9 +7,9 @@ Karte der Abdeckung und eine Navigation, die auf Desktop und Handy je für sich
 Sinn ergibt. Protokoll, Krypto, Zahlungen und Event-Formate bleiben, wie sie
 sind; sonst gilt die STOPP-Regel aus `CLAUDE.md`.
 
-Stand dieser Karte: **C.0, C.1a, C.1b, C.2a–d fertig** (Räume). Der MENSCH hat den
+Stand dieser Karte: **C.0, C.1a, C.1b, C.2a–d (Räume) und C.3a1 fertig.** Der MENSCH hat den
 Entwurf am 27.09.2026 freigegeben – E1–E8 wie vorgeschlagen (Abschnitt 10.3).
-Nächster Schritt: C.3a.
+Nächster Schritt: C.3a2.
 
 ---
 
@@ -429,7 +429,8 @@ Pull Request. Dateien der Spur A (`waehrung.ts`, `agent.ts`, `ki-zahlung.ts`,
 | **C.2c** | Antworten und Threads: Zeile „Antwort an …“, Thread-Spalte bzw. Unterseite, `sendePrivat()` mit `replyTo`/`threadRoot`, offen über `buildChannelMessage()`; Test: Antwort kommt in privaten und offenen Räumen mit Verweis an | `raeume.ts`, `raum-mls.ts`, Tests (~300) | B8 | C.2b |
 | **C.2d1** | Mitglieder mit Rollen und Menü je Mitglied (`oeffneMenueAn()`), Mitglieder und Meldungen mobil als Ebene | `raeume.ts`, `menue.ts`, `app.css`, `index.html`, Tests (~350) | B3 | C.2c |
 | **C.2d2** | Kanal anlegen (offen: Gründer, `buildSpace()`; privat: Moderatoren, `raumDefinition()` in die Gruppe), Menüpunkte nur nach Rechten | `raeume.ts`, `raum-mls.ts` (klein), Tests (~250) | – | C.2d1 |
-| **C.3a** | Repo-Liste und Repo-Seite: 30617 + 38042 verbunden, Klonen, Bundle hoch- und herunterladen, Einstellungen des Eigentümers, Mitwirkende; Texte über Schlüssel | `repo-seite.ts`, `repos.ts`, `agent-netz.ts:266`, `app.ts:748` (zieht um), `texte/repos.ts`, Tests (~400) | B10, B11 | C.1b |
+| **C.3a1** | Repo-Liste (30617 + 38042 verbunden, Suche, Alle/Meine) und Repo-Seite (Klonen, Bundle laden, Patches mit Dialogen); Texte über Schlüssel | `repo-seite.ts`, `repos.ts`, `repo-ansicht.ts`, `agent-netz.ts:266` (zieht um), `texte/repos.ts`, Tests (~450) | B10 | C.1b |
+| **C.3a2** | Einstellungen des Eigentümers, „Neue Version hochladen“ auf der Repo-Seite (`app.ts:760` zieht um), Mitwirkende als Reiter | `repo-seite.ts`, `app.ts`, Tests (~300) | B11 | C.3a1 |
 | **C.3b** | Patch-Seite: Diff-Leser (ohne DOM, Tests mit feindlichen Eingaben), Diff-Ansicht, Status-Dialoge (annehmen, schließen, wieder öffnen, Entwurf, zurückziehen), Patch mit Vorschau senden | `diff-ansicht.ts`, `repo-seite.ts`, Tests (~400) | B10 | C.3a |
 | **C.3c** | *(E4: ja)* Bundle-Leser (Git-Bundle v2/v3, Packfile, `DecompressionStream`, Deltas; Grenzen für Größe, Objektzahl, Tiefe) und die Reiter „Code“ (README, Dateibaum) und „Commits“ | c1 Leser + Tests (~350), c2 Ansicht (~250) | B10 | C.3b |
 | **C.4a** | Karte als SVG: Projektion, Gradnetz, Zellen nach Ebene, Schalter, Legende, Zoom und Verschieben mit Maus, Touch und Tastatur, Angaben je Zelle, „Karte / Liste“ | `karte-ansicht.ts` (ohne DOM, Tests: nur Zellen über k, keine Einträge), `tabs/karte.ts`, `texte/karte.ts` (~400) | B12 | C.1b |
@@ -588,6 +589,28 @@ Meldungen (B3), C.2d2 Kanal anlegen.
 Mit C.2d2 ist C.2 fertig. Aus 10.4 für Räume noch offen: ein privater Raum
 einmal vollständig mit echter MLS-Gruppe im Browser (heute über
 `gruppenRaum()` getestet).
+
+**C.3a1 – fertig (28.09.2026).** C.3a ist geteilt: C.3a1 Liste und
+Repo-Seite, C.3a2 Einstellungen des Eigentümers, Bundle hochladen auf der
+Repo-Seite und Mitwirkende als Reiter.
+- B10: eine Liste statt zwei. `repoKarten()` (`repo-ansicht.ts`, ohne DOM)
+  verbindet Ankündigung (30617) und Bundle-Verweis (38042) desselben
+  Eigentümers mit derselben Kennung – nur in der Anzeige; fremde Bundles mit
+  gleichem Namen sind eigene Repos, Repos nur mit Bundle gibt es auch.
+- Liste (`repos.ts`): Suche nur lokal (Name, Kennung, Beschreibung), „Alle /
+  Meine“ (Eigentümer oder Maintainer), Karten mit Eigentümer, Name, Marke
+  „Bundle“, Beschreibung, offenen Patches und letzter Aktivität. „Repo
+  ankündigen“ als Dialog (Kennung, Beschreibung, Klon-Adressen).
+- Repo-Seite (`repo-seite.ts`): Kopf „Eigentümer / Name“, Beschreibung,
+  Maintainer; „Klonen“ mit `git clone …` zum Kopieren und „Bundle laden“
+  (verschlüsselt geladen, mit dem Schlüssel der Referenz entschlüsselt – zog
+  aus `agent-netz.ts` hierher); Reiter „Code“ (ehrlich: die App liest Bundles
+  erst mit C.3c) und „Patches“ mit offen / angenommen / geschlossen samt
+  Zahlen. Annehmen als Dialog mit optionalem Commit (SHA-1 geprüft),
+  Schließen und Zurückziehen nach Rückfrage, Patch senden nach Rückfrage –
+  kein `prompt()`/`confirm()` mehr in den Repos.
+- Welches Repo offen ist, steht nur im Speicher; „‹ Alle Repos“ führt zurück
+  und setzt den Fokus auf die Karte.
 
 ---
 
