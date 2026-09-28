@@ -11341,3 +11341,76 @@ Endstand (nach dem Einmergen von `main` mit C.4a–b, C.5a–b, C.6b): protocol
 `--streng` Exit 0 (die fünf Ausnahmen aus 11.4b1 entfernt) · innerHTML streng
 Exit 0 · Website ok · Smoke-Test bestanden · Website-Bau ok. Knoten-Stand:
 unverändert.
+
+## Schritt 11.4c – Oberfläche: Raum-Repos
+
+Spur C, Karte `phase-11.md` (11.4c). Baut nur Oberfläche auf die Bausteine aus
+11.4a (öffentlich, Recht `repos_pflegen`) und 11.4b (privat, MLS) – kein neues
+Event-Format, kein Protokoll-Code.
+
+**Was:**
+- Im Raum unter den Kanälen ein Abschnitt „Repos“ (`#raum-repos`): nur, was
+  bestätigt zu genau diesem Raum gehört – `reposImRaum()` (`repo-ansicht.ts`,
+  ohne DOM): öffentlich Karten mit `raumBestaetigt` und derselben Adresse
+  (`34700:<besitzer>:space:<kennung>` aus der Definition, die der Raum zeigt),
+  privat die Karten der Gruppe. Ein bloßer Verweis eines Gastes zählt nicht.
+  Je Repo ein Knopf mit Name und offenen Patches; ein Klick öffnet die
+  Repo-Seite (`oeffneRepo()`). Verborgen, solange der Raum keine hat; ein
+  Raumwechsel zeigt nie die des vorigen (`zeigeRaumArt()` zeichnet mit).
+- Laden: Die Repos eines öffentlichen Raums lädt die Liste mit, sobald er in
+  der Sitzung offen war (`merkeRaumAdresse()` aus `oeffneRaum()`, ein
+  zusätzlicher `#a`-Filter neben der allgemeinen Abfrage) – auch wenn sie nicht
+  unter den 100 neuesten sind. Das Relay erfuhr den Raum schon beim Öffnen; nie
+  alle eigenen Räume in einer Abfrage. `ladeNip34Repos()` läuft nicht doppelt:
+  läuft es, dann danach genau einmal neu (sonst gewann beim Start mitunter das
+  ältere Ergebnis ohne den Raum). Nach jedem Laden zeichnet der Raum seine
+  Liste neu (`beiReposGeladen()`).
+- Repo-Seite: unter dem Titel „Im öffentlichen Raum „…“ – wer dort Repos
+  pflegt, pflegt es mit.“ bzw. „Im privaten Raum „…“ – nur Mitglieder sehen
+  es, verschlüsselt (MLS).“ mit „Zum Raum“ (`geheZuRaum()`: Seite
+  Kommunikation, Raum-Modus, der Raum; mobil die Ebene mit Kanälen und Repos,
+  der Fokus auf dem Repo, von dem man kam). Ein unbestätigter Verweis steht
+  als solcher da („gehört aber nicht dazu“). Karte in der Liste mit Marke
+  „Raum: …“ (Name nur, wenn bestätigt; `raumName` aus `raumZustandFuer()`
+  bzw. dem Namen des privaten Raums).
+- Raum-Menü „Repo anlegen“ (`#space-repo-neu`) nur mit `repos_pflegen`
+  (`darfRepos()`: öffentlich aus dem Zustand des Raums, privat aus der
+  Gruppe) – derselbe Dialog wie „Repo ankündigen“, ohne „Wo“: öffentlich mit
+  Verweis auf den Raum (Rückfrage nennt ihn und sagt, dass die Pfleger des
+  Raums mitpflegen), privat nur in die Gruppe (`sendeInRaum()`, 11.4b2).
+- Nebenbei: Wird die offene Repo-Seite nach dem Laden neu gezeichnet, behält
+  „‹ Alle Repos“ den Fokus (fand der Smoke-Test: aus dem Raum geöffnet, ging
+  er beim Nachladen verloren).
+
+**Verdrahtet:** `app/src/shell/tabs/raeume.ts` (`oeffneRaum()` →
+`merkeRaumAdresse()`; `zeigeRaumArt()` → `zeigeRaumRepos()` →
+`reposVonRaum()`/`oeffneRepo()`; `#space-repo-neu` → `legeRepoImRaumAn()`;
+`wireSpacesTab()` → `beiReposGeladen()`), `app/src/shell/tabs/repos.ts`
+(`ladeJetzt()` mit `#a`-Filter, `kuendigeAn(imRaum)`, Karte mit Marke,
+`zumRaum` → `geheZuRaum()`), `app/src/shell/tabs/repo-seite.ts`
+(`raumZeile()` in `zeigeRepoSeite()`).
+
+**Tests:** App +3 in `test/raum-repos-ui.test.ts` (im Raum nur bestätigt und
+nur dieselbe Adresse – Gast-Verweis, Repo ohne Raum, gleiche Kennung eines
+anderen Besitzers und ungeladene Struktur fallen heraus; Raum-Name nur
+bestätigt; private Räume nur ihre Gruppe, nie ein öffentliches Repo gleicher
+Kennung; Verdrahtung: Laden nur beim Öffnen eines Raums, Liste nur als DOM,
+Adresse ohne Repo, Anlegen nach Recht, öffentlich mit Verweis, Menüpunkt und
+Abschnitt zu Beginn verborgen). Smoke „raum“ erweitert (Desktop und Handy):
+Probe-Raum zeigt „werkzeug“ mit einem offenen Patch, ohne „Repo anlegen“
+(meine Rolle hat das Recht nicht), Klick → `#/repos` mit Raum-Zeile und Fokus
+auf „‹ Alle Repos“, „Zum Raum“ → `#/chat`, Probe-Raum, Fokus auf dem Repo;
+am Ende auf dem Desktop im eigenen Raum „Repo anlegen“ – Rückfrage nennt
+„Werkstatt“, gesendet mit `a` = `34700:<ich>:space:<kennung>`, danach in der
+Liste des Raums. Die Probe (`raum-probe.mts`) verweist „werkzeug“ dafür auf
+den Probe-Raum. Gegenprobe: dieselben Prüfungen scheitern auf dem Stand vor
+11.4c. `screenshots.py` nimmt drei Ansichten mehr auf (Liste im Raum,
+Repo-Seite mit Raum, Menü mit „Repo anlegen“).
+
+Endstand: protocol 1111 (6 übersprungen) · node 263 (6 übersprungen, mit
+Internet) · app 635 (+3) · mls 13 · Leak-Tests 66 grün + 1 todo · 0 rot ·
+check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 · Website ok ·
+Smoke-Test bestanden (Gegenprobe auf dem Stand vor 11.4c: „raum“ scheitert an
+genau den neuen Prüfungen, alle übrigen bestehen) · Website-Bau ok ·
+reproduzierbarer Build ok. Bilder: `docs/ausbau/bilder/114c`. Knoten-Stand:
+unverändert.

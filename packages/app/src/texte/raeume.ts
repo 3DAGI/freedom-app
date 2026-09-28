@@ -51,6 +51,9 @@ export const raeume: Texte = {
   "raum.mitgliederSchliessen": { de: "Mitglieder schließen", en: "Close members" },
   // C.2d2: Kanal anlegen
   "raum.kanalAnlegen": { de: "Kanal anlegen", en: "Create channel" },
+  "raum.repoAnlegen": { de: "Repo anlegen", en: "Create repo" },
+  "raum.repos": { de: "Repos", en: "Repos" },
+  "raum.repoOffen": { de: "{name} – offene Patches: {n}", en: "{name} – open patches: {n}" },
   "raum.kanalName": { de: "Name des Kanals", en: "Channel name" },
   "raum.kanalSchreiben": { de: "Wer schreiben darf", en: "Who may write" },
   "raum.nurModsSchreiben": { de: "Nur Moderatoren (alle anderen lesen)", en: "Moderators only (everyone else reads)" },

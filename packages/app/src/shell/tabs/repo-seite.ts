@@ -59,6 +59,8 @@ export interface RepoSeiteHilfe {
   hochladen: (datei: File, kennung: string, gruppe?: string) => Promise<boolean>;
   /** Öffentliche Räume, denen ich Repos zuordnen darf (11.4a). */
   raeume: () => Promise<{ adresse: string; name: string }[]>;
+  /** In den Raum des Repos wechseln (11.4c). */
+  zumRaum: () => void;
 }
 
 export type RepoReiter = "code" | "commits" | "patches" | "mitwirkende" | "einstellungen";
@@ -103,6 +105,8 @@ export function zeigeRepoSeite(box: HTMLElement, k: RepoKarte, h: RepoSeiteHilfe
     }
     teile.push(zeile);
   }
+  const raum = raumZeile(k, h);
+  if (raum) teile.push(raum);
   if (k.repo?.maintainer.length) teile.push(el("p", t("repo.maintainer", { namen: k.repo.maintainer.map(eigentuemerName).join(", ") }), "mono-sm muted"));
   if (!k.repo) teile.push(el("p", t("repo.nurBundle"), "mono-sm muted"));
   teile.push(klonKasten(k));
@@ -130,6 +134,24 @@ export function zeigeRepoSeite(box: HTMLElement, k: RepoKarte, h: RepoSeiteHilfe
     : reiter === "commits" ? commitsReiter(k.bundle, angenommen, () => zeigeRepoSeite(box, k, h, "commits")) : reiter === "patches" ? patchReiter(k, h, () => zeigeRepoSeite(box, k, h, "patches"))
     : reiter === "mitwirkende" ? mitwirkendeReiter(k, h) : einstellungenReiter(k, h)));
   box.replaceChildren(...teile, leiste, inhalt);
+}
+
+/**
+ * Raum des Repos (11.4c): bestätigt mit Namen und „Zum Raum“ – privat mit dem
+ * Hinweis, dass nur Mitglieder es sehen. Ein unbestätigter Verweis steht als
+ * solcher da: Der Eigentümer pflegt in dem Raum keine Repos.
+ */
+function raumZeile(k: RepoKarte, h: RepoSeiteHilfe): HTMLElement | undefined {
+  if (!k.privatRaum && !k.repo?.raum) return undefined;
+  const zeile = el("p", undefined, "repo-raum mono-sm");
+  if (!k.privatRaum && !k.raumBestaetigt) {
+    zeile.append(el("span", t("repo.raumUnbestaetigt"), "muted"));
+    return zeile;
+  }
+  const name = k.raumName || (k.privatRaum ? t("repo.privaterRaum") : k.repo?.raum ?? "");
+  zeile.append(el("span", t(k.privatRaum ? "repo.imPrivatenRaum" : "repo.imRaum", { name })),
+    knopf(t("repo.zumRaum"), "ghost mini repo-zum-raum", h.zumRaum));
+  return zeile;
 }
 
 /** Klonen: Adressen zum Kopieren; Bundle laden (verschlüsselt geladen, hier entschlüsselt). */

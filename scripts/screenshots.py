@@ -225,6 +225,27 @@ def main() -> int:
                 s.evaluate("() => { document.getElementById('coverage-welt')?.click(); document.querySelector('#coverage-karte').scrollIntoView({ block: 'start' }); }")
                 s.wait_for_timeout(300)
                 s.screenshot(path=str(ziel / f"{groesse}-{nr + 22:02d}-karte-umrisse.jpg"), type="jpeg", quality=70)
+                # Seit 11.4c: im Probe-Raum die Liste seiner Repos (mobil auf der Ebene der Kanäle), die Repo-Seite mit dem Raum,
+                # im eigenen Raum das Menü mit „Repo anlegen“
+                s.evaluate("() => { location.hash = '#/chat'; document.querySelector('#space-rail .space-pill[data-space=\"probe-raum\"]')?.click(); }")
+                s.wait_for_timeout(1500)
+                if mobil:
+                    s.evaluate("() => document.getElementById('channel-zurueck')?.click()")
+                    s.wait_for_timeout(200)
+                s.screenshot(path=str(ziel / f"{groesse}-{nr + 23:02d}-raum-repos.jpg"), type="jpeg", quality=70)
+                s.evaluate("() => document.querySelector('#raum-repos .raum-repo')?.click()")
+                s.wait_for_timeout(1000)
+                s.screenshot(path=str(ziel / f"{groesse}-{nr + 24:02d}-raum-repo-seite.jpg"), type="jpeg", quality=70)
+                s.evaluate("() => document.querySelector('#repo-seite .repo-zum-raum')?.click()")
+                s.wait_for_timeout(1000)
+                s.evaluate("() => [...document.querySelectorAll('#space-rail .space-pill')].find(p => p.dataset.space.startsWith('werkstatt-'))?.click()")
+                s.wait_for_timeout(1500)
+                if mobil:
+                    s.evaluate("() => document.getElementById('channel-zurueck')?.click()")
+                s.evaluate("() => document.getElementById('space-menue-knopf').click()")
+                s.wait_for_timeout(200)
+                s.screenshot(path=str(ziel / f"{groesse}-{nr + 25:02d}-raum-repo-anlegen.jpg"), type="jpeg", quality=70)
+                s.keyboard.press("Escape")
             ctx.close()
         browser.close()
     srv.shutdown()
