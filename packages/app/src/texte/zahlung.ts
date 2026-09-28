@@ -191,6 +191,7 @@ export const zahlung: Texte = {
   "zahl.holeZiel": { de: "hole Zahlungsziel …", en: "fetching payment target …" },
   "zahl.betragFehlt": { de: "Betrag fehlt", en: "Amount missing" },
   "zahl.lightningInSats": { de: "Lightning zahlt in sats", en: "Lightning pays in sats" },
+  "zahl.zapAnonym": { de: "Der Zap geht anonym hinaus (NIP-57): Der Empfänger sieht den Betrag, aber nicht, von wem.", en: "The zap goes out anonymously (NIP-57): the recipient sees the amount, but not who sent it." },
   "zahl.ohneLud16": { de: "Empfänger hat keine Lightning-Adresse (lud16)", en: "Recipient has no Lightning address (lud16)" },
   "zahl.warteAufWallet": { de: "warte auf die Wallet …", en: "waiting for the wallet …" },
   "zahl.gezappt": { de: "gezappt! {sats} sats", en: "zapped! {sats} sats" },

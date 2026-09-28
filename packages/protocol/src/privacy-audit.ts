@@ -50,6 +50,8 @@ export interface PrivacyConfig {
   ownRelay: boolean;
   /** Solana-Adresse im Profil veroeffentlicht. */
   solanaInProfile: boolean;
+  /** Lightning-Adresse im oeffentlichen Profil (seit 6.3 nur auf Wunsch). */
+  lightningInProfile?: boolean;
   /** Swaps durchgefuehrt. */
   usesSwaps: boolean;
   /** Lightning ueber einen fremden Dienstleister. */
@@ -174,6 +176,16 @@ export function auditPrivacy(cfg: PrivacyConfig): PrivacyFinding[] {
       remedy:
         "Für jeden Swap eine frische Adresse. Beträge nicht runden. " +
         "Und die ehrlichste Maßnahme: keine Swaps für Dinge, die niemanden angehen.",
+    });
+  }
+
+  if (cfg.lightningInProfile) {
+    f.push({
+      id: "ln-profil", layer: "kette", title: "Lightning-Adresse im Profil", severity: "warnung",
+      whoSeesWhat:
+        "Deine Lightning-Adresse steht öffentlich neben deiner Identität. Der Dienst dahinter " +
+        "sieht jede Zahlung an dich, und jede Zap-Quittung verbindet Betrag und Zeitpunkt mit deinem Namen.",
+      remedy: "Im Profil „Lightning-Adresse öffentlich zeigen“ ausschalten und neu speichern. Was schon veröffentlicht ist, bleibt.",
     });
   }
 

@@ -110,6 +110,27 @@ export function regelKeinBolt11(events: readonly NostrEvent[]): LeakFinding[] {
     .map((e) => ({ regel: "kein-bolt11", eventId: e.id, detail: `Rechnung sichtbar (Kind ${e.kind})` }));
 }
 
+/**
+ * Keine Lightning-Adresse des Nutzers (lud16, auch als LNURL) in öffentlichen
+ * Events – Schritt 6.3. Umschläge (1059) sind verschlüsselt und zählen nicht.
+ */
+export function regelKeineLnAdresse(events: readonly NostrEvent[], adressen: readonly string[]): LeakFinding[] {
+  const gesucht = adressen.map((a) => a.trim().toLowerCase()).filter((a) => a.includes("@") && a.length >= 6);
+  return events
+    .filter((e) => e.kind !== 1059 && gesucht.some((a) => (e.content + "\n" + JSON.stringify(e.tags)).toLowerCase().includes(a)))
+    .map((e) => ({ regel: "keine-ln-adresse", eventId: e.id, detail: `Lightning-Adresse sichtbar (Kind ${e.kind})` }));
+}
+
+/**
+ * Zap-Anfragen (9734) nie mit der Identität und nur als „anon“ – der
+ * LNURL-Server veröffentlicht sie samt Rechnung in der Quittung (Schritt 6.3).
+ */
+export function regelZapAnonym(zapAnfragen: readonly NostrEvent[], identitaet: string): LeakFinding[] {
+  return zapAnfragen
+    .filter((e) => e.kind === 9734 && (e.pubkey === identitaet || !e.tags.some((t) => t[0] === "anon")))
+    .map((e) => ({ regel: "zap-anonym", eventId: e.id, detail: e.pubkey === identitaet ? "Zap-Anfrage von der Identität" : "Zap-Anfrage ohne anon" }));
+}
+
 /** Die Solana-Adressen des Nutzers in keinem oeffentlichen Event – Schritt 4.9. */
 export function regelKeineSolAdresse(events: readonly NostrEvent[], adressen: readonly string[]): LeakFinding[] {
   const funde: LeakFinding[] = [];
@@ -254,4 +275,6 @@ export const LEAK_REGELN: Readonly<Record<string, string>> = {
   "mls-gruppe": "Gruppennachrichten nur mit gehashter Gruppen-Id, jede von einem eigenen Wegwerf-Schlüssel, nie von der Identität.",
   "anmeldung-nicht-offen": "Anmeldungen bei Relays (NIP-42) nie als veröffentlichtes Event.",
   "kopien-entkoppelt": "Die Kopien einer Nachricht gehen nicht im selben Augenblick hinaus.",
+  "keine-ln-adresse": "Keine Lightning-Adresse des Nutzers in öffentlichen Events – im Profil nur auf ausdrücklichen Wunsch.",
+  "zap-anonym": "Zap-Anfragen tragen nie die Identität des Zahlers.",
 };

@@ -10719,3 +10719,66 @@ ohne Netz, mit Netz 263 + 6) · app 597 · mls 13 · Leak-Tests 62 grün + 1 tod
 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 · Website ok
 · Smoke-Test bestanden · Website-Bau ok. Knoten-Stand: unverändert (nur Tests
 und Skripte).
+
+## Schritt 6.3a – Lightning-Adresse nur auf Wunsch, Zaps anonym
+
+Spur B, von Spur A übernommen (Entscheidung 28.09.), Karte `phase-6.md` (6.3).
+Aufteilung: a (dieser Schritt) Leak-Regeln, Profil, Zaps; b NWC über eigenes
+oder .onion-Relay, Empfang über den eigenen Knoten, Adresse bzw. Rechnung
+eines Kontakts versiegelt erfragen, BOLT12 erkennen.
+
+**Was:**
+- Leak-Regeln (`protocol/src/leak-rules.ts`): `keine-ln-adresse` – keine
+  Lightning-Adresse des Nutzers in öffentlichen Events (Umschläge zählen
+  nicht); `zap-anonym` – Zap-Anfragen (9734) nie von der Identität, immer mit
+  „anon“. Beide in `LEAK_REGELN`.
+- Profil: `oeffentlichesProfil(meta, { lightning })` (`profile.ts`) lässt
+  `lud16`/`lud06` weg, wenn das Häkchen aus ist. In der App (`tabs/profil.ts`)
+  geht das Profil nur so hinaus; neues Häkchen „Lightning-Adresse öffentlich
+  zeigen“ (`#pf-lud16-oeffentlich`), die Offenlegung zeigt „bleibt auf dem
+  Gerät“, die Vorschau die Adresse nur, wenn sie öffentlich ist.
+  `profil-lightning.ts`: Einstellung `freedom.profil.lnOeffentlich` – wer vor
+  6.3 eine Adresse gespeichert hatte, hat sie veröffentlicht; das übernimmt
+  die Einstellung beim ersten Lesen einmal, sonst gilt „aus“ (bestehende
+  Profile brechen so nicht still, der Bericht warnt). In der Zustandssicherung.
+- Datenschutzbericht: Befund „ln-profil“ (Warnung, Schicht Kette), wenn die
+  Adresse öffentlich ist (`lightningInProfile` in `shell/datenschutz.ts`);
+  Aussage „ln-oeffentlich“ (belegt, Regel `keine-ln-adresse`) mit Szenario in
+  `privacy-facts.test.ts` samt Gegenprobe. Texte in beiden Sprachen.
+- Zaps: `buildAnonZapRequest()` (`zap.ts`) signiert die Zap-Anfrage mit einem
+  Wegwerf-Schlüssel je Zap und setzt „anon“ (NIP-57); die App baut sie nur
+  über `baueZapAnfrage()` (`zap-zahlung.ts`), aufgerufen in `sendZap()`
+  (`chat-zap.ts`). Bisher signierte die Identität – der Server des Empfängers
+  veröffentlicht die Anfrage in der Quittung (9735) samt Rechnung, also stand
+  dort, wer wem wie viel zahlte. Hinweis im Zap-Dialog.
+- FAQ: „Sieht jemand, wem ich Sats schicke?“.
+
+**Verdrahtet:** `app/src/shell/tabs/profil.ts` (Speichern:
+`buildProfile(…, oeffentlich(entwurf))`, Häkchen, Offenlegung, Vorschau),
+`app/src/shell/datenschutz.ts` (`lightningInProfile`), `app/src/chat-zap.ts`
+(`baueZapAnfrage` in `sendZap()`).
+
+**Grenze:** Ohne öffentliche Adresse kann dir niemand per NIP-57 zappen – auch
+Kontakte nicht, bis 6.3b die Adresse bzw. Rechnung versiegelt erfragt.
+
+**Tests:** +2 in `protocol/test/leak-rules.test.ts` (beide Regeln finden
+ihren Verstoß – Profil, Tag, Text, ohne Groß/klein; Umschläge, fremde und zu
+kurze Adressen nicht; Zap von der Identität bzw. ohne „anon“), beide im
+Metatest „jede Regel meldet unter einem Namen aus LEAK_REGELN“; Szenario
+„ln-oeffentlich“ in `privacy-facts.test.ts` mit Gegenprobe (mit Häkchen bzw.
+von der Identität signiert finden die Regeln je einen Verstoß). App: +3 in
+`test/profil-lightning.test.ts` (neu aus, bleibt aus nach Eintrag; vor 6.3
+gespeichert → an; Kaputtes → aus; Befund nur bei öffentlicher Adresse;
+Sicherung; Verdrahtung), `i18n.test.ts` zählt `lightningInProfile` mit (18
+Befund-Fassungen, deutsch wortgleich), `zap-zahlung.test.ts` prüft den
+anonymen Weg. Leak: +1 `leak/zap.test.ts` (die Anfrage, die beim
+LNURL-Server ankommt: gültig signiert, nicht von der Identität, mit „anon“,
+je Zap ein neuer Schlüssel), +1 in `leak/profil.test.ts` (mit Häkchen steht
+die Adresse drin; ohne findet `keine-ln-adresse` nichts).
+
+Endstand: protocol 1099 (+2, 6 übersprungen) · node 262 + 7 übersprungen
+(ohne Netz, unverändert) · app 600 (+3) · mls 13 · Leak-Tests 64 grün (+2) +
+1 todo · 0 rot · check-wiring `--streng` Exit 0 (zwei Prüfregeln als
+Ausnahme wie alle anderen) · innerHTML streng Exit 0 · Website ok ·
+Smoke-Test bestanden · Website-Bau ok. Knoten-Stand: unverändert (nur
+Protokoll-Bausteine, die die App nutzt).

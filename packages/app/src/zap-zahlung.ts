@@ -6,7 +6,17 @@
  * Baustein nur die Rechnung; bezahlt wird ueber die Zahlschiene, die den
  * Betrag der Rechnung prueft.
  */
+import { buildAnonZapRequest, type NostrEvent } from "@freedomstack/protocol";
 import { t } from "./i18n.js";
+
+/**
+ * Zap-Anfrage (Kind 9734) – immer anonym (Schritt 6.3): von einem
+ * Wegwerf-Schlüssel mit „anon“, nie von der Identität. Der LNURL-Server des
+ * Empfängers veröffentlicht sie samt Rechnung in der Quittung (9735).
+ */
+export function baueZapAnfrage(p: { empfaenger: string; betragMsat: number; relays: string[] }): NostrEvent {
+  return buildAnonZapRequest({ recipientPubkey: p.empfaenger, amountMsat: p.betragMsat, relays: p.relays });
+}
 
 export interface ZapRechnungEingabe {
   /** Lightning-Adresse des Empfaengers (lud16 aus seinem Profil). */

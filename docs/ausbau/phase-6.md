@@ -34,6 +34,22 @@ Relays, RPC-Anbietern und Lightning-Diensten.
   Lightning-Adresse im öffentlichen Profil als Standard.
 - **Abnahme:** Leak-Regel: keine Rechnung und keine Lightning-Adresse öffentlich
   neben einer Identität.
+- **Übernommen von Spur A (Spur B, 28.09.), Aufteilung:**
+  - **6.3a – FERTIG:** Leak-Regeln `keine-ln-adresse` (keine Lightning-Adresse
+    des Nutzers in öffentlichen Events) und `zap-anonym` (Zap-Anfragen nie von
+    der Identität, immer „anon“). Lightning-Adresse im Profil nur mit Häkchen
+    (`oeffentlichesProfil()`, `profil-lightning.ts`; wer vor 6.3 eine
+    gespeichert hatte, hat sie veröffentlicht – das übernimmt die Einstellung
+    einmal), Befund „ln-profil“ im Datenschutzbericht. Zaps im Chat anonym nach
+    NIP-57 (`buildAnonZapRequest()`, Wegwerf-Schlüssel je Zap) – die Quittung
+    des Empfänger-Servers nennt den Zahler nicht. Aussage „ln-oeffentlich“ mit
+    Szenario.
+  - **6.3b – offen:** NWC über ein eigenes oder ein .onion-Relay (Einstellung,
+    Warnung bei fremdem Klartext-Relay); Empfang über den eigenen Knoten
+    (`LnurlDienst`, 8.2b) statt über LNURL-Dienste; ohne öffentliche Adresse
+    die Lightning-Adresse bzw. Rechnung eines Kontakts versiegelt erfragen (wie
+    die SOL-Adresse, 4.9d); BOLT12 erkennen (Wallet über NWC, Knoten), sonst
+    Rechnungen nur verschlüsselt.
 
 ## 6.4 Verkehrsmuster – FERTIG (27.09.2026, Spur B)
 

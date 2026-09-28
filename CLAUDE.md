@@ -45,9 +45,9 @@ bash packages/mls/bauen.sh --pruefen                     # nur bei Änderungen a
 bash contracts/solana-channel/pruefen.sh --werkzeuge     # nur bei Änderungen am Zahlkanal: bauen + Tests gegen Validator (Agave 3.1.10)
 ```
 
-Stand 28.09.2026 (nach 8.2c, 5.5a–c, 8.15, 11.1a, C.3c2, 11.1b und 5.9a–b): protocol 1097 grün (6 übersprungen), node 263 grün
+Stand 28.09.2026 (nach 8.2c, 5.5a–c, 8.15, 11.1a, C.3c2, 11.1b, 5.9a–b und 6.3a): protocol 1099 grün (6 übersprungen), node 263 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 597 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 62 grün + 1 `todo` (heutige Lecks,
+in `tools.test.ts`), app 600 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 64 grün + 1 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
 Ausnahme: gesendete SOL-Zahlungen von frischen Adressen, eine bewusste Grenze
 nach Entscheidung 4.9 A – im Datenschutzbericht unter „Bewusste Grenzen“).
@@ -686,3 +686,11 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   „spiegel“ (`repo-ankuendigung.mts`, ganzer Verlauf für den ersten Commit).
   Upgrade-Rechte der Programme ändert nur der MENSCH nach
   `docs/SOLANA-UPGRADE-AUTHORITY.md`.
+- **Lightning-Adresse und Zaps privat** (seit 6.3a): Das Profil geht nur über
+  `oeffentlichesProfil(entwurf, { lightning: lnOeffentlich(localStorage) })`
+  hinaus (`tabs/profil.ts`) – die Lightning-Adresse nur mit Häkchen
+  (`freedom.profil.lnOeffentlich`; vor 6.3 gespeicherte gelten einmalig als
+  veröffentlicht). Zap-Anfragen (9734) nur über `baueZapAnfrage()` →
+  `buildAnonZapRequest()` (Wegwerf-Schlüssel je Zap, „anon“), nie mit
+  `signiere()`: Der Server des Empfängers veröffentlicht sie in der Quittung.
+  Leak-Regeln `keine-ln-adresse` und `zap-anonym`.
