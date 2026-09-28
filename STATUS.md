@@ -10543,7 +10543,10 @@ einer Pause je Rahmen, der Test zählte nach festen 50 ms. Bei voller Last
 waren noch nicht alle Rahmen draußen und zählten dann als „nachgesendet“
 (10 statt 8). Jetzt wartet er auf die erwartete Zahl und prüft danach, dass
 nichts mehr kommt; mit einem Transport, der je Rahmen 15 ms braucht, ist die
-alte Fassung rot, die neue grün.
+alte Fassung rot, die neue grün. Ebenso `node/test/funk-kurz.test.ts` (7.4a,
+Spur B): Der Zwischenstand geht „best effort“ nebenher hinaus, der Test
+wartete fest 20 ms – jetzt auf die erwarteten Umschläge, danach 20 ms für
+Unerwartetes; mit einer um 100 ms verzögerten Rückmeldung alt rot, neu grün.
 
 Endstand (nach dem Einmergen von `main` mit C.3b2 und C.3c1): protocol 1096
 (6 übersprungen) · node 260 (6 übersprungen, mit Netz) · app 594 (+4) · mls 13 ·
