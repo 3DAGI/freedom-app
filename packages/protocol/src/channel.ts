@@ -21,6 +21,7 @@ import { ed25519 } from "@noble/curves/ed25519.js";
 import { sha256 } from "@noble/hashes/sha2.js";
 import { bytesToHex, hexToBytes } from "@noble/hashes/utils.js";
 import { MAX_ANTEILE_PPM } from "./aufteilung.js";
+import { ProtokollFehler } from "./fehler.js";
 
 const text = new TextEncoder();
 
@@ -191,7 +192,7 @@ export function oeffneKanalIx(p: {
   kunde: string; provider: string; nonce: bigint; betrag: bigint; ablauf: bigint;
   sitzungsSchluessel: string; empfaenger: readonly KanalEmpfaenger[];
 }, programmId = KANAL_PROGRAMM_ID): TransactionInstruction {
-  if (p.betrag <= 0n) throw new Error("Betrag muss größer als 0 sein");
+  if (p.betrag <= 0n) throw new ProtokollFehler("kanal-betrag", "Betrag muss größer als 0 sein");
   const { adresse } = kanalAdresse(p.kunde, p.provider, p.nonce, programmId);
   pruefeKanalEmpfaenger(p.empfaenger, adresse);
   const daten = verbinde(
@@ -249,7 +250,7 @@ export function erstatteKanalIx(p: { kunde: string; kanal: string }, programmId 
 }
 
 export function stockeKanalAufIx(p: { kunde: string; kanal: string; betrag: bigint }, programmId = KANAL_PROGRAMM_ID): TransactionInstruction {
-  if (p.betrag <= 0n) throw new Error("Betrag muss größer als 0 sein");
+  if (p.betrag <= 0n) throw new ProtokollFehler("kanal-betrag", "Betrag muss größer als 0 sein");
   return new TransactionInstruction({
     programId: new PublicKey(programmId),
     keys: [

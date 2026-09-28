@@ -9,6 +9,7 @@
  */
 
 import { t } from "./i18n.js";
+import { fehlerText } from "./protokoll-texte.js";
 import { escapeHtml } from "./shell-logic.js";
 import { ausLamports, ausMsat } from "./preis-anzeige.js";
 import { standardSchiene } from "./standard-schiene.js";
@@ -199,7 +200,7 @@ async function sendZap(state: ZapDialogState, el: HTMLElement): Promise<void> {
         }, oeffentlich);
         statusEl.textContent += ` · ${t(oeffentlich ? "zahl.belegOeffentlich" : "zahl.belegAnEmpfaenger")}`;
       } catch (e) {
-        statusEl.textContent += ` · ${t("zahl.belegNichtGesendet", { fehler: (e as Error).message })}`;
+        statusEl.textContent += ` · ${t("zahl.belegNichtGesendet", { fehler: fehlerText(e) })}`;
       }
     }
 
@@ -207,8 +208,8 @@ async function sendZap(state: ZapDialogState, el: HTMLElement): Promise<void> {
     setTimeout(() => el.remove(), 2000);
   } catch (e) {
     state.status = "error";
-    state.error = (e as Error).message;
-    statusEl.textContent = t("zahl.fehler", { fehler: (e as Error).message });
+    state.error = fehlerText(e);
+    statusEl.textContent = t("zahl.fehler", { fehler: fehlerText(e) });
     sendBtn.disabled = false;
   }
 }

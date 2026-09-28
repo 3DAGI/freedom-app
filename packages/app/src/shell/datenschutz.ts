@@ -14,6 +14,7 @@ import { ladeEigeneRelays } from "../relay-satz.js";
 import { geheim } from "./tresor.js";
 import { $ } from "./ui.js";
 import { t } from "../i18n.js";
+import { fehlerText } from "../protokoll-texte.js";
 
 let onion: { kandidaten: string; ergebnis: Promise<OnionPruefung>; fertig: boolean } | null = null;
 
@@ -101,7 +102,7 @@ export async function zeigeDatenschutz(erneut = false): Promise<void> {
     box.className = s.critical > 0 ? "mono-sm err" : s.warnings > 0 ? "mono-sm warn" : "mono-sm ok";
   } catch (e) {
     if (nr !== bericht) return;
-    box.textContent = t("bau.berichtFehler", { fehler: (e as Error).message });
+    box.textContent = t("bau.berichtFehler", { fehler: fehlerText(e) });
   }
 }
 

@@ -17,6 +17,7 @@
  */
 import { KANAL_PROGRAMM_ID, kanalEmpfaenger } from "@freedomstack/protocol";
 import { gebietsschema, t } from "../i18n.js";
+import { fehlerText } from "../protokoll-texte.js";
 import { solText } from "../preis-anzeige.js";
 import { pkShort } from "../shell-logic.js";
 import { kanalAufKette, planeKanal, programmBereit, sendeMitWallet } from "../zahlkanal.js";
@@ -74,7 +75,7 @@ export async function oeffneZahlkanal(): Promise<void> {
     gemerkt = undefined;
     melde(t("waehr.kanalOffen", { betrag: solText(Number(lamports)), bis }), "ok");
   } catch (e) {
-    melde(t("waehr.fehler", { fehler: (e as Error).message }), "err");
+    melde(t("waehr.fehler", { fehler: fehlerText(e) }), "err");
     // Nicht angelegt? Dann weg aus dem Kanal-Buch. Unklar (Kette nicht erreichbar): bleibt – der Wächter klärt es nach Ablauf.
     if (gemerkt) {
       const kanal = gemerkt;

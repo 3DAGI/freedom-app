@@ -26,6 +26,7 @@ import { hkdf } from "@noble/hashes/hkdf.js";
 import { sha256 } from "@noble/hashes/sha2.js";
 import { bytesToHex } from "@noble/hashes/utils.js";
 import { schnorr } from "@noble/curves/secp256k1.js";
+import { ProtokollFehler } from "./fehler.js";
 
 /** Verschlüsselte Zustandssicherung. */
 export const KIND_STATE_BACKUP = 30078;
@@ -86,7 +87,11 @@ export async function buildStateBackup(
   const klartext = JSON.stringify(payload);
   const bytes = new TextEncoder().encode(klartext).length;
   if (bytes > SICHERUNG_MAX_BYTES) {
-    throw new Error(`Sicherung zu groß (${Math.round(bytes / 1024)} KB, höchstens ${SICHERUNG_MAX_BYTES / 1000} KB) – nichts gesendet.`);
+    throw new ProtokollFehler(
+      "sicherung-gross",
+      `Sicherung zu groß (${Math.round(bytes / 1024)} KB, höchstens ${SICHERUNG_MAX_BYTES / 1000} KB) – nichts gesendet.`,
+      { kb: Math.round(bytes / 1024), max: SICHERUNG_MAX_BYTES / 1000 },
+    );
   }
 
   // An sich selbst verschlüsseln: Absender und Empfänger sind dasselbe

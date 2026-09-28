@@ -15,7 +15,7 @@ import {
   parseJobResult,
 } from "@freedomstack/protocol";
 import { gebietsschema, t } from "../../i18n.js";
-import { reklamationsFrist } from "../../protokoll-texte.js";
+import { fehlerText, hatFehlerText, reklamationsFrist } from "../../protokoll-texte.js";
 import { icon } from "../../icons.js";
 import { DEFAULT_MAX_MODE, ScoredProvider, matchRaceProviders } from "../../matchmaking.js";
 import { type AntwortCache, oeffneAntworten } from "../../ki-antworten.js";
@@ -330,8 +330,9 @@ class EigeneMeldung extends Error {}
 /** Mappt technische Fehler auf verstaendliche Ursachen. */
 function explainError(e: unknown): string {
   const m = ((e as Error)?.message ?? String(e)).toLowerCase();
-  // Eigene, schon übersetzte Meldungen (3.1, 8.16d1) nicht umdeuten.
+  // Eigene, schon übersetzte Meldungen (3.1, 8.16d1) nicht umdeuten – Fehler des Protokolls mit Kennung (8.16i) auch nicht.
   if (e instanceof EigeneMeldung) return e.message;
+  if (hatFehlerText(e)) return fehlerText(e);
   // Muster auf technische Meldungen (Relay, Knoten, Browser) – Regexe, keine Texte der Oberfläche
   if (/relay|websocket|eose|pool/.test(m)) return t("agent.fehlerRelay");
   if (/kein provider|provider.*antwort/.test(m)) return t("agent.fehlerKeinProvider");
@@ -340,7 +341,7 @@ function explainError(e: unknown): string {
   if (/timeout/.test(m)) return t("agent.fehlerTimeout");
   if (/comfy/.test(m)) return t("agent.fehlerComfy");
   if (/fetch|network/.test(m)) return t("agent.fehlerNetz");
-  return (e as Error)?.message ?? String(e);
+  return fehlerText(e);
 }
 
 /** Baut eine Fehler-Bubble mit Ursache + Retry-Button. */
@@ -582,7 +583,7 @@ async function generateVideo(prompt: string): Promise<void> {
     }
     addAiMessage("ai", t("agent.videoTimeout"), "");
   } catch (e) {
-    addAiMessage("ai", t("agent.videoFehler", { grund: (e as Error).message }), "");
+    addAiMessage("ai", t("agent.videoFehler", { grund: fehlerText(e) }), "");
   }
 }
 
@@ -1102,7 +1103,7 @@ async function reklamiere(
     }
     toast(pruefer ? t("agent.reklamiertMit", { name: pruefer.name, info: reklamationsFrist(w) }) : t("agent.reklamiert", { info: reklamationsFrist(w) }));
   } catch (e) {
-    toast((e as Error).message, true);
+    toast(fehlerText(e), true);
   }
 }
 

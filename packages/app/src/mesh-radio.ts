@@ -31,7 +31,7 @@ import {
   BESTAND_MARKE, buildDigest, falsePositiveRate, planSync, type SyncDigest, type Link, type NostrEvent,
 } from "@freedomstack/protocol";
 import { t } from "./i18n.js";
-import { funkText, meshGrund, syncNotiz } from "./protokoll-texte.js";
+import { fehlerText, funkText, meshGrund, syncNotiz } from "./protokoll-texte.js";
 
 export type TransportKind = "seriell" | "bluetooth" | "datei";
 
@@ -380,7 +380,7 @@ export class MeshNode {
         );
       } catch (e) {
         // z. B. die eigene Kopie einer DM: traegt den eigenen Schluessel
-        this.events.onLog?.(t("bau.nichtGesendet", { fehler: (e as Error).message }));
+        this.events.onLog?.(t("bau.nichtGesendet", { fehler: fehlerText(e) }));
       }
     }
   }
@@ -516,7 +516,7 @@ export class MeshNode {
         await this.schlafe((next.frame.length / this.bytesPerSecond) * 1000);
       }
     } catch (e) {
-      this.events.onLog?.(t("bau.sendefehler", { fehler: (e as Error).message }));
+      this.events.onLog?.(t("bau.sendefehler", { fehler: fehlerText(e) }));
     } finally {
       this.sending = false;
     }

@@ -140,9 +140,24 @@ Reihenfolge.
     Stunde Sendezeit statt „Stunden“ (nachgerechnet, auch in App und
     Protokoll). `check-website.py` weist die alten Aussagen ab (`UNGEDECKT`).
   - **8.16i:** Fehlermeldungen, die das Protokoll wirft und die App über
-    `(e as Error).message` zeigt (z. B. „Kein Solana-Endpunkt erreichbar“) –
-    rund 270 deutsche Sätze in 72 Dateien, nur ein Teil erreicht die
-    Oberfläche; erst messen, dann je Bereich.
+    `(e as Error).message` zeigte. Gemessen: rund 270 deutsche Sätze in 72
+    Dateien; 234 in Dateien, die die App nutzt – die meisten davon Parser
+    fremder Events („kein …-Kind“) und Schutzprüfungen, die die Oberfläche
+    nie erreichen. Übersetzt wird, was Nutzer sehen können (Eingaben, Netz,
+    Wallet): Das Protokoll wirft dort `ProtokollFehler(kennung, meldung,
+    werte)` (deutsche Meldung unverändert), die App zeigt jeden Fehler über
+    `fehlerText(e)`.
+    - **8.16i1 – FERTIG:** Grundlage (`protocol/src/fehler.ts`,
+      `fehlerText()`, `texte/fehler.ts` mit `pf.*`; alle 106 Anzeigestellen
+      in 29 Dateien; `explainError()` deutet Fehler mit Kennung nicht um) und
+      Geld und Netz: RPC unerreichbar, Lightning-Rechnung, NWC (Adresse,
+      Fehler des Wallets, Zeitüberschreitung), Zahlschienen (Ziel, Einheit,
+      offline, keine Wallet), Beträge und Tageslimit, Zahlkanal, SOL ohne
+      Internet, Rück-Swap, SOL-Trinkgeld, Zustandssicherung zu groß.
+    - **8.16i2:** Identität und Inhalte – Bunker (NIP-46), Repos (NIP-34),
+      Modellkataloge, Kontaktliste, Nachfolge (Plan, Anteile), Geräte,
+      Schlüsselwechsel, Werbung, Räume (Meldung), verschlüsselte Dateien,
+      Direktnachrichten (Ablauf), Trinkgeld-Adresse.
   - **Offen (MENSCH):** Die Website ist außer der Startseite (Kopf, Merkmale)
     nur deutsch – soll sie ganz auf Englisch kommen? Durchsicht der englischen
     Texte durch eine Muttersprachlerin oder einen Muttersprachler.

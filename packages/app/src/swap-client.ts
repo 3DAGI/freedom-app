@@ -34,6 +34,7 @@ import { bytesToHex, hexToBytes } from "@noble/hashes/utils.js";
 import { anchorSighash, swapIdBytes, HTLC_PROGRAM_ID, WalletSigner } from "./sol-htlc.js";
 import { type AddressUsage, checkAmount, checkReuse, checkTiming, leseBolt11 } from "@freedomstack/protocol";
 import { gebietsschema, t } from "./i18n.js";
+import { fehlerText } from "./protokoll-texte.js";
 
 export type SwapPhase =
   /** Anfrage raus, LP hat noch nicht geantwortet. */
@@ -307,7 +308,7 @@ export async function claimSwap(p: ClaimParams): Promise<{ signature: string }> 
       preflightCommitment: "confirmed",
     });
   } catch (e) {
-    throw new Error(describeHtlcError(e) ?? t("zahl.einloesungAbgelehnt", { fehler: (e as Error).message }));
+    throw new Error(describeHtlcError(e) ?? t("zahl.einloesungAbgelehnt", { fehler: fehlerText(e) }));
   }
   const conf = await p.connection.confirmTransaction(
     { signature, blockhash, lastValidBlockHeight },

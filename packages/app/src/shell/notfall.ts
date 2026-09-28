@@ -15,7 +15,7 @@
  */
 import { type LoeschUmgebung, loescheAllesLokal } from "@freedomstack/protocol";
 import { t } from "../i18n.js";
-import { loeschRueckfrage } from "../protokoll-texte.js";
+import { fehlerText, loeschRueckfrage } from "../protokoll-texte.js";
 import { sucheVergessen } from "./suche-ui.js";
 import { toast } from "./ui.js";
 
@@ -120,7 +120,7 @@ function frageNach(geldLaeuft: () => boolean): void {
       los.textContent = t("ein.endgueltigLoeschen");
       los.disabled = false;
       ab.disabled = false;
-      toast(t("ein.loeschenGescheitert", { fehler: (e as Error).message }), true);
+      toast(t("ein.loeschenGescheitert", { fehler: fehlerText(e) }), true);
     });
   });
 }

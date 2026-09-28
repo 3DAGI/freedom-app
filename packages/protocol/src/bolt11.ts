@@ -14,6 +14,7 @@ import { bech32 } from "@scure/base";
 import { secp256k1 } from "@noble/curves/secp256k1.js";
 import { sha256 } from "@noble/hashes/sha2.js";
 import { bytesToHex, hexToBytes } from "@noble/hashes/utils.js";
+import { ProtokollFehler } from "./fehler.js";
 
 export interface Bolt11 {
   /** Netz aus dem Praefix: bc (Mainnet), tb (Testnet), bcrt (Regtest), tbs (Signet). */
@@ -55,14 +56,14 @@ export function leseBolt11(rechnung: string): Bolt11 {
   const pr = rechnung.trim().toLowerCase();
   const { prefix, words } = bech32.decode(pr as `${string}1${string}`, 2000);
   const m = /^ln(bcrt|bc|tbs|tb)(\d+)?([munp])?$/.exec(prefix);
-  if (!m) throw new Error("kein bolt11-Präfix");
+  if (!m) throw new ProtokollFehler("bolt11-praefix", "kein bolt11-Präfix");
   let betragMsat: number | null = null;
   if (m[2]) {
     const roh = Number(m[2]) * (m[3] ? FAKTOR[m[3]] : 1e11);
-    if (!Number.isSafeInteger(roh)) throw new Error("ungültiger Betrag in der Rechnung");
+    if (!Number.isSafeInteger(roh)) throw new ProtokollFehler("bolt11-betrag", "ungültiger Betrag in der Rechnung");
     betragMsat = roh;
   }
-  if (words.length < 7 + 104) throw new Error("Rechnung zu kurz");
+  if (words.length < 7 + 104) throw new ProtokollFehler("bolt11-kurz", "Rechnung zu kurz");
   const daten = words.slice(0, words.length - 104);
   const sig = woerterZuBytes(words.slice(words.length - 104)); // 65 Byte
   const zeit = zahl(daten.slice(0, 7));
@@ -71,22 +72,22 @@ export function leseBolt11(rechnung: string): Bolt11 {
   for (let i = 7; i + 3 <= daten.length;) {
     const typ = daten[i], laenge = daten[i + 1] * 32 + daten[i + 2];
     const feld = daten.slice(i + 3, i + 3 + laenge);
-    if (feld.length !== laenge) throw new Error("abgeschnittenes Feld");
+    if (feld.length !== laenge) throw new ProtokollFehler("bolt11-feld", "abgeschnittenes Feld");
     if (typ === 1 && laenge === 52) zahlungsHash = bytesToHex(woerterZuBytes(feld).slice(0, 32));
     if (typ === 19 && laenge === 53) genannterKnoten = bytesToHex(woerterZuBytes(feld).slice(0, 33));
     i += 3 + laenge;
   }
-  if (!/^[0-9a-f]{64}$/.test(zahlungsHash)) throw new Error("Rechnung ohne Payment-Hash");
+  if (!/^[0-9a-f]{64}$/.test(zahlungsHash)) throw new ProtokollFehler("bolt11-hash", "Rechnung ohne Payment-Hash");
   const nachricht = new Uint8Array([...new TextEncoder().encode(prefix), ...woerterZuBytes(daten)]);
   const rec = sig[64];
-  if (rec > 3) throw new Error("ungültige Recovery-ID");
+  if (rec > 3) throw new ProtokollFehler("bolt11-recovery", "ungültige Recovery-ID");
   let knoten: string;
   try {
     knoten = bytesToHex(secp256k1.recoverPublicKey(new Uint8Array([rec, ...sig.slice(0, 64)]), nachricht));
   } catch {
-    throw new Error("Signatur der Rechnung ungültig");
+    throw new ProtokollFehler("bolt11-signatur", "Signatur der Rechnung ungültig");
   }
-  if (genannterKnoten && genannterKnoten !== knoten) throw new Error("Signatur passt nicht zum genannten Knoten");
+  if (genannterKnoten && genannterKnoten !== knoten) throw new ProtokollFehler("bolt11-knoten", "Signatur passt nicht zum genannten Knoten");
   return { netz: m[1], betragMsat, zahlungsHash, empfaengerKnoten: knoten, zeit };
 }
 

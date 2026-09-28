@@ -29,7 +29,7 @@ import { $, toast } from "../ui.js";
 import { t } from "../../i18n.js";
 import { versendeVerzoegert } from "../versand.js";
 import { kontaktName, zeigeRaumLeiste } from "./raeume.js";
-import { schluesselText } from "../../protokoll-texte.js";
+import { fehlerText, schluesselText } from "../../protokoll-texte.js";
 
 /** Anhang: kleine Dateien inline als data-url, grosse ueber das Blob-Netz. */
 // Darstellungslogik liegt in shell-logic.ts — dort ohne DOM und deshalb
@@ -97,7 +97,7 @@ export async function handleChatFiles(files: FileList | null): Promise<void> {
       chatAttachments.push({ name: file.name, mime: file.type || "application/octet-stream", size: file.size, url, ...(enc ? { enc } : {}) });
       setAttachStatus(listEl, chatAttachments.map((a) => `${a.name} (${Math.round(a.size / 1024)}kb)`).join(", "));
     } catch (e) {
-      toast(`${file.name}: ${(e as Error).message}`, true);
+      toast(`${file.name}: ${fehlerText(e)}`, true);
     }
   }
 }
@@ -146,7 +146,7 @@ function wireBlobButtons(root: HTMLElement): void {
         URL.revokeObjectURL(url);
         el.textContent = oldText;
       } catch (e) {
-        toast(t("komm.anhangFehler", { fehler: (e as Error).message }), true);
+        toast(t("komm.anhangFehler", { fehler: fehlerText(e) }), true);
         el.textContent = oldText;
       }
     });
@@ -231,7 +231,7 @@ function loadConversations(): void {
 
 function saveConversations(): void {
   void geheim.setItem("freedom.chats", JSON.stringify(conversations))
-    .catch((e) => toast(t("komm.nichtGespeichert", { grund: (e as Error).message }), true));
+    .catch((e) => toast(t("komm.nichtGespeichert", { grund: fehlerText(e) }), true));
   void sichereKontakte().catch(() => { /* offline – beim naechsten Speichern */ });
 }
 
@@ -989,7 +989,7 @@ export async function sendChatMessage(): Promise<void> {
     saveConversations();
     loadChatMessages(activeConversation);
   } catch (e) {
-    toast(t("komm.fehler", { grund: (e as Error).message }), true);
+    toast(t("komm.fehler", { grund: fehlerText(e) }), true);
   }
 }
 

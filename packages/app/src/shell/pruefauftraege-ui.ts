@@ -12,6 +12,7 @@
  */
 import type { Dispute, NostrEvent, Resolution } from "@freedomstack/protocol";
 import { t } from "../i18n.js";
+import { fehlerText } from "../protokoll-texte.js";
 import { pkShort } from "../shell-logic.js";
 import { GRUND_TEXT, LS_PRUEFUNGEN_ERLEDIGT, erstattungFuer, leseErledigt, pruefauftragAus } from "../streitfall.js";
 import { alsGeraet, angebotVon, ensurePool, state } from "./state.js";
@@ -100,6 +101,6 @@ async function urteile(d: Dispute & { id: string }, ergebnis: Resolution): Promi
     zeigePruefauftraege();
     toast(t("agent.urteilGesendet"));
   } catch (e) {
-    toast((e as Error).message, true);
+    toast(fehlerText(e), true);
   }
 }

@@ -44,9 +44,9 @@ bash packages/mls/bauen.sh --pruefen                     # nur bei Änderungen a
 bash contracts/solana-channel/pruefen.sh --werkzeuge     # nur bei Änderungen am Zahlkanal: bauen + Tests gegen Validator (Agave 3.1.10)
 ```
 
-Stand 28.09.2026 (nach 4.3d2, C.2a und 8.16h): protocol 1069 grün (6 übersprungen), node 235 grün
+Stand 28.09.2026 (nach 4.3d2, C.2a und 8.16i1): protocol 1071 grün (6 übersprungen), node 235 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 508 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 58 grün + 1 `todo` (heutige Lecks,
+in `tools.test.ts`), app 509 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 58 grün + 1 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
 Ausnahme: gesendete SOL-Zahlungen von frischen Adressen, eine bewusste Grenze
 nach Entscheidung 4.9 A – im Datenschutzbericht unter „Bewusste Grenzen“).
@@ -539,7 +539,11 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   in `protokoll-texte.ts`; ein Test hält die deutsche Fassung wortgleich). Gründe
   aus Prüfungen tragen dafür seit 8.16g2b3a eine Kennung `fall` (samt Zahlen) neben
   `grund` – ein neuer Fall braucht Kennung und Text (`pg.*`); der Test liest die
-  Fälle aus dem Quelltext des Protokolls. In Tests
+  Fälle aus dem Quelltext des Protokolls. Fehler, die Nutzer sehen können,
+  wirft das Protokoll seit 8.16i als `ProtokollFehler(kennung, meldung, werte)`
+  (Meldung deutsch wie bisher); die App zeigt Fehler nur über `fehlerText(e)`,
+  nie `(e as Error).message` – ein Test findet das. Neue Kennung → Text `pf.*`
+  und Eintrag in `FEHLER` (`protokoll-texte.ts`). In Tests
   ist die Sprache Englisch; wer Meldungen wörtlich auf Deutsch prüft, setzt
   `setLang("de")`. Kennungen, die der Code vergleicht (z. B. Ergebnis einer
   Einladung), bleiben Daten – übersetzt wird erst die Anzeige

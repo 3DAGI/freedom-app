@@ -24,6 +24,7 @@ import {
 } from "@freedomstack/protocol";
 import type { WalletSigner } from "./sol-htlc.js";
 import { t } from "./i18n.js";
+import { fehlerText } from "./protokoll-texte.js";
 
 export const LS_KANAELE = "freedom.kanaele";
 /** So lange muss ein Kanal noch laufen, damit die App ihn nutzt (der Knoten verlangt 1 h). */
@@ -237,6 +238,6 @@ export async function erstatteKanaele(
   try {
     return { signature: await sendeMitWallet(conn, wallet, ixs), refunded: dabei, failed };
   } catch (e) {
-    return { refunded: [], failed: [...failed, ...dabei.map((swapId) => ({ swapId, reason: (e as Error).message }))] };
+    return { refunded: [], failed: [...failed, ...dabei.map((swapId) => ({ swapId, reason: fehlerText(e) }))] };
   }
 }
