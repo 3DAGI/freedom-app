@@ -122,6 +122,7 @@ Bestehende Kinds sind reserviert und semantisch eingefroren:
 | 38050 / 38051 | *nicht mehr belegt* (Treasury-Ankündigung bis 5.1.4a, Fee-Beweis des Knotens bis 5.1.4c) |
 | 38052 | Werbe-Nennung, signiert vom Geworbenen (§15) |
 | 38053 | *nicht mehr belegt* (Verteilungsbericht des Reward-Pools, bis 5.1.2) |
+| 38075 | Zusammenfassung des Rufs, nur als versiegelter Kern an Kontakte (§17) |
 | 38080 | Modellkatalog eines Kurators (NIP-51-Set: `d`, `title`, `description`, je Modell `["model", <kennung>, <notiz?>]`; `modell-katalog.ts`) |
 
 **Regel:** Neue Features bekommen NEUE Kinds. Bestehende Kinds ändern ihre
@@ -369,3 +370,37 @@ sind. Die Lehre des alten Verteilers bleibt für jede künftige Verteilung, etwa
 gesponserte Pools (5.1b): Nur abgeschlossene Epochen, der verfügbare Betrag
 wird nie geschätzt, der Zustand überlebt Neustarts, und über jede Verteilung
 gibt es eine Aufzeichnung – auch über gescheiterte Zahlungen.
+
+## 17. Quittungen und Ruf (kind 38075, `quittung.ts`, seit 5.5)
+
+Leistung zählt nur, wo bezahlt wurde. Eine **Quittung** legt die App selbst an,
+wenn sie einen Provider bezahlt hat; sie liegt nur im Tresor und geht nie auf
+ein Relay:
+
+- **Lightning:** bezahlte Rechnung und Preimage (`lightningQuittung()`).
+  „Belegt“ nur, wenn die Rechnung vom angekündigten Knoten des Providers
+  signiert ist (4.8) – bei einer Lightning-Adresse „angekündigt“.
+- **Zahlkanal:** Preis aus der Antwort und die Gutschrift, die ihn deckte
+  (`kanalQuittung()`); „belegt“ erst, wenn die Kette mindestens bis zu dieser
+  Gutschrift ausgezahlt zeigt (`kanalBelegt()`).
+
+Ohne Nachweis keine Quittung. Der **Ruf** eines Providers (`berechneRuf()`)
+kommt nur aus eigenen Quittungen (belegt zählt 1, angekündigt ½) und aus
+Zusammenfassungen der eigenen Kontakte (je Kontakt die neueste, zur Hälfte,
+höchstens 100 Aufträge je Provider); Reklamationen ziehen ab. Leistungs-Events
+(38010) und andere Selbstauskünfte zählen nicht. Eine öffentliche Rangliste
+gibt es nicht.
+
+**Zusammenfassung (38075)** – nur als Kern im Umschlag (NIP-59), je Kontakt
+ein Umschlag (`baueRufUmschlaege()`), geöffnet nur von Kontakten
+(`oeffneRufUmschlag()`):
+
+| Feld | Inhalt |
+|---|---|
+| `pubkey` | eigene Identität (Kontakte kennen sie ohnehin) |
+| `content` | leer |
+| Tag `provider` | je Provider eine Zeile: `["provider", <pk>, <aufträge>, <belegt>, <umfang_msat>, <umfang_lamports>, <reklamationen>]`, ganze Zahlen, höchstens 50 Zeilen |
+
+Relays sehen nur, dass Kontakte Post bekommen – nicht von wem, nicht über
+welchen Provider.
+

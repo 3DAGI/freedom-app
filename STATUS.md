@@ -9690,3 +9690,59 @@ Netz) · app 547 (+4) · mls 13 · Leak-Tests 59 grün + 1 todo · 0 rot ·
 check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 · Website 5 Seiten
 ok · Smoke-Test bestanden (mit „rahmen“, „dialog“ und „raum“ samt Thread,
 Mitgliedern und eigenem Raum mit neuem Kanal).
+
+## Schritt 5.5a – Quittungen und Ruf: Protokoll
+
+**Warum:** Bis hier kam der Ruf eines Providers aus seinen eigenen
+Leistungs-Events (38010) – Selbstauskünfte, die jeder mit ein wenig
+Rechenarbeit fälschen kann. Nach der Entscheidung von Spur A für Spur B
+(28.09.) zählt Leistung nur, wo bezahlt wurde, und Vertrauen ist subjektiv:
+die Wurzel ist der Nutzer. 5.5 ist aufgeteilt: a Protokoll (dieser Schritt),
+b App: Quittungsbuch und Rang ohne 38010, c App: Zusammenfassungen an
+Kontakte, dazu 8.15 Dashboard.
+
+**Was (`protocol/src/quittung.ts`, neu):**
+- **Quittungen nach 4.8:**
+  - `lightningQuittung()`: nur mit lesbarer, signierter Rechnung mit Betrag und
+    passendem Preimage; „belegt“ nur, wenn die Rechnung vom angekündigten
+    Knoten des Providers stammt – bei einer Lightning-Adresse bleibt es
+    „angekündigt“ (wer den Knoten dahinter betreibt, steht nicht fest).
+  - `kanalQuittung()`: Preis aus der Antwort und die kumulierte Gutschrift, die
+    ihn deckte; `kanalBelegt()` hebt auf „belegt“, sobald die Kette mindestens
+    so viel ausgezahlt zeigt.
+  - `leseQuittung()`: prüft Gespeichertes neu (ein verändertes Preimage gilt
+    als keine Quittung).
+- **Zusammenfassung (Kind 38075):** `fasseZusammen()` je Provider (Aufträge,
+  davon belegt, Umfang in msat und Lamports – ohne Umrechnung –, Reklamationen
+  nur zu bezahlten Providern); `baueRufUmschlaege()` versiegelt je Kontakt,
+  nie an sich selbst, höchstens 50 Provider; `oeffneRufUmschlag()` nimmt nur
+  Zusammenfassungen von Kontakten, verwirft kaputte, doppelte und
+  widersprüchliche Zeilen (mehr belegt als bezahlt).
+- **`berechneRuf()`:** nur aus eigenen Quittungen (belegt 1, angekündigt ½)
+  und den Zusammenfassungen der Kontakte (je Kontakt die neueste, zur Hälfte,
+  je Provider höchstens 100 Aufträge – eine Stimme, kein Stimmenkauf);
+  Reklamationen ziehen ab; `vertrauen` 0–100 wie der bisherige Trust-Score.
+  Ohne Quittung gibt es keinen Ruf – egal, was jemand über sich behauptet.
+- `docs/PROTOCOL.md` §17: Format der Zusammenfassung, Kind 38075 in der Liste.
+- `wiring-ausnahmen.txt`: acht Bausteine, die 5.5b und 5.5c verdrahten.
+
+**Tests:** +6 in `protocol/test/quittung.test.ts`:
+- Lightning: Betrag aus der Rechnung, „angekündigt“ ohne Knoten, „belegt“ mit
+  dem angekündigten, „angekündigt“ mit einem anderen; ohne passendes Preimage,
+  ohne Betrag, kaputte Rechnung, falscher Provider, null Aufträge → keine.
+- Zahlkanal: angekündigt, knapp darunter angekündigt, ab der Gutschrift
+  belegt; sechs ungültige Eingaben → keine.
+- Lesen aus dem Tresor: Hin und zurück gleich, verändertes Preimage,
+  unbekannter Stand, negative Gutschrift, unbekannte Art → keine.
+- Zusammenfassung: im Umschlag weder Provider noch Absender noch Beträge
+  noch das Kind lesbar; nur Kontakte öffnen, fremder Empfänger nicht.
+- Fremde Zusammenfassungen: ein Fremder, der sich als Kontakt ausgibt (das
+  Siegel verrät ihn), kaputte Zeilen, mehr als 50 Provider, eine
+  Direktnachricht ist keine Zusammenfassung.
+- Ruf: Gewichte, ohne Quittung kein Ruf, je Kontakt die neueste, Deckel,
+  Reklamationen.
+
+Endstand: protocol 1088 (+6, 6 übersprungen) · node 245 (6 übersprungen, mit
+Netz; ohne Netz 244 + 7) · app 547 · mls 13 · Leak-Tests 59 grün + 1 todo · 0 rot
+· check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 · Website 5 Seiten
+ok · Smoke-Test bestanden. Knoten-Stand: unverändert (nur Protokoll).
