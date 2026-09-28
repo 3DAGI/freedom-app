@@ -61,6 +61,7 @@ const FAKT: Record<string, readonly [string, string?]> = {
   "sol-empfang": ["ds.fSolEmpfang"],
   "sol-frisch": ["ds.fSolFrisch", "ds.gSolFrisch"],
   "zahlkanal": ["ds.fZahlkanal", "ds.gZahlkanal"],
+  "provider-adresse": ["ds.fProviderAdresse", "ds.gProviderAdresse"],
   "dm-forward-secrecy": ["ds.fDmForwardSecrecy", "ds.gDmForwardSecrecy"],
   "mesh": ["ds.fMesh"],
   "nachfolge-anteile": ["ds.fNachfolgeAnteile"],

@@ -100,6 +100,7 @@ import {
   startDeposit,
 } from "./tabs/waehrung.js";
 import { oeffneZahlkanal, zeigeKanaele } from "./zahlkanal-ui.js";
+import { wireVerdienst, zeigeSolEinnahmen } from "./verdienst-ui.js";
 import { seiteGezeigt, startSeite, wireNavigation } from "./navigation.js";
 import {
   entsperreBeimStart,
@@ -476,7 +477,7 @@ export function switchTab(name: string): void {
   // Verlauf und Budget neu zeichnen – so folgen sie auch einem Sprachwechsel (8.16d1)
   if (name === "ai") { zeigeVerlaeufe(); updateBudgetBar(); void refreshModelDropdown(); void refreshQuota(); }
   if (name === "wallet") { loadWallet(); void zeigeKanaele(); }
-  if (name === "earn") { loadEarnings(); loadTrust(); updateReferralLink(); }
+  if (name === "earn") { loadEarnings(); loadTrust(); updateReferralLink(); void zeigeSolEinnahmen(); }
   // Karte und Mesh stehen seit C.1b auf der Seite „Netz“
   if (name === "netz") { void ladeAbdeckung(); void zeigeMeshWeg(); }
   if (name === "mehr") void aktualisiereNavStatus();
@@ -875,6 +876,7 @@ function starte(): void {
   const swapBackupBtn = $("#swap-backup");
   if (swapBackupBtn) swapBackupBtn.onclick = () => void exportSwapBackup();
   $("#earn-refresh").onclick = loadEarnings;
+  wireVerdienst(loadEarnings);
   $("#sol-connect").onclick = () => void connectSolana();
   wireEingebauteWallet();
   // NWC: Lightning ohne Browser-Extension — der einzige Weg, der auf iOS geht.

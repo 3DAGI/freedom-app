@@ -190,6 +190,17 @@ Gebühr der Einlösung); sonst lehnt die Laufzeit eine kleine Auszahlung ab.
   nicht an – ein neuer Kanal tut es auch.
 - Der Datenschutzbericht nennt als Grenze, was auf der Kette steht (Aussage
   „zahlkanal“).
+- **Verdienen** (4.5b, Earn → Übersicht, `verdienst.ts` + `shell/verdienst-ui.ts`):
+  Für den eigenen Knoten (gemerkter Schlüssel `freedom.earn.knoten`, sonst die
+  eigene Identität) liest die App die Adresse aus seinem Angebot und dann alle
+  Kanäle an sie von der Kette (`getProgramAccounts`, Filter Größe und
+  `provider` an Byte 40; jedes Konto prüft die App selbst). Je Kanal:
+  Einlage, eingelöster Teil des Providers (wie das Programm gerechnet), noch
+  nicht Eingelöstes, Frist; dazu das Guthaben der Adresse. Gefragt wird nur
+  im geöffneten Tab – die Abfrage nennt dem RPC-Anbieter die Adresse. Was der
+  Knoten angenommen, aber noch nicht eingelöst hat, kennt nur er; geschlossene
+  Kanäle zählen nicht mehr. Der Bericht nennt die Grenze „eine Adresse je
+  Knoten“ (Aussage „provider-adresse“).
 
 ## Nie
 

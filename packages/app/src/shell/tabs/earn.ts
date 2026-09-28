@@ -13,6 +13,7 @@ import { ensurePool, signiere, state } from "../state.js";
 import { geheim } from "../tresor.js";
 import { $, timeAgo, toast } from "../ui.js";
 import { merkeWerber, werbeLink } from "../../werbung.js";
+import { knotenSchluessel } from "../verdienst-ui.js";
 
 /** Mitwirkende am Projekt anzeigen. */
 export async function zeigeMitwirkende(): Promise<void> {
@@ -186,9 +187,10 @@ export async function loadEarnings(): Promise<void> {
   box.innerHTML = `<div class='mono-sm'>${escapeHtml(t("earn.lade"))}</div>`;
   try {
     const pool = await ensurePool();
+    // Der eigene Knoten (4.5b): gemerkter Schlüssel, sonst die eigene Identität
     const events = await pool.query({
       kinds: [KIND_PERFORMANCE],
-      authors: [state.keypair.pk],
+      authors: [knotenSchluessel() ?? state.keypair.pk],
       limit: 20,
     });
     const sorted = events.sort((a, b) => b.created_at - a.created_at);
