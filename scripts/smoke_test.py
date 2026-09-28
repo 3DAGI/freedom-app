@@ -530,6 +530,10 @@ def dialog_pruefen(browser, url: str) -> dict:
     return erg
 
 
+# Echtes Git-Bundle (v2, mit Deltas) für den Reiter „Code“ (seit C.3c1) – dasselbe wie im Test von git-bundle.ts
+PROBE_BUNDLE = (Path(__file__).resolve().parent.parent / "packages/app/test/fixtures/probe-v2.bundle").read_bytes()
+
+
 class ProbeRelay:
     """Relay-Attrappe (seit C.2b2): jede REQ bekommt die passenden Probe-Events und
     EOSE, jedes EVENT ein OK. Den eigenen Schlüssel liest sie aus der Abfrage der
@@ -886,7 +890,7 @@ def raum_pruefen(browser, url: str) -> dict:
         noch_einstellungen = ev("() => !!document.querySelector('#repo-seite .repo-einstellungen')")
         if ev("() => !!document.querySelector('#repo-seite .repo-hochladen input[type=file]')"):
             s.set_input_files("#repo-seite .repo-hochladen input[type=file]",
-                              files=[{"name": "meins.bundle", "mimeType": "application/octet-stream", "buffer": b"# v2 git bundle\n" + b"x" * 200}])
+                              files=[{"name": "meins.bundle", "mimeType": "application/octet-stream", "buffer": PROBE_BUNDLE}])
         try:
             s.wait_for_function("() => [...document.querySelectorAll('#repo-seite .repo-klon button')].length > 0", timeout=8000)
         except Exception:
@@ -894,6 +898,22 @@ def raum_pruefen(browser, url: str) -> dict:
         bundles = [e for e in relay.gesendet if e.get("kind") == 38042 and ["d", "meins"] in e["tags"]]
         bundle_tags = [t[0] for t in (bundles[-1]["tags"] if bundles else [])]
         bundle_knopf = ev("() => document.querySelectorAll('#repo-seite .repo-klon button').length")
+        # Seit C.3c1: die neue Version ist ein echtes Bundle – der Reiter „Code“ liest es in der App
+        ev("() => document.querySelector('#repo-seite [data-reiter=code]')?.click()")
+        s.wait_for_timeout(200)
+        ev("() => document.querySelector('#repo-seite .code-laden')?.click()")
+        try:
+            s.wait_for_function("() => !!document.querySelector('#repo-seite .code-readme') || !!document.querySelector('#repo-seite .repo-fehler')?.textContent", timeout=15000)
+        except Exception:
+            pass
+        code = ev("""() => ({ commit: document.querySelector('#repo-seite .code-commit')?.textContent,
+          dateien: [...document.querySelectorAll('#repo-seite .code-dateien li')].map(l => l.textContent),
+          readme: document.querySelector('#repo-seite .code-readme')?.textContent?.split('\\n')[0],
+          fehler: document.querySelector('#repo-seite .repo-fehler')?.textContent ?? '' })""")
+        erg[groesse]["code"] = code
+        if not (code["commit"] or "").startswith("Liste ergänzt · Probe · ") or not (code["commit"] or "").endswith("· 590c7cf") \
+                or code["dateien"] != ["src/", "bild.bin", "README.md"] or code["readme"] != "# Werkzeug" or code["fehler"]:
+            erg["fehler"].append(f"{groesse}: Reiter Code {code}")
         erg[groesse]["repo_c3a2"] = {"fremd_reiter": fremd_reiter, "mitwirkende": mitwirkende, "eigen_reiter": eigen_reiter,
                                      "abgewiesen": abgewiesen, "tags": tags, "links": links, "bleibt": noch_einstellungen,
                                      "bundle": bundle_tags, "bundle_knopf": bundle_knopf}
