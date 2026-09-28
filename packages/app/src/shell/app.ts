@@ -93,6 +93,7 @@ import {
   connectNwc,
   connectSolana,
   disconnectNwc,
+  wireNwcRelays,
   exportSwapBackup,
   geldVorgangLaeuft,
   loadWallet,
@@ -862,6 +863,7 @@ function starte(): void {
   if (nwcConnectBtn) nwcConnectBtn.onclick = () => void connectNwc();
   const nwcDisconnectBtn = $("#nwc-disconnect");
   if (nwcDisconnectBtn) nwcDisconnectBtn.onclick = disconnectNwc;
+  wireNwcRelays();
   $("#dep-start").onclick = startDeposit;
   $("#dep-refund").onclick = refundDeposit;
   $("#kanal-start").onclick = () => void oeffneZahlkanal();

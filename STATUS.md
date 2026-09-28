@@ -10833,3 +10833,50 @@ Endstand: protocol 1102 (+3, 6 übersprungen) · node 262 + 7 übersprungen
 (ohne Netz, unverändert) · app 604 (+4) · mls 13 · Leak-Tests 65 grün (+1) +
 1 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 ·
 Website ok · Smoke-Test bestanden · Website-Bau ok. Knoten-Stand: unverändert.
+
+## Schritt 6.3b2 – NWC über eigenes oder .onion-Relay, BOLT12 erkennen
+
+Spur B, von Spur A übernommen (Entscheidung 28.09.), Karte `phase-6.md` (6.3).
+Damit ist 6.3 im Code fertig (a, b1, b2).
+
+**Was:**
+- Protokoll (`nwc.ts`): `waehleNwcRelays(relays, { nurPrivat, eigenes })` –
+  „privat“ sind das vom Nutzer angegebene eigene Relay und .onion-Relays; mit
+  `nurPrivat` bleiben nur diese, nennt die Verbindung der Wallet keines, gibt
+  es einen Fehler statt eines stillen Ausweichens. `bolt12Methoden()` erkennt
+  Methoden für Angebote (`*_offer`, `*_offers`, `bolt12`).
+- Datenschutzbericht: Befund „nwc-relay-fremd“ (Hinweis, Schicht Netz), wenn
+  die gespeicherte Wallet-Verbindung über ein fremdes Relay läuft (`nwcFremdesRelay`,
+  `nwc-relays.ts` → `nwcUeberFremdesRelay()`); Texte in beiden Sprachen.
+- App (Währung → Lightning): Häkchen „NWC nur über mein eigenes oder ein
+  .onion-Relay“ und Feld für das eigene Relay (`freedom.nwc.nurPrivat`,
+  `freedom.nwc.eigenesRelay` – nicht geheim, wie alles unter `freedom.nwc.`
+  außerhalb der Sicherung); ändert sich die Einstellung, verbindet die App neu.
+  `connectNwc()` baut den Pool nur aus der Auswahl; der Status nennt „über ein
+  fremdes Relay“ bzw. „nur über eigenes oder .onion-Relay“ und BOLT12
+  („angeboten (…) – die App nutzt es noch nicht, Rechnungen gehen versiegelt“
+  bzw. „kein BOLT12“). NIP-47 legt Methoden für Angebote noch nicht fest –
+  darum nur erkennen, nicht nutzen.
+- Nebenbei (aus 6.3b1): Die SOL-Adress-Anfrage (4.9d, `frageAdresseAn()`)
+  geht jetzt wie die Rechnungs-Anfrage an den Posteingang des Empfängers
+  (`sende: veroeffentlicheDm`), nicht mehr nur an den eigenen Pool.
+- FAQ: Absatz zur Wallet-Verbindung.
+
+**Verdrahtet:** `app/src/shell/tabs/waehrung.ts` (`connectNwc()` →
+`waehleNwcRelays()`, `bolt12Methoden()`; `wireNwcRelays()`, aufgerufen in
+`app/src/shell/app.ts`), `app/src/shell/datenschutz.ts` (`nwcFremdesRelay`),
+`app/src/chat-zap.ts` (`frageAdresseAn(…, sende: veroeffentlicheDm)`).
+
+**Tests:** +2 in `protocol/test/nwc.test.ts` (Auswahl der Relays: ohne
+Einstellung alle als fremd markiert, mit Einstellung nur eigenes und .onion,
+Groß/klein und Schrägstrich egal, keines → Fehler; BOLT12 nur ganze
+Wortteile). App: +4 in `test/nwc-relays.test.ts` (Einstellung lesen, fremdes
+Relay erkennen, Befund, Verdrahtung: Pool nur aus der Auswahl – nie
+`conn.relays.map` –, BOLT12 im Status, Häkchen und Feld, Bericht; SOL-Adress-
+Anfrage an den Posteingang); `i18n.test.ts` zählt `nwcFremdesRelay` mit (19
+Befund-Fassungen).
+
+Endstand: protocol 1104 (+2, 6 übersprungen) · node 262 + 7 übersprungen
+(ohne Netz, unverändert) · app 608 (+4) · mls 13 · Leak-Tests 65 grün + 1 todo
+· 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 · Website ok
+· Smoke-Test bestanden · Website-Bau ok. Knoten-Stand: unverändert.

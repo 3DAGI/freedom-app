@@ -52,6 +52,8 @@ export interface PrivacyConfig {
   solanaInProfile: boolean;
   /** Lightning-Adresse im oeffentlichen Profil (seit 6.3 nur auf Wunsch). */
   lightningInProfile?: boolean;
+  /** Wallet-Verbindung (NWC) auch ueber ein fremdes Relay – nicht eigenes, nicht .onion (6.3). */
+  nwcFremdesRelay?: boolean;
   /** Swaps durchgefuehrt. */
   usesSwaps: boolean;
   /** Lightning ueber einen fremden Dienstleister. */
@@ -186,6 +188,16 @@ export function auditPrivacy(cfg: PrivacyConfig): PrivacyFinding[] {
         "Deine Lightning-Adresse steht öffentlich neben deiner Identität. Der Dienst dahinter " +
         "sieht jede Zahlung an dich, und jede Zap-Quittung verbindet Betrag und Zeitpunkt mit deinem Namen.",
       remedy: "Im Profil „Lightning-Adresse öffentlich zeigen“ ausschalten und neu speichern. Was schon veröffentlicht ist, bleibt.",
+    });
+  }
+
+  if (cfg.nwcFremdesRelay) {
+    f.push({
+      id: "nwc-relay-fremd", layer: "netz", title: "Relay der Wallet-Verbindung", severity: "hinweis",
+      whoSeesWhat:
+        "Die Verbindung zu deiner Wallet (NWC) läuft über ein fremdes Relay. Es liest nicht mit, " +
+        "sieht aber, wann und wie oft deine App mit der Wallet spricht – und deine IP-Adresse.",
+      remedy: "In der Wallet ein eigenes oder ein .onion-Relay eintragen und „NWC nur über mein eigenes oder ein .onion-Relay“ einschalten.",
     });
   }
 

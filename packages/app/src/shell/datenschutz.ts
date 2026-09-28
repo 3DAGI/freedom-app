@@ -16,6 +16,7 @@ import { $ } from "./ui.js";
 import { t } from "../i18n.js";
 import { fehlerText } from "../protokoll-texte.js";
 import { lnOeffentlich } from "../profil-lightning.js";
+import { nwcUeberFremdesRelay } from "../nwc-relays.js";
 
 let onion: { kandidaten: string; ergebnis: Promise<OnionPruefung>; fertig: boolean } | null = null;
 
@@ -82,6 +83,8 @@ export async function zeigeDatenschutz(erneut = false): Promise<void> {
       solanaInProfile: !!localStorage.getItem("freedom.solAddress"),
       // Seit 6.3 nur auf Wunsch (Häkchen im Profil); vor 6.3 gespeicherte gelten als veröffentlicht
       lightningInProfile: !!profil.lud16?.trim() && lnOeffentlich(localStorage),
+      // Relays der Wallet-Verbindung (6.3): nur eigenes oder .onion gilt als privat
+      nwcFremdesRelay: nwcUeberFremdesRelay(geheim.getItem("freedom.nwc.uri"), localStorage),
       usesSwaps: !!geheim.getItem("freedom.swapHistory"),
       externalAvatar: /^https:\/\//.test(profil.picture ?? ""),
       stateBackup: !!localStorage.getItem("freedom.backupAt"),
