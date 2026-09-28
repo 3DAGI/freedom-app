@@ -246,3 +246,17 @@ test("Jede Ereignisart hat eine Einordnung – ueber Mesh nur Umschlaege", () =>
   assert.equal(policyFor(38058)!.cls, "gewichte");
   assert.equal(policyFor(99999), undefined);
 });
+
+test("0.F: „KI über Funk“ rechnet nach – 500 Wörter als Umschlag brauchen mehr als eine Stunde Sendezeit", async () => {
+  const { buildPrivateDm } = await import("../src/private-dm.js");
+  const { luftBytes, SENDEZEIT_ANTEIL, SENDEZEIT_FENSTER_SEKUNDEN } = await import("../src/mesh-transport.js");
+  const b = generateKeypair();
+  const woerter = Array.from({ length: 500 }, (_, i) => `wort${i % 10}`).join(" ");
+  const dm = await buildPrivateDm({ senderSk: KP.sk, senderPk: KP.pk, recipientPk: b.pk, content: woerter });
+  const sekunden = luftBytes(new TextEncoder().encode(JSON.stringify(dm.toRecipient)).length) / LINK_BYTES_PER_SEC.lora;
+  const budget = SENDEZEIT_ANTEIL * SENDEZEIT_FENSTER_SEKUNDEN;
+  assert.ok(sekunden > budget, `${sekunden.toFixed(1)} s Sendezeit > ${budget} s je Stunde`);
+  assert.ok(sekunden < 3 * budget, "nicht „Stunden“ – gut eine Stunde");
+  const ki = offlineCapabilities("lora").find((x) => x.feature === "KI-Anfragen")!;
+  assert.match(ki.note, /mehr als eine Stunde Sendezeit/);
+});

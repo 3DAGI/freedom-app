@@ -22,7 +22,7 @@
       <a href="whitepaper.html">Whitepaper</a>
       <a href="roadmap.html">Roadmap</a>
       <a href="faq.html">FAQ</a>
-      <a href="https://github.com" target="_blank" rel="noopener">Code</a>
+      <a href="https://github.com/3DAGI/freedom-app" target="_blank" rel="noopener">Code</a>
       <span class="lang-switch" id="lang-switch">
         <button class="lang-btn" id="lang-btn" type="button">DE ▾</button>
         <span class="lang-menu hidden" id="lang-menu"></span>
@@ -106,7 +106,7 @@
       <div class="card">
         <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M18.18 8c-2.5 0-3.86 2.04-4.68 3.6C12.68 13.16 11.32 16 8.82 16a4 4 0 1 1 0-8c1.97 0 3.21 1.5 4.13 3.06"/><path d="M18.18 8a4 4 0 1 1 0 8c-1.06 0-1.98-.44-2.76-1.08"/></svg></div>
         <h3><span data-i18n="featImmutable">Ohne Betreiber</span></h3>
-        <p><p data-i18n="featImmutableSub">Das Swap-Programm wird nach einer Testphase unveränderlich gemacht. Der Code ist offen und liegt an mehreren Orten.</p>
+        <p><p data-i18n="featImmutableSub">Das Swap-Programm wird nach einer Testphase unveränderlich gemacht. Der Code ist offen; weitere Bezugsquellen der App sind vorbereitet.</p>
       </div>
     </div>
   </div>
@@ -133,23 +133,23 @@
     <div class="dl">
       <div class="meta">
         <div class="name">freedom launcher (Linux)</div>
-        <div class="desc">1-Klick Provider-Knoten — KI-Compute vermieten (.AppImage/.deb)</div>
+        <div class="desc">Geplant: 1-Klick Provider-Knoten — KI-Compute vermieten (.AppImage/.deb)</div>
       </div>
-      <a class="btn ghost" href="#" id="dl-launcher-linux">Bald</a>
+      <a class="btn ghost" href="#provide" id="dl-launcher-linux">Geplant</a>
     </div>
 
     <div class="dl">
       <div class="meta">
         <div class="name">freedom launcher (Windows / macOS)</div>
-        <div class="desc">.msi / .dmg — gebaut aus CI (ARM64-GX10 kann nicht cross-kompilieren)</div>
+        <div class="desc">Geplant: .msi / .dmg, gebaut in der CI</div>
       </div>
-      <a class="btn ghost" href="#">CI folgt</a>
+      <a class="btn ghost" href="#provide">Geplant</a>
     </div>
 
     <div class="dl">
       <div class="meta">
         <div class="name">freedomstack-node (headless)</div>
-        <div class="desc">Server/GX10/VPS — DVM-Provider + LP per Kommandozeile</div>
+        <div class="desc">Server/VPS — DVM-Provider, LP und Relay per Kommandozeile</div>
       </div>
       <a class="btn ghost" href="#provide">Anleitung</a>
     </div>
@@ -169,35 +169,40 @@
     <h2 data-i18n="provideTitle">Rechenzeit vermieten — drei Einnahmen, ein Knoten</h2>
     <p class="muted" style="margin-bottom:16px;font-size:12px">
       Ein GPU-Gerät (Gaming-PC, Mac Mini, NVIDIA DGX Spark, VPS) wird zum
-      Provider-Knoten. Du verdienst: KI-Jobs (DVM), Swap-Liquidität (LP-Fees),
-      und das Netz wächst mit jedem Knoten.
+      Provider-Knoten. Du verdienst mit KI-Aufträgen (94 % jeder Zahlung), mit
+      Swap-Liquidität (LP-Gebühr, braucht LND) und – wenn du willst – mit
+      bezahltem Zugang zu deinem Relay (Sats oder SOL).
     </p>
 
     <div class="grid">
       <div class="card">
         <h3><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="12" y1="17" x2="12" y2="21"/><line x1="8" y1="21" x2="16" y2="21"/></svg> <span data-i18n="provDesktop">Desktop (1-Klick)</span></h3>
-        <p>freedom launcher für Windows/Mac/Linux. Installiert Ollama, generiert Keys, fragt deine Lightning-Adresse ab — "Verdienen starten".</p>
+        <p>Geplant: freedom launcher für Windows/Mac/Linux. Er soll Ollama installieren, Schlüssel erzeugen und deine Lightning-Adresse abfragen — „Verdienen starten“. Bis dahin: Headless.</p>
       </div>
       <div class="card">
         <h3><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg> <span data-i18n="provHeadless">Headless (Server)</span></h3>
         <p style="margin-bottom:8px">Überall wo Node läuft:</p>
-        <pre class="mono" style="background:#000;padding:10px;border-radius:2px">git clone &lt;repo&gt;
-cd freedomstack/packages/node
-npm install
+        <pre class="mono" style="background:#000;padding:10px;border-radius:2px">git clone https://github.com/3DAGI/freedom-app
+cd freedom-app &amp;&amp; npm ci
+cd packages/node
 NODE_LUD16=you@wallet.cash npm start</pre>
+        <p class="muted" style="margin-top:8px;font-size:11px">Beim ersten Start erzeugt der Knoten einen Schlüssel und zeigt ihn als NODE_SECRET_KEY an – sichern und beim nächsten Start setzen.</p>
       </div>
       <div class="card">
         <h3><svg class="logo-btc" width="13" height="13" viewBox="10.5 0.8 12.6 22.4" fill="#f7931a" aria-label="Bitcoin"><path d="M16.15 12.03c1.44-.36 2.42-1.32 2.24-3.02-.23-2.13-1.98-2.85-4.23-3.05l-.01-2.44h-1.51l-.01 2.38c-.4 0-.81.01-1.21.01l.01-2.39H9.92l-.01 2.44c-.33.01-.65.01-.97.01v-.01H6.88l.01 1.62s1.11-.02 1.09-.01c.61 0 .81.36.87.67v2.77c.04 0 .1.01.16.03h-.16v3.88c-.03.19-.13.49-.54.49.02.01-1.09 0-1.09 0l-.3 1.81h2.55c.34 0 .68.01 1.01.01l.01 2.47h1.51l.01-2.44c.41.01.81.01 1.21.02l-.01 2.43h1.51l.01-2.46c2.58-.15 4.37-.8 4.59-3.18.18-1.93-.73-2.79-2.17-3.14zm-4.7-4.71c.86 0 3.57-.17 3.57 1.53 0 1.63-2.71 1.45-3.57 1.45zm0 7.63v-3.19c1.04 0 4.28-.19 4.28 1.6 0 1.71-3.24 1.59-4.28 1.59z"/></svg> Mit LP-Modus</h3>
-        <p style="margin-bottom:8px">Zusätzlich Swap-Liquidität anbieten (braucht LND):</p>
-        <pre class="mono" style="background:#000;padding:10px;border-radius:2px">LP_ENABLED=1 \
-LND_MACAROON=~/.lnd/…/admin.macaroon \
+        <p style="margin-bottom:8px">Zusätzlich Swap-Liquidität anbieten (braucht LND und eine eingeschränkte Macaroon – mit der vollen Admin-Macaroon startet der Knoten nicht):</p>
+        <pre class="mono" style="background:#000;padding:10px;border-radius:2px">lncli bakemacaroon --save_to=freedom-lp.macaroon \
+  info:read invoices:read invoices:write \
+  offchain:read offchain:write
+LP_ENABLED=1 LND_MACAROON=freedom-lp.macaroon \
 npm start</pre>
       </div>
     </div>
 
     <p class="mono" style="margin-top:20px">
-      Verdienen-Tab in der App zeigt deine Einnahmen (signierte Leistungs-Events,
-      öffentlich prüfbar). Kein Konto, kein Dashboard-Server — die Relays sind die Quelle.
+      Dein Knoten veröffentlicht signierte Leistungs-Events – öffentlich prüfbar.
+      Der Verdienen-Tab der App zeigt sie, wenn App und Knoten denselben Schlüssel
+      nutzen. Kein Konto, kein Dashboard-Server — die Relays sind die Quelle.
     </p>
   </div>
 </section>
@@ -210,7 +215,7 @@ npm start</pre>
       <a href="#downloads">Downloads</a> ·
       <a href="dashboard.html">Netzwerk-Status</a> ·
       <a href="#provide">Verdienen</a> ·
-      <a href="https://github.com" target="_blank" rel="noopener">Code</a>
+      <a href="https://github.com/3DAGI/freedom-app" target="_blank" rel="noopener">Code</a>
     </span>
   </div>
   <div class="wrap" style="margin-top:14px">
@@ -219,7 +224,7 @@ npm start</pre>
 </footer>
 
 <script>
-// Landing-i18n: DE/EN voll, weitere Sprachen fallback EN.
+// Landing-i18n: Deutsch und Englisch (8.16: nur diese beiden, wie in der App).
 const LANDING_I18N = {
   en: {
     heroA: "Communicate. Use AI.",
@@ -240,7 +245,7 @@ const LANDING_I18N = {
     featNoToken: "No token, no mixer",
     featNoTokenSub: "Runs on BTC and SOL. Every AI payment has a fixed split: 94% provider, 2.5% development, 1.5% relays, 0.5% each to the referrers on both sides, 1% hosting – paid straight to the recipients, no pool.",
     featImmutable: "No operator",
-    featImmutableSub: "The swap program becomes immutable after a test phase. The code is open and hosted in several places.",
+    featImmutableSub: "The swap program becomes immutable after a test phase. The code is open; further sources for the app are prepared.",
     dlTitle: "Downloads \u2014 no app store, no KYC",
     provideTitle: "Rent out compute — three income streams, one node",
     appTitle: "The app \u2014 runs entirely in your browser",
@@ -266,7 +271,7 @@ const LANDING_I18N = {
     featNoToken: "Kein Token, kein Mixer",
     featNoTokenSub: "Läuft mit BTC und SOL. Jede KI-Zahlung ist fest aufgeteilt: 94 % Provider, 2,5 % Entwicklung, 1,5 % Relays, je 0,5 % für die Werber beider Seiten, 1 % Hosting – direkt an die Empfänger, ohne Topf.",
     featImmutable: "Ohne Betreiber",
-    featImmutableSub: "Das Swap-Programm wird nach einer Testphase unveränderlich gemacht. Der Code ist offen und liegt an mehreren Orten.",
+    featImmutableSub: "Das Swap-Programm wird nach einer Testphase unveränderlich gemacht. Der Code ist offen; weitere Bezugsquellen der App sind vorbereitet.",
     dlTitle: "Downloads — ohne App-Store, ohne KYC",
     provideTitle: "Rechenzeit vermieten — drei Einnahmen, ein Knoten",
     appTitle: "Die App — läuft komplett in deinem Browser",
@@ -379,12 +384,6 @@ function applyLandingI18n(lang) {
     const LANGS = [
     { code: "en", label: "English" },
     { code: "de", label: "Deutsch" },
-    { code: "es", label: "Español" },
-    { code: "fr", label: "Français" },
-    { code: "it", label: "Italiano" },
-    { code: "pt", label: "Português" },
-    { code: "zh", label: "中文" },
-    { code: "ja", label: "日本語" },
   ];
   const btn = document.getElementById("lang-btn");
   const menu = document.getElementById("lang-menu");

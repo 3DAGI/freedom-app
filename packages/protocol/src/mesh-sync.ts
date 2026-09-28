@@ -371,7 +371,7 @@ export function offlineCapabilities(link: Link): { feature: string; works: boole
     },
     {
       feature: "KI-Anfragen", works: false,
-      note: "Eine Antwort mit 500 Wörtern bräuchte über Funk Stunden. Ehrlich: geht nicht.",
+      note: "Eine Antwort mit 500 Wörtern bräuchte über Funk mehr als eine Stunde Sendezeit – dazu kommen Auftrag und Bezahlung. Ehrlich: geht nicht.",
     },
   ];
 }

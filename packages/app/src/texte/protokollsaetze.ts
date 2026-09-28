@@ -76,7 +76,7 @@ export const protokollsaetze: Texte = {
   "ps.ofLn": { de: "Lightning-Zahlungen", en: "Lightning payments" },
   "ps.ofLnText": { de: "Braucht mehrere Runden Austausch. Das überlebt keine Offline-Strecke.", en: "Needs several rounds of exchange. That doesn't survive an offline link." },
   "ps.ofKi": { de: "KI-Anfragen", en: "AI requests" },
-  "ps.ofKiText": { de: "Eine Antwort mit 500 Wörtern bräuchte über Funk Stunden. Ehrlich: geht nicht.", en: "A 500-word answer would take hours over radio. Honestly: doesn't work." },
+  "ps.ofKiText": { de: "Eine Antwort mit 500 Wörtern bräuchte über Funk mehr als eine Stunde Sendezeit – dazu kommen Auftrag und Bezahlung. Ehrlich: geht nicht.", en: "A 500-word answer would need more than an hour of radio airtime – plus the request and the payment. Honestly: doesn't work." },
   // Tor-Reihenfolge (sortByTorPreference)
   "ps.torKeineNur": { de: "Keine Zwiebeladressen bekannt. Mit dieser Einstellung gibt es keine Verbindung — entweder eine .onion-Adresse eintragen oder die Einstellung lockern.", en: "No onion addresses known. With this setting there is no connection — either enter a .onion address or relax the setting." },
   "ps.torNur": { de: "{n} Zwiebeladresse(n). Deine IP bleibt den Relays verborgen.", en: "{n} onion address(es). Your IP stays hidden from the relays." },
