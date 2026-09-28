@@ -207,8 +207,16 @@
     dafür nicht mehr ab. Der Knoten veröffentlicht 38010 weiter – nur für die
     eigene Einnahmen-Ansicht und die Abzeichen. Abnahme mit 300 gefälschten
     Leistungs-Events (`app/test/quittungen.test.ts`).
-  - **5.5c:** App – Zusammenfassungen an Kontakte (mit Zustimmung) und aus dem
-    Posteingang, Datenschutz-Aussage mit Szenario, ehrliche Texte.
+  - **5.5c – FERTIG:** App – Zusammenfassungen an Kontakte nur mit Zustimmung
+    (Settings → Datenschutz, `freedom.ruf.teilen`), je Schlag des Abruftakts
+    höchstens ein Umschlag an den Posteingang eines Kontakts (`RufVersand`,
+    `ruf-teilen.ts`), neuer Stand höchstens einmal am Tag, als Gerät nie;
+    empfangen am Ende der Kette in `oeffneUmschlag()`
+    (`alsRufZusammenfassung()`), nur von Kontakten, je Kontakt die neueste im
+    Tresor (`freedom.ruf.kontakte`) – sie fließen in `aktuellerRuf()` ein.
+    Datenschutz-Aussage „ruf-kontakte“ mit Szenario, Leak-Szenario
+    `app/test/leak/ruf.test.ts`, FAQ „Woran erkennt die App einen guten
+    Provider?“.
   - **8.15:** Dashboard nur aus Öffentlichem und Freiwilligem.
 
 ## 5.6 Streitfall-Prüfer subjektiv
