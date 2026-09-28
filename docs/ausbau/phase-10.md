@@ -7,9 +7,9 @@ Karte der Abdeckung und eine Navigation, die auf Desktop und Handy je für sich
 Sinn ergibt. Protokoll, Krypto, Zahlungen und Event-Formate bleiben, wie sie
 sind; sonst gilt die STOPP-Regel aus `CLAUDE.md`.
 
-Stand dieser Karte: **C.0, C.1a, C.1b, C.2a–d (Räume) und C.3a fertig.** Der MENSCH hat den
+Stand dieser Karte: **C.0, C.1a, C.1b, C.2a–d (Räume), C.3a und C.3b1 fertig.** Der MENSCH hat den
 Entwurf am 27.09.2026 freigegeben – E1–E8 wie vorgeschlagen (Abschnitt 10.3).
-Nächster Schritt: C.3b.
+Nächster Schritt: C.3b2.
 
 ---
 
@@ -431,7 +431,8 @@ Pull Request. Dateien der Spur A (`waehrung.ts`, `agent.ts`, `ki-zahlung.ts`,
 | **C.2d2** | Kanal anlegen (offen: Gründer, `buildSpace()`; privat: Moderatoren, `raumDefinition()` in die Gruppe), Menüpunkte nur nach Rechten | `raeume.ts`, `raum-mls.ts` (klein), Tests (~250) | – | C.2d1 |
 | **C.3a1** | Repo-Liste (30617 + 38042 verbunden, Suche, Alle/Meine) und Repo-Seite (Klonen, Bundle laden, Patches mit Dialogen); Texte über Schlüssel | `repo-seite.ts`, `repos.ts`, `repo-ansicht.ts`, `agent-netz.ts:266` (zieht um), `texte/repos.ts`, Tests (~450) | B10 | C.1b |
 | **C.3a2** | Einstellungen des Eigentümers, „Neue Version hochladen“ auf der Repo-Seite (`app.ts:760` zieht um), Mitwirkende als Reiter | `repo-seite.ts`, `app.ts`, Tests (~300) | B11 | C.3a1 |
-| **C.3b** | Patch-Seite: Diff-Leser (ohne DOM, Tests mit feindlichen Eingaben), Diff-Ansicht, Status-Dialoge (annehmen, schließen, wieder öffnen, Entwurf, zurückziehen), Patch mit Vorschau senden | `diff-ansicht.ts`, `repo-seite.ts`, Tests (~400) | B10 | C.3a |
+| **C.3b1** | Diff-Leser (ohne DOM, Tests mit feindlichen Eingaben), Patch-Seite mit Änderungen (Dateiliste, Abschnitte, Zeilennummern, +/−), „Als Datei laden“, neuer Patch erst als Vorschau, dann senden | `diff-ansicht.ts`, `patch-seite.ts`, `repo-seite.ts`, Tests (~450) | B10 | C.3a |
+| **C.3b2** | Status-Dialoge mit Begründung (`notiz`): annehmen, schließen, wieder öffnen, als Entwurf; Autor: zurückziehen, wieder öffnen (was `patchStatus()` erlaubt) | `repo-ansicht.ts`, `repo-seite.ts`, Tests (~250) | – | C.3b1 |
 | **C.3c** | *(E4: ja)* Bundle-Leser (Git-Bundle v2/v3, Packfile, `DecompressionStream`, Deltas; Grenzen für Größe, Objektzahl, Tiefe) und die Reiter „Code“ (README, Dateibaum) und „Commits“ | c1 Leser + Tests (~350), c2 Ansicht (~250) | B10 | C.3b |
 | **C.4a** | Karte als SVG: Projektion, Gradnetz, Zellen nach Ebene, Schalter, Legende, Zoom und Verschieben mit Maus, Touch und Tastatur, Angaben je Zelle, „Karte / Liste“ | `karte-ansicht.ts` (ohne DOM, Tests: nur Zellen über k, keine Einträge), `tabs/karte.ts`, `texte/karte.ts` (~400) | B12 | C.1b |
 | **C.4b** | *(E5, E6: ja)* Umrisse eingebettet (höchstens 40 KB); eigene Zelle umrandet; Standort nur gerundet gespeichert | Daten + ~150 | B13 | C.4a |
@@ -631,6 +632,27 @@ Repo-Seite und Mitwirkende als Reiter.
   die Zeile über der Liste bleibt für neue Repos. B11: die Texte am Upload
   stehen seit 8.16 über Schlüssel, „⇩ bundle“ fiel mit C.3a1 – erledigt.
 - Mobil brechen die Reiter der Repo-Seite um, statt seitlich zu scrollen.
+
+**C.3b1 – fertig (28.09.2026).** C.3b ist geteilt: C.3b1 Diff-Leser und
+Patch-Seite, C.3b2 Status-Dialoge mit Begründung.
+- Diff-Leser `leseDiff()` (`diff-ansicht.ts`, ohne DOM): Autor und Datum aus
+  dem Kopf, Nachricht bis „---“, je Datei Pfade, Art (neu, gelöscht,
+  umbenannt, binär), Abschnitte mit Zeilennummern und +/−. Zahlen aus
+  `@@`-Köpfen nur bis zehn Millionen, Abschnitte enden bei der ersten Zeile,
+  die nicht zur Zählung passt; höchstens 200 Dateien, 5000 Zeilen, 2000
+  Zeichen je Zeile – darüber „gekürzt“. Er wirft nie.
+- Patch-Seite (`patch-seite.ts`): Betreff, Status, Autor (Nostr und „laut
+  Patch“), Datum, Commit, Aktionen, „Als Datei laden“ (für `git am`, lokal
+  erzeugt), Nachricht, Änderungen mit Dateiliste (springt zur Datei) und je
+  Zeile alte/neue Nummer, Zeichen und Text – farbig und mit Zeichen. Der
+  Betreff in der Liste öffnet sie; „‹ Alle Patches“ führt zurück zum Filter
+  und setzt den Fokus auf den Patch. Offener Patch nur im Speicher.
+- Neuer Patch: Datei wählen → Kopf prüfen (`lesePatchText()`) → Vorschau mit
+  derselben Ansicht und dem Satz „öffentlich und signiert“ → „Patch senden“
+  oder „Verwerfen“. Die Vorschau ersetzt die Rückfrage.
+- Bekannte Grenze: Die Signatur „-- “ am Ende von `git format-patch` ist bei
+  falscher Zählung im Kopf von einer entfernten Zeile „- “ nicht zu
+  unterscheiden; bei richtiger Zählung wird sie nie gelesen.
 
 ---
 

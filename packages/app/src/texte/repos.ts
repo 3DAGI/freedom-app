@@ -39,4 +39,18 @@ export const repos: Texte = {
   "repo.speichernFrage": { de: "Die neue Ankündigung ersetzt die bisherige – öffentlich und mit deinem Schlüssel signiert.", en: "The new announcement replaces the previous one – public and signed with your key." },
   "repo.neueVersion": { de: "Neue Version hochladen", en: "Upload new version" },
   "repo.neueVersionText": { de: "Ein Bundle aus git bundle create repo.bundle --all. Es geht verschlüsselt ins Speichernetz; der Schlüssel steht öffentlich in der Referenz – lesen kann jeder, Speicherknoten halten nur Chiffrat.", en: "A bundle from git bundle create repo.bundle --all. It goes encrypted into the storage network; the key is public in the reference – anyone can read it, storage nodes only hold ciphertext." },
+  // Seit C.3b1: Patch-Seite mit Änderungen, Vorschau vor dem Senden
+  "repo.allePatches": { de: "‹ Alle Patches", en: "‹ All patches" },
+  "repo.commitKurz": { de: "Commit {sha}", en: "Commit {sha}" },
+  "repo.autorLautPatch": { de: "Autor laut Patch: {autor}", en: "Author per patch: {autor}" },
+  "repo.alsDatei": { de: "Als Datei laden", en: "Download as file" },
+  "repo.aenderungen": { de: "Änderungen", en: "Changes" },
+  "repo.aenderungenZahl": { de: "Dateien: {dateien} · +{plus} −{minus}", en: "Files: {dateien} · +{plus} −{minus}" },
+  "repo.diffGekuerzt": { de: "Sehr groß – hier gekürzt. „Als Datei laden“ enthält alles.", en: "Very large – shortened here. “Download as file” has everything." },
+  "repo.dateiNeu": { de: "neu", en: "new" },
+  "repo.dateiGeloescht": { de: "gelöscht", en: "deleted" },
+  "repo.dateiUmbenannt": { de: "umbenannt", en: "renamed" },
+  "repo.dateiBinaer": { de: "Binärdatei – hier nicht angezeigt", en: "Binary file – not shown here" },
+  "repo.vorschau": { de: "Vorschau", en: "Preview" },
+  "repo.verwerfen": { de: "Verwerfen", en: "Discard" },
 };
