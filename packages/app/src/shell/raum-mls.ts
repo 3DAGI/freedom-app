@@ -119,6 +119,16 @@ export function einladungsText(r: string): string {
   return k ? t(k) : r;
 }
 
+/**
+ * Kanal anlegen (C.2d2, nur Moderatoren): die Definition mit dem neuen Kanal
+ * in die Gruppe – `gruppenRaum()` nimmt Definitionen nur von Admins an.
+ */
+export function legePrivatenKanalAn(raum: PrivaterRaum, kanal: Channel): Promise<boolean> {
+  const sp = raum.zustand.space;
+  if (!sp || !raum.admins.includes(raum.ich)) return Promise.resolve(false);
+  return mlsSendeEvent(raum.gruppe, raumDefinition(raum.gruppe, { name: sp.name, beschreibung: sp.description, kanaele: [...sp.channels, kanal] }));
+}
+
 /** Moderatoren ernennen oder absetzen – die Admins der Gruppe, per Commit. Ich bleibe dabei. */
 export function setzeModeratoren(raum: PrivaterRaum, moderatoren: string[]): Promise<boolean> {
   const neu = [...new Set([raum.ich, ...moderatoren.filter((m) => raum.mitglieder.includes(m))])];

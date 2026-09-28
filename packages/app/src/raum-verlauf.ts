@@ -31,6 +31,21 @@ export function antwortBezug(
   };
 }
 
+const UMLAUTE: Record<string, string> = { ä: "ae", ö: "oe", ü: "ue", ß: "ss" };
+
+/**
+ * Kennung eines neuen Kanals (C.2d2) aus seinem Namen: klein, nur a–z, 0–9
+ * und „-“, höchstens 24 Zeichen; ohne Buchstaben „kanal“; schon vergeben →
+ * „-2“, „-3“ … Die Kennung steht in jeder Nachricht (`h`-Tag) und bleibt.
+ */
+export function kanalKennung(name: string, vorhandene: readonly string[]): string {
+  const basis = name.trim().toLowerCase().replace(/[äöüß]/g, (c) => UMLAUTE[c] ?? c)
+    .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 24).replace(/-+$/, "") || "kanal";
+  let id = basis;
+  for (let n = 2; vorhandene.includes(id); n++) id = `${basis}-${n}`;
+  return id;
+}
+
 /** Tag in der Zeitzone des Geräts. */
 const ortsTag = (s: number): string => new Date(s * 1000).toDateString();
 

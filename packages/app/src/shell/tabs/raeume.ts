@@ -6,17 +6,17 @@
  * Logikänderung; nur `kontaktName` ist jetzt exportiert. Seit C.2b1 fragen
  * Dialoge (`shell/dialog.ts`) statt `prompt()`, `confirm()` und `alert()`.
  */
-import { MELDE_GRUENDE, type ChannelMessage, type MeldeGrund, type ThreadView } from "@freedomstack/protocol";
+import { MELDE_GRUENDE, type Channel, type ChannelMessage, type MeldeGrund, type Space, type ThreadView } from "@freedomstack/protocol";
 import { escapeHtml, pkShort } from "../../shell-logic.js";
 import { ensurePool, signiere, state } from "../state.js";
 import { mlsAbgleichen, mlsGesperrt } from "../mls-konto.js";
 import {
-  PRIVAT, type PrivaterRaum, einladungsText, entferneAusRaum, gruppeVon, istPrivat, ladeInPrivatenRaum, ladePrivatenRaum, legePrivatenRaumAn, loescheImRaum, meldeImRaum, meldungErledigt, meldungenFuer, privateRaeume, sendePrivat, setzeModeratoren, wennMeldung,
+  PRIVAT, type PrivaterRaum, einladungsText, entferneAusRaum, gruppeVon, istPrivat, ladeInPrivatenRaum, ladePrivatenRaum, legePrivatenKanalAn, legePrivatenRaumAn, loescheImRaum, meldeImRaum, meldungErledigt, meldungenFuer, privateRaeume, sendePrivat, setzeModeratoren, wennMeldung,
 } from "../raum-mls.js";
 import { $, toast } from "../ui.js";
 import { bestaetige, dialog, hinweis, type Option } from "../dialog.js";
 import { type MenuePunkt, oeffneMenueAn, wireMenue } from "../menue.js";
-import { antwortBezug, gruppiereVerlauf } from "../../raum-verlauf.js";
+import { antwortBezug, gruppiereVerlauf, kanalKennung } from "../../raum-verlauf.js";
 import { gebietsschema, t } from "../../i18n.js";
 import { fehlerText, kanalVertraulichkeit } from "../../protokoll-texte.js";
 import { abrufTakt } from "../versand.js";
@@ -106,6 +106,10 @@ async function oeffneRaum(spaceId: string): Promise<void> {
   if (spacesUi.spaceId !== spaceId) {
     spacesUi.channelId = null;
     spacesUi.thread = null;
+    // Nie Rechte oder Nachrichten des vorigen Raums zeigen, solange der neue lädt (C.2d2)
+    spacesUi.state = null;
+    spacesUi.privat = null;
+    spacesUi.messages = [];
     document.querySelector(".comm-space-inner")?.classList.remove("mitglieder-offen");
   }
   spacesUi.spaceId = spaceId;
@@ -149,6 +153,7 @@ async function oeffneRaum(spaceId: string): Promise<void> {
     $("#space-name").textContent = t("komm.nichtErreichbar", { grund: fehlerText(e) });
     return;
   }
+  zeigeRaumArt(spaceId);
   void zeigeRaumLeiste();
   await zeigeKanalliste();
 }
@@ -156,12 +161,60 @@ async function oeffneRaum(spaceId: string): Promise<void> {
 /**
  * Art des Raums sichtbar machen (2.3b): Offene Räume liest jeder mit – der
  * Hinweis steht über dem Raum. Einladen nur privat und als Moderator.
+ * Seit C.2d2 auch die übrigen Menüpunkte nach Rechten: Moderatoren ernennen
+ * und Kanäle anlegen privat die Moderatoren, offen nur der Gründer.
  */
 function zeigeRaumArt(spaceId: string): void {
   const privat = istPrivat(spaceId);
   document.getElementById("space-oeffentlich")?.classList.toggle("hidden", privat);
   const moderator = !!spacesUi.privat && spacesUi.privat.admins.includes(spacesUi.privat.ich);
+  const gruender = !privat && !!state.keypair && (spacesUi.state as { ownerPubkey?: string } | null)?.ownerPubkey === state.keypair.pk;
+  const verwalten = privat ? moderator : gruender;
   document.getElementById("space-invite")?.classList.toggle("hidden", !privat || !moderator);
+  document.getElementById("space-mods")?.classList.toggle("hidden", !verwalten);
+  document.getElementById("space-kanal-neu")?.classList.toggle("hidden", !verwalten);
+  document.querySelector("#space-menue .menue-trenner")?.classList.toggle("hidden", !verwalten);
+}
+
+/** Kanal anlegen (C.2d2): Name und wer schreiben darf; offen als neue Definition des Gründers, privat in die Gruppe. */
+async function legeKanalAn(): Promise<void> {
+  const st = spacesUi.state as { space?: Space } | null;
+  const raum = spacesUi.privat;
+  if (!st?.space || !state.keypair || !spacesUi.spaceId) return;
+  const w = await dialog({
+    titel: t("raum.kanalAnlegen"), ok: t("raum.anlegen"),
+    felder: [
+      { art: "text", name: "name", label: t("raum.kanalName"), pflicht: true },
+      { art: "mehrfach", name: "schreiben", label: t("raum.kanalSchreiben"), optionen: [{ wert: "mod", text: t("raum.nurModsSchreiben") }] },
+    ],
+  });
+  const name = String(w?.name ?? "").trim();
+  if (!w || !name) return;
+  const space = st.space;
+  const kanal: Channel = {
+    id: kanalKennung(name, space.channels.map((c) => c.id)), name,
+    privacy: raum ? "verschluesselt" : "offen",
+    writeRoles: (w.schreiben as string[]).includes("mod") ? ["mod"] : [], position: space.channels.length,
+  };
+  let ok = false;
+  if (raum) ok = await legePrivatenKanalAn(raum, kanal).catch(() => false);
+  else if (space.ownerPubkey === state.keypair.pk) {
+    try {
+      const { buildSpace } = await import("@freedomstack/protocol");
+      await (await ensurePool()).publish(await signiere(buildSpace({
+        spaceId: space.spaceId, name: space.name, description: space.description, ownerPubkey: space.ownerPubkey,
+        channels: [...space.channels, kanal],
+      })));
+      ok = true;
+    } catch (e) {
+      toast(fehlerText(e), true);
+      return;
+    }
+  }
+  toast(t(ok ? "raum.kanalAngelegt" : "komm.nichtGeaendert", { name }), !ok);
+  if (!ok) return;
+  await oeffneRaum(spacesUi.spaceId);
+  await oeffneKanal(kanal.id);
 }
 
 /** Kanäle mit Ungelesenem. */
@@ -875,6 +928,7 @@ export async function wireSpacesTab(): Promise<void> {
   });
   const mods = $("#space-mods");
   if (mods) mods.onclick = () => void ernenneModeratoren();
+  document.getElementById("space-kanal-neu")?.addEventListener("click", () => void legeKanalAn());
   const info = $("#space-info");
   if (info) info.onclick = async () => {
     const st = spacesUi.state as { space?: { channels: never[] } } | null;

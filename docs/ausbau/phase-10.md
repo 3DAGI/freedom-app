@@ -7,9 +7,9 @@ Karte der Abdeckung und eine Navigation, die auf Desktop und Handy je für sich
 Sinn ergibt. Protokoll, Krypto, Zahlungen und Event-Formate bleiben, wie sie
 sind; sonst gilt die STOPP-Regel aus `CLAUDE.md`.
 
-Stand dieser Karte: **C.0, C.1a, C.1b, C.2a, C.2b1, C.2b2, C.2c und C.2d1 fertig.** Der MENSCH hat den
+Stand dieser Karte: **C.0, C.1a, C.1b, C.2a–d fertig** (Räume). Der MENSCH hat den
 Entwurf am 27.09.2026 freigegeben – E1–E8 wie vorgeschlagen (Abschnitt 10.3).
-Nächster Schritt: C.2d2.
+Nächster Schritt: C.3a.
 
 ---
 
@@ -160,6 +160,7 @@ Playwright nachgeprüft (Sichtbarkeit und Maße der Elemente).
 | B17 | klein | Rauminfo und der Titel der Vertraulichkeit zeigen den deutschen Satz aus `privacyInfo()` auch in der englischen Oberfläche (`kommunikation.ts:228`, `:641`). | 8.16g2b2 (Spur B) hat den Satz nicht übernommen | C.2b2 |
 | B18 | hoch | *(gefunden in C.2b2)* **Mobil (bis 900 px) zeigt ein Raum nie seine Nachrichten:** `.channel-main` ist dort ausgeblendet, bis `.showing-channel` gesetzt ist – das setzte kein Code. | `app.css:850` | C.2b2 |
 | B19 | mittel | *(gefunden in C.2b2)* Nach „Raum beitreten“ oder „Raum anlegen“ bleibt der Chat bei den Direktnachrichten; der Raum erscheint erst nach einem Tipp auf sein Symbol in der Leiste. | `setzeKommModus()` nur beim Klick in die Leiste | C.2b2 |
+| B20 | hoch | *(gefunden in C.2d2, Protokoll – andere Spur)* **Offene Räume lassen sich übernehmen:** `buildSpaceState()` nimmt die neueste Definition (34700) mit der Raum-Kennung – von **jedem** Autor – und macht dessen Schlüssel zum Gründer. Wer eine neuere Definition mit derselben Kennung veröffentlicht, bestimmt Kanäle, Rollen und Moderation. Ältere von anderen Autoren auszuschließen reicht nicht (Zeitstempel sind nur behauptet); die Kennung müsste an den Gründer gebunden sein. | `spaces.ts:190` | offen – Format/Entscheidung, Spur A/B bzw. MENSCH |
 
 ---
 
@@ -566,6 +567,27 @@ Meldungen (B3), C.2d2 Kanal anlegen.
   Ebene, samt Meldungen; der Knopf nennt offene Meldungen („Mitglieder · 2
   Meldung(en)“, gelb). „×“ oder Esc schließt. Thread und Mitglieder schließen
   einander aus.
+
+**C.2d2 – fertig (28.09.2026).** Kanal anlegen, Menüpunkte nach Rechten:
+- „Kanal anlegen“ im Raum-Menü: Name und „nur Moderatoren schreiben“. Offen
+  als neue Definition des Gründers (`buildSpace()` mit allen bisherigen
+  Kanälen und dem neuen), privat als Definition in die Gruppe
+  (`legePrivatenKanalAn()` → `raumDefinition()`, nur Moderatoren – andere
+  verwirft `gruppenRaum()`). Die Kennung kommt aus dem Namen
+  (`kanalKennung()`: a–z, 0–9, „-“, eindeutig) und bleibt.
+- Menüpunkte nach Rechten: „Moderatoren“ und „Kanal anlegen“ privat für
+  Moderatoren, offen nur für den Gründer; „Einladen“ wie bisher privat für
+  Moderatoren. Ein Raumwechsel löscht vorher Zustand, Gruppe und Nachrichten
+  des vorigen Raums – so zeigt das Menü nie dessen Rechte.
+- Smoke „raum“ legt am Desktop einen offenen Raum an (erstmals im Browser
+  geprüft), dann als Gründer einen Kanal „Technik & Co“, der nur Moderatoren
+  schreiben lässt, und prüft die gesendete Definition.
+- Gefunden: B20 (offene Räume lassen sich übernehmen) – Protokoll, nicht
+  Oberfläche; offen für Spur A/B bzw. eine Entscheidung.
+
+Mit C.2d2 ist C.2 fertig. Aus 10.4 für Räume noch offen: ein privater Raum
+einmal vollständig mit echter MLS-Gruppe im Browser (heute über
+`gruppenRaum()` getestet).
 
 ---
 
