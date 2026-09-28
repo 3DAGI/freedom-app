@@ -8817,12 +8817,12 @@ stehen in der Sprache der Oberfläche.
     Tests lesen sie wie bisher.
   - App: `fehlerText(e)` (`protokoll-texte.ts`) übersetzt Fehler mit
     bekannter Kennung und lässt alles andere unverändert; neuer Bereich
-    `texte/fehler.ts` (`pf.*`, 45 Schlüssel).
+    `texte/fehler.ts` (`pf.*`, 46 Schlüssel).
   - Alle 106 Anzeigestellen in 29 Dateien zeigen Fehler jetzt über
     `fehlerText(e)` statt `(e as Error).message`.
   - `explainError()` (Agent) deutet Fehler mit Kennung nicht mehr nach
     Mustern um – sie sind genauer als „Relay-Problem“.
-- **Geld und Netz (45 Kennungen):**
+- **Geld und Netz (46 Kennungen):**
   - „Kein Solana-Endpunkt erreichbar“ (RpcPool);
   - Lightning-Rechnung (`leseBolt11`, acht Fälle);
   - NWC: Adresse (vier Fälle), nicht unterstützte Funktion, kein Relay,
