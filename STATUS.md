@@ -9507,4 +9507,7 @@ Und die Grenze aus Entscheidung 4.5 A gehörte in den Datenschutzbericht.
 - +1 in `protocol/test/privacy-facts.test.ts`: Die Grenze steht unter
   „Bewusste Grenzen“ mit Entscheidung 4.5 A und Regel.
 
-ENDSTAND_45B
+Endstand (nach dem Einmergen von `main` mit C.2b2): protocol 1082 (+1; 6
+übersprungen) · node 245 (6 übersprungen, mit Netz) · app 535 (+4) · mls 13 ·
+Leak-Tests 59 grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 ·
+innerHTML streng Exit 0 · Website 5 Seiten ok · Smoke-Test bestanden.
