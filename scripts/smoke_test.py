@@ -1189,7 +1189,9 @@ def raum_pruefen(browser, url: str) -> dict:
 
 def karte_pruefen(browser, url: str) -> dict:
     """Abdeckungskarte (C.4a): eigenes SVG, nur Zellen über der Schwelle, fremde Namen als Text,
-    Tastatur (Pfeile, +/−, 0, Tab, Enter), Maus (Rad, Ziehen, Klick) bzw. Antippen, Ebenen, „Karte | Liste“."""
+    Tastatur (Pfeile, +/−, 0, Tab, Enter), Maus (Rad, Ziehen, Klick) bzw. Antippen, Ebenen, „Karte | Liste“.
+    Seit C.4b: Umrisse, eigener Ort nur gerundet (auch ein alter genauer Wert), eigene Zelle umrandet,
+    „Mein Gebiet“, Eintragen über Dialoge, Vergessen. Der Browser meldet einen festen Probe-Ort."""
     erg = {"fehler": []}
     basis = url.rsplit("/", 1)[0]
     probe = raum_probe("0" * 64)  # Abdeckung hängt nicht am eigenen Schlüssel
@@ -1197,7 +1199,8 @@ def karte_pruefen(browser, url: str) -> dict:
         mobil = groesse == "mobil"
         relay = ProbeRelay()
         relay.events = list(probe)
-        ctx = browser.new_context(locale="de-DE", viewport=vp, is_mobile=mobil, has_touch=mobil)
+        ctx = browser.new_context(locale="de-DE", viewport=vp, is_mobile=mobil, has_touch=mobil,
+                                  geolocation={"latitude": 48.137154, "longitude": 11.576124}, permissions=["geolocation"])
         ctx.route("**/*", lambda r: r.continue_() if r.request.url.startswith(basis) else r.abort())
         ctx.route_web_socket(re.compile(r"^wss?://"), relay.verbinde)
         s = ctx.new_page()
@@ -1210,6 +1213,8 @@ def karte_pruefen(browser, url: str) -> dict:
         ev("() => document.getElementById('bk-done').click()")
         s.wait_for_timeout(1500)
         ev("() => document.getElementById('ein-abbrechen')?.click()")
+        # Seit C.4b: ein genauer Ort wie vor C.4b gespeichert – die App rundet ihn beim ersten Lesen
+        ev("() => localStorage.setItem('freedom.coverage.cell', '[48.137154,11.576124]')")
         ev("() => { location.hash = '#/netz'; }")
         try:
             s.wait_for_function("() => document.querySelectorAll('#coverage-svg .karte-zelle').length > 0", timeout=15000)
@@ -1225,7 +1230,13 @@ def karte_pruefen(browser, url: str) -> dict:
             breite: k ? Math.round(r(k).width) : 0, hoehe: k ? Math.round(r(k).height) : 0,
             ueberlauf: document.documentElement.scrollWidth > innerWidth,
             legende: [...document.querySelectorAll('#coverage-ebenen button')].map(b => [b.textContent, b.getAttribute('aria-pressed'), !!b.querySelector('.karte-probe')]),
-            muster: [...document.querySelectorAll('#coverage-svg pattern')].map(p => p.id) }; }"""
+            muster: [...document.querySelectorAll('#coverage-svg pattern')].map(p => p.id),
+            land: document.querySelector('#coverage-svg .karte-land')?.getAttribute('d')?.length || 0,
+            eigen: [...document.querySelectorAll('#coverage-svg .karte-eigen')].map(e => ['x', 'y', 'width'].map(a => e.getAttribute(a)).join(' ')),
+            gespeichert: localStorage.getItem('freedom.coverage.cell'),
+            hier: document.getElementById('coverage-here').textContent,
+            meins: !document.getElementById('coverage-meins').classList.contains('hidden'),
+            vergessen: !document.getElementById('coverage-vergessen').classList.contains('hidden') }; }"""
         erst = ev(stand)
         erg[groesse] = {"erst": erst}
         soll_zellen = ["online:50.00,8.00", "bluetooth:47.00,8.00", "lora:48.00,11.00"]
@@ -1234,6 +1245,10 @@ def karte_pruefen(browser, url: str) -> dict:
                 or erst["muster"] != ["muster-online", "muster-lora", "muster-bluetooth"] or erst["ueberlauf"] \
                 or [l[1:] for l in erst["legende"]] != [["true", True]] * 3 or abs(erst["breite"] - 2 * erst["hoehe"]) > 2 or erst["breite"] < 300:
             erg["fehler"].append(f"{groesse}: Karte {erst}")
+        # C.4b: Umrisse eingebettet, alter Wert gerundet überschrieben, eigene Zelle nur umrandet
+        if not (1000 < erst["land"] <= 40 * 1024) or erst["gespeichert"] != "[48,11.5]" or erst["eigen"] != ["191.5 41.5 0.5"] \
+                or not erst["meins"] or not erst["vergessen"] or "gebraucht" in erst["hier"]:
+            erg["fehler"].append(f"{groesse}: eigenes Gebiet {erst}")
         # Tastatur: + zoomt, Pfeil verschiebt, 0 zurück; Tab springt zur ersten Zelle, Enter zeigt ihre Angaben
         ev("() => document.querySelector('#coverage-svg svg').focus()")
         schritte = {}
@@ -1310,6 +1325,43 @@ def karte_pruefen(browser, url: str) -> dict:
                 or liste["gedrueckt"] != ["false", "true"] \
                 or sorted(liste["zeilen"]) != sorted(["🌐 Probe-Stadt · wenige", "🔵 <b>fett</b> Tal · wenige", "📡 um 48,25° N, 11,25° O · wenige"]):
             erg["fehler"].append(f"{groesse}: Ebenen und Liste {erg[groesse]['ebenen_liste']}")
+        # C.4b: „Mein Gebiet“ zoomt dorthin; Eintragen über zwei Dialoge (Ebene, Einwilligung) sendet nur die Zelle;
+        # „Gebiet vergessen“ löscht den Ort, „mein Gebiet zeigen“ holt ihn gerundet zurück
+        ev("() => { document.querySelector('#coverage-ansicht [data-ansicht=karte]').click(); document.getElementById('coverage-meins').click(); }")
+        s.wait_for_timeout(100)
+        eigen = {"meins": ev(stand)["viewBox"]}
+        ok_knopf = "() => [...document.querySelectorAll('.dlg-knoepfe button')].at(-1)?.click()"
+        ev("() => document.getElementById('coverage-join').click()")
+        s.wait_for_timeout(300)
+        eigen["dialog1"] = ev("() => [document.querySelector('.dlg-titel')?.textContent, [...document.querySelectorAll('.dlg-option-text')].map(o => o.textContent)]")
+        ev(ok_knopf)
+        s.wait_for_timeout(300)
+        eigen["dialog2"] = ev("() => document.querySelector('.dlg-titel')?.textContent")
+        ev(ok_knopf)
+        try:
+            s.wait_for_function("() => document.querySelectorAll('#coverage-svg .karte-eigen').length === 1 && !document.querySelector('.dlg-box')", timeout=10000)
+            s.wait_for_timeout(800)
+        except Exception:
+            pass
+        gesendet = [e for e in relay.gesendet if e.get("kind") == 38055]
+        eigen["eintrag"] = [[t for t in e["tags"] if t[0] in ("layer", "cell", "region")] for e in {e["id"]: e for e in gesendet}.values()]
+        ev("() => document.getElementById('coverage-vergessen').click()")
+        s.wait_for_timeout(800)
+        weg = ev(stand)
+        eigen["vergessen"] = [weg["gespeichert"], weg["eigen"], weg["meins"], weg["vergessen"]]
+        ev("() => document.getElementById('coverage-standort').click()")
+        try:
+            s.wait_for_function("() => localStorage.getItem('freedom.coverage.cell') && document.querySelectorAll('#coverage-svg .karte-eigen').length === 1", timeout=10000)
+        except Exception:
+            pass
+        zurueck = ev(stand)
+        eigen["zurueck"] = [zurueck["gespeichert"], zurueck["eigen"], zurueck["meins"]]
+        erg[groesse]["eigen"] = eigen
+        if eigen["meins"] != "169.3 30.5 45 22.5" or eigen["dialog1"] != ["Was trägst du ein?", ["Funk (LoRa)", "Bluetooth"]] \
+                or eigen["dialog2"] != "Öffentlich eintragen?" \
+                or eigen["eintrag"] != [[["layer", "lora"], ["cell", "48.00,11.50"], ["region", ""]]] \
+                or eigen["vergessen"] != [None, [], False, False] or eigen["zurueck"] != ["[48,11.5]", ["191.5 41.5 0.5"], True]:
+            erg["fehler"].append(f"{groesse}: eigenes Gebiet und Eintragen {eigen}")
         ctx.close()
     erg["bestanden"] = not erg["fehler"]
     return erg

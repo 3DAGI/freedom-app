@@ -11042,3 +11042,72 @@ Endstand (nach dem Einmergen von 11.1b bis 11.4b1): protocol 1111
 mls 13 · Leak-Tests 65 grün + 1 todo · 0 rot · check-wiring `--streng`
 Exit 0 · innerHTML streng Exit 0 · Website 5 Seiten ok · Smoke-Test
 bestanden (mit „rahmen“, „dialog“, „raum“, „karte“ und „qr“).
+
+## Schritt C.4b – Oberfläche: Umrisse, eigenes Gebiet, Standort gerundet
+
+**Fertig:** Die Abdeckungskarte hat Welt-Umrisse (E5), zeigt das eigene
+Gebiet nur umrandet, und der eigene Ort liegt nur noch gerundet auf dem
+Gerät (E6, B13). Damit ist C.4 (Abdeckungskarte) fertig.
+
+**Einzelheiten:**
+- **Umrisse** (`welt-umrisse.ts`, 20 KB, Grenze 40 KB):
+  - Quelle: Natural Earth 1:110m „Land“ (gemeinfrei), GeoJSON aus dem
+    Repository von Natural Earth, Prüfsumme fest in
+    `scripts/welt-umrisse.py` – eine andere Datei lehnt das Skript ab.
+  - Vereinfacht mit Douglas-Peucker (0,05°), Inseln unter 0,3 Quadratgrad
+    weg, Koordinaten in Zehntelgrad als relativer SVG-Pfad: 118 Flächen.
+  - Gezeichnet als ein Pfad (`scale(0.1)`) über dem Meer, unter Gradnetz und
+    Zellen. Zur Laufzeit wird nichts geladen, keine Kacheln.
+- **Standort** (`karte-ansicht.ts`, `earn.ts`):
+  - Gespeichert wird nur die Südwest-Ecke der 0,5°-Zelle
+    (`rundeStandort()`), gleich nach dem Lesen aus dem Browser. Die Zellen
+    aller Ebenen (0,5°, 1°, 2°) sind Vielfache davon: `toCell()` und
+    `coverageAt()` ergeben dasselbe wie mit dem genauen Ort.
+  - Ein genauer Wert von vor C.4b wird beim ersten Lesen gerundet
+    überschrieben (`leseStandort()`), Unfug gelöscht.
+  - Auch „selbst eintragen“ rechnet die Zelle aus dem gerundeten Ort – der
+    genaue Ort wird an genau einer Stelle gelesen.
+- **Eigenes Gebiet auf der Karte** (`karte.ts`): gestrichelt umrandet, kein
+  Punkt, nicht anklickbar, mit Titel „nur auf diesem Gerät gezeichnet“.
+  „Mein Gebiet“ zoomt dorthin.
+- **Neue Knöpfe:** „mein Gebiet zeigen“ – den Ort nur lokal nutzen, ohne sich
+  einzutragen (bisher gab es ihn nur über „selbst eintragen“, obwohl der
+  Hinweis ihn für die Antwort „Gibt es hier Abdeckung?“ verlangte) – und
+  „Gebiet vergessen“.
+- **„Selbst eintragen“ über Dialoge** (`dialog()`, `bestaetige()`) statt
+  `prompt()`/`confirm()`: die Ebene als Wahl (Funk, Bluetooth), dann die
+  Einwilligung wie bisher (`abdeckungEinwilligung()`). Der Text
+  `earn.funk` fiel weg, `earn.wasEintragen` ist jetzt die Frage ohne
+  „(funk / bluetooth)“.
+- Neue Texte in `texte/karte.ts` (de + en).
+- **Screenshots** (`docs/ausbau/bilder/c4b/`): Desktop die ganze Welt mit
+  Umrissen und drei Probe-Gebieten; Desktop und Handy „Mein Gebiet“ –
+  Europa mit Umrissen, das eigene Gebiet gestrichelt neben dem Funk-Gebiet.
+
+**Tests:**
+- +4 in `karte-ansicht.test.ts`:
+  - Rundung (auch am Rand), alte genaue Werte, Unfug; Rechteck der eigenen
+    Zelle.
+  - Gerundeter und genauer Ort ergeben dieselben Zellen und dieselbe Antwort
+    aus `coverageAt()` (500 Orte).
+  - Umrisse: höchstens 40 KB, nur Pfadbefehle, alle Punkte in der Welt,
+    Kopf mit Quelle.
+  - Verdrahtung: Umrisse und eigene Zelle in der Karte, der Ort nur gerundet
+    gespeichert, keine Browser-Dialoge in `earn.ts`.
+- Zwei ältere Tests folgen der neuen Form, gleich streng oder strenger:
+  `abdeckung.test.ts` (Einwilligung jetzt über `bestaetige()` – und vor dem
+  Senden), `leak/abdeckung.test.ts` (Zelle aus dem gerundeten Ort, der
+  genaue nur einmal gelesen).
+- Smoke-Test „karte“ (Desktop und Handy, fester Probe-Ort):
+  - Umrisse da; ein alter genauer Wert steht danach als `[48,11.5]` im
+    Speicher; die eigene Zelle ist umrandet; „Mein Gebiet“ zoomt dorthin.
+  - „Selbst eintragen“ über beide Dialoge: hinaus geht nur Ebene, Zelle
+    „48.00,11.50“ und leerer Name.
+  - „Gebiet vergessen“ löscht Ort und Umrandung; „mein Gebiet zeigen“ holt
+    beides gerundet zurück.
+
+Endstand: protocol 1111 (6 übersprungen) · node 263 (6 übersprungen, mit
+Netz) · app 622 (+4) · mls 13 · Leak-Tests 65 grün + 1 todo · 0 rot ·
+check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 (63 Ausnahmen) ·
+Website 5 Seiten ok · Smoke-Test bestanden (mit „rahmen“, „dialog“, „raum“,
+„karte“ und „qr“).

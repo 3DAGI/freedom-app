@@ -6,13 +6,16 @@
  *
  * Gezeichnet wird nur, was `buildCoverage()` ausgibt (Zellen über der
  * Schwelle) – die Rechnung steht in `karte-ansicht.ts`. Nur DOM:
- * `createElementNS` und `textContent`, nie `innerHTML`.
+ * `createElementNS` und `textContent`, nie `innerHTML`. Seit C.4b mit
+ * eingebetteten Umrissen (`welt-umrisse.ts`) und der eigenen Zelle, nur
+ * umrandet und nur, wenn der Nutzer seinen Ort freigegeben hat.
  */
 import { type CoverageCell, type CoverageLayer, K_ANONYMITY, LAYER_CELL_DEGREES } from "@freedomstack/protocol";
 import { gebietsschema, t } from "../../i18n.js";
 import {
-  type Ansicht, START, WELT, ausschnitt, gradnetz, imAusschnitt, kartenZellen, verschiebe, zellRechteck, zoome,
+  type Ansicht, START, WELT, ausschnitt, gradnetz, imAusschnitt, kartenZellen, standortRechteck, verschiebe, zellRechteck, zoome,
 } from "../../karte-ansicht.js";
+import { WELT_UMRISSE } from "../../welt-umrisse.js";
 import { ebeneName, zellenStufe } from "../../protokoll-texte.js";
 
 const SVG = "http://www.w3.org/2000/svg";
@@ -32,6 +35,8 @@ let zellen: CoverageCell[] = [];
 let verborgen = 0;
 const ebenen = new Set<CoverageLayer>(EBENEN);
 let gewaehlt: string | null = null;
+/** Eigener Ort, gerundet (`leseStandort()`) – nur lokal gezeichnet. */
+let standort: [number, number] | null = null;
 
 /**
  * Gebiet einer Zelle: der Name aus dem Eintrag (fremd, gekürzt, nur als
@@ -50,9 +55,10 @@ export function gebietText(c: Pick<CoverageCell, "cell" | "layer" | "region">): 
 export const zellText = (c: Pick<CoverageCell, "cell" | "layer" | "region" | "nodes">): string => t("karte.zelle", { ebene: ebeneName(c.layer), gebiet: gebietText(c), stufe: zellenStufe(c.nodes) });
 
 /** Karte zeichnen (nach jedem Laden der Abdeckung aus `earn.ts`). */
-export function zeigeKarte(cells: CoverageCell[], hiddenCells: number): void {
+export function zeigeKarte(cells: CoverageCell[], hiddenCells: number, eigenerOrt: [number, number] | null = null): void {
   zellen = cells;
   verborgen = hiddenCells;
+  standort = eigenerOrt;
   wireKarte();
   zeichne();
 }
@@ -72,6 +78,8 @@ function zeichne(fokus?: string): void {
     defs.append(muster);
   }
   karte.append(defs, svg("rect", { x: 0, y: 0, width: WELT.breite, height: WELT.hoehe, class: "karte-meer" }));
+  // Umrisse in Zehntelgrad (E5) – nur Hintergrund, keine Angabe
+  karte.append(svg("path", { d: WELT_UMRISSE, transform: "scale(0.1)", class: "karte-land", "aria-hidden": "true" }));
   const netz = svg("g", { class: "karte-netz" });
   const { laengen, breiten } = gradnetz(ansicht.zoom);
   for (const l of laengen) netz.append(svg("line", { x1: l + 180, y1: 0, x2: l + 180, y2: WELT.hoehe }));
@@ -103,6 +111,15 @@ function zeichne(fokus?: string): void {
     g.append(r);
   }
   karte.append(g);
+  if (standort) {
+    const r = standortRechteck(standort);
+    const eigen = svg("rect", { x: r.x, y: r.y, width: r.b, height: r.h, class: "karte-eigen" });
+    const titel = svg("title");
+    titel.textContent = t("karte.eigenesGebiet");
+    eigen.append(titel);
+    karte.append(eigen);
+  }
+  document.getElementById("coverage-meins")?.classList.toggle("hidden", !standort);
   bedienung(karte);
   box.replaceChildren(karte);
   // Angaben der gewählten Zelle und Namen der Ebenen – auch nach einem Sprachwechsel neu
@@ -226,6 +243,11 @@ function wireKarte(): void {
   zoomKnopf("coverage-naeher", () => zoome(ansicht, 1.5));
   zoomKnopf("coverage-weiter", () => zoome(ansicht, 1 / 1.5));
   zoomKnopf("coverage-welt", () => START);
+  zoomKnopf("coverage-meins", () => {
+    if (!standort) return ansicht;
+    const r = standortRechteck(standort);
+    return zoome({ x: r.x + r.b / 2, y: r.y + r.h / 2, zoom: 1 }, 8);
+  });
   const knoepfe = document.querySelectorAll<HTMLButtonElement>("#coverage-ansicht button");
   knoepfe.forEach((b) => b.addEventListener("click", () => {
     const aufKarte = b.dataset.ansicht === "karte";

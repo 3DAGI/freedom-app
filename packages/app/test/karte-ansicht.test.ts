@@ -2,14 +2,20 @@
  * Schritt C.4a: Abdeckungskarte als SVG – Projektion, Zellen als Rechtecke,
  * Zoom und Verschieben, Gradnetz. Die Karte zeigt nur, was `buildCoverage()`
  * ausgibt: Zellen über der Schwelle, nie einzelne Einträge, nie die Zahl.
+ * Seit C.4b: eingebettete Umrisse (höchstens 40 KB) und der eigene Ort nur
+ * gerundet (0,5°).
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { type CoverageCell, type CoverageLayer, K_ANONYMITY, baueCoverageEintrag, buildCoverage } from "@freedomstack/protocol";
 import {
-  START, WELT, ZOOM_MAX, ausschnitt, gradnetz, imAusschnitt, kartenZellen, projiziere, verschiebe, zellRechteck, zoome,
+  type CoverageCell, type CoverageLayer, K_ANONYMITY, LAYER_CELL_DEGREES, baueCoverageEintrag, buildCoverage, coverageAt, toCell,
+} from "@freedomstack/protocol";
+import {
+  START, WELT, ZOOM_MAX, ausschnitt, gradnetz, imAusschnitt, kartenZellen, leseStandort, projiziere, rundeStandort, standortRechteck,
+  verschiebe, zellRechteck, zoome,
 } from "../src/karte-ansicht.js";
+import { WELT_UMRISSE } from "../src/welt-umrisse.js";
 import { gebietText, zellText } from "../src/shell/tabs/karte.js";
 import { setLang } from "../src/i18n.js";
 
@@ -120,8 +126,78 @@ test("C.4a: verdrahtet – Karte nach buildCoverage(), nur DOM, keine rohen Even
     assert.doesNotMatch(quelle, /innerHTML|insertAdjacentHTML|outerHTML/);
     assert.doesNotMatch(quelle, /KIND_COVERAGE|parseCoverageAnnouncement|buildCoverage\(|pool\.query|pubkey/);
   }
-  assert.match(earn, /const r = buildCoverage\(evs\);\n\s+zeigeKarte\(r\.cells, r\.hiddenCells\);/);
+  // Seit C.4b mit dem eigenen Ort – nur gerundet aus `eigenerStandort()`
+  assert.match(earn, /const r = buildCoverage\(evs\);\n\s+const standort = eigenerStandort\(\);\n\s+zeigeKarte\(r\.cells, r\.hiddenCells, standort\);/);
   const liste = earn.slice(earn.indexOf("export async function ladeAbdeckung"), earn.indexOf("export async function trageAbdeckungEin"));
   assert.doesNotMatch(liste, /innerHTML|slice\(0, 15\)/);
   assert.match(liste, /gebietText\(c\)/);
+});
+
+test("C.4b: eigener Ort nur gerundet – Südwest-Ecke der 0,5°-Zelle, alte genaue Werte werden gerundet, Unfug fällt weg", () => {
+  assert.deepEqual(rundeStandort(48.137154, 11.576124), [48, 11.5]);
+  assert.deepEqual(rundeStandort(-33.8688, 151.2093), [-34, 151]);
+  assert.deepEqual(rundeStandort(-0.1, -0.1), [-0.5, -0.5]);
+  // Am Rand bleibt die Zelle in der Welt
+  assert.deepEqual(rundeStandort(90, 180), [89.5, 179.5]);
+  for (const [lat, lon] of [[NaN, 0], [0, Infinity], [91, 0], [0, -181]]) assert.equal(rundeStandort(lat!, lon!), null);
+  assert.deepEqual(leseStandort(JSON.stringify([48.137154, 11.576124])), [48, 11.5], "Wert von vor C.4b");
+  assert.deepEqual(leseStandort("[48,11.5]"), [48, 11.5]);
+  for (const roh of [null, "", "kaputt", "[1]", "[1,2,3]", '["48","11"]', "{}", "[91,0]"]) assert.equal(leseStandort(roh), null, String(roh));
+  assert.deepEqual(standortRechteck([48, 11.5]), { x: 191.5, y: 41.5, b: 0.5, h: 0.5 });
+});
+
+test("C.4b: der gerundete Ort ergibt dieselben Zellen und dieselbe Antwort wie der genaue", () => {
+  const cells = buildCoverage([
+    eintrag("online", "48.00,10.00"),
+    ...[1, 2, 3].map(() => eintrag("lora", "48.00,11.50")),
+    ...[1, 2, 3].map(() => eintrag("bluetooth", "48.00,11.00")),
+  ], { nowSecs: JETZT }).cells;
+  let zufall = 7;
+  const naechste = () => (zufall = (zufall * 48271) % 2147483647) / 2147483647;
+  for (let i = 0; i < 500; i++) {
+    const lat = i < 250 ? 47.5 + naechste() * 2 : naechste() * 178 - 89, lon = i < 250 ? 9.5 + naechste() * 3 : naechste() * 358 - 179;
+    const ort = rundeStandort(lat, lon)!;
+    for (const grad of Object.values(LAYER_CELL_DEGREES)) assert.equal(toCell(...ort, grad), toCell(lat, lon, grad), `${lat},${lon} bei ${grad}°`);
+    assert.deepEqual(coverageAt(...ort, cells), coverageAt(lat, lon, cells));
+  }
+});
+
+test("C.4b: Umrisse fest eingebettet – höchstens 40 KB, nur Pfadbefehle, alle Punkte in der Welt", () => {
+  assert.ok(WELT_UMRISSE.length <= 40 * 1024, `${WELT_UMRISSE.length} Byte`);
+  assert.match(WELT_UMRISSE, /^(M\d+ \d+l(?: ?-?\d+)+z)+$/);
+  let flaechen = 0;
+  for (const teil of WELT_UMRISSE.match(/M[^z]+z/g)!) {
+    flaechen++;
+    const [kopf, rest] = teil.slice(1, -1).split("l") as [string, string];
+    let [x, y] = kopf.split(" ").map(Number) as [number, number];
+    const d = rest.match(/-?\d+/g)!.map(Number);
+    assert.equal(d.length % 2, 0);
+    for (let i = 0; i < d.length; i += 2) {
+      x += d[i]!;
+      y += d[i + 1]!;
+      assert.ok(x >= 0 && x <= 3600 && y >= 0 && y <= 1800, `${x},${y}`);
+    }
+  }
+  assert.ok(flaechen > 50, "Kontinente und größere Inseln");
+  // Erzeugt, nicht von Hand: der Kopf nennt Quelle und Prüfsumme
+  const datei = readFileSync(new URL("../src/welt-umrisse.ts", import.meta.url), "utf8");
+  assert.match(datei, /erzeugt von\n \* `scripts\/welt-umrisse\.py`/);
+  assert.match(datei, /Natural Earth 1:110m/);
+});
+
+test("C.4b: verdrahtet – Umrisse und eigene Zelle in der Karte, Ort nur gerundet gespeichert, Dialoge statt prompt()", () => {
+  const karte = readFileSync(new URL("../src/shell/tabs/karte.ts", import.meta.url), "utf8");
+  const earn = readFileSync(new URL("../src/shell/tabs/earn.ts", import.meta.url), "utf8");
+  const ohneKommentare = (q: string) => q.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+  assert.match(karte, /svg\("path", \{ d: WELT_UMRISSE, transform: "scale\(0\.1\)"/);
+  assert.match(karte, /if \(standort\) \{\n\s+const r = standortRechteck\(standort\);/);
+  const code = ohneKommentare(earn);
+  // Geschrieben wird der Ort nur an zwei Stellen, beide Male das gerundete Ergebnis
+  assert.deepEqual(code.match(/localStorage\.setItem\(LS_STANDORT, [^;]+;/g), [
+    "localStorage.setItem(LS_STANDORT, JSON.stringify(ort));", "localStorage.setItem(LS_STANDORT, JSON.stringify(ort));",
+  ]);
+  assert.match(code, /const ort = rundeStandort\(pos\.coords\.latitude, pos\.coords\.longitude\);/);
+  assert.doesNotMatch(code, /setItem\("freedom\.coverage\.cell"|pos\.coords\.[a-z]+\s*[,)]\s*[^;]*toCell/);
+  assert.equal((code.match(/pos\.coords/g) ?? []).length, 2, "genau einmal gelesen, gleich gerundet");
+  assert.doesNotMatch(code, /\b(prompt|confirm|alert)\(/);
 });
