@@ -7,9 +7,9 @@ Karte der Abdeckung und eine Navigation, die auf Desktop und Handy je für sich
 Sinn ergibt. Protokoll, Krypto, Zahlungen und Event-Formate bleiben, wie sie
 sind; sonst gilt die STOPP-Regel aus `CLAUDE.md`.
 
-Stand dieser Karte: **C.0, C.1a, C.1b, C.2a–d (Räume), C.3a, C.3b und C.3c1 fertig.** Der MENSCH hat den
+Stand dieser Karte: **C.0, C.1a, C.1b, C.2 (Räume) und C.3 (Repositories) fertig.** Der MENSCH hat den
 Entwurf am 27.09.2026 freigegeben – E1–E8 wie vorgeschlagen (Abschnitt 10.3).
-Nächster Schritt: C.3c2.
+Nächster Schritt: C.4a.
 
 ---
 
@@ -687,6 +687,19 @@ einem ersten echten Pfad, C.3c2 der Reiter „Code“ ganz und „Commits“.
   Knopfdruck (`holeBundle()`, geteilt mit „Bundle laden“), liest es im
   Speicher (höchstens drei) und zeigt den letzten Commit, den obersten Ordner
   und die README als Text. Chromium: 1 MB mit 353 Objekten in 0,15 s.
+
+**C.3c2 – fertig (28.09.2026).** Damit ist C.3 (Repositories) fertig.
+- Reiter „Code“ ganz: Ordner öffnen, Dateien als Text (`alsText()`: kein
+  Nullbyte, gültiges UTF-8 – sonst ehrlich „Binärdatei“), Verweise mit Ziel,
+  Submodule als Text; der Pfad oben (`role="navigation"`, kein `<nav>`)
+  führt zurück, der Fokus steht danach auf dem letzten Teil. Die README des
+  jeweiligen Ordners. `unterPfad()` (`git-bundle.ts`, ohne DOM) findet nur,
+  was im Bundle steht – nie durch Dateien hindurch, nie „..“. Wo man steht,
+  nur im Speicher.
+- Reiter „Commits“ (neu, zwischen Code und Patches): mit gelesenem Bundle
+  die Commits ab HEAD entlang der ersten Eltern (höchstens 100), je Commit die
+  ganze Nachricht zum Aufklappen (`<details>`); ohne Bundle die angenommenen
+  Patches mit den Commits aus `applied-as-commits`.
 
 ---
 

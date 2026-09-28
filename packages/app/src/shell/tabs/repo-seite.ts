@@ -17,7 +17,7 @@ import { bestaetige, dialog } from "../dialog.js";
 import { ensurePool, signiere, state } from "../state.js";
 import { mitwirkendeListe } from "../mitwirkende.js";
 import { toast } from "../ui.js";
-import { codeReiter, holeBundle } from "./code-reiter.js";
+import { codeReiter, commitsReiter, holeBundle } from "./code-reiter.js";
 import { zeigePatch } from "./patch-seite.js";
 import { kontaktName } from "./raeume.js";
 
@@ -58,7 +58,7 @@ export interface RepoSeiteHilfe {
   hochladen: (datei: File, kennung: string) => Promise<boolean>;
 }
 
-export type RepoReiter = "code" | "patches" | "mitwirkende" | "einstellungen";
+export type RepoReiter = "code" | "commits" | "patches" | "mitwirkende" | "einstellungen";
 /** Zuletzt gewählter Reiter je Repo – damit „Neu laden“ nach dem Speichern dort bleibt; nur im Speicher. */
 let gemerkt: { schluessel: string; reiter: RepoReiter } | null = null;
 /** Offener Patch, zuletzt gewählter Filter und die Vorschau vor dem Senden (C.3b1) – nur im Speicher. */
@@ -119,9 +119,12 @@ export function zeigeRepoSeite(box: HTMLElement, k: RepoKarte, h: RepoSeiteHilfe
     b.dataset.reiter = id;
     return b;
   };
-  leiste.append(reiterKnopf("code", t("repo.code")), reiterKnopf("patches", t("repo.patchesZahl", { n: k.offen })), reiterKnopf("mitwirkende", t("earn.mitwirkende")));
+  leiste.append(reiterKnopf("code", t("repo.code")), reiterKnopf("commits", t("repo.commits")), reiterKnopf("patches", t("repo.patchesZahl", { n: k.offen })),
+    reiterKnopf("mitwirkende", t("earn.mitwirkende")));
   if (eigentuemer) leiste.append(reiterKnopf("einstellungen", t("repo.einstellungen")));
-  inhalt.append(...(reiter === "code" ? codeReiter(k.bundle, () => zeigeRepoSeite(box, k, h, "code")) : reiter === "patches" ? patchReiter(k, h, () => zeigeRepoSeite(box, k, h, "patches"))
+  const angenommen = k.zeilen.filter((z) => z.status === "angenommen").map((z) => ({ betreff: z.patch.betreff, commits: z.commits ?? [] }));
+  inhalt.append(...(reiter === "code" ? codeReiter(k.bundle, k.name, () => zeigeRepoSeite(box, k, h, "code"))
+    : reiter === "commits" ? commitsReiter(k.bundle, angenommen, () => zeigeRepoSeite(box, k, h, "commits")) : reiter === "patches" ? patchReiter(k, h, () => zeigeRepoSeite(box, k, h, "patches"))
     : reiter === "mitwirkende" ? mitwirkendeReiter(k, h) : einstellungenReiter(k, h)));
   box.replaceChildren(...teile, leiste, inhalt);
 }

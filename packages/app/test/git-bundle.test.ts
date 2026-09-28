@@ -9,7 +9,7 @@ import { readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { deflateSync } from "node:zlib";
 import {
-  BUNDLE_GRENZEN, BundleFehler, type BundleFehlerArt, commitsAb, kopfCommit, leseBaum, leseBundle, leseCommit, objektSha, wendeDeltaAn,
+  BUNDLE_GRENZEN, BundleFehler, type BundleFehlerArt, alsText, commitsAb, kopfCommit, leseBaum, leseBundle, leseCommit, objektSha, unterPfad, wendeDeltaAn,
 } from "../src/git-bundle.js";
 
 const fixture = (name: string) => new Uint8Array(readFileSync(new URL(`fixtures/${name}`, import.meta.url)));
@@ -149,13 +149,53 @@ test("C.3c1: verdrahtet – Reiter „Code“ lädt erst auf Knopfdruck, liest i
   const code = readFileSync(new URL("../src/shell/tabs/code-reiter.ts", import.meta.url), "utf8");
   const seite = readFileSync(new URL("../src/shell/tabs/repo-seite.ts", import.meta.url), "utf8");
   assert.doesNotMatch(code, /innerHTML/);
-  assert.match(seite, /reiter === "code" \? codeReiter\(k\.bundle, \(\) => zeigeRepoSeite\(box, k, h, "code"\)\)/);
-  // Laden nur im Klick-Handler, dann lesen, Fehler als Kennung → Text
-  const klick = code.slice(code.indexOf('knopf.addEventListener("click"'), code.indexOf("return [hinweis, knopf, fehler];"));
+  assert.match(seite, /reiter === "code" \? codeReiter\(k\.bundle, k\.name, \(\) => zeigeRepoSeite\(box, k, h, "code"\)\)/);
+  // Laden nur im Klick-Handler von „Code laden“ (seit C.3c2 geteilt mit „Commits“), dann lesen, Fehler als Kennung → Text
+  const klick = code.slice(code.indexOf('laden.addEventListener("click"'), code.indexOf("return [hinweis, laden, fehler];"));
   assert.match(klick, /const bytes = await holeBundle\(bundle\);/);
   assert.match(klick, /await leseBundle\(bytes\)/);
   assert.match(klick, /e instanceof BundleFehler \? t\(FEHLER\[e\.art\]\) : fehlerText\(e\)/);
-  // README nur als Text und nur, wenn sie nicht binär ist
-  assert.match(code, /!daten\.subarray\(0, 8000\)\.includes\(0\)/);
-  assert.match(code, /el\("pre", new TextDecoder\(\)\.decode\(daten\.subarray\(0, TEXT_MAX\)\), "code-readme"\)/);
+  // README und Dateien nur als Text und nur, wenn sie Text sind (alsText: kein Nullbyte, gültiges UTF-8)
+  assert.match(code, /el\("pre", inhalt\.slice\(0, TEXT_MAX\), "code-readme"\)/);
+  assert.match(code, /el\("pre", text\.slice\(0, TEXT_MAX\), "code-datei"\)/);
+});
+
+test("C.3c2: Pfade im Baum – Ordner, Datei, durch Dateien hindurch und „..“ gibt es nicht", async () => {
+  const b = await leseBundle(fixture("probe-v2.bundle"));
+  const baum = commitsAb(b, HEAD, 1)[0]!.baum;
+  const wurzel = unterPfad(b, baum, []);
+  assert.equal(wurzel?.art, "ordner");
+  assert.deepEqual(wurzel?.art === "ordner" && wurzel.eintraege.map((e) => e.name), ["src", "bild.bin", "README.md"]);
+  const src = unterPfad(b, baum, ["src"]);
+  assert.deepEqual(src?.art === "ordner" && src.eintraege.map((e) => e.name), ["liste.txt"]);
+  const liste = unterPfad(b, baum, ["src", "liste.txt"]);
+  assert.equal(liste?.art, "datei");
+  assert.match(liste?.art === "datei" ? alsText(liste.daten)! : "", /^Zeile 0: Hammer/);
+  for (const falsch of [["gibt-es-nicht"], ["README.md", "x"], [".."], ["src", ""], ["src", "..", "README.md"], ["SRC"]]) {
+    assert.equal(unterPfad(b, baum, falsch), null, falsch.join("/"));
+  }
+  assert.equal(unterPfad(b, "0".repeat(40), []), null, "Baum fehlt im Bundle");
+});
+
+test("C.3c2: Text nur, wenn es Text ist – Nullbyte und kaputtes UTF-8 gelten als binär", async () => {
+  assert.equal(alsText(blob("Grüße\n")), "Grüße\n");
+  assert.equal(alsText(new Uint8Array([0x61, 0x00, 0x62])), null);
+  assert.equal(alsText(new Uint8Array([0x61, 0xff, 0x62])), null);
+  const b = await leseBundle(fixture("probe-v2.bundle"));
+  const bild = unterPfad(b, commitsAb(b, HEAD, 1)[0]!.baum, ["bild.bin"]);
+  assert.equal(bild?.art === "datei" ? alsText(bild.daten) : "?", null);
+});
+
+test("C.3c2: verdrahtet – Reiter „Commits“, Ort im Code nur im Speicher, Einträge als Knöpfe", () => {
+  const code = readFileSync(new URL("../src/shell/tabs/code-reiter.ts", import.meta.url), "utf8");
+  const seite = readFileSync(new URL("../src/shell/tabs/repo-seite.ts", import.meta.url), "utf8");
+  assert.match(seite, /reiterKnopf\("commits", t\("repo\.commits"\)\)/);
+  assert.match(seite, /reiter === "commits" \? commitsReiter\(k\.bundle, angenommen, \(\) => zeigeRepoSeite\(box, k, h, "commits"\)\)/);
+  // Ohne Bundle: nur angenommene Patches mit ihren Commits aus dem geltenden Status
+  assert.match(seite, /const angenommen = k\.zeilen\.filter\(\(z\) => z\.status === "angenommen"\)\.map\(\(z\) => \(\{ betreff: z\.patch\.betreff, commits: z\.commits \?\? \[\] \}\)\);/);
+  assert.match(code, /const commits = commitsAb\(b, kopf, COMMITS_MAX \+ 1\);/);
+  assert.match(code, /const ort = new Map<string, string\[\]>\(\);/);
+  for (const [name, text] of [["code-reiter.ts", code], ["repo-seite.ts", seite]]) assert.doesNotMatch(text, /location\.hash|history\.(push|replace)State/, name);
+  // Ordner und Dateien sind Knöpfe (Tastatur), Submodule nur Text
+  assert.match(code, /knopf\(e\.art === "ordner" \? `\$\{e\.name\}\/` : e\.name, "code-eintrag", \(\) => geh\(\[\.\.\.pfad, e\.name\]\)\)/);
 });

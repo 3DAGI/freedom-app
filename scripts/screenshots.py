@@ -191,6 +191,16 @@ def main() -> int:
                 s.evaluate("() => document.querySelector('#repo-seite .code-laden')?.click()")
                 s.wait_for_timeout(2500)
                 s.screenshot(path=str(ziel / f"{groesse}-{nr + 15:02d}-code.jpg"), type="jpeg", quality=70)
+                # Seit C.3c2: eine Datei im Ordner src, dann der Reiter „Commits“ mit aufgeklapptem Commit
+                for name in ("src/", "liste.txt"):
+                    s.evaluate(f"() => [...document.querySelectorAll('#repo-seite .code-eintrag')].find(b => b.textContent === '{name}')?.click()")
+                    s.wait_for_timeout(200)
+                s.screenshot(path=str(ziel / f"{groesse}-{nr + 16:02d}-code-datei.jpg"), type="jpeg", quality=70)
+                s.evaluate("() => document.querySelector('#repo-seite [data-reiter=commits]')?.click()")
+                s.wait_for_timeout(200)
+                s.evaluate("() => document.querySelector('#repo-seite .code-commits details summary')?.click()")
+                s.wait_for_timeout(200)
+                s.screenshot(path=str(ziel / f"{groesse}-{nr + 17:02d}-commits.jpg"), type="jpeg", quality=70)
             ctx.close()
         browser.close()
     srv.shutdown()
