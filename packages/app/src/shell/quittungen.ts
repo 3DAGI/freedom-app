@@ -6,16 +6,21 @@
  * Quittung je Zahlung über alle Antworten seit der letzten), Zahlkanal nach
  * `kanalAntwort()` (`quittungNachKanal()`, „angekündigt“, bis die Kette die
  * Auszahlung zeigt – `hebeKanalQuittungen()` im Abruftakt). Daraus der Ruf für
- * die Provider-Auswahl (`aktuellerRuf()`); 38010 zählt nicht.
+ * die Provider-Auswahl (`aktuellerRuf()`); 38010 zählt nicht. Seit 5.5c
+ * gehen die Zusammenfassungen der Kontakte ein (`rufVonKontakten`, im Tresor)
+ * und die eigene (`eigeneZeilen()`) auf Wunsch an sie (`shell/ruf.ts`).
  */
-import { berechneRuf, kanalQuittung, lightningQuittung, type Ruf, type RufVonKontakt } from "@freedomstack/protocol";
+import { berechneRuf, fasseZusammen, kanalQuittung, lightningQuittung, type Ruf, type RufVonKontakt, type RufZeile } from "@freedomstack/protocol";
 import { OffeneAntworten, QuittungsBuch, reklamationenJeProvider } from "../quittungsbuch.js";
+import { RufVonKontakten } from "../ruf-teilen.js";
 import { LS_REKLAMATIONEN, leseReklamationen } from "../streitfall.js";
 import { kanalBuch } from "./ki-zahlung.js";
 import { solRpcUrl } from "./state.js";
 import { geheim } from "./tresor.js";
 
 export const quittungsBuch = new QuittungsBuch(geheim);
+/** Zusammenfassungen der Kontakte (5.5c) – nur im Tresor. */
+export const rufVonKontakten = new RufVonKontakten(geheim);
 const offen = new OffeneAntworten();
 const jetzt = (): number => Math.floor(Date.now() / 1000);
 
@@ -60,8 +65,24 @@ export async function hebeKanalQuittungen(): Promise<void> {
   }
 }
 
-/** Ruf je Provider – nur aus Quittungen, bestätigten Reklamationen und (ab 5.5c) den Zusammenfassungen der Kontakte. */
-export function aktuellerRuf(vonKontakten: readonly RufVonKontakt[] = []): Map<string, Ruf> {
-  const reklamationen = reklamationenJeProvider(leseReklamationen(geheim.getItem(LS_REKLAMATIONEN), jetzt()));
-  return berechneRuf({ quittungen: quittungsBuch.alle(), reklamationen, vonKontakten });
+const eigeneReklamationen = () => reklamationenJeProvider(leseReklamationen(geheim.getItem(LS_REKLAMATIONEN), jetzt()));
+
+/** Kontakte: die Direktnachrichten-Unterhaltungen (aus dem Tresor, wie die Chatliste). */
+export function kontakteJetzt(): string[] {
+  try {
+    const l = JSON.parse(geheim.getItem("freedom.chats") ?? "[]") as Array<{ type?: string; id?: unknown }>;
+    return Array.isArray(l) ? l.filter((c) => c?.type === "dm" && typeof c.id === "string" && /^[0-9a-f]{64}$/.test(c.id)).map((c) => c.id as string) : [];
+  } catch {
+    return [];
+  }
+}
+
+/** Die eigene Zusammenfassung je Provider (für die Kontakte, 5.5c). */
+export function eigeneZeilen(): RufZeile[] {
+  return fasseZusammen(quittungsBuch.alle(), eigeneReklamationen());
+}
+
+/** Ruf je Provider – nur aus Quittungen, bestätigten Reklamationen und den Zusammenfassungen der Kontakte (5.5c). */
+export function aktuellerRuf(vonKontakten: readonly RufVonKontakt[] = rufVonKontakten.alle(new Set(kontakteJetzt()))): Map<string, Ruf> {
+  return berechneRuf({ quittungen: quittungsBuch.alle(), reklamationen: eigeneReklamationen(), vonKontakten });
 }
