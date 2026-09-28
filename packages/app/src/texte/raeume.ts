@@ -29,4 +29,17 @@ export const raeume: Texte = {
   "raum.grundSchadsoftware": { de: "Schadsoftware", en: "Malware" },
   "raum.grundAnderes": { de: "Anderes", en: "Other" },
   "raum.rolleTitel": { de: "Rolle vergeben", en: "Grant a role" },
+  // C.2b2: Verlauf, Menüs, Rauminfo
+  "raum.ich": { de: "Du", en: "You" },
+  "raum.aktionenAria": { de: "Aktionen zur Nachricht", en: "Message actions" },
+  "raum.menueAria": { de: "Raum-Menü", en: "Room menu" },
+  "raum.zuDenKanaelen": { de: "Zu den Kanälen", en: "To the channels" },
+  "raum.infoVerschluesselt": {
+    de: "Verschlüsselt (MLS): Nur Mitglieder können mitlesen – alle Kanäle des Raums.\n\nGrenze: Wer entfernt wird, behält den Schlüssel für alles, was er vorher\ngesehen hat. Das Entfernen wechselt den Schlüssel – danach liest er nichts\nmehr. Neue Mitglieder lesen nur, was nach ihrem Eintritt kommt.",
+    en: "Encrypted (MLS): only members can read along – all channels of the room.\n\nLimit: whoever is removed keeps the key for everything they saw before. Removing changes the key – after that they read nothing more. New members only read what comes after they joined.",
+  },
+  "raum.infoOffen": {
+    de: "Offen: Jeder kann mitlesen, auch ohne diese App.\n\nDie Rechte hier regeln, wer schreiben darf — nicht, wer lesen kann.\nNachrichten liegen unverschlüsselt auf den Relays.",
+    en: "Open: anyone can read along, even without this app.\n\nThe rights here govern who may write — not who can read.\nMessages sit unencrypted on the relays.",
+  },
 };

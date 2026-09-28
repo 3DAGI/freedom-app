@@ -15,10 +15,12 @@ import {
 } from "../raum-mls.js";
 import { $, toast } from "../ui.js";
 import { bestaetige, dialog, hinweis, type Option } from "../dialog.js";
+import { wireMenue } from "../menue.js";
+import { gruppiereVerlauf } from "../../raum-verlauf.js";
 import { gebietsschema, t } from "../../i18n.js";
-import { fehlerText } from "../../protokoll-texte.js";
+import { fehlerText, kanalVertraulichkeit } from "../../protokoll-texte.js";
 import { abrufTakt } from "../versand.js";
-import { conversations } from "./kommunikation.js";
+import { conversations, setzeKommModus } from "./kommunikation.js";
 
 // ------------------------------------------------------------- Räume
 
@@ -199,8 +201,10 @@ async function zeigeKanalliste(): Promise<void> {
 /** Kanal anzeigen: Threads, Schreibrecht, Vertraulichkeit. */
 async function oeffneKanal(channelId: string): Promise<void> {
   spacesUi.channelId = channelId;
+  // Mobil (bis 900 px) ist der Kanal eine eigene Ebene – vor C.2b2 blieb er dort unsichtbar
+  document.querySelector(".comm-space-inner")?.classList.add("showing-channel");
   const st = spacesUi.state as never;
-  const { buildThreads, canWriteTo, privacyInfo, can } = await import("@freedomstack/protocol");
+  const { buildThreads, canWriteTo, can } = await import("@freedomstack/protocol");
   const darfModerieren = state.keypair ? can(state.keypair.pk, "moderieren", st) : false;
   const space = (spacesUi.state as { space?: { channels: never[] } })?.space;
   if (!space) return;
@@ -214,44 +218,52 @@ async function oeffneKanal(channelId: string): Promise<void> {
   if (pInfo) {
     pInfo.textContent = t(kanal.privacy === "verschluesselt" ? "komm.kanalVerschluesselt" : "komm.kanalOffen");
     pInfo.className = kanal.privacy === "verschluesselt" ? "mono-sm ok" : "mono-sm muted";
-    pInfo.title = privacyInfo(kanal as never);
+    pInfo.title = kanalVertraulichkeit(kanal);
   }
 
   const { topLevel, threads } = buildThreads(spacesUi.messages as never[], kanal as never, st);
   const thread = $("#channel-thread");
   if (thread) {
-    thread.innerHTML = topLevel.length === 0
-      ? `<div class="muted mono-sm">${escapeHtml(t("komm.nochNichts"))}</div>`
-      : topLevel.map((m) => {
-          const faden = threads.get(m.id);
-          const antworten = faden
-            ? `<button class="thread-link" data-root="${escapeHtml(m.id)}">
-                 ${escapeHtml(t(faden.replies.length === 1 ? "komm.eineAntwort" : "komm.antworten", { n: faden.replies.length }))} ·
-                 ${escapeHtml(t("komm.beteiligte", { n: faden.participants.length }))}</button>`
-            : "";
-          // Private Räume moderieren über MLS (2.3c) – nie mit öffentlichen Sperr-Events
-          const modKnopf = darfModerieren && !spacesUi.privat && m.authorPubkey !== state.keypair?.pk
-            ? `<button class="thread-link mod-hide" data-id="${escapeHtml(m.id)}"
-                 data-pk="${escapeHtml(m.authorPubkey)}" style="color:#9A6A6A">${escapeHtml(t("komm.moderieren"))}</button>`
-            : "";
-          const raumKnopf = spacesUi.privat
-            ? `<button class="thread-link raum-aktion" data-id="${escapeHtml(m.id)}"
-                 data-pk="${escapeHtml(m.authorPubkey)}">${escapeHtml(raumAktionText(m.authorPubkey))}</button>`
-            : "";
-          return `<div class="msg-group">
-            <div class="msg-meta">
-              <span class="msg-author">${escapeHtml(pkShort(m.authorPubkey))}</span>
-              <span class="msg-time">${escapeHtml(new Date(m.createdAt * 1000).toLocaleTimeString(gebietsschema(), { hour: "2-digit", minute: "2-digit" }))}</span>
-            </div>
-            <div class="msg-text">${escapeHtml(m.content)}</div>${antworten}${modKnopf}${raumKnopf}</div>`;
-        }).join("");
+    // Seit C.2b2 gruppiert, mit Namen statt Schlüsseln – nur DOM und textContent
+    const zeit = (s: number) => new Date(s * 1000).toLocaleTimeString(gebietsschema(), { hour: "2-digit", minute: "2-digit" });
+    const tag = (s: number) => new Date(s * 1000).toLocaleDateString(gebietsschema(), { weekday: "long", day: "numeric", month: "long" });
+    const zeile = (m: (typeof topLevel)[number]): HTMLElement => {
+      const z = el("div", undefined, "msg-zeile");
+      z.tabIndex = -1; // antippen zeigt die Aktionen (mobil), Tab springt direkt zu ihnen
+      z.append(el("div", m.content, "msg-text"));
+      const faden = threads.get(m.id);
+      if (faden) {
+        const b = el("button", `${t(faden.replies.length === 1 ? "komm.eineAntwort" : "komm.antworten", { n: faden.replies.length })} · ${t("komm.beteiligte", { n: faden.participants.length })}`, "thread-link");
+        b.dataset.root = m.id;
+        z.append(b);
+      }
+      // Was ich mit der Nachricht tun kann – beim Zeigen und mit dem Fokus, mobil nach Antippen
+      const aktionen: HTMLElement[] = [];
+      // Private Räume moderieren über MLS (2.3c) – nie mit öffentlichen Sperr-Events
+      const modKnopf = darfModerieren && !spacesUi.privat && m.authorPubkey !== state.keypair?.pk;
+      if (modKnopf) aktionen.push(knopf(t("komm.moderieren"), "mod-hide", () => void moderiere("hide", m.id, m.authorPubkey)));
+      if (spacesUi.privat) aktionen.push(knopf(raumAktionText(m.authorPubkey), "raum-aktion", () => void raumAktion(m.id, m.authorPubkey)));
+      if (aktionen.length) {
+        const leiste = el("div", undefined, "msg-aktionen");
+        leiste.setAttribute("role", "toolbar");
+        leiste.setAttribute("aria-label", t("raum.aktionenAria"));
+        leiste.append(...aktionen);
+        z.append(leiste);
+      }
+      return z;
+    };
+    thread.replaceChildren(...(topLevel.length === 0
+      ? [el("div", t("komm.nochNichts"), "muted mono-sm")]
+      : gruppiereVerlauf(topLevel).flatMap((g) => {
+          const kopf = el("div", undefined, "msg-meta");
+          const name = el("span", g.autor === state.keypair?.pk ? t("raum.ich") : kontaktName(g.autor), "msg-author");
+          name.title = g.autor;
+          kopf.append(name, el("span", zeit(g.nachrichten[0]!.createdAt), "msg-time"));
+          const gruppe = el("div", undefined, "msg-group");
+          gruppe.append(kopf, ...g.nachrichten.map(zeile));
+          return g.neuerTag ? [el("div", tag(g.nachrichten[0]!.createdAt), "msg-tag"), gruppe] : [gruppe];
+        })));
     thread.scrollTop = thread.scrollHeight;
-    thread.querySelectorAll(".raum-aktion").forEach((b) => {
-      b.addEventListener("click", () => void raumAktion((b as HTMLElement).dataset.id!, (b as HTMLElement).dataset.pk!));
-    });
-    thread.querySelectorAll(".mod-hide").forEach((b) => {
-      b.addEventListener("click", () => void moderiere("hide", (b as HTMLElement).dataset.id!, (b as HTMLElement).dataset.pk!));
-    });
   }
 
   // Schreibrecht: Wer nicht darf, bekommt den Grund statt eines toten Feldes.
@@ -273,6 +285,21 @@ const GRUND_TEXT: Record<MeldeGrund, string> = {
   spam: "raum.grundSpam", illegal: "raum.grundIllegal", nudity: "raum.grundNacktheit", profanity: "raum.grundBeleidigung",
   impersonation: "raum.grundIdentitaet", malware: "raum.grundSchadsoftware", other: "raum.grundAnderes",
 };
+
+function el<K extends keyof HTMLElementTagNameMap>(tag: K, text?: string, klasse?: string): HTMLElementTagNameMap[K] {
+  const e = document.createElement(tag);
+  if (text !== undefined) e.textContent = text;
+  if (klasse) e.className = klasse;
+  return e;
+}
+
+function knopf(text: string, klasse: string, tun: () => void): HTMLButtonElement {
+  const b = el("button", text);
+  b.className = `ghost mini ${klasse}`;
+  b.type = "button";
+  b.addEventListener("click", tun);
+  return b;
+}
 
 /** Private Räume (2.3c): was ich mit einer Nachricht tun kann. */
 function raumAktionText(autor: string): string {
@@ -335,7 +362,8 @@ function zeigeMeldungen(): void {
     z.className = "member-row";
     z.style.display = "block";
     const text = document.createElement("div");
-    text.textContent = `${t("komm.meldungVon", { von: kontaktName(m.von), autor: kontaktName(m.autor), grund: m.grund })}${m.notiz ? ` – ${m.notiz}` : ""}`;
+    const grund = (MELDE_GRUENDE as readonly string[]).includes(m.grund) ? t(GRUND_TEXT[m.grund as MeldeGrund]) : m.grund;
+    text.textContent = `${t("komm.meldungVon", { von: kontaktName(m.von), autor: kontaktName(m.autor), grund })}${m.notiz ? ` – ${m.notiz}` : ""}`;
     z.append(text);
     const aktionen: [string, () => Promise<boolean>][] = [
       [t("komm.loeschen"), () => loescheImRaum(raum!, m.ziel)], [t("komm.entfernen"), () => entferneAusRaum(raum!, m.autor)], [t("komm.erledigtKnopf"), async () => true],
@@ -367,7 +395,7 @@ async function zeigeMitglieder(): Promise<void> {
       z.className = "member-row";
       // Moderatoren haben jede Rolle – dort nur „Moderator“ zeigen
       const eigene = privat.admins.includes(pk) ? [] : (privat.zustand.grants.get(pk) ?? []).filter((r) => !r.startsWith("__") && r !== "mitglied").map((r) => rollen.get(r)?.name ?? r);
-      const text = `${pkShort(pk)}${privat.admins.includes(pk) ? ` · ${t("komm.moderatorRolle")}` : ""}${eigene.length ? ` · ${eigene.join(", ")}` : ""}`;
+      const text = `${kontaktName(pk)}${privat.admins.includes(pk) ? ` · ${t("komm.moderatorRolle")}` : ""}${eigene.length ? ` · ${eigene.join(", ")}` : ""}`;
       z.textContent = pk === privat.ich ? `${text} (${t("komm.du")})` : text;
       return z;
     }));
@@ -382,13 +410,13 @@ async function zeigeMitglieder(): Promise<void> {
 
   const zeilen: string[] = [];
   if (st.ownerPubkey) {
-    zeilen.push(`<div class="member-row"><span>${escapeHtml(pkShort(st.ownerPubkey))}</span>
+    zeilen.push(`<div class="member-row"><span>${escapeHtml(kontaktName(st.ownerPubkey))}</span>
       <span class="msg-role" style="color:var(--acc,#C9A227)">${escapeHtml(t("komm.gruender"))}</span></div>`);
   }
   for (const [pk, rollen] of st.grants) {
     if (pk === st.ownerPubkey) continue;
     const namen = rollen.map((r) => st.roles?.get(r)?.name).filter(Boolean);
-    zeilen.push(`<div class="member-row"><span>${escapeHtml(pkShort(pk))}</span>
+    zeilen.push(`<div class="member-row"><span>${escapeHtml(kontaktName(pk))}</span>
       ${namen.map((n) => `<span class="msg-role">${escapeHtml(n!)}</span>`).join("")}</div>`);
   }
   box.innerHTML = zeilen.length ? zeilen.join("") : `<span class="muted">${escapeHtml(t("komm.niemand"))}</span>`;
@@ -445,6 +473,7 @@ async function legeRaumAn(oeffentlich = false): Promise<void> {
   if (!oeffentlich) {
     try {
       const gruppe = await legePrivatenRaumAn(name.trim());
+      setzeKommModus("space");
       await oeffneRaum(PRIVAT + gruppe);
       toast(t("komm.privatAngelegt"));
     } catch (e) {
@@ -477,6 +506,7 @@ async function legeRaumAn(oeffentlich = false): Promise<void> {
     ] as never)));
 
     raumBeitreten(spaceId);
+    setzeKommModus("space");
     await oeffneRaum(spaceId);
     // Die Kennung ist der einzige Weg, wie jemand hereinkommt.
     await dialog({
@@ -661,18 +691,29 @@ export async function wireSpacesTab(): Promise<void> {
     const id = String(w?.id ?? "").trim();
     if (!id) return;
     raumBeitreten(id);
+    // Seit C.2b2 gleich in den Raum – vorher blieb der Chat bei den Direktnachrichten
+    setzeKommModus("space");
     void oeffneRaum(id);
   };
+  // Mobil (C.2b2): Kanal als eigene Ebene, „‹“ führt zurück zur Kanalliste
+  document.getElementById("channel-zurueck")?.addEventListener("click", () => {
+    document.querySelector(".comm-space-inner")?.classList.remove("showing-channel");
+    document.querySelector<HTMLElement>(`#channel-list .channel-item[aria-current="true"]`)?.focus();
+  });
+  // Raum-Menü ▾ (C.2b2): Einladen, Moderatoren, Beitreten, Anlegen
+  const menueKnopf = document.getElementById("space-menue-knopf");
+  const menue = document.getElementById("space-menue");
+  if (menueKnopf && menue) wireMenue(menueKnopf, menue);
   const mods = $("#space-mods");
   if (mods) mods.onclick = () => void ernenneModeratoren();
   const info = $("#space-info");
   if (info) info.onclick = async () => {
     const st = spacesUi.state as { space?: { channels: never[] } } | null;
-    const kanal = (st?.space?.channels as { id: string }[] | undefined)
+    const kanal = (st?.space?.channels as { id: string; privacy: string }[] | undefined)
       ?.find((c) => c.id === spacesUi.channelId);
     if (!kanal) return;
-    const { privacyInfo } = await import("@freedomstack/protocol");
-    await hinweis(t("komm.rauminfo"), privacyInfo(kanal as never));
+    // In der Sprache der Oberfläche, auf Deutsch wortgleich mit privacyInfo() (B17)
+    await hinweis(t("komm.rauminfo"), kanalVertraulichkeit(kanal));
   };
 
   const raeume = meineRaeume();

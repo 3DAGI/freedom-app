@@ -1376,3 +1376,44 @@ button.dlg-gefahr:hover { background: #A52A2A; }
   .dlg-huelle .modal { max-width: none; border-radius: 12px 12px 0 0; max-height: 85vh; padding-bottom: calc(20px + env(safe-area-inset-bottom)); }
   .dlg-knoepfe button { flex: 1; }
 }
+
+/* ---------- Räume: Verlauf und Menüs (Schritt C.2b2) ---------- */
+.msg-tag {
+  display: flex; align-items: center; gap: 10px; margin: 10px 0 4px;
+  color: var(--text-muted); font-size: 11px;
+}
+.msg-tag::before, .msg-tag::after { content: ""; flex: 1; border-top: 1px solid var(--border); }
+.msg-zeile { position: relative; padding: 2px 6px; margin: 0 -6px; border-radius: 4px; }
+.msg-zeile:hover, .msg-zeile:focus-within { background: #111315; }
+/* Aktionen erscheinen beim Zeigen und mit dem Fokus; mobil nach Antippen der
+   Nachricht (die Zeile nimmt den Fokus, steht aber nicht in der Tab-Reihenfolge) */
+.msg-zeile:focus { outline: none; }
+.msg-aktionen {
+  position: absolute; top: -12px; right: 6px; display: flex; gap: 2px; padding: 2px;
+  background: var(--bg); border: 1px solid var(--border); border-radius: 4px;
+  opacity: 0; pointer-events: none;
+}
+.msg-zeile:hover .msg-aktionen, .msg-zeile:focus-within .msg-aktionen { opacity: 1; pointer-events: auto; }
+.msg-aktionen button { width: auto; padding: 4px 8px; font-size: 10px; min-height: 26px; }
+.msg-aktionen button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+@media (hover: none) {
+  .msg-aktionen { top: -18px; }
+  .msg-aktionen button { min-height: 36px; padding: 6px 12px; }
+}
+.space-head { position: relative; }
+.space-head h2 { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.raum-menue {
+  position: absolute; top: 100%; right: 0; z-index: 50; min-width: 220px; margin-top: 4px;
+  display: flex; flex-direction: column; padding: 4px;
+  background: var(--card); border: 1px solid var(--border); border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.5);
+}
+button.menue-punkt {
+  background: transparent; color: var(--text); text-align: left; text-transform: none;
+  letter-spacing: 0; font-size: 13px; font-weight: 400; padding: 9px 10px; border-radius: 4px; min-height: 36px;
+}
+button.menue-punkt:hover, button.menue-punkt:focus { background: var(--border); outline: none; }
+.menue-trenner { border-top: 1px solid var(--border); margin: 4px 0; }
+/* Mobil ist der Kanal eine eigene Ebene (.showing-channel), „‹“ führt zur Kanalliste */
+.kanal-zurueck { display: none; }
+@media (max-width: 900px) { .kanal-zurueck { display: inline-flex; } }

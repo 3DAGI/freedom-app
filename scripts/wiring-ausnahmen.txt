@@ -223,3 +223,4 @@ key-rotation.ts|revocationInstructions|deutsche Referenz; die App bildet die Anl
 devices.ts|deviceWarning|deutsche Referenz; die App bildet die Rückfrage seit 8.16g2b2 in protokoll-texte.ts (geraetWarnung) nach, ein Test hält sie wortgleich
 release.ts|sharingInstructions|deutsche Referenz; die App bildet den Begleittext seit 8.16g2b2 in protokoll-texte.ts (weitergabeText) nach, ein Test hält ihn wortgleich
 mesh-sync.ts|offlineCapabilities|deutsche Referenz; die App bildet die Liste seit 8.16g2b2 in protokoll-texte.ts (offlineFaehigkeiten) nach, ein Test hält sie gleich
+spaces.ts|privacyInfo|deutsche Referenz; die App bildet die Rauminfo seit C.2b2 in protokoll-texte.ts (kanalVertraulichkeit) nach, ein Test hält sie wortgleich
