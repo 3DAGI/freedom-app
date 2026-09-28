@@ -312,3 +312,18 @@ test("Macaroon-Datei wird als Hex gelesen", async () => {
     await rm(dir, { recursive: true, force: true });
   }
 });
+
+// ------------------------------------------------------------- 8.2b
+
+test("8.2b: Rechnung für eine Lightning-Adresse – msat und Hash der Metadaten statt Notiz", async () => {
+  const log: { url: string; body: unknown }[] = [];
+  const hash = new Uint8Array(32).fill(7);
+  const r = await mitFetch(fakeFetch({ "/v1/invoices": { r_hash: Buffer.alloc(32, 1).toString("base64"), payment_request: "lnbc10n1…" } }, log), () =>
+    new LndLightningAdapter({ restUrl: LOKAL, macaroonHex: MAC }).createLnurlInvoice(1_500, hash));
+  assert.equal(r.bolt11, "lnbc10n1…");
+  assert.deepEqual(log[0]!.body, { value_msat: "1500", description_hash: Buffer.from(hash).toString("base64"), expiry: "600" });
+  const lnd = new LndLightningAdapter({ restUrl: LOKAL, macaroonHex: MAC });
+  await assert.rejects(lnd.createLnurlInvoice(0, hash), /positive ganze Zahl/);
+  await assert.rejects(lnd.createLnurlInvoice(1_000, new Uint8Array(31)), /32 Byte/);
+  await assert.rejects(mitFetch(fakeFetch({ "/v1/invoices": { r_hash: "" } }), () => lnd.createLnurlInvoice(1_000, hash)), /keine vollständige Rechnung/);
+});

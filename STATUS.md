@@ -9691,6 +9691,413 @@ check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 · Website 5 Seiten
 ok · Smoke-Test bestanden (mit „rahmen“, „dialog“ und „raum“ samt Thread,
 Mitgliedern und eigenem Raum mit neuem Kanal).
 
+## Schritt 5.5a – Quittungen und Ruf: Protokoll
+
+**Warum:** Bis hier kam der Ruf eines Providers aus seinen eigenen
+Leistungs-Events (38010) – Selbstauskünfte, die jeder mit ein wenig
+Rechenarbeit fälschen kann. Nach der Entscheidung von Spur A für Spur B
+(28.09.) zählt Leistung nur, wo bezahlt wurde, und Vertrauen ist subjektiv:
+die Wurzel ist der Nutzer. 5.5 ist aufgeteilt: a Protokoll (dieser Schritt),
+b App: Quittungsbuch und Rang ohne 38010, c App: Zusammenfassungen an
+Kontakte, dazu 8.15 Dashboard.
+
+**Was (`protocol/src/quittung.ts`, neu):**
+- **Quittungen nach 4.8:**
+  - `lightningQuittung()`: nur mit lesbarer, signierter Rechnung mit Betrag und
+    passendem Preimage; „belegt“ nur, wenn die Rechnung vom angekündigten
+    Knoten des Providers stammt – bei einer Lightning-Adresse bleibt es
+    „angekündigt“ (wer den Knoten dahinter betreibt, steht nicht fest).
+  - `kanalQuittung()`: Preis aus der Antwort und die kumulierte Gutschrift, die
+    ihn deckte; `kanalBelegt()` hebt auf „belegt“, sobald die Kette mindestens
+    so viel ausgezahlt zeigt.
+  - `leseQuittung()`: prüft Gespeichertes neu (ein verändertes Preimage gilt
+    als keine Quittung).
+- **Zusammenfassung (Kind 38075):** `fasseZusammen()` je Provider (Aufträge,
+  davon belegt, Umfang in msat und Lamports – ohne Umrechnung –, Reklamationen
+  nur zu bezahlten Providern); `baueRufUmschlaege()` versiegelt je Kontakt,
+  nie an sich selbst, höchstens 50 Provider; `oeffneRufUmschlag()` nimmt nur
+  Zusammenfassungen von Kontakten, verwirft kaputte, doppelte und
+  widersprüchliche Zeilen (mehr belegt als bezahlt).
+- **`berechneRuf()`:** nur aus eigenen Quittungen (belegt 1, angekündigt ½)
+  und den Zusammenfassungen der Kontakte (je Kontakt die neueste, zur Hälfte,
+  je Provider höchstens 100 Aufträge – eine Stimme, kein Stimmenkauf);
+  Reklamationen ziehen ab; `vertrauen` 0–100 wie der bisherige Trust-Score.
+  Ohne Quittung gibt es keinen Ruf – egal, was jemand über sich behauptet.
+- `docs/PROTOCOL.md` §17: Format der Zusammenfassung, Kind 38075 in der Liste.
+- `wiring-ausnahmen.txt`: acht Bausteine, die 5.5b und 5.5c verdrahten.
+
+**Tests:** +6 in `protocol/test/quittung.test.ts`:
+- Lightning: Betrag aus der Rechnung, „angekündigt“ ohne Knoten, „belegt“ mit
+  dem angekündigten, „angekündigt“ mit einem anderen; ohne passendes Preimage,
+  ohne Betrag, kaputte Rechnung, falscher Provider, null Aufträge → keine.
+- Zahlkanal: angekündigt, knapp darunter angekündigt, ab der Gutschrift
+  belegt; sechs ungültige Eingaben → keine.
+- Lesen aus dem Tresor: Hin und zurück gleich, verändertes Preimage,
+  unbekannter Stand, negative Gutschrift, unbekannte Art → keine.
+- Zusammenfassung: im Umschlag weder Provider noch Absender noch Beträge
+  noch das Kind lesbar; nur Kontakte öffnen, fremder Empfänger nicht.
+- Fremde Zusammenfassungen: ein Fremder, der sich als Kontakt ausgibt (das
+  Siegel verrät ihn), kaputte Zeilen, mehr als 50 Provider, eine
+  Direktnachricht ist keine Zusammenfassung.
+- Ruf: Gewichte, ohne Quittung kein Ruf, je Kontakt die neueste, Deckel,
+  Reklamationen.
+
+Endstand: protocol 1088 (+6, 6 übersprungen) · node 245 (6 übersprungen, mit
+Netz; ohne Netz 244 + 7) · app 547 · mls 13 · Leak-Tests 59 grün + 1 todo · 0 rot
+· check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 · Website 5 Seiten
+ok · Smoke-Test bestanden. Knoten-Stand: unverändert (nur Protokoll).
+
+## Schritt 5.5b – Quittungen in der App, Rang ohne 38010
+
+Spur B, Karte `phase-5.md` (5.5b), Entscheidung Spur A für Spur B vom 28.09.
+
+**Was:**
+- `app/src/quittungsbuch.ts` (neu): `QuittungsBuch` über einen Speicher
+  (`freedom.quittungen`) – je Zahlung eine Quittung (Lightning nach Preimage,
+  Zahlkanal nach Anfrage), die neuesten 500, Unbrauchbares und Verändertes
+  fällt beim Lesen weg (`leseQuittung()`); `offeneKanaele()` und
+  `hebe(kanal, ausgezahlt)` für Zahlkanal-Quittungen.
+  `reklamationenJeProvider()`: nur Reklamationen, denen der Prüfer recht gab
+  (erstattet, geteilt) – eine offene ist eine Behauptung. `OffeneAntworten`:
+  bezahlte Antworten seit der letzten Lightning-Zahlung (nur im Speicher).
+- `app/src/shell/quittungen.ts` (neu): Buch in `geheim`;
+  `quittungNachZahlung()` (Quittung erst mit bezahlter Rechnung und Preimage,
+  über alle Antworten seit der letzten Zahlung – die Sitzung zahlt gesammelt
+  ab 20 sats), `quittungNachKanal()` (Preis + höchste Gutschrift an den Kanal
+  dieses Providers, „angekündigt“), `hebeKanalQuittungen()` (Kette:
+  `kanalAufKette().ausgezahlt`), `aktuellerRuf()`.
+- `handleAnswer()` (`tabs/agent.ts`) – je Stelle genau ein Aufruf:
+  Zahlkanal nach `kanalAntwort()` (Zeile 916), Lightning nach
+  `sc.chargeForResult()` (Zeile 927). `SessionClient.chargeForResult()` gibt
+  dafür die bezahlte Rechnung mit zurück (`rechnung`).
+- `matchmaking.ts`: `discoverProviders(pool, ruf)` fragt nur noch Angebote
+  (38027) ab – 38010 nicht mehr. Stufe über `stufeAusRuf()`: ohne Quittungen
+  das Angebot, Quittungen heben, nur bestätigte Reklamationen senken (sonst
+  sänke eine einzige angekündigte Zahlung einen neuen Provider unter sein
+  Angebot). Ungeprüfte Provider bleiben wählbar (sonst fände ein neuer Nutzer
+  keinen), stehen aber hinter allen mit Ruf (`score -1`); die
+  Vertrauensschwelle für classic/pro gilt nur bei bestätigten Reklamationen.
+  Die Prüfung auf „seit sieben Tagen keine 38010“ fällt weg – frisch muss das
+  Angebot sein (24 h), der Knoten erneuert es alle 30 min.
+- `shell/state.ts`: Provider-Auswahl mit `aktuellerRuf()`; die Relay-Suche
+  wiegt Relay-Listen nur von Providern mit Quittungen schwerer, nicht mehr
+  von Autoren beliebiger 38010-Events.
+- `shell/app.ts`: `abrufTakt.melde("quittungen", …, 20)` hebt
+  Zahlkanal-Quittungen etwa alle zehn Minuten (kein neues `setInterval`).
+- Tresor und Sicherung: `freedom.quittungen` in `GEHEIM_FEST` und
+  `SICHERUNG_NIE` (Quittungen tragen Preimages und Rechnungen; auf einem neuen
+  Gerät beginnt der Ruf neu – die Zusammenfassungen der Kontakte bleiben).
+- Knoten: unverändert. Er veröffentlicht 38010 weiter – die App braucht es
+  nur für die eigene Einnahmen-Ansicht (Earn) und die Abzeichen; Rang und
+  Stufe zählen es nicht.
+- Ehrliche Texte: Earn „Vertrauensstufe“ sagt jetzt, dass sie eine Schätzung
+  aus den Meldungen des eigenen Knotens ist und Kunden nach ihren Quittungen
+  einstufen (de/en); Website-Startseite: statt „Reputation ist öffentlich
+  nachprüfbar“ „Den Ruf eines Providers bildet deine App aus eigenen
+  Quittungen und denen deiner Kontakte – nicht aus Selbstauskünften“.
+  Kommentare in `performance.ts` und `tiers.ts` angeglichen.
+- `wiring-ausnahmen.txt`: sechs Zeilen raus (jetzt verdrahtet); übrig
+  `baueRufUmschlaege`, `oeffneRufUmschlag` für 5.5c.
+
+**Tests:** +7 in `app/test/quittungen.test.ts`, `session-client.test.ts`
+erweitert:
+- Quittungsbuch: Doppelte ersetzen, Verändertes und Kaputtes fällt weg,
+  höchstens 500 (die ältesten gehen).
+- Zahlkanal: je Kanal gehoben, erst ab der Gutschrift, Lightning nicht.
+- Reklamationen nur mit Urteil „erstattet“/„geteilt“; offene Antworten.
+- Stufe: Angebot ohne Ruf, eine Zahlung senkt nicht, Quittungen heben bis
+  pro, Reklamation senkt und verhindert Heben.
+- **Abnahme:** 300 gefälschte, gültig signierte 38010-Events des Fälschers –
+  `discoverProviders()` liefert dasselbe wie ohne sie (Vertrauen 0, Stufe =
+  Angebot, `score -1`), 38010 wird nicht abgefragt; mit einer eigenen
+  Quittung steht der Bezahlte vorn (trotz höherem Preis); `pro` bleibt leer;
+  mit bestätigter Reklamation fällt der Fälscher aus classic, gratis und
+  Allowlist bleiben.
+- Verdrahtung (Quelltext): je genau ein Aufruf an beiden Stellen, State ohne
+  `KIND_PERFORMANCE`, Abruftakt, kein Veröffentlichen, kein `localStorage`.
+- Tresor/Sicherung: `GEHEIM_FEST`, `SICHERUNG_NIE`, `waehleSicherung()`.
+- `chargeForResult()` gibt die bezahlte Rechnung zurück, ohne Zahlung keine.
+
+Gefunden beim Testen: Der Vertrauensfilter aus der alten Logik (classic/pro
+ab Vertrauen 10) schloss einen einmal bezahlten Provider aus (Vertrauen 3),
+ließ ungeprüfte aber durch – die Schwelle gilt jetzt nur bei bestätigten
+Reklamationen.
+
+Endstand: protocol 1088 (6 übersprungen) · node 244 + 7 übersprungen (ohne
+Netz; mit Netz 245 + 6) · app 554 (+7) · mls 13 · Leak-Tests 59 grün + 1 todo
+· 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 · Website
+ok · Smoke-Test bestanden · Website-Bau ok. Knoten-Stand: unverändert (die
+App braucht keinen neueren Knoten).
+
+## Schritt 5.5c – Ruf mit Kontakten teilen
+
+Spur B, Karte `phase-5.md` (5.5c), Entscheidung Spur A für Spur B vom 28.09.
+(Leitplanke 3).
+
+**Was:**
+- `app/src/ruf-teilen.ts` (neu):
+  - `RufVonKontakten`: empfangene Zusammenfassungen (`freedom.ruf.kontakte`),
+    je Kontakt die neueste, höchstens 200; beim Lesen zählt nur, wer noch
+    Kontakt ist; Kaputtes fällt weg.
+  - `faelligeEmpfaenger()`: ein neuer Stand (Fingerabdruck der Zeilen) geht
+    höchstens einmal am Tag an alle, sonst nur an Kontakte, die den bisherigen
+    noch nicht haben.
+  - `RufVersand.takt()`: nur mit Zustimmung und Signer; je Schlag höchstens
+    ein Umschlag (`baueRufUmschlaege()` an genau einen Kontakt), ohne
+    Warteschlange nur jeden 60. Schlag nachsehen (etwa alle 30 min);
+    Unzustellbare pausieren einen Tag; `freedom.ruf.gesendet` hält
+    Fingerabdruck, Zeit und Empfänger.
+- `app/src/shell/ruf.ts` (neu): Zustimmung (`freedom.ruf.teilen`, in
+  localStorage und in der Sicherung – eine Einstellung), Versand an den
+  Posteingang des Kontakts (`posteingangVon()` → `veroeffentlicheAn()`), als
+  Gerät nie (Kontakte kennen nur die Person); `alsRufZusammenfassung()` öffnet
+  mit `oeffneRufUmschlag()` nur von Kontakten und merkt; `rufStand()` für die
+  Settings.
+- `shell/quittungen.ts`: `rufVonKontakten`, `kontakteJetzt()` (DM-Unterhaltungen
+  aus dem Tresor), `eigeneZeilen()`; `aktuellerRuf()` nimmt die
+  Zusammenfassungen der Kontakte jetzt von selbst.
+- Settings → Datenschutz: Häkchen „Meine Erfahrung mit Providern versiegelt mit
+  Kontakten teilen“ (Standard aus) mit Erklärung, was Kontakte erfahren, und
+  Stand (geteilt mit / erhalten von).
+- Datenschutz: Aussage „ruf-kontakte“ (`privacy-facts.ts`, belegt, Regel
+  „autor-verborgen“) mit Szenario (Absender verborgen, kein Klartext von
+  Provider und Beträgen, p-Tags nur an Kontakte, keine Zahlungsdaten,
+  entkoppelt); Text in `datenschutz-bericht.ts` (de/en).
+- Tresor: `freedom.ruf.kontakte` und `freedom.ruf.gesendet` in `GEHEIM_FEST`
+  und `SICHERUNG_NIE`; `freedom.ruf.teilen` in `SICHERUNG_EINTRAEGE`.
+- FAQ: „Woran erkennt die App einen guten Provider?“ – Quittungen im Tresor,
+  Kontakte je eine Stimme, keine öffentliche Rangliste.
+- `wiring-ausnahmen.txt`: `baueRufUmschlaege`, `oeffneRufUmschlag` verdrahtet –
+  keine Ausnahme aus `quittung.ts` mehr.
+
+**Verdrahtet:** `shell/tabs/kommunikation.ts:541` (Ende der Kette in
+`oeffneUmschlag()`), `shell/app.ts:843` (Abruftakt „ruf“),
+`shell/tabs/settings.ts:709` (Zustimmung), `shell/quittungen.ts:86`
+(`aktuellerRuf()` mit den Zusammenfassungen der Kontakte).
+
+**Tests:** +8 in `app/test/ruf-teilen.test.ts`, +3 Leak-Tests in
+`app/test/leak/ruf.test.ts`, +1 Szenario in `protocol/test/privacy-facts.test.ts`
+(dort zählt es im selben Test), die Kette in `oeffneUmschlag()` in drei Tests
+um das neue Glied verlängert:
+- Speicher der Zusammenfassungen: neueste je Kontakt, nur Kontakte, Kaputtes
+  weg, höchstens 200.
+- Fällige Empfänger: erstmals alle, danach nur neue Kontakte, neuer Stand erst
+  nach einem Tag.
+- Versand: ohne Zustimmung nichts (auch kein Speicher), je Schlag ein
+  Umschlag, je Umschlag nur sein Empfänger, der Kontakt öffnet ihn, ein
+  Fremder zählt nicht; Unzustellbare pausieren; neuer Stand nach einem Tag an
+  alle; als Gerät, ohne Quittungen, ohne Kontakte nichts.
+- Ruf: Zusammenfassungen von Kontakten heben, je Kontakt die neueste.
+- Leak: nur Umschläge, je Kontakt einer, Absender verborgen, kein Provider,
+  keine Beträge, keine Zahlungsdaten, nie zwei im selben Augenblick; ohne
+  Zustimmung nichts.
+
+Endstand: protocol 1088 (6 übersprungen; das neue Szenario läuft im
+bestehenden Test) · node 244 + 7 übersprungen (ohne Netz; mit Netz 245 + 6) ·
+app 562 (+8) · mls 13 · Leak-Tests 62 grün (+3) + 1 todo · 0 rot ·
+check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 · Website ok ·
+Smoke-Test bestanden · Website-Bau ok. Knoten-Stand: unverändert.
+
+## Schritt 8.2a – Provider-Knoten: Selbstprüfung und Installer für beide Schienen
+
+**Warum:** Ziel der Karte 8.2: Ein neuer Provider verdient in unter 30 Minuten
+in beiden Schienen. Der Installer kannte nur Lightning, versprach einen
+„Knappheitsbonus“ je Region (seit 5.1.4a gestrichen) und zeigte auf ein
+Platzhalter-Repository (`DEIN-USER`). Ob die Lightning-Adresse für die App
+überhaupt taugt (Rechnung aus dem Browser, kleine Beträge), merkte ein Provider
+erst, wenn keine Zahlungen kamen. 8.2 ist aufgeteilt (Karte `phase-8.md`):
+a Selbstprüfung und Installer, b eigener Lightning-Empfang, c Tor.
+
+**Was:**
+- **`node/src/einrichtung.ts`** – `pruefeEinrichtung()`:
+  - Lightning (`pruefeLightning()`): Adresse der Form nach; LNURL-pay mit
+    https-Callback; CORS `*` (sonst holt die App aus dem Browser keine
+    Rechnung); Mindestbetrag über 1 sat → Hinweis, kleine Anteile kommen
+    nicht an; eine echte Rechnung über den kleinsten Betrag (unbezahlt) mit
+    genau diesem Betrag (`leseBolt11()`).
+  - SOL (`pruefeSol()`): Ergebnis von `kanalKasseAusUmgebung()` (ohne
+    `ZAHLKANAL=1` ein Hinweis, mit falschem Schlüssel ein Fehler), Programm
+    auf der Kette, Guthaben für die Gebühren der Einlösungen (mindestens
+    0,001 SOL), Auszahlung (kein Programm; neben LP oder Relayer aus).
+  - Nach außen nur eigene Texte und Fehlernamen; `befundeText()` mit ✓ ! ✗.
+- **Verdrahtet:** `node/src/main.ts` prüft beim Start (mit dem Ergebnis der
+  Kasse, blockiert nichts) und schreibt `[einrichtung] …` ins Log;
+  `node/src/pruefen.ts` als `npm run pruefen` (Ende mit 1 bei einem Fehler).
+  `teiltSchluessel()` und `kanalOrte()` (`kanal-kasse.ts`) teilen Kasse,
+  Prüfung und Kommandozeile.
+- **`scripts/install-freedom.sh`:** neuer Schritt „SOL (Zahlkanal,
+  optional)“ – fragt die eigene Auszahlungsadresse (leer: nur Lightning),
+  legt den Solana-Schlüssel des Knotens einmalig an (`umask 077`, Datei 600),
+  prüft beide Adressen (Eingaben nur als Argumente an `node`), schreibt
+  `ZAHLKANAL`, `NODE_SOL_ADDRESS`, `SOLANA_KEYPAIR`, `NODE_SOL_PAYOUT`,
+  `SOLANA_RPC_URL` in die Umgebung und bittet um etwa 0,01 SOL für Gebühren.
+  Am Ende `npm run pruefen`. Texte: Lightning-Adresse mit Hinweis auf
+  verwahrende Dienste, Region ohne Bonus, 24 h gratis ohne „Reputation“,
+  Repository `3DAGI/freedom-app`.
+- **Nebenbei:** `SOLANA_RPC_URL=` leer (aus der Umgebungsdatei) fiel mit
+  `??` nicht auf den Standard zurück – jetzt `||` (`main.ts`, `pruefen.ts`).
+- **Doku:** Karte 8.2 (Aufteilung), FORTSCHRITT, `docker-compose.yml`
+  (Hinweis auf `npm run pruefen`), CLAUDE.md (Fallstrick).
+
+**Tests:** +5 in `node/test/einrichtung.test.ts`:
+- Lightning gut: Adresse, Abfrage, Callback mit Betrag 1 sat und den
+  übrigen Parametern;
+- Lightning schlecht: fehlt, keine Adresse, lokaler Host, HTTP 404, http-
+  Callback, ungültige Beträge, Rechnung über anderen Betrag, ohne CORS, hoher
+  Mindestbetrag, Fremdtext eines Servers (nur der Fehlername);
+- SOL: gut; aus; falscher Schlüssel; Programm fehlt; kein Guthaben; keine
+  Auszahlung; ungültige Auszahlung; Programm als Ziel; neben Relayer; Kette
+  nicht erreichbar;
+- Bericht und Verdrahtung (Start, `npm run pruefen`);
+- Installer: `bash -n`, alle Umgebungswerte, Datei 600, Prüfung am Ende,
+  keine veralteten Versprechen.
+Von Hand: der SOL-Schritt des Installers in einem Wegwerf-Verzeichnis
+(Schlüssel einmalig, 600, kaputte Adresse samt eingeschleustem Shell-Text
+abgewiesen, ohne Adresse nur Lightning) und `npm run pruefen` ohne Netz.
+
+Endstand (nach dem Einmergen von `main` mit 5.5b und 5.5c): protocol 1088
+(6 übersprungen) · node 250 (+5; 6 übersprungen, mit Netz) · app 562 · mls 13 ·
+Leak-Tests 62 grün + 1 todo · 0 rot ·
+check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 · Website 5 Seiten
+ok · Smoke-Test bestanden · `bash -n` für den Installer.
+## Schritt 8.15 – Status-Seite nur aus Öffentlichem und Freiwilligem
+
+Spur B, mit 5.5 (Entscheidung Spur A für Spur B vom 28.09., Leitplanke 7).
+
+**Was:**
+- `packages/website/js/dashboard-daten.js` (neu, ohne DOM): `filter()` fragt
+  nur Angebote (38027), Modellkataloge (38080), Abdeckung (38055) und
+  Werbe-Nennungen (38052) ab; `werteAus()` bildet daraus:
+  - Angebote je Provider das neueste, frisch = 24 h wie in der App, sortiert
+    nach der letzten Erneuerung (keine Rangliste): Stufe wie angeboten,
+    Modelle, Preis je 1.000 Tokens, Zahlwege (Lightning, SOL-Kanal,
+    Funk-Gateway);
+  - angebotene Modelle mit Zahl der Anbieter;
+  - Kataloge je Kurator und Kennung das neueste, nach Titel;
+  - Abdeckung wie `buildCoverage()`: Funk und Bluetooth erst ab drei Knoten,
+    abgelaufene Einträge nicht; nur Summen je Ebene;
+  - Werbe-Nennungen je Geworbenem die früheste, nur als Summe – die frühere
+    Liste der Werber mit Zahlen war eine öffentliche Rangliste.
+- `dashboard.html`: nutzt nur diese Auswertung; weg sind Jobs, „sats
+  verrechnet“, die Provider-Tabelle nach Jobs und die Regionen – alles aus
+  Selbstauskünften (38010). Die Seite fragte außerdem noch die alten Angebote
+  (38025) ab, die die App seit 38027 nicht mehr liest. Tabellen scrollen auf dem
+  Handy in sich (Seite 390 px statt 484 px breit). Erklärung unten: was die
+  Zahlen sind und was nicht (keine Aufträge, Umsätze, Rangliste; bezahlt wird
+  privat, Quittungen nur im Tresor).
+- `scripts/build-site.sh` kopiert `js/` mit; `scripts/check-website.py` weist
+  auf der Status-Seite 38010, 38075, 38025 und Selbstauskunfts-Wörter ab.
+- `ci.yml`: Der Schritt „Dashboard-Skript pruefen“ prüfte mit `new Function()`
+  und scheiterte am `import` – jetzt als Modul (`node --check`, auch
+  `js/dashboard-daten.js`); ein echter Syntaxfehler fällt weiter auf.
+
+**Tests:** +5 in `app/test/website-dashboard.test.ts`:
+- Arten gleich wie im Protokoll, abgefragt nur diese – nie 38010 oder 38075.
+- Abnahme: 300 Leistungs-Events und eine offene Zusammenfassung ändern das
+  Ergebnis nicht; Reihenfolge nach Erneuerung, nicht nach Leistung.
+- Angebote: je Provider das neueste, nur frische, Unbrauchbares weg.
+- Abdeckung nur über der Schwelle (ein Bluetooth-Knoten bleibt verdeckt),
+  Kataloge nach Titel, Nennungen früheste je Geworbenem, nur als Summe.
+- Die Seite nutzt nur die Auswertung; `build-site.sh` veröffentlicht `js/`.
+
+Von Hand im Browser (Chromium, nachgestellte Relays per
+`route_web_socket`, Seite aus `build-site.sh`): abgefragt nur
+38027/38052/38055/38080, keine Skriptfehler, fremder Katalog-Titel mit
+`<b>` erscheint als Text, auf 390 px keine waagerechte Scrollleiste.
+
+Endstand: protocol 1088 (6 übersprungen) · node 244 + 7 übersprungen (ohne
+Netz; mit Netz 245 + 6) · app 567 (+5) · mls 13 · Leak-Tests 62 grün + 1 todo
+· 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 · Website
+ok · Smoke-Test bestanden · Website-Bau ok (mit `js/`). Knoten-Stand:
+unverändert.
+
+Nach dem Einmergen von `main` (8.2a): protocol 1088 · node 249 + 7
+übersprungen (ohne Netz; mit Netz 250 + 6) · app 567 · mls 13 · Leak-Tests 62
++ 1 todo · 0 rot; alle Prüfungen erneut grün.
+
+## Schritt 8.2b – Provider-Knoten: Lightning-Adresse beim eigenen LND
+
+**Warum:** Die Karte 8.2 verlangt „eigenen Empfang statt verwahrender
+Dienste“. Die App zahlt den Anteil des Providers an seine Lightning-Adresse –
+meist eine bei einem Dienst, dem das Geld bis zur Auszahlung gehört. Im Knoten
+lag noch der LNURL-Server des alten Treasury-Modells: für Blink (entgegen dem
+Kommentar ein verwahrender Dienst) oder LND, mit Wochen-Wallets, Rechnungen
+ohne `description_hash` (Wallets, die LUD-06 prüfen, lehnen sie ab) und roher
+Fehlermeldung nach außen.
+
+**Was:**
+- **`node/src/lnurl-server.ts` neu:** `LnurlDienst` beantwortet nur den
+  eigenen Namen (`/.well-known/lnurlp/<name>`) und stellt Rechnungen aus
+  (`/lnurlp/<name>/rechnung?amount=<msat>`): nur ganze msat im Bereich (auch
+  „1.5e3“ und „0x…“ abgewiesen), Beschreibung = SHA-256 der Metadaten (LUD-06),
+  keine Kommentare, höchstens `LNURL_PRO_MINUTE` (Standard 30) Rechnungen je
+  Minute, nach außen nur feste Texte. `starteLnurlServer()`: nur GET, CORS `*`,
+  JSON, lauscht nur auf 127.0.0.1 (Reverse-Proxy davor).
+  `lnurlAusUmgebung()`: `LNURL_BASE_URL` nur `https://<domain>`, Name geprüft,
+  Macaroon nur für Rechnungen (`pruefeRelayMacaroon()`), selbstsigniertes TLS
+  nur lokal; `LNURL_BACKEND=blink` wird mit Grund abgewiesen.
+- **`protocol/src/lnd-adapter.ts`:** `createLnurlInvoice(msat, hash)` –
+  `value_msat` und `description_hash` statt Notiz.
+- **Verdrahtet:** `node/src/main.ts` startet ihn mit `LNURL_ENABLED=1` (sonst
+  nennt das Log den Grund) und warnt, wenn `NODE_LUD16` nicht auf ihn zeigt.
+  Ob er von außen klappt, prüft die Selbstprüfung aus 8.2a.
+- **Doku:** neu `docs/PROVIDER.md` (einrichten, prüfen, Lightning beim eigenen
+  Knoten mit Caddy-Beispiel, Docker-Hinweis, die Grenze „eine SOL-Adresse“);
+  `docker-compose.yml` (LNURL-Werte, Port 3601 nur lokal), Installer-Hinweis,
+  FAQ „Wie werde ich Provider?“, Karte 8.2, FORTSCHRITT, CLAUDE.md.
+
+**Tests:** +5 in `node/test/lnurl-server.test.ts` (Parameter nur für den
+eigenen Namen, Hash der Metadaten; Beträge, Bremse, keine LND-Meldung;
+Einrichtung – https, Name, Macaroon, Blink, fremdes TLS; Durchstich: die
+Selbstprüfung aus 8.2a erkennt den Server über HTTP als gute Adresse;
+Verdrahtung), +1 in `protocol/test/lnd-adapter.test.ts` (`value_msat`,
+`description_hash`, Fehler).
+
+Endstand (nach dem Einmergen von `main` mit 8.15): protocol 1089 (+1; 6
+übersprungen) · node 255 (+5; 6 übersprungen, mit Netz) · app 567 · mls 13 · Leak-Tests 62 grün + 1 todo · 0 rot ·
+check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 · Website 5 Seiten
+ok · Smoke-Test bestanden · `bash -n` für den Installer.
+
+## Schritt 8.2c – Provider-Knoten: Relays über Tor
+
+**Warum:** Letzter Teil der Karte 8.2 („Tor“). Jeder Relay sah bisher die
+IP-Adresse des Knotens – und damit, wo ein Provider steht. Tor für den Knoten
+gab es nicht; `WebSocketRelay` nutzte das eingebaute `WebSocket` von Node, in
+das sich kein Proxy einhängen lässt.
+
+**Was:**
+- **`node/src/tor.ts`:** `socksVerbinde()` – SOCKS5 ohne neue Abhängigkeit,
+  nur „ohne Anmeldung“, der Hostname geht an den Proxy (Adresstyp 3): Der
+  Knoten fragt nie selbst einen DNS-Server nach einem Relay, `.onion` geht;
+  Antworten des Proxys werden zu festen Texten (`SocksFehler`). Zwei Agents
+  für `ws` (http/https) bauen jede Verbindung durch den Tunnel, bei `wss` mit
+  TLS und Zertifikatsprüfung gegen den Hostnamen. `torWebSocket()` liefert
+  die Fabrik, `torAusUmgebung()` liest `TOR_SOCKS=host:port`.
+- **`protocol/src/ws-relay.ts`:** Option `verbinde` – eigene Verbindung statt
+  des eingebauten WebSocket (ohne sie wie bisher).
+- **Verdrahtet:** `node/src/main.ts` – die einzige Stelle, an der der Knoten
+  Relay-Verbindungen anlegt, bekommt `verbinde`. Ungültiges `TOR_SOCKS`
+  beendet den Start (sonst ginge er still ohne Tor ins Netz); ist Tor nicht
+  erreichbar, scheitern die Verbindungen, statt direkt zu gehen.
+- **Doku:** `docs/PROVIDER.md` (Tor: was darüber geht und was nicht –
+  Solana-RPC, LND, Ollama, Werkzeuge, Modell-Downloads, Selbstprüfung; der
+  eigene Relay als Onion-Dienst), `docker-compose.yml` (`TOR_SOCKS`),
+  Karte 8.2 (im Code fertig), FORTSCHRITT, CLAUDE.md.
+
+**Tests:** +5 in `node/test/tor.test.ts` mit einer SOCKS5-Attrappe vor einem
+lokalen Relay: Anfrage über Tor, der Name `relay.test` kommt nur beim Proxy
+an (Adresstyp 3); `wss` schickt den TLS-Handshake mit Servernamen durch den
+Tunnel; ist der Proxy weg, erreicht keine Verbindung den Relay; Antworten des
+Proxys (abgelehnt, Anmeldung verlangt) und ungültige Ziele als feste Texte;
+`TOR_SOCKS` und Verdrahtung (ungültig → kein Start, genau eine Stelle mit
+`new WebSocketRelay`).
+
+Endstand: protocol 1089 (6 übersprungen) · node 260 (+5; 6 übersprungen,
+mit Netz) · app 567 · mls 13 · Leak-Tests 62 grün + 1 todo · 0 rot ·
+check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 · Website 5 Seiten
+ok · Smoke-Test bestanden. Damit ist 8.2 im Code fertig (a–c); offen nur
+MENSCH: mit einem echten Provider in beiden Schienen testen.
+
 ## Schritt C.3a1 – Oberfläche: Repo-Liste und Repo-Seite
 
 **Fertig:** Die Seite „Repos“ zeigt eine Liste statt zwei, und jedes Repo hat
@@ -9747,8 +10154,9 @@ Repo-Seite und die Mitwirkenden als Reiter.
   `applied-as-commits`; zurück zur Liste mit Fokus. „rahmen“ prüft die neuen
   Elemente.
 
-Endstand: protocol 1082 (6 übersprungen) · node 245 (6 übersprungen, mit
-Netz) · app 551 (+4) · mls 13 · Leak-Tests 59 grün + 1 todo · 0 rot ·
+Endstand (nach dem Einmergen von `main` mit 5.5a–c, 8.15, 8.2a–c):
+protocol 1089 (6 übersprungen) · node 260 (6 übersprungen, mit Netz) · app
+571 (+4) · mls 13 · Leak-Tests 62 grün + 1 todo · 0 rot ·
 check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 (68 Ausnahmen, 1
 weniger – die alte Bundle-Liste) · Website 5 Seiten ok · Smoke-Test bestanden
 (mit „rahmen“, „dialog“ und „raum“ samt Repo-Liste, Repo-Seite und

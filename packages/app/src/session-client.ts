@@ -153,7 +153,7 @@ export class SessionClient {
     amountMsat: number,
     resultEventId: string,
     wallet?: ProviderZahlung,
-  ): Promise<{ settled: boolean; unklar?: boolean; gezahltMsat?: number; faelligAbMsat: number; paymentRef?: string; remainingMsat: number }> {
+  ): Promise<{ settled: boolean; unklar?: boolean; gezahltMsat?: number; faelligAbMsat: number; paymentRef?: string; rechnung?: string; remainingMsat: number }> {
     let session = this.activeFor(providerPubkey);
     if (!session) session = await this.openSession(providerPubkey);
 
@@ -165,6 +165,8 @@ export class SessionClient {
     const offen = Math.min(session.chargedMsat, session.open.maxTotalMsat) - session.paidMsat;
     const due = offen - (offen % 1000);
     let paymentRef: string | undefined;
+    // Die bezahlte Rechnung – mit dem Preimage die Quittung (5.5b)
+    let bezahlteRechnung: string | undefined;
     let settled = false;
     let unklar = false;
 
@@ -178,6 +180,7 @@ export class SessionClient {
         if (rechnung) {
           try {
             paymentRef = await wallet.zahle(rechnung, due);
+            bezahlteRechnung = rechnung;
             settled = true;
             session.paidMsat += due;
           } catch {
@@ -212,6 +215,7 @@ export class SessionClient {
       gezahltMsat: settled ? due : 0,
       faelligAbMsat: session.open.settleEveryMsat,
       paymentRef,
+      ...(bezahlteRechnung ? { rechnung: bezahlteRechnung } : {}),
       remainingMsat: session.open.maxTotalMsat - session.chargedMsat,
     };
   }

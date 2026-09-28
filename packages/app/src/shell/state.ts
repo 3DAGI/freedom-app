@@ -122,7 +122,9 @@ async function bekannteProvider(): Promise<ScoredProvider[]> {
   const pool = await ensurePool();
   const now = Date.now();
   if (!providerCache || now - providerCacheAt > 300_000) {
-    providerCache = await discoverProviders(pool);
+    // Ruf nur aus Quittungen (5.5b) – nicht aus Selbstauskünften der Provider (38010)
+    const { aktuellerRuf } = await import("./quittungen.js");
+    providerCache = await discoverProviders(pool, aktuellerRuf());
     providerCacheAt = now;
   }
   return providerCache;
@@ -409,21 +411,15 @@ async function entdeckeRelays(): Promise<void> {
   try {
     const pool = state.pool!;
     const {
-      discoverRelays, buildRelaySet, KIND_RELAY_LIST, KIND_PERFORMANCE,
+      discoverRelays, buildRelaySet, KIND_RELAY_LIST,
     } = await import("@freedomstack/protocol");
 
-    const [listen, arbeit] = await Promise.all([
-      pool.query({ kinds: [KIND_RELAY_LIST], limit: 500 }),
-      pool.query({
-        kinds: [KIND_PERFORMANCE],
-        since: Math.floor(Date.now() / 1000) - 7 * 24 * 3600,
-        limit: 500,
-      }),
-    ]);
+    const listen = await pool.query({ kinds: [KIND_RELAY_LIST], limit: 500 });
 
-    // Wer nachweislich gearbeitet hat, dessen Relay-Angabe wiegt schwerer.
-    // Eine blosse Anzahl liesse sich mit Wegwerf-Schluesseln erzeugen.
-    const arbeiter = new Set(arbeit.map((e) => e.pubkey));
+    // Wer nachweislich gearbeitet hat, dessen Relay-Angabe wiegt schwerer –
+    // nachweislich heißt seit 5.5b: bezahlt (eigene Quittungen), nicht
+    // behauptet (38010). Eine blosse Anzahl liesse sich mit Wegwerf-Schluesseln erzeugen.
+    const arbeiter = new Set((await import("./quittungen.js")).aktuellerRuf().keys());
     const start = startUrls();
     const { relays } = discoverRelays(listen, { trustedPubkeys: arbeiter, known: [...start, ...pool.urls] });
     if (relays.length === 0) return;

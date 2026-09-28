@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <meta name="theme-color" content="#7BC80A" />
 <title>freedom — Netzwerk-Status</title>
-<meta name="description" content="Live-Zahlen aus dem freedom-Netz: aktive Provider, Jobs, Modelle. Direkt aus den Relays gelesen, ohne Server dazwischen." />
+<meta name="description" content="Live aus dem freedom-Netz: Angebote der Provider, Modelle, Kataloge, Abdeckung. Direkt aus den Relays gelesen, ohne Server dazwischen – nur Öffentliches und Freiwilliges." />
 <link rel="stylesheet" href="css/style.css" />
 <style>
   /* Das Dashboard liest direkt von den Relays — es gibt bewusst KEINE API
@@ -17,6 +17,8 @@
   .kpi .num { font-size: 30px; font-weight: 700; color: #7BC80A; line-height: 1.1; font-variant-numeric: tabular-nums; }
   .kpi .lbl { font-size: 12px; color: #888; margin-top: 4px; }
   .kpi .sub { font-size: 11px; color: #555; margin-top: 6px; }
+  /* Breite Tabellen scrollen in sich – die Seite bleibt auf dem Handy so breit wie der Bildschirm. */
+  .tabwrap { overflow-x: auto; }
   table.dash { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 8px; }
   table.dash th { text-align: left; color: #888; font-weight: 500; padding: 8px 6px; border-bottom: 1px solid #1e1e1e; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
   table.dash td { padding: 8px 6px; border-bottom: 1px solid #161616; font-variant-numeric: tabular-nums; }
@@ -62,29 +64,44 @@
 
   <div class="kpis" id="kpis"></div>
 
-  <h2>Aktive Provider</h2>
+  <h2>Angebote</h2>
+  <p class="muted" style="font-size:13px;max-width:60ch">
+    Was Provider selbst anbieten – Stufe, Modelle, Preis, Zahlwege –, erneuert
+    in den letzten 24 Stunden. Keine Rangliste: Die Reihenfolge ist die der
+    letzten Erneuerung. Wie gut ein Provider ist, weiß nur deine App – aus
+    deinen Quittungen und den Zusammenfassungen deiner Kontakte, nicht aus dem,
+    was jemand über sich selbst veröffentlicht.
+  </p>
   <div id="providers"><p class="muted">lade …</p></div>
-
-  <h2>Wo Kapazität fehlt</h2>
-  <p class="muted" style="font-size:13px;max-width:60ch">
-    Ein Knoten in einer unterversorgten Region ist für das Netz mehr wert als
-    der zwanzigste in Mitteleuropa. Einen Aufschlag gibt es dafür nicht — ohne
-    Topf zahlt jeder Kunde nur seinen Auftrag; Anreize für Randregionen sollen
-    gesponserte Pools bringen (geplant).
-  </p>
-  <div id="regions"><p class="muted">lade …</p></div>
-
-  <h2>Werbe-Nennungen</h2>
-  <p class="muted" style="font-size:13px;max-width:60ch">
-    Wie viele Geworbene jemanden öffentlich als Werber nennen — nur, wer dem
-    zugestimmt hat, je Geworbenem die früheste Angabe. Bezahlt wird das Werben
-    nicht nach dieser Liste, sondern direkt beim Zahlen (0,5 % je Seite); Stufen
-    gibt es keine.
-  </p>
-  <div id="referrers"><p class="muted">lade …</p></div>
 
   <h2>Angebotene Modelle</h2>
   <div id="models"><p class="muted">lade …</p></div>
+
+  <h2>Modellkataloge</h2>
+  <p class="muted" style="font-size:13px;max-width:60ch">
+    Kuratoren empfehlen Modelle; welche Kataloge du abonnierst, entscheidest du
+    in der App. Das Projekt gibt keinen vor. Sortiert nach Titel.
+  </p>
+  <div id="catalogs"><p class="muted">lade …</p></div>
+
+  <h2>Abdeckung</h2>
+  <p class="muted" style="font-size:13px;max-width:60ch">
+    Freiwillige Einträge mit Wegwerfschlüssel, grob auf Zellen gerundet. Funk-
+    und Bluetooth-Zellen erscheinen erst ab drei Knoten – eine Zelle mit einem
+    Knoten wäre eine Adresse. Regionen zeigt die Seite nicht mehr – sie stammten
+    aus Selbstauskünften der Knoten. Einen Aufschlag für Randregionen gibt es
+    nicht (gesponserte Pools sind geplant, nicht gebaut).
+  </p>
+  <div id="coverage"><p class="muted">lade …</p></div>
+
+  <h2>Werbe-Nennungen</h2>
+  <p class="muted" style="font-size:13px;max-width:60ch">
+    Wie oft Geworbene öffentlich einen Werber nennen – nur, wer dem zugestimmt
+    hat, je Geworbenem die früheste Angabe. Nur als Summe, ohne Liste der
+    Werber. Bezahlt wird das Werben nicht danach, sondern direkt beim Zahlen
+    (0,5 % je Seite).
+  </p>
+  <div id="referrers"><p class="muted">lade …</p></div>
 
   <div class="note" id="note"></div>
 </div>
@@ -92,9 +109,11 @@
 <script type="module">
 // ---------------------------------------------------------------------------
 // Alles unten läuft im Browser des Besuchers. Kein Backend, keine Datenbank,
-// kein Analytics. Die Zahlen entstehen aus signierten Events (kind 38010
-// Leistungsnachweise, 38025 Provider-Fähigkeiten, 38052 Werbe-Nennungen).
+// kein Analytics. Ausgewertet wird nur Öffentliches und Freiwilliges
+// (js/dashboard-daten.js, Schritt 8.15): Angebote, Modellkataloge, Abdeckung
+// über der Schwelle und Werbe-Nennungen als Summe.
 // ---------------------------------------------------------------------------
+import { K_SCHWELLE, filter, werteAus } from "./js/dashboard-daten.js";
 
 // Die Startliste der App (packages/protocol/src/relay-start.ts, Schritt 5.4) –
 // Knoten veroeffentlichen ohne eigene Einstellung auf allen.
@@ -108,11 +127,6 @@ const RELAYS = [
   "wss://nostr-pub.wellorder.net",
   "wss://nostr.bitcoiner.social",
 ];
-
-const KIND_PERFORMANCE = 38010;
-const KIND_CAPABILITIES = 38025;
-const KIND_REFERRAL_CLAIM = 38052;
-const LOOKBACK_SECONDS = 7 * 24 * 3600;
 
 const el = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
@@ -149,14 +163,20 @@ function queryRelay(url, filters, timeoutMs = 9000) {
   });
 }
 
-const tag = (ev, name) => (ev.tags.find((t) => t[0] === name) || [])[1];
+const tabelle = (kopf, zeilen) => `
+  <div class="tabwrap"><table class="dash">
+    <thead><tr>${kopf.map((k) => `<th>${esc(k)}</th>`).join("")}</tr></thead>
+    <tbody>${zeilen.join("")}</tbody>
+  </table></div>`;
 
-function renderKpis(stats) {
+function renderKpis(d) {
+  const a = d.abdeckung;
+  const zellen = a.online.zellen + a.lora.zellen + a.bluetooth.zellen;
   const cards = [
-    { num: fmt(stats.providers), lbl: "Provider (7 Tage aktiv)", sub: `${stats.providers24h} in den letzten 24 h` },
-    { num: fmt(stats.jobs), lbl: "belegte Jobs", sub: "signierte Leistungsnachweise" },
-    { num: fmt(Math.round(stats.volumeSats)), lbl: "sats verrechnet", sub: "Summe über alle Nachweise" },
-    { num: fmt(stats.models), lbl: "verschiedene Modelle", sub: "angeboten im Netz" },
+    { num: fmt(d.angebote.length), lbl: "Provider mit frischem Angebot", sub: `erneuert in 24 h · ${fmt(d.angebote7Tage)} in 7 Tagen` },
+    { num: fmt(d.modelle.length), lbl: "verschiedene Modelle", sub: "in diesen Angeboten" },
+    { num: fmt(d.kataloge.length), lbl: "Modellkataloge", sub: `von ${fmt(d.kuratoren)} Kuratoren` },
+    { num: fmt(zellen), lbl: "Zellen mit Abdeckung", sub: `${fmt(a.verdeckt)} unter der Schwelle nicht gezeigt` },
   ];
   el("kpis").innerHTML = cards.map((c) => `
     <div class="kpi">
@@ -166,87 +186,51 @@ function renderKpis(stats) {
     </div>`).join("");
 }
 
-function renderProviders(list) {
-  if (!list.length) {
-    el("providers").innerHTML = `<p class="muted">Keine aktiven Provider in den letzten 7 Tagen gefunden.</p>`;
+const STUFE = { free: "free", classic: "classic", pro: "pro" };
+
+function renderProviders(liste) {
+  if (!liste.length) {
+    el("providers").innerHTML = `<p class="muted">Kein Angebot in den letzten 24 Stunden erneuert.</p>`;
     return;
   }
-  const max = Math.max(...list.map((p) => p.jobs));
-  el("providers").innerHTML = `
-    <table class="dash">
-      <thead><tr>
-        <th>Provider</th><th>Jobs</th><th>sats</th><th>Modelle</th><th>zuletzt aktiv</th>
-      </tr></thead>
-      <tbody>${list.slice(0, 40).map((p) => `
-        <tr>
-          <td class="mono">${esc(short(p.pubkey))}</td>
-          <td>${fmt(p.jobs)}<div class="bar"><i style="width:${(p.jobs / max * 100).toFixed(1)}%"></i></div></td>
-          <td>${fmt(Math.round(p.sats))}</td>
-          <td class="muted">${esc(p.models.slice(0, 2).join(", ") || "—")}</td>
-          <td class="muted">${esc(ago(p.lastSeen))}</td>
-        </tr>`).join("")}
-      </tbody>
-    </table>`;
+  el("providers").innerHTML = tabelle(["Provider", "Stufe (angeboten)", "Modelle", "sats je 1.000 Tokens", "Zahlwege", "erneuert"],
+    liste.slice(0, 40).map((p) => {
+      const wege = [p.lightning ? "Lightning" : "", p.solKanal ? "SOL-Kanal" : "", p.funkGateway ? "Funk-Gateway" : ""].filter(Boolean).join(" · ") || "—";
+      const preis = p.gratis ? "gratis" : p.satsJe1k === null ? "—" : fmt(Math.round(p.satsJe1k * 1000) / 1000);
+      return `<tr>
+        <td class="mono">${esc(short(p.pubkey))}</td>
+        <td>${esc(STUFE[p.stufe])}</td>
+        <td class="muted">${esc(p.modelle.slice(0, 2).join(", ") || "—")}</td>
+        <td>${esc(preis)}</td>
+        <td class="muted">${esc(wege)}</td>
+        <td class="muted">${esc(ago(p.zeit))}</td>
+      </tr>`;
+    }));
 }
 
-const REGION_NAMES = {
-  eu: "Europa", na: "Nordamerika", sa: "Südamerika",
-  af: "Afrika", as: "Asien", oc: "Ozeanien",
-};
-const TARGET_PER_REGION = 5;
-
-/** Wie whereIsCapacityNeeded() in scarcity.ts: wie viele bis zum Ziel fehlen. */
-function renderRegions(byRegion) {
-  const rows = Object.keys(REGION_NAMES).map((r) => {
-    const n = byRegion.get(r) || 0;
-    return { region: r, providers: n, fehlen: Math.max(0, TARGET_PER_REGION - n) };
-  }).sort((a, b) => b.fehlen - a.fehlen || a.providers - b.providers);
-
-  el("regions").innerHTML = `
-    <table class="dash">
-      <thead><tr><th>Region</th><th>Provider</th><th>fehlen bis ${TARGET_PER_REGION}</th><th></th></tr></thead>
-      <tbody>${rows.map((r) => `
-        <tr>
-          <td>${esc(REGION_NAMES[r.region])}</td>
-          <td>${fmt(r.providers)}</td>
-          <td>${r.fehlen > 0 ? `<span class="warn">${fmt(r.fehlen)}</span>` : "—"}</td>
-          <td class="muted">${r.providers === 0
-            ? "Noch niemand — der erste versorgt eine ganze Region."
-            : r.fehlen > 0 ? "unterversorgt" : "ausreichend"}</td>
-        </tr>`).join("")}
-      </tbody>
-    </table>`;
+function renderModels(modelle) {
+  el("models").innerHTML = modelle.length
+    ? tabelle(["Modell", "Anbieter"], modelle.slice(0, 30).map((m) => `<tr><td class="mono">${esc(m.name)}</td><td>${fmt(m.anbieter)}</td></tr>`))
+    : `<p class="muted">Keine Modelle in frischen Angeboten.</p>`;
 }
 
-function renderReferrers(rows) {
-  if (!rows.length) {
-    el("referrers").innerHTML = `<p class="muted">Noch keine öffentlichen Nennungen im Netz.</p>`;
-    return;
-  }
-  el("referrers").innerHTML = `
-    <table class="dash">
-      <thead><tr><th>Werber</th><th>genannt von</th></tr></thead>
-      <tbody>${rows.slice(0, 20).map((r) => `
-        <tr>
-          <td class="mono">${esc(short(r.pubkey))}</td>
-          <td>${fmt(r.total)}</td>
-        </tr>`).join("")}
-      </tbody>
-    </table>`;
+function renderCatalogs(kataloge) {
+  el("catalogs").innerHTML = kataloge.length
+    ? tabelle(["Katalog", "Kurator", "Modelle", "aktualisiert"], kataloge.slice(0, 40).map((k) => `<tr>
+        <td>${esc(k.titel)}</td><td class="mono">${esc(short(k.kurator))}</td><td>${fmt(k.modelle)}</td><td class="muted">${esc(ago(k.zeit))}</td></tr>`))
+    : `<p class="muted">Noch keine Modellkataloge im Netz.</p>`;
 }
 
-function renderModels(models) {
-  if (!models.length) {
-    el("models").innerHTML = `<p class="muted">Keine Modell-Ankündigungen gefunden.</p>`;
-    return;
-  }
-  el("models").innerHTML = `
-    <table class="dash">
-      <thead><tr><th>Modell</th><th>Anbieter</th></tr></thead>
-      <tbody>${models.slice(0, 30).map((m) => `
-        <tr><td class="mono">${esc(m.name)}</td><td>${fmt(m.count)}</td></tr>`).join("")}
-      </tbody>
-    </table>`;
+const EBENE = { online: "Provider im Netz", lora: "Funk (LoRa)", bluetooth: "Bluetooth" };
+
+function renderCoverage(a) {
+  el("coverage").innerHTML = tabelle(["Ebene", "Zellen", "Knoten"], Object.keys(EBENE).map((e) =>
+    `<tr><td>${esc(EBENE[e])}</td><td>${fmt(a[e].zellen)}</td><td>${fmt(a[e].knoten)}</td></tr>`))
+    + `<p class="muted" style="font-size:12px">${fmt(a.verdeckt)} Zellen mit weniger als ${fmt(K_SCHWELLE)} Knoten zeigt die Seite nicht. Wer die Relays direkt liest, sieht jeden Eintrag einzeln.</p>`;
+}
+
+function renderReferrers(n) {
+  el("referrers").innerHTML = `<p>${fmt(n.nennungen)} öffentliche Nennungen für ${fmt(n.werber)} Werber.</p>`;
 }
 
 function ago(ts) {
@@ -257,120 +241,47 @@ function ago(ts) {
 }
 
 async function load() {
-  const since = Math.floor(Date.now() / 1000) - LOOKBACK_SECONDS;
-  const filters = [
-    { kinds: [KIND_PERFORMANCE], since, limit: 2000 },
-    { kinds: [KIND_CAPABILITIES], since, limit: 500 },
-    { kinds: [KIND_REFERRAL_CLAIM], limit: 2000 },
-  ];
-
-  const results = await Promise.all(RELAYS.map((r) => queryRelay(r, filters)));
+  const jetzt = Math.floor(Date.now() / 1000);
+  const results = await Promise.all(RELAYS.map((r) => queryRelay(r, filter(jetzt))));
 
   el("relays").innerHTML = results.map((r) => {
     const cls = r.state === "ok" ? "ok" : r.state === "timeout" ? "warn" : "err";
     return `<span class="${cls}">${esc(r.url.replace("wss://", ""))} · ${esc(r.state)} · ${r.events.length}</span>`;
   }).join("");
 
-  // Über alle Relays hinweg deduplizieren: dasselbe Event liegt auf mehreren.
-  const byId = new Map();
-  for (const r of results) for (const ev of r.events) byId.set(ev.id, ev);
-  const events = [...byId.values()];
-
+  const d = werteAus(results.flatMap((r) => r.events), jetzt);
   const reachable = results.filter((r) => r.state === "ok").length;
-  if (events.length === 0) {
+  if (d.ereignisse === 0) {
     el("status").innerHTML = reachable === 0
       ? `<span class="err">Kein Relay erreichbar.</span> Möglicherweise blockiert dein Netz WebSocket-Verbindungen.`
       : `<span class="warn">Relays antworten, aber es liegen keine Ereignisse vor.</span> Das Netz ist noch leer oder die Provider veröffentlichen auf anderen Relays.`;
-    el("kpis").innerHTML = "";
-    el("providers").innerHTML = "";
-    el("models").innerHTML = "";
+    for (const id of ["kpis", "providers", "models", "catalogs", "coverage", "referrers"]) el(id).innerHTML = "";
     return;
   }
 
-  const providers = new Map();
-  const modelCount = new Map();
-  const regionProviders = new Map();
-  // Frueheste Angabe je Geworbenem — spaetere Wechsel zaehlen nicht.
-  const claims = new Map();
-  let jobs = 0, volumeSats = 0;
-  const day = Math.floor(Date.now() / 1000) - 86400;
-  let providers24h = 0;
-
-  for (const ev of events) {
-    if (ev.kind === KIND_PERFORMANCE) {
-      const worker = tag(ev, "worker") || ev.pubkey;
-      const msat = Number(tag(ev, "volume_msat") || 0);
-      const p = providers.get(worker) || { pubkey: worker, jobs: 0, sats: 0, models: [], lastSeen: 0 };
-      p.jobs += 1;
-      p.sats += (Number.isFinite(msat) ? msat : 0) / 1000;
-      p.lastSeen = Math.max(p.lastSeen, ev.created_at);
-      providers.set(worker, p);
-      // Region grob mitzaehlen — jeder Provider einmal je Region.
-      const region = (tag(ev, "region") || "").toLowerCase();
-      if (region) {
-        const set = regionProviders.get(region) || new Set();
-        set.add(worker);
-        regionProviders.set(region, set);
-      }
-      jobs += 1;
-      volumeSats += (Number.isFinite(msat) ? msat : 0) / 1000;
-    } else if (ev.kind === KIND_CAPABILITIES) {
-      const p = providers.get(ev.pubkey) || { pubkey: ev.pubkey, jobs: 0, sats: 0, models: [], lastSeen: ev.created_at };
-      for (const t of ev.tags) {
-        if (t[0] === "model" && t[1]) {
-          if (!p.models.includes(t[1])) p.models.push(t[1]);
-          modelCount.set(t[1], (modelCount.get(t[1]) || 0) + 1);
-        }
-      }
-      p.lastSeen = Math.max(p.lastSeen, ev.created_at);
-      providers.set(ev.pubkey, p);
-    } else if (ev.kind === KIND_REFERRAL_CLAIM) {
-      const referrer = tag(ev, "referrer");
-      if (referrer && referrer !== ev.pubkey && /^[0-9a-f]{64}$/.test(referrer)) {
-        const prev = claims.get(ev.pubkey);
-        if (!prev || ev.created_at < prev.at) claims.set(ev.pubkey, { referrer, at: ev.created_at });
-      }
-    }
-  }
-
-  const list = [...providers.values()].sort((a, b) => b.jobs - a.jobs || b.sats - a.sats);
-  providers24h = list.filter((p) => p.lastSeen >= day).length;
-
-  renderKpis({
-    providers: list.length,
-    providers24h,
-    jobs,
-    volumeSats,
-    models: modelCount.size,
-  });
-  renderProviders(list);
-  renderRegions(new Map([...regionProviders].map(([r, set]) => [r, set.size])));
-
-  // Nennungen zaehlen wie zaehleNennungen() in werbe-nennung.ts – nur zaehlen, keine Stufen.
-  const werber = new Map();
-  for (const c of claims.values()) {
-    const w = werber.get(c.referrer) || { pubkey: c.referrer, total: 0 };
-    w.total += 1;
-    werber.set(c.referrer, w);
-  }
-  renderReferrers([...werber.values()].sort((a, b) => b.total - a.total));
-  renderModels([...modelCount.entries()].map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count));
+  renderKpis(d);
+  renderProviders(d.angebote);
+  renderModels(d.modelle);
+  renderCatalogs(d.kataloge);
+  renderCoverage(d.abdeckung);
+  renderReferrers(d.nennungen);
 
   el("status").innerHTML =
-    `${fmt(events.length)} Ereignisse von ${reachable}/${RELAYS.length} Relays · Stand ${new Date().toLocaleTimeString("de-DE")}`;
+    `${fmt(d.ereignisse)} Ereignisse von ${reachable}/${RELAYS.length} Relays · Stand ${new Date().toLocaleTimeString("de-DE")}`;
 
   el("note").innerHTML = `
     <strong>Wie diese Zahlen entstehen.</strong>
-    Jeder Provider veröffentlicht nach getaner Arbeit einen signierten
-    Leistungsnachweis (kind ${KIND_PERFORMANCE}) und seine Fähigkeiten
-    (kind ${KIND_CAPABILITIES}). Diese Seite summiert, was auf den Relays liegt.<br><br>
+    Die Seite liest nur, was öffentlich und freiwillig ist: Angebote der
+    Provider, Modellkataloge von Kuratoren, freiwillige Abdeckungs-Einträge
+    und Werbe-Nennungen mit Zustimmung – und summiert, was auf den Relays liegt.<br><br>
     <strong>Was die Zahlen nicht sind.</strong>
-    Ein Nachweis belegt, dass ein Provider Arbeit <em>behauptet</em> — nicht,
-    dass bezahlt wurde. Zahlungen sehen nur die Beteiligten: KI-Aufträge sind
-    privat, und jeder Anteil geht direkt von der Wallet des Kunden an seinen
-    Empfänger; einen öffentlichen Beleg gibt es nicht. Signaturen prüft diese
-    Seite nicht — die App tut das. Relays speichern zudem unterschiedlich lange;
-    die Summen sind Untergrenzen, keine Gesamtzahlen.
+    Keine Aufträge, keine Umsätze, keine Rangliste. Was Provider über ihre
+    eigene Arbeit melden, zeigt die Seite nicht – eine Selbstauskunft lässt sich
+    fälschen. Bezahlt wird privat: KI-Aufträge sind versiegelt, jeder Anteil
+    geht direkt von der Wallet des Kunden an seinen Empfänger, und die
+    Quittungen liegen nur im Tresor des Kunden. Signaturen prüft diese Seite
+    nicht – die App tut das. Relays speichern unterschiedlich lange; die Summen
+    sind Untergrenzen.
   `;
 }
 

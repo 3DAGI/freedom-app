@@ -429,7 +429,7 @@
             </div>
             <div class="trust-meta mono-sm"><span id="trust-xp">—</span> · <span id="trust-jobs">—</span> · <span id="trust-tier">—</span></div>
           </div>
-          <p class="muted" data-i18n="trustSub">Wächst mit erledigten Jobs. Sie bestimmt, welche Stufe du bedienen kannst.</p>
+          <p class="muted" data-i18n="trustSub">Schätzung aus dem, was dein Knoten als erledigt meldet. Kunden stufen dich nach ihren eigenen Quittungen und denen ihrer Kontakte ein – Selbstauskünfte zählen dort nicht, bestätigte Reklamationen senken die Stufe.</p>
         </div></div>
           <div class="subpane" data-subpane="earn:host"><div class="card">
           <h3><span class="ic" data-icon="globe"></span> <span data-i18n="hostReward">App verbreiten</span></h3>
@@ -690,6 +690,9 @@
           <label class="mono-sm" style="display:block;margin:8px 0">
             <input type="checkbox" id="kontakte-sichern" /> <span data-i18n="set.kontakteSichern">Kontakte verschlüsselt zwischen Geräten abgleichen (NIP-51)</span></label>
           <p class="mono-sm muted" data-i18n="set.kontakteText">Standard: aus. Die Liste liegt verschlüsselt auf den Relays – sie sehen, dass es sie gibt, nicht, wen sie enthält.</p>
+          <label class="mono-sm" style="display:block;margin:8px 0">
+            <input type="checkbox" id="ruf-teilen" /> <span data-i18n="set.rufTeilen">Meine Erfahrung mit Providern versiegelt mit Kontakten teilen</span></label>
+          <p class="mono-sm muted"><span data-i18n="set.rufTeilenText">Standard: aus. Deine Kontakte erfahren, bei welchen Providern du wie viele Antworten bezahlt hast, in welchem Umfang und mit wie vielen bestätigten Reklamationen – ihre App reiht Provider danach, wie deine es mit ihren Zusammenfassungen tut. Jeder Kontakt bekommt einen eigenen Umschlag an seinen Posteingang, einer nach dem anderen im Abruftakt; Relays sehen nur, dass Kontakte Post bekommen. Als Gerät einer Person teilt die App nicht.</span> <span id="ruf-stand"></span></p>
           <label class="mono-sm" style="display:block;margin:8px 0"><span data-i18n="set.verzoegerungLabel">Direktnachrichten verzögert senden</span>
             <select id="versand-verzoegerung" class="mono-sm">
               <option value="0" data-i18n="set.verzoegerung0">aus – sofort</option>

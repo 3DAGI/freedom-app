@@ -143,6 +143,24 @@ export class LndLightningAdapter implements LightningAdapter {
     return { bolt11: r.payment_request, paymentHash, amountSats };
   }
 
+  /**
+   * Rechnung für eine Lightning-Adresse (LUD-06, Schritt 8.2b): Betrag in msat,
+   * statt einer Notiz der Hash der LNURL-Metadaten – Wallets prüfen, dass er
+   * zu den Metadaten passt, die sie abgefragt haben.
+   */
+  async createLnurlInvoice(
+    amountMsat: number, beschreibungsHash: Uint8Array, gueltigSek = 600,
+  ): Promise<{ bolt11: string; paymentHash: Uint8Array }> {
+    if (!Number.isSafeInteger(amountMsat) || amountMsat <= 0) throw new Error("Betrag muss eine positive ganze Zahl sein");
+    if (beschreibungsHash.length !== 32) throw new Error("Beschreibungs-Hash muss 32 Byte haben");
+    const r = (await this.call("POST", "/v1/invoices", {
+      value_msat: String(amountMsat), description_hash: Buffer.from(beschreibungsHash).toString("base64"), expiry: String(gueltigSek),
+    })) as { r_hash?: string; payment_request?: string };
+    const paymentHash = Uint8Array.from(Buffer.from(r.r_hash ?? "", "base64"));
+    if (paymentHash.length !== 32 || !r.payment_request) throw new Error("LND lieferte keine vollständige Rechnung");
+    return { bolt11: r.payment_request, paymentHash };
+  }
+
   async payHoldInvoice(bolt11: string): Promise<void> {
     // SendPaymentV2 ist ein STREAMING-Endpunkt: LND sendet Status-Updates,
     // bis der Payment final ist. Bei einer Hold-Invoice bleibt der Payment

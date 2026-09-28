@@ -62,6 +62,11 @@ UNGEDECKT = [
     'href="https://github.com"', "Español", "日本語",
 ]
 
+# Die Status-Seite zeigt nur Öffentliches und Freiwilliges (8.15): keine
+# Selbstauskünfte der Provider (38010), nie Quittungen oder ihre
+# Zusammenfassungen (38075), keine alten Angebote (38025).
+DASHBOARD_NIE = ["38010", "38075", "38025", "KIND_PERFORMANCE", "Leistungsnachweis", "worker"]
+
 
 def main() -> int:
     fehler: list[str] = []
@@ -88,6 +93,10 @@ def main() -> int:
         for alt in VERALTET:
             if alt in inhalt:
                 fehler.append(f"{datei}: veraltete Gebühren-Aussage „{alt}“ (Modell A+, 5.1.4d)")
+        if datei == "dashboard.html":
+            for wort in DASHBOARD_NIE:
+                if wort in inhalt + open(os.path.join(BASIS, "js", "dashboard-daten.js"), encoding="utf-8").read():
+                    fehler.append(f"dashboard.html: „{wort}“ – die Status-Seite zeigt nur Öffentliches und Freiwilliges (8.15)")
         for alt in UNGEDECKT:
             if alt in inhalt:
                 fehler.append(f"{datei}: Aussage, die der Code nicht deckt: „{alt}“ (0.F)")

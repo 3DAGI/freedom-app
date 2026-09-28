@@ -38,6 +38,7 @@ import {
 import { aktualisiereKurs, aktuellerKurs } from "../marktkurs.js";
 import { geheim } from "../tresor.js";
 import { beiFunkAntwort, sendeKiUeberFunk } from "../ki-ueber-funk.js";
+import { quittungNachKanal, quittungNachZahlung } from "../quittungen.js";
 import { deklaration, empfaengerFuer, kanalAntwort, kanalGutschrift, merkeAnfrage, perKanal, providerZahlung, rechneAntwortAb, zahleAnteile } from "../ki-zahlung.js";
 import { hoechstMsat } from "../../anteile-kasse.js";
 import {
@@ -911,6 +912,8 @@ async function handleAnswer(ev: import("@freedomstack/protocol").NostrEvent, r: 
   if (kanal || !abrechnung) {
     // Zahlkanal: nur den Preis verbuchen – Lightning zahlt hier nichts
     await kanalAntwort(r.requestId, r.amountLamports);
+    // Quittung (5.5b): angekündigt, bis die Kette die Auszahlung zeigt
+    void quittungNachKanal(r.providerPubkey, r.requestId, r.amountLamports);
     if (r.amountLamports) toast(t("zahl.kanalBezahlt", { betrag: solText(r.amountLamports) }));
     void refreshQuota();
     resetSendBtn($("#ai-send") as HTMLButtonElement);
@@ -920,6 +923,8 @@ async function handleAnswer(ev: import("@freedomstack/protocol").NostrEvent, r: 
   // Den Anteil des Providers zahlt die Sitzung an seine Lightning-Adresse (5.1.3)
   const { zahlung, grund } = await providerZahlung(r.providerPubkey);
   const charge = await sc.chargeForResult(r.providerPubkey, abrechnung.providerMsat, ev.id, zahlung);
+  // Quittung (5.5b): erst mit bezahlter Rechnung und Preimage – über alle Antworten seit der letzten Zahlung
+  void quittungNachZahlung(r.providerPubkey, abrechnung.providerMsat, charge);
   updateBudgetBar();
   if (abrechnung.gekappt) toast(t("agent.providerVerlangte", { sats: Math.ceil(r.amountMsat / 1000) }), true);
   if (abrechnung.providerMsat === 0) {

@@ -3,7 +3,7 @@ import type { Texte } from "../i18n.js";
 
 export const profil: Texte = {
   trustLevel: { de: "Vertrauensstufe", en: "Trust level" },
-  trustSub: { de: "Wächst mit erledigten Jobs. Sie bestimmt, welche Stufe du bedienen kannst.", en: "Earned through completed jobs. It decides which tier you can serve." },
+  trustSub: { de: "Schätzung aus dem, was dein Knoten als erledigt meldet. Kunden stufen dich nach ihren eigenen Quittungen und denen ihrer Kontakte ein – Selbstauskünfte zählen dort nicht, bestätigte Reklamationen senken die Stufe.", en: "Estimate from what your node reports as completed. Customers rank you by their own receipts and their contacts' – self-reports don't count there, upheld complaints lower the tier." },
   // Seite (8.16f)
   "profil.teilen": { de: "Teilen", en: "Share" },
   "profil.bearbeiten": { de: "Profil bearbeiten", en: "Edit profile" },

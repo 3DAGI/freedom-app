@@ -2,11 +2,14 @@
  * Provider-Matchmaking + Failover (App-Seite).
  *
  * Der Client waehlt automatisch den besten Provider — KEIN manuelles pubkey
- * mehr. Quelle: PROVIDER_CAPABILITIES (38025) + Reputation (38010/WoT).
+ * mehr. Quelle: PROVIDER_CAPABILITIES (38027) + Ruf aus eigenen Quittungen und
+ * den Zusammenfassungen der Kontakte (5.5, `berechneRuf()`). Leistungs-Events
+ * (38010) zaehlen seit 5.5b nicht mehr – Selbstauskuenfte lassen sich faelschen.
  *
  * Auswahl-Logik:
- *   1. Filter nach gewuenschtem Tier (tierSatisfies)
- *   2. Sortierung: Reputation (jobsCompleted/trustScore) absteigend,
+ *   1. Filter nach gewuenschtem Tier (tierSatisfies) auf die Stufe: das Angebot,
+ *      durch Quittungen hoeher, durch bestaetigte Reklamationen tiefer
+ *   2. Sortierung: Provider mit Ruf vor ungeprueften, Ruf absteigend,
  *      dann Preis aufsteigend
  *   3. Failover: antwortet der beste nicht in timeoutMs -> naechster
  *
@@ -21,60 +24,55 @@ import {
   tierSatisfies,
   recommendedTier,
   KIND_PROVIDER_CAPABILITIES,
-  KIND_PERFORMANCE,
-  parsePerformance,
+  type Ruf,
 } from "@freedomstack/protocol";
 
 export interface ScoredProvider {
   caps: ProviderCapabilities;
   trustScore: number;
   jobsCompleted: number;
-  /** Empfohlenes Tier aus Reputation (Client-Filter). */
+  /** Stufe (Client-Filter): das Angebot, durch Quittungen hoeher, durch bestaetigte Reklamationen tiefer. */
   repTier: ProviderTier;
   score: number;
+  /** Gibt es Quittungen (eigene oder von Kontakten)? Ohne sie ist der Provider ungeprueft. */
+  geprueft: boolean;
+  /** Bestaetigte Reklamationen (eigene, von Kontakten zur Haelfte). */
+  reklamationen: number;
+}
+
+const RANG: Record<ProviderTier, number> = { free: 1, classic: 2, pro: 3 };
+
+/**
+ * Stufe aus dem Ruf (5.5b): ohne Quittungen das, was der Provider anbietet;
+ * Quittungen koennen sie heben, nur bestaetigte Reklamationen senken – sonst
+ * saenke eine einzige bezahlte Antwort einen neuen Provider unter sein Angebot.
+ */
+export function stufeAusRuf(angebot: ProviderTier, ruf: Ruf | undefined): ProviderTier {
+  if (!ruf) return angebot;
+  const verdient = recommendedTier({ trustScore: ruf.vertrauen, jobsCompleted: Math.round(ruf.auftraege), inBootstrap: false });
+  if (ruf.reklamationen > 0) return RANG[verdient] < RANG[angebot] ? verdient : angebot;
+  return RANG[verdient] > RANG[angebot] ? verdient : angebot;
 }
 
 /**
- * Laedt alle Provider-Capabilities + baut Reputation aus 38010-Events.
- * Dezentral: alles aus oeffentlichen Relays, kein Server.
+ * Laedt alle Provider-Angebote und ordnet ihnen den Ruf zu – nur aus eigenen
+ * Quittungen und den Zusammenfassungen der Kontakte (`ruf`, 5.5b). Was ein
+ * Provider ueber sich selbst veroeffentlicht (38010), fragt die App nicht ab.
  */
-export async function discoverProviders(pool: OutboxPool): Promise<ScoredProvider[]> {
+export async function discoverProviders(pool: OutboxPool, ruf: ReadonlyMap<string, Ruf> = new Map()): Promise<ScoredProvider[]> {
   const capsEvents = await pool.query({ kinds: [KIND_PROVIDER_CAPABILITIES], limit: 200 });
-  const perfEvents = await pool.query({ kinds: [KIND_PERFORMANCE], limit: 1000 });
-
-  // Reputation aggregieren: jobs + letzter aktiver Zeitpunkt pro worker
-  const jobs = new Map<string, number>();
-  const lastActive = new Map<string, number>();
-  for (const ev of perfEvents) {
-    try {
-      const p = parsePerformance(ev);
-      jobs.set(p.workerPubkey, (jobs.get(p.workerPubkey) ?? 0) + 1);
-      lastActive.set(p.workerPubkey, Math.max(lastActive.get(p.workerPubkey) ?? 0, ev.created_at));
-    } catch {
-      /* ungueltig */
-    }
-  }
 
   const now = Math.floor(Date.now() / 1000);
   const out: ScoredProvider[] = [];
   for (const ev of capsEvents) {
     try {
       const caps = parseCapabilities(ev);
-      const jobsCompleted = jobs.get(caps.pubkey) ?? 0;
-      // Einfacher Trust-Score: jobs*2, Bonus wenn kuerzlich aktiv, Cap bei 100.
-      // (WoT-Gewichtung kaeme oben drauf; v1: Aktivitaets-basiert.)
-      const recency = lastActive.get(caps.pubkey) ?? 0;
-      const recentBonus = now - recency < 86400 ? 10 : 0;
-      const trustScore = Math.min(100, jobsCompleted * 2 + recentBonus);
-      const inBootstrap = caps.currentlyFree && jobsCompleted < 10;
-      const repTier = recommendedTier({ trustScore, jobsCompleted, inBootstrap });
+      const r = ruf.get(caps.pubkey);
+      const trustScore = r?.vertrauen ?? 0;
+      const jobsCompleted = Math.round(r?.auftraege ?? 0);
+      const repTier = stufeAusRuf(caps.tier, r);
 
-      // NEU: Provider ohne aktuelle Aktivitaet (letzte 7 Tage) aussortieren.
-      // Verhindert dass "tote" Provider mit altem Trust-Score Anfragen abfangen.
-      const isStale = now - recency > 7 * 86400 && jobsCompleted > 0;
-      if (isStale) continue;
-
-      // NEU: Capabilities-Event muss frisch sein (letzte 24h), sonst veraltet.
+      // Das Angebot muss frisch sein (letzte 24h) – der Knoten erneuert es alle 30 min.
       // Verhindert dass alte Events von nicht mehr laufenden Providern dominieren.
       const capsAge = now - ev.created_at;
       if (capsAge > 86400) continue;
@@ -91,8 +89,10 @@ export async function discoverProviders(pool: OutboxPool): Promise<ScoredProvide
         trustScore,
         jobsCompleted,
         repTier,
-        // Gesamt-Score: Trust dominierend, dann Jobs
-        score: trustScore * 10 + jobsCompleted,
+        // Gesamt-Score: Ruf dominierend, dann Auftraege; ungepruefte hinter allen mit Ruf
+        score: r ? trustScore * 10 + jobsCompleted : -1,
+        geprueft: !!r,
+        reklamationen: r?.reklamationen ?? 0,
       });
     } catch {
       /* ungueltiges caps-event */
@@ -111,13 +111,16 @@ export function matchProviders(
   opts: { model?: string; maxResults?: number; minTrust?: number; allowlist?: string[] } = {},
 ): ScoredProvider[] {
   const max = opts.maxResults ?? 5;
-  // Scam-filter: free=0 (neue provider koennen providen), classic/pro brauchen trust.
-  // ABER: allowlist (eigene provider) immer erlaubt, egal welcher trust.
+  // Scam-Filter: Wer bestaetigte Reklamationen hat, braucht fuer classic/pro
+  // Vertrauen. Ohne Reklamation zaehlt das Angebot – sonst stuende ein einmal
+  // bezahlter Provider hinter einem unbekannten. Ungepruefte (keine Quittungen)
+  // bleiben waehlbar, sonst faende ein neuer Nutzer keinen; sie stehen hinten
+  // (score -1). Die Allowlist (eigene Provider) ist immer erlaubt.
   const minTrust = opts.minTrust ?? (wantedTier === "free" ? 0 : 10);
   const allow = new Set(opts.allowlist ?? []);
   return providers
     .filter((p) => tierSatisfies(p.repTier, wantedTier))
-    .filter((p) => allow.has(p.caps.pubkey) || p.trustScore >= minTrust)
+    .filter((p) => allow.has(p.caps.pubkey) || p.reklamationen === 0 || p.trustScore >= minTrust)
     .filter((p) => (opts.model ? p.caps.models.includes(opts.model) : true))
     .sort((a, b) => {
       // allowlist zuerst, dann score absteigend

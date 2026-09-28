@@ -182,7 +182,8 @@ export function tierSatisfies(offered: ProviderTier, wanted: ProviderTier): bool
 
 /**
  * Berechnet das empfohlene Tier aus Reputation (Client-Filter).
- * Nicht zentral erzwungen — nur eine Empfehlung auf Basis oeffentlicher Daten.
+ * Nicht zentral erzwungen — nur eine Empfehlung; die App fuettert sie seit 5.5b
+ * nur mit dem Ruf aus Quittungen (`berechneRuf()`), nie mit Selbstauskuenften.
  *
  *   pro:     trustScore >= 70 UND >= 50 Jobs UND nicht in Bootstrap
  *   classic: trustScore >= 20 ODER >= 10 Jobs (Bootstrap bestanden)

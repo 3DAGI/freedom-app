@@ -15,7 +15,7 @@
  * nach einem unklaren Ausgang kann nicht doppelt kassieren.
  */
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
-import { dirname } from "node:path";
+import { dirname, join } from "node:path";
 import { SolAuszahlung } from "./sol-auszahlung.js";
 import type { TransactionInstruction } from "@solana/web3.js";
 import {
@@ -227,6 +227,16 @@ export interface KanalUmgebung {
   RELAYER_ENABLED?: string;
 }
 
+/** Wo der Knoten den Stand der Kanäle ablegt und wo er den Schlüssel sonst sucht. */
+export function kanalOrte(home = process.env.HOME ?? "."): { datei: string; standardSchluessel: string } {
+  return { datei: join(home, ".freedom", "kanaele.json"), standardSchluessel: join(home, ".config", "solana", "id.json") };
+}
+
+/** Nutzen LP oder Relayer denselben Schlüssel (`SOLANA_KEYPAIR`)? Dann keine Auszahlung (4.5a). */
+export function teiltSchluessel(env: KanalUmgebung): boolean {
+  return (env.LP_ENABLED === "1" && env.LP_SOL_MOCK !== "1") || env.RELAYER_ENABLED === "1";
+}
+
 /**
  * Die Kasse aus der Umgebung des Knotens (4.3c): nur mit `ZAHLKANAL=1` und nur,
  * wenn der Schlüssel aus `SOLANA_KEYPAIR` zur Adresse `NODE_SOL_ADDRESS` passt –
@@ -269,7 +279,7 @@ export async function kanalKasseAusUmgebung(
   });
   if (!env.NODE_SOL_PAYOUT) return { kasse, auszahlungGrund: "aus (NODE_SOL_PAYOUT setzen)" };
   // Das Guthaben dieses Schlüssels ist dann Liquidität des LP bzw. Vorrat des Relayers – nicht wegschieben
-  if ((env.LP_ENABLED === "1" && env.LP_SOL_MOCK !== "1") || env.RELAYER_ENABLED === "1") {
+  if (teiltSchluessel(env)) {
     return { kasse, auszahlungGrund: "aus – LP oder Relayer nutzen denselben Schlüssel (SOLANA_KEYPAIR)" };
   }
   const lamports = (w: string | undefined): bigint | undefined => (zahl(w) !== undefined ? BigInt(w!) : undefined);

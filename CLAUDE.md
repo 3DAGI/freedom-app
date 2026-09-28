@@ -44,9 +44,9 @@ bash packages/mls/bauen.sh --pruefen                     # nur bei Änderungen a
 bash contracts/solana-channel/pruefen.sh --werkzeuge     # nur bei Änderungen am Zahlkanal: bauen + Tests gegen Validator (Agave 3.1.10)
 ```
 
-Stand 28.09.2026 (nach 4.5b, 7.4c3 und C.3a1): protocol 1082 grün (6 übersprungen), node 245 grün
+Stand 28.09.2026 (nach 8.2c, 5.5a–c, 8.15 und C.3a1): protocol 1089 grün (6 übersprungen), node 260 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 551 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 59 grün + 1 `todo` (heutige Lecks,
+in `tools.test.ts`), app 571 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 62 grün + 1 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
 Ausnahme: gesendete SOL-Zahlungen von frischen Adressen, eine bewusste Grenze
 nach Entscheidung 4.9 A – im Datenschutzbericht unter „Bewusste Grenzen“).
@@ -603,3 +603,47 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   Attrappe aus der Abfrage der eigenen Relay-Listen (Kind 10002, ein Autor);
   die App zeigt ihn nirgends ganz. Der Raum erscheint erst im Raum-Modus
   (`setzeKommModus("space")`), mobil nur mit `.showing-channel`.
+- **Ruf nur aus Quittungen** (seit 5.5a, `quittung.ts`): Eine Quittung gibt es
+  nur mit Nachweis nach 4.8 – Lightning: Rechnung + Preimage
+  (`lightningQuittung()`, „belegt“ nur beim angekündigten Knoten), Zahlkanal:
+  Preis + deckende Gutschrift (`kanalQuittung()`, „belegt“ erst über
+  `kanalBelegt()` mit der Auszahlung auf der Kette). Quittungen nur im Tresor,
+  nie auf ein Relay. Rang und Stufe nur aus `berechneRuf()` (eigene Quittungen,
+  Zusammenfassungen von Kontakten) – 38010 und andere Selbstauskünfte zählen
+  nicht. Die Zusammenfassung (38075) nur versiegelt über
+  `baueRufUmschlaege()`, gelesen nur von Kontakten (`oeffneRufUmschlag()`).
+  In der App (seit 5.5b) nur über `shell/quittungen.ts`: Quittungsbuch
+  `freedom.quittungen` in `geheim` (in `SICHERUNG_NIE`), angelegt in
+  `handleAnswer()` – je Stelle ein Aufruf; Provider-Auswahl nur mit
+  `discoverProviders(pool, aktuellerRuf())`. 38010 nie für Rang, Stufe oder
+  Relay-Gewicht abfragen. Ungeprüfte Provider bleiben wählbar, stehen aber
+  hinten; die Vertrauensschwelle gilt nur bei bestätigten Reklamationen – sonst
+  stünde ein einmal bezahlter hinter einem unbekannten. Zusammenfassungen
+  (seit 5.5c) nur über `RufVersand` (`ruf-teilen.ts`, `shell/ruf.ts`): nur mit
+  Zustimmung (`freedom.ruf.teilen`), je Schlag des Abruftakts höchstens ein
+  Umschlag, an den Posteingang des Kontakts, als Gerät nie; empfangen nur über
+  `alsRufZusammenfassung()` am Ende der Kette in `oeffneUmschlag()`, gemerkt in
+  `freedom.ruf.kontakte` (Tresor, `SICHERUNG_NIE`). Die Status-Seite der
+  Website (seit 8.15) wertet nur über `website/js/dashboard-daten.js` aus:
+  Angebote nach Erneuerung, Kataloge, Abdeckung über der Schwelle,
+  Nennungen als Summe – nie 38010, nie 38075, keine Rangliste
+  (`check-website.py` prüft das).
+  Nie eine öffentliche Rangliste; die Prüferwahl (`netzPruefer()`) bleibt ohne Ruf.
+- **Provider-Einrichtung nur geprüft** (seit 8.2a): Was ein Provider zum
+  Verdienen braucht, prüft `pruefeEinrichtung()` (`node/src/einrichtung.ts`) –
+  beim Start ins Log (`[einrichtung]`) und über `npm run pruefen` (Installer,
+  Docker). Neue Voraussetzungen dort ergänzen, nicht nur im Installer; nach
+  außen nur eigene Texte und Fehlernamen. Im Installer Eingaben nur als
+  Argumente an `node` geben, nie in den Code einsetzen; Schlüsseldateien mit
+  `umask 077` anlegen. Leere Werte aus der Umgebungsdatei (`SOLANA_RPC_URL=`)
+  mit `||` behandeln, nicht mit `??`.
+  Eigener Lightning-Empfang (seit 8.2b) nur über `LnurlDienst`
+  (`lnurl-server.ts`): LND nur mit einer Macaroon für Rechnungen
+  (`pruefeRelayMacaroon()`), Rechnung mit `createLnurlInvoice()` (Hash der
+  Metadaten, LUD-06), Beträge nur als ganze msat im Bereich, Bremse je Minute,
+  nach außen feste Texte. Kein Backend bei einem verwahrenden Dienst (Blink fiel
+  mit 8.2b).
+  Tor (seit 8.2c): Relay-Verbindungen des Knotens entstehen nur an einer Stelle
+  (`main.ts`, `new WebSocketRelay(url, { verbinde })` mit `torWebSocket()`) – keine
+  weitere ohne `verbinde`, ein Test zählt das. SOCKS5 nur mit Namen
+  (Adresstyp 3), nie lokal auflösen; ungültiges `TOR_SOCKS` → kein Start.

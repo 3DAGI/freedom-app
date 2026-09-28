@@ -38,6 +38,7 @@ import { buildStateBackup, deriveBackupKey, waehleSicherung } from "../src/state
 import { baueStueckAbruf } from "../src/blob.js";
 import { regelMlsGruppe } from "../src/leak-rules.js";
 import { baueRaumMeldung, raumDefinition, raumNachricht } from "../src/raum-gruppe.js";
+import { baueRufUmschlaege } from "../src/quittung.js";
 import { fromHex, toHex } from "../src/htlc.js";
 import type { NostrEvent, UnsignedEvent } from "../src/event.js";
 import { readFileSync } from "node:fs";
@@ -349,6 +350,17 @@ const SZENARIEN: Record<string, () => Promise<number>> = {
     const mit = kopien.map((ev, i) => ({ ev, zeitMs: 1_000_000 + zufallsVerzoegerung(30_000, () => werte[i]!) }));
     const ohne = kopien.map((ev) => ({ ev, zeitMs: 1_000_000 + zufallsVerzoegerung(0) }));
     return regelKopienEntkoppelt(mit).length + (regelKopienEntkoppelt(ohne).length === kopien.length - 1 ? 0 : 1);
+  },
+  "ruf-kontakte": async () => {
+    // Wie die App seit 5.5c (ruf-teilen.ts): je Kontakt ein Umschlag, nacheinander im Abruftakt (15–45 s Abstand)
+    const [k1, k2] = [generateKeypair().pk, generateKeypair().pk];
+    const provider = "e5".repeat(32);
+    const zeilen = [{ provider, auftraege: 12, belegt: 3, umfangMsat: 421_000, umfangLamports: 9_876_543, reklamationen: 1 }];
+    const wraps = await baueRufUmschlaege({ von: new LocalSigner(a.sk), an: [k1, k2], zeilen });
+    if (wraps.length !== 2) return 1;
+    const gesendet = wraps.map((ev, i) => ({ ev, zeitMs: 1_000_000 + i * 15_000 }));
+    return regelAutorNicht(wraps, a.pk).length + regelKeinKlartext(wraps, [provider, "421000", "9876543"]).length
+      + regelPTagsNur(wraps, [k1, k2]).length + regelKeineZahlungsdaten(wraps).length + regelKopienEntkoppelt(gesendet).length;
   },
   "raum-meldung": async () => {
     // Wie die App seit 8.5 meldet: je Moderator ein Umschlag, nie in die Gruppe, nie offen

@@ -185,6 +185,43 @@
   die Wurzel ist der Nutzer, nicht das Projekt. Ranglisten nur opt-in.
 - **Abnahme:** Test: gefälschte Leistungs-Events ohne Quittung ändern Stufe und
   Rang nicht.
+- **Entschieden (Spur A für Spur B, 28.09.):** Quittung = Beleg nach 4.8, nur im
+  Tresor; Zusammenfassung je Provider nur versiegelt an Kontakte; 38010 zählt
+  nicht mehr; nie eine öffentliche Rangliste, die Prüferwahl bleibt „nur
+  eigenes Netz“. Mit 8.15 (Dashboard nur aus Öffentlichem).
+- **Aufteilung:**
+  - **5.5a – FERTIG:** Protokoll `quittung.ts` – `lightningQuittung()` (belegt nur
+    beim angekündigten Knoten, sonst angekündigt), `kanalQuittung()` +
+    `kanalBelegt()` (belegt ab der Auszahlung auf der Kette), `leseQuittung()`;
+    Zusammenfassung 38075 (`fasseZusammen()`, `baueRufUmschlaege()`,
+    `oeffneRufUmschlag()` – nur von Kontakten); `berechneRuf()` nur aus
+    Quittungen und Zusammenfassungen. Format in `docs/PROTOCOL.md` §17.
+  - **5.5b – FERTIG:** App – Quittungsbuch im Tresor (`quittungsbuch.ts`,
+    `freedom.quittungen`, in `SICHERUNG_NIE`), angelegt in `handleAnswer()` über
+    `shell/quittungen.ts` (Lightning nach der Zahlung – eine Quittung über alle
+    Antworten seit der letzten; Zahlkanal nach `kanalAntwort()`, angekündigt,
+    im Abruftakt mit `kanalAufKette().ausgezahlt` gehoben). Rang und Stufe in
+    `matchmaking.ts` nur aus `berechneRuf()` (`stufeAusRuf()`: Angebot, Quittungen
+    heben, nur bestätigte Reklamationen senken; ungeprüfte hinten), die
+    Relay-Suche wiegt nur Relay-Listen Bezahlter schwerer; 38010 fragt die App
+    dafür nicht mehr ab. Der Knoten veröffentlicht 38010 weiter – nur für die
+    eigene Einnahmen-Ansicht und die Abzeichen. Abnahme mit 300 gefälschten
+    Leistungs-Events (`app/test/quittungen.test.ts`).
+  - **5.5c – FERTIG:** App – Zusammenfassungen an Kontakte nur mit Zustimmung
+    (Settings → Datenschutz, `freedom.ruf.teilen`), je Schlag des Abruftakts
+    höchstens ein Umschlag an den Posteingang eines Kontakts (`RufVersand`,
+    `ruf-teilen.ts`), neuer Stand höchstens einmal am Tag, als Gerät nie;
+    empfangen am Ende der Kette in `oeffneUmschlag()`
+    (`alsRufZusammenfassung()`), nur von Kontakten, je Kontakt die neueste im
+    Tresor (`freedom.ruf.kontakte`) – sie fließen in `aktuellerRuf()` ein.
+    Datenschutz-Aussage „ruf-kontakte“ mit Szenario, Leak-Szenario
+    `app/test/leak/ruf.test.ts`, FAQ „Woran erkennt die App einen guten
+    Provider?“.
+  - **8.15 – FERTIG:** Dashboard nur aus Öffentlichem und Freiwilligem –
+    Angebote nach Erneuerung (keine Rangliste), Modelle, Kataloge, Abdeckung
+    über der Schwelle, Werbe-Nennungen nur als Summe; Auswertung in
+    `website/js/dashboard-daten.js` mit Test, `check-website.py` weist
+    Selbstauskünfte (38010) und Quittungen (38075) auf der Seite ab.
 
 ## 5.6 Streitfall-Prüfer subjektiv
 

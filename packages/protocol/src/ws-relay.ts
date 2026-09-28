@@ -27,6 +27,11 @@ export interface WebSocketRelayOptions {
    * Verbindung ist.
    */
   anmelden?: (relayUrl: string, challenge: string) => Promise<NostrEvent | null>;
+  /**
+   * Eigene Verbindung statt des eingebauten WebSocket (8.2c) – der Knoten
+   * geht so über Tor (`torWebSocket()` in `packages/node/src/tor.ts`).
+   */
+  verbinde?: (url: string) => WebSocket;
 }
 
 export class WebSocketRelay implements Relay {
@@ -62,6 +67,7 @@ export class WebSocketRelay implements Relay {
 
   private readonly autoReconnect: boolean;
   private readonly anmelden?: WebSocketRelayOptions["anmelden"];
+  private readonly verbinde?: WebSocketRelayOptions["verbinde"];
   /** Je Verbindung: letzte Challenge, laufende Anmeldung, schon nach Anmeldung Wiederholtes. */
   private challenge: string | null = null;
   private anmeldung: Promise<boolean> | null = null;
@@ -76,6 +82,7 @@ export class WebSocketRelay implements Relay {
     // wie "es kommen keine Jobs".
     this.autoReconnect = opts.autoReconnect ?? true;
     this.anmelden = opts.anmelden;
+    this.verbinde = opts.verbinde;
   }
 
   private connect(): Promise<void> {
@@ -83,7 +90,7 @@ export class WebSocketRelay implements Relay {
     if (this.connectPromise) return this.connectPromise;
 
     this.connectPromise = new Promise<void>((resolve, reject) => {
-      const ws = new WebSocket(this.url);
+      const ws = this.verbinde ? this.verbinde(this.url) : new WebSocket(this.url);
       this.ws = ws;
       const timer = setTimeout(() => reject(new Error(`Connect-Timeout: ${this.url}`)), this.timeoutMs);
 

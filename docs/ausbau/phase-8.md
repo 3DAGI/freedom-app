@@ -19,8 +19,27 @@ Reihenfolge.
 | 8.12 | Zustandssicherung | `state-backup.ts` | MLS-Zustand bewusst ausnehmen (Forward Secrecy); neue Geräte treten neu bei | Wiederherstellung ohne Klartext auf Relays | – |
 | 8.13 | Lokale Suche | `local-search.ts` | Index verschlüsselt in IndexedDB | 10.000 Nachrichten flüssig durchsuchbar, nichts im Klartext | – |
 | 8.14 | Notfall-Löschung | `duress.ts` | rechtlicher Hinweis direkt in der Funktion | Löschen entfernt nachweislich alle lokalen Daten | – |
-| 8.15 | Dashboard | `packages/website/dashboard.html` | nur Quittungen und freiwillige Angaben | keine Selbstauskünfte mehr | – |
+| 8.15 | Dashboard – FERTIG (mit 5.5, Spur B) | `packages/website/dashboard.html` | nur Öffentliches und Freiwilliges (Entscheidung 28.09.: Quittungen nie – sie liegen nur im Tresor der Kunden) | keine Selbstauskünfte mehr | – |
 | 8.16 | Übersetzungen | `i18n.ts` | alle acht Sprachen vollständig oder weniger Sprachen | ein Test findet keinen fehlenden oder rohen Schlüssel | Muttersprachler prüfen |
+
+## 8.2 Provider-Knoten – Aufteilung
+
+> Aufgeteilt am 28.09.2026 (Spur A, nach „Entscheide du“ des MENSCHEN):
+> **a** Selbstprüfung und Installer für beide Schienen ✓ – `einrichtung.ts`
+> prüft, was die App zum Bezahlen braucht (Lightning-Adresse mit https-Callback,
+> CORS, kleine Beträge, eine echte Rechnung; Zahlkanal-Schlüssel, Programm auf
+> der Kette, SOL für Gebühren, Auszahlung), beim Start ins Log und als
+> `npm run pruefen`; der Installer legt den SOL-Schlüssel des Knotens an
+> (Datei 600), fragt die Auszahlungsadresse, schreibt beide Schienen in die
+> Umgebung und prüft am Ende. **b** eigener Lightning-Empfang ✓: der alte
+> `lnurl-server.ts` (Treasury, Blink) ist jetzt die Lightning-Adresse des
+> Providers beim eigenen LND (nur `invoices`-Macaroon, Beschreibung = Hash der
+> Metadaten, feste Fehlertexte, Betrag geprüft, Bremse) – statt eines
+> verwahrenden Dienstes; Anleitung `docs/PROVIDER.md`. **c** Tor ✓: alle
+> Relay-Verbindungen des Knotens über SOCKS5 (`tor.ts`, ohne neue Abhängigkeit;
+> den Namen löst Tor auf, .onion geht; ungültig → kein Start, Tor weg → keine
+> Verbindung), der eigene Relay als Onion-Dienst (Anleitung). **8.2 im Code
+> fertig**; offen nur MENSCH: mit einem echten Provider testen.
 
 ## 8.16 Übersetzungen – Aufteilung
 
