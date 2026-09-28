@@ -44,6 +44,7 @@
  *    gesehen hat, ist erst mit Zeitzeugen (5.10) geschützt.
  */
 import { NostrEvent, UnsignedEvent, buildEvent, getTag } from "./event.js";
+import { ProtokollFehler } from "./fehler.js";
 
 /** Vorab signiertes Mandat: „dieser Schlüssel darf mich ablösen." */
 export const KIND_ROTATION_MANDATE = 38067;
@@ -73,7 +74,7 @@ export function buildRotationMandate(
   createdAt?: number,
 ): UnsignedEvent {
   if (oldPubkey === newPubkey) {
-    throw new Error("Der Nachfolger darf nicht derselbe Schlüssel sein.");
+    throw new ProtokollFehler("nachfolger-selbst", "Der Nachfolger darf nicht derselbe Schlüssel sein.");
   }
   return buildEvent(
     oldPubkey,

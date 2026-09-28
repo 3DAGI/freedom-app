@@ -31,6 +31,7 @@ import {
   ALL_PERMISSIONS, KIND_CHANNEL_MESSAGE, KIND_ROLE_GRANT, KIND_SPACE, KIND_SPACE_ROLES,
   type Channel, type Permission, type Role, type SpaceState, buildRoleGrant, buildRoles, buildSpace, canWriteTo, parseRoles, parseSpace,
 } from "./spaces.js";
+import { ProtokollFehler } from "./fehler.js";
 
 /** Chat-Nachricht (Marmot, Kind 9) – im Raum mit dem Kanal im h-Tag. */
 export const ART_RAUM_CHAT = 9;
@@ -230,7 +231,7 @@ export async function baueRaumMeldung(p: {
   if (!MELDE_GRUENDE.includes(p.grund)) throw new Error("Grund ungültig");
   const ich = p.von.publicKey();
   const an = [...new Set(p.moderatoren)].filter((m) => HEX64.test(m) && m !== ich);
-  if (an.length === 0) throw new Error("kein Moderator außer dir");
+  if (an.length === 0) throw new ProtokollFehler("kein-moderator", "kein Moderator außer dir");
   const now = p.nowSecs ?? Math.floor(Date.now() / 1000);
   const kern: UnsignedEvent = {
     pubkey: ich, kind: KIND_RAUM_MELDUNG, created_at: now,

@@ -9,6 +9,7 @@
  */
 import { type NostrEvent, type UnsignedEvent, buildEvent, getTag } from "./event.js";
 import type { Signer } from "./signer.js";
+import { ProtokollFehler } from "./fehler.js";
 
 export const KIND_KONTAKTLISTE = 30000;
 /** d-Tag der Liste – ein Name, kein Inhalt. */
@@ -24,7 +25,7 @@ export interface Kontakt {
 
 /** Liste bauen: alle Eintraege verschluesselt an den eigenen Schluessel. */
 export async function buildPrivateKontaktliste(kontakte: readonly Kontakt[], signer: Signer, nowSecs?: number): Promise<UnsignedEvent> {
-  if (kontakte.length > MAX_KONTAKTE) throw new Error(`Höchstens ${MAX_KONTAKTE} Kontakte`);
+  if (kontakte.length > MAX_KONTAKTE) throw new ProtokollFehler("kontakte-max", `Höchstens ${MAX_KONTAKTE} Kontakte`, { max: MAX_KONTAKTE });
   const eintraege = kontakte.map((k) => {
     if (!HEX64.test(k.pk)) throw new Error("Kontakt-Pubkey ungültig (64 Zeichen hex erwartet)");
     return ["p", k.pk, "", k.name.slice(0, MAX_NAME)];
@@ -47,9 +48,9 @@ export async function oeffnePrivateKontaktliste(ev: NostrEvent, signer: Signer):
   try {
     roh = JSON.parse(await signer.nip44Decrypt(selbst, ev.content));
   } catch {
-    throw new Error("Kontaktliste nicht lesbar");
+    throw new ProtokollFehler("kontakte-unlesbar", "Kontaktliste nicht lesbar");
   }
-  if (!Array.isArray(roh)) throw new Error("Kontaktliste beschädigt");
+  if (!Array.isArray(roh)) throw new ProtokollFehler("kontakte-kaputt", "Kontaktliste beschädigt");
   const gesehen = new Set<string>();
   const kontakte: Kontakt[] = [];
   for (const t of roh.slice(0, MAX_KONTAKTE)) {

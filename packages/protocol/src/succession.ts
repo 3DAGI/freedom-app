@@ -34,6 +34,7 @@
 import { NostrEvent, UnsignedEvent, buildEvent, getTag } from "./event.js";
 import { sha256 } from "@noble/hashes/sha2.js";
 import { bytesToHex } from "@noble/hashes/utils.js";
+import { ProtokollFehler } from "./fehler.js";
 
 /** Lebenszeichen des Besitzers. */
 export const KIND_HEARTBEAT = 38063;
@@ -86,9 +87,9 @@ export interface Share {
  * „schwer zu berechnen", sondern nichts.
  */
 export function splitSecret(secret: Uint8Array, n: number, k: number): Share[] {
-  if (k < 2) throw new Error("Schwelle muss mindestens 2 sein — bei 1 genügt ein Vertrauter allein.");
-  if (n < k) throw new Error(`${n} Teile reichen für eine Schwelle von ${k} nicht.`);
-  if (n > 255) throw new Error("Höchstens 255 Teile.");
+  if (k < 2) throw new ProtokollFehler("schwelle-min", "Schwelle muss mindestens 2 sein — bei 1 genügt ein Vertrauter allein.");
+  if (n < k) throw new ProtokollFehler("teile-zu-wenig", `${n} Teile reichen für eine Schwelle von ${k} nicht.`, { n, k });
+  if (n > 255) throw new ProtokollFehler("teile-max", "Höchstens 255 Teile.");
 
   const shares: Share[] = Array.from({ length: n }, (_, i) => ({
     index: i + 1,
@@ -113,11 +114,11 @@ export function splitSecret(secret: Uint8Array, n: number, k: number): Share[] {
 
 /** Setzt das Geheimnis aus k Teilen wieder zusammen. */
 export function combineShares(shares: Share[]): Uint8Array {
-  if (shares.length < 2) throw new Error("Mindestens zwei Teile nötig.");
+  if (shares.length < 2) throw new ProtokollFehler("teile-mindestens", "Mindestens zwei Teile nötig.");
   const len = shares[0].data.length;
-  if (shares.some((s) => s.data.length !== len)) throw new Error("Teile haben verschiedene Längen.");
+  if (shares.some((s) => s.data.length !== len)) throw new ProtokollFehler("teile-laengen", "Teile haben verschiedene Längen.");
   if (new Set(shares.map((s) => s.index)).size !== shares.length) {
-    throw new Error("Doppelte Teile — sie tragen nichts bei.");
+    throw new ProtokollFehler("teile-doppelt", "Doppelte Teile — sie tragen nichts bei.");
   }
 
   const out = new Uint8Array(len);

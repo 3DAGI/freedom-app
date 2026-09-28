@@ -154,10 +154,15 @@ Reihenfolge.
       Fehler des Wallets, Zeitüberschreitung), Zahlschienen (Ziel, Einheit,
       offline, keine Wallet), Beträge und Tageslimit, Zahlkanal, SOL ohne
       Internet, Rück-Swap, SOL-Trinkgeld, Zustandssicherung zu groß.
-    - **8.16i2:** Identität und Inhalte – Bunker (NIP-46), Repos (NIP-34),
-      Modellkataloge, Kontaktliste, Nachfolge (Plan, Anteile), Geräte,
-      Schlüsselwechsel, Werbung, Räume (Meldung), verschlüsselte Dateien,
-      Direktnachrichten (Ablauf), Trinkgeld-Adresse.
+    - **8.16i2 – FERTIG:** Identität und Inhalte (46 Kennungen) – Bunker
+      (Adresse, Antworten des Signers), Repos und Patches (NIP-34),
+      Modellkataloge, Kontaktliste, Nachfolge (Schwelle, Teile, Anteile
+      zusammensetzen), Geräte (selbst, ohne Rechte), Schlüsselwechsel,
+      Selbstwerbung, „kein Moderator außer dir“, verschlüsselte Dateien.
+      Schutzprüfungen, deren Eingaben die App vorher prüft (Ablauf einer
+      Direktnachricht, Trinkgeld-Adresse, Pubkeys), bleiben einfache Fehler.
+  - **Stand 8.16 (28.09.2026):** Code-Teil fertig. Offen nur MENSCH:
+    Durchsicht der englischen Texte; ob die Website ganz auf Englisch kommt.
   - **Offen (MENSCH):** Die Website ist außer der Startseite (Kopf, Merkmale)
     nur deutsch – soll sie ganz auf Englisch kommen? Durchsicht der englischen
     Texte durch eine Muttersprachlerin oder einen Muttersprachler.

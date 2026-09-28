@@ -879,3 +879,44 @@ test("8.16i1: Fehlermeldungen des Protokolls (Geld und Netz) – mit Kennung, de
     setLang(vorher);
   }
 });
+
+test("8.16i2: Fehlermeldungen des Protokolls (Identität und Inhalte) – deutsch wortgleich, englisch übersetzt", async () => {
+  const P = await import("@freedomstack/protocol");
+  const T = await import("../src/protokoll-texte.js");
+  const wirft = (fn: () => unknown): unknown => { try { fn(); } catch (e) { return e; } assert.fail("wirft nicht"); };
+  const PK = "a".repeat(64);
+  const vorher = getLang();
+  try {
+    setLang("de");
+    const fehler = [
+      wirft(() => P.parseBunkerUri("keine adresse")),
+      wirft(() => P.parseBunkerUri(`bunker://${PK}`)),
+      wirft(() => P.baueRepoAnkuendigung({ id: "mit leerzeichen", name: "x", klon: [] }, PK)),
+      wirft(() => P.baueRepoAnkuendigung({ id: "ok", name: "x", klon: ["ftp://x"] }, PK)),
+      wirft(() => P.lesePatchText("kein patch")),
+      wirft(() => P.baueModellKatalog({ kurator: PK, d: "k", titel: "", modelle: [] })),
+      wirft(() => P.baueModellKatalog({ kurator: PK, d: "k", titel: "T", modelle: [{ modell: "llama3" }, { modell: "LLAMA3" }] })),
+      wirft(() => P.splitSecret(new Uint8Array(32), 3, 1)),
+      wirft(() => P.splitSecret(new Uint8Array(32), 2, 3)),
+      wirft(() => P.combineShares([{ index: 1, data: new Uint8Array(4) }])),
+      wirft(() => P.buildDeviceGrant({ ownerPubkey: PK, devicePubkey: PK, label: "x", permissions: ["nachrichten"], expiresAt: 1 })),
+      wirft(() => P.buildRotationMandate(PK, PK)),
+      wirft(() => P.buildReferralClaim(PK, PK)),
+      wirft(() => P.entschluesseleDatei(new Uint8Array(40), { ...P.verschluesseleDatei(new Uint8Array([1, 2, 3])).schluessel })),
+    ];
+    const kennungen = fehler.map((e) => (e as { kennung?: string }).kennung);
+    assert.deepEqual(kennungen, [
+      "bunker-adresse", "bunker-relay", "repo-kennung", "repo-klon", "patch-format", "katalog-titel", "katalog-doppelt",
+      "schwelle-min", "teile-zu-wenig", "teile-mindestens", "geraet-selbst", "nachfolger-selbst", "selbstwerbung", "datei-kaputt",
+    ]);
+    for (const e of fehler) assert.equal(T.fehlerText(e), (e as Error).message, (e as { kennung: string }).kennung);
+
+    setLang("en");
+    assert.deepEqual(fehler.slice(0, 3).map(T.fehlerText), ["Not a valid bunker:// address", "No relay address (wss://) in the bunker:// address", "Repo ID: letters, digits, . _ - (at most 64)"]);
+    assert.equal(T.fehlerText(fehler[8]), "2 shares are not enough for a threshold of 3.");
+    assert.equal(T.fehlerText(new P.ProtokollFehler("signer-ablehnung", "", { grund: "denied" })), "The signer refuses: denied");
+    assert.doesNotMatch(fehler.map(T.fehlerText).join(" "), /[äöüÄÖÜß]/, "kein deutscher Buchstabe");
+  } finally {
+    setLang(vorher);
+  }
+});

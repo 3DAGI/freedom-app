@@ -40,6 +40,7 @@ import type { Signer } from "./signer.js";
 import {
   type Share, type SuccessionPlan, type SuccessionState, combineShares, evaluateSuccession, verifyRecovered,
 } from "./succession.js";
+import { ProtokollFehler } from "./fehler.js";
 
 export const KIND_NACHFOLGE_ANTEIL = 38077;
 export const KIND_NACHFOLGE_ANFRAGE = 38078;
@@ -234,7 +235,7 @@ export function setzeNachfolgeZusammen(anteile: GehaltenerAnteil[], plan: Succes
     if (verifyRecovered(geheimnis, plan)) return geheimnis;
     geheimnis.fill(0);
   }
-  throw new Error(bester < plan.threshold
-    ? `Erst ${bester} von ${plan.threshold} nötigen Anteilen`
-    : "Die Anteile passen nicht zusammen oder nicht zum Plan");
+  throw bester < plan.threshold
+    ? new ProtokollFehler("anteile-zu-wenig", `Erst ${bester} von ${plan.threshold} nötigen Anteilen`, { n: bester, schwelle: plan.threshold })
+    : new ProtokollFehler("anteile-passen-nicht", "Die Anteile passen nicht zusammen oder nicht zum Plan");
 }

@@ -18,6 +18,7 @@
  * seinen Radicle-Spiegel an; spiegeln tut der Betreiber mit `rad`.
  */
 import { type NostrEvent, type UnsignedEvent, buildEvent, getTag, getTags } from "./event.js";
+import { ProtokollFehler } from "./fehler.js";
 
 export const KIND_REPO_ANKUENDIGUNG = 30617;
 export const KIND_PATCH = 1617;
@@ -54,10 +55,10 @@ export function repoAdresse(eigentuemer: string, id: string): string {
 }
 
 export function baueRepoAnkuendigung(r: RepoAnkuendigung, eigentuemer: string): UnsignedEvent {
-  if (!REPO_ID.test(r.id)) throw new Error("Repo-Kennung: Buchstaben, Ziffern, . _ - (höchstens 64)");
-  for (const k of r.klon) if (!KLON.test(k)) throw new Error(`Keine Klon-Adresse: ${k.slice(0, 40)}`);
-  for (const m of r.maintainer ?? []) if (!HEX64.test(m)) throw new Error("Maintainer muss ein 64-stelliger Hex-Schlüssel sein");
-  if (r.ersterCommit !== undefined && !SHA1.test(r.ersterCommit)) throw new Error("Erster Commit muss ein SHA-1 sein");
+  if (!REPO_ID.test(r.id)) throw new ProtokollFehler("repo-kennung", "Repo-Kennung: Buchstaben, Ziffern, . _ - (höchstens 64)");
+  for (const k of r.klon) if (!KLON.test(k)) throw new ProtokollFehler("repo-klon", `Keine Klon-Adresse: ${k.slice(0, 40)}`, { adresse: k.slice(0, 40) });
+  for (const m of r.maintainer ?? []) if (!HEX64.test(m)) throw new ProtokollFehler("repo-maintainer", "Maintainer muss ein 64-stelliger Hex-Schlüssel sein");
+  if (r.ersterCommit !== undefined && !SHA1.test(r.ersterCommit)) throw new ProtokollFehler("repo-erster-commit", "Erster Commit muss ein SHA-1 sein");
   const tags: string[][] = [["d", r.id], ["name", r.name.slice(0, 100)]];
   if (r.beschreibung) tags.push(["description", r.beschreibung.slice(0, 500)]);
   if (r.klon.length) tags.push(["clone", ...r.klon]);
@@ -123,14 +124,14 @@ function dekodiereKopf(roh: string): string {
 
 /** Kopf eines `git format-patch`-Textes: Commit und Betreff; alles andere ist kein Patch. */
 export function lesePatchText(text: string): { commit: string; betreff: string } {
-  if (new TextEncoder().encode(text).length > PATCH_MAX_BYTES) throw new Error(`Patch zu groß (höchstens ${PATCH_MAX_BYTES / 1000} KB) – größere Änderungen als Bundle`);
+  if (new TextEncoder().encode(text).length > PATCH_MAX_BYTES) throw new ProtokollFehler("patch-gross", `Patch zu groß (höchstens ${PATCH_MAX_BYTES / 1000} KB) – größere Änderungen als Bundle`, { kb: PATCH_MAX_BYTES / 1000 });
   const erste = /^From ([0-9a-f]{40}) /.exec(text);
-  if (!erste) throw new Error("Kein Patch aus `git format-patch` (erste Zeile „From <commit> …“ fehlt)");
+  if (!erste) throw new ProtokollFehler("patch-format", "Kein Patch aus `git format-patch` (erste Zeile „From <commit> …“ fehlt)");
   // Betreff samt Folgezeilen (beginnen mit Leerraum), dann dekodiert.
   const kopf = /^Subject: (.*(?:\r?\n[ \t].*)*)$/m.exec(text)?.[1];
   const betreff = kopf ? dekodiereKopf(kopf.replace(/\r?\n[ \t]+/g, " ")).replace(/^\[PATCH[^\]]*\]\s*/, "").trim() : "";
-  if (!betreff) throw new Error("Patch ohne Betreff");
-  if (!/^diff --git /m.test(text)) throw new Error("Patch ohne Änderung (kein „diff --git“)");
+  if (!betreff) throw new ProtokollFehler("patch-betreff", "Patch ohne Betreff");
+  if (!/^diff --git /m.test(text)) throw new ProtokollFehler("patch-diff", "Patch ohne Änderung (kein „diff --git“)");
   return { commit: erste[1], betreff: betreff.slice(0, 200) };
 }
 
@@ -166,7 +167,7 @@ export function baueStatus(
   p: { patch: Pick<GelesenerPatch, "id" | "autor" | "repoAdresse">; status: PatchStatus; eigentuemer: string; commits?: string[]; notiz?: string },
   von: string,
 ): UnsignedEvent {
-  for (const c of p.commits ?? []) if (!SHA1.test(c)) throw new Error("Commit muss ein SHA-1 sein");
+  for (const c of p.commits ?? []) if (!SHA1.test(c)) throw new ProtokollFehler("patch-commit", "Commit muss ein SHA-1 sein");
   const tags: string[][] = [["e", p.patch.id, "", "root"], ["p", p.patch.autor], ["a", p.patch.repoAdresse]];
   if (p.eigentuemer !== p.patch.autor) tags.push(["p", p.eigentuemer]);
   if (p.status === "angenommen" && p.commits?.length) tags.push(["applied-as-commits", ...p.commits]);
