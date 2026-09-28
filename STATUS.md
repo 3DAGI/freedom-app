@@ -10097,3 +10097,7 @@ Netz; mit Netz 250 + 6) · app 567 · mls 13 · Leak-Tests 62 grün + 1 todo · 
 rot · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 · Website ok ·
 Smoke-Test bestanden · Website-Bau ok · `repro-build.sh --pruefen` auf dem
 Commit: zweimal dieselbe Summe. Knoten-Stand: unverändert (nur ein Test).
+
+Nach dem Einmergen von `main` (8.2b): protocol 1089 · node 254 + 7
+übersprungen (ohne Netz; mit Netz 255 + 6) · app 567 · mls 13 · Leak-Tests 62
++ 1 todo · 0 rot; alle Prüfungen erneut grün.
