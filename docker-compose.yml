@@ -112,6 +112,8 @@ services:
       # Schluessel NICHT auf dem Knoten liegt) – hoechstens einmal je Abstand und nur
       # ueber der Schwelle; die Ruecklage bleibt fuer Miete und Gebuehren. Leer: aus.
       # Laufen LP oder Relayer mit demselben SOLANA_KEYPAIR, bleibt sie aus.
+      # 8.2a: Ob der Knoten in beiden Schienen verdienen kann, steht beim Start im
+      # Log ([einrichtung]); erneut: docker compose exec node npm run pruefen
       NODE_SOL_PAYOUT: "${NODE_SOL_PAYOUT:-}"
       KANAL_AUSZAHLUNG_SCHWELLE_LAMPORTS: "${KANAL_AUSZAHLUNG_SCHWELLE_LAMPORTS:-100000000}"
       KANAL_AUSZAHLUNG_RUECKLAGE_LAMPORTS: "${KANAL_AUSZAHLUNG_RUECKLAGE_LAMPORTS:-10000000}"

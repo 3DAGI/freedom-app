@@ -25,7 +25,8 @@ import {
   toHex,
 } from "@freedomstack/protocol";
 import { DvmProvider, DEFAULT_PROVIDER_CONFIG } from "./dvm-provider.js";
-import { kanalKasseAusUmgebung } from "./kanal-kasse.js";
+import { kanalKasseAusUmgebung, kanalOrte } from "./kanal-kasse.js";
+import { befundeText, holeJson, kettenBlick, pruefeEinrichtung } from "./einrichtung.js";
 import { OllamaBackend } from "./inference.js";
 import http from "node:http";
 
@@ -145,13 +146,20 @@ async function main(): Promise<void> {
     console.warn("[datenschutz] LOG_KLARTEXT=1 – Antworten erscheinen im Log. Nur zur Fehlersuche, danach wieder ausschalten.");
   }
   // Zahlkanal (4.3c): nur mit ZAHLKANAL=1 und passendem Solana-Schlüssel
+  const solRpc = process.env.SOLANA_RPC_URL || defaultSolanaRpc();
   const { kasse: kanalKasse, grund: kanalGrund, auszahlung, auszahlungGrund } = await kanalKasseAusUmgebung(process.env, {
-    rpcUrl: process.env.SOLANA_RPC_URL ?? defaultSolanaRpc(),
-    datei: join(process.env.HOME ?? ".", ".freedom", "kanaele.json"),
-    standardSchluessel: join(process.env.HOME ?? ".", ".config", "solana", "id.json"),
+    rpcUrl: solRpc,
+    ...kanalOrte(),
   });
   console.log(kanalKasse ? `[kanal] Zahlkanal an (Provider ${process.env.NODE_SOL_ADDRESS})` : `[kanal] Zahlkanal ${kanalGrund}`);
   if (kanalKasse) console.log(auszahlung ? `[kanal] Auszahlung an ${process.env.NODE_SOL_PAYOUT}` : `[kanal] Auszahlung ${auszahlungGrund}`);
+  // Selbstprüfung (8.2a): verdient der Knoten in beiden Schienen? Nur ins Log, blockiert den Start nicht
+  void kettenBlick(solRpc).catch(() => undefined)
+    .then((kette) => pruefeEinrichtung(process.env, {
+      holen: (u) => holeJson(u), kanal: { kasse: kanalKasse, grund: kanalGrund, auszahlung, auszahlungGrund }, kette,
+    }))
+    .then((befunde) => console.log(befundeText(befunde).replace(/^/gm, "[einrichtung] ")))
+    .catch((e) => console.warn(`[einrichtung] Prüfung nicht möglich (${(e as Error).name})`));
   const provider = new DvmProvider(
     {
       keypair,
@@ -169,7 +177,7 @@ async function main(): Promise<void> {
       // Ohne eigene Angabe waehlt der Pool einen erreichbaren oeffentlichen
       // Endpunkt — ein fest verdrahteter Anbieter waere ein einzelner
       // Ausfallpunkt fuer die gesamte Deposit-Pruefung.
-      solanaRpcUrl: process.env.SOLANA_RPC_URL ?? defaultSolanaRpc(),
+      solanaRpcUrl: process.env.SOLANA_RPC_URL || defaultSolanaRpc(),
       depositMinRemainingSeconds: process.env.DEPOSIT_MIN_REMAINING_SECONDS
         ? Number(process.env.DEPOSIT_MIN_REMAINING_SECONDS)
         : undefined,
