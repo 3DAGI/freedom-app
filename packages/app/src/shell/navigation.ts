@@ -18,8 +18,8 @@ export const SEITEN = {
 } as const;
 export type Seite = keyof typeof SEITEN;
 
-/** Unterseiten mit eigener Adresse – heute nur die Seitenleiste des Agenten (mobil). */
-const UNTERSEITEN: Partial<Record<Seite, readonly string[]>> = { ai: ["verlauf", "modelle"] };
+/** Unterseiten mit eigener Adresse – die Seitenleiste des Agenten (mobil) und seit C.6b sein rechtes Feld (unter 1200 px). */
+const UNTERSEITEN: Partial<Record<Seite, readonly string[]>> = { ai: ["verlauf", "modelle", "details"] };
 /** Unterseite → Reiter der Seitenleiste des Agenten. */
 const AGENT_REITER: Record<string, string> = { verlauf: "tasks", modelle: "models" };
 
@@ -80,6 +80,11 @@ function setzeAgentSicht(unterseite: string | undefined): void {
     delete layout.dataset.sicht;
     return;
   }
+  // Das rechte Feld (Arbeitsbereich, Werkzeuge, Kosten) ist eine eigene Ebene, keine Seitenleiste
+  if (unterseite === "details") {
+    layout.dataset.sicht = "details";
+    return;
+  }
   layout.dataset.sicht = "seite";
   document.querySelector<HTMLElement>(`[data-subtab-group="agent"] [data-subtab="${AGENT_REITER[unterseite]}"]`)?.click();
 }
@@ -122,6 +127,8 @@ export function wireNavigation(oeffne: (seite: Seite) => void): void {
   document.getElementById("agent-zu-verlauf")?.addEventListener("click", () => gehe({ seite: "ai", unterseite: "verlauf" }, oeffne));
   document.getElementById("agent-zu-modelle")?.addEventListener("click", () => gehe({ seite: "ai", unterseite: "modelle" }, oeffne));
   document.getElementById("agent-seite-zurueck")?.addEventListener("click", () => zurueck(oeffne));
+  document.getElementById("agent-zu-details")?.addEventListener("click", () => gehe({ seite: "ai", unterseite: "details" }, oeffne));
+  document.getElementById("agent-panel-zurueck")?.addEventListener("click", () => zurueck(oeffne));
   // Eine Aufgabe gewählt oder neu begonnen: mobil zurück zum Gespräch
   document.querySelector(".agent-side")?.addEventListener("click", (e) => {
     const layout = document.querySelector<HTMLElement>(".agent-layout");

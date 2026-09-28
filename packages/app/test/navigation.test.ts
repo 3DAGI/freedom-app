@@ -31,8 +31,8 @@ test("C.1a: keine Kennung in der Adresse – was nicht genau eine bekannte Seite
   ]) assert.equal(zielAusAdresse(falsch), null, falsch);
   // Was die App selbst schreibt, besteht nur aus Seitennamen
   for (const seite of seiten) {
-    for (const unterseite of [undefined, "verlauf", "modelle", "a1b2"]) {
-      assert.match(adresseFuer({ seite, ...(unterseite ? { unterseite } : {}) }), /^#\/[a-z]+(\/(verlauf|modelle))?$/);
+    for (const unterseite of [undefined, "verlauf", "modelle", "details", "a1b2"]) {
+      assert.match(adresseFuer({ seite, ...(unterseite ? { unterseite } : {}) }), /^#\/[a-z]+(\/(verlauf|modelle|details))?$/);
     }
   }
 });
@@ -102,4 +102,33 @@ test("C.1b: reines Verschieben – jeder Block steht genau einmal, auf seiner ne
     assert.ok(!html.includes(alt), alt);
   }
   assert.match(app, /if \(name === "netz"\) \{ void ladeAbdeckung\(\); void zeigeMeshWeg\(\); \}/);
+});
+
+test("C.6b: das rechte Feld des Agenten unter 1200 px als eigene Ebene – Adresse, Knöpfe, Ebene", () => {
+  assert.deepEqual(zielAusAdresse("#/agent/details"), { seite: "ai", unterseite: "details" });
+  assert.equal(adresseFuer({ seite: "ai", unterseite: "details" }), "#/agent/details");
+  assert.equal(zielAusAdresse("#/chat/details"), null);
+  // Der Knopf steht bei „Verlauf“ und „Modelle“, „‹ Zurück“ im Feld selbst
+  const leiste = html.slice(html.indexOf('<div class="agent-mobil-leiste'), html.indexOf("</div>", html.indexOf('<div class="agent-mobil-leiste')));
+  assert.match(leiste, /<button id="agent-zu-details" class="ghost" type="button">/);
+  const feld = html.slice(html.indexOf('<aside class="agent-panel"'), html.indexOf("</aside>", html.indexOf('<aside class="agent-panel"')));
+  assert.match(feld, /<button id="agent-panel-zurueck"[^>]*data-i18n-aria="nav\.zurueckAria"/);
+  const nav = readFileSync(new URL("../src/shell/navigation.ts", import.meta.url), "utf8");
+  assert.match(nav, /if \(unterseite === "details"\) \{\n\s+layout\.dataset\.sicht = "details";\n\s+return;/);
+  assert.match(nav, /getElementById\("agent-zu-details"\)\?\.addEventListener\("click", \(\) => gehe\(\{ seite: "ai", unterseite: "details" \}, oeffne\)\);/);
+  assert.match(nav, /getElementById\("agent-panel-zurueck"\)\?\.addEventListener\("click", \(\) => zurueck\(oeffne\)\);/);
+  const block = css.slice(css.indexOf("/* ---------- Agent (C.6b)"));
+  assert.match(block, /@media \(max-width: 1199px\) \{[^}]*\}[\s\S]*\.agent-layout\[data-sicht="details"\] \.agent-panel \{ display: flex;/);
+  assert.match(block, /@media \(min-width: 860px\) and \(max-width: 1199px\) \{\n\s+#agent-zu-verlauf, #agent-zu-modelle \{ display: none; \}/);
+});
+
+test("C.6b: B16 – die Knöpfe für Nachfolge, Modelle und Abzeichen verdrahtet nur app.ts, nicht jede Antwort", () => {
+  const agent = readFileSync(new URL("../src/shell/tabs/agent.ts", import.meta.url), "utf8");
+  for (const id of ["succ-setup", "succ-heartbeat", "models-refresh", "models-seed", "models-publish", "badge-create"]) {
+    assert.doesNotMatch(agent, new RegExp(`\\$\\("#${id}"\\)`), id);
+    assert.equal((app.match(new RegExp(`\\$\\("#${id}"\\)`, "g")) ?? []).length, 1, id);
+  }
+  // Was die Antwort zeigen soll, frischt sie weiter auf
+  const antwort = agent.slice(agent.indexOf("async function handleAnswer"), agent.indexOf("function resetSendBtn"));
+  for (const f of ["zeigeNachfolge()", "zeigeModelle()", "zeigeMitwirkende()"]) assert.ok(antwort.includes(`void ${f};`), f);
 });
