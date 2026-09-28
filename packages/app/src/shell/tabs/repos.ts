@@ -9,6 +9,7 @@
  */
 import type { GelesenerPatch, GelesenesRepo } from "@freedomstack/protocol";
 import { t } from "../../i18n.js";
+import { fehlerText } from "../../protokoll-texte.js";
 import { pkShort } from "../../shell-logic.js";
 import { type PatchAktion, STATUS_TEXT, patchZeilen, repoZeilen } from "../../repo-ansicht.js";
 import { ensurePool, signiere, state } from "../state.js";
@@ -99,7 +100,7 @@ async function sendePatch(datei: File): Promise<void> {
     toast(t("repo.patchGesendet", { betreff }));
     await ladeNip34Repos();
   } catch (e) {
-    toast((e as Error).message, true);
+    toast(fehlerText(e), true);
   }
 }
 
@@ -118,7 +119,7 @@ async function setzeStatus(r: GelesenesRepo, patch: GelesenerPatch, aktion: Patc
     toast(t(aktion === "annehmen" ? "repo.patchAngenommen" : aktion === "zurueckziehen" ? "repo.patchZurueckgezogen" : "repo.patchGeschlossen"));
     await ladeNip34Repos();
   } catch (e) {
-    toast((e as Error).message, true);
+    toast(fehlerText(e), true);
   }
 }
 
@@ -135,7 +136,7 @@ async function kuendigeAn(): Promise<void> {
     toast(t("repo.angekuendigt", { id }));
     await ladeNip34Repos();
   } catch (e) {
-    toast((e as Error).message, true);
+    toast(fehlerText(e), true);
   }
 }
 

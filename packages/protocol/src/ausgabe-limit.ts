@@ -4,6 +4,7 @@
  * Schluessel haelt. Gezaehlt wird in einem rollenden 24-Stunden-Fenster:
  * Ein Kalendertag liesse sich um Mitternacht zweimal ausschoepfen.
  */
+import { ProtokollFehler } from "./fehler.js";
 
 export const FENSTER_SECS = 24 * 3600;
 
@@ -34,8 +35,8 @@ export function imFenster(verlauf: readonly Ausgabe[], jetzt: number): Ausgabe[]
  * jede Zahlung braucht eine Bestaetigung.
  */
 export function pruefeTageslimit(verlauf: readonly Ausgabe[], betrag: number, limit: number, jetzt: number): LimitPruefung {
-  if (!Number.isSafeInteger(betrag) || betrag <= 0) throw new Error("Betrag muss eine positive ganze Zahl sein");
-  if (!Number.isSafeInteger(limit) || limit < 0) throw new Error("Limit muss eine nicht negative ganze Zahl sein");
+  if (!Number.isSafeInteger(betrag) || betrag <= 0) throw new ProtokollFehler("betrag-positiv", "Betrag muss eine positive ganze Zahl sein");
+  if (!Number.isSafeInteger(limit) || limit < 0) throw new ProtokollFehler("limit-ungueltig", "Limit muss eine nicht negative ganze Zahl sein");
   const verbraucht = imFenster(verlauf, jetzt).reduce((s, a) => s + a.betrag, 0);
   const rest = Math.max(0, limit - verbraucht);
   return { ohneNachfrage: betrag <= rest, verbraucht, rest };

@@ -8800,3 +8800,62 @@ rot · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 · Website 5
 Seiten ok · Smoke-Test bestanden · Website gebaut · im Browser: Startseite mit
 Englisch und Deutsch, ein spanischer Browser bekommt Englisch, keine
 Seitenfehler.
+
+## Schritt 8.16i1 – Übersetzungen: Fehlermeldungen des Protokolls (Geld und Netz)
+
+**Fertig:** Fehler des Protokolls, die Nutzer beim Zahlen und im Netz sehen,
+stehen in der Sprache der Oberfläche.
+
+- **Gemessen:** rund 270 deutsche Fehlermeldungen in 72 Dateien des
+  Protokolls, 234 davon in Dateien, die die App nutzt. Die meisten sind
+  Parser fremder Events („kein …-Kind“) oder Schutzprüfungen, die die
+  Oberfläche nie erreichen – sie bleiben, wie sie sind. Übersetzt wird, was
+  Nutzer sehen können.
+- **Grundlage:**
+  - Protokoll: `ProtokollFehler(kennung, meldung, werte)` in
+    `protocol/src/fehler.ts`. Die Meldung bleibt deutsch – Knoten, Logs und
+    Tests lesen sie wie bisher.
+  - App: `fehlerText(e)` (`protokoll-texte.ts`) übersetzt Fehler mit
+    bekannter Kennung und lässt alles andere unverändert; neuer Bereich
+    `texte/fehler.ts` (`pf.*`, 46 Schlüssel).
+  - Alle 106 Anzeigestellen in 29 Dateien zeigen Fehler jetzt über
+    `fehlerText(e)` statt `(e as Error).message`.
+  - `explainError()` (Agent) deutet Fehler mit Kennung nicht mehr nach
+    Mustern um – sie sind genauer als „Relay-Problem“.
+- **Geld und Netz (46 Kennungen):**
+  - „Kein Solana-Endpunkt erreichbar“ (RpcPool);
+  - Lightning-Rechnung (`leseBolt11`, acht Fälle);
+  - NWC: Adresse (vier Fälle), nicht unterstützte Funktion, kein Relay,
+    Zeitüberschreitung und die Fehler des Wallets (`nwcKennung()` zu
+    `explainNwcError()`; unbekannte zeigen die Meldung des Wallets);
+  - Zahlschienen: Ziel, Einheit, Referenz, unbekanntes Ziel, keine Schiene,
+    offline (die Sätze aus `offlineZahlText()`), keine Wallet verbunden;
+  - Beträge und Tageslimit, Zahlkanal-Betrag;
+  - SOL ohne Internet (Nonce-Konto nicht eingerichtet, an sich selbst, andere
+    Adresse);
+  - Rück-Swap (Betrag, Kurs, Gebühr), SOL-Trinkgeld (Betrag, Adresse,
+    Notiz), Zustandssicherung zu groß.
+- **Noch offen (8.16i2):** Identität und Inhalte – Bunker, Repos,
+  Modellkataloge, Kontaktliste, Nachfolge, Geräte, Schlüsselwechsel,
+  Werbung, Räume, verschlüsselte Dateien, Direktnachrichten, Trinkgeld-Adresse.
+
+**Tests:**
+- +1 in `i18n.test.ts`:
+  - kein `(e as Error).message` mehr im Code;
+  - jede Kennung aus dem Quelltext des Protokolls (dazu die sieben
+    Wallet-Fehler und „offline“ je Schiene) hat einen Text, der deutsch zur
+    Meldung passt;
+  - mit echten Aufrufen wortgleich: Rechnung, NWC-Adresse, Rück-Swap,
+    Tageslimit, RPC unerreichbar, jeder Wallet-Fehler, offline je Schiene;
+  - Fehler ohne Kennung bleiben unverändert;
+  - Englisch mit Stichproben und ohne deutschen Buchstaben.
+- +2 in `protocol/test/fehler.test.ts`: Kennung gesetzt und deutsche Meldung
+  unverändert – Eingaben (Rechnung, NWC, Rück-Swap, Limit, Einheit) sowie
+  Netz und Wallet (offline, keine Wallet, keine Schiene, RPC, Wallet-Fehler).
+
+Endstand: protocol 1071 (+2, 6 übersprungen) · node 235 (6 übersprungen, mit
+Netz; ohne Netz 234 + 7) · app 509 (+1) · mls 13 · Leak-Tests 58 grün + 1 todo
+· 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 · Website 5
+Seiten ok · Smoke-Test bestanden · im Browser: eine falsche NWC-Adresse meldet
+englisch „Not an NWC connection …“, deutsch „Keine NWC-Verbindung …“, keine
+Seitenfehler.

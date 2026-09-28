@@ -26,6 +26,7 @@
 import { sha256 } from "@noble/hashes/sha2.js";
 import { bytesToHex, hexToBytes } from "@noble/hashes/utils.js";
 import { t } from "./i18n.js";
+import { fehlerText } from "./protokoll-texte.js";
 
 /** Muss zur `declare_id!` des Anchor-Programms passen. */
 export const HTLC_PROGRAM_ID = "B6W19UfZ1iYDoJYaSesZDiP96TpeZACQu3Xs6VSJ4kJk";
@@ -299,7 +300,7 @@ export async function refundDepositOnChain(p: {
       tx.add(await buildRefundInstruction(swapId, initiator));
       included.push(swapId);
     } catch (e) {
-      failed.push({ swapId, reason: (e as Error).message });
+      failed.push({ swapId, reason: fehlerText(e) });
     }
   }
   if (included.length === 0) {

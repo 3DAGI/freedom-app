@@ -816,3 +816,66 @@ test("8.16g2b3b: Gründe – Relay-Adressen, Geräte, Nachfolge, Funk, Abgleich,
     setLang(vorher);
   }
 });
+
+test("8.16i1: Fehlermeldungen des Protokolls (Geld und Netz) – mit Kennung, deutsch wortgleich; die App zeigt Fehler nur über fehlerText()", async () => {
+  // Keine Anzeige mehr direkt aus der Meldung – fehlerText() übersetzt, was eine Kennung hat
+  assert.equal(code.match(/\((e|err|fehler|error) as Error\)\.message/g), null, "(e as Error).message im Code");
+  assert.match(readFileSync(pfad(SRC, "shell/tabs/agent.ts"), "utf8"), /if \(hatFehlerText\(e\)\) return fehlerText\(e\);/, "explainError deutet sie nicht um");
+
+  const P = await import("@freedomstack/protocol");
+  const T = await import("../src/protokoll-texte.js");
+  const vorher = getLang();
+  try {
+    setLang("de");
+    // Jede Kennung aus dem Quelltext des Protokolls hat einen Text, der zur deutschen Meldung passt
+    const PROTO = new URL("../../protocol/src/", import.meta.url).pathname;
+    const faelle = readdirSync(PROTO).filter((d) => d.endsWith(".ts")).flatMap((d) =>
+      [...readFileSync(pfad(PROTO, d), "utf8").matchAll(/new ProtokollFehler\(\s*"([a-z0-9-]+)",\s*("[^"]*"|`[^`]*`)/g)].map((m) => ({ datei: d, kennung: m[1]!, meldung: m[2]!.slice(1, -1) })));
+    // 34 Kennungen stehen im Quelltext; die sieben Wallet-Fehler bildet nwcKennung(), „offline“ je Schiene waehleRail()
+    const kennungen = new Set([
+      ...faelle.map((f) => f.kennung), "offline-sats", "offline-sol",
+      ...["INSUFFICIENT_BALANCE", "QUOTA_EXCEEDED", "RESTRICTED", "UNAUTHORIZED", "NOT_IMPLEMENTED", "PAYMENT_FAILED", "RATE_LIMITED"].map(P.nwcKennung),
+    ]);
+    assert.ok(kennungen.size >= 43, `alle Fälle gefunden (${kennungen.size})`);
+    for (const k of kennungen) assert.ok(T.kenntFehler(k), `${k} ohne Text`);
+    for (const f of faelle) {
+      assert.ok(T.kenntFehler(f.kennung), `${f.datei}: ${f.kennung} ohne Text`);
+      const muster = new RegExp(`^${f.meldung.replace(/[.*+?^()|[\]\\]/g, "\\$&").replace(/\$\{[^}]+\}/g, ".+")}`);
+      assert.match(T.fehlerText(new P.ProtokollFehler(f.kennung, "", { n: 3, details: "x", methode: "pay_invoice", sekunden: 60, schiene: "solana", einheit: "sats", rechnet: "lamports", max: 280, kb: 70 })), muster, `${f.datei}: ${f.kennung}`);
+    }
+    // Echte Aufrufe, wortgleich
+    const wirft = (fn: () => unknown): unknown => { try { fn(); } catch (e) { return e; } assert.fail("wirft nicht"); };
+    const gleich = (e: unknown) => assert.equal(T.fehlerText(e), (e as Error).message);
+    const { bech32 } = await import("@scure/base");
+    const b11 = wirft(() => P.leseBolt11(bech32.encode("lnxx", bech32.toWords(new Uint8Array(20)), 2000)));
+    assert.equal((b11 as { kennung?: string }).kennung, "bolt11-praefix");
+    gleich(b11);
+    for (const uri of ["http://x", `nostr+walletconnect://${"a".repeat(10)}`, `nostr+walletconnect://${"a".repeat(64)}`, `nostr+walletconnect://${"a".repeat(64)}?relay=wss://r.example`]) gleich(wirft(() => P.parseNwcUri(uri)));
+    for (const [sats, kurs, ppm] of [[0, 1, 0], [10, 0, 0], [10, 1, -1]]) gleich(wirft(() => P.rueckSwapLamports(sats!, kurs!, ppm!)));
+    gleich(wirft(() => P.pruefeTageslimit([], 0, 10, 0)));
+    const dead = new P.RpcPool([{ url: "https://a.test", label: "a" }], { fetchImpl: (async () => { throw new Error("ECONNREFUSED"); }) as unknown as typeof fetch });
+    const rpc = await dead.getSlot().then(() => undefined, (e: unknown) => e);
+    assert.equal((rpc as { kennung?: string }).kennung, "rpc-unerreichbar");
+    gleich(rpc);
+    for (const code of ["INSUFFICIENT_BALANCE", "QUOTA_EXCEEDED", "RESTRICTED", "UNAUTHORIZED", "NOT_IMPLEMENTED", "PAYMENT_FAILED", "RATE_LIMITED", "ANDERS"]) {
+      for (const message of ["", "vom Wallet"]) {
+        const err = { code, message };
+        gleich(new P.ProtokollFehler(P.nwcKennung(code), P.explainNwcError(err), { code, meldung: message }));
+      }
+    }
+    // Offline zahlen: der Satz aus dem Protokoll, je Schiene
+    for (const schiene of ["lightning", "solana"] as const) gleich(new P.ProtokollFehler(schiene === "lightning" ? "offline-sats" : "offline-sol", P.offlineZahlText(schiene)));
+    // Fehler ohne Kennung bleiben, wie sie sind
+    assert.equal(T.fehlerText(new Error("vom Browser")), "vom Browser");
+    assert.equal(T.fehlerText("roh"), "roh");
+
+    setLang("en");
+    assert.equal(T.fehlerText(rpc), "No Solana endpoint reachable (1 tried). a: ECONNREFUSED");
+    assert.equal(T.fehlerText(wirft(() => P.parseNwcUri("http://x"))), "Not an NWC connection: expected nostr+walletconnect://…");
+    assert.equal(T.fehlerText(new P.ProtokollFehler("nwc-fehler", "", { code: "X", meldung: "" })), "Wallet error: X");
+    const en = faelle.map((f) => T.fehlerText(new P.ProtokollFehler(f.kennung, "ä", { n: 1, details: "", methode: "m", sekunden: 1, schiene: "solana", einheit: "sats", rechnet: "lamports", max: 1, kb: 1 }))).join(" ");
+    assert.doesNotMatch(en, /[äöüÄÖÜß]/, "kein deutscher Buchstabe");
+  } finally {
+    setLang(vorher);
+  }
+});

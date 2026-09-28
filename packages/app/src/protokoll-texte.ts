@@ -21,6 +21,7 @@ import {
   type MeshFehler, type OfflineFehler, type RelayFehler, type SolFehler, type SolPruefung, type SolanaTxFehler,
   type StichprobeBefund, type StichprobeFehler, type StichprobeLuecke, type TimelockCheck,
   MAX_PAYLOAD_PER_FRAME, type AbsenderZuordnung, type RelayUrlFehler, type SyncPlan, type UebergabeFehler,
+  ProtokollFehler,
 } from "@freedomstack/protocol";
 import { t } from "./i18n.js";
 
@@ -453,3 +454,75 @@ export function syncNotiz(plan: Pick<SyncPlan, "send" | "totalBytes" | "estimate
 /** Bleibt Zeit zu reklamieren? – wie `disputeWindowOpen().message`. */
 export const reklamationsFrist = (w: { open: boolean; remainingSecs: number }): string =>
   w.open ? t("pg.reklNoch", { min: Math.ceil(w.remainingSecs / 60) }) : t("pg.reklAbgelaufen");
+
+// ------------------------------------------------------------ Fehlermeldungen (8.16i)
+
+/** Kennung eines `ProtokollFehler` → Schlüssel des Texts; die Werte setzt `t()` ein. */
+const FEHLER: Record<string, string> = {
+  "rpc-unerreichbar": "pf.rpcUnerreichbar",
+  "bolt11-praefix": "pf.bolt11Praefix",
+  "bolt11-betrag": "pf.bolt11Betrag",
+  "bolt11-kurz": "pf.bolt11Kurz",
+  "bolt11-feld": "pf.bolt11Feld",
+  "bolt11-hash": "pf.bolt11Hash",
+  "bolt11-recovery": "pf.bolt11Recovery",
+  "bolt11-signatur": "pf.bolt11Signatur",
+  "bolt11-knoten": "pf.bolt11Knoten",
+  "nwc-praefix": "pf.nwcPraefix",
+  "nwc-pubkey": "pf.nwcPubkey",
+  "nwc-relay": "pf.nwcRelay",
+  "nwc-secret": "pf.nwcSecret",
+  "nwc-methode": "pf.nwcMethode",
+  "nwc-kein-relay": "pf.nwcKeinRelay",
+  "nwc-guthaben": "pf.nwcGuthaben",
+  "nwc-budget": "pf.nwcBudget",
+  "nwc-verboten": "pf.nwcVerboten",
+  "nwc-widerrufen": "pf.nwcWiderrufen",
+  "nwc-nicht-unterstuetzt": "pf.nwcNichtUnterstuetzt",
+  "nwc-zahlung": "pf.nwcZahlung",
+  "nwc-zu-viele": "pf.nwcZuViele",
+  "nwc-zeit": "pf.nwcZeit",
+  "schiene-ziel": "pf.schieneZiel",
+  "schiene-einheit": "pf.schieneEinheit",
+  "schiene-referenz": "pf.schieneReferenz",
+  "schiene-unbekannt": "pf.schieneUnbekannt",
+  "schiene-fehlt": "pf.schieneFehlt",
+  "offline-sats": "pf.offlineSats",
+  "offline-sol": "pf.offlineSol",
+  "wallet-fehlt-sats": "pf.walletFehltSats",
+  "wallet-fehlt-sol": "pf.walletFehltSol",
+  "betrag-positiv": "pf.betragPositiv",
+  "limit-ungueltig": "pf.limitUngueltig",
+  "kanal-betrag": "pf.kanalBetrag",
+  "nonce-nicht-eingerichtet": "pf.nonceNichtEingerichtet",
+  "an-sich-selbst": "pf.anSichSelbst",
+  "nonce-andere-adresse": "pf.nonceAndereAdresse",
+  "rueck-betrag": "pf.rueckBetrag",
+  "rueck-kurs": "pf.rueckKurs",
+  "rueck-gebuehr": "pf.rueckGebuehr",
+  "trinkgeld-betrag": "pf.trinkgeldBetrag",
+  "sol-adresse": "pf.solAdresse",
+  "trinkgeld-notiz": "pf.trinkgeldNotiz",
+  "sicherung-gross": "pf.sicherungGross",
+};
+
+/** Hat dieser Fehler eine Kennung mit Text? */
+export const kenntFehler = (kennung: string): boolean => kennung in FEHLER || kennung === "nwc-fehler";
+
+/** Ein Fehler des Protokolls, den `fehlerText()` übersetzt – den deutet niemand nach Mustern um. */
+export const hatFehlerText = (e: unknown): boolean => e instanceof ProtokollFehler && kenntFehler(e.kennung);
+
+/**
+ * Meldung eines Fehlers in der Sprache der Oberfläche. Ein `ProtokollFehler`
+ * mit bekannter Kennung wird übersetzt; alles andere (eigene, schon übersetzte
+ * Meldungen der App, Meldungen von Browser, Wallet oder Netz) bleibt, wie es ist.
+ */
+export function fehlerText(e: unknown): string {
+  if (e instanceof ProtokollFehler) {
+    // Unbekannter Wallet-Fehler: die Meldung des Wallets selbst, sonst der Code
+    if (e.kennung === "nwc-fehler") return String(e.werte.meldung || "") || t("pf.nwcFehler", { code: e.werte.code ?? "" });
+    const k = FEHLER[e.kennung];
+    if (k) return t(k, { ...e.werte });
+  }
+  return e instanceof Error ? e.message : String(e);
+}

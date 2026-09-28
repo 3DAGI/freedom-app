@@ -22,6 +22,7 @@
 
 import { alsAnbieter, solanaWallets } from "./wallet-standard.js";
 import { t } from "./i18n.js";
+import { fehlerText } from "./protokoll-texte.js";
 
 export type SolanaConnectMethod = "standard" | "injected" | "mwa" | "deeplink" | "none";
 
@@ -163,7 +164,7 @@ export async function connectSolanaWallet(opts: ConnectOptions = {}): Promise<So
         return { pubkey: resp.publicKey.toBase58(), method: "standard", provider: anbieter, name: gewaehlt.name };
       } catch (e) {
         if (opts.silent) return null;
-        throw new Error(t("zahl.verbindungAbgelehnt", { fehler: (e as Error).message }));
+        throw new Error(t("zahl.verbindungAbgelehnt", { fehler: fehlerText(e) }));
       }
     }
   }
@@ -176,7 +177,7 @@ export async function connectSolanaWallet(opts: ConnectOptions = {}): Promise<So
       return { pubkey: resp.publicKey.toBase58(), method: "injected", provider };
     } catch (e) {
       if (opts.silent) return null; // kein Vertrauen vorhanden — völlig normal
-      throw new Error(t("zahl.verbindungAbgelehnt", { fehler: (e as Error).message }));
+      throw new Error(t("zahl.verbindungAbgelehnt", { fehler: fehlerText(e) }));
     }
   }
 

@@ -17,6 +17,7 @@
  */
 import { PublicKey, SYSVAR_RECENT_BLOCKHASHES_PUBKEY, SystemProgram, Transaction } from "@solana/web3.js";
 import { pruefeSolanaTx, type SolanaTxFehler } from "./mesh-transport.js";
+import { ProtokollFehler } from "./fehler.js";
 
 /** Groesse eines Nonce-Kontos (Version, Zustand, Autoritaet, Wert, Gebuehr). */
 export const NONCE_KONTO_BYTES = 80;
@@ -87,7 +88,7 @@ export function leseNonceKonto(daten: Uint8Array): NonceStand {
   const v = new DataView(daten.buffer, daten.byteOffset, daten.byteLength);
   const version = v.getUint32(0, true);
   if (version > 1) throw new Error(`Unbekannte Nonce-Version ${version}`);
-  if (v.getUint32(4, true) !== 1) throw new Error("Nonce-Konto ist nicht eingerichtet");
+  if (v.getUint32(4, true) !== 1) throw new ProtokollFehler("nonce-nicht-eingerichtet", "Nonce-Konto ist nicht eingerichtet");
   const gebuehr = v.getBigUint64(72, true);
   return {
     autoritaet: new PublicKey(daten.subarray(8, 40)).toBase58(),
@@ -104,9 +105,9 @@ export function leseNonceKonto(daten: Uint8Array): NonceStand {
 export function baueOfflineUeberweisung(p: {
   von: string; an: string; lamports: number; nonceKonto: string; stand: NonceStand;
 }): Transaction {
-  if (!Number.isSafeInteger(p.lamports) || p.lamports <= 0) throw new Error("Betrag muss eine positive ganze Zahl sein");
-  if (p.von === p.an) throw new Error("Überweisung an sich selbst");
-  if (p.stand.autoritaet !== p.von) throw new Error("Das Nonce-Konto gehört einer anderen Adresse");
+  if (!Number.isSafeInteger(p.lamports) || p.lamports <= 0) throw new ProtokollFehler("betrag-positiv", "Betrag muss eine positive ganze Zahl sein");
+  if (p.von === p.an) throw new ProtokollFehler("an-sich-selbst", "Überweisung an sich selbst");
+  if (p.stand.autoritaet !== p.von) throw new ProtokollFehler("nonce-andere-adresse", "Das Nonce-Konto gehört einer anderen Adresse");
   const von = new PublicKey(p.von);
   const tx = new Transaction().add(
     SystemProgram.nonceAdvance({ noncePubkey: new PublicKey(p.nonceKonto), authorizedPubkey: von }),

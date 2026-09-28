@@ -7,7 +7,7 @@
  */
 import { KIND_PERFORMANCE } from "@freedomstack/protocol";
 import { t } from "../../i18n.js";
-import { abdeckungEinwilligung, abdeckungHier, busFaktorText, ebeneName, repoZustand, zellenStufe } from "../../protokoll-texte.js";
+import { abdeckungEinwilligung, abdeckungHier, busFaktorText, ebeneName, fehlerText, repoZustand, zellenStufe } from "../../protokoll-texte.js";
 import { escapeHtml, pkShort } from "../../shell-logic.js";
 import { ensurePool, signiere, state } from "../state.js";
 import { geheim } from "../tresor.js";
@@ -37,7 +37,7 @@ export async function zeigeMitwirkende(): Promise<void> {
           `<span>${escapeHtml(t("earn.aktiveTage", { tage: c.activeDays, n: c.contributions }))}</span></div>`,
         ).join("");
   } catch (e) {
-    box.textContent = t("agent.nichtAbrufbar", { fehler: (e as Error).message });
+    box.textContent = t("agent.nichtAbrufbar", { fehler: fehlerText(e) });
   }
 }
 
@@ -82,7 +82,7 @@ export async function ladeAbdeckung(): Promise<void> {
         : t("earn.standortGebraucht");
     }
   } catch (e) {
-    if (liste) liste.textContent = t("earn.abdeckungFehler", { fehler: (e as Error).message });
+    if (liste) liste.textContent = t("earn.abdeckungFehler", { fehler: fehlerText(e) });
   }
 }
 
@@ -116,7 +116,7 @@ export async function trageAbdeckungEin(): Promise<void> {
       toast(t("earn.eingetragen"));
       void ladeAbdeckung();
     } catch (e) {
-      toast((e as Error).message, true);
+      toast(fehlerText(e), true);
     }
   }, () => toast(t("earn.standortFehlt"), true));
 }
@@ -202,7 +202,7 @@ export async function loadEarnings(): Promise<void> {
           .join("")
       : `<div class='mono-sm'>${escapeHtml(t("earn.keineEinnahmen"))}</div>`;
   } catch (e) {
-    box.innerHTML = `<div class='mono-sm err'>${escapeHtml((e as Error).message)}</div>`;
+    box.innerHTML = `<div class='mono-sm err'>${escapeHtml(fehlerText(e))}</div>`;
   }
 }
 
@@ -300,6 +300,6 @@ export async function publishReferralClaim(): Promise<void> {
     localStorage.setItem("freedom.referrer.published", "1");
   } catch (e) {
     // Kein Abbruch: Der Claim wird beim naechsten Start erneut versucht.
-    console.warn(`[referral] Claim noch nicht veroeffentlicht: ${(e as Error).message}`);
+    console.warn(`[referral] Claim noch nicht veroeffentlicht: ${fehlerText(e)}`);
   }
 }

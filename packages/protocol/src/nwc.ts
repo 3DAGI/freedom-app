@@ -34,6 +34,7 @@ import { OutboxPool } from "./outbox.js";
 import { encryptDM, decryptDM } from "./dm.js";
 import { nip04Encrypt, nip04Decrypt, isNip04Payload } from "./nip04.js";
 import { schnorr } from "@noble/curves/secp256k1.js";
+import { ProtokollFehler } from "./fehler.js";
 
 /** NIP-47 Kinds. */
 export const KIND_NWC_INFO = 13194;
@@ -65,23 +66,23 @@ export function parseNwcUri(uri: string): NwcConnection {
   const prefix = ["nostr+walletconnect://", "nostr+walletconnect:"];
   const match = prefix.find((p) => trimmed.toLowerCase().startsWith(p));
   if (!match) {
-    throw new Error("Keine NWC-Verbindung: erwartet wird nostr+walletconnect://…");
+    throw new ProtokollFehler("nwc-praefix", "Keine NWC-Verbindung: erwartet wird nostr+walletconnect://…");
   }
 
   const rest = trimmed.slice(match.length);
   const qIdx = rest.indexOf("?");
   const walletPubkey = (qIdx === -1 ? rest : rest.slice(0, qIdx)).replace(/^\/+/, "").toLowerCase();
   if (!/^[0-9a-f]{64}$/.test(walletPubkey)) {
-    throw new Error("NWC-URI: Wallet-Pubkey ist kein gültiger 64-stelliger Hex-Wert.");
+    throw new ProtokollFehler("nwc-pubkey", "NWC-URI: Wallet-Pubkey ist kein gültiger 64-stelliger Hex-Wert.");
   }
 
   const params = new URLSearchParams(qIdx === -1 ? "" : rest.slice(qIdx + 1));
   const relays = params.getAll("relay").filter(Boolean);
-  if (relays.length === 0) throw new Error("NWC-URI: kein relay angegeben.");
+  if (relays.length === 0) throw new ProtokollFehler("nwc-relay", "NWC-URI: kein relay angegeben.");
 
   const secretHex = (params.get("secret") ?? "").toLowerCase();
   if (!/^[0-9a-f]{64}$/.test(secretHex)) {
-    throw new Error("NWC-URI: secret fehlt oder ist kein 64-stelliger Hex-Wert.");
+    throw new ProtokollFehler("nwc-secret", "NWC-URI: secret fehlt oder ist kein 64-stelliger Hex-Wert.");
   }
 
   const secretKey = fromHex(secretHex);
@@ -187,6 +188,16 @@ export async function parseNwcResponse(
 }
 
 /** Fehlercodes aus NIP-47 in verständliche Sätze übersetzen. */
+/** Kennung eines Wallet-Fehlers (8.16i) – wie `explainNwcError()` ihn erklärt. */
+export function nwcKennung(code: string): string {
+  const k: Record<string, string> = {
+    INSUFFICIENT_BALANCE: "nwc-guthaben", QUOTA_EXCEEDED: "nwc-budget", RESTRICTED: "nwc-verboten",
+    UNAUTHORIZED: "nwc-widerrufen", NOT_IMPLEMENTED: "nwc-nicht-unterstuetzt", PAYMENT_FAILED: "nwc-zahlung",
+    RATE_LIMITED: "nwc-zu-viele",
+  };
+  return k[code] ?? "nwc-fehler";
+}
+
 export function explainNwcError(err: NwcError): string {
   switch (err.code) {
     case "INSUFFICIENT_BALANCE":
@@ -253,7 +264,7 @@ export class NwcClient {
   async call(method: string, params: Record<string, unknown> = {}): Promise<Record<string, unknown>> {
     if (!this.ready) await this.init();
     if (!this.supports(method)) {
-      throw new Error(`Dieses Wallet unterstützt "${method}" nicht.`);
+      throw new ProtokollFehler("nwc-methode", `Dieses Wallet unterstützt "${method}" nicht.`, { methode: method });
     }
 
     const req = await buildNwcRequest(
@@ -264,7 +275,7 @@ export class NwcClient {
     );
     const report = await this.pool.publish(req);
     if (report.accepted.length === 0) {
-      throw new Error("Kein Relay hat das Wallet-Kommando angenommen — Netzwerkproblem.");
+      throw new ProtokollFehler("nwc-kein-relay", "Kein Relay hat das Wallet-Kommando angenommen — Netzwerkproblem.");
     }
 
     const deadline = Date.now() + this.timeoutMs;
@@ -281,12 +292,14 @@ export class NwcClient {
       if (responses.length === 0) continue;
 
       const res = await parseNwcResponse(responses[0], this.conn);
-      if (res.error) throw new Error(explainNwcError(res.error));
+      if (res.error) throw new ProtokollFehler(nwcKennung(res.error.code), explainNwcError(res.error), { code: res.error.code, meldung: res.error.message ?? "" });
       return res.result ?? {};
     }
-    throw new Error(
+    throw new ProtokollFehler(
+      "nwc-zeit",
       `Das Wallet hat in ${Math.round(this.timeoutMs / 1000)}s nicht geantwortet. ` +
         `Ist es online und mit denselben Relays verbunden?`,
+      { sekunden: Math.round(this.timeoutMs / 1000) },
     );
   }
 

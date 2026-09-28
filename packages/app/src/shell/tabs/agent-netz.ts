@@ -6,6 +6,7 @@
  */
 import { NostrEvent, type ModelEntry, type ModellKatalog } from "@freedomstack/protocol";
 import { t } from "../../i18n.js";
+import { fehlerText } from "../../protokoll-texte.js";
 import { LS_KATALOGE, katalogKennung, katalogRang, leseAbos, leseKatalogEingabe, mitAbo, ohneAbo } from "../../modell-kataloge.js";
 import { ausMsat } from "../../preis-anzeige.js";
 import { escapeHtml, pkShort } from "../../shell-logic.js";
@@ -52,7 +53,7 @@ export async function zeigeModelle(): Promise<void> {
       box.prepend(z);
     }
   } catch (e) {
-    box.textContent = t("agent.nichtAbrufbar", { fehler: (e as Error).message });
+    box.textContent = t("agent.nichtAbrufbar", { fehler: fehlerText(e) });
   }
 }
 
@@ -87,7 +88,7 @@ export async function kuendigeModellAn(): Promise<void> {
     toast(t("agent.dateienAngekuendigt", { n: files.length }));
     void zeigeModelle();
   } catch (e) {
-    toast((e as Error).message, true);
+    toast(fehlerText(e), true);
   }
 }
 
@@ -122,7 +123,7 @@ export async function haltevorModell(): Promise<void> {
     toast(t("agent.dateienGemeldet", { n: liste.length }));
     void zeigeModelle();
   } catch (e) {
-    toast((e as Error).message, true);
+    toast(fehlerText(e), true);
   }
 }
 
@@ -229,13 +230,13 @@ export async function zeigeKataloge(): Promise<void> {
           speichereAbos(mitAbo(leseAbos(localStorage.getItem(LS_KATALOGE)), k.adresse));
           void zeigeKataloge();
         } catch (e) {
-          toast((e as Error).message, true);
+          toast(fehlerText(e), true);
         }
       }));
       gefundenBox.append(zeile);
     }
   } catch (e) {
-    gefundenBox.textContent = t("agent.nichtAbrufbar", { fehler: (e as Error).message });
+    gefundenBox.textContent = t("agent.nichtAbrufbar", { fehler: fehlerText(e) });
   }
 }
 
@@ -258,7 +259,7 @@ export async function veroeffentlicheKatalog(): Promise<void> {
     toast(t("agent.katalogVeroeffentlicht", { titel: titel.trim(), n: modelle.length }));
     void zeigeKataloge();
   } catch (e) {
-    toast((e as Error).message, true);
+    toast(fehlerText(e), true);
   }
 }
 
@@ -307,7 +308,7 @@ export async function loadGitRepos(): Promise<void> {
           URL.revokeObjectURL(url);
           toast(t("agent.bundleGeladen", { datei: `${el.dataset.name}.bundle` }));
         } catch (e) {
-          toast(t("agent.fehlerText", { fehler: (e as Error).message }), true);
+          toast(t("agent.fehlerText", { fehler: fehlerText(e) }), true);
         }
         el.disabled = false;
       });

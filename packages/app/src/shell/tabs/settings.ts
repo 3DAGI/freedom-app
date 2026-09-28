@@ -14,10 +14,7 @@ import { alsGeraet, ensurePool, mitBunker, mitRohemSchluessel, nimmInPool, signi
 import { ladeEigeneRelays, pruefeRelayEingabe, setzeEigeneRelays } from "../../relay-satz.js";
 import { kaufeRelayZugang, leseRelayPreise, merkeZugang, pruefeBeimRelay, zugaenge, type RelayPreise, type Schiene } from "../../relay-kauf.js";
 import { satsText, solText } from "../../preis-anzeige.js";
-import {
-  echtheitText, fixierungText, geraetWarnung, nachfolgeStand, nachfolgeWarnung, offlineFaehigkeiten, sicherungGebaut, sicherungInfo,
-  torText, wechselWarnung, weitergabeText, wegName, widerrufAnleitung, wiederherstellungText,
-} from "../../protokoll-texte.js";
+import { echtheitText, fehlerText, fixierungText, geraetWarnung, nachfolgeStand, nachfolgeWarnung, offlineFaehigkeiten, sicherungGebaut, sicherungInfo, torText, wechselWarnung, wegName, weitergabeText, widerrufAnleitung, wiederherstellungText } from "../../protokoll-texte.js";
 import { LS_VERSAND_VERZOEGERUNG, maxVerzoegerungSek } from "../versand.js";
 import { geheim, istGeheimnis, tresorEingerichtet, wireTresorKarte } from "../tresor.js";
 import { $, ganzeZahl, toast } from "../ui.js";
@@ -67,7 +64,7 @@ export async function zeigeNachfolge(): Promise<void> {
       `<span class="${cls}">${escapeHtml(nachfolgeStand(st, plan))}</span><br>` +
       `<span class="muted">${escapeHtml(t("set.nfPlan", { schwelle: plan.threshold, von: plan.guardians.length, frist: plan.inactivityDays, warte: plan.graceDays }))}</span>`;
   } catch (e) {
-    box.textContent = t("agent.nichtAbrufbar", { fehler: (e as Error).message });
+    box.textContent = t("agent.nichtAbrufbar", { fehler: fehlerText(e) });
   }
 }
 
@@ -132,7 +129,7 @@ export async function richteNachfolgeEin(): Promise<void> {
     void zeigeGeraete();
     void zeigeNachfolge();
   } catch (e) {
-    toast((e as Error).message, true);
+    toast(fehlerText(e), true);
   }
 }
 
@@ -206,7 +203,7 @@ async function sichereZustand(): Promise<void> {
     void zeigeSicherung();
     void aktualisiereSicherheitsStand();
   } catch (e) {
-    toast((e as Error).message, true);
+    toast(fehlerText(e), true);
   }
 }
 
@@ -239,7 +236,7 @@ async function stelleZustandWieder(): Promise<void> {
     toast(t("set.wiederhergestellt"));
     setTimeout(() => location.reload(), 900);
   } catch (e) {
-    toast((e as Error).message, true);
+    toast(fehlerText(e), true);
   }
 }
 
@@ -274,7 +271,7 @@ async function bereiteWechselVor(): Promise<void> {
     void aktualisiereSicherheitsStand();
     toast(t("set.vorbereitet"));
   } catch (e) {
-    toast((e as Error).message, true);
+    toast(fehlerText(e), true);
   }
 }
 
@@ -325,7 +322,7 @@ async function widerrufeSchluessel(): Promise<void> {
 
     toast(t("set.widerrufenFertig"));
   } catch (e) {
-    toast((e as Error).message, true);
+    toast(fehlerText(e), true);
   } finally {
     sk.fill(0);
   }
@@ -376,7 +373,7 @@ export async function zeigeGeraete(): Promise<void> {
       b.addEventListener("click", () => void entzieheGeraet((b as HTMLElement).dataset.pk!));
     });
   } catch (e) {
-    box.textContent = t("agent.nichtAbrufbar", { fehler: (e as Error).message });
+    box.textContent = t("agent.nichtAbrufbar", { fehler: fehlerText(e) });
   }
 }
 
@@ -411,7 +408,7 @@ async function fuegeGeraetHinzu(): Promise<void> {
     geraet.sk.fill(0);
     void zeigeGeraete();
   } catch (e) {
-    toast((e as Error).message, true);
+    toast(fehlerText(e), true);
   }
 }
 
@@ -426,7 +423,7 @@ async function entzieheGeraet(devicePk: string): Promise<void> {
     toast(t("set.entzogen"));
     void zeigeGeraete();
   } catch (e) {
-    toast((e as Error).message, true);
+    toast(fehlerText(e), true);
   }
 }
 
@@ -443,7 +440,7 @@ async function meldeFuerAnderen(): Promise<void> {
     await (await ensurePool()).publish(await signiere(buildRecoveryClaim(state.keypair.pk, wen.trim(), grund.trim())));
     toast(t("set.gemeldet"));
   } catch (e) {
-    toast((e as Error).message, true);
+    toast(fehlerText(e), true);
   }
 }
 
@@ -471,7 +468,7 @@ async function reicheSolEin(roh: Uint8Array): Promise<void> {
     const signatur = await reicheSolOfflineEin(roh);
     toast(t("set.solOfflineEingereicht", { sig: signatur.slice(0, 8) }));
   } catch (e) {
-    toast(t("set.solOfflineFehler", { fehler: (e as Error).message }), true);
+    toast(t("set.solOfflineFehler", { fehler: fehlerText(e) }), true);
   }
 }
 
@@ -575,7 +572,7 @@ export async function wireMeshTab(): Promise<void> {
       $("#mesh-status").textContent = t("set.verbundenMit", { name: n.transportName ?? "" });
       toast(t("set.funkVerbunden"));
     } catch (e) {
-      $("#mesh-status").textContent = (e as Error).message;
+      $("#mesh-status").textContent = fehlerText(e);
     }
   };
 
@@ -590,7 +587,7 @@ export async function wireMeshTab(): Promise<void> {
       void zeigeOfflineFaehigkeiten("lora");
       toast(t("set.bluetoothVerbunden"));
     } catch (e) {
-      $("#mesh-status").textContent = (e as Error).message;
+      $("#mesh-status").textContent = fehlerText(e);
     }
   };
 
@@ -683,7 +680,7 @@ export async function wireMeshTab(): Promise<void> {
         }
       } catch (e) {
         kontakte.checked = kontakteSichernAn();
-        toast(t("set.kontaktlisteFehler", { fehler: (e as Error).message }), true);
+        toast(t("set.kontaktlisteFehler", { fehler: fehlerText(e) }), true);
       }
     };
   }
@@ -849,7 +846,7 @@ export async function exportiereApp(): Promise<void> {
     toast(t("set.appExportiert"));
   } catch (e) {
     if (status) {
-      status.textContent = t("set.exportFehler", { fehler: (e as Error).message });
+      status.textContent = t("set.exportFehler", { fehler: fehlerText(e) });
       status.className = "mono-sm warn";
     }
   }
@@ -926,7 +923,7 @@ export async function pruefeEigeneEchtheit(): Promise<void> {
     }
     if (fix) knopf(t("set.fixierungAufheben"), () => localStorage.removeItem(LS_RELEASE_FIX));
   } catch (e) {
-    box.textContent = t("set.echtheitFehler", { fehler: (e as Error).message });
+    box.textContent = t("set.echtheitFehler", { fehler: fehlerText(e) });
     box.className = "mono-sm warn";
   }
 }
@@ -1007,7 +1004,7 @@ export async function wireGebuehrenKarte(): Promise<void> {
       const r = await zahleAnteile();
       toast(r.gezahltMsat > 0 ? t("set.anteileGezahlt", { betrag: sat(r.gezahltMsat) }) : t("set.nichtsFaellig"));
     } catch (e) {
-      toast((e as Error).message, true);
+      toast(fehlerText(e), true);
     } finally {
       knopf.disabled = false;
       zeige();
@@ -1072,7 +1069,7 @@ function wireRelayZugang(): void {
       });
       status.textContent = r ? t("set.bezahltBis", { datum: new Date(r.bis * 1000).toLocaleDateString(gebietsschema()) }) : t("set.bezahltOffen");
     } catch (e) {
-      status.textContent = t("set.nichtGekauft", { fehler: (e as Error).message });
+      status.textContent = t("set.nichtGekauft", { fehler: fehlerText(e) });
     } finally {
       satsK.disabled = solK.disabled = false;
       zeigeStand(false);
@@ -1089,7 +1086,7 @@ function wireRelayZugang(): void {
       if (r) merkeZugang(localStorage, relay(), { bis: r.bis });
       status.textContent = r ? "" : t("set.nochNichtBestaetigt");
     } catch (e) {
-      status.textContent = t("set.nichtGeprueft", { fehler: (e as Error).message });
+      status.textContent = t("set.nichtGeprueft", { fehler: fehlerText(e) });
     }
     zeigeStand();
   };
@@ -1130,7 +1127,7 @@ function wireRelayKarte(): void {
         status.textContent = t("set.nichtVeroeffentlichtKeiner");
       }
     } catch (e) {
-      status.textContent = t("set.nichtVeroeffentlicht", { fehler: (e as Error).message });
+      status.textContent = t("set.nichtVeroeffentlicht", { fehler: fehlerText(e) });
     } finally {
       knopf.disabled = false;
     }

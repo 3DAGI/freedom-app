@@ -13,6 +13,7 @@ import { type NostrEvent, type UnsignedEvent, buildEvent, getTag } from "./event
 import { giftUnwrapMitSigner, giftWrapMitSigner } from "./gift-wrap.js";
 import { KIND_SOL_TRINKGELD } from "./kinds.js";
 import type { Signer } from "./signer.js";
+import { ProtokollFehler } from "./fehler.js";
 
 const HEX64 = /^[0-9a-f]{64}$/;
 const B58_ADRESSE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
@@ -38,11 +39,11 @@ export interface SolTrinkgeld {
 function pruefe(t: SolTrinkgeld): void {
   if (!HEX64.test(t.empfaenger)) throw new Error("Empfänger muss ein Pubkey (64 Hex) sein");
   if (!B58_SIGNATUR.test(t.signatur)) throw new Error("keine gültige Transaktionssignatur");
-  if (!Number.isSafeInteger(t.lamports) || t.lamports <= 0) throw new Error("Betrag muss eine positive ganze Zahl (Lamports) sein");
-  if (!B58_ADRESSE.test(t.an)) throw new Error("keine gültige SOL-Adresse");
+  if (!Number.isSafeInteger(t.lamports) || t.lamports <= 0) throw new ProtokollFehler("trinkgeld-betrag", "Betrag muss eine positive ganze Zahl (Lamports) sein");
+  if (!B58_ADRESSE.test(t.an)) throw new ProtokollFehler("sol-adresse", "keine gültige SOL-Adresse");
   if (!SOL_KETTEN.includes(t.kette)) throw new Error("unbekannte Kette");
   if (t.bezug !== undefined && !HEX64.test(t.bezug)) throw new Error("Bezug muss eine Event-ID sein");
-  if (t.notiz !== undefined && t.notiz.length > MAX_NOTIZ) throw new Error(`Notiz höchstens ${MAX_NOTIZ} Zeichen`);
+  if (t.notiz !== undefined && t.notiz.length > MAX_NOTIZ) throw new ProtokollFehler("trinkgeld-notiz", `Notiz höchstens ${MAX_NOTIZ} Zeichen`, { max: MAX_NOTIZ });
 }
 
 /** Das Beleg-Event (Kind 9736) – unsigniert; offen oder als Kern eines Umschlags. */

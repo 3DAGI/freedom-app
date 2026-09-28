@@ -28,6 +28,7 @@
  * sich die beiden, meldet sie das als Warnung. Sie fängt einen Anbieter, der
  * plump lügt – nicht einen, der nur bei der Stichprobe schweigt.
  */
+import { ProtokollFehler } from "./fehler.js";
 
 export interface RpcEndpoint {
   url: string;
@@ -245,8 +246,10 @@ export class RpcPool {
       }
     }
 
-    throw new Error(
+    throw new ProtokollFehler(
+      "rpc-unerreichbar",
       `Kein Solana-Endpunkt erreichbar (${this.states.length} versucht). ` + fehler.join(" | "),
+      { n: this.states.length, details: fehler.join(" | ") },
     );
   }
 

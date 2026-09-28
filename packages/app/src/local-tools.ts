@@ -19,6 +19,7 @@
  */
 import { isPrivateAddress } from "@freedomstack/protocol";
 import { t } from "./i18n.js";
+import { fehlerText } from "./protokoll-texte.js";
 
 /** So viel liest ein lokales Werkzeug hoechstens von einer Antwort. */
 export const LOKAL_MAX_BYTES = 1_000_000;
@@ -81,7 +82,7 @@ export async function localWebSearch(query: string, timeoutMs = 8000): Promise<L
       t("bau.keineAntwort");
     return { name: "web_search", kind, output: out, ok: true };
   } catch (e) {
-    return { name: "web_search", kind, output: t("bau.sucheFehler", { fehler: (e as Error).message }), ok: false };
+    return { name: "web_search", kind, output: t("bau.sucheFehler", { fehler: fehlerText(e) }), ok: false };
   }
 }
 
@@ -104,7 +105,7 @@ export async function localBrowserFetch(url: string, timeoutMs = 9000): Promise<
       .trim();
     return { name: "browser_use", kind, output: text.slice(0, 3000), ok: true };
   } catch (e) {
-    return { name: "browser_use", kind, output: t("bau.browserFehler", { fehler: (e as Error).message }), ok: false };
+    return { name: "browser_use", kind, output: t("bau.browserFehler", { fehler: fehlerText(e) }), ok: false };
   }
 }
 

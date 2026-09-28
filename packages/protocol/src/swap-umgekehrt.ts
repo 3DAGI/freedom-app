@@ -17,6 +17,7 @@
 import type { LightningAdapter, SolanaHtlcAdapter } from "./adapters.js";
 import { sha256, toHex, verifyPreimage } from "./htlc.js";
 import { validateReverseTimelock } from "./timelock.js";
+import { ProtokollFehler } from "./fehler.js";
 
 export interface ReverseSwapConfig {
   swapId: string;
@@ -57,9 +58,9 @@ export function rueckSwapId(bolt11: string): string {
  * verfehlt (dann zahlte der LP nicht).
  */
 export function rueckSwapLamports(amountSats: number, lamportsPerSat: number, feePpm: number): number {
-  if (!Number.isSafeInteger(amountSats) || amountSats <= 0) throw new Error("Betrag in sats ungültig");
-  if (!Number.isFinite(lamportsPerSat) || lamportsPerSat <= 0) throw new Error("Kurs ungültig");
-  if (!Number.isSafeInteger(feePpm) || feePpm < 0 || feePpm >= 1_000_000) throw new Error("Gebühr ungültig");
+  if (!Number.isSafeInteger(amountSats) || amountSats <= 0) throw new ProtokollFehler("rueck-betrag", "Betrag in sats ungültig");
+  if (!Number.isFinite(lamportsPerSat) || lamportsPerSat <= 0) throw new ProtokollFehler("rueck-kurs", "Kurs ungültig");
+  if (!Number.isSafeInteger(feePpm) || feePpm < 0 || feePpm >= 1_000_000) throw new ProtokollFehler("rueck-gebuehr", "Gebühr ungültig");
   const mikroLamportsProSat = BigInt(Math.round(lamportsPerSat * 1_000_000));
   const zaehler = BigInt(amountSats) * mikroLamportsProSat * BigInt(1_000_000 + feePpm);
   const nenner = 1_000_000n * 1_000_000n;

@@ -10,6 +10,7 @@
 import { fromHex, toHex } from "@freedomstack/protocol";
 import { startHero } from "../hero.js";
 import { LANGS, Lang, detectLang, gespeicherteSprache, getLang, setLang, t } from "../i18n.js";
+import { fehlerText } from "../protokoll-texte.js";
 import { escapeHtml, pkShort } from "../shell-logic.js";
 import { nimmBunkerAuf, wireBunkerKarte } from "./bunker.js";
 import { wireEingebauteWallet } from "./eingebaute-wallet.js";
@@ -343,7 +344,7 @@ async function importIdentity(): Promise<void> {
       id.sk.fill(0);
       mitMerkphrase = !!id.mnemonic;
     } catch (e) {
-      toast((e as Error).message, true);
+      toast(fehlerText(e), true);
       return;
     }
   }
@@ -359,7 +360,7 @@ async function importIdentity(): Promise<void> {
   }
   if (state.person) localStorage.setItem(LS_GERAET_PERSON, state.person);
   else localStorage.removeItem(LS_GERAET_PERSON);
-  void speichereSchluessel(hex.toLowerCase()).catch((e) => toast(t("ein.nichtGespeichert", { fehler: (e as Error).message }), true));
+  void speichereSchluessel(hex.toLowerCase()).catch((e) => toast(t("ein.nichtGespeichert", { fehler: fehlerText(e) }), true));
   $("#ident").textContent = escrowIdent();
   toast(state.person ? t("ein.alsGeraet", { person: pkShort(state.person) }) : t("ein.importiert"));
   updateFeePreview();
@@ -723,7 +724,7 @@ function starte(): void {
         const r = exportMeshFile(events, [state.keypair.pk]);
         toast(r.exportiert === 0 ? t("ein.keineUmschlaege") : t("ein.umschlaegeExportiert", { n: r.exportiert }));
       } catch (e) {
-        toast(t("ein.exportFehler", { fehler: (e as Error).message }), true);
+        toast(t("ein.exportFehler", { fehler: fehlerText(e) }), true);
       }
     };
   }
@@ -748,7 +749,7 @@ function starte(): void {
         toast(t("ein.umschlaegeImportiert", { ok, n: events.length }) + (abgelehnt ? t("ein.unverschluesseltAbgelehnt", { n: abgelehnt }) : ""));
         if (activeConversation) loadChatMessages(activeConversation);
       } catch (e) {
-        toast(t("ein.importFehler", { fehler: (e as Error).message }), true);
+        toast(t("ein.importFehler", { fehler: fehlerText(e) }), true);
       }
     };
   }
@@ -783,7 +784,7 @@ function starte(): void {
         toast(t("ein.gitPubliziert", { name, blob: res.blobId.slice(0, 8) }));
         loadGitRepos();
       } catch (e) {
-        toast(t("ein.gitFehler", { fehler: (e as Error).message }), true);
+        toast(t("ein.gitFehler", { fehler: fehlerText(e) }), true);
       }
     };
   }

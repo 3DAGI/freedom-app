@@ -10,6 +10,7 @@
  * `eingebauterHtlcSigner()` – ohne SOL auf der neuen Adresse ueber einen Relayer.
  */
 import { t } from "../i18n.js";
+import { fehlerText } from "../protokoll-texte.js";
 import { escapeHtml } from "../shell-logic.js";
 import { EingebauteSolWallet, type Nachfrage, type SignierbareTx, VORRAT_GROESSE } from "../sol-wallet.js";
 import { ausLamports, solText } from "../preis-anzeige.js";
@@ -155,7 +156,7 @@ async function frischKopieren(): Promise<void> {
     $("#solw-adresse").textContent = adresse;
     toast(t("waehr.frischKopiert"));
   } catch (e) {
-    toast((e as Error).message, true);
+    toast(fehlerText(e), true);
   }
 }
 
@@ -186,7 +187,7 @@ async function ergaenzen(): Promise<void> {
       toast(t("waehr.frischeBereit", { n: frei }));
       zeigeEingebauteWallet();
     } catch (e) {
-      box.querySelector("#solw-meldung2")!.textContent = (e as Error).message;
+      box.querySelector("#solw-meldung2")!.textContent = fehlerText(e);
     } finally {
       ok.disabled = false;
     }
@@ -221,7 +222,7 @@ async function einrichten(): Promise<void> {
       toast(t("waehr.eingebauteBereit", { adresse: adresse.slice(0, 6) }));
       zeigeEingebauteWallet();
     } catch (e) {
-      box.querySelector("#solw-meldung")!.textContent = (e as Error).message;
+      box.querySelector("#solw-meldung")!.textContent = fehlerText(e);
     } finally {
       ok.disabled = false;
     }
@@ -235,7 +236,7 @@ async function limitSpeichern(): Promise<void> {
     await eingebauteWallet.setzeLimit(lamports);
     toast(t("waehr.limitGesetzt", { betrag: solText(lamports) }));
   } catch (e) {
-    toast((e as Error).message, true);
+    toast(fehlerText(e), true);
   }
   zeigeEingebauteWallet();
 }

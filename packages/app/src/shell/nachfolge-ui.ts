@@ -17,7 +17,7 @@ import { type NachfolgeStand, type VertrautenZeile, leseStand, neuestePlaene, ni
 import { ensurePool, signiere, state } from "./state.js";
 import { geheim, tresorEingerichtet } from "./tresor.js";
 import { toast } from "./ui.js";
-import { nachfolgeStand, uebergabeGrund } from "../protokoll-texte.js";
+import { fehlerText, nachfolgeStand, uebergabeGrund } from "../protokoll-texte.js";
 
 /** Ohne Tresor nur im Speicher – ein Anteil gehoert nie im Klartext in localStorage. */
 let imSpeicher: NachfolgeStand | undefined;
@@ -144,7 +144,7 @@ async function melde(besitzer: string): Promise<void> {
     toast(t("ein.gemeldetToast"));
     void zeigeVertraute();
   } catch (e) {
-    toast((e as Error).message, true);
+    toast(fehlerText(e), true);
   }
 }
 
@@ -162,7 +162,7 @@ async function fordereAn(z: VertrautenZeile): Promise<void> {
     await merke(st);
     toast(t("ein.angefragt", { n: andere.length }));
   } catch (e) {
-    toast((e as Error).message, true);
+    toast(fehlerText(e), true);
   }
 }
 
@@ -178,7 +178,7 @@ async function uebergib(z: VertrautenZeile, anfrage: AnteilAnfrage): Promise<voi
     toast(t("ein.uebergebenToast"));
     void zeigeVertraute();
   } catch (e) {
-    toast((e as Error).message, true);
+    toast(fehlerText(e), true);
   }
 }
 
@@ -199,7 +199,7 @@ function setzeZusammen(z: VertrautenZeile): void {
     URL.revokeObjectURL(url);
     toast(t("ein.zusammengesetzt"));
   } catch (e) {
-    toast((e as Error).message, true);
+    toast(fehlerText(e), true);
   } finally {
     schluessel?.fill(0);
   }
