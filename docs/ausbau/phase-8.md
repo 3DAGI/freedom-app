@@ -127,7 +127,22 @@ Reihenfolge.
       Wahrheit (private verschlüsselt, aber nicht über Mesh). Übersprungene
       Gründe von `planSync()` und `resolveDispute().message` zeigt die App
       nicht – sie bleiben deutsch im Protokoll.
-    - Danach offen: Fehlermeldungen, die das Protokoll wirft und die App über
-      `(e as Error).message` zeigt (z. B. „Kein Solana-Endpunkt erreichbar“);
-      Gründe, die ein Relayer selbst schickt, bleiben dessen Text.
-  - **8.16h:** mit 0.F – Texte der Website an den Code angleichen.
+    - Gründe, die ein Relayer selbst schickt, bleiben dessen Text.
+  - **8.16h – FERTIG:** mit 0.F – Texte der Website an den Code angeglichen
+    (Karte `phase-0.md`, 0.F): Sprachwahl der Startseite nur Deutsch und
+    Englisch; Code-Links aufs Repository; Downloads und 1-Klick-Launcher als
+    „geplant“; interne GX10-Notizen weg; Knoten-Anleitung mit echtem
+    Repository, `npm ci` und eingeschränkter Macaroon (mit `admin.macaroon`
+    startet der LP seit 8.3 nicht); die drei Einnahmen, die der Knoten kennt
+    (KI-Aufträge, LP-Gebühr, Relay-Zugang); weitere Bezugsquellen „vorbereitet“
+    statt „an mehreren Orten“ (5.3: noch Platzhalter); „Das Solana-Programm
+    wird unveränderlich gemacht“; „Der Kern in Kürze“; KI über Funk gut eine
+    Stunde Sendezeit statt „Stunden“ (nachgerechnet, auch in App und
+    Protokoll). `check-website.py` weist die alten Aussagen ab (`UNGEDECKT`).
+  - **8.16i:** Fehlermeldungen, die das Protokoll wirft und die App über
+    `(e as Error).message` zeigt (z. B. „Kein Solana-Endpunkt erreichbar“) –
+    rund 270 deutsche Sätze in 72 Dateien, nur ein Teil erreicht die
+    Oberfläche; erst messen, dann je Bereich.
+  - **Offen (MENSCH):** Die Website ist außer der Startseite (Kopf, Merkmale)
+    nur deutsch – soll sie ganz auf Englisch kommen? Durchsicht der englischen
+    Texte durch eine Muttersprachlerin oder einen Muttersprachler.

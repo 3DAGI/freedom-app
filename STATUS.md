@@ -8744,3 +8744,59 @@ Endstand: protocol 1068 (+1, 6 übersprungen) · node 235 (6 übersprungen, mit
 Netz; ohne Netz 234 + 7) · app 508 (+1) · mls 13 · Leak-Tests 58 grün + 1
 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 ·
 Website 5 Seiten ok · Smoke-Test bestanden.
+
+## Schritt 8.16h – Website an den Code angeglichen (mit 0.F)
+
+**Fertig:** Die Website sagt, was der Code tut (Karte 0.F). Geändert:
+
+- **Startseite:**
+  - Sprachwahl nur Deutsch und Englisch – wie die App seit 8.16a (acht
+    Sprachen standen noch zur Wahl).
+  - Code-Links auf allen Seiten aufs Repository statt auf github.com.
+  - „Der Code … liegt an mehreren Orten“ stimmte nicht: Die Bezugsquellen aus
+    5.3 sind noch Platzhalter. Jetzt: weitere Bezugsquellen sind vorbereitet.
+  - Downloads: Launcher für Linux, Windows und macOS als „geplant“, ohne die
+    interne Notiz zum GX10; der Desktop-Knoten ebenso „geplant“.
+  - Knoten-Anleitung: echtes Repository, `npm ci` im Wurzelverzeichnis (die
+    Pakete sind Workspaces), Hinweis auf den beim ersten Start erzeugten
+    Schlüssel. LP-Modus mit einer gebackenen, eingeschränkten Macaroon wie in
+    `docs/SWAPS.md` – mit `admin.macaroon`, wie es dort stand, startet der
+    LP seit 8.3 gar nicht.
+  - „Drei Einnahmen“: jetzt die drei, die der Knoten im Code kennt –
+    KI-Aufträge (94 %), Swap-Liquidität (LP-Gebühr), bezahlter Relay-Zugang
+    (8.4b). Vorher stand dort als dritte „das Netz wächst“.
+  - Verdienen-Tab: Er zeigt die Leistungs-Events des eigenen Schlüssels –
+    die des Knotens nur, wenn App und Knoten denselben Schlüssel nutzen.
+- **Whitepaper:** „Der Kern in drei Sätzen“ (es sind sechs) → „Der Kern in
+  Kürze“; „Das Solana-Programm ist unveränderlich“ → „wird unveränderlich
+  gemacht“ (bis zum Ende der Testphase gibt es eine Upgrade-Autorität);
+  KI-Antwort über Funk nachgerechnet.
+- **FAQ:** Unveränderlichkeit wie im Whitepaper.
+- **KI über Funk, nachgerechnet:** Eine Antwort mit 500 Tokens braucht als
+  Umschlag rund 32 s Sendezeit – fast das ganze Budget einer Stunde (36 s bei
+  1 %), mit 500 Wörtern rund 46 s. „Stunden bei 500 Tokens“ (Whitepaper) und
+  „500 Wörter … Stunden“ (Protokoll, App) waren zu viel. Jetzt: „mehr als eine
+  Stunde Sendezeit – dazu kommen Auftrag und Bezahlung“; ein Protokolltest
+  rechnet es mit `luftBytes()` nach.
+- **Prüfung:** `check-website.py` weist die alten Aussagen ab (`UNGEDECKT`,
+  neben `VERALTET`); gegen die alten Seiten meldet es 13 Stellen.
+- Schon richtig und belegt: „Reputation ist öffentlich nachprüfbar“
+  (Leistungs-Events 38010 mit Rechenarbeit), Solana per Datei mit Durable
+  Nonce, Werben ohne Stufen (5.1.4d), „Davon gehen …“, kein Topf.
+- **Offen (MENSCH):** Firmenname und Impressum (Fußzeile „Kein
+  Unternehmen“), Marketing-Entwürfe; die Frage, ob die Website außer der
+  Startseite auch auf Englisch kommen soll.
+- **Nächster Schritt (8.16i):** Fehlermeldungen, die das Protokoll wirft.
+
+**Tests:**
+- +1 in `protocol/test/mesh-sync.test.ts`: 500 Wörter als Umschlag brauchen
+  mehr als die Sendezeit einer Stunde, aber nicht Stunden; der Satz sagt das.
+- Der Wortgleich-Test der App (8.16g2b2) hält den neuen Satz deutsch gleich
+  mit dem Protokoll.
+
+Endstand: protocol 1069 (+1, 6 übersprungen) · node 235 (6 übersprungen, mit
+Netz; ohne Netz 234 + 7) · app 508 · mls 13 · Leak-Tests 58 grün + 1 todo · 0
+rot · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 · Website 5
+Seiten ok · Smoke-Test bestanden · Website gebaut · im Browser: Startseite mit
+Englisch und Deutsch, ein spanischer Browser bekommt Englisch, keine
+Seitenfehler.
