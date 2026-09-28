@@ -27,9 +27,10 @@
  *     bzw. sind im Klartext Bargeld für jeden, der mithört.
  *   ✗ Lightning-Zahlungen. Sie brauchen mehrere Runden Hin und Her — das
  *     überlebt eine Funkstrecke mit Sekunden Latenz nicht.
- *   ✗ KI-Inferenz. Ein Prompt passt vielleicht noch durch; eine Antwort mit
- *     500 Tokens braucht bei LoRa-Datenraten Stunden. Das gehört nicht
- *     versprochen.
+ *   ✗ Lange KI-Antworten. Eine Antwort mit 500 Tokens braucht als Umschlag
+ *     fast die ganze Sendezeit einer Stunde. Seit 7.4 geht eine kurze
+ *     Antwort (höchstens 500 Zeichen) über ein Gateway mit Netz
+ *     (`funk-gateway.ts`) – mehr gehört nicht versprochen.
  *
  * NUR VERSCHLÜSSELT (seit 7.1)
  * Funk hört jeder in Reichweite mit, und ein Sender lässt sich anpeilen. Ein
@@ -107,6 +108,14 @@ export const SOLANA_TX_MAX_BYTES = 1232;
 export const BESTAND_MARKE = 0x44;
 export const BESTAND_BYTES = 1024;
 
+/**
+ * Nachforderung fehlender Rahmen (7.4b): „N“, Kennung der Nachricht (4 Byte),
+ * Bitfeld der fehlenden Nummern (256 Bit). Kein Inhalt – nur, was ohnehin in
+ * jedem Rahmenkopf in der Luft steht.
+ */
+export const NACHFORDERUNG_MARKE = 0x4e;
+export const NACHFORDERUNG_BYTES = 1 + 4 + 32;
+
 /** Nur diese Arten reicht ein Knoten weiter – Klartext und Ecash nicht. */
 const VERSCHLUESSELTE_ARTEN = new Set<number>([MeshKind.NostrEvent, MeshKind.SolanaTx]);
 
@@ -127,7 +136,7 @@ export type SolanaTxPruefung =
 export type MeshFehler = SolanaTxFehler | "klartext" | "kein-event" | "kein-umschlag" | "umschlag-signatur" | "eigener-schluessel";
 
 export type MeshPruefung =
-  | { ok: true; art: "umschlag" | "bestand" | "solana" }
+  | { ok: true; art: "umschlag" | "bestand" | "nachforderung" | "solana" }
   | { ok: false; grund: string; fall: MeshFehler; bytes?: number; signatur?: number; signaturen?: number };
 
 /**
@@ -214,6 +223,7 @@ export function pruefeMeshInhalt(
   }
   if (kind !== MeshKind.NostrEvent) return { ok: false, grund: "Über Mesh geht nur Verschlüsseltes – kein Klartext, kein Ecash", fall: "klartext" };
   if (payload.length === 5 + BESTAND_BYTES && payload[0] === BESTAND_MARKE) return { ok: true, art: "bestand" };
+  if (leseNachforderung(payload)) return { ok: true, art: "nachforderung" };
 
   let ev: NostrEvent;
   try {
@@ -318,7 +328,7 @@ export interface Reassembly {
  * aber der Nutzer sähe nur „Fehler".
  */
 export class Reassembler {
-  private teile = new Map<string, { frames: Map<number, Uint8Array>; frame: MeshFrame; seenAt: number }>();
+  private teile = new Map<string, { frames: Map<number, Uint8Array>; frame: MeshFrame; seenAt: number; zuletzt: number; gefordert: number }>();
 
   constructor(private maxAgeSeconds = 3600, private maxMessages = 200) {}
 
@@ -332,7 +342,7 @@ export class Reassembler {
 
     let e = this.teile.get(f.msgId);
     if (!e) {
-      e = { frames: new Map(), frame: f, seenAt: nowSecs };
+      e = { frames: new Map(), frame: f, seenAt: nowSecs, zuletzt: nowSecs, gefordert: 0 };
       this.teile.set(f.msgId, e);
       // NACH dem Einfuegen aufraeumen: davor koennte die Sammlung um eins
       // ueber die Obergrenze wachsen, und genau darauf zielt ein Angreifer,
@@ -342,6 +352,7 @@ export class Reassembler {
     // Widersprüchliche Gesamtzahl: entweder Übertragungsfehler oder zwei
     // Nachrichten mit derselben Kennung. Beides darf nicht zusammenlaufen.
     if (e.frame.total !== f.total) return null;
+    if (!e.frames.has(f.index)) e.zuletzt = nowSecs;
     e.frames.set(f.index, f.data);
 
     const missing: number[] = [];
@@ -375,6 +386,28 @@ export class Reassembler {
 
     this.teile.delete(f.msgId);
     return { ...status, payload };
+  }
+
+  /**
+   * Lücken, die jetzt nachgefordert werden sollen (7.4b): Nachrichten, bei
+   * denen seit `ruheSek` kein neuer Rahmen kam. Jede Nachforderung kostet
+   * Sendezeit – deshalb höchstens `maxMal` je Nachricht, und die Ruhe vor der
+   * nächsten verdreifacht sich (die Gegenseite wartet vielleicht nur auf ihre
+   * Sendezeit).
+   */
+  faelligeNachforderungen(
+    nowSecs = Math.floor(Date.now() / 1000), ruheSek = 20, maxMal = 3,
+  ): { msgId: string; fehlend: number[]; priority: MeshPriority }[] {
+    const out: { msgId: string; fehlend: number[]; priority: MeshPriority }[] = [];
+    for (const [msgId, e] of this.teile) {
+      if (e.gefordert >= maxMal || nowSecs - e.zuletzt < ruheSek * 3 ** e.gefordert) continue;
+      const fehlend: number[] = [];
+      for (let i = 0; i < e.frame.total; i++) if (!e.frames.has(i)) fehlend.push(i);
+      e.gefordert++;
+      e.zuletzt = nowSecs;
+      out.push({ msgId, fehlend, priority: e.frame.priority });
+    }
+    return out;
   }
 
   /** Unvollständige Nachrichten verwerfen, die zu alt sind. */
@@ -494,6 +527,16 @@ export class MeshQueue {
     this.q.push(eintrag);
     this.q.sort((a, b) => a.priority - b.priority || a.queuedAt - b.queuedAt);
     return eintrag;
+  }
+
+  /** Einzelne Rahmen erneut einreihen – nachgeforderte (7.4b). */
+  enqueueFrames(
+    frames: readonly Uint8Array[], msgId: string, priority: MeshPriority, label: string,
+    nowSecs = Math.floor(Date.now() / 1000),
+  ): void {
+    if (frames.length === 0) return;
+    this.q.push({ frames: [...frames], priority, queuedAt: nowSecs, msgId, label });
+    this.q.sort((a, b) => a.priority - b.priority || a.queuedAt - b.queuedAt);
   }
 
   /** Nächster zu sendender Rahmen; entfernt fertige Nachrichten. */
@@ -617,5 +660,66 @@ export class Sendezeitkonto {
   dauer(sek: number, nowSecs: number): number {
     const frei = this.frei(nowSecs);
     return Math.ceil(sek <= frei ? sek : frei + (sek - frei) / this.anteil);
+  }
+}
+
+// -------------------------------------------------- Nachforderung (7.4b)
+
+/** Fehlende Rahmen einer Nachricht nachfordern – Nutzlast für `MeshKind.NostrEvent`. */
+export function baueNachforderung(msgId: string, fehlend: readonly number[]): Uint8Array {
+  if (!/^[0-9a-f]{8}$/.test(msgId)) throw new Error("Kennung der Nachricht ungültig");
+  if (fehlend.length === 0) throw new Error("Nichts nachzufordern");
+  const p = new Uint8Array(NACHFORDERUNG_BYTES);
+  p[0] = NACHFORDERUNG_MARKE;
+  for (let b = 0; b < 4; b++) p[1 + b] = parseInt(msgId.substr(b * 2, 2), 16);
+  for (const i of fehlend) {
+    // Eine Nachricht hat höchstens 255 Rahmen (0 … 254)
+    if (!Number.isInteger(i) || i < 0 || i > 254) throw new Error(`Rahmennummer ${i} ungültig`);
+    p[5 + (i >> 3)] |= 1 << (i & 7);
+  }
+  return p;
+}
+
+/** Nachforderung lesen; null, wenn die Nutzlast keine ist (oder nichts fehlt). */
+export function leseNachforderung(p: Uint8Array): { msgId: string; fehlend: number[] } | null {
+  if (p.length !== NACHFORDERUNG_BYTES || p[0] !== NACHFORDERUNG_MARKE) return null;
+  const fehlend: number[] = [];
+  for (let i = 0; i < 255; i++) if (p[5 + (i >> 3)] & (1 << (i & 7))) fehlend.push(i);
+  // Bit 255 gibt es nicht – gesetzt heißt: keine Nachforderung, sondern Müll
+  if (fehlend.length === 0 || p[36] & 0x80) return null;
+  return { msgId: bytesToHex(p.subarray(1, 5)), fehlend };
+}
+
+/**
+ * Gedächtnis gesendeter Nachrichten, damit fehlende Rahmen nachgesendet werden
+ * können (7.4b). Begrenzt, weil jede Nachforderung Sendezeit kostet und ein
+ * Fremder sonst das Gerät zum Dauersenden brächte: wenige Nachrichten, eine
+ * Stunde, höchstens `maxNachsenden` Mal je Nachricht.
+ */
+export class Sendegedaechtnis {
+  private m = new Map<string, { frames: Uint8Array[]; at: number; nachgesendet: number }>();
+
+  constructor(private maxNachrichten = 20, private maxAlterSek = 3600, private maxNachsenden = 2) {}
+
+  merke(msgId: string, frames: readonly Uint8Array[], nowSecs = Math.floor(Date.now() / 1000)): void {
+    this.m.delete(msgId);
+    this.m.set(msgId, { frames: [...frames], at: nowSecs, nachgesendet: 0 });
+    for (const [k, e] of this.m) if (nowSecs - e.at > this.maxAlterSek) this.m.delete(k);
+    while (this.m.size > this.maxNachrichten) this.m.delete(this.m.keys().next().value!);
+  }
+
+  /** Ging diese Nachricht (noch gemerkt) von hier aus? Dann reicht der Knoten eine Nachforderung nicht weiter. */
+  kennt(msgId: string, nowSecs = Math.floor(Date.now() / 1000)): boolean {
+    const e = this.m.get(msgId);
+    return !!e && nowSecs - e.at <= this.maxAlterSek;
+  }
+
+  /** Die angeforderten Rahmen – leer, wenn die Nachricht unbekannt, zu alt oder schon oft nachgesendet ist. */
+  nachsenden(n: { msgId: string; fehlend: readonly number[] }, nowSecs = Math.floor(Date.now() / 1000)): Uint8Array[] {
+    const e = this.m.get(n.msgId);
+    if (!e || nowSecs - e.at > this.maxAlterSek || e.nachgesendet >= this.maxNachsenden) return [];
+    const frames = n.fehlend.filter((i) => i < e.frames.length).map((i) => e.frames[i]);
+    if (frames.length > 0) e.nachgesendet++;
+    return frames;
   }
 }
