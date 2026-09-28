@@ -93,11 +93,76 @@ Reihenfolge.
     `privacyReport()`/`privacyFactsText()` für alle Einstellungen und jedes
     Ergebnis der .onion-Prüfung; die deutschen Sätze des Berichts haben
     echte Umlaute.
-  - **8.16g2b2:** übrige Sätze und Gründe des Protokolls – Mesh
-    (`planSync().note`, `pruefeMeshInhalt().grund`), Prüfungen
-    (`validateReverseTimelock`, `pruefeSolUeberweisung`, `RpcPool.stichprobe`,
-    `isPlausibleRelayUrl`, `darfUebergeben`, `absenderPerson`), Settings
-    (Nachfolge-Stand und -Warnung, `backupInfo`, Schlüsselwechsel,
-    Gerätewarnung und `listDevices().message`, Echtheit und Fixierung,
-    Offline-Fähigkeiten samt `OFFLINE_HINWEIS`, Tor-Reihenfolge).
-  - **8.16h:** mit 0.F – Texte der Website an den Code angleichen.
+  - **8.16g2b2 – FERTIG:** Sätze des Protokolls in Settings und im Chat über
+    `protokoll-texte.ts` (Bereich `ps.*`): Nachfolge (Rückfrage, Stand),
+    Sicherung (Info, gesichert, wiederhergestellt), Schlüsselwechsel
+    (Rückfrage, Anleitung, Stand eines Kontakts), Geräte (Rückfrage, Rechte,
+    Stand), Echtheit und Fixierung, Weitergabe, ohne Internet (Hinweis,
+    Fähigkeiten, Wege), Tor-Reihenfolge. Das Protokoll liefert dafür
+    zusätzliche Felder (`KeyState.streit`/`vorbereitet`,
+    `RestoreResult.fehler`/`version`, `VerifyResult.fall`/`bestaetigt`/`noetig`);
+    die Räume-Zeile der Offline-Fähigkeiten stimmt wieder (seit 2.3
+    verschlüsselt, aber nicht über Mesh). Die Rohtext-Suche findet jetzt auch
+    „Wort: …“ vor einer Einsetzung und Text mit „…“ – so kamen acht
+    übersehene Stellen ans Licht (Mesh-Protokollzeilen, Git-Bündel, Modellwahl,
+    Anhang-Fehler).
+  - **8.16g2b3:** Gründe aus Prüfungen des Protokolls, die die App noch
+    unverändert zeigt – rund 90 Sätze, deshalb geteilt:
+    - **8.16g2b3a – FERTIG:** Geld und Netz. Die Prüfungen liefern zusätzlich
+      eine Kennung `fall` (samt Zahlen), die App bildet daraus den Text
+      (`protokoll-texte.ts`, Bereich `pg.*`): Fristen
+      (`validateReverseTimelock`, `validateTimelockOrdering`), Relay-Auftrag
+      (`pruefeRelayAuftrag`), Offline-Überweisung (`pruefeOfflineUeberweisung`
+      samt `pruefeSolanaTx`), Mesh-Inhalt (`pruefeMeshInhalt`), Überweisung
+      auf der Kette (`pruefeSolUeberweisung`), RPC-Stichprobe
+      (`StichprobeErgebnis.befunde`/`luecken`). `claimAllowed` war schon
+      übersetzt (App-Code).
+    - **8.16g2b3b – FERTIG:** Mesh und Vertrauen. Kennung `fall` für
+      Relay-Adressen (`isPlausibleRelayUrl`), Geräteprüfung
+      (`checkDeviceEvent`, `absenderPerson`, samt Recht), Übergabe in der
+      Nachfolge (`darfUebergeben`, samt Stand) und Funk (`meshFeasibility`);
+      Abgleich (`planSync().note`) und Reklamationsfrist
+      (`disputeWindowOpen`) bildet die App aus den Feldern; ausgeblendet ohne
+      Grund heißt „ohne Grund“. `SYNC_POLICY` sagt zu Räumen jetzt die
+      Wahrheit (private verschlüsselt, aber nicht über Mesh). Übersprungene
+      Gründe von `planSync()` und `resolveDispute().message` zeigt die App
+      nicht – sie bleiben deutsch im Protokoll.
+    - Gründe, die ein Relayer selbst schickt, bleiben dessen Text.
+  - **8.16h – FERTIG:** mit 0.F – Texte der Website an den Code angeglichen
+    (Karte `phase-0.md`, 0.F): Sprachwahl der Startseite nur Deutsch und
+    Englisch; Code-Links aufs Repository; Downloads und 1-Klick-Launcher als
+    „geplant“; interne GX10-Notizen weg; Knoten-Anleitung mit echtem
+    Repository, `npm ci` und eingeschränkter Macaroon (mit `admin.macaroon`
+    startet der LP seit 8.3 nicht); die drei Einnahmen, die der Knoten kennt
+    (KI-Aufträge, LP-Gebühr, Relay-Zugang); weitere Bezugsquellen „vorbereitet“
+    statt „an mehreren Orten“ (5.3: noch Platzhalter); „Das Solana-Programm
+    wird unveränderlich gemacht“; „Der Kern in Kürze“; KI über Funk gut eine
+    Stunde Sendezeit statt „Stunden“ (nachgerechnet, auch in App und
+    Protokoll). `check-website.py` weist die alten Aussagen ab (`UNGEDECKT`).
+  - **8.16i:** Fehlermeldungen, die das Protokoll wirft und die App über
+    `(e as Error).message` zeigte. Gemessen: rund 270 deutsche Sätze in 72
+    Dateien; 234 in Dateien, die die App nutzt – die meisten davon Parser
+    fremder Events („kein …-Kind“) und Schutzprüfungen, die die Oberfläche
+    nie erreichen. Übersetzt wird, was Nutzer sehen können (Eingaben, Netz,
+    Wallet): Das Protokoll wirft dort `ProtokollFehler(kennung, meldung,
+    werte)` (deutsche Meldung unverändert), die App zeigt jeden Fehler über
+    `fehlerText(e)`.
+    - **8.16i1 – FERTIG:** Grundlage (`protocol/src/fehler.ts`,
+      `fehlerText()`, `texte/fehler.ts` mit `pf.*`; alle 106 Anzeigestellen
+      in 29 Dateien; `explainError()` deutet Fehler mit Kennung nicht um) und
+      Geld und Netz: RPC unerreichbar, Lightning-Rechnung, NWC (Adresse,
+      Fehler des Wallets, Zeitüberschreitung), Zahlschienen (Ziel, Einheit,
+      offline, keine Wallet), Beträge und Tageslimit, Zahlkanal, SOL ohne
+      Internet, Rück-Swap, SOL-Trinkgeld, Zustandssicherung zu groß.
+    - **8.16i2 – FERTIG:** Identität und Inhalte (46 Kennungen) – Bunker
+      (Adresse, Antworten des Signers), Repos und Patches (NIP-34),
+      Modellkataloge, Kontaktliste, Nachfolge (Schwelle, Teile, Anteile
+      zusammensetzen), Geräte (selbst, ohne Rechte), Schlüsselwechsel,
+      Selbstwerbung, „kein Moderator außer dir“, verschlüsselte Dateien.
+      Schutzprüfungen, deren Eingaben die App vorher prüft (Ablauf einer
+      Direktnachricht, Trinkgeld-Adresse, Pubkeys), bleiben einfache Fehler.
+  - **Stand 8.16 (28.09.2026):** Code-Teil fertig. Offen nur MENSCH:
+    Durchsicht der englischen Texte; ob die Website ganz auf Englisch kommt.
+  - **Offen (MENSCH):** Die Website ist außer der Startseite (Kopf, Merkmale)
+    nur deutsch – soll sie ganz auf Englisch kommen? Durchsicht der englischen
+    Texte durch eine Muttersprachlerin oder einen Muttersprachler.

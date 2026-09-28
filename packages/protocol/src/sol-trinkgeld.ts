@@ -13,6 +13,7 @@ import { type NostrEvent, type UnsignedEvent, buildEvent, getTag } from "./event
 import { giftUnwrapMitSigner, giftWrapMitSigner } from "./gift-wrap.js";
 import { KIND_SOL_TRINKGELD } from "./kinds.js";
 import type { Signer } from "./signer.js";
+import { ProtokollFehler } from "./fehler.js";
 
 const HEX64 = /^[0-9a-f]{64}$/;
 const B58_ADRESSE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
@@ -38,11 +39,11 @@ export interface SolTrinkgeld {
 function pruefe(t: SolTrinkgeld): void {
   if (!HEX64.test(t.empfaenger)) throw new Error("Empfänger muss ein Pubkey (64 Hex) sein");
   if (!B58_SIGNATUR.test(t.signatur)) throw new Error("keine gültige Transaktionssignatur");
-  if (!Number.isSafeInteger(t.lamports) || t.lamports <= 0) throw new Error("Betrag muss eine positive ganze Zahl (Lamports) sein");
-  if (!B58_ADRESSE.test(t.an)) throw new Error("keine gültige SOL-Adresse");
+  if (!Number.isSafeInteger(t.lamports) || t.lamports <= 0) throw new ProtokollFehler("trinkgeld-betrag", "Betrag muss eine positive ganze Zahl (Lamports) sein");
+  if (!B58_ADRESSE.test(t.an)) throw new ProtokollFehler("sol-adresse", "keine gültige SOL-Adresse");
   if (!SOL_KETTEN.includes(t.kette)) throw new Error("unbekannte Kette");
   if (t.bezug !== undefined && !HEX64.test(t.bezug)) throw new Error("Bezug muss eine Event-ID sein");
-  if (t.notiz !== undefined && t.notiz.length > MAX_NOTIZ) throw new Error(`Notiz höchstens ${MAX_NOTIZ} Zeichen`);
+  if (t.notiz !== undefined && t.notiz.length > MAX_NOTIZ) throw new ProtokollFehler("trinkgeld-notiz", `Notiz höchstens ${MAX_NOTIZ} Zeichen`, { max: MAX_NOTIZ });
 }
 
 /** Das Beleg-Event (Kind 9736) – unsigniert; offen oder als Kern eines Umschlags. */
@@ -104,7 +105,14 @@ export async function oeffnePrivatesSolTrinkgeld(wrap: NostrEvent, signer: Signe
 
 // ------------------------------------------------------------ Pruefung auf der Kette
 
-export type SolPruefung = { status: "belegt" } | { status: "unbestaetigt"; grund: string } | { status: "falsch"; grund: string };
+/** Warum eine Überweisung (noch) nicht belegt ist (8.16g2b3) – die App bildet daraus den Text in ihrer Sprache. */
+export type SolFehler = "nicht-gefunden" | "ohne-ergebnis" | "gescheitert" | "ohne-referenz" | "kein-empfaenger" | "zu-wenig";
+
+/** `fall` setzt `pruefeSolUeberweisung()` immer; `lamports`/`erwartet` bei "zu-wenig". */
+export type SolPruefung =
+  | { status: "belegt" }
+  | { status: "unbestaetigt"; grund: string; fall?: SolFehler }
+  | { status: "falsch"; grund: string; fall?: SolFehler; lamports?: number; erwartet?: number };
 
 type Anweisung = { program?: string; parsed?: { type?: string; info?: { source?: string; destination?: string; lamports?: number } } };
 
@@ -116,13 +124,13 @@ type Anweisung = { program?: string; parsed?: { type?: string; info?: { source?:
  * genau einem Angebot und laesst sich keinem anderen unterschieben.
  */
 export function pruefeSolUeberweisung(tx: unknown, erwartet: { an: string; lamports: number; von?: string; referenz?: string }): SolPruefung {
-  if (tx === null || tx === undefined) return { status: "unbestaetigt", grund: "Transaktion (noch) nicht gefunden" };
+  if (tx === null || tx === undefined) return { status: "unbestaetigt", grund: "Transaktion (noch) nicht gefunden", fall: "nicht-gefunden" };
   const t = tx as { meta?: { err?: unknown }; transaction?: { message?: { instructions?: Anweisung[]; accountKeys?: unknown[] } } };
-  if (!t.meta) return { status: "unbestaetigt", grund: "Transaktion ohne Ergebnis" };
-  if (t.meta.err !== null && t.meta.err !== undefined) return { status: "falsch", grund: "Transaktion ist gescheitert" };
+  if (!t.meta) return { status: "unbestaetigt", grund: "Transaktion ohne Ergebnis", fall: "ohne-ergebnis" };
+  if (t.meta.err !== null && t.meta.err !== undefined) return { status: "falsch", grund: "Transaktion ist gescheitert", fall: "gescheitert" };
   if (erwartet.referenz !== undefined) {
     const konten = (t.transaction?.message?.accountKeys ?? []).map((k) => (typeof k === "string" ? k : (k as { pubkey?: unknown })?.pubkey));
-    if (!konten.includes(erwartet.referenz)) return { status: "falsch", grund: "Referenz fehlt – die Zahlung gehört zu keinem Angebot" };
+    if (!konten.includes(erwartet.referenz)) return { status: "falsch", grund: "Referenz fehlt – die Zahlung gehört zu keinem Angebot", fall: "ohne-referenz" };
   }
   let summe = 0;
   for (const a of t.transaction?.message?.instructions ?? []) {
@@ -132,7 +140,7 @@ export function pruefeSolUeberweisung(tx: unknown, erwartet: { an: string; lampo
     if (erwartet.von && info.source !== erwartet.von) continue;
     if (Number.isSafeInteger(info.lamports)) summe += info.lamports!;
   }
-  if (summe === 0) return { status: "falsch", grund: "keine Überweisung an diesen Empfänger" };
-  if (summe < erwartet.lamports) return { status: "falsch", grund: `nur ${summe} statt ${erwartet.lamports} Lamports` };
+  if (summe === 0) return { status: "falsch", grund: "keine Überweisung an diesen Empfänger", fall: "kein-empfaenger" };
+  if (summe < erwartet.lamports) return { status: "falsch", grund: `nur ${summe} statt ${erwartet.lamports} Lamports`, fall: "zu-wenig", lamports: summe, erwartet: erwartet.lamports };
   return { status: "belegt" };
 }

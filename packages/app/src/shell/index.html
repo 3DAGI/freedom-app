@@ -163,6 +163,7 @@
                 <div id="model-popover" class="model-popover hidden"></div>
               </div>
               <span class="bid-wrap" id="bid-wrap" style="display:none"><span data-i18n="bid">Bid (sats)</span> <input id="ai-bid" type="number" value="100" min="1" /></span>
+              <label id="ai-funk-wahl" class="mono-sm" style="display:none" title="Frage über dein Funkgerät an das gemerkte Gateway – kurze Antwort, höchstens 500 Zeichen" data-i18n-title="agent.ueberFunkTitel"><input type="checkbox" id="ai-funk" /> <span data-i18n="agent.ueberFunk">über Funk</span></label>
               <span id="ai-fee-preview" class="mono-sm" style="display:none"></span>
               <span id="ai-budget" class="mono-sm"></span>
             </div>
@@ -477,7 +478,7 @@
         </div></div>
           <div class="subpane" data-subpane="netz:mesh"><div class="card">
           <h3><span class="ic" data-icon="radio"></span> <span data-i18n="set.ohneInternet">Ohne Internet</span></h3>
-          <p class="mono-sm" data-i18n="set.meshText">Verschlüsselte Nachrichten über Funk oder per Datei, wenn das Netz weg ist – nur Umschläge, ohne deinen Schlüssel und ohne Klartext. Funk sendet höchstens 1 % der Zeit (EU 868 MHz): drei bis vier kurze Nachrichten je Stunde. SOL mit vorbereitetem Nonce-Konto (Wallet-Tab); empfangene SOL-Zahlungen reicht die App ein, sobald sie Netz hat. Lightning und KI-Anfragen gehen so nicht.</p>
+          <p class="mono-sm" data-i18n="set.meshText">Verschlüsselte Nachrichten über Funk oder per Datei, wenn das Netz weg ist – nur Umschläge, ohne deinen Schlüssel und ohne Klartext. Funk sendet höchstens 1 % der Zeit (EU 868 MHz): drei bis vier kurze Nachrichten je Stunde. SOL mit vorbereitetem Nonce-Konto (Wallet-Tab); empfangene SOL-Zahlungen reicht die App ein, sobald sie Netz hat. Lightning geht so nicht; KI nur kurz über ein Funk-Gateway (unten).</p>
           <div id="mesh-transport" class="mono-sm"></div>
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
             <button id="mesh-connect" class="ghost" style="width:auto;padding:6px 10px" data-i18n="set.usbGeraet">USB-Gerät</button>
@@ -494,6 +495,15 @@
         </div><div class="card">
           <h3 data-i18n="set.warteschlange">Warteschlange</h3>
           <div id="mesh-queue" class="mono-sm"><span data-i18n="set.nichtsZuSenden">nichts zu senden</span></div>
+        </div><div class="card" id="funk-gateway-karte">
+          <h3 data-i18n="set.funkGateway">KI über Funk</h3>
+          <p class="mono-sm" data-i18n="set.funkGatewayText">Ohne Internet fragst du die KI über dein Funkgerät und ein Gateway – einen Knoten mit Netz und Funkgerät. Das Gateway sieht nur Umschläge: weder Frage noch Antwort noch wer du bist. Kurz: höchstens 500 Zeichen, rund zwei Antworten je Stunde und Gateway (1 % Sendezeit). Bezahlt nur über einen Zahlkanal zu diesem Provider oder gratis – Lightning braucht Netz. Wähle das Gateway, solange du Netz hast; die Antwort kommt nur an, solange die App offen bleibt.</p>
+          <div id="funk-gateway-stand" class="mono-sm"></div>
+          <div id="funk-gateway-liste" class="mono-sm"></div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
+            <button id="funk-gateway-suchen" class="ghost" style="width:auto;padding:6px 10px" data-i18n="set.funkGatewaySuchen">Gateways suchen</button>
+            <button id="funk-gateway-vergessen" class="ghost" style="width:auto;padding:6px 10px" data-i18n="set.funkGatewayVergessen">vergessen</button>
+          </div>
         </div></div>
         </div>
       </section>

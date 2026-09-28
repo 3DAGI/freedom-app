@@ -139,6 +139,16 @@ export interface VerifyResult {
   status: VerifyStatus;
   /** Welche Version die Datei ist, falls erkannt. */
   version?: string;
+  /**
+   * Welcher Fall (seit 8.16g2b2, damit die App den Satz in ihrer Sprache
+   * bildet): kein Manifest eines bekannten Signierers, echt, zu wenige
+   * Signierer, abweichende Prüfsumme, Name unbekannt.
+   */
+  fall: "kein-manifest" | "echt" | "zu-wenig" | "abweichend" | "ohne-namen";
+  /** Wie viele verschiedene Signierer diese Version bestätigen (bei „echt“ und „zu-wenig“). */
+  bestaetigt?: number;
+  /** Wie viele nötig sind (k). */
+  noetig?: number;
   /** Klartext für die Anzeige. */
   message: string;
 }
@@ -164,6 +174,8 @@ export function verifyArtifact(
   if (vertrauenswuerdig.length === 0) {
     return {
       status: "unbekannt",
+      fall: "kein-manifest",
+      noetig: k,
       message:
         "Kein Manifest eines bekannten Signierers gefunden. Die Datei lässt sich " +
         "nicht prüfen — das heißt nicht, dass sie falsch ist, nur dass niemand " +
@@ -180,6 +192,9 @@ export function verifyArtifact(
       return {
         status: "echt",
         version: m.version,
+        fall: "echt",
+        bestaetigt: signierer.size,
+        noetig: k,
         message: `Geprüft: Version ${m.version}, Prüfsumme stimmt – bestätigt von ${signierer.size} Signierern.`,
       };
     }
@@ -189,6 +204,9 @@ export function verifyArtifact(
     return {
       status: "unbekannt",
       version: zuWenig.version,
+      fall: "zu-wenig",
+      bestaetigt: zuWenig.anzahl,
+      noetig: k,
       message: `Version ${zuWenig.version} ist erst von ${zuWenig.anzahl} von ${k} nötigen Signierern bestätigt – noch nicht als echt ausgewiesen.`,
     };
   }
@@ -198,6 +216,8 @@ export function verifyArtifact(
   if (kenntNamen) {
     return {
       status: "abweichend",
+      fall: "abweichend",
+      noetig: k,
       message:
         "Diese Datei stimmt mit KEINER veröffentlichten Version überein. Entweder " +
         "ist sie älter als die bekannten Manifeste — oder sie wurde verändert. " +
@@ -206,6 +226,8 @@ export function verifyArtifact(
   }
   return {
     status: "unbekannt",
+    fall: "ohne-namen",
+    noetig: k,
     message: `Für "${artifactName}" gibt es kein Manifest eines bekannten Signierers.`,
   };
 }

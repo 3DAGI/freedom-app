@@ -5,13 +5,23 @@
  * `busFactor().note`, `LAYER_LABEL`, `coverageAt().message`,
  * `coverageConsentText()`, `profileDisclosure()`, `inspectPicture().warning`,
  * `badgeSourceLabel()`, Titel und Stand der Aufgaben, seit 8.16g1
- * `wipeConfirmation()`). Die App bildet sie aus den Feldern neu; die deutsche
+ * `wipeConfirmation()`, seit 8.16g2b2 die Sätze in Settings und im Chat:
+ * Nachfolge, Sicherung, Schlüsselwechsel, Geräte, Echtheit, Weitergabe,
+ * ohne Internet, Tor-Reihenfolge; seit 8.16g2b3a die Gründe aus Prüfungen:
+ * Fristen, Relay-Aufträge, Offline-Überweisungen, Mesh-Inhalt, Überweisungen
+ * auf der Kette, RPC-Stichprobe; seit 8.16g2b3b Relay-Adressen, Geräte,
+ * Übergabe in der Nachfolge, Funk und Abgleich, Reklamationsfrist). Die App bildet sie aus den Feldern neu; die deutsche
  * Fassung ist wortgleich mit der des Protokolls (`app/test/i18n.test.ts` prüft
  * das), damit jeder Client dieselbe Warnung zeigt.
  */
 import {
   COVERAGE_GUELTIG_SECS, K_ANONYMITY, inspectPicture,
-  type BadgeSource, type Contributor, type CoverageLayer, type LocalCoverage, type ProfileMetadata, type QuestId, type QuestProgress, type RepoOverview,
+  type BadgeSource, type Contributor, type CoverageLayer, type DevicePermission, type DeviceState, type KeyState, type Link, type LocalCoverage,
+  type ProfileMetadata, type QuestId, type QuestProgress, type RepoOverview, type RestoreResult, type SuccessionState, type TorSortResult, type VerifyResult,
+  type MeshFehler, type OfflineFehler, type RelayFehler, type SolFehler, type SolPruefung, type SolanaTxFehler,
+  type StichprobeBefund, type StichprobeFehler, type StichprobeLuecke, type TimelockCheck,
+  MAX_PAYLOAD_PER_FRAME, type AbsenderZuordnung, type RelayUrlFehler, type SyncPlan, type UebergabeFehler,
+  ProtokollFehler,
 } from "@freedomstack/protocol";
 import { t } from "./i18n.js";
 
@@ -119,3 +129,446 @@ export function abzeichenHerkunft(b: { source: BadgeSource; basis?: string; defi
 
 /** Rückfrage vor der Notfall-Löschung – wie `wipeConfirmation()` (fester Text mit rechtlichem Hinweis). */
 export const loeschRueckfrage = (): string => t("ein.wipeText");
+
+// ------------------------------------------------ Settings und Chat (8.16g2b2)
+
+const TAG_SECS = 86400;
+const datum = (secs: number): string => new Date(secs * 1000).toISOString().slice(0, 10);
+
+/** Rückfrage vor dem Einrichten der Nachfolge – wie `successionWarning()`. */
+export const nachfolgeWarnung = (p: { guardians: number; threshold: number; graceDays: number }): string =>
+  t("ps.nfWarnung", { schwelle: p.threshold, vertraute: p.guardians, tage: p.graceDays });
+
+/** Stand der Nachfolge – wie `evaluateSuccession().message`. */
+export function nachfolgeStand(st: SuccessionState, plan: { inactivityDays: number; threshold: number }): string {
+  const tage = st.daysSinceHeartbeat;
+  const n = st.claims.length;
+  if (st.status === "aktiv") return t("ps.nfAktiv", { tage });
+  if (st.status === "still") return t("ps.nfStill", { n, tage, frist: plan.inactivityDays });
+  if (st.status === "ausgeloest") return t("ps.nfAusgeloest", { tage, n, schwelle: plan.threshold });
+  if (st.status === "wartefrist") return t("ps.nfWartefrist", { rest: st.daysUntilRelease ?? 0 });
+  return t("ps.nfFreigegeben", { schwelle: plan.threshold });
+}
+
+/** Was die Sicherung enthält und wann sie zuletzt lief – wie `backupInfo()`. */
+export function sicherungInfo(sizeBytes: number, lastAt?: number, jetzt = Date.now() / 1000): string {
+  const stand = lastAt
+    ? t("ps.sichLetzte", { tage: Math.floor((jetzt - lastAt) / TAG_SECS), kb: Math.round(sizeBytes / 1024) })
+    : t("ps.sichKeine");
+  return t("ps.sichInfo", { stand });
+}
+
+/** Nach dem Sichern – wie `buildStateBackup().message` (`sizeBytes` ist die verschlüsselte Größe). */
+export const sicherungGebaut = (sizeBytes: number): string => t("ps.sichGebaut", { kb: Math.round(sizeBytes / 1024) });
+
+/** Ergebnis der Wiederherstellung – wie `restoreStateBackup().message`. */
+export function wiederherstellungText(r: Pick<RestoreResult, "ok" | "fehler" | "version" | "backedUpAt">): string {
+  if (r.ok) return t("ps.sichWieder", { stand: new Date((r.backedUpAt ?? 0) * 1000).toISOString().slice(0, 16).replace("T", " ") });
+  if (r.fehler === "kein-ereignis") return t("ps.sichKeinEreignis");
+  if (r.fehler === "version") return t("ps.sichVersion", { version: String(r.version) });
+  return t("ps.sichUnlesbar");
+}
+
+/** Rückfrage vor dem Ersatzschlüssel – wie `rotationWarning()`. */
+export const wechselWarnung = (): string => t("ps.wechselWarnung");
+/** Anleitung für den Widerruf – wie `revocationInstructions()`. */
+export const widerrufAnleitung = (): string => t("ps.widerrufAnleitung");
+
+/** Stand des Schlüssels eines Kontakts – wie `resolveKey().message`. */
+export function schluesselText(st: Pick<KeyState, "status" | "streit" | "vorbereitet" | "chainLength" | "distrustFrom">): string {
+  if (st.status === "streitig") return st.streit === "zu-lang" ? t("ps.keyZuLang", { n: st.chainLength }) : t("ps.keyKreis");
+  if (st.status === "gueltig") return t(st.vorbereitet ? "ps.keyVorbereitet" : "ps.keyOhne");
+  if (st.status === "widerrufen") return t("ps.keyGestohlen", { seit: st.distrustFrom ? t("ps.keySeit", { datum: datum(st.distrustFrom) }) : "" });
+  return t("ps.keyAbgeloest");
+}
+
+const RECHT: Record<DevicePermission, string> = {
+  nachrichten: "ps.rechtNachrichten", raeume: "ps.rechtRaeume", zahlungen: "ps.rechtZahlungen", provider: "ps.rechtProvider", identitaet: "ps.rechtIdentitaet",
+};
+
+/** Name eines Rechts – statt `PERMISSION_LABEL`. */
+export const rechtName = (p: DevicePermission): string => t(RECHT[p]);
+
+/** Rückfrage vor einer Vollmacht – wie `deviceWarning()`. */
+export function geraetWarnung(perms: DevicePermission[], tage: number): string {
+  return [
+    t("ps.geraetKopf", { n: perms.length, tage }),
+    ...perms.map((p) => `  · ${rechtName(p)}`),
+    "",
+    t("ps.geraetHeisst"),
+    "",
+    t(perms.includes("zahlungen") ? "ps.geraetZahlt" : "ps.geraetZahltNicht"),
+    t(perms.includes("identitaet") ? "ps.geraetIdent" : "ps.geraetIdentNicht"),
+  ].join("\n");
+}
+
+/** Stand einer Vollmacht – wie `listDevices().message`. */
+export function geraetStatusText(d: Pick<DeviceState, "status" | "revokedAt" | "expiresAt" | "permissions">, jetzt = Math.floor(Date.now() / 1000)): string {
+  if (d.status === "entzogen") return t("ps.geraetEntzogen", { datum: datum(d.revokedAt ?? 0) });
+  if (d.status === "abgelaufen") return t("ps.geraetAbgelaufen");
+  const tage = Math.floor(((d.expiresAt ?? jetzt) - jetzt) / TAG_SECS);
+  return tage < 14 ? t("ps.geraetLaeuftAb", { n: tage }) : t("ps.geraetAktiv", { n: d.permissions.size });
+}
+
+/** Ergebnis der Echtheitsprüfung – wie `verifyArtifact().message`. */
+export function echtheitText(r: Pick<VerifyResult, "fall" | "version" | "bestaetigt" | "noetig">, datei: string): string {
+  if (r.fall === "echt") return t("ps.echtOk", { version: r.version ?? "", n: r.bestaetigt ?? 0 });
+  if (r.fall === "zu-wenig") return t("ps.echtZuWenig", { version: r.version ?? "", n: r.bestaetigt ?? 0, k: r.noetig ?? 0 });
+  if (r.fall === "abweichend") return t("ps.echtAbweichend");
+  if (r.fall === "ohne-namen") return t("ps.echtOhneNamen", { name: datei });
+  return t("ps.echtKeinManifest");
+}
+
+/** Meldung zur fixierten Version – wie `pruefeFixierung().meldung`. */
+export function fixierungText(status: "andere-echt" | "andere-unbestaetigt", fixVersion: string, laeuft?: string): string {
+  return status === "andere-echt"
+    ? t("ps.fixAndereEcht", { version: laeuft ?? "", fix: fixVersion })
+    : t("ps.fixUnbestaetigt", { fix: fixVersion });
+}
+
+/** Begleittext zur weitergegebenen Datei – wie `sharingInstructions()`. */
+export const weitergabeText = (hash: string, version: string): string => t("ps.weitergabe", { hash, version });
+
+/** Hinweis ohne Netz – wie `OFFLINE_HINWEIS`. */
+export const offlineHinweis = (): string => t("ps.offlineHinweis");
+
+const WEG: Record<Link, string> = { lora: "ps.wegLora", bluetooth: "ps.wegBluetooth", datei: "ps.wegDatei" };
+
+/** Name des Wegs – statt `LINK_LABEL`. */
+export const wegName = (l: Link): string => t(WEG[l]);
+
+/** Was ohne Internet geht – wie `offlineCapabilities()` (dieselbe Reihenfolge, dieselben Antworten). */
+export function offlineFaehigkeiten(link: Link): { feature: string; works: boolean; note: string }[] {
+  return [
+    { feature: t("ps.ofDm"), works: true, note: t("ps.ofDmText") + (link === "lora" ? t("ps.ofDmFunk") : "") },
+    { feature: t("ps.ofRaeume"), works: false, note: t("ps.ofRaeumeText") },
+    { feature: t("ps.ofSol"), works: true, note: t("ps.ofSolText") },
+    { feature: t("ps.ofEcash"), works: false, note: t("ps.ofEcashText") },
+    { feature: t("ps.ofProfile"), works: false, note: t("ps.ofProfileText") },
+    { feature: t("ps.ofGit"), works: false, note: t("ps.ofGitText") },
+    { feature: t("ps.ofModelle"), works: false, note: t("ps.ofModelleText") },
+    { feature: t("ps.ofLn"), works: false, note: t("ps.ofLnText") },
+    { feature: t("ps.ofKi"), works: link === "lora", note: t("ps.ofKiText") },
+  ];
+}
+
+/** Reihenfolge nach Tor – wie `sortByTorPreference().message`. */
+export function torText(r: Pick<TorSortResult, "relays" | "onionCount">, pref: { onionOnly?: boolean; preferOnion?: boolean }): string {
+  const n = r.onionCount;
+  if (pref.onionOnly) return n === 0 ? t("ps.torKeineNur") : t("ps.torNur", { n });
+  if (pref.preferOnion) return n > 0 ? t("ps.torZuerst", { n, klar: r.relays.length - n }) : t("ps.torKeine");
+  return t("ps.torAlle", { n: r.relays.length, onion: n });
+}
+
+// ------------------------------------------------------------ Gründe aus Prüfungen (8.16g2b3a)
+
+/** Verletzte Fristregel – wie `validateTimelockOrdering()`/`validateReverseTimelock()` (`reason`). */
+export function fristGrund(r: Pick<TimelockCheck, "fall" | "reason" | "tLnSecs" | "tSolSecs" | "marginSecs" | "mindestSecs">): string {
+  const min = r.mindestSecs ?? 0;
+  switch (r.fall) {
+    case "tsol": return t("pg.fristTsol");
+    case "reihenfolge": return t("pg.fristReihenfolge", { ln: r.tLnSecs, sol: r.tSolSecs });
+    case "puffer": return t("pg.fristPuffer", { puffer: r.marginSecs, min });
+    case "cltv": return t("pg.fristCltv");
+    case "vor-solana": return t("pg.fristVorSolana", { ln: r.tLnSecs, min, sol: r.tSolSecs });
+    default: return r.reason ?? "";
+  }
+}
+
+/** Werte zu einer abgelehnten Solana-Transaktion (`pruefeSolanaTx()` und alles, was darauf aufbaut). */
+type TxWerte = { grund: string; bytes?: number; signatur?: number; signaturen?: number };
+
+const TX: Record<SolanaTxFehler, string> = {
+  "zu-gross": "pg.txZuGross",
+  "ohne-signatur": "pg.txOhneSignatur",
+  version: "pg.txVersion",
+  unvollstaendig: "pg.txUnvollstaendig",
+  signaturzahl: "pg.txSignaturzahl",
+  "ohne-konten": "pg.txOhneKonten",
+  signatur: "pg.txSignatur",
+};
+const txWerte = (r: TxWerte) => ({ bytes: r.bytes ?? 0, nr: r.signatur ?? 0, von: r.signaturen ?? 0 });
+
+const OFFLINE: Record<Exclude<OfflineFehler, SolanaTxFehler>, string> = {
+  unlesbar: "pg.txUnlesbar",
+  anweisungen: "pg.ofAnweisungen",
+  "kein-nonce": "pg.ofKeinNonce",
+  "nonce-unvollstaendig": "pg.ofNonceUnvollstaendig",
+  "keine-ueberweisung": "pg.txKeineUeberweisung",
+  "ohne-zahler": "pg.ofOhneZahler",
+  "zahler-verschieden": "pg.ofZahlerVerschieden",
+  betrag: "pg.ofBetrag",
+  "kein-nonce-wert": "pg.ofKeinNonceWert",
+};
+
+/** Warum eine Offline-Überweisung nicht taugt – wie `pruefeOfflineUeberweisung().grund`. */
+export function offlineGrund(r: TxWerte & { fall?: OfflineFehler }): string {
+  const k = r.fall ? (TX as Record<string, string>)[r.fall] ?? (OFFLINE as Record<string, string>)[r.fall] : undefined;
+  return k ? t(k, txWerte(r)) : r.grund;
+}
+
+const MESH: Record<Exclude<MeshFehler, SolanaTxFehler>, string> = {
+  klartext: "pg.meKlartext",
+  "kein-event": "pg.meKeinEvent",
+  "kein-umschlag": "pg.meKeinUmschlag",
+  "umschlag-signatur": "pg.meUmschlagSignatur",
+  "eigener-schluessel": "pg.meEigenerSchluessel",
+};
+
+/** Warum eine Nutzlast nicht über Mesh darf – wie `pruefeMeshInhalt().grund`. */
+export function meshGrund(r: TxWerte & { fall?: MeshFehler }): string {
+  const k = r.fall ? (TX as Record<string, string>)[r.fall] ?? (MESH as Record<string, string>)[r.fall] : undefined;
+  return k ? t(k, txWerte(r)) : r.grund;
+}
+
+const RELAY: Record<RelayFehler, string> = {
+  unlesbar: "pg.txUnlesbar",
+  gebuehrenzahler: "pg.relGebuehr",
+  anweisungen: "pg.relAnweisungen",
+  programm: "pg.relProgramm",
+  "keine-einloesung": "pg.relKeineEinloesung",
+  "ohne-empfaenger": "pg.relOhneEmpfaenger",
+  "relayer-konto": "pg.relKonto",
+  "keine-ueberweisung": "pg.txKeineUeberweisung",
+  "erstattung-weg": "pg.relErstattungWeg",
+  "erstattung-klein": "pg.relErstattungKlein",
+  unsigniert: "pg.relUnsigniert",
+  signatur: "pg.relSignatur",
+};
+
+/** Warum der eigene Relay-Auftrag nicht taugt – wie `pruefeRelayAuftrag().grund`. */
+export function relayGrund(r: { grund: string; fall?: RelayFehler; erstattung?: number; mindest?: number }): string {
+  return r.fall ? t(RELAY[r.fall], { erstattung: r.erstattung ?? 0, mindest: r.mindest ?? 0 }) : r.grund;
+}
+
+const SOL: Record<SolFehler, string> = {
+  "nicht-gefunden": "pg.solNichtGefunden",
+  "ohne-ergebnis": "pg.solOhneErgebnis",
+  gescheitert: "pg.solGescheitert",
+  "ohne-referenz": "pg.solOhneReferenz",
+  "kein-empfaenger": "pg.solKeinEmpfaenger",
+  "zu-wenig": "pg.solZuWenig",
+};
+
+/**
+ * Warum eine Überweisung (noch) nicht belegt ist – wie `pruefeSolUeberweisung().grund`.
+ * Ohne `fall` stammt der Grund aus der App selbst und ist schon übersetzt.
+ */
+export function solGrund(p: Exclude<SolPruefung, { status: "belegt" }>): string {
+  if (!p.fall) return p.grund;
+  const w: Record<string, number> = p.status === "falsch" ? { lamports: p.lamports ?? 0, erwartet: p.erwartet ?? 0 } : {};
+  return t(SOL[p.fall], w);
+}
+
+/** Warum ein Vergleich der Stichprobe ausfiel. */
+const probeFehler = (f: StichprobeFehler): string =>
+  f.art === "hinkt" ? t("pg.pbHinkt") : f.art === "unerwartet" ? t("pg.pbUnerwartet") : f.meldung;
+
+/** Ein Widerspruch der Stichprobe – wie ein Eintrag in `StichprobeErgebnis.warnungen`. */
+export function stichprobeBefund(b: StichprobeBefund): string {
+  switch (b.art) {
+    case "ketten": {
+      const netz = (n?: string) => n ?? t("pg.pbUnbekanntesNetz");
+      return t("pg.pbKetten", { a: b.a, netzA: netz(b.netzA), b: b.b, netzB: netz(b.netzB) });
+    }
+    case "blockhash": return t("pg.pbBlockhash", { von: b.von, bei: b.bei });
+    case "kontostand": return t("pg.pbKontostand", { a: b.a, la: b.lamportsA, b: b.b, lb: b.lamportsB });
+  }
+}
+
+/** Was sich nicht vergleichen ließ – wie ein Eintrag in `StichprobeErgebnis.hinweise`. */
+export function stichprobeLuecke(l: StichprobeLuecke): string {
+  switch (l.art) {
+    case "anbieter": return `${l.name}: ${probeFehler(l.fehler)}`;
+    case "kein-zweiter": return t("pg.pbKeinZweiter");
+    case "blockhash": return t("pg.pbBlockhashOffen", { von: l.von, bei: l.bei, fehler: probeFehler(l.fehler) });
+    case "adresse": return t("pg.pbAdresse");
+    case "kontostand": return t("pg.pbKontostandOffen", { fehler: probeFehler(l.fehler) });
+  }
+}
+
+// ------------------------------------------------------------ Mesh und Vertrauen (8.16g2b3b)
+
+const URL_GRUND: Record<RelayUrlFehler, string> = {
+  ungueltig: "pg.urlUngueltig",
+  schema: "pg.urlSchema",
+  zugangsdaten: "pg.urlZugangsdaten",
+  lokal: "pg.urlLokal",
+  privat: "pg.urlPrivat",
+  ipv6: "pg.urlIpv6",
+  "zu-lang": "pg.urlZuLang",
+};
+
+/** Warum eine Relay-Adresse nicht taugt – wie `isPlausibleRelayUrl().reason`. */
+export function relayUrlGrund(r: { reason: string; fall?: RelayUrlFehler; schema?: string; host?: string }): string {
+  return r.fall ? t(URL_GRUND[r.fall], { schema: r.schema ?? "", host: r.host ?? "" }) : r.reason;
+}
+
+const GERAET_GRUND: Record<NonNullable<AbsenderZuordnung["fall"]>, string> = {
+  "kein-geraet": "pg.gerKein",
+  "vor-entzug": "pg.gerVorEntzug",
+  "nie-erlaubt": "pg.gerNieErlaubt",
+  entzogen: "pg.gerEntzogen",
+  abgelaufen: "pg.gerAbgelaufen",
+  "nicht-erlaubt": "pg.gerNichtErlaubt",
+  gueltig: "pg.gerGueltig",
+  "eigener-schluessel": "pg.gerEigener",
+  uneindeutig: "pg.gerUneindeutig",
+};
+
+/** Grund der Zuordnung eines Absenders – wie `absenderPerson().grund` bzw. `checkDeviceEvent().reason`. */
+export function geraetGrund(z: Pick<AbsenderZuordnung, "grund" | "fall" | "recht">): string {
+  return z.fall ? t(GERAET_GRUND[z.fall], { recht: z.recht ? rechtName(z.recht) : "" }) : z.grund;
+}
+
+const UEBERGABE: Record<Exclude<UebergabeFehler, "nicht-freigegeben">, string> = {
+  "anderer-besitzer": "pg.nfAndererBesitzer",
+  "anderer-plan": "pg.nfAndererPlan",
+  "nicht-vertrauter": "pg.nfNichtVertrauter",
+  anfragender: "pg.nfAnfragender",
+};
+
+/** Warum ein Anteil (noch) nicht übergeben wird – wie `darfUebergeben().grund`. */
+export function uebergabeGrund(
+  r: { grund: string; fall?: UebergabeFehler; stand?: SuccessionState },
+  plan: { inactivityDays: number; threshold: number } | null,
+): string {
+  if (r.fall === "nicht-freigegeben") return r.stand && plan ? t("pg.nfNichtFreigegeben", { stand: nachfolgeStand(r.stand, plan) }) : r.grund;
+  return r.fall ? t(UEBERGABE[r.fall]) : r.grund;
+}
+
+/** Was Funk mit dieser Nutzlast kann – wie `meshFeasibility().note`. */
+export function funkText(m: { fall: "zu-gross" | "lang" | "ok"; frames: number; seconds: number }, payloadBytes: number): string {
+  if (m.fall === "zu-gross") return t("pg.funkZuGross", { bytes: payloadBytes, grenze: 255 * MAX_PAYLOAD_PER_FRAME });
+  if (m.fall === "lang") return t("pg.funkLang", { min: Math.round(m.seconds / 60) });
+  return t("pg.funkOk", { frames: m.frames, s: m.seconds });
+}
+
+/** Ergebnis des Abgleichs – wie `planSync().note` (`fehlerquote` aus `falsePositiveRate()`). */
+export function syncNotiz(plan: Pick<SyncPlan, "send" | "totalBytes" | "estimatedSeconds">, link: Link, fehlerquote: number): string {
+  if (plan.send.length === 0) return t("pg.syncNichts");
+  const satz = t("pg.syncPlan", { n: plan.send.length, bytes: plan.totalBytes, s: plan.estimatedSeconds, weg: wegName(link) });
+  return fehlerquote > 0.05 ? `${satz} ${t("pg.syncUngenau", { prozent: Math.round(fehlerquote * 100) })}` : satz;
+}
+
+/** Bleibt Zeit zu reklamieren? – wie `disputeWindowOpen().message`. */
+export const reklamationsFrist = (w: { open: boolean; remainingSecs: number }): string =>
+  w.open ? t("pg.reklNoch", { min: Math.ceil(w.remainingSecs / 60) }) : t("pg.reklAbgelaufen");
+
+// ------------------------------------------------------------ Fehlermeldungen (8.16i)
+
+/** Kennung eines `ProtokollFehler` → Schlüssel des Texts; die Werte setzt `t()` ein. */
+const FEHLER: Record<string, string> = {
+  "rpc-unerreichbar": "pf.rpcUnerreichbar",
+  "bolt11-praefix": "pf.bolt11Praefix",
+  "bolt11-betrag": "pf.bolt11Betrag",
+  "bolt11-kurz": "pf.bolt11Kurz",
+  "bolt11-feld": "pf.bolt11Feld",
+  "bolt11-hash": "pf.bolt11Hash",
+  "bolt11-recovery": "pf.bolt11Recovery",
+  "bolt11-signatur": "pf.bolt11Signatur",
+  "bolt11-knoten": "pf.bolt11Knoten",
+  "nwc-praefix": "pf.nwcPraefix",
+  "nwc-pubkey": "pf.nwcPubkey",
+  "nwc-relay": "pf.nwcRelay",
+  "nwc-secret": "pf.nwcSecret",
+  "nwc-methode": "pf.nwcMethode",
+  "nwc-kein-relay": "pf.nwcKeinRelay",
+  "nwc-guthaben": "pf.nwcGuthaben",
+  "nwc-budget": "pf.nwcBudget",
+  "nwc-verboten": "pf.nwcVerboten",
+  "nwc-widerrufen": "pf.nwcWiderrufen",
+  "nwc-nicht-unterstuetzt": "pf.nwcNichtUnterstuetzt",
+  "nwc-zahlung": "pf.nwcZahlung",
+  "nwc-zu-viele": "pf.nwcZuViele",
+  "nwc-zeit": "pf.nwcZeit",
+  "schiene-ziel": "pf.schieneZiel",
+  "schiene-einheit": "pf.schieneEinheit",
+  "schiene-referenz": "pf.schieneReferenz",
+  "schiene-unbekannt": "pf.schieneUnbekannt",
+  "schiene-fehlt": "pf.schieneFehlt",
+  "offline-sats": "pf.offlineSats",
+  "offline-sol": "pf.offlineSol",
+  "wallet-fehlt-sats": "pf.walletFehltSats",
+  "wallet-fehlt-sol": "pf.walletFehltSol",
+  "betrag-positiv": "pf.betragPositiv",
+  "limit-ungueltig": "pf.limitUngueltig",
+  "kanal-betrag": "pf.kanalBetrag",
+  "nonce-nicht-eingerichtet": "pf.nonceNichtEingerichtet",
+  "an-sich-selbst": "pf.anSichSelbst",
+  "nonce-andere-adresse": "pf.nonceAndereAdresse",
+  "rueck-betrag": "pf.rueckBetrag",
+  "rueck-kurs": "pf.rueckKurs",
+  "rueck-gebuehr": "pf.rueckGebuehr",
+  "trinkgeld-betrag": "pf.trinkgeldBetrag",
+  "sol-adresse": "pf.solAdresse",
+  "trinkgeld-notiz": "pf.trinkgeldNotiz",
+  "sicherung-gross": "pf.sicherungGross",
+  "bunker-adresse": "pf.bunkerAdresse",
+  "bunker-signer": "pf.bunkerSigner",
+  "bunker-relay": "pf.bunkerRelay",
+  "signer-pubkey": "pf.signerPubkey",
+  "signer-kein-event": "pf.signerKeinEvent",
+  "signer-event": "pf.signerEvent",
+  "signer-freigabe": "pf.signerFreigabe",
+  "signer-freigabe-ohne": "pf.signerFreigabeOhne",
+  "signer-ablehnung": "pf.signerAblehnung",
+  "signer-antwort": "pf.signerAntwort",
+  "signer-zeit": "pf.signerZeit",
+  "repo-kennung": "pf.repoKennung",
+  "repo-klon": "pf.repoKlon",
+  "repo-maintainer": "pf.repoMaintainer",
+  "repo-erster-commit": "pf.repoErsterCommit",
+  "patch-gross": "pf.patchGross",
+  "patch-format": "pf.patchFormat",
+  "patch-betreff": "pf.patchBetreff",
+  "patch-diff": "pf.patchDiff",
+  "patch-commit": "pf.patchCommit",
+  "katalog-kennung": "pf.katalogKennung",
+  "katalog-titel": "pf.katalogTitel",
+  "katalog-beschreibung": "pf.katalogBeschreibung",
+  "katalog-modelle": "pf.katalogModelle",
+  "katalog-modell": "pf.katalogModell",
+  "katalog-doppelt": "pf.katalogDoppelt",
+  "katalog-notiz": "pf.katalogNotiz",
+  "kontakte-max": "pf.kontakteMax",
+  "kontakte-unlesbar": "pf.kontakteUnlesbar",
+  "kontakte-kaputt": "pf.kontakteKaputt",
+  "schwelle-min": "pf.schwelleMin",
+  "teile-zu-wenig": "pf.teileZuWenig",
+  "teile-max": "pf.teileMax",
+  "teile-mindestens": "pf.teileMindestens",
+  "teile-laengen": "pf.teileLaengen",
+  "teile-doppelt": "pf.teileDoppelt",
+  "anteile-zu-wenig": "pf.anteileZuWenig",
+  "anteile-passen-nicht": "pf.anteilePassenNicht",
+  "geraet-selbst": "pf.geraetSelbst",
+  "geraet-ohne-rechte": "pf.geraetOhneRechte",
+  "nachfolger-selbst": "pf.nachfolgerSelbst",
+  "selbstwerbung": "pf.selbstwerbung",
+  "kein-moderator": "pf.keinModerator",
+  "datei-schluessel": "pf.dateiSchluessel",
+  "datei-kaputt": "pf.dateiKaputt",
+  "datei-hash": "pf.dateiHash",
+};
+
+/** Hat dieser Fehler eine Kennung mit Text? */
+export const kenntFehler = (kennung: string): boolean => kennung in FEHLER || kennung === "nwc-fehler";
+
+/** Ein Fehler des Protokolls, den `fehlerText()` übersetzt – den deutet niemand nach Mustern um. */
+export const hatFehlerText = (e: unknown): boolean => e instanceof ProtokollFehler && kenntFehler(e.kennung);
+
+/**
+ * Meldung eines Fehlers in der Sprache der Oberfläche. Ein `ProtokollFehler`
+ * mit bekannter Kennung wird übersetzt; alles andere (eigene, schon übersetzte
+ * Meldungen der App, Meldungen von Browser, Wallet oder Netz) bleibt, wie es ist.
+ */
+export function fehlerText(e: unknown): string {
+  if (e instanceof ProtokollFehler) {
+    // Unbekannter Wallet-Fehler: die Meldung des Wallets selbst, sonst der Code
+    if (e.kennung === "nwc-fehler") return String(e.werte.meldung || "") || t("pf.nwcFehler", { code: e.werte.code ?? "" });
+    const k = FEHLER[e.kennung];
+    if (k) return t(k, { ...e.werte });
+  }
+  return e instanceof Error ? e.message : String(e);
+}

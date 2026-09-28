@@ -10,6 +10,7 @@
 import { fromHex, toHex } from "@freedomstack/protocol";
 import { startHero } from "../hero.js";
 import { LANGS, Lang, detectLang, gespeicherteSprache, getLang, setLang, t } from "../i18n.js";
+import { fehlerText } from "../protokoll-texte.js";
 import { escapeHtml, pkShort } from "../shell-logic.js";
 import { nimmBunkerAuf, wireBunkerKarte } from "./bunker.js";
 import { wireEingebauteWallet } from "./eingebaute-wallet.js";
@@ -38,6 +39,7 @@ import {
   refreshModelDropdown,
   setupAttach,
   setupEmptyState,
+  setupFunkAntworten,
   setupModelPicker,
   setupToolChips,
   updateBudgetBar,
@@ -45,6 +47,7 @@ import {
   updateTokenEstimate,
   zeigeVerlaeufe,
 } from "./tabs/agent.js";
+import { wireFunkGateway } from "./funk-gateway-ui.js";
 import {
   captureReferral,
   ladeAbdeckung,
@@ -343,7 +346,7 @@ async function importIdentity(): Promise<void> {
       id.sk.fill(0);
       mitMerkphrase = !!id.mnemonic;
     } catch (e) {
-      toast((e as Error).message, true);
+      toast(fehlerText(e), true);
       return;
     }
   }
@@ -359,7 +362,7 @@ async function importIdentity(): Promise<void> {
   }
   if (state.person) localStorage.setItem(LS_GERAET_PERSON, state.person);
   else localStorage.removeItem(LS_GERAET_PERSON);
-  void speichereSchluessel(hex.toLowerCase()).catch((e) => toast(t("ein.nichtGespeichert", { fehler: (e as Error).message }), true));
+  void speichereSchluessel(hex.toLowerCase()).catch((e) => toast(t("ein.nichtGespeichert", { fehler: fehlerText(e) }), true));
   $("#ident").textContent = escrowIdent();
   toast(state.person ? t("ein.alsGeraet", { person: pkShort(state.person) }) : t("ein.importiert"));
   updateFeePreview();
@@ -723,7 +726,7 @@ function starte(): void {
         const r = exportMeshFile(events, [state.keypair.pk]);
         toast(r.exportiert === 0 ? t("ein.keineUmschlaege") : t("ein.umschlaegeExportiert", { n: r.exportiert }));
       } catch (e) {
-        toast(t("ein.exportFehler", { fehler: (e as Error).message }), true);
+        toast(t("ein.exportFehler", { fehler: fehlerText(e) }), true);
       }
     };
   }
@@ -748,7 +751,7 @@ function starte(): void {
         toast(t("ein.umschlaegeImportiert", { ok, n: events.length }) + (abgelehnt ? t("ein.unverschluesseltAbgelehnt", { n: abgelehnt }) : ""));
         if (activeConversation) loadChatMessages(activeConversation);
       } catch (e) {
-        toast(t("ein.importFehler", { fehler: (e as Error).message }), true);
+        toast(t("ein.importFehler", { fehler: fehlerText(e) }), true);
       }
     };
   }
@@ -771,7 +774,7 @@ function starte(): void {
         // (Entscheidung 26.09.2026): lesen kann jeder, Speicherknoten halten nur Chiffrat.
         const { uploadAnhang } = await import("../blob-client.js");
         const pool = await ensurePool();
-        setGitStatus(`publiziere ${file.name} (${Math.round(bytes.length / 1024)}kb)…`);
+        setGitStatus(t("ein.gitPubliziere", { name: file.name, kb: Math.round(bytes.length / 1024) }));
         const res = await uploadAnhang(new File([bytes], "", { type: "application/octet-stream" }), pool as never, state.signer!);
         // repo-ref-event (38042)
         const { buildGitRepoRef } = await import("@freedomstack/protocol");
@@ -780,10 +783,10 @@ function starte(): void {
           state.keypair.pk,
         );
         await pool.publish(await signiere(ref));
-        toast(`${name} publiziert (${res.blobId.slice(0, 8)}…)`);
+        toast(t("ein.gitPubliziert", { name, blob: res.blobId.slice(0, 8) }));
         loadGitRepos();
       } catch (e) {
-        toast(`git-fehler: ${(e as Error).message}`, true);
+        toast(t("ein.gitFehler", { fehler: fehlerText(e) }), true);
       }
     };
   }
@@ -795,6 +798,8 @@ function starte(): void {
   void wireGebuehrenKarte();
   void pruefeFixierungBeimStart();
   void wireMeshTab();
+  // KI über Funk (7.4c3): Gateway wählen, „über Funk“ im Agenten
+  wireFunkGateway();
   void wireSpacesTab();
   void wireProfil();
   setzeLogo();
@@ -886,6 +891,8 @@ function starte(): void {
   setupToolChips();
   setupModelPicker();
   setupEmptyState();
+  // Antworten auf KI-Anfragen über Funk (7.4c2)
+  setupFunkAntworten();
   // C7: Live-Kosten-Schätzung beim Tippen + Enter-to-Send (Shift+Enter = Zeilenumbruch)
   const aiPromptEl = $("#ai-prompt") as HTMLTextAreaElement;
   if (aiPromptEl) {

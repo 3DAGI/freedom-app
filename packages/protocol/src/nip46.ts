@@ -22,6 +22,7 @@
 import { NostrEvent, UnsignedEvent, buildEvent, generateKeypair, verifyEvent } from "./event.js";
 import type { RelayFilter } from "./outbox.js";
 import { LocalSigner, type Signer } from "./signer.js";
+import { ProtokollFehler } from "./fehler.js";
 
 export const KIND_NIP46 = 24133;
 
@@ -55,12 +56,12 @@ export interface Nip46Options {
 /** `bunker://`-Adresse lesen; alles Unerwartete wird abgelehnt. */
 export function parseBunkerUri(uri: string): BunkerUri {
   let u: URL;
-  try { u = new URL(uri.trim()); } catch { throw new Error("Keine gültige bunker://-Adresse"); }
-  if (u.protocol !== "bunker:") throw new Error("Keine gültige bunker://-Adresse");
+  try { u = new URL(uri.trim()); } catch { throw new ProtokollFehler("bunker-adresse", "Keine gültige bunker://-Adresse"); }
+  if (u.protocol !== "bunker:") throw new ProtokollFehler("bunker-adresse", "Keine gültige bunker://-Adresse");
   const signerPubkey = (u.hostname || u.pathname.replace(/^\/+/, "")).toLowerCase();
-  if (!HEX64.test(signerPubkey)) throw new Error("Signer-Pubkey ungültig (64 Zeichen hex erwartet)");
+  if (!HEX64.test(signerPubkey)) throw new ProtokollFehler("bunker-signer", "Signer-Pubkey ungültig (64 Zeichen hex erwartet)");
   const relays = u.searchParams.getAll("relay").filter((r) => /^wss:\/\/[^\s]+$/i.test(r));
-  if (relays.length === 0) throw new Error("Keine Relay-Adresse (wss://) in der bunker://-Adresse");
+  if (relays.length === 0) throw new ProtokollFehler("bunker-relay", "Keine Relay-Adresse (wss://) in der bunker://-Adresse");
   const secret = u.searchParams.get("secret") ?? undefined;
   return { signerPubkey, relays, secret };
 }
@@ -96,7 +97,7 @@ export class Nip46Signer implements Signer {
     if (this.#bunker.secret) params.push(this.#bunker.secret);
     await this.#anfrage("connect", params);
     const pk = await this.#anfrage("get_public_key", []);
-    if (!HEX64.test(pk)) throw new Error("Signer lieferte keinen gültigen Pubkey");
+    if (!HEX64.test(pk)) throw new ProtokollFehler("signer-pubkey", "Signer lieferte keinen gültigen Pubkey");
     this.#nutzer = pk;
     return pk;
   }
@@ -112,11 +113,11 @@ export class Nip46Signer implements Signer {
     const anfrage = { kind: ev.kind, content: ev.content, tags: ev.tags, created_at: ev.created_at };
     const roh = await this.#anfrage("sign_event", [JSON.stringify(anfrage)]);
     let signiert: NostrEvent;
-    try { signiert = JSON.parse(roh) as NostrEvent; } catch { throw new Error("Signer lieferte kein Event"); }
+    try { signiert = JSON.parse(roh) as NostrEvent; } catch { throw new ProtokollFehler("signer-kein-event", "Signer lieferte kein Event"); }
     // Genau das angefragte Event, vom Nutzer, gueltig signiert – sonst nichts.
     const gleich = signiert.pubkey === pk && signiert.kind === ev.kind && signiert.content === ev.content
       && signiert.created_at === ev.created_at && JSON.stringify(signiert.tags) === JSON.stringify(ev.tags);
-    if (!gleich || !verifyEvent(signiert)) throw new Error("Signer lieferte ein anderes oder ungültiges Event");
+    if (!gleich || !verifyEvent(signiert)) throw new ProtokollFehler("signer-event", "Signer lieferte ein anderes oder ungültiges Event");
     return signiert;
   }
 
@@ -155,14 +156,16 @@ export class Nip46Signer implements Signer {
         try { r = JSON.parse(await this.#client.nip44Decrypt(signer, a.content)); } catch { continue; }
         if (r.id !== id) continue;
         if (r.result === "auth_url") {
-          throw new Error(`Signer verlangt eine Freigabe: ${typeof r.error === "string" ? r.error : "(ohne Adresse)"}`);
+          throw typeof r.error === "string"
+            ? new ProtokollFehler("signer-freigabe", `Signer verlangt eine Freigabe: ${r.error}`, { adresse: r.error })
+            : new ProtokollFehler("signer-freigabe-ohne", "Signer verlangt eine Freigabe: (ohne Adresse)");
         }
-        if (typeof r.error === "string" && r.error) throw new Error(`Signer lehnt ab: ${r.error}`);
-        if (typeof r.result !== "string") throw new Error("Signer lieferte keine gültige Antwort");
+        if (typeof r.error === "string" && r.error) throw new ProtokollFehler("signer-ablehnung", `Signer lehnt ab: ${r.error}`, { grund: r.error });
+        if (typeof r.result !== "string") throw new ProtokollFehler("signer-antwort", "Signer lieferte keine gültige Antwort");
         return r.result;
       }
       await new Promise((res) => setTimeout(res, this.#pollMs));
     }
-    throw new Error(`Keine Antwort vom Signer (${method})`);
+    throw new ProtokollFehler("signer-zeit", `Keine Antwort vom Signer (${method})`, { methode: method });
   }
 }

@@ -77,6 +77,33 @@ test("Funk: eine DM geht nur als Umschlag – ohne Schluessel und Klartext des A
   }
 });
 
+test("Nachforderung (7.4b): Luecken nachfordern verraet weder Schluessel noch Klartext", async () => {
+  const dm = await buildPrivateDm({ senderSk: alice.sk, senderPk: alice.pk, recipientPk: bob.pk, content: TEXT });
+  const vonA = mitschnitt();
+  const vonB = mitschnitt();
+  let angekommen = 0;
+  const a = new MeshNode({ onMessage: () => {} }, 100_000);
+  const b = new MeshNode({ onMessage: () => { angekommen++; } }, 100_000);
+  a.setEigeneSchluessel([alice.pk]);
+  b.setEigeneSchluessel([bob.pk]);
+  let n = 0;
+  // Der zweite Rahmen geht verloren; Bob fordert ihn nach, Alice sendet ihn nach
+  await a.attach({ ...vonA, async send(f) { vonA.gesendet.push(f); if (n++ !== 1) b.receive(f); } });
+  await b.attach({ ...vonB, async send(f) { vonB.gesendet.push(f); a.receive(f); } });
+  a.enqueue(eventToMesh(dm.toRecipient), MeshKind.NostrEvent, MeshPriority.Nachricht, "an Bob");
+  await warte(100);
+  assert.equal(b.nachfordern(Math.floor(Date.now() / 1000) + 30), 1);
+  await warte(100);
+
+  assert.equal(angekommen, 1, "die DM ist vollstaendig bei Bob");
+  assert.ok(vonB.gesendet.length > 0, "Bob hat nachgefordert");
+  assert.deepEqual(pruefe(vonA.gesendet), []);
+  // Bobs Nachforderung traegt keinen der beiden Schluessel und keinen Klartext
+  assert.deepEqual(regelMeshVerschluesselt(paketeUndNutzlasten(vonB.gesendet), { schluessel: [alice.pk, bob.pk], klartexte: [TEXT] }), []);
+  await a.detach();
+  await b.detach();
+});
+
 test("Abgleich: aus einem gemischten Bestand gehen nur fremde Umschlaege", async () => {
   const dm = await buildPrivateDm({ senderSk: alice.sk, senderPk: alice.pk, recipientPk: bob.pk, content: TEXT });
   const offen = signEvent(buildEvent(alice.pk, 4, [["p", bob.pk]], TEXT), alice.sk);

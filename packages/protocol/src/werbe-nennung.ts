@@ -13,6 +13,7 @@
  * des Werbers wird ignoriert.
  */
 import { NostrEvent, UnsignedEvent, buildEvent, getTag, verifyEvent } from "./event.js";
+import { ProtokollFehler } from "./fehler.js";
 
 /** „Ich wurde von X geworben" — signiert vom Geworbenen. */
 export const KIND_REFERRAL_CLAIM = 38052;
@@ -23,7 +24,7 @@ export function buildReferralClaim(
   createdAt?: number,
 ): UnsignedEvent {
   if (referredPubkey === referrerPubkey) {
-    throw new Error("Selbstwerbung ist nicht möglich.");
+    throw new ProtokollFehler("selbstwerbung", "Selbstwerbung ist nicht möglich.");
   }
   return buildEvent(
     referredPubkey,

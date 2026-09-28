@@ -6,6 +6,7 @@
  */
 import { MeshKind, MeshPriority, fragment } from "@freedomstack/protocol";
 import { gebietsschema, t } from "../i18n.js";
+import { fehlerText } from "../protokoll-texte.js";
 import { solText } from "../preis-anzeige.js";
 import { leseAblage } from "../sol-offline-zahlung.js";
 import { geheim } from "./tresor.js";
@@ -35,7 +36,7 @@ async function mitNetz(fn: () => Promise<string>): Promise<void> {
   try {
     toast(await fn());
   } catch (e) {
-    toast((e as Error).message, true);
+    toast(fehlerText(e), true);
   }
   zeigeOfflineZahlung();
 }
@@ -84,7 +85,7 @@ async function zahlen(): Promise<void> {
       toast(t("waehr.alsDateiGespeichert", { betrag: solText(lamports) }));
     }
   } catch (e) {
-    toast((e as Error).message, true);
+    toast(fehlerText(e), true);
   }
   zeigeOfflineZahlung();
 }

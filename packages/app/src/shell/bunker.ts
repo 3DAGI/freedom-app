@@ -14,6 +14,7 @@ import {
   Nip46Signer, type Nip46Transport, OutboxPool, WebSocketRelay, fromHex, generateKeypair, parseBunkerUri, toHex,
 } from "@freedomstack/protocol";
 import { t } from "../i18n.js";
+import { fehlerText } from "../protokoll-texte.js";
 import { pkShort } from "../shell-logic.js";
 import { LS_BUNKER, mitBunker, setzeSigner } from "./state.js";
 import { geheim } from "./tresor.js";
@@ -101,7 +102,7 @@ export function wireBunkerKarte(beschaeftigt: () => boolean): void {
       status.textContent = t("ein.bunkerAls", { pk: pkShort(pk) });
       setTimeout(() => location.reload(), 800);
     } catch (e) {
-      status.textContent = t("ein.nichtVerbunden", { fehler: (e as Error).message });
+      status.textContent = t("ein.nichtVerbunden", { fehler: fehlerText(e) });
       verbinden.disabled = false;
     }
   };
@@ -112,7 +113,7 @@ export function wireBunkerKarte(beschaeftigt: () => boolean): void {
       await meldeBunkerAb();
       location.reload();
     } catch (e) {
-      toast((e as Error).message, true);
+      toast(fehlerText(e), true);
     }
   };
 }

@@ -26,6 +26,7 @@ import { hkdf } from "@noble/hashes/hkdf.js";
 import { sha256 } from "@noble/hashes/sha2.js";
 import { bytesToHex } from "@noble/hashes/utils.js";
 import { schnorr } from "@noble/curves/secp256k1.js";
+import { ProtokollFehler } from "./fehler.js";
 
 /** Verschlüsselte Zustandssicherung. */
 export const KIND_STATE_BACKUP = 30078;
@@ -86,7 +87,11 @@ export async function buildStateBackup(
   const klartext = JSON.stringify(payload);
   const bytes = new TextEncoder().encode(klartext).length;
   if (bytes > SICHERUNG_MAX_BYTES) {
-    throw new Error(`Sicherung zu groß (${Math.round(bytes / 1024)} KB, höchstens ${SICHERUNG_MAX_BYTES / 1000} KB) – nichts gesendet.`);
+    throw new ProtokollFehler(
+      "sicherung-gross",
+      `Sicherung zu groß (${Math.round(bytes / 1024)} KB, höchstens ${SICHERUNG_MAX_BYTES / 1000} KB) – nichts gesendet.`,
+      { kb: Math.round(bytes / 1024), max: SICHERUNG_MAX_BYTES / 1000 },
+    );
   }
 
   // An sich selbst verschlüsseln: Absender und Empfänger sind dasselbe
@@ -107,6 +112,10 @@ export interface RestoreResult {
   ok: boolean;
   data?: Record<string, unknown>;
   backedUpAt?: number;
+  /** Warum nicht (seit 8.16g2b2, damit die App den Satz in ihrer Sprache bildet). */
+  fehler?: "kein-ereignis" | "version" | "unlesbar";
+  /** Bei „version“: die unbekannte Version. */
+  version?: unknown;
   message: string;
 }
 
@@ -122,13 +131,13 @@ export async function restoreStateBackup(
   backupKey: BackupKeypair,
 ): Promise<RestoreResult> {
   if (ev.kind !== KIND_STATE_BACKUP) {
-    return { ok: false, message: "Kein Sicherungs-Ereignis." };
+    return { ok: false, fehler: "kein-ereignis", message: "Kein Sicherungs-Ereignis." };
   }
   try {
     const klartext = await decryptDM(ev.content, backupKey.sk, backupKey.pk);
     const p = JSON.parse(klartext) as BackupPayload;
     if (p.version !== 1) {
-      return { ok: false, message: `Unbekannte Sicherungsversion ${p.version}.` };
+      return { ok: false, fehler: "version", version: p.version, message: `Unbekannte Sicherungsversion ${p.version}.` };
     }
     return {
       ok: true,
@@ -139,6 +148,7 @@ export async function restoreStateBackup(
   } catch {
     return {
       ok: false,
+      fehler: "unlesbar",
       message:
         "Sicherung nicht lesbar. Entweder gehört sie zu einer anderen " +
         "Merkphrase, oder sie ist beschädigt. Du kommst trotzdem hinein — " +

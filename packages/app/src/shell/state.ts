@@ -15,6 +15,7 @@ import { ScoredProvider, discoverProviders, matchProviders } from "../matchmakin
 import { KiSitzungen } from "../ki-sitzung.js";
 import { SessionClient } from "../session-client.js";
 import { t } from "../i18n.js";
+import { fehlerText } from "../protokoll-texte.js";
 import { escapeHtml } from "../shell-logic.js";
 import { eigeneListenAbgleichen, ladeEigeneRelays, poolRelays } from "../relay-satz.js";
 import { OutboxLeser } from "../outbox-lesen.js";
@@ -232,7 +233,7 @@ export async function wireRpcSetting(): Promise<void> {
       zeile.textContent = probe.text;
       status.append(zeile);
     } catch (e) {
-      status.textContent = (e as Error).message;
+      status.textContent = fehlerText(e);
       status.className = "mono-sm err";
     }
   };
@@ -442,7 +443,7 @@ async function entdeckeRelays(): Promise<void> {
   } catch (e) {
     // Entdeckung ist eine Verbesserung, kein Muss: Ohne sie laeuft alles
     // weiter wie bisher.
-    console.warn(`[relay] Entdeckung fehlgeschlagen: ${(e as Error).message}`);
+    console.warn(`[relay] Entdeckung fehlgeschlagen: ${fehlerText(e)}`);
   }
 }
 

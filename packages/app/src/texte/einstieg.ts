@@ -261,4 +261,8 @@ export const einstieg: Texte = {
   "ein.suchSchluessel": { de: "Suchschlüssel ungültig", en: "Search key invalid" },
   "ein.suchIndex": { de: "Suchindex unlesbar", en: "Search index unreadable" },
   "ein.nichtsGefunden": { de: "Nichts gefunden – gesucht wird nur in Nachrichten, die hier schon geöffnet wurden.", en: "Nothing found – only messages already opened here are searched." },
+  // Git-Bündel veröffentlichen (shell/app.ts)
+  "ein.gitPubliziere": { de: "publiziere {name} ({kb} KB)…", en: "publishing {name} ({kb} KB)…" },
+  "ein.gitPubliziert": { de: "{name} veröffentlicht ({blob}…)", en: "{name} published ({blob}…)" },
+  "ein.gitFehler": { de: "Git-Fehler: {fehler}", en: "Git error: {fehler}" },
 };

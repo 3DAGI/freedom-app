@@ -19,8 +19,10 @@ test("Regel: Lightning endet auch bei langsamen Bloecken plus Abstand vor T_sol"
   const knapp = validateReverseTimelock({ tSolSecs: 11 * 3600 - 1, lnCltvLimitBlocks: 30 });
   assert.equal(knapp.ok, false);
   assert.match(knapp.reason!, /vor der Solana-Frist/);
-  assert.equal(validateReverseTimelock({ tSolSecs: 3600, lnCltvLimitBlocks: 0 }).ok, false);
-  assert.equal(validateReverseTimelock({ tSolSecs: 0, lnCltvLimitBlocks: 1 }).ok, false);
+  // Kennung und Mindestabstand (8.16g2b3): Daraus bildet die App den Text in ihrer Sprache.
+  assert.deepEqual([knapp.fall, knapp.mindestSecs, knapp.tLnSecs, knapp.tSolSecs], ["vor-solana", 3600, 36_000, 11 * 3600 - 1]);
+  assert.equal(validateReverseTimelock({ tSolSecs: 3600, lnCltvLimitBlocks: 0 }).fall, "cltv");
+  assert.equal(validateReverseTimelock({ tSolSecs: 0, lnCltvLimitBlocks: 1 }).fall, "tsol");
   // Umgekehrt zur Hinrichtung: dort muss Lightning LAENGER laufen
   assert.equal(SLOW_BLOCK_SECS, 1200);
   assert.equal(maxCltvLimitFuer(11 * 3600), 30);

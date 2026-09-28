@@ -16,6 +16,7 @@ import {
 import { $, toast } from "../ui.js";
 import { bestaetige, dialog, hinweis, type Option } from "../dialog.js";
 import { gebietsschema, t } from "../../i18n.js";
+import { fehlerText } from "../../protokoll-texte.js";
 import { abrufTakt } from "../versand.js";
 import { conversations } from "./kommunikation.js";
 
@@ -135,7 +136,7 @@ async function oeffneRaum(spaceId: string): Promise<void> {
     spacesUi.state = buildSpaceState(spaceId, struktur);
     spacesUi.messages = nachrichten;
   } catch (e) {
-    $("#space-name").textContent = t("komm.nichtErreichbar", { grund: (e as Error).message });
+    $("#space-name").textContent = t("komm.nichtErreichbar", { grund: fehlerText(e) });
     return;
   }
   void zeigeRaumLeiste();
@@ -418,7 +419,7 @@ async function sendeRaumNachricht(): Promise<void> {
     spacesUi.messages.push(ev);
     await oeffneKanal(spacesUi.channelId);
   } catch (e) {
-    toast((e as Error).message, true);
+    toast(fehlerText(e), true);
     input.value = text;
   }
 }
@@ -447,7 +448,7 @@ async function legeRaumAn(oeffentlich = false): Promise<void> {
       await oeffneRaum(PRIVAT + gruppe);
       toast(t("komm.privatAngelegt"));
     } catch (e) {
-      toast((e as Error).message, true);
+      toast(fehlerText(e), true);
     }
     return;
   }
@@ -483,7 +484,7 @@ async function legeRaumAn(oeffentlich = false): Promise<void> {
       felder: [{ art: "nurlesen", name: "kennung", label: t("komm.raumKennung"), wert: spaceId }],
     });
   } catch (e) {
-    toast((e as Error).message, true);
+    toast(fehlerText(e), true);
   }
 }
 
@@ -508,7 +509,7 @@ async function ladeEin(): Promise<void> {
   if (!w) return;
   const pk = wen(w);
   toast(t("komm.ladeEin"));
-  const r = await ladeInPrivatenRaum(raum, pk).catch((e) => (e as Error).message);
+  const r = await ladeInPrivatenRaum(raum, pk).catch((e) => fehlerText(e));
   toast(r === "eingeladen" ? t("komm.eingeladen", { name: kontaktName(pk) }) : t("komm.nichtEingeladen", { grund: einladungsText(r) }), r !== "eingeladen");
   await oeffneRaum(spacesUi.spaceId!);
 }
@@ -567,7 +568,7 @@ async function moderiere(aktion: "hide" | "grant", ziel: string, autor?: string)
     }
     await oeffneRaum(spacesUi.spaceId);
   } catch (e) {
-    toast((e as Error).message, true);
+    toast(fehlerText(e), true);
   }
 }
 
@@ -630,7 +631,7 @@ async function ernenneModeratoren(): Promise<void> {
     toast(t("komm.modsBenannt", { n: mods.length }));
     await oeffneRaum(spacesUi.spaceId);
   } catch (e) {
-    toast((e as Error).message, true);
+    toast(fehlerText(e), true);
   }
 }
 

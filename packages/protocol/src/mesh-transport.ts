@@ -27,9 +27,10 @@
  *     bzw. sind im Klartext Bargeld für jeden, der mithört.
  *   ✗ Lightning-Zahlungen. Sie brauchen mehrere Runden Hin und Her — das
  *     überlebt eine Funkstrecke mit Sekunden Latenz nicht.
- *   ✗ KI-Inferenz. Ein Prompt passt vielleicht noch durch; eine Antwort mit
- *     500 Tokens braucht bei LoRa-Datenraten Stunden. Das gehört nicht
- *     versprochen.
+ *   ✗ Lange KI-Antworten. Eine Antwort mit 500 Tokens braucht als Umschlag
+ *     fast die ganze Sendezeit einer Stunde. Seit 7.4 geht eine kurze
+ *     Antwort (höchstens 500 Zeichen) über ein Gateway mit Netz
+ *     (`funk-gateway.ts`) – mehr gehört nicht versprochen.
  *
  * NUR VERSCHLÜSSELT (seit 7.1)
  * Funk hört jeder in Reichweite mit, und ein Sender lässt sich anpeilen. Ein
@@ -107,6 +108,14 @@ export const SOLANA_TX_MAX_BYTES = 1232;
 export const BESTAND_MARKE = 0x44;
 export const BESTAND_BYTES = 1024;
 
+/**
+ * Nachforderung fehlender Rahmen (7.4b): „N“, Kennung der Nachricht (4 Byte),
+ * Bitfeld der fehlenden Nummern (256 Bit). Kein Inhalt – nur, was ohnehin in
+ * jedem Rahmenkopf in der Luft steht.
+ */
+export const NACHFORDERUNG_MARKE = 0x4e;
+export const NACHFORDERUNG_BYTES = 1 + 4 + 32;
+
 /** Nur diese Arten reicht ein Knoten weiter – Klartext und Ecash nicht. */
 const VERSCHLUESSELTE_ARTEN = new Set<number>([MeshKind.NostrEvent, MeshKind.SolanaTx]);
 
@@ -114,9 +123,21 @@ const HEX64 = /^[0-9a-f]{64}$/;
 /** NIP-44 v2: Base64, erstes Byte 0x02 („A…“), mindestens 99 Byte (132 Zeichen). */
 const NIP44 = /^A[A-Za-z0-9+/]{131,}={0,2}$/;
 
+/** Warum eine Solana-Transaktion nicht vollständig signiert ist (8.16g2b3) – die App bildet daraus den Text. */
+export type SolanaTxFehler =
+  | "zu-gross" | "ohne-signatur" | "version" | "unvollstaendig" | "signaturzahl" | "ohne-konten" | "signatur";
+
+/** Ergebnis von `pruefeSolanaTx()`; `bytes` bei "zu-gross", `signatur`/`signaturen` bei "signatur". */
+export type SolanaTxPruefung =
+  | { ok: true }
+  | { ok: false; grund: string; fall: SolanaTxFehler; bytes?: number; signatur?: number; signaturen?: number };
+
+/** Warum eine Nutzlast nicht über Mesh darf (8.16g2b3). */
+export type MeshFehler = SolanaTxFehler | "klartext" | "kein-event" | "kein-umschlag" | "umschlag-signatur" | "eigener-schluessel";
+
 export type MeshPruefung =
-  | { ok: true; art: "umschlag" | "bestand" | "solana" }
-  | { ok: false; grund: string };
+  | { ok: true; art: "umschlag" | "bestand" | "nachforderung" | "solana" }
+  | { ok: false; grund: string; fall: MeshFehler; bytes?: number; signatur?: number; signaturen?: number };
 
 /**
  * Ist das ein Umschlag nach NIP-59, wie er über Mesh darf? Nur die Form:
@@ -154,20 +175,20 @@ function leseKurzzahl(b: Uint8Array, off: number): { wert: number; laenge: numbe
  * Signatur muss zu ihrem Schlüssel und zur Nachricht passen – eine halb
  * signierte Transaktion kann kein Gateway einreichen.
  */
-export function pruefeSolanaTx(tx: Uint8Array): { ok: true } | { ok: false; grund: string } {
-  if (tx.length > SOLANA_TX_MAX_BYTES) return { ok: false, grund: `Solana-Transaktion zu groß (${tx.length} Byte)` };
+export function pruefeSolanaTx(tx: Uint8Array): SolanaTxPruefung {
+  if (tx.length > SOLANA_TX_MAX_BYTES) return { ok: false, grund: `Solana-Transaktion zu groß (${tx.length} Byte)`, fall: "zu-gross", bytes: tx.length };
   const n = leseKurzzahl(tx, 0);
-  if (!n || n.wert < 1) return { ok: false, grund: "Solana-Transaktion ohne Signatur" };
+  if (!n || n.wert < 1) return { ok: false, grund: "Solana-Transaktion ohne Signatur", fall: "ohne-signatur" };
   const nachrichtAb = n.laenge + 64 * n.wert;
   const nachricht = tx.subarray(nachrichtAb);
   const kopf = nachricht.length > 0 && (nachricht[0] & 0x80) ? 1 : 0; // v0: Versionsbyte
-  if (kopf && nachricht[0] !== 0x80) return { ok: false, grund: "Solana-Transaktion mit unbekannter Version" };
-  if (nachricht.length < kopf + 3) return { ok: false, grund: "Solana-Transaktion unvollständig" };
-  if (nachricht[kopf] !== n.wert) return { ok: false, grund: "Signaturzahl passt nicht zur Nachricht" };
+  if (kopf && nachricht[0] !== 0x80) return { ok: false, grund: "Solana-Transaktion mit unbekannter Version", fall: "version" };
+  if (nachricht.length < kopf + 3) return { ok: false, grund: "Solana-Transaktion unvollständig", fall: "unvollstaendig" };
+  if (nachricht[kopf] !== n.wert) return { ok: false, grund: "Signaturzahl passt nicht zur Nachricht", fall: "signaturzahl" };
   const k = leseKurzzahl(nachricht, kopf + 3);
-  if (!k || k.wert < n.wert) return { ok: false, grund: "Solana-Transaktion ohne Konten" };
+  if (!k || k.wert < n.wert) return { ok: false, grund: "Solana-Transaktion ohne Konten", fall: "ohne-konten" };
   const kontenAb = kopf + 3 + k.laenge;
-  if (nachricht.length < kontenAb + 32 * k.wert + 32) return { ok: false, grund: "Solana-Transaktion unvollständig" };
+  if (nachricht.length < kontenAb + 32 * k.wert + 32) return { ok: false, grund: "Solana-Transaktion unvollständig", fall: "unvollstaendig" };
   for (let i = 0; i < n.wert; i++) {
     const sig = tx.subarray(n.laenge + 64 * i, n.laenge + 64 * (i + 1));
     const konto = nachricht.subarray(kontenAb + 32 * i, kontenAb + 32 * (i + 1));
@@ -175,7 +196,7 @@ export function pruefeSolanaTx(tx: Uint8Array): { ok: true } | { ok: false; grun
     try {
       gueltig = ed25519.verify(sig, nachricht, konto);
     } catch { /* kaputte Signatur */ }
-    if (!gueltig) return { ok: false, grund: `Signatur ${i + 1} von ${n.wert} fehlt oder ist ungültig` };
+    if (!gueltig) return { ok: false, grund: `Signatur ${i + 1} von ${n.wert} fehlt oder ist ungültig`, fall: "signatur", signatur: i + 1, signaturen: n.wert };
   }
   return { ok: true };
 }
@@ -200,20 +221,21 @@ export function pruefeMeshInhalt(
     const r = pruefeSolanaTx(payload);
     return r.ok ? { ok: true, art: "solana" } : r;
   }
-  if (kind !== MeshKind.NostrEvent) return { ok: false, grund: "Über Mesh geht nur Verschlüsseltes – kein Klartext, kein Ecash" };
+  if (kind !== MeshKind.NostrEvent) return { ok: false, grund: "Über Mesh geht nur Verschlüsseltes – kein Klartext, kein Ecash", fall: "klartext" };
   if (payload.length === 5 + BESTAND_BYTES && payload[0] === BESTAND_MARKE) return { ok: true, art: "bestand" };
+  if (leseNachforderung(payload)) return { ok: true, art: "nachforderung" };
 
   let ev: NostrEvent;
   try {
     ev = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(payload)) as NostrEvent;
   } catch {
-    return { ok: false, grund: "Kein Nostr-Event" };
+    return { ok: false, grund: "Kein Nostr-Event", fall: "kein-event" };
   }
-  if (!istMeshUmschlag(ev)) return { ok: false, grund: "Über Mesh gehen nur Umschläge (NIP-59)" };
-  if (!verifyEvent(ev)) return { ok: false, grund: "Umschlag mit ungültiger Signatur" };
+  if (!istMeshUmschlag(ev)) return { ok: false, grund: "Über Mesh gehen nur Umschläge (NIP-59)", fall: "kein-umschlag" };
+  if (!verifyEvent(ev)) return { ok: false, grund: "Umschlag mit ungültiger Signatur", fall: "umschlag-signatur" };
   const eigene = (opts.eigeneSchluessel ?? []).map((s) => s.toLowerCase());
   if (eigene.includes(ev.pubkey) || ev.tags.some((t) => eigene.includes(t[1]))) {
-    return { ok: false, grund: "Umschlag trägt den eigenen Schlüssel" };
+    return { ok: false, grund: "Umschlag trägt den eigenen Schlüssel", fall: "eigener-schluessel" };
   }
   return { ok: true, art: "umschlag" };
 }
@@ -306,7 +328,9 @@ export interface Reassembly {
  * aber der Nutzer sähe nur „Fehler".
  */
 export class Reassembler {
-  private teile = new Map<string, { frames: Map<number, Uint8Array>; frame: MeshFrame; seenAt: number }>();
+  private teile = new Map<string, { frames: Map<number, Uint8Array>; frame: MeshFrame; seenAt: number; zuletzt: number; gefordert: number }>();
+  /** Kürzlich vollständige Nachrichten – eine späte Dublette ist keine Lücke (7.4b2). */
+  private fertig = new Map<string, number>();
 
   constructor(private maxAgeSeconds = 3600, private maxMessages = 200) {}
 
@@ -320,7 +344,7 @@ export class Reassembler {
 
     let e = this.teile.get(f.msgId);
     if (!e) {
-      e = { frames: new Map(), frame: f, seenAt: nowSecs };
+      e = { frames: new Map(), frame: f, seenAt: nowSecs, zuletzt: nowSecs, gefordert: 0 };
       this.teile.set(f.msgId, e);
       // NACH dem Einfuegen aufraeumen: davor koennte die Sammlung um eins
       // ueber die Obergrenze wachsen, und genau darauf zielt ein Angreifer,
@@ -330,6 +354,7 @@ export class Reassembler {
     // Widersprüchliche Gesamtzahl: entweder Übertragungsfehler oder zwei
     // Nachrichten mit derselben Kennung. Beides darf nicht zusammenlaufen.
     if (e.frame.total !== f.total) return null;
+    if (!e.frames.has(f.index)) e.zuletzt = nowSecs;
     e.frames.set(f.index, f.data);
 
     const missing: number[] = [];
@@ -362,7 +387,38 @@ export class Reassembler {
     }
 
     this.teile.delete(f.msgId);
+    this.fertig.delete(f.msgId);
+    this.fertig.set(f.msgId, nowSecs);
+    if (this.fertig.size > this.maxMessages) this.fertig.delete(this.fertig.keys().next().value!);
     return { ...status, payload };
+  }
+
+  /**
+   * Lücken, die jetzt nachgefordert werden sollen (7.4b): Nachrichten, bei
+   * denen seit `ruheSek` kein neuer Rahmen kam. Jede Nachforderung kostet
+   * Sendezeit – deshalb höchstens `maxMal` je Nachricht, und die Ruhe vor der
+   * nächsten verdreifacht sich (die Gegenseite wartet vielleicht nur auf ihre
+   * Sendezeit).
+   */
+  faelligeNachforderungen(
+    nowSecs = Math.floor(Date.now() / 1000), ruheSek = 20, maxMal = 3,
+  ): { msgId: string; fehlend: number[]; priority: MeshPriority }[] {
+    const out: { msgId: string; fehlend: number[]; priority: MeshPriority }[] = [];
+    for (const [msgId, e] of this.teile) {
+      // Späte Dublette einer schon vollständigen Nachricht: nichts nachzufordern
+      const fertig = this.fertig.get(msgId);
+      if (fertig !== undefined && nowSecs - fertig <= this.maxAgeSeconds) {
+        this.teile.delete(msgId);
+        continue;
+      }
+      if (e.gefordert >= maxMal || nowSecs - e.zuletzt < ruheSek * 3 ** e.gefordert) continue;
+      const fehlend: number[] = [];
+      for (let i = 0; i < e.frame.total; i++) if (!e.frames.has(i)) fehlend.push(i);
+      e.gefordert++;
+      e.zuletzt = nowSecs;
+      out.push({ msgId, fehlend, priority: e.frame.priority });
+    }
+    return out;
   }
 
   /** Unvollständige Nachrichten verwerfen, die zu alt sind. */
@@ -484,6 +540,16 @@ export class MeshQueue {
     return eintrag;
   }
 
+  /** Einzelne Rahmen erneut einreihen – nachgeforderte (7.4b). */
+  enqueueFrames(
+    frames: readonly Uint8Array[], msgId: string, priority: MeshPriority, label: string,
+    nowSecs = Math.floor(Date.now() / 1000),
+  ): void {
+    if (frames.length === 0) return;
+    this.q.push({ frames: [...frames], priority, queuedAt: nowSecs, msgId, label });
+    this.q.sort((a, b) => a.priority - b.priority || a.queuedAt - b.queuedAt);
+  }
+
   /** Nächster zu sendender Rahmen; entfernt fertige Nachrichten. */
   next(): { frame: Uint8Array; msgId: string; remaining: number } | null {
     while (this.q.length > 0 && this.q[0].frames.length === 0) this.q.shift();
@@ -524,24 +590,24 @@ export class MeshQueue {
 export function meshFeasibility(
   payloadBytes: number,
   bytesPerSecond = 200,
-): { feasible: boolean; frames: number; seconds: number; note: string } {
+): { feasible: boolean; frames: number; seconds: number; note: string; fall: "zu-gross" | "lang" | "ok" } {
   const frames = Math.ceil(payloadBytes / MAX_PAYLOAD_PER_FRAME);
   const seconds = Math.ceil((frames * LORA_MTU) / Math.max(1, bytesPerSecond));
 
   if (frames > 255) {
     return {
-      feasible: false, frames, seconds,
+      feasible: false, frames, seconds, fall: "zu-gross",
       note: `${payloadBytes} Byte sind zu viel für Funk. Grenze: ~${255 * MAX_PAYLOAD_PER_FRAME} Byte.`,
     };
   }
   if (seconds > 600) {
     return {
-      feasible: true, frames, seconds,
+      feasible: true, frames, seconds, fall: "lang",
       note: `Möglich, dauert aber ~${Math.round(seconds / 60)} Minuten. Für Text sinnvoll, für Dateien nicht.`,
     };
   }
   return {
-    feasible: true, frames, seconds,
+    feasible: true, frames, seconds, fall: "ok",
     note: `${frames} Pakete, etwa ${seconds} Sekunden.`,
   };
 }
@@ -605,5 +671,112 @@ export class Sendezeitkonto {
   dauer(sek: number, nowSecs: number): number {
     const frei = this.frei(nowSecs);
     return Math.ceil(sek <= frei ? sek : frei + (sek - frei) / this.anteil);
+  }
+}
+
+// -------------------------------------------------- Nachforderung (7.4b)
+
+/** Fehlende Rahmen einer Nachricht nachfordern – Nutzlast für `MeshKind.NostrEvent`. */
+export function baueNachforderung(msgId: string, fehlend: readonly number[]): Uint8Array {
+  if (!/^[0-9a-f]{8}$/.test(msgId)) throw new Error("Kennung der Nachricht ungültig");
+  if (fehlend.length === 0) throw new Error("Nichts nachzufordern");
+  const p = new Uint8Array(NACHFORDERUNG_BYTES);
+  p[0] = NACHFORDERUNG_MARKE;
+  for (let b = 0; b < 4; b++) p[1 + b] = parseInt(msgId.substr(b * 2, 2), 16);
+  for (const i of fehlend) {
+    // Eine Nachricht hat höchstens 255 Rahmen (0 … 254)
+    if (!Number.isInteger(i) || i < 0 || i > 254) throw new Error(`Rahmennummer ${i} ungültig`);
+    p[5 + (i >> 3)] |= 1 << (i & 7);
+  }
+  return p;
+}
+
+/** Nachforderung lesen; null, wenn die Nutzlast keine ist (oder nichts fehlt). */
+export function leseNachforderung(p: Uint8Array): { msgId: string; fehlend: number[] } | null {
+  if (p.length !== NACHFORDERUNG_BYTES || p[0] !== NACHFORDERUNG_MARKE) return null;
+  const fehlend: number[] = [];
+  for (let i = 0; i < 255; i++) if (p[5 + (i >> 3)] & (1 << (i & 7))) fehlend.push(i);
+  // Bit 255 gibt es nicht – gesetzt heißt: keine Nachforderung, sondern Müll
+  if (fehlend.length === 0 || p[36] & 0x80) return null;
+  return { msgId: bytesToHex(p.subarray(1, 5)), fehlend };
+}
+
+/**
+ * Gedächtnis gesendeter Nachrichten, damit fehlende Rahmen nachgesendet werden
+ * können (7.4b). Begrenzt, weil jede Nachforderung Sendezeit kostet und ein
+ * Fremder sonst das Gerät zum Dauersenden brächte: wenige Nachrichten, eine
+ * Stunde, höchstens `maxNachsenden` Mal je Nachricht.
+ */
+export class Sendegedaechtnis {
+  private m = new Map<string, { frames: Uint8Array[]; at: number; nachgesendet: number }>();
+
+  constructor(private maxNachrichten = 20, private maxAlterSek = 3600, private maxNachsenden = 2) {}
+
+  merke(msgId: string, frames: readonly Uint8Array[], nowSecs = Math.floor(Date.now() / 1000)): void {
+    this.m.delete(msgId);
+    this.m.set(msgId, { frames: [...frames], at: nowSecs, nachgesendet: 0 });
+    for (const [k, e] of this.m) if (nowSecs - e.at > this.maxAlterSek) this.m.delete(k);
+    while (this.m.size > this.maxNachrichten) this.m.delete(this.m.keys().next().value!);
+  }
+
+  /** Ging diese Nachricht (noch gemerkt) von hier aus? Dann reicht der Knoten eine Nachforderung nicht weiter. */
+  kennt(msgId: string, nowSecs = Math.floor(Date.now() / 1000)): boolean {
+    const e = this.m.get(msgId);
+    return !!e && nowSecs - e.at <= this.maxAlterSek;
+  }
+
+  /** Die angeforderten Rahmen – leer, wenn die Nachricht unbekannt, zu alt oder schon oft nachgesendet ist. */
+  nachsenden(n: { msgId: string; fehlend: readonly number[] }, nowSecs = Math.floor(Date.now() / 1000)): Uint8Array[] {
+    const e = this.m.get(n.msgId);
+    if (!e || nowSecs - e.at > this.maxAlterSek || e.nachgesendet >= this.maxNachsenden) return [];
+    const frames = n.fehlend.filter((i) => i < e.frames.length).map((i) => e.frames[i]);
+    if (frames.length > 0) e.nachgesendet++;
+    return frames;
+  }
+}
+
+// ------------------------------------ Strecke zum Funkgerät (7.4b2, 7.4c1)
+
+/**
+ * Rahmen für eine Byte-Strecke zum Funkgerät – USB, Bluetooth, TCP-Brücke des
+ * Knotens: zwei Byte Länge (Big Endian), dann der Rahmen. Ohne Grenze fließen
+ * Rahmen im Strom ineinander; bis 7.4c1 las die App über USB gar nicht, und
+ * über Bluetooth kamen Häppchen statt Rahmen an.
+ */
+export function mitLaenge(frame: Uint8Array): Uint8Array {
+  if (frame.length === 0 || frame.length > LORA_MTU) throw new Error(`Rahmen mit ${frame.length} Byte passt nicht über Funk`);
+  const out = new Uint8Array(2 + frame.length);
+  out[0] = frame.length >> 8;
+  out[1] = frame.length & 0xff;
+  out.set(frame, 2);
+  return out;
+}
+
+/**
+ * Rahmen aus dem Byte-Strom der Strecke. Eine unmögliche Länge (0 oder mehr als
+ * ein Funkpaket) heißt: Der Strom hat sich verschoben – ein Byte weiter
+ * suchen. Was dabei falsch zusammenkommt, verwirft der Zusammenbau (die
+ * Kennung ist der Hash des Inhalts).
+ */
+export class LaengenRahmen {
+  private puffer = new Uint8Array(0);
+
+  push(chunk: Uint8Array): Uint8Array[] {
+    const neu = new Uint8Array(this.puffer.length + chunk.length);
+    neu.set(this.puffer);
+    neu.set(chunk, this.puffer.length);
+    this.puffer = neu;
+    const out: Uint8Array[] = [];
+    while (this.puffer.length >= 2) {
+      const n = (this.puffer[0] << 8) | this.puffer[1];
+      if (n === 0 || n > LORA_MTU) {
+        this.puffer = this.puffer.subarray(1);
+        continue;
+      }
+      if (this.puffer.length < 2 + n) break;
+      out.push(this.puffer.slice(2, 2 + n));
+      this.puffer = this.puffer.subarray(2 + n);
+    }
+    return out;
   }
 }

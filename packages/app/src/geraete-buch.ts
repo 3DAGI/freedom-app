@@ -16,6 +16,7 @@ import {
   type AbsenderZuordnung, type NostrEvent, type PrivateDm,
 } from "@freedomstack/protocol";
 import { t } from "./i18n.js";
+import { geraetGrund } from "./protokoll-texte.js";
 
 export const GERAETE_FRISCH_MS = 60_000;
 /** Mehr moegliche Eigentuemer je Geraet laedt das Buch nicht (fremde Vollmachten kann jeder ausstellen). */
@@ -74,7 +75,7 @@ export class GeraeteBuch {
   async zuordnen(absender: string, zeit: number, bevorzugt: (pk: string) => boolean): Promise<AbsenderZuordnung> {
     const eigentuemer = await this.eigentuemer(absender, bevorzugt);
     // Grund wie absenderPerson() im Protokoll; bei gültig wird er nie angezeigt
-    if (eigentuemer.length === 0) return { person: absender, gueltig: true, grund: "eigener Schlüssel" }; // kein UI-Text
+    if (eigentuemer.length === 0) return { person: absender, gueltig: true, grund: "eigener Schlüssel", fall: "eigener-schluessel" }; // kein UI-Text
     const evs = (await Promise.all(eigentuemer.map((p) => this.vonPerson(p)))).flat();
     return absenderPerson(absender, zeit, evs, { nowSecs: Math.floor(this.jetzt() / 1000), bevorzugt });
   }
@@ -115,9 +116,9 @@ export async function ordneDmZu(
   }
   const z = await buch.zuordnen(dm.from, dm.createdAt, istKontakt);
   const fremd = { partner: dm.partner, autor: dm.from, vonMir: false };
-  if (!z.geraet) return z.gueltig ? fremd : { ...fremd, hinweis: `⚠ ${z.grund}`, warnung: true };
+  if (!z.geraet) return z.gueltig ? fremd : { ...fremd, hinweis: `⚠ ${geraetGrund(z)}`, warnung: true };
   const name = z.geraet.label;
-  if (!z.gueltig) return { ...fremd, hinweis: t("ein.bevollmaechtigtAber", { name, grund: z.grund }), warnung: true };
+  if (!z.gueltig) return { ...fremd, hinweis: t("ein.bevollmaechtigtAber", { name, grund: geraetGrund(z) }), warnung: true };
   return z.geraet.entzogen
     ? { partner: z.person, autor: z.person, vonMir: false, hinweis: t("ein.ueberGeraetUnbelegt", { name }), warnung: true }
     : { partner: z.person, autor: z.person, vonMir: false, hinweis: t("ein.ueberGeraet", { name }) };

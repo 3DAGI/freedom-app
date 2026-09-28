@@ -17,6 +17,7 @@
  */
 import { NostrEvent, UnsignedEvent, buildEvent, getTag } from "./event.js";
 import type { ProviderCapabilities } from "./tiers.js";
+import { ProtokollFehler } from "./fehler.js";
 
 /** Modellkatalog eines Kurators (NIP-51-Set, ersetzbar über `d`). */
 export const KIND_MODELL_KATALOG = 38080;
@@ -68,21 +69,21 @@ export function baueModellKatalog(
   createdAt?: number,
 ): UnsignedEvent {
   if (!PUBKEY.test(k.kurator)) throw new Error("Kurator: kein Pubkey");
-  if (!D_WERT.test(k.d)) throw new Error("Kennung: 1–64 Zeichen aus Buchstaben, Ziffern, . _ -");
+  if (!D_WERT.test(k.d)) throw new ProtokollFehler("katalog-kennung", "Kennung: 1–64 Zeichen aus Buchstaben, Ziffern, . _ -");
   const titel = text(k.titel, TITEL_MAX + 1);
-  if (titel.length === 0 || titel.length > TITEL_MAX) throw new Error(`Titel: 1–${TITEL_MAX} Zeichen`);
+  if (titel.length === 0 || titel.length > TITEL_MAX) throw new ProtokollFehler("katalog-titel", `Titel: 1–${TITEL_MAX} Zeichen`, { max: TITEL_MAX });
   const beschreibung = k.beschreibung === undefined ? "" : text(k.beschreibung, BESCHREIBUNG_MAX + 1);
-  if (beschreibung.length > BESCHREIBUNG_MAX) throw new Error(`Beschreibung: höchstens ${BESCHREIBUNG_MAX} Zeichen`);
-  if (k.modelle.length > KATALOG_MAX_MODELLE) throw new Error(`Höchstens ${KATALOG_MAX_MODELLE} Modelle je Katalog`);
+  if (beschreibung.length > BESCHREIBUNG_MAX) throw new ProtokollFehler("katalog-beschreibung", `Beschreibung: höchstens ${BESCHREIBUNG_MAX} Zeichen`, { max: BESCHREIBUNG_MAX });
+  if (k.modelle.length > KATALOG_MAX_MODELLE) throw new ProtokollFehler("katalog-modelle", `Höchstens ${KATALOG_MAX_MODELLE} Modelle je Katalog`, { max: KATALOG_MAX_MODELLE });
   const gesehen = new Set<string>();
   const tags: string[][] = [["d", k.d], ["title", titel]];
   if (beschreibung) tags.push(["description", beschreibung]);
   for (const e of k.modelle) {
-    if (!MODELL_ID.test(e.modell)) throw new Error(`Keine Modell-Kennung: ${e.modell.slice(0, 40)}`);
-    if (gesehen.has(schluessel(e.modell))) throw new Error(`Doppelt: ${e.modell}`);
+    if (!MODELL_ID.test(e.modell)) throw new ProtokollFehler("katalog-modell", `Keine Modell-Kennung: ${e.modell.slice(0, 40)}`, { modell: e.modell.slice(0, 40) });
+    if (gesehen.has(schluessel(e.modell))) throw new ProtokollFehler("katalog-doppelt", `Doppelt: ${e.modell}`, { modell: e.modell });
     gesehen.add(schluessel(e.modell));
     const notiz = e.notiz === undefined ? "" : text(e.notiz, NOTIZ_MAX + 1);
-    if (notiz.length > NOTIZ_MAX) throw new Error(`Notiz zu ${e.modell}: höchstens ${NOTIZ_MAX} Zeichen`);
+    if (notiz.length > NOTIZ_MAX) throw new ProtokollFehler("katalog-notiz", `Notiz zu ${e.modell}: höchstens ${NOTIZ_MAX} Zeichen`, { modell: e.modell, max: NOTIZ_MAX });
     tags.push(notiz ? ["model", e.modell, notiz] : ["model", e.modell]);
   }
   return buildEvent(k.kurator, KIND_MODELL_KATALOG, tags, "", createdAt);

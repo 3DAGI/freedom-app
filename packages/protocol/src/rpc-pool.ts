@@ -28,6 +28,7 @@
  * sich die beiden, meldet sie das als Warnung. Sie fängt einen Anbieter, der
  * plump lügt – nicht einen, der nur bei der Stichprobe schweigt.
  */
+import { ProtokollFehler } from "./fehler.js";
 
 export interface RpcEndpoint {
   url: string;
@@ -93,6 +94,34 @@ export interface StichprobeErgebnis {
   warnungen: string[];
   /** Was sich nicht vergleichen ließ – kein Befund, aber auch keine Entwarnung. */
   hinweise: string[];
+  /** `warnungen` als Daten (8.16g2b3) – die App bildet daraus den Text in ihrer Sprache. */
+  befunde?: StichprobeBefund[];
+  /** `hinweise` als Daten (8.16g2b3). */
+  luecken?: StichprobeLuecke[];
+}
+
+/** Ein Widerspruch zwischen den beiden Anbietern; `netzA`/`netzB` fehlen bei einem unbekannten Netz. */
+export type StichprobeBefund =
+  | { art: "ketten"; a: string; b: string; netzA?: string; netzB?: string }
+  | { art: "blockhash"; von: string; bei: string }
+  | { art: "kontostand"; a: string; b: string; lamportsA: number; lamportsB: number };
+
+/** Warum ein Vergleich ausfiel: Endpunkt hinkt hinterher, unerwartete Antwort oder seine eigene Meldung. */
+export type StichprobeFehler = { art: "hinkt" } | { art: "unerwartet" } | { art: "meldung"; meldung: string };
+
+/** Was sich nicht vergleichen ließ. */
+export type StichprobeLuecke =
+  | { art: "anbieter"; name: string; fehler: StichprobeFehler }
+  | { art: "kein-zweiter" }
+  | { art: "blockhash"; von: string; bei: string; fehler: StichprobeFehler }
+  | { art: "adresse" }
+  | { art: "kontostand"; fehler: StichprobeFehler };
+
+/** Eine Antwort ohne die erwartete Form – für die Stichprobe von anderen Fehlern unterschieden. */
+class UnerwarteteAntwort extends Error {
+  constructor() {
+    super("unerwartete Antwort");
+  }
 }
 
 /** JSON-RPC-Fehler „Minimum context slot has not been reached“: Der Endpunkt hinkt hinterher. */
@@ -217,8 +246,10 @@ export class RpcPool {
       }
     }
 
-    throw new Error(
+    throw new ProtokollFehler(
+      "rpc-unerreichbar",
       `Kein Solana-Endpunkt erreichbar (${this.states.length} versucht). ` + fehler.join(" | "),
+      { n: this.states.length, details: fehler.join(" | ") },
     );
   }
 
@@ -261,10 +292,16 @@ export class RpcPool {
    * Abfrage (4.9) es ohnehin tut, nie mehrere Adressen zusammen.
    */
   async stichprobe(opts: { konto?: string; now?: number } = {}): Promise<StichprobeErgebnis> {
-    const erg: StichprobeErgebnis = { anbieter: [], verglichen: [], warnungen: [], hinweise: [] };
+    const befunde: StichprobeBefund[] = [];
+    const luecken: StichprobeLuecke[] = [];
+    const erg: StichprobeErgebnis = { anbieter: [], verglichen: [], warnungen: [], hinweise: [], befunde, luecken };
     const name = (s: EndpointState) => s.label ?? new URL(s.url).hostname;
     const grund = (e: unknown) =>
       (e as { code?: number }).code === MIN_SLOT_NICHT_ERREICHT ? "hinkt hinterher" : (e as Error).message;
+    const fehler = (e: unknown): StichprobeFehler =>
+      (e as { code?: number }).code === MIN_SLOT_NICHT_ERREICHT ? { art: "hinkt" }
+        : e instanceof UnerwarteteAntwort ? { art: "unerwartet" }
+          : { art: "meldung", meldung: (e as Error).message };
 
     // Zwei antwortende Endpunkte verschiedener Betreiber, gleiches Netz.
     const paar: Array<{ s: EndpointState; genesis: string }> = [];
@@ -273,15 +310,17 @@ export class RpcPool {
       if (paar.some((p) => betreiber(p.s.url) === betreiber(s.url))) continue;
       try {
         const genesis = await this.anfrage<unknown>(s, "getGenesisHash", []);
-        if (!istHash(genesis)) throw new Error("unerwartete Antwort");
+        if (!istHash(genesis)) throw new UnerwarteteAntwort();
         paar.push({ s, genesis });
       } catch (e) {
         erg.hinweise.push(`${name(s)}: ${grund(e)}`);
+        luecken.push({ art: "anbieter", name: name(s), fehler: fehler(e) });
       }
     }
     erg.anbieter = paar.map((p) => name(p.s));
     if (paar.length < 2) {
       erg.hinweise.push("Kein zweiter Anbieter erreichbar – keine Stichprobe möglich.");
+      luecken.push({ art: "kein-zweiter" });
       return erg;
     }
     const [a, b] = paar as [(typeof paar)[0], (typeof paar)[0]];
@@ -290,6 +329,9 @@ export class RpcPool {
       erg.warnungen.push(
         `${name(a.s)} (${netzName(a.genesis)}) und ${name(b.s)} (${netzName(b.genesis)}) hängen an verschiedenen Ketten – prüfe die eingetragenen Endpunkte.`,
       );
+      const na = NETZE[a.genesis];
+      const nb = NETZE[b.genesis];
+      befunde.push({ art: "ketten", a: name(a.s), b: name(b.s), ...(na ? { netzA: na } : {}), ...(nb ? { netzB: nb } : {}) });
       return erg;
     }
 
@@ -301,15 +343,17 @@ export class RpcPool {
         const lb = await this.anfrage<{ context?: { slot?: unknown }; value?: { blockhash?: unknown } }>(von.s, "getLatestBlockhash", [{ commitment: "finalized" }]);
         const slot = lb?.context?.slot;
         const hash = lb?.value?.blockhash;
-        if (!istSlot(slot) || !istHash(hash)) throw new Error("unerwartete Antwort");
+        if (!istSlot(slot) || !istHash(hash)) throw new UnerwarteteAntwort();
         const g = await this.anfrage<{ value?: unknown }>(bei.s, "isBlockhashValid", [hash, { commitment: "confirmed", minContextSlot: slot }]);
-        if (typeof g?.value !== "boolean") throw new Error("unerwartete Antwort");
+        if (typeof g?.value !== "boolean") throw new UnerwarteteAntwort();
         blockhashVerglichen = true;
         if (!g.value) {
           erg.warnungen.push(`${name(bei.s)} kennt den letzten Blockhash von ${name(von.s)} nicht – einer der beiden liefert eine falsche Kette.`);
+          befunde.push({ art: "blockhash", von: name(von.s), bei: name(bei.s) });
         }
       } catch (e) {
         erg.hinweise.push(`Blockhash ${name(von.s)} → ${name(bei.s)}: ${grund(e)}`);
+        luecken.push({ art: "blockhash", von: name(von.s), bei: name(bei.s), fehler: fehler(e) });
       }
     }
     if (blockhashVerglichen) erg.verglichen.push("blockhash");
@@ -317,14 +361,19 @@ export class RpcPool {
     if (opts.konto !== undefined) {
       if (!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(opts.konto)) {
         erg.hinweise.push("Kontostand: keine gültige Solana-Adresse.");
+        luecken.push({ art: "adresse" });
         return erg;
       }
       try {
         const k = await this.vergleicheKontostand(a.s, b.s, opts.konto);
         erg.verglichen.push("kontostand");
-        if (k) erg.warnungen.push(`Kontostand weicht ab: ${name(a.s)} meldet ${k[0]} Lamports, ${name(b.s)} ${k[1]}.`);
+        if (k) {
+          erg.warnungen.push(`Kontostand weicht ab: ${name(a.s)} meldet ${k[0]} Lamports, ${name(b.s)} ${k[1]}.`);
+          befunde.push({ art: "kontostand", a: name(a.s), b: name(b.s), lamportsA: k[0], lamportsB: k[1] });
+        }
       } catch (e) {
         erg.hinweise.push(`Kontostand: ${grund(e)}`);
+        luecken.push({ art: "kontostand", fehler: fehler(e) });
       }
     }
     return erg;
@@ -343,7 +392,7 @@ export class RpcPool {
       const opt = { commitment: "finalized", ...(ab !== undefined ? { minContextSlot: ab } : {}) };
       const [x, y] = await Promise.all([a, b].map(async (s) => {
         const r = await this.anfrage<{ context?: { slot?: unknown }; value?: unknown }>(s, "getBalance", [konto, opt]);
-        if (!istSlot(r?.context?.slot) || !Number.isSafeInteger(r?.value) || (r.value as number) < 0) throw new Error("unerwartete Antwort");
+        if (!istSlot(r?.context?.slot) || !Number.isSafeInteger(r?.value) || (r.value as number) < 0) throw new UnerwarteteAntwort();
         return { slot: r.context!.slot as number, wert: r.value as number };
       })) as [{ slot: number; wert: number }, { slot: number; wert: number }];
       if (x.wert === y.wert) return null;

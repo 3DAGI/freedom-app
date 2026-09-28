@@ -44,9 +44,9 @@ bash packages/mls/bauen.sh --pruefen                     # nur bei Änderungen a
 bash contracts/solana-channel/pruefen.sh --werkzeuge     # nur bei Änderungen am Zahlkanal: bauen + Tests gegen Validator (Agave 3.1.10)
 ```
 
-Stand 27.09.2026 (nach 4.3d2, 8.16g2b1 und C.2b1): protocol 1067 grün (6 übersprungen), node 235 grün
+Stand 28.09.2026 (nach 4.3d2, 7.4c3 und C.2b1): protocol 1081 grün (6 übersprungen), node 241 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 511 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 58 grün + 1 `todo` (heutige Lecks,
+in `tools.test.ts`), app 525 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 59 grün + 1 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
 Ausnahme: gesendete SOL-Zahlungen von frischen Adressen, eine bewusste Grenze
 nach Entscheidung 4.9 A – im Datenschutzbericht unter „Bewusste Grenzen“).
@@ -296,7 +296,29 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   signierte Solana-Transaktionen, beim Senden mit `eigeneSchluessel` (die eigene
   DM-Kopie trägt den eigenen Schlüssel als Empfänger). Über Funk gilt die
   Sendezeit (`Sendezeitkonto`, 1 % je Stunde); Weiterreichen nur über die
-  Warteschlange, nie `transport.send()` am Konto vorbei.
+  Warteschlange, nie `transport.send()` am Konto vorbei. KI über Funk (seit 7.4a)
+  nur über ein Gateway: der Auftrag mit `kurzParam()` (höchstens 500 Zeichen,
+  keine Zwischenstände – der Provider liest `leseKurzWunsch()`), das Gateway
+  erfährt den Sitzungsschlüssel nur aus dem versiegelten Weiterleitungsauftrag
+  (`baueWeiterleitung()`, Kind 25030) und funkt nur zurück, was
+  `GatewayBuch.zurueck()` durchlässt. Fehlende Rahmen (seit 7.4b1) nur mit
+  `baueNachforderung()` nachfordern (`Reassembler.faelligeNachforderungen()`)
+  und nur aus dem `Sendegedaechtnis` nachsenden, über die Warteschlange
+  (`MeshQueue.enqueueFrames()`) – beides begrenzt, weil es Sendezeit kostet.
+  Das Gateway im Knoten (seit 7.4b2, `gateway-role.ts`, `FUNK_GATEWAY`) hat
+  denselben Schlüssel wie der Provider: an ihn Versiegeltes ist nur dann eine
+  Weiterleitung, wenn der Kern Kind 25030 ist – alles andere geht ins Netz.
+  Zurück nur über `GatewayBuch` (Post ab dem Auftrag, `ab`) und die
+  Warteschlange mit Sendezeitkonto; eine Antwort mit 500 Zeichen kostet rund
+  15 s Sendezeit. Byte-Strecken zum Funkgerät (USB, Bluetooth, TCP-Brücke)
+  seit 7.4c1 nur mit `mitLaenge()`/`LaengenRahmen` – zwei Byte Länge je
+  Rahmen, sonst fließen Rahmen im Strom ineinander. In der App (seit 7.4c2)
+  KI über Funk nur über `shell/ki-ueber-funk.ts`: Gateway nur aus einem
+  Angebot mit `["funk","gateway"]`, gemerkt im Tresor (`freedom.funk.gateway`);
+  bezahlt nur per Zahlkanal-Gutschrift zum gemerkten Kurs oder gratis – nie
+  Lightning; Antworten aus dem Funk erst `nimmFunkAntwort()`, dann weiterverteilen.
+  Gesendet wird (seit 7.4c3) nur die Frage, erst nach `funkGeraetVerbunden()` –
+  sonst wäre eine Gutschrift gemerkt, die nie hinausgeht.
 - **Keine fest verdrahteten Relays** (seit 5.4a): Die Startliste steht nur in
   `STARTRELAYS` (`protocol/src/relay-start.ts`, `startUrls()`); die App baut den
   Pool mit `poolRelays()` (eigener Satz + wechselnd weitere). Eigene Listen
@@ -536,7 +558,14 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   fest `"de-DE"`. Der Smoke-Test läuft mit `locale="de-DE"`.
   Fertige Sätze aus dem Protokoll (`note`, `DISPUTE_LABEL`, Kurswarnungen …)
   sind Deutsch – die App bildet sie aus den Feldern neu (seit 8.16e, gesammelt
-  in `protokoll-texte.ts`; ein Test hält die deutsche Fassung wortgleich). In Tests
+  in `protokoll-texte.ts`; ein Test hält die deutsche Fassung wortgleich). Gründe
+  aus Prüfungen tragen dafür seit 8.16g2b3a eine Kennung `fall` (samt Zahlen) neben
+  `grund` – ein neuer Fall braucht Kennung und Text (`pg.*`); der Test liest die
+  Fälle aus dem Quelltext des Protokolls. Fehler, die Nutzer sehen können,
+  wirft das Protokoll seit 8.16i als `ProtokollFehler(kennung, meldung, werte)`
+  (Meldung deutsch wie bisher); die App zeigt Fehler nur über `fehlerText(e)`,
+  nie `(e as Error).message` – ein Test findet das. Neue Kennung → Text `pf.*`
+  und Eintrag in `FEHLER` (`protokoll-texte.ts`). In Tests
   ist die Sprache Englisch; wer Meldungen wörtlich auf Deutsch prüft, setzt
   `setLang("de")`. Kennungen, die der Code vergleicht (z. B. Ergebnis einer
   Einladung), bleiben Daten – übersetzt wird erst die Anzeige

@@ -112,6 +112,16 @@ export const agent: Texte = {
   "agent.providerLangsam": { de: "Provider {pk} langsam — der nächste bekommt den Auftrag zusätzlich…", en: "Provider {pk} slow — the next one gets the job as well…" },
   "agent.keinProviderAntwort": { de: "Kein Provider im Netz hat geantwortet", en: "No provider in the network answered" },
   "agent.abgebrochen": { de: "[abgebrochen]", en: "[cancelled]" },
+  "agent.funkKeinGateway": { de: "Kein Funk-Gateway gemerkt – wähle eines, solange du Netz hast (Seite Netz).", en: "No radio gateway saved – choose one while you are online (Network page)." },
+  "agent.funkOhneKurs": { de: "Das gemerkte Gateway nennt keinen SOL-Kurs – bezahlt geht über Funk so nichts. Gratis (Gebot 0) geht.", en: "The saved gateway names no SOL rate – paid requests via radio are not possible this way. Free (bid 0) works." },
+  "agent.funkNurKanal": { de: "Über Funk zahlt die App nur über einen Zahlkanal zu diesem Provider – Lightning braucht Netz. Öffne einen Kanal, solange du Netz hast, oder frag gratis (Gebot 0).", en: "Via radio the app only pays through a payment channel to this provider – Lightning needs a network. Open a channel while you are online, or ask for free (bid 0)." },
+  "agent.funkKeinGeraet": { de: "Kein Funkgerät verbunden (Seite Netz → Mesh).", en: "No radio connected (Network page → Mesh)." },
+  "agent.funkRueckmeldung": { de: "Über Funk: Der Provider lehnt ab – {grund}", en: "Via radio: the provider declines – {grund}" },
+  "agent.ueberFunk": { de: "über Funk", en: "via radio" },
+  "agent.ueberFunkTitel": { de: "Frage über dein Funkgerät an das gemerkte Gateway – kurze Antwort, höchstens 500 Zeichen", en: "Ask via your radio through the saved gateway – short answer, at most 500 characters" },
+  "agent.funkLabel": { de: "KI über Funk", en: "AI via radio" },
+  "agent.funkUnterwegs": { de: "Über Funk unterwegs. Die Antwort (höchstens 500 Zeichen) kommt in einigen Minuten – nur, solange die App offen bleibt. Ein Gateway schafft rund zwei Antworten je Stunde.", en: "On its way via radio. The answer (at most 500 characters) arrives within a few minutes – only while the app stays open. A gateway manages about two answers per hour." },
+  "agent.funkMeta": { de: "über Funk · auf „{frage}“", en: "via radio · to “{frage}”" },
   "agent.keinPrivaterProvider": { de: "Kein Provider für private Anfragen gefunden – die Knoten brauchen mindestens Stand 3.1.", en: "No provider for private requests found – nodes need at least version 3.1." },
   // Video (ComfyUI)
   "agent.videoWird": { de: "[Video] wird erstellt ({breite}×{hoehe}, ~{dauer} s) — das dauert ~1–2 min", en: "[video] being generated ({breite}×{hoehe}, ~{dauer} s) — this takes ~1–2 min" },
@@ -252,4 +262,6 @@ export const agent: Texte = {
   "agent.ohneMaterial": { de: "Frage und Antwort hat der Kunde nicht mitgeschickt.", en: "The customer didn't include question and answer." },
   "agent.begruendungFrage": { de: "Kurze Begründung (nur für Kunde und Provider):", en: "Short reasoning (only for customer and provider):" },
   "agent.urteilGesendet": { de: "Urteil versiegelt an Kunde und Provider geschickt – es gilt nur zwischen ihnen", en: "Verdict sent sealed to customer and provider – it applies only between them" },
+  "agent.modellGewaehlt": { de: "Modell: {modell}", en: "Model: {modell}" },
+  "agent.modellAuto": { de: "Modell: automatisch", en: "Model: automatic" },
 };

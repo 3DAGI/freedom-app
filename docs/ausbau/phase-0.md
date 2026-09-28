@@ -49,6 +49,14 @@ eine Durable Nonce; Werben-Texte (0,375 % mit zweiter Ebene; Stufen höchstens
 
 **Abnahme:** `check-website.py` grün; jede geänderte Aussage im Bericht.
 
+**Stand 28.09.2026 (mit 8.16h):** Der Code-Teil ist erledigt – ein Teil schon
+mit 5.1.4d (Werben ohne Stufen, „Davon gehen …“, kein Topf), der Rest mit 8.16h
+(Liste in `phase-8.md`); `check-website.py` weist die alten Aussagen ab.
+„Reputation ist öffentlich nachprüfbar“ stimmt (signierte Leistungs-Events
+38010 mit Rechenarbeit), „Solana per Datei braucht eine Durable Nonce“ steht
+schon in FAQ und Whitepaper. **Offen (MENSCH):** Firmenname und Impressum in
+der Fußzeile („Kein Unternehmen“), Marketing-Entwürfe.
+
 ## 0.G Solana-Programm-ID abgleichen – MENSCH-Entscheidung
 
 Im Code steht überall `B6W19UfZ1iYDoJYaSesZDiP96TpeZACQu3Xs6VSJ4kJk`, laut

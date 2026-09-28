@@ -51,6 +51,17 @@ VERALTET = [
     "protocol takes", "reward pool,",
 ]
 
+# Aussagen, die der Code nicht (mehr) deckt (0.F mit 8.16h): Das Solana-Programm
+# ist erst nach der Testphase unveränderlich; interne Notizen gehören nicht auf
+# die Seite; der LP startet nie mit admin.macaroon (8.3); KI über Funk ist gut
+# eine Stunde Sendezeit, nicht „Stunden bei 500 Tokens“; Code-Links zeigen aufs
+# Repository; die Sprachwahl kennt nur Deutsch und Englisch (8.16, Entscheidung B).
+UNGEDECKT = [
+    "Das Solana-Programm ist unveränderlich", "das Solana-Programm ist unveränderlich",
+    "Kern in drei Sätzen", "ARM64-GX10", "admin.macaroon", "Stunden bei 500 Tokens",
+    'href="https://github.com"', "Español", "日本語",
+]
+
 
 def main() -> int:
     fehler: list[str] = []
@@ -77,6 +88,9 @@ def main() -> int:
         for alt in VERALTET:
             if alt in inhalt:
                 fehler.append(f"{datei}: veraltete Gebühren-Aussage „{alt}“ (Modell A+, 5.1.4d)")
+        for alt in UNGEDECKT:
+            if alt in inhalt:
+                fehler.append(f"{datei}: Aussage, die der Code nicht deckt: „{alt}“ (0.F)")
 
         # Eine Seite ohne Titel oder Beschreibung ist in Suchergebnissen blind.
         if "<title>" not in inhalt:

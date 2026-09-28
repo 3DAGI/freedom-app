@@ -17,6 +17,7 @@ import {
   type UnsignedEvent,
 } from "@freedomstack/protocol";
 import { gebietsschema, t } from "../../i18n.js";
+import { fehlerText } from "../../protokoll-texte.js";
 import { escapeHtml, pkShort } from "../../shell-logic.js";
 import { anbieterKursWarnung, depositDeckel, solText } from "../../preis-anzeige.js";
 import type { RueckPlan } from "../../rueck-swap.js";
@@ -113,7 +114,7 @@ export async function loadWallet(): Promise<void> {
       box.appendChild(zeile);
     }
   } catch (e) {
-    toast(t("waehr.relayFehler", { fehler: (e as Error).message }), true);
+    toast(t("waehr.relayFehler", { fehler: fehlerText(e) }), true);
   }
 }
 
@@ -199,7 +200,7 @@ async function startSwap(lpPubkey: string, offerId: string, vorabSats?: number):
     toast(t("waehr.anfrageGesendet"));
     void pollSwapResponse(post, toHex(H), solAddr, amount, vorabSats);
   } catch (e) {
-    toast(t("waehr.fehler", { fehler: (e as Error).message }), true);
+    toast(t("waehr.fehler", { fehler: fehlerText(e) }), true);
   }
 }
 // Frueher global exportiert, weil ein inline onclick es brauchte. Der ist weg
@@ -315,7 +316,7 @@ async function pollSwapResponse(
         statusEl.className = "mono-sm ok";
         toast(t("waehr.gegenleistungGeprueft"));
       } catch (e) {
-        statusEl.textContent = t("waehr.pruefungUnmoeglich", { fehler: (e as Error).message });
+        statusEl.textContent = t("waehr.pruefungUnmoeglich", { fehler: fehlerText(e) });
         statusEl.className = "mono-sm err";
       }
       return;
@@ -348,7 +349,7 @@ async function zahleVorab(antwort: UnsignedEvent, angekuendigt: number | undefin
     const [{ zahle }, { zahlschienen }] = await Promise.all([import("@freedomstack/protocol"), import("../zahlschienen.js")]);
     await zahle(zahlschienen(), { ziel: p.bolt11, betrag: { einheit: "msat", wert: p.sats * 1000 }, zweck: "swap" });
   } catch (e) {
-    statusEl.textContent = t("waehr.vorabFehler", { fehler: (e as Error).message });
+    statusEl.textContent = t("waehr.vorabFehler", { fehler: fehlerText(e) });
     statusEl.className = "mono-sm err";
     return false;
   }
@@ -424,7 +425,7 @@ export async function claimActiveSwap(): Promise<void> {
     $("#swap-claim").classList.add("hidden");
     updateSidebarBalances();
   } catch (e) {
-    statusEl.textContent = (e as Error).message;
+    statusEl.textContent = fehlerText(e);
     statusEl.className = "mono-sm err";
   }
 }
@@ -536,14 +537,14 @@ async function startRueckSwap(lpPubkey: string, offer: LpOffer): Promise<void> {
       ? (await nwc.makeInvoice(sats * 1000, "FreedomStack: Tausch SOL → sats")).invoice // kein UI-Text
       : (prompt(t("waehr.rechnungFrage", { sats })) ?? "").trim();
   } catch (e) {
-    return melde(t("waehr.rechnungNichtErstellt", { fehler: (e as Error).message }), "err");
+    return melde(t("waehr.rechnungNichtErstellt", { fehler: fehlerText(e) }), "err");
   }
   if (!bolt11) return;
   let plan: RueckPlan;
   try {
     plan = planeRueckSwap(offer, bolt11, sats, Math.floor(Date.now() / 1000));
   } catch (e) {
-    return melde((e as Error).message, "err");
+    return melde(fehlerText(e), "err");
   }
   const markt = await aktualisiereKurs();
   const warnung = markt ? anbieterKursWarnung({ satsProSol: Math.round(1e9 / offer.lamportsPerSat) }, markt) : undefined;
@@ -562,7 +563,7 @@ async function startRueckSwap(lpPubkey: string, offer: LpOffer): Promise<void> {
     const [{ Connection }, { lockRueckSwap }] = await Promise.all([import("@solana/web3.js"), import("../../sol-htlc.js")]);
     await lockRueckSwap({ connection: new Connection(await solRpcUrl(), "confirmed"), wallet: signer, ...plan, onProgress: (x) => melde(x) });
   } catch (e) {
-    return melde(t("waehr.sperreNichtAngelegt", { fehler: (e as Error).message }), "err");
+    return melde(t("waehr.sperreNichtAngelegt", { fehler: fehlerText(e) }), "err");
   }
   void starteRueckholWaechter();
 
@@ -720,7 +721,7 @@ export async function connectSolana(silent = false): Promise<void> {
     updateSidebarBalances();
   } catch (e) {
     if (silent) return;
-    statusEl.textContent = (e as Error).message;
+    statusEl.textContent = fehlerText(e);
     statusEl.className = "mono-sm err";
   }
 }
@@ -782,14 +783,14 @@ export async function connectNwc(uri?: string, silent = false): Promise<void> {
     updateSidebarBalances();
   } catch (e) {
     if (silent) return;
-    statusEl.textContent = (e as Error).message;
+    statusEl.textContent = fehlerText(e);
     statusEl.className = "mono-sm err";
   }
 }
 
 export function disconnectNwc(): void {
   nwc = null;
-  void geheim.removeItem(NWC_KEY).catch((e) => toast(t("waehr.nichtGeloescht", { fehler: (e as Error).message }), true));
+  void geheim.removeItem(NWC_KEY).catch((e) => toast(t("waehr.nichtGeloescht", { fehler: fehlerText(e) }), true));
   const input = $("#nwc-uri") as HTMLInputElement | null;
   if (input) input.value = "";
   $("#ln-balance").innerHTML = `— <small>sats</small>`;
@@ -945,7 +946,7 @@ export async function startDeposit(): Promise<void> {
     updateBudgetBar();
     updateSidebarBalances()
   } catch (e) {
-    statusEl.textContent = t("waehr.fehler", { fehler: (e as Error).message });
+    statusEl.textContent = t("waehr.fehler", { fehler: fehlerText(e) });
     statusEl.className = "mono-sm err";
   }
 }
@@ -1002,7 +1003,7 @@ export async function refundDeposit(): Promise<void> {
     }
     updateSidebarBalances();
   } catch (e) {
-    statusEl.textContent = (e as Error).message;
+    statusEl.textContent = fehlerText(e);
     statusEl.className = "mono-sm err";
   }
 }

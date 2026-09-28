@@ -83,6 +83,18 @@ test("Abgelehnte Adressen werden mit Grund gemeldet, nicht still verschluckt", (
   assert.match(r.rejected[0].reason, /privaten Bereich/);
 });
 
+test("8.16g2b3b: Gründe einer abgelehnten Adresse als Kennung – die App bildet daraus den Text", () => {
+  const fall = (u: string) => { const r = isPlausibleRelayUrl(u); return [r.ok, r.fall, r.schema ?? r.host]; };
+  assert.deepEqual(fall("kein url"), [false, "ungueltig", undefined]);
+  assert.deepEqual(fall("https://nos.lol"), [false, "schema", "https:"]);
+  assert.deepEqual(fall("wss://a:b@nos.lol"), [false, "zugangsdaten", undefined]);
+  assert.deepEqual(fall("wss://localhost"), [false, "lokal", undefined]);
+  assert.deepEqual(fall("wss://10.0.0.1"), [false, "privat", "10.0.0.1"]);
+  assert.deepEqual(fall("wss://[2001:db8::1]"), [false, "ipv6", undefined]);
+  assert.deepEqual(fall(`wss://${"a".repeat(200)}.io`), [false, "zu-lang", undefined]);
+  assert.deepEqual(fall("wss://nos.lol"), [true, undefined, undefined]);
+});
+
 // ------------------------------------------------------------- Bewertung
 
 test("Nachgewiesene Arbeit wiegt schwerer als blosse Anzahl", () => {

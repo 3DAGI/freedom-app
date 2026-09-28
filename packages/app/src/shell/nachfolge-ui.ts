@@ -17,6 +17,7 @@ import { type NachfolgeStand, type VertrautenZeile, leseStand, neuestePlaene, ni
 import { ensurePool, signiere, state } from "./state.js";
 import { geheim, tresorEingerichtet } from "./tresor.js";
 import { toast } from "./ui.js";
+import { fehlerText, nachfolgeStand, uebergabeGrund } from "../protokoll-texte.js";
 
 /** Ohne Tresor nur im Speicher – ein Anteil gehoert nie im Klartext in localStorage. */
 let imSpeicher: NachfolgeStand | undefined;
@@ -116,7 +117,7 @@ function zeile(z: VertrautenZeile): HTMLElement {
   block.append(el("div", t("ein.anteilZeile", { wer: pkShort(z.besitzer), teil: z.anteil.index, von: z.anteil.anzahl, schwelle: z.anteil.schwelle })));
   if (!z.plan) block.append(el("div", t("ein.planFehltPunkt"), "mono-sm muted"));
   else if (!z.passt) block.append(el("div", t("ein.aelterePlan"), "mono-sm muted"));
-  else if (z.status) block.append(el("div", z.status.message, `mono-sm ${z.status.status === "aktiv" ? "ok" : "warn"}`));
+  else if (z.status) block.append(el("div", nachfolgeStand(z.status, z.plan), `mono-sm ${z.status.status === "aktiv" ? "ok" : "warn"}`));
   const knoepfe = el("div");
   if (z.passt && !z.gemeldet) knoepfe.append(knopf(t("ein.melden"), () => void melde(z.besitzer)));
   if (z.gemeldet) knoepfe.append(el("span", t("ein.gemeldet"), "mono-sm muted"));
@@ -127,7 +128,7 @@ function zeile(z: VertrautenZeile): HTMLElement {
   for (const { anfrage, darf } of z.anfragen) {
     const r = el("div", t("ein.bittetUmAnteil", { wer: pkShort(anfrage.von) }), "mono-sm");
     if (darf.ok) r.append(knopf(t("ein.uebergeben"), () => void uebergib(z, anfrage)));
-    else r.append(el("span", darf.grund, "muted"));
+    else r.append(el("span", uebergabeGrund(darf, z.plan), "muted"));
     block.append(r);
   }
   return block;
@@ -143,7 +144,7 @@ async function melde(besitzer: string): Promise<void> {
     toast(t("ein.gemeldetToast"));
     void zeigeVertraute();
   } catch (e) {
-    toast((e as Error).message, true);
+    toast(fehlerText(e), true);
   }
 }
 
@@ -161,7 +162,7 @@ async function fordereAn(z: VertrautenZeile): Promise<void> {
     await merke(st);
     toast(t("ein.angefragt", { n: andere.length }));
   } catch (e) {
-    toast((e as Error).message, true);
+    toast(fehlerText(e), true);
   }
 }
 
@@ -177,7 +178,7 @@ async function uebergib(z: VertrautenZeile, anfrage: AnteilAnfrage): Promise<voi
     toast(t("ein.uebergebenToast"));
     void zeigeVertraute();
   } catch (e) {
-    toast((e as Error).message, true);
+    toast(fehlerText(e), true);
   }
 }
 
@@ -198,7 +199,7 @@ function setzeZusammen(z: VertrautenZeile): void {
     URL.revokeObjectURL(url);
     toast(t("ein.zusammengesetzt"));
   } catch (e) {
-    toast((e as Error).message, true);
+    toast(fehlerText(e), true);
   } finally {
     schluessel?.fill(0);
   }

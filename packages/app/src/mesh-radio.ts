@@ -28,9 +28,11 @@
 import {
   fragment, parseFrame, Reassembler, ForwardingCache, MeshQueue,
   MeshKind, MeshPriority, meshFeasibility, LORA_MTU, pruefeMeshInhalt, Sendezeitkonto,
-  BESTAND_MARKE, buildDigest, planSync, type SyncDigest, type Link, type NostrEvent,
+  BESTAND_MARKE, buildDigest, falsePositiveRate, planSync, type SyncDigest, type Link, type NostrEvent,
+  Sendegedaechtnis, baueNachforderung, leseNachforderung, LaengenRahmen, mitLaenge,
 } from "@freedomstack/protocol";
 import { t } from "./i18n.js";
+import { fehlerText, funkText, meshGrund, syncNotiz } from "./protokoll-texte.js";
 
 export type TransportKind = "seriell" | "bluetooth" | "datei";
 
@@ -80,7 +82,7 @@ export function detectTransports(override?: Record<string, unknown>): TransportA
 }
 
 /** Serielle Verbindung zu einem LoRa-Gerät. */
-export async function connectSerial(baudRate = 115200): Promise<MeshTransport> {
+export async function connectSerial(baudRate = 115200, onFrame?: (raw: Uint8Array) => void): Promise<MeshTransport> {
   const nav = navigator as unknown as {
     serial?: { requestPort(): Promise<SerialPortLike> };
   };
@@ -88,7 +90,29 @@ export async function connectSerial(baudRate = 115200): Promise<MeshTransport> {
 
   const port = await nav.serial.requestPort();
   await port.open({ baudRate });
+  return serielleStrecke(port, onFrame);
+}
+
+/**
+ * Serielle Strecke über einen geöffneten Port – Rahmen mit Längenpräfix in
+ * beide Richtungen (7.4c1, wie die TCP-Brücke des Knotens). Bis dahin schrieb
+ * die App rohe Rahmen und las nie: Über USB kam keine Antwort an.
+ */
+export function serielleStrecke(port: SerialPortLike, onFrame?: (raw: Uint8Array) => void): MeshTransport {
   const writer = port.writable.getWriter();
+  const reader = onFrame ? port.readable.getReader() : null;
+  if (reader && onFrame) {
+    const leser = new LaengenRahmen();
+    void (async () => {
+      try {
+        for (;;) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          if (value) for (const f of leser.push(value)) onFrame(f);
+        }
+      } catch { /* getrennt */ }
+    })();
+  }
 
   return {
     kind: "seriell",
@@ -100,10 +124,12 @@ export async function connectSerial(baudRate = 115200): Promise<MeshTransport> {
         // verwirft ihn still, und die Nachricht fehlt ohne Hinweis.
         throw new Error(t("bau.rahmenZuGross", { n: frame.length, max: LORA_MTU }));
       }
-      await writer.write(frame);
+      await writer.write(mitLaenge(frame));
     },
     async close() {
       try {
+        await reader?.cancel();
+        reader?.releaseLock();
         writer.releaseLock();
         await port.close();
       } catch { /* schon getrennt */ }
@@ -145,59 +171,73 @@ export async function connectBluetooth(
   });
   const server = await device.gatt.connect();
   const service = await server.getPrimaryService(NUS_SERVICE);
-  const rx = await service.getCharacteristic(NUS_RX);
-  const tx = await service.getCharacteristic(NUS_TX);
+  return bluetoothStrecke(
+    await service.getCharacteristic(NUS_RX), await service.getCharacteristic(NUS_TX),
+    device.name ?? t("bau.bluetoothGeraet"), () => device.gatt.disconnect(), onFrame,
+  );
+}
 
-  // Empfang: Das Geraet schickt Rahmen, sobald welche ankommen.
+/**
+ * Bluetooth-Strecke über den Nordic-UART-Dienst – Rahmen mit Längenpräfix,
+ * in BLE-Häppchen zerlegt (7.4c1). Bis dahin kamen die Häppchen einzeln als
+ * „Rahmen“ an; ein Rahmen über 180 Byte war damit nie lesbar.
+ */
+export async function bluetoothStrecke(
+  rx: NusMerkmal, tx: NusMerkmal, name: string, trenne: () => void, onFrame?: (raw: Uint8Array) => void,
+): Promise<MeshTransport> {
+  // Empfang: Das Geraet schickt den Strom in Häppchen, sobald etwas ankommt.
   if (onFrame) {
+    const leser = new LaengenRahmen();
     await tx.startNotifications();
     tx.addEventListener("characteristicvaluechanged", (e: Event) => {
       const v = (e.target as unknown as { value: DataView }).value;
-      onFrame(new Uint8Array(v.buffer, v.byteOffset, v.byteLength));
+      for (const f of leser.push(new Uint8Array(v.buffer, v.byteOffset, v.byteLength))) onFrame(f);
     });
   }
 
   return {
     kind: "bluetooth",
-    name: device.name ?? t("bau.bluetoothGeraet"),
+    name,
     async send(frame: Uint8Array) {
       // In BLE-Haeppchen zerlegen. Ein zu grosser Schreibvorgang wird still
       // verworfen — und die Nachricht fehlt ohne Hinweis.
-      for (let off = 0; off < frame.length; off += BLE_CHUNK) {
-        await rx.writeValueWithoutResponse(frame.subarray(off, off + BLE_CHUNK));
+      const roh = mitLaenge(frame);
+      for (let off = 0; off < roh.length; off += BLE_CHUNK) {
+        await rx.writeValueWithoutResponse(roh.subarray(off, off + BLE_CHUNK));
       }
     },
     async close() {
       try {
         await tx.stopNotifications?.();
-        device.gatt.disconnect();
+        trenne();
       } catch { /* schon getrennt */ }
     },
   };
+}
+
+/** Merkmal des Nordic-UART-Dienstes (RX schreiben, TX meldet). */
+export interface NusMerkmal {
+  writeValueWithoutResponse(d: Uint8Array): Promise<void>;
+  startNotifications(): Promise<void>;
+  stopNotifications?(): Promise<void>;
+  addEventListener(t: string, f: (e: Event) => void): void;
 }
 
 interface BluetoothDeviceLike {
   name?: string;
   gatt: {
     connect(): Promise<{
-      getPrimaryService(uuid: string): Promise<{
-        getCharacteristic(uuid: string): Promise<{
-          writeValueWithoutResponse(d: Uint8Array): Promise<void>;
-          startNotifications(): Promise<void>;
-          stopNotifications?(): Promise<void>;
-          addEventListener(t: string, f: (e: Event) => void): void;
-        }>;
-      }>;
+      getPrimaryService(uuid: string): Promise<{ getCharacteristic(uuid: string): Promise<NusMerkmal> }>;
     }>;
     disconnect(): void;
   };
 }
 
-interface SerialPortLike {
+export interface SerialPortLike {
   open(o: { baudRate: number }): Promise<void>;
   close(): Promise<void>;
   writable: { getWriter(): { write(d: Uint8Array): Promise<void>; releaseLock(): void } };
-  readable: unknown;
+  readable: { getReader(): { read(): Promise<{ value?: Uint8Array; done: boolean }>; cancel(): Promise<void>; releaseLock(): void } };
 }
 
 /**
@@ -280,6 +320,9 @@ export class MeshNode {
   private queue = new MeshQueue();
   private reassembler = new Reassembler();
   private forwarding = new ForwardingCache();
+  /** Gesendetes, damit fehlende Rahmen nachgesendet werden können (7.4b). */
+  private gedaechtnis = new Sendegedaechtnis();
+  private lueckenTakt: ReturnType<typeof setInterval> | null = null;
   private transport: MeshTransport | null = null;
   private sending = false;
   private stopped = false;
@@ -318,15 +361,18 @@ export class MeshNode {
     return this.transport?.kind ?? null;
   }
 
-  async attach(t: MeshTransport): Promise<void> {
+  async attach(tr: MeshTransport): Promise<void> {
     await this.detach();
-    this.transport = t;
+    this.transport = tr;
     this.stopped = false;
     // Durchsatz und Sendezeit haengen an der Strecke. Per USB und per Bluetooth
     // spricht die App ein Funkgeraet an – beides geht danach ueber LoRa (7.1).
-    this.link = t.kind === "datei" ? "datei" : "lora";
-    this.bytesPerSecond = t.kind === "datei" ? 5_000_000 : 200;
-    this.events.onLog?.(`verbunden: ${t.name}`);
+    this.link = tr.kind === "datei" ? "datei" : "lora";
+    this.bytesPerSecond = tr.kind === "datei" ? 5_000_000 : 200;
+    this.events.onLog?.(t("bau.verbunden", { name: tr.name }));
+    // Über Funk gehen Rahmen verloren: Lücken nachfordern (7.4b). Der Datei-Weg
+    // ist ein Bündel ohne Rückweg – dort nicht.
+    if (this.link === "lora") this.lueckenTakt = setInterval(() => this.nachfordern(), 10_000);
     void this.pump();
     // Beim Verbinden den eigenen Bestand anbieten — sonst passiert bei einem
     // Treffen nichts, bis jemand von Hand etwas sendet.
@@ -365,8 +411,9 @@ export class MeshNode {
       maxSeconds: this.link === "lora" ? 180 : 600,
       sendezeitSekunden: this.konto.frei(Date.now() / 1000),
     });
-    this.events.onLog?.(plan.note);
-    this.events.onSyncPlan?.(plan.send.length, plan.estimatedSeconds, plan.note);
+    const notiz = syncNotiz(plan, this.link, falsePositiveRate(fremd));
+    this.events.onLog?.(notiz);
+    this.events.onSyncPlan?.(plan.send.length, plan.estimatedSeconds, notiz);
 
     for (const ev of plan.send) {
       try {
@@ -378,7 +425,7 @@ export class MeshNode {
         );
       } catch (e) {
         // z. B. die eigene Kopie einer DM: traegt den eigenen Schluessel
-        this.events.onLog?.(t("bau.nichtGesendet", { fehler: (e as Error).message }));
+        this.events.onLog?.(t("bau.nichtGesendet", { fehler: fehlerText(e) }));
       }
     }
   }
@@ -386,6 +433,8 @@ export class MeshNode {
   async detach(): Promise<void> {
     this.stopped = true;
     this.wecker?.();
+    if (this.lueckenTakt) clearInterval(this.lueckenTakt);
+    this.lueckenTakt = null;
     if (this.transport) {
       await this.transport.close();
       this.transport = null;
@@ -401,11 +450,12 @@ export class MeshNode {
   ): { msgId: string; frames: number; etaSeconds: number; note: string } {
     // Nur Verschluesseltes und nie der eigene Schluessel (7.1).
     const pruefung = pruefeMeshInhalt(payload, kind, { eigeneSchluessel: this.eigeneSchluessel });
-    if (!pruefung.ok) throw new Error(pruefung.grund);
+    if (!pruefung.ok) throw new Error(meshGrund(pruefung));
     const machbar = meshFeasibility(payload.length, this.bytesPerSecond);
-    if (!machbar.feasible) throw new Error(machbar.note);
+    if (!machbar.feasible) throw new Error(funkText(machbar, payload.length));
 
     const m = this.queue.enqueue(payload, kind, priority, label);
+    this.gedaechtnis.merke(m.msgId, m.frames);
     // Kommt die eigene Nachricht als Echo zurueck, wird sie nicht noch einmal gesendet.
     this.forwarding.shouldForward(m.frames[0]);
     // Zahlen VOR dem Senden festhalten: pump() laeuft synchron bis zum ersten
@@ -416,7 +466,7 @@ export class MeshNode {
     const etaSeconds = this.dauer();
     this.meldeFortschritt();
     void this.pump();
-    return { msgId: m.msgId, frames, etaSeconds, note: machbar.note };
+    return { msgId: m.msgId, frames, etaSeconds, note: funkText(machbar, payload.length) };
   }
 
   cancel(msgId: string): boolean {
@@ -445,12 +495,17 @@ export class MeshNode {
       // Nur Verschluesseltes weitergeben – Klartext, offene Events, Ecash nie (7.1).
       const pruefung = pruefeMeshInhalt(st.payload, st.kind);
       if (!pruefung.ok) {
-        this.events.onLog?.(`verworfen: ${pruefung.grund}`);
+        this.events.onLog?.(t("bau.verworfen", { grund: meshGrund(pruefung) }));
         return;
       }
       // Bestandsmeldung der Gegenseite: kein Inhalt, sondern eine Anfrage.
       if (pruefung.art === "bestand") {
         this.handleDigest(st.payload);
+        return;
+      }
+      // Nachforderung (7.4b): fehlende Rahmen einer Nachricht, die hier durchkam
+      if (pruefung.art === "nachforderung") {
+        this.beantworteNachforderung(st.payload, st.priority, parseFrame(raw).ttl, nowSecs);
         return;
       }
       this.weiterreichen(st.payload, st.kind, st.priority, parseFrame(raw).ttl, nowSecs);
@@ -469,9 +524,45 @@ export class MeshNode {
     // Sprungzahl und Dubletten je Nachricht – am ersten Rahmen, gleich in welcher Reihenfolge sie kamen.
     if (!this.forwarding.shouldForward(fragment(payload, kind, priority, ttl)[0], nowSecs)) return;
     if (!pruefeMeshInhalt(payload, kind, { eigeneSchluessel: this.eigeneSchluessel }).ok) return;
-    this.queue.enqueue(payload, kind, priority, t("bau.weitergabe"), nowSecs, ttl - 1);
+    const m = this.queue.enqueue(payload, kind, priority, t("bau.weitergabe"), nowSecs, ttl - 1);
+    this.gedaechtnis.merke(m.msgId, m.frames, nowSecs);
     this.meldeFortschritt();
     void this.pump();
+  }
+
+  /**
+   * Fehlende Rahmen nachsenden (7.4b) – nur aus dem Gedächtnis, begrenzt und
+   * über die Warteschlange (Sendezeit). Kam die Nachricht nicht von hier,
+   * reicht der Knoten die Nachforderung weiter; eigene, schon zweimal
+   * nachgesendete nicht.
+   */
+  private beantworteNachforderung(payload: Uint8Array, priority: MeshPriority, ttl: number, nowSecs: number): void {
+    const n = leseNachforderung(payload);
+    if (!n || !this.transport) return;
+    const frames = this.gedaechtnis.nachsenden(n, nowSecs);
+    if (frames.length === 0) {
+      if (!this.gedaechtnis.kennt(n.msgId, nowSecs)) this.weiterreichen(payload, MeshKind.NostrEvent, priority, ttl, nowSecs);
+      return;
+    }
+    this.queue.enqueueFrames(frames, n.msgId, priority, t("bau.nachgesendet", { n: frames.length }), nowSecs);
+    this.meldeFortschritt();
+    void this.pump();
+  }
+
+  /** Lücken in empfangenen Nachrichten nachfordern (7.4b); Zahl der Nachforderungen. */
+  nachfordern(nowSecs = Math.floor(Date.now() / 1000)): number {
+    if (!this.transport) return 0;
+    const faellig = this.reassembler.faelligeNachforderungen(nowSecs);
+    for (const f of faellig) {
+      const m = this.queue.enqueue(baueNachforderung(f.msgId, f.fehlend), MeshKind.NostrEvent, f.priority, t("bau.nachforderung"), nowSecs);
+      // Kommt sie als Echo zurück, geht sie nicht noch einmal hinaus
+      this.forwarding.shouldForward(m.frames[0], nowSecs);
+    }
+    if (faellig.length > 0) {
+      this.meldeFortschritt();
+      void this.pump();
+    }
+    return faellig.length;
   }
 
   /** Mehrere Rahmen aus einem Datei-Bündel einspielen. */
@@ -514,7 +605,7 @@ export class MeshNode {
         await this.schlafe((next.frame.length / this.bytesPerSecond) * 1000);
       }
     } catch (e) {
-      this.events.onLog?.(t("bau.sendefehler", { fehler: (e as Error).message }));
+      this.events.onLog?.(t("bau.sendefehler", { fehler: fehlerText(e) }));
     } finally {
       this.sending = false;
     }

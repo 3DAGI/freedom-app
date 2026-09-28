@@ -68,7 +68,7 @@ test("Ohne Signatur der Wallet geht der Auftrag gar nicht erst raus", async () =
   await assert.rejects(() => baueRelayEinloesung({
     connection: conn as never, wallet: wallet(Keypair.generate(), false), swapId: "swap-abc", preimage: new Uint8Array(32),
     initiator: LP_SOL, relayer: { pubkey: "a".repeat(64), solAdresse: r1, erstattungLamports: 10_000 },
-  }), /unvollständig: Empfaenger hat nicht signiert/);
+  }), /unvollständig: Empfänger hat nicht signiert/);
 });
 
 test("Verdrahtung (4.6f): ohne SOL ueber den Relayer, Auftrag versiegelt vom Wegwerf-Schluessel, nie der LP", () => {

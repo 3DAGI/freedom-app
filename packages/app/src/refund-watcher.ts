@@ -24,6 +24,7 @@
  */
 import { WalletSigner } from "./sol-htlc.js";
 import { t } from "./i18n.js";
+import { fehlerText } from "./protokoll-texte.js";
 
 /** Sperren: HTLC eines Tauschs oder Deposits – oder ein Zahlkanal (4.3d, swapIds = [Kanal-Adresse]). */
 export type PendingKind = "swap" | "deposit" | "kanal";
@@ -186,13 +187,13 @@ export async function sweepPendingRefunds(
         result.zurueckgeholt++;
         result.lamports += lock.amountLamports;
       } else {
-        const grund = r.failed[0]?.reason ?? "unbekannt";
+        const grund = r.failed[0]?.reason ?? t("pg.unbekannt");
         await rememberLock({ ...lock, attempts: (lock.attempts ?? 0) + 1, lastError: grund });
         result.fehler.push({ reference: lock.reference, reason: grund });
         result.offen.push(viewLock({ ...lock, attempts: (lock.attempts ?? 0) + 1, lastError: grund }, nowUnix));
       }
     } catch (e) {
-      const grund = (e as Error).message;
+      const grund = fehlerText(e);
       await rememberLock({ ...lock, attempts: (lock.attempts ?? 0) + 1, lastError: grund });
       result.fehler.push({ reference: lock.reference, reason: grund });
     }
@@ -221,7 +222,7 @@ export function startRefundWatcher(
       onResult?.(r);
     } catch (e) {
       // Ein Fehler in der Überwachung darf die App nicht beeinträchtigen.
-      console.warn(`[refund] Durchlauf fehlgeschlagen: ${(e as Error).message}`);
+      console.warn(`[refund] Durchlauf fehlgeschlagen: ${fehlerText(e)}`);
     }
   };
 

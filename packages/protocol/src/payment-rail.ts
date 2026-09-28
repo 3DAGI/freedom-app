@@ -8,6 +8,7 @@
  * Lightning und Solana setzen sie um (in der App, weil dort die Wallets
  * leben), und jede Geldfunktion fragt nur noch die Schiene.
  */
+import { ProtokollFehler } from "./fehler.js";
 
 export type RailId = "lightning" | "solana";
 
@@ -77,10 +78,10 @@ export function railFuerZiel(ziel: string): RailId | null {
 
 /** Anfrage vor dem Zahlen pruefen: Ziel zur Schiene, Betrag ganzzahlig und positiv. */
 export function pruefeAnfrage(rail: RailId, a: Zahlanfrage): void {
-  if (railFuerZiel(a.ziel) !== rail) throw new Error(`Ziel passt nicht zur Schiene ${rail}`);
-  if (a.betrag.einheit !== RAIL_EINHEIT[rail]) throw new Error(`Betrag in ${a.betrag.einheit}, ${rail} rechnet in ${RAIL_EINHEIT[rail]}`);
-  if (!Number.isSafeInteger(a.betrag.wert) || a.betrag.wert <= 0) throw new Error("Betrag muss eine positive ganze Zahl sein");
-  if (a.referenz !== undefined && (rail !== "solana" || !SOL_ADRESSE.test(a.referenz))) throw new Error("Referenz nur als Solana-Adresse");
+  if (railFuerZiel(a.ziel) !== rail) throw new ProtokollFehler("schiene-ziel", `Ziel passt nicht zur Schiene ${rail}`, { schiene: rail });
+  if (a.betrag.einheit !== RAIL_EINHEIT[rail]) throw new ProtokollFehler("schiene-einheit", `Betrag in ${a.betrag.einheit}, ${rail} rechnet in ${RAIL_EINHEIT[rail]}`, { einheit: a.betrag.einheit, schiene: rail, rechnet: RAIL_EINHEIT[rail] });
+  if (!Number.isSafeInteger(a.betrag.wert) || a.betrag.wert <= 0) throw new ProtokollFehler("betrag-positiv", "Betrag muss eine positive ganze Zahl sein");
+  if (a.referenz !== undefined && (rail !== "solana" || !SOL_ADRESSE.test(a.referenz))) throw new ProtokollFehler("schiene-referenz", "Referenz nur als Solana-Adresse");
 }
 
 /**
@@ -105,15 +106,15 @@ export function offlineZahlText(rail: RailId): string {
  */
 export async function waehleRail(rails: readonly PaymentRail[], anfrage: Zahlanfrage): Promise<PaymentRail> {
   const noetig = railFuerZiel(anfrage.ziel);
-  if (!noetig) throw new Error("Unbekanntes Zahlungsziel");
+  if (!noetig) throw new ProtokollFehler("schiene-unbekannt", "Unbekanntes Zahlungsziel");
   const rail = rails.find((r) => r.id === noetig);
-  if (!rail) throw new Error(`Keine Schiene für ${noetig}`);
+  if (!rail) throw new ProtokollFehler("schiene-fehlt", `Keine Schiene für ${noetig}`, { schiene: noetig });
   // Vor der Wallet-Frage: offline haengt NWC sonst, bis die Zeit ablaeuft.
-  if (rail.online && !rail.online()) throw new Error(offlineZahlText(noetig));
+  if (rail.online && !rail.online()) throw new ProtokollFehler(noetig === "lightning" ? "offline-sats" : "offline-sol", offlineZahlText(noetig));
   if (!(await rail.verfuegbar())) {
-    throw new Error(noetig === "lightning"
-      ? "Keine Lightning-Wallet verbunden – im Wallet-Tab per NWC verbinden."
-      : "Keine Solana-Wallet verbunden – im Wallet-Tab verbinden.");
+    throw noetig === "lightning"
+      ? new ProtokollFehler("wallet-fehlt-sats", "Keine Lightning-Wallet verbunden – im Wallet-Tab per NWC verbinden.")
+      : new ProtokollFehler("wallet-fehlt-sol", "Keine Solana-Wallet verbunden – im Wallet-Tab verbinden.");
   }
   return rail;
 }

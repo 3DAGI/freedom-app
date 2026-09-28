@@ -16,8 +16,10 @@
  * Unterschied zwischen den Wegen.
  *
  * WAS DAS NICHT LEISTET
- * Live-Inferenz über Funk bleibt unmöglich: Eine Antwort mit 500 Tokens
- * bräuchte Stunden. Was geht, ist der **zeitversetzte** Betrieb — ein Auftrag
+ * Live-Inferenz über Funk ist knapp: Eine Antwort mit 500 Tokens braucht als
+ * Umschlag fast die ganze Sendezeit einer Stunde (1 %). Seit 7.4 geht eine
+ * kurze Antwort (höchstens 500 Zeichen) über ein Gateway mit Netz
+ * (`funk-gateway.ts`). Was immer geht, ist der **zeitversetzte** Betrieb — ein Auftrag
  * kommt per Stick an, wird bearbeitet, und die Antwort geht denselben Weg
  * zurück. Für einen Ort ohne Internet ist das der Unterschied zwischen
  * „gar nichts" und „am nächsten Tag".

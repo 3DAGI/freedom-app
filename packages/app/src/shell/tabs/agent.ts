@@ -15,6 +15,7 @@ import {
   parseJobResult,
 } from "@freedomstack/protocol";
 import { gebietsschema, t } from "../../i18n.js";
+import { fehlerText, hatFehlerText, reklamationsFrist } from "../../protokoll-texte.js";
 import { icon } from "../../icons.js";
 import { DEFAULT_MAX_MODE, ScoredProvider, matchRaceProviders } from "../../matchmaking.js";
 import { type AntwortCache, oeffneAntworten } from "../../ki-antworten.js";
@@ -36,6 +37,7 @@ import {
 } from "../state.js";
 import { aktualisiereKurs, aktuellerKurs } from "../marktkurs.js";
 import { geheim } from "../tresor.js";
+import { beiFunkAntwort, sendeKiUeberFunk } from "../ki-ueber-funk.js";
 import { deklaration, empfaengerFuer, kanalAntwort, kanalGutschrift, merkeAnfrage, perKanal, providerZahlung, rechneAntwortAb, zahleAnteile } from "../ki-zahlung.js";
 import { hoechstMsat } from "../../anteile-kasse.js";
 import {
@@ -54,7 +56,7 @@ import { PRUEFER_ART, type Pruefer } from "../../streitfall.js";
 import { merkeReklamation, netzPruefer, stelleZu } from "../streitfall-ui.js";
 import { zeigeMitwirkende } from "./earn.js";
 import { vergebeAbzeichen } from "./profil.js";
-import { richteNachfolgeEin, zeigeNachfolge } from "./settings.js";
+import { funkGeraetVerbunden, richteNachfolgeEin, sendeUeberFunk, zeigeNachfolge } from "./settings.js";
 
 /** Modell des zuletzt genutzten Providers (fuer die anzeige). */
 let lastProviderModel: string | null = null;
@@ -154,7 +156,7 @@ export function setupModelPicker(): void {
     sel.value = card.dataset.model ?? "";
     updateModelBtnLabel();
     pop.classList.add("hidden");
-    toast(sel.value ? `modell: ${sel.value.split(":")[0]}` : "modell: auto");
+    toast(sel.value ? t("agent.modellGewaehlt", { modell: sel.value.split(":")[0] ?? "" }) : t("agent.modellAuto"));
   });
   // klick außerhalb schließt
   document.addEventListener("click", (e) => {
@@ -329,8 +331,9 @@ class EigeneMeldung extends Error {}
 /** Mappt technische Fehler auf verstaendliche Ursachen. */
 function explainError(e: unknown): string {
   const m = ((e as Error)?.message ?? String(e)).toLowerCase();
-  // Eigene, schon übersetzte Meldungen (3.1, 8.16d1) nicht umdeuten.
+  // Eigene, schon übersetzte Meldungen (3.1, 8.16d1) nicht umdeuten – Fehler des Protokolls mit Kennung (8.16i) auch nicht.
   if (e instanceof EigeneMeldung) return e.message;
+  if (hatFehlerText(e)) return fehlerText(e);
   // Muster auf technische Meldungen (Relay, Knoten, Browser) – Regexe, keine Texte der Oberfläche
   if (/relay|websocket|eose|pool/.test(m)) return t("agent.fehlerRelay");
   if (/kein provider|provider.*antwort/.test(m)) return t("agent.fehlerKeinProvider");
@@ -339,7 +342,7 @@ function explainError(e: unknown): string {
   if (/timeout/.test(m)) return t("agent.fehlerTimeout");
   if (/comfy/.test(m)) return t("agent.fehlerComfy");
   if (/fetch|network/.test(m)) return t("agent.fehlerNetz");
-  return (e as Error)?.message ?? String(e);
+  return fehlerText(e);
 }
 
 /** Baut eine Fehler-Bubble mit Ursache + Retry-Button. */
@@ -380,6 +383,11 @@ export async function askAi(): Promise<void> {
   // STOP: läuft bereits ein Job → abbrechen statt neuen senden
   if (btn.dataset.running === "1" && jobAbort) {
     jobAbort.abort();
+    return;
+  }
+  // KI über Funk (7.4c3): gewählt – die Antwort kommt später über setupFunkAntworten()
+  if (($("#ai-funk") as HTMLInputElement | null)?.checked) {
+    await frageUeberFunk(prompt, bid);
     return;
   }
   btn.dataset.running = "1";
@@ -581,7 +589,7 @@ async function generateVideo(prompt: string): Promise<void> {
     }
     addAiMessage("ai", t("agent.videoTimeout"), "");
   } catch (e) {
-    addAiMessage("ai", t("agent.videoFehler", { grund: (e as Error).message }), "");
+    addAiMessage("ai", t("agent.videoFehler", { grund: fehlerText(e) }), "");
   }
 }
 
@@ -990,6 +998,49 @@ function addAiMessage(role: "user" | "ai", text: string, meta: string, model?: s
   return el;
 }
 
+/**
+ * KI über Funk (7.4c3): Auftrag und Weiterleitung ans gemerkte Gateway, über
+ * das verbundene Funkgerät. Nur die Frage reist mit – kein Verlauf als Kontext,
+ * jedes Byte kostet Sendezeit. Gratis-Tarif heißt Gebot 0.
+ */
+async function frageUeberFunk(prompt: string, bid: number): Promise<void> {
+  const gebot = ($("#ai-tier") as HTMLSelectElement).value === "free" ? 0 : bid;
+  hideEmptyState();
+  addAiMessage("user", prompt, "");
+  ($("#ai-prompt") as HTMLTextAreaElement).value = "";
+  try {
+    // Erst das Gerät prüfen – sonst wäre eine Gutschrift gemerkt, die nie hinausgeht
+    if (!funkGeraetVerbunden()) throw new EigeneMeldung(t("agent.funkKeinGeraet"));
+    const { MeshKind, MeshPriority } = await import("@freedomstack/protocol");
+    const { eventToMesh } = await import("../../mesh-radio.js");
+    await sendeKiUeberFunk(prompt, gebot, (w) => sendeUeberFunk(eventToMesh(w), MeshKind.NostrEvent, t("agent.funkLabel"), MeshPriority.Nachricht));
+    addAiMessage("ai", t("agent.funkUnterwegs"), "");
+  } catch (e) {
+    addAiMessage("ai", fehlerText(e), "");
+  }
+}
+
+/**
+ * Antworten, die über Funk kommen (7.4c2) – oft Minuten später. Über den
+ * Zahlkanal nur den Preis verbuchen; Lightning zahlt hier nie (ohne Netz).
+ * Eine Rückmeldung (etwa eine Ablehnung) zeigt der Agent als Hinweis.
+ */
+export function setupFunkAntworten(): void {
+  beiFunkAntwort((ev, frage, ergebnis) => void zeigeFunkAntwort(ev, frage, ergebnis));
+}
+
+async function zeigeFunkAntwort(ev: NostrEvent, frage: string, ergebnis: boolean): Promise<void> {
+  hideEmptyState();
+  const meta = t("agent.funkMeta", { frage: [...frage].length > 40 ? [...frage].slice(0, 39).join("") + "…" : frage });
+  if (!ergebnis) {
+    addAiMessage("ai", t("agent.funkRueckmeldung", { grund: ev.content.replace(/^error:\s*/i, "").slice(0, 200) }), meta);
+    return;
+  }
+  const r = parseJobResult(ev);
+  if (perKanal(r.requestId)) await kanalAntwort(r.requestId, r.amountLamports);
+  addAiMessage("ai", r.output, meta, r.usage?.model);
+}
+
 /** Simuliertes Streaming: zeigt die AI-Antwort buchstabenweise an (typewriter).
  *  Echtes Nostr-Streaming waere komplex (multi-event); so wirkt es lebendig. */
 function addAiMessageStreaming(role: "ai", text: string, meta: string, model?: string, onDone?: () => void): HTMLElement {
@@ -1066,7 +1117,7 @@ async function reklamiere(
   try {
     const w = disputeWindowOpen(Math.floor(Date.now() / 1000) - 60);
     if (!w.open) {
-      toast(w.message, true);
+      toast(reklamationsFrist(w), true);
       return;
     }
     const pruefer = await waehlePruefer(providerPk);
@@ -1099,9 +1150,9 @@ async function reklamiere(
         });
       }
     }
-    toast(pruefer ? t("agent.reklamiertMit", { name: pruefer.name, info: w.message }) : t("agent.reklamiert", { info: w.message }));
+    toast(pruefer ? t("agent.reklamiertMit", { name: pruefer.name, info: reklamationsFrist(w) }) : t("agent.reklamiert", { info: reklamationsFrist(w) }));
   } catch (e) {
-    toast((e as Error).message, true);
+    toast(fehlerText(e), true);
   }
 }
 

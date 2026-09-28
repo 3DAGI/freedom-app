@@ -72,6 +72,13 @@ test("8.11a: uebergeben erst nach Frist, Schwelle und Wartezeit – ein Lebensze
   const r = frage([...meldungen, lebenszeichen], T0 + 213 * TAG);
   assert.equal(r.ok, false);
   assert.match((r as { grund: string }).grund, /Noch nicht freigegeben/);
+  // Kennungen (8.16g2b3b): Daraus bildet die App den Grund in ihrer Sprache – mit dem Stand der Nachfolge.
+  assert.deepEqual(!r.ok && [r.fall, r.stand?.status], ["nicht-freigegeben", "aktiv"]);
+  const fall = (x: ReturnType<typeof frage>) => (x.ok ? "ok" : x.fall);
+  assert.deepEqual([
+    fall(frage(meldungen, T0 + 213 * TAG, fremd.pk)), fall(frage(meldungen, T0 + 213 * TAG, c.pk)),
+    fall(frage(meldungen, T0 + 213 * TAG, b.pk, { ...ac, secretHash: "0".repeat(64) })),
+  ], ["anfragender", "anfragender", "anderer-plan"]);
 });
 
 test("8.11a: NACHFOLGE DURCHGESPIELT – B sammelt von C, setzt zusammen, hat den Schluessel des Besitzers", async () => {

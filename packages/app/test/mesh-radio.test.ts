@@ -10,12 +10,14 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   MeshNode, fileTransport, packBundle, unpackBundle, detectTransports,
-  eventToMesh, meshToEvent, MeshTransport,
+  eventToMesh, meshToEvent, MeshTransport, serielleStrecke, bluetoothStrecke, type SerialPortLike, type NusMerkmal,
 } from "../src/mesh-radio.js";
 import {
-  MeshKind, MeshPriority, fragment, parseFrame, Sendezeitkonto,
+  MeshKind, MeshPriority, fragment, parseFrame, Sendezeitkonto, baueNachforderung, leseNachforderung,
+  LORA_MTU, LaengenRahmen, mitLaenge,
   buildEvent, buildPrivateDm, generateKeypair, signEvent, type NostrEvent,
 } from "@freedomstack/protocol";
+import { setLang } from "../src/i18n.js";
 
 const text = (s: string) => new TextEncoder().encode(s);
 
@@ -74,10 +76,16 @@ test("Kein Rahmen ueberschreitet die Funk-Grenze", async () => {
 
 test("Zu grosse Nachrichten werden vorher abgelehnt", () => {
   const n = node();
-  assert.throws(
-    () => n.enqueue(umschlag(60_000), MeshKind.NostrEvent, MeshPriority.Nachricht, "riesig"),
-    /zu viel für Funk/,
-  );
+  setLang("de"); // Grund wörtlich auf Deutsch (seit 8.16g2b3b in der Sprache der Oberfläche)
+  try {
+    assert.throws(
+      () => n.enqueue(umschlag(60_000), MeshKind.NostrEvent, MeshPriority.Nachricht, "riesig"),
+      /zu viel für Funk/,
+    );
+  } finally {
+    setLang("en");
+  }
+  assert.throws(() => n.enqueue(umschlag(60_000), MeshKind.NostrEvent, MeshPriority.Nachricht, "riesig"), /bytes are too much for radio/);
 });
 
 test("Dauer wird ehrlich geschaetzt, nicht als Balken versteckt", () => {
@@ -107,10 +115,17 @@ test("Klartext, offene Events und Ecash werden nicht gesendet", () => {
   const n = node();
   const kp = generateKeypair();
   const offen = eventToMesh(signEvent(buildEvent(kp.pk, 1, [], "Treffen um 19 Uhr"), kp.sk));
-  assert.throws(() => n.enqueue(text("HILFE am Bahnhof"), MeshKind.PlainText, MeshPriority.Notfall, "x"), /nur Verschlüsseltes/);
-  assert.throws(() => n.enqueue(text("cashuAeyJ0b2tlbiI6"), MeshKind.Ecash, MeshPriority.Zahlung, "x"), /nur Verschlüsseltes/);
-  assert.throws(() => n.enqueue(offen, MeshKind.NostrEvent, MeshPriority.Nachricht, "x"), /nur Umschläge/);
-  assert.throws(() => n.enqueue(text("x".repeat(600)), MeshKind.NostrEvent, MeshPriority.Nachricht, "x"), /Kein Nostr-Event/);
+  setLang("de"); // Gründe wörtlich auf Deutsch (seit 8.16g2b3a in der Sprache der Oberfläche)
+  try {
+    assert.throws(() => n.enqueue(text("HILFE am Bahnhof"), MeshKind.PlainText, MeshPriority.Notfall, "x"), /nur Verschlüsseltes/);
+    assert.throws(() => n.enqueue(text("cashuAeyJ0b2tlbiI6"), MeshKind.Ecash, MeshPriority.Zahlung, "x"), /nur Verschlüsseltes/);
+    assert.throws(() => n.enqueue(offen, MeshKind.NostrEvent, MeshPriority.Nachricht, "x"), /nur Umschläge/);
+    assert.throws(() => n.enqueue(text("x".repeat(600)), MeshKind.NostrEvent, MeshPriority.Nachricht, "x"), /Kein Nostr-Event/);
+  } finally {
+    setLang("en");
+  }
+  assert.throws(() => n.enqueue(text("HILFE am Bahnhof"), MeshKind.PlainText, MeshPriority.Notfall, "x"), /Only encrypted content goes over mesh/);
+  assert.throws(() => n.enqueue(offen, MeshKind.NostrEvent, MeshPriority.Nachricht, "x"), /Only envelopes \(NIP-59\)/);
   assert.equal(n.pending.length, 0);
 });
 
@@ -119,7 +134,13 @@ test("Die eigene Kopie einer DM geht nicht ueber Mesh – sie traegt den eigenen
   const dm = await buildPrivateDm({ senderSk: alice.sk, senderPk: alice.pk, recipientPk: bob.pk, content: "hallo" });
   const n = node();
   n.setEigeneSchluessel([alice.pk]);
-  assert.throws(() => n.enqueue(eventToMesh(dm.toSelf), MeshKind.NostrEvent, MeshPriority.Nachricht, "x"), /eigenen Schlüssel/);
+  setLang("de");
+  try {
+    assert.throws(() => n.enqueue(eventToMesh(dm.toSelf), MeshKind.NostrEvent, MeshPriority.Nachricht, "x"), /eigenen Schlüssel/);
+  } finally {
+    setLang("en");
+  }
+  assert.throws(() => n.enqueue(eventToMesh(dm.toSelf), MeshKind.NostrEvent, MeshPriority.Nachricht, "x"), /Envelope carries your own key/);
   assert.ok(n.enqueue(eventToMesh(dm.toRecipient), MeshKind.NostrEvent, MeshPriority.Nachricht, "an Bob").frames > 1);
 });
 
@@ -242,6 +263,154 @@ test("Weitergereicht wird nur Geprueftes – kein fremder Klartext, keine Post a
   assert.equal(t.gesendet.length, 0, "fremder Klartext geht nicht über mein Gerät");
   assert.equal(an, 1, "die Post an mich kommt an");
   assert.equal(t2.gesendet.length, 0, "und wird nicht mit meinem Schlüssel weitergefunkt");
+});
+
+// ------------------------------------------------------------- Nachfordern (7.4b)
+
+test("Verlorene Rahmen werden nachgefordert und nachgesendet (7.4b)", async () => {
+  const original = umschlag(900);
+  const beiB: Uint8Array[] = [];
+  const beiA: Uint8Array[] = [];
+  const a = node((p) => { beiA.push(p); });
+  const b = node((p) => { beiB.push(p); });
+  let n = 0;
+  // Hin gehen beim ersten Mal die Rahmen 1 und 4 verloren
+  await a.attach({ ...fakeTransport(), async send(f) { if (n++ !== 1 && n !== 5) b.receive(f); } });
+  await b.attach({ ...fakeTransport(), async send(f) { a.receive(f); } });
+  const r = a.enqueue(original, MeshKind.NostrEvent, MeshPriority.Nachricht, "Test");
+  assert.ok(r.frames >= 5);
+  await new Promise((res) => setTimeout(res, 100));
+  assert.equal(beiB.length, 0, "unvollständig");
+  assert.equal(b.nachfordern(Math.floor(Date.now() / 1000) + 5), 0, "noch keine Ruhe");
+
+  assert.equal(b.nachfordern(Math.floor(Date.now() / 1000) + 30), 1);
+  await new Promise((res) => setTimeout(res, 100));
+  assert.equal(beiB.length, 1);
+  assert.deepEqual(beiB[0], original);
+  assert.equal(n, r.frames + 2, "genau die zwei fehlenden nachgesendet");
+  assert.ok(beiA.every((p) => p.length !== 37), "die Nachforderung ist keine Nachricht");
+  assert.equal(b.nachfordern(Math.floor(Date.now() / 1000) + 999), 0, "nichts mehr offen");
+  await a.detach();
+  await b.detach();
+});
+
+test("Nachgesendet wird nur Eigenes und höchstens zweimal – Fremdes geht weiter (7.4b)", async () => {
+  const t = fakeTransport();
+  const n = node();
+  await n.attach(t);
+  const r = n.enqueue(umschlag(600), MeshKind.NostrEvent, MeshPriority.Nachricht, "Test");
+  await new Promise((res) => setTimeout(res, 50));
+  const vorher = t.gesendet.length;
+  const fordere = (msgId: string, fehlend: number[]) => {
+    for (const f of fragment(baueNachforderung(msgId, fehlend), MeshKind.NostrEvent, MeshPriority.Nachricht, 5)) n.receive(f);
+  };
+  fordere(r.msgId, [0]);
+  fordere(r.msgId, [1, 2]);
+  fordere(r.msgId, [0, 1, 2]);
+  await new Promise((res) => setTimeout(res, 50));
+  assert.equal(t.gesendet.length, vorher + 3, "zweimal nachgesendet, dann nicht mehr");
+  assert.ok(t.gesendet.slice(vorher).every((f) => parseFrame(f).msgId === r.msgId));
+
+  fordere("ffffffff", [0]);
+  await new Promise((res) => setTimeout(res, 50));
+  const weiter = t.gesendet.slice(vorher + 3);
+  assert.equal(weiter.length, 1, "unbekannt: die Nachforderung selbst geht weiter");
+  assert.deepEqual(leseNachforderung(parseFrame(weiter[0]).data), { msgId: "ffffffff", fehlend: [0] });
+  assert.equal(parseFrame(weiter[0]).ttl, 4);
+
+  // Ohne Gerät keine Nachforderung
+  const ohne = node();
+  for (const f of fragment(umschlag(600), MeshKind.NostrEvent).slice(1)) ohne.receive(f, 1000);
+  assert.equal(ohne.nachfordern(2000), 0);
+  await n.detach();
+});
+
+// ------------------------------------------------ Geräte-Strecken (7.4c1)
+
+/** Port wie Web Serial: schreibt mit, liefert vorgegebene Häppchen. */
+function fakePort(haeppchen: Uint8Array[]) {
+  const geschrieben: Uint8Array[] = [];
+  let abgebrochen = false;
+  const port: SerialPortLike & { geschrieben: Uint8Array[]; abgebrochen: () => boolean } = {
+    geschrieben, abgebrochen: () => abgebrochen,
+    async open() { /* offen */ },
+    async close() { /* zu */ },
+    writable: { getWriter: () => ({ async write(d: Uint8Array) { geschrieben.push(d); }, releaseLock() { /* frei */ } }) },
+    readable: {
+      getReader: () => ({
+        async read() {
+          await new Promise((r) => setTimeout(r, 1));
+          const value = haeppchen.shift();
+          return value ? { value, done: false } : { done: true };
+        },
+        async cancel() { abgebrochen = true; },
+        releaseLock() { /* frei */ },
+      }),
+    },
+  };
+  return port;
+}
+
+/** Strom in ungleiche Häppchen zerlegen – Grenzen mitten im Längenfeld und im Rahmen. */
+function zerstueckle(strom: Uint8Array, groessen = [1, 7, 150, 3, 90]): Uint8Array[] {
+  const out: Uint8Array[] = [];
+  for (let off = 0, i = 0; off < strom.length; i++) {
+    const n = groessen[i % groessen.length];
+    out.push(strom.subarray(off, off + n));
+    off += n;
+  }
+  return out;
+}
+
+test("USB: Rahmen mit Längenpräfix hin und zurück – die App liest jetzt auch (7.4c1)", async () => {
+  const original = umschlag(700);
+  const rahmen = fragment(original, MeshKind.NostrEvent);
+  const strom = Uint8Array.from(rahmen.flatMap((f) => [...mitLaenge(f)]));
+  const port = fakePort(zerstueckle(strom));
+  let empfangen: Uint8Array | null = null;
+  const n = node((p) => { empfangen = p; });
+  const tr = serielleStrecke(port, (raw) => n.receive(raw));
+  await new Promise((r) => setTimeout(r, 100));
+  assert.deepEqual(empfangen, original, "aus dem Strom zusammengesetzt");
+
+  await tr.send(rahmen[0]);
+  assert.deepEqual(port.geschrieben, [mitLaenge(rahmen[0])], "gesendet mit Länge vorn");
+  await assert.rejects(tr.send(new Uint8Array(LORA_MTU + 1)));
+  await tr.close();
+  assert.ok(port.abgebrochen(), "Lesen beim Trennen beendet");
+  // Ohne Empfänger wird nicht gelesen (wie bisher für reine Sender)
+  const still = fakePort([strom]);
+  serielleStrecke(still);
+  await new Promise((r) => setTimeout(r, 20));
+  assert.equal(still.abgebrochen(), false);
+});
+
+test("Bluetooth: Häppchen ergeben wieder Rahmen, gesendet in Häppchen mit Länge (7.4c1)", async () => {
+  const original = umschlag(700);
+  const rahmen = fragment(original, MeshKind.NostrEvent);
+  assert.ok(rahmen[0].length > 180, "ein Rahmen passt nicht in ein BLE-Häppchen");
+  const hoerer: ((e: Event) => void)[] = [];
+  const geschrieben: Uint8Array[] = [];
+  const merkmal = (): NusMerkmal => ({
+    async writeValueWithoutResponse(d) { geschrieben.push(d.slice()); },
+    async startNotifications() { /* an */ },
+    addEventListener(_t, f) { hoerer.push(f); },
+  });
+  let empfangen: Uint8Array | null = null;
+  let getrennt = false;
+  const n = node((p) => { empfangen = p; });
+  const tr = await bluetoothStrecke(merkmal(), merkmal(), "Test", () => { getrennt = true; }, (raw) => n.receive(raw));
+  const strom = Uint8Array.from(rahmen.flatMap((f) => [...mitLaenge(f)]));
+  for (const h of zerstueckle(strom, [20, 180, 5])) {
+    for (const f of hoerer) f({ target: { value: new DataView(h.buffer, h.byteOffset, h.byteLength) } } as unknown as Event);
+  }
+  assert.deepEqual(empfangen, original);
+
+  await tr.send(rahmen[0]);
+  assert.ok(geschrieben.length >= 2 && geschrieben.every((g) => g.length <= 180));
+  assert.deepEqual(new LaengenRahmen().push(Uint8Array.from(geschrieben.flatMap((g) => [...g]))), [rahmen[0]]);
+  await tr.close();
+  assert.ok(getrennt);
 });
 
 // ------------------------------------------------------------- Datei-Weg

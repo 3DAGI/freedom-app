@@ -36,7 +36,7 @@ profil.ts|(Zuweisung) zeilen.map((z) => `<div>${escapeHtml(z)}</div>`).join("")|
 profil.ts|(Zuweisung) alle.map((b) => `<div class="badge-row"> <span class="badge-chip ${escapeHtml(b.source)}">${escapeHtml(abzeichenQuelle(b|Callback: Template, alle Werte mit escapeHtml
 settings.ts|(Zuweisung) d.map((x) => { const cls = x.status === "aktiv" ? "ok" : x.status === "abgelaufen" ? "warn" : "muted"; return `<div clas|Callback: Templates mit escapeHtml(label, status, devicePubkey)
 settings.ts|cls|feste Klassennamen ok/warn/muted
-settings.ts|(Zuweisung) offlineCapabilities(link).map((f) => `<div class="usage-row"><span>${f.works ? "✓" : "✕"} ${escapeHtml(f.feature)}</span|Callback: Template mit escapeHtml; Haken/Kreuz fest
+settings.ts|(Zuweisung) offlineFaehigkeiten(link).map((f) => `<div class="usage-row"><span>${f.works ? "✓" : "✕"} ${escapeHtml(f.feature)}</span|Callback: Template mit escapeHtml; Haken/Kreuz fest (seit 8.16g2b2 offlineFaehigkeiten() in der Sprache der Oberfläche)
 settings.ts|(Zuweisung) p.map((m) => `${escapeHtml(m.label)} — ${escapeHtml(t("set.paketeOffenKurz", { n: m.framesLeft }))}`).join("<br>")|Callback: Template mit escapeHtml(m.label) und lokalem Zähler
 earn.ts|(Zuweisung) zusammen.map((z) => `<div class="usage-row"><span>${symbol[z.layer]} ${escapeHtml(ebeneName(z.layer))}</span>` + `<span|Callback: Template mit escapeHtml(z.label); Symbol und Zähler siehe folgende Zeilen
 earn.ts|symbol[z.layer]|Eintrag aus der festen Symboltabelle (oder undefined)

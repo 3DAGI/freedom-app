@@ -17,6 +17,7 @@
 import { gcm } from "@noble/ciphers/aes.js";
 import { sha256 } from "@noble/hashes/sha2.js";
 import { bytesToHex, hexToBytes, randomBytes } from "@noble/hashes/utils.js";
+import { ProtokollFehler } from "./fehler.js";
 
 /** Was ein Empfaenger zum Oeffnen braucht – steht nur in der verschluesselten Nachricht. */
 export interface DateiSchluessel {
@@ -55,13 +56,13 @@ export function verschluesseleDatei(klartext: Uint8Array): { chiffrat: Uint8Arra
  * veraendert wurde (GCM-Tag) oder der Klartext nicht zum Hash passt.
  */
 export function entschluesseleDatei(chiffrat: Uint8Array, schluessel: DateiSchluessel): Uint8Array {
-  if (!istDateiSchluessel(schluessel)) throw new Error("Datei-Schlüssel ungültig");
+  if (!istDateiSchluessel(schluessel)) throw new ProtokollFehler("datei-schluessel", "Datei-Schlüssel ungültig");
   let klartext: Uint8Array;
   try {
     klartext = gcm(hexToBytes(schluessel.key), hexToBytes(schluessel.nonce)).decrypt(chiffrat);
   } catch {
-    throw new Error("Datei beschädigt oder falscher Schlüssel");
+    throw new ProtokollFehler("datei-kaputt", "Datei beschädigt oder falscher Schlüssel");
   }
-  if (bytesToHex(sha256(klartext)) !== schluessel.ox) throw new Error("Datei passt nicht zum Hash");
+  if (bytesToHex(sha256(klartext)) !== schluessel.ox) throw new ProtokollFehler("datei-hash", "Datei passt nicht zum Hash");
   return klartext;
 }

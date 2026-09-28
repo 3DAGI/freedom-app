@@ -48,6 +48,7 @@ import {
 import {
   verifyDepositOnChain, DepositVerificationCache, providerAnteilMsat, pruefeAufteilung, type Anteil,
   leseGutschriftTags, teileKanalZahlung, type KanalEmpfaenger,
+  kuerzeAntwort, leseKurzWunsch,
 } from "@freedomstack/protocol";
 import type { KanalKasse } from "./kanal-kasse.js";
 import type { Connection } from "@solana/web3.js";
@@ -767,6 +768,9 @@ export class DvmProvider {
     const bidMsat = Number(getTag(request, "bid") ?? "0");
     const sessionId = getTag(request, "session");
     if (!input) throw new Error("Job ohne Input");
+    // Über ein Funk-Gateway (7.4): kurze Antwort ohne Zwischenstände – jede Sekunde Sendezeit zählt
+    const kurz = leseKurzWunsch(request);
+    const kuerze = (text: string): string => (kurz ? kuerzeAntwort(text, kurz) : text);
     // Gebührenmodell A+ (5.1): Deklaration prüfen, bevor gerechnet wird
     const aufteilung = aufteilungFuer(request, !!this.cfg.werber);
     // Zahlkanal (4.3c): Gutschrift im versiegelten Kern – Vorauszahlung bis zum Gebot
@@ -886,7 +890,7 @@ export class DvmProvider {
           requestId: request.id,
           requestKind: request.kind,
           customerPubkey: request.pubkey,
-          output: result.output,
+          output: kuerze(result.output),
           amountMsat,
           usage: {
             model: result.model,
@@ -923,6 +927,8 @@ export class DvmProvider {
       // Tool-Ergebnis als eigene Nachricht — das LLM antwortet darauf
       finalPrompt = toolContext + `\nBasierend auf dem obigen Tool-Ergebnis, beantworte jetzt die urspruengliche Frage: ${input}`;
     }
+    // Kurz (7.4): das Modell darum bitten – gekürzt wird danach trotzdem
+    if (kurz) finalPrompt += `\n\nAntworte in höchstens ${kurz} Zeichen, ohne Einleitung.`;
     // Gewuenschtes Modell aus dem Job lesen ([\"param\", \"model\", \"...\"]).
     // Nur akzeptieren wenn der Provider dieses Modell anbietet; sonst Default.
     const modelParam = request.tags.find((t) => t[0] === "param" && t[1] === "model")?.[2];
@@ -947,7 +953,8 @@ export class DvmProvider {
       jobId: request.id,
       prompt: finalPrompt,
       model: requestedModel,
-      onProgress,
+      // Über Funk keine Zwischenstände (7.4): jede Rückmeldung kostet Sendezeit
+      onProgress: kurz ? undefined : onProgress,
     });
 
     // Preis: Session-Rate, Deposit-Rate, Free-Tier (0), oder Bid-Preis.
@@ -1000,7 +1007,7 @@ export class DvmProvider {
         requestId: request.id,
         requestKind: request.kind,
         customerPubkey: request.pubkey,
-        output: result.output,
+        output: kuerze(result.output),
         amountMsat,
         solanaAddress: solDeposit ? this.cfg.solanaAddress : undefined,
         amountLamports: usedLamports,

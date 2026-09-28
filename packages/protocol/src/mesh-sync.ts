@@ -98,7 +98,7 @@ export const SYNC_POLICY: ClassPolicy[] = [
     cls: "community", label: "Räume", priority: 3,
     kinds: [42, 34700, 34701, 34702, 34550, 34551, 34552],
     links: [],
-    note: "Räume sind noch nicht verschlüsselt (2.3) – bis dahin nicht über Mesh.",
+    note: "Öffentliche Räume tragen den Schlüssel des Autors, private (MLS) gehen (noch) nicht über Mesh – nur Umschläge.",
   },
   {
     cls: "verzeichnis", label: "Verzeichnis", priority: 4,
@@ -349,7 +349,8 @@ export function offlineCapabilities(link: Link): { feature: string; works: boole
         "Post für einen Kontakt nimmst du im Chat als Datei mit." +
         (ueberFunk ? " Funk: höchstens 1 % Sendezeit je Stunde – drei bis vier kurze Nachrichten." : ""),
     },
-    { feature: "Räume und Kanäle", works: false, note: "Noch nicht verschlüsselt (2.3) – bis dahin nicht über Mesh." },
+    // Private Raeume sind seit 2.3 MLS-Gruppen; ihre Nachrichten (445) sind keine Umschlaege – pruefeMeshInhalt() laesst sie nicht durch.
+    { feature: "Räume und Kanäle", works: false, note: "Private Räume sind verschlüsselt (MLS), gehen aber (noch) nicht über Mesh – nur 1:1-Unterhaltungen." },
     {
       // Seit 7.2: Durable Nonce – die Transaktion bleibt gueltig, bis ein Geraet mit Netz sie einreicht.
       feature: "Solana-Zahlungen", works: true,
@@ -369,8 +370,9 @@ export function offlineCapabilities(link: Link): { feature: string; works: boole
       note: "Braucht mehrere Runden Austausch. Das überlebt keine Offline-Strecke.",
     },
     {
-      feature: "KI-Anfragen", works: false,
-      note: "Eine Antwort mit 500 Wörtern bräuchte über Funk Stunden. Ehrlich: geht nicht.",
+      // Seit 7.4: kurz über ein Funk-Gateway (funk-gateway.ts) – eine lange Antwort bräuchte mehr als eine Stunde Sendezeit.
+      feature: "KI-Anfragen", works: ueberFunk,
+      note: "Nur über Funk und ein Gateway mit Netz: kurze Antwort (höchstens 500 Zeichen), rund zwei je Stunde und Gateway – eine Antwort kostet als Umschlag gut 15 s Sendezeit. Bezahlt nur über einen Zahlkanal oder gratis; per Datei nicht.",
     },
   ];
 }

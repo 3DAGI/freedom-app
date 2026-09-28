@@ -436,6 +436,10 @@ def rahmen_pruefen(browser, url: str) -> dict:
             klick('.app-nav button[data-tab="netz"]')
             klick('[data-subtab-group="netz"] [data-subtab="mesh"]')
             inhalte["mesh"] = sichtbar("#mesh-queue") and sichtbar("#mesh-connect")
+            # 7.4c3: KI über Funk – Gateway wählen hier, „über Funk“ im Agenten erst mit Gateway
+            inhalte["funk"] = sichtbar("#funk-gateway-suchen") and "Kein Gateway gemerkt." in ev(
+                "() => document.getElementById('funk-gateway-stand').textContent") \
+                and ev("() => document.getElementById('ai-funk-wahl').style.display") == "none"
             erg["desktop"]["inhalte"] = inhalte
             if not all(inhalte.values()):
                 erg["fehler"].append(f"desktop: Inhalte {inhalte}")

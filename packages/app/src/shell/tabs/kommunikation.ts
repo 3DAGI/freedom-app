@@ -29,6 +29,7 @@ import { $, toast } from "../ui.js";
 import { t } from "../../i18n.js";
 import { versendeVerzoegert } from "../versand.js";
 import { kontaktName, zeigeRaumLeiste } from "./raeume.js";
+import { fehlerText, schluesselText } from "../../protokoll-texte.js";
 
 /** Anhang: kleine Dateien inline als data-url, grosse ueber das Blob-Netz. */
 // Darstellungslogik liegt in shell-logic.ts — dort ohne DOM und deshalb
@@ -96,7 +97,7 @@ export async function handleChatFiles(files: FileList | null): Promise<void> {
       chatAttachments.push({ name: file.name, mime: file.type || "application/octet-stream", size: file.size, url, ...(enc ? { enc } : {}) });
       setAttachStatus(listEl, chatAttachments.map((a) => `${a.name} (${Math.round(a.size / 1024)}kb)`).join(", "));
     } catch (e) {
-      toast(`${file.name}: ${(e as Error).message}`, true);
+      toast(`${file.name}: ${fehlerText(e)}`, true);
     }
   }
 }
@@ -145,7 +146,7 @@ function wireBlobButtons(root: HTMLElement): void {
         URL.revokeObjectURL(url);
         el.textContent = oldText;
       } catch (e) {
-        toast(`blob: ${(e as Error).message}`, true);
+        toast(t("komm.anhangFehler", { fehler: fehlerText(e) }), true);
         el.textContent = oldText;
       }
     });
@@ -230,7 +231,7 @@ function loadConversations(): void {
 
 function saveConversations(): void {
   void geheim.setItem("freedom.chats", JSON.stringify(conversations))
-    .catch((e) => toast(t("komm.nichtGespeichert", { grund: (e as Error).message }), true));
+    .catch((e) => toast(t("komm.nichtGespeichert", { grund: fehlerText(e) }), true));
   void sichereKontakte().catch(() => { /* offline – beim naechsten Speichern */ });
 }
 
@@ -771,7 +772,7 @@ function markiereSchluessel(list: HTMLElement): void {
     const el = list.querySelector<HTMLElement>(`[data-cid="${CSS.escape(pk)}"]`);
     const lbl = el?.querySelector<HTMLElement>(".label");
     if (!el || !lbl || el.querySelector(".schluessel-warnung")) continue;
-    el.title = st.message;
+    el.title = schluesselText(st);
     // Eigenes Element: die Namensaufloesung ueberschreibt spaeter den Text des Labels
     const w = document.createElement("span");
     w.className = "schluessel-warnung warn";
@@ -788,7 +789,7 @@ function schluesselHinweis(thread: HTMLElement, partner: string): void {
   box.className = "bubble ai schluessel-hinweis";
   const text = document.createElement("div");
   text.className = "txt mono-sm warn";
-  text.textContent = `⚠ ${st!.message}`;
+  text.textContent = `⚠ ${schluesselText(st!)}`;
   box.append(text);
   if ((st!.status === "widerrufen" || st!.status === "abgeloest") && st!.currentPubkey !== partner) {
     const b = document.createElement("button");
@@ -852,7 +853,7 @@ export async function loadChatMessages(cid: string): Promise<void> {
     if (modState && modAn) {
       const { applyModeration } = await import("@freedomstack/protocol");
       for (const r of applyModeration(decrypted as never[], modState as never, { enabled: true })) {
-        if (r.hidden) versteckt.set(r.event.id, { reason: r.reason ?? "ausgeblendet" });
+        if (r.hidden) versteckt.set(r.event.id, { reason: r.reason ?? t("pg.ohneGrund") });
       }
     }
 
@@ -988,7 +989,7 @@ export async function sendChatMessage(): Promise<void> {
     saveConversations();
     loadChatMessages(activeConversation);
   } catch (e) {
-    toast(t("komm.fehler", { grund: (e as Error).message }), true);
+    toast(t("komm.fehler", { grund: fehlerText(e) }), true);
   }
 }
 

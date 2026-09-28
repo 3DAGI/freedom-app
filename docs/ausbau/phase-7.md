@@ -34,3 +34,66 @@
   einen Provider weiter und kürzt die Antwort (höchstens 500 Zeichen, komprimiert).
   Bezahlt wird per Zahlkanal-Gutschrift.
 - **Abnahme:** Test mit simuliertem Funkkanal (Paketgröße, Verzögerung, Verlust).
+- **Entschieden (MENSCH 26.09.):** Der Provider kürzt auf Wunsch (Parameter im
+  versiegelten Auftrag) auf 500 Zeichen ohne Zwischenstände – Ende-zu-Ende
+  bleibt; das Gateway reicht nur Umschläge weiter und kennt nur den
+  Sitzungsschlüssel; der Knoten hängt über eine TCP-Brücke (Längenpräfix,
+  z. B. socat/ser2net) am Funkgerät, keine neue Abhängigkeit.
+- **Aufteilung:**
+  - **7.4a – FERTIG:** Protokoll `funk-gateway.ts`: `kurzParam()` /
+    `leseKurzWunsch()` (`["param","max_zeichen","<n>"]`, höchstens 500),
+    `kuerzeAntwort()`; versiegelter Weiterleitungsauftrag (Kind 25030, Autor =
+    Sitzungsschlüssel, Ablauf höchstens 1 h, auch am Umschlag) –
+    `baueWeiterleitung()`/`oeffneWeiterleitung()`; `GatewayBuch` (nur Umschläge
+    an gemerkte, laufende Sitzungen, höchstens 3 je Sitzung, keine doppelt,
+    höchstens 50 Sitzungen). Der Provider kürzt, bittet das Modell um Kürze und
+    schickt keine Zwischenstände. Abnahme auf Protokollebene: Auftrag und
+    Weiterleitung über einen simulierten Funkkanal (Pakete ≤ 200 Byte,
+    Verzögerung, Verlust mit gezieltem Nachfordern, Dubletten), Antwort zurück,
+    in der Sendezeit einer Stunde.
+  - **7.4b1 – FERTIG:** Fehlende Rahmen nachfordern, im Protokoll und im
+    Funkknoten der App (beide Richtungen, auch zwischen zwei Apps):
+    Nachforderung als eigene Nutzlast (`baueNachforderung()`/
+    `leseNachforderung()`: „N“, Kennung, Bitfeld – nichts, was nicht ohnehin in
+    jedem Rahmenkopf steht), von `pruefeMeshInhalt()` als Art „nachforderung“
+    erkannt; der Empfänger fordert nach 20 s Ruhe nach, höchstens dreimal mit
+    dreifachem Abstand (`Reassembler.faelligeNachforderungen()`); der Sender
+    sendet nur aus dem `Sendegedaechtnis` nach (20 Nachrichten, 1 h, höchstens
+    zweimal je Nachricht) und über die Warteschlange mit Sendezeit
+    (`MeshQueue.enqueueFrames()`); Fremdes reicht ein Knoten weiter.
+  - **7.4b2 – FERTIG:** Gateway-Rolle im Knoten (`gateway-role.ts`,
+    `FUNK_GATEWAY=host:port`) – TCP-Brücke zum Funkgerät (zwei Byte Länge je
+    Rahmen, neu verbinden nach Trennung), Umschläge aus dem Funk ins Netz
+    (Weiterleitungen nie; ein Auftrag an den Provider auf demselben Knoten
+    schon), Post an gemerkte Sitzungen über die Warteschlange mit
+    Sendezeitkonto zurück, Nachfordern mit den Bausteinen aus 7.4b1; Post von
+    vor dem Auftrag bleibt im Netz (`ab` der Weiterleitung, 10 min Toleranz);
+    das Angebot nennt das Gateway (`["funk","gateway"]`). Abnahme mit
+    simuliertem Funkkanal gegen den echten `DvmProvider`. Ehrlich: eine
+    Antwort mit 500 Zeichen ist als Umschlag rund 3 KB, also etwa 15 s
+    Sendezeit – ein Gateway schafft rund zwei Antworten je Stunde.
+  - **7.4c1 – FERTIG:** Gerätestrecken der App mit Längenpräfix wie die
+    Brücke des Knotens (`mitLaenge()`/`LaengenRahmen`, aus dem Knoten ins
+    Protokoll gezogen): USB liest jetzt (bis dahin kam über USB keine Antwort
+    an), Bluetooth setzt aus BLE-Häppchen wieder Rahmen zusammen (bis dahin war
+    ein Rahmen über 180 Byte nie lesbar). `serielleStrecke()`/
+    `bluetoothStrecke()` testbar ohne Gerät.
+  - **7.4c2 – FERTIG:** App-Logik – Bausteine ohne Zustand in `ki-funk.ts`
+    (`funkGatewayAus()`/`leseFunkGateway()`, `baueFunkAuftrag()`,
+    `FunkAuftraege`), Zustand und Wege in `shell/ki-ueber-funk.ts`: Gateway
+    aus dem Angebot mit `["funk","gateway"]` merken (im Tresor,
+    `freedom.funk.gateway`), Auftrag mit `kurzParam()` und
+    Zahlkanal-Gutschrift zum gemerkten Kurs (ohne Kanal nur gratis – Lightning
+    geht ohne Netz nicht, nie still ausweichen), erst merken, dann Weiterleitung
+    und Auftrag senden; Antwort aus dem Funk wird vor dem Weiterverteilen
+    geöffnet und im Agenten gezeigt (über den Kanal nur der Preis verbucht).
+  - **7.4c3 – FERTIG:** Oberfläche – Seite Netz → Mesh: Karte „KI über
+    Funk“ (Gateways suchen, eines merken oder vergessen, `funk-gateway-ui.ts`);
+    im Agenten „über Funk“ nur mit gemerktem Gateway, gesendet wird nur die
+    Frage (kein Verlauf als Kontext), erst nach der Prüfung, dass ein
+    Funkgerät verbunden ist. Ehrliche Texte in App, Protokoll
+    (`offlineCapabilities()`: KI über Funk ja, per Datei und Bluetooth von
+    Gerät zu Gerät nein) und FAQ: höchstens 500 Zeichen, rund zwei Antworten je
+    Stunde und Gateway, bezahlt nur über einen Zahlkanal oder gratis, die
+    Antwort nur, solange die App offen bleibt. Smoke-Test „rahmen“ prüft die
+    Karte.

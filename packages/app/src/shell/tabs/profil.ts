@@ -4,7 +4,7 @@
  * Aus app.ts verschoben (Schritt 1.0) – wörtlich, ohne Logikänderung.
  */
 import { t } from "../../i18n.js";
-import { abzeichenHerkunft, abzeichenQuelle, aufgabeStand, aufgabeText, aufgabeTitel, bildWarnung, profilOffenlegung } from "../../protokoll-texte.js";
+import { abzeichenHerkunft, abzeichenQuelle, aufgabeStand, aufgabeText, aufgabeTitel, bildWarnung, fehlerText, profilOffenlegung } from "../../protokoll-texte.js";
 import { escapeHtml, pkShort } from "../../shell-logic.js";
 import { ensurePool, signiere, state } from "../state.js";
 import { $, toast } from "../ui.js";
@@ -46,7 +46,7 @@ export async function vergebeAbzeichen(): Promise<void> {
     toast(t("profil.abzeichenVergeben", { n: pks.length }));
     void zeigeAbzeichen();
   } catch (e) {
-    toast((e as Error).message, true);
+    toast(fehlerText(e), true);
   }
 }
 
@@ -192,7 +192,7 @@ export async function wireProfil(): Promise<void> {
       toast(t("profil.gespeichert"));
       void zeigeProfilVorschau();
     } catch (err) {
-      toast((err as Error).message, true);
+      toast(fehlerText(err), true);
     }
   };
 
@@ -232,6 +232,6 @@ export async function zeigeAbzeichen(): Promise<void> {
             <span class="muted" style="font-size:11px">${escapeHtml(abzeichenHerkunft(b))}</span>
           </span></div>`).join("");
   } catch (e) {
-    box.textContent = t("agent.nichtAbrufbar", { fehler: (e as Error).message });
+    box.textContent = t("agent.nichtAbrufbar", { fehler: fehlerText(e) });
   }
 }

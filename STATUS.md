@@ -8553,6 +8553,696 @@ Netz) · app 505 (+1) · mls 13 · Leak-Tests 58 grün + 1 todo · 0 rot ·
 check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 · Website 5 Seiten
 ok · Smoke-Test bestanden (mit „rahmen“).
 
+## Schritt 8.16g2b2 – Übersetzungen: Sätze des Protokolls in Settings und im Chat
+
+**Fertig:** Die deutschen Sätze des Protokolls in Settings und im Chat stehen
+in der Sprache der Oberfläche. Neu ist der Bereich
+`texte/protokollsaetze.ts` (`ps.*`, 74 Schlüssel); die Funktionen stehen in
+`protokoll-texte.ts`:
+- **Nachfolge:** `nachfolgeWarnung()` (Rückfrage beim Einrichten),
+  `nachfolgeStand()` (Stand in Settings und in der Ansicht als Vertrauter).
+- **Sicherung:**
+  - `sicherungInfo()` – Info mit letzter Sicherung;
+  - `sicherungGebaut()` – nach dem Sichern;
+  - `wiederherstellungText()` – Ergebnis der Wiederherstellung.
+- **Schlüsselwechsel:**
+  - `wechselWarnung()`, `widerrufAnleitung()`;
+  - `schluesselText()` – Stand eines Kontakts, im Chat als ⚠ mit Hinweis.
+- **Geräte:**
+  - `geraetWarnung()` mit `rechtName()` – Rückfrage vor einer Vollmacht;
+  - `geraetStatusText()` – auch in „Als Gerät angemeldet“.
+- **Echtheit:** `echtheitText()`, `fixierungText()` (Settings und Rückfrage
+  beim Start), `weitergabeText()` (Begleittext der weitergegebenen Datei).
+- **Ohne Internet:** `offlineHinweis()`, `offlineFaehigkeiten()` mit
+  `wegName()`.
+- **Tor:** `torText()` – Reihenfolge beim Umschalten der Verbindung.
+
+Ein Test hält jede deutsche Fassung wortgleich mit dem Protokoll: jeder Stand
+der Nachfolge, jeder Fall von Sicherung, Schlüsselkette, Gerät, Echtheit und
+Fixierung, alle Wege, alle Tor-Einstellungen.
+
+**Einzelheiten:**
+- **Protokoll (klein, andere Spur berührt):** zusätzliche Felder, damit die App
+  den Fall erkennt statt am deutschen Text:
+  - `KeyState.streit` („kreis“/„zu-lang“) und `.vorbereitet`;
+  - `RestoreResult.fehler` und `.version`;
+  - `VerifyResult.fall`, `.bestaetigt` und `.noetig`.
+
+  Nur zusätzliche Felder, kein Event-Format. Die Tor-Sätze haben echte
+  Umlaute („über“, „Rückfall“).
+- **Ehrlicher Text:** Die Offline-Fähigkeiten sagten zu Räumen noch „Noch
+  nicht verschlüsselt (2.3)“. Jetzt: private Räume sind verschlüsselt (MLS),
+  gehen aber (noch) nicht über Mesh – MLS-Gruppennachrichten sind keine
+  Umschläge, `pruefeMeshInhalt()` lässt sie nicht durch.
+- **Schärfere Rohtext-Suche** (`test/i18n-rohtext.ts`): Sie findet jetzt auch
+  - ein Wort mit Doppelpunkt vor Text oder einer Einsetzung
+    („verbunden: …“, „modell: auto“),
+  - Text mit „…“ („publiziere … (3 KB)…“).
+
+  Schemata („https:“) und Kennungen (`eigen:${id}`) bleiben außen vor. Die
+  Probe im Test enthält beide Fälle.
+- **Übersehene Stellen:** Die schärfere Suche fand acht, alle übersetzt:
+  - Protokollzeilen des Funkknotens: „verbunden“, „verworfen“;
+  - Git-Bündel veröffentlichen: „publiziere“, „publiziert“, „git-fehler“;
+  - Modellwahl: „modell: …“;
+  - Fehler beim Anhang-Laden: „blob: …“.
+- In `wiring-ausnahmen.txt` stehen sieben weitere deutsche Referenzen.
+- **Grenze:** Der Offline-Hinweis oben wird beim Start gesetzt; nach einem
+  Sprachwechsel folgt er beim nächsten Wechsel zwischen online und offline.
+- **Nach dem Einmergen von `main` (C.1b, C.2a):** Mesh steht jetzt auf der
+  Seite „Netz“ – der Offline-Hinweis nennt wie `OFFLINE_HINWEIS` „Netz → Mesh“
+  („Network → Mesh“). Die Räume stehen in `tabs/raeume.ts`; die Übersetzungen
+  dieses Schritts betrafen dort nichts.
+- **Noch unverändert (8.16g2b3):** Gründe aus Prüfungen des Protokolls
+  (siehe `phase-8.md`).
+
+**Tests:**
+- +1 in `i18n.test.ts`: alle Fälle deutsch wortgleich, Englisch mit Stichproben
+  und ohne deutschen Buchstaben, Stellen im Code.
+- Die Probe der Rohtext-Suche hat fünf neue Zeilen (drei Funde, zwei
+  Nicht-Funde).
+- `release-fix`: sucht die neue Stelle (`fixierungText(…)`) – nicht
+  schwächer.
+
+Endstand (nach dem Einmergen von `main`): protocol 1067 (6 übersprungen) ·
+node 235 (6 übersprungen, mit Netz; ohne Netz 234 + 7) · app 506 (+1) · mls 13 ·
+Leak-Tests 58 grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 ·
+innerHTML streng Exit 0 · Website 5 Seiten ok · Smoke-Test bestanden · im
+Browser: Sicherung, Offline-Fähigkeiten und Echtheitsprüfung in Englisch und
+Deutsch, ohne Seitenfehler.
+
+## Schritt 8.16g2b3a – Übersetzungen: Gründe aus Prüfungen (Geld und Netz)
+
+**Fertig:** Die Gründe, mit denen Prüfungen des Protokolls etwas ablehnen,
+stehen in der Sprache der Oberfläche. 8.16g2b3 ist geteilt (rund 90 Sätze):
+**a** Geld und Netz (dieser Schritt), **b** Mesh und Vertrauen.
+
+- **Protokoll (klein, berührt andere Spuren):** Die Prüfungen liefern neben
+  dem deutschen `grund` eine Kennung `fall` und die Zahlen dazu. Nur
+  zusätzliche Felder – kein Event-Format, keine Prüfregel geändert:
+  - Fristen (`TimelockCheck.fall`, `.mindestSecs`);
+  - Relay-Auftrag (`RelayFehler`, `.erstattung`, `.mindest`);
+  - Solana-Transaktion und Mesh-Inhalt (`SolanaTxFehler`, `MeshFehler`,
+    `.bytes`, `.signatur`, `.signaturen`);
+  - Offline-Überweisung (`OfflineFehler`);
+  - Überweisung auf der Kette (`SolFehler`, `.lamports`, `.erwartet`);
+  - RPC-Stichprobe (`StichprobeErgebnis.befunde` und `.luecken`; „unerwartete
+    Antwort“ als eigene Fehlerklasse statt am Text erkannt).
+
+  Die deutschen Sätze in `timelock.ts` und `relayer.ts` haben echte Umlaute
+  („größer“, „Blöcke“, „Einlösung“, „Gebührenzahler“); die Tests dort suchen
+  die neue Schreibweise und prüfen zusätzlich die Kennungen.
+- **App:** neuer Bereich `app/src/texte/pruefgruende.ts` (`pg.*`, 53 Schlüssel,
+  je `de` und `en`); `protokoll-texte.ts` bildet die Gründe neu: `fristGrund`,
+  `relayGrund`, `offlineGrund`, `meshGrund`, `solGrund`, `stichprobeBefund`,
+  `stichprobeLuecke`. Verdrahtet in `rueck-swap.ts`, `sol-offline-zahlung.ts`,
+  `shell/zahlschienen.ts`, `mesh-radio.ts` (Senden und Verwerfen),
+  `relay-einloesung.ts`, `trinkgeld-beleg.ts`, `rpc-stichprobe.ts`; der
+  Rückholwächter sagt „unbekannt“ in der Sprache der Oberfläche.
+- Gründe, die die App selbst bildet (ohne `fall`), bleiben, wie sie sind –
+  sie sind schon übersetzt. Was ein Relayer in seiner Ablehnung schickt, ist
+  dessen Text und bleibt es.
+- `claimAllowed` stand schon in der App und war übersetzt.
+- **Noch offen (8.16g2b3b):** Mesh-Planung (`planSync().note`,
+  `meshFeasibility().note`, `SYNC_POLICY` – dort steht noch „Räume sind noch
+  nicht verschlüsselt (2.3)“), Nachfolge (`darfUebergeben`), Geräte
+  (`absenderPerson`), Reklamation (`disputeWindowOpen`, `resolveDispute`),
+  Relay-Adressen (`isPlausibleRelayUrl`), Moderationsgrund-Vorgabe. Danach:
+  Fehlermeldungen, die das Protokoll wirft.
+
+**Tests:**
+- +1 in `i18n.test.ts`:
+  - Fristen mit echten Aufrufen deutsch wortgleich;
+  - jede Kennung aus dem Quelltext des Protokolls (Relayer 12, offline 9,
+    Mesh 13, Kette 6) hat einen Text und stimmt deutsch mit dem Satz dort
+    überein;
+  - die Stichprobe in sieben Läufen gegen ein kleines Netz: Befunde und Lücken
+    wortgleich mit `warnungen` und `hinweise`;
+  - Englisch mit Stichproben und ohne deutschen Buchstaben;
+  - die Stellen im Code.
+- Protokoll: die Tests von Relayer, Offline-Überweisung, Mesh-Inhalt,
+  Fristen, Rück-Swap, SOL-Beleg und Stichprobe prüfen zusätzlich die
+  Kennungen und Zahlen.
+- Zwei App-Tests prüfen die Gründe wörtlich auf Deutsch: `mesh-radio` setzt
+  dafür Deutsch und prüft zusätzlich die englische Fassung;
+  `relay-einloesung` sucht „Empfänger“ statt „Empfaenger“.
+
+Endstand: protocol 1067 (6 übersprungen) · node 235 (6 übersprungen, mit
+Netz; ohne Netz 234 + 7) · app 507 (+1) · mls 13 · Leak-Tests 58 grün + 1
+todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 ·
+Website 5 Seiten ok · Smoke-Test bestanden.
+
+## Schritt 8.16g2b3b – Übersetzungen: Gründe aus Prüfungen (Mesh und Vertrauen)
+
+**Fertig:** Der zweite Teil der Gründe aus Prüfungen steht in der Sprache der
+Oberfläche. Damit zeigt die App keine fertigen deutschen Sätze aus Prüfungen
+des Protokolls mehr.
+
+- **Protokoll (klein, berührt andere Spuren):** zusätzliche Kennung `fall`
+  neben dem deutschen Grund, dazu die Werte:
+  - Relay-Adresse (`isPlausibleRelayUrl`: `RelayUrlFehler`, `.schema`, `.host`);
+  - Geräteprüfung (`checkDeviceEvent`: `GeraetePruefFall`, `.recht`) und
+    Zuordnung eines Absenders (`absenderPerson`: dazu „eigener-schluessel“,
+    „uneindeutig“);
+  - Übergabe in der Nachfolge (`darfUebergeben`: `UebergabeFehler`, `.stand`
+    mit dem Stand der Nachfolge);
+  - Funk (`meshFeasibility`: „zu-gross“, „lang“, „ok“).
+
+  Nur zusätzliche Felder – kein Event-Format, keine Prüfregel geändert.
+- **Ehrlicher Text:** `SYNC_POLICY` sagte zu Räumen noch „Räume sind noch
+  nicht verschlüsselt (2.3) – bis dahin nicht über Mesh.“ Jetzt: Öffentliche
+  Räume tragen den Schlüssel des Autors, private (MLS) gehen (noch) nicht
+  über Mesh – nur Umschläge.
+- **App:** 30 weitere Schlüssel in `texte/pruefgruende.ts`; neue Funktionen in
+  `protokoll-texte.ts`: `relayUrlGrund`, `geraetGrund`, `uebergabeGrund`,
+  `funkText`, `syncNotiz` (aus den Feldern von `planSync()` und
+  `falsePositiveRate()`), `reklamationsFrist` (aus `disputeWindowOpen()`).
+  Verdrahtet in `relay-satz.ts`, `shell/nachfolge-ui.ts`, `geraete-buch.ts`,
+  `mesh-radio.ts`, `shell/tabs/agent.ts`. Eine Moderation ohne Grund zeigt
+  „ohne Grund“ statt „ausgeblendet“ (vorher: „[ausgeblendet: ausgeblendet]“).
+- Nicht angezeigt und deshalb unverändert deutsch im Protokoll: übersprungene
+  Gründe von `planSync()` (nur die Zusammenfassung erscheint, im Protokoll
+  des Funkknotens) und `resolveDispute().message`.
+- **Danach offen (8.16):** Fehlermeldungen, die das Protokoll wirft und die
+  die App über `(e as Error).message` zeigt; 8.16h mit 0.F (Website).
+
+**Tests:**
+- +1 in `i18n.test.ts`: Relay-Adressen (alle sieben Fälle), Funk, Abgleich
+  (auch mit ungenauem Bestand), Reklamationsfrist und die Übergabe „noch
+  nicht freigegeben“ mit echten Aufrufen deutsch wortgleich; jede Kennung der
+  Geräteprüfung (9) und der Übergabe (5) aus dem Quelltext des Protokolls mit
+  Text; Englisch mit Stichproben und ohne deutschen Buchstaben; die Stellen im
+  Code.
+- +1 in `relay-discovery.test.ts`: jede Kennung einer abgelehnten Adresse.
+- Protokoll: Geräte, Zuordnung, Nachfolge und Funk prüfen zusätzlich die
+  Kennungen; `mesh-sync` prüft den neuen, ehrlichen Satz zu Räumen (und dass
+  der alte weg ist).
+- `mesh-radio`: der Test zu großer Nachrichten setzt Deutsch und prüft
+  zusätzlich Englisch.
+
+Endstand: protocol 1068 (+1, 6 übersprungen) · node 235 (6 übersprungen, mit
+Netz; ohne Netz 234 + 7) · app 508 (+1) · mls 13 · Leak-Tests 58 grün + 1
+todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 ·
+Website 5 Seiten ok · Smoke-Test bestanden.
+
+## Schritt 8.16h – Website an den Code angeglichen (mit 0.F)
+
+**Fertig:** Die Website sagt, was der Code tut (Karte 0.F). Geändert:
+
+- **Startseite:**
+  - Sprachwahl nur Deutsch und Englisch – wie die App seit 8.16a (acht
+    Sprachen standen noch zur Wahl).
+  - Code-Links auf allen Seiten aufs Repository statt auf github.com.
+  - „Der Code … liegt an mehreren Orten“ stimmte nicht: Die Bezugsquellen aus
+    5.3 sind noch Platzhalter. Jetzt: weitere Bezugsquellen sind vorbereitet.
+  - Downloads: Launcher für Linux, Windows und macOS als „geplant“, ohne die
+    interne Notiz zum GX10; der Desktop-Knoten ebenso „geplant“.
+  - Knoten-Anleitung: echtes Repository, `npm ci` im Wurzelverzeichnis (die
+    Pakete sind Workspaces), Hinweis auf den beim ersten Start erzeugten
+    Schlüssel. LP-Modus mit einer gebackenen, eingeschränkten Macaroon wie in
+    `docs/SWAPS.md` – mit `admin.macaroon`, wie es dort stand, startet der
+    LP seit 8.3 gar nicht.
+  - „Drei Einnahmen“: jetzt die drei, die der Knoten im Code kennt –
+    KI-Aufträge (94 %), Swap-Liquidität (LP-Gebühr), bezahlter Relay-Zugang
+    (8.4b). Vorher stand dort als dritte „das Netz wächst“.
+  - Verdienen-Tab: Er zeigt die Leistungs-Events des eigenen Schlüssels –
+    die des Knotens nur, wenn App und Knoten denselben Schlüssel nutzen.
+- **Whitepaper:** „Der Kern in drei Sätzen“ (es sind sechs) → „Der Kern in
+  Kürze“; „Das Solana-Programm ist unveränderlich“ → „wird unveränderlich
+  gemacht“ (bis zum Ende der Testphase gibt es eine Upgrade-Autorität);
+  KI-Antwort über Funk nachgerechnet.
+- **FAQ:** Unveränderlichkeit wie im Whitepaper.
+- **KI über Funk, nachgerechnet:** Eine Antwort mit 500 Tokens braucht als
+  Umschlag rund 32 s Sendezeit – fast das ganze Budget einer Stunde (36 s bei
+  1 %), mit 500 Wörtern rund 46 s. „Stunden bei 500 Tokens“ (Whitepaper) und
+  „500 Wörter … Stunden“ (Protokoll, App) waren zu viel. Jetzt: „mehr als eine
+  Stunde Sendezeit – dazu kommen Auftrag und Bezahlung“; ein Protokolltest
+  rechnet es mit `luftBytes()` nach.
+- **Prüfung:** `check-website.py` weist die alten Aussagen ab (`UNGEDECKT`,
+  neben `VERALTET`); gegen die alten Seiten meldet es 13 Stellen.
+- Schon richtig und belegt: „Reputation ist öffentlich nachprüfbar“
+  (Leistungs-Events 38010 mit Rechenarbeit), Solana per Datei mit Durable
+  Nonce, Werben ohne Stufen (5.1.4d), „Davon gehen …“, kein Topf.
+- **Offen (MENSCH):** Firmenname und Impressum (Fußzeile „Kein
+  Unternehmen“), Marketing-Entwürfe; die Frage, ob die Website außer der
+  Startseite auch auf Englisch kommen soll.
+- **Nächster Schritt (8.16i):** Fehlermeldungen, die das Protokoll wirft.
+
+**Tests:**
+- +1 in `protocol/test/mesh-sync.test.ts`: 500 Wörter als Umschlag brauchen
+  mehr als die Sendezeit einer Stunde, aber nicht Stunden; der Satz sagt das.
+- Der Wortgleich-Test der App (8.16g2b2) hält den neuen Satz deutsch gleich
+  mit dem Protokoll.
+
+Endstand: protocol 1069 (+1, 6 übersprungen) · node 235 (6 übersprungen, mit
+Netz; ohne Netz 234 + 7) · app 508 · mls 13 · Leak-Tests 58 grün + 1 todo · 0
+rot · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 · Website 5
+Seiten ok · Smoke-Test bestanden · Website gebaut · im Browser: Startseite mit
+Englisch und Deutsch, ein spanischer Browser bekommt Englisch, keine
+Seitenfehler.
+
+## Schritt 8.16i1 – Übersetzungen: Fehlermeldungen des Protokolls (Geld und Netz)
+
+**Fertig:** Fehler des Protokolls, die Nutzer beim Zahlen und im Netz sehen,
+stehen in der Sprache der Oberfläche.
+
+- **Gemessen:** rund 270 deutsche Fehlermeldungen in 72 Dateien des
+  Protokolls, 234 davon in Dateien, die die App nutzt. Die meisten sind
+  Parser fremder Events („kein …-Kind“) oder Schutzprüfungen, die die
+  Oberfläche nie erreichen – sie bleiben, wie sie sind. Übersetzt wird, was
+  Nutzer sehen können.
+- **Grundlage:**
+  - Protokoll: `ProtokollFehler(kennung, meldung, werte)` in
+    `protocol/src/fehler.ts`. Die Meldung bleibt deutsch – Knoten, Logs und
+    Tests lesen sie wie bisher.
+  - App: `fehlerText(e)` (`protokoll-texte.ts`) übersetzt Fehler mit
+    bekannter Kennung und lässt alles andere unverändert; neuer Bereich
+    `texte/fehler.ts` (`pf.*`, 46 Schlüssel).
+  - Alle 106 Anzeigestellen in 29 Dateien zeigen Fehler jetzt über
+    `fehlerText(e)` statt `(e as Error).message`.
+  - `explainError()` (Agent) deutet Fehler mit Kennung nicht mehr nach
+    Mustern um – sie sind genauer als „Relay-Problem“.
+- **Geld und Netz (46 Kennungen):**
+  - „Kein Solana-Endpunkt erreichbar“ (RpcPool);
+  - Lightning-Rechnung (`leseBolt11`, acht Fälle);
+  - NWC: Adresse (vier Fälle), nicht unterstützte Funktion, kein Relay,
+    Zeitüberschreitung und die Fehler des Wallets (`nwcKennung()` zu
+    `explainNwcError()`; unbekannte zeigen die Meldung des Wallets);
+  - Zahlschienen: Ziel, Einheit, Referenz, unbekanntes Ziel, keine Schiene,
+    offline (die Sätze aus `offlineZahlText()`), keine Wallet verbunden;
+  - Beträge und Tageslimit, Zahlkanal-Betrag;
+  - SOL ohne Internet (Nonce-Konto nicht eingerichtet, an sich selbst, andere
+    Adresse);
+  - Rück-Swap (Betrag, Kurs, Gebühr), SOL-Trinkgeld (Betrag, Adresse,
+    Notiz), Zustandssicherung zu groß.
+- **Noch offen (8.16i2):** Identität und Inhalte – Bunker, Repos,
+  Modellkataloge, Kontaktliste, Nachfolge, Geräte, Schlüsselwechsel,
+  Werbung, Räume, verschlüsselte Dateien, Direktnachrichten, Trinkgeld-Adresse.
+
+**Tests:**
+- +1 in `i18n.test.ts`:
+  - kein `(e as Error).message` mehr im Code;
+  - jede Kennung aus dem Quelltext des Protokolls (dazu die sieben
+    Wallet-Fehler und „offline“ je Schiene) hat einen Text, der deutsch zur
+    Meldung passt;
+  - mit echten Aufrufen wortgleich: Rechnung, NWC-Adresse, Rück-Swap,
+    Tageslimit, RPC unerreichbar, jeder Wallet-Fehler, offline je Schiene;
+  - Fehler ohne Kennung bleiben unverändert;
+  - Englisch mit Stichproben und ohne deutschen Buchstaben.
+- +2 in `protocol/test/fehler.test.ts`: Kennung gesetzt und deutsche Meldung
+  unverändert – Eingaben (Rechnung, NWC, Rück-Swap, Limit, Einheit) sowie
+  Netz und Wallet (offline, keine Wallet, keine Schiene, RPC, Wallet-Fehler).
+
+Endstand: protocol 1071 (+2, 6 übersprungen) · node 235 (6 übersprungen, mit
+Netz; ohne Netz 234 + 7) · app 509 (+1) · mls 13 · Leak-Tests 58 grün + 1 todo
+· 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 · Website 5
+Seiten ok · Smoke-Test bestanden · im Browser: eine falsche NWC-Adresse meldet
+englisch „Not an NWC connection …“, deutsch „Keine NWC-Verbindung …“, keine
+Seitenfehler.
+
+## Schritt 8.16i2 – Übersetzungen: Fehlermeldungen des Protokolls (Identität und Inhalte)
+
+**Fertig:** Der zweite Teil der Fehlermeldungen, die Nutzer sehen können,
+steht in der Sprache der Oberfläche. Damit ist der Code-Teil von 8.16 fertig.
+
+- **Protokoll (klein, berührt andere Spuren):** `ProtokollFehler` mit
+  Kennung statt `Error` an 46 Stellen, die deutsche Meldung unverändert:
+  - Bunker (NIP-46): Adresse (drei Fälle), Antworten des Signers (Pubkey,
+    kein Event, anderes Event, Freigabe mit und ohne Adresse, Ablehnung,
+    keine gültige Antwort, keine Antwort);
+  - Repos und Patches (NIP-34): Kennung, Klon-Adresse, Maintainer, erster
+    Commit, Patch zu groß, kein `git format-patch`, ohne Betreff, ohne
+    Änderung, Commit;
+  - Modellkataloge: Kennung, Titel, Beschreibung, Zahl der Modelle,
+    Modell-Kennung, doppelt, Notiz;
+  - Kontaktliste: höchstens N, nicht lesbar, beschädigt;
+  - Nachfolge: Schwelle, zu wenige/zu viele/doppelte Teile, verschiedene
+    Längen, Anteile zusammensetzen (zu wenige, passen nicht);
+  - Geräte (selbst bevollmächtigen, ohne Rechte), Schlüsselwechsel (derselbe
+    Schlüssel), Selbstwerbung, „kein Moderator außer dir“, verschlüsselte
+    Dateien (Schlüssel, beschädigt, Hash).
+- Schutzprüfungen, deren Eingaben die App vorher prüft (Ablauf einer
+  Direktnachricht, Trinkgeld-Adresse, Pubkeys), und Parser fremder Events
+  bleiben einfache Fehler – die Oberfläche erreichen sie nicht.
+- **App:** 46 weitere Schlüssel in `texte/fehler.ts` (jetzt 92), Einträge in
+  `FEHLER`. Die Anzeigestellen zeigen sie seit 8.16i1 über `fehlerText(e)`.
+- **Stand 8.16:** Code-Teil fertig. Offen nur MENSCH: Durchsicht der
+  englischen Texte; ob die Website ganz auf Englisch kommt.
+
+**Tests:**
+- +1 in `i18n.test.ts`: 14 echte Aufrufe (Bunker, Repo, Patch, Katalog,
+  Nachfolge, Gerät, Schlüsselwechsel, Werbung, Datei) werfen die erwartete
+  Kennung, deutsch wortgleich; Englisch mit Stichproben und ohne deutschen
+  Buchstaben.
+- Der Test aus 8.16i1 prüft jetzt auch diese Kennungen aus dem Quelltext des
+  Protokolls (Text vorhanden, deutsch passend).
+
+Endstand: protocol 1071 (6 übersprungen) · node 235 (6 übersprungen, mit Netz;
+ohne Netz 234 + 7) · app 510 (+1) · mls 13 · Leak-Tests 58 grün + 1 todo · 0 rot
+· check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 · Website 5 Seiten
+ok · Smoke-Test bestanden · im Browser: eine ungültige Bunker-Adresse meldet
+englisch „Not connected: Not a valid bunker:// address“, deutsch „Nicht
+verbunden: Keine gültige bunker://-Adresse“, keine Seitenfehler.
+
+## Schritt 7.4a – KI über ein Funk-Gateway: Protokoll und Provider
+
+**Fertig:** Die Bausteine, mit denen eine KI-Anfrage ohne Internet über Funk
+zu einem Gateway mit Netz geht und eine kurze Antwort zurückkommt. 7.4 war
+zurückgestellt (MENSCH 26.09.), bis der Zahlkanal (4.3) steht – der ist im
+Code fertig. Aufgeteilt: **a** Protokoll und Provider (dieser Schritt),
+**b** Gateway-Rolle im Knoten, **c** App.
+
+- **Protokoll `funk-gateway.ts`:**
+  - Kurze Antwort auf Wunsch: `kurzParam()` setzt `["param","max_zeichen","<n>"]`
+    in den versiegelten Auftrag (höchstens 500); `leseKurzWunsch()` liest ihn
+    (Unbrauchbares heißt: wie immer); `kuerzeAntwort()` kürzt nach
+    Codepunkten, gekürzt endet mit „…“.
+  - Weiterleitungsauftrag (Kind 25030): versiegelt an das Gateway, Autor ist
+    der Sitzungsschlüssel, Ablauf höchstens 1 h (auch am Umschlag, NIP-40) –
+    `baueWeiterleitung()`/`oeffneWeiterleitung()`. Das Gateway erfährt nur den
+    Sitzungsschlüssel; die Signatur zeigt, dass der Auftraggeber ihn hält.
+  - `GatewayBuch`: zurück über Funk nur Umschläge an gemerkte, laufende
+    Sitzungen, höchstens drei je Sitzung, keiner doppelt, höchstens 50
+    Sitzungen zugleich.
+- **Provider (`dvm-provider.ts`):** Mit `max_zeichen` bittet er das Modell um
+  Kürze, kürzt das Ergebnis hart (auch im Schwarm-Modus) und schickt keine
+  Zwischenstände (Kind 7000) – jede Rückmeldung kostete Sendezeit. Ohne den
+  Parameter bleibt alles wie bisher.
+- `offline-node.ts`: Der Kommentar „500 Tokens bräuchte Stunden“ stimmt jetzt
+  mit der Rechnung aus 8.16h überein.
+- `wiring-ausnahmen.txt`: vier Bausteine, die 7.4b (Gateway) und 7.4c (App)
+  verdrahten.
+
+**Tests:**
+- +4 in `protocol/test/funk-gateway.test.ts`:
+  - Parameter gedeckelt, Unbrauchbares ignoriert, Kürzen ohne halbes Emoji;
+  - Weiterleitung: geht als Umschlag über Mesh, Sitzung nur im Kern, fremdes
+    Gateway, abgelaufen und über 1 h abgelehnt;
+  - Gateway-Buch: fremde Sitzung, kein Umschlag, doppelt, mehr als drei,
+    abgelaufen, Buch voll;
+  - **Abnahme auf Protokollebene:** Auftrag und Weiterleitung über einen
+    simulierten Funkkanal (Pakete ≤ 200 Byte, Verzögerung – Reihenfolge
+    umgedreht –, Verlust mit gezieltem Nachfordern, Dubletten) ans Gateway,
+    ins Netz zum Provider, kurze Antwort versiegelt an die Sitzung, über das
+    Buch und den Funkkanal zurück; die Antwort passt in die Sendezeit einer
+    Stunde und öffnet nur mit dem Sitzungsschlüssel.
+- +2 in `node/test/funk-kurz.test.ts`: mit `max_zeichen` höchstens 500 Zeichen,
+  erkennbar gekürzt, keine Zwischenstände, Bitte um Kürze im Prompt; ohne ihn
+  wie bisher (ganze Antwort, ein Zwischenstand).
+
+Endstand: protocol 1075 (+4, 6 übersprungen) · node 237 (+2, 6 übersprungen,
+mit Netz; ohne Netz 236 + 7) · app 510 · mls 13 · Leak-Tests 58 grün + 1 todo ·
+0 rot · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 · Website 5
+Seiten ok · Smoke-Test bestanden. Knoten-Stand: Das Kürzen braucht den
+Provider-Knoten auf diesem `main` – ältere Knoten übergehen `max_zeichen` und
+antworten wie bisher (nichts bricht, nur lang).
+
+## Schritt 7.4b1 – Fehlende Rahmen nachfordern (Protokoll und Funkknoten der App)
+
+**Warum:** Über Funk geht jeder zwanzigste Rahmen verloren. Eine Antwort aus
+elf Rahmen käme ohne Nachforderung fast jedes zweite Mal gar nicht an – für
+das Funk-Gateway (7.4b2) und für Chat über Funk gleichermaßen. 7.4b ist
+aufgeteilt: b1 die Nachforderung (dieser Schritt), b2 die Gateway-Rolle im
+Knoten; so bleibt jeder Teil unter 400 Zeilen.
+
+**Was:**
+- **Protokoll (`mesh-transport.ts`):**
+  - Nachforderung als eigene Nutzlast (37 Byte: „N“, Kennung der Nachricht,
+    Bitfeld der fehlenden Nummern) – `baueNachforderung()`/`leseNachforderung()`.
+    Sie trägt nur, was ohnehin in jedem Rahmenkopf steht; `pruefeMeshInhalt()`
+    erkennt sie als Art „nachforderung“ (nur als Nostr-Art, Bit 255 gesetzt
+    heißt Müll).
+  - Empfänger: `Reassembler.faelligeNachforderungen()` – nach 20 s ohne neuen
+    Rahmen, höchstens dreimal je Nachricht, die Ruhe davor verdreifacht sich
+    (die Gegenseite wartet vielleicht nur auf ihre Sendezeit); ein doppelter
+    Rahmen zählt nicht als Fortschritt.
+  - Sender: `Sendegedaechtnis` (20 Nachrichten, 1 h, höchstens zweimal je
+    Nachricht, `kennt()`), nachgesendet über `MeshQueue.enqueueFrames()` – mit
+    Vorrang und Sendezeit wie alles andere.
+  - Der Kopfkommentar sagt jetzt, was seit 7.4 über Funk geht (kurze
+    KI-Antwort über ein Gateway), statt „KI-Inferenz gar nicht“.
+- **App (`mesh-radio.ts`):** Der Funkknoten merkt, was er sendet und
+  weiterreicht, beantwortet Nachforderungen aus dem Gedächtnis, reicht fremde
+  weiter (eigene, schon zweimal nachgesendete nicht) und fordert über Funk alle
+  10 s fällige Lücken nach (`nachfordern()`); der Datei-Weg hat keinen Rückweg
+  und fordert nicht. Eine Nachforderung ist keine Nachricht – sie erreicht
+  `onMessage` nie (sonst meldete die App „Paket unlesbar“). Zwei Texte
+  (`bau.nachforderung`, `bau.nachgesendet`) in beiden Sprachen.
+
+**Tests:**
+- +5 in `protocol/test/mesh-nachforderung.test.ts`: Form und Grenzen
+  (Kennung, leere Liste, Nummer 255, falsche Länge/Marke, Bit 255, nicht mit
+  dem Bestand verwechselt); Zeitplan des Empfängers (Ruhe, dreifacher
+  Abstand, neuer Rahmen setzt zurück, doppelter nicht, höchstens dreimal);
+  Gedächtnis (unbekannt, Nummer außerhalb, höchstens zweimal, älter als eine
+  Stunde, älteste fällt heraus, Kopie unabhängig von der Warteschlange);
+  Vorrang nachgesendeter Rahmen; Ende zu Ende über einen verlustreichen Kanal
+  (zwei Rahmen verloren, Nachforderung zerlegt zurück, nachgesendet, Inhalt
+  passt zur Kennung).
+- +2 in `app/test/mesh-radio.test.ts`: zwei Funkknoten, zwei Rahmen gehen
+  verloren – genau die zwei kommen nach, die Nachricht einmal an, die
+  Nachforderung nie als Nachricht; nur Eigenes, höchstens zweimal, Fremdes
+  weitergereicht (mit verringerter Sprungzahl), ohne Gerät keine
+  Nachforderung.
+- +1 Leak-Test (`leak/mesh.test.ts`): Lücke nachfordern und nachsenden – im
+  Mitschnitt beider Seiten weder Alices noch Bobs Schlüssel noch Klartext.
+
+Endstand: protocol 1080 (+5, 6 übersprungen) · node 237 (6 übersprungen, mit
+Netz; ohne Netz 236 + 7) · app 512 (+2) · mls 13 · Leak-Tests 59 grün (+1) +
+1 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 ·
+Website 5 Seiten ok · Smoke-Test bestanden. Knoten-Stand: unverändert (nur
+Protokoll und App).
+
+## Schritt 7.4b2 – Funk-Gateway im Knoten
+
+**Warum:** Mit 7.4a (Protokoll, Provider kürzt) und 7.4b1 (Nachforderung)
+fehlte noch der Knoten, der am Funkgerät hängt: Er nimmt versiegelte
+KI-Aufträge aus dem Funk an, reicht sie ins Netz und funkt die Antwort
+zurück – ohne Inhalt, Identität oder Bezahlung zu sehen.
+
+**Was:**
+- **Knoten (`gateway-role.ts`, neu):**
+  - TCP-Brücke zum Funkgerät (`FUNK_GATEWAY=host:port`, z. B. ser2net oder
+    socat): je Rahmen zwei Byte Länge, dann der Rahmen; eine unmögliche Länge
+    heißt „Strom verschoben“ – ein Byte weiter suchen. Nach einer Trennung
+    verbindet sie alle 30 s neu; ein Rahmen, der nicht hinausging, kommt
+    zurück in die Warteschlange. Keine neue Abhängigkeit.
+  - `GatewayRolle`: setzt Rahmen zusammen, prüft mit `pruefeMeshInhalt()`,
+    beantwortet Nachforderungen aus dem Gedächtnis, fordert Lücken nach
+    (7.4b1). Ein Umschlag an den Knoten ist nur dann ein Weiterleitungsauftrag,
+    wenn der Kern Kind 25030 ist – er bleibt beim Gateway (auch ungültig).
+    Alles andere, auch ein Auftrag an den Provider auf demselben Knoten
+    (gleicher Schlüssel), geht ins Netz. Post an gemerkte Sitzungen holt es
+    alle 5 s und funkt sie über die Warteschlange mit Sendezeitkonto zurück.
+    Ins Log nur feste Sätze und Fehlernamen.
+  - `main.ts`: startet die Rolle mit `FUNK_GATEWAY`; das Angebot trägt dann
+    `["funk","gateway"]` (`tiers.ts`, `funkGateway`), damit die App (7.4c) das
+    Gateway wählen kann, solange sie Netz hat.
+- **Protokoll:**
+  - `Weiterleitung.ab` (Erstellzeit des Auftrags): `GatewayBuch.zurueck()`
+    funkt keine Post von vor dem Auftrag (10 min Uhr-Toleranz) – sonst gingen
+    bei einer wiederverwendeten Sitzung alte Antworten statt der neuen hinaus.
+    Ein neuerer Auftrag derselben Sitzung bringt neue drei Umschläge; schon
+    Gefunktes bleibt gefunkt, ein wiederholt gefunkter älterer ändert nichts.
+  - `Reassembler`: Eine späte Dublette nach dem Zusammensetzen legt keine Lücke
+    an, die nachgefordert würde – fand die Abnahme (sie kostete Sendezeit).
+- `wiring-ausnahmen.txt`: `GatewayBuch` und `oeffneWeiterleitung` sind jetzt
+  verdrahtet (Zeilen entfernt).
+
+**Ehrlich zur Sendezeit:** Eine Antwort mit 500 Zeichen ist als Umschlag
+(zweimal verschlüsselt, Base64) rund 3 KB, also etwa 15 s Sendezeit – ein
+Gateway schafft rund zwei Antworten je Stunde. Das sagt die App in 7.4c.
+
+**Tests:**
+- +4 in `node/test/gateway-role.test.ts`:
+  - **Abnahme gegen den echten `DvmProvider`:** Weiterleitung und Auftrag über
+    einen simulierten Funkkanal (Rahmen ≤ 200 Byte, verdrehte Reihenfolge, ein
+    Rahmen fehlt, eine Dublette), das Gateway fordert genau die Lücke nach,
+    nur der Auftrag geht ins Netz (die Weiterleitung nie), der Provider
+    antwortet gekürzt ohne Zwischenstände, das Gateway funkt zurück (ein
+    Rahmen fehlt, die Kundin fordert nach), die Antwort öffnet nur mit dem
+    Sitzungsschlüssel; Sendezeit des Gateways 5–18 s; kein zweites Mal.
+  - Nur gemerkte Sitzungen und nur Neues: ohne Weiterleitung nichts,
+    Weiterleitung an ein anderes Gateway geht als gewöhnlicher Umschlag ins
+    Netz, Post von vor einer Stunde und fremde Post bleiben, Klartext kommt
+    nicht ins Netz.
+  - Sendezeit bei viel Post: in keinem Stundenfenster mehr als 36 s.
+  - TCP-Brücke: Längenpräfix, zerstückelter Strom, verschobene Bytes, Rahmen
+    in beide Richtungen gegen einen echten TCP-Server, Senden nach dem
+    Schließen scheitert, Adresse ohne Port abgelehnt.
+- +1 in `protocol/test/funk-gateway.test.ts`: Angebot mit und ohne Gateway,
+  fremder Wert zählt nicht; Gateway-Buch um `ab` und neue Aufträge erweitert.
+- `mesh-nachforderung.test.ts`: späte Dublette ist keine Lücke.
+
+Endstand: protocol 1081 (+1, 6 übersprungen) · node 241 (+4, 6 übersprungen,
+mit Netz; ohne Netz 240 + 7) · app 512 · mls 13 · Leak-Tests 59 grün + 1 todo ·
+0 rot · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 · Website 5
+Seiten ok · Smoke-Test bestanden. Danach nur Fehlerbehandlung im Knoten
+nachgeschärft (`.catch` an der Brücke und den Takten) – node erneut 240 + 7,
+tsc und check-wiring erneut grün. Knoten-Stand: Wer ein Funk-Gateway betreibt,
+braucht den Knoten auf diesem `main` und `FUNK_GATEWAY=host:port`; ohne die
+Variable ändert sich nichts.
+
+## Schritt 7.4c1 – Gerätestrecken der App mit Längenpräfix
+
+**Warum:** Für KI über Funk (7.4c) muss die Antwort über das Funkgerät zurück
+in die App. Dabei zeigten sich zwei alte Lücken: Über USB schrieb die App
+rohe Rahmen und las nie – eine Antwort kam gar nicht an. Über Bluetooth
+zerlegte sie Rahmen in 180-Byte-Häppchen ohne Grenze, und beim Empfang galt
+jedes Häppchen als Rahmen – ein Rahmen über 180 Byte (fast jeder) war nie
+lesbar. 7.4c ist deshalb dreigeteilt: c1 die Strecken (dieser Schritt), c2 die
+App-Logik, c3 die Oberfläche.
+
+**Was:**
+- **Protokoll:** `mitLaenge()`/`LaengenRahmen` (zwei Byte Länge je Rahmen,
+  Big Endian; unmögliche Länge → ein Byte weiter suchen) aus der TCP-Brücke
+  des Knotens (7.4b2) nach `mesh-transport.ts` gezogen – App und Knoten
+  sprechen dasselbe mit dem Funkgerät.
+- **App (`mesh-radio.ts`):**
+  - `serielleStrecke()`: sendet mit Längenpräfix und liest den Strom, wenn ein
+    Empfänger angegeben ist (`connectSerial(baud, onFrame)`; Settings geben
+    jetzt `receive` mit); beim Trennen endet das Lesen.
+  - `bluetoothStrecke()`: sendet den Rahmen samt Länge in BLE-Häppchen und
+    setzt eingehende Häppchen über `LaengenRahmen` wieder zu Rahmen zusammen.
+  - Beide ohne Gerät testbar (Port bzw. Merkmale übergeben).
+- **Knoten:** `gateway-role.ts` nimmt die Bausteine aus dem Protokoll (keine
+  Änderung im Verhalten).
+
+**Achtung Funkgerät:** Die Firmware am anderen Ende der USB- bzw.
+Bluetooth-Strecke muss denselben Längenpräfix sprechen wie die Brücke des
+Knotens (Entscheidung 7.4: „TCP-Brücke mit Längenpräfix“). Ein Gerät, das rohe
+Rahmen erwartete, gab es in der App nie mit Rückweg.
+
+**Tests:**
+- +2 in `app/test/mesh-radio.test.ts`: USB – ein Umschlag aus einem Strom in
+  ungleichen Häppchen (Grenzen im Längenfeld und im Rahmen) kommt vollständig
+  im Funkknoten an, gesendet wird mit Länge vorn, zu große Rahmen abgelehnt,
+  Trennen beendet das Lesen, ohne Empfänger wird nicht gelesen; Bluetooth –
+  Häppchen (20/180/5 Byte) ergeben wieder die Nachricht, gesendet wird in
+  Häppchen ≤ 180 Byte, die zusammen genau Länge + Rahmen sind, Trennen trennt.
+- Der Test der TCP-Brücke (`node/test/gateway-role.test.ts`) prüft dieselben
+  Bausteine jetzt aus dem Protokoll.
+
+Endstand: protocol 1081 (6 übersprungen) · node 241 (6 übersprungen, mit
+Netz; ohne Netz 240 + 7) · app 514 (+2) · mls 13 · Leak-Tests 59 grün + 1 todo ·
+0 rot · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 · Website 5
+Seiten ok · Smoke-Test bestanden. Knoten-Stand: unverändert im Verhalten.
+
+## Schritt 7.4c2 – KI über Funk in der App: Logik
+
+**Warum:** Mit Gateway (7.4b2) und Gerätestrecken (7.4c1) fehlte die App
+selbst: Sie muss offline wissen, welches Gateway sie nutzt, den Auftrag so
+bauen, dass er über Funk bezahlt werden kann, und die Antwort erkennen, wenn
+sie über Funk ankommt. Die Oberfläche (Gateway wählen, „über Funk senden“)
+folgt in 7.4c3.
+
+**Was:**
+- **`ki-funk.ts` (neu, ohne Zustand):**
+  - `funkGatewayAus()`: aus einem Angebot mit `["funk","gateway"]` nur, was
+    offline nötig ist (Schlüssel, Rechenarbeit, Kurs, Stand); mehr
+    Rechenarbeit als 16 Bit (wie im Agenten) → keines. `leseFunkGateway()`
+    verwirft Unbrauchbares, ein kaputter Kurs fällt weg (dann nur gratis).
+  - `baueFunkAuftrag()`: Auftrag mit `kurzParam()`, Tarif (gratis bei Gebot
+    0) und Zahl-Tags im versiegelten Kern, dazu die Weiterleitung für eine
+    Stunde – beide vom Sitzungsschlüssel.
+  - `FunkAuftraege`: offene Funk-Aufträge nur im Speicher; ein Ergebnis
+    schließt, eine Rückmeldung (Ablehnung) lässt offen; Fremdes, Doppeltes
+    und nach der Stunde Eintreffendes zählt nicht.
+- **`shell/ki-ueber-funk.ts` (neu):** Gateway merken/vergessen (Tresor,
+  `freedom.funk.gateway` in `GEHEIM_FEST` – welches Gateway jemand über Funk
+  nutzt, verrät ungefähr, wo er ist); `sendeKiUeberFunk()`: bezahlt nur per
+  Zahlkanal-Gutschrift zum Kurs aus dem gemerkten Angebot oder gar nicht
+  (Gebot 0) – ohne Kanal bricht eine bezahlte Anfrage mit klarem Text ab, nie
+  still Lightning; erst Gutschrift und Anfrage merken, dann Weiterleitung und
+  Auftrag über den Funkknoten; `nimmFunkAntwort()`.
+- **`ki-zahlung.ts`:** `kanalGutschrift()` nimmt einen gemerkten Kurs – ohne
+  Netz gibt es keine Angebote.
+- **Settings (Funkknoten):** Ein Umschlag aus dem Funk geht zuerst an
+  `nimmFunkAntwort()`; nur was keine Funk-Antwort ist, wird weiterverteilt.
+- **Agent:** `setupFunkAntworten()` (aus `app.ts`) zeigt das Ergebnis mit
+  „über Funk · auf „…““ (die Antwort kommt oft Minuten später); über den Kanal
+  wird nur der Preis verbucht, Lightning zahlt hier nie; eine Ablehnung
+  erscheint als Hinweis.
+- Sechs Texte (`agent.funk*`) in beiden Sprachen.
+- `wiring-ausnahmen.txt`: `baueWeiterleitung` und `kurzParam` sind jetzt
+  verdrahtet (Zeilen entfernt).
+
+**Tests:**
+- +4 in `app/test/ki-funk.test.ts`: Gateway nur aus Angebot mit Funk-Rolle
+  und zumutbarer Rechenarbeit, Lesen verwirft Unbrauchbares; Weiterleitung und
+  Auftrag gehen über Mesh (nur Umschläge, weder Identität noch Klartext noch
+  Sitzungsschlüssel offen), das Gateway erfährt nur die Sitzung, der Provider
+  den kurzen Auftrag mit Gutschrift im Kern, gratis ohne Gebot; Antwort aus dem
+  Funk (Rückmeldung lässt offen, Ergebnis schließt, doppelt, fremde Sitzung,
+  fremder Auftrag, kein Umschlag, nach der Stunde); verdrahtet (Funk-Antwort
+  vor dem Weiterverteilen, kein Lightning im Funk-Pfad, erst merken dann
+  senden, Gateway im Tresor, Kurs aus dem gemerkten Angebot).
+
+Endstand: protocol 1081 (6 übersprungen) · node 241 (6 übersprungen, mit
+Netz; ohne Netz 240 + 7) · app 518 (+4) · mls 13 · Leak-Tests 59 grün + 1 todo ·
+0 rot · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 · Website 5
+Seiten ok · Smoke-Test bestanden. Knoten-Stand: für den Funk-Pfad ein Knoten
+ab 7.4b2 mit `FUNK_GATEWAY`; sonst unverändert.
+
+## Schritt 7.4c3 – KI über Funk: Oberfläche und ehrliche Texte
+
+**Warum:** Mit 7.4c2 konnte die App über Funk fragen und Antworten zeigen – es
+fehlte der Weg für den Menschen: ein Gateway wählen, solange Netz da ist, und
+„über Funk“ fragen. Und überall stand noch „KI geht über Funk nicht“.
+
+**Was:**
+- **Seite Netz → Mesh, Karte „KI über Funk“** (`shell/funk-gateway-ui.ts`,
+  aus `app.ts` nach `wireMeshTab()`): Gateways suchen (Angebote mit
+  `["funk","gateway"]`), eines merken oder vergessen; der Stand nennt das
+  Gateway, das Datum des Angebots und – ohne SOL-Kurs – „über Funk nur
+  gratis“. Alles Fremde nur über `textContent`.
+- **Agent:** „über Funk“ (`#ai-funk`) erscheint nur mit gemerktem Gateway.
+  Gewählt, geht die Frage über `frageUeberFunk()`: erst prüfen, dass ein
+  Funkgerät verbunden ist (`funkGeraetVerbunden()`, neu in Settings – sonst
+  wäre eine Gutschrift gemerkt, die nie hinausgeht), dann `sendeKiUeberFunk()`
+  mit Vorrang „Nachricht“ (`sendeUeberFunk()` hat dafür einen Parameter;
+  Offline-SOL bleibt „Zahlung“). Nur die Frage reist – kein Verlauf als
+  Kontext, jedes Byte kostet Sendezeit. Im Verlauf steht, wie es weitergeht:
+  Antwort in einigen Minuten, nur solange die App offen bleibt, rund zwei je
+  Stunde und Gateway.
+- **Ehrliche Texte:**
+  - Protokoll `offlineCapabilities()`: „KI-Anfragen“ gehen über Funk (ein
+    Gateway), nicht per Datei oder Bluetooth von Gerät zu Gerät – mit Dauer,
+    Grenze und Bezahlung; die App bildet den Satz in beiden Sprachen neu
+    (`ps.ofKiText`, wortgleich geprüft).
+  - Mesh-Text der Seite Netz: „Lightning geht so nicht; KI nur kurz über ein
+    Funk-Gateway (unten).“
+  - FAQ der Website: statt „KI-Anfragen auch nicht“ die kurze Anfrage über ein
+    Gateway, was das Gateway sieht und dass eine lange Antwort über Funk mehr
+    als eine Stunde Sendezeit bräuchte.
+- 12 Texte der Karte, 4 im Agenten, beide Sprachen.
+
+**Tests:**
+- +1 in `app/test/ki-funk.test.ts` (verdrahtet): Wahl versteckt bis zum
+  Gateway, Karte auf der Seite Netz, `wireFunkGateway()` aus `app.ts`, kein
+  `innerHTML`, „über Funk“ vor dem Start eines normalen Auftrags, erst das
+  Gerät prüfen, dann senden, kein Verlauf als Kontext, Vorrang als Parameter.
+- `protocol/test/mesh-sync.test.ts`: Die Rechnung „500 Wörter brauchen mehr
+  als eine Stunde“ bleibt; neu gerechnet wird eine Antwort mit 500 Zeichen als
+  Umschlag (gut 15 s, zwei passen in eine Stunde). Der Test „Auskunft sagt bei
+  jeder Strecke dasselbe über Lightning und KI“ prüft jetzt: Lightning nie, KI
+  nur über Funk, überall derselbe Satz – die Karte 7.4 ändert genau diese
+  Fähigkeit.
+- Smoke-Test „rahmen“: die Karte ist auf der Seite Netz sichtbar, sagt „Kein
+  Gateway gemerkt.“, und die Wahl im Agenten ist versteckt.
+- Im Browser (de und en): Gateway gemerkt → Stand „Gemerkt: …, Angebot vom
+  21.9.2026. Ohne SOL-Kurs – über Funk nur gratis.“, die Wahl erscheint;
+  gesendet ohne Funkgerät → „Kein Funkgerät verbunden (Seite Netz → Mesh).“ im
+  Verlauf; vergessen → Wahl weg, Eintrag gelöscht; keine Seitenfehler.
+
+Endstand: protocol 1081 (6 übersprungen; zwei Tests geändert, weil die
+Fähigkeit sich ändert) · node 241 (6 übersprungen, mit Netz; ohne Netz 240 + 7) ·
+app 519 (+1) · mls 13 · Leak-Tests 59 grün + 1 todo · 0 rot · check-wiring
+`--streng` Exit 0 · innerHTML streng Exit 0 · Website 5 Seiten ok · Smoke-Test
+bestanden (mit „funk“) · Browser-Probe auf dem letzten Stand (de/en) wie oben.
+Damit ist 7.4 im Code fertig. Knoten-Stand: Gateway-Knoten ab 7.4b2 mit
+`FUNK_GATEWAY`; ohne ihn bietet die Seite Netz kein Gateway an.
+
 ## Schritt C.2b1 – Oberfläche: Dialoge statt prompt() in Räumen
 
 **Fertig:** C.2b ist geteilt (zusammen rund 700 Zeilen). C.2b1 bringt den
@@ -8587,8 +9277,8 @@ Gruppierung und Menüs folgen mit C.2b2.
   - Anlegen: Hinweis und Name in einem Dialog; die Kennung eines offenen Raums
     zum Kopieren.
   - Beitreten: Kennung als Pflichtfeld.
-  - Rauminfo: `privacyInfo()` im Dialog. Der Satz bleibt Deutsch, bis
-    8.16g2b2 (Spur B) ihn übersetzt (B17).
+  - Rauminfo: `privacyInfo()` im Dialog. Der Satz ist noch Deutsch – 8.16g2b2
+    (Spur B) hat ihn nicht übernommen; C.2b2 bildet ihn in der App neu (B17).
 - **Texte:** neu `texte/dialog.ts` (`dlg.*`) und `texte/raeume.ts` (`raum.*`);
   vorhandene Schlüssel dienen als Titel und Beschriftungen. Sieben Schlüssel
   der alten Eingabezeilen fallen weg: `komm.ausblendenOderSperren`,
@@ -8614,7 +9304,8 @@ Gruppierung und Menüs folgen mit C.2b2.
   meldet „Bitte ausfüllen“, Tab bleibt im Dialog, Esc schließt, Fokus zurück,
   `inert` wieder aus.
 
-Endstand: protocol 1067 (6 übersprungen) · node 235 (6 übersprungen, mit
-Netz) · app 511 (+6) · mls 13 · Leak-Tests 58 grün + 1 todo · 0 rot ·
-check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 · Website 5 Seiten
-ok · Smoke-Test bestanden (mit „rahmen“ und „dialog“).
+Endstand (nach dem Einmergen von `main` mit 7.4c3): protocol 1081 (6
+übersprungen) · node 241 (6 übersprungen, mit Netz) · app 525 (+6) · mls 13 ·
+Leak-Tests 59 grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 ·
+innerHTML streng Exit 0 · Website 5 Seiten ok · Smoke-Test bestanden (mit
+„rahmen“ und „dialog“).

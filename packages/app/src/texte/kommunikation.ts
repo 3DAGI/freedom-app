@@ -142,4 +142,5 @@ export const kommunikation: Texte = {
   "komm.keinNpub": { de: "Das ist kein gültiger npub.", en: "That is not a valid npub." },
   "komm.npubOderHex": { de: "Bitte einen npub oder einen 64-stelligen Hex-Schlüssel eingeben.", en: "Please enter an npub or a 64-character hex key." },
   "komm.communityName": { de: "Name der Community:", en: "Name of the community:" },
+  "komm.anhangFehler": { de: "Anhang: {fehler}", en: "Attachment: {fehler}" },
 };

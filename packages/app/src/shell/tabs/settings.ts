@@ -14,6 +14,7 @@ import { alsGeraet, ensurePool, mitBunker, mitRohemSchluessel, nimmInPool, signi
 import { ladeEigeneRelays, pruefeRelayEingabe, setzeEigeneRelays } from "../../relay-satz.js";
 import { kaufeRelayZugang, leseRelayPreise, merkeZugang, pruefeBeimRelay, zugaenge, type RelayPreise, type Schiene } from "../../relay-kauf.js";
 import { satsText, solText } from "../../preis-anzeige.js";
+import { echtheitText, fehlerText, fixierungText, geraetWarnung, nachfolgeStand, nachfolgeWarnung, offlineFaehigkeiten, sicherungGebaut, sicherungInfo, torText, wechselWarnung, wegName, weitergabeText, widerrufAnleitung, wiederherstellungText } from "../../protokoll-texte.js";
 import { LS_VERSAND_VERZOEGERUNG, maxVerzoegerungSek } from "../versand.js";
 import { geheim, istGeheimnis, tresorEingerichtet, wireTresorKarte } from "../tresor.js";
 import { $, ganzeZahl, toast } from "../ui.js";
@@ -60,10 +61,10 @@ export async function zeigeNachfolge(): Promise<void> {
     const st = evaluateSuccession(plan, [...evs, ...eigene]);
     const cls = st.status === "aktiv" ? "ok" : st.status === "freigegeben" ? "err" : "warn";
     box.innerHTML =
-      `<span class="${cls}">${escapeHtml(st.message)}</span><br>` +
+      `<span class="${cls}">${escapeHtml(nachfolgeStand(st, plan))}</span><br>` +
       `<span class="muted">${escapeHtml(t("set.nfPlan", { schwelle: plan.threshold, von: plan.guardians.length, frist: plan.inactivityDays, warte: plan.graceDays }))}</span>`;
   } catch (e) {
-    box.textContent = t("agent.nichtAbrufbar", { fehler: (e as Error).message });
+    box.textContent = t("agent.nichtAbrufbar", { fehler: fehlerText(e) });
   }
 }
 
@@ -71,7 +72,7 @@ export async function zeigeNachfolge(): Promise<void> {
 export async function richteNachfolgeEin(): Promise<void> {
   if (!state.keypair || !nurHauptidentitaet(t("set.wasNachfolge"))) return;
   const {
-    successionWarning, splitSecret, secretHashOf, buildSuccessionPlan, baueAnteilUmschlag, neueTeilung,
+    splitSecret, secretHashOf, buildSuccessionPlan, baueAnteilUmschlag, neueTeilung,
   } = await import("@freedomstack/protocol");
   const { decodeNpub } = await import("../../identity.js");
 
@@ -90,7 +91,7 @@ export async function richteNachfolgeEin(): Promise<void> {
   }
   const threshold = Math.max(2, Math.ceil(guardians.length / 2));
 
-  if (!confirm(successionWarning({ guardians: guardians.length, threshold, graceDays: 30 }))) return;
+  if (!confirm(nachfolgeWarnung({ guardians: guardians.length, threshold, graceDays: 30 }))) return;
 
   try {
     // Die Teile entstehen LOKAL; jeder geht versiegelt (NIP-59) an genau
@@ -128,7 +129,7 @@ export async function richteNachfolgeEin(): Promise<void> {
     void zeigeGeraete();
     void zeigeNachfolge();
   } catch (e) {
-    toast((e as Error).message, true);
+    toast(fehlerText(e), true);
   }
 }
 
@@ -181,8 +182,7 @@ export async function zeigeSicherung(): Promise<void> {
   const at = Number(localStorage.getItem("freedom.backupAt") ?? "0");
   const groesse = Number(localStorage.getItem("freedom.backupSize") ?? "0");
   try {
-    const { backupInfo } = await import("@freedomstack/protocol");
-    box.textContent = backupInfo(groesse, at || undefined);
+    box.textContent = sicherungInfo(groesse, at || undefined);
     box.className = at ? "mono-sm muted" : "mono-sm warn";
   } catch { /* Anzeige bleibt leer */ }
 }
@@ -199,11 +199,11 @@ async function sichereZustand(): Promise<void> {
 
     localStorage.setItem("freedom.backupAt", String(Math.floor(Date.now() / 1000)));
     localStorage.setItem("freedom.backupSize", String(r.sizeBytes));
-    toast(r.message);
+    toast(sicherungGebaut(r.sizeBytes));
     void zeigeSicherung();
     void aktualisiereSicherheitsStand();
   } catch (e) {
-    toast((e as Error).message, true);
+    toast(fehlerText(e), true);
   }
 }
 
@@ -223,12 +223,12 @@ async function stelleZustandWieder(): Promise<void> {
     }
     const r = await restoreStateBackup(neueste, mitRohemSchluessel(t("set.fuerWiederherstellung"), deriveBackupKey));
     if (!r.ok || !r.data) {
-      toast(r.message, true);
+      toast(wiederherstellungText(r), true);
       return;
     }
     // Nur, was in eine Sicherung gehoert – auch eine alte mit Schluessel stellt ihn nicht her
     const daten = filtereWiederherstellung(r.data);
-    if (!confirm(`${r.message}\n\n${t("set.ueberschreibenFrage")}`)) return;
+    if (!confirm(`${wiederherstellungText(r)}\n\n${t("set.ueberschreibenFrage")}`)) return;
     for (const [k, v] of Object.entries(daten)) {
       if (istGeheimnis(k)) await geheim.setItem(k, v);
       else localStorage.setItem(k, v);
@@ -236,7 +236,7 @@ async function stelleZustandWieder(): Promise<void> {
     toast(t("set.wiederhergestellt"));
     setTimeout(() => location.reload(), 900);
   } catch (e) {
-    toast((e as Error).message, true);
+    toast(fehlerText(e), true);
   }
 }
 
@@ -248,10 +248,10 @@ async function stelleZustandWieder(): Promise<void> {
  */
 async function bereiteWechselVor(): Promise<void> {
   if (!state.keypair || !nurHauptidentitaet(t("set.wasWechsel"))) return;
-  const { rotationWarning, buildRotationMandate, generateKeypair, toHex: th } =
+  const { buildRotationMandate, generateKeypair, toHex: th } =
     await import("@freedomstack/protocol");
 
-  if (!confirm(rotationWarning())) return;
+  if (!confirm(wechselWarnung())) return;
   try {
     const ersatz = generateKeypair();
     await (await ensurePool()).publish(
@@ -271,7 +271,7 @@ async function bereiteWechselVor(): Promise<void> {
     void aktualisiereSicherheitsStand();
     toast(t("set.vorbereitet"));
   } catch (e) {
-    toast((e as Error).message, true);
+    toast(fehlerText(e), true);
   }
 }
 
@@ -282,9 +282,9 @@ async function bereiteWechselVor(): Promise<void> {
  * nennt; sonst erkennt kein Kontakt den Widerruf an.
  */
 async function widerrufeSchluessel(): Promise<void> {
-  const { revocationInstructions, buildRevocation, signEvent: se, fromHex, parseRotationMandate, KIND_ROTATION_MANDATE, toHex: th } =
+  const { buildRevocation, signEvent: se, fromHex, parseRotationMandate, KIND_ROTATION_MANDATE, toHex: th } =
     await import("@freedomstack/protocol");
-  if (!confirm(revocationInstructions())) return;
+  if (!confirm(widerrufAnleitung())) return;
 
   let alt = prompt(t("set.welcherGestohlen"), state.keypair?.pk ?? "")?.trim() ?? "";
   if (!alt) return;
@@ -322,7 +322,7 @@ async function widerrufeSchluessel(): Promise<void> {
 
     toast(t("set.widerrufenFertig"));
   } catch (e) {
-    toast((e as Error).message, true);
+    toast(fehlerText(e), true);
   } finally {
     sk.fill(0);
   }
@@ -373,13 +373,13 @@ export async function zeigeGeraete(): Promise<void> {
       b.addEventListener("click", () => void entzieheGeraet((b as HTMLElement).dataset.pk!));
     });
   } catch (e) {
-    box.textContent = t("agent.nichtAbrufbar", { fehler: (e as Error).message });
+    box.textContent = t("agent.nichtAbrufbar", { fehler: fehlerText(e) });
   }
 }
 
 async function fuegeGeraetHinzu(): Promise<void> {
   if (!state.keypair || !nurHauptidentitaet(t("set.wasGeraete"))) return;
-  const { defaultPermissions, deviceWarning, buildDeviceGrant, generateKeypair, toHex: th } =
+  const { defaultPermissions, buildDeviceGrant, generateKeypair, toHex: th } =
     await import("@freedomstack/protocol");
   const { geraeteCode } = await import("../../geraete-modus.js");
 
@@ -390,7 +390,7 @@ async function fuegeGeraetHinzu(): Promise<void> {
 
   const perms = defaultPermissions(umfang.trim() as never);
   const tage = 365;
-  if (!confirm(deviceWarning(perms, tage))) return;
+  if (!confirm(geraetWarnung(perms, tage))) return;
 
   try {
     const geraet = generateKeypair();
@@ -408,7 +408,7 @@ async function fuegeGeraetHinzu(): Promise<void> {
     geraet.sk.fill(0);
     void zeigeGeraete();
   } catch (e) {
-    toast((e as Error).message, true);
+    toast(fehlerText(e), true);
   }
 }
 
@@ -423,7 +423,7 @@ async function entzieheGeraet(devicePk: string): Promise<void> {
     toast(t("set.entzogen"));
     void zeigeGeraete();
   } catch (e) {
-    toast((e as Error).message, true);
+    toast(fehlerText(e), true);
   }
 }
 
@@ -440,7 +440,7 @@ async function meldeFuerAnderen(): Promise<void> {
     await (await ensurePool()).publish(await signiere(buildRecoveryClaim(state.keypair.pk, wen.trim(), grund.trim())));
     toast(t("set.gemeldet"));
   } catch (e) {
-    toast((e as Error).message, true);
+    toast(fehlerText(e), true);
   }
 }
 
@@ -468,7 +468,7 @@ async function reicheSolEin(roh: Uint8Array): Promise<void> {
     const signatur = await reicheSolOfflineEin(roh);
     toast(t("set.solOfflineEingereicht", { sig: signatur.slice(0, 8) }));
   } catch (e) {
-    toast(t("set.solOfflineFehler", { fehler: (e as Error).message }), true);
+    toast(t("set.solOfflineFehler", { fehler: fehlerText(e) }), true);
   }
 }
 
@@ -478,15 +478,24 @@ if (typeof window !== "undefined") {
   });
 }
 
+/** Ist ein Funkgeraet verbunden (USB oder Bluetooth)? Der Datei-Weg zaehlt nicht. */
+export function funkGeraetVerbunden(): boolean {
+  const art = meshNode?.transportArt;
+  return art === "seriell" || art === "bluetooth";
+}
+
 /**
  * Ueber das verbundene Funkgeraet senden (7.2: Offline-SOL-Zahlung). false,
  * wenn keines verbunden ist – dann nimmt der Aufrufer den Datei-Weg.
  */
-export async function sendeUeberFunk(payload: Uint8Array, kind: import("@freedomstack/protocol").MeshKind, label: string): Promise<boolean> {
-  const art = meshNode?.transportArt;
-  if (!meshNode || (art !== "seriell" && art !== "bluetooth")) return false;
+export async function sendeUeberFunk(
+  payload: Uint8Array, kind: import("@freedomstack/protocol").MeshKind, label: string,
+  /** Vorrang in der Warteschlange – Zahlungen zuerst, KI über Funk (7.4c3) wie eine Nachricht. */
+  vorrang?: import("@freedomstack/protocol").MeshPriority,
+): Promise<boolean> {
+  if (!meshNode || !funkGeraetVerbunden()) return false;
   const { MeshPriority } = await import("@freedomstack/protocol");
-  meshNode.enqueue(payload, kind, MeshPriority.Zahlung, label);
+  meshNode.enqueue(payload, kind, vorrang ?? MeshPriority.Zahlung, label);
   return true;
 }
 
@@ -515,6 +524,9 @@ async function ensureMeshNode(): Promise<import("../../mesh-radio.js").MeshNode>
         if (kind === MeshKind.NostrEvent) {
           try {
             const ev = meshToEvent(payload);
+            // Antwort auf eine KI-Anfrage über Funk (7.4c2): zeigen – sie kam schon aus dem Netz
+            const { nimmFunkAntwort } = await import("../ki-ueber-funk.js");
+            if (await nimmFunkAntwort(ev as import("@freedomstack/protocol").NostrEvent)) return;
             // Ueber den Pool weiterverteilen: Eine Nachricht, die nur auf
             // diesem Geraet ankommt, hat den halben Weg umsonst gemacht.
             const pool = await ensurePool();
@@ -568,11 +580,11 @@ export async function wireMeshTab(): Promise<void> {
     try {
       const { connectSerial } = await import("../../mesh-radio.js");
       const n = await ensureMeshNode();
-      await n.attach(await connectSerial());
+      await n.attach(await connectSerial(115200, (raw) => n.receive(raw)));
       $("#mesh-status").textContent = t("set.verbundenMit", { name: n.transportName ?? "" });
       toast(t("set.funkVerbunden"));
     } catch (e) {
-      $("#mesh-status").textContent = (e as Error).message;
+      $("#mesh-status").textContent = fehlerText(e);
     }
   };
 
@@ -587,7 +599,7 @@ export async function wireMeshTab(): Promise<void> {
       void zeigeOfflineFaehigkeiten("lora");
       toast(t("set.bluetoothVerbunden"));
     } catch (e) {
-      $("#mesh-status").textContent = (e as Error).message;
+      $("#mesh-status").textContent = fehlerText(e);
     }
   };
 
@@ -613,7 +625,7 @@ export async function wireMeshTab(): Promise<void> {
         // Zwiebeladressen zuerst dran.
         localStorage.setItem("freedom.relays", JSON.stringify(r.relays));
         void pool;
-        if (netz.value !== "klar") toast(r.message);
+        if (netz.value !== "klar") toast(torText(r, { onionOnly: false, preferOnion: true }));
       } catch { /* Reihenfolge bleibt */ }
       void zeigeDatenschutz();
     };
@@ -680,7 +692,7 @@ export async function wireMeshTab(): Promise<void> {
         }
       } catch (e) {
         kontakte.checked = kontakteSichernAn();
-        toast(t("set.kontaktlisteFehler", { fehler: (e as Error).message }), true);
+        toast(t("set.kontaktlisteFehler", { fehler: fehlerText(e) }), true);
       }
     };
   }
@@ -753,10 +765,9 @@ export async function wireMeshTab(): Promise<void> {
 async function zeigeOfflineFaehigkeiten(link: "lora" | "bluetooth" | "datei"): Promise<void> {
   const box = $("#offline-caps");
   if (!box) return;
-  const { offlineCapabilities, LINK_LABEL } = await import("@freedomstack/protocol");
   box.innerHTML =
-    `<div class="muted" style="margin-bottom:5px">${escapeHtml(t("set.ueber", { weg: LINK_LABEL[link] }))}</div>` +
-    offlineCapabilities(link).map((f) =>
+    `<div class="muted" style="margin-bottom:5px">${escapeHtml(t("set.ueber", { weg: wegName(link) }))}</div>` +
+    offlineFaehigkeiten(link).map((f) =>
       `<div class="usage-row"><span>${f.works ? "✓" : "✕"} ${escapeHtml(f.feature)}</span>` +
       `<span class="muted" style="font-size:10px;max-width:58%">${escapeHtml(f.note)}</span></div>`,
     ).join("");
@@ -820,7 +831,7 @@ export async function exportiereApp(): Promise<void> {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const html = await res.text();
 
-    const { hashText, sharingInstructions } = await import("@freedomstack/protocol");
+    const { hashText } = await import("@freedomstack/protocol");
     const hash = hashText(html);
     const version = (window as unknown as { FREEDOM_VERSION?: string }).FREEDOM_VERSION ?? "dev";
 
@@ -836,7 +847,7 @@ export async function exportiereApp(): Promise<void> {
     lade(html, "freedom.html", "text/html");
     // Die Prueflanleitung wandert mit: Wer weitergibt, soll sie nicht selbst
     // formulieren muessen.
-    lade(sharingInstructions(hash, version), "freedom-pruefen.txt", "text/plain");
+    lade(weitergabeText(hash, version), "freedom-pruefen.txt", "text/plain");
 
     if (status) {
       status.innerHTML =
@@ -847,7 +858,7 @@ export async function exportiereApp(): Promise<void> {
     toast(t("set.appExportiert"));
   } catch (e) {
     if (status) {
-      status.textContent = t("set.exportFehler", { fehler: (e as Error).message });
+      status.textContent = t("set.exportFehler", { fehler: fehlerText(e) });
       status.className = "mono-sm warn";
     }
   }
@@ -897,7 +908,7 @@ export async function pruefeEigeneEchtheit(): Promise<void> {
     const cls = r.status === "echt" ? "ok" : r.status === "abweichend" ? "err" : "warn";
 
     box.innerHTML =
-      `<span class="${cls}">${escapeHtml(r.message)}</span>` +
+      `<span class="${cls}">${escapeHtml(echtheitText(r, "freedom.html"))}</span>` +
       (neueste && neueste.version !== r.version
         ? `<br>${escapeHtml(t("set.neuereVersion", { version: neueste.version }))}`
         : "") +
@@ -907,7 +918,7 @@ export async function pruefeEigeneEchtheit(): Promise<void> {
     // Fixieren (5.2): Danach laeuft keine andere Version ohne Rueckfrage.
     const fix = ladeFixierung();
     const zeile = document.createElement("div");
-    if (fixierung.status !== "passt") zeile.textContent = fixierung.meldung;
+    if (fixierung.status !== "passt") zeile.textContent = fixierungText(fixierung.status, fix?.version ?? "", r.version);
     else if (fix) zeile.textContent = t("set.fixiert", { version: fix.version });
     box.appendChild(zeile);
     const knopf = (text: string, tun: () => void) => {
@@ -924,7 +935,7 @@ export async function pruefeEigeneEchtheit(): Promise<void> {
     }
     if (fix) knopf(t("set.fixierungAufheben"), () => localStorage.removeItem(LS_RELEASE_FIX));
   } catch (e) {
-    box.textContent = t("set.echtheitFehler", { fehler: (e as Error).message });
+    box.textContent = t("set.echtheitFehler", { fehler: fehlerText(e) });
     box.className = "mono-sm warn";
   }
 }
@@ -938,11 +949,12 @@ export async function pruefeFixierungBeimStart(): Promise<void> {
   if (!ladeFixierung()) return;
   try {
     const { hash, r, fixierung } = await echtheit();
-    if (fixierung.status === "andere-echt" && r.version && confirm(fixierung.meldung)) {
+    const fixVersion = ladeFixierung()?.version ?? "";
+    if (fixierung.status === "andere-echt" && r.version && confirm(fixierungText(fixierung.status, fixVersion, r.version))) {
       localStorage.setItem(LS_RELEASE_FIX, JSON.stringify({ version: r.version, sha256: hash }));
       toast(t("set.versionFixiert", { version: r.version }));
     } else if (fixierung.status !== "passt") {
-      toast(fixierung.meldung, true);
+      toast(fixierungText(fixierung.status, fixVersion, r.version), true);
     }
   } catch { /* ohne Netz oder als lokale Datei nicht pruefbar – beim naechsten Start erneut */ }
 }
@@ -1004,7 +1016,7 @@ export async function wireGebuehrenKarte(): Promise<void> {
       const r = await zahleAnteile();
       toast(r.gezahltMsat > 0 ? t("set.anteileGezahlt", { betrag: sat(r.gezahltMsat) }) : t("set.nichtsFaellig"));
     } catch (e) {
-      toast((e as Error).message, true);
+      toast(fehlerText(e), true);
     } finally {
       knopf.disabled = false;
       zeige();
@@ -1069,7 +1081,7 @@ function wireRelayZugang(): void {
       });
       status.textContent = r ? t("set.bezahltBis", { datum: new Date(r.bis * 1000).toLocaleDateString(gebietsschema()) }) : t("set.bezahltOffen");
     } catch (e) {
-      status.textContent = t("set.nichtGekauft", { fehler: (e as Error).message });
+      status.textContent = t("set.nichtGekauft", { fehler: fehlerText(e) });
     } finally {
       satsK.disabled = solK.disabled = false;
       zeigeStand(false);
@@ -1086,7 +1098,7 @@ function wireRelayZugang(): void {
       if (r) merkeZugang(localStorage, relay(), { bis: r.bis });
       status.textContent = r ? "" : t("set.nochNichtBestaetigt");
     } catch (e) {
-      status.textContent = t("set.nichtGeprueft", { fehler: (e as Error).message });
+      status.textContent = t("set.nichtGeprueft", { fehler: fehlerText(e) });
     }
     zeigeStand();
   };
@@ -1127,7 +1139,7 @@ function wireRelayKarte(): void {
         status.textContent = t("set.nichtVeroeffentlichtKeiner");
       }
     } catch (e) {
-      status.textContent = t("set.nichtVeroeffentlicht", { fehler: (e as Error).message });
+      status.textContent = t("set.nichtVeroeffentlicht", { fehler: fehlerText(e) });
     } finally {
       knopf.disabled = false;
     }

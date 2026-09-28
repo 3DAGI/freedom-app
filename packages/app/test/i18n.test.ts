@@ -110,6 +110,12 @@ test("8.16: Rohtext-Suche im Code – findet sichtbaren Text, auch in Vorlagen, 
     '// toast("im Kommentar");',
     'const kanal = { name: "ankündigungen" }; // kein UI-Text',
     'toast(t("komm.erledigt"));',
+    // Seit 8.16g2b2: ein Wort mit Doppelpunkt vorweg, Text mit „…“ – nicht aber Schemata und Kennungen
+    'log(`verbunden: ${name}`);',
+    'toast(sel ? `modell: ${m}` : "modell: auto");',
+    'toast(`${n} publiziert (${id}…)`);',
+    'const id = `eigen:${x}`;',
+    'if (u.protocol === "https:") weiter();',
   ].join("\n");
   assert.deepEqual(rohtexteImCode(probe).map((f) => [f.zeile, f.text]), [
     [1, "Nicht gesendet – kein Relay"],
@@ -118,6 +124,10 @@ test("8.16: Rohtext-Suche im Code – findet sichtbaren Text, auch in Vorlagen, 
     [4, '<b title="Zap senden"> </b>'],
     [5, "  Antwort ·"],
     [12, "e-mail senden"],
+    [19, "verbunden:  "],
+    [20, "modell:  "],
+    [20, "modell: auto"],
+    [21, "  publiziert ( …)"],
   ]);
 });
 
@@ -468,6 +478,444 @@ test("8.16g2b1: Datenschutzbericht in der Sprache der Oberfläche – deutsch wo
     assert.match(fakten, /Deliberate limits:\n△ Sent SOL payments don't come from fresh addresses/);
     assert.match(B.faktenText("erreichbar"), /Checked in this session:\n✓ IP address hidden:/);
     assert.doesNotMatch(en + fakten, /[äöüÄÖÜß]/, "kein deutscher Satz im englischen Bericht");
+  } finally {
+    setLang(vorher);
+  }
+});
+
+test("8.16g2b2: Sätze des Protokolls in Settings und im Chat – deutsch wortgleich, englisch übersetzt; übersehene Wörter übersetzt", async () => {
+  // Die App zeigt diese Sätze nicht mehr direkt aus dem Protokoll
+  const settings = readFileSync(pfad(SRC, "shell/tabs/settings.ts"), "utf8");
+  assert.doesNotMatch(settings, /\bst\.message\b|backupInfo\(|\br\.message\b|rotationWarning\(|revocationInstructions\(|deviceWarning\(|sharingInstructions\(|fixierung\.meldung|offlineCapabilities\(|LINK_LABEL/);
+  assert.doesNotMatch(readFileSync(pfad(SRC, "shell/ui.ts"), "utf8"), /OFFLINE_HINWEIS/);
+  assert.doesNotMatch(readFileSync(pfad(SRC, "shell/tabs/kommunikation.ts"), "utf8"), /st!?\.message/);
+  assert.doesNotMatch(readFileSync(pfad(SRC, "shell/nachfolge-ui.ts"), "utf8"), /status\.message/);
+  assert.doesNotMatch(readFileSync(pfad(SRC, "geraete-modus.ts"), "utf8"), /d\.message/);
+
+  const P = await import("@freedomstack/protocol");
+  const T = await import("../src/protokoll-texte.js");
+  const NOW = 1_800_000_000;
+  const TAG = 86400;
+  const [ich, g1, g2, g3, neu, dritter] = Array.from({ length: 6 }, () => P.generateKeypair());
+  const als = (ev: import("@freedomstack/protocol").UnsignedEvent, sk: Uint8Array) => P.signEvent(ev, sk);
+  const vorher = getLang();
+  try {
+    setLang("de");
+    // Nachfolge: Warnung und jeder Stand
+    for (const p of [{ guardians: 3, threshold: 2, graceDays: 30 }, { guardians: 5, threshold: 3, graceDays: 14 }]) {
+      assert.equal(T.nachfolgeWarnung(p), P.successionWarning(p));
+    }
+    const plan = { ownerPubkey: ich!.pk, guardians: [g1!.pk, g2!.pk, g3!.pk], threshold: 2, inactivityDays: 180, graceDays: 30, secretHash: "0".repeat(64), createdAt: NOW - 400 * TAG };
+    const puls = (tage: number) => als(P.buildHeartbeat(ich!.pk, NOW - tage * TAG), ich!.sk);
+    const meldung = (g: typeof g1, tage: number) => als(P.buildRecoveryClaim(g!.pk, ich!.pk, "weg", NOW - tage * TAG), g!.sk);
+    const stati = new Set<string>();
+    for (const evs of [[puls(10)], [puls(10), meldung(g1, 5)], [puls(200), meldung(g1, 5)], [puls(200), meldung(g1, 5), meldung(g2, 4)], [puls(300), meldung(g1, 100), meldung(g2, 90)]]) {
+      const st = P.evaluateSuccession(plan, evs, NOW);
+      stati.add(st.status);
+      assert.equal(T.nachfolgeStand(st, plan), st.message, st.status);
+    }
+    assert.equal(stati.size, 5, "jeder Stand gesehen");
+    // Sicherung: Info, gebaut, wiederhergestellt
+    const jetzt = Math.floor(Date.now() / 1000);
+    for (const [groesse, zuletzt] of [[0, undefined], [2048, jetzt - 3 * TAG - 3600], [512_000, jetzt - 40 * TAG]] as const) {
+      assert.equal(T.sicherungInfo(groesse, zuletzt), P.backupInfo(groesse, zuletzt));
+    }
+    const schluessel = P.deriveBackupKey(ich!.sk);
+    const gebaut = await P.buildStateBackup(ich!.pk, schluessel, { "freedom.chats": "[]" }, NOW);
+    assert.equal(T.sicherungGebaut(gebaut.sizeBytes), gebaut.message);
+    const sicherung = als(gebaut.event, ich!.sk);
+    for (const r of [
+      await P.restoreStateBackup(sicherung, schluessel),
+      await P.restoreStateBackup(sicherung, P.deriveBackupKey(neu!.sk)),
+      await P.restoreStateBackup(als(P.buildEvent(ich!.pk, 1, [], "x", NOW), ich!.sk), schluessel),
+    ]) assert.equal(T.wiederherstellungText(r), r.message, r.fehler ?? "ok");
+    assert.equal(T.wiederherstellungText({ ok: false, fehler: "version", version: 2 }), "Unbekannte Sicherungsversion 2.");
+    // Schlüsselwechsel
+    assert.equal(T.wechselWarnung(), P.rotationWarning());
+    assert.equal(T.widerrufAnleitung(), P.revocationInstructions());
+    const mandat = (von: typeof ich, an: string) => als(P.buildRotationMandate(von!.pk, an, NOW - 50 * TAG), von!.sk);
+    const widerruf = (alt: string, n: typeof neu, grund: "gestohlen" | "planmaessig", seit?: number) =>
+      als(P.buildRevocation({ oldPubkey: alt, newPubkey: n!.pk, reason: grund, compromisedSince: seit, note: "" }, NOW - 10 * TAG), n!.sk);
+    const schluesselFaelle: [string, import("@freedomstack/protocol").KeyState][] = [
+      ["ohne", P.resolveKey(ich!.pk, [], { nowSecs: NOW })],
+      ["vorbereitet", P.resolveKey(ich!.pk, [mandat(ich, neu!.pk)], { nowSecs: NOW })],
+      ["abgeloest", P.resolveKey(ich!.pk, [mandat(ich, neu!.pk), widerruf(ich!.pk, neu, "planmaessig")], { nowSecs: NOW })],
+      ["gestohlen seit", P.resolveKey(ich!.pk, [mandat(ich, neu!.pk), widerruf(ich!.pk, neu, "gestohlen", NOW - 20 * TAG)], { nowSecs: NOW })],
+      ["gestohlen", P.resolveKey(ich!.pk, [mandat(ich, neu!.pk), widerruf(ich!.pk, neu, "gestohlen")], { nowSecs: NOW })],
+      ["kreis", P.resolveKey(ich!.pk, [mandat(ich, neu!.pk), mandat(neu, ich!.pk), widerruf(ich!.pk, neu, "planmaessig"), widerruf(neu!.pk, ich, "planmaessig")], { nowSecs: NOW })],
+      ["zu lang", P.resolveKey(ich!.pk, [mandat(ich, neu!.pk), mandat(neu, dritter!.pk), widerruf(ich!.pk, neu, "planmaessig"), widerruf(neu!.pk, dritter, "planmaessig")], { nowSecs: NOW, maxChain: 1 })],
+    ];
+    for (const [fall, st] of schluesselFaelle) assert.equal(T.schluesselText(st), st.message, fall);
+    assert.deepEqual(new Set(schluesselFaelle.map(([, st]) => st.status)), new Set(["gueltig", "abgeloest", "widerrufen", "streitig"]));
+    // Geräte: Warnung, Rechte, jeder Stand
+    const rechte = ["nachrichten", "raeume", "zahlungen", "provider", "identitaet"] as const;
+    for (const r of rechte) assert.equal(T.rechtName(r), P.PERMISSION_LABEL[r]);
+    for (const perms of [["nachrichten"], ["nachrichten", "zahlungen"], [...rechte]] as import("@freedomstack/protocol").DevicePermission[][]) {
+      assert.equal(T.geraetWarnung(perms, 90), P.deviceWarning(perms, 90));
+    }
+    const vollmacht = (g: typeof g1, tage: number, perms: import("@freedomstack/protocol").DevicePermission[]) =>
+      als(P.buildDeviceGrant({ ownerPubkey: ich!.pk, devicePubkey: g!.pk, label: "x", permissions: perms, expiresAt: NOW + tage * TAG }, NOW - TAG), ich!.sk);
+    const geraete = P.listDevices(ich!.pk, [
+      vollmacht(g1, 100, ["nachrichten", "raeume"]), vollmacht(g2, 5, ["nachrichten"]), vollmacht(g3, -1, ["nachrichten"]),
+      vollmacht(neu, 100, ["nachrichten"]), als(P.buildDeviceRevoke(ich!.pk, neu!.pk, "verloren", NOW - 2 * TAG), ich!.sk),
+    ], { nowSecs: NOW });
+    assert.equal(geraete.length, 4);
+    for (const d of geraete) assert.equal(T.geraetStatusText(d, NOW), d.message, d.status);
+    // Echtheit und Fixierung
+    const [s1, s2, s3] = [g1!.pk, g2!.pk, g3!.pk];
+    const manifest = (signer: string, sha: string, name = "freedom.html") => ({ version: "1.4.0", releasedAt: NOW, artifacts: [{ name, sha256: sha, sizeBytes: 1 }], sources: ["https://x.example"], signerPubkey: signer });
+    const hash = "a".repeat(64);
+    for (const [fall, ms] of [
+      ["kein-manifest", []], ["echt", [manifest(s1, hash), manifest(s2, hash)]], ["zu-wenig", [manifest(s1, hash)]],
+      ["abweichend", [manifest(s1, "b".repeat(64)), manifest(s2, "b".repeat(64))]], ["ohne-namen", [manifest(s1, hash, "andere.html"), manifest(s2, hash, "andere.html")]],
+    ] as const) {
+      const r = P.verifyArtifact(hash, "freedom.html", [...ms], [s1, s2, s3], 2);
+      assert.equal(r.fall, fall);
+      assert.equal(T.echtheitText(r, "freedom.html"), r.message, fall);
+      const f = P.pruefeFixierung({ version: "1.3.0", sha256: "c".repeat(64) }, hash, r);
+      if (f.status !== "passt") assert.equal(T.fixierungText(f.status, "1.3.0", r.version), f.meldung, fall);
+    }
+    // Weitergabe, ohne Internet, Tor-Reihenfolge
+    assert.equal(T.weitergabeText(hash, "1.4.0"), P.sharingInstructions(hash, "1.4.0"));
+    assert.equal(T.offlineHinweis(), P.OFFLINE_HINWEIS);
+    for (const l of ["lora", "bluetooth", "datei"] as const) {
+      assert.equal(T.wegName(l), P.LINK_LABEL[l]);
+      assert.deepEqual(T.offlineFaehigkeiten(l), P.offlineCapabilities(l), l);
+    }
+    const onion = "ws://" + "a".repeat(56) + ".onion";
+    for (const relays of [[], ["wss://a.example", "wss://b.example"], [onion, "wss://a.example"], [onion]]) {
+      for (const pref of [{ onionOnly: true, preferOnion: false }, { onionOnly: false, preferOnion: true }, { onionOnly: false, preferOnion: false }]) {
+        const r = P.sortByTorPreference(relays, pref);
+        assert.equal(T.torText(r, pref), r.message, `${relays.length}/${JSON.stringify(pref)}`);
+      }
+    }
+
+    setLang("en");
+    assert.match(T.nachfolgeWarnung({ guardians: 3, threshold: 2, graceDays: 30 }), /^2 of 3 trusted people can combine your key\./);
+    assert.equal(T.schluesselText(schluesselFaelle[4]![1]), "This key is considered stolen. Everything after that may come from someone else.");
+    assert.match(T.geraetWarnung(["zahlungen"], 30), /· trigger payments[\s\S]*⚠ With the payment permission/);
+    assert.equal(T.offlineFaehigkeiten("lora")[1]!.note, "Private rooms are encrypted (MLS), but don't (yet) go over mesh – only 1:1 conversations.");
+    assert.equal(T.wiederherstellungText({ ok: false, fehler: "unlesbar" }).startsWith("Backup not readable."), true);
+    const alleEn = [T.wechselWarnung(), T.widerrufAnleitung(), T.weitergabeText(hash, "1"), T.offlineHinweis(), T.sicherungInfo(1, undefined)].join(" ");
+    assert.doesNotMatch(alleEn, /[äöüÄÖÜß]/, "kein deutscher Buchstabe");
+    // Übersehene Wörter (8.16g2b2): jetzt über Schlüssel
+    assert.equal(t("bau.verbunden", { name: "USB" }), "connected: USB");
+    assert.equal(t("agent.modellAuto"), "Model: automatic");
+  } finally {
+    setLang(vorher);
+  }
+});
+
+test("8.16g2b3a: Gründe aus Prüfungen (Fristen, Relayer, offline, Mesh, Kette, Stichprobe) – deutsch wortgleich, jede Kennung mit Text", async () => {
+  // Die App zeigt diese Gründe nicht mehr direkt aus dem Protokoll
+  const stelle = (d: string) => readFileSync(pfad(SRC, d), "utf8");
+  assert.match(stelle("rueck-swap.ts"), /fristGrund\(regel\)/);
+  assert.match(stelle("sol-offline-zahlung.ts"), /throw new Error\(offlineGrund\(pruefung\)\)/);
+  assert.match(stelle("shell/zahlschienen.ts"), /throw new Error\(offlineGrund\(p\)\)/);
+  assert.equal(stelle("mesh-radio.ts").match(/meshGrund\(pruefung\)/g)?.length, 2);
+  assert.doesNotMatch(stelle("mesh-radio.ts"), /pruefung\.grund/);
+  assert.match(stelle("relay-einloesung.ts"), /relayGrund\(selbst\)/);
+  assert.equal(stelle("trinkgeld-beleg.ts").match(/solGrund\(p\)/g)?.length, 2);
+  assert.match(stelle("rpc-stichprobe.ts"), /r\.befunde\?\.map\(stichprobeBefund\)[\s\S]*r\.luecken\?\.map\(stichprobeLuecke\)/);
+
+  const P = await import("@freedomstack/protocol");
+  const T = await import("../src/protokoll-texte.js");
+  const vorher = getLang();
+  try {
+    setLang("de");
+    // Fristen: echte Aufrufe, jede Regel einmal
+    const fristen = [
+      P.validateTimelockOrdering({ tSolSecs: 0, lnCltvDeltaBlocks: 12 }),
+      P.validateTimelockOrdering({ tSolSecs: 7200, lnCltvDeltaBlocks: 6 }),
+      P.validateTimelockOrdering({ tSolSecs: 3400, lnCltvDeltaBlocks: 6 }),
+      P.validateReverseTimelock({ tSolSecs: 3600, lnCltvLimitBlocks: 0 }),
+      P.validateReverseTimelock({ tSolSecs: 11 * 3600 - 1, lnCltvLimitBlocks: 30 }),
+    ];
+    assert.deepEqual(fristen.map((r) => r.fall), ["tsol", "reihenfolge", "puffer", "cltv", "vor-solana"]);
+    for (const r of fristen) assert.equal(T.fristGrund(r), r.reason);
+
+    // Jede Kennung aus dem Quelltext des Protokolls: Text vorhanden und wortgleich
+    // (Einsetzungen `${…}` stehen für Zahlen).
+    const PROTO = new URL("../../protocol/src/", import.meta.url).pathname;
+    const faelle = (datei: string): Array<[string, RegExp]> =>
+      [...readFileSync(pfad(PROTO, datei), "utf8").matchAll(/(?:grund|reason): ("[^"]+"|`[^`]+`),\s*fall: "([a-z-]+)"/g)].map((m) => [
+        m[2]!,
+        new RegExp(`^${m[1]!.slice(1, -1).replace(/[.*+?^()|[\]\\]/g, "\\$&").replace(/\$\{[^}]+\}/g, "\\d+")}$`),
+      ]);
+    const werte = { bytes: 1300, signatur: 1, signaturen: 2, erstattung: 9_999, mindest: 10_000, lamports: 5, erwartet: 7 };
+    const pruefe = (datei: string, text: (fall: string) => string, anzahl: number) => {
+      const f = faelle(datei);
+      assert.equal(f.length, anzahl, `${datei}: alle Fälle gefunden`);
+      for (const [fall, muster] of f) assert.match(text(fall), muster, `${datei}: ${fall}`);
+    };
+    pruefe("relayer.ts", (fall) => T.relayGrund({ grund: "", fall: fall as never, ...werte }), 12);
+    pruefe("sol-offline.ts", (fall) => T.offlineGrund({ grund: "", fall: fall as never, ...werte }), 9);
+    pruefe("mesh-transport.ts", (fall) => T.meshGrund({ grund: "", fall: fall as never, ...werte }), 13);
+    pruefe("sol-trinkgeld.ts", (fall) => T.solGrund({ status: "falsch", grund: "", fall: fall as never, ...werte }), 6);
+    // Offline-Überweisungen erben die Gründe der Grundprüfung
+    assert.equal(T.offlineGrund({ grund: "", fall: "zu-gross", bytes: 1300 }), "Solana-Transaktion zu groß (1300 Byte)");
+    const kurz = P.pruefeOfflineUeberweisung(new Uint8Array(1300));
+    assert.equal(!kurz.ok && T.offlineGrund(kurz), !kurz.ok && kurz.grund);
+    const wenig = P.pruefeSolUeberweisung({ meta: { err: null }, transaction: { message: { instructions: [{ program: "system", parsed: { type: "transfer", info: { destination: "A", lamports: 1 } } }] } } }, { an: "A", lamports: 2 });
+    assert.equal(wenig.status !== "belegt" && T.solGrund(wenig), "nur 1 statt 2 Lamports");
+    // Gründe, die die App selbst bildet (ohne Kennung), bleiben
+    assert.equal(T.solGrund({ status: "unbestaetigt", grund: "schon übersetzt" }), "schon übersetzt");
+
+    // Stichprobe: echte Läufe gegen ein kleines Netz – Befunde und Lücken wie die Sätze des Protokolls
+    const G_MAIN = "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d";
+    const G_DEV = "EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG";
+    const H1 = "9hQx8TzLk2WpRn7VbYc3MfJs9GdUe6NaHo5KiXwEt1Zr";
+    const E = (n: number) => `https://rpc${n}.test`;
+    type Knoten = { genesis?: string; hash?: string; kennt?: string[]; konto?: number; tot?: boolean; hinkt?: boolean; muell?: boolean };
+    const netz = (knoten: Record<string, Knoten>) => (async (url: string | URL, init?: RequestInit) => {
+      const u = url.toString();
+      const { method, params } = JSON.parse(String(init?.body)) as { method: string; params: unknown[] };
+      const k = { genesis: G_MAIN, hash: H1, kennt: [H1], konto: 5, ...knoten[u] };
+      if (!(u in knoten) || k.tot) throw new Error("ECONNREFUSED");
+      const antwort = (x: object) => new Response(JSON.stringify({ jsonrpc: "2.0", id: 1, ...x }));
+      if (k.hinkt && method !== "getGenesisHash") return antwort({ error: { code: -32016, message: "Minimum context slot has not been reached" } });
+      switch (method) {
+        case "getGenesisHash": return antwort({ result: k.muell ? "<b>" : k.genesis });
+        case "getLatestBlockhash": return antwort({ result: { context: { slot: 100 }, value: { blockhash: k.hash } } });
+        case "isBlockhashValid": return antwort({ result: { context: { slot: 100 }, value: k.kennt.includes(params[0] as string) } });
+        case "getBalance": return antwort({ result: { context: { slot: 100 }, value: k.konto } });
+        default: return antwort({ result: null });
+      }
+    }) as unknown as typeof fetch;
+    const probe = (knoten: Record<string, Knoten>, konto?: string) =>
+      new P.RpcPool([1, 2, 3].map((n) => ({ url: E(n), label: `rpc${n}` })), { fetchImpl: netz(knoten) }).stichprobe(konto === undefined ? {} : { konto });
+    const KONTO = "Kunde1111111111111111111111111111111111111";
+    const laeufe = [
+      await probe({ [E(1)]: { genesis: G_DEV }, [E(2)]: {} }),
+      await probe({ [E(1)]: { genesis: "Unbekannt111111111111111111111111111111111" }, [E(2)]: {} }),
+      await probe({ [E(1)]: {}, [E(2)]: { kennt: [] } }),
+      await probe({ [E(1)]: { konto: 5 }, [E(2)]: { konto: 7 } }, KONTO),
+      await probe({ [E(1)]: { tot: true }, [E(2)]: { muell: true } }),
+      await probe({ [E(1)]: {}, [E(2)]: { hinkt: true } }, KONTO),
+      await probe({ [E(1)]: {}, [E(2)]: {} }, "keine-adresse"),
+    ];
+    const arten = laeufe.flatMap((r) => [...(r.befunde ?? []), ...(r.luecken ?? [])].map((x) => x.art));
+    for (const art of ["ketten", "blockhash", "kontostand", "anbieter", "kein-zweiter", "adresse"]) assert.ok(arten.includes(art as never), `Fall ${art} kommt vor`);
+    for (const r of laeufe) {
+      assert.deepEqual(r.befunde!.map(T.stichprobeBefund), r.warnungen);
+      assert.deepEqual(r.luecken!.map(T.stichprobeLuecke), r.hinweise);
+    }
+    const hinkt = laeufe[5]!.luecken!.map((l) => ("fehler" in l ? l.fehler.art : l.art));
+    assert.ok(hinkt.includes("hinkt"), "hinkt hinterher kommt vor");
+
+    setLang("en");
+    assert.equal(T.fristGrund(fristen[4]!), "Lightning deadline (36000s with slow blocks) plus margin 3600s must end before the Solana deadline (39599s)");
+    assert.equal(T.relayGrund({ grund: "", fall: "erstattung-klein", erstattung: 9_999, mindest: 10_000 }), "refund 9999 below 10000 lamports");
+    assert.equal(T.solGrund(wenig as Exclude<typeof wenig, { status: "belegt" }>), "only 1 instead of 2 lamports");
+    assert.equal(T.stichprobeLuecke({ art: "blockhash", von: "a", bei: "b", fehler: { art: "hinkt" } }), "Blockhash a → b: is lagging behind");
+    assert.equal(T.stichprobeBefund({ art: "ketten", a: "a", b: "b", netzA: "Devnet" }), "a (Devnet) and b (unknown network) are on different chains – check the endpoints you entered.");
+    const en = [
+      ...["unlesbar", "gebuehrenzahler", "anweisungen", "programm", "keine-einloesung", "ohne-empfaenger", "relayer-konto", "keine-ueberweisung", "erstattung-weg", "erstattung-klein", "unsigniert", "signatur"]
+        .map((fall) => T.relayGrund({ grund: "ä", fall: fall as never })),
+      ...["unlesbar", "anweisungen", "kein-nonce", "nonce-unvollstaendig", "ohne-zahler", "zahler-verschieden", "betrag", "kein-nonce-wert", "signatur", "zu-gross"]
+        .map((fall) => T.offlineGrund({ grund: "ä", fall: fall as never })),
+      ...["klartext", "kein-event", "kein-umschlag", "umschlag-signatur", "eigener-schluessel", "version"].map((fall) => T.meshGrund({ grund: "ä", fall: fall as never })),
+      ...laeufe.flatMap((r) => [...r.befunde!.map(T.stichprobeBefund), ...r.luecken!.map(T.stichprobeLuecke)]),
+      t("pg.unbekannt"),
+    ].join(" ");
+    assert.doesNotMatch(en, /[äöüÄÖÜß]/, "kein deutscher Buchstabe");
+  } finally {
+    setLang(vorher);
+  }
+});
+
+test("8.16g2b3b: Gründe – Relay-Adressen, Geräte, Nachfolge, Funk, Abgleich, Reklamation – deutsch wortgleich, jede Kennung mit Text", async () => {
+  // Die App zeigt diese Gründe nicht mehr direkt aus dem Protokoll
+  const stelle = (d: string) => readFileSync(pfad(SRC, d), "utf8");
+  assert.match(stelle("relay-satz.ts"), /grund: relayUrlGrund\(p\)/);
+  assert.match(stelle("shell/nachfolge-ui.ts"), /uebergabeGrund\(darf, z\.plan\)/);
+  assert.doesNotMatch(stelle("shell/nachfolge-ui.ts"), /darf\.grund/);
+  assert.equal(stelle("geraete-buch.ts").match(/geraetGrund\(z\)/g)?.length, 2);
+  assert.doesNotMatch(stelle("mesh-radio.ts"), /plan\.note|machbar\.note/);
+  assert.match(stelle("mesh-radio.ts"), /syncNotiz\(plan, this\.link, falsePositiveRate\(fremd\)\)/);
+  assert.doesNotMatch(stelle("shell/tabs/agent.ts"), /w\.message/);
+  assert.doesNotMatch(stelle("shell/tabs/kommunikation.ts"), /\?\? "ausgeblendet"/);
+
+  const P = await import("@freedomstack/protocol");
+  const T = await import("../src/protokoll-texte.js");
+  const vorher = getLang();
+  try {
+    setLang("de");
+    // Relay-Adressen: echte Aufrufe, jeder Fall einmal
+    const urls = ["kein url", "https://nos.lol", "wss://a:b@nos.lol", "wss://localhost", "wss://10.0.0.1", "wss://[2001:db8::1]", `wss://${"a".repeat(200)}.io`];
+    const url = urls.map((u) => P.isPlausibleRelayUrl(u));
+    assert.equal(new Set(url.map((r) => r.fall)).size, 7, "alle sieben Fälle");
+    for (const r of url) assert.equal(T.relayUrlGrund(r), r.reason);
+
+    // Geräte und Nachfolge: jede Kennung aus dem Quelltext des Protokolls (Einsetzungen `${…}` beliebig)
+    const PROTO = new URL("../../protocol/src/", import.meta.url).pathname;
+    const faelle = (datei: string): Array<[string, RegExp]> =>
+      [...readFileSync(pfad(PROTO, datei), "utf8").matchAll(/(?:grund|reason): ("[^"]+"|`[^`]+`),\s*fall: "([a-z-]+)"/g)].map((m) => [
+        m[2]!,
+        new RegExp(`^${m[1]!.slice(1, -1).replace(/[.*+?^()|[\]\\]/g, "\\$&").replace(/\$\{[^}]+\}/g, ".+")}$`),
+      ]);
+    const geraet = [...faelle("devices.ts"), ...faelle("geraete-post.ts")];
+    assert.equal(geraet.length, 9, "alle Fälle der Geräteprüfung gefunden");
+    for (const [fall, muster] of geraet) assert.match(T.geraetGrund({ grund: "", fall: fall as never, recht: "zahlungen" }), muster, fall);
+    assert.equal(T.geraetGrund({ grund: "", fall: "nicht-erlaubt", recht: "zahlungen" }), `Dieses Gerät darf nicht „${P.PERMISSION_LABEL.zahlungen}“.`);
+    const plan = { ownerPubkey: "a".repeat(64), guardians: ["b".repeat(64), "c".repeat(64)], threshold: 2, inactivityDays: 180, graceDays: 30, secretHash: "0".repeat(64), createdAt: 1_700_000_000 };
+    const uebergabe = faelle("nachfolge-anteile.ts");
+    assert.equal(uebergabe.length, 5, "alle Fälle der Übergabe gefunden");
+    for (const [fall, muster] of uebergabe) {
+      const stand = P.evaluateSuccession(plan, [], 1_700_000_000 + 10 * 86400);
+      assert.match(T.uebergabeGrund({ grund: "", fall: fall as never, stand }, plan), muster, fall);
+    }
+    const anteil = { besitzer: plan.ownerPubkey, index: 1, daten: "", schwelle: 2, anzahl: 2, secretHash: plan.secretHash, teilung: "0".repeat(32), zeit: 0 };
+    const darf = P.darfUebergeben({ plan, events: [], anteil, ich: "b".repeat(64), sammler: "c".repeat(64), nowSecs: 1_700_000_000 + 10 * 86400 });
+    assert.equal(!darf.ok && darf.fall, "nicht-freigegeben");
+    assert.equal(!darf.ok && T.uebergabeGrund(darf, plan), !darf.ok && darf.grund, "mit dem Stand der Nachfolge wortgleich");
+
+    // Funk: echte Aufrufe
+    for (const [bytes, rate] of [[500, 200], [40_000, 50], [200_000, 200]] as const) {
+      const m = P.meshFeasibility(bytes, rate);
+      assert.equal(T.funkText(m, bytes), m.note, m.fall);
+    }
+    // Abgleich: nichts, etwas, etwas bei ungenauem Bestand
+    const a = P.generateKeypair(), b = P.generateKeypair();
+    const wraps = [(await P.buildPrivateDm({ senderSk: a.sk, senderPk: a.pk, recipientPk: b.pk, content: "x" })).toRecipient];
+    const voll = P.buildDigest(Array.from({ length: 3000 }, (_, i) => ({ id: i.toString(16).padStart(64, "0"), created_at: 1 }) as never));
+    for (const [eigene, fremd] of [[[], P.buildDigest([])], [wraps, P.buildDigest([])], [wraps, voll]] as const) {
+      const p = P.planSync([...eigene], fremd, { link: "bluetooth" });
+      assert.equal(T.syncNotiz(p, "bluetooth", P.falsePositiveRate(fremd)), p.note);
+    }
+    // Gegenseite meldet viele Einträge, kennt unseren aber nicht: gesendet wird, der Abgleich gilt als ungenau
+    const ungenau = { bits: new Uint8Array(1024), count: 5000, since: 0 };
+    const pu = P.planSync([...wraps], ungenau, { link: "datei" });
+    assert.equal(pu.send.length, 1);
+    assert.match(pu.note, /ungenau/, "der Fall mit hoher Fehlerquote kommt vor");
+    assert.equal(T.syncNotiz(pu, "datei", P.falsePositiveRate(ungenau)), pu.note);
+
+    // Reklamationsfrist: echte Aufrufe
+    const jetzt = 1_800_000_000;
+    for (const fertig of [jetzt - 60, jetzt - 400 * 86400]) {
+      const w = P.disputeWindowOpen(fertig, jetzt);
+      assert.equal(T.reklamationsFrist(w), w.message);
+    }
+
+    setLang("en");
+    assert.equal(T.relayUrlGrund(url[4]!), "10.0.0.1 is in a private range");
+    assert.equal(T.geraetGrund({ grund: "", fall: "nicht-erlaubt", recht: "zahlungen" }), "This device may not “trigger payments”.");
+    const lang = P.meshFeasibility(40_000, 50);
+    assert.equal(T.funkText(lang, 40_000), `Possible, but takes ~${Math.round(lang.seconds / 60)} minutes. Fine for text, not for files.`);
+    assert.equal(T.reklamationsFrist({ open: false, remainingSecs: 0 }), "The complaint period has expired.");
+    const en = [
+      ...url.map(T.relayUrlGrund),
+      ...geraet.map(([fall]) => T.geraetGrund({ grund: "ä", fall: fall as never, recht: "nachrichten" })),
+      ...uebergabe.map(([fall]) => T.uebergabeGrund({ grund: "ä", fall: fall as never, stand: P.evaluateSuccession(plan, [], jetzt) }, plan)),
+      T.funkText(P.meshFeasibility(200_000), 200_000), T.funkText(P.meshFeasibility(500), 500),
+      T.syncNotiz({ send: [], totalBytes: 0, estimatedSeconds: 0 }, "lora", 0), T.syncNotiz({ send: [...wraps], totalBytes: 9, estimatedSeconds: 1 }, "lora", 0.5),
+      T.reklamationsFrist({ open: true, remainingSecs: 600 }), t("pg.ohneGrund"),
+    ].join(" ");
+    assert.doesNotMatch(en, /[äöüÄÖÜß]/, "kein deutscher Buchstabe");
+  } finally {
+    setLang(vorher);
+  }
+});
+
+test("8.16i1: Fehlermeldungen des Protokolls (Geld und Netz) – mit Kennung, deutsch wortgleich; die App zeigt Fehler nur über fehlerText()", async () => {
+  // Keine Anzeige mehr direkt aus der Meldung – fehlerText() übersetzt, was eine Kennung hat
+  assert.equal(code.match(/\((e|err|fehler|error) as Error\)\.message/g), null, "(e as Error).message im Code");
+  assert.match(readFileSync(pfad(SRC, "shell/tabs/agent.ts"), "utf8"), /if \(hatFehlerText\(e\)\) return fehlerText\(e\);/, "explainError deutet sie nicht um");
+
+  const P = await import("@freedomstack/protocol");
+  const T = await import("../src/protokoll-texte.js");
+  const vorher = getLang();
+  try {
+    setLang("de");
+    // Jede Kennung aus dem Quelltext des Protokolls hat einen Text, der zur deutschen Meldung passt
+    const PROTO = new URL("../../protocol/src/", import.meta.url).pathname;
+    const faelle = readdirSync(PROTO).filter((d) => d.endsWith(".ts")).flatMap((d) =>
+      [...readFileSync(pfad(PROTO, d), "utf8").matchAll(/new ProtokollFehler\(\s*"([a-z0-9-]+)",\s*("[^"]*"|`[^`]*`)/g)].map((m) => ({ datei: d, kennung: m[1]!, meldung: m[2]!.slice(1, -1) })));
+    // 34 Kennungen stehen im Quelltext; die sieben Wallet-Fehler bildet nwcKennung(), „offline“ je Schiene waehleRail()
+    const kennungen = new Set([
+      ...faelle.map((f) => f.kennung), "offline-sats", "offline-sol",
+      ...["INSUFFICIENT_BALANCE", "QUOTA_EXCEEDED", "RESTRICTED", "UNAUTHORIZED", "NOT_IMPLEMENTED", "PAYMENT_FAILED", "RATE_LIMITED"].map(P.nwcKennung),
+    ]);
+    assert.ok(kennungen.size >= 43, `alle Fälle gefunden (${kennungen.size})`);
+    for (const k of kennungen) assert.ok(T.kenntFehler(k), `${k} ohne Text`);
+    for (const f of faelle) {
+      assert.ok(T.kenntFehler(f.kennung), `${f.datei}: ${f.kennung} ohne Text`);
+      const muster = new RegExp(`^${f.meldung.replace(/[.*+?^()|[\]\\]/g, "\\$&").replace(/\$\{[^}]+\}/g, ".+")}`);
+      assert.match(T.fehlerText(new P.ProtokollFehler(f.kennung, "", { n: 3, details: "x", methode: "pay_invoice", sekunden: 60, schiene: "solana", einheit: "sats", rechnet: "lamports", max: 280, kb: 70 })), muster, `${f.datei}: ${f.kennung}`);
+    }
+    // Echte Aufrufe, wortgleich
+    const wirft = (fn: () => unknown): unknown => { try { fn(); } catch (e) { return e; } assert.fail("wirft nicht"); };
+    const gleich = (e: unknown) => assert.equal(T.fehlerText(e), (e as Error).message);
+    const { bech32 } = await import("@scure/base");
+    const b11 = wirft(() => P.leseBolt11(bech32.encode("lnxx", bech32.toWords(new Uint8Array(20)), 2000)));
+    assert.equal((b11 as { kennung?: string }).kennung, "bolt11-praefix");
+    gleich(b11);
+    for (const uri of ["http://x", `nostr+walletconnect://${"a".repeat(10)}`, `nostr+walletconnect://${"a".repeat(64)}`, `nostr+walletconnect://${"a".repeat(64)}?relay=wss://r.example`]) gleich(wirft(() => P.parseNwcUri(uri)));
+    for (const [sats, kurs, ppm] of [[0, 1, 0], [10, 0, 0], [10, 1, -1]]) gleich(wirft(() => P.rueckSwapLamports(sats!, kurs!, ppm!)));
+    gleich(wirft(() => P.pruefeTageslimit([], 0, 10, 0)));
+    const dead = new P.RpcPool([{ url: "https://a.test", label: "a" }], { fetchImpl: (async () => { throw new Error("ECONNREFUSED"); }) as unknown as typeof fetch });
+    const rpc = await dead.getSlot().then(() => undefined, (e: unknown) => e);
+    assert.equal((rpc as { kennung?: string }).kennung, "rpc-unerreichbar");
+    gleich(rpc);
+    for (const code of ["INSUFFICIENT_BALANCE", "QUOTA_EXCEEDED", "RESTRICTED", "UNAUTHORIZED", "NOT_IMPLEMENTED", "PAYMENT_FAILED", "RATE_LIMITED", "ANDERS"]) {
+      for (const message of ["", "vom Wallet"]) {
+        const err = { code, message };
+        gleich(new P.ProtokollFehler(P.nwcKennung(code), P.explainNwcError(err), { code, meldung: message }));
+      }
+    }
+    // Offline zahlen: der Satz aus dem Protokoll, je Schiene
+    for (const schiene of ["lightning", "solana"] as const) gleich(new P.ProtokollFehler(schiene === "lightning" ? "offline-sats" : "offline-sol", P.offlineZahlText(schiene)));
+    // Fehler ohne Kennung bleiben, wie sie sind
+    assert.equal(T.fehlerText(new Error("vom Browser")), "vom Browser");
+    assert.equal(T.fehlerText("roh"), "roh");
+
+    setLang("en");
+    assert.equal(T.fehlerText(rpc), "No Solana endpoint reachable (1 tried). a: ECONNREFUSED");
+    assert.equal(T.fehlerText(wirft(() => P.parseNwcUri("http://x"))), "Not an NWC connection: expected nostr+walletconnect://…");
+    assert.equal(T.fehlerText(new P.ProtokollFehler("nwc-fehler", "", { code: "X", meldung: "" })), "Wallet error: X");
+    const en = faelle.map((f) => T.fehlerText(new P.ProtokollFehler(f.kennung, "ä", { n: 1, details: "", methode: "m", sekunden: 1, schiene: "solana", einheit: "sats", rechnet: "lamports", max: 1, kb: 1 }))).join(" ");
+    assert.doesNotMatch(en, /[äöüÄÖÜß]/, "kein deutscher Buchstabe");
+  } finally {
+    setLang(vorher);
+  }
+});
+
+test("8.16i2: Fehlermeldungen des Protokolls (Identität und Inhalte) – deutsch wortgleich, englisch übersetzt", async () => {
+  const P = await import("@freedomstack/protocol");
+  const T = await import("../src/protokoll-texte.js");
+  const wirft = (fn: () => unknown): unknown => { try { fn(); } catch (e) { return e; } assert.fail("wirft nicht"); };
+  const PK = "a".repeat(64);
+  const vorher = getLang();
+  try {
+    setLang("de");
+    const fehler = [
+      wirft(() => P.parseBunkerUri("keine adresse")),
+      wirft(() => P.parseBunkerUri(`bunker://${PK}`)),
+      wirft(() => P.baueRepoAnkuendigung({ id: "mit leerzeichen", name: "x", klon: [] }, PK)),
+      wirft(() => P.baueRepoAnkuendigung({ id: "ok", name: "x", klon: ["ftp://x"] }, PK)),
+      wirft(() => P.lesePatchText("kein patch")),
+      wirft(() => P.baueModellKatalog({ kurator: PK, d: "k", titel: "", modelle: [] })),
+      wirft(() => P.baueModellKatalog({ kurator: PK, d: "k", titel: "T", modelle: [{ modell: "llama3" }, { modell: "LLAMA3" }] })),
+      wirft(() => P.splitSecret(new Uint8Array(32), 3, 1)),
+      wirft(() => P.splitSecret(new Uint8Array(32), 2, 3)),
+      wirft(() => P.combineShares([{ index: 1, data: new Uint8Array(4) }])),
+      wirft(() => P.buildDeviceGrant({ ownerPubkey: PK, devicePubkey: PK, label: "x", permissions: ["nachrichten"], expiresAt: 1 })),
+      wirft(() => P.buildRotationMandate(PK, PK)),
+      wirft(() => P.buildReferralClaim(PK, PK)),
+      wirft(() => P.entschluesseleDatei(new Uint8Array(40), { ...P.verschluesseleDatei(new Uint8Array([1, 2, 3])).schluessel })),
+    ];
+    const kennungen = fehler.map((e) => (e as { kennung?: string }).kennung);
+    assert.deepEqual(kennungen, [
+      "bunker-adresse", "bunker-relay", "repo-kennung", "repo-klon", "patch-format", "katalog-titel", "katalog-doppelt",
+      "schwelle-min", "teile-zu-wenig", "teile-mindestens", "geraet-selbst", "nachfolger-selbst", "selbstwerbung", "datei-kaputt",
+    ]);
+    for (const e of fehler) assert.equal(T.fehlerText(e), (e as Error).message, (e as { kennung: string }).kennung);
+
+    setLang("en");
+    assert.deepEqual(fehler.slice(0, 3).map(T.fehlerText), ["Not a valid bunker:// address", "No relay address (wss://) in the bunker:// address", "Repo ID: letters, digits, . _ - (at most 64)"]);
+    assert.equal(T.fehlerText(fehler[8]), "2 shares are not enough for a threshold of 3.");
+    assert.equal(T.fehlerText(new P.ProtokollFehler("signer-ablehnung", "", { grund: "denied" })), "The signer refuses: denied");
+    assert.doesNotMatch(fehler.map(T.fehlerText).join(" "), /[äöüÄÖÜß]/, "kein deutscher Buchstabe");
   } finally {
     setLang(vorher);
   }

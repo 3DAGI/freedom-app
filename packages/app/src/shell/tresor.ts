@@ -26,6 +26,7 @@ import {
   vaultExists,
 } from "../vault.js";
 import { t } from "../i18n.js";
+import { fehlerText } from "../protokoll-texte.js";
 import { escapeHtml } from "../shell-logic.js";
 import { LS_BUNKER, LS_KEY, LS_MERKPHRASE } from "./state.js";
 import { $, toast } from "./ui.js";
@@ -57,7 +58,7 @@ export const geheim: GeheimSpeicher = geheimSpeicher(() => tresor, tresorEingeri
  * tabs/kommunikation.ts, swap-client.ts, sol-wallet.ts, suche-ui.ts,
  * nachfolge.ts, mls-speicher.ts, anteile-kasse.ts und zahlkanal.ts.
  */
-const GEHEIM_FEST = [LS_KEY, LS_BUNKER, LS_MERKPHRASE, "freedom.nwc.uri", "freedom.chats", "freedom.agentHistory", "freedom.swapHistory", "freedom.suche.schluessel", "freedom.nachfolge", "freedom.reklamationen", "freedom.coverage.eintrag", "freedom.mls.schluessel", "freedom.raeume.privat", "freedom.raeume.meldungen.erledigt", "freedom.anteile", "freedom.mandate", "freedom.kanaele"];
+const GEHEIM_FEST = [LS_KEY, LS_BUNKER, LS_MERKPHRASE, "freedom.nwc.uri", "freedom.chats", "freedom.agentHistory", "freedom.swapHistory", "freedom.suche.schluessel", "freedom.nachfolge", "freedom.reklamationen", "freedom.coverage.eintrag", "freedom.mls.schluessel", "freedom.raeume.privat", "freedom.raeume.meldungen.erledigt", "freedom.anteile", "freedom.mandate", "freedom.kanaele", "freedom.funk.gateway"];
 const GEHEIM_PRAEFIXE = ["freedom.swap.", "freedom.htlc.", "freedom.solWallet", "freedom.pending."];
 
 function geheimnisse(): string[] {
@@ -181,7 +182,7 @@ export function richteTresorEin(grund = ""): Promise<boolean> {
         toast(t("ein.tresorEingerichtet"));
         resolve(true);
       } catch (e) {
-        melde(box, t("ein.nichtEingerichtet", { fehler: (e as Error).message }));
+        melde(box, t("ein.nichtEingerichtet", { fehler: fehlerText(e) }));
       }
     });
   });
@@ -229,7 +230,7 @@ function entsperrDialog(): Promise<void> {
       } catch (e) {
         melde(box, e instanceof FalschePassphrase
           ? t("ein.passFalsch")
-          : t("ein.entsperrFehler", { fehler: (e as Error).message }));
+          : t("ein.entsperrFehler", { fehler: fehlerText(e) }));
       }
     });
   });
@@ -262,7 +263,7 @@ function neuBeginnen(): Promise<void> {
       try {
         id = importIdentity(feld(box, "tr-phrase"));
       } catch (e) {
-        melde(box, (e as Error).message);
+        melde(box, fehlerText(e));
         return;
       }
       const pass = neuePassphrase(box);
@@ -285,7 +286,7 @@ function neuBeginnen(): Promise<void> {
         toast(t("ein.tresorNeu"));
         resolve();
       } catch (e) {
-        melde(box, t("ein.nichtEingerichtet", { fehler: (e as Error).message }));
+        melde(box, t("ein.nichtEingerichtet", { fehler: fehlerText(e) }));
       }
     });
   });

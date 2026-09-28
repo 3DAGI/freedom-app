@@ -157,7 +157,7 @@ Playwright nachgeprüft (Sichtbarkeit und Maße der Elemente).
 | B14 | mittel | Anordnung: Repos und Modelle unter „Agent“; Mesh unter „Settings“, Zahlen ohne Netz unter „Währung“, Post als Datei in der Liste der Direktnachrichten; Karte unter „Earn“; Mitwirkende unter „Earn › Werben“; Vertrauensstufe des Providers im Profil; Gebühren und Standard-Schiene in den Settings; der Reiter „Liquidität“ enthält das Hinterlegen beim Provider und seit 4.3d2 den Zahlkanal, keine Liquidität. | – | C.1b, C.6 |
 | B15 | klein | Mobil wird „Kommunikation“ in der unteren Leiste zu „KOMMUN…“ gekürzt. | – | C.1a |
 | B16 | klein | Nach jeder KI-Antwort verdrahtet `handleAnswer()` Knöpfe erneut (`agent.ts:877–894`, wie schon `app.ts:826–848`) – harmlos, aber überflüssig. | Datei der Spur A | später (nach 4.3d) |
-| B17 | klein | Rauminfo und der Titel der Vertraulichkeit zeigen den deutschen Satz aus `privacyInfo()` auch in der englischen Oberfläche (`kommunikation.ts:228`, `:641`). | gehört zu 8.16g2b2 (Spur B, übrige Sätze des Protokolls) | C.2b nutzt deren Text |
+| B17 | klein | Rauminfo und der Titel der Vertraulichkeit zeigen den deutschen Satz aus `privacyInfo()` auch in der englischen Oberfläche (`kommunikation.ts:228`, `:641`). | 8.16g2b2 (Spur B) hat den Satz nicht übernommen | C.2b2 |
 
 ---
 
@@ -422,7 +422,7 @@ Pull Request. Dateien der Spur A (`waehrung.ts`, `agent.ts`, `ki-zahlung.ts`,
 | **C.1b** | Seiten umziehen, **reines Verschieben**: neue Seiten „Repos“ (Repo-Karten aus Agent, Mitwirkende aus Earn) und „Netz“ (Karte aus Earn, Mesh aus Settings); Vertrauensstufe zu „Verdienen“; Aufrufe in `switchTab()` mitziehen | `index.html`, `app.ts` (Sammelstelle, klein), Smoke-Selektoren (~250) | B14 (teilweise) | C.1a |
 | **C.2a** | **reines Verschieben** des Raum-Teils aus `kommunikation.ts` (`:34–648`) nach `tabs/raeume.ts`, wörtlich | ~600 verschoben, ~100 neu | – | C.1a; Größe freigegeben (E7) |
 | **C.2b1** | `dialog.ts`; Dialoge statt `prompt()`/`confirm()`/`alert()` für Einladen, Moderatoren, Moderieren, Melden, Anlegen, Beitreten, Rauminfo; Smoke: Dialog per Tastatur | `dialog.ts`, `raeume.ts`, `app.css`, `texte/dialog.ts`, `texte/raeume.ts`, Tests (~400 mit Tests) | B7 | C.2a |
-| **C.2b2** | Verlauf gruppiert mit Namen (`kontaktName()`), Menü an Nachrichten (Zeigen und Fokus), Raum-Menü ▾ | `raeume.ts`, `app.css`, `index.html`, Tests (~300) | B9 | C.2b1 |
+| **C.2b2** | Verlauf gruppiert mit Namen (`kontaktName()`), Menü an Nachrichten (Zeigen und Fokus), Raum-Menü ▾; Rauminfo in der Sprache der Oberfläche (`privacyInfo()` in `protokoll-texte.ts` neu gebildet, Wortgleich-Test) | `raeume.ts`, `app.css`, `index.html`, `protokoll-texte.ts` (klein, Spur B), Tests (~300) | B9, B17 | C.2b1 |
 | **C.2c** | Antworten und Threads: Zeile „Antwort an …“, Thread-Spalte bzw. Unterseite, `sendePrivat()` mit `replyTo`/`threadRoot`, offen über `buildChannelMessage()`; Test: Antwort kommt in privaten und offenen Räumen mit Verweis an | `raeume.ts`, `raum-mls.ts`, Tests (~300) | B8 | C.2b |
 | **C.2d** | Mitglieder mit Rollen und Menü, Meldungen auch mobil, Kanal anlegen, mobile Ebenen (Kanal → Mitglieder, Thread) | `raeume.ts`, `app.css`, Tests (~350) | B3 | C.2c |
 | **C.3a** | Repo-Liste und Repo-Seite: 30617 + 38042 verbunden, Klonen, Bundle hoch- und herunterladen, Einstellungen des Eigentümers, Mitwirkende; Texte über Schlüssel | `repo-seite.ts`, `repos.ts`, `agent-netz.ts:266`, `app.ts:748` (zieht um), `texte/repos.ts`, Tests (~400) | B10, B11 | C.1b |
@@ -488,8 +488,9 @@ in `raeume.ts`; Namen, Gruppierung und Menüs folgen mit C.2b2.
   ausblenden oder sperren samt Begründung in einem Dialog. Melden: die sieben
   Gründe des Protokolls als Wahl mit Text (gesendet wird die Kennung). Anlegen:
   Hinweis und Name in einem Dialog; die Kennung eines offenen Raums zum
-  Kopieren. Rauminfo: `privacyInfo()` im Dialog – Deutsch, bis 8.16g2b2 (Spur
-  B) die Sätze übersetzt (B17).
+  Kopieren. Rauminfo: `privacyInfo()` im Dialog – noch Deutsch: 8.16g2b2
+  (Spur B) hat diesen Satz nicht übernommen, C.2b2 bildet ihn in der App neu
+  (B17).
 - Neue Texte unter `dlg.*` (`texte/dialog.ts`) und `raum.*` (`texte/raeume.ts`);
   vorhandene Schlüssel dienen als Titel und Beschriftungen. Sieben Schlüssel
   der alten Eingabezeilen fallen weg (Nummernlisten, „Abbrechen = sperren“,
