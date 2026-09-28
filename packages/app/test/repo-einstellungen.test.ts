@@ -103,11 +103,12 @@ test("C.3a2: verdrahtet – Reiter Mitwirkende, Einstellungen nur für den Eigen
   assert.match(seite, /if \(eigentuemer\) leiste\.append\(reiterKnopf\("einstellungen", t\("repo\.einstellungen"\)\)\);/);
   // Speichern: erst prüfen (baueRepoAnkuendigung wirft), dann Rückfrage, dann signieren
   const speichern = seite.slice(seite.indexOf("async function speichereEinstellungen("));
-  const [bau, frage, sig] = ["baueRepoAnkuendigung(ankuendigungAusFeldern(k.id", "await bestaetige(", "await signiere(ev)"].map((x) => speichern.indexOf(x));
+  const [bau, frage, sig, raum] = ["baueRepoAnkuendigung(angaben, state.keypair.pk)", "await bestaetige(", "await signiere(ev)", "await sendeInRaum(k.privatRaum"].map((x) => speichern.indexOf(x));
   assert.ok(bau! > 0 && bau! < frage! && frage! < sig!, "prüfen → fragen → signieren");
+  assert.ok(frage! < raum!, "im privaten Raum (11.4b2) ebenso: erst fragen, dann in die Gruppe");
   assert.match(speichern, /fehler\.textContent = fehlerText\(e\);/);
   // Neue Version mit derselben Kennung; Mitwirkende aus allen Beiträgen (keine Abfrage nach Kennung)
-  assert.match(seite, /void h\.hochladen\(f, k\.id\)/);
+  assert.match(seite, /void h\.hochladen\(f, k\.id, k\.privatRaum\)/);
   assert.match(repos, /query\(\{ kinds: \[KIND_GIT_CONTRIBUTION\], limit: 1000 \}\)/);
   assert.doesNotMatch(repos, /"#r"/, "keine Abfrage, die verrät, welches Repo man ansieht");
   assert.match(repos, /mitwirkende: ladeBeitraege,\n\s+hochladen: ladeBundleHoch,/);

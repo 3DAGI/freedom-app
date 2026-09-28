@@ -104,6 +104,8 @@ export const profil: Texte = {
   "repo.patchAngenommen": { de: "Patch angenommen", en: "Patch accepted" },
   "repo.patchZurueckgezogen": { de: "Patch zurückgezogen", en: "Patch withdrawn" },
   "repo.patchGeschlossen": { de: "Patch geschlossen", en: "Patch closed" },
+  "repo.ankuendigenFrageRaum": { de: "Repo „{id}“ im privaten Raum anlegen?\n\nNur Mitglieder sehen es – verschlüsselt (MLS), auch den Schlüssel der Bundles.", en: "Create repo “{id}” in the private room?\n\nOnly members see it – encrypted (MLS), including the bundle key." },
+  "repo.patchFrageRaum": { de: "Patch „{betreff}“ an {repo} senden?\n\nNur in den privaten Raum – verschlüsselt (MLS), nur Mitglieder lesen ihn.", en: "Send patch “{betreff}” to {repo}?\n\nOnly into the private room – encrypted (MLS), only members read it." },
   "repo.ankuendigenFrage": { de: "Repo „{id}“ ankündigen?\n\nÖffentlich und mit deinem Schlüssel signiert.", en: "Announce repo “{id}”?\n\nPublic and signed with your key." },
   "repo.angekuendigt": { de: "Repo {id} angekündigt", en: "Repo {id} announced" },
 };

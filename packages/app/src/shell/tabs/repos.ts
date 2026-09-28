@@ -12,7 +12,8 @@
 import type { GelesenesRepo, NostrEvent } from "@freedomstack/protocol";
 import { gebietsschema, t } from "../../i18n.js";
 import { fehlerText } from "../../protokoll-texte.js";
-import { type RepoKarte, filtereKarten, raumAuswahl, repoKarten } from "../../repo-ansicht.js";
+import { type RepoKarte, filtereKarten, privateRaumKarten, raumAuswahl, repoKarten } from "../../repo-ansicht.js";
+import { type PrivateRepos, privateRaumRepos, sendeInRaum } from "../raum-repos.js";
 import { bestaetige, dialog } from "../dialog.js";
 import { ensurePool, signiere, state } from "../state.js";
 import { toast } from "../ui.js";
@@ -35,6 +36,9 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, text?: string, klasse
   return e;
 }
 
+/** Repos privater Räume (11.4b2) vom letzten Laden – auch für „Wo“ beim Ankündigen. */
+let privat: PrivateRepos[] = [];
+
 /** Ankündigungen, Bundle-Verweise, Patches und Status laden und zeigen. */
 export async function ladeNip34Repos(): Promise<void> {
   const box = document.getElementById("repos-karten");
@@ -52,7 +56,10 @@ export async function ladeNip34Repos(): Promise<void> {
     // Räume, auf die Repos verweisen (11.4a): ihre Rollen bestimmen, wer mitpflegt
     const { leseRaumAdresse } = await import("@freedomstack/protocol");
     const raumIds = [...new Set(ankuendigungen.flatMap((ev) => ev.tags.filter((x) => x[0] === "a").map((x) => leseRaumAdresse(x[1])?.spaceId ?? "")).filter(Boolean))];
-    karten = repoKarten(ankuendigungen, bundles, patches, status, state.keypair?.pk, await raumStruktur(raumIds));
+    // Repos privater Räume (11.4b2) nur aus dem MLS-Verlauf – eigene Karten, Aktionen nur in die Gruppe
+    privat = await privateRaumRepos().catch(() => []);
+    karten = [...repoKarten(ankuendigungen, bundles, patches, status, state.keypair?.pk, await raumStruktur(raumIds)),
+      ...privat.flatMap((p) => privateRaumKarten(p, state.keypair?.pk))].sort((a, b) => b.zuletzt - a.zuletzt || a.name.localeCompare(b.name));
     beitraege = null;
     zeige();
   } catch {
@@ -111,6 +118,7 @@ function karte(k: RepoKarte): HTMLElement {
   const kopf = el("div", undefined, "repo-karte-kopf");
   kopf.append(el("span", eigentuemerName(k.eigentuemer), "repo-eigentuemer"), el("span", " / ", "muted"), el("span", k.name, "repo-name"));
   if (k.bundle) kopf.append(el("span", t("repo.markeBundle"), "msg-role"));
+  if (k.privatRaum) kopf.append(el("span", t("repo.markePrivat"), "msg-role"));
   b.append(kopf);
   if (k.beschreibung) b.append(el("span", k.beschreibung, "repo-karte-text"));
   const datum = new Date(k.zuletzt * 1000).toLocaleDateString(gebietsschema(), { day: "numeric", month: "short", year: "numeric" });
@@ -139,22 +147,22 @@ function ladeBeitraege(): Promise<NostrEvent[]> {
  * aus der Liste, für eine neue Version von der Repo-Seite. Seit 8.9b
  * verschlüsselt ins Blob-Netz, der Schlüssel steht öffentlich in der Referenz
  * (Entscheidung 26.09.2026): lesen kann jeder, Speicherknoten halten nur Chiffrat.
+ * Im privaten Raum (11.4b2) geht die Referenz samt Schlüssel nur in die Gruppe.
  */
-export async function ladeBundleHoch(datei: File, kennung: string): Promise<boolean> {
+export async function ladeBundleHoch(datei: File, kennung: string, gruppe?: string): Promise<boolean> {
   if (!state.keypair) return false;
   try {
     const bytes = new Uint8Array(await datei.arrayBuffer());
     const { uploadAnhang } = await import("../../blob-client.js");
     const pool = await ensurePool();
-    toast(t("ein.gitPubliziere", { name: datei.name, kb: Math.round(bytes.length / 1024) }));
+    toast(t(gruppe ? "repo.ladeVerschluesseltHoch" : "ein.gitPubliziere", { name: datei.name, kb: Math.round(bytes.length / 1024) }));
     const res = await uploadAnhang(new File([bytes], "", { type: "application/octet-stream" }), pool as never, state.signer!);
-    const { buildGitRepoRef } = await import("@freedomstack/protocol");
-    const ref = buildGitRepoRef(
-      { name: kennung, blobId: res.blobId, headSha: "local", branch: "main", message: `bundle ${datei.name}`, version: Math.floor(Date.now() / 1000), schluessel: res.schluessel }, // kein UI-Text
-      state.keypair.pk,
-    );
-    await pool.publish(await signiere(ref));
-    toast(t("ein.gitPubliziert", { name: kennung, blob: res.blobId.slice(0, 8) }));
+    const { buildGitRepoRef, raumRepoBundle } = await import("@freedomstack/protocol");
+    const angaben = { name: kennung, blobId: res.blobId, headSha: "local", branch: "main", message: `bundle ${datei.name}`, version: Math.floor(Date.now() / 1000), schluessel: res.schluessel }; // kein UI-Text
+    // Privater Raum (11.4b2): der Verweis trägt den Schlüssel – nur in die Gruppe
+    if (gruppe) await sendeInRaum(gruppe, raumRepoBundle(gruppe, angaben));
+    else await pool.publish(await signiere(buildGitRepoRef(angaben, state.keypair.pk)));
+    toast(t(gruppe ? "repo.bundleImRaum" : "ein.gitPubliziert", { name: kennung, blob: res.blobId.slice(0, 8) }));
     await ladeNip34Repos();
     return true;
   } catch (e) {
@@ -163,13 +171,14 @@ export async function ladeBundleHoch(datei: File, kennung: string): Promise<bool
   }
 }
 
-/** Patch senden – nach der Vorschau auf der Repo-Seite (seit C.3b1); öffentlich und signiert. */
-async function sendePatch(r: GelesenesRepo, text: string): Promise<boolean> {
+/** Patch senden – nach der Vorschau auf der Repo-Seite (seit C.3b1); öffentlich und signiert, im privaten Raum nur in die Gruppe (11.4b2). */
+async function sendePatch(r: GelesenesRepo, text: string, gruppe?: string): Promise<boolean> {
   if (!state.keypair) return false;
   try {
-    const { bauePatch, lesePatchText } = await import("@freedomstack/protocol");
+    const { bauePatch, lesePatchText, raumRepoPatch } = await import("@freedomstack/protocol");
     const { betreff } = lesePatchText(text);
-    await (await ensurePool()).publish(await signiere(bauePatch({ repo: r, text }, state.keypair.pk)));
+    if (gruppe) await sendeInRaum(gruppe, raumRepoPatch(gruppe, { repo: r, text }));
+    else await (await ensurePool()).publish(await signiere(bauePatch({ repo: r, text }, state.keypair.pk)));
     toast(t("repo.patchGesendet", { betreff }));
     return true;
   } catch (e) {
@@ -181,23 +190,31 @@ async function sendePatch(r: GelesenesRepo, text: string): Promise<boolean> {
 /** Repo ankündigen: Kennung, Beschreibung und Klon-Adressen (auch ein Radicle-Spiegel rad:…). */
 async function kuendigeAn(): Promise<void> {
   if (!state.keypair) return;
+  // Wo (11.4b2): öffentlich oder in einem privaten Raum, in dem ich Repos pflegen darf
+  const raeume = privat.filter((p) => p.darfPflegen);
   const w = await dialog({
     titel: t("agent.repoAnkuendigen"), ok: t("agent.repoAnkuendigen"),
     felder: [
       { art: "text", name: "id", label: t("agent.repoKennungPh"), pflicht: true, mono: true },
       { art: "textarea", name: "beschreibung", label: t("repo.beschreibung") },
       { art: "text", name: "klon", label: t("agent.klonPh"), mono: true },
+      ...(raeume.length ? [{ art: "wahl" as const, name: "wo", label: t("repo.wo"), optionen: [
+        { wert: "", text: t("repo.woOeffentlich") }, ...raeume.map((p) => ({ wert: p.gruppe, text: p.name || t("repo.privaterRaum") })),
+      ] }] : []),
     ],
   });
   const id = String(w?.id ?? "").trim();
   if (!w || !id) return;
   const klon = String(w.klon ?? "").split(",").map((k) => k.trim()).filter(Boolean);
   const beschreibung = String(w.beschreibung ?? "").trim();
+  const gruppe = raeume.find((p) => p.gruppe === w.wo)?.gruppe;
   try {
-    const { baueRepoAnkuendigung } = await import("@freedomstack/protocol");
-    const ev = baueRepoAnkuendigung({ id, name: id, klon, ...(beschreibung ? { beschreibung } : {}) }, state.keypair.pk);
-    if (!await bestaetige({ titel: t("agent.repoAnkuendigen"), text: t("repo.ankuendigenFrage", { id }), ok: t("agent.repoAnkuendigen") })) return;
-    await (await ensurePool()).publish(await signiere(ev));
+    const { baueRepoAnkuendigung, raumRepoAnkuendigung } = await import("@freedomstack/protocol");
+    const angaben = { id, name: id, klon, ...(beschreibung ? { beschreibung } : {}) };
+    const ev = baueRepoAnkuendigung(angaben, state.keypair.pk);
+    if (!await bestaetige({ titel: t("agent.repoAnkuendigen"), text: t(gruppe ? "repo.ankuendigenFrageRaum" : "repo.ankuendigenFrage", { id }), ok: t("agent.repoAnkuendigen") })) return;
+    if (gruppe) await sendeInRaum(gruppe, raumRepoAnkuendigung(gruppe, angaben));
+    else await (await ensurePool()).publish(await signiere(ev));
     toast(t("repo.angekuendigt", { id }));
     await ladeNip34Repos();
   } catch (e) {

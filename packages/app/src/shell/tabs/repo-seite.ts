@@ -16,6 +16,7 @@ import {
 import { bestaetige, dialog } from "../dialog.js";
 import { ensurePool, signiere, state } from "../state.js";
 import { mitwirkendeListe } from "../mitwirkende.js";
+import { sendeInRaum } from "../raum-repos.js";
 import { toast } from "../ui.js";
 import { codeReiter, commitsReiter, holeBundle } from "./code-reiter.js";
 import { zeigePatch } from "./patch-seite.js";
@@ -51,11 +52,11 @@ export interface RepoSeiteHilfe {
   zurueck: () => void;
   neuLaden: () => Promise<void>;
   /** Patch veröffentlichen (nach der Vorschau); lädt nicht neu – das tut die Seite danach. */
-  patchSenden: (r: GelesenesRepo, text: string) => Promise<boolean>;
+  patchSenden: (r: GelesenesRepo, text: string, gruppe?: string) => Promise<boolean>;
   /** Beiträge (38056) – alle, gefiltert wird lokal: eine Abfrage nach Kennung verriete, welches Repo man ansieht. */
   mitwirkende: () => Promise<NostrEvent[]>;
   /** Bundle verschlüsselt hochladen und die Referenz (38042) mit dieser Kennung veröffentlichen. */
-  hochladen: (datei: File, kennung: string) => Promise<boolean>;
+  hochladen: (datei: File, kennung: string, gruppe?: string) => Promise<boolean>;
   /** Öffentliche Räume, denen ich Repos zuordnen darf (11.4a). */
   raeume: () => Promise<{ adresse: string; name: string }[]>;
 }
@@ -182,7 +183,7 @@ async function ladeBundle(b: HTMLButtonElement, k: RepoKarte): Promise<void> {
 
 function patchReiter(k: RepoKarte, h: RepoSeiteHilfe, neu: () => void): HTMLElement[] {
   const repo = k.repo;
-  if (repo && vorschau?.schluessel === k.schluessel) return vorschauSeite(repo, h, neu);
+  if (repo && vorschau?.schluessel === k.schluessel) return vorschauSeite(repo, h, neu, k.privatRaum);
   const offen = k.zeilen.find((z) => z.patch.id === offenerPatch);
   if (offen) {
     return zeigePatch({
@@ -268,7 +269,7 @@ async function zeigeVorschau(datei: File, k: RepoKarte, neu: () => void): Promis
   }
 }
 
-function vorschauSeite(repo: GelesenesRepo, h: RepoSeiteHilfe, neu: () => void): HTMLElement[] {
+function vorschauSeite(repo: GelesenesRepo, h: RepoSeiteHilfe, neu: () => void, gruppe?: string): HTMLElement[] {
   const v = vorschau!;
   const verwerfen = () => {
     vorschau = null;
@@ -276,13 +277,13 @@ function vorschauSeite(repo: GelesenesRepo, h: RepoSeiteHilfe, neu: () => void):
   };
   const senden = knopf(t("repo.patchSenden"), "mini repo-knopf patch-senden", () => void (async () => {
     senden.disabled = true;
-    if (await h.patchSenden(repo, v.text)) {
+    if (await h.patchSenden(repo, v.text, gruppe)) {
       vorschau = null;
       await h.neuLaden();
     } else senden.disabled = false;
   })());
   return zeigePatch({
-    betreff: v.betreff, commit: v.commit, text: v.text, hinweis: t("repo.patchFrage", { betreff: v.betreff, repo: repo.name }),
+    betreff: v.betreff, commit: v.commit, text: v.text, hinweis: t(gruppe ? "repo.patchFrageRaum" : "repo.patchFrage", { betreff: v.betreff, repo: repo.name }),
     marke: el("span", t("repo.vorschau"), "repo-status status-entwurf"),
     aktionen: [senden, knopf(t("repo.verwerfen"), "ghost mini repo-knopf", verwerfen)],
     zurueck: { text: t("repo.allePatches"), tun: verwerfen },
@@ -299,7 +300,7 @@ async function setzeStatus(k: RepoKarte, patch: GelesenerPatch, aktion: PatchAkt
   const annehmen = aktion === "annehmen";
   const w = await dialog({
     titel: annehmen ? t("repo.annehmenTitel", { betreff: patch.betreff }) : t("repo.aktionTitel", { aktion: t(AKTION_TEXT[aktion]), betreff: patch.betreff }),
-    text: t("repo.statusOeffentlich"), ok: t(AKTION_TEXT[aktion]),
+    text: t(k.privatRaum ? "repo.statusImRaum" : "repo.statusOeffentlich"), ok: t(AKTION_TEXT[aktion]),
     gefahr: aktion === "schliessen" || aktion === "zurueckziehen",
     felder: [
       ...(annehmen ? [{ art: "text" as const, name: "commit", label: t("repo.welcherCommit"), mono: true }] : []),
@@ -311,9 +312,11 @@ async function setzeStatus(k: RepoKarte, patch: GelesenerPatch, aktion: PatchAkt
   const c = String(w.commit ?? "").trim().toLowerCase();
   const notiz = String(w.notiz ?? "").trim();
   try {
-    const { baueStatus } = await import("@freedomstack/protocol");
-    const ev = baueStatus({ patch, status: AKTION_STATUS[aktion], eigentuemer: k.repo.eigentuemer, ...(c ? { commits: [c] } : {}), ...(notiz ? { notiz } : {}) }, state.keypair.pk);
-    await (await ensurePool()).publish(await signiere(ev));
+    const { baueStatus, raumRepoStatus } = await import("@freedomstack/protocol");
+    const angaben = { patch, status: AKTION_STATUS[aktion], eigentuemer: k.repo.eigentuemer, ...(c ? { commits: [c] } : {}), ...(notiz ? { notiz } : {}) };
+    // Privater Raum (11.4b2): nur in die Gruppe
+    if (k.privatRaum) await sendeInRaum(k.privatRaum, raumRepoStatus(k.privatRaum, angaben));
+    else await (await ensurePool()).publish(await signiere(baueStatus(angaben, state.keypair.pk)));
     toast(t(AKTION_MELDUNG[aktion]));
     await h.neuLaden();
   } catch (e) {
@@ -339,6 +342,30 @@ function mitwirkendeReiter(k: RepoKarte, h: RepoSeiteHilfe): HTMLElement[] {
     (e) => { liste.textContent = t("agent.nichtAbrufbar", { fehler: fehlerText(e) }); },
   );
   return [el("p", t("earn.mitwirkendeText"), "mono-sm muted"), el("p", t("repo.mitwirkendeKennung", { id: k.id }), "mono-sm muted"), liste];
+}
+
+/** Öffentlicher Raum (11.4a): nur Räume, in denen ich Repos pflegen darf; ein gesetzter bleibt wählbar. */
+function einstellungRaum(form: HTMLFormElement, r: GelesenesRepo | undefined, h: RepoSeiteHilfe): void {
+  const raum = el("select");
+  raum.id = "repo-feld-raum";
+  raum.name = "raum";
+  const option = (wert: string, text: string) => {
+    const o = el("option", text);
+    o.value = wert;
+    return o;
+  };
+  raum.append(option("", t("repo.keinRaum")), ...(r?.raum ? [option(r.raum, t("repo.bisherigerRaum"))] : []));
+  raum.value = r?.raum ?? "";
+  const raumLabel = el("label", t("repo.feldRaum"));
+  raumLabel.htmlFor = raum.id;
+  form.append(raumLabel, raum, el("p", t("repo.raumHinweis"), "mono-sm muted"));
+  void h.raeume().then((liste) => {
+    for (const x of liste) {
+      const vorhanden = [...raum.options].find((o) => o.value === x.adresse);
+      if (vorhanden) vorhanden.textContent = x.name;
+      else raum.append(option(x.adresse, x.name));
+    }
+  }).catch(() => undefined);
 }
 
 /**
@@ -368,27 +395,7 @@ function einstellungenReiter(k: RepoKarte, h: RepoSeiteHilfe): HTMLElement[] {
   feld("web", t("repo.feldWeb"), (r?.web ?? []).join("\n"), true, true);
   feld("maintainer", t("repo.feldMaintainer"), (r?.maintainer ?? []).join("\n"), true, true);
   feld("ersterCommit", t("repo.feldErsterCommit"), r?.ersterCommit ?? "", false, true);
-  // Öffentlicher Raum (11.4a): nur Räume, in denen ich Repos pflegen darf; ein gesetzter bleibt wählbar
-  const raum = el("select");
-  raum.id = "repo-feld-raum";
-  raum.name = "raum";
-  const option = (wert: string, text: string) => {
-    const o = el("option", text);
-    o.value = wert;
-    return o;
-  };
-  raum.append(option("", t("repo.keinRaum")), ...(r?.raum ? [option(r.raum, t("repo.bisherigerRaum"))] : []));
-  raum.value = r?.raum ?? "";
-  const raumLabel = el("label", t("repo.feldRaum"));
-  raumLabel.htmlFor = raum.id;
-  form.append(raumLabel, raum, el("p", t("repo.raumHinweis"), "mono-sm muted"));
-  void h.raeume().then((liste) => {
-    for (const x of liste) {
-      const vorhanden = [...raum.options].find((o) => o.value === x.adresse);
-      if (vorhanden) vorhanden.textContent = x.name;
-      else raum.append(option(x.adresse, x.name));
-    }
-  }).catch(() => undefined);
+  if (!k.privatRaum) einstellungRaum(form, r, h);
   const fehler = el("p", undefined, "repo-fehler");
   fehler.setAttribute("role", "alert");
   const speichern = el("button", t(r ? "repo.speichern" : "agent.repoAnkuendigen"));
@@ -410,9 +417,9 @@ function einstellungenReiter(k: RepoKarte, h: RepoSeiteHilfe): HTMLElement[] {
     datei.value = "";
     if (!f) return;
     b.disabled = true;
-    void h.hochladen(f, k.id).finally(() => { b.disabled = false; });
+    void h.hochladen(f, k.id, k.privatRaum).finally(() => { b.disabled = false; });
   });
-  hoch.append(el("h3", t("repo.neueVersion")), el("p", t("repo.neueVersionText"), "mono-sm muted"), b, datei);
+  hoch.append(el("h3", t("repo.neueVersion")), el("p", t(k.privatRaum ? "repo.neueVersionTextRaum" : "repo.neueVersionText"), "mono-sm muted"), b, datei);
   return [form, hoch];
 }
 
@@ -421,13 +428,16 @@ async function speichereEinstellungen(k: RepoKarte, form: HTMLFormElement, fehle
   const wert = (name: keyof EinstellungFelder) => (form.elements.namedItem(name) as HTMLInputElement | HTMLTextAreaElement | null)?.value ?? "";
   fehler.textContent = "";
   try {
-    const { baueRepoAnkuendigung } = await import("@freedomstack/protocol");
-    const ev = baueRepoAnkuendigung(ankuendigungAusFeldern(k.id, {
+    const { baueRepoAnkuendigung, raumRepoAnkuendigung } = await import("@freedomstack/protocol");
+    const angaben = ankuendigungAusFeldern(k.id, {
       name: wert("name"), beschreibung: wert("beschreibung"), klon: wert("klon"), web: wert("web"),
       maintainer: wert("maintainer"), ersterCommit: wert("ersterCommit"), raum: wert("raum"),
-    }), state.keypair.pk);
-    if (!await bestaetige({ titel: t("repo.speichern"), text: t("repo.speichernFrage"), ok: t("repo.speichern") })) return;
-    await (await ensurePool()).publish(await signiere(ev));
+    });
+    const ev = baueRepoAnkuendigung(angaben, state.keypair.pk);
+    if (!await bestaetige({ titel: t("repo.speichern"), text: t(k.privatRaum ? "repo.speichernFrageRaum" : "repo.speichernFrage"), ok: t("repo.speichern") })) return;
+    // Privater Raum (11.4b2): nur in die Gruppe
+    if (k.privatRaum) await sendeInRaum(k.privatRaum, raumRepoAnkuendigung(k.privatRaum, angaben));
+    else await (await ensurePool()).publish(await signiere(ev));
     toast(t("repo.angekuendigt", { id: k.id }));
     await h.neuLaden();
   } catch (e) {
