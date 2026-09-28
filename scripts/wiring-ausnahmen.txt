@@ -223,7 +223,3 @@ devices.ts|deviceWarning|deutsche Referenz; die App bildet die Rückfrage seit 8
 release.ts|sharingInstructions|deutsche Referenz; die App bildet den Begleittext seit 8.16g2b2 in protokoll-texte.ts (weitergabeText) nach, ein Test hält ihn wortgleich
 mesh-sync.ts|offlineCapabilities|deutsche Referenz; die App bildet die Liste seit 8.16g2b2 in protokoll-texte.ts (offlineFaehigkeiten) nach, ein Test hält sie gleich
 spaces.ts|privacyInfo|deutsche Referenz; die App bildet die Rauminfo seit C.2b2 in protokoll-texte.ts (kanalVertraulichkeit) nach, ein Test hält sie wortgleich
-qr.ts|qrCode|QR-Baustein (11.1a); die App zeigt Gerätecode und Werbelink als QR ab 11.1b
-qr.ts|qrSvgPfad|QR-Baustein (11.1a); das SVG in der App baut 11.1b
-qr.ts|qrKapazitaet|nur für Tests: Kapazität je Version und Stufe gegen die Referenz
-qr.ts|qrStrafpunkte|nur für Tests: Wahl der Maske nachrechnen

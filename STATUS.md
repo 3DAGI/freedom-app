@@ -10360,3 +10360,60 @@ Endstand: protocol 1096 (+7, 6 übersprungen) · node 260 (6 übersprungen, mit
 Netz) · app 581 · mls 13 · Leak-Tests 62 grün + 1 todo · 0 rot ·
 check-wiring `--streng` Exit 0 (159 ausgenommen, 0 offen) · innerHTML streng
 Exit 0 (67 Ausnahmen) · Website 5 Seiten ok · Smoke-Test bestanden.
+
+## Schritt 11.1b – QR in der App: Gerätecode, Scannen, Werbelink
+
+**Warum:** Wunsch des MENSCHEN (Phase 11): Geräte per QR-Code hinzufügen.
+Bis hier zeigte die App den Gerätecode in einem `prompt()` – abtippen oder
+über die Zwischenablage auf das andere Gerät bringen.
+
+**Was:**
+- `packages/app/src/shell/qr-ui.ts` (neu):
+  - `qrSvg()`: SVG aus `qrCode()`/`qrSvgPfad()` (11.1a), nur über
+    `createElementNS`/`setAttribute`, schwarz auf weiß mit Ruhezone.
+  - `qrKnopf()`: „QR-Code zeigen“ – das Bild erst auf Klick. Mit `geheim`
+    steht die Warnung schon vorher da, das Bild verschwindet nach 60 s
+    (`QR_SICHTBAR_MS`).
+  - `scanKnopf()`: „Mit der Kamera scannen“, nur wenn der Browser QR-Codes
+    erkennt (`BarcodeDetector`); Kamera erst auf Klick, der erste Code landet
+    im Feld, danach ist sie aus – auch beim Stoppen und beim Schließen des
+    Dialogs. Ohne Erkennung: „bitte den Code einfügen“.
+- `shell/dialog.ts` (Spur C, klein): Feld `art: "qr"` und Option `scannen`
+  für Textfelder.
+- Settings › Geräte (`fuegeGeraetHinzu()`): Dialog statt drei `prompt()`
+  und einem `confirm()` – Name, Umfang als Wahl mit den Rechten je Stufe,
+  Warnung mit „Vollmacht ausstellen“, danach „Gerätecode für …“ mit Feld zum
+  Kopieren und QR (geheim). Der Schlüssel wird genullt, bevor der Dialog
+  aufgeht; der Code steht nur im Dialog.
+- „Importieren“ (`importIdentity()`): Dialog statt `prompt()`, mit
+  „Mit der Kamera scannen“.
+- Earn › Werben: Werbelink als QR (nicht geheim).
+- Texte in beiden Sprachen (`qr.*`, `set.umfang*`, `set.geraetCode*`,
+  `ein.importTitel/Ok`, `earn.werbelinkQr`); CSS für QR und Kamerabild.
+- `wiring-ausnahmen.txt`: die vier Ausnahmen aus 11.1a sind weg – der
+  Baustein ist verdrahtet.
+
+**Tests:** `qr-ui.test.ts` (+4): SVG-Werte (Ruhezone, Pfad), QR-Feld ohne
+Wert, Regeln im Quelltext (nur DOM; nichts gespeichert oder exportiert; Bild
+erst nach dem Klick; Warnung vorher; 60 s; Schlüssel genullt vor dem Zeigen;
+jedes QR-Feld mit Gerätecode geheim; Kamera nur im Klick, danach aus,
+Hinweis ohne Erkennung; verdrahtet in Import, Werbelink, Dialog).
+`einrichtung.test.ts` und `geraete-modus.test.ts` prüfen jetzt den Dialog
+statt des `prompt()` – dazu, dass der Schlüssel direkt nach dem Code genullt
+wird.
+Smoke-Test „qr“ (neu):
+- Hauptgerät: „Gerät hinzufügen“ → Warnung → Gerätecode; vor dem Klick kein
+  Bild, aber die Warnung; nach dem Klick das SVG, nach 58 s noch da, nach
+  61 s weg; der Schlüssel steht nicht in local-/sessionStorage; genau eine
+  Vollmacht (38070), signiert von der Person im Code.
+- Ohne Erkennung zeigt „Importieren“ den Hinweis zum Einfügen und keinen
+  Scan-Knopf; Werbelink als QR; die Kamera wurde nie angefragt.
+- Neues Gerät (Kamera- und Erkennungs-Attrappe): beim Öffnen keine Kamera,
+  nach dem Klick genau eine Anfrage, der Code landet im Feld, die Spur ist
+  danach beendet; nach „Importieren“ spricht es für die Person.
+
+Endstand: protocol 1096 (6 übersprungen) · node 260 (6 übersprungen, mit
+Netz) · app 585 (+4) · mls 13 · Leak-Tests 62 grün + 1 todo · 0 rot ·
+check-wiring `--streng` Exit 0 (155 ausgenommen, 4 weniger) · innerHTML
+streng Exit 0 (67 Ausnahmen) · Website 5 Seiten ok · Smoke-Test bestanden
+(mit „qr“).
