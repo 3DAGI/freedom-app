@@ -38,7 +38,7 @@ import { computeEventId, type NostrEvent, type UnsignedEvent } from "./event.js"
 import { giftUnwrapMitSigner, giftWrapMitSigner } from "./gift-wrap.js";
 import type { Signer } from "./signer.js";
 import {
-  type Share, type SuccessionPlan, combineShares, evaluateSuccession, verifyRecovered,
+  type Share, type SuccessionPlan, type SuccessionState, combineShares, evaluateSuccession, verifyRecovered,
 } from "./succession.js";
 
 export const KIND_NACHFOLGE_ANTEIL = 38077;
@@ -156,6 +156,9 @@ export async function oeffneAnteilAnfrage(wrap: NostrEvent, signer: Signer): Pro
   return { von: r.inner.pubkey, besitzer, teilung, anfrageId: computeEventId(r.inner), zeit: r.inner.created_at };
 }
 
+/** Warum ein Anteil (noch) nicht übergeben werden darf (8.16g2b3b) – die App bildet daraus den Text. */
+export type UebergabeFehler = "anderer-besitzer" | "anderer-plan" | "nicht-vertrauter" | "anfragender" | "nicht-freigegeben";
+
 /**
  * Darf ich meinen Anteil an `sammler` uebergeben? Nur, wenn der neueste Plan
  * des Besitzers beide als Vertraute nennt, der Anteil zu ihm passt und der
@@ -163,14 +166,14 @@ export async function oeffneAnteilAnfrage(wrap: NostrEvent, signer: Signer): Pro
  */
 export function darfUebergeben(p: {
   plan: SuccessionPlan; events: NostrEvent[]; anteil: GehaltenerAnteil; ich: string; sammler: string; nowSecs?: number;
-}): { ok: true } | { ok: false; grund: string } {
+}): { ok: true } | { ok: false; grund: string; fall: UebergabeFehler; stand?: SuccessionState } {
   const { plan, anteil } = p;
-  if (anteil.besitzer !== plan.ownerPubkey) return { ok: false, grund: "Anteil gehört zu einem anderen Besitzer" };
-  if (anteil.secretHash !== plan.secretHash) return { ok: false, grund: "Anteil passt nicht zum Plan" };
-  if (!plan.guardians.includes(p.ich)) return { ok: false, grund: "Du bist in diesem Plan nicht (mehr) Vertrauter" };
-  if (p.sammler === p.ich || !plan.guardians.includes(p.sammler)) return { ok: false, grund: "Der Anfragende ist kein Vertrauter dieses Plans" };
+  if (anteil.besitzer !== plan.ownerPubkey) return { ok: false, grund: "Anteil gehört zu einem anderen Besitzer", fall: "anderer-besitzer" };
+  if (anteil.secretHash !== plan.secretHash) return { ok: false, grund: "Anteil passt nicht zum Plan", fall: "anderer-plan" };
+  if (!plan.guardians.includes(p.ich)) return { ok: false, grund: "Du bist in diesem Plan nicht (mehr) Vertrauter", fall: "nicht-vertrauter" };
+  if (p.sammler === p.ich || !plan.guardians.includes(p.sammler)) return { ok: false, grund: "Der Anfragende ist kein Vertrauter dieses Plans", fall: "anfragender" };
   const st = evaluateSuccession(plan, p.events, p.nowSecs);
-  if (st.status !== "freigegeben") return { ok: false, grund: `Noch nicht freigegeben: ${st.message}` };
+  if (st.status !== "freigegeben") return { ok: false, grund: `Noch nicht freigegeben: ${st.message}`, fall: "nicht-freigegeben", stand: st };
   return { ok: true };
 }
 

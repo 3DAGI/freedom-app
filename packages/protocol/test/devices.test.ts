@@ -186,6 +186,7 @@ test("Rueckwirkend gilt nur, was das Geraet je durfte", () => {
   const r = checkDeviceEvent(geraeteEvent(HANDY, NOW - 10 * TAG), "zahlungen", d, grants);
   assert.equal(r.valid, false);
   assert.match(r.reason, /durfte nie/);
+  assert.deepEqual([r.fall, r.recht], ["nie-erlaubt", "zahlungen"], "Kennung und Recht (8.16g2b3b)");
 });
 
 // ------------------------------------------------------- Voreinstellung

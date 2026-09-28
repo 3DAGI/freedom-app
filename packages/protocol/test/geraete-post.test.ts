@@ -65,7 +65,10 @@ test("8.6b: Entzug – vorher gilt (mit Hinweis), danach nicht; ohne Recht keine
   const nach = absenderPerson(d3.pk, T, GERAETE, { nowSecs: T });
   assert.deepEqual([nach.gueltig, nach.person, nach.geraet?.eigentuemer], [false, d3.pk, o.pk], "nicht mehr O – man sieht aber, wessen Geraet es war");
   assert.equal(absenderPerson(d2.pk, T, GERAETE, { nowSecs: T }).gueltig, false, "darf nicht „nachrichten“");
-  assert.deepEqual(absenderPerson(k.pk, T, GERAETE, { nowSecs: T }), { person: k.pk, gueltig: true, grund: "eigener Schlüssel" });
+  // Kennungen (8.16g2b3b): Daraus bildet die App den Hinweis in ihrer Sprache.
+  const ohneRecht = absenderPerson(d2.pk, T, GERAETE, { nowSecs: T });
+  assert.deepEqual([vorher.fall, nach.fall, ohneRecht.fall, ohneRecht.recht], ["vor-entzug", "entzogen", "nicht-erlaubt", "nachrichten"]);
+  assert.deepEqual(absenderPerson(k.pk, T, GERAETE, { nowSecs: T }), { person: k.pk, gueltig: true, grund: "eigener Schlüssel", fall: "eigener-schluessel" });
 });
 
 test("8.6b: Fremde Vollmacht fuer ein fremdes Geraet – der Kontakt gewinnt, ohne Kontakt keiner", () => {

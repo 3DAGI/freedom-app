@@ -98,7 +98,7 @@ export const SYNC_POLICY: ClassPolicy[] = [
     cls: "community", label: "Räume", priority: 3,
     kinds: [42, 34700, 34701, 34702, 34550, 34551, 34552],
     links: [],
-    note: "Räume sind noch nicht verschlüsselt (2.3) – bis dahin nicht über Mesh.",
+    note: "Öffentliche Räume tragen den Schlüssel des Autors, private (MLS) gehen (noch) nicht über Mesh – nur Umschläge.",
   },
   {
     cls: "verzeichnis", label: "Verzeichnis", priority: 4,

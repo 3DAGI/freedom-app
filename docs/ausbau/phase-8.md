@@ -117,12 +117,16 @@ Reihenfolge.
       auf der Kette (`pruefeSolUeberweisung`), RPC-Stichprobe
       (`StichprobeErgebnis.befunde`/`luecken`). `claimAllowed` war schon
       übersetzt (App-Code).
-    - **8.16g2b3b:** Mesh und Vertrauen – `planSync().note` samt
-      übersprungener Gründe, `meshFeasibility().note`, `SYNC_POLICY`-Notizen
-      (dort steht noch „Räume sind noch nicht verschlüsselt (2.3)“),
-      `darfUebergeben`, `absenderPerson`, `disputeWindowOpen` und
-      `resolveDispute().message`, `isPlausibleRelayUrl`,
-      Moderationsgrund-Vorgabe („ausgeblendet“).
+    - **8.16g2b3b – FERTIG:** Mesh und Vertrauen. Kennung `fall` für
+      Relay-Adressen (`isPlausibleRelayUrl`), Geräteprüfung
+      (`checkDeviceEvent`, `absenderPerson`, samt Recht), Übergabe in der
+      Nachfolge (`darfUebergeben`, samt Stand) und Funk (`meshFeasibility`);
+      Abgleich (`planSync().note`) und Reklamationsfrist
+      (`disputeWindowOpen`) bildet die App aus den Feldern; ausgeblendet ohne
+      Grund heißt „ohne Grund“. `SYNC_POLICY` sagt zu Räumen jetzt die
+      Wahrheit (private verschlüsselt, aber nicht über Mesh). Übersprungene
+      Gründe von `planSync()` und `resolveDispute().message` zeigt die App
+      nicht – sie bleiben deutsch im Protokoll.
     - Danach offen: Fehlermeldungen, die das Protokoll wirft und die App über
       `(e as Error).message` zeigt (z. B. „Kein Solana-Endpunkt erreichbar“);
       Gründe, die ein Relayer selbst schickt, bleiben dessen Text.

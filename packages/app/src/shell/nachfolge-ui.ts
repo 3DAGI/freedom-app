@@ -17,7 +17,7 @@ import { type NachfolgeStand, type VertrautenZeile, leseStand, neuestePlaene, ni
 import { ensurePool, signiere, state } from "./state.js";
 import { geheim, tresorEingerichtet } from "./tresor.js";
 import { toast } from "./ui.js";
-import { nachfolgeStand } from "../protokoll-texte.js";
+import { nachfolgeStand, uebergabeGrund } from "../protokoll-texte.js";
 
 /** Ohne Tresor nur im Speicher – ein Anteil gehoert nie im Klartext in localStorage. */
 let imSpeicher: NachfolgeStand | undefined;
@@ -128,7 +128,7 @@ function zeile(z: VertrautenZeile): HTMLElement {
   for (const { anfrage, darf } of z.anfragen) {
     const r = el("div", t("ein.bittetUmAnteil", { wer: pkShort(anfrage.von) }), "mono-sm");
     if (darf.ok) r.append(knopf(t("ein.uebergeben"), () => void uebergib(z, anfrage)));
-    else r.append(el("span", darf.grund, "muted"));
+    else r.append(el("span", uebergabeGrund(darf, z.plan), "muted"));
     block.append(r);
   }
   return block;

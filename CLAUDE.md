@@ -44,9 +44,9 @@ bash packages/mls/bauen.sh --pruefen                     # nur bei Änderungen a
 bash contracts/solana-channel/pruefen.sh --werkzeuge     # nur bei Änderungen am Zahlkanal: bauen + Tests gegen Validator (Agave 3.1.10)
 ```
 
-Stand 28.09.2026 (nach 4.3d2, C.2a und 8.16g2b3a): protocol 1067 grün (6 übersprungen), node 235 grün
+Stand 28.09.2026 (nach 4.3d2, C.2a und 8.16g2b3b): protocol 1068 grün (6 übersprungen), node 235 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 507 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 58 grün + 1 `todo` (heutige Lecks,
+in `tools.test.ts`), app 508 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 58 grün + 1 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
 Ausnahme: gesendete SOL-Zahlungen von frischen Adressen, eine bewusste Grenze
 nach Entscheidung 4.9 A – im Datenschutzbericht unter „Bewusste Grenzen“).

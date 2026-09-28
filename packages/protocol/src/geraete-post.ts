@@ -19,7 +19,7 @@
  * bis dahin versiegeln Absender weiter an das entzogene Geraet.
  */
 import type { NostrEvent } from "./event.js";
-import { KIND_DEVICE_GRANT, checkDeviceEvent, listDevices, parseDeviceGrant, type DeviceGrant } from "./devices.js";
+import { KIND_DEVICE_GRANT, checkDeviceEvent, listDevices, parseDeviceGrant, type DeviceGrant, type DevicePermission, type GeraetePruefFall } from "./devices.js";
 
 const HEX64 = /^[0-9a-f]{64}$/;
 
@@ -49,6 +49,9 @@ export interface AbsenderZuordnung {
   geraet?: { pk: string; label: string; eigentuemer: string; entzogen: boolean };
   gueltig: boolean;
   grund: string;
+  /** `grund` als Kennung (8.16g2b3b); `recht` wie bei `checkDeviceEvent()`. */
+  fall?: GeraetePruefFall | "eigener-schluessel" | "uneindeutig";
+  recht?: DevicePermission;
 }
 
 /**
@@ -74,17 +77,18 @@ export function absenderPerson(
       if (g.devicePubkey === absender && (!alt || g.createdAt > alt.createdAt)) vollmachten.set(g.ownerPubkey, g);
     } catch { /* unvollstaendige Vollmacht */ }
   }
-  if (vollmachten.size === 0) return { person: absender, gueltig: true, grund: "eigener Schlüssel" };
+  if (vollmachten.size === 0) return { person: absender, gueltig: true, grund: "eigener Schlüssel", fall: "eigener-schluessel" };
   let eigentuemer = [...vollmachten.keys()];
   if (eigentuemer.length > 1 && opts.bevorzugt) eigentuemer = eigentuemer.filter(opts.bevorzugt);
-  if (eigentuemer.length !== 1) return { person: absender, gueltig: false, grund: "Gerät nicht eindeutig einer Person zugeordnet" };
+  if (eigentuemer.length !== 1) return { person: absender, gueltig: false, grund: "Gerät nicht eindeutig einer Person zugeordnet", fall: "uneindeutig" };
   const person = eigentuemer[0]!;
   const g = vollmachten.get(person)!;
   const geraete = listDevices(person, [...geraeteEvents], { nowSecs: opts.nowSecs });
   const entzogen = geraete.some((d) => d.devicePubkey === absender && d.status === "entzogen");
   const geraet = { pk: absender, label: g.label, eigentuemer: person, entzogen };
   const pruefung = checkDeviceEvent({ pubkey: absender, created_at: zeit } as NostrEvent, "nachrichten", geraete, new Map([[absender, g]]));
+  const kennung = { ...(pruefung.fall ? { fall: pruefung.fall } : {}), ...(pruefung.recht ? { recht: pruefung.recht } : {}) };
   return pruefung.valid
-    ? { person, geraet, gueltig: true, grund: pruefung.reason }
-    : { person: absender, geraet, gueltig: false, grund: pruefung.reason };
+    ? { person, geraet, gueltig: true, grund: pruefung.reason, ...kennung }
+    : { person: absender, geraet, gueltig: false, grund: pruefung.reason, ...kennung };
 }

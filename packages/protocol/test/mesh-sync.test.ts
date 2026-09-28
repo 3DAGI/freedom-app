@@ -93,7 +93,9 @@ test("Nur Umschlaege gehen ueber Mesh – Profile und alte DMs nicht (7.1)", () 
     assert.deepEqual(plan.send.map((e) => e.id), [u.id], link);
     assert.match(plan.skipped.find((s) => s.cls === "verzeichnis")!.reason, /Schlüssel des Autors/);
     assert.match(plan.skipped.find((s) => s.cls === "altnachricht")!.reason, /Absender und Empfänger offen/);
-    assert.match(plan.skipped.find((s) => s.cls === "community")!.reason, /noch nicht verschlüsselt \(2\.3\)/);
+    // Seit 2.3 sind private Räume verschlüsselt (MLS) – gehen aber (noch) nicht über Mesh (8.16g2b3b)
+    assert.match(plan.skipped.find((s) => s.cls === "community")!.reason, /private \(MLS\) gehen \(noch\) nicht über Mesh/);
+    assert.doesNotMatch(plan.skipped.find((s) => s.cls === "community")!.reason, /noch nicht verschlüsselt/);
   }
 });
 

@@ -75,10 +75,16 @@ test("Kein Rahmen ueberschreitet die Funk-Grenze", async () => {
 
 test("Zu grosse Nachrichten werden vorher abgelehnt", () => {
   const n = node();
-  assert.throws(
-    () => n.enqueue(umschlag(60_000), MeshKind.NostrEvent, MeshPriority.Nachricht, "riesig"),
-    /zu viel für Funk/,
-  );
+  setLang("de"); // Grund wörtlich auf Deutsch (seit 8.16g2b3b in der Sprache der Oberfläche)
+  try {
+    assert.throws(
+      () => n.enqueue(umschlag(60_000), MeshKind.NostrEvent, MeshPriority.Nachricht, "riesig"),
+      /zu viel für Funk/,
+    );
+  } finally {
+    setLang("en");
+  }
+  assert.throws(() => n.enqueue(umschlag(60_000), MeshKind.NostrEvent, MeshPriority.Nachricht, "riesig"), /bytes are too much for radio/);
 });
 
 test("Dauer wird ehrlich geschaetzt, nicht als Balken versteckt", () => {

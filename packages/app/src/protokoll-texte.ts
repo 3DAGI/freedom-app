@@ -9,7 +9,8 @@
  * Nachfolge, Sicherung, Schlüsselwechsel, Geräte, Echtheit, Weitergabe,
  * ohne Internet, Tor-Reihenfolge; seit 8.16g2b3a die Gründe aus Prüfungen:
  * Fristen, Relay-Aufträge, Offline-Überweisungen, Mesh-Inhalt, Überweisungen
- * auf der Kette, RPC-Stichprobe). Die App bildet sie aus den Feldern neu; die deutsche
+ * auf der Kette, RPC-Stichprobe; seit 8.16g2b3b Relay-Adressen, Geräte,
+ * Übergabe in der Nachfolge, Funk und Abgleich, Reklamationsfrist). Die App bildet sie aus den Feldern neu; die deutsche
  * Fassung ist wortgleich mit der des Protokolls (`app/test/i18n.test.ts` prüft
  * das), damit jeder Client dieselbe Warnung zeigt.
  */
@@ -19,6 +20,7 @@ import {
   type ProfileMetadata, type QuestId, type QuestProgress, type RepoOverview, type RestoreResult, type SuccessionState, type TorSortResult, type VerifyResult,
   type MeshFehler, type OfflineFehler, type RelayFehler, type SolFehler, type SolPruefung, type SolanaTxFehler,
   type StichprobeBefund, type StichprobeFehler, type StichprobeLuecke, type TimelockCheck,
+  MAX_PAYLOAD_PER_FRAME, type AbsenderZuordnung, type RelayUrlFehler, type SyncPlan, type UebergabeFehler,
 } from "@freedomstack/protocol";
 import { t } from "./i18n.js";
 
@@ -383,3 +385,71 @@ export function stichprobeLuecke(l: StichprobeLuecke): string {
     case "kontostand": return t("pg.pbKontostandOffen", { fehler: probeFehler(l.fehler) });
   }
 }
+
+// ------------------------------------------------------------ Mesh und Vertrauen (8.16g2b3b)
+
+const URL_GRUND: Record<RelayUrlFehler, string> = {
+  ungueltig: "pg.urlUngueltig",
+  schema: "pg.urlSchema",
+  zugangsdaten: "pg.urlZugangsdaten",
+  lokal: "pg.urlLokal",
+  privat: "pg.urlPrivat",
+  ipv6: "pg.urlIpv6",
+  "zu-lang": "pg.urlZuLang",
+};
+
+/** Warum eine Relay-Adresse nicht taugt – wie `isPlausibleRelayUrl().reason`. */
+export function relayUrlGrund(r: { reason: string; fall?: RelayUrlFehler; schema?: string; host?: string }): string {
+  return r.fall ? t(URL_GRUND[r.fall], { schema: r.schema ?? "", host: r.host ?? "" }) : r.reason;
+}
+
+const GERAET_GRUND: Record<NonNullable<AbsenderZuordnung["fall"]>, string> = {
+  "kein-geraet": "pg.gerKein",
+  "vor-entzug": "pg.gerVorEntzug",
+  "nie-erlaubt": "pg.gerNieErlaubt",
+  entzogen: "pg.gerEntzogen",
+  abgelaufen: "pg.gerAbgelaufen",
+  "nicht-erlaubt": "pg.gerNichtErlaubt",
+  gueltig: "pg.gerGueltig",
+  "eigener-schluessel": "pg.gerEigener",
+  uneindeutig: "pg.gerUneindeutig",
+};
+
+/** Grund der Zuordnung eines Absenders – wie `absenderPerson().grund` bzw. `checkDeviceEvent().reason`. */
+export function geraetGrund(z: Pick<AbsenderZuordnung, "grund" | "fall" | "recht">): string {
+  return z.fall ? t(GERAET_GRUND[z.fall], { recht: z.recht ? rechtName(z.recht) : "" }) : z.grund;
+}
+
+const UEBERGABE: Record<Exclude<UebergabeFehler, "nicht-freigegeben">, string> = {
+  "anderer-besitzer": "pg.nfAndererBesitzer",
+  "anderer-plan": "pg.nfAndererPlan",
+  "nicht-vertrauter": "pg.nfNichtVertrauter",
+  anfragender: "pg.nfAnfragender",
+};
+
+/** Warum ein Anteil (noch) nicht übergeben wird – wie `darfUebergeben().grund`. */
+export function uebergabeGrund(
+  r: { grund: string; fall?: UebergabeFehler; stand?: SuccessionState },
+  plan: { inactivityDays: number; threshold: number } | null,
+): string {
+  if (r.fall === "nicht-freigegeben") return r.stand && plan ? t("pg.nfNichtFreigegeben", { stand: nachfolgeStand(r.stand, plan) }) : r.grund;
+  return r.fall ? t(UEBERGABE[r.fall]) : r.grund;
+}
+
+/** Was Funk mit dieser Nutzlast kann – wie `meshFeasibility().note`. */
+export function funkText(m: { fall: "zu-gross" | "lang" | "ok"; frames: number; seconds: number }, payloadBytes: number): string {
+  if (m.fall === "zu-gross") return t("pg.funkZuGross", { bytes: payloadBytes, grenze: 255 * MAX_PAYLOAD_PER_FRAME });
+  if (m.fall === "lang") return t("pg.funkLang", { min: Math.round(m.seconds / 60) });
+  return t("pg.funkOk", { frames: m.frames, s: m.seconds });
+}
+
+/** Ergebnis des Abgleichs – wie `planSync().note` (`fehlerquote` aus `falsePositiveRate()`). */
+export function syncNotiz(plan: Pick<SyncPlan, "send" | "totalBytes" | "estimatedSeconds">, link: Link, fehlerquote: number): string {
+  if (plan.send.length === 0) return t("pg.syncNichts");
+  const satz = t("pg.syncPlan", { n: plan.send.length, bytes: plan.totalBytes, s: plan.estimatedSeconds, weg: wegName(link) });
+  return fehlerquote > 0.05 ? `${satz} ${t("pg.syncUngenau", { prozent: Math.round(fehlerquote * 100) })}` : satz;
+}
+
+/** Bleibt Zeit zu reklamieren? – wie `disputeWindowOpen().message`. */
+export const reklamationsFrist = (w: { open: boolean; remainingSecs: number }): string =>
+  w.open ? t("pg.reklNoch", { min: Math.ceil(w.remainingSecs / 60) }) : t("pg.reklAbgelaufen");

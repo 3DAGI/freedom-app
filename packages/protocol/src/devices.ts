@@ -228,11 +228,17 @@ export function listDevices(
   });
 }
 
+/** Ergebnis der Prüfung als Kennung (8.16g2b3b) – die App bildet daraus den Text in ihrer Sprache. */
+export type GeraetePruefFall = "kein-geraet" | "vor-entzug" | "nie-erlaubt" | "entzogen" | "abgelaufen" | "nicht-erlaubt" | "gueltig";
+
 export interface DeviceCheck {
   valid: boolean;
   /** Die Identität, in deren Namen gehandelt wird. */
   actingFor?: string;
   reason: string;
+  fall?: GeraetePruefFall;
+  /** Das verlangte Recht – bei "nie-erlaubt" und "nicht-erlaubt". */
+  recht?: DevicePermission;
 }
 
 /**
@@ -249,7 +255,7 @@ export function checkDeviceEvent(
 ): DeviceCheck {
   const d = devices.find((x) => x.devicePubkey === ev.pubkey);
   if (!d) {
-    return { valid: false, reason: "Kein bevollmächtigtes Gerät." };
+    return { valid: false, reason: "Kein bevollmächtigtes Gerät.", fall: "kein-geraet" };
   }
 
   if (d.status === "entzogen") {
@@ -258,22 +264,24 @@ export function checkDeviceEvent(
     if (d.revokedAt !== undefined && ev.created_at < d.revokedAt) {
       const durfte = g?.permissions.includes(needed) ?? true;
       return durfte
-        ? { valid: true, actingFor: g?.ownerPubkey, reason: "Vor dem Entzug entstanden." }
-        : { valid: false, reason: `Das Gerät durfte nie „${PERMISSION_LABEL[needed]}“.` };
+        ? { valid: true, actingFor: g?.ownerPubkey, reason: "Vor dem Entzug entstanden.", fall: "vor-entzug" }
+        : { valid: false, reason: `Das Gerät durfte nie „${PERMISSION_LABEL[needed]}“.`, fall: "nie-erlaubt", recht: needed };
     }
-    return { valid: false, reason: "Vollmacht entzogen." };
+    return { valid: false, reason: "Vollmacht entzogen.", fall: "entzogen" };
   }
 
   if (d.status === "abgelaufen") {
-    return { valid: false, reason: "Vollmacht abgelaufen." };
+    return { valid: false, reason: "Vollmacht abgelaufen.", fall: "abgelaufen" };
   }
   if (!d.permissions.has(needed)) {
     return {
       valid: false,
       reason: `Dieses Gerät darf nicht „${PERMISSION_LABEL[needed]}“.`,
+      fall: "nicht-erlaubt",
+      recht: needed,
     };
   }
-  return { valid: true, reason: "Gültige Vollmacht." };
+  return { valid: true, reason: "Gültige Vollmacht.", fall: "gueltig" };
 }
 
 /** Voreinstellung für ein neues Gerät. */
