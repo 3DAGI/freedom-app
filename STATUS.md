@@ -10592,3 +10592,7 @@ Nach dem Einmergen von `main` (8.2b): protocol 1089 · node 254 + 7
 Nach dem Einmergen von `main` (8.2c): protocol 1089 · node 259 + 7
 übersprungen (ohne Netz; mit Netz 260 + 6) · app 567 · mls 13 · Leak-Tests 62
 + 1 todo · 0 rot; alle Prüfungen erneut grün.
+
+Nach dem Einmergen von `main` (bis #180: 11.1a, C.3c1, C.3c2 u. a.): protocol
+1096 · node 259 + 7 übersprungen (ohne Netz; mit Netz 260 + 6) · app 593 · mls
+13 · Leak-Tests 62 + 1 todo · 0 rot; alle Prüfungen erneut grün.
