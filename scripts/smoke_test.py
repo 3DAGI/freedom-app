@@ -26,6 +26,12 @@ Prueft im Headless-Chromium:
   - MLS-Engine (Schritt 2.2b-b): eingebettet, beim Start nicht geladen (kein
     WebAssembly uebersetzt); der Selbsttest in den Settings laedt sie unter der
     echten CSP ('wasm-unsafe-eval') ohne Netz und besteht; kein 'unsafe-eval'
+  - Rahmen (Schritt C.1a): Desktop – Leiste links, die Seite neben ihr auch mit
+    sichtbarer Onboarding-Leiste (vorher Breite 0), Adresse nur mit Seitennamen,
+    Zurück; Mobil – unten Agent, Chat, Waehrung, Mehr; Verlauf und Modelle des
+    Agenten erreichbar; unter „Mehr“ Repos, Verdienen, Netz, Profil, Settings,
+    Sprache und der Relay-Stand „im Pool“; seit C.1b Repos und Netz als Seiten
+    mit ihren Inhalten (Repositories, Mitwirkende, Abdeckung, Mesh)
 
 Verbindungsfehler zu Relays werden ignoriert (hängen vom Netz ab).
 
@@ -373,6 +379,94 @@ def mls_pruefen(browser, url: str) -> dict:
     return erg
 
 
+SICHTBAR = """(sel) => { const e = document.querySelector(sel); if (!e) return false;
+  const r = e.getBoundingClientRect(); const cs = getComputedStyle(e);
+  return cs.display !== 'none' && cs.visibility !== 'hidden' && r.width > 0 && r.height > 0 && r.right > 0 && r.left < innerWidth; }"""
+
+
+def rahmen_pruefen(browser, url: str) -> dict:
+    """Rahmen (C.1a): jede Seite erreichbar, Desktop und Mobil, ab dem ersten Start."""
+    erg = {"fehler": []}
+    basis = url.rsplit("/", 1)[0]
+    for groesse, vp in [("desktop", {"width": 1280, "height": 800}), ("mobil", {"width": 390, "height": 844})]:
+        ctx = browser.new_context(locale="de-DE", viewport=vp, is_mobile=groesse == "mobil", has_touch=groesse == "mobil")
+        ctx.route("**/*", lambda r: r.continue_() if r.request.url.startswith(basis) else r.abort())
+        s = ctx.new_page()
+        s.on("pageerror", lambda e: erg["fehler"].append(str(e)[:300]))
+        ev = s.evaluate
+        sichtbar = lambda sel: ev(SICHTBAR, sel)
+        klick = lambda sel: (ev("(sel) => document.querySelector(sel).click()", sel), s.wait_for_timeout(300))
+        s.goto(url, wait_until="load")
+        s.wait_for_selector("#bk-done", timeout=30000)
+        w = ev("() => [...document.querySelectorAll('.mnemonic-list li')].map(l => l.textContent)")
+        ev("(w) => document.querySelectorAll('#bk-challenge input').forEach(i => i.value = w[+i.dataset.pos])", w)
+        ev("() => document.getElementById('bk-done').click()")
+        s.wait_for_timeout(1500)
+        ev("() => document.getElementById('ein-abbrechen')?.click()")
+        s.wait_for_timeout(500)
+        tabs = ev("() => [...document.querySelectorAll('.app-nav button[data-tab]')].map(b => b.dataset.tab)")
+        sichtbare = [t for t in tabs if sichtbar(f'.app-nav button[data-tab="{t}"]')]
+        if groesse == "desktop":
+            m = ev("""() => { const r = (s) => document.querySelector(s).getBoundingClientRect();
+              const b = r('#onboarding-bar'); return { main: r('main'), nav: r('#app > nav'), leiste: b.height > 0 ? b : null }; }""")
+            erg["desktop"] = {"main_breite": m["main"]["width"], "nav_x": m["nav"]["x"], "leiste_sichtbar": m["leiste"] is not None}
+            if m["leiste"] is None or m["main"]["width"] < 800 or m["nav"]["x"] != 0 or m["main"]["x"] < m["nav"]["width"] \
+                    or m["leiste"]["bottom"] > m["main"]["y"] + 1:
+                erg["fehler"].append(f"desktop: Leiste links, Seite daneben, Onboarding darüber – {m}")
+            if sichtbare != ["ai", "comm", "repos", "wallet", "earn", "netz", "profile", "settings"]:
+                erg["fehler"].append(f"desktop: Leiste {sichtbare}")
+            klick('.app-nav button[data-tab="comm"]')
+            klick('.app-nav button[data-tab="wallet"]')
+            adresse = ev("() => location.hash")
+            ev("() => history.back()")
+            s.wait_for_timeout(400)
+            zurueck = ev("() => [location.hash, document.getElementById('page-comm').classList.contains('active')]")
+            erg["desktop"]["adresse"] = [adresse, zurueck]
+            if adresse != "#/waehrung" or zurueck != ["#/chat", True]:
+                erg["fehler"].append(f"desktop: Adresse/Zurück {adresse} {zurueck}")
+            titel = ev("() => document.querySelector('.nav-status').title")
+            if "im Pool" not in titel:
+                erg["fehler"].append(f"desktop: Relay-Stand {titel!r}")
+            # C.1b: die verschobenen Inhalte stehen auf ihren neuen Seiten
+            inhalte = {}
+            for tab, sels in [("repos", ["#git-repo-list", "#nip34-liste", "#contrib-list"]),
+                              ("netz", ["#coverage-refresh"]), ("earn", ["#trust-bar-track"])]:
+                klick(f'.app-nav button[data-tab="{tab}"]')
+                inhalte[tab] = all(sichtbar(x) for x in sels)
+            klick('.app-nav button[data-tab="netz"]')
+            klick('[data-subtab-group="netz"] [data-subtab="mesh"]')
+            inhalte["mesh"] = sichtbar("#mesh-queue") and sichtbar("#mesh-connect")
+            erg["desktop"]["inhalte"] = inhalte
+            if not all(inhalte.values()):
+                erg["fehler"].append(f"desktop: Inhalte {inhalte}")
+        else:
+            erg["mobil"] = {"leiste": sichtbare}
+            if sichtbare != ["ai", "comm", "wallet", "mehr"] or not sichtbar('[data-tab="comm"] .nav-kurz'):
+                erg["fehler"].append(f"mobil: untere Leiste {sichtbare}")
+            klick("#agent-zu-verlauf")
+            verlauf = [sichtbar("#agent-history"), not sichtbar(".agent-main"), ev("() => location.hash")]
+            klick("#agent-seite-zurueck")
+            wieder = sichtbar(".agent-main") and not sichtbar(".agent-side")
+            klick("#agent-zu-modelle")
+            modelle = sichtbar("#models-list")
+            erg["mobil"]["agent"] = [verlauf, wieder, modelle]
+            if verlauf != [True, True, "#/agent/verlauf"] or not wieder or not modelle:
+                erg["fehler"].append(f"mobil: Agent {erg['mobil']['agent']}")
+            klick('.app-nav button[data-tab="mehr"]')
+            mehr = ev("""() => [[...document.querySelectorAll('#page-mehr [data-geh]')].map(b => b.dataset.geh),
+              document.getElementById('mehr-relays').textContent]""")
+            sprache = sichtbar("#lang-btn-mehr")
+            klick('#page-mehr [data-geh="settings"]')
+            settings = ev("""() => [document.getElementById('page-settings').classList.contains('active'),
+              document.querySelector('.app-nav button[data-tab="mehr"]').classList.contains('active')]""")
+            erg["mobil"]["mehr"] = [mehr, sprache, settings]
+            if mehr[0] != ["repos", "earn", "netz", "profile", "settings"] or "im Pool" not in mehr[1] or not sprache or settings != [True, True]:
+                erg["fehler"].append(f"mobil: Mehr {erg['mobil']['mehr']}")
+        ctx.close()
+    erg["bestanden"] = not erg["fehler"]
+    return erg
+
+
 def main() -> int:
     dist = Path(sys.argv[1] if len(sys.argv) > 1 else "packages/app/dist").resolve()
     datei = dist / "freedom.html"
@@ -439,6 +533,10 @@ def main() -> int:
                 erg["mls"] = mls_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
             except Exception as e:
                 erg["mls"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
+            try:
+                erg["rahmen"] = rahmen_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
+            except Exception as e:
+                erg["rahmen"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
             browser.close()
     finally:
         srv.shutdown()
@@ -450,7 +548,8 @@ def main() -> int:
           and erg.get("sperre", {}).get("bestanden") is True
           and erg.get("notfall", {}).get("bestanden") is True
           and erg.get("sprache", {}).get("bestanden") is True
-          and erg.get("mls", {}).get("bestanden") is True)
+          and erg.get("mls", {}).get("bestanden") is True
+          and erg.get("rahmen", {}).get("bestanden") is True)
     erg["bestanden"] = bool(ok)
     print(json.dumps(erg, indent=1, ensure_ascii=False))
     return 0 if ok else 1

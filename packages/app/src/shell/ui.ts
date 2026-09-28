@@ -139,23 +139,29 @@ export function wireOfflineHinweis(): void {
   window.addEventListener("online", zeige);
   window.addEventListener("offline", zeige);
   zeige();
+  // Der Punkt am Relay-Stand folgt dem Netz (C.1a)
+  window.addEventListener("online", () => void aktualisiereNavStatus());
+  window.addEventListener("offline", () => void aktualisiereNavStatus());
 }
 
-/** Relay-Stand unten in der Seitenleiste. */
+/**
+ * Relay-Stand in der Leiste und unter „Mehr“ (C.1a): wie viele Relays im Pool
+ * sind – nicht, wie viele verbunden sind; das weiß die App nicht (E8). Der
+ * Punkt leuchtet nur, solange der Browser Netz meldet.
+ */
 export async function aktualisiereNavStatus(): Promise<void> {
-  const punkt = document.getElementById("nav-status-dot");
-  const text = document.getElementById("nav-status-text");
-  if (!punkt || !text) return;
+  let n = 0;
   try {
-    const pool = await ensurePool();
-    const r = (pool as unknown as { relays?: { url: string }[] }).relays;
-    const n = Array.isArray(r) ? r.length : 0;
-    text.textContent = n > 0 ? String(n) : "—";
-    punkt.classList.toggle("on", n > 0);
-  } catch {
-    text.textContent = "offline";
-    punkt.classList.remove("on");
-  }
+    const r = (await ensurePool() as unknown as { relays?: unknown[] }).relays;
+    n = Array.isArray(r) ? r.length : 0;
+  } catch { /* kein Pool: 0 */ }
+  const satz = t("nav.relaysImPool", { n });
+  const text = document.getElementById("nav-status-text");
+  if (text) text.textContent = n > 0 ? String(n) : "—";
+  text?.parentElement?.setAttribute("title", satz);
+  document.getElementById("nav-status-dot")?.classList.toggle("on", n > 0 && netzDa());
+  const mehr = document.getElementById("mehr-relays");
+  if (mehr) mehr.textContent = satz;
 }
 
 /** Zahl aus Fremddaten sicher als Text – nie ein ungepruefter Wert in innerHTML. */

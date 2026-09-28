@@ -19,15 +19,15 @@ agent-netz.ts|cls|feste Klassennamen ok/err/warn
 agent-netz.ts|(Zuweisung) r.models.slice(0, 20).map((m) => { const cls = m.availability === "gut" ? "ok" : m.availability === "knapp" ? "warn" : "|Callback liefert nur Templates; Name, Quantisierung, Hinweis mit escapeHtml
 settings.ts|cls|feste Klassennamen ok/warn/err
 earn.ts|(Zuweisung) o.contributors.slice(0, 15).map((c) => `<div class="usage-row"><span>${escapeHtml(pkShort(c.pubkey))}</span>` + `<span>$|Callback: Template mit escapeHtml(pkShort(c.pubkey)); Zahlen siehe folgende Zeilen
-kommunikation.ts|(Zuweisung) st.space.channels.map((c) => { const b = badges.get(c.id); const marke = b?.mentions ? `<span class="mention">${b.mentio|Callback: Template mit escapeHtml(c.id) und escapeHtml(c.name); marke/schloss siehe folgende Zeilen
-kommunikation.ts|b.mentions|lokal gezählt in unreadBadges()
-kommunikation.ts|schloss|feste Zeichen: Schloss-Entity oder #
-kommunikation.ts|marke|festes Markup oder Template mit dem lokalen Zähler b.mentions
-kommunikation.ts|(Zuweisung) topLevel.map((m) => { const faden = threads.get(m.id); const antworten = faden ? `<button class="thread-link" data-root=|Callback: Templates mit escapeHtml für IDs, Autor, Zeit und Inhalt
-kommunikation.ts|antworten|Template mit escapeHtml(m.id) und lokalen Zählern
-kommunikation.ts|modKnopf|Template mit escapeHtml(m.id) und escapeHtml(m.authorPubkey)
-kommunikation.ts|raumKnopf|Template mit escapeHtml(m.id), escapeHtml(m.authorPubkey) und escapeHtml des festen Aktionstexts (2.3c)
-kommunikation.ts|(Zuweisung) zeilen.join("")|zeilen enthält nur Templates mit escapeHtml (direkt darüber gebaut)
+raeume.ts|(Zuweisung) st.space.channels.map((c) => { const b = badges.get(c.id); const marke = b?.mentions ? `<span class="mention">${b.mentio|Callback: Template mit escapeHtml(c.id) und escapeHtml(c.name); marke/schloss siehe folgende Zeilen
+raeume.ts|b.mentions|lokal gezählt in unreadBadges()
+raeume.ts|schloss|feste Zeichen: Schloss-Entity oder #
+raeume.ts|marke|festes Markup oder Template mit dem lokalen Zähler b.mentions
+raeume.ts|(Zuweisung) topLevel.map((m) => { const faden = threads.get(m.id); const antworten = faden ? `<button class="thread-link" data-root=|Callback: Templates mit escapeHtml für IDs, Autor, Zeit und Inhalt
+raeume.ts|antworten|Template mit escapeHtml(m.id) und lokalen Zählern
+raeume.ts|modKnopf|Template mit escapeHtml(m.id) und escapeHtml(m.authorPubkey)
+raeume.ts|raumKnopf|Template mit escapeHtml(m.id), escapeHtml(m.authorPubkey) und escapeHtml des festen Aktionstexts (2.3c)
+raeume.ts|(Zuweisung) zeilen.join("")|zeilen enthält nur Templates mit escapeHtml (direkt darüber gebaut)
 profil.ts|farbe|aus der festen Tabelle ACCENT_HEX nach normalizeStyle()
 profil.ts|avatar|Template mit escapeHtml(bild) bzw. escapeHtml(Anfangsbuchstabe), direkt darüber gebaut
 profil.ts|farbe|aus der festen Tabelle ACCENT_HEX nach normalizeStyle()

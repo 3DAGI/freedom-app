@@ -8106,6 +8106,62 @@ Deutsch – Weg ans Funkgerät (folgt dem Sprachwechsel), MLS-Selbsttest
 „passed“/„bestanden“ – ohne Seitenfehler; der Text des Datenschutzberichts
 ist noch deutsch (8.16g2b).
 
+## Schritt 4.3c2 – Solana-Zahlkanal: im Knoten verdrahtet
+
+**Knoten (`dvm-provider.ts`):**
+- Eine Anfrage mit `["kanal", …]` und `["gutschrift", …]` wird nur
+  versiegelt angenommen, nie offen.
+- Abgelehnt wird sie in folgenden Fällen:
+  - ohne Kasse;
+  - in der Bootstrap-Phase;
+  - ohne SOL-Kurs;
+  - mit A+-Deklaration – im Kanal teilt das Programm auf, sonst würde doppelt
+    gezahlt;
+  - mit einem Gebot unter dem Mindestgebot.
+- Deckung: Gebot plus Höchstkosten der angefragten Werkzeuge in Lamports,
+  über `KanalKasse.nimmAn()`.
+- Abgerechnet wird wie beim Gebot, höchstens das Gebot plus Werkzeuge (auch
+  im Swarm-Pfad).
+- Der Preis wird in Lamports gebucht, bevor die Antwort hinausgeht.
+- `providerMsat` ist der Teil nach den Empfängern des Kanals.
+
+**Protokoll:**
+- Das Ergebnis trägt `amount_lamports` auch ohne `solana_address`, denn im
+  Kanal ist schon bezahlt.
+- Das Angebot (`tiers.ts`) nennt `["kanal", Adresse, Programm]`; fremde
+  Angaben gelten nur mit zwei gültigen Solana-Adressen.
+
+**Start (`main.ts`, `kanalKasseAusUmgebung()`):**
+- Nur mit `ZAHLKANAL=1` und einem Schlüssel aus `SOLANA_KEYPAIR`, der zu
+  `NODE_SOL_ADDRESS` passt. Sonst nähme der Knoten Gutschriften an, die er
+  nie einlösen kann.
+- Die Datei liegt unter `~/.freedom/kanaele.json`.
+- Eingelöst wird alle 5 Minuten mit Vorabsimulation, nie zwei Durchgänge
+  zugleich; ins Log kommen nur Kanal, Betrag und Fehlername.
+- Schwelle, Vorlauf und Mindestlaufzeit sind per Umgebung einstellbar.
+- `docker-compose.yml` nennt die Einstellungen.
+- Solange das Programm nicht deployt ist, gehört kein Konto dem Platzhalter,
+  also nimmt der Knoten keine Kanäle an.
+
+**Tests:**
+- node +3:
+  - Kanal-Auftrag gedeckt: Preis unter dem Gebot, Provider-Teil 488 von 500,
+    5.000 Lamports gebucht, Antwort versiegelt mit `amount_lamports`,
+    nichts offen; eine zweite Anfrage ungedeckt, danach mit höherer
+    Gutschrift wieder gedeckt.
+  - Ungedeckt, offen, ohne Kasse, mit Deklaration, Gebot zu niedrig, über
+    der Einlage, kaputte Signatur: jeweils nichts gerechnet und nichts
+    gebucht.
+  - Setup aus der Umgebung (aus, Adresse fehlt, Schlüssel fehlt, passt
+    nicht, passt) und die Verdrahtung in `main.ts`.
+- protocol +1: Angebot mit Kanal, Unsinn fällt weg.
+- Verdrahtungs-Ausnahmen `leseGutschriftTags` und `teileKanalZahlung` raus.
+
+Endstand: protocol 1066 (+1) · node 235 (+3) · app 483 · mls 13 · Zahlkanal 7
+(gegen Validator) · Leak-Tests 57 grün + 1 todo · 0 rot · check-wiring
+`--streng` Exit 0 · innerHTML streng Exit 0 · Website 5 Seiten ok ·
+Smoke-Test bestanden.
+
 ## Schritt 8.16g2b1 – Übersetzungen: Datenschutzbericht
 
 **Fertig:** Der Datenschutzbericht (Settings → Datenschutz) und die Seite
@@ -8156,6 +8212,346 @@ Netz) · app 483 (+1) · mls 13 · Leak-Tests 57 grün + 1 todo · 0 rot ·
 check-wiring `--streng` Exit 0 · innerHTML streng 0 unbewertet · Website 5
 Seiten ok · Smoke-Test bestanden · im Browser: Datenschutzbericht und die
 Seite „privat“ der Einrichtung in Englisch und Deutsch, ohne Seitenfehler.
+
+## Schritt 4.3d1 – Solana-Zahlkanal: Gutschriften und Rückholen in der App
+
+4.3d ist geteilt, damit die App nie einen Kanal öffnen lässt, den sie noch
+nicht nutzt: **d1** Logik und Verdrahtung (dieser Schritt, ohne neue
+Oberfläche), **d2** Öffnen, Übersicht, Texte und Datenschutz-Aussage.
+
+**Kanal-Buch (`app/src/zahlkanal.ts`):**
+- Im Tresor unter `freedom.kanaele` (in `GEHEIM_FEST`), nie in der Sicherung
+  (`SICHERUNG_NIE`): Kanal, Provider, Ablauf, Einlage, Sitzungsschlüssel,
+  letzte Gutschrift, Summe der Preise, Anfragen ohne Antwort.
+- Gutschrift je Anfrage: `max(letzte, Basis + Bedarf)`, höchstens die Einlage.
+  - Die Basis ist die Summe der Preise aus den Antworten.
+  - Fehlt zu einer Anfrage die Antwort, ist die Basis die letzte Gutschrift.
+    Sonst deckte die nächste nicht, wenn der Provider gebucht hat, und der
+    Kanal hinge. Verlieren kann der Kunde höchstens das Gebot einer Anfrage
+    ohne Antwort.
+  - Bedarf: Gebot plus Werkzeuge zum Kurs aus dem Angebot des Providers (mit
+    dem prüft der Knoten), plus 2 % Spielraum.
+  - Genutzt wird ein Kanal nur mit mindestens zwei Stunden Restlaufzeit.
+- Antwort: Preis (`amount_lamports`) verbucht, höchstens bis zur letzten
+  Gutschrift; ohne gültigen Preis zählt die ganze Gutschrift.
+
+**Verdrahtung:**
+- `buildJobEvent()` (`shell/tabs/agent.ts`):
+  - Mit Kanal zum Provider trägt die Anfrage die Gutschrift statt der
+    Deklaration, vor dem Versiegeln, und keine Sitzungs-Tags.
+  - Gemerkt wird sie, bevor die Anfrage hinausgeht.
+  - Deckt der Kanal nicht oder fehlt der Kurs, geht nichts hinaus – nie still
+    über Lightning.
+- `handleAnswer()`: Antworten über den Kanal zahlt Lightning nicht; die App
+  verbucht nur den Preis. Ob eine Anfrage über den Kanal lief, steht auch im
+  Speicher (`perKanal()`), damit ein gesperrter Tresor keine zweite Zahlung
+  auslöst.
+- Rückhol-Wächter (`refund-watcher.ts`): Sperren der Art `kanal`.
+  - Offen ist ein Kanal, solange sein Konto beim Programm liegt.
+  - `refund` mit der verbundenen Wallet als Kunde, mit Vorabsimulation.
+  - Kanäle einer anderen Wallet: keine Transaktion, Grund genannt.
+- Leak-Regel `keine-zahlungsdaten` kennt jetzt das Tag `gutschrift`.
+- `check-wiring.py`: Der Zahlkanal darf wie HTLC und Swap eigene Anweisungen
+  senden (Treuhand, keine Überweisung). Drei Ausnahmen raus
+  (`erstatteKanalIx`, `gutschriftTags`, `signiereGutschrift` sind verdrahtet).
+
+**Tests:**
+- app +10 (`zahlkanal.test.ts`):
+  - Bedarf (Rundung, Spielraum);
+  - Gutschrift erst Bedarf, dann Preis + Bedarf, nie unter der letzten; jede
+    Gutschrift so geprüft wie im Knoten (`pruefeGutschrift`);
+  - ohne Antwort vorsichtig; Preis fehlt, zu hoch oder negativ;
+  - kein Kanal, fremder Provider, zu kurz, erschöpft;
+  - kaputte Einträge;
+  - Rückholen gegen eine nachgestellte Kette (offen, fremdes Programm, fremde
+    Wallet), der Wächter reicht die Art weiter;
+  - Verdrahtung in `agent.ts`, `ki-zahlung.ts`, Tresor und Sicherung.
+- Leak +1: Anfrage mit Gutschrift nur als Umschlag, weder Kanal noch Signatur
+  offen; Gegenprobe: offen meldet die Regel die Gutschrift.
+- Zwei Verdrahtungstests nachgezogen (Deklaration oder Gutschrift vor dem
+  Versiegeln; Gedächtnis im Tresor) – sie prüfen dasselbe wie vorher.
+
+Endstand: protocol 1066 · node 235 · app 493 (+10) · mls 13 · Zahlkanal 7 ·
+Leak-Tests 58 grün (+1) + 1 todo · 0 rot · check-wiring `--streng` Exit 0 ·
+innerHTML streng Exit 0 · Website 5 Seiten ok · Smoke-Test bestanden.
+
+## Schritt 4.3d2 – Solana-Zahlkanal: Kanal öffnen in der App
+
+Mit diesem Schritt ist 4.3 im Code fertig. Offen ist nur der MENSCH-Teil:
+Devnet-Deploy des Programms, dann ein KI-Auftrag über den Kanal.
+
+**Öffnen (`shell/zahlkanal-ui.ts`, Karte „Zahlkanal (SOL)“ im Währungs-Tab
+neben dem Deposit):**
+- Nur mit verbundener Wallet. Nur, wenn der Provider im Angebot einen Kanal bei
+  genau diesem Programm nennt und das Programm auf der Kette liegt – bis zum
+  Deploy also nie.
+- Empfänger: die Anteile nach A+ mit SOL-Adresse (`kanalEmpfaenger()` in
+  `aufteilung.ts`), Relays wie bei Lightning höchstens drei, doppelte
+  Adressen zusammengefasst, Provider und Kunde selbst nie.
+- Reihenfolge: Tresor → Kanal-Buch (Sitzungsschlüssel) → Sperre für den
+  Wächter → Einzahlung (`planeKanal()`, `sendeMitWallet()`, mit
+  Vorabsimulation). Scheitert die Einzahlung und zeigt die Kette keinen Kanal,
+  fliegt er aus dem Kanal-Buch – sonst trügen weitere Anfragen Gutschriften
+  für einen Kanal, den es nicht gibt.
+- Die Rückfrage nennt Betrag, Provider, Sperrfrist, die Zahl der Empfänger und
+  dass Kanal, Einlage und Einlösungen öffentlich auf der Kette stehen.
+- Übersicht: je Kanal Einlage, was noch frei ist, Ablauf; seit 30 Tagen
+  abgelaufene fallen weg. Nur über `textContent`.
+- Während der Einzahlung sperrt der Tresor nicht (`geldVorgangLaeuft()`).
+- Laufzeit 1, 7 oder 30 Tage. Aufstocken bietet die App nicht an.
+
+**Datenschutzbericht:** neue Grenze „zahlkanal“ – auf der Kette stehen die
+zahlende SOL-Adresse, die des Providers, Einlage, Ablauf, Empfänger und jede
+Einlösung; die Gutschriften reisen nur versiegelt (Regel
+`keine-zahlungsdaten`). Texte in Deutsch und Englisch.
+
+**Tests:**
+- protocol +1: `kanalEmpfaenger()` (nur SOL-Adressen, Relays, doppelte,
+  Provider und Kunde nie).
+- app +4:
+  - Plan nach `docs/ZAHLKANAL.md` (Adresse, Anweisung, der gemerkte
+    Schlüssel signiert, was das Programm prüft);
+  - Ablehnungen (Betrag 0, zu kurz, über 10 %);
+  - Programm bereit nur ausführbar; Aufräumen;
+  - Verdrahtung und Reihenfolge in `zahlkanal-ui.ts`, `app.ts`, `index.html`.
+- Verdrahtungs-Ausnahmen: vier raus (`kanalAdresse`, `neuerSitzungsSchluessel`,
+  `oeffneKanalIx`, `pruefeKanalEmpfaenger`); `stockeKanalAufIx` bleibt mit
+  neuer Begründung.
+
+**Website:** FAQ und Whitepaper sagten „SOL-Aufträge gehen ganz an den
+Provider, bis der Zahlkanal aufteilt“. Jetzt steht dort, dass über einen
+SOL-Zahlkanal das Programm auf der Kette aufteilt, und dass es gebaut, aber
+noch nicht veröffentlicht ist.
+
+**Befund für Spur C:** Im Browser liegt auf dem Desktop nach dem ersten Start
+die ganze Währungs-Seite rechts außerhalb des Bildes (28 px breit) – auf
+`main` genauso, unabhängig von diesem Schritt. Auf dem Handy passt sie.
+
+Endstand: protocol 1067 (+1) · node 235 · app 497 (+4) · mls 13 · Zahlkanal 7 ·
+Leak-Tests 58 grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 ·
+innerHTML streng Exit 0 · Website 5 Seiten ok · Smoke-Test bestanden.
+
+## Schritt C.0 – Oberfläche: Bestandsaufnahme und Entwurf
+
+**Fertig (nur Dokumente, kein Code):** Neue dritte Spur C (Oberfläche). Die
+Karte `docs/ausbau/phase-10.md` hält fest, was es heute gibt, was dabei
+auffällt und wie Räume, Repositories, die Abdeckungskarte und die Navigation
+aussehen sollen. Code entsteht erst nach der Freigabe durch den MENSCHEN.
+
+**Einzelheiten:**
+- **Bestandsaufnahme:** jede Funktion der sechs Tabs mit Bedienelement und
+  Ort im Code (Datei:Zeile). Dazu Screenshots aus `dist/freedom.html` mit
+  Playwright:
+  - frisches Profil, `de-DE`, ohne Netz;
+  - Desktop 1280×800 und Mobil 390×844, alle 21 Ansichten;
+  - abgelegt in `docs/ausbau/bilder/c0/` als zwei Übersichten und vier
+    Einzelbilder, rund 0,6 MB. Der Sicherungsdialog ist nicht dabei (Merkphrase).
+- **Befunde B1–B17**, gemessen (Sichtbarkeit und Maße der Elemente), u. a.:
+  - B1: Am Desktop nimmt die Onboarding-Leiste die ganze Breite, `main` hat
+    die Breite 0, die Navigation steht rechts (`app.css:401` überstimmt
+    `app.css:931`). Das trifft jeden neuen Nutzer, bis er „Später“ wählt.
+  - B2: Unter 860 px sind Verlauf, Modelle, Kataloge, Repos, Prüfaufträge,
+    Reklamationen und das Kontingent nicht erreichbar (`app.css:1060`).
+  - B3: Unter 1100 px fehlen die Mitglieder und mit ihnen die Meldungen an
+    Moderatoren (`app.css:1093`).
+  - B5: „Relays verbunden“ zählt den Pool, nicht die Verbindungen – auch ohne
+    Netz grün.
+  - B8: „n Antworten“ im Raum hat keinen Handler; Antworten und Threads gibt
+    es im Protokoll, in der Oberfläche nicht.
+  - B13: Der eigene Standort liegt genau und im Klartext in `localStorage`.
+- **Entwurf:** Seiten Agent, Kommunikation, Repos (neu), Währung, Netz (neu:
+  Karte und Mesh), Verdienen, Profil, Settings. Desktop mit Leiste links, mobil
+  untere Leiste „Agent · Chat · Währung · Mehr“. Die Adresse nennt nur die
+  Seite, nie eine Kennung – den Browserverlauf leert die Notfall-Löschung nicht.
+  Räume wie Discord (Menüs, Dialoge statt `prompt()`, Antworten, Threads,
+  Mitglieder mit Rollen), Repos wie GitHub (Repo-Seite, Patches als Pull
+  Requests mit Diff, Aktionen der Maintainer), Karte als eigenes SVG nur aus
+  `buildCoverage()`.
+- **Teilschritte** C.1a bis C.6, je höchstens etwa 400 Zeilen; Dateien der
+  Spur A erst nach 4.3d (C.6).
+- **Fragen E1–E8** an den MENSCHEN, je mit Vorschlag – **entschieden
+  27.09.2026: alle Vorschläge angenommen**, u. a.:
+  - untere Leiste mit vier Zielen;
+  - Communities nicht mehr neu anlegen;
+  - Git-Bundles in der App lesen (neuer Baustein ohne Abhängigkeit);
+  - eingebettete Küstenlinien (gemeinfrei, höchstens 40 KB);
+  - Standort nur gerundet speichern.
+- **Geteilte Dateien, klein:**
+  - `CLAUDE.md`: „Zwei Agenten parallel“ → „Drei Agenten parallel“, mit den
+    drei Spuren und dem Verweis auf den Abschnitt „Spuren“;
+  - `FORTSCHRITT.md`: Überschrift „Spuren“, Zeile „C – Oberfläche“ in der
+    Spur-Tabelle, Zeile C.0 in „Alle Schritte“.
+
+Endstand nach dem Einmergen von `main` (4.3d2), kein eigener Code: protocol
+1067 (6 übersprungen) · node 235 (6 übersprungen, mit Netz) · app 497 · mls 13 ·
+Leak-Tests 58 grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 ·
+innerHTML streng Exit 0 · Website 5 Seiten ok · Smoke-Test bestanden.
+
+## Schritt C.1a – Oberfläche: Rahmen und Navigation
+
+**Fertig:** Der Rahmen der App ordnet Desktop und Handy je für sich (Karte
+`phase-10.md`, Entwurf freigegeben mit E1–E8). Behoben sind B1, B2, B4, B5 und
+B15 aus der Bestandsaufnahme.
+
+**Einzelheiten:**
+- **Desktop (B1):** `#app` ist ab 1024 px ein Raster statt einer Flex-Zeile.
+  - Die Leiste steht links über die volle Höhe.
+  - Hinweisleisten (offline, Onboarding, Sicherung) stehen über der Seite.
+  - Vorher nahm die Onboarding-Leiste die ganze Breite, `main` hatte die
+    Breite 0 und die Leiste stand rechts. Das traf jeden neuen Nutzer, Spur A
+    sah es in 4.3d2 an der Währungs-Seite.
+  - Profil, Settings und der Relay-Stand stehen unten in der Leiste.
+- **Mobil (E1, B15):**
+  - Unten stehen nur noch Agent · Chat · Währung · Mehr; „Chat“ ist eine
+    eigene kurze Beschriftung.
+  - „Mehr“ ist eine neue Seite: Verdienen, Profil, Settings, Sprache (B4 –
+    vorher mobil unerreichbar) und der Relay-Stand. Solange eine dieser Seiten
+    offen ist, ist „Mehr“ hervorgehoben.
+- **Agent mobil (B2):** Oben stehen „Verlauf“ und „Modelle“. Sie öffnen die
+  Seitenleiste als eigene Ebene, mit „‹ Zurück“. Damit sind Aufgaben,
+  Modelle, Kataloge, Repos, Prüfaufträge, Reklamationen und das Kontingent
+  erreichbar. Eine gewählte Aufgabe führt zurück ins Gespräch. `agent.ts`
+  (Spur A) ist dafür nicht angefasst – nur `index.html`, CSS und
+  `navigation.ts`.
+- **`shell/navigation.ts` (neu):**
+  - Seiten ↔ Adresse (`#/chat`, `#/agent/verlauf`) über `zielAusAdresse()`
+    und `adresseFuer()`. Nie eine Kennung, auch nicht in `history.state` –
+    den Browserverlauf leert die Notfall-Löschung nicht.
+  - Zurück und Vor über `popstate`. Die App startet mit der Seite aus der
+    Adresse.
+  - `seiteGezeigt()` am Ende von `switchTab()` zieht Adresse, „Mehr“ und
+    `aria-current` nach.
+- **Kopfzeile mobil:**
+  - Das Guthaben führt zur Währung, der gekürzte Schlüssel zum Profil – beides
+    auch per Tastatur.
+  - „Importieren“ und der Export des geheimen Schlüssels per Klick sind aus
+    der Kopfzeile verschwunden; beides geht im Profil wie bisher.
+- **Relay-Stand (B5, E8):**
+  - Er zeigt „8 Relays im Pool“ statt „Relays verbunden“ – verbunden zählt die
+    App nicht.
+  - Der Punkt leuchtet nur, solange der Browser Netz meldet, und folgt
+    `online`/`offline`.
+  - Ohne Pool zeigt er „—“ statt des rohen Worts „offline“.
+- **Texte:**
+  - Neuer Bereich `texte/navigation.ts` (`nav.*`).
+  - In `rahmen.ts` (Spur B, klein) sind nur Werte geändert: `navEarn` heißt
+    auf Deutsch „Verdienen“ (E2), `relaysTitle` „Relays im Pool“.
+  - `identTitle` fällt weg.
+  - Neues Symbol `menu` in `icons.ts`.
+- **Werkzeug:** `scripts/screenshots.py` nimmt jede Ansicht über ihre
+  Adresse auf, in Desktop und Mobil. Es ist nicht in der CI und nimmt den
+  Sicherungsdialog nie auf.
+
+**Tests:**
+- +6 in `app/test/navigation.test.ts`:
+  - Adresse hin und zurück;
+  - keine Kennung in der Adresse – Hex, npub, Unterpfade und Unbekanntes
+    gelten nicht;
+  - jede Seite mit Knopf und Bereich, mobil der Rest unter „Mehr“;
+  - verdrahtet in `switchTab()` und beim Start;
+  - Raster ab 1024 px;
+  - Relay-Stand ohne „verbunden“.
+- Smoke-Test „rahmen“, Desktop und Mobil ab dem ersten Start:
+  - Desktop: `main` 1208 px breit neben der Leiste bei x = 0, die
+    Onboarding-Leiste darüber; Adresse und Zurück; Titel „im Pool“.
+  - Mobil: vier Ziele unten, Verlauf/Zurück/Modelle des Agenten, „Mehr“ mit
+    Sprache und Relay-Stand, Settings erreichbar.
+
+Endstand: protocol 1067 (6 übersprungen) · node 235 (6 übersprungen, mit
+Netz) · app 503 (+6) · mls 13 · Leak-Tests 58 grün + 1 todo · 0 rot ·
+check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 · Website 5 Seiten
+ok · Smoke-Test bestanden (mit „rahmen“) · im Browser: alle Seiten in Desktop
+1280×800 und Mobil 390×844 per `scripts/screenshots.py` durchgesehen, ohne
+Seitenfehler.
+
+## Schritt C.1b – Oberfläche: Seiten Repos und Netz
+
+**Fertig:** Reines Verschieben nach dem Entwurf (`phase-10.md`, E2). Jede
+Funktion steht an einem Ort, der zu ihr passt. Alle IDs bleiben gleich, damit
+die bestehende Verdrahtung unverändert greift – auch `einrichtung-ui.ts`, das
+Handler über IDs auslöst.
+
+**Einzelheiten:**
+- **Neue Seite „Repos“** (`#/repos`): Repositories (Bundles und NIP-34) aus
+  Agent › Repos, Mitwirkende aus Verdienen › Werben.
+- **Neue Seite „Netz“** (`#/netz`) mit zwei Reitern: Karte (Abdeckung, aus
+  Verdienen › Karte) und Mesh (Funk, Bluetooth, Datei, Warteschlange, aus
+  Settings › Mesh).
+- **Vertrauensstufe** (XP des Providers) vom Profil nach Verdienen › Übersicht.
+  Das Profil zeigt die Abzeichen in voller Breite.
+- **Navigation:**
+  - Desktop: Agent, Kommunikation, Repos, Währung, Verdienen, Netz; unten
+    Profil und Settings.
+  - Mobil: Repos und Netz unter „Mehr“ (`UNTER_MEHR`).
+- **`switchTab()`:** Die Aufrufe folgen den Blöcken – „Netz“ lädt Abdeckung und
+  Mesh-Hinweis; „Settings“ und „Profil“ laden sie nicht mehr.
+- **Texte:**
+  - Vorhandene Schlüssel wiederverwendet (`agent.tabRepos`,
+    `agent.repositories`, `earn.tabKarte`, `set.tabMesh`); neu nur `nav.netz`
+    und `nav.netzUntertitel`.
+  - Wo ein Text den alten Ort nannte, steht jetzt „Netz → Mesh“:
+    `waehr.alsDateiGespeichert` (de/en) und `OFFLINE_HINWEIS` im Protokoll –
+    ein Wort, andere Spur.
+  - Der Kommentar in `leak/mesh.test.ts` nennt ebenfalls den neuen Ort.
+- **`i18n.test.ts`** (Spur B, zwei Zeilen): Die Prüfung, dass Karte und
+  Mesh-Hinweis beim Öffnen neu gezeichnet werden, zeigt jetzt auf die Seite
+  „Netz“ statt auf Earn und Settings – gleich streng.
+
+**Tests:**
+- +1 in `navigation.test.ts`: Jeder verschobene Block steht genau einmal, auf
+  seiner neuen Seite; die alten Reiter sind weg; „Netz“ lädt Karte und Mesh.
+- Smoke-Test „rahmen“: Die Leiste zeigt am Desktop die acht Seiten, mobil „Mehr“
+  fünf Ziele. Auf Repos, Netz (Karte und Mesh) und Verdienen sind die
+  verschobenen Inhalte sichtbar. Die Prüfung schlug im ersten Lauf an der
+  eigenen Reihenfolge fehl (Mesh-Reiter geklickt, während „Verdienen“ offen
+  war) – korrigiert, danach bestanden.
+
+Endstand: protocol 1067 (6 übersprungen) · node 235 (6 übersprungen, mit
+Netz) · app 504 (+1) · mls 13 · Leak-Tests 58 grün + 1 todo · 0 rot ·
+check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 · Website 5 Seiten
+ok · Smoke-Test bestanden (mit „rahmen“) · im Browser: alle 16 Ansichten in
+Desktop und Mobil per `scripts/screenshots.py` durchgesehen, ohne
+Seitenfehler.
+
+## Schritt C.2a – Oberfläche: Räume in eigene Datei
+
+**Fertig:** Reines Verschieben (E7). Der Raum-Teil aus
+`shell/tabs/kommunikation.ts` steht jetzt in `shell/tabs/raeume.ts`: offene und
+private Räume, Leiste, Kanäle, Verlauf, Mitglieder, Moderation, Meldungen,
+Anlegen, Beitreten, Einladen – bisher Zeilen 34–647.
+`kommunikation.ts` hat noch 1.036 statt 1.659 Zeilen.
+
+**Einzelheiten:**
+- **Wörtlich:** Ein Vergleich Zeichen für Zeichen bestätigt, dass Raum-Teil und
+  Rest unverändert sind. Einzige Ausnahme: `kontaktName` ist jetzt exportiert,
+  weil die Einladung in eine MLS-Gruppe (Rest) es braucht.
+- **Importe:** Nur die Namen, die jetzt allein der Raum-Teil braucht, sind aus
+  `kommunikation.ts` herausgenommen. Sonst ist dort nichts umformatiert.
+  - `raeume.ts` holt `conversations` aus `kommunikation.ts`;
+    `kommunikation.ts` holt `kontaktName` und `zeigeRaumLeiste` aus
+    `raeume.ts`.
+  - Das ist ein Kreis, aber nur in Funktionsrümpfen genutzt – für ES-Module
+    und esbuild unkritisch.
+  - `app.ts` holt `wireSpacesTab` und `zeigeRaumLeiste` aus `raeume.ts`.
+- **`scripts/innerhtml-ausnahmen.txt`:** Die neun Stellen des Raum-Teils stehen
+  unter `raeume.ts`, mit denselben Begründungen.
+- **Tests, die Raum-Code im Quelltext suchen,** lesen jetzt `raeume.ts`: in
+  `raeume-privat`, `i18n` (Uhrzeit im Raum, Gebietsschema, Einladungstext),
+  `versand` (Abruftakt der Räume) und `leak/raum`. Die Prüfungen sind gleich
+  streng; wo es um die ganze Kommunikation geht (kein `"de-DE"`, 0 roher Text),
+  prüfen sie beide Dateien.
+- **`dialog.ts`** rückt nach C.2b, wo er zum ersten Mal benutzt wird – sonst
+  wäre er in C.2a nicht verdrahtet (Definition of Done 1).
+- **CLAUDE.md:** `raeume.ts` im Aufbau.
+
+**Tests:** +1 in `raeume-privat.test.ts`: Die Raum-Funktionen stehen in
+`raeume.ts` und nicht mehr in `kommunikation.ts`; `app.ts` und
+`kommunikation.ts` holen sie von dort.
+
+Endstand: protocol 1067 (6 übersprungen) · node 235 (6 übersprungen, mit
+Netz) · app 505 (+1) · mls 13 · Leak-Tests 58 grün + 1 todo · 0 rot ·
+check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 · Website 5 Seiten
+ok · Smoke-Test bestanden (mit „rahmen“).
 
 ## Schritt 8.16g2b2 – Übersetzungen: Sätze des Protokolls in Settings und im Chat
 
@@ -8213,6 +8609,10 @@ Fixierung, alle Wege, alle Tor-Einstellungen.
 - In `wiring-ausnahmen.txt` stehen sieben weitere deutsche Referenzen.
 - **Grenze:** Der Offline-Hinweis oben wird beim Start gesetzt; nach einem
   Sprachwechsel folgt er beim nächsten Wechsel zwischen online und offline.
+- **Nach dem Einmergen von `main` (C.1b, C.2a):** Mesh steht jetzt auf der
+  Seite „Netz“ – der Offline-Hinweis nennt wie `OFFLINE_HINWEIS` „Netz → Mesh“
+  („Network → Mesh“). Die Räume stehen in `tabs/raeume.ts`; die Übersetzungen
+  dieses Schritts betrafen dort nichts.
 - **Noch unverändert (8.16g2b3):** Gründe aus Prüfungen des Protokolls
   (siehe `phase-8.md`).
 

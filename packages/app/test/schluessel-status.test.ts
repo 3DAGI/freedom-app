@@ -55,5 +55,5 @@ test("8.6a: verdrahtet – Widerruf prueft Eingaben und Mandat, Chat wertet Wide
   assert.match(kom, /pruefeKontakte\(kontakte, \[\.\.\.mandate, \.\.\.widerrufe\], leseGemerkt\(geheim\.getItem\(LS_MANDATE\)\)\)/);
   assert.match(kom, /nachDiebstahl\(ev, schluesselStand\.get\(c\.id\)\)/);
   const tresor = readFileSync(new URL("../src/shell/tresor.ts", import.meta.url), "utf8");
-  assert.match(tresor, /"freedom\.mandate"\]/, "Gedaechtnis liegt im Tresor");
+  assert.match(tresor, /const GEHEIM_FEST = \[[^\]]*"freedom\.mandate"/, "Gedaechtnis liegt im Tresor");
 });

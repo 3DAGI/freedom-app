@@ -21,7 +21,7 @@ import { type AntwortCache, oeffneAntworten } from "../../ki-antworten.js";
 import { kontextPraefix } from "../../ki-kontext.js";
 import { SessionClient } from "../../session-client.js";
 import { escapeHtml, pkShort } from "../../shell-logic.js";
-import { ausMsat } from "../../preis-anzeige.js";
+import { ausMsat, solText } from "../../preis-anzeige.js";
 import { werkzeugPreise, werkzeugPreisText } from "../../werkzeug-preise.js";
 import type { ToolPrice } from "@freedomstack/protocol";
 import { merkeGratisAbgelehnt, switchTab, zeigeOnboarding } from "../app.js";
@@ -36,7 +36,7 @@ import {
 } from "../state.js";
 import { aktualisiereKurs, aktuellerKurs } from "../marktkurs.js";
 import { geheim } from "../tresor.js";
-import { deklaration, empfaengerFuer, merkeAnfrage, providerZahlung, rechneAntwortAb, zahleAnteile } from "../ki-zahlung.js";
+import { deklaration, empfaengerFuer, kanalAntwort, kanalGutschrift, merkeAnfrage, perKanal, providerZahlung, rechneAntwortAb, zahleAnteile } from "../ki-zahlung.js";
 import { hoechstMsat } from "../../anteile-kasse.js";
 import {
   $,
@@ -720,7 +720,11 @@ async function buildJobEvent(
   // also versiegelt; der Provider stellt nur den Rest in Rechnung. Die
   // App-Gebuehr gibt es nicht mehr, sie geht im Anteil der Entwicklung auf.
   const empfaenger = await empfaengerFuer(targetPubkey);
-  extraTags.push(...deklaration(empfaenger));
+  const hoechst = hoechstMsat(bid, selectedTools);
+  // Zahlkanal zu diesem Provider (4.3d): Gutschrift statt Deklaration – im Kanal
+  // teilt das Programm auf; deckt er das Gebot nicht, geht nichts hinaus.
+  const kanal = await kanalGutschrift(targetPubkey, hoechst);
+  extraTags.push(...(kanal ? kanal.tags : deklaration(empfaenger)));
   if (attachment) {
     extraTags.push(["attach", attachment.type, attachment.name, attachment.dataUrl.slice(0, 2000)]);
   }
@@ -732,7 +736,7 @@ async function buildJobEvent(
   if (modelSel && modelSel.value) {
     extraTags.push(["param", "model", modelSel.value]);
   }
-  const useSession = sc.activeFor(targetPubkey);
+  const useSession = !kanal && sc.activeFor(targetPubkey);
   const request = useSession
     ? buildEvent(sitzung.publicKey(), KIND_DVM_TEXT_GENERATION, [
         ["i", fullPrompt, "text"],
@@ -753,7 +757,9 @@ async function buildJobEvent(
   const auftrag = await buildPrivateJobRequest({
     request, sessionSigner: sitzung, providerPk: targetPubkey, powBits: powJeProvider.get(targetPubkey) ?? 0,
   });
-  merkeAnfrage(auftrag.requestId, empfaenger, hoechstMsat(bid, selectedTools));
+  // Erst merken (letzte Gutschrift, offene Anfrage), dann senden
+  if (kanal) await kanal.merke(auftrag.requestId);
+  merkeAnfrage(auftrag.requestId, empfaenger, hoechst, !!kanal);
   return auftrag;
 }
 
@@ -853,8 +859,10 @@ async function handleAnswer(ev: import("@freedomstack/protocol").NostrEvent, r: 
   // DEBUG: zeige die provider-pubkey, damit wir wissen WER antwortet
   const who = model ? `${model} · ${r.providerPubkey.slice(0, 12)}…` : t("agent.providerKurz", { pk: r.providerPubkey.slice(0, 12) });
   // Abrechnung nach A+ (5.1.3) mit den beim Senden deklarierten Empfaengern –
-  // hoechstens das Gebot; die uebrigen Anteile gehen in die Kasse.
-  const abrechnung = await rechneAntwortAb(r.requestId, r.amountMsat);
+  // hoechstens das Gebot; die uebrigen Anteile gehen in die Kasse. Ueber den
+  // Zahlkanal (4.3d) ist schon bezahlt: dort teilt das Programm auf.
+  const kanal = perKanal(r.requestId);
+  const abrechnung = kanal ? undefined : await rechneAntwortAb(r.requestId, r.amountMsat);
   // Streaming-Anzeige: buchstabenweise statt ganzer block
   addAiMessageStreaming("ai", r.output, "", who, () => {
     // Frage und Antwort nur im Speicher – fuer den Pruefer, wenn der Nutzer reklamiert und zustimmt (5.6).
@@ -892,6 +900,14 @@ async function handleAnswer(ev: import("@freedomstack/protocol").NostrEvent, r: 
   // Kunde eine Empfaengeradresse, die er nicht selbst abtippen muss.
   if (r.solanaAddress) state.lastProviderSolAddress = r.solanaAddress;
   if (r.usage?.model) lastProviderModel = r.usage.model;
+  if (kanal || !abrechnung) {
+    // Zahlkanal: nur den Preis verbuchen – Lightning zahlt hier nichts
+    await kanalAntwort(r.requestId, r.amountLamports);
+    if (r.amountLamports) toast(t("zahl.kanalBezahlt", { betrag: solText(r.amountLamports) }));
+    void refreshQuota();
+    resetSendBtn($("#ai-send") as HTMLButtonElement);
+    return;
+  }
   const sc = ensureSessionClient();
   // Den Anteil des Providers zahlt die Sitzung an seine Lightning-Adresse (5.1.3)
   const { zahlung, grund } = await providerZahlung(r.providerPubkey);

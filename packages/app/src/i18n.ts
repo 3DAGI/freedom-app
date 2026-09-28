@@ -21,6 +21,7 @@ import { datenschutz } from "./texte/datenschutz.js";
 import { protokollsaetze } from "./texte/protokollsaetze.js";
 import { waehrung } from "./texte/waehrung.js";
 import { zahlung } from "./texte/zahlung.js";
+import { navigation } from "./texte/navigation.js";
 
 export type Lang = "de" | "en";
 export type Texte = Record<string, { de: string; en: string }>;
@@ -31,7 +32,7 @@ export const LANGS: Array<{ code: Lang; label: string }> = [
 ];
 
 /** Je Bereich eine Datei – ein Schlüssel gehört genau einem Bereich (Test). */
-export const BEREICHE: Record<string, Texte> = { rahmen, agent, kommunikation, waehrung, zahlung, earn, profil, settings, einstieg, bausteine, datenschutz, protokollsaetze };
+export const BEREICHE: Record<string, Texte> = { rahmen, navigation, agent, kommunikation, waehrung, zahlung, earn, profil, settings, einstieg, bausteine, datenschutz, protokollsaetze };
 const TEXTE: Texte = Object.assign({}, ...Object.values(BEREICHE));
 
 let current: Lang = "en";

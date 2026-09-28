@@ -20,7 +20,7 @@ vollständig fertig. Ausführlich: `docs/ausbau/UEBERSICHT.md`.
 |---|---|
 | `packages/protocol` | Protokollbausteine (TypeScript), Tests in `test/` |
 | `packages/node` | Provider-Knoten (TypeScript), Tests in `test/` |
-| `packages/app` | Web-App; `src/shell/app.ts` (Einstieg: `boot()`, `switchTab()`, Identität, Onboarding), `state.ts` (Zustand, Pools), `ui.ts` (Hilfsfunktionen), `datenschutz.ts` (Bericht), `tresor.ts` (Tresor-Dialoge; Krypto in `src/vault.ts`), `bunker.ts` (Anmelden per NIP-46), `tabs/` (je Tab ein Modul: `kommunikation.ts`, `agent.ts` + `agent-netz.ts`, `waehrung.ts`, `earn.ts`, `profil.ts`, `settings.ts`); Build → `dist/freedom.html` |
+| `packages/app` | Web-App; `src/shell/app.ts` (Einstieg: `boot()`, `switchTab()`, Identität, Onboarding), `state.ts` (Zustand, Pools), `ui.ts` (Hilfsfunktionen), `datenschutz.ts` (Bericht), `tresor.ts` (Tresor-Dialoge; Krypto in `src/vault.ts`), `bunker.ts` (Anmelden per NIP-46), `tabs/` (je Tab ein Modul: `kommunikation.ts` + `raeume.ts`, `agent.ts` + `agent-netz.ts`, `waehrung.ts`, `earn.ts`, `profil.ts`, `settings.ts`); Build → `dist/freedom.html` |
 | `packages/website` | Startseite, Whitepaper, FAQ, Roadmap, Dashboard |
 | `contracts/solana-htlc` | Anchor-Programm (Rust) für Swaps und Deposits |
 | `scripts/` | Build, Prüfungen, `smoke_test.py`, `check_innerhtml.py` |
@@ -44,9 +44,9 @@ bash packages/mls/bauen.sh --pruefen                     # nur bei Änderungen a
 bash contracts/solana-channel/pruefen.sh --werkzeuge     # nur bei Änderungen am Zahlkanal: bauen + Tests gegen Validator (Agave 3.1.10)
 ```
 
-Stand 27.09.2026 (nach 4.3c1 und 8.16g2b2): protocol 1065 grün (6 übersprungen), node 232 grün
+Stand 28.09.2026 (nach 4.3d2, C.2a und 8.16g2b2): protocol 1067 grün (6 übersprungen), node 235 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 484 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 57 grün + 1 `todo` (heutige Lecks,
+in `tools.test.ts`), app 506 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 58 grün + 1 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
 Ausnahme: gesendete SOL-Zahlungen von frischen Adressen, eine bewusste Grenze
 nach Entscheidung 4.9 A – im Datenschutzbericht unter „Bewusste Grenzen“).
@@ -54,7 +54,7 @@ nach Entscheidung 4.9 A – im Datenschutzbericht unter „Bewusste Grenzen“).
 ## Arbeitsweise
 
 1. `docs/ausbau/FORTSCHRITT.md` lesen, den nächsten offenen Schritt **der eigenen
-   Spur** nehmen (Abschnitt „Zwei Spuren“) – **nur einen pro Sitzung**. Dann die passende Karte `docs/ausbau/phase-N.md`.
+   Spur** nehmen (Abschnitt „Spuren“) – **nur einen pro Sitzung**. Dann die passende Karte `docs/ausbau/phase-N.md`.
 2. Vor jeder Änderung die Stellen mit `grep -rn` finden und lesen. Große Dateien
    (`tabs/agent.ts`, `tabs/kommunikation.ts`) nur in Ausschnitten lesen (Zeilenbereiche).
 3. Kleine, gezielte Änderungen; keine Umformatierung unbeteiligter Stellen.
@@ -68,13 +68,16 @@ nach Entscheidung 4.9 A – im Datenschutzbericht unter „Bewusste Grenzen“).
    welcher Knoten-Stand nötig ist; bis zum Update dürfen KI-Anfragen der Live-App
    scheitern.
 
-## Zwei Agenten parallel (seit 26.09.2026)
+## Drei Agenten parallel (zwei seit 26.09.2026, drei seit 27.09.2026)
 
-Zwei Agenten arbeiten gleichzeitig in getrennten Spuren (Tabelle in
-`docs/ausbau/FORTSCHRITT.md`). Damit sie sich nicht gegenseitig brechen:
+Drei Agenten arbeiten gleichzeitig in getrennten Spuren (Tabelle in
+`docs/ausbau/FORTSCHRITT.md`): A Netz, Geld, Vertrauen · B Mesh und Bausteine ·
+C Oberfläche (Karte `docs/ausbau/phase-10.md`). Damit sie sich nicht
+gegenseitig brechen:
 
-1. **Nur Schritte der eigenen Spur.** Muss ein Schritt Code der anderen Spur
-   ändern, klein halten und im Pull Request nennen.
+1. **Nur Schritte der eigenen Spur.** Muss ein Schritt Code einer anderen Spur
+   ändern, klein halten und im Pull Request nennen. Spur C baut nur Oberfläche
+   und baut Dateien, an denen eine andere Spur gerade arbeitet, erst danach um.
 2. **Eigener Branch, eigene Pull Requests;** höchstens einer je Agent offen. Jeder
    merged seine eigenen, sobald CI grün ist.
 3. **Vor dem Merge `main` holen:** Ist `main` seit dem letzten CI-Lauf weiter,
@@ -87,7 +90,7 @@ Zwei Agenten arbeiten gleichzeitig in getrennten Spuren (Tabelle in
    diesen Dateien und in Sammelstellen (`protocol/src/index.ts`,
    `node/src/main.ts`, `app/src/shell/app.ts`, `scripts/*ausnahmen*`) beide
    Seiten behalten.
-5. **Knoten-Stand:** Ein Update des GX10-Knotens auf `main` deckt beide Spuren
+5. **Knoten-Stand:** Ein Update des GX10-Knotens auf `main` deckt alle Spuren
    ab; im Pull Request steht wie bisher, welcher Stand nötig ist.
 
 ## Definition of Done – alle Punkte, sonst nicht fertig
@@ -211,8 +214,8 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   94 / 2,5 / 1,5 / 0,5 / 0,5 / 1 (CI-Invariante, ändern nur mit signiertem
   Release); nicht Zuordenbares und Rundungsreste an den Provider, nie an die
   Entwicklung; App (`teileAuf()`) und Knoten (`pruefeAufteilung()`,
-  `providerAnteilMsat()`) rechnen mit denselben Funktionen. SOL-Anteile erst
-  mit dem Zahlkanal (4.3). Der Knoten zahlt seit 5.1.2 nichts aus – keinen
+  `providerAnteilMsat()`) rechnen mit denselben Funktionen. SOL-Anteile nur
+  über den Zahlkanal (seit 4.3d, `kanalEmpfaenger()`). Der Knoten zahlt seit 5.1.2 nichts aus – keinen
   Pool, keinen Verteiler, keine Rücklage wieder einführen (Treasury, Sweep,
   Pool-Rangliste, Knappheitsbonus und App-Gebühr fielen mit 5.1.4a, alte
   Protokollgebühr, Gebühren-Beleg und Aufgaben-Topf mit 5.1.4c – Aufgaben sind
@@ -241,7 +244,10 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   reisen nur im versiegelten Kern der Anfrage (`gutschriftTags()`); der Knoten
   nimmt sie nur über `KanalKasse.nimmAn()` an (Kanal auf der Kette, Deckung
   abgerechnet + Gebot) und löst sie nur über `loeseFaelligeEin()` ein – der
-  Stand liegt in einer Datei, nie nur im Speicher. Die Programm-ID ist bis
+  Stand liegt in einer Datei, nie nur im Speicher. Kanäle nimmt der Knoten nur
+  mit `ZAHLKANAL=1` und einem Schlüssel passend zu `NODE_SOL_ADDRESS`
+  (`kanalKasseAusUmgebung()`); eine Gutschrift in einer offenen Anfrage wird
+  abgelehnt. Die Programm-ID ist bis
   zum Deploy ein Platzhalter ohne Schlüssel (`KANAL_PROGRAMM_ID`) – nie einen
   erfundenen Schlüssel eintragen, das tut der MENSCH beim Deploy. Bauen und
   testen nur mit `contracts/solana-channel/pruefen.sh` (Agave 3.1.10,
@@ -253,6 +259,15 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   Validator, wartet web3.js sonst endlos (`getBlockHeight` zählt als -1).
   Den Websocket am Ende mit `setAutoReconnect(false)` schließen – sonst
   verbindet er endlos neu, und der Job läuft bis zu seinem Limit.
+  In der App (seit 4.3d1) nur über `KanalBuch` (`zahlkanal.ts`, Tresor
+  `freedom.kanaele`, in `SICHERUNG_NIE`) und `kanalGutschrift()`/`kanalAntwort()`
+  (`shell/ki-zahlung.ts`): Gutschrift statt Deklaration vor dem Versiegeln,
+  gemerkt vor dem Senden; eine Kanal-Antwort zahlt Lightning nie (`perKanal()`
+  aus dem Speicher, nicht aus dem Tresor). Deckt der Kanal nicht, geht nichts
+  hinaus. Kanäle holt der Wächter als `kind: "kanal"` zurück. Geöffnet wird
+  nur über `oeffneZahlkanal()` (`shell/zahlkanal-ui.ts`, seit 4.3d2): Angebot
+  nennt diesen Kanal, Programm liegt auf der Kette, Tresor, dann merken, dann
+  einzahlen; Empfänger nur über `kanalEmpfaenger()`.
 - **HTLC-Transaktionen nur mit `htlcSigner()`** (`tabs/waehrung.ts`, seit 4.6c):
   Wallets nach dem Wallet Standard haben kein `publicKey`-Feld – `solWallet.provider`
   direkt als `WalletSigner` brach Einlösen, Deposit und Rückholen ab. Jede neue
@@ -528,3 +543,12 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   (`einladungsText()`); nie an einem deutschen Text erkennen, was geschah
   (`BrowserKannNicht` statt `startsWith("Dieser Browser")`). Die Sprache setzt
   `boot()` vor allem anderen – der Entsperr-Dialog kommt vor `starte()`.
+- **Navigation nur über `switchTab()` und `shell/navigation.ts`** (seit C.1a):
+  Die Adresse nennt nur die Seite (`#/chat`, `#/agent/verlauf`), nie eine
+  Kennung (Kontakt, Raum, Repo, Patch) – auch nicht in `history.state`: Den
+  Browserverlauf leert die Notfall-Löschung nicht. Neue Seiten in `SEITEN`
+  eintragen und mit `data-tab`-Knopf und `#page-<name>`; mobil nichts nur
+  ausblenden, ohne einen anderen Weg zu bieten – der Smoke-Test („rahmen“)
+  prüft die Erreichbarkeit auf Desktop und Handy. `#app` ist ab 1024 px ein
+  Raster: neue Kinder von `#app` brauchen dort eine Zelle (sonst verdrängen sie
+  `main`, so war es bis C.1a mit der Onboarding-Leiste).

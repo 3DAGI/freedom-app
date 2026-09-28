@@ -1292,3 +1292,53 @@ main { min-width: 0; }
 .usage-row.total span:last-child { color: var(--accent); }
 .usage-actions { display: flex; gap: 6px; margin-top: 10px; }
 .usage-actions button { width: auto; padding: 6px 10px; font-size: 12px; }
+
+/* ============================================================
+   Rahmen (Schritt C.1a): Leiste links, Hinweise über der Seite,
+   mobil vier Ziele unten und „Mehr“
+   ============================================================ */
+
+/* Desktop: Raster statt Flex-Zeile. Die Leiste steht links über die volle
+   Höhe, Hinweisleisten über der Seite – nie neben ihr (B1: vorher nahm die
+   Onboarding-Leiste die ganze Breite, main hatte die Breite 0). */
+@media (min-width: 1024px) {
+  #app { display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-rows: auto auto auto minmax(0, 1fr); }
+  #app > nav { grid-column: 1; grid-row: 1 / -1; }
+  #app > #offline-hinweis, #app > #onboarding-bar, #app > #backup-warn { grid-column: 2; }
+  #app > main { grid-column: 2; grid-row: 4; min-height: 0; }
+  /* Oben die Arbeitsseiten, unten Profil, Settings und der Relay-Stand */
+  .app-nav button[data-tab="profile"] { margin-top: auto; }
+  .app-nav .nav-status { margin-top: 10px; }
+  .app-nav button[data-tab="mehr"] { display: none; }
+  /* Repos und Netz (C.1b) wie Währung und Verdienen: Kopf und Reiter bis an den Rand */
+  #app > main:has(#page-repos.active), #app > main:has(#page-netz.active) { padding: 0; }
+}
+
+/* Mobil: Agent · Chat · Währung · Mehr (E1); „Chat“ als kurze Beschriftung (B15) */
+.app-nav .nav-kurz { display: none; }
+@media (max-width: 1023px) {
+  .app-nav .nav-mehr-teil, .app-nav button[data-tab="comm"] > [data-i18n="navComm"] { display: none; }
+  .app-nav .nav-kurz { display: inline; }
+}
+header .balance, header .ident { cursor: pointer; }
+
+/* Agent mobil (B2): Verlauf und Modelle als eigene Ebene statt unerreichbar */
+.agent-nur-mobil { display: none; }
+@media (max-width: 859px) {
+  .agent-mobil-leiste { display: flex; gap: 8px; padding: 10px 14px 0; }
+  .agent-mobil-leiste button { width: auto; min-height: 40px; padding: 8px 12px; display: inline-flex; align-items: center; gap: 6px; }
+  #agent-seite-zurueck { display: block; width: auto; min-height: 40px; align-self: flex-start; padding: 8px 12px; }
+  .agent-layout[data-sicht="seite"] .agent-side { display: flex; width: 100%; border-right: 0; }
+  .agent-layout[data-sicht="seite"] .agent-main { display: none; }
+}
+
+/* Seite „Mehr“: eine Zeile je Ziel, mindestens 48 px hoch */
+.mehr-liste { gap: 8px; }
+.mehr-zeile {
+  display: flex; align-items: center; gap: 12px; width: 100%; min-height: 48px; padding: 10px 14px;
+  background: var(--card); border: 1px solid var(--border); border-radius: 6px; color: var(--text);
+  font-size: 14px; font-weight: 500; text-align: left; text-transform: none; letter-spacing: 0;
+}
+button.mehr-zeile:hover, button.mehr-zeile:focus-visible { background: var(--card); border-color: var(--accent); }
+.mehr-pfeil { margin-left: auto; color: var(--text-muted); }
+.mehr-sprache .lang-dropdown { margin-left: auto; }

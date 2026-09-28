@@ -68,7 +68,7 @@ Jede Funktion, in der Geld fließt, bietet beide Schienen mit gleichem Komfort.
 
 ---
 
-## 4.3 Solana-Zahlkanal (neues Anchor-Programm)
+## 4.3 Solana-Zahlkanal (neues Anchor-Programm) – CODE FERTIG (27.09.2026, Deploy MENSCH)
 
 - **Voraussetzung:** 4.0 entschieden, 4.1 fertig.
 - **Stellen:** neu `contracts/solana-channel/`; Client
@@ -121,11 +121,21 @@ Jede Funktion, in der Geld fließt, bietet beide Schienen mit gleichem Komfort.
     versiegelten Kern) und Vorauszahlung bis zum Gebot festgelegt
     (`docs/ZAHLKANAL.md`); `KanalKasse` im Knoten (Kanal auf der Kette,
     Gutschrift, Deckung, Buchen, Einlösen ab Schwelle oder vor Ablauf, Datei
-    über Zwischendatei), gegen den Validator gegengeprüft. **4.3c2:** in
-    `dvm-provider.ts` und `main.ts` verdrahten (Anfrage mit Kanal-Tags, Preis
-    in Lamports buchen, Einlösen im Takt, Angebot nennt den Kanal).
-  - **4.3d:** App – Kanal öffnen (Empfänger aus A+), Gutschriften versiegelt
-    mit der Anfrage, Rückholen nach Ablauf; SOL-Anteile damit erzwungen.
+    über Zwischendatei), gegen den Validator gegengeprüft. **4.3c2 – FERTIG:** in
+    `dvm-provider.ts` und `main.ts` verdrahtet: Anfrage mit Kanal-Tags nur
+    versiegelt, Deckung Gebot + Werkzeuge, Preis in Lamports gebucht, Einlösen
+    alle 5 Minuten, Angebot nennt den Kanal; nur mit `ZAHLKANAL=1` und
+    passendem Schlüssel.
+  - **4.3d:** App. Geteilt, damit die App nie einen Kanal öffnen lässt, den sie
+    noch nicht nutzt: **4.3d1 – FERTIG:** Kanal-Buch im Tresor, Gutschrift mit
+    jeder Anfrage statt der Deklaration (`max(letzte, Basis + Bedarf)`, zum
+    Kurs des Providers, vorsichtig bei fehlender Antwort), Antwort verbuchen
+    ohne Lightning-Zahlung, Rückholen nach Ablauf über den Wächter
+    (`kind: "kanal"`), Leak-Szenario. **4.3d2 – FERTIG:** Kanal öffnen
+    (Empfänger aus A+ mit SOL-Adresse, `kanalEmpfaenger()`; nur, wenn das
+    Programm auf der Kette liegt), Übersicht, Texte, Aussage „zahlkanal“ im
+    Datenschutzbericht; SOL-Anteile damit erzwungen. **4.3 Code fertig** –
+    offen nur MENSCH: Devnet-Deploy, dann ein KI-Auftrag über den Kanal.
 
 ---
 

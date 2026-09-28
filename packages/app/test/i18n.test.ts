@@ -159,16 +159,18 @@ test("8.16b: Zahlen und Daten im Gebietsschema der Sprache; ein Sprachwechsel ze
   } finally {
     setLang(vorher);
   }
-  assert.match(readFileSync(pfad(SRC, "shell/tabs/kommunikation.ts"), "utf8"), /toLocaleTimeString\(gebietsschema\(\), \{/, "Uhrzeit im Raum");
+  assert.match(readFileSync(pfad(SRC, "shell/tabs/raeume.ts"), "utf8"), /toLocaleTimeString\(gebietsschema\(\), \{/, "Uhrzeit im Raum (seit C.2a in raeume.ts)");
   const app = readFileSync(pfad(SRC, "shell/app.ts"), "utf8");
   assert.match(app, /applyI18n\(\);\s*\/\/[^\n]*\n\s*const offen = document\.querySelector<HTMLElement>\("\.app-nav button\.active"\)\?\.dataset\.tab;\s*if \(offen\) switchTab\(offen\);/);
 });
 
 test("8.16c: Kommunikation – Texte über Schlüssel; die Markierung abgelöster Unterhaltungen in beiden Sprachen erkannt", () => {
   const kom = readFileSync(pfad(SRC, "shell/tabs/kommunikation.ts"), "utf8");
-  assert.match(kom, /import \{ gebietsschema, t \} from "\.\.\/\.\.\/i18n\.js";/);
-  assert.doesNotMatch(kom, /"de-DE"/);
-  assert.ok(offenImCode("shell/tabs/kommunikation.ts") === 0 && offenImHtml("page-comm") === 0, "fertig: Seite und Code auf 0");
+  // Die Räume (mit Uhrzeit) stehen seit C.2a in raeume.ts
+  const raeume = readFileSync(pfad(SRC, "shell/tabs/raeume.ts"), "utf8");
+  assert.match(raeume, /import \{ gebietsschema, t \} from "\.\.\/\.\.\/i18n\.js";/);
+  assert.doesNotMatch(kom + raeume, /"de-DE"/);
+  assert.ok(offenImCode("shell/tabs/kommunikation.ts") === 0 && offenImCode("shell/tabs/raeume.ts") === 0 && offenImHtml("page-comm") === 0, "fertig: Seite und Code auf 0");
   // Die Markierung steht im gespeicherten Namen – eine Unterhaltung aus der anderen Sprache bleibt erkannt
   const marke = /^\((alter Schlüssel|old key)\) /;
   assert.match(kom, /const ALT_MARKE = \/\^\\\(\(alter Schlüssel\|old key\)\\\) \/;/);
@@ -295,7 +297,8 @@ test("8.16f: Earn, Profil, Settings – über Schlüssel; Sätze des Protokolls 
   // Was der Code einmal füllt, zeichnet das Öffnen des Tabs in der neuen Sprache neu (Browser-Test 8.16f)
   const app = readFileSync(pfad(SRC, "shell/app.ts"), "utf8");
   assert.match(app, /if \(name === "profile"\) \{[^}]*zeigeProfilTexte\(\);/);
-  assert.match(app, /if \(name === "earn"\) \{[^}]*void ladeAbdeckung\(\);/);
+  // Die Karte steht seit C.1b auf der Seite „Netz“
+  assert.match(app, /if \(name === "netz"\) \{[^}]*void ladeAbdeckung\(\);/);
   assert.match(earn, /if \(hier && !localStorage\.getItem\("freedom\.coverage\.cell"\)\) hier\.textContent = t\("earn\.standortGebraucht"\);/);
 
   const P = await import("@freedomstack/protocol");
@@ -398,15 +401,15 @@ test("8.16g1: Einstieg und Dialoge – über Schlüssel; Rückfrage vor dem Lös
 
 test("8.16g2a: übrige Bausteine – Mesh, MLS, Werkzeuge, Räume, Hinweise im Bericht über Schlüssel; Kennungen bleiben, Anzeige übersetzt", async () => {
   // Kennungen einer Einladung bleiben Daten; die Anzeige übersetzt sie, Fehlermeldungen bleiben, wie sie sind
-  const kom = readFileSync(pfad(SRC, "shell/tabs/kommunikation.ts"), "utf8");
+  const kom = readFileSync(pfad(SRC, "shell/tabs/raeume.ts"), "utf8"); // Einladen seit C.2a in raeume.ts
   assert.match(kom, /t\("komm\.nichtEingeladen", \{ grund: einladungsText\(r\) \}\)/);
   // Der Selbsttest erkennt fehlende Browser-Fähigkeiten an der Art des Fehlers, nicht am deutschen Text
   const engine = readFileSync(pfad(SRC, "mls-engine.ts"), "utf8");
   assert.match(engine, /e instanceof BrowserKannNicht \? e\.message : t\("bau\.mlsStartetHierNicht"\)/);
   assert.doesNotMatch(engine, /startsWith\("Dieser Browser"\)/);
-  // Der Hinweis zum Weg ans Funkgerät folgt einem Sprachwechsel beim Öffnen der Settings
+  // Der Hinweis zum Weg ans Funkgerät folgt einem Sprachwechsel beim Öffnen der Seite „Netz“ (seit C.1b, vorher Settings)
   const app = readFileSync(pfad(SRC, "shell/app.ts"), "utf8");
-  assert.match(app, /if \(name === "settings"\) \{[^}]*void zeigeMeshWeg\(\);/);
+  assert.match(app, /if \(name === "netz"\) \{[^}]*void zeigeMeshWeg\(\);/);
 
   // raum-mls.ts liest beim Laden localStorage (über state.ts) – hier genügt ein leerer
   const g = globalThis as { localStorage?: unknown };

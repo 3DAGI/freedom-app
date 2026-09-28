@@ -112,3 +112,16 @@ test("Result ohne usage-Tag: rueckwaertskompatibel", () => {
   const parsed = parseJobResult(ev);
   assert.equal(parsed.usage, undefined);
 });
+
+test("Capabilities (4.3c): Kanal-Annahme mit Solana-Adresse und Programm; Unsinn fällt weg", () => {
+  const kp = generateKeypair();
+  const basis = { pubkey: kp.pk, tier: "classic" as const, models: ["m"], textRatePerKTokenMsat: 1000, tools: [], currentlyFree: false };
+  const kanal = { adresse: "9xQeWvG816bUx9EPjHmaT23yvVM2ZWbrrpZb9PusVFin", programm: "7tukwiJ8cKiWPmkhH2seJycWebHuZy1XLXEZYAMLB5Dj" };
+  const mit = signEvent(buildCapabilities({ ...basis, kanal }), kp.sk);
+  assert.deepEqual(mit.tags.find((t) => t[0] === "kanal"), ["kanal", kanal.adresse, kanal.programm]);
+  assert.deepEqual(parseCapabilities(mit).kanal, kanal);
+  assert.equal(parseCapabilities(signEvent(buildCapabilities(basis), kp.sk)).kanal, undefined, "ohne Angabe kein Kanal");
+  assert.equal(buildCapabilities({ ...basis, kanal: { adresse: "kaputt", programm: kanal.programm } }).tags.some((t) => t[0] === "kanal"), false);
+  const fremd = signEvent({ ...buildCapabilities(basis), tags: [...buildCapabilities(basis).tags, ["kanal", kanal.adresse, "<script>"]] }, kp.sk);
+  assert.equal(parseCapabilities(fremd).kanal, undefined, "fremde Angabe nur mit zwei gültigen Adressen");
+});

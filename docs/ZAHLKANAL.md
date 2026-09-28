@@ -122,6 +122,60 @@ rechtzeitig vor `expiry` – danach kann nur noch der Kunde zurückholen. Das
 eigene Konto des Providers muss mietbefreit sein (er zahlt ohnehin die
 Gebühr der Einlösung); sonst lehnt die Laufzeit eine kleine Auszahlung ab.
 
+## Im Knoten (4.3c)
+
+- Kanäle nur mit `ZAHLKANAL=1` und einem Solana-Schlüssel (`SOLANA_KEYPAIR`),
+  dessen Adresse `NODE_SOL_ADDRESS` ist – sonst nähme der Knoten Gutschriften
+  an, die er nie einlösen kann (`kanalKasseAusUmgebung()`).
+- Das Angebot (38027) nennt dann `["kanal", <Adresse>, <Programm>]`.
+- Eine Anfrage mit Gutschrift gilt nur versiegelt; mit A+-Deklaration wird sie
+  abgelehnt (im Kanal teilt das Programm auf). Deckung: Gebot plus die
+  angefragten Werkzeuge in Lamports. Abgerechnet wird wie beim Gebot –
+  höchstens das Gebot, dazu die Werkzeuge; das Ergebnis nennt den Preis in
+  Lamports (`amount_lamports`). Gebucht wird vor dem Versand der Antwort.
+- Eingelöst wird alle fünf Minuten, was fällig ist (Schwelle, Vorlauf und
+  Mindestlaufzeit per Umgebung einstellbar).
+
+## In der App (4.3d)
+
+- **Kanal-Buch** (`app/src/zahlkanal.ts`, im Tresor unter `freedom.kanaele`,
+  nie in der Sicherung): Kanal, Provider, Ablauf, Einlage, Sitzungsschlüssel,
+  letzte Gutschrift, Summe der Preise, Anfragen ohne Antwort. Genutzt wird ein
+  Kanal nur, solange er noch mindestens zwei Stunden läuft (der Knoten
+  verlangt eine).
+- **Gutschrift je Anfrage:** `max(letzte, Basis + Bedarf)`, höchstens die
+  Einlage. Die Basis ist die Summe der Preise aus den Antworten
+  (`amount_lamports`); fehlt zu einer Anfrage noch die Antwort, ist die Basis
+  die letzte Gutschrift – der Provider kann gearbeitet und gebucht haben, und
+  sonst deckte die nächste Gutschrift nicht, der Kanal hinge. Verlieren kann
+  der Kunde so höchstens das Gebot einer Anfrage ohne Antwort.
+- **Bedarf:** Gebot plus Werkzeuge (`hoechstMsat()`), umgerechnet mit dem Kurs
+  aus dem Angebot des Providers – mit dem prüft der Knoten –, plus 2 %
+  Spielraum für Kursbewegungen seit dem Angebot. Ohne Kurs im Angebot geht
+  nichts hinaus.
+- Die Gutschrift ersetzt die A+-Deklaration im Kern der Anfrage; nach der
+  Antwort zahlt Lightning nichts, die App verbucht nur den Preis. Ob eine
+  Anfrage über den Kanal lief, merkt sich die App auch im Speicher – ein
+  gesperrter Tresor führt so nie zu einer zweiten Zahlung.
+- Deckt der Kanal das Gebot nicht mehr, geht die Anfrage nicht hinaus – nie
+  still über Lightning, wenn der Nutzer für diesen Provider einen Kanal hat.
+- **Zurückholen:** Der Rückhol-Wächter kennt Kanäle als Sperre
+  (`kind: "kanal"`, Referenz = Kanal-Adresse). Offen ist ein Kanal, solange sein
+  Konto beim Programm liegt; nach Ablauf holt die verbundene Wallet mit
+  `refund` Rest und Miete zurück. Gehört der Kanal einer anderen Wallet, geht
+  keine Transaktion hinaus, die App nennt den Grund.
+- **Öffnen** (4.3d2, Währung → Unterseite mit dem Deposit, `shell/zahlkanal-ui.ts`):
+  nur mit verbundener Wallet und nur, wenn der Provider im Angebot einen Kanal
+  bei genau diesem Programm nennt und das Programm auf der Kette liegt (bis zum
+  Deploy nicht – dann öffnet die App keinen Kanal). Empfänger sind die Anteile
+  nach A+ mit SOL-Adresse (`kanalEmpfaenger()`), nie Provider oder Kunde
+  selbst. Erst Tresor, dann merken (Kanal-Buch, Sperre für den Wächter), dann
+  einzahlen; scheitert die Einzahlung und zeigt die Kette keinen Kanal, fliegt
+  er aus dem Kanal-Buch. Laufzeit 1, 7 oder 30 Tage. Aufstocken bietet die App
+  nicht an – ein neuer Kanal tut es auch.
+- Der Datenschutzbericht nennt als Grenze, was auf der Kette steht (Aussage
+  „zahlkanal“).
+
 ## Nie
 
 - `--final` oder Änderungen an Upgrade-Rechten durch den Agenten.

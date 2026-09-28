@@ -90,7 +90,7 @@ export function pruefeAnfrage(rail: RailId, a: Zahlanfrage): void {
  * uebergebbar, haengt aber an verwahrenden Mints: nur nach MENSCH-Entscheidung.
  */
 export const OFFLINE_HINWEIS =
-  "Offline: Nachrichten gehen verschlüsselt über Funk oder per Datei (Settings → Mesh), SOL mit vorbereitetem Nonce-Konto (Wallet-Tab). Sats, sobald wieder Netz da ist.";
+  "Offline: Nachrichten gehen verschlüsselt über Funk oder per Datei (Netz → Mesh), SOL mit vorbereitetem Nonce-Konto (Wallet-Tab). Sats, sobald wieder Netz da ist.";
 
 export function offlineZahlText(rail: RailId): string {
   return rail === "lightning"

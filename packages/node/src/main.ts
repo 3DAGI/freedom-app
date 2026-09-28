@@ -25,6 +25,7 @@ import {
   toHex,
 } from "@freedomstack/protocol";
 import { DvmProvider, DEFAULT_PROVIDER_CONFIG } from "./dvm-provider.js";
+import { kanalKasseAusUmgebung } from "./kanal-kasse.js";
 import { OllamaBackend } from "./inference.js";
 import http from "node:http";
 
@@ -143,6 +144,13 @@ async function main(): Promise<void> {
   if (klartextProtokoll) {
     console.warn("[datenschutz] LOG_KLARTEXT=1 – Antworten erscheinen im Log. Nur zur Fehlersuche, danach wieder ausschalten.");
   }
+  // Zahlkanal (4.3c): nur mit ZAHLKANAL=1 und passendem Solana-Schlüssel
+  const { kasse: kanalKasse, grund: kanalGrund } = await kanalKasseAusUmgebung(process.env, {
+    rpcUrl: process.env.SOLANA_RPC_URL ?? defaultSolanaRpc(),
+    datei: join(process.env.HOME ?? ".", ".freedom", "kanaele.json"),
+    standardSchluessel: join(process.env.HOME ?? ".", ".config", "solana", "id.json"),
+  });
+  console.log(kanalKasse ? `[kanal] Zahlkanal an (Provider ${process.env.NODE_SOL_ADDRESS})` : `[kanal] Zahlkanal ${kanalGrund}`);
   const provider = new DvmProvider(
     {
       keypair,
@@ -176,6 +184,7 @@ async function main(): Promise<void> {
       // SOL-Preis (alle Preise in SOL verfuegbar): SOL_PRICE_SATS=150000 (1 SOL ~ 150k sats)
       solPriceSats: process.env.SOL_PRICE_SATS ? Number(process.env.SOL_PRICE_SATS) : undefined,
       solanaAddress: process.env.NODE_SOL_ADDRESS || undefined,
+      kanalKasse,
     },
     pool,
     backend,
@@ -349,7 +358,7 @@ async function main(): Promise<void> {
   // Beim Start und beim Erneuern gleich gebaut: frueher fehlten beim Erneuern
   // Speicherangabe und (seit 3.1) die Rechenarbeit fuer private Anfragen.
   const baueAngebot = async () => {
-    const { buildCapabilities, defaultPriceFor, DEFAULT_TOOL_PRICES, signEvent } = await import("@freedomstack/protocol");
+    const { buildCapabilities, defaultPriceFor, DEFAULT_TOOL_PRICES, signEvent, KANAL_PROGRAMM_ID } = await import("@freedomstack/protocol");
     const modelsEnv = process.env.PROVIDER_MODELS ?? process.env.OLLAMA_MODEL ?? "nemotron-3.5-lightning:30b-a3b-nvfp4";
     const models = modelsEnv.split(",").map((m) => m.trim()).filter(Boolean);
     const model = models[0]; // primaer
@@ -374,6 +383,8 @@ async function main(): Promise<void> {
       // und dem Werber (falls genannt) 0,5 % direkt
       lud16,
       werber,
+      // Zahlkanal (4.3c): nur, wenn der Knoten Gutschriften auch einlösen kann
+      kanal: kanalKasse && process.env.NODE_SOL_ADDRESS ? { adresse: process.env.NODE_SOL_ADDRESS, programm: KANAL_PROGRAMM_ID } : undefined,
     });
     return { ev: signEvent(caps, keypair.sk), tier, models };
   };
@@ -395,6 +406,28 @@ async function main(): Promise<void> {
       console.error("[caps-refresh] Fehler:", err);
     }
   }, CAPS_REFRESH_MS);
+
+  // Zahlkanal: fällige Gutschriften einlösen (ab Schwelle oder vor Ablauf) –
+  // nur Kanal, Betrag und Fehlername ins Log
+  if (kanalKasse) {
+    // Nie zwei Durchgänge zugleich (ein zweites Einlösen lehnte das Programm ab – kostete aber Gebühren)
+    let laeuft = false;
+    const einloesen = async () => {
+      if (laeuft) return;
+      laeuft = true;
+      try {
+        for (const r of await kanalKasse.loeseFaelligeEin().catch(() => [])) {
+          console.log(r.fehler
+            ? `[kanal] ${r.kanal.slice(0, 8)}: ${r.fehler} (${r.betrag} Lamports)`
+            : `[kanal] ${r.kanal.slice(0, 8)}: ${r.betrag} Lamports eingelöst`);
+        }
+      } finally {
+        laeuft = false;
+      }
+    };
+    void einloesen();
+    setInterval(() => void einloesen(), 5 * 60 * 1000);
+  }
 
   const pollMs = Number(process.env.POLL_INTERVAL_MS ?? 15_000);
   console.log(`freedomstack-node laeuft. pubkey=${keypair.pk.slice(0, 16)}...`);

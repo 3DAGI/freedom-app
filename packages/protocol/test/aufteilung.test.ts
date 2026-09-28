@@ -7,7 +7,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  ANTEILE, ANTEILE_PPM, ENTWICKLUNG, MAX_ANTEILE_PPM, PROVIDER_PPM, adresseFuer, aufteilungTag, providerAnteilMsat,
+  ANTEILE, ANTEILE_PPM, ENTWICKLUNG, MAX_ANTEILE_PPM, PROVIDER_PPM, adresseFuer, aufteilungTag, kanalEmpfaenger, providerAnteilMsat,
   pruefeAufteilung, teileAuf, zahlbareAnteile, type Empfaenger,
 } from "../src/aufteilung.js";
 
@@ -108,4 +108,30 @@ test("5.1.3: Entwicklung ohne eigene Adresse – ihr Anteil bleibt beim Provider
     assert.deepEqual(r, { providerMsat: 1_000_000, posten: [] });
     assert.deepEqual(zahlbareAnteile({ entwicklung: ENTWICKLUNG }, "lightning"), []);
   }
+});
+
+test("4.3d: Empfänger eines Zahlkanals – nur Anteile mit SOL-Adresse, Relays höchstens drei, doppelte zusammen, Provider und Kunde nie", () => {
+  const sol = (n: number) => ["9xQeWvG816bUx9EPjHmaT23yvVM2ZWbrrpZb9PusVFin", "4Nd1mBQtrMJVYVfKf2PJy9NZUZdTAsp7D4xWLs4gDB4T",
+    "7dHbWXmci3dT8UFYWYZweBLXgycu7Y3iL6trKn1Y7ARj", "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", "So11111111111111111111111111111111111111112"][n]!;
+  // Heute nur Lightning-Adressen bekannt (Werber, Relays): nichts im Kanal, alles beim Provider
+  assert.deepEqual(kanalEmpfaenger({ ...alle, entwicklung: { lud16: "dev@freedom.example" } }), []);
+  const e: Empfaenger = {
+    entwicklung: { sol: sol(0) },
+    relays: [{ sol: sol(1) }, { lud16: "relay@r.example" }, { sol: sol(2) }, { sol: sol(1) }, { sol: sol(3) }, { sol: sol(4) }],
+    hosting: { sol: sol(0) },
+    "werber-kunde": { sol: "kein-base58-0OIl" },
+  };
+  const k = kanalEmpfaenger(e);
+  // Entwicklung + Hosting an dieselbe Adresse: einmal, 25.000 + 10.000 ppm
+  assert.deepEqual(k, [
+    { adresse: sol(0), ppm: 35_000 },
+    { adresse: sol(1), ppm: 5_000 },
+    { adresse: sol(2), ppm: 5_000 },
+    { adresse: sol(3), ppm: 5_000 },
+  ]);
+  assert.ok(k.reduce((s, x) => s + x.ppm, 0) <= MAX_ANTEILE_PPM);
+  // Zwei Relays: 7.500 je – der Rest (0) an den ersten; drei Relays mit 15.000 / 3 = 5.000
+  assert.deepEqual(kanalEmpfaenger({ relays: [{ sol: sol(1) }, { sol: sol(2) }] }), [{ adresse: sol(1), ppm: 7_500 }, { adresse: sol(2), ppm: 7_500 }]);
+  // Provider oder Kunde als Empfänger: fällt weg, der Anteil bleibt beim Provider
+  assert.deepEqual(kanalEmpfaenger({ entwicklung: { sol: sol(0) }, hosting: { sol: sol(4) } }, [sol(4)]), [{ adresse: sol(0), ppm: 25_000 }]);
 });

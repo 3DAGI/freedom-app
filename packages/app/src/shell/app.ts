@@ -67,9 +67,8 @@ import {
   setzeAblauf,
   posteingangAbgleichen,
   wireKommunikation,
-  wireSpacesTab,
-  zeigeRaumLeiste,
 } from "./tabs/kommunikation.js";
+import { wireSpacesTab, zeigeRaumLeiste } from "./tabs/raeume.js";
 import { vergebeAbzeichen, wireProfil, zeigeAbzeichen, zeigeProfilTexte, zeigeProfilVorschau } from "./tabs/profil.js";
 import {
   aktualisiereSicherheitsStand,
@@ -97,6 +96,8 @@ import {
   refundDeposit,
   startDeposit,
 } from "./tabs/waehrung.js";
+import { oeffneZahlkanal, zeigeKanaele } from "./zahlkanal-ui.js";
+import { seiteGezeigt, startSeite, wireNavigation } from "./navigation.js";
 import {
   entsperreBeimStart,
   geheim,
@@ -467,13 +468,18 @@ export function switchTab(name: string): void {
   if (navBtn) navBtn.classList.add("active");
   // Kommunikation vereint die alten Seiten Chat und Raeume.
   if (name === "comm") { loadChatList(); void zeigeRaumLeiste(); }
-  if (name === "profile") { loadTrust(); void zeigeAbzeichen(); void zeigeProfilVorschau(); zeigeProfilTexte(); }
-  if (name === "settings") { void zeigeSicherung(); void zeigeGeraete(); void zeigeDatenschutz(); void aktualisiereSicherheitsStand(); void zeigeMeshWeg(); }
+  if (name === "profile") { void zeigeAbzeichen(); void zeigeProfilVorschau(); zeigeProfilTexte(); }
+  if (name === "settings") { void zeigeSicherung(); void zeigeGeraete(); void zeigeDatenschutz(); void aktualisiereSicherheitsStand(); }
   // Verlauf und Budget neu zeichnen – so folgen sie auch einem Sprachwechsel (8.16d1)
   if (name === "ai") { zeigeVerlaeufe(); updateBudgetBar(); void refreshModelDropdown(); void refreshQuota(); }
-  if (name === "wallet") loadWallet();
-  if (name === "earn") { loadEarnings(); loadTrust(); updateReferralLink(); void ladeAbdeckung(); }
+  if (name === "wallet") { loadWallet(); void zeigeKanaele(); }
+  if (name === "earn") { loadEarnings(); loadTrust(); updateReferralLink(); }
+  // Karte und Mesh stehen seit C.1b auf der Seite „Netz“
+  if (name === "netz") { void ladeAbdeckung(); void zeigeMeshWeg(); }
+  if (name === "mehr") void aktualisiereNavStatus();
   updateSidebarBalances();
+  // Adresse (nur die Seite, nie eine Kennung) und „Mehr“ nachziehen (C.1a)
+  seiteGezeigt(name);
 }
 
 // ------------------------------------------------------------- Init (v0.2)
@@ -509,6 +515,7 @@ function setupLangMenu(): void {
   const pairs: Array<{ btnId: string; menuId: string }> = [
     { btnId: "#lang-btn", menuId: "#lang-menu" },
     { btnId: "#lang-btn-app", menuId: "#lang-menu-app" },
+    { btnId: "#lang-btn-mehr", menuId: "#lang-menu-mehr" },
   ];
   const renderMenu = (menu: HTMLElement): void => {
     menu.innerHTML = LANGS.map(
@@ -577,7 +584,8 @@ function setupFlow(): () => void {
     loadChatList();
     loadWallet();
     loadEarnings();
-    switchTab("ai");
+    // Mit der Seite aus der Adresse, sonst dem Agenten (C.1a)
+    switchTab(startSeite());
     // Modell-Katalog + Quota laden (async, sobald provider-discovery fertig)
     void refreshModelDropdown().then(() => refreshQuota());
   };
@@ -624,6 +632,8 @@ function starte(): void {
   ($("#lang-btn") as HTMLButtonElement).textContent = `${langCode} ▾`;
   const appLangBtn = $("#lang-btn-app") as HTMLButtonElement | null;
   if (appLangBtn) appLangBtn.textContent = `${langCode} ▾`;
+  const mehrLangBtn = $("#lang-btn-mehr") as HTMLButtonElement | null;
+  if (mehrLangBtn) mehrLangBtn.textContent = `${langCode} ▾`;
   applyI18n();
   setupLangMenu();
   // Kein Gate mehr → Identity beim Boot laden/erzeugen (früher gate-button)
@@ -645,8 +655,8 @@ function starte(): void {
   document.querySelectorAll(".app-nav button[data-tab]").forEach((b) => {
     b.addEventListener("click", () => switchTab((b as HTMLElement).dataset.tab!));
   });
-  $("#ident").onclick = exportIdentity;
-  $("#btn-import").onclick = importIdentity;
+  // Kopfzeile mobil, „Mehr“, Zurück und die Unterseiten des Agenten (C.1a)
+  wireNavigation((seite) => switchTab(seite));
   // Sidebar-Balances: ident + import klonen die header-handler (desktop)
   const nbIdent = $("#nb-ident");
   const nbImport = $("#nb-import");
@@ -869,6 +879,7 @@ function starte(): void {
   if (nwcDisconnectBtn) nwcDisconnectBtn.onclick = disconnectNwc;
   $("#dep-start").onclick = startDeposit;
   $("#dep-refund").onclick = refundDeposit;
+  $("#kanal-start").onclick = () => void oeffneZahlkanal();
   $("#chat-new-dm").onclick = () => void newDm();
   $("#chat-new-community").onclick = newCommunity;
   setupAttach();
