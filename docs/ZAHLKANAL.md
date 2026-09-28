@@ -135,6 +135,21 @@ Gebühr der Einlösung); sonst lehnt die Laufzeit eine kleine Auszahlung ab.
   Lamports (`amount_lamports`). Gebucht wird vor dem Versand der Antwort.
 - Eingelöst wird alle fünf Minuten, was fällig ist (Schwelle, Vorlauf und
   Mindestlaufzeit per Umgebung einstellbar).
+- **Auszahlung (4.5a):** Mit `NODE_SOL_PAYOUT` geht nach dem Einlösen, was
+  sich auf dem Schlüssel des Knotens sammelt, gebündelt an diese eigene
+  Adresse (ihr Schlüssel liegt nicht auf dem Knoten; `sol-auszahlung.ts`).
+  Nur über der Schwelle (`KANAL_AUSZAHLUNG_SCHWELLE_LAMPORTS`, Standard
+  0,1 SOL), höchstens einmal je Abstand (`KANAL_AUSZAHLUNG_ABSTAND_SEK`,
+  Standard 24 h, auch nach einem Fehlversuch); die Rücklage
+  (`KANAL_AUSZAHLUNG_RUECKLAGE_LAMPORTS`, Standard 0,01 SOL, mindestens
+  0,001 SOL) bleibt für Miete und Gebühren. Nie an ein Programm, nie an die
+  eigene Adresse, mit Vorabsimulation, ins Log nur Betrag und Fehlername.
+  Laufen LP oder Relayer mit demselben `SOLANA_KEYPAIR`, bleibt sie aus –
+  das Guthaben ist dann deren Liquidität. Das ist keine Verteilung an andere
+  (5.1.2): Der Knoten bringt nur eigenes Geld vom heißen Schlüssel weg.
+- **Grenze (Entscheidung 28.09.2026, Variante A):** eine Provider-Adresse je
+  Knoten – keine frischen Adressen je Sitzung. Alle Kanäle eines Knotens und
+  seine Auszahlungen sind auf der Kette miteinander verbunden.
 
 ## In der App (4.3d)
 

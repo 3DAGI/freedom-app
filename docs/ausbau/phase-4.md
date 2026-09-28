@@ -153,7 +153,17 @@ Jede Funktion, in der Geld fließt, bietet beide Schienen mit gleichem Komfort.
 
 ---
 
-## 4.5 Verdienen in SOL
+## 4.5 Verdienen in SOL – in Arbeit (a ✓)
+
+> Entschieden 28.09.2026 (MENSCH): **Variante A** – eine Provider-Adresse je
+> Knoten, keine frischen Adressen je Sitzung (die bräuchten einen Knoten-Seed
+> und je Adresse einen eigenen Kanal; der Zahlkanal bindet den Kanal an die
+> Provider-Adresse). Die Grenze kommt in den Datenschutzbericht.
+> Aufgeteilt: **a** Knoten ✓ – Auszahlung an `NODE_SOL_PAYOUT` (gebündelt,
+> über einer Schwelle, höchstens einmal je Abstand, Rücklage bleibt; aus neben
+> LP oder Relayer mit demselben Schlüssel); **b** App – Verdienen-Tab:
+> Einnahmen je Schiene, offene Kanäle und Fristen von der Kette, Grenze im
+> Datenschutzbericht.
 
 - **Stellen:** `packages/node/src/main.ts`, `settlement.ts`, `dvm-provider.ts`,
   Verdienen-Tab, `scripts/install-freedom.sh`.

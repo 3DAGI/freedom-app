@@ -16,6 +16,7 @@
  */
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
+import { SolAuszahlung } from "./sol-auszahlung.js";
 import type { TransactionInstruction } from "@solana/web3.js";
 import {
   KANAL_PROGRAMM_ID, leseKanal, pruefeGutschrift, rechneKanalAbIxs,
@@ -215,21 +216,33 @@ export interface KanalUmgebung {
   KANAL_EINLOES_SCHWELLE_LAMPORTS?: string;
   KANAL_EINLOES_VORLAUF_SEK?: string;
   KANAL_MINDEST_REST_SEK?: string;
+  /** Eigene Auszahlungsadresse (4.5) – ihr Schlüssel liegt nicht auf dem Knoten. */
+  NODE_SOL_PAYOUT?: string;
+  KANAL_AUSZAHLUNG_SCHWELLE_LAMPORTS?: string;
+  KANAL_AUSZAHLUNG_RUECKLAGE_LAMPORTS?: string;
+  KANAL_AUSZAHLUNG_ABSTAND_SEK?: string;
+  /** LP und Relayer nutzen denselben Schlüssel (`SOLANA_KEYPAIR`) – dann keine Auszahlung. */
+  LP_ENABLED?: string;
+  LP_SOL_MOCK?: string;
+  RELAYER_ENABLED?: string;
 }
 
 /**
  * Die Kasse aus der Umgebung des Knotens (4.3c): nur mit `ZAHLKANAL=1` und nur,
  * wenn der Schlüssel aus `SOLANA_KEYPAIR` zur Adresse `NODE_SOL_ADDRESS` passt –
  * sonst könnte der Knoten Gutschriften annehmen, die er nie einlösen kann.
- * Eingelöst wird mit Vorabsimulation (nie `skipPreflight`).
+ * Eingelöst wird mit Vorabsimulation (nie `skipPreflight`). Mit
+ * `NODE_SOL_PAYOUT` dazu die Auszahlung an die eigene Adresse (4.5,
+ * `sol-auszahlung.ts`); ist sie ungültig oder laufen LP bzw. Relayer mit
+ * demselben Schlüssel, läuft die Kasse ohne sie.
  */
 export async function kanalKasseAusUmgebung(
   env: KanalUmgebung,
   o: { rpcUrl: string; datei: string; standardSchluessel: string },
-): Promise<{ kasse?: KanalKasse; grund?: string }> {
+): Promise<{ kasse?: KanalKasse; grund?: string; auszahlung?: SolAuszahlung; auszahlungGrund?: string }> {
   if (env.ZAHLKANAL !== "1") return { grund: "aus (ZAHLKANAL=1 setzen)" };
   if (!env.NODE_SOL_ADDRESS) return { grund: "NODE_SOL_ADDRESS fehlt" };
-  const { Connection, PublicKey, Transaction, sendAndConfirmTransaction } = await import("@solana/web3.js");
+  const { Connection, PublicKey, SystemProgram, Transaction, sendAndConfirmTransaction } = await import("@solana/web3.js");
   const { loadSolanaKeypair } = await import("@freedomstack/protocol");
   let schluessel;
   try {
@@ -254,5 +267,27 @@ export async function kanalKasseAusUmgebung(
     einloesVorlaufSek: zahl(env.KANAL_EINLOES_VORLAUF_SEK),
     einloesSchwelle: zahl(env.KANAL_EINLOES_SCHWELLE_LAMPORTS) !== undefined ? BigInt(env.KANAL_EINLOES_SCHWELLE_LAMPORTS!) : undefined,
   });
-  return { kasse };
+  if (!env.NODE_SOL_PAYOUT) return { kasse, auszahlungGrund: "aus (NODE_SOL_PAYOUT setzen)" };
+  // Das Guthaben dieses Schlüssels ist dann Liquidität des LP bzw. Vorrat des Relayers – nicht wegschieben
+  if ((env.LP_ENABLED === "1" && env.LP_SOL_MOCK !== "1") || env.RELAYER_ENABLED === "1") {
+    return { kasse, auszahlungGrund: "aus – LP oder Relayer nutzen denselben Schlüssel (SOLANA_KEYPAIR)" };
+  }
+  const lamports = (w: string | undefined): bigint | undefined => (zahl(w) !== undefined ? BigInt(w!) : undefined);
+  try {
+    const an = new PublicKey(env.NODE_SOL_PAYOUT).toBase58();
+    const von = env.NODE_SOL_ADDRESS;
+    const auszahlung = new SolAuszahlung({
+      von, an,
+      guthaben: async () => BigInt(await conn.getBalance(new PublicKey(von), "confirmed")),
+      istProgramm: async (a) => (await conn.getAccountInfo(new PublicKey(a), "confirmed"))?.executable === true,
+      sende: (ixs) => sendAndConfirmTransaction(conn, new Transaction().add(...ixs), [schluessel], { commitment: "confirmed" }),
+      ueberweisung: (v, z, l) => SystemProgram.transfer({ fromPubkey: new PublicKey(v), toPubkey: new PublicKey(z), lamports: l }),
+      schwelle: lamports(env.KANAL_AUSZAHLUNG_SCHWELLE_LAMPORTS),
+      ruecklage: lamports(env.KANAL_AUSZAHLUNG_RUECKLAGE_LAMPORTS),
+      abstandSek: zahl(env.KANAL_AUSZAHLUNG_ABSTAND_SEK),
+    });
+    return { kasse, auszahlung };
+  } catch (e) {
+    return { kasse, auszahlungGrund: `NODE_SOL_PAYOUT ungültig (${(e as Error).message})` };
+  }
 }

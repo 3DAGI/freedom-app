@@ -108,6 +108,14 @@ services:
       ZAHLKANAL: "${ZAHLKANAL:-0}"
       NODE_SOL_ADDRESS: "${NODE_SOL_ADDRESS:-}"
       SOLANA_KEYPAIR: "${SOLANA_KEYPAIR:-/home/node/.freedom/solana-kanal.json}"
+      # 4.5a: Eingeloestes geht gebuendelt an die eigene Auszahlungsadresse (deren
+      # Schluessel NICHT auf dem Knoten liegt) – hoechstens einmal je Abstand und nur
+      # ueber der Schwelle; die Ruecklage bleibt fuer Miete und Gebuehren. Leer: aus.
+      # Laufen LP oder Relayer mit demselben SOLANA_KEYPAIR, bleibt sie aus.
+      NODE_SOL_PAYOUT: "${NODE_SOL_PAYOUT:-}"
+      KANAL_AUSZAHLUNG_SCHWELLE_LAMPORTS: "${KANAL_AUSZAHLUNG_SCHWELLE_LAMPORTS:-100000000}"
+      KANAL_AUSZAHLUNG_RUECKLAGE_LAMPORTS: "${KANAL_AUSZAHLUNG_RUECKLAGE_LAMPORTS:-10000000}"
+      KANAL_AUSZAHLUNG_ABSTAND_SEK: "${KANAL_AUSZAHLUNG_ABSTAND_SEK:-86400}"
       QUOTA_API_PORT: "3602"
     volumes:
       # Identitaet und Bootstrap-Zeitpunkt ueberleben Neustarts. Ohne dieses
