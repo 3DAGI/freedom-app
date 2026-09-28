@@ -6,7 +6,7 @@
  * Logikänderung; nur `kontaktName` ist jetzt exportiert. Seit C.2b1 fragen
  * Dialoge (`shell/dialog.ts`) statt `prompt()`, `confirm()` und `alert()`.
  */
-import { MELDE_GRUENDE, type MeldeGrund } from "@freedomstack/protocol";
+import { MELDE_GRUENDE, type ChannelMessage, type MeldeGrund, type ThreadView } from "@freedomstack/protocol";
 import { escapeHtml, pkShort } from "../../shell-logic.js";
 import { ensurePool, signiere, state } from "../state.js";
 import { mlsAbgleichen, mlsGesperrt } from "../mls-konto.js";
@@ -16,7 +16,7 @@ import {
 import { $, toast } from "../ui.js";
 import { bestaetige, dialog, hinweis, type Option } from "../dialog.js";
 import { wireMenue } from "../menue.js";
-import { gruppiereVerlauf } from "../../raum-verlauf.js";
+import { antwortBezug, gruppiereVerlauf } from "../../raum-verlauf.js";
 import { gebietsschema, t } from "../../i18n.js";
 import { fehlerText, kanalVertraulichkeit } from "../../protokoll-texte.js";
 import { abrufTakt } from "../versand.js";
@@ -33,10 +33,14 @@ interface SpaceUiState {
   lastRead: Map<string, number>;
   /** Privater Raum (MLS-Gruppe, 2.3b) – sonst null (offener Raum, Kind 42). */
   privat: PrivaterRaum | null;
+  /** Zuletzt gezeichneter Kanal (C.2b2) – der Thread zeichnet daraus. */
+  verlauf: VerlaufKontext | null;
+  /** Offener Thread (C.2c): oberste Nachricht und die, der geantwortet wird. Nur im Speicher. */
+  thread: { root: string; ziel: string } | null;
 }
 
 const spacesUi: SpaceUiState = {
-  spaceId: null, channelId: null, state: null, messages: [], lastRead: new Map(), privat: null,
+  spaceId: null, channelId: null, state: null, messages: [], lastRead: new Map(), privat: null, verlauf: null, thread: null,
 };
 
 function ladeLesestand(): void {
@@ -99,7 +103,10 @@ export async function zeigeRaumLeiste(): Promise<void> {
 
 /** Einen Raum laden: Definition, Rollen, Zuweisungen, Nachrichten. */
 async function oeffneRaum(spaceId: string): Promise<void> {
-  if (spacesUi.spaceId !== spaceId) spacesUi.channelId = null;
+  if (spacesUi.spaceId !== spaceId) {
+    spacesUi.channelId = null;
+    spacesUi.thread = null;
+  }
   spacesUi.spaceId = spaceId;
   zeigeRaumArt(spaceId);
   if (istPrivat(spaceId)) {
@@ -200,6 +207,7 @@ async function zeigeKanalliste(): Promise<void> {
 
 /** Kanal anzeigen: Threads, Schreibrecht, Vertraulichkeit. */
 async function oeffneKanal(channelId: string): Promise<void> {
+  if (spacesUi.channelId !== channelId) spacesUi.thread = null;
   spacesUi.channelId = channelId;
   // Mobil (bis 900 px) ist der Kanal eine eigene Ebene – vor C.2b2 blieb er dort unsichtbar
   document.querySelector(".comm-space-inner")?.classList.add("showing-channel");
@@ -222,52 +230,20 @@ async function oeffneKanal(channelId: string): Promise<void> {
   }
 
   const { topLevel, threads } = buildThreads(spacesUi.messages as never[], kanal as never, st);
+  const darf = state.keypair ? canWriteTo(state.keypair.pk, kanal as never, st) : false;
+  const alle = new Map([...topLevel, ...[...threads.values()].flatMap((f) => f.replies)].map((m) => [m.id, m]));
+  spacesUi.verlauf = { threads, alle, darfModerieren, darfSchreiben: darf, imThread: false };
   const thread = $("#channel-thread");
   if (thread) {
     // Seit C.2b2 gruppiert, mit Namen statt Schlüsseln – nur DOM und textContent
-    const zeit = (s: number) => new Date(s * 1000).toLocaleTimeString(gebietsschema(), { hour: "2-digit", minute: "2-digit" });
-    const tag = (s: number) => new Date(s * 1000).toLocaleDateString(gebietsschema(), { weekday: "long", day: "numeric", month: "long" });
-    const zeile = (m: (typeof topLevel)[number]): HTMLElement => {
-      const z = el("div", undefined, "msg-zeile");
-      z.tabIndex = -1; // antippen zeigt die Aktionen (mobil), Tab springt direkt zu ihnen
-      z.append(el("div", m.content, "msg-text"));
-      const faden = threads.get(m.id);
-      if (faden) {
-        const b = el("button", `${t(faden.replies.length === 1 ? "komm.eineAntwort" : "komm.antworten", { n: faden.replies.length })} · ${t("komm.beteiligte", { n: faden.participants.length })}`, "thread-link");
-        b.dataset.root = m.id;
-        z.append(b);
-      }
-      // Was ich mit der Nachricht tun kann – beim Zeigen und mit dem Fokus, mobil nach Antippen
-      const aktionen: HTMLElement[] = [];
-      // Private Räume moderieren über MLS (2.3c) – nie mit öffentlichen Sperr-Events
-      const modKnopf = darfModerieren && !spacesUi.privat && m.authorPubkey !== state.keypair?.pk;
-      if (modKnopf) aktionen.push(knopf(t("komm.moderieren"), "mod-hide", () => void moderiere("hide", m.id, m.authorPubkey)));
-      if (spacesUi.privat) aktionen.push(knopf(raumAktionText(m.authorPubkey), "raum-aktion", () => void raumAktion(m.id, m.authorPubkey)));
-      if (aktionen.length) {
-        const leiste = el("div", undefined, "msg-aktionen");
-        leiste.setAttribute("role", "toolbar");
-        leiste.setAttribute("aria-label", t("raum.aktionenAria"));
-        leiste.append(...aktionen);
-        z.append(leiste);
-      }
-      return z;
-    };
     thread.replaceChildren(...(topLevel.length === 0
       ? [el("div", t("komm.nochNichts"), "muted mono-sm")]
-      : gruppiereVerlauf(topLevel).flatMap((g) => {
-          const kopf = el("div", undefined, "msg-meta");
-          const name = el("span", g.autor === state.keypair?.pk ? t("raum.ich") : kontaktName(g.autor), "msg-author");
-          name.title = g.autor;
-          kopf.append(name, el("span", zeit(g.nachrichten[0]!.createdAt), "msg-time"));
-          const gruppe = el("div", undefined, "msg-group");
-          gruppe.append(kopf, ...g.nachrichten.map(zeile));
-          return g.neuerTag ? [el("div", tag(g.nachrichten[0]!.createdAt), "msg-tag"), gruppe] : [gruppe];
-        })));
+      : verlaufGruppen(topLevel, spacesUi.verlauf)));
     thread.scrollTop = thread.scrollHeight;
   }
+  zeigeThread();
 
   // Schreibrecht: Wer nicht darf, bekommt den Grund statt eines toten Feldes.
-  const darf = state.keypair ? canWriteTo(state.keypair.pk, kanal as never, st) : false;
   $("#channel-composer").classList.toggle("hidden", !darf);
   const ro = $("#channel-readonly");
   if (ro) {
@@ -299,6 +275,113 @@ function knopf(text: string, klasse: string, tun: () => void): HTMLButtonElement
   b.type = "button";
   b.addEventListener("click", tun);
   return b;
+}
+
+/** Was der Verlauf eines Kanals zum Zeichnen braucht (C.2b2, seit C.2c auch der Thread). */
+interface VerlaufKontext {
+  threads: Map<string, ThreadView>;
+  /** Jede sichtbare Nachricht des Kanals nach Id – für den Bezug einer Antwort. */
+  alle: Map<string, ChannelMessage>;
+  darfModerieren: boolean;
+  darfSchreiben: boolean;
+  imThread: boolean;
+}
+
+const nameVon = (pk: string): string => (pk === state.keypair?.pk ? t("raum.ich") : kontaktName(pk));
+
+/** Eine Nachricht: im Thread ihr Bezug, im Kanal „n Antworten“, dazu die Aktionen. */
+function nachrichtZeile(m: ChannelMessage, k: VerlaufKontext): HTMLElement {
+  const { darfModerieren } = k;
+  const z = el("div", undefined, "msg-zeile");
+  z.tabIndex = -1; // antippen zeigt die Aktionen (mobil), Tab springt direkt zu ihnen
+  // Im Thread (C.2c): auf welche Antwort sich diese bezieht – nur als Text
+  const bezug = k.imThread && m.replyTo && m.replyTo !== m.threadRoot ? k.alle.get(m.replyTo) : undefined;
+  if (bezug) z.append(el("div", t("raum.zitat", { name: nameVon(bezug.authorPubkey), text: bezug.content.slice(0, 80) }), "msg-bezug"));
+  z.append(el("div", m.content, "msg-text"));
+  const faden = k.imThread ? undefined : k.threads.get(m.id);
+  if (faden) {
+    // B8: „n Antworten“ öffnet den Thread (bis C.2c ohne Handler)
+    const b = el("button", `${t(faden.replies.length === 1 ? "komm.eineAntwort" : "komm.antworten", { n: faden.replies.length })} · ${t("komm.beteiligte", { n: faden.participants.length })}`, "thread-link");
+    b.type = "button";
+    b.dataset.root = m.id;
+    b.addEventListener("click", () => oeffneThread(m.id));
+    z.append(b);
+  }
+  // Was ich mit der Nachricht tun kann – beim Zeigen und mit dem Fokus, mobil nach Antippen
+  const aktionen: HTMLElement[] = [];
+  if (k.darfSchreiben) aktionen.push(knopf(t("raum.antworten"), "antworten", () => oeffneThread(m.threadRoot ?? m.id, m.id)));
+  // Private Räume moderieren über MLS (2.3c) – nie mit öffentlichen Sperr-Events
+  const modKnopf = darfModerieren && !spacesUi.privat && m.authorPubkey !== state.keypair?.pk;
+  if (modKnopf) aktionen.push(knopf(t("komm.moderieren"), "mod-hide", () => void moderiere("hide", m.id, m.authorPubkey)));
+  if (spacesUi.privat) aktionen.push(knopf(raumAktionText(m.authorPubkey), "raum-aktion", () => void raumAktion(m.id, m.authorPubkey)));
+  if (aktionen.length) {
+    const leiste = el("div", undefined, "msg-aktionen");
+    leiste.setAttribute("role", "toolbar");
+    leiste.setAttribute("aria-label", t("raum.aktionenAria"));
+    leiste.append(...aktionen);
+    z.append(leiste);
+  }
+  return z;
+}
+
+/** Nachrichten nach Absender und Tag gruppiert (C.2b2), mit Namen statt Schlüsseln. */
+function verlaufGruppen(liste: readonly ChannelMessage[], k: VerlaufKontext): HTMLElement[] {
+  const zeit = (s: number) => new Date(s * 1000).toLocaleTimeString(gebietsschema(), { hour: "2-digit", minute: "2-digit" });
+  const tag = (s: number) => new Date(s * 1000).toLocaleDateString(gebietsschema(), { weekday: "long", day: "numeric", month: "long" });
+  return gruppiereVerlauf(liste).flatMap((g) => {
+    const kopf = el("div", undefined, "msg-meta");
+    const name = el("span", nameVon(g.autor), "msg-author");
+    name.title = g.autor;
+    kopf.append(name, el("span", zeit(g.nachrichten[0]!.createdAt), "msg-time"));
+    const gruppe = el("div", undefined, "msg-group");
+    gruppe.append(kopf, ...g.nachrichten.map((m) => nachrichtZeile(m, k)));
+    return g.neuerTag ? [el("div", tag(g.nachrichten[0]!.createdAt), "msg-tag"), gruppe] : [gruppe];
+  });
+}
+
+/** Thread öffnen (C.2c): `ziel` ist die Nachricht, der geantwortet wird – die oberste oder eine Antwort. */
+function oeffneThread(root: string, ziel = root): void {
+  spacesUi.thread = { root, ziel };
+  zeigeThread();
+  document.getElementById("thread-msg")?.focus();
+}
+
+function schliesseThread(): void {
+  const root = spacesUi.thread?.root;
+  spacesUi.thread = null;
+  zeigeThread();
+  const zurueck = root ? [...document.querySelectorAll<HTMLElement>("#channel-thread .thread-link")].find((b) => b.dataset.root === root) : undefined;
+  (zurueck ?? document.getElementById("space-msg"))?.focus();
+}
+
+/** Thread-Spalte (Desktop) bzw. eigene Ebene (schmal): oberste Nachricht, Antworten, Eingabe mit „Antwort an …“. */
+function zeigeThread(): void {
+  const k = spacesUi.verlauf;
+  const faden = spacesUi.thread;
+  const root = faden && k ? k.alle.get(faden.root) : undefined;
+  const offen = !!(k && faden && root && !root.threadRoot);
+  if (!offen) spacesUi.thread = null;
+  document.querySelector(".comm-space-inner")?.classList.toggle("thread-offen", offen);
+  const box = document.getElementById("thread-verlauf");
+  if (!offen || !box) return;
+  const kt = { ...k, imThread: true };
+  const antworten = k.threads.get(root.id)?.replies ?? [];
+  const teile = verlaufGruppen(antworten, kt);
+  // Am selben Tag wie die oberste Nachricht kein zweites Datum
+  const tagVon = (s: number) => new Date(s * 1000).toDateString();
+  if (antworten[0] && tagVon(antworten[0].createdAt) === tagVon(root.createdAt)) teile.shift();
+  box.replaceChildren(
+    ...verlaufGruppen([root], kt),
+    el("div", t(antworten.length === 1 ? "komm.eineAntwort" : "komm.antworten", { n: antworten.length }), "msg-tag"),
+    ...teile,
+  );
+  box.scrollTop = box.scrollHeight;
+  const ziel = k.alle.get(faden.ziel);
+  const antwortAuf = ziel && ziel.id !== root.id ? ziel : undefined;
+  document.getElementById("thread-antwort-an")?.classList.toggle("hidden", !antwortAuf);
+  const text = document.getElementById("thread-antwort-text");
+  if (text) text.textContent = antwortAuf ? t("raum.antwortAn", { name: nameVon(antwortAuf.authorPubkey) }) : "";
+  document.getElementById("thread-composer")?.classList.toggle("hidden", !k.darfSchreiben);
 }
 
 /** Private Räume (2.3c): was ich mit einer Nachricht tun kann. */
@@ -423,14 +506,19 @@ async function zeigeMitglieder(): Promise<void> {
 }
 
 /** Nachricht senden. */
-async function sendeRaumNachricht(): Promise<void> {
-  const input = $("#space-msg") as HTMLInputElement | null;
+async function sendeRaumNachricht(imThread = false): Promise<void> {
+  const input = $(imThread ? "#thread-msg" : "#space-msg") as HTMLInputElement | null;
   if (!input?.value.trim() || !state.keypair || !spacesUi.spaceId || !spacesUi.channelId) return;
+  // Im Thread (C.2c): Verweis auf die oberste Nachricht und, wo gewählt, auf die Antwort
+  const ziel = imThread && spacesUi.thread ? spacesUi.verlauf?.alle.get(spacesUi.thread.ziel) : undefined;
+  if (imThread && !ziel) return;
+  const bezug = ziel ? antwortBezug(ziel, state.keypair.pk) : undefined;
+  if (spacesUi.thread) spacesUi.thread.ziel = spacesUi.thread.root;
   const text = input.value.trim();
   input.value = "";
   if (spacesUi.privat) {
     // Privat (2.3b): verschlüsselt in die Gruppe – Relays sehen nur Kind 445
-    if (await sendePrivat(spacesUi.privat.gruppe, spacesUi.channelId, text).catch(() => false)) await oeffneRaum(spacesUi.spaceId);
+    if (await sendePrivat(spacesUi.privat.gruppe, spacesUi.channelId, text, bezug).catch(() => false)) await oeffneRaum(spacesUi.spaceId);
     else {
       toast(t("komm.nichtGesendet"), true);
       input.value = text;
@@ -441,7 +529,8 @@ async function sendeRaumNachricht(): Promise<void> {
     const { buildChannelMessage } = await import("@freedomstack/protocol");
     const ev = await signiere(buildChannelMessage({
       authorPubkey: state.keypair.pk, spaceId: spacesUi.spaceId,
-      channelId: spacesUi.channelId, content: text, mentions: [],
+      channelId: spacesUi.channelId, content: text, mentions: bezug?.erwaehnt ?? [],
+      threadRoot: bezug?.threadRoot, replyTo: bezug?.replyTo,
     } as never));
     await (await ensurePool()).publish(ev);
     spacesUi.messages.push(ev);
@@ -704,6 +793,18 @@ export async function wireSpacesTab(): Promise<void> {
   const menueKnopf = document.getElementById("space-menue-knopf");
   const menue = document.getElementById("space-menue");
   if (menueKnopf && menue) wireMenue(menueKnopf, menue);
+  // Thread (C.2c): senden, „Antwort an …“ aufheben, schließen (auch mit Esc)
+  document.getElementById("thread-send")?.addEventListener("click", () => void sendeRaumNachricht(true));
+  document.getElementById("thread-msg")?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") void sendeRaumNachricht(true);
+  });
+  document.getElementById("thread-antwort-weg")?.addEventListener("click", () => {
+    if (spacesUi.thread) oeffneThread(spacesUi.thread.root);
+  });
+  document.getElementById("thread-zu")?.addEventListener("click", schliesseThread);
+  document.getElementById("thread-spalte")?.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") schliesseThread();
+  });
   const mods = $("#space-mods");
   if (mods) mods.onclick = () => void ernenneModeratoren();
   const info = $("#space-info");

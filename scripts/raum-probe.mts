@@ -1,5 +1,5 @@
 // Probe-Raum für Browser-Prüfungen (seit C.2b2): ein offener Raum mit zwei Kanälen,
-// Rollen und Nachrichten, signiert mit Wegwerfschlüsseln – nur für smoke_test.py
+// Rollen, Nachrichten und (seit C.2c) einem Thread, signiert mit Wegwerfschlüsseln – nur für smoke_test.py
 // und screenshots.py, nie für ein echtes Relay.
 // Aufruf: npx tsx scripts/raum-probe.mts <eigener-pubkey-hex>  ->  {"spaceId": "...", "events": [...]}
 // Der eigene Schlüssel bekommt die Rolle „mod“, damit die Aktionen an Nachrichten erscheinen.
@@ -33,12 +33,18 @@ const events = [
   ...[[ada.pk, "mitglied"], [bo.pk, "mitglied"], [ich, "mod"]].map(([pk, rolle]) =>
     signEvent(buildRoleGrant(spaceId, gruender.pk, pk!, [rolle!], gestern - 500), gruender.sk)),
 ];
-const nachricht = (von: typeof ada, text: string, zeit: number) => signEvent(buildChannelMessage({
-  authorPubkey: von.pk, spaceId, channelId: "allgemein", content: text, mentions: [],
-} as never, zeit), von.sk);
+const nachricht = (von: typeof ada, text: string, zeit: number, bezug: { threadRoot?: string; replyTo?: string } = {}) =>
+  signEvent(buildChannelMessage({
+    authorPubkey: von.pk, spaceId, channelId: "allgemein", content: text, mentions: [], ...bezug,
+  } as never, zeit), von.sk);
+const willkommen = nachricht(gruender, "Willkommen im Probe-Raum.", gestern);
+// Seit C.2c ein Thread an der ersten Nachricht: eine Antwort und eine Antwort auf die Antwort
+const danke = nachricht(bo, "Danke, gelesen.", gestern + 120, { threadRoot: willkommen.id });
 events.push(
-  nachricht(gruender, "Willkommen im Probe-Raum.", gestern),
+  willkommen,
   nachricht(gruender, "Regeln stehen im Kanal ankündigungen.", gestern + 60),
+  danke,
+  nachricht(ada, "Ich auch.", gestern + 150, { threadRoot: willkommen.id, replyTo: danke.id }),
   nachricht(ada, "Hallo! <img src=x onerror=\"window.__raumXss=1\"> bleibt Text.", gestern + 180),
   nachricht(ada, "Zweite Zeile, gleiche Gruppe.", gestern + 240),
   nachricht(bo, "Guten Morgen – ein neuer Tag.", heute + 9 * 3600),

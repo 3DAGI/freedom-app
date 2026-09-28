@@ -7,9 +7,9 @@ Karte der Abdeckung und eine Navigation, die auf Desktop und Handy je für sich
 Sinn ergibt. Protokoll, Krypto, Zahlungen und Event-Formate bleiben, wie sie
 sind; sonst gilt die STOPP-Regel aus `CLAUDE.md`.
 
-Stand dieser Karte: **C.0, C.1a, C.1b, C.2a, C.2b1 und C.2b2 fertig.** Der MENSCH hat den
+Stand dieser Karte: **C.0, C.1a, C.1b, C.2a, C.2b1, C.2b2 und C.2c fertig.** Der MENSCH hat den
 Entwurf am 27.09.2026 freigegeben – E1–E8 wie vorgeschlagen (Abschnitt 10.3).
-Nächster Schritt: C.2c.
+Nächster Schritt: C.2d.
 
 ---
 
@@ -528,6 +528,24 @@ Browser-Test (B18, B19):
   Beitreten per Dialog, Gruppen und Tage, HTML in einer Nachricht bleibt
   Text, Aktionen erst beim Fokus bzw. Antippen, „‹“, das Raum-Menü per
   Tastatur bis zum Dialog und zurück. `screenshots.py` nimmt den Raum auf.
+
+**C.2c – fertig (28.09.2026).** Antworten und Threads (B8):
+- „n Antworten“ öffnet den Thread, „Antworten“ an jeder Nachricht ebenso
+  (für alle, die im Kanal schreiben dürfen). Desktop: rechte Spalte statt der
+  Mitglieder; bis 1100 px statt des Kanals; bis 900 px als eigene Ebene. „×“
+  oder Esc schließen, der Fokus kehrt zu „n Antworten“ zurück. Der offene
+  Thread steht nur im Speicher, nie in der Adresse.
+- Im Thread: oberste Nachricht, „n Antworten“, die Antworten gruppiert; eine
+  Antwort auf eine Antwort zeigt „↪ Name: Anfang“ (nur Text). „Antworten“ an
+  einer Antwort setzt die Zeile „Antwort an …“ (× hebt sie auf).
+- Senden mit Bezug über `antwortBezug()` (`raum-verlauf.ts`): `threadRoot`
+  ist immer die oberste Nachricht, `replyTo` nur bei einer Antwort auf eine
+  Antwort, erwähnt wird, wem geantwortet wird (nie man selbst). Offen über
+  `buildChannelMessage()`, privat über `sendePrivat(…, bezug)` →
+  `raumNachricht()` (`raum-mls.ts`, eine Zeile). Kein neues Event-Format –
+  die Tags gab es schon (NIP-10-artig, `raum-gruppe.ts`).
+- Der Probe-Raum hat einen Thread; der Smoke-Test öffnet ihn, antwortet auf
+  die letzte Antwort und prüft das gesendete Event (root, reply).
 
 ---
 

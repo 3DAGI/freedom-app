@@ -80,8 +80,9 @@ export async function ladePrivatenRaum(gruppe: string): Promise<PrivaterRaum | n
   return { ...gruppenRaum(gruppe, stand.ereignisse, stand), gruppe, admins: stand.admins, mitglieder: stand.mitglieder, ich: stand.ich };
 }
 
-export function sendePrivat(gruppe: string, kanal: string, text: string): Promise<boolean> {
-  return mlsSendeEvent(gruppe, raumNachricht({ kanal, text }));
+/** Seit C.2c mit Bezug: Thread (`threadRoot`), Antwort auf (`replyTo`), Erwähnte – Ids der inneren Events. */
+export function sendePrivat(gruppe: string, kanal: string, text: string, bezug: { threadRoot?: string; replyTo?: string; erwaehnt?: string[] } = {}): Promise<boolean> {
+  return mlsSendeEvent(gruppe, raumNachricht({ kanal, text, ...bezug }));
 }
 
 /**

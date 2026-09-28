@@ -37,7 +37,9 @@ Prueft im Headless-Chromium:
     scripts/raum-probe.mts) – beitreten per Dialog, der Raum steht gleich da,
     Verlauf nach Absender und Tag gruppiert, HTML in Nachrichten bleibt Text,
     Aktionen erst beim Fokus (mobil nach Antippen), mobil „‹“ zur Kanalliste;
-    das Raum-Menü per Tastatur bis zum Dialog und zurück
+    das Raum-Menü per Tastatur bis zum Dialog und zurück; seit C.2c der Thread:
+    „2 Antworten“ öffnet ihn, eine Antwort auf eine Antwort geht mit root und
+    reply hinaus, Esc schließt ihn
 
 Verbindungsfehler zu Relays werden ignoriert (hängen vom Netz ab).
 
@@ -536,6 +538,7 @@ class ProbeRelay:
     def __init__(self) -> None:
         self.ich: str | None = None
         self.events: list[dict] = []
+        self.gesendet: list[dict] = []  # was die App veröffentlicht (seit C.2c)
 
     @staticmethod
     def passt(ev: dict, f: dict) -> bool:
@@ -567,6 +570,7 @@ class ProbeRelay:
                             ws.send(json.dumps(["EVENT", m[1], ev]))
                 ws.send(json.dumps(["EOSE", m[1]]))
             elif m[0] == "EVENT" and isinstance(m[1], dict):
+                self.gesendet.append(m[1])
                 ws.send(json.dumps(["OK", m[1].get("id", ""), True, ""]))
         ws.on_message(nachricht)
 
@@ -647,6 +651,39 @@ def raum_pruefen(browser, url: str) -> dict:
         # Nach dem Beitreten steht der Raum da – auch mobil, dort als eigene Ebene mit „‹“ zur Kanalliste
         if not verlauf["sichtbar"]:
             erg["fehler"].append(f"{groesse}: Verlauf nach dem Beitreten nicht sichtbar")
+        # Thread (C.2c): „2 Antworten“ öffnet ihn; eine Antwort auf die Antwort geht mit root und reply hinaus
+        faden = """() => { const sp = document.getElementById('thread-spalte'); const r = (e) => e.getBoundingClientRect();
+          return { offen: r(sp).width > 0, zeilen: sp.querySelectorAll('.msg-zeile').length, bezug: sp.querySelectorAll('.msg-bezug').length,
+            kanal: r(document.querySelector('.channel-main')).width > 0, antwortAn: !document.getElementById('thread-antwort-an').classList.contains('hidden'),
+            fokus: document.activeElement?.id || document.activeElement?.className || null }; }"""
+        ev("() => document.querySelector('#channel-thread .thread-link').click()")
+        s.wait_for_timeout(200)
+        auf = ev(faden)
+        ev("() => { const b = [...document.querySelectorAll('#thread-verlauf .antworten')]; b[b.length - 1].click(); }")
+        s.wait_for_timeout(100)
+        antwort_an = ev(faden)["antwortAn"]
+        s.keyboard.type("Antwort aus dem Test")
+        s.keyboard.press("Enter")
+        s.wait_for_timeout(800)
+        danach = ev(faden)
+        wurzel = next(e for e in relay.events if e["content"] == "Willkommen im Probe-Raum.")["id"]
+        ich_auch = next(e for e in relay.events if e["content"] == "Ich auch.")["id"]
+        gesendet = [e for e in relay.gesendet if e.get("kind") == 42 and e.get("content") == "Antwort aus dem Test"]
+        verweise = [(t[1], t[3]) for t in (gesendet[0]["tags"] if gesendet else []) if t[0] == "e" and len(t) > 3]
+        s.keyboard.press("Escape")
+        s.wait_for_timeout(200)
+        zu = ev(faden)
+        # Der Pool schickt dasselbe Event an jedes Relay – gezählt wird die Id
+        einmal = len({e["id"] for e in gesendet})
+        erg[groesse]["thread"] = {"auf": auf, "antwortAn": antwort_an, "danach": danach, "gesendet": einmal, "zu": zu}
+        if not (auf["offen"] and auf["zeilen"] == 3 and auf["bezug"] == 1 and auf["kanal"] != mobil and auf["fokus"] == "thread-msg"):
+            erg["fehler"].append(f"{groesse}: Thread öffnen {auf}")
+        if not antwort_an or einmal != 1 or verweise != [(wurzel, "root"), (ich_auch, "reply")]:
+            erg["fehler"].append(f"{groesse}: Antwort im Thread {antwort_an} {len(gesendet)} {verweise}")
+        if danach["zeilen"] != 4 or danach["antwortAn"]:
+            erg["fehler"].append(f"{groesse}: nach dem Senden {danach}")
+        if zu["offen"] or zu["fokus"] != "thread-link" or not zu["kanal"]:
+            erg["fehler"].append(f"{groesse}: Thread schließen {zu}")
         if mobil:
             ev("() => document.getElementById('channel-zurueck').click()")
             s.wait_for_timeout(200)

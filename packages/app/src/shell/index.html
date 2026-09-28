@@ -275,6 +275,22 @@
             </div>
             <div id="channel-readonly" class="mono-sm hidden"></div>
           </div>
+          <aside id="thread-spalte" class="thread-spalte" aria-label="Thread" data-i18n-aria="raum.thread">
+            <div class="channel-head">
+              <h3 data-i18n="raum.thread">Thread</h3>
+              <button id="thread-zu" class="ghost icon-btn" type="button" aria-label="Thread schließen" data-i18n-aria="raum.threadSchliessen">×</button>
+            </div>
+            <div id="thread-verlauf" class="channel-thread"></div>
+            <div id="thread-antwort-an" class="antwort-an mono-sm hidden">
+              <span id="thread-antwort-text"></span>
+              <button id="thread-antwort-weg" class="ghost icon-btn" type="button" aria-label="Nicht mehr darauf antworten" data-i18n-aria="raum.antwortWeg">×</button>
+            </div>
+            <div id="thread-composer" class="channel-composer">
+              <label for="thread-msg" class="visually-hidden" data-i18n="raum.imThreadAntworten">Im Thread antworten</label>
+              <input id="thread-msg" placeholder="Im Thread antworten" data-i18n-ph="raum.imThreadAntworten" autocomplete="off" />
+              <button id="thread-send" class="send-btn" type="button" data-i18n="send">Senden</button>
+            </div>
+          </aside>
           <aside class="member-col">
             <h3 data-i18n="komm.mitglieder">Mitglieder</h3>
             <div id="member-list" class="mono-sm"></div>

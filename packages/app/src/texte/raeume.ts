@@ -34,6 +34,14 @@ export const raeume: Texte = {
   "raum.aktionenAria": { de: "Aktionen zur Nachricht", en: "Message actions" },
   "raum.menueAria": { de: "Raum-Menü", en: "Room menu" },
   "raum.zuDenKanaelen": { de: "Zu den Kanälen", en: "To the channels" },
+  // C.2c: Antworten und Threads
+  "raum.antworten": { de: "Antworten", en: "Reply" },
+  "raum.thread": { de: "Thread", en: "Thread" },
+  "raum.threadSchliessen": { de: "Thread schließen", en: "Close thread" },
+  "raum.imThreadAntworten": { de: "Im Thread antworten", en: "Reply in thread" },
+  "raum.antwortAn": { de: "Antwort an {name}", en: "Replying to {name}" },
+  "raum.antwortWeg": { de: "Nicht mehr darauf antworten", en: "Stop replying to this" },
+  "raum.zitat": { de: "↪ {name}: {text}", en: "↪ {name}: {text}" },
   "raum.infoVerschluesselt": {
     de: "Verschlüsselt (MLS): Nur Mitglieder können mitlesen – alle Kanäle des Raums.\n\nGrenze: Wer entfernt wird, behält den Schlüssel für alles, was er vorher\ngesehen hat. Das Entfernen wechselt den Schlüssel – danach liest er nichts\nmehr. Neue Mitglieder lesen nur, was nach ihrem Eintritt kommt.",
     en: "Encrypted (MLS): only members can read along – all channels of the room.\n\nLimit: whoever is removed keeps the key for everything they saw before. Removing changes the key – after that they read nothing more. New members only read what comes after they joined.",
