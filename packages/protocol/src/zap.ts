@@ -11,7 +11,7 @@
  * exakt dieselbe Preimage/Hash-Beziehung wie im HTLC - wir pruefen beides mit
  * derselben Funktion (`verifyPreimage`).
  */
-import { UnsignedEvent, NostrEvent, buildEvent, getTag } from "./event.js";
+import { UnsignedEvent, NostrEvent, buildEvent, generateKeypair, getTag, signEvent } from "./event.js";
 import { KIND_ZAP_REQUEST, KIND_ZAP_RECEIPT } from "./kinds.js";
 import { verifyPreimage, fromHex } from "./htlc.js";
 
@@ -38,6 +38,21 @@ export function buildZapRequest(p: ZapRequestParams, createdAt?: number): Unsign
   ];
   if (p.eventId) tags.push(["e", p.eventId]);
   return buildEvent(p.senderPubkey, KIND_ZAP_REQUEST, tags, p.comment ?? "", createdAt);
+}
+
+/**
+ * Anonymer Zap (NIP-57 „anon“, Schritt 6.3): Die Anfrage signiert ein
+ * Wegwerf-Schlüssel, der danach vergessen ist. Der LNURL-Server des Empfängers
+ * veröffentlicht die Anfrage mit der Rechnung in der Quittung (9735) – so steht
+ * dort nicht die Identität des Zahlers neben Betrag und Rechnung.
+ */
+export function buildAnonZapRequest(p: Omit<ZapRequestParams, "senderPubkey">, createdAt?: number): NostrEvent {
+  const weg = generateKeypair();
+  const ev = buildZapRequest({ ...p, senderPubkey: weg.pk }, createdAt);
+  ev.tags.push(["anon"]);
+  const signiert = signEvent(ev, weg.sk);
+  weg.sk.fill(0);
+  return signiert;
 }
 
 export interface ZapReceiptParams {

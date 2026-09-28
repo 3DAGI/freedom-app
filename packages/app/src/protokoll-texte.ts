@@ -523,6 +523,7 @@ const FEHLER: Record<string, string> = {
   "repo-klon": "pf.repoKlon",
   "repo-maintainer": "pf.repoMaintainer",
   "repo-erster-commit": "pf.repoErsterCommit",
+  "repo-raum": "pf.repoRaum",
   "patch-gross": "pf.patchGross",
   "patch-format": "pf.patchFormat",
   "patch-betreff": "pf.patchBetreff",

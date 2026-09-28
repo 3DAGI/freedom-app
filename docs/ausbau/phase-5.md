@@ -249,6 +249,22 @@
   feste Zeitstempel); zwei Builds → dieselbe Summe, geprüft in der CI.
   NIP-34-Spiegel über `git.ts` und eine Radicle-Anleitung.
 - **MENSCH:** Repository öffentlich, Squads einrichten.
+- **Übernommen von Spur A (Spur B, 28.09.), Aufteilung:**
+  - **5.9a – FERTIG:** `scripts/repro-build.sh` – frischer Arbeitsbaum des
+    Commits, `npm ci`, Node-Hauptversion aus `.nvmrc`, `TZ`/`LC_ALL` fest,
+    `SOURCE_DATE_EPOCH` = Zeit des Commits; `--pruefen` baut zweimal an zwei
+    Pfaden (CI-Job „Reproduzierbarer Build“), `--vergleiche <sha256>` prüft
+    gegen eine Summe (`pages.yml` veröffentlicht nur, was ein frischer Build
+    bitgleich ergibt). CI und Pages bauen mit `.nvmrc`.
+  - **5.9b – FERTIG:** `docs/SOLANA-UPGRADE-AUTHORITY.md` (Squads v4 mit
+    Zeitverzögerung, Vault als Upgrade-Recht, Upgrade über Buffer, Prüfung mit
+    `solana-verify`; MENSCH führt aus), `docs/RADICLE.md` (einrichten,
+    aktuell halten, Kennung in `spiegel/quellen.json`), NIP-34-Spiegel: der Job
+    „spiegel“ kündigt das Repository als Kind 30617 an
+    (`scripts/mirror/repo-ankuendigung.mts`, `projektRepo()`, Spiegel-Schlüssel,
+    Klon GitHub + Radicle sobald gesetzt, erster Commit). „Über `git.ts`“
+    heißt hier: über die NIP-34-Bausteine aus 8.10 (`nip34.ts`) – ein Bundle des
+    ganzen Repositorys (`git.ts`, 38042) gehört nicht auf öffentliche Relays.
 
 ## 5.10 Zeitanker und Abdeckungskarte
 

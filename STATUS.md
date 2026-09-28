@@ -10612,6 +10612,363 @@ Endstand (nach dem Einmergen von `main` mit C.3b2, C.3c1 und C.3c2): protocol
 Leak-Tests 62 grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 (155
 ausgenommen, 4 weniger) · innerHTML streng Exit 0 · Website 5 Seiten ok ·
 Smoke-Test bestanden (mit „qr“).
+## Schritt 5.9a – Reproduzierbarer Build
+
+Spur B, von Spur A übernommen (Entscheidung 28.09.), Karte `phase-5.md` (5.9).
+
+**Was:**
+- `scripts/repro-build.sh` (neu): baut `freedom.html` aus einem frischen
+  Arbeitsbaum des Commits (`git worktree`, nichts aus dem eigenen Checkout,
+  kein `node_modules`), `npm ci` nach `package-lock.json`, Node-Hauptversion aus
+  `.nvmrc` (sonst Abbruch), `TZ=UTC`, `LC_ALL=C`, `SOURCE_DATE_EPOCH` = Zeit
+  des Commits. `--pruefen`: zweimal an zwei Pfaden (einer tiefer) – zwei
+  Summen = Fehler. `--vergleiche <sha256> [commit]`: gegen eine Summe, etwa aus
+  dem Release-Manifest. Arbeitsbäume werden danach entfernt. Die MLS-Engine
+  kommt gebaut aus `packages/mls/dist` – `build.mjs` nimmt sie nur mit
+  passender `SHA256SUMS`, den Nachbau prüft `mls.yml`.
+- `.nvmrc` (neu): `22`. `ci.yml` (Tests) und `pages.yml` (Build der Seite)
+  lesen die Node-Version jetzt daraus.
+- `ci.yml`: neuer Job „Reproduzierbarer Build“ (`--pruefen`, mit pipefail).
+- `pages.yml`: Schritt „Veroeffentlichte freedom.html nachbauen“ nach
+  `build-site.sh` – veröffentlicht wird nur, was ein frischer Build desselben
+  Commits bitgleich ergibt.
+- FAQ „Wie weiß ich, dass die App echt ist?“: wie man nachbaut.
+
+**Geprüft:** Zwei frische Klone an verschiedenen Pfaden ergaben schon vorher
+dieselbe Summe (`92553dd…` für 7a4f875) – der Build war reproduzierbar, jetzt
+wird es geprüft. `--pruefen` lokal: zweimal dieselbe Summe, rund 1:40 min.
+Negativfälle: falsche Summe → Exit 1 („ANDERS als erwartet“), falsche
+Node-Hauptversion → Exit 2, ungültige Summe als Argument → Exit 2; danach keine
+Arbeitsbäume übrig (`git worktree list`).
+
+**Nebenbei gefunden (Spur B, 7.4a):** `node/test/funk-kurz.test.ts` wartete fest
+20 ms auf die Zwischenrückmeldung, die der Knoten ohne `await` versiegelt und
+sendet – im vollen Lauf einmal rot. Unter CPU-Last nachgestellt (1 von 5 rot),
+jetzt wartet der Test, bis die erwarteten Antworten da sind (Frist 5 s): unter
+derselben Last 10 von 10 grün. Fallstrick in CLAUDE.md. Spur A fand denselben
+Wackler unabhängig in 11.1b (#181) und behob ihn gleich; beim Einmergen gilt
+deren Fassung (Frist 2 s), meine fällt weg.
+
+Endstand: protocol 1088 (6 übersprungen) · node 249 + 7 übersprungen (ohne
+Netz; mit Netz 250 + 6) · app 567 · mls 13 · Leak-Tests 62 grün + 1 todo · 0
+rot · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 · Website ok ·
+Smoke-Test bestanden · Website-Bau ok · `repro-build.sh --pruefen` auf dem
+Commit: zweimal dieselbe Summe. Knoten-Stand: unverändert (nur ein Test).
+
+Nach dem Einmergen von `main` (8.2b): protocol 1089 · node 254 + 7
+übersprungen (ohne Netz; mit Netz 255 + 6) · app 567 · mls 13 · Leak-Tests 62
++ 1 todo · 0 rot; alle Prüfungen erneut grün.
+
+Nach dem Einmergen von `main` (8.2c): protocol 1089 · node 259 + 7
+übersprungen (ohne Netz; mit Netz 260 + 6) · app 567 · mls 13 · Leak-Tests 62
++ 1 todo · 0 rot; alle Prüfungen erneut grün.
+
+Nach dem Einmergen von `main` (bis #180: 11.1a, C.3c1, C.3c2 u. a.): protocol
+1096 · node 259 + 7 übersprungen (ohne Netz; mit Netz 260 + 6) · app 593 · mls
+13 · Leak-Tests 62 + 1 todo · 0 rot; alle Prüfungen erneut grün.
+
+Nach dem Einmergen von `main` (#181, 11.1b): protocol 1096 · node 259 + 7
+übersprungen (ohne Netz; mit Netz 260 + 6) · app 597 · mls 13 · Leak-Tests 62
++ 1 todo · 0 rot; alle Prüfungen erneut grün.
+
+## Schritt 5.9b – Upgrade-Recht, Radicle, Repository per NIP-34
+
+Spur B, von Spur A übernommen (Entscheidung 28.09.), Karte `phase-5.md` (5.9).
+
+**Was:**
+- `docs/SOLANA-UPGRADE-AUTHORITY.md` (neu, für den MENSCHEN): warum das
+  Upgrade-Recht zählt (heute ein Schlüssel, `DEPLOY.md`), Ziel in der
+  Testphase Squads v4 (2 von 3, Zeitverzögerung länger als die längste
+  Sperre), Vault als Upgrade-Recht (`set-upgrade-authority … --skip-new-
+  upgrade-authority-signer-check`, Adresse doppelt prüfen), Upgrades über
+  Buffer und Vorschlag, Prüfung mit `solana-verify`, später `--final` nur als
+  Vorschlag derselben Mehrfachsignatur; Checkliste (0.G, Devnet üben,
+  Mainnet). Der Agent führt nichts davon aus. `GO-LIVE.md` verweist darauf.
+- `docs/RADICLE.md` (neu): einrichten (`rad auth`, `rad node start`),
+  `rad init`, nach jedem Merge nachschieben (nur, was auf GitHub steht),
+  Kennung in `spiegel/quellen.json`.
+- NIP-34-Spiegel: `projektRepo()` (`protocol/src/spiegel.ts`) baut die
+  Ankündigung des Projekt-Repositorys – Klon GitHub und, sobald gesetzt, die
+  Radicle-Kennung (Platzhalter bleibt draußen), nur gültige Maintainer;
+  `scripts/mirror/repo-ankuendigung.mts` signiert sie mit dem
+  Spiegel-Schlüssel und sendet an die Startrelays (ohne Schlüssel
+  übersprungen, `--trocken` gibt nur aus); im Job „spiegel“ von `pages.yml`
+  nach den Uploads, mit ganzem Verlauf (erster Commit, NIP-34 „euc“).
+  Das Lesen des Spiegel-Schlüssels liegt jetzt in `scripts/mirror/schluessel.mts`
+  (von `spiegeln.mts` mitbenutzt).
+- `docs/KONTEN.md`: F2 (NIP-34, optional Variable `REPO_MAINTAINER`), F3
+  (Upgrade-Recht).
+- „Über `git.ts`“ (Karte) umgesetzt über die NIP-34-Bausteine aus 8.10: ein
+  Bundle des ganzen Repositorys (38042) gehört nicht auf öffentliche Relays.
+
+**Tests:** +1 in `protocol/test/spiegel.test.ts` (Platzhalter bleibt
+draußen, Radicle mit, Maintainer geprüft, Event lesbar wie jedes NIP-34-Repo,
+echte `quellen.json` ergibt eine gültige Ankündigung); +3 in
+`node/test/repo-ankuendigung.test.ts`: das Skript gegen die echte Relay-Rolle
+(signiert vom Spiegel-Schlüssel, lesbar, Schlüssel nie in der Ausgabe), ohne
+Schlüssel übersprungen, unlesbarer Schlüssel mit fester Meldung, kein Relay
+erreichbar → rot, `--trocken`; Verdrahtung im Release-Job.
+
+Nachweis zu 5.9a aus der CI von #173: Der Job „Reproduzierbarer Build“ ergab
+für den Stand zweimal `e3487e52…` (Node 22.23.2); lokal (Node 22.22.2)
+ergibt `repro-build.sh --vergleiche e3487e52… 07e3d16` dieselbe Summe – bitgleich
+über Rechner und Node-Patchstände hinweg.
+
+Endstand: protocol 1097 (+1, 6 übersprungen) · node 262 + 7 übersprungen (+3;
+ohne Netz, mit Netz 263 + 6) · app 597 · mls 13 · Leak-Tests 62 grün + 1 todo ·
+0 rot · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 · Website ok
+· Smoke-Test bestanden · Website-Bau ok. Knoten-Stand: unverändert (nur Tests
+und Skripte).
+
+## Schritt 6.3a – Lightning-Adresse nur auf Wunsch, Zaps anonym
+
+Spur B, von Spur A übernommen (Entscheidung 28.09.), Karte `phase-6.md` (6.3).
+Aufteilung: a (dieser Schritt) Leak-Regeln, Profil, Zaps; b NWC über eigenes
+oder .onion-Relay, Empfang über den eigenen Knoten, Adresse bzw. Rechnung
+eines Kontakts versiegelt erfragen, BOLT12 erkennen.
+
+**Was:**
+- Leak-Regeln (`protocol/src/leak-rules.ts`): `keine-ln-adresse` – keine
+  Lightning-Adresse des Nutzers in öffentlichen Events (Umschläge zählen
+  nicht); `zap-anonym` – Zap-Anfragen (9734) nie von der Identität, immer mit
+  „anon“. Beide in `LEAK_REGELN`.
+- Profil: `oeffentlichesProfil(meta, { lightning })` (`profile.ts`) lässt
+  `lud16`/`lud06` weg, wenn das Häkchen aus ist. In der App (`tabs/profil.ts`)
+  geht das Profil nur so hinaus; neues Häkchen „Lightning-Adresse öffentlich
+  zeigen“ (`#pf-lud16-oeffentlich`), die Offenlegung zeigt „bleibt auf dem
+  Gerät“, die Vorschau die Adresse nur, wenn sie öffentlich ist.
+  `profil-lightning.ts`: Einstellung `freedom.profil.lnOeffentlich` – wer vor
+  6.3 eine Adresse gespeichert hatte, hat sie veröffentlicht; das übernimmt
+  die Einstellung beim ersten Lesen einmal, sonst gilt „aus“ (bestehende
+  Profile brechen so nicht still, der Bericht warnt). In der Zustandssicherung.
+- Datenschutzbericht: Befund „ln-profil“ (Warnung, Schicht Kette), wenn die
+  Adresse öffentlich ist (`lightningInProfile` in `shell/datenschutz.ts`);
+  Aussage „ln-oeffentlich“ (belegt, Regel `keine-ln-adresse`) mit Szenario in
+  `privacy-facts.test.ts` samt Gegenprobe. Texte in beiden Sprachen.
+- Zaps: `buildAnonZapRequest()` (`zap.ts`) signiert die Zap-Anfrage mit einem
+  Wegwerf-Schlüssel je Zap und setzt „anon“ (NIP-57); die App baut sie nur
+  über `baueZapAnfrage()` (`zap-zahlung.ts`), aufgerufen in `sendZap()`
+  (`chat-zap.ts`). Bisher signierte die Identität – der Server des Empfängers
+  veröffentlicht die Anfrage in der Quittung (9735) samt Rechnung, also stand
+  dort, wer wem wie viel zahlte. Hinweis im Zap-Dialog.
+- FAQ: „Sieht jemand, wem ich Sats schicke?“.
+
+**Verdrahtet:** `app/src/shell/tabs/profil.ts` (Speichern:
+`buildProfile(…, oeffentlich(entwurf))`, Häkchen, Offenlegung, Vorschau),
+`app/src/shell/datenschutz.ts` (`lightningInProfile`), `app/src/chat-zap.ts`
+(`baueZapAnfrage` in `sendZap()`).
+
+**Grenze:** Ohne öffentliche Adresse kann dir niemand per NIP-57 zappen – auch
+Kontakte nicht, bis 6.3b die Adresse bzw. Rechnung versiegelt erfragt.
+
+**Tests:** +2 in `protocol/test/leak-rules.test.ts` (beide Regeln finden
+ihren Verstoß – Profil, Tag, Text, ohne Groß/klein; Umschläge, fremde und zu
+kurze Adressen nicht; Zap von der Identität bzw. ohne „anon“), beide im
+Metatest „jede Regel meldet unter einem Namen aus LEAK_REGELN“; Szenario
+„ln-oeffentlich“ in `privacy-facts.test.ts` mit Gegenprobe (mit Häkchen bzw.
+von der Identität signiert finden die Regeln je einen Verstoß). App: +3 in
+`test/profil-lightning.test.ts` (neu aus, bleibt aus nach Eintrag; vor 6.3
+gespeichert → an; Kaputtes → aus; Befund nur bei öffentlicher Adresse;
+Sicherung; Verdrahtung), `i18n.test.ts` zählt `lightningInProfile` mit (18
+Befund-Fassungen, deutsch wortgleich), `zap-zahlung.test.ts` prüft den
+anonymen Weg. Leak: +1 `leak/zap.test.ts` (die Anfrage, die beim
+LNURL-Server ankommt: gültig signiert, nicht von der Identität, mit „anon“,
+je Zap ein neuer Schlüssel), +1 in `leak/profil.test.ts` (mit Häkchen steht
+die Adresse drin; ohne findet `keine-ln-adresse` nichts).
+
+Endstand: protocol 1099 (+2, 6 übersprungen) · node 262 + 7 übersprungen
+(ohne Netz, unverändert) · app 600 (+3) · mls 13 · Leak-Tests 64 grün (+2) +
+1 todo · 0 rot · check-wiring `--streng` Exit 0 (zwei Prüfregeln als
+Ausnahme wie alle anderen) · innerHTML streng Exit 0 · Website ok ·
+Smoke-Test bestanden · Website-Bau ok. Knoten-Stand: unverändert (nur
+Protokoll-Bausteine, die die App nutzt).
+
+## Schritt 6.3b1 – Rechnung versiegelt beim Kontakt erfragen
+
+Spur B, von Spur A übernommen (Entscheidung 28.09.), Karte `phase-6.md` (6.3).
+6.3b ist aufgeteilt: b1 (dieser Schritt) Rechnungen versiegelt, b2 NWC über
+ein eigenes oder .onion-Relay und BOLT12 erkennen.
+
+**Was:**
+- Protokoll `ln-rechnung.ts`: Anfrage (innen Kind 25022, `p`, `amount` in
+  msat) und Antwort (innen 25023, `e`, `p`, `bolt11`) nur im Umschlag
+  (NIP-59), zwischen den Identitäten. Beträge nur ganze sats bis 0,1 BTC
+  (`rechnungsBetragOk()`); die Antwort nimmt der Zahler nur vom Gefragten, zur
+  eigenen Anfrage und nur mit einer gültig signierten Rechnung über genau den
+  Betrag (`oeffneRechnungsAntwort()`). Wem der Knoten gehört, weiß er nicht –
+  nach 4.8 „angekündigt“, nicht „belegt“.
+- App `ln-rechnung-anfrage.ts`: `frageRechnungAn()` (an den Posteingang des
+  Empfängers, wartet bis 75 s) und `beantworteRechnungsAnfrage()` – nur
+  Kontakte, nur frische Anfragen (15 min, nicht aus der Zukunft),
+  `RechnungsBremse` (je Kontakt eine je 30 s, zehn je Minute), Rechnung nur
+  aus der eigenen Wallet über NWC `make_invoice` ohne Beschreibung
+  (`eigeneRechnung()` in `shell/zahlschienen.ts`). Empfang ohne LNURL-Dienst.
+- Zap-Dialog (`chat-zap.ts`): Hat der Empfänger eine öffentliche Adresse,
+  anonymer Zap wie seit 6.3a; sonst die versiegelte Anfrage (nur ganze sats),
+  bezahlt über die Schiene, die den Betrag prüft. Bisher endete das mit
+  „Empfänger hat keine Lightning-Adresse“ – seit 6.3a der Standard.
+- Posteingang (`kommunikation.ts`): `alsRechnungsAnfrage()` am Ende der Kette
+  in `oeffneUmschlag()`; die vier Tests, die die Kette wörtlich prüfen, kennen
+  das neue Glied.
+- Aussage „ln-rechnung“ (belegt, Regel `kein-bolt11`) mit Szenario; Text in
+  der Offenlegung des Profils und in der FAQ (App muss offen sein, Fremde
+  bekommen keine Rechnung).
+
+**Verdrahtet:** `app/src/chat-zap.ts` (`sendZap()` → `frageRechnungAn(…,
+sende: veroeffentlicheDm)`), `app/src/shell/tabs/kommunikation.ts`
+(`oeffneUmschlag()` → `alsRechnungsAnfrage()` → `beantworteRechnungsAnfrage()`
+mit `eigeneRechnung`).
+
+**Tests:** +3 in `protocol/test/ln-rechnung.test.ts` (Anfrage und Antwort nur
+Umschläge – weder Betrag noch Rechnung noch Identität offen; Antwort nur vom
+Gefragten, zur eigenen Anfrage, über genau den Betrag, nicht ohne Betrag;
+Beträge und kaputte Anfragen), Szenario „ln-rechnung“ in
+`privacy-facts.test.ts`. App: +4 in `test/ln-rechnung-anfrage.test.ts` (ganzer
+Weg über ein Relay an den Posteingang des Empfängers; keine Rechnung für
+Fremde, alte, künftige Anfragen, ohne Wallet oder mit falschem Betrag der
+Wallet; Bremse; Verdrahtung), die vier Ketten-Tests erweitert. Leak: +1
+`leak/ln-rechnung.test.ts` (mitgeschnitten am Relay: nur Umschläge).
+
+Endstand: protocol 1102 (+3, 6 übersprungen) · node 262 + 7 übersprungen
+(ohne Netz, unverändert) · app 604 (+4) · mls 13 · Leak-Tests 65 grün (+1) +
+1 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 ·
+Website ok · Smoke-Test bestanden · Website-Bau ok. Knoten-Stand: unverändert.
+
+## Schritt 6.3b2 – NWC über eigenes oder .onion-Relay, BOLT12 erkennen
+
+Spur B, von Spur A übernommen (Entscheidung 28.09.), Karte `phase-6.md` (6.3).
+Damit ist 6.3 im Code fertig (a, b1, b2).
+
+**Was:**
+- Protokoll (`nwc.ts`): `waehleNwcRelays(relays, { nurPrivat, eigenes })` –
+  „privat“ sind das vom Nutzer angegebene eigene Relay und .onion-Relays; mit
+  `nurPrivat` bleiben nur diese, nennt die Verbindung der Wallet keines, gibt
+  es einen Fehler statt eines stillen Ausweichens. `bolt12Methoden()` erkennt
+  Methoden für Angebote (`*_offer`, `*_offers`, `bolt12`).
+- Datenschutzbericht: Befund „nwc-relay-fremd“ (Hinweis, Schicht Netz), wenn
+  die gespeicherte Wallet-Verbindung über ein fremdes Relay läuft (`nwcFremdesRelay`,
+  `nwc-relays.ts` → `nwcUeberFremdesRelay()`); Texte in beiden Sprachen.
+- App (Währung → Lightning): Häkchen „NWC nur über mein eigenes oder ein
+  .onion-Relay“ und Feld für das eigene Relay (`freedom.nwc.nurPrivat`,
+  `freedom.nwc.eigenesRelay` – nicht geheim, wie alles unter `freedom.nwc.`
+  außerhalb der Sicherung); ändert sich die Einstellung, verbindet die App neu.
+  `connectNwc()` baut den Pool nur aus der Auswahl; der Status nennt „über ein
+  fremdes Relay“ bzw. „nur über eigenes oder .onion-Relay“ und BOLT12
+  („angeboten (…) – die App nutzt es noch nicht, Rechnungen gehen versiegelt“
+  bzw. „kein BOLT12“). NIP-47 legt Methoden für Angebote noch nicht fest –
+  darum nur erkennen, nicht nutzen.
+- Nebenbei (aus 6.3b1): Die SOL-Adress-Anfrage (4.9d, `frageAdresseAn()`)
+  geht jetzt wie die Rechnungs-Anfrage an den Posteingang des Empfängers
+  (`sende: veroeffentlicheDm`), nicht mehr nur an den eigenen Pool.
+- FAQ: Absatz zur Wallet-Verbindung.
+
+**Verdrahtet:** `app/src/shell/tabs/waehrung.ts` (`connectNwc()` →
+`waehleNwcRelays()`, `bolt12Methoden()`; `wireNwcRelays()`, aufgerufen in
+`app/src/shell/app.ts`), `app/src/shell/datenschutz.ts` (`nwcFremdesRelay`),
+`app/src/chat-zap.ts` (`frageAdresseAn(…, sende: veroeffentlicheDm)`).
+
+**Tests:** +2 in `protocol/test/nwc.test.ts` (Auswahl der Relays: ohne
+Einstellung alle als fremd markiert, mit Einstellung nur eigenes und .onion,
+Groß/klein und Schrägstrich egal, keines → Fehler; BOLT12 nur ganze
+Wortteile). App: +4 in `test/nwc-relays.test.ts` (Einstellung lesen, fremdes
+Relay erkennen, Befund, Verdrahtung: Pool nur aus der Auswahl – nie
+`conn.relays.map` –, BOLT12 im Status, Häkchen und Feld, Bericht; SOL-Adress-
+Anfrage an den Posteingang); `i18n.test.ts` zählt `nwcFremdesRelay` mit (19
+Befund-Fassungen).
+
+Endstand: protocol 1104 (+2, 6 übersprungen) · node 262 + 7 übersprungen
+(ohne Netz, unverändert) · app 608 (+4) · mls 13 · Leak-Tests 65 grün + 1 todo
+· 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 · Website ok
+· Smoke-Test bestanden · Website-Bau ok. Knoten-Stand: unverändert.
+
+## Schritt 11.4a – Repos in öffentlichen Räumen
+
+Spur B, Karte `phase-11.md` (11.4a). Die Oberfläche im Raum und auf der
+Repo-Seite (Kennzeichen, Liste der Raum-Repos) baut Spur C in 11.4c.
+
+**Was:**
+- Protokoll: Recht `repos_pflegen` für Raum-Rollen (`spaces.ts`, in
+  `ALL_PERMISSIONS` – der Besitzer hat es immer), `raumAdresse()` /
+  `leseRaumAdresse()` (`34700:<besitzer>:space:<kennung>`). Die
+  Repo-Ankündigung (30617) trägt den Verweis als `a`-Tag (`raum`, geprüft beim
+  Bauen, streng beim Lesen; Fehlerkennung `repo-raum`).
+- `raum-repo.ts`: `raumZustandFuer()` baut den Raum-Zustand nur aus der
+  Definition des Besitzers aus der Adresse (eine neuere Definition eines
+  anderen mit derselben Kennung zählt nicht); `mitRaumRechten()` bestätigt den
+  Verweis nur, wenn der Eigentümer des Repos im Raum `repos_pflegen` hat, und
+  nimmt dann alle mit dem Recht (und den Besitzer) als Maintainer auf –
+  `darfAnnehmen()`, `patchStatus()` und `patchAktionen()` bleiben unverändert.
+- App: `repoKarten(…, raumEvents)` wertet die Raum-Struktur aus (geladen in
+  `ladeNip34Repos()` für die Räume, auf die Repos verweisen), die Karte trägt
+  `raumBestaetigt`. In den Repo-Einstellungen eine Auswahl „Öffentlicher Raum“
+  – nur Räume, in denen ich `repos_pflegen` habe (`raumAuswahl()`), ein
+  gesetzter bleibt wählbar; gespeichert über `ankuendigungAusFeldern()`. Neue
+  öffentliche Räume geben der Moderatoren-Rolle das Recht.
+- Format in `docs/PROTOCOL.md` (Abschnitt 18), wie die Karte verlangt.
+
+**Verdrahtet:** `app/src/shell/tabs/repos.ts` (`ladeNip34Repos()` →
+`raumStruktur()` → `repoKarten()`; `meineRepoRaeume()` → `raumAuswahl()`),
+`app/src/shell/tabs/repo-seite.ts` (`einstellungenReiter()` Auswahl,
+`speichereEinstellungen()` → `raum`), `app/src/shell/tabs/raeume.ts`
+(Moderatoren-Rolle neuer Räume).
+
+**Tests:** +4 in `protocol/test/raum-repo.test.ts` (Adresse gebunden und
+streng gelesen; gehört zum Raum nur mit Recht, dann pflegen alle mit dem
+Recht, Gäste und Fremde nicht, Adresse eines anderen Besitzers passt nicht;
+Zustand nur aus der Definition des Besitzers – eine unterschobene neuere
+zählt nicht; Patch-Status zählt Raum-Pfleger, nach Entzug nicht mehr). App:
++3 in `test/raum-repos.test.ts` (Karte: Status des Raum-Pflegers zählt, ohne
+Struktur nicht; Aktionen für Gast und Pfleger; Auswahl nur mit Recht, fremde
+Kopie derselben Kennung nicht; Einstellungen speichern den Verweis;
+Verdrahtung). Der Verdrahtungstest in `repo-karten.test.ts` prüft den neuen
+Aufruf wörtlich.
+
+Endstand: protocol 1108 (+4, 6 übersprungen) · node 262 + 7 übersprungen
+(ohne Netz, unverändert) · app 611 (+3) · mls 13 · Leak-Tests 65 grün + 1 todo
+· 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 · Website ok
+· Smoke-Test bestanden · Website-Bau ok. Knoten-Stand: unverändert.
+
+## Schritt 11.4b1 – Repos in privaten Räumen: Protokoll
+
+Spur B, Karte `phase-11.md` (11.4b, aufgeteilt in b1 Protokoll und b2 App).
+
+**Was:**
+- `raum-repo.ts`: Repo-Events privater Räume nur als innere Events der
+  MLS-Gruppe, je mit `["space", <raum>]` vorn – `raumRepoAnkuendigung()`
+  (30617, ohne `a`-Verweis auf einen öffentlichen Raum), `raumRepoBundle()`
+  (38042 samt `aes-gcm`-Schlüssel, der öffentlich offen stünde),
+  `raumRepoPatch()` (1617), `raumRepoStatus()` (1630–1633).
+- `raumReposPrivat()`: die Repos aus den inneren Events in der Form, die die
+  Repo-Ansicht liest – Ankündigungen und Bundles nur von Pflegern (Admins der
+  Gruppe oder `repos_pflegen`), je Autor und Kennung die neueste, alle
+  Pfleger als `maintainers`; Patches von jedem Mitglied; Status wertet
+  `patchStatus()` nach den Pflegern aus.
+- Leak-Regel `raum-repo-privat` (kein offenes 30617/38042/1617/163x zu den
+  Kennungen, der Bundle-Schlüssel nirgends im Klartext; 1059 und 445 zählen
+  nicht). Aussage „raum-repos“ (belegt) mit Szenario gegen die echte
+  MLS-Engine: Ankündigung, Bundle-Verweis mit Schlüssel und Patch gehen in die
+  Gruppe – die Relays sehen weder Kennung noch Name noch Betreff noch
+  Schlüssel, nur Kind 445 mit fremdem Schlüssel.
+- Format in `docs/PROTOCOL.md` (18, „Private Räume“).
+- Die App verdrahtet die Bausteine in 11.4b2; bis dahin stehen sie mit Grund in
+  `scripts/wiring-ausnahmen.txt` – `check-wiring.py --streng` meldet die Zeilen
+  als veraltet, sobald sie verdrahtet sind, 11.4b2 muss sie also entfernen.
+
+**Tests:** +2 in `protocol/test/raum-repo.test.ts` (innere Events mit Raum,
+ohne öffentlichen Verweis, Schlüssel nur im Bundle-Verweis; Repos des
+privaten Raums nur von Pflegern und nur aus diesem Raum, ohne Zuweisung
+pflegt nur der Admin, mit `repos_pflegen` pflegt der Zugewiesene mit und
+sein Status zählt), +1 in `leak-rules.test.ts` (Regel findet offene
+Repo-Events und den Schlüssel, nicht Umschläge, Gruppen-Nachrichten, fremde
+Repos; im Metatest eingetragen); Szenario „raum-repos“ in
+`privacy-facts.test.ts` mit der echten MLS-Engine.
+
+Endstand: protocol 1111 (+3, 6 übersprungen) · node 262 + 7 übersprungen
+(ohne Netz, unverändert) · app 611 · mls 13 · Leak-Tests 65 grün + 1 todo · 0
+rot · check-wiring `--streng` Exit 0 (fünf Bausteine bis 11.4b2 ausgenommen)
+· innerHTML streng Exit 0 · Website ok · Smoke-Test bestanden · Website-Bau
+ok. Knoten-Stand: unverändert.
+
 
 ## Schritt C.4a – Oberfläche: Abdeckungskarte als SVG
 
@@ -10680,8 +11037,8 @@ außen, keine neue Abhängigkeit.
   - Ebene aus- und wieder einschalten; „Liste“ mit allen Gebieten; keine
     waagrechte Laufleiste.
 
-Endstand: protocol 1096 (6 übersprungen) · node 260 (6 übersprungen, mit
-Netz) · app 604 (+7, nach dem Einmergen von 11.1b) · mls 13 · Leak-Tests
-62 grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML
-streng Exit 0 (63 Ausnahmen) · Website 5 Seiten ok · Smoke-Test bestanden
-(mit „rahmen“, „dialog“, „raum“, „karte“ und „qr“).
+Endstand (nach dem Einmergen von 11.1b bis 11.4b1): protocol 1111
+(6 übersprungen) · node 263 (6 übersprungen, mit Netz) · app 618 (+7) ·
+mls 13 · Leak-Tests 65 grün + 1 todo · 0 rot · check-wiring `--streng`
+Exit 0 · innerHTML streng Exit 0 · Website 5 Seiten ok · Smoke-Test
+bestanden (mit „rahmen“, „dialog“, „raum“, „karte“ und „qr“).

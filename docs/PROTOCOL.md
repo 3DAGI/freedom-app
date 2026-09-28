@@ -404,3 +404,52 @@ ein Umschlag (`baueRufUmschlaege()`), geöffnet nur von Kontakten
 Relays sehen nur, dass Kontakte Post bekommen – nicht von wem, nicht über
 welchen Provider.
 
+
+## 18. Repos in öffentlichen Räumen (NIP-34 mit Raum, `raum-repo.ts`, seit 11.4a)
+
+Eine Repo-Ankündigung (Kind 30617, NIP-34) kann auf einen **öffentlichen**
+Raum verweisen – mit der Adresse seiner Definition (Kind 34700, d-Tag
+`space:<kennung>`):
+
+| Tag | Inhalt |
+|---|---|
+| `a` | `34700:<besitzer>:space:<kennung>` (`raumAdresse()`); Kennung aus Buchstaben, Ziffern, `. _ -`, höchstens 64 |
+
+Rechte kommen aus den Raum-Rollen (Kind 34701/34702): Das neue Recht
+**`repos_pflegen`** erlaubt, Repos des Raums zu pflegen (ankündigen, Patches
+annehmen, als Entwurf markieren, schließen). Der Besitzer hat es immer.
+
+- **Zum Raum gehört ein Repo nur**, wenn sein Eigentümer im Raum
+  `repos_pflegen` hat – sonst könnte jeder sein Repo einem fremden Raum
+  zuschreiben (`mitRaumRechten()` → `raumBestaetigt`).
+- **Dann pflegen es alle mit `repos_pflegen`** wie eingetragene Maintainer:
+  `darfAnnehmen()` und `patchStatus()` zählen ihre Status-Events (1630–1633).
+  Es gilt der Raum, wie er jetzt Rechte vergibt – wem das Recht entzogen
+  wird, dessen Status zählen nicht mehr.
+- **Der Raum-Zustand** entsteht nur aus der Definition, die der Besitzer aus
+  der Adresse signiert hat (`raumZustandFuer()`); eine gleichnamige
+  Definition eines anderen ist ein anderer Raum.
+
+Wie alle Rechte in Räumen ist das eine Regel, die jeder Client selbst
+auswertet. Andere NIP-34-Clients sehen ein gewöhnliches Repo mit einem
+zusätzlichen `a`-Tag.
+
+### Private Räume (MLS, seit 11.4b)
+
+In privaten Räumen sind alle Repo-Events **innere Events der MLS-Gruppe**
+(`raumRepoAnkuendigung()`, `raumRepoBundle()`, `raumRepoPatch()`,
+`raumRepoStatus()`), jeweils mit `["space", <raum>]` vorn – nie offen
+(Leak-Regel `raum-repo-privat`):
+
+| Art | Inhalt |
+|---|---|
+| 30617 | Ankündigung wie oben, ohne `a`-Verweis auf einen öffentlichen Raum |
+| 38042 | Bundle-Verweis samt `["aes-gcm", key, nonce, ox]` – öffentlich stünde der Schlüssel offen (8.9b), hier nur für Mitglieder |
+| 1617 | Patch (Text aus `git format-patch`), `a` = `30617:<ankündigender>:<kennung>` |
+| 1630–1633 | Status, `e` = Id des inneren Patch-Events |
+
+Den Absender belegt MLS. `raumReposPrivat()` liest daraus die Repos:
+Ankündigungen und Bundles zählen nur von Pflegern (Admins der Gruppe oder
+`repos_pflegen`), je Autor und Kennung die neueste; Maintainer sind alle
+Pfleger; Patches von jedem Mitglied. Relays sehen nur Kind 445,
+Speicherknoten nur das verschlüsselte Bundle.

@@ -40,13 +40,14 @@ python3 scripts/check-website.py
 python3 scripts/check_innerhtml.py packages/app/src --ausnahmen scripts/innerhtml-ausnahmen.txt --streng
 python3 scripts/smoke_test.py packages/app/dist         # braucht playwright + chromium
 bash scripts/build-site.sh /tmp/site                     # Website bauen (Ziel wird gelöscht!)
+bash scripts/repro-build.sh --pruefen                    # reproduzierbar? zwei frische Builds, eine Summe (~2 min)
 bash packages/mls/bauen.sh --pruefen                     # nur bei Änderungen an packages/mls: nachbauen + vergleichen (Rust, clang)
 bash contracts/solana-channel/pruefen.sh --werkzeuge     # nur bei Änderungen am Zahlkanal: bauen + Tests gegen Validator (Agave 3.1.10)
 ```
 
-Stand 28.09.2026 (nach 8.2c, 5.5a–c, 8.15, 11.1a, C.3c2, 11.1b und C.4a): protocol 1096 grün (6 übersprungen), node 260 grün
+Stand 28.09.2026 (nach 8.2c, 5.5a–c, 8.15, 11.1a, C.3c2, 11.1b, 5.9a–b, 6.3a–b2, 11.4a, 11.4b1 und C.4a): protocol 1111 grün (6 übersprungen), node 263 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 604 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 62 grün + 1 `todo` (heutige Lecks,
+in `tools.test.ts`), app 618 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 65 grün + 1 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
 Ausnahme: gesendete SOL-Zahlungen von frischen Adressen, eine bewusste Grenze
 nach Entscheidung 4.9 A – im Datenschutzbericht unter „Bewusste Grenzen“).
@@ -674,3 +675,48 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   (Feld `scannen: true`), erkannt nur vom Browser (`BarcodeDetector`), danach
   aus; ohne Erkennung der Hinweis zum Einfügen. Der Smoke-Test („qr“) ersetzt
   Kamera und Erkennung durch Attrappen (Canvas-Strom, `BarcodeDetector`).
+- **Reproduzierbarer Build** (seit 5.9a): `freedom.html` muss aus einem
+  frischen Checkout bitgleich entstehen – in `build.mjs` nichts Zeit-, Pfad-
+  oder Zufallsabhängiges (kein `Date.now()`, keine absoluten Pfade im Bundle).
+  Die CI baut zweimal an zwei Pfaden (`repro-build.sh --pruefen`), `pages.yml`
+  veröffentlicht nur, was ein frischer Build bitgleich ergibt. Die
+  Node-Hauptversion nur über `.nvmrc` ändern (CI und Pages lesen sie).
+- **Nebenläufiges im Test nie mit fester Pause abwarten** (seit 5.9a): Was der
+  Knoten „best effort“ ohne `await` sendet (Rückmeldungen, 7000), kommt unter
+  Last später – bis es da ist warten, mit Frist (`funk-kurz.test.ts`, von
+  Spur A und B unabhängig gefunden, gilt die Fassung aus 11.1b). Eine feste
+  Pause von 20 ms war im vollen Lauf gelegentlich zu kurz.
+- **Repository per NIP-34 nur aus dem Release-Job** (seit 5.9b): Die
+  Ankündigung des Projekt-Repositorys (Kind 30617) baut nur `projektRepo()`
+  (Klon-Adressen nur GitHub und die gesetzte Radicle-Kennung aus
+  `spiegel/quellen.json`), signiert mit dem Spiegel-Schlüssel im Job
+  „spiegel“ (`repo-ankuendigung.mts`, ganzer Verlauf für den ersten Commit).
+  Upgrade-Rechte der Programme ändert nur der MENSCH nach
+  `docs/SOLANA-UPGRADE-AUTHORITY.md`.
+- **Lightning-Adresse und Zaps privat** (seit 6.3a): Das Profil geht nur über
+  `oeffentlichesProfil(entwurf, { lightning: lnOeffentlich(localStorage) })`
+  hinaus (`tabs/profil.ts`) – die Lightning-Adresse nur mit Häkchen
+  (`freedom.profil.lnOeffentlich`; vor 6.3 gespeicherte gelten einmalig als
+  veröffentlicht). Zap-Anfragen (9734) nur über `baueZapAnfrage()` →
+  `buildAnonZapRequest()` (Wegwerf-Schlüssel je Zap, „anon“), nie mit
+  `signiere()`: Der Server des Empfängers veröffentlicht sie in der Quittung.
+  Leak-Regeln `keine-ln-adresse` und `zap-anonym`. Ohne öffentliche Adresse
+  (seit 6.3b1) Rechnungen nur versiegelt erfragen: `frageRechnungAn()` bzw.
+  `beantworteRechnungsAnfrage()` (`ln-rechnung-anfrage.ts`, Kind 25022/25023)
+  – nur Kontakte, frisch, `RechnungsBremse`, Rechnung nur aus der eigenen
+  Wallet (`eigeneRechnung()` in `shell/zahlschienen.ts`); der Zahler nimmt nur
+  genau den Betrag (`oeffneRechnungsAntwort()`). Die Wallet-Verbindung (NWC)
+  baut ihren Pool nur aus `waehleNwcRelays()` (seit 6.3b2, Einstellung
+  `freedom.nwc.nurPrivat`/`.eigenesRelay`) – nie aus `conn.relays` direkt.
+  BOLT12 wird nur erkannt (`bolt12Methoden()`), nicht genutzt, bis NIP-47 die
+  Methoden festlegt.
+- **Repos in öffentlichen Räumen** (seit 11.4a): Der Verweis ist das `a`-Tag
+  `34700:<besitzer>:space:<kennung>` (`raumAdresse()`); zum Raum gehört ein
+  Repo nur über `mitRaumRechten()` (Eigentümer hat `repos_pflegen`), den
+  Zustand nur über `raumZustandFuer()` bauen – nie `buildSpaceState()` direkt
+  mit fremden Definitionen derselben Kennung. Karten werten Raum-Rechte in
+  `repoKarten(…, raumEvents)` aus; `darfAnnehmen()`/`patchStatus()` bleiben
+  unverändert und bekommen das erweiterte Repo. In privaten Räumen (seit
+  11.4b1) Repo-Events nur als innere Events über `raumRepo…()` – nie
+  `publish()`, auch nicht den Bundle-Verweis (er trägt den Schlüssel);
+  gelesen über `raumReposPrivat()`. Leak-Regel `raum-repo-privat`.

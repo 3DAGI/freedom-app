@@ -75,7 +75,8 @@ test("Verdrahtung: Zap zahlt nur ueber die Schienen; alte Wallet-Wege sind weg",
   const zap = readFileSync(new URL("../src/chat-zap.ts", import.meta.url), "utf8");
   assert.match(zap, /await zahle\(zahlschienen\(\), \{ ziel: rechnung, betrag: \{ einheit: "msat", wert: betragMsat \}, zweck: "zap" \}\)/);
   assert.match(zap, /const beleg = await zahle\(zahlschienen\(\), \{\s*ziel, betrag: \{ einheit: "lamports"/);
-  assert.match(zap, /const zapRequest = await signiere\(buildZapRequest\(/, "Zap-Request signiert");
+  assert.match(zap, /const zapRequest = baueZapAnfrage\(\{/, "Zap-Request anonym (6.3)");
+  assert.doesNotMatch(zap, /buildZapRequest|signiere/, "nie von der Identität signiert");
   assert.doesNotMatch(zap, /detectWallet|sendPayment|signAndSendTransaction|buildSolTransfer|buildZapReceipt|window as unknown as \{ ensurePool/);
   assert.equal(existsSync(new URL("../src/lightning-wallet.ts", import.meta.url)), false);
   assert.equal(existsSync(new URL("../src/offline-queue.ts", import.meta.url)), false);

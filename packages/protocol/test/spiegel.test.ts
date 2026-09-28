@@ -6,7 +6,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { istPlatzhalter, leseQuellen, leseSpiegelDatei, solReferenz } from "../src/index.js";
+import { PROJEKT_REPO, baueRepoAnkuendigung, generateKeypair, istPlatzhalter, leseQuellen, leseRepoAnkuendigung, leseSpiegelDatei, projektRepo, solReferenz } from "../src/index.js";
 
 const SOL = solReferenz(new Uint8Array(32).fill(4));
 const datei = (lud16: unknown, sol: unknown, version: unknown = 1) => ({ version, zahlziel: { lud16, sol } });
@@ -64,4 +64,24 @@ test("5.3a: die Dateien in spiegel/ – jedes Feld Platzhalter oder gültig", ()
     if (istPlatzhalter(q.url)) continue;
     assert.ok(r.gesetzt.some((g) => g.url === q.url.trim()), `spiegel/quellen.json: ${q.art} ist weder Platzhalter noch gültig`);
   }
+});
+
+test("5.9b: NIP-34-Ankündigung des Projekts – GitHub immer, Radicle erst, wenn gesetzt; nur gültige Maintainer", () => {
+  const erster = "7".repeat(40);
+  const ohne = projektRepo({ quellen: [{ art: "radicle", url: "PLATZHALTER:rad:<repository-id>" }] }, { ersterCommit: erster });
+  assert.deepEqual(ohne.klon, ["https://github.com/3DAGI/freedom-app.git"], "Platzhalter bleibt draußen");
+  assert.equal(ohne.ersterCommit, erster);
+  const rad = "rad:z3gqcJUoA1n9HaHKufZs5FCSGazv5";
+  const mit = projektRepo({ quellen: [{ art: "radicle", url: rad }] }, { maintainer: ["a".repeat(64), "a".repeat(64), "kaputt"], ersterCommit: "zu-kurz" });
+  assert.deepEqual(mit.klon, ["https://github.com/3DAGI/freedom-app.git", rad]);
+  assert.deepEqual(mit.maintainer, ["a".repeat(64)]);
+  assert.equal(mit.ersterCommit, undefined);
+  // Das Event baut der NIP-34-Baustein – dieselbe Form wie für jedes Repo in der App
+  const k = generateKeypair();
+  const ev = baueRepoAnkuendigung(mit, k.pk);
+  const gelesen = leseRepoAnkuendigung(ev);
+  assert.deepEqual([gelesen.id, gelesen.klon, gelesen.web], [PROJEKT_REPO.id, mit.klon, [PROJEKT_REPO.github]]);
+  // Der echte Stand der Quellen ergibt eine gültige Ankündigung
+  const echt = projektRepo(JSON.parse(readFileSync(new URL("../../../spiegel/quellen.json", import.meta.url), "utf8")));
+  assert.doesNotThrow(() => baueRepoAnkuendigung(echt, k.pk));
 });

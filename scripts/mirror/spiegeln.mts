@@ -12,7 +12,7 @@ import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { bech32 } from "@scure/base";
+import { spiegelSchluessel as leseSchluessel } from "./schluessel.mts";
 import {
   blossomAuth, blossomKopf, blossomQuelle, ipfsCid, keypairFromSecret, leseQuellen, signEvent,
   type Quelle, type QuellenArt, type SpiegelErgebnis,
@@ -71,14 +71,11 @@ else await versuche("ipfs", async () => {
 
 // Blossom (A4): eigener Spiegel-Schlüssel, je Server eine Anmeldung nur für diese Datei.
 function spiegelSchluessel(s: string): Uint8Array {
-  const t = s.trim();
-  if (/^[0-9a-f]{64}$/i.test(t)) return Uint8Array.from(Buffer.from(t, "hex"));
   try {
-    const d = bech32.decode(t as `${string}1${string}`, 200);
-    const b = bech32.fromWords(d.words);
-    if (d.prefix === "nsec" && b.length === 32) return Uint8Array.from(b);
-  } catch { /* unten */ }
-  throw new Meldung("SPIEGEL_NSEC unlesbar (nsec1… oder 64 Hex-Zeichen)");
+    return leseSchluessel(s);
+  } catch (e) {
+    throw new Meldung((e as Error).message);
+  }
 }
 const nsec = process.env.SPIEGEL_NSEC;
 const blossomServer = (process.env.BLOSSOM_SERVER ?? "").split(",").map((s) => s.trim()).filter(Boolean);

@@ -16,7 +16,7 @@ import { standardSchiene } from "./standard-schiene.js";
 import { aktualisiereKurs, aktuellerKurs } from "./shell/marktkurs.js";
 // App-Zustand unter eigenem Namen: `state` ist hier der Zustand des Dialogs.
 // Vorher stand hier `window.state` – das gab es nie, der Zap brach ab.
-import { ensurePool, frageBeiAutoren, signiere, solRpcUrl, state as appState } from "./shell/state.js";
+import { ensurePool, frageBeiAutoren, solRpcUrl, state as appState } from "./shell/state.js";
 
 export interface ZapDialogState {
   recipientPubkey: string;
@@ -74,6 +74,7 @@ export function openZapDialog(recipientPubkey: string, recipientName: string): v
             <option value="solana"${state.walletType === "solana" ? " selected" : ""}>${escapeHtml(t("zahl.optSolana"))}</option>
           </select>
         </div>
+        <div class="zap-field mono-sm muted${state.walletType === "solana" ? " hidden" : ""}" id="zap-anonym-hinweis">${escapeHtml(t("zahl.zapAnonym"))}</div>
         <div class="zap-field${state.walletType === "solana" ? "" : " hidden"}" id="zap-oeffentlich-feld">
           <label class="mono-sm"><input type="checkbox" id="zap-oeffentlich" /> ${escapeHtml(t("zahl.belegOeffentlichWahl"))}</label>
           <label class="mono-sm"><input type="checkbox" id="zap-rauschen" checked /> ${escapeHtml(t("zahl.rauschenWahl"))}</label>
@@ -102,6 +103,7 @@ export function openZapDialog(recipientPubkey: string, recipientName: string): v
     (document.getElementById("zap-unit") as HTMLSelectElement).value = walletSel.value === "solana" ? "sol" : "sats";
     // Beleg (4.7) gibt es nur fuer SOL: dort die Wahl „oeffentlich“ anbieten.
     document.getElementById("zap-oeffentlich-feld")!.classList.toggle("hidden", walletSel.value !== "solana");
+    document.getElementById("zap-anonym-hinweis")!.classList.toggle("hidden", walletSel.value === "solana");
     umrechnung();
   };
   (document.getElementById("zap-amount") as HTMLInputElement).oninput = umrechnung;
@@ -137,7 +139,7 @@ async function sendZap(state: ZapDialogState, el: HTMLElement): Promise<void> {
     statusEl.classList.remove("hidden");
     sendBtn.disabled = true;
     if (!Number.isFinite(state.amount) || state.amount <= 0) throw new Error(t("zahl.betragFehlt"));
-    const { zahle, parseProfileSafe, buildZapRequest } = await import("@freedomstack/protocol");
+    const { zahle, parseProfileSafe } = await import("@freedomstack/protocol");
     const { zahlschienen } = await import("./shell/zahlschienen.js");
     const pool = await ensurePool();
     // Profil auch an den Schreib-Relays des Empfängers (5.4b); das neueste gilt
@@ -147,15 +149,26 @@ async function sendZap(state: ZapDialogState, el: HTMLElement): Promise<void> {
       if (state.unit !== "sats") throw new Error(t("zahl.lightningInSats"));
       const betragMsat = Math.round(state.amount * 1000);
       const lud16 = profile[0] ? parseProfileSafe(profile[0]).lud16 ?? "" : "";
-      if (!lud16) throw new Error(t("zahl.ohneLud16"));
-      const zapRequest = await signiere(buildZapRequest({
-        senderPubkey: appState.keypair!.pk,
-        recipientPubkey: state.recipientPubkey,
-        amountMsat: betragMsat,
-        relays: pool.urls.slice(0, 5), // eigener Satz vorn (5.4) – dort liest die App die Quittung
-      }));
-      const { holeZapRechnung } = await import("./zap-zahlung.js");
-      const rechnung = await holeZapRechnung({ lud16, betragMsat, zapRequest });
+      let rechnung: string;
+      if (lud16) {
+        // Anonym (6.3): Die Quittung veröffentlicht der Server des Empfängers –
+        // mit der Anfrage darin. Von der Identität signiert, stünde dort, wer zahlt.
+        const { baueZapAnfrage, holeZapRechnung } = await import("./zap-zahlung.js");
+        const zapRequest = baueZapAnfrage({
+          empfaenger: state.recipientPubkey,
+          betragMsat,
+          relays: pool.urls.slice(0, 5), // eigener Satz vorn (5.4) – dort liest die App die Quittung
+        });
+        rechnung = await holeZapRechnung({ lud16, betragMsat, zapRequest });
+      } else {
+        // Ohne öffentliche Adresse (6.3b): Rechnung versiegelt beim Empfänger erfragen –
+        // seine App stellt sie mit seiner Wallet aus und antwortet ebenso versiegelt.
+        if (betragMsat % 1000 !== 0) throw new Error(t("zahl.nurGanzeSats"));
+        statusEl.textContent = t("zahl.frageRechnung", { name: state.recipientName });
+        const [{ frageRechnungAn }, { veroeffentlicheDm }] = await Promise.all([import("./ln-rechnung-anfrage.js"), import("./shell/tabs/kommunikation.js")]);
+        rechnung = await frageRechnungAn({ pool, signer: appState.signer!, empfaenger: state.recipientPubkey, betragMsat, sende: veroeffentlicheDm }) ?? "";
+        if (!rechnung) throw new Error(t("zahl.keineRechnungVersiegelt", { name: state.recipientName }));
+      }
       statusEl.textContent = t("zahl.warteAufWallet");
       await zahle(zahlschienen(), { ziel: rechnung, betrag: { einheit: "msat", wert: betragMsat }, zweck: "zap" });
       statusEl.textContent = `⚡ ${t("zahl.gezappt", { sats: state.amount })}`;
@@ -170,7 +183,8 @@ async function sendZap(state: ZapDialogState, el: HTMLElement): Promise<void> {
       let ziel = gemerkteAdresse(geheim, state.recipientPubkey, kette) ?? "";
       if (!ziel) {
         statusEl.textContent = t("zahl.frageAdresse");
-        ziel = await frageAdresseAn({ pool, speicher: geheim, signer: appState.signer!, empfaenger: state.recipientPubkey, kette }) ?? "";
+        const { veroeffentlicheDm } = await import("./shell/tabs/kommunikation.js");
+        ziel = await frageAdresseAn({ pool, speicher: geheim, signer: appState.signer!, empfaenger: state.recipientPubkey, kette, sende: veroeffentlicheDm }) ?? "";
       }
       const offen = profile[0] ? solAdresseAusProfil(profile[0].content) : "";
       if (!ziel && offen && confirm(t("zahl.oeffentlicheAdresseFrage", { name: state.recipientName }))) ziel = offen;
