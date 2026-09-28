@@ -196,10 +196,17 @@
     Zusammenfassung 38075 (`fasseZusammen()`, `baueRufUmschlaege()`,
     `oeffneRufUmschlag()` – nur von Kontakten); `berechneRuf()` nur aus
     Quittungen und Zusammenfassungen. Format in `docs/PROTOCOL.md` §17.
-  - **5.5b:** App – Quittungsbuch im Tresor, anlegen in `handleAnswer()`
-    (Lightning nach `charge.settled`, Zahlkanal nach `kanalAntwort()`), Rang und
-    Stufe in `matchmaking.ts` und die Relay-Suche ohne 38010; Abnahme mit
-    gefälschten Leistungs-Events.
+  - **5.5b – FERTIG:** App – Quittungsbuch im Tresor (`quittungsbuch.ts`,
+    `freedom.quittungen`, in `SICHERUNG_NIE`), angelegt in `handleAnswer()` über
+    `shell/quittungen.ts` (Lightning nach der Zahlung – eine Quittung über alle
+    Antworten seit der letzten; Zahlkanal nach `kanalAntwort()`, angekündigt,
+    im Abruftakt mit `kanalAufKette().ausgezahlt` gehoben). Rang und Stufe in
+    `matchmaking.ts` nur aus `berechneRuf()` (`stufeAusRuf()`: Angebot, Quittungen
+    heben, nur bestätigte Reklamationen senken; ungeprüfte hinten), die
+    Relay-Suche wiegt nur Relay-Listen Bezahlter schwerer; 38010 fragt die App
+    dafür nicht mehr ab. Der Knoten veröffentlicht 38010 weiter – nur für die
+    eigene Einnahmen-Ansicht und die Abzeichen. Abnahme mit 300 gefälschten
+    Leistungs-Events (`app/test/quittungen.test.ts`).
   - **5.5c:** App – Zusammenfassungen an Kontakte (mit Zustimmung) und aus dem
     Posteingang, Datenschutz-Aussage mit Szenario, ehrliche Texte.
   - **8.15:** Dashboard nur aus Öffentlichem und Freiwilligem.

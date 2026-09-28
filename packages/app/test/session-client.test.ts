@@ -104,6 +104,7 @@ test("5.1.3: Anteil des Providers per Rechnung – ab dem Fenster, ganze sats, n
   assert.equal((await sc.chargeForResult(provider.pk, 12_500, e, wallet)).settled, false, "unter 20 sats: nur Beleg");
   const r = await sc.chargeForResult(provider.pk, 12_700, e, wallet);
   assert.deepEqual([r.settled, r.gezahltMsat, r.faelligAbMsat], [true, 25_000, 20_000], "ganze sats – 200 msat bleiben offen");
+  assert.equal(r.rechnung, "lnbc-25000", "die bezahlte Rechnung – mit dem Preimage die Quittung (5.5b)");
   // Der Beleg an den Provider nennt, was bezahlt ist
   const beleg = await geoeffnet(gesendet.at(-1)!, provider.sk);
   assert.equal(beleg.tags.find((t) => t[0] === "cumulative_msat")?.[1], "25000");
@@ -111,6 +112,7 @@ test("5.1.3: Anteil des Providers per Rechnung – ab dem Fenster, ganze sats, n
   scheitert = "rechnung";
   const ohne = await sc.chargeForResult(provider.pk, 30_000, e, wallet);
   assert.deepEqual([ohne.settled, ohne.unklar], [false, false], "vor der Wallet gescheitert – beim nächsten Mal wieder");
+  assert.equal(ohne.rechnung, undefined, "ohne Zahlung keine Rechnung");
   scheitert = "zahlen";
   const unklar = await sc.chargeForResult(provider.pk, 1_000, e, wallet);
   assert.deepEqual([unklar.settled, unklar.unklar], [false, true]);

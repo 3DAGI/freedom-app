@@ -44,9 +44,9 @@ bash packages/mls/bauen.sh --pruefen                     # nur bei Änderungen a
 bash contracts/solana-channel/pruefen.sh --werkzeuge     # nur bei Änderungen am Zahlkanal: bauen + Tests gegen Validator (Agave 3.1.10)
 ```
 
-Stand 28.09.2026 (nach 8.2a, C.2d2 und 5.5a): protocol 1088 grün (6 übersprungen), node 250 grün
+Stand 28.09.2026 (nach 8.2a, C.2d2, 5.5a und 5.5b): protocol 1088 grün (6 übersprungen), node 250 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 547 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 59 grün + 1 `todo` (heutige Lecks,
+in `tools.test.ts`), app 554 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 59 grün + 1 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
 Ausnahme: gesendete SOL-Zahlungen von frischen Adressen, eine bewusste Grenze
 nach Entscheidung 4.9 A – im Datenschutzbericht unter „Bewusste Grenzen“).
@@ -612,6 +612,13 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   Zusammenfassungen von Kontakten) – 38010 und andere Selbstauskünfte zählen
   nicht. Die Zusammenfassung (38075) nur versiegelt über
   `baueRufUmschlaege()`, gelesen nur von Kontakten (`oeffneRufUmschlag()`).
+  In der App (seit 5.5b) nur über `shell/quittungen.ts`: Quittungsbuch
+  `freedom.quittungen` in `geheim` (in `SICHERUNG_NIE`), angelegt in
+  `handleAnswer()` – je Stelle ein Aufruf; Provider-Auswahl nur mit
+  `discoverProviders(pool, aktuellerRuf())`. 38010 nie für Rang, Stufe oder
+  Relay-Gewicht abfragen. Ungeprüfte Provider bleiben wählbar, stehen aber
+  hinten; die Vertrauensschwelle gilt nur bei bestätigten Reklamationen – sonst
+  stünde ein einmal bezahlter hinter einem unbekannten.
   Nie eine öffentliche Rangliste; die Prüferwahl (`netzPruefer()`) bleibt ohne Ruf.
 - **Provider-Einrichtung nur geprüft** (seit 8.2a): Was ein Provider zum
   Verdienen braucht, prüft `pruefeEinrichtung()` (`node/src/einrichtung.ts`) –

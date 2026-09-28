@@ -9747,6 +9747,88 @@ Netz; ohne Netz 244 + 7) · app 547 · mls 13 · Leak-Tests 59 grün + 1 todo ·
 · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 · Website 5 Seiten
 ok · Smoke-Test bestanden. Knoten-Stand: unverändert (nur Protokoll).
 
+## Schritt 5.5b – Quittungen in der App, Rang ohne 38010
+
+Spur B, Karte `phase-5.md` (5.5b), Entscheidung Spur A für Spur B vom 28.09.
+
+**Was:**
+- `app/src/quittungsbuch.ts` (neu): `QuittungsBuch` über einen Speicher
+  (`freedom.quittungen`) – je Zahlung eine Quittung (Lightning nach Preimage,
+  Zahlkanal nach Anfrage), die neuesten 500, Unbrauchbares und Verändertes
+  fällt beim Lesen weg (`leseQuittung()`); `offeneKanaele()` und
+  `hebe(kanal, ausgezahlt)` für Zahlkanal-Quittungen.
+  `reklamationenJeProvider()`: nur Reklamationen, denen der Prüfer recht gab
+  (erstattet, geteilt) – eine offene ist eine Behauptung. `OffeneAntworten`:
+  bezahlte Antworten seit der letzten Lightning-Zahlung (nur im Speicher).
+- `app/src/shell/quittungen.ts` (neu): Buch in `geheim`;
+  `quittungNachZahlung()` (Quittung erst mit bezahlter Rechnung und Preimage,
+  über alle Antworten seit der letzten Zahlung – die Sitzung zahlt gesammelt
+  ab 20 sats), `quittungNachKanal()` (Preis + höchste Gutschrift an den Kanal
+  dieses Providers, „angekündigt“), `hebeKanalQuittungen()` (Kette:
+  `kanalAufKette().ausgezahlt`), `aktuellerRuf()`.
+- `handleAnswer()` (`tabs/agent.ts`) – je Stelle genau ein Aufruf:
+  Zahlkanal nach `kanalAntwort()` (Zeile 916), Lightning nach
+  `sc.chargeForResult()` (Zeile 927). `SessionClient.chargeForResult()` gibt
+  dafür die bezahlte Rechnung mit zurück (`rechnung`).
+- `matchmaking.ts`: `discoverProviders(pool, ruf)` fragt nur noch Angebote
+  (38027) ab – 38010 nicht mehr. Stufe über `stufeAusRuf()`: ohne Quittungen
+  das Angebot, Quittungen heben, nur bestätigte Reklamationen senken (sonst
+  sänke eine einzige angekündigte Zahlung einen neuen Provider unter sein
+  Angebot). Ungeprüfte Provider bleiben wählbar (sonst fände ein neuer Nutzer
+  keinen), stehen aber hinter allen mit Ruf (`score -1`); die
+  Vertrauensschwelle für classic/pro gilt nur bei bestätigten Reklamationen.
+  Die Prüfung auf „seit sieben Tagen keine 38010“ fällt weg – frisch muss das
+  Angebot sein (24 h), der Knoten erneuert es alle 30 min.
+- `shell/state.ts`: Provider-Auswahl mit `aktuellerRuf()`; die Relay-Suche
+  wiegt Relay-Listen nur von Providern mit Quittungen schwerer, nicht mehr
+  von Autoren beliebiger 38010-Events.
+- `shell/app.ts`: `abrufTakt.melde("quittungen", …, 20)` hebt
+  Zahlkanal-Quittungen etwa alle zehn Minuten (kein neues `setInterval`).
+- Tresor und Sicherung: `freedom.quittungen` in `GEHEIM_FEST` und
+  `SICHERUNG_NIE` (Quittungen tragen Preimages und Rechnungen; auf einem neuen
+  Gerät beginnt der Ruf neu – die Zusammenfassungen der Kontakte bleiben).
+- Knoten: unverändert. Er veröffentlicht 38010 weiter – die App braucht es
+  nur für die eigene Einnahmen-Ansicht (Earn) und die Abzeichen; Rang und
+  Stufe zählen es nicht.
+- Ehrliche Texte: Earn „Vertrauensstufe“ sagt jetzt, dass sie eine Schätzung
+  aus den Meldungen des eigenen Knotens ist und Kunden nach ihren Quittungen
+  einstufen (de/en); Website-Startseite: statt „Reputation ist öffentlich
+  nachprüfbar“ „Den Ruf eines Providers bildet deine App aus eigenen
+  Quittungen und denen deiner Kontakte – nicht aus Selbstauskünften“.
+  Kommentare in `performance.ts` und `tiers.ts` angeglichen.
+- `wiring-ausnahmen.txt`: sechs Zeilen raus (jetzt verdrahtet); übrig
+  `baueRufUmschlaege`, `oeffneRufUmschlag` für 5.5c.
+
+**Tests:** +7 in `app/test/quittungen.test.ts`, `session-client.test.ts`
+erweitert:
+- Quittungsbuch: Doppelte ersetzen, Verändertes und Kaputtes fällt weg,
+  höchstens 500 (die ältesten gehen).
+- Zahlkanal: je Kanal gehoben, erst ab der Gutschrift, Lightning nicht.
+- Reklamationen nur mit Urteil „erstattet“/„geteilt“; offene Antworten.
+- Stufe: Angebot ohne Ruf, eine Zahlung senkt nicht, Quittungen heben bis
+  pro, Reklamation senkt und verhindert Heben.
+- **Abnahme:** 300 gefälschte, gültig signierte 38010-Events des Fälschers –
+  `discoverProviders()` liefert dasselbe wie ohne sie (Vertrauen 0, Stufe =
+  Angebot, `score -1`), 38010 wird nicht abgefragt; mit einer eigenen
+  Quittung steht der Bezahlte vorn (trotz höherem Preis); `pro` bleibt leer;
+  mit bestätigter Reklamation fällt der Fälscher aus classic, gratis und
+  Allowlist bleiben.
+- Verdrahtung (Quelltext): je genau ein Aufruf an beiden Stellen, State ohne
+  `KIND_PERFORMANCE`, Abruftakt, kein Veröffentlichen, kein `localStorage`.
+- Tresor/Sicherung: `GEHEIM_FEST`, `SICHERUNG_NIE`, `waehleSicherung()`.
+- `chargeForResult()` gibt die bezahlte Rechnung zurück, ohne Zahlung keine.
+
+Gefunden beim Testen: Der Vertrauensfilter aus der alten Logik (classic/pro
+ab Vertrauen 10) schloss einen einmal bezahlten Provider aus (Vertrauen 3),
+ließ ungeprüfte aber durch – die Schwelle gilt jetzt nur bei bestätigten
+Reklamationen.
+
+Endstand: protocol 1088 (6 übersprungen) · node 244 + 7 übersprungen (ohne
+Netz; mit Netz 245 + 6) · app 554 (+7) · mls 13 · Leak-Tests 59 grün + 1 todo
+· 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 · Website
+ok · Smoke-Test bestanden · Website-Bau ok. Knoten-Stand: unverändert (die
+App braucht keinen neueren Knoten).
+
 ## Schritt 8.2a – Provider-Knoten: Selbstprüfung und Installer für beide Schienen
 
 **Warum:** Ziel der Karte 8.2: Ein neuer Provider verdient in unter 30 Minuten
