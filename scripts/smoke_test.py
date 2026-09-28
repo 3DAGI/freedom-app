@@ -571,6 +571,7 @@ class ProbeRelay:
                 ws.send(json.dumps(["EOSE", m[1]]))
             elif m[0] == "EVENT" and isinstance(m[1], dict):
                 self.gesendet.append(m[1])
+                self.events.append(m[1])  # wie ein Relay: später abfragbar (seit C.2d2)
                 ws.send(json.dumps(["OK", m[1].get("id", ""), True, ""]))
         ws.on_message(nachricht)
 
@@ -734,20 +735,50 @@ def raum_pruefen(browser, url: str) -> dict:
                 s.wait_for_timeout(150)
                 schritte.setdefault(taste, []).append(ev(stand))
             erg["desktop"]["menue"] = schritte
+            # Seit C.2d2 nach Rechten: im fremden Raum weder Moderatoren noch Kanal anlegen – es beginnt mit „Raum beitreten“
             soll = {
-                "ArrowDown": [{"offen": True, "expanded": "true", "fokus": "space-mods", "dialog": None},
-                              {"offen": True, "expanded": "true", "fokus": "space-mods", "dialog": None},
-                              {"offen": True, "expanded": "true", "fokus": "space-join", "dialog": None}],
+                "ArrowDown": [{"offen": True, "expanded": "true", "fokus": "space-join", "dialog": None},
+                              {"offen": True, "expanded": "true", "fokus": "space-join", "dialog": None},
+                              {"offen": True, "expanded": "true", "fokus": "space-create", "dialog": None}],
                 "End": [{"offen": True, "expanded": "true", "fokus": "space-create-public", "dialog": None}],
                 "Escape": [{"offen": False, "expanded": "false", "fokus": "space-menue-knopf", "dialog": None},
                            {"offen": False, "expanded": "false", "fokus": "space-menue-knopf", "dialog": None}],
-                "Enter": [{"offen": True, "expanded": "true", "fokus": "space-mods", "dialog": None},
-                          {"offen": False, "expanded": "false", "fokus": None, "dialog": "Raum beitreten"}],
+                "Enter": [{"offen": True, "expanded": "true", "fokus": "space-join", "dialog": None},
+                          {"offen": False, "expanded": "false", "fokus": None, "dialog": "Raum anlegen (privat)"}],
             }
             # Im Dialog steht der Fokus auf dem Eingabefeld – dessen Id ist nicht fest
             schritte["Enter"][1]["fokus"] = None
             if schritte != soll:
                 erg["fehler"].append(f"desktop: Raum-Menü {schritte}")
+            # Eigener offener Raum (C.2d2): anlegen, als Gründer einen Kanal anlegen, der nur Moderatoren schreiben lässt
+            ev("() => document.getElementById('space-create-public').click()")
+            s.wait_for_timeout(200)
+            s.keyboard.type("Werkstatt")
+            s.keyboard.press("Enter")
+            try:
+                s.wait_for_function("() => document.getElementById('space-name').textContent === 'Werkstatt'", timeout=10000)
+            except Exception:
+                pass
+            s.keyboard.press("Escape")  # der Dialog mit der Kennung
+            s.wait_for_timeout(1100)  # die neue Definition braucht einen späteren Zeitstempel
+            rechte = ev("""() => ['space-mods', 'space-kanal-neu'].map(id => !document.getElementById(id).classList.contains('hidden'))""")
+            ev("() => document.getElementById('space-kanal-neu').click()")
+            s.wait_for_timeout(200)
+            s.keyboard.type("Technik & Co")
+            s.keyboard.press("Tab")
+            s.keyboard.press("Space")
+            s.keyboard.press("Enter")
+            try:
+                s.wait_for_function("() => document.getElementById('channel-name').textContent === '#Technik & Co'", timeout=10000)
+            except Exception:
+                pass
+            kanaele = ev("() => [...document.querySelectorAll('#channel-list .channel-item')].map(b => b.textContent.trim())")
+            definitionen = [e for e in relay.gesendet if e.get("kind") == 34700]
+            neu = [t for t in (definitionen[-1]["tags"] if definitionen else []) if t[0] == "channel" and t[1] == "technik-co"]
+            erg["desktop"]["eigener_raum"] = {"rechte": rechte, "kanaele": kanaele, "definitionen": len({e["id"] for e in definitionen}), "neu": neu}
+            if rechte != [True, True] or not any(k.endswith("Technik & Co") for k in kanaele) \
+                    or neu != [["channel", "technik-co", "Technik & Co", "offen", "2", "mod", ""]]:
+                erg["fehler"].append(f"desktop: eigener Raum, Kanal anlegen {erg['desktop']['eigener_raum']}")
         ctx.close()
     erg["bestanden"] = not erg["fehler"]
     return erg

@@ -9633,3 +9633,60 @@ Netz) · app 543 (+4) · mls 13 · Leak-Tests 59 grün + 1 todo · 0 rot ·
 check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 (69 Ausnahmen, 1
 weniger) · Website 5 Seiten ok · Smoke-Test bestanden (mit „rahmen“, „dialog“
 und „raum“ samt Thread und Mitgliedern).
+
+## Schritt C.2d2 – Oberfläche: Kanal anlegen, Menüpunkte nach Rechten
+
+**Fertig:** Kanäle lassen sich anlegen, und das Raum-Menü zeigt nur, was man
+darf. Damit ist C.2 (Räume) fertig.
+
+**Einzelheiten:**
+- **Kanal anlegen** (Raum-Menü): ein Dialog mit dem Namen und „Nur
+  Moderatoren (alle anderen lesen)“.
+  - Offen: nur als Gründer, als neue Definition (`buildSpace()`) mit allen
+    bisherigen Kanälen und dem neuen. Die neueste Definition gilt.
+  - Privat: `legePrivatenKanalAn()` (`raum-mls.ts`) sendet die Definition mit
+    dem neuen Kanal über `raumDefinition()` in die Gruppe – nur als Moderator.
+    Definitionen von Mitgliedern verwirft `gruppenRaum()` ohnehin.
+  - Kennung über `kanalKennung()` (`raum-verlauf.ts`): klein, nur a–z, 0–9 und
+    „-“, höchstens 24 Zeichen, eindeutig („-2“, „-3“ …), Umlaute
+    umgeschrieben, ohne Buchstaben „kanal“.
+  - Danach öffnet die App den neuen Kanal.
+- **Menüpunkte nach Rechten** (`zeigeRaumArt()`):
+  - „Moderatoren“ und „Kanal anlegen“: privat für Moderatoren, offen nur für
+    den Gründer.
+  - „Einladen“ wie bisher privat für Moderatoren.
+  - Der Trenner nur, wenn davor etwas steht.
+  - Bei offenen Räumen läuft die Prüfung nach dem Laden erneut.
+- **Raumwechsel:** Zustand, Gruppe und Nachrichten des vorigen Raums werden
+  vorher geleert. Vorher blieben sie stehen, bis der neue Raum geladen war;
+  scheiterte das Laden eines offenen Raums, blieben sie ganz.
+- **Gefunden, nicht behoben – B20 (Protokoll, andere Spur):**
+  `buildSpaceState()` nimmt die neueste Raum-Definition (34700) mit der
+  Kennung von jedem Autor und macht dessen Schlüssel zum Gründer. Offene Räume
+  lassen sich so übernehmen. Ältere Definitionen anderer Autoren auszuschließen
+  reicht nicht, weil Zeitstempel nur behauptet sind; die Kennung müsste an den
+  Gründer gebunden sein. Das ist eine Frage des Formats – eingetragen in
+  `phase-10.md` für Spur A/B bzw. eine Entscheidung.
+- **Screenshots** (`docs/ausbau/bilder/c2d2/`): Desktop, eigener Raum
+  „Werkstatt“ mit Menü (Moderatoren, Kanal anlegen, Trenner, Beitreten,
+  Anlegen); Handy mit dem Dialog „Kanal anlegen“ als Blatt von unten.
+
+**Tests:**
+- +4 in `raum-kanal.test.ts`:
+  - Kennung aus dem Namen, auch mit feindlichen Eingaben.
+  - Offen: die neue Definition des Gründers trägt den Kanal.
+  - Privat: die Definition gilt nur von Moderatoren.
+  - Menüpunkte nach Rechten, Raumwechsel leert den Zustand.
+- Smoke-Test „raum“:
+  - Das Raum-Menü im fremden Raum beginnt jetzt bei „Raum beitreten“.
+  - Am Desktop wird ein offener Raum angelegt – erstmals im Browser geprüft.
+  - Darin legt die App als Gründer den Kanal „Technik & Co“ an (nur
+    Moderatoren) und sendet die Definition mit `["channel", "technik-co",
+    "Technik & Co", "offen", "2", "mod", ""]`.
+  - `ProbeRelay` gibt Veröffentlichtes jetzt wie ein Relay zurück.
+
+Endstand: protocol 1082 (6 übersprungen) · node 245 (6 übersprungen, mit
+Netz) · app 547 (+4) · mls 13 · Leak-Tests 59 grün + 1 todo · 0 rot ·
+check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 · Website 5 Seiten
+ok · Smoke-Test bestanden (mit „rahmen“, „dialog“ und „raum“ samt Thread,
+Mitgliedern und eigenem Raum mit neuem Kanal).
