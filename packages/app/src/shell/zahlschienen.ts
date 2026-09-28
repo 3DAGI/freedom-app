@@ -18,6 +18,14 @@ import { geheim } from "./tresor.js";
 import { netzDa } from "./ui.js";
 import { nwc, verbundeneSolanaWallet } from "./tabs/waehrung.js";
 
+/**
+ * Rechnung der eigenen Lightning-Wallet über NWC – zum Empfangen (6.3b), statt
+ * über einen LNURL-Dienst. undefined ohne NWC; die Beschreibung bleibt leer.
+ */
+export async function eigeneRechnung(betragMsat: number): Promise<string | undefined> {
+  return nwc ? (await nwc.makeInvoice(betragMsat, "")).invoice : undefined;
+}
+
 type WebLN = { enable(): Promise<void>; sendPayment(bolt11: string): Promise<{ preimage: string }> };
 type Anbieter = {
   signAndSendTransaction?(tx: unknown): Promise<{ signature: string }>;
