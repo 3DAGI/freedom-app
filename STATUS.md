@@ -8552,3 +8552,69 @@ Endstand: protocol 1067 (6 übersprungen) · node 235 (6 übersprungen, mit
 Netz) · app 505 (+1) · mls 13 · Leak-Tests 58 grün + 1 todo · 0 rot ·
 check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 · Website 5 Seiten
 ok · Smoke-Test bestanden (mit „rahmen“).
+
+## Schritt C.2b1 – Oberfläche: Dialoge statt prompt() in Räumen
+
+**Fertig:** C.2b ist geteilt (zusammen rund 700 Zeilen). C.2b1 bringt den
+gemeinsamen Baustein `shell/dialog.ts` und ersetzt alle 16 `prompt()`,
+`confirm()` und `alert()` in `shell/tabs/raeume.ts` (B7). Namen im Verlauf,
+Gruppierung und Menüs folgen mit C.2b2.
+
+**Einzelheiten:**
+- **`dialog()`** baut nur mit DOM und `textContent` – Namen und Kennungen von
+  anderen landen nie als HTML.
+  - Barrierefrei: `role="dialog"`, `aria-modal`, `aria-labelledby`; der Rest
+    der App ist solange `inert`.
+  - Tastatur: Der Fokus bleibt im Dialog (Tab läuft im Kreis, `focusin` holt
+    ihn zurück), Esc bricht ab, Enter bestätigt (mehrzeilig Strg+Enter).
+    Danach kehrt der Fokus zum auslösenden Knopf zurück. Bei Löschen,
+    Entfernen, Sperren steht er zuerst auf „Abbrechen“.
+  - Felder: Text, mehrzeilig, Wahl, Mehrfachwahl, Nur-Lesen mit „Kopieren“.
+    Pflichtfelder und Prüfungen melden sich im Dialog, statt ihn zu schließen
+    (`pruefeWerte()`, rein).
+  - Mobil erscheint er als Blatt von unten.
+- **Räume:**
+  - Einladen: Kontakt als Wahl oder Schlüssel (hex); nur ein gültiger
+    Schlüssel schließt den Dialog.
+  - Moderatoren: privat Häkchen je Mitglied (Admins vorgewählt; allein im Raum
+    ein Hinweis statt eines leeren Dialogs); offen Schlüssel und Regeln in
+    einem Dialog, jeder Schlüssel geprüft (früher fielen falsche still weg).
+  - Moderieren: privat „für alle löschen“ oder „entfernen“; offen „ausblenden“
+    oder „sperren“ samt Begründung in einem Dialog (früher: „Abbrechen =
+    sperren“).
+  - Melden: die sieben Gründe als Wahl mit Text; gesendet wird wie bisher die
+    Kennung.
+  - Anlegen: Hinweis und Name in einem Dialog; die Kennung eines offenen Raums
+    zum Kopieren.
+  - Beitreten: Kennung als Pflichtfeld.
+  - Rauminfo: `privacyInfo()` im Dialog. Der Satz bleibt Deutsch, bis
+    8.16g2b2 (Spur B) ihn übersetzt (B17).
+- **Texte:** neu `texte/dialog.ts` (`dlg.*`) und `texte/raeume.ts` (`raum.*`);
+  vorhandene Schlüssel dienen als Titel und Beschriftungen. Sieben Schlüssel
+  der alten Eingabezeilen fallen weg: `komm.ausblendenOderSperren`,
+  `moderierenWahl`, `meldenGrund`, `unbekannterGrund`, `einladenListe`,
+  `werModerator`, `moderatorMarke`.
+- **Nicht geändert:** Protokoll, Event-Formate, Moderationsbausteine; es
+  gehen dieselben Events hinaus wie vorher. `moderiere()` sperrt den Absender
+  über `buildBan(…, autor, …)` wie zuvor über `dataset.pk`. Der bisher
+  unerreichbare Zweig „Rolle vergeben“ fragt ebenfalls per Dialog; einen Knopf
+  bekommt er mit C.2d.
+- **Screenshots:** `scripts/screenshots.py` nimmt jetzt auch Dialoge auf
+  (vierter Eintrag: der Knopf, der ihn öffnet). Abgelegt in
+  `docs/ausbau/bilder/c2b1/`: Beitreten und „öffentlich anlegen“ am Desktop,
+  Anlegen und „öffentlich anlegen“ am Handy.
+
+**Tests:**
+- +6 in `dialog.test.ts`: Pflichtfelder, Wahl nur aus den Optionen, Prüfung
+  über Felder, Aufbau ohne HTML, keine `prompt`/`confirm`/`alert` in
+  `raeume.ts`, Meldegründe in beiden Sprachen.
+- `leak/raum.test.ts`: Der Hinweis „öffentlich“ steht im Dialog, in dem der
+  Name eingegeben wird; ohne Namen wird nichts angelegt (vorher: `confirm`).
+- Smoke-Test „dialog“ (Desktop und Handy): per Enter öffnen, leer bestätigen
+  meldet „Bitte ausfüllen“, Tab bleibt im Dialog, Esc schließt, Fokus zurück,
+  `inert` wieder aus.
+
+Endstand: protocol 1067 (6 übersprungen) · node 235 (6 übersprungen, mit
+Netz) · app 511 (+6) · mls 13 · Leak-Tests 58 grün + 1 todo · 0 rot ·
+check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 · Website 5 Seiten
+ok · Smoke-Test bestanden (mit „rahmen“ und „dialog“).

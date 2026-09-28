@@ -75,7 +75,9 @@ test("Verdrahtung: private Räume sind der Standard und senden über MLS; offene
   assert.match(raeume, /if \(spacesUi\.privat\) \{\s*\/\/ Privat \(2\.3b\)[^\n]*\n\s*if \(await sendePrivat\(spacesUi\.privat\.gruppe, spacesUi\.channelId, text\)/);
   assert.match(raeume, /async function legeRaumAn\(oeffentlich = false\)/);
   assert.match(raeume, /create\.onclick = \(\) => void legeRaumAn\(\);/, "der Knopf „Raum anlegen“ legt privat an");
-  assert.match(raeume, /if \(oeffentlich && !confirm\(t\("komm\.oeffentlichWarnung"\)\)\) return;/);
+  // Seit C.2b1 steht der Hinweis im Dialog, in dem der Name eingegeben wird – ohne Name wird nichts angelegt
+  assert.match(raeume, /text: t\(oeffentlich \? "komm\.oeffentlichWarnung" : "komm\.privatTitel"\),/);
+  assert.match(raeume, /if \(!name\.trim\(\)\) return;/);
   // Offene Räume und Communities wie im Szenario oben
   assert.match(raeume, /signiere\(buildChannelMessage\(\{\s*authorPubkey: state\.keypair\.pk, spaceId: spacesUi\.spaceId,\s*channelId: spacesUi\.channelId, content: text,/);
   assert.match(kom, /signiere\(buildEvent\(state\.keypair\.pk, 42, \[\["h", c\.id\], \.\.\.imeta\], text\)\)/);

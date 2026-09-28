@@ -3,7 +3,8 @@
  * Mitglieder, Moderation und Meldungen.
  *
  * Aus kommunikation.ts verschoben (Schritt C.2a) – wörtlich, ohne
- * Logikänderung; nur `kontaktName` ist jetzt exportiert.
+ * Logikänderung; nur `kontaktName` ist jetzt exportiert. Seit C.2b1 fragen
+ * Dialoge (`shell/dialog.ts`) statt `prompt()`, `confirm()` und `alert()`.
  */
 import { MELDE_GRUENDE, type MeldeGrund } from "@freedomstack/protocol";
 import { escapeHtml, pkShort } from "../../shell-logic.js";
@@ -13,6 +14,7 @@ import {
   PRIVAT, type PrivaterRaum, einladungsText, entferneAusRaum, gruppeVon, istPrivat, ladeInPrivatenRaum, ladePrivatenRaum, legePrivatenRaumAn, loescheImRaum, meldeImRaum, meldungErledigt, meldungenFuer, privateRaeume, sendePrivat, setzeModeratoren, wennMeldung,
 } from "../raum-mls.js";
 import { $, toast } from "../ui.js";
+import { bestaetige, dialog, hinweis, type Option } from "../dialog.js";
 import { gebietsschema, t } from "../../i18n.js";
 import { abrufTakt } from "../versand.js";
 import { conversations } from "./kommunikation.js";
@@ -247,11 +249,7 @@ async function oeffneKanal(channelId: string): Promise<void> {
       b.addEventListener("click", () => void raumAktion((b as HTMLElement).dataset.id!, (b as HTMLElement).dataset.pk!));
     });
     thread.querySelectorAll(".mod-hide").forEach((b) => {
-      b.addEventListener("click", () => {
-        const el = b as HTMLElement;
-        const was = confirm(t("komm.ausblendenOderSperren"));
-        void moderiere(was ? "hide" : "ban", was ? el.dataset.id! : el.dataset.pk!);
-      });
+      b.addEventListener("click", () => void moderiere("hide", (b as HTMLElement).dataset.id!, (b as HTMLElement).dataset.pk!));
     });
   }
 
@@ -268,6 +266,12 @@ async function oeffneKanal(channelId: string): Promise<void> {
   void zeigeMitglieder();
   void zeigeKanalliste();
 }
+
+/** Meldegründe (8.5) im Dialog – gesendet wird die Kennung, angezeigt der Text. */
+const GRUND_TEXT: Record<MeldeGrund, string> = {
+  spam: "raum.grundSpam", illegal: "raum.grundIllegal", nudity: "raum.grundNacktheit", profanity: "raum.grundBeleidigung",
+  impersonation: "raum.grundIdentitaet", malware: "raum.grundSchadsoftware", other: "raum.grundAnderes",
+};
 
 /** Private Räume (2.3c): was ich mit einer Nachricht tun kann. */
 function raumAktionText(autor: string): string {
@@ -286,21 +290,30 @@ async function raumAktion(id: string, autor: string): Promise<void> {
   if (!raum) return;
   let ok: boolean;
   if (autor === raum.ich) {
-    if (!confirm(t("komm.eigeneLoeschen"))) return;
+    if (!await bestaetige({ titel: t("raum.loeschenTitel"), text: t("komm.eigeneLoeschen"), ok: t("komm.loeschen"), gefahr: true })) return;
     ok = await loescheImRaum(raum, id);
   } else if (raum.admins.includes(raum.ich)) {
-    const wahl = prompt(t("komm.moderierenWahl"), "1");
-    if (wahl?.trim() === "1") ok = await loescheImRaum(raum, id);
-    else if (wahl?.trim() === "2") ok = await entferneAusRaum(raum, autor);
+    const w = await dialog({
+      titel: t("raum.moderierenTitel"), ok: t("komm.moderieren"), gefahr: true,
+      felder: [{ art: "wahl", name: "was", label: t("raum.massnahme"), pflicht: true, wert: "loeschen", optionen: [
+        { wert: "loeschen", text: t("raum.fuerAlleLoeschen") },
+        { wert: "entfernen", text: t("raum.ausRaumEntfernen"), hinweis: t("raum.entfernenHinweis") },
+      ] }],
+    });
+    if (w?.was === "loeschen") ok = await loescheImRaum(raum, id);
+    else if (w?.was === "entfernen") ok = await entferneAusRaum(raum, autor);
     else return;
   } else {
-    const grund = prompt(t("komm.meldenGrund", { gruende: MELDE_GRUENDE.join(", ") }), "spam")?.trim();
-    if (!grund) return;
-    if (!(MELDE_GRUENDE as readonly string[]).includes(grund)) {
-      toast(t("komm.unbekannterGrund"), true);
-      return;
-    }
-    const notiz = prompt(t("komm.meldenNotiz")) ?? "";
+    const w = await dialog({
+      titel: t("raum.meldenTitel"), text: t("raum.meldenText"), ok: t("komm.melden"),
+      felder: [
+        { art: "wahl", name: "grund", label: t("raum.grund"), pflicht: true, wert: "spam", optionen: MELDE_GRUENDE.map((g) => ({ wert: g, text: t(GRUND_TEXT[g]) })) },
+        { art: "textarea", name: "notiz", label: t("komm.meldenNotiz") },
+      ],
+    });
+    const grund = String(w?.grund ?? "");
+    if (!(MELDE_GRUENDE as readonly string[]).includes(grund)) return;
+    const notiz = String(w?.notiz ?? "");
     const n = await meldeImRaum(raum, id, autor, grund as MeldeGrund, notiz).catch(() => 0);
     toast(n > 0 ? t("komm.gemeldet", { n }) : t("komm.nichtGemeldet"), n === 0);
     return;
@@ -420,9 +433,14 @@ async function sendeRaumNachricht(): Promise<void> {
 async function legeRaumAn(oeffentlich = false): Promise<void> {
   if (!state.keypair) return;
   // Neue Räume sind privat (2.3b); öffentlich nur ausdrücklich und mit Hinweis
-  if (oeffentlich && !confirm(t("komm.oeffentlichWarnung"))) return;
-  const name = prompt(t(oeffentlich ? "komm.nameOeffentlich" : "komm.namePrivat"));
-  if (!name?.trim()) return;
+  const w = await dialog({
+    titel: t(oeffentlich ? "komm.anlegenOeffentlich" : "komm.anlegenPrivat"),
+    text: t(oeffentlich ? "komm.oeffentlichWarnung" : "komm.privatTitel"),
+    felder: [{ art: "text", name: "name", label: t(oeffentlich ? "komm.nameOeffentlich" : "komm.namePrivat"), pflicht: true }],
+    ok: t(oeffentlich ? "raum.oeffentlichAnlegen" : "raum.anlegen"),
+  });
+  const name = String(w?.name ?? "");
+  if (!name.trim()) return;
   if (!oeffentlich) {
     try {
       const gruppe = await legePrivatenRaumAn(name.trim());
@@ -460,7 +478,10 @@ async function legeRaumAn(oeffentlich = false): Promise<void> {
     raumBeitreten(spaceId);
     await oeffneRaum(spaceId);
     // Die Kennung ist der einzige Weg, wie jemand hereinkommt.
-    prompt(t("komm.raumAngelegt"), spaceId);
+    await dialog({
+      titel: t("raum.angelegtTitel"), text: t("komm.raumAngelegt"), ok: t("dlg.schliessen"), abbrechen: false,
+      felder: [{ art: "nurlesen", name: "kennung", label: t("komm.raumKennung"), wert: spaceId }],
+    });
   } catch (e) {
     toast((e as Error).message, true);
   }
@@ -474,15 +495,18 @@ async function ladeEin(): Promise<void> {
   const raum = spacesUi.privat;
   if (!raum) return;
   const kontakte = conversations.filter((c) => c.type === "dm" && /^[0-9a-f]{64}$/.test(c.id) && !raum.mitglieder.includes(c.id));
-  const liste = kontakte.map((c, i) => `${i + 1}: ${c.name}`).join("\n");
-  const eingabe = prompt(kontakte.length ? t("komm.einladenListe", { liste }) : t("komm.einladenSchluessel"));
-  if (!eingabe?.trim()) return;
-  const n = Number(eingabe.trim());
-  const pk = Number.isInteger(n) && n >= 1 && n <= kontakte.length ? kontakte[n - 1]!.id : eingabe.trim().toLowerCase();
-  if (!/^[0-9a-f]{64}$/.test(pk)) {
-    toast(t("komm.keinSchluessel"), true);
-    return;
-  }
+  // Ein eingetippter Schlüssel geht der Wahl vor
+  const wen = (w: Record<string, unknown>) => String(w.schluessel ?? "").trim().toLowerCase() || String(w.kontakt ?? "");
+  const w = await dialog({
+    titel: t("raum.einladenTitel"), ok: t("komm.einladen"),
+    felder: [
+      ...(kontakte.length ? [{ art: "wahl" as const, name: "kontakt", label: t("raum.kontakt"), optionen: kontakte.map((c): Option => ({ wert: c.id, text: c.name })) }] : []),
+      { art: "text", name: "schluessel", label: t(kontakte.length ? "raum.oderSchluessel" : "komm.einladenSchluessel"), mono: true },
+    ],
+    pruefe: (w) => (/^[0-9a-f]{64}$/.test(wen(w)) ? null : t("komm.keinSchluessel")),
+  });
+  if (!w) return;
+  const pk = wen(w);
   toast(t("komm.ladeEin"));
   const r = await ladeInPrivatenRaum(raum, pk).catch((e) => (e as Error).message);
   toast(r === "eingeladen" ? t("komm.eingeladen", { name: kontaktName(pk) }) : t("komm.nichtEingeladen", { grund: einladungsText(r) }), r !== "eingeladen");
@@ -496,7 +520,7 @@ async function ladeEin(): Promise<void> {
  * eine Massnahme zu ERZEUGEN. Ein Moderationssystem, in dem niemand
  * moderieren kann, ist keins.
  */
-async function moderiere(aktion: "hide" | "ban" | "grant", ziel: string): Promise<void> {
+async function moderiere(aktion: "hide" | "grant", ziel: string, autor?: string): Promise<void> {
   if (!state.keypair || !spacesUi.spaceId) return;
   const st = spacesUi.state as never;
   const { can, buildHide, buildBan, buildRoleGrant } =
@@ -513,23 +537,33 @@ async function moderiere(aktion: "hide" | "ban" | "grant", ziel: string): Promis
   try {
     const pool = await ensurePool();
     if (aktion === "grant") {
-      const rolle = prompt(t("komm.welcheRolle"), "mitglied");
+      const w = await dialog({ titel: t("raum.rolleTitel"), felder: [{ art: "text", name: "rolle", label: t("komm.welcheRolle"), wert: "mitglied", pflicht: true }] });
+      const rolle = String(w?.rolle ?? "").trim();
       if (!rolle) return;
       await pool.publish(await signiere(buildRoleGrant(
-        spacesUi.spaceId, state.keypair.pk, ziel, [rolle.trim()])));
+        spacesUi.spaceId, state.keypair.pk, ziel, [rolle])));
       toast(t("komm.rolleVergeben"));
     } else {
       // Ohne Begruendung wirkt Moderation willkuerlich — und wird es meist auch.
-      const grund = prompt(t("komm.begruendung"));
-      if (!grund?.trim()) {
-        toast(t("komm.ohneBegruendung"), true);
-        return;
-      }
-      const ev = aktion === "hide"
-        ? buildHide(spacesUi.spaceId, state.keypair.pk, ziel, grund.trim())
-        : buildBan(spacesUi.spaceId, state.keypair.pk, ziel, grund.trim());
+      // Ausblenden oder den Absender (`autor`) sperren: eine Wahl im selben Dialog
+      const w = await dialog({
+        titel: t("raum.moderierenTitel"), ok: t("komm.moderieren"), gefahr: true,
+        felder: [
+          { art: "wahl", name: "was", label: t("raum.massnahme"), pflicht: true, wert: "hide", optionen: [
+            { wert: "hide", text: t("raum.ausblenden") },
+            ...(autor ? [{ wert: "ban", text: t("raum.sperren") }] : []),
+          ] },
+          { art: "textarea", name: "grund", label: t("komm.begruendung"), pflicht: true, fehler: t("komm.ohneBegruendung") },
+        ],
+      });
+      const grund = String(w?.grund ?? "").trim();
+      if (!w || !grund) return;
+      const sperren = w.was === "ban" && !!autor;
+      const ev = !sperren
+        ? buildHide(spacesUi.spaceId, state.keypair.pk, ziel, grund)
+        : buildBan(spacesUi.spaceId, state.keypair.pk, autor, grund);
       await pool.publish(await signiere(ev));
-      toast(t(aktion === "hide" ? "komm.ausgeblendet" : "komm.gesperrt"));
+      toast(t(sperren ? "komm.gesperrt" : "komm.ausgeblendet"));
     }
     await oeffneRaum(spacesUi.spaceId);
   } catch (e) {
@@ -554,11 +588,16 @@ async function ernenneModeratoren(): Promise<void> {
       return;
     }
     const andere = raum.mitglieder.filter((m) => m !== raum.ich);
-    const liste = andere.map((m, i) => `${i + 1}: ${kontaktName(m)}${raum.admins.includes(m) ? ` ${t("komm.moderatorMarke")}` : ""}`).join("\n");
-    const vorher = andere.map((m, i) => (raum.admins.includes(m) ? String(i + 1) : "")).filter(Boolean).join(",");
-    const eingabe = prompt(t("komm.werModerator", { liste }), vorher);
-    if (eingabe === null) return;
-    const mods = eingabe.split(",").map((x) => andere[Number(x.trim()) - 1]).filter((x): x is string => !!x);
+    if (!andere.length) {
+      toast(t("raum.alleinImRaum"));
+      return;
+    }
+    const w = await dialog({
+      titel: t("komm.moderatoren"),
+      felder: [{ art: "mehrfach", name: "mods", label: t("raum.werModerator"), werte: raum.admins, optionen: andere.map((m) => ({ wert: m, text: kontaktName(m) })) }],
+    });
+    if (!w) return;
+    const mods = andere.filter((m) => (w.mods as string[]).includes(m));
     if (await setzeModeratoren(raum, mods)) {
       toast(t("komm.modsNebenDir", { n: mods.length }));
       await oeffneRaum(spacesUi.spaceId);
@@ -571,11 +610,18 @@ async function ernenneModeratoren(): Promise<void> {
     return;
   }
 
-  const eingabe = prompt(t("komm.modPubkeys"));
-  if (eingabe === null) return;
-  const mods = eingabe.split(",").map((x) => x.trim()).filter((x) => /^[0-9a-f]{64}$/.test(x));
-
-  const regeln = prompt(t("komm.regeln"));
+  const schluessel = (w: Record<string, unknown>) => String(w.mods ?? "").split(/[\s,]+/).map((x) => x.trim().toLowerCase()).filter(Boolean);
+  const w = await dialog({
+    titel: t("komm.moderatoren"),
+    felder: [
+      { art: "textarea", name: "mods", label: t("komm.modPubkeys"), mono: true },
+      { art: "textarea", name: "regeln", label: t("komm.regeln") },
+    ],
+    pruefe: (w) => (schluessel(w).every((x) => /^[0-9a-f]{64}$/.test(x)) ? null : t("komm.keinSchluessel")),
+  });
+  if (!w) return;
+  const mods = schluessel(w);
+  const regeln = String(w.regeln ?? "").trim() || null;
 
   try {
     const { buildModeratorList } = await import("@freedomstack/protocol");
@@ -609,11 +655,12 @@ export async function wireSpacesTab(): Promise<void> {
     if (spacesUi.privat && spacesUi.spaceId && !document.hidden && document.getElementById("channel-thread")?.offsetParent) void oeffneRaum(spacesUi.spaceId);
   });
   const join = $("#space-join");
-  if (join) join.onclick = () => {
-    const id = prompt(t("komm.raumKennung"));
-    if (!id?.trim()) return;
-    raumBeitreten(id.trim());
-    void oeffneRaum(id.trim());
+  if (join) join.onclick = async () => {
+    const w = await dialog({ titel: t("komm.raumBeitreten"), ok: t("komm.raumBeitreten"), felder: [{ art: "text", name: "id", label: t("komm.raumKennung"), pflicht: true, mono: true }] });
+    const id = String(w?.id ?? "").trim();
+    if (!id) return;
+    raumBeitreten(id);
+    void oeffneRaum(id);
   };
   const mods = $("#space-mods");
   if (mods) mods.onclick = () => void ernenneModeratoren();
@@ -624,7 +671,7 @@ export async function wireSpacesTab(): Promise<void> {
       ?.find((c) => c.id === spacesUi.channelId);
     if (!kanal) return;
     const { privacyInfo } = await import("@freedomstack/protocol");
-    alert(privacyInfo(kanal as never));
+    await hinweis(t("komm.rauminfo"), privacyInfo(kanal as never));
   };
 
   const raeume = meineRaeume();

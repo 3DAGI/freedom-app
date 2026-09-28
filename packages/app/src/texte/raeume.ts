@@ -1,0 +1,32 @@
+/** Texte der Räume, die seit C.2b neu sind; ältere stehen weiter unter `komm.*` (Schlüssel bleiben). */
+import type { Texte } from "../i18n.js";
+
+export const raeume: Texte = {
+  "raum.anlegen": { de: "Anlegen", en: "Create" },
+  "raum.oeffentlichAnlegen": { de: "Öffentlich anlegen", en: "Create publicly" },
+  "raum.angelegtTitel": { de: "Raum angelegt", en: "Room created" },
+  "raum.einladenTitel": { de: "In den Raum einladen", en: "Invite to the room" },
+  "raum.kontakt": { de: "Kontakt", en: "Contact" },
+  "raum.oderSchluessel": { de: "… oder ein Schlüssel (hex)", en: "… or a key (hex)" },
+  "raum.alleinImRaum": { de: "Außer dir ist noch niemand im Raum – erst einladen", en: "Nobody but you is in the room yet – invite someone first" },
+  "raum.werModerator": { de: "Wer soll Moderator sein? Du bleibst es.", en: "Who should be a moderator? You stay one." },
+  "raum.moderierenTitel": { de: "Nachricht moderieren", en: "Moderate message" },
+  "raum.massnahme": { de: "Maßnahme", en: "Action" },
+  "raum.ausblenden": { de: "Nachricht ausblenden", en: "Hide the message" },
+  "raum.sperren": { de: "Absender sperren", en: "Block the sender" },
+  "raum.fuerAlleLoeschen": { de: "Nachricht für alle löschen", en: "Delete the message for everyone" },
+  "raum.ausRaumEntfernen": { de: "Absender aus dem Raum entfernen", en: "Remove the sender from the room" },
+  "raum.entfernenHinweis": { de: "neuer Schlüssel für die Gruppe, keine Sperrliste", en: "new key for the group, no block list" },
+  "raum.loeschenTitel": { de: "Nachricht löschen", en: "Delete message" },
+  "raum.meldenTitel": { de: "Nachricht melden", en: "Report message" },
+  "raum.meldenText": { de: "Nur die Moderatoren erfahren es – versiegelt, an jeden einzeln.", en: "Only the moderators learn about it – sealed, to each one separately." },
+  "raum.grund": { de: "Grund", en: "Reason" },
+  "raum.grundSpam": { de: "Spam", en: "Spam" },
+  "raum.grundIllegal": { de: "Illegal", en: "Illegal" },
+  "raum.grundNacktheit": { de: "Nacktheit", en: "Nudity" },
+  "raum.grundBeleidigung": { de: "Beleidigung, Hass", en: "Profanity, hate" },
+  "raum.grundIdentitaet": { de: "Gibt sich als jemand anderes aus", en: "Impersonation" },
+  "raum.grundSchadsoftware": { de: "Schadsoftware", en: "Malware" },
+  "raum.grundAnderes": { de: "Anderes", en: "Other" },
+  "raum.rolleTitel": { de: "Rolle vergeben", en: "Grant a role" },
+};
