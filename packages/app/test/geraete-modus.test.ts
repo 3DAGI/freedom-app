@@ -82,5 +82,7 @@ test("8.6c: Verdrahtung – Import mit Code, Anmelden beim Start, Senden nur mit
     const rumpf = settings.slice(settings.indexOf(f), settings.indexOf(f) + 200);
     assert.match(rumpf, /!nurHauptidentitaet\(/, `${f} gesperrt`);
   }
-  assert.match(settings, /geraeteCode\(state\.keypair\.pk, th\(geraet\.sk\)\),\s*\);\s*geraet\.sk\.fill\(0\);/);
+  // Gerätecode (seit 11.1b auch als QR): Schlüssel gleich danach genullt, der Code nur im Dialog
+  assert.match(settings, /const code = geraeteCode\(state\.keypair\.pk, th\(geraet\.sk\)\);\s*geraet\.sk\.fill\(0\);/);
+  assert.match(settings, /\{ art: "qr", name: "qr", label: t\("set\.geraetCodeQr"\), wert: code, geheim: true \}/);
 });

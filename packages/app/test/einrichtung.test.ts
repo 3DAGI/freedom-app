@@ -59,7 +59,9 @@ test("8.1a: Leiste mit echtem Zustand – kein erfundener Gratis-Zaehler, Erinne
 
 test("8.1a: Import nimmt, was er ankuendigt – Merkphrase, nsec, Hex, Geraetecode", () => {
   const imp = funktion("async function importIdentity(");
-  assert.match(imp, /prompt\(t\("ein\.importFrage"\)\)/);
+  // seit 11.1b ein Dialog: einfügen oder, wo der Browser es kann, mit der Kamera scannen
+  assert.match(imp, /label: t\("ein\.importFrage"\), pflicht: true, mono: true, scannen: true/);
+  assert.doesNotMatch(imp, /prompt\(/);
   // Die Frage nennt alle vier Formen, die der Import nimmt – in beiden Sprachen (8.16g1)
   assert.equal(EINSTIEG["ein.importFrage"]!.de, "Merkphrase, nsec1…, 64 Zeichen Hex oder Gerätecode einfügen:");
   assert.match(EINSTIEG["ein.importFrage"]!.en, /recovery phrase, nsec1…, 64 hex characters or device code/);

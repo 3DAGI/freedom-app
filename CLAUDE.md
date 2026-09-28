@@ -44,9 +44,9 @@ bash packages/mls/bauen.sh --pruefen                     # nur bei Änderungen a
 bash contracts/solana-channel/pruefen.sh --werkzeuge     # nur bei Änderungen am Zahlkanal: bauen + Tests gegen Validator (Agave 3.1.10)
 ```
 
-Stand 28.09.2026 (nach 8.2c, 5.5a–c, 8.15, 11.1a und C.3c2): protocol 1096 grün (6 übersprungen), node 260 grün
+Stand 28.09.2026 (nach 8.2c, 5.5a–c, 8.15, 11.1a, C.3c2 und 11.1b): protocol 1096 grün (6 übersprungen), node 260 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 593 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 62 grün + 1 `todo` (heutige Lecks,
+in `tools.test.ts`), app 597 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 62 grün + 1 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
 Ausnahme: gesendete SOL-Zahlungen von frischen Adressen, eine bewusste Grenze
 nach Entscheidung 4.9 A – im Datenschutzbericht unter „Bewusste Grenzen“).
@@ -657,3 +657,13 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   `DecompressionStream` meldet Daten nach dem Ende als Fehler, liefert den
   Inhalt aber vorher. `crypto.subtle` gibt es nur in sicheren Kontexten
   (https, localhost) – Browser-Tests nie auf `about:blank`.
+- **QR-Codes nur über `shell/qr-ui.ts`** (seit 11.1b): erzeugt mit `qrCode()`
+  (`protocol/src/qr.ts`, 11.1a, Bit für Bit gegen python-qrcode – die Referenz
+  nur mit `scripts/qr-referenz.py` neu erzeugen), gezeigt nur als SVG über
+  `setAttribute` (`qrSvg()`), in Dialogen als Feld `art: "qr"`. Was einen
+  Schlüssel trägt (Gerätecode), nur mit `geheim: true`: auf Klick, Warnung
+  vorher, nach `QR_SICHTBAR_MS` weg, nie speichern, nie als Bild exportieren;
+  den Schlüssel vor dem Zeigen nullen. Kamera nur auf Klick über `scanKnopf()`
+  (Feld `scannen: true`), erkannt nur vom Browser (`BarcodeDetector`), danach
+  aus; ohne Erkennung der Hinweis zum Einfügen. Der Smoke-Test („qr“) ersetzt
+  Kamera und Erkennung durch Attrappen (Canvas-Strom, `BarcodeDetector`).
