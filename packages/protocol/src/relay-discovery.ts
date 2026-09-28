@@ -77,23 +77,26 @@ export function parseRelayList(ev: NostrEvent): RelayAnnouncement {
  * ein Client, der `ws://192.168.1.1` in seinen Pool nimmt, klopft am Router
  * seines eigenen Nutzers an.
  */
-export function isPlausibleRelayUrl(raw: string): { ok: boolean; reason: string } {
+/** Warum eine Relay-Adresse nicht taugt (8.16g2b3b) – die App bildet daraus den Text in ihrer Sprache. */
+export type RelayUrlFehler = "ungueltig" | "schema" | "zugangsdaten" | "lokal" | "privat" | "ipv6" | "zu-lang";
+
+export function isPlausibleRelayUrl(raw: string): { ok: boolean; reason: string; fall?: RelayUrlFehler; schema?: string; host?: string } {
   let u: URL;
   try {
     u = new URL(raw);
   } catch {
-    return { ok: false, reason: "keine gültige URL" };
+    return { ok: false, reason: "keine gültige URL", fall: "ungueltig" };
   }
   if (u.protocol !== "wss:" && u.protocol !== "ws:") {
-    return { ok: false, reason: `Schema ${u.protocol} ist kein Relay-Schema` };
+    return { ok: false, reason: `Schema ${u.protocol} ist kein Relay-Schema`, fall: "schema", schema: u.protocol };
   }
   if (u.username || u.password) {
-    return { ok: false, reason: "URLs mit Zugangsdaten sind nicht erlaubt" };
+    return { ok: false, reason: "URLs mit Zugangsdaten sind nicht erlaubt", fall: "zugangsdaten" };
   }
 
   const host = u.hostname.replace(/^\[|\]$/g, "").toLowerCase();
   if (host === "localhost" || host.endsWith(".localhost") || host.endsWith(".local")) {
-    return { ok: false, reason: "zeigt auf das lokale System" };
+    return { ok: false, reason: "zeigt auf das lokale System", fall: "lokal" };
   }
   // IP-Literale in privaten Bereichen: derselbe Angriff wie bei SSRF.
   if (/^\d+\.\d+\.\d+\.\d+$/.test(host)) {
@@ -105,12 +108,12 @@ export function isPlausibleRelayUrl(raw: string): { ok: boolean; reason: string 
       (a === 192 && b === 168) ||
       (a === 169 && b === 254) ||
       (a === 100 && b >= 64 && b <= 127);
-    if (privat) return { ok: false, reason: `${host} liegt in einem privaten Bereich` };
+    if (privat) return { ok: false, reason: `${host} liegt in einem privaten Bereich`, fall: "privat", host };
   }
   if (host.includes(":") || host === "::1") {
-    return { ok: false, reason: "IPv6-Literale werden nicht angenommen" };
+    return { ok: false, reason: "IPv6-Literale werden nicht angenommen", fall: "ipv6" };
   }
-  if (raw.length > 200) return { ok: false, reason: "URL unplausibel lang" };
+  if (raw.length > 200) return { ok: false, reason: "URL unplausibel lang", fall: "zu-lang" };
   return { ok: true, reason: "plausibel" };
 }
 

@@ -255,6 +255,7 @@ test("Machbarkeit: Text ja, Dateien nein", () => {
   const riesig = meshFeasibility(200_000);
   assert.equal(riesig.feasible, false);
   assert.match(riesig.note, /zu viel für Funk/);
+  assert.deepEqual([riesig.fall, lang.fall, meshFeasibility(500).fall], ["zu-gross", "lang", "ok"], "Kennung (8.16g2b3b)");
 });
 
 test("Machbarkeit: eine Solana-Transaktion passt", () => {

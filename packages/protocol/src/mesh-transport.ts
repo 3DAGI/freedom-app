@@ -536,24 +536,24 @@ export class MeshQueue {
 export function meshFeasibility(
   payloadBytes: number,
   bytesPerSecond = 200,
-): { feasible: boolean; frames: number; seconds: number; note: string } {
+): { feasible: boolean; frames: number; seconds: number; note: string; fall: "zu-gross" | "lang" | "ok" } {
   const frames = Math.ceil(payloadBytes / MAX_PAYLOAD_PER_FRAME);
   const seconds = Math.ceil((frames * LORA_MTU) / Math.max(1, bytesPerSecond));
 
   if (frames > 255) {
     return {
-      feasible: false, frames, seconds,
+      feasible: false, frames, seconds, fall: "zu-gross",
       note: `${payloadBytes} Byte sind zu viel für Funk. Grenze: ~${255 * MAX_PAYLOAD_PER_FRAME} Byte.`,
     };
   }
   if (seconds > 600) {
     return {
-      feasible: true, frames, seconds,
+      feasible: true, frames, seconds, fall: "lang",
       note: `Möglich, dauert aber ~${Math.round(seconds / 60)} Minuten. Für Text sinnvoll, für Dateien nicht.`,
     };
   }
   return {
-    feasible: true, frames, seconds,
+    feasible: true, frames, seconds, fall: "ok",
     note: `${frames} Pakete, etwa ${seconds} Sekunden.`,
   };
 }

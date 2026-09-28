@@ -14,6 +14,7 @@ import {
   type NostrEvent, type OutboxPool, type UnsignedEvent,
 } from "@freedomstack/protocol";
 import { t } from "./i18n.js";
+import { relayUrlGrund } from "./protokoll-texte.js";
 
 /** Oeffentlich wie die Liste selbst – kein Geheimnis, darum nicht im Tresor. */
 export const LS_EIGENE_RELAYS = "freedom.relays.eigene";
@@ -85,7 +86,7 @@ export function pruefeRelayEingabe(text: string): { relays: string[] } | { fehle
   const relays: string[] = [];
   for (const [i, adresse] of teile.entries()) {
     const p = isPlausibleRelayUrl(adresse);
-    if (!p.ok) return { fehler: t("ein.relayAdresse", { n: i + 1, grund: p.reason ?? "" }) };
+    if (!p.ok) return { fehler: t("ein.relayAdresse", { n: i + 1, grund: relayUrlGrund(p) }) };
     const u = normalizeRelayUrl(adresse);
     if (!isUsableDmRelay(u) && !(u.startsWith("ws://") && new URL(u).hostname.endsWith(".onion"))) {
       return { fehler: t("ein.relayNurWss", { n: i + 1 }) };

@@ -1,4 +1,4 @@
-/** Gründe aus Prüfungen des Protokolls (8.16g2b3a) – Deutsch wortgleich mit dem Protokoll (`protokoll-texte.ts`, Test). */
+/** Gründe aus Prüfungen des Protokolls (8.16g2b3a/b) – Deutsch wortgleich mit dem Protokoll (`protokoll-texte.ts`, Test). */
 import type { Texte } from "../i18n.js";
 
 export const pruefgruende: Texte = {
@@ -63,4 +63,40 @@ export const pruefgruende: Texte = {
   "pg.pbUnerwartet": { de: "unerwartete Antwort", en: "unexpected response" },
   // Rückholwächter, wenn keine Meldung vorliegt
   "pg.unbekannt": { de: "unbekannt", en: "unknown" },
+  // Relay-Adresse (isPlausibleRelayUrl) – 8.16g2b3b
+  "pg.urlUngueltig": { de: "keine gültige URL", en: "not a valid URL" },
+  "pg.urlSchema": { de: "Schema {schema} ist kein Relay-Schema", en: "scheme {schema} is not a relay scheme" },
+  "pg.urlZugangsdaten": { de: "URLs mit Zugangsdaten sind nicht erlaubt", en: "URLs with credentials are not allowed" },
+  "pg.urlLokal": { de: "zeigt auf das lokale System", en: "points to the local system" },
+  "pg.urlPrivat": { de: "{host} liegt in einem privaten Bereich", en: "{host} is in a private range" },
+  "pg.urlIpv6": { de: "IPv6-Literale werden nicht angenommen", en: "IPv6 literals are not accepted" },
+  "pg.urlZuLang": { de: "URL unplausibel lang", en: "URL implausibly long" },
+  // Geräte (checkDeviceEvent, absenderPerson)
+  "pg.gerKein": { de: "Kein bevollmächtigtes Gerät.", en: "Not an authorized device." },
+  "pg.gerVorEntzug": { de: "Vor dem Entzug entstanden.", en: "Created before the revocation." },
+  "pg.gerNieErlaubt": { de: "Das Gerät durfte nie „{recht}“.", en: "The device was never allowed to “{recht}”." },
+  "pg.gerEntzogen": { de: "Vollmacht entzogen.", en: "Authorization revoked." },
+  "pg.gerAbgelaufen": { de: "Vollmacht abgelaufen.", en: "Authorization expired." },
+  "pg.gerNichtErlaubt": { de: "Dieses Gerät darf nicht „{recht}“.", en: "This device may not “{recht}”." },
+  "pg.gerGueltig": { de: "Gültige Vollmacht.", en: "Valid authorization." },
+  "pg.gerEigener": { de: "eigener Schlüssel", en: "own key" },
+  "pg.gerUneindeutig": { de: "Gerät nicht eindeutig einer Person zugeordnet", en: "Device not clearly assigned to one person" },
+  // Nachfolge: Anteil übergeben (darfUebergeben)
+  "pg.nfAndererBesitzer": { de: "Anteil gehört zu einem anderen Besitzer", en: "Share belongs to a different owner" },
+  "pg.nfAndererPlan": { de: "Anteil passt nicht zum Plan", en: "Share does not match the plan" },
+  "pg.nfNichtVertrauter": { de: "Du bist in diesem Plan nicht (mehr) Vertrauter", en: "You are not (or no longer) a trusted person in this plan" },
+  "pg.nfAnfragender": { de: "Der Anfragende ist kein Vertrauter dieses Plans", en: "The requester is not a trusted person in this plan" },
+  "pg.nfNichtFreigegeben": { de: "Noch nicht freigegeben: {stand}", en: "Not released yet: {stand}" },
+  // Funk (meshFeasibility) und Abgleich (planSync)
+  "pg.funkZuGross": { de: "{bytes} Byte sind zu viel für Funk. Grenze: ~{grenze} Byte.", en: "{bytes} bytes are too much for radio. Limit: ~{grenze} bytes." },
+  "pg.funkLang": { de: "Möglich, dauert aber ~{min} Minuten. Für Text sinnvoll, für Dateien nicht.", en: "Possible, but takes ~{min} minutes. Fine for text, not for files." },
+  "pg.funkOk": { de: "{frames} Pakete, etwa {s} Sekunden.", en: "{frames} packets, about {s} seconds." },
+  "pg.syncNichts": { de: "Nichts auszutauschen — die Gegenseite hat alles.", en: "Nothing to exchange — the other side has everything." },
+  "pg.syncPlan": { de: "{n} Ereignisse, {bytes} Byte, etwa {s}s über {weg}.", en: "{n} events, {bytes} bytes, about {s}s via {weg}." },
+  "pg.syncUngenau": { de: "Der Bestandsabgleich ist zu {prozent} % ungenau — ein zweites Treffen bringt noch etwas.", en: "The inventory comparison is {prozent} % inaccurate — a second meeting still helps." },
+  // Reklamation (disputeWindowOpen)
+  "pg.reklAbgelaufen": { de: "Reklamationsfrist abgelaufen.", en: "The complaint period has expired." },
+  "pg.reklNoch": { de: "Noch {min} Minuten Zeit zu reklamieren.", en: "{min} minutes left to file a complaint." },
+  // Moderation: ausgeblendet, ohne dass ein Grund genannt ist
+  "pg.ohneGrund": { de: "ohne Grund", en: "no reason given" },
 };

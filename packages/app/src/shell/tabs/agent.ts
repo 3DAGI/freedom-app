@@ -15,6 +15,7 @@ import {
   parseJobResult,
 } from "@freedomstack/protocol";
 import { gebietsschema, t } from "../../i18n.js";
+import { reklamationsFrist } from "../../protokoll-texte.js";
 import { icon } from "../../icons.js";
 import { DEFAULT_MAX_MODE, ScoredProvider, matchRaceProviders } from "../../matchmaking.js";
 import { type AntwortCache, oeffneAntworten } from "../../ki-antworten.js";
@@ -1066,7 +1067,7 @@ async function reklamiere(
   try {
     const w = disputeWindowOpen(Math.floor(Date.now() / 1000) - 60);
     if (!w.open) {
-      toast(w.message, true);
+      toast(reklamationsFrist(w), true);
       return;
     }
     const pruefer = await waehlePruefer(providerPk);
@@ -1099,7 +1100,7 @@ async function reklamiere(
         });
       }
     }
-    toast(pruefer ? t("agent.reklamiertMit", { name: pruefer.name, info: w.message }) : t("agent.reklamiert", { info: w.message }));
+    toast(pruefer ? t("agent.reklamiertMit", { name: pruefer.name, info: reklamationsFrist(w) }) : t("agent.reklamiert", { info: reklamationsFrist(w) }));
   } catch (e) {
     toast((e as Error).message, true);
   }

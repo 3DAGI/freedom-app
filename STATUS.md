@@ -8691,3 +8691,51 @@ Endstand: protocol 1067 (6 übersprungen) · node 235 (6 übersprungen, mit
 Netz; ohne Netz 234 + 7) · app 507 (+1) · mls 13 · Leak-Tests 58 grün + 1
 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 ·
 Website 5 Seiten ok · Smoke-Test bestanden.
+
+## Schritt 8.16g2b3b – Übersetzungen: Gründe aus Prüfungen (Mesh und Vertrauen)
+
+**Fertig:** Der zweite Teil der Gründe aus Prüfungen steht in der Sprache der
+Oberfläche. Damit zeigt die App keine fertigen deutschen Sätze aus Prüfungen
+des Protokolls mehr.
+
+- **Protokoll (klein, berührt andere Spuren):** zusätzliche Kennung `fall`
+  neben dem deutschen Grund, dazu die Werte:
+  - Relay-Adresse (`isPlausibleRelayUrl`: `RelayUrlFehler`, `.schema`, `.host`);
+  - Geräteprüfung (`checkDeviceEvent`: `GeraetePruefFall`, `.recht`) und
+    Zuordnung eines Absenders (`absenderPerson`: dazu „eigener-schluessel“,
+    „uneindeutig“);
+  - Übergabe in der Nachfolge (`darfUebergeben`: `UebergabeFehler`, `.stand`
+    mit dem Stand der Nachfolge);
+  - Funk (`meshFeasibility`: „zu-gross“, „lang“, „ok“).
+
+  Nur zusätzliche Felder – kein Event-Format, keine Prüfregel geändert.
+- **Ehrlicher Text:** `SYNC_POLICY` sagte zu Räumen noch „Räume sind noch
+  nicht verschlüsselt (2.3) – bis dahin nicht über Mesh.“ Jetzt: Öffentliche
+  Räume tragen den Schlüssel des Autors, private (MLS) gehen (noch) nicht
+  über Mesh – nur Umschläge.
+- **App:** 30 weitere Schlüssel in `texte/pruefgruende.ts`; neue Funktionen in
+  `protokoll-texte.ts`: `relayUrlGrund`, `geraetGrund`, `uebergabeGrund`,
+  `funkText`, `syncNotiz` (aus den Feldern von `planSync()` und
+  `falsePositiveRate()`), `reklamationsFrist` (aus `disputeWindowOpen()`).
+  Verdrahtet in `relay-satz.ts`, `shell/nachfolge-ui.ts`, `geraete-buch.ts`,
+  `mesh-radio.ts`, `shell/tabs/agent.ts`. Eine Moderation ohne Grund zeigt
+  „ohne Grund“ statt „ausgeblendet“ (vorher: „[ausgeblendet: ausgeblendet]“).
+- Nicht angezeigt und deshalb unverändert deutsch im Protokoll: übersprungene
+  Gründe von `planSync()` (nur die Zusammenfassung erscheint, im Protokoll
+  des Funkknotens) und `resolveDispute().message`.
+- **Danach offen (8.16):** Fehlermeldungen, die das Protokoll wirft und die
+  die App über `(e as Error).message` zeigt; 8.16h mit 0.F (Website).
+
+**Tests:**
+- +1 in `i18n.test.ts`: Relay-Adressen (alle sieben Fälle), Funk, Abgleich
+  (auch mit ungenauem Bestand), Reklamationsfrist und die Übergabe „noch
+  nicht freigegeben“ mit echten Aufrufen deutsch wortgleich; jede Kennung der
+  Geräteprüfung (9) und der Übergabe (5) aus dem Quelltext des Protokolls mit
+  Text; Englisch mit Stichproben und ohne deutschen Buchstaben; die Stellen im
+  Code.
+- +1 in `relay-discovery.test.ts`: jede Kennung einer abgelehnten Adresse.
+- Protokoll: Geräte, Zuordnung, Nachfolge und Funk prüfen zusätzlich die
+  Kennungen; `mesh-sync` prüft den neuen, ehrlichen Satz zu Räumen (und dass
+  der alte weg ist).
+- `mesh-radio`: der Test zu großer Nachrichten setzt Deutsch und prüft
+  zusätzlich Englisch.

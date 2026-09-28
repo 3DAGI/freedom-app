@@ -28,10 +28,10 @@
 import {
   fragment, parseFrame, Reassembler, ForwardingCache, MeshQueue,
   MeshKind, MeshPriority, meshFeasibility, LORA_MTU, pruefeMeshInhalt, Sendezeitkonto,
-  BESTAND_MARKE, buildDigest, planSync, type SyncDigest, type Link, type NostrEvent,
+  BESTAND_MARKE, buildDigest, falsePositiveRate, planSync, type SyncDigest, type Link, type NostrEvent,
 } from "@freedomstack/protocol";
 import { t } from "./i18n.js";
-import { meshGrund } from "./protokoll-texte.js";
+import { funkText, meshGrund, syncNotiz } from "./protokoll-texte.js";
 
 export type TransportKind = "seriell" | "bluetooth" | "datei";
 
@@ -366,8 +366,9 @@ export class MeshNode {
       maxSeconds: this.link === "lora" ? 180 : 600,
       sendezeitSekunden: this.konto.frei(Date.now() / 1000),
     });
-    this.events.onLog?.(plan.note);
-    this.events.onSyncPlan?.(plan.send.length, plan.estimatedSeconds, plan.note);
+    const notiz = syncNotiz(plan, this.link, falsePositiveRate(fremd));
+    this.events.onLog?.(notiz);
+    this.events.onSyncPlan?.(plan.send.length, plan.estimatedSeconds, notiz);
 
     for (const ev of plan.send) {
       try {
@@ -404,7 +405,7 @@ export class MeshNode {
     const pruefung = pruefeMeshInhalt(payload, kind, { eigeneSchluessel: this.eigeneSchluessel });
     if (!pruefung.ok) throw new Error(meshGrund(pruefung));
     const machbar = meshFeasibility(payload.length, this.bytesPerSecond);
-    if (!machbar.feasible) throw new Error(machbar.note);
+    if (!machbar.feasible) throw new Error(funkText(machbar, payload.length));
 
     const m = this.queue.enqueue(payload, kind, priority, label);
     // Kommt die eigene Nachricht als Echo zurueck, wird sie nicht noch einmal gesendet.
@@ -417,7 +418,7 @@ export class MeshNode {
     const etaSeconds = this.dauer();
     this.meldeFortschritt();
     void this.pump();
-    return { msgId: m.msgId, frames, etaSeconds, note: machbar.note };
+    return { msgId: m.msgId, frames, etaSeconds, note: funkText(machbar, payload.length) };
   }
 
   cancel(msgId: string): boolean {

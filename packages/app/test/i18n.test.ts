@@ -723,3 +723,96 @@ test("8.16g2b3a: Gründe aus Prüfungen (Fristen, Relayer, offline, Mesh, Kette,
     setLang(vorher);
   }
 });
+
+test("8.16g2b3b: Gründe – Relay-Adressen, Geräte, Nachfolge, Funk, Abgleich, Reklamation – deutsch wortgleich, jede Kennung mit Text", async () => {
+  // Die App zeigt diese Gründe nicht mehr direkt aus dem Protokoll
+  const stelle = (d: string) => readFileSync(pfad(SRC, d), "utf8");
+  assert.match(stelle("relay-satz.ts"), /grund: relayUrlGrund\(p\)/);
+  assert.match(stelle("shell/nachfolge-ui.ts"), /uebergabeGrund\(darf, z\.plan\)/);
+  assert.doesNotMatch(stelle("shell/nachfolge-ui.ts"), /darf\.grund/);
+  assert.equal(stelle("geraete-buch.ts").match(/geraetGrund\(z\)/g)?.length, 2);
+  assert.doesNotMatch(stelle("mesh-radio.ts"), /plan\.note|machbar\.note/);
+  assert.match(stelle("mesh-radio.ts"), /syncNotiz\(plan, this\.link, falsePositiveRate\(fremd\)\)/);
+  assert.doesNotMatch(stelle("shell/tabs/agent.ts"), /w\.message/);
+  assert.doesNotMatch(stelle("shell/tabs/kommunikation.ts"), /\?\? "ausgeblendet"/);
+
+  const P = await import("@freedomstack/protocol");
+  const T = await import("../src/protokoll-texte.js");
+  const vorher = getLang();
+  try {
+    setLang("de");
+    // Relay-Adressen: echte Aufrufe, jeder Fall einmal
+    const urls = ["kein url", "https://nos.lol", "wss://a:b@nos.lol", "wss://localhost", "wss://10.0.0.1", "wss://[2001:db8::1]", `wss://${"a".repeat(200)}.io`];
+    const url = urls.map((u) => P.isPlausibleRelayUrl(u));
+    assert.equal(new Set(url.map((r) => r.fall)).size, 7, "alle sieben Fälle");
+    for (const r of url) assert.equal(T.relayUrlGrund(r), r.reason);
+
+    // Geräte und Nachfolge: jede Kennung aus dem Quelltext des Protokolls (Einsetzungen `${…}` beliebig)
+    const PROTO = new URL("../../protocol/src/", import.meta.url).pathname;
+    const faelle = (datei: string): Array<[string, RegExp]> =>
+      [...readFileSync(pfad(PROTO, datei), "utf8").matchAll(/(?:grund|reason): ("[^"]+"|`[^`]+`),\s*fall: "([a-z-]+)"/g)].map((m) => [
+        m[2]!,
+        new RegExp(`^${m[1]!.slice(1, -1).replace(/[.*+?^()|[\]\\]/g, "\\$&").replace(/\$\{[^}]+\}/g, ".+")}$`),
+      ]);
+    const geraet = [...faelle("devices.ts"), ...faelle("geraete-post.ts")];
+    assert.equal(geraet.length, 9, "alle Fälle der Geräteprüfung gefunden");
+    for (const [fall, muster] of geraet) assert.match(T.geraetGrund({ grund: "", fall: fall as never, recht: "zahlungen" }), muster, fall);
+    assert.equal(T.geraetGrund({ grund: "", fall: "nicht-erlaubt", recht: "zahlungen" }), `Dieses Gerät darf nicht „${P.PERMISSION_LABEL.zahlungen}“.`);
+    const plan = { ownerPubkey: "a".repeat(64), guardians: ["b".repeat(64), "c".repeat(64)], threshold: 2, inactivityDays: 180, graceDays: 30, secretHash: "0".repeat(64), createdAt: 1_700_000_000 };
+    const uebergabe = faelle("nachfolge-anteile.ts");
+    assert.equal(uebergabe.length, 5, "alle Fälle der Übergabe gefunden");
+    for (const [fall, muster] of uebergabe) {
+      const stand = P.evaluateSuccession(plan, [], 1_700_000_000 + 10 * 86400);
+      assert.match(T.uebergabeGrund({ grund: "", fall: fall as never, stand }, plan), muster, fall);
+    }
+    const anteil = { besitzer: plan.ownerPubkey, index: 1, daten: "", schwelle: 2, anzahl: 2, secretHash: plan.secretHash, teilung: "0".repeat(32), zeit: 0 };
+    const darf = P.darfUebergeben({ plan, events: [], anteil, ich: "b".repeat(64), sammler: "c".repeat(64), nowSecs: 1_700_000_000 + 10 * 86400 });
+    assert.equal(!darf.ok && darf.fall, "nicht-freigegeben");
+    assert.equal(!darf.ok && T.uebergabeGrund(darf, plan), !darf.ok && darf.grund, "mit dem Stand der Nachfolge wortgleich");
+
+    // Funk: echte Aufrufe
+    for (const [bytes, rate] of [[500, 200], [40_000, 50], [200_000, 200]] as const) {
+      const m = P.meshFeasibility(bytes, rate);
+      assert.equal(T.funkText(m, bytes), m.note, m.fall);
+    }
+    // Abgleich: nichts, etwas, etwas bei ungenauem Bestand
+    const a = P.generateKeypair(), b = P.generateKeypair();
+    const wraps = [(await P.buildPrivateDm({ senderSk: a.sk, senderPk: a.pk, recipientPk: b.pk, content: "x" })).toRecipient];
+    const voll = P.buildDigest(Array.from({ length: 3000 }, (_, i) => ({ id: i.toString(16).padStart(64, "0"), created_at: 1 }) as never));
+    for (const [eigene, fremd] of [[[], P.buildDigest([])], [wraps, P.buildDigest([])], [wraps, voll]] as const) {
+      const p = P.planSync([...eigene], fremd, { link: "bluetooth" });
+      assert.equal(T.syncNotiz(p, "bluetooth", P.falsePositiveRate(fremd)), p.note);
+    }
+    // Gegenseite meldet viele Einträge, kennt unseren aber nicht: gesendet wird, der Abgleich gilt als ungenau
+    const ungenau = { bits: new Uint8Array(1024), count: 5000, since: 0 };
+    const pu = P.planSync([...wraps], ungenau, { link: "datei" });
+    assert.equal(pu.send.length, 1);
+    assert.match(pu.note, /ungenau/, "der Fall mit hoher Fehlerquote kommt vor");
+    assert.equal(T.syncNotiz(pu, "datei", P.falsePositiveRate(ungenau)), pu.note);
+
+    // Reklamationsfrist: echte Aufrufe
+    const jetzt = 1_800_000_000;
+    for (const fertig of [jetzt - 60, jetzt - 400 * 86400]) {
+      const w = P.disputeWindowOpen(fertig, jetzt);
+      assert.equal(T.reklamationsFrist(w), w.message);
+    }
+
+    setLang("en");
+    assert.equal(T.relayUrlGrund(url[4]!), "10.0.0.1 is in a private range");
+    assert.equal(T.geraetGrund({ grund: "", fall: "nicht-erlaubt", recht: "zahlungen" }), "This device may not “trigger payments”.");
+    const lang = P.meshFeasibility(40_000, 50);
+    assert.equal(T.funkText(lang, 40_000), `Possible, but takes ~${Math.round(lang.seconds / 60)} minutes. Fine for text, not for files.`);
+    assert.equal(T.reklamationsFrist({ open: false, remainingSecs: 0 }), "The complaint period has expired.");
+    const en = [
+      ...url.map(T.relayUrlGrund),
+      ...geraet.map(([fall]) => T.geraetGrund({ grund: "ä", fall: fall as never, recht: "nachrichten" })),
+      ...uebergabe.map(([fall]) => T.uebergabeGrund({ grund: "ä", fall: fall as never, stand: P.evaluateSuccession(plan, [], jetzt) }, plan)),
+      T.funkText(P.meshFeasibility(200_000), 200_000), T.funkText(P.meshFeasibility(500), 500),
+      T.syncNotiz({ send: [], totalBytes: 0, estimatedSeconds: 0 }, "lora", 0), T.syncNotiz({ send: [...wraps], totalBytes: 9, estimatedSeconds: 1 }, "lora", 0.5),
+      T.reklamationsFrist({ open: true, remainingSecs: 600 }), t("pg.ohneGrund"),
+    ].join(" ");
+    assert.doesNotMatch(en, /[äöüÄÖÜß]/, "kein deutscher Buchstabe");
+  } finally {
+    setLang(vorher);
+  }
+});

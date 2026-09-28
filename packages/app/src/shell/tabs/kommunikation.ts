@@ -853,7 +853,7 @@ export async function loadChatMessages(cid: string): Promise<void> {
     if (modState && modAn) {
       const { applyModeration } = await import("@freedomstack/protocol");
       for (const r of applyModeration(decrypted as never[], modState as never, { enabled: true })) {
-        if (r.hidden) versteckt.set(r.event.id, { reason: r.reason ?? "ausgeblendet" });
+        if (r.hidden) versteckt.set(r.event.id, { reason: r.reason ?? t("pg.ohneGrund") });
       }
     }
 
