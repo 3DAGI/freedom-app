@@ -9127,3 +9127,59 @@ Endstand: protocol 1081 (6 übersprungen) · node 241 (6 übersprungen, mit
 Netz; ohne Netz 240 + 7) · app 514 (+2) · mls 13 · Leak-Tests 59 grün + 1 todo ·
 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 · Website 5
 Seiten ok · Smoke-Test bestanden. Knoten-Stand: unverändert im Verhalten.
+
+## Schritt 7.4c2 – KI über Funk in der App: Logik
+
+**Warum:** Mit Gateway (7.4b2) und Gerätestrecken (7.4c1) fehlte die App
+selbst: Sie muss offline wissen, welches Gateway sie nutzt, den Auftrag so
+bauen, dass er über Funk bezahlt werden kann, und die Antwort erkennen, wenn
+sie über Funk ankommt. Die Oberfläche (Gateway wählen, „über Funk senden“)
+folgt in 7.4c3.
+
+**Was:**
+- **`ki-funk.ts` (neu, ohne Zustand):**
+  - `funkGatewayAus()`: aus einem Angebot mit `["funk","gateway"]` nur, was
+    offline nötig ist (Schlüssel, Rechenarbeit, Kurs, Stand); mehr
+    Rechenarbeit als 16 Bit (wie im Agenten) → keines. `leseFunkGateway()`
+    verwirft Unbrauchbares, ein kaputter Kurs fällt weg (dann nur gratis).
+  - `baueFunkAuftrag()`: Auftrag mit `kurzParam()`, Tarif (gratis bei Gebot
+    0) und Zahl-Tags im versiegelten Kern, dazu die Weiterleitung für eine
+    Stunde – beide vom Sitzungsschlüssel.
+  - `FunkAuftraege`: offene Funk-Aufträge nur im Speicher; ein Ergebnis
+    schließt, eine Rückmeldung (Ablehnung) lässt offen; Fremdes, Doppeltes
+    und nach der Stunde Eintreffendes zählt nicht.
+- **`shell/ki-ueber-funk.ts` (neu):** Gateway merken/vergessen (Tresor,
+  `freedom.funk.gateway` in `GEHEIM_FEST` – welches Gateway jemand über Funk
+  nutzt, verrät ungefähr, wo er ist); `sendeKiUeberFunk()`: bezahlt nur per
+  Zahlkanal-Gutschrift zum Kurs aus dem gemerkten Angebot oder gar nicht
+  (Gebot 0) – ohne Kanal bricht eine bezahlte Anfrage mit klarem Text ab, nie
+  still Lightning; erst Gutschrift und Anfrage merken, dann Weiterleitung und
+  Auftrag über den Funkknoten; `nimmFunkAntwort()`.
+- **`ki-zahlung.ts`:** `kanalGutschrift()` nimmt einen gemerkten Kurs – ohne
+  Netz gibt es keine Angebote.
+- **Settings (Funkknoten):** Ein Umschlag aus dem Funk geht zuerst an
+  `nimmFunkAntwort()`; nur was keine Funk-Antwort ist, wird weiterverteilt.
+- **Agent:** `setupFunkAntworten()` (aus `app.ts`) zeigt das Ergebnis mit
+  „über Funk · auf „…““ (die Antwort kommt oft Minuten später); über den Kanal
+  wird nur der Preis verbucht, Lightning zahlt hier nie; eine Ablehnung
+  erscheint als Hinweis.
+- Sechs Texte (`agent.funk*`) in beiden Sprachen.
+- `wiring-ausnahmen.txt`: `baueWeiterleitung` und `kurzParam` sind jetzt
+  verdrahtet (Zeilen entfernt).
+
+**Tests:**
+- +4 in `app/test/ki-funk.test.ts`: Gateway nur aus Angebot mit Funk-Rolle
+  und zumutbarer Rechenarbeit, Lesen verwirft Unbrauchbares; Weiterleitung und
+  Auftrag gehen über Mesh (nur Umschläge, weder Identität noch Klartext noch
+  Sitzungsschlüssel offen), das Gateway erfährt nur die Sitzung, der Provider
+  den kurzen Auftrag mit Gutschrift im Kern, gratis ohne Gebot; Antwort aus dem
+  Funk (Rückmeldung lässt offen, Ergebnis schließt, doppelt, fremde Sitzung,
+  fremder Auftrag, kein Umschlag, nach der Stunde); verdrahtet (Funk-Antwort
+  vor dem Weiterverteilen, kein Lightning im Funk-Pfad, erst merken dann
+  senden, Gateway im Tresor, Kurs aus dem gemerkten Angebot).
+
+Endstand: protocol 1081 (6 übersprungen) · node 241 (6 übersprungen, mit
+Netz; ohne Netz 240 + 7) · app 518 (+4) · mls 13 · Leak-Tests 59 grün + 1 todo ·
+0 rot · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 · Website 5
+Seiten ok · Smoke-Test bestanden. Knoten-Stand: für den Funk-Pfad ein Knoten
+ab 7.4b2 mit `FUNK_GATEWAY`; sonst unverändert.

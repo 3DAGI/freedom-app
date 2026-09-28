@@ -515,6 +515,9 @@ async function ensureMeshNode(): Promise<import("../../mesh-radio.js").MeshNode>
         if (kind === MeshKind.NostrEvent) {
           try {
             const ev = meshToEvent(payload);
+            // Antwort auf eine KI-Anfrage über Funk (7.4c2): zeigen – sie kam schon aus dem Netz
+            const { nimmFunkAntwort } = await import("../ki-ueber-funk.js");
+            if (await nimmFunkAntwort(ev as import("@freedomstack/protocol").NostrEvent)) return;
             // Ueber den Pool weiterverteilen: Eine Nachricht, die nur auf
             // diesem Geraet ankommt, hat den halben Weg umsonst gemacht.
             const pool = await ensurePool();

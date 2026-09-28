@@ -78,12 +78,15 @@
     an), Bluetooth setzt aus BLE-Häppchen wieder Rahmen zusammen (bis dahin war
     ein Rahmen über 180 Byte nie lesbar). `serielleStrecke()`/
     `bluetoothStrecke()` testbar ohne Gerät.
-  - **7.4c2:** App-Logik (`shell/ki-funk.ts`) – Gateway merken, solange Netz
-    da ist (signiertes Angebot mit `["funk","gateway"]`), Auftrag mit
-    `kurzParam()` und Zahlkanal-Gutschrift (Kurs aus dem gemerkten Angebot;
-    ohne Kanal nur gratis – Lightning geht ohne Netz nicht), Weiterleitung und
-    Auftrag über den Funkknoten, Antwort aus dem Mesh öffnen und im Agenten
-    zeigen.
+  - **7.4c2 – FERTIG:** App-Logik – Bausteine ohne Zustand in `ki-funk.ts`
+    (`funkGatewayAus()`/`leseFunkGateway()`, `baueFunkAuftrag()`,
+    `FunkAuftraege`), Zustand und Wege in `shell/ki-ueber-funk.ts`: Gateway
+    aus dem Angebot mit `["funk","gateway"]` merken (im Tresor,
+    `freedom.funk.gateway`), Auftrag mit `kurzParam()` und
+    Zahlkanal-Gutschrift zum gemerkten Kurs (ohne Kanal nur gratis – Lightning
+    geht ohne Netz nicht, nie still ausweichen), erst merken, dann Weiterleitung
+    und Auftrag senden; Antwort aus dem Funk wird vor dem Weiterverteilen
+    geöffnet und im Agenten gezeigt (über den Kanal nur der Preis verbucht).
   - **7.4c3:** Oberfläche – Gateway wählen (Seite Netz), „über Funk senden“
     im Agenten, ehrliche Texte zu Dauer (rund zwei Antworten je Stunde und
     Gateway) und Kosten; Smoke-Test.

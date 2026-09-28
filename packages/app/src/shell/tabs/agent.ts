@@ -37,6 +37,7 @@ import {
 } from "../state.js";
 import { aktualisiereKurs, aktuellerKurs } from "../marktkurs.js";
 import { geheim } from "../tresor.js";
+import { beiFunkAntwort } from "../ki-ueber-funk.js";
 import { deklaration, empfaengerFuer, kanalAntwort, kanalGutschrift, merkeAnfrage, perKanal, providerZahlung, rechneAntwortAb, zahleAnteile } from "../ki-zahlung.js";
 import { hoechstMsat } from "../../anteile-kasse.js";
 import {
@@ -990,6 +991,27 @@ function addAiMessage(role: "user" | "ai", text: string, meta: string, model?: s
   stickToBottom(() => el.scrollIntoView({ behavior: "smooth", block: "end" }));
   merkeNachricht(role, text, meta, model);
   return el;
+}
+
+/**
+ * Antworten, die über Funk kommen (7.4c2) – oft Minuten später. Über den
+ * Zahlkanal nur den Preis verbuchen; Lightning zahlt hier nie (ohne Netz).
+ * Eine Rückmeldung (etwa eine Ablehnung) zeigt der Agent als Hinweis.
+ */
+export function setupFunkAntworten(): void {
+  beiFunkAntwort((ev, frage, ergebnis) => void zeigeFunkAntwort(ev, frage, ergebnis));
+}
+
+async function zeigeFunkAntwort(ev: NostrEvent, frage: string, ergebnis: boolean): Promise<void> {
+  hideEmptyState();
+  const meta = t("agent.funkMeta", { frage: [...frage].length > 40 ? [...frage].slice(0, 39).join("") + "…" : frage });
+  if (!ergebnis) {
+    addAiMessage("ai", t("agent.funkRueckmeldung", { grund: ev.content.replace(/^error:\s*/i, "").slice(0, 200) }), meta);
+    return;
+  }
+  const r = parseJobResult(ev);
+  if (perKanal(r.requestId)) await kanalAntwort(r.requestId, r.amountLamports);
+  addAiMessage("ai", r.output, meta, r.usage?.model);
 }
 
 /** Simuliertes Streaming: zeigt die AI-Antwort buchstabenweise an (typewriter).
