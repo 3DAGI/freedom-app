@@ -2,9 +2,10 @@
  * Leistungs-Events (kind 38010).
  *
  * Jede abrechenbare Aktion erzeugt ein signiertes Leistungs-Event: wer, was,
- * welcher Betrag, welche Chain. Daraus entstehen Reputation, Abzeichen
- * (`quests.ts`) und die Karte, wo Kapazität fehlt – öffentlich prüfbar,
- * off-chain. Geld hängt daran nicht: Saisons mit Pool-Regeln (38012) und
+ * welcher Betrag, welche Chain. Daraus entstehen Abzeichen (`quests.ts`) und
+ * die Karte, wo Kapazität fehlt – off-chain. Den Ruf eines Providers bilden sie
+ * seit 5.5b nicht mehr: Das Event ist eine Selbstauskunft; der Ruf kommt nur
+ * aus Quittungen (`quittung.ts`). Geld hängt daran nicht: Saisons mit Pool-Regeln (38012) und
  * Ausschüttungsnachweise (38011) fielen mit dem Gebührenmodell A+ (5.1.4d).
  *
  * Bewusst als Nostr-Event modelliert (Buzz-Muster: neue Funktion = neue Kind),

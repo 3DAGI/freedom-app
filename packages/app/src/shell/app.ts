@@ -837,6 +837,8 @@ function starte(): void {
   // so beantwortet die App Adress-Anfragen fuer Trinkgeld (4.9d), solange sie offen ist.
   abrufTakt.melde("posteingang", posteingangAbgleichen, 2);
   starteVerkehr();
+  // Zahlkanal-Quittungen mit der Kette auf „belegt“ heben (5.5b) – etwa alle zehn Minuten
+  abrufTakt.melde("quittungen", () => import("./quittungen.js").then((q) => q.hebeKanalQuittungen()), 20);
   void zeigeOnboarding();
   const succSetup = $("#succ-setup");
   if (succSetup) succSetup.onclick = () => void richteNachfolgeEin();
