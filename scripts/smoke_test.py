@@ -1382,13 +1382,22 @@ MOBIL_MESSEN = """() => {
     .filter(e => sichtbar(e) && !(e.matches('input') && e.closest('label')) && !e.closest('[inert]'));
   const klein = ziele.filter(e => { const r = e.getBoundingClientRect(); return r.height < 39.5 || r.width < 39.5; })
     .map(e => (e.id ? '#' + e.id : e.tagName.toLowerCase()) + ' ' + Math.round(e.getBoundingClientRect().width) + '×' + Math.round(e.getBoundingClientRect().height));
-  return { laufleiste: document.documentElement.scrollWidth - innerWidth, klein: [...new Set(klein)] };
+  // Seit C.5b: Text, der aus seinem Knopf oder Reiter läuft (so überlagerten sich die Settings-Reiter,
+  // als ein min-width das Mindestmaß der Flex-Elemente aufhob)
+  const ueber = ziele.filter(e => e.matches('button, [role=tab]') && e.scrollWidth > e.clientWidth + 1)
+    .map(e => (e.id ? '#' + e.id : e.tagName.toLowerCase()) + ' „' + e.textContent.trim().slice(0, 20) + '“');
+  // Seit C.5b: linker Rand von Seitentitel und erster Karte – auf allen Seiten gleich
+  const seite = document.querySelector('.tab-page.active');
+  const rand = ['.page-head .page-title', '.page-body .card'].map(sel => { const e = seite?.querySelector(sel); const r = e?.getBoundingClientRect();
+    return r && r.width ? Math.round(r.left) : null; });
+  return { laufleiste: document.documentElement.scrollWidth - innerWidth, klein: [...new Set(klein)], ueber: [...new Set(ueber)], rand };
 }"""
 
 
 def mobil_pruefen(browser, url: str) -> dict:
     """Handy hochkant und quer (C.5a): keine Seite mit waagrechter Laufleiste, jede Berührfläche mindestens
-    40 px, das eigene Bild in der Kopfzeile, beim Tippen weicht die untere Leiste."""
+    40 px, das eigene Bild in der Kopfzeile, beim Tippen weicht die untere Leiste. Seit C.5b: gleiche Ränder
+    auf allen Seiten, die Hinweisleiste flach, ihr Text klappt mit „mehr“ auf."""
     erg = {"fehler": []}
     basis = url.rsplit("/", 1)[0]
     for lage, vp in [("hoch", {"width": 390, "height": 844}), ("quer", {"width": 844, "height": 390})]:
@@ -1406,7 +1415,7 @@ def mobil_pruefen(browser, url: str) -> dict:
         s.wait_for_timeout(1500)
         ev("() => document.getElementById('ein-abbrechen')?.click()")
         s.wait_for_timeout(300)
-        seiten = {}
+        seiten, raender = {}, set()
         for adresse, reiter in MOBIL_SEITEN:
             ev("(a) => { location.hash = a; }", adresse)
             s.wait_for_timeout(300)
@@ -1415,11 +1424,28 @@ def mobil_pruefen(browser, url: str) -> dict:
                 ev("([g, r]) => document.querySelector(`[data-subtab-group='${g}'] [data-subtab='${r}']`)?.click()", [gruppe, sub])
                 s.wait_for_timeout(150)
             m = ev(MOBIL_MESSEN)
-            if m["laufleiste"] > 0 or m["klein"]:
+            raender.update(r for r in m["rand"] if r is not None)
+            if m["laufleiste"] > 0 or m["klein"] or m["ueber"]:
                 seiten[f"{adresse} {reiter}".strip()] = m
-        erg[lage] = {"seiten": seiten}
+        erg[lage] = {"seiten": seiten, "raender": sorted(raender)}
         if seiten:
             erg["fehler"].append(f"{lage}: {seiten}")
+        if len(raender) != 1:
+            erg["fehler"].append(f"{lage}: verschiedene Ränder {sorted(raender)}")
+        # Hinweisleiste (C.5b): eine Zeile mit Titel und Knöpfen; „mehr“ klappt den Text auf und wieder zu
+        leiste_ob = """() => { const b = document.getElementById('onboarding-bar'); const m = document.getElementById('ob-mehr');
+          const t = document.getElementById('ob-body') ?? b.querySelector('.ob-body');
+          return { hoehe: Math.round(b.getBoundingClientRect().height), text: !!t && getComputedStyle(t).display !== 'none',
+            mehr: m?.getAttribute('aria-expanded'), knopf: m?.textContent }; }"""
+        zu = ev(leiste_ob)
+        ev("() => document.getElementById('ob-mehr')?.click()")
+        auf = ev(leiste_ob)
+        ev("() => document.getElementById('ob-mehr')?.click()")
+        wieder = ev(leiste_ob)
+        erg[lage]["hinweisleiste"] = [zu, auf, wieder]
+        if zu["hoehe"] > 56 or zu["text"] or zu["mehr"] != "false" or zu["knopf"] != "mehr" \
+                or not auf["text"] or auf["mehr"] != "true" or auf["knopf"] != "weniger" or auf["hoehe"] <= zu["hoehe"] or wieder != zu:
+            erg["fehler"].append(f"{lage}: Hinweisleiste {erg[lage]['hinweisleiste']}")
         # Kopfzeile: vor dem Schlüssel das eigene Bild (ohne Namen „?“), die Fläche zum Profil mindestens 40 px hoch
         kopf = ev("""() => { const i = document.getElementById('ident'); const vor = getComputedStyle(i, '::before');
           return { initial: i.dataset.initial, bild: vor.content, breite: vor.width, hoehe: Math.round(i.getBoundingClientRect().height),

@@ -11181,3 +11181,59 @@ Netz) · app 626 (+4) · mls 13 · Leak-Tests 65 grün + 1 todo · 0 rot ·
 check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 (63 Ausnahmen) ·
 Website 5 Seiten ok · Smoke-Test bestanden (mit „rahmen“, „dialog“, „raum“,
 „karte“, „qr“ und „mobil“).
+
+## Schritt C.5b – Oberfläche: Mobil – Hinweisleiste, Ränder, Durchgang aller Seiten
+
+**Fertig:** Die Hinweisleiste belegt auf dem Handy nur noch eine Zeile, alle
+Seiten haben dieselben Ränder, und ein Durchgang aller Seiten auf Desktop und
+Handy (hochkant und quer) ist abgeschlossen. Damit ist C.5 fertig.
+
+**Einzelheiten:**
+- **Hinweisleiste** (`zeigeOnboarding()` in `app.ts`):
+  - Seit C.5b als DOM, vorher `innerHTML`.
+  - Auf dem Handy eine Zeile: Titel, „mehr“ und die Knöpfe – rund 50 statt
+    140 px auf jeder Seite.
+  - „mehr“ klappt den Text auf und wieder zu (`aria-expanded`,
+    `aria-controls`). Am Desktop steht der Text wie bisher.
+  - Neue Texte `ein.obMehr`, `ein.obWeniger` (de + en).
+- **Ränder:** Währung und Verdienen hatten aus der alten App einen eigenen
+  Rand (`#page-wallet, #page-earn { padding: 14px }`) – 14 px mehr als die
+  übrigen Seiten, auch am Desktop. Gemessen jetzt: überall 14 px hochkant und
+  28 px quer; am Desktop wie Repos und Netz.
+- **Seitenkopf** unter 760 px: Er bricht um. In der Währung stehen Guthaben
+  und „Wallet verbinden“ unter dem Titel, statt den Untertitel auf drei
+  Zeilen zu quetschen.
+- **Durchgang aller Seiten:** Desktop, Handy hochkant und quer (16 bzw. 11
+  Seiten). Kontaktbögen in `docs/ausbau/bilder/c5b/`: `mobil-hoch-1.jpg`,
+  `mobil-hoch-2.jpg`, `mobil-quer.jpg`, `desktop.jpg`.
+  - **Gefunden und behoben:** C.5a hatte allen Knöpfen `min-width: 40px`
+    gegeben. Das hebt bei Flex-Elementen das Mindestmaß (`min-width: auto` =
+    Inhaltsbreite) auf – die Settings-Reiter schrumpften unter ihren Text und
+    überlagerten sich („SICHERHEIT GERÄTE VERBINDUNG …“ übereinander).
+  - Jetzt gilt für alle Knöpfe nur die Höhe; ausdrücklich 40 px breit sind
+    nur die Symbolknöpfe im Kopf der Direktnachrichten.
+  - Die Prüfung „mobil“ hatte das nicht gesehen, weil die Reiter noch 40 px
+    breit waren. Sie meldet seitdem auch Text, der aus Knöpfen und Reitern
+    läuft; die Gegenprobe mit dem alten `min-width` scheitert.
+  - Sonst ohne Befund: keine Laufleiste, keine Fläche unter 40 px, keine
+    abgeschnittenen Knöpfe.
+
+**Tests:**
+- +2 in `mobil.test.ts`: Hinweisleiste als DOM mit „mehr“ (am Desktop
+  ausgeblendet); Währung und Verdienen ohne eigenen Rand.
+- Der C.5a-Test verlangte das globale `min-width` – er verbietet es jetzt und
+  verlangt die Breite im Chat-Kopf (Korrektur eines Fehlers, nicht
+  abgeschwächt).
+- Smoke-Test „mobil“ erweitert:
+  - Text, der aus Knöpfen und Reitern läuft.
+  - Gleicher linker Rand von Seitentitel und erster Karte auf allen Seiten.
+  - Hinweisleiste höchstens 56 px, „mehr“ klappt auf („weniger“) und wieder
+    zu.
+  - Gegenprobe mit dem Stand vor C.5b: verschiedene Ränder [14, 28] bzw.
+    [28, 42], Leiste 136 px.
+
+Endstand: protocol 1111 (6 übersprungen) · node 263 (6 übersprungen, mit
+Netz) · app 628 (+2) · mls 13 · Leak-Tests 65 grün + 1 todo · 0 rot ·
+check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 (63 Ausnahmen) ·
+Website 5 Seiten ok · Smoke-Test bestanden (mit „rahmen“, „dialog“, „raum“,
+„karte“, „qr“ und „mobil“).

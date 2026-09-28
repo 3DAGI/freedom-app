@@ -75,6 +75,9 @@ export const einstieg: Texte = {
   "ein.importTitel": { de: "Identität importieren", en: "Import identity" },
   "ein.importOk": { de: "Importieren", en: "Import" },
   "ein.spaeter": { de: "später", en: "later" },
+  // Seit C.5b: Hinweisleiste auf dem Handy – der Text klappt auf
+  "ein.obMehr": { de: "mehr", en: "more" },
+  "ein.obWeniger": { de: "weniger", en: "less" },
   "ein.eigenerProvider": { de: "Eigener Provider aktiv: {pk}", en: "Own provider active: {pk}" },
   "ein.erstChat": { de: "Wähle erst einen Chat", en: "Choose a chat first" },
   "ein.zapsNur11": { de: "Zaps nur in 1:1-Chats", en: "Zaps only in 1:1 chats" },
