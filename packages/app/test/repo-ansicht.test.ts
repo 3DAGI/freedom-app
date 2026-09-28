@@ -30,7 +30,7 @@ test("Repos: je Eigentuemer und Kennung die neueste Ankuendigung, Unfug faellt h
   assert.deepEqual(r.map((x) => x.name), ["Fork", "Neu"]);
 });
 
-test("Patches: Maintainer annehmen/schliessen, Autor zurueckziehen, Fremde nichts; entschieden heisst keine Knoepfe", () => {
+test("Patches: Maintainer annehmen/Entwurf/schliessen, Autor Entwurf/zurueckziehen (seit C.3b2), Fremde nichts; entschieden heisst keine Knoepfe", () => {
   const repo = leseRepoAnkuendigung(ank("demo", "Demo", 1));
   const p1 = signEvent({ ...bauePatch({ repo, text: patchText("Erster") }, autor.pk), created_at: 10 }, autor.sk);
   const p2 = signEvent({ ...bauePatch({ repo, text: patchText("Zweiter") }, autor.pk), created_at: 20 }, autor.sk);
@@ -42,10 +42,10 @@ test("Patches: Maintainer annehmen/schliessen, Autor zurueckziehen, Fremde nicht
   const e = fuer(eigen.pk);
   assert.deepEqual(e.map((z) => z.patch.betreff), ["Zweiter", "Erster"], "neueste zuerst, nur dieses Repo");
   assert.deepEqual(e.map((z) => z.status), ["offen", "angenommen"]);
-  assert.deepEqual(e[0].aktionen, ["annehmen", "schliessen"]);
+  assert.deepEqual(e[0].aktionen, ["annehmen", "entwurf", "schliessen"]);
   assert.deepEqual(e[1].aktionen, [], "entschieden");
-  assert.deepEqual(fuer(helfer.pk)[0].aktionen, ["annehmen", "schliessen"]);
-  assert.deepEqual(fuer(autor.pk)[0].aktionen, ["zurueckziehen"]);
+  assert.deepEqual(fuer(helfer.pk)[0].aktionen, ["annehmen", "entwurf", "schliessen"]);
+  assert.deepEqual(fuer(autor.pk)[0].aktionen, ["entwurf", "zurueckziehen"]);
   assert.deepEqual(fuer(fremd.pk)[0].aktionen, []);
   assert.deepEqual(fuer(undefined)[0].aktionen, []);
 });

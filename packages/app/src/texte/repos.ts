@@ -53,4 +53,14 @@ export const repos: Texte = {
   "repo.dateiBinaer": { de: "Binärdatei – hier nicht angezeigt", en: "Binary file – not shown here" },
   "repo.vorschau": { de: "Vorschau", en: "Preview" },
   "repo.verwerfen": { de: "Verwerfen", en: "Discard" },
+  // Seit C.3b2: Status mit Begründung, wieder öffnen, Entwurf
+  "repo.alsEntwurf": { de: "als Entwurf", en: "mark as draft" },
+  "repo.wiederOeffnen": { de: "wieder öffnen", en: "reopen" },
+  "repo.patchEntwurf": { de: "Patch als Entwurf markiert", en: "Patch marked as draft" },
+  "repo.patchWiederOffen": { de: "Patch wieder offen", en: "Patch reopened" },
+  "repo.aktionTitel": { de: "„{betreff}“: {aktion}", en: "“{betreff}”: {aktion}" },
+  "repo.statusOeffentlich": { de: "Öffentlich und mit deinem Schlüssel signiert – wie bei jedem Git-Projekt.", en: "Public and signed with your key – like in every Git project." },
+  "repo.begruendung": { de: "Begründung (optional, öffentlich)", en: "Reason (optional, public)" },
+  "repo.statusVon": { de: "{status} von {name} · {datum}", en: "{status} by {name} · {datum}" },
+  "repo.alsCommits": { de: "Eingespielt als {commits}", en: "Applied as {commits}" },
 };

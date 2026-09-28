@@ -62,9 +62,10 @@ test("C.3a: Seite verdrahtet – nur DOM, Adresse ohne Kennung, Dialoge statt pr
     assert.doesNotMatch(s, /location\.hash|history\.(push|replace)State/, `${datei}: offenes Repo nur im Speicher`);
   }
   assert.match(liste, /karten = repoKarten\(ankuendigungen, bundles, patches, status, state\.keypair\?\.pk\);/);
-  // Annehmen mit optionalem Commit (SHA-1 geprüft), Schließen/Zurückziehen nach Rückfrage
+  // Annehmen mit optionalem Commit (SHA-1 geprüft); seit C.3b2 jede Aktion ein Dialog mit Begründung, Schließen/Zurückziehen rot
   assert.match(seite, /pruefe: \(w\) => \{ const c = String\(w\.commit \?\? ""\)\.trim\(\)\.toLowerCase\(\); return !c \|\| SHA1\.test\(c\) \? null : t\("repo\.keinSha1"\); \},/);
-  assert.match(seite, /else if \(!await bestaetige\(\{ titel: t\(AKTION_TEXT\[aktion\]\), text: patch\.betreff, ok: t\(AKTION_TEXT\[aktion\]\), gefahr: true \}\)\) return;/);
+  assert.match(seite, /gefahr: aktion === "schliessen" \|\| aktion === "zurueckziehen",/);
+  assert.match(seite, /const ev = baueStatus\(\{ patch, status: AKTION_STATUS\[aktion\], eigentuemer: k\.repo\.eigentuemer,/);
   // Bundle laden: verschlüsselt geladen, mit dem Schlüssel aus der Referenz entschlüsselt
   assert.match(seite, /const bytes = ref\.schluessel \? await oeffneAnhang\(res\.bytes, ref\.schluessel\) : res\.bytes;/);
   // Eine Liste statt zwei (B10): die alten Listen sind weg
