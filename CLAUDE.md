@@ -44,9 +44,9 @@ bash packages/mls/bauen.sh --pruefen                     # nur bei Änderungen a
 bash contracts/solana-channel/pruefen.sh --werkzeuge     # nur bei Änderungen am Zahlkanal: bauen + Tests gegen Validator (Agave 3.1.10)
 ```
 
-Stand 28.09.2026 (nach 4.5a, 7.4c3 und C.2b2): protocol 1081 grün (6 übersprungen), node 245 grün
+Stand 28.09.2026 (nach 4.5b, 7.4c3 und C.2b2): protocol 1082 grün (6 übersprungen), node 245 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 531 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 59 grün + 1 `todo` (heutige Lecks,
+in `tools.test.ts`), app 535 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 59 grün + 1 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
 Ausnahme: gesendete SOL-Zahlungen von frischen Adressen, eine bewusste Grenze
 nach Entscheidung 4.9 A – im Datenschutzbericht unter „Bewusste Grenzen“).
@@ -236,7 +236,10 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   der Schwelle, einmal je Abstand, Rücklage für Miete bleibt) – nie an andere,
   nie neben LP oder Relayer mit demselben `SOLANA_KEYPAIR` (deren Liquidität).
   Eine Provider-Adresse je Knoten (Entscheidung 4.5 A) – keine frischen
-  Adressen je Sitzung einführen, ohne den Zahlkanal neu zu denken.
+  Adressen je Sitzung einführen, ohne den Zahlkanal neu zu denken. Die App
+  liest die Kanäle des eigenen Knotens (seit 4.5b, `verdienst.ts`) nur im
+  geöffneten Earn-Tab (`zeigeSolEinnahmen()`), nie beim Start – die Abfrage
+  nennt dem RPC-Anbieter die Adresse.
 - **Kurse und Umrechnung nur über `kurs.ts`** (seit 4.4): Marktkurs mit
   `marktKurs()` (eine Stimme je Absender), msat ↔ Lamports mit
   `msatZuLamports()`/`lamportsZuMsat()` (BigInt). 1 SOL = 1e9 Lamports =
