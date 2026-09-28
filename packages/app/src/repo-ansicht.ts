@@ -4,7 +4,8 @@
  * shell/tabs/repos.ts.
  */
 import {
-  KIND_GIT_REPO_REF, KIND_REPO_ANKUENDIGUNG, darfAnnehmen, lesePatch, leseRepoAnkuendigung, patchStatus,
+  KIND_GIT_REPO_REF, KIND_REPO_ANKUENDIGUNG, KIND_STATUS_ANGENOMMEN, KIND_STATUS_ENTWURF, KIND_STATUS_GESCHLOSSEN, KIND_STATUS_OFFEN,
+  darfAnnehmen, lesePatch, leseRepoAnkuendigung, patchStatus,
   type GelesenerPatch, type GelesenesRepo, type NostrEvent, type PatchStatus, type RepoAnkuendigung,
 } from "@freedomstack/protocol";
 
@@ -27,19 +28,55 @@ export function repoZeilen(events: readonly NostrEvent[]): GelesenesRepo[] {
   return repos.sort((a, b) => a.name.localeCompare(b.name));
 }
 
-export type PatchAktion = "annehmen" | "schliessen" | "zurueckziehen";
+export type PatchAktion = "annehmen" | "entwurf" | "wiederOeffnen" | "schliessen" | "zurueckziehen";
+
+/** Welchen Status eine Aktion setzt (C.3b2) – die vier, die es nach NIP-34 gibt. */
+export const AKTION_STATUS: Record<PatchAktion, PatchStatus> = {
+  annehmen: "angenommen", entwurf: "entwurf", wiederOeffnen: "offen", schliessen: "geschlossen", zurueckziehen: "geschlossen",
+};
 
 export interface PatchZeile {
   patch: GelesenerPatch;
   status: PatchStatus;
   statusVon?: string;
+  statusZeit?: number;
+  /** Begründung aus dem geltenden Status-Event (fremder Text, gekürzt). */
+  notiz?: string;
+  /** Bei „angenommen“: eingespielt als diese Commits. */
+  commits?: string[];
   /** Was ich hier tun darf. */
   aktionen: PatchAktion[];
 }
 
 /**
- * Patches eines Repos mit Status – neueste zuerst. Maintainer duerfen
- * annehmen und schliessen, der Autor seinen eigenen Patch zurueckziehen.
+ * Was ich an einem Patch tun darf (seit C.3b2) – nur, was `patchStatus()`
+ * auch zählt. Maintainer: annehmen, als Entwurf, wieder öffnen, schließen.
+ * Der Autor: als Entwurf, wieder öffnen, zurückziehen – einen Patch, den ein
+ * Maintainer geschlossen hat, öffnet er nicht wieder (das Protokoll ließe es
+ * zu, die App achtet die Entscheidung). Angenommen ist endgültig.
+ */
+export function patchAktionen(
+  st: { status: PatchStatus; von?: string }, repo: Pick<GelesenesRepo, "eigentuemer" | "maintainer">, autor: string, ich: string | undefined,
+): PatchAktion[] {
+  if (!ich || st.status === "angenommen") return [];
+  if (darfAnnehmen(repo, ich)) {
+    if (st.status === "offen") return ["annehmen", "entwurf", "schliessen"];
+    if (st.status === "entwurf") return ["annehmen", "wiederOeffnen", "schliessen"];
+    return ["wiederOeffnen"];
+  }
+  if (ich !== autor) return [];
+  if (st.status === "offen") return ["entwurf", "zurueckziehen"];
+  if (st.status === "entwurf") return ["wiederOeffnen", "zurueckziehen"];
+  return st.von === ich ? ["wiederOeffnen"] : [];
+}
+
+const STATUS_KIND: Record<PatchStatus, number> = {
+  offen: KIND_STATUS_OFFEN, angenommen: KIND_STATUS_ANGENOMMEN, geschlossen: KIND_STATUS_GESCHLOSSEN, entwurf: KIND_STATUS_ENTWURF,
+};
+
+/**
+ * Patches eines Repos mit Status – neueste zuerst; dazu, was ich tun darf
+ * (`patchAktionen()`), und die Begründung des geltenden Status.
  */
 export function patchZeilen(repo: GelesenesRepo, patches: readonly NostrEvent[], status: readonly NostrEvent[], ich: string | undefined): PatchZeile[] {
   const zeilen: PatchZeile[] = [];
@@ -52,11 +89,14 @@ export function patchZeilen(repo: GelesenesRepo, patches: readonly NostrEvent[],
     }
     if (patch.repoAdresse !== repo.adresse) continue;
     const st = patchStatus(patch, repo, status);
-    const aktionen: PatchAktion[] = [];
-    const offen = st.status === "offen" || st.status === "entwurf";
-    if (ich && offen && darfAnnehmen(repo, ich)) aktionen.push("annehmen", "schliessen");
-    else if (ich && offen && ich === patch.autor) aktionen.push("zurueckziehen");
-    zeilen.push({ patch, status: st.status, ...(st.von ? { statusVon: st.von } : {}), aktionen });
+    // Das Event, das gilt: derselbe Absender, dieselbe Zeit, dieselbe Art, an diesen Patch
+    const geltend = st.von ? status.find((e) => e.pubkey === st.von && e.created_at === st.zeit && e.kind === STATUS_KIND[st.status]
+      && e.tags.some((t) => t[0] === "e" && t[1] === patch.id)) : undefined;
+    const notiz = geltend?.content.trim().slice(0, 1000);
+    zeilen.push({
+      patch, status: st.status, aktionen: patchAktionen(st, repo, patch.autor, ich),
+      ...(st.von ? { statusVon: st.von, statusZeit: st.zeit } : {}), ...(notiz ? { notiz } : {}), ...(st.commits ? { commits: st.commits } : {}),
+    });
   }
   return zeilen.sort((a, b) => b.patch.zeit - a.patch.zeit);
 }

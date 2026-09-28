@@ -958,24 +958,28 @@ def raum_pruefen(browser, url: str) -> dict:
         falsch = ev("() => document.querySelector('[role=dialog] [role=alert]')?.textContent ?? null")
         s.keyboard.press("Control+A")
         s.keyboard.type("c" * 40)
-        s.keyboard.press("Enter")
+        # Seit C.3b2 mit Begründung: Tab ins Textfeld, Strg+Enter bestätigt
+        s.keyboard.press("Tab")
+        s.keyboard.type("Danke – <i>sauber</i>.")
+        s.keyboard.press("Control+Enter")
         s.wait_for_timeout(800)
         patch_id = next(e["id"] for e in relay.events if e.get("kind") == 1617)
         status = [e for e in relay.gesendet if e.get("kind") == 1631]
         verweis = [t[1] for t in (status[0]["tags"] if status else []) if t[0] == "e"]
         commit = [t[1] for t in (status[0]["tags"] if status else []) if t[0] == "applied-as-commits"]
+        notiz = status[0]["content"] if status else None
         ev("() => document.querySelector('.repo-zurueck').click()")
         s.wait_for_timeout(200)
         zurueck = ev("() => [document.getElementById('repos-liste-ansicht').getBoundingClientRect().height > 0, document.activeElement?.classList.contains('repo-karte')]")
         erg[groesse]["repos"] = {"liste": liste, "leer": leer, "gesucht": gesucht, "meine": meine, "seite": seite, "falsch": falsch,
-                                 "status": len({e["id"] for e in status}), "verweis": verweis, "commit": commit, "zurueck": zurueck}
+                                 "status": len({e["id"] for e in status}), "verweis": verweis, "commit": commit, "notiz": notiz, "zurueck": zurueck}
         if liste != [["werkzeug", True]] or leer != [] or gesucht != liste or meine != liste:
             erg["fehler"].append(f"{groesse}: Repo-Liste {liste} {leer} {gesucht} {meine}")
         if not (seite["sichtbar"] and not seite["liste"] and seite["klon"] == "git clone https://example.org/werkzeug.git" and seite["fokus"]
-                and seite["patches"] == [["Hammer schärfen", ["annehmen", "schließen"]]]):
+                and seite["patches"] == [["Hammer schärfen", ["annehmen", "als Entwurf", "schließen"]]]):
             erg["fehler"].append(f"{groesse}: Repo-Seite {seite}")
-        if not falsch or "SHA-1" not in falsch or verweis[:1] != [patch_id] or commit != ["c" * 40]:
-            erg["fehler"].append(f"{groesse}: Patch annehmen {falsch} {verweis} {commit}")
+        if not falsch or "SHA-1" not in falsch or verweis[:1] != [patch_id] or commit != ["c" * 40] or notiz != "Danke – <i>sauber</i>.":
+            erg["fehler"].append(f"{groesse}: Patch annehmen {falsch} {verweis} {commit} {notiz!r}")
         if zurueck != [True, True]:
             erg["fehler"].append(f"{groesse}: zurück zur Liste {zurueck}")
         # Seit C.3a2: Reiter „Mitwirkende“ (fremdes Repo, ohne „Einstellungen“), eigenes Repo mit Einstellungen und neuer Version
@@ -1075,11 +1079,31 @@ def raum_pruefen(browser, url: str) -> dict:
             gesendet_patch = [e for e in relay.gesendet if e.get("kind") == 1617][vorher:]
             vorschau["gesendet"] = [t[1] for t in (gesendet_patch[-1]["tags"] if gesendet_patch else []) if t[0] == "a"]
             vorschau["liste"] = ev("() => [...document.querySelectorAll('#repo-seite .repo-patch-betreff')].map(b => b.textContent)")
+        # Seit C.3b2: als Entwurf (mit Begründung), dann wieder öffnen; Schließen ist rot und lässt sich abbrechen
+        def aktion(text: str, notiz: str | None) -> list:
+            ev(f"() => [...document.querySelectorAll('#repo-seite .repo-patch-status button')].find(b => b.textContent === '{text}')?.click()")
+            s.wait_for_timeout(200)
+            gefahr = ev("() => !!document.querySelector('[role=dialog] .dlg-gefahr')")
+            if notiz is None:
+                s.keyboard.press("Escape")
+            else:
+                s.keyboard.type(notiz)
+                s.keyboard.press("Control+Enter")
+            s.wait_for_timeout(600)
+            knoepfe = ev("() => [...document.querySelectorAll('#repo-seite .repo-patch-status button')].map(b => b.textContent)")
+            return [gefahr, knoepfe]
+        vorher_status = len(relay.gesendet)
+        ablauf = [aktion("als Entwurf", "Noch nicht fertig"), aktion("schließen", None), aktion("wieder öffnen", "Jetzt fertig")]
+        neu_status = [[e["kind"], e["content"]] for e in relay.gesendet[vorher_status:] if e.get("kind") in (1630, 1631, 1632, 1633)]
+        vorschau["status"] = {"ablauf": ablauf, "gesendet": [list(x) for x in dict.fromkeys(tuple(x) for x in neu_status)]}
         erg[groesse]["patch_vorschau"] = vorschau
         if vorschau.get("kaputt") is not False or vorschau.get("seite", {}).get("titel") != "Liesmich" \
                 or vorschau["seite"]["zeilen"] != [["+", "# meins"], ["+", "<b>fett?</b>"]] or vorschau["seite"]["art"] != "neu" \
                 or not vorschau["seite"]["fokus"] or len(vorschau.get("gesendet", [])) != 1 \
-                or not vorschau["gesendet"][0].endswith(":meins") or vorschau.get("liste") != ["Liesmich"]:
+                or not vorschau["gesendet"][0].endswith(":meins") or vorschau.get("liste") != ["Liesmich"] \
+                or vorschau["status"]["ablauf"] != [[False, ["annehmen", "wieder öffnen", "schließen"]], [True, ["annehmen", "wieder öffnen", "schließen"]],
+                                                   [False, ["annehmen", "als Entwurf", "schließen"]]] \
+                or vorschau["status"]["gesendet"] != [[1633, "Noch nicht fertig"], [1630, "Jetzt fertig"]]:
             erg["fehler"].append(f"{groesse}: Patch-Vorschau {vorschau}")
         # Seit C.3b1: der angenommene Patch im fremden Repo als eigene Seite mit Änderungen, als Datei ladbar
         ev("() => document.querySelector('.repo-zurueck').click()")
@@ -1093,7 +1117,9 @@ def raum_pruefen(browser, url: str) -> dict:
           marke: document.querySelector('#repo-seite .patch-meta .repo-status')?.textContent,
           dateien: [...document.querySelectorAll('#repo-seite .diff-dateien li')].map(l => l.textContent),
           zeilen: [...document.querySelectorAll('#repo-seite .diff-zeile')].map(z => [...z.children].map(c => c.textContent)),
-          fokus: document.activeElement?.classList.contains('patch-zurueck') })""")
+          fokus: document.activeElement?.classList.contains('patch-zurueck'),
+          angaben: [...document.querySelectorAll('#repo-seite .patch-status-info > *')].map(e => e.textContent),
+          fett: document.querySelectorAll('#repo-seite .patch-status-info i').length })""")
         try:
             with s.expect_download(timeout=5000) as dl:
                 ev("() => [...document.querySelectorAll('#repo-seite .patch-aktionen button')].at(-1).click()")
@@ -1106,7 +1132,9 @@ def raum_pruefen(browser, url: str) -> dict:
         erg[groesse]["patch_seite"] = seite_patch
         if seite_patch["titel"] != "Hammer schärfen" or seite_patch["marke"] != "angenommen ✓" or seite_patch["dateien"] != ["hammer.txt+1−1"] \
                 or seite_patch["zeilen"] != [["1", "", "−", "stumpf"], ["", "1", "+", "scharf"]] or not seite_patch["fokus"] \
-                or seite_patch["datei"] != "aaaaaaa.patch" or seite_patch["zurueck"] != [True, True]:
+                or seite_patch["datei"] != "aaaaaaa.patch" or seite_patch["zurueck"] != [True, True] \
+                or len(seite_patch["angaben"]) != 3 or not seite_patch["angaben"][0].startswith("angenommen ✓ von Du") \
+                or seite_patch["angaben"][1:] != ["Eingespielt als ccccccc", "Danke – <i>sauber</i>."] or seite_patch["fett"] != 0:
             erg["fehler"].append(f"{groesse}: Patch-Seite {seite_patch}")
         ctx.close()
     erg["bestanden"] = not erg["fehler"]

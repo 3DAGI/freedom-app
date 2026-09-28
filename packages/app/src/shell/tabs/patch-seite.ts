@@ -36,6 +36,8 @@ export interface PatchAnsicht {
   zeit?: number;
   /** Status-Marke, Knöpfe für Aktionen, ein Hinweis darüber (Vorschau). */
   marke?: HTMLElement;
+  /** Wer den Status setzte, Commits, Begründung (seit C.3b2). */
+  status?: HTMLElement | undefined;
   aktionen: HTMLElement[];
   hinweis?: string;
   zurueck: { text: string; tun: () => void };
@@ -55,6 +57,7 @@ export function zeigePatch(p: PatchAnsicht): HTMLElement[] {
   meta.append(el("span", t("repo.commitKurz", { sha: p.commit.slice(0, 7) })));
   if (diff.autor) meta.append(el("span", t("repo.autorLautPatch", { autor: diff.autor })));
   teile.push(meta);
+  if (p.status) teile.push(p.status);
   if (p.hinweis) teile.push(el("p", p.hinweis, "patch-hinweis"));
   const aktionen = el("div", undefined, "patch-aktionen");
   aktionen.append(...p.aktionen, patchKnopf(t("repo.alsDatei"), "ghost mini repo-knopf", () => ladeAlsDatei(p)));

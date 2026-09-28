@@ -1536,3 +1536,6 @@ button.menue-punkt.menue-gefahr { color: var(--red); }
 .diff-neu { background: color-mix(in srgb, var(--accent) 14%, transparent); }
 .diff-weg { background: color-mix(in srgb, var(--red) 14%, transparent); }
 .diff-hinweis { color: var(--text-muted); font-style: italic; }
+/* Patch-Status (C.3b2): wer, wann, Commits, Begründung */
+.patch-status-info { border-left: 2px solid var(--border); padding: 2px 0 2px 10px; margin: 8px 0; }
+.patch-notiz { white-space: pre-wrap; overflow-wrap: anywhere; margin: 4px 0 0; }

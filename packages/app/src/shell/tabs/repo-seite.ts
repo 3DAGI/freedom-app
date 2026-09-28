@@ -11,7 +11,7 @@ import type { GelesenerPatch, GelesenesRepo, NostrEvent, PatchStatus } from "@fr
 import { gebietsschema, t } from "../../i18n.js";
 import { fehlerText } from "../../protokoll-texte.js";
 import {
-  type EinstellungFelder, type PatchAktion, type PatchZeile, type RepoKarte, STATUS_TEXT, ankuendigungAusFeldern, sichereWebAdressen,
+  AKTION_STATUS, type EinstellungFelder, type PatchAktion, type PatchZeile, type RepoKarte, STATUS_TEXT, ankuendigungAusFeldern, sichereWebAdressen,
 } from "../../repo-ansicht.js";
 import { bestaetige, dialog } from "../dialog.js";
 import { ensurePool, signiere, state } from "../state.js";
@@ -20,7 +20,12 @@ import { toast } from "../ui.js";
 import { zeigePatch } from "./patch-seite.js";
 import { kontaktName } from "./raeume.js";
 
-const AKTION_TEXT: Record<PatchAktion, string> = { annehmen: "repo.annehmen", schliessen: "repo.schliessen", zurueckziehen: "repo.zurueckziehen" };
+const AKTION_TEXT: Record<PatchAktion, string> = {
+  annehmen: "repo.annehmen", entwurf: "repo.alsEntwurf", wiederOeffnen: "repo.wiederOeffnen", schliessen: "repo.schliessen", zurueckziehen: "repo.zurueckziehen",
+};
+const AKTION_MELDUNG: Record<PatchAktion, string> = {
+  annehmen: "repo.patchAngenommen", entwurf: "repo.patchEntwurf", wiederOeffnen: "repo.patchWiederOffen", schliessen: "repo.patchGeschlossen", zurueckziehen: "repo.patchZurueckgezogen",
+};
 const SHA1 = /^[0-9a-f]{40}$/;
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, text?: string, klasse?: string): HTMLElementTagNameMap[K] {
@@ -186,6 +191,7 @@ function patchReiter(k: RepoKarte, h: RepoSeiteHilfe, neu: () => void): HTMLElem
     return zeigePatch({
       betreff: offen.patch.betreff, commit: offen.patch.commit, text: offen.patch.text,
       von: eigentuemerName(offen.patch.autor), zeit: offen.patch.zeit, marke: statusMarke(offen.status), aktionen: aktionsKnoepfe(offen, k, h),
+      status: statusAngaben(offen),
       zurueck: { text: t("repo.allePatches"), tun: () => {
         offenerPatch = null;
         neu();
@@ -286,29 +292,46 @@ function vorschauSeite(repo: GelesenesRepo, h: RepoSeiteHilfe, neu: () => void):
   });
 }
 
-/** Annehmen mit optionalem Commit, schließen und zurückziehen nach Rückfrage – öffentlich und signiert. */
+/**
+ * Status setzen (seit C.3b2 für alle Aktionen ein Dialog): annehmen mit
+ * optionalem Commit, dazu immer eine Begründung (`notiz`, optional);
+ * schließen und zurückziehen rot. Öffentlich und signiert.
+ */
 async function setzeStatus(k: RepoKarte, patch: GelesenerPatch, aktion: PatchAktion, h: RepoSeiteHilfe): Promise<void> {
   if (!state.keypair || !k.repo) return;
-  let commits: string[] | undefined;
-  if (aktion === "annehmen") {
-    const w = await dialog({
-      titel: t("repo.annehmenTitel", { betreff: patch.betreff }), ok: t("repo.annehmen"),
-      felder: [{ art: "text", name: "commit", label: t("repo.welcherCommit"), mono: true }],
-      pruefe: (w) => { const c = String(w.commit ?? "").trim().toLowerCase(); return !c || SHA1.test(c) ? null : t("repo.keinSha1"); },
-    });
-    if (!w) return;
-    const c = String(w.commit ?? "").trim().toLowerCase();
-    commits = c ? [c] : undefined;
-  } else if (!await bestaetige({ titel: t(AKTION_TEXT[aktion]), text: patch.betreff, ok: t(AKTION_TEXT[aktion]), gefahr: true })) return;
+  const annehmen = aktion === "annehmen";
+  const w = await dialog({
+    titel: annehmen ? t("repo.annehmenTitel", { betreff: patch.betreff }) : t("repo.aktionTitel", { aktion: t(AKTION_TEXT[aktion]), betreff: patch.betreff }),
+    text: t("repo.statusOeffentlich"), ok: t(AKTION_TEXT[aktion]),
+    gefahr: aktion === "schliessen" || aktion === "zurueckziehen",
+    felder: [
+      ...(annehmen ? [{ art: "text" as const, name: "commit", label: t("repo.welcherCommit"), mono: true }] : []),
+      { art: "textarea", name: "notiz", label: t("repo.begruendung") },
+    ],
+    pruefe: (w) => { const c = String(w.commit ?? "").trim().toLowerCase(); return !c || SHA1.test(c) ? null : t("repo.keinSha1"); },
+  });
+  if (!w) return;
+  const c = String(w.commit ?? "").trim().toLowerCase();
+  const notiz = String(w.notiz ?? "").trim();
   try {
     const { baueStatus } = await import("@freedomstack/protocol");
-    const status = aktion === "annehmen" ? "angenommen" : "geschlossen";
-    await (await ensurePool()).publish(await signiere(baueStatus({ patch, status, eigentuemer: k.repo.eigentuemer, commits }, state.keypair.pk)));
-    toast(t(aktion === "annehmen" ? "repo.patchAngenommen" : aktion === "zurueckziehen" ? "repo.patchZurueckgezogen" : "repo.patchGeschlossen"));
+    const ev = baueStatus({ patch, status: AKTION_STATUS[aktion], eigentuemer: k.repo.eigentuemer, ...(c ? { commits: [c] } : {}), ...(notiz ? { notiz } : {}) }, state.keypair.pk);
+    await (await ensurePool()).publish(await signiere(ev));
+    toast(t(AKTION_MELDUNG[aktion]));
     await h.neuLaden();
   } catch (e) {
     toast(fehlerText(e), true);
   }
+}
+
+/** Wer den geltenden Status gesetzt hat, wann, mit welchen Commits und welcher Begründung – nur Text. */
+function statusAngaben(z: PatchZeile): HTMLElement | undefined {
+  if (!z.statusVon) return undefined;
+  const box = el("div", undefined, "patch-status-info");
+  box.append(el("div", t("repo.statusVon", { status: t(STATUS_TEXT[z.status]), name: eigentuemerName(z.statusVon), datum: datum(z.statusZeit ?? 0) }), "mono-sm muted"));
+  if (z.commits?.length) box.append(el("div", t("repo.alsCommits", { commits: z.commits.map((x) => x.slice(0, 7)).join(", ") }), "mono-sm"));
+  if (z.notiz) box.append(el("p", z.notiz, "patch-notiz"));
+  return box;
 }
 
 /** Mitwirkende (38056) mit der Kennung dieses Repos – dieselbe Liste wie auf der Seite „Repos“. */

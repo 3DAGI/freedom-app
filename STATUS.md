@@ -10361,6 +10361,69 @@ Netz) · app 581 · mls 13 · Leak-Tests 62 grün + 1 todo · 0 rot ·
 check-wiring `--streng` Exit 0 (159 ausgenommen, 0 offen) · innerHTML streng
 Exit 0 (67 Ausnahmen) · Website 5 Seiten ok · Smoke-Test bestanden.
 
+## Schritt C.3b2 – Oberfläche: Status-Dialoge mit Begründung
+
+**Fertig:** Patches lassen sich annehmen, als Entwurf markieren, wieder
+öffnen, schließen und zurückziehen – jeweils mit Begründung; die Patch-Seite
+zeigt, wer den Status wann gesetzt hat und warum. Damit ist C.3b fertig.
+
+**Einzelheiten:**
+- **Wer was darf** – `patchAktionen()` (`repo-ansicht.ts`, ohne DOM), nur
+  was `patchStatus()` auch zählt:
+  - Maintainer: offen → annehmen, als Entwurf, schließen; Entwurf →
+    annehmen, wieder öffnen, schließen; geschlossen → wieder öffnen.
+  - Autor: offen → als Entwurf, zurückziehen; Entwurf → wieder öffnen,
+    zurückziehen; geschlossen → wieder öffnen, aber nur, wenn er ihn selbst
+    zurückgezogen hat. Das Protokoll ließe es auch nach dem Schließen durch
+    einen Maintainer zu; die App achtet die Entscheidung.
+  - Angenommen ist endgültig; Fremde und ohne Schlüssel: nichts.
+  - `AKTION_STATUS` ordnet jeder Aktion einen der vier Status nach NIP-34 zu.
+- **Dialog je Aktion** (`setzeStatus()`, `repo-seite.ts`):
+  - Immer mit „Begründung (optional, öffentlich)“ – die `notiz` aus
+    `baueStatus()`; annehmen zusätzlich mit Commit (SHA-1 geprüft wie
+    bisher).
+  - Schließen und Zurückziehen rot, der Fokus beginnt dort bei „Abbrechen“.
+  - Die bisherige Rückfrage entfällt; der Dialog sagt „Öffentlich und mit
+    deinem Schlüssel signiert“.
+- **Status auf der Patch-Seite** (`statusAngaben()`): „angenommen ✓ von Du ·
+  Datum“, „Eingespielt als ccccccc“ und die Begründung – nur aus dem Event,
+  das `patchStatus()` zählt (gleicher Absender, Zeit und Art), gekürzt auf
+  1000 Zeichen und nur als Text.
+- **Screenshots** (`docs/ausbau/bilder/c3b2/`): der Dialog „„Hammer
+  schärfen“ annehmen“ mit Commit und Begründung (Desktop, Handy als Blatt von
+  unten); die Patch-Seite danach mit Marke „angenommen ✓“ und den Angaben.
+
+**Tests:**
+- +4 in `repo-status.test.ts`:
+  - Wer was darf – die ganze Tabelle für Maintainer, Autor, Fremde, ohne
+    Schlüssel.
+  - Jede angebotene Aktion setzt einen Status, den `patchStatus()` von
+    diesem Absender zählt.
+  - Begründung und Commits nur aus dem geltenden Status, nicht aus dem
+    Status eines Fremden; ohne Status keine Angaben; lange Begründungen
+    gekürzt.
+  - Verdrahtung: Dialog mit Begründung, keine zweite Rückfrage, Angaben nur
+    als Text.
+- Angepasst, weil sich das Verhalten laut Karte ändert (gleich streng):
+  - `repo-ansicht.test.ts` (8.10b): Maintainer bekommen jetzt zusätzlich
+    „als Entwurf“, der Autor zusätzlich „als Entwurf“ – die übrigen Fälle
+    wie bisher.
+  - `repo-karten.test.ts` (C.3a1): statt der Rückfrage beim Schließen prüft
+    der Test den roten Dialog und den Status aus `AKTION_STATUS`.
+- Smoke-Test „raum“ auf Desktop und Handy:
+  - Annehmen jetzt mit Begründung `Danke – <i>sauber</i>.` (Strg+Enter): sie
+    steht im Status-Event und auf der Patch-Seite als Text, kein `<i>` im DOM;
+    dazu „Eingespielt als ccccccc“.
+  - Die Knöpfe am offenen Patch: annehmen, als Entwurf, schließen.
+  - Eigener Patch: als Entwurf mit Begründung (1633), Schließen ist rot und
+    lässt sich abbrechen (nichts gesendet), wieder öffnen (1630).
+
+Endstand (nach dem Einmergen von `main` mit 11.0 und 11.1a): protocol 1096 (6
+übersprungen) · node 260 (6 übersprungen, mit Netz) · app 585 (+4) · mls 13 · Leak-Tests 62 grün + 1 todo · 0 rot ·
+check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 (67 Ausnahmen) ·
+Website 5 Seiten ok · Smoke-Test bestanden (mit „rahmen“, „dialog“ und
+„raum“ samt Begründung, Entwurf und wieder öffnen).
+
 ## Schritt 11.1b – QR in der App: Gerätecode, Scannen, Werbelink
 
 **Warum:** Wunsch des MENSCHEN (Phase 11): Geräte per QR-Code hinzufügen.
@@ -10412,8 +10475,8 @@ Smoke-Test „qr“ (neu):
   nach dem Klick genau eine Anfrage, der Code landet im Feld, die Spur ist
   danach beendet; nach „Importieren“ spricht es für die Person.
 
-Endstand: protocol 1096 (6 übersprungen) · node 260 (6 übersprungen, mit
-Netz) · app 585 (+4) · mls 13 · Leak-Tests 62 grün + 1 todo · 0 rot ·
-check-wiring `--streng` Exit 0 (155 ausgenommen, 4 weniger) · innerHTML
-streng Exit 0 (67 Ausnahmen) · Website 5 Seiten ok · Smoke-Test bestanden
-(mit „qr“).
+Endstand (nach dem Einmergen von `main` mit C.3b2): protocol 1096 (6
+übersprungen) · node 260 (6 übersprungen, mit Netz) · app 589 (+4) · mls 13 ·
+Leak-Tests 62 grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 (155
+ausgenommen, 4 weniger) · innerHTML streng Exit 0 · Website 5 Seiten ok ·
+Smoke-Test bestanden (mit „qr“).
