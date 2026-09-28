@@ -216,3 +216,10 @@ duress.ts|wipeConfirmation|deutsche Referenz; die App bildet den Text seit 8.16g
 privacy-audit.ts|privacyReport|deutsche Referenz; die App bildet den Bericht seit 8.16g2b1 in datenschutz-bericht.ts (berichtText) aus den Kennungen der Befunde nach, ein Test hält ihn für alle Einstellungen wortgleich
 privacy-audit.ts|kurzfassung|deutsche Referenz; die Zeile vorweg bildet seit 8.16g2b1 datenschutz-bericht.ts (berichtText) nach
 privacy-facts.ts|privacyFactsText|deutsche Referenz; die App bildet den Text seit 8.16g2b1 in datenschutz-bericht.ts (faktenText) nach, ein Test hält ihn für jedes Ergebnis der .onion-Prüfung wortgleich
+succession.ts|successionWarning|deutsche Referenz; die App bildet die Rückfrage seit 8.16g2b2 in protokoll-texte.ts (nachfolgeWarnung) nach, ein Test hält sie wortgleich
+state-backup.ts|backupInfo|deutsche Referenz; die App bildet den Text seit 8.16g2b2 in protokoll-texte.ts (sicherungInfo) nach, ein Test hält ihn wortgleich
+key-rotation.ts|rotationWarning|deutsche Referenz; die App bildet die Rückfrage seit 8.16g2b2 in protokoll-texte.ts (wechselWarnung) nach, ein Test hält sie wortgleich
+key-rotation.ts|revocationInstructions|deutsche Referenz; die App bildet die Anleitung seit 8.16g2b2 in protokoll-texte.ts (widerrufAnleitung) nach, ein Test hält sie wortgleich
+devices.ts|deviceWarning|deutsche Referenz; die App bildet die Rückfrage seit 8.16g2b2 in protokoll-texte.ts (geraetWarnung) nach, ein Test hält sie wortgleich
+release.ts|sharingInstructions|deutsche Referenz; die App bildet den Begleittext seit 8.16g2b2 in protokoll-texte.ts (weitergabeText) nach, ein Test hält ihn wortgleich
+mesh-sync.ts|offlineCapabilities|deutsche Referenz; die App bildet die Liste seit 8.16g2b2 in protokoll-texte.ts (offlineFaehigkeiten) nach, ein Test hält sie gleich

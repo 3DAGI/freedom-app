@@ -29,6 +29,7 @@ import { $, toast } from "../ui.js";
 import { t } from "../../i18n.js";
 import { versendeVerzoegert } from "../versand.js";
 import { kontaktName, zeigeRaumLeiste } from "./raeume.js";
+import { schluesselText } from "../../protokoll-texte.js";
 
 /** Anhang: kleine Dateien inline als data-url, grosse ueber das Blob-Netz. */
 // Darstellungslogik liegt in shell-logic.ts — dort ohne DOM und deshalb
@@ -145,7 +146,7 @@ function wireBlobButtons(root: HTMLElement): void {
         URL.revokeObjectURL(url);
         el.textContent = oldText;
       } catch (e) {
-        toast(`blob: ${(e as Error).message}`, true);
+        toast(t("komm.anhangFehler", { fehler: (e as Error).message }), true);
         el.textContent = oldText;
       }
     });
@@ -771,7 +772,7 @@ function markiereSchluessel(list: HTMLElement): void {
     const el = list.querySelector<HTMLElement>(`[data-cid="${CSS.escape(pk)}"]`);
     const lbl = el?.querySelector<HTMLElement>(".label");
     if (!el || !lbl || el.querySelector(".schluessel-warnung")) continue;
-    el.title = st.message;
+    el.title = schluesselText(st);
     // Eigenes Element: die Namensaufloesung ueberschreibt spaeter den Text des Labels
     const w = document.createElement("span");
     w.className = "schluessel-warnung warn";
@@ -788,7 +789,7 @@ function schluesselHinweis(thread: HTMLElement, partner: string): void {
   box.className = "bubble ai schluessel-hinweis";
   const text = document.createElement("div");
   text.className = "txt mono-sm warn";
-  text.textContent = `⚠ ${st!.message}`;
+  text.textContent = `⚠ ${schluesselText(st!)}`;
   box.append(text);
   if ((st!.status === "widerrufen" || st!.status === "abgeloest") && st!.currentPubkey !== partner) {
     const b = document.createElement("button");

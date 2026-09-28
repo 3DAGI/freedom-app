@@ -8552,3 +8552,81 @@ Endstand: protocol 1067 (6 übersprungen) · node 235 (6 übersprungen, mit
 Netz) · app 505 (+1) · mls 13 · Leak-Tests 58 grün + 1 todo · 0 rot ·
 check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 · Website 5 Seiten
 ok · Smoke-Test bestanden (mit „rahmen“).
+
+## Schritt 8.16g2b2 – Übersetzungen: Sätze des Protokolls in Settings und im Chat
+
+**Fertig:** Die deutschen Sätze des Protokolls in Settings und im Chat stehen
+in der Sprache der Oberfläche. Neu ist der Bereich
+`texte/protokollsaetze.ts` (`ps.*`, 74 Schlüssel); die Funktionen stehen in
+`protokoll-texte.ts`:
+- **Nachfolge:** `nachfolgeWarnung()` (Rückfrage beim Einrichten),
+  `nachfolgeStand()` (Stand in Settings und in der Ansicht als Vertrauter).
+- **Sicherung:**
+  - `sicherungInfo()` – Info mit letzter Sicherung;
+  - `sicherungGebaut()` – nach dem Sichern;
+  - `wiederherstellungText()` – Ergebnis der Wiederherstellung.
+- **Schlüsselwechsel:**
+  - `wechselWarnung()`, `widerrufAnleitung()`;
+  - `schluesselText()` – Stand eines Kontakts, im Chat als ⚠ mit Hinweis.
+- **Geräte:**
+  - `geraetWarnung()` mit `rechtName()` – Rückfrage vor einer Vollmacht;
+  - `geraetStatusText()` – auch in „Als Gerät angemeldet“.
+- **Echtheit:** `echtheitText()`, `fixierungText()` (Settings und Rückfrage
+  beim Start), `weitergabeText()` (Begleittext der weitergegebenen Datei).
+- **Ohne Internet:** `offlineHinweis()`, `offlineFaehigkeiten()` mit
+  `wegName()`.
+- **Tor:** `torText()` – Reihenfolge beim Umschalten der Verbindung.
+
+Ein Test hält jede deutsche Fassung wortgleich mit dem Protokoll: jeder Stand
+der Nachfolge, jeder Fall von Sicherung, Schlüsselkette, Gerät, Echtheit und
+Fixierung, alle Wege, alle Tor-Einstellungen.
+
+**Einzelheiten:**
+- **Protokoll (klein, andere Spur berührt):** zusätzliche Felder, damit die App
+  den Fall erkennt statt am deutschen Text:
+  - `KeyState.streit` („kreis“/„zu-lang“) und `.vorbereitet`;
+  - `RestoreResult.fehler` und `.version`;
+  - `VerifyResult.fall`, `.bestaetigt` und `.noetig`.
+
+  Nur zusätzliche Felder, kein Event-Format. Die Tor-Sätze haben echte
+  Umlaute („über“, „Rückfall“).
+- **Ehrlicher Text:** Die Offline-Fähigkeiten sagten zu Räumen noch „Noch
+  nicht verschlüsselt (2.3)“. Jetzt: private Räume sind verschlüsselt (MLS),
+  gehen aber (noch) nicht über Mesh – MLS-Gruppennachrichten sind keine
+  Umschläge, `pruefeMeshInhalt()` lässt sie nicht durch.
+- **Schärfere Rohtext-Suche** (`test/i18n-rohtext.ts`): Sie findet jetzt auch
+  - ein Wort mit Doppelpunkt vor Text oder einer Einsetzung
+    („verbunden: …“, „modell: auto“),
+  - Text mit „…“ („publiziere … (3 KB)…“).
+
+  Schemata („https:“) und Kennungen (`eigen:${id}`) bleiben außen vor. Die
+  Probe im Test enthält beide Fälle.
+- **Übersehene Stellen:** Die schärfere Suche fand acht, alle übersetzt:
+  - Protokollzeilen des Funkknotens: „verbunden“, „verworfen“;
+  - Git-Bündel veröffentlichen: „publiziere“, „publiziert“, „git-fehler“;
+  - Modellwahl: „modell: …“;
+  - Fehler beim Anhang-Laden: „blob: …“.
+- In `wiring-ausnahmen.txt` stehen sieben weitere deutsche Referenzen.
+- **Grenze:** Der Offline-Hinweis oben wird beim Start gesetzt; nach einem
+  Sprachwechsel folgt er beim nächsten Wechsel zwischen online und offline.
+- **Nach dem Einmergen von `main` (C.1b, C.2a):** Mesh steht jetzt auf der
+  Seite „Netz“ – der Offline-Hinweis nennt wie `OFFLINE_HINWEIS` „Netz → Mesh“
+  („Network → Mesh“). Die Räume stehen in `tabs/raeume.ts`; die Übersetzungen
+  dieses Schritts betrafen dort nichts.
+- **Noch unverändert (8.16g2b3):** Gründe aus Prüfungen des Protokolls
+  (siehe `phase-8.md`).
+
+**Tests:**
+- +1 in `i18n.test.ts`: alle Fälle deutsch wortgleich, Englisch mit Stichproben
+  und ohne deutschen Buchstaben, Stellen im Code.
+- Die Probe der Rohtext-Suche hat fünf neue Zeilen (drei Funde, zwei
+  Nicht-Funde).
+- `release-fix`: sucht die neue Stelle (`fixierungText(…)`) – nicht
+  schwächer.
+
+Endstand (nach dem Einmergen von `main`): protocol 1067 (6 übersprungen) ·
+node 235 (6 übersprungen, mit Netz; ohne Netz 234 + 7) · app 506 (+1) · mls 13 ·
+Leak-Tests 58 grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 ·
+innerHTML streng Exit 0 · Website 5 Seiten ok · Smoke-Test bestanden · im
+Browser: Sicherung, Offline-Fähigkeiten und Echtheitsprüfung in Englisch und
+Deutsch, ohne Seitenfehler.

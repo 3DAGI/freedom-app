@@ -349,8 +349,8 @@ export function sortByTorPreference(
       relays: [...onion, ...klar],
       onionCount: onion.length,
       message: onion.length > 0
-        ? `${onion.length} Zwiebeladresse(n) zuerst, ${klar.length} weitere als Rueckfall.`
-        : "Keine Zwiebeladressen bekannt — es wird ueber die normalen Relays verbunden, " +
+        ? `${onion.length} Zwiebeladresse(n) zuerst, ${klar.length} weitere als Rückfall.`
+        : "Keine Zwiebeladressen bekannt — es wird über die normalen Relays verbunden, " +
           "die deine IP sehen.",
     };
   }
@@ -358,7 +358,7 @@ export function sortByTorPreference(
   return {
     relays,
     onionCount: onion.length,
-    message: `${relays.length} Relays, davon ${onion.length} ueber Tor erreichbar.`,
+    message: `${relays.length} Relays, davon ${onion.length} über Tor erreichbar.`,
   };
 }
 

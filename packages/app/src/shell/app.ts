@@ -771,7 +771,7 @@ function starte(): void {
         // (Entscheidung 26.09.2026): lesen kann jeder, Speicherknoten halten nur Chiffrat.
         const { uploadAnhang } = await import("../blob-client.js");
         const pool = await ensurePool();
-        setGitStatus(`publiziere ${file.name} (${Math.round(bytes.length / 1024)}kb)…`);
+        setGitStatus(t("ein.gitPubliziere", { name: file.name, kb: Math.round(bytes.length / 1024) }));
         const res = await uploadAnhang(new File([bytes], "", { type: "application/octet-stream" }), pool as never, state.signer!);
         // repo-ref-event (38042)
         const { buildGitRepoRef } = await import("@freedomstack/protocol");
@@ -780,10 +780,10 @@ function starte(): void {
           state.keypair.pk,
         );
         await pool.publish(await signiere(ref));
-        toast(`${name} publiziert (${res.blobId.slice(0, 8)}…)`);
+        toast(t("ein.gitPubliziert", { name, blob: res.blobId.slice(0, 8) }));
         loadGitRepos();
       } catch (e) {
-        toast(`git-fehler: ${(e as Error).message}`, true);
+        toast(t("ein.gitFehler", { fehler: (e as Error).message }), true);
       }
     };
   }

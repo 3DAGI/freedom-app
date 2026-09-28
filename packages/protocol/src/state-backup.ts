@@ -107,6 +107,10 @@ export interface RestoreResult {
   ok: boolean;
   data?: Record<string, unknown>;
   backedUpAt?: number;
+  /** Warum nicht (seit 8.16g2b2, damit die App den Satz in ihrer Sprache bildet). */
+  fehler?: "kein-ereignis" | "version" | "unlesbar";
+  /** Bei „version“: die unbekannte Version. */
+  version?: unknown;
   message: string;
 }
 
@@ -122,13 +126,13 @@ export async function restoreStateBackup(
   backupKey: BackupKeypair,
 ): Promise<RestoreResult> {
   if (ev.kind !== KIND_STATE_BACKUP) {
-    return { ok: false, message: "Kein Sicherungs-Ereignis." };
+    return { ok: false, fehler: "kein-ereignis", message: "Kein Sicherungs-Ereignis." };
   }
   try {
     const klartext = await decryptDM(ev.content, backupKey.sk, backupKey.pk);
     const p = JSON.parse(klartext) as BackupPayload;
     if (p.version !== 1) {
-      return { ok: false, message: `Unbekannte Sicherungsversion ${p.version}.` };
+      return { ok: false, fehler: "version", version: p.version, message: `Unbekannte Sicherungsversion ${p.version}.` };
     }
     return {
       ok: true,
@@ -139,6 +143,7 @@ export async function restoreStateBackup(
   } catch {
     return {
       ok: false,
+      fehler: "unlesbar",
       message:
         "Sicherung nicht lesbar. Entweder gehört sie zu einer anderen " +
         "Merkphrase, oder sie ist beschädigt. Du kommst trotzdem hinein — " +

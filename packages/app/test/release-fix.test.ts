@@ -12,7 +12,8 @@ test("Verdrahtung (5.2): Start prueft die fixierte Version, Settings fixieren nu
   const s = readFileSync(new URL("../src/shell/tabs/settings.ts", import.meta.url), "utf8");
   assert.match(s, /fixierung: pruefeFixierung\(ladeFixierung\(\), hash, r\)/);
   assert.match(s, /if \(r\.status === "echt" && r\.version && fix\?\.sha256 !== hash\)/, "fixieren nur, was k Signierer bestaetigen");
-  assert.match(s, /fixierung\.status === "andere-echt" && r\.version && confirm\(fixierung\.meldung\)/, "neue Version nur nach Rueckfrage");
+  // Seit 8.16g2b2 bildet fixierungText() die Rueckfrage in der Sprache der Oberflaeche
+  assert.match(s, /fixierung\.status === "andere-echt" && r\.version && confirm\(fixierungText\(fixierung\.status, fixVersion, r\.version\)\)/, "neue Version nur nach Rueckfrage");
   assert.match(s, /mindestens `RELEASE_MIN_SIGNATUREN` \(2\)/);
   const skript = readFileSync(new URL("../../../scripts/publish-release.mjs", import.meta.url), "utf8");
   assert.match(skript, /nutzlast\(\{ version, artifacts \}\)/, "Nutzlast-Hash zum Abgleich unter den Signierern");

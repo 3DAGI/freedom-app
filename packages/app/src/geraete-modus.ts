@@ -10,6 +10,7 @@
  */
 import { listDevices, type NostrEvent } from "@freedomstack/protocol";
 import { t } from "./i18n.js";
+import { geraetStatusText } from "./protokoll-texte.js";
 
 /** Fuer wen dieses Geraet spricht (Hex). Kein Geheimnis – der Schluessel liegt wie sonst im Tresor. */
 export const LS_GERAET_PERSON = "freedom.geraet.person";
@@ -43,8 +44,8 @@ export interface GeraeteStand {
 export function geraeteStand(selbst: string, person: string, events: readonly NostrEvent[], nowSecs?: number): GeraeteStand {
   const d = listDevices(person, [...events], { nowSecs }).find((x) => x.devicePubkey === selbst);
   if (!d) return { status: "fehlt", darfSchreiben: false, text: t("ein.keineVollmacht") };
-  if (d.status !== "aktiv") return { status: d.status === "unbekannt" ? "fehlt" : d.status, darfSchreiben: false, text: d.message };
+  if (d.status !== "aktiv") return { status: d.status === "unbekannt" ? "fehlt" : d.status, darfSchreiben: false, text: geraetStatusText(d, nowSecs) };
   return d.permissions.has("nachrichten")
-    ? { status: "aktiv", darfSchreiben: true, text: t("ein.geraetStand", { name: d.label, stand: d.message }) }
+    ? { status: "aktiv", darfSchreiben: true, text: t("ein.geraetStand", { name: d.label, stand: geraetStatusText(d, nowSecs) }) }
     : { status: "aktiv", darfSchreiben: false, text: t("ein.geraetOhneNachrichten", { name: d.label }) };
 }

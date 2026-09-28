@@ -180,6 +180,10 @@ export interface KeyState {
   chainLength: number;
   /** Ab wann Ereignisse des alten Schlüssels unglaubwürdig sind. */
   distrustFrom?: number;
+  /** Bei „streitig“: warum (seit 8.16g2b2, damit die App den Satz in ihrer Sprache bildet). */
+  streit?: "kreis" | "zu-lang";
+  /** Bei „gueltig“: Ist ein Nachfolger vorbereitet? */
+  vorbereitet?: boolean;
   message: string;
 }
 
@@ -258,7 +262,7 @@ export function resolveKey(
       // Ringschluss: A widerruft auf B, B auf A. Weiterlaufen wäre eine
       // Endlosschleife, stillschweigend abbrechen wäre irreführend.
       return {
-        pubkey, status: "streitig", currentPubkey: aktuell, chainLength: schritte,
+        pubkey, status: "streitig", currentPubkey: aktuell, chainLength: schritte, streit: "kreis",
         message: "Die Schlüsselkette führt im Kreis. Hier stimmt etwas nicht — nichts annehmen.",
       };
     }
@@ -270,7 +274,7 @@ export function resolveKey(
 
   if (schritte >= maxChain) {
     return {
-      pubkey, status: "streitig", currentPubkey: aktuell, chainLength: schritte,
+      pubkey, status: "streitig", currentPubkey: aktuell, chainLength: schritte, streit: "zu-lang",
       message: `Mehr als ${maxChain} Wechsel — unglaubwürdig.`,
     };
   }
@@ -278,7 +282,7 @@ export function resolveKey(
   if (!letzterWiderruf) {
     const vorbereitet = mandate.has(pubkey);
     return {
-      pubkey, status: "gueltig", currentPubkey: pubkey, chainLength: 0,
+      pubkey, status: "gueltig", currentPubkey: pubkey, chainLength: 0, vorbereitet,
       message: vorbereitet
         ? "Gültig. Ein Nachfolger ist vorbereitet."
         : "Gültig. Kein Nachfolger vorbereitet — nach einem Diebstahl wäre nichts mehr zu machen.",

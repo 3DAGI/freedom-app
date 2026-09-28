@@ -318,15 +318,15 @@ export class MeshNode {
     return this.transport?.kind ?? null;
   }
 
-  async attach(t: MeshTransport): Promise<void> {
+  async attach(tr: MeshTransport): Promise<void> {
     await this.detach();
-    this.transport = t;
+    this.transport = tr;
     this.stopped = false;
     // Durchsatz und Sendezeit haengen an der Strecke. Per USB und per Bluetooth
     // spricht die App ein Funkgeraet an – beides geht danach ueber LoRa (7.1).
-    this.link = t.kind === "datei" ? "datei" : "lora";
-    this.bytesPerSecond = t.kind === "datei" ? 5_000_000 : 200;
-    this.events.onLog?.(`verbunden: ${t.name}`);
+    this.link = tr.kind === "datei" ? "datei" : "lora";
+    this.bytesPerSecond = tr.kind === "datei" ? 5_000_000 : 200;
+    this.events.onLog?.(t("bau.verbunden", { name: tr.name }));
     void this.pump();
     // Beim Verbinden den eigenen Bestand anbieten — sonst passiert bei einem
     // Treffen nichts, bis jemand von Hand etwas sendet.
@@ -445,7 +445,7 @@ export class MeshNode {
       // Nur Verschluesseltes weitergeben – Klartext, offene Events, Ecash nie (7.1).
       const pruefung = pruefeMeshInhalt(st.payload, st.kind);
       if (!pruefung.ok) {
-        this.events.onLog?.(`verworfen: ${pruefung.grund}`);
+        this.events.onLog?.(t("bau.verworfen", { grund: pruefung.grund }));
         return;
       }
       // Bestandsmeldung der Gegenseite: kein Inhalt, sondern eine Anfrage.

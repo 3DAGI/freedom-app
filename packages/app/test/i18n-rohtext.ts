@@ -144,5 +144,9 @@ function istCodeText(s: string, davor: string, zeile: string): boolean {
   if (/\s/.test(sichtbar.trim()) && (sichtbar.match(/[A-ZÄÖÜ][a-zäöüß]{2,}/g) ?? []).length > 0 && (sichtbar.match(/[A-Za-zÄÖÜäöüß]{2,}/g) ?? []).length >= 2) return true;
   if (/[ÄÖÜäöüß]/.test(sichtbar)) return true;
   if (/[A-Za-zÄÖÜäöüß]{3,}\s*(…|\.\.\.)\s*$/.test(sichtbar)) return true;
+  // Seit 8.16g2b2: ein Wort mit Doppelpunkt vorweg („verbunden: …“) und Text mit „…“ („publiziere x (3 kb)…“)
+  // (nicht: Schemata wie „https:“, Kennungen wie `eigen:${id}` – dort folgt dem Doppelpunkt kein Leerzeichen im Text)
+  if (/^\s*[a-zäöüß]{3,}(-[a-zäöüß]+)*:\s(\s|[a-zäöüß]{3,})/.test(s)) return true;
+  if (/…/.test(sichtbar) && /[A-Za-zÄÖÜäöüß]{4,}/.test(sichtbar)) return true;
   return /^\s*[A-ZÄÖÜ][a-zäöüß]{2,}(-[A-ZÄÖÜa-zäöüß]+)*[^A-Za-zÄÖÜäöüß]*$/.test(sichtbar);
 }

@@ -349,7 +349,8 @@ export function offlineCapabilities(link: Link): { feature: string; works: boole
         "Post für einen Kontakt nimmst du im Chat als Datei mit." +
         (ueberFunk ? " Funk: höchstens 1 % Sendezeit je Stunde – drei bis vier kurze Nachrichten." : ""),
     },
-    { feature: "Räume und Kanäle", works: false, note: "Noch nicht verschlüsselt (2.3) – bis dahin nicht über Mesh." },
+    // Private Raeume sind seit 2.3 MLS-Gruppen; ihre Nachrichten (445) sind keine Umschlaege – pruefeMeshInhalt() laesst sie nicht durch.
+    { feature: "Räume und Kanäle", works: false, note: "Private Räume sind verschlüsselt (MLS), gehen aber (noch) nicht über Mesh – nur 1:1-Unterhaltungen." },
     {
       // Seit 7.2: Durable Nonce – die Transaktion bleibt gueltig, bis ein Geraet mit Netz sie einreicht.
       feature: "Solana-Zahlungen", works: true,
