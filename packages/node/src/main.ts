@@ -346,33 +346,20 @@ async function main(): Promise<void> {
   if (process.env.SWEEP_TARGET_WALLET || process.env.ARWEAVE_MIRROR === "1") {
     console.warn("[fee] SWEEP_TARGET_WALLET und ARWEAVE_MIRROR werden nicht mehr gelesen (Gebührenmodell A+, 5.1).");
   }
-  // LNURL-Server (optional): Lightning-Fee-Empfang ohne KYC.
-  // LNURL_ENABLED=1 LNURL_BASE_URL=https://... LNURL_BACKEND=blink|lnd
-  // BLINK_API_KEY=... BLINK_WALLET_ID=...  (oder LND_REST + LND_MACAROON)
-  const lnurlEnabled = process.env.LNURL_ENABLED === "1";
-  if (lnurlEnabled) {
-    const { startLnurlServer, BlinkBackend, LndBackend } = await import("./lnurl-server.js");
-    const backendType = process.env.LNURL_BACKEND ?? "blink";
-    const backend =
-      backendType === "lnd"
-        ? new LndBackend(
-            process.env.LND_REST ?? "https://127.0.0.1:8080",
-            process.env.LND_MACAROON ?? "",
-          )
-        : new BlinkBackend(
-            process.env.BLINK_API_KEY ?? "",
-            process.env.BLINK_WALLET_ID ?? "",
-          );
-    startLnurlServer(
-      {
-        baseUrl: process.env.LNURL_BASE_URL ?? `http://localhost:${process.env.LNURL_PORT ?? 3601}`,
-        domain: process.env.LNURL_DOMAIN ?? new URL(process.env.LNURL_BASE_URL ?? "http://x").hostname,
-        minMsat: Number(process.env.LNURL_MIN_MSAT ?? 1000),
-        maxMsat: Number(process.env.LNURL_MAX_MSAT ?? 10_000_000),
-        commentAllowed: Number(process.env.LNURL_COMMENT ?? 200),
-      },
-      backend,
-    );
+  // Eigener Lightning-Empfang (8.2b): Lightning-Adresse beim eigenen LND statt bei einem
+  // verwahrenden Dienst. Hinter einem Reverse-Proxy mit TLS; NODE_LUD16 = <name>@<domain>.
+  if (process.env.LNURL_ENABLED === "1") {
+    const { LnurlDienst, lnurlAusUmgebung, starteLnurlServer } = await import("./lnurl-server.js");
+    const { loadMacaroonHex } = await import("@freedomstack/protocol");
+    const r = await lnurlAusUmgebung(process.env, loadMacaroonHex);
+    if ("grund" in r) {
+      console.error(`[lnurl] aus – ${r.grund}`);
+    } else {
+      starteLnurlServer(new LnurlDienst(r.konfig, r.quelle), Number(process.env.LNURL_PORT || 3601));
+      const eigene = `${r.konfig.name}@${r.konfig.domain}`;
+      console.log(`[lnurl] Lightning-Adresse ${eigene} beim eigenen LND (Port ${process.env.LNURL_PORT || 3601}, hinter dem Reverse-Proxy)`);
+      if (lud16.toLowerCase() !== eigene) console.warn(`[lnurl] NODE_LUD16 ist ${lud16} – die App zahlt dorthin, nicht an ${eigene}`);
+    }
   }
 
   // 1-Klick-Einstieg: Capabilities publizieren (Tier aus Modell, Default-Preise).

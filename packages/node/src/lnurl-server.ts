@@ -1,155 +1,175 @@
 /**
- * LNURL-Server für Treasury-Lightning-Fees (in den Node integriert).
+ * Lightning-Adresse beim eigenen Knoten (Schritt 8.2b): LNURL-pay (LUD-06,
+ * LUD-16) mit Rechnungen des eigenen LND – statt einer Adresse bei einem
+ * verwahrenden Dienst, dem das Geld bis zur Auszahlung gehört.
  *
- * Zweck: Der Development-Fee-Anteil in Sats fließt an eine Lightning-Adresse
- * (lud16), die dieser Server bedient. KEINE KYC, kein externer Dienst:
+ *   GET /.well-known/lnurlp/<name>         → Parameter, nur für den eigenen Namen
+ *   GET /lnurlp/<name>/rechnung?amount=<msat> → Rechnung, Beschreibung = Hash der Metadaten
  *
- *   GET /.well-known/lnurlp/<name>          → LNURL-pay-Parametern (LUD-06)
- *   GET /lnurlp/callback?amount=<msat>       → BOLT11-Invoice
+ * - LND nur mit einer Macaroon, die ausschließlich Rechnungen darf
+ *   (`pruefeRelayMacaroon()`: invoices:read/write, info:read) – wer den Server
+ *   übernimmt, kann nichts auszahlen.
+ * - Beträge nur im Bereich; Kommentare nimmt der Server nicht an (nichts zu speichern).
+ * - Bremse: höchstens `proMinute` Rechnungen je Minute – jede kostet LND Platz.
+ * - Nach außen nur feste Texte, nie Meldungen von LND.
+ * - CORS `*`: Die App holt die Rechnung aus dem Browser.
  *
- * Routing der Invoice: Der Server erstellt selbst KEINE Invoices (das bräuchte
- * einen Lightning-Node mit Kanälen). Stattdessen nutzt er einen konfigurierbaren
- * "Invoice-Backend" — typischerweise eine non-custodial Wallet-API (Blink,
- * Alby-Hub, LNDg) oder ein LND. Die Invoice wird AUF DIE AKTUELLE WOCHEN-WALLET
- * ausgestellt (d.h. das Backend muss die Woche-Adresse als Empfang nutzen können).
+ * Erreichbar wird er hinter einem Reverse-Proxy mit TLS unter der eigenen
+ * Domain (`LNURL_BASE_URL`); `NODE_LUD16` ist dann `<name>@<domain>`. Ob das von
+ * außen klappt, prüft die Selbstprüfung (`einrichtung.ts`, 8.2a).
  *
- * PRAGMATISCHER ANSATZ v1: Das Backend ist eine Blink-API (blink.sv), die
- * non-custodial Wallets mit Lightning-Addressen anbietet und per API-Key
- * steuerbar ist. Alternativ: LND-REST. Beide via env konfigurierbar.
- *
- * Sicherheit:
- * - Der Server läuft NUR auf dem Treasury-Node (nicht öffentlich im Repo-Default)
- * - API-Keys liegen in env, nie im Code
- * - Pro Invoice wird die aktuelle Wochen-Adresse als Memo/Metadata mitgeführt,
- *   damit der Sweep sie zuordnen kann.
+ * Bis 8.2b stand hier ein Server für Treasury-Gebühren (Blink oder LND,
+ * Wochen-Wallets) – das Gebührenmodell A+ (5.1) kennt keine Treasury mehr.
  */
-
+import { createHash } from "node:crypto";
 import http from "node:http";
 
-export interface LnurlConfig {
-  /** Extern erreichbare Basis-URL, z.B. https://treasury.example.com */
-  baseUrl: string;
-  /** Anzeigename (domain der lud16). */
+export interface LnurlKonfig {
+  /** Öffentliche Basis, z. B. https://knoten.example.org – nur https. */
+  basisUrl: string;
+  /** Teil vor dem @ der Lightning-Adresse. */
+  name: string;
+  /** Domain der Lightning-Adresse (Host der Basis-URL). */
   domain: string;
-  /** Min/Max in msat pro Invoice. */
   minMsat: number;
   maxMsat: number;
-  /** Kommentar-Maximallänge (LUD-12), 0 = aus. */
-  commentAllowed: number;
+  /** Höchstens so viele Rechnungen je Minute. */
+  proMinute: number;
 }
 
-export interface InvoiceBackend {
-  /** Erstellt eine BOLT11-Invoice. */
-  createInvoice(args: { amountMsat: number; memo: string; metadataJson: string }): Promise<{ pr: string }>;
+export interface RechnungsQuelle {
+  /** Eine Rechnung über genau `msat`, Beschreibung = `beschreibungsHash`. */
+  rechnung(msat: number, beschreibungsHash: Uint8Array): Promise<string>;
 }
 
-/** Blink (blink.sv) Backend: non-custodial, API-Key, keine KYC. */
-export class BlinkBackend implements InvoiceBackend {
-  constructor(private apiKey: string, private walletId: string) {}
+export interface LnurlAntwort { status: number; body: Record<string, unknown> }
 
-  async createInvoice(args: { amountMsat: number; memo: string; metadataJson: string }): Promise<{ pr: string }> {
-    const res = await fetch("https://api.blink.sv/graphql", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "X-API-KEY": this.apiKey },
-      body: JSON.stringify({
-        query: `mutation LnInvoiceCreate($input: LnInvoiceCreateInput!) {
-          lnInvoiceCreate(input: $input) { invoice { paymentRequest } }
-        }`,
-        variables: {
-          input: {
-            walletId: this.walletId,
-            amount: args.amountMsat,
-            memo: args.memo.slice(0, 120),
-          },
+export const LNURL_STANDARD = { minMsat: 1_000, maxMsat: 100_000_000, proMinute: 30 } as const;
+const NAME = /^[a-z0-9._-]{1,64}$/;
+
+/** Die Metadaten der Adresse – ihr Hash steht in jeder Rechnung (LUD-06). */
+export function lnurlMetadaten(k: Pick<LnurlKonfig, "name" | "domain">): string {
+  return JSON.stringify([["text/plain", `FreedomStack-Provider ${k.name}@${k.domain}`], ["text/identifier", `${k.name}@${k.domain}`]]);
+}
+
+const fehler = (status: number, reason: string): LnurlAntwort => ({ status, body: { status: "ERROR", reason } });
+
+/** Antwort auf eine Anfrage – ohne HTTP, damit sie sich prüfen lässt. */
+export class LnurlDienst {
+  private zeiten: number[] = [];
+  constructor(
+    private readonly k: LnurlKonfig,
+    private readonly quelle: RechnungsQuelle,
+    private readonly jetzt: () => number = () => Date.now(),
+  ) {}
+
+  async antworte(pfad: string, suche: URLSearchParams): Promise<LnurlAntwort> {
+    const metadaten = lnurlMetadaten(this.k);
+    if (pfad === `/.well-known/lnurlp/${this.k.name}`) {
+      return {
+        status: 200,
+        body: {
+          tag: "payRequest", callback: `${this.k.basisUrl}/lnurlp/${this.k.name}/rechnung`,
+          minSendable: this.k.minMsat, maxSendable: this.k.maxMsat, metadata: metadaten,
         },
-      }),
-    });
-    if (!res.ok) throw new Error(`blink http ${res.status}`);
-    const data = (await res.json()) as { data?: { lnInvoiceCreate?: { invoice?: { paymentRequest?: string } } }; errors?: unknown[] };
-    const pr = data.data?.lnInvoiceCreate?.invoice?.paymentRequest;
-    if (!pr) throw new Error("blink: keine invoice erhalten");
-    return { pr };
-  }
-}
-
-/** LND-REST Backend (selbstgehosteter Lightning-Node). */
-export class LndBackend implements InvoiceBackend {
-  constructor(private restUrl: string, private macaroonHex: string) {}
-
-  async createInvoice(args: { amountMsat: number; memo: string; metadataJson: string }): Promise<{ pr: string }> {
-    const res = await fetch(`${this.restUrl}/v2/invoices`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "Grpc-Metadata-macaroon": this.macaroonHex },
-      body: JSON.stringify({
-        value_msat: String(args.amountMsat),
-        memo: args.memo.slice(0, 120),
-      }),
-    });
-    if (!res.ok) throw new Error(`lnd http ${res.status}`);
-    const data = (await res.json()) as { payment_request?: string };
-    if (!data.payment_request) throw new Error("lnd: keine invoice");
-    return { pr: data.payment_request };
-  }
-}
-
-/** Startet den LNURL-HTTP-Server. */
-export function startLnurlServer(cfg: LnurlConfig, backend: InvoiceBackend): http.Server {
-  const server = http.createServer(async (req, res) => {
-    const url = new URL(req.url ?? "/", `http://${cfg.domain}`);
-    try {
-      // CORS für Wallet-Clients
-      res.setHeader("Access-Control-Allow-Origin", "*");
-      res.setHeader("Content-Type", "application/json");
-
-      // LUD-06: lnurlp endpoint
-      if (url.pathname.startsWith("/.well-known/lnurlp/")) {
-        const name = url.pathname.split("/").pop() ?? "";
-        const body = {
-          status: "OK",
-          tag: "payRequest",
-          callback: `${cfg.baseUrl}/lnurlp/callback`,
-          minSendable: cfg.minMsat,
-          maxSendable: cfg.maxMsat,
-          metadata: JSON.stringify([
-            ["text/identifier", `${name}@${cfg.domain}`],
-            ["text/plain", `Freedom Protocol Treasury Fee`],
-          ]),
-          ...(cfg.commentAllowed > 0 ? { commentAllowed: cfg.commentAllowed } : {}),
-        };
-        res.end(JSON.stringify(body));
-        return;
-      }
-
-      // Callback: Invoice erstellen
-      if (url.pathname === "/lnurlp/callback") {
-        const amount = Number(url.searchParams.get("amount") ?? "0");
-        const comment = url.searchParams.get("comment") ?? "";
-        if (amount < cfg.minMsat || amount > cfg.maxMsat) {
-          res.statusCode = 400;
-          res.end(JSON.stringify({ status: "ERROR", reason: `amount out of range (${cfg.minMsat}-${cfg.maxMsat} msat)` }));
-          return;
-        }
-        const week = Math.floor(Date.now() / (7 * 24 * 3600 * 1000));
-        const metadata = JSON.stringify([
-          ["text/identifier", `treasury@${cfg.domain}`],
-          ["text/plain", `Freedom Treasury Fee (week ${week})`],
-          ...(comment ? [["text/comment", comment.slice(0, 200)]] : []),
-        ]);
-        const { pr } = await backend.createInvoice({ amountMsat: amount, memo: `freedom-week-${week}`, metadataJson: metadata });
-        res.end(JSON.stringify({ status: "OK", successAction: { tag: "message", message: "Danke! Freedom bleibt frei." }, pr }));
-        return;
-      }
-
-      res.statusCode = 404;
-      res.end(JSON.stringify({ status: "ERROR", reason: "not found" }));
-    } catch (e) {
-      res.statusCode = 500;
-      res.end(JSON.stringify({ status: "ERROR", reason: (e as Error).message.slice(0, 120) }));
+      };
     }
-  });
+    if (pfad !== `/lnurlp/${this.k.name}/rechnung`) return fehler(404, "Nicht gefunden");
+    // Nur Ziffern – Number() läse auch „1.5e3“ oder „0x10“
+    const roh = suche.get("amount") ?? "";
+    const betrag = /^\d{1,15}$/.test(roh) ? Number(roh) : NaN;
+    if (!Number.isSafeInteger(betrag) || betrag < this.k.minMsat || betrag > this.k.maxMsat) {
+      return fehler(400, `Betrag außerhalb von ${this.k.minMsat} bis ${this.k.maxMsat} msat`);
+    }
+    const t = this.jetzt();
+    this.zeiten = this.zeiten.filter((z) => t - z < 60_000);
+    if (this.zeiten.length >= this.k.proMinute) return fehler(429, "Zu viele Rechnungen – bitte gleich noch einmal");
+    this.zeiten.push(t);
+    try {
+      const pr = await this.quelle.rechnung(betrag, createHash("sha256").update(metadaten).digest());
+      return { status: 200, body: { pr, routes: [] } };
+    } catch {
+      // Nie die Meldung von LND – sie kann Interna tragen
+      return fehler(502, "Rechnung gerade nicht möglich");
+    }
+  }
+}
 
-  server.listen(Number(process.env.LNURL_PORT ?? 3601), () => {
-    console.log(`LNURL-Server aktiv: ${cfg.baseUrl}/.well-known/lnurlp/treasury`);
+/** HTTP-Hülle: nur GET, CORS `*`, JSON. */
+export function starteLnurlServer(dienst: LnurlDienst, port: number, host = "127.0.0.1"): http.Server {
+  const server = http.createServer((req, res) => {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Content-Type", "application/json");
+    const antwort = req.method === "GET"
+      ? dienst.antworte(new URL(req.url ?? "/", "http://x").pathname, new URL(req.url ?? "/", "http://x").searchParams)
+      : Promise.resolve(fehler(405, "Nur GET"));
+    void antwort
+      .catch(() => fehler(500, "Interner Fehler"))
+      .then((a) => { res.statusCode = a.status; res.end(JSON.stringify(a.body)); });
   });
+  server.listen(port, host);
   return server;
+}
+
+export interface LnurlUmgebung {
+  LNURL_BASE_URL?: string;
+  LNURL_NAME?: string;
+  LNURL_MIN_MSAT?: string;
+  LNURL_MAX_MSAT?: string;
+  LNURL_PRO_MINUTE?: string;
+  LNURL_LND_MACAROON?: string;
+  LND_REST?: string;
+  LND_INSECURE_TLS?: string;
+  LNURL_BACKEND?: string;
+}
+
+/**
+ * Konfiguration und LND aus der Umgebung – oder ein Grund, warum nicht. Die
+ * Macaroon muss sich auf Rechnungen beschränken; `blink` gibt es nicht mehr.
+ */
+export async function lnurlAusUmgebung(
+  env: LnurlUmgebung,
+  lade: (pfad: string) => Promise<string>,
+): Promise<{ konfig: LnurlKonfig; quelle: RechnungsQuelle } | { grund: string }> {
+  if (env.LNURL_BACKEND && env.LNURL_BACKEND !== "lnd") {
+    return { grund: `LNURL_BACKEND=${env.LNURL_BACKEND} gibt es nicht mehr – nur der eigene LND (Blink verwahrt das Geld)` };
+  }
+  let basis: URL;
+  try {
+    basis = new URL(env.LNURL_BASE_URL ?? "");
+  } catch {
+    return { grund: "LNURL_BASE_URL fehlt (öffentliche https-Adresse des Knotens)" };
+  }
+  if (basis.protocol !== "https:" || basis.pathname !== "/" || basis.search) {
+    return { grund: "LNURL_BASE_URL muss https://<domain> sein – Wallets und die App verlangen https" };
+  }
+  const name = (env.LNURL_NAME || "provider").toLowerCase();
+  if (!NAME.test(name)) return { grund: "LNURL_NAME: nur a–z, 0–9, Punkt, Strich, Unterstrich" };
+  const zahl = (w: string | undefined, standard: number) => (w && /^\d{1,15}$/.test(w) ? Number(w) : standard);
+  const konfig: LnurlKonfig = {
+    basisUrl: basis.origin, name, domain: basis.hostname,
+    minMsat: zahl(env.LNURL_MIN_MSAT, LNURL_STANDARD.minMsat),
+    maxMsat: zahl(env.LNURL_MAX_MSAT, LNURL_STANDARD.maxMsat),
+    proMinute: zahl(env.LNURL_PRO_MINUTE, LNURL_STANDARD.proMinute),
+  };
+  if (konfig.minMsat < 1 || konfig.maxMsat < konfig.minMsat || konfig.proMinute < 1) {
+    return { grund: "LNURL_MIN_MSAT, LNURL_MAX_MSAT oder LNURL_PRO_MINUTE ungültig" };
+  }
+  if (!env.LNURL_LND_MACAROON) return { grund: "LNURL_LND_MACAROON fehlt (lncli bakemacaroon invoices:read invoices:write)" };
+  const { LndLightningAdapter, pruefeRelayMacaroon } = await import("@freedomstack/protocol");
+  let hex: string;
+  try {
+    hex = await lade(env.LNURL_LND_MACAROON);
+  } catch (e) {
+    return { grund: `LNURL_LND_MACAROON nicht lesbar (${(e as Error).name})` };
+  }
+  const ok = pruefeRelayMacaroon(hex);
+  if (!ok.ok) return { grund: `LNURL_LND_MACAROON: ${ok.grund} – nur Rechnungen (lncli bakemacaroon invoices:read invoices:write)` };
+  let lnd: InstanceType<typeof LndLightningAdapter>;
+  try {
+    lnd = new LndLightningAdapter({ restUrl: env.LND_REST || "https://127.0.0.1:8080", macaroonHex: hex, allowInsecureTls: env.LND_INSECURE_TLS === "1" });
+  } catch (e) {
+    return { grund: `LND_REST: ${(e as Error).message}` };
+  }
+  return { konfig, quelle: { rechnung: async (msat, h) => (await lnd.createLnurlInvoice(msat, h)).bolt11 } };
 }

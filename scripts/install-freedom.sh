@@ -98,6 +98,7 @@ if [ -z "${NODE_LUD16:-}" ]; then
   if [ -n "$TTY" ]; then
     say "Dorthin zahlt die App deinen Anteil. Am besten die Adresse deiner eigenen Wallet –"
     say "bei einem verwahrenden Dienst gehoert das Geld bis zur Auszahlung dem Dienst."
+    say "Eine Adresse beim eigenen Knoten (eigener LND): docs/PROVIDER.md."
     printf 'Deine Lightning-Adresse fuer Einnahmen (name@domain): '
     read -r NODE_LUD16 < "$TTY"
   else
