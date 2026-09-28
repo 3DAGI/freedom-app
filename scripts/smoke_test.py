@@ -1367,6 +1367,85 @@ def karte_pruefen(browser, url: str) -> dict:
     return erg
 
 
+# Seiten für den Durchgang auf dem Handy (seit C.5a): Adresse und Unter-Reiter („gruppe:reiter“)
+MOBIL_SEITEN = [
+    ("#/agent", ""), ("#/agent/verlauf", ""), ("#/agent/modelle", ""), ("#/chat", ""), ("#/repos", ""),
+    ("#/waehrung", ""), ("#/waehrung", "wallet:swap"), ("#/waehrung", "wallet:lp"), ("#/verdienen", ""),
+    ("#/verdienen", "earn:refer"), ("#/netz", ""), ("#/netz", "netz:mesh"), ("#/profil", ""),
+    ("#/settings", ""), ("#/settings", "settings:network"), ("#/mehr", ""),
+]
+MOBIL_MESSEN = """() => {
+  const sichtbar = (e) => { const r = e.getBoundingClientRect(); const s = getComputedStyle(e);
+    return r.width > 0 && r.height > 0 && s.visibility !== 'hidden' && r.bottom > 0 && r.top < innerHeight; };
+  // Ein Häkchen im Label ist über das ganze Label zu treffen – gemessen wird dann das Label
+  const ziele = [...document.querySelectorAll('#app button, #app a[href], #app [role=button]:not(rect), #app [role=tab], #app select, #app summary, #app input:not([type=hidden]), #app label:has(> input)')]
+    .filter(e => sichtbar(e) && !(e.matches('input') && e.closest('label')) && !e.closest('[inert]'));
+  const klein = ziele.filter(e => { const r = e.getBoundingClientRect(); return r.height < 39.5 || r.width < 39.5; })
+    .map(e => (e.id ? '#' + e.id : e.tagName.toLowerCase()) + ' ' + Math.round(e.getBoundingClientRect().width) + '×' + Math.round(e.getBoundingClientRect().height));
+  return { laufleiste: document.documentElement.scrollWidth - innerWidth, klein: [...new Set(klein)] };
+}"""
+
+
+def mobil_pruefen(browser, url: str) -> dict:
+    """Handy hochkant und quer (C.5a): keine Seite mit waagrechter Laufleiste, jede Berührfläche mindestens
+    40 px, das eigene Bild in der Kopfzeile, beim Tippen weicht die untere Leiste."""
+    erg = {"fehler": []}
+    basis = url.rsplit("/", 1)[0]
+    for lage, vp in [("hoch", {"width": 390, "height": 844}), ("quer", {"width": 844, "height": 390})]:
+        ctx = browser.new_context(locale="de-DE", viewport=vp, is_mobile=True, has_touch=True)
+        ctx.route("**/*", lambda r: r.continue_() if r.request.url.startswith(basis) else r.abort())
+        ctx.route_web_socket(re.compile(r"^wss?://"), ProbeRelay().verbinde)
+        s = ctx.new_page()
+        s.on("pageerror", lambda e: erg["fehler"].append(str(e)[:300]))
+        ev = s.evaluate
+        s.goto(url, wait_until="load")
+        s.wait_for_selector("#bk-done", timeout=30000)
+        w = ev("() => [...document.querySelectorAll('.mnemonic-list li')].map(l => l.textContent)")
+        ev("(w) => document.querySelectorAll('#bk-challenge input').forEach(i => i.value = w[+i.dataset.pos])", w)
+        ev("() => document.getElementById('bk-done').click()")
+        s.wait_for_timeout(1500)
+        ev("() => document.getElementById('ein-abbrechen')?.click()")
+        s.wait_for_timeout(300)
+        seiten = {}
+        for adresse, reiter in MOBIL_SEITEN:
+            ev("(a) => { location.hash = a; }", adresse)
+            s.wait_for_timeout(300)
+            if reiter:
+                gruppe, sub = reiter.split(":")
+                ev("([g, r]) => document.querySelector(`[data-subtab-group='${g}'] [data-subtab='${r}']`)?.click()", [gruppe, sub])
+                s.wait_for_timeout(150)
+            m = ev(MOBIL_MESSEN)
+            if m["laufleiste"] > 0 or m["klein"]:
+                seiten[f"{adresse} {reiter}".strip()] = m
+        erg[lage] = {"seiten": seiten}
+        if seiten:
+            erg["fehler"].append(f"{lage}: {seiten}")
+        # Kopfzeile: vor dem Schlüssel das eigene Bild (ohne Namen „?“), die Fläche zum Profil mindestens 40 px hoch
+        kopf = ev("""() => { const i = document.getElementById('ident'); const vor = getComputedStyle(i, '::before');
+          return { initial: i.dataset.initial, bild: vor.content, breite: vor.width, hoehe: Math.round(i.getBoundingClientRect().height),
+            text: i.textContent.includes('…') }; }""")
+        erg[lage]["kopf"] = kopf
+        if lage == "hoch" and (kopf["initial"] != "?" or kopf["bild"] != '"?"' or kopf["breite"] != "28px" or kopf["hoehe"] < 40 or not kopf["text"]):
+            erg["fehler"].append(f"{lage}: Kopfzeile {kopf}")
+        # Tastatur: im Eingabefeld weicht die untere Leiste, danach ist sie wieder da
+        ev("() => { location.hash = '#/agent'; }")
+        s.wait_for_timeout(300)
+        leiste = "() => getComputedStyle(document.querySelector('.app-nav')).display"
+        vorher = ev(leiste)
+        s.locator("#ai-prompt").focus()
+        s.wait_for_timeout(50)
+        beim_tippen = ev(leiste)
+        ev("() => document.activeElement.blur()")
+        s.wait_for_timeout(50)
+        danach = ev(leiste)
+        erg[lage]["tastatur"] = [vorher, beim_tippen, danach]
+        if vorher == "none" or beim_tippen != "none" or danach == "none":
+            erg["fehler"].append(f"{lage}: untere Leiste beim Tippen {erg[lage]['tastatur']}")
+        ctx.close()
+    erg["bestanden"] = not erg["fehler"]
+    return erg
+
+
 def main() -> int:
     dist = Path(sys.argv[1] if len(sys.argv) > 1 else "packages/app/dist").resolve()
     datei = dist / "freedom.html"
@@ -1453,6 +1532,10 @@ def main() -> int:
                 erg["qr"] = qr_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
             except Exception as e:
                 erg["qr"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
+            try:
+                erg["mobil"] = mobil_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
+            except Exception as e:
+                erg["mobil"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
             browser.close()
     finally:
         srv.shutdown()
@@ -1469,7 +1552,8 @@ def main() -> int:
           and erg.get("dialog", {}).get("bestanden") is True
           and erg.get("raum", {}).get("bestanden") is True
           and erg.get("karte", {}).get("bestanden") is True
-          and erg.get("qr", {}).get("bestanden") is True)
+          and erg.get("qr", {}).get("bestanden") is True
+          and erg.get("mobil", {}).get("bestanden") is True)
     erg["bestanden"] = bool(ok)
     print(json.dumps(erg, indent=1, ensure_ascii=False))
     return 0 if ok else 1

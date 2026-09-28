@@ -39,6 +39,22 @@ export function escrowIdent(): string {
 }
 
 /**
+ * Kopfzeile (seit C.5a): der gekürzte Schlüssel, davor das eigene Bild – wie
+ * die Profil-Vorschau ohne Bild der Anfangsbuchstabe des Namens. Ein Bild aus
+ * dem Netz lädt die Kopfzeile nie (das nennte dem Server bei jedem Start die IP).
+ */
+export function zeigeIdent(): void {
+  const e = $("#ident");
+  if (!e) return;
+  e.textContent = escrowIdent();
+  let name = "";
+  try {
+    name = String((JSON.parse(localStorage.getItem("freedom.profile") ?? "{}") as { name?: unknown }).name ?? "");
+  } catch { /* kaputt: ohne Namen */ }
+  e.dataset.initial = state.keypair ? ([...name.trim()][0] ?? "?").toUpperCase() : "";
+}
+
+/**
  * Sidebar-Balances (Desktop): sats = session-budget rest, sol = aus localStorage
  * (wird vom wallet-connect gesetzt). Wird bei jedem Balance-Update aufgerufen.
  */

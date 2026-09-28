@@ -11111,3 +11111,73 @@ Netz) · app 622 (+4) · mls 13 · Leak-Tests 65 grün + 1 todo · 0 rot ·
 check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 (63 Ausnahmen) ·
 Website 5 Seiten ok · Smoke-Test bestanden (mit „rahmen“, „dialog“, „raum“,
 „karte“ und „qr“).
+
+## Schritt C.5a – Oberfläche: Mobil – Berührflächen, Safe-Area, Querformat, Tastatur
+
+**Fertig:** Auf dem Handy hat jede Berührfläche mindestens 40 px. Kopfzeile,
+Inhalt und untere Leiste halten Abstand zu Kerbe und Systemleiste, das
+Querformat ist flacher. Beim Tippen weicht die untere Leiste. In der Kopfzeile
+steht das eigene Bild. C.5 ist geteilt: C.5b bringt Kürzungen, Abstände und den
+Durchgang aller Seiten mit Screenshots.
+
+**Gemessen vorher** (Playwright, 390 × 844 und 844 × 390, alle 16 Seiten):
+- In der Kopfzeile waren Guthaben und Schlüssel nur 11–13 px hoch.
+- Viele Knöpfe und Felder waren 21–33 px hoch, die Symbolknöpfe im Chat
+  28 × 28.
+- Häkchen waren 304 px breit: die Regel für `input` galt auch für sie – in
+  der Währung stand das Häkchen allein in der Mitte.
+- „Was geht ohne Internet?“ war 11 px hoch.
+- Keine Seite hatte eine waagrechte Laufleiste.
+
+**Einzelheiten** (`app.css`, Block am Ende, und drei kleine Stellen im Code):
+- **Berührflächen** unter 1024 px mindestens 40 px: Knöpfe (auch in
+  Dialogen), Reiter, Felder, Auswahllisten, `summary`, Labels mit Häkchen.
+  - Häkchen und Wahlknöpfe sind 18 px groß, das Label ist die Fläche.
+  - Wo 40 px den Platz sprengten: Die Werkzeuge des Agenten stehen in einer
+    Reihe zum Wischen (sonst stünden sie untereinander und verdrängten das
+    Gespräch). Die Knöpfe im Kopf der Direktnachrichten brechen um, der Kopf
+    wächst mit.
+  - Die Aktionen an einer Nachricht stehen auf Touch-Geräten ganz über der
+    Zeile. Antippen macht die Zeile „gehovert“; mit 40 px lagen die Knöpfe
+    über ihrer Mitte, und der Klick traf gleich „Antworten“. Der Smoke-Test
+    „raum“ fand das.
+- **Safe-Area** (`viewport-fit=cover` stand schon da):
+  - Kopfzeile oben, links und rechts.
+  - Inhalt links und rechts.
+  - Untere Leiste unten, links und rechts.
+- **Querformat** (Höhe bis 500 px): Die Kopfzeile ist flacher; in der unteren
+  Leiste stehen Symbol und Text nebeneinander.
+- **Tastatur**:
+  - `interactive-widget=resizes-content` im Viewport.
+  - Solange ein Feld den Fokus hat, das eine Tastatur öffnet (`tipptIn()` in
+    `navigation.ts`: Textfelder ja; Häkchen, Knöpfe, Datei- und Farbwahl
+    nein), weicht die untere Leiste (`body.tippt`).
+- **Kopfzeile**: Vor dem gekürzten Schlüssel steht das eigene Bild wie in der
+  Profil-Vorschau ohne Bild – der Anfangsbuchstabe des Namens, sonst „?“.
+  - Gesetzt über `zeigeIdent()` (`ui.ts`) an allen vier Stellen, an denen
+    `app.ts` die Identität setzt, und nach dem Speichern des Profils.
+  - Nie ein Bild aus dem Netz: das nennte dem Server bei jedem Start die IP.
+- Die Settings-Reiter zeigen mit einem Verlauf am rechten Rand, dass die
+  Leiste weiterläuft.
+- **Screenshots** (`docs/ausbau/bilder/c5a/`, alle vom Handy):
+  - Agent hochkant: Werkzeuge in einer Reihe, das Gespräch wieder sichtbar.
+  - Währung: Häkchen links neben dem Text.
+  - Chat: der Kopf mit vier 40-px-Knöpfen.
+  - Agent quer: flache Kopfzeile, Leiste mit Symbol und Text nebeneinander.
+
+**Tests:**
+- +4 in `mobil.test.ts`: Safe-Area und Viewport; die 40-px-Regeln und die
+  Häkchen; die Kopfzeile nur über `zeigeIdent()` und ohne Bild aus dem Netz;
+  welche Felder die Leiste weichen lassen.
+- Neuer Smoke-Test „mobil“: alle Seiten aus `MOBIL_SEITEN` hochkant und quer.
+  - Geprüft: keine Laufleiste, keine Berührfläche unter 40 px, Kopfzeile mit
+    „?“ und 28-px-Bild, 40 px hoch; im Eingabefeld des Agenten verschwindet
+    die untere Leiste und kommt danach wieder.
+  - Gegenprobe mit dem Stand vor C.5a: die Prüfung scheitert (kleine Flächen
+    auf jeder Seite, kein Bild, die Leiste bleibt).
+
+Endstand: protocol 1111 (6 übersprungen) · node 263 (6 übersprungen, mit
+Netz) · app 626 (+4) · mls 13 · Leak-Tests 65 grün + 1 todo · 0 rot ·
+check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 (63 Ausnahmen) ·
+Website 5 Seiten ok · Smoke-Test bestanden (mit „rahmen“, „dialog“, „raum“,
+„karte“, „qr“ und „mobil“).

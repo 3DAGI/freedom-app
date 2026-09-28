@@ -8,7 +8,7 @@ import { abzeichenHerkunft, abzeichenQuelle, aufgabeStand, aufgabeText, aufgabeT
 import { lnOeffentlich, setzeLnOeffentlich } from "../../profil-lightning.js";
 import { escapeHtml, pkShort } from "../../shell-logic.js";
 import { ensurePool, signiere, state } from "../state.js";
-import { $, toast } from "../ui.js";
+import { $, toast, zeigeIdent } from "../ui.js";
 
 /**
  * Ein Abzeichen definieren und verleihen.
@@ -173,6 +173,7 @@ export async function wireProfil(): Promise<void> {
                     "#pf-accent", "#pf-layout", "#pf-pattern"]) {
     $(id)?.addEventListener("input", () => {
       localStorage.setItem("freedom.profile", JSON.stringify(sammeln()));
+      zeigeIdent(); // Anfangsbuchstabe in der Kopfzeile (C.5a)
       zeigeOffenlegung();
       void zeigeProfilVorschau();
     });
@@ -200,6 +201,7 @@ export async function wireProfil(): Promise<void> {
         return;
       }
       localStorage.setItem("freedom.profile", JSON.stringify(entwurf));
+      zeigeIdent(); // Anfangsbuchstabe in der Kopfzeile (C.5a)
       await (await ensurePool()).publish(await signiere(buildProfile(state.keypair.pk, oeffentlich(entwurf) as never)));
       toast(t("profil.gespeichert"));
       void zeigeProfilVorschau();

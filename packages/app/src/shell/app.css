@@ -1405,8 +1405,10 @@ button.dlg-gefahr:hover { background: #A52A2A; }
 .msg-aktionen button { width: auto; padding: 4px 8px; font-size: 10px; min-height: 26px; }
 .msg-aktionen button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 @media (hover: none) {
-  .msg-aktionen { top: -18px; }
-  .msg-aktionen button { min-height: 36px; padding: 6px 12px; }
+  /* Ganz über der Zeile, nie auf ihr: Antippen macht die Zeile „gehovert“ – lägen die
+     Knöpfe (seit C.5a 40 px) über ihrer Mitte, träfe der Klick gleich „Antworten“ */
+  .msg-aktionen { top: auto; bottom: calc(100% - 2px); }
+  .msg-aktionen button { min-height: 40px; padding: 6px 12px; }
 }
 .space-head { position: relative; }
 .space-head h2 { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -1598,3 +1600,50 @@ button.menue-punkt.menue-gefahr { color: var(--red); }
 .card .karte p.karte-klein { font-size: 12px; line-height: 1.5; margin: 4px 0 0; }
 .abdeckung-orte, .usage-row + .abdeckung-ort { margin-top: 8px; }
 .abdeckung-ort { overflow-wrap: anywhere; }
+
+/* ---------- Mobil (C.5a): Berührflächen, Häkchen, Safe-Area, Tastatur, eigenes Bild ---------- */
+/* Häkchen und Wahlknöpfe nie in voller Breite (die Regel für input setzte sie auf 100 %) */
+input[type="checkbox"], input[type="radio"] { width: 18px; height: 18px; min-height: 0; flex: none; margin: 0 8px 0 0; vertical-align: -3px; accent-color: var(--accent); }
+/* Kopfzeile: vor dem Schlüssel das eigene Bild – ohne Netz der Anfangsbuchstabe (zeigeIdent()) */
+header .ident::before {
+  content: attr(data-initial); display: inline-flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; margin-right: 6px; border-radius: 50%; flex: none;
+  background: var(--surf2, #16181A); border: 1px solid var(--accent-dim); color: var(--accent);
+  font-size: 13px; font-weight: 700; font-family: var(--font-body);
+}
+header .ident[data-initial=""]::before { display: none; }
+@media (max-width: 1023px) {
+  /* Berührflächen mindestens 40 px (WCAG 2.5.8 verlangt 24, die Plattformen empfehlen 44/48) */
+  #app button, #app select, #app [role="tab"], .dlg-huelle button,
+  #app input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]) { min-height: 40px; }
+  #app button { min-width: 40px; }
+  #app summary { padding: 10px 0; min-height: 40px; box-sizing: border-box; }
+  /* Kopf der Direktnachrichten: vier Knöpfe zu 40 px passen neben den Titel nicht immer – dann umbrechen */
+  .chat-side-head { flex-wrap: wrap; row-gap: 4px; }
+  .chat-side-head > span:last-child { display: flex; flex-wrap: wrap; gap: 2px; }
+  .chat-side-head .mini { margin-left: 0; }
+  .comm-dm .chat-side-head { height: auto; min-height: 48px; padding: 4px 12px; }
+  #app label:has(> input[type="checkbox"]), #app label:has(> input[type="radio"]) { min-height: 40px; padding: 8px 0; }
+  header #balance, header #ident { display: inline-flex; align-items: center; min-height: 40px; padding: 0 4px; }
+  /* Safe-Area: Kerbe oben, Leiste des Systems unten, im Querformat links und rechts */
+  #app > header {
+    padding-top: calc(8px + env(safe-area-inset-top)); padding-bottom: 8px;
+    padding-left: calc(14px + env(safe-area-inset-left)); padding-right: calc(14px + env(safe-area-inset-right));
+  }
+  #app > main { padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right); }
+  .app-nav { padding-bottom: env(safe-area-inset-bottom); padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right); }
+  /* Tastatur: solange ein Feld den Fokus hat, weicht die untere Leiste (navigation.ts) –
+     mit interactive-widget=resizes-content steht das Feld dann direkt über der Tastatur */
+  body.tippt .app-nav { display: none; }
+  /* Werkzeuge des Agenten in einer Reihe zum Wischen – mit 40 px je Knopf stünden sie sonst untereinander
+     und verdrängten das Gespräch */
+  .tool-row { flex-wrap: nowrap; overflow-x: auto; min-width: 0; flex: 1 1 auto; scrollbar-width: none; }
+  .tool-row .tool-chip { flex: none; }
+  /* Weitere Reiter rechts: ein Verlauf zeigt, dass die Leiste weiterläuft */
+  .settings-nav { -webkit-mask-image: linear-gradient(to right, #000 85%, transparent); mask-image: linear-gradient(to right, #000 85%, transparent); }
+}
+/* Querformat am Handy (C.5a): wenig Höhe – Kopfzeile flacher, in der unteren Leiste Symbol und Text nebeneinander */
+@media (max-width: 1023px) and (max-height: 500px) {
+  #app > header { padding-top: calc(2px + env(safe-area-inset-top)); padding-bottom: 2px; }
+  .app-nav button { flex-direction: row; justify-content: center; gap: 6px; padding-top: 4px; padding-bottom: 4px; }
+}
