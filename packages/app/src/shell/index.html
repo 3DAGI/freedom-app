@@ -266,6 +266,7 @@
               <h3 id="channel-name">—</h3>
               <span id="channel-privacy" class="mono-sm"></span>
               <button id="channel-search-btn" class="ghost icon-btn" aria-label="Suchen" data-i18n-aria="komm.suchen">⌕</button>
+              <button id="kanal-mitglieder" class="ghost mini kanal-mitglieder" type="button" data-i18n="komm.mitglieder">Mitglieder</button>
             </div>
             <div id="channel-thread" class="channel-thread"></div>
             <div id="channel-composer" class="channel-composer">
@@ -292,7 +293,10 @@
             </div>
           </aside>
           <aside class="member-col">
-            <h3 data-i18n="komm.mitglieder">Mitglieder</h3>
+            <div class="mitglieder-kopf">
+              <h3 data-i18n="komm.mitglieder">Mitglieder</h3>
+              <button id="mitglieder-zu" class="ghost icon-btn mitglieder-zu" type="button" aria-label="Mitglieder schließen" data-i18n-aria="raum.mitgliederSchliessen">×</button>
+            </div>
             <div id="member-list" class="mono-sm"></div>
             <div id="raum-meldungen" class="mono-sm hidden" aria-label="Meldungen" data-i18n-aria="komm.meldungen"></div>
           </aside>

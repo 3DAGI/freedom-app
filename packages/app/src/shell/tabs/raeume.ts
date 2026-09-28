@@ -15,7 +15,7 @@ import {
 } from "../raum-mls.js";
 import { $, toast } from "../ui.js";
 import { bestaetige, dialog, hinweis, type Option } from "../dialog.js";
-import { wireMenue } from "../menue.js";
+import { type MenuePunkt, oeffneMenueAn, wireMenue } from "../menue.js";
 import { antwortBezug, gruppiereVerlauf } from "../../raum-verlauf.js";
 import { gebietsschema, t } from "../../i18n.js";
 import { fehlerText, kanalVertraulichkeit } from "../../protokoll-texte.js";
@@ -106,6 +106,7 @@ async function oeffneRaum(spaceId: string): Promise<void> {
   if (spacesUi.spaceId !== spaceId) {
     spacesUi.channelId = null;
     spacesUi.thread = null;
+    document.querySelector(".comm-space-inner")?.classList.remove("mitglieder-offen");
   }
   spacesUi.spaceId = spaceId;
   zeigeRaumArt(spaceId);
@@ -362,6 +363,7 @@ function zeigeThread(): void {
   const offen = !!(k && faden && root && !root.threadRoot);
   if (!offen) spacesUi.thread = null;
   document.querySelector(".comm-space-inner")?.classList.toggle("thread-offen", offen);
+  if (offen) document.querySelector(".comm-space-inner")?.classList.remove("mitglieder-offen");
   const box = document.getElementById("thread-verlauf");
   if (!offen || !box) return;
   const kt = { ...k, imThread: true };
@@ -440,6 +442,12 @@ function zeigeMeldungen(): void {
   const raum = spacesUi.privat;
   const liste = raum ? meldungenFuer(raum) : [];
   box.classList.toggle("hidden", liste.length === 0);
+  // B3: Bis 1100 px fehlt die Spalte – der Knopf „Mitglieder“ im Kanal nennt offene Meldungen
+  const knopf = document.getElementById("kanal-mitglieder");
+  if (knopf) {
+    knopf.textContent = liste.length ? t("raum.mitgliederMeldungen", { n: liste.length }) : t("komm.mitglieder");
+    knopf.classList.toggle("hat-meldungen", liste.length > 0);
+  }
   box.replaceChildren(...liste.map(([wrapId, m]) => {
     const z = document.createElement("div");
     z.className = "member-row";
@@ -466,43 +474,96 @@ function zeigeMeldungen(): void {
   }));
 }
 
-/** Mitglieder mit ihren Rollen. */
+/**
+ * Mitglieder mit ihren Rollen – seit C.2d1 nur DOM und `textContent`, mit
+ * einem Menü je Mitglied für das, was ich darf.
+ */
 async function zeigeMitglieder(): Promise<void> {
   const box = $("#member-list");
+  if (!box) return;
   const privat = spacesUi.privat;
-  if (box && privat) {
-    // Privat (2.3b): Mitglieder der Gruppe; Moderatoren sind ihre Admins
+  const zeilen: { pk: string; rollen: string[]; gruender?: boolean }[] = [];
+  if (privat) {
+    // Privat (2.3b): Mitglieder der Gruppe; Moderatoren sind ihre Admins und haben jede Rolle – dort nur „Moderator“
     const rollen = privat.zustand.roles;
-    box.replaceChildren(...privat.mitglieder.map((pk) => {
-      const z = document.createElement("div");
-      z.className = "member-row";
-      // Moderatoren haben jede Rolle – dort nur „Moderator“ zeigen
-      const eigene = privat.admins.includes(pk) ? [] : (privat.zustand.grants.get(pk) ?? []).filter((r) => !r.startsWith("__") && r !== "mitglied").map((r) => rollen.get(r)?.name ?? r);
-      const text = `${kontaktName(pk)}${privat.admins.includes(pk) ? ` · ${t("komm.moderatorRolle")}` : ""}${eigene.length ? ` · ${eigene.join(", ")}` : ""}`;
-      z.textContent = pk === privat.ich ? `${text} (${t("komm.du")})` : text;
-      return z;
-    }));
-    zeigeMeldungen();
-    return;
+    for (const pk of privat.mitglieder) {
+      const eigene = privat.admins.includes(pk) ? [t("komm.moderatorRolle")]
+        : (privat.zustand.grants.get(pk) ?? []).filter((r) => !r.startsWith("__") && r !== "mitglied").map((r) => rollen.get(r)?.name ?? r);
+      zeilen.push({ pk, rollen: eigene });
+    }
+  } else {
+    const st = spacesUi.state as {
+      grants?: Map<string, string[]>; roles?: Map<string, { name: string; color?: string }>;
+      ownerPubkey?: string;
+    } | null;
+    if (!st?.grants) return;
+    if (st.ownerPubkey) zeilen.push({ pk: st.ownerPubkey, rollen: [t("komm.gruender")], gruender: true });
+    for (const [pk, rollen] of st.grants) {
+      if (pk === st.ownerPubkey) continue;
+      zeilen.push({ pk, rollen: rollen.map((r) => st.roles?.get(r)?.name).filter((n): n is string => !!n) });
+    }
   }
-  const st = spacesUi.state as {
-    grants?: Map<string, string[]>; roles?: Map<string, { name: string; color?: string }>;
-    ownerPubkey?: string;
-  } | null;
-  if (!box || !st?.grants) return;
+  const { can } = await import("@freedomstack/protocol");
+  box.replaceChildren(...(zeilen.length === 0 ? [el("span", t("komm.niemand"), "muted")] : zeilen.map((m) => {
+    const z = el("div", undefined, "member-row");
+    const name = el("span", nameVon(m.pk), "mitglied-name");
+    name.title = m.pk;
+    z.append(name, ...m.rollen.map((r) => el("span", r, m.gruender ? "msg-role rolle-gruender" : "msg-role")));
+    const punkte = mitgliedAktionen(m.pk, !!m.gruender, can);
+    if (punkte.length) {
+      const b = el("button", "⋯", "ghost icon-btn mitglied-knopf");
+      b.type = "button";
+      b.setAttribute("aria-label", t("raum.mitgliedMenue", { name: nameVon(m.pk) }));
+      b.setAttribute("aria-haspopup", "menu");
+      b.addEventListener("click", () => oeffneMenueAn(b, punkte, t("raum.mitgliedMenue", { name: nameVon(m.pk) })));
+      z.append(b);
+    }
+    return z;
+  })));
+  zeigeMeldungen();
+}
 
-  const zeilen: string[] = [];
-  if (st.ownerPubkey) {
-    zeilen.push(`<div class="member-row"><span>${escapeHtml(kontaktName(st.ownerPubkey))}</span>
-      <span class="msg-role" style="color:var(--acc,#C9A227)">${escapeHtml(t("komm.gruender"))}</span></div>`);
+/** Was ich mit einem Mitglied tun darf – privat als Moderator, offen nach meinen Rechten im Raum. */
+function mitgliedAktionen(pk: string, gruender: boolean, can: (pk: string, recht: "moderieren" | "rollen_vergeben", st: never) => boolean): MenuePunkt[] {
+  const ich = state.keypair?.pk;
+  if (!ich || pk === ich) return [];
+  const raum = spacesUi.privat;
+  if (raum) {
+    if (!raum.admins.includes(raum.ich)) return [];
+    const istMod = raum.admins.includes(pk);
+    const andere = raum.admins.filter((a) => a !== raum.ich && a !== pk);
+    return [
+      { text: t(istMod ? "raum.keinModeratorMehr" : "raum.zumModerator"), tun: () => void aendereMitglied(() => setzeModeratoren(raum, istMod ? andere : [...andere, pk])) },
+      { text: t("raum.ausRaumEntfernen"), gefahr: true, tun: () => void (async () => {
+        if (await bestaetige({ titel: t("raum.ausRaumEntfernen"), text: t("raum.entfernenText", { name: nameVon(pk) }), ok: t("komm.entfernen"), gefahr: true })) {
+          await aendereMitglied(() => entferneAusRaum(raum, pk));
+        }
+      })() },
+    ];
   }
-  for (const [pk, rollen] of st.grants) {
-    if (pk === st.ownerPubkey) continue;
-    const namen = rollen.map((r) => st.roles?.get(r)?.name).filter(Boolean);
-    zeilen.push(`<div class="member-row"><span>${escapeHtml(kontaktName(pk))}</span>
-      ${namen.map((n) => `<span class="msg-role">${escapeHtml(n!)}</span>`).join("")}</div>`);
+  if (gruender) return [];
+  const st = spacesUi.state as never;
+  const punkte: MenuePunkt[] = [];
+  if (can(ich, "rollen_vergeben", st)) punkte.push({ text: t("raum.rolleTitel"), tun: () => void moderiere("grant", pk) });
+  if (can(ich, "moderieren", st)) punkte.push({ text: t("raum.sperren"), gefahr: true, tun: () => void moderiere("ban", pk, pk) });
+  return punkte;
+}
+
+/** Mitglieder als eigene Ebene, solange die Spalte fehlt (bis 1100 px, C.2d1) – mit den Meldungen (B3). */
+function zeigeMitgliederEbene(an: boolean): void {
+  const inner = document.querySelector(".comm-space-inner");
+  if (an && spacesUi.thread) {
+    spacesUi.thread = null;
+    zeigeThread();
   }
-  box.innerHTML = zeilen.length ? zeilen.join("") : `<span class="muted">${escapeHtml(t("komm.niemand"))}</span>`;
+  inner?.classList.toggle("mitglieder-offen", an);
+  document.getElementById(an ? "mitglieder-zu" : "kanal-mitglieder")?.focus();
+}
+
+async function aendereMitglied(tun: () => Promise<boolean>): Promise<void> {
+  const ok = await tun().catch(() => false);
+  toast(t(ok ? "komm.erledigt" : "komm.nichtGeaendert"), !ok);
+  if (ok && spacesUi.spaceId) await oeffneRaum(spacesUi.spaceId);
 }
 
 /** Nachricht senden. */
@@ -640,7 +701,7 @@ async function ladeEin(): Promise<void> {
  * eine Massnahme zu ERZEUGEN. Ein Moderationssystem, in dem niemand
  * moderieren kann, ist keins.
  */
-async function moderiere(aktion: "hide" | "grant", ziel: string, autor?: string): Promise<void> {
+async function moderiere(aktion: "hide" | "ban" | "grant", ziel: string, autor?: string): Promise<void> {
   if (!state.keypair || !spacesUi.spaceId) return;
   const st = spacesUi.state as never;
   const { can, buildHide, buildBan, buildRoleGrant } =
@@ -669,8 +730,9 @@ async function moderiere(aktion: "hide" | "grant", ziel: string, autor?: string)
       const w = await dialog({
         titel: t("raum.moderierenTitel"), ok: t("komm.moderieren"), gefahr: true,
         felder: [
-          { art: "wahl", name: "was", label: t("raum.massnahme"), pflicht: true, wert: "hide", optionen: [
-            { wert: "hide", text: t("raum.ausblenden") },
+          // An einer Nachricht: ausblenden oder sperren; aus der Mitgliederliste (C.2d1) nur sperren
+          { art: "wahl", name: "was", label: t("raum.massnahme"), pflicht: true, wert: aktion, optionen: [
+            ...(aktion === "hide" ? [{ wert: "hide", text: t("raum.ausblenden") }] : []),
             ...(autor ? [{ wert: "ban", text: t("raum.sperren") }] : []),
           ] },
           { art: "textarea", name: "grund", label: t("komm.begruendung"), pflicht: true, fehler: t("komm.ohneBegruendung") },
@@ -802,6 +864,12 @@ export async function wireSpacesTab(): Promise<void> {
     if (spacesUi.thread) oeffneThread(spacesUi.thread.root);
   });
   document.getElementById("thread-zu")?.addEventListener("click", schliesseThread);
+  // Mitglieder als Ebene (C.2d1): öffnen im Kopf des Kanals, schließen mit „×“ oder Esc
+  document.getElementById("kanal-mitglieder")?.addEventListener("click", () => zeigeMitgliederEbene(true));
+  document.getElementById("mitglieder-zu")?.addEventListener("click", () => zeigeMitgliederEbene(false));
+  document.querySelector(".comm-space-inner .member-col")?.addEventListener("keydown", (e) => {
+    if ((e as KeyboardEvent).key === "Escape" && document.querySelector(".comm-space-inner.mitglieder-offen")) zeigeMitgliederEbene(false);
+  });
   document.getElementById("thread-spalte")?.addEventListener("keydown", (e) => {
     if (e.key === "Escape") schliesseThread();
   });

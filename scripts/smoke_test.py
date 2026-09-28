@@ -684,6 +684,36 @@ def raum_pruefen(browser, url: str) -> dict:
             erg["fehler"].append(f"{groesse}: nach dem Senden {danach}")
         if zu["offen"] or zu["fokus"] != "thread-link" or not zu["kanal"]:
             erg["fehler"].append(f"{groesse}: Thread schließen {zu}")
+        # Mitglieder (C.2d1): Namen mit Rollen, ein Menü je Mitglied nach meinen Rechten; mobil als Ebene
+        if mobil:
+            ev("() => document.getElementById('kanal-mitglieder').click()")
+            s.wait_for_timeout(200)
+        mitglieder = ev("""() => { const r = (e) => e.getBoundingClientRect(); const col = document.querySelector('.comm-space-inner .member-col');
+          return { sichtbar: r(col).width > 0, kanal: r(document.querySelector('.channel-main')).width > 0,
+            zeilen: [...col.querySelectorAll('#member-list .member-row')].map(z => [z.querySelector('.mitglied-name').textContent === 'Du',
+              [...z.querySelectorAll('.msg-role')].map(x => x.textContent), !!z.querySelector('.mitglied-knopf')]) }; }""")
+        ev("() => document.querySelectorAll('#member-list .mitglied-knopf')[0].click()")
+        s.wait_for_timeout(150)
+        menue_stand = """() => { const m = document.querySelector('.menue-schwebend');
+          return { punkte: m ? [...m.querySelectorAll('[role=menuitem]')].map(b => b.textContent) : null,
+            fokus: document.activeElement?.textContent ?? null }; }"""
+        auf_m = ev(menue_stand)
+        s.keyboard.press("ArrowDown")
+        runter = ev(menue_stand)["fokus"]
+        s.keyboard.press("Escape")
+        s.wait_for_timeout(100)
+        zu_m = ev("() => [!!document.querySelector('.menue-schwebend'), document.activeElement?.classList.contains('mitglied-knopf')]")
+        erg[groesse]["mitglieder"] = {"liste": mitglieder, "menue": auf_m, "runter": runter, "zu": zu_m}
+        soll_zeilen = [[False, ["Gründer"], False], [False, ["Mitglied"], True], [False, ["Mitglied"], True], [True, ["Moderator"], False]]
+        if not mitglieder["sichtbar"] or mitglieder["kanal"] == mobil or mitglieder["zeilen"] != soll_zeilen:
+            erg["fehler"].append(f"{groesse}: Mitglieder {mitglieder}")
+        if auf_m != {"punkte": ["Rolle vergeben", "Absender sperren"], "fokus": "Rolle vergeben"} or runter != "Absender sperren" or zu_m != [False, True]:
+            erg["fehler"].append(f"{groesse}: Mitglied-Menü {auf_m} {runter} {zu_m}")
+        if mobil:
+            ev("() => document.getElementById('mitglieder-zu').click()")
+            s.wait_for_timeout(200)
+            if not ev("() => document.querySelector('.channel-main').getBoundingClientRect().width > 0"):
+                erg["fehler"].append("mobil: nach „×“ ist der Kanal nicht wieder da")
         if mobil:
             ev("() => document.getElementById('channel-zurueck').click()")
             s.wait_for_timeout(200)
