@@ -9374,3 +9374,58 @@ mit Netz) · app 525 · mls 13 · Leak-Tests 59 grün + 1 todo · 0 rot ·
 check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 · Website 5 Seiten
 ok · Smoke-Test bestanden. Zahlkanal-Tests gegen den Validator nicht lokal
 (Programm und `channel.ts` unverändert; die CI führt sie aus).
+
+## Schritt 4.5b – App: Verdienen je Schiene, Kanäle von der Kette
+
+**Warum:** Seit 4.5a zahlt der Knoten Eingelöstes an die eigene Adresse aus –
+in der App sah ein Provider davon nichts. Der Earn-Tab zeigte nur die
+Leistungs-Events (38010) der eigenen Identität; ein Knoten mit eigenem
+Schlüssel (der Standard in `docker-compose.yml`) erschien dort gar nicht.
+Und die Grenze aus Entscheidung 4.5 A gehörte in den Datenschutzbericht.
+
+**Was:**
+- **`app/src/verdienst.ts`** (ohne Oberfläche, getestet):
+  `kanaeleDesKnotens()` fragt `getProgramAccounts` beim Kanal-Programm mit
+  zwei Filtern – Größe `KANAL_KONTO_BYTES` und `provider` an Byte 40 – und
+  prüft jedes Konto selbst (`leseKanal()`, Provider gleich der Adresse):
+  Ein RPC, der falsch filtert, schiebt keine fremden Kanäle unter.
+  `fasseKanaeleZusammen()`: je Kanal Einlage, Eingelöstes, der Teil des
+  Providers mit `teileKanalZahlung()` (wie das Programm, Rundung zu seinen
+  Gunsten), noch nicht Eingelöstes, Frist; laufende zuerst, die nächste Frist.
+  `knotenAusEingabe()`: npub oder 64 Hex-Zeichen, sonst abgewiesen.
+- **`app/src/shell/verdienst-ui.ts`:** Der eigene Knoten ist der gemerkte
+  Schlüssel (`freedom.earn.knoten`, öffentlich) oder die eigene Identität.
+  `zeigeSolEinnahmen()`: Angebot des Knotens → Kanal-Adresse (nur bei genau
+  diesem Programm), Programm auf der Kette? → Kanäle und Guthaben der
+  Adresse. Alles über `textContent`.
+- **Earn → Übersicht** (`index.html`): Feld „Dein Knoten“, darunter
+  „Lightning – wie dein Knoten es meldet“ (die bisherige Liste, jetzt vom
+  eigenen Knoten statt immer der eigenen Identität) und „SOL – Zahlkanäle,
+  von der Kette gelesen“ mit ehrlichem Hinweis: eine Adresse je Knoten, was
+  nur der Knoten weiß, geschlossene Kanäle zählen nicht mehr, die Abfrage
+  nennt dem RPC-Anbieter die Adresse.
+- **Verdrahtet:** `shell/app.ts` – `switchTab("earn")` ruft
+  `zeigeSolEinnahmen()`, `wireVerdienst(loadEarnings)` beim Verdrahten (Feld,
+  „Aktualisieren“); `tabs/earn.ts` – `loadEarnings()` fragt nach
+  `knotenSchluessel()`. Die Kette fragt die App nur im geöffneten Tab, nie
+  beim Start.
+- **Datenschutzbericht:** neue Grenze „provider-adresse“ (Protokoll,
+  Regel `keine-zahlungsdaten`) mit Grund und Entscheidung 4.5 A, Texte in
+  beiden Sprachen (`ds.fProviderAdresse`, `ds.gProviderAdresse`).
+- **Website:** FAQ „Was verdiene ich damit?“ nennt SOL über Zahlkanäle –
+  ausdrücklich erst, wenn das Programm auf der Kette liegt – samt der
+  Grenze.
+- **Doku:** `docs/ZAHLKANAL.md` (In der App: Verdienen), Karte 4.5 (Code
+  fertig), FORTSCHRITT, CLAUDE.md (Fallstrick um 4.5b ergänzt).
+
+**Tests:**
+- +4 in `app/test/verdienst.test.ts`: Filter und Selbstprüfung (fremder und
+  kaputter Kanal fallen weg, ungültige Adresse wirft); Übersicht (Teil des
+  Providers, Rundung wie im Programm, offen nie negativ, Reihenfolge, Frist);
+  Eingabe des Knotens (Hex, npub, leer, Ungültiges); verdrahtet (Kette nur im
+  Tab, sonst nirgends in `app.ts`, kein `innerHTML`, Programm geprüft,
+  Lightning vom eigenen Knoten).
+- +1 in `protocol/test/privacy-facts.test.ts`: Die Grenze steht unter
+  „Bewusste Grenzen“ mit Entscheidung 4.5 A und Regel.
+
+ENDSTAND_45B

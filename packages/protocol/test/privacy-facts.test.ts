@@ -406,6 +406,15 @@ test("belegte Aussagen nennen ihre Regel, und jede genannte Regel gibt es", () =
   assert.deepEqual(PRIVACY_FACTS.filter((f) => !f.regel).map((f) => f.id).sort(), ["dm-forward-secrecy", "ip"]);
 });
 
+test("4.5b: eine SOL-Adresse je Knoten steht als bewusste Grenze im Bericht – mit Grund und Entscheidung", () => {
+  const f = PRIVACY_FACTS.find((x) => x.id === "provider-adresse");
+  assert.equal(f?.status, "grenze");
+  assert.equal(f?.regel, "keine-zahlungsdaten", "welche Anfrage über welchen Kanal lief, steht in keinem Event");
+  const t = privacyFactsText();
+  const grenzen = t.slice(t.indexOf("Bewusste Grenzen:"));
+  assert.match(grenzen, /△ Betreibst du einen Knoten, hat er eine SOL-Adresse: .*Entscheidung 4\.5 A/);
+});
+
 test("Grenzen nennen ihren Grund", () => {
   for (const f of PRIVACY_FACTS.filter((x) => x.status === "grenze")) {
     assert.ok(f.grund && f.grund.length > 20, `Grenze "${f.id}" ohne Grund`);

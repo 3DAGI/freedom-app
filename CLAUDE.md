@@ -236,7 +236,10 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   der Schwelle, einmal je Abstand, Rücklage für Miete bleibt) – nie an andere,
   nie neben LP oder Relayer mit demselben `SOLANA_KEYPAIR` (deren Liquidität).
   Eine Provider-Adresse je Knoten (Entscheidung 4.5 A) – keine frischen
-  Adressen je Sitzung einführen, ohne den Zahlkanal neu zu denken.
+  Adressen je Sitzung einführen, ohne den Zahlkanal neu zu denken. Die App
+  liest die Kanäle des eigenen Knotens (seit 4.5b, `verdienst.ts`) nur im
+  geöffneten Earn-Tab (`zeigeSolEinnahmen()`), nie beim Start – die Abfrage
+  nennt dem RPC-Anbieter die Adresse.
 - **Kurse und Umrechnung nur über `kurs.ts`** (seit 4.4): Marktkurs mit
   `marktKurs()` (eine Stimme je Absender), msat ↔ Lamports mit
   `msatZuLamports()`/`lamportsZuMsat()` (BigInt). 1 SOL = 1e9 Lamports =
