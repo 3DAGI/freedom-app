@@ -31,7 +31,7 @@ import {
   state,
   wireRpcSetting,
 } from "./state.js";
-import { haltevorModell, kuendigeModellAn, loadGitRepos, setGitStatus, veroeffentlicheKatalog, zeigeKataloge, zeigeModelle } from "./tabs/agent-netz.js";
+import { haltevorModell, kuendigeModellAn, veroeffentlicheKatalog, zeigeKataloge, zeigeModelle } from "./tabs/agent-netz.js";
 import { starteStreitfall } from "./streitfall-ui.js";
 import {
   askAi,
@@ -480,6 +480,8 @@ export function switchTab(name: string): void {
   if (name === "earn") { loadEarnings(); loadTrust(); updateReferralLink(); void zeigeSolEinnahmen(); }
   // Karte und Mesh stehen seit C.1b auf der Seite „Netz“
   if (name === "netz") { void ladeAbdeckung(); void zeigeMeshWeg(); }
+  // Repos (C.3a): beim Öffnen frisch laden – Ankündigungen, Bundles, Patches
+  if (name === "repos") void import("./tabs/repos.js").then((m) => m.ladeNip34Repos());
   if (name === "mehr") void aktualisiereNavStatus();
   updateSidebarBalances();
   // Adresse (nur die Seite, nie eine Kennung) und „Mehr“ nachziehen (C.1a)
@@ -775,7 +777,7 @@ function starte(): void {
         // (Entscheidung 26.09.2026): lesen kann jeder, Speicherknoten halten nur Chiffrat.
         const { uploadAnhang } = await import("../blob-client.js");
         const pool = await ensurePool();
-        setGitStatus(t("ein.gitPubliziere", { name: file.name, kb: Math.round(bytes.length / 1024) }));
+        toast(t("ein.gitPubliziere", { name: file.name, kb: Math.round(bytes.length / 1024) }));
         const res = await uploadAnhang(new File([bytes], "", { type: "application/octet-stream" }), pool as never, state.signer!);
         // repo-ref-event (38042)
         const { buildGitRepoRef } = await import("@freedomstack/protocol");
@@ -785,13 +787,13 @@ function starte(): void {
         );
         await pool.publish(await signiere(ref));
         toast(t("ein.gitPubliziert", { name, blob: res.blobId.slice(0, 8) }));
-        loadGitRepos();
+        // Seit C.3a eine Liste: Ankündigungen und Bundles zusammen (repos.ts)
+        void import("./tabs/repos.js").then((m) => m.ladeNip34Repos());
       } catch (e) {
         toast(t("ein.gitFehler", { fehler: fehlerText(e) }), true);
       }
     };
   }
-  loadGitRepos();
   void import("./tabs/repos.js").then((m) => m.wireNip34());
   $("#ai-send").onclick = askAi;
   $("#ai-bid").oninput = updateFeePreview;

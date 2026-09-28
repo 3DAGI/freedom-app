@@ -1,0 +1,30 @@
+/** Texte der Seite „Repos“, die seit C.3a neu sind; ältere stehen weiter unter `repo.*` in `profil.ts` und `agent.*`. */
+import type { Texte } from "../i18n.js";
+
+export const repos: Texte = {
+  "repo.suchen": { de: "Repos durchsuchen", en: "Search repos" },
+  "repo.filterAria": { de: "Welche Repos", en: "Which repos" },
+  "repo.alle": { de: "Alle", en: "All" },
+  "repo.meine": { de: "Meine", en: "Mine" },
+  "repo.nichtsGefunden": { de: "Kein Repo passt zur Suche.", en: "No repo matches the search." },
+  "repo.markeBundle": { de: "Bundle", en: "Bundle" },
+  "repo.karteFuss": { de: "Offene Patches: {n} · zuletzt {datum}", en: "Open patches: {n} · last {datum}" },
+  "repo.beschreibung": { de: "Beschreibung (optional)", en: "Description (optional)" },
+  "repo.alleRepos": { de: "‹ Alle Repos", en: "‹ All repos" },
+  "repo.maintainer": { de: "Maintainer: {namen}", en: "Maintainers: {namen}" },
+  "repo.nurBundle": { de: "Nur ein Bundle, keine Ankündigung nach NIP-34 – Patches gehen erst, wenn der Eigentümer das Repo ankündigt.", en: "Only a bundle, no NIP-34 announcement – patches only work once the owner announces the repo." },
+  "repo.klonenTitel": { de: "Klonen", en: "Clone" },
+  "repo.klonZeile": { de: "git clone {adresse}", en: "git clone {adresse}" },
+  "repo.klonBefehl": { de: "Befehl zum Klonen", en: "Clone command" },
+  "repo.bundleStand": { de: "Bundle vom {datum}", en: "Bundle from {datum}" },
+  "repo.bundleLaden": { de: "Bundle laden", en: "Download bundle" },
+  "repo.keineKlonAdresse": { de: "Keine Klon-Adresse und kein Bundle angegeben.", en: "No clone address and no bundle given." },
+  "repo.code": { de: "Code", en: "Code" },
+  "repo.patchesZahl": { de: "Patches ({n} offen)", en: "Patches ({n} open)" },
+  "repo.codeMitBundle": { de: "Dateien und Commits zeigt die App noch nicht selbst. Lade das Bundle und öffne es mit git: git clone repo.bundle", en: "The app does not show files and commits itself yet. Download the bundle and open it with git: git clone repo.bundle" },
+  "repo.codeOhneBundle": { de: "Dateien und Commits zeigt die App noch nicht selbst – klone das Repo mit einer der Adressen oben.", en: "The app does not show files and commits itself yet – clone the repo with one of the addresses above." },
+  "repo.filterZahl": { de: "{status} ({n})", en: "{status} ({n})" },
+  "repo.patchVon": { de: "von {name} · {datum}", en: "by {name} · {datum}" },
+  "repo.annehmenTitel": { de: "„{betreff}“ annehmen", en: "Accept “{betreff}”" },
+  "repo.keinSha1": { de: "Ein Commit ist ein SHA-1 mit 40 Zeichen (0–9, a–f)", en: "A commit is a SHA-1 with 40 characters (0–9, a–f)" },
+};

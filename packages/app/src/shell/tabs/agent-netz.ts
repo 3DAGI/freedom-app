@@ -2,7 +2,9 @@
  * Tab Agent, Unter-Reiter Modelle und Repos: Modelle im Netz ankündigen und
  * vorhalten, Repositories über das Speichernetz.
  *
- * Aus app.ts verschoben (Schritt 1.0) – wörtlich, ohne Logikänderung.
+ * Aus app.ts verschoben (Schritt 1.0) – wörtlich, ohne Logikänderung. Die
+ * Liste der Bundles steht seit C.3a auf der Seite „Repos“ (`repos.ts`,
+ * „Bundle laden“ in `repo-seite.ts`).
  */
 import { NostrEvent, type ModelEntry, type ModellKatalog } from "@freedomstack/protocol";
 import { t } from "../../i18n.js";
@@ -263,62 +265,3 @@ export async function veroeffentlicheKatalog(): Promise<void> {
   }
 }
 
-/** Freedom Git: repo-referenzen (38042) laden + klon-buttons. */
-export async function loadGitRepos(): Promise<void> {
-  const list = $("#git-repo-list");
-  if (!list) return;
-  try {
-    const pool = await ensurePool();
-    const { KIND_GIT_REPO_REF } = await import("@freedomstack/protocol");
-    const events = await pool.query({ kinds: [KIND_GIT_REPO_REF], limit: 50 });
-    // pro (owner,name) nur die neueste version
-    const latest = new Map<string, NostrEvent>();
-    for (const ev of events) {
-      const name = ev.tags.find((t) => t[0] === "d")?.[1] ?? "";
-      const key = `${ev.pubkey}/${name}`;
-      const cur = latest.get(key);
-      if (!cur || ev.created_at > cur.created_at) latest.set(key, ev);
-    }
-    const sorted = [...latest.values()].sort((a, b) => b.created_at - a.created_at);
-    list.innerHTML = sorted.length
-      ? sorted.map((ev) => {
-          const name = ev.tags.find((t) => t[0] === "d")?.[1] ?? "?";
-          return `<div class="stat"><span class="k">📦 ${escapeHtml(name)} <span class="mono-sm">${escapeHtml(pkShort(ev.pubkey))}</span></span>
-            <span><button class="ghost copy-btn git-clone-btn" data-ref="${escapeHtml(ev.id)}" data-blob="${escapeHtml(ev.tags.find((t) => t[0] === "blob")?.[1] ?? "")}" data-name="${escapeHtml(name)}" style="width:auto;padding:4px 8px">⇩ bundle</button></span></div>`;
-        }).join("")
-      : `<span>${escapeHtml(t("agent.keineRepos"))}</span>`;
-    list.querySelectorAll(".git-clone-btn").forEach((btn) => {
-      btn.addEventListener("click", async () => {
-        const el = btn as HTMLButtonElement;
-        el.disabled = true;
-        try {
-          const { downloadBlob, oeffneAnhang } = await import("../../blob-client.js");
-          const { parseGitRepoRef } = await import("@freedomstack/protocol");
-          const pool = await ensurePool();
-          const res = await downloadBlob(el.dataset.blob!, pool as never);
-          if (!res) { toast(t("agent.bundleKaputt"), true); return; }
-          // Seit 8.9b verschluesselt, der Schluessel steht oeffentlich in der Referenz; aeltere Bundles sind Klartext
-          const refEv = sorted.find((x) => x.id === el.dataset.ref);
-          const schluessel = refEv ? (() => { try { return parseGitRepoRef(refEv).schluessel; } catch { return undefined; } })() : undefined;
-          const bytes = schluessel ? await oeffneAnhang(res.bytes, schluessel) : res.bytes;
-          const url = URL.createObjectURL(new Blob([bytes as unknown as BlobPart], { type: "application/octet-stream" }));
-          const a = document.createElement("a");
-          a.href = url; a.download = `${el.dataset.name}.bundle`;
-          a.click();
-          URL.revokeObjectURL(url);
-          toast(t("agent.bundleGeladen", { datei: `${el.dataset.name}.bundle` }));
-        } catch (e) {
-          toast(t("agent.fehlerText", { fehler: fehlerText(e) }), true);
-        }
-        el.disabled = false;
-      });
-    });
-  } catch {
-    list.innerHTML = `<span>${escapeHtml(t("agent.relayOffline"))}</span>`;
-  }
-}
-
-export function setGitStatus(text: string): void {
-  const el = $("#git-repo-list");
-  if (el) el.textContent = text;
-}

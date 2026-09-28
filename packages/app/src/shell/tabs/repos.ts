@@ -1,84 +1,104 @@
 /**
- * Repositories nach NIP-34 (Schritt 8.10b): Repo ankuendigen, Patch senden,
- * Patches mit Status, annehmen oder schliessen als Maintainer, zurueckziehen
- * als Autor. Oeffentlich und signiert – wie bei jedem Git-Projekt; andere
- * Nostr-Clients (ngit, gitworkshop) lesen dieselben Events.
+ * Repositories nach NIP-34 (Schritt 8.10b), seit C.3a als eigene Seite: Liste
+ * mit Suche und „Alle / Meine“, je Repo eine Karte, dahinter die Repo-Seite
+ * (`repo-seite.ts`). Ein Repo = Ankündigung (30617) + Bundle-Verweis (38042)
+ * desselben Eigentümers mit derselben Kennung – nur in der Anzeige verbunden.
+ * Öffentlich und signiert – wie bei jedem Git-Projekt; andere Nostr-Clients
+ * (ngit, gitworkshop) lesen dieselben Events.
  *
  * Die Liste wird mit DOM-Aufrufen und textContent gebaut, nie per innerHTML:
  * Namen, Betreffe und Adressen kommen von Fremden.
  */
-import type { GelesenerPatch, GelesenesRepo } from "@freedomstack/protocol";
-import { t } from "../../i18n.js";
+import type { GelesenesRepo, NostrEvent } from "@freedomstack/protocol";
+import { gebietsschema, t } from "../../i18n.js";
 import { fehlerText } from "../../protokoll-texte.js";
-import { pkShort } from "../../shell-logic.js";
-import { type PatchAktion, STATUS_TEXT, patchZeilen, repoZeilen } from "../../repo-ansicht.js";
+import { type RepoKarte, filtereKarten, repoKarten } from "../../repo-ansicht.js";
+import { bestaetige, dialog } from "../dialog.js";
 import { ensurePool, signiere, state } from "../state.js";
 import { $, toast } from "../ui.js";
+import { eigentuemerName, zeigeRepoSeite } from "./repo-seite.js";
 
-const AKTION_TEXT: Record<PatchAktion, string> = { annehmen: "repo.annehmen", schliessen: "repo.schliessen", zurueckziehen: "repo.zurueckziehen" };
 const STATUS_KINDS = [1630, 1631, 1632, 1633];
 
-let repos: GelesenesRepo[] = [];
+let karten: RepoKarte[] = [];
+/** Offenes Repo – nur im Speicher, nie in der Adresse (C.1a). */
+let offenesRepo: string | null = null;
+let nurMeine = false;
 /** Fuer welches Repo gerade eine Patch-Datei gewaehlt wird. */
 let patchZiel: GelesenesRepo | null = null;
 
-function el(tag: string, text?: string, klasse?: string): HTMLElement {
+function el<K extends keyof HTMLElementTagNameMap>(tag: K, text?: string, klasse?: string): HTMLElementTagNameMap[K] {
   const e = document.createElement(tag);
   if (text !== undefined) e.textContent = text;
   if (klasse) e.className = klasse;
   return e;
 }
 
-function knopf(text: string, fn: () => void): HTMLButtonElement {
-  const b = el("button", text, "ghost") as HTMLButtonElement;
-  b.style.cssText = "width:auto;padding:3px 8px;margin-left:4px";
-  b.addEventListener("click", fn);
-  return b;
-}
-
-/** Repos, Patches und Status laden und zeigen. */
+/** Ankündigungen, Bundle-Verweise, Patches und Status laden und zeigen. */
 export async function ladeNip34Repos(): Promise<void> {
-  const box = document.getElementById("nip34-liste");
+  const box = document.getElementById("repos-karten");
   if (!box) return;
   try {
     const pool = await ensurePool();
-    const { KIND_REPO_ANKUENDIGUNG, KIND_PATCH } = await import("@freedomstack/protocol");
-    repos = repoZeilen(await pool.query({ kinds: [KIND_REPO_ANKUENDIGUNG], limit: 100 }));
-    if (repos.length === 0) {
-      box.textContent = t("repo.keineRepos");
-      return;
-    }
-    const patches = await pool.query({ kinds: [KIND_PATCH], "#a": repos.map((r) => r.adresse), limit: 300 });
+    const { KIND_REPO_ANKUENDIGUNG, KIND_PATCH, KIND_GIT_REPO_REF } = await import("@freedomstack/protocol");
+    const [ankuendigungen, bundles] = await Promise.all([
+      pool.query({ kinds: [KIND_REPO_ANKUENDIGUNG], limit: 100 }),
+      pool.query({ kinds: [KIND_GIT_REPO_REF], limit: 50 }),
+    ]);
+    const adressen = ankuendigungen.map((ev) => `${KIND_REPO_ANKUENDIGUNG}:${ev.pubkey}:${ev.tags.find((x) => x[0] === "d")?.[1] ?? ""}`);
+    const patches: NostrEvent[] = adressen.length ? await pool.query({ kinds: [KIND_PATCH], "#a": adressen, limit: 300 }) : [];
     const status = patches.length ? await pool.query({ kinds: STATUS_KINDS, "#e": patches.map((p) => p.id), limit: 1000 }) : [];
-    box.replaceChildren(...repos.map((r) => repoBlock(r, patchZeilen(r, patches, status, state.keypair?.pk))));
+    karten = repoKarten(ankuendigungen, bundles, patches, status, state.keypair?.pk);
+    zeige();
   } catch {
     box.textContent = t("repo.relaysWeg");
   }
 }
 
-function repoBlock(r: GelesenesRepo, zeilen: ReturnType<typeof patchZeilen>): HTMLElement {
-  const block = el("div");
-  block.style.marginBottom = "10px";
-  const kopf = el("div", undefined, "stat");
-  const titel = el("span", `📦 ${r.name} `, "k");
-  titel.append(el("span", pkShort(r.eigentuemer), "mono-sm"));
-  const rechts = el("span");
-  rechts.append(knopf(t("repo.patchSenden"), () => waehlePatch(r)));
-  kopf.append(titel, rechts);
-  block.append(kopf);
-  if (r.beschreibung) block.append(el("div", r.beschreibung, "mono-sm muted"));
-  if (r.klon.length) block.append(el("div", t("repo.klonen", { adressen: r.klon.join(" · ") }), "mono-sm muted"));
-  for (const z of zeilen) {
-    const zeile = el("div", undefined, "usage-row");
-    const links = el("span", `${z.patch.betreff} `);
-    links.append(el("span", pkShort(z.patch.autor), "muted"));
-    const st = el("span", t(STATUS_TEXT[z.status]));
-    for (const a of z.aktionen) st.append(knopf(t(AKTION_TEXT[a]), () => void setzeStatus(r, z.patch, a)));
-    zeile.append(links, st);
-    block.append(zeile);
+/** Liste oder – wenn eines offen ist – die Repo-Seite; `fokus`: gerade geöffnet, Fokus auf „‹ Alle Repos“. */
+function zeige(fokus = false): void {
+  const liste = document.getElementById("repos-liste-ansicht");
+  const seite = document.getElementById("repo-seite");
+  const box = document.getElementById("repos-karten");
+  if (!liste || !seite || !box) return;
+  const offen = karten.find((k) => k.schluessel === offenesRepo);
+  liste.classList.toggle("hidden", !!offen);
+  seite.classList.toggle("hidden", !offen);
+  if (offen) {
+    zeigeRepoSeite(seite, offen, {
+      zurueck: () => {
+        offenesRepo = null;
+        zeige();
+        box.querySelector<HTMLElement>(`[data-schluessel="${CSS.escape(offen.schluessel)}"]`)?.focus();
+      },
+      neuLaden: ladeNip34Repos,
+      patchSenden: waehlePatch,
+    });
+    if (fokus) seite.querySelector<HTMLElement>(".repo-zurueck")?.focus();
+    return;
   }
-  if (zeilen.length === 0) block.append(el("div", t("repo.keinePatches"), "mono-sm muted"));
-  return block;
+  const suche = (document.getElementById("repos-suche") as HTMLInputElement | null)?.value ?? "";
+  const gezeigt = filtereKarten(karten, suche, nurMeine, state.keypair?.pk);
+  box.replaceChildren(...(gezeigt.length ? gezeigt.map(karte) : [el("p", t(karten.length ? "repo.nichtsGefunden" : "repo.keineRepos"), "mono-sm muted")]));
+}
+
+/** Eine Karte: Name, Eigentümer, Beschreibung, offene Patches, letzte Aktivität, Marke „Bundle“. */
+function karte(k: RepoKarte): HTMLElement {
+  const b = el("button", undefined, "repo-karte");
+  b.type = "button";
+  b.dataset.schluessel = k.schluessel;
+  const kopf = el("div", undefined, "repo-karte-kopf");
+  kopf.append(el("span", eigentuemerName(k.eigentuemer), "repo-eigentuemer"), el("span", " / ", "muted"), el("span", k.name, "repo-name"));
+  if (k.bundle) kopf.append(el("span", t("repo.markeBundle"), "msg-role"));
+  b.append(kopf);
+  if (k.beschreibung) b.append(el("span", k.beschreibung, "repo-karte-text"));
+  const datum = new Date(k.zuletzt * 1000).toLocaleDateString(gebietsschema(), { day: "numeric", month: "short", year: "numeric" });
+  b.append(el("span", t("repo.karteFuss", { n: k.offen, datum }), "mono-sm muted"));
+  b.addEventListener("click", () => {
+    offenesRepo = k.schluessel;
+    zeige(true);
+  });
+  return b;
 }
 
 function waehlePatch(r: GelesenesRepo): void {
@@ -95,7 +115,7 @@ async function sendePatch(datei: File): Promise<void> {
     const { bauePatch, lesePatchText } = await import("@freedomstack/protocol");
     const text = await datei.text();
     const { betreff } = lesePatchText(text);
-    if (!confirm(t("repo.patchFrage", { betreff, repo: r.name }))) return;
+    if (!await bestaetige({ titel: t("repo.patchSenden"), text: t("repo.patchFrage", { betreff, repo: r.name }), ok: t("repo.patchSenden") })) return;
     await (await ensurePool()).publish(await signiere(bauePatch({ repo: r, text }, state.keypair.pk)));
     toast(t("repo.patchGesendet", { betreff }));
     await ladeNip34Repos();
@@ -104,34 +124,25 @@ async function sendePatch(datei: File): Promise<void> {
   }
 }
 
-async function setzeStatus(r: GelesenesRepo, patch: GelesenerPatch, aktion: PatchAktion): Promise<void> {
-  if (!state.keypair) return;
-  try {
-    const { baueStatus } = await import("@freedomstack/protocol");
-    let commits: string[] | undefined;
-    if (aktion === "annehmen") {
-      const c = prompt(t("repo.welcherCommit"))?.trim();
-      if (c === undefined) return;
-      commits = c ? [c.toLowerCase()] : undefined;
-    }
-    const status = aktion === "annehmen" ? "angenommen" : "geschlossen";
-    await (await ensurePool()).publish(await signiere(baueStatus({ patch, status, eigentuemer: r.eigentuemer, commits }, state.keypair.pk)));
-    toast(t(aktion === "annehmen" ? "repo.patchAngenommen" : aktion === "zurueckziehen" ? "repo.patchZurueckgezogen" : "repo.patchGeschlossen"));
-    await ladeNip34Repos();
-  } catch (e) {
-    toast(fehlerText(e), true);
-  }
-}
-
-/** Repo ankuendigen: Kennung und Klon-Adressen (auch ein Radicle-Spiegel rad:…). */
+/** Repo ankündigen: Kennung, Beschreibung und Klon-Adressen (auch ein Radicle-Spiegel rad:…). */
 async function kuendigeAn(): Promise<void> {
   if (!state.keypair) return;
-  const id = ($("#nip34-id") as HTMLInputElement).value.trim();
-  const klon = ($("#nip34-klon") as HTMLInputElement).value.split(",").map((k) => k.trim()).filter(Boolean);
+  const w = await dialog({
+    titel: t("agent.repoAnkuendigen"), ok: t("agent.repoAnkuendigen"),
+    felder: [
+      { art: "text", name: "id", label: t("agent.repoKennungPh"), pflicht: true, mono: true },
+      { art: "textarea", name: "beschreibung", label: t("repo.beschreibung") },
+      { art: "text", name: "klon", label: t("agent.klonPh"), mono: true },
+    ],
+  });
+  const id = String(w?.id ?? "").trim();
+  if (!w || !id) return;
+  const klon = String(w.klon ?? "").split(",").map((k) => k.trim()).filter(Boolean);
+  const beschreibung = String(w.beschreibung ?? "").trim();
   try {
     const { baueRepoAnkuendigung } = await import("@freedomstack/protocol");
-    const ev = baueRepoAnkuendigung({ id, name: id, klon }, state.keypair.pk);
-    if (!confirm(t("repo.ankuendigenFrage", { id }))) return;
+    const ev = baueRepoAnkuendigung({ id, name: id, klon, ...(beschreibung ? { beschreibung } : {}) }, state.keypair.pk);
+    if (!await bestaetige({ titel: t("agent.repoAnkuendigen"), text: t("repo.ankuendigenFrage", { id }), ok: t("agent.repoAnkuendigen") })) return;
     await (await ensurePool()).publish(await signiere(ev));
     toast(t("repo.angekuendigt", { id }));
     await ladeNip34Repos();
@@ -151,5 +162,14 @@ export function wireNip34(): void {
     datei.value = "";
     if (f) void sendePatch(f);
   });
+  document.getElementById("repos-suche")?.addEventListener("input", () => zeige());
+  document.querySelectorAll<HTMLButtonElement>("#repos-filter button").forEach((b) => b.addEventListener("click", () => {
+    nurMeine = b.dataset.filter === "meine";
+    document.querySelectorAll("#repos-filter button").forEach((x) => {
+      x.classList.toggle("active", x === b);
+      x.setAttribute("aria-pressed", String(x === b));
+    });
+    zeige();
+  }));
   void ladeNip34Repos();
 }

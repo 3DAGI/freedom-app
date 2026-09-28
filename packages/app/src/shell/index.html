@@ -458,27 +458,30 @@
 
       <!-- REPOS (C.1b): Repositories und Mitwirkende – vorher unter Agent und Earn -->
       <section id="page-repos" class="tab-page">
-        <header class="page-head"><div><h1 class="page-title" data-i18n="agent.repositories">Repositories</h1></div></header>
+        <header class="page-head"><div><h1 class="page-title" data-i18n="agent.repositories">Repositories</h1><p class="page-sub" data-i18n="agent.reposText">Git-Bundles liegen im Speichernetz; Zusammenarbeit (Patches, Annahme) läuft nach NIP-34.</p></div></header>
         <div class="page-body">
-          <div class="card">
-          <h3><span class="ic" data-icon="git"></span> <span data-i18n="agent.repositories">Repositories</span></h3>
-          <p class="mono-sm" data-i18n="agent.reposText">Git-Bundles liegen im Speichernetz; Zusammenarbeit (Patches, Annahme) läuft nach NIP-34.</p>
-          <div class="composer-meta">
-            <input id="git-repo-name" placeholder="Repo-Name" data-i18n-ph="agent.repoNamePh" style="width:120px" />
-            <button id="git-repo-publish" class="ghost copy-btn" data-i18n="agent.bundlePublizieren">⇪ Bundle publizieren</button>
-            <input type="file" id="git-bundle-file" accept=".bundle" style="display:none" />
+          <!-- C.3a: eine Liste statt zwei, dahinter die Repo-Seite -->
+          <div id="repos-liste-ansicht" class="card">
+            <div class="repos-leiste">
+              <label for="repos-suche" class="visually-hidden" data-i18n="repo.suchen">Repos durchsuchen</label>
+              <input id="repos-suche" type="search" placeholder="Repos durchsuchen" data-i18n-ph="repo.suchen" autocomplete="off" />
+              <div id="repos-filter" class="seg" role="group" aria-label="Welche Repos" data-i18n-aria="repo.filterAria">
+                <button type="button" data-filter="alle" class="active" aria-pressed="true" data-i18n="repo.alle">Alle</button>
+                <button type="button" data-filter="meine" aria-pressed="false" data-i18n="repo.meine">Meine</button>
+              </div>
+              <button id="nip34-ankuendigen" class="ghost mini" type="button" data-i18n="agent.repoAnkuendigen">Repo ankündigen</button>
+            </div>
+            <div class="composer-meta repos-bundle">
+              <input id="git-repo-name" placeholder="Repo-Name" data-i18n-ph="agent.repoNamePh" style="width:120px" />
+              <button id="git-repo-publish" class="ghost copy-btn" data-i18n="agent.bundlePublizieren">⇪ Bundle publizieren</button>
+              <input type="file" id="git-bundle-file" accept=".bundle" style="display:none" />
+            </div>
+            <div id="repos-karten" class="repos-karten"><span class="mono-sm" data-i18n="agent.lade">lade …</span></div>
+            <p class="mono-sm muted"><span data-i18n="agent.nip34Text1">Ankündigungen, Patches und Annahmen sind öffentlich und mit deinem Schlüssel signiert – wie bei jedem Git-Projekt. Andere Nostr-Clients (ngit, gitworkshop) lesen sie auch. Einen Patch erzeugst du mit</span> <code>git format-patch -1</code><span data-i18n="agent.nip34Text2">; angenommen ist er, wenn Eigentümer oder Maintainer es sagen.</span></p>
           </div>
-          <div id="git-repo-list" class="mono-sm" style="margin-top:8px"><span data-i18n="agent.lade">lade …</span></div>
-          <h4 class="mono-sm" style="margin-top:12px" data-i18n="agent.zusammenarbeit">Zusammenarbeit (NIP-34)</h4>
-          <p class="mono-sm muted"><span data-i18n="agent.nip34Text1">Ankündigungen, Patches und Annahmen sind öffentlich und mit deinem Schlüssel signiert – wie bei jedem Git-Projekt. Andere Nostr-Clients (ngit, gitworkshop) lesen sie auch. Einen Patch erzeugst du mit</span> <code>git format-patch -1</code><span data-i18n="agent.nip34Text2">; angenommen ist er, wenn Eigentümer oder Maintainer es sagen.</span></p>
-          <div class="composer-meta">
-            <input id="nip34-id" placeholder="Repo-Kennung" data-i18n-ph="agent.repoKennungPh" style="width:120px" />
-            <input id="nip34-klon" placeholder="Klon-Adressen (https://…, rad:…), mit Komma" data-i18n-ph="agent.klonPh" style="flex:1;min-width:160px" />
-            <button id="nip34-ankuendigen" class="ghost copy-btn" data-i18n="agent.repoAnkuendigen">Repo ankündigen</button>
-          </div>
+          <div id="repo-seite" class="card repo-seite hidden"></div>
           <input type="file" id="nip34-patch-datei" accept=".patch,.diff,.txt,text/plain" style="display:none" />
-          <div id="nip34-liste" class="mono-sm" style="margin-top:8px"><span data-i18n="agent.lade">lade …</span></div>
-        </div><div class="card">
+        <div class="card">
           <h3><span class="ic" data-icon="code"></span> <span data-i18n="earn.mitwirkende">Mitwirkende</span></h3>
           <p class="mono-sm" data-i18n="earn.mitwirkendeText">Wer mitarbeitet und ob das Projekt an einer Person hängt. Gezählt werden aktive Tage.</p>
           <div id="contrib-list" class="mono-sm"><span data-i18n="earn.lade">lade …</span></div>
