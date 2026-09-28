@@ -32,6 +32,12 @@ Prueft im Headless-Chromium:
     Agenten erreichbar; unter „Mehr“ Repos, Verdienen, Netz, Profil, Settings,
     Sprache und der Relay-Stand „im Pool“; seit C.1b Repos und Netz als Seiten
     mit ihren Inhalten (Repositories, Mitwirkende, Abdeckung, Mesh)
+  - Dialoge (Schritt C.2b1): per Tastatur, Fokus bleibt drin, Esc, Fokus zurück
+  - Raum (Schritt C.2b2): ein Probe-Raum über eine Relay-Attrappe (signiert von
+    scripts/raum-probe.mts) – beitreten per Dialog, der Raum steht gleich da,
+    Verlauf nach Absender und Tag gruppiert, HTML in Nachrichten bleibt Text,
+    Aktionen erst beim Fokus (mobil nach Antippen), mobil „‹“ zur Kanalliste;
+    das Raum-Menü per Tastatur bis zum Dialog und zurück
 
 Verbindungsfehler zu Relays werden ignoriert (hängen vom Netz ab).
 
@@ -39,7 +45,7 @@ Aufruf:  python3 agent/werkzeuge/smoke_test.py packages/app/dist
 Voraussetzung: pip install playwright && python3 -m playwright install chromium
 Exit-Code 0 = bestanden, 1 = durchgefallen.
 """
-import datetime, functools, http.server, json, socket, sys, threading
+import datetime, functools, http.server, json, re, socket, subprocess, sys, threading
 
 # Verlauf mit HTML im Modellnamen und in meta – beides kam frueher roh ins HTML.
 PROBE_VERLAUF = [{"id": "probe", "title": "Probe", "at": 1790000000, "messages": [
@@ -521,6 +527,165 @@ def dialog_pruefen(browser, url: str) -> dict:
     return erg
 
 
+class ProbeRelay:
+    """Relay-Attrappe (seit C.2b2): jede REQ bekommt die passenden Probe-Events und
+    EOSE, jedes EVENT ein OK. Den eigenen Schlüssel liest sie aus der Abfrage der
+    eigenen Relay-Listen beim Start (Kind 10002 mit einem Autor) – die App zeigt
+    ihn nirgends als Ganzes."""
+
+    def __init__(self) -> None:
+        self.ich: str | None = None
+        self.events: list[dict] = []
+
+    @staticmethod
+    def passt(ev: dict, f: dict) -> bool:
+        if "kinds" in f and ev["kind"] not in f["kinds"]:
+            return False
+        if "authors" in f and ev["pubkey"] not in f["authors"]:
+            return False
+        if "ids" in f and ev["id"] not in f["ids"]:
+            return False
+        for k, werte in f.items():
+            if k.startswith("#") and not any(t[0] == k[1:] and t[1] in werte for t in ev["tags"] if len(t) > 1):
+                return False
+        return True
+
+    def verbinde(self, ws) -> None:
+        def nachricht(roh) -> None:
+            try:
+                m = json.loads(roh)
+            except (TypeError, ValueError):
+                return
+            if not isinstance(m, list) or len(m) < 2:
+                return
+            if m[0] == "REQ":
+                for f in (x for x in m[2:] if isinstance(x, dict)):
+                    if 10002 in f.get("kinds", []) and len(f.get("authors", [])) == 1 and not self.ich:
+                        self.ich = f["authors"][0]
+                    for ev in self.events:
+                        if self.passt(ev, f):
+                            ws.send(json.dumps(["EVENT", m[1], ev]))
+                ws.send(json.dumps(["EOSE", m[1]]))
+            elif m[0] == "EVENT" and isinstance(m[1], dict):
+                ws.send(json.dumps(["OK", m[1].get("id", ""), True, ""]))
+        ws.on_message(nachricht)
+
+
+def raum_probe(ich: str) -> list[dict]:
+    """Events des Probe-Raums; der eigene Schlüssel wird Moderator."""
+    wurzel = Path(__file__).resolve().parent.parent
+    aus = subprocess.run(["npx", "tsx", "scripts/raum-probe.mts", ich], cwd=wurzel, capture_output=True,
+                         text=True, timeout=180, check=True)
+    return json.loads(aus.stdout)["events"]
+
+
+def raum_pruefen(browser, url: str) -> dict:
+    """Raum (C.2b2): Verlauf gruppiert mit Namen, Fremdes als Text, Aktionen beim Fokus, Raum-Menü."""
+    erg = {"fehler": []}
+    basis = url.rsplit("/", 1)[0]
+    for groesse, vp in [("desktop", {"width": 1280, "height": 800}), ("mobil", {"width": 390, "height": 844})]:
+        mobil = groesse == "mobil"
+        relay = ProbeRelay()
+        ctx = browser.new_context(locale="de-DE", viewport=vp, is_mobile=mobil, has_touch=mobil)
+        ctx.route("**/*", lambda r: r.continue_() if r.request.url.startswith(basis) else r.abort())
+        ctx.route_web_socket(re.compile(r"^wss?://"), relay.verbinde)
+        s = ctx.new_page()
+        s.on("pageerror", lambda e: erg["fehler"].append(str(e)[:300]))
+        ev = s.evaluate
+        s.goto(url, wait_until="load")
+        s.wait_for_selector("#bk-done", timeout=30000)
+        w = ev("() => [...document.querySelectorAll('.mnemonic-list li')].map(l => l.textContent)")
+        ev("(w) => document.querySelectorAll('#bk-challenge input').forEach(i => i.value = w[+i.dataset.pos])", w)
+        ev("() => document.getElementById('bk-done').click()")
+        s.wait_for_timeout(1500)
+        ev("() => document.getElementById('ein-abbrechen')?.click()")
+        ev("() => { location.hash = '#/chat'; }")
+        for _ in range(80):
+            if relay.ich:
+                break
+            s.wait_for_timeout(250)
+        if not relay.ich:
+            erg["fehler"].append(f"{groesse}: keine Abfrage der eigenen Relay-Listen – eigener Schlüssel unbekannt")
+            ctx.close()
+            continue
+        relay.events = raum_probe(relay.ich)
+        ev("() => document.getElementById('rail-join').click()")
+        s.wait_for_timeout(300)
+        s.keyboard.type("probe-raum")
+        s.keyboard.press("Enter")
+        try:
+            s.wait_for_function("() => document.querySelectorAll('#channel-thread .msg-group').length >= 3", timeout=15000)
+        except Exception:
+            pass
+        verlauf = ev("""() => { const th = document.getElementById('channel-thread');
+          const gruppen = [...th.querySelectorAll('.msg-group')];
+          return { gruppen: gruppen.map(g => g.querySelectorAll('.msg-zeile').length),
+            autoren: gruppen.map(g => g.querySelector('.msg-author').textContent),
+            tage: th.querySelectorAll('.msg-tag').length, bilder: th.querySelectorAll('img').length,
+            xss: window.__raumXss === 1, alsText: th.textContent.includes('<img src=x'),
+            aktionen: th.querySelectorAll('.msg-aktionen .mod-hide').length,
+            sichtbar: th.getBoundingClientRect().height > 0,
+            schreiben: !document.getElementById('channel-composer').classList.contains('hidden') }; }""")
+        deckkraft = "() => getComputedStyle(document.querySelectorAll('.msg-aktionen')[2]).opacity"
+        vorher = ev(deckkraft)
+        if mobil:  # antippen
+            s.locator("#channel-thread .msg-zeile").nth(2).tap()
+        else:  # Tastatur: der Knopf selbst nimmt den Fokus
+            ev("() => document.querySelectorAll('.msg-aktionen .mod-hide')[2].focus()")
+        s.wait_for_timeout(100)
+        nachher = ev(deckkraft)
+        verlauf["deckkraft"] = [vorher, nachher]
+        erg[groesse] = {"verlauf": verlauf}
+        erwartet = {"gruppen": [2, 2, 1], "tage": 2, "bilder": 0, "xss": False, "alsText": True, "aktionen": 5, "schreiben": True}
+        abweichung = {k: verlauf.get(k) for k, v in erwartet.items() if verlauf.get(k) != v}
+        # Namen: ohne Kontakte der gekürzte Schlüssel – nie „Du“ für andere, nie leer
+        if abweichung or not all(a and a != "Du" for a in verlauf["autoren"]):
+            erg["fehler"].append(f"{groesse}: Verlauf {abweichung or verlauf['autoren']}")
+        # Aktionen: erst beim Zeigen oder mit dem Fokus, mobil nach Antippen der Nachricht
+        if [vorher, nachher] != ["0", "1"]:
+            erg["fehler"].append(f"{groesse}: Aktionen sichtbar {vorher} → {nachher}")
+        # Nach dem Beitreten steht der Raum da – auch mobil, dort als eigene Ebene mit „‹“ zur Kanalliste
+        if not verlauf["sichtbar"]:
+            erg["fehler"].append(f"{groesse}: Verlauf nach dem Beitreten nicht sichtbar")
+        if mobil:
+            ev("() => document.getElementById('channel-zurueck').click()")
+            s.wait_for_timeout(200)
+            ebenen = ev("""() => [document.getElementById('channel-thread').getBoundingClientRect().height > 0,
+              document.getElementById('space-menue-knopf').getBoundingClientRect().height > 0,
+              document.activeElement?.classList.contains('channel-item') ?? false]""")
+            erg[groesse]["zurueck"] = ebenen
+            if ebenen != [False, True, True]:
+                erg["fehler"].append(f"mobil: „‹“ zur Kanalliste {ebenen}")
+        else:
+            stand = """() => { const m = document.getElementById('space-menue'); const d = document.querySelector('[role=dialog]');
+              return { offen: !m.classList.contains('hidden'), expanded: document.getElementById('space-menue-knopf').getAttribute('aria-expanded'),
+                fokus: document.activeElement?.id || null, dialog: d ? d.querySelector('h3').textContent : null }; }"""
+            ev("() => document.getElementById('space-menue-knopf').focus()")
+            schritte = {}
+            for taste in ["ArrowDown", "End", "ArrowDown", "Escape", "Enter", "ArrowDown", "Enter", "Escape"]:
+                s.keyboard.press(taste)
+                s.wait_for_timeout(150)
+                schritte.setdefault(taste, []).append(ev(stand))
+            erg["desktop"]["menue"] = schritte
+            soll = {
+                "ArrowDown": [{"offen": True, "expanded": "true", "fokus": "space-mods", "dialog": None},
+                              {"offen": True, "expanded": "true", "fokus": "space-mods", "dialog": None},
+                              {"offen": True, "expanded": "true", "fokus": "space-join", "dialog": None}],
+                "End": [{"offen": True, "expanded": "true", "fokus": "space-create-public", "dialog": None}],
+                "Escape": [{"offen": False, "expanded": "false", "fokus": "space-menue-knopf", "dialog": None},
+                           {"offen": False, "expanded": "false", "fokus": "space-menue-knopf", "dialog": None}],
+                "Enter": [{"offen": True, "expanded": "true", "fokus": "space-mods", "dialog": None},
+                          {"offen": False, "expanded": "false", "fokus": None, "dialog": "Raum beitreten"}],
+            }
+            # Im Dialog steht der Fokus auf dem Eingabefeld – dessen Id ist nicht fest
+            schritte["Enter"][1]["fokus"] = None
+            if schritte != soll:
+                erg["fehler"].append(f"desktop: Raum-Menü {schritte}")
+        ctx.close()
+    erg["bestanden"] = not erg["fehler"]
+    return erg
+
+
 def main() -> int:
     dist = Path(sys.argv[1] if len(sys.argv) > 1 else "packages/app/dist").resolve()
     datei = dist / "freedom.html"
@@ -595,6 +760,10 @@ def main() -> int:
                 erg["dialog"] = dialog_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
             except Exception as e:
                 erg["dialog"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
+            try:
+                erg["raum"] = raum_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
+            except Exception as e:
+                erg["raum"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
             browser.close()
     finally:
         srv.shutdown()
@@ -608,7 +777,8 @@ def main() -> int:
           and erg.get("sprache", {}).get("bestanden") is True
           and erg.get("mls", {}).get("bestanden") is True
           and erg.get("rahmen", {}).get("bestanden") is True
-          and erg.get("dialog", {}).get("bestanden") is True)
+          and erg.get("dialog", {}).get("bestanden") is True
+          and erg.get("raum", {}).get("bestanden") is True)
     erg["bestanden"] = bool(ok)
     print(json.dumps(erg, indent=1, ensure_ascii=False))
     return 0 if ok else 1

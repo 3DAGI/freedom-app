@@ -7,13 +7,17 @@ selbst und beschreibt im Pull Request, was sich geändert hat.
 
 Wie der Smoke-Test: frisches Profil, locale de-DE, jeder Zugriff nach außen
 gesperrt. Die Merkphrase wird bestätigt, die Einrichtung übersprungen – der
-Sicherungsdialog wird nie aufgenommen (er zeigt die Merkphrase).
+Sicherungsdialog wird nie aufgenommen (er zeigt die Merkphrase). Seit C.2b2
+antwortet eine Relay-Attrappe mit dem Probe-Raum (`scripts/raum-probe.mts`).
 
 Aufruf:  python3 scripts/screenshots.py packages/app/dist <zielordner> [--nur desktop|mobil]
 Ziel nie ein Git-Checkout außer docs/ausbau/bilder/.
 """
-import functools, http.server, socket, sys, threading
+import functools, http.server, re, socket, sys, threading
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from smoke_test import ProbeRelay, raum_probe  # noqa: E402
 
 GROESSEN = {"desktop": {"width": 1280, "height": 800}, "mobil": {"width": 390, "height": 844}}
 # (Name, Adresse, Unter-Reiter als "gruppe:reiter" oder ""[, Knopf, der einen Dialog öffnet])
@@ -57,6 +61,9 @@ def main() -> int:
             mobil = groesse == "mobil"
             ctx = browser.new_context(locale="de-DE", viewport=vp, is_mobile=mobil, has_touch=mobil)
             ctx.route("**/*", lambda r: r.continue_() if r.request.url.startswith(basis) else r.abort())
+            # Seit C.2b2: Relay-Attrappe mit dem Probe-Raum (wie im Smoke-Test)
+            relay = ProbeRelay()
+            ctx.route_web_socket(re.compile(r"^wss?://"), relay.verbinde)
             s = ctx.new_page()
             s.on("pageerror", lambda e: fehler.append(str(e)[:200]))
             s.goto(f"{basis}/freedom.html", wait_until="load")
@@ -80,6 +87,24 @@ def main() -> int:
                 s.screenshot(path=str(ziel / f"{groesse}-{nr:02d}-{name}.jpg"), type="jpeg", quality=70)
                 if knopf:
                     s.keyboard.press("Escape")
+            # Probe-Raum: Verlauf, Aktionen an einer Nachricht, Raum-Menü (mobil: Kanalliste)
+            if relay.ich:
+                relay.events = raum_probe(relay.ich)
+                nr = len(ANSICHTEN)
+                s.evaluate("() => { location.hash = '#/chat'; document.getElementById('rail-join').click(); }")
+                s.wait_for_timeout(300)
+                s.keyboard.type("probe-raum")
+                s.keyboard.press("Enter")
+                s.wait_for_timeout(2500)
+                s.screenshot(path=str(ziel / f"{groesse}-{nr + 1:02d}-raum.jpg"), type="jpeg", quality=70)
+                s.evaluate("() => document.querySelectorAll('#channel-thread .msg-zeile')[2]?.focus()")
+                s.wait_for_timeout(200)
+                s.screenshot(path=str(ziel / f"{groesse}-{nr + 2:02d}-raum-aktionen.jpg"), type="jpeg", quality=70)
+                if mobil:
+                    s.evaluate("() => document.getElementById('channel-zurueck').click()")
+                s.evaluate("() => document.getElementById('space-menue-knopf').click()")
+                s.wait_for_timeout(200)
+                s.screenshot(path=str(ziel / f"{groesse}-{nr + 3:02d}-raum-menue.jpg"), type="jpeg", quality=70)
             ctx.close()
         browser.close()
     srv.shutdown()

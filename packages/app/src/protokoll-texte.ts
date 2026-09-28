@@ -27,6 +27,10 @@ import { t } from "./i18n.js";
 
 const TAG = 86400;
 
+/** Vertraulichkeit eines Raum-Kanals – wie `privacyInfo()` (seit C.2b2, Spur C, B17). */
+export const kanalVertraulichkeit = (c: { privacy: string }): string =>
+  t(c.privacy === "verschluesselt" ? "raum.infoVerschluesselt" : "raum.infoOffen");
+
 /** „Lebt das noch?“ – wie `buildRepoOverview()` bewertet. */
 export function repoZustand(o: Pick<RepoOverview, "health" | "contributors">, jetzt = Math.floor(Date.now() / 1000)): string {
   if (o.health === "unbekannt" || o.contributors.length === 0) return t("earn.repoUnbekannt");

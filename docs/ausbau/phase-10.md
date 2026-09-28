@@ -7,9 +7,9 @@ Karte der Abdeckung und eine Navigation, die auf Desktop und Handy je für sich
 Sinn ergibt. Protokoll, Krypto, Zahlungen und Event-Formate bleiben, wie sie
 sind; sonst gilt die STOPP-Regel aus `CLAUDE.md`.
 
-Stand dieser Karte: **C.0, C.1a, C.1b, C.2a und C.2b1 fertig.** Der MENSCH hat den
+Stand dieser Karte: **C.0, C.1a, C.1b, C.2a, C.2b1 und C.2b2 fertig.** Der MENSCH hat den
 Entwurf am 27.09.2026 freigegeben – E1–E8 wie vorgeschlagen (Abschnitt 10.3).
-Nächster Schritt: C.2b2.
+Nächster Schritt: C.2c.
 
 ---
 
@@ -158,6 +158,8 @@ Playwright nachgeprüft (Sichtbarkeit und Maße der Elemente).
 | B15 | klein | Mobil wird „Kommunikation“ in der unteren Leiste zu „KOMMUN…“ gekürzt. | – | C.1a |
 | B16 | klein | Nach jeder KI-Antwort verdrahtet `handleAnswer()` Knöpfe erneut (`agent.ts:877–894`, wie schon `app.ts:826–848`) – harmlos, aber überflüssig. | Datei der Spur A | später (nach 4.3d) |
 | B17 | klein | Rauminfo und der Titel der Vertraulichkeit zeigen den deutschen Satz aus `privacyInfo()` auch in der englischen Oberfläche (`kommunikation.ts:228`, `:641`). | 8.16g2b2 (Spur B) hat den Satz nicht übernommen | C.2b2 |
+| B18 | hoch | *(gefunden in C.2b2)* **Mobil (bis 900 px) zeigt ein Raum nie seine Nachrichten:** `.channel-main` ist dort ausgeblendet, bis `.showing-channel` gesetzt ist – das setzte kein Code. | `app.css:850` | C.2b2 |
+| B19 | mittel | *(gefunden in C.2b2)* Nach „Raum beitreten“ oder „Raum anlegen“ bleibt der Chat bei den Direktnachrichten; der Raum erscheint erst nach einem Tipp auf sein Symbol in der Leiste. | `setzeKommModus()` nur beim Klick in die Leiste | C.2b2 |
 
 ---
 
@@ -422,7 +424,7 @@ Pull Request. Dateien der Spur A (`waehrung.ts`, `agent.ts`, `ki-zahlung.ts`,
 | **C.1b** | Seiten umziehen, **reines Verschieben**: neue Seiten „Repos“ (Repo-Karten aus Agent, Mitwirkende aus Earn) und „Netz“ (Karte aus Earn, Mesh aus Settings); Vertrauensstufe zu „Verdienen“; Aufrufe in `switchTab()` mitziehen | `index.html`, `app.ts` (Sammelstelle, klein), Smoke-Selektoren (~250) | B14 (teilweise) | C.1a |
 | **C.2a** | **reines Verschieben** des Raum-Teils aus `kommunikation.ts` (`:34–648`) nach `tabs/raeume.ts`, wörtlich | ~600 verschoben, ~100 neu | – | C.1a; Größe freigegeben (E7) |
 | **C.2b1** | `dialog.ts`; Dialoge statt `prompt()`/`confirm()`/`alert()` für Einladen, Moderatoren, Moderieren, Melden, Anlegen, Beitreten, Rauminfo; Smoke: Dialog per Tastatur | `dialog.ts`, `raeume.ts`, `app.css`, `texte/dialog.ts`, `texte/raeume.ts`, Tests (~400 mit Tests) | B7 | C.2a |
-| **C.2b2** | Verlauf gruppiert mit Namen (`kontaktName()`), Menü an Nachrichten (Zeigen und Fokus), Raum-Menü ▾; Rauminfo in der Sprache der Oberfläche (`privacyInfo()` in `protokoll-texte.ts` neu gebildet, Wortgleich-Test) | `raeume.ts`, `app.css`, `index.html`, `protokoll-texte.ts` (klein, Spur B), Tests (~300) | B9, B17 | C.2b1 |
+| **C.2b2** | Verlauf gruppiert mit Namen (`kontaktName()`), Menü an Nachrichten (Zeigen und Fokus), Raum-Menü ▾; Rauminfo in der Sprache der Oberfläche (`privacyInfo()` in `protokoll-texte.ts` neu gebildet, Wortgleich-Test); Probe-Raum im Smoke-Test | `raeume.ts`, `app.css`, `index.html`, `protokoll-texte.ts` (klein, Spur B), Tests (~300) | B9, B17, B18, B19 | C.2b1 |
 | **C.2c** | Antworten und Threads: Zeile „Antwort an …“, Thread-Spalte bzw. Unterseite, `sendePrivat()` mit `replyTo`/`threadRoot`, offen über `buildChannelMessage()`; Test: Antwort kommt in privaten und offenen Räumen mit Verweis an | `raeume.ts`, `raum-mls.ts`, Tests (~300) | B8 | C.2b |
 | **C.2d** | Mitglieder mit Rollen und Menü, Meldungen auch mobil, Kanal anlegen, mobile Ebenen (Kanal → Mitglieder, Thread) | `raeume.ts`, `app.css`, Tests (~350) | B3 | C.2c |
 | **C.3a** | Repo-Liste und Repo-Seite: 30617 + 38042 verbunden, Klonen, Bundle hoch- und herunterladen, Einstellungen des Eigentümers, Mitwirkende; Texte über Schlüssel | `repo-seite.ts`, `repos.ts`, `agent-netz.ts:266`, `app.ts:748` (zieht um), `texte/repos.ts`, Tests (~400) | B10, B11 | C.1b |
@@ -497,6 +499,35 @@ in `raeume.ts`; Namen, Gruppierung und Menüs folgen mit C.2b2.
   getippter Grund).
 - Der unerreichbare Zweig „Rolle vergeben“ in `moderiere()` fragt jetzt auch
   per Dialog; einen Knopf bekommt er mit C.2d.
+
+**C.2b2 – fertig (28.09.2026).** Wie oben, dazu zwei Befunde aus dem neuen
+Browser-Test (B18, B19):
+- Verlauf: nach Absender gruppiert (höchstens fünf Minuten Abstand, derselbe
+  Tag; `raum-verlauf.ts`, ohne DOM), ein Datum zwischen den Tagen, Namen über
+  `kontaktName()`, die eigenen als „Du“. Gebaut nur mit DOM und `textContent`
+  – die vier innerHTML-Ausnahmen des alten Verlaufs fallen weg. Mitglieder
+  und Meldungen nennen Namen; der Meldegrund steht als Text.
+- Aktionen an einer Nachricht als Werkzeugleiste: beim Zeigen und mit dem
+  Fokus (Tab erreicht die Knöpfe), mobil nach Antippen der Nachricht. Es sind
+  dieselben Wege wie bisher (`moderiere()`, `raumAktion()`); „Antworten“
+  kommt mit C.2c dazu.
+- Raum-Menü ▾ im Kopf des Raums (`shell/menue.ts`, Tastatur nach
+  Menü-Muster): Einladen, Moderatoren, Beitreten, Anlegen – die Knöpfe
+  behalten ihre IDs; ein Punkt schließt das Menü, bevor sein Dialog öffnet,
+  damit der Fokus danach zum Menüknopf zurückkehrt.
+- Rauminfo und Titel der Vertraulichkeit in der Sprache der Oberfläche
+  (`kanalVertraulichkeit()`, auf Deutsch wortgleich mit `privacyInfo()`); B17
+  ist damit behoben.
+- B19: Beitreten und Anlegen wechseln gleich in den Raum
+  (`setzeKommModus()` aus `kommunikation.ts` exportiert). B18: Ein geöffneter
+  Kanal ist mobil eine eigene Ebene, „‹“ führt zur Kanalliste; die übrigen
+  mobilen Ebenen (Mitglieder, Thread) bleiben bei C.2d.
+- Smoke-Test „raum“: eine Relay-Attrappe (`ProbeRelay`) liefert einen
+  Probe-Raum, den `scripts/raum-probe.mts` mit Wegwerfschlüsseln signiert
+  (der eigene Schlüssel wird Moderator). Geprüft auf Desktop und Handy:
+  Beitreten per Dialog, Gruppen und Tage, HTML in einer Nachricht bleibt
+  Text, Aktionen erst beim Fokus bzw. Antippen, „‹“, das Raum-Menü per
+  Tastatur bis zum Dialog und zurück. `screenshots.py` nimmt den Raum auf.
 
 ---
 
