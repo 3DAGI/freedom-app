@@ -9925,6 +9925,9 @@ Spur B, mit 5.5 (Entscheidung Spur A für Spur B vom 28.09., Leitplanke 7).
   privat, Quittungen nur im Tresor).
 - `scripts/build-site.sh` kopiert `js/` mit; `scripts/check-website.py` weist
   auf der Status-Seite 38010, 38075, 38025 und Selbstauskunfts-Wörter ab.
+- `ci.yml`: Der Schritt „Dashboard-Skript pruefen“ prüfte mit `new Function()`
+  und scheiterte am `import` – jetzt als Modul (`node --check`, auch
+  `js/dashboard-daten.js`); ein echter Syntaxfehler fällt weiter auf.
 
 **Tests:** +5 in `app/test/website-dashboard.test.ts`:
 - Arten gleich wie im Protokoll, abgefragt nur diese – nie 38010 oder 38075.
