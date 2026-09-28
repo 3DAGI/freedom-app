@@ -8896,3 +8896,10 @@ steht in der Sprache der Oberfläche. Damit ist der Code-Teil von 8.16 fertig.
   Buchstaben.
 - Der Test aus 8.16i1 prüft jetzt auch diese Kennungen aus dem Quelltext des
   Protokolls (Text vorhanden, deutsch passend).
+
+Endstand: protocol 1071 (6 übersprungen) · node 235 (6 übersprungen, mit Netz;
+ohne Netz 234 + 7) · app 510 (+1) · mls 13 · Leak-Tests 58 grün + 1 todo · 0 rot
+· check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 · Website 5 Seiten
+ok · Smoke-Test bestanden · im Browser: eine ungültige Bunker-Adresse meldet
+englisch „Not connected: Not a valid bunker:// address“, deutsch „Nicht
+verbunden: Keine gültige bunker://-Adresse“, keine Seitenfehler.
