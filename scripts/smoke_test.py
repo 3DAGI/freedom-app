@@ -581,6 +581,154 @@ class ProbeRelay:
         ws.on_message(nachricht)
 
 
+def qr_pruefen(browser, url: str) -> dict:
+    """QR (11.1b): Gerätecode nur auf Klick, mit Warnung, nach 60 s weg; Scannen beim
+    Import mit Kamera-Attrappe (Kamera erst auf Klick, danach aus); ohne Erkennung
+    der Hinweis zum Einfügen; Werbelink als QR."""
+    erg = {"fehler": []}
+    basis = url.rsplit("/", 1)[0]
+
+    def seite(relay: ProbeRelay, skript: str):
+        ctx = browser.new_context(locale="de-DE", viewport={"width": 1280, "height": 800})
+        ctx.route("**/*", lambda r: r.continue_() if r.request.url.startswith(basis) else r.abort())
+        ctx.route_web_socket(re.compile(r"^wss?://"), relay.verbinde)
+        ctx.add_init_script(skript)
+        s = ctx.new_page()
+        s.on("pageerror", lambda e: erg["fehler"].append(str(e)[:300]))
+        s.clock.install()
+        s.goto(url, wait_until="load")
+        s.wait_for_selector("#bk-done", timeout=30000)
+        w = s.evaluate("() => [...document.querySelectorAll('.mnemonic-list li')].map(l => l.textContent)")
+        s.evaluate("(w) => document.querySelectorAll('#bk-challenge input').forEach(i => i.value = w[+i.dataset.pos])", w)
+        s.evaluate("() => document.getElementById('bk-done').click()")
+        s.wait_for_timeout(1500)
+        s.evaluate("() => document.getElementById('ein-abbrechen')?.click()")
+        return ctx, s
+
+    # Kamera zählen; ohne BarcodeDetector (so wie im Linux-Chromium) oder mit Attrappe
+    kamera = """window.__kamera = 0; window.__spuren = [];
+      if (navigator.mediaDevices) navigator.mediaDevices.getUserMedia = async () => { window.__kamera++;
+        const c = document.createElement('canvas'); c.width = 64; c.height = 64; c.getContext('2d').fillRect(0, 0, 8, 8);
+        const st = c.captureStream(5); window.__spuren = st.getTracks(); return st; };"""
+    ohne_erkennung = kamera + "try { delete window.BarcodeDetector; } catch (e) {} window.BarcodeDetector = undefined;"
+    mit_erkennung = kamera + """window.__erkannt = 0; window.BarcodeDetector = class {
+        constructor(o) { window.__formate = o.formats; }
+        static async getSupportedFormats() { return ['qr_code']; }
+        async detect() { window.__erkannt++; return window.__erkannt >= 3 && window.__scanWert ? [{ rawValue: window.__scanWert }] : []; } };"""
+    dlg = """() => { const d = document.querySelector('[role=dialog][aria-modal=true]'); if (!d) return null;
+      const f = d.querySelector('input[readonly], textarea'); const scan = d.querySelector('.qr-scannen');
+      return { titel: document.getElementById(d.getAttribute('aria-labelledby'))?.textContent, wert: f?.value ?? null,
+        bilder: d.querySelectorAll('.qr-bild').length, pfad: d.querySelector('.qr-bild path')?.getAttribute('d')?.slice(0, 12) ?? null,
+        hinweise: [...d.querySelectorAll('.qr-hinweis')].map(h => h.textContent).filter(Boolean),
+        scan: scan ? !scan.hidden : null, videos: d.querySelectorAll('.qr-video').length }; }"""
+    ok = "() => [...document.querySelectorAll('[role=dialog] .dlg-knoepfe button')].pop().click()"
+
+    # Hauptgerät: Gerät hinzufügen → Gerätecode mit QR auf Klick, verschwindet nach 60 s
+    relay_a = ProbeRelay()
+    ctx, s = seite(relay_a, ohne_erkennung)
+    ev = s.evaluate
+    ev("() => document.querySelector('.app-nav button[data-tab=\"settings\"]').click()")
+    ev("() => document.getElementById('device-add').click()")
+    s.wait_for_timeout(300)
+    s.keyboard.type("Handy")
+    s.keyboard.press("Enter")
+    s.wait_for_timeout(300)
+    warnung = ev(dlg)
+    ev(ok)
+    try:
+        s.wait_for_function("() => document.querySelector('[role=dialog] .qr-zeigen')", timeout=15000)
+    except Exception:
+        pass
+    code_dlg = ev(dlg) or {}
+    code = code_dlg.get("wert") or ""
+    ev("() => document.querySelector('[role=dialog] .qr-zeigen').click()")
+    gezeigt = ev(dlg) or {}
+    jetzt_ms = ev("() => Date.now()")
+    s.clock.pause_at(datetime.datetime.fromtimestamp((jetzt_ms + 1000) / 1000, tz=datetime.timezone.utc))
+    s.clock.fast_forward("00:58")
+    s.wait_for_timeout(200)
+    nach58 = (ev(dlg) or {}).get("bilder")
+    s.clock.fast_forward("00:03")
+    s.wait_for_timeout(200)
+    nach61 = ev(dlg) or {}
+    sk = code.rsplit(":", 1)[-1] if code.count(":") == 2 else "?"
+    gespeichert = ev("(sk) => [...Object.values(localStorage), ...Object.values(sessionStorage)].some(v => String(v).includes(sk))", sk)
+    ev(ok)
+    s.wait_for_timeout(200)
+    grants = {e["id"]: e["pubkey"] for e in relay_a.gesendet if e.get("kind") == 38070}  # an jedes Relay, dasselbe Event
+    person_a = next(iter(grants.values()), None)  # die Vollmacht signiert das Hauptgerät
+    # Import ohne Erkennung: ehrlicher Hinweis, kein Scan-Knopf
+    ev("() => document.getElementById('nb-import').click()")
+    s.wait_for_timeout(300)
+    ohne = ev(dlg) or {}
+    s.keyboard.press("Escape")
+    # Werbelink als QR: nicht geheim, bleibt stehen
+    ev("() => document.querySelector('.app-nav button[data-tab=\"earn\"]').click()")
+    s.wait_for_timeout(500)
+    ev("() => document.querySelector('#referral-qr .qr-zeigen')?.click()")
+    werbung = ev("""() => ({ bilder: document.querySelectorAll('#referral-qr .qr-bild').length,
+      label: document.querySelector('#referral-qr .qr-bild')?.getAttribute('aria-label') ?? null })""")
+    kamera_a = ev("() => window.__kamera")
+    erg["hauptgeraet"] = {"warnung": warnung, "code": {k: v for k, v in code_dlg.items() if k != "wert"}, "gezeigt": gezeigt,
+                          "nach58": nach58, "nach61": nach61, "gespeichert": gespeichert, "vollmachten": len(grants),
+                          "ohne_erkennung": ohne, "werbung": werbung, "kamera": kamera_a}
+    ctx.close()
+    if not (warnung and warnung["titel"] == "Gerät hinzufügen"):
+        erg["fehler"].append(f"Warnung vor der Vollmacht {warnung}")
+    if not (re.fullmatch(r"freedom-geraet:[0-9a-f]{64}:[0-9a-f]{64}", code) and code.split(":")[1] == person_a):
+        erg["fehler"].append(f"Gerätecode {code[:40]}…")
+    if not (code_dlg.get("titel") == "Gerätecode für Handy" and code_dlg.get("bilder") == 0
+            and any(h.startswith("Nur dem eigenen neuen Gerät zeigen") for h in code_dlg.get("hinweise", []))):
+        erg["fehler"].append(f"vor dem Klick: kein Bild, Warnung da {code_dlg.get('bilder')} {code_dlg.get('hinweise')}")
+    if not (gezeigt.get("bilder") == 1 and (gezeigt.get("pfad") or "").startswith("M4 4h7v1h-7z")
+            and any(h.startswith("Verschwindet nach 60 Sekunden") for h in gezeigt.get("hinweise", []))):
+        erg["fehler"].append(f"QR nach dem Klick {gezeigt}")
+    if nach58 != 1 or nach61.get("bilder") != 0:
+        erg["fehler"].append(f"verschwindet nach 60 s: nach 58 s {nach58}, nach 61 s {nach61.get('bilder')}")
+    if gespeichert is not False or len(grants) != 1:
+        erg["fehler"].append(f"gespeichert {gespeichert}, Vollmachten {len(grants)}")
+    if not (ohne.get("titel") == "Identität importieren" and ohne.get("scan") is False
+            and "Dieser Browser kann QR-Codes nicht mit der Kamera lesen – bitte den Code einfügen." in ohne.get("hinweise", [])):
+        erg["fehler"].append(f"ohne Erkennung {ohne}")
+    if werbung != {"bilder": 1, "label": "Werbelink als QR-Code"} or kamera_a != 0:
+        erg["fehler"].append(f"Werbelink {werbung}, Kamera {kamera_a}")
+
+    # Neues Gerät: Import mit Scannen – Kamera erst auf Klick, nach dem Code wieder aus
+    relay_b = ProbeRelay()
+    ctx, s = seite(relay_b, mit_erkennung)
+    ev = s.evaluate
+    ev("(c) => { window.__scanWert = c; }", code)
+    ev("() => document.getElementById('nb-import').click()")
+    s.wait_for_timeout(300)
+    vor_klick = {"dialog": ev(dlg), "kamera": ev("() => window.__kamera")}
+    ev("() => document.querySelector('[role=dialog] .qr-scannen').click()")
+    try:
+        s.wait_for_function("() => document.querySelector('[role=dialog] textarea')?.value.startsWith('freedom-geraet:')", timeout=10000)
+    except Exception:
+        pass
+    gelesen = ev(dlg) or {}
+    spuren = ev("() => ({ kamera: window.__kamera, aus: window.__spuren.length > 0 && window.__spuren.every(t => t.readyState === 'ended'), formate: window.__formate })")
+    ev(ok)
+    try:
+        s.wait_for_function("() => localStorage.getItem('freedom.geraet.person')", timeout=10000)
+    except Exception:
+        pass
+    person = ev("() => localStorage.getItem('freedom.geraet.person')")
+    erg["neues_geraet"] = {"vor_klick": vor_klick, "gelesen": {k: v for k, v in gelesen.items() if k != "wert"}, "spuren": spuren,
+                           "person_passt": person == person_a}
+    ctx.close()
+    if not (vor_klick["dialog"] and vor_klick["dialog"]["scan"] is True and vor_klick["kamera"] == 0):
+        erg["fehler"].append(f"vor dem Klick {vor_klick}")
+    if not (gelesen.get("wert") == code and gelesen.get("videos") == 0 and "Code gelesen – prüfen und bestätigen." in gelesen.get("hinweise", [])):
+        erg["fehler"].append(f"gescannt {gelesen.get('videos')} {gelesen.get('hinweise')}")
+    if spuren != {"kamera": 1, "aus": True, "formate": ["qr_code"]}:
+        erg["fehler"].append(f"Kamera {spuren}")
+    if not person or person != person_a:
+        erg["fehler"].append("nach dem Import nicht als Gerät der Person angemeldet")
+    erg["bestanden"] = not erg["fehler"]
+    return erg
+
+
 def raum_probe(ich: str) -> list[dict]:
     """Events des Probe-Raums; der eigene Schlüssel wird Moderator."""
     wurzel = Path(__file__).resolve().parent.parent
@@ -1117,6 +1265,10 @@ def main() -> int:
                 erg["raum"] = raum_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
             except Exception as e:
                 erg["raum"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
+            try:
+                erg["qr"] = qr_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
+            except Exception as e:
+                erg["qr"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
             browser.close()
     finally:
         srv.shutdown()
@@ -1131,7 +1283,8 @@ def main() -> int:
           and erg.get("mls", {}).get("bestanden") is True
           and erg.get("rahmen", {}).get("bestanden") is True
           and erg.get("dialog", {}).get("bestanden") is True
-          and erg.get("raum", {}).get("bestanden") is True)
+          and erg.get("raum", {}).get("bestanden") is True
+          and erg.get("qr", {}).get("bestanden") is True)
     erg["bestanden"] = bool(ok)
     print(json.dumps(erg, indent=1, ensure_ascii=False))
     return 0 if ok else 1

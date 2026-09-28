@@ -25,8 +25,7 @@ class LangesBackend implements InferenceBackend {
   }
 }
 
-/** `erwartet`: so viele Antworten, bis gezählt wird – die Rückmeldung geht nebenher („best effort“) hinaus. */
-async function lauf(params: string[][], erwartet: number) {
+async function lauf(params: string[][], umschlaege: number) {
   const relay = new MemoryRelay(`mem://funk-${Math.random()}`);
   const pool = new OutboxPool([relay], { minAcks: 1 });
   const kp = generateKeypair();
@@ -39,13 +38,13 @@ async function lauf(params: string[][], erwartet: number) {
   const request = buildJobRequest({ customerPubkey: sitzung.publicKey(), input: "Wie reinige ich Wasser?", bidMsat: 0, providerPubkey: kp.pk, params });
   await pool.publish((await buildPrivateJobRequest({ request, sessionSigner: sitzung, providerPk: kp.pk, powBits: 8 })).wrap);
   assert.equal((await provider.pollOnce()).length, 1);
-  // Warten, bis die erwarteten Antworten da sind – eine feste Pause reichte unter Last
-  // nicht (die Rückmeldung wird nebenher versiegelt). Danach kurz auf Nachzügler.
-  const ende = Date.now() + 5000;
-  const post = () => relay.query({ kinds: [1059], "#p": [sitzung.publicKey()] });
-  while ((await post()).length < erwartet && Date.now() < ende) await new Promise((r) => setTimeout(r, 10));
-  await new Promise((r) => setTimeout(r, 50));
-  const antworten = (await Promise.all((await post()).map((w) => openPrivateJobResponse(w, sitzung))))
+  // Rückmeldungen laufen „best effort“ nebenher: auf die erwarteten Umschläge
+  // warten (feste 20 ms reichten bei voller Last nicht, gesehen in 11.1b),
+  // danach noch ein wenig, damit auch ein unerwarteter auffiele
+  const an = { kinds: [1059], "#p": [sitzung.publicKey()] };
+  for (let i = 0; i < 200 && (await relay.query(an)).length < umschlaege; i++) await new Promise((r) => setTimeout(r, 10));
+  await new Promise((r) => setTimeout(r, 20));
+  const antworten = (await Promise.all((await relay.query(an)).map((w) => openPrivateJobResponse(w, sitzung))))
     .flatMap((r) => (r.ok ? [r.response] : []));
   return { backend, antworten };
 }

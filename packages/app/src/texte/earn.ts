@@ -52,6 +52,7 @@ export const earn: Texte = {
   "earn.keineEinnahmen": { de: "Noch keine Einnahmen. Sie erscheinen, sobald dein Provider-Knoten Jobs erledigt.", en: "No earnings yet. They appear as soon as your provider node completes jobs." },
   "earn.linkKopiert": { de: "Werbelink kopiert", en: "Referral link copied" },
   "earn.codeMitAdresse": { de: "dein Code: {code} – mit deiner Lightning-Adresse", en: "your code: {code} – with your Lightning address" },
+  "earn.werbelinkQr": { de: "Werbelink als QR-Code", en: "Referral link as QR code" },
   "earn.codeOhneAdresse": { de: "dein Code: {code} – ohne Lightning-Adresse im Profil kommt dein Anteil nicht an", en: "your code: {code} – without a Lightning address in your profile your share doesn't arrive" },
   "earn.keineNennung": { de: "Noch niemand nennt dich öffentlich als Werber.", en: "Nobody names you publicly as referrer yet." },
   "earn.nennungen": { de: "{n} Geworbene nennen dich öffentlich als Werber.", en: "{n} referred people name you publicly as referrer." },
