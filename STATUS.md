@@ -10097,3 +10097,18 @@ mit Netz) · app 567 · mls 13 · Leak-Tests 62 grün + 1 todo · 0 rot ·
 check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 · Website 5 Seiten
 ok · Smoke-Test bestanden. Damit ist 8.2 im Code fertig (a–c); offen nur
 MENSCH: mit einem echten Provider in beiden Schienen testen.
+
+## Schritt 11.0 – Plan Phase 11: QR, Werbelinks, Agenten und Repos in Räumen
+
+**Warum:** Wunsch des MENSCHEN (28.09.2026): Geräte per QR-Code hinzufügen,
+Werbelinks mit eigener Adresse, Agenten und Repos in Räumen und Communities
+(privat und öffentlich), damit Mitglieder mit Agenten gemeinsam an Projekten
+arbeiten.
+
+**Was:** Neue Karte `docs/ausbau/phase-11.md` mit den Entscheidungen des
+MENSCHEN (Agent auf Knoten oder Gerät wählbar; Bezahlung durch Fragenden oder
+Einladenden einstellbar; QR selbst gebaut, Kamera über `BarcodeDetector` wo
+möglich; Werbelink mit eigener Domain und kurzem Namen), Schritten 11.1a–11.5
+mit Spurzuordnung (A: QR, Werbelinks, Agenten; B: Repos in Räumen; C:
+Oberfläche) und Leitplanken. FORTSCHRITT: Zeilen 11.x, Zeile der Spur A.
+Kein Code.
