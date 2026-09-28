@@ -11,6 +11,7 @@
 import { baueOfflineUeberweisung, pruefeOfflineUeberweisung, railFuerZiel, type NonceStand } from "@freedomstack/protocol";
 import type { Nachfrage, SignierbareTx, WalletSpeicher } from "./sol-wallet.js";
 import { t } from "./i18n.js";
+import { offlineGrund } from "./protokoll-texte.js";
 
 export const LS_SOL_NONCE = "freedom.solWallet.nonce";
 
@@ -75,7 +76,7 @@ export async function erstelleOfflineZahlung(
   w.signiere(tx as unknown as SignierbareTx);
   const roh = new Uint8Array(tx.serialize());
   const pruefung = pruefeOfflineUeberweisung(roh);
-  if (!pruefung.ok) throw new Error(pruefung.grund);
+  if (!pruefung.ok) throw new Error(offlineGrund(pruefung));
   await schreibeAblage(s, { ...a, verbraucht: true });
   return roh;
 }

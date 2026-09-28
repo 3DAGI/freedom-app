@@ -13,14 +13,17 @@ test("gueltige Ordnung: Lightning-Frist deutlich laenger", () => {
 test("ungueltig: Lightning-Frist kuerzer als Solana", () => {
   const r = validateTimelockOrdering({ tSolSecs: 7200, lnCltvDeltaBlocks: 6 }); // LN=3600 < 7200
   assert.ok(!r.ok);
+  assert.equal(r.fall, "reihenfolge");
 });
 
 test("ungueltig: Puffer zu klein", () => {
   const r = validateTimelockOrdering({ tSolSecs: 3400, lnCltvDeltaBlocks: 6 }); // LN=3600, Puffer 200 < 3600
   assert.ok(!r.ok);
+  assert.deepEqual([r.fall, r.mindestSecs, r.marginSecs], ["puffer", 3600, 200]);
 });
 
 test("ungueltig: tSol <= 0", () => {
   const r = validateTimelockOrdering({ tSolSecs: 0, lnCltvDeltaBlocks: 12 });
   assert.ok(!r.ok);
+  assert.equal(r.fall, "tsol");
 });

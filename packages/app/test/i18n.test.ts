@@ -605,3 +605,121 @@ test("8.16g2b2: Sätze des Protokolls in Settings und im Chat – deutsch wortgl
     setLang(vorher);
   }
 });
+
+test("8.16g2b3a: Gründe aus Prüfungen (Fristen, Relayer, offline, Mesh, Kette, Stichprobe) – deutsch wortgleich, jede Kennung mit Text", async () => {
+  // Die App zeigt diese Gründe nicht mehr direkt aus dem Protokoll
+  const stelle = (d: string) => readFileSync(pfad(SRC, d), "utf8");
+  assert.match(stelle("rueck-swap.ts"), /fristGrund\(regel\)/);
+  assert.match(stelle("sol-offline-zahlung.ts"), /throw new Error\(offlineGrund\(pruefung\)\)/);
+  assert.match(stelle("shell/zahlschienen.ts"), /throw new Error\(offlineGrund\(p\)\)/);
+  assert.equal(stelle("mesh-radio.ts").match(/meshGrund\(pruefung\)/g)?.length, 2);
+  assert.doesNotMatch(stelle("mesh-radio.ts"), /pruefung\.grund/);
+  assert.match(stelle("relay-einloesung.ts"), /relayGrund\(selbst\)/);
+  assert.equal(stelle("trinkgeld-beleg.ts").match(/solGrund\(p\)/g)?.length, 2);
+  assert.match(stelle("rpc-stichprobe.ts"), /r\.befunde\?\.map\(stichprobeBefund\)[\s\S]*r\.luecken\?\.map\(stichprobeLuecke\)/);
+
+  const P = await import("@freedomstack/protocol");
+  const T = await import("../src/protokoll-texte.js");
+  const vorher = getLang();
+  try {
+    setLang("de");
+    // Fristen: echte Aufrufe, jede Regel einmal
+    const fristen = [
+      P.validateTimelockOrdering({ tSolSecs: 0, lnCltvDeltaBlocks: 12 }),
+      P.validateTimelockOrdering({ tSolSecs: 7200, lnCltvDeltaBlocks: 6 }),
+      P.validateTimelockOrdering({ tSolSecs: 3400, lnCltvDeltaBlocks: 6 }),
+      P.validateReverseTimelock({ tSolSecs: 3600, lnCltvLimitBlocks: 0 }),
+      P.validateReverseTimelock({ tSolSecs: 11 * 3600 - 1, lnCltvLimitBlocks: 30 }),
+    ];
+    assert.deepEqual(fristen.map((r) => r.fall), ["tsol", "reihenfolge", "puffer", "cltv", "vor-solana"]);
+    for (const r of fristen) assert.equal(T.fristGrund(r), r.reason);
+
+    // Jede Kennung aus dem Quelltext des Protokolls: Text vorhanden und wortgleich
+    // (Einsetzungen `${…}` stehen für Zahlen).
+    const PROTO = new URL("../../protocol/src/", import.meta.url).pathname;
+    const faelle = (datei: string): Array<[string, RegExp]> =>
+      [...readFileSync(pfad(PROTO, datei), "utf8").matchAll(/(?:grund|reason): ("[^"]+"|`[^`]+`),\s*fall: "([a-z-]+)"/g)].map((m) => [
+        m[2]!,
+        new RegExp(`^${m[1]!.slice(1, -1).replace(/[.*+?^()|[\]\\]/g, "\\$&").replace(/\$\{[^}]+\}/g, "\\d+")}$`),
+      ]);
+    const werte = { bytes: 1300, signatur: 1, signaturen: 2, erstattung: 9_999, mindest: 10_000, lamports: 5, erwartet: 7 };
+    const pruefe = (datei: string, text: (fall: string) => string, anzahl: number) => {
+      const f = faelle(datei);
+      assert.equal(f.length, anzahl, `${datei}: alle Fälle gefunden`);
+      for (const [fall, muster] of f) assert.match(text(fall), muster, `${datei}: ${fall}`);
+    };
+    pruefe("relayer.ts", (fall) => T.relayGrund({ grund: "", fall: fall as never, ...werte }), 12);
+    pruefe("sol-offline.ts", (fall) => T.offlineGrund({ grund: "", fall: fall as never, ...werte }), 9);
+    pruefe("mesh-transport.ts", (fall) => T.meshGrund({ grund: "", fall: fall as never, ...werte }), 13);
+    pruefe("sol-trinkgeld.ts", (fall) => T.solGrund({ status: "falsch", grund: "", fall: fall as never, ...werte }), 6);
+    // Offline-Überweisungen erben die Gründe der Grundprüfung
+    assert.equal(T.offlineGrund({ grund: "", fall: "zu-gross", bytes: 1300 }), "Solana-Transaktion zu groß (1300 Byte)");
+    const kurz = P.pruefeOfflineUeberweisung(new Uint8Array(1300));
+    assert.equal(!kurz.ok && T.offlineGrund(kurz), !kurz.ok && kurz.grund);
+    const wenig = P.pruefeSolUeberweisung({ meta: { err: null }, transaction: { message: { instructions: [{ program: "system", parsed: { type: "transfer", info: { destination: "A", lamports: 1 } } }] } } }, { an: "A", lamports: 2 });
+    assert.equal(wenig.status !== "belegt" && T.solGrund(wenig), "nur 1 statt 2 Lamports");
+    // Gründe, die die App selbst bildet (ohne Kennung), bleiben
+    assert.equal(T.solGrund({ status: "unbestaetigt", grund: "schon übersetzt" }), "schon übersetzt");
+
+    // Stichprobe: echte Läufe gegen ein kleines Netz – Befunde und Lücken wie die Sätze des Protokolls
+    const G_MAIN = "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d";
+    const G_DEV = "EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG";
+    const H1 = "9hQx8TzLk2WpRn7VbYc3MfJs9GdUe6NaHo5KiXwEt1Zr";
+    const E = (n: number) => `https://rpc${n}.test`;
+    type Knoten = { genesis?: string; hash?: string; kennt?: string[]; konto?: number; tot?: boolean; hinkt?: boolean; muell?: boolean };
+    const netz = (knoten: Record<string, Knoten>) => (async (url: string | URL, init?: RequestInit) => {
+      const u = url.toString();
+      const { method, params } = JSON.parse(String(init?.body)) as { method: string; params: unknown[] };
+      const k = { genesis: G_MAIN, hash: H1, kennt: [H1], konto: 5, ...knoten[u] };
+      if (!(u in knoten) || k.tot) throw new Error("ECONNREFUSED");
+      const antwort = (x: object) => new Response(JSON.stringify({ jsonrpc: "2.0", id: 1, ...x }));
+      if (k.hinkt && method !== "getGenesisHash") return antwort({ error: { code: -32016, message: "Minimum context slot has not been reached" } });
+      switch (method) {
+        case "getGenesisHash": return antwort({ result: k.muell ? "<b>" : k.genesis });
+        case "getLatestBlockhash": return antwort({ result: { context: { slot: 100 }, value: { blockhash: k.hash } } });
+        case "isBlockhashValid": return antwort({ result: { context: { slot: 100 }, value: k.kennt.includes(params[0] as string) } });
+        case "getBalance": return antwort({ result: { context: { slot: 100 }, value: k.konto } });
+        default: return antwort({ result: null });
+      }
+    }) as unknown as typeof fetch;
+    const probe = (knoten: Record<string, Knoten>, konto?: string) =>
+      new P.RpcPool([1, 2, 3].map((n) => ({ url: E(n), label: `rpc${n}` })), { fetchImpl: netz(knoten) }).stichprobe(konto === undefined ? {} : { konto });
+    const KONTO = "Kunde1111111111111111111111111111111111111";
+    const laeufe = [
+      await probe({ [E(1)]: { genesis: G_DEV }, [E(2)]: {} }),
+      await probe({ [E(1)]: { genesis: "Unbekannt111111111111111111111111111111111" }, [E(2)]: {} }),
+      await probe({ [E(1)]: {}, [E(2)]: { kennt: [] } }),
+      await probe({ [E(1)]: { konto: 5 }, [E(2)]: { konto: 7 } }, KONTO),
+      await probe({ [E(1)]: { tot: true }, [E(2)]: { muell: true } }),
+      await probe({ [E(1)]: {}, [E(2)]: { hinkt: true } }, KONTO),
+      await probe({ [E(1)]: {}, [E(2)]: {} }, "keine-adresse"),
+    ];
+    const arten = laeufe.flatMap((r) => [...(r.befunde ?? []), ...(r.luecken ?? [])].map((x) => x.art));
+    for (const art of ["ketten", "blockhash", "kontostand", "anbieter", "kein-zweiter", "adresse"]) assert.ok(arten.includes(art as never), `Fall ${art} kommt vor`);
+    for (const r of laeufe) {
+      assert.deepEqual(r.befunde!.map(T.stichprobeBefund), r.warnungen);
+      assert.deepEqual(r.luecken!.map(T.stichprobeLuecke), r.hinweise);
+    }
+    const hinkt = laeufe[5]!.luecken!.map((l) => ("fehler" in l ? l.fehler.art : l.art));
+    assert.ok(hinkt.includes("hinkt"), "hinkt hinterher kommt vor");
+
+    setLang("en");
+    assert.equal(T.fristGrund(fristen[4]!), "Lightning deadline (36000s with slow blocks) plus margin 3600s must end before the Solana deadline (39599s)");
+    assert.equal(T.relayGrund({ grund: "", fall: "erstattung-klein", erstattung: 9_999, mindest: 10_000 }), "refund 9999 below 10000 lamports");
+    assert.equal(T.solGrund(wenig as Exclude<typeof wenig, { status: "belegt" }>), "only 1 instead of 2 lamports");
+    assert.equal(T.stichprobeLuecke({ art: "blockhash", von: "a", bei: "b", fehler: { art: "hinkt" } }), "Blockhash a → b: is lagging behind");
+    assert.equal(T.stichprobeBefund({ art: "ketten", a: "a", b: "b", netzA: "Devnet" }), "a (Devnet) and b (unknown network) are on different chains – check the endpoints you entered.");
+    const en = [
+      ...["unlesbar", "gebuehrenzahler", "anweisungen", "programm", "keine-einloesung", "ohne-empfaenger", "relayer-konto", "keine-ueberweisung", "erstattung-weg", "erstattung-klein", "unsigniert", "signatur"]
+        .map((fall) => T.relayGrund({ grund: "ä", fall: fall as never })),
+      ...["unlesbar", "anweisungen", "kein-nonce", "nonce-unvollstaendig", "ohne-zahler", "zahler-verschieden", "betrag", "kein-nonce-wert", "signatur", "zu-gross"]
+        .map((fall) => T.offlineGrund({ grund: "ä", fall: fall as never })),
+      ...["klartext", "kein-event", "kein-umschlag", "umschlag-signatur", "eigener-schluessel", "version"].map((fall) => T.meshGrund({ grund: "ä", fall: fall as never })),
+      ...laeufe.flatMap((r) => [...r.befunde!.map(T.stichprobeBefund), ...r.luecken!.map(T.stichprobeLuecke)]),
+      t("pg.unbekannt"),
+    ].join(" ");
+    assert.doesNotMatch(en, /[äöüÄÖÜß]/, "kein deutscher Buchstabe");
+  } finally {
+    setLang(vorher);
+  }
+});

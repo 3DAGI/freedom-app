@@ -8630,3 +8630,56 @@ Leak-Tests 58 grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 ·
 innerHTML streng Exit 0 · Website 5 Seiten ok · Smoke-Test bestanden · im
 Browser: Sicherung, Offline-Fähigkeiten und Echtheitsprüfung in Englisch und
 Deutsch, ohne Seitenfehler.
+
+## Schritt 8.16g2b3a – Übersetzungen: Gründe aus Prüfungen (Geld und Netz)
+
+**Fertig:** Die Gründe, mit denen Prüfungen des Protokolls etwas ablehnen,
+stehen in der Sprache der Oberfläche. 8.16g2b3 ist geteilt (rund 90 Sätze):
+**a** Geld und Netz (dieser Schritt), **b** Mesh und Vertrauen.
+
+- **Protokoll (klein, berührt andere Spuren):** Die Prüfungen liefern neben
+  dem deutschen `grund` eine Kennung `fall` und die Zahlen dazu. Nur
+  zusätzliche Felder – kein Event-Format, keine Prüfregel geändert:
+  - Fristen (`TimelockCheck.fall`, `.mindestSecs`);
+  - Relay-Auftrag (`RelayFehler`, `.erstattung`, `.mindest`);
+  - Solana-Transaktion und Mesh-Inhalt (`SolanaTxFehler`, `MeshFehler`,
+    `.bytes`, `.signatur`, `.signaturen`);
+  - Offline-Überweisung (`OfflineFehler`);
+  - Überweisung auf der Kette (`SolFehler`, `.lamports`, `.erwartet`);
+  - RPC-Stichprobe (`StichprobeErgebnis.befunde` und `.luecken`; „unerwartete
+    Antwort“ als eigene Fehlerklasse statt am Text erkannt).
+
+  Die deutschen Sätze in `timelock.ts` und `relayer.ts` haben echte Umlaute
+  („größer“, „Blöcke“, „Einlösung“, „Gebührenzahler“); die Tests dort suchen
+  die neue Schreibweise und prüfen zusätzlich die Kennungen.
+- **App:** neuer Bereich `app/src/texte/pruefgruende.ts` (`pg.*`, 53 Schlüssel,
+  je `de` und `en`); `protokoll-texte.ts` bildet die Gründe neu: `fristGrund`,
+  `relayGrund`, `offlineGrund`, `meshGrund`, `solGrund`, `stichprobeBefund`,
+  `stichprobeLuecke`. Verdrahtet in `rueck-swap.ts`, `sol-offline-zahlung.ts`,
+  `shell/zahlschienen.ts`, `mesh-radio.ts` (Senden und Verwerfen),
+  `relay-einloesung.ts`, `trinkgeld-beleg.ts`, `rpc-stichprobe.ts`; der
+  Rückholwächter sagt „unbekannt“ in der Sprache der Oberfläche.
+- Gründe, die die App selbst bildet (ohne `fall`), bleiben, wie sie sind –
+  sie sind schon übersetzt. Was ein Relayer in seiner Ablehnung schickt, ist
+  dessen Text und bleibt es.
+- `claimAllowed` stand schon in der App und war übersetzt.
+- **Noch offen (8.16g2b3b):** Mesh-Planung (`planSync().note`,
+  `meshFeasibility().note`, `SYNC_POLICY` – dort steht noch „Räume sind noch
+  nicht verschlüsselt (2.3)“), Nachfolge (`darfUebergeben`), Geräte
+  (`absenderPerson`), Reklamation (`disputeWindowOpen`, `resolveDispute`),
+  Relay-Adressen (`isPlausibleRelayUrl`), Moderationsgrund-Vorgabe. Danach:
+  Fehlermeldungen, die das Protokoll wirft.
+
+**Tests:**
+- +1 in `i18n.test.ts`:
+  - Fristen mit echten Aufrufen deutsch wortgleich;
+  - jede Kennung aus dem Quelltext des Protokolls (Relayer 12, offline 9,
+    Mesh 13, Kette 6) hat einen Text und stimmt deutsch mit dem Satz dort
+    überein;
+  - die Stichprobe in sieben Läufen gegen ein kleines Netz: Befunde und Lücken
+    wortgleich mit `warnungen` und `hinweise`;
+  - Englisch mit Stichproben und ohne deutschen Buchstaben;
+  - die Stellen im Code.
+- Protokoll: die Tests von Relayer, Offline-Überweisung, Mesh-Inhalt,
+  Fristen, Rück-Swap, SOL-Beleg und Stichprobe prüfen zusätzlich die
+  Kennungen und Zahlen.

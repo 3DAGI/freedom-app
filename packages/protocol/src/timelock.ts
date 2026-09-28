@@ -32,6 +32,10 @@ export interface TimelockParams {
 export interface TimelockCheck {
   ok: boolean;
   reason?: string;
+  /** Welche Regel verletzt ist (8.16g2b3) – die App bildet daraus den Text in ihrer Sprache. */
+  fall?: "tsol" | "reihenfolge" | "puffer" | "cltv" | "vor-solana";
+  /** Verlangter Mindestabstand in Sekunden – bei `fall` "puffer" und "vor-solana". */
+  mindestSecs?: number;
   tSolSecs: number;
   tLnSecs: number;
   marginSecs: number;
@@ -48,12 +52,13 @@ export function validateTimelockOrdering(p: TimelockParams): TimelockCheck {
   const actualMargin = tLnSecs - p.tSolSecs;
 
   if (p.tSolSecs <= 0) {
-    return { ok: false, reason: "tSolSecs muss > 0 sein", tSolSecs: p.tSolSecs, tLnSecs, marginSecs: actualMargin };
+    return { ok: false, reason: "tSolSecs muss > 0 sein", fall: "tsol", tSolSecs: p.tSolSecs, tLnSecs, marginSecs: actualMargin };
   }
   if (tLnSecs <= p.tSolSecs) {
     return {
       ok: false,
-      reason: `Lightning-Frist (${tLnSecs}s) muss groesser sein als Solana-Frist (${p.tSolSecs}s)`,
+      reason: `Lightning-Frist (${tLnSecs}s) muss größer sein als Solana-Frist (${p.tSolSecs}s)`,
+      fall: "reihenfolge",
       tSolSecs: p.tSolSecs,
       tLnSecs,
       marginSecs: actualMargin,
@@ -63,6 +68,8 @@ export function validateTimelockOrdering(p: TimelockParams): TimelockCheck {
     return {
       ok: false,
       reason: `Sicherheitspuffer ${actualMargin}s < Minimum ${margin}s`,
+      fall: "puffer",
+      mindestSecs: margin,
       tSolSecs: p.tSolSecs,
       tLnSecs,
       marginSecs: actualMargin,
@@ -107,13 +114,15 @@ export function validateReverseTimelock(p: ReverseTimelockParams): TimelockCheck
   const actualMargin = p.tSolSecs - tLnSecs;
   const ergebnis = { tSolSecs: p.tSolSecs, tLnSecs, marginSecs: actualMargin };
   if (!Number.isSafeInteger(p.lnCltvLimitBlocks) || p.lnCltvLimitBlocks <= 0) {
-    return { ok: false, reason: "cltv_limit muss eine positive ganze Zahl (Bloecke) sein", ...ergebnis };
+    return { ok: false, reason: "cltv_limit muss eine positive ganze Zahl (Blöcke) sein", fall: "cltv", ...ergebnis };
   }
-  if (p.tSolSecs <= 0) return { ok: false, reason: "tSolSecs muss > 0 sein", ...ergebnis };
+  if (p.tSolSecs <= 0) return { ok: false, reason: "tSolSecs muss > 0 sein", fall: "tsol", ...ergebnis };
   if (actualMargin < margin) {
     return {
       ok: false,
-      reason: `Lightning-Frist (${tLnSecs}s bei langsamen Bloecken) plus Abstand ${margin}s muss vor der Solana-Frist (${p.tSolSecs}s) enden`,
+      reason: `Lightning-Frist (${tLnSecs}s bei langsamen Blöcken) plus Abstand ${margin}s muss vor der Solana-Frist (${p.tSolSecs}s) enden`,
+      fall: "vor-solana",
+      mindestSecs: margin,
       ...ergebnis,
     };
   }

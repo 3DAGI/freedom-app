@@ -269,7 +269,7 @@ test("Stichprobe (5.8): zwei ehrliche Anbieter stimmen ueberein – ein dritter 
   const log: string[] = [];
   const pool = new RpcPool(endpoints, { fetchImpl: rpcNetz({ [E(1)]: {}, [E(2)]: { hash: H2 }, [E(3)]: {} }, log) });
   const r = await pool.stichprobe({ konto: KONTO });
-  assert.deepEqual(r, { anbieter: ["rpc1", "rpc2"], verglichen: ["netz", "blockhash", "kontostand"], warnungen: [], hinweise: [] });
+  assert.deepEqual(r, { anbieter: ["rpc1", "rpc2"], verglichen: ["netz", "blockhash", "kontostand"], warnungen: [], hinweise: [], befunde: [], luecken: [] });
   assert.ok(!log.some((z) => z.startsWith(E(3))), "nur zwei Anbieter");
   assert.ok(log.includes(`${E(2)} isBlockhashValid ab 100`) && log.includes(`${E(1)} isBlockhashValid ab 100`), "Blockhash in beide Richtungen, ab dem Stand des Fragenden");
 });
@@ -278,6 +278,7 @@ test("Stichprobe: ein falscher Blockhash faellt auf – egal, welcher der beiden
   const pool = new RpcPool(endpoints, { fetchImpl: rpcNetz({ [E(1)]: { hash: H_FALSCH }, [E(2)]: {} }) });
   const r = await pool.stichprobe();
   assert.deepEqual(r.warnungen, ["rpc2 kennt den letzten Blockhash von rpc1 nicht – einer der beiden liefert eine falsche Kette."]);
+  assert.deepEqual(r.befunde, [{ art: "blockhash", von: "rpc1", bei: "rpc2" }], "dieselbe Warnung als Daten (8.16g2b3)");
   assert.deepEqual(r.verglichen, ["netz", "blockhash"], "ohne Konto kein Kontostand");
 
   const zweiter = new RpcPool(endpoints, { fetchImpl: rpcNetz({ [E(1)]: {}, [E(2)]: { kennt: [] } }) });
@@ -288,6 +289,7 @@ test("Stichprobe: ein falscher Kontostand faellt auf, eine Aenderung zwischen de
   const falsch = new RpcPool(endpoints, { fetchImpl: rpcNetz({ [E(1)]: { konto: [5_000] }, [E(2)]: { konto: [7_000] } }) });
   const r = await falsch.stichprobe({ konto: KONTO });
   assert.deepEqual(r.warnungen, ["Kontostand weicht ab: rpc1 meldet 5000 Lamports, rpc2 7000."]);
+  assert.deepEqual(r.befunde, [{ art: "kontostand", a: "rpc1", b: "rpc2", lamportsA: 5_000, lamportsB: 7_000 }]);
 
   const log: string[] = [];
   const geaendert = new RpcPool(endpoints, { fetchImpl: rpcNetz({ [E(1)]: { konto: [5_000, 7_000] }, [E(2)]: { konto: [7_000], slot: 120 } }, log) });
@@ -306,12 +308,14 @@ test("Stichprobe: eigener Knoten in einem anderen Netz – Warnung statt falsche
   assert.deepEqual(r.verglichen, ["netz"]);
   assert.equal(r.warnungen.length, 1);
   assert.match(r.warnungen[0]!, /^eigener Knoten \(Devnet\) und rpc\d \(Mainnet\) hängen an verschiedenen Ketten/);
+  assert.deepEqual(r.befunde, [{ art: "ketten", a: "eigener Knoten", b: r.anbieter[1], netzA: "Devnet", netzB: "Mainnet" }]);
 });
 
 test("Stichprobe: was sich nicht vergleichen laesst, ist ein Hinweis – kein Befund und kein Absturz", async () => {
   // Tote Endpunkte werden uebersprungen.
   const tot = await new RpcPool(endpoints, { fetchImpl: rpcNetz({ [E(1)]: { tot: true }, [E(2)]: {}, [E(3)]: {} }) }).stichprobe();
   assert.deepEqual([tot.anbieter, tot.warnungen, tot.hinweise], [["rpc2", "rpc3"], [], ["rpc1: ECONNREFUSED"]]);
+  assert.deepEqual(tot.luecken, [{ art: "anbieter", name: "rpc1", fehler: { art: "meldung", meldung: "ECONNREFUSED" } }]);
 
   // Nur ein Betreiber (zwei Adressen derselben Partei) → keine Stichprobe.
   const einer = await new RpcPool([{ url: "https://api.mainnet-beta.solana.com", label: "A" }, { url: "https://rpc.solana.com", label: "B" }], {
@@ -319,10 +323,12 @@ test("Stichprobe: was sich nicht vergleichen laesst, ist ein Hinweis – kein Be
   }).stichprobe();
   assert.deepEqual([einer.anbieter, einer.verglichen, einer.warnungen], [["A"], [], []]);
   assert.match(einer.hinweise.join(), /Kein zweiter Anbieter erreichbar/);
+  assert.deepEqual(einer.luecken, [{ art: "kein-zweiter" }]);
 
   // Einer hinkt hinterher → diese Richtung bleibt offen, die andere zaehlt.
   const hinkt = await new RpcPool(endpoints, { fetchImpl: rpcNetz({ [E(1)]: {}, [E(2)]: { slot: 90, hash: H2, hinkt: true } }) }).stichprobe();
   assert.deepEqual([hinkt.verglichen, hinkt.warnungen, hinkt.hinweise], [["netz", "blockhash"], [], ["Blockhash rpc1 → rpc2: hinkt hinterher"]]);
+  assert.deepEqual(hinkt.luecken, [{ art: "blockhash", von: "rpc1", bei: "rpc2", fehler: { art: "hinkt" } }]);
 
   // Unbrauchbare Antworten und Adressen.
   const muell = await new RpcPool(endpoints, { fetchImpl: rpcNetz({ [E(1)]: { muell: true }, [E(2)]: { genesis: "<b>kaputt</b>" }, [E(3)]: {} }) })
@@ -330,6 +336,11 @@ test("Stichprobe: was sich nicht vergleichen laesst, ist ein Hinweis – kein Be
   assert.deepEqual(muell.anbieter, ["rpc1", "rpc3"]);
   assert.deepEqual(muell.warnungen, []);
   assert.deepEqual(muell.hinweise, ["rpc2: unerwartete Antwort", "Blockhash rpc1 → rpc3: unerwartete Antwort", "Kontostand: keine gültige Solana-Adresse."]);
+  assert.deepEqual(muell.luecken, [
+    { art: "anbieter", name: "rpc2", fehler: { art: "unerwartet" } },
+    { art: "blockhash", von: "rpc1", bei: "rpc3", fehler: { art: "unerwartet" } },
+    { art: "adresse" },
+  ]);
 });
 
 test("Stichprobe veraendert die Ausfallhistorie des Pools nicht", async () => {

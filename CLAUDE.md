@@ -536,7 +536,10 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   fest `"de-DE"`. Der Smoke-Test läuft mit `locale="de-DE"`.
   Fertige Sätze aus dem Protokoll (`note`, `DISPUTE_LABEL`, Kurswarnungen …)
   sind Deutsch – die App bildet sie aus den Feldern neu (seit 8.16e, gesammelt
-  in `protokoll-texte.ts`; ein Test hält die deutsche Fassung wortgleich). In Tests
+  in `protokoll-texte.ts`; ein Test hält die deutsche Fassung wortgleich). Gründe
+  aus Prüfungen tragen dafür seit 8.16g2b3a eine Kennung `fall` (samt Zahlen) neben
+  `grund` – ein neuer Fall braucht Kennung und Text (`pg.*`); der Test liest die
+  Fälle aus dem Quelltext des Protokolls. In Tests
   ist die Sprache Englisch; wer Meldungen wörtlich auf Deutsch prüft, setzt
   `setLang("de")`. Kennungen, die der Code vergleicht (z. B. Ergebnis einer
   Einladung), bleiben Daten – übersetzt wird erst die Anzeige

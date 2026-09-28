@@ -12,6 +12,7 @@ import {
 } from "@freedomstack/protocol";
 import { ausLamports } from "./preis-anzeige.js";
 import { t } from "./i18n.js";
+import { solGrund } from "./protokoll-texte.js";
 
 type Veroeffentlicher = { publish(ev: NostrEvent): Promise<unknown> };
 
@@ -45,7 +46,7 @@ export async function pruefeTrinkgeld(
 export function trinkgeldText(tg: SolTrinkgeld, p: SolPruefung | undefined, kurs?: { satsProSol: number }, notiz = tg.notiz): string {
   const stand = !p ? t("zahl.wirdGeprueft")
     : p.status === "belegt" ? t("zahl.belegt")
-    : p.status === "unbestaetigt" ? t("zahl.unbestaetigt", { grund: p.grund ?? "" })
-    : t("zahl.falsch", { grund: p.grund ?? "" });
+    : p.status === "unbestaetigt" ? t("zahl.unbestaetigt", { grund: solGrund(p) })
+    : t("zahl.falsch", { grund: solGrund(p) });
   return t("zahl.trinkgeldZeile", { betrag: ausLamports(tg.lamports, kurs), stand }) + (notiz ? t("zahl.trinkgeldNotiz", { notiz }) : "");
 }

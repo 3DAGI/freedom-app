@@ -284,6 +284,7 @@ test("Ein Umschlag darf ueber Mesh – ohne den Schluessel des Absenders", async
   const r = pruefeMeshInhalt(json(dm.toSelf), MeshKind.NostrEvent, { eigeneSchluessel: [ALICE.pk] });
   assert.equal(r.ok, false);
   assert.match((r as { grund: string }).grund, /eigenen Schlüssel/);
+  assert.equal((r as { fall: string }).fall, "eigener-schluessel");
   // Beim Empfang (ohne eigene Schluessel) ist die Kopie ein gueltiger Umschlag.
   assert.equal(pruefeMeshInhalt(json(dm.toSelf), MeshKind.NostrEvent).ok, true);
 });
@@ -298,6 +299,9 @@ test("Offene Events, Klartext und Ecash gehen nicht ueber Mesh", async () => {
   assert.equal(pruefeMeshInhalt(text("cashuAeyJ0b2tlbiI6W3…"), MeshKind.Ecash).ok, false);
   assert.equal(pruefeMeshInhalt(text("kein json"), MeshKind.NostrEvent).ok, false);
   assert.equal(pruefeMeshInhalt(new Uint8Array([0xff, 0xfe, 0x7b]), MeshKind.NostrEvent).ok, false);
+  // Kennungen (8.16g2b3)
+  const fall = (p: Uint8Array, k: MeshKind) => (pruefeMeshInhalt(p, k) as { fall?: string }).fall;
+  assert.deepEqual([fall(text("x"), MeshKind.Ecash), fall(text("kein json"), MeshKind.NostrEvent), fall(offen(1, "x"), MeshKind.NostrEvent)], ["klartext", "kein-event", "kein-umschlag"]);
 });
 
 test("Ein veraenderter oder aufgefuellter Umschlag wird abgelehnt", async () => {
@@ -308,6 +312,8 @@ test("Ein veraenderter oder aufgefuellter Umschlag wird abgelehnt", async () => 
   // Inhalt veraendert: Signatur passt nicht mehr.
   const falsch = { ...w, content: "A" + w.content.slice(2) + "B" };
   assert.equal(pruefeMeshInhalt(json(falsch), MeshKind.NostrEvent).ok, false);
+  // Form intakt, nur der Zeitstempel verändert: Die Signatur passt nicht mehr (Kennung 8.16g2b3).
+  assert.equal((pruefeMeshInhalt(json({ ...w, created_at: w.created_at + 1 }), MeshKind.NostrEvent) as { fall?: string }).fall, "umschlag-signatur");
   // Klartext statt NIP-44 im Inhalt.
   const k = generateKeypair();
   const klar = signEvent(buildEvent(k.pk, 1059, [["p", BOB.pk]], "Treffen um 19 Uhr am Bahnhof".repeat(6)), k.sk);
@@ -333,6 +339,8 @@ function solanaTx(signieren = true): Uint8Array {
 test("Solana: nur vollstaendig signierte Transaktionen (Legacy und v0)", () => {
   assert.deepEqual(pruefeMeshInhalt(solanaTx(), MeshKind.SolanaTx), { ok: true, art: "solana" });
   assert.match((pruefeSolanaTx(solanaTx(false)) as { grund: string }).grund, /Signatur 1 von 1/);
+  assert.deepEqual(pruefeSolanaTx(solanaTx(false)), { ok: false, grund: "Signatur 1 von 1 fehlt oder ist ungültig", fall: "signatur", signatur: 1, signaturen: 1 });
+  assert.deepEqual(pruefeSolanaTx(new Uint8Array(1300)), { ok: false, grund: "Solana-Transaktion zu groß (1300 Byte)", fall: "zu-gross", bytes: 1300 });
   const verfaelscht = solanaTx();
   verfaelscht[verfaelscht.length - 1] ^= 1; // Betrag geaendert
   assert.equal(pruefeSolanaTx(verfaelscht).ok, false);

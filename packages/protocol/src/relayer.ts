@@ -64,9 +64,14 @@ function sighash(name: string): Buffer {
   return createHash("sha256").update(`global:${name}`).digest().subarray(0, 8);
 }
 
+/** Welche Regel ein Auftrag verletzt (8.16g2b3) – die App bildet daraus den Text in ihrer Sprache. */
+export type RelayFehler =
+  | "unlesbar" | "gebuehrenzahler" | "anweisungen" | "programm" | "keine-einloesung" | "ohne-empfaenger"
+  | "relayer-konto" | "keine-ueberweisung" | "erstattung-weg" | "erstattung-klein" | "unsigniert" | "signatur";
+
 export type RelayPruefung =
   | { ok: true; empfaenger: string; erstattung: number }
-  | { ok: false; grund: string };
+  | { ok: false; grund: string; fall: RelayFehler; erstattung?: number; mindest?: number };
 
 /**
  * Was der Relayer vor dem Mitsignieren prueft: genau eine Einloesung beim
@@ -83,29 +88,29 @@ export function pruefeRelayAuftrag(
   try {
     tx = Transaction.from(roh);
   } catch {
-    return { ok: false, grund: "keine lesbare Transaktion" };
+    return { ok: false, grund: "keine lesbare Transaktion", fall: "unlesbar" };
   }
-  if (tx.feePayer?.toBase58() !== erwartet.relayer) return { ok: false, grund: "Relayer ist nicht Gebuehrenzahler" };
-  if (tx.instructions.length !== 2) return { ok: false, grund: "erwartet: Einloesung und Erstattung, sonst nichts" };
+  if (tx.feePayer?.toBase58() !== erwartet.relayer) return { ok: false, grund: "Relayer ist nicht Gebührenzahler", fall: "gebuehrenzahler" };
+  if (tx.instructions.length !== 2) return { ok: false, grund: "erwartet: Einlösung und Erstattung, sonst nichts", fall: "anweisungen" };
   const [einl, erst] = tx.instructions;
-  if (einl.programId.toBase58() !== erwartet.programmId) return { ok: false, grund: "erste Anweisung ist keine Einloesung beim HTLC-Programm" };
-  if (einl.data.length !== 40 || !Buffer.from(einl.data.subarray(0, 8)).equals(sighash("claim"))) return { ok: false, grund: "erste Anweisung ist keine Einloesung" };
+  if (einl.programId.toBase58() !== erwartet.programmId) return { ok: false, grund: "erste Anweisung ist keine Einlösung beim HTLC-Programm", fall: "programm" };
+  if (einl.data.length !== 40 || !Buffer.from(einl.data.subarray(0, 8)).equals(sighash("claim"))) return { ok: false, grund: "erste Anweisung ist keine Einlösung", fall: "keine-einloesung" };
   const empfaenger = einl.keys[0]?.pubkey;
-  if (!empfaenger || !einl.keys[0].isSigner) return { ok: false, grund: "Einloesung ohne signierenden Empfaenger" };
-  if (einl.keys.some((k) => k.pubkey.toBase58() === erwartet.relayer)) return { ok: false, grund: "Relayer-Konto in der Einloesung" };
+  if (!empfaenger || !einl.keys[0].isSigner) return { ok: false, grund: "Einlösung ohne signierenden Empfänger", fall: "ohne-empfaenger" };
+  if (einl.keys.some((k) => k.pubkey.toBase58() === erwartet.relayer)) return { ok: false, grund: "Relayer-Konto in der Einlösung", fall: "relayer-konto" };
   // DataView statt Buffer-Methoden: Die App prueft ihren Auftrag im Browser selbst,
   // und dem Buffer-Polyfill dort fehlen die BigInt-Methoden.
   const daten = new DataView(erst.data.buffer, erst.data.byteOffset, erst.data.byteLength);
   if (!erst.programId.equals(SystemProgram.programId) || erst.data.length !== 12 || daten.getUint32(0, true) !== 2) {
-    return { ok: false, grund: "zweite Anweisung ist keine Ueberweisung" };
+    return { ok: false, grund: "zweite Anweisung ist keine Überweisung", fall: "keine-ueberweisung" };
   }
   const [von, an] = erst.keys;
-  if (!von?.pubkey.equals(empfaenger) || !an || an.pubkey.toBase58() !== erwartet.relayer) return { ok: false, grund: "Erstattung nicht vom Empfaenger an den Relayer" };
+  if (!von?.pubkey.equals(empfaenger) || !an || an.pubkey.toBase58() !== erwartet.relayer) return { ok: false, grund: "Erstattung nicht vom Empfänger an den Relayer", fall: "erstattung-weg" };
   const erstattung = Number(daten.getBigUint64(4, true));
-  if (erstattung < erwartet.erstattungMin) return { ok: false, grund: `Erstattung ${erstattung} unter ${erwartet.erstattungMin} Lamports` };
+  if (erstattung < erwartet.erstattungMin) return { ok: false, grund: `Erstattung ${erstattung} unter ${erwartet.erstattungMin} Lamports`, fall: "erstattung-klein", erstattung, mindest: erwartet.erstattungMin };
   const sig = tx.signatures.find((s) => s.publicKey.equals(empfaenger))?.signature;
-  if (!sig) return { ok: false, grund: "Empfaenger hat nicht signiert" };
-  if (!tx.verifySignatures(false)) return { ok: false, grund: "Signatur des Empfaengers ungueltig" };
+  if (!sig) return { ok: false, grund: "Empfänger hat nicht signiert", fall: "unsigniert" };
+  if (!tx.verifySignatures(false)) return { ok: false, grund: "Signatur des Empfängers ungültig", fall: "signatur" };
   return { ok: true, empfaenger: empfaenger.toBase58(), erstattung };
 }
 

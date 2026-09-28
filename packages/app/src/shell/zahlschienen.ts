@@ -8,6 +8,7 @@ import {
   NONCE_KONTO_BYTES, baueNonceKontoAnlegen, baueNonceKontoSchliessen, leseNonceKonto, nonceKontoKosten, pruefeOfflineUeberweisung, type PaymentRail,
 } from "@freedomstack/protocol";
 import { t } from "../i18n.js";
+import { offlineGrund } from "../protokoll-texte.js";
 import { LightningRail, SolanaRail, type SolanaWalletZugang } from "../rails.js";
 import { type NonceAblage, erstelleOfflineZahlung, leseAblage, schreibeAblage } from "../sol-offline-zahlung.js";
 import { type EingebauteSolWallet, type SignierbareTx, waehleAbsender } from "../sol-wallet.js";
@@ -152,7 +153,7 @@ export async function zahleSolOffline(an: string, lamports: number): Promise<Uin
  */
 export async function reicheSolOfflineEin(roh: Uint8Array): Promise<string> {
   const p = pruefeOfflineUeberweisung(roh);
-  if (!p.ok) throw new Error(p.grund);
+  if (!p.ok) throw new Error(offlineGrund(p));
   const { Connection } = await import("@solana/web3.js");
   return new Connection(await solRpcUrl(), "confirmed").sendRawTransaction(roh);
 }

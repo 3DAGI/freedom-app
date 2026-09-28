@@ -1,0 +1,66 @@
+/** Gründe aus Prüfungen des Protokolls (8.16g2b3a) – Deutsch wortgleich mit dem Protokoll (`protokoll-texte.ts`, Test). */
+import type { Texte } from "../i18n.js";
+
+export const pruefgruende: Texte = {
+  // Fristen (validateTimelockOrdering, validateReverseTimelock)
+  "pg.fristTsol": { de: "tSolSecs muss > 0 sein", en: "tSolSecs must be > 0" },
+  "pg.fristReihenfolge": { de: "Lightning-Frist ({ln}s) muss größer sein als Solana-Frist ({sol}s)", en: "Lightning deadline ({ln}s) must be longer than the Solana deadline ({sol}s)" },
+  "pg.fristPuffer": { de: "Sicherheitspuffer {puffer}s < Minimum {min}s", en: "Safety margin {puffer}s < minimum {min}s" },
+  "pg.fristCltv": { de: "cltv_limit muss eine positive ganze Zahl (Blöcke) sein", en: "cltv_limit must be a positive whole number (blocks)" },
+  "pg.fristVorSolana": { de: "Lightning-Frist ({ln}s bei langsamen Blöcken) plus Abstand {min}s muss vor der Solana-Frist ({sol}s) enden", en: "Lightning deadline ({ln}s with slow blocks) plus margin {min}s must end before the Solana deadline ({sol}s)" },
+  // Solana-Transaktion (pruefeSolanaTx) – auch für Offline-Überweisungen und Mesh
+  "pg.txUnlesbar": { de: "keine lesbare Transaktion", en: "no readable transaction" },
+  "pg.txZuGross": { de: "Solana-Transaktion zu groß ({bytes} Byte)", en: "Solana transaction too large ({bytes} bytes)" },
+  "pg.txOhneSignatur": { de: "Solana-Transaktion ohne Signatur", en: "Solana transaction without a signature" },
+  "pg.txVersion": { de: "Solana-Transaktion mit unbekannter Version", en: "Solana transaction with an unknown version" },
+  "pg.txUnvollstaendig": { de: "Solana-Transaktion unvollständig", en: "Solana transaction incomplete" },
+  "pg.txSignaturzahl": { de: "Signaturzahl passt nicht zur Nachricht", en: "number of signatures does not match the message" },
+  "pg.txOhneKonten": { de: "Solana-Transaktion ohne Konten", en: "Solana transaction without accounts" },
+  "pg.txSignatur": { de: "Signatur {nr} von {von} fehlt oder ist ungültig", en: "signature {nr} of {von} is missing or invalid" },
+  "pg.txKeineUeberweisung": { de: "zweite Anweisung ist keine Überweisung", en: "second instruction is not a transfer" },
+  // Offline-Überweisung (pruefeOfflineUeberweisung)
+  "pg.ofAnweisungen": { de: "erwartet: Nonce weiterschalten und Überweisung, sonst nichts", en: "expected: advance the nonce and a transfer, nothing else" },
+  "pg.ofKeinNonce": { de: "erste Anweisung schaltet kein Nonce-Konto weiter – kein Durable Nonce", en: "first instruction does not advance a nonce account – no durable nonce" },
+  "pg.ofNonceUnvollstaendig": { de: "Nonce-Anweisung unvollständig", en: "nonce instruction incomplete" },
+  "pg.ofOhneZahler": { de: "Überweisung ohne signierenden Zahler", en: "transfer without a signing payer" },
+  "pg.ofZahlerVerschieden": { de: "Zahler, Nonce-Autorität und Gebührenzahler müssen dieselbe Adresse sein", en: "payer, nonce authority and fee payer must be the same address" },
+  "pg.ofBetrag": { de: "Betrag ungültig", en: "amount invalid" },
+  "pg.ofKeinNonceWert": { de: "kein Nonce-Wert", en: "no nonce value" },
+  // Relay-Auftrag (pruefeRelayAuftrag)
+  "pg.relGebuehr": { de: "Relayer ist nicht Gebührenzahler", en: "relayer is not the fee payer" },
+  "pg.relAnweisungen": { de: "erwartet: Einlösung und Erstattung, sonst nichts", en: "expected: a claim and a refund, nothing else" },
+  "pg.relProgramm": { de: "erste Anweisung ist keine Einlösung beim HTLC-Programm", en: "first instruction is not a claim at the HTLC program" },
+  "pg.relKeineEinloesung": { de: "erste Anweisung ist keine Einlösung", en: "first instruction is not a claim" },
+  "pg.relOhneEmpfaenger": { de: "Einlösung ohne signierenden Empfänger", en: "claim without a signing recipient" },
+  "pg.relKonto": { de: "Relayer-Konto in der Einlösung", en: "relayer account in the claim" },
+  "pg.relErstattungWeg": { de: "Erstattung nicht vom Empfänger an den Relayer", en: "refund not from the recipient to the relayer" },
+  "pg.relErstattungKlein": { de: "Erstattung {erstattung} unter {mindest} Lamports", en: "refund {erstattung} below {mindest} lamports" },
+  "pg.relUnsigniert": { de: "Empfänger hat nicht signiert", en: "recipient has not signed" },
+  "pg.relSignatur": { de: "Signatur des Empfängers ungültig", en: "recipient's signature invalid" },
+  // Mesh-Inhalt (pruefeMeshInhalt)
+  "pg.meKlartext": { de: "Über Mesh geht nur Verschlüsseltes – kein Klartext, kein Ecash", en: "Only encrypted content goes over mesh – no plaintext, no ecash" },
+  "pg.meKeinEvent": { de: "Kein Nostr-Event", en: "Not a Nostr event" },
+  "pg.meKeinUmschlag": { de: "Über Mesh gehen nur Umschläge (NIP-59)", en: "Only envelopes (NIP-59) go over mesh" },
+  "pg.meUmschlagSignatur": { de: "Umschlag mit ungültiger Signatur", en: "Envelope with an invalid signature" },
+  "pg.meEigenerSchluessel": { de: "Umschlag trägt den eigenen Schlüssel", en: "Envelope carries your own key" },
+  // Überweisung auf der Kette (pruefeSolUeberweisung)
+  "pg.solNichtGefunden": { de: "Transaktion (noch) nicht gefunden", en: "transaction not found (yet)" },
+  "pg.solOhneErgebnis": { de: "Transaktion ohne Ergebnis", en: "transaction without a result" },
+  "pg.solGescheitert": { de: "Transaktion ist gescheitert", en: "transaction failed" },
+  "pg.solOhneReferenz": { de: "Referenz fehlt – die Zahlung gehört zu keinem Angebot", en: "reference missing – the payment belongs to no offer" },
+  "pg.solKeinEmpfaenger": { de: "keine Überweisung an diesen Empfänger", en: "no transfer to this recipient" },
+  "pg.solZuWenig": { de: "nur {lamports} statt {erwartet} Lamports", en: "only {lamports} instead of {erwartet} lamports" },
+  // Stichprobe zweier RPC-Anbieter (RpcPool.stichprobe)
+  "pg.pbKetten": { de: "{a} ({netzA}) und {b} ({netzB}) hängen an verschiedenen Ketten – prüfe die eingetragenen Endpunkte.", en: "{a} ({netzA}) and {b} ({netzB}) are on different chains – check the endpoints you entered." },
+  "pg.pbUnbekanntesNetz": { de: "unbekanntes Netz", en: "unknown network" },
+  "pg.pbBlockhash": { de: "{bei} kennt den letzten Blockhash von {von} nicht – einer der beiden liefert eine falsche Kette.", en: "{bei} does not know the latest blockhash of {von} – one of the two is serving a wrong chain." },
+  "pg.pbKontostand": { de: "Kontostand weicht ab: {a} meldet {la} Lamports, {b} {lb}.", en: "Balance differs: {a} reports {la} lamports, {b} {lb}." },
+  "pg.pbKeinZweiter": { de: "Kein zweiter Anbieter erreichbar – keine Stichprobe möglich.", en: "No second provider reachable – no sample check possible." },
+  "pg.pbBlockhashOffen": { de: "Blockhash {von} → {bei}: {fehler}", en: "Blockhash {von} → {bei}: {fehler}" },
+  "pg.pbAdresse": { de: "Kontostand: keine gültige Solana-Adresse.", en: "Balance: not a valid Solana address." },
+  "pg.pbKontostandOffen": { de: "Kontostand: {fehler}", en: "Balance: {fehler}" },
+  "pg.pbHinkt": { de: "hinkt hinterher", en: "is lagging behind" },
+  "pg.pbUnerwartet": { de: "unerwartete Antwort", en: "unexpected response" },
+  // Rückholwächter, wenn keine Meldung vorliegt
+  "pg.unbekannt": { de: "unbekannt", en: "unknown" },
+};

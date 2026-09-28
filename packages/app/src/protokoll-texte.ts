@@ -7,7 +7,9 @@
  * `badgeSourceLabel()`, Titel und Stand der Aufgaben, seit 8.16g1
  * `wipeConfirmation()`, seit 8.16g2b2 die Sätze in Settings und im Chat:
  * Nachfolge, Sicherung, Schlüsselwechsel, Geräte, Echtheit, Weitergabe,
- * ohne Internet, Tor-Reihenfolge). Die App bildet sie aus den Feldern neu; die deutsche
+ * ohne Internet, Tor-Reihenfolge; seit 8.16g2b3a die Gründe aus Prüfungen:
+ * Fristen, Relay-Aufträge, Offline-Überweisungen, Mesh-Inhalt, Überweisungen
+ * auf der Kette, RPC-Stichprobe). Die App bildet sie aus den Feldern neu; die deutsche
  * Fassung ist wortgleich mit der des Protokolls (`app/test/i18n.test.ts` prüft
  * das), damit jeder Client dieselbe Warnung zeigt.
  */
@@ -15,6 +17,8 @@ import {
   COVERAGE_GUELTIG_SECS, K_ANONYMITY, inspectPicture,
   type BadgeSource, type Contributor, type CoverageLayer, type DevicePermission, type DeviceState, type KeyState, type Link, type LocalCoverage,
   type ProfileMetadata, type QuestId, type QuestProgress, type RepoOverview, type RestoreResult, type SuccessionState, type TorSortResult, type VerifyResult,
+  type MeshFehler, type OfflineFehler, type RelayFehler, type SolFehler, type SolPruefung, type SolanaTxFehler,
+  type StichprobeBefund, type StichprobeFehler, type StichprobeLuecke, type TimelockCheck,
 } from "@freedomstack/protocol";
 import { t } from "./i18n.js";
 
@@ -251,4 +255,131 @@ export function torText(r: Pick<TorSortResult, "relays" | "onionCount">, pref: {
   if (pref.onionOnly) return n === 0 ? t("ps.torKeineNur") : t("ps.torNur", { n });
   if (pref.preferOnion) return n > 0 ? t("ps.torZuerst", { n, klar: r.relays.length - n }) : t("ps.torKeine");
   return t("ps.torAlle", { n: r.relays.length, onion: n });
+}
+
+// ------------------------------------------------------------ Gründe aus Prüfungen (8.16g2b3a)
+
+/** Verletzte Fristregel – wie `validateTimelockOrdering()`/`validateReverseTimelock()` (`reason`). */
+export function fristGrund(r: Pick<TimelockCheck, "fall" | "reason" | "tLnSecs" | "tSolSecs" | "marginSecs" | "mindestSecs">): string {
+  const min = r.mindestSecs ?? 0;
+  switch (r.fall) {
+    case "tsol": return t("pg.fristTsol");
+    case "reihenfolge": return t("pg.fristReihenfolge", { ln: r.tLnSecs, sol: r.tSolSecs });
+    case "puffer": return t("pg.fristPuffer", { puffer: r.marginSecs, min });
+    case "cltv": return t("pg.fristCltv");
+    case "vor-solana": return t("pg.fristVorSolana", { ln: r.tLnSecs, min, sol: r.tSolSecs });
+    default: return r.reason ?? "";
+  }
+}
+
+/** Werte zu einer abgelehnten Solana-Transaktion (`pruefeSolanaTx()` und alles, was darauf aufbaut). */
+type TxWerte = { grund: string; bytes?: number; signatur?: number; signaturen?: number };
+
+const TX: Record<SolanaTxFehler, string> = {
+  "zu-gross": "pg.txZuGross",
+  "ohne-signatur": "pg.txOhneSignatur",
+  version: "pg.txVersion",
+  unvollstaendig: "pg.txUnvollstaendig",
+  signaturzahl: "pg.txSignaturzahl",
+  "ohne-konten": "pg.txOhneKonten",
+  signatur: "pg.txSignatur",
+};
+const txWerte = (r: TxWerte) => ({ bytes: r.bytes ?? 0, nr: r.signatur ?? 0, von: r.signaturen ?? 0 });
+
+const OFFLINE: Record<Exclude<OfflineFehler, SolanaTxFehler>, string> = {
+  unlesbar: "pg.txUnlesbar",
+  anweisungen: "pg.ofAnweisungen",
+  "kein-nonce": "pg.ofKeinNonce",
+  "nonce-unvollstaendig": "pg.ofNonceUnvollstaendig",
+  "keine-ueberweisung": "pg.txKeineUeberweisung",
+  "ohne-zahler": "pg.ofOhneZahler",
+  "zahler-verschieden": "pg.ofZahlerVerschieden",
+  betrag: "pg.ofBetrag",
+  "kein-nonce-wert": "pg.ofKeinNonceWert",
+};
+
+/** Warum eine Offline-Überweisung nicht taugt – wie `pruefeOfflineUeberweisung().grund`. */
+export function offlineGrund(r: TxWerte & { fall?: OfflineFehler }): string {
+  const k = r.fall ? (TX as Record<string, string>)[r.fall] ?? (OFFLINE as Record<string, string>)[r.fall] : undefined;
+  return k ? t(k, txWerte(r)) : r.grund;
+}
+
+const MESH: Record<Exclude<MeshFehler, SolanaTxFehler>, string> = {
+  klartext: "pg.meKlartext",
+  "kein-event": "pg.meKeinEvent",
+  "kein-umschlag": "pg.meKeinUmschlag",
+  "umschlag-signatur": "pg.meUmschlagSignatur",
+  "eigener-schluessel": "pg.meEigenerSchluessel",
+};
+
+/** Warum eine Nutzlast nicht über Mesh darf – wie `pruefeMeshInhalt().grund`. */
+export function meshGrund(r: TxWerte & { fall?: MeshFehler }): string {
+  const k = r.fall ? (TX as Record<string, string>)[r.fall] ?? (MESH as Record<string, string>)[r.fall] : undefined;
+  return k ? t(k, txWerte(r)) : r.grund;
+}
+
+const RELAY: Record<RelayFehler, string> = {
+  unlesbar: "pg.txUnlesbar",
+  gebuehrenzahler: "pg.relGebuehr",
+  anweisungen: "pg.relAnweisungen",
+  programm: "pg.relProgramm",
+  "keine-einloesung": "pg.relKeineEinloesung",
+  "ohne-empfaenger": "pg.relOhneEmpfaenger",
+  "relayer-konto": "pg.relKonto",
+  "keine-ueberweisung": "pg.txKeineUeberweisung",
+  "erstattung-weg": "pg.relErstattungWeg",
+  "erstattung-klein": "pg.relErstattungKlein",
+  unsigniert: "pg.relUnsigniert",
+  signatur: "pg.relSignatur",
+};
+
+/** Warum der eigene Relay-Auftrag nicht taugt – wie `pruefeRelayAuftrag().grund`. */
+export function relayGrund(r: { grund: string; fall?: RelayFehler; erstattung?: number; mindest?: number }): string {
+  return r.fall ? t(RELAY[r.fall], { erstattung: r.erstattung ?? 0, mindest: r.mindest ?? 0 }) : r.grund;
+}
+
+const SOL: Record<SolFehler, string> = {
+  "nicht-gefunden": "pg.solNichtGefunden",
+  "ohne-ergebnis": "pg.solOhneErgebnis",
+  gescheitert: "pg.solGescheitert",
+  "ohne-referenz": "pg.solOhneReferenz",
+  "kein-empfaenger": "pg.solKeinEmpfaenger",
+  "zu-wenig": "pg.solZuWenig",
+};
+
+/**
+ * Warum eine Überweisung (noch) nicht belegt ist – wie `pruefeSolUeberweisung().grund`.
+ * Ohne `fall` stammt der Grund aus der App selbst und ist schon übersetzt.
+ */
+export function solGrund(p: Exclude<SolPruefung, { status: "belegt" }>): string {
+  if (!p.fall) return p.grund;
+  const w: Record<string, number> = p.status === "falsch" ? { lamports: p.lamports ?? 0, erwartet: p.erwartet ?? 0 } : {};
+  return t(SOL[p.fall], w);
+}
+
+/** Warum ein Vergleich der Stichprobe ausfiel. */
+const probeFehler = (f: StichprobeFehler): string =>
+  f.art === "hinkt" ? t("pg.pbHinkt") : f.art === "unerwartet" ? t("pg.pbUnerwartet") : f.meldung;
+
+/** Ein Widerspruch der Stichprobe – wie ein Eintrag in `StichprobeErgebnis.warnungen`. */
+export function stichprobeBefund(b: StichprobeBefund): string {
+  switch (b.art) {
+    case "ketten": {
+      const netz = (n?: string) => n ?? t("pg.pbUnbekanntesNetz");
+      return t("pg.pbKetten", { a: b.a, netzA: netz(b.netzA), b: b.b, netzB: netz(b.netzB) });
+    }
+    case "blockhash": return t("pg.pbBlockhash", { von: b.von, bei: b.bei });
+    case "kontostand": return t("pg.pbKontostand", { a: b.a, la: b.lamportsA, b: b.b, lb: b.lamportsB });
+  }
+}
+
+/** Was sich nicht vergleichen ließ – wie ein Eintrag in `StichprobeErgebnis.hinweise`. */
+export function stichprobeLuecke(l: StichprobeLuecke): string {
+  switch (l.art) {
+    case "anbieter": return `${l.name}: ${probeFehler(l.fehler)}`;
+    case "kein-zweiter": return t("pg.pbKeinZweiter");
+    case "blockhash": return t("pg.pbBlockhashOffen", { von: l.von, bei: l.bei, fehler: probeFehler(l.fehler) });
+    case "adresse": return t("pg.pbAdresse");
+    case "kontostand": return t("pg.pbKontostandOffen", { fehler: probeFehler(l.fehler) });
+  }
 }

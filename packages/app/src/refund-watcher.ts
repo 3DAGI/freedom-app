@@ -186,7 +186,7 @@ export async function sweepPendingRefunds(
         result.zurueckgeholt++;
         result.lamports += lock.amountLamports;
       } else {
-        const grund = r.failed[0]?.reason ?? "unbekannt";
+        const grund = r.failed[0]?.reason ?? t("pg.unbekannt");
         await rememberLock({ ...lock, attempts: (lock.attempts ?? 0) + 1, lastError: grund });
         result.fehler.push({ reference: lock.reference, reason: grund });
         result.offen.push(viewLock({ ...lock, attempts: (lock.attempts ?? 0) + 1, lastError: grund }, nowUnix));

@@ -31,6 +31,7 @@ import {
   BESTAND_MARKE, buildDigest, planSync, type SyncDigest, type Link, type NostrEvent,
 } from "@freedomstack/protocol";
 import { t } from "./i18n.js";
+import { meshGrund } from "./protokoll-texte.js";
 
 export type TransportKind = "seriell" | "bluetooth" | "datei";
 
@@ -401,7 +402,7 @@ export class MeshNode {
   ): { msgId: string; frames: number; etaSeconds: number; note: string } {
     // Nur Verschluesseltes und nie der eigene Schluessel (7.1).
     const pruefung = pruefeMeshInhalt(payload, kind, { eigeneSchluessel: this.eigeneSchluessel });
-    if (!pruefung.ok) throw new Error(pruefung.grund);
+    if (!pruefung.ok) throw new Error(meshGrund(pruefung));
     const machbar = meshFeasibility(payload.length, this.bytesPerSecond);
     if (!machbar.feasible) throw new Error(machbar.note);
 
@@ -445,7 +446,7 @@ export class MeshNode {
       // Nur Verschluesseltes weitergeben – Klartext, offene Events, Ecash nie (7.1).
       const pruefung = pruefeMeshInhalt(st.payload, st.kind);
       if (!pruefung.ok) {
-        this.events.onLog?.(t("bau.verworfen", { grund: pruefung.grund }));
+        this.events.onLog?.(t("bau.verworfen", { grund: meshGrund(pruefung) }));
         return;
       }
       // Bestandsmeldung der Gegenseite: kein Inhalt, sondern eine Anfrage.

@@ -92,6 +92,12 @@ test("Pruefen: ohne Nonce, falsche Reihenfolge, Zusatz, fremde Autoritaet, unsig
   assert.equal(pruefeOfflineUeberweisung(signiert(new Transaction().add(weiter(), zahlung(), zahlung()), zahler)).ok, false);
   const andere = Keypair.generate();
   assert.match((pruefeOfflineUeberweisung(signiert(new Transaction().add(weiter(andere.publicKey), zahlung()), zahler, andere)) as { grund: string }).grund, /dieselbe Adresse/);
+  // Kennungen (8.16g2b3): Daraus bildet die App den Text in ihrer Sprache.
+  const fall = (roh: Uint8Array) => (pruefeOfflineUeberweisung(roh) as { fall?: string }).fall;
+  assert.equal(fall(signiert(new Transaction().add(zahlung()), zahler)), "anweisungen");
+  assert.equal(fall(signiert(new Transaction().add(zahlung(), weiter()), zahler)), "kein-nonce");
+  assert.equal(fall(signiert(new Transaction().add(weiter(andere.publicKey), zahlung()), zahler, andere)), "zahler-verschieden");
+  assert.equal(fall(new Uint8Array(1300)), "zu-gross", "Grundprüfung aus pruefeSolanaTx()");
 
   const unsigniert = baueOfflineUeberweisung({ von: zahler.publicKey.toBase58(), an: ziel, lamports: 5, nonceKonto: nonceKonto.publicKey.toBase58(), stand: stand() });
   assert.equal(pruefeOfflineUeberweisung(new Uint8Array(unsigniert.serialize({ requireAllSignatures: false }))).ok, false);
