@@ -462,8 +462,14 @@ def rahmen_pruefen(browser, url: str) -> dict:
             wieder = sichtbar(".agent-main") and not sichtbar(".agent-side")
             klick("#agent-zu-modelle")
             modelle = sichtbar("#models-list")
-            erg["mobil"]["agent"] = [verlauf, wieder, modelle]
-            if verlauf != [True, True, "#/agent/verlauf"] or not wieder or not modelle:
+            # C.6b: das rechte Feld (Arbeitsbereich, Werkzeuge, Kosten) als eigene Ebene
+            klick("#agent-seite-zurueck")
+            klick("#agent-zu-details")
+            details = [sichtbar("#agent-workspace") and sichtbar("#agent-cost"), not sichtbar(".agent-main"), ev("() => location.hash")]
+            klick("#agent-panel-zurueck")
+            details.append(sichtbar(".agent-main") and not sichtbar(".agent-panel"))
+            erg["mobil"]["agent"] = [verlauf, wieder, modelle, details]
+            if verlauf != [True, True, "#/agent/verlauf"] or not wieder or not modelle or details != [True, True, "#/agent/details", True]:
                 erg["fehler"].append(f"mobil: Agent {erg['mobil']['agent']}")
             klick('.app-nav button[data-tab="mehr"]')
             mehr = ev("""() => [[...document.querySelectorAll('#page-mehr [data-geh]')].map(b => b.dataset.geh),
@@ -1369,7 +1375,7 @@ def karte_pruefen(browser, url: str) -> dict:
 
 # Seiten für den Durchgang auf dem Handy (seit C.5a): Adresse und Unter-Reiter („gruppe:reiter“)
 MOBIL_SEITEN = [
-    ("#/agent", ""), ("#/agent/verlauf", ""), ("#/agent/modelle", ""), ("#/chat", ""), ("#/repos", ""),
+    ("#/agent", ""), ("#/agent/verlauf", ""), ("#/agent/modelle", ""), ("#/agent/details", ""), ("#/chat", ""), ("#/repos", ""),
     ("#/waehrung", ""), ("#/waehrung", "wallet:swap"), ("#/waehrung", "wallet:lp"), ("#/verdienen", ""),
     ("#/verdienen", "earn:refer"), ("#/netz", ""), ("#/netz", "netz:mesh"), ("#/profil", ""),
     ("#/settings", ""), ("#/settings", "settings:network"), ("#/mehr", ""),
@@ -1468,6 +1474,39 @@ def mobil_pruefen(browser, url: str) -> dict:
         if vorher == "none" or beim_tippen != "none" or danach == "none":
             erg["fehler"].append(f"{lage}: untere Leiste beim Tippen {erg[lage]['tastatur']}")
         ctx.close()
+    # C.6b: zwischen 860 und 1199 px steht die Seitenleiste des Agenten da, das rechte Feld nicht –
+    # dort führt nur „Arbeitsbereich“ dorthin und zurück
+    ctx = browser.new_context(locale="de-DE", viewport={"width": 1100, "height": 800})
+    ctx.route("**/*", lambda r: r.continue_() if r.request.url.startswith(basis) else r.abort())
+    ctx.route_web_socket(re.compile(r"^wss?://"), ProbeRelay().verbinde)
+    s = ctx.new_page()
+    s.on("pageerror", lambda e: erg["fehler"].append(str(e)[:300]))
+    ev = s.evaluate
+    s.goto(url, wait_until="load")
+    s.wait_for_selector("#bk-done", timeout=30000)
+    w = ev("() => [...document.querySelectorAll('.mnemonic-list li')].map(l => l.textContent)")
+    ev("(w) => document.querySelectorAll('#bk-challenge input').forEach(i => i.value = w[+i.dataset.pos])", w)
+    ev("() => document.getElementById('bk-done').click()")
+    s.wait_for_timeout(1500)
+    ev("() => document.getElementById('ein-abbrechen')?.click()")
+    ev("() => { location.hash = '#/agent'; }")
+    s.wait_for_timeout(300)
+    zu_sehen = """() => Object.fromEntries(['#agent-zu-verlauf', '#agent-zu-details', '.agent-side', '.agent-main', '.agent-panel'].map(k => {
+      const e = document.querySelector(k); return [k, !!e && e.getBoundingClientRect().width > 0 && getComputedStyle(e).display !== 'none']; }))"""
+    breit = [ev(zu_sehen)]
+    ev("() => document.getElementById('agent-zu-details').click()")
+    s.wait_for_timeout(200)
+    breit.append(ev(zu_sehen))
+    ev("() => document.getElementById('agent-panel-zurueck').click()")
+    s.wait_for_timeout(200)
+    breit.append(ev(zu_sehen))
+    erg["1100"] = breit
+    soll = [{"#agent-zu-verlauf": False, "#agent-zu-details": True, ".agent-side": True, ".agent-main": True, ".agent-panel": False},
+            {"#agent-zu-verlauf": False, "#agent-zu-details": False, ".agent-side": False, ".agent-main": False, ".agent-panel": True},
+            {"#agent-zu-verlauf": False, "#agent-zu-details": True, ".agent-side": True, ".agent-main": True, ".agent-panel": False}]
+    if breit != soll:
+        erg["fehler"].append(f"1100 px: rechtes Feld des Agenten {breit}")
+    ctx.close()
     erg["bestanden"] = not erg["fehler"]
     return erg
 

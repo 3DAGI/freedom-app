@@ -32,7 +32,6 @@ import {
   findProviders,
   kiSitzungen,
   powJeProvider,
-  signiere,
   state,
 } from "../state.js";
 import { aktualisiereKurs, aktuellerKurs } from "../marktkurs.js";
@@ -52,12 +51,11 @@ import {
   toast,
   updateSidebarBalances,
 } from "../ui.js";
-import { haltevorModell, katalogRangJetzt, kuendigeModellAn, zeigeModelle } from "./agent-netz.js";
+import { katalogRangJetzt, zeigeModelle } from "./agent-netz.js";
 import { PRUEFER_ART, type Pruefer } from "../../streitfall.js";
 import { merkeReklamation, netzPruefer, stelleZu } from "../streitfall-ui.js";
 import { zeigeMitwirkende } from "./earn.js";
-import { vergebeAbzeichen } from "./profil.js";
-import { funkGeraetVerbunden, richteNachfolgeEin, sendeUeberFunk, zeigeNachfolge } from "./settings.js";
+import { funkGeraetVerbunden, sendeUeberFunk, zeigeNachfolge } from "./settings.js";
 
 /** Modell des zuletzt genutzten Providers (fuer die anzeige). */
 let lastProviderModel: string | null = null;
@@ -883,24 +881,8 @@ async function handleAnswer(ev: import("@freedomstack/protocol").NostrEvent, r: 
   // und Wallet. Vorher haette der Nutzer nichts zu verlieren und keinen Grund.
   localStorage.setItem("freedom.usedOnce", "1");
   void zeigeOnboarding();
-  const succSetup = $("#succ-setup");
-  if (succSetup) succSetup.onclick = () => void richteNachfolgeEin();
-  const succBeat = $("#succ-heartbeat");
-  if (succBeat) succBeat.onclick = async () => {
-    if (!state.keypair) return;
-    const { buildHeartbeat } = await import("@freedomstack/protocol");
-    await (await ensurePool()).publish(await signiere(buildHeartbeat(state.keypair.pk)));
-    toast(t("agent.lebenszeichen"));
-    void zeigeNachfolge();
-  };
-  const modelsRefresh = $("#models-refresh");
-  if (modelsRefresh) modelsRefresh.onclick = () => void zeigeModelle();
-  const modelsSeed = $("#models-seed");
-  if (modelsSeed) modelsSeed.onclick = () => void haltevorModell();
-  const modelsPub = $("#models-publish");
-  if (modelsPub) modelsPub.onclick = () => void kuendigeModellAn();
-  const badgeCreate = $("#badge-create");
-  if (badgeCreate) badgeCreate.onclick = () => void vergebeAbzeichen();
+  // Die Knöpfe für Nachfolge, Modelle und Abzeichen verdrahtet app.ts beim Start – bis C.6b
+  // geschah das hier nach jeder Antwort ein zweites Mal (B16)
   void zeigeNachfolge();
   void zeigeModelle();
   void zeigeMitwirkende();

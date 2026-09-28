@@ -11237,3 +11237,56 @@ Netz) · app 628 (+2) · mls 13 · Leak-Tests 65 grün + 1 todo · 0 rot ·
 check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 (63 Ausnahmen) ·
 Website 5 Seiten ok · Smoke-Test bestanden (mit „rahmen“, „dialog“, „raum“,
 „karte“, „qr“ und „mobil“).
+
+## Schritt C.6b – Oberfläche: Agent – rechtes Feld unter 1200 px, doppelte Verdrahtung (B16)
+
+**Fertig:** Arbeitsbereich, Werkzeuge und Kosten des Agenten sind unter 1200 px
+erreichbar, und die doppelte Verdrahtung nach jeder Antwort (B16) ist weg.
+
+**Absprache vor C.6:** Die Karte verlangt, vor C.6 zu prüfen, was der nächste
+Schritt von Spur A berührt. Der offene PR #183 (11.2a) ändert `settings.ts`,
+`index.html`, `earn.ts` und `app.ts`, nicht `agent.ts`. Deshalb kommt C.6b
+zuerst. C.6a verschiebt genau „Settings › Gebühren“ und wartet, bis #183
+gemergt ist.
+
+**Einzelheiten:**
+- **Rechtes Feld** (`navigation.ts`, `index.html`, `app.css`):
+  - Bisher war es unter 1200 px nur ausgeblendet (`display: none`). Jetzt ist
+    es eine eigene Ebene mit eigener Adresse `#/agent/details` (in
+    `UNTERSEITEN`): Knopf „Arbeitsbereich“ neben „Verlauf“ und „Modelle“,
+    „‹ Zurück“ im Feld.
+  - Zwischen 860 und 1199 px steht die Seitenleiste schon da; dort zeigt die
+    Leiste nur „Arbeitsbereich“.
+  - Die Adresse nennt weiter nur Seiten, nie eine Kennung.
+- **B16** (`agent.ts`): `handleAnswer()` verdrahtete nach jeder Antwort die
+  Knöpfe für Nachfolge, Lebenszeichen, Modelle und Abzeichen ein zweites Mal
+  – dieselben Handler wie `app.ts` beim Start, beim Lebenszeichen mit einem
+  zweiten Text für denselben Satz.
+  - Das tut jetzt nur `app.ts`. Die Aktualisierungen nach der Antwort
+    (Nachfolge, Modelle, Mitwirkende) bleiben.
+  - Der doppelte Text `agent.lebenszeichen` entfällt, ebenso vier nun
+    ungenutzte Importe.
+- **Screenshots** (`docs/ausbau/bilder/c6b/`):
+  - Handy: Agent mit „Verlauf“, „Modelle“ und „Arbeitsbereich“; dazu die
+    Ebene mit „‹ Zurück“, Arbeitsbereich, Werkzeugen und Kosten.
+  - 1100 px: die Seitenleiste mit Aufgaben, oben nur „Arbeitsbereich“; dazu
+    die Ebene.
+
+**Tests:**
+- +2 in `navigation.test.ts`:
+  - Adresse `#/agent/details`, Knöpfe, Ebene und CSS.
+  - B16: Die sechs Knöpfe werden nur in `app.ts` verdrahtet, je genau
+    einmal; die Antwort frischt weiter auf.
+- Der C.1a-Test der Adressen nimmt `details` auf – gleich streng.
+- Smoke-Test:
+  - „rahmen“ (Handy): „Arbeitsbereich“ öffnet die Ebene
+    (`#/agent/details`), „‹ Zurück“ führt zum Gespräch.
+  - „mobil“: die Ebene hochkant und quer (Flächen, Laufleiste) und ein
+    Durchlauf bei 1100 px (Seitenleiste sichtbar, nur „Arbeitsbereich“,
+    Ebene und zurück).
+
+Endstand: protocol 1111 (6 übersprungen) · node 263 (6 übersprungen, mit
+Netz) · app 630 (+2) · mls 13 · Leak-Tests 65 grün + 1 todo · 0 rot ·
+check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 (63 Ausnahmen) ·
+Website 5 Seiten ok · Smoke-Test bestanden (mit „rahmen“, „dialog“, „raum“,
+„karte“, „qr“ und „mobil“).

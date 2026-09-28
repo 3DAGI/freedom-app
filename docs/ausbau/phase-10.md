@@ -9,7 +9,8 @@ sind; sonst gilt die STOPP-Regel aus `CLAUDE.md`.
 
 Stand dieser Karte: **C.0 bis C.5 fertig** – Rahmen, Räume, Repositories, Abdeckungskarte, Feinschliff Mobil. Der MENSCH hat den
 Entwurf am 27.09.2026 freigegeben – E1–E8 wie vorgeschlagen (Abschnitt 10.3).
-Nächster Schritt: C.6 (erst nach Absprache mit Spur A).
+Nächster Schritt: C.6a – wartet, bis Spur A #183 (11.2a) gemergt hat: #183 ändert `settings.ts`
+und `index.html`, C.6a verschiebt genau „Settings › Gebühren“. C.6b ist fertig.
 
 ---
 
@@ -156,7 +157,7 @@ Playwright nachgeprüft (Sichtbarkeit und Maße der Elemente).
 | B13 | mittel | Der eigene Standort liegt **genau** und im Klartext in `localStorage` (`freedom.coverage.cell`, `earn.ts:107`) – auch mit Tresor. Gebraucht wird nur die Zelle. | – | E6 |
 | B14 | mittel | Anordnung: Repos und Modelle unter „Agent“; Mesh unter „Settings“, Zahlen ohne Netz unter „Währung“, Post als Datei in der Liste der Direktnachrichten; Karte unter „Earn“; Mitwirkende unter „Earn › Werben“; Vertrauensstufe des Providers im Profil; Gebühren und Standard-Schiene in den Settings; der Reiter „Liquidität“ enthält das Hinterlegen beim Provider und seit 4.3d2 den Zahlkanal, keine Liquidität. | – | C.1b, C.6 |
 | B15 | klein | Mobil wird „Kommunikation“ in der unteren Leiste zu „KOMMUN…“ gekürzt. | – | C.1a |
-| B16 | klein | Nach jeder KI-Antwort verdrahtet `handleAnswer()` Knöpfe erneut (`agent.ts:877–894`, wie schon `app.ts:826–848`) – harmlos, aber überflüssig. | Datei der Spur A | später (nach 4.3d) |
+| B16 | klein | *(behoben in C.6b)* Nach jeder KI-Antwort verdrahtet `handleAnswer()` Knöpfe erneut (`agent.ts:877–894`, wie schon `app.ts:826–848`) – harmlos, aber überflüssig. | Datei der Spur A | später (nach 4.3d) |
 | B17 | klein | Rauminfo und der Titel der Vertraulichkeit zeigen den deutschen Satz aus `privacyInfo()` auch in der englischen Oberfläche (`kommunikation.ts:228`, `:641`). | 8.16g2b2 (Spur B) hat den Satz nicht übernommen | C.2b2 |
 | B18 | hoch | *(gefunden in C.2b2)* **Mobil (bis 900 px) zeigt ein Raum nie seine Nachrichten:** `.channel-main` ist dort ausgeblendet, bis `.showing-channel` gesetzt ist – das setzte kein Code. | `app.css:850` | C.2b2 |
 | B19 | mittel | *(gefunden in C.2b2)* Nach „Raum beitreten“ oder „Raum anlegen“ bleibt der Chat bei den Direktnachrichten; der Raum erscheint erst nach einem Tipp auf sein Symbol in der Leiste. | `setzeKommModus()` nur beim Klick in die Leiste | C.2b2 |
@@ -777,6 +778,19 @@ Seiten mit Screenshots.
   schrumpften unter ihren Text und überlagerten sich. Nur die Symbolknöpfe im
   Kopf der Direktnachrichten brauchen die Breite ausdrücklich; der Smoke-Test
   prüft seitdem auch Text, der aus Knöpfen und Reitern läuft.
+
+**C.6b – fertig (28.09.2026).** Vor C.6b abgestimmt, was Spur A gerade
+berührt: der offene PR #183 (11.2a) ändert `settings.ts`, `index.html`,
+`earn.ts` und `app.ts`, nicht `agent.ts`. C.6b kommt deshalb vor C.6a; C.6a
+(Settings › Gebühren → Währung › Zahlen) wartet auf #183.
+- Rechtes Feld des Agenten (Arbeitsbereich, Werkzeuge, Kosten) unter 1200 px
+  als eigene Ebene `#/agent/details` statt ausgeblendet: Knopf
+  „Arbeitsbereich“ neben „Verlauf“ und „Modelle“, „‹ Zurück“ im Feld. Zwischen
+  860 und 1199 px steht die Seitenleiste schon da – dort nur dieser Knopf.
+- B16: `handleAnswer()` verdrahtete nach jeder Antwort die Knöpfe für
+  Nachfolge, Modelle und Abzeichen ein zweites Mal (mit einem zweiten Text für
+  dasselbe Lebenszeichen) – das tut nur noch `app.ts` beim Start. Die
+  Aktualisierungen nach der Antwort bleiben.
 
 ---
 

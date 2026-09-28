@@ -1667,3 +1667,17 @@ header .ident[data-initial=""]::before { display: none; }
   /* Der Kopf bricht um, statt den Untertitel neben Guthaben und Knöpfen auf drei Zeilen zu quetschen */
   .page-head { flex-wrap: wrap; align-items: flex-start; row-gap: 10px; }
 }
+
+/* ---------- Agent (C.6b): das rechte Feld unter 1200 px als eigene Ebene ---------- */
+.agent-panel-zurueck { display: none; }
+@media (max-width: 1199px) {
+  .agent-mobil-leiste { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 14px 0; }
+  .agent-mobil-leiste button { width: auto; min-height: 40px; padding: 8px 12px; display: inline-flex; align-items: center; gap: 6px; }
+  .agent-panel-zurueck { display: block; width: auto; min-height: 40px; align-self: flex-start; padding: 8px 12px; }
+  .agent-layout[data-sicht="details"] .agent-panel { display: flex; width: auto; flex: 1; border-left: 0; }
+  .agent-layout[data-sicht="details"] .agent-main, .agent-layout[data-sicht="details"] .agent-side { display: none; }
+}
+/* Zwischen 860 und 1199 px steht die Seitenleiste schon da – dort nur der Knopf zum rechten Feld */
+@media (min-width: 860px) and (max-width: 1199px) {
+  #agent-zu-verlauf, #agent-zu-modelle { display: none; }
+}
