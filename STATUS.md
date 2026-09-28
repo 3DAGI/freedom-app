@@ -10010,3 +10010,7 @@ Netz; mit Netz 245 + 6) · app 567 (+5) · mls 13 · Leak-Tests 62 grün + 1 tod
 · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 · Website
 ok · Smoke-Test bestanden · Website-Bau ok (mit `js/`). Knoten-Stand:
 unverändert.
+
+Nach dem Einmergen von `main` (8.2a): protocol 1088 · node 249 + 7
+übersprungen (ohne Netz; mit Netz 250 + 6) · app 567 · mls 13 · Leak-Tests 62
++ 1 todo · 0 rot; alle Prüfungen erneut grün.
