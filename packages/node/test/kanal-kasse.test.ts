@@ -175,7 +175,7 @@ test("4.3c2: Kasse nur mit ZAHLKANAL=1 und einem Schlüssel, der zu NODE_SOL_ADD
     rmSync(dir, { recursive: true, force: true });
   }
   const main = readFileSync(new URL("../src/main.ts", import.meta.url), "utf8");
-  assert.match(main, /const \{ kasse: kanalKasse, grund: kanalGrund \} = await kanalKasseAusUmgebung\(process\.env, \{/);
+  assert.match(main, /const \{ kasse: kanalKasse, grund: kanalGrund(?:, [a-zA-Z]+)* \} = await kanalKasseAusUmgebung\(process\.env, \{/);
   assert.match(main, /solanaAddress: process\.env\.NODE_SOL_ADDRESS \|\| undefined,\s*kanalKasse,/, "an den Provider");
   assert.match(main, /kanal: kanalKasse && process\.env\.NODE_SOL_ADDRESS \? \{ adresse: process\.env\.NODE_SOL_ADDRESS, programm: KANAL_PROGRAMM_ID \} : undefined,/, "Angebot nur mit Kasse");
   assert.match(main, /kanalKasse\.loeseFaelligeEin\(\)/, "Einlösen im Takt");

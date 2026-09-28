@@ -9309,3 +9309,68 @@ Endstand (nach dem Einmergen von `main` mit 7.4c3): protocol 1081 (6
 Leak-Tests 59 grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 ·
 innerHTML streng Exit 0 · Website 5 Seiten ok · Smoke-Test bestanden (mit
 „rahmen“ und „dialog“).
+
+## Schritt 4.5a – Knoten: Auszahlung an die eigene Adresse
+
+**Warum:** Seit 4.3c löst der Knoten Zahlkanal-Gutschriften mit seinem
+Solana-Schlüssel ein – einem heißen Schlüssel auf dem Gerät. Was er verdient,
+blieb dort liegen. Die Karte 4.5 wollte dazu frische Empfangsadressen je
+Sitzung aus einem Knoten-Seed; der Zahlkanal bindet aber jeden Kanal an eine
+Provider-Adresse (Seeds `["channel", customer, provider, nonce]`), frische
+Adressen hießen je Adresse ein eigener Kanal und eine eigene Einlage.
+**Entscheidung MENSCH 28.09.2026: Variante A** – eine Provider-Adresse je
+Knoten, gebündelt an die eigene Auszahlungsadresse; die Grenze kommt in den
+Datenschutzbericht (4.5b).
+
+**Was:**
+- **`node/src/sol-auszahlung.ts`** (`SolAuszahlung`): Guthaben minus Rücklage;
+  nur über der Schwelle, höchstens einmal je Abstand – ein Versuch zählt auch,
+  wenn er scheitert (kein Hämmern auf den RPC). Nie an ein Programm (Konto
+  `executable`), nie an die eigene Adresse, Rücklage mindestens 0,001 SOL
+  (Mietbefreiung 890.880 Lamports plus Gebühren). Ergebnis: Betrag und
+  Signatur oder Betrag und Fehlername – nie Meldungen des RPC.
+- **Standards:** Schwelle 0,1 SOL, Rücklage 0,01 SOL, Abstand 24 h; per
+  Umgebung `KANAL_AUSZAHLUNG_SCHWELLE_LAMPORTS`, `…_RUECKLAGE_LAMPORTS`,
+  `…_ABSTAND_SEK` (auch in `docker-compose.yml`).
+- **Einrichtung** (`kanalKasseAusUmgebung()`): nur mit `NODE_SOL_PAYOUT`
+  (gültige Adresse, nicht die eigene). Ist sie ungültig, läuft die Kasse
+  trotzdem, nur ohne Auszahlung. **Aus neben LP oder Relayer:** beide laden
+  denselben `SOLANA_KEYPAIR` – dessen Guthaben ist dann ihre Liquidität und
+  darf nicht weg (LP nur mit `LP_SOL_MOCK=1` ausgenommen, der nutzt den
+  Schlüssel nicht). Gesendet wird mit Vorabsimulation
+  (`sendAndConfirmTransaction`, kein `skipPreflight`).
+- **Verdrahtet:** `node/src/main.ts` – im Einlöse-Takt (alle fünf Minuten)
+  nach `kanalKasse.loeseFaelligeEin()`: `await auszahlung?.pruefe()`; ins Log
+  nur Betrag und Fehlername. Beim Start steht im Log, ob und wohin
+  ausgezahlt wird oder warum nicht.
+- **Keine Verteilung:** Der Knoten zahlt weiter nichts an andere aus (5.1.2).
+  Er bringt nur eigenes Geld vom heißen Schlüssel weg; CLAUDE.md nennt das
+  als einzige Ausnahme.
+- **Doku:** `docs/ZAHLKANAL.md` (Im Knoten: Auszahlung, Grenze „eine Adresse
+  je Knoten“), Karte 4.5 (Entscheidung, Aufteilung a/b), FORTSCHRITT (5.9 und
+  6.3 aus der Zeile von Spur A – übergeben an Spur B, 28.09.).
+
+**Tests:** +4 in `node/test/sol-auszahlung.test.ts`:
+- unter der Schwelle nichts, darüber alles über der Rücklage – eine
+  System-Überweisung an genau die eigene Adresse;
+- höchstens einmal je Abstand, auch nach einem Fehlversuch; nach außen nur
+  der Fehlername (die Meldung mit einer IP-Adresse erscheint nicht);
+- nie an ein Programm, nie an sich selbst, keine Rücklage unter der
+  Mietbefreiung, keine winzige Schwelle;
+- Einrichtung: ohne `NODE_SOL_PAYOUT` aus, ungültig → Kasse läuft ohne,
+  neben LP oder Relayer aus, mit Mock-LP an; in `main.ts` erst einlösen,
+  dann auszahlen.
+
+**Knoten-Stand:** Nur wer `ZAHLKANAL=1` und `NODE_SOL_PAYOUT` setzt, bekommt
+die Auszahlung; ein Update des GX10 ist nicht nötig, bis das Kanal-Programm
+deployt ist (MENSCH).
+
+Außerdem `node/test/kanal-kasse.test.ts`: Der Verdrahtungstest aus 4.3c2
+prüfte die Zeile in `main.ts` wörtlich; er lässt jetzt weitere Felder nach
+`grund: kanalGrund` zu und prüft sonst dasselbe.
+
+Endstand: protocol 1081 (6 übersprungen) · node 245 (+4; 6 übersprungen,
+mit Netz) · app 525 · mls 13 · Leak-Tests 59 grün + 1 todo · 0 rot ·
+check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 · Website 5 Seiten
+ok · Smoke-Test bestanden. Zahlkanal-Tests gegen den Validator nicht lokal
+(Programm und `channel.ts` unverändert; die CI führt sie aus).

@@ -145,12 +145,13 @@ async function main(): Promise<void> {
     console.warn("[datenschutz] LOG_KLARTEXT=1 – Antworten erscheinen im Log. Nur zur Fehlersuche, danach wieder ausschalten.");
   }
   // Zahlkanal (4.3c): nur mit ZAHLKANAL=1 und passendem Solana-Schlüssel
-  const { kasse: kanalKasse, grund: kanalGrund } = await kanalKasseAusUmgebung(process.env, {
+  const { kasse: kanalKasse, grund: kanalGrund, auszahlung, auszahlungGrund } = await kanalKasseAusUmgebung(process.env, {
     rpcUrl: process.env.SOLANA_RPC_URL ?? defaultSolanaRpc(),
     datei: join(process.env.HOME ?? ".", ".freedom", "kanaele.json"),
     standardSchluessel: join(process.env.HOME ?? ".", ".config", "solana", "id.json"),
   });
   console.log(kanalKasse ? `[kanal] Zahlkanal an (Provider ${process.env.NODE_SOL_ADDRESS})` : `[kanal] Zahlkanal ${kanalGrund}`);
+  if (kanalKasse) console.log(auszahlung ? `[kanal] Auszahlung an ${process.env.NODE_SOL_PAYOUT}` : `[kanal] Auszahlung ${auszahlungGrund}`);
   const provider = new DvmProvider(
     {
       keypair,
@@ -437,6 +438,9 @@ async function main(): Promise<void> {
             ? `[kanal] ${r.kanal.slice(0, 8)}: ${r.fehler} (${r.betrag} Lamports)`
             : `[kanal] ${r.kanal.slice(0, 8)}: ${r.betrag} Lamports eingelöst`);
         }
+        // Auszahlung (4.5): Eingelöstes gebündelt an die eigene Adresse – nur Betrag und Fehlername ins Log
+        const a = await auszahlung?.pruefe().catch(() => undefined);
+        if (a) console.log("fehler" in a ? `[kanal] Auszahlung: ${a.fehler} (${a.betrag} Lamports)` : `[kanal] ${a.betrag} Lamports ausgezahlt`);
       } finally {
         laeuft = false;
       }

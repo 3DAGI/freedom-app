@@ -44,7 +44,7 @@ bash packages/mls/bauen.sh --pruefen                     # nur bei Änderungen a
 bash contracts/solana-channel/pruefen.sh --werkzeuge     # nur bei Änderungen am Zahlkanal: bauen + Tests gegen Validator (Agave 3.1.10)
 ```
 
-Stand 28.09.2026 (nach 4.3d2, 7.4c3 und C.2b1): protocol 1081 grün (6 übersprungen), node 241 grün
+Stand 28.09.2026 (nach 4.5a, 7.4c3 und C.2b1): protocol 1081 grün (6 übersprungen), node 245 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
 in `tools.test.ts`), app 525 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 59 grün + 1 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
@@ -231,6 +231,12 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   bleibt, Adresse nur von ihm; die öffentliche Nennung 38052 zählt seit 5.1.4b
   nur noch – `zaehleNennungen()`, keine Stufen), Relay-Adressen nur über `RelayZahlziele`
   (NIP-11 `pubkey` → signiertes Profil), beim Senden nur schon Bekanntes.
+  Einzige Ausnahme seit 4.5a: Der Knoten bringt **eigenes** Geld vom heißen
+  Schlüssel an die eigene Adresse `NODE_SOL_PAYOUT` (`SolAuszahlung`, über
+  der Schwelle, einmal je Abstand, Rücklage für Miete bleibt) – nie an andere,
+  nie neben LP oder Relayer mit demselben `SOLANA_KEYPAIR` (deren Liquidität).
+  Eine Provider-Adresse je Knoten (Entscheidung 4.5 A) – keine frischen
+  Adressen je Sitzung einführen, ohne den Zahlkanal neu zu denken.
 - **Kurse und Umrechnung nur über `kurs.ts`** (seit 4.4): Marktkurs mit
   `marktKurs()` (eine Stimme je Absender), msat ↔ Lamports mit
   `msatZuLamports()`/`lamportsZuMsat()` (BigInt). 1 SOL = 1e9 Lamports =
