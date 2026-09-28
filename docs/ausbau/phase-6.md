@@ -44,12 +44,17 @@ Relays, RPC-Anbietern und Lightning-Diensten.
     NIP-57 (`buildAnonZapRequest()`, Wegwerf-Schlüssel je Zap) – die Quittung
     des Empfänger-Servers nennt den Zahler nicht. Aussage „ln-oeffentlich“ mit
     Szenario.
-  - **6.3b – offen:** NWC über ein eigenes oder ein .onion-Relay (Einstellung,
-    Warnung bei fremdem Klartext-Relay); Empfang über den eigenen Knoten
-    (`LnurlDienst`, 8.2b) statt über LNURL-Dienste; ohne öffentliche Adresse
-    die Lightning-Adresse bzw. Rechnung eines Kontakts versiegelt erfragen (wie
-    die SOL-Adresse, 4.9d); BOLT12 erkennen (Wallet über NWC, Knoten), sonst
-    Rechnungen nur verschlüsselt.
+  - **6.3b1 – FERTIG:** Rechnung versiegelt erfragen (`ln-rechnung.ts`, Kind
+    25022/25023 im Umschlag): Ohne öffentliche Adresse fragt der Zap-Dialog den
+    Empfänger nach einer Rechnung über den Betrag; dessen App antwortet nur
+    Kontakten, nur auf frische Anfragen, gebremst, mit einer Rechnung der
+    eigenen Wallet (NWC `make_invoice`) – Empfang ohne LNURL-Dienst. Der Zahler
+    nimmt nur eine gültige Rechnung über genau den Betrag. Aussage
+    „ln-rechnung“ mit Szenario.
+  - **6.3b2 – offen:** NWC über ein eigenes oder ein .onion-Relay (Einstellung,
+    Warnung bei fremdem Klartext-Relay); BOLT12 erkennen (Wallet über NWC),
+    sonst Rechnungen nur verschlüsselt (6.3b1); Provider-Knoten empfangen
+    bereits über den eigenen LND (`LnurlDienst`, 8.2b).
 
 ## 6.4 Verkehrsmuster – FERTIG (27.09.2026, Spur B)
 

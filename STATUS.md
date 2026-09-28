@@ -10782,3 +10782,54 @@ Endstand: protocol 1099 (+2, 6 übersprungen) · node 262 + 7 übersprungen
 Ausnahme wie alle anderen) · innerHTML streng Exit 0 · Website ok ·
 Smoke-Test bestanden · Website-Bau ok. Knoten-Stand: unverändert (nur
 Protokoll-Bausteine, die die App nutzt).
+
+## Schritt 6.3b1 – Rechnung versiegelt beim Kontakt erfragen
+
+Spur B, von Spur A übernommen (Entscheidung 28.09.), Karte `phase-6.md` (6.3).
+6.3b ist aufgeteilt: b1 (dieser Schritt) Rechnungen versiegelt, b2 NWC über
+ein eigenes oder .onion-Relay und BOLT12 erkennen.
+
+**Was:**
+- Protokoll `ln-rechnung.ts`: Anfrage (innen Kind 25022, `p`, `amount` in
+  msat) und Antwort (innen 25023, `e`, `p`, `bolt11`) nur im Umschlag
+  (NIP-59), zwischen den Identitäten. Beträge nur ganze sats bis 0,1 BTC
+  (`rechnungsBetragOk()`); die Antwort nimmt der Zahler nur vom Gefragten, zur
+  eigenen Anfrage und nur mit einer gültig signierten Rechnung über genau den
+  Betrag (`oeffneRechnungsAntwort()`). Wem der Knoten gehört, weiß er nicht –
+  nach 4.8 „angekündigt“, nicht „belegt“.
+- App `ln-rechnung-anfrage.ts`: `frageRechnungAn()` (an den Posteingang des
+  Empfängers, wartet bis 75 s) und `beantworteRechnungsAnfrage()` – nur
+  Kontakte, nur frische Anfragen (15 min, nicht aus der Zukunft),
+  `RechnungsBremse` (je Kontakt eine je 30 s, zehn je Minute), Rechnung nur
+  aus der eigenen Wallet über NWC `make_invoice` ohne Beschreibung
+  (`eigeneRechnung()` in `shell/zahlschienen.ts`). Empfang ohne LNURL-Dienst.
+- Zap-Dialog (`chat-zap.ts`): Hat der Empfänger eine öffentliche Adresse,
+  anonymer Zap wie seit 6.3a; sonst die versiegelte Anfrage (nur ganze sats),
+  bezahlt über die Schiene, die den Betrag prüft. Bisher endete das mit
+  „Empfänger hat keine Lightning-Adresse“ – seit 6.3a der Standard.
+- Posteingang (`kommunikation.ts`): `alsRechnungsAnfrage()` am Ende der Kette
+  in `oeffneUmschlag()`; die vier Tests, die die Kette wörtlich prüfen, kennen
+  das neue Glied.
+- Aussage „ln-rechnung“ (belegt, Regel `kein-bolt11`) mit Szenario; Text in
+  der Offenlegung des Profils und in der FAQ (App muss offen sein, Fremde
+  bekommen keine Rechnung).
+
+**Verdrahtet:** `app/src/chat-zap.ts` (`sendZap()` → `frageRechnungAn(…,
+sende: veroeffentlicheDm)`), `app/src/shell/tabs/kommunikation.ts`
+(`oeffneUmschlag()` → `alsRechnungsAnfrage()` → `beantworteRechnungsAnfrage()`
+mit `eigeneRechnung`).
+
+**Tests:** +3 in `protocol/test/ln-rechnung.test.ts` (Anfrage und Antwort nur
+Umschläge – weder Betrag noch Rechnung noch Identität offen; Antwort nur vom
+Gefragten, zur eigenen Anfrage, über genau den Betrag, nicht ohne Betrag;
+Beträge und kaputte Anfragen), Szenario „ln-rechnung“ in
+`privacy-facts.test.ts`. App: +4 in `test/ln-rechnung-anfrage.test.ts` (ganzer
+Weg über ein Relay an den Posteingang des Empfängers; keine Rechnung für
+Fremde, alte, künftige Anfragen, ohne Wallet oder mit falschem Betrag der
+Wallet; Bremse; Verdrahtung), die vier Ketten-Tests erweitert. Leak: +1
+`leak/ln-rechnung.test.ts` (mitgeschnitten am Relay: nur Umschläge).
+
+Endstand: protocol 1102 (+3, 6 übersprungen) · node 262 + 7 übersprungen
+(ohne Netz, unverändert) · app 604 (+4) · mls 13 · Leak-Tests 65 grün (+1) +
+1 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 ·
+Website ok · Smoke-Test bestanden · Website-Bau ok. Knoten-Stand: unverändert.

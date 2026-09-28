@@ -41,6 +41,8 @@ import { baueRaumMeldung, raumDefinition, raumNachricht } from "../src/raum-grup
 import { baueRufUmschlaege } from "../src/quittung.js";
 import { buildProfile, oeffentlichesProfil } from "../src/profile.js";
 import { buildAnonZapRequest, buildZapRequest } from "../src/zap.js";
+import { buildRechnungsAnfrage, buildRechnungsAntwort } from "../src/ln-rechnung.js";
+import { knotenSchluessel, rechnung } from "./bolt11-hilfe.js";
 import { regelKeineLnAdresse, regelZapAnonym } from "../src/leak-rules.js";
 import { fromHex, toHex } from "../src/htlc.js";
 import type { NostrEvent, UnsignedEvent } from "../src/event.js";
@@ -212,6 +214,14 @@ const SZENARIEN: Record<string, () => Promise<number>> = {
     const mitName = signEvent(buildZapRequest({ ...zap, senderPubkey: a.pk }), a.sk);
     const gegenprobe = regelKeineLnAdresse([offen], [ln]).length === 1 && regelZapAnonym([mitName], a.pk).length === 1;
     return regelKeineLnAdresse([profil], [ln]).length + regelZapAnonym([anonym], a.pk).length + regelKeinBolt11([profil, anonym]).length + (gegenprobe ? 0 : 1);
+  },
+  "ln-rechnung": async () => {
+    // Wie die App seit 6.3b: Anfrage und Antwort im Umschlag, zwischen Identitäten.
+    const pr = rechnung(knotenSchluessel(), "lnbc210n", new Uint8Array(32).fill(4));
+    const { wrap, anfrageId } = await buildRechnungsAnfrage({ von: new LocalSigner(a.sk), anPk: b.pk, betragMsat: 21_000 });
+    const antwort = await buildRechnungsAntwort({ von: new LocalSigner(b.sk), anPk: a.pk, anfrageId, bolt11: pr });
+    const alle = [wrap, antwort];
+    return regelKeinBolt11(alle).length + regelKeinKlartext(alle, ["21000", pr]).length + regelAutorNicht(alle, a.pk).length + regelAutorNicht(alle, b.pk).length;
   },
   "sol-adresse": async () => {
     const wraps = await versiegelterTausch();

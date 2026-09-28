@@ -149,16 +149,26 @@ async function sendZap(state: ZapDialogState, el: HTMLElement): Promise<void> {
       if (state.unit !== "sats") throw new Error(t("zahl.lightningInSats"));
       const betragMsat = Math.round(state.amount * 1000);
       const lud16 = profile[0] ? parseProfileSafe(profile[0]).lud16 ?? "" : "";
-      if (!lud16) throw new Error(t("zahl.ohneLud16"));
-      // Anonym (6.3): Die Quittung veröffentlicht der Server des Empfängers –
-      // mit der Anfrage darin. Von der Identität signiert, stünde dort, wer zahlt.
-      const { baueZapAnfrage, holeZapRechnung } = await import("./zap-zahlung.js");
-      const zapRequest = baueZapAnfrage({
-        empfaenger: state.recipientPubkey,
-        betragMsat,
-        relays: pool.urls.slice(0, 5), // eigener Satz vorn (5.4) – dort liest die App die Quittung
-      });
-      const rechnung = await holeZapRechnung({ lud16, betragMsat, zapRequest });
+      let rechnung: string;
+      if (lud16) {
+        // Anonym (6.3): Die Quittung veröffentlicht der Server des Empfängers –
+        // mit der Anfrage darin. Von der Identität signiert, stünde dort, wer zahlt.
+        const { baueZapAnfrage, holeZapRechnung } = await import("./zap-zahlung.js");
+        const zapRequest = baueZapAnfrage({
+          empfaenger: state.recipientPubkey,
+          betragMsat,
+          relays: pool.urls.slice(0, 5), // eigener Satz vorn (5.4) – dort liest die App die Quittung
+        });
+        rechnung = await holeZapRechnung({ lud16, betragMsat, zapRequest });
+      } else {
+        // Ohne öffentliche Adresse (6.3b): Rechnung versiegelt beim Empfänger erfragen –
+        // seine App stellt sie mit seiner Wallet aus und antwortet ebenso versiegelt.
+        if (betragMsat % 1000 !== 0) throw new Error(t("zahl.nurGanzeSats"));
+        statusEl.textContent = t("zahl.frageRechnung", { name: state.recipientName });
+        const [{ frageRechnungAn }, { veroeffentlicheDm }] = await Promise.all([import("./ln-rechnung-anfrage.js"), import("./shell/tabs/kommunikation.js")]);
+        rechnung = await frageRechnungAn({ pool, signer: appState.signer!, empfaenger: state.recipientPubkey, betragMsat, sende: veroeffentlicheDm }) ?? "";
+        if (!rechnung) throw new Error(t("zahl.keineRechnungVersiegelt", { name: state.recipientName }));
+      }
       statusEl.textContent = t("zahl.warteAufWallet");
       await zahle(zahlschienen(), { ziel: rechnung, betrag: { einheit: "msat", wert: betragMsat }, zweck: "zap" });
       statusEl.textContent = `⚡ ${t("zahl.gezappt", { sats: state.amount })}`;

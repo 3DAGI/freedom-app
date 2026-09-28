@@ -59,6 +59,7 @@ const FAKT: Record<string, readonly [string, string?]> = {
   "sol-trinkgeld": ["ds.fSolTrinkgeld"],
   "sol-trinkgeld-adresse": ["ds.fSolTrinkgeldAdresse"],
   "ln-oeffentlich": ["ds.fLnOeffentlich"],
+  "ln-rechnung": ["ds.fLnRechnung"],
   "sol-adresse": ["ds.fSolAdresse"],
   "swap-rechnung": ["ds.fSwapRechnung"],
   "sol-empfang": ["ds.fSolEmpfang"],

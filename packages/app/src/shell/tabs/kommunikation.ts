@@ -537,8 +537,8 @@ async function oeffneUmschlag(w: NostrEvent): Promise<{ partner: string; ev: DmA
         dm: r.dm,
       }
     // Keine DM: vielleicht ein SOL-Trinkgeld-Beleg (4.7b), eine Adress-Anfrage (4.9d), Nachfolge (8.11b), ein Pruefauftrag (5.6c),
-    // eine Raum-Meldung (8.5) oder die Zusammenfassung eines Kontakts ueber Provider (5.5c).
-    : (await alsTrinkgeld(w)) ?? (await alsAdressAnfrage(w)) ?? (await alsNachfolge(w)) ?? (await alsPruefauftrag(w)) ?? (await alsRaumMeldung(w)) ?? (await alsRufZusammenfassung(w));
+    // eine Raum-Meldung (8.5), die Zusammenfassung eines Kontakts ueber Provider (5.5c) oder eine Rechnungs-Anfrage (6.3b).
+    : (await alsTrinkgeld(w)) ?? (await alsAdressAnfrage(w)) ?? (await alsNachfolge(w)) ?? (await alsPruefauftrag(w)) ?? (await alsRaumMeldung(w)) ?? (await alsRufZusammenfassung(w)) ?? (await alsRechnungsAnfrage(w));
   dmCache.set(w.id, e);
   return e;
 }
@@ -579,6 +579,28 @@ async function alsAdressAnfrage(w: NostrEvent): Promise<null> {
     istKontakt: (pk) => conversations.some((c) => c.type === "dm" && c.id === pk),
     frischeAdresse: frischeEmpfangsadresse,
     kette: ketteAusRpc(await solRpcUrl()),
+    sende: veroeffentlicheDm,
+  }).catch(() => false);
+  return null;
+}
+
+/** Bremse fuer Rechnungs-Anfragen (6.3b) – nur im Speicher. */
+let rechnungsBremse: import("../../ln-rechnung-anfrage.js").RechnungsBremse | undefined;
+
+/**
+ * Rechnungs-Anfrage (6.3b): Ein Kontakt will zahlen, und die eigene
+ * Lightning-Adresse steht nicht im Profil – beantworten mit einer Rechnung der
+ * eigenen Wallet (NWC), versiegelt. In der Unterhaltung erscheint nichts.
+ */
+async function alsRechnungsAnfrage(w: NostrEvent): Promise<null> {
+  const [{ RechnungsBremse, beantworteRechnungsAnfrage }, { eigeneRechnung }] = await Promise.all([
+    import("../../ln-rechnung-anfrage.js"), import("../zahlschienen.js"),
+  ]);
+  rechnungsBremse ??= new RechnungsBremse();
+  await beantworteRechnungsAnfrage({
+    wrap: w, signer: state.signer!, bremse: rechnungsBremse,
+    istKontakt: (pk) => conversations.some((c) => c.type === "dm" && c.id === pk),
+    stelleAus: eigeneRechnung,
     sende: veroeffentlicheDm,
   }).catch(() => false);
   return null;
