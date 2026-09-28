@@ -9,7 +9,7 @@ sind; sonst gilt die STOPP-Regel aus `CLAUDE.md`.
 
 Stand dieser Karte: **C.0, C.1a, C.1b, C.2 (Räume), C.3 (Repositories) und C.4 (Abdeckungskarte) fertig.** Der MENSCH hat den
 Entwurf am 27.09.2026 freigegeben – E1–E8 wie vorgeschlagen (Abschnitt 10.3).
-Nächster Schritt: C.5.
+Nächster Schritt: C.5b.
 
 ---
 
@@ -737,6 +737,30 @@ einem ersten echten Pfad, C.3c2 der Reiter „Code“ ganz und „Commits“.
   vergessen“.
 - „Selbst eintragen“ fragt über `dialog()`/`bestaetige()` statt `prompt()`
   und `confirm()`: Ebene als Wahl, dann die Einwilligung wie bisher.
+
+**C.5a – fertig (28.09.2026).** C.5 ist geteilt: C.5a Berührflächen,
+Häkchen, Safe-Area, Querformat, Tastatur und das eigene Bild in der Kopfzeile;
+C.5b Kürzungen (Hinweisleiste), einheitliche Abstände und der Durchgang aller
+Seiten mit Screenshots.
+- Gemessen vorher (390 × 844 und 844 × 390, alle 16 Seiten): Guthaben und
+  Schlüssel in der Kopfzeile 11–13 px hoch, viele Knöpfe und Felder 21–33 px,
+  Symbolknöpfe im Chat 28 × 28, Häkchen 304 px breit (die Regel für `input`
+  galt auch für sie), „Was geht ohne Internet?“ 11 px hoch. Keine Seite mit
+  waagrechter Laufleiste.
+- Unter 1024 px jede Berührfläche mindestens 40 px (Knöpfe, Reiter, Felder,
+  Auswahllisten, `summary`, Labels mit Häkchen); Häkchen 18 px mit Label als
+  Fläche. Wo 40 px den Platz sprengten: Werkzeuge des Agenten in einer Reihe
+  zum Wischen, Knöpfe im Kopf der Direktnachrichten brechen um.
+- Safe-Area: Kopfzeile oben, links, rechts; Inhalt links, rechts; untere
+  Leiste unten, links, rechts (`viewport-fit=cover` stand schon da).
+- Querformat (Höhe bis 500 px): Kopfzeile flacher, in der unteren Leiste
+  Symbol und Text nebeneinander.
+- Tastatur: `interactive-widget=resizes-content`; solange ein Feld, das eine
+  Tastatur öffnet, den Fokus hat (`tipptIn()`), weicht die untere Leiste.
+- Kopfzeile: vor dem gekürzten Schlüssel das eigene Bild wie in der
+  Profil-Vorschau ohne Bild – der Anfangsbuchstabe des Namens
+  (`zeigeIdent()`), nie ein Bild aus dem Netz; Settings-Reiter mit Verlauf am
+  rechten Rand.
 
 ---
 

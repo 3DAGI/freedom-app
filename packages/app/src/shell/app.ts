@@ -116,7 +116,7 @@ import {
 import {
   $,
   aktualisiereNavStatus,
-  escrowIdent,
+  zeigeIdent,
   refreshQuota,
   setzeLogo,
   toast,
@@ -131,7 +131,7 @@ export { activateCodeBlocks } from "./ui.js";
 function loadOrCreateIdentity(): void {
   // Anmeldung per Bunker (1.3f) geht vor – dann liegt kein Schluessel in der App.
   if (nimmBunkerAuf()) {
-    $("#ident").textContent = escrowIdent();
+    zeigeIdent();
     return;
   }
   const stored = ladeSchluessel();
@@ -146,7 +146,7 @@ function loadOrCreateIdentity(): void {
     void erzeugeIdentitaetMitPhrase();
     return;
   }
-  $("#ident").textContent = escrowIdent();
+  zeigeIdent();
   void zeigeBackupWarnung();
 }
 
@@ -159,7 +159,7 @@ async function erzeugeIdentitaetMitPhrase(): Promise<void> {
   // Bis zur Bestaetigung aufheben – wer „spaeter“ waehlt, soll sie spaeter noch sehen (8.1a)
   await geheim.setItem(LS_MERKPHRASE, id.mnemonic!);
   markHasMnemonic();
-  $("#ident").textContent = escrowIdent();
+  zeigeIdent();
   // Einrichtung (8.1b): zuerst die Merkphrase, dann Schutz, Schiene, private Voreinstellungen
   await starteEinrichtung(id.mnemonic!);
 }
@@ -371,7 +371,7 @@ async function importIdentity(): Promise<void> {
   if (state.person) localStorage.setItem(LS_GERAET_PERSON, state.person);
   else localStorage.removeItem(LS_GERAET_PERSON);
   void speichereSchluessel(hex.toLowerCase()).catch((e) => toast(t("ein.nichtGespeichert", { fehler: fehlerText(e) }), true));
-  $("#ident").textContent = escrowIdent();
+  zeigeIdent();
   toast(state.person ? t("ein.alsGeraet", { person: pkShort(state.person) }) : t("ein.importiert"));
   updateFeePreview();
   loadChatList();

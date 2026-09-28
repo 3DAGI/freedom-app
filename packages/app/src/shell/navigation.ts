@@ -127,4 +127,13 @@ export function wireNavigation(oeffne: (seite: Seite) => void): void {
     const layout = document.querySelector<HTMLElement>(".agent-layout");
     if (layout?.dataset.sicht && (e.target as HTMLElement).closest(".history-item, #agent-new")) zurueck(oeffne);
   });
+  // Tastatur mobil (C.5a): solange ein Eingabefeld den Fokus hat, weicht die untere Leiste (CSS `body.tippt`)
+  const tippt = () => document.body.classList.toggle("tippt", tipptIn(document.activeElement));
+  document.addEventListener("focusin", tippt);
+  document.addEventListener("focusout", () => setTimeout(tippt, 0));
+}
+
+/** Öffnet dieses Element die Bildschirmtastatur? Textfelder ja, Häkchen, Knöpfe und Dateiwahl nein. */
+export function tipptIn(e: Element | null): boolean {
+  return !!e && e.matches("textarea, [contenteditable=''], [contenteditable='true'], input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']):not([type='button']):not([type='submit']):not([type='color'])"); // kein UI-Text
 }
