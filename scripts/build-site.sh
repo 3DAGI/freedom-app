@@ -23,6 +23,7 @@ OUT="$(cd "$OUT" && pwd)"
 cp "$W"/index.html "$W"/dashboard.html "$W"/faq.html "$W"/roadmap.html "$W"/whitepaper.html "$OUT"/
 cp "$W"/manifest.json "$OUT"/
 cp -r "$W"/css "$OUT"/
+cp -r "$W"/js "$OUT"/
 cp "$ROOT/packages/app/dist/freedom.html" "$OUT"/freedom.html
 SUM="$(cd "$OUT" && sha256sum freedom.html | cut -d' ' -f1)"
 echo "$SUM" > "$OUT/freedom.html.sha256"

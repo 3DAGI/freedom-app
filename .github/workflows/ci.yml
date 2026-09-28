@@ -117,17 +117,21 @@ jobs:
           python3 scripts/check_innerhtml.py packages/app/src --ausnahmen scripts/innerhtml-ausnahmen.txt --streng
 
       - name: Dashboard-Skript pruefen
-        # Das Dashboard ist reines Inline-JS ohne Build — ein Syntaxfehler
-        # faellt sonst erst dem ersten Besucher auf.
+        # Das Dashboard ist JS ohne Build — ein Syntaxfehler faellt sonst erst
+        # dem ersten Besucher auf. Seit 8.15 ein Modul (importiert
+        # js/dashboard-daten.js): als Modul pruefen, nicht mit new Function.
         run: |
           node -e "
             const fs = require('fs');
             const html = fs.readFileSync('packages/website/dashboard.html', 'utf8');
             const m = html.match(/<script type=\"module\">([\s\S]*?)<\/script>/);
             if (!m) { console.error('Kein Skriptblock gefunden'); process.exit(1); }
-            new Function(m[1]);
+            const ziel = require('path').join(require('os').tmpdir(), 'dashboard-skript.mjs');
+            fs.writeFileSync(ziel, m[1]);
+            require('child_process').execFileSync(process.execPath, ['--check', ziel], { stdio: 'inherit' });
             console.log('dashboard.html: Skript syntaktisch ok');
           "
+          node --check packages/website/js/dashboard-daten.js
 
   invariants:
     name: Protokoll-Invarianten
