@@ -120,6 +120,8 @@ export interface RepoKarte {
   raumBestaetigt?: boolean;
   /** Repo eines privaten Raums (11.4b2): jede Aktion geht nur in diese MLS-Gruppe. */
   privatRaum?: string;
+  /** Name des Raums (11.4c), nur wenn das Repo bestätigt dazugehört – fremder Text, nur über textContent. */
+  raumName?: string;
   zeilen: PatchZeile[];
   offen: number;
   /** Letzte Aktivität (Sekunden): Ankündigung, Bundle, Patch oder Status. */
@@ -140,12 +142,14 @@ export function repoKarten(
   }
   for (const gelesen of repoZeilen(ankuendigungen)) {
     // Rechte aus den Raum-Rollen (11.4a): Pfleger des Raums zählen wie Maintainer
-    const { raumBestaetigt, ...repo } = mitRaumRechten(gelesen, gelesen.raum ? raumZustandFuer(gelesen.raum, raumEvents) : undefined);
+    const zustand = gelesen.raum ? raumZustandFuer(gelesen.raum, raumEvents) : undefined;
+    const { raumBestaetigt, ...repo } = mitRaumRechten(gelesen, zustand);
     const zeilen = patchZeilen(repo, patches, status, ich);
     const schluessel = `${repo.eigentuemer}:${repo.id}`;
     const zuletzt = Math.max(zeitVon.get(schluessel) ?? 0, ...zeilen.map((z) => z.patch.zeit));
     karten.set(schluessel, {
       schluessel, id: repo.id, name: repo.name, eigentuemer: repo.eigentuemer, repo, zeilen, ...(repo.raum ? { raumBestaetigt } : {}),
+      ...(raumBestaetigt && zustand?.space ? { raumName: zustand.space.name.slice(0, 80) } : {}),
       ...(repo.beschreibung ? { beschreibung: repo.beschreibung } : {}),
       offen: zeilen.filter((z) => z.status === "offen" || z.status === "entwurf").length, zuletzt,
     });
@@ -172,11 +176,25 @@ export function repoKarten(
  * vermischt –, und `privatRaum` leitet jede Aktion in die Gruppe.
  */
 export function privateRaumKarten(
-  r: { gruppe: string; ankuendigungen: readonly NostrEvent[]; bundles: readonly NostrEvent[]; patches: readonly NostrEvent[]; status: readonly NostrEvent[] },
+  r: { gruppe: string; name?: string; ankuendigungen: readonly NostrEvent[]; bundles: readonly NostrEvent[]; patches: readonly NostrEvent[]; status: readonly NostrEvent[] },
   ich: string | undefined,
 ): RepoKarte[] {
   return repoKarten(r.ankuendigungen, r.bundles, r.patches, r.status, ich)
-    .map((k) => ({ ...k, schluessel: `mls:${r.gruppe}:${k.schluessel}`, privatRaum: r.gruppe }));
+    .map((k) => ({ ...k, schluessel: `mls:${r.gruppe}:${k.schluessel}`, privatRaum: r.gruppe, ...(r.name ? { raumName: r.name.slice(0, 80) } : {}) }));
+}
+
+/** Wohin ein Repo im Raum gehört (11.4c): öffentlicher Raum über seine Adresse (34700:…), privater über die Gruppe. */
+export type RaumZiel = { adresse: string } | { gruppe: string };
+
+/**
+ * Die Repos eines Raums (11.4c) aus den geladenen Karten: öffentlich nur, was
+ * bestätigt zu genau dieser Adresse gehört (Eigentümer mit „repos_pflegen“,
+ * 11.4a) – ein bloßer Verweis zählt nicht –, privat nur die Karten dieser Gruppe.
+ */
+export function reposImRaum(karten: readonly RepoKarte[], ziel: RaumZiel): RepoKarte[] {
+  return karten.filter((k) => ("gruppe" in ziel
+    ? k.privatRaum === ziel.gruppe
+    : !k.privatRaum && k.raumBestaetigt === true && k.repo?.raum === ziel.adresse));
 }
 
 /** Suche (nur lokal) und „Meine“: Name, Kennung oder Beschreibung enthält die Suche, ohne Groß/klein. */

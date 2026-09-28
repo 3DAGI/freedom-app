@@ -1681,3 +1681,9 @@ header .ident[data-initial=""]::before { display: none; }
 @media (min-width: 860px) and (max-width: 1199px) {
   #agent-zu-verlauf, #agent-zu-modelle { display: none; }
 }
+/* ---------- Repos im Raum (11.4c) ---------- */
+/* Unter den Kanälen, eigener Abschnitt mit Linie; viele Repos scrollen, die Kanäle behalten den Platz */
+.raum-repos { flex-shrink: 0; max-height: 40%; overflow-y: auto; border-top: 1px solid #1E1E1E; margin-top: 8px; padding-top: 8px; }
+.raum-repos-titel { display: flex; align-items: center; gap: 6px; margin: 0 0 4px; font-size: 11px; font-weight: 600; color: #7A7A7A; }
+.raum-repos-liste { display: flex; flex-direction: column; gap: 1px; }
+.repo-raum { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 0 0 6px; }

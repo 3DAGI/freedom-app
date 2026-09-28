@@ -5,7 +5,7 @@
 // Der eigene Schlüssel bekommt die Rolle „mod“, damit die Aktionen an Nachrichten erscheinen.
 import {
   baueCoverageEintrag, baueRepoAnkuendigung, bauePatch, buildChannelMessage, buildContribution, buildGitRepoRef, buildRoleGrant, buildRoles, buildSpace, generateKeypair,
-  leseRepoAnkuendigung, signEvent,
+  leseRepoAnkuendigung, raumAdresse, signEvent,
 } from "../packages/protocol/src/index.ts";
 
 const ich = process.argv[2] ?? "";
@@ -50,10 +50,11 @@ events.push(
   nachricht(ada, "Zweite Zeile, gleiche Gruppe.", gestern + 240),
   nachricht(bo, "Guten Morgen – ein neuer Tag.", heute + 9 * 3600),
 );
-// Seit C.3a ein Repo: Ankündigung (ich bin Maintainer), Bundle-Verweis desselben Eigentümers, ein offener Patch
+// Seit C.3a ein Repo: Ankündigung (ich bin Maintainer), Bundle-Verweis desselben Eigentümers, ein offener Patch.
+// Seit 11.4c gehört es zum Probe-Raum (der Gründer pflegt dort immer Repos) – der Raum zeigt es in seiner Liste
 const ankuendigung = signEvent({ ...baueRepoAnkuendigung({
   id: "werkzeug", name: "werkzeug", beschreibung: "Werkzeuge für den Probe-Raum",
-  klon: ["https://example.org/werkzeug.git"], maintainer: [ich],
+  klon: ["https://example.org/werkzeug.git"], maintainer: [ich], raum: raumAdresse(gruender.pk, spaceId),
 }, gruender.pk), created_at: gestern }, gruender.sk);
 const patchText = `From ${"a".repeat(40)} Mon Sep 17 00:00:00 2001\nFrom: Ada\nSubject: [PATCH] Hammer schärfen\n\n---\n`
   + "diff --git a/hammer.txt b/hammer.txt\n--- a/hammer.txt\n+++ b/hammer.txt\n@@ -1 +1 @@\n-stumpf\n+scharf\n";

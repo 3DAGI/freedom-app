@@ -938,6 +938,38 @@ def raum_pruefen(browser, url: str) -> dict:
             if rechte != [True, True] or not any(k.endswith("Technik & Co") for k in kanaele) \
                     or neu != [["channel", "technik-co", "Technik & Co", "offen", "2", "mod", ""]]:
                 erg["fehler"].append(f"desktop: eigener Raum, Kanal anlegen {erg['desktop']['eigener_raum']}")
+        # Raum-Repos (11.4c): im Probe-Raum die Liste seiner Repos, ohne „Repo anlegen“ (meine Rolle hat das Recht nicht);
+        # ein Klick öffnet die Repo-Seite mit dem Raum, „Zum Raum“ führt zurück, der Fokus steht auf dem Repo
+        if not mobil:
+            ev("() => document.querySelector('#space-rail .space-pill[data-space=\"probe-raum\"]')?.click()")
+        try:
+            s.wait_for_function("() => document.querySelectorAll('#raum-repos .raum-repo').length > 0", timeout=10000)
+        except Exception:
+            pass
+        im_raum = ev("""() => ({ repos: [...document.querySelectorAll('#raum-repos .raum-repo')].map(b => [...b.children].map(c => c.textContent)),
+          sichtbar: (document.getElementById('raum-repos')?.getBoundingClientRect().height ?? 0) > 0,
+          anlegen: !document.getElementById('space-repo-neu')?.classList.contains('hidden') })""")
+        ev("() => document.querySelector('#raum-repos .raum-repo')?.click()")
+        s.wait_for_timeout(300)
+        auf_seite = ev("""() => ({ hash: location.hash, seite: document.getElementById('repo-seite').getBoundingClientRect().height > 0,
+          titel: document.querySelector('#repo-seite .repo-titel span:last-child')?.textContent,
+          raum: document.querySelector('#repo-seite .repo-raum span')?.textContent, fokus: document.activeElement?.classList.contains('repo-zurueck') })""")
+        ev("() => document.querySelector('#repo-seite .repo-zum-raum')?.click()")
+        try:
+            s.wait_for_function("() => location.hash === '#/chat' && document.activeElement?.classList.contains('raum-repo')", timeout=10000)
+        except Exception:
+            pass
+        zurueck_raum = ev("""() => ({ hash: location.hash, raum: document.getElementById('space-name').textContent,
+          fokus: document.activeElement?.classList.contains('raum-repo') ?? false,
+          sichtbar: (document.getElementById('raum-repos')?.getBoundingClientRect().height ?? 0) > 0 })""")
+        erg[groesse]["raum_repos"] = {"im_raum": im_raum, "seite": auf_seite, "zurueck": zurueck_raum}
+        if im_raum != {"repos": [["werkzeug", "1"]], "sichtbar": True, "anlegen": False}:
+            erg["fehler"].append(f"{groesse}: Repos im Raum {im_raum}")
+        if auf_seite != {"hash": "#/repos", "seite": True, "titel": "werkzeug",
+                         "raum": "Im öffentlichen Raum „Probe-Raum“ – wer dort Repos pflegt, pflegt es mit.", "fokus": True}:
+            erg["fehler"].append(f"{groesse}: Repo-Seite aus dem Raum {auf_seite}")
+        if zurueck_raum != {"hash": "#/chat", "raum": "Probe-Raum", "fokus": True, "sichtbar": True}:
+            erg["fehler"].append(f"{groesse}: „Zum Raum“ {zurueck_raum}")
         # Repos (C.3a): eine Karte aus Ankündigung und Bundle, Suche, „Meine“, Repo-Seite, Patch annehmen per Dialog
         ev("() => { location.hash = '#/repos'; }")
         try:
@@ -1188,6 +1220,35 @@ def raum_pruefen(browser, url: str) -> dict:
                 or len(seite_patch["angaben"]) != 3 or not seite_patch["angaben"][0].startswith("angenommen ✓ von Du") \
                 or seite_patch["angaben"][1:] != ["Eingespielt als ccccccc", "Danke – <i>sauber</i>."] or seite_patch["fett"] != 0:
             erg["fehler"].append(f"{groesse}: Patch-Seite {seite_patch}")
+        # Seit 11.4c: im eigenen öffentlichen Raum „Repo anlegen“ aus dem Raum-Menü – mit Verweis auf genau diesen Raum,
+        # danach steht es in der Liste des Raums (am Ende, damit die Prüfungen der Repo-Liste oben nichts davon sehen)
+        if not mobil:
+            ev("() => { location.hash = '#/chat'; }")
+            s.wait_for_timeout(200)
+            werkstatt = ev("() => [...document.querySelectorAll('#space-rail .space-pill')].find(p => p.dataset.space.startsWith('werkstatt-'))?.dataset.space ?? ''")
+            ev("() => [...document.querySelectorAll('#space-rail .space-pill')].find(p => p.dataset.space.startsWith('werkstatt-'))?.click()")
+            try:
+                s.wait_for_function("() => document.getElementById('space-repo-neu')?.classList.contains('hidden') === false", timeout=10000)
+            except Exception:
+                pass
+            ev("() => document.getElementById('space-repo-neu')?.click()")
+            s.wait_for_timeout(200)
+            s.keyboard.type("raumrepo")
+            s.keyboard.press("Enter")  # Dialog: Kennung
+            s.wait_for_timeout(200)
+            frage = ev("() => document.querySelector('[role=dialog] .dlg-text')?.textContent ?? ''")
+            s.keyboard.press("Enter")  # Rückfrage: ankündigen
+            try:
+                s.wait_for_function("() => [...document.querySelectorAll('#raum-repos .raum-repo')].some(b => b.textContent === 'raumrepo')", timeout=10000)
+            except Exception:
+                pass
+            neu_im_raum = [e for e in relay.gesendet if e.get("kind") == 30617 and ["d", "raumrepo"] in e["tags"]]
+            verweis_raum = [t[1] for t in (neu_im_raum[-1]["tags"] if neu_im_raum else []) if t[0] == "a"]
+            liste_raum = ev("() => [...document.querySelectorAll('#raum-repos .raum-repo')].map(b => b.textContent)")
+            erg["desktop"]["repo_im_raum"] = {"frage": frage, "verweis": verweis_raum, "liste": liste_raum}
+            if not frage.startswith("Repo „raumrepo“ im öffentlichen Raum „Werkstatt“ ankündigen?") or not werkstatt \
+                    or verweis_raum != [f"34700:{relay.ich}:space:{werkstatt}"] or liste_raum != ["raumrepo"]:
+                erg["fehler"].append(f"desktop: Repo im Raum anlegen {erg['desktop']['repo_im_raum']} {werkstatt}")
         ctx.close()
     erg["bestanden"] = not erg["fehler"]
     return erg
