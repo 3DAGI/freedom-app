@@ -118,6 +118,12 @@ services:
       KANAL_AUSZAHLUNG_SCHWELLE_LAMPORTS: "${KANAL_AUSZAHLUNG_SCHWELLE_LAMPORTS:-100000000}"
       KANAL_AUSZAHLUNG_RUECKLAGE_LAMPORTS: "${KANAL_AUSZAHLUNG_RUECKLAGE_LAMPORTS:-10000000}"
       KANAL_AUSZAHLUNG_ABSTAND_SEK: "${KANAL_AUSZAHLUNG_ABSTAND_SEK:-86400}"
+      # 8.2b: Lightning-Adresse beim eigenen LND statt bei einem verwahrenden Dienst
+      # (docs/PROVIDER.md) – Macaroon nur mit invoices:read/write, Reverse-Proxy mit TLS.
+      LNURL_ENABLED: "${LNURL_ENABLED:-0}"
+      LNURL_BASE_URL: "${LNURL_BASE_URL:-}"
+      LNURL_NAME: "${LNURL_NAME:-provider}"
+      LNURL_LND_MACAROON: "${LNURL_LND_MACAROON:-}"
       QUOTA_API_PORT: "3602"
     volumes:
       # Identitaet und Bootstrap-Zeitpunkt ueberleben Neustarts. Ohne dieses
@@ -127,6 +133,7 @@ services:
       - freedom-data:/home/node/freedom-data
     ports:
       - "127.0.0.1:3602:3602"
+      - "127.0.0.1:3601:3601"   # LNURL (8.2b), nur für den Reverse-Proxy
 
 volumes:
   ollama-models:

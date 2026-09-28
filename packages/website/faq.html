@@ -110,7 +110,7 @@
 <h2 id="verdienen">Verdienen</h2>
 <details class="faq-item">
   <summary>Wie werde ich Provider?</summary>
-  <div class="answer"><p>Ein Befehl, wenn du Docker hast:</p><pre><code>NODE_LUD16=du@wallet.cash REGION=eu docker compose up -d</code></pre><p>Ohne <code>NODE_LUD16</code> startet nichts — ein Provider, dessen Einnahmen nirgendwo ankommen, wäre schlimmer als gar keiner.</p></div>
+  <div class="answer"><p>Ein Befehl, wenn du Docker hast:</p><pre><code>NODE_LUD16=du@wallet.cash REGION=eu docker compose up -d</code></pre><p>Ohne <code>NODE_LUD16</code> startet nichts — ein Provider, dessen Einnahmen nirgendwo ankommen, wäre schlimmer als gar keiner.</p><p>Die Lightning-Adresse kann auch beim eigenen Knoten liegen: Mit einem eigenen LND stellt er die Rechnungen selbst aus, statt dass ein Dienst das Geld bis zur Auszahlung verwahrt (Anleitung im Repository unter <code>docs/PROVIDER.md</code>). Ob alles passt, prüft <code>npm run pruefen</code>.</p></div>
 </details>
 <details class="faq-item">
   <summary>Was verdiene ich damit?</summary>
