@@ -224,3 +224,11 @@ devices.ts|deviceWarning|deutsche Referenz; die App bildet die Rückfrage seit 8
 release.ts|sharingInstructions|deutsche Referenz; die App bildet den Begleittext seit 8.16g2b2 in protokoll-texte.ts (weitergabeText) nach, ein Test hält ihn wortgleich
 mesh-sync.ts|offlineCapabilities|deutsche Referenz; die App bildet die Liste seit 8.16g2b2 in protokoll-texte.ts (offlineFaehigkeiten) nach, ein Test hält sie gleich
 spaces.ts|privacyInfo|deutsche Referenz; die App bildet die Rauminfo seit C.2b2 in protokoll-texte.ts (kanalVertraulichkeit) nach, ein Test hält sie wortgleich
+quittung.ts|lightningQuittung|Ruf aus Quittungen (5.5a): legt die App in 5.5b nach charge.settled an (handleAnswer)
+quittung.ts|kanalQuittung|Ruf aus Quittungen (5.5a): legt die App in 5.5b nach kanalAntwort() an – angekündigt bis zur Auszahlung
+quittung.ts|kanalBelegt|Ruf aus Quittungen (5.5a): hebt die App in 5.5b mit kanalAufKette().ausgezahlt auf „belegt“
+quittung.ts|leseQuittung|Ruf aus Quittungen (5.5a): liest das Quittungsbuch der App aus dem Tresor (5.5b)
+quittung.ts|berechneRuf|Ruf aus Quittungen (5.5a): ersetzt in 5.5b die 38010-Reputation in matchmaking.ts
+quittung.ts|fasseZusammen|Ruf aus Quittungen (5.5a): fasst die App in 5.5c für die Kontakte zusammen
+quittung.ts|baueRufUmschlaege|Ruf aus Quittungen (5.5a): versiegelt die App in 5.5c an die Kontakte
+quittung.ts|oeffneRufUmschlag|Ruf aus Quittungen (5.5a): öffnet die App in 5.5c aus dem Posteingang

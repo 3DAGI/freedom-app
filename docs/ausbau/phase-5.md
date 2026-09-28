@@ -185,6 +185,24 @@
   die Wurzel ist der Nutzer, nicht das Projekt. Ranglisten nur opt-in.
 - **Abnahme:** Test: gefälschte Leistungs-Events ohne Quittung ändern Stufe und
   Rang nicht.
+- **Entschieden (Spur A für Spur B, 28.09.):** Quittung = Beleg nach 4.8, nur im
+  Tresor; Zusammenfassung je Provider nur versiegelt an Kontakte; 38010 zählt
+  nicht mehr; nie eine öffentliche Rangliste, die Prüferwahl bleibt „nur
+  eigenes Netz“. Mit 8.15 (Dashboard nur aus Öffentlichem).
+- **Aufteilung:**
+  - **5.5a – FERTIG:** Protokoll `quittung.ts` – `lightningQuittung()` (belegt nur
+    beim angekündigten Knoten, sonst angekündigt), `kanalQuittung()` +
+    `kanalBelegt()` (belegt ab der Auszahlung auf der Kette), `leseQuittung()`;
+    Zusammenfassung 38075 (`fasseZusammen()`, `baueRufUmschlaege()`,
+    `oeffneRufUmschlag()` – nur von Kontakten); `berechneRuf()` nur aus
+    Quittungen und Zusammenfassungen. Format in `docs/PROTOCOL.md` §17.
+  - **5.5b:** App – Quittungsbuch im Tresor, anlegen in `handleAnswer()`
+    (Lightning nach `charge.settled`, Zahlkanal nach `kanalAntwort()`), Rang und
+    Stufe in `matchmaking.ts` und die Relay-Suche ohne 38010; Abnahme mit
+    gefälschten Leistungs-Events.
+  - **5.5c:** App – Zusammenfassungen an Kontakte (mit Zustimmung) und aus dem
+    Posteingang, Datenschutz-Aussage mit Szenario, ehrliche Texte.
+  - **8.15:** Dashboard nur aus Öffentlichem und Freiwilligem.
 
 ## 5.6 Streitfall-Prüfer subjektiv
 

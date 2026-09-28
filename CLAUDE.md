@@ -44,7 +44,7 @@ bash packages/mls/bauen.sh --pruefen                     # nur bei Änderungen a
 bash contracts/solana-channel/pruefen.sh --werkzeuge     # nur bei Änderungen am Zahlkanal: bauen + Tests gegen Validator (Agave 3.1.10)
 ```
 
-Stand 28.09.2026 (nach 4.5b, 7.4c3 und C.2d2): protocol 1082 grün (6 übersprungen), node 245 grün
+Stand 28.09.2026 (nach 4.5b, C.2d2 und 5.5a): protocol 1088 grün (6 übersprungen), node 245 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
 in `tools.test.ts`), app 547 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 59 grün + 1 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
@@ -603,3 +603,13 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   Attrappe aus der Abfrage der eigenen Relay-Listen (Kind 10002, ein Autor);
   die App zeigt ihn nirgends ganz. Der Raum erscheint erst im Raum-Modus
   (`setzeKommModus("space")`), mobil nur mit `.showing-channel`.
+- **Ruf nur aus Quittungen** (seit 5.5a, `quittung.ts`): Eine Quittung gibt es
+  nur mit Nachweis nach 4.8 – Lightning: Rechnung + Preimage
+  (`lightningQuittung()`, „belegt“ nur beim angekündigten Knoten), Zahlkanal:
+  Preis + deckende Gutschrift (`kanalQuittung()`, „belegt“ erst über
+  `kanalBelegt()` mit der Auszahlung auf der Kette). Quittungen nur im Tresor,
+  nie auf ein Relay. Rang und Stufe nur aus `berechneRuf()` (eigene Quittungen,
+  Zusammenfassungen von Kontakten) – 38010 und andere Selbstauskünfte zählen
+  nicht. Die Zusammenfassung (38075) nur versiegelt über
+  `baueRufUmschlaege()`, gelesen nur von Kontakten (`oeffneRufUmschlag()`).
+  Nie eine öffentliche Rangliste; die Prüferwahl (`netzPruefer()`) bleibt ohne Ruf.
