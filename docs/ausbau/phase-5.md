@@ -217,7 +217,11 @@
     Datenschutz-Aussage „ruf-kontakte“ mit Szenario, Leak-Szenario
     `app/test/leak/ruf.test.ts`, FAQ „Woran erkennt die App einen guten
     Provider?“.
-  - **8.15:** Dashboard nur aus Öffentlichem und Freiwilligem.
+  - **8.15 – FERTIG:** Dashboard nur aus Öffentlichem und Freiwilligem –
+    Angebote nach Erneuerung (keine Rangliste), Modelle, Kataloge, Abdeckung
+    über der Schwelle, Werbe-Nennungen nur als Summe; Auswertung in
+    `website/js/dashboard-daten.js` mit Test, `check-website.py` weist
+    Selbstauskünfte (38010) und Quittungen (38075) auf der Seite ab.
 
 ## 5.6 Streitfall-Prüfer subjektiv
 
