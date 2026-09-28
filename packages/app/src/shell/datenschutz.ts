@@ -15,6 +15,7 @@ import { geheim } from "./tresor.js";
 import { $ } from "./ui.js";
 import { t } from "../i18n.js";
 import { fehlerText } from "../protokoll-texte.js";
+import { lnOeffentlich } from "../profil-lightning.js";
 
 let onion: { kandidaten: string; ergebnis: Promise<OnionPruefung>; fertig: boolean } | null = null;
 
@@ -66,7 +67,7 @@ export async function zeigeDatenschutz(erneut = false): Promise<void> {
     const netz = (($("#net-mode") as HTMLSelectElement | null)?.value ?? "klar") as
       "klar" | "tor" | "mixnet";
     const profil = JSON.parse(localStorage.getItem("freedom.profile") ?? "{}") as
-      { picture?: string };
+      { picture?: string; lud16?: string };
 
     const cfg = {
       ...DEFAULT_CONFIG,
@@ -79,6 +80,8 @@ export async function zeigeDatenschutz(erneut = false): Promise<void> {
       giftWrap: DMS_GIFT_WRAPPED,
       ownRelay: !!localStorage.getItem("freedom.ownRelay"),
       solanaInProfile: !!localStorage.getItem("freedom.solAddress"),
+      // Seit 6.3 nur auf Wunsch (Häkchen im Profil); vor 6.3 gespeicherte gelten als veröffentlicht
+      lightningInProfile: !!profil.lud16?.trim() && lnOeffentlich(localStorage),
       usesSwaps: !!geheim.getItem("freedom.swapHistory"),
       externalAvatar: /^https:\/\//.test(profil.picture ?? ""),
       stateBackup: !!localStorage.getItem("freedom.backupAt"),

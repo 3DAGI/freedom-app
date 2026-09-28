@@ -39,6 +39,9 @@ import { baueStueckAbruf } from "../src/blob.js";
 import { regelMlsGruppe } from "../src/leak-rules.js";
 import { baueRaumMeldung, raumDefinition, raumNachricht } from "../src/raum-gruppe.js";
 import { baueRufUmschlaege } from "../src/quittung.js";
+import { buildProfile, oeffentlichesProfil } from "../src/profile.js";
+import { buildAnonZapRequest, buildZapRequest } from "../src/zap.js";
+import { regelKeineLnAdresse, regelZapAnonym } from "../src/leak-rules.js";
 import { fromHex, toHex } from "../src/htlc.js";
 import type { NostrEvent, UnsignedEvent } from "../src/event.js";
 import { readFileSync } from "node:fs";
@@ -196,6 +199,19 @@ const SZENARIEN: Record<string, () => Promise<number>> = {
     const an = "7EcDhSYGxXyscszYEp35KHN8vvw3svAuLKTzXwCFLtVb", sig = "3".repeat(88);
     const wraps = await buildPrivateSolTrinkgeld({ empfaenger: b.pk, signatur: sig, lamports: 2_345_678, an, kette: "solana:mainnet", notiz: NOTIZ }, new LocalSigner(a.sk));
     return regelKeineSolAdresse(wraps, [an]).length + regelKeinKlartext(wraps, [sig, "2345678", NOTIZ]).length + regelAutorNicht(wraps, a.pk).length;
+  },
+  "ln-oeffentlich": async () => {
+    // Wie die App seit 6.3: Profil ohne Lightning-Adresse (Häkchen aus), Zap-Anfrage anonym.
+    // Gegenprobe: mit Häkchen bzw. mit der Identität signiert fänden die Regeln sie.
+    const ln = "ada@wallet.example";
+    const entwurf = { name: "Ada", lud16: ln };
+    const profil = signEvent(buildProfile(a.pk, oeffentlichesProfil(entwurf, { lightning: false })), a.sk);
+    const offen = signEvent(buildProfile(a.pk, oeffentlichesProfil(entwurf, { lightning: true })), a.sk);
+    const zap = { recipientPubkey: b.pk, amountMsat: 21_000, relays: ["wss://relay.example"] };
+    const anonym = buildAnonZapRequest(zap);
+    const mitName = signEvent(buildZapRequest({ ...zap, senderPubkey: a.pk }), a.sk);
+    const gegenprobe = regelKeineLnAdresse([offen], [ln]).length === 1 && regelZapAnonym([mitName], a.pk).length === 1;
+    return regelKeineLnAdresse([profil], [ln]).length + regelZapAnonym([anonym], a.pk).length + regelKeinBolt11([profil, anonym]).length + (gegenprobe ? 0 : 1);
   },
   "sol-adresse": async () => {
     const wraps = await versiegelterTausch();

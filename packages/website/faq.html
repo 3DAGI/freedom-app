@@ -65,6 +65,10 @@
   <summary>Kann jemand sehen, mit wem ich schreibe?</summary>
   <div class="answer"><p>Teilweise. Inhalt und Absender einer Direktnachricht sind verborgen: Ein Relay sieht nur, dass du Post bekommst – nicht von wem. Die Kopien einer Nachricht (an den Empfänger, an dich, an deine Geräte) gehen einzeln mit zufälliger Verzögerung hinaus, standardmäßig bis 30 Sekunden (Settings → Datenschutz), damit ein Relay sie nicht im selben Augenblick ankommen sieht; auch Abfragen laufen mit Zufall im Takt.</p><p>Was bleibt: Wer deine IP-Adresse und die Zeitpunkte an beiden Enden beobachtet, kann Gespräche weiter verbinden. Dagegen helfen Tor und ein Mixnetz – ein Mixnetz baut die App nicht ein (Bewertung in docs/MIXNET.md). Metadaten vollständig zu verbergen behaupten wir nicht.</p></div>
 </details>
+<details class="faq-item">
+  <summary>Sieht jemand, wem ich Sats schicke?</summary>
+  <div class="answer"><p>Zaps sendet die App anonym nach NIP-57, von einem Schlüssel, den es nur für diesen einen Zap gibt: Die Quittung, die der Dienst des Empfängers veröffentlicht, nennt Betrag und Empfänger, aber nicht dich. Der Dienst selbst sieht, woher die Anfrage kommt – mit Tor nur den Tor-Ausgang.</p><p>Deine eigene Lightning-Adresse steht nur in deinem öffentlichen Profil, wenn du es dort ausdrücklich einschaltest. Dann kann dir jeder zappen, und der Dienst hinter der Adresse sieht jede Zahlung an dich; der Datenschutzbericht warnt dann. Hattest du vor dieser Änderung eine Adresse gespeichert, bleibt sie öffentlich, bis du das Häkchen ausschaltest und das Profil neu speicherst.</p></div>
+</details>
 <h2 id="geld">Geld und Gebühren</h2>
 <details class="faq-item">
   <summary>Was kostet die Nutzung?</summary>

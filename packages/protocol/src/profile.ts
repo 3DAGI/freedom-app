@@ -35,6 +35,17 @@ export interface ProfileMetadata {
   freedom_style?: ProfileStyle;
 }
 
+/**
+ * Was vom Profil öffentlich wird (Schritt 6.3): die Lightning-Adresse nur mit
+ * ausdrücklicher Zustimmung. Sie verbindet die Identität mit jedem Betrag, den
+ * jemand an sie zahlt, und mit dem Knoten, der die Rechnungen ausstellt.
+ */
+export function oeffentlichesProfil<T extends { lud16?: string; lud06?: string }>(meta: T, o: { lightning: boolean }): T {
+  if (o.lightning) return meta;
+  const { lud16: _a, lud06: _b, ...rest } = meta;
+  return rest as T;
+}
+
 export function buildProfile(
   pubkey: string,
   meta: ProfileMetadata,
