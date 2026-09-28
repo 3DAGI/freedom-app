@@ -10321,3 +10321,42 @@ möglich; Werbelink mit eigener Domain und kurzem Namen), Schritten 11.1a–11.5
 mit Spurzuordnung (A: QR, Werbelinks, Agenten; B: Repos in Räumen; C:
 Oberfläche) und Leitplanken. FORTSCHRITT: Zeilen 11.x, Zeile der Spur A.
 Kein Code.
+
+## Schritt 11.1a – QR-Baustein ohne Abhängigkeit
+
+**Warum:** Wunsch des MENSCHEN (Phase 11): Geräte per QR-Code hinzufügen,
+Werbelinks als QR. Entscheidung: selbst bauen, keine neue Abhängigkeit.
+
+**Was:**
+- `packages/protocol/src/qr.ts` nach ISO/IEC 18004: Byte-Modus (Text als
+  UTF-8), Fehlerkorrektur L, M, Q, H (Standard M), die kleinste Version 1–40,
+  in die die Daten passen; Reed-Solomon über GF(256), Blöcke nach Tabelle 9,
+  Ausrichtungsmuster, Format- und Versionsinformation (BCH). Maske: die mit
+  den wenigsten Strafpunkten (Regeln 1–4), bewertet am fertigen Symbol samt
+  Formatbits, die Ruhezone zählt als hell.
+- `qrSvgPfad()` liefert die Pfaddaten eines SVG (je Zeile zusammengefasste
+  Rechtecke) – die App setzt sie in 11.1b mit `setAttribute("d", …)`, ohne
+  `innerHTML`.
+- Zu lang (über 2331 Byte bei M) → `ProtokollFehler` `qr-zu-lang` mit Länge
+  und Höchstwert; Text `pf.qrZuLang` in beiden Sprachen.
+- Referenz: `scripts/qr-referenz.py` erzeugt mit python-qrcode 7.4.2
+  `protocol/test/fixtures/qr-referenz.json` (nur zum Nachbauen, weder Build
+  noch Tests brauchen Python). Verglichen wird mit fester Maske, weil
+  python-qrcode die Masken ohne Format- und Versionsbits bewertet.
+
+**Tests (+7, `qr.test.ts`):** Kapazität aller 40 Versionen × 4 Stufen wie die
+Referenz; 48 Codes Bit für Bit (alle acht Masken, alle Stufen, Längenangabe
+mit 8 und 16 Bit, Versionsinformation, bis Version 40 – große als Prüfsumme);
+Gerätecode (144 Zeichen) in Version 8; Text gleich UTF-8-Bytes; die gewählte
+Maske hat die wenigsten Strafpunkte; Strafpunkte an Hand-Matrizen (Läufe,
+Blöcke, Suchmuster innen und am Rand, Anteil dunkel); zu lang und falsche
+Optionen werfen; SVG-Pfad deckt genau die dunklen Module. Version 40 braucht
+rund 40 ms.
+
+**Verdrahtet:** noch nicht – die App nutzt den Baustein ab 11.1b (Gerätecode,
+Scannen, Werbelink); bis dahin vier Ausnahmen in `scripts/wiring-ausnahmen.txt`.
+
+Endstand: protocol 1096 (+7, 6 übersprungen) · node 260 (6 übersprungen, mit
+Netz) · app 581 · mls 13 · Leak-Tests 62 grün + 1 todo · 0 rot ·
+check-wiring `--streng` Exit 0 (159 ausgenommen, 0 offen) · innerHTML streng
+Exit 0 (67 Ausnahmen) · Website 5 Seiten ok · Smoke-Test bestanden.
