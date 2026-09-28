@@ -16,6 +16,7 @@ import { merkeWerber, werbeLink } from "../../werbung.js";
 import { knotenSchluessel } from "../verdienst-ui.js";
 import { mitwirkendeListe } from "../mitwirkende.js";
 import { gebietText, zeigeKarte } from "./karte.js";
+import { qrKnopf } from "../qr-ui.js";
 
 /** Mitwirkende am Projekt anzeigen. */
 export async function zeigeMitwirkende(): Promise<void> {
@@ -241,6 +242,8 @@ export function updateReferralLink(): void {
   let lud16: string | undefined;
   try { lud16 = (JSON.parse(localStorage.getItem("freedom.profile") ?? "{}") as { lud16?: string }).lud16; } catch { /* kein Profil */ }
   link.value = werbeLink(window.location.origin + window.location.pathname, pub, lud16);
+  // Als QR-Code zum Zeigen oder Ausdrucken (11.1b) – nichts Geheimes darin
+  $("#referral-qr")?.replaceChildren(qrKnopf(link.value, { beschriftung: t("earn.werbelinkQr") }));
   if (stats) {
     stats.textContent = t(new URL(link.value).searchParams.has("ln") ? "earn.codeMitAdresse" : "earn.codeOhneAdresse", { code: pkShort(pub) });
   }

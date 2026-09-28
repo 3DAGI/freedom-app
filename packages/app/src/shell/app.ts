@@ -48,6 +48,7 @@ import {
   zeigeVerlaeufe,
 } from "./tabs/agent.js";
 import { wireFunkGateway } from "./funk-gateway-ui.js";
+import { dialog } from "./dialog.js";
 import {
   captureReferral,
   ladeAbdeckung,
@@ -332,8 +333,13 @@ function exportIdentity(): void {
 
 async function importIdentity(): Promise<void> {
   if (mitBunker()) { toast(t("ein.erstAbmelden"), true); return; }
-  const eingabe = prompt(t("ein.importFrage"));
-  if (eingabe === null) return;
+  // Dialog mit Feld zum Einfuegen und, wo der Browser es kann, Scannen per Kamera (11.1b)
+  const w = await dialog({
+    titel: t("ein.importTitel"), ok: t("ein.importOk"),
+    felder: [{ art: "textarea", name: "eingabe", label: t("ein.importFrage"), pflicht: true, mono: true, scannen: true }],
+  });
+  if (!w) return;
+  const eingabe = String(w.eingabe);
   // Geraetecode (8.6c): Geraeteschluessel plus die Person, fuer die er spricht
   const code = leseGeraeteCode(eingabe);
   let hex = code?.skHex ?? null;

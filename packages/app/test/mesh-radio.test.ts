@@ -299,20 +299,26 @@ test("Nachgesendet wird nur Eigenes und höchstens zweimal – Fremdes geht weit
   const n = node();
   await n.attach(t);
   const r = n.enqueue(umschlag(600), MeshKind.NostrEvent, MeshPriority.Nachricht, "Test");
-  await new Promise((res) => setTimeout(res, 50));
+  // Gesendet wird im Takt (je Rahmen eine Pause): erst zählen, wenn alle draußen
+  // sind – nach festen 50 ms fehlten bei voller Last Rahmen, die dann als
+  // „nachgesendet“ zählten (10 statt 8, gesehen in 11.1b)
+  const bis = async (anzahl: number) => { for (let i = 0; i < 200 && t.gesendet.length < anzahl; i++) await new Promise((res) => setTimeout(res, 10)); };
+  await bis(r.frames);
   const vorher = t.gesendet.length;
+  assert.equal(vorher, r.frames);
   const fordere = (msgId: string, fehlend: number[]) => {
     for (const f of fragment(baueNachforderung(msgId, fehlend), MeshKind.NostrEvent, MeshPriority.Nachricht, 5)) n.receive(f);
   };
   fordere(r.msgId, [0]);
   fordere(r.msgId, [1, 2]);
   fordere(r.msgId, [0, 1, 2]);
+  await bis(vorher + 3);
   await new Promise((res) => setTimeout(res, 50));
   assert.equal(t.gesendet.length, vorher + 3, "zweimal nachgesendet, dann nicht mehr");
   assert.ok(t.gesendet.slice(vorher).every((f) => parseFrame(f).msgId === r.msgId));
 
   fordere("ffffffff", [0]);
-  await new Promise((res) => setTimeout(res, 50));
+  await bis(vorher + 4);
   const weiter = t.gesendet.slice(vorher + 3);
   assert.equal(weiter.length, 1, "unbekannt: die Nachforderung selbst geht weiter");
   assert.deepEqual(leseNachforderung(parseFrame(weiter[0]).data), { msgId: "ffffffff", fehlend: [0] });

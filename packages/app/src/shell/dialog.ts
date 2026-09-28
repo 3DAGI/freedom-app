@@ -11,15 +11,18 @@
  * schließen – ein Tippfehler im Schlüssel kostet nicht die ganze Eingabe.
  */
 import { t } from "../i18n.js";
+import { qrKnopf, scanKnopf } from "./qr-ui.js";
 
 export interface Option { wert: string; text: string; hinweis?: string }
 
 interface Basis { name: string; label: string }
 export type Feld =
-  | Basis & { art: "text" | "textarea"; wert?: string; pflicht?: boolean; fehler?: string; mono?: boolean }
+  | Basis & { art: "text" | "textarea"; wert?: string; pflicht?: boolean; fehler?: string; mono?: boolean; scannen?: boolean }
   | Basis & { art: "wahl"; optionen: Option[]; wert?: string; pflicht?: boolean; fehler?: string }
   | Basis & { art: "mehrfach"; optionen: Option[]; werte?: string[] }
-  | Basis & { art: "nurlesen"; wert: string };
+  | Basis & { art: "nurlesen"; wert: string }
+  // QR-Code auf Klick (11.1b); `geheim`: mit Warnung, verschwindet wieder
+  | Basis & { art: "qr"; wert: string; geheim?: boolean };
 
 /** Eingaben nach Feldname: Text und Wahl als Zeichenkette, Mehrfachwahl als Liste. */
 export type Werte = Record<string, string | string[]>;
@@ -43,7 +46,7 @@ export interface DialogOptionen {
  */
 export function pruefeWerte(felder: readonly Feld[], w: Werte, pruefe?: (w: Werte) => string | null): { feld?: string; text: string } | null {
   for (const f of felder) {
-    if (f.art === "mehrfach" || f.art === "nurlesen") continue;
+    if (f.art === "mehrfach" || f.art === "nurlesen" || f.art === "qr") continue;
     const v = w[f.name];
     const leer = typeof v !== "string" || !v.trim();
     if (f.pflicht && leer) return { feld: f.name, text: f.fehler ?? t("dlg.pflicht") };
@@ -88,6 +91,10 @@ export function dialog(o: DialogOptionen): Promise<Werte | null> {
   const leser: Array<() => [string, string | string[]]> = [];
   const erstes: Record<string, HTMLElement> = {};
   for (const f of felder) {
+    if (f.art === "qr") {
+      box.append(el("p", f.label, "dlg-label"), qrKnopf(f.wert, { beschriftung: f.label, geheim: f.geheim }));
+      continue;
+    }
     if (f.art === "wahl" || f.art === "mehrfach") {
       const gruppe = el("fieldset", undefined, "dlg-wahl");
       gruppe.append(el("legend", f.label, "dlg-label"));
@@ -137,6 +144,8 @@ export function dialog(o: DialogOptionen): Promise<Werte | null> {
       box.append(label, zeile);
     } else {
       box.append(label, e);
+      // Kamera nur auf Klick, sonst bleibt das Feld zum Einfügen (11.1b)
+      if (f.scannen) box.append(scanKnopf(e));
     }
     leser.push(() => [f.name, e.value]);
   }

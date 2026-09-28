@@ -72,6 +72,8 @@ export const einstieg: Texte = {
   "ein.nichtGespeichert": { de: "nicht gespeichert: {fehler}", en: "not saved: {fehler}" },
   "ein.alsGeraet": { de: "Als Gerät angemeldet – für {person}", en: "Signed in as a device – for {person}" },
   "ein.importiert": { de: "Identität importiert", en: "Identity imported" },
+  "ein.importTitel": { de: "Identität importieren", en: "Import identity" },
+  "ein.importOk": { de: "Importieren", en: "Import" },
   "ein.spaeter": { de: "später", en: "later" },
   "ein.eigenerProvider": { de: "Eigener Provider aktiv: {pk}", en: "Own provider active: {pk}" },
   "ein.erstChat": { de: "Wähle erst einen Chat", en: "Choose a chat first" },

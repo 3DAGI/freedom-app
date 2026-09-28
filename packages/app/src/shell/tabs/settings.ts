@@ -14,11 +14,12 @@ import { alsGeraet, ensurePool, mitBunker, mitRohemSchluessel, nimmInPool, signi
 import { ladeEigeneRelays, pruefeRelayEingabe, setzeEigeneRelays } from "../../relay-satz.js";
 import { kaufeRelayZugang, leseRelayPreise, merkeZugang, pruefeBeimRelay, zugaenge, type RelayPreise, type Schiene } from "../../relay-kauf.js";
 import { satsText, solText } from "../../preis-anzeige.js";
-import { echtheitText, fehlerText, fixierungText, geraetWarnung, nachfolgeStand, nachfolgeWarnung, offlineFaehigkeiten, sicherungGebaut, sicherungInfo, torText, wechselWarnung, wegName, weitergabeText, widerrufAnleitung, wiederherstellungText } from "../../protokoll-texte.js";
+import { echtheitText, fehlerText, fixierungText, geraetWarnung, rechtName, nachfolgeStand, nachfolgeWarnung, offlineFaehigkeiten, sicherungGebaut, sicherungInfo, torText, wechselWarnung, wegName, weitergabeText, widerrufAnleitung, wiederherstellungText } from "../../protokoll-texte.js";
 import { LS_VERSAND_VERZOEGERUNG, maxVerzoegerungSek } from "../versand.js";
 import { rufStand, rufTeilenAn, setzeRufTeilen } from "../ruf.js";
 import { geheim, istGeheimnis, tresorEingerichtet, wireTresorKarte } from "../tresor.js";
 import { $, ganzeZahl, toast } from "../ui.js";
+import { bestaetige, dialog } from "../dialog.js";
 import { ladeAbdeckung, trageAbdeckungEin, widerrufeAbdeckung } from "./earn.js";
 import { LS_KONTAKTE_SICHERN, geraeteBuch, kontakteEinschalten, kontakteSichernAn, sichereKontakte } from "./kommunikation.js";
 import { LS_STANDARD_SCHIENE, standardSchiene } from "../../standard-schiene.js";
@@ -384,30 +385,42 @@ async function fuegeGeraetHinzu(): Promise<void> {
     await import("@freedomstack/protocol");
   const { geraeteCode } = await import("../../geraete-modus.js");
 
-  const name = prompt(t("set.geraetName"));
-  if (!name?.trim()) return;
-  const umfang = prompt(t("set.geraetUmfang"), "lesen-schreiben"); // Kennungen bleiben, wie das Protokoll sie liest
-  if (!umfang) return;
-
-  const perms = defaultPermissions(umfang.trim() as never);
+  // Kennungen bleiben, wie das Protokoll sie liest; der Hinweis nennt die Rechte
+  const umfaenge = [["nur-chat", "set.umfangNurChat"], ["lesen-schreiben", "set.umfangLesenSchreiben"], ["vollzugriff", "set.umfangVoll"]] as const;
+  const w = await dialog({
+    titel: t("set.geraetHinzufuegen"),
+    felder: [
+      { art: "text", name: "name", label: t("set.geraetName"), pflicht: true },
+      { art: "wahl", name: "umfang", label: t("set.geraetUmfang"), wert: "lesen-schreiben", pflicht: true, // kein UI-Text
+        optionen: umfaenge.map(([wert, text]) => ({ wert, text: t(text), hinweis: defaultPermissions(wert).map(rechtName).join(", ") })) },
+    ],
+  });
+  if (!w) return;
+  const name = String(w.name).trim();
+  const perms = defaultPermissions(w.umfang as (typeof umfaenge)[number][0]);
   const tage = 365;
-  if (!confirm(geraetWarnung(perms, tage))) return;
+  if (!await bestaetige({ titel: t("set.geraetHinzufuegen"), text: geraetWarnung(perms, tage), ok: t("set.geraetAusstellen") })) return;
 
   try {
     const geraet = generateKeypair();
     await (await ensurePool()).publish(await signiere(buildDeviceGrant({
-      ownerPubkey: state.keypair.pk, devicePubkey: geraet.pk, label: name.trim(),
+      ownerPubkey: state.keypair.pk, devicePubkey: geraet.pk, label: name,
       permissions: perms, expiresAt: Math.floor(Date.now() / 1000) + tage * 86400,
     })));
     geraeteBuch.vergiss(state.keypair.pk); // ab jetzt bekommt das Geraet Kopien (8.6b)
 
-    // Geraetecode (8.6c): auf dem anderen Geraet unter „Identitaet importieren“ eingeben
-    prompt(
-      t("set.geraetCode"),
-      geraeteCode(state.keypair.pk, th(geraet.sk)),
-    );
+    // Geraetecode (8.6c): auf dem anderen Geraet unter „Importieren“ einfuegen oder
+    // als QR scannen (11.1b) – nur in diesem Dialog, nirgends gespeichert
+    const code = geraeteCode(state.keypair.pk, th(geraet.sk));
     geraet.sk.fill(0);
     void zeigeGeraete();
+    await dialog({
+      titel: t("set.geraetCodeTitel", { name }), text: t("set.geraetCode"), ok: t("dlg.schliessen"), abbrechen: false,
+      felder: [
+        { art: "nurlesen", name: "code", label: t("set.geraetCodeFeld"), wert: code },
+        { art: "qr", name: "qr", label: t("set.geraetCodeQr"), wert: code, geheim: true },
+      ],
+    });
   } catch (e) {
     toast(fehlerText(e), true);
   }
