@@ -10098,6 +10098,148 @@ check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 · Website 5 Seiten
 ok · Smoke-Test bestanden. Damit ist 8.2 im Code fertig (a–c); offen nur
 MENSCH: mit einem echten Provider in beiden Schienen testen.
 
+## Schritt C.3a1 – Oberfläche: Repo-Liste und Repo-Seite
+
+**Fertig:** Die Seite „Repos“ zeigt eine Liste statt zwei, und jedes Repo hat
+eine eigene Seite mit Klonen, Bundle und Patches. C.3a ist geteilt: C.3a2
+bringt die Einstellungen des Eigentümers, „Neue Version hochladen“ auf der
+Repo-Seite und die Mitwirkenden als Reiter.
+
+**Einzelheiten:**
+- **B10 – eine Liste:** `repoKarten()` (`repo-ansicht.ts`, ohne DOM)
+  verbindet Ankündigung (30617) und Bundle-Verweis (38042) desselben
+  Eigentümers mit derselben Kennung – nur in der Anzeige, kein neues Format.
+  - Fremde Bundles mit gleichem Namen bleiben eigene Repos.
+  - Repos nur mit Bundle erscheinen auch, mit Hinweis: Patches gehen erst,
+    wenn der Eigentümer ankündigt.
+  - Kennungen, die fehlen oder länger als 100 Zeichen sind, fallen heraus.
+- **Liste** (`repos.ts`):
+  - Suche nur lokal über Name, Kennung und Beschreibung; „Alle / Meine“
+    (Eigentümer oder Maintainer).
+  - Karten mit Eigentümer, Name, Marke „Bundle“, Beschreibung, offenen
+    Patches und letzter Aktivität; nur DOM und `textContent`.
+  - „Repo ankündigen“ als Dialog (Kennung, Beschreibung, Klon-Adressen).
+- **Repo-Seite** (`repo-seite.ts`, neu):
+  - Kopf „Eigentümer / Name“, Beschreibung, Maintainer.
+  - „Klonen“: `git clone …` zum Kopieren; „Bundle laden“ lädt verschlüsselt
+    und entschlüsselt mit dem Schlüssel der Referenz (zog aus
+    `agent-netz.ts` um, samt der alten Liste).
+  - Reiter „Code“ sagt ehrlich, dass die App Bundles erst mit C.3c liest.
+  - Reiter „Patches“ mit offen / angenommen / geschlossen samt Zahlen.
+    Annehmen per Dialog mit optionalem Commit (SHA-1 mit 40 Zeichen
+    geprüft), Schließen und Zurückziehen nach Rückfrage, Patch senden nach
+    Rückfrage – in den Repos gibt es kein `prompt()`/`confirm()` mehr.
+  - Welches Repo offen ist, steht nur im Speicher; „‹ Alle Repos“ führt
+    zurück und setzt den Fokus auf die Karte.
+- **Aufgeräumt:** `loadGitRepos()`/`setGitStatus()` und die Texte
+  `agent.zusammenarbeit`, `agent.keineRepos`, `agent.relayOffline`,
+  `repo.klonen` entfallen; neue Texte im Bereich `repos`
+  (`texte/repos.ts`, de + en).
+- **Screenshots** (`docs/ausbau/bilder/c3a1/`): Desktop-Liste mit Suche,
+  Filter und der Karte „werkzeug“ (Marke Bundle, 1 offener Patch); Repo-Seite
+  auf Desktop und Handy mit Klon-Kasten und dem offenen Patch.
+
+**Tests:**
+- +4 in `repo-karten.test.ts`:
+  - Ankündigung und Bundle desselben Eigentümers sind eine Karte, fremde
+    Bundles nicht.
+  - Offene Patches, Suche, „Meine“.
+  - Fehlende und überlange Kennungen fallen heraus.
+  - Seite verdrahtet: nur DOM, Adresse ohne Kennung, Dialoge.
+- `navigation.test.ts`: die Repo-Seite hat neue IDs (gleich streng).
+- Smoke-Test „raum“ auf Desktop und Handy (Probe-Repo in
+  `scripts/raum-probe.mts`): Karte, Suche ohne und mit Treffer, „Meine“,
+  Repo-Seite mit Klon-Befehl, Patch annehmen erst mit ungültigem, dann mit
+  gültigem Commit – gesendet wird Status 1631 mit Verweis auf den Patch und
+  `applied-as-commits`; zurück zur Liste mit Fokus. „rahmen“ prüft die neuen
+  Elemente.
+
+Endstand (nach dem Einmergen von `main` mit 5.5a–c, 8.15, 8.2a–c):
+protocol 1089 (6 übersprungen) · node 260 (6 übersprungen, mit Netz) · app
+571 (+4) · mls 13 · Leak-Tests 62 grün + 1 todo · 0 rot ·
+check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 (68 Ausnahmen, 1
+weniger – die alte Bundle-Liste) · Website 5 Seiten ok · Smoke-Test bestanden
+(mit „rahmen“, „dialog“ und „raum“ samt Repo-Liste, Repo-Seite und
+angenommenem Patch).
+
+## Schritt C.3a2 – Oberfläche: Repo-Einstellungen, neue Version, Mitwirkende
+
+**Fertig:** Die Repo-Seite hat die Reiter „Mitwirkende“ und – nur für den
+Eigentümer – „Einstellungen“ samt „Neue Version hochladen“. Damit ist C.3a
+fertig.
+
+**Einzelheiten:**
+- **Mitwirkende** (Reiter):
+  - Dieselbe Liste wie die Karte auf der Seite „Repos“ – `mitwirkendeListe()`
+    (`shell/mitwirkende.ts`, nur DOM). `earn.ts` nutzt sie auch; dort fällt
+    eine innerHTML-Ausnahme weg.
+  - Geholt werden alle Beiträge (38056), gefiltert wird lokal. Eine Abfrage
+    nach Kennung verriete dem Relay, welches Repo man ansieht.
+  - Ehrlich: Beiträge nennen nur die Kennung, nicht den Eigentümer –
+    gleichnamige Repos anderer zählen mit; das steht über der Liste.
+  - „aktive Tage: 2 · Beiträge: 2“ statt „1 aktive Tage · 1 Beiträge“
+    (Wert von `earn.aktiveTage`, Schlüssel gleich).
+- **Einstellungen** (nur Eigentümer, sonst gibt es den Reiter nicht):
+  - Name, Beschreibung, Klon- und Web-Adressen, Maintainer, erster Commit –
+    die Felder, die `baueRepoAnkuendigung()` kennt; die Kennung bleibt.
+  - `ankuendigungAusFeldern()` (`repo-ansicht.ts`, ohne DOM) trennt Zeilen
+    (auch Leerzeichen, Komma), wirft Leeres und Doppeltes weg, höchstens 20
+    je Feld, Schlüssel und Commit klein. Geprüft wird im Protokoll.
+  - Fehler stehen im Formular (`role="alert"`); erst eine gültige
+    Ankündigung führt zur Rückfrage, dann wird signiert und gesendet. Nach
+    dem Laden bleibt die Seite im Reiter.
+  - Web-Adressen fremder Repos sind nur mit https und ohne Zugangsdaten
+    anklickbar (`sichereWebAdressen()`), mit `noopener noreferrer`.
+- **Neue Version hochladen** (Einstellungen): ein Bundle mit derselben
+  Kennung.
+  - Der Upload zog aus `app.ts` nach `repos.ts` (`ladeBundleHoch()`), weiter
+    verschlüsselt über `uploadAnhang()`, der Schlüssel in der Referenz.
+  - Die Zeile über der Liste bleibt für neue Repos.
+  - B11 ist erledigt: die Texte stehen seit 8.16 über Schlüssel, „⇩ bundle“
+    fiel mit C.3a1.
+- Mobil brechen die Reiter der Repo-Seite um, statt seitlich zu scrollen –
+  sonst war „Einstellungen“ abgeschnitten.
+- **Screenshots** (`docs/ausbau/bilder/c3a2/`): Desktop „werkzeug“ mit dem
+  Reiter Mitwirkende (zwei Personen, Bus-Faktor); Desktop und Handy das
+  eigene Repo „meins“ mit dem Reiter Einstellungen.
+
+**Tests:**
+- +5 in `repo-einstellungen.test.ts`:
+  - Felder → Ankündigung, hin und zurück über das Protokoll.
+  - Feindliche Eingaben (`javascript:`-Klon, npub statt Hex, zu kurzer
+    Commit, Kennung mit Leerzeichen) weist das Protokoll mit Kennung ab;
+    höchstens 20 je Feld.
+  - Web-Adressen nur mit https.
+  - Mitwirkende je Kennung mit einer DOM-Attrappe: nur dieses Repo, Namen nur
+    als Text.
+  - Verdrahtung: Einstellungen nur für den Eigentümer, prüfen → fragen →
+    signieren, Hochladen nicht mehr in `app.ts`, keine Abfrage nach Kennung.
+- `leak/anhang.test.ts`: prüft den Bundle-Upload jetzt in `repos.ts`, genauso
+  streng (verschlüsselt, Schlüssel in der Referenz, kein `uploadBlob()`),
+  und dass `app.ts` keine Referenzen mehr baut.
+- Smoke-Test „raum“ auf Desktop und Handy (Probe-Beiträge in
+  `scripts/raum-probe.mts`):
+  - Fremdes Repo: Reiter Code, Patches, Mitwirkende (ohne Einstellungen);
+    zwei Mitwirkende.
+  - Eigenes Repo „meins“ angekündigt: Reiter mit Einstellungen.
+  - Ein ungültiger Maintainer wird im Formular abgewiesen – nichts gesendet,
+    keine Rückfrage.
+  - Dann gespeichert: 30617 mit Beschreibung und Maintainer; von zwei
+    Web-Adressen ist nur die https-Adresse ein Link.
+  - Neue Version: 38042 mit `aes-gcm`, danach „Bundle laden“ auf der Seite.
+
+- `scripts/wiring-ausnahmen.txt`: die Ausnahme für `buildContribution` ist
+  raus – der Probe-Raum nutzt es (`check-wiring.py` zählt `.mts`-Skripte).
+  Die App selbst veröffentlicht weiterhin keine Beiträge (38056); ohne sie
+  zeigt der Reiter ehrlich „Keine veröffentlichten Beiträge“.
+
+Endstand: protocol 1089 (6 übersprungen) · node 260 (6 übersprungen, mit
+Netz) · app 576 (+5) · mls 13 · Leak-Tests 62 grün + 1 todo · 0 rot ·
+check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 (67 Ausnahmen, 1
+weniger – die Mitwirkenden in `earn.ts`) · Website 5 Seiten ok · Smoke-Test
+bestanden (mit „rahmen“, „dialog“ und „raum“ samt Mitwirkenden,
+Einstellungen und neuer Version).
+
 ## Schritt 11.0 – Plan Phase 11: QR, Werbelinks, Agenten und Repos in Räumen
 
 **Warum:** Wunsch des MENSCHEN (28.09.2026): Geräte per QR-Code hinzufügen,

@@ -25,7 +25,7 @@ export const earn: Texte = {
   "earn.eintragen": { de: "selbst eintragen", en: "add myself" },
   "earn.austragen": { de: "austragen", en: "remove myself" },
   // tabs/earn.ts
-  "earn.aktiveTage": { de: "{tage} aktive Tage · {n} Beiträge", en: "{tage} active days · {n} contributions" },
+  "earn.aktiveTage": { de: "aktive Tage: {tage} · Beiträge: {n}", en: "active days: {tage} · contributions: {n}" },
   "earn.gebiete": { de: "{n} Gebiet(e)", en: "{n} area(s)" },
   "earn.keineEintraege": { de: "Noch keine Einträge. Eintragen ist freiwillig – es kann trotzdem Abdeckung geben.", en: "No entries yet. Adding yourself is voluntary – there may be coverage anyway." },
   "earn.verborgen": { de: "{n} Gebiet(e) nicht angezeigt: zu wenige Knoten, um niemanden zu verorten.", en: "{n} area(s) not shown: too few nodes to avoid locating anyone." },

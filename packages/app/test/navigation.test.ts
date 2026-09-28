@@ -85,7 +85,8 @@ const bereich = (name: string): string => {
 
 test("C.1b: reines Verschieben – jeder Block steht genau einmal, auf seiner neuen Seite", () => {
   const ziele: Record<string, string[]> = {
-    repos: ["git-repo-list", "git-repo-publish", "nip34-liste", "nip34-ankuendigen", "contrib-list"],
+    // seit C.3a eine Liste (repos-karten) statt git-repo-list und nip34-liste, dazu die Repo-Seite
+    repos: ["repos-karten", "repo-seite", "git-repo-publish", "nip34-ankuendigen", "contrib-list"],
     netz: ["coverage-list", "coverage-join", "coverage-leave", "mesh-connect", "mesh-queue", "offline-caps"],
     earn: ["trust-fill", "trust-xp", "referral-link"],
     profile: ["badge-list", "nb-import"],

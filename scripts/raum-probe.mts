@@ -4,7 +4,8 @@
 // Aufruf: npx tsx scripts/raum-probe.mts <eigener-pubkey-hex>  ->  {"spaceId": "...", "events": [...]}
 // Der eigene Schlüssel bekommt die Rolle „mod“, damit die Aktionen an Nachrichten erscheinen.
 import {
-  buildChannelMessage, buildRoleGrant, buildRoles, buildSpace, generateKeypair, signEvent,
+  baueRepoAnkuendigung, bauePatch, buildChannelMessage, buildContribution, buildGitRepoRef, buildRoleGrant, buildRoles, buildSpace, generateKeypair,
+  leseRepoAnkuendigung, signEvent,
 } from "../packages/protocol/src/index.ts";
 
 const ich = process.argv[2] ?? "";
@@ -49,4 +50,20 @@ events.push(
   nachricht(ada, "Zweite Zeile, gleiche Gruppe.", gestern + 240),
   nachricht(bo, "Guten Morgen – ein neuer Tag.", heute + 9 * 3600),
 );
+// Seit C.3a ein Repo: Ankündigung (ich bin Maintainer), Bundle-Verweis desselben Eigentümers, ein offener Patch
+const ankuendigung = signEvent({ ...baueRepoAnkuendigung({
+  id: "werkzeug", name: "werkzeug", beschreibung: "Werkzeuge für den Probe-Raum",
+  klon: ["https://example.org/werkzeug.git"], maintainer: [ich],
+}, gruender.pk), created_at: gestern }, gruender.sk);
+const patchText = `From ${"a".repeat(40)} Mon Sep 17 00:00:00 2001\nFrom: Ada\nSubject: [PATCH] Hammer schärfen\n\n---\n`
+  + "diff --git a/hammer.txt b/hammer.txt\n--- a/hammer.txt\n+++ b/hammer.txt\n@@ -1 +1 @@\n-stumpf\n+scharf\n";
+events.push(
+  ankuendigung,
+  signEvent({ ...buildGitRepoRef({ name: "werkzeug", blobId: "b".repeat(64), headSha: "local", branch: "main", message: "bundle", version: 1 }, gruender.pk), created_at: gestern + 60 }, gruender.sk),
+  signEvent({ ...bauePatch({ repo: leseRepoAnkuendigung(ankuendigung), text: patchText }, ada.pk), created_at: gestern + 300 }, ada.sk),
+);
+// Seit C.3a2 Beiträge (38056) zu „werkzeug“: Ada an zwei Tagen, Bo einmal – und einer zu einem anderen Repo
+const beitrag = (von: typeof ada, repo: string, zeit: number) =>
+  signEvent(buildContribution({ repoId: repo, authorPubkey: von.pk, kind: "patch", summary: "Beitrag", ref: `${repo}-${zeit}` }, zeit), von.sk);
+events.push(beitrag(ada, "werkzeug", gestern - 86_400), beitrag(ada, "werkzeug", gestern), beitrag(bo, "werkzeug", gestern + 400), beitrag(bo, "anderes", gestern));
 console.log(JSON.stringify({ spaceId, events }));

@@ -437,7 +437,8 @@ def rahmen_pruefen(browser, url: str) -> dict:
                 erg["fehler"].append(f"desktop: Relay-Stand {titel!r}")
             # C.1b: die verschobenen Inhalte stehen auf ihren neuen Seiten
             inhalte = {}
-            for tab, sels in [("repos", ["#git-repo-list", "#nip34-liste", "#contrib-list"]),
+            # seit C.3a eine Liste mit Suche statt zwei Listen
+            for tab, sels in [("repos", ["#repos-karten", "#repos-suche", "#contrib-list"]),
                               ("netz", ["#coverage-refresh"]), ("earn", ["#trust-bar-track"])]:
                 klick(f'.app-nav button[data-tab="{tab}"]')
                 inhalte[tab] = all(sichtbar(x) for x in sels)
@@ -779,6 +780,130 @@ def raum_pruefen(browser, url: str) -> dict:
             if rechte != [True, True] or not any(k.endswith("Technik & Co") for k in kanaele) \
                     or neu != [["channel", "technik-co", "Technik & Co", "offen", "2", "mod", ""]]:
                 erg["fehler"].append(f"desktop: eigener Raum, Kanal anlegen {erg['desktop']['eigener_raum']}")
+        # Repos (C.3a): eine Karte aus Ankündigung und Bundle, Suche, „Meine“, Repo-Seite, Patch annehmen per Dialog
+        ev("() => { location.hash = '#/repos'; }")
+        try:
+            s.wait_for_function("() => document.querySelectorAll('#repos-karten .repo-karte').length > 0", timeout=10000)
+        except Exception:
+            pass
+        karte = """() => [...document.querySelectorAll('#repos-karten .repo-karte')].map(k => [k.querySelector('.repo-name').textContent,
+          !!k.querySelector('.msg-role')])"""
+        liste = ev(karte)
+        ev("() => { const s = document.getElementById('repos-suche'); s.value = 'gibt-es-nicht'; s.dispatchEvent(new Event('input')); }")
+        leer = ev(karte)
+        ev("() => { const s = document.getElementById('repos-suche'); s.value = 'WERKZEUGE'; s.dispatchEvent(new Event('input')); }")
+        gesucht = ev(karte)
+        ev("() => document.querySelector('#repos-filter [data-filter=meine]').click()")
+        meine = ev(karte)
+        ev("() => document.querySelector('#repos-karten .repo-karte').click()")
+        s.wait_for_timeout(200)
+        seite = ev("""() => ({ sichtbar: document.getElementById('repo-seite').getBoundingClientRect().height > 0,
+          liste: document.getElementById('repos-liste-ansicht').getBoundingClientRect().height > 0,
+          klon: document.querySelector('.repo-klon input')?.value, fokus: document.activeElement?.classList.contains('repo-zurueck'),
+          patches: [...document.querySelectorAll('.repo-patch')].map(p => [p.querySelector('.repo-patch-betreff').textContent,
+            [...p.querySelectorAll('button')].map(b => b.textContent)]) })""")
+        ev("() => document.querySelector('.repo-patch button').click()")  # annehmen
+        s.wait_for_timeout(200)
+        s.keyboard.type("xyz")
+        s.keyboard.press("Enter")
+        s.wait_for_timeout(100)
+        falsch = ev("() => document.querySelector('[role=dialog] [role=alert]')?.textContent ?? null")
+        s.keyboard.press("Control+A")
+        s.keyboard.type("c" * 40)
+        s.keyboard.press("Enter")
+        s.wait_for_timeout(800)
+        patch_id = next(e["id"] for e in relay.events if e.get("kind") == 1617)
+        status = [e for e in relay.gesendet if e.get("kind") == 1631]
+        verweis = [t[1] for t in (status[0]["tags"] if status else []) if t[0] == "e"]
+        commit = [t[1] for t in (status[0]["tags"] if status else []) if t[0] == "applied-as-commits"]
+        ev("() => document.querySelector('.repo-zurueck').click()")
+        s.wait_for_timeout(200)
+        zurueck = ev("() => [document.getElementById('repos-liste-ansicht').getBoundingClientRect().height > 0, document.activeElement?.classList.contains('repo-karte')]")
+        erg[groesse]["repos"] = {"liste": liste, "leer": leer, "gesucht": gesucht, "meine": meine, "seite": seite, "falsch": falsch,
+                                 "status": len({e["id"] for e in status}), "verweis": verweis, "commit": commit, "zurueck": zurueck}
+        if liste != [["werkzeug", True]] or leer != [] or gesucht != liste or meine != liste:
+            erg["fehler"].append(f"{groesse}: Repo-Liste {liste} {leer} {gesucht} {meine}")
+        if not (seite["sichtbar"] and not seite["liste"] and seite["klon"] == "git clone https://example.org/werkzeug.git" and seite["fokus"]
+                and seite["patches"] == [["Hammer schärfen", ["annehmen", "schließen"]]]):
+            erg["fehler"].append(f"{groesse}: Repo-Seite {seite}")
+        if not falsch or "SHA-1" not in falsch or verweis[:1] != [patch_id] or commit != ["c" * 40]:
+            erg["fehler"].append(f"{groesse}: Patch annehmen {falsch} {verweis} {commit}")
+        if zurueck != [True, True]:
+            erg["fehler"].append(f"{groesse}: zurück zur Liste {zurueck}")
+        # Seit C.3a2: Reiter „Mitwirkende“ (fremdes Repo, ohne „Einstellungen“), eigenes Repo mit Einstellungen und neuer Version
+        reiter = "() => [...document.querySelectorAll('#repo-seite .repo-reiter [role=tab]')].map(b => b.dataset.reiter)"
+        ev("() => document.querySelector('#repos-karten .repo-karte').click()")
+        s.wait_for_timeout(200)
+        fremd_reiter = ev(reiter)
+        ev("() => document.querySelector('#repo-seite [data-reiter=mitwirkende]').click()")
+        try:
+            s.wait_for_function("() => document.querySelectorAll('#repo-seite .repo-mitwirkende .usage-row').length > 0", timeout=5000)
+        except Exception:
+            pass
+        mitwirkende = ev("() => document.querySelectorAll('#repo-seite .repo-mitwirkende .usage-row').length")
+        ev("() => document.querySelector('.repo-zurueck').click()")
+        # Suche von oben leeren, sonst bleibt das neue Repo verborgen
+        ev("() => { const s = document.getElementById('repos-suche'); s.value = ''; s.dispatchEvent(new Event('input')); }")
+        ev("() => document.getElementById('nip34-ankuendigen').click()")
+        s.wait_for_timeout(200)
+        s.keyboard.type("meins")
+        s.keyboard.press("Enter")  # Dialog: Kennung
+        s.wait_for_timeout(200)
+        s.keyboard.press("Enter")  # Rückfrage: ankündigen
+        try:
+            s.wait_for_function("() => [...document.querySelectorAll('#repos-karten .repo-name')].some(n => n.textContent === 'meins')", timeout=5000)
+        except Exception:
+            pass
+        ev("() => [...document.querySelectorAll('#repos-karten .repo-karte')].find(k => k.querySelector('.repo-name').textContent === 'meins')?.click()")
+        s.wait_for_timeout(200)
+        eigen_reiter = ev(reiter)
+        ev("() => document.querySelector('#repo-seite [data-reiter=einstellungen]')?.click()")
+        s.wait_for_timeout(200)
+        ada = next(e["pubkey"] for e in relay.events if e.get("kind") == 1617)
+        vorher = len(relay.gesendet)
+        def speichern(maintainer: str) -> None:
+            if not ev("() => !!document.getElementById('repo-feld-beschreibung')"):
+                return  # keine Einstellungen – die Prüfungen unten melden es
+            s.fill("#repo-feld-beschreibung", "Mein Repo")
+            s.fill("#repo-feld-web", "https://example.org/meins\nhttp://example.org/unsicher")
+            s.fill("#repo-feld-maintainer", maintainer)
+            ev("() => document.querySelector('.repo-einstellungen button[type=submit]').click()")
+            s.wait_for_timeout(200)
+        speichern("npub1xyz")  # ungültig: Meldung im Formular, nichts gesendet, keine Rückfrage
+        abgewiesen = [ev("() => document.querySelector('.repo-fehler')?.textContent ?? ''"), len(relay.gesendet) - vorher,
+                      ev("() => !!document.querySelector('[role=dialog]')")]
+        speichern(ada)
+        s.keyboard.press("Enter")  # Rückfrage: veröffentlichen
+        s.wait_for_timeout(800)
+        neu = [e for e in relay.gesendet if e.get("kind") == 30617 and ["d", "meins"] in e["tags"]]
+        ank = neu[-1] if neu else {"tags": []}
+        tags = {t[0]: t[1:] for t in ank["tags"]}
+        links = ev("() => [...document.querySelectorAll('#repo-seite .repo-web a')].map(a => [a.getAttribute('href'), a.rel])")
+        noch_einstellungen = ev("() => !!document.querySelector('#repo-seite .repo-einstellungen')")
+        if ev("() => !!document.querySelector('#repo-seite .repo-hochladen input[type=file]')"):
+            s.set_input_files("#repo-seite .repo-hochladen input[type=file]",
+                              files=[{"name": "meins.bundle", "mimeType": "application/octet-stream", "buffer": b"# v2 git bundle\n" + b"x" * 200}])
+        try:
+            s.wait_for_function("() => [...document.querySelectorAll('#repo-seite .repo-klon button')].length > 0", timeout=8000)
+        except Exception:
+            pass
+        bundles = [e for e in relay.gesendet if e.get("kind") == 38042 and ["d", "meins"] in e["tags"]]
+        bundle_tags = [t[0] for t in (bundles[-1]["tags"] if bundles else [])]
+        bundle_knopf = ev("() => document.querySelectorAll('#repo-seite .repo-klon button').length")
+        erg[groesse]["repo_c3a2"] = {"fremd_reiter": fremd_reiter, "mitwirkende": mitwirkende, "eigen_reiter": eigen_reiter,
+                                     "abgewiesen": abgewiesen, "tags": tags, "links": links, "bleibt": noch_einstellungen,
+                                     "bundle": bundle_tags, "bundle_knopf": bundle_knopf}
+        if fremd_reiter != ["code", "patches", "mitwirkende"] or mitwirkende != 2:
+            erg["fehler"].append(f"{groesse}: fremdes Repo, Reiter/Mitwirkende {fremd_reiter} {mitwirkende}")
+        if eigen_reiter != ["code", "patches", "mitwirkende", "einstellungen"]:
+            erg["fehler"].append(f"{groesse}: eigenes Repo ohne Einstellungen {eigen_reiter}")
+        if "Maintainer" not in abgewiesen[0] or abgewiesen[1] != 0 or abgewiesen[2]:
+            erg["fehler"].append(f"{groesse}: ungültiger Maintainer nicht abgewiesen {abgewiesen}")
+        if tags.get("description") != ["Mein Repo"] or tags.get("maintainers") != [ada] or not noch_einstellungen \
+                or links != [["https://example.org/meins", "noopener noreferrer"]]:
+            erg["fehler"].append(f"{groesse}: Einstellungen gespeichert {tags} {links} {noch_einstellungen}")
+        if "aes-gcm" not in bundle_tags or bundle_knopf < 1:
+            erg["fehler"].append(f"{groesse}: neue Version hochladen {bundle_tags} {bundle_knopf}")
         ctx.close()
     erg["bestanden"] = not erg["fehler"]
     return erg

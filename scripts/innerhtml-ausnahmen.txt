@@ -18,7 +18,6 @@ state.ts|name|name = escapeHtml(label oder hostname)
 agent-netz.ts|cls|feste Klassennamen ok/err/warn
 agent-netz.ts|(Zuweisung) r.models.slice(0, 20).map((m) => { const cls = m.availability === "gut" ? "ok" : m.availability === "knapp" ? "warn" : "|Callback liefert nur Templates; Name, Quantisierung, Hinweis mit escapeHtml
 settings.ts|cls|feste Klassennamen ok/warn/err
-earn.ts|(Zuweisung) o.contributors.slice(0, 15).map((c) => `<div class="usage-row"><span>${escapeHtml(pkShort(c.pubkey))}</span>` + `<span>$|Callback: Template mit escapeHtml(pkShort(c.pubkey)); Zahlen siehe folgende Zeilen
 raeume.ts|(Zuweisung) st.space.channels.map((c) => { const b = badges.get(c.id); const marke = b?.mentions ? `<span class="mention">${b.mentio|Callback: Template mit escapeHtml(c.id) und escapeHtml(c.name); marke/schloss siehe folgende Zeilen
 raeume.ts|b.mentions|lokal gezählt in unreadBadges()
 raeume.ts|schloss|feste Zeichen: Schloss-Entity oder #
@@ -69,7 +68,6 @@ agent.ts|(Zuweisung) svg|icon(...) aus der festen Symboltabelle
 waehrung.ts|(Zuweisung) verdict.problems.map((p) => escapeHtml(p)).join("<br>")|jede Zeile mit escapeHtml
 earn.ts|(Zuweisung) sorted .map((ev) => { const get = (n: string) => ev.tags.find((t) => t[0] === n)?.[1] ?? "—"; return `<div class="stat">|Callback: Template mit escapeHtml(get(...)), Math.floor und timeAgo()
 earn.ts|timeAgo(ev.created_at)|timeAgo() rechnet: Zahl plus s/m/h/d
-agent-netz.ts|(Zuweisung) sorted.map((ev) => { const name = ev.tags.find((t) => t[0] === "d")?.[1] ?? "?"; return `<div class="stat"><span class="|Callback: Template mit escapeHtml(name), escapeHtml(pkShort(...)) und escapeHtml(blob)
 app.ts|(Zuweisung) LANGS.map( (l) => `<button type="button" data-lang="${l.code}" class="${l.code === getLang() ? "active" : ""}">${l.code.|Callback: Template aus der festen Sprachliste LANGS
 app.ts|l.code|feste Sprachliste LANGS (i18n.ts)
 app.ts|l.code.toUpperCase()|feste Sprachliste LANGS (i18n.ts)
