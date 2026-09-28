@@ -8623,3 +8623,10 @@ Fixierung, alle Wege, alle Tor-Einstellungen.
   Nicht-Funde).
 - `release-fix`: sucht die neue Stelle (`fixierungText(…)`) – nicht
   schwächer.
+
+Endstand (nach dem Einmergen von `main`): protocol 1067 (6 übersprungen) ·
+node 235 (6 übersprungen, mit Netz; ohne Netz 234 + 7) · app 506 (+1) · mls 13 ·
+Leak-Tests 58 grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 ·
+innerHTML streng Exit 0 · Website 5 Seiten ok · Smoke-Test bestanden · im
+Browser: Sicherung, Offline-Fähigkeiten und Echtheitsprüfung in Englisch und
+Deutsch, ohne Seitenfehler.
