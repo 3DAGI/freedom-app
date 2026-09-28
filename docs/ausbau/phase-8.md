@@ -19,7 +19,7 @@ Reihenfolge.
 | 8.12 | Zustandssicherung | `state-backup.ts` | MLS-Zustand bewusst ausnehmen (Forward Secrecy); neue Geräte treten neu bei | Wiederherstellung ohne Klartext auf Relays | – |
 | 8.13 | Lokale Suche | `local-search.ts` | Index verschlüsselt in IndexedDB | 10.000 Nachrichten flüssig durchsuchbar, nichts im Klartext | – |
 | 8.14 | Notfall-Löschung | `duress.ts` | rechtlicher Hinweis direkt in der Funktion | Löschen entfernt nachweislich alle lokalen Daten | – |
-| 8.15 | Dashboard | `packages/website/dashboard.html` | nur Quittungen und freiwillige Angaben | keine Selbstauskünfte mehr | – |
+| 8.15 | Dashboard – FERTIG (mit 5.5, Spur B) | `packages/website/dashboard.html` | nur Öffentliches und Freiwilliges (Entscheidung 28.09.: Quittungen nie – sie liegen nur im Tresor der Kunden) | keine Selbstauskünfte mehr | – |
 | 8.16 | Übersetzungen | `i18n.ts` | alle acht Sprachen vollständig oder weniger Sprachen | ein Test findet keinen fehlenden oder rohen Schlüssel | Muttersprachler prüfen |
 
 ## 8.16 Übersetzungen – Aufteilung

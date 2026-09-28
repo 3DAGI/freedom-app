@@ -44,9 +44,9 @@ bash packages/mls/bauen.sh --pruefen                     # nur bei Änderungen a
 bash contracts/solana-channel/pruefen.sh --werkzeuge     # nur bei Änderungen am Zahlkanal: bauen + Tests gegen Validator (Agave 3.1.10)
 ```
 
-Stand 28.09.2026 (nach 4.5b, C.2d2 und 5.5a–c): protocol 1088 grün (6 übersprungen), node 245 grün
+Stand 28.09.2026 (nach 4.5b, C.2d2, 5.5a–c und 8.15): protocol 1088 grün (6 übersprungen), node 245 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 562 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 62 grün + 1 `todo` (heutige Lecks,
+in `tools.test.ts`), app 567 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 62 grün + 1 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
 Ausnahme: gesendete SOL-Zahlungen von frischen Adressen, eine bewusste Grenze
 nach Entscheidung 4.9 A – im Datenschutzbericht unter „Bewusste Grenzen“).
@@ -623,5 +623,9 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   Zustimmung (`freedom.ruf.teilen`), je Schlag des Abruftakts höchstens ein
   Umschlag, an den Posteingang des Kontakts, als Gerät nie; empfangen nur über
   `alsRufZusammenfassung()` am Ende der Kette in `oeffneUmschlag()`, gemerkt in
-  `freedom.ruf.kontakte` (Tresor, `SICHERUNG_NIE`).
+  `freedom.ruf.kontakte` (Tresor, `SICHERUNG_NIE`). Die Status-Seite der
+  Website (seit 8.15) wertet nur über `website/js/dashboard-daten.js` aus:
+  Angebote nach Erneuerung, Kataloge, Abdeckung über der Schwelle,
+  Nennungen als Summe – nie 38010, nie 38075, keine Rangliste
+  (`check-website.py` prüft das).
   Nie eine öffentliche Rangliste; die Prüferwahl (`netzPruefer()`) bleibt ohne Ruf.

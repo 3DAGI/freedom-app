@@ -9897,3 +9897,51 @@ bestehenden Test) · node 244 + 7 übersprungen (ohne Netz; mit Netz 245 + 6) ·
 app 562 (+8) · mls 13 · Leak-Tests 62 grün (+3) + 1 todo · 0 rot ·
 check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 · Website ok ·
 Smoke-Test bestanden · Website-Bau ok. Knoten-Stand: unverändert.
+
+## Schritt 8.15 – Status-Seite nur aus Öffentlichem und Freiwilligem
+
+Spur B, mit 5.5 (Entscheidung Spur A für Spur B vom 28.09., Leitplanke 7).
+
+**Was:**
+- `packages/website/js/dashboard-daten.js` (neu, ohne DOM): `filter()` fragt
+  nur Angebote (38027), Modellkataloge (38080), Abdeckung (38055) und
+  Werbe-Nennungen (38052) ab; `werteAus()` bildet daraus:
+  - Angebote je Provider das neueste, frisch = 24 h wie in der App, sortiert
+    nach der letzten Erneuerung (keine Rangliste): Stufe wie angeboten,
+    Modelle, Preis je 1.000 Tokens, Zahlwege (Lightning, SOL-Kanal,
+    Funk-Gateway);
+  - angebotene Modelle mit Zahl der Anbieter;
+  - Kataloge je Kurator und Kennung das neueste, nach Titel;
+  - Abdeckung wie `buildCoverage()`: Funk und Bluetooth erst ab drei Knoten,
+    abgelaufene Einträge nicht; nur Summen je Ebene;
+  - Werbe-Nennungen je Geworbenem die früheste, nur als Summe – die frühere
+    Liste der Werber mit Zahlen war eine öffentliche Rangliste.
+- `dashboard.html`: nutzt nur diese Auswertung; weg sind Jobs, „sats
+  verrechnet“, die Provider-Tabelle nach Jobs und die Regionen – alles aus
+  Selbstauskünften (38010). Die Seite fragte außerdem noch die alten Angebote
+  (38025) ab, die die App seit 38027 nicht mehr liest. Tabellen scrollen auf dem
+  Handy in sich (Seite 390 px statt 484 px breit). Erklärung unten: was die
+  Zahlen sind und was nicht (keine Aufträge, Umsätze, Rangliste; bezahlt wird
+  privat, Quittungen nur im Tresor).
+- `scripts/build-site.sh` kopiert `js/` mit; `scripts/check-website.py` weist
+  auf der Status-Seite 38010, 38075, 38025 und Selbstauskunfts-Wörter ab.
+
+**Tests:** +5 in `app/test/website-dashboard.test.ts`:
+- Arten gleich wie im Protokoll, abgefragt nur diese – nie 38010 oder 38075.
+- Abnahme: 300 Leistungs-Events und eine offene Zusammenfassung ändern das
+  Ergebnis nicht; Reihenfolge nach Erneuerung, nicht nach Leistung.
+- Angebote: je Provider das neueste, nur frische, Unbrauchbares weg.
+- Abdeckung nur über der Schwelle (ein Bluetooth-Knoten bleibt verdeckt),
+  Kataloge nach Titel, Nennungen früheste je Geworbenem, nur als Summe.
+- Die Seite nutzt nur die Auswertung; `build-site.sh` veröffentlicht `js/`.
+
+Von Hand im Browser (Chromium, nachgestellte Relays per
+`route_web_socket`, Seite aus `build-site.sh`): abgefragt nur
+38027/38052/38055/38080, keine Skriptfehler, fremder Katalog-Titel mit
+`<b>` erscheint als Text, auf 390 px keine waagerechte Scrollleiste.
+
+Endstand: protocol 1088 (6 übersprungen) · node 244 + 7 übersprungen (ohne
+Netz; mit Netz 245 + 6) · app 567 (+5) · mls 13 · Leak-Tests 62 grün + 1 todo
+· 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 · Website
+ok · Smoke-Test bestanden · Website-Bau ok (mit `js/`). Knoten-Stand:
+unverändert.
