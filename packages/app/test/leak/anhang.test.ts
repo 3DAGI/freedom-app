@@ -48,6 +48,8 @@ test("Anhang: der Empfaenger laedt und oeffnet ihn mit dem Schluessel aus der Na
 test("Verdrahtung: Chat-Anhang verschluesselt (Blob-Netz und Blossom), Git-Bundle verschluesselt mit oeffentlichem Schluessel", () => {
   const kom = readFileSync(new URL("../../src/shell/tabs/kommunikation.ts", import.meta.url), "utf8");
   const app = readFileSync(new URL("../../src/shell/app.ts", import.meta.url), "utf8");
+  // Seit C.3a2 lädt die Seite „Repos“ Bundles hoch (vorher app.ts)
+  const repos = readFileSync(new URL("../../src/shell/tabs/repos.ts", import.meta.url), "utf8");
   const f = kom.slice(kom.indexOf("export async function handleChatFiles("), kom.indexOf("function setAttachStatus("));
   assert.match(f, /uploadAnhang\(file, pool as never, state\.signer!\)/);
   assert.match(f, /uploadToBlossom\(new File\(\[chiffrat as BlobPart\], "", \{ type: "application\/octet-stream" \}\)\)/);
@@ -58,7 +60,8 @@ test("Verdrahtung: Chat-Anhang verschluesselt (Blob-Netz und Blossom), Git-Bundl
   assert.match(kom, /\.\.\.imetaSchluessel\(a\)/);
   // Git-Bundle (seit 8.9b, Entscheidung 26.09.2026): verschluesselt ins Blob-Netz,
   // der Schluessel steht oeffentlich in der Referenz – lesbar fuer jeden, Knoten halten nur Chiffrat
-  assert.match(app, /await uploadAnhang\(new File\(\[bytes\], "", \{ type: "application\/octet-stream" \}\), pool as never, state\.signer!\)/);
-  assert.match(app, /schluessel: res\.schluessel \}/);
-  assert.doesNotMatch(app, /uploadBlob\(/, "kein unverschluesselter Upload mehr");
+  assert.match(repos, /await uploadAnhang\(new File\(\[bytes\], "", \{ type: "application\/octet-stream" \}\), pool as never, state\.signer!\)/);
+  assert.match(repos, /schluessel: res\.schluessel \}/);
+  for (const [name, datei] of [["app.ts", app], ["repos.ts", repos]]) assert.doesNotMatch(datei, /uploadBlob\(/, `${name}: kein unverschluesselter Upload mehr`);
+  assert.doesNotMatch(app, /buildGitRepoRef/, "Bundles lädt nur noch die Seite „Repos“ hoch");
 });

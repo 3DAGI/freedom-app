@@ -10161,3 +10161,81 @@ check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 (68 Ausnahmen, 1
 weniger – die alte Bundle-Liste) · Website 5 Seiten ok · Smoke-Test bestanden
 (mit „rahmen“, „dialog“ und „raum“ samt Repo-Liste, Repo-Seite und
 angenommenem Patch).
+
+## Schritt C.3a2 – Oberfläche: Repo-Einstellungen, neue Version, Mitwirkende
+
+**Fertig:** Die Repo-Seite hat die Reiter „Mitwirkende“ und – nur für den
+Eigentümer – „Einstellungen“ samt „Neue Version hochladen“. Damit ist C.3a
+fertig.
+
+**Einzelheiten:**
+- **Mitwirkende** (Reiter):
+  - Dieselbe Liste wie die Karte auf der Seite „Repos“ – `mitwirkendeListe()`
+    (`shell/mitwirkende.ts`, nur DOM). `earn.ts` nutzt sie auch; dort fällt
+    eine innerHTML-Ausnahme weg.
+  - Geholt werden alle Beiträge (38056), gefiltert wird lokal. Eine Abfrage
+    nach Kennung verriete dem Relay, welches Repo man ansieht.
+  - Ehrlich: Beiträge nennen nur die Kennung, nicht den Eigentümer –
+    gleichnamige Repos anderer zählen mit; das steht über der Liste.
+  - „aktive Tage: 2 · Beiträge: 2“ statt „1 aktive Tage · 1 Beiträge“
+    (Wert von `earn.aktiveTage`, Schlüssel gleich).
+- **Einstellungen** (nur Eigentümer, sonst gibt es den Reiter nicht):
+  - Name, Beschreibung, Klon- und Web-Adressen, Maintainer, erster Commit –
+    die Felder, die `baueRepoAnkuendigung()` kennt; die Kennung bleibt.
+  - `ankuendigungAusFeldern()` (`repo-ansicht.ts`, ohne DOM) trennt Zeilen
+    (auch Leerzeichen, Komma), wirft Leeres und Doppeltes weg, höchstens 20
+    je Feld, Schlüssel und Commit klein. Geprüft wird im Protokoll.
+  - Fehler stehen im Formular (`role="alert"`); erst eine gültige
+    Ankündigung führt zur Rückfrage, dann wird signiert und gesendet. Nach
+    dem Laden bleibt die Seite im Reiter.
+  - Web-Adressen fremder Repos sind nur mit https und ohne Zugangsdaten
+    anklickbar (`sichereWebAdressen()`), mit `noopener noreferrer`.
+- **Neue Version hochladen** (Einstellungen): ein Bundle mit derselben
+  Kennung.
+  - Der Upload zog aus `app.ts` nach `repos.ts` (`ladeBundleHoch()`), weiter
+    verschlüsselt über `uploadAnhang()`, der Schlüssel in der Referenz.
+  - Die Zeile über der Liste bleibt für neue Repos.
+  - B11 ist erledigt: die Texte stehen seit 8.16 über Schlüssel, „⇩ bundle“
+    fiel mit C.3a1.
+- Mobil brechen die Reiter der Repo-Seite um, statt seitlich zu scrollen –
+  sonst war „Einstellungen“ abgeschnitten.
+- **Screenshots** (`docs/ausbau/bilder/c3a2/`): Desktop „werkzeug“ mit dem
+  Reiter Mitwirkende (zwei Personen, Bus-Faktor); Desktop und Handy das
+  eigene Repo „meins“ mit dem Reiter Einstellungen.
+
+**Tests:**
+- +5 in `repo-einstellungen.test.ts`:
+  - Felder → Ankündigung, hin und zurück über das Protokoll.
+  - Feindliche Eingaben (`javascript:`-Klon, npub statt Hex, zu kurzer
+    Commit, Kennung mit Leerzeichen) weist das Protokoll mit Kennung ab;
+    höchstens 20 je Feld.
+  - Web-Adressen nur mit https.
+  - Mitwirkende je Kennung mit einer DOM-Attrappe: nur dieses Repo, Namen nur
+    als Text.
+  - Verdrahtung: Einstellungen nur für den Eigentümer, prüfen → fragen →
+    signieren, Hochladen nicht mehr in `app.ts`, keine Abfrage nach Kennung.
+- `leak/anhang.test.ts`: prüft den Bundle-Upload jetzt in `repos.ts`, genauso
+  streng (verschlüsselt, Schlüssel in der Referenz, kein `uploadBlob()`),
+  und dass `app.ts` keine Referenzen mehr baut.
+- Smoke-Test „raum“ auf Desktop und Handy (Probe-Beiträge in
+  `scripts/raum-probe.mts`):
+  - Fremdes Repo: Reiter Code, Patches, Mitwirkende (ohne Einstellungen);
+    zwei Mitwirkende.
+  - Eigenes Repo „meins“ angekündigt: Reiter mit Einstellungen.
+  - Ein ungültiger Maintainer wird im Formular abgewiesen – nichts gesendet,
+    keine Rückfrage.
+  - Dann gespeichert: 30617 mit Beschreibung und Maintainer; von zwei
+    Web-Adressen ist nur die https-Adresse ein Link.
+  - Neue Version: 38042 mit `aes-gcm`, danach „Bundle laden“ auf der Seite.
+
+- `scripts/wiring-ausnahmen.txt`: die Ausnahme für `buildContribution` ist
+  raus – der Probe-Raum nutzt es (`check-wiring.py` zählt `.mts`-Skripte).
+  Die App selbst veröffentlicht weiterhin keine Beiträge (38056); ohne sie
+  zeigt der Reiter ehrlich „Keine veröffentlichten Beiträge“.
+
+Endstand: protocol 1089 (6 übersprungen) · node 260 (6 übersprungen, mit
+Netz) · app 576 (+5) · mls 13 · Leak-Tests 62 grün + 1 todo · 0 rot ·
+check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 (67 Ausnahmen, 1
+weniger – die Mitwirkenden in `earn.ts`) · Website 5 Seiten ok · Smoke-Test
+bestanden (mit „rahmen“, „dialog“ und „raum“ samt Mitwirkenden,
+Einstellungen und neuer Version).

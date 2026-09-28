@@ -16,7 +16,7 @@ import { type RepoKarte, filtereKarten, repoKarten } from "../../repo-ansicht.js
 import { bestaetige, dialog } from "../dialog.js";
 import { ensurePool, signiere, state } from "../state.js";
 import { $, toast } from "../ui.js";
-import { eigentuemerName, zeigeRepoSeite } from "./repo-seite.js";
+import { eigentuemerName, vergissReiter, zeigeRepoSeite } from "./repo-seite.js";
 
 const STATUS_KINDS = [1630, 1631, 1632, 1633];
 
@@ -26,6 +26,8 @@ let offenesRepo: string | null = null;
 let nurMeine = false;
 /** Fuer welches Repo gerade eine Patch-Datei gewaehlt wird. */
 let patchZiel: GelesenesRepo | null = null;
+/** Beiträge (38056), einmal je Laden der Liste geholt – erst, wenn ein Reiter „Mitwirkende“ sie braucht. */
+let beitraege: Promise<NostrEvent[]> | null = null;
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, text?: string, klasse?: string): HTMLElementTagNameMap[K] {
   const e = document.createElement(tag);
@@ -49,6 +51,7 @@ export async function ladeNip34Repos(): Promise<void> {
     const patches: NostrEvent[] = adressen.length ? await pool.query({ kinds: [KIND_PATCH], "#a": adressen, limit: 300 }) : [];
     const status = patches.length ? await pool.query({ kinds: STATUS_KINDS, "#e": patches.map((p) => p.id), limit: 1000 }) : [];
     karten = repoKarten(ankuendigungen, bundles, patches, status, state.keypair?.pk);
+    beitraege = null;
     zeige();
   } catch {
     box.textContent = t("repo.relaysWeg");
@@ -73,6 +76,8 @@ function zeige(fokus = false): void {
       },
       neuLaden: ladeNip34Repos,
       patchSenden: waehlePatch,
+      mitwirkende: ladeBeitraege,
+      hochladen: ladeBundleHoch,
     });
     if (fokus) seite.querySelector<HTMLElement>(".repo-zurueck")?.focus();
     return;
@@ -96,9 +101,50 @@ function karte(k: RepoKarte): HTMLElement {
   b.append(el("span", t("repo.karteFuss", { n: k.offen, datum }), "mono-sm muted"));
   b.addEventListener("click", () => {
     offenesRepo = k.schluessel;
+    vergissReiter();
     zeige(true);
   });
   return b;
+}
+
+/** Alle Beiträge (38056) – gefiltert wird lokal, wie in der Karte „Mitwirkende“ (`earn.ts`). */
+function ladeBeitraege(): Promise<NostrEvent[]> {
+  beitraege ??= (async () => {
+    const { KIND_GIT_CONTRIBUTION } = await import("@freedomstack/protocol");
+    return (await ensurePool()).query({ kinds: [KIND_GIT_CONTRIBUTION], limit: 1000 });
+  })();
+  const laden = beitraege;
+  laden.catch(() => { if (beitraege === laden) beitraege = null; });
+  return laden;
+}
+
+/**
+ * Bundle hochladen (seit C.3a2 hier, vorher in `app.ts`): für ein neues Repo
+ * aus der Liste, für eine neue Version von der Repo-Seite. Seit 8.9b
+ * verschlüsselt ins Blob-Netz, der Schlüssel steht öffentlich in der Referenz
+ * (Entscheidung 26.09.2026): lesen kann jeder, Speicherknoten halten nur Chiffrat.
+ */
+export async function ladeBundleHoch(datei: File, kennung: string): Promise<boolean> {
+  if (!state.keypair) return false;
+  try {
+    const bytes = new Uint8Array(await datei.arrayBuffer());
+    const { uploadAnhang } = await import("../../blob-client.js");
+    const pool = await ensurePool();
+    toast(t("ein.gitPubliziere", { name: datei.name, kb: Math.round(bytes.length / 1024) }));
+    const res = await uploadAnhang(new File([bytes], "", { type: "application/octet-stream" }), pool as never, state.signer!);
+    const { buildGitRepoRef } = await import("@freedomstack/protocol");
+    const ref = buildGitRepoRef(
+      { name: kennung, blobId: res.blobId, headSha: "local", branch: "main", message: `bundle ${datei.name}`, version: Math.floor(Date.now() / 1000), schluessel: res.schluessel }, // kein UI-Text
+      state.keypair.pk,
+    );
+    await pool.publish(await signiere(ref));
+    toast(t("ein.gitPubliziert", { name: kennung, blob: res.blobId.slice(0, 8) }));
+    await ladeNip34Repos();
+    return true;
+  } catch (e) {
+    toast(t("ein.gitFehler", { fehler: fehlerText(e) }), true);
+    return false;
+  }
 }
 
 function waehlePatch(r: GelesenesRepo): void {
@@ -162,6 +208,18 @@ export function wireNip34(): void {
     datei.value = "";
     if (f) void sendePatch(f);
   });
+  // Bundle für ein neues Repo (Name aus dem Feld, sonst aus dem Dateinamen); neue Versionen auf der Repo-Seite
+  const hoch = document.getElementById("git-repo-publish");
+  const bundle = document.getElementById("git-bundle-file") as HTMLInputElement | null;
+  if (hoch && bundle) {
+    hoch.addEventListener("click", () => bundle.click());
+    bundle.addEventListener("change", () => {
+      const f = bundle.files?.[0];
+      bundle.value = "";
+      const feld = document.getElementById("git-repo-name") as HTMLInputElement | null;
+      if (f) void ladeBundleHoch(f, (feld?.value.trim() ?? "").replace(/[^a-z0-9-_]/gi, "-") || f.name.replace(/\.bundle$/i, ""));
+    });
+  }
   document.getElementById("repos-suche")?.addEventListener("input", () => zeige());
   document.querySelectorAll<HTMLButtonElement>("#repos-filter button").forEach((b) => b.addEventListener("click", () => {
     nurMeine = b.dataset.filter === "meine";

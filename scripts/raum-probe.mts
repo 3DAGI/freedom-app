@@ -4,7 +4,7 @@
 // Aufruf: npx tsx scripts/raum-probe.mts <eigener-pubkey-hex>  ->  {"spaceId": "...", "events": [...]}
 // Der eigene Schlüssel bekommt die Rolle „mod“, damit die Aktionen an Nachrichten erscheinen.
 import {
-  baueRepoAnkuendigung, bauePatch, buildChannelMessage, buildGitRepoRef, buildRoleGrant, buildRoles, buildSpace, generateKeypair,
+  baueRepoAnkuendigung, bauePatch, buildChannelMessage, buildContribution, buildGitRepoRef, buildRoleGrant, buildRoles, buildSpace, generateKeypair,
   leseRepoAnkuendigung, signEvent,
 } from "../packages/protocol/src/index.ts";
 
@@ -62,4 +62,8 @@ events.push(
   signEvent({ ...buildGitRepoRef({ name: "werkzeug", blobId: "b".repeat(64), headSha: "local", branch: "main", message: "bundle", version: 1 }, gruender.pk), created_at: gestern + 60 }, gruender.sk),
   signEvent({ ...bauePatch({ repo: leseRepoAnkuendigung(ankuendigung), text: patchText }, ada.pk), created_at: gestern + 300 }, ada.sk),
 );
+// Seit C.3a2 Beiträge (38056) zu „werkzeug“: Ada an zwei Tagen, Bo einmal – und einer zu einem anderen Repo
+const beitrag = (von: typeof ada, repo: string, zeit: number) =>
+  signEvent(buildContribution({ repoId: repo, authorPubkey: von.pk, kind: "patch", summary: "Beitrag", ref: `${repo}-${zeit}` }, zeit), von.sk);
+events.push(beitrag(ada, "werkzeug", gestern - 86_400), beitrag(ada, "werkzeug", gestern), beitrag(bo, "werkzeug", gestern + 400), beitrag(bo, "anderes", gestern));
 console.log(JSON.stringify({ spaceId, events }));
