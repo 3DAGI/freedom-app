@@ -329,6 +329,8 @@ export interface Reassembly {
  */
 export class Reassembler {
   private teile = new Map<string, { frames: Map<number, Uint8Array>; frame: MeshFrame; seenAt: number; zuletzt: number; gefordert: number }>();
+  /** Kürzlich vollständige Nachrichten – eine späte Dublette ist keine Lücke (7.4b2). */
+  private fertig = new Map<string, number>();
 
   constructor(private maxAgeSeconds = 3600, private maxMessages = 200) {}
 
@@ -385,6 +387,9 @@ export class Reassembler {
     }
 
     this.teile.delete(f.msgId);
+    this.fertig.delete(f.msgId);
+    this.fertig.set(f.msgId, nowSecs);
+    if (this.fertig.size > this.maxMessages) this.fertig.delete(this.fertig.keys().next().value!);
     return { ...status, payload };
   }
 
@@ -400,6 +405,12 @@ export class Reassembler {
   ): { msgId: string; fehlend: number[]; priority: MeshPriority }[] {
     const out: { msgId: string; fehlend: number[]; priority: MeshPriority }[] = [];
     for (const [msgId, e] of this.teile) {
+      // Späte Dublette einer schon vollständigen Nachricht: nichts nachzufordern
+      const fertig = this.fertig.get(msgId);
+      if (fertig !== undefined && nowSecs - fertig <= this.maxAgeSeconds) {
+        this.teile.delete(msgId);
+        continue;
+      }
       if (e.gefordert >= maxMal || nowSecs - e.zuletzt < ruheSek * 3 ** e.gefordert) continue;
       const fehlend: number[] = [];
       for (let i = 0; i < e.frame.total; i++) if (!e.frames.has(i)) fehlend.push(i);

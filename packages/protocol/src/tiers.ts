@@ -64,6 +64,12 @@ export interface ProviderCapabilities {
    * zahlt die App nicht über einen Kanal.
    */
   kanal?: { adresse: string; programm: string };
+  /**
+   * Funk-Gateway (7.4b2): Der Knoten hängt an einem Funkgerät und reicht
+   * versiegelte KI-Aufträge aus dem Funk weiter. Wo das Gerät steht, sagt die
+   * Angabe nicht – die App wählt es, solange sie Netz hat.
+   */
+  funkGateway?: boolean;
   /** Gueltig ab (ersetzbar via d-Tag = pubkey). */
   updatedAt: number;
 }
@@ -91,6 +97,7 @@ export function buildCapabilities(
   if (werber) tags.push(["werber", werber]);
   const kanal = c.kanal && adresseFuer({ sol: c.kanal.adresse }, "solana") && adresseFuer({ sol: c.kanal.programm }, "solana");
   if (kanal) tags.push(["kanal", c.kanal!.adresse, c.kanal!.programm]);
+  if (c.funkGateway) tags.push(["funk", "gateway"]);
   return buildEvent(c.pubkey, KIND_PROVIDER_CAPABILITIES, tags, "", createdAt);
 }
 
@@ -156,6 +163,7 @@ export function parseCapabilities(ev: UnsignedEvent): ProviderCapabilities {
     ...(lud16 ? { lud16 } : {}),
     ...(werber ? { werber } : {}),
     ...(kanal ? { kanal } : {}),
+    ...(ev.tags.some((t) => t[0] === "funk" && t[1] === "gateway") ? { funkGateway: true } : {}),
     updatedAt: ev.created_at,
   };
 }

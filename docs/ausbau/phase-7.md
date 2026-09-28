@@ -61,11 +61,17 @@
     sendet nur aus dem `Sendegedaechtnis` nach (20 Nachrichten, 1 h, höchstens
     zweimal je Nachricht) und über die Warteschlange mit Sendezeit
     (`MeshQueue.enqueueFrames()`); Fremdes reicht ein Knoten weiter.
-  - **7.4b2:** Gateway-Rolle im Knoten – TCP-Brücke zum Funkgerät
-    (Längenpräfix), Umschläge aus dem Funk ins Netz, Post an gemerkte
-    Sitzungen über die Warteschlange mit Sendezeitkonto zurück, Nachfordern mit
-    den Bausteinen aus 7.4b1; Abnahme mit simuliertem Funkkanal gegen den
-    echten `DvmProvider`.
+  - **7.4b2 – FERTIG:** Gateway-Rolle im Knoten (`gateway-role.ts`,
+    `FUNK_GATEWAY=host:port`) – TCP-Brücke zum Funkgerät (zwei Byte Länge je
+    Rahmen, neu verbinden nach Trennung), Umschläge aus dem Funk ins Netz
+    (Weiterleitungen nie; ein Auftrag an den Provider auf demselben Knoten
+    schon), Post an gemerkte Sitzungen über die Warteschlange mit
+    Sendezeitkonto zurück, Nachfordern mit den Bausteinen aus 7.4b1; Post von
+    vor dem Auftrag bleibt im Netz (`ab` der Weiterleitung, 10 min Toleranz);
+    das Angebot nennt das Gateway (`["funk","gateway"]`). Abnahme mit
+    simuliertem Funkkanal gegen den echten `DvmProvider`. Ehrlich: eine
+    Antwort mit 500 Zeichen ist als Umschlag rund 3 KB, also etwa 15 s
+    Sendezeit – ein Gateway schafft rund zwei Antworten je Stunde.
   - **7.4c:** App – KI-Anfrage über Mesh (Gateway wählen, Auftrag mit
     `kurzParam()` und Zahlkanal-Gutschrift, Weiterleitung), Antwort aus dem
     Mesh öffnen und zeigen; ehrliche Texte zu Dauer und Kosten.

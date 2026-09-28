@@ -9012,3 +9012,73 @@ Netz; ohne Netz 236 + 7) · app 512 (+2) · mls 13 · Leak-Tests 59 grün (+1) +
 1 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 ·
 Website 5 Seiten ok · Smoke-Test bestanden. Knoten-Stand: unverändert (nur
 Protokoll und App).
+
+## Schritt 7.4b2 – Funk-Gateway im Knoten
+
+**Warum:** Mit 7.4a (Protokoll, Provider kürzt) und 7.4b1 (Nachforderung)
+fehlte noch der Knoten, der am Funkgerät hängt: Er nimmt versiegelte
+KI-Aufträge aus dem Funk an, reicht sie ins Netz und funkt die Antwort
+zurück – ohne Inhalt, Identität oder Bezahlung zu sehen.
+
+**Was:**
+- **Knoten (`gateway-role.ts`, neu):**
+  - TCP-Brücke zum Funkgerät (`FUNK_GATEWAY=host:port`, z. B. ser2net oder
+    socat): je Rahmen zwei Byte Länge, dann der Rahmen; eine unmögliche Länge
+    heißt „Strom verschoben“ – ein Byte weiter suchen. Nach einer Trennung
+    verbindet sie alle 30 s neu; ein Rahmen, der nicht hinausging, kommt
+    zurück in die Warteschlange. Keine neue Abhängigkeit.
+  - `GatewayRolle`: setzt Rahmen zusammen, prüft mit `pruefeMeshInhalt()`,
+    beantwortet Nachforderungen aus dem Gedächtnis, fordert Lücken nach
+    (7.4b1). Ein Umschlag an den Knoten ist nur dann ein Weiterleitungsauftrag,
+    wenn der Kern Kind 25030 ist – er bleibt beim Gateway (auch ungültig).
+    Alles andere, auch ein Auftrag an den Provider auf demselben Knoten
+    (gleicher Schlüssel), geht ins Netz. Post an gemerkte Sitzungen holt es
+    alle 5 s und funkt sie über die Warteschlange mit Sendezeitkonto zurück.
+    Ins Log nur feste Sätze und Fehlernamen.
+  - `main.ts`: startet die Rolle mit `FUNK_GATEWAY`; das Angebot trägt dann
+    `["funk","gateway"]` (`tiers.ts`, `funkGateway`), damit die App (7.4c) das
+    Gateway wählen kann, solange sie Netz hat.
+- **Protokoll:**
+  - `Weiterleitung.ab` (Erstellzeit des Auftrags): `GatewayBuch.zurueck()`
+    funkt keine Post von vor dem Auftrag (10 min Uhr-Toleranz) – sonst gingen
+    bei einer wiederverwendeten Sitzung alte Antworten statt der neuen hinaus.
+    Ein neuerer Auftrag derselben Sitzung bringt neue drei Umschläge; schon
+    Gefunktes bleibt gefunkt, ein wiederholt gefunkter älterer ändert nichts.
+  - `Reassembler`: Eine späte Dublette nach dem Zusammensetzen legt keine Lücke
+    an, die nachgefordert würde – fand die Abnahme (sie kostete Sendezeit).
+- `wiring-ausnahmen.txt`: `GatewayBuch` und `oeffneWeiterleitung` sind jetzt
+  verdrahtet (Zeilen entfernt).
+
+**Ehrlich zur Sendezeit:** Eine Antwort mit 500 Zeichen ist als Umschlag
+(zweimal verschlüsselt, Base64) rund 3 KB, also etwa 15 s Sendezeit – ein
+Gateway schafft rund zwei Antworten je Stunde. Das sagt die App in 7.4c.
+
+**Tests:**
+- +4 in `node/test/gateway-role.test.ts`:
+  - **Abnahme gegen den echten `DvmProvider`:** Weiterleitung und Auftrag über
+    einen simulierten Funkkanal (Rahmen ≤ 200 Byte, verdrehte Reihenfolge, ein
+    Rahmen fehlt, eine Dublette), das Gateway fordert genau die Lücke nach,
+    nur der Auftrag geht ins Netz (die Weiterleitung nie), der Provider
+    antwortet gekürzt ohne Zwischenstände, das Gateway funkt zurück (ein
+    Rahmen fehlt, die Kundin fordert nach), die Antwort öffnet nur mit dem
+    Sitzungsschlüssel; Sendezeit des Gateways 5–18 s; kein zweites Mal.
+  - Nur gemerkte Sitzungen und nur Neues: ohne Weiterleitung nichts,
+    Weiterleitung an ein anderes Gateway geht als gewöhnlicher Umschlag ins
+    Netz, Post von vor einer Stunde und fremde Post bleiben, Klartext kommt
+    nicht ins Netz.
+  - Sendezeit bei viel Post: in keinem Stundenfenster mehr als 36 s.
+  - TCP-Brücke: Längenpräfix, zerstückelter Strom, verschobene Bytes, Rahmen
+    in beide Richtungen gegen einen echten TCP-Server, Senden nach dem
+    Schließen scheitert, Adresse ohne Port abgelehnt.
+- +1 in `protocol/test/funk-gateway.test.ts`: Angebot mit und ohne Gateway,
+  fremder Wert zählt nicht; Gateway-Buch um `ab` und neue Aufträge erweitert.
+- `mesh-nachforderung.test.ts`: späte Dublette ist keine Lücke.
+
+Endstand: protocol 1081 (+1, 6 übersprungen) · node 241 (+4, 6 übersprungen,
+mit Netz; ohne Netz 240 + 7) · app 512 · mls 13 · Leak-Tests 59 grün + 1 todo ·
+0 rot · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 · Website 5
+Seiten ok · Smoke-Test bestanden. Danach nur Fehlerbehandlung im Knoten
+nachgeschärft (`.catch` an der Brücke und den Takten) – node erneut 240 + 7,
+tsc und check-wiring erneut grün. Knoten-Stand: Wer ein Funk-Gateway betreibt,
+braucht den Knoten auf diesem `main` und `FUNK_GATEWAY=host:port`; ohne die
+Variable ändert sich nichts.

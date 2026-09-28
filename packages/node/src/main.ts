@@ -318,6 +318,20 @@ async function main(): Promise<void> {
     await relayRole.start();
   }
 
+  // Funk-Gateway (optional, 7.4b2): FUNK_GATEWAY=host:port – TCP-Brücke zum
+  // Funkgerät (z. B. ser2net). Reicht versiegelte KI-Aufträge aus dem Funk ins
+  // Netz und funkt die Antworten gemerkter Sitzungen in der Sendezeit zurück.
+  let funkGateway: import("./gateway-role.js").GatewayRolle | undefined;
+  if (process.env.FUNK_GATEWAY) {
+    const { GatewayRolle, funkBruecke } = await import("./gateway-role.js");
+    const { LocalSigner } = await import("@freedomstack/protocol");
+    // Fehler nie unbehandelt: Ein kaputtes Paket darf den Knoten nicht beenden (nur der Fehlername ins Log)
+    const strecke = funkBruecke(process.env.FUNK_GATEWAY, (f) => void funkGateway?.empfange(f).catch((e) => console.warn(`[funk] ${(e as Error).name}`)));
+    funkGateway = new GatewayRolle({ strecke, gateway: new LocalSigner(keypair.sk), netz: pool });
+    funkGateway.starte();
+    console.log("[funk] Gateway an (TCP-Brücke zum Funkgerät)");
+  }
+
   // Sweep der Wochen-Wallets und ihr Arweave-Spiegel sind seit 5.1.4a entfernt:
   // Nach Gebührenmodell A+ gibt es keine Rücklage mehr, die jemand einsammelt.
   if (process.env.SWEEP_TARGET_WALLET || process.env.ARWEAVE_MIRROR === "1") {
@@ -385,6 +399,8 @@ async function main(): Promise<void> {
       werber,
       // Zahlkanal (4.3c): nur, wenn der Knoten Gutschriften auch einlösen kann
       kanal: kanalKasse && process.env.NODE_SOL_ADDRESS ? { adresse: process.env.NODE_SOL_ADDRESS, programm: KANAL_PROGRAMM_ID } : undefined,
+      // Funk-Gateway (7.4b2): die App wählt es, solange sie Netz hat
+      funkGateway: funkGateway !== undefined,
     });
     return { ev: signEvent(caps, keypair.sk), tier, models };
   };
