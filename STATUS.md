@@ -8852,3 +8852,10 @@ stehen in der Sprache der Oberfläche.
 - +2 in `protocol/test/fehler.test.ts`: Kennung gesetzt und deutsche Meldung
   unverändert – Eingaben (Rechnung, NWC, Rück-Swap, Limit, Einheit) sowie
   Netz und Wallet (offline, keine Wallet, keine Schiene, RPC, Wallet-Fehler).
+
+Endstand: protocol 1071 (+2, 6 übersprungen) · node 235 (6 übersprungen, mit
+Netz; ohne Netz 234 + 7) · app 509 (+1) · mls 13 · Leak-Tests 58 grün + 1 todo
+· 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 · Website 5
+Seiten ok · Smoke-Test bestanden · im Browser: eine falsche NWC-Adresse meldet
+englisch „Not an NWC connection …“, deutsch „Keine NWC-Verbindung …“, keine
+Seitenfehler.
