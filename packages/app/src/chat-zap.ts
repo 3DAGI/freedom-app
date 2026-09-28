@@ -183,7 +183,8 @@ async function sendZap(state: ZapDialogState, el: HTMLElement): Promise<void> {
       let ziel = gemerkteAdresse(geheim, state.recipientPubkey, kette) ?? "";
       if (!ziel) {
         statusEl.textContent = t("zahl.frageAdresse");
-        ziel = await frageAdresseAn({ pool, speicher: geheim, signer: appState.signer!, empfaenger: state.recipientPubkey, kette }) ?? "";
+        const { veroeffentlicheDm } = await import("./shell/tabs/kommunikation.js");
+        ziel = await frageAdresseAn({ pool, speicher: geheim, signer: appState.signer!, empfaenger: state.recipientPubkey, kette, sende: veroeffentlicheDm }) ?? "";
       }
       const offen = profile[0] ? solAdresseAusProfil(profile[0].content) : "";
       if (!ziel && offen && confirm(t("zahl.oeffentlicheAdresseFrage", { name: state.recipientName }))) ziel = offen;

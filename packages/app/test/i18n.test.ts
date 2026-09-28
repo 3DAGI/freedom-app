@@ -448,9 +448,9 @@ test("8.16g2b1: Datenschutzbericht in der Sprache der Oberfläche – deutsch wo
   // Alle Einstellungen, die den Bericht ändern
   const cfgs: import("@freedomstack/protocol").PrivacyConfig[] = [];
   for (const network of ["klar", "tor", "mixnet"] as const) {
-    for (let bits = 0; bits < 1 << 10; bits++) {
+    for (let bits = 0; bits < 1 << 11; bits++) {
       const b = (i: number) => (bits & (1 << i)) !== 0;
-      cfgs.push({ ...P.DEFAULT_CONFIG, network, giftWrap: b(0), encryptedChannels: b(1), ownRelay: b(2), solanaInProfile: b(3), usesSwaps: b(4), custodialLightning: b(5), expiringMessages: b(6), externalAvatar: b(7), stateBackup: b(8), lightningInProfile: b(9) });
+      cfgs.push({ ...P.DEFAULT_CONFIG, network, giftWrap: b(0), encryptedChannels: b(1), ownRelay: b(2), solanaInProfile: b(3), usesSwaps: b(4), custodialLightning: b(5), expiringMessages: b(6), externalAvatar: b(7), stateBackup: b(8), lightningInProfile: b(9), nwcFremdesRelay: b(10) });
     }
   }
   const vorher = getLang();
@@ -462,7 +462,7 @@ test("8.16g2b1: Datenschutzbericht in der Sprache der Oberfläche – deutsch wo
       assert.equal(B.berichtText(cfg), P.privacyReport(cfg));
     }
     for (const id of ids) assert.ok(B.kenntBefund(id), `Befund ${id} ohne Text`);
-    assert.equal(ids.size, 18, "alle Fassungen der Befunde gesehen");
+    assert.equal(ids.size, 19, "alle Fassungen der Befunde gesehen");
     for (const f of P.PRIVACY_FACTS) assert.ok(B.kenntFakt(f.id), `Aussage ${f.id} ohne Text`);
     for (const tor of [undefined, "erreichbar", "nicht-erreichbar", "keine-onion"] as const) {
       assert.equal(B.faktenText(tor), P.privacyFactsText(P.faktenDieserSitzung(tor)), String(tor));

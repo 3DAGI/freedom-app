@@ -26,7 +26,12 @@ Relays, RPC-Anbietern und Lightning-Diensten.
   Tor Browser nutzen“. Die Aussage kommt aus `privacy-facts.ts` (1.5).
 - **Abnahme:** Tests für beide Fälle.
 
-## 6.3 Lightning privat
+## 6.3 Lightning privat – FERTIG (28.09.2026, Spur B)
+
+> Umgesetzt in a, b1 und b2: Lightning-Adresse im Profil nur auf Wunsch, Zaps
+> anonym, Rechnungen versiegelt beim Kontakt erfragt (Empfang mit der eigenen
+> Wallet, ohne LNURL-Dienst), NWC auf Wunsch nur über eigenes oder
+> .onion-Relay, BOLT12 erkannt. Einzelheiten in `FORTSCHRITT.md` und `STATUS.md`.
 
 - **Vorgehen:** NWC über ein eigenes oder ein .onion-Relay (Einstellung); Empfang
   über den eigenen Knoten statt über LNURL-Dienste; BOLT12 dort, wo Wallet und
@@ -51,10 +56,15 @@ Relays, RPC-Anbietern und Lightning-Diensten.
     eigenen Wallet (NWC `make_invoice`) – Empfang ohne LNURL-Dienst. Der Zahler
     nimmt nur eine gültige Rechnung über genau den Betrag. Aussage
     „ln-rechnung“ mit Szenario.
-  - **6.3b2 – offen:** NWC über ein eigenes oder ein .onion-Relay (Einstellung,
-    Warnung bei fremdem Klartext-Relay); BOLT12 erkennen (Wallet über NWC),
-    sonst Rechnungen nur verschlüsselt (6.3b1); Provider-Knoten empfangen
-    bereits über den eigenen LND (`LnurlDienst`, 8.2b).
+  - **6.3b2 – FERTIG:** Einstellung „NWC nur über mein eigenes oder ein
+    .onion-Relay“ (Währung → Lightning, eigenes Relay als Feld):
+    `waehleNwcRelays()` nimmt nur diese aus der Verbindung der Wallet, nennt sie
+    keines, verbindet die App nicht (statt still über ein fremdes); sonst
+    Befund „nwc-relay-fremd“ im Datenschutzbericht. BOLT12 erkannt
+    (`bolt12Methoden()`, Anzeige im Status) – NIP-47 legt die Methoden noch
+    nicht fest, darum bleibt es bei versiegelten Rechnungen (6.3b1).
+    Provider-Knoten empfangen schon über den eigenen LND (`LnurlDienst`, 8.2b).
+    Nebenbei: die SOL-Adress-Anfrage (4.9d) geht an den Posteingang.
 
 ## 6.4 Verkehrsmuster – FERTIG (27.09.2026, Spur B)
 

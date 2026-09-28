@@ -56,10 +56,12 @@ export function gemerkteAdresse(s: Pick<WalletSpeicher, "getItem">, empfaenger: 
  */
 export async function frageAdresseAn(p: {
   pool: Pick<OutboxPool, "publish" | "query">; speicher: WalletSpeicher; signer: Signer; empfaenger: string; kette: string;
+  /** An den Posteingang des Empfängers (5.4, seit 6.3b2); ohne: an den eigenen Pool. */
+  sende?: (wrap: NostrEvent, an: string) => Promise<void>;
   warteMs?: number; pause?: (ms: number) => Promise<void>;
 }): Promise<string | undefined> {
   const { wrap, anfrageId } = await buildAdressAnfrage({ von: p.signer, anPk: p.empfaenger, kette: p.kette });
-  await p.pool.publish(wrap);
+  await (p.sende ? p.sende(wrap, p.empfaenger) : p.pool.publish(wrap));
   const pause = p.pause ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
   const ende = Date.now() + (p.warteMs ?? WARTEN_MS);
   // Erst nachsehen, dann auf die Uhr schauen – eine Antwort aus der letzten Pause zaehlt noch.

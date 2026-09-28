@@ -20,6 +20,7 @@ const BEFUND: Record<string, readonly [string, string, string]> = {
   "sol-swaps": ["ds.tSolTx", "ds.bSolSwapsSieht", "ds.bSolSwapsHilft"],
   "sol-profil": ["ds.tSolProfil", "ds.bSolProfilSieht", "ds.bSolProfilHilft"],
   "ln-profil": ["ds.tLnProfil", "ds.bLnProfilSieht", "ds.bLnProfilHilft"],
+  "nwc-relay-fremd": ["ds.tNwcRelay", "ds.bNwcRelayFremdSieht", "ds.bNwcRelayFremdHilft"],
   "absender-sichtbar": ["ds.tAbsender", "ds.bAbsenderSichtbarSieht", "ds.bAbsenderSichtbarHilft"],
   "kanaele-offen": ["ds.tKanaele", "ds.bKanaeleOffenSieht", "ds.bKanaeleOffenHilft"],
   "profilbild": ["ds.tProfilbild", "ds.bProfilbildSieht", "ds.bProfilbildHilft"],
