@@ -44,7 +44,7 @@ bash packages/mls/bauen.sh --pruefen                     # nur bei Änderungen a
 bash contracts/solana-channel/pruefen.sh --werkzeuge     # nur bei Änderungen am Zahlkanal: bauen + Tests gegen Validator (Agave 3.1.10)
 ```
 
-Stand 28.09.2026 (nach 4.5b, C.2d2 und 5.5a): protocol 1088 grün (6 übersprungen), node 245 grün
+Stand 28.09.2026 (nach 8.2a, C.2d2 und 5.5a): protocol 1088 grün (6 übersprungen), node 250 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
 in `tools.test.ts`), app 547 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 59 grün + 1 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
@@ -613,3 +613,11 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   nicht. Die Zusammenfassung (38075) nur versiegelt über
   `baueRufUmschlaege()`, gelesen nur von Kontakten (`oeffneRufUmschlag()`).
   Nie eine öffentliche Rangliste; die Prüferwahl (`netzPruefer()`) bleibt ohne Ruf.
+- **Provider-Einrichtung nur geprüft** (seit 8.2a): Was ein Provider zum
+  Verdienen braucht, prüft `pruefeEinrichtung()` (`node/src/einrichtung.ts`) –
+  beim Start ins Log (`[einrichtung]`) und über `npm run pruefen` (Installer,
+  Docker). Neue Voraussetzungen dort ergänzen, nicht nur im Installer; nach
+  außen nur eigene Texte und Fehlernamen. Im Installer Eingaben nur als
+  Argumente an `node` geben, nie in den Code einsetzen; Schlüsseldateien mit
+  `umask 077` anlegen. Leere Werte aus der Umgebungsdatei (`SOLANA_RPC_URL=`)
+  mit `||` behandeln, nicht mit `??`.
