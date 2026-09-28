@@ -7,9 +7,9 @@ Karte der Abdeckung und eine Navigation, die auf Desktop und Handy je für sich
 Sinn ergibt. Protokoll, Krypto, Zahlungen und Event-Formate bleiben, wie sie
 sind; sonst gilt die STOPP-Regel aus `CLAUDE.md`.
 
-Stand dieser Karte: **C.0, C.1a, C.1b, C.2a–d (Räume) und C.3a1 fertig.** Der MENSCH hat den
+Stand dieser Karte: **C.0, C.1a, C.1b, C.2a–d (Räume) und C.3a fertig.** Der MENSCH hat den
 Entwurf am 27.09.2026 freigegeben – E1–E8 wie vorgeschlagen (Abschnitt 10.3).
-Nächster Schritt: C.3a2.
+Nächster Schritt: C.3b.
 
 ---
 
@@ -151,7 +151,7 @@ Playwright nachgeprüft (Sichtbarkeit und Maße der Elemente).
 | B8 | mittel | **„n Antworten“ an einer Nachricht tut nichts** – der Knopf hat keinen Handler; Threads sind nicht zu öffnen, Antworten nicht zu schreiben. Das Protokoll kann beides (`raumNachricht({ threadRoot, replyTo })`, `buildThreads()`), `sendePrivat()` reicht es nur nicht durch (`raum-mls.ts:83`). | `kommunikation.ts:239` | C.2c |
 | B9 | mittel | Im Raum stehen gekürzte Schlüssel statt Namen (`kommunikation.ts:254`, `:370`, `:391`), obwohl Namen für Kontakte bekannt sind (`kontaktName()`). | – | C.2b |
 | B10 | mittel | Repos in zwei getrennten Listen unter „Agent“: Git-Bundles (38042) und NIP-34 – ohne Verbindung. Patches ohne Diff, der Commit beim Annehmen per `prompt()` (`repos.ts:112`). Beim Hochladen steht im Bundle-Verweis immer `head: local`, `branch: main` (`app.ts:770`). | – | C.3 |
-| B11 | klein | Rohe Texte am Bundle-Upload: „publiziere …“, „… publiziert“, „git-fehler“ (`app.ts:765`, `:774`, `:777`), „⇩ bundle“ (`agent-netz.ts:286`). `rohtexteImCode()` erkennt einzelne klein geschriebene Wörter nicht. | – | C.3a |
+| B11 | klein | *(erledigt: 8.16 und C.3a1/C.3a2)* Rohe Texte am Bundle-Upload: „publiziere …“, „… publiziert“, „git-fehler“ (`app.ts:765`, `:774`, `:777`), „⇩ bundle“ (`agent-netz.ts:286`). `rohtexteImCode()` erkennt einzelne klein geschriebene Wörter nicht. | – | C.3a |
 | B12 | mittel | Keine Karte: eine Liste mit höchstens 15 Gebieten (`earn.ts:69`). Eigene Einträge tragen `region: ""` (`earn.ts:112`), die Liste zeigt dann „?“. | – | C.4a |
 | B13 | mittel | Der eigene Standort liegt **genau** und im Klartext in `localStorage` (`freedom.coverage.cell`, `earn.ts:107`) – auch mit Tresor. Gebraucht wird nur die Zelle. | – | E6 |
 | B14 | mittel | Anordnung: Repos und Modelle unter „Agent“; Mesh unter „Settings“, Zahlen ohne Netz unter „Währung“, Post als Datei in der Liste der Direktnachrichten; Karte unter „Earn“; Mitwirkende unter „Earn › Werben“; Vertrauensstufe des Providers im Profil; Gebühren und Standard-Schiene in den Settings; der Reiter „Liquidität“ enthält das Hinterlegen beim Provider und seit 4.3d2 den Zahlkanal, keine Liquidität. | – | C.1b, C.6 |
@@ -611,6 +611,26 @@ Repo-Seite und Mitwirkende als Reiter.
   kein `prompt()`/`confirm()` mehr in den Repos.
 - Welches Repo offen ist, steht nur im Speicher; „‹ Alle Repos“ führt zurück
   und setzt den Fokus auf die Karte.
+
+**C.3a2 – fertig (28.09.2026).** Damit ist C.3a fertig.
+- Reiter **Mitwirkende**: dieselbe Liste wie die Karte auf der Seite „Repos“
+  (`mitwirkendeListe()`, `shell/mitwirkende.ts`, nur DOM – `earn.ts` nutzt
+  sie auch, eine innerHTML-Ausnahme weniger). Geholt werden alle Beiträge
+  (38056), gefiltert wird lokal: eine Abfrage nach Kennung verriete, welches
+  Repo man ansieht. Ehrlich: Beiträge nennen nur die Kennung, nicht den
+  Eigentümer – gleichnamige Repos anderer zählen mit.
+- Reiter **Einstellungen** nur für den Eigentümer: Name, Beschreibung, Klon-
+  und Web-Adressen, Maintainer, erster Commit – die Felder aus
+  `baueRepoAnkuendigung()`; die Kennung bleibt. `ankuendigungAusFeldern()`
+  (`repo-ansicht.ts`, ohne DOM) trennt Zeilen, wirft Doppeltes und Leeres weg
+  (höchstens 20 je Feld), geprüft wird im Protokoll; Fehler stehen im
+  Formular, erst danach kommt die Rückfrage. Web-Adressen fremder Repos sind
+  nur mit https anklickbar (`sichereWebAdressen()`), mit `noopener`.
+- **Neue Version hochladen** auf der Repo-Seite (Einstellungen), mit derselben
+  Kennung; der Upload zog aus `app.ts` nach `repos.ts` (`ladeBundleHoch()`),
+  die Zeile über der Liste bleibt für neue Repos. B11: die Texte am Upload
+  stehen seit 8.16 über Schlüssel, „⇩ bundle“ fiel mit C.3a1 – erledigt.
+- Mobil brechen die Reiter der Repo-Seite um, statt seitlich zu scrollen.
 
 ---
 

@@ -27,4 +27,16 @@ export const repos: Texte = {
   "repo.patchVon": { de: "von {name} · {datum}", en: "by {name} · {datum}" },
   "repo.annehmenTitel": { de: "„{betreff}“ annehmen", en: "Accept “{betreff}”" },
   "repo.keinSha1": { de: "Ein Commit ist ein SHA-1 mit 40 Zeichen (0–9, a–f)", en: "A commit is a SHA-1 with 40 characters (0–9, a–f)" },
+  // Seit C.3a2: Mitwirkende und Einstellungen des Eigentümers
+  "repo.einstellungen": { de: "Einstellungen", en: "Settings" },
+  "repo.mitwirkendeKennung": { de: "Beiträge nennen nur die Kennung „{id}“, nicht den Eigentümer – gleichnamige Repos anderer zählen mit.", en: "Contributions only name the ID “{id}”, not the owner – other people's repos with the same ID count too." },
+  "repo.kennungFest": { de: "Kennung: {id} – sie bleibt; eine andere wäre ein neues Repo.", en: "ID: {id} – it stays; a different one would be a new repo." },
+  "repo.feldKlon": { de: "Klon-Adressen (https://…, ssh://…, rad:…), eine je Zeile", en: "Clone addresses (https://…, ssh://…, rad:…), one per line" },
+  "repo.feldWeb": { de: "Web-Adressen, eine je Zeile (anklickbar nur mit https)", en: "Web addresses, one per line (clickable only with https)" },
+  "repo.feldMaintainer": { de: "Maintainer: Schlüssel (64 Zeichen hex), einer je Zeile – sie dürfen Patches annehmen", en: "Maintainers: keys (64 hex characters), one per line – they may accept patches" },
+  "repo.feldErsterCommit": { de: "Erster Commit (SHA-1, optional – verbindet Forks)", en: "First commit (SHA-1, optional – links forks)" },
+  "repo.speichern": { de: "Ankündigung veröffentlichen", en: "Publish announcement" },
+  "repo.speichernFrage": { de: "Die neue Ankündigung ersetzt die bisherige – öffentlich und mit deinem Schlüssel signiert.", en: "The new announcement replaces the previous one – public and signed with your key." },
+  "repo.neueVersion": { de: "Neue Version hochladen", en: "Upload new version" },
+  "repo.neueVersionText": { de: "Ein Bundle aus git bundle create repo.bundle --all. Es geht verschlüsselt ins Speichernetz; der Schlüssel steht öffentlich in der Referenz – lesen kann jeder, Speicherknoten halten nur Chiffrat.", en: "A bundle from git bundle create repo.bundle --all. It goes encrypted into the storage network; the key is public in the reference – anyone can read it, storage nodes only hold ciphertext." },
 };

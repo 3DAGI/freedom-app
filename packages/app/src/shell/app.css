@@ -1461,7 +1461,8 @@ button.repo-karte:hover, button.repo-karte:focus-visible { border-color: var(--a
 .repo-klon h3 { margin: 0 0 6px; font-size: 12px; }
 .repo-klon-zeile { display: flex; gap: 8px; align-items: center; margin-top: 6px; }
 .repo-klon-zeile input { margin: 0; flex: 1; min-width: 0; font-family: ui-monospace, monospace; font-size: 12px; }
-.repo-reiter { margin: 12px 0 8px; }
+.repo-reiter { margin: 12px 0 8px; flex-wrap: wrap; }
+.repo-reiter button { white-space: nowrap; }
 .repo-filter { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0; }
 .repo-filter button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
 .repo-patch { display: flex; justify-content: space-between; gap: 10px; padding: 8px 0; border-top: 1px solid var(--border); }
@@ -1493,3 +1494,14 @@ button.menue-punkt.menue-gefahr { color: var(--red); }
   .comm-space-inner.mitglieder-offen .channel-col { display: none; }
   .comm-space-inner.mitglieder-offen .member-col { grid-column: 1 / -1; }
 }
+/* Repo-Seite (C.3a2): Web-Adressen, Mitwirkende, Einstellungen des Eigentümers */
+.repo-web { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 4px 0; }
+.repo-web a { overflow-wrap: anywhere; }
+.mitwirkende-bus { margin-bottom: 6px; }
+.repo-einstellungen { display: flex; flex-direction: column; gap: 4px; max-width: 640px; }
+.repo-einstellungen label { font-size: 12px; color: var(--text-muted); margin-top: 8px; }
+.repo-einstellungen input, .repo-einstellungen textarea { width: 100%; box-sizing: border-box; }
+.repo-einstellungen button[type="submit"] { align-self: flex-start; margin-top: 8px; }
+.repo-fehler { color: var(--danger, #e5534b); font-size: 12px; min-height: 0; margin: 4px 0 0; }
+.repo-fehler:empty { display: none; }
+.repo-hochladen { margin-top: 20px; padding-top: 12px; border-top: 1px solid var(--border); }

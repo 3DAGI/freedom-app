@@ -18,7 +18,6 @@ state.ts|name|name = escapeHtml(label oder hostname)
 agent-netz.ts|cls|feste Klassennamen ok/err/warn
 agent-netz.ts|(Zuweisung) r.models.slice(0, 20).map((m) => { const cls = m.availability === "gut" ? "ok" : m.availability === "knapp" ? "warn" : "|Callback liefert nur Templates; Name, Quantisierung, Hinweis mit escapeHtml
 settings.ts|cls|feste Klassennamen ok/warn/err
-earn.ts|(Zuweisung) o.contributors.slice(0, 15).map((c) => `<div class="usage-row"><span>${escapeHtml(pkShort(c.pubkey))}</span>` + `<span>$|Callback: Template mit escapeHtml(pkShort(c.pubkey)); Zahlen siehe folgende Zeilen
 raeume.ts|(Zuweisung) st.space.channels.map((c) => { const b = badges.get(c.id); const marke = b?.mentions ? `<span class="mention">${b.mentio|Callback: Template mit escapeHtml(c.id) und escapeHtml(c.name); marke/schloss siehe folgende Zeilen
 raeume.ts|b.mentions|lokal gezählt in unreadBadges()
 raeume.ts|schloss|feste Zeichen: Schloss-Entity oder #
