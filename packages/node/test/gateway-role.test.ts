@@ -9,13 +9,13 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import net from "node:net";
 import {
-  FUNK_MAX_ZEICHEN, KIND_DVM_FEEDBACK, KIND_DVM_TEXT_GENERATION, LORA_MTU, LocalSigner, MemoryRelay, MeshKind,
+  FUNK_MAX_ZEICHEN, LaengenRahmen, mitLaenge, KIND_DVM_FEEDBACK, KIND_DVM_TEXT_GENERATION, LORA_MTU, LocalSigner, MemoryRelay, MeshKind,
   MeshPriority, OutboxPool, Reassembler, Sendegedaechtnis, Sendezeitkonto, baueNachforderung, baueWeiterleitung,
   buildJobRequest, buildPrivateJobRequest, fragment, giftWrapMitSigner, generateKeypair, kurzParam, leseNachforderung, messageId,
   openPrivateJobResponse, parseFrame, parseJobResult, type NostrEvent,
 } from "@freedomstack/protocol";
 import { DvmProvider } from "../src/dvm-provider.js";
-import { GatewayRolle, LaengenRahmen, funkBruecke, mitLaenge } from "../src/gateway-role.js";
+import { GatewayRolle, funkBruecke } from "../src/gateway-role.js";
 import type { InferenceBackend, InferenceRequest, InferenceResult } from "../src/inference.js";
 
 class LangesBackend implements InferenceBackend {

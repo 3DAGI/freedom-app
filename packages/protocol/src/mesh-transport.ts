@@ -734,3 +734,49 @@ export class Sendegedaechtnis {
     return frames;
   }
 }
+
+// ------------------------------------ Strecke zum Funkgerät (7.4b2, 7.4c1)
+
+/**
+ * Rahmen für eine Byte-Strecke zum Funkgerät – USB, Bluetooth, TCP-Brücke des
+ * Knotens: zwei Byte Länge (Big Endian), dann der Rahmen. Ohne Grenze fließen
+ * Rahmen im Strom ineinander; bis 7.4c1 las die App über USB gar nicht, und
+ * über Bluetooth kamen Häppchen statt Rahmen an.
+ */
+export function mitLaenge(frame: Uint8Array): Uint8Array {
+  if (frame.length === 0 || frame.length > LORA_MTU) throw new Error(`Rahmen mit ${frame.length} Byte passt nicht über Funk`);
+  const out = new Uint8Array(2 + frame.length);
+  out[0] = frame.length >> 8;
+  out[1] = frame.length & 0xff;
+  out.set(frame, 2);
+  return out;
+}
+
+/**
+ * Rahmen aus dem Byte-Strom der Strecke. Eine unmögliche Länge (0 oder mehr als
+ * ein Funkpaket) heißt: Der Strom hat sich verschoben – ein Byte weiter
+ * suchen. Was dabei falsch zusammenkommt, verwirft der Zusammenbau (die
+ * Kennung ist der Hash des Inhalts).
+ */
+export class LaengenRahmen {
+  private puffer = new Uint8Array(0);
+
+  push(chunk: Uint8Array): Uint8Array[] {
+    const neu = new Uint8Array(this.puffer.length + chunk.length);
+    neu.set(this.puffer);
+    neu.set(chunk, this.puffer.length);
+    this.puffer = neu;
+    const out: Uint8Array[] = [];
+    while (this.puffer.length >= 2) {
+      const n = (this.puffer[0] << 8) | this.puffer[1];
+      if (n === 0 || n > LORA_MTU) {
+        this.puffer = this.puffer.subarray(1);
+        continue;
+      }
+      if (this.puffer.length < 2 + n) break;
+      out.push(this.puffer.slice(2, 2 + n));
+      this.puffer = this.puffer.subarray(2 + n);
+    }
+    return out;
+  }
+}

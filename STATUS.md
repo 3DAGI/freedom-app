@@ -9082,3 +9082,48 @@ nachgeschärft (`.catch` an der Brücke und den Takten) – node erneut 240 + 7,
 tsc und check-wiring erneut grün. Knoten-Stand: Wer ein Funk-Gateway betreibt,
 braucht den Knoten auf diesem `main` und `FUNK_GATEWAY=host:port`; ohne die
 Variable ändert sich nichts.
+
+## Schritt 7.4c1 – Gerätestrecken der App mit Längenpräfix
+
+**Warum:** Für KI über Funk (7.4c) muss die Antwort über das Funkgerät zurück
+in die App. Dabei zeigten sich zwei alte Lücken: Über USB schrieb die App
+rohe Rahmen und las nie – eine Antwort kam gar nicht an. Über Bluetooth
+zerlegte sie Rahmen in 180-Byte-Häppchen ohne Grenze, und beim Empfang galt
+jedes Häppchen als Rahmen – ein Rahmen über 180 Byte (fast jeder) war nie
+lesbar. 7.4c ist deshalb dreigeteilt: c1 die Strecken (dieser Schritt), c2 die
+App-Logik, c3 die Oberfläche.
+
+**Was:**
+- **Protokoll:** `mitLaenge()`/`LaengenRahmen` (zwei Byte Länge je Rahmen,
+  Big Endian; unmögliche Länge → ein Byte weiter suchen) aus der TCP-Brücke
+  des Knotens (7.4b2) nach `mesh-transport.ts` gezogen – App und Knoten
+  sprechen dasselbe mit dem Funkgerät.
+- **App (`mesh-radio.ts`):**
+  - `serielleStrecke()`: sendet mit Längenpräfix und liest den Strom, wenn ein
+    Empfänger angegeben ist (`connectSerial(baud, onFrame)`; Settings geben
+    jetzt `receive` mit); beim Trennen endet das Lesen.
+  - `bluetoothStrecke()`: sendet den Rahmen samt Länge in BLE-Häppchen und
+    setzt eingehende Häppchen über `LaengenRahmen` wieder zu Rahmen zusammen.
+  - Beide ohne Gerät testbar (Port bzw. Merkmale übergeben).
+- **Knoten:** `gateway-role.ts` nimmt die Bausteine aus dem Protokoll (keine
+  Änderung im Verhalten).
+
+**Achtung Funkgerät:** Die Firmware am anderen Ende der USB- bzw.
+Bluetooth-Strecke muss denselben Längenpräfix sprechen wie die Brücke des
+Knotens (Entscheidung 7.4: „TCP-Brücke mit Längenpräfix“). Ein Gerät, das rohe
+Rahmen erwartete, gab es in der App nie mit Rückweg.
+
+**Tests:**
+- +2 in `app/test/mesh-radio.test.ts`: USB – ein Umschlag aus einem Strom in
+  ungleichen Häppchen (Grenzen im Längenfeld und im Rahmen) kommt vollständig
+  im Funkknoten an, gesendet wird mit Länge vorn, zu große Rahmen abgelehnt,
+  Trennen beendet das Lesen, ohne Empfänger wird nicht gelesen; Bluetooth –
+  Häppchen (20/180/5 Byte) ergeben wieder die Nachricht, gesendet wird in
+  Häppchen ≤ 180 Byte, die zusammen genau Länge + Rahmen sind, Trennen trennt.
+- Der Test der TCP-Brücke (`node/test/gateway-role.test.ts`) prüft dieselben
+  Bausteine jetzt aus dem Protokoll.
+
+Endstand: protocol 1081 (6 übersprungen) · node 241 (6 übersprungen, mit
+Netz; ohne Netz 240 + 7) · app 514 (+2) · mls 13 · Leak-Tests 59 grün + 1 todo ·
+0 rot · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 · Website 5
+Seiten ok · Smoke-Test bestanden. Knoten-Stand: unverändert im Verhalten.

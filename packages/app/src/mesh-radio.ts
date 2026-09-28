@@ -29,7 +29,7 @@ import {
   fragment, parseFrame, Reassembler, ForwardingCache, MeshQueue,
   MeshKind, MeshPriority, meshFeasibility, LORA_MTU, pruefeMeshInhalt, Sendezeitkonto,
   BESTAND_MARKE, buildDigest, falsePositiveRate, planSync, type SyncDigest, type Link, type NostrEvent,
-  Sendegedaechtnis, baueNachforderung, leseNachforderung,
+  Sendegedaechtnis, baueNachforderung, leseNachforderung, LaengenRahmen, mitLaenge,
 } from "@freedomstack/protocol";
 import { t } from "./i18n.js";
 import { fehlerText, funkText, meshGrund, syncNotiz } from "./protokoll-texte.js";
@@ -82,7 +82,7 @@ export function detectTransports(override?: Record<string, unknown>): TransportA
 }
 
 /** Serielle Verbindung zu einem LoRa-Gerät. */
-export async function connectSerial(baudRate = 115200): Promise<MeshTransport> {
+export async function connectSerial(baudRate = 115200, onFrame?: (raw: Uint8Array) => void): Promise<MeshTransport> {
   const nav = navigator as unknown as {
     serial?: { requestPort(): Promise<SerialPortLike> };
   };
@@ -90,7 +90,29 @@ export async function connectSerial(baudRate = 115200): Promise<MeshTransport> {
 
   const port = await nav.serial.requestPort();
   await port.open({ baudRate });
+  return serielleStrecke(port, onFrame);
+}
+
+/**
+ * Serielle Strecke über einen geöffneten Port – Rahmen mit Längenpräfix in
+ * beide Richtungen (7.4c1, wie die TCP-Brücke des Knotens). Bis dahin schrieb
+ * die App rohe Rahmen und las nie: Über USB kam keine Antwort an.
+ */
+export function serielleStrecke(port: SerialPortLike, onFrame?: (raw: Uint8Array) => void): MeshTransport {
   const writer = port.writable.getWriter();
+  const reader = onFrame ? port.readable.getReader() : null;
+  if (reader && onFrame) {
+    const leser = new LaengenRahmen();
+    void (async () => {
+      try {
+        for (;;) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          if (value) for (const f of leser.push(value)) onFrame(f);
+        }
+      } catch { /* getrennt */ }
+    })();
+  }
 
   return {
     kind: "seriell",
@@ -102,10 +124,12 @@ export async function connectSerial(baudRate = 115200): Promise<MeshTransport> {
         // verwirft ihn still, und die Nachricht fehlt ohne Hinweis.
         throw new Error(t("bau.rahmenZuGross", { n: frame.length, max: LORA_MTU }));
       }
-      await writer.write(frame);
+      await writer.write(mitLaenge(frame));
     },
     async close() {
       try {
+        await reader?.cancel();
+        reader?.releaseLock();
         writer.releaseLock();
         await port.close();
       } catch { /* schon getrennt */ }
@@ -147,59 +171,73 @@ export async function connectBluetooth(
   });
   const server = await device.gatt.connect();
   const service = await server.getPrimaryService(NUS_SERVICE);
-  const rx = await service.getCharacteristic(NUS_RX);
-  const tx = await service.getCharacteristic(NUS_TX);
+  return bluetoothStrecke(
+    await service.getCharacteristic(NUS_RX), await service.getCharacteristic(NUS_TX),
+    device.name ?? t("bau.bluetoothGeraet"), () => device.gatt.disconnect(), onFrame,
+  );
+}
 
-  // Empfang: Das Geraet schickt Rahmen, sobald welche ankommen.
+/**
+ * Bluetooth-Strecke über den Nordic-UART-Dienst – Rahmen mit Längenpräfix,
+ * in BLE-Häppchen zerlegt (7.4c1). Bis dahin kamen die Häppchen einzeln als
+ * „Rahmen“ an; ein Rahmen über 180 Byte war damit nie lesbar.
+ */
+export async function bluetoothStrecke(
+  rx: NusMerkmal, tx: NusMerkmal, name: string, trenne: () => void, onFrame?: (raw: Uint8Array) => void,
+): Promise<MeshTransport> {
+  // Empfang: Das Geraet schickt den Strom in Häppchen, sobald etwas ankommt.
   if (onFrame) {
+    const leser = new LaengenRahmen();
     await tx.startNotifications();
     tx.addEventListener("characteristicvaluechanged", (e: Event) => {
       const v = (e.target as unknown as { value: DataView }).value;
-      onFrame(new Uint8Array(v.buffer, v.byteOffset, v.byteLength));
+      for (const f of leser.push(new Uint8Array(v.buffer, v.byteOffset, v.byteLength))) onFrame(f);
     });
   }
 
   return {
     kind: "bluetooth",
-    name: device.name ?? t("bau.bluetoothGeraet"),
+    name,
     async send(frame: Uint8Array) {
       // In BLE-Haeppchen zerlegen. Ein zu grosser Schreibvorgang wird still
       // verworfen — und die Nachricht fehlt ohne Hinweis.
-      for (let off = 0; off < frame.length; off += BLE_CHUNK) {
-        await rx.writeValueWithoutResponse(frame.subarray(off, off + BLE_CHUNK));
+      const roh = mitLaenge(frame);
+      for (let off = 0; off < roh.length; off += BLE_CHUNK) {
+        await rx.writeValueWithoutResponse(roh.subarray(off, off + BLE_CHUNK));
       }
     },
     async close() {
       try {
         await tx.stopNotifications?.();
-        device.gatt.disconnect();
+        trenne();
       } catch { /* schon getrennt */ }
     },
   };
+}
+
+/** Merkmal des Nordic-UART-Dienstes (RX schreiben, TX meldet). */
+export interface NusMerkmal {
+  writeValueWithoutResponse(d: Uint8Array): Promise<void>;
+  startNotifications(): Promise<void>;
+  stopNotifications?(): Promise<void>;
+  addEventListener(t: string, f: (e: Event) => void): void;
 }
 
 interface BluetoothDeviceLike {
   name?: string;
   gatt: {
     connect(): Promise<{
-      getPrimaryService(uuid: string): Promise<{
-        getCharacteristic(uuid: string): Promise<{
-          writeValueWithoutResponse(d: Uint8Array): Promise<void>;
-          startNotifications(): Promise<void>;
-          stopNotifications?(): Promise<void>;
-          addEventListener(t: string, f: (e: Event) => void): void;
-        }>;
-      }>;
+      getPrimaryService(uuid: string): Promise<{ getCharacteristic(uuid: string): Promise<NusMerkmal> }>;
     }>;
     disconnect(): void;
   };
 }
 
-interface SerialPortLike {
+export interface SerialPortLike {
   open(o: { baudRate: number }): Promise<void>;
   close(): Promise<void>;
   writable: { getWriter(): { write(d: Uint8Array): Promise<void>; releaseLock(): void } };
-  readable: unknown;
+  readable: { getReader(): { read(): Promise<{ value?: Uint8Array; done: boolean }>; cancel(): Promise<void>; releaseLock(): void } };
 }
 
 /**

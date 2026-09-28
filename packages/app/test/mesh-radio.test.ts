@@ -10,10 +10,11 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   MeshNode, fileTransport, packBundle, unpackBundle, detectTransports,
-  eventToMesh, meshToEvent, MeshTransport,
+  eventToMesh, meshToEvent, MeshTransport, serielleStrecke, bluetoothStrecke, type SerialPortLike, type NusMerkmal,
 } from "../src/mesh-radio.js";
 import {
   MeshKind, MeshPriority, fragment, parseFrame, Sendezeitkonto, baueNachforderung, leseNachforderung,
+  LORA_MTU, LaengenRahmen, mitLaenge,
   buildEvent, buildPrivateDm, generateKeypair, signEvent, type NostrEvent,
 } from "@freedomstack/protocol";
 import { setLang } from "../src/i18n.js";
@@ -322,6 +323,94 @@ test("Nachgesendet wird nur Eigenes und höchstens zweimal – Fremdes geht weit
   for (const f of fragment(umschlag(600), MeshKind.NostrEvent).slice(1)) ohne.receive(f, 1000);
   assert.equal(ohne.nachfordern(2000), 0);
   await n.detach();
+});
+
+// ------------------------------------------------ Geräte-Strecken (7.4c1)
+
+/** Port wie Web Serial: schreibt mit, liefert vorgegebene Häppchen. */
+function fakePort(haeppchen: Uint8Array[]) {
+  const geschrieben: Uint8Array[] = [];
+  let abgebrochen = false;
+  const port: SerialPortLike & { geschrieben: Uint8Array[]; abgebrochen: () => boolean } = {
+    geschrieben, abgebrochen: () => abgebrochen,
+    async open() { /* offen */ },
+    async close() { /* zu */ },
+    writable: { getWriter: () => ({ async write(d: Uint8Array) { geschrieben.push(d); }, releaseLock() { /* frei */ } }) },
+    readable: {
+      getReader: () => ({
+        async read() {
+          await new Promise((r) => setTimeout(r, 1));
+          const value = haeppchen.shift();
+          return value ? { value, done: false } : { done: true };
+        },
+        async cancel() { abgebrochen = true; },
+        releaseLock() { /* frei */ },
+      }),
+    },
+  };
+  return port;
+}
+
+/** Strom in ungleiche Häppchen zerlegen – Grenzen mitten im Längenfeld und im Rahmen. */
+function zerstueckle(strom: Uint8Array, groessen = [1, 7, 150, 3, 90]): Uint8Array[] {
+  const out: Uint8Array[] = [];
+  for (let off = 0, i = 0; off < strom.length; i++) {
+    const n = groessen[i % groessen.length];
+    out.push(strom.subarray(off, off + n));
+    off += n;
+  }
+  return out;
+}
+
+test("USB: Rahmen mit Längenpräfix hin und zurück – die App liest jetzt auch (7.4c1)", async () => {
+  const original = umschlag(700);
+  const rahmen = fragment(original, MeshKind.NostrEvent);
+  const strom = Uint8Array.from(rahmen.flatMap((f) => [...mitLaenge(f)]));
+  const port = fakePort(zerstueckle(strom));
+  let empfangen: Uint8Array | null = null;
+  const n = node((p) => { empfangen = p; });
+  const tr = serielleStrecke(port, (raw) => n.receive(raw));
+  await new Promise((r) => setTimeout(r, 100));
+  assert.deepEqual(empfangen, original, "aus dem Strom zusammengesetzt");
+
+  await tr.send(rahmen[0]);
+  assert.deepEqual(port.geschrieben, [mitLaenge(rahmen[0])], "gesendet mit Länge vorn");
+  await assert.rejects(tr.send(new Uint8Array(LORA_MTU + 1)));
+  await tr.close();
+  assert.ok(port.abgebrochen(), "Lesen beim Trennen beendet");
+  // Ohne Empfänger wird nicht gelesen (wie bisher für reine Sender)
+  const still = fakePort([strom]);
+  serielleStrecke(still);
+  await new Promise((r) => setTimeout(r, 20));
+  assert.equal(still.abgebrochen(), false);
+});
+
+test("Bluetooth: Häppchen ergeben wieder Rahmen, gesendet in Häppchen mit Länge (7.4c1)", async () => {
+  const original = umschlag(700);
+  const rahmen = fragment(original, MeshKind.NostrEvent);
+  assert.ok(rahmen[0].length > 180, "ein Rahmen passt nicht in ein BLE-Häppchen");
+  const hoerer: ((e: Event) => void)[] = [];
+  const geschrieben: Uint8Array[] = [];
+  const merkmal = (): NusMerkmal => ({
+    async writeValueWithoutResponse(d) { geschrieben.push(d.slice()); },
+    async startNotifications() { /* an */ },
+    addEventListener(_t, f) { hoerer.push(f); },
+  });
+  let empfangen: Uint8Array | null = null;
+  let getrennt = false;
+  const n = node((p) => { empfangen = p; });
+  const tr = await bluetoothStrecke(merkmal(), merkmal(), "Test", () => { getrennt = true; }, (raw) => n.receive(raw));
+  const strom = Uint8Array.from(rahmen.flatMap((f) => [...mitLaenge(f)]));
+  for (const h of zerstueckle(strom, [20, 180, 5])) {
+    for (const f of hoerer) f({ target: { value: new DataView(h.buffer, h.byteOffset, h.byteLength) } } as unknown as Event);
+  }
+  assert.deepEqual(empfangen, original);
+
+  await tr.send(rahmen[0]);
+  assert.ok(geschrieben.length >= 2 && geschrieben.every((g) => g.length <= 180));
+  assert.deepEqual(new LaengenRahmen().push(Uint8Array.from(geschrieben.flatMap((g) => [...g]))), [rahmen[0]]);
+  await tr.close();
+  assert.ok(getrennt);
 });
 
 // ------------------------------------------------------------- Datei-Weg

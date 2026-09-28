@@ -15,9 +15,9 @@
  */
 import net from "node:net";
 import {
-  GatewayBuch, KIND_FUNK_WEITERLEITUNG, KIND_GIFT_WRAP, LORA_MTU, MeshKind, MeshPriority, MeshQueue, Reassembler, Sendegedaechtnis,
+  GatewayBuch, KIND_FUNK_WEITERLEITUNG, KIND_GIFT_WRAP, LORA_MTU, LaengenRahmen, MeshKind, MeshPriority, MeshQueue, Reassembler, Sendegedaechtnis,
   Sendezeitkonto, WEITERLEITUNG_MAX_SECS, baueNachforderung, getTag, giftUnwrapMitSigner, leseNachforderung, oeffneWeiterleitung,
-  parseFrame, pruefeMeshInhalt, type NostrEvent, type RelayFilter, type Signer,
+  mitLaenge, parseFrame, pruefeMeshInhalt, type NostrEvent, type RelayFilter, type Signer,
 } from "@freedomstack/protocol";
 
 /** Weg zum Funkgerät: Rahmen senden (höchstens `LORA_MTU` Byte). */
@@ -30,45 +30,6 @@ export interface FunkStrecke {
 export interface GatewayNetz {
   publish(ev: NostrEvent): Promise<unknown>;
   query(f: RelayFilter): Promise<NostrEvent[]>;
-}
-
-/** Rahmen mit Längenpräfix für die Brücke. */
-export function mitLaenge(frame: Uint8Array): Uint8Array {
-  if (frame.length === 0 || frame.length > LORA_MTU) throw new Error(`Rahmen mit ${frame.length} Byte passt nicht über Funk`);
-  const out = new Uint8Array(2 + frame.length);
-  out[0] = frame.length >> 8;
-  out[1] = frame.length & 0xff;
-  out.set(frame, 2);
-  return out;
-}
-
-/**
- * Rahmen aus dem Byte-Strom der Brücke. Eine unmögliche Länge (0 oder mehr als
- * ein Funkpaket) heißt: Der Strom hat sich verschoben – ein Byte weiter
- * suchen. Was dabei falsch zusammenkommt, verwirft der Zusammenbau (die
- * Kennung ist der Hash des Inhalts).
- */
-export class LaengenRahmen {
-  private puffer = new Uint8Array(0);
-
-  push(chunk: Uint8Array): Uint8Array[] {
-    const neu = new Uint8Array(this.puffer.length + chunk.length);
-    neu.set(this.puffer);
-    neu.set(chunk, this.puffer.length);
-    this.puffer = neu;
-    const out: Uint8Array[] = [];
-    while (this.puffer.length >= 2) {
-      const n = (this.puffer[0] << 8) | this.puffer[1];
-      if (n === 0 || n > LORA_MTU) {
-        this.puffer = this.puffer.subarray(1);
-        continue;
-      }
-      if (this.puffer.length < 2 + n) break;
-      out.push(this.puffer.slice(2, 2 + n));
-      this.puffer = this.puffer.subarray(2 + n);
-    }
-    return out;
-  }
 }
 
 /**
