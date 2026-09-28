@@ -16,6 +16,21 @@ export interface Gruppe<N> {
   nachrichten: N[];
 }
 
+/**
+ * Worauf eine Antwort verweist (Schritt C.2c): Der Thread ist immer die oberste
+ * Nachricht; wer auf eine Antwort im Thread antwortet, nennt sie zusätzlich
+ * (`replyTo`). Erwähnt wird, wem geantwortet wird – nie man selbst.
+ */
+export function antwortBezug(
+  ziel: { id: string; authorPubkey: string; threadRoot?: string }, ich?: string,
+): { threadRoot: string; replyTo?: string; erwaehnt: string[] } {
+  return {
+    threadRoot: ziel.threadRoot ?? ziel.id,
+    ...(ziel.threadRoot ? { replyTo: ziel.id } : {}),
+    erwaehnt: ziel.authorPubkey === ich ? [] : [ziel.authorPubkey],
+  };
+}
+
 /** Tag in der Zeitzone des Geräts. */
 const ortsTag = (s: number): string => new Date(s * 1000).toDateString();
 

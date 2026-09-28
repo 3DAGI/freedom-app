@@ -63,14 +63,18 @@ test("C.2b2 (B17): Rauminfo in der Sprache der Oberfläche – auf Deutsch wortg
 
 test("C.2b2 (B9): Verlauf mit Namen, gebaut aus DOM und textContent; Mitglieder mit Namen", () => {
   const verlauf = raeume.slice(raeume.indexOf("const { topLevel, threads } = buildThreads"), raeume.indexOf("// Schreibrecht: Wer nicht darf"));
-  assert.doesNotMatch(verlauf, /innerHTML|pkShort/, "kein HTML aus Fremddaten, keine gekürzten Schlüssel als Name");
-  assert.match(verlauf, /gruppiereVerlauf\(topLevel\)/);
-  assert.match(verlauf, /g\.autor === state\.keypair\?\.pk \? t\("raum\.ich"\) : kontaktName\(g\.autor\)/);
-  assert.match(verlauf, /z\.append\(el\("div", m\.content, "msg-text"\)\);/, "Inhalt nur als textContent");
+  // Seit C.2c zeichnen Kanal und Thread mit denselben Funktionen
+  const zeichnen = raeume.slice(raeume.indexOf("const nameVon = "), raeume.indexOf("/** Thread öffnen"));
+  assert.doesNotMatch(verlauf + zeichnen, /innerHTML|pkShort/, "kein HTML aus Fremddaten, keine gekürzten Schlüssel als Name");
+  assert.match(verlauf, /verlaufGruppen\(topLevel, spacesUi\.verlauf\)/);
+  assert.match(zeichnen, /return gruppiereVerlauf\(liste\)\.flatMap/);
+  assert.match(zeichnen, /const nameVon = \(pk: string\): string => \(pk === state\.keypair\?\.pk \? t\("raum\.ich"\) : kontaktName\(pk\)\);/);
+  assert.match(zeichnen, /const name = el\("span", nameVon\(g\.autor\), "msg-author"\);/);
+  assert.match(zeichnen, /z\.append\(el\("div", m\.content, "msg-text"\)\);/, "Inhalt nur als textContent");
   // Aktionen je Nachricht als Werkzeugleiste – dieselben Wege wie bisher
-  assert.match(verlauf, /leiste\.setAttribute\("role", "toolbar"\);/);
-  assert.match(verlauf, /knopf\(t\("komm\.moderieren"\), "mod-hide", \(\) => void moderiere\("hide", m\.id, m\.authorPubkey\)\)/);
-  assert.match(verlauf, /knopf\(raumAktionText\(m\.authorPubkey\), "raum-aktion", \(\) => void raumAktion\(m\.id, m\.authorPubkey\)\)/);
+  assert.match(zeichnen, /leiste\.setAttribute\("role", "toolbar"\);/);
+  assert.match(zeichnen, /knopf\(t\("komm\.moderieren"\), "mod-hide", \(\) => void moderiere\("hide", m\.id, m\.authorPubkey\)\)/);
+  assert.match(zeichnen, /knopf\(raumAktionText\(m\.authorPubkey\), "raum-aktion", \(\) => void raumAktion\(m\.id, m\.authorPubkey\)\)/);
   const mitglieder = raeume.slice(raeume.indexOf("async function zeigeMitglieder"), raeume.indexOf("/** Nachricht senden. */"));
   assert.doesNotMatch(mitglieder, /pkShort/);
   // Meldegrund als Text – nur bekannte Kennungen werden übersetzt, Fremdes bleibt, wie es ist
@@ -83,7 +87,8 @@ test("C.2b2: nach Beitreten und Anlegen steht der Raum da; mobil ist der Kanal e
   const anlegen = raeume.slice(raeume.indexOf("async function legeRaumAn"), raeume.indexOf("/** Name eines Kontakts"));
   assert.equal(anlegen.split('setzeKommModus("space");').length - 1, 2, "privat und offen");
   assert.match(quelle("../src/shell/tabs/kommunikation.ts"), /^export function setzeKommModus\(modus: "dm" \| "space"\): void \{/m);
-  assert.match(raeume, /async function oeffneKanal\(channelId: string\): Promise<void> \{\s*spacesUi\.channelId = channelId;[^\n]*\n[^\n]*\n\s*document\.querySelector\("\.comm-space-inner"\)\?\.classList\.add\("showing-channel"\);/);
+  // (seit C.2c schließt ein Kanalwechsel davor den Thread)
+  assert.match(raeume, /async function oeffneKanal\(channelId: string\): Promise<void> \{\s*(if \(spacesUi\.channelId !== channelId\) spacesUi\.thread = null;\s*)?spacesUi\.channelId = channelId;[^\n]*\n[^\n]*\n\s*document\.querySelector\("\.comm-space-inner"\)\?\.classList\.add\("showing-channel"\);/);
   assert.match(html, /<button id="channel-zurueck" class="ghost icon-btn kanal-zurueck" type="button" aria-label="Zu den Kanälen" data-i18n-aria="raum\.zuDenKanaelen">/);
   assert.match(raeume, /z\.tabIndex = -1;/, "antippen zeigt die Aktionen, ohne die Tab-Reihenfolge zu verlängern");
 });

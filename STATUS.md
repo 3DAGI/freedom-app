@@ -9511,3 +9511,70 @@ Endstand (nach dem Einmergen von `main` mit C.2b2): protocol 1082 (+1; 6
 übersprungen) · node 245 (6 übersprungen, mit Netz) · app 535 (+4) · mls 13 ·
 Leak-Tests 59 grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 ·
 innerHTML streng Exit 0 · Website 5 Seiten ok · Smoke-Test bestanden.
+
+## Schritt C.2c – Oberfläche: Antworten und Threads
+
+**Fertig:** Threads sind zu öffnen, Antworten zu schreiben (B8). Bis hierhin
+tat der Knopf „n Antworten“ nichts, und `sendePrivat()` reichte den Bezug nicht
+durch.
+
+**Einzelheiten:**
+- **Öffnen:** „n Antworten“ an einer Nachricht (jetzt mit Handler) und
+  „Antworten“ in ihrer Werkzeugleiste – für alle, die im Kanal schreiben
+  dürfen.
+- **Ort:**
+  - Desktop: rechte Spalte statt der Mitglieder.
+  - Bis 1100 px: statt des Kanals.
+  - Bis 900 px: eigene Ebene.
+  - „×“ oder Esc schließt; der Fokus kehrt zu „n Antworten“ zurück.
+  - Ein Wechsel von Kanal oder Raum schließt den Thread.
+  - Der offene Thread steht nur im Speicher (`spacesUi.thread`), nie in der
+    Adresse oder im Verlauf des Browsers.
+- **Inhalt:**
+  - Oben die oberste Nachricht, dann „n Antworten“, dann die Antworten,
+    gruppiert wie der Kanal. Am selben Tag gibt es kein zweites Datum.
+  - Eine Antwort auf eine Antwort zeigt „↪ Name: Anfang“ – nur Text, höchstens
+    80 Zeichen.
+  - „Antworten“ an einer Antwort setzt die Zeile „Antwort an …“; „×“ hebt sie
+    auf, dann geht die Antwort an die oberste Nachricht.
+- **Senden** (`sendeRaumNachricht(true)`) mit `antwortBezug()`
+  (`raum-verlauf.ts`, rein):
+  - `threadRoot` ist immer die oberste Nachricht.
+  - `replyTo` nur bei einer Antwort auf eine Antwort.
+  - Erwähnt wird, wem geantwortet wird – nie man selbst.
+  - Offen über `buildChannelMessage()`, privat über `sendePrivat(…, bezug)` →
+    `raumNachricht()` (`raum-mls.ts`, eine Zeile).
+  - Im Thread geht nichts ohne Bezug hinaus.
+  - Kein neues Format: Die Tags (NIP-10-artig) gab es schon in
+    `buildChannelMessage()` und `raumNachricht()`.
+- **Aufbau:** Kanal und Thread zeichnen mit denselben Funktionen
+  (`nachrichtZeile()`, `verlaufGruppen()`); der zuletzt gezeichnete Kanal steht
+  in `spacesUi.verlauf`.
+- **Probe-Raum:** ein Thread an der ersten Nachricht – eine Antwort und eine
+  Antwort darauf. `ProbeRelay` merkt sich, was die App veröffentlicht.
+- **Screenshots** (`docs/ausbau/bilder/c2c/`):
+  - Desktop: Kanal mit „2 Antworten · 2 Beteiligte“; daneben der Thread mit
+    Bezug und „Antwort an …“.
+  - Handy: Thread als eigene Ebene.
+
+**Tests:**
+- +4 in `raum-thread.test.ts`:
+  - Bezug (root, reply, Erwähnung).
+  - Offener Raum: Kind 42 mit Verweis, `buildThreads()` ordnet zu.
+  - Privater Raum: inneres Event mit Verweis, `gruppenRaum()` gibt ihn an den
+    Thread.
+  - Verdrahtung.
+- `raum-verlauf.test.ts` und `leak/raum.test.ts` lesen die neue Form, gleich
+  streng: Senden privat weiter nur über `sendePrivat()` → MLS, jetzt mit
+  `bezug`.
+- Smoke-Test „raum“ auf Desktop und Handy:
+  - „2 Antworten“ öffnet den Thread mit 3 Zeilen und einem Bezug.
+  - „Antworten“ an der letzten Antwort zeigt „Antwort an …“.
+  - Nach dem Senden geht genau ein Event mit `root` und `reply` hinaus, der
+    Thread zeigt 4 Zeilen.
+  - Esc schließt, der Fokus steht auf „n Antworten“.
+
+Endstand (nach dem Einmergen von `main` mit 4.5b): protocol 1082 (6
+übersprungen) · node 245 (6 übersprungen, mit Netz) · app 539 (+4) · mls 13 · Leak-Tests 59 grün + 1 todo · 0 rot ·
+check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 · Website 5 Seiten
+ok · Smoke-Test bestanden (mit „rahmen“, „dialog“ und „raum“ samt Thread).
