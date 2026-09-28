@@ -8,7 +8,7 @@ export const repos: Texte = {
   "repo.meine": { de: "Meine", en: "Mine" },
   "repo.nichtsGefunden": { de: "Kein Repo passt zur Suche.", en: "No repo matches the search." },
   "repo.markeBundle": { de: "Bundle", en: "Bundle" },
-  "repo.karteFuss": { de: "{n} offene Patches · zuletzt {datum}", en: "{n} open patches · last {datum}" },
+  "repo.karteFuss": { de: "Offene Patches: {n} · zuletzt {datum}", en: "Open patches: {n} · last {datum}" },
   "repo.beschreibung": { de: "Beschreibung (optional)", en: "Description (optional)" },
   "repo.alleRepos": { de: "‹ Alle Repos", en: "‹ All repos" },
   "repo.maintainer": { de: "Maintainer: {namen}", en: "Maintainers: {namen}" },
