@@ -10475,6 +10475,14 @@ Smoke-Test „qr“ (neu):
   nach dem Klick genau eine Anfrage, der Code landet im Feld, die Spur ist
   danach beendet; nach „Importieren“ spricht es für die Person.
 
+Gefunden beim Einmergen: `mesh-radio.test.ts` („Nachgesendet wird nur
+Eigenes …“, 7.4b, Spur B) war zeitabhängig – `pump()` sendet im Takt mit
+einer Pause je Rahmen, der Test zählte nach festen 50 ms. Bei voller Last
+waren noch nicht alle Rahmen draußen und zählten dann als „nachgesendet“
+(10 statt 8). Jetzt wartet er auf die erwartete Zahl und prüft danach, dass
+nichts mehr kommt; mit einem Transport, der je Rahmen 15 ms braucht, ist die
+alte Fassung rot, die neue grün.
+
 Endstand (nach dem Einmergen von `main` mit C.3b2): protocol 1096 (6
 übersprungen) · node 260 (6 übersprungen, mit Netz) · app 589 (+4) · mls 13 ·
 Leak-Tests 62 grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 (155
