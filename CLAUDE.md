@@ -44,9 +44,9 @@ bash packages/mls/bauen.sh --pruefen                     # nur bei Änderungen a
 bash contracts/solana-channel/pruefen.sh --werkzeuge     # nur bei Änderungen am Zahlkanal: bauen + Tests gegen Validator (Agave 3.1.10)
 ```
 
-Stand 28.09.2026 (nach 4.3d2, 7.4c3 und C.2b1): protocol 1081 grün (6 übersprungen), node 241 grün
+Stand 28.09.2026 (nach 4.3d2, 7.4c3 und C.2b2): protocol 1081 grün (6 übersprungen), node 241 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 525 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 59 grün + 1 `todo` (heutige Lecks,
+in `tools.test.ts`), app 531 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 59 grün + 1 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
 Ausnahme: gesendete SOL-Zahlungen von frischen Adressen, eine bewusste Grenze
 nach Entscheidung 4.9 A – im Datenschutzbericht unter „Bewusste Grenzen“).
@@ -587,3 +587,10 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   Browser-Dialog mehr (`dialog.test.ts`); andere Bereiche ziehen nach, wenn sie
   dran sind. Klassenlisten als Argument (`el("div", undefined, "modal dlg-box")`)
   brauchen einen Namen mit Bindestrich, sonst hält der Rohtext-Test sie für Text.
+- **Räume im Browser-Test nur mit der Relay-Attrappe** (seit C.2b2):
+  `ProbeRelay` (`scripts/smoke_test.py`) beantwortet jede REQ aus dem
+  Probe-Raum, den `scripts/raum-probe.mts` mit Wegwerfschlüsseln signiert –
+  nie echte Relays, nie echte Schlüssel. Den eigenen Schlüssel liest die
+  Attrappe aus der Abfrage der eigenen Relay-Listen (Kind 10002, ein Autor);
+  die App zeigt ihn nirgends ganz. Der Raum erscheint erst im Raum-Modus
+  (`setzeKommModus("space")`), mobil nur mit `.showing-channel`.

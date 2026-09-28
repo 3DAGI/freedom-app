@@ -162,7 +162,7 @@ function wireBlobButtons(root: HTMLElement): void {
 }
 
 /** Kommunikation: zwischen Direktnachrichten und einem Raum umschalten. */
-function setzeKommModus(modus: "dm" | "space"): void {
+export function setzeKommModus(modus: "dm" | "space"): void {
   const layout = document.querySelector<HTMLElement>(".comm-layout");
   if (layout) layout.dataset.commMode = modus;
   document.getElementById("comm-dm-btn")?.setAttribute("aria-current", String(modus === "dm"));

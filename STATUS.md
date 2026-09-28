@@ -9309,3 +9309,82 @@ Endstand (nach dem Einmergen von `main` mit 7.4c3): protocol 1081 (6
 Leak-Tests 59 grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 ·
 innerHTML streng Exit 0 · Website 5 Seiten ok · Smoke-Test bestanden (mit
 „rahmen“ und „dialog“).
+
+## Schritt C.2b2 – Oberfläche: Raum-Verlauf mit Namen, Aktionen, Raum-Menü
+
+**Fertig:** Der Verlauf eines Raums steht gruppiert und mit Namen da, jede
+Nachricht hat ihre Aktionen als Werkzeugleiste, der Raum hat ein Menü ▾. Die
+Rauminfo spricht die Sprache der Oberfläche (B9, B17). Der neue Browser-Test
+mit einem Probe-Raum fand zwei Fehler, die dieser Schritt mit behebt (B18,
+B19).
+
+**Einzelheiten:**
+- **Verlauf** (`shell/tabs/raeume.ts`, `raum-verlauf.ts`):
+  - Nachrichten desselben Absenders stehen unter einem Kopf, solange zwischen
+    zweien höchstens fünf Minuten liegen und derselbe Tag ist.
+    `gruppiereVerlauf()` ist rein; ein rückwärts laufender Zeitstempel beginnt
+    eine neue Gruppe.
+  - Zwischen den Tagen steht das Datum (`gebietsschema()`).
+  - Namen über `kontaktName()`, die eigenen als „Du“; der volle Schlüssel
+    steht im Titel des Namens.
+  - Gebaut nur mit DOM und `textContent`. Die vier innerHTML-Ausnahmen des
+    alten Verlaufs sind gestrichen.
+- **Aktionen je Nachricht:** eine Werkzeugleiste mit denselben Wegen wie
+  bisher (`moderiere()` im offenen, `raumAktion()` im privaten Raum).
+  - Sichtbar beim Zeigen und mit dem Fokus; Tab erreicht die Knöpfe.
+  - Mobil nach Antippen der Nachricht: Die Zeile nimmt den Fokus
+    (`tabIndex = -1`), steht aber nicht in der Tab-Reihenfolge.
+- **Raum-Menü ▾** (`shell/menue.ts`, `wireMenue()`):
+  - Tastatur nach Menü-Muster: Pfeile, Pos1/Ende, Esc gibt den Fokus zurück,
+    Tab oder ein Klick daneben schließt.
+  - Die Knöpfe Einladen, Moderatoren, Beitreten und Anlegen stehen jetzt im
+    Menü und behalten ihre IDs; die Leiste links (`rail-join`,
+    `rail-create`) löst sie weiter aus.
+  - Ein gewählter Punkt schließt das Menü in der Erfassungsphase, bevor sein
+    Dialog öffnet – so kehrt der Fokus danach zum Menüknopf zurück.
+- **Mitglieder und Meldungen:** Namen statt gekürzter Schlüssel; der
+  Meldegrund steht als Text. Nur bekannte Kennungen werden übersetzt, Fremdes
+  bleibt, wie es ist.
+- **B17:** `kanalVertraulichkeit()` in `protokoll-texte.ts` (kleine Ergänzung
+  in einer Datei der Spur B), auf Deutsch wortgleich mit `privacyInfo()`.
+  - Die App ruft `privacyInfo()` nicht mehr auf.
+  - Neue Zeile in `scripts/wiring-ausnahmen.txt` wie bei den anderen
+    deutschen Referenzsätzen.
+- **B19:** Beitreten und Anlegen wechseln gleich in den Raum.
+  `setzeKommModus()` ist dafür aus `kommunikation.ts` exportiert. Vorher
+  blieb der Chat bei den Direktnachrichten, bis man das Symbol des Raums
+  antippte.
+- **B18:** Bis 900 px zeigte ein Raum nie seine Nachrichten – `.channel-main`
+  war ausgeblendet, `.showing-channel` setzte kein Code.
+  - Jetzt ist ein geöffneter Kanal dort eine eigene Ebene.
+  - „‹“ (`#channel-zurueck`) führt zur Kanalliste, der Fokus landet auf dem
+    offenen Kanal.
+  - Mitglieder und Thread als Ebenen bleiben bei C.2d.
+- **Probe-Raum für Browser-Tests:**
+  - `scripts/raum-probe.mts` signiert einen offenen Raum mit Wegwerfschlüsseln:
+    zwei Kanäle, Rollen, fünf Nachrichten über zwei Tage, eine davon mit
+    `<img onerror>`. Der eigene Schlüssel wird Moderator.
+  - `ProbeRelay` in `smoke_test.py` beantwortet damit jede REQ;
+    `screenshots.py` nutzt dieselbe Attrappe.
+- **Screenshots** (`docs/ausbau/bilder/c2b2/`):
+  - Desktop: Verlauf mit Datum, Gruppen und Namen, die Werkzeugleiste an
+    einer Nachricht; das offene Raum-Menü.
+  - Handy: Kanal als eigene Ebene mit „‹“, Aktionen nach Antippen; die
+    Kanalliste mit dem offenen Menü.
+- **CLAUDE.md:** Fallstrick „Räume im Browser-Test nur mit der
+  Relay-Attrappe“.
+
+**Tests:**
+- +6 in `raum-verlauf.test.ts`:
+  - Gruppen nach Absender und Abstand, Tag und rückwärts laufende Zeit;
+  - Rauminfo wortgleich auf Deutsch, übersetzt auf Englisch;
+  - Verlauf ohne `innerHTML` und `pkShort`, mit Namen und Werkzeugleiste;
+  - Beitreten und Anlegen zeigen den Raum, mobile Ebene;
+  - das Raum-Menü mit IDs und Tastatur.
+- Smoke-Test „raum“ auf Desktop und Handy, siehe oben.
+
+Endstand: protocol 1081 (6 übersprungen) · node 241 (6 übersprungen, mit
+Netz) · app 531 (+6) · mls 13 · Leak-Tests 59 grün + 1 todo · 0 rot ·
+check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 (70 Ausnahmen, 4
+weniger) · Website 5 Seiten ok · Smoke-Test bestanden (mit „rahmen“, „dialog“
+und „raum“).
