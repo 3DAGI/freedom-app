@@ -418,15 +418,33 @@ export async function zeigeOnboarding(): Promise<void> {
     }
 
     bar.className = `mono-sm urgency-${schritt.urgency}`;
-    bar.innerHTML =
-      `<span class="ob-title">${escapeHtml(schritt.title)}</span>` +
-      `<span class="ob-body">${escapeHtml(schritt.body)}</span>` +
-      (schritt.action
-        ? `<button id="ob-action" class="ghost" style="width:auto;padding:6px 10px">${escapeHtml(schritt.action)}</button>`
-        : "") +
-      (schritt.skippable
-        ? `<button id="ob-skip" class="ghost" style="width:auto;padding:4px 8px;font-size:10px">${escapeHtml(t("ein.spaeter"))}</button>`
-        : "");
+    // Seit C.5b als DOM; auf dem Handy nur Titel und Knöpfe – den Text klappt „mehr“ auf
+    const knopf = (id: string, text: string) => {
+      const b = document.createElement("button");
+      b.id = id;
+      b.type = "button";
+      b.className = "ghost";
+      b.textContent = text;
+      return b;
+    };
+    const titel = document.createElement("span");
+    titel.className = "ob-title";
+    titel.textContent = schritt.title;
+    const text = document.createElement("span");
+    text.className = "ob-body";
+    text.id = "ob-body";
+    text.textContent = schritt.body;
+    const mehr = knopf("ob-mehr", t("ein.obMehr"));
+    mehr.setAttribute("aria-controls", "ob-body");
+    mehr.setAttribute("aria-expanded", "false");
+    mehr.addEventListener("click", () => {
+      const auf = bar.classList.toggle("ob-offen");
+      mehr.setAttribute("aria-expanded", String(auf));
+      mehr.textContent = t(auf ? "ein.obWeniger" : "ein.obMehr");
+    });
+    bar.replaceChildren(titel, text, mehr,
+      ...(schritt.action ? [knopf("ob-action", schritt.action)] : []),
+      ...(schritt.skippable ? [knopf("ob-skip", t("ein.spaeter"))] : []));
 
     bar.querySelector("#ob-action")?.addEventListener("click", () => {
       if (schritt.id === "sichern") void sichereJetzt();

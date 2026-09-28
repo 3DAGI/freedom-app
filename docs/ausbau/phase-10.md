@@ -7,9 +7,9 @@ Karte der Abdeckung und eine Navigation, die auf Desktop und Handy je für sich
 Sinn ergibt. Protokoll, Krypto, Zahlungen und Event-Formate bleiben, wie sie
 sind; sonst gilt die STOPP-Regel aus `CLAUDE.md`.
 
-Stand dieser Karte: **C.0, C.1a, C.1b, C.2 (Räume), C.3 (Repositories) und C.4 (Abdeckungskarte) fertig.** Der MENSCH hat den
+Stand dieser Karte: **C.0 bis C.5 fertig** – Rahmen, Räume, Repositories, Abdeckungskarte, Feinschliff Mobil. Der MENSCH hat den
 Entwurf am 27.09.2026 freigegeben – E1–E8 wie vorgeschlagen (Abschnitt 10.3).
-Nächster Schritt: C.5b.
+Nächster Schritt: C.6 (erst nach Absprache mit Spur A).
 
 ---
 
@@ -761,6 +761,22 @@ Seiten mit Screenshots.
   Profil-Vorschau ohne Bild – der Anfangsbuchstabe des Namens
   (`zeigeIdent()`), nie ein Bild aus dem Netz; Settings-Reiter mit Verlauf am
   rechten Rand.
+
+**C.5b – fertig (28.09.2026).** Damit ist C.5 fertig.
+- Hinweisleiste als DOM (vorher `innerHTML`); auf dem Handy eine Zeile mit
+  Titel, „mehr“ und den Knöpfen – rund 50 statt 140 px auf jeder Seite; „mehr“
+  klappt den Text auf (`aria-expanded`). Am Desktop steht der Text wie bisher.
+- Gleiche Ränder: Währung und Verdienen hatten aus der alten App einen eigenen
+  Rand (14 px mehr als die übrigen Seiten, auch am Desktop). Jetzt überall
+  14 px hochkant, 28 px quer und am Desktop wie die anderen Seiten.
+- Seitenkopf bricht unter 760 px um (Währung: Guthaben und „Wallet verbinden“
+  unter dem Titel statt daneben).
+- Durchgang aller Seiten (Desktop, Handy hochkant und quer, Kontaktbögen in
+  `bilder/c5b/`). Gefunden und behoben: C.5a hatte allen Knöpfen `min-width`
+  gegeben – das hob das Mindestmaß der Flex-Elemente auf, die Settings-Reiter
+  schrumpften unter ihren Text und überlagerten sich. Nur die Symbolknöpfe im
+  Kopf der Direktnachrichten brauchen die Breite ausdrücklich; der Smoke-Test
+  prüft seitdem auch Text, der aus Knöpfen und Reitern läuft.
 
 ---
 

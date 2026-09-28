@@ -2,6 +2,7 @@
  * Schritt C.5a: Feinschliff Mobil – was der Browser-Test („mobil“) nicht
  * messen kann: Safe-Area (Chromium stellt keine Kerbe nach), die Tastatur-
  * Angabe im Viewport und dass die Kopfzeile kein Bild aus dem Netz lädt.
+ * Seit C.5b: Hinweisleiste als DOM, gleiche Ränder auf allen Seiten.
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -22,7 +23,10 @@ test("C.5a: Safe-Area für Kopfzeile, Inhalt und untere Leiste; Viewport lässt 
 test("C.5a: Berührflächen mindestens 40 px unter 1024 px, Häkchen nie in voller Breite", () => {
   const block = mobil.slice(mobil.indexOf("@media (max-width: 1023px)"));
   assert.match(block, /#app button, #app select, #app \[role="tab"\], \.dlg-huelle button,\n\s+#app input:not\(\[type="checkbox"\]\)[^{]*\{ min-height: 40px; \}/);
-  assert.match(block, /#app button \{ min-width: 40px; \}/);
+  // Seit C.5b keine Mindestbreite für alle Knöpfe: sie höbe das Mindestmaß der Flex-Elemente auf, und die
+  // Settings-Reiter schrumpften unter ihren Text (der Smoke-Test prüft seitdem auch übergelaufenen Text)
+  assert.doesNotMatch(css, /#app button \{ min-width: 40px; \}/);
+  assert.match(block, /\.comm-dm \.chat-side-head button \{ width: 40px; \}/);
   assert.match(mobil, /input\[type="checkbox"\], input\[type="radio"\] \{ width: 18px; height: 18px;/);
 });
 
@@ -49,4 +53,22 @@ test("C.5a: die untere Leiste weicht nur beim Tippen – Felder, die eine Tastat
   const sel = nav.slice(nav.indexOf("export function tipptIn"));
   assert.match(sel, /textarea/);
   for (const art of ["checkbox", "radio", "range", "file", "button", "submit", "color"]) assert.match(sel, new RegExp(`:not\\(\\[type='${art}'\\]\\)`), art);
+});
+
+test("C.5b: Hinweisleiste als DOM – auf dem Handy nur Titel und Knöpfe, der Text klappt mit „mehr“ auf", () => {
+  const app = lies("shell/app.ts");
+  const ob = app.slice(app.indexOf("export async function zeigeOnboarding"), app.indexOf("\n}\n", app.indexOf("export async function zeigeOnboarding")));
+  assert.doesNotMatch(ob, /innerHTML|insertAdjacentHTML/);
+  assert.match(ob, /text\.textContent = schritt\.body;/);
+  assert.match(ob, /mehr\.setAttribute\("aria-controls", "ob-body"\);/);
+  assert.match(ob, /mehr\.setAttribute\("aria-expanded", String\(auf\)\);/);
+  const b = css.slice(css.indexOf("/* ---------- Mobil (C.5b)"));
+  assert.match(b, /#ob-mehr \{ display: none; \}/, "am Desktop steht der Text immer da");
+  assert.match(b, /#onboarding-bar \.ob-body \{ display: none;/);
+  assert.match(b, /#onboarding-bar\.ob-offen \.ob-body \{ display: block;/);
+});
+
+test("C.5b: Währung und Verdienen ohne eigenen Rand – Kopf und Inhalt setzen ihn wie auf allen Seiten", () => {
+  assert.match(css, /#page-wallet, #page-earn \{ overflow-y: auto; \}/);
+  assert.doesNotMatch(css, /#page-wallet, #page-earn \{[^}]*padding/);
 });
