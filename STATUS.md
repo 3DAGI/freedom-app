@@ -8683,3 +8683,11 @@ stehen in der Sprache der Oberfläche. 8.16g2b3 ist geteilt (rund 90 Sätze):
 - Protokoll: die Tests von Relayer, Offline-Überweisung, Mesh-Inhalt,
   Fristen, Rück-Swap, SOL-Beleg und Stichprobe prüfen zusätzlich die
   Kennungen und Zahlen.
+- Zwei App-Tests prüfen die Gründe wörtlich auf Deutsch: `mesh-radio` setzt
+  dafür Deutsch und prüft zusätzlich die englische Fassung;
+  `relay-einloesung` sucht „Empfänger“ statt „Empfaenger“.
+
+Endstand: protocol 1067 (6 übersprungen) · node 235 (6 übersprungen, mit
+Netz; ohne Netz 234 + 7) · app 507 (+1) · mls 13 · Leak-Tests 58 grün + 1
+todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 ·
+Website 5 Seiten ok · Smoke-Test bestanden.
