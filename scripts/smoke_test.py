@@ -1062,12 +1062,38 @@ def raum_pruefen(browser, url: str) -> dict:
         if not (code["commit"] or "").startswith("Liste ergänzt · Probe · ") or not (code["commit"] or "").endswith("· 590c7cf") \
                 or code["dateien"] != ["src/", "bild.bin", "README.md"] or code["readme"] != "# Werkzeug" or code["fehler"]:
             erg["fehler"].append(f"{groesse}: Reiter Code {code}")
+        # Seit C.3c2: Ordner öffnen, Datei als Text, binär ehrlich, zurück über den Pfad; Reiter „Commits“
+        def eintrag(name: str) -> None:
+            ev(f"() => [...document.querySelectorAll('#repo-seite .code-eintrag')].find(b => b.textContent === '{name}')?.click()")
+            s.wait_for_timeout(150)
+        pfad = "() => [...document.querySelectorAll('#repo-seite .code-pfad > :not(.muted)')].map(e => e.textContent)"
+        eintrag("src/")
+        navi = {"src": [ev(pfad), ev("() => [...document.querySelectorAll('#repo-seite .code-eintrag')].map(b => b.textContent)"),
+                        ev("() => document.activeElement?.classList.contains('code-hier')")]}
+        eintrag("liste.txt")
+        navi["datei"] = [ev(pfad), ev("() => document.querySelector('#repo-seite .code-datei')?.textContent.split('\\n')[0]")]
+        ev("() => document.querySelector('#repo-seite .code-pfad-knopf')?.click()")  # zurück zu „meins“
+        s.wait_for_timeout(150)
+        eintrag("bild.bin")
+        navi["binaer"] = [ev(pfad), ev("() => !!document.querySelector('#repo-seite .code-datei')"),
+                          ev("() => [...document.querySelectorAll('#repo-seite p')].some(p => p.textContent.startsWith('Binärdatei'))")]
+        ev("() => document.querySelector('#repo-seite [data-reiter=commits]')?.click()")
+        s.wait_for_timeout(200)
+        ev("() => document.querySelector('#repo-seite .code-commits details summary')?.click()")
+        navi["commits"] = ev("""() => ({ betreffe: [...document.querySelectorAll('#repo-seite .code-commit-betreff')].map(e => e.textContent),
+          offen: document.querySelector('#repo-seite .code-commits details')?.open,
+          nachricht: document.querySelector('#repo-seite .code-commit-nachricht')?.textContent })""")
+        erg[groesse]["code_navi"] = navi
+        if navi["src"] != [["meins", "src"], ["liste.txt"], True] or navi["datei"] != [["meins", "src", "liste.txt"], "Zeile 0: Hammer, Zange, Säge und Schraubenzieher liegen bereit."] \
+                or navi["binaer"] != [["meins", "bild.bin"], False, True] or navi["commits"]["betreffe"] != ["Liste ergänzt", "Erster Stand"] \
+                or not navi["commits"]["offen"] or "zweiten Zeile" not in (navi["commits"]["nachricht"] or ""):
+            erg["fehler"].append(f"{groesse}: Code-Navigation/Commits {navi}")
         erg[groesse]["repo_c3a2"] = {"fremd_reiter": fremd_reiter, "mitwirkende": mitwirkende, "eigen_reiter": eigen_reiter,
                                      "abgewiesen": abgewiesen, "tags": tags, "links": links, "bleibt": noch_einstellungen,
                                      "bundle": bundle_tags, "bundle_knopf": bundle_knopf}
-        if fremd_reiter != ["code", "patches", "mitwirkende"] or mitwirkende != 2:
+        if fremd_reiter != ["code", "commits", "patches", "mitwirkende"] or mitwirkende != 2:
             erg["fehler"].append(f"{groesse}: fremdes Repo, Reiter/Mitwirkende {fremd_reiter} {mitwirkende}")
-        if eigen_reiter != ["code", "patches", "mitwirkende", "einstellungen"]:
+        if eigen_reiter != ["code", "commits", "patches", "mitwirkende", "einstellungen"]:
             erg["fehler"].append(f"{groesse}: eigenes Repo ohne Einstellungen {eigen_reiter}")
         if "Maintainer" not in abgewiesen[0] or abgewiesen[1] != 0 or abgewiesen[2]:
             erg["fehler"].append(f"{groesse}: ungültiger Maintainer nicht abgewiesen {abgewiesen}")

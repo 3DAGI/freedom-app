@@ -394,3 +394,43 @@ export function commitsAb(b: GelesenesBundle, sha: string, max = 100): Array<{ s
   }
   return aus;
 }
+
+export type AnPfad =
+  | { art: "ordner"; eintraege: BaumEintrag[] }
+  | { art: "datei" | "link"; daten: Uint8Array }
+  | { art: "modul"; sha: string };
+
+/**
+ * Was unter `pfad` im Baum `baum` liegt (seit C.3c2) – Ordner, Datei, Link
+ * oder Submodul; `null`, wenn es den Pfad im Bundle nicht gibt (auch bei
+ * „..“ oder einem Pfad durch eine Datei hindurch).
+ */
+export function unterPfad(b: GelesenesBundle, baum: string, pfad: readonly string[]): AnPfad | null {
+  let jetzt = baum;
+  for (let i = 0; i <= pfad.length; i++) {
+    const o = b.objekte.get(jetzt);
+    if (!o) return null;
+    if (o.art !== "tree") return null;
+    const eintraege = leseBaum(o.daten);
+    if (i === pfad.length) return { art: "ordner", eintraege };
+    const e = eintraege.find((x) => x.name === pfad[i]);
+    if (!e) return null;
+    if (e.art === "modul") return i === pfad.length - 1 ? { art: "modul", sha: e.sha } : null;
+    if (e.art !== "ordner") {
+      const d = b.objekte.get(e.sha);
+      return i === pfad.length - 1 && d?.art === "blob" ? { art: e.art, daten: d.daten } : null;
+    }
+    jetzt = e.sha;
+  }
+  return null;
+}
+
+/** Text, den die App zeigen kann: gültiges UTF-8 ohne Nullbyte (so erkennt auch git Binärdateien). */
+export function alsText(daten: Uint8Array): string | null {
+  if (daten.subarray(0, 8000).includes(0)) return null;
+  try {
+    return new TextDecoder("utf-8", { fatal: true }).decode(daten);
+  } catch {
+    return null;
+  }
+}

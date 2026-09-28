@@ -1547,3 +1547,14 @@ button.menue-punkt.menue-gefahr { color: var(--red); }
 .code-ordner { font-weight: 600; }
 .code-readme-titel { margin: 12px 0 4px; }
 .code-readme { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; padding: 10px; border: 1px solid var(--border); border-radius: 6px; max-height: 60vh; overflow: auto; }
+/* Code und Commits (C.3c2): Pfad, Einträge als Knöpfe, Dateiinhalt, aufklappbare Commits */
+.code-pfad { display: flex; flex-wrap: wrap; gap: 2px 4px; align-items: baseline; margin: 10px 0 6px; }
+.code-pfad-knopf, .code-eintrag { width: auto; background: none; border: 0; padding: 0; color: var(--text); font: inherit; text-transform: none; letter-spacing: normal; cursor: pointer; text-align: left; overflow-wrap: anywhere; }
+.code-pfad-knopf:hover, .code-eintrag:hover, .code-pfad-knopf:focus-visible, .code-eintrag:focus-visible { text-decoration: underline; }
+.code-hier { font-weight: 600; }
+.code-datei { white-space: pre; overflow: auto; font-size: 12px; padding: 10px; border: 1px solid var(--border); border-radius: 6px; max-height: 70vh; }
+.code-commits { list-style: none; margin: 10px 0; padding: 0; }
+.code-commits > li { border-top: 1px solid var(--border); padding: 6px 0; }
+.code-commit-zeile { cursor: pointer; display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; }
+.code-commit-betreff { overflow-wrap: anywhere; }
+.code-commit-nachricht { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; margin: 6px 0 0 14px; }
