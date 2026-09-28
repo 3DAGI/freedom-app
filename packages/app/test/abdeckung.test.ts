@@ -12,7 +12,10 @@ test("5.10a verdrahtet: Eintrag nie mit der Identitaet, Schluessel nur im Tresor
   const earn = readFileSync(new URL("../src/shell/tabs/earn.ts", import.meta.url), "utf8");
   const ein = earn.slice(earn.indexOf("export async function trageAbdeckungEin"), earn.indexOf("export const LS_ABDECKUNG_EINTRAG"));
   // seit 8.16f in der Sprache der Oberfläche – auf Deutsch wortgleich mit coverageConsentText() (i18n.test.ts)
-  assert.match(ein, /if \(!confirm\(abdeckungEinwilligung\(layer\)\)\) return;/, "erst die Einwilligung");
+  // seit C.4b als Dialog statt confirm() – und vor dem Senden
+  const einwilligung = ein.search(/if \(!\(await bestaetige\(\{ titel: t\("karte\.einwilligungTitel"\), text: abdeckungEinwilligung\(layer\), ok: t\("karte\.eintragenOk"\) \}\)\)\) return;/);
+  assert.ok(einwilligung > 0, "erst die Einwilligung");
+  assert.ok(einwilligung < ein.indexOf(".publish(event)"), "Einwilligung vor dem Senden");
   assert.match(ein, /const \{ event, wegwerfSk \} = baueCoverageEintrag\(\{ layer, cell, region: "" \}\);/);
   assert.match(ein, /await geheim\.setItem\(LS_ABDECKUNG_EINTRAG, /);
   assert.match(ein, /await widerrufeAbdeckung\(false\);/, "ein frueherer Eintrag wird zuerst widerrufen");

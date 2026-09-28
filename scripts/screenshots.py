@@ -59,7 +59,9 @@ def main() -> int:
             if nur and groesse != nur:
                 continue
             mobil = groesse == "mobil"
-            ctx = browser.new_context(locale="de-DE", viewport=vp, is_mobile=mobil, has_touch=mobil)
+            # Seit C.4b ein fester Probe-Ort für „mein Gebiet zeigen“ (nie der echte)
+            ctx = browser.new_context(locale="de-DE", viewport=vp, is_mobile=mobil, has_touch=mobil,
+                                      geolocation={"latitude": 48.137154, "longitude": 11.576124}, permissions=["geolocation"])
             ctx.route("**/*", lambda r: r.continue_() if r.request.url.startswith(basis) else r.abort())
             # Seit C.2b2: Relay-Attrappe mit dem Probe-Raum (wie im Smoke-Test)
             relay = ProbeRelay()
@@ -214,6 +216,15 @@ def main() -> int:
                 s.evaluate("() => document.querySelector('#coverage-ansicht [data-ansicht=liste]')?.click()")
                 s.wait_for_timeout(200)
                 s.screenshot(path=str(ziel / f"{groesse}-{nr + 20:02d}-karte-liste.jpg"), type="jpeg", quality=70)
+                # Seit C.4b: Umrisse, eigenes Gebiet (gerundet, nur umrandet) und „Mein Gebiet“
+                s.evaluate("() => { document.querySelector('#coverage-ansicht [data-ansicht=karte]')?.click(); document.getElementById('coverage-standort')?.click(); }")
+                s.wait_for_timeout(1500)
+                s.evaluate("() => { document.getElementById('coverage-meins')?.click(); document.querySelector('#coverage-karte').scrollIntoView({ block: 'start' }); }")
+                s.wait_for_timeout(300)
+                s.screenshot(path=str(ziel / f"{groesse}-{nr + 21:02d}-karte-eigen.jpg"), type="jpeg", quality=70)
+                s.evaluate("() => { document.getElementById('coverage-welt')?.click(); document.querySelector('#coverage-karte').scrollIntoView({ block: 'start' }); }")
+                s.wait_for_timeout(300)
+                s.screenshot(path=str(ziel / f"{groesse}-{nr + 22:02d}-karte-umrisse.jpg"), type="jpeg", quality=70)
             ctx.close()
         browser.close()
     srv.shutdown()

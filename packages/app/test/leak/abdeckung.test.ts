@@ -31,7 +31,11 @@ for (const layer of ["lora", "bluetooth"] as const) {
 
 test("Verdrahtung: trageAbdeckungEin() rundet vor dem Senden", () => {
   const e = readFileSync(new URL("../../src/shell/tabs/earn.ts", import.meta.url), "utf8");
-  assert.match(e, /const cell = toCell\(pos\.coords\.latitude, pos\.coords\.longitude, LAYER_CELL_DEGREES\[layer\]\);/);
+  // Seit C.4b aus dem schon gerundeten Ort (0,5°, Vielfaches jeder Zellgroesse) – der genaue Ort wird nur einmal gelesen
+  assert.match(e, /const ort = rundeStandort\(pos\.coords\.latitude, pos\.coords\.longitude\);/);
+  assert.match(e, /const ort = await holeStandort\(\);\n\s+if \(!ort\) return toast\(t\("earn\.standortFehlt"\), true\);/);
+  assert.match(e, /const cell = toCell\(ort\[0\], ort\[1\], LAYER_CELL_DEGREES\[layer\]\);/);
+  assert.equal((e.match(/pos\.coords/g) ?? []).length, 2);
   // Seit 5.10: Wegwerfschluessel je Eintrag statt Identitaet.
   assert.match(e, /const \{ event, wegwerfSk \} = baueCoverageEintrag\(\{ layer, cell, region: "" \}\);/);
   assert.doesNotMatch(e, /buildCoverageAnnouncement\(\{\s*pubkey: state\.keypair/);

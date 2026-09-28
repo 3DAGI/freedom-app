@@ -16,6 +16,8 @@ import { merkeWerber, werbeLink } from "../../werbung.js";
 import { knotenSchluessel } from "../verdienst-ui.js";
 import { mitwirkendeListe } from "../mitwirkende.js";
 import { gebietText, zeigeKarte } from "./karte.js";
+import { leseStandort, rundeStandort } from "../../karte-ansicht.js";
+import { bestaetige, dialog } from "../dialog.js";
 import { qrKnopf } from "../qr-ui.js";
 
 /** Mitwirkende am Projekt anzeigen. */
@@ -34,6 +36,44 @@ export async function zeigeMitwirkende(): Promise<void> {
   }
 }
 
+/** Eigener Ort (C.4b, E6): nur die Südwest-Ecke der 0,5°-Zelle, nie der genaue Ort. */
+const LS_STANDORT = "freedom.coverage.cell";
+
+/** Gemerkten Ort lesen – ein genauer Wert von vor C.4b wird dabei gerundet überschrieben. */
+function eigenerStandort(): [number, number] | null {
+  const roh = localStorage.getItem(LS_STANDORT);
+  const ort = leseStandort(roh);
+  if (!ort) {
+    if (roh !== null) localStorage.removeItem(LS_STANDORT);
+    return null;
+  }
+  if (roh !== JSON.stringify(ort)) localStorage.setItem(LS_STANDORT, JSON.stringify(ort));
+  return ort;
+}
+
+/** Ort vom Browser – gerundet, bevor er gespeichert oder verwendet wird. */
+function holeStandort(): Promise<[number, number] | null> {
+  return new Promise((fertig) => navigator.geolocation.getCurrentPosition((pos) => {
+    const ort = rundeStandort(pos.coords.latitude, pos.coords.longitude);
+    if (ort) localStorage.setItem(LS_STANDORT, JSON.stringify(ort));
+    fertig(ort);
+  }, () => fertig(null)));
+}
+
+/** „Mein Gebiet zeigen“: nur lokal, für die Antwort und die umrandete Zelle. */
+export async function nutzeStandort(): Promise<void> {
+  if (!(await holeStandort())) return toast(t("earn.standortFehlt"), true);
+  toast(t("karte.standortGemerkt"));
+  void ladeAbdeckung();
+}
+
+/** „Gebiet vergessen“. */
+export function vergissStandort(): void {
+  localStorage.removeItem(LS_STANDORT);
+  toast(t("karte.standortVergessenOk"));
+  void ladeAbdeckung();
+}
+
 /** Abdeckung anzeigen. */
 export async function ladeAbdeckung(): Promise<void> {
   const liste = $("#coverage-list");
@@ -45,7 +85,9 @@ export async function ladeAbdeckung(): Promise<void> {
     const pool = await ensurePool();
     const evs = await pool.query({ kinds: [KIND_COVERAGE], limit: 2000 });
     const r = buildCoverage(evs);
-    zeigeKarte(r.cells, r.hiddenCells);
+    const standort = eigenerStandort();
+    zeigeKarte(r.cells, r.hiddenCells, standort);
+    $("#coverage-vergessen")?.classList.toggle("hidden", !standort);
 
     if (liste) {
       const { summarizeLayers } = await import("@freedomstack/protocol");
@@ -78,12 +120,7 @@ export async function ladeAbdeckung(): Promise<void> {
     }
 
     // Standort nur auf ausdruecklichen Wunsch — nicht beim Oeffnen des Tabs.
-    if (hier) {
-      const gemerkt = localStorage.getItem("freedom.coverage.cell");
-      hier.textContent = gemerkt
-        ? abdeckungHier(coverageAt(...(JSON.parse(gemerkt) as [number, number]), r.cells))
-        : t("earn.standortGebraucht");
-    }
+    if (hier) hier.textContent = standort ? abdeckungHier(coverageAt(...standort, r.cells)) : t("earn.standortGebraucht");
   } catch (e) {
     if (liste) liste.textContent = t("earn.abdeckungFehler", { fehler: fehlerText(e) });
   }
@@ -95,33 +132,38 @@ export async function trageAbdeckungEin(): Promise<void> {
   const { toCell, baueCoverageEintrag, toHex } =
     await import("@freedomstack/protocol");
 
-  const art = prompt(t("earn.wasEintragen"), t("earn.funk"));
-  if (!art) return;
-  const layer = art.trim().toLowerCase().startsWith("b") ? "bluetooth" : "lora";
-  if (!confirm(abdeckungEinwilligung(layer))) return;
+  // Seit C.4b Dialoge statt prompt()/confirm(): erst die Ebene, dann die Einwilligung
+  const w = await dialog({
+    titel: t("earn.wasEintragen"), ok: t("karte.eintragenOk"),
+    felder: [{ art: "wahl", name: "ebene", label: t("karte.ebene"), pflicht: true, wert: "lora",
+      optionen: (["lora", "bluetooth"] as const).map((e) => ({ wert: e, text: ebeneName(e) })) }],
+  });
+  const layer = w?.ebene === "bluetooth" ? "bluetooth" : w?.ebene === "lora" ? "lora" : null;
+  if (!layer) return;
+  if (!(await bestaetige({ titel: t("karte.einwilligungTitel"), text: abdeckungEinwilligung(layer), ok: t("karte.eintragenOk") }))) return;
 
-  navigator.geolocation.getCurrentPosition(async (pos) => {
-    try {
-      // Runden passiert LOKAL, und die Zellgroesse haengt an der Ebene:
-      // Bluetooth reicht nur Meter, also wird GROEBER gerundet, nicht feiner.
-      // Die genauen Koordinaten verlassen das Geraet nie.
-      const { LAYER_CELL_DEGREES } = await import("@freedomstack/protocol");
-      const cell = toCell(pos.coords.latitude, pos.coords.longitude, LAYER_CELL_DEGREES[layer]);
-      localStorage.setItem("freedom.coverage.cell", JSON.stringify([pos.coords.latitude, pos.coords.longitude]));
-      // Seit 5.10 mit einem Wegwerfschluessel je Eintrag, nicht mit der Identitaet;
-      // ein frueherer Eintrag wird zuerst widerrufen. Den Schluessel braucht nur
-      // der Widerruf – er liegt nur im Tresor.
-      await widerrufeAbdeckung(false);
-      const { event, wegwerfSk } = baueCoverageEintrag({ layer, cell, region: "" });
-      await (await ensurePool()).publish(event);
-      await geheim.setItem(LS_ABDECKUNG_EINTRAG, JSON.stringify({ id: event.id, sk: toHex(wegwerfSk) }));
-      wegwerfSk.fill(0);
-      toast(t("earn.eingetragen"));
-      void ladeAbdeckung();
-    } catch (e) {
-      toast(fehlerText(e), true);
-    }
-  }, () => toast(t("earn.standortFehlt"), true));
+  // Runden passiert LOKAL, und die Zellgroesse haengt an der Ebene:
+  // Bluetooth reicht nur Meter, also wird GROEBER gerundet, nicht feiner.
+  // Die genauen Koordinaten verlassen das Geraet nie – seit C.4b werden sie
+  // schon vor dem Speichern auf 0,5° gerundet (Vielfaches jeder Zellgroesse).
+  const ort = await holeStandort();
+  if (!ort) return toast(t("earn.standortFehlt"), true);
+  try {
+    const { LAYER_CELL_DEGREES } = await import("@freedomstack/protocol");
+    const cell = toCell(ort[0], ort[1], LAYER_CELL_DEGREES[layer]);
+    // Seit 5.10 mit einem Wegwerfschluessel je Eintrag, nicht mit der Identitaet;
+    // ein frueherer Eintrag wird zuerst widerrufen. Den Schluessel braucht nur
+    // der Widerruf – er liegt nur im Tresor.
+    await widerrufeAbdeckung(false);
+    const { event, wegwerfSk } = baueCoverageEintrag({ layer, cell, region: "" });
+    await (await ensurePool()).publish(event);
+    await geheim.setItem(LS_ABDECKUNG_EINTRAG, JSON.stringify({ id: event.id, sk: toHex(wegwerfSk) }));
+    wegwerfSk.fill(0);
+    toast(t("earn.eingetragen"));
+    void ladeAbdeckung();
+  } catch (e) {
+    toast(fehlerText(e), true);
+  }
 }
 
 /** Eigener Abdeckungs-Eintrag (5.10): ID und Wegwerfschluessel – nur im Tresor. */

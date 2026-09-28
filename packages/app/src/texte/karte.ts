@@ -17,5 +17,15 @@ export const karte: Texte = {
   "karte.west": { de: "W", en: "W" },
   "karte.zelle": { de: "{ebene}: {gebiet} – {stufe}", en: "{ebene}: {gebiet} – {stufe}" },
   "karte.schwelle": { de: "Funk und Bluetooth erscheinen erst ab {k} Einträgen je Gebiet, Provider im Netz ab einem – deren Adresse ist ohnehin öffentlich. Die Schwelle schützt nur die Anzeige: Auf den Relays ist jeder Eintrag einzeln sichtbar.", en: "Radio and Bluetooth only appear from {k} entries per area, online providers from one – their address is public anyway. The threshold only protects the display: on the relays every entry is visible individually." },
+  // Seit C.4b: eigenes Gebiet, gerundet und nur lokal; Eintragen als Dialog
+  "karte.meins": { de: "Mein Gebiet", en: "My area" },
+  "karte.eigenesGebiet": { de: "Dein Gebiet (auf 0,5° gerundet) – nur auf diesem Gerät gezeichnet", en: "Your area (rounded to 0.5°) – drawn only on this device" },
+  "karte.standortNutzen": { de: "mein Gebiet zeigen", en: "show my area" },
+  "karte.standortVergessen": { de: "Gebiet vergessen", en: "forget area" },
+  "karte.standortGemerkt": { de: "Gebiet gemerkt – nur auf diesem Gerät, auf 0,5° gerundet, nichts gesendet", en: "Area saved – only on this device, rounded to 0.5°, nothing sent" },
+  "karte.standortVergessenOk": { de: "Gebiet vergessen", en: "Area forgotten" },
+  "karte.ebene": { de: "Ebene", en: "Layer" },
+  "karte.eintragenOk": { de: "Eintragen", en: "Add" },
+  "karte.einwilligungTitel": { de: "Öffentlich eintragen?", en: "Add publicly?" },
   "karte.keineZellen": { de: "Noch kein Gebiet über der Schwelle. Eintragen ist freiwillig – es kann trotzdem Abdeckung geben.", en: "No area above the threshold yet. Adding yourself is voluntary – there may be coverage anyway." },
 };

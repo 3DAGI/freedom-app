@@ -101,3 +101,34 @@ export function imAusschnitt(r: Rechteck, a: Ansicht): boolean {
   const s = ausschnitt(a);
   return r.x < s.x + s.b && r.x + r.b > s.x && r.y < s.y + s.h && r.y + r.h > s.y;
 }
+
+/**
+ * Eigener Standort nur gerundet (C.4b, E6, B13): die Südwest-Ecke der
+ * 0,5°-Zelle. Das reicht für alle Ebenen – ihre Zellen (0,5°, 1°, 2°) sind
+ * Vielfache davon, `toCell()` und `coverageAt()` ergeben dasselbe wie mit dem
+ * genauen Ort. Gespeichert wird nur das (`freedom.coverage.cell`).
+ */
+export const STANDORT_GRAD = 0.5;
+
+export function rundeStandort(lat: number, lon: number): [number, number] | null {
+  if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return null;
+  const ab = (v: number, max: number) => Math.min(Math.floor(v / STANDORT_GRAD) * STANDORT_GRAD, max - STANDORT_GRAD);
+  return [ab(lat, 90), ab(lon, 180)];
+}
+
+/** Gemerkten Standort lesen – ein alter genauer Wert (bis C.4a) kommt gerundet zurück, Unfug als `null`. */
+export function leseStandort(roh: string | null): [number, number] | null {
+  let v: unknown;
+  try {
+    v = JSON.parse(roh ?? "null");
+  } catch {
+    return null;
+  }
+  return Array.isArray(v) && v.length === 2 && typeof v[0] === "number" && typeof v[1] === "number" ? rundeStandort(v[0], v[1]) : null;
+}
+
+/** Die eigene Zelle auf der Karte – nur umrandet, kein Punkt. */
+export function standortRechteck([lat, lon]: [number, number]): Rechteck {
+  const nw = projiziere(lat + STANDORT_GRAD, lon);
+  return { x: nw.x, y: nw.y, b: STANDORT_GRAD, h: STANDORT_GRAD };
+}

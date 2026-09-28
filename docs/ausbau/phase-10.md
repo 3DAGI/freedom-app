@@ -7,9 +7,9 @@ Karte der Abdeckung und eine Navigation, die auf Desktop und Handy je für sich
 Sinn ergibt. Protokoll, Krypto, Zahlungen und Event-Formate bleiben, wie sie
 sind; sonst gilt die STOPP-Regel aus `CLAUDE.md`.
 
-Stand dieser Karte: **C.0, C.1a, C.1b, C.2 (Räume), C.3 (Repositories) und C.4a fertig.** Der MENSCH hat den
+Stand dieser Karte: **C.0, C.1a, C.1b, C.2 (Räume), C.3 (Repositories) und C.4 (Abdeckungskarte) fertig.** Der MENSCH hat den
 Entwurf am 27.09.2026 freigegeben – E1–E8 wie vorgeschlagen (Abschnitt 10.3).
-Nächster Schritt: C.4b.
+Nächster Schritt: C.5.
 
 ---
 
@@ -720,6 +720,23 @@ einem ersten echten Pfad, C.3c2 der Reiter „Code“ ganz und „Commits“.
 - „Karte / Liste“: Die Liste ist jetzt DOM, zeigt alle Gebiete (nicht mehr
   höchstens 15) und statt „?“ die Mitte eines Gebiets ohne Namen (B12).
 - Welt-Umrisse, eigene Zelle und gerundeter Standort folgen mit C.4b.
+
+**C.4b – fertig (28.09.2026).** Damit ist C.4 (Abdeckungskarte) fertig.
+- Umrisse (E5): Natural Earth 1:110m „Land“ (gemeinfrei), erzeugt mit
+  `scripts/welt-umrisse.py` aus der Quelle mit fester Prüfsumme
+  (Douglas-Peucker 0,05°, Inseln unter 0,3 Quadratgrad weg, Zehntelgrad,
+  relative Pfade): 118 Flächen in 20 KB (`welt-umrisse.ts`), gezeichnet als
+  ein Pfad unter dem Gradnetz. Nichts wird zur Laufzeit geladen.
+- Standort (E6, B13): gespeichert wird nur die Südwest-Ecke der 0,5°-Zelle
+  (`rundeStandort()`); ein genauer Wert von vorher wird beim ersten Lesen
+  gerundet überschrieben (`leseStandort()`). Zellen aller Ebenen und die
+  Antwort aus `coverageAt()` bleiben gleich (Test mit 500 Orten).
+- Eigene Zelle nur umrandet (gestrichelt, kein Punkt, nicht anklickbar),
+  „Mein Gebiet“ zoomt dorthin. Neu: „mein Gebiet zeigen“ (nur lokal, ohne
+  Eintrag – bisher gab es den Ort nur über „selbst eintragen“) und „Gebiet
+  vergessen“.
+- „Selbst eintragen“ fragt über `dialog()`/`bestaetige()` statt `prompt()`
+  und `confirm()`: Ebene als Wahl, dann die Einwilligung wie bisher.
 
 ---
 
