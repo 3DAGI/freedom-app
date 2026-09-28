@@ -32,10 +32,6 @@ settings.ts|(Zuweisung) d.map((x) => { const cls = x.status === "aktiv" ? "ok" :
 settings.ts|cls|feste Klassennamen ok/warn/muted
 settings.ts|(Zuweisung) offlineFaehigkeiten(link).map((f) => `<div class="usage-row"><span>${f.works ? "✓" : "✕"} ${escapeHtml(f.feature)}</span|Callback: Template mit escapeHtml; Haken/Kreuz fest (seit 8.16g2b2 offlineFaehigkeiten() in der Sprache der Oberfläche)
 settings.ts|(Zuweisung) p.map((m) => `${escapeHtml(m.label)} — ${escapeHtml(t("set.paketeOffenKurz", { n: m.framesLeft }))}`).join("<br>")|Callback: Template mit escapeHtml(m.label) und lokalem Zähler
-earn.ts|(Zuweisung) zusammen.map((z) => `<div class="usage-row"><span>${symbol[z.layer]} ${escapeHtml(ebeneName(z.layer))}</span>` + `<span|Callback: Template mit escapeHtml(z.label); Symbol und Zähler siehe folgende Zeilen
-earn.ts|symbol[z.layer]|Eintrag aus der festen Symboltabelle (oder undefined)
-earn.ts|(Zuweisung) r.cells.slice(0, 15).map((c) => `${symbol[c.layer] ?? "•"} ${escapeHtml(c.region ¦¦ "?")} · ${escapeHtml(zellenStufe(c.n|Callback: Template mit escapeHtml(region, label); Symbol aus fester Tabelle
-earn.ts|symbol[c.layer]|Eintrag aus der festen Symboltabelle (oder undefined)
 agent.ts|entries.map(([m, info]) => { const sp = speedOf(m); const short = m.split(":")[0]; const preis = ausMsat(info.priceMsat,|Callback: Template mit escapeHtml(m), escapeHtml(short) und escapeHtml(preis); übrige Werte siehe folgende Zeilen
 agent.ts|sp.cls|fester Klassenname aus speedOf()
 ui.ts|(Zuweisung) markSvg(18)|eigenes SVG mit fester Farbe
