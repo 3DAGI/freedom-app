@@ -8859,3 +8859,40 @@ Netz; ohne Netz 234 + 7) · app 509 (+1) · mls 13 · Leak-Tests 58 grün + 1 to
 Seiten ok · Smoke-Test bestanden · im Browser: eine falsche NWC-Adresse meldet
 englisch „Not an NWC connection …“, deutsch „Keine NWC-Verbindung …“, keine
 Seitenfehler.
+
+## Schritt 8.16i2 – Übersetzungen: Fehlermeldungen des Protokolls (Identität und Inhalte)
+
+**Fertig:** Der zweite Teil der Fehlermeldungen, die Nutzer sehen können,
+steht in der Sprache der Oberfläche. Damit ist der Code-Teil von 8.16 fertig.
+
+- **Protokoll (klein, berührt andere Spuren):** `ProtokollFehler` mit
+  Kennung statt `Error` an 46 Stellen, die deutsche Meldung unverändert:
+  - Bunker (NIP-46): Adresse (drei Fälle), Antworten des Signers (Pubkey,
+    kein Event, anderes Event, Freigabe mit und ohne Adresse, Ablehnung,
+    keine gültige Antwort, keine Antwort);
+  - Repos und Patches (NIP-34): Kennung, Klon-Adresse, Maintainer, erster
+    Commit, Patch zu groß, kein `git format-patch`, ohne Betreff, ohne
+    Änderung, Commit;
+  - Modellkataloge: Kennung, Titel, Beschreibung, Zahl der Modelle,
+    Modell-Kennung, doppelt, Notiz;
+  - Kontaktliste: höchstens N, nicht lesbar, beschädigt;
+  - Nachfolge: Schwelle, zu wenige/zu viele/doppelte Teile, verschiedene
+    Längen, Anteile zusammensetzen (zu wenige, passen nicht);
+  - Geräte (selbst bevollmächtigen, ohne Rechte), Schlüsselwechsel (derselbe
+    Schlüssel), Selbstwerbung, „kein Moderator außer dir“, verschlüsselte
+    Dateien (Schlüssel, beschädigt, Hash).
+- Schutzprüfungen, deren Eingaben die App vorher prüft (Ablauf einer
+  Direktnachricht, Trinkgeld-Adresse, Pubkeys), und Parser fremder Events
+  bleiben einfache Fehler – die Oberfläche erreichen sie nicht.
+- **App:** 46 weitere Schlüssel in `texte/fehler.ts` (jetzt 92), Einträge in
+  `FEHLER`. Die Anzeigestellen zeigen sie seit 8.16i1 über `fehlerText(e)`.
+- **Stand 8.16:** Code-Teil fertig. Offen nur MENSCH: Durchsicht der
+  englischen Texte; ob die Website ganz auf Englisch kommt.
+
+**Tests:**
+- +1 in `i18n.test.ts`: 14 echte Aufrufe (Bunker, Repo, Patch, Katalog,
+  Nachfolge, Gerät, Schlüsselwechsel, Werbung, Datei) werfen die erwartete
+  Kennung, deutsch wortgleich; Englisch mit Stichproben und ohne deutschen
+  Buchstaben.
+- Der Test aus 8.16i1 prüft jetzt auch diese Kennungen aus dem Quelltext des
+  Protokolls (Text vorhanden, deutsch passend).

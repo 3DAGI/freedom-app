@@ -30,6 +30,7 @@
  * das in einer Schublade vergessen wurde.
  */
 import { NostrEvent, UnsignedEvent, buildEvent, getTag } from "./event.js";
+import { ProtokollFehler } from "./fehler.js";
 
 /** Vollmacht der Hauptidentität für einen Gerätschlüssel. */
 export const KIND_DEVICE_GRANT = 38070;
@@ -80,10 +81,10 @@ export function buildDeviceGrant(
   createdAt?: number,
 ): UnsignedEvent {
   if (g.ownerPubkey === g.devicePubkey) {
-    throw new Error("Ein Gerät kann sich nicht selbst bevollmächtigen.");
+    throw new ProtokollFehler("geraet-selbst", "Ein Gerät kann sich nicht selbst bevollmächtigen.");
   }
   if (g.permissions.length === 0) {
-    throw new Error("Eine Vollmacht ohne Rechte ist sinnlos.");
+    throw new ProtokollFehler("geraet-ohne-rechte", "Eine Vollmacht ohne Rechte ist sinnlos.");
   }
   return buildEvent(
     g.ownerPubkey,
