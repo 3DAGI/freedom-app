@@ -9897,3 +9897,66 @@ bestehenden Test) · node 244 + 7 übersprungen (ohne Netz; mit Netz 245 + 6) ·
 app 562 (+8) · mls 13 · Leak-Tests 62 grün (+3) + 1 todo · 0 rot ·
 check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 · Website ok ·
 Smoke-Test bestanden · Website-Bau ok. Knoten-Stand: unverändert.
+
+## Schritt 8.2a – Provider-Knoten: Selbstprüfung und Installer für beide Schienen
+
+**Warum:** Ziel der Karte 8.2: Ein neuer Provider verdient in unter 30 Minuten
+in beiden Schienen. Der Installer kannte nur Lightning, versprach einen
+„Knappheitsbonus“ je Region (seit 5.1.4a gestrichen) und zeigte auf ein
+Platzhalter-Repository (`DEIN-USER`). Ob die Lightning-Adresse für die App
+überhaupt taugt (Rechnung aus dem Browser, kleine Beträge), merkte ein Provider
+erst, wenn keine Zahlungen kamen. 8.2 ist aufgeteilt (Karte `phase-8.md`):
+a Selbstprüfung und Installer, b eigener Lightning-Empfang, c Tor.
+
+**Was:**
+- **`node/src/einrichtung.ts`** – `pruefeEinrichtung()`:
+  - Lightning (`pruefeLightning()`): Adresse der Form nach; LNURL-pay mit
+    https-Callback; CORS `*` (sonst holt die App aus dem Browser keine
+    Rechnung); Mindestbetrag über 1 sat → Hinweis, kleine Anteile kommen
+    nicht an; eine echte Rechnung über den kleinsten Betrag (unbezahlt) mit
+    genau diesem Betrag (`leseBolt11()`).
+  - SOL (`pruefeSol()`): Ergebnis von `kanalKasseAusUmgebung()` (ohne
+    `ZAHLKANAL=1` ein Hinweis, mit falschem Schlüssel ein Fehler), Programm
+    auf der Kette, Guthaben für die Gebühren der Einlösungen (mindestens
+    0,001 SOL), Auszahlung (kein Programm; neben LP oder Relayer aus).
+  - Nach außen nur eigene Texte und Fehlernamen; `befundeText()` mit ✓ ! ✗.
+- **Verdrahtet:** `node/src/main.ts` prüft beim Start (mit dem Ergebnis der
+  Kasse, blockiert nichts) und schreibt `[einrichtung] …` ins Log;
+  `node/src/pruefen.ts` als `npm run pruefen` (Ende mit 1 bei einem Fehler).
+  `teiltSchluessel()` und `kanalOrte()` (`kanal-kasse.ts`) teilen Kasse,
+  Prüfung und Kommandozeile.
+- **`scripts/install-freedom.sh`:** neuer Schritt „SOL (Zahlkanal,
+  optional)“ – fragt die eigene Auszahlungsadresse (leer: nur Lightning),
+  legt den Solana-Schlüssel des Knotens einmalig an (`umask 077`, Datei 600),
+  prüft beide Adressen (Eingaben nur als Argumente an `node`), schreibt
+  `ZAHLKANAL`, `NODE_SOL_ADDRESS`, `SOLANA_KEYPAIR`, `NODE_SOL_PAYOUT`,
+  `SOLANA_RPC_URL` in die Umgebung und bittet um etwa 0,01 SOL für Gebühren.
+  Am Ende `npm run pruefen`. Texte: Lightning-Adresse mit Hinweis auf
+  verwahrende Dienste, Region ohne Bonus, 24 h gratis ohne „Reputation“,
+  Repository `3DAGI/freedom-app`.
+- **Nebenbei:** `SOLANA_RPC_URL=` leer (aus der Umgebungsdatei) fiel mit
+  `??` nicht auf den Standard zurück – jetzt `||` (`main.ts`, `pruefen.ts`).
+- **Doku:** Karte 8.2 (Aufteilung), FORTSCHRITT, `docker-compose.yml`
+  (Hinweis auf `npm run pruefen`), CLAUDE.md (Fallstrick).
+
+**Tests:** +5 in `node/test/einrichtung.test.ts`:
+- Lightning gut: Adresse, Abfrage, Callback mit Betrag 1 sat und den
+  übrigen Parametern;
+- Lightning schlecht: fehlt, keine Adresse, lokaler Host, HTTP 404, http-
+  Callback, ungültige Beträge, Rechnung über anderen Betrag, ohne CORS, hoher
+  Mindestbetrag, Fremdtext eines Servers (nur der Fehlername);
+- SOL: gut; aus; falscher Schlüssel; Programm fehlt; kein Guthaben; keine
+  Auszahlung; ungültige Auszahlung; Programm als Ziel; neben Relayer; Kette
+  nicht erreichbar;
+- Bericht und Verdrahtung (Start, `npm run pruefen`);
+- Installer: `bash -n`, alle Umgebungswerte, Datei 600, Prüfung am Ende,
+  keine veralteten Versprechen.
+Von Hand: der SOL-Schritt des Installers in einem Wegwerf-Verzeichnis
+(Schlüssel einmalig, 600, kaputte Adresse samt eingeschleustem Shell-Text
+abgewiesen, ohne Adresse nur Lightning) und `npm run pruefen` ohne Netz.
+
+Endstand (nach dem Einmergen von `main` mit 5.5b und 5.5c): protocol 1088
+(6 übersprungen) · node 250 (+5; 6 übersprungen, mit Netz) · app 562 · mls 13 ·
+Leak-Tests 62 grün + 1 todo · 0 rot ·
+check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 · Website 5 Seiten
+ok · Smoke-Test bestanden · `bash -n` für den Installer.
