@@ -16,6 +16,7 @@ import { kaufeRelayZugang, leseRelayPreise, merkeZugang, pruefeBeimRelay, zugaen
 import { satsText, solText } from "../../preis-anzeige.js";
 import { echtheitText, fehlerText, fixierungText, geraetWarnung, nachfolgeStand, nachfolgeWarnung, offlineFaehigkeiten, sicherungGebaut, sicherungInfo, torText, wechselWarnung, wegName, weitergabeText, widerrufAnleitung, wiederherstellungText } from "../../protokoll-texte.js";
 import { LS_VERSAND_VERZOEGERUNG, maxVerzoegerungSek } from "../versand.js";
+import { rufStand, rufTeilenAn, setzeRufTeilen } from "../ruf.js";
 import { geheim, istGeheimnis, tresorEingerichtet, wireTresorKarte } from "../tresor.js";
 import { $, ganzeZahl, toast } from "../ui.js";
 import { ladeAbdeckung, trageAbdeckungEin, widerrufeAbdeckung } from "./earn.js";
@@ -694,6 +695,20 @@ export async function wireMeshTab(): Promise<void> {
         kontakte.checked = kontakteSichernAn();
         toast(t("set.kontaktlisteFehler", { fehler: fehlerText(e) }), true);
       }
+    };
+  }
+
+  // Ruf mit Kontakten teilen (5.5c) – Standard aus; versiegelt, je Kontakt ein Umschlag im Abruftakt
+  const ruf = document.getElementById("ruf-teilen") as HTMLInputElement | null;
+  const rufZeile = document.getElementById("ruf-stand");
+  const zeigeRuf = () => { if (rufZeile) rufZeile.textContent = t("set.rufStand", rufStand()); };
+  if (ruf) {
+    ruf.checked = rufTeilenAn();
+    zeigeRuf();
+    ruf.onchange = () => {
+      setzeRufTeilen(ruf.checked);
+      toast(t(ruf.checked ? "set.rufAn" : "set.rufAus"));
+      zeigeRuf();
     };
   }
 

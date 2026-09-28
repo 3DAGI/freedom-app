@@ -9829,6 +9829,75 @@ Netz; mit Netz 245 + 6) · app 554 (+7) · mls 13 · Leak-Tests 59 grün + 1 tod
 ok · Smoke-Test bestanden · Website-Bau ok. Knoten-Stand: unverändert (die
 App braucht keinen neueren Knoten).
 
+## Schritt 5.5c – Ruf mit Kontakten teilen
+
+Spur B, Karte `phase-5.md` (5.5c), Entscheidung Spur A für Spur B vom 28.09.
+(Leitplanke 3).
+
+**Was:**
+- `app/src/ruf-teilen.ts` (neu):
+  - `RufVonKontakten`: empfangene Zusammenfassungen (`freedom.ruf.kontakte`),
+    je Kontakt die neueste, höchstens 200; beim Lesen zählt nur, wer noch
+    Kontakt ist; Kaputtes fällt weg.
+  - `faelligeEmpfaenger()`: ein neuer Stand (Fingerabdruck der Zeilen) geht
+    höchstens einmal am Tag an alle, sonst nur an Kontakte, die den bisherigen
+    noch nicht haben.
+  - `RufVersand.takt()`: nur mit Zustimmung und Signer; je Schlag höchstens
+    ein Umschlag (`baueRufUmschlaege()` an genau einen Kontakt), ohne
+    Warteschlange nur jeden 60. Schlag nachsehen (etwa alle 30 min);
+    Unzustellbare pausieren einen Tag; `freedom.ruf.gesendet` hält
+    Fingerabdruck, Zeit und Empfänger.
+- `app/src/shell/ruf.ts` (neu): Zustimmung (`freedom.ruf.teilen`, in
+  localStorage und in der Sicherung – eine Einstellung), Versand an den
+  Posteingang des Kontakts (`posteingangVon()` → `veroeffentlicheAn()`), als
+  Gerät nie (Kontakte kennen nur die Person); `alsRufZusammenfassung()` öffnet
+  mit `oeffneRufUmschlag()` nur von Kontakten und merkt; `rufStand()` für die
+  Settings.
+- `shell/quittungen.ts`: `rufVonKontakten`, `kontakteJetzt()` (DM-Unterhaltungen
+  aus dem Tresor), `eigeneZeilen()`; `aktuellerRuf()` nimmt die
+  Zusammenfassungen der Kontakte jetzt von selbst.
+- Settings → Datenschutz: Häkchen „Meine Erfahrung mit Providern versiegelt mit
+  Kontakten teilen“ (Standard aus) mit Erklärung, was Kontakte erfahren, und
+  Stand (geteilt mit / erhalten von).
+- Datenschutz: Aussage „ruf-kontakte“ (`privacy-facts.ts`, belegt, Regel
+  „autor-verborgen“) mit Szenario (Absender verborgen, kein Klartext von
+  Provider und Beträgen, p-Tags nur an Kontakte, keine Zahlungsdaten,
+  entkoppelt); Text in `datenschutz-bericht.ts` (de/en).
+- Tresor: `freedom.ruf.kontakte` und `freedom.ruf.gesendet` in `GEHEIM_FEST`
+  und `SICHERUNG_NIE`; `freedom.ruf.teilen` in `SICHERUNG_EINTRAEGE`.
+- FAQ: „Woran erkennt die App einen guten Provider?“ – Quittungen im Tresor,
+  Kontakte je eine Stimme, keine öffentliche Rangliste.
+- `wiring-ausnahmen.txt`: `baueRufUmschlaege`, `oeffneRufUmschlag` verdrahtet –
+  keine Ausnahme aus `quittung.ts` mehr.
+
+**Verdrahtet:** `shell/tabs/kommunikation.ts:541` (Ende der Kette in
+`oeffneUmschlag()`), `shell/app.ts:843` (Abruftakt „ruf“),
+`shell/tabs/settings.ts:709` (Zustimmung), `shell/quittungen.ts:86`
+(`aktuellerRuf()` mit den Zusammenfassungen der Kontakte).
+
+**Tests:** +8 in `app/test/ruf-teilen.test.ts`, +3 Leak-Tests in
+`app/test/leak/ruf.test.ts`, +1 Szenario in `protocol/test/privacy-facts.test.ts`
+(dort zählt es im selben Test), die Kette in `oeffneUmschlag()` in drei Tests
+um das neue Glied verlängert:
+- Speicher der Zusammenfassungen: neueste je Kontakt, nur Kontakte, Kaputtes
+  weg, höchstens 200.
+- Fällige Empfänger: erstmals alle, danach nur neue Kontakte, neuer Stand erst
+  nach einem Tag.
+- Versand: ohne Zustimmung nichts (auch kein Speicher), je Schlag ein
+  Umschlag, je Umschlag nur sein Empfänger, der Kontakt öffnet ihn, ein
+  Fremder zählt nicht; Unzustellbare pausieren; neuer Stand nach einem Tag an
+  alle; als Gerät, ohne Quittungen, ohne Kontakte nichts.
+- Ruf: Zusammenfassungen von Kontakten heben, je Kontakt die neueste.
+- Leak: nur Umschläge, je Kontakt einer, Absender verborgen, kein Provider,
+  keine Beträge, keine Zahlungsdaten, nie zwei im selben Augenblick; ohne
+  Zustimmung nichts.
+
+Endstand: protocol 1088 (6 übersprungen; das neue Szenario läuft im
+bestehenden Test) · node 244 + 7 übersprungen (ohne Netz; mit Netz 245 + 6) ·
+app 562 (+8) · mls 13 · Leak-Tests 62 grün (+3) + 1 todo · 0 rot ·
+check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 · Website ok ·
+Smoke-Test bestanden · Website-Bau ok. Knoten-Stand: unverändert.
+
 ## Schritt 8.2a – Provider-Knoten: Selbstprüfung und Installer für beide Schienen
 
 **Warum:** Ziel der Karte 8.2: Ein neuer Provider verdient in unter 30 Minuten

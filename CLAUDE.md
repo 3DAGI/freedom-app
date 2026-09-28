@@ -44,9 +44,9 @@ bash packages/mls/bauen.sh --pruefen                     # nur bei Änderungen a
 bash contracts/solana-channel/pruefen.sh --werkzeuge     # nur bei Änderungen am Zahlkanal: bauen + Tests gegen Validator (Agave 3.1.10)
 ```
 
-Stand 28.09.2026 (nach 8.2a, C.2d2, 5.5a und 5.5b): protocol 1088 grün (6 übersprungen), node 250 grün
+Stand 28.09.2026 (nach 8.2a, C.2d2 und 5.5a–c): protocol 1088 grün (6 übersprungen), node 250 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 554 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 59 grün + 1 `todo` (heutige Lecks,
+in `tools.test.ts`), app 562 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 62 grün + 1 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
 Ausnahme: gesendete SOL-Zahlungen von frischen Adressen, eine bewusste Grenze
 nach Entscheidung 4.9 A – im Datenschutzbericht unter „Bewusste Grenzen“).
@@ -618,7 +618,12 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   `discoverProviders(pool, aktuellerRuf())`. 38010 nie für Rang, Stufe oder
   Relay-Gewicht abfragen. Ungeprüfte Provider bleiben wählbar, stehen aber
   hinten; die Vertrauensschwelle gilt nur bei bestätigten Reklamationen – sonst
-  stünde ein einmal bezahlter hinter einem unbekannten.
+  stünde ein einmal bezahlter hinter einem unbekannten. Zusammenfassungen
+  (seit 5.5c) nur über `RufVersand` (`ruf-teilen.ts`, `shell/ruf.ts`): nur mit
+  Zustimmung (`freedom.ruf.teilen`), je Schlag des Abruftakts höchstens ein
+  Umschlag, an den Posteingang des Kontakts, als Gerät nie; empfangen nur über
+  `alsRufZusammenfassung()` am Ende der Kette in `oeffneUmschlag()`, gemerkt in
+  `freedom.ruf.kontakte` (Tresor, `SICHERUNG_NIE`).
   Nie eine öffentliche Rangliste; die Prüferwahl (`netzPruefer()`) bleibt ohne Ruf.
 - **Provider-Einrichtung nur geprüft** (seit 8.2a): Was ein Provider zum
   Verdienen braucht, prüft `pruefeEinrichtung()` (`node/src/einrichtung.ts`) –

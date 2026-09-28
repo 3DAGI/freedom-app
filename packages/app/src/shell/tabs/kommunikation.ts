@@ -24,6 +24,7 @@ import { type DmZuordnung, GeraeteBuch, ordneDmZu } from "../../geraete-buch.js"
 import { sucheAufnehmen, wireSuche } from "../suche-ui.js";
 import { mlsAbgleichen, mlsBeiNeuem, mlsEinladungAnnehmen, mlsErreichbar, mlsGesperrt, mlsSendeAn, mlsVerlauf } from "../mls-konto.js";
 import { alsRaumMeldung, merkePrivatenRaum } from "../raum-mls.js";
+import { alsRufZusammenfassung } from "../ruf.js";
 import { geheim } from "../tresor.js";
 import { $, toast } from "../ui.js";
 import { t } from "../../i18n.js";
@@ -535,8 +536,9 @@ async function oeffneUmschlag(w: NostrEvent): Promise<{ partner: string; ev: DmA
         // Mit Ablauf (2.5): ladeDmNachrichten() blendet danach aus.
         dm: r.dm,
       }
-    // Keine DM: vielleicht ein SOL-Trinkgeld-Beleg (4.7b), eine Adress-Anfrage (4.9d), Nachfolge (8.11b) oder ein Pruefauftrag (5.6c).
-    : (await alsTrinkgeld(w)) ?? (await alsAdressAnfrage(w)) ?? (await alsNachfolge(w)) ?? (await alsPruefauftrag(w)) ?? (await alsRaumMeldung(w));
+    // Keine DM: vielleicht ein SOL-Trinkgeld-Beleg (4.7b), eine Adress-Anfrage (4.9d), Nachfolge (8.11b), ein Pruefauftrag (5.6c),
+    // eine Raum-Meldung (8.5) oder die Zusammenfassung eines Kontakts ueber Provider (5.5c).
+    : (await alsTrinkgeld(w)) ?? (await alsAdressAnfrage(w)) ?? (await alsNachfolge(w)) ?? (await alsPruefauftrag(w)) ?? (await alsRaumMeldung(w)) ?? (await alsRufZusammenfassung(w));
   dmCache.set(w.id, e);
   return e;
 }
