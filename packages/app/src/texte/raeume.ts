@@ -42,6 +42,13 @@ export const raeume: Texte = {
   "raum.antwortAn": { de: "Antwort an {name}", en: "Replying to {name}" },
   "raum.antwortWeg": { de: "Nicht mehr darauf antworten", en: "Stop replying to this" },
   "raum.zitat": { de: "↪ {name}: {text}", en: "↪ {name}: {text}" },
+  // C.2d1: Mitglieder
+  "raum.mitgliedMenue": { de: "Aktionen für {name}", en: "Actions for {name}" },
+  "raum.zumModerator": { de: "Zum Moderator machen", en: "Make moderator" },
+  "raum.keinModeratorMehr": { de: "Moderator entfernen", en: "Remove as moderator" },
+  "raum.entfernenText": { de: "{name} aus dem Raum entfernen? Die Gruppe bekommt einen neuen Schlüssel – was {name} vorher gelesen hat, bleibt gelesen. Eine Sperrliste gibt es nicht; eine neue Einladung holt {name} zurück.", en: "Remove {name} from the room? The group gets a new key – what {name} read before stays read. There is no block list; a new invitation brings {name} back." },
+  "raum.mitgliederMeldungen": { de: "Mitglieder · {n} Meldung(en)", en: "Members · {n} report(s)" },
+  "raum.mitgliederSchliessen": { de: "Mitglieder schließen", en: "Close members" },
   "raum.infoVerschluesselt": {
     de: "Verschlüsselt (MLS): Nur Mitglieder können mitlesen – alle Kanäle des Raums.\n\nGrenze: Wer entfernt wird, behält den Schlüssel für alles, was er vorher\ngesehen hat. Das Entfernen wechselt den Schlüssel – danach liest er nichts\nmehr. Neue Mitglieder lesen nur, was nach ihrem Eintritt kommt.",
     en: "Encrypted (MLS): only members can read along – all channels of the room.\n\nLimit: whoever is removed keeps the key for everything they saw before. Removing changes the key – after that they read nothing more. New members only read what comes after they joined.",

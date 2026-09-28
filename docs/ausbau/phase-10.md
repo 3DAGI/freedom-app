@@ -7,9 +7,9 @@ Karte der Abdeckung und eine Navigation, die auf Desktop und Handy je für sich
 Sinn ergibt. Protokoll, Krypto, Zahlungen und Event-Formate bleiben, wie sie
 sind; sonst gilt die STOPP-Regel aus `CLAUDE.md`.
 
-Stand dieser Karte: **C.0, C.1a, C.1b, C.2a, C.2b1, C.2b2 und C.2c fertig.** Der MENSCH hat den
+Stand dieser Karte: **C.0, C.1a, C.1b, C.2a, C.2b1, C.2b2, C.2c und C.2d1 fertig.** Der MENSCH hat den
 Entwurf am 27.09.2026 freigegeben – E1–E8 wie vorgeschlagen (Abschnitt 10.3).
-Nächster Schritt: C.2d.
+Nächster Schritt: C.2d2.
 
 ---
 
@@ -143,7 +143,7 @@ Playwright nachgeprüft (Sichtbarkeit und Maße der Elemente).
 |---|---|---|---|---|
 | B1 | hoch | **Desktop: Solange die Onboarding-Leiste sichtbar ist, ist die App leer.** Gemessen: `main` hat die Breite 0, die Navigation steht rechts. Das trifft jeden neuen Nutzer am Desktop, bis er „Später“ wählt (Bild `befund-desktop-leiste.jpg`). Spur A sah dasselbe in 4.3d2 (Währungs-Seite 28 px breit). | `#app` ist ab 1024 px eine Flex-Zeile; die Leiste ist dort ein Geschwister von `main` und nimmt die Breite. `#app > nav { order: 0 }` (`app.css:401`) überstimmt `.app-nav { order: -1 }` (`app.css:931`). | C.1a |
 | B2 | hoch | **Mobil (unter 860 px) sind Verlauf, Modelle, Kataloge, Repos, Prüfaufträge, Reklamationen und das Gratis-Kontingent nicht erreichbar.** Arbeitsbereich, Werkzeuge und Kosten erst ab 1200 px. | `app.css:1059–1060` blenden `.agent-panel` und `.agent-side` aus, ohne anderen Weg dorthin. | C.1a |
-| B3 | hoch | **Unter 1100 px fehlt die Mitgliederliste – und mit ihr die Meldungen an Moderatoren** (`#raum-meldungen` steht in `.member-col`). Ein Moderator am Handy sieht keine Meldung. | `app.css:1093` | C.2d |
+| B3 | hoch | *(behoben in C.2d1)* **Unter 1100 px fehlt die Mitgliederliste – und mit ihr die Meldungen an Moderatoren** (`#raum-meldungen` steht in `.member-col`). Ein Moderator am Handy sieht keine Meldung. | `app.css:1093` | C.2d |
 | B4 | mittel | Mobil ist die Sprachwahl der App nicht erreichbar (nur auf dem Startbild). | `.settings-lang` in der waagrechten Leiste nicht sichtbar | C.1a |
 | B5 | mittel | Die Navigation zeigt „8“ mit grünem Punkt und dem Titel „Relays verbunden“ – auch ganz ohne Netz. Gezählt wird die Größe des Pools, nicht die Verbindungen. Nicht ehrlich (Definition of Done 5). | `shell/ui.ts:145–158` | C.1a |
 | B6 | mittel | Drei Arten von Gruppen: „Communities“ (Knopf in der Liste der Direktnachrichten, offen, Kind 42 mit `h`), offene Räume (34700 + 42) und private Räume (MLS). Die Community ist öffentlich, ohne dass es dort steht. | `kommunikation.ts:1651` | E3 |
@@ -426,7 +426,8 @@ Pull Request. Dateien der Spur A (`waehrung.ts`, `agent.ts`, `ki-zahlung.ts`,
 | **C.2b1** | `dialog.ts`; Dialoge statt `prompt()`/`confirm()`/`alert()` für Einladen, Moderatoren, Moderieren, Melden, Anlegen, Beitreten, Rauminfo; Smoke: Dialog per Tastatur | `dialog.ts`, `raeume.ts`, `app.css`, `texte/dialog.ts`, `texte/raeume.ts`, Tests (~400 mit Tests) | B7 | C.2a |
 | **C.2b2** | Verlauf gruppiert mit Namen (`kontaktName()`), Menü an Nachrichten (Zeigen und Fokus), Raum-Menü ▾; Rauminfo in der Sprache der Oberfläche (`privacyInfo()` in `protokoll-texte.ts` neu gebildet, Wortgleich-Test); Probe-Raum im Smoke-Test | `raeume.ts`, `app.css`, `index.html`, `protokoll-texte.ts` (klein, Spur B), Tests (~300) | B9, B17, B18, B19 | C.2b1 |
 | **C.2c** | Antworten und Threads: Zeile „Antwort an …“, Thread-Spalte bzw. Unterseite, `sendePrivat()` mit `replyTo`/`threadRoot`, offen über `buildChannelMessage()`; Test: Antwort kommt in privaten und offenen Räumen mit Verweis an | `raeume.ts`, `raum-mls.ts`, Tests (~300) | B8 | C.2b |
-| **C.2d** | Mitglieder mit Rollen und Menü, Meldungen auch mobil, Kanal anlegen, mobile Ebenen (Kanal → Mitglieder, Thread) | `raeume.ts`, `app.css`, Tests (~350) | B3 | C.2c |
+| **C.2d1** | Mitglieder mit Rollen und Menü je Mitglied (`oeffneMenueAn()`), Mitglieder und Meldungen mobil als Ebene | `raeume.ts`, `menue.ts`, `app.css`, `index.html`, Tests (~350) | B3 | C.2c |
+| **C.2d2** | Kanal anlegen (offen: Gründer, `buildSpace()`; privat: Moderatoren, `raumDefinition()` in die Gruppe), Menüpunkte nur nach Rechten | `raeume.ts`, `raum-mls.ts` (klein), Tests (~250) | – | C.2d1 |
 | **C.3a** | Repo-Liste und Repo-Seite: 30617 + 38042 verbunden, Klonen, Bundle hoch- und herunterladen, Einstellungen des Eigentümers, Mitwirkende; Texte über Schlüssel | `repo-seite.ts`, `repos.ts`, `agent-netz.ts:266`, `app.ts:748` (zieht um), `texte/repos.ts`, Tests (~400) | B10, B11 | C.1b |
 | **C.3b** | Patch-Seite: Diff-Leser (ohne DOM, Tests mit feindlichen Eingaben), Diff-Ansicht, Status-Dialoge (annehmen, schließen, wieder öffnen, Entwurf, zurückziehen), Patch mit Vorschau senden | `diff-ansicht.ts`, `repo-seite.ts`, Tests (~400) | B10 | C.3a |
 | **C.3c** | *(E4: ja)* Bundle-Leser (Git-Bundle v2/v3, Packfile, `DecompressionStream`, Deltas; Grenzen für Größe, Objektzahl, Tiefe) und die Reiter „Code“ (README, Dateibaum) und „Commits“ | c1 Leser + Tests (~350), c2 Ansicht (~250) | B10 | C.3b |
@@ -546,6 +547,25 @@ Browser-Test (B18, B19):
   die Tags gab es schon (NIP-10-artig, `raum-gruppe.ts`).
 - Der Probe-Raum hat einen Thread; der Smoke-Test öffnet ihn, antwortet auf
   die letzte Antwort und prüft das gesendete Event (root, reply).
+
+**C.2d1 – fertig (28.09.2026).** C.2d ist geteilt: C.2d1 Mitglieder und
+Meldungen (B3), C.2d2 Kanal anlegen.
+- Mitgliederliste nur aus DOM und `textContent` (die letzte innerHTML-Ausnahme
+  der Räume fällt weg): Name über `kontaktName()` („Du“ für mich), Rollen als
+  Marken, der Gründer hervorgehoben.
+- Menü „⋯“ je Mitglied (`oeffneMenueAn()` in `menue.ts`: schwebend, entsteht
+  beim Öffnen, räumt seine Horcher weg, Tastatur wie das Raum-Menü) – nur mit
+  dem, was ich darf, nie für mich selbst:
+  - privat als Moderator: „Zum Moderator machen“ / „Moderator entfernen“
+    (`setzeModeratoren()`, Commit), „Aus dem Raum entfernen“ nach Rückfrage
+    (`entferneAusRaum()`);
+  - offen nach meinen Rechten: „Rolle vergeben“ (`moderiere("grant")`),
+    „Absender sperren“ (`moderiere("ban")` – der Dialog bietet dann nur
+    Sperren an); nie für den Gründer.
+- B3: Bis 1100 px öffnet „Mitglieder“ im Kopf des Kanals die Spalte als
+  Ebene, samt Meldungen; der Knopf nennt offene Meldungen („Mitglieder · 2
+  Meldung(en)“, gelb). „×“ oder Esc schließt. Thread und Mitglieder schließen
+  einander aus.
 
 ---
 

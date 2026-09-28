@@ -1439,3 +1439,23 @@ button.thread-link:focus-visible { outline: 2px solid var(--accent); outline-off
   .comm-space-inner.thread-offen .channel-col { display: none; }
   .comm-space-inner.thread-offen .thread-spalte { grid-column: 1 / -1; }
 }
+
+/* ---------- Räume: Mitglieder (Schritt C.2d1) ---------- */
+.mitglieder-kopf { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.member-row .mitglied-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.member-row .msg-role.rolle-gruender { color: var(--acc, #C9A227); }
+.member-row .mitglied-knopf { min-height: 28px; padding: 2px 8px; }
+.menue-schwebend { z-index: 900; }
+button.menue-punkt.menue-gefahr { color: var(--red); }
+/* Bis 1100 px fehlt die Spalte: „Mitglieder“ im Kopf des Kanals öffnet sie als Ebene (B3) */
+.kanal-mitglieder, .mitglieder-zu { display: none; }
+.kanal-mitglieder.hat-meldungen { border-color: var(--amber); color: var(--amber); }
+@media (max-width: 1100px) {
+  .kanal-mitglieder, .mitglieder-zu { display: inline-flex; width: auto; }
+  .comm-space-inner.mitglieder-offen .member-col { display: block; grid-column: 2; border-left: 0; }
+  .comm-space-inner.mitglieder-offen .channel-main { display: none; }
+}
+@media (max-width: 900px) {
+  .comm-space-inner.mitglieder-offen .channel-col { display: none; }
+  .comm-space-inner.mitglieder-offen .member-col { grid-column: 1 / -1; }
+}

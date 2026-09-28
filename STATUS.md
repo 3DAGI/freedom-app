@@ -9578,3 +9578,58 @@ Endstand (nach dem Einmergen von `main` mit 4.5b): protocol 1082 (6
 übersprungen) · node 245 (6 übersprungen, mit Netz) · app 539 (+4) · mls 13 · Leak-Tests 59 grün + 1 todo · 0 rot ·
 check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 · Website 5 Seiten
 ok · Smoke-Test bestanden (mit „rahmen“, „dialog“ und „raum“ samt Thread).
+
+## Schritt C.2d1 – Oberfläche: Mitglieder mit Rollen und Menü, Meldungen mobil
+
+**Fertig:** C.2d ist geteilt (Kanal anlegen folgt mit C.2d2). Die
+Mitgliederliste zeigt Namen und Rollen und hat ein Menü je Mitglied. Bis
+1100 px lassen sich Mitglieder und Meldungen als Ebene öffnen (B3: vorher sah
+ein Moderator am Handy keine Meldung).
+
+**Einzelheiten:**
+- **Liste** (`zeigeMitglieder()`):
+  - Nur DOM und `textContent`; die letzte innerHTML-Ausnahme der Räume ist
+    gestrichen.
+  - Name über `kontaktName()`, „Du“ für mich, der volle Schlüssel im Titel.
+  - Rollen als Marken, der Gründer hervorgehoben. Privat zeigen Moderatoren
+    (Admins der Gruppe) nur „Moderator“.
+- **Menü „⋯“ je Mitglied** – nur mit dem, was ich darf, nie für mich selbst:
+  - Privat als Moderator: „Zum Moderator machen“ bzw. „Moderator entfernen“
+    (`setzeModeratoren()`, ein Commit); „Aus dem Raum entfernen“ nach einer
+    Rückfrage, die ehrlich sagt, was bleibt (`entferneAusRaum()`).
+  - Offen nach meinen Rechten: „Rolle vergeben“ (`moderiere("grant")`) und
+    „Absender sperren“ (`moderiere("ban")` – der Dialog bietet dann nur
+    Sperren an, Ausblenden gehört zu einer Nachricht). Nie für den Gründer.
+  - Private Räume moderieren weiter nur über MLS – keine offenen Sperr-Events.
+- **`oeffneMenueAn()`** (`shell/menue.ts`), ein schwebendes Menü für Listen,
+  die sich neu zeichnen:
+  - Es entsteht beim Öffnen und räumt beim Schließen seine Horcher weg; es
+    ist höchstens eins offen.
+  - Die Punkte stehen nur als Text da.
+  - Dieselbe Tastatur wie beim Raum-Menü (`menueTasten()`, aus `wireMenue()`
+    herausgezogen); Esc gibt den Fokus dem Knopf zurück.
+- **B3:** Bis 1100 px steht „Mitglieder“ im Kopf des Kanals.
+  - Der Knopf öffnet die Spalte samt Meldungen als Ebene; „×“ oder Esc
+    schließt.
+  - Er nennt offene Meldungen („Mitglieder · 2 Meldung(en)“, gelb).
+  - Thread und Mitglieder schließen einander aus.
+- **Screenshots** (`docs/ausbau/bilder/c2d1/`): Desktop mit offenem Menü an
+  einem Mitglied (Rolle vergeben, Absender sperren); Handy mit den Mitgliedern
+  als Ebene und demselben Menü.
+
+**Tests:**
+- +4 in `raum-mitglieder.test.ts`: Liste ohne HTML, Menüpunkte nur nach
+  Rechten (auch: privat ohne offene Sperr-Events), schwebendes Menü räumt auf,
+  Ebene und Meldungen bis 1100 px.
+- Smoke-Test „raum“ auf Desktop und Handy:
+  - Liste: Gründer, zwei Mitglieder mit „⋯“, ich als „Du“ (Moderator, ohne
+    „⋯“).
+  - Menü: öffnet mit dem Fokus auf „Rolle vergeben“, Pfeil ab führt zu
+    „Absender sperren“, Esc schließt, der Fokus steht wieder auf „⋯“.
+  - Mobil: Ebene auf und zu.
+
+Endstand: protocol 1082 (6 übersprungen) · node 245 (6 übersprungen, mit
+Netz) · app 543 (+4) · mls 13 · Leak-Tests 59 grün + 1 todo · 0 rot ·
+check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 (69 Ausnahmen, 1
+weniger) · Website 5 Seiten ok · Smoke-Test bestanden (mit „rahmen“, „dialog“
+und „raum“ samt Thread und Mitgliedern).

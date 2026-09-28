@@ -23,7 +23,6 @@ raeume.ts|(Zuweisung) st.space.channels.map((c) => { const b = badges.get(c.id);
 raeume.ts|b.mentions|lokal gezählt in unreadBadges()
 raeume.ts|schloss|feste Zeichen: Schloss-Entity oder #
 raeume.ts|marke|festes Markup oder Template mit dem lokalen Zähler b.mentions
-raeume.ts|(Zuweisung) zeilen.join("")|zeilen enthält nur Templates mit escapeHtml (direkt darüber gebaut)
 profil.ts|farbe|aus der festen Tabelle ACCENT_HEX nach normalizeStyle()
 profil.ts|avatar|Template mit escapeHtml(bild) bzw. escapeHtml(Anfangsbuchstabe), direkt darüber gebaut
 profil.ts|farbe|aus der festen Tabelle ACCENT_HEX nach normalizeStyle()

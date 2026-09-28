@@ -107,11 +107,19 @@ def main() -> int:
                 s.wait_for_timeout(200)
                 s.screenshot(path=str(ziel / f"{groesse}-{nr + 3:02d}-raum-thread.jpg"), type="jpeg", quality=70)
                 s.evaluate("() => document.getElementById('thread-zu')?.click()")
+                # Mitglieder (seit C.2d1): mobil als Ebene; das Menü am ersten Mitglied mit Menü
                 if mobil:
+                    s.evaluate("() => document.getElementById('kanal-mitglieder').click()")
+                s.evaluate("() => document.querySelector('#member-list .mitglied-knopf')?.click()")
+                s.wait_for_timeout(200)
+                s.screenshot(path=str(ziel / f"{groesse}-{nr + 4:02d}-raum-mitglieder.jpg"), type="jpeg", quality=70)
+                s.keyboard.press("Escape")
+                if mobil:
+                    s.evaluate("() => document.getElementById('mitglieder-zu').click()")
                     s.evaluate("() => document.getElementById('channel-zurueck').click()")
                 s.evaluate("() => document.getElementById('space-menue-knopf').click()")
                 s.wait_for_timeout(200)
-                s.screenshot(path=str(ziel / f"{groesse}-{nr + 4:02d}-raum-menue.jpg"), type="jpeg", quality=70)
+                s.screenshot(path=str(ziel / f"{groesse}-{nr + 5:02d}-raum-menue.jpg"), type="jpeg", quality=70)
             ctx.close()
         browser.close()
     srv.shutdown()
