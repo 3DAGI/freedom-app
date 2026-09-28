@@ -45,9 +45,9 @@ bash packages/mls/bauen.sh --pruefen                     # nur bei Änderungen a
 bash contracts/solana-channel/pruefen.sh --werkzeuge     # nur bei Änderungen am Zahlkanal: bauen + Tests gegen Validator (Agave 3.1.10)
 ```
 
-Stand 28.09.2026 (nach 8.2c, C.2d2, 8.15 und 5.9a): protocol 1089 grün (6 übersprungen), node 260 grün
+Stand 28.09.2026 (nach 8.2c, 5.5a–c, 8.15, 11.1a, C.3c2 und 5.9a): protocol 1096 grün (6 übersprungen), node 260 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 567 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 62 grün + 1 `todo` (heutige Lecks,
+in `tools.test.ts`), app 593 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 62 grün + 1 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
 Ausnahme: gesendete SOL-Zahlungen von frischen Adressen, eine bewusste Grenze
 nach Entscheidung 4.9 A – im Datenschutzbericht unter „Bewusste Grenzen“).
@@ -648,6 +648,16 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   (`main.ts`, `new WebSocketRelay(url, { verbinde })` mit `torWebSocket()`) – keine
   weitere ohne `verbinde`, ein Test zählt das. SOCKS5 nur mit Namen
   (Adresstyp 3), nie lokal auflösen; ungültiges `TOR_SOCKS` → kein Start.
+- **Git-Bundles nur über `leseBundle()`** (seit C.3c1, `git-bundle.ts`): ohne
+  neue Abhängigkeit (`DecompressionStream`, `crypto.subtle`), Grenzen aus
+  `BUNDLE_GRENZEN`, Prüfsumme des Packs und jede Kennung nachgerechnet, Fehler
+  nur als `BundleFehler`-Kennung (nie Text aus dem Bundle). Geladen nur auf
+  Knopfdruck über `holeBundle()`, gelesen nur im Speicher, gezeigt nur als
+  Text. Packfiles nennen die gepackte Länge nicht: das Ende über die
+  Adler-32-Summe suchen und bis dort noch einmal sauber entpacken –
+  `DecompressionStream` meldet Daten nach dem Ende als Fehler, liefert den
+  Inhalt aber vorher. `crypto.subtle` gibt es nur in sicheren Kontexten
+  (https, localhost) – Browser-Tests nie auf `about:blank`.
 - **Reproduzierbarer Build** (seit 5.9a): `freedom.html` muss aus einem
   frischen Checkout bitgleich entstehen – in `build.mjs` nichts Zeit-, Pfad-
   oder Zufallsabhängiges (kein `Date.now()`, keine absoluten Pfade im Bundle).

@@ -31,7 +31,7 @@ import {
   state,
   wireRpcSetting,
 } from "./state.js";
-import { haltevorModell, kuendigeModellAn, loadGitRepos, setGitStatus, veroeffentlicheKatalog, zeigeKataloge, zeigeModelle } from "./tabs/agent-netz.js";
+import { haltevorModell, kuendigeModellAn, veroeffentlicheKatalog, zeigeKataloge, zeigeModelle } from "./tabs/agent-netz.js";
 import { starteStreitfall } from "./streitfall-ui.js";
 import {
   askAi,
@@ -480,6 +480,8 @@ export function switchTab(name: string): void {
   if (name === "earn") { loadEarnings(); loadTrust(); updateReferralLink(); void zeigeSolEinnahmen(); }
   // Karte und Mesh stehen seit C.1b auf der Seite „Netz“
   if (name === "netz") { void ladeAbdeckung(); void zeigeMeshWeg(); }
+  // Repos (C.3a): beim Öffnen frisch laden – Ankündigungen, Bundles, Patches
+  if (name === "repos") void import("./tabs/repos.js").then((m) => m.ladeNip34Repos());
   if (name === "mehr") void aktualisiereNavStatus();
   updateSidebarBalances();
   // Adresse (nur die Seite, nie eine Kennung) und „Mehr“ nachziehen (C.1a)
@@ -757,41 +759,7 @@ function starte(): void {
     };
   }
   // Reward-Claim
-  // Freedom Git: bundle publizieren + repo-liste laden
-  const gitPublishBtn = $("#git-repo-publish");
-  const gitFileInput = $("#git-bundle-file") as HTMLInputElement | null;
-  if (gitPublishBtn && gitFileInput) {
-    gitPublishBtn.onclick = () => gitFileInput.click();
-    gitFileInput.onchange = async () => {
-      const file = gitFileInput.files?.[0];
-      gitFileInput.value = "";
-      if (!file || !state.keypair) return;
-      const nameEl = $("#git-repo-name") as HTMLInputElement;
-      const name = nameEl.value.trim().replace(/[^a-z0-9-_]/gi, "-") || file.name.replace(/\.bundle$/i, "");
-      try {
-        const bytes = new Uint8Array(await file.arrayBuffer());
-        // sha256 head aus bundle-name (der user macht lokal: git bundle create)
-        // Seit 8.9b verschluesselt, der Schluessel steht oeffentlich in der Referenz
-        // (Entscheidung 26.09.2026): lesen kann jeder, Speicherknoten halten nur Chiffrat.
-        const { uploadAnhang } = await import("../blob-client.js");
-        const pool = await ensurePool();
-        setGitStatus(t("ein.gitPubliziere", { name: file.name, kb: Math.round(bytes.length / 1024) }));
-        const res = await uploadAnhang(new File([bytes], "", { type: "application/octet-stream" }), pool as never, state.signer!);
-        // repo-ref-event (38042)
-        const { buildGitRepoRef } = await import("@freedomstack/protocol");
-        const ref = buildGitRepoRef(
-          { name, blobId: res.blobId, headSha: "local", branch: "main", message: `bundle ${file.name}`, version: Math.floor(Date.now() / 1000), schluessel: res.schluessel },
-          state.keypair.pk,
-        );
-        await pool.publish(await signiere(ref));
-        toast(t("ein.gitPubliziert", { name, blob: res.blobId.slice(0, 8) }));
-        loadGitRepos();
-      } catch (e) {
-        toast(t("ein.gitFehler", { fehler: fehlerText(e) }), true);
-      }
-    };
-  }
-  loadGitRepos();
+  // Repos: Liste, Repo-Seite und Bundle hochladen seit C.3a2 in tabs/repos.ts
   void import("./tabs/repos.js").then((m) => m.wireNip34());
   $("#ai-send").onclick = askAi;
   $("#ai-bid").oninput = updateFeePreview;

@@ -554,6 +554,7 @@ const FEHLER: Record<string, string> = {
   "datei-schluessel": "pf.dateiSchluessel",
   "datei-kaputt": "pf.dateiKaputt",
   "datei-hash": "pf.dateiHash",
+  "qr-zu-lang": "pf.qrZuLang",
 };
 
 /** Hat dieser Fehler eine Kennung mit Text? */

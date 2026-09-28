@@ -437,7 +437,8 @@ def rahmen_pruefen(browser, url: str) -> dict:
                 erg["fehler"].append(f"desktop: Relay-Stand {titel!r}")
             # C.1b: die verschobenen Inhalte stehen auf ihren neuen Seiten
             inhalte = {}
-            for tab, sels in [("repos", ["#git-repo-list", "#nip34-liste", "#contrib-list"]),
+            # seit C.3a eine Liste mit Suche statt zwei Listen
+            for tab, sels in [("repos", ["#repos-karten", "#repos-suche", "#contrib-list"]),
                               ("netz", ["#coverage-refresh"]), ("earn", ["#trust-bar-track"])]:
                 klick(f'.app-nav button[data-tab="{tab}"]')
                 inhalte[tab] = all(sichtbar(x) for x in sels)
@@ -527,6 +528,10 @@ def dialog_pruefen(browser, url: str) -> dict:
         ctx.close()
     erg["bestanden"] = not erg["fehler"]
     return erg
+
+
+# Echtes Git-Bundle (v2, mit Deltas) für den Reiter „Code“ (seit C.3c1) – dasselbe wie im Test von git-bundle.ts
+PROBE_BUNDLE = (Path(__file__).resolve().parent.parent / "packages/app/test/fixtures/probe-v2.bundle").read_bytes()
 
 
 class ProbeRelay:
@@ -779,6 +784,256 @@ def raum_pruefen(browser, url: str) -> dict:
             if rechte != [True, True] or not any(k.endswith("Technik & Co") for k in kanaele) \
                     or neu != [["channel", "technik-co", "Technik & Co", "offen", "2", "mod", ""]]:
                 erg["fehler"].append(f"desktop: eigener Raum, Kanal anlegen {erg['desktop']['eigener_raum']}")
+        # Repos (C.3a): eine Karte aus Ankündigung und Bundle, Suche, „Meine“, Repo-Seite, Patch annehmen per Dialog
+        ev("() => { location.hash = '#/repos'; }")
+        try:
+            s.wait_for_function("() => document.querySelectorAll('#repos-karten .repo-karte').length > 0", timeout=10000)
+        except Exception:
+            pass
+        karte = """() => [...document.querySelectorAll('#repos-karten .repo-karte')].map(k => [k.querySelector('.repo-name').textContent,
+          !!k.querySelector('.msg-role')])"""
+        liste = ev(karte)
+        ev("() => { const s = document.getElementById('repos-suche'); s.value = 'gibt-es-nicht'; s.dispatchEvent(new Event('input')); }")
+        leer = ev(karte)
+        ev("() => { const s = document.getElementById('repos-suche'); s.value = 'WERKZEUGE'; s.dispatchEvent(new Event('input')); }")
+        gesucht = ev(karte)
+        ev("() => document.querySelector('#repos-filter [data-filter=meine]').click()")
+        meine = ev(karte)
+        ev("() => document.querySelector('#repos-karten .repo-karte').click()")
+        s.wait_for_timeout(200)
+        seite = ev("""() => ({ sichtbar: document.getElementById('repo-seite').getBoundingClientRect().height > 0,
+          liste: document.getElementById('repos-liste-ansicht').getBoundingClientRect().height > 0,
+          klon: document.querySelector('.repo-klon input')?.value, fokus: document.activeElement?.classList.contains('repo-zurueck'),
+          patches: [...document.querySelectorAll('.repo-patch')].map(p => [p.querySelector('.repo-patch-betreff').textContent,
+            [...p.querySelectorAll('.repo-patch-status button')].map(b => b.textContent)]) })""")
+        ev("() => document.querySelector('.repo-patch-status button').click()")  # annehmen (seit C.3b1 ist der Betreff selbst ein Knopf)
+        s.wait_for_timeout(200)
+        s.keyboard.type("xyz")
+        s.keyboard.press("Enter")
+        s.wait_for_timeout(100)
+        falsch = ev("() => document.querySelector('[role=dialog] [role=alert]')?.textContent ?? null")
+        s.keyboard.press("Control+A")
+        s.keyboard.type("c" * 40)
+        # Seit C.3b2 mit Begründung: Tab ins Textfeld, Strg+Enter bestätigt
+        s.keyboard.press("Tab")
+        s.keyboard.type("Danke – <i>sauber</i>.")
+        s.keyboard.press("Control+Enter")
+        s.wait_for_timeout(800)
+        patch_id = next(e["id"] for e in relay.events if e.get("kind") == 1617)
+        status = [e for e in relay.gesendet if e.get("kind") == 1631]
+        verweis = [t[1] for t in (status[0]["tags"] if status else []) if t[0] == "e"]
+        commit = [t[1] for t in (status[0]["tags"] if status else []) if t[0] == "applied-as-commits"]
+        notiz = status[0]["content"] if status else None
+        ev("() => document.querySelector('.repo-zurueck').click()")
+        s.wait_for_timeout(200)
+        zurueck = ev("() => [document.getElementById('repos-liste-ansicht').getBoundingClientRect().height > 0, document.activeElement?.classList.contains('repo-karte')]")
+        erg[groesse]["repos"] = {"liste": liste, "leer": leer, "gesucht": gesucht, "meine": meine, "seite": seite, "falsch": falsch,
+                                 "status": len({e["id"] for e in status}), "verweis": verweis, "commit": commit, "notiz": notiz, "zurueck": zurueck}
+        if liste != [["werkzeug", True]] or leer != [] or gesucht != liste or meine != liste:
+            erg["fehler"].append(f"{groesse}: Repo-Liste {liste} {leer} {gesucht} {meine}")
+        if not (seite["sichtbar"] and not seite["liste"] and seite["klon"] == "git clone https://example.org/werkzeug.git" and seite["fokus"]
+                and seite["patches"] == [["Hammer schärfen", ["annehmen", "als Entwurf", "schließen"]]]):
+            erg["fehler"].append(f"{groesse}: Repo-Seite {seite}")
+        if not falsch or "SHA-1" not in falsch or verweis[:1] != [patch_id] or commit != ["c" * 40] or notiz != "Danke – <i>sauber</i>.":
+            erg["fehler"].append(f"{groesse}: Patch annehmen {falsch} {verweis} {commit} {notiz!r}")
+        if zurueck != [True, True]:
+            erg["fehler"].append(f"{groesse}: zurück zur Liste {zurueck}")
+        # Seit C.3a2: Reiter „Mitwirkende“ (fremdes Repo, ohne „Einstellungen“), eigenes Repo mit Einstellungen und neuer Version
+        reiter = "() => [...document.querySelectorAll('#repo-seite .repo-reiter [role=tab]')].map(b => b.dataset.reiter)"
+        ev("() => document.querySelector('#repos-karten .repo-karte').click()")
+        s.wait_for_timeout(200)
+        fremd_reiter = ev(reiter)
+        ev("() => document.querySelector('#repo-seite [data-reiter=mitwirkende]').click()")
+        try:
+            s.wait_for_function("() => document.querySelectorAll('#repo-seite .repo-mitwirkende .usage-row').length > 0", timeout=5000)
+        except Exception:
+            pass
+        mitwirkende = ev("() => document.querySelectorAll('#repo-seite .repo-mitwirkende .usage-row').length")
+        ev("() => document.querySelector('.repo-zurueck').click()")
+        # Suche von oben leeren, sonst bleibt das neue Repo verborgen
+        ev("() => { const s = document.getElementById('repos-suche'); s.value = ''; s.dispatchEvent(new Event('input')); }")
+        ev("() => document.getElementById('nip34-ankuendigen').click()")
+        s.wait_for_timeout(200)
+        s.keyboard.type("meins")
+        s.keyboard.press("Enter")  # Dialog: Kennung
+        s.wait_for_timeout(200)
+        s.keyboard.press("Enter")  # Rückfrage: ankündigen
+        try:
+            s.wait_for_function("() => [...document.querySelectorAll('#repos-karten .repo-name')].some(n => n.textContent === 'meins')", timeout=5000)
+        except Exception:
+            pass
+        ev("() => [...document.querySelectorAll('#repos-karten .repo-karte')].find(k => k.querySelector('.repo-name').textContent === 'meins')?.click()")
+        s.wait_for_timeout(200)
+        eigen_reiter = ev(reiter)
+        ev("() => document.querySelector('#repo-seite [data-reiter=einstellungen]')?.click()")
+        s.wait_for_timeout(200)
+        ada = next(e["pubkey"] for e in relay.events if e.get("kind") == 1617)
+        vorher = len(relay.gesendet)
+        def speichern(maintainer: str) -> None:
+            if not ev("() => !!document.getElementById('repo-feld-beschreibung')"):
+                return  # keine Einstellungen – die Prüfungen unten melden es
+            s.fill("#repo-feld-beschreibung", "Mein Repo")
+            s.fill("#repo-feld-web", "https://example.org/meins\nhttp://example.org/unsicher")
+            s.fill("#repo-feld-maintainer", maintainer)
+            ev("() => document.querySelector('.repo-einstellungen button[type=submit]').click()")
+            s.wait_for_timeout(200)
+        speichern("npub1xyz")  # ungültig: Meldung im Formular, nichts gesendet, keine Rückfrage
+        abgewiesen = [ev("() => document.querySelector('.repo-fehler')?.textContent ?? ''"), len(relay.gesendet) - vorher,
+                      ev("() => !!document.querySelector('[role=dialog]')")]
+        speichern(ada)
+        s.keyboard.press("Enter")  # Rückfrage: veröffentlichen
+        s.wait_for_timeout(800)
+        neu = [e for e in relay.gesendet if e.get("kind") == 30617 and ["d", "meins"] in e["tags"]]
+        ank = neu[-1] if neu else {"tags": []}
+        tags = {t[0]: t[1:] for t in ank["tags"]}
+        links = ev("() => [...document.querySelectorAll('#repo-seite .repo-web a')].map(a => [a.getAttribute('href'), a.rel])")
+        noch_einstellungen = ev("() => !!document.querySelector('#repo-seite .repo-einstellungen')")
+        if ev("() => !!document.querySelector('#repo-seite .repo-hochladen input[type=file]')"):
+            s.set_input_files("#repo-seite .repo-hochladen input[type=file]",
+                              files=[{"name": "meins.bundle", "mimeType": "application/octet-stream", "buffer": PROBE_BUNDLE}])
+        try:
+            s.wait_for_function("() => [...document.querySelectorAll('#repo-seite .repo-klon button')].length > 0", timeout=8000)
+        except Exception:
+            pass
+        bundles = [e for e in relay.gesendet if e.get("kind") == 38042 and ["d", "meins"] in e["tags"]]
+        bundle_tags = [t[0] for t in (bundles[-1]["tags"] if bundles else [])]
+        bundle_knopf = ev("() => document.querySelectorAll('#repo-seite .repo-klon button').length")
+        # Seit C.3c1: die neue Version ist ein echtes Bundle – der Reiter „Code“ liest es in der App
+        ev("() => document.querySelector('#repo-seite [data-reiter=code]')?.click()")
+        s.wait_for_timeout(200)
+        ev("() => document.querySelector('#repo-seite .code-laden')?.click()")
+        try:
+            s.wait_for_function("() => !!document.querySelector('#repo-seite .code-readme') || !!document.querySelector('#repo-seite .repo-fehler')?.textContent", timeout=15000)
+        except Exception:
+            pass
+        code = ev("""() => ({ commit: document.querySelector('#repo-seite .code-commit')?.textContent,
+          dateien: [...document.querySelectorAll('#repo-seite .code-dateien li')].map(l => l.textContent),
+          readme: document.querySelector('#repo-seite .code-readme')?.textContent?.split('\\n')[0],
+          fehler: document.querySelector('#repo-seite .repo-fehler')?.textContent ?? '' })""")
+        erg[groesse]["code"] = code
+        if not (code["commit"] or "").startswith("Liste ergänzt · Probe · ") or not (code["commit"] or "").endswith("· 590c7cf") \
+                or code["dateien"] != ["src/", "bild.bin", "README.md"] or code["readme"] != "# Werkzeug" or code["fehler"]:
+            erg["fehler"].append(f"{groesse}: Reiter Code {code}")
+        # Seit C.3c2: Ordner öffnen, Datei als Text, binär ehrlich, zurück über den Pfad; Reiter „Commits“
+        def eintrag(name: str) -> None:
+            ev(f"() => [...document.querySelectorAll('#repo-seite .code-eintrag')].find(b => b.textContent === '{name}')?.click()")
+            s.wait_for_timeout(150)
+        pfad = "() => [...document.querySelectorAll('#repo-seite .code-pfad > :not(.muted)')].map(e => e.textContent)"
+        eintrag("src/")
+        navi = {"src": [ev(pfad), ev("() => [...document.querySelectorAll('#repo-seite .code-eintrag')].map(b => b.textContent)"),
+                        ev("() => document.activeElement?.classList.contains('code-hier')")]}
+        eintrag("liste.txt")
+        navi["datei"] = [ev(pfad), ev("() => document.querySelector('#repo-seite .code-datei')?.textContent.split('\\n')[0]")]
+        ev("() => document.querySelector('#repo-seite .code-pfad-knopf')?.click()")  # zurück zu „meins“
+        s.wait_for_timeout(150)
+        eintrag("bild.bin")
+        navi["binaer"] = [ev(pfad), ev("() => !!document.querySelector('#repo-seite .code-datei')"),
+                          ev("() => [...document.querySelectorAll('#repo-seite p')].some(p => p.textContent.startsWith('Binärdatei'))")]
+        ev("() => document.querySelector('#repo-seite [data-reiter=commits]')?.click()")
+        s.wait_for_timeout(200)
+        ev("() => document.querySelector('#repo-seite .code-commits details summary')?.click()")
+        navi["commits"] = ev("""() => ({ betreffe: [...document.querySelectorAll('#repo-seite .code-commit-betreff')].map(e => e.textContent),
+          offen: document.querySelector('#repo-seite .code-commits details')?.open,
+          nachricht: document.querySelector('#repo-seite .code-commit-nachricht')?.textContent })""")
+        erg[groesse]["code_navi"] = navi
+        if navi["src"] != [["meins", "src"], ["liste.txt"], True] or navi["datei"] != [["meins", "src", "liste.txt"], "Zeile 0: Hammer, Zange, Säge und Schraubenzieher liegen bereit."] \
+                or navi["binaer"] != [["meins", "bild.bin"], False, True] or navi["commits"]["betreffe"] != ["Liste ergänzt", "Erster Stand"] \
+                or not navi["commits"]["offen"] or "zweiten Zeile" not in (navi["commits"]["nachricht"] or ""):
+            erg["fehler"].append(f"{groesse}: Code-Navigation/Commits {navi}")
+        erg[groesse]["repo_c3a2"] = {"fremd_reiter": fremd_reiter, "mitwirkende": mitwirkende, "eigen_reiter": eigen_reiter,
+                                     "abgewiesen": abgewiesen, "tags": tags, "links": links, "bleibt": noch_einstellungen,
+                                     "bundle": bundle_tags, "bundle_knopf": bundle_knopf}
+        if fremd_reiter != ["code", "commits", "patches", "mitwirkende"] or mitwirkende != 2:
+            erg["fehler"].append(f"{groesse}: fremdes Repo, Reiter/Mitwirkende {fremd_reiter} {mitwirkende}")
+        if eigen_reiter != ["code", "commits", "patches", "mitwirkende", "einstellungen"]:
+            erg["fehler"].append(f"{groesse}: eigenes Repo ohne Einstellungen {eigen_reiter}")
+        if "Maintainer" not in abgewiesen[0] or abgewiesen[1] != 0 or abgewiesen[2]:
+            erg["fehler"].append(f"{groesse}: ungültiger Maintainer nicht abgewiesen {abgewiesen}")
+        if tags.get("description") != ["Mein Repo"] or tags.get("maintainers") != [ada] or not noch_einstellungen \
+                or links != [["https://example.org/meins", "noopener noreferrer"]]:
+            erg["fehler"].append(f"{groesse}: Einstellungen gespeichert {tags} {links} {noch_einstellungen}")
+        if "aes-gcm" not in bundle_tags or bundle_knopf < 1:
+            erg["fehler"].append(f"{groesse}: neue Version hochladen {bundle_tags} {bundle_knopf}")
+        # Seit C.3b1: eigener Patch erst als Vorschau (ungültige Datei abgewiesen), dann gesendet
+        ev("() => document.querySelector('#repo-seite [data-reiter=patches]')?.click()")
+        s.wait_for_timeout(200)
+        eigener_patch = (f"From {'b' * 40} Mon Sep 17 00:00:00 2001\nFrom: Ich <ich@example.org>\nSubject: [PATCH] Liesmich\n\n"
+                         "Erste Zeile.\n---\ndiff --git a/LIESMICH b/LIESMICH\nnew file mode 100644\n--- /dev/null\n+++ b/LIESMICH\n"
+                         "@@ -0,0 +1,2 @@\n+# meins\n+<b>fett?</b>\n-- \n2.43.0\n")
+        datei = "#repo-seite .repo-patch-datei"
+        vorschau = {}
+        if ev(f"() => !!document.querySelector('{datei}')"):
+            s.set_input_files(datei, files=[{"name": "kaputt.patch", "mimeType": "text/plain", "buffer": b"kein Patch"}])
+            s.wait_for_timeout(300)
+            vorschau["kaputt"] = ev("() => !!document.querySelector('#repo-seite .patch-senden')")
+            s.set_input_files(datei, files=[{"name": "0001.patch", "mimeType": "text/plain", "buffer": eigener_patch.encode()}])
+            s.wait_for_timeout(300)
+            vorschau["seite"] = ev("""() => ({ titel: document.querySelector('#repo-seite .patch-titel')?.textContent,
+              zeilen: [...document.querySelectorAll('#repo-seite .diff-zeile')].map(z => [z.querySelector('.diff-zeichen').textContent, z.querySelector('.diff-text').textContent]),
+              art: document.querySelector('#repo-seite .diff-datei-kopf .msg-role')?.textContent, fokus: document.activeElement?.classList.contains('patch-senden') })""")
+            vorher = len([e for e in relay.gesendet if e.get("kind") == 1617])
+            ev("() => document.querySelector('#repo-seite .patch-senden').click()")
+            s.wait_for_timeout(800)
+            gesendet_patch = [e for e in relay.gesendet if e.get("kind") == 1617][vorher:]
+            vorschau["gesendet"] = [t[1] for t in (gesendet_patch[-1]["tags"] if gesendet_patch else []) if t[0] == "a"]
+            vorschau["liste"] = ev("() => [...document.querySelectorAll('#repo-seite .repo-patch-betreff')].map(b => b.textContent)")
+        # Seit C.3b2: als Entwurf (mit Begründung), dann wieder öffnen; Schließen ist rot und lässt sich abbrechen
+        def aktion(text: str, notiz: str | None) -> list:
+            ev(f"() => [...document.querySelectorAll('#repo-seite .repo-patch-status button')].find(b => b.textContent === '{text}')?.click()")
+            s.wait_for_timeout(200)
+            gefahr = ev("() => !!document.querySelector('[role=dialog] .dlg-gefahr')")
+            if notiz is None:
+                s.keyboard.press("Escape")
+            else:
+                s.keyboard.type(notiz)
+                s.keyboard.press("Control+Enter")
+            s.wait_for_timeout(600)
+            knoepfe = ev("() => [...document.querySelectorAll('#repo-seite .repo-patch-status button')].map(b => b.textContent)")
+            return [gefahr, knoepfe]
+        vorher_status = len(relay.gesendet)
+        ablauf = [aktion("als Entwurf", "Noch nicht fertig"), aktion("schließen", None), aktion("wieder öffnen", "Jetzt fertig")]
+        neu_status = [[e["kind"], e["content"]] for e in relay.gesendet[vorher_status:] if e.get("kind") in (1630, 1631, 1632, 1633)]
+        vorschau["status"] = {"ablauf": ablauf, "gesendet": [list(x) for x in dict.fromkeys(tuple(x) for x in neu_status)]}
+        erg[groesse]["patch_vorschau"] = vorschau
+        if vorschau.get("kaputt") is not False or vorschau.get("seite", {}).get("titel") != "Liesmich" \
+                or vorschau["seite"]["zeilen"] != [["+", "# meins"], ["+", "<b>fett?</b>"]] or vorschau["seite"]["art"] != "neu" \
+                or not vorschau["seite"]["fokus"] or len(vorschau.get("gesendet", [])) != 1 \
+                or not vorschau["gesendet"][0].endswith(":meins") or vorschau.get("liste") != ["Liesmich"] \
+                or vorschau["status"]["ablauf"] != [[False, ["annehmen", "wieder öffnen", "schließen"]], [True, ["annehmen", "wieder öffnen", "schließen"]],
+                                                   [False, ["annehmen", "als Entwurf", "schließen"]]] \
+                or vorschau["status"]["gesendet"] != [[1633, "Noch nicht fertig"], [1630, "Jetzt fertig"]]:
+            erg["fehler"].append(f"{groesse}: Patch-Vorschau {vorschau}")
+        # Seit C.3b1: der angenommene Patch im fremden Repo als eigene Seite mit Änderungen, als Datei ladbar
+        ev("() => document.querySelector('.repo-zurueck').click()")
+        ev("() => [...document.querySelectorAll('#repos-karten .repo-karte')].find(k => k.querySelector('.repo-name').textContent === 'werkzeug')?.click()")
+        s.wait_for_timeout(200)
+        ev("() => document.querySelector('#repo-seite [data-reiter=patches]')?.click()")
+        ev("() => document.querySelector('#repo-seite .repo-filter [data-filter=angenommen]')?.click()")
+        ev("() => document.querySelector('#repo-seite .repo-patch-betreff')?.click()")
+        s.wait_for_timeout(200)
+        seite_patch = ev("""() => ({ titel: document.querySelector('#repo-seite .patch-titel')?.textContent,
+          marke: document.querySelector('#repo-seite .patch-meta .repo-status')?.textContent,
+          dateien: [...document.querySelectorAll('#repo-seite .diff-dateien li')].map(l => l.textContent),
+          zeilen: [...document.querySelectorAll('#repo-seite .diff-zeile')].map(z => [...z.children].map(c => c.textContent)),
+          fokus: document.activeElement?.classList.contains('patch-zurueck'),
+          angaben: [...document.querySelectorAll('#repo-seite .patch-status-info > *')].map(e => e.textContent),
+          fett: document.querySelectorAll('#repo-seite .patch-status-info i').length })""")
+        try:
+            with s.expect_download(timeout=5000) as dl:
+                ev("() => [...document.querySelectorAll('#repo-seite .patch-aktionen button')].at(-1).click()")
+            seite_patch["datei"] = dl.value.suggested_filename
+        except Exception as e:
+            seite_patch["datei"] = f"kein Download: {str(e)[:80]}"
+        ev("() => document.querySelector('#repo-seite .patch-zurueck')?.click()")
+        s.wait_for_timeout(200)
+        seite_patch["zurueck"] = ev("() => [!!document.querySelector('#repo-seite .repo-patches'), document.activeElement?.dataset?.patch?.length === 64]")
+        erg[groesse]["patch_seite"] = seite_patch
+        if seite_patch["titel"] != "Hammer schärfen" or seite_patch["marke"] != "angenommen ✓" or seite_patch["dateien"] != ["hammer.txt+1−1"] \
+                or seite_patch["zeilen"] != [["1", "", "−", "stumpf"], ["", "1", "+", "scharf"]] or not seite_patch["fokus"] \
+                or seite_patch["datei"] != "aaaaaaa.patch" or seite_patch["zurueck"] != [True, True] \
+                or len(seite_patch["angaben"]) != 3 or not seite_patch["angaben"][0].startswith("angenommen ✓ von Du") \
+                or seite_patch["angaben"][1:] != ["Eingespielt als ccccccc", "Danke – <i>sauber</i>."] or seite_patch["fett"] != 0:
+            erg["fehler"].append(f"{groesse}: Patch-Seite {seite_patch}")
         ctx.close()
     erg["bestanden"] = not erg["fehler"]
     return erg

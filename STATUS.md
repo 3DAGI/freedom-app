@@ -10097,6 +10097,453 @@ mit Netz) · app 567 · mls 13 · Leak-Tests 62 grün + 1 todo · 0 rot ·
 check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 · Website 5 Seiten
 ok · Smoke-Test bestanden. Damit ist 8.2 im Code fertig (a–c); offen nur
 MENSCH: mit einem echten Provider in beiden Schienen testen.
+
+## Schritt C.3a1 – Oberfläche: Repo-Liste und Repo-Seite
+
+**Fertig:** Die Seite „Repos“ zeigt eine Liste statt zwei, und jedes Repo hat
+eine eigene Seite mit Klonen, Bundle und Patches. C.3a ist geteilt: C.3a2
+bringt die Einstellungen des Eigentümers, „Neue Version hochladen“ auf der
+Repo-Seite und die Mitwirkenden als Reiter.
+
+**Einzelheiten:**
+- **B10 – eine Liste:** `repoKarten()` (`repo-ansicht.ts`, ohne DOM)
+  verbindet Ankündigung (30617) und Bundle-Verweis (38042) desselben
+  Eigentümers mit derselben Kennung – nur in der Anzeige, kein neues Format.
+  - Fremde Bundles mit gleichem Namen bleiben eigene Repos.
+  - Repos nur mit Bundle erscheinen auch, mit Hinweis: Patches gehen erst,
+    wenn der Eigentümer ankündigt.
+  - Kennungen, die fehlen oder länger als 100 Zeichen sind, fallen heraus.
+- **Liste** (`repos.ts`):
+  - Suche nur lokal über Name, Kennung und Beschreibung; „Alle / Meine“
+    (Eigentümer oder Maintainer).
+  - Karten mit Eigentümer, Name, Marke „Bundle“, Beschreibung, offenen
+    Patches und letzter Aktivität; nur DOM und `textContent`.
+  - „Repo ankündigen“ als Dialog (Kennung, Beschreibung, Klon-Adressen).
+- **Repo-Seite** (`repo-seite.ts`, neu):
+  - Kopf „Eigentümer / Name“, Beschreibung, Maintainer.
+  - „Klonen“: `git clone …` zum Kopieren; „Bundle laden“ lädt verschlüsselt
+    und entschlüsselt mit dem Schlüssel der Referenz (zog aus
+    `agent-netz.ts` um, samt der alten Liste).
+  - Reiter „Code“ sagt ehrlich, dass die App Bundles erst mit C.3c liest.
+  - Reiter „Patches“ mit offen / angenommen / geschlossen samt Zahlen.
+    Annehmen per Dialog mit optionalem Commit (SHA-1 mit 40 Zeichen
+    geprüft), Schließen und Zurückziehen nach Rückfrage, Patch senden nach
+    Rückfrage – in den Repos gibt es kein `prompt()`/`confirm()` mehr.
+  - Welches Repo offen ist, steht nur im Speicher; „‹ Alle Repos“ führt
+    zurück und setzt den Fokus auf die Karte.
+- **Aufgeräumt:** `loadGitRepos()`/`setGitStatus()` und die Texte
+  `agent.zusammenarbeit`, `agent.keineRepos`, `agent.relayOffline`,
+  `repo.klonen` entfallen; neue Texte im Bereich `repos`
+  (`texte/repos.ts`, de + en).
+- **Screenshots** (`docs/ausbau/bilder/c3a1/`): Desktop-Liste mit Suche,
+  Filter und der Karte „werkzeug“ (Marke Bundle, 1 offener Patch); Repo-Seite
+  auf Desktop und Handy mit Klon-Kasten und dem offenen Patch.
+
+**Tests:**
+- +4 in `repo-karten.test.ts`:
+  - Ankündigung und Bundle desselben Eigentümers sind eine Karte, fremde
+    Bundles nicht.
+  - Offene Patches, Suche, „Meine“.
+  - Fehlende und überlange Kennungen fallen heraus.
+  - Seite verdrahtet: nur DOM, Adresse ohne Kennung, Dialoge.
+- `navigation.test.ts`: die Repo-Seite hat neue IDs (gleich streng).
+- Smoke-Test „raum“ auf Desktop und Handy (Probe-Repo in
+  `scripts/raum-probe.mts`): Karte, Suche ohne und mit Treffer, „Meine“,
+  Repo-Seite mit Klon-Befehl, Patch annehmen erst mit ungültigem, dann mit
+  gültigem Commit – gesendet wird Status 1631 mit Verweis auf den Patch und
+  `applied-as-commits`; zurück zur Liste mit Fokus. „rahmen“ prüft die neuen
+  Elemente.
+
+Endstand (nach dem Einmergen von `main` mit 5.5a–c, 8.15, 8.2a–c):
+protocol 1089 (6 übersprungen) · node 260 (6 übersprungen, mit Netz) · app
+571 (+4) · mls 13 · Leak-Tests 62 grün + 1 todo · 0 rot ·
+check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 (68 Ausnahmen, 1
+weniger – die alte Bundle-Liste) · Website 5 Seiten ok · Smoke-Test bestanden
+(mit „rahmen“, „dialog“ und „raum“ samt Repo-Liste, Repo-Seite und
+angenommenem Patch).
+
+## Schritt C.3a2 – Oberfläche: Repo-Einstellungen, neue Version, Mitwirkende
+
+**Fertig:** Die Repo-Seite hat die Reiter „Mitwirkende“ und – nur für den
+Eigentümer – „Einstellungen“ samt „Neue Version hochladen“. Damit ist C.3a
+fertig.
+
+**Einzelheiten:**
+- **Mitwirkende** (Reiter):
+  - Dieselbe Liste wie die Karte auf der Seite „Repos“ – `mitwirkendeListe()`
+    (`shell/mitwirkende.ts`, nur DOM). `earn.ts` nutzt sie auch; dort fällt
+    eine innerHTML-Ausnahme weg.
+  - Geholt werden alle Beiträge (38056), gefiltert wird lokal. Eine Abfrage
+    nach Kennung verriete dem Relay, welches Repo man ansieht.
+  - Ehrlich: Beiträge nennen nur die Kennung, nicht den Eigentümer –
+    gleichnamige Repos anderer zählen mit; das steht über der Liste.
+  - „aktive Tage: 2 · Beiträge: 2“ statt „1 aktive Tage · 1 Beiträge“
+    (Wert von `earn.aktiveTage`, Schlüssel gleich).
+- **Einstellungen** (nur Eigentümer, sonst gibt es den Reiter nicht):
+  - Name, Beschreibung, Klon- und Web-Adressen, Maintainer, erster Commit –
+    die Felder, die `baueRepoAnkuendigung()` kennt; die Kennung bleibt.
+  - `ankuendigungAusFeldern()` (`repo-ansicht.ts`, ohne DOM) trennt Zeilen
+    (auch Leerzeichen, Komma), wirft Leeres und Doppeltes weg, höchstens 20
+    je Feld, Schlüssel und Commit klein. Geprüft wird im Protokoll.
+  - Fehler stehen im Formular (`role="alert"`); erst eine gültige
+    Ankündigung führt zur Rückfrage, dann wird signiert und gesendet. Nach
+    dem Laden bleibt die Seite im Reiter.
+  - Web-Adressen fremder Repos sind nur mit https und ohne Zugangsdaten
+    anklickbar (`sichereWebAdressen()`), mit `noopener noreferrer`.
+- **Neue Version hochladen** (Einstellungen): ein Bundle mit derselben
+  Kennung.
+  - Der Upload zog aus `app.ts` nach `repos.ts` (`ladeBundleHoch()`), weiter
+    verschlüsselt über `uploadAnhang()`, der Schlüssel in der Referenz.
+  - Die Zeile über der Liste bleibt für neue Repos.
+  - B11 ist erledigt: die Texte stehen seit 8.16 über Schlüssel, „⇩ bundle“
+    fiel mit C.3a1.
+- Mobil brechen die Reiter der Repo-Seite um, statt seitlich zu scrollen –
+  sonst war „Einstellungen“ abgeschnitten.
+- **Screenshots** (`docs/ausbau/bilder/c3a2/`): Desktop „werkzeug“ mit dem
+  Reiter Mitwirkende (zwei Personen, Bus-Faktor); Desktop und Handy das
+  eigene Repo „meins“ mit dem Reiter Einstellungen.
+
+**Tests:**
+- +5 in `repo-einstellungen.test.ts`:
+  - Felder → Ankündigung, hin und zurück über das Protokoll.
+  - Feindliche Eingaben (`javascript:`-Klon, npub statt Hex, zu kurzer
+    Commit, Kennung mit Leerzeichen) weist das Protokoll mit Kennung ab;
+    höchstens 20 je Feld.
+  - Web-Adressen nur mit https.
+  - Mitwirkende je Kennung mit einer DOM-Attrappe: nur dieses Repo, Namen nur
+    als Text.
+  - Verdrahtung: Einstellungen nur für den Eigentümer, prüfen → fragen →
+    signieren, Hochladen nicht mehr in `app.ts`, keine Abfrage nach Kennung.
+- `leak/anhang.test.ts`: prüft den Bundle-Upload jetzt in `repos.ts`, genauso
+  streng (verschlüsselt, Schlüssel in der Referenz, kein `uploadBlob()`),
+  und dass `app.ts` keine Referenzen mehr baut.
+- Smoke-Test „raum“ auf Desktop und Handy (Probe-Beiträge in
+  `scripts/raum-probe.mts`):
+  - Fremdes Repo: Reiter Code, Patches, Mitwirkende (ohne Einstellungen);
+    zwei Mitwirkende.
+  - Eigenes Repo „meins“ angekündigt: Reiter mit Einstellungen.
+  - Ein ungültiger Maintainer wird im Formular abgewiesen – nichts gesendet,
+    keine Rückfrage.
+  - Dann gespeichert: 30617 mit Beschreibung und Maintainer; von zwei
+    Web-Adressen ist nur die https-Adresse ein Link.
+  - Neue Version: 38042 mit `aes-gcm`, danach „Bundle laden“ auf der Seite.
+
+- `scripts/wiring-ausnahmen.txt`: die Ausnahme für `buildContribution` ist
+  raus – der Probe-Raum nutzt es (`check-wiring.py` zählt `.mts`-Skripte).
+  Die App selbst veröffentlicht weiterhin keine Beiträge (38056); ohne sie
+  zeigt der Reiter ehrlich „Keine veröffentlichten Beiträge“.
+
+Endstand: protocol 1089 (6 übersprungen) · node 260 (6 übersprungen, mit
+Netz) · app 576 (+5) · mls 13 · Leak-Tests 62 grün + 1 todo · 0 rot ·
+check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 (67 Ausnahmen, 1
+weniger – die Mitwirkenden in `earn.ts`) · Website 5 Seiten ok · Smoke-Test
+bestanden (mit „rahmen“, „dialog“ und „raum“ samt Mitwirkenden,
+Einstellungen und neuer Version).
+
+## Schritt C.3b1 – Oberfläche: Diff-Leser und Patch-Seite
+
+**Fertig:** Ein Patch hat eine eigene Seite wie ein Pull Request, mit den
+Änderungen aus einem eigenen Diff-Leser; ein neuer Patch geht erst nach einer
+Vorschau hinaus. C.3b ist geteilt: C.3b2 bringt die Status-Dialoge mit
+Begründung (wieder öffnen, Entwurf, Rechte des Autors).
+
+**Einzelheiten:**
+- **Diff-Leser** `leseDiff()` (`diff-ansicht.ts`, ohne DOM):
+  - Liest Autor und Datum aus dem Kopf, die Nachricht bis „---“, je Datei
+    die Pfade (ohne `a/`/`b/`), die Art (neu, gelöscht, umbenannt, binär)
+    und die Abschnitte mit alten und neuen Zeilennummern.
+  - Der Text kommt von Fremden: Zahlen aus `@@`-Köpfen nur bis zehn
+    Millionen (sonst fällt der Abschnitt weg); ein Abschnitt endet bei der
+    ersten Zeile, die nicht zur Zählung passt; höchstens 200 Dateien, 5000
+    Zeilen und 2000 Zeichen je Zeile – darüber steht „gekürzt“. Er wirft nie.
+  - Eine hinzugefügte Zeile „diff --git …“ bleibt Inhalt; die Signatur
+    „-- “ am Ende wird bei richtiger Zählung nie gelesen.
+- **Patch-Seite** (`shell/tabs/patch-seite.ts`, nur DOM und `textContent`):
+  - Betreff, Status-Marke, Autor (Nostr-Name und „Autor laut Patch“),
+    Datum, Commit, die Aktionen wie in der Liste und „Als Datei laden“
+    (`<commit>.patch` für `git am`, lokal erzeugt).
+  - Die Nachricht, dann „Änderungen“ mit Zusammenfassung, Dateiliste (ein
+    Klick springt zur Datei) und je Datei die Abschnitte: alte und neue
+    Nummer, Zeichen (+, −) und Text – farbig und mit Zeichen.
+  - In der Liste ist der Betreff jetzt ein Knopf; „‹ Alle Patches“ führt
+    zum zuletzt gewählten Filter zurück und setzt den Fokus auf den Patch.
+    Welcher Patch offen ist, steht nur im Speicher.
+- **Neuer Patch:** Datei wählen → Kopf prüfen (`lesePatchText()`, Fehler als
+  Meldung) → Vorschau mit derselben Ansicht und dem Satz „öffentlich und mit
+  deinem Schlüssel signiert“ → „Patch senden“ oder „Verwerfen“. Die Vorschau
+  ersetzt die Rückfrage; das Dateifeld steht auf der Repo-Seite
+  (`#nip34-patch-datei` in `index.html` entfällt).
+- **Screenshots** (`docs/ausbau/bilder/c3b1/`): Desktop und Handy, „Hammer
+  schärfen“ in „werkzeug“: Kopf mit Marke „offen“, Autor, Commit, „Autor laut
+  Patch: Ada“, die Knöpfe annehmen, schließen, Als Datei laden, dann
+  „Änderungen · Dateien: 1 · +1 −1“ und `hammer.txt` mit „1 − stumpf“ und
+  „1 + scharf“.
+
+**Tests:**
+- +5 in `diff-ansicht.test.ts`:
+  - Kopf, Nachricht, Datei mit Abschnitt und Zeilennummern.
+  - Neu, gelöscht, umbenannt, binär, ohne Zeilenende, CRLF, mehrere
+    Abschnitte.
+  - Feindlich: Unfug, Riesenzahlen, falsche Zählung, Diff im Diff, HTML als
+    Text – nie eine Ausnahme.
+  - Grenzen: Dateien, Zeilen, Zeichen; darüber „gekürzt“.
+  - Verdrahtung: Patch-Seite nur DOM, Zeichen statt nur Farbe, Vorschau erst
+    nach `lesePatchText()`, senden nur aus der Vorschau.
+- Smoke-Test „raum“ auf Desktop und Handy:
+  - Im eigenen Repo: eine ungültige Datei ergibt keine Vorschau; eine gültige
+    zeigt Titel, Art „neu“ und die Zeilen `+ # meins` und `+ <b>fett?</b>`
+    als Text; „Patch senden“ veröffentlicht 1617 an „meins“, danach steht
+    der Patch in der Liste.
+  - Im fremden Repo: der angenommene Patch als Seite mit Marke, Dateiliste
+    `hammer.txt +1 −1` und den Zeilen mit Nummern und Zeichen; „Als Datei
+    laden“ liefert `aaaaaaa.patch`; zurück mit Fokus auf dem Patch.
+  - Die Knöpfe der C.3a1-Prüfung suchen jetzt im Aktionsbereich
+    (`.repo-patch-status`), weil der Betreff selbst ein Knopf ist – dieselben
+    Prüfungen.
+
+Endstand: protocol 1089 (6 übersprungen) · node 260 (6 übersprungen, mit
+Netz) · app 581 (+5) · mls 13 · Leak-Tests 62 grün + 1 todo · 0 rot ·
+check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 (67 Ausnahmen) ·
+Website 5 Seiten ok · Smoke-Test bestanden (mit „rahmen“, „dialog“ und
+„raum“ samt Patch-Vorschau und Patch-Seite).
+
+## Schritt 11.0 – Plan Phase 11: QR, Werbelinks, Agenten und Repos in Räumen
+
+**Warum:** Wunsch des MENSCHEN (28.09.2026): Geräte per QR-Code hinzufügen,
+Werbelinks mit eigener Adresse, Agenten und Repos in Räumen und Communities
+(privat und öffentlich), damit Mitglieder mit Agenten gemeinsam an Projekten
+arbeiten.
+
+**Was:** Neue Karte `docs/ausbau/phase-11.md` mit den Entscheidungen des
+MENSCHEN (Agent auf Knoten oder Gerät wählbar; Bezahlung durch Fragenden oder
+Einladenden einstellbar; QR selbst gebaut, Kamera über `BarcodeDetector` wo
+möglich; Werbelink mit eigener Domain und kurzem Namen), Schritten 11.1a–11.5
+mit Spurzuordnung (A: QR, Werbelinks, Agenten; B: Repos in Räumen; C:
+Oberfläche) und Leitplanken. FORTSCHRITT: Zeilen 11.x, Zeile der Spur A.
+Kein Code.
+
+## Schritt 11.1a – QR-Baustein ohne Abhängigkeit
+
+**Warum:** Wunsch des MENSCHEN (Phase 11): Geräte per QR-Code hinzufügen,
+Werbelinks als QR. Entscheidung: selbst bauen, keine neue Abhängigkeit.
+
+**Was:**
+- `packages/protocol/src/qr.ts` nach ISO/IEC 18004: Byte-Modus (Text als
+  UTF-8), Fehlerkorrektur L, M, Q, H (Standard M), die kleinste Version 1–40,
+  in die die Daten passen; Reed-Solomon über GF(256), Blöcke nach Tabelle 9,
+  Ausrichtungsmuster, Format- und Versionsinformation (BCH). Maske: die mit
+  den wenigsten Strafpunkten (Regeln 1–4), bewertet am fertigen Symbol samt
+  Formatbits, die Ruhezone zählt als hell.
+- `qrSvgPfad()` liefert die Pfaddaten eines SVG (je Zeile zusammengefasste
+  Rechtecke) – die App setzt sie in 11.1b mit `setAttribute("d", …)`, ohne
+  `innerHTML`.
+- Zu lang (über 2331 Byte bei M) → `ProtokollFehler` `qr-zu-lang` mit Länge
+  und Höchstwert; Text `pf.qrZuLang` in beiden Sprachen.
+- Referenz: `scripts/qr-referenz.py` erzeugt mit python-qrcode 7.4.2
+  `protocol/test/fixtures/qr-referenz.json` (nur zum Nachbauen, weder Build
+  noch Tests brauchen Python). Verglichen wird mit fester Maske, weil
+  python-qrcode die Masken ohne Format- und Versionsbits bewertet.
+
+**Tests (+7, `qr.test.ts`):** Kapazität aller 40 Versionen × 4 Stufen wie die
+Referenz; 48 Codes Bit für Bit (alle acht Masken, alle Stufen, Längenangabe
+mit 8 und 16 Bit, Versionsinformation, bis Version 40 – große als Prüfsumme);
+Gerätecode (144 Zeichen) in Version 8; Text gleich UTF-8-Bytes; die gewählte
+Maske hat die wenigsten Strafpunkte; Strafpunkte an Hand-Matrizen (Läufe,
+Blöcke, Suchmuster innen und am Rand, Anteil dunkel); zu lang und falsche
+Optionen werfen; SVG-Pfad deckt genau die dunklen Module. Version 40 braucht
+rund 40 ms.
+
+**Verdrahtet:** noch nicht – die App nutzt den Baustein ab 11.1b (Gerätecode,
+Scannen, Werbelink); bis dahin vier Ausnahmen in `scripts/wiring-ausnahmen.txt`.
+
+Endstand: protocol 1096 (+7, 6 übersprungen) · node 260 (6 übersprungen, mit
+Netz) · app 581 · mls 13 · Leak-Tests 62 grün + 1 todo · 0 rot ·
+check-wiring `--streng` Exit 0 (159 ausgenommen, 0 offen) · innerHTML streng
+Exit 0 (67 Ausnahmen) · Website 5 Seiten ok · Smoke-Test bestanden.
+
+## Schritt C.3b2 – Oberfläche: Status-Dialoge mit Begründung
+
+**Fertig:** Patches lassen sich annehmen, als Entwurf markieren, wieder
+öffnen, schließen und zurückziehen – jeweils mit Begründung; die Patch-Seite
+zeigt, wer den Status wann gesetzt hat und warum. Damit ist C.3b fertig.
+
+**Einzelheiten:**
+- **Wer was darf** – `patchAktionen()` (`repo-ansicht.ts`, ohne DOM), nur
+  was `patchStatus()` auch zählt:
+  - Maintainer: offen → annehmen, als Entwurf, schließen; Entwurf →
+    annehmen, wieder öffnen, schließen; geschlossen → wieder öffnen.
+  - Autor: offen → als Entwurf, zurückziehen; Entwurf → wieder öffnen,
+    zurückziehen; geschlossen → wieder öffnen, aber nur, wenn er ihn selbst
+    zurückgezogen hat. Das Protokoll ließe es auch nach dem Schließen durch
+    einen Maintainer zu; die App achtet die Entscheidung.
+  - Angenommen ist endgültig; Fremde und ohne Schlüssel: nichts.
+  - `AKTION_STATUS` ordnet jeder Aktion einen der vier Status nach NIP-34 zu.
+- **Dialog je Aktion** (`setzeStatus()`, `repo-seite.ts`):
+  - Immer mit „Begründung (optional, öffentlich)“ – die `notiz` aus
+    `baueStatus()`; annehmen zusätzlich mit Commit (SHA-1 geprüft wie
+    bisher).
+  - Schließen und Zurückziehen rot, der Fokus beginnt dort bei „Abbrechen“.
+  - Die bisherige Rückfrage entfällt; der Dialog sagt „Öffentlich und mit
+    deinem Schlüssel signiert“.
+- **Status auf der Patch-Seite** (`statusAngaben()`): „angenommen ✓ von Du ·
+  Datum“, „Eingespielt als ccccccc“ und die Begründung – nur aus dem Event,
+  das `patchStatus()` zählt (gleicher Absender, Zeit und Art), gekürzt auf
+  1000 Zeichen und nur als Text.
+- **Screenshots** (`docs/ausbau/bilder/c3b2/`): der Dialog „„Hammer
+  schärfen“ annehmen“ mit Commit und Begründung (Desktop, Handy als Blatt von
+  unten); die Patch-Seite danach mit Marke „angenommen ✓“ und den Angaben.
+
+**Tests:**
+- +4 in `repo-status.test.ts`:
+  - Wer was darf – die ganze Tabelle für Maintainer, Autor, Fremde, ohne
+    Schlüssel.
+  - Jede angebotene Aktion setzt einen Status, den `patchStatus()` von
+    diesem Absender zählt.
+  - Begründung und Commits nur aus dem geltenden Status, nicht aus dem
+    Status eines Fremden; ohne Status keine Angaben; lange Begründungen
+    gekürzt.
+  - Verdrahtung: Dialog mit Begründung, keine zweite Rückfrage, Angaben nur
+    als Text.
+- Angepasst, weil sich das Verhalten laut Karte ändert (gleich streng):
+  - `repo-ansicht.test.ts` (8.10b): Maintainer bekommen jetzt zusätzlich
+    „als Entwurf“, der Autor zusätzlich „als Entwurf“ – die übrigen Fälle
+    wie bisher.
+  - `repo-karten.test.ts` (C.3a1): statt der Rückfrage beim Schließen prüft
+    der Test den roten Dialog und den Status aus `AKTION_STATUS`.
+- Smoke-Test „raum“ auf Desktop und Handy:
+  - Annehmen jetzt mit Begründung `Danke – <i>sauber</i>.` (Strg+Enter): sie
+    steht im Status-Event und auf der Patch-Seite als Text, kein `<i>` im DOM;
+    dazu „Eingespielt als ccccccc“.
+  - Die Knöpfe am offenen Patch: annehmen, als Entwurf, schließen.
+  - Eigener Patch: als Entwurf mit Begründung (1633), Schließen ist rot und
+    lässt sich abbrechen (nichts gesendet), wieder öffnen (1630).
+
+Endstand (nach dem Einmergen von `main` mit 11.0 und 11.1a): protocol 1096 (6
+übersprungen) · node 260 (6 übersprungen, mit Netz) · app 585 (+4) · mls 13 · Leak-Tests 62 grün + 1 todo · 0 rot ·
+check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 (67 Ausnahmen) ·
+Website 5 Seiten ok · Smoke-Test bestanden (mit „rahmen“, „dialog“ und
+„raum“ samt Begründung, Entwurf und wieder öffnen).
+
+## Schritt C.3c1 – Oberfläche: Git-Bundle-Leser und Reiter „Code“ (erster Teil)
+
+**Fertig:** Die App liest Git-Bundles selbst (Entscheidung E4) und zeigt im
+Reiter „Code“ den letzten Commit, den obersten Ordner und die README. C.3c
+ist geteilt: C.3c2 bringt Ordner, Dateien und den Reiter „Commits“.
+
+**Einzelheiten:**
+- **Bundle-Leser** `leseBundle()` (`git-bundle.ts`, ohne DOM, ohne neue
+  Abhängigkeit):
+  - Kopf v2 und v3 (nur SHA-1-Repos), Refs und Voraussetzungen streng
+    geprüft (Kennung 40 hex, Namen ohne Steuerzeichen, höchstens 255
+    Zeichen, höchstens 1000 Kopfzeilen).
+  - Pack Version 2/3; die SHA-1 am Ende wird nachgerechnet.
+  - Objekte entpackt mit `DecompressionStream`. Packfiles nennen die
+    gepackte Länge nicht: Der Leser entpackt, sucht die Adler-32-Summe des
+    Inhalts und entpackt das Stück genau bis dort noch einmal sauber – so
+    ist das Ende sicher bekannt.
+  - Deltas nach Versatz und nach Kennung; Tiefe höchstens 50 über beide
+    Arten; jede Objekt-Kennung über `crypto.subtle` nachgerechnet.
+  - Grenzen (`BUNDLE_GRENZEN`): 32 MB, 10 000 Objekte, 128 MB entpackt (auch
+    aufgelöste Deltas), 16 MB je Objekt. Fehler nur als `BundleFehler` mit
+    Kennung, übersetzt in der Oberfläche.
+  - Dazu `leseCommit()`, `leseBaum()` (Namen ohne „/“, „.“, „..“; Ordner
+    zuerst, Groß/klein egal, unabhängig von der Sprache), `kopfCommit()`
+    (HEAD, main, master) und `commitsAb()` (erste Eltern).
+  - In Chromium: 1 MB mit 353 Objekten in 0,15 s.
+- **Reiter „Code“** (`shell/tabs/code-reiter.ts`):
+  - „Code laden“ holt das Bundle erst auf Knopfdruck über `holeBundle()`
+    (geteilt mit „Bundle laden“), liest es nur im Speicher (höchstens drei)
+    und zeigt letzten Commit, obersten Ordner und README – nur als Text,
+    binäre READMEs nicht.
+  - Ohne Bundle bleibt der ehrliche Hinweis (neu formuliert).
+- **CLAUDE.md:** ein Fallstrick „Git-Bundles nur über `leseBundle()`“.
+- **Screenshots** (`docs/ausbau/bilder/c3c1/`): Desktop und Handy, eigenes
+  Repo „meins“ nach dem Hochladen des Probe-Bundles: „Liste ergänzt · Probe ·
+  2. Sept. 2026 · 590c7cf“, darunter `src/`, `bild.bin`, `README.md` und die
+  README „# Werkzeug …“.
+
+**Tests:**
+- +5 in `git-bundle.test.ts`:
+  - Echte Bundles von git (`test/fixtures/probe-v2.bundle`, `probe-v3.bundle`,
+    je 1,5 KB, mit zwei Deltas): Refs, zehn Objekte, Commits, Baum, README,
+    die Liste aus dem Delta.
+  - Deltas nach Versatz und nach Kennung, von Hand gebaut.
+  - Feindlich: Kopf, Prüfsumme, Anzahl, unbekannter Typ, Größe, gelogene
+    Länge, fehlende Basis, Kopieren über die Basis hinaus, reservierter
+    Befehl, Tiefe und Gesamtgröße über kleinere Grenzen.
+  - Commit und Baum streng gelesen.
+  - Verdrahtung des Reiters.
+- `repo-karten.test.ts`: das Entschlüsseln steht jetzt in `holeBundle()` –
+  gleich streng geprüft.
+- Smoke-Test „raum“ auf Desktop und Handy: „Neue Version hochladen“ lädt
+  jetzt das echte Probe-Bundle hoch (verschlüsselt über die Relay-Attrappe);
+  „Code laden“ holt es zurück, entschlüsselt und liest es – Commit-Zeile,
+  Dateien und README wie erwartet.
+
+Endstand: protocol 1096 (6 übersprungen) · node 260 (6 übersprungen, mit
+Netz) · app 590 (+5) · mls 13 · Leak-Tests 62 grün + 1 todo · 0 rot ·
+check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 (67 Ausnahmen) ·
+Website 5 Seiten ok · Smoke-Test bestanden (mit „rahmen“, „dialog“ und
+„raum“ samt echtem Bundle im Reiter „Code“).
+
+## Schritt C.3c2 – Oberfläche: Code ganz und Reiter „Commits“
+
+**Fertig:** Im Reiter „Code“ lassen sich Ordner öffnen und Dateien lesen;
+der neue Reiter „Commits“ zeigt die Geschichte aus dem Bundle. Damit ist C.3
+(Repositories) fertig.
+
+**Einzelheiten:**
+- **Reiter „Code“** (`code-reiter.ts`):
+  - Ordner und Dateien sind Knöpfe (Tastatur); Submodule stehen als Text
+    („name → Submodul abc1234“).
+  - Dateien nur als Text, wenn sie Text sind – `alsText()`
+    (`git-bundle.ts`): kein Nullbyte in den ersten 8000 Bytes und gültiges
+    UTF-8 (wie git Binärdateien erkennt); sonst „Binärdatei – hier nicht
+    angezeigt“. Über 100 000 Zeichen gekürzt, mit Hinweis. Verweise zeigen
+    ihr Ziel. Die Größe steht darüber.
+  - Oben der Pfad („meins / src / liste.txt“): jeder Teil davor führt zurück,
+    der Fokus steht danach auf dem letzten Teil. Als `div` mit
+    `role="navigation"` – ein `<nav>` erbte die Stile der App-Leiste.
+  - Die README des jeweiligen Ordners.
+  - `unterPfad()` (ohne DOM) findet nur, was im Bundle steht: nie durch eine
+    Datei hindurch, nie „..“ oder leere Teile, Groß/klein genau. Wo man
+    steht, liegt nur im Speicher (je Bundle).
+- **Reiter „Commits“** (neu, zwischen Code und Patches):
+  - Mit gelesenem Bundle die Commits ab HEAD entlang der ersten Eltern,
+    höchstens 100 (darüber ein Hinweis); je Commit Betreff, Autor, Datum,
+    Kennung und die ganze Nachricht zum Aufklappen (`<details>`).
+  - Ohne gelesenes Bundle „Code laden“ wie im Reiter „Code“ (derselbe
+    Knopf, `ladeKnopf()`).
+  - Ohne Bundle die angenommenen Patches mit den Commits aus
+    `applied-as-commits` – sonst ein ehrlicher Satz.
+- **Screenshots** (`docs/ausbau/bilder/c3c2/`): Desktop und Handy
+  „meins / src / liste.txt“ mit Größe und Inhalt; Desktop der Reiter
+  „Commits“ mit „Liste ergänzt“ aufgeklappt und „Erster Stand“.
+
+**Tests:**
+- +3 in `git-bundle.test.ts`:
+  - Pfade im Baum (Ordner, Datei, durch Dateien hindurch, „..“, leer, falsche
+    Schreibweise, fehlender Baum).
+  - Text nur, wenn es Text ist (Nullbyte, kaputtes UTF-8, die Binärdatei aus
+    dem Probe-Bundle).
+  - Verdrahtung des Reiters „Commits“, Ort nur im Speicher, Einträge als
+    Knöpfe.
+- Der C.3c1-Test zur Verdrahtung folgt dem gemeinsamen `ladeKnopf()` und
+  prüft Datei und README über `alsText()` – gleich streng.
+- Smoke-Test „raum“ auf Desktop und Handy:
+  - Ordner `src/` öffnen (Pfad „meins / src“, Fokus auf dem letzten Teil),
+    `liste.txt` lesen (erste Zeile), über den Pfad zurück, `bild.bin` zeigt
+    „Binärdatei“ statt Inhalt.
+  - Reiter „Commits“: „Liste ergänzt“ und „Erster Stand“; der erste
+    aufgeklappt mit der zweiten Zeile der Nachricht.
+  - Die Reiter heißen jetzt Code, Commits, Patches, Mitwirkende (und
+    Einstellungen) – die Prüfung der Reiterliste zieht nach.
+
+Endstand: protocol 1096 (6 übersprungen) · node 260 (6 übersprungen, mit
+Netz) · app 593 (+3) · mls 13 · Leak-Tests 62 grün + 1 todo · 0 rot ·
+check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 (67 Ausnahmen) ·
+Website 5 Seiten ok · Smoke-Test bestanden (mit „rahmen“, „dialog“ und
+„raum“ samt Ordnern, Dateien und Commits aus dem Bundle).
 ## Schritt 5.9a – Reproduzierbarer Build
 
 Spur B, von Spur A übernommen (Entscheidung 28.09.), Karte `phase-5.md` (5.9).

@@ -7,36 +7,26 @@
  */
 import { KIND_PERFORMANCE } from "@freedomstack/protocol";
 import { t } from "../../i18n.js";
-import { abdeckungEinwilligung, abdeckungHier, busFaktorText, ebeneName, fehlerText, repoZustand, zellenStufe } from "../../protokoll-texte.js";
+import { abdeckungEinwilligung, abdeckungHier, ebeneName, fehlerText, zellenStufe } from "../../protokoll-texte.js";
 import { escapeHtml, pkShort } from "../../shell-logic.js";
 import { ensurePool, signiere, state } from "../state.js";
 import { geheim } from "../tresor.js";
 import { $, timeAgo, toast } from "../ui.js";
 import { merkeWerber, werbeLink } from "../../werbung.js";
 import { knotenSchluessel } from "../verdienst-ui.js";
+import { mitwirkendeListe } from "../mitwirkende.js";
 
 /** Mitwirkende am Projekt anzeigen. */
 export async function zeigeMitwirkende(): Promise<void> {
   const box = $("#contrib-list");
   if (!box) return;
   try {
-    const { buildRepoOverview, busFactor, KIND_GIT_CONTRIBUTION } = await import("@freedomstack/protocol");
+    const { KIND_GIT_CONTRIBUTION } = await import("@freedomstack/protocol");
     const pool = await ensurePool();
     const evs = await pool.query({ kinds: [KIND_GIT_CONTRIBUTION], limit: 1000 });
     const repo = (window as unknown as { FREEDOM_REPO_ID?: string }).FREEDOM_REPO_ID ?? "freedomstack";
-    const o = buildRepoOverview(repo, evs);
-    const bf = busFactor(o.contributors);
-
-    // Sätze aus den Feldern – die fertigen Sätze des Protokolls sind Deutsch (8.16f)
-    const zustand = repoZustand(o);
-    box.innerHTML = o.contributors.length === 0
-      ? `<span class="muted">${escapeHtml(zustand)}</span>`
-      : `<div class="mono-sm">${escapeHtml(zustand)}</div>` +
-        `<div class="mono-sm muted" style="margin-bottom:6px">${escapeHtml(busFaktorText(bf.count, o.contributors))}</div>` +
-        o.contributors.slice(0, 15).map((c) =>
-          `<div class="usage-row"><span>${escapeHtml(pkShort(c.pubkey))}</span>` +
-          `<span>${escapeHtml(t("earn.aktiveTage", { tage: c.activeDays, n: c.contributions }))}</span></div>`,
-        ).join("");
+    // Seit C.3a2 als DOM (`mitwirkende.ts`), dieselbe Liste wie im Reiter der Repo-Seite
+    box.replaceChildren(...mitwirkendeListe(repo, evs, pkShort));
   } catch (e) {
     box.textContent = t("agent.nichtAbrufbar", { fehler: fehlerText(e) });
   }

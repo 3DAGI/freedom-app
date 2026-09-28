@@ -17,7 +17,7 @@ import functools, http.server, re, socket, sys, threading
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from smoke_test import ProbeRelay, raum_probe  # noqa: E402
+from smoke_test import PROBE_BUNDLE, ProbeRelay, raum_probe  # noqa: E402
 
 GROESSEN = {"desktop": {"width": 1280, "height": 800}, "mobil": {"width": 390, "height": 844}}
 # (Name, Adresse, Unter-Reiter als "gruppe:reiter" oder ""[, Knopf, der einen Dialog öffnet])
@@ -137,6 +137,70 @@ def main() -> int:
                 s.wait_for_timeout(200)
                 s.screenshot(path=str(ziel / f"{groesse}-{nr + 7:02d}-kanal-anlegen.jpg"), type="jpeg", quality=70)
                 s.keyboard.press("Escape")
+                # Repos (seit C.3a): Liste mit einer Karte, dann die Repo-Seite mit dem offenen Patch
+                s.evaluate("() => { location.hash = '#/repos'; }")
+                s.wait_for_timeout(1500)
+                s.screenshot(path=str(ziel / f"{groesse}-{nr + 8:02d}-repos.jpg"), type="jpeg", quality=70)
+                s.evaluate("() => document.querySelector('#repos-karten .repo-karte')?.click()")
+                s.wait_for_timeout(300)
+                s.screenshot(path=str(ziel / f"{groesse}-{nr + 9:02d}-repo-seite.jpg"), type="jpeg", quality=70)
+                # Seit C.3a2: Reiter „Mitwirkende“, dann ein eigenes Repo mit „Einstellungen“
+                s.evaluate("() => document.querySelector('#repo-seite [data-reiter=mitwirkende]')?.click()")
+                s.wait_for_timeout(800)
+                s.screenshot(path=str(ziel / f"{groesse}-{nr + 10:02d}-repo-mitwirkende.jpg"), type="jpeg", quality=70)
+                s.evaluate("() => { document.querySelector('.repo-zurueck')?.click(); document.getElementById('nip34-ankuendigen').click(); }")
+                s.wait_for_timeout(200)
+                s.keyboard.type("meins")
+                s.keyboard.press("Enter")
+                s.wait_for_timeout(200)
+                s.keyboard.press("Enter")
+                s.wait_for_timeout(1500)
+                s.evaluate("() => [...document.querySelectorAll('#repos-karten .repo-karte')].find(k => k.querySelector('.repo-name').textContent === 'meins')?.click()")
+                s.wait_for_timeout(200)
+                s.evaluate("() => document.querySelector('#repo-seite [data-reiter=einstellungen]')?.click()")
+                s.wait_for_timeout(200)
+                s.screenshot(path=str(ziel / f"{groesse}-{nr + 11:02d}-repo-einstellungen.jpg"), type="jpeg", quality=70)
+                # Seit C.3b1: der offene Patch von „werkzeug“ als eigene Seite mit Änderungen
+                s.evaluate("""() => { document.querySelector('.repo-zurueck')?.click();
+                  [...document.querySelectorAll('#repos-karten .repo-karte')].find(k => k.querySelector('.repo-name').textContent === 'werkzeug')?.click(); }""")
+                s.wait_for_timeout(200)
+                s.evaluate("() => { document.querySelector('#repo-seite [data-reiter=patches]')?.click(); document.querySelector('#repo-seite .repo-patch-betreff')?.click(); }")
+                s.wait_for_timeout(300)
+                s.screenshot(path=str(ziel / f"{groesse}-{nr + 12:02d}-patch-seite.jpg"), type="jpeg", quality=70)
+                # Seit C.3b2: Annehmen als Dialog mit Commit und Begründung, danach die Angaben zum Status
+                s.evaluate("() => document.querySelector('#repo-seite .patch-aktionen button')?.click()")
+                s.wait_for_timeout(200)
+                s.keyboard.type("c" * 40)
+                s.keyboard.press("Tab")
+                s.keyboard.type("Danke, eingespielt.")
+                s.screenshot(path=str(ziel / f"{groesse}-{nr + 13:02d}-status-dialog.jpg"), type="jpeg", quality=70)
+                s.keyboard.press("Control+Enter")
+                s.wait_for_timeout(1200)
+                s.screenshot(path=str(ziel / f"{groesse}-{nr + 14:02d}-patch-angenommen.jpg"), type="jpeg", quality=70)
+                # Seit C.3c1: das eigene Repo bekommt ein echtes Bundle, der Reiter „Code“ liest es in der App
+                s.evaluate("""() => { document.querySelector('.repo-zurueck')?.click();
+                  [...document.querySelectorAll('#repos-karten .repo-karte')].find(k => k.querySelector('.repo-name').textContent === 'meins')?.click();
+                  document.querySelector('#repo-seite [data-reiter=einstellungen]')?.click(); }""")
+                s.wait_for_timeout(200)
+                datei = "#repo-seite .repo-hochladen input[type=file]"
+                if s.evaluate(f"() => !!document.querySelector('{datei}')"):
+                    s.set_input_files(datei, files=[{"name": "meins.bundle", "mimeType": "application/octet-stream", "buffer": PROBE_BUNDLE}])
+                    s.wait_for_timeout(2500)
+                s.evaluate("() => document.querySelector('#repo-seite [data-reiter=code]')?.click()")
+                s.wait_for_timeout(200)
+                s.evaluate("() => document.querySelector('#repo-seite .code-laden')?.click()")
+                s.wait_for_timeout(2500)
+                s.screenshot(path=str(ziel / f"{groesse}-{nr + 15:02d}-code.jpg"), type="jpeg", quality=70)
+                # Seit C.3c2: eine Datei im Ordner src, dann der Reiter „Commits“ mit aufgeklapptem Commit
+                for name in ("src/", "liste.txt"):
+                    s.evaluate(f"() => [...document.querySelectorAll('#repo-seite .code-eintrag')].find(b => b.textContent === '{name}')?.click()")
+                    s.wait_for_timeout(200)
+                s.screenshot(path=str(ziel / f"{groesse}-{nr + 16:02d}-code-datei.jpg"), type="jpeg", quality=70)
+                s.evaluate("() => document.querySelector('#repo-seite [data-reiter=commits]')?.click()")
+                s.wait_for_timeout(200)
+                s.evaluate("() => document.querySelector('#repo-seite .code-commits details summary')?.click()")
+                s.wait_for_timeout(200)
+                s.screenshot(path=str(ziel / f"{groesse}-{nr + 17:02d}-commits.jpg"), type="jpeg", quality=70)
             ctx.close()
         browser.close()
     srv.shutdown()

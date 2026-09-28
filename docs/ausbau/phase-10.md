@@ -7,9 +7,9 @@ Karte der Abdeckung und eine Navigation, die auf Desktop und Handy je für sich
 Sinn ergibt. Protokoll, Krypto, Zahlungen und Event-Formate bleiben, wie sie
 sind; sonst gilt die STOPP-Regel aus `CLAUDE.md`.
 
-Stand dieser Karte: **C.0, C.1a, C.1b, C.2a–d fertig** (Räume). Der MENSCH hat den
+Stand dieser Karte: **C.0, C.1a, C.1b, C.2 (Räume) und C.3 (Repositories) fertig.** Der MENSCH hat den
 Entwurf am 27.09.2026 freigegeben – E1–E8 wie vorgeschlagen (Abschnitt 10.3).
-Nächster Schritt: C.3a.
+Nächster Schritt: C.4a.
 
 ---
 
@@ -151,7 +151,7 @@ Playwright nachgeprüft (Sichtbarkeit und Maße der Elemente).
 | B8 | mittel | **„n Antworten“ an einer Nachricht tut nichts** – der Knopf hat keinen Handler; Threads sind nicht zu öffnen, Antworten nicht zu schreiben. Das Protokoll kann beides (`raumNachricht({ threadRoot, replyTo })`, `buildThreads()`), `sendePrivat()` reicht es nur nicht durch (`raum-mls.ts:83`). | `kommunikation.ts:239` | C.2c |
 | B9 | mittel | Im Raum stehen gekürzte Schlüssel statt Namen (`kommunikation.ts:254`, `:370`, `:391`), obwohl Namen für Kontakte bekannt sind (`kontaktName()`). | – | C.2b |
 | B10 | mittel | Repos in zwei getrennten Listen unter „Agent“: Git-Bundles (38042) und NIP-34 – ohne Verbindung. Patches ohne Diff, der Commit beim Annehmen per `prompt()` (`repos.ts:112`). Beim Hochladen steht im Bundle-Verweis immer `head: local`, `branch: main` (`app.ts:770`). | – | C.3 |
-| B11 | klein | Rohe Texte am Bundle-Upload: „publiziere …“, „… publiziert“, „git-fehler“ (`app.ts:765`, `:774`, `:777`), „⇩ bundle“ (`agent-netz.ts:286`). `rohtexteImCode()` erkennt einzelne klein geschriebene Wörter nicht. | – | C.3a |
+| B11 | klein | *(erledigt: 8.16 und C.3a1/C.3a2)* Rohe Texte am Bundle-Upload: „publiziere …“, „… publiziert“, „git-fehler“ (`app.ts:765`, `:774`, `:777`), „⇩ bundle“ (`agent-netz.ts:286`). `rohtexteImCode()` erkennt einzelne klein geschriebene Wörter nicht. | – | C.3a |
 | B12 | mittel | Keine Karte: eine Liste mit höchstens 15 Gebieten (`earn.ts:69`). Eigene Einträge tragen `region: ""` (`earn.ts:112`), die Liste zeigt dann „?“. | – | C.4a |
 | B13 | mittel | Der eigene Standort liegt **genau** und im Klartext in `localStorage` (`freedom.coverage.cell`, `earn.ts:107`) – auch mit Tresor. Gebraucht wird nur die Zelle. | – | E6 |
 | B14 | mittel | Anordnung: Repos und Modelle unter „Agent“; Mesh unter „Settings“, Zahlen ohne Netz unter „Währung“, Post als Datei in der Liste der Direktnachrichten; Karte unter „Earn“; Mitwirkende unter „Earn › Werben“; Vertrauensstufe des Providers im Profil; Gebühren und Standard-Schiene in den Settings; der Reiter „Liquidität“ enthält das Hinterlegen beim Provider und seit 4.3d2 den Zahlkanal, keine Liquidität. | – | C.1b, C.6 |
@@ -429,9 +429,12 @@ Pull Request. Dateien der Spur A (`waehrung.ts`, `agent.ts`, `ki-zahlung.ts`,
 | **C.2c** | Antworten und Threads: Zeile „Antwort an …“, Thread-Spalte bzw. Unterseite, `sendePrivat()` mit `replyTo`/`threadRoot`, offen über `buildChannelMessage()`; Test: Antwort kommt in privaten und offenen Räumen mit Verweis an | `raeume.ts`, `raum-mls.ts`, Tests (~300) | B8 | C.2b |
 | **C.2d1** | Mitglieder mit Rollen und Menü je Mitglied (`oeffneMenueAn()`), Mitglieder und Meldungen mobil als Ebene | `raeume.ts`, `menue.ts`, `app.css`, `index.html`, Tests (~350) | B3 | C.2c |
 | **C.2d2** | Kanal anlegen (offen: Gründer, `buildSpace()`; privat: Moderatoren, `raumDefinition()` in die Gruppe), Menüpunkte nur nach Rechten | `raeume.ts`, `raum-mls.ts` (klein), Tests (~250) | – | C.2d1 |
-| **C.3a** | Repo-Liste und Repo-Seite: 30617 + 38042 verbunden, Klonen, Bundle hoch- und herunterladen, Einstellungen des Eigentümers, Mitwirkende; Texte über Schlüssel | `repo-seite.ts`, `repos.ts`, `agent-netz.ts:266`, `app.ts:748` (zieht um), `texte/repos.ts`, Tests (~400) | B10, B11 | C.1b |
-| **C.3b** | Patch-Seite: Diff-Leser (ohne DOM, Tests mit feindlichen Eingaben), Diff-Ansicht, Status-Dialoge (annehmen, schließen, wieder öffnen, Entwurf, zurückziehen), Patch mit Vorschau senden | `diff-ansicht.ts`, `repo-seite.ts`, Tests (~400) | B10 | C.3a |
-| **C.3c** | *(E4: ja)* Bundle-Leser (Git-Bundle v2/v3, Packfile, `DecompressionStream`, Deltas; Grenzen für Größe, Objektzahl, Tiefe) und die Reiter „Code“ (README, Dateibaum) und „Commits“ | c1 Leser + Tests (~350), c2 Ansicht (~250) | B10 | C.3b |
+| **C.3a1** | Repo-Liste (30617 + 38042 verbunden, Suche, Alle/Meine) und Repo-Seite (Klonen, Bundle laden, Patches mit Dialogen); Texte über Schlüssel | `repo-seite.ts`, `repos.ts`, `repo-ansicht.ts`, `agent-netz.ts:266` (zieht um), `texte/repos.ts`, Tests (~450) | B10 | C.1b |
+| **C.3a2** | Einstellungen des Eigentümers, „Neue Version hochladen“ auf der Repo-Seite (`app.ts:760` zieht um), Mitwirkende als Reiter | `repo-seite.ts`, `app.ts`, Tests (~300) | B11 | C.3a1 |
+| **C.3b1** | Diff-Leser (ohne DOM, Tests mit feindlichen Eingaben), Patch-Seite mit Änderungen (Dateiliste, Abschnitte, Zeilennummern, +/−), „Als Datei laden“, neuer Patch erst als Vorschau, dann senden | `diff-ansicht.ts`, `patch-seite.ts`, `repo-seite.ts`, Tests (~450) | B10 | C.3a |
+| **C.3b2** | Status-Dialoge mit Begründung (`notiz`): annehmen, schließen, wieder öffnen, als Entwurf; Autor: zurückziehen, wieder öffnen (was `patchStatus()` erlaubt) | `repo-ansicht.ts`, `repo-seite.ts`, Tests (~250) | – | C.3b1 |
+| **C.3c1** | *(E4: ja)* Bundle-Leser `git-bundle.ts` (v2/v3, Packfile, `DecompressionStream`, Ende über Adler-32, OFS-/REF-Deltas; Grenzen für Größe, Objektzahl, Tiefe; Prüfsumme und Kennungen nachgerechnet) und ein erster echter Pfad: Reiter „Code“ mit letztem Commit, oberstem Ordner und README | `git-bundle.ts`, `code-reiter.ts`, Tests (~450) | B10 | C.3b |
+| **C.3c2** | Reiter „Code“ ganz: Ordner öffnen, Dateien als Text (binär ehrlich), Pfad zurück; Reiter „Commits“ (erste Eltern, Autor, Zeit, Nachricht; ohne Bundle die angenommenen Patches mit `applied-as-commits`) | `code-reiter.ts`, `repo-seite.ts`, Tests (~300) | B10 | C.3c1 |
 | **C.4a** | Karte als SVG: Projektion, Gradnetz, Zellen nach Ebene, Schalter, Legende, Zoom und Verschieben mit Maus, Touch und Tastatur, Angaben je Zelle, „Karte / Liste“ | `karte-ansicht.ts` (ohne DOM, Tests: nur Zellen über k, keine Einträge), `tabs/karte.ts`, `texte/karte.ts` (~400) | B12 | C.1b |
 | **C.4b** | *(E5, E6: ja)* Umrisse eingebettet (höchstens 40 KB); eigene Zelle umrandet; Standort nur gerundet gespeichert | Daten + ~150 | B13 | C.4a |
 | **C.5** | Feinschliff Mobil: Berührflächen, Safe-Area, Querformat, Kürzungen, Tastatur über dem Eingabefeld, einheitliche Abstände; Durchgang aller Seiten mit Screenshots | `app.css`, `index.html` (~300) | Rest | C.2–C.4 |
@@ -588,6 +591,115 @@ Meldungen (B3), C.2d2 Kanal anlegen.
 Mit C.2d2 ist C.2 fertig. Aus 10.4 für Räume noch offen: ein privater Raum
 einmal vollständig mit echter MLS-Gruppe im Browser (heute über
 `gruppenRaum()` getestet).
+
+**C.3a1 – fertig (28.09.2026).** C.3a ist geteilt: C.3a1 Liste und
+Repo-Seite, C.3a2 Einstellungen des Eigentümers, Bundle hochladen auf der
+Repo-Seite und Mitwirkende als Reiter.
+- B10: eine Liste statt zwei. `repoKarten()` (`repo-ansicht.ts`, ohne DOM)
+  verbindet Ankündigung (30617) und Bundle-Verweis (38042) desselben
+  Eigentümers mit derselben Kennung – nur in der Anzeige; fremde Bundles mit
+  gleichem Namen sind eigene Repos, Repos nur mit Bundle gibt es auch.
+- Liste (`repos.ts`): Suche nur lokal (Name, Kennung, Beschreibung), „Alle /
+  Meine“ (Eigentümer oder Maintainer), Karten mit Eigentümer, Name, Marke
+  „Bundle“, Beschreibung, offenen Patches und letzter Aktivität. „Repo
+  ankündigen“ als Dialog (Kennung, Beschreibung, Klon-Adressen).
+- Repo-Seite (`repo-seite.ts`): Kopf „Eigentümer / Name“, Beschreibung,
+  Maintainer; „Klonen“ mit `git clone …` zum Kopieren und „Bundle laden“
+  (verschlüsselt geladen, mit dem Schlüssel der Referenz entschlüsselt – zog
+  aus `agent-netz.ts` hierher); Reiter „Code“ (ehrlich: die App liest Bundles
+  erst mit C.3c) und „Patches“ mit offen / angenommen / geschlossen samt
+  Zahlen. Annehmen als Dialog mit optionalem Commit (SHA-1 geprüft),
+  Schließen und Zurückziehen nach Rückfrage, Patch senden nach Rückfrage –
+  kein `prompt()`/`confirm()` mehr in den Repos.
+- Welches Repo offen ist, steht nur im Speicher; „‹ Alle Repos“ führt zurück
+  und setzt den Fokus auf die Karte.
+
+**C.3a2 – fertig (28.09.2026).** Damit ist C.3a fertig.
+- Reiter **Mitwirkende**: dieselbe Liste wie die Karte auf der Seite „Repos“
+  (`mitwirkendeListe()`, `shell/mitwirkende.ts`, nur DOM – `earn.ts` nutzt
+  sie auch, eine innerHTML-Ausnahme weniger). Geholt werden alle Beiträge
+  (38056), gefiltert wird lokal: eine Abfrage nach Kennung verriete, welches
+  Repo man ansieht. Ehrlich: Beiträge nennen nur die Kennung, nicht den
+  Eigentümer – gleichnamige Repos anderer zählen mit.
+- Reiter **Einstellungen** nur für den Eigentümer: Name, Beschreibung, Klon-
+  und Web-Adressen, Maintainer, erster Commit – die Felder aus
+  `baueRepoAnkuendigung()`; die Kennung bleibt. `ankuendigungAusFeldern()`
+  (`repo-ansicht.ts`, ohne DOM) trennt Zeilen, wirft Doppeltes und Leeres weg
+  (höchstens 20 je Feld), geprüft wird im Protokoll; Fehler stehen im
+  Formular, erst danach kommt die Rückfrage. Web-Adressen fremder Repos sind
+  nur mit https anklickbar (`sichereWebAdressen()`), mit `noopener`.
+- **Neue Version hochladen** auf der Repo-Seite (Einstellungen), mit derselben
+  Kennung; der Upload zog aus `app.ts` nach `repos.ts` (`ladeBundleHoch()`),
+  die Zeile über der Liste bleibt für neue Repos. B11: die Texte am Upload
+  stehen seit 8.16 über Schlüssel, „⇩ bundle“ fiel mit C.3a1 – erledigt.
+- Mobil brechen die Reiter der Repo-Seite um, statt seitlich zu scrollen.
+
+**C.3b1 – fertig (28.09.2026).** C.3b ist geteilt: C.3b1 Diff-Leser und
+Patch-Seite, C.3b2 Status-Dialoge mit Begründung.
+- Diff-Leser `leseDiff()` (`diff-ansicht.ts`, ohne DOM): Autor und Datum aus
+  dem Kopf, Nachricht bis „---“, je Datei Pfade, Art (neu, gelöscht,
+  umbenannt, binär), Abschnitte mit Zeilennummern und +/−. Zahlen aus
+  `@@`-Köpfen nur bis zehn Millionen, Abschnitte enden bei der ersten Zeile,
+  die nicht zur Zählung passt; höchstens 200 Dateien, 5000 Zeilen, 2000
+  Zeichen je Zeile – darüber „gekürzt“. Er wirft nie.
+- Patch-Seite (`patch-seite.ts`): Betreff, Status, Autor (Nostr und „laut
+  Patch“), Datum, Commit, Aktionen, „Als Datei laden“ (für `git am`, lokal
+  erzeugt), Nachricht, Änderungen mit Dateiliste (springt zur Datei) und je
+  Zeile alte/neue Nummer, Zeichen und Text – farbig und mit Zeichen. Der
+  Betreff in der Liste öffnet sie; „‹ Alle Patches“ führt zurück zum Filter
+  und setzt den Fokus auf den Patch. Offener Patch nur im Speicher.
+- Neuer Patch: Datei wählen → Kopf prüfen (`lesePatchText()`) → Vorschau mit
+  derselben Ansicht und dem Satz „öffentlich und signiert“ → „Patch senden“
+  oder „Verwerfen“. Die Vorschau ersetzt die Rückfrage.
+- Bekannte Grenze: Die Signatur „-- “ am Ende von `git format-patch` ist bei
+  falscher Zählung im Kopf von einer entfernten Zeile „- “ nicht zu
+  unterscheiden; bei richtiger Zählung wird sie nie gelesen.
+
+**C.3b2 – fertig (28.09.2026).** Damit ist C.3b fertig.
+- Wer was darf, steht in `patchAktionen()` (`repo-ansicht.ts`, ohne DOM) und
+  bietet nur an, was `patchStatus()` auch zählt: Maintainer annehmen, als
+  Entwurf, wieder öffnen, schließen; der Autor als Entwurf, wieder öffnen,
+  zurückziehen. Einen Patch, den ein Maintainer geschlossen hat, öffnet der
+  Autor in der App nicht wieder (das Protokoll ließe es zu). Angenommen ist
+  endgültig.
+- Jede Aktion ist ein Dialog mit „Begründung (optional, öffentlich)“ – die
+  `notiz` aus `baueStatus()`; annehmen zusätzlich mit Commit, schließen und
+  zurückziehen rot. Die Rückfrage entfällt, der Dialog sagt „öffentlich und
+  signiert“.
+- Die Patch-Seite zeigt den geltenden Status: wer, wann, als welche Commits
+  eingespielt, die Begründung – nur aus dem Event, das `patchStatus()`
+  zählt, gekürzt und nur als Text.
+
+**C.3c1 – fertig (28.09.2026).** C.3c ist geteilt: C.3c1 Bundle-Leser mit
+einem ersten echten Pfad, C.3c2 der Reiter „Code“ ganz und „Commits“.
+- `leseBundle()` (`git-bundle.ts`, ohne DOM, ohne neue Abhängigkeit): Kopf
+  v2/v3 (nur SHA-1-Repos), Refs und Voraussetzungen streng geprüft; Pack
+  Version 2/3, Prüfsumme nachgerechnet; Objekte entpackt mit
+  `DecompressionStream`. Packfiles nennen die gepackte Länge nicht – das Ende
+  findet der Leser über die Adler-32-Summe am Ende jedes zlib-Stroms und
+  entpackt das Stück bis dort noch einmal sauber. Deltas (Versatz und
+  Kennung) mit Tiefe höchstens 50 über beide Arten; jede Kennung über
+  `crypto.subtle` nachgerechnet. Grenzen: 32 MB, 10 000 Objekte, 128 MB
+  entpackt, 16 MB je Objekt. Fehler nur als `BundleFehler` mit Kennung.
+- `leseCommit()`, `leseBaum()` (Namen ohne „/“, „.“, „..“; Ordner zuerst, Groß/klein
+  egal, unabhängig von der Sprache), `kopfCommit()`, `commitsAb()`.
+- Reiter „Code“ (`code-reiter.ts`): „Code laden“ holt das Bundle erst auf
+  Knopfdruck (`holeBundle()`, geteilt mit „Bundle laden“), liest es im
+  Speicher (höchstens drei) und zeigt den letzten Commit, den obersten Ordner
+  und die README als Text. Chromium: 1 MB mit 353 Objekten in 0,15 s.
+
+**C.3c2 – fertig (28.09.2026).** Damit ist C.3 (Repositories) fertig.
+- Reiter „Code“ ganz: Ordner öffnen, Dateien als Text (`alsText()`: kein
+  Nullbyte, gültiges UTF-8 – sonst ehrlich „Binärdatei“), Verweise mit Ziel,
+  Submodule als Text; der Pfad oben (`role="navigation"`, kein `<nav>`)
+  führt zurück, der Fokus steht danach auf dem letzten Teil. Die README des
+  jeweiligen Ordners. `unterPfad()` (`git-bundle.ts`, ohne DOM) findet nur,
+  was im Bundle steht – nie durch Dateien hindurch, nie „..“. Wo man steht,
+  nur im Speicher.
+- Reiter „Commits“ (neu, zwischen Code und Patches): mit gelesenem Bundle
+  die Commits ab HEAD entlang der ersten Eltern (höchstens 100), je Commit die
+  ganze Nachricht zum Aufklappen (`<details>`); ohne Bundle die angenommenen
+  Patches mit den Commits aus `applied-as-commits`.
 
 ---
 

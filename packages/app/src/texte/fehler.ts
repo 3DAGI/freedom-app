@@ -103,4 +103,6 @@ export const fehler: Texte = {
   "pf.dateiSchluessel": { de: "Datei-Schlüssel ungültig", en: "File key invalid" },
   "pf.dateiKaputt": { de: "Datei beschädigt oder falscher Schlüssel", en: "File damaged or wrong key" },
   "pf.dateiHash": { de: "Datei passt nicht zum Hash", en: "File does not match the hash" },
+  // QR-Code (11.1a)
+  "pf.qrZuLang": { de: "Zu lang für einen QR-Code: {n} Byte, höchstens {max}", en: "Too long for a QR code: {n} bytes, at most {max}" },
 };
