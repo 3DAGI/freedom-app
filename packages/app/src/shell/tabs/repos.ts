@@ -15,7 +15,7 @@ import { fehlerText } from "../../protokoll-texte.js";
 import { type RepoKarte, filtereKarten, repoKarten } from "../../repo-ansicht.js";
 import { bestaetige, dialog } from "../dialog.js";
 import { ensurePool, signiere, state } from "../state.js";
-import { $, toast } from "../ui.js";
+import { toast } from "../ui.js";
 import { eigentuemerName, vergissReiter, zeigeRepoSeite } from "./repo-seite.js";
 
 const STATUS_KINDS = [1630, 1631, 1632, 1633];
@@ -24,8 +24,6 @@ let karten: RepoKarte[] = [];
 /** Offenes Repo – nur im Speicher, nie in der Adresse (C.1a). */
 let offenesRepo: string | null = null;
 let nurMeine = false;
-/** Fuer welches Repo gerade eine Patch-Datei gewaehlt wird. */
-let patchZiel: GelesenesRepo | null = null;
 /** Beiträge (38056), einmal je Laden der Liste geholt – erst, wenn ein Reiter „Mitwirkende“ sie braucht. */
 let beitraege: Promise<NostrEvent[]> | null = null;
 
@@ -75,7 +73,7 @@ function zeige(fokus = false): void {
         box.querySelector<HTMLElement>(`[data-schluessel="${CSS.escape(offen.schluessel)}"]`)?.focus();
       },
       neuLaden: ladeNip34Repos,
-      patchSenden: waehlePatch,
+      patchSenden: sendePatch,
       mitwirkende: ladeBeitraege,
       hochladen: ladeBundleHoch,
     });
@@ -147,26 +145,18 @@ export async function ladeBundleHoch(datei: File, kennung: string): Promise<bool
   }
 }
 
-function waehlePatch(r: GelesenesRepo): void {
-  patchZiel = r;
-  ($("#nip34-patch-datei") as HTMLInputElement).click();
-}
-
-/** Patch-Datei aus `git format-patch` lesen, pruefen, nach Rueckfrage senden. */
-async function sendePatch(datei: File): Promise<void> {
-  const r = patchZiel;
-  patchZiel = null;
-  if (!r || !state.keypair) return;
+/** Patch senden – nach der Vorschau auf der Repo-Seite (seit C.3b1); öffentlich und signiert. */
+async function sendePatch(r: GelesenesRepo, text: string): Promise<boolean> {
+  if (!state.keypair) return false;
   try {
     const { bauePatch, lesePatchText } = await import("@freedomstack/protocol");
-    const text = await datei.text();
     const { betreff } = lesePatchText(text);
-    if (!await bestaetige({ titel: t("repo.patchSenden"), text: t("repo.patchFrage", { betreff, repo: r.name }), ok: t("repo.patchSenden") })) return;
     await (await ensurePool()).publish(await signiere(bauePatch({ repo: r, text }, state.keypair.pk)));
     toast(t("repo.patchGesendet", { betreff }));
-    await ladeNip34Repos();
+    return true;
   } catch (e) {
     toast(fehlerText(e), true);
+    return false;
   }
 }
 
@@ -202,12 +192,6 @@ export function wireNip34(): void {
   const an = document.getElementById("nip34-ankuendigen");
   if (!an) return;
   an.addEventListener("click", () => void kuendigeAn());
-  const datei = $("#nip34-patch-datei") as HTMLInputElement;
-  datei.addEventListener("change", () => {
-    const f = datei.files?.[0];
-    datei.value = "";
-    if (f) void sendePatch(f);
-  });
   // Bundle für ein neues Repo (Name aus dem Feld, sonst aus dem Dateinamen); neue Versionen auf der Repo-Seite
   const hoch = document.getElementById("git-repo-publish");
   const bundle = document.getElementById("git-bundle-file") as HTMLInputElement | null;

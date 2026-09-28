@@ -10239,3 +10239,70 @@ check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 (67 Ausnahmen, 1
 weniger – die Mitwirkenden in `earn.ts`) · Website 5 Seiten ok · Smoke-Test
 bestanden (mit „rahmen“, „dialog“ und „raum“ samt Mitwirkenden,
 Einstellungen und neuer Version).
+
+## Schritt C.3b1 – Oberfläche: Diff-Leser und Patch-Seite
+
+**Fertig:** Ein Patch hat eine eigene Seite wie ein Pull Request, mit den
+Änderungen aus einem eigenen Diff-Leser; ein neuer Patch geht erst nach einer
+Vorschau hinaus. C.3b ist geteilt: C.3b2 bringt die Status-Dialoge mit
+Begründung (wieder öffnen, Entwurf, Rechte des Autors).
+
+**Einzelheiten:**
+- **Diff-Leser** `leseDiff()` (`diff-ansicht.ts`, ohne DOM):
+  - Liest Autor und Datum aus dem Kopf, die Nachricht bis „---“, je Datei
+    die Pfade (ohne `a/`/`b/`), die Art (neu, gelöscht, umbenannt, binär)
+    und die Abschnitte mit alten und neuen Zeilennummern.
+  - Der Text kommt von Fremden: Zahlen aus `@@`-Köpfen nur bis zehn
+    Millionen (sonst fällt der Abschnitt weg); ein Abschnitt endet bei der
+    ersten Zeile, die nicht zur Zählung passt; höchstens 200 Dateien, 5000
+    Zeilen und 2000 Zeichen je Zeile – darüber steht „gekürzt“. Er wirft nie.
+  - Eine hinzugefügte Zeile „diff --git …“ bleibt Inhalt; die Signatur
+    „-- “ am Ende wird bei richtiger Zählung nie gelesen.
+- **Patch-Seite** (`shell/tabs/patch-seite.ts`, nur DOM und `textContent`):
+  - Betreff, Status-Marke, Autor (Nostr-Name und „Autor laut Patch“),
+    Datum, Commit, die Aktionen wie in der Liste und „Als Datei laden“
+    (`<commit>.patch` für `git am`, lokal erzeugt).
+  - Die Nachricht, dann „Änderungen“ mit Zusammenfassung, Dateiliste (ein
+    Klick springt zur Datei) und je Datei die Abschnitte: alte und neue
+    Nummer, Zeichen (+, −) und Text – farbig und mit Zeichen.
+  - In der Liste ist der Betreff jetzt ein Knopf; „‹ Alle Patches“ führt
+    zum zuletzt gewählten Filter zurück und setzt den Fokus auf den Patch.
+    Welcher Patch offen ist, steht nur im Speicher.
+- **Neuer Patch:** Datei wählen → Kopf prüfen (`lesePatchText()`, Fehler als
+  Meldung) → Vorschau mit derselben Ansicht und dem Satz „öffentlich und mit
+  deinem Schlüssel signiert“ → „Patch senden“ oder „Verwerfen“. Die Vorschau
+  ersetzt die Rückfrage; das Dateifeld steht auf der Repo-Seite
+  (`#nip34-patch-datei` in `index.html` entfällt).
+- **Screenshots** (`docs/ausbau/bilder/c3b1/`): Desktop und Handy, „Hammer
+  schärfen“ in „werkzeug“: Kopf mit Marke „offen“, Autor, Commit, „Autor laut
+  Patch: Ada“, die Knöpfe annehmen, schließen, Als Datei laden, dann
+  „Änderungen · Dateien: 1 · +1 −1“ und `hammer.txt` mit „1 − stumpf“ und
+  „1 + scharf“.
+
+**Tests:**
+- +5 in `diff-ansicht.test.ts`:
+  - Kopf, Nachricht, Datei mit Abschnitt und Zeilennummern.
+  - Neu, gelöscht, umbenannt, binär, ohne Zeilenende, CRLF, mehrere
+    Abschnitte.
+  - Feindlich: Unfug, Riesenzahlen, falsche Zählung, Diff im Diff, HTML als
+    Text – nie eine Ausnahme.
+  - Grenzen: Dateien, Zeilen, Zeichen; darüber „gekürzt“.
+  - Verdrahtung: Patch-Seite nur DOM, Zeichen statt nur Farbe, Vorschau erst
+    nach `lesePatchText()`, senden nur aus der Vorschau.
+- Smoke-Test „raum“ auf Desktop und Handy:
+  - Im eigenen Repo: eine ungültige Datei ergibt keine Vorschau; eine gültige
+    zeigt Titel, Art „neu“ und die Zeilen `+ # meins` und `+ <b>fett?</b>`
+    als Text; „Patch senden“ veröffentlicht 1617 an „meins“, danach steht
+    der Patch in der Liste.
+  - Im fremden Repo: der angenommene Patch als Seite mit Marke, Dateiliste
+    `hammer.txt +1 −1` und den Zeilen mit Nummern und Zeichen; „Als Datei
+    laden“ liefert `aaaaaaa.patch`; zurück mit Fokus auf dem Patch.
+  - Die Knöpfe der C.3a1-Prüfung suchen jetzt im Aktionsbereich
+    (`.repo-patch-status`), weil der Betreff selbst ein Knopf ist – dieselben
+    Prüfungen.
+
+Endstand: protocol 1089 (6 übersprungen) · node 260 (6 übersprungen, mit
+Netz) · app 581 (+5) · mls 13 · Leak-Tests 62 grün + 1 todo · 0 rot ·
+check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 (67 Ausnahmen) ·
+Website 5 Seiten ok · Smoke-Test bestanden (mit „rahmen“, „dialog“ und
+„raum“ samt Patch-Vorschau und Patch-Seite).

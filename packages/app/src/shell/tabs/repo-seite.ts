@@ -17,6 +17,7 @@ import { bestaetige, dialog } from "../dialog.js";
 import { ensurePool, signiere, state } from "../state.js";
 import { mitwirkendeListe } from "../mitwirkende.js";
 import { toast } from "../ui.js";
+import { zeigePatch } from "./patch-seite.js";
 import { kontaktName } from "./raeume.js";
 
 const AKTION_TEXT: Record<PatchAktion, string> = { annehmen: "repo.annehmen", schliessen: "repo.schliessen", zurueckziehen: "repo.zurueckziehen" };
@@ -43,7 +44,8 @@ const datum = (s: number) => new Date(s * 1000).toLocaleDateString(gebietsschema
 export interface RepoSeiteHilfe {
   zurueck: () => void;
   neuLaden: () => Promise<void>;
-  patchSenden: (r: GelesenesRepo) => void;
+  /** Patch veröffentlichen (nach der Vorschau); lädt nicht neu – das tut die Seite danach. */
+  patchSenden: (r: GelesenesRepo, text: string) => Promise<boolean>;
   /** Beiträge (38056) – alle, gefiltert wird lokal: eine Abfrage nach Kennung verriete, welches Repo man ansieht. */
   mitwirkende: () => Promise<NostrEvent[]>;
   /** Bundle verschlüsselt hochladen und die Referenz (38042) mit dieser Kennung veröffentlichen. */
@@ -53,8 +55,17 @@ export interface RepoSeiteHilfe {
 export type RepoReiter = "code" | "patches" | "mitwirkende" | "einstellungen";
 /** Zuletzt gewählter Reiter je Repo – damit „Neu laden“ nach dem Speichern dort bleibt; nur im Speicher. */
 let gemerkt: { schluessel: string; reiter: RepoReiter } | null = null;
+/** Offener Patch, zuletzt gewählter Filter und die Vorschau vor dem Senden (C.3b1) – nur im Speicher. */
+let offenerPatch: string | null = null;
+let letzterFilter: PatchFilter = "offen";
+let vorschau: { schluessel: string; text: string; betreff: string; commit: string } | null = null;
 /** Beim Öffnen aus der Liste beginnt die Seite wieder vorn. */
-export const vergissReiter = (): void => { gemerkt = null; };
+export const vergissReiter = (): void => {
+  gemerkt = null;
+  offenerPatch = null;
+  letzterFilter = "offen";
+  vorschau = null;
+};
 
 /** Filter der Patches – „offen“ umfasst Entwürfe. */
 type PatchFilter = "offen" | "angenommen" | "geschlossen";
@@ -104,7 +115,7 @@ export function zeigeRepoSeite(box: HTMLElement, k: RepoKarte, h: RepoSeiteHilfe
   };
   leiste.append(reiterKnopf("code", t("repo.code")), reiterKnopf("patches", t("repo.patchesZahl", { n: k.offen })), reiterKnopf("mitwirkende", t("earn.mitwirkende")));
   if (eigentuemer) leiste.append(reiterKnopf("einstellungen", t("repo.einstellungen")));
-  inhalt.append(...(reiter === "code" ? codeReiter(k) : reiter === "patches" ? patchReiter(k, h)
+  inhalt.append(...(reiter === "code" ? codeReiter(k) : reiter === "patches" ? patchReiter(k, h, () => zeigeRepoSeite(box, k, h, "patches"))
     : reiter === "mitwirkende" ? mitwirkendeReiter(k, h) : einstellungenReiter(k, h)));
   box.replaceChildren(...teile, leiste, inhalt);
 }
@@ -167,16 +178,43 @@ function codeReiter(k: RepoKarte): HTMLElement[] {
   return [el("p", t(k.bundle ? "repo.codeMitBundle" : "repo.codeOhneBundle"), "mono-sm muted")];
 }
 
-function patchReiter(k: RepoKarte, h: RepoSeiteHilfe): HTMLElement[] {
-  const teile: HTMLElement[] = [];
+function patchReiter(k: RepoKarte, h: RepoSeiteHilfe, neu: () => void): HTMLElement[] {
   const repo = k.repo;
-  if (repo) teile.push(knopf(t("repo.patchSenden"), "ghost mini repo-patch-senden", () => h.patchSenden(repo)));
+  if (repo && vorschau?.schluessel === k.schluessel) return vorschauSeite(repo, h, neu);
+  const offen = k.zeilen.find((z) => z.patch.id === offenerPatch);
+  if (offen) {
+    return zeigePatch({
+      betreff: offen.patch.betreff, commit: offen.patch.commit, text: offen.patch.text,
+      von: eigentuemerName(offen.patch.autor), zeit: offen.patch.zeit, marke: statusMarke(offen.status), aktionen: aktionsKnoepfe(offen, k, h),
+      zurueck: { text: t("repo.allePatches"), tun: () => {
+        offenerPatch = null;
+        neu();
+        document.querySelector<HTMLElement>(`[data-patch="${CSS.escape(offen.patch.id)}"]`)?.focus();
+      } },
+    });
+  }
+  offenerPatch = null;
+  const teile: HTMLElement[] = [];
+  if (repo) {
+    // Datei wählen → Vorschau mit dem Diff-Leser → senden
+    const datei = el("input", undefined, "repo-patch-datei");
+    datei.type = "file";
+    datei.accept = ".patch,.diff,.txt,text/plain"; // kein UI-Text
+    datei.hidden = true;
+    datei.addEventListener("change", () => {
+      const f = datei.files?.[0];
+      datei.value = "";
+      if (f) void zeigeVorschau(f, k, neu);
+    });
+    teile.push(knopf(t("repo.patchSenden"), "ghost mini repo-patch-senden", () => datei.click()), datei);
+  }
   const zahl = (f: PatchFilter) => k.zeilen.filter((z) => filterVon(z.status) === f).length;
   const liste = el("div", undefined, "repo-patches");
   const zeige = (f: PatchFilter) => {
+    letzterFilter = f;
     filter.querySelectorAll("button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.filter === f)));
     const zeilen = k.zeilen.filter((z) => filterVon(z.status) === f);
-    liste.replaceChildren(...(zeilen.length ? zeilen.map((z) => patchZeile(z, k, h)) : [el("p", t("repo.keinePatches"), "mono-sm muted")]));
+    liste.replaceChildren(...(zeilen.length ? zeilen.map((z) => patchZeile(z, k, h, neu)) : [el("p", t("repo.keinePatches"), "mono-sm muted")]));
   };
   const filter = el("div", undefined, "repo-filter");
   for (const f of ["offen", "angenommen", "geschlossen"] as const) {
@@ -185,22 +223,67 @@ function patchReiter(k: RepoKarte, h: RepoSeiteHilfe): HTMLElement[] {
     filter.append(b);
   }
   teile.push(filter, liste);
-  zeige("offen");
+  zeige(letzterFilter);
   return teile;
 }
 
-function patchZeile(z: PatchZeile, k: RepoKarte, h: RepoSeiteHilfe): HTMLElement {
+function statusMarke(s: PatchStatus): HTMLElement {
+  const marke = el("span", t(STATUS_TEXT[s]));
+  marke.className = `repo-status status-${s}`;
+  return marke;
+}
+
+const aktionsKnoepfe = (z: PatchZeile, k: RepoKarte, h: RepoSeiteHilfe): HTMLButtonElement[] =>
+  z.aktionen.map((a) => knopf(t(AKTION_TEXT[a]), a === "annehmen" ? "mini repo-knopf" : "ghost mini repo-knopf", () => void setzeStatus(k, z.patch, a, h)));
+
+function patchZeile(z: PatchZeile, k: RepoKarte, h: RepoSeiteHilfe, neu: () => void): HTMLElement {
   const zeile = el("div", undefined, "repo-patch");
   const links = el("div", undefined, "repo-patch-text");
-  links.append(el("div", z.patch.betreff, "repo-patch-betreff"),
-    el("div", t("repo.patchVon", { name: eigentuemerName(z.patch.autor), datum: datum(z.patch.zeit) }), "mono-sm muted"));
+  const betreff = knopf(z.patch.betreff, "repo-patch-betreff", () => {
+    offenerPatch = z.patch.id;
+    neu();
+    document.querySelector<HTMLElement>(".patch-zurueck")?.focus();
+  });
+  betreff.dataset.patch = z.patch.id;
+  links.append(betreff, el("div", t("repo.patchVon", { name: eigentuemerName(z.patch.autor), datum: datum(z.patch.zeit) }), "mono-sm muted"));
   const rechts = el("div", undefined, "repo-patch-status");
-  const marke = el("span", t(STATUS_TEXT[z.status]));
-  marke.className = `repo-status status-${z.status}`;
-  rechts.append(marke);
-  for (const a of z.aktionen) rechts.append(knopf(t(AKTION_TEXT[a]), a === "annehmen" ? "mini repo-knopf" : "ghost mini repo-knopf", () => void setzeStatus(k, z.patch, a, h)));
+  rechts.append(statusMarke(z.status), ...aktionsKnoepfe(z, k, h));
   zeile.append(links, rechts);
   return zeile;
+}
+
+/** Gewählte Datei prüfen (Kopf nach `lesePatchText()`), dann als Vorschau zeigen – gesendet wird erst dort. */
+async function zeigeVorschau(datei: File, k: RepoKarte, neu: () => void): Promise<void> {
+  try {
+    const text = await datei.text();
+    const { lesePatchText } = await import("@freedomstack/protocol");
+    vorschau = { schluessel: k.schluessel, text, ...lesePatchText(text) };
+    neu();
+    document.querySelector<HTMLElement>(".patch-senden")?.focus();
+  } catch (e) {
+    toast(fehlerText(e), true);
+  }
+}
+
+function vorschauSeite(repo: GelesenesRepo, h: RepoSeiteHilfe, neu: () => void): HTMLElement[] {
+  const v = vorschau!;
+  const verwerfen = () => {
+    vorschau = null;
+    neu();
+  };
+  const senden = knopf(t("repo.patchSenden"), "mini repo-knopf patch-senden", () => void (async () => {
+    senden.disabled = true;
+    if (await h.patchSenden(repo, v.text)) {
+      vorschau = null;
+      await h.neuLaden();
+    } else senden.disabled = false;
+  })());
+  return zeigePatch({
+    betreff: v.betreff, commit: v.commit, text: v.text, hinweis: t("repo.patchFrage", { betreff: v.betreff, repo: repo.name }),
+    marke: el("span", t("repo.vorschau"), "repo-status status-entwurf"),
+    aktionen: [senden, knopf(t("repo.verwerfen"), "ghost mini repo-knopf", verwerfen)],
+    zurueck: { text: t("repo.allePatches"), tun: verwerfen },
+  });
 }
 
 /** Annehmen mit optionalem Commit, schließen und zurückziehen nach Rückfrage – öffentlich und signiert. */
