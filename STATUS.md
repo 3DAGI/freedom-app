@@ -10485,3 +10485,62 @@ Netz) · app 590 (+5) · mls 13 · Leak-Tests 62 grün + 1 todo · 0 rot ·
 check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 (67 Ausnahmen) ·
 Website 5 Seiten ok · Smoke-Test bestanden (mit „rahmen“, „dialog“ und
 „raum“ samt echtem Bundle im Reiter „Code“).
+
+## Schritt C.3c2 – Oberfläche: Code ganz und Reiter „Commits“
+
+**Fertig:** Im Reiter „Code“ lassen sich Ordner öffnen und Dateien lesen;
+der neue Reiter „Commits“ zeigt die Geschichte aus dem Bundle. Damit ist C.3
+(Repositories) fertig.
+
+**Einzelheiten:**
+- **Reiter „Code“** (`code-reiter.ts`):
+  - Ordner und Dateien sind Knöpfe (Tastatur); Submodule stehen als Text
+    („name → Submodul abc1234“).
+  - Dateien nur als Text, wenn sie Text sind – `alsText()`
+    (`git-bundle.ts`): kein Nullbyte in den ersten 8000 Bytes und gültiges
+    UTF-8 (wie git Binärdateien erkennt); sonst „Binärdatei – hier nicht
+    angezeigt“. Über 100 000 Zeichen gekürzt, mit Hinweis. Verweise zeigen
+    ihr Ziel. Die Größe steht darüber.
+  - Oben der Pfad („meins / src / liste.txt“): jeder Teil davor führt zurück,
+    der Fokus steht danach auf dem letzten Teil. Als `div` mit
+    `role="navigation"` – ein `<nav>` erbte die Stile der App-Leiste.
+  - Die README des jeweiligen Ordners.
+  - `unterPfad()` (ohne DOM) findet nur, was im Bundle steht: nie durch eine
+    Datei hindurch, nie „..“ oder leere Teile, Groß/klein genau. Wo man
+    steht, liegt nur im Speicher (je Bundle).
+- **Reiter „Commits“** (neu, zwischen Code und Patches):
+  - Mit gelesenem Bundle die Commits ab HEAD entlang der ersten Eltern,
+    höchstens 100 (darüber ein Hinweis); je Commit Betreff, Autor, Datum,
+    Kennung und die ganze Nachricht zum Aufklappen (`<details>`).
+  - Ohne gelesenes Bundle „Code laden“ wie im Reiter „Code“ (derselbe
+    Knopf, `ladeKnopf()`).
+  - Ohne Bundle die angenommenen Patches mit den Commits aus
+    `applied-as-commits` – sonst ein ehrlicher Satz.
+- **Screenshots** (`docs/ausbau/bilder/c3c2/`): Desktop und Handy
+  „meins / src / liste.txt“ mit Größe und Inhalt; Desktop der Reiter
+  „Commits“ mit „Liste ergänzt“ aufgeklappt und „Erster Stand“.
+
+**Tests:**
+- +3 in `git-bundle.test.ts`:
+  - Pfade im Baum (Ordner, Datei, durch Dateien hindurch, „..“, leer, falsche
+    Schreibweise, fehlender Baum).
+  - Text nur, wenn es Text ist (Nullbyte, kaputtes UTF-8, die Binärdatei aus
+    dem Probe-Bundle).
+  - Verdrahtung des Reiters „Commits“, Ort nur im Speicher, Einträge als
+    Knöpfe.
+- Der C.3c1-Test zur Verdrahtung folgt dem gemeinsamen `ladeKnopf()` und
+  prüft Datei und README über `alsText()` – gleich streng.
+- Smoke-Test „raum“ auf Desktop und Handy:
+  - Ordner `src/` öffnen (Pfad „meins / src“, Fokus auf dem letzten Teil),
+    `liste.txt` lesen (erste Zeile), über den Pfad zurück, `bild.bin` zeigt
+    „Binärdatei“ statt Inhalt.
+  - Reiter „Commits“: „Liste ergänzt“ und „Erster Stand“; der erste
+    aufgeklappt mit der zweiten Zeile der Nachricht.
+  - Die Reiter heißen jetzt Code, Commits, Patches, Mitwirkende (und
+    Einstellungen) – die Prüfung der Reiterliste zieht nach.
+
+Endstand: protocol 1096 (6 übersprungen) · node 260 (6 übersprungen, mit
+Netz) · app 593 (+3) · mls 13 · Leak-Tests 62 grün + 1 todo · 0 rot ·
+check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 (67 Ausnahmen) ·
+Website 5 Seiten ok · Smoke-Test bestanden (mit „rahmen“, „dialog“ und
+„raum“ samt Ordnern, Dateien und Commits aus dem Bundle).

@@ -75,4 +75,17 @@ export const repos: Texte = {
   "repo.bundleTiefe": { de: "Delta-Ketten im Bundle sind zu tief.", en: "Delta chains in the bundle are too deep." },
   "repo.bundlePruefsumme": { de: "Die Prüfsumme des Bundles stimmt nicht – beschädigt?", en: "The bundle checksum does not match – damaged?" },
   "repo.bundleKaputt": { de: "Das Bundle ist beschädigt.", en: "The bundle is damaged." },
+  // Seit C.3c2: Ordner, Dateien, Commits
+  "repo.commits": { de: "Commits", en: "Commits" },
+  "repo.pfadAria": { de: "Pfad im Repo", en: "Path in the repo" },
+  "repo.pfadFehlt": { de: "Diesen Pfad gibt es im Bundle nicht.", en: "This path does not exist in the bundle." },
+  "repo.submodul": { de: "{name} → Submodul {sha}", en: "{name} → submodule {sha}" },
+  "repo.dateiGroesse": { de: "{bytes} Bytes", en: "{bytes} bytes" },
+  "repo.linkZiel": { de: "Verweis auf {ziel}", en: "Link to {ziel}" },
+  "repo.dateiGekuerzt": { de: "Sehr groß – hier gekürzt. „Bundle laden“ enthält alles.", en: "Very large – shortened here. “Download bundle” has everything." },
+  "repo.commitMeta": { de: "{autor} · {datum} · {sha}", en: "{autor} · {datum} · {sha}" },
+  "repo.commitsMehr": { de: "Die ersten {n} – ältere stehen im Bundle.", en: "The first {n} – older ones are in the bundle." },
+  "repo.keineCommits": { de: "Ohne Bundle kennt die App keine Commits – und noch kein angenommener Patch nennt einen.", en: "Without a bundle the app knows no commits – and no accepted patch names one yet." },
+  "repo.commitsOhneBundle": { de: "Ohne Bundle: die angenommenen Patches mit den Commits, als die sie eingespielt wurden.", en: "Without a bundle: the accepted patches with the commits they were applied as." },
+  "repo.patchAlsCommit": { de: "{betreff} → {commits}", en: "{betreff} → {commits}" },
 };
