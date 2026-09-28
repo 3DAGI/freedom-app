@@ -10612,3 +10612,61 @@ Endstand (nach dem Einmergen von `main` mit C.3b2, C.3c1 und C.3c2): protocol
 Leak-Tests 62 grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 (155
 ausgenommen, 4 weniger) · innerHTML streng Exit 0 · Website 5 Seiten ok ·
 Smoke-Test bestanden (mit „qr“).
+## Schritt 5.9a – Reproduzierbarer Build
+
+Spur B, von Spur A übernommen (Entscheidung 28.09.), Karte `phase-5.md` (5.9).
+
+**Was:**
+- `scripts/repro-build.sh` (neu): baut `freedom.html` aus einem frischen
+  Arbeitsbaum des Commits (`git worktree`, nichts aus dem eigenen Checkout,
+  kein `node_modules`), `npm ci` nach `package-lock.json`, Node-Hauptversion aus
+  `.nvmrc` (sonst Abbruch), `TZ=UTC`, `LC_ALL=C`, `SOURCE_DATE_EPOCH` = Zeit
+  des Commits. `--pruefen`: zweimal an zwei Pfaden (einer tiefer) – zwei
+  Summen = Fehler. `--vergleiche <sha256> [commit]`: gegen eine Summe, etwa aus
+  dem Release-Manifest. Arbeitsbäume werden danach entfernt. Die MLS-Engine
+  kommt gebaut aus `packages/mls/dist` – `build.mjs` nimmt sie nur mit
+  passender `SHA256SUMS`, den Nachbau prüft `mls.yml`.
+- `.nvmrc` (neu): `22`. `ci.yml` (Tests) und `pages.yml` (Build der Seite)
+  lesen die Node-Version jetzt daraus.
+- `ci.yml`: neuer Job „Reproduzierbarer Build“ (`--pruefen`, mit pipefail).
+- `pages.yml`: Schritt „Veroeffentlichte freedom.html nachbauen“ nach
+  `build-site.sh` – veröffentlicht wird nur, was ein frischer Build desselben
+  Commits bitgleich ergibt.
+- FAQ „Wie weiß ich, dass die App echt ist?“: wie man nachbaut.
+
+**Geprüft:** Zwei frische Klone an verschiedenen Pfaden ergaben schon vorher
+dieselbe Summe (`92553dd…` für 7a4f875) – der Build war reproduzierbar, jetzt
+wird es geprüft. `--pruefen` lokal: zweimal dieselbe Summe, rund 1:40 min.
+Negativfälle: falsche Summe → Exit 1 („ANDERS als erwartet“), falsche
+Node-Hauptversion → Exit 2, ungültige Summe als Argument → Exit 2; danach keine
+Arbeitsbäume übrig (`git worktree list`).
+
+**Nebenbei gefunden (Spur B, 7.4a):** `node/test/funk-kurz.test.ts` wartete fest
+20 ms auf die Zwischenrückmeldung, die der Knoten ohne `await` versiegelt und
+sendet – im vollen Lauf einmal rot. Unter CPU-Last nachgestellt (1 von 5 rot),
+jetzt wartet der Test, bis die erwarteten Antworten da sind (Frist 5 s): unter
+derselben Last 10 von 10 grün. Fallstrick in CLAUDE.md. Spur A fand denselben
+Wackler unabhängig in 11.1b (#181) und behob ihn gleich; beim Einmergen gilt
+deren Fassung (Frist 2 s), meine fällt weg.
+
+Endstand: protocol 1088 (6 übersprungen) · node 249 + 7 übersprungen (ohne
+Netz; mit Netz 250 + 6) · app 567 · mls 13 · Leak-Tests 62 grün + 1 todo · 0
+rot · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 · Website ok ·
+Smoke-Test bestanden · Website-Bau ok · `repro-build.sh --pruefen` auf dem
+Commit: zweimal dieselbe Summe. Knoten-Stand: unverändert (nur ein Test).
+
+Nach dem Einmergen von `main` (8.2b): protocol 1089 · node 254 + 7
+übersprungen (ohne Netz; mit Netz 255 + 6) · app 567 · mls 13 · Leak-Tests 62
++ 1 todo · 0 rot; alle Prüfungen erneut grün.
+
+Nach dem Einmergen von `main` (8.2c): protocol 1089 · node 259 + 7
+übersprungen (ohne Netz; mit Netz 260 + 6) · app 567 · mls 13 · Leak-Tests 62
++ 1 todo · 0 rot; alle Prüfungen erneut grün.
+
+Nach dem Einmergen von `main` (bis #180: 11.1a, C.3c1, C.3c2 u. a.): protocol
+1096 · node 259 + 7 übersprungen (ohne Netz; mit Netz 260 + 6) · app 593 · mls
+13 · Leak-Tests 62 + 1 todo · 0 rot; alle Prüfungen erneut grün.
+
+Nach dem Einmergen von `main` (#181, 11.1b): protocol 1096 · node 259 + 7
+übersprungen (ohne Netz; mit Netz 260 + 6) · app 597 · mls 13 · Leak-Tests 62
++ 1 todo · 0 rot; alle Prüfungen erneut grün.

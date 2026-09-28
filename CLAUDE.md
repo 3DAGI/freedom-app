@@ -40,11 +40,12 @@ python3 scripts/check-website.py
 python3 scripts/check_innerhtml.py packages/app/src --ausnahmen scripts/innerhtml-ausnahmen.txt --streng
 python3 scripts/smoke_test.py packages/app/dist         # braucht playwright + chromium
 bash scripts/build-site.sh /tmp/site                     # Website bauen (Ziel wird gelöscht!)
+bash scripts/repro-build.sh --pruefen                    # reproduzierbar? zwei frische Builds, eine Summe (~2 min)
 bash packages/mls/bauen.sh --pruefen                     # nur bei Änderungen an packages/mls: nachbauen + vergleichen (Rust, clang)
 bash contracts/solana-channel/pruefen.sh --werkzeuge     # nur bei Änderungen am Zahlkanal: bauen + Tests gegen Validator (Agave 3.1.10)
 ```
 
-Stand 28.09.2026 (nach 8.2c, 5.5a–c, 8.15, 11.1a, C.3c2 und 11.1b): protocol 1096 grün (6 übersprungen), node 260 grün
+Stand 28.09.2026 (nach 8.2c, 5.5a–c, 8.15, 11.1a, C.3c2, 11.1b und 5.9a): protocol 1096 grün (6 übersprungen), node 260 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
 in `tools.test.ts`), app 597 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 62 grün + 1 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
@@ -667,3 +668,14 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   (Feld `scannen: true`), erkannt nur vom Browser (`BarcodeDetector`), danach
   aus; ohne Erkennung der Hinweis zum Einfügen. Der Smoke-Test („qr“) ersetzt
   Kamera und Erkennung durch Attrappen (Canvas-Strom, `BarcodeDetector`).
+- **Reproduzierbarer Build** (seit 5.9a): `freedom.html` muss aus einem
+  frischen Checkout bitgleich entstehen – in `build.mjs` nichts Zeit-, Pfad-
+  oder Zufallsabhängiges (kein `Date.now()`, keine absoluten Pfade im Bundle).
+  Die CI baut zweimal an zwei Pfaden (`repro-build.sh --pruefen`), `pages.yml`
+  veröffentlicht nur, was ein frischer Build bitgleich ergibt. Die
+  Node-Hauptversion nur über `.nvmrc` ändern (CI und Pages lesen sie).
+- **Nebenläufiges im Test nie mit fester Pause abwarten** (seit 5.9a): Was der
+  Knoten „best effort“ ohne `await` sendet (Rückmeldungen, 7000), kommt unter
+  Last später – bis es da ist warten, mit Frist (`funk-kurz.test.ts`, von
+  Spur A und B unabhängig gefunden, gilt die Fassung aus 11.1b). Eine feste
+  Pause von 20 ms war im vollen Lauf gelegentlich zu kurz.
