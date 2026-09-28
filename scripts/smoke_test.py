@@ -471,6 +471,56 @@ def rahmen_pruefen(browser, url: str) -> dict:
     return erg
 
 
+def dialog_pruefen(browser, url: str) -> dict:
+    """Dialoge (C.2b1): per Tastatur bedienbar, Fokus bleibt drin, Esc bricht ab, Fokus kehrt zurück."""
+    erg = {"fehler": []}
+    basis = url.rsplit("/", 1)[0]
+    for groesse, vp in [("desktop", {"width": 1280, "height": 800}), ("mobil", {"width": 390, "height": 844})]:
+        ctx = browser.new_context(locale="de-DE", viewport=vp, is_mobile=groesse == "mobil", has_touch=groesse == "mobil")
+        ctx.route("**/*", lambda r: r.continue_() if r.request.url.startswith(basis) else r.abort())
+        s = ctx.new_page()
+        s.on("pageerror", lambda e: erg["fehler"].append(str(e)[:300]))
+        ev = s.evaluate
+        s.goto(url, wait_until="load")
+        s.wait_for_selector("#bk-done", timeout=30000)
+        w = ev("() => [...document.querySelectorAll('.mnemonic-list li')].map(l => l.textContent)")
+        ev("(w) => document.querySelectorAll('#bk-challenge input').forEach(i => i.value = w[+i.dataset.pos])", w)
+        ev("() => document.getElementById('bk-done').click()")
+        s.wait_for_timeout(1500)
+        ev("() => document.getElementById('ein-abbrechen')?.click()")
+        ev("() => { location.hash = '#/chat'; }")
+        s.wait_for_timeout(500)
+        stand = """() => { const d = document.querySelector('[role=dialog][aria-modal=true]');
+          const a = document.activeElement; return { offen: !!d, titel: d ? document.getElementById(d.getAttribute('aria-labelledby'))?.textContent : null,
+            fokus_drin: !!(d && d.contains(a)), fokus: a?.id || a?.tagName, inert: document.getElementById('app').inert,
+            meldung: d?.querySelector('[role=alert]')?.textContent ?? null }; }"""
+        ev("() => document.getElementById('rail-join').focus()")
+        s.keyboard.press("Enter")
+        s.wait_for_timeout(300)
+        auf = ev(stand)
+        s.keyboard.press("Enter")  # leer bestätigen: Pflichtfeld meldet sich, Dialog bleibt
+        s.wait_for_timeout(200)
+        leer = ev(stand)
+        for _ in range(5):
+            s.keyboard.press("Tab")
+        tab = ev(stand)
+        s.keyboard.press("Escape")
+        s.wait_for_timeout(200)
+        zu = ev(stand)
+        erg[groesse] = {"auf": auf, "leer": leer, "tab": tab["fokus_drin"], "zu": zu}
+        if not (auf["offen"] and auf["titel"] == "Raum beitreten" and auf["fokus_drin"] and auf["inert"]):
+            erg["fehler"].append(f"{groesse}: öffnen {auf}")
+        if not (leer["offen"] and leer["meldung"] == "Bitte ausfüllen" and leer["fokus_drin"]):
+            erg["fehler"].append(f"{groesse}: Pflichtfeld {leer}")
+        if not tab["fokus_drin"]:
+            erg["fehler"].append(f"{groesse}: Tab verlässt den Dialog {tab}")
+        if zu["offen"] or zu["inert"] or zu["fokus"] != "rail-join":
+            erg["fehler"].append(f"{groesse}: Esc {zu}")
+        ctx.close()
+    erg["bestanden"] = not erg["fehler"]
+    return erg
+
+
 def main() -> int:
     dist = Path(sys.argv[1] if len(sys.argv) > 1 else "packages/app/dist").resolve()
     datei = dist / "freedom.html"
@@ -541,6 +591,10 @@ def main() -> int:
                 erg["rahmen"] = rahmen_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
             except Exception as e:
                 erg["rahmen"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
+            try:
+                erg["dialog"] = dialog_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
+            except Exception as e:
+                erg["dialog"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
             browser.close()
     finally:
         srv.shutdown()
@@ -553,7 +607,8 @@ def main() -> int:
           and erg.get("notfall", {}).get("bestanden") is True
           and erg.get("sprache", {}).get("bestanden") is True
           and erg.get("mls", {}).get("bestanden") is True
-          and erg.get("rahmen", {}).get("bestanden") is True)
+          and erg.get("rahmen", {}).get("bestanden") is True
+          and erg.get("dialog", {}).get("bestanden") is True)
     erg["bestanden"] = bool(ok)
     print(json.dumps(erg, indent=1, ensure_ascii=False))
     return 0 if ok else 1

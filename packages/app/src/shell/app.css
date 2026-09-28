@@ -1342,3 +1342,37 @@ header .balance, header .ident { cursor: pointer; }
 button.mehr-zeile:hover, button.mehr-zeile:focus-visible { background: var(--card); border-color: var(--accent); }
 .mehr-pfeil { margin-left: auto; color: var(--text-muted); }
 .mehr-sprache .lang-dropdown { margin-left: auto; }
+
+/* ---------- Dialoge (Schritt C.2b1, shell/dialog.ts) ---------- */
+.dlg-box { display: flex; flex-direction: column; gap: 10px; }
+.dlg-titel { margin: 0; font-size: 15px; }
+.dlg-titel::first-letter { text-transform: uppercase; }
+.dlg-text { margin: 0; font-size: 13px; color: var(--text-muted); white-space: pre-wrap; line-height: 1.5; }
+.dlg-box .dlg-label { font-size: 12px; text-transform: none; letter-spacing: 0; color: var(--text); margin: 0; }
+.dlg-box input, .dlg-box textarea { margin: 0; }
+.dlg-box .mono { font-family: ui-monospace, monospace; font-size: 12px; }
+.dlg-wahl { border: 0; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.dlg-wahl legend { padding: 0; margin-bottom: 6px; }
+.dlg-option {
+  display: flex; gap: 10px; align-items: flex-start; padding: 8px 10px; margin: 0;
+  border: 1px solid var(--border); border-radius: 4px; cursor: pointer;
+  font-size: 13px; text-transform: none; letter-spacing: 0; color: var(--text);
+}
+.dlg-option:has(input:checked) { border-color: var(--accent); }
+.dlg-option:focus-within { outline: 2px solid var(--accent); outline-offset: 1px; }
+.dlg-option input { width: auto; margin: 2px 0 0; flex: none; accent-color: var(--accent); }
+.dlg-option-text { display: flex; flex-direction: column; gap: 2px; overflow-wrap: anywhere; }
+.dlg-hinweis { color: var(--text-muted); font-size: 11px; }
+.dlg-kopier { display: flex; gap: 8px; }
+.dlg-kopier button { width: auto; flex: none; }
+.dlg-meldung:empty { display: none; }
+.dlg-knoepfe { display: flex; gap: 8px; justify-content: flex-end; margin-top: 4px; }
+.dlg-knoepfe button { width: auto; min-width: 96px; }
+.dlg-knoepfe button:focus-visible, .dlg-kopier button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button.dlg-gefahr { background: var(--red); color: #fff; }
+button.dlg-gefahr:hover { background: #A52A2A; }
+@media (max-width: 600px) {
+  .dlg-huelle { align-items: flex-end; padding: 0; }
+  .dlg-huelle .modal { max-width: none; border-radius: 12px 12px 0 0; max-height: 85vh; padding-bottom: calc(20px + env(safe-area-inset-bottom)); }
+  .dlg-knoepfe button { flex: 1; }
+}

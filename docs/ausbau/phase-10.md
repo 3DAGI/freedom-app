@@ -7,9 +7,9 @@ Karte der Abdeckung und eine Navigation, die auf Desktop und Handy je für sich
 Sinn ergibt. Protokoll, Krypto, Zahlungen und Event-Formate bleiben, wie sie
 sind; sonst gilt die STOPP-Regel aus `CLAUDE.md`.
 
-Stand dieser Karte: **C.0, C.1a, C.1b und C.2a fertig.** Der MENSCH hat den
+Stand dieser Karte: **C.0, C.1a, C.1b, C.2a und C.2b1 fertig.** Der MENSCH hat den
 Entwurf am 27.09.2026 freigegeben – E1–E8 wie vorgeschlagen (Abschnitt 10.3).
-Nächster Schritt: C.2b.
+Nächster Schritt: C.2b2.
 
 ---
 
@@ -157,7 +157,7 @@ Playwright nachgeprüft (Sichtbarkeit und Maße der Elemente).
 | B14 | mittel | Anordnung: Repos und Modelle unter „Agent“; Mesh unter „Settings“, Zahlen ohne Netz unter „Währung“, Post als Datei in der Liste der Direktnachrichten; Karte unter „Earn“; Mitwirkende unter „Earn › Werben“; Vertrauensstufe des Providers im Profil; Gebühren und Standard-Schiene in den Settings; der Reiter „Liquidität“ enthält das Hinterlegen beim Provider und seit 4.3d2 den Zahlkanal, keine Liquidität. | – | C.1b, C.6 |
 | B15 | klein | Mobil wird „Kommunikation“ in der unteren Leiste zu „KOMMUN…“ gekürzt. | – | C.1a |
 | B16 | klein | Nach jeder KI-Antwort verdrahtet `handleAnswer()` Knöpfe erneut (`agent.ts:877–894`, wie schon `app.ts:826–848`) – harmlos, aber überflüssig. | Datei der Spur A | später (nach 4.3d) |
-| B17 | klein | Rauminfo und der Titel der Vertraulichkeit zeigen den deutschen Satz aus `privacyInfo()` auch in der englischen Oberfläche (`kommunikation.ts:228`, `:641`). | gehört zu 8.16g2b2 (Spur B, übrige Sätze des Protokolls) | C.2b nutzt deren Text |
+| B17 | klein | Rauminfo und der Titel der Vertraulichkeit zeigen den deutschen Satz aus `privacyInfo()` auch in der englischen Oberfläche (`kommunikation.ts:228`, `:641`). | 8.16g2b2 (Spur B) hat den Satz nicht übernommen | C.2b2 |
 
 ---
 
@@ -421,7 +421,8 @@ Pull Request. Dateien der Spur A (`waehrung.ts`, `agent.ts`, `ki-zahlung.ts`,
 | **C.1a** | Rahmen: `navigation.ts` (Seiten, Adresse ohne Kennungen, Zurück), Leiste links repariert, untere Leiste mit „Mehr“, Hinweisleisten über dem Inhalt, Sprache mobil, ehrlicher Relay-Stand („im Pool“ statt „verbunden“, E8), Agent mobil mit „Verlauf“/„Modelle“, `scripts/screenshots.py`, Smoke: Erreichbarkeit | `index.html`, `app.css`, `app.ts` (klein), `ui.ts:145`, neu `navigation.ts`, `texte/navigation.ts`, Tests (~380) | B1, B2, B4, B5, B15 | C.0 (E1, E2, E8 entschieden) |
 | **C.1b** | Seiten umziehen, **reines Verschieben**: neue Seiten „Repos“ (Repo-Karten aus Agent, Mitwirkende aus Earn) und „Netz“ (Karte aus Earn, Mesh aus Settings); Vertrauensstufe zu „Verdienen“; Aufrufe in `switchTab()` mitziehen | `index.html`, `app.ts` (Sammelstelle, klein), Smoke-Selektoren (~250) | B14 (teilweise) | C.1a |
 | **C.2a** | **reines Verschieben** des Raum-Teils aus `kommunikation.ts` (`:34–648`) nach `tabs/raeume.ts`, wörtlich | ~600 verschoben, ~100 neu | – | C.1a; Größe freigegeben (E7) |
-| **C.2b** | `dialog.ts`; Verlauf gruppiert mit Namen, Menü an Nachrichten, Raum-Menü ▾, Dialoge für Einladen, Moderatoren, Moderieren, Melden, Anlegen, Beitreten, Rauminfo | `raeume.ts`, `app.css`, `index.html`, `texte/raeume.ts`, Tests (~400) | B7, B9 | C.2a |
+| **C.2b1** | `dialog.ts`; Dialoge statt `prompt()`/`confirm()`/`alert()` für Einladen, Moderatoren, Moderieren, Melden, Anlegen, Beitreten, Rauminfo; Smoke: Dialog per Tastatur | `dialog.ts`, `raeume.ts`, `app.css`, `texte/dialog.ts`, `texte/raeume.ts`, Tests (~400 mit Tests) | B7 | C.2a |
+| **C.2b2** | Verlauf gruppiert mit Namen (`kontaktName()`), Menü an Nachrichten (Zeigen und Fokus), Raum-Menü ▾; Rauminfo in der Sprache der Oberfläche (`privacyInfo()` in `protokoll-texte.ts` neu gebildet, Wortgleich-Test) | `raeume.ts`, `app.css`, `index.html`, `protokoll-texte.ts` (klein, Spur B), Tests (~300) | B9, B17 | C.2b1 |
 | **C.2c** | Antworten und Threads: Zeile „Antwort an …“, Thread-Spalte bzw. Unterseite, `sendePrivat()` mit `replyTo`/`threadRoot`, offen über `buildChannelMessage()`; Test: Antwort kommt in privaten und offenen Räumen mit Verweis an | `raeume.ts`, `raum-mls.ts`, Tests (~300) | B8 | C.2b |
 | **C.2d** | Mitglieder mit Rollen und Menü, Meldungen auch mobil, Kanal anlegen, mobile Ebenen (Kanal → Mitglieder, Thread) | `raeume.ts`, `app.css`, Tests (~350) | B3 | C.2c |
 | **C.3a** | Repo-Liste und Repo-Seite: 30617 + 38042 verbunden, Klonen, Bundle hoch- und herunterladen, Einstellungen des Eigentümers, Mitwirkende; Texte über Schlüssel | `repo-seite.ts`, `repos.ts`, `agent-netz.ts:266`, `app.ts:748` (zieht um), `texte/repos.ts`, Tests (~400) | B10, B11 | C.1b |
@@ -471,6 +472,31 @@ in C.2a nicht verdrahtet. Tests, die Raum-Code im Quelltext suchen, lesen jetzt
 `raeume.ts`, gleich streng; die neun innerHTML-Ausnahmen des Raum-Teils ziehen
 mit um. C.1a zuerst, weil B1 jeden neuen Nutzer am Desktop trifft
 und B2 halbe Seiten am Handy unerreichbar macht.
+
+**C.2b1 – fertig (27.09.2026).** C.2b ist geteilt (sonst ~700 Zeilen): C.2b1
+bringt `shell/dialog.ts` und ersetzt alle 16 `prompt()`/`confirm()`/`alert()`
+in `raeume.ts`; Namen, Gruppierung und Menüs folgen mit C.2b2.
+- `dialog()` baut nur mit DOM und `textContent` (`role="dialog"`,
+  `aria-modal`, Titel als Beschriftung, der Rest der App `inert`); Fokus
+  bleibt drin, Esc bricht ab, Enter bestätigt (mehrzeilig Strg+Enter), der
+  Fokus kehrt zurück. Pflichtfelder und Prüfungen melden sich im Dialog
+  (`pruefeWerte()`, rein und getestet). Mobil als Blatt von unten.
+- Einladen: Kontakt als Wahl oder Schlüssel (hex), nur ein gültiger Schlüssel
+  schließt den Dialog. Moderatoren privat: Häkchen je Mitglied (Admins
+  vorgewählt); offen: Schlüssel und Regeln in einem Dialog, jeder Schlüssel
+  geprüft. Moderieren privat: löschen oder entfernen als Wahl; offen:
+  ausblenden oder sperren samt Begründung in einem Dialog. Melden: die sieben
+  Gründe des Protokolls als Wahl mit Text (gesendet wird die Kennung). Anlegen:
+  Hinweis und Name in einem Dialog; die Kennung eines offenen Raums zum
+  Kopieren. Rauminfo: `privacyInfo()` im Dialog – noch Deutsch: 8.16g2b2
+  (Spur B) hat diesen Satz nicht übernommen, C.2b2 bildet ihn in der App neu
+  (B17).
+- Neue Texte unter `dlg.*` (`texte/dialog.ts`) und `raum.*` (`texte/raeume.ts`);
+  vorhandene Schlüssel dienen als Titel und Beschriftungen. Sieben Schlüssel
+  der alten Eingabezeilen fallen weg (Nummernlisten, „Abbrechen = sperren“,
+  getippter Grund).
+- Der unerreichbare Zweig „Rolle vergeben“ in `moderiere()` fragt jetzt auch
+  per Dialog; einen Knopf bekommt er mit C.2d.
 
 ---
 

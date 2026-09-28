@@ -16,7 +16,7 @@ import functools, http.server, socket, sys, threading
 from pathlib import Path
 
 GROESSEN = {"desktop": {"width": 1280, "height": 800}, "mobil": {"width": 390, "height": 844}}
-# (Name, Adresse, Unter-Reiter als "gruppe:reiter" oder "")
+# (Name, Adresse, Unter-Reiter als "gruppe:reiter" oder ""[, Knopf, der einen Dialog öffnet])
 ANSICHTEN = [
     ("agent", "#/agent", ""), ("agent-verlauf", "#/agent/verlauf", ""), ("agent-modelle", "#/agent/modelle", ""),
     ("chat", "#/chat", ""), ("repos", "#/repos", ""), ("waehrung", "#/waehrung", ""),
@@ -25,6 +25,9 @@ ANSICHTEN = [
     ("netz-karte", "#/netz", ""), ("netz-mesh", "#/netz", "netz:mesh"), ("profil", "#/profil", ""),
     ("settings", "#/settings", ""), ("settings-verbindung", "#/settings", "settings:network"),
     ("mehr", "#/mehr", ""),
+    # Dialoge (seit C.2b1): Knopf, der ihn öffnet, als vierter Eintrag; danach Esc
+    ("dialog-beitreten", "#/chat", "", "#rail-join"), ("dialog-anlegen", "#/chat", "", "#space-create"),
+    ("dialog-oeffentlich", "#/chat", "", "#space-create-public"),
 ]
 
 
@@ -64,14 +67,19 @@ def main() -> int:
             s.wait_for_timeout(1500)
             s.evaluate("() => document.getElementById('ein-abbrechen')?.click()")
             s.wait_for_timeout(500)
-            for nr, (name, adresse, reiter) in enumerate(ANSICHTEN, start=1):
+            for nr, (name, adresse, reiter, *knopf) in enumerate(ANSICHTEN, start=1):
                 s.evaluate("(a) => { location.hash = a; }", adresse)
                 s.wait_for_timeout(400)
                 if reiter:
                     gruppe, sub = reiter.split(":")
                     s.evaluate("([g, r]) => document.querySelector(`[data-subtab-group='${g}'] [data-subtab='${r}']`)?.click()", [gruppe, sub])
                     s.wait_for_timeout(300)
+                if knopf:
+                    s.evaluate("(k) => document.querySelector(k)?.click()", knopf[0])
+                    s.wait_for_timeout(300)
                 s.screenshot(path=str(ziel / f"{groesse}-{nr:02d}-{name}.jpg"), type="jpeg", quality=70)
+                if knopf:
+                    s.keyboard.press("Escape")
             ctx.close()
         browser.close()
     srv.shutdown()
