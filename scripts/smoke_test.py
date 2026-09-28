@@ -801,8 +801,8 @@ def raum_pruefen(browser, url: str) -> dict:
           liste: document.getElementById('repos-liste-ansicht').getBoundingClientRect().height > 0,
           klon: document.querySelector('.repo-klon input')?.value, fokus: document.activeElement?.classList.contains('repo-zurueck'),
           patches: [...document.querySelectorAll('.repo-patch')].map(p => [p.querySelector('.repo-patch-betreff').textContent,
-            [...p.querySelectorAll('button')].map(b => b.textContent)]) })""")
-        ev("() => document.querySelector('.repo-patch button').click()")  # annehmen
+            [...p.querySelectorAll('.repo-patch-status button')].map(b => b.textContent)]) })""")
+        ev("() => document.querySelector('.repo-patch-status button').click()")  # annehmen (seit C.3b1 ist der Betreff selbst ein Knopf)
         s.wait_for_timeout(200)
         s.keyboard.type("xyz")
         s.keyboard.press("Enter")
@@ -904,6 +904,62 @@ def raum_pruefen(browser, url: str) -> dict:
             erg["fehler"].append(f"{groesse}: Einstellungen gespeichert {tags} {links} {noch_einstellungen}")
         if "aes-gcm" not in bundle_tags or bundle_knopf < 1:
             erg["fehler"].append(f"{groesse}: neue Version hochladen {bundle_tags} {bundle_knopf}")
+        # Seit C.3b1: eigener Patch erst als Vorschau (ungültige Datei abgewiesen), dann gesendet
+        ev("() => document.querySelector('#repo-seite [data-reiter=patches]')?.click()")
+        s.wait_for_timeout(200)
+        eigener_patch = (f"From {'b' * 40} Mon Sep 17 00:00:00 2001\nFrom: Ich <ich@example.org>\nSubject: [PATCH] Liesmich\n\n"
+                         "Erste Zeile.\n---\ndiff --git a/LIESMICH b/LIESMICH\nnew file mode 100644\n--- /dev/null\n+++ b/LIESMICH\n"
+                         "@@ -0,0 +1,2 @@\n+# meins\n+<b>fett?</b>\n-- \n2.43.0\n")
+        datei = "#repo-seite .repo-patch-datei"
+        vorschau = {}
+        if ev(f"() => !!document.querySelector('{datei}')"):
+            s.set_input_files(datei, files=[{"name": "kaputt.patch", "mimeType": "text/plain", "buffer": b"kein Patch"}])
+            s.wait_for_timeout(300)
+            vorschau["kaputt"] = ev("() => !!document.querySelector('#repo-seite .patch-senden')")
+            s.set_input_files(datei, files=[{"name": "0001.patch", "mimeType": "text/plain", "buffer": eigener_patch.encode()}])
+            s.wait_for_timeout(300)
+            vorschau["seite"] = ev("""() => ({ titel: document.querySelector('#repo-seite .patch-titel')?.textContent,
+              zeilen: [...document.querySelectorAll('#repo-seite .diff-zeile')].map(z => [z.querySelector('.diff-zeichen').textContent, z.querySelector('.diff-text').textContent]),
+              art: document.querySelector('#repo-seite .diff-datei-kopf .msg-role')?.textContent, fokus: document.activeElement?.classList.contains('patch-senden') })""")
+            vorher = len([e for e in relay.gesendet if e.get("kind") == 1617])
+            ev("() => document.querySelector('#repo-seite .patch-senden').click()")
+            s.wait_for_timeout(800)
+            gesendet_patch = [e for e in relay.gesendet if e.get("kind") == 1617][vorher:]
+            vorschau["gesendet"] = [t[1] for t in (gesendet_patch[-1]["tags"] if gesendet_patch else []) if t[0] == "a"]
+            vorschau["liste"] = ev("() => [...document.querySelectorAll('#repo-seite .repo-patch-betreff')].map(b => b.textContent)")
+        erg[groesse]["patch_vorschau"] = vorschau
+        if vorschau.get("kaputt") is not False or vorschau.get("seite", {}).get("titel") != "Liesmich" \
+                or vorschau["seite"]["zeilen"] != [["+", "# meins"], ["+", "<b>fett?</b>"]] or vorschau["seite"]["art"] != "neu" \
+                or not vorschau["seite"]["fokus"] or len(vorschau.get("gesendet", [])) != 1 \
+                or not vorschau["gesendet"][0].endswith(":meins") or vorschau.get("liste") != ["Liesmich"]:
+            erg["fehler"].append(f"{groesse}: Patch-Vorschau {vorschau}")
+        # Seit C.3b1: der angenommene Patch im fremden Repo als eigene Seite mit Änderungen, als Datei ladbar
+        ev("() => document.querySelector('.repo-zurueck').click()")
+        ev("() => [...document.querySelectorAll('#repos-karten .repo-karte')].find(k => k.querySelector('.repo-name').textContent === 'werkzeug')?.click()")
+        s.wait_for_timeout(200)
+        ev("() => document.querySelector('#repo-seite [data-reiter=patches]')?.click()")
+        ev("() => document.querySelector('#repo-seite .repo-filter [data-filter=angenommen]')?.click()")
+        ev("() => document.querySelector('#repo-seite .repo-patch-betreff')?.click()")
+        s.wait_for_timeout(200)
+        seite_patch = ev("""() => ({ titel: document.querySelector('#repo-seite .patch-titel')?.textContent,
+          marke: document.querySelector('#repo-seite .patch-meta .repo-status')?.textContent,
+          dateien: [...document.querySelectorAll('#repo-seite .diff-dateien li')].map(l => l.textContent),
+          zeilen: [...document.querySelectorAll('#repo-seite .diff-zeile')].map(z => [...z.children].map(c => c.textContent)),
+          fokus: document.activeElement?.classList.contains('patch-zurueck') })""")
+        try:
+            with s.expect_download(timeout=5000) as dl:
+                ev("() => [...document.querySelectorAll('#repo-seite .patch-aktionen button')].at(-1).click()")
+            seite_patch["datei"] = dl.value.suggested_filename
+        except Exception as e:
+            seite_patch["datei"] = f"kein Download: {str(e)[:80]}"
+        ev("() => document.querySelector('#repo-seite .patch-zurueck')?.click()")
+        s.wait_for_timeout(200)
+        seite_patch["zurueck"] = ev("() => [!!document.querySelector('#repo-seite .repo-patches'), document.activeElement?.dataset?.patch?.length === 64]")
+        erg[groesse]["patch_seite"] = seite_patch
+        if seite_patch["titel"] != "Hammer schärfen" or seite_patch["marke"] != "angenommen ✓" or seite_patch["dateien"] != ["hammer.txt+1−1"] \
+                or seite_patch["zeilen"] != [["1", "", "−", "stumpf"], ["", "1", "+", "scharf"]] or not seite_patch["fokus"] \
+                or seite_patch["datei"] != "aaaaaaa.patch" or seite_patch["zurueck"] != [True, True]:
+            erg["fehler"].append(f"{groesse}: Patch-Seite {seite_patch}")
         ctx.close()
     erg["bestanden"] = not erg["fehler"]
     return erg

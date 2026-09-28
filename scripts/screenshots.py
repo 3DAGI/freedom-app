@@ -160,6 +160,13 @@ def main() -> int:
                 s.evaluate("() => document.querySelector('#repo-seite [data-reiter=einstellungen]')?.click()")
                 s.wait_for_timeout(200)
                 s.screenshot(path=str(ziel / f"{groesse}-{nr + 11:02d}-repo-einstellungen.jpg"), type="jpeg", quality=70)
+                # Seit C.3b1: der offene Patch von „werkzeug“ als eigene Seite mit Änderungen
+                s.evaluate("""() => { document.querySelector('.repo-zurueck')?.click();
+                  [...document.querySelectorAll('#repos-karten .repo-karte')].find(k => k.querySelector('.repo-name').textContent === 'werkzeug')?.click(); }""")
+                s.wait_for_timeout(200)
+                s.evaluate("() => { document.querySelector('#repo-seite [data-reiter=patches]')?.click(); document.querySelector('#repo-seite .repo-patch-betreff')?.click(); }")
+                s.wait_for_timeout(300)
+                s.screenshot(path=str(ziel / f"{groesse}-{nr + 12:02d}-patch-seite.jpg"), type="jpeg", quality=70)
             ctx.close()
         browser.close()
     srv.shutdown()
