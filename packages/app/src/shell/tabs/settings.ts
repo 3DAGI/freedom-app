@@ -478,15 +478,24 @@ if (typeof window !== "undefined") {
   });
 }
 
+/** Ist ein Funkgeraet verbunden (USB oder Bluetooth)? Der Datei-Weg zaehlt nicht. */
+export function funkGeraetVerbunden(): boolean {
+  const art = meshNode?.transportArt;
+  return art === "seriell" || art === "bluetooth";
+}
+
 /**
  * Ueber das verbundene Funkgeraet senden (7.2: Offline-SOL-Zahlung). false,
  * wenn keines verbunden ist – dann nimmt der Aufrufer den Datei-Weg.
  */
-export async function sendeUeberFunk(payload: Uint8Array, kind: import("@freedomstack/protocol").MeshKind, label: string): Promise<boolean> {
-  const art = meshNode?.transportArt;
-  if (!meshNode || (art !== "seriell" && art !== "bluetooth")) return false;
+export async function sendeUeberFunk(
+  payload: Uint8Array, kind: import("@freedomstack/protocol").MeshKind, label: string,
+  /** Vorrang in der Warteschlange – Zahlungen zuerst, KI über Funk (7.4c3) wie eine Nachricht. */
+  vorrang?: import("@freedomstack/protocol").MeshPriority,
+): Promise<boolean> {
+  if (!meshNode || !funkGeraetVerbunden()) return false;
   const { MeshPriority } = await import("@freedomstack/protocol");
-  meshNode.enqueue(payload, kind, MeshPriority.Zahlung, label);
+  meshNode.enqueue(payload, kind, vorrang ?? MeshPriority.Zahlung, label);
   return true;
 }
 

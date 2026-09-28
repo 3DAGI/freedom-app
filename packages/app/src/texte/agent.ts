@@ -117,6 +117,10 @@ export const agent: Texte = {
   "agent.funkNurKanal": { de: "Über Funk zahlt die App nur über einen Zahlkanal zu diesem Provider – Lightning braucht Netz. Öffne einen Kanal, solange du Netz hast, oder frag gratis (Gebot 0).", en: "Via radio the app only pays through a payment channel to this provider – Lightning needs a network. Open a channel while you are online, or ask for free (bid 0)." },
   "agent.funkKeinGeraet": { de: "Kein Funkgerät verbunden (Seite Netz → Mesh).", en: "No radio connected (Network page → Mesh)." },
   "agent.funkRueckmeldung": { de: "Über Funk: Der Provider lehnt ab – {grund}", en: "Via radio: the provider declines – {grund}" },
+  "agent.ueberFunk": { de: "über Funk", en: "via radio" },
+  "agent.ueberFunkTitel": { de: "Frage über dein Funkgerät an das gemerkte Gateway – kurze Antwort, höchstens 500 Zeichen", en: "Ask via your radio through the saved gateway – short answer, at most 500 characters" },
+  "agent.funkLabel": { de: "KI über Funk", en: "AI via radio" },
+  "agent.funkUnterwegs": { de: "Über Funk unterwegs. Die Antwort (höchstens 500 Zeichen) kommt in einigen Minuten – nur, solange die App offen bleibt. Ein Gateway schafft rund zwei Antworten je Stunde.", en: "On its way via radio. The answer (at most 500 characters) arrives within a few minutes – only while the app stays open. A gateway manages about two answers per hour." },
   "agent.funkMeta": { de: "über Funk · auf „{frage}“", en: "via radio · to “{frage}”" },
   "agent.keinPrivaterProvider": { de: "Kein Provider für private Anfragen gefunden – die Knoten brauchen mindestens Stand 3.1.", en: "No provider for private requests found – nodes need at least version 3.1." },
   // Video (ComfyUI)

@@ -128,3 +128,27 @@ test("7.4c2 verdrahtet: Antwort aus dem Funk vor dem Weiterverteilen, nur Zahlka
   assert.match(lies("shell/tresor.ts"), /const GEHEIM_FEST = \[[^\]]*"freedom\.funk\.gateway"/, "im Tresor");
   assert.match(lies("shell/ki-zahlung.ts"), /const kurs = gemerkterKurs \?\? \(await angebotVon\(providerPk\)/);
 });
+
+test("7.4c3 verdrahtet: Gateway wählen auf der Seite Netz, „über Funk“ im Agenten nur mit Gateway, nur die Frage reist", () => {
+  const lies = (pfad: string) => readFileSync(new URL(`../src/${pfad}`, import.meta.url), "utf8");
+  const html = lies("shell/index.html");
+  assert.match(html, /<label id="ai-funk-wahl" class="mono-sm" style="display:none"[^>]*><input type="checkbox" id="ai-funk" \/>/, "versteckt, bis ein Gateway gemerkt ist");
+  const netz = html.slice(html.indexOf('data-subpane="netz:mesh"'), html.indexOf("</section>", html.indexOf('data-subpane="netz:mesh"')));
+  assert.match(netz, /id="funk-gateway-suchen"/);
+  assert.match(netz, /id="funk-gateway-vergessen"/);
+  assert.match(lies("shell/app.ts"), /void wireMeshTab\(\);\s*\/\/[^\n]*\n\s*wireFunkGateway\(\);/);
+
+  const ui = lies("shell/funk-gateway-ui.ts");
+  assert.doesNotMatch(ui, /innerHTML/, "Fremdes nur über textContent");
+  assert.match(ui, /\(await alleAngebote\(\)\)\.filter\(\(c\) => c\.funkGateway\)/);
+  assert.match(ui, /if \(wahl\) wahl\.style\.display = g \? "" : "none";/);
+
+  const agent = lies("shell/tabs/agent.ts");
+  const ask = agent.slice(agent.indexOf("export async function askAi("), agent.indexOf("/** Sendet den Job an den besten Provider"));
+  assert.match(ask, /jobAbort\.abort\(\);\s*return;\s*\}\s*\/\/[^\n]*\n\s*if \(\(\$\("#ai-funk"\) as HTMLInputElement \| null\)\?\.checked\) \{\s*await frageUeberFunk\(prompt, bid\);\s*return;\s*\}\s*btn\.dataset\.running = "1";/);
+  const frage = agent.slice(agent.indexOf("async function frageUeberFunk("), agent.indexOf("export function setupFunkAntworten("));
+  assert.match(frage, /await sendeKiUeberFunk\(prompt, gebot, \(w\) => sendeUeberFunk\(eventToMesh\(w\), MeshKind\.NostrEvent, t\("agent\.funkLabel"\), MeshPriority\.Nachricht\)\);/);
+  assert.doesNotMatch(frage, /pendingContextSummary|kontextPraefix/, "kein Verlauf als Kontext – jedes Byte kostet Sendezeit");
+  assert.ok(frage.indexOf("if (!funkGeraetVerbunden())") < frage.indexOf("await sendeKiUeberFunk("), "erst das Gerät, dann Gutschrift und Auftrag");
+  assert.match(lies("shell/tabs/settings.ts"), /meshNode\.enqueue\(payload, kind, vorrang \?\? MeshPriority\.Zahlung, label\);/);
+});

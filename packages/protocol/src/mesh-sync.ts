@@ -370,8 +370,9 @@ export function offlineCapabilities(link: Link): { feature: string; works: boole
       note: "Braucht mehrere Runden Austausch. Das überlebt keine Offline-Strecke.",
     },
     {
-      feature: "KI-Anfragen", works: false,
-      note: "Eine Antwort mit 500 Wörtern bräuchte über Funk mehr als eine Stunde Sendezeit – dazu kommen Auftrag und Bezahlung. Ehrlich: geht nicht.",
+      // Seit 7.4: kurz über ein Funk-Gateway (funk-gateway.ts) – eine lange Antwort bräuchte mehr als eine Stunde Sendezeit.
+      feature: "KI-Anfragen", works: ueberFunk,
+      note: "Nur über Funk und ein Gateway mit Netz: kurze Antwort (höchstens 500 Zeichen), rund zwei je Stunde und Gateway – eine Antwort kostet als Umschlag gut 15 s Sendezeit. Bezahlt nur über einen Zahlkanal oder gratis; per Datei nicht.",
     },
   ];
 }
