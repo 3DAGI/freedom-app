@@ -44,9 +44,9 @@ bash packages/mls/bauen.sh --pruefen                     # nur bei Änderungen a
 bash contracts/solana-channel/pruefen.sh --werkzeuge     # nur bei Änderungen am Zahlkanal: bauen + Tests gegen Validator (Agave 3.1.10)
 ```
 
-Stand 28.09.2026 (nach 4.3d2, C.2a und 7.4c1): protocol 1081 grün (6 übersprungen), node 241 grün
+Stand 28.09.2026 (nach 4.3d2, C.2a und 7.4c2): protocol 1081 grün (6 übersprungen), node 241 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 514 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 59 grün + 1 `todo` (heutige Lecks,
+in `tools.test.ts`), app 518 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 59 grün + 1 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
 Ausnahme: gesendete SOL-Zahlungen von frischen Adressen, eine bewusste Grenze
 nach Entscheidung 4.9 A – im Datenschutzbericht unter „Bewusste Grenzen“).
@@ -312,7 +312,11 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   Warteschlange mit Sendezeitkonto; eine Antwort mit 500 Zeichen kostet rund
   15 s Sendezeit. Byte-Strecken zum Funkgerät (USB, Bluetooth, TCP-Brücke)
   seit 7.4c1 nur mit `mitLaenge()`/`LaengenRahmen` – zwei Byte Länge je
-  Rahmen, sonst fließen Rahmen im Strom ineinander.
+  Rahmen, sonst fließen Rahmen im Strom ineinander. In der App (seit 7.4c2)
+  KI über Funk nur über `shell/ki-ueber-funk.ts`: Gateway nur aus einem
+  Angebot mit `["funk","gateway"]`, gemerkt im Tresor (`freedom.funk.gateway`);
+  bezahlt nur per Zahlkanal-Gutschrift zum gemerkten Kurs oder gratis – nie
+  Lightning; Antworten aus dem Funk erst `nimmFunkAntwort()`, dann weiterverteilen.
 - **Keine fest verdrahteten Relays** (seit 5.4a): Die Startliste steht nur in
   `STARTRELAYS` (`protocol/src/relay-start.ts`, `startUrls()`); die App baut den
   Pool mit `poolRelays()` (eigener Satz + wechselnd weitere). Eigene Listen

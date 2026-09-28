@@ -39,6 +39,7 @@ import {
   refreshModelDropdown,
   setupAttach,
   setupEmptyState,
+  setupFunkAntworten,
   setupModelPicker,
   setupToolChips,
   updateBudgetBar,
@@ -887,6 +888,8 @@ function starte(): void {
   setupToolChips();
   setupModelPicker();
   setupEmptyState();
+  // Antworten auf KI-Anfragen über Funk (7.4c2)
+  setupFunkAntworten();
   // C7: Live-Kosten-Schätzung beim Tippen + Enter-to-Send (Shift+Enter = Zeilenumbruch)
   const aiPromptEl = $("#ai-prompt") as HTMLTextAreaElement;
   if (aiPromptEl) {

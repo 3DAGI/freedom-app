@@ -80,10 +80,14 @@ export function merkeAnfrage(requestId: string, empfaenger: Empfaenger, hoechst:
  * Kanal das Gebot nicht (mehr) oder fehlt der Kurs: Fehler – nie still über
  * Lightning zahlen, wenn der Nutzer einen Kanal für diesen Provider hat.
  */
-export async function kanalGutschrift(providerPk: string, hoechst: number): Promise<{ tags: string[][]; merke(requestId: string): Promise<void> } | undefined> {
+export async function kanalGutschrift(
+  providerPk: string, hoechst: number,
+  /** Kurs aus einem gemerkten Angebot – ohne Netz gibt es keine Angebote (7.4c2). */
+  gemerkterKurs?: { satsProSol: number },
+): Promise<{ tags: string[][]; merke(requestId: string): Promise<void> } | undefined> {
   const jetzt = Math.floor(Date.now() / 1000);
   if (hoechst <= 0 || !kanalBuch.fuerProvider(providerPk, jetzt)) return undefined;
-  const kurs = (await angebotVon(providerPk).catch(() => undefined))?.kurs;
+  const kurs = gemerkterKurs ?? (await angebotVon(providerPk).catch(() => undefined))?.kurs;
   if (!kurs) throw new Error(t("zahl.kanalOhneKurs"));
   const wahl = kanalBuch.gutschriftFuer({ provider: providerPk, bedarf: bedarfLamports(hoechst, kurs.satsProSol), jetzt });
   if (wahl.art === "erschoepft") throw new Error(t("zahl.kanalErschoepft"));
