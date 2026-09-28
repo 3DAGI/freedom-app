@@ -87,6 +87,13 @@
     geht ohne Netz nicht, nie still ausweichen), erst merken, dann Weiterleitung
     und Auftrag senden; Antwort aus dem Funk wird vor dem Weiterverteilen
     geöffnet und im Agenten gezeigt (über den Kanal nur der Preis verbucht).
-  - **7.4c3:** Oberfläche – Gateway wählen (Seite Netz), „über Funk senden“
-    im Agenten, ehrliche Texte zu Dauer (rund zwei Antworten je Stunde und
-    Gateway) und Kosten; Smoke-Test.
+  - **7.4c3 – FERTIG:** Oberfläche – Seite Netz → Mesh: Karte „KI über
+    Funk“ (Gateways suchen, eines merken oder vergessen, `funk-gateway-ui.ts`);
+    im Agenten „über Funk“ nur mit gemerktem Gateway, gesendet wird nur die
+    Frage (kein Verlauf als Kontext), erst nach der Prüfung, dass ein
+    Funkgerät verbunden ist. Ehrliche Texte in App, Protokoll
+    (`offlineCapabilities()`: KI über Funk ja, per Datei und Bluetooth von
+    Gerät zu Gerät nein) und FAQ: höchstens 500 Zeichen, rund zwei Antworten je
+    Stunde und Gateway, bezahlt nur über einen Zahlkanal oder gratis, die
+    Antwort nur, solange die App offen bleibt. Smoke-Test „rahmen“ prüft die
+    Karte.

@@ -9183,3 +9183,62 @@ Netz; ohne Netz 240 + 7) · app 518 (+4) · mls 13 · Leak-Tests 59 grün + 1 to
 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 · Website 5
 Seiten ok · Smoke-Test bestanden. Knoten-Stand: für den Funk-Pfad ein Knoten
 ab 7.4b2 mit `FUNK_GATEWAY`; sonst unverändert.
+
+## Schritt 7.4c3 – KI über Funk: Oberfläche und ehrliche Texte
+
+**Warum:** Mit 7.4c2 konnte die App über Funk fragen und Antworten zeigen – es
+fehlte der Weg für den Menschen: ein Gateway wählen, solange Netz da ist, und
+„über Funk“ fragen. Und überall stand noch „KI geht über Funk nicht“.
+
+**Was:**
+- **Seite Netz → Mesh, Karte „KI über Funk“** (`shell/funk-gateway-ui.ts`,
+  aus `app.ts` nach `wireMeshTab()`): Gateways suchen (Angebote mit
+  `["funk","gateway"]`), eines merken oder vergessen; der Stand nennt das
+  Gateway, das Datum des Angebots und – ohne SOL-Kurs – „über Funk nur
+  gratis“. Alles Fremde nur über `textContent`.
+- **Agent:** „über Funk“ (`#ai-funk`) erscheint nur mit gemerktem Gateway.
+  Gewählt, geht die Frage über `frageUeberFunk()`: erst prüfen, dass ein
+  Funkgerät verbunden ist (`funkGeraetVerbunden()`, neu in Settings – sonst
+  wäre eine Gutschrift gemerkt, die nie hinausgeht), dann `sendeKiUeberFunk()`
+  mit Vorrang „Nachricht“ (`sendeUeberFunk()` hat dafür einen Parameter;
+  Offline-SOL bleibt „Zahlung“). Nur die Frage reist – kein Verlauf als
+  Kontext, jedes Byte kostet Sendezeit. Im Verlauf steht, wie es weitergeht:
+  Antwort in einigen Minuten, nur solange die App offen bleibt, rund zwei je
+  Stunde und Gateway.
+- **Ehrliche Texte:**
+  - Protokoll `offlineCapabilities()`: „KI-Anfragen“ gehen über Funk (ein
+    Gateway), nicht per Datei oder Bluetooth von Gerät zu Gerät – mit Dauer,
+    Grenze und Bezahlung; die App bildet den Satz in beiden Sprachen neu
+    (`ps.ofKiText`, wortgleich geprüft).
+  - Mesh-Text der Seite Netz: „Lightning geht so nicht; KI nur kurz über ein
+    Funk-Gateway (unten).“
+  - FAQ der Website: statt „KI-Anfragen auch nicht“ die kurze Anfrage über ein
+    Gateway, was das Gateway sieht und dass eine lange Antwort über Funk mehr
+    als eine Stunde Sendezeit bräuchte.
+- 12 Texte der Karte, 4 im Agenten, beide Sprachen.
+
+**Tests:**
+- +1 in `app/test/ki-funk.test.ts` (verdrahtet): Wahl versteckt bis zum
+  Gateway, Karte auf der Seite Netz, `wireFunkGateway()` aus `app.ts`, kein
+  `innerHTML`, „über Funk“ vor dem Start eines normalen Auftrags, erst das
+  Gerät prüfen, dann senden, kein Verlauf als Kontext, Vorrang als Parameter.
+- `protocol/test/mesh-sync.test.ts`: Die Rechnung „500 Wörter brauchen mehr
+  als eine Stunde“ bleibt; neu gerechnet wird eine Antwort mit 500 Zeichen als
+  Umschlag (gut 15 s, zwei passen in eine Stunde). Der Test „Auskunft sagt bei
+  jeder Strecke dasselbe über Lightning und KI“ prüft jetzt: Lightning nie, KI
+  nur über Funk, überall derselbe Satz – die Karte 7.4 ändert genau diese
+  Fähigkeit.
+- Smoke-Test „rahmen“: die Karte ist auf der Seite Netz sichtbar, sagt „Kein
+  Gateway gemerkt.“, und die Wahl im Agenten ist versteckt.
+- Im Browser (de und en): Gateway gemerkt → Stand „Gemerkt: …, Angebot vom
+  21.9.2026. Ohne SOL-Kurs – über Funk nur gratis.“, die Wahl erscheint;
+  gesendet ohne Funkgerät → „Kein Funkgerät verbunden (Seite Netz → Mesh).“ im
+  Verlauf; vergessen → Wahl weg, Eintrag gelöscht; keine Seitenfehler.
+
+Endstand: protocol 1081 (6 übersprungen; zwei Tests geändert, weil die
+Fähigkeit sich ändert) · node 241 (6 übersprungen, mit Netz; ohne Netz 240 + 7) ·
+app 519 (+1) · mls 13 · Leak-Tests 59 grün + 1 todo · 0 rot · check-wiring
+`--streng` Exit 0 · innerHTML streng Exit 0 · Website 5 Seiten ok · Smoke-Test
+bestanden (mit „funk“) · Browser-Probe auf dem letzten Stand (de/en) wie oben.
+Damit ist 7.4 im Code fertig. Knoten-Stand: Gateway-Knoten ab 7.4b2 mit
+`FUNK_GATEWAY`; ohne ihn bietet die Seite Netz kein Gateway an.

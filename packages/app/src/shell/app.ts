@@ -47,6 +47,7 @@ import {
   updateTokenEstimate,
   zeigeVerlaeufe,
 } from "./tabs/agent.js";
+import { wireFunkGateway } from "./funk-gateway-ui.js";
 import {
   captureReferral,
   ladeAbdeckung,
@@ -797,6 +798,8 @@ function starte(): void {
   void wireGebuehrenKarte();
   void pruefeFixierungBeimStart();
   void wireMeshTab();
+  // KI über Funk (7.4c3): Gateway wählen, „über Funk“ im Agenten
+  wireFunkGateway();
   void wireSpacesTab();
   void wireProfil();
   setzeLogo();

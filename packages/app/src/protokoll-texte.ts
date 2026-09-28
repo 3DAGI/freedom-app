@@ -248,7 +248,7 @@ export function offlineFaehigkeiten(link: Link): { feature: string; works: boole
     { feature: t("ps.ofGit"), works: false, note: t("ps.ofGitText") },
     { feature: t("ps.ofModelle"), works: false, note: t("ps.ofModelleText") },
     { feature: t("ps.ofLn"), works: false, note: t("ps.ofLnText") },
-    { feature: t("ps.ofKi"), works: false, note: t("ps.ofKiText") },
+    { feature: t("ps.ofKi"), works: link === "lora", note: t("ps.ofKiText") },
   ];
 }
 

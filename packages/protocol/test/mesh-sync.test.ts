@@ -208,11 +208,13 @@ test("Nicht gebaute Faehigkeiten werden nicht als vorhanden ausgegeben", () => {
 
 test("Auskunft sagt bei jeder Strecke dasselbe ueber Lightning und KI", () => {
   // Ein Versprechen, das an zwei Stellen verschieden lautet, wird an der
-  // schwaecheren geglaubt.
+  // schwaecheren geglaubt. KI geht seit 7.4 nur über Funk (ein Gateway) –
+  // weder per Bluetooth von Gerät zu Gerät noch per Datei.
   for (const link of ["lora", "bluetooth", "datei"] as const) {
     const f = offlineCapabilities(link);
     assert.equal(f.find((x) => /Lightning/.test(x.feature))!.works, false);
-    assert.equal(f.find((x) => /KI/.test(x.feature))!.works, false);
+    assert.equal(f.find((x) => /KI/.test(x.feature))!.works, link === "lora", link);
+    assert.match(f.find((x) => /KI/.test(x.feature))!.note, /^Nur über Funk und ein Gateway mit Netz/);
   }
 });
 
@@ -247,7 +249,7 @@ test("Jede Ereignisart hat eine Einordnung – ueber Mesh nur Umschlaege", () =>
   assert.equal(policyFor(99999), undefined);
 });
 
-test("0.F: „KI über Funk“ rechnet nach – 500 Wörter als Umschlag brauchen mehr als eine Stunde Sendezeit", async () => {
+test("0.F/7.4: „KI über Funk“ rechnet nach – 500 Wörter bräuchten mehr als eine Stunde, 500 Zeichen über ein Gateway gut 15 s", async () => {
   const { buildPrivateDm } = await import("../src/private-dm.js");
   const { luftBytes, SENDEZEIT_ANTEIL, SENDEZEIT_FENSTER_SEKUNDEN } = await import("../src/mesh-transport.js");
   const b = generateKeypair();
@@ -257,6 +259,18 @@ test("0.F: „KI über Funk“ rechnet nach – 500 Wörter als Umschlag brauche
   const budget = SENDEZEIT_ANTEIL * SENDEZEIT_FENSTER_SEKUNDEN;
   assert.ok(sekunden > budget, `${sekunden.toFixed(1)} s Sendezeit > ${budget} s je Stunde`);
   assert.ok(sekunden < 3 * budget, "nicht „Stunden“ – gut eine Stunde");
+  // Seit 7.4: eine kurze Antwort (höchstens 500 Zeichen) über ein Gateway – als Umschlag gut 15 s, rund zwei je Stunde
+  const { buildPrivateJobResponse } = await import("../src/private-job.js");
+  const { LocalSigner } = await import("../src/signer.js");
+  const sitzung = generateKeypair();
+  const provider = new LocalSigner(KP.sk);
+  const antwort = buildEvent(KP.pk, 6050, [["e", "a".repeat(64)], ["p", sitzung.pk], ["amount", "21000"], ["usage", JSON.stringify({ model: "m", input_tokens: 40, output_tokens: 180 })]],
+    "Wasser mindestens eine Minute sprudelnd abkochen, dann abgedeckt abkühlen lassen. ".repeat(6).slice(0, 499) + "…");
+  const { wrap } = await buildPrivateJobResponse({ response: antwort, providerSigner: provider, sessionPk: sitzung.pk });
+  const kurz = luftBytes(new TextEncoder().encode(JSON.stringify(wrap)).length) / LINK_BYTES_PER_SEC.lora;
+  assert.ok(kurz > 12 && kurz < budget / 2, `${kurz.toFixed(1)} s: gut 15 s, zwei passen in eine Stunde`);
   const ki = offlineCapabilities("lora").find((x) => x.feature === "KI-Anfragen")!;
-  assert.match(ki.note, /mehr als eine Stunde Sendezeit/);
+  assert.equal(ki.works, true);
+  assert.match(ki.note, /rund zwei je Stunde und Gateway – eine Antwort kostet als Umschlag gut 15 s Sendezeit/);
+  assert.equal(offlineCapabilities("datei").find((x) => x.feature === "KI-Anfragen")!.works, false, "per Datei nicht");
 });

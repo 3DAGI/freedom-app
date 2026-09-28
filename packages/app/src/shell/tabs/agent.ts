@@ -37,7 +37,7 @@ import {
 } from "../state.js";
 import { aktualisiereKurs, aktuellerKurs } from "../marktkurs.js";
 import { geheim } from "../tresor.js";
-import { beiFunkAntwort } from "../ki-ueber-funk.js";
+import { beiFunkAntwort, sendeKiUeberFunk } from "../ki-ueber-funk.js";
 import { deklaration, empfaengerFuer, kanalAntwort, kanalGutschrift, merkeAnfrage, perKanal, providerZahlung, rechneAntwortAb, zahleAnteile } from "../ki-zahlung.js";
 import { hoechstMsat } from "../../anteile-kasse.js";
 import {
@@ -56,7 +56,7 @@ import { PRUEFER_ART, type Pruefer } from "../../streitfall.js";
 import { merkeReklamation, netzPruefer, stelleZu } from "../streitfall-ui.js";
 import { zeigeMitwirkende } from "./earn.js";
 import { vergebeAbzeichen } from "./profil.js";
-import { richteNachfolgeEin, zeigeNachfolge } from "./settings.js";
+import { funkGeraetVerbunden, richteNachfolgeEin, sendeUeberFunk, zeigeNachfolge } from "./settings.js";
 
 /** Modell des zuletzt genutzten Providers (fuer die anzeige). */
 let lastProviderModel: string | null = null;
@@ -383,6 +383,11 @@ export async function askAi(): Promise<void> {
   // STOP: läuft bereits ein Job → abbrechen statt neuen senden
   if (btn.dataset.running === "1" && jobAbort) {
     jobAbort.abort();
+    return;
+  }
+  // KI über Funk (7.4c3): gewählt – die Antwort kommt später über setupFunkAntworten()
+  if (($("#ai-funk") as HTMLInputElement | null)?.checked) {
+    await frageUeberFunk(prompt, bid);
     return;
   }
   btn.dataset.running = "1";
@@ -991,6 +996,28 @@ function addAiMessage(role: "user" | "ai", text: string, meta: string, model?: s
   stickToBottom(() => el.scrollIntoView({ behavior: "smooth", block: "end" }));
   merkeNachricht(role, text, meta, model);
   return el;
+}
+
+/**
+ * KI über Funk (7.4c3): Auftrag und Weiterleitung ans gemerkte Gateway, über
+ * das verbundene Funkgerät. Nur die Frage reist mit – kein Verlauf als Kontext,
+ * jedes Byte kostet Sendezeit. Gratis-Tarif heißt Gebot 0.
+ */
+async function frageUeberFunk(prompt: string, bid: number): Promise<void> {
+  const gebot = ($("#ai-tier") as HTMLSelectElement).value === "free" ? 0 : bid;
+  hideEmptyState();
+  addAiMessage("user", prompt, "");
+  ($("#ai-prompt") as HTMLTextAreaElement).value = "";
+  try {
+    // Erst das Gerät prüfen – sonst wäre eine Gutschrift gemerkt, die nie hinausgeht
+    if (!funkGeraetVerbunden()) throw new EigeneMeldung(t("agent.funkKeinGeraet"));
+    const { MeshKind, MeshPriority } = await import("@freedomstack/protocol");
+    const { eventToMesh } = await import("../../mesh-radio.js");
+    await sendeKiUeberFunk(prompt, gebot, (w) => sendeUeberFunk(eventToMesh(w), MeshKind.NostrEvent, t("agent.funkLabel"), MeshPriority.Nachricht));
+    addAiMessage("ai", t("agent.funkUnterwegs"), "");
+  } catch (e) {
+    addAiMessage("ai", fehlerText(e), "");
+  }
 }
 
 /**
