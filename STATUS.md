@@ -8949,3 +8949,10 @@ Code fertig. Aufgeteilt: **a** Protokoll und Provider (dieser Schritt),
 - +2 in `node/test/funk-kurz.test.ts`: mit `max_zeichen` höchstens 500 Zeichen,
   erkennbar gekürzt, keine Zwischenstände, Bitte um Kürze im Prompt; ohne ihn
   wie bisher (ganze Antwort, ein Zwischenstand).
+
+Endstand: protocol 1075 (+4, 6 übersprungen) · node 237 (+2, 6 übersprungen,
+mit Netz; ohne Netz 236 + 7) · app 510 · mls 13 · Leak-Tests 58 grün + 1 todo ·
+0 rot · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 · Website 5
+Seiten ok · Smoke-Test bestanden. Knoten-Stand: Das Kürzen braucht den
+Provider-Knoten auf diesem `main` – ältere Knoten übergehen `max_zeichen` und
+antworten wie bisher (nichts bricht, nur lang).
