@@ -12072,3 +12072,52 @@ Endstand (B-4, 29.09.): protocol 1131 (+4, 6 übersprungen) · node 271 (7
 übersprungen ohne Netz – mit Netz 272) · app 675 (+4) · mls 13 · Leak-Tests 68
 grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0
 · Website ok · Smoke-Test bestanden. Knoten-Stand: unverändert.
+
+## Schritt B-6 – Datenexport
+
+Aus der Sammlung (`docs/neuordnung/SAMMLUNG.md`, B-6) – das Gegenstück zur
+Notfall-Löschung: alles, was ein neues Gerät oder eine andere App braucht, als
+eine Datei, die nur der Nutzer mit seiner Passphrase öffnet.
+
+**Inhalt (`datenexport.ts`):** `waehleExport()` nimmt, was die
+Zustandssicherung enthält (`waehleSicherung()`: Unterhaltungen, Räume,
+Lesestände, eigene Namen, Profil, Sprache, Relays, Einstellungen, Mandate,
+Kataloge, Werber, geprüfte Kontakte, Moderation je Community), dazu
+`EXPORT_ZUSAETZLICH`: KI-Verläufe (`freedom.agentHistory`) und Quittungen
+(`freedom.quittungen`) – beides darf nie auf ein Relay und steht deshalb nicht
+in der Sicherung, gehört aber in die eigene Datei. Nie drin: Schlüssel, Bunker,
+Wallet- und Relay-Zugänge, Geld-Geheimnisse (Swaps, Sperren, SOL-Wallet,
+Kanäle), Anteile der Nachfolge, Gruppenschlüssel, Merkphrase (`SICHERUNG_NIE`).
+Repos stehen nicht auf dem Gerät (Relays, Blob-Netz – sie kommen mit dem
+Schlüssel zurück), private Räume nicht (ein neues Gerät tritt neu bei).
+
+**Datei:** `{art: "freedomstack-export", v: 1, zeit, tresor}` – `tresor` im
+Format des Tresors über `verschluesseleMitPassphrase()` (`vault.ts`:
+PBKDF2-SHA256 600.000, AES-256-GCM, Kopf als AAD; gemeinsamer Kern
+`oeffneBlob()` mit `unlock()`). Einlesen über `leseExport()`: höchstens 20 MB,
+Form und Fassung geprüft, falsche Passphrase oder veränderte Datei →
+`FalschePassphrase`, danach nur, was `filtereExport()` durchlässt – auch eine
+untergeschobene Datei mit Schlüsseln bringt keinen zurück. Dateiname nur mit
+Datum.
+
+**App (Settings → Sicherheit):** „als Datei exportieren“ (Passphrase zweimal,
+verdeckt – neues Feld `verdeckt` in `shell/dialog.ts`, Mindestlänge wie der
+Tresor) und „Datei einlesen“ (Passphrase, dann Rückfrage mit Zahl der Einträge
+und Datum über `bestaetige()`). Braucht keinen rohen Schlüssel, geht also auch
+mit Bunker – der Hinweis zum Bunker sagt jetzt „Schlüssel-Export“ und „der
+Datenexport geht“.
+
+**Tests (+6, `app/test/datenexport.test.ts`):** was hineinkommt und was nie;
+hin und zurück ohne Klartext in der Datei; falsche Passphrase, veränderte,
+fremde, zu große Datei und zu kurze Passphrase; untergeschobene Datei mit
+Schlüsseln; Dateiname; verdrahtet (Knöpfe, Dialog verdeckt, erst fragen, dann
+schreiben).
+
+**Verdrahtet:** `packages/app/src/shell/tabs/settings.ts` –
+`wireSicherheitsKnoepfe()` → `exportiereDaten()` (`#export-datei`),
+`leseExportDatei()` (`#export-einlesen`, `#export-file`).
+
+Endstand (B-6, 29.09.): protocol 1131 (6 übersprungen) · node 271 (7
+übersprungen ohne Netz – mit Netz 272) · app 681 (+6) · mls 13 · Leak-Tests 68
+grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0
+· Website ok · Smoke-Test bestanden. Knoten-Stand: unverändert.
