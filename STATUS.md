@@ -11882,3 +11882,9 @@ Rechnung; Dateiname; Verdrahtung (nur im Klick, Warnung vor der Datei, aus
 dem Quittungsbuch, kein Netz, kein `innerHTML`).
 
 **Verdrahtet:** `shell/app.ts` (`wireBelege()`), `shell/belege-ui.ts`.
+
+Endstand (A-6, 29.09.): protocol 1120 (6 übersprungen) · node 263
+(6 übersprungen, mit Netz) · app 663 (+4) · mls 13 · Leak-Tests 66 grün +
+1 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0
+(keine neue Ausnahme) · Website ok · Smoke-Test bestanden (die neue Karte
+misst „mobil“ mit). Knoten-Stand: unverändert.
