@@ -138,9 +138,9 @@ andere Spuren und stehen deshalb hier, nicht in deren Abschnitten:
 | Nr. | Punkt | Status |
 |---|---|---|
 | A-1 | **Phase 12 „Beide Währungen überall“** (Anhang A): 12.1 Standard-Schiene für alle Bereiche plus Anzeigeeinheit · 12.2 Werbelink mit `sol=` · 12.3 SOL-Adressen für Werber des Providers und Relays · 12.4 KI-Schalter „sats / SOL“, Gebot in gewählter Einheit, ohne Kanal → Kanal anbieten · 12.6 Profil: SOL-Adresse öffentlich nur mit Häkchen · 12.7 Wallet „Senden / Empfangen / Verlauf“. (12.5 ist C-2, 12.8 ist C-3.) | `Entscheidung` E1–E5 |
-| A-2 | PR #183 fertigstellen; danach 11.2a (Werbelink mit eigener Domain), 11.2b (kurzer Name, NIP-05). | `fertig` (#183 für 11.2a; 11.2b im nächsten PR) |
+| A-2 | PR #183 fertigstellen; danach 11.2a (Werbelink mit eigener Domain), 11.2b (kurzer Name, NIP-05). | `fertig` (#183, #205) |
 | A-3 | 11.3a–d Agenten in Räumen (Entwurf, Freigabe MENSCH, Protokoll, Gerät, Knoten); 11.5 mit Spur B danach. | `Entscheidung` (11.3a) |
-| A-4 | **Veraltete Aussagen im Code:** `tiers.ts` („38010 beweist das Tier“ – gilt seit 5.5 nicht mehr), Kommentare zum Knappheitsbonus in `node/src/dvm-provider.ts` (fiel mit 5.1.4a). | `fertig` (mit 11.2b; dazu Kopf von `dvm-provider.ts` nach A+ und die Bootstrap-Kommentare – Frage dazu: E7) |
+| A-4 | **Veraltete Aussagen im Code:** `tiers.ts` („38010 beweist das Tier“ – gilt seit 5.5 nicht mehr), Kommentare zum Knappheitsbonus in `node/src/dvm-provider.ts` (fiel mit 5.1.4a). | `fertig` (#205, mit 11.2b; dazu Kopf von `dvm-provider.ts` nach A+ und die Bootstrap-Kommentare – Frage dazu: E7) |
 | A-5 | **Zahlung im Chat anfordern** – versiegelt, mit Rechnung oder Adresse, in beiden Währungen. | offen |
 | A-6 | **Belege exportieren** (CSV, nur lokal) und **Quittung für SOL-Hinterlegungen** (HTLC) – heute zählen nur Lightning und Kanal. | offen |
 | A-7 | **Redundanz-Konsens** (`consensus.ts`, nicht angebunden): dieselbe Frage an 2–3 Provider, Abweichung zeigen – kostet mehrfach, daher Geld-Spur. | offen |
