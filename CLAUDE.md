@@ -38,7 +38,7 @@ cd packages/mls      && npx tsc -p tsconfig.json && npm test && cd ../..     # M
 python3 scripts/check-wiring.py --streng
 python3 scripts/check-website.py
 python3 scripts/check_innerhtml.py packages/app/src --ausnahmen scripts/innerhtml-ausnahmen.txt --streng
-python3 scripts/smoke_test.py packages/app/dist         # braucht playwright + chromium
+python3 scripts/smoke_test.py packages/app/dist         # braucht playwright + chromium; seit C-18 auch in der CI
 bash scripts/build-site.sh /tmp/site                     # Website bauen (Ziel wird gelöscht!)
 bash scripts/repro-build.sh --pruefen                    # reproduzierbar? zwei frische Builds, eine Summe (~2 min)
 bash packages/mls/bauen.sh --pruefen                     # nur bei Änderungen an packages/mls: nachbauen + vergleichen (Rust, clang)
@@ -745,3 +745,9 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   nur aus `oeffneRaum()`) – nie alle eigenen Räume in einer Abfrage. „Repo
   anlegen“ im Raum-Menü nur mit `repos_pflegen`; öffentlich mit Verweis, privat
   über `sendeInRaum()`.
+- **Smoke-Test auch in der CI** (seit C-18): Job „Browser-Test (Smoke)“ in
+  `ci.yml` – Python-Playwright fest auf 1.56.0 (lokal dieselbe Version),
+  Chromium mit `--with-deps`. Rot dort heißt rot wie ein Unit-Test; eine neue
+  Prüfung vorher lokal laufen lassen und nie auf feste Pausen bauen, wo sich
+  auf einen Zustand warten lässt (`wait_for_function` mit Frist) – der Runner
+  ist langsamer als die Sitzung.
