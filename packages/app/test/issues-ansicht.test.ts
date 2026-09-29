@@ -72,3 +72,32 @@ test("Verdrahtung (C-17b1): laden, Reiter, anlegen – öffentlich signiert, pri
   assert.match(reiter, /text: t\(k\.privatRaum \? "repo\.issueHinweisRaum" : "repo\.issueHinweis"\)/, "der Dialog sagt, wer es lesen kann");
   assert.doesNotMatch(reiter, /innerHTML|insertAdjacentHTML|location|history\./, "nur Text, nichts in die Adresse");
 });
+
+test("C-17c: Kommentare an Patches – an der Karte je Patch, nie über die Grenze öffentlich/privat", async () => {
+  const { KIND_PATCH, bauePatch } = await import("@freedomstack/protocol");
+  const text = `From ${"1".repeat(40)} Mon Sep 17 00:00:00 2001\nSubject: [PATCH] T\n\n---\ndiff --git a/a b/a\n--- a/a\n+++ b/a\n@@ -1 +1 @@\n-x\n+y\n`;
+  const patch = s(bauePatch({ repo: { eigentuemer: eigentuemer.pk, id: "app" }, text }, autorin.pk), autorin, 200);
+  const kommentar = s(baueKommentar({ wurzel: { id: patch.id, autor: autorin.pk, kind: KIND_PATCH }, text: "Sieht gut aus" }, maintainer.pk), maintainer, 210);
+  const [karte] = repoKarten([ankuendigung], [], [patch], [], autorin.pk);
+  const leer: NostrEvent[] = [];
+  const [mit] = mitIssues([karte], { issues: leer, status: leer, kommentare: [kommentar] }, [], autorin.pk);
+  assert.deepEqual(mit.patchKommentare?.[patch.id]?.map((k) => k.text), ["Sieht gut aus"]);
+  const privat = { ...karte, privatRaum: "g1" };
+  const [ohne] = mitIssues([privat], { issues: leer, status: leer, kommentare: [kommentar] }, [], autorin.pk);
+  assert.deepEqual(ohne.patchKommentare?.[patch.id], [], "ein öffentlicher Kommentar nie an einem privaten Patch");
+});
+
+test("Verdrahtung (C-17b2, C-17c): kommentieren und Status – öffentlich signiert, privat nur in die Gruppe", () => {
+  const disk = lies("shell/tabs/diskussion.ts");
+  assert.match(disk, /if \(d\.privatRaum\) await sendeInRaum\(d\.privatRaum, raumRepoKommentar\(d\.privatRaum, angaben\)\);\s*else await \(await ensurePool\(\)\)\.publish\(await signiere\(baueKommentar\(angaben, state\.keypair\.pk\)\)\);/);
+  assert.match(disk, /t\(d\.privatRaum \? "repo\.kommentarHinweisRaum" : "repo\.kommentarHinweis"\)/, "unter dem Feld steht, wer mitliest");
+  assert.match(disk, /if \(state\.keypair\) teile\.push\(kommentarFeld\(d\)\);/, "ohne Identität kein Feld");
+  assert.doesNotMatch(disk, /innerHTML|insertAdjacentHTML/);
+  const reiter = lies("shell/tabs/issues-reiter.ts");
+  assert.match(reiter, /if \(z\.darfStatus && k\.repo\) \{/, "Status nur für Autorin, Eigentümer, Maintainer");
+  assert.match(reiter, /if \(k\.privatRaum\) await sendeInRaum\(k\.privatRaum, raumRepoIssueStatus\(k\.privatRaum, angaben\)\);\s*else await \(await ensurePool\(\)\)\.publish\(await signiere\(baueIssueStatus\(angaben, state\.keypair\.pk\)\)\);/);
+  assert.match(reiter, /wurzel: \{ id: z\.issue\.id, autor: z\.issue\.autor, kind: KIND_ISSUE \}, kommentare: z\.kommentare/);
+  const seite = lies("shell/tabs/repo-seite.ts");
+  assert.match(seite, /wurzel: \{ id: offen\.patch\.id, autor: offen\.patch\.autor, kind: KIND_PATCH \}, kommentare: k\.patchKommentare\?\.\[offen\.patch\.id\] \?\? \[\]/);
+  assert.match(lies("shell/tabs/patch-seite.ts"), /teile\.push\(\.\.\.bloecke, \.\.\.\(p\.unten \?\? \[\]\)\);/, "die Vorschau hat keine Diskussion");
+});

@@ -41,6 +41,8 @@ export interface PatchAnsicht {
   aktionen: HTMLElement[];
   hinweis?: string;
   zurueck: { text: string; tun: () => void };
+  /** Unter den Änderungen: die Diskussion (seit C-17c) – fehlt in der Vorschau. */
+  unten?: HTMLElement[];
 }
 
 const ART_TEXT: Record<Exclude<DateiArt, "geaendert">, string> = { neu: "repo.dateiNeu", geloescht: "repo.dateiGeloescht", umbenannt: "repo.dateiUmbenannt" };
@@ -80,7 +82,7 @@ export function zeigePatch(p: PatchAnsicht): HTMLElement[] {
     liste.append(li);
   });
   if (diff.dateien.length) teile.push(liste);
-  teile.push(...bloecke);
+  teile.push(...bloecke, ...(p.unten ?? []));
   return teile;
 }
 

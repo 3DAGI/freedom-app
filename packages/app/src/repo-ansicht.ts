@@ -127,6 +127,8 @@ export interface RepoKarte {
   /** Issues (C-17b), neuestes zuerst – erst nach `mitIssues()`. */
   issues?: IssueZeile[];
   offeneIssues?: number;
+  /** Kommentare je Patch-Id (C-17c), ältester zuerst – erst nach `mitIssues()`. */
+  patchKommentare?: Record<string, GelesenerKommentar[]>;
   zeilen: PatchZeile[];
   offen: number;
   /** Letzte Aktivität (Sekunden): Ankündigung, Bundle, Patch oder Status. */
@@ -340,6 +342,8 @@ export function mitIssues(
     if (!k.repo) return k;
     const d = k.privatRaum ? privat.find((p) => p.gruppe === k.privatRaum) : oeffentlich;
     const zeilen = d ? issueZeilen(k.repo, d.issues, d.status, d.kommentare, ich) : [];
-    return { ...k, issues: zeilen, offeneIssues: zeilen.filter((z) => z.status === "offen").length };
+    // Kommentare an Patches (C-17c) aus denselben Daten – nie über die Grenze öffentlich/privat
+    const patchKommentare = Object.fromEntries(k.zeilen.map((z) => [z.patch.id, d ? kommentareZu(z.patch.id, d.kommentare) : []]));
+    return { ...k, issues: zeilen, offeneIssues: zeilen.filter((z) => z.status === "offen").length, patchKommentare };
   });
 }
