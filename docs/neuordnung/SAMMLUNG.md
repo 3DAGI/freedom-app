@@ -97,13 +97,38 @@ Reihenfolge: erst die freien Punkte von oben nach unten.
 | C-5 | **Große Dateien aufteilen:** `waehrung.ts` (1047 Zeilen), `kommunikation.ts` (1068). `settings.ts` (1180) erst nach PR #183, `agent.ts` (1470) erst nach B-1/B-9. Vor dem Aufteilen von `kommunikation.ts` in FORTSCHRITT vermerken (B-4 hängt dort einen Knopf ein). | `frei` | reine Umzüge, keine Verhaltensänderung |
 | C-6 | **`innerHTML` abbauen:** 63 Ausnahmen in `scripts/innerhtml-ausnahmen.txt`; in den Dateien des eigenen Reviers auf DOM mit `textContent` umbauen. | `frei` | `check_innerhtml.py` |
 | C-7 | **Sprachnachrichten:** aufnehmen (Mikrofon nur auf Klick, danach aus), als verschlüsselter Anhang über `uploadAnhang()`, abspielen. | `frei` | `kommunikation.ts`, Regel „Anhänge nur verschlüsselt“ |
-| C-8 | **C.6a Oberfläche Agent (Teil a).** | `wartet` auf PR #183 (Spur A) | |
+| C-8 | **C.6a – reines Verschieben** (Rest von B14, Entscheidung E2 aus `phase-10.md`): Settings › Gebühren (Aufteilung, Anteile, Standard-Schiene) → Währung › Zahlen; der Reiter „Liquidität“ heißt „Hinterlegen“ (Deposit und Zahlkanal; neuer Schlüssel für die Beschriftung, der alte bleibt, bis nichts ihn nutzt); „Modell vorhalten/ankündigen“ → Verdienen. (Teil b, der Agent, ist mit C.6b #193 fertig.) | `wartet` auf PR #183 (Spur A) | `settings.ts`, `waehrung.ts`, `earn.ts`, `index.html` |
 | C-9 | **11.3e Oberfläche: Agenten in Räumen.** | `wartet` auf 11.3 (Spur A) | |
 
 **Ergänzungen Spur C** – hier anhängen (C-10, C-11, …):
 
 | Nr. | Punkt | Status | Dateien, Hinweise |
 |---|---|---|---|
+| C-10 | **Communities nach E3 (b)** – am 27.09. entschieden, nie gebaut (B6): keine neuen Communities mehr anlegen (Knopf `#chat-new-community`, `newCommunity()`), bestehende als „Community (offen)“ in der Raum-Leiste statt in der Liste der Direktnachrichten. Kein Format ändert sich, der dritte Begriff neben „offener“ und „privater Raum“ verschwindet. | `frei` | `kommunikation.ts`, `raeume.ts`, `index.html` (ein Knopf), `texte/kommunikation.ts` |
+| C-11 | **MLS-Engine lädt beim Start, sobald es private Räume gibt** (aus dem Code gelesen, nicht im Browser gemessen): `wireSpacesTab()` öffnet beim Start den ersten Raum – private stehen vorn –, `oeffneRaum()` ruft `mlsAbgleichen()`; seit 11.4b2 zusätzlich `wireNip34()` → `ladeNip34Repos()` → `privateRaumRepos()` → `mlsKonto()`. Die Regel „lädt … erst bei Bedarf, nie beim Start“ (CLAUDE.md, MLS-Baustein) gilt damit nur ohne private Räume; der Smoke-Test zählt nur ohne sie. Erst beim Öffnen der Seite Kommunikation bzw. Repos laden, Smoke-Szenario mit privatem Raum dazu. | `frei` | `raeume.ts` (Ende von `wireSpacesTab()`), `repos.ts` (`wireNip34()`), `shell/raum-repos.ts` |
+| C-12 | **Privaten Raum einmal vollständig im Browser** (offen aus `phase-10.md` 10.4): anlegen, einladen (zweiter Browser-Kontext), Nachricht, Thread, Moderation, Meldung, Repo anlegen und Patch im privaten Raum (11.4b2/11.4c) – mit echter MLS-Engine und der Relay-Attrappe (445, KeyPackages, Einladungen 1059). Heute nur über `gruppenRaum()`, Unit- und Leak-Tests geprüft; der Smoke-Test kennt nur den offenen Probe-Raum. | `frei` | `scripts/smoke_test.py`, `scripts/raum-probe.mts` |
+| C-13 | **Räume – Rest aus dem Entwurf C.2** (`phase-10.md`, „Räume“): Raum-Leiste mit Punkt bei Ungelesenem, offene Räume mit eigenem Kennzeichen (heute zwei Buchstaben, privat ein Schloss), Pfeiltasten in der Leiste mit einem Tab-Halt; Trennlinie „Neu“ am Lesestand im Verlauf; „Direktnachricht schreiben“ im Mitglieder-Menü (heute nur Moderationspunkte – wer nicht moderiert, sieht an Mitgliedern keinen Knopf). | `frei` | `raeume.ts`, `app.css` |
+| C-14 | **Lesestand im Klartext:** `freedom.lastRead` (Kanal-Kennungen mit Zeiten) liegt auch mit Tresor in `localStorage` und verrät, wann jemand welchen Kanal las. Prüfen, ob er über `geheim` gehört (Regel „Geheimnisse nur über `geheim`“), dann `geheimnisse()` ergänzen. | `frei` | `raeume.ts` (`ladeLesestand()`, `merkeLesestand()`), `shell/tresor.ts` |
+| C-15 | **Raum-Repos, Rest aus 11.4c** (#195): „Zum Raum“ öffnet auch einen öffentlichen Raum, dem man nicht beigetreten ist, ohne ihn in die Leiste aufzunehmen – dort „Raum beitreten“ anbieten; „Wo“ beim Ankündigen auf der Seite Repos bietet nur private Räume an, öffentliche mit `repos_pflegen` erst in den Einstellungen – beide anbieten; beim Start lädt die Repo-Liste bis zu zweimal, wenn der erste Raum öffentlich ist. | `frei` | `repos.ts`, `raeume.ts` |
+| C-16 | **Relay-Stand „verbunden“** (E8, B5 aus `phase-10.md`): Die Navigation zeigt ehrlich „8 Relays im Pool“, weil `WebSocketRelay` den Verbindungsstand privat hält. Ein lesender Getter (klein, kein Format), dann die Zahl der verbundenen zeigen. | `wartet` – Absprache mit Spur A (so in E8 entschieden) | `protocol/src/ws-relay.ts`, `shell/ui.ts` |
+| C-17 | **Issues und Kommentare für Repos** („Repos wie GitHub“): NIP-34 kennt Issues (Kind 1621), NIP-22 Kommentare (1111) – weder Protokoll noch App können sie. Reiter „Issues“ und Kommentare an Patches; in privaten Räumen nur als innere Events wie 11.4b. | `Entscheidung` – neue Arten (Standard-NIPs), braucht Protokoll-Bausteine | `nip34.ts`, `raum-repo.ts`, `repo-seite.ts` |
+| C-18 | **Smoke-Test in der CI:** Die Browser-Prüfungen (rahmen, dialog, raum, karte, qr, mobil; mehrere Minuten je Lauf) laufen nur lokal bei den Agenten – `.github/workflows/ci.yml` startet keinen Browser. Ein Rückschritt in der Oberfläche fällt so erst beim nächsten lokalen Lauf auf. Aufnehmen braucht Python-Playwright und Chromium im Runner. | `Entscheidung` – neue Abhängigkeit der CI | `ci.yml`, `scripts/smoke_test.py` |
+| C-19 | **Am echten Gerät durchklicken** (offen aus 10.4): alle Seiten am Handy (iOS Safari, Android Chrome) und am Desktop. Safe-Area (Kerbe), Tastatur über dem Eingabefeld (`interactive-widget`), Querformat und die Kamera beim QR-Scannen stellt Chromium im Test nicht echt nach. | `MENSCH` | Vergleichsbilder: `docs/ausbau/bilder/c5b`, `c6b`, `114c` |
+
+**Hinweise von Spur C für die Neuordnung** – die ersten beiden betreffen
+andere Spuren und stehen deshalb hier, nicht in deren Abschnitten:
+
+- **Nicht verdrahtete Bausteine:** `scripts/wiring-ausnahmen.txt` führt 158
+  begründet ausgenommene Exporte (605 Exporte, 447 verdrahtet). B-3, B-5,
+  A-7 bis A-9 nennen einige davon. Für die Neuordnung die Liste einmal ganz
+  durchgehen: je Eintrag anbinden (mit eigenem Punkt) oder entfernen.
+- **B-7 / E6 und die Raum-Repos:** Seit 11.4c zeigt ein öffentlicher Raum nur
+  Repos, deren Adresse zu der Definition passt, die die App anzeigt. Mit
+  E6 A (Raum nur über seine Adresse) würde auch „Zum Raum“ genau den Raum der
+  Adresse öffnen – heute öffnet `geheZuRaum()` über die Kennung.
+- **Zu C-1:** Außer den dort genannten Dateien nutzen auch `shell/app.ts`
+  (Schlüssel zeigen per `prompt()`) und `shell/notfall.ts` (`alert()` nach der
+  Notfall-Löschung) noch Browser-Dialoge.
 
 ---
 
