@@ -382,7 +382,13 @@
             </div>
             <div id="solw-status" class="mono-sm"></div>
           </div>
-        </div></div></div>
+        </div></div>
+          <div class="card" id="belege-karte">
+            <h3 data-i18n="belege.titel">Belege</h3>
+            <p class="mono-sm muted" data-i18n="belege.text">Quittungen deiner KI-Zahlungen – die neuesten 500, aus dem Tresor. Als CSV nur auf diesem Gerät gespeichert, nie hochgeladen; Beträge in msat bzw. Lamports.</p>
+            <button id="belege-export" class="ghost" type="button" data-i18n="belege.speichern">Als CSV speichern</button>
+            <div id="belege-status" class="mono-sm" aria-live="polite"></div>
+          </div></div>
           <div class="subpane" data-subpane="wallet:swap"><div class="card"><h3 data-i18n="waehr.tauschangebote">Tauschangebote</h3><div id="swap-book" class="mono-sm">—</div><div id="lp-offers" class="mono-sm"></div><div id="swap-invoice" class="mono-sm hidden">
             <!-- Der Zahl-Link bleibt gesperrt, bis die Gegenleistung auf der
                  Kette geprueft ist. Genau hier verliert ein Kunde sonst Geld. -->
