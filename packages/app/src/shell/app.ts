@@ -50,6 +50,7 @@ import {
 import { wireFunkGateway } from "./funk-gateway-ui.js";
 import { dialog } from "./dialog.js";
 import { wireEigeneAdresse, wireWerbeName } from "./werben-ui.js";
+import { wireBelege } from "./belege-ui.js";
 import {
   captureReferral,
   ladeAbdeckung,
@@ -913,6 +914,7 @@ function starte(): void {
   setupReferral();
   wireEigeneAdresse();
   wireWerbeName();
+  wireBelege();
   setupCopyButtons();
 }
 

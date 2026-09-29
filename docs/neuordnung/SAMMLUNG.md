@@ -142,7 +142,7 @@ andere Spuren und stehen deshalb hier, nicht in deren Abschnitten:
 | A-3 | 11.3a–d Agenten in Räumen (Entwurf, Freigabe MENSCH, Protokoll, Gerät, Knoten); 11.5 mit Spur B danach. | `Entscheidung` (11.3a) |
 | A-4 | **Veraltete Aussagen im Code:** `tiers.ts` („38010 beweist das Tier“ – gilt seit 5.5 nicht mehr), Kommentare zum Knappheitsbonus in `node/src/dvm-provider.ts` (fiel mit 5.1.4a). | `fertig` (#205, mit 11.2b; dazu Kopf von `dvm-provider.ts` nach A+ und die Bootstrap-Kommentare – Frage dazu: E7) |
 | A-5 | **Zahlung im Chat anfordern** – versiegelt, mit Rechnung oder Adresse, in beiden Währungen. | offen |
-| A-6 | **Belege exportieren** (CSV, nur lokal) und **Quittung für SOL-Hinterlegungen** (HTLC) – heute zählen nur Lightning und Kanal. | offen |
+| A-6 | **Belege exportieren** (CSV, nur lokal) und **Quittung für SOL-Hinterlegungen** (HTLC) – heute zählen nur Lightning und Kanal. | Export `fertig` (PR folgt); Quittung für Hinterlegungen: `Entscheidung` E8 – die Hinterlegung wird nie abgerechnet |
 | A-7 | **Redundanz-Konsens** (`consensus.ts`, nicht angebunden): dieselbe Frage an 2–3 Provider, Abweichung zeigen – kostet mehrfach, daher Geld-Spur. | offen |
 | A-8 | Nicht angebundene Knoten-Bausteine: Cluster-Pairing (`cluster.ts`), Gratis-Schwelle (`network-capacity.ts`), Modelle laden (`model-registry.ts`). | offen |
 | A-9 | **Vergütung von Mitwirkenden** (`contributor-funding.ts`, ohne Oberfläche) – in beiden Währungen. | offen |
@@ -174,6 +174,7 @@ Entscheidungsvorlage vom 28.09.2026 und sind hier gekürzt.
 | I1 | Mehrere Identitäten auf einem Gerät? | A ja, streng getrennt · B nein | A, nach B-1 bis B-6 |
 | R1 | Umfragen und Termine (NIP-88, NIP-52) als innere Events privater Räume? | A ja · B nein | A |
 | E7 | Bootstrap-Phase des Knotens (erste 24 h nur gratis): Seit 5.5 entsteht Ruf nur aus Quittungen bezahlter Aufträge – die Gratis-Phase bringt keinen Ruf mehr, sie zeigt nur, dass der Knoten läuft, und hält ihn einen Tag vom Verdienen ab. (Spur A, aus A-4) | A behalten · B streichen (neue Knoten verdienen sofort) · C freiwillig (Schalter beim Einrichten) | C |
+| E8 | SOL-Hinterlegung (Deposit, `sol-deposit.ts`): Sperren und Zurückholen gibt es, die Abrechnung nicht – `buildSolDepositSettle()` ruft weder App noch Knoten, der Provider bekommt aus einer Hinterlegung nie Geld. Eine Quittung dafür (A-6) setzt die Abrechnung voraus. Seit 4.3 zahlt der Zahlkanal SOL je Antwort. (Spur A, aus A-6) | A Abrechnung bauen (Knoten legt den Verbrauch offen, App gibt das Preimage des Verbrauchs-HTLC frei, Quittung „belegt“ mit der Einlösung auf der Kette) · B Hinterlegung für KI entfernen, nur noch Zahlkanal · C so lassen | B |
 
 ---
 

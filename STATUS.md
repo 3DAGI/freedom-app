@@ -11850,6 +11850,44 @@ Endstand (11.2b und A-4, 29.09.): protocol 1120 (+4, 6 übersprungen) · node 26
 innerHTML streng Exit 0 (63 Ausnahmen) · Website 5 Seiten ok · Smoke-Test
 bestanden (mit erweitertem „werben“). Knoten-Stand: unverändert (A-4 ändert
 nur Kommentare).
+
+## Schritt A-6 – Belege als CSV
+
+Aus der Sammlung (A-6), Spur A.
+
+**Was:**
+- `packages/app/src/belege-export.ts` (neu, ohne DOM): `belegeCsv()` macht
+  aus den Quittungen (5.5, Tresor, die neuesten 500) eine CSV nach RFC 4180.
+  Spalten sind maschinenlesbar und in jeder Sprache gleich; Beträge stehen in
+  msat bzw. Lamports (nichts gerundet), die Zeit als ISO 8601 in UTC,
+  Zeilenende CRLF. Zellen mit Formel-Anfang (`= + - @`, Tab, Wagenrücklauf)
+  bekommen ein `'` davor, denn Rechnungen kommen vom Provider.
+- `shell/belege-ui.ts` und `index.html`: Karte „Belege“ in Währung ›
+  Übersicht. „Als CSV speichern“ holt die Quittungen, warnt, dass die Datei
+  nicht verschlüsselt ist (wen man wann wofür bezahlt hat, samt Rechnungen und
+  Zahlungsnachweisen), und speichert erst danach – nur als Datei auf dem
+  Gerät, nichts geht ins Netz. Ohne Quittungen oder bei gesperrtem Tresor ein
+  Hinweis statt einer leeren Datei.
+- Texte in beiden Sprachen (`belege.*`).
+
+**Nicht gebaut – Frage E8:** Die Quittung für SOL-Hinterlegungen. Die
+Hinterlegung wird nie abgerechnet: `buildSolDepositSettle()` ruft weder App
+noch Knoten; ein Provider bekommt aus ihr kein Geld, der Kunde holt sie nach
+der Frist zurück. Eine Quittung setzt eine Abrechnung voraus (oder die
+Hinterlegung für KI fällt zugunsten des Zahlkanals weg).
+
+**Tests (+4, `belege-export.test.ts`):** Kopf, Reihenfolge, Einheiten, UTC,
+CRLF, leeres Buch; RFC 4180 und Formel-Anfang, auch in einer fremden
+Rechnung; Dateiname; Verdrahtung (nur im Klick, Warnung vor der Datei, aus
+dem Quittungsbuch, kein Netz, kein `innerHTML`).
+
+**Verdrahtet:** `shell/app.ts` (`wireBelege()`), `shell/belege-ui.ts`.
+
+Endstand (A-6, 29.09.): protocol 1120 (6 übersprungen) · node 263
+(6 übersprungen, mit Netz) · app 663 (+4) · mls 13 · Leak-Tests 66 grün +
+1 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0
+(keine neue Ausnahme) · Website ok · Smoke-Test bestanden (die neue Karte
+misst „mobil“ mit). Knoten-Stand: unverändert.
 ## Schritt B-1 – KI „Dieses Gerät“ in der Modellwahl
 
 Aus der Sammlung (`docs/neuordnung/SAMMLUNG.md`, B-1, Lokal-Modus Teil 1):
