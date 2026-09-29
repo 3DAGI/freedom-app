@@ -11496,3 +11496,59 @@ Internet) · app 635 · mls 13 · Leak-Tests 66 grün + 1 todo · 0 rot ·
 check-wiring `--streng` Exit 0 (10 neue Ausnahmen bis C-17b/c) · innerHTML
 streng Exit 0 · Website ok · Smoke-Test bestanden · Website-Bau ok ·
 reproduzierbarer Build ok. Knoten-Stand: unverändert.
+
+## Schritt C-17b1 – Reiter „Issues“
+
+Spur C, Sammlung C-17 (Repos 1:1 wie GitHub). Baut auf C-17a (#199): Liste,
+neues Issue und die Seite eines Issues mit seinen Kommentaren. Kommentieren,
+schließen und wieder öffnen folgen in C-17b2, Kommentare an Patches in C-17c.
+
+**Was:**
+- `repo-ansicht.ts` (ohne DOM): `issueZeilen()` – nur an genau dieses Repo
+  adressierte Issues, jedes einmal, neuestes zuerst, Status nach
+  `issueStatus()`, Kommentare nach `kommentareZu()`, und ob ich den Status
+  ändern darf (Autorin, Eigentümer, Maintainer). `mitIssues()` hängt sie an
+  die Karten – öffentliche Events nur an öffentliche Karten, die eines
+  privaten Raums nur an die Karten seiner Gruppe; ein Issue landet nie an
+  einem Repo gleicher Adresse auf der anderen Seite. `repoKarten()` bleibt,
+  wie sie war.
+- `repos.ts`: lädt Issues (`#a`, neben den Patches), ihren Status (`#e`) und
+  die Kommentare an Issues und Patches (`#E`, NIP-22) – nur zu den Repos, die
+  die Liste ohnehin zeigt.
+- `shell/tabs/issues-reiter.ts` (neu): Reiter „Issues (n offen)“ zwischen
+  „Commits“ und „Patches“ wie bei GitHub; Liste mit „offen (n)“ /
+  „geschlossen (n)“ (geschlossen umfasst erledigt), Labels und Zahl der
+  Kommentare; „Neues Issue“ als Dialog (Titel, Beschreibung, Labels) mit dem
+  ehrlichen Satz, wer es lesen kann – öffentlich signiert über `baueIssue()`,
+  im privaten Raum nur über `sendeInRaum(raumRepoIssue())`; die Seite eines
+  Issues mit Status, Autorin, Labels, Text und Kommentaren, „‹ Alle Issues“
+  mit Fokus zurück. Nur DOM mit `textContent`; welches Issue offen ist, steht
+  nur im Speicher.
+- `scripts/wiring-ausnahmen.txt`: sieben der zehn Ausnahmen aus C-17a fallen
+  weg – sechs sind in der App angebunden, `baueKommentar()` zählt über die
+  Probe (`raum-probe.mts`) als verdrahtet, in der App erst mit C-17b2; drei
+  bleiben für C-17b2/C-17c (Status und Kommentare schreiben).
+
+**Verdrahtet:** `app/src/shell/tabs/repos.ts` (`ladeJetzt()` → Issues,
+Status, Kommentare → `mitIssues()`), `app/src/shell/tabs/repo-seite.ts`
+(Reiter „issues“ → `issuesReiter()`), `app/src/shell/tabs/issues-reiter.ts`
+(`neuesIssue()` → `baueIssue()` bzw. `raumRepoIssue()`).
+
+**Tests:** app +3 in `test/issues-ansicht.test.ts` (nur dieses Repo, doppelt
+einmal, Unfug und fremde Repos nicht, neuestes zuerst; Status einer Fremden
+zählt nicht; wer schließen darf; öffentliche Issues nie an einer privaten
+Karte gleicher Adresse und umgekehrt; Verdrahtung: Laden, Reiter-Reihenfolge,
+anlegen öffentlich signiert bzw. nur in die Gruppe, Hinweis im Dialog, kein
+`innerHTML`, nichts in die Adresse). Smoke „raum“ (Desktop und Handy): die
+Probe hat ein Issue von Bo mit Label und Kommentar von Ada; der Reiter zeigt
+„Issues (1 offen)“, die Seite Text (HTML bleibt Text) und Kommentar, zurück
+mit Fokus; „Neues Issue“ sagt „Öffentlich und mit deinem Schlüssel
+signiert“, gesendet mit `a` auf das Repo, `subject` und Label, danach steht es
+oben in der Liste. Die Reiter-Listen der Repo-Seite im Smoke-Test enthalten
+„issues“. Bilder: `docs/ausbau/bilder/c17b`.
+
+Endstand: protocol 1116 (6 übersprungen) · node 263 (6 übersprungen, mit
+Internet) · app 638 (+3) · mls 13 · Leak-Tests 66 grün + 1 todo · 0 rot ·
+check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 · Website ok ·
+Smoke-Test bestanden (mit den neuen Prüfungen) · Website-Bau ok ·
+reproduzierbarer Build ok. Knoten-Stand: unverändert.

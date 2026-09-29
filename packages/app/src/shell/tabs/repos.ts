@@ -12,7 +12,7 @@
 import type { GelesenesRepo, NostrEvent } from "@freedomstack/protocol";
 import { gebietsschema, t } from "../../i18n.js";
 import { fehlerText } from "../../protokoll-texte.js";
-import { type RaumZiel, type RepoKarte, filtereKarten, privateRaumKarten, raumAuswahl, reposImRaum, repoKarten } from "../../repo-ansicht.js";
+import { type RaumZiel, type RepoKarte, filtereKarten, mitIssues, privateRaumKarten, raumAuswahl, reposImRaum, repoKarten } from "../../repo-ansicht.js";
 import { type PrivateRepos, privateRaumRepos, sendeInRaum } from "../raum-repos.js";
 import { bestaetige, dialog } from "../dialog.js";
 import { ensurePool, signiere, state } from "../state.js";
@@ -79,7 +79,7 @@ async function ladeJetzt(): Promise<void> {
   if (!box) return;
   try {
     const pool = await ensurePool();
-    const { KIND_REPO_ANKUENDIGUNG, KIND_PATCH, KIND_GIT_REPO_REF } = await import("@freedomstack/protocol");
+    const { KIND_REPO_ANKUENDIGUNG, KIND_PATCH, KIND_GIT_REPO_REF, KIND_ISSUE, KIND_KOMMENTAR } = await import("@freedomstack/protocol");
     const [allgemein, bundles, ausRaeumen] = await Promise.all([
       pool.query({ kinds: [KIND_REPO_ANKUENDIGUNG], limit: 100 }),
       pool.query({ kinds: [KIND_GIT_REPO_REF], limit: 50 }),
@@ -87,6 +87,8 @@ async function ladeJetzt(): Promise<void> {
     ]);
     const ankuendigungen = [...new Map([...allgemein, ...ausRaeumen].map((ev) => [ev.id, ev])).values()];
     const adressen = ankuendigungen.map((ev) => `${KIND_REPO_ANKUENDIGUNG}:${ev.pubkey}:${ev.tags.find((x) => x[0] === "d")?.[1] ?? ""}`);
+    // Issues (C-17b) laufen neben den Patches
+    const issuesLaden = adressen.length ? pool.query({ kinds: [KIND_ISSUE], "#a": adressen, limit: 300 }) : Promise.resolve([] as NostrEvent[]);
     const patches: NostrEvent[] = adressen.length ? await pool.query({ kinds: [KIND_PATCH], "#a": adressen, limit: 300 }) : [];
     const status = patches.length ? await pool.query({ kinds: STATUS_KINDS, "#e": patches.map((p) => p.id), limit: 1000 }) : [];
     // Räume, auf die Repos verweisen (11.4a): ihre Rollen bestimmen, wer mitpflegt
@@ -96,6 +98,14 @@ async function ladeJetzt(): Promise<void> {
     privat = await privateRaumRepos().catch(() => []);
     karten = [...repoKarten(ankuendigungen, bundles, patches, status, state.keypair?.pk, await raumStruktur(raumIds)),
       ...privat.flatMap((p) => privateRaumKarten(p, state.keypair?.pk))].sort((a, b) => b.zuletzt - a.zuletzt || a.name.localeCompare(b.name));
+    // Issues, ihr Status und Kommentare an Issues und Patches (C-17b): öffentliche nur an öffentliche Karten
+    const issues = await issuesLaden;
+    const wurzeln = [...issues, ...patches].map((e) => e.id);
+    const [issueStatus, kommentare] = wurzeln.length ? await Promise.all([
+      issues.length ? pool.query({ kinds: STATUS_KINDS, "#e": issues.map((e) => e.id), limit: 1000 }) : Promise.resolve([] as NostrEvent[]),
+      pool.query({ kinds: [KIND_KOMMENTAR], "#E": wurzeln, limit: 1000 }),
+    ]) : [[], []];
+    karten = mitIssues(karten, { issues, status: issueStatus, kommentare }, privat, state.keypair?.pk);
     beitraege = null;
     zeige();
     for (const fn of nachLaden) fn();

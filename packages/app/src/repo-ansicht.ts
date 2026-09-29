@@ -5,8 +5,10 @@
  */
 import {
   KIND_GIT_REPO_REF, KIND_REPO_ANKUENDIGUNG, KIND_STATUS_ANGENOMMEN, KIND_STATUS_ENTWURF, KIND_STATUS_GESCHLOSSEN, KIND_STATUS_OFFEN,
-  KIND_SPACE, RAUM_REPO_RECHT, can, darfAnnehmen, lesePatch, leseRepoAnkuendigung, mitRaumRechten, patchStatus, raumAdresse, raumZustandFuer,
-  type GelesenerPatch, type GelesenesRepo, type NostrEvent, type PatchStatus, type RepoAnkuendigung,
+  KIND_SPACE, RAUM_REPO_RECHT, can, darfAnnehmen, issueStatus, kommentareZu, leseIssue, lesePatch, leseRepoAnkuendigung, mitRaumRechten, patchStatus,
+  raumAdresse, raumZustandFuer,
+  type GelesenerKommentar, type GelesenerPatch, type GelesenesIssue, type GelesenesRepo, type IssueStatus, type NostrEvent, type PatchStatus,
+  type RepoAnkuendigung,
 } from "@freedomstack/protocol";
 
 /** Je Eigentuemer und Kennung nur die neueste Ankuendigung (ersetzbares Event). */
@@ -122,6 +124,9 @@ export interface RepoKarte {
   privatRaum?: string;
   /** Name des Raums (11.4c), nur wenn das Repo bestätigt dazugehört – fremder Text, nur über textContent. */
   raumName?: string;
+  /** Issues (C-17b), neuestes zuerst – erst nach `mitIssues()`. */
+  issues?: IssueZeile[];
+  offeneIssues?: number;
   zeilen: PatchZeile[];
   offen: number;
   /** Letzte Aktivität (Sekunden): Ankündigung, Bundle, Patch oder Status. */
@@ -280,3 +285,61 @@ export const STATUS_TEXT: Record<PatchStatus, string> = {
   geschlossen: "repo.geschlossen",
   entwurf: "repo.entwurf",
 };
+
+// ------------------------------------------------------------ Issues (C-17b)
+
+/** Ein Issue in der Ansicht: Status nach `issueStatus()`, Kommentare nach NIP-22, und ob ich den Status ändern darf. */
+export interface IssueZeile {
+  issue: GelesenesIssue;
+  status: IssueStatus;
+  statusVon?: string;
+  statusZeit?: number;
+  kommentare: GelesenerKommentar[];
+  /** Schließen und wieder öffnen: Autorin, Eigentümer, Maintainer – wie bei GitHub. */
+  darfStatus: boolean;
+}
+
+/** Filter der Issue-Liste – „geschlossen“ umfasst „erledigt“. */
+export type IssueFilter = "offen" | "geschlossen";
+export const issueFilterVon = (s: IssueStatus): IssueFilter => (s === "offen" ? "offen" : "geschlossen");
+
+/** Die Issues eines Repos: nur an genau dieses Repo adressierte, jedes einmal, neuestes zuerst; Unfug fällt heraus. */
+export function issueZeilen(
+  repo: GelesenesRepo, issues: readonly NostrEvent[], status: readonly NostrEvent[], kommentare: readonly NostrEvent[], ich: string | undefined,
+): IssueZeile[] {
+  const out = new Map<string, IssueZeile>();
+  for (const ev of issues) {
+    let issue: GelesenesIssue;
+    try {
+      issue = leseIssue(ev);
+    } catch {
+      continue; // fremdes Unfug-Event
+    }
+    if (issue.repoAdresse !== repo.adresse || out.has(issue.id)) continue;
+    const st = issueStatus(issue, repo, status);
+    out.set(issue.id, {
+      issue, status: st.status, ...(st.von ? { statusVon: st.von, statusZeit: st.zeit } : {}),
+      kommentare: kommentareZu(issue.id, kommentare), darfStatus: !!ich && (ich === issue.autor || darfAnnehmen(repo, ich)),
+    });
+  }
+  return [...out.values()].sort((a, b) => b.issue.zeit - a.issue.zeit || a.issue.id.localeCompare(b.issue.id));
+}
+
+type IssueDaten = { issues: readonly NostrEvent[]; status: readonly NostrEvent[]; kommentare: readonly NostrEvent[] };
+
+/**
+ * Karten um ihre Issues ergänzen (C-17b): öffentliche Karten nur mit
+ * öffentlichen Events, Karten eines privaten Raums nur mit denen seiner
+ * Gruppe – ein öffentliches Issue landet nie an einem privaten Repo gleicher
+ * Adresse und umgekehrt. `repoKarten()` bleibt, wie sie ist.
+ */
+export function mitIssues(
+  karten: readonly RepoKarte[], oeffentlich: IssueDaten, privat: readonly (IssueDaten & { gruppe: string })[], ich: string | undefined,
+): RepoKarte[] {
+  return karten.map((k) => {
+    if (!k.repo) return k;
+    const d = k.privatRaum ? privat.find((p) => p.gruppe === k.privatRaum) : oeffentlich;
+    const zeilen = d ? issueZeilen(k.repo, d.issues, d.status, d.kommentare, ich) : [];
+    return { ...k, issues: zeilen, offeneIssues: zeilen.filter((z) => z.status === "offen").length };
+  });
+}

@@ -1687,3 +1687,10 @@ header .ident[data-initial=""]::before { display: none; }
 .raum-repos-titel { display: flex; align-items: center; gap: 6px; margin: 0 0 4px; font-size: 11px; font-weight: 600; color: #7A7A7A; }
 .raum-repos-liste { display: flex; flex-direction: column; gap: 1px; }
 .repo-raum { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 0 0 6px; }
+/* ---------- Issues (C-17b) ---------- */
+.issue-titel { overflow-wrap: anywhere; }
+.issue-text { white-space: pre-wrap; overflow-wrap: anywhere; margin: 6px 0 10px; }
+.issue-label { margin-left: 4px; }
+.issue-abschnitt { margin: 14px 0 6px; font-size: 12px; }
+.issue-kommentar { border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; margin: 6px 0; }
+.issue-neu { margin-bottom: 8px; }
