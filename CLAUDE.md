@@ -810,3 +810,11 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   Stücken durchlassen (Test mit 200 Stücken) – nie so eng, dass Anhänge und
   Bundles scheitern. Umschläge (1059) kommen von Wegwerf-Schlüsseln: sie bremst
   nur die Grenze je Verbindung. Zählstände vergisst `aufraeumen()`.
+- **Kontakt prüfen nur über `sicherheitscode()`** (seit B-4,
+  `sicherheitscode.ts`): Code aus beiden Schlüsseln der Personen
+  (`sprichtFuer()`, nie der Geräteschlüssel), Fassung im Hash – eine andere
+  Rechnung braucht eine neue Fassung. Der Code reist nie über ein Relay, der
+  QR-Code trägt nur die Ziffern. Als geprüft gemerkt wird erst nach dem
+  Vergleich (`merkeGeprueft()`), nur in `freedom.kontakte.geprueft` im Tresor
+  (die Liste verrät, wen man getroffen hat), je Schlüssel – ein neuer Schlüssel
+  ist ungeprüft.
