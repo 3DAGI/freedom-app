@@ -1129,9 +1129,9 @@ def raum_pruefen(browser, url: str) -> dict:
         erg[groesse]["repo_c3a2"] = {"fremd_reiter": fremd_reiter, "mitwirkende": mitwirkende, "eigen_reiter": eigen_reiter,
                                      "abgewiesen": abgewiesen, "tags": tags, "links": links, "bleibt": noch_einstellungen,
                                      "bundle": bundle_tags, "bundle_knopf": bundle_knopf}
-        if fremd_reiter != ["code", "commits", "patches", "mitwirkende"] or mitwirkende != 2:
+        if fremd_reiter != ["code", "commits", "issues", "patches", "mitwirkende"] or mitwirkende != 2:
             erg["fehler"].append(f"{groesse}: fremdes Repo, Reiter/Mitwirkende {fremd_reiter} {mitwirkende}")
-        if eigen_reiter != ["code", "commits", "patches", "mitwirkende", "einstellungen"]:
+        if eigen_reiter != ["code", "commits", "issues", "patches", "mitwirkende", "einstellungen"]:
             erg["fehler"].append(f"{groesse}: eigenes Repo ohne Einstellungen {eigen_reiter}")
         if "Maintainer" not in abgewiesen[0] or abgewiesen[1] != 0 or abgewiesen[2]:
             erg["fehler"].append(f"{groesse}: ungültiger Maintainer nicht abgewiesen {abgewiesen}")
@@ -1220,6 +1220,48 @@ def raum_pruefen(browser, url: str) -> dict:
                 or len(seite_patch["angaben"]) != 3 or not seite_patch["angaben"][0].startswith("angenommen ✓ von Du") \
                 or seite_patch["angaben"][1:] != ["Eingespielt als ccccccc", "Danke – <i>sauber</i>."] or seite_patch["fett"] != 0:
             erg["fehler"].append(f"{groesse}: Patch-Seite {seite_patch}")
+        # Seit C-17b1: Reiter „Issues“ – Liste mit dem Issue aus der Probe, die Seite mit Text und Kommentar (HTML bleibt Text),
+        # zurück mit Fokus, dann „Neues Issue“ per Dialog: öffentlich, signiert, an das Repo adressiert
+        ev("() => document.querySelector('#repo-seite [data-reiter=issues]')?.click()")
+        s.wait_for_timeout(200)
+        issue_liste = "() => [...document.querySelectorAll('#repo-seite .issue-zeile')].map(z => [z.querySelector('.issue-betreff').textContent, z.querySelector('.repo-status').textContent, [...z.querySelectorAll('.issue-label')].map(l => l.textContent)])"
+        issues = {"reiter": ev("() => document.querySelector('#repo-seite [data-reiter=issues]')?.textContent"), "liste": ev(issue_liste)}
+        ev("() => document.querySelector('#repo-seite .issue-betreff')?.click()")
+        s.wait_for_timeout(200)
+        issues["seite"] = ev("""() => ({ titel: document.querySelector('#repo-seite .issue-titel')?.textContent,
+          text: document.querySelector('#repo-seite .issue-kopf ~ .issue-text')?.textContent, fett: document.querySelectorAll('#repo-seite b').length,
+          kommentare: [...document.querySelectorAll('#repo-seite .issue-kommentar .issue-text')].map(e => e.textContent),
+          fokus: document.activeElement?.classList.contains('issue-zurueck') })""")
+        ev("() => document.querySelector('#repo-seite .issue-zurueck')?.click()")
+        s.wait_for_timeout(200)
+        issues["zurueck"] = ev("() => document.activeElement?.classList.contains('issue-betreff') ?? false")
+        vorher_issues = len([e for e in relay.gesendet if e.get("kind") == 1621])
+        ev("() => document.querySelector('#repo-seite .issue-neu')?.click()")
+        s.wait_for_timeout(200)
+        issues["hinweis"] = ev("() => document.querySelector('[role=dialog] .dlg-text')?.textContent ?? ''")
+        s.keyboard.type("Säge stumpf")
+        s.keyboard.press("Tab")
+        s.keyboard.type("Bitte schärfen.")
+        s.keyboard.press("Tab")
+        s.keyboard.type("wartung")
+        s.keyboard.press("Enter")
+        try:
+            s.wait_for_function("() => [...document.querySelectorAll('#repo-seite .issue-betreff')].some(b => b.textContent === 'Säge stumpf')", timeout=10000)
+        except Exception:
+            pass
+        neue_issues = [e for e in relay.gesendet if e.get("kind") == 1621][vorher_issues:]
+        issue_tags = {t[0]: t[1:] for t in (neue_issues[-1]["tags"] if neue_issues else [])}
+        issues["gesendet"] = {"anzahl": len({e["id"] for e in neue_issues}), "a": issue_tags.get("a"), "subject": issue_tags.get("subject"),
+                              "t": issue_tags.get("t"), "text": neue_issues[-1]["content"] if neue_issues else None}
+        issues["danach"] = ev(issue_liste)
+        erg[groesse]["issues"] = issues
+        gruender_pk = next(e["pubkey"] for e in relay.events if e.get("kind") == 30617)
+        if issues["reiter"] != "Issues (1 offen)" or issues["liste"] != [["Hammer klemmt", "offen", ["bug"]]] \
+                or issues["seite"] != {"titel": "Hammer klemmt", "text": "Seit gestern <b>fest</b>.", "fett": 0, "kommentare": ["Bei mir auch."], "fokus": True} \
+                or not issues["zurueck"] or not issues["hinweis"].startswith("Öffentlich und mit deinem Schlüssel signiert") \
+                or issues["gesendet"] != {"anzahl": 1, "a": [f"30617:{gruender_pk}:werkzeug"], "subject": ["Säge stumpf"], "t": ["wartung"], "text": "Bitte schärfen."} \
+                or [z[0] for z in issues["danach"]] != ["Säge stumpf", "Hammer klemmt"]:
+            erg["fehler"].append(f"{groesse}: Issues {issues}")
         # Seit 11.4c: im eigenen öffentlichen Raum „Repo anlegen“ aus dem Raum-Menü – mit Verweis auf genau diesen Raum,
         # danach steht es in der Liste des Raums (am Ende, damit die Prüfungen der Repo-Liste oben nichts davon sehen)
         if not mobil:

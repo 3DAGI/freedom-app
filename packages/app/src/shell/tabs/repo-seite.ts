@@ -19,6 +19,7 @@ import { mitwirkendeListe } from "../mitwirkende.js";
 import { sendeInRaum } from "../raum-repos.js";
 import { toast } from "../ui.js";
 import { codeReiter, commitsReiter, holeBundle } from "./code-reiter.js";
+import { issuesReiter, vergissIssue } from "./issues-reiter.js";
 import { zeigePatch } from "./patch-seite.js";
 import { kontaktName } from "./raeume.js";
 
@@ -63,7 +64,7 @@ export interface RepoSeiteHilfe {
   zumRaum: () => void;
 }
 
-export type RepoReiter = "code" | "commits" | "patches" | "mitwirkende" | "einstellungen";
+export type RepoReiter = "code" | "commits" | "issues" | "patches" | "mitwirkende" | "einstellungen";
 /** Zuletzt gewählter Reiter je Repo – damit „Neu laden“ nach dem Speichern dort bleibt; nur im Speicher. */
 let gemerkt: { schluessel: string; reiter: RepoReiter } | null = null;
 /** Offener Patch, zuletzt gewählter Filter und die Vorschau vor dem Senden (C.3b1) – nur im Speicher. */
@@ -72,6 +73,7 @@ let letzterFilter: PatchFilter = "offen";
 let vorschau: { schluessel: string; text: string; betreff: string; commit: string } | null = null;
 /** Beim Öffnen aus der Liste beginnt die Seite wieder vorn. */
 export const vergissReiter = (): void => {
+  vergissIssue();
   gemerkt = null;
   offenerPatch = null;
   letzterFilter = "offen";
@@ -126,12 +128,15 @@ export function zeigeRepoSeite(box: HTMLElement, k: RepoKarte, h: RepoSeiteHilfe
     b.dataset.reiter = id;
     return b;
   };
-  leiste.append(reiterKnopf("code", t("repo.code")), reiterKnopf("commits", t("repo.commits")), reiterKnopf("patches", t("repo.patchesZahl", { n: k.offen })),
+  leiste.append(reiterKnopf("code", t("repo.code")), reiterKnopf("commits", t("repo.commits")),
+    reiterKnopf("issues", t("repo.issuesZahl", { n: k.offeneIssues ?? 0 })), reiterKnopf("patches", t("repo.patchesZahl", { n: k.offen })),
     reiterKnopf("mitwirkende", t("earn.mitwirkende")));
   if (eigentuemer) leiste.append(reiterKnopf("einstellungen", t("repo.einstellungen")));
   const angenommen = k.zeilen.filter((z) => z.status === "angenommen").map((z) => ({ betreff: z.patch.betreff, commits: z.commits ?? [] }));
   inhalt.append(...(reiter === "code" ? codeReiter(k.bundle, k.name, () => zeigeRepoSeite(box, k, h, "code"))
-    : reiter === "commits" ? commitsReiter(k.bundle, angenommen, () => zeigeRepoSeite(box, k, h, "commits")) : reiter === "patches" ? patchReiter(k, h, () => zeigeRepoSeite(box, k, h, "patches"))
+    : reiter === "commits" ? commitsReiter(k.bundle, angenommen, () => zeigeRepoSeite(box, k, h, "commits"))
+    : reiter === "issues" ? issuesReiter(k, eigentuemerName, () => zeigeRepoSeite(box, k, h, "issues"), h.neuLaden)
+    : reiter === "patches" ? patchReiter(k, h, () => zeigeRepoSeite(box, k, h, "patches"))
     : reiter === "mitwirkende" ? mitwirkendeReiter(k, h) : einstellungenReiter(k, h)));
   box.replaceChildren(...teile, leiste, inhalt);
 }
