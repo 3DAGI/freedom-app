@@ -12021,3 +12021,54 @@ Endstand (B-3, 29.09.): protocol 1127 (6 übersprungen) · node 271 (+9, 7
 fiel) · innerHTML streng Exit 0 · Website ok · Smoke-Test bestanden.
 Knoten-Stand: neu – der GX10-Knoten braucht den aktuellen `main` für den
 Flutschutz; die App braucht nichts Neues.
+
+## Schritt B-4 – Kontakt prüfen (Sicherheitscode)
+
+Aus der Sammlung (`docs/neuordnung/SAMMLUNG.md`, B-4). In Nostr ist ein
+Kontakt sein Schlüssel; Name und Bild kann jeder nachmachen. Bisher gab es
+keinen Weg, mit einem Kontakt zu vergleichen, ob man wirklich mit ihm spricht.
+
+**Protokoll (`sicherheitscode.ts`):** `sicherheitscode(a, b)` – 12 Gruppen zu
+5 Ziffern aus SHA-256 über Fassung (`freedomstack-sicherheitscode-v1`) und die
+sortierten Schlüssel, für beide Seiten gleich; undefined bei ungültigen oder
+gleichen Schlüsseln. `sicherheitscodeQr()` (Präfix `freedomstack-pruefung:1:`,
+nur die Ziffern, kein Schlüssel), `sicherheitscodeStimmt()` (Leerzeichen,
+Striche und Präfix zählen nicht, genau 60 Ziffern). Der Code reist nie über ein
+Relay – verglichen wird von Mensch zu Mensch.
+
+**App:** Knopf „Kontakt prüfen“ (Schild) im Chat, nur in 1:1-Unterhaltungen
+(`kontakt-pruefen-ui.ts`, `pruefeKontakt()`): Dialog über `shell/dialog.ts` mit
+dem Code zum Vorlesen, dem QR-Code (`art: "qr"`, 11.1b) und einem Feld zum
+Scannen oder Eintippen des Codes des Kontakts; eine Eingabe, die nicht stimmt,
+hält den Dialog mit Warnung offen. Erst nach Bestätigung merkt
+`merkeGeprueft()` (`kontakt-pruefung.ts`) den Schlüssel mit Zeitpunkt in
+`freedom.kontakte.geprueft` – im Tresor (`GEHEIM_FEST`: die Liste verrät, wen
+man getroffen hat), in der Zustandssicherung (`SICHERUNG_EINTRAEGE`),
+höchstens 5000 Einträge. Die Unterhaltung zeigt „✓ geprüft am …“ oder „nicht
+geprüft“ (`pruefStand()`); wechselt ein Kontakt den Schlüssel, ist der neue
+ungeprüft. „Wer bin ich“ über `sprichtFuer()` – als Gerät derselbe Code wie
+auf dem Hauptgerät.
+
+**MLS:** Der MLS-Baustein gibt keinen Gruppen-Authenticator heraus
+(`packages/mls/crate` hat keine Funktion dafür). Für 1:1 genügt der Code aus
+den Identitätsschlüsseln: Mitglieder der Gruppe sind nur die Personen und ihre
+Geräte mit gültiger Vollmacht (`sollMitglieder()`, `gleicheAb()`). Einen
+Authenticator herauszugeben hieße die Crate neu bauen – eigener Schritt,
+vermerkt in der Sammlung.
+
+**Tests (+8):** Protokoll `sicherheitscode.test.ts` (4: fester Testvektor;
+beide Seiten sehen denselben, ein anderer Kontakt einen anderen; ungültige
+oder gleiche Schlüssel ergeben keinen; Vergleich – vorgelesen, eingetippt oder
+gescannt, nur genau die 60 Ziffern); App `kontakt-pruefung.test.ts` (4: je
+Schlüssel mit Zeit, ein neuer Schlüssel ist ungeprüft; Unlesbares fällt weg,
+begrenzt; im Tresor und in der Sicherung mit Präfix; verdrahtet – Knopf im
+Chat, Code aus den Schlüsseln der Personen, gemerkt erst nach dem Vergleich).
+
+**Verdrahtet:** `packages/app/src/shell/app.ts` (`#chat-pruefen` →
+`pruefeKontakt()`), `packages/app/src/shell/tabs/kommunikation.ts`
+(`openConversation()` → `pruefStand()`).
+
+Endstand (B-4, 29.09.): protocol 1131 (+4, 6 übersprungen) · node 271 (7
+übersprungen ohne Netz – mit Netz 272) · app 675 (+4) · mls 13 · Leak-Tests 68
+grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0
+· Website ok · Smoke-Test bestanden. Knoten-Stand: unverändert.

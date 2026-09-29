@@ -112,3 +112,4 @@ export * from "./nip34.js";
 export * from "./kommentar.js";
 export * from "./raum-repo.js";
 export * from "./ki-lokal.js";
+export * from "./sicherheitscode.js";
