@@ -11904,3 +11904,10 @@ der Knoten zahlt nichts aus), P6 Datenschutz-Aussagen, P7 Aufteilung
 11.3b–e. Fragen F1–F6 mit Empfehlung (Besitzer nur bestätigt, Einlader-Budget
 per Vorab-Gutschrift in Stufen, Gerät zunächst nur mit Einlader, Persona nie
 öffentlich, keine Agent-zu-Agent-Antworten, Kind 38090).
+
+Mit im selben Pull Request – die übrigen Punkte aus Spur A eingeordnet
+(Sammlung): A-7 Redundanz-Konsens wartet auf B-1 (beide an der Modellwahl
+in `agent.ts`); A-8 (Cluster, Gratis-Schwelle, Modelle laden), A-9
+(Vergütung aus einem Topf – A+ kennt keinen) und A-10 (Abos über den
+Zahlkanal – Relays und Speicher nehmen keine Gutschriften, das wäre ein neues
+Format) brauchen eine Entscheidung: Fragen E9–E11 mit Empfehlung.
