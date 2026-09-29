@@ -12116,3 +12116,8 @@ schreiben).
 **Verdrahtet:** `packages/app/src/shell/tabs/settings.ts` –
 `wireSicherheitsKnoepfe()` → `exportiereDaten()` (`#export-datei`),
 `leseExportDatei()` (`#export-einlesen`, `#export-file`).
+
+Endstand (B-6, 29.09.): protocol 1131 (6 übersprungen) · node 271 (7
+übersprungen ohne Netz – mit Netz 272) · app 681 (+6) · mls 13 · Leak-Tests 68
+grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0
+· Website ok · Smoke-Test bestanden. Knoten-Stand: unverändert.
