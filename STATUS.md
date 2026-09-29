@@ -11843,3 +11843,10 @@ Pull Request, nur Kommentare – kein Verhalten geändert:
   streichen oder freiwillig?
 - `FORTSCHRITT.md`: 5.4 „Code fertig“ (c kam mit 8.4 von Spur B). Sammlung:
   C-16 frei – Spur A ist mit dem lesenden Getter in `ws-relay.ts` einverstanden.
+
+Endstand (11.2b und A-4, 29.09.): protocol 1120 (+4, 6 übersprungen) · node 263
+(6 übersprungen, mit Netz) · app 659 (+5) · mls 13 · Leak-Tests 66 grün +
+1 todo · 0 rot · check-wiring `--streng` Exit 0 (157 ausgenommen, 0 offen) ·
+innerHTML streng Exit 0 (63 Ausnahmen) · Website 5 Seiten ok · Smoke-Test
+bestanden (mit erweitertem „werben“). Knoten-Stand: unverändert (A-4 ändert
+nur Kommentare).
