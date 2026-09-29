@@ -45,9 +45,9 @@ bash packages/mls/bauen.sh --pruefen                     # nur bei Änderungen a
 bash contracts/solana-channel/pruefen.sh --werkzeuge     # nur bei Änderungen am Zahlkanal: bauen + Tests gegen Validator (Agave 3.1.10)
 ```
 
-Stand 28.09.2026 (nach 8.2c, 5.5a–c, 8.15, 11.1a, C.3c2, 11.1b, 5.9a–b, 6.3a–b2, 11.4a–b2, C.4a–b, C.5a–b, C.6b, 11.4c, C-18, C-17a–c und C-20a–b): protocol 1116 grün (6 übersprungen), node 263 grün
+Stand 28.09.2026 (nach 8.2c, 5.5a–c, 8.15, 11.1a, C.3c2, 11.1b, 5.9a–b, 6.3a–b2, 11.4a–b2, C.4a–b, C.5a–b, C.6b, 11.4c, C-18, C-17a–c und C-20a–c): protocol 1116 grün (6 übersprungen), node 263 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 649 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 66 grün + 1 `todo` (heutige Lecks,
+in `tools.test.ts`), app 651 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 66 grün + 1 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
 Ausnahme: gesendete SOL-Zahlungen von frischen Adressen, eine bewusste Grenze
 nach Entscheidung 4.9 A – im Datenschutzbericht unter „Bewusste Grenzen“).
@@ -657,7 +657,9 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   Adler-32-Summe suchen und bis dort noch einmal sauber entpacken –
   `DecompressionStream` meldet Daten nach dem Ende als Fehler, liefert den
   Inhalt aber vorher. `crypto.subtle` gibt es nur in sicheren Kontexten
-  (https, localhost) – Browser-Tests nie auf `about:blank`.
+  (https, localhost) – Browser-Tests nie auf `about:blank`. Zweige und Tags
+  (seit C-20c) nur über `zweigeUndTags()` (annotierte Tags aufgelöst, nur
+  Commits im Bundle); die Wahl (`refWahl`) steht nur im Speicher.
 - **Abdeckungskarte nur aus `buildCoverage()`** (seit C.4a): Die Karte
   (`shell/tabs/karte.ts`) bekommt nur `r.cells`/`r.hiddenCells`, nie Events
   oder Schlüssel; Rechnung ohne DOM in `karte-ansicht.ts` (Zellkennung nur in

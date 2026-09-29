@@ -11714,3 +11714,48 @@ Internet) · app 649 (+4) · mls 13 · Leak-Tests 66 grün + 1 todo · 0 rot ·
 check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 (keine neue
 Ausnahme) · Website ok · Smoke-Test bestanden (mit den neuen Prüfungen) ·
 Website-Bau ok · reproduzierbarer Build ok. Knoten-Stand: unverändert.
+
+## Schritt C-20c – Zweig oder Tag wählen
+
+Spur C, Sammlung C-20 (Repos 1:1 wie GitHub, ohne neues Format). Ein Bundle
+trägt oft mehrere Zweige und Tags; die App zeigte nur den Stand von HEAD.
+Jetzt lässt sich wie bei GitHub oben im Reiter „Code“ und „Commits“ ein
+Zweig oder Tag wählen.
+
+**Was:**
+- `git-bundle.ts`: `zweigeUndTags()` – Zweige (`refs/heads/…`) und Tags
+  (`refs/tags/…`), deren Commit im Bundle liegt; annotierte Tags werden
+  aufgelöst (höchstens fünf Stufen), jeder Name zählt einmal, Namen bis 200
+  Zeichen, Zweige zuerst, je nach Namen. Andere Refs (`HEAD`, `refs/remotes/…`)
+  und Refs ohne Commit im Bundle fallen weg.
+- `shell/tabs/code-reiter.ts`: Auswahl „Zweig oder Tag“ (nur bei mehr als
+  einem Stand) mit Gruppen „Zweige“ und „Tags“ und der Zahl daneben; Code und
+  Commits zeigen den gewählten Stand, der Pfad im Code bleibt. Ohne Wahl gilt
+  HEAD, ausgewählt ist der Zweig darauf (main/master zuerst). Die Wahl steht nur
+  im Speicher (`refWahl`) und fällt mit dem Bundle aus dem Speicher – nie in
+  der Adresse.
+- `test/fixtures/probe-md.bundle`: um Zweig `entwurf` (ein Commit weiter, neuer
+  Titel der README) und den annotierten Tag `v1.0` auf main erweitert – main
+  ist unverändert (e580805), die Prüfungen aus C-20b gelten weiter.
+- Texte `repo.refWahl`, `repo.refKopf`, `repo.zweige`, `repo.tags`,
+  `repo.refZahl`.
+
+**Verdrahtet:** `app/src/shell/tabs/code-reiter.ts` (`zeigeCode()` und
+`commitsReiter()` → `stand()` → `zweigeUndTags()`, Auswahl `refAuswahl()`).
+
+**Tests:** app +2 in `test/git-bundle.test.ts` (das Probe-Bundle: zwei Zweige,
+ein Tag auf main aufgelöst, Commits des Zweigs; von Hand: Tag ins Leere, Tag
+auf Blob, Tag auf Tag, Ref ohne Objekt, doppelter Name, fremde und zu lange
+Namen; Verdrahtung: beide Reiter, Wahl nur im Speicher). Smoke „raum“ (Desktop
+und Handy): Auswahl mit „entwurf“, „main“ (gewählt) und „v1.0“ in ihren
+Gruppen, „Zweige: 2 · Tags: 1“; „entwurf“ zeigt die README mit neuem Titel und
+den neuen Commit, der Fokus bleibt auf der Auswahl, die Adresse unverändert;
+„Commits“ zeigt beide Commits des Zweigs, „v1.0“ nur den ersten.
+Keine Bilder: Die Auswahl erscheint nur mit geladenem Bundle, das die
+Bilder-Probe nicht hat – der Smoke-Test prüft sie.
+
+Endstand: protocol 1116 (6 übersprungen) · node 263 (6 übersprungen, mit
+Internet) · app 651 (+2) · mls 13 · Leak-Tests 66 grün + 1 todo · 0 rot ·
+check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 (keine neue
+Ausnahme) · Website ok · Smoke-Test bestanden (mit den neuen Prüfungen) ·
+Website-Bau ok · reproduzierbarer Build ok. Knoten-Stand: unverändert.

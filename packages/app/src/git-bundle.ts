@@ -379,6 +379,40 @@ export function kopfCommit(b: GelesenesBundle): string | undefined {
   return wahl && b.objekte.get(wahl.sha)?.art === "commit" ? wahl.sha : undefined;
 }
 
+export interface ZweigOderTag {
+  /** Ohne „refs/heads/“ bzw. „refs/tags/“. */
+  name: string;
+  art: "zweig" | "tag";
+  commit: string;
+}
+
+/** Annotierter Tag → das Objekt, auf das er zeigt (höchstens fünf Stufen); `undefined`, wenn am Ende kein Commit im Bundle liegt. */
+function aufCommit(b: GelesenesBundle, sha: string): string | undefined {
+  for (let i = 0; i < 5; i++) {
+    const o = b.objekte.get(sha);
+    if (o?.art === "commit") return sha;
+    if (o?.art !== "tag") return undefined;
+    const ziel = /^object ([0-9a-f]{40})$/m.exec(new TextDecoder().decode(o.daten.subarray(0, 200)))?.[1];
+    if (!ziel) return undefined;
+    sha = ziel;
+  }
+  return undefined;
+}
+
+/**
+ * Zweige und Tags (seit C-20c), deren Commit im Bundle liegt – annotierte
+ * Tags aufgelöst, jeder Name einmal; Zweige zuerst, je nach Namen.
+ */
+export function zweigeUndTags(b: GelesenesBundle): ZweigOderTag[] {
+  const aus = new Map<string, ZweigOderTag>();
+  for (const r of b.refs) {
+    const m = /^refs\/(heads|tags)\/(.{1,200})$/.exec(r.name);
+    const commit = m && !aus.has(r.name) ? aufCommit(b, r.sha) : undefined;
+    if (m && commit) aus.set(r.name, { name: m[2]!, art: m[1] === "heads" ? "zweig" : "tag", commit });
+  }
+  return [...aus.values()].sort((x, y) => Number(x.art === "tag") - Number(y.art === "tag") || (x.name < y.name ? -1 : x.name > y.name ? 1 : 0));
+}
+
 /** Commits ab `sha` entlang der ersten Eltern, höchstens `max`; endet, wo das Bundle aufhört. */
 export function commitsAb(b: GelesenesBundle, sha: string, max = 100): Array<{ sha: string } & GelesenerCommit> {
   const aus: Array<{ sha: string } & GelesenerCommit> = [];

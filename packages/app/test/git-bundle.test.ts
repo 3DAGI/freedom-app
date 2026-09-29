@@ -9,7 +9,8 @@ import { readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { deflateSync } from "node:zlib";
 import {
-  BUNDLE_GRENZEN, BundleFehler, type BundleFehlerArt, alsText, commitsAb, kopfCommit, leseBaum, leseBundle, leseCommit, objektSha, unterPfad, wendeDeltaAn,
+  BUNDLE_GRENZEN, BundleFehler, type BundleFehlerArt, type GelesenesBundle, type GitObjekt, alsText, commitsAb, kopfCommit, leseBaum, leseBundle, leseCommit, objektSha,
+  unterPfad, wendeDeltaAn, zweigeUndTags,
 } from "../src/git-bundle.js";
 
 const fixture = (name: string) => new Uint8Array(readFileSync(new URL(`fixtures/${name}`, import.meta.url)));
@@ -198,4 +199,37 @@ test("C.3c2: verdrahtet – Reiter „Commits“, Ort im Code nur im Speicher, E
   for (const [name, text] of [["code-reiter.ts", code], ["repo-seite.ts", seite]]) assert.doesNotMatch(text, /location\.hash|history\.(push|replace)State/, name);
   // Ordner und Dateien sind Knöpfe (Tastatur), Submodule nur Text
   assert.match(code, /knopf\(e\.art === "ordner" \? `\$\{e\.name\}\/` : e\.name, "code-eintrag", \(\) => geh\(\[\.\.\.pfad, e\.name\]\)\)/);
+});
+
+test("C-20c: Zweige und Tags – annotierte Tags aufgelöst, nur Commits im Bundle, Zweige zuerst", async () => {
+  // test/fixtures/probe-md.bundle: main (e580805), entwurf (ein Commit weiter), v1.0 annotiert auf main
+  const b = await leseBundle(fixture("probe-md.bundle"));
+  assert.deepEqual(zweigeUndTags(b).map((r) => [r.art, r.name, r.commit.slice(0, 7)]), [["zweig", "entwurf", "bc6721b"], ["zweig", "main", "e580805"], ["tag", "v1.0", "e580805"]]);
+  assert.equal(kopfCommit(b)?.slice(0, 7), "e580805");
+  assert.deepEqual(commitsAb(b, zweigeUndTags(b)[0]!.commit, 5).map((c) => c.betreff), ["Entwurf: neuer Titel", "Werkzeugkiste mit Anleitung"]);
+  // Von Hand: Tag ins Leere, Tag auf Blob, Tag auf Tag (aufgelöst), Ref ohne Objekt, doppelt, fremde Namen, zu lang
+  const sha = (n: number) => n.toString(16).padStart(40, "0");
+  const tag = (ziel: string): GitObjekt => ({ art: "tag", daten: new TextEncoder().encode(`object ${ziel}\ntype commit\ntag x\n\nText`) });
+  const hand: GelesenesBundle = {
+    version: 2, voraussetzungen: [],
+    objekte: new Map<string, GitObjekt>([
+      [sha(1), { art: "commit", daten: new Uint8Array() }], [sha(2), { art: "blob", daten: new Uint8Array() }],
+      [sha(3), tag(sha(9))], [sha(4), tag(sha(2))], [sha(5), tag(sha(1))], [sha(6), tag(sha(5))],
+    ]),
+    refs: [
+      { name: "HEAD", sha: sha(1) }, { name: "refs/heads/b", sha: sha(1) }, { name: "refs/heads/b", sha: sha(2) }, { name: "refs/heads/a", sha: sha(8) },
+      { name: "refs/tags/leer", sha: sha(3) }, { name: "refs/tags/blob", sha: sha(4) }, { name: "refs/tags/doppelt", sha: sha(6) },
+      { name: "refs/remotes/origin/x", sha: sha(1) }, { name: `refs/heads/${"l".repeat(201)}`, sha: sha(1) },
+    ],
+  };
+  assert.deepEqual(zweigeUndTags(hand).map((r) => [r.art, r.name, r.commit]), [["zweig", "b", sha(1)], ["tag", "doppelt", sha(1)]]);
+});
+
+test("Verdrahtung (C-20c): Code und Commits zeigen den gewählten Stand – Wahl nur im Speicher, nie in der Adresse", () => {
+  const code = readFileSync(new URL("../src/shell/tabs/code-reiter.ts", import.meta.url), "utf8");
+  assert.match(code, /const refWahl = new Map<string, string>\(\);/);
+  assert.match(code, /const kopf = stand\(b, id\)\.commit;/, "Reiter „Code“");
+  assert.match(code, /const kopf = stand\(b, bundle\.id\)\.commit;\s*if \(!kopf\)[^\n]*\n\s*const commits = commitsAb\(b, kopf, COMMITS_MAX \+ 1\);/, "Reiter „Commits“");
+  assert.match(code, /refWahl\.delete\(alt\);/, "vergessen, wenn das Bundle aus dem Speicher fällt");
+  assert.doesNotMatch(code, /location\.hash|history\.(push|replace)State|localStorage/);
 });

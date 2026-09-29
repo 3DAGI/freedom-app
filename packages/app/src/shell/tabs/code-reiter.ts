@@ -9,7 +9,7 @@
  * Namen, Nachrichten und die README kommen von Fremden.
  */
 import type { NostrEvent } from "@freedomstack/protocol";
-import { BundleFehler, type BundleFehlerArt, type GelesenesBundle, alsText, commitsAb, kopfCommit, leseBundle, unterPfad } from "../../git-bundle.js";
+import { BundleFehler, type BundleFehlerArt, type GelesenesBundle, alsText, commitsAb, kopfCommit, leseBundle, unterPfad, zweigeUndTags } from "../../git-bundle.js";
 import { gebietsschema, t } from "../../i18n.js";
 import { fehlerText } from "../../protokoll-texte.js";
 import { loesePfad } from "../../markdown.js";
@@ -44,6 +44,8 @@ const gelesen = new Map<string, GelesenesBundle>();
 const ort = new Map<string, string[]>();
 /** Markdown-Dateien, die gerade als Quelltext statt als Vorschau zu sehen sind (C-20b) – nur im Speicher. */
 const alsQuelltext = new Set<string>();
+/** Gewählter Zweig oder Tag je Bundle (C-20c), als „zweig:<name>“ bzw. „tag:<name>“ – nur im Speicher. */
+const refWahl = new Map<string, string>();
 const COMMITS_MAX = 100;
 const README = /^readme(\.(md|markdown|txt))?$/i;
 const MARKDOWN = /\.(md|markdown)$/i;
@@ -79,6 +81,7 @@ function ladeKnopf(bundle: NostrEvent, neu: () => void): HTMLElement[] {
         const alt = gelesen.keys().next().value!;
         gelesen.delete(alt);
         ort.delete(alt);
+        refWahl.delete(alt);
       }
       gelesen.set(bundle.id, gelesenesBundle);
       neu();
@@ -91,6 +94,53 @@ function ladeKnopf(bundle: NostrEvent, neu: () => void): HTMLElement[] {
   return [hinweis, laden, fehler];
 }
 
+/**
+ * Welcher Commit gilt (C-20c): der gewählte Zweig oder Tag, sonst HEAD. Dazu
+ * der Schlüssel der Wahl – ohne Wahl der Zweig, auf dem HEAD steht (main/master zuerst).
+ */
+function stand(b: GelesenesBundle, id: string): { commit: string | undefined; wahl: string | undefined } {
+  const refs = zweigeUndTags(b);
+  const schluessel = (r: { art: string; name: string }) => `${r.art}:${r.name}`; // kein UI-Text
+  const gewaehlt = refs.find((r) => schluessel(r) === refWahl.get(id));
+  if (gewaehlt) return { commit: gewaehlt.commit, wahl: schluessel(gewaehlt) };
+  const kopf = kopfCommit(b);
+  const aufKopf = refs.filter((r) => r.art === "zweig" && r.commit === kopf);
+  const standard = aufKopf.find((r) => r.name === "main" || r.name === "master") ?? aufKopf[0];
+  return { commit: kopf, wahl: standard ? schluessel(standard) : undefined };
+}
+
+/** Auswahl „Zweig oder Tag“ (C-20c) – nur, wenn das Bundle mehr als einen Stand kennt. */
+function refAuswahl(b: GelesenesBundle, id: string, neu: () => void): HTMLElement[] {
+  const refs = zweigeUndTags(b);
+  if (refs.length < 2) return [];
+  const zeile = el("div", undefined, "code-ref mono-sm");
+  const wahl = el("select", undefined, "code-ref-wahl");
+  wahl.id = "code-ref-wahl";
+  const label = el("label", t("repo.refWahl"));
+  label.htmlFor = wahl.id;
+  const jetzt = stand(b, id).wahl;
+  if (!jetzt) wahl.append(el("option", t("repo.refKopf")));
+  for (const art of ["zweig", "tag"] as const) {
+    const gruppe = el("optgroup");
+    gruppe.label = t(art === "zweig" ? "repo.zweige" : "repo.tags");
+    for (const r of refs.filter((x) => x.art === art)) {
+      const o = el("option", r.name);
+      o.value = `${r.art}:${r.name}`; // kein UI-Text
+      o.selected = o.value === jetzt;
+      gruppe.append(o);
+    }
+    if (gruppe.children.length) wahl.append(gruppe);
+  }
+  wahl.addEventListener("change", () => {
+    refWahl.set(id, wahl.value);
+    neu();
+    document.getElementById("code-ref-wahl")?.focus();
+  });
+  const zweige = refs.filter((r) => r.art === "zweig").length;
+  zeile.append(label, wahl, el("span", t("repo.refZahl", { zweige, tags: refs.length - zweige }), "muted"));
+  return [zeile];
+}
+
 export function codeReiter(bundle: NostrEvent | undefined, name: string, neu: () => void): HTMLElement[] {
   if (!bundle) return [el("p", t("repo.codeOhneBundle"), "mono-sm muted")];
   const b = gelesen.get(bundle.id);
@@ -98,7 +148,7 @@ export function codeReiter(bundle: NostrEvent | undefined, name: string, neu: ()
 }
 
 function zeigeCode(b: GelesenesBundle, id: string, name: string, neu: () => void): HTMLElement[] {
-  const kopf = kopfCommit(b);
+  const kopf = stand(b, id).commit;
   if (!kopf) return [el("p", t("repo.keinKopf"), "mono-sm muted")];
   const [c] = commitsAb(b, kopf, 1);
   const pfad = ort.get(id) ?? [];
@@ -113,7 +163,7 @@ function zeigeCode(b: GelesenesBundle, id: string, name: string, neu: () => void
     if (neuerPfad) geh(neuerPfad);
     else toast(t("repo.pfadFehlt"), true);
   };
-  const teile: HTMLElement[] = [el("div", t("repo.commitZeile", { betreff: c!.betreff, autor: c!.autor, datum: datumVon(c!.zeit), sha: kopf.slice(0, 7) }), "code-commit mono-sm")];
+  const teile: HTMLElement[] = [...refAuswahl(b, id, neu), el("div", t("repo.commitZeile", { betreff: c!.betreff, autor: c!.autor, datum: datumVon(c!.zeit), sha: kopf.slice(0, 7) }), "code-commit mono-sm")];
   // Pfad: Name des Repos, dann je Ordner ein Knopf; der letzte Teil ist Text (mit Fokus nach dem Wechsel)
   // Kein <nav>: dessen Stile gehören der Leiste der App
   const kruemel = el("div", undefined, "code-pfad mono-sm");
@@ -194,7 +244,7 @@ export function commitsReiter(bundle: NostrEvent | undefined, angenommen: Array<
   }
   const b = gelesen.get(bundle.id);
   if (!b) return ladeKnopf(bundle, neu);
-  const kopf = kopfCommit(b);
+  const kopf = stand(b, bundle.id).commit;
   if (!kopf) return [el("p", t("repo.keinKopf"), "mono-sm muted")];
   const commits = commitsAb(b, kopf, COMMITS_MAX + 1);
   const liste = el("ol", undefined, "code-commits");
@@ -207,7 +257,7 @@ export function commitsReiter(bundle: NostrEvent | undefined, angenommen: Array<
     li.append(auf);
     liste.append(li);
   }
-  const teile: HTMLElement[] = [liste];
+  const teile: HTMLElement[] = [...refAuswahl(b, bundle.id, neu), liste];
   if (commits.length > COMMITS_MAX) teile.push(el("p", t("repo.commitsMehr", { n: COMMITS_MAX }), "mono-sm muted"));
   return teile;
 }
