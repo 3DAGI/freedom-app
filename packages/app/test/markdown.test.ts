@@ -6,12 +6,14 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { MD_GRENZEN, type MdBlock, type MdInline, leseMarkdown, sicheresZiel } from "../src/markdown.js";
+import { MD_GRENZEN, type MdBlock, type MdInline, leseMarkdown, loesePfad, sicheresZiel } from "../src/markdown.js";
+import { alsText, commitsAb, kopfCommit, leseBundle, unterPfad } from "../src/git-bundle.js";
 
 const lies = (p: string) => readFileSync(new URL(`../src/${p}`, import.meta.url), "utf8");
 /** Code ohne Kommentare – ein Wort im Kommentar ist kein Aufruf. */
 const ohneKommentare = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
 const text = (x: MdInline): string => x.art === "text" || x.art === "code" ? x.text : x.art === "bild" ? x.alt : x.art === "umbruch" ? "⏎" : x.kinder.map(text).join("");
+const zeile = (z: MdInline[][]) => z.map((c) => c.map(text).join(""));
 /** Kurzform eines Blocks: Art und Text – so bleiben die Erwartungen lesbar. */
 const kurz = (b: MdBlock): unknown => {
   switch (b.art) {
@@ -21,6 +23,7 @@ const kurz = (b: MdBlock): unknown => {
     case "zitat": return ["zitat", b.kinder.map(kurz)];
     case "linie": return ["hr"];
     case "liste": return [b.geordnet ? `ol${b.start}` : "ul", b.punkte.map((p) => [...(p.erledigt === undefined ? [] : [p.erledigt ? "[x]" : "[ ]"]), ...p.kinder.map(kurz)])];
+    case "tabelle": return ["tabelle", b.ausrichtung, zeile(b.kopf), b.zeilen.map(zeile)];
   }
 };
 const md = (s: string, umbrueche = false) => leseMarkdown(s, { umbrueche }).map(kurz);
@@ -100,8 +103,69 @@ test("Verdrahtung (C-20a): README, Issue und Kommentar als Markdown – nur DOM,
   const ui = ohneKommentare(lies("shell/markdown-ui.ts"));
   assert.doesNotMatch(ui, /innerHTML|insertAdjacentHTML|outerHTML|"img"|createElement\("img/, "nur DOM, nie ein Bild");
   assert.match(ui, /e\.relList\.add\("noopener", "noreferrer", "nofollow"\)/);
-  assert.match(lies("shell/tabs/code-reiter.ts"), /MARKDOWN\.test\(readme\.name\) \? markdownDom\(inhalt\.slice\(0, TEXT_MAX\), "code-readme"\)/);
+  assert.match(lies("shell/tabs/code-reiter.ts"), /MARKDOWN\.test\(readme\.name\) \? markdownDom\(inhalt\.slice\(0, TEXT_MAX\), "code-readme", /);
   assert.match(lies("shell/tabs/issues-reiter.ts"), /markdownDom\(z\.issue\.text, "issue-text", \{ umbrueche: true \}\)/);
   assert.match(lies("shell/tabs/diskussion.ts"), /markdownDom\(k\.text, "issue-text", \{ umbrueche: true \}\)/);
   assert.doesNotMatch(ohneKommentare(lies("markdown.ts")), /document|innerHTML/, "der Leser kennt kein DOM");
+});
+
+test("C-20b: Tabellen – Ausrichtung, „\\|“ im Text, Zeilen auf die Spalten des Kopfs; ohne passende Trennzeile keine Tabelle", () => {
+  assert.deepEqual(md("| A | B | C | D |\n|:--|--:|:-:|---|\n| 1 | **2** | 3 | 4 |\n| a \\| b | nur zwei |\n| x | y | z | w | zu viel |\nDanach"), [
+    ["tabelle", ["links", "rechts", "mitte", ""], ["A", "B", "C", "D"], [["1", "2", "3", "4"], ["a | b", "nur zwei", "", ""], ["x", "y", "z", "w"], ["Danach", "", "", ""]]],
+  ]);
+  assert.deepEqual(md("Text davor\nA | B\n--|--\n1 | 2\n\n# Weiter"), [["p", "Text davor"], ["tabelle", ["", ""], ["A", "B"], [["1", "2"]]], ["h1", "Weiter"]], "unterbricht einen Absatz");
+  assert.deepEqual(md("| A | B |\n|---|\n| 1 | 2 |"), [["p", "| A | B | |---| | 1 | 2 |"]], "Kopf und Trennzeile mit verschieden vielen Spalten");
+  assert.deepEqual(md("A | B\n-- | x"), [["p", "A | B -- | x"]], "Trennzeile nur aus Strichen und Doppelpunkten");
+  const breit = `${"|a".repeat(MD_GRENZEN.spalten + 1)}|\n${"|-".repeat(MD_GRENZEN.spalten + 1)}|`;
+  assert.equal(leseMarkdown(breit)[0]?.art, "absatz", "mehr als 64 Spalten: keine Tabelle");
+});
+
+test("C-20b: Verweise ins Repo – relativ ja, Anker/Schema/„//“ nein; loesePfad() nie über die Wurzel", () => {
+  const teile = inline("[Liste](src/liste.txt) [oben](../README.md#x) [Anker](#titel) [fremd](//x.org/a) [Post](mailto:a@b.org) [Web](https://x.org)");
+  assert.deepEqual(teile.filter((x) => x.art === "verweis").map((x) => x.art === "verweis" && x.ziel), ["src/liste.txt", "../README.md#x"]);
+  assert.deepEqual(teile.filter((x) => x.art === "link").length, 1);
+  assert.deepEqual(loesePfad(["docs"], "../README.md#werkzeugkiste"), ["README.md"]);
+  assert.deepEqual(loesePfad(["docs"], "./a/./b.md?plain=1"), ["docs", "a", "b.md"]);
+  assert.deepEqual(loesePfad(["docs", "tief"], "/src/x.txt"), ["src", "x.txt"]);
+  assert.deepEqual(loesePfad([], "Ordner%20mit%20Leer/"), ["Ordner mit Leer"]);
+  assert.deepEqual(loesePfad([], "."), []);
+  for (const boese of ["../x", "../../etc/passwd", "a/../../x", "%2E%2E/x", "a%ZZ", "a\\b", "a%00b"]) assert.equal(loesePfad([], boese), null, boese);
+});
+
+test("C-20b: Probe-Bundle – README mit Tabelle, jeder Verweis führt zu einer Datei im Bundle, „hinaus“ nicht", async () => {
+  // test/fixtures/probe-md.bundle: git bundle create … HEAD main aus drei Dateien (README.md, src/liste.txt, docs/ANLEITUNG.md)
+  const b = await leseBundle(new Uint8Array(readFileSync(new URL("fixtures/probe-md.bundle", import.meta.url))));
+  const [c] = commitsAb(b, kopfCommit(b)!, 1);
+  const lies = (pfad: string[]) => {
+    const d = unterPfad(b, c!.baum, pfad);
+    return d?.art === "datei" ? alsText(d.daten) : null;
+  };
+  const readme = leseMarkdown(lies(["README.md"])!);
+  assert.deepEqual(readme.map(kurz).slice(0, 2), [["h1", "Werkzeugkiste"], ["tabelle", ["links", "rechts", "mitte"], ["Werkzeug", "Anzahl", "Ort"], [["Hammer", "2", "Liste"], ["Zange | Säge", "1", "Keller"]]]]);
+  const verweise: string[] = [];
+  const sammle = (x: MdInline): void => {
+    if (x.art === "verweis") verweise.push(x.ziel);
+    if ("kinder" in x) x.kinder.forEach(sammle);
+  };
+  for (const bl of readme) {
+    if (bl.art === "absatz") bl.inhalt.forEach(sammle);
+    if (bl.art === "tabelle") bl.zeilen.flat(2).forEach(sammle);
+  }
+  assert.deepEqual(verweise, ["src/liste.txt", "docs/ANLEITUNG.md", "../../etc/passwd"]);
+  assert.equal(lies(loesePfad([], "src/liste.txt")!), "Hammer, Zange\n");
+  assert.match(lies(loesePfad([], "docs/ANLEITUNG.md")!)!, /^# Anleitung/);
+  assert.equal(loesePfad([], "../../etc/passwd"), null);
+  assert.deepEqual(loesePfad(["docs"], "../README.md#werkzeugkiste"), ["README.md"], "der Rückweg aus der Anleitung");
+});
+
+test("Verdrahtung (C-20b): Verweise nur mit oeffne und ohne href; im Reiter „Code“ relativ zur Datei, Markdown-Dateien mit Vorschau", () => {
+  const ui = ohneKommentare(lies("shell/markdown-ui.ts"));
+  const verweis = ui.slice(ui.indexOf('case "verweis"'), ui.indexOf('case "bild"'));
+  assert.match(verweis, /if \(!oeffne\) return mit\(el\("span"\), x\.kinder, o\);/, "ohne oeffne nur Text");
+  assert.doesNotMatch(verweis, /href|location|history/, "ein Verweis ins Repo ist keine Adresse");
+  const code = lies("shell/tabs/code-reiter.ts");
+  assert.match(code, /const neuerPfad = loesePfad\(ordner, ziel\);\s*if \(neuerPfad\) geh\(neuerPfad\);/);
+  assert.match(code, /markdownDom\(inhalt\.slice\(0, TEXT_MAX\), "code-readme", \{ oeffne: oeffne\(pfad\) \}\)/, "README: relativ zu ihrem Ordner");
+  assert.match(code, /markdownDom\(text\.slice\(0, TEXT_MAX\), "code-md", \{ oeffne: oeffne\(pfad\.slice\(0, -1\)\) \}\)/, "Markdown-Datei: relativ zu ihrem Ordner");
+  assert.match(code, /const alsQuelltext = new Set<string>\(\);/, "Vorschau oder Quelltext nur im Speicher");
 });

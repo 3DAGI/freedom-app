@@ -1724,3 +1724,14 @@ header .ident[data-initial=""]::before { display: none; }
 .md hr { border: 0; border-top: 1px solid var(--border); margin: 12px 0; }
 .md a { color: var(--accent); }
 .md-bild { font-style: italic; color: var(--text-muted); }
+/* Seit C-20b: Tabellen (laufen in ihrer Hülle, nie die Seite), Verweise ins Repo, Markdown-Dateien im Reiter „Code“ */
+.md-tabelle { overflow-x: auto; margin: 0 0 8px; }
+.md table { border-collapse: collapse; }
+.md th, .md td { border: 1px solid var(--border); padding: 4px 8px; vertical-align: top; }
+.md th { background: var(--card); }
+.md .md-links { text-align: left; }
+.md .md-mitte { text-align: center; }
+.md .md-rechts { text-align: right; }
+.md-verweis { color: var(--accent); text-decoration: underline; cursor: pointer; }
+.md.code-md { font-family: var(--font-body); font-size: 13px; padding: 10px; border: 1px solid var(--border); border-radius: 6px; }
+.code-ansicht { margin: 6px 0; }

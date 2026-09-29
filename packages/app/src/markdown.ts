@@ -5,15 +5,17 @@
  * `shell/markdown-ui.ts` nur mit `createElement` und `textContent`.
  *
  * Bewusst eine Teilmenge von CommonMark und GFM: Überschriften, Absätze,
- * Listen (auch Aufgaben), Zitate, Code-Blöcke, Linien; inline Code, fett,
- * kursiv, durchgestrichen, Links, Bilder, Umbrüche. Rohes HTML bleibt Text.
- * Links nur auf https (wie `sichereWebAdressen()`), Bilder werden nie geladen –
- * ein Bild vom fremden Server verriete, wer wann liest.
+ * Listen (auch Aufgaben), Zitate, Code-Blöcke, Linien, Tabellen (seit C-20b);
+ * inline Code, fett, kursiv, durchgestrichen, Links, Bilder, Umbrüche. Rohes
+ * HTML bleibt Text. Links nur auf https (wie `sichereWebAdressen()`), Bilder
+ * werden nie geladen – ein Bild vom fremden Server verriete, wer wann liest.
+ * Relative Ziele („docs/x.md“) sind Verweise ins Repo (`loesePfad()`) –
+ * die Oberfläche öffnet sie im Reiter „Code“, nie als Adresse.
  *
  * Alles kommt von Fremden: Länge, Tiefe und Suchweite sind begrenzt.
  */
 
-export const MD_GRENZEN = { zeichen: 100_000, tiefe: 8, suche: 1_000, schritte: 1_000_000 } as const;
+export const MD_GRENZEN = { zeichen: 100_000, tiefe: 8, suche: 1_000, schritte: 1_000_000, spalten: 64 } as const;
 
 /** Suchschritte des laufenden `leseMarkdown()` – danach bleibt der Rest Text (nie quadratisch lange). */
 let schritte = 0;
@@ -24,10 +26,13 @@ export type MdInline =
   | { art: "code"; text: string }
   | { art: "fett" | "kursiv" | "durch"; kinder: MdInline[] }
   | { art: "link"; ziel: string; kinder: MdInline[] }
+  /** Relatives Ziel im Repo (C-20b) – kein Link nach außen. */
+  | { art: "verweis"; ziel: string; kinder: MdInline[] }
   | { art: "bild"; ziel: string | null; alt: string }
   | { art: "umbruch" };
 
 export interface MdPunkt { kinder: MdBlock[]; erledigt?: boolean }
+export type MdAusrichtung = "" | "links" | "mitte" | "rechts";
 
 export type MdBlock =
   | { art: "ueberschrift"; stufe: number; inhalt: MdInline[] }
@@ -35,7 +40,8 @@ export type MdBlock =
   | { art: "code"; sprache: string; text: string }
   | { art: "zitat"; kinder: MdBlock[] }
   | { art: "liste"; geordnet: boolean; start: number; punkte: MdPunkt[] }
-  | { art: "linie" };
+  | { art: "linie" }
+  | { art: "tabelle"; ausrichtung: MdAusrichtung[]; kopf: MdInline[][]; zeilen: MdInline[][][] };
 
 export interface MdOptionen {
   /** Zeilenumbruch im Absatz bleibt Umbruch (GitHub in Issues und Kommentaren); sonst ein Leerzeichen (README). */
@@ -52,6 +58,31 @@ export function sicheresZiel(ziel: string): string | null {
   }
 }
 
+/** Relatives Ziel: kein Schema, kein „//“, kein bloßer Anker. */
+const istRelativ = (ziel: string): boolean => !!ziel && !/^[a-z][a-z0-9+.-]*:/i.test(ziel) && !ziel.startsWith("//") && !ziel.startsWith("#");
+
+/**
+ * Relatives Ziel eines Verweises (C-20b) gegen den Ordner `basis` auflösen –
+ * `/…` ab der Wurzel, Anker und Abfrage fallen weg. `null`, wenn es aus dem
+ * Repo hinausführt („..“ über die Wurzel) oder unlesbar ist.
+ */
+export function loesePfad(basis: readonly string[], ziel: string): string[] | null {
+  let roh = ziel.split(/[?#]/)[0]!;
+  try {
+    roh = decodeURIComponent(roh);
+  } catch {
+    return null;
+  }
+  if (!roh || roh.includes("\0") || roh.includes("\\")) return null;
+  const teile = roh.startsWith("/") ? [] : [...basis];
+  for (const teil of roh.split("/")) {
+    if (teil === "" || teil === ".") continue;
+    if (teil !== "..") teile.push(teil);
+    else if (!teile.pop()) return null;
+  }
+  return teile;
+}
+
 const ZAUN = /^ {0,3}(`{3,}|~{3,})[ \t]*([^\s`]*)[^`]*$/;
 const UEBERSCHRIFT = /^ {0,3}(#{1,6})(?:[ \t]+(.*?))?(?:[ \t]+#+)?[ \t]*$/;
 const LINIE = /^ {0,3}([-*_])(?:[ \t]*\1){2,}[ \t]*$/;
@@ -59,6 +90,7 @@ const ZITAT = /^ {0,3}> ?(.*)$/;
 const PUNKT = /^( {0,3})([-+*]|\d{1,9}[.)])(?:([ \t]+)(.*))?$/;
 const SETEXT = /^ {0,3}(=+|-+)[ \t]*$/;
 const AUFGABE = /^\[([ xX])\][ \t]+/;
+const TRENNER = /^[ \t]*:?-+:?[ \t]*$/;
 const ESCAPEBAR = /^[!-/:-@[-`{-~]$/;
 
 /** Spalten des Einzugs (Tab bis zur nächsten Vierer-Spalte) und der Rest der Zeile. */
@@ -127,6 +159,8 @@ function bloecke(zeilen: string[], tiefe: number, umbr: boolean): MdBlock[] {
       aus.push({ art: "zitat", kinder: bloecke(innen, tiefe + 1, umbr) });
     } else if (PUNKT.test(z)) {
       i = liste(zeilen, i, tiefe, umbr, aus);
+    } else if (tabelleBeginnt(zeilen, i)) {
+      i = tabelle(zeilen, i, umbr, aus);
     } else if (fuehrend(z)[0] >= 4) {
       const code: string[] = [];
       for (; i < zeilen.length && (fuehrend(zeilen[i]!)[0] >= 4 || !zeilen[i]!.trim()); i++) code.push(ohneEinzug(zeilen[i]!, 4));
@@ -143,7 +177,7 @@ function bloecke(zeilen: string[], tiefe: number, umbr: boolean): MdBlock[] {
           i++;
           break;
         }
-        if (beginntBlock(zeilen[i]!)) break;
+        if (beginntBlock(zeilen[i]!) || tabelleBeginnt(zeilen, i)) break;
         absatz.push(zeilen[i]!.trimStart());
       }
       const inhalt = inline(absatz.join("\n").trimEnd(), 0, umbr);
@@ -184,6 +218,52 @@ function liste(zeilen: string[], i: number, tiefe: number, umbr: boolean, aus: M
     punkte.push({ kinder: bloecke(inhalt, tiefe + 1, umbr), ...(aufgabe ? { erledigt: aufgabe[1] !== " " } : {}) });
   }
   aus.push({ art: "liste", geordnet, start: geordnet ? Number.parseInt(erster[2]!, 10) : 1, punkte });
+  return i;
+}
+
+/** Zellen einer Tabellenzeile: an „|“ getrennt, Rand-„|“ weg, „\|“ bleibt ein Strich im Text. */
+function zellen(z: string): string[] {
+  let s = z.trim();
+  if (s.startsWith("|")) s = s.slice(1);
+  if (s.endsWith("|") && !s.endsWith("\\|")) s = s.slice(0, -1);
+  const aus: string[] = [];
+  let jetzt = "";
+  for (let i = 0; i < s.length; i++) {
+    if (s[i] === "\\" && s[i + 1] === "|") {
+      jetzt += "|";
+      i++;
+    } else if (s[i] === "|") {
+      aus.push(jetzt.trim());
+      jetzt = "";
+    } else jetzt += s[i];
+  }
+  aus.push(jetzt.trim());
+  return aus;
+}
+
+/** Beginnt hier eine Tabelle (GFM)? Kopf und Trennzeile mit „|“ und gleich vielen Spalten. */
+function tabelleBeginnt(zeilen: string[], i: number): boolean {
+  const kopf = zeilen[i];
+  const trenner = zeilen[i + 1];
+  if (!kopf?.includes("|") || !trenner?.includes("|") || fuehrend(kopf)[0] >= 4) return false;
+  const spalten = zellen(trenner);
+  return spalten.length <= MD_GRENZEN.spalten && spalten.every((x) => TRENNER.test(x)) && zellen(kopf).length === spalten.length;
+}
+
+/** Tabelle ab Zeile `i` – Zeilen bis zur Leerzeile oder einem anderen Block, auf die Spalten des Kopfs gebracht. */
+function tabelle(zeilen: string[], i: number, umbr: boolean, aus: MdBlock[]): number {
+  const zelle = (x: string) => inline(x, 0, umbr);
+  const ausrichtung = zellen(zeilen[i + 1]!).map((x): MdAusrichtung => {
+    const t = x.trim();
+    return t.startsWith(":") && t.endsWith(":") ? "mitte" : t.startsWith(":") ? "links" : t.endsWith(":") ? "rechts" : "";
+  });
+  const kopf = zellen(zeilen[i]!).map(zelle);
+  const reihen: MdInline[][][] = [];
+  for (i += 2; i < zeilen.length && zeilen[i]!.trim() && !beginntBlock(zeilen[i]!); i++) {
+    const r = zellen(zeilen[i]!);
+    reihen.push(ausrichtung.map((_, n) => zelle(r[n] ?? "")));
+  }
+  aus.push({ art: "tabelle", ausrichtung, kopf, zeilen: reihen });
   return i;
 }
 
@@ -264,7 +344,8 @@ function auszeichnung(text: string, i: number, tiefe: number, umbr: boolean, dav
     const ziel = sicheresZiel(l.ziel);
     if (bild) return { teil: { art: "bild", ziel, alt: l.text.replace(/[\\*_`~[\]]/g, "") }, ende: l.ende };
     const kinder = inline(l.text, tiefe + 1, umbr);
-    return { teil: ziel ? { art: "link", ziel, kinder } : kinder, ende: l.ende };
+    if (ziel) return { teil: { art: "link", ziel, kinder }, ende: l.ende };
+    return { teil: istRelativ(l.ziel) ? { art: "verweis", ziel: l.ziel, kinder } : kinder, ende: l.ende };
   }
   if (c === "<") {
     const m = /^<(https:\/\/[^\s<>]+)>/.exec(text.slice(i, i + MD_GRENZEN.suche));

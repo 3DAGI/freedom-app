@@ -11658,6 +11658,62 @@ check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 (keine neue
 Ausnahme) · Website ok · Smoke-Test bestanden (mit den neuen Prüfungen) ·
 Website-Bau ok · reproduzierbarer Build ok. Knoten-Stand: unverändert.
 
+## Schritt C-20b – Tabellen und Verweise auf Dateien im Repo
+
+Spur C, Sammlung C-20 (Repos 1:1 wie GitHub, ohne neues Format). Nach C-20a
+fehlten zwei Dinge, die READMEs oft nutzen: Tabellen und Links auf andere
+Dateien im Repo. Dazu zeigt der Reiter „Code“ Markdown-Dateien jetzt wie
+GitHub als Vorschau.
+
+**Was:**
+- `markdown.ts`: Tabellen nach GFM – Kopf und Trennzeile mit „|“ und gleich
+  vielen Spalten (höchstens 64), Ausrichtung aus den Doppelpunkten, `\|` bleibt
+  ein Strich im Text, Zeilen werden auf die Spalten des Kopfs gebracht; eine
+  Tabelle darf einen Absatz unterbrechen. Relative Ziele („docs/x.md“,
+  „../README.md#a“) werden zu Verweisen (`verweis`) – Anker allein, fremde
+  Schemata und „//“ bleiben Text. `loesePfad()` löst einen Verweis gegen den
+  Ordner der Datei auf: `/…` ab der Wurzel, Anker und Abfrage fallen weg,
+  Prozent-Kodierung wird gelesen; über die Wurzel hinaus, `\` oder Nullbyte →
+  `null`.
+- `shell/markdown-ui.ts`: Tabellen in einer Hülle, die selbst läuft (nie die
+  Seite), Ausrichtung per Klasse. Verweise nur mit `oeffne` – als Element ohne
+  `href` (Rolle „link“, Enter und Klick), sonst Text. Ein Verweis ist nie eine
+  Adresse: nichts in den Browserverlauf, nichts nach außen.
+- `shell/tabs/code-reiter.ts`: Verweise in der README und in Markdown-Dateien
+  öffnen die Datei im Reiter „Code“ (relativ zum Ordner der Datei); führt einer
+  hinaus, sagt ein Hinweis „Diesen Pfad gibt es im Bundle nicht.“.
+  Markdown-Dateien erscheinen als Vorschau, mit „Vorschau / Quelltext“ zum
+  Umschalten (welche Ansicht, steht nur im Speicher).
+- `test/fixtures/probe-md.bundle` (neu, 784 Byte): `git bundle create … HEAD
+  main` aus README.md (Tabelle, drei Verweise, einer hinaus), src/liste.txt
+  und docs/ANLEITUNG.md (Verweis zurück).
+- CSS, Texte `repo.mdVorschau`/`repo.mdQuelltext`.
+
+**Verdrahtet:** `app/src/shell/tabs/code-reiter.ts` (`zeigeCode()` →
+`markdownDom(…, { oeffne })` für README und Markdown-Dateien → `loesePfad()` →
+`geh()`).
+
+**Tests:** app +4 in `test/markdown.test.ts` (Tabellen: Ausrichtung, `\|`,
+kurze und lange Zeilen, Absatz davor, falsche Trennzeile, zu viele Spalten;
+Verweise und `loesePfad()` samt sieben Wegen hinaus; das Probe-Bundle: README
+mit Tabelle, jeder Verweis führt zu einer Datei im Bundle, „hinaus“ nicht;
+Verdrahtung: ohne `oeffne` Text, kein `href`, relativ zum Ordner der Datei,
+Ansicht nur im Speicher). Eine Prüfung aus C-20a nennt den README-Aufruf jetzt
+ohne schließende Klammer (er hat seit C-20b ein drittes Argument). Smoke „raum“
+(Desktop und Handy): „meins“ bekommt das Probe-Bundle als neue Version; die
+README zeigt die Tabelle mit Ausrichtung, ohne Laufleiste; „Liste“ öffnet
+src/liste.txt (Adresse unverändert), „hinaus“ bleibt im Repo mit Hinweis,
+„Anleitung“ per Enter öffnet docs/ANLEITUNG.md als Vorschau, „Quelltext“ zeigt
+`# Anleitung`, „Übersicht“ führt zurück zur README.md.
+Bilder: `docs/ausbau/bilder/c20b` (Kommentar mit Tabelle – links, mittig,
+rechts ausgerichtet; Desktop und Handy). Den Reiter „Code“ mit Verweisen prüft
+der Smoke-Test; die Bilder-Probe hat kein ladbares Bundle.
+
+Endstand: protocol 1116 (6 übersprungen) · node 263 (6 übersprungen, mit
+Internet) · app 649 (+4) · mls 13 · Leak-Tests 66 grün + 1 todo · 0 rot ·
+check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 (keine neue
+Ausnahme) · Website ok · Smoke-Test bestanden (mit den neuen Prüfungen) ·
+Website-Bau ok · reproduzierbarer Build ok. Knoten-Stand: unverändert.
 
 ## Schritt 11.2a – Werbelink mit eigener Domain
 
