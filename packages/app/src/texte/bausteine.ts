@@ -14,7 +14,6 @@ export const bausteine: Texte = {
   "bau.keinText": { de: "kein Text ({typ})", en: "not text ({typ})" },
   "bau.browserFehler": { de: "Browser-Fehler (ggf. CORS): {fehler}", en: "browser error (possibly CORS): {fehler}" },
   "bau.lokalNicht": { de: "{name} lokal nicht verfügbar", en: "{name} not available locally" },
-  "bau.ollamaHttp": { de: "Ollama HTTP {status}", en: "Ollama HTTP {status}" },
   // Mesh (mesh-radio.ts, mesh-transfer.ts)
   "bau.wegSeriell": { de: "USB-Gerät anschließen und verbinden — der zuverlässigste Weg.", en: "Plug in the USB device and connect — the most reliable way." },
   "bau.wegBluetooth": { de: "Funkgerät per Bluetooth koppeln.", en: "Pair the radio via Bluetooth." },
