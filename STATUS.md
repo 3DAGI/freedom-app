@@ -11767,8 +11767,8 @@ wieder die eigene Herkunft.
 **Verdrahtet:** `shell/tabs/earn.ts` (`updateReferralLink()`), `shell/app.ts`
 (`wireEigeneAdresse()` nach `setupReferral()`), `shell/werben-ui.ts`.
 
-Endstand (nach dem Einmergen von `main` bis C-20a, 29.09.): protocol 1116
-(6 übersprungen) · node 263 (6 übersprungen, mit Netz) · app 650 (+5) · mls 13 ·
+Endstand (nach dem Einmergen von `main` bis C-20b, 29.09.): protocol 1116
+(6 übersprungen) · node 263 (6 übersprungen, mit Netz) · app 654 (+5) · mls 13 ·
 Leak-Tests 66 grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 (157
 ausgenommen, 0 offen – `hashBytes` ist jetzt verdrahtet, die Ausnahme aus 0.D
 fiel) · innerHTML streng Exit 0 (63 Ausnahmen) · Website 5 Seiten ok ·
