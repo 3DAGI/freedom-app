@@ -226,3 +226,13 @@ devices.ts|deviceWarning|deutsche Referenz; die App bildet die Rückfrage seit 8
 release.ts|sharingInstructions|deutsche Referenz; die App bildet den Begleittext seit 8.16g2b2 in protokoll-texte.ts (weitergabeText) nach, ein Test hält ihn wortgleich
 mesh-sync.ts|offlineCapabilities|deutsche Referenz; die App bildet die Liste seit 8.16g2b2 in protokoll-texte.ts (offlineFaehigkeiten) nach, ein Test hält sie gleich
 spaces.ts|privacyInfo|deutsche Referenz; die App bildet die Rauminfo seit C.2b2 in protokoll-texte.ts (kanalVertraulichkeit) nach, ein Test hält sie wortgleich
+nip34.ts|baueIssue|Issues nach NIP-34, gebaut in C-17a; die App bindet sie mit dem Reiter „Issues“ an (C-17b)
+nip34.ts|leseIssue|Issues nach NIP-34, gebaut in C-17a; die App bindet sie mit dem Reiter „Issues“ an (C-17b)
+nip34.ts|baueIssueStatus|Issues nach NIP-34, gebaut in C-17a; die App bindet sie mit dem Reiter „Issues“ an (C-17b)
+nip34.ts|issueStatus|Issues nach NIP-34, gebaut in C-17a; die App bindet sie mit dem Reiter „Issues“ an (C-17b)
+kommentar.ts|baueKommentar|Kommentare nach NIP-22, gebaut in C-17a; die App bindet sie an Issues (C-17b) und Patches (C-17c) an
+kommentar.ts|leseKommentar|Kommentare nach NIP-22, gebaut in C-17a; die App bindet sie an Issues (C-17b) und Patches (C-17c) an
+kommentar.ts|kommentareZu|Kommentare nach NIP-22, gebaut in C-17a; die App bindet sie an Issues (C-17b) und Patches (C-17c) an
+raum-repo.ts|raumRepoIssue|Issues im privaten Raum, gebaut in C-17a; die App schickt sie mit dem Reiter „Issues“ in die Gruppe (C-17b)
+raum-repo.ts|raumRepoIssueStatus|Issues im privaten Raum, gebaut in C-17a; die App schickt sie mit dem Reiter „Issues“ in die Gruppe (C-17b)
+raum-repo.ts|raumRepoKommentar|Kommentare im privaten Raum, gebaut in C-17a; die App schickt sie in die Gruppe (C-17b, C-17c)

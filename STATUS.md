@@ -11440,3 +11440,59 @@ Spur C, Sammlung `docs/neuordnung/SAMMLUNG.md` (C-18), entschieden am
 **Prüfungen:** Der Job selbst ist die Prüfung – sein erster Lauf steht im
 Pull Request. Kein App-Code geändert; die Befehle aus `CLAUDE.md` bleiben
 beim Stand von 11.4c.
+
+## Schritt C-17a – Issues und Kommentare: Protokoll
+
+Spur C, Sammlung C-17 (entschieden 29.09.2026: „Repos 1:1 wie GitHub“). Die
+Protokoll-Bausteine, auf denen C-17b (Reiter „Issues“) und C-17c (Kommentare an
+Patches) aufbauen. Standard-Events (NIP-34, NIP-22) – kein eigenes Format; es
+steht in `docs/PROTOCOL.md` (Abschnitt 19).
+
+**Was:**
+- `nip34.ts`: **Issue** (Kind 1621) – `baueIssue()` (Betreff Pflicht,
+  höchstens 200 Zeichen; Text höchstens 30 KB; Labels als `t`, ohne
+  Leerzeichen und Komma, höchstens 40 Zeichen, doppelte einmal) und
+  `leseIssue()` (streng: ohne Repo-Adresse oder Betreff kein Issue, ungültige
+  Labels fallen heraus). **Status** mit den Arten der Patches: 1630 offen,
+  1631 erledigt, 1632 geschlossen (`baueIssueStatus()`); `issueStatus()`
+  nimmt den neuesten Status der Autorin, des Eigentümers oder eines
+  Maintainers – wie bei GitHub darf die Autorin ihr Issue schließen; Status
+  Fremder und 1633 zählen nicht.
+- `kommentar.ts` (neu): **Kommentar** nach NIP-22 (Kind 1111) an Issues und
+  Patches – Wurzel in `E`/`K`/`P`, Eltern in `e`/`k`/`p` (direkt an der
+  Wurzel dasselbe, sonst ein Kommentar). `leseKommentar()` streng (nur an 1621
+  und 1617, Bezüge als 64 Hex, Eltern gleicher Art nur als die Wurzel selbst),
+  `kommentareZu()` sortiert, ältester zuerst.
+- `raum-repo.ts`: privat nur als innere Events – `raumRepoIssue()`,
+  `raumRepoIssueStatus()`, `raumRepoKommentar()`; `RAUM_REPO_ARTEN` mit 1621
+  und 1111; `raumReposPrivat()` liefert `issues` und `kommentare` (von jedem
+  Mitglied, wie Patches).
+- `leak-rules.ts`: `raum-repo-privat` weist auch offene Issues zum Repo ab und
+  – mit `innere` – offene Kommentare zu inneren Issues und Patches.
+- `privacy-facts.ts`: Aussage „raum-repos“ nennt Issues und Kommentare; das
+  Szenario schickt mit der echten MLS-Engine ein Issue, einen Kommentar
+  (Bezug = Id des inneren Events) und einen Status in die Gruppe – Relays
+  sehen weder Betreff noch Text noch Kommentar. App-Text in beiden Sprachen
+  (`ds.fRaumRepos`, deutsch wortgleich).
+- Fehler mit Kennung (`issue-*`, `kommentar-*`) samt Texten `pf.*` in beiden
+  Sprachen (`protokoll-texte.ts`, `texte/fehler.ts`).
+- `scripts/wiring-ausnahmen.txt`: zehn Exporte bis C-17b/C-17c ausgenommen –
+  die App bindet sie dort an, dann fallen die Zeilen weg.
+
+**Verdrahtet:** in diesem Schritt nur im Protokoll (`raumReposPrivat()` liefert
+Issues und Kommentare, die App liest sie seit 11.4b2 über `privateRaumRepos()`);
+die Oberfläche folgt in C-17b.
+
+**Tests:** protocol +5 in `test/repo-issues.test.ts` (Issue bauen und streng
+lesen samt Fehlerkennungen; Status nach Autorin, Eigentümer, Maintainer –
+Fremde, 1633 und andere Issues zählen nicht; Kommentare direkt und als
+Antwort, jede kaputte Form abgewiesen, `kommentareZu()` sortiert und filtert;
+privater Raum: nur innere Events, nur aus diesem Raum, Status nach dem Admin;
+Leak-Regel: offene Issues und Kommentare zu inneren Ids, fremde nicht);
+Szenario „raum-repos“ erweitert.
+
+Endstand: protocol 1116 (+5, 6 übersprungen) · node 263 (6 übersprungen, mit
+Internet) · app 635 · mls 13 · Leak-Tests 66 grün + 1 todo · 0 rot ·
+check-wiring `--streng` Exit 0 (10 neue Ausnahmen bis C-17b/c) · innerHTML
+streng Exit 0 · Website ok · Smoke-Test bestanden · Website-Bau ok ·
+reproduzierbarer Build ok. Knoten-Stand: unverändert.

@@ -453,3 +453,42 @@ Ankündigungen und Bundles zählen nur von Pflegern (Admins der Gruppe oder
 `repos_pflegen`), je Autor und Kennung die neueste; Maintainer sind alle
 Pfleger; Patches von jedem Mitglied. Relays sehen nur Kind 445,
 Speicherknoten nur das verschlüsselte Bundle.
+
+## 19. Issues und Kommentare in Repos (NIP-34, NIP-22, seit C-17a)
+
+Wie bei GitHub gibt es zu jedem Repo Issues und unter Issues und Patches eine
+Diskussion. Beides sind Standard-Events anderer Clients – kein eigenes Format.
+
+**Issue** (Kind 1621, NIP-34, `baueIssue()`/`leseIssue()` in `nip34.ts`):
+
+| Tag | Inhalt |
+|---|---|
+| `a` | `30617:<eigentümer>:<kennung>` – das Repo |
+| `p` | Eigentümer des Repos |
+| `subject` | Betreff, Pflicht, höchstens 200 Zeichen |
+| `t` | Labels, je eines ohne Leerzeichen und Komma, höchstens 40 Zeichen |
+
+Der Inhalt ist der Text (höchstens 30 KB). **Status** mit denselben Arten wie
+bei Patches: 1630 offen, 1631 erledigt, 1632 geschlossen (`e` = Id des Issues,
+`baueIssueStatus()`); 1633 gibt es für Issues nicht. Es gilt der neueste Status
+der Autorin, des Eigentümers oder eines Maintainers (`issueStatus()`) – Status
+anderer zählen nicht; ohne Status ist ein Issue offen.
+
+**Kommentar** (Kind 1111, NIP-22, `kommentar.ts`) an einem Issue (1621) oder
+Patch (1617):
+
+| Tag | Inhalt |
+|---|---|
+| `E`, `K`, `P` | Wurzel: Id, Art und Autor des Issues bzw. Patches |
+| `e`, `k`, `p` | worauf geantwortet wird: die Wurzel selbst oder ein Kommentar (Art 1111) |
+
+Der Inhalt ist der Text (höchstens 20 KB). Gelesen wird streng
+(`leseKommentar()`): nur an Issues und Patches, Bezüge als 64-stellige
+Hex-Werte, sonst fällt der Kommentar heraus.
+
+**In privaten Räumen** (wie 11.4b) sind Issue, Status und Kommentar nur innere
+Events der MLS-Gruppe (`raumRepoIssue()`, `raumRepoIssueStatus()`,
+`raumRepoKommentar()`), jeweils mit `["space", <raum>]` vorn; die Bezüge eines
+Kommentars sind die Ids der inneren Events. `raumReposPrivat()` liefert sie als
+`issues` und `kommentare`. Die Leak-Regel `raum-repo-privat` weist offene
+Issues zum Repo und offene Kommentare zu inneren Issues und Patches ab.

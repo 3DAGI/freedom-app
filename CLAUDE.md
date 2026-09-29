@@ -45,7 +45,7 @@ bash packages/mls/bauen.sh --pruefen                     # nur bei Änderungen a
 bash contracts/solana-channel/pruefen.sh --werkzeuge     # nur bei Änderungen am Zahlkanal: bauen + Tests gegen Validator (Agave 3.1.10)
 ```
 
-Stand 28.09.2026 (nach 8.2c, 5.5a–c, 8.15, 11.1a, C.3c2, 11.1b, 5.9a–b, 6.3a–b2, 11.4a–b2, C.4a–b, C.5a–b, C.6b und 11.4c): protocol 1111 grün (6 übersprungen), node 263 grün
+Stand 28.09.2026 (nach 8.2c, 5.5a–c, 8.15, 11.1a, C.3c2, 11.1b, 5.9a–b, 6.3a–b2, 11.4a–b2, C.4a–b, C.5a–b, C.6b, 11.4c, C-18 und C-17a): protocol 1116 grün (6 übersprungen), node 263 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
 in `tools.test.ts`), app 635 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 66 grün + 1 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
@@ -745,6 +745,13 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   nur aus `oeffneRaum()`) – nie alle eigenen Räume in einer Abfrage. „Repo
   anlegen“ im Raum-Menü nur mit `repos_pflegen`; öffentlich mit Verweis, privat
   über `sendeInRaum()`.
+  Issues und Kommentare (seit C-17a, `docs/PROTOCOL.md` 19) nur über
+  `baueIssue()`/`baueIssueStatus()` (NIP-34, 1621) und `baueKommentar()`
+  (NIP-22, 1111, nur an Issues und Patches); gelesen nur über `leseIssue()`,
+  `issueStatus()` (Autorin, Eigentümer, Maintainer) und `kommentareZu()`. Im
+  privaten Raum nur `raumRepoIssue()`, `raumRepoIssueStatus()`,
+  `raumRepoKommentar()` – Bezüge sind die Ids der inneren Events; die
+  Leak-Regel bekommt sie als `innere`.
 - **Smoke-Test auch in der CI** (seit C-18): Job „Browser-Test (Smoke)“ in
   `ci.yml` – Python-Playwright fest auf 1.56.0 (lokal dieselbe Version),
   Chromium mit `--with-deps`. Rot dort heißt rot wie ein Unit-Test; eine neue

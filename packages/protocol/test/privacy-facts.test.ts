@@ -44,7 +44,7 @@ import { buildAnonZapRequest, buildZapRequest } from "../src/zap.js";
 import { buildRechnungsAnfrage, buildRechnungsAntwort } from "../src/ln-rechnung.js";
 import { knotenSchluessel, rechnung } from "./bolt11-hilfe.js";
 import { regelKeineLnAdresse, regelRaumRepoPrivat, regelZapAnonym } from "../src/leak-rules.js";
-import { raumRepoAnkuendigung, raumRepoBundle, raumRepoPatch } from "../src/raum-repo.js";
+import { raumRepoAnkuendigung, raumRepoBundle, raumRepoIssue, raumRepoIssueStatus, raumRepoKommentar, raumRepoPatch } from "../src/raum-repo.js";
 import { fromHex, toHex } from "../src/htlc.js";
 import type { NostrEvent, UnsignedEvent } from "../src/event.js";
 import { readFileSync } from "node:fs";
@@ -56,7 +56,7 @@ interface MlsKontoT {
   keyPackage(platz: string): Promise<UnsignedEvent>;
   gruppeAnlegen(name: string, kps: NostrEvent[], relays: string[]): Promise<{ gruppe: string; einladungen: NostrEvent[] }>;
   senden(gruppe: string, text: string): Promise<{ events: NostrEvent[] }>;
-  sendenEvent(gruppe: string, art: number, tags: string[][], text: string): Promise<{ events: NostrEvent[] }>;
+  sendenEvent(gruppe: string, art: number, tags: string[][], text: string): Promise<{ events: NostrEvent[]; inneres?: string }>;
 }
 interface MlsModulT {
   Mls: new (signer: LocalSigner, beweis: (id: string) => string) => MlsKontoT;
@@ -144,6 +144,9 @@ async function versiegelterTausch() {
   ]);
   return [hin.wrap, rueck.wrap, ...antworten];
 }
+
+/** Die Argumente von `sendenEvent()` aus einem inneren Event (Art, Tags, Text). */
+const alsArgs = (x: { art: number; tags: string[][]; text: string }): [number, string[][], string] => [x.art, x.tags, x.text];
 
 const SZENARIEN: Record<string, () => Promise<number>> = {
   "dm-inhalt": async () => {
@@ -407,9 +410,19 @@ const SZENARIEN: Record<string, () => Promise<number>> = {
     ];
     const events: NostrEvent[] = [];
     for (const s of innen) events.push(...(await ma.sendenEvent(g.gruppe, s.art, s.tags, s.text)).events);
+    // Seit C-17a: ein Issue, ein Kommentar dazu (Bezug ist die Id des inneren Events) und sein Status
+    const issue = await ma.sendenEvent(g.gruppe, ...alsArgs(raumRepoIssue(g.gruppe, { repo, betreff: "Geheimes Issue", text: "Geheime Schritte" })));
+    if (!issue.inneres) return 1;
+    const bezug = { id: issue.inneres, autor: a.pk, kind: 1621 };
+    for (const s of [
+      raumRepoKommentar(g.gruppe, { wurzel: bezug, text: "Geheimer Kommentar" }),
+      raumRepoIssueStatus(g.gruppe, { issue: { id: issue.inneres, autor: a.pk, repoAdresse: `30617:${a.pk}:${repo.id}` }, status: "erledigt", eigentuemer: a.pk }),
+    ]) events.push(...(await ma.sendenEvent(g.gruppe, ...alsArgs(s))).events);
+    events.push(...issue.events);
     const alle = [...g.einladungen, ...events];
-    if (events.length !== innen.length) return 1;
-    return regelRaumRepoPrivat(alle, { repoIds: [repo.id], schluessel: [KEY] }).length + regelKeinKlartext(alle, ["Geheimprojekt", "Geheime Änderung", KEY]).length +
+    if (events.length !== innen.length + 3) return 1;
+    return regelRaumRepoPrivat(alle, { repoIds: [repo.id], schluessel: [KEY], innere: [issue.inneres] }).length
+      + regelKeinKlartext(alle, ["Geheimprojekt", "Geheime Änderung", KEY, "Geheimes Issue", "Geheime Schritte", "Geheimer Kommentar"]).length +
       regelAutorNicht(alle, a.pk).length + regelMlsGruppe(alle, { gruppenIds: [g.gruppe], identitaeten: [a.pk, b.pk] }).length;
   },
   "raum-meldung": async () => {

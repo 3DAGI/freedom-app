@@ -205,3 +205,87 @@ export function patchStatus(
   const commits = status === "angenommen" ? getTags(bester, "applied-as-commits").flatMap((t) => t.slice(1)).filter((c) => SHA1.test(c)) : undefined;
   return { status, von: bester.pubkey, zeit: bester.created_at, ...(commits?.length ? { commits } : {}) };
 }
+
+// ------------------------------------------------------------ Issues (C-17a)
+
+/**
+ * Issues nach NIP-34 (Kind 1621): Betreff im Tag `subject`, Text als Inhalt,
+ * Labels als `t`-Tags, an das Repo adressiert wie ein Patch. Status mit
+ * denselben Arten wie bei Patches: 1630 offen, 1631 erledigt, 1632
+ * geschlossen. Kommentare dazu nach NIP-22 (`kommentar.ts`).
+ */
+export const KIND_ISSUE = 1621;
+/** Obergrenze des Issue-Texts – wie bei Patches: Größeres gehört in eine Datei oder ein Bundle. */
+export const ISSUE_MAX_BYTES = 30_000;
+const LABEL = /^[^\s,]{1,40}$/;
+
+export interface GelesenesIssue {
+  id: string;
+  autor: string;
+  repoAdresse: string;
+  betreff: string;
+  text: string;
+  labels: string[];
+  zeit: number;
+}
+
+export function baueIssue(
+  i: { repo: Pick<GelesenesRepo, "eigentuemer" | "id">; betreff: string; text: string; labels?: string[] },
+  autor: string,
+): UnsignedEvent {
+  const betreff = i.betreff.trim();
+  if (!betreff) throw new ProtokollFehler("issue-betreff", "Issue ohne Betreff");
+  if (new TextEncoder().encode(i.text).length > ISSUE_MAX_BYTES) {
+    throw new ProtokollFehler("issue-gross", `Issue zu groß (höchstens ${ISSUE_MAX_BYTES / 1000} KB)`, { kb: ISSUE_MAX_BYTES / 1000 });
+  }
+  for (const l of i.labels ?? []) if (!LABEL.test(l)) throw new ProtokollFehler("issue-label", "Label: ohne Leerzeichen und Komma, höchstens 40 Zeichen");
+  const tags: string[][] = [["a", repoAdresse(i.repo.eigentuemer, i.repo.id)], ["p", i.repo.eigentuemer], ["subject", betreff.slice(0, 200)]];
+  for (const l of new Set(i.labels ?? [])) tags.push(["t", l]);
+  return buildEvent(autor, KIND_ISSUE, tags, i.text);
+}
+
+/** Issue streng lesen: fremde Daten – ohne Repo oder Betreff kein Issue, Labels nur in gültiger Form. */
+export function leseIssue(ev: NostrEvent): GelesenesIssue {
+  if (ev.kind !== KIND_ISSUE) throw new Error(`Kein Issue: Kind ${ev.kind}`);
+  const adresse = getTag(ev, "a");
+  if (!adresse?.startsWith(`${KIND_REPO_ANKUENDIGUNG}:`)) throw new Error("Issue ohne Repo");
+  const betreff = (getTag(ev, "subject") ?? "").trim();
+  if (!betreff) throw new Error("Issue ohne Betreff");
+  if (new TextEncoder().encode(ev.content).length > ISSUE_MAX_BYTES) throw new Error("Issue zu groß");
+  const labels = [...new Set(getTags(ev, "t").map((t) => t[1] ?? "").filter((l) => LABEL.test(l)))].slice(0, 20);
+  return { id: ev.id, autor: ev.pubkey, repoAdresse: adresse, betreff: betreff.slice(0, 200), text: ev.content, labels, zeit: ev.created_at };
+}
+
+export type IssueStatus = "offen" | "erledigt" | "geschlossen";
+const ISSUE_STATUS_KIND: Record<IssueStatus, number> = { offen: KIND_STATUS_OFFEN, erledigt: KIND_STATUS_ANGENOMMEN, geschlossen: KIND_STATUS_GESCHLOSSEN };
+
+/** Status eines Issues setzen – wie bei GitHub dürfen Autor, Eigentümer und Maintainer schließen und wieder öffnen. */
+export function baueIssueStatus(
+  p: { issue: Pick<GelesenesIssue, "id" | "autor" | "repoAdresse">; status: IssueStatus; eigentuemer: string; notiz?: string },
+  von: string,
+): UnsignedEvent {
+  const tags: string[][] = [["e", p.issue.id, "", "root"], ["p", p.issue.autor], ["a", p.issue.repoAdresse]];
+  if (p.eigentuemer !== p.issue.autor) tags.push(["p", p.eigentuemer]);
+  return buildEvent(von, ISSUE_STATUS_KIND[p.status], tags, (p.notiz ?? "").slice(0, 1000));
+}
+
+/**
+ * Status eines Issues: der neueste gültige zählt – von Autor, Eigentümer oder
+ * Maintainer; Status anderer zählen nicht. 1633 (Entwurf) gibt es für Issues
+ * nicht und zählt nicht. Ohne Status ist ein Issue offen.
+ */
+export function issueStatus(
+  issue: Pick<GelesenesIssue, "id" | "autor">,
+  repo: Pick<GelesenesRepo, "eigentuemer" | "maintainer">,
+  events: readonly NostrEvent[],
+): { status: IssueStatus; von?: string; zeit?: number } {
+  const art = new Map<number, IssueStatus>(Object.entries(ISSUE_STATUS_KIND).map(([s, k]) => [k, s as IssueStatus]));
+  let bester: NostrEvent | undefined;
+  for (const ev of events) {
+    const status = art.get(ev.kind);
+    if (!status || !ev.tags.some((t) => t[0] === "e" && t[1] === issue.id)) continue;
+    if (ev.pubkey !== issue.autor && !darfAnnehmen(repo, ev.pubkey)) continue;
+    if (!bester || ev.created_at > bester.created_at) bester = ev;
+  }
+  return bester ? { status: art.get(bester.kind)!, von: bester.pubkey, zeit: bester.created_at } : { status: "offen" };
+}
