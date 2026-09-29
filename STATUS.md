@@ -11897,3 +11897,21 @@ beiden Sprachen (`ds.fKiLokal`), Leak-Szenario `test/leak/ki-lokal.test.ts`
 **Verdrahtet:** `shell/tabs/agent.ts` – `askAi()` → `frageAufDiesemGeraet()`
 → `frageLokal()`; `setupModelPicker()` → `sucheLokal()` → `lokaleModelle()`;
 `refreshModelDropdown()` → `zeigeLokalBereich()`.
+
+**Tests (Protokoll +7, App +8, Leak +2):** `protocol/test/ki-lokal.test.ts`
+(nur dieser Rechner, Pfad fällt weg, Heimnetz/Internet/Zugangsdaten/andere
+Protokolle abgelehnt, Modelle ohne Doppelte und begrenzt, Anfrage ohne
+Streaming mit Tokengrenze, Antwort geprüft); Szenario „ki-lokal“ in
+`privacy-facts.test.ts`; `app/test/ki-lokal.test.ts` (Adresse und Wahlwert,
+Suche nur `/v1/models` ohne Zugangsdaten, Frage mit Stopp und Zeitablauf, je
+Frage genau ein Abruf, fremde Adresse ohne Abruf, Verdrahtung in `askAi()`);
+`app/test/leak/ki-lokal.test.ts` (jeder Abruf an diesen Rechner, kein Event).
+Smoke „lokal“ (neu): vor dem Klick keine Abfrage; Suche, Wahl „probe-modell:1b ·
+dieses Gerät“, Frage nur an `localhost:11434/v1/chat/completions`, Antwort mit
+„dieses Gerät · 10 Tokens · gratis“; danach nichts ans Relay.
+
+Endstand (B-1, 29.09., nach dem Einmergen von `main` mit 11.2b und A-4):
+protocol 1127 (+7, 6 übersprungen) · node 262 (7 übersprungen, ohne Netz; nicht
+berührt) · app 667 (+8) · mls 13 · Leak-Tests 68 grün + 1 todo · 0 rot ·
+check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 (keine neue Ausnahme) ·
+Website ok · Smoke-Test bestanden (mit „lokal“). Knoten-Stand: unverändert.
