@@ -19,12 +19,19 @@ import { LS_VERSAND_VERZOEGERUNG, maxVerzoegerungSek } from "../versand.js";
 import { rufStand, rufTeilenAn, setzeRufTeilen } from "../ruf.js";
 import { geheim, istGeheimnis, tresorEingerichtet, wireTresorKarte } from "../tresor.js";
 import { MIN_PASSPHRASE } from "../../vault.js";
+import { fuehreZusammen, type ZusammenfuehrBericht } from "../../zustand-zusammenfuehren.js";
 import { $, ganzeZahl, toast } from "../ui.js";
 import { bestaetige, dialog } from "../dialog.js";
 import { TRUSTED_SIGNERS, ladeManifeste } from "../../release-signierer.js";
 import { ladeAbdeckung, nutzeStandort, trageAbdeckungEin, vergissStandort, widerrufeAbdeckung } from "./earn.js";
 import { LS_KONTAKTE_SICHERN, geraeteBuch, kontakteEinschalten, kontakteSichernAn, sichereKontakte } from "./kommunikation.js";
 import { LS_STANDARD_SCHIENE, standardSchiene } from "../../standard-schiene.js";
+
+/** Was das Zusammenfuehren (B-5) tut – vor dem Schreiben gezeigt. */
+function zusammenfuehrText(b: ZusammenfuehrBericht): string {
+  return [t("set.zusammenfuehren"), b.erhalten > 0 ? t("set.zusammenErhalten", { n: b.erhalten }) : "", b.konflikte > 0 ? t("set.zusammenKonflikte", { n: b.konflikte }) : ""]
+    .filter(Boolean).join(" ");
+}
 
 // ------------------------------------------------- Nachfolge & Modelle
 
@@ -245,8 +252,10 @@ async function stelleZustandWieder(): Promise<void> {
     }
     // Nur, was in eine Sicherung gehoert – auch eine alte mit Schluessel stellt ihn nicht her
     const daten = filtereWiederherstellung(r.data);
-    if (!confirm(`${wiederherstellungText(r)}\n\n${t("set.ueberschreibenFrage")}`)) return;
-    for (const [k, v] of Object.entries(daten)) {
+    // Zusammenfuehren statt ueberschreiben (B-5): was nur hier steht, bleibt
+    const { werte, bericht } = fuehreZusammen(daten, (k) => (istGeheimnis(k) ? geheim.getItem(k) : localStorage.getItem(k)));
+    if (!(await bestaetige({ titel: t("set.wiederherstellen"), text: `${wiederherstellungText(r)}\n\n${zusammenfuehrText(bericht)}`, ok: t("set.zusammenfuehrenOk") }))) return;
+    for (const [k, v] of Object.entries(werte)) {
       if (istGeheimnis(k)) await geheim.setItem(k, v);
       else localStorage.setItem(k, v);
     }
@@ -304,9 +313,11 @@ async function leseExportDatei(datei: File): Promise<void> {
   if (!w) return;
   try {
     const { daten, zeit } = await leseExport(await datei.text(), String(w.pass));
-    const frage = t("set.einlesenFrage", { n: Object.keys(daten).length, datum: new Date(zeit * 1000).toLocaleString(gebietsschema()) });
-    if (!(await bestaetige({ titel: t("set.einlesenTitel"), text: frage, ok: t("set.einlesenOk"), gefahr: true }))) return;
-    for (const [k, v] of Object.entries(daten)) {
+    // Zusammenfuehren statt ueberschreiben (B-5)
+    const { werte, bericht } = fuehreZusammen(daten, (k) => (istGeheimnis(k) ? geheim.getItem(k) : localStorage.getItem(k)));
+    const frage = `${t("set.einlesenFrage", { n: Object.keys(daten).length, datum: new Date(zeit * 1000).toLocaleString(gebietsschema()) })}\n\n${zusammenfuehrText(bericht)}`;
+    if (!(await bestaetige({ titel: t("set.einlesenTitel"), text: frage, ok: t("set.einlesenOk") }))) return;
+    for (const [k, v] of Object.entries(werte)) {
       if (istGeheimnis(k)) await geheim.setItem(k, v);
       else localStorage.setItem(k, v);
     }

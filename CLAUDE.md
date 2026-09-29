@@ -363,6 +363,10 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   `filtereWiederherstellung()`; nie Schlüssel, Zugänge, Geld-Geheimnisse,
   Anteile oder Gruppenschlüssel (`SICHERUNG_NIE`). Neue Einträge, die ein neues
   Gerät braucht, dort eintragen – und ob sie im Tresor liegen (`istGeheimnis()`).
+  Geschrieben wird seit B-5 nur zusammengeführt (`fuehreZusammen()`,
+  `zustand-zusammenfuehren.ts`), erst nach `bestaetige()`: Ein neuer Eintrag,
+  der eine Sammlung ist (Liste, Karte je Kontakt), braucht dort eine Regel –
+  sonst gilt der eingelesene Wert, und was nur auf dem Gerät stand, ist weg.
 - **Speicherknoten nur verschlüsselt** (seit 8.9a): Wer ins Blob-Netz lädt,
   was Knoten halten sollen, baut mit `buildBlob(…, { verschluesselt: true })`
   und lädt nur Chiffrat hoch; Knoten nehmen Stücke nur über `nimmAuf()` →

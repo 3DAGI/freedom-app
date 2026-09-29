@@ -134,7 +134,11 @@ export const settings: Texte = {
   "set.nfEingerichtet": { de: "Eingerichtet – {n} Vertraute haben ihren Teil versiegelt bekommen.", en: "Set up – {n} trusted people received their part, sealed." },
   "set.mitBunkerNicht": { de: "Mit Bunker nicht möglich – das braucht den Schlüssel selbst", en: "Not possible with a bunker – this needs the key itself" },
   "set.keineSicherung": { de: "Keine Sicherung gefunden", en: "No backup found" },
-  "set.ueberschreibenFrage": { de: "Unterhaltungen, Räume und Namen auf diesem Gerät werden damit überschrieben. Fortfahren?", en: "Conversations, rooms and names on this device will be overwritten. Continue?" },
+  // Zusammenführen statt überschreiben (B-5)
+  "set.zusammenfuehren": { de: "Unterhaltungen, Räume, Namen, Lesestände, Kataloge und geprüfte Kontakte werden zusammengeführt – was nur auf diesem Gerät steht, bleibt. Sprache, Profil und Einstellungen werden übernommen.", en: "Conversations, rooms, names, read positions, catalogues and verified contacts are merged – what exists only on this device stays. Language, profile and settings are taken over." },
+  "set.zusammenErhalten": { de: "{n} Einträge von diesem Gerät bleiben erhalten.", en: "{n} entries from this device are kept." },
+  "set.zusammenKonflikte": { de: "{n} Namen stehen auf beiden Seiten verschieden – dort gilt der eingelesene.", en: "{n} names differ on both sides – the imported one wins there." },
+  "set.zusammenfuehrenOk": { de: "Zusammenführen", en: "Merge" },
   "set.wiederhergestellt": { de: "Wiederhergestellt – die Seite wird neu geladen", en: "Restored – the page reloads" },
   // Datenexport (B-6)
   "set.exportDatei": { de: "als Datei exportieren", en: "export as a file" },
@@ -150,7 +154,7 @@ export const settings: Texte = {
   "set.exportUngueltig": { de: "Das ist keine Export-Datei von FreedomStack.", en: "This is not a FreedomStack export file." },
   "set.einlesenTitel": { de: "Export einlesen", en: "Import an export" },
   "set.einlesenWeiter": { de: "Öffnen", en: "Open" },
-  "set.einlesenFrage": { de: "Die Datei vom {datum} enthält {n} Einträge. Unterhaltungen, Räume, Namen und Einstellungen auf diesem Gerät werden damit überschrieben – Schlüssel und Zugänge bleiben, wie sie sind. Fortfahren?", en: "The file from {datum} contains {n} entries. Conversations, rooms, names and settings on this device will be overwritten – keys and access stay as they are. Continue?" },
+  "set.einlesenFrage": { de: "Die Datei vom {datum} enthält {n} Einträge. Schlüssel und Zugänge auf diesem Gerät bleiben, wie sie sind.", en: "The file from {datum} contains {n} entries. Keys and access on this device stay as they are." },
   "set.einlesenOk": { de: "Einlesen", en: "Import" },
   "set.ersatzDatei": { de: "ERSATZSCHLÜSSEL – GETRENNT VON DEINEM GERÄT AUFBEWAHREN\n\nprivat: {privat}\nöffentlich: {oeffentlich}\n\nWer diesen Schlüssel UND deinen laufenden hat, ist du.\nAusdrucken oder auf einen Stick, nicht in die Cloud.\n", en: "SPARE KEY – KEEP IT SEPARATE FROM YOUR DEVICE\n\nprivate: {privat}\npublic: {oeffentlich}\n\nWhoever has this key AND your current one is you.\nPrint it or put it on a USB stick, not in the cloud.\n" },
   "set.vorbereitet": { de: "Vorbereitet. Bewahre den Ersatzschlüssel getrennt auf.", en: "Prepared. Keep the spare key separately." },
