@@ -111,3 +111,4 @@ export * from "./sol-offline.js";
 export * from "./nip34.js";
 export * from "./kommentar.js";
 export * from "./raum-repo.js";
+export * from "./ki-lokal.js";

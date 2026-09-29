@@ -11911,3 +11911,68 @@ in `agent.ts`); A-8 (Cluster, Gratis-Schwelle, Modelle laden), A-9
 (Vergütung aus einem Topf – A+ kennt keinen) und A-10 (Abos über den
 Zahlkanal – Relays und Speicher nehmen keine Gutschriften, das wäre ein neues
 Format) brauchen eine Entscheidung: Fragen E9–E11 mit Empfehlung.
+## Schritt B-1 – KI „Dieses Gerät“ in der Modellwahl
+
+Aus der Sammlung (`docs/neuordnung/SAMMLUNG.md`, B-1, Lokal-Modus Teil 1):
+Die Modellwahl hat neben „Netz“ jetzt „Dieses Gerät“ – ein Modell auf dem
+eigenen Rechner (Ollama, llama.cpp, LM Studio). Keine eigene Seite, keine
+Entscheidung nötig.
+
+**Protokoll (`ki-lokal.ts`, neu):** `lokaleKiAdresse()` nimmt nur Adressen
+dieses Rechners an (`localhost`, `127.0.0.1`, `[::1]`, http oder https, ohne
+Zugangsdaten; zurück kommt der Ursprung) – Heimnetz, Internet, `0.0.0.0`,
+`127.0.0.2` und Namen wie `localhost.x.example` nicht. Die Anfrage geht über
+die OpenAI-kompatible Schnittstelle, die alle drei Dienste anbieten
+(`lokaleModellListe()` → `/v1/models`, `lokaleKiAnfrage()` →
+`/v1/chat/completions`, ohne Streaming, höchstens `LOKAL_MAX_TOKENS`).
+Zurück nur Geprüftes: `leseLokaleModelle()` (gültige Namen, ohne Doppelte,
+höchstens 50), `leseLokaleAntwort()` (Text begrenzt, Modellname geprüft,
+Zählwerte nur als ganze Zahlen).
+
+**App (`ki-lokal.ts`, ohne DOM):** Adresse (`freedom.lokal.adresse`, fremde
+fallen auf `http://localhost:11434` zurück), `freedom.lokal.aktiv` (erst nach
+einer Suche auf Wunsch – Browser fragen beim ersten Zugriff auf den eigenen
+Rechner um Erlaubnis, also nie beim Start), Wahlwert `lokal:<modell>`,
+`lokaleModelle()` und `frageLokal()` mit Stopp (`AbortSignal.any`) und drei
+Minuten Zeit; jeder Fehler wird eine Meldung, nie ein zweiter Weg.
+Die alten, nie aufgerufenen `localInfer()`/`localOllamaUp()` aus
+`local-tools.ts` (Ollama-eigene Schnittstelle) sind durch den Baustein
+ersetzt; ihr Text `bau.ollamaHttp` fiel mit.
+
+**Agent (`shell/tabs/agent.ts`):** In der Modellwahl die Gruppen „Netz“ und
+„Dieses Gerät“; der Bereich entsteht nur mit `textContent` und steht auch da,
+wenn das Netz nicht antwortet (`finally` in `refreshModelDropdown()`).
+„Modell auf diesem Gerät suchen“ → Modelle als Karten, „Adresse … ändern“
+über `dialog()`; nicht erreichbar → Grund und der Hinweis auf
+`OLLAMA_ORIGINS=<Herkunft der App>`. `askAi()` fragt ein gewähltes lokales
+Modell vor Funk und Netz über `frageAufDiesemGeraet()` – ohne Pool, Auftrag,
+Sitzungsschlüssel und Zahlung; der Verlauf reist als Kontext mit wie im Netz
+(`kontextPraefix()`), Werkzeuge nicht (Hinweis). Kostenschätzung: „gratis ·
+dieses Gerät“.
+
+**Datenschutz:** neue Aussage „ki-lokal“ (belegt, Regel
+`kein-klartext-prompt`) mit Szenario in `privacy-facts.test.ts`, Text in
+beiden Sprachen (`ds.fKiLokal`), Leak-Szenario `test/leak/ki-lokal.test.ts`
+(jeder Abruf an diesen Rechner, kein Event; fremde Adressen bekommen nichts).
+
+**Verdrahtet:** `shell/tabs/agent.ts` – `askAi()` → `frageAufDiesemGeraet()`
+→ `frageLokal()`; `setupModelPicker()` → `sucheLokal()` → `lokaleModelle()`;
+`refreshModelDropdown()` → `zeigeLokalBereich()`.
+
+**Tests (Protokoll +7, App +8, Leak +2):** `protocol/test/ki-lokal.test.ts`
+(nur dieser Rechner, Pfad fällt weg, Heimnetz/Internet/Zugangsdaten/andere
+Protokolle abgelehnt, Modelle ohne Doppelte und begrenzt, Anfrage ohne
+Streaming mit Tokengrenze, Antwort geprüft); Szenario „ki-lokal“ in
+`privacy-facts.test.ts`; `app/test/ki-lokal.test.ts` (Adresse und Wahlwert,
+Suche nur `/v1/models` ohne Zugangsdaten, Frage mit Stopp und Zeitablauf, je
+Frage genau ein Abruf, fremde Adresse ohne Abruf, Verdrahtung in `askAi()`);
+`app/test/leak/ki-lokal.test.ts` (jeder Abruf an diesen Rechner, kein Event).
+Smoke „lokal“ (neu): vor dem Klick keine Abfrage; Suche, Wahl „probe-modell:1b ·
+dieses Gerät“, Frage nur an `localhost:11434/v1/chat/completions`, Antwort mit
+„dieses Gerät · 10 Tokens · gratis“; danach nichts ans Relay.
+
+Endstand (B-1, 29.09., nach dem Einmergen von `main` mit 11.2b und A-4):
+protocol 1127 (+7, 6 übersprungen) · node 262 (7 übersprungen, ohne Netz; nicht
+berührt) · app 667 (+8) · mls 13 · Leak-Tests 68 grün + 1 todo · 0 rot ·
+check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 (keine neue Ausnahme) ·
+Website ok · Smoke-Test bestanden (mit „lokal“). Knoten-Stand: unverändert.
