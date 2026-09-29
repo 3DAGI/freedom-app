@@ -55,6 +55,7 @@ PROBE_VERLAUF = [{"id": "probe", "title": "Probe", "at": 1790000000, "messages":
     {"role": "ai", "text": "antwort", "meta": "<b id='probe-meta'>m</b>",
      "model": "<img id='probe-modell' src='x'>"}]}]
 from pathlib import Path
+from urllib.parse import parse_qs, urlparse
 
 
 def freier_port() -> int:
@@ -739,8 +740,11 @@ def qr_pruefen(browser, url: str) -> dict:
 
 def werben_pruefen(browser, url: str) -> dict:
     """Werbelink mit eigener Domain (11.2a): nur https, der Link trägt die Adresse,
-    „Prüfen“ fragt erst auf Klick ab und sagt ehrlich, was dort liegt."""
+    „Prüfen“ fragt erst auf Klick ab und sagt ehrlich, was dort liegt. Kurzer Name
+    (11.2b): übernommen nur zum eigenen Schlüssel; der Geworbene fragt genau einmal."""
     erg = {"fehler": []}
+    namen = {"ich": None, "werber": "cd" * 32}
+    nostr_json = []
     basis = url.rsplit("/", 1)[0]
     dist = Path(__file__).resolve().parent.parent / "packages" / "app" / "dist" / "freedom.html"
     relay = ProbeRelay()
@@ -750,8 +754,14 @@ def werben_pruefen(browser, url: str) -> dict:
     kopie = []
 
     def kopie_test(route):
-        kopie.append(route.request.url)
         cors = {"Access-Control-Allow-Origin": "*"}
+        if "/.well-known/nostr.json?name=" in route.request.url:
+            name = route.request.url.rsplit("=", 1)[1]
+            nostr_json.append(name)
+            pk = {"alice": namen["ich"], "fremd": "11" * 32, "bob": namen["werber"]}.get(name)
+            route.fulfill(json={"names": {name: pk} if pk else {}}, headers=cors)
+            return
+        kopie.append(route.request.url)
         if route.request.url.endswith("/freedom.html"):
             route.fulfill(path=str(dist), headers=cors, content_type="text/html")
         elif route.request.url.endswith("/freedom-spiegel.json"):
@@ -791,7 +801,54 @@ def werben_pruefen(browser, url: str) -> dict:
     tot = ev("() => [...document.getElementById('werben-adresse-status').children].map(z => z.textContent)")
     zurueck = ev(setze, "")
     gemerkt = ev("() => localStorage.getItem('freedom.werben.adresse')")
+    # 11.2b: kurzer Name – der eigene Schlüssel steht noch im Link
+    namen["ich"] = parse_qs(urlparse(zurueck["link"]).query).get("ref", [None])[0]
+    name_setzen = """async (n) => { document.getElementById('werben-name').value = n; document.getElementById('werben-name-setzen').click();
+      const st = document.getElementById('werben-name-status');
+      for (let i = 0; i < 100 && (st.textContent === '' || st.textContent.startsWith('Frage')); i++) await new Promise(r => setTimeout(r, 100));
+      return { status: st.textContent, link: document.getElementById('referral-link').value }; }"""
+    fremd = ev(name_setzen, "fremd@kopie.test")
+    alice = ev(name_setzen, "Alice@kopie.test")
+    auf_domain = ev(setze, "https://kopie.test/freedom.html")
+    ev(setze, "")
+    ohne_name = ev(name_setzen, "")
     ctx.close()
+    erg.update({"name_fremd": fremd["status"], "name_link": alice["link"][len(basis):], "name_domain": auf_domain["link"],
+                "name_zurueck": ohne_name["link"][len(basis):len(basis) + 20]})
+    if not namen["ich"] or len(namen["ich"]) != 64:
+        erg["fehler"].append(f"eigener Schlüssel nicht im Link: {zurueck['link'][:60]}")
+    if fremd["status"] != "Die Domain nennt unter diesem Namen einen anderen Schlüssel – nicht übernommen." or "fremd" in fremd["link"]:
+        erg["fehler"].append(f"fremder Name übernommen? {fremd}")
+    if not (alice["status"] == "Übernommen – der Werbelink trägt jetzt den Namen." and alice["link"].endswith("?ref=alice%40kopie.test")):
+        erg["fehler"].append(f"Name im Link {alice}")
+    if auf_domain["link"] != "https://kopie.test/freedom.html?ref=alice":
+        erg["fehler"].append(f"auf der Domain des Namens nur der Teil vor dem @: {auf_domain['link']}")
+    if f"?ref={namen['ich']}" not in ohne_name["link"]:
+        erg["fehler"].append(f"leer → wieder der Schlüssel: {ohne_name['link'][:80]}")
+    # Geworbener: Link mit Namen, die App fragt die Domain genau einmal
+    relay2 = ProbeRelay()
+    ctx = browser.new_context(locale="de-DE", viewport={"width": 1280, "height": 800})
+    ctx.route("**/*", lambda r: r.continue_() if r.request.url.startswith(basis) else r.abort())
+    ctx.route_web_socket(re.compile(r"^wss?://"), relay2.verbinde)
+    ctx.route("https://kopie.test/**", kopie_test)
+    s = ctx.new_page()
+    s.on("pageerror", lambda e: erg["fehler"].append(str(e)[:300]))
+    vorher = len(nostr_json)
+    s.goto(url + "?ref=bob%40kopie.test", wait_until="load")
+    try:
+        s.wait_for_function(f"() => localStorage.getItem('freedom.referrer') === '{namen['werber']}'", timeout=20000)
+    except Exception:
+        pass
+    werber = s.evaluate("() => [localStorage.getItem('freedom.referrer'), localStorage.getItem('freedom.referrer.name')]")
+    s.reload(wait_until="load")
+    s.wait_for_timeout(1500)
+    fragen = nostr_json[vorher:]
+    ctx.close()
+    erg.update({"geworben": werber, "fragen": fragen})
+    if werber != [namen["werber"], None]:
+        erg["fehler"].append(f"Werber aus dem Namen nicht gemerkt: {werber}")
+    if fragen != ["bob"]:
+        erg["fehler"].append(f"Domain nicht genau einmal gefragt: {fragen}")
     erg.update({"http": http["status"], "link": eigen["link"][:60], "vor_klick": vor_klick, "geprueft": geprueft, "tot": tot,
                 "zurueck": zurueck["link"][:40], "gemerkt": gemerkt})
     if http["status"] != "Nur https: Über http könnte unterwegs jeder die App austauschen." or http["link"].startswith("http://kopie.test"):

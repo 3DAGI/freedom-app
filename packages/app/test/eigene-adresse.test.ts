@@ -123,7 +123,8 @@ test("Prüfen: Platzhalter, nicht erreichbar (CORS), Fehlerstatus und zu groß �
 
 test("Verdrahtet: Werbelink mit eigener Adresse, Prüfen nur auf Knopfdruck, Signierer an einer Stelle", () => {
   const earn = src("../src/shell/tabs/earn.ts");
-  assert.match(earn, /link\.value = werbeLink\(eigeneBasis\(localStorage\) \?\? window\.location\.origin \+ window\.location\.pathname, pub, lud16\);/);
+  // Seit 11.2b steht als Werber der Schlüssel oder der geprüfte Name (`werbeRef()`)
+  assert.match(earn, /const basis = eigeneBasis\(localStorage\) \?\? window\.location\.origin \+ window\.location\.pathname;\s*(\/\/.*\s*)?link\.value = werbeLink\(basis, werbeRef\(localStorage, pub, basis\), lud16\);/);
   const ui = src("../src/shell/werben-ui.ts");
   assert.equal((ui.match(/pruefeKopie\(/g) ?? []).length, 1);
   assert.ok(ui.indexOf("pruefeKopie(") > ui.indexOf('pruefen.addEventListener("click"'), "nur im Klick – die Abfrage nennt dem Server die IP");

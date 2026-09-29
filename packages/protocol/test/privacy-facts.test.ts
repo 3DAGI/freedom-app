@@ -478,7 +478,7 @@ test("belegte Aussagen nennen ihre Regel, und jede genannte Regel gibt es", () =
     if (f.regel) assert.ok(f.regel in LEAK_REGELN, `Aussage "${f.id}": Regel "${f.regel}" gibt es nicht`);
   }
   // Ohne Regel nur, was kein Event-Mitschnitt pruefen kann.
-  assert.deepEqual(PRIVACY_FACTS.filter((f) => !f.regel).map((f) => f.id).sort(), ["dm-forward-secrecy", "ip"]);
+  assert.deepEqual(PRIVACY_FACTS.filter((f) => !f.regel).map((f) => f.id).sort(), ["dm-forward-secrecy", "ip", "werbe-name"]);
 });
 
 test("4.5b: eine SOL-Adresse je Knoten steht als bewusste Grenze im Bericht – mit Grund und Entscheidung", () => {
@@ -488,6 +488,15 @@ test("4.5b: eine SOL-Adresse je Knoten steht als bewusste Grenze im Bericht – 
   const t = privacyFactsText();
   const grenzen = t.slice(t.indexOf("Bewusste Grenzen:"));
   assert.match(grenzen, /△ Betreibst du einen Knoten, hat er eine SOL-Adresse: .*Entscheidung 4\.5 A/);
+});
+
+test("11.2b: die Abfrage eines Werbe-Namens steht als Grenze im Bericht – kein Event, deshalb ohne Regel", () => {
+  const f = PRIVACY_FACTS.find((x) => x.id === "werbe-name");
+  assert.equal(f?.status, "grenze");
+  assert.equal(f?.regel, undefined, "die Abfrage geht per https an die Domain, nicht als Event an ein Relay");
+  const t = privacyFactsText();
+  const grenzen = t.slice(t.indexOf("Bewusste Grenzen:"));
+  assert.match(grenzen, /△ Kommst du über einen Werbelink mit Namen \(name@domain\), fragt die App diese Domain beim ersten Start einmal .*Werbelinks mit Schlüssel fragen niemanden\./);
 });
 
 test("Grenzen nennen ihren Grund", () => {
