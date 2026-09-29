@@ -12014,3 +12014,10 @@ einen Upload in 200 Stücken durch; Aufräumen vergisst Zählstände.
 **Verdrahtet:** `packages/node/src/relay-role.ts` – `handleMessage()` (EVENT,
 AUTH, REQ), `nimmAn()` (je Schlüssel), `start()` (Verbindungen),
 `aufraeumen()` (Zählstände).
+
+Endstand (B-3, 29.09.): protocol 1127 (6 übersprungen) · node 271 (+9, 7
+übersprungen ohne Netz – mit Netz 272) · app 671 · mls 13 · Leak-Tests 68 grün +
+1 todo · 0 rot · check-wiring `--streng` Exit 0 (die Ausnahme für `RateLimiter`
+fiel) · innerHTML streng Exit 0 · Website ok · Smoke-Test bestanden.
+Knoten-Stand: neu – der GX10-Knoten braucht den aktuellen `main` für den
+Flutschutz; die App braucht nichts Neues.
