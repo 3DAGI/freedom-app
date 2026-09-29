@@ -11714,3 +11714,62 @@ Internet) · app 649 (+4) · mls 13 · Leak-Tests 66 grün + 1 todo · 0 rot ·
 check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 (keine neue
 Ausnahme) · Website ok · Smoke-Test bestanden (mit den neuen Prüfungen) ·
 Website-Bau ok · reproduzierbarer Build ok. Knoten-Stand: unverändert.
+
+## Schritt 11.2a – Werbelink mit eigener Domain
+
+**Warum:** Wunsch des MENSCHEN (Phase 11): Werbelinks mit eigener Adresse.
+Wer eine eigene Kopie der App unter eigener Domain anbietet, soll mit dieser
+Adresse werben – Geworbene laden die App dann von dort, und liegt dort
+`freedom-spiegel.json`, geht zusätzlich der Hosting-Anteil (1 %, 5.3a) an
+deren Adressen.
+
+**Was:**
+- `packages/app/src/eigene-adresse.ts` (neu, ohne DOM):
+  - `pruefeEigeneAdresse()`: nur https, ohne Benutzer/Passwort, keine lokale
+    oder private Adresse (localhost, `.local`, Namen ohne Punkt, private IPs
+    über `isPrivateAddress()` – nur für IP-Literale); Suchteil und Anker
+    fallen weg.
+  - `eigeneBasis()`: die gemerkte Adresse, nur solange sie die Prüfung besteht.
+  - `pruefeKopie()`: holt `freedom-spiegel.json` und die Datei an der Adresse,
+    hasht sie und hält sie gegen die Manifeste der vertrauten Signierer
+    (`verifyArtifact()`, k von n). Nie geworfen: nicht erreichbar (auch CORS)
+    und zu groß (über 32 MB, per `content-length` ohne Lesen) sind eigene Fälle.
+- `packages/app/src/release-signierer.ts` (neu): `TRUSTED_SIGNERS` und
+  `ladeManifeste()` – zogen aus `settings.ts`, damit Settings und Werben
+  dieselbe Liste nehmen. Verweise in `docs/KONTEN.md` und `phase-0.md`
+  angepasst.
+- `shell/werben-ui.ts` (neu): Earn › Werben – Feld, „Übernehmen“ (gemerkt nur
+  Geprüftes, leer = zurück zur eigenen Herkunft), „Prüfen“ nur auf Knopfdruck
+  mit zwei Zeilen: was dort liegt (Echtheitstext aus `echtheitText()`) und
+  wohin der Hosting-Anteil geht. Der Werbelink (samt QR aus 11.1b) trägt die
+  eigene Adresse (`updateReferralLink()`).
+- `freedom.werben.adresse` in `SICHERUNG_EINTRAEGE` (Protokoll, Spur B –
+  eine Zeile): ein neues Gerät wirbt mit derselben Adresse.
+- Texte in beiden Sprachen (`earn.adresse*`, `earn.kopie*`, `earn.hosting*`),
+  FAQ („Wie funktioniert das Werben?“) um die eigene Domain ergänzt.
+
+**Tests (+5, `eigene-adresse.test.ts`):** Adressregeln (https, Zugangsdaten,
+lokal inkl. IPv6 und Namen ohne Punkt, öffentliche IP erlaubt); Werbelink mit
+eigener Adresse und `merkeWerber()` beim Geworbenen; Prüfen: echt nur mit zwei
+Signierern, einer = „zu wenig“, ohne Signierer = „kein Manifest“, veränderte
+Datei = „abweichend“, Hosting aus der Spiegel-Datei, Platzhalter zählen nicht,
+CORS/Fehlerstatus = nicht erreichbar, zu groß ohne Lesen; Verdrahtung (Prüfen
+nur im Klick, gemerkt nur Geprüftes, Signierer an einer Stelle).
+`ki-zahlung.test.ts` und `release-fix.test.ts` folgen der neuen Werbelink-Zeile
+bzw. dem neuen Ort der Signierer (dieselben Prüfungen).
+Smoke „werben“ (neu): http abgewiesen; eigene https-Adresse im Werbelink;
+vor dem Klick keine Abfrage; „Prüfen“ an einer Kopie (die gebaute
+freedom.html, CORS erlaubt) → „Dort: Kein Manifest eines bekannten
+Signierers …“ und „Hosting-Anteil … an: hosting@kopie.example“; tote Adresse →
+„Nicht geprüft: … (CORS)“ und „Hosting-Anteil bleibt beim Provider“; leer →
+wieder die eigene Herkunft.
+
+**Verdrahtet:** `shell/tabs/earn.ts` (`updateReferralLink()`), `shell/app.ts`
+(`wireEigeneAdresse()` nach `setupReferral()`), `shell/werben-ui.ts`.
+
+Endstand (nach dem Einmergen von `main` bis C-20b, 29.09.): protocol 1116
+(6 übersprungen) · node 263 (6 übersprungen, mit Netz) · app 654 (+5) · mls 13 ·
+Leak-Tests 66 grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 (157
+ausgenommen, 0 offen – `hashBytes` ist jetzt verdrahtet, die Ausnahme aus 0.D
+fiel) · innerHTML streng Exit 0 (63 Ausnahmen) · Website 5 Seiten ok ·
+Smoke-Test bestanden (mit „werben“).

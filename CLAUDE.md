@@ -45,9 +45,9 @@ bash packages/mls/bauen.sh --pruefen                     # nur bei Änderungen a
 bash contracts/solana-channel/pruefen.sh --werkzeuge     # nur bei Änderungen am Zahlkanal: bauen + Tests gegen Validator (Agave 3.1.10)
 ```
 
-Stand 28.09.2026 (nach 8.2c, 5.5a–c, 8.15, 11.1a, C.3c2, 11.1b, 5.9a–b, 6.3a–b2, 11.4a–b2, C.4a–b, C.5a–b, C.6b, 11.4c, C-18, C-17a–c und C-20a–b): protocol 1116 grün (6 übersprungen), node 263 grün
+Stand 28.09.2026 (nach 8.2c, 5.5a–c, 8.15, 11.1a, C.3c2, 11.1b, 5.9a–b, 6.3a–b2, 11.4a–b2, C.4a–b, C.5a–b, C.6b, 11.4c, C-18, C-17a–c, C-20a–b und 11.2a): protocol 1116 grün (6 übersprungen), node 263 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 649 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 66 grün + 1 `todo` (heutige Lecks,
+in `tools.test.ts`), app 654 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 66 grün + 1 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
 Ausnahme: gesendete SOL-Zahlungen von frischen Adressen, eine bewusste Grenze
 nach Entscheidung 4.9 A – im Datenschutzbericht unter „Bewusste Grenzen“).
@@ -777,3 +777,10 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   Prüfung vorher lokal laufen lassen und nie auf feste Pausen bauen, wo sich
   auf einen Zustand warten lässt (`wait_for_function` mit Frist) – der Runner
   ist langsamer als die Sitzung.
+- **Werbelink mit eigener Adresse nur geprüft** (seit 11.2a): Die Adresse
+  nur über `pruefeEigeneAdresse()` (https, ohne Zugangsdaten, nicht lokal),
+  gemerkt nur das Ergebnis (`freedom.werben.adresse`). Eine fremde Adresse
+  fragt die App nur auf Knopfdruck ab (`pruefeKopie()`, der Server sieht die
+  IP) und nennt sie nur „geprüft“, wenn k vertraute Signierer die Datei
+  bestätigen – die Liste steht nur in `release-signierer.ts`
+  (`TRUSTED_SIGNERS`, leer bis MENSCH).

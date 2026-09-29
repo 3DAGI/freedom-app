@@ -158,7 +158,6 @@ private-job.ts|openPrivateJobRequest|Öffner nur für Anfragen (3.1); der Knoten
 
 relay-discovery.ts|torInfo|Hinweistext zu Tor, ohne Oberfläche (Native Apps mit Tor, 6.1)
 
-release.ts|hashBytes|Hash-Hilfe für Release-Dateien, noch nicht angebunden (Signierte Releases, 0.D)
 
 
 

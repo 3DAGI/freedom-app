@@ -13,6 +13,7 @@ import { ensurePool, signiere, state } from "../state.js";
 import { geheim } from "../tresor.js";
 import { $, timeAgo, toast } from "../ui.js";
 import { merkeWerber, werbeLink } from "../../werbung.js";
+import { eigeneBasis } from "../../eigene-adresse.js";
 import { knotenSchluessel } from "../verdienst-ui.js";
 import { mitwirkendeListe } from "../mitwirkende.js";
 import { gebietText, zeigeKarte } from "./karte.js";
@@ -283,7 +284,8 @@ export function updateReferralLink(): void {
   // der Lightning-Adresse aus dem Profil, damit der Anteil ankommt (5.1.3b)
   let lud16: string | undefined;
   try { lud16 = (JSON.parse(localStorage.getItem("freedom.profile") ?? "{}") as { lud16?: string }).lud16; } catch { /* kein Profil */ }
-  link.value = werbeLink(window.location.origin + window.location.pathname, pub, lud16);
+  // Eigene Adresse der App, falls gesetzt (11.2a) – sonst die, unter der sie läuft
+  link.value = werbeLink(eigeneBasis(localStorage) ?? window.location.origin + window.location.pathname, pub, lud16);
   // Als QR-Code zum Zeigen oder Ausdrucken (11.1b) – nichts Geheimes darin
   $("#referral-qr")?.replaceChildren(qrKnopf(link.value, { beschriftung: t("earn.werbelinkQr") }));
   if (stats) {

@@ -737,6 +737,81 @@ def qr_pruefen(browser, url: str) -> dict:
     return erg
 
 
+def werben_pruefen(browser, url: str) -> dict:
+    """Werbelink mit eigener Domain (11.2a): nur https, der Link trägt die Adresse,
+    „Prüfen“ fragt erst auf Klick ab und sagt ehrlich, was dort liegt."""
+    erg = {"fehler": []}
+    basis = url.rsplit("/", 1)[0]
+    dist = Path(__file__).resolve().parent.parent / "packages" / "app" / "dist" / "freedom.html"
+    relay = ProbeRelay()
+    ctx = browser.new_context(locale="de-DE", viewport={"width": 1280, "height": 800})
+    ctx.route("**/*", lambda r: r.continue_() if r.request.url.startswith(basis) else r.abort())
+    ctx.route_web_socket(re.compile(r"^wss?://"), relay.verbinde)
+    kopie = []
+
+    def kopie_test(route):
+        kopie.append(route.request.url)
+        cors = {"Access-Control-Allow-Origin": "*"}
+        if route.request.url.endswith("/freedom.html"):
+            route.fulfill(path=str(dist), headers=cors, content_type="text/html")
+        elif route.request.url.endswith("/freedom-spiegel.json"):
+            route.fulfill(json={"version": 1, "zahlziel": {"lud16": "hosting@kopie.example"}}, headers=cors)
+        else:
+            route.fulfill(status=404, headers=cors)
+    ctx.route("https://kopie.test/**", kopie_test)  # später registriert → zuerst gefragt
+    s = ctx.new_page()
+    s.on("pageerror", lambda e: erg["fehler"].append(str(e)[:300]))
+    ev = s.evaluate
+    s.goto(url, wait_until="load")
+    s.wait_for_selector("#bk-done", timeout=30000)
+    w = ev("() => [...document.querySelectorAll('.mnemonic-list li')].map(l => l.textContent)")
+    ev("(w) => document.querySelectorAll('#bk-challenge input').forEach(i => i.value = w[+i.dataset.pos])", w)
+    ev("() => document.getElementById('bk-done').click()")
+    s.wait_for_timeout(1500)
+    ev("() => document.getElementById('ein-abbrechen')?.click()")
+    ev("() => document.querySelector('.app-nav button[data-tab=\"earn\"]').click()")
+    s.wait_for_timeout(500)
+    setze = """(a) => { document.getElementById('werben-adresse').value = a; document.getElementById('werben-adresse-setzen').click();
+      return { status: document.getElementById('werben-adresse-status').textContent, link: document.getElementById('referral-link').value }; }"""
+    http = ev(setze, "http://kopie.test/freedom.html")
+    eigen = ev(setze, "https://kopie.test/freedom.html")
+    vor_klick = len(kopie)
+    ev("() => document.getElementById('werben-adresse-pruefen').click()")
+    try:
+        s.wait_for_function("() => document.getElementById('werben-adresse-status').textContent.startsWith('Dort:')", timeout=20000)
+    except Exception:
+        pass
+    geprueft = ev("() => [...document.getElementById('werben-adresse-status').children].map(z => z.textContent)")
+    ev(setze, "https://tot.test/")
+    ev("() => document.getElementById('werben-adresse-pruefen').click()")
+    try:
+        s.wait_for_function("() => document.getElementById('werben-adresse-status').children.length === 2", timeout=20000)
+    except Exception:
+        pass
+    tot = ev("() => [...document.getElementById('werben-adresse-status').children].map(z => z.textContent)")
+    zurueck = ev(setze, "")
+    gemerkt = ev("() => localStorage.getItem('freedom.werben.adresse')")
+    ctx.close()
+    erg.update({"http": http["status"], "link": eigen["link"][:60], "vor_klick": vor_klick, "geprueft": geprueft, "tot": tot,
+                "zurueck": zurueck["link"][:40], "gemerkt": gemerkt})
+    if http["status"] != "Nur https: Über http könnte unterwegs jeder die App austauschen." or http["link"].startswith("http://kopie.test"):
+        erg["fehler"].append(f"http abgewiesen? {http}")
+    if not (eigen["link"].startswith("https://kopie.test/freedom.html?ref=") and eigen["status"].startswith("Übernommen")):
+        erg["fehler"].append(f"eigene Adresse im Link {eigen}")
+    if vor_klick != 0:
+        erg["fehler"].append(f"Abfrage vor dem Klick: {vor_klick}")
+    if geprueft != ["Dort: Kein Manifest eines bekannten Signierers gefunden. Die Datei lässt sich nicht prüfen — das heißt nicht, dass sie falsch ist, nur dass niemand für sie bürgt.",
+                    "Hosting-Anteil laut freedom-spiegel.json an: hosting@kopie.example"]:
+        erg["fehler"].append(f"Prüfen {geprueft}")
+    if tot != ["Nicht geprüft: Die Adresse antwortet nicht oder erlaubt keine Abfrage aus dem Browser (CORS).",
+               "Keine gültige freedom-spiegel.json dort – der Hosting-Anteil bleibt beim Provider."]:
+        erg["fehler"].append(f"tote Adresse {tot}")
+    if not zurueck["link"].startswith(basis) or gemerkt is not None:
+        erg["fehler"].append(f"zurück zur eigenen Herkunft {zurueck['link'][:40]} {gemerkt}")
+    erg["bestanden"] = not erg["fehler"]
+    return erg
+
+
 def raum_probe(ich: str) -> list[dict]:
     """Events des Probe-Raums; der eigene Schlüssel wird Moderator."""
     wurzel = Path(__file__).resolve().parent.parent
@@ -1834,6 +1909,10 @@ def main() -> int:
             except Exception as e:
                 erg["qr"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
             try:
+                erg["werben"] = werben_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
+            except Exception as e:
+                erg["werben"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
+            try:
                 erg["mobil"] = mobil_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
             except Exception as e:
                 erg["mobil"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
@@ -1854,6 +1933,7 @@ def main() -> int:
           and erg.get("raum", {}).get("bestanden") is True
           and erg.get("karte", {}).get("bestanden") is True
           and erg.get("qr", {}).get("bestanden") is True
+          and erg.get("werben", {}).get("bestanden") is True
           and erg.get("mobil", {}).get("bestanden") is True)
     erg["bestanden"] = bool(ok)
     print(json.dumps(erg, indent=1, ensure_ascii=False))

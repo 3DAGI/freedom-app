@@ -20,6 +20,7 @@ import { rufStand, rufTeilenAn, setzeRufTeilen } from "../ruf.js";
 import { geheim, istGeheimnis, tresorEingerichtet, wireTresorKarte } from "../tresor.js";
 import { $, ganzeZahl, toast } from "../ui.js";
 import { bestaetige, dialog } from "../dialog.js";
+import { TRUSTED_SIGNERS, ladeManifeste } from "../../release-signierer.js";
 import { ladeAbdeckung, nutzeStandort, trageAbdeckungEin, vergissStandort, widerrufeAbdeckung } from "./earn.js";
 import { LS_KONTAKTE_SICHERN, geraeteBuch, kontakteEinschalten, kontakteSichernAn, sichereKontakte } from "./kommunikation.js";
 import { LS_STANDARD_SCHIENE, standardSchiene } from "../../standard-schiene.js";
@@ -911,17 +912,10 @@ function ladeFixierung(): import("@freedomstack/protocol").Fixierung | null {
 
 /** Eigene Datei hashen und gegen die Manifeste im Netz pruefen (k von n). */
 async function echtheit() {
-  const {
-    hashText, parseReleaseManifest, verifyArtifact, latestRelease, allSources, pruefeFixierung,
-    KIND_RELEASE_MANIFEST,
-  } = await import("@freedomstack/protocol");
+  const { hashText, verifyArtifact, latestRelease, allSources, pruefeFixierung } = await import("@freedomstack/protocol");
   const res = await fetch(location.href, { cache: "no-store" });
   const hash = hashText(await res.text());
-  const pool = await ensurePool();
-  const evs = await pool.query({ kinds: [KIND_RELEASE_MANIFEST], limit: 50 });
-  const manifeste = evs.map((e) => {
-    try { return parseReleaseManifest(e); } catch { return null; }
-  }).filter((m): m is NonNullable<typeof m> => m !== null);
+  const manifeste = await ladeManifeste(await ensurePool());
   const r = verifyArtifact(hash, "freedom.html", manifeste, TRUSTED_SIGNERS);
   return {
     hash, r,
@@ -990,20 +984,6 @@ export async function pruefeFixierungBeimStart(): Promise<void> {
     }
   } catch { /* ohne Netz oder als lokale Datei nicht pruefbar – beim naechsten Start erneut */ }
 }
-
-/**
- * Signierschluessel, denen die App bei Release-Manifesten vertraut.
- *
- * Ohne diese Liste koennte jeder ein Manifest fuer seine eigene manipulierte
- * Datei veroeffentlichen und sie als echt ausweisen. Die Pruefung ist genau so
- * viel wert wie diese Liste — deshalb steht sie im Quelltext und nicht in
- * einer Konfiguration, die sich unterwegs aendern laesst. Seit 5.2 muessen
- * mindestens `RELEASE_MIN_SIGNATUREN` (2) von ihnen dieselbe Version
- * bestaetigen – ein einzelner gestohlener Schluessel reicht nicht.
- */
-const TRUSTED_SIGNERS: string[] = [
-  // VOR DEM RELEASE SETZEN: Pubkeys der Signierschluessel (mindestens zwei Personen oder Geraete).
-];
 
 /**
  * Gebühren (A+, 5.1.3): was die App an Anteilen gesammelt hat – gezahlt ab
