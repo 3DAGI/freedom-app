@@ -12165,3 +12165,9 @@ Einzelwerte aus der Sicherung, Unlesbares fällt auf sie zurück; verdrahtet
 
 **Verdrahtet:** `packages/app/src/shell/tabs/settings.ts` –
 `stelleZustandWieder()` und `leseExportDatei()` → `fuehreZusammen()`.
+
+Endstand (B-5, 29.09.): protocol 1131 (6 übersprungen) · node 271 (7
+übersprungen ohne Netz – mit Netz 272) · app 688 (+7) · mls 13 · Leak-Tests 68
+grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 (Begründung für
+`merge.ts` neu) · innerHTML streng Exit 0 · Website ok · Smoke-Test bestanden.
+Knoten-Stand: unverändert.
