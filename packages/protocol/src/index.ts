@@ -28,6 +28,7 @@ export * from "./kurs.js";
 export * from "./sol-trinkgeld.js";
 export * from "./bolt11.js";
 export * from "./qr.js";
+export * from "./nip05.js";
 export * from "./swap-umgekehrt.js";
 export * from "./relayer.js";
 export * from "./swap-versiegelt.js";

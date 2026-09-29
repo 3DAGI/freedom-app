@@ -470,6 +470,15 @@
             <p class="mono-sm muted" data-i18n="earn.adresseText">Liegt dort deine Kopie von freedom.html, laden Geworbene die App von dort. Legst du freedom-spiegel.json mit deinen Adressen daneben, bekommst du zusätzlich 1 % jeder KI-Zahlung über diese Kopie. „Prüfen“ fragt die Adresse ab – der Server sieht dabei deine IP.</p>
             <div id="werben-adresse-status" class="mono-sm" aria-live="polite"></div>
           </div>
+          <div class="werben-adresse">
+            <label for="werben-name" class="mono-sm" data-i18n="earn.nameLabel">Kurzer Name statt Schlüssel (NIP-05) – leer: der Schlüssel</label>
+            <div class="referral-box">
+              <input id="werben-name" class="mono-sm" placeholder="name@deine-domain.de" data-i18n-ph="earn.namePh" autocomplete="off" spellcheck="false" />
+              <button id="werben-name-setzen" class="ghost" data-i18n="earn.nameSetzen">Übernehmen</button>
+            </div>
+            <p class="mono-sm muted" data-i18n="earn.nameText">Nennt /.well-known/nostr.json deiner Domain unter diesem Namen deinen Schlüssel, trägt der Werbelink den Namen – auf der Domain deiner eigenen Adresse nur den Teil vor dem @. „Übernehmen“ fragt die Domain ab. Wer über den Link kommt, fragt sie beim ersten Start einmal; sie sieht dabei seine IP.</p>
+            <div id="werben-name-status" class="mono-sm" aria-live="polite"></div>
+          </div>
           <div id="referral-tier" class="mono-sm"></div>
           <p class="mono-sm" id="referral-stats">—</p>
         </div></div>

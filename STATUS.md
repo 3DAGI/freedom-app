@@ -11773,3 +11773,80 @@ Leak-Tests 66 grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 (157
 ausgenommen, 0 offen – `hashBytes` ist jetzt verdrahtet, die Ausnahme aus 0.D
 fiel) · innerHTML streng Exit 0 (63 Ausnahmen) · Website 5 Seiten ok ·
 Smoke-Test bestanden (mit „werben“).
+
+## Schritt 11.2b – Werbelink mit kurzem Namen (NIP-05)
+
+**Warum:** Zweiter Teil des Wunsches „Werbelink mit eigener URL“ (Phase 11,
+Entscheidung „Beides“): statt des 64-stelligen Schlüssels ein kurzer Name
+`name@domain`, auf der eigenen Domain nur `name`.
+
+**Was:**
+- `packages/protocol/src/nip05.ts` (neu, ohne DOM): `leseNip05()` (Name aus
+  Kleinbuchstaben, Ziffern, `. _ -`; Domain nur öffentlicher DNS-Name – keine
+  IP, nichts auf `localhost`/`.local`, kein Port), `nip05Adresse()`,
+  `loeseNip05()`: genau eine Abfrage an
+  `https://domain/.well-known/nostr.json?name=…` mit `redirect: "error"`
+  (NIP-05: Weiterleitungen nicht folgen), ohne Cookies und Herkunftsangabe;
+  Antwort höchstens 256 KB (per `content-length` ohne Lesen, sonst beim
+  Lesen abgebrochen); nur ein eigener Eintrag unter genau diesem Namen, nur
+  64 Zeichen Hex. Nie geworfen – `nicht-erreichbar`, `zu-gross`, `ungueltig`,
+  `unbekannt`.
+- `packages/app/src/werbung.ts`: Werber – `merkeWerbeName()` (Name samt
+  Schlüssel, für den er geprüft wurde), `werbeRef()` (Name statt Schlüssel;
+  auf der Domain der eigenen Adresse aus 11.2a nur der Teil vor dem @; nach
+  einem Identitätswechsel wieder der Schlüssel). Geworbener – `merkeWerber()`
+  merkt einen Namen nur vor (ohne @ mit der Domain, von der die App kam), nur
+  solange es keinen Werber gibt; `loeseWerberName()` fragt einmal, vergisst
+  den Namen vor der Abfrage und merkt den Werber nur, wenn es noch keinen
+  gibt. Lightning-Adresse aus dem Link, sonst aus dem signierten Profil
+  (`frageBeiAutoren`, `parseProfileSafe`).
+- `shell/werben-ui.ts`: Feld „Kurzer Name statt Schlüssel (NIP-05)“ –
+  „Übernehmen“ fragt die Domain (nur auf Klick) und merkt nur, wenn sie den
+  eigenen Schlüssel nennt; fremder Schlüssel, unbekannter Name, keine
+  Antwort/CORS, zu groß, kaputtes nostr.json je mit eigenem Text; leer → wieder
+  der Schlüssel. `freedom.werben.name` in `SICHERUNG_EINTRAEGE`.
+- Datenschutzbericht: neue Grenze „werbe-name“ (die Domain sieht bei der
+  einen Abfrage die IP und dass ihr Link geöffnet wurde) mit Grund; ohne
+  Leak-Regel, weil keine Event-Aufzeichnung eine https-Abfrage sieht – der
+  Test „Ohne Regel nur …“ kennt sie deshalb neben Forward Secrecy und IP.
+  Texte in beiden Sprachen, FAQ ergänzt.
+
+**Tests:** protocol +4 (`nip05.test.ts`: Namen und Domains, genau eine Adresse
+mit den Abrufoptionen, alle Fehlerfälle samt Weiterleitung, geerbter
+Eigenschaft und Größe mit und ohne Längenangabe; `privacy-facts.test.ts`:
+Grenze im Bericht). app +5 (`werbe-name.test.ts`: Link mit Name/Kurzname/
+Schlüssel, Vormerken und einmaliges Auflösen, Domain der App ohne @, Adresse
+aus Link bzw. Profil, erster Werber bleibt, jeder Fehlschlag vergessen ohne
+zweiten Versuch, Verdrahtung). `eigene-adresse.test.ts` folgt der neuen
+Werbelink-Zeile (dieselbe Prüfung). Smoke „werben“ erweitert: fremder Name
+abgewiesen, eigener Name im Link, auf seiner Domain `?ref=alice`, leer wieder
+der Schlüssel; Geworbener mit `?ref=bob@kopie.test` merkt den Werber, fragt
+die Domain genau einmal – auch nach einem Neuladen.
+
+**Verdrahtet:** `shell/tabs/earn.ts` (`captureReferral()` →
+`loeseWerberNameJetzt()`, `updateReferralLink()` mit `werbeRef()`),
+`shell/app.ts` (`wireWerbeName()`), `shell/werben-ui.ts`.
+
+## Schritt A-4 – Veraltete Aussagen im Code
+
+Aus der Sammlung (`docs/neuordnung/SAMMLUNG.md`, A-4), mit 11.2b im selben
+Pull Request, nur Kommentare – kein Verhalten geändert:
+- `protocol/src/tiers.ts`: Das Tier „beweist“ nicht mehr 38010, sondern nur
+  der Ruf aus Quittungen (5.5); 38010 ist Selbstauskunft.
+- `node/src/dvm-provider.ts`: Kopf nach dem heutigen Ablauf (versiegelte
+  Aufträge, Aufteilung A+ in der App, Zahlkanal, 38010 nur für die eigene
+  Einnahmen-Übersicht, der Knoten zahlt nichts aus); Region ohne
+  Knappheitsbonus (fiel mit 5.1.4a); Bootstrap-Kommentare ohne „Reputation
+  aus 38010“.
+- Dabei aufgefallen und als Frage E7 in die Sammlung: Die Bootstrap-Phase
+  (erste 24 h nur gratis) bringt seit 5.5 keinen Ruf mehr – behalten,
+  streichen oder freiwillig?
+- `FORTSCHRITT.md`: 5.4 „Code fertig“ (c kam mit 8.4 von Spur B). Sammlung:
+  C-16 frei – Spur A ist mit dem lesenden Getter in `ws-relay.ts` einverstanden.
+
+Endstand (11.2b und A-4, 29.09.): protocol 1120 (+4, 6 übersprungen) · node 263
+(6 übersprungen, mit Netz) · app 659 (+5) · mls 13 · Leak-Tests 66 grün +
+1 todo · 0 rot · check-wiring `--streng` Exit 0 (157 ausgenommen, 0 offen) ·
+innerHTML streng Exit 0 (63 Ausnahmen) · Website 5 Seiten ok · Smoke-Test
+bestanden (mit erweitertem „werben“). Knoten-Stand: unverändert (A-4 ändert
+nur Kommentare).

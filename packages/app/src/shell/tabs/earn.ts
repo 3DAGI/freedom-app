@@ -5,14 +5,14 @@
  *
  * Aus app.ts verschoben (Schritt 1.0) – wörtlich, ohne Logikänderung.
  */
-import { KIND_PERFORMANCE } from "@freedomstack/protocol";
+import { KIND_PERFORMANCE, loeseNip05, parseProfileSafe } from "@freedomstack/protocol";
 import { t } from "../../i18n.js";
 import { abdeckungEinwilligung, abdeckungHier, ebeneName, fehlerText, zellenStufe } from "../../protokoll-texte.js";
 import { escapeHtml, pkShort } from "../../shell-logic.js";
-import { ensurePool, signiere, state } from "../state.js";
+import { ensurePool, frageBeiAutoren, signiere, state } from "../state.js";
 import { geheim } from "../tresor.js";
 import { $, timeAgo, toast } from "../ui.js";
-import { merkeWerber, werbeLink } from "../../werbung.js";
+import { loeseWerberName, merkeWerber, werbeLink, werbeRef } from "../../werbung.js";
 import { eigeneBasis } from "../../eigene-adresse.js";
 import { knotenSchluessel } from "../verdienst-ui.js";
 import { mitwirkendeListe } from "../mitwirkende.js";
@@ -285,7 +285,9 @@ export function updateReferralLink(): void {
   let lud16: string | undefined;
   try { lud16 = (JSON.parse(localStorage.getItem("freedom.profile") ?? "{}") as { lud16?: string }).lud16; } catch { /* kein Profil */ }
   // Eigene Adresse der App, falls gesetzt (11.2a) – sonst die, unter der sie läuft
-  link.value = werbeLink(eigeneBasis(localStorage) ?? window.location.origin + window.location.pathname, pub, lud16);
+  const basis = eigeneBasis(localStorage) ?? window.location.origin + window.location.pathname;
+  // Mit dem geprüften kurzen Namen statt des Schlüssels, falls gesetzt (11.2b)
+  link.value = werbeLink(basis, werbeRef(localStorage, pub, basis), lud16);
   // Als QR-Code zum Zeigen oder Ausdrucken (11.1b) – nichts Geheimes darin
   $("#referral-qr")?.replaceChildren(qrKnopf(link.value, { beschriftung: t("earn.werbelinkQr") }));
   if (stats) {
@@ -323,7 +325,23 @@ async function zeigeNennungen(): Promise<void> {
  * urspruenglichen Werber nicht still verdraengt (werbung.ts).
  */
 export function captureReferral(): void {
-  merkeWerber(window.location.search, localStorage);
+  merkeWerber(window.location.search, localStorage, window.location.hostname);
+  void loeseWerberNameJetzt();
+}
+
+/**
+ * Ein Name statt Schlüssel im Werbelink (11.2b): einmal bei der Domain
+ * nachfragen (sie sieht dabei die IP – Datenschutzbericht „werbe-name“); die
+ * Lightning-Adresse, wenn der Link keine trägt, aus dem signierten Profil.
+ */
+async function loeseWerberNameJetzt(): Promise<void> {
+  const ausgang = await loeseWerberName(localStorage, (k) => loeseNip05(k), async (pk) => {
+    const profile = await frageBeiAutoren({ kinds: [0], authors: [pk], limit: 5 });
+    const neuestes = profile.filter((ev) => ev.pubkey === pk).sort((a, b) => b.created_at - a.created_at)[0];
+    return neuestes ? parseProfileSafe(neuestes).lud16 : undefined;
+  });
+  if (ausgang === "gemerkt") void publishReferralClaim();
+  else if (ausgang !== "kein" && ausgang !== "schon-werber") console.warn(`[referral] Name im Werbelink nicht aufgelöst: ${ausgang}`);
 }
 
 /**

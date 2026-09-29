@@ -1,15 +1,20 @@
 /**
  * DVM-Provider-Daemon: Das Herzstueck des Provider-Knotens.
  *
- * Loop (FreedomStack AGENT_HANDOFF, Aufgabe C):
- *   1. per REQ auf kind 5050 (DVM Text-Generation) lauschen
+ * Ablauf:
+ *   1. Aufträge (kind 5050, DVM Text-Generation) annehmen – seit 3.1 nur
+ *      versiegelt von einem Sitzungsschlüssel
  *   2. Job an das lokale Inference-Backend geben (Ollama, GX10)
- *   3. Result publizieren (kind 6050) mit Betrag + eigener lud16
- *   4. Zahlung per NIP-57 Zap empfangen (mit 1%-Fee-Split an der Quelle)
- *   5. Leistungs-Event (38010) mit PoW publizieren -> Reputation/WoT
+ *   3. Ergebnis (kind 6050) versiegelt zurück, mit Betrag und eigener lud16
+ *   4. Bezahlt wird nach A+ (5.1): Die App des Kunden teilt die Zahlung
+ *      selbst auf und zahlt dem Provider seinen Anteil direkt – per Lightning
+ *      oder per Gutschrift im Zahlkanal (4.3)
+ *   5. Leistungs-Event (38010) mit PoW – für die eigene Einnahmen-Übersicht
+ *      im Earn-Tab; den Ruf bestimmt es seit 5.5 nicht mehr (nur Quittungen)
  *
- * Der Daemon verwahrt NICHTS: Kein Konto, keine Balance, kein Custody.
- * Zahlungen laufen direkt Kunde -> Provider via Lightning-Zap.
+ * Der Daemon verwahrt NICHTS: Kein Konto, keine Balance, kein Custody – und
+ * zahlt seit 5.1.2 nichts aus (einzige Ausnahme: eigenes Geld an die eigene
+ * Adresse, 4.5a).
  */
 import {
   NostrEvent,
@@ -98,8 +103,9 @@ export interface ProviderConfig {
   /**
    * Grobe Region (eu, na, sa, af, as, oc).
    *
-   * Steuert den Knappheitsbonus: ein Knoten in einer unterversorgten Region
-   * ist fuer das Netz mehr wert als der zwanzigste in Mitteleuropa.
+   * Zeigt, wo dem Netz Kapazität fehlt (`scarcity.ts`) – ein Knoten in einer
+   * unterversorgten Region hilft mehr als der zwanzigste in Mitteleuropa.
+   * Geld hängt nicht daran: Der Knappheitsbonus fiel mit 5.1.4a.
    */
   region?: string;
   /** RPC-Endpunkt fuer die On-Chain-Pruefung von Deposits. */
@@ -332,8 +338,9 @@ export class DvmProvider {
 
   /**
    * Bootstrap-Phase (Kaltstart): Ist dieser Provider noch in den ersten 24h?
-   * Neue Provider arbeiten gratis, um Reputation (38010-Events) aufzubauen
-   * und Stabilitaet zu beweisen. Danach automatisch paid.
+   * Neue Provider arbeiten gratis und zeigen so, dass der Knoten läuft.
+   * Danach automatisch paid. Ruf entsteht seit 5.5 nicht aus dieser Phase:
+   * Er kommt nur aus Quittungen bezahlter Aufträge, die Kunden selbst führen.
    * Ohne providerSince gilt: nicht in Bootstrap (rueckwaertskompatibel).
    */
   isInBootstrap(now = Math.floor(Date.now() / 1000)): boolean {
@@ -788,8 +795,8 @@ export class DvmProvider {
     const now = Math.floor(Date.now() / 1000);
 
     // Bootstrap-Phase (neue Provider, erste 24h): NUR Gratis-Jobs annehmen.
-    // Bezahlte Jobs werden abgelehnt — der Provider muss erst Reputation
-    // (38010-Events) und Stabilitaet beweisen, bevor er verdienen darf.
+    // Bezahlte Jobs werden abgelehnt — der Knoten soll erst eine Weile stabil
+    // laufen, bevor er verdient.
     // TEST-MODUS: SKIP_BOOTSTRAP=1 umgeht die Bootstrap-Phase (nur fuer Entwicklung!)
     const skipBootstrap = process.env.SKIP_BOOTSTRAP === "1";
     const bootstrap = this.isInBootstrap(now) && !skipBootstrap;
@@ -1024,11 +1031,11 @@ export class DvmProvider {
     );
     await this.antworte(resultEvent, request, privat);
 
-    // 5. Leistungs-Event (kind 38010) mit PoW -> oeffentlich pruefbare Reputation.
-    // WICHTIG: Gratis-Jobs (Bootstrap + freiwilliges Free-Tier) erzeugen
-    // 38010-Events mit volume_msat=0 — das ist der Reputations-Nachweis.
-    // Mehr ehrliche Arbeit -> hoeheres Ranking -> mehr bezahlte Nachfrage.
-    // (KEIN Bonus-Pool noetig; der Markt belohnt Reputation mit Nachfrage.)
+    // 5. Leistungs-Event (kind 38010) mit PoW – für die eigene Einnahmen-
+    // Übersicht (Earn-Tab, `verdienst.ts`). Gratis-Jobs (Bootstrap und
+    // freiwilliges Free-Tier) tragen volume_msat=0. Den Ruf bestimmt es seit
+    // 5.5 nicht: Das wäre eine Selbstauskunft – Rang und Stufe kommen nur aus
+    // Quittungen der Kunden (`berechneRuf()`).
     const perf = buildPerformanceEvent({
       workerPubkey: this.cfg.keypair.pk,
       workType: "ai_job",
@@ -1041,10 +1048,9 @@ export class DvmProvider {
     // Bootstrap-Markierung (oeffentlich sichtbar: neuer Provider beweist sich)
     if (bootstrap) perf.tags.push(["bootstrap", "1"]);
     // Region grob mitgeben. Ohne dieses Tag kann das Netz nicht erkennen, wo
-    // Kapazitaet fehlt — der Knappheitsbonus liefe im Leeren. Bewusst
-    // selbstdeklariert und kontinentweit: keine IP-Geolokalisierung, kein
-    // Standortnachweis. Manipulierbar ist es trotzdem, deshalb ist der Bonus
-    // gedeckelt und an nachgewiesene Arbeit gekoppelt.
+    // Kapazitaet fehlt. Bewusst selbstdeklariert und kontinentweit: keine
+    // IP-Geolokalisierung, kein Standortnachweis. Manipulierbar ist es
+    // trotzdem – deshalb hängt kein Geld daran (Knappheitsbonus fiel mit 5.1.4a).
     if (this.cfg.region) perf.tags.push(["region", this.cfg.region]);
     // Erst alle Tags, dann minen: Jede spaetere Aenderung aendert die ID, und
     // die Rechenarbeit gaelte nicht mehr (so war es bis 3.2c).
