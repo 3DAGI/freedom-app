@@ -45,7 +45,7 @@ bash packages/mls/bauen.sh --pruefen                     # nur bei Änderungen a
 bash contracts/solana-channel/pruefen.sh --werkzeuge     # nur bei Änderungen am Zahlkanal: bauen + Tests gegen Validator (Agave 3.1.10)
 ```
 
-Stand 28.09.2026 (nach 8.2c, 5.5a–c, 8.15, 11.1a, C.3c2, 11.1b, 5.9a–b, 6.3a–b2, 11.4a–b2, C.4a–b, C.5a–b, C.6b, 11.4c, C-18, C-17a–c, C-20a–b, 11.2a–b, A-4, A-6 und B-1): protocol 1127 grün (6 übersprungen), node 263 grün
+Stand 28.09.2026 (nach 8.2c, 5.5a–c, 8.15, 11.1a, C.3c2, 11.1b, 5.9a–b, 6.3a–b2, 11.4a–b2, C.4a–b, C.5a–b, C.6b, 11.4c, C-18, C-17a–c, C-20a–b, 11.2a–b, A-4, A-6, B-1 und B-3): protocol 1127 grün (6 übersprungen), node 272 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
 in `tools.test.ts`), app 671 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 68 grün + 1 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
@@ -801,3 +801,12 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   Pool, kein Auftrag, keine Zahlung, nie still ins Netz ausweichen. In Node
   hält `AbortSignal.timeout` die Ereignisschleife nicht offen – Tests mit
   Zeitablauf halten sie mit einem Timer.
+- **Flutschutz im Relay nur über `FLUTSCHUTZ`** (seit B-3, `relay-role.ts`):
+  Grenzen je Verbindung (Events, Abfragen und Anmeldungen, offene Abos), je
+  Schlüssel (gespeicherte Events, mit Zugang das Zehnfache) und für die Zahl der
+  Verbindungen – über den `RateLimiter` aus `antispam.ts`, Fenster eine Minute,
+  nach außen nur feste Texte nach NIP-01 (`rate-limited:`, `error:`), zu viele
+  Verbindungen schließt der Relay mit 1013. Die Grenzen müssen einen Upload in
+  Stücken durchlassen (Test mit 200 Stücken) – nie so eng, dass Anhänge und
+  Bundles scheitern. Umschläge (1059) kommen von Wegwerf-Schlüsseln: sie bremst
+  nur die Grenze je Verbindung. Zählstände vergisst `aufraeumen()`.
