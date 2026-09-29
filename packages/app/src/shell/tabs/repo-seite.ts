@@ -7,7 +7,7 @@
  * Nur DOM und `textContent` – Namen, Betreffe und Adressen kommen von Fremden.
  * Welches Repo offen ist, steht nur im Speicher (nie in der Adresse).
  */
-import type { GelesenerPatch, GelesenesRepo, NostrEvent, PatchStatus } from "@freedomstack/protocol";
+import { KIND_PATCH, type GelesenerPatch, type GelesenesRepo, type NostrEvent, type PatchStatus } from "@freedomstack/protocol";
 import { gebietsschema, t } from "../../i18n.js";
 import { fehlerText } from "../../protokoll-texte.js";
 import {
@@ -20,6 +20,7 @@ import { sendeInRaum } from "../raum-repos.js";
 import { toast } from "../ui.js";
 import { codeReiter, commitsReiter, holeBundle } from "./code-reiter.js";
 import { issuesReiter, vergissIssue } from "./issues-reiter.js";
+import { diskussion } from "./diskussion.js";
 import { zeigePatch } from "./patch-seite.js";
 import { kontaktName } from "./raeume.js";
 
@@ -217,6 +218,11 @@ function patchReiter(k: RepoKarte, h: RepoSeiteHilfe, neu: () => void): HTMLElem
       betreff: offen.patch.betreff, commit: offen.patch.commit, text: offen.patch.text,
       von: eigentuemerName(offen.patch.autor), zeit: offen.patch.zeit, marke: statusMarke(offen.status), aktionen: aktionsKnoepfe(offen, k, h),
       status: statusAngaben(offen),
+      // Diskussion unter dem Patch (C-17c) – wie unter einem Pull Request
+      unten: diskussion({
+        wurzel: { id: offen.patch.id, autor: offen.patch.autor, kind: KIND_PATCH }, kommentare: k.patchKommentare?.[offen.patch.id] ?? [],
+        name: eigentuemerName, neuLaden: h.neuLaden, ...(k.privatRaum ? { privatRaum: k.privatRaum } : {}),
+      }),
       zurueck: { text: t("repo.allePatches"), tun: () => {
         offenerPatch = null;
         neu();
@@ -276,7 +282,10 @@ function patchZeile(z: PatchZeile, k: RepoKarte, h: RepoSeiteHilfe, neu: () => v
     document.querySelector<HTMLElement>(".patch-zurueck")?.focus();
   });
   betreff.dataset.patch = z.patch.id;
-  links.append(betreff, el("div", t("repo.patchVon", { name: eigentuemerName(z.patch.autor), datum: datum(z.patch.zeit) }), "mono-sm muted"));
+  const meta = el("div", t("repo.patchVon", { name: eigentuemerName(z.patch.autor), datum: datum(z.patch.zeit) }), "mono-sm muted");
+  const zahl = k.patchKommentare?.[z.patch.id]?.length ?? 0;
+  if (zahl) meta.append(el("span", ` · ${t("repo.kommentareZahl", { n: zahl })}`));
+  links.append(betreff, meta);
   const rechts = el("div", undefined, "repo-patch-status");
   rechts.append(statusMarke(z.status), ...aktionsKnoepfe(z, k, h));
   zeile.append(links, rechts);

@@ -11552,3 +11552,56 @@ Internet) · app 638 (+3) · mls 13 · Leak-Tests 66 grün + 1 todo · 0 rot ·
 check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 · Website ok ·
 Smoke-Test bestanden (mit den neuen Prüfungen) · Website-Bau ok ·
 reproduzierbarer Build ok. Knoten-Stand: unverändert.
+
+## Schritt C-17b2 und C-17c – Kommentieren, schließen, Kommentare an Patches
+
+Spur C, Sammlung C-17 (Repos 1:1 wie GitHub). Schließt C-17 ab: unter jedem
+Issue und jedem Patch steht die Diskussion mit einem Feld zum Kommentieren,
+wer darf, schließt ein Issue als erledigt oder als nicht geplant und öffnet es
+wieder. Zusammen, weil beide dieselbe Diskussion nutzen (rund 200 Zeilen).
+
+**Was:**
+- `shell/tabs/diskussion.ts` (neu): `diskussion()` – Überschrift, Kommentare
+  (ältester zuerst, Name und Datum) und mit Identität ein Feld „Kommentar
+  schreiben“ mit dem ehrlichen Satz, wer mitliest. Öffentlich signiert über
+  `baueKommentar()`, im privaten Raum nur über
+  `sendeInRaum(raumRepoKommentar())` – scheitert laut, statt aufs Relay
+  auszuweichen. Nur DOM mit `textContent`.
+- `issues-reiter.ts`: die Seite eines Issues nutzt `diskussion()`; Autorin,
+  Eigentümer und Maintainer (`darfStatus`) sehen „Als erledigt schließen“ und
+  „Als nicht geplant schließen“ bzw. „Wieder öffnen“ – `setzeIssueStatus()`
+  sendet 1631/1632/1630, öffentlich signiert über `baueIssueStatus()`, privat
+  nur über `sendeInRaum(raumRepoIssueStatus())`.
+- C-17c: `mitIssues()` hängt die Kommentare je Patch an die Karte
+  (`patchKommentare`, aus denselben Daten wie die Issues – öffentliche nie an
+  private Karten); die Patch-Seite zeigt die Diskussion unten (neues Feld
+  `unten` in `PatchAnsicht`, die Vorschau einer neuen Version hat keine), die
+  Patch-Liste die Zahl der Kommentare.
+- `scripts/wiring-ausnahmen.txt`: die letzten drei Ausnahmen aus C-17a fallen
+  weg (`baueIssueStatus`, `raumRepoIssueStatus`, `raumRepoKommentar`).
+
+**Verdrahtet:** `app/src/shell/tabs/issues-reiter.ts` (`issueSeite()` →
+`diskussion()`, Status-Knöpfe → `setzeIssueStatus()` → `baueIssueStatus()`
+bzw. `raumRepoIssueStatus()`), `app/src/shell/tabs/diskussion.ts`
+(`kommentarFeld()` → `baueKommentar()` bzw. `raumRepoKommentar()`),
+`app/src/shell/tabs/repo-seite.ts` (`patchReiter()` → `diskussion()` mit
+`k.patchKommentare`).
+
+**Tests:** app +2 in `test/issues-ansicht.test.ts` (Kommentare je Patch an
+der Karte, ein öffentlicher nie an einem privaten Patch; Verdrahtung:
+kommentieren und Status öffentlich signiert bzw. nur in die Gruppe, Hinweis
+unter dem Feld, ohne Identität kein Feld, Status nur mit `darfStatus`, kein
+`innerHTML`). Smoke „raum“ (Desktop und Handy): auf der Seite des Issues
+„Ich schaue es mir an.“ kommentieren – gesendet als 1111 mit `E` auf das
+Issue und `K` 1621, danach in der Liste nach „Bei mir auch.“, Hinweis
+„Öffentlich und mit deinem Schlüssel signiert“; als Eigentümerin „Als
+erledigt schließen“ → „erledigt ✓“ mit „Wieder öffnen“, eine Sekunde später
+wieder öffnen → „offen“, gesendet 1631 und 1630 auf das Issue; auf der
+Patch-Seite „Sauber, danke!“ kommentieren – 1111 mit `K` 1617, danach
+sichtbar. Bilder: `docs/ausbau/bilder/c17b2`.
+
+Endstand: protocol 1116 (6 übersprungen) · node 263 (6 übersprungen, mit
+Internet) · app 640 (+2) · mls 13 · Leak-Tests 66 grün + 1 todo · 0 rot ·
+check-wiring `--streng` Exit 0 (158 Ausnahmen) · innerHTML streng Exit 0 ·
+Website ok · Smoke-Test bestanden (mit den neuen Prüfungen) · Website-Bau ok
+· reproduzierbarer Build ok. Knoten-Stand: unverändert.

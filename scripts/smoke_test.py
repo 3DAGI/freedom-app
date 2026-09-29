@@ -1210,6 +1210,19 @@ def raum_pruefen(browser, url: str) -> dict:
             seite_patch["datei"] = dl.value.suggested_filename
         except Exception as e:
             seite_patch["datei"] = f"kein Download: {str(e)[:80]}"
+        # Seit C-17c: Kommentar unter dem Patch – NIP-22 an den Patch (K 1617), danach auf der Seite
+        vorher_pk = len(relay.gesendet)
+        if ev("() => !!document.querySelector('#repo-seite .kommentar-text')"):
+            s.fill("#repo-seite .kommentar-text", "Sauber, danke!")
+            ev("() => document.querySelector('#repo-seite .kommentar-senden')?.click()")
+        try:
+            s.wait_for_function("() => [...document.querySelectorAll('#repo-seite .issue-kommentar .issue-text')].some(e => e.textContent === 'Sauber, danke!')", timeout=10000)
+        except Exception:
+            pass
+        pk_neu = list({e["id"]: e for e in relay.gesendet[vorher_pk:] if e.get("kind") == 1111}.values())
+        pk_tags = {t[0]: t[1:] for t in (pk_neu[-1]["tags"] if pk_neu else [])}
+        seite_patch["kommentar"] = [len(pk_neu), (pk_tags.get("E") or [None])[0] == patch_id, pk_tags.get("K"),
+                                    ev("() => [...document.querySelectorAll('#repo-seite .issue-kommentar .issue-text')].map(e => e.textContent)")]
         ev("() => document.querySelector('#repo-seite .patch-zurueck')?.click()")
         s.wait_for_timeout(200)
         seite_patch["zurueck"] = ev("() => [!!document.querySelector('#repo-seite .repo-patches'), document.activeElement?.dataset?.patch?.length === 64]")
@@ -1218,7 +1231,8 @@ def raum_pruefen(browser, url: str) -> dict:
                 or seite_patch["zeilen"] != [["1", "", "−", "stumpf"], ["", "1", "+", "scharf"]] or not seite_patch["fokus"] \
                 or seite_patch["datei"] != "aaaaaaa.patch" or seite_patch["zurueck"] != [True, True] \
                 or len(seite_patch["angaben"]) != 3 or not seite_patch["angaben"][0].startswith("angenommen ✓ von Du") \
-                or seite_patch["angaben"][1:] != ["Eingespielt als ccccccc", "Danke – <i>sauber</i>."] or seite_patch["fett"] != 0:
+                or seite_patch["angaben"][1:] != ["Eingespielt als ccccccc", "Danke – <i>sauber</i>."] or seite_patch["fett"] != 0 \
+                or seite_patch["kommentar"] != [1, True, ["1617"], ["Sauber, danke!"]]:
             erg["fehler"].append(f"{groesse}: Patch-Seite {seite_patch}")
         # Seit C-17b1: Reiter „Issues“ – Liste mit dem Issue aus der Probe, die Seite mit Text und Kommentar (HTML bleibt Text),
         # zurück mit Fokus, dann „Neues Issue“ per Dialog: öffentlich, signiert, an das Repo adressiert
@@ -1232,6 +1246,40 @@ def raum_pruefen(browser, url: str) -> dict:
           text: document.querySelector('#repo-seite .issue-kopf ~ .issue-text')?.textContent, fett: document.querySelectorAll('#repo-seite b').length,
           kommentare: [...document.querySelectorAll('#repo-seite .issue-kommentar .issue-text')].map(e => e.textContent),
           fokus: document.activeElement?.classList.contains('issue-zurueck') })""")
+        # Seit C-17b2: kommentieren (öffentlich, NIP-22 an das Issue), als erledigt schließen, wieder öffnen – ich pflege „werkzeug“ mit
+        issue_id = next(e["id"] for e in relay.events if e.get("kind") == 1621 and ["subject", "Hammer klemmt"] in e["tags"])
+        kommentare_auf_seite = "() => [...document.querySelectorAll('#repo-seite .issue-kommentar .issue-text')].map(e => e.textContent)"
+        vorher_k = len(relay.gesendet)
+        issues["kommentar_hinweis"] = ev("() => document.querySelector('#repo-seite .kommentar-feld p')?.textContent ?? ''")
+        if ev("() => !!document.querySelector('#repo-seite .kommentar-text')"):
+            s.fill("#repo-seite .kommentar-text", "Ich schaue es mir an.")
+            ev("() => document.querySelector('#repo-seite .kommentar-senden')?.click()")
+        try:
+            s.wait_for_function("() => [...document.querySelectorAll('#repo-seite .issue-kommentar .issue-text')].some(e => e.textContent === 'Ich schaue es mir an.')", timeout=10000)
+        except Exception:
+            pass
+        k_neu = list({e["id"]: e for e in relay.gesendet[vorher_k:] if e.get("kind") == 1111}.values())
+        k_tags = {t[0]: t[1:] for t in (k_neu[-1]["tags"] if k_neu else [])}
+        issues["kommentar"] = {"anzahl": len(k_neu), "E": (k_tags.get("E") or [None])[0], "K": k_tags.get("K"), "liste": ev(kommentare_auf_seite)}
+        aktionen = "() => [...document.querySelectorAll('#repo-seite .issue-aktionen button')].map(b => b.textContent)"
+        marke = "() => document.querySelector('#repo-seite .patch-meta .repo-status')?.textContent"
+        issues["aktionen"] = ev(aktionen)
+        vorher_s = len(relay.gesendet)
+        ev("() => document.querySelector('#repo-seite .issue-aktionen button')?.click()")  # als erledigt schließen
+        try:
+            s.wait_for_function("() => document.querySelector('#repo-seite .patch-meta .repo-status')?.textContent === 'erledigt ✓'", timeout=10000)
+        except Exception:
+            pass
+        issues["erledigt"] = [ev(marke), ev(aktionen)]
+        s.wait_for_timeout(1100)  # der nächste Status braucht einen späteren Zeitstempel (Sekunden)
+        ev("() => document.querySelector('#repo-seite .issue-aktionen button')?.click()")  # wieder öffnen
+        try:
+            s.wait_for_function("() => document.querySelector('#repo-seite .patch-meta .repo-status')?.textContent === 'offen'", timeout=10000)
+        except Exception:
+            pass
+        issues["wieder"] = ev(marke)
+        issues["status_events"] = [[e["kind"], next((t[1] for t in e["tags"] if t[0] == "e"), None)]
+                                   for e in {e["id"]: e for e in relay.gesendet[vorher_s:] if e.get("kind") in (1630, 1631, 1632)}.values()]
         ev("() => document.querySelector('#repo-seite .issue-zurueck')?.click()")
         s.wait_for_timeout(200)
         issues["zurueck"] = ev("() => document.activeElement?.classList.contains('issue-betreff') ?? false")
@@ -1262,6 +1310,12 @@ def raum_pruefen(browser, url: str) -> dict:
                 or issues["gesendet"] != {"anzahl": 1, "a": [f"30617:{gruender_pk}:werkzeug"], "subject": ["Säge stumpf"], "t": ["wartung"], "text": "Bitte schärfen."} \
                 or [z[0] for z in issues["danach"]] != ["Säge stumpf", "Hammer klemmt"]:
             erg["fehler"].append(f"{groesse}: Issues {issues}")
+        if not issues["kommentar_hinweis"].startswith("Öffentlich und mit deinem Schlüssel signiert") \
+                or issues["kommentar"] != {"anzahl": 1, "E": issue_id, "K": ["1621"], "liste": ["Bei mir auch.", "Ich schaue es mir an."]} \
+                or issues["aktionen"] != ["Als erledigt schließen", "Als nicht geplant schließen"] \
+                or issues["erledigt"] != ["erledigt ✓", ["Wieder öffnen"]] or issues["wieder"] != "offen" \
+                or issues["status_events"] != [[1631, issue_id], [1630, issue_id]]:
+            erg["fehler"].append(f"{groesse}: Issue kommentieren/schließen {issues}")
         # Seit 11.4c: im eigenen öffentlichen Raum „Repo anlegen“ aus dem Raum-Menü – mit Verweis auf genau diesen Raum,
         # danach steht es in der Liste des Raums (am Ende, damit die Prüfungen der Repo-Liste oben nichts davon sehen)
         if not mobil:

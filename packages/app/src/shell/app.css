@@ -1694,3 +1694,8 @@ header .ident[data-initial=""]::before { display: none; }
 .issue-abschnitt { margin: 14px 0 6px; font-size: 12px; }
 .issue-kommentar { border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; margin: 6px 0; }
 .issue-neu { margin-bottom: 8px; }
+/* Kommentieren unter Issues und Patches (C-17b2, C-17c) */
+.kommentar-feld { display: flex; flex-direction: column; gap: 6px; margin: 8px 0 14px; }
+.kommentar-text { width: 100%; box-sizing: border-box; resize: vertical; }
+.kommentar-feld p { margin: 0; }
+.kommentar-senden { align-self: flex-start; }

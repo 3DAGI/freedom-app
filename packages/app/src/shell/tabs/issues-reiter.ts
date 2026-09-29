@@ -9,11 +9,13 @@
  */
 import { gebietsschema, t } from "../../i18n.js";
 import { fehlerText } from "../../protokoll-texte.js";
+import { KIND_ISSUE, type IssueStatus } from "@freedomstack/protocol";
 import { type IssueFilter, type IssueZeile, type RepoKarte, issueFilterVon } from "../../repo-ansicht.js";
 import { dialog } from "../dialog.js";
 import { sendeInRaum } from "../raum-repos.js";
 import { ensurePool, signiere, state } from "../state.js";
 import { toast } from "../ui.js";
+import { diskussion } from "./diskussion.js";
 
 /** Offenes Issue und gewählter Filter – nur im Speicher. */
 let offenesIssue: string | null = null;
@@ -56,7 +58,7 @@ function labels(z: IssueZeile): HTMLElement[] {
 export function issuesReiter(k: RepoKarte, name: (pk: string) => string, neu: () => void, neuLaden: () => Promise<void>): HTMLElement[] {
   const zeilen = k.issues ?? [];
   const offen = zeilen.find((z) => z.issue.id === offenesIssue);
-  if (offen) return issueSeite(offen, name, () => {
+  if (offen) return issueSeite(offen, k, name, neuLaden, () => {
     offenesIssue = null;
     neu();
     document.querySelector<HTMLElement>(`[data-issue="${CSS.escape(offen.issue.id)}"]`)?.focus();
@@ -101,21 +103,48 @@ function issueZeile(z: IssueZeile, name: (pk: string) => string, neu: () => void
   return zeile;
 }
 
-/** Die Seite eines Issues: Titel, Status, Autorin, Labels, Text und die Kommentare, ältester zuerst. */
-function issueSeite(z: IssueZeile, name: (pk: string) => string, zurueck: () => void): HTMLElement[] {
+/**
+ * Die Seite eines Issues: Titel, Status, Autorin, Labels, Text; wer darf
+ * (Autorin, Eigentümer, Maintainer), schließt oder öffnet wieder (C-17b2);
+ * darunter die Diskussion (`diskussion.ts`).
+ */
+function issueSeite(z: IssueZeile, k: RepoKarte, name: (pk: string) => string, neuLaden: () => Promise<void>, zurueck: () => void): HTMLElement[] {
   const kopf = el("div", undefined, "issue-kopf");
   kopf.append(el("h3", z.issue.betreff, "patch-titel issue-titel"));
   const meta = el("p", undefined, "patch-meta mono-sm");
   meta.append(statusMarke(z), el("span", ` ${t("repo.patchVon", { name: name(z.issue.autor), datum: datum(z.issue.zeit) })}`, "muted"), ...labels(z));
   const text = el("div", z.issue.text.trim() || t("repo.issueOhneText"), z.issue.text.trim() ? "issue-text" : "issue-text muted");
-  const verlauf = el("div", undefined, "issue-kommentare");
-  verlauf.append(...(z.kommentare.length ? z.kommentare.map((k) => {
-    const box = el("div", undefined, "issue-kommentar");
-    box.append(el("div", t("repo.patchVon", { name: name(k.autor), datum: datum(k.zeit) }), "mono-sm muted"), el("div", k.text, "issue-text"));
-    return box;
-  }) : [el("p", t("repo.keineKommentare"), "mono-sm muted")]));
-  return [knopf(t("repo.alleIssues"), "ghost mini issue-zurueck", zurueck), kopf, meta, text, el("h4", t("repo.kommentare"), "issue-abschnitt"), verlauf];
+  const teile: HTMLElement[] = [knopf(t("repo.alleIssues"), "ghost mini issue-zurueck", zurueck), kopf, meta, text];
+  if (z.darfStatus && k.repo) {
+    const aktionen = el("div", undefined, "patch-aktionen issue-aktionen");
+    const ziele: IssueStatus[] = z.status === "offen" ? ["erledigt", "geschlossen"] : ["offen"];
+    aktionen.append(...ziele.map((ziel) => knopf(t(STATUS_AKTION[ziel]), "ghost mini repo-knopf", () => void setzeIssueStatus(z, k, ziel, neuLaden))));
+    teile.push(aktionen);
+  }
+  teile.push(...diskussion({
+    wurzel: { id: z.issue.id, autor: z.issue.autor, kind: KIND_ISSUE }, kommentare: z.kommentare, name, neuLaden,
+    ...(k.privatRaum ? { privatRaum: k.privatRaum } : {}),
+  }));
+  return teile;
 }
+
+const STATUS_AKTION: Record<IssueStatus, string> = { erledigt: "repo.issueSchliessenErledigt", geschlossen: "repo.issueSchliessenNichtGeplant", offen: "repo.issueWiederOeffnen" };
+
+/** Status setzen – öffentlich signiert, im privaten Raum nur in die Gruppe. */
+async function setzeIssueStatus(z: IssueZeile, k: RepoKarte, status: IssueStatus, neuLaden: () => Promise<void>): Promise<void> {
+  if (!state.keypair || !k.repo) return;
+  try {
+    const { baueIssueStatus, raumRepoIssueStatus } = await import("@freedomstack/protocol");
+    const angaben = { issue: z.issue, status, eigentuemer: k.repo.eigentuemer };
+    if (k.privatRaum) await sendeInRaum(k.privatRaum, raumRepoIssueStatus(k.privatRaum, angaben));
+    else await (await ensurePool()).publish(await signiere(baueIssueStatus(angaben, state.keypair.pk)));
+    toast(t(STATUS_MELDUNG[status]));
+    await neuLaden();
+  } catch (e) {
+    toast(fehlerText(e), true);
+  }
+}
+const STATUS_MELDUNG: Record<IssueStatus, string> = { erledigt: "repo.issueErledigtGemeldet", geschlossen: "repo.issueGeschlossenGemeldet", offen: "repo.issueWiederOffenGemeldet" };
 
 /** Neues Issue: Titel, Beschreibung, Labels – öffentlich signiert oder nur in die Gruppe des privaten Raums. */
 async function neuesIssue(k: RepoKarte, neuLaden: () => Promise<void>): Promise<void> {
