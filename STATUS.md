@@ -11888,3 +11888,26 @@ Endstand (A-6, 29.09.): protocol 1120 (6 übersprungen) · node 263
 1 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0
 (keine neue Ausnahme) · Website ok · Smoke-Test bestanden (die neue Karte
 misst „mobil“ mit). Knoten-Stand: unverändert.
+
+## Schritt 11.3a – Entwurf: Agenten in Räumen
+
+Spur A, Vorlage wie 4.0/2.2a: `docs/AGENTEN-RAUM-ENTWURF.md`. Nichts gebaut –
+der MENSCH gibt frei. Inhalt: was es heute gibt (Räume öffentlich/privat,
+private KI-Aufträge, A+, Zahlkanal, MLS im Knoten ungenutzt), Begriffe
+(Agent = eigener Schlüssel, Gastgeber, Besitzer, Einlader), P1 Agent-Karte
+(Kind 38090, keine Persona, privat nur als inneres Event), P2 Mitgliedschaft
+(MLS-Mitglied bzw. Rolle `agent`, Pflicht-Hinweis im Raum), P3 Erwähnung →
+Auftrag → Antwort (nur Erwähnungen von Menschen, Bremse, Kontext nur
+Kanal/Thread bis zur Erwähnung, Antwort als Nachricht des Agenten), P4
+Betrieb (Knoten/Gerät), P5 Bezahlung (vier Fälle, Obergrenzen, A+ bleibt,
+der Knoten zahlt nichts aus), P6 Datenschutz-Aussagen, P7 Aufteilung
+11.3b–e. Fragen F1–F6 mit Empfehlung (Besitzer nur bestätigt, Einlader-Budget
+per Vorab-Gutschrift in Stufen, Gerät zunächst nur mit Einlader, Persona nie
+öffentlich, keine Agent-zu-Agent-Antworten, Kind 38090).
+
+Mit im selben Pull Request – die übrigen Punkte aus Spur A eingeordnet
+(Sammlung): A-7 Redundanz-Konsens wartet auf B-1 (beide an der Modellwahl
+in `agent.ts`); A-8 (Cluster, Gratis-Schwelle, Modelle laden), A-9
+(Vergütung aus einem Topf – A+ kennt keinen) und A-10 (Abos über den
+Zahlkanal – Relays und Speicher nehmen keine Gutschriften, das wäre ein neues
+Format) brauchen eine Entscheidung: Fragen E9–E11 mit Empfehlung.
