@@ -12,6 +12,7 @@ import type { NostrEvent } from "@freedomstack/protocol";
 import { BundleFehler, type BundleFehlerArt, type GelesenesBundle, alsText, commitsAb, kopfCommit, leseBundle, unterPfad } from "../../git-bundle.js";
 import { gebietsschema, t } from "../../i18n.js";
 import { fehlerText } from "../../protokoll-texte.js";
+import { markdownDom } from "../markdown-ui.js";
 import { ensurePool } from "../state.js";
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, text?: string, klasse?: string): HTMLElementTagNameMap[K] {
@@ -41,6 +42,7 @@ const gelesen = new Map<string, GelesenesBundle>();
 const ort = new Map<string, string[]>();
 const COMMITS_MAX = 100;
 const README = /^readme(\.(md|markdown|txt))?$/i;
+const MARKDOWN = /\.(md|markdown)$/i;
 const TEXT_MAX = 100_000;
 
 const datumVon = (s: number) => new Date(s * 1000).toLocaleDateString(gebietsschema(), { day: "numeric", month: "short", year: "numeric" });
@@ -131,7 +133,11 @@ function zeigeCode(b: GelesenesBundle, id: string, name: string, neu: () => void
     const readme = an.eintraege.find((e) => e.art === "datei" && README.test(e.name));
     const text = readme ? unterPfad(b, c!.baum, [...pfad, readme.name]) : null;
     const inhalt = text && text.art === "datei" ? alsText(text.daten) : null;
-    if (readme && inhalt !== null) teile.push(el("h4", readme.name, "code-readme-titel"), el("pre", inhalt.slice(0, TEXT_MAX), "code-readme"));
+    // README.md wie bei GitHub als Markdown (C-20a) – nur DOM, Bilder nie geladen; sonst als Text
+    if (readme && inhalt !== null) {
+      teile.push(el("h4", readme.name, "code-readme-titel"),
+        MARKDOWN.test(readme.name) ? markdownDom(inhalt.slice(0, TEXT_MAX), "code-readme") : el("pre", inhalt.slice(0, TEXT_MAX), "code-readme"));
+    }
     return teile;
   }
   if (an.art === "modul") return [...teile, el("p", t("repo.submodul", { name: pfad.at(-1)!, sha: an.sha.slice(0, 7) }), "mono-sm muted")];

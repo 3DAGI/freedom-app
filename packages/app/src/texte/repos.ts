@@ -137,4 +137,7 @@ export const repos: Texte = {
   "repo.keineCommits": { de: "Ohne Bundle kennt die App keine Commits – und noch kein angenommener Patch nennt einen.", en: "Without a bundle the app knows no commits – and no accepted patch names one yet." },
   "repo.commitsOhneBundle": { de: "Ohne Bundle: die angenommenen Patches mit den Commits, als die sie eingespielt wurden.", en: "Without a bundle: the accepted patches with the commits they were applied as." },
   "repo.patchAlsCommit": { de: "{betreff} → {commits}", en: "{betreff} → {commits}" },
+  "repo.mdBild": { de: "Bild: {alt} (nicht geladen)", en: "Image: {alt} (not loaded)" },
+  "repo.mdErledigt": { de: "erledigt", en: "done" },
+  "repo.mdOffen": { de: "offen", en: "open" },
 };

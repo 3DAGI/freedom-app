@@ -11,6 +11,7 @@
 import type { GelesenerKommentar, KommentarBezug } from "@freedomstack/protocol";
 import { gebietsschema, t } from "../../i18n.js";
 import { fehlerText } from "../../protokoll-texte.js";
+import { markdownDom } from "../markdown-ui.js";
 import { sendeInRaum } from "../raum-repos.js";
 import { ensurePool, signiere, state } from "../state.js";
 import { toast } from "../ui.js";
@@ -39,7 +40,7 @@ export function diskussion(d: DiskussionAngaben): HTMLElement[] {
   const verlauf = el("div", undefined, "issue-kommentare");
   verlauf.append(...(d.kommentare.length ? d.kommentare.map((k) => {
     const box = el("div", undefined, "issue-kommentar");
-    box.append(el("div", t("repo.patchVon", { name: d.name(k.autor), datum: datum(k.zeit) }), "mono-sm muted"), el("div", k.text, "issue-text"));
+    box.append(el("div", t("repo.patchVon", { name: d.name(k.autor), datum: datum(k.zeit) }), "mono-sm muted"), markdownDom(k.text, "issue-text", { umbrueche: true }));
     return box;
   }) : [el("p", t("repo.keineKommentare"), "mono-sm muted")]));
   const teile: HTMLElement[] = [el("h4", t("repo.kommentare"), "issue-abschnitt"), verlauf];
