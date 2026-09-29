@@ -139,14 +139,14 @@ andere Spuren und stehen deshalb hier, nicht in deren Abschnitten:
 |---|---|---|
 | A-1 | **Phase 12 „Beide Währungen überall“** (Anhang A): 12.1 Standard-Schiene für alle Bereiche plus Anzeigeeinheit · 12.2 Werbelink mit `sol=` · 12.3 SOL-Adressen für Werber des Providers und Relays · 12.4 KI-Schalter „sats / SOL“, Gebot in gewählter Einheit, ohne Kanal → Kanal anbieten · 12.6 Profil: SOL-Adresse öffentlich nur mit Häkchen · 12.7 Wallet „Senden / Empfangen / Verlauf“. (12.5 ist C-2, 12.8 ist C-3.) | `Entscheidung` E1–E5 |
 | A-2 | PR #183 fertigstellen; danach 11.2a (Werbelink mit eigener Domain), 11.2b (kurzer Name, NIP-05). | `fertig` (#183, #205) |
-| A-3 | 11.3a–d Agenten in Räumen (Entwurf, Freigabe MENSCH, Protokoll, Gerät, Knoten); 11.5 mit Spur B danach. | `Entscheidung` (11.3a) |
+| A-3 | 11.3a–d Agenten in Räumen (Entwurf, Freigabe MENSCH, Protokoll, Gerät, Knoten); 11.5 mit Spur B danach. | `Entscheidung` – Entwurf fertig (`docs/AGENTEN-RAUM-ENTWURF.md`, Fragen F1–F6) |
 | A-4 | **Veraltete Aussagen im Code:** `tiers.ts` („38010 beweist das Tier“ – gilt seit 5.5 nicht mehr), Kommentare zum Knappheitsbonus in `node/src/dvm-provider.ts` (fiel mit 5.1.4a). | `fertig` (#205, mit 11.2b; dazu Kopf von `dvm-provider.ts` nach A+ und die Bootstrap-Kommentare – Frage dazu: E7) |
 | A-5 | **Zahlung im Chat anfordern** – versiegelt, mit Rechnung oder Adresse, in beiden Währungen. | offen |
 | A-6 | **Belege exportieren** (CSV, nur lokal) und **Quittung für SOL-Hinterlegungen** (HTLC) – heute zählen nur Lightning und Kanal. | Export `fertig` (PR folgt); Quittung für Hinterlegungen: `Entscheidung` E8 – die Hinterlegung wird nie abgerechnet |
-| A-7 | **Redundanz-Konsens** (`consensus.ts`, nicht angebunden): dieselbe Frage an 2–3 Provider, Abweichung zeigen – kostet mehrfach, daher Geld-Spur. | offen |
-| A-8 | Nicht angebundene Knoten-Bausteine: Cluster-Pairing (`cluster.ts`), Gratis-Schwelle (`network-capacity.ts`), Modelle laden (`model-registry.ts`). | offen |
-| A-9 | **Vergütung von Mitwirkenden** (`contributor-funding.ts`, ohne Oberfläche) – in beiden Währungen. | offen |
-| A-10 | **Abos:** Relay-Zugang und Speicher automatisch verlängern, über den Zahlkanal mit Obergrenze. | offen |
+| A-7 | **Redundanz-Konsens** (`consensus.ts`, nicht angebunden): dieselbe Frage an 2–3 Provider, Abweichung zeigen – kostet mehrfach, daher Geld-Spur. | `wartet` auf B-1 (beide bauen an der Modellwahl in `agent.ts`); Vorschlag für danach: Schalter je Frage, Standard aus, Kosten vorher sichtbar |
+| A-8 | Nicht angebundene Knoten-Bausteine: Cluster-Pairing (`cluster.ts`), Gratis-Schwelle (`network-capacity.ts`), Modelle laden (`model-registry.ts`). | `Entscheidung` E9 |
+| A-9 | **Vergütung von Mitwirkenden** (`contributor-funding.ts`, ohne Oberfläche) – in beiden Währungen. | `Entscheidung` E10 |
+| A-10 | **Abos:** Relay-Zugang und Speicher automatisch verlängern, über den Zahlkanal mit Obergrenze. | `Entscheidung` E11 |
 | A-11 | **Allgemeiner Dienste-Markt** über KI hinaus (Übersetzen, Transkribieren, Rendern): heute sind Angebot und Preis (je 1k Tokens) auf KI zugeschnitten. | `Entscheidung` |
 | A-12 | **Gemeinsame Kasse für Räume** (Mehrfachsignatur für SOL) – neues Programm, braucht Audit. | `Entscheidung` |
 | A-13 | **Handel zwischen Menschen mit Treuhand** (Sperre wie beim Tausch, Prüfer aus dem eigenen Netz). | `Entscheidung` |
@@ -175,6 +175,9 @@ Entscheidungsvorlage vom 28.09.2026 und sind hier gekürzt.
 | R1 | Umfragen und Termine (NIP-88, NIP-52) als innere Events privater Räume? | A ja · B nein | A |
 | E7 | Bootstrap-Phase des Knotens (erste 24 h nur gratis): Seit 5.5 entsteht Ruf nur aus Quittungen bezahlter Aufträge – die Gratis-Phase bringt keinen Ruf mehr, sie zeigt nur, dass der Knoten läuft, und hält ihn einen Tag vom Verdienen ab. (Spur A, aus A-4) | A behalten · B streichen (neue Knoten verdienen sofort) · C freiwillig (Schalter beim Einrichten) | C |
 | E8 | SOL-Hinterlegung (Deposit, `sol-deposit.ts`): Sperren und Zurückholen gibt es, die Abrechnung nicht – `buildSolDepositSettle()` ruft weder App noch Knoten, der Provider bekommt aus einer Hinterlegung nie Geld. Eine Quittung dafür (A-6) setzt die Abrechnung voraus. Seit 4.3 zahlt der Zahlkanal SOL je Antwort. (Spur A, aus A-6) | A Abrechnung bauen (Knoten legt den Verbrauch offen, App gibt das Preimage des Verbrauchs-HTLC frei, Quittung „belegt“ mit der Einlösung auf der Kette) · B Hinterlegung für KI entfernen, nur noch Zahlkanal · C so lassen | B |
+| E9 | A-8, drei Bausteine ohne Anbindung: **Cluster-Pairing** (zwei Knoten rechnen ein großes Modell gemeinsam – wer bezahlt wen, wer haftet für die Antwort?), **Gratis-Schwelle** aus der Netzkapazität (wie viel darf ein Provider verschenken, ohne dass es das Preisgefüge nach A+ verzerrt?), **Modelle laden** mit Prüfsumme (`model-registry.ts`: welche Quellen, wer signiert die Summen?). (Spur A) | A alle drei entwerfen (eigene Vorlage) · B nur „Modelle laden“ (klar umrissen, Quelle Ollama + Prüfsumme aus einem Katalog 38080) · C entfernen | B – die beiden anderen berühren das Geldmodell |
+| E10 | A-9: `contributor-funding.ts` verteilt rückwirkend einen **Topf** – A+ kennt keinen Topf, und die Entwicklung bekommt schon 2,5 % jeder Zahlung (`ENTWICKLUNG`). (Spur A) | A Runden aus dem Entwicklungs-Anteil (wer verteilt, ist dann der Empfänger von `ENTWICKLUNG`) · B nur Kopfgelder, die jemand ausdrücklich zahlt (Zahlung direkt an den Mitwirkenden, kein Topf) · C entfernen | B |
+| E11 | A-10: Abos über den Zahlkanal setzen voraus, dass Relays und Speicherknoten Gutschriften annehmen – heute nimmt nur der KI-Provider welche (`KanalKasse`), die Relay-Kasse kennt nur Rechnung und Überweisung (8.4b). Das ist ein neues Format. (Spur A) | A Zahlkanal für Relays und Speicher (neues Format, eigene Karte) · B Verlängern per Erinnerung + ein Klick (keine automatische Zahlung) · C nicht | B – kein neues Format, nie Geld ohne Klick |
 
 ---
 
