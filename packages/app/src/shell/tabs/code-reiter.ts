@@ -12,8 +12,10 @@ import type { NostrEvent } from "@freedomstack/protocol";
 import { BundleFehler, type BundleFehlerArt, type GelesenesBundle, alsText, commitsAb, kopfCommit, leseBundle, unterPfad } from "../../git-bundle.js";
 import { gebietsschema, t } from "../../i18n.js";
 import { fehlerText } from "../../protokoll-texte.js";
+import { loesePfad } from "../../markdown.js";
 import { markdownDom } from "../markdown-ui.js";
 import { ensurePool } from "../state.js";
+import { toast } from "../ui.js";
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, text?: string, klasse?: string): HTMLElementTagNameMap[K] {
   const e = document.createElement(tag);
@@ -40,6 +42,8 @@ const FEHLER: Record<BundleFehlerArt, string> = {
 /** Gelesene Bundles je Referenz (Event-Id) und wo man darin steht – nur im Speicher, höchstens drei. */
 const gelesen = new Map<string, GelesenesBundle>();
 const ort = new Map<string, string[]>();
+/** Markdown-Dateien, die gerade als Quelltext statt als Vorschau zu sehen sind (C-20b) – nur im Speicher. */
+const alsQuelltext = new Set<string>();
 const COMMITS_MAX = 100;
 const README = /^readme(\.(md|markdown|txt))?$/i;
 const MARKDOWN = /\.(md|markdown)$/i;
@@ -103,6 +107,12 @@ function zeigeCode(b: GelesenesBundle, id: string, name: string, neu: () => void
     neu();
     document.querySelector<HTMLElement>(".code-pfad > :last-child")?.focus();
   };
+  // Verweis aus Markdown (C-20b): relativ zum Ordner der Datei, nie aus dem Repo hinaus
+  const oeffne = (ordner: string[]) => (ziel: string) => {
+    const neuerPfad = loesePfad(ordner, ziel);
+    if (neuerPfad) geh(neuerPfad);
+    else toast(t("repo.pfadFehlt"), true);
+  };
   const teile: HTMLElement[] = [el("div", t("repo.commitZeile", { betreff: c!.betreff, autor: c!.autor, datum: datumVon(c!.zeit), sha: kopf.slice(0, 7) }), "code-commit mono-sm")];
   // Pfad: Name des Repos, dann je Ordner ein Knopf; der letzte Teil ist Text (mit Fokus nach dem Wechsel)
   // Kein <nav>: dessen Stile gehören der Leiste der App
@@ -136,7 +146,7 @@ function zeigeCode(b: GelesenesBundle, id: string, name: string, neu: () => void
     // README.md wie bei GitHub als Markdown (C-20a) – nur DOM, Bilder nie geladen; sonst als Text
     if (readme && inhalt !== null) {
       teile.push(el("h4", readme.name, "code-readme-titel"),
-        MARKDOWN.test(readme.name) ? markdownDom(inhalt.slice(0, TEXT_MAX), "code-readme") : el("pre", inhalt.slice(0, TEXT_MAX), "code-readme"));
+        MARKDOWN.test(readme.name) ? markdownDom(inhalt.slice(0, TEXT_MAX), "code-readme", { oeffne: oeffne(pfad) }) : el("pre", inhalt.slice(0, TEXT_MAX), "code-readme"));
     }
     return teile;
   }
@@ -147,7 +157,24 @@ function zeigeCode(b: GelesenesBundle, id: string, name: string, neu: () => void
   else if (text === null) teile.push(el("p", t("repo.dateiBinaer"), "mono-sm muted"));
   else {
     if (text.length > TEXT_MAX) teile.push(el("p", t("repo.dateiGekuerzt"), "mono-sm muted"));
-    teile.push(el("pre", text.slice(0, TEXT_MAX), "code-datei"));
+    // Markdown-Datei (C-20b): Vorschau wie bei GitHub, auf Wunsch der Quelltext
+    const schluessel = `${id}:${pfad.join("/")}`; // kein UI-Text
+    const vorschau = MARKDOWN.test(pfad.at(-1)!) && !alsQuelltext.has(schluessel);
+    if (MARKDOWN.test(pfad.at(-1)!)) {
+      const wahl = el("div", undefined, "repo-filter code-ansicht");
+      for (const [quelltext, beschriftung] of [[false, "repo.mdVorschau"], [true, "repo.mdQuelltext"]] as const) {
+        const b = knopf(t(beschriftung), "ghost mini repo-knopf", () => {
+          if (quelltext) alsQuelltext.add(schluessel);
+          else alsQuelltext.delete(schluessel);
+          neu();
+          document.querySelector<HTMLElement>(`.code-ansicht [aria-pressed="true"]`)?.focus();
+        });
+        b.setAttribute("aria-pressed", String(quelltext !== vorschau));
+        wahl.append(b);
+      }
+      teile.push(wahl);
+    }
+    teile.push(vorschau ? markdownDom(text.slice(0, TEXT_MAX), "code-md", { oeffne: oeffne(pfad.slice(0, -1)) }) : el("pre", text.slice(0, TEXT_MAX), "code-datei"));
   }
   return teile;
 }
