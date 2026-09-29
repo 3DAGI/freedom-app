@@ -812,6 +812,82 @@ def werben_pruefen(browser, url: str) -> dict:
     return erg
 
 
+def lokal_pruefen(browser, url: str) -> dict:
+    """KI auf diesem Gerät (B-1): „Dieses Gerät“ steht in der Modellwahl, gesucht wird
+    erst auf Klick, die Frage geht nur an localhost – kein Auftrag, kein Umschlag ans Relay."""
+    erg = {"fehler": []}
+    basis = url.rsplit("/", 1)[0]
+    relay = ProbeRelay()
+    ctx = browser.new_context(locale="de-DE", viewport={"width": 1280, "height": 800})
+    ctx.route("**/*", lambda r: r.continue_() if r.request.url.startswith(basis) else r.abort())
+    ctx.route_web_socket(re.compile(r"^wss?://"), relay.verbinde)
+    lokal = []
+
+    def modell_dienst(route):
+        req = route.request
+        lokal.append({"methode": req.method, "url": req.url, "inhalt": req.post_data or ""})
+        cors = {"Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "Content-Type",
+                "Access-Control-Allow-Methods": "GET, POST, OPTIONS"}
+        if req.method == "OPTIONS":
+            route.fulfill(status=204, headers=cors)
+        elif req.url.endswith("/v1/models"):
+            route.fulfill(json={"data": [{"id": "probe-modell:1b"}]}, headers=cors)
+        elif req.url.endswith("/v1/chat/completions"):
+            route.fulfill(json={"model": "probe-modell:1b", "choices": [{"message": {"content": "Antwort vom Gerät"}}],
+                                "usage": {"prompt_tokens": 7, "completion_tokens": 3}}, headers=cors)
+        else:
+            route.fulfill(status=404, headers=cors)
+    ctx.route("http://localhost:11434/**", modell_dienst)  # später registriert → zuerst gefragt
+    s = ctx.new_page()
+    s.on("pageerror", lambda e: erg["fehler"].append(str(e)[:300]))
+    ev = s.evaluate
+    s.goto(url, wait_until="load")
+    s.wait_for_selector("#bk-done", timeout=30000)
+    w = ev("() => [...document.querySelectorAll('.mnemonic-list li')].map(l => l.textContent)")
+    ev("(w) => document.querySelectorAll('#bk-challenge input').forEach(i => i.value = w[+i.dataset.pos])", w)
+    ev("() => document.getElementById('bk-done').click()")
+    s.wait_for_timeout(1500)
+    ev("() => document.getElementById('ein-abbrechen')?.click()")
+    ev("() => document.querySelector('.app-nav button[data-tab=\"ai\"]').click()")
+    s.wait_for_timeout(500)
+    ev("() => document.getElementById('ai-model-btn').click()")
+    s.wait_for_selector("#model-popover .lokal-suchen", timeout=20000)
+    vor_klick = len(lokal)
+    ev("() => document.querySelector('#model-popover .lokal-suchen').click()")
+    karte = '#model-popover .model-card[data-model="lokal:probe-modell:1b"]'
+    s.wait_for_selector(karte, timeout=10000)
+    ev(f"() => document.querySelector('{karte}').click()")
+    wahl = ev("() => ({ wert: document.getElementById('ai-model').value, knopf: document.getElementById('ai-model-btn').textContent.trim(),"
+              " aktiv: localStorage.getItem('freedom.lokal.aktiv') })")
+    vorher = len(relay.gesendet)
+    frage = "Geheime Frage an das Gerät 4711"
+    ev("(f) => { document.getElementById('ai-prompt').value = f; document.getElementById('ai-send').click(); }", frage)
+    try:
+        s.wait_for_function("() => [...document.querySelectorAll('#ai-thread .bubble.ai')].some(b => b.textContent.includes('Antwort vom Gerät'))", timeout=15000)
+    except Exception:
+        pass
+    antwort = ev("() => { const b = [...document.querySelectorAll('#ai-thread .bubble.ai')].pop();"
+                 " return b ? { text: b.querySelector('.body')?.textContent ?? '', meta: b.querySelector('.cost')?.textContent ?? '' } : null; }")
+    s.wait_for_timeout(1000)
+    neu = relay.gesendet[vorher:]
+    ctx.close()
+    anfragen = [a for a in lokal if a["methode"] == "POST"]
+    erg.update({"vor_klick": vor_klick, "wahl": wahl, "antwort": antwort, "lokal": [f"{a['methode']} {a['url']}" for a in lokal],
+                "relay_danach": [e.get("kind") for e in neu]})
+    if vor_klick != 0:
+        erg["fehler"].append(f"Abfrage vor dem Klick: {vor_klick}")
+    if wahl != {"wert": "lokal:probe-modell:1b", "knopf": "probe-modell:1b · dieses Gerät", "aktiv": "1"}:
+        erg["fehler"].append(f"Wahl {wahl}")
+    if not antwort or antwort["text"].strip() != "Antwort vom Gerät" or antwort["meta"] != "dieses Gerät · 10 Tokens · gratis":
+        erg["fehler"].append(f"Antwort {antwort}")
+    if len(anfragen) != 1 or not anfragen[0]["url"].endswith("/v1/chat/completions") or frage not in anfragen[0]["inhalt"]:
+        erg["fehler"].append(f"Frage an localhost {anfragen}")
+    if any(e.get("kind") == 1059 or 5000 <= int(e.get("kind", 0)) < 7000 for e in neu) or any(frage in json.dumps(e) for e in neu):
+        erg["fehler"].append(f"ans Relay nach der Frage: {erg['relay_danach']}")
+    erg["bestanden"] = not erg["fehler"]
+    return erg
+
+
 def raum_probe(ich: str) -> list[dict]:
     """Events des Probe-Raums; der eigene Schlüssel wird Moderator."""
     wurzel = Path(__file__).resolve().parent.parent
@@ -1913,6 +1989,10 @@ def main() -> int:
             except Exception as e:
                 erg["werben"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
             try:
+                erg["lokal"] = lokal_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
+            except Exception as e:
+                erg["lokal"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
+            try:
                 erg["mobil"] = mobil_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
             except Exception as e:
                 erg["mobil"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
@@ -1934,6 +2014,7 @@ def main() -> int:
           and erg.get("karte", {}).get("bestanden") is True
           and erg.get("qr", {}).get("bestanden") is True
           and erg.get("werben", {}).get("bestanden") is True
+          and erg.get("lokal", {}).get("bestanden") is True
           and erg.get("mobil", {}).get("bestanden") is True)
     erg["bestanden"] = bool(ok)
     print(json.dumps(erg, indent=1, ensure_ascii=False))

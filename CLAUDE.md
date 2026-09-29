@@ -784,3 +784,14 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   IP) und nennt sie nur „geprüft“, wenn k vertraute Signierer die Datei
   bestätigen – die Liste steht nur in `release-signierer.ts`
   (`TRUSTED_SIGNERS`, leer bis MENSCH).
+- **KI auf diesem Gerät nur über `ki-lokal.ts`** (seit B-1, Sammlung
+  Neuordnung): nur Adressen dieses Rechners (`lokaleKiAdresse()`: localhost,
+  127.0.0.1, [::1] – kein Heimnetz, kein Internet), Anfrage und Antwort nur über
+  `lokaleKiAnfrage()`/`leseLokaleAntwort()` (OpenAI-kompatibel: Ollama,
+  llama.cpp, LM Studio). Gesucht wird erst auf Klick (`freedom.lokal.aktiv`) –
+  der Browser fragt beim ersten Zugriff auf den eigenen Rechner um Erlaubnis,
+  also nie beim Start. Der Wahlwert `lokal:<modell>` geht in `askAi()` hinter
+  dem gewählten Funk, vor Kontingent und Netz an `frageAufDiesemGeraet()`: kein
+  Pool, kein Auftrag, keine Zahlung, nie still ins Netz ausweichen. In Node
+  hält `AbortSignal.timeout` die Ereignisschleife nicht offen – Tests mit
+  Zeitablauf halten sie mit einem Timer.

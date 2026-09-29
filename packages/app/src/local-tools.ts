@@ -1,12 +1,7 @@
 /**
- * Lokaler Chat-Fallback (App-Seite, Browser):
- * Wenn kein Netzwerk-Provider antwortet, fuehrt die App Tools (web_search)
- * + Inferenz LOKAL aus — direkt gegen ein erreichbares Ollama. So funktioniert
- * der Chat sofort, auch ohne Relay/Provider im Netz.
- *
- * WICHTIG: Das ist ein Convenience-Fallback fuer die Demo/eigenes Geraet.
- * Im dezentralen Modus laufen Tools+Inferenz beim PROVIDER (non-custodial).
- * Lokal heisst: der eigene Browser redet mit dem eigenen Ollama.
+ * Lokale Werkzeuge (App-Seite, Browser): Websuche und Seitenabruf direkt aus
+ * dem Browser, ohne Provider. Das Modell auf diesem Gerät fragt seit B-1
+ * `ki-lokal.ts` (Protokoll `ki-lokal.ts`) – nur Adressen dieses Rechners.
  *
  * SANDBOX/SSRF (8.7): Der Browser ist die Sandbox. browser_use ruft nur
  * oeffentliche http(s)-Ziele ab – keine Zugangsdaten in der URL, kein
@@ -125,53 +120,4 @@ export async function runLocalTools(
     context += `\n[Tool ${o.name} Ergebnis]:\n${o.output}\n`; // kein UI-Text
   }
   return { context, outcomes };
-}
-
-export interface LocalInferenceResult {
-  output: string;
-  model: string;
-  completionTokens: number;
-  promptTokens: number;
-}
-
-/** Lokale Inferenz gegen Ollama (OpenAI-kompatibel /api/chat mit History). */
-export async function localInfer(
-  ollamaUrl: string,
-  model: string,
-  prompt: string,
-  timeoutMs = 60_000,
-): Promise<LocalInferenceResult> {
-  // /api/chat mit system-prompt (ueberschreibt das modell-template — verhindert
-  // dass das modell in ein domain-template faellt, z.B. Nostr/DVM-fakten).
-  const res = await fetch(`${ollamaUrl}/api/chat`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model,
-      messages: [
-        // Anweisung an das Modell, nicht für die Oberfläche
-        { role: "system", content: "You are a helpful assistant. Answer the user's question directly and concisely in their language. Do not output JSON, quizzes, or structured formats unless asked. Just answer the question." }, // kein UI-Text
-        { role: "user", content: prompt },
-      ],
-      stream: false,
-      options: { num_predict: 512 },
-    }),
-    signal: AbortSignal.timeout(timeoutMs),
-  });
-  if (!res.ok) throw new Error(t("bau.ollamaHttp", { status: res.status }));
-  const d = (await res.json()) as { message?: { content?: string }; eval_count?: number; prompt_eval_count?: number };
-  return {
-    output: d.message?.content ?? "",
-    model,
-    completionTokens: d.eval_count ?? 0,
-    promptTokens: d.prompt_eval_count ?? 0,
-  };
-}
-
-/** Prueft, ob ein lokales Ollama erreichbar ist. */
-export async function localOllamaUp(ollamaUrl: string, timeoutMs = 3000): Promise<boolean> {
-  try {
-    const r = await fetch(`${ollamaUrl}/api/tags`, { signal: AbortSignal.timeout(timeoutMs) });
-    return r.ok;
-  } catch { return false; }
 }

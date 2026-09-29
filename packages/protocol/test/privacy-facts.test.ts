@@ -46,6 +46,7 @@ import { knotenSchluessel, rechnung } from "./bolt11-hilfe.js";
 import { regelKeineLnAdresse, regelRaumRepoPrivat, regelZapAnonym } from "../src/leak-rules.js";
 import { raumRepoAnkuendigung, raumRepoBundle, raumRepoIssue, raumRepoIssueStatus, raumRepoKommentar, raumRepoPatch } from "../src/raum-repo.js";
 import { fromHex, toHex } from "../src/htlc.js";
+import { LOKAL_STANDARD_ADRESSE, lokaleKiAdresse, lokaleKiAnfrage } from "../src/ki-lokal.js";
 import type { NostrEvent, UnsignedEvent } from "../src/event.js";
 import { readFileSync } from "node:fs";
 import { gunzipSync } from "node:zlib";
@@ -172,6 +173,15 @@ const SZENARIEN: Record<string, () => Promise<number>> = {
   "ki-antwort": async () => {
     const { wraps } = await privateKiRunde();
     return regelKeinKlartext(wraps, [ANTWORT]).length;
+  },
+  "ki-lokal": async () => {
+    // Die Frage geht nur an eine Adresse dieses Rechners – und ist kein Event, also an kein Relay.
+    const anfrage = lokaleKiAnfrage({ adresse: LOKAL_STANDARD_ADRESSE, modell: "llama3.2:3b", frage: PROMPT });
+    const woanders = anfrage && ["localhost", "127.0.0.1", "[::1]"].includes(new URL(anfrage.url).hostname) ? 0 : 1;
+    const fremd = ["https://relay.damus.io", "http://192.168.1.20:11434", "http://localhost.boese.example", "http://nutzer:pw@localhost:11434", "ws://localhost:11434"]
+      .filter((a) => lokaleKiAdresse(a) !== undefined || lokaleKiAnfrage({ adresse: a, modell: "m", frage: PROMPT }) !== undefined).length;
+    const events: NostrEvent[] = [];
+    return woanders + fremd + regelKeinKlartextPrompt(events, [PROMPT]).length;
   },
   "ki-zahlung": async () => {
     const { wraps } = await privateKiRunde();
