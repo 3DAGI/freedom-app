@@ -59,7 +59,9 @@ def main() -> int:
             if nur and groesse != nur:
                 continue
             mobil = groesse == "mobil"
-            ctx = browser.new_context(locale="de-DE", viewport=vp, is_mobile=mobil, has_touch=mobil)
+            # Seit C.4b ein fester Probe-Ort für „mein Gebiet zeigen“ (nie der echte)
+            ctx = browser.new_context(locale="de-DE", viewport=vp, is_mobile=mobil, has_touch=mobil,
+                                      geolocation={"latitude": 48.137154, "longitude": 11.576124}, permissions=["geolocation"])
             ctx.route("**/*", lambda r: r.continue_() if r.request.url.startswith(basis) else r.abort())
             # Seit C.2b2: Relay-Attrappe mit dem Probe-Raum (wie im Smoke-Test)
             relay = ProbeRelay()
@@ -201,6 +203,82 @@ def main() -> int:
                 s.evaluate("() => document.querySelector('#repo-seite .code-commits details summary')?.click()")
                 s.wait_for_timeout(200)
                 s.screenshot(path=str(ziel / f"{groesse}-{nr + 17:02d}-commits.jpg"), type="jpeg", quality=70)
+                # Seit C.4a: Abdeckungskarte aus den Probe-Einträgen – Welt, näher an Europa mit gewähltem Gebiet, Liste
+                s.evaluate("() => { location.hash = '#/netz'; document.querySelector(\"[data-subtab-group='netz'] [data-subtab='map']\")?.click(); }")
+                s.wait_for_timeout(1500)
+                s.screenshot(path=str(ziel / f"{groesse}-{nr + 18:02d}-karte-welt.jpg"), type="jpeg", quality=70)
+                s.evaluate("""() => { for (let i = 0; i < 10; i++) { const k = document.querySelector('#coverage-svg svg'); const r = k.getBoundingClientRect();
+                    k.dispatchEvent(new WheelEvent('wheel', { deltaY: -100, clientX: r.left + 189 / 360 * r.width, clientY: r.top + 42 / 180 * r.height, bubbles: true, cancelable: true })); }
+                  document.querySelector('#coverage-svg [data-zelle="lora:48.00,11.00"]')?.dispatchEvent(new MouseEvent('click', { bubbles: true })); }""")
+                s.wait_for_timeout(300)
+                s.evaluate("() => document.querySelector('#coverage-karte').scrollIntoView({ block: 'start' })")
+                s.screenshot(path=str(ziel / f"{groesse}-{nr + 19:02d}-karte-europa.jpg"), type="jpeg", quality=70)
+                s.evaluate("() => document.querySelector('#coverage-ansicht [data-ansicht=liste]')?.click()")
+                s.wait_for_timeout(200)
+                s.screenshot(path=str(ziel / f"{groesse}-{nr + 20:02d}-karte-liste.jpg"), type="jpeg", quality=70)
+                # Seit C.4b: Umrisse, eigenes Gebiet (gerundet, nur umrandet) und „Mein Gebiet“
+                s.evaluate("() => { document.querySelector('#coverage-ansicht [data-ansicht=karte]')?.click(); document.getElementById('coverage-standort')?.click(); }")
+                s.wait_for_timeout(1500)
+                s.evaluate("() => { document.getElementById('coverage-meins')?.click(); document.querySelector('#coverage-karte').scrollIntoView({ block: 'start' }); }")
+                s.wait_for_timeout(300)
+                s.screenshot(path=str(ziel / f"{groesse}-{nr + 21:02d}-karte-eigen.jpg"), type="jpeg", quality=70)
+                s.evaluate("() => { document.getElementById('coverage-welt')?.click(); document.querySelector('#coverage-karte').scrollIntoView({ block: 'start' }); }")
+                s.wait_for_timeout(300)
+                s.screenshot(path=str(ziel / f"{groesse}-{nr + 22:02d}-karte-umrisse.jpg"), type="jpeg", quality=70)
+                # Seit 11.4c: im Probe-Raum die Liste seiner Repos (mobil auf der Ebene der Kanäle), die Repo-Seite mit dem Raum,
+                # im eigenen Raum das Menü mit „Repo anlegen“
+                s.evaluate("() => { location.hash = '#/chat'; document.querySelector('#space-rail .space-pill[data-space=\"probe-raum\"]')?.click(); }")
+                s.wait_for_timeout(1500)
+                if mobil:
+                    s.evaluate("() => document.getElementById('channel-zurueck')?.click()")
+                    s.wait_for_timeout(200)
+                s.screenshot(path=str(ziel / f"{groesse}-{nr + 23:02d}-raum-repos.jpg"), type="jpeg", quality=70)
+                s.evaluate("() => document.querySelector('#raum-repos .raum-repo')?.click()")
+                s.wait_for_timeout(1000)
+                s.screenshot(path=str(ziel / f"{groesse}-{nr + 24:02d}-raum-repo-seite.jpg"), type="jpeg", quality=70)
+                s.evaluate("() => document.querySelector('#repo-seite .repo-zum-raum')?.click()")
+                s.wait_for_timeout(1000)
+                s.evaluate("() => [...document.querySelectorAll('#space-rail .space-pill')].find(p => p.dataset.space.startsWith('werkstatt-'))?.click()")
+                s.wait_for_timeout(1500)
+                if mobil:
+                    s.evaluate("() => document.getElementById('channel-zurueck')?.click()")
+                s.evaluate("() => document.getElementById('space-menue-knopf').click()")
+                s.wait_for_timeout(200)
+                s.screenshot(path=str(ziel / f"{groesse}-{nr + 25:02d}-raum-repo-anlegen.jpg"), type="jpeg", quality=70)
+                s.keyboard.press("Escape")
+                # Seit C-17b1: Reiter „Issues“ von „werkzeug“ – Liste und die Seite des Issues mit Kommentar
+                s.evaluate("""() => { location.hash = '#/repos'; }""")
+                s.wait_for_timeout(1500)
+                s.evaluate("() => [...document.querySelectorAll('#repos-karten .repo-karte')].find(k => k.querySelector('.repo-name').textContent === 'werkzeug')?.click()")
+                s.wait_for_timeout(300)
+                s.evaluate("() => document.querySelector('#repo-seite [data-reiter=issues]')?.click()")
+                s.wait_for_timeout(300)
+                s.screenshot(path=str(ziel / f"{groesse}-{nr + 26:02d}-issues.jpg"), type="jpeg", quality=70)
+                s.evaluate("() => document.querySelector('#repo-seite .issue-betreff')?.click()")
+                s.wait_for_timeout(300)
+                s.screenshot(path=str(ziel / f"{groesse}-{nr + 27:02d}-issue-seite.jpg"), type="jpeg", quality=70)
+                # Seit C-17b2/C-17c: Diskussion unter dem Issue (Status-Knöpfe, Feld) und unter dem angenommenen Patch
+                s.evaluate("() => document.querySelector('#repo-seite .kommentar-feld')?.scrollIntoView({ block: 'end' })")
+                s.wait_for_timeout(200)
+                s.screenshot(path=str(ziel / f"{groesse}-{nr + 28:02d}-issue-diskussion.jpg"), type="jpeg", quality=70)
+                s.evaluate("() => document.querySelector('#repo-seite [data-reiter=patches]')?.click()")
+                s.wait_for_timeout(200)
+                s.evaluate("() => document.querySelector('#repo-seite .repo-filter [data-filter=angenommen]')?.click()")
+                s.evaluate("() => document.querySelector('#repo-seite .repo-patch-betreff')?.click()")
+                s.wait_for_timeout(300)
+                s.evaluate("() => document.querySelector('#repo-seite .kommentar-feld')?.scrollIntoView({ block: 'end' })")
+                s.wait_for_timeout(200)
+                s.screenshot(path=str(ziel / f"{groesse}-{nr + 29:02d}-patch-diskussion.jpg"), type="jpeg", quality=70)
+                # Seit C-20a: ein Kommentar mit Markdown – Überschrift, fett, Code, Link, Bild (nie geladen), Aufgaben, Code-Block
+                if s.evaluate("() => !!document.querySelector('#repo-seite .kommentar-text')"):
+                    s.fill("#repo-seite .kommentar-text", "### Geprüft\n**Sauber**, danke! Die Änderung an `hammer.txt` passt – siehe "
+                           "[Anleitung](https://example.org/a).\n![Foto](https://example.org/f.png)\n\n- [x] Diff gelesen\n- [ ] ausprobiert\n\n"
+                           "> Gilt auch für die Zange.\n\n```sh\ngit am 0001-hammer.patch\n```")
+                    s.evaluate("() => document.querySelector('#repo-seite .kommentar-senden')?.click()")
+                    s.wait_for_timeout(1500)
+                    s.evaluate("() => [...document.querySelectorAll('#repo-seite .issue-kommentar')].at(-1)?.scrollIntoView({ block: 'start' })")
+                    s.wait_for_timeout(200)
+                    s.screenshot(path=str(ziel / f"{groesse}-{nr + 30:02d}-markdown-kommentar.jpg"), type="jpeg", quality=70)
             ctx.close()
         browser.close()
     srv.shutdown()

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content" />
   <meta name="theme-color" content="#7BC80A" />
   <title>freedom</title>
   <link rel="manifest" href="./manifest.json" />
@@ -93,6 +93,7 @@
         <div class="agent-mobil-leiste agent-nur-mobil">
           <button id="agent-zu-verlauf" class="ghost" type="button"><span class="ic" data-icon="scroll"></span> <span data-i18n="nav.verlauf">Verlauf</span></button>
           <button id="agent-zu-modelle" class="ghost" type="button"><span class="ic" data-icon="server"></span> <span data-i18n="nav.modelle">Modelle</span></button>
+          <button id="agent-zu-details" class="ghost" type="button"><span class="ic" data-icon="wrench"></span> <span data-i18n="agent.arbeitsbereich">Arbeitsbereich</span></button>
         </div>
         <div id="ai-thread" class="ai-thread">
           <div id="ai-empty" class="ai-empty">
@@ -171,6 +172,7 @@
         </div>
       </div>
           <aside class="agent-panel" aria-label="Arbeitsbereich" data-i18n-aria="agent.arbeitsbereich">
+            <button id="agent-panel-zurueck" class="ghost agent-panel-zurueck" type="button" aria-label="Zurück zum Gespräch" data-i18n-aria="nav.zurueckAria" data-i18n="nav.zurueck">‹ Zurück</button>
             <div class="panel-block">
               <h2 class="panel-title" data-i18n="agent.arbeitsbereich">Arbeitsbereich</h2>
               <div id="agent-workspace" class="mono-sm muted" data-i18n="agent.keinRepo">Kein Repository verbunden.</div>
@@ -252,6 +254,7 @@
                 <button id="space-invite" class="menue-punkt hidden" role="menuitem" type="button" data-i18n="komm.einladen">einladen</button>
                 <button id="space-mods" class="menue-punkt hidden" role="menuitem" type="button" data-i18n="komm.moderatoren">Moderatoren</button>
                 <button id="space-kanal-neu" class="menue-punkt hidden" role="menuitem" type="button" data-i18n="raum.kanalAnlegen">Kanal anlegen</button>
+                <button id="space-repo-neu" class="menue-punkt hidden" role="menuitem" type="button" data-i18n="raum.repoAnlegen">Repo anlegen</button>
                 <div class="menue-trenner hidden" role="separator"></div>
                 <button id="space-join" class="menue-punkt" role="menuitem" type="button" data-i18n="komm.raumBeitreten">Raum beitreten</button>
                 <button id="space-create" class="menue-punkt" role="menuitem" type="button" title="Ende-zu-Ende-verschlüsselt (MLS) – nur Eingeladene lesen mit" data-i18n-title="komm.privatTitel" data-i18n="komm.anlegenPrivat">Raum anlegen (privat)</button>
@@ -259,6 +262,10 @@
               </div>
             </div>
             <div id="channel-list" class="channel-list"></div>
+            <section id="raum-repos" class="raum-repos hidden" aria-labelledby="raum-repos-titel">
+              <h3 id="raum-repos-titel" class="raum-repos-titel"><span class="ic" data-icon="git"></span> <span data-i18n="raum.repos">Repos</span></h3>
+              <div id="raum-repos-liste" class="raum-repos-liste"></div>
+            </section>
           </aside>
           <div class="channel-main">
             <div id="space-oeffentlich" class="mono-sm warn hidden" data-i18n="komm.oeffentlichHinweis">Öffentlicher Raum – jeder kann mitlesen, auch ohne diese App. Die Nachrichten liegen unverschlüsselt auf den Relays.</div>
@@ -329,6 +336,8 @@
               <button id="nwc-disconnect" class="ghost hidden" style="width:auto;padding:6px 10px" data-i18n="waehr.trennen">trennen</button>
             </div>
             <div id="nwc-status" class="mono-sm"></div>
+            <label class="mono-sm" style="display:block;margin-top:6px"><input type="checkbox" id="nwc-privat" /> <span data-i18n="waehr.nwcNurPrivat">NWC nur über mein eigenes oder ein .onion-Relay – sonst sieht ein fremdes Relay, wann du zahlst</span></label>
+            <input id="nwc-eigenes-relay" class="mono-sm" placeholder="wss://… (dein eigenes Relay, optional)" data-i18n-ph="waehr.nwcEigenesRelayPh" style="width:100%" />
           </div>
         </div><div class="card">
           <h3>Solana</h3>
@@ -508,11 +517,32 @@
           <h3><span class="ic" data-icon="globe"></span> <span data-i18n="earn.abdeckung">Abdeckung</span></h3>
           <p class="mono-sm" data-i18n="earn.abdeckungText">Wo es Provider und Funk gibt. Funkknoten erscheinen erst ab drei pro Gebiet, damit sich niemand verorten lässt. Ein Eintrag trägt einen Wegwerfschlüssel, nicht deine Identität, und läuft nach 7 Tagen ab. Auf den Relays ist jeder Eintrag einzeln sichtbar – die Schwelle gilt nur für die Anzeige hier.</p>
           <div id="coverage-here" class="mono-sm"></div>
-          <div id="coverage-list" class="mono-sm"></div>
+          <div id="coverage-ansicht" class="seg karte-umschalter" role="group" aria-label="Ansicht der Abdeckung" data-i18n-aria="karte.ansichtAria">
+            <button type="button" data-ansicht="karte" class="active" aria-pressed="true" data-i18n="earn.tabKarte">Karte</button>
+            <button type="button" data-ansicht="liste" aria-pressed="false" data-i18n="karte.liste">Liste</button>
+          </div>
+          <div id="coverage-karte" class="karte">
+            <div class="karte-leiste">
+              <div id="coverage-ebenen" class="karte-ebenen" role="group" aria-label="Ebenen ein- und ausblenden" data-i18n-aria="karte.ebenenAria"></div>
+              <div class="karte-zoom">
+                <button id="coverage-naeher" type="button" class="ghost mini" aria-label="Näher heran" title="Näher heran" data-i18n-aria="karte.naeher" data-i18n-title="karte.naeher">+</button>
+                <button id="coverage-weiter" type="button" class="ghost mini" aria-label="Weiter weg" title="Weiter weg" data-i18n-aria="karte.weiter" data-i18n-title="karte.weiter">−</button>
+                <button id="coverage-welt" type="button" class="ghost mini" data-i18n="karte.welt">Ganze Welt</button>
+                <button id="coverage-meins" type="button" class="ghost mini hidden" data-i18n="karte.meins">Mein Gebiet</button>
+              </div>
+            </div>
+            <div id="coverage-svg" class="karte-flaeche"></div>
+            <p id="coverage-zelle" class="karte-angaben" role="status" aria-live="polite"></p>
+            <p id="coverage-karte-hinweis" class="muted karte-klein"></p>
+            <p class="muted karte-klein" data-i18n="karte.bedienung">Ziehen oder Pfeiltasten verschieben, Mausrad, zwei Finger oder Plus/Minus zoomen. Ein Gebiet antippen (oder Enter) zeigt seine Angaben.</p>
+          </div>
+          <div id="coverage-list" class="mono-sm hidden"></div>
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
             <button id="coverage-refresh" class="ghost" style="width:auto;padding:6px 10px" data-i18n="earn.aktualisieren">aktualisieren</button>
             <button id="coverage-join" class="ghost" style="width:auto;padding:6px 10px" data-i18n="earn.eintragen">selbst eintragen</button>
             <button id="coverage-leave" class="ghost" style="width:auto;padding:6px 10px" data-i18n="earn.austragen">austragen</button>
+            <button id="coverage-standort" class="ghost" style="width:auto;padding:6px 10px" data-i18n="karte.standortNutzen">mein Gebiet zeigen</button>
+            <button id="coverage-vergessen" class="ghost hidden" style="width:auto;padding:6px 10px" data-i18n="karte.standortVergessen">Gebiet vergessen</button>
           </div>
         </div></div>
           <div class="subpane" data-subpane="netz:mesh"><div class="card">
@@ -569,6 +599,7 @@
                   placeholder="freedom-blob:… oder https://…" data-i18n-ph="profil.bildPh" /></label>
               <label class="mono-sm"><span data-i18n="profil.lightningAdresse">Lightning-Adresse</span>
                 <input id="pf-lud16" class="mono-sm" style="width:100%" placeholder="du@wallet.cash" data-i18n-ph="profil.lud16Ph" /></label>
+              <label class="mono-sm"><input type="checkbox" id="pf-lud16-oeffentlich" /> <span data-i18n="profil.lud16Oeffentlich">Lightning-Adresse öffentlich zeigen – dann kann dir jeder zappen, und der Dienst dahinter sieht jede Zahlung an dich</span></label>
 
               <div style="display:flex;gap:10px;flex-wrap:wrap">
                 <label class="mono-sm"><span data-i18n="profil.farbe">Farbe</span>

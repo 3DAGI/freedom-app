@@ -140,7 +140,6 @@ export const agent: Texte = {
   "agent.kontextMit": { de: "der Kontext wird mitgegeben ({n} Nachrichten)", en: "the context is passed along ({n} messages)" },
   // Antwort, Zahlung
   "agent.providerKurz": { de: "Provider {pk}…", en: "provider {pk}…" },
-  "agent.lebenszeichen": { de: "Lebenszeichen gesendet — laufende Vorgänge sind abgebrochen", en: "Heartbeat sent — pending processes are cancelled" },
   "agent.providerVerlangte": { de: "Provider verlangte {sats} sats – mehr als dein Gebot; die App zahlt höchstens das Gebot", en: "Provider asked for {sats} sats – more than your bid; the app pays at most the bid" },
   "agent.bezahlt": { de: "bezahlt: {sats} sats an den Provider", en: "paid: {sats} sats to the provider" },
   "agent.zahlungUnklar": { de: "Zahlung an den Provider unklar – sieh in deiner Wallet nach. In dieser Sitzung zahlt die App nicht noch einmal.", en: "Payment to the provider unclear – check your wallet. The app won't pay again in this session." },

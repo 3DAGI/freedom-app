@@ -25,7 +25,8 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          # Dieselbe Node-Hauptversion wie der reproduzierbare Build (5.9)
+          node-version-file: .nvmrc
           cache: npm
 
       - name: Abhaengigkeiten installieren
@@ -132,6 +133,69 @@ jobs:
             console.log('dashboard.html: Skript syntaktisch ok');
           "
           node --check packages/website/js/dashboard-daten.js
+
+  smoke:
+    name: Browser-Test (Smoke)
+    # C-18 (entschieden 29.09.2026): der Smoke-Test lief bis dahin nur lokal bei
+    # den Agenten – ein Rückschritt in der Oberfläche fiel erst beim nächsten
+    # lokalen Lauf auf. Headless-Chromium gegen die gebaute freedom.html; alles
+    # außer 127.0.0.1 wird im Test abgewiesen, Relays sind Attrappen.
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Abhaengigkeiten installieren
+        # Der Test braucht Python-Playwright, nicht das des Knotens
+        run: npm install --workspaces --include-workspace-root --no-audit --no-fund
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+
+      - name: App bauen
+        run: |
+          cd packages/app
+          node build.mjs
+
+      - name: Playwright und Chromium
+        # Version fest – dieselbe wie bei den Agenten; ein Wechsel ist eine
+        # eigene Änderung mit grünem Lauf
+        run: |
+          python -m pip install --disable-pip-version-check playwright==1.56.0
+          python -m playwright install --with-deps chromium
+
+      - name: Smoke-Test
+        run: python scripts/smoke_test.py packages/app/dist
+
+  repro:
+    name: Reproduzierbarer Build
+    # 5.9: Zwei frische Builds desselben Commits an zwei Pfaden (je npm ci nach
+    # package-lock.json) muessen dieselbe SHA-256 ergeben – sonst rot. Wer die
+    # Summe aus dem Release-Manifest nachpruefen will:
+    #   scripts/repro-build.sh --vergleiche <sha256> <commit>
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Zweimal bauen, dieselbe Summe
+        shell: bash  # mit pipefail – sonst zaehlte nur tee
+        run: bash scripts/repro-build.sh --pruefen | tee -a "$GITHUB_STEP_SUMMARY"
 
   invariants:
     name: Protokoll-Invarianten

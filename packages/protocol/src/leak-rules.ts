@@ -110,6 +110,54 @@ export function regelKeinBolt11(events: readonly NostrEvent[]): LeakFinding[] {
     .map((e) => ({ regel: "kein-bolt11", eventId: e.id, detail: `Rechnung sichtbar (Kind ${e.kind})` }));
 }
 
+/**
+ * Keine Lightning-Adresse des Nutzers (lud16, auch als LNURL) in öffentlichen
+ * Events – Schritt 6.3. Umschläge (1059) sind verschlüsselt und zählen nicht.
+ */
+export function regelKeineLnAdresse(events: readonly NostrEvent[], adressen: readonly string[]): LeakFinding[] {
+  const gesucht = adressen.map((a) => a.trim().toLowerCase()).filter((a) => a.includes("@") && a.length >= 6);
+  return events
+    .filter((e) => e.kind !== 1059 && gesucht.some((a) => (e.content + "\n" + JSON.stringify(e.tags)).toLowerCase().includes(a)))
+    .map((e) => ({ regel: "keine-ln-adresse", eventId: e.id, detail: `Lightning-Adresse sichtbar (Kind ${e.kind})` }));
+}
+
+/**
+ * Zap-Anfragen (9734) nie mit der Identität und nur als „anon“ – der
+ * LNURL-Server veröffentlicht sie samt Rechnung in der Quittung (Schritt 6.3).
+ */
+export function regelZapAnonym(zapAnfragen: readonly NostrEvent[], identitaet: string): LeakFinding[] {
+  return zapAnfragen
+    .filter((e) => e.kind === 9734 && (e.pubkey === identitaet || !e.tags.some((t) => t[0] === "anon")))
+    .map((e) => ({ regel: "zap-anonym", eventId: e.id, detail: e.pubkey === identitaet ? "Zap-Anfrage von der Identität" : "Zap-Anfrage ohne anon" }));
+}
+
+/**
+ * Repos privater Räume nie offen (Schritt 11.4b): kein offenes Event der
+ * Arten 30617, 38042, 1617, 1630–1633 und (seit C-17a) 1621 zu ihren
+ * Kennungen, kein offener Kommentar (1111) zu ihren inneren Issues und
+ * Patches (`innere`), und ihr Bundle-Schlüssel nirgends im Klartext.
+ * Umschläge (1059) und Gruppen-Nachrichten (445) sind verschlüsselt und
+ * zählen nicht.
+ */
+export function regelRaumRepoPrivat(
+  events: readonly NostrEvent[],
+  p: { repoIds: readonly string[]; schluessel: readonly string[]; innere?: readonly string[] },
+): LeakFinding[] {
+  const arten = new Set([30617, 38042, 1617, 1621, 1630, 1631, 1632, 1633]);
+  const innere = new Set(p.innere ?? []);
+  const schluessel = p.schluessel.filter((k) => k.length >= 16).map((k) => k.toLowerCase());
+  return events.filter((e) => e.kind !== 1059 && e.kind !== 445).flatMap((e) => {
+    const d = e.tags.find((t) => t[0] === "d")?.[1];
+    const a = e.tags.filter((t) => t[0] === "a").map((t) => t[1] ?? "");
+    const zumRepo = (arten.has(e.kind) && p.repoIds.some((id) => d === id || a.some((x) => x.endsWith(`:${id}`))))
+      || (e.kind === 1111 && e.tags.some((t) => (t[0] === "E" || t[0] === "e") && innere.has(t[1] ?? "")));
+    const klartext = (e.content + "\n" + JSON.stringify(e.tags)).toLowerCase();
+    if (zumRepo) return [{ regel: "raum-repo-privat", eventId: e.id, detail: `Repo eines privaten Raums offen (Kind ${e.kind})` }];
+    if (schluessel.some((k) => klartext.includes(k))) return [{ regel: "raum-repo-privat", eventId: e.id, detail: `Bundle-Schlüssel sichtbar (Kind ${e.kind})` }];
+    return [];
+  });
+}
+
 /** Die Solana-Adressen des Nutzers in keinem oeffentlichen Event – Schritt 4.9. */
 export function regelKeineSolAdresse(events: readonly NostrEvent[], adressen: readonly string[]): LeakFinding[] {
   const funde: LeakFinding[] = [];
@@ -254,4 +302,7 @@ export const LEAK_REGELN: Readonly<Record<string, string>> = {
   "mls-gruppe": "Gruppennachrichten nur mit gehashter Gruppen-Id, jede von einem eigenen Wegwerf-Schlüssel, nie von der Identität.",
   "anmeldung-nicht-offen": "Anmeldungen bei Relays (NIP-42) nie als veröffentlichtes Event.",
   "kopien-entkoppelt": "Die Kopien einer Nachricht gehen nicht im selben Augenblick hinaus.",
+  "keine-ln-adresse": "Keine Lightning-Adresse des Nutzers in öffentlichen Events – im Profil nur auf ausdrücklichen Wunsch.",
+  "zap-anonym": "Zap-Anfragen tragen nie die Identität des Zahlers.",
+  "raum-repo-privat": "Repos privater Räume – Ankündigung, Bundle-Schlüssel, Patches, Status – nur in der MLS-Gruppe, nie offen.",
 };

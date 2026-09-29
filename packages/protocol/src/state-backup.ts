@@ -172,6 +172,7 @@ export const SICHERUNG_EINTRAEGE: readonly string[] = [
   "freedom.lastRead",           // Lesestaende
   "freedom.petnames",           // eigene Namen
   "freedom.profile",            // Profil-Entwurf
+  "freedom.profil.lnOeffentlich", // Lightning-Adresse im Profil öffentlich? (6.3)
   "freedom.lang",
   "freedom.relays",
   "freedom.relays.eigene",

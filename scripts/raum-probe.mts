@@ -4,8 +4,8 @@
 // Aufruf: npx tsx scripts/raum-probe.mts <eigener-pubkey-hex>  ->  {"spaceId": "...", "events": [...]}
 // Der eigene Schlüssel bekommt die Rolle „mod“, damit die Aktionen an Nachrichten erscheinen.
 import {
-  baueRepoAnkuendigung, bauePatch, buildChannelMessage, buildContribution, buildGitRepoRef, buildRoleGrant, buildRoles, buildSpace, generateKeypair,
-  leseRepoAnkuendigung, signEvent,
+  baueCoverageEintrag, baueIssue, baueKommentar, baueRepoAnkuendigung, bauePatch, buildChannelMessage, buildContribution, buildGitRepoRef, buildRoleGrant, buildRoles, buildSpace, generateKeypair,
+  leseRepoAnkuendigung, raumAdresse, signEvent,
 } from "../packages/protocol/src/index.ts";
 
 const ich = process.argv[2] ?? "";
@@ -50,10 +50,11 @@ events.push(
   nachricht(ada, "Zweite Zeile, gleiche Gruppe.", gestern + 240),
   nachricht(bo, "Guten Morgen – ein neuer Tag.", heute + 9 * 3600),
 );
-// Seit C.3a ein Repo: Ankündigung (ich bin Maintainer), Bundle-Verweis desselben Eigentümers, ein offener Patch
+// Seit C.3a ein Repo: Ankündigung (ich bin Maintainer), Bundle-Verweis desselben Eigentümers, ein offener Patch.
+// Seit 11.4c gehört es zum Probe-Raum (der Gründer pflegt dort immer Repos) – der Raum zeigt es in seiner Liste
 const ankuendigung = signEvent({ ...baueRepoAnkuendigung({
   id: "werkzeug", name: "werkzeug", beschreibung: "Werkzeuge für den Probe-Raum",
-  klon: ["https://example.org/werkzeug.git"], maintainer: [ich],
+  klon: ["https://example.org/werkzeug.git"], maintainer: [ich], raum: raumAdresse(gruender.pk, spaceId),
 }, gruender.pk), created_at: gestern }, gruender.sk);
 const patchText = `From ${"a".repeat(40)} Mon Sep 17 00:00:00 2001\nFrom: Ada\nSubject: [PATCH] Hammer schärfen\n\n---\n`
   + "diff --git a/hammer.txt b/hammer.txt\n--- a/hammer.txt\n+++ b/hammer.txt\n@@ -1 +1 @@\n-stumpf\n+scharf\n";
@@ -62,8 +63,23 @@ events.push(
   signEvent({ ...buildGitRepoRef({ name: "werkzeug", blobId: "b".repeat(64), headSha: "local", branch: "main", message: "bundle", version: 1 }, gruender.pk), created_at: gestern + 60 }, gruender.sk),
   signEvent({ ...bauePatch({ repo: leseRepoAnkuendigung(ankuendigung), text: patchText }, ada.pk), created_at: gestern + 300 }, ada.sk),
 );
+// Seit C-17b ein offenes Issue von Bo mit einem Kommentar von Ada
+const issue = signEvent({ ...baueIssue({ repo: { eigentuemer: gruender.pk, id: "werkzeug" }, betreff: "Hammer klemmt", text: "Seit gestern <b>fest</b>.", labels: ["bug"] }, bo.pk), created_at: gestern + 500 }, bo.sk);
+events.push(issue, signEvent({ ...baueKommentar({ wurzel: { id: issue.id, autor: bo.pk, kind: issue.kind }, text: "Bei mir auch." }, ada.pk), created_at: gestern + 600 }, ada.sk));
 // Seit C.3a2 Beiträge (38056) zu „werkzeug“: Ada an zwei Tagen, Bo einmal – und einer zu einem anderen Repo
 const beitrag = (von: typeof ada, repo: string, zeit: number) =>
   signEvent(buildContribution({ repoId: repo, authorPubkey: von.pk, kind: "patch", summary: "Beitrag", ref: `${repo}-${zeit}` }, zeit), von.sk);
 events.push(beitrag(ada, "werkzeug", gestern - 86_400), beitrag(ada, "werkzeug", gestern), beitrag(bo, "werkzeug", gestern + 400), beitrag(bo, "anderes", gestern));
+// Seit C.4a Abdeckung (38055) für die Karte, je Eintrag ein Wegwerfschlüssel: drei Funkknoten in einem
+// Gebiet (gezeigt), zwei in einem anderen (unter der Schwelle), ein Provider im Netz mit Namen, drei
+// Bluetooth-Geräte mit einem Namen, der Text bleiben muss
+const vorEinerStunde = Math.floor(Date.now() / 1000) - 3600;
+const abdeckung = (layer: "online" | "lora" | "bluetooth", cell: string, region = "") =>
+  baueCoverageEintrag({ layer, cell, region }, vorEinerStunde).event;
+events.push(
+  ...[1, 2, 3].map(() => abdeckung("lora", "48.00,11.00")),
+  ...[1, 2].map(() => abdeckung("lora", "52.00,13.00")),
+  abdeckung("online", "50.00,8.00", "Probe-Stadt"),
+  ...[1, 2, 3].map(() => abdeckung("bluetooth", "47.00,8.00", "<b>fett</b> Tal")),
+);
 console.log(JSON.stringify({ spaceId, events }));

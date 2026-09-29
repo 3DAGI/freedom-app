@@ -18,6 +18,7 @@ import {
 } from "@freedomstack/protocol";
 import { gebietsschema, t } from "../../i18n.js";
 import { fehlerText } from "../../protokoll-texte.js";
+import { LS_NWC_EIGENES_RELAY, LS_NWC_NUR_PRIVAT, nwcRelayEinstellung } from "../../nwc-relays.js";
 import { escapeHtml, pkShort } from "../../shell-logic.js";
 import { anbieterKursWarnung, depositDeckel, solText } from "../../preis-anzeige.js";
 import type { RueckPlan } from "../../rueck-swap.js";
@@ -746,9 +747,16 @@ export async function connectNwc(uri?: string, silent = false): Promise<void> {
   }
 
   try {
-    const { parseNwcUri, NwcClient, redactNwcUri, WebSocketRelay, OutboxPool } =
+    const { parseNwcUri, NwcClient, redactNwcUri, WebSocketRelay, OutboxPool, waehleNwcRelays, bolt12Methoden } =
       await import("@freedomstack/protocol");
     const conn = parseNwcUri(raw);
+    // Relays der Wallet (6.3): mit Einstellung nur das eigene oder .onion – nie still ein fremdes
+    const wahl = waehleNwcRelays(conn.relays, nwcRelayEinstellung(localStorage));
+    if ("fehler" in wahl) {
+      statusEl.textContent = t("waehr.nwcKeinPrivatesRelay");
+      statusEl.className = "mono-sm warn";
+      return;
+    }
 
     // Eine NEUE Wallet-Verbindung ist ein Geld-Geheimnis – erst der Tresor.
     if (raw !== gespeichert && !(await verlangeTresor(t("waehr.fuerNwc")))) {
@@ -760,7 +768,7 @@ export async function connectNwc(uri?: string, silent = false): Promise<void> {
     // Eigener Pool auf den Relays DER WALLET — die muessen nicht dieselben
     // sein wie die des Protokolls, sonst findet das Wallet uns nicht.
     const walletPool = new OutboxPool(
-      conn.relays.map((u) => new WebSocketRelay(u)),
+      wahl.relays.map((u) => new WebSocketRelay(u)),
       { minAcks: 1 },
     );
     const client = new NwcClient(conn, walletPool, 30_000);
@@ -777,8 +785,14 @@ export async function connectNwc(uri?: string, silent = false): Promise<void> {
     if (input) input.value = redactNwcUri(raw);
 
     $("#ln-balance").innerHTML = `${Math.floor(balance / 1000).toLocaleString(gebietsschema())} <small>sats</small>`;
-    statusEl.textContent = t("waehr.nwcVerbunden", { verschluesselung: info.encryption, n: info.methods.length || "?" });
-    statusEl.className = "mono-sm ok";
+    // BOLT12 nur erkennen (6.3): NIP-47 legt die Methoden noch nicht fest – Rechnungen gehen versiegelt (6.3b1)
+    const bolt12 = bolt12Methoden(info.methods);
+    statusEl.textContent = [
+      t("waehr.nwcVerbunden", { verschluesselung: info.encryption, n: info.methods.length || "?" }),
+      t(wahl.fremd ? "waehr.nwcRelayFremd" : "waehr.nwcRelayPrivat"),
+      bolt12.length ? t("waehr.bolt12Ja", { methoden: bolt12.join(", ") }) : t("waehr.bolt12Nein"),
+    ].join(" · ");
+    statusEl.className = wahl.fremd ? "mono-sm" : "mono-sm ok";
     $("#nwc-disconnect").classList.remove("hidden");
     updateSidebarBalances();
   } catch (e) {
@@ -786,6 +800,29 @@ export async function connectNwc(uri?: string, silent = false): Promise<void> {
     statusEl.textContent = fehlerText(e);
     statusEl.className = "mono-sm err";
   }
+}
+
+/** Einstellung „NWC nur über eigenes oder .onion-Relay“ (6.3) – verbindet danach neu, wenn verbunden. */
+export function wireNwcRelays(): void {
+  const haken = $("#nwc-privat") as HTMLInputElement | null;
+  const feld = $("#nwc-eigenes-relay") as HTMLInputElement | null;
+  if (!haken || !feld) return;
+  const e = nwcRelayEinstellung(localStorage);
+  haken.checked = e.nurPrivat;
+  feld.value = e.eigenes ?? "";
+  const merke = (): void => {
+    localStorage.setItem(LS_NWC_NUR_PRIVAT, haken.checked ? "1" : "0");
+    const url = feld.value.trim();
+    if (url) localStorage.setItem(LS_NWC_EIGENES_RELAY, url);
+    else localStorage.removeItem(LS_NWC_EIGENES_RELAY);
+    const uri = geheim.getItem(NWC_KEY);
+    if (uri) {
+      nwc = null;
+      void connectNwc(uri);
+    }
+  };
+  haken.onchange = merke;
+  feld.onchange = merke;
 }
 
 export function disconnectNwc(): void {

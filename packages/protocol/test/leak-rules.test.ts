@@ -10,6 +10,7 @@ import {
   LEAK_REGELN, regelAutorNicht, regelKeinBolt11, regelKeinKind4, regelKeinKlartext, regelKeinKlartextPrompt,
   regelKeineSolAdresse, regelKeineZahlungsdaten, regelKundeVerborgen, regelPTagsNur, regelSolAdresseFrisch,
   regelUploadVerschluesselt, regelMeshVerschluesselt, regelMlsGruppe, regelAnmeldungNichtOffen, regelKopienEntkoppelt,
+  regelKeineLnAdresse, regelZapAnonym, regelRaumRepoPrivat,
 } from "../src/leak-rules.js";
 import { bech32 } from "@scure/base";
 import { fromHex } from "../src/htlc.js";
@@ -84,9 +85,45 @@ test("jede Regel meldet unter einem Namen aus LEAK_REGELN", () => {
     ...regelMlsGruppe([ev(445, [])], { gruppenIds: [], identitaeten: [] }),
     ...regelAnmeldungNichtOffen([ev(22242, [["relay", "wss://r.test"], ["challenge", "c"]])]),
     ...regelKopienEntkoppelt([{ ev: ev(1059, []), zeitMs: 0 }, { ev: ev(1059, [], "x"), zeitMs: 10 }]),
+    ...regelKeineLnAdresse([ev(0, [], JSON.stringify({ lud16: "ada@wallet.example" }))], ["ada@wallet.example"]),
+    ...regelZapAnonym([ev(9734, [["p", provider.pk]])], kunde.pk),
+    ...regelRaumRepoPrivat([ev(30617, [["d", "werkstatt"]])], { repoIds: ["werkstatt"], schluessel: [] }),
   ];
   const gemeldet = new Set(funde.map((f) => f.regel));
   assert.deepEqual([...gemeldet].sort(), Object.keys(LEAK_REGELN).sort());
+});
+
+test("keine-ln-adresse: im Inhalt und in Tags, ohne Groß/klein – Umschläge und fremde Adressen nicht", () => {
+  const LN = "Ada@Wallet.example";
+  const regel = (evs: NostrEvent[], adressen = [LN]) => regelKeineLnAdresse(evs, adressen).length;
+  assert.equal(regel([ev(0, [], JSON.stringify({ name: "Ada", lud16: "ada@wallet.example" }))]), 1, "im Profil");
+  assert.equal(regel([ev(0, [["lud16", "ADA@WALLET.EXAMPLE"]], "{}")]), 1, "als Tag");
+  assert.equal(regel([ev(1, [], "zahl mir an ada@wallet.example")]), 1, "im Text");
+  assert.equal(regel([ev(1059, [], "ada@wallet.example")]), 0, "Umschlag");
+  assert.equal(regel([ev(0, [], JSON.stringify({ lud16: "bob@wallet.example" }))]), 0, "fremde Adresse");
+  assert.equal(regel([ev(0, [], JSON.stringify({ name: "Ada" }))]), 0, "ohne Adresse");
+  assert.equal(regel([ev(1, [], "a@b")], ["a@b", "", "  "]), 0, "kürzer als a@b.cd oder leer – wird nicht gesucht");
+});
+
+test("zap-anonym: nicht von der Identität und nur mit anon", () => {
+  const weg = generateKeypair();
+  const regel = (evs: NostrEvent[]) => regelZapAnonym(evs, kunde.pk).map((f) => f.detail);
+  assert.deepEqual(regel([ev(9734, [["p", provider.pk], ["anon"]], "", weg)]), [], "so soll es sein");
+  assert.deepEqual(regel([ev(9734, [["p", provider.pk], ["anon"]])]), ["Zap-Anfrage von der Identität"]);
+  assert.deepEqual(regel([ev(9734, [["p", provider.pk]], "", weg)]), ["Zap-Anfrage ohne anon"]);
+  assert.deepEqual(regel([ev(1, [])]), [], "andere Arten zählen nicht");
+});
+
+test("raum-repo-privat: offene Repo-Events zum Repo und der Schlüssel – nicht Umschläge, Gruppen-Nachrichten, fremde Repos", () => {
+  const KEY = "ab".repeat(32);
+  const regel = (evs: NostrEvent[]) => regelRaumRepoPrivat(evs, { repoIds: ["werkstatt"], schluessel: [KEY, "kurz"] }).map((f) => f.detail);
+  assert.deepEqual(regel([ev(30617, [["d", "werkstatt"]])]), ["Repo eines privaten Raums offen (Kind 30617)"]);
+  assert.deepEqual(regel([ev(38042, [["d", "werkstatt"], ["blob", "x"]])]), ["Repo eines privaten Raums offen (Kind 38042)"]);
+  assert.deepEqual(regel([ev(1617, [["a", `30617:${kunde.pk}:werkstatt`]], "From …")]), ["Repo eines privaten Raums offen (Kind 1617)"]);
+  assert.deepEqual(regel([ev(1631, [["a", `30617:${kunde.pk}:werkstatt`]])]), ["Repo eines privaten Raums offen (Kind 1631)"]);
+  assert.deepEqual(regel([ev(1, [], `schlüssel ${KEY.toUpperCase()}`)]), ["Bundle-Schlüssel sichtbar (Kind 1)"]);
+  assert.deepEqual(regel([ev(1059, [], KEY), ev(445, [["h", "cd".repeat(32)]], KEY)]), [], "verschlüsselt");
+  assert.deepEqual(regel([ev(30617, [["d", "anderes"]]), ev(1, [], "kurz")]), [], "fremdes Repo, zu kurzer Schlüssel");
 });
 
 test("mls-gruppe: nur h (nicht die Gruppen-Id), eigener Schlüssel je Nachricht, nie die Identität", () => {

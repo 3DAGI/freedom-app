@@ -462,8 +462,14 @@ def rahmen_pruefen(browser, url: str) -> dict:
             wieder = sichtbar(".agent-main") and not sichtbar(".agent-side")
             klick("#agent-zu-modelle")
             modelle = sichtbar("#models-list")
-            erg["mobil"]["agent"] = [verlauf, wieder, modelle]
-            if verlauf != [True, True, "#/agent/verlauf"] or not wieder or not modelle:
+            # C.6b: das rechte Feld (Arbeitsbereich, Werkzeuge, Kosten) als eigene Ebene
+            klick("#agent-seite-zurueck")
+            klick("#agent-zu-details")
+            details = [sichtbar("#agent-workspace") and sichtbar("#agent-cost"), not sichtbar(".agent-main"), ev("() => location.hash")]
+            klick("#agent-panel-zurueck")
+            details.append(sichtbar(".agent-main") and not sichtbar(".agent-panel"))
+            erg["mobil"]["agent"] = [verlauf, wieder, modelle, details]
+            if verlauf != [True, True, "#/agent/verlauf"] or not wieder or not modelle or details != [True, True, "#/agent/details", True]:
                 erg["fehler"].append(f"mobil: Agent {erg['mobil']['agent']}")
             klick('.app-nav button[data-tab="mehr"]')
             mehr = ev("""() => [[...document.querySelectorAll('#page-mehr [data-geh]')].map(b => b.dataset.geh),
@@ -1007,6 +1013,38 @@ def raum_pruefen(browser, url: str) -> dict:
             if rechte != [True, True] or not any(k.endswith("Technik & Co") for k in kanaele) \
                     or neu != [["channel", "technik-co", "Technik & Co", "offen", "2", "mod", ""]]:
                 erg["fehler"].append(f"desktop: eigener Raum, Kanal anlegen {erg['desktop']['eigener_raum']}")
+        # Raum-Repos (11.4c): im Probe-Raum die Liste seiner Repos, ohne „Repo anlegen“ (meine Rolle hat das Recht nicht);
+        # ein Klick öffnet die Repo-Seite mit dem Raum, „Zum Raum“ führt zurück, der Fokus steht auf dem Repo
+        if not mobil:
+            ev("() => document.querySelector('#space-rail .space-pill[data-space=\"probe-raum\"]')?.click()")
+        try:
+            s.wait_for_function("() => document.querySelectorAll('#raum-repos .raum-repo').length > 0", timeout=10000)
+        except Exception:
+            pass
+        im_raum = ev("""() => ({ repos: [...document.querySelectorAll('#raum-repos .raum-repo')].map(b => [...b.children].map(c => c.textContent)),
+          sichtbar: (document.getElementById('raum-repos')?.getBoundingClientRect().height ?? 0) > 0,
+          anlegen: !document.getElementById('space-repo-neu')?.classList.contains('hidden') })""")
+        ev("() => document.querySelector('#raum-repos .raum-repo')?.click()")
+        s.wait_for_timeout(300)
+        auf_seite = ev("""() => ({ hash: location.hash, seite: document.getElementById('repo-seite').getBoundingClientRect().height > 0,
+          titel: document.querySelector('#repo-seite .repo-titel span:last-child')?.textContent,
+          raum: document.querySelector('#repo-seite .repo-raum span')?.textContent, fokus: document.activeElement?.classList.contains('repo-zurueck') })""")
+        ev("() => document.querySelector('#repo-seite .repo-zum-raum')?.click()")
+        try:
+            s.wait_for_function("() => location.hash === '#/chat' && document.activeElement?.classList.contains('raum-repo')", timeout=10000)
+        except Exception:
+            pass
+        zurueck_raum = ev("""() => ({ hash: location.hash, raum: document.getElementById('space-name').textContent,
+          fokus: document.activeElement?.classList.contains('raum-repo') ?? false,
+          sichtbar: (document.getElementById('raum-repos')?.getBoundingClientRect().height ?? 0) > 0 })""")
+        erg[groesse]["raum_repos"] = {"im_raum": im_raum, "seite": auf_seite, "zurueck": zurueck_raum}
+        if im_raum != {"repos": [["werkzeug", "1"]], "sichtbar": True, "anlegen": False}:
+            erg["fehler"].append(f"{groesse}: Repos im Raum {im_raum}")
+        if auf_seite != {"hash": "#/repos", "seite": True, "titel": "werkzeug",
+                         "raum": "Im öffentlichen Raum „Probe-Raum“ – wer dort Repos pflegt, pflegt es mit.", "fokus": True}:
+            erg["fehler"].append(f"{groesse}: Repo-Seite aus dem Raum {auf_seite}")
+        if zurueck_raum != {"hash": "#/chat", "raum": "Probe-Raum", "fokus": True, "sichtbar": True}:
+            erg["fehler"].append(f"{groesse}: „Zum Raum“ {zurueck_raum}")
         # Repos (C.3a): eine Karte aus Ankündigung und Bundle, Suche, „Meine“, Repo-Seite, Patch annehmen per Dialog
         ev("() => { location.hash = '#/repos'; }")
         try:
@@ -1131,11 +1169,11 @@ def raum_pruefen(browser, url: str) -> dict:
             pass
         code = ev("""() => ({ commit: document.querySelector('#repo-seite .code-commit')?.textContent,
           dateien: [...document.querySelectorAll('#repo-seite .code-dateien li')].map(l => l.textContent),
-          readme: document.querySelector('#repo-seite .code-readme')?.textContent?.split('\\n')[0],
+          readme: [...document.querySelectorAll('#repo-seite .code-readme.md > *')].map(e => [e.tagName, e.textContent]),
           fehler: document.querySelector('#repo-seite .repo-fehler')?.textContent ?? '' })""")
         erg[groesse]["code"] = code
         if not (code["commit"] or "").startswith("Liste ergänzt · Probe · ") or not (code["commit"] or "").endswith("· 590c7cf") \
-                or code["dateien"] != ["src/", "bild.bin", "README.md"] or code["readme"] != "# Werkzeug" or code["fehler"]:
+                or code["dateien"] != ["src/", "bild.bin", "README.md"] or code["readme"] != [["H1", "Werkzeug"], ["P", "Ein Probe-Repo für den Bundle-Leser."]] or code["fehler"]:
             erg["fehler"].append(f"{groesse}: Reiter Code {code}")
         # Seit C.3c2: Ordner öffnen, Datei als Text, binär ehrlich, zurück über den Pfad; Reiter „Commits“
         def eintrag(name: str) -> None:
@@ -1166,9 +1204,9 @@ def raum_pruefen(browser, url: str) -> dict:
         erg[groesse]["repo_c3a2"] = {"fremd_reiter": fremd_reiter, "mitwirkende": mitwirkende, "eigen_reiter": eigen_reiter,
                                      "abgewiesen": abgewiesen, "tags": tags, "links": links, "bleibt": noch_einstellungen,
                                      "bundle": bundle_tags, "bundle_knopf": bundle_knopf}
-        if fremd_reiter != ["code", "commits", "patches", "mitwirkende"] or mitwirkende != 2:
+        if fremd_reiter != ["code", "commits", "issues", "patches", "mitwirkende"] or mitwirkende != 2:
             erg["fehler"].append(f"{groesse}: fremdes Repo, Reiter/Mitwirkende {fremd_reiter} {mitwirkende}")
-        if eigen_reiter != ["code", "commits", "patches", "mitwirkende", "einstellungen"]:
+        if eigen_reiter != ["code", "commits", "issues", "patches", "mitwirkende", "einstellungen"]:
             erg["fehler"].append(f"{groesse}: eigenes Repo ohne Einstellungen {eigen_reiter}")
         if "Maintainer" not in abgewiesen[0] or abgewiesen[1] != 0 or abgewiesen[2]:
             erg["fehler"].append(f"{groesse}: ungültiger Maintainer nicht abgewiesen {abgewiesen}")
@@ -1247,6 +1285,37 @@ def raum_pruefen(browser, url: str) -> dict:
             seite_patch["datei"] = dl.value.suggested_filename
         except Exception as e:
             seite_patch["datei"] = f"kein Download: {str(e)[:80]}"
+        # Seit C-17c: Kommentar unter dem Patch – NIP-22 an den Patch (K 1617), danach auf der Seite
+        vorher_pk = len(relay.gesendet)
+        if ev("() => !!document.querySelector('#repo-seite .kommentar-text')"):
+            s.fill("#repo-seite .kommentar-text", "Sauber, danke!")
+            ev("() => document.querySelector('#repo-seite .kommentar-senden')?.click()")
+        try:
+            s.wait_for_function("() => [...document.querySelectorAll('#repo-seite .issue-kommentar .issue-text')].some(e => e.textContent === 'Sauber, danke!')", timeout=10000)
+        except Exception:
+            pass
+        pk_neu = list({e["id"]: e for e in relay.gesendet[vorher_pk:] if e.get("kind") == 1111}.values())
+        pk_tags = {t[0]: t[1:] for t in (pk_neu[-1]["tags"] if pk_neu else [])}
+        seite_patch["kommentar"] = [len(pk_neu), (pk_tags.get("E") or [None])[0] == patch_id, pk_tags.get("K"),
+                                    ev("() => [...document.querySelectorAll('#repo-seite .issue-kommentar .issue-text')].map(e => e.textContent)")]
+        # Seit C-20a: Kommentare als Markdown – nur DOM; Link nur https ohne Referrer, Bild nie geladen, rohes HTML bleibt Text
+        # (beide Kommentare fallen in dieselbe Sekunde – die Reihenfolge entscheidet dann die Id, daher nach Inhalt suchen)
+        bild_anfragen: list = []
+        s.on("request", lambda r: bild_anfragen.append(r.url) if "example.org/f.png" in r.url else None)
+        if ev("() => !!document.querySelector('#repo-seite .kommentar-text')"):
+            s.fill("#repo-seite .kommentar-text", "**Sauber** – siehe [Anleitung](https://example.org/a) und [böse](javascript:alert(1)).\n"
+                   "![Foto](https://example.org/f.png) <b>roh</b>\n\n- eins\n- `zwei`")
+            ev("() => document.querySelector('#repo-seite .kommentar-senden')?.click()")
+        try:
+            s.wait_for_function("() => document.querySelectorAll('#repo-seite .issue-kommentar').length === 2", timeout=10000)
+        except Exception:
+            pass
+        seite_patch["markdown"] = ev("""() => { const k = [...document.querySelectorAll('#repo-seite .issue-kommentar .md')].find(e => e.textContent.includes('Anleitung'));
+          if (!k) return null;
+          const a = [...k.querySelectorAll('a')].map(x => [x.getAttribute('href'), x.rel, x.target, x.textContent]);
+          return { fett: k.querySelector('p strong')?.textContent, links: a, bilder: k.querySelectorAll('img').length, roh: !k.querySelector('b') && k.textContent.includes('<b>roh</b>'),
+            umbruch: k.querySelectorAll('p br').length, liste: [...k.querySelectorAll('ul > li')].map(l => l.textContent), code: k.querySelector('li code')?.textContent }; }""")
+        seite_patch["bild_anfragen"] = len(bild_anfragen)
         ev("() => document.querySelector('#repo-seite .patch-zurueck')?.click()")
         s.wait_for_timeout(200)
         seite_patch["zurueck"] = ev("() => [!!document.querySelector('#repo-seite .repo-patches'), document.activeElement?.dataset?.patch?.length === 64]")
@@ -1255,9 +1324,442 @@ def raum_pruefen(browser, url: str) -> dict:
                 or seite_patch["zeilen"] != [["1", "", "−", "stumpf"], ["", "1", "+", "scharf"]] or not seite_patch["fokus"] \
                 or seite_patch["datei"] != "aaaaaaa.patch" or seite_patch["zurueck"] != [True, True] \
                 or len(seite_patch["angaben"]) != 3 or not seite_patch["angaben"][0].startswith("angenommen ✓ von Du") \
-                or seite_patch["angaben"][1:] != ["Eingespielt als ccccccc", "Danke – <i>sauber</i>."] or seite_patch["fett"] != 0:
+                or seite_patch["angaben"][1:] != ["Eingespielt als ccccccc", "Danke – <i>sauber</i>."] or seite_patch["fett"] != 0 \
+                or seite_patch["kommentar"] != [1, True, ["1617"], ["Sauber, danke!"]] or seite_patch["bild_anfragen"] != 0 \
+                or seite_patch["markdown"] != {"fett": "Sauber", "bilder": 0, "roh": True, "umbruch": 1, "liste": ["eins", "zwei"], "code": "zwei",
+                                               "links": [["https://example.org/a", "noopener noreferrer nofollow", "_blank", "Anleitung"],
+                                                         ["https://example.org/f.png", "noopener noreferrer nofollow", "_blank", "Bild: Foto (nicht geladen)"]]}:
             erg["fehler"].append(f"{groesse}: Patch-Seite {seite_patch}")
+        # Seit C-17b1: Reiter „Issues“ – Liste mit dem Issue aus der Probe, die Seite mit Text und Kommentar (HTML bleibt Text),
+        # zurück mit Fokus, dann „Neues Issue“ per Dialog: öffentlich, signiert, an das Repo adressiert
+        ev("() => document.querySelector('#repo-seite [data-reiter=issues]')?.click()")
+        s.wait_for_timeout(200)
+        issue_liste = "() => [...document.querySelectorAll('#repo-seite .issue-zeile')].map(z => [z.querySelector('.issue-betreff').textContent, z.querySelector('.repo-status').textContent, [...z.querySelectorAll('.issue-label')].map(l => l.textContent)])"
+        issues = {"reiter": ev("() => document.querySelector('#repo-seite [data-reiter=issues]')?.textContent"), "liste": ev(issue_liste)}
+        ev("() => document.querySelector('#repo-seite .issue-betreff')?.click()")
+        s.wait_for_timeout(200)
+        issues["seite"] = ev("""() => ({ titel: document.querySelector('#repo-seite .issue-titel')?.textContent,
+          text: document.querySelector('#repo-seite .issue-kopf ~ .issue-text')?.textContent, fett: document.querySelectorAll('#repo-seite b').length,
+          kommentare: [...document.querySelectorAll('#repo-seite .issue-kommentar .issue-text')].map(e => e.textContent),
+          fokus: document.activeElement?.classList.contains('issue-zurueck') })""")
+        # Seit C-17b2: kommentieren (öffentlich, NIP-22 an das Issue), als erledigt schließen, wieder öffnen – ich pflege „werkzeug“ mit
+        issue_id = next(e["id"] for e in relay.events if e.get("kind") == 1621 and ["subject", "Hammer klemmt"] in e["tags"])
+        kommentare_auf_seite = "() => [...document.querySelectorAll('#repo-seite .issue-kommentar .issue-text')].map(e => e.textContent)"
+        vorher_k = len(relay.gesendet)
+        issues["kommentar_hinweis"] = ev("() => document.querySelector('#repo-seite .kommentar-feld p')?.textContent ?? ''")
+        if ev("() => !!document.querySelector('#repo-seite .kommentar-text')"):
+            s.fill("#repo-seite .kommentar-text", "Ich schaue es mir an.")
+            ev("() => document.querySelector('#repo-seite .kommentar-senden')?.click()")
+        try:
+            s.wait_for_function("() => [...document.querySelectorAll('#repo-seite .issue-kommentar .issue-text')].some(e => e.textContent === 'Ich schaue es mir an.')", timeout=10000)
+        except Exception:
+            pass
+        k_neu = list({e["id"]: e for e in relay.gesendet[vorher_k:] if e.get("kind") == 1111}.values())
+        k_tags = {t[0]: t[1:] for t in (k_neu[-1]["tags"] if k_neu else [])}
+        issues["kommentar"] = {"anzahl": len(k_neu), "E": (k_tags.get("E") or [None])[0], "K": k_tags.get("K"), "liste": ev(kommentare_auf_seite)}
+        aktionen = "() => [...document.querySelectorAll('#repo-seite .issue-aktionen button')].map(b => b.textContent)"
+        marke = "() => document.querySelector('#repo-seite .patch-meta .repo-status')?.textContent"
+        issues["aktionen"] = ev(aktionen)
+        vorher_s = len(relay.gesendet)
+        ev("() => document.querySelector('#repo-seite .issue-aktionen button')?.click()")  # als erledigt schließen
+        try:
+            s.wait_for_function("() => document.querySelector('#repo-seite .patch-meta .repo-status')?.textContent === 'erledigt ✓'", timeout=10000)
+        except Exception:
+            pass
+        issues["erledigt"] = [ev(marke), ev(aktionen)]
+        s.wait_for_timeout(1100)  # der nächste Status braucht einen späteren Zeitstempel (Sekunden)
+        ev("() => document.querySelector('#repo-seite .issue-aktionen button')?.click()")  # wieder öffnen
+        try:
+            s.wait_for_function("() => document.querySelector('#repo-seite .patch-meta .repo-status')?.textContent === 'offen'", timeout=10000)
+        except Exception:
+            pass
+        issues["wieder"] = ev(marke)
+        issues["status_events"] = [[e["kind"], next((t[1] for t in e["tags"] if t[0] == "e"), None)]
+                                   for e in {e["id"]: e for e in relay.gesendet[vorher_s:] if e.get("kind") in (1630, 1631, 1632)}.values()]
+        ev("() => document.querySelector('#repo-seite .issue-zurueck')?.click()")
+        s.wait_for_timeout(200)
+        issues["zurueck"] = ev("() => document.activeElement?.classList.contains('issue-betreff') ?? false")
+        vorher_issues = len([e for e in relay.gesendet if e.get("kind") == 1621])
+        ev("() => document.querySelector('#repo-seite .issue-neu')?.click()")
+        s.wait_for_timeout(200)
+        issues["hinweis"] = ev("() => document.querySelector('[role=dialog] .dlg-text')?.textContent ?? ''")
+        s.keyboard.type("Säge stumpf")
+        s.keyboard.press("Tab")
+        s.keyboard.type("Bitte schärfen.")
+        s.keyboard.press("Tab")
+        s.keyboard.type("wartung")
+        s.keyboard.press("Enter")
+        try:
+            s.wait_for_function("() => [...document.querySelectorAll('#repo-seite .issue-betreff')].some(b => b.textContent === 'Säge stumpf')", timeout=10000)
+        except Exception:
+            pass
+        neue_issues = [e for e in relay.gesendet if e.get("kind") == 1621][vorher_issues:]
+        issue_tags = {t[0]: t[1:] for t in (neue_issues[-1]["tags"] if neue_issues else [])}
+        issues["gesendet"] = {"anzahl": len({e["id"] for e in neue_issues}), "a": issue_tags.get("a"), "subject": issue_tags.get("subject"),
+                              "t": issue_tags.get("t"), "text": neue_issues[-1]["content"] if neue_issues else None}
+        issues["danach"] = ev(issue_liste)
+        erg[groesse]["issues"] = issues
+        gruender_pk = next(e["pubkey"] for e in relay.events if e.get("kind") == 30617)
+        if issues["reiter"] != "Issues (1 offen)" or issues["liste"] != [["Hammer klemmt", "offen", ["bug"]]] \
+                or issues["seite"] != {"titel": "Hammer klemmt", "text": "Seit gestern <b>fest</b>.", "fett": 0, "kommentare": ["Bei mir auch."], "fokus": True} \
+                or not issues["zurueck"] or not issues["hinweis"].startswith("Öffentlich und mit deinem Schlüssel signiert") \
+                or issues["gesendet"] != {"anzahl": 1, "a": [f"30617:{gruender_pk}:werkzeug"], "subject": ["Säge stumpf"], "t": ["wartung"], "text": "Bitte schärfen."} \
+                or [z[0] for z in issues["danach"]] != ["Säge stumpf", "Hammer klemmt"]:
+            erg["fehler"].append(f"{groesse}: Issues {issues}")
+        if not issues["kommentar_hinweis"].startswith("Öffentlich und mit deinem Schlüssel signiert") \
+                or issues["kommentar"] != {"anzahl": 1, "E": issue_id, "K": ["1621"], "liste": ["Bei mir auch.", "Ich schaue es mir an."]} \
+                or issues["aktionen"] != ["Als erledigt schließen", "Als nicht geplant schließen"] \
+                or issues["erledigt"] != ["erledigt ✓", ["Wieder öffnen"]] or issues["wieder"] != "offen" \
+                or issues["status_events"] != [[1631, issue_id], [1630, issue_id]]:
+            erg["fehler"].append(f"{groesse}: Issue kommentieren/schließen {issues}")
+        # Seit 11.4c: im eigenen öffentlichen Raum „Repo anlegen“ aus dem Raum-Menü – mit Verweis auf genau diesen Raum,
+        # danach steht es in der Liste des Raums (am Ende, damit die Prüfungen der Repo-Liste oben nichts davon sehen)
+        if not mobil:
+            ev("() => { location.hash = '#/chat'; }")
+            s.wait_for_timeout(200)
+            werkstatt = ev("() => [...document.querySelectorAll('#space-rail .space-pill')].find(p => p.dataset.space.startsWith('werkstatt-'))?.dataset.space ?? ''")
+            ev("() => [...document.querySelectorAll('#space-rail .space-pill')].find(p => p.dataset.space.startsWith('werkstatt-'))?.click()")
+            try:
+                s.wait_for_function("() => document.getElementById('space-repo-neu')?.classList.contains('hidden') === false", timeout=10000)
+            except Exception:
+                pass
+            ev("() => document.getElementById('space-repo-neu')?.click()")
+            s.wait_for_timeout(200)
+            s.keyboard.type("raumrepo")
+            s.keyboard.press("Enter")  # Dialog: Kennung
+            s.wait_for_timeout(200)
+            frage = ev("() => document.querySelector('[role=dialog] .dlg-text')?.textContent ?? ''")
+            s.keyboard.press("Enter")  # Rückfrage: ankündigen
+            try:
+                s.wait_for_function("() => [...document.querySelectorAll('#raum-repos .raum-repo')].some(b => b.textContent === 'raumrepo')", timeout=10000)
+            except Exception:
+                pass
+            neu_im_raum = [e for e in relay.gesendet if e.get("kind") == 30617 and ["d", "raumrepo"] in e["tags"]]
+            verweis_raum = [t[1] for t in (neu_im_raum[-1]["tags"] if neu_im_raum else []) if t[0] == "a"]
+            liste_raum = ev("() => [...document.querySelectorAll('#raum-repos .raum-repo')].map(b => b.textContent)")
+            erg["desktop"]["repo_im_raum"] = {"frage": frage, "verweis": verweis_raum, "liste": liste_raum}
+            if not frage.startswith("Repo „raumrepo“ im öffentlichen Raum „Werkstatt“ ankündigen?") or not werkstatt \
+                    or verweis_raum != [f"34700:{relay.ich}:space:{werkstatt}"] or liste_raum != ["raumrepo"]:
+                erg["fehler"].append(f"desktop: Repo im Raum anlegen {erg['desktop']['repo_im_raum']} {werkstatt}")
         ctx.close()
+    erg["bestanden"] = not erg["fehler"]
+    return erg
+
+
+def karte_pruefen(browser, url: str) -> dict:
+    """Abdeckungskarte (C.4a): eigenes SVG, nur Zellen über der Schwelle, fremde Namen als Text,
+    Tastatur (Pfeile, +/−, 0, Tab, Enter), Maus (Rad, Ziehen, Klick) bzw. Antippen, Ebenen, „Karte | Liste“.
+    Seit C.4b: Umrisse, eigener Ort nur gerundet (auch ein alter genauer Wert), eigene Zelle umrandet,
+    „Mein Gebiet“, Eintragen über Dialoge, Vergessen. Der Browser meldet einen festen Probe-Ort."""
+    erg = {"fehler": []}
+    basis = url.rsplit("/", 1)[0]
+    probe = raum_probe("0" * 64)  # Abdeckung hängt nicht am eigenen Schlüssel
+    for groesse, vp in [("desktop", {"width": 1280, "height": 800}), ("mobil", {"width": 390, "height": 844})]:
+        mobil = groesse == "mobil"
+        relay = ProbeRelay()
+        relay.events = list(probe)
+        ctx = browser.new_context(locale="de-DE", viewport=vp, is_mobile=mobil, has_touch=mobil,
+                                  geolocation={"latitude": 48.137154, "longitude": 11.576124}, permissions=["geolocation"])
+        ctx.route("**/*", lambda r: r.continue_() if r.request.url.startswith(basis) else r.abort())
+        ctx.route_web_socket(re.compile(r"^wss?://"), relay.verbinde)
+        s = ctx.new_page()
+        s.on("pageerror", lambda e: erg["fehler"].append(str(e)[:300]))
+        ev = s.evaluate
+        s.goto(url, wait_until="load")
+        s.wait_for_selector("#bk-done", timeout=30000)
+        w = ev("() => [...document.querySelectorAll('.mnemonic-list li')].map(l => l.textContent)")
+        ev("(w) => document.querySelectorAll('#bk-challenge input').forEach(i => i.value = w[+i.dataset.pos])", w)
+        ev("() => document.getElementById('bk-done').click()")
+        s.wait_for_timeout(1500)
+        ev("() => document.getElementById('ein-abbrechen')?.click()")
+        # Seit C.4b: ein genauer Ort wie vor C.4b gespeichert – die App rundet ihn beim ersten Lesen
+        ev("() => localStorage.setItem('freedom.coverage.cell', '[48.137154,11.576124]')")
+        ev("() => { location.hash = '#/netz'; }")
+        try:
+            s.wait_for_function("() => document.querySelectorAll('#coverage-svg .karte-zelle').length > 0", timeout=15000)
+        except Exception:
+            pass
+        stand = """() => { const k = document.querySelector('#coverage-svg svg'); const r = (e) => e.getBoundingClientRect();
+          return { zellen: [...document.querySelectorAll('#coverage-svg .karte-zelle')].map(z => z.dataset.zelle),
+            viewBox: k?.getAttribute('viewBox').split(' ').map(v => Math.round(+v * 10) / 10).join(' '), fett: document.querySelectorAll('#coverage-svg b, #coverage-list b').length,
+            titel: [...document.querySelectorAll('#coverage-svg .karte-zelle title')].map(t => t.textContent),
+            info: document.getElementById('coverage-zelle').textContent,
+            hinweis: document.getElementById('coverage-karte-hinweis').textContent,
+            fokus: document.activeElement?.dataset?.zelle || document.activeElement?.tagName || null,
+            breite: k ? Math.round(r(k).width) : 0, hoehe: k ? Math.round(r(k).height) : 0,
+            ueberlauf: document.documentElement.scrollWidth > innerWidth,
+            legende: [...document.querySelectorAll('#coverage-ebenen button')].map(b => [b.textContent, b.getAttribute('aria-pressed'), !!b.querySelector('.karte-probe')]),
+            muster: [...document.querySelectorAll('#coverage-svg pattern')].map(p => p.id),
+            land: document.querySelector('#coverage-svg .karte-land')?.getAttribute('d')?.length || 0,
+            eigen: [...document.querySelectorAll('#coverage-svg .karte-eigen')].map(e => ['x', 'y', 'width'].map(a => e.getAttribute(a)).join(' ')),
+            gespeichert: localStorage.getItem('freedom.coverage.cell'),
+            hier: document.getElementById('coverage-here').textContent,
+            meins: !document.getElementById('coverage-meins').classList.contains('hidden'),
+            vergessen: !document.getElementById('coverage-vergessen').classList.contains('hidden') }; }"""
+        erst = ev(stand)
+        erg[groesse] = {"erst": erst}
+        soll_zellen = ["online:50.00,8.00", "bluetooth:47.00,8.00", "lora:48.00,11.00"]
+        if erst["zellen"] != soll_zellen or erst["viewBox"] != "0 0 360 180" or erst["fett"] != 0 \
+                or not any("<b>fett</b> Tal" in t for t in erst["titel"]) or "1 Gebiet(e) nicht angezeigt" not in erst["hinweis"] \
+                or erst["muster"] != ["muster-online", "muster-lora", "muster-bluetooth"] or erst["ueberlauf"] \
+                or [l[1:] for l in erst["legende"]] != [["true", True]] * 3 or abs(erst["breite"] - 2 * erst["hoehe"]) > 2 or erst["breite"] < 300:
+            erg["fehler"].append(f"{groesse}: Karte {erst}")
+        # C.4b: Umrisse eingebettet, alter Wert gerundet überschrieben, eigene Zelle nur umrandet
+        if not (1000 < erst["land"] <= 40 * 1024) or erst["gespeichert"] != "[48,11.5]" or erst["eigen"] != ["191.5 41.5 0.5"] \
+                or not erst["meins"] or not erst["vergessen"] or "gebraucht" in erst["hier"]:
+            erg["fehler"].append(f"{groesse}: eigenes Gebiet {erst}")
+        # Tastatur: + zoomt, Pfeil verschiebt, 0 zurück; Tab springt zur ersten Zelle, Enter zeigt ihre Angaben
+        ev("() => document.querySelector('#coverage-svg svg').focus()")
+        schritte = {}
+        for taste in ["+", "ArrowLeft", "-", "0"]:
+            s.keyboard.press(taste)
+            s.wait_for_timeout(50)
+            schritte[taste] = ev(stand)["viewBox"]
+        s.keyboard.press("Tab")
+        s.keyboard.press("Enter")
+        s.wait_for_timeout(100)
+        tasten = ev(stand)
+        erg[groesse]["tastatur"] = {"viewBox": schritte, "info": tasten["info"], "fokus": tasten["fokus"]}
+        if schritte != {"+": "60 30 240 120", "ArrowLeft": "36 30 240 120", "-": "0 0 360 180", "0": "0 0 360 180"} \
+                or tasten["info"] != "Provider im Netz: Probe-Stadt – wenige" or tasten["fokus"] != "online:50.00,8.00":
+            erg["fehler"].append(f"{groesse}: Tastatur {erg[groesse]['tastatur']}")
+        # Zeiger: am Desktop Rad, Ziehen und Klick; mobil zwei Finger über Europa, dann Antippen
+        box = s.locator("#coverage-svg svg").bounding_box()
+        zahlen = lambda v: [float(x) for x in v.split(" ")]
+        if not mobil:
+            s.mouse.move(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2)
+            s.mouse.wheel(0, -100)
+            s.wait_for_timeout(100)
+            gezoomt = ev(stand)["viewBox"]
+            s.mouse.down()
+            s.mouse.move(box["x"] + box["width"] / 2 + 100, box["y"] + box["height"] / 2, steps=5)
+            s.mouse.up()
+            s.wait_for_timeout(100)
+            gezogen = ev(stand)["viewBox"]
+            ev("() => document.getElementById('coverage-welt').click()")
+            s.wait_for_timeout(100)
+            try:
+                s.locator('#coverage-svg [data-zelle="bluetooth:47.00,8.00"]').click(timeout=5000)
+            except Exception as e:
+                erg["fehler"].append(f"desktop: Klick {str(e)[:120]}")
+            zeiger = {"rad": gezoomt, "gezogen": gezogen}
+            g = zahlen(gezogen)
+            if gezoomt != "36 18 288 144" or not (0 < g[0] < 36) or g[1:] != [18, 288, 144]:
+                erg["fehler"].append(f"desktop: Rad und Ziehen {zeiger}")
+        else:
+            ev("""() => { const k = document.querySelector('#coverage-svg svg'); const r = k.getBoundingClientRect();
+              const x = r.left + 188.5 / 360 * r.width, y = r.top + 42.5 / 180 * r.height;
+              const p = (typ, id, dx) => k.dispatchEvent(new PointerEvent(typ, { pointerId: id, clientX: x + dx, clientY: y, bubbles: true, pointerType: 'touch', isPrimary: id === 1 }));
+              p('pointerdown', 1, -10); p('pointerdown', 2, 10); p('pointermove', 1, -80); p('pointermove', 2, 80); p('pointerup', 1, -80); p('pointerup', 2, 80); }""")
+            s.wait_for_timeout(100)
+            zwei = ev(stand)["viewBox"]
+            z = zahlen(zwei)
+            zeiger = {"zweiFinger": zwei}
+            # 20 → 90 → 160 Pixel Abstand: achtmal näher; der Punkt zwischen den Fingern (8,5° O, 47,5° N) bleibt
+            # an seiner Stelle auf dem Schirm – bei 188,5 von 360 der Breite und 42,5 von 180 der Höhe
+            if z[2:] != [45, 22.5] or abs(z[0] + 45 * 188.5 / 360 - 188.5) > 0.2 or abs(z[1] + 22.5 * 42.5 / 180 - 42.5) > 0.2:
+                erg["fehler"].append(f"mobil: zwei Finger {zeiger}")
+            try:
+                s.locator('#coverage-svg [data-zelle="bluetooth:47.00,8.00"]').tap(timeout=5000)
+            except Exception as e:
+                erg["fehler"].append(f"mobil: Antippen {str(e)[:120]}")
+        s.wait_for_timeout(100)
+        zeiger["info"] = ev(stand)["info"]
+        erg[groesse]["zeiger"] = zeiger
+        if zeiger["info"] != "Bluetooth: <b>fett</b> Tal – wenige":
+            erg["fehler"].append(f"{groesse}: Zelle wählen {zeiger}")
+        # Ebenen: „Provider im Netz“ aus – die Zelle verschwindet, der Schalter meldet es
+        ev("() => document.querySelector('#coverage-ebenen [data-ebene=online]').click()")
+        s.wait_for_timeout(100)
+        ohne = ev(stand)
+        ev("() => document.querySelector('#coverage-ebenen [data-ebene=online]').click()")
+        # Liste als gleichwertige Ansicht: alle Gebiete, ohne Namen mit ihrer Mitte, Fremdes als Text
+        ev("() => document.querySelector('#coverage-ansicht [data-ansicht=liste]').click()")
+        s.wait_for_timeout(100)
+        liste = ev("""() => ({ karte: getComputedStyle(document.getElementById('coverage-karte')).display,
+          zeilen: [...document.querySelectorAll('#coverage-list .abdeckung-ort')].map(z => z.textContent),
+          gedrueckt: [...document.querySelectorAll('#coverage-ansicht button')].map(b => b.getAttribute('aria-pressed')) })""")
+        erg[groesse]["ebenen_liste"] = {"ohne": ohne["zellen"], "legende": ohne["legende"][0][1], "liste": liste}
+        if ohne["zellen"] != soll_zellen[1:] or ohne["legende"][0][1] != "false" or liste["karte"] != "none" \
+                or liste["gedrueckt"] != ["false", "true"] \
+                or sorted(liste["zeilen"]) != sorted(["🌐 Probe-Stadt · wenige", "🔵 <b>fett</b> Tal · wenige", "📡 um 48,25° N, 11,25° O · wenige"]):
+            erg["fehler"].append(f"{groesse}: Ebenen und Liste {erg[groesse]['ebenen_liste']}")
+        # C.4b: „Mein Gebiet“ zoomt dorthin; Eintragen über zwei Dialoge (Ebene, Einwilligung) sendet nur die Zelle;
+        # „Gebiet vergessen“ löscht den Ort, „mein Gebiet zeigen“ holt ihn gerundet zurück
+        ev("() => { document.querySelector('#coverage-ansicht [data-ansicht=karte]').click(); document.getElementById('coverage-meins').click(); }")
+        s.wait_for_timeout(100)
+        eigen = {"meins": ev(stand)["viewBox"]}
+        ok_knopf = "() => [...document.querySelectorAll('.dlg-knoepfe button')].at(-1)?.click()"
+        ev("() => document.getElementById('coverage-join').click()")
+        s.wait_for_timeout(300)
+        eigen["dialog1"] = ev("() => [document.querySelector('.dlg-titel')?.textContent, [...document.querySelectorAll('.dlg-option-text')].map(o => o.textContent)]")
+        ev(ok_knopf)
+        s.wait_for_timeout(300)
+        eigen["dialog2"] = ev("() => document.querySelector('.dlg-titel')?.textContent")
+        ev(ok_knopf)
+        try:
+            s.wait_for_function("() => document.querySelectorAll('#coverage-svg .karte-eigen').length === 1 && !document.querySelector('.dlg-box')", timeout=10000)
+            s.wait_for_timeout(800)
+        except Exception:
+            pass
+        gesendet = [e for e in relay.gesendet if e.get("kind") == 38055]
+        eigen["eintrag"] = [[t for t in e["tags"] if t[0] in ("layer", "cell", "region")] for e in {e["id"]: e for e in gesendet}.values()]
+        ev("() => document.getElementById('coverage-vergessen').click()")
+        s.wait_for_timeout(800)
+        weg = ev(stand)
+        eigen["vergessen"] = [weg["gespeichert"], weg["eigen"], weg["meins"], weg["vergessen"]]
+        ev("() => document.getElementById('coverage-standort').click()")
+        try:
+            s.wait_for_function("() => localStorage.getItem('freedom.coverage.cell') && document.querySelectorAll('#coverage-svg .karte-eigen').length === 1", timeout=10000)
+        except Exception:
+            pass
+        zurueck = ev(stand)
+        eigen["zurueck"] = [zurueck["gespeichert"], zurueck["eigen"], zurueck["meins"]]
+        erg[groesse]["eigen"] = eigen
+        if eigen["meins"] != "169.3 30.5 45 22.5" or eigen["dialog1"] != ["Was trägst du ein?", ["Funk (LoRa)", "Bluetooth"]] \
+                or eigen["dialog2"] != "Öffentlich eintragen?" \
+                or eigen["eintrag"] != [[["layer", "lora"], ["cell", "48.00,11.50"], ["region", ""]]] \
+                or eigen["vergessen"] != [None, [], False, False] or eigen["zurueck"] != ["[48,11.5]", ["191.5 41.5 0.5"], True]:
+            erg["fehler"].append(f"{groesse}: eigenes Gebiet und Eintragen {eigen}")
+        ctx.close()
+    erg["bestanden"] = not erg["fehler"]
+    return erg
+
+
+# Seiten für den Durchgang auf dem Handy (seit C.5a): Adresse und Unter-Reiter („gruppe:reiter“)
+MOBIL_SEITEN = [
+    ("#/agent", ""), ("#/agent/verlauf", ""), ("#/agent/modelle", ""), ("#/agent/details", ""), ("#/chat", ""), ("#/repos", ""),
+    ("#/waehrung", ""), ("#/waehrung", "wallet:swap"), ("#/waehrung", "wallet:lp"), ("#/verdienen", ""),
+    ("#/verdienen", "earn:refer"), ("#/netz", ""), ("#/netz", "netz:mesh"), ("#/profil", ""),
+    ("#/settings", ""), ("#/settings", "settings:network"), ("#/mehr", ""),
+]
+MOBIL_MESSEN = """() => {
+  const sichtbar = (e) => { const r = e.getBoundingClientRect(); const s = getComputedStyle(e);
+    return r.width > 0 && r.height > 0 && s.visibility !== 'hidden' && r.bottom > 0 && r.top < innerHeight; };
+  // Ein Häkchen im Label ist über das ganze Label zu treffen – gemessen wird dann das Label
+  const ziele = [...document.querySelectorAll('#app button, #app a[href], #app [role=button]:not(rect), #app [role=tab], #app select, #app summary, #app input:not([type=hidden]), #app label:has(> input)')]
+    .filter(e => sichtbar(e) && !(e.matches('input') && e.closest('label')) && !e.closest('[inert]'));
+  const klein = ziele.filter(e => { const r = e.getBoundingClientRect(); return r.height < 39.5 || r.width < 39.5; })
+    .map(e => (e.id ? '#' + e.id : e.tagName.toLowerCase()) + ' ' + Math.round(e.getBoundingClientRect().width) + '×' + Math.round(e.getBoundingClientRect().height));
+  // Seit C.5b: Text, der aus seinem Knopf oder Reiter läuft (so überlagerten sich die Settings-Reiter,
+  // als ein min-width das Mindestmaß der Flex-Elemente aufhob)
+  const ueber = ziele.filter(e => e.matches('button, [role=tab]') && e.scrollWidth > e.clientWidth + 1)
+    .map(e => (e.id ? '#' + e.id : e.tagName.toLowerCase()) + ' „' + e.textContent.trim().slice(0, 20) + '“');
+  // Seit C.5b: linker Rand von Seitentitel und erster Karte – auf allen Seiten gleich
+  const seite = document.querySelector('.tab-page.active');
+  const rand = ['.page-head .page-title', '.page-body .card'].map(sel => { const e = seite?.querySelector(sel); const r = e?.getBoundingClientRect();
+    return r && r.width ? Math.round(r.left) : null; });
+  return { laufleiste: document.documentElement.scrollWidth - innerWidth, klein: [...new Set(klein)], ueber: [...new Set(ueber)], rand };
+}"""
+
+
+def mobil_pruefen(browser, url: str) -> dict:
+    """Handy hochkant und quer (C.5a): keine Seite mit waagrechter Laufleiste, jede Berührfläche mindestens
+    40 px, das eigene Bild in der Kopfzeile, beim Tippen weicht die untere Leiste. Seit C.5b: gleiche Ränder
+    auf allen Seiten, die Hinweisleiste flach, ihr Text klappt mit „mehr“ auf."""
+    erg = {"fehler": []}
+    basis = url.rsplit("/", 1)[0]
+    for lage, vp in [("hoch", {"width": 390, "height": 844}), ("quer", {"width": 844, "height": 390})]:
+        ctx = browser.new_context(locale="de-DE", viewport=vp, is_mobile=True, has_touch=True)
+        ctx.route("**/*", lambda r: r.continue_() if r.request.url.startswith(basis) else r.abort())
+        ctx.route_web_socket(re.compile(r"^wss?://"), ProbeRelay().verbinde)
+        s = ctx.new_page()
+        s.on("pageerror", lambda e: erg["fehler"].append(str(e)[:300]))
+        ev = s.evaluate
+        s.goto(url, wait_until="load")
+        s.wait_for_selector("#bk-done", timeout=30000)
+        w = ev("() => [...document.querySelectorAll('.mnemonic-list li')].map(l => l.textContent)")
+        ev("(w) => document.querySelectorAll('#bk-challenge input').forEach(i => i.value = w[+i.dataset.pos])", w)
+        ev("() => document.getElementById('bk-done').click()")
+        s.wait_for_timeout(1500)
+        ev("() => document.getElementById('ein-abbrechen')?.click()")
+        s.wait_for_timeout(300)
+        seiten, raender = {}, set()
+        for adresse, reiter in MOBIL_SEITEN:
+            ev("(a) => { location.hash = a; }", adresse)
+            s.wait_for_timeout(300)
+            if reiter:
+                gruppe, sub = reiter.split(":")
+                ev("([g, r]) => document.querySelector(`[data-subtab-group='${g}'] [data-subtab='${r}']`)?.click()", [gruppe, sub])
+                s.wait_for_timeout(150)
+            m = ev(MOBIL_MESSEN)
+            raender.update(r for r in m["rand"] if r is not None)
+            if m["laufleiste"] > 0 or m["klein"] or m["ueber"]:
+                seiten[f"{adresse} {reiter}".strip()] = m
+        erg[lage] = {"seiten": seiten, "raender": sorted(raender)}
+        if seiten:
+            erg["fehler"].append(f"{lage}: {seiten}")
+        if len(raender) != 1:
+            erg["fehler"].append(f"{lage}: verschiedene Ränder {sorted(raender)}")
+        # Hinweisleiste (C.5b): eine Zeile mit Titel und Knöpfen; „mehr“ klappt den Text auf und wieder zu
+        leiste_ob = """() => { const b = document.getElementById('onboarding-bar'); const m = document.getElementById('ob-mehr');
+          const t = document.getElementById('ob-body') ?? b.querySelector('.ob-body');
+          return { hoehe: Math.round(b.getBoundingClientRect().height), text: !!t && getComputedStyle(t).display !== 'none',
+            mehr: m?.getAttribute('aria-expanded'), knopf: m?.textContent }; }"""
+        zu = ev(leiste_ob)
+        ev("() => document.getElementById('ob-mehr')?.click()")
+        auf = ev(leiste_ob)
+        ev("() => document.getElementById('ob-mehr')?.click()")
+        wieder = ev(leiste_ob)
+        erg[lage]["hinweisleiste"] = [zu, auf, wieder]
+        if zu["hoehe"] > 56 or zu["text"] or zu["mehr"] != "false" or zu["knopf"] != "mehr" \
+                or not auf["text"] or auf["mehr"] != "true" or auf["knopf"] != "weniger" or auf["hoehe"] <= zu["hoehe"] or wieder != zu:
+            erg["fehler"].append(f"{lage}: Hinweisleiste {erg[lage]['hinweisleiste']}")
+        # Kopfzeile: vor dem Schlüssel das eigene Bild (ohne Namen „?“), die Fläche zum Profil mindestens 40 px hoch
+        kopf = ev("""() => { const i = document.getElementById('ident'); const vor = getComputedStyle(i, '::before');
+          return { initial: i.dataset.initial, bild: vor.content, breite: vor.width, hoehe: Math.round(i.getBoundingClientRect().height),
+            text: i.textContent.includes('…') }; }""")
+        erg[lage]["kopf"] = kopf
+        if lage == "hoch" and (kopf["initial"] != "?" or kopf["bild"] != '"?"' or kopf["breite"] != "28px" or kopf["hoehe"] < 40 or not kopf["text"]):
+            erg["fehler"].append(f"{lage}: Kopfzeile {kopf}")
+        # Tastatur: im Eingabefeld weicht die untere Leiste, danach ist sie wieder da
+        ev("() => { location.hash = '#/agent'; }")
+        s.wait_for_timeout(300)
+        leiste = "() => getComputedStyle(document.querySelector('.app-nav')).display"
+        vorher = ev(leiste)
+        s.locator("#ai-prompt").focus()
+        s.wait_for_timeout(50)
+        beim_tippen = ev(leiste)
+        ev("() => document.activeElement.blur()")
+        s.wait_for_timeout(50)
+        danach = ev(leiste)
+        erg[lage]["tastatur"] = [vorher, beim_tippen, danach]
+        if vorher == "none" or beim_tippen != "none" or danach == "none":
+            erg["fehler"].append(f"{lage}: untere Leiste beim Tippen {erg[lage]['tastatur']}")
+        ctx.close()
+    # C.6b: zwischen 860 und 1199 px steht die Seitenleiste des Agenten da, das rechte Feld nicht –
+    # dort führt nur „Arbeitsbereich“ dorthin und zurück
+    ctx = browser.new_context(locale="de-DE", viewport={"width": 1100, "height": 800})
+    ctx.route("**/*", lambda r: r.continue_() if r.request.url.startswith(basis) else r.abort())
+    ctx.route_web_socket(re.compile(r"^wss?://"), ProbeRelay().verbinde)
+    s = ctx.new_page()
+    s.on("pageerror", lambda e: erg["fehler"].append(str(e)[:300]))
+    ev = s.evaluate
+    s.goto(url, wait_until="load")
+    s.wait_for_selector("#bk-done", timeout=30000)
+    w = ev("() => [...document.querySelectorAll('.mnemonic-list li')].map(l => l.textContent)")
+    ev("(w) => document.querySelectorAll('#bk-challenge input').forEach(i => i.value = w[+i.dataset.pos])", w)
+    ev("() => document.getElementById('bk-done').click()")
+    s.wait_for_timeout(1500)
+    ev("() => document.getElementById('ein-abbrechen')?.click()")
+    ev("() => { location.hash = '#/agent'; }")
+    s.wait_for_timeout(300)
+    zu_sehen = """() => Object.fromEntries(['#agent-zu-verlauf', '#agent-zu-details', '.agent-side', '.agent-main', '.agent-panel'].map(k => {
+      const e = document.querySelector(k); return [k, !!e && e.getBoundingClientRect().width > 0 && getComputedStyle(e).display !== 'none']; }))"""
+    breit = [ev(zu_sehen)]
+    ev("() => document.getElementById('agent-zu-details').click()")
+    s.wait_for_timeout(200)
+    breit.append(ev(zu_sehen))
+    ev("() => document.getElementById('agent-panel-zurueck').click()")
+    s.wait_for_timeout(200)
+    breit.append(ev(zu_sehen))
+    erg["1100"] = breit
+    soll = [{"#agent-zu-verlauf": False, "#agent-zu-details": True, ".agent-side": True, ".agent-main": True, ".agent-panel": False},
+            {"#agent-zu-verlauf": False, "#agent-zu-details": False, ".agent-side": False, ".agent-main": False, ".agent-panel": True},
+            {"#agent-zu-verlauf": False, "#agent-zu-details": True, ".agent-side": True, ".agent-main": True, ".agent-panel": False}]
+    if breit != soll:
+        erg["fehler"].append(f"1100 px: rechtes Feld des Agenten {breit}")
+    ctx.close()
     erg["bestanden"] = not erg["fehler"]
     return erg
 
@@ -1341,6 +1843,10 @@ def main() -> int:
             except Exception as e:
                 erg["raum"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
             try:
+                erg["karte"] = karte_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
+            except Exception as e:
+                erg["karte"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
+            try:
                 erg["qr"] = qr_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
             except Exception as e:
                 erg["qr"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
@@ -1348,6 +1854,10 @@ def main() -> int:
                 erg["werben"] = werben_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
             except Exception as e:
                 erg["werben"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
+            try:
+                erg["mobil"] = mobil_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
+            except Exception as e:
+                erg["mobil"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
             browser.close()
     finally:
         srv.shutdown()
@@ -1363,8 +1873,10 @@ def main() -> int:
           and erg.get("rahmen", {}).get("bestanden") is True
           and erg.get("dialog", {}).get("bestanden") is True
           and erg.get("raum", {}).get("bestanden") is True
+          and erg.get("karte", {}).get("bestanden") is True
           and erg.get("qr", {}).get("bestanden") is True
-          and erg.get("werben", {}).get("bestanden") is True)
+          and erg.get("werben", {}).get("bestanden") is True
+          and erg.get("mobil", {}).get("bestanden") is True)
     erg["bestanden"] = bool(ok)
     print(json.dumps(erg, indent=1, ensure_ascii=False))
     return 0 if ok else 1

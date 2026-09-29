@@ -21,7 +21,7 @@ import { geheim, istGeheimnis, tresorEingerichtet, wireTresorKarte } from "../tr
 import { $, ganzeZahl, toast } from "../ui.js";
 import { bestaetige, dialog } from "../dialog.js";
 import { TRUSTED_SIGNERS, ladeManifeste } from "../../release-signierer.js";
-import { ladeAbdeckung, trageAbdeckungEin, widerrufeAbdeckung } from "./earn.js";
+import { ladeAbdeckung, nutzeStandort, trageAbdeckungEin, vergissStandort, widerrufeAbdeckung } from "./earn.js";
 import { LS_KONTAKTE_SICHERN, geraeteBuch, kontakteEinschalten, kontakteSichernAn, sichereKontakte } from "./kommunikation.js";
 import { LS_STANDARD_SCHIENE, standardSchiene } from "../../standard-schiene.js";
 
@@ -779,6 +779,10 @@ export async function wireMeshTab(): Promise<void> {
   if (join) join.onclick = () => void trageAbdeckungEin();
   const leave = $("#coverage-leave");
   if (leave) leave.onclick = () => void widerrufeAbdeckung();
+  const hierZeigen = $("#coverage-standort");
+  if (hierZeigen) hierZeigen.onclick = () => void nutzeStandort();
+  const vergessen = $("#coverage-vergessen");
+  if (vergessen) vergessen.onclick = () => vergissStandort();
 
   void ladeAbdeckung();
   setInterval(() => zeigeWarteschlange(), 2000);

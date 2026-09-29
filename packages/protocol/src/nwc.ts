@@ -35,6 +35,7 @@ import { encryptDM, decryptDM } from "./dm.js";
 import { nip04Encrypt, nip04Decrypt, isNip04Payload } from "./nip04.js";
 import { schnorr } from "@noble/curves/secp256k1.js";
 import { ProtokollFehler } from "./fehler.js";
+import { isOnion, normalizeRelayUrl } from "./relay-discovery.js";
 
 /** NIP-47 Kinds. */
 export const KIND_NWC_INFO = 13194;
@@ -335,6 +336,33 @@ export class NwcClient {
   async getInfo(): Promise<Record<string, unknown>> {
     return this.call("get_info");
   }
+}
+
+/**
+ * Über welche Relays die Wallet-Verbindung läuft (Schritt 6.3). Das Relay liest
+ * nicht mit (verschlüsselt), sieht aber, wann und wie oft die App mit der
+ * Wallet spricht, und die IP-Adresse. „Privat“ heißt: das eigene Relay, das
+ * der Nutzer angibt, oder ein .onion-Relay. Mit `nurPrivat` bleiben nur diese –
+ * nennt die Verbindung keines, gibt es keine (statt still auf fremde auszuweichen).
+ */
+export function waehleNwcRelays(
+  relays: readonly string[], o: { nurPrivat: boolean; eigenes?: string },
+): { relays: string[]; fremd: boolean } | { fehler: "kein-privates-relay" } {
+  const norm = (u: string) => { try { return normalizeRelayUrl(u); } catch { return u; } };
+  const eigenes = o.eigenes?.trim() ? norm(o.eigenes) : "";
+  const privat = (u: string) => isOnion(u) || (!!eigenes && norm(u) === eigenes);
+  const auswahl = o.nurPrivat ? relays.filter(privat) : [...relays];
+  if (auswahl.length === 0) return { fehler: "kein-privates-relay" };
+  return { relays: auswahl, fremd: auswahl.some((u) => !privat(u)) };
+}
+
+/**
+ * BOLT12 erkennen (Schritt 6.3): Methoden der Wallet für Angebote (Offers).
+ * NIP-47 legt sie noch nicht fest – die App zeigt nur an, was die Wallet
+ * nennt, und fragt Rechnungen weiter versiegelt an (6.3b1).
+ */
+export function bolt12Methoden(methods: readonly string[]): string[] {
+  return methods.filter((m) => /(^|_)offers?($|_)|bolt12/.test(m)).sort();
 }
 
 /**

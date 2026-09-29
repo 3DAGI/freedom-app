@@ -39,6 +39,12 @@ import { baueStueckAbruf } from "../src/blob.js";
 import { regelMlsGruppe } from "../src/leak-rules.js";
 import { baueRaumMeldung, raumDefinition, raumNachricht } from "../src/raum-gruppe.js";
 import { baueRufUmschlaege } from "../src/quittung.js";
+import { buildProfile, oeffentlichesProfil } from "../src/profile.js";
+import { buildAnonZapRequest, buildZapRequest } from "../src/zap.js";
+import { buildRechnungsAnfrage, buildRechnungsAntwort } from "../src/ln-rechnung.js";
+import { knotenSchluessel, rechnung } from "./bolt11-hilfe.js";
+import { regelKeineLnAdresse, regelRaumRepoPrivat, regelZapAnonym } from "../src/leak-rules.js";
+import { raumRepoAnkuendigung, raumRepoBundle, raumRepoIssue, raumRepoIssueStatus, raumRepoKommentar, raumRepoPatch } from "../src/raum-repo.js";
 import { fromHex, toHex } from "../src/htlc.js";
 import type { NostrEvent, UnsignedEvent } from "../src/event.js";
 import { readFileSync } from "node:fs";
@@ -50,7 +56,7 @@ interface MlsKontoT {
   keyPackage(platz: string): Promise<UnsignedEvent>;
   gruppeAnlegen(name: string, kps: NostrEvent[], relays: string[]): Promise<{ gruppe: string; einladungen: NostrEvent[] }>;
   senden(gruppe: string, text: string): Promise<{ events: NostrEvent[] }>;
-  sendenEvent(gruppe: string, art: number, tags: string[][], text: string): Promise<{ events: NostrEvent[] }>;
+  sendenEvent(gruppe: string, art: number, tags: string[][], text: string): Promise<{ events: NostrEvent[]; inneres?: string }>;
 }
 interface MlsModulT {
   Mls: new (signer: LocalSigner, beweis: (id: string) => string) => MlsKontoT;
@@ -139,6 +145,9 @@ async function versiegelterTausch() {
   return [hin.wrap, rueck.wrap, ...antworten];
 }
 
+/** Die Argumente von `sendenEvent()` aus einem inneren Event (Art, Tags, Text). */
+const alsArgs = (x: { art: number; tags: string[][]; text: string }): [number, string[][], string] => [x.art, x.tags, x.text];
+
 const SZENARIEN: Record<string, () => Promise<number>> = {
   "dm-inhalt": async () => {
     const d = await buildPrivateDm({ senderSk: a.sk, senderPk: a.pk, recipientPk: b.pk, content: GEHEIM });
@@ -196,6 +205,27 @@ const SZENARIEN: Record<string, () => Promise<number>> = {
     const an = "7EcDhSYGxXyscszYEp35KHN8vvw3svAuLKTzXwCFLtVb", sig = "3".repeat(88);
     const wraps = await buildPrivateSolTrinkgeld({ empfaenger: b.pk, signatur: sig, lamports: 2_345_678, an, kette: "solana:mainnet", notiz: NOTIZ }, new LocalSigner(a.sk));
     return regelKeineSolAdresse(wraps, [an]).length + regelKeinKlartext(wraps, [sig, "2345678", NOTIZ]).length + regelAutorNicht(wraps, a.pk).length;
+  },
+  "ln-oeffentlich": async () => {
+    // Wie die App seit 6.3: Profil ohne Lightning-Adresse (Häkchen aus), Zap-Anfrage anonym.
+    // Gegenprobe: mit Häkchen bzw. mit der Identität signiert fänden die Regeln sie.
+    const ln = "ada@wallet.example";
+    const entwurf = { name: "Ada", lud16: ln };
+    const profil = signEvent(buildProfile(a.pk, oeffentlichesProfil(entwurf, { lightning: false })), a.sk);
+    const offen = signEvent(buildProfile(a.pk, oeffentlichesProfil(entwurf, { lightning: true })), a.sk);
+    const zap = { recipientPubkey: b.pk, amountMsat: 21_000, relays: ["wss://relay.example"] };
+    const anonym = buildAnonZapRequest(zap);
+    const mitName = signEvent(buildZapRequest({ ...zap, senderPubkey: a.pk }), a.sk);
+    const gegenprobe = regelKeineLnAdresse([offen], [ln]).length === 1 && regelZapAnonym([mitName], a.pk).length === 1;
+    return regelKeineLnAdresse([profil], [ln]).length + regelZapAnonym([anonym], a.pk).length + regelKeinBolt11([profil, anonym]).length + (gegenprobe ? 0 : 1);
+  },
+  "ln-rechnung": async () => {
+    // Wie die App seit 6.3b: Anfrage und Antwort im Umschlag, zwischen Identitäten.
+    const pr = rechnung(knotenSchluessel(), "lnbc210n", new Uint8Array(32).fill(4));
+    const { wrap, anfrageId } = await buildRechnungsAnfrage({ von: new LocalSigner(a.sk), anPk: b.pk, betragMsat: 21_000 });
+    const antwort = await buildRechnungsAntwort({ von: new LocalSigner(b.sk), anPk: a.pk, anfrageId, bolt11: pr });
+    const alle = [wrap, antwort];
+    return regelKeinBolt11(alle).length + regelKeinKlartext(alle, ["21000", pr]).length + regelAutorNicht(alle, a.pk).length + regelAutorNicht(alle, b.pk).length;
   },
   "sol-adresse": async () => {
     const wraps = await versiegelterTausch();
@@ -361,6 +391,39 @@ const SZENARIEN: Record<string, () => Promise<number>> = {
     const gesendet = wraps.map((ev, i) => ({ ev, zeitMs: 1_000_000 + i * 15_000 }));
     return regelAutorNicht(wraps, a.pk).length + regelKeinKlartext(wraps, [provider, "421000", "9876543"]).length
       + regelPTagsNur(wraps, [k1, k2]).length + regelKeineZahlungsdaten(wraps).length + regelKopienEntkoppelt(gesendet).length;
+  },
+  "raum-repos": async () => {
+    // Wie die App seit 11.4b: Repo, Bundle-Verweis mit Schlüssel, Patch und Status als innere Events – echte Engine
+    const { Mls, ladeMls } = (await import(["@freedomstack", "mls"].join("/"))) as MlsModulT;
+    ladeMls(gunzipSync(readFileSync(new URL("../../mls/dist/freedom_mls_bg.wasm.gz", import.meta.url))));
+    const konto = (k: typeof a) => new Mls(new LocalSigner(k.sk), (id) => toHex(schnorr.sign(fromHex(id), k.sk)));
+    const [ma, mb] = [konto(a), konto(b)];
+    const kpB = await new LocalSigner(b.sk).signEvent(await mb.keyPackage("ef".repeat(32)));
+    const g = await ma.gruppeAnlegen("", [kpB], ["wss://gruppe.test"]);
+    const KEY = "5a".repeat(32);
+    const repo = { eigentuemer: a.pk, id: "geheimprojekt" };
+    const patchText = `From ${"1".repeat(40)} Mon Sep 17 00:00:00 2001\nSubject: [PATCH] Geheime Änderung\n\n---\ndiff --git a/a b/a\n--- a/a\n+++ b/a\n@@ -1 +1 @@\n-x\n+y\n`;
+    const innen = [
+      raumRepoAnkuendigung(g.gruppe, { id: repo.id, name: "Geheimprojekt", klon: [] }),
+      raumRepoBundle(g.gruppe, { name: repo.id, blobId: "b".repeat(64), headSha: "c".repeat(40), branch: "main", message: "Stand", version: 1, schluessel: { alg: "aes-gcm", key: KEY, nonce: "6b".repeat(12), ox: "7c".repeat(32) } }),
+      raumRepoPatch(g.gruppe, { repo, text: patchText }),
+    ];
+    const events: NostrEvent[] = [];
+    for (const s of innen) events.push(...(await ma.sendenEvent(g.gruppe, s.art, s.tags, s.text)).events);
+    // Seit C-17a: ein Issue, ein Kommentar dazu (Bezug ist die Id des inneren Events) und sein Status
+    const issue = await ma.sendenEvent(g.gruppe, ...alsArgs(raumRepoIssue(g.gruppe, { repo, betreff: "Geheimes Issue", text: "Geheime Schritte" })));
+    if (!issue.inneres) return 1;
+    const bezug = { id: issue.inneres, autor: a.pk, kind: 1621 };
+    for (const s of [
+      raumRepoKommentar(g.gruppe, { wurzel: bezug, text: "Geheimer Kommentar" }),
+      raumRepoIssueStatus(g.gruppe, { issue: { id: issue.inneres, autor: a.pk, repoAdresse: `30617:${a.pk}:${repo.id}` }, status: "erledigt", eigentuemer: a.pk }),
+    ]) events.push(...(await ma.sendenEvent(g.gruppe, ...alsArgs(s))).events);
+    events.push(...issue.events);
+    const alle = [...g.einladungen, ...events];
+    if (events.length !== innen.length + 3) return 1;
+    return regelRaumRepoPrivat(alle, { repoIds: [repo.id], schluessel: [KEY], innere: [issue.inneres] }).length
+      + regelKeinKlartext(alle, ["Geheimprojekt", "Geheime Änderung", KEY, "Geheimes Issue", "Geheime Schritte", "Geheimer Kommentar"]).length +
+      regelAutorNicht(alle, a.pk).length + regelMlsGruppe(alle, { gruppenIds: [g.gruppe], identitaeten: [a.pk, b.pk] }).length;
   },
   "raum-meldung": async () => {
     // Wie die App seit 8.5 meldet: je Moderator ein Umschlag, nie in die Gruppe, nie offen

@@ -404,3 +404,91 @@ ein Umschlag (`baueRufUmschlaege()`), geöffnet nur von Kontakten
 Relays sehen nur, dass Kontakte Post bekommen – nicht von wem, nicht über
 welchen Provider.
 
+
+## 18. Repos in öffentlichen Räumen (NIP-34 mit Raum, `raum-repo.ts`, seit 11.4a)
+
+Eine Repo-Ankündigung (Kind 30617, NIP-34) kann auf einen **öffentlichen**
+Raum verweisen – mit der Adresse seiner Definition (Kind 34700, d-Tag
+`space:<kennung>`):
+
+| Tag | Inhalt |
+|---|---|
+| `a` | `34700:<besitzer>:space:<kennung>` (`raumAdresse()`); Kennung aus Buchstaben, Ziffern, `. _ -`, höchstens 64 |
+
+Rechte kommen aus den Raum-Rollen (Kind 34701/34702): Das neue Recht
+**`repos_pflegen`** erlaubt, Repos des Raums zu pflegen (ankündigen, Patches
+annehmen, als Entwurf markieren, schließen). Der Besitzer hat es immer.
+
+- **Zum Raum gehört ein Repo nur**, wenn sein Eigentümer im Raum
+  `repos_pflegen` hat – sonst könnte jeder sein Repo einem fremden Raum
+  zuschreiben (`mitRaumRechten()` → `raumBestaetigt`).
+- **Dann pflegen es alle mit `repos_pflegen`** wie eingetragene Maintainer:
+  `darfAnnehmen()` und `patchStatus()` zählen ihre Status-Events (1630–1633).
+  Es gilt der Raum, wie er jetzt Rechte vergibt – wem das Recht entzogen
+  wird, dessen Status zählen nicht mehr.
+- **Der Raum-Zustand** entsteht nur aus der Definition, die der Besitzer aus
+  der Adresse signiert hat (`raumZustandFuer()`); eine gleichnamige
+  Definition eines anderen ist ein anderer Raum.
+
+Wie alle Rechte in Räumen ist das eine Regel, die jeder Client selbst
+auswertet. Andere NIP-34-Clients sehen ein gewöhnliches Repo mit einem
+zusätzlichen `a`-Tag.
+
+### Private Räume (MLS, seit 11.4b)
+
+In privaten Räumen sind alle Repo-Events **innere Events der MLS-Gruppe**
+(`raumRepoAnkuendigung()`, `raumRepoBundle()`, `raumRepoPatch()`,
+`raumRepoStatus()`), jeweils mit `["space", <raum>]` vorn – nie offen
+(Leak-Regel `raum-repo-privat`):
+
+| Art | Inhalt |
+|---|---|
+| 30617 | Ankündigung wie oben, ohne `a`-Verweis auf einen öffentlichen Raum |
+| 38042 | Bundle-Verweis samt `["aes-gcm", key, nonce, ox]` – öffentlich stünde der Schlüssel offen (8.9b), hier nur für Mitglieder |
+| 1617 | Patch (Text aus `git format-patch`), `a` = `30617:<ankündigender>:<kennung>` |
+| 1630–1633 | Status, `e` = Id des inneren Patch-Events |
+
+Den Absender belegt MLS. `raumReposPrivat()` liest daraus die Repos:
+Ankündigungen und Bundles zählen nur von Pflegern (Admins der Gruppe oder
+`repos_pflegen`), je Autor und Kennung die neueste; Maintainer sind alle
+Pfleger; Patches von jedem Mitglied. Relays sehen nur Kind 445,
+Speicherknoten nur das verschlüsselte Bundle.
+
+## 19. Issues und Kommentare in Repos (NIP-34, NIP-22, seit C-17a)
+
+Wie bei GitHub gibt es zu jedem Repo Issues und unter Issues und Patches eine
+Diskussion. Beides sind Standard-Events anderer Clients – kein eigenes Format.
+
+**Issue** (Kind 1621, NIP-34, `baueIssue()`/`leseIssue()` in `nip34.ts`):
+
+| Tag | Inhalt |
+|---|---|
+| `a` | `30617:<eigentümer>:<kennung>` – das Repo |
+| `p` | Eigentümer des Repos |
+| `subject` | Betreff, Pflicht, höchstens 200 Zeichen |
+| `t` | Labels, je eines ohne Leerzeichen und Komma, höchstens 40 Zeichen |
+
+Der Inhalt ist der Text (höchstens 30 KB). **Status** mit denselben Arten wie
+bei Patches: 1630 offen, 1631 erledigt, 1632 geschlossen (`e` = Id des Issues,
+`baueIssueStatus()`); 1633 gibt es für Issues nicht. Es gilt der neueste Status
+der Autorin, des Eigentümers oder eines Maintainers (`issueStatus()`) – Status
+anderer zählen nicht; ohne Status ist ein Issue offen.
+
+**Kommentar** (Kind 1111, NIP-22, `kommentar.ts`) an einem Issue (1621) oder
+Patch (1617):
+
+| Tag | Inhalt |
+|---|---|
+| `E`, `K`, `P` | Wurzel: Id, Art und Autor des Issues bzw. Patches |
+| `e`, `k`, `p` | worauf geantwortet wird: die Wurzel selbst oder ein Kommentar (Art 1111) |
+
+Der Inhalt ist der Text (höchstens 20 KB). Gelesen wird streng
+(`leseKommentar()`): nur an Issues und Patches, Bezüge als 64-stellige
+Hex-Werte, sonst fällt der Kommentar heraus.
+
+**In privaten Räumen** (wie 11.4b) sind Issue, Status und Kommentar nur innere
+Events der MLS-Gruppe (`raumRepoIssue()`, `raumRepoIssueStatus()`,
+`raumRepoKommentar()`), jeweils mit `["space", <raum>]` vorn; die Bezüge eines
+Kommentars sind die Ids der inneren Events. `raumReposPrivat()` liefert sie als
+`issues` und `kommentare`. Die Leak-Regel `raum-repo-privat` weist offene
+Issues zum Repo und offene Kommentare zu inneren Issues und Patches ab.

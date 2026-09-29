@@ -6,7 +6,9 @@
  * Logikänderung; nur `kontaktName` ist jetzt exportiert. Seit C.2b1 fragen
  * Dialoge (`shell/dialog.ts`) statt `prompt()`, `confirm()` und `alert()`.
  */
-import { MELDE_GRUENDE, type Channel, type ChannelMessage, type MeldeGrund, type Space, type ThreadView } from "@freedomstack/protocol";
+import {
+  MELDE_GRUENDE, RAUM_REPO_RECHT, can as darf, leseRaumAdresse, raumAdresse, type Channel, type ChannelMessage, type MeldeGrund, type Space, type SpaceState, type ThreadView,
+} from "@freedomstack/protocol";
 import { escapeHtml, pkShort } from "../../shell-logic.js";
 import { ensurePool, signiere, state } from "../state.js";
 import { mlsAbgleichen, mlsGesperrt } from "../mls-konto.js";
@@ -21,6 +23,9 @@ import { gebietsschema, t } from "../../i18n.js";
 import { fehlerText, kanalVertraulichkeit } from "../../protokoll-texte.js";
 import { abrufTakt } from "../versand.js";
 import { conversations, setzeKommModus } from "./kommunikation.js";
+import type { RaumZiel, RepoKarte } from "../../repo-ansicht.js";
+import { switchTab } from "../app.js";
+import { beiReposGeladen, legeRepoImRaumAn, merkeRaumAdresse, oeffneRepo, reposVonRaum } from "./repos.js";
 
 // ------------------------------------------------------------- Räume
 
@@ -56,7 +61,7 @@ function merkeLesestand(channelId: string): void {
 }
 
 /** Beigetretene offene Räume (Kind 42) – öffentlich wie ihr Inhalt. */
-function oeffentlicheRaeume(): string[] {
+export function oeffentlicheRaeume(): string[] {
   try {
     return JSON.parse(localStorage.getItem("freedom.spaces") ?? "[]") as string[];
   } catch {
@@ -149,6 +154,9 @@ async function oeffneRaum(spaceId: string): Promise<void> {
     ]);
     spacesUi.state = buildSpaceState(spaceId, struktur);
     spacesUi.messages = nachrichten;
+    // Repos dieses Raums (11.4c) lädt die Repo-Liste ab jetzt mit
+    const ziel = raumZiel();
+    if (ziel && "adresse" in ziel) merkeRaumAdresse(ziel.adresse);
   } catch (e) {
     $("#space-name").textContent = t("komm.nichtErreichbar", { grund: fehlerText(e) });
     return;
@@ -173,7 +181,62 @@ function zeigeRaumArt(spaceId: string): void {
   document.getElementById("space-invite")?.classList.toggle("hidden", !privat || !moderator);
   document.getElementById("space-mods")?.classList.toggle("hidden", !verwalten);
   document.getElementById("space-kanal-neu")?.classList.toggle("hidden", !verwalten);
-  document.querySelector("#space-menue .menue-trenner")?.classList.toggle("hidden", !verwalten);
+  const repos = darfRepos();
+  document.getElementById("space-repo-neu")?.classList.toggle("hidden", !repos);
+  document.querySelector("#space-menue .menue-trenner")?.classList.toggle("hidden", !verwalten && !repos);
+  // Nie die Repos des vorigen Raums zeigen, solange der neue lädt
+  zeigeRaumRepos();
+}
+
+/** Wohin Repos dieses Raums gehören (11.4c): privat die Gruppe, öffentlich die Adresse der Definition, die ich sehe. */
+function raumZiel(): RaumZiel | null {
+  if (spacesUi.privat) return { gruppe: spacesUi.privat.gruppe };
+  const st = spacesUi.state as SpaceState | null;
+  if (!st?.space || !st.ownerPubkey || !spacesUi.spaceId || istPrivat(spacesUi.spaceId)) return null;
+  try {
+    return { adresse: raumAdresse(st.ownerPubkey, spacesUi.spaceId) };
+  } catch {
+    return null; // Kennung, die keine Adresse ergibt – dann keine Repos
+  }
+}
+
+/** Darf ich hier Repos anlegen und pflegen (Recht „repos_pflegen“, 11.4a/b)? */
+function darfRepos(): boolean {
+  if (spacesUi.privat) return darf(spacesUi.privat.ich, RAUM_REPO_RECHT, spacesUi.privat.zustand);
+  const st = spacesUi.state as SpaceState | null;
+  return !!st?.space && !!state.keypair && !!raumZiel() && darf(state.keypair.pk, RAUM_REPO_RECHT, st);
+}
+
+/** Repos des Raums (11.4c) unter den Kanälen – nur bestätigte, Namen nur als Text; ein Klick öffnet die Repo-Seite. */
+function zeigeRaumRepos(): void {
+  const box = document.getElementById("raum-repos");
+  const liste = document.getElementById("raum-repos-liste");
+  if (!box || !liste) return;
+  const ziel = raumZiel();
+  const repos = ziel ? reposVonRaum(ziel) : [];
+  box.classList.toggle("hidden", repos.length === 0);
+  liste.replaceChildren(...repos.map((k) => {
+    const b = el("button", undefined, "channel-item raum-repo");
+    b.type = "button";
+    b.dataset.schluessel = k.schluessel;
+    b.append(el("span", k.name));
+    if (k.offen) b.append(el("span", String(k.offen), "mention"));
+    b.title = t("raum.repoOffen", { name: k.name, n: k.offen });
+    b.addEventListener("click", () => oeffneRepo(k.schluessel));
+    return b;
+  }));
+}
+
+/** Von der Repo-Seite in den Raum des Repos (11.4c): privat über die Gruppe, öffentlich über die Kennung aus der Adresse. */
+export async function geheZuRaum(k: RepoKarte): Promise<void> {
+  const id = k.privatRaum ? PRIVAT + k.privatRaum : leseRaumAdresse(k.repo?.raum ?? "")?.spaceId;
+  if (!id) return;
+  switchTab("comm");
+  setzeKommModus("space");
+  await oeffneRaum(id);
+  // Mobil die Ebene mit Kanälen und Repos, der Fokus auf dem Repo, von dem man kam
+  document.querySelector(".comm-space-inner")?.classList.remove("showing-channel");
+  document.querySelector<HTMLElement>(`#raum-repos [data-schluessel="${CSS.escape(k.schluessel)}"]`)?.focus();
 }
 
 /** Kanal anlegen (C.2d2): Name und wer schreiben darf; offen als neue Definition des Gründers, privat in die Gruppe. */
@@ -703,7 +766,7 @@ async function legeRaumAn(oeffentlich = false): Promise<void> {
 
     await pool.publish(await signiere(buildRoles(spaceId, state.keypair.pk, [
       { id: "mod", name: "Moderator", rank: 50, // kein UI-Text
-        permissions: ["lesen", "schreiben", "threads", "moderieren", "rollen_vergeben"] },
+        permissions: ["lesen", "schreiben", "threads", "moderieren", "rollen_vergeben", "repos_pflegen"] },
       { id: "mitglied", name: "Mitglied", rank: 10, // kein UI-Text
         permissions: ["lesen", "schreiben", "threads"] },
     ] as never)));
@@ -929,6 +992,13 @@ export async function wireSpacesTab(): Promise<void> {
   const mods = $("#space-mods");
   if (mods) mods.onclick = () => void ernenneModeratoren();
   document.getElementById("space-kanal-neu")?.addEventListener("click", () => void legeKanalAn());
+  // Repos im Raum (11.4c): anlegen aus dem Menü, die Liste folgt jedem Laden der Repos
+  document.getElementById("space-repo-neu")?.addEventListener("click", () => {
+    const ziel = raumZiel();
+    const name = (spacesUi.state as SpaceState | null)?.space?.name ?? "";
+    if (ziel && darfRepos()) void legeRepoImRaumAn(ziel, name);
+  });
+  beiReposGeladen(zeigeRaumRepos);
   const info = $("#space-info");
   if (info) info.onclick = async () => {
     const st = spacesUi.state as { space?: { channels: never[] } } | null;

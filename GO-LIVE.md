@@ -92,6 +92,9 @@ ist, sucht später Fehler an der falschen Stelle.
 ## 2 — Mainnet und erster öffentlicher Stand (1–2 Wochen)
 
 - [ ] **Anchor auf Mainnet deployen.** Kostet ein paar SOL.
+- [ ] **Testphase: Upgrade-Recht an eine Squads-Mehrfachsignatur mit
+      Zeitverzögerung** statt eines einzelnen Schlüssels – Schritt für Schritt
+      in `docs/SOLANA-UPGRADE-AUTHORITY.md` (erst auf Devnet üben).
 - [ ] **Upgrade-Authority auf `none` setzen:**
       `solana program set-upgrade-authority <PROGRAM_ID> --final`
       Danach kann niemand mehr etwas ändern — auch ihr nicht. Vorher

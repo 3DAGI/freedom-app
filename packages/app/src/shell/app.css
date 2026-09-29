@@ -140,7 +140,8 @@ main { flex: 1; overflow: hidden; padding: 0; display: flex; flex-direction: col
 #page-ai.active, #page-chat.active { display: flex; flex-direction: column; }
 .tab-page { flex: 1; min-height: 0; }
 /* Wallet/Earn brauchen eigenes Scrollen + Padding */
-#page-wallet, #page-earn { overflow-y: auto; padding: 14px; }
+/* Seit C.5b ohne eigenen Rand – Kopf und Inhalt haben ihn wie auf allen Seiten selbst */
+#page-wallet, #page-earn { overflow-y: auto; }
 
 .card {
   background: var(--card); border: 1px solid var(--border); border-radius: 2px;
@@ -1408,8 +1409,10 @@ button.dlg-gefahr:hover { background: #A52A2A; }
 .msg-aktionen button { width: auto; padding: 4px 8px; font-size: 10px; min-height: 26px; }
 .msg-aktionen button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 @media (hover: none) {
-  .msg-aktionen { top: -18px; }
-  .msg-aktionen button { min-height: 36px; padding: 6px 12px; }
+  /* Ganz über der Zeile, nie auf ihr: Antippen macht die Zeile „gehovert“ – lägen die
+     Knöpfe (seit C.5a 40 px) über ihrer Mitte, träfe der Klick gleich „Antworten“ */
+  .msg-aktionen { top: auto; bottom: calc(100% - 2px); }
+  .msg-aktionen button { min-height: 40px; padding: 6px 12px; }
 }
 .space-head { position: relative; }
 .space-head h2 { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -1561,3 +1564,163 @@ button.menue-punkt.menue-gefahr { color: var(--red); }
 .code-commit-zeile { cursor: pointer; display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; }
 .code-commit-betreff { overflow-wrap: anywhere; }
 .code-commit-nachricht { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; margin: 6px 0 0 14px; }
+
+/* ---------- Abdeckungskarte (C.4a): eigenes SVG, Farbe und Schraffur je Ebene ---------- */
+.karte { --karte-online: var(--accent); --karte-lora: var(--amber); --karte-bluetooth: #5B8FD9; margin-top: 8px; }
+.karte-umschalter { padding: 0; margin: 10px 0 0; }
+.karte-leiste { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.karte-ebenen, .karte-zoom { display: flex; flex-wrap: wrap; gap: 6px; }
+.karte button { width: auto; text-transform: none; letter-spacing: normal; }
+.karte-ebene { display: inline-flex; gap: 6px; align-items: center; min-height: 32px; }
+.karte-ebene[aria-pressed="false"] { opacity: 0.55; text-decoration: line-through; }
+.karte-zoom button { min-width: 32px; min-height: 32px; }
+.karte-probe { width: 14px; height: 14px; border: 1px solid currentColor; border-radius: 2px; flex: none;
+  background: repeating-linear-gradient(var(--winkel, 45deg), var(--probe) 0 2px, transparent 2px 5px); }
+.karte-probe.ebene-online { --probe: var(--karte-online); --winkel: 45deg; color: var(--karte-online); }
+.karte-probe.ebene-lora { --probe: var(--karte-lora); --winkel: -45deg; color: var(--karte-lora); }
+.karte-probe.ebene-bluetooth { --probe: var(--karte-bluetooth); --winkel: 0deg; color: var(--karte-bluetooth); }
+.karte-svg { display: block; width: min(100%, 110vh); margin: 0 auto; height: auto; aspect-ratio: 2 / 1; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); touch-action: none; cursor: grab; user-select: none; }
+.karte-svg:active { cursor: grabbing; }
+.karte-svg:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.karte-meer { fill: var(--card); }
+.karte-land { fill: var(--surf2, #16181A); stroke: var(--line2, #2A2A2A); stroke-width: 1px; vector-effect: non-scaling-stroke; }
+.karte-eigen { fill: none; stroke: var(--text); stroke-width: 2px; stroke-dasharray: 5 3; vector-effect: non-scaling-stroke; pointer-events: none; }
+.karte-netz line { stroke: var(--line2, #2A2A2A); stroke-width: 1px; vector-effect: non-scaling-stroke; }
+.karte-netz line.karte-aequator { stroke: var(--text-muted); stroke-dasharray: 4 3; }
+.muster-grund.ebene-online { fill: var(--karte-online); fill-opacity: 0.25; }
+.muster-grund.ebene-lora { fill: var(--karte-lora); fill-opacity: 0.25; }
+.muster-grund.ebene-bluetooth { fill: var(--karte-bluetooth); fill-opacity: 0.25; }
+.muster-linie { stroke-width: 1.5px; vector-effect: non-scaling-stroke; }
+.muster-linie.ebene-online { stroke: var(--karte-online); }
+.muster-linie.ebene-lora { stroke: var(--karte-lora); }
+.muster-linie.ebene-bluetooth { stroke: var(--karte-bluetooth); }
+.karte-zelle { stroke-width: 1.5px; vector-effect: non-scaling-stroke; cursor: pointer; }
+.karte-zelle.ebene-online { stroke: var(--karte-online); }
+.karte-zelle.ebene-lora { stroke: var(--karte-lora); }
+.karte-zelle.ebene-bluetooth { stroke: var(--karte-bluetooth); }
+.karte-zelle:focus { outline: none; }
+.karte-zelle:focus-visible, .karte-zelle.gewaehlt { stroke: var(--text); stroke-width: 3px; }
+.card .karte p.karte-angaben { min-height: 1.5em; margin: 6px 0 0; font-size: 13px; color: var(--text); overflow-wrap: anywhere; }
+.card .karte p.karte-klein { font-size: 12px; line-height: 1.5; margin: 4px 0 0; }
+.abdeckung-orte, .usage-row + .abdeckung-ort { margin-top: 8px; }
+.abdeckung-ort { overflow-wrap: anywhere; }
+
+/* ---------- Mobil (C.5a): Berührflächen, Häkchen, Safe-Area, Tastatur, eigenes Bild ---------- */
+/* Häkchen und Wahlknöpfe nie in voller Breite (die Regel für input setzte sie auf 100 %) */
+input[type="checkbox"], input[type="radio"] { width: 18px; height: 18px; min-height: 0; flex: none; margin: 0 8px 0 0; vertical-align: -3px; accent-color: var(--accent); }
+/* Kopfzeile: vor dem Schlüssel das eigene Bild – ohne Netz der Anfangsbuchstabe (zeigeIdent()) */
+header .ident::before {
+  content: attr(data-initial); display: inline-flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; margin-right: 6px; border-radius: 50%; flex: none;
+  background: var(--surf2, #16181A); border: 1px solid var(--accent-dim); color: var(--accent);
+  font-size: 13px; font-weight: 700; font-family: var(--font-body);
+}
+header .ident[data-initial=""]::before { display: none; }
+@media (max-width: 1023px) {
+  /* Berührflächen mindestens 40 px (WCAG 2.5.8 verlangt 24, die Plattformen empfehlen 44/48) */
+  #app button, #app select, #app [role="tab"], .dlg-huelle button,
+  #app input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]) { min-height: 40px; }
+  #app summary { padding: 10px 0; min-height: 40px; box-sizing: border-box; }
+  /* Kopf der Direktnachrichten: vier Knöpfe zu 40 px passen neben den Titel nicht immer – dann umbrechen */
+  .chat-side-head { flex-wrap: wrap; row-gap: 4px; }
+  .chat-side-head > span:last-child { display: flex; flex-wrap: wrap; gap: 2px; }
+  .chat-side-head .mini { margin-left: 0; }
+  .comm-dm .chat-side-head { height: auto; min-height: 48px; padding: 4px 12px; }
+  /* Nur hier ausdrücklich 40 px breit: ein min-width für alle Knöpfe höbe das Mindestmaß der
+     Flex-Elemente auf – die Settings-Reiter schrumpften unter ihren Text und überlagerten sich */
+  .comm-dm .chat-side-head button { width: 40px; }
+  #app label:has(> input[type="checkbox"]), #app label:has(> input[type="radio"]) { min-height: 40px; padding: 8px 0; }
+  header #balance, header #ident { display: inline-flex; align-items: center; min-height: 40px; padding: 0 4px; }
+  /* Safe-Area: Kerbe oben, Leiste des Systems unten, im Querformat links und rechts */
+  #app > header {
+    padding-top: calc(8px + env(safe-area-inset-top)); padding-bottom: 8px;
+    padding-left: calc(14px + env(safe-area-inset-left)); padding-right: calc(14px + env(safe-area-inset-right));
+  }
+  #app > main { padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right); }
+  .app-nav { padding-bottom: env(safe-area-inset-bottom); padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right); }
+  /* Tastatur: solange ein Feld den Fokus hat, weicht die untere Leiste (navigation.ts) –
+     mit interactive-widget=resizes-content steht das Feld dann direkt über der Tastatur */
+  body.tippt .app-nav { display: none; }
+  /* Werkzeuge des Agenten in einer Reihe zum Wischen – mit 40 px je Knopf stünden sie sonst untereinander
+     und verdrängten das Gespräch */
+  .tool-row { flex-wrap: nowrap; overflow-x: auto; min-width: 0; flex: 1 1 auto; scrollbar-width: none; }
+  .tool-row .tool-chip { flex: none; }
+  /* Weitere Reiter rechts: ein Verlauf zeigt, dass die Leiste weiterläuft */
+  .settings-nav { -webkit-mask-image: linear-gradient(to right, #000 85%, transparent); mask-image: linear-gradient(to right, #000 85%, transparent); }
+}
+/* Querformat am Handy (C.5a): wenig Höhe – Kopfzeile flacher, in der unteren Leiste Symbol und Text nebeneinander */
+@media (max-width: 1023px) and (max-height: 500px) {
+  #app > header { padding-top: calc(2px + env(safe-area-inset-top)); padding-bottom: 2px; }
+  .app-nav button { flex-direction: row; justify-content: center; gap: 6px; padding-top: 4px; padding-bottom: 4px; }
+}
+
+/* ---------- Mobil (C.5b): Hinweisleiste, Seitenkopf ---------- */
+#onboarding-bar button { width: auto; padding: 6px 10px; }
+#onboarding-bar #ob-skip { padding: 4px 8px; font-size: 10px; }
+#ob-mehr { display: none; }
+@media (max-width: 1023px) {
+  /* Eine Zeile: Titel, „mehr“, Knöpfe; der Text erst auf Wunsch (vorher rund 140 px auf jeder Seite) */
+  #onboarding-bar { flex-wrap: wrap; padding: 4px 12px; row-gap: 4px; }
+  #onboarding-bar .ob-title { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #onboarding-bar .ob-body { display: none; order: 5; flex-basis: 100%; }
+  #onboarding-bar.ob-offen .ob-body { display: block; padding-bottom: 6px; }
+  #ob-mehr { display: inline-flex; align-items: center; }
+}
+@media (max-width: 760px) {
+  /* Der Kopf bricht um, statt den Untertitel neben Guthaben und Knöpfen auf drei Zeilen zu quetschen */
+  .page-head { flex-wrap: wrap; align-items: flex-start; row-gap: 10px; }
+}
+
+/* ---------- Agent (C.6b): das rechte Feld unter 1200 px als eigene Ebene ---------- */
+.agent-panel-zurueck { display: none; }
+@media (max-width: 1199px) {
+  .agent-mobil-leiste { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 14px 0; }
+  .agent-mobil-leiste button { width: auto; min-height: 40px; padding: 8px 12px; display: inline-flex; align-items: center; gap: 6px; }
+  .agent-panel-zurueck { display: block; width: auto; min-height: 40px; align-self: flex-start; padding: 8px 12px; }
+  .agent-layout[data-sicht="details"] .agent-panel { display: flex; width: auto; flex: 1; border-left: 0; }
+  .agent-layout[data-sicht="details"] .agent-main, .agent-layout[data-sicht="details"] .agent-side { display: none; }
+}
+/* Zwischen 860 und 1199 px steht die Seitenleiste schon da – dort nur der Knopf zum rechten Feld */
+@media (min-width: 860px) and (max-width: 1199px) {
+  #agent-zu-verlauf, #agent-zu-modelle { display: none; }
+}
+/* ---------- Repos im Raum (11.4c) ---------- */
+/* Unter den Kanälen, eigener Abschnitt mit Linie; viele Repos scrollen, die Kanäle behalten den Platz */
+.raum-repos { flex-shrink: 0; max-height: 40%; overflow-y: auto; border-top: 1px solid #1E1E1E; margin-top: 8px; padding-top: 8px; }
+.raum-repos-titel { display: flex; align-items: center; gap: 6px; margin: 0 0 4px; font-size: 11px; font-weight: 600; color: #7A7A7A; }
+.raum-repos-liste { display: flex; flex-direction: column; gap: 1px; }
+.repo-raum { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 0 0 6px; }
+/* ---------- Issues (C-17b) ---------- */
+.issue-titel { overflow-wrap: anywhere; }
+.issue-text { white-space: pre-wrap; overflow-wrap: anywhere; margin: 6px 0 10px; }
+.issue-label { margin-left: 4px; }
+.issue-abschnitt { margin: 14px 0 6px; font-size: 12px; }
+.issue-kommentar { border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; margin: 6px 0; }
+.issue-neu { margin-bottom: 8px; }
+/* Kommentieren unter Issues und Patches (C-17b2, C-17c) */
+.kommentar-feld { display: flex; flex-direction: column; gap: 6px; margin: 8px 0 14px; }
+.kommentar-text { width: 100%; box-sizing: border-box; resize: vertical; }
+.kommentar-feld p { margin: 0; }
+.kommentar-senden { align-self: flex-start; }
+/* Markdown (C-20a): README, Issues, Kommentare – nur DOM, Bilder nie geladen */
+.md { white-space: normal; overflow-wrap: anywhere; line-height: 1.5; }
+.md.code-readme { font-family: var(--font-body); font-size: 13px; }
+.md > :first-child { margin-top: 0; }
+.md > :last-child { margin-bottom: 0; }
+.md h1, .md h2, .md h3, .md h4, .md h5, .md h6 { margin: 14px 0 6px; line-height: 1.3; font-size: 1em; font-family: var(--font-body); color: var(--text); text-transform: none; letter-spacing: normal; }
+.md h1 { font-size: 1.5em; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
+.md h2 { font-size: 1.3em; padding-bottom: 3px; border-bottom: 1px solid var(--border); }
+.md h3 { font-size: 1.15em; }
+.md p { margin: 0 0 8px; }
+.md ul, .md ol { margin: 0 0 8px; padding-left: 22px; }
+.md li > p { margin: 0; }
+.md li.md-aufgabe { list-style: none; }
+.md li.md-aufgabe > input { margin: 0 6px 0 -20px; vertical-align: middle; }
+.md li.md-aufgabe > p:first-of-type { display: inline; }
+.md blockquote { margin: 0 0 8px; padding: 0 10px; border-left: 3px solid var(--border); color: var(--text-muted); }
+.md pre { white-space: pre; overflow: auto; margin: 0 0 8px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 12px; }
+.md code { font-family: var(--font-mono); font-size: 0.9em; padding: 1px 4px; border-radius: 4px; background: var(--card); }
+.md pre code { padding: 0; background: none; }
+.md hr { border: 0; border-top: 1px solid var(--border); margin: 12px 0; }
+.md a { color: var(--accent); }
+.md-bild { font-style: italic; color: var(--text-muted); }

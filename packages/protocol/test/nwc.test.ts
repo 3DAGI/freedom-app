@@ -327,3 +327,21 @@ test("Geraete-Erkennung: Desktop ohne Extension bekommt trotzdem einen Weg", () 
   assert.equal(desktop.recommendation, "nwc");
   assert.ok(desktop.note.length > 0);
 });
+
+test("6.3: Relays der Wallet-Verbindung – nur eigenes oder .onion auf Wunsch, nie still fremd", async () => {
+  const { waehleNwcRelays } = await import("../src/nwc.js");
+  const ONION = "ws://abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz23456.onion";
+  const uri = ["wss://relay.wallet.example", "wss://mein.relay.example/", ONION];
+  assert.deepEqual(waehleNwcRelays(uri, { nurPrivat: false }), { relays: uri, fremd: true }, "ohne Einstellung alle – als fremd markiert");
+  assert.deepEqual(waehleNwcRelays(uri, { nurPrivat: true, eigenes: "wss://MEIN.relay.example" }), { relays: ["wss://mein.relay.example/", ONION], fremd: false });
+  assert.deepEqual(waehleNwcRelays(uri, { nurPrivat: true }), { relays: [ONION], fremd: false }, ".onion zählt auch ohne eigenes");
+  assert.deepEqual(waehleNwcRelays(["wss://relay.wallet.example"], { nurPrivat: true, eigenes: "wss://mein.relay.example" }), { fehler: "kein-privates-relay" });
+  assert.deepEqual(waehleNwcRelays(["wss://mein.relay.example"], { nurPrivat: false, eigenes: "wss://mein.relay.example" }), { relays: ["wss://mein.relay.example"], fremd: false });
+});
+
+test("6.3: BOLT12 erkennen – nur Methoden für Angebote", async () => {
+  const { bolt12Methoden } = await import("../src/nwc.js");
+  assert.deepEqual(bolt12Methoden(["pay_invoice", "make_invoice", "get_balance"]), []);
+  assert.deepEqual(bolt12Methoden(["pay_offer", "make_invoice", "make_offer", "list_offers", "pay_bolt12"]), ["list_offers", "make_offer", "pay_bolt12", "pay_offer"]);
+  assert.deepEqual(bolt12Methoden(["payoffer", "offering"]), [], "nur ganze Wortteile");
+});

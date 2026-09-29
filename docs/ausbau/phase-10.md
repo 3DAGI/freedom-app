@@ -7,9 +7,10 @@ Karte der Abdeckung und eine Navigation, die auf Desktop und Handy je für sich
 Sinn ergibt. Protokoll, Krypto, Zahlungen und Event-Formate bleiben, wie sie
 sind; sonst gilt die STOPP-Regel aus `CLAUDE.md`.
 
-Stand dieser Karte: **C.0, C.1a, C.1b, C.2 (Räume) und C.3 (Repositories) fertig.** Der MENSCH hat den
+Stand dieser Karte: **C.0 bis C.5 fertig** – Rahmen, Räume, Repositories, Abdeckungskarte, Feinschliff Mobil. Der MENSCH hat den
 Entwurf am 27.09.2026 freigegeben – E1–E8 wie vorgeschlagen (Abschnitt 10.3).
-Nächster Schritt: C.4a.
+Nächster Schritt: C.6a – wartet, bis Spur A #183 (11.2a) gemergt hat: #183 ändert `settings.ts`
+und `index.html`, C.6a verschiebt genau „Settings › Gebühren“. C.6b ist fertig.
 
 ---
 
@@ -156,7 +157,7 @@ Playwright nachgeprüft (Sichtbarkeit und Maße der Elemente).
 | B13 | mittel | Der eigene Standort liegt **genau** und im Klartext in `localStorage` (`freedom.coverage.cell`, `earn.ts:107`) – auch mit Tresor. Gebraucht wird nur die Zelle. | – | E6 |
 | B14 | mittel | Anordnung: Repos und Modelle unter „Agent“; Mesh unter „Settings“, Zahlen ohne Netz unter „Währung“, Post als Datei in der Liste der Direktnachrichten; Karte unter „Earn“; Mitwirkende unter „Earn › Werben“; Vertrauensstufe des Providers im Profil; Gebühren und Standard-Schiene in den Settings; der Reiter „Liquidität“ enthält das Hinterlegen beim Provider und seit 4.3d2 den Zahlkanal, keine Liquidität. | – | C.1b, C.6 |
 | B15 | klein | Mobil wird „Kommunikation“ in der unteren Leiste zu „KOMMUN…“ gekürzt. | – | C.1a |
-| B16 | klein | Nach jeder KI-Antwort verdrahtet `handleAnswer()` Knöpfe erneut (`agent.ts:877–894`, wie schon `app.ts:826–848`) – harmlos, aber überflüssig. | Datei der Spur A | später (nach 4.3d) |
+| B16 | klein | *(behoben in C.6b)* Nach jeder KI-Antwort verdrahtet `handleAnswer()` Knöpfe erneut (`agent.ts:877–894`, wie schon `app.ts:826–848`) – harmlos, aber überflüssig. | Datei der Spur A | später (nach 4.3d) |
 | B17 | klein | Rauminfo und der Titel der Vertraulichkeit zeigen den deutschen Satz aus `privacyInfo()` auch in der englischen Oberfläche (`kommunikation.ts:228`, `:641`). | 8.16g2b2 (Spur B) hat den Satz nicht übernommen | C.2b2 |
 | B18 | hoch | *(gefunden in C.2b2)* **Mobil (bis 900 px) zeigt ein Raum nie seine Nachrichten:** `.channel-main` ist dort ausgeblendet, bis `.showing-channel` gesetzt ist – das setzte kein Code. | `app.css:850` | C.2b2 |
 | B19 | mittel | *(gefunden in C.2b2)* Nach „Raum beitreten“ oder „Raum anlegen“ bleibt der Chat bei den Direktnachrichten; der Raum erscheint erst nach einem Tipp auf sein Symbol in der Leiste. | `setzeKommModus()` nur beim Klick in die Leiste | C.2b2 |
@@ -700,6 +701,96 @@ einem ersten echten Pfad, C.3c2 der Reiter „Code“ ganz und „Commits“.
   die Commits ab HEAD entlang der ersten Eltern (höchstens 100), je Commit die
   ganze Nachricht zum Aufklappen (`<details>`); ohne Bundle die angenommenen
   Patches mit den Commits aus `applied-as-commits`.
+
+**C.4a – fertig (28.09.2026).**
+- `karte-ansicht.ts` (ohne DOM): Plattkarte 360 × 180, Zelle als Rechteck an
+  der Südwest-Ecke in der Größe ihrer Ebene; die Kennung kommt aus fremden
+  Events und gilt nur in der Form von `toCell()` (sonst kein Rechteck).
+  Gezeichnet wird nur, was `buildCoverage()` ausgibt – das Modul kennt weder
+  Events noch Schlüssel. Zoom 1–32, der Ausschnitt bleibt in der Welt, der
+  Punkt unter Zeiger oder Fingern bleibt stehen. Gradnetz alle 30°, ab Zoom 3
+  alle 10°.
+- `tabs/karte.ts`: SVG nur mit `createElementNS`/`textContent`. Je Ebene
+  eigene Farbe **und** Schraffur (45°, −45°, waagrecht); die Schalter der
+  Ebenen sind zugleich die Legende (`aria-pressed`). Maus: Rad, Ziehen, Klick;
+  Touch: ziehen, zwei Finger; Tastatur: Pfeile, `+`/`−`, `0`, Tab springt
+  durch die Gebiete im Ausschnitt, Enter zeigt Ebene, Gebiet und Stufe (nie
+  die Zahl der Einträge). Unter der Karte der Satz zur Schwelle – ehrlich:
+  Provider im Netz ab einem Eintrag, Funk und Bluetooth ab drei; sie schützt
+  nur die Anzeige.
+- „Karte / Liste“: Die Liste ist jetzt DOM, zeigt alle Gebiete (nicht mehr
+  höchstens 15) und statt „?“ die Mitte eines Gebiets ohne Namen (B12).
+- Welt-Umrisse, eigene Zelle und gerundeter Standort folgen mit C.4b.
+
+**C.4b – fertig (28.09.2026).** Damit ist C.4 (Abdeckungskarte) fertig.
+- Umrisse (E5): Natural Earth 1:110m „Land“ (gemeinfrei), erzeugt mit
+  `scripts/welt-umrisse.py` aus der Quelle mit fester Prüfsumme
+  (Douglas-Peucker 0,05°, Inseln unter 0,3 Quadratgrad weg, Zehntelgrad,
+  relative Pfade): 118 Flächen in 20 KB (`welt-umrisse.ts`), gezeichnet als
+  ein Pfad unter dem Gradnetz. Nichts wird zur Laufzeit geladen.
+- Standort (E6, B13): gespeichert wird nur die Südwest-Ecke der 0,5°-Zelle
+  (`rundeStandort()`); ein genauer Wert von vorher wird beim ersten Lesen
+  gerundet überschrieben (`leseStandort()`). Zellen aller Ebenen und die
+  Antwort aus `coverageAt()` bleiben gleich (Test mit 500 Orten).
+- Eigene Zelle nur umrandet (gestrichelt, kein Punkt, nicht anklickbar),
+  „Mein Gebiet“ zoomt dorthin. Neu: „mein Gebiet zeigen“ (nur lokal, ohne
+  Eintrag – bisher gab es den Ort nur über „selbst eintragen“) und „Gebiet
+  vergessen“.
+- „Selbst eintragen“ fragt über `dialog()`/`bestaetige()` statt `prompt()`
+  und `confirm()`: Ebene als Wahl, dann die Einwilligung wie bisher.
+
+**C.5a – fertig (28.09.2026).** C.5 ist geteilt: C.5a Berührflächen,
+Häkchen, Safe-Area, Querformat, Tastatur und das eigene Bild in der Kopfzeile;
+C.5b Kürzungen (Hinweisleiste), einheitliche Abstände und der Durchgang aller
+Seiten mit Screenshots.
+- Gemessen vorher (390 × 844 und 844 × 390, alle 16 Seiten): Guthaben und
+  Schlüssel in der Kopfzeile 11–13 px hoch, viele Knöpfe und Felder 21–33 px,
+  Symbolknöpfe im Chat 28 × 28, Häkchen 304 px breit (die Regel für `input`
+  galt auch für sie), „Was geht ohne Internet?“ 11 px hoch. Keine Seite mit
+  waagrechter Laufleiste.
+- Unter 1024 px jede Berührfläche mindestens 40 px (Knöpfe, Reiter, Felder,
+  Auswahllisten, `summary`, Labels mit Häkchen); Häkchen 18 px mit Label als
+  Fläche. Wo 40 px den Platz sprengten: Werkzeuge des Agenten in einer Reihe
+  zum Wischen, Knöpfe im Kopf der Direktnachrichten brechen um.
+- Safe-Area: Kopfzeile oben, links, rechts; Inhalt links, rechts; untere
+  Leiste unten, links, rechts (`viewport-fit=cover` stand schon da).
+- Querformat (Höhe bis 500 px): Kopfzeile flacher, in der unteren Leiste
+  Symbol und Text nebeneinander.
+- Tastatur: `interactive-widget=resizes-content`; solange ein Feld, das eine
+  Tastatur öffnet, den Fokus hat (`tipptIn()`), weicht die untere Leiste.
+- Kopfzeile: vor dem gekürzten Schlüssel das eigene Bild wie in der
+  Profil-Vorschau ohne Bild – der Anfangsbuchstabe des Namens
+  (`zeigeIdent()`), nie ein Bild aus dem Netz; Settings-Reiter mit Verlauf am
+  rechten Rand.
+
+**C.5b – fertig (28.09.2026).** Damit ist C.5 fertig.
+- Hinweisleiste als DOM (vorher `innerHTML`); auf dem Handy eine Zeile mit
+  Titel, „mehr“ und den Knöpfen – rund 50 statt 140 px auf jeder Seite; „mehr“
+  klappt den Text auf (`aria-expanded`). Am Desktop steht der Text wie bisher.
+- Gleiche Ränder: Währung und Verdienen hatten aus der alten App einen eigenen
+  Rand (14 px mehr als die übrigen Seiten, auch am Desktop). Jetzt überall
+  14 px hochkant, 28 px quer und am Desktop wie die anderen Seiten.
+- Seitenkopf bricht unter 760 px um (Währung: Guthaben und „Wallet verbinden“
+  unter dem Titel statt daneben).
+- Durchgang aller Seiten (Desktop, Handy hochkant und quer, Kontaktbögen in
+  `bilder/c5b/`). Gefunden und behoben: C.5a hatte allen Knöpfen `min-width`
+  gegeben – das hob das Mindestmaß der Flex-Elemente auf, die Settings-Reiter
+  schrumpften unter ihren Text und überlagerten sich. Nur die Symbolknöpfe im
+  Kopf der Direktnachrichten brauchen die Breite ausdrücklich; der Smoke-Test
+  prüft seitdem auch Text, der aus Knöpfen und Reitern läuft.
+
+**C.6b – fertig (28.09.2026).** Vor C.6b abgestimmt, was Spur A gerade
+berührt: der offene PR #183 (11.2a) ändert `settings.ts`, `index.html`,
+`earn.ts` und `app.ts`, nicht `agent.ts`. C.6b kommt deshalb vor C.6a; C.6a
+(Settings › Gebühren → Währung › Zahlen) wartet auf #183.
+- Rechtes Feld des Agenten (Arbeitsbereich, Werkzeuge, Kosten) unter 1200 px
+  als eigene Ebene `#/agent/details` statt ausgeblendet: Knopf
+  „Arbeitsbereich“ neben „Verlauf“ und „Modelle“, „‹ Zurück“ im Feld. Zwischen
+  860 und 1199 px steht die Seitenleiste schon da – dort nur dieser Knopf.
+- B16: `handleAnswer()` verdrahtete nach jeder Antwort die Knöpfe für
+  Nachfolge, Modelle und Abzeichen ein zweites Mal (mit einem zweiten Text für
+  dasselbe Lebenszeichen) – das tut nur noch `app.ts` beim Start. Die
+  Aktualisierungen nach der Antwort bleiben.
 
 ---
 

@@ -10612,6 +10612,1052 @@ Endstand (nach dem Einmergen von `main` mit C.3b2, C.3c1 und C.3c2): protocol
 Leak-Tests 62 grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 (155
 ausgenommen, 4 weniger) · innerHTML streng Exit 0 · Website 5 Seiten ok ·
 Smoke-Test bestanden (mit „qr“).
+## Schritt 5.9a – Reproduzierbarer Build
+
+Spur B, von Spur A übernommen (Entscheidung 28.09.), Karte `phase-5.md` (5.9).
+
+**Was:**
+- `scripts/repro-build.sh` (neu): baut `freedom.html` aus einem frischen
+  Arbeitsbaum des Commits (`git worktree`, nichts aus dem eigenen Checkout,
+  kein `node_modules`), `npm ci` nach `package-lock.json`, Node-Hauptversion aus
+  `.nvmrc` (sonst Abbruch), `TZ=UTC`, `LC_ALL=C`, `SOURCE_DATE_EPOCH` = Zeit
+  des Commits. `--pruefen`: zweimal an zwei Pfaden (einer tiefer) – zwei
+  Summen = Fehler. `--vergleiche <sha256> [commit]`: gegen eine Summe, etwa aus
+  dem Release-Manifest. Arbeitsbäume werden danach entfernt. Die MLS-Engine
+  kommt gebaut aus `packages/mls/dist` – `build.mjs` nimmt sie nur mit
+  passender `SHA256SUMS`, den Nachbau prüft `mls.yml`.
+- `.nvmrc` (neu): `22`. `ci.yml` (Tests) und `pages.yml` (Build der Seite)
+  lesen die Node-Version jetzt daraus.
+- `ci.yml`: neuer Job „Reproduzierbarer Build“ (`--pruefen`, mit pipefail).
+- `pages.yml`: Schritt „Veroeffentlichte freedom.html nachbauen“ nach
+  `build-site.sh` – veröffentlicht wird nur, was ein frischer Build desselben
+  Commits bitgleich ergibt.
+- FAQ „Wie weiß ich, dass die App echt ist?“: wie man nachbaut.
+
+**Geprüft:** Zwei frische Klone an verschiedenen Pfaden ergaben schon vorher
+dieselbe Summe (`92553dd…` für 7a4f875) – der Build war reproduzierbar, jetzt
+wird es geprüft. `--pruefen` lokal: zweimal dieselbe Summe, rund 1:40 min.
+Negativfälle: falsche Summe → Exit 1 („ANDERS als erwartet“), falsche
+Node-Hauptversion → Exit 2, ungültige Summe als Argument → Exit 2; danach keine
+Arbeitsbäume übrig (`git worktree list`).
+
+**Nebenbei gefunden (Spur B, 7.4a):** `node/test/funk-kurz.test.ts` wartete fest
+20 ms auf die Zwischenrückmeldung, die der Knoten ohne `await` versiegelt und
+sendet – im vollen Lauf einmal rot. Unter CPU-Last nachgestellt (1 von 5 rot),
+jetzt wartet der Test, bis die erwarteten Antworten da sind (Frist 5 s): unter
+derselben Last 10 von 10 grün. Fallstrick in CLAUDE.md. Spur A fand denselben
+Wackler unabhängig in 11.1b (#181) und behob ihn gleich; beim Einmergen gilt
+deren Fassung (Frist 2 s), meine fällt weg.
+
+Endstand: protocol 1088 (6 übersprungen) · node 249 + 7 übersprungen (ohne
+Netz; mit Netz 250 + 6) · app 567 · mls 13 · Leak-Tests 62 grün + 1 todo · 0
+rot · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 · Website ok ·
+Smoke-Test bestanden · Website-Bau ok · `repro-build.sh --pruefen` auf dem
+Commit: zweimal dieselbe Summe. Knoten-Stand: unverändert (nur ein Test).
+
+Nach dem Einmergen von `main` (8.2b): protocol 1089 · node 254 + 7
+übersprungen (ohne Netz; mit Netz 255 + 6) · app 567 · mls 13 · Leak-Tests 62
++ 1 todo · 0 rot; alle Prüfungen erneut grün.
+
+Nach dem Einmergen von `main` (8.2c): protocol 1089 · node 259 + 7
+übersprungen (ohne Netz; mit Netz 260 + 6) · app 567 · mls 13 · Leak-Tests 62
++ 1 todo · 0 rot; alle Prüfungen erneut grün.
+
+Nach dem Einmergen von `main` (bis #180: 11.1a, C.3c1, C.3c2 u. a.): protocol
+1096 · node 259 + 7 übersprungen (ohne Netz; mit Netz 260 + 6) · app 593 · mls
+13 · Leak-Tests 62 + 1 todo · 0 rot; alle Prüfungen erneut grün.
+
+Nach dem Einmergen von `main` (#181, 11.1b): protocol 1096 · node 259 + 7
+übersprungen (ohne Netz; mit Netz 260 + 6) · app 597 · mls 13 · Leak-Tests 62
++ 1 todo · 0 rot; alle Prüfungen erneut grün.
+
+## Schritt 5.9b – Upgrade-Recht, Radicle, Repository per NIP-34
+
+Spur B, von Spur A übernommen (Entscheidung 28.09.), Karte `phase-5.md` (5.9).
+
+**Was:**
+- `docs/SOLANA-UPGRADE-AUTHORITY.md` (neu, für den MENSCHEN): warum das
+  Upgrade-Recht zählt (heute ein Schlüssel, `DEPLOY.md`), Ziel in der
+  Testphase Squads v4 (2 von 3, Zeitverzögerung länger als die längste
+  Sperre), Vault als Upgrade-Recht (`set-upgrade-authority … --skip-new-
+  upgrade-authority-signer-check`, Adresse doppelt prüfen), Upgrades über
+  Buffer und Vorschlag, Prüfung mit `solana-verify`, später `--final` nur als
+  Vorschlag derselben Mehrfachsignatur; Checkliste (0.G, Devnet üben,
+  Mainnet). Der Agent führt nichts davon aus. `GO-LIVE.md` verweist darauf.
+- `docs/RADICLE.md` (neu): einrichten (`rad auth`, `rad node start`),
+  `rad init`, nach jedem Merge nachschieben (nur, was auf GitHub steht),
+  Kennung in `spiegel/quellen.json`.
+- NIP-34-Spiegel: `projektRepo()` (`protocol/src/spiegel.ts`) baut die
+  Ankündigung des Projekt-Repositorys – Klon GitHub und, sobald gesetzt, die
+  Radicle-Kennung (Platzhalter bleibt draußen), nur gültige Maintainer;
+  `scripts/mirror/repo-ankuendigung.mts` signiert sie mit dem
+  Spiegel-Schlüssel und sendet an die Startrelays (ohne Schlüssel
+  übersprungen, `--trocken` gibt nur aus); im Job „spiegel“ von `pages.yml`
+  nach den Uploads, mit ganzem Verlauf (erster Commit, NIP-34 „euc“).
+  Das Lesen des Spiegel-Schlüssels liegt jetzt in `scripts/mirror/schluessel.mts`
+  (von `spiegeln.mts` mitbenutzt).
+- `docs/KONTEN.md`: F2 (NIP-34, optional Variable `REPO_MAINTAINER`), F3
+  (Upgrade-Recht).
+- „Über `git.ts`“ (Karte) umgesetzt über die NIP-34-Bausteine aus 8.10: ein
+  Bundle des ganzen Repositorys (38042) gehört nicht auf öffentliche Relays.
+
+**Tests:** +1 in `protocol/test/spiegel.test.ts` (Platzhalter bleibt
+draußen, Radicle mit, Maintainer geprüft, Event lesbar wie jedes NIP-34-Repo,
+echte `quellen.json` ergibt eine gültige Ankündigung); +3 in
+`node/test/repo-ankuendigung.test.ts`: das Skript gegen die echte Relay-Rolle
+(signiert vom Spiegel-Schlüssel, lesbar, Schlüssel nie in der Ausgabe), ohne
+Schlüssel übersprungen, unlesbarer Schlüssel mit fester Meldung, kein Relay
+erreichbar → rot, `--trocken`; Verdrahtung im Release-Job.
+
+Nachweis zu 5.9a aus der CI von #173: Der Job „Reproduzierbarer Build“ ergab
+für den Stand zweimal `e3487e52…` (Node 22.23.2); lokal (Node 22.22.2)
+ergibt `repro-build.sh --vergleiche e3487e52… 07e3d16` dieselbe Summe – bitgleich
+über Rechner und Node-Patchstände hinweg.
+
+Endstand: protocol 1097 (+1, 6 übersprungen) · node 262 + 7 übersprungen (+3;
+ohne Netz, mit Netz 263 + 6) · app 597 · mls 13 · Leak-Tests 62 grün + 1 todo ·
+0 rot · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 · Website ok
+· Smoke-Test bestanden · Website-Bau ok. Knoten-Stand: unverändert (nur Tests
+und Skripte).
+
+## Schritt 6.3a – Lightning-Adresse nur auf Wunsch, Zaps anonym
+
+Spur B, von Spur A übernommen (Entscheidung 28.09.), Karte `phase-6.md` (6.3).
+Aufteilung: a (dieser Schritt) Leak-Regeln, Profil, Zaps; b NWC über eigenes
+oder .onion-Relay, Empfang über den eigenen Knoten, Adresse bzw. Rechnung
+eines Kontakts versiegelt erfragen, BOLT12 erkennen.
+
+**Was:**
+- Leak-Regeln (`protocol/src/leak-rules.ts`): `keine-ln-adresse` – keine
+  Lightning-Adresse des Nutzers in öffentlichen Events (Umschläge zählen
+  nicht); `zap-anonym` – Zap-Anfragen (9734) nie von der Identität, immer mit
+  „anon“. Beide in `LEAK_REGELN`.
+- Profil: `oeffentlichesProfil(meta, { lightning })` (`profile.ts`) lässt
+  `lud16`/`lud06` weg, wenn das Häkchen aus ist. In der App (`tabs/profil.ts`)
+  geht das Profil nur so hinaus; neues Häkchen „Lightning-Adresse öffentlich
+  zeigen“ (`#pf-lud16-oeffentlich`), die Offenlegung zeigt „bleibt auf dem
+  Gerät“, die Vorschau die Adresse nur, wenn sie öffentlich ist.
+  `profil-lightning.ts`: Einstellung `freedom.profil.lnOeffentlich` – wer vor
+  6.3 eine Adresse gespeichert hatte, hat sie veröffentlicht; das übernimmt
+  die Einstellung beim ersten Lesen einmal, sonst gilt „aus“ (bestehende
+  Profile brechen so nicht still, der Bericht warnt). In der Zustandssicherung.
+- Datenschutzbericht: Befund „ln-profil“ (Warnung, Schicht Kette), wenn die
+  Adresse öffentlich ist (`lightningInProfile` in `shell/datenschutz.ts`);
+  Aussage „ln-oeffentlich“ (belegt, Regel `keine-ln-adresse`) mit Szenario in
+  `privacy-facts.test.ts` samt Gegenprobe. Texte in beiden Sprachen.
+- Zaps: `buildAnonZapRequest()` (`zap.ts`) signiert die Zap-Anfrage mit einem
+  Wegwerf-Schlüssel je Zap und setzt „anon“ (NIP-57); die App baut sie nur
+  über `baueZapAnfrage()` (`zap-zahlung.ts`), aufgerufen in `sendZap()`
+  (`chat-zap.ts`). Bisher signierte die Identität – der Server des Empfängers
+  veröffentlicht die Anfrage in der Quittung (9735) samt Rechnung, also stand
+  dort, wer wem wie viel zahlte. Hinweis im Zap-Dialog.
+- FAQ: „Sieht jemand, wem ich Sats schicke?“.
+
+**Verdrahtet:** `app/src/shell/tabs/profil.ts` (Speichern:
+`buildProfile(…, oeffentlich(entwurf))`, Häkchen, Offenlegung, Vorschau),
+`app/src/shell/datenschutz.ts` (`lightningInProfile`), `app/src/chat-zap.ts`
+(`baueZapAnfrage` in `sendZap()`).
+
+**Grenze:** Ohne öffentliche Adresse kann dir niemand per NIP-57 zappen – auch
+Kontakte nicht, bis 6.3b die Adresse bzw. Rechnung versiegelt erfragt.
+
+**Tests:** +2 in `protocol/test/leak-rules.test.ts` (beide Regeln finden
+ihren Verstoß – Profil, Tag, Text, ohne Groß/klein; Umschläge, fremde und zu
+kurze Adressen nicht; Zap von der Identität bzw. ohne „anon“), beide im
+Metatest „jede Regel meldet unter einem Namen aus LEAK_REGELN“; Szenario
+„ln-oeffentlich“ in `privacy-facts.test.ts` mit Gegenprobe (mit Häkchen bzw.
+von der Identität signiert finden die Regeln je einen Verstoß). App: +3 in
+`test/profil-lightning.test.ts` (neu aus, bleibt aus nach Eintrag; vor 6.3
+gespeichert → an; Kaputtes → aus; Befund nur bei öffentlicher Adresse;
+Sicherung; Verdrahtung), `i18n.test.ts` zählt `lightningInProfile` mit (18
+Befund-Fassungen, deutsch wortgleich), `zap-zahlung.test.ts` prüft den
+anonymen Weg. Leak: +1 `leak/zap.test.ts` (die Anfrage, die beim
+LNURL-Server ankommt: gültig signiert, nicht von der Identität, mit „anon“,
+je Zap ein neuer Schlüssel), +1 in `leak/profil.test.ts` (mit Häkchen steht
+die Adresse drin; ohne findet `keine-ln-adresse` nichts).
+
+Endstand: protocol 1099 (+2, 6 übersprungen) · node 262 + 7 übersprungen
+(ohne Netz, unverändert) · app 600 (+3) · mls 13 · Leak-Tests 64 grün (+2) +
+1 todo · 0 rot · check-wiring `--streng` Exit 0 (zwei Prüfregeln als
+Ausnahme wie alle anderen) · innerHTML streng Exit 0 · Website ok ·
+Smoke-Test bestanden · Website-Bau ok. Knoten-Stand: unverändert (nur
+Protokoll-Bausteine, die die App nutzt).
+
+## Schritt 6.3b1 – Rechnung versiegelt beim Kontakt erfragen
+
+Spur B, von Spur A übernommen (Entscheidung 28.09.), Karte `phase-6.md` (6.3).
+6.3b ist aufgeteilt: b1 (dieser Schritt) Rechnungen versiegelt, b2 NWC über
+ein eigenes oder .onion-Relay und BOLT12 erkennen.
+
+**Was:**
+- Protokoll `ln-rechnung.ts`: Anfrage (innen Kind 25022, `p`, `amount` in
+  msat) und Antwort (innen 25023, `e`, `p`, `bolt11`) nur im Umschlag
+  (NIP-59), zwischen den Identitäten. Beträge nur ganze sats bis 0,1 BTC
+  (`rechnungsBetragOk()`); die Antwort nimmt der Zahler nur vom Gefragten, zur
+  eigenen Anfrage und nur mit einer gültig signierten Rechnung über genau den
+  Betrag (`oeffneRechnungsAntwort()`). Wem der Knoten gehört, weiß er nicht –
+  nach 4.8 „angekündigt“, nicht „belegt“.
+- App `ln-rechnung-anfrage.ts`: `frageRechnungAn()` (an den Posteingang des
+  Empfängers, wartet bis 75 s) und `beantworteRechnungsAnfrage()` – nur
+  Kontakte, nur frische Anfragen (15 min, nicht aus der Zukunft),
+  `RechnungsBremse` (je Kontakt eine je 30 s, zehn je Minute), Rechnung nur
+  aus der eigenen Wallet über NWC `make_invoice` ohne Beschreibung
+  (`eigeneRechnung()` in `shell/zahlschienen.ts`). Empfang ohne LNURL-Dienst.
+- Zap-Dialog (`chat-zap.ts`): Hat der Empfänger eine öffentliche Adresse,
+  anonymer Zap wie seit 6.3a; sonst die versiegelte Anfrage (nur ganze sats),
+  bezahlt über die Schiene, die den Betrag prüft. Bisher endete das mit
+  „Empfänger hat keine Lightning-Adresse“ – seit 6.3a der Standard.
+- Posteingang (`kommunikation.ts`): `alsRechnungsAnfrage()` am Ende der Kette
+  in `oeffneUmschlag()`; die vier Tests, die die Kette wörtlich prüfen, kennen
+  das neue Glied.
+- Aussage „ln-rechnung“ (belegt, Regel `kein-bolt11`) mit Szenario; Text in
+  der Offenlegung des Profils und in der FAQ (App muss offen sein, Fremde
+  bekommen keine Rechnung).
+
+**Verdrahtet:** `app/src/chat-zap.ts` (`sendZap()` → `frageRechnungAn(…,
+sende: veroeffentlicheDm)`), `app/src/shell/tabs/kommunikation.ts`
+(`oeffneUmschlag()` → `alsRechnungsAnfrage()` → `beantworteRechnungsAnfrage()`
+mit `eigeneRechnung`).
+
+**Tests:** +3 in `protocol/test/ln-rechnung.test.ts` (Anfrage und Antwort nur
+Umschläge – weder Betrag noch Rechnung noch Identität offen; Antwort nur vom
+Gefragten, zur eigenen Anfrage, über genau den Betrag, nicht ohne Betrag;
+Beträge und kaputte Anfragen), Szenario „ln-rechnung“ in
+`privacy-facts.test.ts`. App: +4 in `test/ln-rechnung-anfrage.test.ts` (ganzer
+Weg über ein Relay an den Posteingang des Empfängers; keine Rechnung für
+Fremde, alte, künftige Anfragen, ohne Wallet oder mit falschem Betrag der
+Wallet; Bremse; Verdrahtung), die vier Ketten-Tests erweitert. Leak: +1
+`leak/ln-rechnung.test.ts` (mitgeschnitten am Relay: nur Umschläge).
+
+Endstand: protocol 1102 (+3, 6 übersprungen) · node 262 + 7 übersprungen
+(ohne Netz, unverändert) · app 604 (+4) · mls 13 · Leak-Tests 65 grün (+1) +
+1 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 ·
+Website ok · Smoke-Test bestanden · Website-Bau ok. Knoten-Stand: unverändert.
+
+## Schritt 6.3b2 – NWC über eigenes oder .onion-Relay, BOLT12 erkennen
+
+Spur B, von Spur A übernommen (Entscheidung 28.09.), Karte `phase-6.md` (6.3).
+Damit ist 6.3 im Code fertig (a, b1, b2).
+
+**Was:**
+- Protokoll (`nwc.ts`): `waehleNwcRelays(relays, { nurPrivat, eigenes })` –
+  „privat“ sind das vom Nutzer angegebene eigene Relay und .onion-Relays; mit
+  `nurPrivat` bleiben nur diese, nennt die Verbindung der Wallet keines, gibt
+  es einen Fehler statt eines stillen Ausweichens. `bolt12Methoden()` erkennt
+  Methoden für Angebote (`*_offer`, `*_offers`, `bolt12`).
+- Datenschutzbericht: Befund „nwc-relay-fremd“ (Hinweis, Schicht Netz), wenn
+  die gespeicherte Wallet-Verbindung über ein fremdes Relay läuft (`nwcFremdesRelay`,
+  `nwc-relays.ts` → `nwcUeberFremdesRelay()`); Texte in beiden Sprachen.
+- App (Währung → Lightning): Häkchen „NWC nur über mein eigenes oder ein
+  .onion-Relay“ und Feld für das eigene Relay (`freedom.nwc.nurPrivat`,
+  `freedom.nwc.eigenesRelay` – nicht geheim, wie alles unter `freedom.nwc.`
+  außerhalb der Sicherung); ändert sich die Einstellung, verbindet die App neu.
+  `connectNwc()` baut den Pool nur aus der Auswahl; der Status nennt „über ein
+  fremdes Relay“ bzw. „nur über eigenes oder .onion-Relay“ und BOLT12
+  („angeboten (…) – die App nutzt es noch nicht, Rechnungen gehen versiegelt“
+  bzw. „kein BOLT12“). NIP-47 legt Methoden für Angebote noch nicht fest –
+  darum nur erkennen, nicht nutzen.
+- Nebenbei (aus 6.3b1): Die SOL-Adress-Anfrage (4.9d, `frageAdresseAn()`)
+  geht jetzt wie die Rechnungs-Anfrage an den Posteingang des Empfängers
+  (`sende: veroeffentlicheDm`), nicht mehr nur an den eigenen Pool.
+- FAQ: Absatz zur Wallet-Verbindung.
+
+**Verdrahtet:** `app/src/shell/tabs/waehrung.ts` (`connectNwc()` →
+`waehleNwcRelays()`, `bolt12Methoden()`; `wireNwcRelays()`, aufgerufen in
+`app/src/shell/app.ts`), `app/src/shell/datenschutz.ts` (`nwcFremdesRelay`),
+`app/src/chat-zap.ts` (`frageAdresseAn(…, sende: veroeffentlicheDm)`).
+
+**Tests:** +2 in `protocol/test/nwc.test.ts` (Auswahl der Relays: ohne
+Einstellung alle als fremd markiert, mit Einstellung nur eigenes und .onion,
+Groß/klein und Schrägstrich egal, keines → Fehler; BOLT12 nur ganze
+Wortteile). App: +4 in `test/nwc-relays.test.ts` (Einstellung lesen, fremdes
+Relay erkennen, Befund, Verdrahtung: Pool nur aus der Auswahl – nie
+`conn.relays.map` –, BOLT12 im Status, Häkchen und Feld, Bericht; SOL-Adress-
+Anfrage an den Posteingang); `i18n.test.ts` zählt `nwcFremdesRelay` mit (19
+Befund-Fassungen).
+
+Endstand: protocol 1104 (+2, 6 übersprungen) · node 262 + 7 übersprungen
+(ohne Netz, unverändert) · app 608 (+4) · mls 13 · Leak-Tests 65 grün + 1 todo
+· 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 · Website ok
+· Smoke-Test bestanden · Website-Bau ok. Knoten-Stand: unverändert.
+
+## Schritt 11.4a – Repos in öffentlichen Räumen
+
+Spur B, Karte `phase-11.md` (11.4a). Die Oberfläche im Raum und auf der
+Repo-Seite (Kennzeichen, Liste der Raum-Repos) baut Spur C in 11.4c.
+
+**Was:**
+- Protokoll: Recht `repos_pflegen` für Raum-Rollen (`spaces.ts`, in
+  `ALL_PERMISSIONS` – der Besitzer hat es immer), `raumAdresse()` /
+  `leseRaumAdresse()` (`34700:<besitzer>:space:<kennung>`). Die
+  Repo-Ankündigung (30617) trägt den Verweis als `a`-Tag (`raum`, geprüft beim
+  Bauen, streng beim Lesen; Fehlerkennung `repo-raum`).
+- `raum-repo.ts`: `raumZustandFuer()` baut den Raum-Zustand nur aus der
+  Definition des Besitzers aus der Adresse (eine neuere Definition eines
+  anderen mit derselben Kennung zählt nicht); `mitRaumRechten()` bestätigt den
+  Verweis nur, wenn der Eigentümer des Repos im Raum `repos_pflegen` hat, und
+  nimmt dann alle mit dem Recht (und den Besitzer) als Maintainer auf –
+  `darfAnnehmen()`, `patchStatus()` und `patchAktionen()` bleiben unverändert.
+- App: `repoKarten(…, raumEvents)` wertet die Raum-Struktur aus (geladen in
+  `ladeNip34Repos()` für die Räume, auf die Repos verweisen), die Karte trägt
+  `raumBestaetigt`. In den Repo-Einstellungen eine Auswahl „Öffentlicher Raum“
+  – nur Räume, in denen ich `repos_pflegen` habe (`raumAuswahl()`), ein
+  gesetzter bleibt wählbar; gespeichert über `ankuendigungAusFeldern()`. Neue
+  öffentliche Räume geben der Moderatoren-Rolle das Recht.
+- Format in `docs/PROTOCOL.md` (Abschnitt 18), wie die Karte verlangt.
+
+**Verdrahtet:** `app/src/shell/tabs/repos.ts` (`ladeNip34Repos()` →
+`raumStruktur()` → `repoKarten()`; `meineRepoRaeume()` → `raumAuswahl()`),
+`app/src/shell/tabs/repo-seite.ts` (`einstellungenReiter()` Auswahl,
+`speichereEinstellungen()` → `raum`), `app/src/shell/tabs/raeume.ts`
+(Moderatoren-Rolle neuer Räume).
+
+**Tests:** +4 in `protocol/test/raum-repo.test.ts` (Adresse gebunden und
+streng gelesen; gehört zum Raum nur mit Recht, dann pflegen alle mit dem
+Recht, Gäste und Fremde nicht, Adresse eines anderen Besitzers passt nicht;
+Zustand nur aus der Definition des Besitzers – eine unterschobene neuere
+zählt nicht; Patch-Status zählt Raum-Pfleger, nach Entzug nicht mehr). App:
++3 in `test/raum-repos.test.ts` (Karte: Status des Raum-Pflegers zählt, ohne
+Struktur nicht; Aktionen für Gast und Pfleger; Auswahl nur mit Recht, fremde
+Kopie derselben Kennung nicht; Einstellungen speichern den Verweis;
+Verdrahtung). Der Verdrahtungstest in `repo-karten.test.ts` prüft den neuen
+Aufruf wörtlich.
+
+Endstand: protocol 1108 (+4, 6 übersprungen) · node 262 + 7 übersprungen
+(ohne Netz, unverändert) · app 611 (+3) · mls 13 · Leak-Tests 65 grün + 1 todo
+· 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 · Website ok
+· Smoke-Test bestanden · Website-Bau ok. Knoten-Stand: unverändert.
+
+## Schritt 11.4b1 – Repos in privaten Räumen: Protokoll
+
+Spur B, Karte `phase-11.md` (11.4b, aufgeteilt in b1 Protokoll und b2 App).
+
+**Was:**
+- `raum-repo.ts`: Repo-Events privater Räume nur als innere Events der
+  MLS-Gruppe, je mit `["space", <raum>]` vorn – `raumRepoAnkuendigung()`
+  (30617, ohne `a`-Verweis auf einen öffentlichen Raum), `raumRepoBundle()`
+  (38042 samt `aes-gcm`-Schlüssel, der öffentlich offen stünde),
+  `raumRepoPatch()` (1617), `raumRepoStatus()` (1630–1633).
+- `raumReposPrivat()`: die Repos aus den inneren Events in der Form, die die
+  Repo-Ansicht liest – Ankündigungen und Bundles nur von Pflegern (Admins der
+  Gruppe oder `repos_pflegen`), je Autor und Kennung die neueste, alle
+  Pfleger als `maintainers`; Patches von jedem Mitglied; Status wertet
+  `patchStatus()` nach den Pflegern aus.
+- Leak-Regel `raum-repo-privat` (kein offenes 30617/38042/1617/163x zu den
+  Kennungen, der Bundle-Schlüssel nirgends im Klartext; 1059 und 445 zählen
+  nicht). Aussage „raum-repos“ (belegt) mit Szenario gegen die echte
+  MLS-Engine: Ankündigung, Bundle-Verweis mit Schlüssel und Patch gehen in die
+  Gruppe – die Relays sehen weder Kennung noch Name noch Betreff noch
+  Schlüssel, nur Kind 445 mit fremdem Schlüssel.
+- Format in `docs/PROTOCOL.md` (18, „Private Räume“).
+- Die App verdrahtet die Bausteine in 11.4b2; bis dahin stehen sie mit Grund in
+  `scripts/wiring-ausnahmen.txt` – `check-wiring.py --streng` meldet die Zeilen
+  als veraltet, sobald sie verdrahtet sind, 11.4b2 muss sie also entfernen.
+
+**Tests:** +2 in `protocol/test/raum-repo.test.ts` (innere Events mit Raum,
+ohne öffentlichen Verweis, Schlüssel nur im Bundle-Verweis; Repos des
+privaten Raums nur von Pflegern und nur aus diesem Raum, ohne Zuweisung
+pflegt nur der Admin, mit `repos_pflegen` pflegt der Zugewiesene mit und
+sein Status zählt), +1 in `leak-rules.test.ts` (Regel findet offene
+Repo-Events und den Schlüssel, nicht Umschläge, Gruppen-Nachrichten, fremde
+Repos; im Metatest eingetragen); Szenario „raum-repos“ in
+`privacy-facts.test.ts` mit der echten MLS-Engine.
+
+Endstand: protocol 1111 (+3, 6 übersprungen) · node 262 + 7 übersprungen
+(ohne Netz, unverändert) · app 611 · mls 13 · Leak-Tests 65 grün + 1 todo · 0
+rot · check-wiring `--streng` Exit 0 (fünf Bausteine bis 11.4b2 ausgenommen)
+· innerHTML streng Exit 0 · Website ok · Smoke-Test bestanden · Website-Bau
+ok. Knoten-Stand: unverändert.
+
+
+## Schritt C.4a – Oberfläche: Abdeckungskarte als SVG
+
+**Fertig:** Die Abdeckung (Netz › Karte) ist jetzt eine eigene Karte als SVG
+statt einer Liste mit höchstens 15 Gebieten (B12). Keine Kacheln, nichts von
+außen, keine neue Abhängigkeit.
+
+**Einzelheiten:**
+- **Rechnung ohne DOM** (`karte-ansicht.ts`):
+  - Plattkarte 360 × 180 (Länge → x, Breite → y). Eine Zelle ist ein
+    Rechteck an ihrer Südwest-Ecke in der Größe ihrer Ebene
+    (`LAYER_CELL_DEGREES`). Die Kennung kommt aus fremden Events und gilt
+    nur in der Form von `toCell()` – sonst kein Rechteck.
+  - `kartenZellen()` nimmt nur, was `buildCoverage()` ausgibt (Zellen über
+    der Schwelle), gröbere Ebenen zuerst. Das Modul kennt weder Events noch
+    Schlüssel.
+  - Zoom 1–32; der Ausschnitt bleibt in der Welt; der Punkt unter Zeiger
+    oder Fingern bleibt stehen. Gradnetz alle 30°, ab Zoom 3 alle 10°.
+- **Karte** (`shell/tabs/karte.ts`, verdrahtet in `ladeAbdeckung()`,
+  `earn.ts:47`):
+  - Nur `createElementNS` und `textContent`. Je Ebene eigene Farbe **und**
+    Schraffur (45°, −45°, waagrecht) – auch ohne Farbsehen unterscheidbar.
+  - Die Schalter der Ebenen sind zugleich die Legende (Probe mit derselben
+    Schraffur, `aria-pressed`).
+  - Maus: Rad zoomt um den Zeiger, Ziehen verschiebt, Klick wählt ein
+    Gebiet. Touch: ziehen, zwei Finger zoomen und verschieben. Tastatur:
+    Pfeile, `+`/`−`, `0` (ganze Welt); Tab springt durch die Gebiete im
+    Ausschnitt, Enter zeigt die Angaben. Dazu Knöpfe „+“, „−“, „Ganze Welt“.
+  - Angaben je Gebiet: Ebene, Gebiet (Name aus dem Eintrag, gekürzt, oder
+    die Mitte in Grad), Stufe (wenige, mehrere, viele) – nie die Zahl der
+    Einträge. Angesagt über `role="status"`.
+  - Unter der Karte ehrlich: Funk und Bluetooth ab 3 Einträgen je Gebiet,
+    Provider im Netz ab einem (so rechnet `buildCoverage()`); die Schwelle
+    schützt nur die Anzeige. Dazu wie bisher „n Gebiete nicht angezeigt“.
+- **„Karte / Liste“:** Die Liste bleibt als gleichwertige Ansicht, jetzt als
+  DOM (4 innerHTML-Ausnahmen weniger), mit allen Gebieten und statt „?“ der
+  Mitte eines Gebiets ohne Namen – eigene Einträge tragen keinen.
+- Neue Texte in `texte/karte.ts` (de + en).
+- **Screenshots** (`docs/ausbau/bilder/c4a/`): Desktop die ganze Welt mit
+  drei Gebieten und Europa näher mit gewähltem Funk-Gebiet; Handy Europa
+  näher (Angaben, Schwelle, Bedienung) und die Liste.
+- Welt-Umrisse (E5), die eigene Zelle und der gerundete Standort (E6)
+  folgen mit C.4b.
+
+**Tests:**
+- +7 in `karte-ansicht.test.ts`:
+  - Projektion und Rechtecke der drei Ebenen.
+  - Unfug in der Kennung ergibt kein Rechteck (13 Formen, unbekannte Ebene).
+  - Nur Zellen über der Schwelle aus echten Einträgen: zwei Funkknoten und
+    zwei Bluetooth-Geräte erscheinen nicht, drei Funkknoten und ein Provider
+    schon; die Karte bekommt nur Zellfelder.
+  - Angaben je Zelle mit Stufe statt Zahl, deutsch und englisch; fremde
+    Namen gekürzt.
+  - Zoom und Verschieben an den Grenzen, Punkt unter dem Zeiger bleibt.
+  - Gradnetz und „im Ausschnitt“.
+  - Verdrahtung: Karte gleich nach `buildCoverage()`, kein `innerHTML`,
+    keine Events oder Schlüssel in Karte und Rechnung, Liste ohne
+    `innerHTML` und ohne Grenze 15.
+- Neuer Smoke-Test „karte“ (Desktop und Handy) mit Probe-Einträgen aus
+  `scripts/raum-probe.mts` (je Eintrag ein Wegwerfschlüssel):
+  - Drei Gebiete, nie das mit zwei Funkknoten; „1 Gebiet(e) nicht
+    angezeigt“; ein Name mit `<b>` bleibt Text.
+  - Tastatur `+`, Pfeil, `−`, `0`, Tab, Enter; Desktop Rad, Ziehen, Klick;
+    Handy zwei Finger über Europa (achtmal näher, der Punkt bleibt) und
+    Antippen.
+  - Ebene aus- und wieder einschalten; „Liste“ mit allen Gebieten; keine
+    waagrechte Laufleiste.
+
+Endstand (nach dem Einmergen von 11.1b bis 11.4b1): protocol 1111
+(6 übersprungen) · node 263 (6 übersprungen, mit Netz) · app 618 (+7) ·
+mls 13 · Leak-Tests 65 grün + 1 todo · 0 rot · check-wiring `--streng`
+Exit 0 · innerHTML streng Exit 0 · Website 5 Seiten ok · Smoke-Test
+bestanden (mit „rahmen“, „dialog“, „raum“, „karte“ und „qr“).
+
+## Schritt C.4b – Oberfläche: Umrisse, eigenes Gebiet, Standort gerundet
+
+**Fertig:** Die Abdeckungskarte hat Welt-Umrisse (E5), zeigt das eigene
+Gebiet nur umrandet, und der eigene Ort liegt nur noch gerundet auf dem
+Gerät (E6, B13). Damit ist C.4 (Abdeckungskarte) fertig.
+
+**Einzelheiten:**
+- **Umrisse** (`welt-umrisse.ts`, 20 KB, Grenze 40 KB):
+  - Quelle: Natural Earth 1:110m „Land“ (gemeinfrei), GeoJSON aus dem
+    Repository von Natural Earth, Prüfsumme fest in
+    `scripts/welt-umrisse.py` – eine andere Datei lehnt das Skript ab.
+  - Vereinfacht mit Douglas-Peucker (0,05°), Inseln unter 0,3 Quadratgrad
+    weg, Koordinaten in Zehntelgrad als relativer SVG-Pfad: 118 Flächen.
+  - Gezeichnet als ein Pfad (`scale(0.1)`) über dem Meer, unter Gradnetz und
+    Zellen. Zur Laufzeit wird nichts geladen, keine Kacheln.
+- **Standort** (`karte-ansicht.ts`, `earn.ts`):
+  - Gespeichert wird nur die Südwest-Ecke der 0,5°-Zelle
+    (`rundeStandort()`), gleich nach dem Lesen aus dem Browser. Die Zellen
+    aller Ebenen (0,5°, 1°, 2°) sind Vielfache davon: `toCell()` und
+    `coverageAt()` ergeben dasselbe wie mit dem genauen Ort.
+  - Ein genauer Wert von vor C.4b wird beim ersten Lesen gerundet
+    überschrieben (`leseStandort()`), Unfug gelöscht.
+  - Auch „selbst eintragen“ rechnet die Zelle aus dem gerundeten Ort – der
+    genaue Ort wird an genau einer Stelle gelesen.
+- **Eigenes Gebiet auf der Karte** (`karte.ts`): gestrichelt umrandet, kein
+  Punkt, nicht anklickbar, mit Titel „nur auf diesem Gerät gezeichnet“.
+  „Mein Gebiet“ zoomt dorthin.
+- **Neue Knöpfe:** „mein Gebiet zeigen“ – den Ort nur lokal nutzen, ohne sich
+  einzutragen (bisher gab es ihn nur über „selbst eintragen“, obwohl der
+  Hinweis ihn für die Antwort „Gibt es hier Abdeckung?“ verlangte) – und
+  „Gebiet vergessen“.
+- **„Selbst eintragen“ über Dialoge** (`dialog()`, `bestaetige()`) statt
+  `prompt()`/`confirm()`: die Ebene als Wahl (Funk, Bluetooth), dann die
+  Einwilligung wie bisher (`abdeckungEinwilligung()`). Der Text
+  `earn.funk` fiel weg, `earn.wasEintragen` ist jetzt die Frage ohne
+  „(funk / bluetooth)“.
+- Neue Texte in `texte/karte.ts` (de + en).
+- **Screenshots** (`docs/ausbau/bilder/c4b/`): Desktop die ganze Welt mit
+  Umrissen und drei Probe-Gebieten; Desktop und Handy „Mein Gebiet“ –
+  Europa mit Umrissen, das eigene Gebiet gestrichelt neben dem Funk-Gebiet.
+
+**Tests:**
+- +4 in `karte-ansicht.test.ts`:
+  - Rundung (auch am Rand), alte genaue Werte, Unfug; Rechteck der eigenen
+    Zelle.
+  - Gerundeter und genauer Ort ergeben dieselben Zellen und dieselbe Antwort
+    aus `coverageAt()` (500 Orte).
+  - Umrisse: höchstens 40 KB, nur Pfadbefehle, alle Punkte in der Welt,
+    Kopf mit Quelle.
+  - Verdrahtung: Umrisse und eigene Zelle in der Karte, der Ort nur gerundet
+    gespeichert, keine Browser-Dialoge in `earn.ts`.
+- Zwei ältere Tests folgen der neuen Form, gleich streng oder strenger:
+  `abdeckung.test.ts` (Einwilligung jetzt über `bestaetige()` – und vor dem
+  Senden), `leak/abdeckung.test.ts` (Zelle aus dem gerundeten Ort, der
+  genaue nur einmal gelesen).
+- Smoke-Test „karte“ (Desktop und Handy, fester Probe-Ort):
+  - Umrisse da; ein alter genauer Wert steht danach als `[48,11.5]` im
+    Speicher; die eigene Zelle ist umrandet; „Mein Gebiet“ zoomt dorthin.
+  - „Selbst eintragen“ über beide Dialoge: hinaus geht nur Ebene, Zelle
+    „48.00,11.50“ und leerer Name.
+  - „Gebiet vergessen“ löscht Ort und Umrandung; „mein Gebiet zeigen“ holt
+    beides gerundet zurück.
+
+Endstand: protocol 1111 (6 übersprungen) · node 263 (6 übersprungen, mit
+Netz) · app 622 (+4) · mls 13 · Leak-Tests 65 grün + 1 todo · 0 rot ·
+check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 (63 Ausnahmen) ·
+Website 5 Seiten ok · Smoke-Test bestanden (mit „rahmen“, „dialog“, „raum“,
+„karte“ und „qr“).
+
+## Schritt C.5a – Oberfläche: Mobil – Berührflächen, Safe-Area, Querformat, Tastatur
+
+**Fertig:** Auf dem Handy hat jede Berührfläche mindestens 40 px. Kopfzeile,
+Inhalt und untere Leiste halten Abstand zu Kerbe und Systemleiste, das
+Querformat ist flacher. Beim Tippen weicht die untere Leiste. In der Kopfzeile
+steht das eigene Bild. C.5 ist geteilt: C.5b bringt Kürzungen, Abstände und den
+Durchgang aller Seiten mit Screenshots.
+
+**Gemessen vorher** (Playwright, 390 × 844 und 844 × 390, alle 16 Seiten):
+- In der Kopfzeile waren Guthaben und Schlüssel nur 11–13 px hoch.
+- Viele Knöpfe und Felder waren 21–33 px hoch, die Symbolknöpfe im Chat
+  28 × 28.
+- Häkchen waren 304 px breit: die Regel für `input` galt auch für sie – in
+  der Währung stand das Häkchen allein in der Mitte.
+- „Was geht ohne Internet?“ war 11 px hoch.
+- Keine Seite hatte eine waagrechte Laufleiste.
+
+**Einzelheiten** (`app.css`, Block am Ende, und drei kleine Stellen im Code):
+- **Berührflächen** unter 1024 px mindestens 40 px: Knöpfe (auch in
+  Dialogen), Reiter, Felder, Auswahllisten, `summary`, Labels mit Häkchen.
+  - Häkchen und Wahlknöpfe sind 18 px groß, das Label ist die Fläche.
+  - Wo 40 px den Platz sprengten: Die Werkzeuge des Agenten stehen in einer
+    Reihe zum Wischen (sonst stünden sie untereinander und verdrängten das
+    Gespräch). Die Knöpfe im Kopf der Direktnachrichten brechen um, der Kopf
+    wächst mit.
+  - Die Aktionen an einer Nachricht stehen auf Touch-Geräten ganz über der
+    Zeile. Antippen macht die Zeile „gehovert“; mit 40 px lagen die Knöpfe
+    über ihrer Mitte, und der Klick traf gleich „Antworten“. Der Smoke-Test
+    „raum“ fand das.
+- **Safe-Area** (`viewport-fit=cover` stand schon da):
+  - Kopfzeile oben, links und rechts.
+  - Inhalt links und rechts.
+  - Untere Leiste unten, links und rechts.
+- **Querformat** (Höhe bis 500 px): Die Kopfzeile ist flacher; in der unteren
+  Leiste stehen Symbol und Text nebeneinander.
+- **Tastatur**:
+  - `interactive-widget=resizes-content` im Viewport.
+  - Solange ein Feld den Fokus hat, das eine Tastatur öffnet (`tipptIn()` in
+    `navigation.ts`: Textfelder ja; Häkchen, Knöpfe, Datei- und Farbwahl
+    nein), weicht die untere Leiste (`body.tippt`).
+- **Kopfzeile**: Vor dem gekürzten Schlüssel steht das eigene Bild wie in der
+  Profil-Vorschau ohne Bild – der Anfangsbuchstabe des Namens, sonst „?“.
+  - Gesetzt über `zeigeIdent()` (`ui.ts`) an allen vier Stellen, an denen
+    `app.ts` die Identität setzt, und nach dem Speichern des Profils.
+  - Nie ein Bild aus dem Netz: das nennte dem Server bei jedem Start die IP.
+- Die Settings-Reiter zeigen mit einem Verlauf am rechten Rand, dass die
+  Leiste weiterläuft.
+- **Screenshots** (`docs/ausbau/bilder/c5a/`, alle vom Handy):
+  - Agent hochkant: Werkzeuge in einer Reihe, das Gespräch wieder sichtbar.
+  - Währung: Häkchen links neben dem Text.
+  - Chat: der Kopf mit vier 40-px-Knöpfen.
+  - Agent quer: flache Kopfzeile, Leiste mit Symbol und Text nebeneinander.
+
+**Tests:**
+- +4 in `mobil.test.ts`: Safe-Area und Viewport; die 40-px-Regeln und die
+  Häkchen; die Kopfzeile nur über `zeigeIdent()` und ohne Bild aus dem Netz;
+  welche Felder die Leiste weichen lassen.
+- Neuer Smoke-Test „mobil“: alle Seiten aus `MOBIL_SEITEN` hochkant und quer.
+  - Geprüft: keine Laufleiste, keine Berührfläche unter 40 px, Kopfzeile mit
+    „?“ und 28-px-Bild, 40 px hoch; im Eingabefeld des Agenten verschwindet
+    die untere Leiste und kommt danach wieder.
+  - Gegenprobe mit dem Stand vor C.5a: die Prüfung scheitert (kleine Flächen
+    auf jeder Seite, kein Bild, die Leiste bleibt).
+
+Endstand: protocol 1111 (6 übersprungen) · node 263 (6 übersprungen, mit
+Netz) · app 626 (+4) · mls 13 · Leak-Tests 65 grün + 1 todo · 0 rot ·
+check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 (63 Ausnahmen) ·
+Website 5 Seiten ok · Smoke-Test bestanden (mit „rahmen“, „dialog“, „raum“,
+„karte“, „qr“ und „mobil“).
+
+## Schritt C.5b – Oberfläche: Mobil – Hinweisleiste, Ränder, Durchgang aller Seiten
+
+**Fertig:** Die Hinweisleiste belegt auf dem Handy nur noch eine Zeile, alle
+Seiten haben dieselben Ränder, und ein Durchgang aller Seiten auf Desktop und
+Handy (hochkant und quer) ist abgeschlossen. Damit ist C.5 fertig.
+
+**Einzelheiten:**
+- **Hinweisleiste** (`zeigeOnboarding()` in `app.ts`):
+  - Seit C.5b als DOM, vorher `innerHTML`.
+  - Auf dem Handy eine Zeile: Titel, „mehr“ und die Knöpfe – rund 50 statt
+    140 px auf jeder Seite.
+  - „mehr“ klappt den Text auf und wieder zu (`aria-expanded`,
+    `aria-controls`). Am Desktop steht der Text wie bisher.
+  - Neue Texte `ein.obMehr`, `ein.obWeniger` (de + en).
+- **Ränder:** Währung und Verdienen hatten aus der alten App einen eigenen
+  Rand (`#page-wallet, #page-earn { padding: 14px }`) – 14 px mehr als die
+  übrigen Seiten, auch am Desktop. Gemessen jetzt: überall 14 px hochkant und
+  28 px quer; am Desktop wie Repos und Netz.
+- **Seitenkopf** unter 760 px: Er bricht um. In der Währung stehen Guthaben
+  und „Wallet verbinden“ unter dem Titel, statt den Untertitel auf drei
+  Zeilen zu quetschen.
+- **Durchgang aller Seiten:** Desktop, Handy hochkant und quer (16 bzw. 11
+  Seiten). Kontaktbögen in `docs/ausbau/bilder/c5b/`: `mobil-hoch-1.jpg`,
+  `mobil-hoch-2.jpg`, `mobil-quer.jpg`, `desktop.jpg`.
+  - **Gefunden und behoben:** C.5a hatte allen Knöpfen `min-width: 40px`
+    gegeben. Das hebt bei Flex-Elementen das Mindestmaß (`min-width: auto` =
+    Inhaltsbreite) auf – die Settings-Reiter schrumpften unter ihren Text und
+    überlagerten sich („SICHERHEIT GERÄTE VERBINDUNG …“ übereinander).
+  - Jetzt gilt für alle Knöpfe nur die Höhe; ausdrücklich 40 px breit sind
+    nur die Symbolknöpfe im Kopf der Direktnachrichten.
+  - Die Prüfung „mobil“ hatte das nicht gesehen, weil die Reiter noch 40 px
+    breit waren. Sie meldet seitdem auch Text, der aus Knöpfen und Reitern
+    läuft; die Gegenprobe mit dem alten `min-width` scheitert.
+  - Sonst ohne Befund: keine Laufleiste, keine Fläche unter 40 px, keine
+    abgeschnittenen Knöpfe.
+
+**Tests:**
+- +2 in `mobil.test.ts`: Hinweisleiste als DOM mit „mehr“ (am Desktop
+  ausgeblendet); Währung und Verdienen ohne eigenen Rand.
+- Der C.5a-Test verlangte das globale `min-width` – er verbietet es jetzt und
+  verlangt die Breite im Chat-Kopf (Korrektur eines Fehlers, nicht
+  abgeschwächt).
+- Smoke-Test „mobil“ erweitert:
+  - Text, der aus Knöpfen und Reitern läuft.
+  - Gleicher linker Rand von Seitentitel und erster Karte auf allen Seiten.
+  - Hinweisleiste höchstens 56 px, „mehr“ klappt auf („weniger“) und wieder
+    zu.
+  - Gegenprobe mit dem Stand vor C.5b: verschiedene Ränder [14, 28] bzw.
+    [28, 42], Leiste 136 px.
+
+Endstand: protocol 1111 (6 übersprungen) · node 263 (6 übersprungen, mit
+Netz) · app 628 (+2) · mls 13 · Leak-Tests 65 grün + 1 todo · 0 rot ·
+check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 (63 Ausnahmen) ·
+Website 5 Seiten ok · Smoke-Test bestanden (mit „rahmen“, „dialog“, „raum“,
+„karte“, „qr“ und „mobil“).
+
+## Schritt C.6b – Oberfläche: Agent – rechtes Feld unter 1200 px, doppelte Verdrahtung (B16)
+
+**Fertig:** Arbeitsbereich, Werkzeuge und Kosten des Agenten sind unter 1200 px
+erreichbar, und die doppelte Verdrahtung nach jeder Antwort (B16) ist weg.
+
+**Absprache vor C.6:** Die Karte verlangt, vor C.6 zu prüfen, was der nächste
+Schritt von Spur A berührt. Der offene PR #183 (11.2a) ändert `settings.ts`,
+`index.html`, `earn.ts` und `app.ts`, nicht `agent.ts`. Deshalb kommt C.6b
+zuerst. C.6a verschiebt genau „Settings › Gebühren“ und wartet, bis #183
+gemergt ist.
+
+**Einzelheiten:**
+- **Rechtes Feld** (`navigation.ts`, `index.html`, `app.css`):
+  - Bisher war es unter 1200 px nur ausgeblendet (`display: none`). Jetzt ist
+    es eine eigene Ebene mit eigener Adresse `#/agent/details` (in
+    `UNTERSEITEN`): Knopf „Arbeitsbereich“ neben „Verlauf“ und „Modelle“,
+    „‹ Zurück“ im Feld.
+  - Zwischen 860 und 1199 px steht die Seitenleiste schon da; dort zeigt die
+    Leiste nur „Arbeitsbereich“.
+  - Die Adresse nennt weiter nur Seiten, nie eine Kennung.
+- **B16** (`agent.ts`): `handleAnswer()` verdrahtete nach jeder Antwort die
+  Knöpfe für Nachfolge, Lebenszeichen, Modelle und Abzeichen ein zweites Mal
+  – dieselben Handler wie `app.ts` beim Start, beim Lebenszeichen mit einem
+  zweiten Text für denselben Satz.
+  - Das tut jetzt nur `app.ts`. Die Aktualisierungen nach der Antwort
+    (Nachfolge, Modelle, Mitwirkende) bleiben.
+  - Der doppelte Text `agent.lebenszeichen` entfällt, ebenso vier nun
+    ungenutzte Importe.
+- **Screenshots** (`docs/ausbau/bilder/c6b/`):
+  - Handy: Agent mit „Verlauf“, „Modelle“ und „Arbeitsbereich“; dazu die
+    Ebene mit „‹ Zurück“, Arbeitsbereich, Werkzeugen und Kosten.
+  - 1100 px: die Seitenleiste mit Aufgaben, oben nur „Arbeitsbereich“; dazu
+    die Ebene.
+
+**Tests:**
+- +2 in `navigation.test.ts`:
+  - Adresse `#/agent/details`, Knöpfe, Ebene und CSS.
+  - B16: Die sechs Knöpfe werden nur in `app.ts` verdrahtet, je genau
+    einmal; die Antwort frischt weiter auf.
+- Der C.1a-Test der Adressen nimmt `details` auf – gleich streng.
+- Smoke-Test:
+  - „rahmen“ (Handy): „Arbeitsbereich“ öffnet die Ebene
+    (`#/agent/details`), „‹ Zurück“ führt zum Gespräch.
+  - „mobil“: die Ebene hochkant und quer (Flächen, Laufleiste) und ein
+    Durchlauf bei 1100 px (Seitenleiste sichtbar, nur „Arbeitsbereich“,
+    Ebene und zurück).
+
+Endstand: protocol 1111 (6 übersprungen) · node 263 (6 übersprungen, mit
+Netz) · app 630 (+2) · mls 13 · Leak-Tests 65 grün + 1 todo · 0 rot ·
+check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 (63 Ausnahmen) ·
+Website 5 Seiten ok · Smoke-Test bestanden (mit „rahmen“, „dialog“, „raum“,
+„karte“, „qr“ und „mobil“).
+
+## Schritt 11.4b2 – Repos in privaten Räumen: App
+
+Spur B, Karte `phase-11.md` (11.4b). Damit ist 11.4 in Spur B fertig; die
+Oberfläche der Raum-Repos (im Raum, Kennzeichen, Liste) baut Spur C in 11.4c.
+
+**Was:**
+- `shell/raum-repos.ts` (neu): `privateRaumRepos()` liest die Repos jedes
+  privaten Raums aus dem MLS-Verlauf (`mlsGruppenStand()` →
+  `gruppenRaum()` → `raumReposPrivat()`, dazu Name und ob ich pflegen darf) –
+  leer ohne private Räume, mit Bunker oder ohne Tresor, die Engine lädt also
+  nur, wenn es private Räume gibt. `sendeInRaum()` schickt ein Repo-Event in
+  die Gruppe und scheitert laut („Nichts ging offen hinaus“), statt auf ein
+  Relay auszuweichen.
+- `repo-ansicht.ts`: `privateRaumKarten()` – eigene Karten je Raum
+  (Schlüssel `mls:<gruppe>:…`, nie mit einem öffentlichen Repo gleicher
+  Kennung vermischt), `privatRaum` auf der Karte.
+- Weichen (`repos.ts`, `repo-seite.ts`): Ankündigen mit „Wo“ (öffentlich oder
+  ein privater Raum, in dem ich `repos_pflegen` habe), Einstellungen,
+  Patch senden, Status setzen und neue Version hochladen gehen bei
+  `privatRaum` nur über `sendeInRaum()` mit den Bausteinen aus 11.4b1; das
+  Bundle geht wie immer verschlüsselt ins Speichernetz, der Verweis mit dem
+  Schlüssel nur in die Gruppe. Private Repos zeigen keinen Verweis auf einen
+  öffentlichen Raum. Karte mit Marke „privater Raum“; Texte sagen „nur im
+  privaten Raum, verschlüsselt (MLS)“ statt „öffentlich“.
+- Die fünf Ausnahmen aus 11.4b1 in `scripts/wiring-ausnahmen.txt` sind raus.
+
+**Verdrahtet:** `app/src/shell/tabs/repos.ts` (`ladeNip34Repos()` →
+`privateRaumRepos()` → `privateRaumKarten()`; `kuendigeAn()`, `sendePatch()`,
+`ladeBundleHoch()` → `sendeInRaum()`), `app/src/shell/tabs/repo-seite.ts`
+(Status, `speichereEinstellungen()`, Hochladen, Vorschau).
+
+**Tests:** App +2 in `test/raum-repos-privat.test.ts` (Karten privater Räume
+mit eigenem Schlüssel, nie mit einem öffentlichen Repo gleicher Kennung
+vermischt; Verdrahtung: jede Aktion an einem privaten Repo nur über
+`sendeInRaum()`, nie `publish()`, ohne private Räume lädt die Engine nicht).
+Leak +1 `leak/raum-repo.test.ts` mit der echten MLS-Engine: Ankündigung,
+Bundle-Verweis samt Schlüssel und Patch gehen über `sendeEventInGruppe()`
+hinaus – die Relays sehen nur 445 und die Einladung, weder Kennung noch Name
+noch Betreff noch Schlüssel; ein Mitglied liest sie zurück, und
+`privateRaumKarten()` baut die Karte samt Schlüssel und Patch. Fünf
+Verdrahtungstests prüfen die geänderten Aufrufe wörtlich neu
+(`diff-ansicht`, `raum-repos`, `repo-karten` zweimal, `repo-einstellungen` –
+dort zusätzlich: im privaten Raum erst fragen, dann in die Gruppe).
+
+Endstand (nach dem Einmergen von `main` mit C.4a–b, C.5a–b, C.6b): protocol
+1111 (6 übersprungen) · node 262 + 7 übersprungen (ohne Netz) · app 632 (+2)
+· mls 13 · Leak-Tests 66 grün (+1) + 1 todo · 0 rot · check-wiring
+`--streng` Exit 0 (die fünf Ausnahmen aus 11.4b1 entfernt) · innerHTML streng
+Exit 0 · Website ok · Smoke-Test bestanden · Website-Bau ok. Knoten-Stand:
+unverändert.
+
+## Schritt 11.4c – Oberfläche: Raum-Repos
+
+Spur C, Karte `phase-11.md` (11.4c). Baut nur Oberfläche auf die Bausteine aus
+11.4a (öffentlich, Recht `repos_pflegen`) und 11.4b (privat, MLS) – kein neues
+Event-Format, kein Protokoll-Code.
+
+**Was:**
+- Im Raum unter den Kanälen ein Abschnitt „Repos“ (`#raum-repos`): nur, was
+  bestätigt zu genau diesem Raum gehört – `reposImRaum()` (`repo-ansicht.ts`,
+  ohne DOM): öffentlich Karten mit `raumBestaetigt` und derselben Adresse
+  (`34700:<besitzer>:space:<kennung>` aus der Definition, die der Raum zeigt),
+  privat die Karten der Gruppe. Ein bloßer Verweis eines Gastes zählt nicht.
+  Je Repo ein Knopf mit Name und offenen Patches; ein Klick öffnet die
+  Repo-Seite (`oeffneRepo()`). Verborgen, solange der Raum keine hat; ein
+  Raumwechsel zeigt nie die des vorigen (`zeigeRaumArt()` zeichnet mit).
+- Laden: Die Repos eines öffentlichen Raums lädt die Liste mit, sobald er in
+  der Sitzung offen war (`merkeRaumAdresse()` aus `oeffneRaum()`, ein
+  zusätzlicher `#a`-Filter neben der allgemeinen Abfrage) – auch wenn sie nicht
+  unter den 100 neuesten sind. Das Relay erfuhr den Raum schon beim Öffnen; nie
+  alle eigenen Räume in einer Abfrage. `ladeNip34Repos()` läuft nicht doppelt:
+  läuft es, dann danach genau einmal neu (sonst gewann beim Start mitunter das
+  ältere Ergebnis ohne den Raum). Nach jedem Laden zeichnet der Raum seine
+  Liste neu (`beiReposGeladen()`).
+- Repo-Seite: unter dem Titel „Im öffentlichen Raum „…“ – wer dort Repos
+  pflegt, pflegt es mit.“ bzw. „Im privaten Raum „…“ – nur Mitglieder sehen
+  es, verschlüsselt (MLS).“ mit „Zum Raum“ (`geheZuRaum()`: Seite
+  Kommunikation, Raum-Modus, der Raum; mobil die Ebene mit Kanälen und Repos,
+  der Fokus auf dem Repo, von dem man kam). Ein unbestätigter Verweis steht
+  als solcher da („gehört aber nicht dazu“). Karte in der Liste mit Marke
+  „Raum: …“ (Name nur, wenn bestätigt; `raumName` aus `raumZustandFuer()`
+  bzw. dem Namen des privaten Raums).
+- Raum-Menü „Repo anlegen“ (`#space-repo-neu`) nur mit `repos_pflegen`
+  (`darfRepos()`: öffentlich aus dem Zustand des Raums, privat aus der
+  Gruppe) – derselbe Dialog wie „Repo ankündigen“, ohne „Wo“: öffentlich mit
+  Verweis auf den Raum (Rückfrage nennt ihn und sagt, dass die Pfleger des
+  Raums mitpflegen), privat nur in die Gruppe (`sendeInRaum()`, 11.4b2).
+- Nebenbei: Wird die offene Repo-Seite nach dem Laden neu gezeichnet, behält
+  „‹ Alle Repos“ den Fokus (fand der Smoke-Test: aus dem Raum geöffnet, ging
+  er beim Nachladen verloren).
+
+**Verdrahtet:** `app/src/shell/tabs/raeume.ts` (`oeffneRaum()` →
+`merkeRaumAdresse()`; `zeigeRaumArt()` → `zeigeRaumRepos()` →
+`reposVonRaum()`/`oeffneRepo()`; `#space-repo-neu` → `legeRepoImRaumAn()`;
+`wireSpacesTab()` → `beiReposGeladen()`), `app/src/shell/tabs/repos.ts`
+(`ladeJetzt()` mit `#a`-Filter, `kuendigeAn(imRaum)`, Karte mit Marke,
+`zumRaum` → `geheZuRaum()`), `app/src/shell/tabs/repo-seite.ts`
+(`raumZeile()` in `zeigeRepoSeite()`).
+
+**Tests:** App +3 in `test/raum-repos-ui.test.ts` (im Raum nur bestätigt und
+nur dieselbe Adresse – Gast-Verweis, Repo ohne Raum, gleiche Kennung eines
+anderen Besitzers und ungeladene Struktur fallen heraus; Raum-Name nur
+bestätigt; private Räume nur ihre Gruppe, nie ein öffentliches Repo gleicher
+Kennung; Verdrahtung: Laden nur beim Öffnen eines Raums, Liste nur als DOM,
+Adresse ohne Repo, Anlegen nach Recht, öffentlich mit Verweis, Menüpunkt und
+Abschnitt zu Beginn verborgen). Smoke „raum“ erweitert (Desktop und Handy):
+Probe-Raum zeigt „werkzeug“ mit einem offenen Patch, ohne „Repo anlegen“
+(meine Rolle hat das Recht nicht), Klick → `#/repos` mit Raum-Zeile und Fokus
+auf „‹ Alle Repos“, „Zum Raum“ → `#/chat`, Probe-Raum, Fokus auf dem Repo;
+am Ende auf dem Desktop im eigenen Raum „Repo anlegen“ – Rückfrage nennt
+„Werkstatt“, gesendet mit `a` = `34700:<ich>:space:<kennung>`, danach in der
+Liste des Raums. Die Probe (`raum-probe.mts`) verweist „werkzeug“ dafür auf
+den Probe-Raum. Gegenprobe: dieselben Prüfungen scheitern auf dem Stand vor
+11.4c. `screenshots.py` nimmt drei Ansichten mehr auf (Liste im Raum,
+Repo-Seite mit Raum, Menü mit „Repo anlegen“).
+
+Endstand: protocol 1111 (6 übersprungen) · node 263 (6 übersprungen, mit
+Internet) · app 635 (+3) · mls 13 · Leak-Tests 66 grün + 1 todo · 0 rot ·
+check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 · Website ok ·
+Smoke-Test bestanden (Gegenprobe auf dem Stand vor 11.4c: „raum“ scheitert an
+genau den neuen Prüfungen, alle übrigen bestehen) · Website-Bau ok ·
+reproduzierbarer Build ok. Bilder: `docs/ausbau/bilder/114c`. Knoten-Stand:
+unverändert.
+
+## Schritt C-18 – Smoke-Test in der CI
+
+Spur C, Sammlung `docs/neuordnung/SAMMLUNG.md` (C-18), entschieden am
+29.09.2026 vom MENSCHEN („of course it should if that is possible“).
+
+**Was:**
+- `.github/workflows/ci.yml`: neuer Job **„Browser-Test (Smoke)“** neben
+  „Tests und Typpruefung“, „Reproduzierbarer Build“ und
+  „Protokoll-Invarianten“. Node nach `.nvmrc`, `npm install` wie im Test-Job
+  (ohne Browser des Knotens), App bauen, Python 3.11 mit Playwright
+  **1.56.0** (dieselbe Version wie bei den Agenten) und Chromium samt
+  Systempaketen (`--with-deps`), dann `python scripts/smoke_test.py
+  packages/app/dist`. Grenze 30 Minuten.
+- Bisher lief der Smoke-Test nur lokal; ein Rückschritt in der Oberfläche fiel
+  erst beim nächsten lokalen Lauf auf. Jetzt ist jeder Pull Request und jeder
+  Push auf `main` auch im Browser geprüft.
+- `SAMMLUNG.md`: C-17 und C-18 entschieden; C-17 in drei Schritte geteilt;
+  neu C-20 – was für „Repos 1:1 wie GitHub“ nach C-17 noch fehlt.
+- `CLAUDE.md`: Befehl ergänzt, neuer Fallstrick „Smoke-Test auch in der CI“.
+
+**Verdrahtet:** `.github/workflows/ci.yml` (Job `smoke`).
+
+**Prüfungen:** Der Job selbst ist die Prüfung – sein erster Lauf steht im
+Pull Request. Kein App-Code geändert; die Befehle aus `CLAUDE.md` bleiben
+beim Stand von 11.4c.
+
+## Schritt C-17a – Issues und Kommentare: Protokoll
+
+Spur C, Sammlung C-17 (entschieden 29.09.2026: „Repos 1:1 wie GitHub“). Die
+Protokoll-Bausteine, auf denen C-17b (Reiter „Issues“) und C-17c (Kommentare an
+Patches) aufbauen. Standard-Events (NIP-34, NIP-22) – kein eigenes Format; es
+steht in `docs/PROTOCOL.md` (Abschnitt 19).
+
+**Was:**
+- `nip34.ts`: **Issue** (Kind 1621) – `baueIssue()` (Betreff Pflicht,
+  höchstens 200 Zeichen; Text höchstens 30 KB; Labels als `t`, ohne
+  Leerzeichen und Komma, höchstens 40 Zeichen, doppelte einmal) und
+  `leseIssue()` (streng: ohne Repo-Adresse oder Betreff kein Issue, ungültige
+  Labels fallen heraus). **Status** mit den Arten der Patches: 1630 offen,
+  1631 erledigt, 1632 geschlossen (`baueIssueStatus()`); `issueStatus()`
+  nimmt den neuesten Status der Autorin, des Eigentümers oder eines
+  Maintainers – wie bei GitHub darf die Autorin ihr Issue schließen; Status
+  Fremder und 1633 zählen nicht.
+- `kommentar.ts` (neu): **Kommentar** nach NIP-22 (Kind 1111) an Issues und
+  Patches – Wurzel in `E`/`K`/`P`, Eltern in `e`/`k`/`p` (direkt an der
+  Wurzel dasselbe, sonst ein Kommentar). `leseKommentar()` streng (nur an 1621
+  und 1617, Bezüge als 64 Hex, Eltern gleicher Art nur als die Wurzel selbst),
+  `kommentareZu()` sortiert, ältester zuerst.
+- `raum-repo.ts`: privat nur als innere Events – `raumRepoIssue()`,
+  `raumRepoIssueStatus()`, `raumRepoKommentar()`; `RAUM_REPO_ARTEN` mit 1621
+  und 1111; `raumReposPrivat()` liefert `issues` und `kommentare` (von jedem
+  Mitglied, wie Patches).
+- `leak-rules.ts`: `raum-repo-privat` weist auch offene Issues zum Repo ab und
+  – mit `innere` – offene Kommentare zu inneren Issues und Patches.
+- `privacy-facts.ts`: Aussage „raum-repos“ nennt Issues und Kommentare; das
+  Szenario schickt mit der echten MLS-Engine ein Issue, einen Kommentar
+  (Bezug = Id des inneren Events) und einen Status in die Gruppe – Relays
+  sehen weder Betreff noch Text noch Kommentar. App-Text in beiden Sprachen
+  (`ds.fRaumRepos`, deutsch wortgleich).
+- Fehler mit Kennung (`issue-*`, `kommentar-*`) samt Texten `pf.*` in beiden
+  Sprachen (`protokoll-texte.ts`, `texte/fehler.ts`).
+- `scripts/wiring-ausnahmen.txt`: zehn Exporte bis C-17b/C-17c ausgenommen –
+  die App bindet sie dort an, dann fallen die Zeilen weg.
+
+**Verdrahtet:** in diesem Schritt nur im Protokoll (`raumReposPrivat()` liefert
+Issues und Kommentare, die App liest sie seit 11.4b2 über `privateRaumRepos()`);
+die Oberfläche folgt in C-17b.
+
+**Tests:** protocol +5 in `test/repo-issues.test.ts` (Issue bauen und streng
+lesen samt Fehlerkennungen; Status nach Autorin, Eigentümer, Maintainer –
+Fremde, 1633 und andere Issues zählen nicht; Kommentare direkt und als
+Antwort, jede kaputte Form abgewiesen, `kommentareZu()` sortiert und filtert;
+privater Raum: nur innere Events, nur aus diesem Raum, Status nach dem Admin;
+Leak-Regel: offene Issues und Kommentare zu inneren Ids, fremde nicht);
+Szenario „raum-repos“ erweitert.
+
+Endstand: protocol 1116 (+5, 6 übersprungen) · node 263 (6 übersprungen, mit
+Internet) · app 635 · mls 13 · Leak-Tests 66 grün + 1 todo · 0 rot ·
+check-wiring `--streng` Exit 0 (10 neue Ausnahmen bis C-17b/c) · innerHTML
+streng Exit 0 · Website ok · Smoke-Test bestanden · Website-Bau ok ·
+reproduzierbarer Build ok. Knoten-Stand: unverändert.
+
+## Schritt C-17b1 – Reiter „Issues“
+
+Spur C, Sammlung C-17 (Repos 1:1 wie GitHub). Baut auf C-17a (#199): Liste,
+neues Issue und die Seite eines Issues mit seinen Kommentaren. Kommentieren,
+schließen und wieder öffnen folgen in C-17b2, Kommentare an Patches in C-17c.
+
+**Was:**
+- `repo-ansicht.ts` (ohne DOM): `issueZeilen()` – nur an genau dieses Repo
+  adressierte Issues, jedes einmal, neuestes zuerst, Status nach
+  `issueStatus()`, Kommentare nach `kommentareZu()`, und ob ich den Status
+  ändern darf (Autorin, Eigentümer, Maintainer). `mitIssues()` hängt sie an
+  die Karten – öffentliche Events nur an öffentliche Karten, die eines
+  privaten Raums nur an die Karten seiner Gruppe; ein Issue landet nie an
+  einem Repo gleicher Adresse auf der anderen Seite. `repoKarten()` bleibt,
+  wie sie war.
+- `repos.ts`: lädt Issues (`#a`, neben den Patches), ihren Status (`#e`) und
+  die Kommentare an Issues und Patches (`#E`, NIP-22) – nur zu den Repos, die
+  die Liste ohnehin zeigt.
+- `shell/tabs/issues-reiter.ts` (neu): Reiter „Issues (n offen)“ zwischen
+  „Commits“ und „Patches“ wie bei GitHub; Liste mit „offen (n)“ /
+  „geschlossen (n)“ (geschlossen umfasst erledigt), Labels und Zahl der
+  Kommentare; „Neues Issue“ als Dialog (Titel, Beschreibung, Labels) mit dem
+  ehrlichen Satz, wer es lesen kann – öffentlich signiert über `baueIssue()`,
+  im privaten Raum nur über `sendeInRaum(raumRepoIssue())`; die Seite eines
+  Issues mit Status, Autorin, Labels, Text und Kommentaren, „‹ Alle Issues“
+  mit Fokus zurück. Nur DOM mit `textContent`; welches Issue offen ist, steht
+  nur im Speicher.
+- `scripts/wiring-ausnahmen.txt`: sieben der zehn Ausnahmen aus C-17a fallen
+  weg – sechs sind in der App angebunden, `baueKommentar()` zählt über die
+  Probe (`raum-probe.mts`) als verdrahtet, in der App erst mit C-17b2; drei
+  bleiben für C-17b2/C-17c (Status und Kommentare schreiben).
+
+**Verdrahtet:** `app/src/shell/tabs/repos.ts` (`ladeJetzt()` → Issues,
+Status, Kommentare → `mitIssues()`), `app/src/shell/tabs/repo-seite.ts`
+(Reiter „issues“ → `issuesReiter()`), `app/src/shell/tabs/issues-reiter.ts`
+(`neuesIssue()` → `baueIssue()` bzw. `raumRepoIssue()`).
+
+**Tests:** app +3 in `test/issues-ansicht.test.ts` (nur dieses Repo, doppelt
+einmal, Unfug und fremde Repos nicht, neuestes zuerst; Status einer Fremden
+zählt nicht; wer schließen darf; öffentliche Issues nie an einer privaten
+Karte gleicher Adresse und umgekehrt; Verdrahtung: Laden, Reiter-Reihenfolge,
+anlegen öffentlich signiert bzw. nur in die Gruppe, Hinweis im Dialog, kein
+`innerHTML`, nichts in die Adresse). Smoke „raum“ (Desktop und Handy): die
+Probe hat ein Issue von Bo mit Label und Kommentar von Ada; der Reiter zeigt
+„Issues (1 offen)“, die Seite Text (HTML bleibt Text) und Kommentar, zurück
+mit Fokus; „Neues Issue“ sagt „Öffentlich und mit deinem Schlüssel
+signiert“, gesendet mit `a` auf das Repo, `subject` und Label, danach steht es
+oben in der Liste. Die Reiter-Listen der Repo-Seite im Smoke-Test enthalten
+„issues“. Bilder: `docs/ausbau/bilder/c17b`.
+
+Endstand: protocol 1116 (6 übersprungen) · node 263 (6 übersprungen, mit
+Internet) · app 638 (+3) · mls 13 · Leak-Tests 66 grün + 1 todo · 0 rot ·
+check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 · Website ok ·
+Smoke-Test bestanden (mit den neuen Prüfungen) · Website-Bau ok ·
+reproduzierbarer Build ok. Knoten-Stand: unverändert.
+
+## Schritt C-17b2 und C-17c – Kommentieren, schließen, Kommentare an Patches
+
+Spur C, Sammlung C-17 (Repos 1:1 wie GitHub). Schließt C-17 ab: unter jedem
+Issue und jedem Patch steht die Diskussion mit einem Feld zum Kommentieren,
+wer darf, schließt ein Issue als erledigt oder als nicht geplant und öffnet es
+wieder. Zusammen, weil beide dieselbe Diskussion nutzen (rund 200 Zeilen).
+
+**Was:**
+- `shell/tabs/diskussion.ts` (neu): `diskussion()` – Überschrift, Kommentare
+  (ältester zuerst, Name und Datum) und mit Identität ein Feld „Kommentar
+  schreiben“ mit dem ehrlichen Satz, wer mitliest. Öffentlich signiert über
+  `baueKommentar()`, im privaten Raum nur über
+  `sendeInRaum(raumRepoKommentar())` – scheitert laut, statt aufs Relay
+  auszuweichen. Nur DOM mit `textContent`.
+- `issues-reiter.ts`: die Seite eines Issues nutzt `diskussion()`; Autorin,
+  Eigentümer und Maintainer (`darfStatus`) sehen „Als erledigt schließen“ und
+  „Als nicht geplant schließen“ bzw. „Wieder öffnen“ – `setzeIssueStatus()`
+  sendet 1631/1632/1630, öffentlich signiert über `baueIssueStatus()`, privat
+  nur über `sendeInRaum(raumRepoIssueStatus())`.
+- C-17c: `mitIssues()` hängt die Kommentare je Patch an die Karte
+  (`patchKommentare`, aus denselben Daten wie die Issues – öffentliche nie an
+  private Karten); die Patch-Seite zeigt die Diskussion unten (neues Feld
+  `unten` in `PatchAnsicht`, die Vorschau einer neuen Version hat keine), die
+  Patch-Liste die Zahl der Kommentare.
+- `scripts/wiring-ausnahmen.txt`: die letzten drei Ausnahmen aus C-17a fallen
+  weg (`baueIssueStatus`, `raumRepoIssueStatus`, `raumRepoKommentar`).
+
+**Verdrahtet:** `app/src/shell/tabs/issues-reiter.ts` (`issueSeite()` →
+`diskussion()`, Status-Knöpfe → `setzeIssueStatus()` → `baueIssueStatus()`
+bzw. `raumRepoIssueStatus()`), `app/src/shell/tabs/diskussion.ts`
+(`kommentarFeld()` → `baueKommentar()` bzw. `raumRepoKommentar()`),
+`app/src/shell/tabs/repo-seite.ts` (`patchReiter()` → `diskussion()` mit
+`k.patchKommentare`).
+
+**Tests:** app +2 in `test/issues-ansicht.test.ts` (Kommentare je Patch an
+der Karte, ein öffentlicher nie an einem privaten Patch; Verdrahtung:
+kommentieren und Status öffentlich signiert bzw. nur in die Gruppe, Hinweis
+unter dem Feld, ohne Identität kein Feld, Status nur mit `darfStatus`, kein
+`innerHTML`). Smoke „raum“ (Desktop und Handy): auf der Seite des Issues
+„Ich schaue es mir an.“ kommentieren – gesendet als 1111 mit `E` auf das
+Issue und `K` 1621, danach in der Liste nach „Bei mir auch.“, Hinweis
+„Öffentlich und mit deinem Schlüssel signiert“; als Eigentümerin „Als
+erledigt schließen“ → „erledigt ✓“ mit „Wieder öffnen“, eine Sekunde später
+wieder öffnen → „offen“, gesendet 1631 und 1630 auf das Issue; auf der
+Patch-Seite „Sauber, danke!“ kommentieren – 1111 mit `K` 1617, danach
+sichtbar. Bilder: `docs/ausbau/bilder/c17b2`.
+
+Endstand: protocol 1116 (6 übersprungen) · node 263 (6 übersprungen, mit
+Internet) · app 640 (+2) · mls 13 · Leak-Tests 66 grün + 1 todo · 0 rot ·
+check-wiring `--streng` Exit 0 (158 Ausnahmen) · innerHTML streng Exit 0 ·
+Website ok · Smoke-Test bestanden (mit den neuen Prüfungen) · Website-Bau ok
+· reproduzierbarer Build ok. Knoten-Stand: unverändert.
+
+## Schritt C-20a – Markdown für README, Issues und Kommentare
+
+Spur C, Sammlung C-20 (Repos 1:1 wie GitHub, ohne neues Format). Bisher
+standen README, Beschreibung eines Issues und Kommentare als roher Text da –
+GitHub stellt sie als Markdown dar. Das tut jetzt auch die App, nur mit DOM.
+
+**Was:**
+- `markdown.ts` (neu, ohne DOM): `leseMarkdown()` liefert einen Baum aus
+  Blöcken (Überschriften mit `#` und unterstrichen, Absätze, Listen mit
+  Aufgaben `[ ]`/`[x]`, Zitate, Code-Blöcke mit Zaun oder Einzug, Linien) und
+  Inline-Teilen (fett, kursiv, beides, durchgestrichen, Code, Links, Bilder,
+  Umbrüche; `\`-Escapes, `snake_case` bleibt Text). Rohes HTML bleibt Text.
+  `sicheresZiel()`: Links nur auf https ohne Zugangsdaten – `javascript:`,
+  `http:`, `data:` und relative Ziele bleiben Text. Grenzen in `MD_GRENZEN`:
+  100 000 Zeichen, Tiefe 8, Suchweite 1000, dazu eine Schrittgrenze je Text –
+  danach bleibt der Rest Text, ein böser Text wird nie quadratisch langsam.
+- `shell/markdown-ui.ts` (neu): `markdownDom()` zeichnet den Baum nur mit
+  `createElement` und `textContent`. Links öffnen in neuem Tab mit
+  `noopener noreferrer nofollow`; Bilder werden nie geladen – nur ein Verweis
+  „Bild: … (nicht geladen)“, ein fremder Server erführe sonst, wer wann liest.
+  Aufgaben als abgeschaltete Häkchen mit Namen („erledigt“/„offen“).
+- Verdrahtet: README.md im Reiter „Code“ (README ohne Endung und .txt bleiben
+  Text), die Beschreibung eines Issues und jeder Kommentar (dort wie bei GitHub
+  mit Zeilenumbrüchen).
+- CSS `.md …`, Texte `repo.mdBild`, `repo.mdErledigt`, `repo.mdOffen`.
+
+**Verdrahtet:** `app/src/shell/tabs/code-reiter.ts` (`zeigeCode()` →
+`markdownDom()` für README.md), `app/src/shell/tabs/issues-reiter.ts`
+(`issueSeite()` → `markdownDom()`), `app/src/shell/tabs/diskussion.ts`
+(`diskussion()` → `markdownDom()` je Kommentar).
+
+**Tests:** app +5 in `test/markdown.test.ts` (Blöcke samt Randfällen wie
+„2.“ mitten im Absatz, faule Fortsetzung, Zaun ohne Ende, Linie statt Liste;
+Inline samt Verschachtelung, `snake_case`, Escapes, Umbrüche mit und ohne
+`umbrueche`; nur https-Ziele, Bilder ohne erlaubtes Ziel `null`; Länge, Tiefe
+und sieben böse Muster zu je 100 000 Zeichen unter einer Sekunde;
+Verdrahtung ohne `innerHTML` und ohne `<img>`). Smoke „raum“ (Desktop und
+Handy): README im Reiter „Code“ als `h1` + `p`; auf der Patch-Seite ein
+Kommentar mit Markdown – fett, Link auf https mit `noopener noreferrer
+nofollow` und neuem Tab, `javascript:` bleibt Text, das Bild wird nicht
+angefragt (keine Anfrage an seine Adresse) und ist kein `<img>`, `<b>roh</b>`
+bleibt Text, Umbruch, Liste mit Code.
+Bilder: `docs/ausbau/bilder/c20a` (Seite eines Issues, Kommentar mit
+Überschrift, fett, Code, Link, nicht geladenem Bild, Aufgaben, Zitat und
+Code-Block – Desktop und Handy).
+
+Endstand: protocol 1116 (6 übersprungen) · node 263 (6 übersprungen, mit
+Internet) · app 645 (+5) · mls 13 · Leak-Tests 66 grün + 1 todo · 0 rot ·
+check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 (keine neue
+Ausnahme) · Website ok · Smoke-Test bestanden (mit den neuen Prüfungen) ·
+Website-Bau ok · reproduzierbarer Build ok. Knoten-Stand: unverändert.
+
 
 ## Schritt 11.2a – Werbelink mit eigener Domain
 
@@ -10665,8 +11711,9 @@ wieder die eigene Herkunft.
 **Verdrahtet:** `shell/tabs/earn.ts` (`updateReferralLink()`), `shell/app.ts`
 (`wireEigeneAdresse()` nach `setupReferral()`), `shell/werben-ui.ts`.
 
-Endstand: protocol 1096 (6 übersprungen) · node 260 (6 übersprungen, mit
-Netz) · app 602 (+5) · mls 13 · Leak-Tests 62 grün + 1 todo · 0 rot ·
-check-wiring `--streng` Exit 0 (154 ausgenommen – `hashBytes` ist jetzt
-verdrahtet, die Ausnahme aus 0.D fiel) · innerHTML streng Exit 0 (67
-Ausnahmen) · Website 5 Seiten ok · Smoke-Test bestanden (mit „werben“).
+Endstand (nach dem Einmergen von `main` bis C-20a, 29.09.): protocol 1116
+(6 übersprungen) · node 263 (6 übersprungen, mit Netz) · app 650 (+5) · mls 13 ·
+Leak-Tests 66 grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 (157
+ausgenommen, 0 offen – `hashBytes` ist jetzt verdrahtet, die Ausnahme aus 0.D
+fiel) · innerHTML streng Exit 0 (63 Ausnahmen) · Website 5 Seiten ok ·
+Smoke-Test bestanden (mit „werben“).

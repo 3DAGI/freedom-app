@@ -5,9 +5,10 @@
  */
 import { t } from "../../i18n.js";
 import { abzeichenHerkunft, abzeichenQuelle, aufgabeStand, aufgabeText, aufgabeTitel, bildWarnung, fehlerText, profilOffenlegung } from "../../protokoll-texte.js";
+import { lnOeffentlich, setzeLnOeffentlich } from "../../profil-lightning.js";
 import { escapeHtml, pkShort } from "../../shell-logic.js";
 import { ensurePool, signiere, state } from "../state.js";
-import { $, toast } from "../ui.js";
+import { $, toast, zeigeIdent } from "../ui.js";
 
 /**
  * Ein Abzeichen definieren und verleihen.
@@ -73,7 +74,7 @@ export async function zeigeProfilVorschau(): Promise<void> {
       <div class="profile-text">
         <h3 style="color:#E8E8E8">${escapeHtml(gespeichert.name || pkShort(state.keypair.pk))}</h3>
         <p>${escapeHtml(gespeichert.about || t("profil.keineBeschreibung"))}</p>
-        ${gespeichert.lud16 ? `<p style="color:${farbe}">⚡ ${escapeHtml(gespeichert.lud16)}</p>` : ""}
+        ${gespeichert.lud16 && lnOeffentlich(localStorage) ? `<p style="color:${farbe}">⚡ ${escapeHtml(gespeichert.lud16)}</p>` : ""}
       </div>
     </div>`;
 }
@@ -108,7 +109,7 @@ export function zeigeProfilTexte(): void {
 
 /** Formular verdrahten. */
 export async function wireProfil(): Promise<void> {
-  const { ACCENTS, LAYOUTS, PATTERNS, normalizeStyle, inspectAbout, inspectPicture } =
+  const { ACCENTS, LAYOUTS, PATTERNS, normalizeStyle, inspectAbout, inspectPicture, oeffentlichesProfil } =
     await import("@freedomstack/protocol");
 
   const fuelle = (id: string, werte: readonly string[], aktiv: string): void => {
@@ -133,6 +134,11 @@ export async function wireProfil(): Promise<void> {
     const el = $(id) as HTMLInputElement | null;
     if (el) el.value = wert ?? "";
   }
+  // Lightning-Adresse nur auf Wunsch öffentlich (6.3) – sonst bleibt sie auf dem Gerät
+  const lnHaken = $("#pf-lud16-oeffentlich") as HTMLInputElement | null;
+  if (lnHaken) lnHaken.checked = lnOeffentlich(localStorage);
+  /** Was mit „Speichern“ hinausgeht. */
+  const oeffentlich = (e: ProfilEntwurf): ProfilEntwurf => oeffentlichesProfil(e, { lightning: lnOeffentlich(localStorage) });
 
   const sammeln = (): ProfilEntwurf => ({
     name: ($("#pf-name") as HTMLInputElement)?.value.trim() || undefined,
@@ -156,7 +162,8 @@ export async function wireProfil(): Promise<void> {
     const box = $("#pf-disclosure");
     if (!box) return;
     const entwurf = sammeln();
-    const zeilen = profilOffenlegung(entwurf as never);
+    const zeilen = profilOffenlegung(oeffentlich(entwurf) as never);
+    if (entwurf.lud16 && !lnOeffentlich(localStorage)) zeilen.push(t("profil.offenLud16Privat"));
     box.innerHTML = zeilen.map((z) => `<div>${escapeHtml(z)}</div>`).join("");
     // Warnfarbe am Befund, nicht am Text: ein fremder Server sieht die IP der Betrachter
     box.className = inspectPicture(entwurf.picture).kind === "extern" ? "mono-sm warn" : "mono-sm muted";
@@ -166,10 +173,16 @@ export async function wireProfil(): Promise<void> {
                     "#pf-accent", "#pf-layout", "#pf-pattern"]) {
     $(id)?.addEventListener("input", () => {
       localStorage.setItem("freedom.profile", JSON.stringify(sammeln()));
+      zeigeIdent(); // Anfangsbuchstabe in der Kopfzeile (C.5a)
       zeigeOffenlegung();
       void zeigeProfilVorschau();
     });
   }
+  if (lnHaken) lnHaken.onchange = () => {
+    setzeLnOeffentlich(localStorage, lnHaken.checked);
+    zeigeOffenlegung();
+    void zeigeProfilVorschau();
+  };
   zeigeOffenlegung();
   texteNeu = () => {
     fuelleStil(normalizeStyle(sammeln().freedom_style));
@@ -188,7 +201,8 @@ export async function wireProfil(): Promise<void> {
         return;
       }
       localStorage.setItem("freedom.profile", JSON.stringify(entwurf));
-      await (await ensurePool()).publish(await signiere(buildProfile(state.keypair.pk, entwurf as never)));
+      zeigeIdent(); // Anfangsbuchstabe in der Kopfzeile (C.5a)
+      await (await ensurePool()).publish(await signiere(buildProfile(state.keypair.pk, oeffentlich(entwurf) as never)));
       toast(t("profil.gespeichert"));
       void zeigeProfilVorschau();
     } catch (err) {

@@ -54,6 +54,8 @@ export const profil: Texte = {
   "profil.offenAbout": { de: "Deine Beschreibung ist öffentlich und bleibt auf den Relays.", en: "Your description is public and stays on the relays." },
   "profil.bildExtern": { de: "Das Bild liegt auf einem fremden Server. Wer es dort ablegt, sieht die IP-Adresse aller, die dein Profil ansehen.", en: "The picture is on someone else's server. Whoever put it there sees the IP address of everyone who views your profile." },
   "profil.offenBildNetz": { de: "Das Bild liegt im eigenen Netz — der Abruf verrät nichts an Dritte.", en: "The picture is in our own network — fetching it reveals nothing to third parties." },
+  "profil.lud16Oeffentlich": { de: "Lightning-Adresse öffentlich zeigen – dann kann dir jeder zappen, und der Dienst dahinter sieht jede Zahlung an dich", en: "Show Lightning address publicly – then anyone can zap you, and the service behind it sees every payment to you" },
+  "profil.offenLud16Privat": { de: "Deine Lightning-Adresse bleibt auf dem Gerät – sie steht nicht im Profil. Kontakte fragen deine App versiegelt nach einer Rechnung; die stellt deine verbundene Wallet (NWC) aus, solange die App offen ist.", en: "Your Lightning address stays on the device – it is not in the profile. Contacts ask your app for an invoice, sealed; your connected wallet (NWC) issues it while the app is open." },
   "profil.offenLud16": { de: "Deine Lightning-Adresse ist öffentlich. Wer sie kennt, kann dir zahlen.", en: "Your Lightning address is public. Whoever knows it can pay you." },
   "profil.offenWebsite": { de: "Die Webseite verknüpft dein Profil mit einer anderen Identität.", en: "The website links your profile to another identity." },
   "profil.offenSolana": { de: "Deine Solana-Adresse ist öffentlich — mitsamt ihrer gesamten Historie.", en: "Your Solana address is public — with its entire history." },
@@ -102,6 +104,8 @@ export const profil: Texte = {
   "repo.patchAngenommen": { de: "Patch angenommen", en: "Patch accepted" },
   "repo.patchZurueckgezogen": { de: "Patch zurückgezogen", en: "Patch withdrawn" },
   "repo.patchGeschlossen": { de: "Patch geschlossen", en: "Patch closed" },
+  "repo.ankuendigenFrageRaum": { de: "Repo „{id}“ im privaten Raum anlegen?\n\nNur Mitglieder sehen es – verschlüsselt (MLS), auch den Schlüssel der Bundles.", en: "Create repo “{id}” in the private room?\n\nOnly members see it – encrypted (MLS), including the bundle key." },
+  "repo.patchFrageRaum": { de: "Patch „{betreff}“ an {repo} senden?\n\nNur in den privaten Raum – verschlüsselt (MLS), nur Mitglieder lesen ihn.", en: "Send patch “{betreff}” to {repo}?\n\nOnly into the private room – encrypted (MLS), only members read it." },
   "repo.ankuendigenFrage": { de: "Repo „{id}“ ankündigen?\n\nÖffentlich und mit deinem Schlüssel signiert.", en: "Announce repo “{id}”?\n\nPublic and signed with your key." },
   "repo.angekuendigt": { de: "Repo {id} angekündigt", en: "Repo {id} announced" },
 };

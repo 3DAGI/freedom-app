@@ -38,15 +38,16 @@ cd packages/mls      && npx tsc -p tsconfig.json && npm test && cd ../..     # M
 python3 scripts/check-wiring.py --streng
 python3 scripts/check-website.py
 python3 scripts/check_innerhtml.py packages/app/src --ausnahmen scripts/innerhtml-ausnahmen.txt --streng
-python3 scripts/smoke_test.py packages/app/dist         # braucht playwright + chromium
+python3 scripts/smoke_test.py packages/app/dist         # braucht playwright + chromium; seit C-18 auch in der CI
 bash scripts/build-site.sh /tmp/site                     # Website bauen (Ziel wird gelöscht!)
+bash scripts/repro-build.sh --pruefen                    # reproduzierbar? zwei frische Builds, eine Summe (~2 min)
 bash packages/mls/bauen.sh --pruefen                     # nur bei Änderungen an packages/mls: nachbauen + vergleichen (Rust, clang)
 bash contracts/solana-channel/pruefen.sh --werkzeuge     # nur bei Änderungen am Zahlkanal: bauen + Tests gegen Validator (Agave 3.1.10)
 ```
 
-Stand 28.09.2026 (nach 8.2c, 5.5a–c, 8.15, 11.1a, C.3c2, 11.1b und 11.2a): protocol 1096 grün (6 übersprungen), node 260 grün
+Stand 28.09.2026 (nach 8.2c, 5.5a–c, 8.15, 11.1a, C.3c2, 11.1b, 5.9a–b, 6.3a–b2, 11.4a–b2, C.4a–b, C.5a–b, C.6b, 11.4c, C-18, C-17a–c, C-20a und 11.2a): protocol 1116 grün (6 übersprungen), node 263 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 602 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 62 grün + 1 `todo` (heutige Lecks,
+in `tools.test.ts`), app 650 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 66 grün + 1 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
 Ausnahme: gesendete SOL-Zahlungen von frischen Adressen, eine bewusste Grenze
 nach Entscheidung 4.9 A – im Datenschutzbericht unter „Bewusste Grenzen“).
@@ -657,6 +658,28 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   `DecompressionStream` meldet Daten nach dem Ende als Fehler, liefert den
   Inhalt aber vorher. `crypto.subtle` gibt es nur in sicheren Kontexten
   (https, localhost) – Browser-Tests nie auf `about:blank`.
+- **Abdeckungskarte nur aus `buildCoverage()`** (seit C.4a): Die Karte
+  (`shell/tabs/karte.ts`) bekommt nur `r.cells`/`r.hiddenCells`, nie Events
+  oder Schlüssel; Rechnung ohne DOM in `karte-ansicht.ts` (Zellkennung nur in
+  der Form von `toCell()`). Gezeichnet nur mit `createElementNS` und
+  `textContent`, keine Kacheln, nichts von außen. Je Gebiet nur die Stufe
+  (`zellenStufe()`), nie die Zahl der Einträge. Zeiger erst beim Ziehen
+  festhalten (`setPointerCapture`) – sonst trifft ein Klick nie eine Zelle.
+  Den eigenen Ort (seit C.4b) nur über `rundeStandort()` speichern – die
+  Südwest-Ecke der 0,5°-Zelle, nie `pos.coords` in `localStorage`; gezeichnet
+  nur umrandet. Die Umrisse (`welt-umrisse.ts`) nie von Hand ändern, nur mit
+  `scripts/welt-umrisse.py` aus der Quelle mit fester Prüfsumme (höchstens 40 KB).
+- **Mobil nur mit Flächen ab 40 px** (seit C.5a): Unter 1024 px hat jede
+  Berührfläche mindestens 40 px (Regeln am Ende von `app.css`); wo das den
+  Platz sprengt, eine Reihe zum Wischen oder Umbruch – nie kleiner machen.
+  Nur Höhe für alle, Breite nur einzeln: ein `min-width` für alle Knöpfe hebt
+  das Mindestmaß der Flex-Elemente auf (so überlagerten sich in C.5a die
+  Settings-Reiter); der Smoke-Test meldet Text, der aus Knöpfen läuft.
+  Der Smoke-Test „mobil“ misst alle Seiten aus `MOBIL_SEITEN` hochkant und
+  quer (keine Laufleiste, keine Fläche unter 40 px) – neue Seiten dort
+  eintragen. Häkchen stehen im Label; die Kopfzeile setzt die Identität nur
+  über `zeigeIdent()` und lädt nie ein Bild aus dem Netz. Die untere Leiste
+  weicht beim Tippen (`tipptIn()`, `body.tippt`).
 - **QR-Codes nur über `shell/qr-ui.ts`** (seit 11.1b): erzeugt mit `qrCode()`
   (`protocol/src/qr.ts`, 11.1a, Bit für Bit gegen python-qrcode – die Referenz
   nur mit `scripts/qr-referenz.py` neu erzeugen), gezeigt nur als SVG über
@@ -667,6 +690,90 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   (Feld `scannen: true`), erkannt nur vom Browser (`BarcodeDetector`), danach
   aus; ohne Erkennung der Hinweis zum Einfügen. Der Smoke-Test („qr“) ersetzt
   Kamera und Erkennung durch Attrappen (Canvas-Strom, `BarcodeDetector`).
+- **Reproduzierbarer Build** (seit 5.9a): `freedom.html` muss aus einem
+  frischen Checkout bitgleich entstehen – in `build.mjs` nichts Zeit-, Pfad-
+  oder Zufallsabhängiges (kein `Date.now()`, keine absoluten Pfade im Bundle).
+  Die CI baut zweimal an zwei Pfaden (`repro-build.sh --pruefen`), `pages.yml`
+  veröffentlicht nur, was ein frischer Build bitgleich ergibt. Die
+  Node-Hauptversion nur über `.nvmrc` ändern (CI und Pages lesen sie).
+- **Nebenläufiges im Test nie mit fester Pause abwarten** (seit 5.9a): Was der
+  Knoten „best effort“ ohne `await` sendet (Rückmeldungen, 7000), kommt unter
+  Last später – bis es da ist warten, mit Frist (`funk-kurz.test.ts`, von
+  Spur A und B unabhängig gefunden, gilt die Fassung aus 11.1b). Eine feste
+  Pause von 20 ms war im vollen Lauf gelegentlich zu kurz.
+- **Repository per NIP-34 nur aus dem Release-Job** (seit 5.9b): Die
+  Ankündigung des Projekt-Repositorys (Kind 30617) baut nur `projektRepo()`
+  (Klon-Adressen nur GitHub und die gesetzte Radicle-Kennung aus
+  `spiegel/quellen.json`), signiert mit dem Spiegel-Schlüssel im Job
+  „spiegel“ (`repo-ankuendigung.mts`, ganzer Verlauf für den ersten Commit).
+  Upgrade-Rechte der Programme ändert nur der MENSCH nach
+  `docs/SOLANA-UPGRADE-AUTHORITY.md`.
+- **Lightning-Adresse und Zaps privat** (seit 6.3a): Das Profil geht nur über
+  `oeffentlichesProfil(entwurf, { lightning: lnOeffentlich(localStorage) })`
+  hinaus (`tabs/profil.ts`) – die Lightning-Adresse nur mit Häkchen
+  (`freedom.profil.lnOeffentlich`; vor 6.3 gespeicherte gelten einmalig als
+  veröffentlicht). Zap-Anfragen (9734) nur über `baueZapAnfrage()` →
+  `buildAnonZapRequest()` (Wegwerf-Schlüssel je Zap, „anon“), nie mit
+  `signiere()`: Der Server des Empfängers veröffentlicht sie in der Quittung.
+  Leak-Regeln `keine-ln-adresse` und `zap-anonym`. Ohne öffentliche Adresse
+  (seit 6.3b1) Rechnungen nur versiegelt erfragen: `frageRechnungAn()` bzw.
+  `beantworteRechnungsAnfrage()` (`ln-rechnung-anfrage.ts`, Kind 25022/25023)
+  – nur Kontakte, frisch, `RechnungsBremse`, Rechnung nur aus der eigenen
+  Wallet (`eigeneRechnung()` in `shell/zahlschienen.ts`); der Zahler nimmt nur
+  genau den Betrag (`oeffneRechnungsAntwort()`). Die Wallet-Verbindung (NWC)
+  baut ihren Pool nur aus `waehleNwcRelays()` (seit 6.3b2, Einstellung
+  `freedom.nwc.nurPrivat`/`.eigenesRelay`) – nie aus `conn.relays` direkt.
+  BOLT12 wird nur erkannt (`bolt12Methoden()`), nicht genutzt, bis NIP-47 die
+  Methoden festlegt.
+- **Repos in öffentlichen Räumen** (seit 11.4a): Der Verweis ist das `a`-Tag
+  `34700:<besitzer>:space:<kennung>` (`raumAdresse()`); zum Raum gehört ein
+  Repo nur über `mitRaumRechten()` (Eigentümer hat `repos_pflegen`), den
+  Zustand nur über `raumZustandFuer()` bauen – nie `buildSpaceState()` direkt
+  mit fremden Definitionen derselben Kennung. Karten werten Raum-Rechte in
+  `repoKarten(…, raumEvents)` aus; `darfAnnehmen()`/`patchStatus()` bleiben
+  unverändert und bekommen das erweiterte Repo. In privaten Räumen (seit
+  11.4b1) Repo-Events nur als innere Events über `raumRepo…()` – nie
+  `publish()`, auch nicht den Bundle-Verweis (er trägt den Schlüssel);
+  gelesen über `raumReposPrivat()`. Leak-Regel `raum-repo-privat`. In der App
+  (seit 11.4b2) tragen Karten privater Räume `privatRaum`; jede Aktion daran
+  nur über `sendeInRaum()` (`shell/raum-repos.ts`) – nie mit `publish()`
+  daneben, nie ausweichen, wenn die Gruppe nicht erreichbar ist.
+  Im Raum (seit 11.4c) zeigt die Liste nur `reposImRaum()`: öffentlich nur, was
+  bestätigt zu genau der Adresse des Raums gehört (ein bloßes `a`-Tag zählt
+  nicht), privat nur die Karten der Gruppe. Die Repos eines öffentlichen Raums
+  lädt die Liste erst, wenn er in der Sitzung offen war (`merkeRaumAdresse()`
+  nur aus `oeffneRaum()`) – nie alle eigenen Räume in einer Abfrage. „Repo
+  anlegen“ im Raum-Menü nur mit `repos_pflegen`; öffentlich mit Verweis, privat
+  über `sendeInRaum()`.
+  Issues und Kommentare (seit C-17a, `docs/PROTOCOL.md` 19) nur über
+  `baueIssue()`/`baueIssueStatus()` (NIP-34, 1621) und `baueKommentar()`
+  (NIP-22, 1111, nur an Issues und Patches); gelesen nur über `leseIssue()`,
+  `issueStatus()` (Autorin, Eigentümer, Maintainer) und `kommentareZu()`. Im
+  privaten Raum nur `raumRepoIssue()`, `raumRepoIssueStatus()`,
+  `raumRepoKommentar()` – Bezüge sind die Ids der inneren Events; die
+  Leak-Regel bekommt sie als `innere`. In der App (seit C-17b1) Reiter
+  „Issues“ in `shell/tabs/issues-reiter.ts`: Karten bekommen Issues nur über
+  `mitIssues()` – öffentliche nur an öffentliche Karten, private nur aus ihrer
+  Gruppe, nie gemischt; anlegen öffentlich signiert, privat nur über
+  `sendeInRaum()`; gezeigt nur als Text. Kommentieren (seit C-17b2/C-17c,
+  Issues und Patches) nur über `diskussion()` (`shell/tabs/diskussion.ts`),
+  Status nur über `setzeIssueStatus()` und nur, wo `darfStatus` gilt –
+  beides privat nur `sendeInRaum()`; Kommentare an Patches nur aus
+  `mitIssues()` (`patchKommentare`). Zwei Status-Wechsel im Test mindestens
+  eine Sekunde auseinander – Status zählen nach Sekunden.
+- **Markdown nur über `markdownDom()`** (seit C-20a, `shell/markdown-ui.ts`):
+  gelesen von `leseMarkdown()` (`markdown.ts`, ohne DOM), gezeichnet nur mit
+  `createElement`/`textContent` – rohes HTML bleibt Text, Links nur über
+  `sicheresZiel()` (https ohne Zugangsdaten, `noopener noreferrer nofollow`),
+  Bilder nie als `<img>` (ein fremdes Bild verriete, wer liest). Neue Regeln
+  im Leser nur mit Grenze: `MD_GRENZEN` (Länge, Tiefe, Suchweite) und die
+  Schrittgrenze je Text – sonst wird ein böser Text quadratisch langsam.
+- **Smoke-Test auch in der CI** (seit C-18): Job „Browser-Test (Smoke)“ in
+  `ci.yml` – Python-Playwright fest auf 1.56.0 (lokal dieselbe Version),
+  Chromium mit `--with-deps`. Rot dort heißt rot wie ein Unit-Test; eine neue
+  Prüfung vorher lokal laufen lassen und nie auf feste Pausen bauen, wo sich
+  auf einen Zustand warten lässt (`wait_for_function` mit Frist) – der Runner
+  ist langsamer als die Sitzung.
 - **Werbelink mit eigener Adresse nur geprüft** (seit 11.2a): Die Adresse
   nur über `pruefeEigeneAdresse()` (https, ohne Zugangsdaten, nicht lokal),
   gemerkt nur das Ergebnis (`freedom.werben.adresse`). Eine fremde Adresse
