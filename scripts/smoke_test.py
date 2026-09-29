@@ -1094,11 +1094,11 @@ def raum_pruefen(browser, url: str) -> dict:
             pass
         code = ev("""() => ({ commit: document.querySelector('#repo-seite .code-commit')?.textContent,
           dateien: [...document.querySelectorAll('#repo-seite .code-dateien li')].map(l => l.textContent),
-          readme: document.querySelector('#repo-seite .code-readme')?.textContent?.split('\\n')[0],
+          readme: [...document.querySelectorAll('#repo-seite .code-readme.md > *')].map(e => [e.tagName, e.textContent]),
           fehler: document.querySelector('#repo-seite .repo-fehler')?.textContent ?? '' })""")
         erg[groesse]["code"] = code
         if not (code["commit"] or "").startswith("Liste ergänzt · Probe · ") or not (code["commit"] or "").endswith("· 590c7cf") \
-                or code["dateien"] != ["src/", "bild.bin", "README.md"] or code["readme"] != "# Werkzeug" or code["fehler"]:
+                or code["dateien"] != ["src/", "bild.bin", "README.md"] or code["readme"] != [["H1", "Werkzeug"], ["P", "Ein Probe-Repo für den Bundle-Leser."]] or code["fehler"]:
             erg["fehler"].append(f"{groesse}: Reiter Code {code}")
         # Seit C.3c2: Ordner öffnen, Datei als Text, binär ehrlich, zurück über den Pfad; Reiter „Commits“
         def eintrag(name: str) -> None:
@@ -1223,6 +1223,24 @@ def raum_pruefen(browser, url: str) -> dict:
         pk_tags = {t[0]: t[1:] for t in (pk_neu[-1]["tags"] if pk_neu else [])}
         seite_patch["kommentar"] = [len(pk_neu), (pk_tags.get("E") or [None])[0] == patch_id, pk_tags.get("K"),
                                     ev("() => [...document.querySelectorAll('#repo-seite .issue-kommentar .issue-text')].map(e => e.textContent)")]
+        # Seit C-20a: Kommentare als Markdown – nur DOM; Link nur https ohne Referrer, Bild nie geladen, rohes HTML bleibt Text
+        # (beide Kommentare fallen in dieselbe Sekunde – die Reihenfolge entscheidet dann die Id, daher nach Inhalt suchen)
+        bild_anfragen: list = []
+        s.on("request", lambda r: bild_anfragen.append(r.url) if "example.org/f.png" in r.url else None)
+        if ev("() => !!document.querySelector('#repo-seite .kommentar-text')"):
+            s.fill("#repo-seite .kommentar-text", "**Sauber** – siehe [Anleitung](https://example.org/a) und [böse](javascript:alert(1)).\n"
+                   "![Foto](https://example.org/f.png) <b>roh</b>\n\n- eins\n- `zwei`")
+            ev("() => document.querySelector('#repo-seite .kommentar-senden')?.click()")
+        try:
+            s.wait_for_function("() => document.querySelectorAll('#repo-seite .issue-kommentar').length === 2", timeout=10000)
+        except Exception:
+            pass
+        seite_patch["markdown"] = ev("""() => { const k = [...document.querySelectorAll('#repo-seite .issue-kommentar .md')].find(e => e.textContent.includes('Anleitung'));
+          if (!k) return null;
+          const a = [...k.querySelectorAll('a')].map(x => [x.getAttribute('href'), x.rel, x.target, x.textContent]);
+          return { fett: k.querySelector('p strong')?.textContent, links: a, bilder: k.querySelectorAll('img').length, roh: !k.querySelector('b') && k.textContent.includes('<b>roh</b>'),
+            umbruch: k.querySelectorAll('p br').length, liste: [...k.querySelectorAll('ul > li')].map(l => l.textContent), code: k.querySelector('li code')?.textContent }; }""")
+        seite_patch["bild_anfragen"] = len(bild_anfragen)
         ev("() => document.querySelector('#repo-seite .patch-zurueck')?.click()")
         s.wait_for_timeout(200)
         seite_patch["zurueck"] = ev("() => [!!document.querySelector('#repo-seite .repo-patches'), document.activeElement?.dataset?.patch?.length === 64]")
@@ -1232,7 +1250,10 @@ def raum_pruefen(browser, url: str) -> dict:
                 or seite_patch["datei"] != "aaaaaaa.patch" or seite_patch["zurueck"] != [True, True] \
                 or len(seite_patch["angaben"]) != 3 or not seite_patch["angaben"][0].startswith("angenommen ✓ von Du") \
                 or seite_patch["angaben"][1:] != ["Eingespielt als ccccccc", "Danke – <i>sauber</i>."] or seite_patch["fett"] != 0 \
-                or seite_patch["kommentar"] != [1, True, ["1617"], ["Sauber, danke!"]]:
+                or seite_patch["kommentar"] != [1, True, ["1617"], ["Sauber, danke!"]] or seite_patch["bild_anfragen"] != 0 \
+                or seite_patch["markdown"] != {"fett": "Sauber", "bilder": 0, "roh": True, "umbruch": 1, "liste": ["eins", "zwei"], "code": "zwei",
+                                               "links": [["https://example.org/a", "noopener noreferrer nofollow", "_blank", "Anleitung"],
+                                                         ["https://example.org/f.png", "noopener noreferrer nofollow", "_blank", "Bild: Foto (nicht geladen)"]]}:
             erg["fehler"].append(f"{groesse}: Patch-Seite {seite_patch}")
         # Seit C-17b1: Reiter „Issues“ – Liste mit dem Issue aus der Probe, die Seite mit Text und Kommentar (HTML bleibt Text),
         # zurück mit Fokus, dann „Neues Issue“ per Dialog: öffentlich, signiert, an das Repo adressiert

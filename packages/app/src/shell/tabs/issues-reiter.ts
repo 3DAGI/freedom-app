@@ -12,6 +12,7 @@ import { fehlerText } from "../../protokoll-texte.js";
 import { KIND_ISSUE, type IssueStatus } from "@freedomstack/protocol";
 import { type IssueFilter, type IssueZeile, type RepoKarte, issueFilterVon } from "../../repo-ansicht.js";
 import { dialog } from "../dialog.js";
+import { markdownDom } from "../markdown-ui.js";
 import { sendeInRaum } from "../raum-repos.js";
 import { ensurePool, signiere, state } from "../state.js";
 import { toast } from "../ui.js";
@@ -113,7 +114,8 @@ function issueSeite(z: IssueZeile, k: RepoKarte, name: (pk: string) => string, n
   kopf.append(el("h3", z.issue.betreff, "patch-titel issue-titel"));
   const meta = el("p", undefined, "patch-meta mono-sm");
   meta.append(statusMarke(z), el("span", ` ${t("repo.patchVon", { name: name(z.issue.autor), datum: datum(z.issue.zeit) })}`, "muted"), ...labels(z));
-  const text = el("div", z.issue.text.trim() || t("repo.issueOhneText"), z.issue.text.trim() ? "issue-text" : "issue-text muted");
+  // Beschreibung als Markdown wie bei GitHub (C-20a), Zeilenumbrüche bleiben
+  const text = z.issue.text.trim() ? markdownDom(z.issue.text, "issue-text", { umbrueche: true }) : el("div", t("repo.issueOhneText"), "issue-text muted");
   const teile: HTMLElement[] = [knopf(t("repo.alleIssues"), "ghost mini issue-zurueck", zurueck), kopf, meta, text];
   if (z.darfStatus && k.repo) {
     const aktionen = el("div", undefined, "patch-aktionen issue-aktionen");

@@ -11605,3 +11605,55 @@ Internet) · app 640 (+2) · mls 13 · Leak-Tests 66 grün + 1 todo · 0 rot ·
 check-wiring `--streng` Exit 0 (158 Ausnahmen) · innerHTML streng Exit 0 ·
 Website ok · Smoke-Test bestanden (mit den neuen Prüfungen) · Website-Bau ok
 · reproduzierbarer Build ok. Knoten-Stand: unverändert.
+
+## Schritt C-20a – Markdown für README, Issues und Kommentare
+
+Spur C, Sammlung C-20 (Repos 1:1 wie GitHub, ohne neues Format). Bisher
+standen README, Beschreibung eines Issues und Kommentare als roher Text da –
+GitHub stellt sie als Markdown dar. Das tut jetzt auch die App, nur mit DOM.
+
+**Was:**
+- `markdown.ts` (neu, ohne DOM): `leseMarkdown()` liefert einen Baum aus
+  Blöcken (Überschriften mit `#` und unterstrichen, Absätze, Listen mit
+  Aufgaben `[ ]`/`[x]`, Zitate, Code-Blöcke mit Zaun oder Einzug, Linien) und
+  Inline-Teilen (fett, kursiv, beides, durchgestrichen, Code, Links, Bilder,
+  Umbrüche; `\`-Escapes, `snake_case` bleibt Text). Rohes HTML bleibt Text.
+  `sicheresZiel()`: Links nur auf https ohne Zugangsdaten – `javascript:`,
+  `http:`, `data:` und relative Ziele bleiben Text. Grenzen in `MD_GRENZEN`:
+  100 000 Zeichen, Tiefe 8, Suchweite 1000, dazu eine Schrittgrenze je Text –
+  danach bleibt der Rest Text, ein böser Text wird nie quadratisch langsam.
+- `shell/markdown-ui.ts` (neu): `markdownDom()` zeichnet den Baum nur mit
+  `createElement` und `textContent`. Links öffnen in neuem Tab mit
+  `noopener noreferrer nofollow`; Bilder werden nie geladen – nur ein Verweis
+  „Bild: … (nicht geladen)“, ein fremder Server erführe sonst, wer wann liest.
+  Aufgaben als abgeschaltete Häkchen mit Namen („erledigt“/„offen“).
+- Verdrahtet: README.md im Reiter „Code“ (README ohne Endung und .txt bleiben
+  Text), die Beschreibung eines Issues und jeder Kommentar (dort wie bei GitHub
+  mit Zeilenumbrüchen).
+- CSS `.md …`, Texte `repo.mdBild`, `repo.mdErledigt`, `repo.mdOffen`.
+
+**Verdrahtet:** `app/src/shell/tabs/code-reiter.ts` (`zeigeCode()` →
+`markdownDom()` für README.md), `app/src/shell/tabs/issues-reiter.ts`
+(`issueSeite()` → `markdownDom()`), `app/src/shell/tabs/diskussion.ts`
+(`diskussion()` → `markdownDom()` je Kommentar).
+
+**Tests:** app +5 in `test/markdown.test.ts` (Blöcke samt Randfällen wie
+„2.“ mitten im Absatz, faule Fortsetzung, Zaun ohne Ende, Linie statt Liste;
+Inline samt Verschachtelung, `snake_case`, Escapes, Umbrüche mit und ohne
+`umbrueche`; nur https-Ziele, Bilder ohne erlaubtes Ziel `null`; Länge, Tiefe
+und sieben böse Muster zu je 100 000 Zeichen unter einer Sekunde;
+Verdrahtung ohne `innerHTML` und ohne `<img>`). Smoke „raum“ (Desktop und
+Handy): README im Reiter „Code“ als `h1` + `p`; auf der Patch-Seite ein
+Kommentar mit Markdown – fett, Link auf https mit `noopener noreferrer
+nofollow` und neuem Tab, `javascript:` bleibt Text, das Bild wird nicht
+angefragt (keine Anfrage an seine Adresse) und ist kein `<img>`, `<b>roh</b>`
+bleibt Text, Umbruch, Liste mit Code.
+Bilder: `docs/ausbau/bilder/c20a` (Seite eines Issues, Kommentar mit
+Überschrift, fett, Code, Link, nicht geladenem Bild, Aufgaben, Zitat und
+Code-Block – Desktop und Handy).
+
+Endstand: protocol 1116 (6 übersprungen) · node 263 (6 übersprungen, mit
+Internet) · app 645 (+5) · mls 13 · Leak-Tests 66 grün + 1 todo · 0 rot ·
+check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 (keine neue
+Ausnahme) · Website ok · Smoke-Test bestanden (mit den neuen Prüfungen) ·
+Website-Bau ok · reproduzierbarer Build ok. Knoten-Stand: unverändert.

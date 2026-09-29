@@ -269,6 +269,16 @@ def main() -> int:
                 s.evaluate("() => document.querySelector('#repo-seite .kommentar-feld')?.scrollIntoView({ block: 'end' })")
                 s.wait_for_timeout(200)
                 s.screenshot(path=str(ziel / f"{groesse}-{nr + 29:02d}-patch-diskussion.jpg"), type="jpeg", quality=70)
+                # Seit C-20a: ein Kommentar mit Markdown – Überschrift, fett, Code, Link, Bild (nie geladen), Aufgaben, Code-Block
+                if s.evaluate("() => !!document.querySelector('#repo-seite .kommentar-text')"):
+                    s.fill("#repo-seite .kommentar-text", "### Geprüft\n**Sauber**, danke! Die Änderung an `hammer.txt` passt – siehe "
+                           "[Anleitung](https://example.org/a).\n![Foto](https://example.org/f.png)\n\n- [x] Diff gelesen\n- [ ] ausprobiert\n\n"
+                           "> Gilt auch für die Zange.\n\n```sh\ngit am 0001-hammer.patch\n```")
+                    s.evaluate("() => document.querySelector('#repo-seite .kommentar-senden')?.click()")
+                    s.wait_for_timeout(1500)
+                    s.evaluate("() => [...document.querySelectorAll('#repo-seite .issue-kommentar')].at(-1)?.scrollIntoView({ block: 'start' })")
+                    s.wait_for_timeout(200)
+                    s.screenshot(path=str(ziel / f"{groesse}-{nr + 30:02d}-markdown-kommentar.jpg"), type="jpeg", quality=70)
             ctx.close()
         browser.close()
     srv.shutdown()
