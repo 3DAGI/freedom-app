@@ -801,3 +801,12 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   Pool, kein Auftrag, keine Zahlung, nie still ins Netz ausweichen. In Node
   hält `AbortSignal.timeout` die Ereignisschleife nicht offen – Tests mit
   Zeitablauf halten sie mit einem Timer.
+- **Flutschutz im Relay nur über `FLUTSCHUTZ`** (seit B-3, `relay-role.ts`):
+  Grenzen je Verbindung (Events, Abfragen und Anmeldungen, offene Abos), je
+  Schlüssel (gespeicherte Events, mit Zugang das Zehnfache) und für die Zahl der
+  Verbindungen – über den `RateLimiter` aus `antispam.ts`, Fenster eine Minute,
+  nach außen nur feste Texte nach NIP-01 (`rate-limited:`, `error:`), zu viele
+  Verbindungen schließt der Relay mit 1013. Die Grenzen müssen einen Upload in
+  Stücken durchlassen (Test mit 200 Stücken) – nie so eng, dass Anhänge und
+  Bundles scheitern. Umschläge (1059) kommen von Wegwerf-Schlüsseln: sie bremst
+  nur die Grenze je Verbindung. Zählstände vergisst `aufraeumen()`.

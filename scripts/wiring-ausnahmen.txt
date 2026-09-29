@@ -9,7 +9,6 @@
 #
 # Pruefen: python3 scripts/check-wiring.py --streng
 
-antispam.ts|RateLimiter|Spam- und Flutschutz, weder im Relay des Knotens noch in der App eingebunden (Relay-Rolle, 8.4)
 antispam.ts|checkPow|Spam- und Flutschutz, weder im Relay des Knotens noch in der App eingebunden (Relay-Rolle, 8.4)
 antispam.ts|difficulty|Spam- und Flutschutz, weder im Relay des Knotens noch in der App eingebunden (Relay-Rolle, 8.4)
 antispam.ts|hashHex|Spam- und Flutschutz, weder im Relay des Knotens noch in der App eingebunden (Relay-Rolle, 8.4)

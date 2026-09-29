@@ -11976,3 +11976,41 @@ protocol 1127 (+7, 6 übersprungen) · node 262 (7 übersprungen, ohne Netz; nic
 berührt) · app 667 (+8) · mls 13 · Leak-Tests 68 grün + 1 todo · 0 rot ·
 check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 (keine neue Ausnahme) ·
 Website ok · Smoke-Test bestanden (mit „lokal“). Knoten-Stand: unverändert.
+
+## Schritt B-3 – Flutschutz im Relay des Knotens
+
+Aus der Sammlung (`docs/neuordnung/SAMMLUNG.md`, B-3). `antispam.ts`
+(`RateLimiter`) war gebaut, aber nirgends eingebunden – das Relay des Knotens
+nahm jede Menge Events, Abfragen und Verbindungen an.
+
+**Knoten (`relay-role.ts`):** Flutschutz über den `RateLimiter` aus dem
+Protokoll, Fenster eine Minute, Grenzen in `FLUTSCHUTZ` (je Relay über
+`flutschutz` in der Konfiguration änderbar):
+- EVENT je Verbindung: 600 – darüber `OK false` „rate-limited: zu viele
+  Events …“ (NIP-01-Präfix), vor jeder weiteren Prüfung;
+- REQ und AUTH je Verbindung: 300 – darüber `CLOSED` bzw. `OK false`
+  „rate-limited: …“;
+- offene Abos je Verbindung: 100 – ein weiteres `CLOSED` „error: zu viele
+  offene Abos …“ (dasselbe Abo neu zu fassen, zählt nicht);
+- gespeicherte Events je Schlüssel: 600, mit Zugang das Zehnfache – flüchtige
+  Events und Doppelte zählen nicht; Umschläge (1059) kommen von
+  Wegwerf-Schlüsseln, sie bremst die Grenze je Verbindung;
+- Verbindungen: 1000 – die nächste wird mit 1013 („Try Again Later“)
+  geschlossen, bevor sie eine Challenge bekommt.
+Die Grenzen sind großzügig für echte Nutzung (ein Anhang oder Bundle geht in
+Stücken hinaus: 200 Stücke über eine Verbindung laufen durch) und nach außen
+feste Texte. `aufraeumen()` vergisst abgelaufene Zählstände; `stats()` nennt
+Verbindungen und die Zahl gedrosselter Nachrichten. `wiring-ausnahmen.txt`:
+die Zeile für `RateLimiter` fällt weg (jetzt verdrahtet).
+
+**Tests (+9, `node/test/relay-flutschutz.test.ts`, echter WebSocket, gestellte
+Uhr):** Events je Verbindung und eine zweite Verbindung frei; Zeitfenster;
+je Schlüssel über zwei Verbindungen, anderer Schlüssel frei, mit Zugang das
+Zehnfache; flüchtige und doppelte Events zählen nicht; Abfragen und offene
+Abos (dasselbe Abo neu gefasst ist keines mehr); Anmeldungen wie Abfragen;
+zu viele Verbindungen → 1013, danach wieder Platz; Standardgrenzen lassen
+einen Upload in 200 Stücken durch; Aufräumen vergisst Zählstände.
+
+**Verdrahtet:** `packages/node/src/relay-role.ts` – `handleMessage()` (EVENT,
+AUTH, REQ), `nimmAn()` (je Schlüssel), `start()` (Verbindungen),
+`aufraeumen()` (Zählstände).

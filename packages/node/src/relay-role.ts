@@ -18,6 +18,12 @@
  *   angenommen noch ausgeliefert.
  * - NIP-11: Selbstauskunft auf demselben Port (mit dem Schluessel des
  *   Betreibers – ueber sein Profil die Zahladresse).
+ * - Flutschutz (seit B-3, Sammlung Neuordnung): Grenzen je Verbindung
+ *   (Events, Abfragen, offene Abos), je Schluessel (gespeicherte Events, mit
+ *   Zugang das Zehnfache) und fuer die Zahl der Verbindungen – ueber den
+ *   `RateLimiter` aus dem Protokoll, nach aussen nur feste Texte nach NIP-01
+ *   (`rate-limited:`, `error:`). Umschlaege (1059) kommen von Wegwerf-
+ *   Schluesseln; sie bremst die Grenze je Verbindung.
  */
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { randomBytes } from "node:crypto";
@@ -27,7 +33,7 @@ import { KasseFehler, type RelayKasse, type Schiene } from "./relay-kasse.js";
 import { WebSocketServer, WebSocket } from "ws";
 import {
   ablaufVon, baueRelayInfo, brauchtAnmeldung, relayNimmtAn, darfAusliefern, ersetzSchluessel, hasValidEventShape, istFluechtig,
-  istNeuer, pruefeRelayAuth, relayHost, verifyEvent, type NostrEvent,
+  istNeuer, pruefeRelayAuth, relayHost, verifyEvent, RateLimiter, type NostrEvent,
 } from "@freedomstack/protocol";
 
 export interface RelayConfig {
@@ -49,12 +55,36 @@ export interface RelayConfig {
   eventDatei?: string;
   /** Hoechstens so viele Events; darueber lehnt der Relay ab statt still zu verdraengen. */
   maxEvents?: number;
+  /** Flutschutz (B-3); fehlende Werte aus `FLUTSCHUTZ`. */
+  flutschutz?: Partial<Flutschutz>;
   /** Unix-Sekunden (Tests). */
   jetzt?: () => number;
 }
 
 const HEX64 = /^[0-9a-f]{64}$/;
 const MAX_ANTWORT = 5000;
+
+/**
+ * Grenzen des Flutschutzes (B-3), je Minute. Grosszuegig fuer echte Nutzung –
+ * ein Anhang oder Git-Bundle geht in Stuecken hinaus, viele Events in kurzer
+ * Zeit –, eng genug, dass ein Einzelner den Relay nicht beschaeftigt haelt.
+ */
+export const FLUTSCHUTZ = {
+  /** EVENT-Nachrichten je Verbindung. */
+  eventsJeVerbindung: 600,
+  /** REQ- und AUTH-Nachrichten je Verbindung. */
+  abfragenJeVerbindung: 300,
+  /** Gespeicherte Events je Schluessel (mit Zugang das Zehnfache). */
+  eventsJeSchluessel: 600,
+  /** Offene Abos je Verbindung. */
+  abosJeVerbindung: 100,
+  /** Gleichzeitige Verbindungen. */
+  verbindungen: 1000,
+} as const;
+export type Flutschutz = { -readonly [K in keyof typeof FLUTSCHUTZ]: number };
+const FLUT_FENSTER_SECS = 60;
+/** Close-Code „Try Again Later“ (RFC 6455, IANA). */
+const ZU_VIELE_VERBINDUNGEN = 1013;
 
 /**
  * Wer Zugang hat: dauerhaft (Betreiber, Freunde – `RELAY_ZUGANG`) oder bis zu
@@ -101,6 +131,8 @@ export class RelayZugang {
 }
 
 interface Verbindung {
+  /** Zufaellige Kennung – nur fuer den Flutschutz, nie nach aussen. */
+  id: string;
   challenge: string;
   hosts: string[];
   angemeldet: Set<string>;
@@ -120,11 +152,21 @@ export class RelayRole {
   private readonly zugang: RelayZugang;
   private readonly schuetzen: boolean;
   private readonly jetzt: () => number;
+  private readonly flut: Flutschutz;
+  private readonly eventsJeVerbindung: RateLimiter;
+  private readonly abfragenJeVerbindung: RateLimiter;
+  private readonly eventsJeSchluessel: RateLimiter;
+  private gedrosselt = 0;
 
   constructor(private cfg: RelayConfig) {
     this.zugang = cfg.zugang ?? new RelayZugang();
     this.schuetzen = cfg.beschraenkt === true || cfg.umschlaegeSchuetzen === true;
     this.jetzt = cfg.jetzt ?? (() => Math.floor(Date.now() / 1000));
+    this.flut = { ...FLUTSCHUTZ, ...cfg.flutschutz };
+    const grenze = (maxPerWindow: number) => new RateLimiter({ maxPerWindow, windowSecs: FLUT_FENSTER_SECS, paidMultiplier: 10 });
+    this.eventsJeVerbindung = grenze(this.flut.eventsJeVerbindung);
+    this.abfragenJeVerbindung = grenze(this.flut.abfragenJeVerbindung);
+    this.eventsJeSchluessel = grenze(this.flut.eventsJeSchluessel);
   }
 
   async start(): Promise<void> {
@@ -136,7 +178,12 @@ export class RelayRole {
     }));
     this.wss = new WebSocketServer({ server: this.http, maxPayload: Math.max(2 * this.cfg.maxEventBytes, 65_536) });
     this.wss.on("connection", (ws: WebSocket, req: IncomingMessage) => {
+      if (this.verbindungen.size >= this.flut.verbindungen) {
+        this.gedrosselt++;
+        return ws.close(ZU_VIELE_VERBINDUNGEN, "zu viele Verbindungen");
+      }
       const v: Verbindung = {
+        id: randomBytes(8).toString("hex"),
         challenge: randomBytes(16).toString("hex"),
         // Mit oeffentlicher Adresse nur sie: Der Host-Kopf kommt vom Client – ein fremder
         // Relay koennte sonst unsere Challenge durchreichen und als Mittelsmann anmelden.
@@ -282,11 +329,15 @@ export class RelayRole {
     if (!Array.isArray(msg)) return this.notice(ws, "invalid message");
     const [type] = msg as [string];
 
-    if (type === "EVENT") return this.nimmAn(ws, msg[1]);
+    if (type === "EVENT") {
+      if (!this.darf(this.eventsJeVerbindung, v.id)) return this.reply(ws, ["OK", eventId(msg[1]), false, "rate-limited: zu viele Events – später erneut versuchen"]);
+      return this.nimmAn(ws, msg[1]);
+    }
 
     if (type === "AUTH") {
       const ev = msg[1];
       const id = hasValidEventShape(ev) ? ev.id : "";
+      if (!this.darf(this.abfragenJeVerbindung, v.id)) return this.reply(ws, ["OK", id, false, "rate-limited: zu viele Anmeldungen – später erneut versuchen"]);
       const r = pruefeRelayAuth(ev, { challenge: v.challenge, hosts: v.hosts, jetzt: this.jetzt() });
       if (!r.ok) return this.reply(ws, ["OK", id, false, `invalid: ${r.grund}`]);
       v.angemeldet.add(r.pubkey);
@@ -296,6 +347,11 @@ export class RelayRole {
     if (type === "REQ") {
       const subId = msg[1];
       if (typeof subId !== "string" || subId.length === 0 || subId.length > 64) return this.notice(ws, "invalid: subscription id");
+      if (!this.darf(this.abfragenJeVerbindung, v.id)) return this.reply(ws, ["CLOSED", subId, "rate-limited: zu viele Abfragen – später erneut versuchen"]);
+      if (!v.abos.has(subId) && v.abos.size >= this.flut.abosJeVerbindung) {
+        this.gedrosselt++;
+        return this.reply(ws, ["CLOSED", subId, "error: zu viele offene Abos – erst eines schließen"]);
+      }
       const filters = msg.slice(2).filter((f): f is Record<string, unknown> => typeof f === "object" && f !== null && !Array.isArray(f));
       if (filters.some((f) => brauchtAnmeldung(f, v.angemeldet, this.schuetzen))) {
         return this.reply(ws, ["CLOSED", subId, "auth-required: Umschläge nur an den angemeldeten Empfänger"]);
@@ -314,8 +370,15 @@ export class RelayRole {
     this.notice(ws, `unknown type: ${String(type)}`);
   }
 
+  /** Innerhalb der Grenze? Sonst gezaehlt (fuer `stats()`). */
+  private darf(grenze: RateLimiter, schluessel: string, mitZugang = false): boolean {
+    if (grenze.check(schluessel, mitZugang, this.jetzt()).allowed) return true;
+    this.gedrosselt++;
+    return false;
+  }
+
   private nimmAn(ws: WebSocket, ev: unknown): void {
-    const id = typeof ev === "object" && ev !== null && typeof (ev as { id?: unknown }).id === "string" ? (ev as { id: string }).id : "?";
+    const id = eventId(ev);
     if (!hasValidEventShape(ev)) return this.reply(ws, ["OK", id, false, "invalid: kein Event nach NIP-01"]);
     if (JSON.stringify(ev).length > this.cfg.maxEventBytes) return this.reply(ws, ["OK", ev.id, false, "too large"]);
     if (!verifyEvent(ev)) return this.reply(ws, ["OK", ev.id, false, "invalid signature"]);
@@ -324,6 +387,9 @@ export class RelayRole {
     if (!zul.ok) return this.reply(ws, ["OK", ev.id, false, zul.grund]);
     const ablauf = ablaufVon(ev);
     if (ablauf !== null && ablauf <= jetzt) return this.reply(ws, ["OK", ev.id, false, "invalid: abgelaufen (NIP-40)"]);
+    if (!istFluechtig(ev.kind) && !this.events.has(ev.id) && !this.darf(this.eventsJeSchluessel, ev.pubkey, this.zugang.hat(ev.pubkey, jetzt))) {
+      return this.reply(ws, ["OK", ev.id, false, "rate-limited: zu viele Events von diesem Schlüssel – später erneut versuchen"]);
+    }
     if (istFluechtig(ev.kind)) {
       this.reply(ws, ["OK", ev.id, true, ""]);
       return this.verteile(ev);
@@ -381,6 +447,8 @@ export class RelayRole {
   /** Abgelaufenes (NIP-40) und nach der Aufbewahrungszeit Eingegangenes entfernen – ersetzbare in neuester Fassung bleiben. */
   aufraeumen(): number {
     const jetzt = this.jetzt();
+    // Flutschutz: abgelaufene Zaehlstaende weg, sonst wachsen die Karten mit jedem Wegwerf-Schluessel
+    for (const g of [this.eventsJeVerbindung, this.abfragenJeVerbindung, this.eventsJeSchluessel]) g.prune(jetzt);
     const grenze = jetzt - this.cfg.retentionDays * 86400;
     let weg = 0;
     for (const [id, { ev, seit }] of this.events) {
@@ -423,9 +491,14 @@ export class RelayRole {
     this.reply(ws, ["NOTICE", msg]);
   }
 
-  stats(): { events: number; subscriptions: number } {
+  stats(): { events: number; subscriptions: number; verbindungen: number; gedrosselt: number } {
     let abos = 0;
     for (const v of this.verbindungen.values()) abos += v.abos.size;
-    return { events: this.events.size, subscriptions: abos };
+    return { events: this.events.size, subscriptions: abos, verbindungen: this.verbindungen.size, gedrosselt: this.gedrosselt };
   }
+}
+
+/** Die Kennung eines (vielleicht kaputten) Events fuer die OK-Antwort. */
+function eventId(ev: unknown): string {
+  return typeof ev === "object" && ev !== null && typeof (ev as { id?: unknown }).id === "string" ? (ev as { id: string }).id : "?";
 }
