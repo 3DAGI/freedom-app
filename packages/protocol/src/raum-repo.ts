@@ -18,9 +18,10 @@ import type { NostrEvent, UnsignedEvent } from "./event.js";
 import { buildGitRepoRef, type GitRepoRef } from "./git.js";
 import { KIND_GIT_REPO_REF } from "./kinds.js";
 import {
-  KIND_PATCH, KIND_REPO_ANKUENDIGUNG, KIND_STATUS_ANGENOMMEN, KIND_STATUS_ENTWURF, KIND_STATUS_GESCHLOSSEN, KIND_STATUS_OFFEN,
-  baueRepoAnkuendigung, bauePatch, baueStatus, type GelesenesRepo, type RepoAnkuendigung,
+  KIND_ISSUE, KIND_PATCH, KIND_REPO_ANKUENDIGUNG, KIND_STATUS_ANGENOMMEN, KIND_STATUS_ENTWURF, KIND_STATUS_GESCHLOSSEN, KIND_STATUS_OFFEN,
+  baueIssue, baueIssueStatus, baueRepoAnkuendigung, bauePatch, baueStatus, type GelesenesRepo, type RepoAnkuendigung,
 } from "./nip34.js";
+import { KIND_KOMMENTAR, baueKommentar } from "./kommentar.js";
 import type { InneresEvent, InneresSenden } from "./raum-gruppe.js";
 import { KIND_SPACE, buildSpaceState, can, leseRaumAdresse, type SpaceState } from "./spaces.js";
 
@@ -62,6 +63,7 @@ export function mitRaumRechten(repo: GelesenesRepo, zustand: SpaceState | undefi
  */
 export const RAUM_REPO_ARTEN: readonly number[] = [
   KIND_REPO_ANKUENDIGUNG, KIND_GIT_REPO_REF, KIND_PATCH, KIND_STATUS_OFFEN, KIND_STATUS_ANGENOMMEN, KIND_STATUS_GESCHLOSSEN, KIND_STATUS_ENTWURF,
+  KIND_ISSUE, KIND_KOMMENTAR,
 ];
 
 /** Ein NIP-34-Baustein als inneres Event des Raums – der Autor ist, wen MLS belegt. */
@@ -90,16 +92,32 @@ export function raumRepoStatus(raumId: string, p: Parameters<typeof baueStatus>[
   return inRaum(raumId, baueStatus(p, ""));
 }
 
+/** Issue an ein Repo des Raums (C-17a). */
+export function raumRepoIssue(raumId: string, i: Parameters<typeof baueIssue>[0]): InneresSenden {
+  return inRaum(raumId, baueIssue(i, ""));
+}
+
+/** Status eines Issues im Raum (C-17a). */
+export function raumRepoIssueStatus(raumId: string, p: Parameters<typeof baueIssueStatus>[0]): InneresSenden {
+  return inRaum(raumId, baueIssueStatus(p, ""));
+}
+
+/** Kommentar an ein Issue oder einen Patch im Raum (C-17a) – Bezüge sind Ids innerer Events. */
+export function raumRepoKommentar(raumId: string, k: Parameters<typeof baueKommentar>[0]): InneresSenden {
+  return inRaum(raumId, baueKommentar(k, ""));
+}
+
 /**
  * Die Repos eines privaten Raums aus seinen inneren Events – in der Form, die
  * die Repo-Ansicht liest. Ankündigungen und Bundles zählen nur von Pflegern
  * (Admins oder `repos_pflegen`), je Autor und Kennung die neueste; ihre
  * Maintainer sind alle Pfleger (als `maintainers` eingesetzt – der Absender
- * ist von MLS belegt). Patches von jedem Mitglied; Status wertet
- * `patchStatus()` nach diesen Maintainern aus.
+ * ist von MLS belegt). Patches, Issues und Kommentare (C-17a) von jedem
+ * Mitglied; Status werten `patchStatus()` bzw. `issueStatus()` nach diesen
+ * Maintainern aus.
  */
 export function raumReposPrivat(raumId: string, ereignisse: readonly InneresEvent[], zustand: SpaceState): {
-  ankuendigungen: NostrEvent[]; bundles: NostrEvent[]; patches: NostrEvent[]; status: NostrEvent[];
+  ankuendigungen: NostrEvent[]; bundles: NostrEvent[]; patches: NostrEvent[]; status: NostrEvent[]; issues: NostrEvent[]; kommentare: NostrEvent[];
 } {
   const imRaum = ereignisse.filter((e) => RAUM_REPO_ARTEN.includes(e.art) && e.tags.find((t) => t[0] === "space")?.[1] === raumId);
   const alsEv = (e: InneresEvent, tags = e.tags): NostrEvent => ({ id: e.id, pubkey: e.von, created_at: e.zeit, kind: e.art, tags, content: e.text, sig: "" });
@@ -123,5 +141,8 @@ export function raumReposPrivat(raumId: string, ereignisse: readonly InneresEven
     ankuendigungen, bundles,
     patches: imRaum.filter((e) => e.art === KIND_PATCH).map((e) => alsEv(e)),
     status: imRaum.filter((e) => e.art >= KIND_STATUS_OFFEN && e.art <= KIND_STATUS_ENTWURF).map((e) => alsEv(e)),
+    // Issues und Kommentare (C-17a) von jedem Mitglied, wie Patches
+    issues: imRaum.filter((e) => e.art === KIND_ISSUE).map((e) => alsEv(e)),
+    kommentare: imRaum.filter((e) => e.art === KIND_KOMMENTAR).map((e) => alsEv(e)),
   };
 }
