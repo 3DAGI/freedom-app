@@ -818,3 +818,11 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   Vergleich (`merkeGeprueft()`), nur in `freedom.kontakte.geprueft` im Tresor
   (die Liste verrät, wen man getroffen hat), je Schlüssel – ein neuer Schlüssel
   ist ungeprüft.
+- **Datenexport nur über `datenexport.ts`** (seit B-6): hinein nur
+  `waehleExport()` (die Liste der Sicherung plus `EXPORT_ZUSAETZLICH`), zurück
+  nur `filtereExport()` – nie Schlüssel, Zugänge, Geld-Geheimnisse, Anteile,
+  Gruppenschlüssel, auch nicht aus einer fremden Datei. Verschlüsselt nur mit
+  `verschluesseleMitPassphrase()` (Format und Parameter des Tresors), die
+  Passphrase nur im Dialog (`verdeckt: true`). Was nie auf ein Relay darf
+  (Quittungen, KI-Verläufe), steht in `EXPORT_ZUSAETZLICH`, nicht in
+  `SICHERUNG_EINTRAEGE`.

@@ -267,6 +267,26 @@ export async function createVault(
   return tresor;
 }
 
+/** Einen Blob im Format des Tresors mit der Passphrase öffnen – falsch oder verändert: `FalschePassphrase`. */
+async function oeffneBlob(roh: string, passphrase: string): Promise<{ klartext: string; key: CryptoKey; blob: TresorBlob }> {
+  let blob: TresorBlob;
+  try { blob = kopfPruefen(JSON.parse(roh)); } catch { throw new FalschePassphrase(); }
+  const salt = ausB64(blob.salt, SALT_BYTES);
+  const iv = ausB64(blob.iv, IV_BYTES);
+  const ct = ausB64(blob.ct, 0);
+  const key = await schluessel(passphrase, salt, blob.iter);
+  try {
+    const klartext = new TextDecoder().decode(await crypto.subtle.decrypt(
+      { name: "AES-GCM", iv: iv as BufferSource, additionalData: aad(blob) as BufferSource },
+      key,
+      ct as BufferSource,
+    ));
+    return { klartext, key, blob };
+  } catch {
+    throw new FalschePassphrase();
+  }
+}
+
 /** Vorhandenen Tresor mit der Passphrase oeffnen. */
 export async function unlock(
   passphrase: string,
@@ -274,26 +294,29 @@ export async function unlock(
 ): Promise<Vault> {
   const roh = await speicher.lesen();
   if (roh === null) throw new Error(t("ein.keinTresor"));
-  let blob: TresorBlob;
-  try { blob = kopfPruefen(JSON.parse(roh)); } catch { throw new FalschePassphrase(); }
-  const salt = ausB64(blob.salt, SALT_BYTES);
-  const iv = ausB64(blob.iv, IV_BYTES);
-  const ct = ausB64(blob.ct, 0);
-  const key = await schluessel(passphrase, salt, blob.iter);
-  let klartext: string;
-  try {
-    klartext = new TextDecoder().decode(await crypto.subtle.decrypt(
-      { name: "AES-GCM", iv: iv as BufferSource, additionalData: aad(blob) as BufferSource },
-      key,
-      ct as BufferSource,
-    ));
-  } catch {
-    throw new FalschePassphrase();
-  }
+  const { klartext, key, blob } = await oeffneBlob(roh, passphrase);
   const daten = JSON.parse(klartext) as Record<string, unknown>;
   const werte = new Map<string, string>();
   for (const [k, v] of Object.entries(daten)) if (typeof v === "string") werte.set(k, v);
   return new OffenerTresor(werte, key, blob.salt, blob.iter, speicher);
+}
+
+/**
+ * Einen Text mit einer eigenen Passphrase verschlüsseln (Datenexport, B-6) –
+ * dasselbe Format und dieselben Parameter wie der Tresor (PBKDF2-SHA256,
+ * 600.000 Iterationen, AES-256-GCM, Kopf als AAD).
+ */
+export async function verschluesseleMitPassphrase(klartext: string, passphrase: string): Promise<string> {
+  if (passphrase.normalize("NFC").length < MIN_PASSPHRASE) {
+    throw new Error(t("ein.passZuKurz", { n: MIN_PASSPHRASE }));
+  }
+  const salt = crypto.getRandomValues(new Uint8Array(SALT_BYTES));
+  return verschluesseln(klartext, await schluessel(passphrase, salt, PBKDF2_ITERATIONEN), zuB64(salt), PBKDF2_ITERATIONEN);
+}
+
+/** Gegenstück zu `verschluesseleMitPassphrase()` – falsche Passphrase oder veränderter Text: `FalschePassphrase`. */
+export async function entschluesseleMitPassphrase(roh: string, passphrase: string): Promise<string> {
+  return (await oeffneBlob(roh, passphrase)).klartext;
 }
 
 /**
