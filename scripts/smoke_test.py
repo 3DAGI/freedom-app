@@ -538,6 +538,8 @@ def dialog_pruefen(browser, url: str) -> dict:
 
 # Echtes Git-Bundle (v2, mit Deltas) für den Reiter „Code“ (seit C.3c1) – dasselbe wie im Test von git-bundle.ts
 PROBE_BUNDLE = (Path(__file__).resolve().parent.parent / "packages/app/test/fixtures/probe-v2.bundle").read_bytes()
+# Seit C-20b: README mit Tabelle und Verweisen (src/liste.txt, docs/ANLEITUNG.md, einer hinaus)
+PROBE_MD_BUNDLE = (Path(__file__).resolve().parent.parent / "packages/app/test/fixtures/probe-md.bundle").read_bytes()
 
 
 class ProbeRelay:
@@ -1126,6 +1128,62 @@ def raum_pruefen(browser, url: str) -> dict:
                 or navi["binaer"] != [["meins", "bild.bin"], False, True] or navi["commits"]["betreffe"] != ["Liste ergänzt", "Erster Stand"] \
                 or not navi["commits"]["offen"] or "zweiten Zeile" not in (navi["commits"]["nachricht"] or ""):
             erg["fehler"].append(f"{groesse}: Code-Navigation/Commits {navi}")
+        # Seit C-20b: neue Version mit Markdown – Tabelle in der README, Verweise öffnen Dateien im Reiter „Code“ (nie
+        # hinaus, nie in die Adresse), Markdown-Dateien als Vorschau oder Quelltext
+        ev("() => document.querySelector('#repo-seite [data-reiter=einstellungen]')?.click()")
+        s.wait_for_timeout(200)
+        zahl_38042 = lambda: len([e for e in relay.gesendet if e.get("kind") == 38042])
+        vorher_b = zahl_38042()
+        if ev("() => !!document.querySelector('#repo-seite .repo-hochladen input[type=file]')"):
+            s.set_input_files("#repo-seite .repo-hochladen input[type=file]",
+                              files=[{"name": "kiste.bundle", "mimeType": "application/octet-stream", "buffer": PROBE_MD_BUNDLE}])
+        for _ in range(50):
+            if zahl_38042() > vorher_b:
+                break
+            s.wait_for_timeout(200)
+        s.wait_for_timeout(300)
+        ev("() => document.querySelector('#repo-seite [data-reiter=code]')?.click()")
+        s.wait_for_timeout(200)
+        ev("() => document.querySelector('#repo-seite .code-laden')?.click()")
+        try:
+            s.wait_for_function("() => !!document.querySelector('#repo-seite .code-readme table') || !!document.querySelector('#repo-seite .repo-fehler')?.textContent", timeout=15000)
+        except Exception:
+            pass
+        md_code = {"tabelle": ev("""() => { const t = document.querySelector('#repo-seite .code-readme table'); return t && [
+            [...t.querySelectorAll('th')].map(e => [e.textContent, e.className]), [...t.querySelectorAll('tbody tr')].map(r => [...r.children].map(c => c.textContent))]; }"""),
+                   "laufleiste": ev("() => document.documentElement.scrollWidth - innerWidth")}
+        def verweis(text: str) -> None:
+            ev(f"() => [...document.querySelectorAll('#repo-seite .md-verweis')].find(a => a.textContent === '{text}')?.click()")
+            s.wait_for_timeout(200)
+        hash_vorher = ev("() => location.hash")
+        verweis("Liste")
+        md_code["liste"] = [ev(pfad), ev("() => document.querySelector('#repo-seite .code-datei')?.textContent"), ev("() => location.hash") == hash_vorher]
+        ev("() => document.querySelector('#repo-seite .code-pfad-knopf')?.click()")
+        s.wait_for_timeout(150)
+        verweis("hinaus")
+        md_code["hinaus"] = [ev(pfad), ev("() => document.getElementById('toast')?.textContent")]
+        # Mit der Tastatur: Enter auf dem Verweis
+        ev("() => [...document.querySelectorAll('#repo-seite .md-verweis')].find(a => a.textContent === 'Anleitung')?.focus()")
+        s.keyboard.press("Enter")
+        s.wait_for_timeout(200)
+        ansicht = "() => [...document.querySelectorAll('#repo-seite .code-ansicht button')].map(b => [b.textContent, b.getAttribute('aria-pressed')])"
+        md_code["anleitung"] = [ev(pfad), ev("() => document.querySelector('#repo-seite .code-md h1')?.textContent"), ev(ansicht)]
+        ev("() => document.querySelectorAll('#repo-seite .code-ansicht button')[1]?.click()")
+        s.wait_for_timeout(150)
+        md_code["quelltext"] = [ev("() => document.querySelector('#repo-seite .code-datei')?.textContent.split('\\n')[0]"),
+                                ev("() => !!document.querySelector('#repo-seite .code-md')"), ev(ansicht)]
+        ev("() => document.querySelectorAll('#repo-seite .code-ansicht button')[0]?.click()")
+        s.wait_for_timeout(150)
+        verweis("Übersicht")
+        md_code["zurueck"] = [ev(pfad), ev("() => document.querySelector('#repo-seite .code-md h1')?.textContent")]
+        erg[groesse]["markdown_code"] = md_code
+        if md_code != {"tabelle": [[["Werkzeug", "md-links"], ["Anzahl", "md-rechts"], ["Ort", "md-mitte"]], [["Hammer", "2", "Liste"], ["Zange | Säge", "1", "Keller"]]],
+                       "laufleiste": 0, "liste": [["meins", "src", "liste.txt"], "Hammer, Zange\n", True],
+                       "hinaus": [["meins"], "Diesen Pfad gibt es im Bundle nicht."],
+                       "anleitung": [["meins", "docs", "ANLEITUNG.md"], "Anleitung", [["Vorschau", "true"], ["Quelltext", "false"]]],
+                       "quelltext": ["# Anleitung", False, [["Vorschau", "false"], ["Quelltext", "true"]]],
+                       "zurueck": [["meins", "README.md"], "Werkzeugkiste"]}:
+            erg["fehler"].append(f"{groesse}: Markdown im Reiter Code {md_code}")
         erg[groesse]["repo_c3a2"] = {"fremd_reiter": fremd_reiter, "mitwirkende": mitwirkende, "eigen_reiter": eigen_reiter,
                                      "abgewiesen": abgewiesen, "tags": tags, "links": links, "bleibt": noch_einstellungen,
                                      "bundle": bundle_tags, "bundle_knopf": bundle_knopf}

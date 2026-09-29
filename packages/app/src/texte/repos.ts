@@ -140,4 +140,6 @@ export const repos: Texte = {
   "repo.mdBild": { de: "Bild: {alt} (nicht geladen)", en: "Image: {alt} (not loaded)" },
   "repo.mdErledigt": { de: "erledigt", en: "done" },
   "repo.mdOffen": { de: "offen", en: "open" },
+  "repo.mdVorschau": { de: "Vorschau", en: "Preview" },
+  "repo.mdQuelltext": { de: "Quelltext", en: "Code" },
 };
