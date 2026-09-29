@@ -11414,3 +11414,29 @@ Smoke-Test bestanden (Gegenprobe auf dem Stand vor 11.4c: „raum“ scheitert a
 genau den neuen Prüfungen, alle übrigen bestehen) · Website-Bau ok ·
 reproduzierbarer Build ok. Bilder: `docs/ausbau/bilder/114c`. Knoten-Stand:
 unverändert.
+
+## Schritt C-18 – Smoke-Test in der CI
+
+Spur C, Sammlung `docs/neuordnung/SAMMLUNG.md` (C-18), entschieden am
+29.09.2026 vom MENSCHEN („of course it should if that is possible“).
+
+**Was:**
+- `.github/workflows/ci.yml`: neuer Job **„Browser-Test (Smoke)“** neben
+  „Tests und Typpruefung“, „Reproduzierbarer Build“ und
+  „Protokoll-Invarianten“. Node nach `.nvmrc`, `npm install` wie im Test-Job
+  (ohne Browser des Knotens), App bauen, Python 3.11 mit Playwright
+  **1.56.0** (dieselbe Version wie bei den Agenten) und Chromium samt
+  Systempaketen (`--with-deps`), dann `python scripts/smoke_test.py
+  packages/app/dist`. Grenze 30 Minuten.
+- Bisher lief der Smoke-Test nur lokal; ein Rückschritt in der Oberfläche fiel
+  erst beim nächsten lokalen Lauf auf. Jetzt ist jeder Pull Request und jeder
+  Push auf `main` auch im Browser geprüft.
+- `SAMMLUNG.md`: C-17 und C-18 entschieden; C-17 in drei Schritte geteilt;
+  neu C-20 – was für „Repos 1:1 wie GitHub“ nach C-17 noch fehlt.
+- `CLAUDE.md`: Befehl ergänzt, neuer Fallstrick „Smoke-Test auch in der CI“.
+
+**Verdrahtet:** `.github/workflows/ci.yml` (Job `smoke`).
+
+**Prüfungen:** Der Job selbst ist die Prüfung – sein erster Lauf steht im
+Pull Request. Kein App-Code geändert; die Befehle aus `CLAUDE.md` bleiben
+beim Stand von 11.4c.
