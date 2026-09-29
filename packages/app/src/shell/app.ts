@@ -49,7 +49,7 @@ import {
 } from "./tabs/agent.js";
 import { wireFunkGateway } from "./funk-gateway-ui.js";
 import { dialog } from "./dialog.js";
-import { wireEigeneAdresse } from "./werben-ui.js";
+import { wireEigeneAdresse, wireWerbeName } from "./werben-ui.js";
 import {
   captureReferral,
   ladeAbdeckung,
@@ -912,6 +912,7 @@ function starte(): void {
   }
   setupReferral();
   wireEigeneAdresse();
+  wireWerbeName();
   setupCopyButtons();
 }
 

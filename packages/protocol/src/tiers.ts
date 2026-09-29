@@ -4,7 +4,9 @@
  * WICHTIG (Invarianten): Das Tier ist KEIN zentraler Gatekeeper. Es ist ein
  * client-seitiger Filter, der aus oeffentlichen Events berechnet wird:
  *   - Der Provider BEHAUPTET sein Tier + Faehigkeiten (kind 38025, signiert)
- *   - Die Reputation (38010-Leistungs-Events + WoT) BEWEIST es
+ *   - Belegen kann es nur der Ruf aus Quittungen (5.5, `berechneRuf()`): eigene
+ *     und versiegelte Zusammenfassungen von Kontakten. Leistungs-Events (38010)
+ *     sind Selbstauskuenfte und zaehlen dafuer nicht.
  * Jeder User kann jeden Provider anfragen; der Client empfiehlt standardmaessig
  * das passende Tier. Niemand wird zentral ausgesperrt.
  *

@@ -3,16 +3,21 @@
  * gültiger https-Adresse (`pruefeEigeneAdresse()`); danach trägt der Werbelink
  * (samt QR) diese Adresse. „Prüfen“ fragt die Adresse ab – nur auf Knopfdruck,
  * der Server sieht dabei die eigene IP – und sagt, ob dort eine bestätigte
- * Version liegt (5.2) und wohin der Hosting-Anteil geht (5.3a).
+ * Version liegt (5.2) und wohin der Hosting-Anteil geht (5.3a). Seit 11.2b
+ * auch ein kurzer Name statt des Schlüssels (NIP-05) – übernommen nur, wenn
+ * die Domain ihn zu genau dem eigenen Schlüssel auflöst.
  */
+import { leseNip05, loeseNip05, nip05Text } from "@freedomstack/protocol";
 import { t } from "../i18n.js";
 import { LS_EIGENE_ADRESSE, eigeneBasis, pruefeEigeneAdresse, pruefeKopie, type KopieErgebnis } from "../eigene-adresse.js";
 import { echtheitText } from "../protokoll-texte.js";
 import { TRUSTED_SIGNERS, ladeManifeste } from "../release-signierer.js";
-import { ensurePool } from "./state.js";
+import { LS_WERBE_NAME, eigenerWerbeName, merkeWerbeName } from "../werbung.js";
+import { ensurePool, state } from "./state.js";
 import { updateReferralLink } from "./tabs/earn.js";
 import { $ } from "./ui.js";
 
+const NAME_FALL = { "nicht-erreichbar": "earn.nameNichtErreichbar", "zu-gross": "earn.nameZuGross", ungueltig: "earn.nameAntwortUngueltig", unbekannt: "earn.nameUnbekannt" } as const;
 const FALL = { leer: "earn.adresseLeer", ungueltig: "earn.adresseUngueltig", "kein-https": "earn.adresseKeinHttps", zugangsdaten: "earn.adresseZugang", lokal: "earn.adresseLokal" } as const;
 
 /** Zwei Zeilen: was dort liegt, und wohin der Hosting-Anteil geht. */
@@ -68,6 +73,42 @@ export function wireEigeneAdresse(): void {
       status.replaceChildren(...ergebnisZeilen(e));
     } finally {
       pruefen.disabled = false;
+    }
+  });
+}
+
+/** Kurzer Name für den Werbelink (11.2b): gemerkt nur, was die Domain zum eigenen Schlüssel auflöst. */
+export function wireWerbeName(): void {
+  const feld = $("#werben-name") as HTMLInputElement | null;
+  const setzen = $("#werben-name-setzen") as HTMLButtonElement | null;
+  const status = $("#werben-name-status");
+  if (!feld || !setzen || !status) return;
+  const gemerkt = eigenerWerbeName(localStorage);
+  feld.value = gemerkt ? nip05Text(gemerkt) : "";
+  const melde = (text: string, klasse = "") => { status.textContent = text; status.className = `mono-sm ${klasse}`; };
+
+  setzen.addEventListener("click", async () => {
+    if (!feld.value.trim()) {
+      localStorage.removeItem(LS_WERBE_NAME);
+      melde(t("earn.nameZurueck"));
+      return updateReferralLink();
+    }
+    const k = leseNip05(feld.value);
+    if (!k) return melde(t("earn.nameUngueltig"), "err");
+    const ich = state.keypair?.pk;
+    if (!ich) return melde(t("earn.nameOhneIdentitaet"), "err");
+    setzen.disabled = true;
+    melde(t("earn.namePruefe"));
+    try {
+      const r = await loeseNip05(k);
+      if (!r.ok) return melde(t(NAME_FALL[r.fall]), "err");
+      if (r.pubkey !== ich) return melde(t("earn.nameFremd"), "err");
+      merkeWerbeName(localStorage, k, ich);
+      feld.value = nip05Text(k);
+      melde(t("earn.nameGesetzt"), "ok");
+      updateReferralLink();
+    } finally {
+      setzen.disabled = false;
     }
   });
 }
