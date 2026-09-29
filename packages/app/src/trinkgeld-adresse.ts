@@ -50,6 +50,21 @@ export function gemerkteAdresse(s: Pick<WalletSpeicher, "getItem">, empfaenger: 
 }
 
 /**
+ * Empfaenger: die eigene Adresse fuer diesen Kontakt auf dieser Kette – beim
+ * ersten Mal frisch aus dem Vorrat, danach immer dieselbe (auch fuer eine
+ * Zahlungsanforderung im Chat, A-5). undefined ohne eingebaute Wallet/Vorrat.
+ */
+export async function eigeneAdresseFuer(
+  s: WalletSpeicher, kontakt: string, kette: string, frischeAdresse: () => Promise<string | undefined>,
+): Promise<string | undefined> {
+  const da = lies(s, LS_ADRESSE_JE_KONTAKT)[kontakt]?.[kette];
+  if (typeof da === "string") return da;
+  const neu = await frischeAdresse();
+  if (neu) await schreibe(s, LS_ADRESSE_JE_KONTAKT, kontakt, kette, neu);
+  return neu;
+}
+
+/**
  * Geber: versiegelt anfragen und auf die Antwort warten. Die Antwort wird
  * gemerkt – das naechste Trinkgeld an denselben Empfaenger braucht keine
  * Anfrage mehr. undefined, wenn in `warteMs` keine kam.
@@ -96,12 +111,8 @@ export async function beantworteAdressAnfrage(p: {
   if (!a) return false;
   const jetzt = p.jetzt ?? Math.floor(Date.now() / 1000);
   if (a.kette !== p.kette || !p.istKontakt(a.von) || jetzt - a.zeit > ANFRAGE_GUELTIG_SECS) return true;
-  let adresse: string | undefined = lies(p.speicher, LS_ADRESSE_JE_KONTAKT)[a.von]?.[a.kette];
-  if (!adresse) {
-    adresse = await p.frischeAdresse();
-    if (!adresse) return true; // ohne eingebaute Wallet oder Vorrat: keine Antwort, der Geber faellt zurueck
-    await schreibe(p.speicher, LS_ADRESSE_JE_KONTAKT, a.von, a.kette, adresse);
-  }
+  const adresse = await eigeneAdresseFuer(p.speicher, a.von, a.kette, p.frischeAdresse);
+  if (!adresse) return true; // ohne eingebaute Wallet oder Vorrat: keine Antwort, der Geber faellt zurueck
   await p.sende(await buildAdressAntwort({ von: p.signer, anPk: a.von, anfrageId: a.anfrageId, adresse, kette: a.kette }), a.von);
   return true;
 }

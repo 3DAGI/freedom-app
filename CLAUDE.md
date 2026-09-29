@@ -790,3 +790,11 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   (`merkeWerbeName()`). Beim Geworbenen fragt `loeseWerberName()` die Domain
   genau einmal – sie sieht die IP (Grenze „werbe-name“ im Bericht) – und
   vergisst den Namen danach, gleich wie es ausging; nie ein zweiter Versuch.
+- **Zahlung im Chat anfordern** (seit A-5): Die Anforderung ist eine
+  gewöhnliche Direktnachricht mit `lightning:`/`solana:`-Adresse
+  (`zahlungs-anforderung.ts`) – kein eigenes Event, gesendet nur über das
+  Eingabefeld wie jede Nachricht. sats nur mit einer Rechnung der eigenen
+  Wallet (`eigeneRechnung()`), SOL nur mit der eigenen Adresse je Kontakt
+  (`eigeneAdresseFuer()`, 4.9d). Bezahlt wird nur nach `bestaetige()` über
+  `zahle(zahlschienen(), … zweck: "anforderung")`; erkannt wird nur
+  Zahlbares (`leseAnforderung()`: Betrag, lesbare Rechnung, natives SOL).
