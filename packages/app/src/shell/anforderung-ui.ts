@@ -83,17 +83,17 @@ export async function bezahleAnforderung(a: Anforderung, von: string, name: stri
     if (!w) return;
     art = w.art === "solana" ? "solana" : "lightning";
   }
-  const betragText = art === "lightning" ? ausMsat(a.lightning!.msat, kurs) : ausLamports(a.solana!.lamports, kurs);
-  if (!(await bestaetige({ titel: t("anf.bezahlenTitel", { name }), text: t("anf.bezahlenText", { betrag: betragText, name }), ok: t("anf.bezahlen") }))) return;
+  const betragAnzeige = art === "lightning" ? ausMsat(a.lightning!.msat, kurs) : ausLamports(a.solana!.lamports, kurs);
+  if (!(await bestaetige({ titel: t("anf.bezahlenTitel", { name }), text: t("anf.bezahlenText", { betrag: betragAnzeige, name }), ok: t("anf.bezahlen") }))) return;
   try {
     if (art === "lightning") {
       await zahle(zahlschienen(), { ziel: a.lightning!.rechnung, betrag: { einheit: "msat", wert: a.lightning!.msat }, zweck: "anforderung" });
-      toast(t("anf.bezahlt", { betrag: betragText }));
+      toast(t("anf.bezahlt", { betrag: betragAnzeige }));
       return;
     }
     const s = a.solana!;
     const beleg = await zahle(zahlschienen(), { ziel: s.adresse, betrag: { einheit: "lamports", wert: s.lamports }, zweck: "anforderung" });
-    toast(t("anf.bezahlt", { betrag: betragText }));
+    toast(t("anf.bezahlt", { betrag: betragAnzeige }));
     // Beleg an den Anfordernden (4.7): versiegelt – scheitert er, ist das Geld trotzdem unterwegs
     try {
       const [{ sendeTrinkgeldBeleg }, { ketteAusRpc }] = await Promise.all([import("../trinkgeld-beleg.js"), import("../wallet-standard.js")]);
