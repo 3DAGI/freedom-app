@@ -12067,3 +12067,8 @@ Chat, Code aus den Schlüsseln der Personen, gemerkt erst nach dem Vergleich).
 **Verdrahtet:** `packages/app/src/shell/app.ts` (`#chat-pruefen` →
 `pruefeKontakt()`), `packages/app/src/shell/tabs/kommunikation.ts`
 (`openConversation()` → `pruefStand()`).
+
+Endstand (B-4, 29.09.): protocol 1131 (+4, 6 übersprungen) · node 271 (7
+übersprungen ohne Netz – mit Netz 272) · app 675 (+4) · mls 13 · Leak-Tests 68
+grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0
+· Website ok · Smoke-Test bestanden. Knoten-Stand: unverändert.
