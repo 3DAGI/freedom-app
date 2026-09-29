@@ -12121,3 +12121,53 @@ Endstand (B-6, 29.09.): protocol 1131 (6 übersprungen) · node 271 (7
 übersprungen ohne Netz – mit Netz 272) · app 681 (+6) · mls 13 · Leak-Tests 68
 grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0
 · Website ok · Smoke-Test bestanden. Knoten-Stand: unverändert.
+
+## Schritt B-5 – Zusammenführen statt Überschreiben
+
+Aus der Sammlung (`docs/neuordnung/SAMMLUNG.md`, B-5). Bis hier überschrieb
+das Wiederherstellen einer Zustandssicherung (8.12) alles auf dem Gerät – was
+seit der Sicherung dazukam (eine neue Unterhaltung, ein vergebener Name, ein
+abonnierter Katalog), war weg. Seit B-6 gilt dasselbe für das Einlesen eines
+Exports.
+
+**App (`zustand-zusammenfuehren.ts`, ohne DOM):** `fuehreZusammen(sicherung,
+lese)` liefert die zu schreibenden Werte und einen Bericht (`erhalten`,
+`konflikte`):
+- Unterhaltungen (`freedom.chats`): je Kennung die zuletzt aktive Fassung,
+  sortiert nach Zeit; was nur hier stand, bleibt;
+- Räume (`freedom.spaces`) und Kataloge (`freedom.kataloge`, höchstens 20):
+  vereinigt, die Sicherung zuerst;
+- Lesestände (`freedom.lastRead`) und geprüfte Kontakte
+  (`freedom.kontakte.geprueft`): je Eintrag das Späteste;
+- Mandate (`freedom.mandate`): je Kontakt das zuerst gesehene (Regel 8.6a) –
+  auch wenn es hier steht;
+- eigene Namen (`freedom.petnames`): beide Seiten; verschieden → der
+  eingelesene, gezählt als Konflikt;
+- Einzelwerte (Sprache, Profil, Einstellungen): wie bisher aus der Sicherung;
+  Unlesbares auf einer Seite → die Sicherung.
+`merge.ts` (Mengen mit Zeitstempeln) bleibt unverdrahtet: Die gespeicherten
+Daten tragen keine Zeit je Feld – die Begründung in `wiring-ausnahmen.txt`
+sagt das jetzt.
+
+**Settings:** `stelleZustandWieder()` und `leseExportDatei()` führen zusammen
+und fragen vorher über `bestaetige()` (statt `confirm()`), mit dem Bericht
+(„{n} Einträge von diesem Gerät bleiben erhalten“, „{n} Namen … verschieden“).
+Die Texte sagen „zusammengeführt“ statt „überschrieben“ (`set.zusammenfuehren`
+ersetzt `set.ueberschreibenFrage`; `set.einlesenFrage` ohne „überschrieben“).
+
+**Tests (+7, `app/test/zustand-zusammenfuehren.test.ts`):** Unterhaltungen
+(beide Seiten, je Kennung die zuletzt aktive); Räume und Kataloge vereinigt,
+Kataloge höchstens 20; Lesestände und geprüfte Kontakte je Eintrag das
+Späteste; Mandate das zuerst gesehene; Namen beide Seiten, Konflikt gezählt;
+Einzelwerte aus der Sicherung, Unlesbares fällt auf sie zurück; verdrahtet
+(Wiederherstellen und Einlesen führen zusammen, erst nach Rückfrage, kein
+`confirm()`).
+
+**Verdrahtet:** `packages/app/src/shell/tabs/settings.ts` –
+`stelleZustandWieder()` und `leseExportDatei()` → `fuehreZusammen()`.
+
+Endstand (B-5, 29.09.): protocol 1131 (6 übersprungen) · node 271 (7
+übersprungen ohne Netz – mit Netz 272) · app 688 (+7) · mls 13 · Leak-Tests 68
+grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 (Begründung für
+`merge.ts` neu) · innerHTML streng Exit 0 · Website ok · Smoke-Test bestanden.
+Knoten-Stand: unverändert.

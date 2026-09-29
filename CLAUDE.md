@@ -45,9 +45,9 @@ bash packages/mls/bauen.sh --pruefen                     # nur bei Änderungen a
 bash contracts/solana-channel/pruefen.sh --werkzeuge     # nur bei Änderungen am Zahlkanal: bauen + Tests gegen Validator (Agave 3.1.10)
 ```
 
-Stand 29.09.2026 (nach 8.2c, 5.5a–c, 8.15, 11.1a, C.3c2, 11.1b, 5.9a–b, 6.3a–b2, 11.4a–b2, C.4a–b, C.5a–b, C.6b, 11.4c, C-18, C-17a–c, C-20a–b, 11.2a–b, A-4, A-6, B-1, B-3, B-4 und B-6): protocol 1131 grün (6 übersprungen), node 272 grün
+Stand 29.09.2026 (nach 8.2c, 5.5a–c, 8.15, 11.1a, C.3c2, 11.1b, 5.9a–b, 6.3a–b2, 11.4a–b2, C.4a–b, C.5a–b, C.6b, 11.4c, C-18, C-17a–c, C-20a–b, 11.2a–b, A-4, A-6, B-1, B-3, B-4, B-6 und B-5): protocol 1131 grün (6 übersprungen), node 272 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 681 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 68 grün + 1 `todo` (heutige Lecks,
+in `tools.test.ts`), app 688 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 68 grün + 1 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
 Ausnahme: gesendete SOL-Zahlungen von frischen Adressen, eine bewusste Grenze
 nach Entscheidung 4.9 A – im Datenschutzbericht unter „Bewusste Grenzen“).
@@ -363,6 +363,10 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   `filtereWiederherstellung()`; nie Schlüssel, Zugänge, Geld-Geheimnisse,
   Anteile oder Gruppenschlüssel (`SICHERUNG_NIE`). Neue Einträge, die ein neues
   Gerät braucht, dort eintragen – und ob sie im Tresor liegen (`istGeheimnis()`).
+  Geschrieben wird seit B-5 nur zusammengeführt (`fuehreZusammen()`,
+  `zustand-zusammenfuehren.ts`), erst nach `bestaetige()`: Ein neuer Eintrag,
+  der eine Sammlung ist (Liste, Karte je Kontakt), braucht dort eine Regel –
+  sonst gilt der eingelesene Wert, und was nur auf dem Gerät stand, ist weg.
 - **Speicherknoten nur verschlüsselt** (seit 8.9a): Wer ins Blob-Netz lädt,
   was Knoten halten sollen, baut mit `buildBlob(…, { verschluesselt: true })`
   und lädt nur Chiffrat hoch; Knoten nehmen Stücke nur über `nimmAuf()` →
