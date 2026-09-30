@@ -12211,6 +12211,14 @@ den neuen Commit, der Fokus bleibt auf der Auswahl, die Adresse unverändert;
 Keine Bilder: Die Auswahl erscheint nur mit geladenem Bundle, das die
 Bilder-Probe nicht hat – der Smoke-Test prüft sie.
 
+Nach dem Einmergen von `main` war in der CI eine ältere Prüfung rot (C.3b,
+Status eines Patches): Nach „wieder öffnen“ stand noch „Entwurf“ – gesendet
+waren beide Status, nur war die Seite nach der festen Pause von 600 ms noch
+nicht neu geladen (lokal grün, der Runner ist langsamer). Die Prüfung wartet
+jetzt, bis sich die Knöpfe ändern (höchstens 10 s), und zwischen den beiden
+Wechseln liegt eine Sekunde (Status zählen nach Sekunden). Lokal unter Last
+(zwei von vier Kernen belegt) grün.
+
 Endstand (nach dem Einmergen von `main` mit 11.2a–b, A-4, A-6, B-1, B-3 bis
 B-6): protocol 1131 (6 übersprungen) · node 272 (6 übersprungen, mit Internet)
 · app 690 (+2) · mls 13 · Leak-Tests 68 grün + 1 todo · 0 rot ·

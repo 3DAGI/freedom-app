@@ -1453,19 +1453,28 @@ def raum_pruefen(browser, url: str) -> dict:
             vorschau["liste"] = ev("() => [...document.querySelectorAll('#repo-seite .repo-patch-betreff')].map(b => b.textContent)")
         # Seit C.3b2: als Entwurf (mit Begründung), dann wieder öffnen; Schließen ist rot und lässt sich abbrechen
         def aktion(text: str, notiz: str | None) -> list:
+            knoepfe_js = "() => [...document.querySelectorAll('#repo-seite .repo-patch-status button')].map(b => b.textContent).join('|')"
+            vorher_knoepfe = ev(knoepfe_js)
             ev(f"() => [...document.querySelectorAll('#repo-seite .repo-patch-status button')].find(b => b.textContent === '{text}')?.click()")
             s.wait_for_timeout(200)
             gefahr = ev("() => !!document.querySelector('[role=dialog] .dlg-gefahr')")
             if notiz is None:
                 s.keyboard.press("Escape")
+                s.wait_for_timeout(600)
             else:
                 s.keyboard.type(notiz)
                 s.keyboard.press("Control+Enter")
-            s.wait_for_timeout(600)
+                # Gesendet wird, dann neu geladen – auf die neuen Knöpfe warten statt einer festen Pause (die CI ist langsamer)
+                try:
+                    s.wait_for_function(f"(vorher) => ({knoepfe_js})() !== vorher", arg=vorher_knoepfe, timeout=10000)
+                except Exception:
+                    pass
             knoepfe = ev("() => [...document.querySelectorAll('#repo-seite .repo-patch-status button')].map(b => b.textContent)")
             return [gefahr, knoepfe]
         vorher_status = len(relay.gesendet)
-        ablauf = [aktion("als Entwurf", "Noch nicht fertig"), aktion("schließen", None), aktion("wieder öffnen", "Jetzt fertig")]
+        ablauf = [aktion("als Entwurf", "Noch nicht fertig"), aktion("schließen", None)]
+        s.wait_for_timeout(1100)  # Status zählen nach Sekunden – zwei Wechsel nie in derselben Sekunde
+        ablauf.append(aktion("wieder öffnen", "Jetzt fertig"))
         neu_status = [[e["kind"], e["content"]] for e in relay.gesendet[vorher_status:] if e.get("kind") in (1630, 1631, 1632, 1633)]
         vorschau["status"] = {"ablauf": ablauf, "gesendet": [list(x) for x in dict.fromkeys(tuple(x) for x in neu_status)]}
         erg[groesse]["patch_vorschau"] = vorschau
