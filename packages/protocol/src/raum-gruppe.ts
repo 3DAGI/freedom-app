@@ -113,7 +113,12 @@ export interface GruppenRaum {
   nachrichten: NostrEvent[];
   /** Verworfenes mit Grund (Definition oder Rollen nicht von einem Admin, …). */
   verworfen: { id: string; grund: string }[];
+  /** Gelöschte Nachrichten, Umfragen und Termine (B-15a) – `raumUmfragen()`/`raumTermine()` lassen sie weg. */
+  geloescht: ReadonlySet<string>;
 }
+
+/** Was gelöscht werden kann: Nachrichten, seit B-15a auch Umfragen (1068) und Termine (31922/31923). */
+const LOESCHBAR = new Set([ART_RAUM_CHAT, 1068, 31922, 31923]);
 
 /**
  * Den Raum aus den inneren Events bauen. `admins`: heutige Admins der Gruppe
@@ -172,7 +177,7 @@ export function gruppenRaum(raumId: string, ereignisse: readonly InneresEvent[],
   for (const pk of p.admins) zustand.grants.set(pk, alleRollen);
 
   // Löschungen: Admin (beim Senden) jede Nachricht, sonst nur die eigene
-  const autorVon = new Map(ereignisse.filter((e) => e.art === ART_RAUM_CHAT).map((e) => [e.id, e.von]));
+  const autorVon = new Map(ereignisse.filter((e) => LOESCHBAR.has(e.art)).map((e) => [e.id, e.von]));
   const geloescht = new Set<string>();
   for (const e of ereignisse) {
     const ziel = tag(e, "e");
@@ -195,7 +200,7 @@ export function gruppenRaum(raumId: string, ereignisse: readonly InneresEvent[],
     }
     nachrichten.push(alsEvent(e, KIND_CHANNEL_MESSAGE, [["space", raumId], ...e.tags.filter((t) => t[0] !== "space")]));
   }
-  return { zustand, nachrichten, verworfen };
+  return { zustand, nachrichten, verworfen, geloescht };
 }
 
 // ------------------------------------------------------------ Meldungen (8.5)

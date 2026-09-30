@@ -113,3 +113,4 @@ export * from "./kommentar.js";
 export * from "./raum-repo.js";
 export * from "./ki-lokal.js";
 export * from "./sicherheitscode.js";
+export * from "./raum-planung.js";

@@ -492,3 +492,40 @@ Events der MLS-Gruppe (`raumRepoIssue()`, `raumRepoIssueStatus()`,
 Kommentars sind die Ids der inneren Events. `raumReposPrivat()` liefert sie als
 `issues` und `kommentare`. Die Leak-Regel `raum-repo-privat` weist offene
 Issues zum Repo und offene Kommentare zu inneren Issues und Patches ab.
+
+## 20. Umfragen und Termine in privaten Räumen (NIP-88, NIP-52, seit B-15a)
+
+Standard-Events anderer Clients, kein eigenes Format – aber nur als innere
+Events der MLS-Gruppe (`raum-planung.ts`), jeweils mit `["space", <raum>]` vorn;
+Relays sehen Kind 445. Bezüge sind die Ids der inneren Events, wer schrieb,
+belegt MLS.
+
+**Umfrage** (Kind 1068, NIP-88, `raumUmfrage()`): Inhalt ist die Frage
+(höchstens 500 Zeichen).
+
+| Tag | Inhalt |
+|---|---|
+| `h` | Kanal |
+| `option` | `<id>`, `<text>` – 2 bis 20 Antworten, je höchstens 100 Zeichen, Ids „0“, „1“, … |
+| `polltype` | `singlechoice` oder `multiplechoice` |
+| `endsAt` | optional: Ende als Unix-Zeit |
+
+**Stimme** (Kind 1018, `raumStimme()`): `e` = Id der Umfrage, je gewählter
+Antwort `["response", <id>]`. Es zählt je Mitglied die letzte Stimme vor
+`endsAt`; bei einfacher Wahl nur die erste bekannte Antwort, unbekannte fallen
+weg (`raumUmfragen()`).
+
+**Termin** (NIP-52, `raumTermin()`): Kind 31923 mit Uhrzeit (`start`, `end`
+als Unix-Zeit, optional `start_tzid`) oder Kind 31922 ganztägig (`start`,
+`end` als JJJJ-MM-TT); dazu `h` (Kanal), `d` (zufällig, 32 Hex-Zeichen),
+`title` (Pflicht, höchstens 200 Zeichen), optional `location` (200); die
+Beschreibung als Inhalt (2.000). `end` liegt nie vor `start`.
+
+**Antwort** (Kind 31925, `raumTerminAntwort()`): `e` = Id des Termins,
+`a` = `<art>:<autor>:<d>`, `d` (zufällig), `status` = `accepted`, `declined`
+oder `tentative`. Es zählt je Mitglied die letzte (`raumTermine()`).
+
+Umfrage und Termin zählen nur von jemandem, der in den Kanal schreiben darf
+(wie Nachrichten, `canWriteTo()`). Löschen wie bei Nachrichten: Kind 5 vom
+Autor, 4891 von einem Admin (`gruppenRaum()` nennt Gelöschtes seit B-15a in
+`geloescht`).

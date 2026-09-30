@@ -12348,6 +12348,47 @@ gleich): `dialog.test.ts` (gesperrt wird der Absender – jetzt mit `kennung`)
 und `leak/raum.test.ts` (offene Nachricht mit der Kennung des Raums).
 Knoten-Stand: unverändert.
 
+## Schritt B-15a – Umfragen und Termine in privaten Räumen: Protokoll
+
+Aus der Sammlung (`docs/neuordnung/SAMMLUNG.md`, B-15), entschieden 30.09.2026
+(MENSCH, R1 A). Aufgeteilt: a Protokoll (dieser Schritt), b Oberfläche.
+
+**Protokoll (`raum-planung.ts`):** Standard-Events anderer Clients, nur als
+innere Events der MLS-Gruppe, mit `["space", <raum>]` vorn:
+- Umfrage nach NIP-88 (Kind 1068, `raumUmfrage()`): Frage als Inhalt, 2–20
+  Antworten (`option`, Ids „0“ …), `polltype` einfach/mehrfach, optional
+  `endsAt`; Stimme (1018, `raumStimme()`) mit `e` und `response`;
+- Termin nach NIP-52 (`raumTermin()`): 31923 mit Uhrzeit (Unix-Zeit,
+  `start_tzid`) oder 31922 ganztägig (JJJJ-MM-TT), `d` zufällig, `title`,
+  `location`, Beschreibung als Inhalt; Antwort (31925, `raumTerminAntwort()`)
+  mit `e`, `a` und `status` (zugesagt, abgesagt, vielleicht).
+Gebaut mit festen Grenzen (`PLANUNG_GRENZEN`), Fehler als `ProtokollFehler`
+„planung-ungueltig“ (Text `pf.planungUngueltig` in der App). Ausgewertet
+streng (`raumUmfragen()`, `raumTermine()`): Umfrage und Termin nur von
+jemandem mit Schreibrecht im Kanal (`canWriteTo()`), je Mitglied die letzte
+Stimme bzw. Antwort, Stimmen nur bis `endsAt`, bei einfacher Wahl nur die
+erste bekannte Antwort, kaputte Events (Datum, Ende vor Beginn, doppelte
+Antworten) fallen weg. `gruppenRaum()` löscht seit B-15a auch Umfragen und
+Termine (5 vom Autor, 4891 vom Admin) und nennt Gelöschtes (`geloescht`).
+Format in `docs/PROTOCOL.md` Abschnitt 20.
+
+**Tests (+6, `protocol/test/raum-planung.test.ts`):** Umfrage bauen (Tags,
+Grenzen, Stimme); auswerten (letzte Stimme, einfache Wahl, nach dem Ende,
+unbekannte Antwort, meine Wahl); streng gelesen (Schreibrecht im Kanal,
+fremder Raum, kaputte Antworten, gelöscht vom Autor und vom Admin, nicht von
+anderen); Termin bauen (mit Uhrzeit, ganztägig, Grenzen, Zeitzone); Termin
+auswerten (Zu- und Absagen je Mitglied, nach Beginn sortiert, kaputte fallen
+weg, gelöscht); `gruppenRaum()` nennt Gelöschtes.
+
+**Verdrahtet:** noch nicht in der Oberfläche – das ist B-15b. Die Bausteine
+stehen in `scripts/wiring-ausnahmen.txt` mit Verweis auf B-15b.
+
+Endstand (B-15a, 30.09.): protocol 1139 (+6, 6 übersprungen) · node 271 (7
+übersprungen ohne Netz – mit Netz 272) · app 702 · mls 13 · Leak-Tests 68 grün
++ 1 todo · 0 rot · check-wiring `--streng` Exit 0 (sechs Ausnahmen mit Verweis
+auf B-15b) · innerHTML streng Exit 0 · Website ok · Smoke-Test bestanden.
+Knoten-Stand: unverändert.
+
 
 ## Schritt C-20c – Zweig oder Tag wählen
 
@@ -12397,7 +12438,7 @@ Wechseln liegt eine Sekunde (Status zählen nach Sekunden). Lokal unter Last
 (zwei von vier Kernen belegt) grün.
 
 Endstand (nach dem Einmergen von `main` mit 11.2a–b, A-4 bis A-7, B-1, B-3
-bis B-7): protocol 1133 (6 übersprungen) · node 272 (6 übersprungen, mit
+bis B-7, B-15a): protocol 1139 (6 übersprungen) · node 272 (6 übersprungen, mit
 Internet) · app 704 (+2) · mls 13 · Leak-Tests 68 grün + 1 todo · 0 rot ·
 check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 (keine neue
 Ausnahme) · Website ok · Smoke-Test bestanden (mit den neuen Prüfungen) ·
