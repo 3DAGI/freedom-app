@@ -45,9 +45,9 @@ bash packages/mls/bauen.sh --pruefen                     # nur bei Änderungen a
 bash contracts/solana-channel/pruefen.sh --werkzeuge     # nur bei Änderungen am Zahlkanal: bauen + Tests gegen Validator (Agave 3.1.10)
 ```
 
-Stand 30.09.2026 (nach 8.2c, 5.5a–c, 8.15, 11.1a, C.3c2, 11.1b, 5.9a–b, 6.3a–b2, 11.4a–b2, C.4a–b, C.5a–b, C.6b, 11.4c, C-18, C-17a–c, C-20a–b, 11.2a–b, A-4 bis A-7, B-1, B-3 bis B-7 und B-15): protocol 1139 grün (6 übersprungen), node 272 grün
+Stand 30.09.2026 (nach 8.2c, 5.5a–c, 8.15, 11.1a, C.3c2, 11.1b, 5.9a–b, 6.3a–b2, 11.4a–b2, C.4a–b, C.5a–b, C.6b, 11.4c, C-18, C-17a–c, C-20a–b, 11.2a–b, A-4 bis A-7, B-1, B-3 bis B-7, B-15 und B-19): protocol 1140 grün (6 übersprungen), node 272 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 707 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 68 grün + 1 `todo` (heutige Lecks,
+in `tools.test.ts`), app 708 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 68 grün + 1 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
 Ausnahme: gesendete SOL-Zahlungen von frischen Adressen, eine bewusste Grenze
 nach Entscheidung 4.9 A – im Datenschutzbericht unter „Bewusste Grenzen“).
@@ -857,6 +857,10 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   Definition, gleich von wem). Eine bloße Kennung bindet die App nur, wenn
   `gruenderZurKennung()` eindeutig ist (`bindeKennung()`). Tags (`space`)
   tragen weiter die Kennung (`offeneKennung()`), nie die Adresse.
+  Ausblenden und Sperren (34551/34552) im offenen Raum zählen seit B-19 nur
+  über `raumModeration()` (Recht „moderieren“, nur gegen Niedrigere, den
+  Gründer trifft keine Maßnahme eines anderen) – nie über die Liste 34550 der
+  Communities; die Lücke bleibt sichtbar, „anzeigen“ nur für die Sitzung.
 - **Umfragen und Termine nur in der Gruppe** (seit B-15a, `raum-planung.ts`):
   NIP-88 (1068/1018) und NIP-52 (31922/31923/31925) nur als innere Events
   privater Räume über `raumUmfrage()`, `raumStimme()`, `raumTermin()`,

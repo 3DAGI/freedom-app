@@ -7,7 +7,7 @@
  * Dialoge (`shell/dialog.ts`) statt `prompt()`, `confirm()` und `alert()`.
  */
 import {
-  MELDE_GRUENDE, RAUM_REPO_RECHT, can as darf, gruenderZurKennung, leseRaumAdresse, raumAdresse, raumZustandFuer, type Channel, type ChannelMessage, type MeldeGrund, type Space, type SpaceState, type ThreadView,
+  MELDE_GRUENDE, RAUM_REPO_RECHT, applyModeration, can as darf, gruenderZurKennung, leseRaumAdresse, raumAdresse, raumModeration, raumZustandFuer, type Channel, type ChannelMessage, type MeldeGrund, type Space, type SpaceState, type ThreadView,
 } from "@freedomstack/protocol";
 import { escapeHtml, pkShort } from "../../shell-logic.js";
 import { ensurePool, signiere, state } from "../state.js";
@@ -44,10 +44,15 @@ interface SpaceUiState {
   verlauf: VerlaufKontext | null;
   /** Offener Thread (C.2c): oberste Nachricht und die, der geantwortet wird. Nur im Speicher. */
   thread: { root: string; ziel: string } | null;
+  /** Ausblenden und Sperren im offenen Raum (34551/34552, B-19) – ausgewertet in `raumModeration()`. */
+  massnahmen: unknown[];
+  /** Ausgeblendetes trotzdem zeigen (B-19) – nur für diese Sitzung, je Raum. */
+  alleZeigen: Set<string>;
 }
 
 const spacesUi: SpaceUiState = {
   spaceId: null, channelId: null, state: null, messages: [], lastRead: new Map(), privat: null, verlauf: null, thread: null,
+  massnahmen: [], alleZeigen: new Set(),
 };
 
 function ladeLesestand(): void {
@@ -118,6 +123,7 @@ async function oeffneRaum(spaceId: string): Promise<void> {
     spacesUi.state = null;
     spacesUi.privat = null;
     spacesUi.messages = [];
+    spacesUi.massnahmen = [];
     document.querySelector(".comm-space-inner")?.classList.remove("mitglieder-offen");
   }
   spacesUi.spaceId = spaceId;
@@ -153,13 +159,16 @@ async function oeffneRaum(spaceId: string): Promise<void> {
     $("#space-name").textContent = t("komm.raumNichtGefunden");
     return;
   }
-  const { KIND_SPACE, KIND_SPACE_ROLES, KIND_ROLE_GRANT, KIND_CHANNEL_MESSAGE } = await import("@freedomstack/protocol");
+  const { KIND_SPACE, KIND_SPACE_ROLES, KIND_ROLE_GRANT, KIND_CHANNEL_MESSAGE, KIND_MODERATION_HIDE, KIND_MODERATION_BAN } = await import("@freedomstack/protocol");
   try {
     const pool = await ensurePool();
-    const [struktur, nachrichten] = await Promise.all([
+    const [struktur, nachrichten, massnahmen] = await Promise.all([
       pool.query({ kinds: [KIND_SPACE, KIND_SPACE_ROLES, KIND_ROLE_GRANT], "#space": [kennung], limit: 500 }),
       pool.query({ kinds: [KIND_CHANNEL_MESSAGE], "#space": [kennung], limit: 1000 }),
+      // Ausblenden und Sperren (B-19) – gelten nur von Moderatoren des Raums, siehe raumModeration()
+      pool.query({ kinds: [KIND_MODERATION_HIDE, KIND_MODERATION_BAN], "#h": [kennung], limit: 500 }),
     ]);
+    spacesUi.massnahmen = massnahmen;
     let adresse = istAdresse(spaceId) ? spaceId : null;
     if (!adresse) {
       // Bloße Kennung (vor B-7 oder beim Beitreten): nur binden, wenn der Gründer eindeutig ist
@@ -184,7 +193,10 @@ async function oeffneRaum(spaceId: string): Promise<void> {
   }
   zeigeRaumArt(spacesUi.spaceId ?? spaceId);
   void zeigeRaumLeiste();
+  const offen = spacesUi.channelId;
   await zeigeKanalliste();
+  // Offenen Kanal neu zeichnen (B-19: nach Ausblenden oder Neuladen) – wie im privaten Raum; beim ersten Öffnen zeichnet die Kanalliste
+  if (offen && spacesUi.channelId === offen) await oeffneKanal(offen);
 }
 
 /**
@@ -369,7 +381,11 @@ async function oeffneKanal(channelId: string): Promise<void> {
     pInfo.title = kanalVertraulichkeit(kanal);
   }
 
-  const { topLevel, threads } = buildThreads(spacesUi.messages as never[], kanal as never, st);
+  // Offen (B-19): was Moderatoren ausgeblendet oder deren Absender sie gesperrt haben, fehlt im Verlauf –
+  // eine Zeile nennt die Zahl, „anzeigen“ zeigt alles (nur für diese Sitzung). Privat löschen Moderatoren.
+  const nachrichten = spacesUi.privat ? spacesUi.messages : sichtbareNachrichten(st);
+  if (spacesUi.privat) document.getElementById("kanal-moderation")?.classList.add("hidden");
+  const { topLevel, threads } = buildThreads(nachrichten as never[], kanal as never, st);
   const darf = state.keypair ? canWriteTo(state.keypair.pk, kanal as never, st) : false;
   const alle = new Map([...topLevel, ...[...threads.values()].flatMap((f) => f.replies)].map((m) => [m.id, m]));
   spacesUi.verlauf = { threads, alle, darfModerieren, darfSchreiben: darf, imThread: false };
@@ -400,6 +416,29 @@ async function oeffneKanal(channelId: string): Promise<void> {
   merkeLesestand(channelId);
   void zeigeMitglieder();
   void zeigeKanalliste();
+}
+
+/** Nachrichten des offenen Raums ohne Ausgeblendetes (B-19) – dazu die Zeile mit der Zahl über dem Verlauf. */
+function sichtbareNachrichten(st: SpaceState): unknown[] {
+  const zeile = document.getElementById("kanal-moderation");
+  const mod = raumModeration(st, spacesUi.massnahmen as never[], spacesUi.messages as never[]);
+  const markiert = applyModeration(spacesUi.messages as never[], mod, { enabled: true });
+  const weg = markiert.filter((m) => m.hidden).length;
+  const alle = !!spacesUi.spaceId && spacesUi.alleZeigen.has(spacesUi.spaceId);
+  if (zeile) {
+    zeile.classList.toggle("hidden", weg === 0);
+    zeile.replaceChildren();
+    if (weg > 0) {
+      zeile.append(el("span", t(alle ? "raum.modAlleSichtbar" : "raum.modAusgeblendet", { n: weg })));
+      zeile.append(knopf(t(alle ? "raum.modWiederAusblenden" : "raum.modAnzeigen"), "mod-umschalten", () => {
+        if (!spacesUi.spaceId) return;
+        if (alle) spacesUi.alleZeigen.delete(spacesUi.spaceId);
+        else spacesUi.alleZeigen.add(spacesUi.spaceId);
+        if (spacesUi.channelId) void oeffneKanal(spacesUi.channelId);
+      }));
+    }
+  }
+  return alle ? spacesUi.messages : markiert.filter((m) => !m.hidden).map((m) => m.event);
 }
 
 /** Nach Abstimmen, Zusagen oder Anlegen (B-15b): den offenen Raum neu laden – er zeichnet den Kanal neu. */

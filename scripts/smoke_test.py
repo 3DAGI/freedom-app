@@ -1174,6 +1174,25 @@ def raum_pruefen(browser, url: str) -> dict:
             erg["desktop"]["uebernahme"] = uebernahme
             if len(gemerkt) != 1 or not gemerkt[0].startswith("34700:") or uebernommen or uebernahme["name"] != "Probe-Raum":
                 erg["fehler"].append(f"desktop: Übernahme eines offenen Raums {uebernahme}")
+            # Seit B-19: Ausgeblendetes fehlt im Verlauf, eine Zeile nennt die Zahl, „anzeigen“ zeigt es wieder
+            relay.events.append(probe["ausblendung"])
+            ev("() => document.querySelector('#space-rail .space-pill[data-space=\"probe-raum\"]')?.click()")
+            try:
+                s.wait_for_function("() => !document.getElementById('kanal-moderation')?.classList.contains('hidden')", timeout=10000)
+            except Exception:
+                pass
+            im_verlauf = "() => document.getElementById('channel-thread').textContent.includes('Guten Morgen')"
+            moderation = {"zeile": ev("() => document.getElementById('kanal-moderation')?.textContent"), "verlauf": ev(im_verlauf)}
+            ev("() => document.querySelector('#kanal-moderation .mod-umschalten')?.click()")
+            try:
+                s.wait_for_function(im_verlauf, timeout=5000)
+            except Exception:
+                pass
+            moderation["angezeigt"] = [ev("() => document.getElementById('kanal-moderation')?.textContent"), ev(im_verlauf)]
+            erg["desktop"]["moderation"] = moderation
+            if moderation != {"zeile": "🛡 1 Nachricht(en) von Moderatoren ausgeblendetanzeigen", "verlauf": False,
+                              "angezeigt": ["🛡 1 ausgeblendete Nachricht(en) werden gezeigtwieder ausblenden", True]}:
+                erg["fehler"].append(f"desktop: Moderation im offenen Raum {moderation}")
         # Raum-Repos (11.4c): im Probe-Raum die Liste seiner Repos, ohne „Repo anlegen“ (meine Rolle hat das Recht nicht);
         # ein Klick öffnet die Repo-Seite mit dem Raum, „Zum Raum“ führt zurück, der Fokus steht auf dem Repo
         if not mobil:

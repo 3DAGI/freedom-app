@@ -62,6 +62,11 @@ export const raeume: Texte = {
     de: "Verschlüsselt (MLS): Nur Mitglieder können mitlesen – alle Kanäle des Raums.\n\nGrenze: Wer entfernt wird, behält den Schlüssel für alles, was er vorher\ngesehen hat. Das Entfernen wechselt den Schlüssel – danach liest er nichts\nmehr. Neue Mitglieder lesen nur, was nach ihrem Eintritt kommt.",
     en: "Encrypted (MLS): only members can read along – all channels of the room.\n\nLimit: whoever is removed keeps the key for everything they saw before. Removing changes the key – after that they read nothing more. New members only read what comes after they joined.",
   },
+  // B-19: Moderation in offenen Räumen
+  "raum.modAusgeblendet": { de: "🛡 {n} Nachricht(en) von Moderatoren ausgeblendet", en: "🛡 {n} message(s) hidden by moderators" },
+  "raum.modAlleSichtbar": { de: "🛡 {n} ausgeblendete Nachricht(en) werden gezeigt", en: "🛡 {n} hidden message(s) are shown" },
+  "raum.modAnzeigen": { de: "anzeigen", en: "show" },
+  "raum.modWiederAusblenden": { de: "wieder ausblenden", en: "hide again" },
   // B-15b: Umfragen und Termine in privaten Räumen
   "raum.planung": { de: "Umfragen und Termine", en: "Polls and events" },
   "raum.umfrageKnopf": { de: "Umfrage anlegen", en: "Create poll" },
