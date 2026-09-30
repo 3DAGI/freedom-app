@@ -857,3 +857,9 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   Definition, gleich von wem). Eine bloße Kennung bindet die App nur, wenn
   `gruenderZurKennung()` eindeutig ist (`bindeKennung()`). Tags (`space`)
   tragen weiter die Kennung (`offeneKennung()`), nie die Adresse.
+- **Umfragen und Termine nur in der Gruppe** (seit B-15a, `raum-planung.ts`):
+  NIP-88 (1068/1018) und NIP-52 (31922/31923/31925) nur als innere Events
+  privater Räume über `raumUmfrage()`, `raumStimme()`, `raumTermin()`,
+  `raumTerminAntwort()` – nie offen veröffentlichen; ausgewertet nur über
+  `raumUmfragen()`/`raumTermine()` mit dem `GruppenRaum` (Schreibrecht im Kanal,
+  je Mitglied die letzte Stimme, `geloescht`). Bezüge sind Ids innerer Events.
