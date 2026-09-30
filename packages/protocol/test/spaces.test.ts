@@ -277,3 +277,44 @@ test("B-7: Gründer zur bloßen Kennung – eindeutig, eigener Schlüssel, mehrd
   assert.deepEqual(gruenderZurKennung(S, [...basis(), rollenEv(FREMD), grant(FREMD, FREMD.pk, ["mod"]), kaputt]), { besitzer: BESITZER.pk });
   assert.deepEqual(gruenderZurKennung(S, []), { fall: "keiner" });
 });
+
+// ------------------------------------------------------------- Moderation offener Räume (B-19)
+
+test("B-19: Ausblenden und Sperren nur mit „moderieren“ und nur gegen Niedrigere", async () => {
+  const { raumModeration } = await import("../src/spaces.js");
+  const { buildHide, buildBan, applyModeration } = await import("../src/moderation.js");
+  const MOD2 = generateKeypair();
+  const st = buildSpaceState(S, [...basis(), grant(BESITZER, MOD2.pk, ["mod"])]);
+  const nachricht = (kp: typeof BESITZER, text: string, at = NOW + 100) =>
+    signEvent(buildChannelMessage({ authorPubkey: kp.pk, spaceId: S, channelId: "allgemein", content: text, mentions: [] }, at), kp.sk);
+  const vomMitglied = nachricht(MITGLIED, "Werbung");
+  const vomBesitzer = nachricht(BESITZER, "Regeln");
+  const vonMod2 = nachricht(MOD2, "Ich bin auch Moderator");
+  const vomFremden = nachricht(FREMD, "Hallo");
+  const nachrichten = [vomMitglied, vomBesitzer, vonMod2, vomFremden];
+  const mass = (kp: typeof BESITZER, u: ReturnType<typeof buildHide>, at: number) => signEvent({ ...u, created_at: at }, kp.sk);
+  const massnahmen = [
+    mass(MOD, buildHide(S, MOD.pk, vomMitglied.id, "Werbung"), NOW + 200),        // zählt
+    mass(MOD, buildBan(S, MOD.pk, FREMD.pk, "Spam"), NOW + 201),                  // zählt: ohne Rolle unter dem Mod
+    mass(MOD, buildHide(S, MOD.pk, vomBesitzer.id, "weg damit"), NOW + 202),      // Gründer: nie
+    mass(MOD, buildBan(S, MOD.pk, BESITZER.pk, "Putsch"), NOW + 203),             // Gründer: nie
+    mass(MOD, buildBan(S, MOD.pk, MOD2.pk, "gleicher Rang"), NOW + 204),          // gleicher Rang: nie
+    mass(MITGLIED, buildHide(S, MITGLIED.pk, vonMod2.id, "ich will"), NOW + 205), // ohne Recht
+    mass(FREMD, buildBan(S, FREMD.pk, MITGLIED.pk, "Rache"), NOW + 206),          // ohne Recht
+    mass(MOD, buildHide("anderer-raum", MOD.pk, vomFremden.id, "falscher Raum"), NOW + 207),
+  ];
+  const mod = raumModeration(st, massnahmen, nachrichten);
+  assert.deepEqual([...mod.hiddenEvents.keys()], [vomMitglied.id]);
+  assert.deepEqual([...mod.bannedPubkeys.keys()], [FREMD.pk]);
+  assert.ok(mod.moderators.has(BESITZER.pk) && mod.moderators.has(MOD.pk) && !mod.moderators.has(MITGLIED.pk));
+  assert.equal(mod.ignored.length, 5);
+  // Der Gründer darf auch Moderatoren sperren
+  const vomGruender = raumModeration(st, [mass(BESITZER, buildBan(S, BESITZER.pk, MOD2.pk, "abgesetzt"), NOW + 300)], nachrichten);
+  assert.deepEqual([...vomGruender.bannedPubkeys.keys()], [MOD2.pk]);
+  // Angewendet: Ausgeblendetes und Nachrichten Gesperrter sind markiert, der Rest bleibt
+  const r = applyModeration(nachrichten, mod, { enabled: true });
+  assert.deepEqual(r.map((x) => x.hidden), [true, false, false, true]);
+  assert.equal(r[0]!.reason, "Werbung");
+  // Ohne Raum-Zustand keine Moderation
+  assert.equal(raumModeration(buildSpaceState(S, []), massnahmen, nachrichten).hiddenEvents.size, 0);
+});

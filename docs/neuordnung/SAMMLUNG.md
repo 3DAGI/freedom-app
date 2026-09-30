@@ -83,7 +83,7 @@ Reihenfolge: erst die freien Punkte von oben nach unten.
 | B-16 | **Modelle im Browser** (WebGPU) als dritte Option neben „Dieses Gerät“. | `Entscheidung` L3 | neue Abhängigkeit → STOPP |
 | B-17 | **5.10b OpenTimestamps** (zurückgestellt). | `wartet` – Kalender nicht erreichbar, keine Testvektoren | `timestamps.ts` |
 | B-18 | **8.9c Speicher bezahlen** in sats und SOL. | `wartet` – Deploy des Zahlkanals (MENSCH) | `storage-role.ts`, `speicher-abruf.ts` |
-| B-19 | **Moderation in offenen Räumen wirkt nicht** (Fund aus B-7): Ausblenden und Sperren (34551/34552, `buildHide()`/`buildBan()`) gehen hinaus, aber die Kanal-Ansicht wendet sie nicht an. Moderatoren sind dort, wer im Raum-Zustand `moderieren` hat (nicht die Liste 34550 der Communities). | `frei` | `raeume.ts`, `moderation.ts`, `spaces.ts` |
+| B-19 | **Moderation in offenen Räumen wirkt nicht** (Fund aus B-7): Ausblenden und Sperren (34551/34552, `buildHide()`/`buildBan()`) gehen hinaus, aber die Kanal-Ansicht wendet sie nicht an. Moderatoren sind dort, wer im Raum-Zustand `moderieren` hat (nicht die Liste 34550 der Communities). | `fertig` – `raumModeration()`: nur Moderatoren des Raums, nur gegen Niedrigere; die Lücke bleibt als Zeile sichtbar | `raeume.ts`, `moderation.ts`, `spaces.ts` |
 | B-20 | **Kanäle in offenen Räumen durch Moderatoren** (aus E6: „wie Discord“): Heute ändert nur der Gründer die Definition (34700 trägt seine Signatur); `kanaele_verwalten` wirkt deshalb nur privat. Braucht ein eigenes Event für Kanäle, das Berechtigte signieren. | `Entscheidung` (neues Event-Format, STOPP-Punkt) | `spaces.ts` |
 
 ---

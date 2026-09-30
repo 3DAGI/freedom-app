@@ -12434,3 +12434,39 @@ B-15a fielen) · innerHTML streng Exit 0 · Website ok · Smoke-Test bestanden (
 der Prüfung „im offenen Raum verborgen“). Eine Prüfung aus B-6
 (`datenexport.test.ts`) las die Zeile in `dialog.ts` wörtlich und ist an die neue
 Form angepasst – die Passphrase bleibt verdeckt. Knoten-Stand: unverändert.
+
+## Schritt B-19 – Moderation in offenen Räumen wirkt
+
+Fund aus B-7 (Sammlung B-19): In offenen Räumen gingen Ausblenden und Sperren
+(34551/34552, `buildHide()`/`buildBan()`) hinaus, die Kanal-Ansicht lud und
+wendete sie aber nicht an – Moderation blieb ohne Wirkung.
+
+**Protokoll (`spaces.ts`):** `raumModeration(zustand, massnahmen,
+nachrichten)` – Maßnahmen mit `["h", <kennung>]` zählen nur von jemandem mit
+„moderieren“ im Raum-Zustand, und nur gegen Niedrigere: den Gründer trifft
+keine Maßnahme eines anderen, sonst nur, wenn der Moderator einen höheren Rang
+hat als das Ziel (wie beim Vergeben von Rollen; Ziel einer Ausblendung ist der
+Autor der Nachricht). Ergebnis ist ein `ModerationState` für
+`applyModeration()` – verworfene Maßnahmen stehen mit Grund in `ignored`.
+
+**App (`raeume.ts`):** `oeffneRaum()` lädt mit dem offenen Raum auch seine
+Maßnahmen (`#h`); `oeffneKanal()` zeigt über `sichtbareNachrichten()` den
+Verlauf ohne Ausgeblendetes und ohne Nachrichten Gesperrter – eine Zeile
+(`#kanal-moderation`) nennt die Zahl, „anzeigen“ zeigt alles, nur für diese
+Sitzung (die Lücke bleibt sichtbar, abschaltbar wie bei Communities). Privat
+bleibt es beim Löschen durch Moderatoren (2.3c). Dabei gefunden: Nach dem
+Neuladen zeichnete ein offener Raum den offenen Kanal nicht neu (privat schon)
+– jetzt auch offen, nur wenn er schon offen war.
+
+**Tests:** Protokoll +1 (`spaces.test.ts`: zählt nur mit Recht und gegen
+Niedrigere – Gründer nie, gleicher Rang nie, fremder Raum nicht; der Gründer
+sperrt auch Moderatoren; `applyModeration()` markiert Ausgeblendetes und
+Gesperrte), App +1 (`raum-moderation.test.ts`: Laden, Auswerten, sichtbare
+Lücke, nur Sitzung, privat unverändert, Raumwechsel). Smoke „raum“: eine
+nachgelegte Ausblendung des Gründers nimmt Bos Nachricht aus dem Verlauf,
+„🛡 1 Nachricht(en) von Moderatoren ausgeblendet“, „anzeigen“ zeigt sie
+wieder (`raum-probe.mts` gibt sie als `ausblendung` mit).
+
+**Verdrahtet:** `packages/app/src/shell/tabs/raeume.ts` – `oeffneRaum()`
+(Abfrage der Maßnahmen, Neuzeichnen), `oeffneKanal()` →
+`sichtbareNachrichten()` → `raumModeration()`/`applyModeration()`.

@@ -20,6 +20,7 @@
  * vertretbar.
  */
 import { NostrEvent, UnsignedEvent, buildEvent, getTag } from "./event.js";
+import { type ModerationState, parseModerationAction } from "./moderation.js";
 
 /** Definition eines Raums (Server). */
 export const KIND_SPACE = 34700;
@@ -304,6 +305,47 @@ export function permissionsOf(pubkey: string, state: SpaceState): Set<Permission
 
 export function can(pubkey: string, perm: Permission, state: SpaceState): boolean {
   return permissionsOf(pubkey, state).has(perm);
+}
+
+/** Rang einer Person im Raum: der Gründer über allen, sonst die höchste Rolle (ohne Rolle 0). */
+function rangVon(pubkey: string, state: SpaceState): number {
+  if (pubkey === state.ownerPubkey) return Number.POSITIVE_INFINITY;
+  return Math.max(0, ...(state.grants.get(pubkey) ?? []).map((id) => state.roles.get(id)?.rank ?? 0));
+}
+
+/**
+ * Moderation eines offenen Raums (Sammlung Neuordnung, B-19): Ausblenden
+ * (34551) und Sperren (34552) mit `["h", <kennung>]` zählen nur von jemandem,
+ * der im Raum „moderieren“ darf – und nur gegen Niedrigere: Den Gründer trifft
+ * keine Maßnahme eines anderen, sonst nur, wenn der Moderator einen höheren
+ * Rang hat als das Ziel (wie beim Vergeben von Rollen). Ziel einer
+ * Ausblendung ist der Autor der Nachricht aus `nachrichten`. Das Ergebnis ist
+ * ein `ModerationState` für `applyModeration()` (moderation.ts).
+ */
+export function raumModeration(state: SpaceState, massnahmen: readonly NostrEvent[], nachrichten: readonly NostrEvent[]): ModerationState {
+  const aus: ModerationState = {
+    communityId: state.space?.spaceId ?? "", ownerPubkey: state.ownerPubkey, moderators: new Set(),
+    hiddenEvents: new Map(), bannedPubkeys: new Map(), ignored: [],
+  };
+  if (!state.space || !state.ownerPubkey) return aus;
+  for (const pk of [state.ownerPubkey, ...state.grants.keys()]) if (can(pk, "moderieren", state)) aus.moderators.add(pk);
+  const autor = new Map(nachrichten.map((e) => [e.id, e.pubkey]));
+  for (const ev of [...massnahmen].sort((a, b) => a.created_at - b.created_at)) {
+    let m;
+    try { m = parseModerationAction(ev); } catch { continue; }
+    if (m.communityId !== aus.communityId) continue;
+    if (!aus.moderators.has(m.moderatorPubkey)) {
+      aus.ignored.push({ by: m.moderatorPubkey, reason: "darf hier nicht moderieren" });
+      continue;
+    }
+    const ziel = m.kind === "ban" ? m.target : autor.get(m.target);
+    if (ziel && ziel !== m.moderatorPubkey && rangVon(ziel, state) >= rangVon(m.moderatorPubkey, state)) {
+      aus.ignored.push({ by: m.moderatorPubkey, reason: "Ziel steht nicht unter dem Moderator" });
+      continue;
+    }
+    (m.kind === "hide" ? aus.hiddenEvents : aus.bannedPubkeys).set(m.target, m);
+  }
+  return aus;
 }
 
 /**
