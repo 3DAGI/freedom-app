@@ -12284,3 +12284,66 @@ Leak-Tests 68 grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 (151
 Ausnahmen, fünf weniger) · innerHTML streng Exit 0 (keine neue Ausnahme) ·
 Website ok (das Whitepaper sagt schon „nie verifiziert, erkannt wird
 Abweichung“) · Smoke-Test bestanden. Knoten-Stand: unverändert.
+## Schritt B-7 – Offene Räume nur über die Adresse des Gründers
+
+Aus der Sammlung (`docs/neuordnung/SAMMLUNG.md`, B-7), entschieden 30.09.2026
+(MENSCH, E6 A): offene Räume wie Communities bei Discord – Gründer,
+Moderatoren, Rollen, Rechte –, wie private, nur öffentlich. Rollen mit Rang und
+Rechte gab es schon; die Lücke war der Gründer: `buildSpaceState()` nahm die
+neueste Definition (34700) zur Kennung, gleich von wem – wer eine neuere mit
+derselben Kennung schrieb, war Gründer und vergab sich alle Rechte.
+
+**Protokoll:** `gruenderZurKennung(kennung, events, ich)` (`spaces.ts`) – der
+eigene Schlüssel, wenn er eine gültige Definition schrieb, sonst der einzige
+Autor gültiger Definitionen; mehrere → `mehrdeutig`, keiner → `keiner`.
+`buildSpaceState()` trägt den Hinweis, offene Räume nie direkt aus dem Netz zu
+bauen, sondern über `raumZustandFuer()` (seit 11.4a, nur die Definition des
+Gründers aus der Adresse).
+
+**App:** `oeffentliche-raeume.ts` (ohne DOM): `freedom.spaces` hält Adressen
+(`34700:<gründer>:space:<kennung>`) und – von vorher – bloße Kennungen
+(`raumEintraege()`, höchstens 200, private „mls:…“ nie); `beitreten()` (eine
+Adresse ersetzt die Kennung desselben Raums), `bindeKennung()` (an ihrer
+Stelle zur Adresse). In `raeume.ts`:
+- `oeffneRaum()` fragt nach der Kennung (`#space`) und baut den Raum nur über
+  `raumZustandFuer(adresse, …)` – kein `buildSpaceState()` mehr in der Datei;
+  eine bloße Kennung wird erst gebunden, wenn `gruenderZurKennung()` eindeutig
+  ist, sonst „Mehrere behaupten, diesen Raum gegründet zu haben …“;
+- Anlegen merkt die Adresse und zeigt sie zum Weitergeben, auch als QR-Code;
+  Beitreten nimmt Adresse (auch gescannt) oder Kennung;
+- Tags (Nachricht, Rolle, Ausblenden, Sperren, Moderatoren) tragen weiter die
+  Kennung (`offeneKennung()`); vom Repo in den Raum mit der ganzen Adresse;
+- die Leiste zeigt die Kennung (`data-space`), geöffnet wird die Adresse.
+`repos.ts`: Die Raum-Auswahl eines Repos fragt nach Kennungen und nimmt nur
+beigetretene Räume.
+
+**Tests:** Protokoll +2 (`spaces.test.ts`: Übernahme – ohne Adresse gewinnt
+der Neueste, mit Adresse bleiben Gründer, Name und Rollen; Gründer zur
+Kennung: eindeutig, mehrere Fassungen, mehrdeutig, eigener Schlüssel, keiner,
+Rollen und kaputte Definitionen zählen nicht). App +5
+(`oeffentliche-raeume.test.ts`: Einträge, Beitreten, Binden, Übernahme mit
+gemerkter Adresse, Verdrahtung). Angepasst an die neue Form (Absicht gleich):
+`raeume-privat.test.ts` (Beitreten schreibt nur offene Räume, „mls:…“ nie),
+`raum-verlauf.test.ts` (nach dem Beitreten gleich im Raum),
+`raum-repos.test.ts` (Auswahl nur aus beigetretenen Räumen). Smoke „raum“:
+gemerkt ist die Adresse; eine danach nachgelegte, neuere Definition eines
+Fremden („Übernommen“) übernimmt den Probe-Raum nicht (`raum-probe.mts` gibt
+sie als `uebernahme` mit).
+
+**Funde (in der Sammlung):** B-19 – Ausblenden und Sperren in offenen Räumen
+gehen hinaus, die Kanal-Ansicht wendet sie aber nicht an; B-20 – Kanäle durch
+Moderatoren verwalten braucht ein eigenes Event (Entscheidung).
+
+**Verdrahtet:** `packages/app/src/shell/tabs/raeume.ts` – `oeffneRaum()`
+(`gruenderZurKennung()`, `bindeKennung()`, `raumZustandFuer()`),
+`legeRaumAn()` (`raumBeitreten(adresse)`), Beitreten (`beitreten()`);
+`packages/app/src/shell/tabs/repos.ts` – `meineRepoRaeume()`.
+
+Endstand (B-7, 30.09.): protocol 1133 (+2, 6 übersprungen) · node 271 (7
+übersprungen ohne Netz – mit Netz 272) · app 698 (+5) · mls 13 · Leak-Tests 68
+grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0
+· Website ok · Smoke-Test bestanden (mit der Übernahme-Probe). Zwei weitere
+Tests prüften die alte Schreibweise wörtlich und sind angepasst (Absicht
+gleich): `dialog.test.ts` (gesperrt wird der Absender – jetzt mit `kennung`)
+und `leak/raum.test.ts` (offene Nachricht mit der Kennung des Raums).
+Knoten-Stand: unverändert.

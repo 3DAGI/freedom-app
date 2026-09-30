@@ -1,7 +1,7 @@
 // Probe-Raum für Browser-Prüfungen (seit C.2b2): ein offener Raum mit zwei Kanälen,
 // Rollen, Nachrichten und (seit C.2c) einem Thread, signiert mit Wegwerfschlüsseln – nur für smoke_test.py
 // und screenshots.py, nie für ein echtes Relay.
-// Aufruf: npx tsx scripts/raum-probe.mts <eigener-pubkey-hex>  ->  {"spaceId": "...", "events": [...]}
+// Aufruf: npx tsx scripts/raum-probe.mts <eigener-pubkey-hex>  ->  {"spaceId": "...", "events": [...], "uebernahme": {...}}
 // Der eigene Schlüssel bekommt die Rolle „mod“, damit die Aktionen an Nachrichten erscheinen.
 import {
   baueCoverageEintrag, baueIssue, baueKommentar, baueRepoAnkuendigung, bauePatch, buildChannelMessage, buildContribution, buildGitRepoRef, buildRoleGrant, buildRoles, buildSpace, generateKeypair,
@@ -82,4 +82,11 @@ events.push(
   abdeckung("online", "50.00,8.00", "Probe-Stadt"),
   ...[1, 2, 3].map(() => abdeckung("bluetooth", "47.00,8.00", "<b>fett</b> Tal")),
 );
-console.log(JSON.stringify({ spaceId, events }));
+// Seit B-7: eine neuere Definition derselben Kennung von einem Fremden – nicht in `events`: Der Smoke-Test legt sie erst nach dem
+// Beitreten nach und prüft, dass der Raum beim Gründer bleibt
+const fremd = generateKeypair();
+const uebernahme = signEvent(buildSpace({
+  spaceId, name: "Übernommen", ownerPubkey: fremd.pk,
+  channels: [{ id: "allgemein", name: "allgemein", privacy: "offen", writeRoles: [], position: 0 }],
+} as never, heute + 10 * 3600), fremd.sk);
+console.log(JSON.stringify({ spaceId, events, uebernahme }));

@@ -82,7 +82,8 @@ test("C.2b1: Räume fragen nur noch über Dialoge – kein prompt(), confirm() o
   const moderiere = raeume.slice(raeume.indexOf("async function moderiere"), raeume.indexOf("/**\n * Moderatoren ernennen"));
   assert.match(moderiere, /pflicht: true, fehler: t\("komm\.ohneBegruendung"\)/);
   assert.match(moderiere, /if \(!w \|\| !grund\) return;/);
-  assert.match(moderiere, /: buildBan\(spacesUi\.spaceId, state\.keypair\.pk, autor, grund\);/, "gesperrt wird der Absender, nicht die Nachricht");
+  // Seit B-7 trägt das Tag die Kennung des offenen Raums (`kennung = offeneKennung()`), nicht seine Adresse
+  assert.match(moderiere, /: buildBan\(kennung, state\.keypair\.pk, autor, grund\);/, "gesperrt wird der Absender, nicht die Nachricht");
 });
 
 test("C.2b1: Meldegründe als Wahl – jeder Grund des Protokolls hat einen Text in beiden Sprachen, gesendet wird die Kennung", () => {
