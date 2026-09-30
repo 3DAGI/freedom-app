@@ -12227,6 +12227,63 @@ Prüfung sucht Namen; umbenannt, die Ausnahme bleibt richtig) · innerHTML
 streng Exit 0 (64 Ausnahmen, eine neue für den Knopf „Bezahlen“) · Website ok ·
 Smoke-Test bestanden. Knoten-Stand: unverändert.
 
+## Schritt A-7 – Vergleich über mehrere Provider (Redundanz-Konsens)
+
+Aus der Sammlung (A-7), Spur A, frei seit B-1: `consensus.ts` war gebaut, aber
+nicht angebunden. Umgesetzt wie in der Sammlung vorgeschlagen: Schalter je
+Frage, Standard aus, Kosten vorher sichtbar.
+
+**Was:**
+- `packages/app/src/konsens.ts` (neu, ohne DOM):
+  - `KONSENS_PROVIDER` (3, aus `recommendedRedundancy("important")`),
+    `KONSENS_MIN` (2), `KONSENS_WARTEN_MS` (3 Minuten).
+  - `konsensZiele()` wählt die ersten Provider der Rangfolge, jeden nur einmal.
+  - `KonsensSammlung` nimmt je Anfrage genau eine Antwort an, nur vom
+    gefragten Provider. Eine Rückmeldung mit Status `error` beendet die
+    Anfrage, Zwischenstände nicht. `auswerten()` ruft `evaluateConsensus()`.
+  - `konsensText()` baut den Satz aus den Feldern (einig, Mehrheit mit
+    Abweichlern, uneinig, zu wenige) plus den Hinweis „stimmig, nicht
+    richtig“. Die deutsche `explanation` des Protokolls wird nicht gezeigt.
+- `shell/tabs/agent.ts`:
+  - Haken „vergleichen“ neben dem Tier (`index.html`, Texte `agent.konsens*`).
+    `konsensGewaehlt()` liest ihn beim Senden und macht ihn wieder aus.
+    `setupKonsens()` blendet ihn bei Max und Swarm aus.
+  - `konsensVorbereiten()` wählt 2–3 private-fähige Provider und nennt im
+    Dialog die Kosten (`consensusCostPreview()` über `hoechstMsat()`, in
+    beiden Einheiten). Ablehnen oder zu wenige Provider: nichts geht hinaus,
+    auch kein Einzelauftrag.
+  - `askKonsens()` sendet je Provider über `buildJobEvent()`: eigener
+    Sitzungsschlüssel, kein Zusatz-Tag, erst gemerkt, dann gesendet. Jede
+    Antwort wird nacheinander über `handleAnswer()` gezeigt, abgerechnet und
+    bezahlt (höchstens das Gebot je Provider, Reklamation wie sonst).
+    Danach kommt das Ergebnis als eigene Blase, nur Text und nicht im
+    Verlauf, weil der als Kontext mit der nächsten Frage reist. Stopp beendet
+    das Warten und vergleicht, was da ist.
+  - `handleAnswer()` meldet auf Wunsch, wann die Antwort fertig angezeigt ist
+    (`nachAnzeige`).
+- `scripts/wiring-ausnahmen.txt`: alle fünf Ausnahmen für `consensus.ts` raus.
+  `normalizeAnswer`/`similarity` zählen über `evaluateConsensus()` als
+  verdrahtet.
+
+**Tests (+4, `konsens.test.ts`):**
+- Anzahl und Auswahl der Provider.
+- Sammlung: fremde oder unbekannte Anfrage, doppelte Antwort, Zwischenstand
+  und Ablehnung nur vom Gefragten, Ergebnis ohne `amount`.
+- Sätze für alle vier Urteile.
+- Verdrahtung: Haken je Frage, Kosten vor dem Senden, kein Einzelauftrag
+  bei Abbruch, nur `buildJobEvent()` ohne Zusatz-Tag, erst merken, dann
+  senden, Ergebnis nur als Text und nicht im Verlauf.
+
+**Verdrahtet:**
+- `shell/tabs/agent.ts`: `askAi()` → `konsensVorbereiten()` / `askKonsens()`.
+- `shell/app.ts`: `setupKonsens()`.
+
+Endstand (A-7, 30.09., auf `main` nach #213): protocol 1131 (6 übersprungen,
+nicht berührt) · node 272 (nicht berührt) · app 697 (+4) · mls 13 ·
+Leak-Tests 68 grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 (151
+Ausnahmen, fünf weniger) · innerHTML streng Exit 0 (keine neue Ausnahme) ·
+Website ok (das Whitepaper sagt schon „nie verifiziert, erkannt wird
+Abweichung“) · Smoke-Test bestanden. Knoten-Stand: unverändert.
 ## Schritt B-7 – Offene Räume nur über die Adresse des Gründers
 
 Aus der Sammlung (`docs/neuordnung/SAMMLUNG.md`, B-7), entschieden 30.09.2026
