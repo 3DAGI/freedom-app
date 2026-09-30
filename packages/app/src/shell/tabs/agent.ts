@@ -520,7 +520,9 @@ export async function askAi(): Promise<void> {
     await frageUeberFunk(prompt, bid);
     return;
   }
-  laeuft(btn);
+  btn.dataset.running = "1";
+  btn.classList.add("stop-mode");
+  btn.textContent = t("agent.stop");
   // Dieses Gerät (B-1): direkt an das Modell auf dem eigenen Rechner – ohne Netz, Kontingent und Zahlung
   const lokalModell = lokalesModellAus(($("#ai-model") as HTMLInputElement | null)?.value);
   if (lokalModell) {
