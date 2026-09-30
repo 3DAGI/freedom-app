@@ -12,6 +12,7 @@ import {
   buildJobRequest,
   buildPrivateJobRequest,
   PROVIDER_PPM,
+  consensusCostPreview,
   lokaleKiAdresse,
   parseJobResult,
   type LokalesModell,
@@ -22,8 +23,9 @@ import { icon } from "../../icons.js";
 import { DEFAULT_MAX_MODE, ScoredProvider, matchRaceProviders } from "../../matchmaking.js";
 import { type AntwortCache, oeffneAntworten } from "../../ki-antworten.js";
 import { kontextPraefix } from "../../ki-kontext.js";
+import { KONSENS_MIN, KONSENS_WARTEN_MS, KonsensSammlung, konsensText, konsensZiele } from "../../konsens.js";
 import { LS_LOKAL_AKTIV, frageLokal, lokalAktiv, lokaleAdresse, lokaleModelle, lokalerWahlwert, lokalesModellAus, setzeLokaleAdresse } from "../../ki-lokal.js";
-import { dialog } from "../dialog.js";
+import { bestaetige, dialog } from "../dialog.js";
 import { SessionClient } from "../../session-client.js";
 import { escapeHtml, pkShort } from "../../shell-logic.js";
 import { ausMsat, solText } from "../../preis-anzeige.js";
@@ -546,6 +548,13 @@ export async function askAi(): Promise<void> {
     }
     // free tier = bid 0 (gratis-job, kein escrow) — sonst lehnt der bootstrap-provider ab
     const effectiveBid = tier === "free" ? 0 : bid;
+    // Vergleich (A-7): nur auf Wunsch für diese Frage – erst die Provider wählen, dann die Kosten bestätigen
+    const konsens = konsensGewaehlt() && !maxMode && !swarmMode && !selectedTools.some((w) => w.name === "video_gen")
+      ? await konsensVorbereiten(effectiveBid, tier) : undefined;
+    if (konsens === null) {
+      resetSendBtn(btn);
+      return;
+    }
     // Modellwechsel: wenn das Tier wechselt und schon Verlauf da ist, Summary einfuegen
     maybeInsertModelSwitchSummary(selTier);
     // Tool-Input = Prompt (die Query, die das Tool ausfuehrt)
@@ -569,6 +578,8 @@ export async function askAi(): Promise<void> {
     // Auto-Matchmaking + Failover (default), Race (max), oder Swarm+Judge (swarm)
     if (swarmMode) {
       await askSwarm(prompt, effectiveBid, tier);
+    } else if (konsens) {
+      await askKonsens(prompt, effectiveBid, tier, konsens);
     } else {
       await askWithFailover(prompt, effectiveBid, tier, maxMode);
     }
@@ -803,6 +814,107 @@ async function askSwarm(prompt: string, bid: number, tier: "free" | "classic" | 
   showAiError(new EigeneMeldung(t("agent.swarmTimeout")), prompt, bid, tier, { swarm: true });
 }
 
+/** Der Haken „vergleichen“ gilt nur für eine Frage (A-7) – gelesen, dann wieder aus. */
+function konsensGewaehlt(): boolean {
+  const haken = document.getElementById("ai-konsens") as HTMLInputElement | null;
+  const an = !!haken?.checked;
+  if (haken) haken.checked = false;
+  return an;
+}
+
+/**
+ * Vergleich vorbereiten (A-7): 2–3 Provider wählen und die Kosten bestätigen
+ * lassen – jeder bekommt bis zum Gebot. null = nichts senden, auch keinem
+ * einzelnen Provider.
+ */
+async function konsensVorbereiten(bid: number, tier: "free" | "classic" | "pro"): Promise<string[] | null> {
+  const ziele = konsensZiele(privatFaehig(await findProviders(tier)).map((c) => c.caps.pubkey));
+  if (ziele.length < KONSENS_MIN) {
+    toast(t("agent.konsensZuWenige", { n: ziele.length }), true);
+    return null;
+  }
+  const kosten = consensusCostPreview(hoechstMsat(bid, selectedTools), ziele.length);
+  const ok = await bestaetige({
+    titel: t("agent.konsensTitel", { n: ziele.length }),
+    text: t("agent.konsensKosten", { n: ziele.length, betrag: ausMsat(kosten.totalMsat, aktuellerKurs()) }),
+    ok: t("agent.konsensSenden", { n: ziele.length }),
+  });
+  return ok ? ziele : null;
+}
+
+/**
+ * VERGLEICH (A-7): dieselbe Frage an 2–3 Provider, je einzeln versiegelt über
+ * `buildJobEvent()` (eigener Sitzungsschlüssel je Provider, kein Zusatz-Tag).
+ * Jede Antwort wird wie sonst angenommen und bezahlt, eine nach der anderen;
+ * danach der Vergleich – lokal. Stopp beendet das Warten und vergleicht, was da ist.
+ */
+async function askKonsens(prompt: string, bid: number, tier: "free" | "classic" | "pro", ziele: string[]): Promise<void> {
+  const pool = await ensurePool();
+  const sc = ensureSessionClient();
+  const btn = $("#ai-send") as HTMLButtonElement;
+  const sammlung = new KonsensSammlung();
+  const abbruch = new AbortController();
+  jobAbort = abbruch;
+  try {
+    for (const ziel of ziele) {
+      const { wrap, requestId } = await buildJobEvent(prompt, bid, tier, ziel, sc);
+      sammlung.erwarte(requestId, ziel);
+      await pool.publish(wrap);
+    }
+    toast(t("agent.konsensStart", { n: ziele.length }));
+    const deadline = Date.now() + KONSENS_WARTEN_MS;
+    const seit = Math.floor(Date.now() / 1000) - 120;
+    const cache: AntwortCache = new Map();
+    while (!sammlung.fertig() && Date.now() < deadline && !abbruch.signal.aborted) {
+      const { ergebnisse, rueckmeldungen } = await privateAntworten(sammlung.offen(), seit, cache);
+      for (const ev of rueckmeldungen) if (!isPaymentNoise(ev.content)) sammlung.lehntAb(ev);
+      for (const ev of ergebnisse) {
+        const r = sammlung.nimm(ev);
+        if (!r) continue;
+        let angezeigt = (): void => undefined;
+        const gezeigt = new Promise<void>((fertig) => { angezeigt = fertig; });
+        await handleAnswer(ev, r, prompt, angezeigt);
+        if (!sammlung.fertig()) laeuft(btn);
+        await gezeigt;
+        if (!sammlung.fertig()) showTyping("thinking");
+      }
+      if (!sammlung.fertig() && !abbruch.signal.aborted) await new Promise((res) => setTimeout(res, 3000));
+    }
+  } finally {
+    if (jobAbort === abbruch) jobAbort = null;
+  }
+  hideTyping();
+  zeigeKonsens(konsensText(sammlung.auswerten(), sammlung.gefragt));
+  resetSendBtn(btn);
+}
+
+/**
+ * Ergebnis des Vergleichs als eigene Blase, nur Text. Nicht im Verlauf: Der
+ * reist als Kontext mit der nächsten Frage – ein Provider erführe, dass
+ * andere gefragt wurden, und wer.
+ */
+function zeigeKonsens(text: string): void {
+  const el = document.createElement("div");
+  el.className = "bubble ai konsens-ergebnis";
+  el.textContent = text;
+  $("#ai-thread").appendChild(el);
+  stickToBottom(() => el.scrollIntoView({ behavior: "smooth", block: "end" }));
+}
+
+/** Haken „vergleichen“ (A-7) nur bei free, classic und pro – Max und Swarm fragen schon selbst mehrere. */
+export function setupKonsens(): void {
+  const stufe = $("#ai-tier") as HTMLSelectElement;
+  const zeige = () => {
+    const mehrere = stufe.value === "max" || stufe.value === "swarm";
+    const wahl = document.getElementById("ai-konsens-wahl");
+    if (wahl) wahl.style.display = mehrere ? "none" : "";
+    const haken = document.getElementById("ai-konsens") as HTMLInputElement | null;
+    if (haken && mehrere) haken.checked = false;
+  };
+  stufe.addEventListener("change", zeige);
+  zeige();
+}
+
 /** Kontext fuer den naechsten Job (Schritt 3.3): Der Knoten merkt sich keinen
  *  Verlauf mehr, also gehen die letzten Nachrichten des aktuellen Verlaufs
  *  versiegelt mit jeder Anfrage mit (`kontextPraefix`). Beim Tier-Wechsel
@@ -994,7 +1106,7 @@ async function waitForAnswer(
   return null;
 }
 
-async function handleAnswer(ev: import("@freedomstack/protocol").NostrEvent, r: ReturnType<typeof parseJobResult>, frage?: string): Promise<void> {
+async function handleAnswer(ev: import("@freedomstack/protocol").NostrEvent, r: ReturnType<typeof parseJobResult>, frage?: string, nachAnzeige?: () => void): Promise<void> {
   hideTyping();
   // Modell-name: aus usage (provider setzt es), sonst aus den provider-caps
   const model = r.usage?.model ?? lastProviderModel ?? undefined;
@@ -1009,6 +1121,7 @@ async function handleAnswer(ev: import("@freedomstack/protocol").NostrEvent, r: 
   addAiMessageStreaming("ai", r.output, "", who, () => {
     // Frage und Antwort nur im Speicher – fuer den Pruefer, wenn der Nutzer reklamiert und zustimmt (5.6).
     addUsageBubble(r.usage ?? {}, r.amountMsat, r.providerPubkey, ev.id, frage !== undefined ? { frage, antwort: r.output } : undefined, abrechnung);
+    nachAnzeige?.();
     // KEIN Zap-Button unter jeder Antwort — das wuerde die UX kaputt machen.
     // Zaps sind nur fuer besondere Antworten (manuell vom Nutzer gewaehlt).
   });
@@ -1060,6 +1173,13 @@ async function handleAnswer(ev: import("@freedomstack/protocol").NostrEvent, r: 
   }).catch(() => { /* beim naechsten Mal */ });
   void refreshQuota();
   resetSendBtn($("#ai-send") as HTMLButtonElement);
+}
+
+/** Send-Button als Stopp, solange ein Auftrag läuft. */
+function laeuft(btn: HTMLButtonElement): void {
+  btn.dataset.running = "1";
+  btn.classList.add("stop-mode");
+  btn.textContent = t("agent.stop");
 }
 
 /** Send-Button nach Job-Ende zurücksetzen (Stop-Modus aus). */
