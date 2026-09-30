@@ -1,10 +1,10 @@
 // Probe-Raum für Browser-Prüfungen (seit C.2b2): ein offener Raum mit zwei Kanälen,
 // Rollen, Nachrichten und (seit C.2c) einem Thread, signiert mit Wegwerfschlüsseln – nur für smoke_test.py
 // und screenshots.py, nie für ein echtes Relay.
-// Aufruf: npx tsx scripts/raum-probe.mts <eigener-pubkey-hex>  ->  {"spaceId": "...", "events": [...], "uebernahme": {...}}
+// Aufruf: npx tsx scripts/raum-probe.mts <eigener-pubkey-hex>  ->  {"spaceId": "...", "events": [...], "uebernahme": {...}, "ausblendung": {...}}
 // Der eigene Schlüssel bekommt die Rolle „mod“, damit die Aktionen an Nachrichten erscheinen.
 import {
-  baueCoverageEintrag, baueIssue, baueKommentar, baueRepoAnkuendigung, bauePatch, buildChannelMessage, buildContribution, buildGitRepoRef, buildRoleGrant, buildRoles, buildSpace, generateKeypair,
+  baueCoverageEintrag, baueIssue, baueKommentar, baueRepoAnkuendigung, bauePatch, buildChannelMessage, buildContribution, buildGitRepoRef, buildHide, buildRoleGrant, buildRoles, buildSpace, generateKeypair,
   leseRepoAnkuendigung, raumAdresse, signEvent,
 } from "../packages/protocol/src/index.ts";
 
@@ -48,8 +48,9 @@ events.push(
   nachricht(ada, "Ich auch.", gestern + 150, { threadRoot: willkommen.id, replyTo: danke.id }),
   nachricht(ada, "Hallo! <img src=x onerror=\"window.__raumXss=1\"> bleibt Text.", gestern + 180),
   nachricht(ada, "Zweite Zeile, gleiche Gruppe.", gestern + 240),
-  nachricht(bo, "Guten Morgen – ein neuer Tag.", heute + 9 * 3600),
 );
+const morgen = nachricht(bo, "Guten Morgen – ein neuer Tag.", heute + 9 * 3600);
+events.push(morgen);
 // Seit C.3a ein Repo: Ankündigung (ich bin Maintainer), Bundle-Verweis desselben Eigentümers, ein offener Patch.
 // Seit 11.4c gehört es zum Probe-Raum (der Gründer pflegt dort immer Repos) – der Raum zeigt es in seiner Liste
 const ankuendigung = signEvent({ ...baueRepoAnkuendigung({
@@ -89,4 +90,6 @@ const uebernahme = signEvent(buildSpace({
   spaceId, name: "Übernommen", ownerPubkey: fremd.pk,
   channels: [{ id: "allgemein", name: "allgemein", privacy: "offen", writeRoles: [], position: 0 }],
 } as never, heute + 10 * 3600), fremd.sk);
-console.log(JSON.stringify({ spaceId, events, uebernahme }));
+// Seit B-19: der Gründer blendet Bos Nachricht aus – ebenfalls erst nachgelegt (die anderen Prüfungen sehen den Verlauf vollständig)
+const ausblendung = signEvent({ ...buildHide(spaceId, gruender.pk, morgen.id, "Nicht zum Thema"), created_at: heute + 11 * 3600 }, gruender.sk);
+console.log(JSON.stringify({ spaceId, events, uebernahme, ausblendung }));

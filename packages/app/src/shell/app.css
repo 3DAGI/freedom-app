@@ -1614,6 +1614,8 @@ button.menue-punkt.menue-gefahr { color: var(--red); }
 .abdeckung-orte, .usage-row + .abdeckung-ort { margin-top: 8px; }
 .abdeckung-ort { overflow-wrap: anywhere; }
 
+/* ---------- Moderation im offenen Raum (B-19): die Lücke bleibt sichtbar ---------- */
+.kanal-moderation { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 4px 14px; border-bottom: 1px solid var(--border); }
 /* ---------- Umfragen und Termine im privaten Raum (B-15b) ---------- */
 .kanal-planung { display: flex; flex-direction: column; gap: 8px; padding: 8px 14px; max-height: 40vh; overflow-y: auto; border-bottom: 1px solid var(--border); }
 .planung-karte { border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; background: var(--surf2, #16181A); }
