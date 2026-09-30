@@ -71,7 +71,8 @@ test("Verdrahtung (11.4a): Karten mit Raum-Struktur, Auswahl in den Einstellunge
   const lies = (p: string) => readFileSync(new URL(`../src/${p}`, import.meta.url), "utf8");
   const repos = lies("shell/tabs/repos.ts");
   assert.match(repos, /karten = \[\.\.\.repoKarten\(ankuendigungen, bundles, patches, status, state\.keypair\?\.pk, await raumStruktur\(raumIds\)\),/);
-  assert.match(repos, /return raumAuswahl\(await raumStruktur\(oeffentlicheRaeume\(\)\), state\.keypair\.pk\);/);
+  // Seit B-7: nach Kennungen gefragt, gewählt nur ein beigetretener Raum (Adresse oder Kennung von vor B-7)
+  assert.match(repos, /const eintraege = oeffentlicheRaeume\(\);[\s\S]*return raumAuswahl\(await raumStruktur\(kennungen\), state\.keypair\.pk\)\s*\.filter\(\(r\) => eintraege\.includes\(r\.adresse\) \|\| eintraege\.includes\(kennungVon\(r\.adresse\) \?\? ""\)\);/);
   const seite = lies("shell/tabs/repo-seite.ts");
   assert.match(seite, /raum\.id = "repo-feld-raum";/);
   assert.match(seite, /ersterCommit: wert\("ersterCommit"\), raum: wert\("raum"\),/);

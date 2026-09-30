@@ -838,3 +838,10 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   Passphrase nur im Dialog (`verdeckt: true`). Was nie auf ein Relay darf
   (Quittungen, KI-Verläufe), steht in `EXPORT_ZUSAETZLICH`, nicht in
   `SICHERUNG_EINTRAEGE`.
+- **Offene Räume nur über die Adresse des Gründers** (seit B-7): gemerkt
+  (`freedom.spaces`, `oeffentliche-raeume.ts`) und weitergegeben wird
+  `34700:<gründer>:space:<kennung>`; den Raum baut nur `raumZustandFuer()` –
+  nie `buildSpaceState()` mit Events aus dem Netz (dort gewinnt die neueste
+  Definition, gleich von wem). Eine bloße Kennung bindet die App nur, wenn
+  `gruenderZurKennung()` eindeutig ist (`bindeKennung()`). Tags (`space`)
+  tragen weiter die Kennung (`offeneKennung()`), nie die Adresse.

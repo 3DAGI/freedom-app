@@ -245,3 +245,35 @@ test("Verschluesselter Kanal nennt seine Grenze", () => {
   assert.match(t, /Das Entfernen wechselt den Schlüssel/);
   assert.match(t, /Neue Mitglieder lesen nur, was nach ihrem Eintritt kommt/);
 });
+
+// ------------------------------------------------------------- Übernahme (B-7)
+
+test("B-7: Übernahme – die neueste Definition eines anderen zählt nur über die Adresse nicht", async () => {
+  const { raumZustandFuer } = await import("../src/raum-repo.js");
+  const { raumAdresse } = await import("../src/spaces.js");
+  // Ein Fremder schreibt später eine Definition mit derselben Kennung und macht sich zum Gründer
+  const uebernahme = signEvent(buildSpace({ spaceId: S, name: "Übernommen", ownerPubkey: FREMD.pk, channels: kanaele }, NOW + 100), FREMD.sk);
+  const fremdeRollen = rollenEv(FREMD, NOW + 100);
+  const alle = [...basis(), uebernahme, fremdeRollen];
+  assert.equal(buildSpaceState(S, alle).ownerPubkey, FREMD.pk, "ohne Adresse gewinnt der Neueste – deshalb nie direkt");
+  const z = raumZustandFuer(raumAdresse(BESITZER.pk, S), alle)!;
+  assert.equal(z.space?.name, "FreedomStack");
+  assert.equal(z.ownerPubkey, BESITZER.pk);
+  assert.ok(can(MOD.pk, "moderieren", z), "Rollen des Gründers gelten weiter");
+  assert.ok(!can(FREMD.pk, "moderieren", z), "der Fremde hat keine Rechte");
+});
+
+test("B-7: Gründer zur bloßen Kennung – eindeutig, eigener Schlüssel, mehrdeutig, keiner", async () => {
+  const { gruenderZurKennung } = await import("../src/spaces.js");
+  assert.deepEqual(gruenderZurKennung(S, basis()), { besitzer: BESITZER.pk });
+  assert.deepEqual(gruenderZurKennung(S, [...basis(), raumEv(NOW + 50)]), { besitzer: BESITZER.pk }, "mehrere Fassungen desselben Gründers");
+  const uebernahme = signEvent(buildSpace({ spaceId: S, name: "Übernommen", ownerPubkey: FREMD.pk, channels: kanaele }, NOW + 100), FREMD.sk);
+  assert.deepEqual(gruenderZurKennung(S, [...basis(), uebernahme]), { fall: "mehrdeutig" });
+  assert.deepEqual(gruenderZurKennung(S, [...basis(), uebernahme], BESITZER.pk), { besitzer: BESITZER.pk }, "der eigene Raum bleibt meiner");
+  assert.deepEqual(gruenderZurKennung(S, [...basis(), uebernahme], MOD.pk), { fall: "mehrdeutig" }, "eigener Schlüssel nur, wenn er eine Definition schrieb");
+  assert.deepEqual(gruenderZurKennung("anderer-raum", basis()), { fall: "keiner" });
+  // Rollen, Zuweisungen und kaputte Definitionen zählen nicht als Gründer
+  const kaputt = signEvent(buildEvent(FREMD.pk, KIND_SPACE, [["space", S]], ""), FREMD.sk);
+  assert.deepEqual(gruenderZurKennung(S, [...basis(), rollenEv(FREMD), grant(FREMD, FREMD.pk, ["mod"]), kaputt]), { besitzer: BESITZER.pk });
+  assert.deepEqual(gruenderZurKennung(S, []), { fall: "keiner" });
+});
