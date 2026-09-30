@@ -1016,6 +1016,11 @@ def raum_pruefen(browser, url: str) -> dict:
         nachher = ev(deckkraft)
         verlauf["deckkraft"] = [vorher, nachher]
         erg[groesse] = {"verlauf": verlauf}
+        # Seit B-15b: Umfragen und Termine nur im privaten Raum – im offenen Probe-Raum weder Knöpfe noch Kasten
+        planung = ev("() => ['kanal-umfrage', 'kanal-termin', 'kanal-planung'].map(id => document.getElementById(id)?.classList.contains('hidden'))")
+        erg[groesse]["planung_offen"] = planung
+        if planung != [True, True, True]:
+            erg["fehler"].append(f"{groesse}: Umfragen/Termine im offenen Raum sichtbar {planung}")
         erwartet = {"gruppen": [2, 2, 1], "tage": 2, "bilder": 0, "xss": False, "alsText": True, "aktionen": 5, "schreiben": True}
         abweichung = {k: verlauf.get(k) for k, v in erwartet.items() if verlauf.get(k) != v}
         # Namen: ohne Kontakte der gekürzte Schlüssel – nie „Du“ für andere, nie leer

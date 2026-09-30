@@ -218,9 +218,3 @@ devices.ts|deviceWarning|deutsche Referenz; die App bildet die Rückfrage seit 8
 release.ts|sharingInstructions|deutsche Referenz; die App bildet den Begleittext seit 8.16g2b2 in protokoll-texte.ts (weitergabeText) nach, ein Test hält ihn wortgleich
 mesh-sync.ts|offlineCapabilities|deutsche Referenz; die App bildet die Liste seit 8.16g2b2 in protokoll-texte.ts (offlineFaehigkeiten) nach, ein Test hält sie gleich
 spaces.ts|privacyInfo|deutsche Referenz; die App bildet die Rauminfo seit C.2b2 in protokoll-texte.ts (kanalVertraulichkeit) nach, ein Test hält sie wortgleich
-raum-planung.ts|raumStimme|Umfragen und Termine in privaten Räumen, Protokoll fertig – die Oberfläche bringt die Verdrahtung (Sammlung B-15b)
-raum-planung.ts|raumTermin|Umfragen und Termine in privaten Räumen, Protokoll fertig – die Oberfläche bringt die Verdrahtung (Sammlung B-15b)
-raum-planung.ts|raumTerminAntwort|Umfragen und Termine in privaten Räumen, Protokoll fertig – die Oberfläche bringt die Verdrahtung (Sammlung B-15b)
-raum-planung.ts|raumTermine|Umfragen und Termine in privaten Räumen, Protokoll fertig – die Oberfläche bringt die Verdrahtung (Sammlung B-15b)
-raum-planung.ts|raumUmfrage|Umfragen und Termine in privaten Räumen, Protokoll fertig – die Oberfläche bringt die Verdrahtung (Sammlung B-15b)
-raum-planung.ts|raumUmfragen|Umfragen und Termine in privaten Räumen, Protokoll fertig – die Oberfläche bringt die Verdrahtung (Sammlung B-15b)

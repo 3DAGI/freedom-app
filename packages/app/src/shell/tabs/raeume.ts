@@ -27,6 +27,7 @@ import type { RaumZiel, RepoKarte } from "../../repo-ansicht.js";
 import { switchTab } from "../app.js";
 import { beiReposGeladen, legeRepoImRaumAn, merkeRaumAdresse, oeffneRepo, reposVonRaum } from "./repos.js";
 import { beitreten, bindeKennung, istAdresse, kennungVon, raumEintraege } from "../../oeffentliche-raeume.js";
+import { neueUmfrage, neuerTermin, zeigePlanung } from "../raum-planung-ui.js";
 
 // ------------------------------------------------------------- Räume
 
@@ -381,6 +382,12 @@ async function oeffneKanal(channelId: string): Promise<void> {
     thread.scrollTop = thread.scrollHeight;
   }
   zeigeThread();
+  // Umfragen und Termine (B-15b) – nur privat, als innere Events der Gruppe
+  const planung = document.getElementById("kanal-planung");
+  if (planung && spacesUi.privat) zeigePlanung(planung, spacesUi.privat, channelId, kontaktName, () => void raumNeuLaden());
+  else planung?.replaceChildren();
+  planung?.classList.toggle("hidden", !spacesUi.privat || planung.children.length === 0);
+  for (const id of ["kanal-umfrage", "kanal-termin"]) document.getElementById(id)?.classList.toggle("hidden", !spacesUi.privat || !darf);
 
   // Schreibrecht: Wer nicht darf, bekommt den Grund statt eines toten Feldes.
   $("#channel-composer").classList.toggle("hidden", !darf);
@@ -393,6 +400,11 @@ async function oeffneKanal(channelId: string): Promise<void> {
   merkeLesestand(channelId);
   void zeigeMitglieder();
   void zeigeKanalliste();
+}
+
+/** Nach Abstimmen, Zusagen oder Anlegen (B-15b): den offenen Raum neu laden – er zeichnet den Kanal neu. */
+async function raumNeuLaden(): Promise<void> {
+  if (spacesUi.spaceId) await oeffneRaum(spacesUi.spaceId);
 }
 
 /** Meldegründe (8.5) im Dialog – gesendet wird die Kennung, angezeigt der Text. */
@@ -970,6 +982,13 @@ export async function wireSpacesTab(): Promise<void> {
   });
   const create = $("#space-create");
   if (create) create.onclick = () => void legeRaumAn();
+  // Umfrage und Termin anlegen (B-15b) – nur im privaten Raum, im offenen Kanal
+  document.getElementById("kanal-umfrage")?.addEventListener("click", () => {
+    if (spacesUi.privat && spacesUi.channelId) void neueUmfrage(spacesUi.privat, spacesUi.channelId, () => void raumNeuLaden());
+  });
+  document.getElementById("kanal-termin")?.addEventListener("click", () => {
+    if (spacesUi.privat && spacesUi.channelId) void neuerTermin(spacesUi.privat, spacesUi.channelId, () => void raumNeuLaden());
+  });
   const oeffentlich = $("#space-create-public");
   if (oeffentlich) oeffentlich.onclick = () => void legeRaumAn(true);
   const einladen = $("#space-invite");

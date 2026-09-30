@@ -12388,3 +12388,49 @@ Endstand (B-15a, 30.09.): protocol 1139 (+6, 6 übersprungen) · node 271 (7
 + 1 todo · 0 rot · check-wiring `--streng` Exit 0 (sechs Ausnahmen mit Verweis
 auf B-15b) · innerHTML streng Exit 0 · Website ok · Smoke-Test bestanden.
 Knoten-Stand: unverändert.
+
+## Schritt B-15b – Umfragen und Termine in privaten Räumen: Oberfläche
+
+Zweiter Teil von B-15 (Protokoll in B-15a).
+
+**App:**
+- `planung-ansicht.ts` (ohne DOM): Antworten je Zeile (`antwortenAus()`),
+  `pruefeUmfrage()`, Ende aus fester Wahl (`UMFRAGE_ENDEN`: nie, 1 Std., 1, 3,
+  7 Tage), Termin aus Datum, Uhrzeit und Dauer in der Ortszeit des Geräts
+  (`terminAus()`, ohne Uhrzeit ganztägig, Dauer aus `TERMIN_DAUERN`),
+  Anteile für die Balken, neue Wahl bei Mehrfachwahl (`neueWahl()`), Zeitpunkt
+  als Text in der Sprache der Oberfläche (`terminWann()`).
+- `shell/raum-planung-ui.ts`: über dem Verlauf eines Kanals im privaten Raum
+  (`#kanal-planung`) Termine und Umfragen als Karten – Antwort antippen stimmt
+  ab (bei Mehrfachwahl dazu oder weg, nach dem Ende gesperrt), Termine
+  zusagen, vielleicht, absagen (die eigene Wahl hervorgehoben,
+  `aria-pressed`); löschen der Autor oder ein Moderator (nach Rückfrage, wie
+  Nachrichten). Anlegen über 📊 und 📅 neben dem Eingabefeld, nur privat und
+  mit Schreibrecht, über `dialog()`. Gesendet nur über
+  `mlsSendeEvent(raum.gruppe, …)`, gezeigt nur als Text.
+- `shell/raum-mls.ts`: `PrivaterRaum` trägt die inneren Events
+  (`ereignisse`); `shell/dialog.ts`: Textfelder mit `typ: "date" | "time"`
+  (Auswahl des Browsers); Texte `raum.umfrage*`, `raum.termin*`,
+  `raum.planung*` in beiden Sprachen; Styles `.planung-*`.
+- `scripts/wiring-ausnahmen.txt`: die sechs Zeilen für `raum-planung.ts`
+  fallen weg (jetzt verdrahtet).
+
+**Tests (+5, `app/test/planung-ansicht.test.ts`):** Umfrage-Eingaben und
+Ende; Anteile und Wahl; Termin aus Datum, Uhrzeit und Dauer mit Fehlern;
+Zeitpunkt als Text (de und en, ganztägig ohne Uhrzeit); Verdrahtung (nur
+privat, nur über die Gruppe, kein `innerHTML`, kein `publish`). Smoke „raum“: im
+offenen Probe-Raum bleiben 📊, 📅 und der Kasten verborgen (Desktop und Handy).
+
+**Verdrahtet:** `packages/app/src/shell/tabs/raeume.ts` – `oeffneKanal()` →
+`zeigePlanung()`, `wireSpacesTab()` → `neueUmfrage()`/`neuerTermin()`;
+`packages/app/src/shell/raum-planung-ui.ts` → `raumUmfrage()`,
+`raumStimme()`, `raumTermin()`, `raumTerminAntwort()`, `raumUmfragen()`,
+`raumTermine()`.
+
+Endstand (B-15b, 30.09.): protocol 1139 (6 übersprungen) · node 271 (7
+übersprungen ohne Netz – mit Netz 272) · app 707 (+5) · mls 13 · Leak-Tests 68
+grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 (die sechs Ausnahmen aus
+B-15a fielen) · innerHTML streng Exit 0 · Website ok · Smoke-Test bestanden (mit
+der Prüfung „im offenen Raum verborgen“). Eine Prüfung aus B-6
+(`datenexport.test.ts`) las die Zeile in `dialog.ts` wörtlich und ist an die neue
+Form angepasst – die Passphrase bleibt verdeckt. Knoten-Stand: unverändert.

@@ -94,5 +94,6 @@ test("B-6: verdrahtet – Knöpfe in der Sicherung, Passphrase verdeckt, eingele
   assert.ok(einlesen.indexOf("await bestaetige(") < einlesen.indexOf("geheim.setItem(k, v)"), "erst fragen, dann schreiben");
   assert.match(einlesen, /const \{ daten, zeit \} = await leseExport\(await datei\.text\(\), String\(w\.pass\)\);/, "nur gefilterte Daten");
   assert.match(s, /\{ name: "pass", label: t\("set\.exportPass"\), art: "text", pflicht: true, verdeckt: true \}/);
-  assert.match(lies("shell/dialog.ts"), /e\.type = "verdeckt" in f && f\.verdeckt \? "password" : "text";/);
+  // Seit B-15b kommen Datum und Uhrzeit dazu – verdeckt bleibt vorn
+  assert.match(lies("shell/dialog.ts"), /e\.type = "verdeckt" in f && f\.verdeckt \? "password" : "typ" in f && f\.typ \? f\.typ : "text";/);
 });
