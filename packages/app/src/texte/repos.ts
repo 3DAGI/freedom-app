@@ -142,4 +142,9 @@ export const repos: Texte = {
   "repo.mdOffen": { de: "offen", en: "open" },
   "repo.mdVorschau": { de: "Vorschau", en: "Preview" },
   "repo.mdQuelltext": { de: "Quelltext", en: "Code" },
+  "repo.refWahl": { de: "Zweig oder Tag", en: "Branch or tag" },
+  "repo.refKopf": { de: "HEAD", en: "HEAD" },
+  "repo.zweige": { de: "Zweige", en: "Branches" },
+  "repo.tags": { de: "Tags", en: "Tags" },
+  "repo.refZahl": { de: "Zweige: {zweige} · Tags: {tags}", en: "Branches: {zweige} · Tags: {tags}" },
 };

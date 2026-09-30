@@ -1437,6 +1437,28 @@ def raum_pruefen(browser, url: str) -> dict:
                        "quelltext": ["# Anleitung", False, [["Vorschau", "false"], ["Quelltext", "true"]]],
                        "zurueck": [["meins", "README.md"], "Werkzeugkiste"]}:
             erg["fehler"].append(f"{groesse}: Markdown im Reiter Code {md_code}")
+        # Seit C-20c: Zweig oder Tag wählen – Code und Commits zeigen deren Stand (Tag annotiert), die Adresse bleibt
+        refs = lambda: ev("""() => { const w = document.getElementById('code-ref-wahl'); return w && [[...w.options].map(o => [o.textContent, o.value, o.parentElement.label]), w.value,
+          w.parentElement.querySelector('.muted')?.textContent]; }""")
+        zweige = {"code": refs()}
+        s.select_option("#code-ref-wahl", "zweig:entwurf")
+        s.wait_for_timeout(200)
+        zweige["entwurf"] = [ev(pfad), ev("() => document.querySelector('#repo-seite .code-md h1')?.textContent"),
+                             ev("() => document.querySelector('#repo-seite .code-commit')?.textContent.split(' · ')[0]"),
+                             ev("() => document.activeElement?.id"), ev("() => location.hash") == hash_vorher]
+        ev("() => document.querySelector('#repo-seite [data-reiter=commits]')?.click()")
+        s.wait_for_timeout(200)
+        betreffe = "() => [...document.querySelectorAll('#repo-seite .code-commit-betreff')].map(e => e.textContent)"
+        zweige["commits"] = [refs()[1] if refs() else None, ev(betreffe)]
+        s.select_option("#code-ref-wahl", "tag:v1.0")
+        s.wait_for_timeout(200)
+        zweige["tag"] = ev(betreffe)
+        erg[groesse]["zweige"] = zweige
+        if zweige != {"code": [[["entwurf", "zweig:entwurf", "Zweige"], ["main", "zweig:main", "Zweige"], ["v1.0", "tag:v1.0", "Tags"]], "zweig:main", "Zweige: 2 · Tags: 1"],
+                      "entwurf": [["meins", "README.md"], "Werkzeugkiste (Entwurf)", "Entwurf: neuer Titel", "code-ref-wahl", True],
+                      "commits": ["zweig:entwurf", ["Entwurf: neuer Titel", "Werkzeugkiste mit Anleitung"]],
+                      "tag": ["Werkzeugkiste mit Anleitung"]}:
+            erg["fehler"].append(f"{groesse}: Zweige und Tags {zweige}")
         erg[groesse]["repo_c3a2"] = {"fremd_reiter": fremd_reiter, "mitwirkende": mitwirkende, "eigen_reiter": eigen_reiter,
                                      "abgewiesen": abgewiesen, "tags": tags, "links": links, "bleibt": noch_einstellungen,
                                      "bundle": bundle_tags, "bundle_knopf": bundle_knopf}
@@ -1476,19 +1498,28 @@ def raum_pruefen(browser, url: str) -> dict:
             vorschau["liste"] = ev("() => [...document.querySelectorAll('#repo-seite .repo-patch-betreff')].map(b => b.textContent)")
         # Seit C.3b2: als Entwurf (mit Begründung), dann wieder öffnen; Schließen ist rot und lässt sich abbrechen
         def aktion(text: str, notiz: str | None) -> list:
+            knoepfe_js = "() => [...document.querySelectorAll('#repo-seite .repo-patch-status button')].map(b => b.textContent).join('|')"
+            vorher_knoepfe = ev(knoepfe_js)
             ev(f"() => [...document.querySelectorAll('#repo-seite .repo-patch-status button')].find(b => b.textContent === '{text}')?.click()")
             s.wait_for_timeout(200)
             gefahr = ev("() => !!document.querySelector('[role=dialog] .dlg-gefahr')")
             if notiz is None:
                 s.keyboard.press("Escape")
+                s.wait_for_timeout(600)
             else:
                 s.keyboard.type(notiz)
                 s.keyboard.press("Control+Enter")
-            s.wait_for_timeout(600)
+                # Gesendet wird, dann neu geladen – auf die neuen Knöpfe warten statt einer festen Pause (die CI ist langsamer)
+                try:
+                    s.wait_for_function(f"(vorher) => ({knoepfe_js})() !== vorher", arg=vorher_knoepfe, timeout=10000)
+                except Exception:
+                    pass
             knoepfe = ev("() => [...document.querySelectorAll('#repo-seite .repo-patch-status button')].map(b => b.textContent)")
             return [gefahr, knoepfe]
         vorher_status = len(relay.gesendet)
-        ablauf = [aktion("als Entwurf", "Noch nicht fertig"), aktion("schließen", None), aktion("wieder öffnen", "Jetzt fertig")]
+        ablauf = [aktion("als Entwurf", "Noch nicht fertig"), aktion("schließen", None)]
+        s.wait_for_timeout(1100)  # Status zählen nach Sekunden – zwei Wechsel nie in derselben Sekunde
+        ablauf.append(aktion("wieder öffnen", "Jetzt fertig"))
         neu_status = [[e["kind"], e["content"]] for e in relay.gesendet[vorher_status:] if e.get("kind") in (1630, 1631, 1632, 1633)]
         vorschau["status"] = {"ablauf": ablauf, "gesendet": [list(x) for x in dict.fromkeys(tuple(x) for x in neu_status)]}
         erg[groesse]["patch_vorschau"] = vorschau
