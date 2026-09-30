@@ -12470,3 +12470,9 @@ wieder (`raum-probe.mts` gibt sie als `ausblendung` mit).
 **Verdrahtet:** `packages/app/src/shell/tabs/raeume.ts` – `oeffneRaum()`
 (Abfrage der Maßnahmen, Neuzeichnen), `oeffneKanal()` →
 `sichtbareNachrichten()` → `raumModeration()`/`applyModeration()`.
+
+Endstand (B-19, 30.09.): protocol 1140 (+1, 6 übersprungen) · node 271 (7
+übersprungen ohne Netz – mit Netz 272) · app 708 (+1) · mls 13 · Leak-Tests 68
+grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng
+Exit 0 · Website ok · Smoke-Test bestanden (mit der Prüfung „Moderation im
+offenen Raum“). Knoten-Stand: unverändert.
