@@ -108,6 +108,7 @@ export const fehler: Texte = {
   "pf.nachfolgerSelbst": { de: "Der Nachfolger darf nicht derselbe Schlüssel sein.", en: "The successor must not be the same key." },
   "pf.selbstwerbung": { de: "Selbstwerbung ist nicht möglich.", en: "You cannot refer yourself." },
   "pf.keinModerator": { de: "kein Moderator außer dir", en: "no moderator besides you" },
+  "pf.planungUngueltig": { de: "Umfrage oder Termin ungültig: {was}", en: "Poll or event invalid: {was}" },
   "pf.dateiSchluessel": { de: "Datei-Schlüssel ungültig", en: "File key invalid" },
   "pf.dateiKaputt": { de: "Datei beschädigt oder falscher Schlüssel", en: "File damaged or wrong key" },
   "pf.dateiHash": { de: "Datei passt nicht zum Hash", en: "File does not match the hash" },

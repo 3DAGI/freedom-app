@@ -563,6 +563,7 @@ const FEHLER: Record<string, string> = {
   "datei-kaputt": "pf.dateiKaputt",
   "datei-hash": "pf.dateiHash",
   "qr-zu-lang": "pf.qrZuLang",
+  "planung-ungueltig": "pf.planungUngueltig",
 };
 
 /** Hat dieser Fehler eine Kennung mit Text? */
