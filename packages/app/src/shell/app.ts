@@ -40,6 +40,7 @@ import {
   setupAttach,
   setupEmptyState,
   setupFunkAntworten,
+  setupKonsens,
   setupModelPicker,
   setupToolChips,
   updateBudgetBar,
@@ -902,6 +903,8 @@ function starte(): void {
   setupAttach();
   setupToolChips();
   setupModelPicker();
+  // Vergleich über mehrere Provider nur bei free, classic, pro (A-7)
+  setupKonsens();
   setupEmptyState();
   // Antworten auf KI-Anfragen über Funk (7.4c2)
   setupFunkAntworten();
