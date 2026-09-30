@@ -12426,3 +12426,11 @@ offenen Probe-Raum bleiben 📊, 📅 und der Kasten verborgen (Desktop und Hand
 `packages/app/src/shell/raum-planung-ui.ts` → `raumUmfrage()`,
 `raumStimme()`, `raumTermin()`, `raumTerminAntwort()`, `raumUmfragen()`,
 `raumTermine()`.
+
+Endstand (B-15b, 30.09.): protocol 1139 (6 übersprungen) · node 271 (7
+übersprungen ohne Netz – mit Netz 272) · app 707 (+5) · mls 13 · Leak-Tests 68
+grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 (die sechs Ausnahmen aus
+B-15a fielen) · innerHTML streng Exit 0 · Website ok · Smoke-Test bestanden (mit
+der Prüfung „im offenen Raum verborgen“). Eine Prüfung aus B-6
+(`datenexport.test.ts`) las die Zeile in `dialog.ts` wörtlich und ist an die neue
+Form angepasst – die Passphrase bleibt verdeckt. Knoten-Stand: unverändert.
