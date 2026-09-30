@@ -13,7 +13,7 @@
  */
 import {
   baueRaumMeldung, gruppenRaum, oeffneRaumMeldung, raumDefinition, raumLoeschung, raumNachricht, raumRollen, raumZuweisung,
-  type Channel, type GruppenRaum, type InneresSenden, type MeldeGrund, type NostrEvent, type RaumMeldung, type Role,
+  type Channel, type GruppenRaum, type InneresEvent, type InneresSenden, type MeldeGrund, type NostrEvent, type RaumMeldung, type Role,
 } from "@freedomstack/protocol";
 import { t } from "../i18n.js";
 import { type EinladungsErgebnis, mlsEntferne, mlsGesperrt, mlsGruende, mlsGruppenStand, mlsLadeEin, mlsSendeEvent, mlsSetzeAdmins } from "./mls-konto.js";
@@ -67,6 +67,8 @@ export async function legePrivatenRaumAn(name: string): Promise<string> {
 }
 
 export interface PrivaterRaum extends GruppenRaum {
+  /** Die inneren Events – für Umfragen und Termine (B-15b, `raumUmfragen()`/`raumTermine()`). */
+  ereignisse: readonly InneresEvent[];
   gruppe: string;
   admins: string[];
   mitglieder: string[];
@@ -77,7 +79,7 @@ export interface PrivaterRaum extends GruppenRaum {
 export async function ladePrivatenRaum(gruppe: string): Promise<PrivaterRaum | null> {
   const stand = await mlsGruppenStand(gruppe);
   if (!stand) return null;
-  return { ...gruppenRaum(gruppe, stand.ereignisse, stand), gruppe, admins: stand.admins, mitglieder: stand.mitglieder, ich: stand.ich };
+  return { ...gruppenRaum(gruppe, stand.ereignisse, stand), ereignisse: stand.ereignisse, gruppe, admins: stand.admins, mitglieder: stand.mitglieder, ich: stand.ich };
 }
 
 /** Seit C.2c mit Bezug: Thread (`threadRoot`), Antwort auf (`replyTo`), Erwähnte – Ids der inneren Events. */

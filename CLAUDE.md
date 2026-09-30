@@ -863,3 +863,6 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   `raumTerminAntwort()` – nie offen veröffentlichen; ausgewertet nur über
   `raumUmfragen()`/`raumTermine()` mit dem `GruppenRaum` (Schreibrecht im Kanal,
   je Mitglied die letzte Stimme, `geloescht`). Bezüge sind Ids innerer Events.
+  In der App (seit B-15b) nur über `shell/raum-planung-ui.ts`: gesendet nur
+  mit `mlsSendeEvent(raum.gruppe, …)`, gezeigt nur als Text über dem Verlauf
+  des Kanals (`zeigePlanung()`), die Knöpfe nur privat und mit Schreibrecht.

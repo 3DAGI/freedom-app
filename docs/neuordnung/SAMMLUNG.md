@@ -79,7 +79,7 @@ Reihenfolge: erst die freien Punkte von oben nach unten.
 | B-12 | **Weckdienst:** über neue Nachrichten informiert werden, wenn die App zu ist – der eigene Knoten beobachtet den Posteingang (1059 an mich) und weckt per Web Push, ohne Inhalt und Absender. | `Entscheidung` W1 (Rückfrage beantwortet), `wartet` auf B-8 (L1) | Service Worker → `loescheAllesLokal()` erweitern (Regel 8.14) |
 | B-13 | **Anrufe (Sprache/Video):** WebRTC, Verbindungsaufbau versiegelt über NIP-17, Medien über einen Vermittler (TURN) auf dem eigenen Knoten. | `wartet` auf B-8 (L1) – T1 entschieden: A; TURN im Knoten: Abhängigkeit vorher fragen | neu |
 | B-14 | **Mehrere Identitäten** (privat, Arbeit, anonym) mit getrennten Tresoren, Relays und Wallets. | `entfällt` – I1 entschieden: B | `shell/app.ts`, Tresor |
-| B-15 | **Umfragen und Termine in Räumen** (NIP-88, NIP-52) als innere Events privater Räume. | **a fertig** (#216, Protokoll, `raum-planung.ts`), b Oberfläche `frei` – R1 entschieden: A | `raum-gruppe.ts` |
+| B-15 | **Umfragen und Termine in Räumen** (NIP-88, NIP-52) als innere Events privater Räume. | `fertig` – a Protokoll (#216, `raum-planung.ts`), b Oberfläche (`shell/raum-planung-ui.ts`) – R1 entschieden: A | `raum-gruppe.ts` |
 | B-16 | **Modelle im Browser** (WebGPU) als dritte Option neben „Dieses Gerät“. | `Entscheidung` L3 | neue Abhängigkeit → STOPP |
 | B-17 | **5.10b OpenTimestamps** (zurückgestellt). | `wartet` – Kalender nicht erreichbar, keine Testvektoren | `timestamps.ts` |
 | B-18 | **8.9c Speicher bezahlen** in sats und SOL. | `wartet` – Deploy des Zahlkanals (MENSCH) | `storage-role.ts`, `speicher-abruf.ts` |
