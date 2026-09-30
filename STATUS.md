@@ -12219,9 +12219,9 @@ Schienen, Beleg versiegelt, nichts direkt veröffentlicht).
 **Verdrahtet:** `chat-zap.ts` (`fordereAn()`), `shell/tabs/kommunikation.ts`
 (`leseAnforderung()` beim Zeigen, `bezahleAnforderung()` beim Klick).
 
-Endstand (A-5, 29.09., nach dem Einmergen von #208): protocol 1120
-(6 übersprungen) · node 263 (6 übersprungen, mit Netz) · app 668 (+5) · mls 13 ·
-Leak-Tests 66 grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 (eine
+Endstand (A-5, 30.09., nach dem Einmergen von `main` mit B-1 und B-3 bis B-6):
+protocol 1131 (6 übersprungen) · node 272 (6 übersprungen, mit Netz) · app 693
+(+5) · mls 13 · Leak-Tests 68 grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 (eine
 lokale Variable hieß zuerst wie der ausgenommene Export `betragText` – die
 Prüfung sucht Namen; umbenannt, die Ausnahme bleibt richtig) · innerHTML
 streng Exit 0 (64 Ausnahmen, eine neue für den Knopf „Bezahlen“) · Website ok ·
