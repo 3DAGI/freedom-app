@@ -83,7 +83,7 @@ test("C.2b2 (B9): Verlauf mit Namen, gebaut aus DOM und textContent; Mitglieder 
 
 test("C.2b2: nach Beitreten und Anlegen steht der Raum da; mobil ist der Kanal eine eigene Ebene mit „‹“", () => {
   const beitreten = raeume.slice(raeume.indexOf('if (join) join.onclick'), raeume.indexOf("// Mobil (C.2b2)"));
-  assert.match(beitreten, /raumBeitreten\(id\);[\s\S]*setzeKommModus\("space"\);\s*void oeffneRaum\(id\);/);
+  assert.match(beitreten, /const id = raumBeitreten\(String\(w\?\.id \?\? ""\)\);\s*if \(!id\) return;[\s\S]*setzeKommModus\("space"\);\s*void oeffneRaum\(id\);/);
   const anlegen = raeume.slice(raeume.indexOf("async function legeRaumAn"), raeume.indexOf("/** Name eines Kontakts"));
   assert.equal(anlegen.split('setzeKommModus("space");').length - 1, 2, "privat und offen");
   assert.match(quelle("../src/shell/tabs/kommunikation.ts"), /^export function setzeKommModus\(modus: "dm" \| "space"\): void \{/m);

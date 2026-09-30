@@ -80,7 +80,8 @@ test("Verdrahtung: private Räume sind der Standard und senden über MLS; offene
   assert.match(raeume, /text: t\(oeffentlich \? "komm\.oeffentlichWarnung" : "komm\.privatTitel"\),/);
   assert.match(raeume, /if \(!name\.trim\(\)\) return;/);
   // Offene Räume und Communities wie im Szenario oben
-  assert.match(raeume, /signiere\(buildChannelMessage\(\{\s*authorPubkey: state\.keypair\.pk, spaceId: spacesUi\.spaceId,\s*channelId: spacesUi\.channelId, content: text,/);
+  // Seit B-7 ist spacesUi.spaceId offen die Adresse – das Tag trägt die Kennung (offeneKennung())
+  assert.match(raeume, /signiere\(buildChannelMessage\(\{\s*authorPubkey: state\.keypair\.pk, spaceId: offeneKennung\(\)!,\s*channelId: spacesUi\.channelId, content: text,/);
   assert.match(kom, /signiere\(buildEvent\(state\.keypair\.pk, 42, \[\["h", c\.id\], \.\.\.imeta\], text\)\)/);
   // Private Räume moderieren nie mit öffentlichen Sperr-Events; Meldungen nur versiegelt (8.5)
   assert.match(raeume, /const modKnopf = darfModerieren && !spacesUi\.privat && /);

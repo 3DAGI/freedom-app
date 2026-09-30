@@ -19,6 +19,7 @@ import { ensurePool, signiere, state } from "../state.js";
 import { toast } from "../ui.js";
 import { switchTab } from "../app.js";
 import { geheZuRaum, oeffentlicheRaeume } from "./raeume.js";
+import { kennungVon } from "../../oeffentliche-raeume.js";
 import { eigentuemerName, vergissReiter, zeigeRepoSeite } from "./repo-seite.js";
 
 const STATUS_KINDS = [1630, 1631, 1632, 1633];
@@ -124,7 +125,11 @@ async function raumStruktur(ids: readonly string[]): Promise<NostrEvent[]> {
 /** Meine öffentlichen Räume, in denen ich Repos pflegen darf (11.4a) – für die Einstellungen eines Repos. */
 async function meineRepoRaeume(): Promise<{ adresse: string; name: string }[]> {
   if (!state.keypair) return [];
-  return raumAuswahl(await raumStruktur(oeffentlicheRaeume()), state.keypair.pk);
+  // Seit B-7 stehen dort Adressen – gefragt wird nach der Kennung, gewählt nur ein beigetretener Raum
+  const eintraege = oeffentlicheRaeume();
+  const kennungen = [...new Set(eintraege.map(kennungVon).filter((k): k is string => !!k))];
+  return raumAuswahl(await raumStruktur(kennungen), state.keypair.pk)
+    .filter((r) => eintraege.includes(r.adresse) || eintraege.includes(kennungVon(r.adresse) ?? ""));
 }
 
 /** Liste oder – wenn eines offen ist – die Repo-Seite; `fokus`: gerade geöffnet, Fokus auf „‹ Alle Repos“. */

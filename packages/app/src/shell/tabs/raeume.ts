@@ -7,7 +7,7 @@
  * Dialoge (`shell/dialog.ts`) statt `prompt()`, `confirm()` und `alert()`.
  */
 import {
-  MELDE_GRUENDE, RAUM_REPO_RECHT, can as darf, leseRaumAdresse, raumAdresse, type Channel, type ChannelMessage, type MeldeGrund, type Space, type SpaceState, type ThreadView,
+  MELDE_GRUENDE, RAUM_REPO_RECHT, can as darf, gruenderZurKennung, leseRaumAdresse, raumAdresse, raumZustandFuer, type Channel, type ChannelMessage, type MeldeGrund, type Space, type SpaceState, type ThreadView,
 } from "@freedomstack/protocol";
 import { escapeHtml, pkShort } from "../../shell-logic.js";
 import { ensurePool, signiere, state } from "../state.js";
@@ -26,6 +26,7 @@ import { conversations, setzeKommModus } from "./kommunikation.js";
 import type { RaumZiel, RepoKarte } from "../../repo-ansicht.js";
 import { switchTab } from "../app.js";
 import { beiReposGeladen, legeRepoImRaumAn, merkeRaumAdresse, oeffneRepo, reposVonRaum } from "./repos.js";
+import { beitreten, bindeKennung, istAdresse, kennungVon, raumEintraege } from "../../oeffentliche-raeume.js";
 
 // ------------------------------------------------------------- Räume
 
@@ -60,13 +61,14 @@ function merkeLesestand(channelId: string): void {
   localStorage.setItem("freedom.lastRead", JSON.stringify([...spacesUi.lastRead]));
 }
 
-/** Beigetretene offene Räume (Kind 42) – öffentlich wie ihr Inhalt. */
+/** Beigetretene offene Räume (Kind 42) – öffentlich wie ihr Inhalt; seit B-7 als Adresse mit dem Gründer. */
 export function oeffentlicheRaeume(): string[] {
-  try {
-    return JSON.parse(localStorage.getItem("freedom.spaces") ?? "[]") as string[];
-  } catch {
-    return [];
-  }
+  return raumEintraege(localStorage);
+}
+
+/** Kennung des offenen Raums, der gerade offen ist (für das Tag `space`) – privat keine. */
+function offeneKennung(): string | null {
+  return spacesUi.spaceId && !istPrivat(spacesUi.spaceId) ? kennungVon(spacesUi.spaceId) : null;
 }
 
 /** Alle Räume: private (MLS, 2.3b) zuerst – ihre Liste liegt nur im Tresor. */
@@ -77,10 +79,9 @@ function meineRaeume(): string[] {
 /** Namen privater Räume aus ihrer Definition – nur im Speicher. */
 const privatNamen = new Map<string, string>();
 
-function raumBeitreten(id: string): void {
-  const alle = new Set(oeffentlicheRaeume());
-  alle.add(id);
-  localStorage.setItem("freedom.spaces", JSON.stringify([...alle]));
+/** Beitreten (B-7): Adresse oder – wie bisher – Kennung; `null`, wenn es keins von beiden ist. */
+function raumBeitreten(eingabe: string): string | null {
+  return beitreten(localStorage, eingabe);
 }
 
 /** Leiste mit den Räumen. */
@@ -94,13 +95,14 @@ export async function zeigeRaumLeiste(): Promise<void> {
   }
   // Namen privater Räume kommen aus ihrer Definition (Fremddaten) – nur textContent
   rail.replaceChildren(...ids.map((id) => {
-    const name = istPrivat(id) ? privatNamen.get(id) ?? t("komm.privaterRaum") : id;
+    const name = istPrivat(id) ? privatNamen.get(id) ?? t("komm.privaterRaum") : kennungVon(id) ?? id;
     const b = document.createElement("button");
     b.className = "space-pill";
-    b.dataset.space = id;
+    // Offen: die Kennung zeigen, geöffnet wird die Adresse mit dem Gründer (B-7)
+    b.dataset.space = istPrivat(id) ? id : name;
     b.setAttribute("aria-current", String(id === spacesUi.spaceId));
     b.title = name;
-    b.textContent = istPrivat(id) ? `🔒${name.slice(0, 1).toUpperCase()}` : id.slice(0, 2).toUpperCase();
+    b.textContent = istPrivat(id) ? `🔒${name.slice(0, 1).toUpperCase()}` : name.slice(0, 2).toUpperCase();
     b.addEventListener("click", () => void oeffneRaum(id));
     return b;
   }));
@@ -144,15 +146,33 @@ async function oeffneRaum(spaceId: string): Promise<void> {
     return;
   }
   spacesUi.privat = null;
-  const { buildSpaceState, KIND_SPACE, KIND_SPACE_ROLES, KIND_ROLE_GRANT, KIND_CHANNEL_MESSAGE } =
-    await import("@freedomstack/protocol");
+  // Offen (B-7): nur die Definition des Gründers aus der Adresse zählt – nie die neueste von irgendwem
+  const kennung = kennungVon(spaceId);
+  if (!kennung) {
+    $("#space-name").textContent = t("komm.raumNichtGefunden");
+    return;
+  }
+  const { KIND_SPACE, KIND_SPACE_ROLES, KIND_ROLE_GRANT, KIND_CHANNEL_MESSAGE } = await import("@freedomstack/protocol");
   try {
     const pool = await ensurePool();
     const [struktur, nachrichten] = await Promise.all([
-      pool.query({ kinds: [KIND_SPACE, KIND_SPACE_ROLES, KIND_ROLE_GRANT], "#space": [spaceId], limit: 500 }),
-      pool.query({ kinds: [KIND_CHANNEL_MESSAGE], "#space": [spaceId], limit: 1000 }),
+      pool.query({ kinds: [KIND_SPACE, KIND_SPACE_ROLES, KIND_ROLE_GRANT], "#space": [kennung], limit: 500 }),
+      pool.query({ kinds: [KIND_CHANNEL_MESSAGE], "#space": [kennung], limit: 1000 }),
     ]);
-    spacesUi.state = buildSpaceState(spaceId, struktur);
+    let adresse = istAdresse(spaceId) ? spaceId : null;
+    if (!adresse) {
+      // Bloße Kennung (vor B-7 oder beim Beitreten): nur binden, wenn der Gründer eindeutig ist
+      const g = gruenderZurKennung(kennung, struktur, state.keypair?.pk);
+      if (!("besitzer" in g)) {
+        spacesUi.state = null;
+        $("#space-name").textContent = t(g.fall === "mehrdeutig" ? "komm.raumMehrdeutig" : "komm.raumNichtGefunden");
+        $("#channel-list").textContent = "";
+        return;
+      }
+      adresse = bindeKennung(localStorage, kennung, g.besitzer);
+      spacesUi.spaceId = adresse;
+    }
+    spacesUi.state = raumZustandFuer(adresse, struktur) ?? null;
     spacesUi.messages = nachrichten;
     // Repos dieses Raums (11.4c) lädt die Repo-Liste ab jetzt mit
     const ziel = raumZiel();
@@ -161,7 +181,7 @@ async function oeffneRaum(spaceId: string): Promise<void> {
     $("#space-name").textContent = t("komm.nichtErreichbar", { grund: fehlerText(e) });
     return;
   }
-  zeigeRaumArt(spaceId);
+  zeigeRaumArt(spacesUi.spaceId ?? spaceId);
   void zeigeRaumLeiste();
   await zeigeKanalliste();
 }
@@ -192,9 +212,10 @@ function zeigeRaumArt(spaceId: string): void {
 function raumZiel(): RaumZiel | null {
   if (spacesUi.privat) return { gruppe: spacesUi.privat.gruppe };
   const st = spacesUi.state as SpaceState | null;
-  if (!st?.space || !st.ownerPubkey || !spacesUi.spaceId || istPrivat(spacesUi.spaceId)) return null;
+  const kennung = offeneKennung();
+  if (!st?.space || !st.ownerPubkey || !kennung) return null;
   try {
-    return { adresse: raumAdresse(st.ownerPubkey, spacesUi.spaceId) };
+    return { adresse: raumAdresse(st.ownerPubkey, kennung) };
   } catch {
     return null; // Kennung, die keine Adresse ergibt – dann keine Repos
   }
@@ -229,7 +250,8 @@ function zeigeRaumRepos(): void {
 
 /** Von der Repo-Seite in den Raum des Repos (11.4c): privat über die Gruppe, öffentlich über die Kennung aus der Adresse. */
 export async function geheZuRaum(k: RepoKarte): Promise<void> {
-  const id = k.privatRaum ? PRIVAT + k.privatRaum : leseRaumAdresse(k.repo?.raum ?? "")?.spaceId;
+  // Öffentlich die ganze Adresse (B-7) – mit ihr zählt nur der Gründer, dem das Repo zugeordnet ist
+  const id = k.privatRaum ? PRIVAT + k.privatRaum : leseRaumAdresse(k.repo?.raum ?? "") ? k.repo!.raum! : undefined;
   if (!id) return;
   switchTab("comm");
   setzeKommModus("space");
@@ -705,7 +727,7 @@ async function sendeRaumNachricht(imThread = false): Promise<void> {
   try {
     const { buildChannelMessage } = await import("@freedomstack/protocol");
     const ev = await signiere(buildChannelMessage({
-      authorPubkey: state.keypair.pk, spaceId: spacesUi.spaceId,
+      authorPubkey: state.keypair.pk, spaceId: offeneKennung()!,
       channelId: spacesUi.channelId, content: text, mentions: bezug?.erwaehnt ?? [],
       threadRoot: bezug?.threadRoot, replyTo: bezug?.replyTo,
     } as never));
@@ -771,13 +793,17 @@ async function legeRaumAn(oeffentlich = false): Promise<void> {
         permissions: ["lesen", "schreiben", "threads"] },
     ] as never)));
 
-    raumBeitreten(spaceId);
+    // Gemerkt und weitergegeben wird die Adresse (B-7): mit ihr zählt nur meine Definition
+    const adresse = raumAdresse(state.keypair.pk, spaceId);
+    raumBeitreten(adresse);
     setzeKommModus("space");
-    await oeffneRaum(spaceId);
-    // Die Kennung ist der einzige Weg, wie jemand hereinkommt.
+    await oeffneRaum(adresse);
     await dialog({
       titel: t("raum.angelegtTitel"), text: t("komm.raumAngelegt"), ok: t("dlg.schliessen"), abbrechen: false,
-      felder: [{ art: "nurlesen", name: "kennung", label: t("komm.raumKennung"), wert: spaceId }],
+      felder: [
+        { art: "nurlesen", name: "adresse", label: t("komm.raumAdresse"), wert: adresse },
+        { art: "qr", name: "qr", label: t("komm.raumAdresseQr"), wert: adresse },
+      ],
     });
   } catch (e) {
     toast(fehlerText(e), true);
@@ -818,7 +844,9 @@ async function ladeEin(): Promise<void> {
  * moderieren kann, ist keins.
  */
 async function moderiere(aktion: "hide" | "ban" | "grant", ziel: string, autor?: string): Promise<void> {
-  if (!state.keypair || !spacesUi.spaceId) return;
+  // Nur offene Räume (privat: loescheImRaum/entferneAusRaum) – die Tags tragen die Kennung
+  const kennung = offeneKennung();
+  if (!state.keypair || !spacesUi.spaceId || !kennung) return;
   const st = spacesUi.state as never;
   const { can, buildHide, buildBan, buildRoleGrant } =
     await import("@freedomstack/protocol");
@@ -838,7 +866,7 @@ async function moderiere(aktion: "hide" | "ban" | "grant", ziel: string, autor?:
       const rolle = String(w?.rolle ?? "").trim();
       if (!rolle) return;
       await pool.publish(await signiere(buildRoleGrant(
-        spacesUi.spaceId, state.keypair.pk, ziel, [rolle])));
+        kennung, state.keypair.pk, ziel, [rolle])));
       toast(t("komm.rolleVergeben"));
     } else {
       // Ohne Begruendung wirkt Moderation willkuerlich — und wird es meist auch.
@@ -858,8 +886,8 @@ async function moderiere(aktion: "hide" | "ban" | "grant", ziel: string, autor?:
       if (!w || !grund) return;
       const sperren = w.was === "ban" && !!autor;
       const ev = !sperren
-        ? buildHide(spacesUi.spaceId, state.keypair.pk, ziel, grund)
-        : buildBan(spacesUi.spaceId, state.keypair.pk, autor, grund);
+        ? buildHide(kennung, state.keypair.pk, ziel, grund)
+        : buildBan(kennung, state.keypair.pk, autor, grund);
       await pool.publish(await signiere(ev));
       toast(t(sperren ? "komm.gesperrt" : "komm.ausgeblendet"));
     }
@@ -924,7 +952,7 @@ async function ernenneModeratoren(): Promise<void> {
   try {
     const { buildModeratorList } = await import("@freedomstack/protocol");
     await (await ensurePool()).publish(await signiere(buildModeratorList(
-      spacesUi.spaceId, state.keypair.pk, mods, regeln ?? undefined)));
+      offeneKennung()!, state.keypair.pk, mods, regeln ?? undefined)));
     toast(t("komm.modsBenannt", { n: mods.length }));
     await oeffneRaum(spacesUi.spaceId);
   } catch (e) {
@@ -954,10 +982,14 @@ export async function wireSpacesTab(): Promise<void> {
   });
   const join = $("#space-join");
   if (join) join.onclick = async () => {
-    const w = await dialog({ titel: t("komm.raumBeitreten"), ok: t("komm.raumBeitreten"), felder: [{ art: "text", name: "id", label: t("komm.raumKennung"), pflicht: true, mono: true }] });
-    const id = String(w?.id ?? "").trim();
+    // Adresse (auch gescannt) oder – wie bisher – Kennung; eine Kennung bindet oeffneRaum() nur eindeutig an einen Gründer (B-7)
+    const w = await dialog({
+      titel: t("komm.raumBeitreten"), ok: t("komm.raumBeitreten"),
+      felder: [{ art: "text", name: "id", label: t("komm.raumEingabe"), pflicht: true, mono: true, scannen: true }],
+      pruefe: (w) => (kennungVon(String(w.id ?? "").trim()) ? null : t("komm.raumUngueltig")),
+    });
+    const id = raumBeitreten(String(w?.id ?? ""));
     if (!id) return;
-    raumBeitreten(id);
     // Seit C.2b2 gleich in den Raum – vorher blieb der Chat bei den Direktnachrichten
     setzeKommModus("space");
     void oeffneRaum(id);

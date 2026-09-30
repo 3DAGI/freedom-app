@@ -18,8 +18,10 @@ test("2.3b: Liste privater Räume nur im Tresor – nie in freedom.spaces (local
   assert.match(quelle("../src/shell/tresor.ts"), /const GEHEIM_FEST = \[[^\]]*"freedom\.raeume\.privat"/);
   assert.match(raum, /await geheim\.setItem\(LS_PRIVATE_RAEUME, /);
   assert.doesNotMatch(raum, /localStorage/);
-  // raumBeitreten schreibt nur offene Räume zurück – sonst landeten private im Klartext
-  assert.match(raeume, /function raumBeitreten\(id: string\): void \{\s*const alle = new Set\(oeffentlicheRaeume\(\)\);/);
+  // raumBeitreten schreibt nur offene Räume zurück – sonst landeten private im Klartext (seit B-7 über
+  // oeffentliche-raeume.ts: dort nimmt nur, was Adresse oder Kennung ist – „mls:…“ nie, siehe oeffentliche-raeume.test.ts)
+  assert.match(raeume, /function raumBeitreten\(eingabe: string\): string \| null \{\s*return beitreten\(localStorage, eingabe\);/);
+  assert.match(raeume, /export function oeffentlicheRaeume\(\): string\[\] \{\s*return raumEintraege\(localStorage\);/);
 });
 
 test("2.3b: Einladung in eine Gruppe zu mehreren wird ein privater Raum; nach dem Einladen geht der Raumstand erneut hinaus", () => {

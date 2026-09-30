@@ -945,12 +945,17 @@ def lokal_pruefen(browser, url: str) -> dict:
     return erg
 
 
-def raum_probe(ich: str) -> list[dict]:
-    """Events des Probe-Raums; der eigene Schlüssel wird Moderator."""
+def raum_probe_daten(ich: str) -> dict:
+    """Probe-Raum: `events` (der eigene Schlüssel wird Moderator) und seit B-7 `uebernahme` (Definition eines Fremden)."""
     wurzel = Path(__file__).resolve().parent.parent
     aus = subprocess.run(["npx", "tsx", "scripts/raum-probe.mts", ich], cwd=wurzel, capture_output=True,
                          text=True, timeout=180, check=True)
-    return json.loads(aus.stdout)["events"]
+    return json.loads(aus.stdout)
+
+
+def raum_probe(ich: str) -> list[dict]:
+    """Events des Probe-Raums; der eigene Schlüssel wird Moderator."""
+    return raum_probe_daten(ich)["events"]
 
 
 def raum_pruefen(browser, url: str) -> dict:
@@ -982,7 +987,8 @@ def raum_pruefen(browser, url: str) -> dict:
             erg["fehler"].append(f"{groesse}: keine Abfrage der eigenen Relay-Listen – eigener Schlüssel unbekannt")
             ctx.close()
             continue
-        relay.events = raum_probe(relay.ich)
+        probe = raum_probe_daten(relay.ich)
+        relay.events = probe["events"]
         ev("() => document.getElementById('rail-join').click()")
         s.wait_for_timeout(300)
         s.keyboard.type("probe-raum")
@@ -1148,6 +1154,21 @@ def raum_pruefen(browser, url: str) -> dict:
             if rechte != [True, True] or not any(k.endswith("Technik & Co") for k in kanaele) \
                     or neu != [["channel", "technik-co", "Technik & Co", "offen", "2", "mod", ""]]:
                 erg["fehler"].append(f"desktop: eigener Raum, Kanal anlegen {erg['desktop']['eigener_raum']}")
+        # Seit B-7: gemerkt ist die Adresse mit dem Gründer – eine neuere Definition eines Fremden mit derselben Kennung
+        # übernimmt den Raum nicht (vorher gewann die neueste Definition, gleich von wem)
+        if not mobil:
+            gemerkt = ev("() => JSON.parse(localStorage.getItem('freedom.spaces') ?? '[]').filter(e => e.endsWith(':space:probe-raum'))")
+            relay.events.append(probe["uebernahme"])
+            ev("() => document.querySelector('#space-rail .space-pill[data-space=\"probe-raum\"]')?.click()")
+            try:
+                s.wait_for_function("() => document.getElementById('space-name').textContent === 'Übernommen'", timeout=3000)
+                uebernommen = True
+            except Exception:
+                uebernommen = False
+            uebernahme = {"gemerkt": gemerkt, "uebernommen": uebernommen, "name": ev("() => document.getElementById('space-name').textContent")}
+            erg["desktop"]["uebernahme"] = uebernahme
+            if len(gemerkt) != 1 or not gemerkt[0].startswith("34700:") or uebernommen or uebernahme["name"] != "Probe-Raum":
+                erg["fehler"].append(f"desktop: Übernahme eines offenen Raums {uebernahme}")
         # Raum-Repos (11.4c): im Probe-Raum die Liste seiner Repos, ohne „Repo anlegen“ (meine Rolle hat das Recht nicht);
         # ein Klick öffnet die Repo-Seite mit dem Raum, „Zum Raum“ führt zurück, der Fokus steht auf dem Repo
         if not mobil:

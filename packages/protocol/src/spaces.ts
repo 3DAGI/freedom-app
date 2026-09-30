@@ -192,7 +192,32 @@ export interface SpaceState {
 }
 
 /**
+ * Wer einen offenen Raum gegründet hat, wenn nur seine Kennung bekannt ist
+ * (Sammlung Neuordnung, B-7): der eigene Schlüssel, wenn er eine gültige
+ * Definition geschrieben hat, sonst der einzige Autor gültiger Definitionen.
+ * Schreiben mehrere, ist die Kennung mehrdeutig – dann gilt nur die ganze
+ * Adresse (`raumAdresse()`), sonst übernähme den Raum, wer zuletzt schreibt.
+ */
+export function gruenderZurKennung(
+  spaceId: string, events: readonly NostrEvent[], ich?: string,
+): { besitzer: string } | { fall: "keiner" | "mehrdeutig" } {
+  const autoren = new Set<string>();
+  for (const ev of events) {
+    if (ev.kind !== KIND_SPACE || getTag(ev, "space") !== spaceId || !HEX64.test(ev.pubkey)) continue;
+    try { parseSpace(ev); } catch { continue; }
+    autoren.add(ev.pubkey);
+  }
+  if (ich && autoren.has(ich)) return { besitzer: ich };
+  if (autoren.size === 1) return { besitzer: [...autoren][0]! };
+  return { fall: autoren.size === 0 ? "keiner" : "mehrdeutig" };
+}
+
+/**
  * Baut den Zustand eines Raums.
+ *
+ * Offene Räume nie direkt mit Events aus dem Netz: Hier gewinnt die neueste
+ * Definition, gleich von wem – `raumZustandFuer()` (`raum-repo.ts`) nimmt nur
+ * die des Gründers aus der Adresse (B-7).
  *
  * Eine Zuweisung zählt nur, wenn der Zuweisende `rollen_vergeben` hat UND
  * einen höheren Rang als die vergebene Rolle. Ohne die Rangprüfung könnte ein
