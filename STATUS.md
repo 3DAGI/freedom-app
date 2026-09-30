@@ -12171,3 +12171,58 @@ Endstand (B-5, 29.09.): protocol 1131 (6 übersprungen) · node 271 (7
 grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 (Begründung für
 `merge.ts` neu) · innerHTML streng Exit 0 · Website ok · Smoke-Test bestanden.
 Knoten-Stand: unverändert.
+
+## Schritt A-5 – Zahlung im Chat anfordern
+
+Aus der Sammlung (A-5), Spur A: versiegelt, mit Rechnung oder Adresse, in
+beiden Währungen – ohne neues Event-Format.
+
+**Was:**
+- `packages/app/src/zahlungs-anforderung.ts` (neu, ohne DOM):
+  - `baueAnforderung()`: Notiz, dann `lightning:<bolt11>` bzw.
+    `solana:<adresse>?amount=<SOL>` (Solana Pay) – Adressen, die auch andere
+    Apps verstehen.
+  - `leseAnforderung()` erkennt nur Zahlbares: eine lesbare Rechnung mit
+    Betrag (auch nackt, auch groß geschrieben) und eine gültige Adresse mit
+    Betrag, nur natives SOL (kein `spl-token`).
+  - `solZuLamports()`/`lamportsZuSol()` rechnen ohne Gleitkomma, nur sichere
+    Ganzzahlen.
+- `trinkgeld-adresse.ts`: `eigeneAdresseFuer()` – die eigene Adresse je
+  Kontakt und Kette (4.9d), beim ersten Mal frisch aus dem Vorrat.
+  `beantworteAdressAnfrage()` nutzt sie jetzt auch (gleiches Verhalten).
+- `shell/anforderung-ui.ts` (neu):
+  - `fordereAn()`: Dialog mit Betrag, Einheit und Notiz. sats über eine
+    Rechnung der eigenen Wallet (NWC), SOL über die eigene Adresse für genau
+    diesen Kontakt. Ohne passende Wallet sagt die App das, statt
+    auszuweichen. Die Anforderung kommt ins Eingabefeld; mit Senden geht sie
+    wie jede Nachricht versiegelt hinaus (MLS bzw. NIP-17, verzögert).
+  - `bezahleAnforderung()`: bei beiden Währungen zuerst die Wahl; Betrag in
+    beiden Einheiten; Bestätigung („gezahlt ist gezahlt“); gezahlt über
+    `zahle(zahlschienen(), … zweck: "anforderung")`. Nach SOL geht der
+    versiegelte Beleg (4.7) an den Anfordernden.
+- `chat-zap.ts`: Knopf „Anfordern statt senden“ im Zap-Dialog (übernimmt
+  Betrag und Einheit).
+- `tabs/kommunikation.ts`: An Direktnachrichten anderer mit einer
+  Anforderung steht „Bezahlen“ (eine Ausnahme mehr in
+  `innerhtml-ausnahmen.txt`, Template mit `escapeHtml`).
+- `protocol/src/payment-rail.ts`: neuer Zweck `anforderung`.
+- Texte `anf.*` in beiden Sprachen.
+
+**Tests (+5, `zahlungs-anforderung.test.ts`):** SOL ↔ Lamports (Grenzen,
+Unsinn, sichere Ganzzahl); bauen und lesen (Lightning, Solana, beides,
+Notiz, nackte Rechnung, weitere Solana-Pay-Felder); nur Zahlbares (ohne
+Betrag, kaputte Rechnung, fremder Token, ungültige Adresse, Betrag 0);
+eigene Adresse je Kontakt und Kette; Verdrahtung (Anfordern aus dem
+Zap-Dialog, Bezahlen nur an fremden DMs, erst bestätigen, nur über die
+Schienen, Beleg versiegelt, nichts direkt veröffentlicht).
+
+**Verdrahtet:** `chat-zap.ts` (`fordereAn()`), `shell/tabs/kommunikation.ts`
+(`leseAnforderung()` beim Zeigen, `bezahleAnforderung()` beim Klick).
+
+Endstand (A-5, 30.09., nach dem Einmergen von `main` mit B-1 und B-3 bis B-6):
+protocol 1131 (6 übersprungen) · node 272 (6 übersprungen, mit Netz) · app 693
+(+5) · mls 13 · Leak-Tests 68 grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 (eine
+lokale Variable hieß zuerst wie der ausgenommene Export `betragText` – die
+Prüfung sucht Namen; umbenannt, die Ausnahme bleibt richtig) · innerHTML
+streng Exit 0 (64 Ausnahmen, eine neue für den Knopf „Bezahlen“) · Website ok ·
+Smoke-Test bestanden. Knoten-Stand: unverändert.

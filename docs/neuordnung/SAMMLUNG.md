@@ -141,9 +141,9 @@ andere Spuren und stehen deshalb hier, nicht in deren Abschnitten:
 | A-2 | PR #183 fertigstellen; danach 11.2a (Werbelink mit eigener Domain), 11.2b (kurzer Name, NIP-05). | `fertig` (#183, #205) |
 | A-3 | 11.3a–d Agenten in Räumen (Entwurf, Freigabe MENSCH, Protokoll, Gerät, Knoten); 11.5 mit Spur B danach. | `Entscheidung` – Entwurf fertig (`docs/AGENTEN-RAUM-ENTWURF.md`, Fragen F1–F6) |
 | A-4 | **Veraltete Aussagen im Code:** `tiers.ts` („38010 beweist das Tier“ – gilt seit 5.5 nicht mehr), Kommentare zum Knappheitsbonus in `node/src/dvm-provider.ts` (fiel mit 5.1.4a). | `fertig` (#205, mit 11.2b; dazu Kopf von `dvm-provider.ts` nach A+ und die Bootstrap-Kommentare – Frage dazu: E7) |
-| A-5 | **Zahlung im Chat anfordern** – versiegelt, mit Rechnung oder Adresse, in beiden Währungen. | offen |
+| A-5 | **Zahlung im Chat anfordern** – versiegelt, mit Rechnung oder Adresse, in beiden Währungen. | `fertig` (#213) |
 | A-6 | **Belege exportieren** (CSV, nur lokal) und **Quittung für SOL-Hinterlegungen** (HTLC) – heute zählen nur Lightning und Kanal. | Export `fertig` (PR folgt); Quittung für Hinterlegungen: `Entscheidung` E8 – die Hinterlegung wird nie abgerechnet |
-| A-7 | **Redundanz-Konsens** (`consensus.ts`, nicht angebunden): dieselbe Frage an 2–3 Provider, Abweichung zeigen – kostet mehrfach, daher Geld-Spur. | `wartet` auf B-1 (beide bauen an der Modellwahl in `agent.ts`); Vorschlag für danach: Schalter je Frage, Standard aus, Kosten vorher sichtbar |
+| A-7 | **Redundanz-Konsens** (`consensus.ts`, nicht angebunden): dieselbe Frage an 2–3 Provider, Abweichung zeigen – kostet mehrfach, daher Geld-Spur. | `frei` seit B-1 (#207) – Vorschlag: Schalter je Frage, Standard aus, Kosten vorher sichtbar |
 | A-8 | Nicht angebundene Knoten-Bausteine: Cluster-Pairing (`cluster.ts`), Gratis-Schwelle (`network-capacity.ts`), Modelle laden (`model-registry.ts`). | `Entscheidung` E9 |
 | A-9 | **Vergütung von Mitwirkenden** (`contributor-funding.ts`, ohne Oberfläche) – in beiden Währungen. | `Entscheidung` E10 |
 | A-10 | **Abos:** Relay-Zugang und Speicher automatisch verlängern, über den Zahlkanal mit Obergrenze. | `Entscheidung` E11 |

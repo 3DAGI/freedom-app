@@ -83,6 +83,7 @@ export function openZapDialog(recipientPubkey: string, recipientName: string): v
       </div>
       <div class="zap-dialog-actions">
         <button class="ghost" id="zap-cancel">${escapeHtml(t("zahl.abbrechen"))}</button>
+        <button class="ghost" id="zap-anfordern">${escapeHtml(t("anf.anfordern"))}</button>
         <button class="cta" id="zap-send">${escapeHtml(t("send"))}</button>
       </div>
     </div>
@@ -112,6 +113,14 @@ export function openZapDialog(recipientPubkey: string, recipientName: string): v
   void aktualisiereKurs().then(umrechnung);
   document.getElementById("zap-close")!.onclick = () => el.remove();
   document.getElementById("zap-cancel")!.onclick = () => el.remove();
+  // Umgekehrt (A-5): eine Zahlung vom Gegenüber anfordern – mit Betrag und Einheit von hier
+  document.getElementById("zap-anfordern")!.onclick = async () => {
+    const wert = Number((document.getElementById("zap-amount") as HTMLInputElement).value);
+    const einheit = (document.getElementById("zap-unit") as HTMLSelectElement).value === "sol" ? "sol" : "sats";
+    el.remove();
+    const { fordereAn } = await import("./shell/anforderung-ui.js");
+    await fordereAn(recipientPubkey, recipientName, { wert: Number.isFinite(wert) ? wert : 0, einheit });
+  };
   document.getElementById("zap-send")!.onclick = async () => {
     state.amount = Number((document.getElementById("zap-amount") as HTMLInputElement).value);
     state.unit = (document.getElementById("zap-unit") as HTMLSelectElement).value as "sats" | "sol";

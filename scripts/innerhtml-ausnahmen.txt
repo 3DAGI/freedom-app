@@ -46,6 +46,7 @@ kommunikation.ts|alt|festes Markup oder leer
 kommunikation.ts|diebstahl|festes Markup oder leer (Warnung nach Schlüsseldiebstahl, 8.6a)
 kommunikation.ts|geraet|Template mit escapeHtml(g.text) oder leer (Gerätehinweis, 8.6b); die Klasse hängt nur am Wahrheitswert g.warnung
 kommunikation.ts|zapBtn|Template mit escapeHtml(ev.pubkey) und escapeHtml(pkShort(ev.pubkey))
+kommunikation.ts|anfBtn|Template mit escapeHtml(ev.id) und escapeHtml(t("anf.bezahlen")) oder leer (Zahlungsanforderung, A-5)
 kommunikation.ts|body|body = escapeHtml(text)
 kommunikation.ts|media|renderAttachment() maskiert Name und URL und erlaubt nur sichere Schemata (shell-logic.ts)
 settings.ts|cls|feste Klassennamen ok/err/warn
