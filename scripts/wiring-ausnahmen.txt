@@ -32,11 +32,8 @@ cluster.ts|modelFitsOnCluster|Cluster-Pairing ohne Oberfläche und ohne Anbindun
 cluster.ts|parseClusterOffer|Cluster-Pairing ohne Oberfläche und ohne Anbindung im Knoten (Provider-Knoten, 8.2)
 cluster.ts|recommendMode|Cluster-Pairing ohne Oberfläche und ohne Anbindung im Knoten (Provider-Knoten, 8.2)
 
-consensus.ts|consensusCostPreview|Redundanz-Konsens über mehrere Provider, ohne Oberfläche (Agent und Werkzeuge, 8.7)
-consensus.ts|evaluateConsensus|Redundanz-Konsens über mehrere Provider, ohne Oberfläche (Agent und Werkzeuge, 8.7)
-consensus.ts|normalizeAnswer|Redundanz-Konsens über mehrere Provider, ohne Oberfläche (Agent und Werkzeuge, 8.7)
-consensus.ts|recommendedRedundancy|Redundanz-Konsens über mehrere Provider, ohne Oberfläche (Agent und Werkzeuge, 8.7)
-consensus.ts|similarity|Redundanz-Konsens über mehrere Provider, ohne Oberfläche (Agent und Werkzeuge, 8.7)
+consensus.ts|normalizeAnswer|Baustein von evaluateConsensus() – die App vergleicht nur darüber (Vergleich, A-7)
+consensus.ts|similarity|Baustein von evaluateConsensus() – die App vergleicht nur darüber (Vergleich, A-7)
 
 contributor-funding.ts|buildAllocation|Vergütung von Mitentwicklern, ohne Oberfläche (Repositories, 8.10)
 contributor-funding.ts|buildBounty|Vergütung von Mitentwicklern, ohne Oberfläche (Repositories, 8.10)
