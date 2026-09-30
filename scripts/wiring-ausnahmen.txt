@@ -9,7 +9,6 @@
 #
 # Pruefen: python3 scripts/check-wiring.py --streng
 
-antispam.ts|RateLimiter|Spam- und Flutschutz, weder im Relay des Knotens noch in der App eingebunden (Relay-Rolle, 8.4)
 antispam.ts|checkPow|Spam- und Flutschutz, weder im Relay des Knotens noch in der App eingebunden (Relay-Rolle, 8.4)
 antispam.ts|difficulty|Spam- und Flutschutz, weder im Relay des Knotens noch in der App eingebunden (Relay-Rolle, 8.4)
 antispam.ts|hashHex|Spam- und Flutschutz, weder im Relay des Knotens noch in der App eingebunden (Relay-Rolle, 8.4)
@@ -106,13 +105,13 @@ local-search.ts|indexStats|Suche verdrahtet (8.13, suche.ts); Vorschläge und St
 local-search.ts|searchInfo|Suche verdrahtet (8.13, suche.ts); Vorschläge und Statistik ohne Oberfläche
 local-search.ts|suggest|Suche verdrahtet (8.13, suche.ts); Vorschläge und Statistik ohne Oberfläche
 
-merge.ts|emptySet|Zusammenführen nach Offline-Bearbeitung, noch nicht angebunden (Zustandssicherung, 8.12)
-merge.ts|mergeField|Zusammenführen nach Offline-Bearbeitung, noch nicht angebunden (Zustandssicherung, 8.12)
-merge.ts|mergeSets|Zusammenführen nach Offline-Bearbeitung, noch nicht angebunden (Zustandssicherung, 8.12)
-merge.ts|setAdd|Zusammenführen nach Offline-Bearbeitung, noch nicht angebunden (Zustandssicherung, 8.12)
-merge.ts|setRemove|Zusammenführen nach Offline-Bearbeitung, noch nicht angebunden (Zustandssicherung, 8.12)
-merge.ts|setValues|Zusammenführen nach Offline-Bearbeitung, noch nicht angebunden (Zustandssicherung, 8.12)
-merge.ts|summarizeConflicts|Zusammenführen nach Offline-Bearbeitung, noch nicht angebunden (Zustandssicherung, 8.12)
+merge.ts|emptySet|Mengen mit Zeitstempeln je Feld – die gespeicherten Daten tragen keine; B-5 führt ohne sie zusammen (zustand-zusammenfuehren.ts)
+merge.ts|mergeField|Mengen mit Zeitstempeln je Feld – die gespeicherten Daten tragen keine; B-5 führt ohne sie zusammen (zustand-zusammenfuehren.ts)
+merge.ts|mergeSets|Mengen mit Zeitstempeln je Feld – die gespeicherten Daten tragen keine; B-5 führt ohne sie zusammen (zustand-zusammenfuehren.ts)
+merge.ts|setAdd|Mengen mit Zeitstempeln je Feld – die gespeicherten Daten tragen keine; B-5 führt ohne sie zusammen (zustand-zusammenfuehren.ts)
+merge.ts|setRemove|Mengen mit Zeitstempeln je Feld – die gespeicherten Daten tragen keine; B-5 führt ohne sie zusammen (zustand-zusammenfuehren.ts)
+merge.ts|setValues|Mengen mit Zeitstempeln je Feld – die gespeicherten Daten tragen keine; B-5 führt ohne sie zusammen (zustand-zusammenfuehren.ts)
+merge.ts|summarizeConflicts|Mengen mit Zeitstempeln je Feld – die gespeicherten Daten tragen keine; B-5 führt ohne sie zusammen (zustand-zusammenfuehren.ts)
 
 mesh-sync.ts|blobFeasibility|Machbarkeit großer Dateien offline, ohne Oberfläche (Phase 7)
 

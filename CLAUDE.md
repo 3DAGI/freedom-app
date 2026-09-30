@@ -45,9 +45,9 @@ bash packages/mls/bauen.sh --pruefen                     # nur bei Änderungen a
 bash contracts/solana-channel/pruefen.sh --werkzeuge     # nur bei Änderungen am Zahlkanal: bauen + Tests gegen Validator (Agave 3.1.10)
 ```
 
-Stand 28.09.2026 (nach 8.2c, 5.5a–c, 8.15, 11.1a, C.3c2, 11.1b, 5.9a–b, 6.3a–b2, 11.4a–b2, C.4a–b, C.5a–b, C.6b, 11.4c, C-18, C-17a–c, C-20a–b, 11.2a–b, A-4 bis A-6 und B-1): protocol 1127 grün (6 übersprungen), node 263 grün
+Stand 30.09.2026 (nach 8.2c, 5.5a–c, 8.15, 11.1a, C.3c2, 11.1b, 5.9a–b, 6.3a–b2, 11.4a–b2, C.4a–b, C.5a–b, C.6b, 11.4c, C-18, C-17a–c, C-20a–b, 11.2a–b, A-4 bis A-6, B-1 und B-3 bis B-6): protocol 1131 grün (6 übersprungen), node 272 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 676 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 68 grün + 1 `todo` (heutige Lecks,
+in `tools.test.ts`), app 693 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 68 grün + 1 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
 Ausnahme: gesendete SOL-Zahlungen von frischen Adressen, eine bewusste Grenze
 nach Entscheidung 4.9 A – im Datenschutzbericht unter „Bewusste Grenzen“).
@@ -363,6 +363,10 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   `filtereWiederherstellung()`; nie Schlüssel, Zugänge, Geld-Geheimnisse,
   Anteile oder Gruppenschlüssel (`SICHERUNG_NIE`). Neue Einträge, die ein neues
   Gerät braucht, dort eintragen – und ob sie im Tresor liegen (`istGeheimnis()`).
+  Geschrieben wird seit B-5 nur zusammengeführt (`fuehreZusammen()`,
+  `zustand-zusammenfuehren.ts`), erst nach `bestaetige()`: Ein neuer Eintrag,
+  der eine Sammlung ist (Liste, Karte je Kontakt), braucht dort eine Regel –
+  sonst gilt der eingelesene Wert, und was nur auf dem Gerät stand, ist weg.
 - **Speicherknoten nur verschlüsselt** (seit 8.9a): Wer ins Blob-Netz lädt,
   was Knoten halten sollen, baut mit `buildBlob(…, { verschluesselt: true })`
   und lädt nur Chiffrat hoch; Knoten nehmen Stücke nur über `nimmAuf()` →
@@ -809,3 +813,28 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   Pool, kein Auftrag, keine Zahlung, nie still ins Netz ausweichen. In Node
   hält `AbortSignal.timeout` die Ereignisschleife nicht offen – Tests mit
   Zeitablauf halten sie mit einem Timer.
+- **Flutschutz im Relay nur über `FLUTSCHUTZ`** (seit B-3, `relay-role.ts`):
+  Grenzen je Verbindung (Events, Abfragen und Anmeldungen, offene Abos), je
+  Schlüssel (gespeicherte Events, mit Zugang das Zehnfache) und für die Zahl der
+  Verbindungen – über den `RateLimiter` aus `antispam.ts`, Fenster eine Minute,
+  nach außen nur feste Texte nach NIP-01 (`rate-limited:`, `error:`), zu viele
+  Verbindungen schließt der Relay mit 1013. Die Grenzen müssen einen Upload in
+  Stücken durchlassen (Test mit 200 Stücken) – nie so eng, dass Anhänge und
+  Bundles scheitern. Umschläge (1059) kommen von Wegwerf-Schlüsseln: sie bremst
+  nur die Grenze je Verbindung. Zählstände vergisst `aufraeumen()`.
+- **Kontakt prüfen nur über `sicherheitscode()`** (seit B-4,
+  `sicherheitscode.ts`): Code aus beiden Schlüsseln der Personen
+  (`sprichtFuer()`, nie der Geräteschlüssel), Fassung im Hash – eine andere
+  Rechnung braucht eine neue Fassung. Der Code reist nie über ein Relay, der
+  QR-Code trägt nur die Ziffern. Als geprüft gemerkt wird erst nach dem
+  Vergleich (`merkeGeprueft()`), nur in `freedom.kontakte.geprueft` im Tresor
+  (die Liste verrät, wen man getroffen hat), je Schlüssel – ein neuer Schlüssel
+  ist ungeprüft.
+- **Datenexport nur über `datenexport.ts`** (seit B-6): hinein nur
+  `waehleExport()` (die Liste der Sicherung plus `EXPORT_ZUSAETZLICH`), zurück
+  nur `filtereExport()` – nie Schlüssel, Zugänge, Geld-Geheimnisse, Anteile,
+  Gruppenschlüssel, auch nicht aus einer fremden Datei. Verschlüsselt nur mit
+  `verschluesseleMitPassphrase()` (Format und Parameter des Tresors), die
+  Passphrase nur im Dialog (`verdeckt: true`). Was nie auf ein Relay darf
+  (Quittungen, KI-Verläufe), steht in `EXPORT_ZUSAETZLICH`, nicht in
+  `SICHERUNG_EINTRAEGE`.

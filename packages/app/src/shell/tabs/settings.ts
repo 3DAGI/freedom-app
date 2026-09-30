@@ -18,12 +18,20 @@ import { echtheitText, fehlerText, fixierungText, geraetWarnung, rechtName, nach
 import { LS_VERSAND_VERZOEGERUNG, maxVerzoegerungSek } from "../versand.js";
 import { rufStand, rufTeilenAn, setzeRufTeilen } from "../ruf.js";
 import { geheim, istGeheimnis, tresorEingerichtet, wireTresorKarte } from "../tresor.js";
+import { MIN_PASSPHRASE } from "../../vault.js";
+import { fuehreZusammen, type ZusammenfuehrBericht } from "../../zustand-zusammenfuehren.js";
 import { $, ganzeZahl, toast } from "../ui.js";
 import { bestaetige, dialog } from "../dialog.js";
 import { TRUSTED_SIGNERS, ladeManifeste } from "../../release-signierer.js";
 import { ladeAbdeckung, nutzeStandort, trageAbdeckungEin, vergissStandort, widerrufeAbdeckung } from "./earn.js";
 import { LS_KONTAKTE_SICHERN, geraeteBuch, kontakteEinschalten, kontakteSichernAn, sichereKontakte } from "./kommunikation.js";
 import { LS_STANDARD_SCHIENE, standardSchiene } from "../../standard-schiene.js";
+
+/** Was das Zusammenfuehren (B-5) tut – vor dem Schreiben gezeigt. */
+function zusammenfuehrText(b: ZusammenfuehrBericht): string {
+  return [t("set.zusammenfuehren"), b.erhalten > 0 ? t("set.zusammenErhalten", { n: b.erhalten }) : "", b.konflikte > 0 ? t("set.zusammenKonflikte", { n: b.konflikte }) : ""]
+    .filter(Boolean).join(" ");
+}
 
 // ------------------------------------------------- Nachfolge & Modelle
 
@@ -150,6 +158,19 @@ export function wireSicherheitsKnoepfe(): void {
   if (bn) bn.onclick = () => void sichereZustand();
   const br = $("#backup-restore");
   if (br) br.onclick = () => void stelleZustandWieder();
+  // Datenexport (B-6): als Datei mitnehmen und wieder einlesen
+  const ex = $("#export-datei");
+  if (ex) ex.onclick = () => void exportiereDaten();
+  const ei = $("#export-einlesen");
+  const ef = document.getElementById("export-file") as HTMLInputElement | null;
+  if (ei && ef) {
+    ei.onclick = () => ef.click();
+    ef.onchange = () => {
+      const datei = ef.files?.[0];
+      ef.value = "";
+      if (datei) void leseExportDatei(datei);
+    };
+  }
   const rp = $("#rotation-prepare");
   if (rp) rp.onclick = () => void bereiteWechselVor();
   const rr = $("#rotation-revoke");
@@ -231,8 +252,72 @@ async function stelleZustandWieder(): Promise<void> {
     }
     // Nur, was in eine Sicherung gehoert – auch eine alte mit Schluessel stellt ihn nicht her
     const daten = filtereWiederherstellung(r.data);
-    if (!confirm(`${wiederherstellungText(r)}\n\n${t("set.ueberschreibenFrage")}`)) return;
-    for (const [k, v] of Object.entries(daten)) {
+    // Zusammenfuehren statt ueberschreiben (B-5): was nur hier steht, bleibt
+    const { werte, bericht } = fuehreZusammen(daten, (k) => (istGeheimnis(k) ? geheim.getItem(k) : localStorage.getItem(k)));
+    if (!(await bestaetige({ titel: t("set.wiederherstellen"), text: `${wiederherstellungText(r)}\n\n${zusammenfuehrText(bericht)}`, ok: t("set.zusammenfuehrenOk") }))) return;
+    for (const [k, v] of Object.entries(werte)) {
+      if (istGeheimnis(k)) await geheim.setItem(k, v);
+      else localStorage.setItem(k, v);
+    }
+    toast(t("set.wiederhergestellt"));
+    setTimeout(() => location.reload(), 900);
+  } catch (e) {
+    toast(fehlerText(e), true);
+  }
+}
+
+/**
+ * Datenexport (B-6): alles aus der Sicherung, dazu KI-Verläufe und Quittungen,
+ * mit einer eigenen Passphrase verschlüsselt, als Datei – nie Schlüssel,
+ * Zugänge oder Geld-Geheimnisse (`datenexport.ts`). Braucht keinen rohen
+ * Schlüssel, geht also auch mit Bunker.
+ */
+async function exportiereDaten(): Promise<void> {
+  const w = await dialog({
+    titel: t("set.exportTitel"),
+    text: t("set.exportText"),
+    felder: [
+      { name: "pass", label: t("set.exportPass"), art: "text", pflicht: true, verdeckt: true },
+      { name: "pass2", label: t("set.exportPass2"), art: "text", pflicht: true, verdeckt: true },
+    ],
+    ok: t("set.exportOk"),
+    pruefe: (w) => (String(w.pass).normalize("NFC").length < MIN_PASSPHRASE ? t("ein.passZuKurz", { n: MIN_PASSPHRASE })
+      : w.pass !== w.pass2 ? t("set.exportPassUngleich") : null),
+  });
+  if (!w) return;
+  try {
+    const { baueExport, exportDateiname, waehleExport } = await import("../../datenexport.js");
+    const alle = Array.from({ length: localStorage.length }, (_, i) => localStorage.key(i) ?? "");
+    const daten = waehleExport(alle, (k) => (istGeheimnis(k) ? geheim.getItem(k) : localStorage.getItem(k)));
+    const url = URL.createObjectURL(new Blob([await baueExport(daten, String(w.pass))], { type: "application/json" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = exportDateiname();
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    toast(t("set.exportFertig", { n: Object.keys(daten).length }));
+  } catch (e) {
+    toast(fehlerText(e), true);
+  }
+}
+
+/** Eine Export-Datei einlesen – nur, was dazugehört (`filtereExport()`), erst nach Rückfrage. */
+async function leseExportDatei(datei: File): Promise<void> {
+  const { EXPORT_MAX_BYTES, leseExport } = await import("../../datenexport.js");
+  if (datei.size > EXPORT_MAX_BYTES) return toast(t("set.exportZuGross"), true);
+  const w = await dialog({
+    titel: t("set.einlesenTitel"),
+    felder: [{ name: "pass", label: t("set.exportPass"), art: "text", pflicht: true, verdeckt: true }],
+    ok: t("set.einlesenWeiter"),
+  });
+  if (!w) return;
+  try {
+    const { daten, zeit } = await leseExport(await datei.text(), String(w.pass));
+    // Zusammenfuehren statt ueberschreiben (B-5)
+    const { werte, bericht } = fuehreZusammen(daten, (k) => (istGeheimnis(k) ? geheim.getItem(k) : localStorage.getItem(k)));
+    const frage = `${t("set.einlesenFrage", { n: Object.keys(daten).length, datum: new Date(zeit * 1000).toLocaleString(gebietsschema()) })}\n\n${zusammenfuehrText(bericht)}`;
+    if (!(await bestaetige({ titel: t("set.einlesenTitel"), text: frage, ok: t("set.einlesenOk") }))) return;
+    for (const [k, v] of Object.entries(werte)) {
       if (istGeheimnis(k)) await geheim.setItem(k, v);
       else localStorage.setItem(k, v);
     }

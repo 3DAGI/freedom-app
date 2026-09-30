@@ -27,6 +27,7 @@ import { alsRaumMeldung, merkePrivatenRaum } from "../raum-mls.js";
 import { alsRufZusammenfassung } from "../ruf.js";
 import { geheim } from "../tresor.js";
 import { $, toast } from "../ui.js";
+import { pruefStand } from "../kontakt-pruefen-ui.js";
 import { t } from "../../i18n.js";
 import { versendeVerzoegert } from "../versand.js";
 import { kontaktName, zeigeRaumLeiste } from "./raeume.js";
@@ -449,6 +450,7 @@ function openConversation(cid: string): void {
   const thread = $("#chat-thread");
   thread.innerHTML = `<div class="empty-state">${c ? escapeHtml(c.name) : ""}<br/>` +
     escapeHtml(c?.type === "dm" ? dmHinweis(c) : t("komm.community")) +
+    (c?.type === "dm" ? `<br/><span class="pruef-stand">${escapeHtml(pruefStand(c.id))}</span>` : "") +
     `</div>`;
   zeigeAblauf(c);
   loadChatMessages(cid);
