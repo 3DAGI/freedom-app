@@ -12382,3 +12382,9 @@ weg, gelöscht); `gruppenRaum()` nennt Gelöschtes.
 
 **Verdrahtet:** noch nicht in der Oberfläche – das ist B-15b. Die Bausteine
 stehen in `scripts/wiring-ausnahmen.txt` mit Verweis auf B-15b.
+
+Endstand (B-15a, 30.09.): protocol 1139 (+6, 6 übersprungen) · node 271 (7
+übersprungen ohne Netz – mit Netz 272) · app 702 · mls 13 · Leak-Tests 68 grün
++ 1 todo · 0 rot · check-wiring `--streng` Exit 0 (sechs Ausnahmen mit Verweis
+auf B-15b) · innerHTML streng Exit 0 · Website ok · Smoke-Test bestanden.
+Knoten-Stand: unverändert.
