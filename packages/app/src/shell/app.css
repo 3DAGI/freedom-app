@@ -1614,6 +1614,22 @@ button.menue-punkt.menue-gefahr { color: var(--red); }
 .abdeckung-orte, .usage-row + .abdeckung-ort { margin-top: 8px; }
 .abdeckung-ort { overflow-wrap: anywhere; }
 
+/* ---------- Umfragen und Termine im privaten Raum (B-15b) ---------- */
+.kanal-planung { display: flex; flex-direction: column; gap: 8px; padding: 8px 14px; max-height: 40vh; overflow-y: auto; border-bottom: 1px solid var(--border); }
+.planung-karte { border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; background: var(--surf2, #16181A); }
+.planung-frage { margin: 2px 0 6px; font-size: 14px; overflow-wrap: anywhere; }
+.planung-optionen, .planung-antworten { display: flex; flex-direction: column; gap: 4px; }
+.planung-antworten { flex-direction: row; flex-wrap: wrap; }
+.planung-option { position: relative; display: flex; justify-content: space-between; align-items: center; gap: 8px; width: 100%; text-align: left; overflow: hidden; }
+.planung-option .planung-balken { position: absolute; inset: 0 auto 0 0; background: var(--accent-dim); opacity: .35; pointer-events: none; }
+.planung-option-text, .planung-zahl { position: relative; overflow-wrap: anywhere; }
+.planung-option[aria-pressed="true"], .planung-antwort[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+.planung-wann, .planung-ort { margin-bottom: 4px; }
+.planung-text { margin: 4px 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.planung-fuss { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 6px; }
+.planung-fuss .planung-loeschen { margin-left: auto; }
+.planung-knopf { flex: none; }
+
 /* ---------- Mobil (C.5a): Berührflächen, Häkchen, Safe-Area, Tastatur, eigenes Bild ---------- */
 /* Häkchen und Wahlknöpfe nie in voller Breite (die Regel für input setzte sie auf 100 %) */
 input[type="checkbox"], input[type="radio"] { width: 18px; height: 18px; min-height: 0; flex: none; margin: 0 8px 0 0; vertical-align: -3px; accent-color: var(--accent); }
