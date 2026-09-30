@@ -17,7 +17,7 @@ export interface Option { wert: string; text: string; hinweis?: string }
 
 interface Basis { name: string; label: string }
 export type Feld =
-  | Basis & { art: "text" | "textarea"; wert?: string; pflicht?: boolean; fehler?: string; mono?: boolean; scannen?: boolean }
+  | Basis & { art: "text" | "textarea"; wert?: string; pflicht?: boolean; fehler?: string; mono?: boolean; scannen?: boolean; verdeckt?: boolean }
   | Basis & { art: "wahl"; optionen: Option[]; wert?: string; pflicht?: boolean; fehler?: string }
   | Basis & { art: "mehrfach"; optionen: Option[]; werte?: string[] }
   | Basis & { art: "nurlesen"; wert: string }
@@ -126,7 +126,8 @@ export function dialog(o: DialogOptionen): Promise<Werte | null> {
     const e = f.art === "textarea" ? el("textarea") : el("input");
     e.id = id(f.name);
     e.value = f.wert ?? "";
-    if (e instanceof HTMLInputElement) e.type = "text";
+    // Passphrasen verdeckt (B-6); sonst Text
+    if (e instanceof HTMLInputElement) e.type = "verdeckt" in f && f.verdeckt ? "password" : "text";
     if (f.art === "textarea") (e as HTMLTextAreaElement).rows = 3;
     if (f.art === "nurlesen" || ("mono" in f && f.mono)) e.classList.add("mono");
     e.autocomplete = "off";

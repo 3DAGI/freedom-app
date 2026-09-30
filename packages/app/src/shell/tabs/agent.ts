@@ -12,7 +12,9 @@ import {
   buildJobRequest,
   buildPrivateJobRequest,
   PROVIDER_PPM,
+  lokaleKiAdresse,
   parseJobResult,
+  type LokalesModell,
 } from "@freedomstack/protocol";
 import { gebietsschema, t } from "../../i18n.js";
 import { fehlerText, hatFehlerText, reklamationsFrist } from "../../protokoll-texte.js";
@@ -20,6 +22,8 @@ import { icon } from "../../icons.js";
 import { DEFAULT_MAX_MODE, ScoredProvider, matchRaceProviders } from "../../matchmaking.js";
 import { type AntwortCache, oeffneAntworten } from "../../ki-antworten.js";
 import { kontextPraefix } from "../../ki-kontext.js";
+import { LS_LOKAL_AKTIV, frageLokal, lokalAktiv, lokaleAdresse, lokaleModelle, lokalerWahlwert, lokalesModellAus, setzeLokaleAdresse } from "../../ki-lokal.js";
+import { dialog } from "../dialog.js";
 import { SessionClient } from "../../session-client.js";
 import { escapeHtml, pkShort } from "../../shell-logic.js";
 import { ausMsat, solText } from "../../preis-anzeige.js";
@@ -102,6 +106,7 @@ export async function refreshModelDropdown(): Promise<void> {
         return { label: t("agent.mittel"), cls: "mid" };
       };
       pop.innerHTML = `
+        <div class="mc-gruppe">${escapeHtml(t("agent.gruppeNetz"))}</div>
         <button type="button" class="model-card ${current === "" ? "selected" : ""}" data-model="">
           <div class="mc-head"><b>${escapeHtml(t("agent.auto"))}</b><span class="mc-speed fast">${escapeHtml(t("agent.schnellste"))}</span></div>
           <div class="mc-sub">${escapeHtml(t("agent.autoSub"))}</div>
@@ -119,7 +124,122 @@ export async function refreshModelDropdown(): Promise<void> {
     }
     // button-label aktualisieren
     updateModelBtnLabel();
-  } catch { /* dropdown bleibt bei auto */ }
+  } catch { /* dropdown bleibt bei auto */ } finally {
+    zeigeLokalBereich();
+  }
+}
+
+// ------------------------------------------------ KI auf diesem Gerät (B-1)
+
+/** Stand der Suche nach einem Modell auf diesem Rechner – nur für diese Sitzung. */
+let lokal: { stand: "unbekannt" | "sucht" | "ok" | "fehlt"; modelle: LokalesModell[]; fehler?: string } = { stand: "unbekannt", modelle: [] };
+
+/** „Dieses Gerät“ in der Modellwahl – nur DOM mit textContent: Die Namen kommen vom Modell-Dienst. */
+function zeigeLokalBereich(): void {
+  const pop = $("#model-popover");
+  if (!pop) return;
+  pop.querySelector(".lokal-bereich")?.remove();
+  const bereich = document.createElement("div");
+  bereich.className = "lokal-bereich";
+  const kopf = document.createElement("div");
+  kopf.className = "mc-gruppe";
+  kopf.textContent = t("agent.gruppeGeraet");
+  bereich.append(kopf);
+  const gewaehlt = ($("#ai-model") as HTMLInputElement | null)?.value ?? "";
+  const karte = (klasse: string, titel: string, text: string, wert?: string): HTMLButtonElement => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = klasse;
+    const head = document.createElement("div");
+    head.className = "mc-head";
+    const name = document.createElement("b");
+    name.textContent = titel;
+    head.append(name);
+    if (wert !== undefined) {
+      b.dataset.model = wert;
+      if (gewaehlt === wert) b.classList.add("selected");
+      const marke = document.createElement("span");
+      marke.className = "mc-speed lokal";
+      marke.textContent = t("agent.lokalKurz");
+      head.append(marke);
+    }
+    const sub = document.createElement("div");
+    sub.className = "mc-sub";
+    sub.textContent = text;
+    b.append(head, sub);
+    return b;
+  };
+  const adresse = lokaleAdresse(localStorage);
+  if (lokal.stand === "ok" && lokal.modelle.length > 0) {
+    for (const m of lokal.modelle) bereich.append(karte("model-card", m.name, t("agent.lokalModellSub"), lokalerWahlwert(m.name)));
+  } else if (lokal.stand === "sucht") {
+    bereich.append(karte("model-card lokal-suchen", t("agent.lokalSuchen"), t("agent.lokalSucht")));
+  } else if (lokal.stand === "unbekannt") {
+    bereich.append(karte("model-card lokal-suchen", t("agent.lokalSuchen"), t("agent.lokalSuchenSub")));
+  } else {
+    const grund = lokal.stand === "ok" ? t("agent.lokalKeine", { adresse }) : `${lokal.fehler ?? ""} ${t("agent.lokalOrigins", { herkunft: location.origin })}`;
+    bereich.append(karte("model-card lokal-suchen", t("agent.lokalErneut"), grund));
+  }
+  const aendern = document.createElement("button");
+  aendern.type = "button";
+  aendern.className = "ghost mono-sm lokal-adresse";
+  aendern.textContent = t("agent.lokalAdresse", { adresse });
+  bereich.append(aendern);
+  pop.append(bereich);
+}
+
+/** Modelle auf diesem Rechner suchen – nur auf Wunsch; danach auch beim Öffnen der Wahl. */
+async function sucheLokal(): Promise<void> {
+  if (lokal.stand === "sucht") return;
+  lokal = { stand: "sucht", modelle: [] };
+  zeigeLokalBereich();
+  try {
+    const modelle = await lokaleModelle(lokaleAdresse(localStorage));
+    localStorage.setItem(LS_LOKAL_AKTIV, "1");
+    lokal = { stand: "ok", modelle };
+  } catch (e) {
+    lokal = { stand: "fehlt", modelle: [], fehler: fehlerText(e) };
+  }
+  zeigeLokalBereich();
+}
+
+/** Adresse des Modells ändern – nur eine auf diesem Rechner. */
+async function aendereLokaleAdresse(): Promise<void> {
+  const w = await dialog({
+    titel: t("agent.lokalAdresseTitel"),
+    felder: [{ name: "adresse", label: t("agent.lokalAdresseLabel"), art: "text", wert: lokaleAdresse(localStorage), pflicht: true, mono: true }],
+    pruefe: (w) => (lokaleKiAdresse(String(w.adresse ?? "")) ? null : t("agent.lokalAdresseFremd")),
+  });
+  if (!w || !setzeLokaleAdresse(String(w.adresse), localStorage)) return;
+  lokal = { stand: "unbekannt", modelle: [] };
+  await sucheLokal();
+}
+
+/**
+ * Frage an das Modell auf diesem Gerät: kein Relay, kein Provider, keine
+ * Zahlung. Antwortet es nicht, steht der Grund im Verlauf – die App fragt
+ * nicht still das Netz.
+ */
+async function frageAufDiesemGeraet(prompt: string, modell: string, btn: HTMLButtonElement): Promise<void> {
+  if (selectedTools.length > 0) toast(t("agent.lokalOhneWerkzeuge"));
+  jobAbort = new AbortController();
+  maybeInsertModelSwitchSummary(t("agent.lokalKurz"));
+  const frage = pendingContextSummary ? pendingContextSummary + prompt : prompt;
+  addAiMessage("user", prompt, "");
+  ($("#ai-prompt") as HTMLTextAreaElement).value = "";
+  hideEmptyState();
+  showTyping("thinking");
+  try {
+    const a = await frageLokal({ adresse: lokaleAdresse(localStorage), modell, frage, signal: jobAbort.signal });
+    hideTyping();
+    addAiMessage("ai", a.text, t("agent.lokalMeta", { tokens: a.promptTokens + a.completionTokens }), a.modell);
+  } catch (e) {
+    hideTyping();
+    addAiMessage("ai", fehlerText(e), "");
+  } finally {
+    jobAbort = null;
+    resetSendBtn(btn);
+  }
 }
 
 /** „ · in 2 Katalogen“ – leer, wenn kein abonnierter Katalog das Modell nennt. */
@@ -133,7 +253,10 @@ function updateModelBtnLabel(): void {
   const btn = $("#ai-model-btn") as HTMLButtonElement | null;
   if (!sel || !btn) return;
   const v = sel.value;
-  btn.innerHTML = v
+  const lokalModell = lokalesModellAus(v);
+  btn.innerHTML = lokalModell
+    ? `${icon("monitor", 14)} ${escapeHtml(lokalModell)} · ${escapeHtml(t("agent.lokalKurz"))}`
+    : v
     ? `${icon("bot", 14)} ${escapeHtml(v.split(":")[0])}`
     : `${icon("bot", 14)} ${escapeHtml(t("agent.autoSchnellste"))}`;
 }
@@ -146,16 +269,21 @@ export function setupModelPicker(): void {
   btn.addEventListener("click", (e) => {
     e.stopPropagation();
     pop.classList.toggle("hidden");
+    if (!pop.classList.contains("hidden") && lokalAktiv(localStorage)) void sucheLokal();
   });
   // Karten-Klicks (delegiert, da Inhalt dynamisch)
   pop.addEventListener("click", async (e) => {
-    const card = (e.target as HTMLElement).closest(".model-card") as HTMLElement | null;
+    const ziel = e.target as HTMLElement;
+    if (ziel.closest(".lokal-suchen")) { e.stopPropagation(); void sucheLokal(); return; }
+    if (ziel.closest(".lokal-adresse")) { e.stopPropagation(); void aendereLokaleAdresse(); return; }
+    const card = ziel.closest(".model-card") as HTMLElement | null;
     if (!card) return;
     const sel = $("#ai-model") as HTMLInputElement;
     sel.value = card.dataset.model ?? "";
     updateModelBtnLabel();
     pop.classList.add("hidden");
-    toast(sel.value ? t("agent.modellGewaehlt", { modell: sel.value.split(":")[0] ?? "" }) : t("agent.modellAuto"));
+    toast(sel.value ? t("agent.modellGewaehlt", { modell: lokalesModellAus(sel.value) ?? sel.value.split(":")[0] ?? "" }) : t("agent.modellAuto"));
+    updateTokenEstimate();
   });
   // klick außerhalb schließt
   document.addEventListener("click", (e) => {
@@ -310,6 +438,7 @@ export function updateTokenEstimate(): void {
   if (!el) return;
   const promptLen = ($("#ai-prompt") as HTMLTextAreaElement).value.length;
   if (promptLen < 10) { el.textContent = ""; return; }
+  if (lokalesModellAus(($("#ai-model") as HTMLInputElement | null)?.value)) { el.textContent = t("agent.lokalGratis"); return; }
   const estTokens = Math.ceil(promptLen / 4) + 300; // +300 für Antwort-Puffer
   // Rate: aus Modell-Katalog (falls geladen) oder Default 1500 msat/1k
   let rate = 1500;
@@ -392,6 +521,12 @@ export async function askAi(): Promise<void> {
   btn.dataset.running = "1";
   btn.classList.add("stop-mode");
   btn.textContent = t("agent.stop");
+  // Dieses Gerät (B-1): direkt an das Modell auf dem eigenen Rechner – ohne Netz, Kontingent und Zahlung
+  const lokalModell = lokalesModellAus(($("#ai-model") as HTMLInputElement | null)?.value);
+  if (lokalModell) {
+    await frageAufDiesemGeraet(prompt, lokalModell, btn);
+    return;
+  }
   // Retry-Kontext ausserhalb des try-Blocks (catch braucht ihn)
   const selTier = ($("#ai-tier") as HTMLSelectElement).value;
   const maxMode = selTier === "max";

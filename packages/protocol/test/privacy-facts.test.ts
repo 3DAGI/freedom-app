@@ -46,6 +46,7 @@ import { knotenSchluessel, rechnung } from "./bolt11-hilfe.js";
 import { regelKeineLnAdresse, regelRaumRepoPrivat, regelZapAnonym } from "../src/leak-rules.js";
 import { raumRepoAnkuendigung, raumRepoBundle, raumRepoIssue, raumRepoIssueStatus, raumRepoKommentar, raumRepoPatch } from "../src/raum-repo.js";
 import { fromHex, toHex } from "../src/htlc.js";
+import { LOKAL_STANDARD_ADRESSE, lokaleKiAdresse, lokaleKiAnfrage } from "../src/ki-lokal.js";
 import type { NostrEvent, UnsignedEvent } from "../src/event.js";
 import { readFileSync } from "node:fs";
 import { gunzipSync } from "node:zlib";
@@ -172,6 +173,15 @@ const SZENARIEN: Record<string, () => Promise<number>> = {
   "ki-antwort": async () => {
     const { wraps } = await privateKiRunde();
     return regelKeinKlartext(wraps, [ANTWORT]).length;
+  },
+  "ki-lokal": async () => {
+    // Die Frage geht nur an eine Adresse dieses Rechners – und ist kein Event, also an kein Relay.
+    const anfrage = lokaleKiAnfrage({ adresse: LOKAL_STANDARD_ADRESSE, modell: "llama3.2:3b", frage: PROMPT });
+    const woanders = anfrage && ["localhost", "127.0.0.1", "[::1]"].includes(new URL(anfrage.url).hostname) ? 0 : 1;
+    const fremd = ["https://relay.damus.io", "http://192.168.1.20:11434", "http://localhost.boese.example", "http://nutzer:pw@localhost:11434", "ws://localhost:11434"]
+      .filter((a) => lokaleKiAdresse(a) !== undefined || lokaleKiAnfrage({ adresse: a, modell: "m", frage: PROMPT }) !== undefined).length;
+    const events: NostrEvent[] = [];
+    return woanders + fremd + regelKeinKlartextPrompt(events, [PROMPT]).length;
   },
   "ki-zahlung": async () => {
     const { wraps } = await privateKiRunde();
@@ -478,7 +488,7 @@ test("belegte Aussagen nennen ihre Regel, und jede genannte Regel gibt es", () =
     if (f.regel) assert.ok(f.regel in LEAK_REGELN, `Aussage "${f.id}": Regel "${f.regel}" gibt es nicht`);
   }
   // Ohne Regel nur, was kein Event-Mitschnitt pruefen kann.
-  assert.deepEqual(PRIVACY_FACTS.filter((f) => !f.regel).map((f) => f.id).sort(), ["dm-forward-secrecy", "ip"]);
+  assert.deepEqual(PRIVACY_FACTS.filter((f) => !f.regel).map((f) => f.id).sort(), ["dm-forward-secrecy", "ip", "werbe-name"]);
 });
 
 test("4.5b: eine SOL-Adresse je Knoten steht als bewusste Grenze im Bericht – mit Grund und Entscheidung", () => {
@@ -488,6 +498,15 @@ test("4.5b: eine SOL-Adresse je Knoten steht als bewusste Grenze im Bericht – 
   const t = privacyFactsText();
   const grenzen = t.slice(t.indexOf("Bewusste Grenzen:"));
   assert.match(grenzen, /△ Betreibst du einen Knoten, hat er eine SOL-Adresse: .*Entscheidung 4\.5 A/);
+});
+
+test("11.2b: die Abfrage eines Werbe-Namens steht als Grenze im Bericht – kein Event, deshalb ohne Regel", () => {
+  const f = PRIVACY_FACTS.find((x) => x.id === "werbe-name");
+  assert.equal(f?.status, "grenze");
+  assert.equal(f?.regel, undefined, "die Abfrage geht per https an die Domain, nicht als Event an ein Relay");
+  const t = privacyFactsText();
+  const grenzen = t.slice(t.indexOf("Bewusste Grenzen:"));
+  assert.match(grenzen, /△ Kommst du über einen Werbelink mit Namen \(name@domain\), fragt die App diese Domain beim ersten Start einmal .*Werbelinks mit Schlüssel fragen niemanden\./);
 });
 
 test("Grenzen nennen ihren Grund", () => {

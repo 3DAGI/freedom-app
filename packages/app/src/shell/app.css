@@ -553,6 +553,15 @@ input:focus, textarea:focus, select:focus {
 .mc-speed.fast { background: rgba(123,200,10,.14); color: var(--accent); }
 .mc-speed.mid { background: rgba(204,136,0,.13); color: var(--amber); }
 .mc-speed.deep { background: rgba(120,120,220,.13); color: #8888ee; }
+/* B-1: Gruppen „Netz“ / „Dieses Gerät“ in der Modellwahl */
+.mc-gruppe {
+  font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .6px;
+  padding: 6px 12px 4px; font-family: var(--font-mono);
+}
+.lokal-bereich { border-top: 1px solid var(--border); margin-top: 4px; padding-top: 2px; }
+.lokal-bereich .mc-sub { overflow-wrap: anywhere; }
+.mc-speed.lokal { background: rgba(80,160,220,.13); color: #6ab0e8; }
+.lokal-adresse { display: block; width: 100%; text-align: left; padding: 6px 12px; overflow-wrap: anywhere; }
 
 /* ---------- C6: Code-Blöcke ---------- */
 .codeblock {
@@ -1385,6 +1394,9 @@ button.dlg-gefahr:hover { background: #A52A2A; }
 .qr-video { width: min(280px, 100%); border-radius: 6px; background: #000; }
 .qr-hinweis { margin: 0; color: var(--text-muted); }
 .qr-hinweis:empty { display: none; }
+
+.werben-adresse { margin-top: 12px; }
+.werben-adresse .muted { margin: 4px 0; }
 
 /* ---------- Räume: Verlauf und Menüs (Schritt C.2b2) ---------- */
 .msg-tag {

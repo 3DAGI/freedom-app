@@ -44,8 +44,10 @@ test("verdrahtet: Deklaration vor dem Versiegeln, Abrechnung bei der Antwort, Za
   assert.match(kz, /void relayZiele\.lerne\(urls\)[\s\S]*const relays = relayZiele\.bekannte\(urls\);/);
   assert.match(kz, /entwicklung: ENTWICKLUNG,\s*\.\.\.\(werber \? \{ "werber-provider": \{ lud16: werber \} \} : \{\}\),\s*\.\.\.\(kundenWerber \? \{ "werber-kunde": kundenWerber \} : \{\}\),\s*\.\.\.\(relays\.length > 0 \? \{ relays \} : \{\}\),/);
   const earn = lies("shell/tabs/earn.ts");
-  assert.match(earn, /link\.value = werbeLink\(window\.location\.origin \+ window\.location\.pathname, pub, lud16\);/);
-  assert.match(earn, /merkeWerber\(window\.location\.search, localStorage\);/);
+  // seit 11.2a mit der eigenen Adresse der App, falls gesetzt; seit 11.2b mit dem Namen statt des Schlüssels, falls geprüft
+  assert.match(earn, /const basis = eigeneBasis\(localStorage\) \?\? window\.location\.origin \+ window\.location\.pathname;/);
+  assert.match(earn, /link\.value = werbeLink\(basis, werbeRef\(localStorage, pub, basis\), lud16\);/);
+  assert.match(earn, /merkeWerber\(window\.location\.search, localStorage, window\.location\.hostname\);/);
   assert.match(kz, /new AnteilsKasse\(\{ speicher: geheim \}\)/, "Stand nur über geheim");
   assert.match(lies("shell/tresor.ts"), /"freedom\.anteile"/, "im Tresor");
   assert.match(lies("shell/tabs/settings.ts"), /kasse\.klaere\(u\.rechnung, gezahlt\)/, "unklare Zahlungen klärt der Nutzer");

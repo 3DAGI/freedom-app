@@ -182,7 +182,10 @@ export const SICHERUNG_EINTRAEGE: readonly string[] = [
   "freedom.kataloge",           // abonnierte Modellkataloge (5.7)
   "freedom.referrer",           // eigener Werber – ihm gehen 0,5 % jeder KI-Zahlung (5.1.3b)
   "freedom.referrer.ln",        // seine Lightning-Adresse aus dem Werbelink
+  "freedom.werben.adresse",     // eigene Adresse der App für den Werbelink (11.2a)
+  "freedom.werben.name",        // eigener kurzer Name (NIP-05) für den Werbelink, samt Schlüssel (11.2b)
   "freedom.ruf.teilen",         // Zustimmung: Ruf mit Kontakten teilen (5.5c)
+  "freedom.kontakte.geprueft",  // geprüfte Kontakte (Sicherheitscode, B-4) – im Tresor
 ];
 /** Moderation je Community (`freedom.mod.<id>`): nur „an“/„aus“. */
 const SICHERUNG_PRAEFIXE = ["freedom.mod."];

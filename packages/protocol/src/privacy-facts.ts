@@ -8,8 +8,8 @@
  * Bericht nichts versprechen, was der Code nicht haelt.
  *
  * Jede Aussage verweist auf ihre Regel aus `LEAK_REGELN` (leak-rules.ts). Nur
- * Forward Secrecy und IP-Adresse haben keine: Ein Mitschnitt der Events kann
- * sie nicht pruefen. Die App-Szenarien stehen in packages/app/test/leak/.
+ * Forward Secrecy, IP-Adresse und die Abfrage eines Werbe-Namens (11.2b) haben
+ * keine: Ein Mitschnitt der Events kann sie nicht pruefen. Die App-Szenarien stehen in packages/app/test/leak/.
  *
  * Die IP-Adresse prueft die App stattdessen je Sitzung (seit 6.2, `ipFaktFuer`):
  * "geprueft" steht nie in der festen Liste, nur als Ergebnis dieser Pruefung.
@@ -46,6 +46,7 @@ export const PRIVACY_FACTS: readonly PrivacyFact[] = [
   { id: "ki-prompt", aussage: "KI-Anfragen sind für Relays nicht lesbar.", status: "belegt", regel: "kein-klartext-prompt" },
   { id: "ki-kunde", aussage: "KI-Anfragen verraten Relays nicht, wer fragt – der Provider sieht nur einen Schlüssel je Sitzung.", status: "belegt", regel: "kunde-verborgen" },
   { id: "ki-antwort", aussage: "KI-Antworten sind für Relays nicht lesbar.", status: "belegt", regel: "kein-klartext" },
+  { id: "ki-lokal", aussage: "Mit „Dieses Gerät“ in der Modellwahl geht die Frage nur an das Modell auf deinem Rechner (localhost) – an kein Relay, an keinen Provider und ohne Zahlung.", status: "belegt", regel: "kein-klartext-prompt" },
   { id: "ki-zahlung", aussage: "Anfragen, Antworten, Sitzungen und Belege deiner KI-Nutzung zeigen Relays keine Beträge, Rechnungen oder Adressen.", status: "belegt", regel: "keine-zahlungsdaten" },
   { id: "ruf-kontakte", aussage: "Deine Erfahrung mit Providern – wie viele Antworten du bei wem bezahlt hast, in welchem Umfang, bestätigte Reklamationen – liegt nur im Tresor. Mit Kontakten teilt die App sie nur, wenn du zustimmst, und nur versiegelt: je Kontakt ein eigener Umschlag, einer nach dem anderen; Relays sehen weder Provider noch Beträge noch dich. Deine Kontakte sehen deine Zusammenfassung.", status: "belegt", regel: "autor-verborgen" },
   { id: "ki-reklamation", aussage: "Reklamationen sind nicht öffentlich – sie gehen versiegelt an den Provider und einen Prüfer aus deinem Netz; sein Urteil geht ebenso versiegelt nur an dich und den Provider.", status: "belegt", regel: "keine-zahlungsdaten" },
@@ -69,6 +70,7 @@ export const PRIVACY_FACTS: readonly PrivacyFact[] = [
   { id: "geraete-vollmacht", aussage: "Welche Schlüssel deine Geräte sind, steht öffentlich in deinen Vollmachten; wer deinen Posteingang betreibt, sieht Umschläge an dich und deine Geräte zur selben Zeit ankommen.", status: "grenze", grund: "Kontakte müssen prüfen können, dass ein Gerät für dich spricht, und wissen, an welche Geräte sie versiegeln. Wer das nicht will, nutzt statt Geräteschlüsseln einen entfernten Signer (NIP-46).", regel: "p-tags" },
   { id: "ip", aussage: "Relays sehen deine IP-Adresse nicht.", status: "offen", schritt: "6.1" },
   { id: "relay-zugang", aussage: "Wer Zugang zu einem Relay kauft, verrät dem Betreiber Schlüssel und IP-Adresse; mit SOL auch die Absenderadresse – auf der Kette sieht jeder, dass sie diesen Relay bezahlt hat.", status: "grenze", grund: "Der Relay muss wissen, für welchen Schlüssel bezahlt wurde, und die Zahlung prüfen können. Mit Sats sieht er nur, dass bezahlt wurde. In keinem Event steht die Zahladresse; wer das alles nicht will, kauft keinen Zugang – offene Relays bleiben.", regel: "keine-sol-adresse" },
+  { id: "werbe-name", aussage: "Kommst du über einen Werbelink mit Namen (name@domain), fragt die App diese Domain beim ersten Start einmal nach dem Schlüssel des Werbers – die Domain sieht dabei deine IP-Adresse und dass ihr Link geöffnet wurde.", status: "grenze", grund: "Nach NIP-05 nennt nur die Domain den Schlüssel zum Namen. Die App fragt genau diese eine Adresse, ohne Cookies und ohne Herkunftsangabe, folgt keiner Weiterleitung und fragt nie ein zweites Mal. Werbelinks mit Schlüssel fragen niemanden." },
 ];
 
 /**

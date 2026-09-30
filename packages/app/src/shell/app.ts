@@ -49,6 +49,8 @@ import {
 } from "./tabs/agent.js";
 import { wireFunkGateway } from "./funk-gateway-ui.js";
 import { dialog } from "./dialog.js";
+import { wireEigeneAdresse, wireWerbeName } from "./werben-ui.js";
+import { wireBelege } from "./belege-ui.js";
 import {
   captureReferral,
   ladeAbdeckung,
@@ -732,6 +734,16 @@ function starte(): void {
       openZapDialog(c.id, c.name);
     };
   }
+  // Kontakt prüfen (B-4): Sicherheitscode vergleichen – nur in 1:1-Unterhaltungen
+  const pruefBtn = $("#chat-pruefen");
+  if (pruefBtn) {
+    pruefBtn.onclick = async () => {
+      const c = conversations.find((x) => x.id === activeConversation);
+      if (!c || c.type !== "dm") return toast(t("komm.pruefNur11"), true);
+      const { pruefeKontakt } = await import("./kontakt-pruefen-ui.js");
+      await pruefeKontakt(c.id, c.name);
+    };
+  }
   // Mesh-Transfer (USB/offline): Post fuer einen Kontakt mitnehmen / Datei einlesen.
   // Seit 7.1 nur Umschlaege – ohne eigenen Schluessel, ohne Klartext.
   const meshExportBtn = $("#chat-mesh-export");
@@ -910,6 +922,9 @@ function starte(): void {
     });
   }
   setupReferral();
+  wireEigeneAdresse();
+  wireWerbeName();
+  wireBelege();
   setupCopyButtons();
 }
 

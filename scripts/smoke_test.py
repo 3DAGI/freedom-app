@@ -55,6 +55,7 @@ PROBE_VERLAUF = [{"id": "probe", "title": "Probe", "at": 1790000000, "messages":
     {"role": "ai", "text": "antwort", "meta": "<b id='probe-meta'>m</b>",
      "model": "<img id='probe-modell' src='x'>"}]}]
 from pathlib import Path
+from urllib.parse import parse_qs, urlparse
 
 
 def freier_port() -> int:
@@ -733,6 +734,213 @@ def qr_pruefen(browser, url: str) -> dict:
         erg["fehler"].append(f"Kamera {spuren}")
     if not person or person != person_a:
         erg["fehler"].append("nach dem Import nicht als Gerät der Person angemeldet")
+    erg["bestanden"] = not erg["fehler"]
+    return erg
+
+
+def werben_pruefen(browser, url: str) -> dict:
+    """Werbelink mit eigener Domain (11.2a): nur https, der Link trägt die Adresse,
+    „Prüfen“ fragt erst auf Klick ab und sagt ehrlich, was dort liegt. Kurzer Name
+    (11.2b): übernommen nur zum eigenen Schlüssel; der Geworbene fragt genau einmal."""
+    erg = {"fehler": []}
+    namen = {"ich": None, "werber": "cd" * 32}
+    nostr_json = []
+    basis = url.rsplit("/", 1)[0]
+    dist = Path(__file__).resolve().parent.parent / "packages" / "app" / "dist" / "freedom.html"
+    relay = ProbeRelay()
+    ctx = browser.new_context(locale="de-DE", viewport={"width": 1280, "height": 800})
+    ctx.route("**/*", lambda r: r.continue_() if r.request.url.startswith(basis) else r.abort())
+    ctx.route_web_socket(re.compile(r"^wss?://"), relay.verbinde)
+    kopie = []
+
+    def kopie_test(route):
+        cors = {"Access-Control-Allow-Origin": "*"}
+        if "/.well-known/nostr.json?name=" in route.request.url:
+            name = route.request.url.rsplit("=", 1)[1]
+            nostr_json.append(name)
+            pk = {"alice": namen["ich"], "fremd": "11" * 32, "bob": namen["werber"]}.get(name)
+            route.fulfill(json={"names": {name: pk} if pk else {}}, headers=cors)
+            return
+        kopie.append(route.request.url)
+        if route.request.url.endswith("/freedom.html"):
+            route.fulfill(path=str(dist), headers=cors, content_type="text/html")
+        elif route.request.url.endswith("/freedom-spiegel.json"):
+            route.fulfill(json={"version": 1, "zahlziel": {"lud16": "hosting@kopie.example"}}, headers=cors)
+        else:
+            route.fulfill(status=404, headers=cors)
+    ctx.route("https://kopie.test/**", kopie_test)  # später registriert → zuerst gefragt
+    s = ctx.new_page()
+    s.on("pageerror", lambda e: erg["fehler"].append(str(e)[:300]))
+    ev = s.evaluate
+    s.goto(url, wait_until="load")
+    s.wait_for_selector("#bk-done", timeout=30000)
+    w = ev("() => [...document.querySelectorAll('.mnemonic-list li')].map(l => l.textContent)")
+    ev("(w) => document.querySelectorAll('#bk-challenge input').forEach(i => i.value = w[+i.dataset.pos])", w)
+    ev("() => document.getElementById('bk-done').click()")
+    s.wait_for_timeout(1500)
+    ev("() => document.getElementById('ein-abbrechen')?.click()")
+    ev("() => document.querySelector('.app-nav button[data-tab=\"earn\"]').click()")
+    s.wait_for_timeout(500)
+    setze = """(a) => { document.getElementById('werben-adresse').value = a; document.getElementById('werben-adresse-setzen').click();
+      return { status: document.getElementById('werben-adresse-status').textContent, link: document.getElementById('referral-link').value }; }"""
+    http = ev(setze, "http://kopie.test/freedom.html")
+    eigen = ev(setze, "https://kopie.test/freedom.html")
+    vor_klick = len(kopie)
+    ev("() => document.getElementById('werben-adresse-pruefen').click()")
+    try:
+        s.wait_for_function("() => document.getElementById('werben-adresse-status').textContent.startsWith('Dort:')", timeout=20000)
+    except Exception:
+        pass
+    geprueft = ev("() => [...document.getElementById('werben-adresse-status').children].map(z => z.textContent)")
+    ev(setze, "https://tot.test/")
+    ev("() => document.getElementById('werben-adresse-pruefen').click()")
+    try:
+        s.wait_for_function("() => document.getElementById('werben-adresse-status').children.length === 2", timeout=20000)
+    except Exception:
+        pass
+    tot = ev("() => [...document.getElementById('werben-adresse-status').children].map(z => z.textContent)")
+    zurueck = ev(setze, "")
+    gemerkt = ev("() => localStorage.getItem('freedom.werben.adresse')")
+    # 11.2b: kurzer Name – der eigene Schlüssel steht noch im Link
+    namen["ich"] = parse_qs(urlparse(zurueck["link"]).query).get("ref", [None])[0]
+    name_setzen = """async (n) => { document.getElementById('werben-name').value = n; document.getElementById('werben-name-setzen').click();
+      const st = document.getElementById('werben-name-status');
+      for (let i = 0; i < 100 && (st.textContent === '' || st.textContent.startsWith('Frage')); i++) await new Promise(r => setTimeout(r, 100));
+      return { status: st.textContent, link: document.getElementById('referral-link').value }; }"""
+    fremd = ev(name_setzen, "fremd@kopie.test")
+    alice = ev(name_setzen, "Alice@kopie.test")
+    auf_domain = ev(setze, "https://kopie.test/freedom.html")
+    ev(setze, "")
+    ohne_name = ev(name_setzen, "")
+    ctx.close()
+    erg.update({"name_fremd": fremd["status"], "name_link": alice["link"][len(basis):], "name_domain": auf_domain["link"],
+                "name_zurueck": ohne_name["link"][len(basis):len(basis) + 20]})
+    if not namen["ich"] or len(namen["ich"]) != 64:
+        erg["fehler"].append(f"eigener Schlüssel nicht im Link: {zurueck['link'][:60]}")
+    if fremd["status"] != "Die Domain nennt unter diesem Namen einen anderen Schlüssel – nicht übernommen." or "fremd" in fremd["link"]:
+        erg["fehler"].append(f"fremder Name übernommen? {fremd}")
+    if not (alice["status"] == "Übernommen – der Werbelink trägt jetzt den Namen." and alice["link"].endswith("?ref=alice%40kopie.test")):
+        erg["fehler"].append(f"Name im Link {alice}")
+    if auf_domain["link"] != "https://kopie.test/freedom.html?ref=alice":
+        erg["fehler"].append(f"auf der Domain des Namens nur der Teil vor dem @: {auf_domain['link']}")
+    if f"?ref={namen['ich']}" not in ohne_name["link"]:
+        erg["fehler"].append(f"leer → wieder der Schlüssel: {ohne_name['link'][:80]}")
+    # Geworbener: Link mit Namen, die App fragt die Domain genau einmal
+    relay2 = ProbeRelay()
+    ctx = browser.new_context(locale="de-DE", viewport={"width": 1280, "height": 800})
+    ctx.route("**/*", lambda r: r.continue_() if r.request.url.startswith(basis) else r.abort())
+    ctx.route_web_socket(re.compile(r"^wss?://"), relay2.verbinde)
+    ctx.route("https://kopie.test/**", kopie_test)
+    s = ctx.new_page()
+    s.on("pageerror", lambda e: erg["fehler"].append(str(e)[:300]))
+    vorher = len(nostr_json)
+    s.goto(url + "?ref=bob%40kopie.test", wait_until="load")
+    try:
+        s.wait_for_function(f"() => localStorage.getItem('freedom.referrer') === '{namen['werber']}'", timeout=20000)
+    except Exception:
+        pass
+    werber = s.evaluate("() => [localStorage.getItem('freedom.referrer'), localStorage.getItem('freedom.referrer.name')]")
+    s.reload(wait_until="load")
+    s.wait_for_timeout(1500)
+    fragen = nostr_json[vorher:]
+    ctx.close()
+    erg.update({"geworben": werber, "fragen": fragen})
+    if werber != [namen["werber"], None]:
+        erg["fehler"].append(f"Werber aus dem Namen nicht gemerkt: {werber}")
+    if fragen != ["bob"]:
+        erg["fehler"].append(f"Domain nicht genau einmal gefragt: {fragen}")
+    erg.update({"http": http["status"], "link": eigen["link"][:60], "vor_klick": vor_klick, "geprueft": geprueft, "tot": tot,
+                "zurueck": zurueck["link"][:40], "gemerkt": gemerkt})
+    if http["status"] != "Nur https: Über http könnte unterwegs jeder die App austauschen." or http["link"].startswith("http://kopie.test"):
+        erg["fehler"].append(f"http abgewiesen? {http}")
+    if not (eigen["link"].startswith("https://kopie.test/freedom.html?ref=") and eigen["status"].startswith("Übernommen")):
+        erg["fehler"].append(f"eigene Adresse im Link {eigen}")
+    if vor_klick != 0:
+        erg["fehler"].append(f"Abfrage vor dem Klick: {vor_klick}")
+    if geprueft != ["Dort: Kein Manifest eines bekannten Signierers gefunden. Die Datei lässt sich nicht prüfen — das heißt nicht, dass sie falsch ist, nur dass niemand für sie bürgt.",
+                    "Hosting-Anteil laut freedom-spiegel.json an: hosting@kopie.example"]:
+        erg["fehler"].append(f"Prüfen {geprueft}")
+    if tot != ["Nicht geprüft: Die Adresse antwortet nicht oder erlaubt keine Abfrage aus dem Browser (CORS).",
+               "Keine gültige freedom-spiegel.json dort – der Hosting-Anteil bleibt beim Provider."]:
+        erg["fehler"].append(f"tote Adresse {tot}")
+    if not zurueck["link"].startswith(basis) or gemerkt is not None:
+        erg["fehler"].append(f"zurück zur eigenen Herkunft {zurueck['link'][:40]} {gemerkt}")
+    erg["bestanden"] = not erg["fehler"]
+    return erg
+
+
+def lokal_pruefen(browser, url: str) -> dict:
+    """KI auf diesem Gerät (B-1): „Dieses Gerät“ steht in der Modellwahl, gesucht wird
+    erst auf Klick, die Frage geht nur an localhost – kein Auftrag, kein Umschlag ans Relay."""
+    erg = {"fehler": []}
+    basis = url.rsplit("/", 1)[0]
+    relay = ProbeRelay()
+    ctx = browser.new_context(locale="de-DE", viewport={"width": 1280, "height": 800})
+    ctx.route("**/*", lambda r: r.continue_() if r.request.url.startswith(basis) else r.abort())
+    ctx.route_web_socket(re.compile(r"^wss?://"), relay.verbinde)
+    lokal = []
+
+    def modell_dienst(route):
+        req = route.request
+        lokal.append({"methode": req.method, "url": req.url, "inhalt": req.post_data or ""})
+        cors = {"Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "Content-Type",
+                "Access-Control-Allow-Methods": "GET, POST, OPTIONS"}
+        if req.method == "OPTIONS":
+            route.fulfill(status=204, headers=cors)
+        elif req.url.endswith("/v1/models"):
+            route.fulfill(json={"data": [{"id": "probe-modell:1b"}]}, headers=cors)
+        elif req.url.endswith("/v1/chat/completions"):
+            route.fulfill(json={"model": "probe-modell:1b", "choices": [{"message": {"content": "Antwort vom Gerät"}}],
+                                "usage": {"prompt_tokens": 7, "completion_tokens": 3}}, headers=cors)
+        else:
+            route.fulfill(status=404, headers=cors)
+    ctx.route("http://localhost:11434/**", modell_dienst)  # später registriert → zuerst gefragt
+    s = ctx.new_page()
+    s.on("pageerror", lambda e: erg["fehler"].append(str(e)[:300]))
+    ev = s.evaluate
+    s.goto(url, wait_until="load")
+    s.wait_for_selector("#bk-done", timeout=30000)
+    w = ev("() => [...document.querySelectorAll('.mnemonic-list li')].map(l => l.textContent)")
+    ev("(w) => document.querySelectorAll('#bk-challenge input').forEach(i => i.value = w[+i.dataset.pos])", w)
+    ev("() => document.getElementById('bk-done').click()")
+    s.wait_for_timeout(1500)
+    ev("() => document.getElementById('ein-abbrechen')?.click()")
+    ev("() => document.querySelector('.app-nav button[data-tab=\"ai\"]').click()")
+    s.wait_for_timeout(500)
+    ev("() => document.getElementById('ai-model-btn').click()")
+    s.wait_for_selector("#model-popover .lokal-suchen", timeout=20000)
+    vor_klick = len(lokal)
+    ev("() => document.querySelector('#model-popover .lokal-suchen').click()")
+    karte = '#model-popover .model-card[data-model="lokal:probe-modell:1b"]'
+    s.wait_for_selector(karte, timeout=10000)
+    ev(f"() => document.querySelector('{karte}').click()")
+    wahl = ev("() => ({ wert: document.getElementById('ai-model').value, knopf: document.getElementById('ai-model-btn').textContent.trim(),"
+              " aktiv: localStorage.getItem('freedom.lokal.aktiv') })")
+    vorher = len(relay.gesendet)
+    frage = "Geheime Frage an das Gerät 4711"
+    ev("(f) => { document.getElementById('ai-prompt').value = f; document.getElementById('ai-send').click(); }", frage)
+    try:
+        s.wait_for_function("() => [...document.querySelectorAll('#ai-thread .bubble.ai')].some(b => b.textContent.includes('Antwort vom Gerät'))", timeout=15000)
+    except Exception:
+        pass
+    antwort = ev("() => { const b = [...document.querySelectorAll('#ai-thread .bubble.ai')].pop();"
+                 " return b ? { text: b.querySelector('.body')?.textContent ?? '', meta: b.querySelector('.cost')?.textContent ?? '' } : null; }")
+    s.wait_for_timeout(1000)
+    neu = relay.gesendet[vorher:]
+    ctx.close()
+    anfragen = [a for a in lokal if a["methode"] == "POST"]
+    erg.update({"vor_klick": vor_klick, "wahl": wahl, "antwort": antwort, "lokal": [f"{a['methode']} {a['url']}" for a in lokal],
+                "relay_danach": [e.get("kind") for e in neu]})
+    if vor_klick != 0:
+        erg["fehler"].append(f"Abfrage vor dem Klick: {vor_klick}")
+    if wahl != {"wert": "lokal:probe-modell:1b", "knopf": "probe-modell:1b · dieses Gerät", "aktiv": "1"}:
+        erg["fehler"].append(f"Wahl {wahl}")
+    if not antwort or antwort["text"].strip() != "Antwort vom Gerät" or antwort["meta"] != "dieses Gerät · 10 Tokens · gratis":
+        erg["fehler"].append(f"Antwort {antwort}")
+    if len(anfragen) != 1 or not anfragen[0]["url"].endswith("/v1/chat/completions") or frage not in anfragen[0]["inhalt"]:
+        erg["fehler"].append(f"Frage an localhost {anfragen}")
+    if any(e.get("kind") == 1059 or 5000 <= int(e.get("kind", 0)) < 7000 for e in neu) or any(frage in json.dumps(e) for e in neu):
+        erg["fehler"].append(f"ans Relay nach der Frage: {erg['relay_danach']}")
     erg["bestanden"] = not erg["fehler"]
     return erg
 
@@ -1856,6 +2064,14 @@ def main() -> int:
             except Exception as e:
                 erg["qr"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
             try:
+                erg["werben"] = werben_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
+            except Exception as e:
+                erg["werben"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
+            try:
+                erg["lokal"] = lokal_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
+            except Exception as e:
+                erg["lokal"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
+            try:
                 erg["mobil"] = mobil_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
             except Exception as e:
                 erg["mobil"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
@@ -1876,6 +2092,8 @@ def main() -> int:
           and erg.get("raum", {}).get("bestanden") is True
           and erg.get("karte", {}).get("bestanden") is True
           and erg.get("qr", {}).get("bestanden") is True
+          and erg.get("werben", {}).get("bestanden") is True
+          and erg.get("lokal", {}).get("bestanden") is True
           and erg.get("mobil", {}).get("bestanden") is True)
     erg["bestanden"] = bool(ok)
     print(json.dumps(erg, indent=1, ensure_ascii=False))

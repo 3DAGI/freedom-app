@@ -193,4 +193,10 @@ export const waehrung: Texte = {
   "waehr.funkName": { de: "SOL offline", en: "SOL offline" },
   "waehr.anFunkGegeben": { de: "{betrag} signiert und ans Funkgerät gegeben – ein Gerät mit Netz reicht die Zahlung ein.", en: "{betrag} signed and handed to the radio – a device with a network submits the payment." },
   "waehr.alsDateiGespeichert": { de: "{betrag} signiert und als Datei gespeichert – auf einem Gerät mit Netz unter „Netz“ → Mesh → „Datei einlesen“.", en: "{betrag} signed and saved as a file – on a device with a network under “Network” → Mesh → “Import file”." },
+  "belege.titel": { de: "Belege", en: "Receipts" },
+  "belege.text": { de: "Quittungen deiner KI-Zahlungen – die neuesten 500, aus dem Tresor. Als CSV nur auf diesem Gerät gespeichert, nie hochgeladen; Beträge in msat bzw. Lamports.", en: "Receipts of your AI payments – the latest 500, from the vault. Saved as CSV on this device only, never uploaded; amounts in msat or lamports." },
+  "belege.speichern": { de: "Als CSV speichern", en: "Save as CSV" },
+  "belege.warnung": { de: "{n} Quittungen. Die Datei ist nicht verschlüsselt: Wer sie hat, sieht, wen du wann wofür bezahlt hast – samt Rechnungen und Zahlungsnachweisen.", en: "{n} receipts. The file is not encrypted: whoever has it sees whom you paid when and for what – including invoices and payment proofs." },
+  "belege.keine": { de: "Noch keine Quittungen – sie entstehen, sobald du eine KI-Antwort bezahlst. Ist der Tresor gesperrt, erst entsperren.", en: "No receipts yet – they are created once you pay for an AI answer. If the vault is locked, unlock it first." },
+  "belege.gespeichert": { de: "{n} Quittungen gespeichert.", en: "{n} receipts saved." },
 };

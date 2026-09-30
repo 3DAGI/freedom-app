@@ -11715,6 +11715,463 @@ check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 (keine neue
 Ausnahme) · Website ok · Smoke-Test bestanden (mit den neuen Prüfungen) ·
 Website-Bau ok · reproduzierbarer Build ok. Knoten-Stand: unverändert.
 
+## Schritt 11.2a – Werbelink mit eigener Domain
+
+**Warum:** Wunsch des MENSCHEN (Phase 11): Werbelinks mit eigener Adresse.
+Wer eine eigene Kopie der App unter eigener Domain anbietet, soll mit dieser
+Adresse werben – Geworbene laden die App dann von dort, und liegt dort
+`freedom-spiegel.json`, geht zusätzlich der Hosting-Anteil (1 %, 5.3a) an
+deren Adressen.
+
+**Was:**
+- `packages/app/src/eigene-adresse.ts` (neu, ohne DOM):
+  - `pruefeEigeneAdresse()`: nur https, ohne Benutzer/Passwort, keine lokale
+    oder private Adresse (localhost, `.local`, Namen ohne Punkt, private IPs
+    über `isPrivateAddress()` – nur für IP-Literale); Suchteil und Anker
+    fallen weg.
+  - `eigeneBasis()`: die gemerkte Adresse, nur solange sie die Prüfung besteht.
+  - `pruefeKopie()`: holt `freedom-spiegel.json` und die Datei an der Adresse,
+    hasht sie und hält sie gegen die Manifeste der vertrauten Signierer
+    (`verifyArtifact()`, k von n). Nie geworfen: nicht erreichbar (auch CORS)
+    und zu groß (über 32 MB, per `content-length` ohne Lesen) sind eigene Fälle.
+- `packages/app/src/release-signierer.ts` (neu): `TRUSTED_SIGNERS` und
+  `ladeManifeste()` – zogen aus `settings.ts`, damit Settings und Werben
+  dieselbe Liste nehmen. Verweise in `docs/KONTEN.md` und `phase-0.md`
+  angepasst.
+- `shell/werben-ui.ts` (neu): Earn › Werben – Feld, „Übernehmen“ (gemerkt nur
+  Geprüftes, leer = zurück zur eigenen Herkunft), „Prüfen“ nur auf Knopfdruck
+  mit zwei Zeilen: was dort liegt (Echtheitstext aus `echtheitText()`) und
+  wohin der Hosting-Anteil geht. Der Werbelink (samt QR aus 11.1b) trägt die
+  eigene Adresse (`updateReferralLink()`).
+- `freedom.werben.adresse` in `SICHERUNG_EINTRAEGE` (Protokoll, Spur B –
+  eine Zeile): ein neues Gerät wirbt mit derselben Adresse.
+- Texte in beiden Sprachen (`earn.adresse*`, `earn.kopie*`, `earn.hosting*`),
+  FAQ („Wie funktioniert das Werben?“) um die eigene Domain ergänzt.
+
+**Tests (+5, `eigene-adresse.test.ts`):** Adressregeln (https, Zugangsdaten,
+lokal inkl. IPv6 und Namen ohne Punkt, öffentliche IP erlaubt); Werbelink mit
+eigener Adresse und `merkeWerber()` beim Geworbenen; Prüfen: echt nur mit zwei
+Signierern, einer = „zu wenig“, ohne Signierer = „kein Manifest“, veränderte
+Datei = „abweichend“, Hosting aus der Spiegel-Datei, Platzhalter zählen nicht,
+CORS/Fehlerstatus = nicht erreichbar, zu groß ohne Lesen; Verdrahtung (Prüfen
+nur im Klick, gemerkt nur Geprüftes, Signierer an einer Stelle).
+`ki-zahlung.test.ts` und `release-fix.test.ts` folgen der neuen Werbelink-Zeile
+bzw. dem neuen Ort der Signierer (dieselben Prüfungen).
+Smoke „werben“ (neu): http abgewiesen; eigene https-Adresse im Werbelink;
+vor dem Klick keine Abfrage; „Prüfen“ an einer Kopie (die gebaute
+freedom.html, CORS erlaubt) → „Dort: Kein Manifest eines bekannten
+Signierers …“ und „Hosting-Anteil … an: hosting@kopie.example“; tote Adresse →
+„Nicht geprüft: … (CORS)“ und „Hosting-Anteil bleibt beim Provider“; leer →
+wieder die eigene Herkunft.
+
+**Verdrahtet:** `shell/tabs/earn.ts` (`updateReferralLink()`), `shell/app.ts`
+(`wireEigeneAdresse()` nach `setupReferral()`), `shell/werben-ui.ts`.
+
+Endstand (nach dem Einmergen von `main` bis C-20b, 29.09.): protocol 1116
+(6 übersprungen) · node 263 (6 übersprungen, mit Netz) · app 654 (+5) · mls 13 ·
+Leak-Tests 66 grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 (157
+ausgenommen, 0 offen – `hashBytes` ist jetzt verdrahtet, die Ausnahme aus 0.D
+fiel) · innerHTML streng Exit 0 (63 Ausnahmen) · Website 5 Seiten ok ·
+Smoke-Test bestanden (mit „werben“).
+
+## Schritt 11.2b – Werbelink mit kurzem Namen (NIP-05)
+
+**Warum:** Zweiter Teil des Wunsches „Werbelink mit eigener URL“ (Phase 11,
+Entscheidung „Beides“): statt des 64-stelligen Schlüssels ein kurzer Name
+`name@domain`, auf der eigenen Domain nur `name`.
+
+**Was:**
+- `packages/protocol/src/nip05.ts` (neu, ohne DOM): `leseNip05()` (Name aus
+  Kleinbuchstaben, Ziffern, `. _ -`; Domain nur öffentlicher DNS-Name – keine
+  IP, nichts auf `localhost`/`.local`, kein Port), `nip05Adresse()`,
+  `loeseNip05()`: genau eine Abfrage an
+  `https://domain/.well-known/nostr.json?name=…` mit `redirect: "error"`
+  (NIP-05: Weiterleitungen nicht folgen), ohne Cookies und Herkunftsangabe;
+  Antwort höchstens 256 KB (per `content-length` ohne Lesen, sonst beim
+  Lesen abgebrochen); nur ein eigener Eintrag unter genau diesem Namen, nur
+  64 Zeichen Hex. Nie geworfen – `nicht-erreichbar`, `zu-gross`, `ungueltig`,
+  `unbekannt`.
+- `packages/app/src/werbung.ts`: Werber – `merkeWerbeName()` (Name samt
+  Schlüssel, für den er geprüft wurde), `werbeRef()` (Name statt Schlüssel;
+  auf der Domain der eigenen Adresse aus 11.2a nur der Teil vor dem @; nach
+  einem Identitätswechsel wieder der Schlüssel). Geworbener – `merkeWerber()`
+  merkt einen Namen nur vor (ohne @ mit der Domain, von der die App kam), nur
+  solange es keinen Werber gibt; `loeseWerberName()` fragt einmal, vergisst
+  den Namen vor der Abfrage und merkt den Werber nur, wenn es noch keinen
+  gibt. Lightning-Adresse aus dem Link, sonst aus dem signierten Profil
+  (`frageBeiAutoren`, `parseProfileSafe`).
+- `shell/werben-ui.ts`: Feld „Kurzer Name statt Schlüssel (NIP-05)“ –
+  „Übernehmen“ fragt die Domain (nur auf Klick) und merkt nur, wenn sie den
+  eigenen Schlüssel nennt; fremder Schlüssel, unbekannter Name, keine
+  Antwort/CORS, zu groß, kaputtes nostr.json je mit eigenem Text; leer → wieder
+  der Schlüssel. `freedom.werben.name` in `SICHERUNG_EINTRAEGE`.
+- Datenschutzbericht: neue Grenze „werbe-name“ (die Domain sieht bei der
+  einen Abfrage die IP und dass ihr Link geöffnet wurde) mit Grund; ohne
+  Leak-Regel, weil keine Event-Aufzeichnung eine https-Abfrage sieht – der
+  Test „Ohne Regel nur …“ kennt sie deshalb neben Forward Secrecy und IP.
+  Texte in beiden Sprachen, FAQ ergänzt.
+
+**Tests:** protocol +4 (`nip05.test.ts`: Namen und Domains, genau eine Adresse
+mit den Abrufoptionen, alle Fehlerfälle samt Weiterleitung, geerbter
+Eigenschaft und Größe mit und ohne Längenangabe; `privacy-facts.test.ts`:
+Grenze im Bericht). app +5 (`werbe-name.test.ts`: Link mit Name/Kurzname/
+Schlüssel, Vormerken und einmaliges Auflösen, Domain der App ohne @, Adresse
+aus Link bzw. Profil, erster Werber bleibt, jeder Fehlschlag vergessen ohne
+zweiten Versuch, Verdrahtung). `eigene-adresse.test.ts` folgt der neuen
+Werbelink-Zeile (dieselbe Prüfung). Smoke „werben“ erweitert: fremder Name
+abgewiesen, eigener Name im Link, auf seiner Domain `?ref=alice`, leer wieder
+der Schlüssel; Geworbener mit `?ref=bob@kopie.test` merkt den Werber, fragt
+die Domain genau einmal – auch nach einem Neuladen.
+
+**Verdrahtet:** `shell/tabs/earn.ts` (`captureReferral()` →
+`loeseWerberNameJetzt()`, `updateReferralLink()` mit `werbeRef()`),
+`shell/app.ts` (`wireWerbeName()`), `shell/werben-ui.ts`.
+
+## Schritt A-4 – Veraltete Aussagen im Code
+
+Aus der Sammlung (`docs/neuordnung/SAMMLUNG.md`, A-4), mit 11.2b im selben
+Pull Request, nur Kommentare – kein Verhalten geändert:
+- `protocol/src/tiers.ts`: Das Tier „beweist“ nicht mehr 38010, sondern nur
+  der Ruf aus Quittungen (5.5); 38010 ist Selbstauskunft.
+- `node/src/dvm-provider.ts`: Kopf nach dem heutigen Ablauf (versiegelte
+  Aufträge, Aufteilung A+ in der App, Zahlkanal, 38010 nur für die eigene
+  Einnahmen-Übersicht, der Knoten zahlt nichts aus); Region ohne
+  Knappheitsbonus (fiel mit 5.1.4a); Bootstrap-Kommentare ohne „Reputation
+  aus 38010“.
+- Dabei aufgefallen und als Frage E7 in die Sammlung: Die Bootstrap-Phase
+  (erste 24 h nur gratis) bringt seit 5.5 keinen Ruf mehr – behalten,
+  streichen oder freiwillig?
+- `FORTSCHRITT.md`: 5.4 „Code fertig“ (c kam mit 8.4 von Spur B). Sammlung:
+  C-16 frei – Spur A ist mit dem lesenden Getter in `ws-relay.ts` einverstanden.
+
+Endstand (11.2b und A-4, 29.09.): protocol 1120 (+4, 6 übersprungen) · node 263
+(6 übersprungen, mit Netz) · app 659 (+5) · mls 13 · Leak-Tests 66 grün +
+1 todo · 0 rot · check-wiring `--streng` Exit 0 (157 ausgenommen, 0 offen) ·
+innerHTML streng Exit 0 (63 Ausnahmen) · Website 5 Seiten ok · Smoke-Test
+bestanden (mit erweitertem „werben“). Knoten-Stand: unverändert (A-4 ändert
+nur Kommentare).
+
+## Schritt A-6 – Belege als CSV
+
+Aus der Sammlung (A-6), Spur A.
+
+**Was:**
+- `packages/app/src/belege-export.ts` (neu, ohne DOM): `belegeCsv()` macht
+  aus den Quittungen (5.5, Tresor, die neuesten 500) eine CSV nach RFC 4180.
+  Spalten sind maschinenlesbar und in jeder Sprache gleich; Beträge stehen in
+  msat bzw. Lamports (nichts gerundet), die Zeit als ISO 8601 in UTC,
+  Zeilenende CRLF. Zellen mit Formel-Anfang (`= + - @`, Tab, Wagenrücklauf)
+  bekommen ein `'` davor, denn Rechnungen kommen vom Provider.
+- `shell/belege-ui.ts` und `index.html`: Karte „Belege“ in Währung ›
+  Übersicht. „Als CSV speichern“ holt die Quittungen, warnt, dass die Datei
+  nicht verschlüsselt ist (wen man wann wofür bezahlt hat, samt Rechnungen und
+  Zahlungsnachweisen), und speichert erst danach – nur als Datei auf dem
+  Gerät, nichts geht ins Netz. Ohne Quittungen oder bei gesperrtem Tresor ein
+  Hinweis statt einer leeren Datei.
+- Texte in beiden Sprachen (`belege.*`).
+
+**Nicht gebaut – Frage E8:** Die Quittung für SOL-Hinterlegungen. Die
+Hinterlegung wird nie abgerechnet: `buildSolDepositSettle()` ruft weder App
+noch Knoten; ein Provider bekommt aus ihr kein Geld, der Kunde holt sie nach
+der Frist zurück. Eine Quittung setzt eine Abrechnung voraus (oder die
+Hinterlegung für KI fällt zugunsten des Zahlkanals weg).
+
+**Tests (+4, `belege-export.test.ts`):** Kopf, Reihenfolge, Einheiten, UTC,
+CRLF, leeres Buch; RFC 4180 und Formel-Anfang, auch in einer fremden
+Rechnung; Dateiname; Verdrahtung (nur im Klick, Warnung vor der Datei, aus
+dem Quittungsbuch, kein Netz, kein `innerHTML`).
+
+**Verdrahtet:** `shell/app.ts` (`wireBelege()`), `shell/belege-ui.ts`.
+
+Endstand (A-6, 29.09.): protocol 1120 (6 übersprungen) · node 263
+(6 übersprungen, mit Netz) · app 663 (+4) · mls 13 · Leak-Tests 66 grün +
+1 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0
+(keine neue Ausnahme) · Website ok · Smoke-Test bestanden (die neue Karte
+misst „mobil“ mit). Knoten-Stand: unverändert.
+
+## Schritt 11.3a – Entwurf: Agenten in Räumen
+
+Spur A, Vorlage wie 4.0/2.2a: `docs/AGENTEN-RAUM-ENTWURF.md`. Nichts gebaut –
+der MENSCH gibt frei. Inhalt: was es heute gibt (Räume öffentlich/privat,
+private KI-Aufträge, A+, Zahlkanal, MLS im Knoten ungenutzt), Begriffe
+(Agent = eigener Schlüssel, Gastgeber, Besitzer, Einlader), P1 Agent-Karte
+(Kind 38090, keine Persona, privat nur als inneres Event), P2 Mitgliedschaft
+(MLS-Mitglied bzw. Rolle `agent`, Pflicht-Hinweis im Raum), P3 Erwähnung →
+Auftrag → Antwort (nur Erwähnungen von Menschen, Bremse, Kontext nur
+Kanal/Thread bis zur Erwähnung, Antwort als Nachricht des Agenten), P4
+Betrieb (Knoten/Gerät), P5 Bezahlung (vier Fälle, Obergrenzen, A+ bleibt,
+der Knoten zahlt nichts aus), P6 Datenschutz-Aussagen, P7 Aufteilung
+11.3b–e. Fragen F1–F6 mit Empfehlung (Besitzer nur bestätigt, Einlader-Budget
+per Vorab-Gutschrift in Stufen, Gerät zunächst nur mit Einlader, Persona nie
+öffentlich, keine Agent-zu-Agent-Antworten, Kind 38090).
+
+Mit im selben Pull Request – die übrigen Punkte aus Spur A eingeordnet
+(Sammlung): A-7 Redundanz-Konsens wartet auf B-1 (beide an der Modellwahl
+in `agent.ts`); A-8 (Cluster, Gratis-Schwelle, Modelle laden), A-9
+(Vergütung aus einem Topf – A+ kennt keinen) und A-10 (Abos über den
+Zahlkanal – Relays und Speicher nehmen keine Gutschriften, das wäre ein neues
+Format) brauchen eine Entscheidung: Fragen E9–E11 mit Empfehlung.
+## Schritt B-1 – KI „Dieses Gerät“ in der Modellwahl
+
+Aus der Sammlung (`docs/neuordnung/SAMMLUNG.md`, B-1, Lokal-Modus Teil 1):
+Die Modellwahl hat neben „Netz“ jetzt „Dieses Gerät“ – ein Modell auf dem
+eigenen Rechner (Ollama, llama.cpp, LM Studio). Keine eigene Seite, keine
+Entscheidung nötig.
+
+**Protokoll (`ki-lokal.ts`, neu):** `lokaleKiAdresse()` nimmt nur Adressen
+dieses Rechners an (`localhost`, `127.0.0.1`, `[::1]`, http oder https, ohne
+Zugangsdaten; zurück kommt der Ursprung) – Heimnetz, Internet, `0.0.0.0`,
+`127.0.0.2` und Namen wie `localhost.x.example` nicht. Die Anfrage geht über
+die OpenAI-kompatible Schnittstelle, die alle drei Dienste anbieten
+(`lokaleModellListe()` → `/v1/models`, `lokaleKiAnfrage()` →
+`/v1/chat/completions`, ohne Streaming, höchstens `LOKAL_MAX_TOKENS`).
+Zurück nur Geprüftes: `leseLokaleModelle()` (gültige Namen, ohne Doppelte,
+höchstens 50), `leseLokaleAntwort()` (Text begrenzt, Modellname geprüft,
+Zählwerte nur als ganze Zahlen).
+
+**App (`ki-lokal.ts`, ohne DOM):** Adresse (`freedom.lokal.adresse`, fremde
+fallen auf `http://localhost:11434` zurück), `freedom.lokal.aktiv` (erst nach
+einer Suche auf Wunsch – Browser fragen beim ersten Zugriff auf den eigenen
+Rechner um Erlaubnis, also nie beim Start), Wahlwert `lokal:<modell>`,
+`lokaleModelle()` und `frageLokal()` mit Stopp (`AbortSignal.any`) und drei
+Minuten Zeit; jeder Fehler wird eine Meldung, nie ein zweiter Weg.
+Die alten, nie aufgerufenen `localInfer()`/`localOllamaUp()` aus
+`local-tools.ts` (Ollama-eigene Schnittstelle) sind durch den Baustein
+ersetzt; ihr Text `bau.ollamaHttp` fiel mit.
+
+**Agent (`shell/tabs/agent.ts`):** In der Modellwahl die Gruppen „Netz“ und
+„Dieses Gerät“; der Bereich entsteht nur mit `textContent` und steht auch da,
+wenn das Netz nicht antwortet (`finally` in `refreshModelDropdown()`).
+„Modell auf diesem Gerät suchen“ → Modelle als Karten, „Adresse … ändern“
+über `dialog()`; nicht erreichbar → Grund und der Hinweis auf
+`OLLAMA_ORIGINS=<Herkunft der App>`. `askAi()` fragt ein gewähltes lokales
+Modell vor Funk und Netz über `frageAufDiesemGeraet()` – ohne Pool, Auftrag,
+Sitzungsschlüssel und Zahlung; der Verlauf reist als Kontext mit wie im Netz
+(`kontextPraefix()`), Werkzeuge nicht (Hinweis). Kostenschätzung: „gratis ·
+dieses Gerät“.
+
+**Datenschutz:** neue Aussage „ki-lokal“ (belegt, Regel
+`kein-klartext-prompt`) mit Szenario in `privacy-facts.test.ts`, Text in
+beiden Sprachen (`ds.fKiLokal`), Leak-Szenario `test/leak/ki-lokal.test.ts`
+(jeder Abruf an diesen Rechner, kein Event; fremde Adressen bekommen nichts).
+
+**Verdrahtet:** `shell/tabs/agent.ts` – `askAi()` → `frageAufDiesemGeraet()`
+→ `frageLokal()`; `setupModelPicker()` → `sucheLokal()` → `lokaleModelle()`;
+`refreshModelDropdown()` → `zeigeLokalBereich()`.
+
+**Tests (Protokoll +7, App +8, Leak +2):** `protocol/test/ki-lokal.test.ts`
+(nur dieser Rechner, Pfad fällt weg, Heimnetz/Internet/Zugangsdaten/andere
+Protokolle abgelehnt, Modelle ohne Doppelte und begrenzt, Anfrage ohne
+Streaming mit Tokengrenze, Antwort geprüft); Szenario „ki-lokal“ in
+`privacy-facts.test.ts`; `app/test/ki-lokal.test.ts` (Adresse und Wahlwert,
+Suche nur `/v1/models` ohne Zugangsdaten, Frage mit Stopp und Zeitablauf, je
+Frage genau ein Abruf, fremde Adresse ohne Abruf, Verdrahtung in `askAi()`);
+`app/test/leak/ki-lokal.test.ts` (jeder Abruf an diesen Rechner, kein Event).
+Smoke „lokal“ (neu): vor dem Klick keine Abfrage; Suche, Wahl „probe-modell:1b ·
+dieses Gerät“, Frage nur an `localhost:11434/v1/chat/completions`, Antwort mit
+„dieses Gerät · 10 Tokens · gratis“; danach nichts ans Relay.
+
+Endstand (B-1, 29.09., nach dem Einmergen von `main` mit 11.2b und A-4):
+protocol 1127 (+7, 6 übersprungen) · node 262 (7 übersprungen, ohne Netz; nicht
+berührt) · app 667 (+8) · mls 13 · Leak-Tests 68 grün + 1 todo · 0 rot ·
+check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 (keine neue Ausnahme) ·
+Website ok · Smoke-Test bestanden (mit „lokal“). Knoten-Stand: unverändert.
+
+## Schritt B-3 – Flutschutz im Relay des Knotens
+
+Aus der Sammlung (`docs/neuordnung/SAMMLUNG.md`, B-3). `antispam.ts`
+(`RateLimiter`) war gebaut, aber nirgends eingebunden – das Relay des Knotens
+nahm jede Menge Events, Abfragen und Verbindungen an.
+
+**Knoten (`relay-role.ts`):** Flutschutz über den `RateLimiter` aus dem
+Protokoll, Fenster eine Minute, Grenzen in `FLUTSCHUTZ` (je Relay über
+`flutschutz` in der Konfiguration änderbar):
+- EVENT je Verbindung: 600 – darüber `OK false` „rate-limited: zu viele
+  Events …“ (NIP-01-Präfix), vor jeder weiteren Prüfung;
+- REQ und AUTH je Verbindung: 300 – darüber `CLOSED` bzw. `OK false`
+  „rate-limited: …“;
+- offene Abos je Verbindung: 100 – ein weiteres `CLOSED` „error: zu viele
+  offene Abos …“ (dasselbe Abo neu zu fassen, zählt nicht);
+- gespeicherte Events je Schlüssel: 600, mit Zugang das Zehnfache – flüchtige
+  Events und Doppelte zählen nicht; Umschläge (1059) kommen von
+  Wegwerf-Schlüsseln, sie bremst die Grenze je Verbindung;
+- Verbindungen: 1000 – die nächste wird mit 1013 („Try Again Later“)
+  geschlossen, bevor sie eine Challenge bekommt.
+Die Grenzen sind großzügig für echte Nutzung (ein Anhang oder Bundle geht in
+Stücken hinaus: 200 Stücke über eine Verbindung laufen durch) und nach außen
+feste Texte. `aufraeumen()` vergisst abgelaufene Zählstände; `stats()` nennt
+Verbindungen und die Zahl gedrosselter Nachrichten. `wiring-ausnahmen.txt`:
+die Zeile für `RateLimiter` fällt weg (jetzt verdrahtet).
+
+**Tests (+9, `node/test/relay-flutschutz.test.ts`, echter WebSocket, gestellte
+Uhr):** Events je Verbindung und eine zweite Verbindung frei; Zeitfenster;
+je Schlüssel über zwei Verbindungen, anderer Schlüssel frei, mit Zugang das
+Zehnfache; flüchtige und doppelte Events zählen nicht; Abfragen und offene
+Abos (dasselbe Abo neu gefasst ist keines mehr); Anmeldungen wie Abfragen;
+zu viele Verbindungen → 1013, danach wieder Platz; Standardgrenzen lassen
+einen Upload in 200 Stücken durch; Aufräumen vergisst Zählstände.
+
+**Verdrahtet:** `packages/node/src/relay-role.ts` – `handleMessage()` (EVENT,
+AUTH, REQ), `nimmAn()` (je Schlüssel), `start()` (Verbindungen),
+`aufraeumen()` (Zählstände).
+
+Endstand (B-3, 29.09.): protocol 1127 (6 übersprungen) · node 271 (+9, 7
+übersprungen ohne Netz – mit Netz 272) · app 671 · mls 13 · Leak-Tests 68 grün +
+1 todo · 0 rot · check-wiring `--streng` Exit 0 (die Ausnahme für `RateLimiter`
+fiel) · innerHTML streng Exit 0 · Website ok · Smoke-Test bestanden.
+Knoten-Stand: neu – der GX10-Knoten braucht den aktuellen `main` für den
+Flutschutz; die App braucht nichts Neues.
+
+## Schritt B-4 – Kontakt prüfen (Sicherheitscode)
+
+Aus der Sammlung (`docs/neuordnung/SAMMLUNG.md`, B-4). In Nostr ist ein
+Kontakt sein Schlüssel; Name und Bild kann jeder nachmachen. Bisher gab es
+keinen Weg, mit einem Kontakt zu vergleichen, ob man wirklich mit ihm spricht.
+
+**Protokoll (`sicherheitscode.ts`):** `sicherheitscode(a, b)` – 12 Gruppen zu
+5 Ziffern aus SHA-256 über Fassung (`freedomstack-sicherheitscode-v1`) und die
+sortierten Schlüssel, für beide Seiten gleich; undefined bei ungültigen oder
+gleichen Schlüsseln. `sicherheitscodeQr()` (Präfix `freedomstack-pruefung:1:`,
+nur die Ziffern, kein Schlüssel), `sicherheitscodeStimmt()` (Leerzeichen,
+Striche und Präfix zählen nicht, genau 60 Ziffern). Der Code reist nie über ein
+Relay – verglichen wird von Mensch zu Mensch.
+
+**App:** Knopf „Kontakt prüfen“ (Schild) im Chat, nur in 1:1-Unterhaltungen
+(`kontakt-pruefen-ui.ts`, `pruefeKontakt()`): Dialog über `shell/dialog.ts` mit
+dem Code zum Vorlesen, dem QR-Code (`art: "qr"`, 11.1b) und einem Feld zum
+Scannen oder Eintippen des Codes des Kontakts; eine Eingabe, die nicht stimmt,
+hält den Dialog mit Warnung offen. Erst nach Bestätigung merkt
+`merkeGeprueft()` (`kontakt-pruefung.ts`) den Schlüssel mit Zeitpunkt in
+`freedom.kontakte.geprueft` – im Tresor (`GEHEIM_FEST`: die Liste verrät, wen
+man getroffen hat), in der Zustandssicherung (`SICHERUNG_EINTRAEGE`),
+höchstens 5000 Einträge. Die Unterhaltung zeigt „✓ geprüft am …“ oder „nicht
+geprüft“ (`pruefStand()`); wechselt ein Kontakt den Schlüssel, ist der neue
+ungeprüft. „Wer bin ich“ über `sprichtFuer()` – als Gerät derselbe Code wie
+auf dem Hauptgerät.
+
+**MLS:** Der MLS-Baustein gibt keinen Gruppen-Authenticator heraus
+(`packages/mls/crate` hat keine Funktion dafür). Für 1:1 genügt der Code aus
+den Identitätsschlüsseln: Mitglieder der Gruppe sind nur die Personen und ihre
+Geräte mit gültiger Vollmacht (`sollMitglieder()`, `gleicheAb()`). Einen
+Authenticator herauszugeben hieße die Crate neu bauen – eigener Schritt,
+vermerkt in der Sammlung.
+
+**Tests (+8):** Protokoll `sicherheitscode.test.ts` (4: fester Testvektor;
+beide Seiten sehen denselben, ein anderer Kontakt einen anderen; ungültige
+oder gleiche Schlüssel ergeben keinen; Vergleich – vorgelesen, eingetippt oder
+gescannt, nur genau die 60 Ziffern); App `kontakt-pruefung.test.ts` (4: je
+Schlüssel mit Zeit, ein neuer Schlüssel ist ungeprüft; Unlesbares fällt weg,
+begrenzt; im Tresor und in der Sicherung mit Präfix; verdrahtet – Knopf im
+Chat, Code aus den Schlüsseln der Personen, gemerkt erst nach dem Vergleich).
+
+**Verdrahtet:** `packages/app/src/shell/app.ts` (`#chat-pruefen` →
+`pruefeKontakt()`), `packages/app/src/shell/tabs/kommunikation.ts`
+(`openConversation()` → `pruefStand()`).
+
+Endstand (B-4, 29.09.): protocol 1131 (+4, 6 übersprungen) · node 271 (7
+übersprungen ohne Netz – mit Netz 272) · app 675 (+4) · mls 13 · Leak-Tests 68
+grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0
+· Website ok · Smoke-Test bestanden. Knoten-Stand: unverändert.
+
+## Schritt B-6 – Datenexport
+
+Aus der Sammlung (`docs/neuordnung/SAMMLUNG.md`, B-6) – das Gegenstück zur
+Notfall-Löschung: alles, was ein neues Gerät oder eine andere App braucht, als
+eine Datei, die nur der Nutzer mit seiner Passphrase öffnet.
+
+**Inhalt (`datenexport.ts`):** `waehleExport()` nimmt, was die
+Zustandssicherung enthält (`waehleSicherung()`: Unterhaltungen, Räume,
+Lesestände, eigene Namen, Profil, Sprache, Relays, Einstellungen, Mandate,
+Kataloge, Werber, geprüfte Kontakte, Moderation je Community), dazu
+`EXPORT_ZUSAETZLICH`: KI-Verläufe (`freedom.agentHistory`) und Quittungen
+(`freedom.quittungen`) – beides darf nie auf ein Relay und steht deshalb nicht
+in der Sicherung, gehört aber in die eigene Datei. Nie drin: Schlüssel, Bunker,
+Wallet- und Relay-Zugänge, Geld-Geheimnisse (Swaps, Sperren, SOL-Wallet,
+Kanäle), Anteile der Nachfolge, Gruppenschlüssel, Merkphrase (`SICHERUNG_NIE`).
+Repos stehen nicht auf dem Gerät (Relays, Blob-Netz – sie kommen mit dem
+Schlüssel zurück), private Räume nicht (ein neues Gerät tritt neu bei).
+
+**Datei:** `{art: "freedomstack-export", v: 1, zeit, tresor}` – `tresor` im
+Format des Tresors über `verschluesseleMitPassphrase()` (`vault.ts`:
+PBKDF2-SHA256 600.000, AES-256-GCM, Kopf als AAD; gemeinsamer Kern
+`oeffneBlob()` mit `unlock()`). Einlesen über `leseExport()`: höchstens 20 MB,
+Form und Fassung geprüft, falsche Passphrase oder veränderte Datei →
+`FalschePassphrase`, danach nur, was `filtereExport()` durchlässt – auch eine
+untergeschobene Datei mit Schlüsseln bringt keinen zurück. Dateiname nur mit
+Datum.
+
+**App (Settings → Sicherheit):** „als Datei exportieren“ (Passphrase zweimal,
+verdeckt – neues Feld `verdeckt` in `shell/dialog.ts`, Mindestlänge wie der
+Tresor) und „Datei einlesen“ (Passphrase, dann Rückfrage mit Zahl der Einträge
+und Datum über `bestaetige()`). Braucht keinen rohen Schlüssel, geht also auch
+mit Bunker – der Hinweis zum Bunker sagt jetzt „Schlüssel-Export“ und „der
+Datenexport geht“.
+
+**Tests (+6, `app/test/datenexport.test.ts`):** was hineinkommt und was nie;
+hin und zurück ohne Klartext in der Datei; falsche Passphrase, veränderte,
+fremde, zu große Datei und zu kurze Passphrase; untergeschobene Datei mit
+Schlüsseln; Dateiname; verdrahtet (Knöpfe, Dialog verdeckt, erst fragen, dann
+schreiben).
+
+**Verdrahtet:** `packages/app/src/shell/tabs/settings.ts` –
+`wireSicherheitsKnoepfe()` → `exportiereDaten()` (`#export-datei`),
+`leseExportDatei()` (`#export-einlesen`, `#export-file`).
+
+Endstand (B-6, 29.09.): protocol 1131 (6 übersprungen) · node 271 (7
+übersprungen ohne Netz – mit Netz 272) · app 681 (+6) · mls 13 · Leak-Tests 68
+grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0
+· Website ok · Smoke-Test bestanden. Knoten-Stand: unverändert.
+
+## Schritt B-5 – Zusammenführen statt Überschreiben
+
+Aus der Sammlung (`docs/neuordnung/SAMMLUNG.md`, B-5). Bis hier überschrieb
+das Wiederherstellen einer Zustandssicherung (8.12) alles auf dem Gerät – was
+seit der Sicherung dazukam (eine neue Unterhaltung, ein vergebener Name, ein
+abonnierter Katalog), war weg. Seit B-6 gilt dasselbe für das Einlesen eines
+Exports.
+
+**App (`zustand-zusammenfuehren.ts`, ohne DOM):** `fuehreZusammen(sicherung,
+lese)` liefert die zu schreibenden Werte und einen Bericht (`erhalten`,
+`konflikte`):
+- Unterhaltungen (`freedom.chats`): je Kennung die zuletzt aktive Fassung,
+  sortiert nach Zeit; was nur hier stand, bleibt;
+- Räume (`freedom.spaces`) und Kataloge (`freedom.kataloge`, höchstens 20):
+  vereinigt, die Sicherung zuerst;
+- Lesestände (`freedom.lastRead`) und geprüfte Kontakte
+  (`freedom.kontakte.geprueft`): je Eintrag das Späteste;
+- Mandate (`freedom.mandate`): je Kontakt das zuerst gesehene (Regel 8.6a) –
+  auch wenn es hier steht;
+- eigene Namen (`freedom.petnames`): beide Seiten; verschieden → der
+  eingelesene, gezählt als Konflikt;
+- Einzelwerte (Sprache, Profil, Einstellungen): wie bisher aus der Sicherung;
+  Unlesbares auf einer Seite → die Sicherung.
+`merge.ts` (Mengen mit Zeitstempeln) bleibt unverdrahtet: Die gespeicherten
+Daten tragen keine Zeit je Feld – die Begründung in `wiring-ausnahmen.txt`
+sagt das jetzt.
+
+**Settings:** `stelleZustandWieder()` und `leseExportDatei()` führen zusammen
+und fragen vorher über `bestaetige()` (statt `confirm()`), mit dem Bericht
+(„{n} Einträge von diesem Gerät bleiben erhalten“, „{n} Namen … verschieden“).
+Die Texte sagen „zusammengeführt“ statt „überschrieben“ (`set.zusammenfuehren`
+ersetzt `set.ueberschreibenFrage`; `set.einlesenFrage` ohne „überschrieben“).
+
+**Tests (+7, `app/test/zustand-zusammenfuehren.test.ts`):** Unterhaltungen
+(beide Seiten, je Kennung die zuletzt aktive); Räume und Kataloge vereinigt,
+Kataloge höchstens 20; Lesestände und geprüfte Kontakte je Eintrag das
+Späteste; Mandate das zuerst gesehene; Namen beide Seiten, Konflikt gezählt;
+Einzelwerte aus der Sicherung, Unlesbares fällt auf sie zurück; verdrahtet
+(Wiederherstellen und Einlesen führen zusammen, erst nach Rückfrage, kein
+`confirm()`).
+
+**Verdrahtet:** `packages/app/src/shell/tabs/settings.ts` –
+`stelleZustandWieder()` und `leseExportDatei()` → `fuehreZusammen()`.
+
+Endstand (B-5, 29.09.): protocol 1131 (6 übersprungen) · node 271 (7
+übersprungen ohne Netz – mit Netz 272) · app 688 (+7) · mls 13 · Leak-Tests 68
+grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 (Begründung für
+`merge.ts` neu) · innerHTML streng Exit 0 · Website ok · Smoke-Test bestanden.
+Knoten-Stand: unverändert.
+
 ## Schritt C-20c – Zweig oder Tag wählen
 
 Spur C, Sammlung C-20 (Repos 1:1 wie GitHub, ohne neues Format). Ein Bundle
@@ -11754,8 +12211,9 @@ den neuen Commit, der Fokus bleibt auf der Auswahl, die Adresse unverändert;
 Keine Bilder: Die Auswahl erscheint nur mit geladenem Bundle, das die
 Bilder-Probe nicht hat – der Smoke-Test prüft sie.
 
-Endstand: protocol 1116 (6 übersprungen) · node 263 (6 übersprungen, mit
-Internet) · app 651 (+2) · mls 13 · Leak-Tests 66 grün + 1 todo · 0 rot ·
+Endstand (nach dem Einmergen von `main` mit 11.2a–b, A-4, A-6, B-1, B-3 bis
+B-6): protocol 1131 (6 übersprungen) · node 272 (6 übersprungen, mit Internet)
+· app 690 (+2) · mls 13 · Leak-Tests 68 grün + 1 todo · 0 rot ·
 check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 (keine neue
 Ausnahme) · Website ok · Smoke-Test bestanden (mit den neuen Prüfungen) ·
 Website-Bau ok · reproduzierbarer Build ok. Knoten-Stand: unverändert.
