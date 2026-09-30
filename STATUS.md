@@ -12281,3 +12281,12 @@ Moderatoren verwalten braucht ein eigenes Event (Entscheidung).
 (`gruenderZurKennung()`, `bindeKennung()`, `raumZustandFuer()`),
 `legeRaumAn()` (`raumBeitreten(adresse)`), Beitreten (`beitreten()`);
 `packages/app/src/shell/tabs/repos.ts` – `meineRepoRaeume()`.
+
+Endstand (B-7, 30.09.): protocol 1133 (+2, 6 übersprungen) · node 271 (7
+übersprungen ohne Netz – mit Netz 272) · app 698 (+5) · mls 13 · Leak-Tests 68
+grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0
+· Website ok · Smoke-Test bestanden (mit der Übernahme-Probe). Zwei weitere
+Tests prüften die alte Schreibweise wörtlich und sind angepasst (Absicht
+gleich): `dialog.test.ts` (gesperrt wird der Absender – jetzt mit `kennung`)
+und `leak/raum.test.ts` (offene Nachricht mit der Kennung des Raums).
+Knoten-Stand: unverändert.
