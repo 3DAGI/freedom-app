@@ -32,6 +32,10 @@ import { t } from "../../i18n.js";
 import { versendeVerzoegert } from "../versand.js";
 import { kontaktName, zeigeRaumLeiste } from "./raeume.js";
 import { fehlerText, schluesselText } from "../../protokoll-texte.js";
+import { leseAnforderung, type Anforderung } from "../../zahlungs-anforderung.js";
+
+/** Zahlungsanforderungen der gezeigten Nachrichten (A-5): Id → Anforderung und Absender. */
+const anforderungen = new Map<string, { anf: Anforderung; von: string }>();
 
 /** Anhang: kleine Dateien inline als data-url, grosse ueber das Blob-Netz. */
 // Darstellungslogik liegt in shell-logic.ts — dort ohne DOM und deshalb
@@ -151,6 +155,15 @@ function wireBlobButtons(root: HTMLElement): void {
         toast(t("komm.anhangFehler", { fehler: fehlerText(e) }), true);
         el.textContent = oldText;
       }
+    });
+  });
+  root.querySelectorAll<HTMLElement>(".anf-zahlen-btn").forEach((btn) => {
+    btn.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      const z = anforderungen.get(btn.dataset.id ?? "");
+      if (!z) return;
+      const { bezahleAnforderung } = await import("../anforderung-ui.js");
+      await bezahleAnforderung(z.anf, z.von, pkShort(z.von));
     });
   });
   root.querySelectorAll(".zap-msg-btn").forEach((btn) => {
@@ -914,6 +927,10 @@ export async function loadChatMessages(cid: string): Promise<void> {
             `${escapeHtml(t("komm.ausgeblendetMarke", { grund: v.reason }))} ` +
             `<button class="ghost show-anyway" data-id="${escapeHtml(ev.id)}" style="width:auto;padding:2px 6px;font-size:10px">${escapeHtml(t("komm.trotzdemZeigen"))}</button></div></div>`;
         }
+        // Zahlungsanforderung (A-5): nur in Direktnachrichten anderer, nur zahlbare
+        const anf = !mine && c.type === "dm" ? leseAnforderung(text) : null;
+        if (anf) anforderungen.set(ev.id, { anf, von: ev.pubkey });
+        const anfBtn = anf ? `<button class="ghost anf-zahlen-btn" data-id="${escapeHtml(ev.id)}">${escapeHtml(t("anf.bezahlen"))}</button>` : "";
         const zapBtn = !mine && c.type === "dm" ? `<button class="zap-msg-btn" data-pk="${escapeHtml(ev.pubkey)}" data-name="${escapeHtml(pkShort(ev.pubkey))}" title="${escapeHtml(t("komm.zapSenden"))}">⚡</button>` : "";
         // Nach dem Diebstahl (8.6a): nicht glauben, dass es von dieser Person ist
         const diebstahl = c.type === "dm" && nachDiebstahl(ev, schluesselStand.get(c.id))
@@ -929,7 +946,7 @@ export async function loadChatMessages(cid: string): Promise<void> {
         // Von einem Geraet geschrieben (8.6b) – der Name steht in der Vollmacht (Fremddaten)
         const g = (ev as DmAnzeige).geraet;
         const geraet = g ? ` <span class="mono-sm geraet-hinweis${g.warnung ? " warn" : ""}">· ${escapeHtml(g.text)}</span>` : "";
-        return `<div class="bubble ${mine ? "user" : "ai"}"><div class="who">${escapeHtml(mine ? t("komm.du") : pkShort(ev.pubkey))}${alt}${diebstahl}${geraet}${zapBtn}</div><div class="txt">${body}${media}</div></div>`;
+        return `<div class="bubble ${mine ? "user" : "ai"}"><div class="who">${escapeHtml(mine ? t("komm.du") : pkShort(ev.pubkey))}${alt}${diebstahl}${geraet}${zapBtn}</div><div class="txt">${body}${media}${anfBtn}</div></div>`;
       })
       .join("");
     if (c.type === "dm") schluesselHinweis(thread, c.id);

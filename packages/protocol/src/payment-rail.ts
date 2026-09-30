@@ -15,7 +15,7 @@ export type RailId = "lightning" | "solana";
 /** Betrag in der Einheit der Schiene: Millisatoshi oder Lamports. */
 export type Betrag = { einheit: "msat"; wert: number } | { einheit: "lamports"; wert: number };
 
-export type Zweck = "zap" | "job" | "sitzung" | "deposit" | "trinkgeld" | "gebuehr" | "swap" | "relay";
+export type Zweck = "zap" | "job" | "sitzung" | "deposit" | "trinkgeld" | "gebuehr" | "swap" | "relay" | "anforderung";
 
 export interface Zahlanfrage {
   /** bolt11-Rechnung oder Lightning-Adresse (name@host) bzw. Solana-Adresse. */
