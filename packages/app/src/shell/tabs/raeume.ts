@@ -16,6 +16,8 @@ import {
   PRIVAT, type PrivaterRaum, aenderePrivatenKanal, einladungsText, entferneAusRaum, gruppeVon, istPrivat, ladeInPrivatenRaum, ladePrivatenRaum, legePrivatenKanalAn, legePrivatenRaumAn, loescheImRaum, meldeImRaum, meldungErledigt, meldungenFuer, privateRaeume, sendePrivat, setzeModeratoren, wennMeldung,
 } from "../raum-mls.js";
 import { $, toast } from "../ui.js";
+import { geheim, tresorEingerichtet } from "../tresor.js";
+import { LS_LESESTAND, leseLesestand, schreibeLesestand } from "../../lesestand.js";
 import { bestaetige, dialog, hinweis, type Option } from "../dialog.js";
 import { type MenuePunkt, oeffneMenueAn, wireMenue } from "../menue.js";
 import { antwortBezug, gruppiereVerlauf, kanalKennung } from "../../raum-verlauf.js";
@@ -59,16 +61,24 @@ const spacesUi: SpaceUiState = {
   massnahmen: [], alleZeigen: new Set(),
 };
 
+/**
+ * Lesestand (seit C-14 über `geheim`): Wann man welchen Kanal las, verrät
+ * Gewohnheiten. Ein Klartext-Stand aus der Zeit davor wandert mit Tresor einmal
+ * hinein und verschwindet aus localStorage.
+ */
 function ladeLesestand(): void {
-  try {
-    const raw = JSON.parse(localStorage.getItem("freedom.lastRead") ?? "[]") as [string, number][];
-    spacesUi.lastRead = new Map(raw);
-  } catch { /* erster Start */ }
+  const alt = localStorage.getItem(LS_LESESTAND);
+  spacesUi.lastRead = leseLesestand(geheim.getItem(LS_LESESTAND) ?? alt);
+  if (alt !== null && tresorEingerichtet()) {
+    void geheim.setItem(LS_LESESTAND, schreibeLesestand(spacesUi.lastRead))
+      .then(() => localStorage.removeItem(LS_LESESTAND))
+      .catch(() => { /* Tresor zu – beim nächsten Start wieder */ });
+  }
 }
 
 function merkeLesestand(channelId: string): void {
   spacesUi.lastRead.set(channelId, Math.floor(Date.now() / 1000));
-  localStorage.setItem("freedom.lastRead", JSON.stringify([...spacesUi.lastRead]));
+  void geheim.setItem(LS_LESESTAND, schreibeLesestand(spacesUi.lastRead)).catch(() => { /* Tresor zu – nur im Speicher */ });
 }
 
 /** Beigetretene offene Räume (Kind 42) – öffentlich wie ihr Inhalt; seit B-7 als Adresse mit dem Gründer. */

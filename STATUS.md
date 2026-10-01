@@ -13710,3 +13710,39 @@ wörtlich, kein `onclick`-Attribut, kein Element aus dem Fremdtext, Zap-Knopf da
 Aufgefallen: `el()` steht in neun Dateien als lokale Kopie (`raeume.ts`,
 `repos.ts`, `notfall.ts` …) neben der aus `shell/ui.ts` – zusammenlegen wäre
 ein eigener kleiner Schritt.
+
+## Schritt C-14 – Lesestand im Tresor
+
+**Warum:** `freedom.lastRead` hält je Kanal, wann man ihn zuletzt las – das
+verrät Gewohnheiten und lag auch mit Tresor im Klartext in `localStorage`
+(Sammlung C-14, Regel „Geheimnisse nur über `geheim`“).
+
+**Dabei gefunden:** Gespeichert war der Stand als Liste von Paaren
+(`JSON.stringify([...map])`). Die Regel der Zusammenführung (`spaetestes` in
+`zustand-zusammenfuehren.ts`, B-5) mischt aber nur Objekte – beim Einlesen
+einer Sicherung galt deshalb der Stand der Sicherung, und was nur auf dem
+Gerät stand, war weg. Der Test zu B-5 nahm schon ein Objekt an.
+
+**Was:**
+- `lesestand.ts` (neu, ohne DOM): `leseLesestand()` liest das Objekt und die
+  alte Liste von Paaren, Unbrauchbares fällt weg (Zeiten nur als ganze Zahl
+  ≥ 0); `schreibeLesestand()` schreibt ein Objekt `{ kanal: sekunden }`.
+- `raeume.ts`: `ladeLesestand()`/`merkeLesestand()` nur über `geheim`; ein
+  Klartext-Stand von vorher wandert mit Tresor einmal hinein (erst in den
+  Tresor, dann aus localStorage).
+- `shell/tresor.ts`: `freedom.lastRead` in `GEHEIM_FEST` – beim Einrichten
+  eines Tresors wandert er mit, die Sicherung liest ihn über `istGeheimnis()`.
+- Kein Format auf dem Netz; die Sicherung (`state-backup.ts`) und die
+  Notfall-Löschung (`duress.ts`) führen den Namen schon.
+
+**Verdrahtet:** `ladeLesestand()` aus `wireSpacesTab()`, `merkeLesestand()`
+aus `oeffneKanal()` (`shell/tabs/raeume.ts`); Sicherung und Export über
+`istGeheimnis()` (`shell/tabs/settings.ts`).
+
+**Tests:** app +4 in `test/lesestand.test.ts` (beide Formen, Unbrauchbares,
+Zusammenführung je Kanal – und dass die alte Liste nicht gemischt wurde –,
+verdrahtet: nur `geheim`, nie `localStorage.setItem`, im Tresor). Smoke „raum“:
+nach dem Öffnen der Kanäle steht der Stand als Objekt mit Zeiten.
+
+Aufgefallen, nicht geändert: Der Lesestand ist nach der Kanal-Kennung
+gemerkt, nicht nach Raum – „allgemein“ in zwei Räumen teilt sich einen Stand.
