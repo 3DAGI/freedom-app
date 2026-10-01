@@ -38,18 +38,36 @@ export function filter(jetzt) {
   ];
 }
 
+/**
+ * Kurs des Anbieters wie `parseCapabilities()` (4.4): nur eine plausible ganze
+ * Zahl sats je SOL und eine bekannte Quelle – sonst keiner. Ohne Kurs keinen
+ * SOL-Preis erfinden (C-3).
+ */
+function kursAus(ev) {
+  const kt = ev.tags.find((t) => Array.isArray(t) && t[0] === "kurs" && t[1] === "SOL/BTC");
+  return kt && /^\d{1,10}$/.test(kt[2] ?? "") && Number(kt[2]) > 0 && (kt[3] === "manuell" || kt[3] === "markt") ? Number(kt[2]) : null;
+}
+
+/** msat → Lamports wie `msatZuLamports()` (kurs.ts): aufgerundet, 1 SOL = Kurs · 1000 msat. */
+export function lamportsAus(msat, satsProSol) {
+  return Number.isFinite(msat) && msat >= 0 && satsProSol ? Math.ceil((msat * 1e6) / satsProSol) : null;
+}
+
 function angebote(events, jetzt) {
   const je = new Map();
   for (const ev of events) {
     if (ev.kind !== KIND_ANGEBOT || tag(ev, "d") !== ev.pubkey || !STUFEN.includes(tag(ev, "tier"))) continue;
     if (jetzt - ev.created_at > ZEITRAUM_SECS || (je.get(ev.pubkey)?.zeit ?? -1) >= ev.created_at) continue;
     const rate = Number(tag(ev, "text_rate_msat"));
+    const preisOk = Number.isFinite(rate) && rate >= 0;
     je.set(ev.pubkey, {
       pubkey: ev.pubkey,
       zeit: ev.created_at,
       stufe: tag(ev, "tier"),
       modelle: [...new Set(ev.tags.filter((t) => t[0] === "model" && typeof t[1] === "string" && t[1]).map((t) => t[1]))].slice(0, 50),
-      satsJe1k: Number.isFinite(rate) && rate >= 0 ? rate / 1000 : null,
+      satsJe1k: preisOk ? rate / 1000 : null,
+      // SOL nur aus dem Kurs im Angebot selbst (C-3)
+      lamportsJe1k: preisOk ? lamportsAus(rate, kursAus(ev)) : null,
       gratis: tag(ev, "free") === "1",
       lightning: !!tag(ev, "lud16"),
       solKanal: ev.tags.some((t) => t[0] === "kanal" && t[1] && t[2]),
