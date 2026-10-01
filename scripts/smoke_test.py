@@ -1353,6 +1353,44 @@ def werben_pruefen(browser, url: str) -> dict:
     return erg
 
 
+def unsicher_pruefen(browser, url: str) -> dict:
+    """B-10b: Über http im Heimnetz (App vom eigenen Knoten, B-10a) ist die Seite kein
+    sicherer Kontext – kein crypto.subtle. Nachgestellt wie im Browser unter
+    http://<rechner>:<port>/ gesehen; der Tresor sagt es, statt zu scheitern, und legt nichts an."""
+    erg = {"fehler": []}
+    ctx = browser.new_context(locale="de-DE")
+    basis = url.rsplit("/", 1)[0]
+    ctx.route("**/*", lambda r: r.continue_() if r.request.url.startswith(basis) else r.abort())
+    ctx.add_init_script("Object.defineProperty(window, 'isSecureContext', { value: false });"
+                        "Object.defineProperty(crypto, 'subtle', { value: undefined });")
+    s = ctx.new_page()
+    s.on("pageerror", lambda e: erg["fehler"].append(str(e)[:300]))
+    ev = s.evaluate
+    s.goto(url, wait_until="load")
+    s.wait_for_function("() => typeof window.freedomApp === 'object'", timeout=30000)
+    erg["nachgestellt"] = ev("() => window.isSecureContext === false && crypto.subtle === undefined")
+    ev("() => document.querySelector('.modal-backdrop')?.remove()")
+    ev("() => document.querySelector('.app-nav button[data-tab=\"settings\"]').click()")
+    ev("() => document.querySelector('.sec-action[data-step=\"4\"]').click()")
+    s.wait_for_function("() => [...document.querySelectorAll('[role=dialog]')]"
+                        ".some(d => d.textContent.includes('ohne sichere Verbindung'))", timeout=30000)
+    erg["sagt_es"] = ev("() => !document.getElementById('tr-neu1')")
+    s.keyboard.press("Escape")
+    s.wait_for_timeout(500)
+    # Die Datenbank legt schon die Frage „gibt es einen Tresor?“ an – zählt nur, ob ein Tresor darin liegt
+    erg["kein_tresor"] = ev("""async () => localStorage.getItem('freedom.vault') === null
+      && await new Promise((r) => { const q = indexedDB.open('freedom-vault');
+        q.onsuccess = () => { const db = q.result;
+          if (!db.objectStoreNames.contains('tresor')) return r(true);
+          const g = db.transaction('tresor').objectStore('tresor').get('blob');
+          g.onsuccess = () => r(g.result === undefined); g.onerror = () => r(false); };
+        q.onerror = () => r(false); })""")
+    ctx.close()
+    erg["bestanden"] = (not erg["fehler"] and erg["nachgestellt"] is True and erg["sagt_es"] is True
+                        and erg["kein_tresor"] is True)
+    return erg
+
+
 def lokal_pruefen(browser, url: str) -> dict:
     """KI auf diesem Gerät (B-1): „Dieses Gerät“ steht in der Modellwahl, gesucht wird
     erst auf Klick, die Frage geht nur an localhost – kein Auftrag, kein Umschlag ans Relay."""
@@ -2875,6 +2913,10 @@ def main() -> int:
             except Exception as e:
                 erg["werben"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
             try:
+                erg["unsicher"] = unsicher_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
+            except Exception as e:
+                erg["unsicher"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
+            try:
                 erg["lokal"] = lokal_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
             except Exception as e:
                 erg["lokal"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
@@ -2906,6 +2948,7 @@ def main() -> int:
           and erg.get("karte", {}).get("bestanden") is True
           and erg.get("qr", {}).get("bestanden") is True
           and erg.get("werben", {}).get("bestanden") is True
+          and erg.get("unsicher", {}).get("bestanden") is True
           and erg.get("lokal", {}).get("bestanden") is True
           and erg.get("mobil", {}).get("bestanden") is True)
     erg["bestanden"] = bool(ok)

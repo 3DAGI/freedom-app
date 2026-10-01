@@ -53,6 +53,7 @@ export const netzQuelle = (ref: NostrEvent): BundleQuelle => ({ id: ref.id, hole
 const FEHLER: Record<BundleFehlerArt, string> = {
   format: "repo.bundleFormat", gross: "repo.bundleGross", objekte: "repo.bundleObjekte", entpacken: "repo.bundleEntpacken",
   delta: "repo.bundleDelta", tiefe: "repo.bundleTiefe", pruefsumme: "repo.bundlePruefsumme", kaputt: "repo.bundleKaputt",
+  unsicher: "repo.bundleUnsicher",
 };
 
 /** Gelesene Bundles je Referenz (Event-Id) und wo man darin steht – nur im Speicher, höchstens drei. */

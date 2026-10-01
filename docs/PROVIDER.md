@@ -116,7 +116,8 @@ Erreichbar ist die App so:
 **Grenzen über http im Heimnetz:**
 - Der Browser zählt die Seite nicht als sicheren Kontext. WebCrypto fehlt dann,
   also gibt es keinen Tresor. Damit fehlt auch alles, was einen Tresor braucht
-  (Wallet verbinden, MLS), und die Kamera.
+  (Wallet verbinden, MLS), und die Kamera. Die App sagt das, wenn man den Tresor
+  einrichten will.
 - Wer sich im selben Netz dazwischenschaltet, kann die Datei unterwegs verändern.
 - Sicher sind `.onion` im Tor Browser und `http://localhost` auf dem Rechner
   des Knotens selbst.

@@ -13622,3 +13622,44 @@ Endstand (B-10a, 01.10.): protocol 1147 (6 übersprungen) · node 280 (+5, 7
 Website ok · Smoke-Test bestanden · im Browser: die echte `freedom.html` vom
 Relay unter `http://knoten.test:<port>/` startet. Knoten-Stand: nur für die
 App vom Knoten nötig (`APP_SHA256`), KI-Anfragen unberührt.
+
+## Schritt B-10b – Ohne sicheren Kontext ehrlich
+
+Sammlung B-10, zweiter Teil. Fund aus B-10a: Kommt die App über http im
+Heimnetz vom eigenen Knoten, ist die Seite kein sicherer Kontext –
+`isSecureContext` false, `crypto.subtle` undefined (im Browser geprüft). Die
+App startete und schrieb, aber das Einrichten des Tresors scheiterte mit
+einer fremden Meldung, das Lesen von Git-Bundles ebenso.
+
+**App:**
+- `verschluesselungMoeglich()` (neu, `sicherer-kontext.ts`, ohne DOM): sicherer
+  Kontext und `crypto.subtle` mit `importKey` und `digest`.
+- `richteTresorEin()` (`shell/tresor.ts`): ohne das ein Hinweis
+  (`ein.tresorUnsicher`) statt des Passphrase-Dialogs – kein Tresor, damit
+  keine Wallet und kein MLS; sicher über https, .onion im Tor Browser oder
+  localhost. Nichts wird angelegt. Alle Wege zum Tresor gehen hier durch, auch
+  `verlangeTresor()` vor Wallet und Swap (dann mit dessen Grund davor).
+- Git-Bundles: `sha1()` (`git-bundle.ts`) wirft ohne `crypto.subtle`
+  `BundleFehler("unsicher")`, angezeigt als `repo.bundleUnsicher`
+  (`code-reiter.ts`) – klein in Dateien der Spur C.
+- Was ohne sicheren Kontext still wegfällt, bleibt so: die lokale Suche nimmt
+  dann keinen Index (wie bisher bei einem Fehler), MLS ist ohne Tresor ohnehin
+  gesperrt (NIP-17), der Scanner zeigt ohne Kamera den Hinweis zum Einfügen.
+- `docs/PROVIDER.md`: „Die App sagt das, wenn man den Tresor einrichten will.“
+
+**Tests:** app +3 (`sicherer-kontext.test.ts`: die Prüfung mit allen Fällen,
+auch dem im Browser gesehenen; der Hinweis kommt nach „schon eingerichtet“
+und vor Dialog und `createVault()`, mit dem Grund des Verlangenden, der Text
+nennt die sicheren Wege; Bundles ohne `crypto.subtle` → `unsicher`, mit wie
+bisher). Smoke „unsicher“ (neu): Init-Skript nimmt `isSecureContext` und
+`crypto.subtle` weg, Settings → Tresor einrichten zeigt den Hinweis statt des
+Dialogs, danach kein Tresor (Merker und Blob fehlen).
+
+**Verdrahtet:** `packages/app/src/shell/tresor.ts` – `richteTresorEin()` →
+`verschluesselungMoeglich()` → `hinweis()`; `packages/app/src/git-bundle.ts` –
+`sha1()` → `BundleFehler("unsicher")` → `code-reiter.ts` (`FEHLER`).
+
+Endstand (B-10b, 01.10.): protocol 1147 (6 übersprungen) · node 280 (7
+übersprungen ohne Netz – mit Netz 281) · app 759 (+3) · mls 13 · Leak-Tests 69
+grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0
+· Website ok · Smoke-Test bestanden (mit „unsicher“). Knoten-Stand: unverändert.
