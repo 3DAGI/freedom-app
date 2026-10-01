@@ -13463,3 +13463,8 @@ die Pause für einen späteren Zeitstempel entfällt.
 `buildRoles()`/`buildRoleGrant()`. `baueKanalEntfernung()` bleibt bis B-20c
 (ändern und entfernen) in `scripts/wiring-ausnahmen.txt`; `buildModeratorList()`
 ruft die App nicht mehr auf und steht dort jetzt mit Begründung.
+
+Endstand (B-20b, 01.10.): protocol 1146 (6 übersprungen) · node 275 (7
+übersprungen ohne Netz – mit Netz 276) · app 750 (+1) · mls 13 · Leak-Tests 69
+grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0
+· Website ok · Smoke-Test bestanden. Knoten-Stand: unverändert.
