@@ -69,7 +69,8 @@ test("C.3a: Seite verdrahtet – nur DOM, Adresse ohne Kennung, Dialoge statt pr
   // Bundle laden: verschlüsselt geladen, mit dem Schlüssel aus der Referenz entschlüsselt
   // (seit C.3c1 in holeBundle(), geteilt mit dem Reiter „Code“)
   assert.match(quelle("../src/shell/tabs/code-reiter.ts"), /return r\.schluessel \? oeffneAnhang\(res\.bytes, r\.schluessel\) : res\.bytes;/);
-  assert.match(seite, /const bytes = await holeBundle\(k\.bundle\);/);
+  // seit B-2 über die Quelle (netzQuelle → holeBundle, vom Gerät die Sicherung als .bundle-Datei)
+  assert.match(seite, /const bytes = await quelle\.hole\(\);/);
   // Eine Liste statt zwei (B10): die alten Listen sind weg
   for (const alt of ['id="git-repo-list"', 'id="nip34-liste"', 'id="nip34-id"', 'id="nip34-klon"']) assert.ok(!html.includes(alt), alt);
   assert.doesNotMatch(quelle("../src/shell/tabs/agent-netz.ts"), /export async function loadGitRepos/);

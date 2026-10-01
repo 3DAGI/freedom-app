@@ -65,7 +65,8 @@ test("Verdrahtung (C-17b1): laden, Reiter, anlegen – öffentlich signiert, pri
   assert.match(repos, /pool\.query\(\{ kinds: \[KIND_KOMMENTAR\], "#E": wurzeln, limit: 1000 \}\)/);
   assert.match(repos, /karten = mitIssues\(karten, \{ issues, status: issueStatus, kommentare \}, privat, state\.keypair\?\.pk\);/);
   const seite = lies("shell/tabs/repo-seite.ts");
-  assert.match(seite, /reiterKnopf\("commits", t\("repo\.commits"\)\),\s*reiterKnopf\("issues", t\("repo\.issuesZahl", \{ n: k\.offeneIssues \?\? 0 \}\)\), reiterKnopf\("patches"/);
+  // Seit B-2 nicht für Repos nur auf diesem Gerät – Issues gibt es erst im Netz
+  assert.match(seite, /reiterKnopf\("commits", t\("repo\.commits"\)\)\);\s*if \(!k\.lokal\) \{\s*leiste\.append\(reiterKnopf\("issues", t\("repo\.issuesZahl", \{ n: k\.offeneIssues \?\? 0 \}\)\), reiterKnopf\("patches"/);
   assert.match(seite, /export const vergissReiter = \(\): void => \{\s*vergissIssue\(\);/);
   const reiter = lies("shell/tabs/issues-reiter.ts");
   assert.match(reiter, /if \(k\.privatRaum\) await sendeInRaum\(k\.privatRaum, raumRepoIssue\(k\.privatRaum, angaben\)\);\s*else await \(await ensurePool\(\)\)\.publish\(await signiere\(baueIssue\(angaben, state\.keypair\.pk\)\)\);/);

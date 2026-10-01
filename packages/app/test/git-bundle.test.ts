@@ -150,10 +150,13 @@ test("C.3c1: verdrahtet – Reiter „Code“ lädt erst auf Knopfdruck, liest i
   const code = readFileSync(new URL("../src/shell/tabs/code-reiter.ts", import.meta.url), "utf8");
   const seite = readFileSync(new URL("../src/shell/tabs/repo-seite.ts", import.meta.url), "utf8");
   assert.doesNotMatch(code, /innerHTML/);
-  assert.match(seite, /reiter === "code" \? codeReiter\(k\.bundle, k\.name, \(\) => zeigeRepoSeite\(box, k, h, "code"\)\)/);
+  // Seit B-2 über die Quelle des Bundles: aus dem Speichernetz über die Referenz oder vom Gerät
+  assert.match(seite, /reiter === "code" \? codeReiter\(quelle, k\.name, \(\) => zeigeRepoSeite\(box, k, h, "code"\)\)/);
+  assert.match(seite, /if \(!k\.lokal\) return k\.bundle \? netzQuelle\(k\.bundle\) : undefined;/);
+  assert.match(code, /export const netzQuelle = \(ref: NostrEvent\): BundleQuelle => \(\{ id: ref\.id, hole: \(\) => holeBundle\(ref\) \}\);/);
   // Laden nur im Klick-Handler von „Code laden“ (seit C.3c2 geteilt mit „Commits“), dann lesen, Fehler als Kennung → Text
   const klick = code.slice(code.indexOf('laden.addEventListener("click"'), code.indexOf("return [hinweis, laden, fehler];"));
-  assert.match(klick, /const bytes = await holeBundle\(bundle\);/);
+  assert.match(klick, /const bytes = await bundle\.hole\(\);/);
   assert.match(klick, /await leseBundle\(bytes\)/);
   assert.match(klick, /e instanceof BundleFehler \? t\(FEHLER\[e\.art\]\) : fehlerText\(e\)/);
   // README und Dateien nur als Text und nur, wenn sie Text sind (alsText: kein Nullbyte, gültiges UTF-8)
@@ -191,7 +194,7 @@ test("C.3c2: verdrahtet – Reiter „Commits“, Ort im Code nur im Speicher, E
   const code = readFileSync(new URL("../src/shell/tabs/code-reiter.ts", import.meta.url), "utf8");
   const seite = readFileSync(new URL("../src/shell/tabs/repo-seite.ts", import.meta.url), "utf8");
   assert.match(seite, /reiterKnopf\("commits", t\("repo\.commits"\)\)/);
-  assert.match(seite, /reiter === "commits" \? commitsReiter\(k\.bundle, angenommen, \(\) => zeigeRepoSeite\(box, k, h, "commits"\)\)/);
+  assert.match(seite, /reiter === "commits" \? commitsReiter\(quelle, angenommen, \(\) => zeigeRepoSeite\(box, k, h, "commits"\)\)/);
   // Ohne Bundle: nur angenommene Patches mit ihren Commits aus dem geltenden Status
   assert.match(seite, /const angenommen = k\.zeilen\.filter\(\(z\) => z\.status === "angenommen"\)\.map\(\(z\) => \(\{ betreff: z\.patch\.betreff, commits: z\.commits \?\? \[\] \}\)\);/);
   assert.match(code, /const commits = commitsAb\(b, kopf, COMMITS_MAX \+ 1\);/);

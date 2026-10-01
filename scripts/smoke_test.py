@@ -2065,6 +2065,62 @@ def raum_pruefen(browser, url: str) -> dict:
         if neuig != {"karten": NEUIGKEITEN_KARTEN[groesse], "filter": ["werkzeug"],
                      "danach": [[], "Nichts Neues in Repos, an denen du beteiligt bist.", True]}:
             erg["fehler"].append(f"{groesse}: Neuigkeiten {neuig}")
+        # Seit B-2b: Repo nur auf diesem Gerät – über „Wo“ angelegt (ohne Rückfrage), Bundle abgelegt, Code gelesen, gelöscht.
+        # Dabei geht nichts hinaus: keine Ankündigung, keine Bundle-Referenz, kein Stück ins Blob-Netz
+        if not mobil:
+            netz = lambda: len([e for e in relay.gesendet if e.get("kind") in (30617, 38040, 38041, 38042)])
+            vorher_netz = netz()
+            ev("() => document.getElementById('nip34-ankuendigen').click()")
+            s.wait_for_timeout(200)
+            s.keyboard.type("nurhier")
+            ev("() => [...document.querySelectorAll('[role=dialog] input[type=radio]')].find(e => e.value === 'lokal')?.click()")
+            s.keyboard.press("Enter")  # Dialog bestätigen – lokal ohne Rückfrage
+            karte_lokal = "() => [...document.querySelectorAll('#repos-karten .repo-karte')].find(k => k.querySelector('.repo-name').textContent === 'nurhier')"
+            try:
+                s.wait_for_function(f"() => !!({karte_lokal})()", timeout=8000)
+            except Exception:
+                pass
+            lokal = {"marke": ev(f"() => [...(({karte_lokal})()?.querySelectorAll('.msg-role') ?? [])].map(m => m.textContent)")}
+            ev(f"() => ({karte_lokal})()?.click()")
+            s.wait_for_timeout(200)
+            lokal["reiter"] = ev("() => [...document.querySelectorAll('#repo-seite [data-reiter]')].map(b => b.dataset.reiter)")
+            lokal["zeile"] = ev("() => document.querySelector('#repo-seite .repo-lokal span')?.textContent ?? ''").startswith("🔒 Nur auf diesem Gerät")
+            ev("() => document.querySelector('#repo-seite [data-reiter=einstellungen]')?.click()")
+            s.wait_for_timeout(200)
+            if ev("() => !!document.querySelector('#repo-seite .repo-hochladen input[type=file]')"):
+                s.set_input_files("#repo-seite .repo-hochladen input[type=file]",
+                                  files=[{"name": "nurhier.bundle", "mimeType": "application/octet-stream", "buffer": PROBE_MD_BUNDLE}])
+            try:
+                s.wait_for_function("() => document.querySelectorAll('#repo-seite .repo-klon button').length > 0", timeout=8000)
+            except Exception:
+                pass
+            ev("() => document.querySelector('#repo-seite [data-reiter=code]')?.click()")
+            s.wait_for_timeout(200)
+            lokal["hinweis"] = ev("() => document.querySelector('#repo-seite .repo-inhalt p')?.textContent ?? ''")
+            ev("() => document.querySelector('#repo-seite .code-laden')?.click()")
+            try:
+                s.wait_for_function("() => !!document.querySelector('#repo-seite .code-readme h1') || !!document.querySelector('#repo-seite .repo-fehler')?.textContent", timeout=15000)
+            except Exception:
+                pass
+            lokal["readme"] = ev("() => document.querySelector('#repo-seite .code-readme h1')?.textContent ?? document.querySelector('#repo-seite .repo-fehler')?.textContent")
+            # In der Datenbank nur Chiffrat
+            lokal["chiffrat"] = ev("""async () => { const db = await new Promise((r, f) => { const q = indexedDB.open('freedom-repos'); q.onsuccess = () => r(q.result); q.onerror = () => f(q.error); });
+              const werte = await new Promise((r) => { const q = db.transaction('bundles').objectStore('bundles').getAll(); q.onsuccess = () => r(q.result); });
+              db.close(); return werte.map((v) => new TextDecoder().decode(v).includes('Werkzeugkiste')); }""")
+            lokal["netz"] = netz() - vorher_netz
+            ev("() => document.querySelector('#repo-seite .repo-lokal-loeschen')?.click()")
+            s.wait_for_timeout(200)
+            ev("() => document.querySelector('[role=dialog] .dlg-gefahr')?.click()")
+            try:
+                s.wait_for_function(f"() => !document.getElementById('repos-liste-ansicht').classList.contains('hidden') && !({karte_lokal})()", timeout=8000)
+            except Exception:
+                pass
+            lokal["geloescht"] = [ev(f"() => !({karte_lokal})()"), ev("() => JSON.parse(localStorage.getItem('freedom.repos.lokal') || '[]').length")]
+            erg["desktop"]["repo_lokal"] = lokal
+            if lokal != {"marke": ["nur dieses Gerät"], "reiter": ["code", "commits", "einstellungen"], "zeile": True,
+                         "hinweis": "Das Bundle liegt nur auf diesem Gerät, mit Tresor verschlüsselt; die App liest es nur hier.",
+                         "readme": "Werkzeugkiste", "chiffrat": [False], "netz": 0, "geloescht": [True, 0]}:
+                erg["fehler"].append(f"desktop: Repo nur auf diesem Gerät {lokal}")
         ctx.close()
     erg["bestanden"] = not erg["fehler"]
     return erg

@@ -108,7 +108,7 @@ test("C.3a2: verdrahtet – Reiter Mitwirkende, Einstellungen nur für den Eigen
   assert.ok(frage! < raum!, "im privaten Raum (11.4b2) ebenso: erst fragen, dann in die Gruppe");
   assert.match(speichern, /fehler\.textContent = fehlerText\(e\);/);
   // Neue Version mit derselben Kennung; Mitwirkende aus allen Beiträgen (keine Abfrage nach Kennung)
-  assert.match(seite, /void h\.hochladen\(f, k\.id, k\.privatRaum\)/);
+  assert.match(seite, /void h\.hochladen\(f, k\.id, k\.privatRaum, !!k\.lokal\)/);
   assert.match(repos, /query\(\{ kinds: \[KIND_GIT_CONTRIBUTION\], limit: 1000 \}\)/);
   assert.doesNotMatch(repos, /"#r"/, "keine Abfrage, die verrät, welches Repo man ansieht");
   assert.match(repos, /mitwirkende: ladeBeitraege,\n\s+hochladen: ladeBundleHoch,/);

@@ -12922,3 +12922,50 @@ Endstand (B-2a, 01.10.): protocol 1140 (6 übersprungen) · node 271 (7
 übersprungen ohne Netz – mit Netz 272) · app 732 (+4) · mls 13 · Leak-Tests 68
 grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng
 Exit 0 · Website ok · Smoke-Test bestanden. Knoten-Stand: unverändert.
+
+## Schritt B-2b – Repos nur auf diesem Gerät: Oberfläche
+
+Zweiter Teil von B-2 (Baustein in B-2a).
+
+**App:**
+- `shell/tabs/repos.ts`: „Repo ankündigen“ fragt immer „Wo“ – öffentlich (wie
+  bisher zuerst), **nur dieses Gerät** oder ein privater Raum, in dem ich Repos
+  pflege. Lokal wird nur gemerkt (`lokaleRepos.merke()`), ohne Rückfrage, und
+  nichts geht hinaus. Neue Versionen lokal über `ladeBundleHoch(…, lokal)`:
+  höchstens 32 MB (`BUNDLE_GRENZEN.bytes`), verschlüsselt abgelegt, vor jedem
+  Blob-Netz. Die lokalen Karten kommen nach `mitIssues()` in die Liste (nie
+  Issues eines öffentlichen Repos gleicher Kennung) und bleiben ohne Relays
+  sichtbar. Marke „nur dieses Gerät“.
+- `shell/tabs/repo-seite.ts`: Zeile „🔒 Nur auf diesem Gerät …“ mit „Vom Gerät
+  löschen“ (rot, nach Rückfrage); Reiter nur Code, Commits und Einstellungen;
+  Einstellungen speichern lokal, ohne Raum; „Bundle laden“ sichert das lokale
+  Bundle als `.bundle`-Datei.
+- `shell/tabs/code-reiter.ts` (Spur C, nur die Form): Code und Commits bekommen
+  eine `BundleQuelle` (`id`, `hole()`, Hinweis) statt der Netz-Referenz –
+  `netzQuelle()` für das Speichernetz, vom Gerät aus `quelleVon()`. Der Hinweis
+  über „Code laden“ sagt, woher das Bundle kommt.
+- Texte `repo.woLokal`, `repo.markeLokal`, `repo.imLokal`, `repo.lokal*`,
+  `repo.codeLadenLokal`, `repo.neueVersionTextLokal` in beiden Sprachen.
+
+**Tests:** +1 (`lokale-repos.test.ts`: Verdrahtung – „Wo“ mit dem Gerät, lokal vor
+jedem Senden und mit `return`, vor dem Blob-Netz mit Grenze, nach `mitIssues()`,
+ohne Relays sichtbar, Reiter, Einstellungen lokal ohne Raum). Angepasst, weil sie
+die alte Form wörtlich lasen: `git-bundle.test.ts` (Code und Commits über die
+Quelle), `repo-karten.test.ts` (Bundle laden über die Quelle),
+`repo-einstellungen.test.ts`, `raum-repos-privat.test.ts` (`hochladen` mit
+`lokal`, kein Raum für lokale Repos), `issues-ansicht.test.ts` (Reiter Issues nur im
+Netz), `raum-repos-ui.test.ts` („Wo“ immer, aus dem Raum nie). Smoke „raum“
+(Desktop): „nurhier“ über „Wo“ angelegt, Bundle abgelegt, README gelesen, in der
+Datenbank nur Chiffrat, gelöscht – dabei kein Event 30617, 38040–38042.
+
+**Verdrahtet:** `packages/app/src/shell/tabs/repos.ts` – `kuendigeAn()` →
+`lokaleRepos.merke()`, `ladeBundleHoch()` → `lokaleRepos.legeBundleAb()`,
+`ladeJetzt()` → `lokaleRepos.karten()`; `packages/app/src/shell/tabs/repo-seite.ts`
+– `quelleVon()` → `lokaleRepos.holeBundle()`, `lokalZeile()` →
+`lokaleRepos.entferne()`, `speichereEinstellungen()` → `lokaleRepos.merke()`.
+
+Endstand (B-2b, 01.10.): protocol 1140 (6 übersprungen) · node 271 (7
+übersprungen ohne Netz – mit Netz 272) · app 733 (+1) · mls 13 · Leak-Tests 68
+grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng
+Exit 0 · Website ok · Smoke-Test bestanden (mit der Prüfung „Repo nur auf
+diesem Gerät“). Knoten-Stand: unverändert.
