@@ -147,3 +147,19 @@ test("B-2: verdrahtet – „Wo“ bietet das Gerät, lokal geht nie etwas hinau
   assert.match(seite, /hole: \(\) => lokaleRepos\.holeBundle\(k\.eigentuemer, k\.id\), hinweis: "repo\.codeLadenLokal"/);
   for (const d of ["repos.ts", "repo-seite.ts"]) assert.doesNotMatch(lies(d), /\.innerHTML\s*=/, d);
 });
+
+test("B-2c: veröffentlichen – erst die Rückfrage, dann Ankündigung und Bundle, die Kopie auf dem Gerät erst danach weg", () => {
+  const lies = (p: string) => readFileSync(new URL(`../src/shell/tabs/${p}`, import.meta.url), "utf8");
+  const repos = lies("repos.ts");
+  const raus = repos.slice(repos.indexOf("async function veroeffentlicheLokal("), repos.indexOf("/** Patch senden"));
+  const stelle = (x: string) => raus.indexOf(x);
+  for (const x of ["await bestaetige(", "publish(await signiere(baueRepoAnkuendigung(r.angaben, ich)))", "await ladeBundleHoch(new File(", "await lokaleRepos.entferne(ich, k.id);"]) {
+    assert.ok(stelle(x) > 0, x);
+  }
+  assert.ok(stelle("await bestaetige(") < stelle("publish(") && stelle("publish(") < stelle("await ladeBundleHoch(new File(") && stelle("await ladeBundleHoch(new File(") < stelle("await lokaleRepos.entferne("),
+    "Rückfrage → Ankündigung → Bundle → lokale Kopie weg");
+  assert.match(raus, /if \(!await ladeBundleHoch\(new File\(\[bytes as BlobPart\], `\$\{k\.id\}\.bundle`\), k\.id\)\) return;/, "scheitert das Bundle, bleibt die Kopie");
+  assert.match(raus, /const ersetzt = karten\.some\(\(x\) => !x\.lokal && !x\.privatRaum && x\.schluessel === `\$\{ich\}:\$\{k\.id\}`\);/, "die Rückfrage nennt ein ersetztes Repo");
+  assert.match(repos, /veroeffentlichen: veroeffentlicheLokal,/);
+  assert.match(lies("repo-seite.ts"), /const raus = knopf\(t\("repo\.lokalVeroeffentlichen"\), "ghost mini repo-lokal-veroeffentlichen", \(\) => void h\.veroeffentlichen\(k\)\);/);
+});

@@ -202,6 +202,7 @@ function zeige(fokus = false): void {
         zeige();
         void geheZuRaum(offen);
       },
+      veroeffentlichen: veroeffentlicheLokal,
     });
     if (fokus || warZurueck) seite.querySelector<HTMLElement>(".repo-zurueck")?.focus();
     return;
@@ -301,6 +302,43 @@ export async function ladeBundleHoch(datei: File, kennung: string, gruppe?: stri
   } catch (e) {
     toast(t("ein.gitFehler", { fehler: fehlerText(e) }), true);
     return false;
+  }
+}
+
+/**
+ * Ein Repo nur auf diesem Gerät veröffentlichen (B-2c, Wechsel nach S1): nach
+ * Rückfrage geht die Ankündigung signiert hinaus, das Bundle wie jede neue
+ * Version verschlüsselt ins Blob-Netz (der Schlüssel steht öffentlich in der
+ * Referenz). Erst wenn beides draußen ist, entfällt die Kopie auf dem Gerät –
+ * scheitert etwas, bleibt sie, und ein zweiter Versuch ersetzt die Ankündigung.
+ */
+async function veroeffentlicheLokal(k: RepoKarte): Promise<void> {
+  if (!state.keypair || !k.lokal) return;
+  const ich = state.keypair.pk;
+  const r = lokaleRepos.finde(ich, k.id);
+  if (!r) return;
+  // Ein öffentliches Repo gleicher Kennung wird ersetzt (30617 ist je Kennung ersetzbar) – das sagt die Rückfrage
+  const ersetzt = karten.some((x) => !x.lokal && !x.privatRaum && x.schluessel === `${ich}:${k.id}`);
+  const frage = ersetzt ? "repo.lokalVeroeffentlichenErsetzt" : "repo.lokalVeroeffentlichenFrage";
+  if (!await bestaetige({ titel: t("repo.lokalVeroeffentlichen"), text: t(frage, { id: k.id }), ok: t("repo.lokalVeroeffentlichen") })) return;
+  try {
+    const { baueRepoAnkuendigung } = await import("@freedomstack/protocol");
+    await (await ensurePool()).publish(await signiere(baueRepoAnkuendigung(r.angaben, ich)));
+    if (r.bundle) {
+      const bytes = await lokaleRepos.holeBundle(ich, k.id);
+      if (!bytes) {
+        toast(t("agent.bundleKaputt"), true);
+        return;
+      }
+      // Wie jede neue Version; einen Fehler meldet ladeBundleHoch – die lokale Kopie bleibt
+      if (!await ladeBundleHoch(new File([bytes as BlobPart], `${k.id}.bundle`), k.id)) return;
+    }
+    await lokaleRepos.entferne(ich, k.id);
+    toast(t("repo.lokalVeroeffentlicht", { id: k.id }));
+    offenesRepo = `${ich}:${k.id}`;
+    await ladeNip34Repos();
+  } catch (e) {
+    toast(fehlerText(e), true);
   }
 }
 

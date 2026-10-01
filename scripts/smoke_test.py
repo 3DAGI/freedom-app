@@ -2065,23 +2065,28 @@ def raum_pruefen(browser, url: str) -> dict:
         if neuig != {"karten": NEUIGKEITEN_KARTEN[groesse], "filter": ["werkzeug"],
                      "danach": [[], "Nichts Neues in Repos, an denen du beteiligt bist.", True]}:
             erg["fehler"].append(f"{groesse}: Neuigkeiten {neuig}")
-        # Seit B-2b: Repo nur auf diesem Gerät – über „Wo“ angelegt (ohne Rückfrage), Bundle abgelegt, Code gelesen, gelöscht.
-        # Dabei geht nichts hinaus: keine Ankündigung, keine Bundle-Referenz, kein Stück ins Blob-Netz
+        # Seit B-2b: Repo nur auf diesem Gerät – über „Wo“ angelegt (ohne Rückfrage), Bundle abgelegt, Code gelesen.
+        # Dabei geht nichts hinaus: keine Ankündigung, keine Bundle-Referenz, kein Stück ins Blob-Netz.
+        # Seit B-2c: danach veröffentlicht (Ankündigung und Bundle gehen hinaus, die Kopie auf dem Gerät entfällt);
+        # gelöscht wird ein zweites lokales Repo
         if not mobil:
             netz = lambda: len([e for e in relay.gesendet if e.get("kind") in (30617, 38040, 38041, 38042)])
             vorher_netz = netz()
-            ev("() => document.getElementById('nip34-ankuendigen').click()")
-            s.wait_for_timeout(200)
-            s.keyboard.type("nurhier")
-            ev("() => [...document.querySelectorAll('[role=dialog] input[type=radio]')].find(e => e.value === 'lokal')?.click()")
-            s.keyboard.press("Enter")  # Dialog bestätigen – lokal ohne Rückfrage
-            karte_lokal = "() => [...document.querySelectorAll('#repos-karten .repo-karte')].find(k => k.querySelector('.repo-name').textContent === 'nurhier')"
-            try:
-                s.wait_for_function(f"() => !!({karte_lokal})()", timeout=8000)
-            except Exception:
-                pass
-            lokal = {"marke": ev(f"() => [...(({karte_lokal})()?.querySelectorAll('.msg-role') ?? [])].map(m => m.textContent)")}
-            ev(f"() => ({karte_lokal})()?.click()")
+            karte_von = lambda name: f"() => [...document.querySelectorAll('#repos-karten .repo-karte')].find(k => k.querySelector('.repo-name').textContent === '{name}')"
+            def lokal_anlegen(name: str) -> None:
+                ev("() => document.querySelector('#repo-seite .repo-zurueck')?.click()")
+                ev("() => document.getElementById('nip34-ankuendigen').click()")
+                s.wait_for_timeout(200)
+                s.keyboard.type(name)
+                ev("() => [...document.querySelectorAll('[role=dialog] input[type=radio]')].find(e => e.value === 'lokal')?.click()")
+                s.keyboard.press("Enter")  # Dialog bestätigen – lokal ohne Rückfrage
+                try:
+                    s.wait_for_function(f"() => !!({karte_von(name)})()", timeout=8000)
+                except Exception:
+                    pass
+            lokal_anlegen("nurhier")
+            lokal = {"marke": ev(f"() => [...(({karte_von('nurhier')})()?.querySelectorAll('.msg-role') ?? [])].map(m => m.textContent)")}
+            ev(f"() => ({karte_von('nurhier')})()?.click()")
             s.wait_for_timeout(200)
             lokal["reiter"] = ev("() => [...document.querySelectorAll('#repo-seite [data-reiter]')].map(b => b.dataset.reiter)")
             lokal["zeile"] = ev("() => document.querySelector('#repo-seite .repo-lokal span')?.textContent ?? ''").startswith("🔒 Nur auf diesem Gerät")
@@ -2108,18 +2113,36 @@ def raum_pruefen(browser, url: str) -> dict:
               const werte = await new Promise((r) => { const q = db.transaction('bundles').objectStore('bundles').getAll(); q.onsuccess = () => r(q.result); });
               db.close(); return werte.map((v) => new TextDecoder().decode(v).includes('Werkzeugkiste')); }""")
             lokal["netz"] = netz() - vorher_netz
+            # Veröffentlichen (B-2c): erst die Rückfrage, dann Ankündigung und Bundle; danach die öffentliche Seite mit allen Reitern
+            ev("() => document.querySelector('#repo-seite .repo-lokal-veroeffentlichen')?.click()")
+            s.wait_for_timeout(200)
+            lokal["frage"] = ev("() => document.querySelector('[role=dialog] .dlg-text')?.textContent ?? ''").startswith("„nurhier“ veröffentlichen?")
+            s.keyboard.press("Enter")  # Rückfrage: veröffentlichen
+            try:
+                s.wait_for_function("() => !document.querySelector('#repo-seite .repo-lokal') && !!document.querySelector('#repo-seite [data-reiter=issues]')", timeout=15000)
+            except Exception:
+                pass
+            raus = [e for e in relay.gesendet if e.get("kind") in (30617, 38042) and ["d", "nurhier"] in e["tags"]]
+            lokal["veroeffentlicht"] = [sorted({e["kind"] for e in raus}), ev("() => JSON.parse(localStorage.getItem('freedom.repos.lokal') || '[]').length"),
+                                        ev("() => [...document.querySelectorAll('#repo-seite [data-reiter]')].map(b => b.dataset.reiter).includes('issues')")]
+            # Löschen: ein zweites lokales Repo, nichts geht hinaus
+            vorher_netz = netz()
+            lokal_anlegen("weg")
+            ev(f"() => ({karte_von('weg')})()?.click()")
+            s.wait_for_timeout(200)
             ev("() => document.querySelector('#repo-seite .repo-lokal-loeschen')?.click()")
             s.wait_for_timeout(200)
             ev("() => document.querySelector('[role=dialog] .dlg-gefahr')?.click()")
             try:
-                s.wait_for_function(f"() => !document.getElementById('repos-liste-ansicht').classList.contains('hidden') && !({karte_lokal})()", timeout=8000)
+                s.wait_for_function(f"() => !document.getElementById('repos-liste-ansicht').classList.contains('hidden') && !({karte_von('weg')})()", timeout=8000)
             except Exception:
                 pass
-            lokal["geloescht"] = [ev(f"() => !({karte_lokal})()"), ev("() => JSON.parse(localStorage.getItem('freedom.repos.lokal') || '[]').length")]
+            lokal["geloescht"] = [ev(f"() => !({karte_von('weg')})()"), ev("() => JSON.parse(localStorage.getItem('freedom.repos.lokal') || '[]').length"), netz() - vorher_netz]
             erg["desktop"]["repo_lokal"] = lokal
             if lokal != {"marke": ["nur dieses Gerät"], "reiter": ["code", "commits", "einstellungen"], "zeile": True,
                          "hinweis": "Das Bundle liegt nur auf diesem Gerät, mit Tresor verschlüsselt; die App liest es nur hier.",
-                         "readme": "Werkzeugkiste", "chiffrat": [False], "netz": 0, "geloescht": [True, 0]}:
+                         "readme": "Werkzeugkiste", "chiffrat": [False], "netz": 0, "frage": True, "veroeffentlicht": [[30617, 38042], 0, True],
+                         "geloescht": [True, 0, 0]}:
                 erg["fehler"].append(f"desktop: Repo nur auf diesem Gerät {lokal}")
         ctx.close()
     erg["bestanden"] = not erg["fehler"]

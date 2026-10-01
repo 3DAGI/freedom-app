@@ -901,4 +901,8 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   `BUNDLE_GRENZEN.bytes`), Code und Commits nur über die `BundleQuelle`
   (`quelleVon()` in `repo-seite.ts`, das Netz über `netzQuelle()`). Lokale Repos
   zeigen nur Code, Commits und Einstellungen – Issues, Patches und Mitwirkende
-  gibt es erst im Netz. Ohne Relays bleiben sie in der Liste.
+  gibt es erst im Netz. Ohne Relays bleiben sie in der Liste. Veröffentlicht
+  wird (seit B-2c) nur über `veroeffentlicheLokal()`: Rückfrage (nennt ein
+  ersetztes öffentliches Repo gleicher Kennung), Ankündigung, Bundle über
+  `ladeBundleHoch()` – erst dann `entferne()`; scheitert etwas, bleibt die
+  Kopie auf dem Gerät.
