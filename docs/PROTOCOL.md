@@ -529,3 +529,25 @@ Umfrage und Termin zählen nur von jemandem, der in den Kanal schreiben darf
 (wie Nachrichten, `canWriteTo()`). Löschen wie bei Nachrichten: Kind 5 vom
 Autor, 4891 von einem Admin (`gruppenRaum()` nennt Gelöschtes seit B-15a in
 `geloescht`).
+
+## 21. Knoten mit Besitzer koppeln (seit B-8a)
+
+KI-Anfragen kommen von Wegwerf-Schlüsseln (3.1); der Knoten erkennt seinen
+Besitzer nur an einem Kopplungsgeheimnis (Entscheidung L1 A, `kopplung.ts`).
+
+**Kopplungscode** (als Text und QR): `freedom-kopplung:1:<knoten>:<geheimnis>`
+– Schlüssel des Knotens und 32 Byte Geheimnis, beides 64 Hex-Zeichen klein.
+Der Knoten erzeugt das Geheimnis (`neueKopplung()`); ein neues ersetzt das
+alte, so widerruft der Besitzer alle bisher gekoppelten Geräte.
+
+**Nachweis** im Kern einer Anfrage an den eigenen Knoten (`mitBesitzerNachweis()`,
+vor dem Versiegeln):
+
+| Tag | Inhalt |
+|---|---|
+| `besitzer` | HMAC-SHA256 mit dem Geheimnis über `freedomstack-besitzer-v1:<pubkey des Kerns>:<created_at>`, hex |
+
+Nie das Geheimnis selbst, nur an den Knoten im `p`-Tag. Der Knoten prüft ihn
+nur in Anfragen aus einem Umschlag (`istBesitzer()`): genau ein Tag, die Zeit
+höchstens 600 s von seiner Uhr entfernt, Vergleich in fester Zeit. Offen steht
+der Tag nie (Leak-Regel `besitzer-versiegelt`).

@@ -13002,3 +13002,34 @@ Endstand (B-2c, 01.10.): protocol 1140 (6 übersprungen) · node 271 (7
 grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng
 Exit 0 · Website ok · Smoke-Test bestanden (mit „veröffentlichen“ und
 „löschen“). Knoten-Stand: unverändert.
+
+## Schritt B-8a – Knoten mit Besitzer koppeln: Protokoll
+
+Sammlung B-8, Entscheidung L1 (01.10., MENSCH): A – ein Kopplungsgeheimnis,
+als QR, im Tresor, nur im versiegelten Kern an den eigenen Knoten. KI-Anfragen
+kommen absichtlich von Wegwerf-Schlüsseln (3.1); ohne Kopplung behandelt der
+Knoten seinen Besitzer wie jeden Fremden. Aufgeteilt: a Protokoll (dieser
+Schritt), b Knoten, c App.
+
+**Protokoll (`kopplung.ts`):** Kopplungscode
+`freedom-kopplung:1:<knoten>:<geheimnis>` (`neueKopplung()` mit frischem
+Geheimnis aus 32 Byte, `kopplungscode()`, `leseKopplungscode()` streng – auch
+mit Leerraum aus dem Einfügen). Nachweis `["besitzer", HMAC-SHA256(geheimnis,
+„freedomstack-besitzer-v1:<pubkey des Kerns>:<created_at>“)]` über
+`mitBesitzerNachweis()` – nie das Geheimnis selbst, nur an den Knoten im
+`p`-Tag (sonst `ProtokollFehler` „kopplung-fremd“), ein vorhandener wird
+ersetzt. Prüfung `istBesitzer()`: genau ein Tag, Zeit höchstens 600 s von der
+Uhr des Knotens, Vergleich in fester Zeit, eines von mehreren Geheimnissen.
+Leak-Regel `besitzer-versiegelt`: offen nie. Format in `docs/PROTOCOL.md` 21;
+Fehlertexte `pf.kopplung*` in der App.
+
+**Tests:** protocol +4 (`kopplung.test.ts`: Code neu und streng gelesen;
+Nachweis gebunden an Geheimnis, Sitzung und Zeit, nur an den gekoppelten
+Knoten; Prüfung mit Fenster, falschem und neuem Geheimnis, veränderter Zeit,
+anderer Sitzung, doppelt, kein Hex; versiegelt kein Nachweis sichtbar, der
+Knoten liest ihn aus dem Umschlag, offen meldet ihn die Regel), die Prüfung
+aller Leak-Regeln kennt die neue.
+
+**Verdrahtet:** noch nicht – `neueKopplung` (Knoten, B-8b),
+`leseKopplungscode` und `mitBesitzerNachweis` (App, B-8c) stehen bis dahin in
+`scripts/wiring-ausnahmen.txt`.

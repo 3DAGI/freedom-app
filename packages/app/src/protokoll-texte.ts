@@ -564,6 +564,9 @@ const FEHLER: Record<string, string> = {
   "datei-hash": "pf.dateiHash",
   "qr-zu-lang": "pf.qrZuLang",
   "planung-ungueltig": "pf.planungUngueltig",
+  "kopplung-knoten": "pf.kopplungKnoten",
+  "kopplung-geheimnis": "pf.kopplungGeheimnis",
+  "kopplung-fremd": "pf.kopplungFremd",
 };
 
 /** Hat dieser Fehler eine Kennung mit Text? */

@@ -906,3 +906,12 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   ersetztes öffentliches Repo gleicher Kennung), Ankündigung, Bundle über
   `ladeBundleHoch()` – erst dann `entferne()`; scheitert etwas, bleibt die
   Kopie auf dem Gerät.
+- **Knoten mit Besitzer koppeln nur über `kopplung.ts`** (seit B-8a, L1 A):
+  Kopplungscode `freedom-kopplung:1:<knoten>:<geheimnis>` nur aus
+  `neueKopplung()`/`leseKopplungscode()`. In einer Anfrage an den eigenen
+  Knoten steht nur der Nachweis (`mitBesitzerNachweis()`: HMAC über
+  Sitzungsschlüssel und Zeit) – nie das Geheimnis, nur im Kern vor dem
+  Versiegeln, nur an den gekoppelten Knoten. Der Knoten erkennt den Besitzer
+  nur über `istBesitzer()` und nur bei Anfragen aus einem Umschlag (Leak-Regel
+  `besitzer-versiegelt`). Ein neues Geheimnis widerruft alle bisher
+  gekoppelten Geräte.
