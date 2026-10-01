@@ -13039,3 +13039,41 @@ Endstand (B-8a, 01.10.): protocol 1144 (+4, 6 übersprungen) · node 271 (7
 + 1 todo · 0 rot · check-wiring `--streng` Exit 0 (drei Ausnahmen mit Verweis
 auf B-8b/B-8c) · innerHTML streng Exit 0 · Website ok · Smoke-Test bestanden.
 Knoten-Stand: unverändert.
+
+## Schritt B-8b – Knoten mit Besitzer koppeln: Knoten
+
+Zweiter Teil von B-8 (Protokoll in B-8a).
+
+**Knoten:**
+- `kopplung-datei.ts`: Das Geheimnis liegt in `~/.freedom/kopplung.json`
+  (0600, erst in eine Hilfsdatei, dann umbenannt), gelesen nur zum eigenen
+  Schlüssel und streng (`leseKopplung()`); `erneuereKopplung()` ersetzt es.
+  `kopplungImTerminal()` zeichnet den Kopplungscode als QR – je Zeichen zwei
+  Modulzeilen (Halbblöcke), schwarz auf weiß über ANSI-Farben, vier Module
+  Ruhezone.
+- `koppeln.ts` / `npm run koppeln`: mit derselben Umgebung wie der Knoten
+  (`NODE_SECRET_KEY`), zeigt QR und Text, beim ersten Mal neu erzeugt;
+  `-- --neu` erzeugt ein neues Geheimnis (bisher gekoppelte Geräte gelten nicht
+  mehr als Besitzer). Ins Log kommt das Geheimnis nie.
+- `dvm-provider.ts`: Konfiguration `besitzer` (Geheimnisse, je Anfrage frisch);
+  eine versiegelte Anfrage mit gültigem Nachweis (`istBesitzer()`) läuft gratis
+  – ohne Gebot, ohne Kontingent, auch in der Bootstrap-Phase. Eine offene
+  Anfrage mit Nachweis wird abgelehnt, bevor gerechnet wird.
+- `main.ts`: liest die Kopplung je Anfrage aus der Datei (ein neues Geheimnis
+  gilt sofort), meldet beim Start `[kopplung] mit dem Besitzer gekoppelt` bzw.
+  `nicht gekoppelt – npm run koppeln`.
+- `docs/PROVIDER.md`: Abschnitt „Mit dem Besitzer koppeln“.
+- `scripts/wiring-ausnahmen.txt`: `neueKopplung` fällt weg (jetzt verdrahtet).
+
+**Tests (+4, `node/test/kopplung.test.ts`):** Datei (0600, streng, nur zum
+eigenen Schlüssel, ein neues ersetzt das alte, Kaputtes ist kein Besitzer); QR
+fürs Terminal (Größe, Ruhezone, Farben); der Besitzer rechnet gratis ohne Gebot
+und ohne Gratis-Angebot, die Antwort geht versiegelt an die Sitzung – ohne
+Nachweis, mit fremdem Geheimnis und nach dem Erneuern nicht; offen mit Nachweis
+abgelehnt (Gegenprobe: dieselbe Anfrage ohne Nachweis läuft mit Gebot), das
+Geheimnis nie im Log.
+
+**Verdrahtet:** `packages/node/src/main.ts` → `leseKopplung()` in `besitzer`;
+`packages/node/src/dvm-provider.ts` → `istBesitzer()`;
+`packages/node/src/koppeln.ts` (`npm run koppeln`) → `erneuereKopplung()` →
+`neueKopplung()`, `kopplungImTerminal()`.

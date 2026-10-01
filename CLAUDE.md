@@ -914,4 +914,9 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   Versiegeln, nur an den gekoppelten Knoten. Der Knoten erkennt den Besitzer
   nur über `istBesitzer()` und nur bei Anfragen aus einem Umschlag (Leak-Regel
   `besitzer-versiegelt`). Ein neues Geheimnis widerruft alle bisher
-  gekoppelten Geräte.
+  gekoppelten Geräte. Im Knoten (seit B-8b) liegt das Geheimnis nur in
+  `~/.freedom/kopplung.json` (0600, `kopplung-datei.ts`), erzeugt und gezeigt
+  nur über `npm run koppeln` (QR fürs Terminal mit `kopplungImTerminal()`),
+  nie ins Log; der Provider liest es je Anfrage (`besitzer` in der
+  Konfiguration) und rechnet den Besitzer gratis, ohne Gebot und Kontingent –
+  eine offene Anfrage mit Nachweis lehnt er ab.

@@ -78,7 +78,6 @@ http-auth.ts|buildHttpAuth|NIP-98-Anmeldung auf Client-Seite, noch ohne Speicher
 
 kopplung.ts|leseKopplungscode|Kopplung von Knoten und Besitzer, in der App noch nicht gekoppelt (B-8c)
 kopplung.ts|mitBesitzerNachweis|Kopplung von Knoten und Besitzer, in der App noch nicht gekoppelt (B-8c)
-kopplung.ts|neueKopplung|Kopplung von Knoten und Besitzer, im Knoten noch nicht erzeugt (B-8b)
 
 leak-rules.ts|regelAutorNicht|Prüfregeln der Leak-Tests, gehören in die Tests (1.5)
 leak-rules.ts|regelKeinBolt11|Prüfregeln der Leak-Tests, gehören in die Tests (1.5)
