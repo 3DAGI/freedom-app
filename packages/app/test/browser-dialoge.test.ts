@@ -22,16 +22,13 @@ function dateien(dir: string): string[] {
     e.isDirectory() ? dateien(join(dir, e.name)) : e.name.endsWith(".ts") ? [join(dir, e.name)] : []);
 }
 
-/** Wo es noch Browser-Dialoge gibt (Datei → Zahl) – C-1e leert den Rest, `newCommunity()` fällt mit C-10, `agent.ts` nach B-9. */
+/**
+ * Wo es noch Browser-Dialoge gibt (Datei → Zahl): `newCommunity()` fällt mit
+ * C-10 ganz weg, `agent.ts` zieht nach B-9 nach (Spur B arbeitet dort).
+ */
 const NOCH_OFFEN: Record<string, number> = {
-  "shell/app.ts": 1,
-  "shell/bunker.ts": 2,
-  "shell/nachfolge-ui.ts": 2,
-  "shell/notfall.ts": 1,
-  "shell/pruefauftraege-ui.ts": 1,
   "shell/tabs/agent.ts": 5,
   "shell/tabs/kommunikation.ts": 1,
-  "shell/tabs/profil.ts": 3,
 };
 
 test("C-1: Browser-Dialoge nur noch, wo sie noch nicht umgestellt sind – keine neuen", () => {
@@ -204,4 +201,32 @@ test("C-1d: Geld-Stellen fragen über Dialoge – Adresse und Betrag geprüft, e
   const ew = q("shell/eingebaute-wallet.ts");
   assert.doesNotMatch(ohneKommentare(ew), BROWSER_DIALOG);
   assert.match(ew, /await bestaetige\(\{ titel: t\("waehr\.eingebaut"\), text: t\("waehr\.entfernenFrage"\), ok: t\("waehr\.entfernenKnopf"\), gefahr: true \}\)/);
+});
+
+test("C-1e: der Rest – Abzeichen, Nachfolge, Bunker, Urteil, Notfall, Schlüssel zeigen über Dialoge", () => {
+  const q = (p: string) => readFileSync(join(SRC, p), "utf8");
+  for (const p of ["shell/tabs/profil.ts", "shell/nachfolge-ui.ts", "shell/bunker.ts", "shell/pruefauftraege-ui.ts", "shell/notfall.ts", "shell/app.ts"]) {
+    assert.doesNotMatch(ohneKommentare(q(p)), BROWSER_DIALOG, p);
+  }
+  // Abzeichen: wirklich ein Dialog (Name, Empfänger, Zweck), Empfänger als npub oder Hex, mindestens einer
+  const ab = q("shell/tabs/profil.ts");
+  assert.match(ab, /schluesselAusEingabe\(x, decodeNpub\)/);
+  assert.match(ab, /pruefe: \(w\) => \(empfaengerAus\(w\)\.length \? null : t\("profil\.keinPubkey"\)\),/);
+  assert.match(ab, /description: String\(w\.wofuer \?\? ""\),/);
+  // Nachfolge: Meldung mit Pflicht-Begründung; Anteil übergeben mit Gefahr
+  const nf = q("shell/nachfolge-ui.ts");
+  assert.match(nf, /name: "grund", label: t\("ein\.meldungWarum", \{ wer: pkShort\(besitzer\) \}\), pflicht: true/);
+  assert.match(nf, /ok: t\("ein\.uebergeben"\), gefahr: true \}\)\)\) return;/);
+  assert.ok(nf.indexOf("t(\"ein.uebergebenFrage\"") < nf.indexOf("await baueAnteilUebergabe("), "erst bestätigen, dann übergeben");
+  // Bunker: bestätigt, bevor die Identität wechselt
+  const bu = q("shell/bunker.ts");
+  assert.ok(bu.indexOf("t(\"ein.bunkerWechsel\")") < bu.indexOf("await meldeMitBunkerAn("));
+  assert.ok(bu.indexOf("t(\"ein.bunkerAbmelden\")") < bu.indexOf("await meldeBunkerAb("));
+  // Urteil: abgebrochen geht nichts hinaus, die Begründung darf leer sein
+  const ur = q("shell/pruefauftraege-ui.ts");
+  assert.match(ur, /if \(!w\) return;\s*const notiz = String\(w\.notiz \?\? ""\);/);
+  assert.ok(ur.indexOf("await dialog(") < ur.indexOf("buildPrivateUrteil({"));
+  // Notfall: der Hinweis vor dem weiteren Start; Schlüssel ohne Zwischenablage nur zum Ansehen
+  assert.match(q("shell/notfall.ts"), /await hinweis\(t\("ein\.notfallTitel"\), t\("ein\.nichtAllesGeloescht", \{ offen: offen\.join\(", "\) \}\)\);\s*return;/);
+  assert.match(q("shell/app.ts"), /\{ art: "nurlesen", name: "pk", label: t\("ein\.pubkey"\), wert: state\.keypair\.pk \}/);
 });

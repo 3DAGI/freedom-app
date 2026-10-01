@@ -775,6 +775,26 @@ def einstellungen_pruefen(browser, url: str) -> dict:
     md_falsch = bestaetigen()
     seite.s.keyboard.press("Escape")
     seite.warte_zu()
+    # Bunker (C-1e): erst bestätigen, dann wechselt die Identität – Esc lässt alles, wie es ist
+    ev("() => document.getElementById('bunker-verbinden').click()")
+    bu = seite.warte_dialog("Anmelden per Bunker (NIP-46)")
+    seite.s.keyboard.press("Escape")
+    seite.warte_zu()
+    # Abzeichen (C-1e): Name, Empfänger und Zweck in einem Dialog; ohne gültigen Empfänger meldet er sich
+    ev("() => { location.hash = '#/profil'; }")
+    ev("() => document.getElementById('badge-create').click()")
+    ab = seite.warte_dialog("Abzeichen vergeben")
+    feld(0, "Helfer")
+    feld(1, "npub1falsch")
+    ab_falsch = bestaetigen()
+    seite.s.keyboard.press("Escape")
+    seite.warte_zu()
+    erg["bunker"], erg["abzeichen"] = bu, {"dialog": ab, "falsch": ab_falsch}
+    if not (bu["text"] or "").startswith("Die App wechselt auf die Identität im Bunker"):
+        erg["fehler"].append(f"Bunker {bu}")
+    if not (ab["felder"] == ["Name des Abzeichens", "An Schlüssel (npub oder hex), durch Komma oder je Zeile", "Wofür? (erscheint bei jedem Träger)"]
+            and ab_falsch["meldung"] == "Kein gültiger Pubkey dabei"):
+        erg["fehler"].append(f"Abzeichen {erg['abzeichen']}")
     erg["widerruf"], erg["nachfolge"], erg["melden"] = (
         {"dialog": wr, "falsch": wr_falsch}, {"dialog": nf, "zwei": nf_zwei}, {"dialog": md, "falsch": md_falsch})
     if not (wr["text"] and wr["text"].startswith("So widerrufst du") and wr["typen"] == ["text", "password", "date"]

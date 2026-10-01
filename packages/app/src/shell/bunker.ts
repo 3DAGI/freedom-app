@@ -18,6 +18,7 @@ import { fehlerText } from "../protokoll-texte.js";
 import { pkShort } from "../shell-logic.js";
 import { LS_BUNKER, mitBunker, setzeSigner } from "./state.js";
 import { geheim } from "./tresor.js";
+import { bestaetige } from "./dialog.js";
 import { $, toast } from "./ui.js";
 
 const HEX64 = /^[0-9a-f]{64}$/;
@@ -93,7 +94,7 @@ export function wireBunkerKarte(beschaeftigt: () => boolean): void {
 
   verbinden.onclick = async () => {
     if (beschaeftigt()) { toast(t("ein.erstAbschliessen"), true); return; }
-    if (!confirm(t("ein.bunkerWechsel"))) return;
+    if (!(await bestaetige({ titel: t("set.bunkerTitel"), text: t("ein.bunkerWechsel"), ok: t("set.verbinden") }))) return;
     verbinden.disabled = true;
     status.textContent = t("ein.bunkerVerbinde");
     try {
@@ -108,7 +109,7 @@ export function wireBunkerKarte(beschaeftigt: () => boolean): void {
   };
   abmelden.onclick = async () => {
     if (beschaeftigt()) { toast(t("ein.erstAbschliessen"), true); return; }
-    if (!confirm(t("ein.bunkerAbmelden"))) return;
+    if (!(await bestaetige({ titel: t("set.bunkerTitel"), text: t("ein.bunkerAbmelden"), ok: t("set.abmelden") }))) return;
     try {
       await meldeBunkerAb();
       location.reload();

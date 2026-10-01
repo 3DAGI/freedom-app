@@ -13088,3 +13088,51 @@ CI einmal. Er suchte „4711“ im ganzen Event, und Id, Signatur und Schlüssel
 Zufalls-Hex: Bei 3000 gesendeten Nachrichten stand „4711“ sechsmal zufällig
 darin, der Klartext nie. Jetzt sucht er „Gruppe 4711“ mit Leerzeichen; das kann
 weder in Hex noch in Base64 entstehen.
+
+## Schritt C-1e – Dialoge: der Rest
+
+Spur C, Sammlung C-1, Teil e: die letzten 10 Browser-Dialoge außerhalb von
+`agent.ts`. Danach gibt es `prompt()`/`confirm()`/`alert()` nur noch in
+`newCommunity()` (das Anlegen von Communities fällt mit C-10 weg) und in
+`tabs/agent.ts` (5 Stellen – Spur B arbeitet dort mit B-9, danach).
+
+**Was:**
+- `tabs/profil.ts` – **Abzeichen vergeben:** jetzt wirklich ein Dialog, wie
+  der Kommentar es seit jeher wollte („zwei getrennte Dialoge wären zwei
+  Gelegenheiten zum Abbrechen“): Name, Empfänger (Kontakte als Häkchen oder
+  Schlüssel – jetzt auch npub, vorher nur Hex) und Zweck; ohne gültigen
+  Empfänger meldet sich der Dialog.
+- `nachfolge-ui.ts` – **Meldung zur Nachfolge** (Begründung Pflicht, wird
+  veröffentlicht) und **Anteil übergeben** (Gefahr – ein Anteil lässt sich
+  nicht zurückholen).
+- `bunker.ts` – **Bunker verbinden/abmelden:** bestätigt, bevor die
+  Identität wechselt.
+- `pruefauftraege-ui.ts` – **Urteil als Prüfer:** Begründung darf leer
+  bleiben, Abbrechen sendet nichts.
+- `notfall.ts` – **Hinweis nach der Notfall-Löschung**, wenn nicht alles weg
+  ist: jetzt vor dem weiteren Start (vorher `alert()` per `setTimeout`, der
+  Start lief daneben weiter).
+- `app.ts` – **eigener Schlüssel ohne Zwischenablage:** Feld zum Ansehen mit
+  „Kopieren“ statt `prompt()`.
+
+**Verdrahtet:** `profil.ts:30` (`vergebeAbzeichen()`), `nachfolge-ui.ts:141`
+(`melde()`), `:179` (`uebergib()`), `bunker.ts:97`/`:112`,
+`pruefauftraege-ui.ts:88` (`urteile()`), `notfall.ts:78`
+(`nachNotfallLoeschung()`), `app.ts:828` („Profil teilen“).
+
+**Tests:** app +1 in `test/browser-dialoge.test.ts` (keine Browser-Dialoge
+mehr in den sechs Dateien; Abzeichen mit `schluesselAusEingabe()` und
+Prüfung im Dialog; Nachfolge Pflicht-Begründung, Übergabe mit Gefahr und erst
+nach Bestätigung; Bunker bestätigt vor dem Wechsel; Urteil erst nach dem
+Dialog; Notfall-Hinweis vor dem Start). `NOCH_OFFEN` nur noch `agent.ts` (5)
+und `kommunikation.ts` (1). Smoke „einstellungen“ erweitert: „Anmelden per
+Bunker (NIP-46)“ fragt vor dem Wechsel; „Abzeichen vergeben“ mit Name,
+Empfänger, Zweck – „npub1falsch“ meldet „Kein gültiger Pubkey dabei“.
+
+**Nebenbei (Spur B, Test):** Im vollen Lauf nach dem Einmergen von B-8b war
+„B-6: hin und zurück … kein Klartext“ (`datenexport.test.ts`) einmal rot. Der
+Test suchte „Alice“, „Bob“ und „Frage“ in der Datei – das Chiffrat ist Base64
+(rund 900 Zeichen), und „Bob“ stand bei 400 nachgezählten Läufen einmal
+zufällig darin, der Klartext nie. Wie B-8b beim MLS-Test: Die Probe-Daten
+tragen jetzt Namen mit Leerzeichen („Alice Muster“, „Bob Beispiel“, „Frage zum
+Wetter“), gesucht wird danach – ein Leerzeichen kommt in Base64 nicht vor.
