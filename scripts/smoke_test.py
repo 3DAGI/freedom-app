@@ -537,54 +537,76 @@ def dialog_pruefen(browser, url: str) -> dict:
     return erg
 
 
+# Stand des offenen Dialogs (seit C-1a): Titel, Text, Beschriftungen, Werte, Häkchen, Meldung – null ohne Dialog
+DIALOG_STAND = """() => { const d = document.querySelector('[role=dialog][aria-modal=true]');
+  return d ? { titel: document.getElementById(d.getAttribute('aria-labelledby'))?.textContent,
+    text: d.querySelector('.dlg-text')?.textContent ?? null,
+    felder: [...d.querySelectorAll('.dlg-label')].map(l => l.textContent),
+    werte: [...d.querySelectorAll('input:not([type=checkbox]):not([type=radio]), textarea')].map(i => i.value),
+    haken: [...d.querySelectorAll('input[type=checkbox]')].map(i => i.checked),
+    meldung: d.querySelector('[role=alert]')?.textContent || null } : null; }"""
+
+
+class DialogSeite:
+    """Frische App ohne Einrichtung hinter der Relay-Attrappe (seit C-1a, für C-1): zählt Browser-Dialoge
+    (`prompt`/`confirm`/`alert` – es darf keinen geben) und bedient die Dialoge aus `shell/dialog.ts`."""
+
+    def __init__(self, browser, url: str, relay: "ProbeRelay", erg: dict) -> None:
+        basis = url.rsplit("/", 1)[0]
+        self.browser_dialoge: list[str] = []
+        self.ctx = browser.new_context(locale="de-DE", viewport={"width": 1280, "height": 800})
+        self.ctx.route("**/*", lambda r: r.continue_() if r.request.url.startswith(basis) else r.abort())
+        self.ctx.route_web_socket(re.compile(r"^wss?://"), relay.verbinde)
+        s = self.s = self.ctx.new_page()
+        s.on("pageerror", lambda e: erg["fehler"].append(str(e)[:300]))
+        s.on("dialog", lambda d: (self.browser_dialoge.append(d.type), d.dismiss()))
+        self.ev = s.evaluate
+        s.goto(url, wait_until="load")
+        s.wait_for_selector("#bk-done", timeout=30000)
+        w = self.ev("() => [...document.querySelectorAll('.mnemonic-list li')].map(l => l.textContent)")
+        self.ev("(w) => document.querySelectorAll('#bk-challenge input').forEach(i => i.value = w[+i.dataset.pos])", w)
+        self.ev("() => document.getElementById('bk-done').click()")
+        s.wait_for_timeout(1500)
+        self.ev("() => document.getElementById('ein-abbrechen')?.click()")
+
+    def stand(self) -> dict | None:
+        return self.ev(DIALOG_STAND)
+
+    def warte_dialog(self, titel: str) -> dict:
+        self.s.wait_for_function("(t) => { const d = document.querySelector('[role=dialog][aria-modal=true]');"
+                                 " return d && document.getElementById(d.getAttribute('aria-labelledby'))?.textContent === t; }",
+                                 arg=titel, timeout=10000)
+        return self.stand()
+
+    def warte_zu(self) -> None:
+        self.s.wait_for_function("() => !document.querySelector('[role=dialog][aria-modal=true]')", timeout=10000)
+
+    def tippe(self, text: str) -> dict | None:
+        """Ins erste Feld schreiben und Enter – die Prüfung im Dialog meldet sich sofort."""
+        self.ev("(v) => { const i = document.querySelector('[role=dialog] input'); i.value = v; i.focus(); }", text)
+        self.s.keyboard.press("Enter")
+        self.s.wait_for_timeout(200)
+        return self.stand()
+
+
 def waehrung_pruefen(browser, url: str) -> dict:
     """Währung (C-1a): Tausch über Dialoge statt prompt()/confirm() – Betrag und Adresse prüft der Dialog,
     abgebrochen geht nichts hinaus. LP-Angebote aus `scripts/lp-probe.mts` über die Relay-Attrappe."""
     erg = {"fehler": []}
-    basis = url.rsplit("/", 1)[0]
     wurzel = Path(__file__).resolve().parent.parent
     aus = subprocess.run(["npx", "tsx", "scripts/lp-probe.mts"], cwd=wurzel, capture_output=True, text=True, timeout=180, check=True)
     relay = ProbeRelay()
     relay.events = json.loads(aus.stdout)["events"]
-    browser_dialoge: list[str] = []
-    ctx = browser.new_context(locale="de-DE", viewport={"width": 1280, "height": 800})
-    ctx.route("**/*", lambda r: r.continue_() if r.request.url.startswith(basis) else r.abort())
-    ctx.route_web_socket(re.compile(r"^wss?://"), relay.verbinde)
-    s = ctx.new_page()
-    s.on("pageerror", lambda e: erg["fehler"].append(str(e)[:300]))
-    s.on("dialog", lambda d: (browser_dialoge.append(d.type), d.dismiss()))
-    ev = s.evaluate
-    s.goto(url, wait_until="load")
-    s.wait_for_selector("#bk-done", timeout=30000)
-    w = ev("() => [...document.querySelectorAll('.mnemonic-list li')].map(l => l.textContent)")
-    ev("(w) => document.querySelectorAll('#bk-challenge input').forEach(i => i.value = w[+i.dataset.pos])", w)
-    ev("() => document.getElementById('bk-done').click()")
-    s.wait_for_timeout(1500)
-    ev("() => document.getElementById('ein-abbrechen')?.click()")
+    seite = DialogSeite(browser, url, relay, erg)
+    s, ev, stand, warte_dialog, tippe = seite.s, seite.ev, DIALOG_STAND, seite.warte_dialog, seite.tippe
+    browser_dialoge = seite.browser_dialoge
     ev("() => { location.hash = '#/waehrung'; }")
     s.wait_for_function("() => document.querySelectorAll('#lp-offers button').length === 3", timeout=30000)
-    stand = """() => { const d = document.querySelector('[role=dialog][aria-modal=true]');
-      return d ? { titel: document.getElementById(d.getAttribute('aria-labelledby'))?.textContent,
-        text: d.querySelector('.dlg-text')?.textContent ?? null,
-        felder: [...d.querySelectorAll('.dlg-label')].map(l => l.textContent),
-        werte: [...d.querySelectorAll('input, textarea')].map(i => i.value),
-        meldung: d.querySelector('[role=alert]')?.textContent || null } : null; }"""
     knoepfe = ev("() => [...document.querySelectorAll('#lp-offers .stat')].map(z => [z.querySelector('.k').textContent.split(' · ')[1],"
                  " z.querySelector('button').textContent, z.querySelector('button').disabled])")
     erg["angebote"] = knoepfe
     if sorted(knoepfe) != sorted([["sats → SOL", "tauschen", False], ["sats → SOL", "veraltet", True], ["SOL → sats", "tauschen", False]]):
         erg["fehler"].append(f"Angebote {knoepfe}")
-
-    def warte_dialog(titel: str) -> dict:
-        s.wait_for_function("(t) => { const d = document.querySelector('[role=dialog][aria-modal=true]');"
-                            " return d && document.getElementById(d.getAttribute('aria-labelledby'))?.textContent === t; }", arg=titel, timeout=10000)
-        return ev(stand)
-
-    def tippe(text: str) -> dict:
-        ev("(v) => { const i = document.querySelector('[role=dialog] input'); i.value = v; i.focus(); }", text)
-        s.keyboard.press("Enter")
-        s.wait_for_timeout(200)
-        return ev(stand)
 
     ev("() => [...document.querySelectorAll('#lp-offers .stat')].find(z => z.textContent.includes('sats → SOL') && !z.querySelector('button').disabled).querySelector('button').click()")
     betrag = warte_dialog("sats gegen SOL tauschen")
@@ -621,7 +643,71 @@ def waehrung_pruefen(browser, url: str) -> dict:
     erg["browser_dialoge"] = browser_dialoge
     if browser_dialoge:
         erg["fehler"].append(f"Browser-Dialoge: {browser_dialoge}")
-    ctx.close()
+    seite.ctx.close()
+    erg["bestanden"] = not erg["fehler"]
+    return erg
+
+
+def kontakt_pruefen(browser, url: str) -> dict:
+    """Kommunikation (C-1b): neue Unterhaltung und eigener Name über Dialoge statt prompt()/confirm() –
+    der Schlüssel wird im Dialog geprüft, ein Name geht nur mit Häkchen hinaus (Kind 38062)."""
+    erg = {"fehler": []}
+    relay = ProbeRelay()
+    seite = DialogSeite(browser, url, relay, erg)
+    ev = seite.ev
+    ev("() => { location.hash = '#/chat'; }")
+    seite.s.wait_for_selector("#chat-new-dm", timeout=30000)
+    ev("() => document.getElementById('chat-new-dm').click()")
+    neu = seite.warte_dialog("Neue Nachricht")
+    npub = seite.tippe("npub1falsch")
+    kurz = seite.tippe("abc")
+    pk = "ab" * 32
+    seite.tippe("nostr:" + "AB" * 32)  # Großbuchstaben und „nostr:“ davor (QR-Codes anderer Apps) gehen
+    seite.warte_zu()
+    seite.s.wait_for_function("(pk) => !!document.querySelector(`#chat-list [data-cid='${pk}']`)", arg=pk, timeout=10000)
+    erg["neu"] = {"dialog": neu, "npub": npub, "kurz": kurz}
+    if not (neu["felder"] == ["Schlüssel des Kontakts (npub oder hex)"] and npub["meldung"] == "Das ist kein gültiger npub."
+            and kurz["meldung"] == "Bitte einen npub oder einen 64-stelligen Hex-Schlüssel eingeben."):
+        erg["fehler"].append(f"neue Unterhaltung {erg['neu']}")
+    rechts = "(pk) => document.querySelector(`#chat-list [data-cid='${pk}']`).dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }))"
+    label = "(pk) => document.querySelector(`#chat-list [data-cid='${pk}'] .label`)?.textContent"
+
+    def namen() -> list[dict]:
+        # Der Pool sendet an jedes Relay – die Attrappe sieht dasselbe Event je Verbindung einmal
+        return list({e["id"]: e for e in relay.gesendet if e.get("kind") == 38062}.values())
+
+    ev(rechts, pk)
+    name = seite.warte_dialog("Eigener Name")
+    seite.tippe("Ada")
+    seite.warte_zu()
+    seite.s.wait_for_function(f"(pk) => ({label})(pk) === 'Ada'", arg=pk, timeout=10000)
+    seite.s.wait_for_timeout(1000)
+    ohne_haken = len(namen())
+    ev(rechts, pk)
+    zweit = seite.warte_dialog("Eigener Name")
+    ev("() => { document.querySelector('[role=dialog] input[type=checkbox]').click(); }")
+    seite.tippe("Ada Lovelace")
+    seite.warte_zu()
+    for _ in range(50):
+        if namen():
+            break
+        seite.s.wait_for_timeout(200)
+    erg["name"] = {"dialog": name, "zweit": zweit, "ohne_haken": ohne_haken, "mit_haken": len(namen()),
+                   "label": ev(label, pk)}
+    if not (name["felder"][0].startswith("Eigener Name für ") and name["felder"][1:] == ["Sichtbarkeit"]
+            and name["haken"] == [False] and name["werte"] == [""] and zweit["werte"] == ["Ada"]):
+        erg["fehler"].append(f"Namensdialog {name} {zweit}")
+    if ohne_haken != 0:
+        erg["fehler"].append(f"ohne Häkchen veröffentlicht: {ohne_haken}")
+    gesendet = namen()
+    if len(gesendet) != 1 or "Ada Lovelace" not in json.dumps(gesendet[0]):
+        erg["fehler"].append(f"mit Häkchen: {gesendet}")
+    if erg["name"]["label"] != "Ada Lovelace":
+        erg["fehler"].append(f"Name in der Liste: {erg['name']['label']}")
+    erg["browser_dialoge"] = seite.browser_dialoge
+    if seite.browser_dialoge:
+        erg["fehler"].append(f"Browser-Dialoge: {seite.browser_dialoge}")
+    seite.ctx.close()
     erg["bestanden"] = not erg["fehler"]
     return erg
 
@@ -2295,6 +2381,10 @@ def main() -> int:
             except Exception as e:
                 erg["waehrung"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
             try:
+                erg["kontakt"] = kontakt_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
+            except Exception as e:
+                erg["kontakt"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
+            try:
                 erg["raum"] = raum_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
             except Exception as e:
                 erg["raum"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
@@ -2333,6 +2423,7 @@ def main() -> int:
           and erg.get("rahmen", {}).get("bestanden") is True
           and erg.get("dialog", {}).get("bestanden") is True
           and erg.get("waehrung", {}).get("bestanden") is True
+          and erg.get("kontakt", {}).get("bestanden") is True
           and erg.get("raum", {}).get("bestanden") is True
           and erg.get("karte", {}).get("bestanden") is True
           and erg.get("qr", {}).get("bestanden") is True

@@ -12738,3 +12738,53 @@ Nachfolge, Bunker, Zap, Zahlkanal, Prüfaufträge, Notfall, eingebaute Wallet,
 Gesehen, nicht geändert: Die Warnung zum runden Betrag empfiehlt einen
 Betrag in SOL, gefragt wird nach sats; die Knöpfe der Angebotsliste brechen
 auf dem Handy in zwei Zeilen um („TAUS CHEN“). Beides war vorher so.
+
+## Schritt C-1b – Dialoge in Agent-Netz und Kommunikation
+
+Spur C, Sammlung C-1, Teil b. Weitere 10 Browser-Dialoge über
+`shell/dialog.ts`; was zusammengehört, steht jetzt in einem Dialog statt in
+zwei Fenstern nacheinander.
+
+**Was:**
+- `shell/tabs/agent-netz.ts` (alle 6 Stellen):
+  - Modell ankündigen: Kennung und Dateien in einem Dialog, die Erklärung zu
+    den Prüfsummen als Text darüber. Ohne eine Zeile mit Prüfsumme und Größe
+    geht der Dialog nicht zu („Keine Zeile war brauchbar …“) – vorher kam der
+    Hinweis erst danach als Toast, und die Eingabe war weg.
+  - Modell vorhalten: Modell und Dateien in einem Dialog.
+  - Katalog veröffentlichen: Titel und Modelle (je Zeile oder mit „;“), das
+    Beispiel als Text; als Gerät wird wie bisher gar nicht erst gefragt.
+- `shell/tabs/kommunikation.ts` (4 von 5 Stellen):
+  - Neue Unterhaltung: npub oder Hex, geprüft im Dialog (falscher npub, zu
+    kurz), Scannen auf Klick; „nostr:npub…“ aus QR-Codes anderer Apps und
+    Großbuchstaben gehen.
+  - Eigener Name (Rechtsklick in der Liste, `benenneKontakt()`): Name und
+    „Auch veröffentlichen“ als Häkchen in einem Dialog. Vorher fragte ein
+    zweites Fenster, und dort war „OK“ das Veröffentlichen; jetzt ist es aus,
+    bis man es ankreuzt. Vorbelegt wird nur ein echter Name, nicht der
+    gekürzte Schlüssel.
+  - „trotzdem zeigen“ an einer ausgeblendeten Nachricht: als Hinweis-Dialog
+    (nur Text) statt `alert()`.
+  - Übrig: `newCommunity()` – das Anlegen von Communities fällt mit C-10 weg.
+
+**Verdrahtet:** `agent-netz.ts:76` (`kuendigeModellAn()`), `:106`
+(`haltevorModell()`), `:266` (`veroeffentlicheKatalog()`);
+`kommunikation.ts:424` → `benenneKontakt()` (`:460`), `:977` (ausgeblendet),
+`:1087` (`newDm()`).
+
+**Tests:** app +2 in `test/browser-dialoge.test.ts` (Modelle und Kataloge:
+Prüfungen im Dialog, erst fragen, dann signieren, als Gerät nicht fragen;
+Kommunikation: nur noch `newCommunity()`, Häkchen statt zweitem Fenster,
+nicht mit dem gekürzten Schlüssel vorbelegt, `nostr:` und Prüfung beim
+Schlüssel); `NOCH_OFFEN` ohne `agent-netz.ts`, `kommunikation.ts` 5 → 1.
+Smoke „kontakt“ (neu, mit `DialogSeite` – Hilfen aus „waehrung“ gemeinsam
+genutzt): „npub1falsch“ meldet „Das ist kein gültiger npub.“, „abc“ den
+Hinweis auf npub oder Hex; `nostr:` + 64 Zeichen in Großbuchstaben öffnet die
+Unterhaltung; Rechtsklick → „Eigener Name“, Feld leer, Häkchen aus; „Ada“
+ohne Häkchen → kein Event 38062; „Ada Lovelace“ mit Häkchen → genau eines
+(je Id gezählt – der Pool sendet an jedes Relay). Kein Browser-Dialog.
+Bilder: `docs/ausbau/bilder/c-1b/` (neue Nachricht mit Fehler, eigener Name,
+Katalog).
+
+Gesehen, nicht geändert: Eigene Namen stehen in `freedom.petnames` im
+Klartext-`localStorage` – wie der Lesestand (C-14) ein Kandidat für `geheim`.
