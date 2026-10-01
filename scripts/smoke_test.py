@@ -842,6 +842,82 @@ def einnahmen_pruefen(browser, url: str) -> dict:
     return erg
 
 
+# Barrierefreiheit (seit C-4): je Ansicht, was ein Vorleser oder die Tastatur nicht erreicht
+ZUGANG_PRUEFUNG = r"""() => {
+  const sichtbar = (e) => { const r = e.getBoundingClientRect(); const s = getComputedStyle(e);
+    return r.width > 0 && r.height > 0 && s.visibility !== 'hidden' && s.display !== 'none' && !e.closest('[hidden],[inert],[aria-hidden=true]'); };
+  const wer = (e) => (e.id ? '#' + e.id : e.tagName.toLowerCase() + (typeof e.className === 'string' && e.className ? '.' + e.className.split(' ')[0] : ''));
+  const name = (e) => {
+    const a = e.getAttribute('aria-label'); if (a && a.trim()) return a.trim();
+    const lb = e.getAttribute('aria-labelledby');
+    if (lb) { const t = lb.split(' ').map((i) => document.getElementById(i)?.textContent ?? '').join(' ').trim(); if (t) return t; }
+    if (e.id) { const l = document.querySelector(`label[for="${CSS.escape(e.id)}"]`); if (l && l.textContent.trim()) return l.textContent.trim(); }
+    const umg = e.closest('label'); if (umg && umg.textContent.trim()) return umg.textContent.trim();
+    if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.tagName)) return e.getAttribute('title') || '';
+    return (e.textContent || '').trim() || e.getAttribute('title') || '';
+  };
+  const ohneName = [...document.querySelectorAll('button, a[href], input:not([type=hidden]), select, textarea, [role=button], [role=link], [tabindex]:not([tabindex="-1"])')]
+    .filter(sichtbar).filter((e) => !name(e)).map(wer);
+  const ueberNull = [...document.querySelectorAll('[tabindex]')].filter((e) => Number(e.getAttribute('tabindex')) > 0).map(wer);
+  const interaktiv = 'button, a[href], input, select, textarea, label, summary, [role=button], [role=link], [role=tab], [role=option], [role=menuitem], [tabindex]';
+  const nurMaus = [...document.querySelectorAll('body *')].filter((e) => sichtbar(e) && getComputedStyle(e).cursor === 'pointer' && !e.closest(interaktiv)
+    && !(e.parentElement && getComputedStyle(e.parentElement).cursor === 'pointer')).map(wer);
+  // Kontrast nach WCAG AA: Schrift über der Fläche, auf der sie wirklich steht, samt Deckkraft der Vorfahren
+  const rgb = (c) => { const m = /rgba?\(([^)]+)\)/.exec(c); if (!m) return null; const p = m[1].split(',').map(Number); return { r: p[0], g: p[1], b: p[2], a: p[3] ?? 1 }; };
+  const lum = (c) => { const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }; return 0.2126 * f(c.r) + 0.7152 * f(c.g) + 0.0722 * f(c.b); };
+  const drin = (a, b) => a.left >= b.left - 1 && a.right <= b.right + 1 && a.top >= b.top - 1 && a.bottom <= b.bottom + 1;
+  const flaeche = (e) => { const r = e.getBoundingClientRect();
+    for (let x = e; x; x = x.parentElement) { const c = rgb(getComputedStyle(x).backgroundColor); if (c && c.a > 0.5 && drin(r, x.getBoundingClientRect())) return c; }
+    return rgb(getComputedStyle(document.body).backgroundColor) ?? { r: 0, g: 0, b: 0, a: 1 }; };
+  const deckkraft = (e) => { let o = 1; for (let x = e; x; x = x.parentElement) o *= Number(getComputedStyle(x).opacity); return o; };
+  const kontrast = [];
+  for (const e of document.querySelectorAll('body *')) {
+    if (!sichtbar(e) || e.closest(':disabled') || ![...e.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim())) continue;
+    const s = getComputedStyle(e); const f = rgb(s.color); if (!f) continue;
+    const b = flaeche(e); const o = f.a * deckkraft(e);
+    const g = { r: f.r * o + b.r * (1 - o), g: f.g * o + b.g * (1 - o), b: f.b * o + b.b * (1 - o) };
+    const L1 = lum(g), L2 = lum(b); const k = (Math.max(L1, L2) + 0.05) / (Math.min(L1, L2) + 0.05);
+    const gross = parseFloat(s.fontSize) >= 24 || (parseFloat(s.fontSize) >= 18.66 && Number(s.fontWeight) >= 700);
+    if (k < (gross ? 3 : 4.5)) kontrast.push(`${wer(e)} „${e.textContent.trim().slice(0, 24)}“ ${k.toFixed(2)}:1`);
+  }
+  return { ohneName, ueberNull, nurMaus, kontrast };
+}"""
+ZUGANG_SEITEN = ["#/agent", "#/chat", "#/repos", "#/waehrung", "#/verdienen", "#/netz", "#/profil", "#/settings", "#/mehr"]
+
+
+def zugang_pruefen(browser, url: str) -> dict:
+    """Barrierefreiheit (C-4): auf jeder Seite und in jedem Unterreiter, Desktop und Handy – jedes Bedienelement
+    hat einen Namen für Vorleser, nichts ist nur mit der Maus erreichbar, keine Tab-Reihenfolge von Hand
+    (tabindex > 0), Schrift mit Kontrast nach WCAG AA (4,5:1, groß 3:1)."""
+    erg = {"fehler": []}
+    for groesse, vp in [("desktop", {"width": 1280, "height": 800}), ("mobil", {"width": 390, "height": 844})]:
+        seite = DialogSeite(browser, url, ProbeRelay(), erg)
+        if groesse == "mobil":
+            seite.s.set_viewport_size(vp)
+        funde: dict = {}
+        for adr in ZUGANG_SEITEN:
+            seite.ev("(a) => { location.hash = a; }", adr)
+            seite.s.wait_for_timeout(600)
+            ansichten = [(adr, None)]
+            if groesse == "desktop":
+                ansichten += [(adr, x) for x in seite.ev("() => [...document.querySelectorAll('[data-subtab-group] [data-subtab]')]"
+                                                          ".filter((b) => b.offsetParent).map((b) => [b.closest('[data-subtab-group]').dataset.subtabGroup, b.dataset.subtab])")]
+            for a, reiter in ansichten:
+                if reiter:
+                    seite.ev("([g, r]) => document.querySelector(`[data-subtab-group='${g}'] [data-subtab='${r}']`).click()", reiter)
+                    seite.s.wait_for_timeout(300)
+                for art, liste in seite.ev(ZUGANG_PRUEFUNG).items():
+                    for x in liste:
+                        funde.setdefault(art, {}).setdefault(x, f"{a}{':' + reiter[1] if reiter else ''}")
+        erg[groesse] = {art: [f"{x} ({wo})" for x, wo in v.items()] for art, v in funde.items()}
+        for art, v in erg[groesse].items():
+            if v:
+                erg["fehler"].append(f"{groesse} {art}: {v[:6]}")
+        seite.ctx.close()
+    erg["bestanden"] = not erg["fehler"]
+    return erg
+
+
 # Echtes Git-Bundle (v2, mit Deltas) für den Reiter „Code“ (seit C.3c1) – dasselbe wie im Test von git-bundle.ts
 PROBE_BUNDLE = (Path(__file__).resolve().parent.parent / "packages/app/test/fixtures/probe-v2.bundle").read_bytes()
 # Seit C-20b: README mit Tabelle und Verweisen (src/liste.txt, docs/ANLEITUNG.md, einer hinaus)
@@ -2602,6 +2678,10 @@ def main() -> int:
             except Exception as e:
                 erg["einnahmen"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
             try:
+                erg["zugang"] = zugang_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
+            except Exception as e:
+                erg["zugang"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
+            try:
                 erg["raum"] = raum_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
             except Exception as e:
                 erg["raum"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
@@ -2643,6 +2723,7 @@ def main() -> int:
           and erg.get("kontakt", {}).get("bestanden") is True
           and erg.get("einstellungen", {}).get("bestanden") is True
           and erg.get("einnahmen", {}).get("bestanden") is True
+          and erg.get("zugang", {}).get("bestanden") is True
           and erg.get("raum", {}).get("bestanden") is True
           and erg.get("karte", {}).get("bestanden") is True
           and erg.get("qr", {}).get("bestanden") is True

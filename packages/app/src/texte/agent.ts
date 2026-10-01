@@ -60,6 +60,9 @@ export const agent: Texte = {
   "agent.anhangAudio": { de: "Audio", en: "audio" },
   "agent.anhangVideo": { de: "Video", en: "video" },
   "agent.anhangKamera": { de: "Kamera", en: "camera" },
+  // Namen für Vorleser (C-4)
+  "agent.stufeAria": { de: "Stufe der Antwort", en: "Answer tier" },
+  "agent.anhaengenAria": { de: "Anhang hinzufügen", en: "Add attachment" },
   "agent.werkzeugWeb": { de: "Web", en: "web" },
   "agent.werkzeugBrowser": { de: "Browser", en: "browser" },
   "agent.werkzeugBild": { de: "Bild", en: "image" },

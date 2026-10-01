@@ -13194,3 +13194,54 @@ Angebot dieselbe Zahl wie `msatZuLamports()` (2000 msat bei 150.000 sats/SOL
 → 13.334 Lamports), ohne Kurs `null`, ein Kurs „1e5“ zählt nicht; drei
 weitere Beträge gegen `msatZuLamports()`; die Seite zeigt beides und „SOL:
 kein Kurs“. `check-website.py` ok.
+
+## Schritt C-4 – Barrierefreiheit: Namen, Kontrast, Tastatur
+
+Spur C, Sammlung C-4 (Tastatur, Fokusreihenfolge, Beschriftungen für
+Screenreader, Kontrast; Prüfung im Smoke-Test).
+
+**Bestandsaufnahme** (eigene Messung im Browser über alle neun Seiten und
+jeden Unterreiter, Desktop und Handy, dazu `index.html` ohne Browser):
+- 25 Bedienelemente ohne Namen für Vorleser: Eingabefelder nur mit
+  Platzhalter (Agent, Chat, Deposit, Zahlkanal, NWC, Endpunkte, Knoten,
+  Repo-Name, SOL-Adresse, Tageslimit, Gebot), Auswahlen (Stufe, Laufzeit,
+  Video), Knöpfe nur mit Symbol oder Tooltip (Anhang, Senden, Zap, neue
+  Community, Direktnachrichten), der Werbelink.
+- Kontrast unter 4,5:1: Rot als Schrift (`.err`, Gefahr im Menü, entfernte
+  Zeilen im Diff) 3,9:1; die Stufen-Beschriftung der Vertrauensleiste und der
+  leere Kontostand im Seitenkopf – beide über `opacity` gedämpft – 2,9 bzw.
+  3,6:1.
+- Nur per Maus: die Identität in der Kopfzeile (Klick exportiert den
+  Schlüssel).
+- Fokusrahmen: die Vorgabe des Browsers bleibt für Knöpfe; `tabindex > 0`
+  gibt es nicht.
+
+**Was:**
+- `index.html`: `data-i18n-aria` an allen 25 Stellen – wo es einen Platzhalter
+  oder Tooltip gibt, derselbe Schlüssel; neu `agent.stufeAria`,
+  `agent.anhaengenAria`, `komm.sendenAria`, `waehr.kanalLaufzeitAria`,
+  `earn.werbelinkAria`.
+- `app.css`: `--red-text` (#E35D5D, 5,2:1) für Rot als Schrift – die Fläche
+  Rot (`--red`, z. B. „Löschen“ mit weißer Schrift) bleibt; Strich der
+  Vertrauensleiste halb durchsichtig über `rgba`, nicht `opacity`; leerer
+  Kontostand über `--text-muted` statt `opacity: .45`.
+- Identität in der Kopfzeile: `role="button"`, `tabindex="0"`, Enter und
+  Leertaste exportieren wie der Klick (`app.ts`). Als Knopf ist sie auch eine
+  Berührfläche: mobil mindestens 40 px hoch (die Prüfung „mobil“ aus C.5a
+  fand sie danach mit 14 px).
+
+**Verdrahtet:** `app.ts` (`nbIdent` mit Tastatur), `index.html` (Namen, über
+`applyI18n()` → `data-i18n-aria`), `app.css`.
+
+**Tests:** app +3 in `test/zugang.test.ts`: kein Bedienelement in
+`index.html` ohne Namen (die Prüfung selbst mit Platzhalter-Feld,
+Symbol-Knopf und Tooltip-Auswahl als Negativfällen); Rot als Schrift und
+nichts Lesbares über `opacity`; Identität per Tastatur, kein `tabindex > 0`.
+Smoke „zugang“ (neu): auf jeder Seite und in jedem Unterreiter (Desktop) bzw.
+jeder Seite (Handy) – Namen, Kontrast nach WCAG AA (Schrift über der Fläche,
+auf der sie wirklich steht, samt Deckkraft der Vorfahren; deaktivierte
+Elemente ausgenommen), nichts nur per Maus, kein `tabindex > 0`. Vor den
+Änderungen fand er die Stellen oben, danach keine.
+
+Nicht in dieser Prüfung: Dialoge und Räume mit Inhalt (die prüfen „dialog“
+und „raum“ auf Tastatur und Fokus), Fokusreihenfolge über die ganze Seite.

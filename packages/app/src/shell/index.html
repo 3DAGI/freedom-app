@@ -112,7 +112,7 @@
           <div class="composer-inner">
             <div class="attach-row">
               <div class="attach-dropdown">
-                <button type="button" id="attach-btn" class="ghost attach-toggle"><span class="ic" data-icon="paperclip"></span></button>
+                <button type="button" id="attach-btn" data-i18n-aria="agent.anhaengenAria" class="ghost attach-toggle"><span class="ic" data-icon="paperclip"></span></button>
                 <div id="attach-menu" class="attach-menu hidden">
                   <button type="button" data-attach="image"><span class="ic ic-inline" data-icon="image"></span><span data-i18n="agent.anhangBild">Bild</span></button>
                   <button type="button" data-attach="file"><span class="ic ic-inline" data-icon="file"></span><span data-i18n="agent.anhangDatei">Datei</span></button>
@@ -128,12 +128,12 @@
                 <button type="button" class="tool-chip" data-tool="5071" data-name="video_gen"><span class="ic" data-icon="video"></span><span data-i18n="agent.werkzeugVideo">Video</span></button>
               </div>
               <div id="video-opts" class="video-opts hidden">
-                <select id="video-duration" class="video-sel" title="Länge" data-i18n-title="agent.laenge">
+                <select id="video-duration" data-i18n-aria="agent.laenge" class="video-sel" title="Länge" data-i18n-title="agent.laenge">
                   <option value="2">~2s</option>
                   <option value="3" selected>~3s</option>
                   <option value="5">~5s</option>
                 </select>
-                <select id="video-quality" class="video-sel" title="Qualität" data-i18n-title="agent.qualitaet">
+                <select id="video-quality" data-i18n-aria="agent.qualitaet" class="video-sel" title="Qualität" data-i18n-title="agent.qualitaet">
                   <option value="low">480p</option>
                   <option value="std" selected>768p</option>
                   <option value="hd">720p hd</option>
@@ -143,7 +143,7 @@
               <input type="file" id="attach-input" class="hidden" />
             </div>
             <div class="composer-row">
-              <textarea id="ai-prompt" rows="1" data-i18n-ph="aiPlaceholder" placeholder="Nachricht an den Agenten"></textarea>
+              <textarea id="ai-prompt" data-i18n-aria="aiPlaceholder" rows="1" data-i18n-ph="aiPlaceholder" placeholder="Nachricht an den Agenten"></textarea>
               <button id="ai-send" class="send-btn" data-i18n="send">Senden</button>
             </div>
             <div class="composer-actions">
@@ -151,7 +151,7 @@
               <button id="copy-all" class="ghost copy-btn" title="Ganze Unterhaltung kopieren" data-i18n-title="agent.kopierenAlle">⧉ <span data-i18n="copyAll">Alle kopieren</span></button>
             </div>
             <div class="composer-meta">
-              <select id="ai-tier" class="tier-select">
+              <select id="ai-tier" data-i18n-aria="agent.stufeAria" class="tier-select">
                 <option value="free" data-i18n="tierFree">free — small, gratis</option>
                 <option value="classic" selected data-i18n="tierClassic">classic — mid, cheap</option>
                 <option value="pro" data-i18n="tierPro">pro — best, top-trust</option>
@@ -163,7 +163,7 @@
                 <input type="hidden" id="ai-model" value="" />
                 <div id="model-popover" class="model-popover hidden"></div>
               </div>
-              <span class="bid-wrap" id="bid-wrap" style="display:none"><span data-i18n="bid">Bid (sats)</span> <input id="ai-bid" type="number" value="100" min="1" /></span>
+              <span class="bid-wrap" id="bid-wrap" style="display:none"><span data-i18n="bid">Bid (sats)</span> <input id="ai-bid" data-i18n-aria="bid" type="number" value="100" min="1" /></span>
               <label id="ai-funk-wahl" class="mono-sm" style="display:none" title="Frage über dein Funkgerät an das gemerkte Gateway – kurze Antwort, höchstens 500 Zeichen" data-i18n-title="agent.ueberFunkTitel"><input type="checkbox" id="ai-funk" /> <span data-i18n="agent.ueberFunk">über Funk</span></label>
               <label id="ai-konsens-wahl" class="mono-sm" title="Diese Frage an mehrere Provider stellen und die Antworten vergleichen – kostet ein Mehrfaches, gilt nur für diese Frage" data-i18n-title="agent.konsensWahlTitel"><input type="checkbox" id="ai-konsens" /> <span data-i18n="agent.konsens">vergleichen</span></label>
               <span id="ai-fee-preview" class="mono-sm" style="display:none"></span>
@@ -194,7 +194,7 @@
       <section id="page-comm" class="tab-page">
         <div class="comm-layout" data-comm-mode="dm">
           <div class="comm-rail" role="navigation" aria-label="Direktnachrichten und Räume" data-i18n-aria="komm.railAria">
-            <button id="comm-dm-btn" class="space-pill dm-pill" aria-current="true" title="Direktnachrichten" data-i18n-title="chatTitle"
+            <button id="comm-dm-btn" data-i18n-aria="chatTitle" class="space-pill dm-pill" aria-current="true" title="Direktnachrichten" data-i18n-title="chatTitle"
               type="button"><span class="ic" data-icon="chat"></span></button>
             <div class="rail-sep"></div>
             <div id="space-rail" class="space-rail-list"></div>
@@ -213,7 +213,7 @@
                 <button id="chat-mesh-export" class="ghost mini" title="Post für diesen Kontakt als Datei mitnehmen – nur verschlüsselt, ohne deinen Schlüssel" data-i18n-title="komm.meshExport">⇪</button>
                 <button id="chat-mesh-import" class="ghost mini" title="Mitgebrachte Post einlesen und ans Netz geben – nur Verschlüsseltes" data-i18n-title="komm.meshImport">⇩</button>
                 <input type="file" id="chat-mesh-file" accept=".json" style="display:none" />
-                <button id="chat-new-community" class="ghost mini" title="Neue Community" data-i18n-title="komm.neueCommunity"><span class="ic" data-icon="home"></span></button>
+                <button id="chat-new-community" data-i18n-aria="komm.neueCommunity" class="ghost mini" title="Neue Community" data-i18n-title="komm.neueCommunity"><span class="ic" data-icon="home"></span></button>
               </span>
             </div>
             <input id="chat-suche" class="chat-suche" type="search" placeholder="Suchen – nur auf diesem Gerät" aria-label="Nachrichten durchsuchen – nur auf diesem Gerät" data-i18n-ph="komm.suchePh" data-i18n-aria="komm.sucheAria" autocomplete="off" />
@@ -226,8 +226,8 @@
               <div class="empty-state"><span data-i18n="komm.waehle">Wähl eine Unterhaltung.</span><br/><span data-i18n="komm.dmE2e">Direktnachrichten sind Ende-zu-Ende verschlüsselt.</span></div>
             </div>
             <div class="chat-composer">
-              <textarea id="chat-input" rows="1" data-i18n-ph="chatPlaceholder" placeholder="Nachricht…"></textarea>
-              <button id="chat-media-btn" class="ghost copy-btn" title="Bild, Video oder Datei anhängen (über das Chunk-Netz)" data-i18n-title="komm.anhaengen"><span class="ic" data-icon="paperclip"></span></button>
+              <textarea id="chat-input" data-i18n-aria="chatPlaceholder" rows="1" data-i18n-ph="chatPlaceholder" placeholder="Nachricht…"></textarea>
+              <button id="chat-media-btn" data-i18n-aria="komm.anhaengen" class="ghost copy-btn" title="Bild, Video oder Datei anhängen (über das Chunk-Netz)" data-i18n-title="komm.anhaengen"><span class="ic" data-icon="paperclip"></span></button>
               <input type="file" id="chat-file-input" accept="image/*,video/*,audio/*,.pdf,.txt,.zip" multiple style="display:none" />
               <select id="chat-ablauf" class="ghost mini" hidden title="Neue Nachrichten verschwinden nach … (NIP-40). Löschen ist eine Bitte an die Relays." aria-label="Ablauf neuer Nachrichten" data-i18n-title="komm.ablaufTitel" data-i18n-aria="komm.ablaufAria">
                 <option value="" data-i18n="komm.ablaufAus">⏱ aus</option>
@@ -236,9 +236,9 @@
                 <option value="604800" data-i18n="komm.ablauf7d">⏱ 7 Tage</option>
                 <option value="2592000" data-i18n="komm.ablauf30d">⏱ 30 Tage</option>
               </select>
-              <button id="chat-zap" class="zap-btn" title="Zap senden" data-i18n-title="komm.zapSenden"><svg class="logo-btc" width="13" height="13" viewBox="10.5 0.8 12.6 22.4" fill="#f7931a" aria-label="Bitcoin"><path d="M16.15 12.03c1.44-.36 2.42-1.32 2.24-3.02-.23-2.13-1.98-2.85-4.23-3.05l-.01-2.44h-1.51l-.01 2.38c-.4 0-.81.01-1.21.01l.01-2.39H9.92l-.01 2.44c-.33.01-.65.01-.97.01v-.01H6.88l.01 1.62s1.11-.02 1.09-.01c.61 0 .81.36.87.67v2.77c.04 0 .1.01.16.03h-.16v3.88c-.03.19-.13.49-.54.49.02.01-1.09 0-1.09 0l-.3 1.81h2.55c.34 0 .68.01 1.01.01l.01 2.47h1.51l.01-2.44c.41.01.81.01 1.21.02l-.01 2.43h1.51l.01-2.46c2.58-.15 4.37-.8 4.59-3.18.18-1.93-.73-2.79-2.17-3.14zm-4.7-4.71c.86 0 3.57-.17 3.57 1.53 0 1.63-2.71 1.45-3.57 1.45zm0 7.63v-3.19c1.04 0 4.28-.19 4.28 1.6 0 1.71-3.24 1.59-4.28 1.59z"/></svg></button>
+              <button id="chat-zap" data-i18n-aria="komm.zapSenden" class="zap-btn" title="Zap senden" data-i18n-title="komm.zapSenden"><svg class="logo-btc" width="13" height="13" viewBox="10.5 0.8 12.6 22.4" fill="#f7931a" aria-label="Bitcoin"><path d="M16.15 12.03c1.44-.36 2.42-1.32 2.24-3.02-.23-2.13-1.98-2.85-4.23-3.05l-.01-2.44h-1.51l-.01 2.38c-.4 0-.81.01-1.21.01l.01-2.39H9.92l-.01 2.44c-.33.01-.65.01-.97.01v-.01H6.88l.01 1.62s1.11-.02 1.09-.01c.61 0 .81.36.87.67v2.77c.04 0 .1.01.16.03h-.16v3.88c-.03.19-.13.49-.54.49.02.01-1.09 0-1.09 0l-.3 1.81h2.55c.34 0 .68.01 1.01.01l.01 2.47h1.51l.01-2.44c.41.01.81.01 1.21.02l-.01 2.43h1.51l.01-2.46c2.58-.15 4.37-.8 4.59-3.18.18-1.93-.73-2.79-2.17-3.14zm-4.7-4.71c.86 0 3.57-.17 3.57 1.53 0 1.63-2.71 1.45-3.57 1.45zm0 7.63v-3.19c1.04 0 4.28-.19 4.28 1.6 0 1.71-3.24 1.59-4.28 1.59z"/></svg></button>
               <button id="chat-pruefen" class="ghost copy-btn" title="Kontakt prüfen – Sicherheitscode vergleichen" aria-label="Kontakt prüfen" data-i18n-title="komm.pruefenTitel" data-i18n-aria="komm.pruefen"><span class="ic" data-icon="shield"></span></button>
-              <button id="chat-send" class="send-btn"><span class="ic" data-icon="send"></span></button>
+              <button id="chat-send" data-i18n-aria="komm.sendenAria" class="send-btn"><span class="ic" data-icon="send"></span></button>
             </div>
             <div id="chat-attach-list" class="mono-sm" style="padding:0 12px 8px"></div>
           </div>
@@ -336,21 +336,21 @@
           <!-- NWC statt nur WebLN: funktioniert auf Handy wie Desktop, weil es
                ueber die Nostr-Relays laeuft und keine Browser-Extension braucht. -->
           <div id="nwc-box" style="margin-top:10px">
-            <input id="nwc-uri" class="mono-sm" placeholder="nostr+walletconnect://… (aus deiner Wallet)" data-i18n-ph="waehr.nwcPh" style="width:100%" />
+            <input id="nwc-uri" data-i18n-aria="waehr.nwcPh" class="mono-sm" placeholder="nostr+walletconnect://… (aus deiner Wallet)" data-i18n-ph="waehr.nwcPh" style="width:100%" />
             <div style="display:flex;gap:6px;margin-top:6px">
               <button id="nwc-connect" class="ghost" style="width:auto;padding:6px 10px" data-i18n="waehr.walletVerbinden">Wallet verbinden</button>
               <button id="nwc-disconnect" class="ghost hidden" style="width:auto;padding:6px 10px" data-i18n="waehr.trennen">trennen</button>
             </div>
             <div id="nwc-status" class="mono-sm"></div>
             <label class="mono-sm" style="display:block;margin-top:6px"><input type="checkbox" id="nwc-privat" /> <span data-i18n="waehr.nwcNurPrivat">NWC nur über mein eigenes oder ein .onion-Relay – sonst sieht ein fremdes Relay, wann du zahlst</span></label>
-            <input id="nwc-eigenes-relay" class="mono-sm" placeholder="wss://… (dein eigenes Relay, optional)" data-i18n-ph="waehr.nwcEigenesRelayPh" style="width:100%" />
+            <input id="nwc-eigenes-relay" data-i18n-aria="waehr.nwcEigenesRelayPh" class="mono-sm" placeholder="wss://… (dein eigenes Relay, optional)" data-i18n-ph="waehr.nwcEigenesRelayPh" style="width:100%" />
           </div>
         </div><div class="card">
           <h3>Solana</h3>
           <div id="kurs-info" class="mono-sm"></div>
           <div id="sol-pubkey" class="mono-sm" data-i18n="waehr.nichtVerbunden">Nicht verbunden</div>
           <div id="sol-status" class="mono-sm"></div>
-          <input id="sol-addr" class="mono-sm hidden" placeholder="SOL-Adresse" data-i18n-ph="waehr.solAdressePh" />
+          <input id="sol-addr" data-i18n-aria="waehr.solAdressePh" class="mono-sm hidden" placeholder="SOL-Adresse" data-i18n-ph="waehr.solAdressePh" />
           <button id="sol-connect" class="ghost" data-i18n="waehr.verbinden">Verbinden</button>
           <!-- Eingebaute Wallet (4.2): fuer alle ohne Browser-Wallet. Schluessel aus
                den 12 Woertern, nur im Tresor; Zahlungen ueber dem Tageslimit fragen nach. -->
@@ -364,7 +364,7 @@
               <div id="solw-rpc" class="mono-sm err" role="status"></div>
               <div id="solw-vorrat" class="mono-sm"></div>
               <div style="display:flex;gap:6px;align-items:center;margin-top:6px;flex-wrap:wrap">
-                <input id="solw-limit" type="number" min="0" step="0.01" class="mono-sm" style="width:7em" />
+                <input id="solw-limit" data-i18n-aria="waehr.limitText" type="number" min="0" step="0.01" class="mono-sm" style="width:7em" />
                 <span class="mono-sm" data-i18n="waehr.limitText">SOL in 24 Std. ohne Nachfrage</span>
                 <button id="solw-limit-speichern" class="ghost" style="width:auto;padding:6px 10px" data-i18n="waehr.speichern">speichern</button>
               </div>
@@ -407,12 +407,12 @@
           <button id="wallet-refresh" class="ghost" data-i18n="waehr.aktualisieren">Aktualisieren</button></div></div>
           <div class="subpane" data-subpane="wallet:lp"><div class="card">
           <h3 data-i18n="waehr.solHinterlegen">SOL hinterlegen</h3>
-          <input id="dep-amount" type="number" step="any" placeholder="Betrag in SOL" data-i18n-ph="waehr.betragSolPh" class="mono-sm" />
-          <input id="dep-provider" placeholder="Pubkey des Providers (auto)" data-i18n-ph="waehr.providerPh" class="mono-sm" />
+          <input id="dep-amount" data-i18n-aria="waehr.betragSolPh" type="number" step="any" placeholder="Betrag in SOL" data-i18n-ph="waehr.betragSolPh" class="mono-sm" />
+          <input id="dep-provider" data-i18n-aria="waehr.providerPh" placeholder="Pubkey des Providers (auto)" data-i18n-ph="waehr.providerPh" class="mono-sm" />
           <!-- Wird aus dem Job-Ergebnis uebernommen. Manuell nur als Notausgang:
                eine abgetippte Empfaengeradresse ist die naheliegendste Stelle,
                um Geld an den Falschen zu sperren. -->
-          <input id="dep-provider-sol" placeholder="SOL-Adresse des Providers (auto)" data-i18n-ph="waehr.providerSolPh" class="mono-sm" />
+          <input id="dep-provider-sol" data-i18n-aria="waehr.providerSolPh" placeholder="SOL-Adresse des Providers (auto)" data-i18n-ph="waehr.providerSolPh" class="mono-sm" />
           <div id="dep-status" class="mono-sm">—</div>
           <button id="dep-start" class="ghost" data-i18n="waehr.hinterlegen">hinterlegen</button>
           <button id="dep-refund" class="ghost hidden" data-i18n="waehr.zurueckholen">zurückholen</button>
@@ -422,8 +422,8 @@
         <div class="card" id="kanal-karte">
           <h3 data-i18n="waehr.kanalTitel">Zahlkanal (SOL)</h3>
           <p class="mono-sm" data-i18n="waehr.kanalErklaerung">Einmal SOL einzahlen, dann bezahlt jede KI-Antwort dieses Providers eine versiegelte Gutschrift – ohne Transaktion je Antwort.</p>
-          <input id="kanal-betrag" type="number" step="any" placeholder="Betrag in SOL" data-i18n-ph="waehr.betragSolPh" class="mono-sm" />
-          <select id="kanal-laufzeit" class="mono-sm">
+          <input id="kanal-betrag" data-i18n-aria="waehr.betragSolPh" type="number" step="any" placeholder="Betrag in SOL" data-i18n-ph="waehr.betragSolPh" class="mono-sm" />
+          <select id="kanal-laufzeit" data-i18n-aria="waehr.kanalLaufzeitAria" class="mono-sm">
             <option value="1" data-i18n="waehr.kanalEinTag">1 Tag</option>
             <option value="7" selected data-i18n="waehr.kanalSiebenTage">7 Tage</option>
             <option value="30" data-i18n="waehr.kanalDreissigTage">30 Tage</option>
@@ -440,7 +440,7 @@
         <header class="page-head"><div><h1 class="page-title" data-i18n="navEarn">Earn</h1><p class="page-sub" data-i18n="earn.untertitel">Rechenzeit, Speicher und Relays gegen Sats oder SOL.</p></div></header>
         <div class="seg" role="tablist" data-subtab-group="earn"><button role="tab" data-subtab="overview" class="active" data-i18n="waehr.tabUebersicht">Übersicht</button><button role="tab" data-subtab="host" data-i18n="earn.tabHosten">Hosten</button><button role="tab" data-subtab="refer" data-i18n="referral">Werben</button></div>
         <div class="page-body">
-          <div class="subpane active" data-subpane="earn:overview"><div class="card"><h3 data-i18n="earn.einnahmen">Einnahmen</h3><input id="earn-knoten" class="mono-sm" placeholder="Dein Knoten: npub oder Hex – leer: deine Identität" data-i18n-ph="earn.knotenPh" /><div id="earn-status" class="mono-sm">—</div><h4 class="mono-sm" style="margin-top:12px" data-i18n="earn.lightning">Lightning – wie dein Knoten es meldet</h4><div id="earn-events" class="mono-sm"></div><h4 class="mono-sm" style="margin-top:12px" data-i18n="earn.sol">SOL – Zahlkanäle, von der Kette gelesen</h4><div id="earn-sol-status" class="mono-sm">—</div><div id="earn-kanaele" class="mono-sm"></div><p class="muted" data-i18n="earn.solHinweis">Dein Knoten hat eine SOL-Adresse: Alle Kanäle an ihn und seine Auszahlungen an deine Auszahlungsadresse sind auf der Kette verbunden. Was er angenommen, aber noch nicht eingelöst hat, weiß nur er – er löst vor der Frist ein; was bis dahin nicht eingelöst ist, bekommt der Kunde zurück. Kanäle, die der Kunde nach dem Ablauf geschlossen hat, zählen hier nicht mehr. Die Abfrage nennt dem RPC-Anbieter die Adresse deines Knotens.</p><button id="earn-refresh" class="ghost" data-i18n="waehr.aktualisieren">Aktualisieren</button></div><div class="card">
+          <div class="subpane active" data-subpane="earn:overview"><div class="card"><h3 data-i18n="earn.einnahmen">Einnahmen</h3><input id="earn-knoten" data-i18n-aria="earn.knotenPh" class="mono-sm" placeholder="Dein Knoten: npub oder Hex – leer: deine Identität" data-i18n-ph="earn.knotenPh" /><div id="earn-status" class="mono-sm">—</div><h4 class="mono-sm" style="margin-top:12px" data-i18n="earn.lightning">Lightning – wie dein Knoten es meldet</h4><div id="earn-events" class="mono-sm"></div><h4 class="mono-sm" style="margin-top:12px" data-i18n="earn.sol">SOL – Zahlkanäle, von der Kette gelesen</h4><div id="earn-sol-status" class="mono-sm">—</div><div id="earn-kanaele" class="mono-sm"></div><p class="muted" data-i18n="earn.solHinweis">Dein Knoten hat eine SOL-Adresse: Alle Kanäle an ihn und seine Auszahlungen an deine Auszahlungsadresse sind auf der Kette verbunden. Was er angenommen, aber noch nicht eingelöst hat, weiß nur er – er löst vor der Frist ein; was bis dahin nicht eingelöst ist, bekommt der Kunde zurück. Kanäle, die der Kunde nach dem Ablauf geschlossen hat, zählen hier nicht mehr. Die Abfrage nennt dem RPC-Anbieter die Adresse deines Knotens.</p><button id="earn-refresh" class="ghost" data-i18n="waehr.aktualisieren">Aktualisieren</button></div><div class="card">
           <h3><span class="ic" data-icon="star"></span> <span data-i18n="trustLevel">Vertrauensstufe</span></h3>
           <div class="trust-bar-wrap">
             <div class="trust-bar" id="trust-bar-track">
@@ -468,7 +468,7 @@
             <br><span class="mono-sm" data-i18n="earn.werbenNichts">Für das Anwerben allein gibt es nichts.</span>
           </p>
           <div class="referral-box">
-            <input id="referral-link" readonly class="mono-sm" value="" />
+            <input id="referral-link" data-i18n-aria="earn.werbelinkAria" readonly class="mono-sm" value="" />
             <button id="referral-copy" class="ghost" data-i18n="copy">Kopieren</button>
           </div>
           <div id="referral-qr"></div>
@@ -514,7 +514,7 @@
               <button id="nip34-ankuendigen" class="ghost mini" type="button" data-i18n="agent.repoAnkuendigen">Repo ankündigen</button>
             </div>
             <div class="composer-meta repos-bundle">
-              <input id="git-repo-name" placeholder="Repo-Name" data-i18n-ph="agent.repoNamePh" style="width:120px" />
+              <input id="git-repo-name" data-i18n-aria="agent.repoNamePh" placeholder="Repo-Name" data-i18n-ph="agent.repoNamePh" style="width:120px" />
               <button id="git-repo-publish" class="ghost copy-btn" data-i18n="agent.bundlePublizieren">⇪ Bundle publizieren</button>
               <input type="file" id="git-bundle-file" accept=".bundle" style="display:none" />
             </div>
@@ -644,7 +644,7 @@
           <button id="badge-create" class="ghost" style="width:auto;padding:6px 10px;margin-top:8px" data-i18n="profil.abzeichenVergebenKnopf">Abzeichen vergeben</button>
         </div>
         <div class="ident-row">
-            <span class="nb-ident" id="nb-ident" title="Öffentlicher Schlüssel — Klick exportiert den privaten" data-i18n-title="profil.identTitel">…</span>
+            <span class="nb-ident" id="nb-ident" role="button" tabindex="0" title="Öffentlicher Schlüssel — Klick exportiert den privaten" data-i18n-title="profil.identTitel">…</span>
             <button id="nb-import" class="ghost" type="button" data-i18n="import">Importieren</button>
           </div></div>
       </section>
@@ -714,7 +714,7 @@
             <div class="subpane" data-subpane="settings:network"><h2 class="settings-h" data-i18n="set.tabVerbindung">Verbindung</h2><div class="card">
           <h3><span class="ic" data-icon="server"></span> <span data-i18n="set.endpunkteTitel">Eigene Endpunkte</span></h3>
           <p class="mono-sm" data-i18n="set.endpunkteText">Eigene Solana-Endpunkte, kommagetrennt. Sie werden zuerst benutzt; fällt einer aus, nimmt die App den nächsten. Voreingestellt sind vier Anbieter verschiedener Betreiber. Ab und zu fragt die App einen zweiten Anbieter nach demselben (Netz, letzter Blockhash, ein Kontostand) und warnt, wenn die Antworten sich widersprechen.</p>
-          <input id="sol-rpcs" class="mono-sm" style="width:100%"
+          <input id="sol-rpcs" data-i18n-aria="set.endpunkteTitel" class="mono-sm" style="width:100%"
                  placeholder="https://mein-knoten.example, https://…" data-i18n-ph="set.endpunktePh" />
           <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">
             <button id="sol-rpcs-save" class="ghost" style="width:auto;padding:6px 10px" data-i18n="waehr.speichern">speichern</button>

@@ -9,6 +9,7 @@ export const kommunikation: Texte = {
   "komm.raumAnlegen": { de: "Raum anlegen", en: "Create room" },
   "komm.raumBeitreten": { de: "Raum beitreten", en: "Join room" },
   "komm.neueNachricht": { de: "Neue Nachricht", en: "New message" },
+  "komm.sendenAria": { de: "Nachricht senden", en: "Send message" },
   "komm.meshExport": { de: "Post für diesen Kontakt als Datei mitnehmen – nur verschlüsselt, ohne deinen Schlüssel", en: "Take mail for this contact along as a file – encrypted only, without your key" },
   "komm.meshImport": { de: "Mitgebrachte Post einlesen und ans Netz geben – nur Verschlüsseltes", en: "Read in mail brought along and pass it to the network – encrypted only" },
   "komm.neueCommunity": { de: "Neue Community", en: "New community" },

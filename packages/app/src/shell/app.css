@@ -10,6 +10,8 @@
   --text: #E0E0E0;
   --text-muted: #A1A1AA;
   --red: #CC3333;
+  /* Rot als Schrift auf dunklem Grund (C-4): #CC3333 hat dort nur 3,9:1, dieses 5,2:1 (WCAG AA) */
+  --red-text: #E35D5D;
   --amber: #CC8800;
 }
 
@@ -341,7 +343,7 @@ nav button.active { color: var(--accent); }
 .mono-sm { font-size: 10px; color: var(--text-muted); word-break: break-all; }
 .ok { color: var(--accent); }
 .warn { color: var(--amber); }
-.err { color: var(--red); }
+.err { color: var(--red-text); }
 .hidden { display: none !important; }
 
 /* ---------- Trust-Bar mit Tier-Markern ---------- */
@@ -355,13 +357,14 @@ nav button.active { color: var(--accent); }
 }
 .trust-marker {
   position: absolute; top: -4px; width: 2px; height: 18px;
-  background: var(--text-muted); opacity: .5; transform: translateX(-1px);
+  /* halb durchsichtig nur der Strich – mit opacity wäre auch die Beschriftung nur 2,9:1 (C-4) */
+  background: rgba(161, 161, 170, .5); transform: translateX(-1px);
 }
 .trust-marker i {
   position: absolute; top: -14px; left: -8px; font-style: normal;
   font-size: 9px; color: var(--text-muted); font-family: ui-monospace, monospace;
 }
-.trust-marker.reached { background: var(--accent); opacity: 1; }
+.trust-marker.reached { background: var(--accent); }
 .trust-marker.reached i { color: var(--accent); }
 
 /* ---------- Leaderboard-Tabelle + States ---------- */
@@ -679,7 +682,8 @@ h3 .ic-svg, h3 .logo-btc, h3 .logo-sol { vertical-align: -2px; margin-right: 6px
 }
 .lang-menu button:hover { background: rgba(123,200,10,.08); color: var(--text); }
 .lang-menu button.active { color: var(--accent); }
-.nb-val.nb-muted { opacity: .45; font-weight: 400; }
+/* gedämpft über die Farbe, nicht über opacity – mit .45 hatte die Schrift nur 3,6:1 (C-4) */
+.nb-val.nb-muted { color: var(--text-muted); font-weight: 400; }
 
 /* ---------- Landing: klick-zum-start (App direkt danach) ---------- */
 #landing { cursor: pointer; }
@@ -1504,7 +1508,7 @@ button.repo-karte:hover, button.repo-karte:focus-visible { border-color: var(--a
 .member-row .msg-role.rolle-gruender { color: var(--acc, #C9A227); }
 .member-row .mitglied-knopf { min-height: 28px; padding: 2px 8px; }
 .menue-schwebend { z-index: 900; }
-button.menue-punkt.menue-gefahr { color: var(--red); }
+button.menue-punkt.menue-gefahr { color: var(--red-text); }
 /* Bis 1100 px fehlt die Spalte: „Mitglieder“ im Kopf des Kanals öffnet sie als Ebene (B3) */
 .kanal-mitglieder, .mitglieder-zu { display: none; }
 .kanal-mitglieder.hat-meldungen { border-color: var(--amber); color: var(--amber); }
@@ -1541,7 +1545,7 @@ button.menue-punkt.menue-gefahr { color: var(--red); }
 .diff-dateien li { display: flex; gap: 8px; align-items: baseline; padding: 2px 0; }
 .diff-datei-link { background: none; border: 0; padding: 0; color: var(--text); font: 12px var(--font-mono); cursor: pointer; text-align: left; overflow-wrap: anywhere; text-transform: none; letter-spacing: normal; }
 .diff-plus { color: var(--accent); font: 12px var(--font-mono); }
-.diff-minus { color: var(--red); font: 12px var(--font-mono); }
+.diff-minus { color: var(--red-text); font: 12px var(--font-mono); }
 .diff-datei { border: 1px solid var(--border); border-radius: 6px; margin: 10px 0; overflow-x: auto; }
 .diff-datei-kopf { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; padding: 6px 10px; border-bottom: 1px solid var(--border); background: var(--surf2); }
 .diff-abschnitt { padding: 4px 10px; font-size: 12px; color: var(--text-muted); background: var(--surf2); white-space: pre; }
@@ -1658,6 +1662,8 @@ header .ident[data-initial=""]::before { display: none; }
   .comm-dm .chat-side-head button { width: 40px; }
   #app label:has(> input[type="checkbox"]), #app label:has(> input[type="radio"]) { min-height: 40px; padding: 8px 0; }
   header #balance, header #ident { display: inline-flex; align-items: center; min-height: 40px; padding: 0 4px; }
+  /* Die Identität ist seit C-4 ein Knopf (role="button") – also auch eine Berührfläche */
+  .ident-row .nb-ident { display: inline-flex; align-items: center; min-height: 40px; }
   /* Safe-Area: Kerbe oben, Leiste des Systems unten, im Querformat links und rechts */
   #app > header {
     padding-top: calc(8px + env(safe-area-inset-top)); padding-bottom: 8px;
