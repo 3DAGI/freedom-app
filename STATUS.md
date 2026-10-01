@@ -13365,3 +13365,9 @@ entkoppeln – dabei geht nichts hinaus.
 
 **Verdrahtet:** `packages/app/src/shell/app.ts` → `wireMeinKnoten()`;
 `packages/app/src/shell/tabs/agent.ts` → `kopplungFuer()`, `mitBesitzerNachweis()`.
+
+Endstand (B-8c, 01.10., nach dem Einmergen von `main` mit C-1e bis C-6b):
+protocol 1144 (6 übersprungen) · node 275 (7 übersprungen ohne Netz – mit Netz
+276) · app 749 (+2) · mls 13 · Leak-Tests 69 grün (+1) + 1 todo · 0 rot ·
+check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 · Website ok ·
+Smoke-Test bestanden. Knoten-Stand: B-8b (GX10).
