@@ -17,3 +17,6 @@ site/
 
 # Kopie der App, erzeugt von packages/website/build.sh – veröffentlicht wird nur über build-site.sh (dist/)
 packages/website/freedom.html
+
+# Python-Cache der Prüfskripte (smoke_test.py & Co.)
+__pycache__/
