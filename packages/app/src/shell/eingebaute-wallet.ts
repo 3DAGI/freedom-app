@@ -18,6 +18,7 @@ import { aktuellerKurs } from "./marktkurs.js";
 import { wireOfflineZahlung, zeigeOfflineZahlung } from "./offline-zahlung.js";
 import { mitBunker, rpcStichprobe, solRpcUrl, state } from "./state.js";
 import { geheim, verlangeTresor } from "./tresor.js";
+import { bestaetige } from "./dialog.js";
 import { $, ganzeZahl, toast } from "./ui.js";
 
 export const eingebauteWallet = new EingebauteSolWallet(geheim);
@@ -242,7 +243,7 @@ async function limitSpeichern(): Promise<void> {
 }
 
 async function entfernen(): Promise<void> {
-  if (!confirm(t("waehr.entfernenFrage"))) return;
+  if (!(await bestaetige({ titel: t("waehr.eingebaut"), text: t("waehr.entfernenFrage"), ok: t("waehr.entfernenKnopf"), gefahr: true }))) return;
   await eingebauteWallet.entfernen();
   toast(t("waehr.eingebauteEntfernt"));
   zeigeEingebauteWallet();

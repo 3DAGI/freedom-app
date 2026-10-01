@@ -25,6 +25,7 @@ import { empfaengerFuer, kanalBuch } from "./ki-zahlung.js";
 import { angebotVon, solRpcUrl, state } from "./state.js";
 import { htlcSigner, setzeKanalEinzahlung, sperren, starteRueckholWaechter } from "./tabs/waehrung.js";
 import { verlangeTresor } from "./tresor.js";
+import { bestaetige } from "./dialog.js";
 import { $ } from "./ui.js";
 
 /** Läuft gerade eine Einzahlung? `geldVorgangLaeuft()` kennt sie – der Tresor sperrt dann nicht. */
@@ -61,7 +62,7 @@ export async function oeffneZahlkanal(): Promise<void> {
       provider: providerPk, providerSol: angebot.kanal.adresse, kunde, lamports, laufzeitSek: tage * 86_400, empfaenger, jetzt,
     });
     const bis = new Date(plan.eintrag.ablauf * 1000).toLocaleString(gebietsschema());
-    if (!confirm(t("waehr.kanalFrage", { betrag: solText(Number(lamports)), provider: pkShort(providerPk), bis, anteile: empfaenger.length }))) return;
+    if (!(await bestaetige({ titel: t("waehr.kanalTitel"), text: t("waehr.kanalFrage", { betrag: solText(Number(lamports)), provider: pkShort(providerPk), bis, anteile: empfaenger.length }), ok: t("waehr.kanalEinzahlen") }))) return;
     // Erst merken (Kanal-Buch mit Sitzungsschlüssel, Sperre für den Wächter), dann einzahlen
     await kanalBuch.merke(plan.eintrag);
     gemerkt = plan.eintrag.kanal;

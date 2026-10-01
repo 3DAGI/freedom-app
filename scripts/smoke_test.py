@@ -635,6 +635,27 @@ def waehrung_pruefen(browser, url: str) -> dict:
     erg["verlauf"] = ev("() => Object.keys(localStorage).filter(k => k.includes('swapHistory'))")
     if erg["gesendet"] or erg["verlauf"]:
         erg["fehler"].append(f"abgebrochen, aber gesendet/gemerkt: {erg['gesendet']} {erg['verlauf']}")
+    # Ohne Internet zahlen (C-1d): Adresse und Betrag prüft der Dialog, Esc bricht ab
+    ev("() => document.getElementById('solo-zahlen').click()")
+    off = warte_dialog("Ohne Internet zahlen")
+    ev("() => { const f = document.querySelectorAll('[role=dialog] input'); f[0].value = 'keine-adresse'; f[1].value = '0,5'; }")
+    off_adresse = tippe("keine-adresse")
+    ev("() => { const f = document.querySelectorAll('[role=dialog] input'); f[0].value = '11111111111111111111111111111111'; f[1].value = '1e3'; f[1].focus(); }")
+    s.keyboard.press("Enter")
+    s.wait_for_timeout(200)
+    off_betrag = ev(stand)
+    s.keyboard.press("Escape")
+    seite.warte_zu()
+    # Eingebaute Wallet entfernen (C-1d): Gefahr – der Fokus steht zuerst auf Abbrechen
+    ev("() => document.getElementById('solw-entfernen').click()")
+    entf = warte_dialog("Eingebaute Wallet")
+    entf["fokus"] = ev("() => document.activeElement?.textContent")
+    s.keyboard.press("Escape")
+    seite.warte_zu()
+    erg["offline"] = {"dialog": off, "adresse": off_adresse, "betrag": off_betrag, "entfernen": entf}
+    if not (off["felder"] == ["An welche Solana-Adresse?", "Wie viel SOL?"] and off_adresse["meldung"] == "Keine gültige Solana-Adresse"
+            and off_betrag["meldung"] == "Ungültiger Betrag" and entf["fokus"] == "Abbrechen"):
+        erg["fehler"].append(f"offline/entfernen {erg['offline']}")
     # SOL → sats ohne Solana-Wallet: kein Dialog, nur der Hinweis
     ev("() => [...document.querySelectorAll('#lp-offers .stat')].find(z => z.textContent.includes('SOL → sats')).querySelector('button').click()")
     s.wait_for_function("() => document.getElementById('swap-status')?.textContent.startsWith('Erst eine Solana-Wallet')", timeout=10000)

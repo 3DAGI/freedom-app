@@ -9,7 +9,9 @@ import { gebietsschema, t } from "../i18n.js";
 import { fehlerText } from "../protokoll-texte.js";
 import { solText } from "../preis-anzeige.js";
 import { leseAblage } from "../sol-offline-zahlung.js";
+import { solZuLamports } from "../zahlungs-anforderung.js";
 import { geheim } from "./tresor.js";
+import { bestaetige, dialog } from "./dialog.js";
 import { $, netzDa, toast } from "./ui.js";
 
 export function zeigeOfflineZahlung(): void {
@@ -43,7 +45,12 @@ async function mitNetz(fn: () => Promise<string>): Promise<void> {
 
 const anlegen = () => mitNetz(async () => {
   const { legeNonceKontoAn } = await import("./zahlschienen.js");
-  await legeNonceKontoAn(async (k) => confirm(t("waehr.nonceAnlegenFrage", { miete: solText(k.miete), gebuehr: solText(k.gebuehr), gesamt: solText(k.gesamt) })));
+  // Dialog statt confirm() (C-1d): Kosten im Text, abgelehnt legt nichts an
+  await legeNonceKontoAn((k) => bestaetige({
+    titel: t("waehr.offlineTitel"),
+    text: t("waehr.nonceAnlegenFrage", { miete: solText(k.miete), gebuehr: solText(k.gebuehr), gesamt: solText(k.gesamt) }),
+    ok: t("waehr.nonceAnlegen"),
+  }));
   return t("waehr.nonceAngelegt");
 });
 
@@ -54,20 +61,28 @@ const auffrischen = () => mitNetz(async () => {
 });
 
 const schliessen = () => mitNetz(async () => {
-  if (!confirm(t("waehr.nonceSchliessenFrage"))) return t("waehr.nichtsGeaendert");
+  if (!(await bestaetige({ titel: t("waehr.offlineTitel"), text: t("waehr.nonceSchliessenFrage"), ok: t("waehr.kontoSchliessen"), gefahr: true }))) return t("waehr.nichtsGeaendert");
   const { schliesseNonceKonto } = await import("./zahlschienen.js");
   return t("waehr.nonceGeschlossen", { betrag: solText(await schliesseNonceKonto()) });
 });
 
 /** Offline zahlen: signieren, dann ueber das Funkgeraet – sonst als Datei. */
 async function zahlen(): Promise<void> {
-  const an = prompt(t("waehr.anWelcheAdresse"))?.trim();
-  if (!an) return;
-  const lamports = Math.round(Number((prompt(t("waehr.wievielSol")) ?? "").replace(",", ".")) * 1e9);
-  if (!Number.isSafeInteger(lamports) || lamports <= 0) {
-    toast(t("waehr.ungueltigerBetrag"), true);
-    return;
-  }
+  // Ein Dialog statt zwei prompt() (C-1d): Adresse (auch per QR vom Empfänger) und Betrag, beides geprüft im Dialog
+  const { isValidSolanaAddress } = await import("../solana-connect.js");
+  const betrag = (roh: unknown) => solZuLamports(String(roh ?? "").trim().replace(",", "."));
+  const w = await dialog({
+    titel: t("waehr.offlineTitel"),
+    felder: [
+      { art: "text", name: "an", label: t("waehr.anWelcheAdresse"), pflicht: true, mono: true, scannen: true },
+      { art: "text", name: "betrag", label: t("waehr.wievielSol"), pflicht: true },
+    ],
+    pruefe: (w) => (!isValidSolanaAddress(String(w.an).trim()) ? t("waehr.keineSolAdresse") : betrag(w.betrag) ? null : t("waehr.ungueltigerBetrag")),
+    ok: t("waehr.signieren"),
+  });
+  const an = String(w?.an ?? "").trim();
+  const lamports = w ? betrag(w.betrag) : undefined;
+  if (!an || !lamports) return;
   try {
     const { zahleSolOffline } = await import("./zahlschienen.js");
     const roh = await zahleSolOffline(an, lamports);

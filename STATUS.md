@@ -12844,3 +12844,42 @@ Schlüsseln meldet „Mindestens drei Vertraute …“; Melden mit „npub1falsc
 meldet „Kein gültiger öffentlicher Schlüssel“; abgebrochen nichts gesendet,
 kein Browser-Dialog. Bilder: `docs/ausbau/bilder/c-1c/` (Nachfolge mit
 Kontakten, Widerruf mit Fehler).
+
+## Schritt C-1d – Dialoge an den Geld-Stellen
+
+Spur C, Sammlung C-1, Teil d: die 8 Browser-Dialoge, die vor einer Zahlung
+oder einem Konto auf der Kette fragen, laufen jetzt über `shell/dialog.ts`.
+Die Reihenfolge bleibt: erst fragen, dann anlegen oder zahlen; abgelehnt
+geschieht nichts.
+
+**Was:**
+- `shell/offline-zahlung.ts`:
+  - **Ohne Internet zahlen:** Adresse (auch per QR vom Empfänger) und Betrag
+    in einem Dialog, beides geprüft (`isValidSolanaAddress()`,
+    `solZuLamports()` – exakt, ohne Gleitkomma; vorher `Number(…) * 1e9`),
+    Knopf „Signieren“.
+  - **Nonce-Konto anlegen** (Kosten im Text) und **schließen** (Gefahr).
+- `chat-zap.ts` – **Trinkgeld in SOL:** die öffentliche Adresse aus dem
+  Profil nur nach der Warnung („Trotzdem dorthin“); eine eingegebene Adresse
+  nur als gültige Solana-Adresse, auch per QR – vorher ging jeder Text an die
+  Zahlschiene.
+- `shell/zahlkanal-ui.ts` – **Zahlkanal:** „Einzahlen“ bestätigen, vor dem
+  Merken und Einzahlen wie bisher.
+- `shell/eingebaute-wallet.ts` – **eingebaute Wallet entfernen:** Gefahr,
+  Fokus zuerst auf Abbrechen.
+
+**Verdrahtet:** `offline-zahlung.ts:49` (anlegen), `:64` (schließen), `:74`
+(`zahlen()`); `chat-zap.ts:201`/`:204` (`sendZap()`, SOL);
+`zahlkanal-ui.ts:65` (`oeffneZahlkanal()`); `eingebaute-wallet.ts:246`
+(`entfernen()`).
+
+**Tests:** app +1 in `test/browser-dialoge.test.ts` (Adresse und Betrag im
+Dialog geprüft, kein `* 1e9`, erst fragen, dann signieren; Nonce mit
+Bestätigung, Schließen mit Gefahr; Trinkgeld: Warnung vor der Zahlung,
+Adresse geprüft; Zahlkanal: bestätigt vor `kanalBuch.merke()`; Wallet
+entfernen mit Gefahr). `NOCH_OFFEN` ohne die vier Dateien.
+`trinkgeld-adresse.test.ts` folgt dem neuen Aufruf (Reihenfolge gemerkt →
+anfragen → Profil nur mit Rückfrage bleibt geprüft). Smoke „waehrung“
+erweitert: „Ohne Internet zahlen“ meldet „Keine gültige Solana-Adresse“ und
+bei `1e3` „Ungültiger Betrag“; „Eingebaute Wallet“ entfernen hat den Fokus
+zuerst auf Abbrechen; kein Browser-Dialog.

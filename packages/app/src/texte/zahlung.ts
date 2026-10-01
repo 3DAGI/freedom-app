@@ -200,7 +200,11 @@ export const zahlung: Texte = {
   "zahl.solanaInSol": { de: "Solana zahlt in SOL", en: "Solana pays in SOL" },
   "zahl.frageAdresse": { de: "frage die Adresse versiegelt beim Empfänger an … (bis 75 s)", en: "asking the recipient for an address, sealed … (up to 75 s)" },
   "zahl.oeffentlicheAdresseFrage": { de: "{name} hat nicht geantwortet. Im Profil steht eine öffentliche SOL-Adresse – ein Trinkgeld dorthin ist für jeden sichtbar mit dieser Person verknüpft, und alle Trinkgelder landen auf derselben Adresse. Trotzdem dorthin?", en: "{name} didn't answer. The profile has a public SOL address – a tip there is visibly linked to this person for everyone, and all tips land on the same address. Send there anyway?" },
-  "zahl.solAdresseVon": { de: "SOL-Adresse von {name}:", en: "SOL address of {name}:" },
+  "zahl.solAdresseVon": { de: "SOL-Adresse von {name}", en: "SOL address of {name}" },
+  // Dialoge statt confirm()/prompt() (C-1d)
+  "zahl.trinkgeldTitel": { de: "Trinkgeld in SOL", en: "Tip in SOL" },
+  "zahl.trotzdemDorthin": { de: "Trotzdem dorthin", en: "Send there anyway" },
+  "zahl.weiterZurZahlung": { de: "Weiter zur Zahlung", en: "Continue to payment" },
   "zahl.ohneEmpfaengerAdresse": { de: "abgebrochen – keine Empfänger-Adresse", en: "cancelled – no recipient address" },
   "zahl.warteAufSignatur": { de: "warte auf die Signatur der Wallet …", en: "waiting for the wallet signature …" },
   "zahl.gesendetSig": { de: "gesendet! sig: {sig}…", en: "sent! sig: {sig}…" },

@@ -22,20 +22,16 @@ function dateien(dir: string): string[] {
     e.isDirectory() ? dateien(join(dir, e.name)) : e.name.endsWith(".ts") ? [join(dir, e.name)] : []);
 }
 
-/** Wo es noch Browser-Dialoge gibt (Datei → Zahl) – C-1d leert den Rest, `newCommunity()` fällt mit C-10, `agent.ts` nach B-9. */
+/** Wo es noch Browser-Dialoge gibt (Datei → Zahl) – C-1e leert den Rest, `newCommunity()` fällt mit C-10, `agent.ts` nach B-9. */
 const NOCH_OFFEN: Record<string, number> = {
-  "chat-zap.ts": 2,
   "shell/app.ts": 1,
   "shell/bunker.ts": 2,
-  "shell/eingebaute-wallet.ts": 1,
   "shell/nachfolge-ui.ts": 2,
   "shell/notfall.ts": 1,
-  "shell/offline-zahlung.ts": 4,
   "shell/pruefauftraege-ui.ts": 1,
   "shell/tabs/agent.ts": 5,
   "shell/tabs/kommunikation.ts": 1,
   "shell/tabs/profil.ts": 3,
-  "shell/zahlkanal-ui.ts": 1,
 };
 
 test("C-1: Browser-Dialoge nur noch, wo sie noch nicht umgestellt sind – keine neuen", () => {
@@ -180,4 +176,32 @@ test("C-1c: Fließtext für Dialoge – feste Zeilen verbunden, Absätze, Aufzä
     "Was das schützt:\n  · Gerät weg, du kommst zurück.\n  · Zweiter Punkt.");
   assert.equal(fliesstext(""), "");
   assert.equal(fliesstext("eine Zeile"), "eine Zeile");
+});
+
+test("C-1d: Geld-Stellen fragen über Dialoge – Adresse und Betrag geprüft, erst bestätigen, dann zahlen oder anlegen", () => {
+  const q = (p: string) => readFileSync(join(SRC, p), "utf8");
+  // Offline zahlen: ein Dialog, Adresse auch per QR, Betrag exakt über solZuLamports (kein Gleitkomma)
+  const off = q("shell/offline-zahlung.ts");
+  assert.doesNotMatch(ohneKommentare(off), BROWSER_DIALOG);
+  const zahlen = off.slice(off.indexOf("async function zahlen("), off.indexOf("/** Knoepfe verdrahten"));
+  assert.match(zahlen, /name: "an", label: t\("waehr\.anWelcheAdresse"\), pflicht: true, mono: true, scannen: true/);
+  assert.match(zahlen, /const betrag = \(roh: unknown\) => solZuLamports\(String\(roh \?\? ""\)\.trim\(\)\.replace\(",", "\."\)\);/);
+  assert.match(zahlen, /pruefe: \(w\) => \(!isValidSolanaAddress\(String\(w\.an\)\.trim\(\)\) \? t\("waehr\.keineSolAdresse"\) : betrag\(w\.betrag\) \? null : t\("waehr\.ungueltigerBetrag"\)\),/);
+  assert.ok(zahlen.indexOf("await dialog(") < zahlen.indexOf("await zahleSolOffline(an, lamports)"), "erst fragen, dann signieren");
+  assert.doesNotMatch(zahlen, /\* 1e9/, "kein Gleitkomma beim Betrag");
+  assert.match(off, /await legeNonceKontoAn\(\(k\) => bestaetige\(\{/);
+  assert.match(off, /ok: t\("waehr\.kontoSchliessen"\), gefahr: true \}\)\)\) return t\("waehr\.nichtsGeaendert"\);/);
+  // Trinkgeld: öffentliche Adresse nur nach Warnung, eingegebene nur geprüft
+  const zap = q("chat-zap.ts");
+  assert.doesNotMatch(ohneKommentare(zap), BROWSER_DIALOG);
+  assert.match(zap, /pruefe: \(w\) => \(isValidSolanaAddress\(String\(w\.adresse\)\.trim\(\)\) \? null : t\("waehr\.keineSolAdresse"\)\),/);
+  assert.ok(zap.indexOf("t(\"zahl.oeffentlicheAdresseFrage\"") < zap.indexOf("zweck: \"trinkgeld\""));
+  // Zahlkanal: bestätigt vor dem Merken und Einzahlen
+  const kanal = q("shell/zahlkanal-ui.ts");
+  assert.doesNotMatch(ohneKommentare(kanal), BROWSER_DIALOG);
+  assert.ok(kanal.indexOf("await bestaetige({ titel: t(\"waehr.kanalTitel\")") < kanal.indexOf("await kanalBuch.merke(plan.eintrag);"));
+  // Eingebaute Wallet entfernen: Gefahr
+  const ew = q("shell/eingebaute-wallet.ts");
+  assert.doesNotMatch(ohneKommentare(ew), BROWSER_DIALOG);
+  assert.match(ew, /await bestaetige\(\{ titel: t\("waehr\.eingebaut"\), text: t\("waehr\.entfernenFrage"\), ok: t\("waehr\.entfernenKnopf"\), gefahr: true \}\)/);
 });
