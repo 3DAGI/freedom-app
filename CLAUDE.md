@@ -895,4 +895,10 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   (`leseLokaleRepos()`), ein lokales Repo hat nie einen Raum. Karten
   (`lokaleKarten()`) tragen `lokal` und einen eigenen Schlüssel `lokal:…` –
   nie mit einem öffentlichen Repo gleicher Kennung vermischen, auch nicht in
-  `mitIssues()`.
+  `mitIssues()`. In der App (seit B-2b): anlegen über „Wo: nur dieses Gerät“
+  beim Ankündigen (ohne Rückfrage – nichts geht hinaus), neue Versionen über
+  `ladeBundleHoch(…, lokal)` (vor dem Blob-Netz, höchstens
+  `BUNDLE_GRENZEN.bytes`), Code und Commits nur über die `BundleQuelle`
+  (`quelleVon()` in `repo-seite.ts`, das Netz über `netzQuelle()`). Lokale Repos
+  zeigen nur Code, Commits und Einstellungen – Issues, Patches und Mitwirkende
+  gibt es erst im Netz. Ohne Relays bleiben sie in der Liste.

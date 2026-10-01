@@ -37,6 +37,19 @@ export async function holeBundle(ref: NostrEvent): Promise<Uint8Array | null> {
   return r.schluessel ? oeffneAnhang(res.bytes, r.schluessel) : res.bytes;
 }
 
+/**
+ * Woher das Bundle kommt (B-2): aus dem Speichernetz über die Referenz
+ * (`netzQuelle()`) oder vom Gerät (Repo nur auf diesem Gerät). `id` hält
+ * das Gelesene und die Wahl im Speicher auseinander.
+ */
+export interface BundleQuelle {
+  id: string;
+  hole: () => Promise<Uint8Array | null>;
+  /** Text über „Code laden“ (Schlüssel) – woher das Bundle kommt. */
+  hinweis?: string;
+}
+export const netzQuelle = (ref: NostrEvent): BundleQuelle => ({ id: ref.id, hole: () => holeBundle(ref) });
+
 const FEHLER: Record<BundleFehlerArt, string> = {
   format: "repo.bundleFormat", gross: "repo.bundleGross", objekte: "repo.bundleObjekte", entpacken: "repo.bundleEntpacken",
   delta: "repo.bundleDelta", tiefe: "repo.bundleTiefe", pruefsumme: "repo.bundlePruefsumme", kaputt: "repo.bundleKaputt",
@@ -67,8 +80,8 @@ function knopf(text: string, klasse: string, tun: () => void): HTMLButtonElement
 }
 
 /** Hinweis und „Code laden“: holt das Bundle erst auf Knopfdruck, liest es und zeichnet neu. */
-function ladeKnopf(bundle: NostrEvent, neu: () => void): HTMLElement[] {
-  const hinweis = el("p", t("repo.codeLadenText"), "mono-sm muted");
+function ladeKnopf(bundle: BundleQuelle, neu: () => void): HTMLElement[] {
+  const hinweis = el("p", t(bundle.hinweis ?? "repo.codeLadenText"), "mono-sm muted");
   const fehler = el("p", undefined, "repo-fehler");
   fehler.setAttribute("role", "alert");
   const laden = el("button", t("repo.codeLaden"), "ghost mini repo-knopf code-laden");
@@ -77,7 +90,7 @@ function ladeKnopf(bundle: NostrEvent, neu: () => void): HTMLElement[] {
     laden.disabled = true;
     fehler.textContent = "";
     try {
-      const bytes = await holeBundle(bundle);
+      const bytes = await bundle.hole();
       if (!bytes) {
         fehler.textContent = t("agent.bundleKaputt");
         return;
@@ -149,7 +162,7 @@ function refAuswahl(b: GelesenesBundle, id: string, neu: () => void): HTMLElemen
   return [zeile];
 }
 
-export function codeReiter(bundle: NostrEvent | undefined, name: string, neu: () => void): HTMLElement[] {
+export function codeReiter(bundle: BundleQuelle | undefined, name: string, neu: () => void): HTMLElement[] {
   if (!bundle) return [el("p", t("repo.codeOhneBundle"), "mono-sm muted")];
   const b = gelesen.get(bundle.id);
   return b ? zeigeCode(b, bundle.id, name, neu) : ladeKnopf(bundle, neu);
@@ -318,7 +331,7 @@ function suchFeld(b: GelesenesBundle, id: string, baum: string, commit: string, 
  * entlang der ersten Eltern (höchstens 100), je Commit die ganze Nachricht
  * zum Aufklappen. Ohne Bundle die angenommenen Patches mit ihren Commits.
  */
-export function commitsReiter(bundle: NostrEvent | undefined, angenommen: Array<{ betreff: string; commits: string[] }>, neu: () => void): HTMLElement[] {
+export function commitsReiter(bundle: BundleQuelle | undefined, angenommen: Array<{ betreff: string; commits: string[] }>, neu: () => void): HTMLElement[] {
   if (!bundle) {
     const mit = angenommen.filter((a) => a.commits.length);
     if (!mit.length) return [el("p", t("repo.keineCommits"), "mono-sm muted")];

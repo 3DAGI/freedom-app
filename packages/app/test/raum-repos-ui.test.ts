@@ -88,7 +88,8 @@ test("Verdrahtung (11.4c): Raum → Liste → Repo-Seite → „Zum Raum“; Anl
   assert.equal((repos.match(/raumAdressen\.add\(/g) ?? []).length, 1);
   assert.equal((raeume.match(/merkeRaumAdresse\(/g) ?? []).length, 1, "nur beim Öffnen eines öffentlichen Raums");
   // Anlegen aus dem Raum: öffentlich mit Verweis (a-Tag über baueRepoAnkuendigung), privat nur in die Gruppe, ohne „Wo“
-  assert.match(repos, /\.\.\.\(raeume\.length && !imRaum \? \[\{ art: "wahl" as const, name: "wo"/);
+  // Seit B-2 steht „Wo“ immer da (öffentlich, nur dieses Gerät, private Räume) – aus dem Raum nie
+  assert.match(repos, /\.\.\.\(!imRaum \? \[\{ art: "wahl" as const, name: "wo", label: t\("repo\.wo"\), wert: ""/);
   assert.match(repos, /const angaben = \{ id, name: id, klon, \.\.\.\(beschreibung \? \{ beschreibung \} : \{\}\), \.\.\.\(raum \? \{ raum \} : \{\}\) \};/);
   assert.match(repos, /const frage = gruppe \? "repo\.ankuendigenFrageRaum" : raum \? "repo\.ankuendigenFrageOeffentlich" : "repo\.ankuendigenFrage";/);
   // Menüpunkt und Abschnitt sind zu Beginn verborgen

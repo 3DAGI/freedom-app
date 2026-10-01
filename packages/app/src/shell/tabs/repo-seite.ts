@@ -18,7 +18,8 @@ import { ensurePool, signiere, state } from "../state.js";
 import { mitwirkendeListe } from "../mitwirkende.js";
 import { sendeInRaum } from "../raum-repos.js";
 import { toast } from "../ui.js";
-import { codeReiter, commitsReiter, holeBundle } from "./code-reiter.js";
+import { type BundleQuelle, codeReiter, commitsReiter, netzQuelle } from "./code-reiter.js";
+import { lokaleRepos } from "../lokale-repos-ablage.js";
 import { issuesReiter, vergissIssue } from "./issues-reiter.js";
 import { diskussion } from "./diskussion.js";
 import { zeigePatch } from "./patch-seite.js";
@@ -57,8 +58,8 @@ export interface RepoSeiteHilfe {
   patchSenden: (r: GelesenesRepo, text: string, gruppe?: string) => Promise<boolean>;
   /** Beiträge (38056) – alle, gefiltert wird lokal: eine Abfrage nach Kennung verriete, welches Repo man ansieht. */
   mitwirkende: () => Promise<NostrEvent[]>;
-  /** Bundle verschlüsselt hochladen und die Referenz (38042) mit dieser Kennung veröffentlichen. */
-  hochladen: (datei: File, kennung: string, gruppe?: string) => Promise<boolean>;
+  /** Bundle verschlüsselt hochladen und die Referenz (38042) mit dieser Kennung veröffentlichen – `lokal` (B-2): nur auf dem Gerät ablegen. */
+  hochladen: (datei: File, kennung: string, gruppe?: string, lokal?: boolean) => Promise<boolean>;
   /** Öffentliche Räume, denen ich Repos zuordnen darf (11.4a). */
   raeume: () => Promise<{ adresse: string; name: string }[]>;
   /** In den Raum des Repos wechseln (11.4c). */
@@ -89,6 +90,8 @@ export function zeigeRepoSeite(box: HTMLElement, k: RepoKarte, h: RepoSeiteHilfe
   const eigentuemer = !!state.keypair && k.eigentuemer === state.keypair.pk;
   let reiter: RepoReiter = gewaehlt ?? (gemerkt?.schluessel === k.schluessel ? gemerkt.reiter : k.zeilen.length ? "patches" : "code");
   if (reiter === "einstellungen" && !eigentuemer) reiter = "code";
+  // Nur auf diesem Gerät (B-2): Issues, Patches und Mitwirkende gibt es erst im Netz
+  if (k.lokal && (reiter === "issues" || reiter === "patches" || reiter === "mitwirkende")) reiter = "code";
   gemerkt = { schluessel: k.schluessel, reiter };
   const zurueck = knopf(t("repo.alleRepos"), "ghost mini repo-zurueck", h.zurueck);
   const kopf = el("h2", undefined, "repo-titel");
@@ -110,9 +113,11 @@ export function zeigeRepoSeite(box: HTMLElement, k: RepoKarte, h: RepoSeiteHilfe
   }
   const raum = raumZeile(k, h);
   if (raum) teile.push(raum);
+  if (k.lokal) teile.push(lokalZeile(k, h));
   if (k.repo?.maintainer.length) teile.push(el("p", t("repo.maintainer", { namen: k.repo.maintainer.map(eigentuemerName).join(", ") }), "mono-sm muted"));
   if (!k.repo) teile.push(el("p", t("repo.nurBundle"), "mono-sm muted"));
-  teile.push(klonKasten(k));
+  const quelle = quelleVon(k);
+  teile.push(klonKasten(k, quelle));
 
   // Reiter: Code, Patches, Mitwirkende, Einstellungen (nur Eigentümer)
   const leiste = el("div", undefined, "seg repo-reiter");
@@ -129,13 +134,15 @@ export function zeigeRepoSeite(box: HTMLElement, k: RepoKarte, h: RepoSeiteHilfe
     b.dataset.reiter = id;
     return b;
   };
-  leiste.append(reiterKnopf("code", t("repo.code")), reiterKnopf("commits", t("repo.commits")),
-    reiterKnopf("issues", t("repo.issuesZahl", { n: k.offeneIssues ?? 0 })), reiterKnopf("patches", t("repo.patchesZahl", { n: k.offen })),
-    reiterKnopf("mitwirkende", t("earn.mitwirkende")));
+  leiste.append(reiterKnopf("code", t("repo.code")), reiterKnopf("commits", t("repo.commits")));
+  if (!k.lokal) {
+    leiste.append(reiterKnopf("issues", t("repo.issuesZahl", { n: k.offeneIssues ?? 0 })), reiterKnopf("patches", t("repo.patchesZahl", { n: k.offen })),
+      reiterKnopf("mitwirkende", t("earn.mitwirkende")));
+  }
   if (eigentuemer) leiste.append(reiterKnopf("einstellungen", t("repo.einstellungen")));
   const angenommen = k.zeilen.filter((z) => z.status === "angenommen").map((z) => ({ betreff: z.patch.betreff, commits: z.commits ?? [] }));
-  inhalt.append(...(reiter === "code" ? codeReiter(k.bundle, k.name, () => zeigeRepoSeite(box, k, h, "code"))
-    : reiter === "commits" ? commitsReiter(k.bundle, angenommen, () => zeigeRepoSeite(box, k, h, "commits"))
+  inhalt.append(...(reiter === "code" ? codeReiter(quelle, k.name, () => zeigeRepoSeite(box, k, h, "code"))
+    : reiter === "commits" ? commitsReiter(quelle, angenommen, () => zeigeRepoSeite(box, k, h, "commits"))
     : reiter === "issues" ? issuesReiter(k, eigentuemerName, () => zeigeRepoSeite(box, k, h, "issues"), h.neuLaden)
     : reiter === "patches" ? patchReiter(k, h, () => zeigeRepoSeite(box, k, h, "patches"))
     : reiter === "mitwirkende" ? mitwirkendeReiter(k, h) : einstellungenReiter(k, h)));
@@ -160,8 +167,36 @@ function raumZeile(k: RepoKarte, h: RepoSeiteHilfe): HTMLElement | undefined {
   return zeile;
 }
 
-/** Klonen: Adressen zum Kopieren; Bundle laden (verschlüsselt geladen, hier entschlüsselt). */
-function klonKasten(k: RepoKarte): HTMLElement {
+/**
+ * Nur auf diesem Gerät (B-2): niemand sonst sieht das Repo, nichts liegt auf
+ * Relays oder im Speichernetz. Löschen nimmt Angaben und Bundle vom Gerät.
+ */
+function lokalZeile(k: RepoKarte, h: RepoSeiteHilfe): HTMLElement {
+  const zeile = el("p", undefined, "repo-raum repo-lokal mono-sm");
+  const loeschen = knopf(t("repo.lokalLoeschen"), "ghost mini repo-lokal-loeschen", () => void (async () => {
+    if (!state.keypair || !await bestaetige({ titel: t("repo.lokalLoeschen"), text: t("repo.lokalLoeschenFrage", { id: k.id }), ok: t("repo.lokalLoeschen"), gefahr: true })) return;
+    try {
+      await lokaleRepos.entferne(state.keypair.pk, k.id);
+      toast(t("repo.lokalGeloescht", { id: k.id }));
+      h.zurueck();
+      await h.neuLaden();
+    } catch (e) {
+      toast(fehlerText(e), true);
+    }
+  })());
+  zeile.append(el("span", t("repo.imLokal")), loeschen);
+  return zeile;
+}
+
+/** Woher Code, Commits und „Bundle laden“ das Bundle holen (B-2): vom Gerät oder aus dem Speichernetz. */
+function quelleVon(k: RepoKarte): BundleQuelle | undefined {
+  if (!k.lokal) return k.bundle ? netzQuelle(k.bundle) : undefined;
+  const b = k.lokal.bundle;
+  return b ? { id: `lokal:${k.id}:${b.zeit}:${b.bytes}`, hole: () => lokaleRepos.holeBundle(k.eigentuemer, k.id), hinweis: "repo.codeLadenLokal" } : undefined;
+}
+
+/** Klonen: Adressen zum Kopieren; Bundle laden (verschlüsselt geladen bzw. vom Gerät, hier entschlüsselt). */
+function klonKasten(k: RepoKarte, quelle: BundleQuelle | undefined): HTMLElement {
   const kasten = el("div", undefined, "repo-klon");
   kasten.append(el("h3", t("repo.klonenTitel")));
   for (const adresse of k.repo?.klon ?? []) {
@@ -173,24 +208,24 @@ function klonKasten(k: RepoKarte): HTMLElement {
     zeile.append(feld, knopf(t("dlg.kopieren"), "ghost mini repo-knopf", () => void navigator.clipboard?.writeText(feld.value).then(() => toast(t("dlg.kopiert")))));
     kasten.append(zeile);
   }
-  if (k.bundle) {
-    const bundle = k.bundle;
+  const stand = k.lokal ? k.lokal.bundle?.zeit : k.bundle?.created_at;
+  if (quelle && stand !== undefined) {
     const zeile = el("div", undefined, "repo-klon-zeile");
-    const wann = el("span", t("repo.bundleStand", { datum: datum(bundle.created_at) }), "mono-sm muted");
-    const b = knopf(t("repo.bundleLaden"), "ghost mini repo-knopf", () => void ladeBundle(b, k));
+    const wann = el("span", t("repo.bundleStand", { datum: datum(stand) }), "mono-sm muted");
+    const b = knopf(t("repo.bundleLaden"), "ghost mini repo-knopf", () => void ladeBundle(b, k, quelle));
     zeile.append(wann, b);
     kasten.append(zeile);
   }
-  if (!k.repo?.klon.length && !k.bundle) kasten.append(el("p", t("repo.keineKlonAdresse"), "mono-sm muted"));
+  if (!k.repo?.klon.length && !quelle) kasten.append(el("p", t("repo.keineKlonAdresse"), "mono-sm muted"));
   return kasten;
 }
 
-async function ladeBundle(b: HTMLButtonElement, k: RepoKarte): Promise<void> {
-  if (!k.bundle) return;
+async function ladeBundle(b: HTMLButtonElement, k: RepoKarte, quelle: BundleQuelle): Promise<void> {
   b.disabled = true;
   try {
-    // Seit 8.9b verschlüsselt, der Schlüssel steht öffentlich in der Referenz (holeBundle, seit C.3c1 geteilt mit „Code“)
-    const bytes = await holeBundle(k.bundle);
+    // Seit 8.9b verschlüsselt, der Schlüssel steht öffentlich in der Referenz (holeBundle, seit C.3c1 geteilt mit „Code“);
+    // vom Gerät (B-2) ist das die Sicherung als .bundle-Datei
+    const bytes = await quelle.hole();
     if (!bytes) {
       toast(t("agent.bundleKaputt"), true);
       return;
@@ -431,7 +466,7 @@ function einstellungenReiter(k: RepoKarte, h: RepoSeiteHilfe): HTMLElement[] {
   feld("web", t("repo.feldWeb"), (r?.web ?? []).join("\n"), true, true);
   feld("maintainer", t("repo.feldMaintainer"), (r?.maintainer ?? []).join("\n"), true, true);
   feld("ersterCommit", t("repo.feldErsterCommit"), r?.ersterCommit ?? "", false, true);
-  if (!k.privatRaum) einstellungRaum(form, r, h);
+  if (!k.privatRaum && !k.lokal) einstellungRaum(form, r, h);
   const fehler = el("p", undefined, "repo-fehler");
   fehler.setAttribute("role", "alert");
   const speichern = el("button", t(r ? "repo.speichern" : "agent.repoAnkuendigen"));
@@ -453,9 +488,10 @@ function einstellungenReiter(k: RepoKarte, h: RepoSeiteHilfe): HTMLElement[] {
     datei.value = "";
     if (!f) return;
     b.disabled = true;
-    void h.hochladen(f, k.id, k.privatRaum).finally(() => { b.disabled = false; });
+    void h.hochladen(f, k.id, k.privatRaum, !!k.lokal).finally(() => { b.disabled = false; });
   });
-  hoch.append(el("h3", t("repo.neueVersion")), el("p", t(k.privatRaum ? "repo.neueVersionTextRaum" : "repo.neueVersionText"), "mono-sm muted"), b, datei);
+  const text = k.privatRaum ? "repo.neueVersionTextRaum" : k.lokal ? "repo.neueVersionTextLokal" : "repo.neueVersionText";
+  hoch.append(el("h3", t("repo.neueVersion")), el("p", t(text), "mono-sm muted"), b, datei);
   return [form, hoch];
 }
 
@@ -469,6 +505,13 @@ async function speichereEinstellungen(k: RepoKarte, form: HTMLFormElement, fehle
       name: wert("name"), beschreibung: wert("beschreibung"), klon: wert("klon"), web: wert("web"),
       maintainer: wert("maintainer"), ersterCommit: wert("ersterCommit"), raum: wert("raum"),
     });
+    // Nur auf diesem Gerät (B-2): gemerkt, nichts geht hinaus – keine Rückfrage nötig
+    if (k.lokal) {
+      await lokaleRepos.merke(state.keypair.pk, angaben);
+      toast(t("repo.lokalGespeichert", { id: k.id }));
+      await h.neuLaden();
+      return;
+    }
     const ev = baueRepoAnkuendigung(angaben, state.keypair.pk);
     if (!await bestaetige({ titel: t("repo.speichern"), text: t(k.privatRaum ? "repo.speichernFrageRaum" : "repo.speichernFrage"), ok: t("repo.speichern") })) return;
     // Privater Raum (11.4b2): nur in die Gruppe

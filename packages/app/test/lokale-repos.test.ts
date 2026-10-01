@@ -122,3 +122,28 @@ test("B-2: nie auf Relays – nicht in der Sicherung, nicht im Export, im Tresor
   assert.match(ablage, /export const lokaleRepos = new LokaleRepos\(geheim, bundles\);/);
   assert.doesNotMatch(ablage, /publish|ensurePool|fetch\(|localStorage/, "nur IndexedDB und geheim");
 });
+
+test("B-2: verdrahtet – „Wo“ bietet das Gerät, lokal geht nie etwas hinaus", () => {
+  const lies = (p: string) => readFileSync(new URL(`../src/shell/tabs/${p}`, import.meta.url), "utf8");
+  const repos = lies("repos.ts");
+  const an = repos.slice(repos.indexOf("async function kuendigeAn("), repos.indexOf("export const legeRepoImRaumAn"));
+  assert.match(an, /\{ wert: "", text: t\("repo\.woOeffentlich"\) \}, \{ wert: LOKAL, text: t\("repo\.woLokal"\) \},/);
+  assert.ok(an.indexOf("await lokaleRepos.merke(state.keypair.pk, angaben);") < an.indexOf("publish("), "lokal vor jedem Senden – und mit return");
+  assert.match(an, /await lokaleRepos\.merke\(state\.keypair\.pk, angaben\);\n\s+toast\(t\("repo\.lokalAngelegt", \{ id \}\)\);\n\s+await ladeNip34Repos\(\);\n\s+return;/);
+  const hoch = repos.slice(repos.indexOf("export async function ladeBundleHoch("), repos.indexOf("/** Patch senden"));
+  assert.ok(hoch.indexOf("await lokaleRepos.legeBundleAb(") < hoch.indexOf("uploadAnhang"), "lokal vor dem Blob-Netz");
+  assert.match(hoch, /if \(bytes\.length > BUNDLE_GRENZEN\.bytes\) \{/);
+  // Lokale Karten nach mitIssues(): nie Issues eines öffentlichen Repos gleicher Kennung
+  assert.ok(repos.indexOf("karten = mitIssues(") < repos.indexOf("...lokaleRepos.karten(state.keypair?.pk)]"));
+  // Ohne Relays bleiben sie sichtbar
+  assert.match(repos, /\} catch \{\n\s+\/\/ Ohne Relays bleiben die Repos dieses Geräts \(B-2\) sichtbar\n\s+karten = lokaleRepos\.karten\(state\.keypair\?\.pk\);\n\s+if \(!karten\.length\) \{\n\s+box\.textContent = t\("repo\.relaysWeg"\);/);
+  const seite = lies("repo-seite.ts");
+  assert.match(seite, /if \(!k\.lokal\) \{\n\s+leiste\.append\(reiterKnopf\("issues"/, "Issues, Patches, Mitwirkende erst im Netz");
+  assert.match(seite, /if \(k\.lokal && \(reiter === "issues" \|\| reiter === "patches" \|\| reiter === "mitwirkende"\)\) reiter = "code";/);
+  const speichern = seite.slice(seite.indexOf("async function speichereEinstellungen("));
+  assert.ok(speichern.indexOf("await lokaleRepos.merke(") < speichern.indexOf("publish("), "Einstellungen lokal vor jedem Senden");
+  assert.match(seite, /if \(!k\.privatRaum && !k\.lokal\) einstellungRaum\(form, r, h\);/, "kein Raum für ein lokales Repo");
+  assert.match(seite, /void h\.hochladen\(f, k\.id, k\.privatRaum, !!k\.lokal\)/);
+  assert.match(seite, /hole: \(\) => lokaleRepos\.holeBundle\(k\.eigentuemer, k\.id\), hinweis: "repo\.codeLadenLokal"/);
+  for (const d of ["repos.ts", "repo-seite.ts"]) assert.doesNotMatch(lies(d), /\.innerHTML\s*=/, d);
+});

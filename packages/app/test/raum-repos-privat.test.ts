@@ -34,10 +34,11 @@ test("Verdrahtung (11.4b2): jede Aktion an einem privaten Repo nur über sendeIn
   const seite = lies("shell/tabs/repo-seite.ts");
   assert.match(seite, /if \(k\.privatRaum\) await sendeInRaum\(k\.privatRaum, raumRepoStatus\(k\.privatRaum, angaben\)\);\s*else await/);
   assert.match(seite, /if \(k\.privatRaum\) await sendeInRaum\(k\.privatRaum, raumRepoAnkuendigung\(k\.privatRaum, angaben\)\);\s*else await/);
-  assert.match(seite, /void h\.hochladen\(f, k\.id, k\.privatRaum\)/);
+  assert.match(seite, /void h\.hochladen\(f, k\.id, k\.privatRaum, !!k\.lokal\)/);
   assert.match(seite, /vorschauSeite\(repo, h, neu, k\.privatRaum\)/);
   assert.match(seite, /await h\.patchSenden\(repo, v\.text, gruppe\)/);
-  assert.match(seite, /if \(!k\.privatRaum\) einstellungRaum\(form, r, h\);/, "privat nie mit Verweis auf einen öffentlichen Raum");
+  // seit B-2 auch nicht für Repos nur auf diesem Gerät
+  assert.match(seite, /if \(!k\.privatRaum && !k\.lokal\) einstellungRaum\(form, r, h\);/, "privat nie mit Verweis auf einen öffentlichen Raum");
   const raum = lies("shell/raum-repos.ts");
   assert.match(raum, /if \(!\(await mlsSendeEvent\(gruppe, s\)\)\) throw new Error\(t\("repo\.nichtInRaum"\)\);/, "scheitert laut – kein Ausweichen aufs Relay");
   assert.match(raum, /if \(gruppen\.length === 0 \|\| mlsGesperrt\(\)\) return \[\];/, "ohne private Räume lädt die Engine nicht");
