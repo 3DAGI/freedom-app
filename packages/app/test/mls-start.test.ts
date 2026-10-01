@@ -25,8 +25,8 @@ test("C-11: Repos privater Räume erst nach der Seite Repos oder einem privaten 
   assert.match(repos, /let mitPrivaten = false;/);
   assert.match(repos, /export function ladeNip34Repos\(opts: \{ privat\?: boolean \} = \{\}\): Promise<void> \{\s*if \(opts\.privat\) mitPrivaten = true;/);
   assert.match(repos, /if \(mitPrivaten\) privat = await privateRaumRepos\(\)\.catch\(\(\) => \[\]\);/);
-  // wireNip34() beim Start lädt ohne private (kein Argument), die Seite Repos mit
-  assert.match(repos.slice(repos.indexOf("export function wireNip34(")), /void ladeNip34Repos\(\);\n\}/);
+  // wireNip34() lädt beim Start gar nicht (seit C-15), die Seite Repos mit privaten
+  assert.doesNotMatch(repos.slice(repos.indexOf("export function wireNip34(")), /ladeNip34Repos\(/);
   assert.match(quelle("../src/shell/app.ts"), /if \(name === "repos"\) void import\("\.\/tabs\/repos\.js"\)\.then\(\(m\) => m\.ladeNip34Repos\(\{ privat: true \}\)\);/);
   const smoke = quelle("../../../scripts/smoke_test.py");
   assert.match(smoke, /erg\["mls_start"\] = mls_start_pruefen\(browser,/);
