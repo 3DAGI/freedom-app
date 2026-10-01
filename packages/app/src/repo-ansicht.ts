@@ -122,6 +122,8 @@ export interface RepoKarte {
   raumBestaetigt?: boolean;
   /** Repo eines privaten Raums (11.4b2): jede Aktion geht nur in diese MLS-Gruppe. */
   privatRaum?: string;
+  /** Repo nur auf diesem Gerät (B-2): nichts geht auf ein Relay; mit dem Stand des lokalen Bundles, wenn es eines gibt. */
+  lokal?: { bundle?: { zeit: number; bytes: number } };
   /** Name des Raums (11.4c), nur wenn das Repo bestätigt dazugehört – fremder Text, nur über textContent. */
   raumName?: string;
   /** Issues (C-17b), neuestes zuerst – erst nach `mitIssues()`. */

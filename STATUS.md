@@ -12883,3 +12883,37 @@ anfragen → Profil nur mit Rückfrage bleibt geprüft). Smoke „waehrung“
 erweitert: „Ohne Internet zahlen“ meldet „Keine gültige Solana-Adresse“ und
 bei `1e3` „Ungültiger Betrag“; „Eingebaute Wallet“ entfernen hat den Fokus
 zuerst auf Abbrechen; kein Browser-Dialog.
+
+## Schritt B-2a – Repos nur auf diesem Gerät: Baustein und Ablage
+
+Sammlung B-2, Entscheidung S1 (30.09., MENSCH): „B mit Wechsel“ – ein Repo
+lässt sich auf „privat, nur dieses Gerät“ schalten (nichts auf Relays), später
+auf „öffentlich“. Aufgeteilt, weil der ganze Schritt über 400 Zeilen braucht:
+a Baustein und Ablage (dieser Schritt), b Oberfläche, c Wechsel.
+
+**App (`lokale-repos.ts`, ohne DOM):** `LokaleRepos` hält die Liste
+(`freedom.repos.lokal` in `geheim`, mit Tresor im Tresor) und die Bundles
+zusammen. Gemerkt werden die Angaben der Ankündigung – geprüft wie beim
+Ankündigen (`baueRepoAnkuendigung()`), ohne Raum (ein Raum ist öffentlich) –
+und je Repo das neueste Bundle: verschlüsselt mit frischem Schlüssel
+(`verschluesseleDatei()`, AES-GCM mit Prüfsumme), das Chiffrat in der
+IndexedDB `freedom-repos`, der Schlüssel im Eintrag. Eine neue Version wird erst
+abgelegt, dann gemerkt, dann die alte gelöscht – bricht etwas ab, bleibt die
+bisherige lesbar. Gelesen wird streng (`leseLokaleRepos()`: Kaputtes fällt weg,
+je Eigentümer und Kennung einmal), höchstens `LOKAL_MAX` (50) je Identität.
+`lokaleKarten()` baut dieselben Karten wie im Netz, mit eigenem Schlüssel
+(`lokal:…`) und dem Merkmal `lokal`, nur für die eigene Identität.
+`shell/lokale-repos-ablage.ts`: die IndexedDB und `lokaleRepos` für die App.
+
+**Nie auf Relays:** `freedom.repos.lokal` in `SICHERUNG_NIE` (die Sicherung geht
+auf Relays), damit auch nicht im Export (B-6); `freedom-repos` in
+`WIPE_DATENBANKEN`; der Schlüsselname in `GEHEIM_FEST`.
+
+**Tests (+4, `app/test/lokale-repos.test.ts`):** anlegen, ablegen, lesen (kein
+Klartext in Datenbank und Liste, kein Raum, eigene Karten, neue Version mit
+frischem Schlüssel, Angaben ändern behält das Bundle); streng gelesen (zehn
+kaputte und doppelte Einträge, verändertes Chiffrat wirft, fehlendes ist
+nichts); Grenzen, Prüfung wie beim Ankündigen, Löschen samt Chiffrat; nie in
+Sicherung und Export, im Tresor, in der Notfall-Löschung.
+
+**Verdrahtet:** noch nicht in der Oberfläche – das ist B-2b.

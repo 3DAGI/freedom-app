@@ -884,3 +884,15 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   In der App (seit B-15b) nur über `shell/raum-planung-ui.ts`: gesendet nur
   mit `mlsSendeEvent(raum.gruppe, …)`, gezeigt nur als Text über dem Verlauf
   des Kanals (`zeigePlanung()`), die Knöpfe nur privat und mit Schreibrecht.
+- **Repos nur auf diesem Gerät nur über `LokaleRepos`** (seit B-2a,
+  `lokale-repos.ts`, Ablage `shell/lokale-repos-ablage.ts`): Angaben und Bundle
+  bleiben auf dem Gerät – nie `publish()`, nie `uploadAnhang()`, nie in die
+  Sicherung (`SICHERUNG_NIE`: `freedom.repos.lokal`). Das Bundle nur
+  verschlüsselt (`legeBundleAb()`: frischer Schlüssel je Version, erst das
+  Chiffrat ablegen, dann merken, dann die alte Version löschen); die Liste mit
+  den Schlüsseln nur in `geheim`, die Chiffrate nur in der IndexedDB
+  `freedom-repos` (in `WIPE_DATENBANKEN`). Gelesen wird streng
+  (`leseLokaleRepos()`), ein lokales Repo hat nie einen Raum. Karten
+  (`lokaleKarten()`) tragen `lokal` und einen eigenen Schlüssel `lokal:…` –
+  nie mit einem öffentlichen Repo gleicher Kennung vermischen, auch nicht in
+  `mitIssues()`.
