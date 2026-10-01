@@ -6,7 +6,7 @@
  */
 import { zahle } from "@freedomstack/protocol";
 import { gebietsschema, t } from "../../i18n.js";
-import { escapeHtml, pkShort } from "../../shell-logic.js";
+import { escapeHtml, fliesstext, pkShort, schluesselAusEingabe } from "../../shell-logic.js";
 import { zeigeDatenschutz } from "../datenschutz.js";
 import { LS_ONION_PRUEFRELAY, onionRelay } from "../../onion-pruefung.js";
 import { zeigeVertraute } from "../nachfolge-ui.js";
@@ -21,10 +21,10 @@ import { geheim, istGeheimnis, tresorEingerichtet, wireTresorKarte } from "../tr
 import { MIN_PASSPHRASE } from "../../vault.js";
 import { fuehreZusammen, type ZusammenfuehrBericht } from "../../zustand-zusammenfuehren.js";
 import { $, ganzeZahl, toast } from "../ui.js";
-import { bestaetige, dialog } from "../dialog.js";
+import { bestaetige, dialog, type Option, type Werte } from "../dialog.js";
 import { TRUSTED_SIGNERS, ladeManifeste } from "../../release-signierer.js";
 import { ladeAbdeckung, nutzeStandort, trageAbdeckungEin, vergissStandort, widerrufeAbdeckung } from "./earn.js";
-import { LS_KONTAKTE_SICHERN, geraeteBuch, kontakteEinschalten, kontakteSichernAn, sichereKontakte } from "./kommunikation.js";
+import { LS_KONTAKTE_SICHERN, conversations, geraeteBuch, kontakteEinschalten, kontakteSichernAn, sichereKontakte } from "./kommunikation.js";
 import { LS_STANDARD_SCHIENE, standardSchiene } from "../../standard-schiene.js";
 
 /** Was das Zusammenfuehren (B-5) tut – vor dem Schreiben gezeigt. */
@@ -87,22 +87,28 @@ export async function richteNachfolgeEin(): Promise<void> {
   } = await import("@freedomstack/protocol");
   const { decodeNpub } = await import("../../identity.js");
 
-  const eingabe = prompt(t("set.vertrauteFrage"));
-  if (!eingabe) return;
-  const guardians = [...new Set(eingabe.split(",").map((x) => x.trim()).map((x) => {
-    try {
-      return x.startsWith("npub1") ? decodeNpub(x) : x.toLowerCase();
-    } catch {
-      return "";
-    }
-  }).filter((x) => /^[0-9a-f]{64}$/.test(x) && x !== state.keypair!.pk))];
-  if (guardians.length < 3) {
-    toast(t("set.mindestensDrei"), true);
-    return;
-  }
+  // Dialog statt prompt()/confirm() (C-1c): Kontakte als Häkchen, weitere Schlüssel als Text; unter drei meldet sich der Dialog
+  const ich = state.keypair.pk;
+  const kontakte = conversations.filter((c) => c.type === "dm" && /^[0-9a-f]{64}$/.test(c.id) && c.id !== ich);
+  const vertraute = (w: Werte): string[] => [...new Set([
+    ...(Array.isArray(w.kontakte) ? w.kontakte : []),
+    ...String(w.schluessel ?? "").split(/[\s,]+/).map((x) => schluesselAusEingabe(x, decodeNpub)),
+  ].filter((x) => /^[0-9a-f]{64}$/.test(x) && x !== ich))];
+  const w = await dialog({
+    titel: t("set.nachfolgeDialog"),
+    text: t("set.vertrauteText"),
+    felder: [
+      ...(kontakte.length ? [{ art: "mehrfach" as const, name: "kontakte", label: t("set.vertrauteKontakte"), optionen: kontakte.map((c): Option => ({ wert: c.id, text: c.name })) }] : []),
+      { art: "textarea", name: "schluessel", label: t(kontakte.length ? "set.weitereSchluessel" : "set.vertrauteSchluessel"), mono: true },
+    ],
+    pruefe: (w) => (vertraute(w).length >= 3 ? null : t("set.mindestensDrei")),
+    ok: t("set.weiter"),
+  });
+  const guardians = w ? vertraute(w) : [];
+  if (guardians.length < 3) return;
   const threshold = Math.max(2, Math.ceil(guardians.length / 2));
 
-  if (!confirm(nachfolgeWarnung({ guardians: guardians.length, threshold, graceDays: 30 }))) return;
+  if (!(await bestaetige({ titel: t("set.nachfolgeDialog"), text: fliesstext(nachfolgeWarnung({ guardians: guardians.length, threshold, graceDays: 30 })), ok: t("set.nachfolgeEinrichten") }))) return;
 
   try {
     // Die Teile entstehen LOKAL; jeder geht versiegelt (NIP-59) an genau
@@ -339,7 +345,7 @@ async function bereiteWechselVor(): Promise<void> {
   const { buildRotationMandate, generateKeypair, toHex: th } =
     await import("@freedomstack/protocol");
 
-  if (!confirm(wechselWarnung())) return;
+  if (!(await bestaetige({ titel: t("set.schritt3"), text: fliesstext(wechselWarnung()), ok: t("set.ersatzErzeugen") }))) return;
   try {
     const ersatz = generateKeypair();
     await (await ensurePool()).publish(
@@ -372,24 +378,33 @@ async function bereiteWechselVor(): Promise<void> {
 async function widerrufeSchluessel(): Promise<void> {
   const { buildRevocation, signEvent: se, fromHex, parseRotationMandate, KIND_ROTATION_MANDATE, toHex: th } =
     await import("@freedomstack/protocol");
-  if (!confirm(widerrufAnleitung())) return;
-
-  let alt = prompt(t("set.welcherGestohlen"), state.keypair?.pk ?? "")?.trim() ?? "";
-  if (!alt) return;
-  if (alt.startsWith("npub1")) {
-    try {
-      const { decodeNpub } = await import("../../identity.js");
-      alt = decodeNpub(alt);
-    } catch { alt = ""; }
-  }
-  alt = alt.toLowerCase();
-  if (!/^[0-9a-f]{64}$/.test(alt)) { toast(t("set.keinPubkey"), true); return; }
-  const ersatzHex = prompt(t("set.ersatzFrage"))?.trim().toLowerCase() ?? "";
-  if (!ersatzHex) return;
-  if (!/^[0-9a-f]{64}$/.test(ersatzHex)) { toast(t("set.ersatzHex"), true); return; }
-  const seit = prompt(t("set.seitWann"));
-  const seitUnix = seit?.trim() ? Math.floor(new Date(seit.trim()).getTime() / 1000) : undefined;
-  if (seit?.trim() && !Number.isFinite(seitUnix)) { toast(t("set.datumUnlesbar"), true); return; }
+  const { decodeNpub } = await import("../../identity.js");
+  const pubkeyAus = (roh: unknown): string => schluesselAusEingabe(roh, decodeNpub);
+  const seitAus = (roh: unknown): number | undefined => (String(roh ?? "").trim() ? Math.floor(new Date(String(roh).trim()).getTime() / 1000) : undefined);
+  // Ein Dialog statt confirm() und drei prompt() (C-1c): die Anleitung darüber, der private Ersatzschlüssel verdeckt
+  const w = await dialog({
+    titel: t("set.widerrufen"),
+    text: fliesstext(widerrufAnleitung()),
+    felder: [
+      { art: "text", name: "alt", label: t("set.welcherGestohlen"), wert: state.keypair?.pk ?? "", pflicht: true, mono: true },
+      { art: "text", name: "ersatz", label: t("set.ersatzFrage"), pflicht: true, mono: true, verdeckt: true },
+      { art: "text", name: "seit", label: t("set.seitWann"), typ: "date" },
+    ],
+    pruefe: (w) => {
+      if (!pubkeyAus(w.alt)) return t("set.keinPubkey");
+      if (!/^[0-9a-f]{64}$/.test(String(w.ersatz).trim().toLowerCase())) return t("set.ersatzHex");
+      const seit = seitAus(w.seit);
+      return seit !== undefined && !Number.isFinite(seit) ? t("set.datumUnlesbar") : null;
+    },
+    ok: t("set.widerrufenKnopf"),
+    gefahr: true,
+  });
+  if (!w) return;
+  const alt = pubkeyAus(w.alt);
+  const ersatzHex = String(w.ersatz).trim().toLowerCase();
+  const seitUnix = seitAus(w.seit);
+  if (!alt || (seitUnix !== undefined && !Number.isFinite(seitUnix))) return;
+  if (!/^[0-9a-f]{64}$/.test(ersatzHex)) return;
 
   const sk = fromHex(ersatzHex);
   try {
@@ -514,7 +529,7 @@ async function fuegeGeraetHinzu(): Promise<void> {
 
 async function entzieheGeraet(devicePk: string): Promise<void> {
   if (!state.keypair) return;
-  if (!confirm(t("set.entziehenFrage"))) return;
+  if (!(await bestaetige({ titel: t("set.entziehenTitel"), text: t("set.entziehenFrage"), ok: t("set.entziehenKnopf"), gefahr: true }))) return;
   try {
     const { buildDeviceRevoke } = await import("@freedomstack/protocol");
     await (await ensurePool()).publish(
@@ -530,14 +545,25 @@ async function entzieheGeraet(devicePk: string): Promise<void> {
 /** Als Vertrauter fuer jemanden melden, der sich nicht meldet. */
 async function meldeFuerAnderen(): Promise<void> {
   if (!state.keypair) return;
-  const wen = prompt(t("set.fuerWen"));
-  if (!wen?.trim()) return;
-  const grund = prompt(t("set.warum"));
-  if (!grund?.trim()) return;
+  const { decodeNpub } = await import("../../identity.js");
+  const pubkeyAus = (roh: unknown): string => schluesselAusEingabe(roh, decodeNpub);
+  // Dialog statt zwei prompt() (C-1c): nur ein gültiger Schlüssel; der Grund wird veröffentlicht
+  const w = await dialog({
+    titel: t("set.melden"),
+    felder: [
+      { art: "text", name: "wen", label: t("set.fuerWen"), pflicht: true, mono: true },
+      { art: "textarea", name: "grund", label: t("set.warum"), pflicht: true },
+    ],
+    pruefe: (w) => (pubkeyAus(w.wen) ? null : t("set.keinPubkey")),
+    ok: t("set.meldenKnopf"),
+  });
+  const wen = w ? pubkeyAus(w.wen) : "";
+  const grund = String(w?.grund ?? "");
+  if (!wen || !grund.trim()) return;
 
   try {
     const { buildRecoveryClaim } = await import("@freedomstack/protocol");
-    await (await ensurePool()).publish(await signiere(buildRecoveryClaim(state.keypair.pk, wen.trim(), grund.trim())));
+    await (await ensurePool()).publish(await signiere(buildRecoveryClaim(state.keypair.pk, wen, grund.trim())));
     toast(t("set.gemeldet"));
   } catch (e) {
     toast(fehlerText(e), true);
@@ -1061,7 +1087,7 @@ export async function pruefeFixierungBeimStart(): Promise<void> {
   try {
     const { hash, r, fixierung } = await echtheit();
     const fixVersion = ladeFixierung()?.version ?? "";
-    if (fixierung.status === "andere-echt" && r.version && confirm(fixierungText(fixierung.status, fixVersion, r.version))) {
+    if (fixierung.status === "andere-echt" && r.version && await bestaetige({ titel: t("set.neueVersionTitel"), text: fixierungText(fixierung.status, fixVersion, r.version), ok: t("set.uebernehmen") })) {
       localStorage.setItem(LS_RELEASE_FIX, JSON.stringify({ version: r.version, sha256: hash }));
       toast(t("set.versionFixiert", { version: r.version }));
     } else if (fixierung.status !== "passt") {
@@ -1166,7 +1192,7 @@ function wireRelayZugang(): void {
     if (!preise || !state.keypair) return;
     const url = relay();
     const hinweis = t(schiene === "solana" ? "set.hinweisSol" : "set.hinweisSats");
-    if (!confirm(t("set.kaufFrage", { url, tage: preise.tage, hinweis }))) return;
+    if (!(await bestaetige({ titel: t("set.zugangTitel"), text: t("set.kaufFrage", { url, tage: preise.tage, hinweis }), ok: t("set.kaufen") }))) return;
     satsK.disabled = solK.disabled = true;
     status.textContent = t("set.holeUndZahle");
     try {

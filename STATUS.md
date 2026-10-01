@@ -12788,3 +12788,59 @@ Katalog).
 
 Gesehen, nicht geändert: Eigene Namen stehen in `freedom.petnames` im
 Klartext-`localStorage` – wie der Lesestand (C-14) ein Kandidat für `geheim`.
+
+## Schritt C-1c – Dialoge in den Settings
+
+Spur C, Sammlung C-1, Teil c. `settings.ts` ist seit dem Merge von #183
+(Spur A) frei; alle 12 Browser-Dialoge dort laufen jetzt über
+`shell/dialog.ts`.
+
+**Was:**
+- **Nachfolge einrichten:** Kontakte als Häkchen, weitere Schlüssel (npub
+  oder Hex, durch Komma oder je Zeile) als Text; unter drei Vertrauten meldet
+  sich der Dialog, statt nach dem Fenster einen Toast zu zeigen. Danach die
+  Warnung wie bisher als eigene Bestätigung – erst dann wird der Schlüssel
+  geteilt.
+- **Diebstahl vorbeugen:** die Warnung als Bestätigung („Ersatzschlüssel
+  erzeugen“).
+- **Schlüssel widerrufen:** ein Dialog statt vier Fenstern – die Anleitung
+  darüber, der gestohlene Schlüssel (vorbelegt mit dem eigenen), der private
+  Ersatzschlüssel **verdeckt** (vorher stand er offen im `prompt()`), das
+  Datum als Datumsfeld; „Widerrufen“ rot, Fokus zuerst auf Abbrechen. Die
+  Prüfungen (Schlüssel, 64 Zeichen Hex, Datum) melden sich im Dialog; Hex wird
+  weiter vor `fromHex()` geprüft, das Mandat danach.
+- **Vollmacht entziehen:** Bestätigung mit Gefahr.
+- **Für jemanden melden:** Schlüssel und Grund in einem Dialog; nur ein
+  gültiger Schlüssel (vorher ging jeder Text in die Meldung).
+- **Neue Version übernehmen** (beim Start, wenn fixiert) und **Relay-Zugang
+  kaufen:** Bestätigungen – gezahlt wird wie bisher erst danach.
+- `shell-logic.ts`:
+  - `schluesselAusEingabe()` – npub (auch mit `nostr:`), Hex in jeder
+    Schreibung, sonst leer; genutzt von Nachfolge, Widerruf, Melden und
+    `newDm()` (C-1b, statt der eigenen Prüfung dort).
+  - `fliesstext()` – die Sätze des Protokolls (`wechselWarnung()`,
+    `widerrufAnleitung()`, `nachfolgeWarnung()`) sind für `alert()` hart
+    umbrochen und brachen im Dialog mitten in der Zeile; zur Anzeige werden
+    die Zeilen verbunden, Absätze, Aufzählungen und Nummern bleiben. Die
+    Sätze selbst bleiben wortgleich mit dem Protokoll.
+
+**Verdrahtet:** `settings.ts:97`/`:111` (`richteNachfolgeEin()`), `:348`
+(`bereiteWechselVor()`), `:385` (`widerrufeSchluessel()`), `:532`
+(`entzieheGeraet()`), `:551` (`meldeFuerAnderen()`), `:1090`
+(`pruefeFixierungBeimStart()`), `:1195` (Relay-Kauf); `kommunikation.ts`
+(`newDm()` → `schluesselAusEingabe()`).
+
+**Tests:** app +3 in `test/browser-dialoge.test.ts`
+(`schluesselAusEingabe()` mit npub, `nostr:`, Großbuchstaben, falscher
+Prüfsumme, nsec, zu kurz/lang; Verdrahtung der Settings – fragen → warnen →
+Schlüssel, verdeckt, Gefahr, erst bestätigen, dann zahlen; `fliesstext()`).
+`NOCH_OFFEN` ohne `settings.ts`. Angepasst, weil der Aufruf jetzt anders
+heißt: `release-fix.test.ts` (Bestätigung statt `confirm()`),
+`dm-verdrahtung.test.ts` (`newDm()` über `schluesselAusEingabe()`, dessen
+Fälle jetzt einzeln getestet sind). Smoke „einstellungen“ (neu): Widerruf –
+Anleitung, Felder Text/Passwort/Datum, Fokus auf Abbrechen, „abc“ meldet
+„Der Ersatzschlüssel muss 64 Zeichen hex sein“; Nachfolge mit zwei
+Schlüsseln meldet „Mindestens drei Vertraute …“; Melden mit „npub1falsch“
+meldet „Kein gültiger öffentlicher Schlüssel“; abgebrochen nichts gesendet,
+kein Browser-Dialog. Bilder: `docs/ausbau/bilder/c-1c/` (Nachfolge mit
+Kontakten, Widerruf mit Fehler).

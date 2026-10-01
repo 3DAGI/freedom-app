@@ -44,6 +44,8 @@ test("die Konstante des Datenschutzberichts passt zum Sendepfad", () => {
 
 test("neue DMs wandeln npub um und pruefen die Eingabe", () => {
   const f = funktion("newDm");
-  assert.match(f, /decodeNpub\(/);
-  assert.match(f, /\[0-9a-f\]\{64\}/);
+  // Seit C-1c gemeinsam mit den Settings über schluesselAusEingabe() (shell-logic.ts, dort mit Fällen getestet)
+  assert.match(f, /const \{ decodeNpub \} = await import\("\.\.\/\.\.\/identity\.js"\);/);
+  assert.match(f, /schluesselAusEingabe\(roh, decodeNpub\)/);
+  assert.match(f, /const id = w \? schluessel\(w\.schluessel\) : "";\s*if \(!id\) return;/);
 });
