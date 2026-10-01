@@ -13082,3 +13082,9 @@ Endstand (B-8b, 01.10.): protocol 1144 (6 übersprungen) · node 275 (+4, 7
 übersprungen ohne Netz – mit Netz 276) · app 734 · mls 13 · Leak-Tests 68 grün
 + 1 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 ·
 Website ok · Smoke-Test bestanden. Knoten-Stand: **dieser Stand** (GX10).
+
+**Nebenbei (CI):** Der MLS-Test „Nachricht: … kein Klartext“ scheiterte in der
+CI einmal. Er suchte „4711“ im ganzen Event, und Id, Signatur und Schlüssel sind
+Zufalls-Hex: Bei 3000 gesendeten Nachrichten stand „4711“ sechsmal zufällig
+darin, der Klartext nie. Jetzt sucht er „Gruppe 4711“ mit Leerzeichen; das kann
+weder in Hex noch in Base64 entstehen.
