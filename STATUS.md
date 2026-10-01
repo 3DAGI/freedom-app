@@ -13746,3 +13746,32 @@ nach dem Öffnen der Kanäle steht der Stand als Objekt mit Zeiten.
 
 Aufgefallen, nicht geändert: Der Lesestand ist nach der Kanal-Kennung
 gemerkt, nicht nach Raum – „allgemein“ in zwei Räumen teilt sich einen Stand.
+
+## Schritt C-16 – Relay-Stand „verbunden“
+
+**Warum:** Die Navigation zeigte „8 Relays im Pool“ – ehrlich, aber wenig
+hilfreich: `WebSocketRelay` hielt den Verbindungsstand privat (E8, B5 aus
+`phase-10.md`; Sammlung C-16). Spur A war einverstanden, einen lesenden Getter
+ohne Formatänderung mit C-16 zu bauen (29.09.).
+
+**Was:**
+- `protocol/src/ws-relay.ts`: `get verbunden(): boolean` – offen heißt
+  `readyState === WebSocket.OPEN`; nur lesend, sonst unverändert.
+- `shell/ui.ts` (`aktualisiereNavStatus()`): zählt die Relays des Pools mit
+  `verbunden === true`; Leiste `x/y`, Titel und „Mehr“ „x von y Relays
+  verbunden“; der Punkt leuchtet nur mit offener Verbindung und Netz.
+- `shell/app.ts`: der Takt der Anzeige 5 s statt 30 s – er liest nur den
+  Speicher, kein Netz (die Regel „kein neues `setInterval` fürs Netz“ bleibt).
+- Texte: `nav.relaysVerbunden` statt `nav.relaysImPool`, Titel
+  „Relay-Verbindungen“.
+
+**Verdrahtet:** `aktualisiereNavStatus()` beim Start, alle 5 s, bei
+online/offline und beim Öffnen von „Mehr“ (`shell/app.ts`).
+
+**Tests:** protocol +1 (`ws-relay.test.ts`: erst nach dem ersten Gebrauch
+verbunden, nach `close()` nicht mehr, ein toter Port nie). app: der Test zu
+C.1a („im Pool, nie verbunden“) heißt jetzt C-16 – beide Zahlen im Satz,
+„verbunden“ nur aus dem Getter, der Punkt nur mit offener Verbindung (Zahl
+gleich). Smoke „rahmen“ prüft die Form „x von y Relays verbunden“ (ohne
+Relays: 0), „fremdtext“ mit der Relay-Attrappe mindestens eine offene
+Verbindung, `x/y` in der Leiste und den leuchtenden Punkt.

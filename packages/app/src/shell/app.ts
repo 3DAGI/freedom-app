@@ -863,7 +863,8 @@ function starte(): void {
       else ziel?.click();
     });
   });
-  setInterval(() => void aktualisiereNavStatus(), 30_000);
+  // Nur der Stand im Speicher, kein Netz (C-16): oft genug, dass „verbunden“ der Lage folgt
+  setInterval(() => void aktualisiereNavStatus(), 5_000);
   // Posteingang etwa jede Minute (jeder zweite Schlag des Abruftakts, 6.4: mit Zufall, gebuendelt) –
   // so beantwortet die App Adress-Anfragen fuer Trinkgeld (4.9d), solange sie offen ist.
   abrufTakt.melde("posteingang", posteingangAbgleichen, 2);

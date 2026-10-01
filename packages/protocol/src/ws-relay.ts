@@ -85,6 +85,15 @@ export class WebSocketRelay implements Relay {
     this.verbinde = opts.verbinde;
   }
 
+  /**
+   * Ob die Leitung gerade offen ist – nur lesend, für die Anzeige (C-16). Die
+   * Verbindung entsteht erst beim ersten Gebrauch; „nicht verbunden“ heißt also
+   * auch „noch nicht gebraucht“.
+   */
+  get verbunden(): boolean {
+    return this.ws !== null && this.ws.readyState === WebSocket.OPEN;
+  }
+
   private connect(): Promise<void> {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) return Promise.resolve();
     if (this.connectPromise) return this.connectPromise;

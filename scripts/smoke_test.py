@@ -30,7 +30,7 @@ Prueft im Headless-Chromium:
     sichtbarer Onboarding-Leiste (vorher Breite 0), Adresse nur mit Seitennamen,
     Zurück; Mobil – unten Agent, Chat, Waehrung, Mehr; Verlauf und Modelle des
     Agenten erreichbar; unter „Mehr“ Repos, Verdienen, Netz, Profil, Settings,
-    Sprache und der Relay-Stand „im Pool“; seit C.1b Repos und Netz als Seiten
+    Sprache und der Relay-Stand (seit C-16 „verbunden“); seit C.1b Repos und Netz als Seiten
     mit ihren Inhalten (Repositories, Mitwirkende, Abdeckung, Mesh)
   - Dialoge (Schritt C.2b1): per Tastatur, Fokus bleibt drin, Esc, Fokus zurück
   - Raum (Schritt C.2b2): ein Probe-Raum über eine Relay-Attrappe (signiert von
@@ -434,7 +434,7 @@ def rahmen_pruefen(browser, url: str) -> dict:
             if adresse != "#/waehrung" or zurueck != ["#/chat", True]:
                 erg["fehler"].append(f"desktop: Adresse/Zurück {adresse} {zurueck}")
             titel = ev("() => document.querySelector('.nav-status').title")
-            if "im Pool" not in titel:
+            if not re.fullmatch(r"\d+ von \d+ Relays verbunden", titel):  # seit C-16 verbunden statt im Pool
                 erg["fehler"].append(f"desktop: Relay-Stand {titel!r}")
             # C.1b: die verschobenen Inhalte stehen auf ihren neuen Seiten
             inhalte = {}
@@ -480,7 +480,7 @@ def rahmen_pruefen(browser, url: str) -> dict:
             settings = ev("""() => [document.getElementById('page-settings').classList.contains('active'),
               document.querySelector('.app-nav button[data-tab="mehr"]').classList.contains('active')]""")
             erg["mobil"]["mehr"] = [mehr, sprache, settings]
-            if mehr[0] != ["repos", "earn", "netz", "profile", "settings"] or "im Pool" not in mehr[1] or not sprache or settings != [True, True]:
+            if mehr[0] != ["repos", "earn", "netz", "profile", "settings"] or not re.fullmatch(r"\d+ von \d+ Relays verbunden", mehr[1]) or not sprache or settings != [True, True]:
                 erg["fehler"].append(f"mobil: Mehr {erg['mobil']['mehr']}")
         ctx.close()
     erg["bestanden"] = not erg["fehler"]
@@ -923,9 +923,15 @@ def fremdtext_pruefen(browser, url: str) -> dict:
                elemente: document.querySelectorAll('#chat-list b, #chat-list img, #chat-thread b, #chat-thread img:not(.chat-media)').length }; }""")
     if html("kontakt") not in erg["chat_name"]:
         erg["fehler"].append(f"Name in der Liste {erg['chat_name']}")
+    # C-16: die Relay-Attrappe nimmt jede Verbindung an – nach dem Abgleich ist mindestens eine offen
+    seite.s.wait_for_function("() => /^[1-9]\\d* von \\d+ Relays verbunden$/.test(document.querySelector('.nav-status').title)", timeout=15000)
+    erg["relays"] = ev("() => [document.querySelector('.nav-status').title, document.getElementById('nav-status-text').textContent,"
+                       " document.getElementById('nav-status-dot').classList.contains('on')]")
     if erg["chat"] != {"text": html("text"), "bild": html("bild"), "knopf": [f"🔒 {html('datei')}", "x\" onclick=\"window.__fremd='mime'", None],
                        "zap": True, "elemente": 0}:
         erg["fehler"].append(f"Verlauf {erg['chat']}")
+    if not re.fullmatch(r"\d+/\d+", erg["relays"][1]) or erg["relays"][2] is not True:
+        erg["fehler"].append(f"Relay-Stand {erg['relays']}")
     ev("() => { location.hash = '#/settings'; }")
     seite.s.wait_for_function("() => document.querySelector('#device-list span') && document.querySelector('#succession-status span')", timeout=30000)
     erg["settings"] = ev("() => [document.querySelector('#device-list span').textContent.split('.')[0],"

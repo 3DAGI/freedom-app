@@ -20,5 +20,5 @@ export const rahmen: Texte = {
   navEarn: { de: "Verdienen", en: "Earn" },
   navProfile: { de: "Profil", en: "Profile" },
   navSettings: { de: "Settings", en: "Settings" },
-  relaysTitle: { de: "Relays im Pool", en: "Relays in the pool" },
+  relaysTitle: { de: "Relay-Verbindungen", en: "Relay connections" },
 };
