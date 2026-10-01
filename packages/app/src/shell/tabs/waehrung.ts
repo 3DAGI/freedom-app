@@ -19,7 +19,7 @@ import {
 import { gebietsschema, t } from "../../i18n.js";
 import { fehlerText } from "../../protokoll-texte.js";
 import { LS_NWC_EIGENES_RELAY, LS_NWC_NUR_PRIVAT, nwcRelayEinstellung } from "../../nwc-relays.js";
-import { escapeHtml, pkShort } from "../../shell-logic.js";
+import { escapeHtml, ganzeSats, pkShort } from "../../shell-logic.js";
 import { anbieterKursWarnung, depositDeckel, solText } from "../../preis-anzeige.js";
 import type { RueckPlan } from "../../rueck-swap.js";
 import { hinAnfrage, liestUmschlaege, rueckAnfrage, swapAntworten, type SwapPost } from "../../swap-umschlag.js";
@@ -30,6 +30,7 @@ import {
   solRpcUrl,
   state,
 } from "../state.js";
+import { bestaetige, dialog } from "../dialog.js";
 import { eingebauterHtlcSigner, frischeEmpfangsadresse, zeigeEingebauteWallet } from "../eingebaute-wallet.js";
 import { aktualisiereKurs, zeigeKurs } from "../marktkurs.js";
 import { geheim, verlangeTresor } from "../tresor.js";
@@ -128,9 +129,14 @@ async function swapClient(): Promise<typeof import("../../swap-client.js")> {
 
 async function startSwap(lpPubkey: string, offerId: string, vorabSats?: number): Promise<void> {
   if (!state.keypair) return;
-  const amountStr = prompt(t("waehr.betragSats"));
-  const amount = Number(amountStr);
-  if (!amount || amount <= 0) return;
+  const w = await dialog({
+    titel: t("waehr.tauschTitel"),
+    felder: [{ art: "text", name: "betrag", label: t("waehr.betragSats"), pflicht: true }],
+    pruefe: (w) => (ganzeSats(w.betrag) ? null : t("waehr.ungueltigerBetrag")),
+    ok: t("waehr.weiter"),
+  });
+  const amount = w ? ganzeSats(w.betrag) : 0;
+  if (!amount) return;
   // Adressverlauf: Die Kette ist der Abfluss, gegen den weder Tor noch
   // Verschluesselung hilft. Deshalb VOR dem Swap pruefen, nicht danach
   // berichten.
@@ -148,10 +154,14 @@ async function startSwap(lpPubkey: string, offerId: string, vorabSats?: number):
   });
 
   if (!pruefung.ok) {
-    const weiter = confirm(t("waehr.bevorDuTauschst", {
-      befunde: pruefung.befunde.join("\n\n"),
-      schritte: pruefung.schritte.map((a) => `  · ${a}`).join("\n"),
-    }));
+    const weiter = await bestaetige({
+      titel: t("waehr.bevorTitel"),
+      text: t("waehr.bevorDuTauschst", {
+        befunde: pruefung.befunde.join("\n\n"),
+        schritte: pruefung.schritte.map((a) => `  · ${a}`).join("\n"),
+      }),
+      ok: t("waehr.trotzdemWeiter"),
+    });
     if (!weiter) return;
   }
 
@@ -160,10 +170,15 @@ async function startSwap(lpPubkey: string, offerId: string, vorabSats?: number):
   // Eingeloest wird dann mit ihrem Schluessel, ohne SOL ueber einen Relayer.
   // Bis 4.9c stand hier nur ein Fingerabdruck – die Adresse selbst sah niemand.
   const frisch = await frischeEmpfangsadresse().catch(() => undefined);
-  const solAddr = (prompt(
-    t(frisch ? "waehr.empfangsadresseFrisch" : "waehr.empfangsadresse"),
-    frisch ?? solWallet.pubkey ?? "",
-  ) ?? "").trim();
+  const { isValidSolanaAddress } = await import("../../solana-connect.js");
+  const wa = await dialog({
+    titel: t("waehr.tauschTitel"),
+    text: frisch ? t("waehr.empfangsadresseFrisch") : undefined,
+    felder: [{ art: "text", name: "adresse", label: t("waehr.empfangsadresse"), wert: frisch ?? solWallet.pubkey ?? "", pflicht: true, mono: true }],
+    pruefe: (w) => (isValidSolanaAddress(String(w.adresse).trim()) ? null : t("waehr.keineSolAdresse")),
+    ok: t("waehr.tauschAnfragen"),
+  });
+  const solAddr = String(wa?.adresse ?? "").trim();
   if (!solAddr) return;
   // Adressverlauf und Preimage sind Geheimnisse – vor dem Speichern der Tresor.
   if (!(await verlangeTresor(t("waehr.fuerTausch")))) return;
@@ -340,7 +355,7 @@ async function zahleVorab(antwort: UnsignedEvent, angekuendigt: number | undefin
     statusEl.className = "mono-sm err";
     return false;
   }
-  if (!confirm(t("waehr.vorabFrage", { sats: p.sats }))) {
+  if (!(await bestaetige({ titel: t("waehr.vorabTitel"), text: t("waehr.vorabFrage", { sats: p.sats }), ok: t("waehr.zahlen") }))) {
     statusEl.textContent = t("waehr.vorabAbgelehnt");
     statusEl.className = "mono-sm warn";
     return false;
@@ -456,7 +471,7 @@ async function einloesenUeberRelayer(p: {
   if (!mieteReicht({ guthabenVorher: p.guthaben, eingeloest: p.swap.lamports, erstattung: teuerster })) {
     throw new Error(t("waehr.mieteReichtNicht"));
   }
-  if (!confirm(t("waehr.relayerFrage", { betrag: solText(teuerster) }))) return undefined;
+  if (!(await bestaetige({ titel: t("waehr.relayerTitel"), text: t("waehr.relayerFrage", { betrag: solText(teuerster) }), ok: t("waehr.einloesen") }))) return undefined;
 
   for (const k of kandidaten) {
     // Genug Zeit fuer Relayer und Kette – sonst lieber gar nicht (die Lightning-Zahlung laeuft dann zurueck).
@@ -530,13 +545,27 @@ async function startRueckSwap(lpPubkey: string, offer: LpOffer): Promise<void> {
   if (!istRueckAngebot(offer)) return melde(t("waehr.angebotOhneKonto"), "err");
   const signer = htlcSigner();
   if (!signer) return melde(t("waehr.erstSolanaWallet"), "warn");
-  const sats = Number(prompt(t("waehr.wievieleSats", { min: offer.minSats, max: offer.maxSats })));
-  if (!Number.isSafeInteger(sats) || sats <= 0) return;
+  const ws = await dialog({
+    titel: t("waehr.rueckTitel"),
+    felder: [{ art: "text", name: "sats", label: t("waehr.wievieleSats", { min: offer.minSats, max: offer.maxSats }), pflicht: true }],
+    pruefe: (w) => {
+      const n = ganzeSats(w.sats);
+      if (!n) return t("waehr.ungueltigerBetrag");
+      return n < offer.minSats || n > offer.maxSats ? t("waehr.betragBereich", { min: offer.minSats, max: offer.maxSats }) : null;
+    },
+    ok: t("waehr.weiter"),
+  });
+  const sats = ws ? ganzeSats(ws.sats) : 0;
+  if (!sats) return;
   let bolt11: string;
   try {
     bolt11 = nwc
       ? (await nwc.makeInvoice(sats * 1000, "FreedomStack: Tausch SOL → sats")).invoice // kein UI-Text
-      : (prompt(t("waehr.rechnungFrage", { sats })) ?? "").trim();
+      : String((await dialog({
+        titel: t("waehr.rueckTitel"),
+        felder: [{ art: "textarea", name: "rechnung", label: t("waehr.rechnungFrage", { sats }), pflicht: true, mono: true }],
+        ok: t("waehr.weiter"),
+      }))?.rechnung ?? "").trim();
   } catch (e) {
     return melde(t("waehr.rechnungNichtErstellt", { fehler: fehlerText(e) }), "err");
   }
@@ -549,11 +578,15 @@ async function startRueckSwap(lpPubkey: string, offer: LpOffer): Promise<void> {
   }
   const markt = await aktualisiereKurs();
   const warnung = markt ? anbieterKursWarnung({ satsProSol: Math.round(1e9 / offer.lamportsPerSat) }, markt) : undefined;
-  if (!confirm((warnung ? `${warnung} ` : "") + t("waehr.sperrenFrage", {
-    betrag: solText(plan.lamports),
-    gebuehr: (offer.feePpm / 10_000).toLocaleString(gebietsschema(), { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
-    sats,
-    ab: new Date(plan.timelockUnix * 1000).toLocaleString(gebietsschema()),
+  if (!(await bestaetige({
+    titel: t("waehr.rueckTitel"),
+    text: (warnung ? `${warnung}\n\n` : "") + t("waehr.sperrenFrage", {
+      betrag: solText(plan.lamports),
+      gebuehr: (offer.feePpm / 10_000).toLocaleString(gebietsschema(), { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+      sats,
+      ab: new Date(plan.timelockUnix * 1000).toLocaleString(gebietsschema()),
+    }),
+    ok: t("waehr.sperren"),
   }))) return;
 
   // Erst merken, dann sperren: Bricht die App dazwischen ab, holt der Waechter
@@ -882,7 +915,7 @@ export async function startDeposit(): Promise<void> {
     return;
   }
   const kursWarnung = anbieterKursWarnung(angebot.kurs, markt);
-  if (kursWarnung && !confirm(t("waehr.trotzdemHinterlegen", { warnung: kursWarnung }))) return;
+  if (kursWarnung && !(await bestaetige({ titel: t("waehr.solHinterlegen"), text: t("waehr.trotzdemHinterlegen", { warnung: kursWarnung }), ok: t("waehr.hinterlegenTrotzdem") }))) return;
   const maxLamportsPerKToken = depositDeckel(angebot.textRatePerKTokenMsat, markt);
   // Das Preimage des Deposits ist ein Geld-Geheimnis – vor dem Sperren der Tresor.
   if (!(await verlangeTresor(t("waehr.fuerDeposit")))) return;

@@ -537,6 +537,95 @@ def dialog_pruefen(browser, url: str) -> dict:
     return erg
 
 
+def waehrung_pruefen(browser, url: str) -> dict:
+    """Währung (C-1a): Tausch über Dialoge statt prompt()/confirm() – Betrag und Adresse prüft der Dialog,
+    abgebrochen geht nichts hinaus. LP-Angebote aus `scripts/lp-probe.mts` über die Relay-Attrappe."""
+    erg = {"fehler": []}
+    basis = url.rsplit("/", 1)[0]
+    wurzel = Path(__file__).resolve().parent.parent
+    aus = subprocess.run(["npx", "tsx", "scripts/lp-probe.mts"], cwd=wurzel, capture_output=True, text=True, timeout=180, check=True)
+    relay = ProbeRelay()
+    relay.events = json.loads(aus.stdout)["events"]
+    browser_dialoge: list[str] = []
+    ctx = browser.new_context(locale="de-DE", viewport={"width": 1280, "height": 800})
+    ctx.route("**/*", lambda r: r.continue_() if r.request.url.startswith(basis) else r.abort())
+    ctx.route_web_socket(re.compile(r"^wss?://"), relay.verbinde)
+    s = ctx.new_page()
+    s.on("pageerror", lambda e: erg["fehler"].append(str(e)[:300]))
+    s.on("dialog", lambda d: (browser_dialoge.append(d.type), d.dismiss()))
+    ev = s.evaluate
+    s.goto(url, wait_until="load")
+    s.wait_for_selector("#bk-done", timeout=30000)
+    w = ev("() => [...document.querySelectorAll('.mnemonic-list li')].map(l => l.textContent)")
+    ev("(w) => document.querySelectorAll('#bk-challenge input').forEach(i => i.value = w[+i.dataset.pos])", w)
+    ev("() => document.getElementById('bk-done').click()")
+    s.wait_for_timeout(1500)
+    ev("() => document.getElementById('ein-abbrechen')?.click()")
+    ev("() => { location.hash = '#/waehrung'; }")
+    s.wait_for_function("() => document.querySelectorAll('#lp-offers button').length === 3", timeout=30000)
+    stand = """() => { const d = document.querySelector('[role=dialog][aria-modal=true]');
+      return d ? { titel: document.getElementById(d.getAttribute('aria-labelledby'))?.textContent,
+        text: d.querySelector('.dlg-text')?.textContent ?? null,
+        felder: [...d.querySelectorAll('.dlg-label')].map(l => l.textContent),
+        werte: [...d.querySelectorAll('input, textarea')].map(i => i.value),
+        meldung: d.querySelector('[role=alert]')?.textContent || null } : null; }"""
+    knoepfe = ev("() => [...document.querySelectorAll('#lp-offers .stat')].map(z => [z.querySelector('.k').textContent.split(' · ')[1],"
+                 " z.querySelector('button').textContent, z.querySelector('button').disabled])")
+    erg["angebote"] = knoepfe
+    if sorted(knoepfe) != sorted([["sats → SOL", "tauschen", False], ["sats → SOL", "veraltet", True], ["SOL → sats", "tauschen", False]]):
+        erg["fehler"].append(f"Angebote {knoepfe}")
+
+    def warte_dialog(titel: str) -> dict:
+        s.wait_for_function("(t) => { const d = document.querySelector('[role=dialog][aria-modal=true]');"
+                            " return d && document.getElementById(d.getAttribute('aria-labelledby'))?.textContent === t; }", arg=titel, timeout=10000)
+        return ev(stand)
+
+    def tippe(text: str) -> dict:
+        ev("(v) => { const i = document.querySelector('[role=dialog] input'); i.value = v; i.focus(); }", text)
+        s.keyboard.press("Enter")
+        s.wait_for_timeout(200)
+        return ev(stand)
+
+    ev("() => [...document.querySelectorAll('#lp-offers .stat')].find(z => z.textContent.includes('sats → SOL') && !z.querySelector('button').disabled).querySelector('button').click()")
+    betrag = warte_dialog("sats gegen SOL tauschen")
+    exp = tippe("1e3")  # Number() läse 1000 – der Dialog nimmt nur Ziffern
+    tippe("10000")
+    # 10 000 sats sind hier 0,01 SOL, ein runder Betrag: erst die Warnung, dann die Adresse
+    bevor = warte_dialog("Bevor du tauschst")
+    ev("() => [...document.querySelectorAll('[role=dialog] button')].find(b => b.textContent === 'Trotzdem weiter').click()")
+    s.wait_for_function("() => document.querySelector('[role=dialog] .dlg-label')?.textContent === 'Deine Solana-Empfangsadresse'", timeout=10000)
+    adresse = ev(stand)
+    falsch = tippe("keine-adresse")
+    s.keyboard.press("Escape")
+    s.wait_for_timeout(500)
+    zu = ev(stand)
+    erg["hin"] = {"betrag": betrag, "exp": exp, "bevor": bevor, "adresse": adresse, "falsch": falsch, "zu": zu}
+    if not (betrag["felder"] == ["Betrag in sats"] and exp["meldung"] == "Ungültiger Betrag"):
+        erg["fehler"].append(f"Betrag {betrag} {exp}")
+    if "Empfohlen:" not in (bevor["text"] or ""):
+        erg["fehler"].append(f"Warnung {bevor}")
+    if not (adresse["titel"] == "sats gegen SOL tauschen" and adresse["werte"] == [""] and falsch["meldung"] == "Keine gültige Solana-Adresse"):
+        erg["fehler"].append(f"Adresse {adresse} {falsch}")
+    if zu is not None:
+        erg["fehler"].append(f"Esc schließt nicht {zu}")
+    # Abgebrochen: keine Anfrage, nichts gemerkt
+    erg["gesendet"] = [e["kind"] for e in relay.gesendet if e["kind"] in (1059, 25001, 25002)]
+    erg["verlauf"] = ev("() => Object.keys(localStorage).filter(k => k.includes('swapHistory'))")
+    if erg["gesendet"] or erg["verlauf"]:
+        erg["fehler"].append(f"abgebrochen, aber gesendet/gemerkt: {erg['gesendet']} {erg['verlauf']}")
+    # SOL → sats ohne Solana-Wallet: kein Dialog, nur der Hinweis
+    ev("() => [...document.querySelectorAll('#lp-offers .stat')].find(z => z.textContent.includes('SOL → sats')).querySelector('button').click()")
+    s.wait_for_function("() => document.getElementById('swap-status')?.textContent.startsWith('Erst eine Solana-Wallet')", timeout=10000)
+    if ev(stand) is not None:
+        erg["fehler"].append("SOL → sats ohne Wallet öffnet einen Dialog")
+    erg["browser_dialoge"] = browser_dialoge
+    if browser_dialoge:
+        erg["fehler"].append(f"Browser-Dialoge: {browser_dialoge}")
+    ctx.close()
+    erg["bestanden"] = not erg["fehler"]
+    return erg
+
+
 # Echtes Git-Bundle (v2, mit Deltas) für den Reiter „Code“ (seit C.3c1) – dasselbe wie im Test von git-bundle.ts
 PROBE_BUNDLE = (Path(__file__).resolve().parent.parent / "packages/app/test/fixtures/probe-v2.bundle").read_bytes()
 # Seit C-20b: README mit Tabelle und Verweisen (src/liste.txt, docs/ANLEITUNG.md, einer hinaus)
@@ -2202,6 +2291,10 @@ def main() -> int:
             except Exception as e:
                 erg["dialog"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
             try:
+                erg["waehrung"] = waehrung_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
+            except Exception as e:
+                erg["waehrung"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
+            try:
                 erg["raum"] = raum_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
             except Exception as e:
                 erg["raum"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
@@ -2239,6 +2332,7 @@ def main() -> int:
           and erg.get("mls", {}).get("bestanden") is True
           and erg.get("rahmen", {}).get("bestanden") is True
           and erg.get("dialog", {}).get("bestanden") is True
+          and erg.get("waehrung", {}).get("bestanden") is True
           and erg.get("raum", {}).get("bestanden") is True
           and erg.get("karte", {}).get("bestanden") is True
           and erg.get("qr", {}).get("bestanden") is True

@@ -46,7 +46,7 @@ test("Verdrahtung (4.6d): nur Antworten des LP, Vorab erst pruefen, dann ueber d
   assert.match(w, /const alle = await swapAntworten\(pool, post\);/);
   assert.match(w, /void pollSwapResponse\(post, toHex\(H\), solAddr, amount, vorabSats\)/);
   const f = w.slice(w.indexOf("async function zahleVorab("), w.indexOf("/** Laufender Swap"));
-  const [pruefen, fragen, zahlen] = ["pruefeVorab(antwort, angekuendigt)", "confirm(", "await zahle(zahlschienen()"].map((x) => f.indexOf(x));
+  const [pruefen, fragen, zahlen] = ["pruefeVorab(antwort, angekuendigt)", 'await bestaetige({ titel: t("waehr.vorabTitel")', "await zahle(zahlschienen()"].map((x) => f.indexOf(x));
   assert.ok(pruefen > 0 && pruefen < fragen && fragen < zahlen, "pruefen → fragen → zahlen");
   assert.match(f, /zweck: "swap"/);
 });

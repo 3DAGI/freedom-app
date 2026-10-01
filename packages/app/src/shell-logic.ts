@@ -123,6 +123,18 @@ export function fmtSats(msat: number): string {
   return `${Math.round(sats).toLocaleString(gebietsschema())} sats`;
 }
 
+/**
+ * Ganze sats über 0 aus einem Eingabefeld (C-1a), sonst 0: nur Ziffern –
+ * kein Komma, kein Exponent, keine Leerstelle mitten drin. `Number("1e3")`
+ * oder `Number("0x10")` wären sonst still ein anderer Betrag als getippt.
+ */
+export function ganzeSats(v: unknown): number {
+  const s = typeof v === "string" ? v.trim() : "";
+  if (!/^\d{1,15}$/.test(s)) return 0;
+  const n = Number(s);
+  return Number.isSafeInteger(n) && n > 0 ? n : 0;
+}
+
 /** Lamports als SOL, mit genug Nachkommastellen für kleine Beträge. */
 export function fmtSol(lamports: number): string {
   if (!Number.isFinite(lamports) || lamports < 0) return "—";
