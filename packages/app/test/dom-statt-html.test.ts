@@ -13,7 +13,7 @@ const quelle = (p: string) => readFileSync(new URL(p, import.meta.url), "utf8");
 const ausnahmen = quelle("../../../scripts/innerhtml-ausnahmen.txt").split("\n").filter((z) => z && !z.startsWith("#"));
 
 /** Ohne innerHTML gebaut (C-6a) – die Liste wächst mit jedem Teilschritt. */
-const FERTIG = ["shell/tabs/agent-netz.ts", "shell/tabs/earn.ts", "shell/tabs/profil.ts"];
+const FERTIG = ["shell/tabs/agent-netz.ts", "shell/tabs/earn.ts", "shell/tabs/profil.ts", "shell/tabs/settings.ts", "shell/state.ts"];
 
 test("C-6a: fertige Dateien ohne innerHTML und ohne Ausnahme", () => {
   for (const d of FERTIG) {
@@ -62,4 +62,27 @@ test("C-6a: der Smoke-Test schiebt HTML durch die umgebauten Ansichten", () => {
   assert.match(smoke, /and erg\.get\("fremdtext", \{\}\)\.get\("bestanden"\) is True/);
   const probe = quelle("../../../scripts/fremdtext-probe.mts");
   assert.match(probe, /onerror=/, "die Probe trägt ein Skript, das nie laufen darf");
+});
+
+test("C-6b: Settings und RPC-Stand – Gerätenamen, Fehler der Anbieter und Prüfsumme als Text", () => {
+  const settings = quelle("../src/shell/tabs/settings.ts");
+  assert.match(settings, /zeile\.append\(el\("span", x\.label\), stand\);/);
+  assert.match(settings, /knopf\.dataset\.pk = x\.devicePubkey;/);
+  assert.match(settings, /el\("span", hash, "mono-sm"\)/);
+  assert.doesNotMatch(settings, /escapeHtml/, "nichts mehr zu maskieren");
+  const st = quelle("../src/shell/state.ts");
+  assert.match(st, /el\("span", `\$\{name\} · \$\{s\.lastError \?\? t\("ein\.keineAntwortRpc"\)\}`, "err"\)/);
+});
+
+test("C-6b: Merkphrase, Sicherungs-Warnung und Sprachmenü als DOM", () => {
+  const app = quelle("../src/shell/app.ts");
+  assert.match(app, /box\.querySelector\("\.mnemonic-list"\)!\.replaceChildren\(\.\.\.woerter\.map\(\(w\) => el\("li", w\)\)\);/);
+  assert.match(app, /feld\.dataset\.pos = String\(p\);/);
+  assert.match(app, /warn\.replaceChildren\(`⚠ \$\{st\.warning\} `, knopf\);/);
+  assert.match(app, /const b = el\("button", `\$\{l\.code\.toUpperCase\(\)\} · \$\{l\.label\}`, l\.code === getLang\(\) \? "active" : undefined\);/);
+  // Was bleibt, sind feste Vorlagen ohne Fremddaten: der Rahmen des Merkphrasen-Dialogs, Symbole, das Logo
+  assert.doesNotMatch(app, /woerter\.map\(\(w\) => `/);
+  assert.deepEqual(ausnahmen.filter((z) => z.startsWith("app.ts|")).length, 0);
+  const smoke = quelle("../../../scripts/smoke_test.py");
+  assert.match(smoke, /erg\["sprachen"\] != \[\["DE · Deutsch", "button", "active"\], \["EN · English", "button", ""\]\]/);
 });

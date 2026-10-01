@@ -119,6 +119,7 @@ import {
 import {
   $,
   aktualisiereNavStatus,
+  el,
   zeigeIdent,
   refreshQuota,
   setzeLogo,
@@ -196,21 +197,29 @@ async function baueSicherungsDialog(mnemonic: string): Promise<void> {
     <div class="modal">
       <h3>${escapeHtml(t("ein.phraseTitel"))}</h3>
       <p class="mono-sm">${escapeHtml(t("ein.phraseText"))}</p>
-      <ol class="mnemonic-list">${woerter.map((w) => `<li>${escapeHtml(w)}</li>`).join("")}</ol>
+      <ol class="mnemonic-list"></ol>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0">
         <button id="bk-copy" class="ghost" style="width:auto;padding:6px 10px">${escapeHtml(t("ein.kopieren"))}</button>
         <button id="bk-file" class="ghost" style="width:auto;padding:6px 10px">${escapeHtml(t("ein.alsDatei"))}</button>
       </div>
       <p class="mono-sm">${escapeHtml(t("ein.zurBestaetigung"))}</p>
-      <div id="bk-challenge" style="display:flex;gap:6px;flex-wrap:wrap">
-        ${positionen.map((p) => `<label class="mono-sm">${escapeHtml(t("ein.nummer", { n: p + 1 }))}
-          <input data-pos="${p}" class="mono-sm" style="width:110px" autocomplete="off" /></label>`).join("")}
-      </div>
+      <div id="bk-challenge" style="display:flex;gap:6px;flex-wrap:wrap"></div>
       <div id="bk-error" class="mono-sm err"></div>
       <button id="bk-done" class="send-btn" style="margin-top:8px">${escapeHtml(t("ein.bestaetigen"))}</button>
       <button id="bk-later" class="ghost" style="width:auto;padding:6px 10px;margin-top:8px">${escapeHtml(t("ein.spaeterBestaetigen"))}</button>
       <p class="mono-sm muted">${escapeHtml(t("ein.bisBestaetigt"))}</p>
     </div>`;
+  // Wörter und Abfragefelder als DOM (C-6b): die Merkphrase nur als Text
+  box.querySelector(".mnemonic-list")!.replaceChildren(...woerter.map((w) => el("li", w)));
+  box.querySelector("#bk-challenge")!.replaceChildren(...positionen.map((p) => {
+    const feld = el("input", undefined, "mono-sm");
+    feld.dataset.pos = String(p);
+    feld.style.width = "110px";
+    feld.autocomplete = "off";
+    const label = el("label", undefined, "mono-sm");
+    label.append(`${t("ein.nummer", { n: p + 1 })} `, feld);
+    return label;
+  }));
   document.body.appendChild(box);
 
   return new Promise<void>((resolve) => {
@@ -287,14 +296,17 @@ async function zeigeBackupWarnung(): Promise<void> {
   try {
     const { backupStatus } = await import("../identity.js");
     const st = backupStatus();
-    const el = $("#backup-warn");
-    if (!el) return;
+    const warn = $("#backup-warn");
+    if (!warn) return;
     if (st.warning && localStorage.getItem("freedom.usedOnce") === "1" && !leisteZeigtSichern) {
-      el.innerHTML = `⚠ ${escapeHtml(st.warning)} <button id="bk-now" class="ghost" style="width:auto;padding:4px 8px">${escapeHtml(t("set.jetztSichern"))}</button>`;
-      el.classList.remove("hidden");
-      el.querySelector("#bk-now")?.addEventListener("click", () => void sichereJetzt());
+      const knopf = el("button", t("set.jetztSichern"), "ghost");
+      knopf.id = "bk-now";
+      knopf.style.cssText = "width:auto;padding:4px 8px";
+      knopf.addEventListener("click", () => void sichereJetzt());
+      warn.replaceChildren(`⚠ ${st.warning} `, knopf);
+      warn.classList.remove("hidden");
     } else {
-      el.classList.add("hidden");
+      warn.classList.add("hidden");
     }
   } catch { /* Anzeige ist optional */ }
 }
@@ -552,9 +564,13 @@ function setupLangMenu(): void {
     { btnId: "#lang-btn-mehr", menuId: "#lang-menu-mehr" },
   ];
   const renderMenu = (menu: HTMLElement): void => {
-    menu.innerHTML = LANGS.map(
-      (l) => `<button type="button" data-lang="${l.code}" class="${l.code === getLang() ? "active" : ""}">${l.code.toUpperCase()} · ${l.label}</button>`,
-    ).join("");
+    // Knöpfe der Sprachen als DOM (C-6b)
+    menu.replaceChildren(...LANGS.map((l) => {
+      const b = el("button", `${l.code.toUpperCase()} · ${l.label}`, l.code === getLang() ? "active" : undefined);
+      b.type = "button";
+      b.dataset.lang = l.code;
+      return b;
+    }));
     menu.querySelectorAll("button[data-lang]").forEach((b) => {
       b.addEventListener("click", () => {
         const code = (b as HTMLElement).dataset.lang as Lang;

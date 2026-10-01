@@ -845,7 +845,8 @@ def einnahmen_pruefen(browser, url: str) -> dict:
 def fremdtext_pruefen(browser, url: str) -> dict:
     """innerHTML abgebaut (C-6a): Fremdtext mit HTML – Einnahme, Modell-Manifest, Abzeichen, eigener
     Profilentwurf – erscheint nur als Text; kein Element daraus, kein Skript läuft. Events aus
-    `scripts/fremdtext-probe.mts`, signiert erst, wenn die Attrappe den eigenen Schlüssel kennt."""
+    `scripts/fremdtext-probe.mts`, signiert erst, wenn die Attrappe den eigenen Schlüssel kennt.
+    Seit C-6b auch Settings (Geräte, Nachfolge, ohne Internet) und das Sprachmenü als DOM."""
     erg = {"fehler": []}
     wurzel = Path(__file__).resolve().parent.parent
     relay = ProbeRelay()
@@ -878,6 +879,24 @@ def fremdtext_pruefen(browser, url: str) -> dict:
     seite.s.wait_for_function("() => document.querySelector('#badge-list .badge-row') && document.querySelector('#profile-preview h3')", timeout=30000)
     erg["profil"] = ev("() => [document.querySelector('#profile-preview h3').textContent, document.querySelector('#profile-preview p').textContent]")
     erg["abzeichen"] = ev("() => [...document.querySelectorAll('#badge-list .badge-row span span:first-child')].map(s => s.textContent)")
+    # C-6b: Settings und Sprachmenü – als DOM gebaut, Text und Verhalten wie vorher. Die Nachfolge liest
+    # der Start, in einer eben angelegten Identität erst nach dem Neuladen
+    seite.s.reload(wait_until="load")
+    ev("() => { location.hash = '#/settings'; }")
+    seite.s.wait_for_function("() => document.querySelector('#device-list span') && document.querySelector('#succession-status span')", timeout=30000)
+    erg["settings"] = ev("() => [document.querySelector('#device-list span').textContent.split('.')[0],"
+                         " document.querySelector('#succession-status span').textContent.split('.')[0]]")
+    erg["offline"] = ev("() => [...document.querySelectorAll('#offline-caps .usage-row > span:first-child')].map(s => s.textContent.slice(0, 1))")
+    ev("() => document.getElementById('lang-btn').click()")  # das Menü füllt sich beim Öffnen
+    erg["sprachen"] = ev("() => [...document.querySelectorAll('#lang-menu button[data-lang]')].map(b => [b.textContent, b.type, b.className])")
+    ev("() => document.querySelector('#lang-menu button[data-lang=en]').click()")
+    erg["sprache_en"] = ev("() => [document.documentElement.lang, [...document.querySelectorAll('.lang-menu button.active')].map(b => b.dataset.lang)]")
+    if erg["settings"] != ["Nur dieses Gerät", "Nicht eingerichtet"]:
+        erg["fehler"].append(f"Settings {erg['settings']}")
+    if not erg["offline"] or set(erg["offline"]) - {"✓", "✕"}:
+        erg["fehler"].append(f"ohne Internet {erg['offline']}")
+    if erg["sprachen"] != [["DE · Deutsch", "button", "active"], ["EN · English", "button", ""]] or erg["sprache_en"] != ["en", ["en", "en", "en"]]:
+        erg["fehler"].append(f"Sprachmenü {erg['sprachen']} {erg['sprache_en']}")
     erg["elemente"] = ev("() => document.querySelectorAll('#earn-events img, #earn-events b, #models-list img, #models-list b,"
                          " #profile-preview b, #profile-preview img, #badge-list img, #badge-list b').length")
     erg["skript"] = ev("() => window.__fremd ?? null")

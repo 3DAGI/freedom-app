@@ -13287,3 +13287,43 @@ den eigenen Schlüssel, deren Felder `<img src=x onerror=…>` und `<b>`
 tragen; dazu ein Profilentwurf mit demselben Text. Geprüft: der Text steht
 wörtlich da, kein Element daraus, kein Skript lief. Gegenprobe: mit einer
 Zeile wieder über `innerHTML` meldet er „2 Elemente“.
+
+## Schritt C-6b – innerHTML abbauen: Settings, Start, RPC-Stand
+
+**Warum:** Zweiter Teil von C-6 (Sammlung). Nach C-6a standen 52 Stellen in
+`scripts/innerhtml-ausnahmen.txt`, davon 17 in `settings.ts`, `app.ts` und
+`state.ts` – darunter Gerätenamen aus Vollmachten vom Relay und
+Fehlermeldungen von RPC-Anbietern.
+
+**Was:**
+- `settings.ts`: Nachfolge-Stand, Geräte-Liste (Name als Text, Knopf
+  „entziehen“ mit `dataset.pk`), Fähigkeiten ohne Internet,
+  Mesh-Warteschlange, Prüfsumme nach dem Export, Echtheit der eigenen Datei –
+  alles über `el()`; kein `innerHTML` und kein `escapeHtml` mehr in der Datei.
+- `state.ts`: RPC-Stand je Endpunkt eine Zeile als Text.
+- `app.ts`: Wörter der Merkphrase (`<li>` mit `textContent`) und die
+  Abfragefelder (`dataset.pos`); der Rahmen des Dialogs bleibt eine feste
+  Vorlage aus `t()`-Texten. Sicherungs-Warnung mit Knopf, Sprachmenü als
+  Knöpfe.
+- `scripts/innerhtml-ausnahmen.txt`: 17 Zeilen fallen weg (52 → 35).
+  Es bleiben `ui.ts` (eigenes Logo-SVG, auch als Favicon gebraucht),
+  `tresor.ts`/`einrichtung-ui.ts` (feste Vorlagen), `kommunikation.ts`/
+  `raeume.ts` (C-6c) und `agent.ts` (nach B-9).
+
+**Verdrahtet:** wie vorher – `zeigeNachfolge()` (`app.ts`, Start),
+`zeigeGeraete()` (`switchTab("settings")`), `zeigeOfflineFaehigkeiten()`
+(Auswahl der Strecke), `zeigeWarteschlange()` (alle 2 s), Export und
+Echtheit (Knöpfe), RPC-Prüfung (`wireRpcSetting()`, Knopf „prüfen“),
+`baueSicherungsDialog()` (neue Identität, in jedem Smoke-Lauf),
+Sprachmenü (`#lang-btn`).
+
+**Tests:** app +2 in `test/dom-statt-html.test.ts` (Settings und RPC-Stand;
+Merkphrase, Warnung, Sprachmenü); `settings.ts` und `state.ts` stehen in
+`FERTIG` (kein `innerHTML`, keine Ausnahme). Smoke „fremdtext“ prüft dazu
+Geräte und Nachfolge (Text wie vorher), „ohne Internet“ (je Zeile ✓/✕) und
+das Sprachmenü (Knöpfe, `type="button"`, aktiv; nach „EN“ alle drei Menüs).
+
+Aufgefallen, nicht geändert: In einer eben angelegten Identität bleibt der
+Nachfolge-Stand bis zum Neuladen leer – der Start fragt ihn ab, bevor die
+Identität steht, und der Settings-Tab fragt ihn nicht neu ab. Der Smoke-Test
+lädt dafür einmal neu.

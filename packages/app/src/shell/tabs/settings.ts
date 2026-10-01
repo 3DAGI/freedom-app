@@ -6,7 +6,7 @@
  */
 import { zahle } from "@freedomstack/protocol";
 import { gebietsschema, t } from "../../i18n.js";
-import { escapeHtml, fliesstext, pkShort, schluesselAusEingabe } from "../../shell-logic.js";
+import { fliesstext, pkShort, schluesselAusEingabe } from "../../shell-logic.js";
 import { zeigeDatenschutz } from "../datenschutz.js";
 import { LS_ONION_PRUEFRELAY, onionRelay } from "../../onion-pruefung.js";
 import { zeigeVertraute } from "../nachfolge-ui.js";
@@ -20,7 +20,7 @@ import { rufStand, rufTeilenAn, setzeRufTeilen } from "../ruf.js";
 import { geheim, istGeheimnis, tresorEingerichtet, wireTresorKarte } from "../tresor.js";
 import { MIN_PASSPHRASE } from "../../vault.js";
 import { fuehreZusammen, type ZusammenfuehrBericht } from "../../zustand-zusammenfuehren.js";
-import { $, ganzeZahl, toast } from "../ui.js";
+import { $, el, ganzeZahl, toast } from "../ui.js";
 import { bestaetige, dialog, type Option, type Werte } from "../dialog.js";
 import { TRUSTED_SIGNERS, ladeManifeste } from "../../release-signierer.js";
 import { ladeAbdeckung, nutzeStandort, trageAbdeckungEin, vergissStandort, widerrufeAbdeckung } from "./earn.js";
@@ -65,15 +65,15 @@ export async function zeigeNachfolge(): Promise<void> {
     });
     const planEv = eigene.find((e) => e.kind === KIND_SUCCESSION_PLAN);
     if (!planEv) {
-      box.innerHTML = `<span class="muted">${escapeHtml(t("set.nfNicht"))}</span>`;
+      box.replaceChildren(el("span", t("set.nfNicht"), "muted"));
       return;
     }
     const plan = parseSuccessionPlan(planEv);
     const st = evaluateSuccession(plan, [...evs, ...eigene]);
     const cls = st.status === "aktiv" ? "ok" : st.status === "freigegeben" ? "err" : "warn";
-    box.innerHTML =
-      `<span class="${cls}">${escapeHtml(nachfolgeStand(st, plan))}</span><br>` +
-      `<span class="muted">${escapeHtml(t("set.nfPlan", { schwelle: plan.threshold, von: plan.guardians.length, frist: plan.inactivityDays, warte: plan.graceDays }))}</span>`;
+    box.replaceChildren(
+      el("span", nachfolgeStand(st, plan), cls), document.createElement("br"),
+      el("span", t("set.nfPlan", { schwelle: plan.threshold, von: plan.guardians.length, frist: plan.inactivityDays, warte: plan.graceDays }), "muted"));
   } catch (e) {
     box.textContent = t("agent.nichtAbrufbar", { fehler: fehlerText(e) });
   }
@@ -460,17 +460,21 @@ export async function zeigeGeraete(): Promise<void> {
     });
     const d = listDevices(state.keypair.pk, evs);
 
-    box.innerHTML = d.length === 0
-      ? `<span class="muted">${escapeHtml(t("set.nurDiesesGeraet"))}</span>`
+    // Namen der Geräte stehen in Vollmachten vom Relay – nur als Text (C-6b)
+    box.replaceChildren(...(d.length === 0
+      ? [el("span", t("set.nurDiesesGeraet"), "muted")]
       : d.map((x) => {
-          const cls = x.status === "aktiv" ? "ok" : x.status === "abgelaufen" ? "warn" : "muted";
-          return `<div class="usage-row"><span>${escapeHtml(x.label)}</span>` +
-            `<span class="${cls}">${escapeHtml(t(GERAET_STATUS[x.status]))}` +
-            (x.status === "aktiv"
-              ? ` · <button class="ghost dev-revoke" data-pk="${escapeHtml(x.devicePubkey)}"
-                   style="width:auto;padding:1px 6px;font-size:10px">${escapeHtml(t("set.entziehen"))}</button>`
-              : "") + `</span></div>`;
-        }).join("");
+          const zeile = el("div", undefined, "usage-row");
+          const stand = el("span", t(GERAET_STATUS[x.status]), x.status === "aktiv" ? "ok" : x.status === "abgelaufen" ? "warn" : "muted");
+          if (x.status === "aktiv") {
+            const knopf = el("button", t("set.entziehen"), "ghost dev-revoke");
+            knopf.dataset.pk = x.devicePubkey;
+            knopf.style.cssText = "width:auto;padding:1px 6px;font-size:10px";
+            stand.append(" · ", knopf);
+          }
+          zeile.append(el("span", x.label), stand);
+          return zeile;
+        })));
 
     box.querySelectorAll(".dev-revoke").forEach((b) => {
       b.addEventListener("click", () => void entzieheGeraet((b as HTMLElement).dataset.pk!));
@@ -909,21 +913,25 @@ export async function wireMeshTab(): Promise<void> {
 async function zeigeOfflineFaehigkeiten(link: "lora" | "bluetooth" | "datei"): Promise<void> {
   const box = $("#offline-caps");
   if (!box) return;
-  box.innerHTML =
-    `<div class="muted" style="margin-bottom:5px">${escapeHtml(t("set.ueber", { weg: wegName(link) }))}</div>` +
-    offlineFaehigkeiten(link).map((f) =>
-      `<div class="usage-row"><span>${f.works ? "✓" : "✕"} ${escapeHtml(f.feature)}</span>` +
-      `<span class="muted" style="font-size:10px;max-width:58%">${escapeHtml(f.note)}</span></div>`,
-    ).join("");
+  const kopf = el("div", t("set.ueber", { weg: wegName(link) }), "muted");
+  kopf.style.marginBottom = "5px";
+  box.replaceChildren(kopf, ...offlineFaehigkeiten(link).map((f) => {
+    const zeile = el("div", undefined, "usage-row");
+    const notiz = el("span", f.note, "muted");
+    notiz.style.cssText = "font-size:10px;max-width:58%";
+    zeile.append(el("span", `${f.works ? "✓" : "✕"} ${f.feature}`), notiz);
+    return zeile;
+  }));
 }
 
 function zeigeWarteschlange(): void {
-  const el = $("#mesh-queue");
-  if (!el || !meshNode) return;
+  const box = $("#mesh-queue");
+  if (!box || !meshNode) return;
   const p = meshNode.pending;
-  el.innerHTML = p.length === 0
-    ? escapeHtml(t("set.nichtsZuSenden"))
-    : p.map((m) => `${escapeHtml(m.label)} — ${escapeHtml(t("set.paketeOffenKurz", { n: m.framesLeft }))}`).join("<br>");
+  // Je Paket eine Zeile, als Text (C-6b)
+  box.replaceChildren(...(p.length === 0
+    ? [t("set.nichtsZuSenden")]
+    : p.flatMap((m, i) => [...(i > 0 ? [document.createElement("br")] : []), `${m.label} — ${t("set.paketeOffenKurz", { n: m.framesLeft })}`])));
 }
 
 /** Stand der Sicherheit: Punktzahl neben dem Settings-Eintrag, solange etwas fehlt. */
@@ -994,9 +1002,8 @@ export async function exportiereApp(): Promise<void> {
     lade(weitergabeText(hash, version), "freedom-pruefen.txt", "text/plain");
 
     if (status) {
-      status.innerHTML =
-        `${escapeHtml(t("set.exportiertPruefsumme"))}<br><span class="mono-sm">${escapeHtml(hash)}</span><br>` +
-        escapeHtml(t("set.exportiertText"));
+      status.replaceChildren(t("set.exportiertPruefsumme"), document.createElement("br"), el("span", hash, "mono-sm"),
+        document.createElement("br"), t("set.exportiertText"));
       status.className = "mono-sm ok";
     }
     toast(t("set.appExportiert"));
@@ -1044,14 +1051,9 @@ export async function pruefeEigeneEchtheit(): Promise<void> {
     const { hash, r, neueste, quellen, fixierung } = await echtheit();
     const cls = r.status === "echt" ? "ok" : r.status === "abweichend" ? "err" : "warn";
 
-    box.innerHTML =
-      `<span class="${cls}">${escapeHtml(echtheitText(r, "freedom.html"))}</span>` +
-      (neueste && neueste.version !== r.version
-        ? `<br>${escapeHtml(t("set.neuereVersion", { version: neueste.version }))}`
-        : "") +
-      (quellen.length > 0
-        ? `<br><span class="muted">${escapeHtml(t("set.bezugsquellen", { quellen: quellen.join(", ") }))}</span>`
-        : "");
+    box.replaceChildren(el("span", echtheitText(r, "freedom.html"), cls));
+    if (neueste && neueste.version !== r.version) box.append(document.createElement("br"), t("set.neuereVersion", { version: neueste.version }));
+    if (quellen.length > 0) box.append(document.createElement("br"), el("span", t("set.bezugsquellen", { quellen: quellen.join(", ") }), "muted"));
     // Fixieren (5.2): Danach laeuft keine andere Version ohne Rueckfrage.
     const fix = ladeFixierung();
     const zeile = document.createElement("div");
