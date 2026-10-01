@@ -13327,3 +13327,47 @@ Aufgefallen, nicht geändert: In einer eben angelegten Identität bleibt der
 Nachfolge-Stand bis zum Neuladen leer – der Start fragt ihn ab, bevor die
 Identität steht, und der Settings-Tab fragt ihn nicht neu ab. Der Smoke-Test
 lädt dafür einmal neu.
+
+## Schritt B-8c – Knoten mit Besitzer koppeln: App
+
+Dritter Teil von B-8 (Protokoll in B-8a, Knoten in B-8b).
+
+**App:**
+- `shell/mein-knoten.ts`: Karte „Mein Knoten“ in Settings → Geräte. Der
+  Kopplungscode aus `npm run koppeln` wird gescannt oder eingefügt – verdeckt,
+  streng geprüft (`leseKopplungscode()`, ein falscher meldet sich im Dialog);
+  ist schon ein anderer Knoten gekoppelt, ersetzt ihn der neue nur nach
+  Rückfrage. Entkoppeln nach Rückfrage vergisst den Code auf diesem Gerät
+  (ungültig für alle Geräte wird er nur mit `npm run koppeln -- --neu`). Der
+  Code liegt nur in `geheim` (`freedom.knoten.kopplung`, in `GEHEIM_FEST`).
+- `shell/tabs/agent.ts`, `buildJobEvent()`: an den gekoppelten Knoten
+  (`kopplungFuer(ziel)`) der Nachweis im Kern vor dem Versiegeln
+  (`mitBesitzerNachweis()`) – ohne Gebot, Anteile, Kanal und Sitzung, gemerkt
+  mit höchstens 0 msat (eine Rechnung würde nicht bezahlt).
+- `protocol/src/state-backup.ts`: `freedom.knoten.kopplung` in `SICHERUNG_NIE`
+  (damit auch nicht im Export).
+- Texte `set.knoten*` in beiden Sprachen; `docs/PROVIDER.md` nennt den Ort in
+  der App; `scripts/wiring-ausnahmen.txt`: die letzten zwei Zeilen zu
+  `kopplung.ts` fallen weg.
+
+**Tests:** app +2 (`mein-knoten.test.ts`: nur auf dem Gerät – Tresor, nicht in
+Sicherung und Export, nur `geheim`, nichts hinaus, nichts ins Log; Karte, Feld
+verdeckt und scanbar, streng geprüft, Ersetzen nach Rückfrage, `kopplungFuer`
+nur für genau diesen Knoten), Leak-Tests +1 (`leak/mein-knoten.test.ts`: nur der
+Umschlag, Nachweis und Geheimnis nie offen, kein Prompt, Identität und
+Sitzungsschlüssel verborgen, p-Tag nur der Knoten, keine Zahlungsdaten; der
+Pfad in `buildJobEvent()` baut genau so). Angepasst, weil sie `buildJobEvent()`
+wörtlich lasen: `ki-zahlung.test.ts`, `zahlkanal.test.ts`,
+`leak/ki-anfrage.test.ts` – Deklaration und Gutschrift weiter vor dem Versiegeln,
+für den eigenen Knoten keine. Smoke „einstellungen“: falscher Code meldet sich,
+ein gültiger wird verdeckt eingegeben und gemerkt, Status „Gekoppelt mit …“,
+entkoppeln – dabei geht nichts hinaus.
+
+**Verdrahtet:** `packages/app/src/shell/app.ts` → `wireMeinKnoten()`;
+`packages/app/src/shell/tabs/agent.ts` → `kopplungFuer()`, `mitBesitzerNachweis()`.
+
+Endstand (B-8c, 01.10., nach dem Einmergen von `main` mit C-1e bis C-6b):
+protocol 1144 (6 übersprungen) · node 275 (7 übersprungen ohne Netz – mit Netz
+276) · app 749 (+2) · mls 13 · Leak-Tests 69 grün (+1) + 1 todo · 0 rot ·
+check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 · Website ok ·
+Smoke-Test bestanden. Knoten-Stand: B-8b (GX10).

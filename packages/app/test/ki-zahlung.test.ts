@@ -26,7 +26,8 @@ test("verdrahtet: Deklaration vor dem Versiegeln, Abrechnung bei der Antwort, Za
   const agent = lies("shell/tabs/agent.ts");
   const bau = agent.slice(agent.indexOf("async function buildJobEvent("), agent.indexOf("/** Abbruch-Signal"));
   // Ohne Zahlkanal die Deklaration, mit ihm die Gutschrift (4.3d) – beides vor dem Versiegeln
-  assert.match(bau, /const empfaenger = await empfaengerFuer\(targetPubkey\);\s*const hoechst = hoechstMsat\(bid, selectedTools\);[\s\S]*?extraTags\.push\(\.\.\.\(kanal \? kanal\.tags : deklaration\(empfaenger\)\)\);/);
+  // Seit B-8c: an den eigenen Knoten keine Anteile und höchstens 0 msat
+  assert.match(bau, /const empfaenger = eigen \? \{\} : await empfaengerFuer\(targetPubkey\);\s*const hoechst = eigen \? 0 : hoechstMsat\(bid, selectedTools\);[\s\S]*?extraTags\.push\(\.\.\.\(eigen \? \[\] : kanal \? kanal\.tags : deklaration\(empfaenger\)\)\);/);
   assert.match(bau, /merkeAnfrage\(auftrag\.requestId, empfaenger, hoechst, !!kanal\);\s*return auftrag;/);
   const antwort = agent.slice(agent.indexOf("async function handleAnswer("), agent.indexOf("/** Send-Button nach Job-Ende"));
   assert.match(antwort, /const abrechnung = kanal \? undefined : await rechneAntwortAb\(r\.requestId, r\.amountMsat\);/);

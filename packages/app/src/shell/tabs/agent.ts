@@ -11,6 +11,7 @@ import {
   buildEvent,
   buildJobRequest,
   buildPrivateJobRequest,
+  mitBesitzerNachweis,
   PROVIDER_PPM,
   consensusCostPreview,
   lokaleKiAdresse,
@@ -45,6 +46,7 @@ import { geheim } from "../tresor.js";
 import { beiFunkAntwort, sendeKiUeberFunk } from "../ki-ueber-funk.js";
 import { quittungNachKanal, quittungNachZahlung } from "../quittungen.js";
 import { deklaration, empfaengerFuer, kanalAntwort, kanalGutschrift, merkeAnfrage, perKanal, providerZahlung, rechneAntwortAb, zahleAnteile } from "../ki-zahlung.js";
+import { kopplungFuer } from "../mein-knoten.js";
 import { hoechstMsat } from "../../anteile-kasse.js";
 import {
   $,
@@ -970,15 +972,17 @@ async function buildJobEvent(
   // Extra-Tags: Anhang (multimodal) + angeforderte Tools + gewuenschtes Modell
   const extraTags: string[][] = [];
 
+  // Eigener Knoten (B-8c): Nachweis im Kern statt Bezahlung – kein Gebot, keine Anteile, kein Kanal, höchstens 0 msat
+  const eigen = kopplungFuer(targetPubkey);
   // Gebuehrenmodell A+ (5.1.3): welche Anteile die App selbst zahlt – im Kern,
   // also versiegelt; der Provider stellt nur den Rest in Rechnung. Die
   // App-Gebuehr gibt es nicht mehr, sie geht im Anteil der Entwicklung auf.
-  const empfaenger = await empfaengerFuer(targetPubkey);
-  const hoechst = hoechstMsat(bid, selectedTools);
+  const empfaenger = eigen ? {} : await empfaengerFuer(targetPubkey);
+  const hoechst = eigen ? 0 : hoechstMsat(bid, selectedTools);
   // Zahlkanal zu diesem Provider (4.3d): Gutschrift statt Deklaration – im Kanal
   // teilt das Programm auf; deckt er das Gebot nicht, geht nichts hinaus.
-  const kanal = await kanalGutschrift(targetPubkey, hoechst);
-  extraTags.push(...(kanal ? kanal.tags : deklaration(empfaenger)));
+  const kanal = eigen ? undefined : await kanalGutschrift(targetPubkey, hoechst);
+  extraTags.push(...(eigen ? [] : kanal ? kanal.tags : deklaration(empfaenger)));
   if (attachment) {
     extraTags.push(["attach", attachment.type, attachment.name, attachment.dataUrl.slice(0, 2000)]);
   }
@@ -990,7 +994,7 @@ async function buildJobEvent(
   if (modelSel && modelSel.value) {
     extraTags.push(["param", "model", modelSel.value]);
   }
-  const useSession = !kanal && sc.activeFor(targetPubkey);
+  const useSession = !eigen && !kanal && sc.activeFor(targetPubkey);
   const request = useSession
     ? buildEvent(sitzung.publicKey(), KIND_DVM_TEXT_GENERATION, [
         ["i", fullPrompt, "text"],
@@ -1003,13 +1007,13 @@ async function buildJobEvent(
     : buildJobRequest({
         customerPubkey: sitzung.publicKey(),
         input: fullPrompt,
-        bidMsat: bid * 1000,
+        bidMsat: eigen ? 0 : bid * 1000,
         providerPubkey: targetPubkey,
         params: [["tier", tier]],
         extraTags: [...extraTags, ...zusatzTags],
       });
   const auftrag = await buildPrivateJobRequest({
-    request, sessionSigner: sitzung, providerPk: targetPubkey, powBits: powJeProvider.get(targetPubkey) ?? 0,
+    request: eigen ? mitBesitzerNachweis(request, eigen) : request, sessionSigner: sitzung, providerPk: targetPubkey, powBits: powJeProvider.get(targetPubkey) ?? 0,
   });
   // Erst merken (letzte Gutschrift, offene Anfrage), dann senden
   if (kanal) await kanal.merke(auftrag.requestId);
