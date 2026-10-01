@@ -6,9 +6,11 @@
 import { t } from "../../i18n.js";
 import { abzeichenHerkunft, abzeichenQuelle, aufgabeStand, aufgabeText, aufgabeTitel, bildWarnung, fehlerText, profilOffenlegung } from "../../protokoll-texte.js";
 import { lnOeffentlich, setzeLnOeffentlich } from "../../profil-lightning.js";
-import { escapeHtml, pkShort } from "../../shell-logic.js";
+import { pkShort, schluesselAusEingabe } from "../../shell-logic.js";
+import { dialog, type Option } from "../dialog.js";
 import { ensurePool, signiere, state } from "../state.js";
-import { $, toast, zeigeIdent } from "../ui.js";
+import { $, el, toast, zeigeIdent } from "../ui.js";
+import { conversations } from "./kommunikation.js";
 
 /**
  * Ein Abzeichen definieren und verleihen.
@@ -18,16 +20,28 @@ import { $, toast, zeigeIdent } from "../ui.js";
  */
 export async function vergebeAbzeichen(): Promise<void> {
   if (!state.keypair) return;
-  const name = prompt(t("profil.abzeichenName"));
-  if (!name?.trim()) return;
-  const empfaenger = prompt(t("profil.abzeichenAnWen"));
-  if (!empfaenger?.trim()) return;
-
-  const pks = empfaenger.split(",").map((x) => x.trim()).filter((x) => /^[0-9a-f]{64}$/.test(x));
-  if (pks.length === 0) {
-    toast(t("profil.keinPubkey"), true);
-    return;
-  }
+  // Seit C-1e wirklich ein Dialog: Name, Empfänger (Kontakte als Häkchen oder Schlüssel) und Zweck zusammen
+  const { decodeNpub } = await import("../../identity.js");
+  const kontakte = conversations.filter((c) => c.type === "dm" && /^[0-9a-f]{64}$/.test(c.id));
+  const empfaengerAus = (w: Record<string, string | string[]>): string[] => [...new Set([
+    ...(Array.isArray(w.kontakte) ? w.kontakte : []),
+    ...String(w.schluessel ?? "").split(/[\s,]+/).map((x) => schluesselAusEingabe(x, decodeNpub)),
+  ].filter((x) => /^[0-9a-f]{64}$/.test(x)))];
+  const w = await dialog({
+    titel: t("profil.abzeichenTitel"),
+    felder: [
+      { art: "text", name: "name", label: t("profil.abzeichenName"), pflicht: true },
+      ...(kontakte.length ? [{ art: "mehrfach" as const, name: "kontakte", label: t("profil.abzeichenKontakte"), optionen: kontakte.map((c): Option => ({ wert: c.id, text: c.name })) }] : []),
+      { art: "textarea", name: "schluessel", label: t("profil.abzeichenAnWen"), mono: true },
+      { art: "textarea", name: "wofuer", label: t("profil.abzeichenWofuer") },
+    ],
+    pruefe: (w) => (empfaengerAus(w).length ? null : t("profil.keinPubkey")),
+    ok: t("profil.vergeben"),
+  });
+  if (!w) return;
+  const name = String(w.name);
+  const pks = empfaengerAus(w);
+  if (!name.trim() || pks.length === 0) return;
 
   try {
     const { buildBadgeDefinition, buildBadgeAward } =
@@ -37,7 +51,7 @@ export async function vergebeAbzeichen(): Promise<void> {
 
     await pool.publish(await signiere(buildBadgeDefinition({
       id, name: name.trim(),
-      description: prompt(t("profil.abzeichenWofuer")) ?? "",
+      description: String(w.wofuer ?? ""),
       issuerPubkey: state.keypair.pk,
     })));
     await pool.publish(await signiere(buildBadgeAward(id, state.keypair.pk, pks)));
@@ -63,20 +77,34 @@ export async function zeigeProfilVorschau(): Promise<void> {
   const stil = normalizeStyle(gespeichert.freedom_style);
   const farbe = ACCENT_HEX[stil.accent];
 
+  // Vorschau nur aus DOM und textContent (C-6); Farbe, Layout und Muster aus den festen Tabellen nach normalizeStyle()
   const bild = gespeichert.picture;
-  const avatar = bild && /^https:\/\/|^data:image\/|^freedom-blob:/.test(bild)
-    ? `<img class="profile-avatar" src="${escapeHtml(bild)}" alt="" style="color:${farbe}" />`
-    : `<div class="profile-avatar-fallback" style="color:${farbe}">${escapeHtml((gespeichert.name ?? "?").slice(0, 1).toUpperCase())}</div>`;
-
-  box.innerHTML = `<div class="profile-head layout-${escapeHtml(stil.layout)}" style="color:${farbe}">
-      <div class="pf-bg pattern-${escapeHtml(stil.pattern)}"></div>
-      ${avatar}
-      <div class="profile-text">
-        <h3 style="color:#E8E8E8">${escapeHtml(gespeichert.name || pkShort(state.keypair.pk))}</h3>
-        <p>${escapeHtml(gespeichert.about || t("profil.keineBeschreibung"))}</p>
-        ${gespeichert.lud16 && lnOeffentlich(localStorage) ? `<p style="color:${farbe}">⚡ ${escapeHtml(gespeichert.lud16)}</p>` : ""}
-      </div>
-    </div>`;
+  let avatar: HTMLElement;
+  if (bild && /^https:\/\/|^data:image\/|^freedom-blob:/.test(bild)) {
+    const img = el("img", undefined, "profile-avatar");
+    img.src = bild;
+    img.alt = "";
+    avatar = img;
+  } else {
+    avatar = el("div", (gespeichert.name ?? "?").slice(0, 1).toUpperCase(), "profile-avatar-fallback");
+  }
+  avatar.style.color = farbe;
+  const kopf = el("div", undefined, "profile-head");
+  kopf.classList.add(`layout-${stil.layout}`);
+  kopf.style.color = farbe;
+  const text = el("div", undefined, "profile-text");
+  const name = el("h3", gespeichert.name || pkShort(state.keypair.pk));
+  name.style.color = "#E8E8E8";
+  text.append(name, el("p", gespeichert.about || t("profil.keineBeschreibung")));
+  if (gespeichert.lud16 && lnOeffentlich(localStorage)) {
+    const ln = el("p", `⚡ ${gespeichert.lud16}`);
+    ln.style.color = farbe;
+    text.append(ln);
+  }
+  const muster = el("div", undefined, "pf-bg");
+  muster.classList.add(`pattern-${stil.pattern}`);
+  kopf.append(muster, avatar, text);
+  box.replaceChildren(kopf);
 }
 
 interface ProfilEntwurf {
@@ -115,8 +143,7 @@ export async function wireProfil(): Promise<void> {
   const fuelle = (id: string, werte: readonly string[], aktiv: string): void => {
     const el = $(id) as HTMLSelectElement | null;
     if (!el) return;
-    el.innerHTML = werte.map((w) =>
-      `<option value="${escapeHtml(w)}"${w === aktiv ? " selected" : ""}>${escapeHtml(STIL[w] ? t(STIL[w]!) : w)}</option>`).join("");
+    el.replaceChildren(...werte.map((w) => new Option(STIL[w] ? t(STIL[w]!) : w, w, false, w === aktiv)));
   };
 
   const fuelleStil = (stil: { accent: string; layout: string; pattern: string }): void => {
@@ -164,7 +191,7 @@ export async function wireProfil(): Promise<void> {
     const entwurf = sammeln();
     const zeilen = profilOffenlegung(oeffentlich(entwurf) as never);
     if (entwurf.lud16 && !lnOeffentlich(localStorage)) zeilen.push(t("profil.offenLud16Privat"));
-    box.innerHTML = zeilen.map((z) => `<div>${escapeHtml(z)}</div>`).join("");
+    box.replaceChildren(...zeilen.map((z) => el("div", z)));
     // Warnfarbe am Befund, nicht am Text: ein fremder Server sieht die IP der Betrachter
     box.className = inspectPicture(entwurf.picture).kind === "extern" ? "mono-sm warn" : "mono-sm muted";
   };
@@ -237,14 +264,21 @@ export async function zeigeAbzeichen(): Promise<void> {
     }));
 
     const alle = collectBadges(state.keypair.pk, abz, erledigt);
-    box.innerHTML = alle.length === 0
-      ? `<span class="muted">${escapeHtml(t("profil.keineAbzeichen"))}</span>`
-      : alle.map((b) => `<div class="badge-row">
-          <span class="badge-chip ${escapeHtml(b.source)}">${escapeHtml(abzeichenQuelle(b.source))}</span>
-          <span style="min-width:0">
-            <span style="font-weight:600;font-size:12px">${escapeHtml(b.definition.name)}</span><br>
-            <span class="muted" style="font-size:11px">${escapeHtml(abzeichenHerkunft(b))}</span>
-          </span></div>`).join("");
+    // Namen der Abzeichen kommen von Fremden – nur als Text (C-6)
+    box.replaceChildren(...(alle.length === 0
+      ? [el("span", t("profil.keineAbzeichen"), "muted")]
+      : alle.map((b) => {
+          const zeile = el("div", undefined, "badge-row");
+          const rechts = el("span");
+          rechts.style.minWidth = "0";
+          const name = el("span", b.definition.name);
+          name.style.cssText = "font-weight:600;font-size:12px";
+          const herkunft = el("span", abzeichenHerkunft(b), "muted");
+          herkunft.style.fontSize = "11px";
+          rechts.append(name, document.createElement("br"), herkunft);
+          zeile.append(el("span", abzeichenQuelle(b.source), `badge-chip ${b.source}`), rechts);
+          return zeile;
+        })));
   } catch (e) {
     box.textContent = t("agent.nichtAbrufbar", { fehler: fehlerText(e) });
   }

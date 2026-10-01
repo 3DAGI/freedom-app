@@ -16,6 +16,7 @@ import { pkShort } from "../shell-logic.js";
 import { type NachfolgeStand, type VertrautenZeile, leseStand, neuestePlaene, nimmUmschlag, schreibeStand, vertrautenZeilen } from "../nachfolge.js";
 import { ensurePool, signiere, state } from "./state.js";
 import { geheim, tresorEingerichtet } from "./tresor.js";
+import { bestaetige, dialog } from "./dialog.js";
 import { toast } from "./ui.js";
 import { fehlerText, nachfolgeStand, uebergabeGrund } from "../protokoll-texte.js";
 
@@ -137,8 +138,13 @@ function zeile(z: VertrautenZeile): HTMLElement {
 /** Oeffentlich melden: „Ich halte den Ausloeser fuer erfuellt.“ */
 async function melde(besitzer: string): Promise<void> {
   if (!state.keypair) return;
-  const grund = prompt(t("ein.meldungWarum", { wer: pkShort(besitzer) }));
-  if (!grund?.trim()) return;
+  const w = await dialog({
+    titel: t("ein.meldungTitel"),
+    felder: [{ art: "textarea", name: "grund", label: t("ein.meldungWarum", { wer: pkShort(besitzer) }), pflicht: true }],
+    ok: t("ein.melden"),
+  });
+  const grund = String(w?.grund ?? "");
+  if (!grund.trim()) return;
   try {
     await (await ensurePool()).publish(await signiere(buildRecoveryClaim(state.keypair.pk, besitzer, grund.trim())));
     toast(t("ein.gemeldetToast"));
@@ -169,7 +175,8 @@ async function fordereAn(z: VertrautenZeile): Promise<void> {
 /** Meinen Anteil an den Anfragenden uebergeben – nach Rueckfrage. */
 async function uebergib(z: VertrautenZeile, anfrage: AnteilAnfrage): Promise<void> {
   if (!state.signer) return;
-  if (!confirm(t("ein.uebergebenFrage", { besitzer: pkShort(z.besitzer), an: pkShort(anfrage.von) }))) return;
+  // Ein Anteil lässt sich nicht zurückholen – Fokus zuerst auf Abbrechen
+  if (!(await bestaetige({ titel: t("ein.uebergebenTitel"), text: t("ein.uebergebenFrage", { besitzer: pkShort(z.besitzer), an: pkShort(anfrage.von) }), ok: t("ein.uebergeben"), gefahr: true }))) return;
   try {
     await sende(await baueAnteilUebergabe({ von: state.signer, anfrage, anteil: z.anteil }), anfrage.von);
     const st = stand();

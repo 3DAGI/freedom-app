@@ -8,30 +8,10 @@
 # Dateinamen, URLs) gehoeren NICHT hierher, sondern in escapeHtml()/ganzeZahl().
 #
 # Pruefen: python3 scripts/check_innerhtml.py packages/app/src --ausnahmen scripts/innerhtml-ausnahmen.txt --streng
-app.ts|woerter.map((w) => `<li>${escapeHtml(w)}</li>`).join("")|Callback liefert nur ein Template mit escapeHtml(w)
-app.ts|positionen.map((p) => `<label class="mono-sm">${escapeHtml(t("ein.nummer", { n: p + 1 }))} <input data-pos="${p}" class=|Callback liefert nur ein Template; einzige Werte sind die Positionen p, die Nummer über escapeHtml(t(…)) (8.16g1)
-app.ts|p|Zahl: Position aus pickChallengePositions(), lokal erzeugt
-state.ts|(Zuweisung) st.map((s) => { const name = escapeHtml(s.label ?? new URL(s.url).hostname); return s.available ? `<span class="ok">${na|Callback liefert nur Templates; Name und Fehlertext mit escapeHtml
-state.ts|name|name = escapeHtml(label oder hostname), eine Zeile darüber
-state.ts|s.lastLatencyMs|lokal gemessene Latenz in ms (rpc-pool.ts: Date.now() - start)
-state.ts|name|name = escapeHtml(label oder hostname)
-agent-netz.ts|cls|feste Klassennamen ok/err/warn
-agent-netz.ts|(Zuweisung) r.models.slice(0, 20).map((m) => { const cls = m.availability === "gut" ? "ok" : m.availability === "knapp" ? "warn" : "|Callback liefert nur Templates; Name, Quantisierung, Hinweis mit escapeHtml
-settings.ts|cls|feste Klassennamen ok/warn/err
 raeume.ts|(Zuweisung) st.space.channels.map((c) => { const b = badges.get(c.id); const marke = b?.mentions ? `<span class="mention">${b.mentio|Callback: Template mit escapeHtml(c.id) und escapeHtml(c.name); marke/schloss siehe folgende Zeilen
 raeume.ts|b.mentions|lokal gezählt in unreadBadges()
 raeume.ts|schloss|feste Zeichen: Schloss-Entity oder #
 raeume.ts|marke|festes Markup oder Template mit dem lokalen Zähler b.mentions
-profil.ts|farbe|aus der festen Tabelle ACCENT_HEX nach normalizeStyle()
-profil.ts|avatar|Template mit escapeHtml(bild) bzw. escapeHtml(Anfangsbuchstabe), direkt darüber gebaut
-profil.ts|farbe|aus der festen Tabelle ACCENT_HEX nach normalizeStyle()
-profil.ts|(Zuweisung) werte.map((w) => `<option value="${escapeHtml(w)}"${w === aktiv ? " selected" : ""}>${escapeHtml(STIL[w] ? t(STIL[w]!) :|Callback: Template mit escapeHtml(w); selected ist ein Vergleich
-profil.ts|(Zuweisung) zeilen.map((z) => `<div>${escapeHtml(z)}</div>`).join("")|Callback: Template mit escapeHtml(z)
-profil.ts|(Zuweisung) alle.map((b) => `<div class="badge-row"> <span class="badge-chip ${escapeHtml(b.source)}">${escapeHtml(abzeichenQuelle(b|Callback: Template, alle Werte mit escapeHtml
-settings.ts|(Zuweisung) d.map((x) => { const cls = x.status === "aktiv" ? "ok" : x.status === "abgelaufen" ? "warn" : "muted"; return `<div clas|Callback: Templates mit escapeHtml(label, status, devicePubkey)
-settings.ts|cls|feste Klassennamen ok/warn/muted
-settings.ts|(Zuweisung) offlineFaehigkeiten(link).map((f) => `<div class="usage-row"><span>${f.works ? "✓" : "✕"} ${escapeHtml(f.feature)}</span|Callback: Template mit escapeHtml; Haken/Kreuz fest (seit 8.16g2b2 offlineFaehigkeiten() in der Sprache der Oberfläche)
-settings.ts|(Zuweisung) p.map((m) => `${escapeHtml(m.label)} — ${escapeHtml(t("set.paketeOffenKurz", { n: m.framesLeft }))}`).join("<br>")|Callback: Template mit escapeHtml(m.label) und lokalem Zähler
 agent.ts|entries.map(([m, info]) => { const sp = speedOf(m); const short = m.split(":")[0]; const preis = ausMsat(info.priceMsat,|Callback: Template mit escapeHtml(m), escapeHtml(short) und escapeHtml(preis); übrige Werte siehe folgende Zeilen
 agent.ts|sp.cls|fester Klassenname aus speedOf()
 ui.ts|(Zuweisung) markSvg(18)|eigenes SVG mit fester Farbe
@@ -49,7 +29,6 @@ kommunikation.ts|zapBtn|Template mit escapeHtml(ev.pubkey) und escapeHtml(pkShor
 kommunikation.ts|anfBtn|Template mit escapeHtml(ev.id) und escapeHtml(t("anf.bezahlen")) oder leer (Zahlungsanforderung, A-5)
 kommunikation.ts|body|body = escapeHtml(text)
 kommunikation.ts|media|renderAttachment() maskiert Name und URL und erlaubt nur sichere Schemata (shell-logic.ts)
-settings.ts|cls|feste Klassennamen ok/err/warn
 agent.ts|whoLabel|fest du, sonst agent plus escapeHtml(model)
 agent.ts|body|renderMarkdown(escapeHtml(text)) oder escapeHtml(text)
 agent.ts|whoLabel|agent plus escapeHtml(model)
@@ -62,13 +41,5 @@ agent.ts|zeile(t("agent.tokens"), t("agent.reinRaus", { rein: ganzeZahl(usage.pr
 agent.ts|zeile(t("agent.dieseAntwort"), `${Math.floor(amountMsat / 1000)} sat`)|zeile() maskiert Schlüssel und Wert selbst
 agent.ts|aufteilungZeilen(abrechnung, zeile)|nur zeile(), das Schlüssel und Wert selbst maskiert; Namen der Anteile fest, Beträge lokal gerechnet (5.1.3)
 agent.ts|(Zuweisung) svg|icon(...) aus der festen Symboltabelle
-waehrung.ts|(Zuweisung) verdict.problems.map((p) => escapeHtml(p)).join("<br>")|jede Zeile mit escapeHtml
-earn.ts|(Zuweisung) sorted .map((ev) => { const get = (n: string) => ev.tags.find((t) => t[0] === n)?.[1] ?? "—"; return `<div class="stat">|Callback: Template mit escapeHtml(get(...)), Math.floor und timeAgo()
-earn.ts|timeAgo(ev.created_at)|timeAgo() rechnet: Zahl plus s/m/h/d
-app.ts|(Zuweisung) LANGS.map( (l) => `<button type="button" data-lang="${l.code}" class="${l.code === getLang() ? "active" : ""}">${l.code.|Callback: Template aus der festen Sprachliste LANGS
-app.ts|l.code|feste Sprachliste LANGS (i18n.ts)
-app.ts|l.code.toUpperCase()|feste Sprachliste LANGS (i18n.ts)
-app.ts|l.label|feste Sprachliste LANGS (i18n.ts)
 tresor.ts|html|dialog() ist modulintern; alle drei Aufrufer übergeben feste Templates, deren einzige Einsetzungen escapeHtml(t(…)) sind (8.16g1); Eingaben und Meldungen laufen über textContent
-chat-zap.ts|state.amount|feste Zahl aus der Standard-Schiene (10 bzw. 0,01), keine Fremddaten
 einrichtung-ui.ts|inhalt(seite)|feste Seiten der Einrichtung aus diesem Modul (8.1b); Fremddaten darin nur über escapeHtml (Werber-Schlüssel, Datenschutz-Aussagen)

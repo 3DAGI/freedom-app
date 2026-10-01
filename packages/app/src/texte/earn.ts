@@ -10,7 +10,10 @@ export const earn: Texte = {
     en: "Put freedom.html on your own server, IPFS or Tor – more copies are harder to block. Put freedom-spiegel.json with your addresses next to it and you get 1% of every AI payment made through your copy.",
   },
   // Seite (8.16f)
-  "earn.untertitel": { de: "Rechenzeit, Speicher und Relays gegen Sats.", en: "Compute, storage and relays for sats." },
+  "earn.untertitel": { de: "Rechenzeit, Speicher und Relays gegen Sats oder SOL.", en: "Compute, storage and relays for sats or SOL." },
+  // Einnahmen je Kette (C-2): der Wert steht im Event in msat
+  "earn.betragSol": { de: "≈ {sol} (Wert {sats})", en: "≈ {sol} (worth {sats})" },
+  "earn.betragSolOhneKurs": { de: "SOL, Wert {sats} (kein Kurs)", en: "SOL, worth {sats} (no rate)" },
   "earn.tabHosten": { de: "Hosten", en: "Host" },
   "earn.tabKarte": { de: "Karte", en: "Map" },
   "earn.einnahmen": { de: "Einnahmen", en: "Earnings" },
@@ -86,6 +89,7 @@ export const earn: Texte = {
   "earn.nameAntwortUngueltig": { de: "Nicht übernommen: Die Antwort der Domain ist kein gültiges nostr.json.", en: "Not applied: the domain's answer is not a valid nostr.json." },
   "earn.nameUnbekannt": { de: "Nicht übernommen: Die Domain kennt diesen Namen nicht.", en: "Not applied: the domain doesn't know this name." },
   "earn.werbelinkQr": { de: "Werbelink als QR-Code", en: "Referral link as QR code" },
+  "earn.werbelinkAria": { de: "Dein Werbelink", en: "Your referral link" },
   "earn.codeOhneAdresse": { de: "dein Code: {code} – ohne Lightning-Adresse im Profil kommt dein Anteil nicht an", en: "your code: {code} – without a Lightning address in your profile your share doesn't arrive" },
   "earn.keineNennung": { de: "Noch niemand nennt dich öffentlich als Werber.", en: "Nobody names you publicly as referrer yet." },
   "earn.nennungen": { de: "{n} Geworbene nennen dich öffentlich als Werber.", en: "{n} referred people name you publicly as referrer." },

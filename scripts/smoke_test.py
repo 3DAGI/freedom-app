@@ -775,6 +775,26 @@ def einstellungen_pruefen(browser, url: str) -> dict:
     md_falsch = bestaetigen()
     seite.s.keyboard.press("Escape")
     seite.warte_zu()
+    # Bunker (C-1e): erst bestätigen, dann wechselt die Identität – Esc lässt alles, wie es ist
+    ev("() => document.getElementById('bunker-verbinden').click()")
+    bu = seite.warte_dialog("Anmelden per Bunker (NIP-46)")
+    seite.s.keyboard.press("Escape")
+    seite.warte_zu()
+    # Abzeichen (C-1e): Name, Empfänger und Zweck in einem Dialog; ohne gültigen Empfänger meldet er sich
+    ev("() => { location.hash = '#/profil'; }")
+    ev("() => document.getElementById('badge-create').click()")
+    ab = seite.warte_dialog("Abzeichen vergeben")
+    feld(0, "Helfer")
+    feld(1, "npub1falsch")
+    ab_falsch = bestaetigen()
+    seite.s.keyboard.press("Escape")
+    seite.warte_zu()
+    erg["bunker"], erg["abzeichen"] = bu, {"dialog": ab, "falsch": ab_falsch}
+    if not (bu["text"] or "").startswith("Die App wechselt auf die Identität im Bunker"):
+        erg["fehler"].append(f"Bunker {bu}")
+    if not (ab["felder"] == ["Name des Abzeichens", "An Schlüssel (npub oder hex), durch Komma oder je Zeile", "Wofür? (erscheint bei jedem Träger)"]
+            and ab_falsch["meldung"] == "Kein gültiger Pubkey dabei"):
+        erg["fehler"].append(f"Abzeichen {erg['abzeichen']}")
     erg["widerruf"], erg["nachfolge"], erg["melden"] = (
         {"dialog": wr, "falsch": wr_falsch}, {"dialog": nf, "zwei": nf_zwei}, {"dialog": md, "falsch": md_falsch})
     if not (wr["text"] and wr["text"].startswith("So widerrufst du") and wr["typen"] == ["text", "password", "date"]
@@ -818,6 +838,179 @@ def einstellungen_pruefen(browser, url: str) -> dict:
     if seite.browser_dialoge:
         erg["fehler"].append(f"Browser-Dialoge: {seite.browser_dialoge}")
     seite.ctx.close()
+    erg["bestanden"] = not erg["fehler"]
+    return erg
+
+
+def einnahmen_pruefen(browser, url: str) -> dict:
+    """Earn (C-2): Einnahmen in der Einheit ihrer Kette – Lightning in sats, Solana in SOL; ohne Kurs kein
+    erfundener SOL-Betrag. Leistungs-Events eines Probe-Knotens aus `scripts/einnahmen-probe.mts`."""
+    erg = {"fehler": []}
+    wurzel = Path(__file__).resolve().parent.parent
+    aus = subprocess.run(["npx", "tsx", "scripts/einnahmen-probe.mts"], cwd=wurzel, capture_output=True, text=True, timeout=180, check=True)
+    probe = json.loads(aus.stdout)
+    relay = ProbeRelay()
+    relay.events = probe["events"]
+    seite = DialogSeite(browser, url, relay, erg)
+    seite.ev("(k) => { localStorage.setItem('freedom.earn.knoten', k); location.hash = '#/verdienen'; }", probe["knoten"])
+    seite.s.wait_for_function("() => document.querySelectorAll('#earn-events .stat').length === 2", timeout=30000)
+    zeilen = seite.ev("() => [...document.querySelectorAll('#earn-events .stat span:last-child')].map(s => s.textContent.split(' · ')[0])")
+    erg["zeilen"] = zeilen
+    erg["untertitel"] = seite.ev("() => document.querySelector('[data-i18n=\"earn.untertitel\"]')?.textContent")
+    if zeilen != ["SOL, Wert 1.500 sats (kein Kurs)", "21 sats"]:
+        erg["fehler"].append(f"Einnahmen {zeilen}")
+    if erg["untertitel"] != "Rechenzeit, Speicher und Relays gegen Sats oder SOL.":
+        erg["fehler"].append(f"Untertitel {erg['untertitel']}")
+    seite.ctx.close()
+    erg["bestanden"] = not erg["fehler"]
+    return erg
+
+
+def fremdtext_pruefen(browser, url: str) -> dict:
+    """innerHTML abgebaut (C-6a): Fremdtext mit HTML – Einnahme, Modell-Manifest, Abzeichen, eigener
+    Profilentwurf – erscheint nur als Text; kein Element daraus, kein Skript läuft. Events aus
+    `scripts/fremdtext-probe.mts`, signiert erst, wenn die Attrappe den eigenen Schlüssel kennt.
+    Seit C-6b auch Settings (Geräte, Nachfolge, ohne Internet) und das Sprachmenü als DOM."""
+    erg = {"fehler": []}
+    wurzel = Path(__file__).resolve().parent.parent
+    relay = ProbeRelay()
+    seite = DialogSeite(browser, url, relay, erg)
+    ev = seite.ev
+    ev("() => { location.hash = '#/chat'; }")
+    for _ in range(80):
+        if relay.ich:
+            break
+        seite.s.wait_for_timeout(250)
+    if not relay.ich:
+        seite.ctx.close()
+        return {"bestanden": False, "fehler": ["keine Abfrage der eigenen Relay-Listen – eigener Schlüssel unbekannt"]}
+    aus = subprocess.run(["npx", "tsx", "scripts/fremdtext-probe.mts", relay.ich], cwd=wurzel,
+                         capture_output=True, text=True, timeout=180, check=True)
+    probe = json.loads(aus.stdout)
+    relay.events = probe["events"]
+    html = lambda wo: probe["html"].replace("WO", wo)  # noqa: E731
+    # Einnahmen: work_type aus dem Event des Knotens
+    ev("([k, p]) => { localStorage.setItem('freedom.earn.knoten', k); localStorage.setItem('freedom.profile', JSON.stringify(p));"
+       " location.hash = '#/verdienen'; }", [probe["knoten"], {"name": html("profil"), "about": html("about")}])
+    seite.s.wait_for_function("() => document.querySelectorAll('#earn-events .stat').length === 1", timeout=30000)
+    erg["einnahme"] = ev("() => document.querySelector('#earn-events .stat .k').textContent")
+    # Modelle: Name und Quantisierung aus dem Manifest
+    ev("() => document.getElementById('models-refresh').click()")
+    seite.s.wait_for_function("() => document.querySelector('#models-list .usage-row')", timeout=30000)
+    erg["modell"] = ev("() => document.querySelector('#models-list .usage-row span').textContent")
+    # Profil: Vorschau aus dem Entwurf, Abzeichen aus der Verleihung an den eigenen Schlüssel
+    ev("() => { location.hash = '#/profil'; }")
+    seite.s.wait_for_function("() => document.querySelector('#badge-list .badge-row') && document.querySelector('#profile-preview h3')", timeout=30000)
+    erg["profil"] = ev("() => [document.querySelector('#profile-preview h3').textContent, document.querySelector('#profile-preview p').textContent]")
+    erg["abzeichen"] = ev("() => [...document.querySelectorAll('#badge-list .badge-row span span:first-child')].map(s => s.textContent)")
+    # C-6b: Settings und Sprachmenü – als DOM gebaut, Text und Verhalten wie vorher. Die Nachfolge liest
+    # der Start, in einer eben angelegten Identität erst nach dem Neuladen
+    seite.s.reload(wait_until="load")
+    ev("() => { location.hash = '#/settings'; }")
+    seite.s.wait_for_function("() => document.querySelector('#device-list span') && document.querySelector('#succession-status span')", timeout=30000)
+    erg["settings"] = ev("() => [document.querySelector('#device-list span').textContent.split('.')[0],"
+                         " document.querySelector('#succession-status span').textContent.split('.')[0]]")
+    erg["offline"] = ev("() => [...document.querySelectorAll('#offline-caps .usage-row > span:first-child')].map(s => s.textContent.slice(0, 1))")
+    ev("() => document.getElementById('lang-btn').click()")  # das Menü füllt sich beim Öffnen
+    erg["sprachen"] = ev("() => [...document.querySelectorAll('#lang-menu button[data-lang]')].map(b => [b.textContent, b.type, b.className])")
+    ev("() => document.querySelector('#lang-menu button[data-lang=en]').click()")
+    erg["sprache_en"] = ev("() => [document.documentElement.lang, [...document.querySelectorAll('.lang-menu button.active')].map(b => b.dataset.lang)]")
+    if erg["settings"] != ["Nur dieses Gerät", "Nicht eingerichtet"]:
+        erg["fehler"].append(f"Settings {erg['settings']}")
+    if not erg["offline"] or set(erg["offline"]) - {"✓", "✕"}:
+        erg["fehler"].append(f"ohne Internet {erg['offline']}")
+    if erg["sprachen"] != [["DE · Deutsch", "button", "active"], ["EN · English", "button", ""]] or erg["sprache_en"] != ["en", ["en", "en", "en"]]:
+        erg["fehler"].append(f"Sprachmenü {erg['sprachen']} {erg['sprache_en']}")
+    erg["elemente"] = ev("() => document.querySelectorAll('#earn-events img, #earn-events b, #models-list img, #models-list b,"
+                         " #profile-preview b, #profile-preview img, #badge-list img, #badge-list b').length")
+    erg["skript"] = ev("() => window.__fremd ?? null")
+    if erg["einnahme"] != f"{html('arbeit')} · 7 Einheiten":
+        erg["fehler"].append(f"Einnahme {erg['einnahme']}")
+    if erg["modell"] != f"{html('modell')} · {html('quant')}":
+        erg["fehler"].append(f"Modell {erg['modell']}")
+    if erg["profil"] != [html("profil"), html("about")]:
+        erg["fehler"].append(f"Profil {erg['profil']}")
+    if html("abzeichen") not in erg["abzeichen"]:
+        erg["fehler"].append(f"Abzeichen {erg['abzeichen']}")
+    if erg["elemente"] != 0 or erg["skript"] is not None:
+        erg["fehler"].append(f"HTML aus Fremdtext: {erg['elemente']} Elemente, Skript {erg['skript']}")
+    seite.ctx.close()
+    erg["bestanden"] = not erg["fehler"]
+    return erg
+
+
+# Barrierefreiheit (seit C-4): je Ansicht, was ein Vorleser oder die Tastatur nicht erreicht
+ZUGANG_PRUEFUNG = r"""() => {
+  const sichtbar = (e) => { const r = e.getBoundingClientRect(); const s = getComputedStyle(e);
+    return r.width > 0 && r.height > 0 && s.visibility !== 'hidden' && s.display !== 'none' && !e.closest('[hidden],[inert],[aria-hidden=true]'); };
+  const wer = (e) => (e.id ? '#' + e.id : e.tagName.toLowerCase() + (typeof e.className === 'string' && e.className ? '.' + e.className.split(' ')[0] : ''));
+  const name = (e) => {
+    const a = e.getAttribute('aria-label'); if (a && a.trim()) return a.trim();
+    const lb = e.getAttribute('aria-labelledby');
+    if (lb) { const t = lb.split(' ').map((i) => document.getElementById(i)?.textContent ?? '').join(' ').trim(); if (t) return t; }
+    if (e.id) { const l = document.querySelector(`label[for="${CSS.escape(e.id)}"]`); if (l && l.textContent.trim()) return l.textContent.trim(); }
+    const umg = e.closest('label'); if (umg && umg.textContent.trim()) return umg.textContent.trim();
+    if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.tagName)) return e.getAttribute('title') || '';
+    return (e.textContent || '').trim() || e.getAttribute('title') || '';
+  };
+  const ohneName = [...document.querySelectorAll('button, a[href], input:not([type=hidden]), select, textarea, [role=button], [role=link], [tabindex]:not([tabindex="-1"])')]
+    .filter(sichtbar).filter((e) => !name(e)).map(wer);
+  const ueberNull = [...document.querySelectorAll('[tabindex]')].filter((e) => Number(e.getAttribute('tabindex')) > 0).map(wer);
+  const interaktiv = 'button, a[href], input, select, textarea, label, summary, [role=button], [role=link], [role=tab], [role=option], [role=menuitem], [tabindex]';
+  const nurMaus = [...document.querySelectorAll('body *')].filter((e) => sichtbar(e) && getComputedStyle(e).cursor === 'pointer' && !e.closest(interaktiv)
+    && !(e.parentElement && getComputedStyle(e.parentElement).cursor === 'pointer')).map(wer);
+  // Kontrast nach WCAG AA: Schrift über der Fläche, auf der sie wirklich steht, samt Deckkraft der Vorfahren
+  const rgb = (c) => { const m = /rgba?\(([^)]+)\)/.exec(c); if (!m) return null; const p = m[1].split(',').map(Number); return { r: p[0], g: p[1], b: p[2], a: p[3] ?? 1 }; };
+  const lum = (c) => { const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }; return 0.2126 * f(c.r) + 0.7152 * f(c.g) + 0.0722 * f(c.b); };
+  const drin = (a, b) => a.left >= b.left - 1 && a.right <= b.right + 1 && a.top >= b.top - 1 && a.bottom <= b.bottom + 1;
+  const flaeche = (e) => { const r = e.getBoundingClientRect();
+    for (let x = e; x; x = x.parentElement) { const c = rgb(getComputedStyle(x).backgroundColor); if (c && c.a > 0.5 && drin(r, x.getBoundingClientRect())) return c; }
+    return rgb(getComputedStyle(document.body).backgroundColor) ?? { r: 0, g: 0, b: 0, a: 1 }; };
+  const deckkraft = (e) => { let o = 1; for (let x = e; x; x = x.parentElement) o *= Number(getComputedStyle(x).opacity); return o; };
+  const kontrast = [];
+  for (const e of document.querySelectorAll('body *')) {
+    if (!sichtbar(e) || e.closest(':disabled') || ![...e.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim())) continue;
+    const s = getComputedStyle(e); const f = rgb(s.color); if (!f) continue;
+    const b = flaeche(e); const o = f.a * deckkraft(e);
+    const g = { r: f.r * o + b.r * (1 - o), g: f.g * o + b.g * (1 - o), b: f.b * o + b.b * (1 - o) };
+    const L1 = lum(g), L2 = lum(b); const k = (Math.max(L1, L2) + 0.05) / (Math.min(L1, L2) + 0.05);
+    const gross = parseFloat(s.fontSize) >= 24 || (parseFloat(s.fontSize) >= 18.66 && Number(s.fontWeight) >= 700);
+    if (k < (gross ? 3 : 4.5)) kontrast.push(`${wer(e)} „${e.textContent.trim().slice(0, 24)}“ ${k.toFixed(2)}:1`);
+  }
+  return { ohneName, ueberNull, nurMaus, kontrast };
+}"""
+ZUGANG_SEITEN = ["#/agent", "#/chat", "#/repos", "#/waehrung", "#/verdienen", "#/netz", "#/profil", "#/settings", "#/mehr"]
+
+
+def zugang_pruefen(browser, url: str) -> dict:
+    """Barrierefreiheit (C-4): auf jeder Seite und in jedem Unterreiter, Desktop und Handy – jedes Bedienelement
+    hat einen Namen für Vorleser, nichts ist nur mit der Maus erreichbar, keine Tab-Reihenfolge von Hand
+    (tabindex > 0), Schrift mit Kontrast nach WCAG AA (4,5:1, groß 3:1)."""
+    erg = {"fehler": []}
+    for groesse, vp in [("desktop", {"width": 1280, "height": 800}), ("mobil", {"width": 390, "height": 844})]:
+        seite = DialogSeite(browser, url, ProbeRelay(), erg)
+        if groesse == "mobil":
+            seite.s.set_viewport_size(vp)
+        funde: dict = {}
+        for adr in ZUGANG_SEITEN:
+            seite.ev("(a) => { location.hash = a; }", adr)
+            seite.s.wait_for_timeout(600)
+            ansichten = [(adr, None)]
+            if groesse == "desktop":
+                ansichten += [(adr, x) for x in seite.ev("() => [...document.querySelectorAll('[data-subtab-group] [data-subtab]')]"
+                                                          ".filter((b) => b.offsetParent).map((b) => [b.closest('[data-subtab-group]').dataset.subtabGroup, b.dataset.subtab])")]
+            for a, reiter in ansichten:
+                if reiter:
+                    seite.ev("([g, r]) => document.querySelector(`[data-subtab-group='${g}'] [data-subtab='${r}']`).click()", reiter)
+                    seite.s.wait_for_timeout(300)
+                for art, liste in seite.ev(ZUGANG_PRUEFUNG).items():
+                    for x in liste:
+                        funde.setdefault(art, {}).setdefault(x, f"{a}{':' + reiter[1] if reiter else ''}")
+        erg[groesse] = {art: [f"{x} ({wo})" for x, wo in v.items()] for art, v in funde.items()}
+        for art, v in erg[groesse].items():
+            if v:
+                erg["fehler"].append(f"{groesse} {art}: {v[:6]}")
+        seite.ctx.close()
     erg["bestanden"] = not erg["fehler"]
     return erg
 
@@ -2578,6 +2771,18 @@ def main() -> int:
             except Exception as e:
                 erg["einstellungen"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
             try:
+                erg["einnahmen"] = einnahmen_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
+            except Exception as e:
+                erg["einnahmen"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
+            try:
+                erg["fremdtext"] = fremdtext_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
+            except Exception as e:
+                erg["fremdtext"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
+            try:
+                erg["zugang"] = zugang_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
+            except Exception as e:
+                erg["zugang"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
+            try:
                 erg["raum"] = raum_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
             except Exception as e:
                 erg["raum"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
@@ -2618,6 +2823,9 @@ def main() -> int:
           and erg.get("waehrung", {}).get("bestanden") is True
           and erg.get("kontakt", {}).get("bestanden") is True
           and erg.get("einstellungen", {}).get("bestanden") is True
+          and erg.get("einnahmen", {}).get("bestanden") is True
+          and erg.get("fremdtext", {}).get("bestanden") is True
+          and erg.get("zugang", {}).get("bestanden") is True
           and erg.get("raum", {}).get("bestanden") is True
           and erg.get("karte", {}).get("bestanden") is True
           and erg.get("qr", {}).get("bestanden") is True

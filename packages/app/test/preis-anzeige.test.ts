@@ -5,7 +5,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { anbieterKursWarnung, ausLamports, ausMsat, depositDeckel, kursZeile, satsText, solText } from "../src/preis-anzeige.js";
+import { anbieterKursWarnung, ausLamports, ausMsat, depositDeckel, einnahmeText, kursZeile, satsText, solText } from "../src/preis-anzeige.js";
 import { setLang } from "../src/i18n.js";
 
 // Meldungen hier auf Deutsch prüfen (seit 8.16e über Schlüssel in der Sprache der Oberfläche)
@@ -57,4 +57,25 @@ test("Verdrahtung: kein fester SOL-Kurs mehr, Kurs in Modellwahl, Schaetzung, Za
   assert.ok(!tab.includes("maxLamportsPerKToken: 1000"), "fester Deckel entfernt");
   assert.match(tab, /zeigeKurs\(\);/);
   assert.match(lies("../src/shell/index.html"), /<div id="kurs-info" class="mono-sm"><\/div>/);
+});
+
+test("C-2: Einnahmen in der Einheit ihrer Kette – SOL nur mit Kurs, sonst ehrlich ohne", () => {
+  setLang("de");
+  assert.equal(einnahmeText("21000", "lightning", KURS), "21 sats");
+  assert.equal(einnahmeText("21000", undefined, KURS), "21 sats", "ohne Kette wie bisher sats");
+  assert.equal(einnahmeText("1500000", "solana", KURS), "≈ 0,01 SOL (Wert 1.500 sats)");
+  assert.equal(einnahmeText("1500000", "solana"), "SOL, Wert 1.500 sats (kein Kurs)", "ohne Kurs keinen SOL-Betrag erfinden");
+  assert.equal(einnahmeText("0", "solana", KURS), "≈ 0 SOL (Wert 0 sats)", "Gratis-Aufträge tragen 0");
+  // Fremddaten aus dem Event: nur ganze, nicht negative msat – sonst ein Strich statt „NaN sats“
+  for (const v of ["—", "", "-5", "1e3", "1.5", "0x10", " 5", undefined, 5, "9".repeat(19)]) assert.equal(einnahmeText(v, "lightning", KURS), "—", String(v));
+  setLang("en");
+  assert.equal(einnahmeText("1500000", "solana", KURS), "≈ 0.01 SOL (worth 1,500 sats)");
+  assert.equal(einnahmeText("1500000", "solana"), "SOL, worth 1,500 sats (no rate)");
+  setLang("de");
+  // Verdrahtet: der Earn-Tab zeigt jede Einnahme über einnahmeText(); den Kurs holt er nur, wenn es SOL-Einnahmen gibt
+  const earn = readFileSync(new URL("../src/shell/tabs/earn.ts", import.meta.url), "utf8");
+  // seit C-6 als Text im DOM, nicht mehr über innerHTML
+  assert.match(earn, /el\("span", `\$\{einnahmeText\(get\("volume_msat"\), kette\(ev\), kurs\)\} · \$\{timeAgo\(ev\.created_at\)\}`\)/);
+  assert.match(earn, /const kurs = sorted\.some\(\(ev\) => kette\(ev\) === "solana"\) \? \(aktuellerKurs\(\) \?\? await aktualisiereKurs\(\)\.catch\(\(\) => undefined\)\) : undefined;/);
+  assert.doesNotMatch(earn, /\/ 1000\)\} sats/, "nicht mehr fest „sats“");
 });

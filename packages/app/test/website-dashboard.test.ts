@@ -16,7 +16,7 @@ import {
 
 interface Daten {
   ereignisse: number;
-  angebote: { pubkey: string; stufe: string; modelle: string[]; satsJe1k: number | null; lightning: boolean; solKanal: boolean; funkGateway: boolean }[];
+  angebote: { pubkey: string; stufe: string; modelle: string[]; satsJe1k: number | null; lamportsJe1k: number | null; lightning: boolean; solKanal: boolean; funkGateway: boolean }[];
   angebote7Tage: number;
   modelle: { name: string; anbieter: number }[];
   kataloge: { kurator: string; titel: string; modelle: number }[];
@@ -28,16 +28,18 @@ interface Modul {
   KIND_ANGEBOT: number; KIND_KATALOG: number; KIND_ABDECKUNG: number; KIND_NENNUNG: number; K_SCHWELLE: number;
   filter(jetzt: number): { kinds: number[] }[];
   werteAus(events: unknown[], jetzt: number): Daten;
+  lamportsAus(msat: number, satsProSol: number | null): number | null;
 }
 const pfad = new URL("../../website/js/dashboard-daten.js", import.meta.url);
 const m = (await import(pfad.href)) as Modul;
 const JETZT = Math.floor(Date.now() / 1000);
 
-function angebot(o: { tier?: "free" | "classic" | "pro"; alter?: number; modelle?: string[]; preis?: number; lud16?: string; funk?: boolean } = {}) {
+function angebot(o: { tier?: "free" | "classic" | "pro"; alter?: number; modelle?: string[]; preis?: number; lud16?: string; funk?: boolean; kurs?: number } = {}) {
   const k = generateKeypair();
   const ev = signEvent(buildCapabilities({
     pubkey: k.pk, tier: o.tier ?? "classic", models: o.modelle ?? ["qwen3:8b"], textRatePerKTokenMsat: o.preis ?? 2000, tools: [], currentlyFree: false,
     ...(o.lud16 ? { lud16: o.lud16 } : {}), ...(o.funk ? { funkGateway: true } : {}),
+    ...(o.kurs ? { kurs: { satsProSol: o.kurs, quelle: "markt" as const } } : {}),
   }, JETZT - (o.alter ?? 60)), k.sk);
   return { k, ev };
 }
@@ -107,4 +109,24 @@ test("8.15: die Seite nutzt nur die Auswertung und zeigt nichts Selbstberichtete
   assert.match(seite, /queryRelay\(r, filter\(jetzt\)\)/);
   assert.doesNotMatch(seite, /38010|kinds:\s*\[/, "keine eigene Abfrage an der Auswertung vorbei");
   assert.match(readFileSync(new URL("../../../scripts/build-site.sh", import.meta.url), "utf8"), /cp -r "\$W"\/js "\$OUT"\//, "js/ wird mit veröffentlicht");
+});
+
+test("C-3: Preise in sats und SOL – SOL nur aus dem Kurs im Angebot, ohne Kurs keiner", async () => {
+  const { msatZuLamports } = await import("@freedomstack/protocol");
+  const mitKurs = angebot({ preis: 2000, kurs: 150_000 });
+  const ohneKurs = angebot({ preis: 2000, alter: 120 });
+  // Ein Kurs, den parseCapabilities() nicht nähme, zählt auch hier nicht
+  const k = generateKeypair();
+  const unfug = signEvent({ ...angebot({ preis: 2000 }).ev, pubkey: k.pk, tags: [["d", k.pk], ["tier", "classic"], ["text_rate_msat", "2000"], ["kurs", "SOL/BTC", "1e5", "markt"]], created_at: JETZT - 180 } as never, k.sk);
+  const d = m.werteAus([mitKurs.ev, ohneKurs.ev, unfug], JETZT);
+  const je = (pk: string) => d.angebote.find((a) => a.pubkey === pk)!;
+  assert.equal(je(mitKurs.k.pk).lamportsJe1k, msatZuLamports(2000, 150_000), "wie die App: aufgerundet");
+  assert.equal(je(mitKurs.k.pk).lamportsJe1k, 13_334);
+  assert.equal(je(ohneKurs.k.pk).lamportsJe1k, null);
+  assert.equal(je(k.pk).lamportsJe1k, null, "„1e5“ ist keine ganze Zahl");
+  for (const [msat, kurs] of [[1, 150_000], [999_999, 123_457], [0, 150_000]] as const) assert.equal(m.lamportsAus(msat, kurs), msatZuLamports(msat, kurs));
+  assert.equal(m.lamportsAus(2000, null), null);
+  const seite = readFileSync(new URL("../../website/dashboard.html", import.meta.url), "utf8");
+  assert.match(seite, /p\.lamportsJe1k === null \? `\$\{sats\} · SOL: kein Kurs` : `\$\{sats\} · ≈ \$\{solFmt\(p\.lamportsJe1k\)\} SOL`/);
+  assert.match(seite, /"Preis je 1\.000 Tokens"/);
 });

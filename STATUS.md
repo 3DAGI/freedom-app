@@ -13089,6 +13089,245 @@ Zufalls-Hex: Bei 3000 gesendeten Nachrichten stand „4711“ sechsmal zufällig
 darin, der Klartext nie. Jetzt sucht er „Gruppe 4711“ mit Leerzeichen; das kann
 weder in Hex noch in Base64 entstehen.
 
+## Schritt C-1e – Dialoge: der Rest
+
+Spur C, Sammlung C-1, Teil e: die letzten 10 Browser-Dialoge außerhalb von
+`agent.ts`. Danach gibt es `prompt()`/`confirm()`/`alert()` nur noch in
+`newCommunity()` (das Anlegen von Communities fällt mit C-10 weg) und in
+`tabs/agent.ts` (5 Stellen – Spur B arbeitet dort mit B-9, danach).
+
+**Was:**
+- `tabs/profil.ts` – **Abzeichen vergeben:** jetzt wirklich ein Dialog, wie
+  der Kommentar es seit jeher wollte („zwei getrennte Dialoge wären zwei
+  Gelegenheiten zum Abbrechen“): Name, Empfänger (Kontakte als Häkchen oder
+  Schlüssel – jetzt auch npub, vorher nur Hex) und Zweck; ohne gültigen
+  Empfänger meldet sich der Dialog.
+- `nachfolge-ui.ts` – **Meldung zur Nachfolge** (Begründung Pflicht, wird
+  veröffentlicht) und **Anteil übergeben** (Gefahr – ein Anteil lässt sich
+  nicht zurückholen).
+- `bunker.ts` – **Bunker verbinden/abmelden:** bestätigt, bevor die
+  Identität wechselt.
+- `pruefauftraege-ui.ts` – **Urteil als Prüfer:** Begründung darf leer
+  bleiben, Abbrechen sendet nichts.
+- `notfall.ts` – **Hinweis nach der Notfall-Löschung**, wenn nicht alles weg
+  ist: jetzt vor dem weiteren Start (vorher `alert()` per `setTimeout`, der
+  Start lief daneben weiter).
+- `app.ts` – **eigener Schlüssel ohne Zwischenablage:** Feld zum Ansehen mit
+  „Kopieren“ statt `prompt()`.
+
+**Verdrahtet:** `profil.ts:30` (`vergebeAbzeichen()`), `nachfolge-ui.ts:141`
+(`melde()`), `:179` (`uebergib()`), `bunker.ts:97`/`:112`,
+`pruefauftraege-ui.ts:88` (`urteile()`), `notfall.ts:78`
+(`nachNotfallLoeschung()`), `app.ts:828` („Profil teilen“).
+
+**Tests:** app +1 in `test/browser-dialoge.test.ts` (keine Browser-Dialoge
+mehr in den sechs Dateien; Abzeichen mit `schluesselAusEingabe()` und
+Prüfung im Dialog; Nachfolge Pflicht-Begründung, Übergabe mit Gefahr und erst
+nach Bestätigung; Bunker bestätigt vor dem Wechsel; Urteil erst nach dem
+Dialog; Notfall-Hinweis vor dem Start). `NOCH_OFFEN` nur noch `agent.ts` (5)
+und `kommunikation.ts` (1). Smoke „einstellungen“ erweitert: „Anmelden per
+Bunker (NIP-46)“ fragt vor dem Wechsel; „Abzeichen vergeben“ mit Name,
+Empfänger, Zweck – „npub1falsch“ meldet „Kein gültiger Pubkey dabei“.
+
+**Nebenbei (Spur B, Test):** Im vollen Lauf nach dem Einmergen von B-8b war
+„B-6: hin und zurück … kein Klartext“ (`datenexport.test.ts`) einmal rot. Der
+Test suchte „Alice“, „Bob“ und „Frage“ in der Datei – das Chiffrat ist Base64
+(rund 900 Zeichen), und „Bob“ stand bei 400 nachgezählten Läufen einmal
+zufällig darin, der Klartext nie. Wie B-8b beim MLS-Test: Die Probe-Daten
+tragen jetzt Namen mit Leerzeichen („Alice Muster“, „Bob Beispiel“, „Frage zum
+Wetter“), gesucht wird danach – ein Leerzeichen kommt in Base64 nicht vor.
+
+## Schritt C-2 – Einnahmen je Kette
+
+Spur C, Sammlung C-2, reine Anzeige. Die Einnahmenliste im Earn-Tab zeigte
+für jedes Leistungs-Event (38010) „… sats“ – auch für Aufträge, die in SOL
+bezahlt wurden (Zahlkanal, Deposit). Das Event nennt die Kette (`chain`).
+
+**Was:**
+- `preis-anzeige.ts`: `einnahmeText(volume_msat, chain, kurs)` – Lightning
+  in sats, Solana in SOL. Das Event nennt den Wert nur in msat (der Knoten
+  rechnet den SOL-Preis daraus); SOL steht deshalb mit „≈“ und dem Kurs von
+  jetzt da, dahinter der Wert in sats. Ohne Kurs: „SOL, Wert … sats (kein
+  Kurs)“ – kein erfundener SOL-Betrag. Nur ganze, nicht negative msat; sonst
+  „—“ (vorher „NaN sats“, wenn das Tag fehlte).
+- `tabs/earn.ts`: jede Zeile über `einnahmeText()`; den Kurs holt der Tab nur,
+  wenn es SOL-Einnahmen gibt (`aktuellerKurs()`, sonst `aktualisiereKurs()`).
+- Untertitel „Rechenzeit, Speicher und Relays gegen Sats oder SOL.“
+
+**Verdrahtet:** `earn.ts:246` (Kurs nur bei SOL-Einnahmen), `:252`
+(`loadEarnings()` → `einnahmeText()`); `preis-anzeige.ts:40`.
+
+**Tests:** app +1 in `test/preis-anzeige.test.ts` (Lightning, ohne Kette,
+Solana mit und ohne Kurs, gratis 0, Unfug aus dem Event – `—`, `1e3`, `-5`,
+zu lang –, Englisch; Verdrahtung im Earn-Tab). `innerhtml-ausnahmen.txt`: die
+Begründung der bestehenden Zeile für die Liste nennt jetzt
+`escapeHtml(einnahmeText(...))` statt `Math.floor`. Smoke „einnahmen“ (neu):
+zwei Leistungs-Events eines Probe-Knotens aus `scripts/einnahmen-probe.mts`
+(Wegwerfschlüssel, über `freedom.earn.knoten` gewählt) – „21 sats“ und „SOL,
+Wert 1.500 sats (kein Kurs)“; Untertitel mit „oder SOL“.
+
+## Schritt C-3 – Dashboard: Preise in sats und SOL
+
+Spur C, Sammlung C-3. Die Status-Seite der Website (`dashboard.html`) zeigte
+je Angebot nur „sats je 1.000 Tokens“. SOL ist gleichwertig – der Preis steht
+jetzt in beiden Einheiten.
+
+**Was:**
+- `website/js/dashboard-daten.js`:
+  - `kursAus()`: der Kurs des Anbieters aus seinem Angebot (`kurs`-Tag
+    „SOL/BTC“), geprüft wie `parseCapabilities()` (4.4) – nur eine ganze
+    Zahl sats je SOL und eine bekannte Quelle, sonst keiner.
+  - `lamportsAus()`: msat → Lamports wie `msatZuLamports()` (aufgerundet,
+    1 SOL = Kurs · 1000 msat); jedes Angebot trägt `lamportsJe1k` (oder
+    `null` ohne Kurs).
+- `website/dashboard.html`: Spalte „Preis je 1.000 Tokens“ – „2 sats · ≈
+  0,000013334 SOL“, ohne Kurs „2 sats · SOL: kein Kurs“; gratis bleibt
+  „gratis“.
+- Kein neuer Abruf und keine neue Art: `filter()` ist unverändert, der Kurs
+  steht schon im Angebot (38027).
+
+**Verdrahtet:** `dashboard-daten.js:46` (`kursAus()`), `:52` (`lamportsAus()`),
+`:70` (`angebote()` → `lamportsJe1k`); `dashboard.html:202` (`renderProviders()`).
+
+**Tests:** app +1 in `test/website-dashboard.test.ts`: mit Kurs aus dem
+Angebot dieselbe Zahl wie `msatZuLamports()` (2000 msat bei 150.000 sats/SOL
+→ 13.334 Lamports), ohne Kurs `null`, ein Kurs „1e5“ zählt nicht; drei
+weitere Beträge gegen `msatZuLamports()`; die Seite zeigt beides und „SOL:
+kein Kurs“. `check-website.py` ok.
+
+## Schritt C-4 – Barrierefreiheit: Namen, Kontrast, Tastatur
+
+Spur C, Sammlung C-4 (Tastatur, Fokusreihenfolge, Beschriftungen für
+Screenreader, Kontrast; Prüfung im Smoke-Test).
+
+**Bestandsaufnahme** (eigene Messung im Browser über alle neun Seiten und
+jeden Unterreiter, Desktop und Handy, dazu `index.html` ohne Browser):
+- 25 Bedienelemente ohne Namen für Vorleser: Eingabefelder nur mit
+  Platzhalter (Agent, Chat, Deposit, Zahlkanal, NWC, Endpunkte, Knoten,
+  Repo-Name, SOL-Adresse, Tageslimit, Gebot), Auswahlen (Stufe, Laufzeit,
+  Video), Knöpfe nur mit Symbol oder Tooltip (Anhang, Senden, Zap, neue
+  Community, Direktnachrichten), der Werbelink.
+- Kontrast unter 4,5:1: Rot als Schrift (`.err`, Gefahr im Menü, entfernte
+  Zeilen im Diff) 3,9:1; die Stufen-Beschriftung der Vertrauensleiste und der
+  leere Kontostand im Seitenkopf – beide über `opacity` gedämpft – 2,9 bzw.
+  3,6:1.
+- Nur per Maus: die Identität in der Kopfzeile (Klick exportiert den
+  Schlüssel).
+- Fokusrahmen: die Vorgabe des Browsers bleibt für Knöpfe; `tabindex > 0`
+  gibt es nicht.
+
+**Was:**
+- `index.html`: `data-i18n-aria` an allen 25 Stellen – wo es einen Platzhalter
+  oder Tooltip gibt, derselbe Schlüssel; neu `agent.stufeAria`,
+  `agent.anhaengenAria`, `komm.sendenAria`, `waehr.kanalLaufzeitAria`,
+  `earn.werbelinkAria`.
+- `app.css`: `--red-text` (#E35D5D, 5,2:1) für Rot als Schrift – die Fläche
+  Rot (`--red`, z. B. „Löschen“ mit weißer Schrift) bleibt; Strich der
+  Vertrauensleiste halb durchsichtig über `rgba`, nicht `opacity`; leerer
+  Kontostand über `--text-muted` statt `opacity: .45`.
+- Identität in der Kopfzeile: `role="button"`, `tabindex="0"`, Enter und
+  Leertaste exportieren wie der Klick (`app.ts`). Als Knopf ist sie auch eine
+  Berührfläche: mobil mindestens 40 px hoch (die Prüfung „mobil“ aus C.5a
+  fand sie danach mit 14 px).
+
+**Verdrahtet:** `app.ts` (`nbIdent` mit Tastatur), `index.html` (Namen, über
+`applyI18n()` → `data-i18n-aria`), `app.css`.
+
+**Tests:** app +3 in `test/zugang.test.ts`: kein Bedienelement in
+`index.html` ohne Namen (die Prüfung selbst mit Platzhalter-Feld,
+Symbol-Knopf und Tooltip-Auswahl als Negativfällen); Rot als Schrift und
+nichts Lesbares über `opacity`; Identität per Tastatur, kein `tabindex > 0`.
+Smoke „zugang“ (neu): auf jeder Seite und in jedem Unterreiter (Desktop) bzw.
+jeder Seite (Handy) – Namen, Kontrast nach WCAG AA (Schrift über der Fläche,
+auf der sie wirklich steht, samt Deckkraft der Vorfahren; deaktivierte
+Elemente ausgenommen), nichts nur per Maus, kein `tabindex > 0`. Vor den
+Änderungen fand er die Stellen oben, danach keine.
+
+Nicht in dieser Prüfung: Dialoge und Räume mit Inhalt (die prüfen „dialog“
+und „raum“ auf Tastatur und Fokus), Fokusreihenfolge über die ganze Seite.
+
+## Schritt C-6a – innerHTML abbauen: kleine Dateien
+
+**Warum:** In `scripts/innerhtml-ausnahmen.txt` standen 64 Stellen, an denen
+HTML aus Vorlagen gebaut wird und eine Begründung sagt, warum es sicher ist
+(Sammlung C-6). Jede davon hängt daran, dass niemand ein `escapeHtml()`
+vergisst. Wo Fremddaten in Zeilen stehen, ist DOM mit `textContent` sicher
+ohne Begründung. C-6 ist aufgeteilt: C-6a die kleinen Dateien, C-6b
+`settings.ts`, `app.ts`, `ui.ts`, `state.ts`, C-6c `kommunikation.ts`,
+`raeume.ts`; `agent.ts` erst nach B-9.
+
+**Was:**
+- `shell/ui.ts`: `el(tag, text?, klasse?)` – Element mit Text über
+  `textContent` und Klasse.
+- `agent-netz.ts`: Modell-Liste (Name und Quantisierung aus fremden
+  Manifesten) als Zeilen aus `el()`.
+- `earn.ts`: Einnahmen (Tags vom Relay), Ladetext und Fehler.
+- `profil.ts`: Vorschau (Bild nur als `img.src`, Layout und Muster über
+  `classList` aus der festen Auswahl nach `normalizeStyle()`), Stil-Auswahl
+  über `new Option(…)`, Offenlegung, Abzeichen (Namen von Fremden).
+- `waehrung.ts`: Befunde der Swap-Prüfung als Textknoten, je einer in einer
+  Zeile.
+- `chat-zap.ts`: der Betrag als Wert des Feldes, nicht in die Vorlage
+  eingesetzt.
+- `scripts/innerhtml-ausnahmen.txt`: 12 Zeilen fallen weg (64 → 52);
+  `check_innerhtml.py --streng` meldete sie als veraltet.
+
+**Verdrahtet:** dieselben Aufrufer wie vorher – `zeigeModelle()`
+(`app.ts`, Start und Knopf), `loadEarnings()` (Earn-Tab),
+`zeigeProfilVorschau()`/`zeigeAbzeichen()` (`switchTab("profile")`),
+`pollSwapResponse()` (Swap), `openZapDialog()` (Chat).
+
+**Tests:** app +5 in `test/dom-statt-html.test.ts` (fertige Dateien ohne
+`innerHTML` und ohne Ausnahme, `el()` nur mit `textContent`, Fremddaten als
+Text, Swap-Befunde und Zap-Betrag, Smoke verdrahtet); der Quelltext-Test aus
+C-2 (`preis-anzeige.test.ts`) sucht die Einnahme jetzt im `el("span", …)`.
+Smoke „fremdtext“ (neu): `scripts/fremdtext-probe.mts` signiert mit
+Wegwerfschlüsseln ein Modell-Manifest, eine Einnahme und ein Abzeichen an
+den eigenen Schlüssel, deren Felder `<img src=x onerror=…>` und `<b>`
+tragen; dazu ein Profilentwurf mit demselben Text. Geprüft: der Text steht
+wörtlich da, kein Element daraus, kein Skript lief. Gegenprobe: mit einer
+Zeile wieder über `innerHTML` meldet er „2 Elemente“.
+
+## Schritt C-6b – innerHTML abbauen: Settings, Start, RPC-Stand
+
+**Warum:** Zweiter Teil von C-6 (Sammlung). Nach C-6a standen 52 Stellen in
+`scripts/innerhtml-ausnahmen.txt`, davon 17 in `settings.ts`, `app.ts` und
+`state.ts` – darunter Gerätenamen aus Vollmachten vom Relay und
+Fehlermeldungen von RPC-Anbietern.
+
+**Was:**
+- `settings.ts`: Nachfolge-Stand, Geräte-Liste (Name als Text, Knopf
+  „entziehen“ mit `dataset.pk`), Fähigkeiten ohne Internet,
+  Mesh-Warteschlange, Prüfsumme nach dem Export, Echtheit der eigenen Datei –
+  alles über `el()`; kein `innerHTML` und kein `escapeHtml` mehr in der Datei.
+- `state.ts`: RPC-Stand je Endpunkt eine Zeile als Text.
+- `app.ts`: Wörter der Merkphrase (`<li>` mit `textContent`) und die
+  Abfragefelder (`dataset.pos`); der Rahmen des Dialogs bleibt eine feste
+  Vorlage aus `t()`-Texten. Sicherungs-Warnung mit Knopf, Sprachmenü als
+  Knöpfe.
+- `scripts/innerhtml-ausnahmen.txt`: 17 Zeilen fallen weg (52 → 35).
+  Es bleiben `ui.ts` (eigenes Logo-SVG, auch als Favicon gebraucht),
+  `tresor.ts`/`einrichtung-ui.ts` (feste Vorlagen), `kommunikation.ts`/
+  `raeume.ts` (C-6c) und `agent.ts` (nach B-9).
+
+**Verdrahtet:** wie vorher – `zeigeNachfolge()` (`app.ts`, Start),
+`zeigeGeraete()` (`switchTab("settings")`), `zeigeOfflineFaehigkeiten()`
+(Auswahl der Strecke), `zeigeWarteschlange()` (alle 2 s), Export und
+Echtheit (Knöpfe), RPC-Prüfung (`wireRpcSetting()`, Knopf „prüfen“),
+`baueSicherungsDialog()` (neue Identität, in jedem Smoke-Lauf),
+Sprachmenü (`#lang-btn`).
+
+**Tests:** app +2 in `test/dom-statt-html.test.ts` (Settings und RPC-Stand;
+Merkphrase, Warnung, Sprachmenü); `settings.ts` und `state.ts` stehen in
+`FERTIG` (kein `innerHTML`, keine Ausnahme). Smoke „fremdtext“ prüft dazu
+Geräte und Nachfolge (Text wie vorher), „ohne Internet“ (je Zeile ✓/✕) und
+das Sprachmenü (Knöpfe, `type="button"`, aktiv; nach „EN“ alle drei Menüs).
+
+Aufgefallen, nicht geändert: In einer eben angelegten Identität bleibt der
+Nachfolge-Stand bis zum Neuladen leer – der Start fragt ihn ab, bevor die
+Identität steht, und der Settings-Tab fragt ihn nicht neu ab. Der Smoke-Test
+lädt dafür einmal neu.
+
 ## Schritt B-8c – Knoten mit Besitzer koppeln: App
 
 Dritter Teil von B-8 (Protokoll in B-8a, Knoten in B-8b).
