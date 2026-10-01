@@ -54,6 +54,7 @@ import {
   verifyDepositOnChain, DepositVerificationCache, providerAnteilMsat, pruefeAufteilung, type Anteil,
   leseGutschriftTags, teileKanalZahlung, type KanalEmpfaenger, BESITZER_TAG, istBesitzer,
   kuerzeAntwort, leseKurzWunsch,
+  KIND_BLOB_CHUNK, KIND_BLOB_MANIFEST, KIND_DVM_BLOB_HALTEN, halteAntwortText, halteManifest,
 } from "@freedomstack/protocol";
 import type { KanalKasse } from "./kanal-kasse.js";
 import type { Connection } from "@solana/web3.js";
@@ -665,6 +666,67 @@ export class DvmProvider {
   }
 
   /**
+   * Halte-Auftrag (5076, seit B-9b, Entscheidung L4 A): nur vom Besitzer – aus
+   * einem Umschlag und mit Nachweis (`istBesitzer()`, B-8). Der Knoten holt
+   * Manifest und Stuecke des Blobs von den Relays, nimmt nur Verschluesseltes
+   * auf (`halteManifest()`, `nimmAuf()`) und haelt es ohne Verdraengung.
+   * Antwort versiegelt: wie viele Stuecke er haelt (`halteAntwortText()`).
+   * Nach aussen nur feste Texte.
+   */
+  private async handleBlobHalten(request: NostrEvent, privat: boolean): Promise<ProcessedJob> {
+    const start = Date.now();
+    const now = Math.floor(start / 1000);
+    if (!privat || !istBesitzer(request, this.cfg.besitzer?.() ?? [], now)) throw new Error("Halten nur für den Besitzer");
+    if (!this.storage) throw new Error("keine Speicher-Rolle");
+    const blobId = getTag(request, "i") ?? "";
+    const manifestId = request.tags.find((t) => t[0] === "param" && t[1] === "manifest")?.[2] ?? "";
+    if (!/^[0-9a-f]{64}$/.test(blobId) || !/^[0-9a-f]{64}$/.test(manifestId)) throw new Error("Halte-Auftrag ohne gültigen Blob");
+    // Genau das genannte Manifest – ein fremdes mit derselben Blob-Id zählt nicht
+    const manifest = (await this.pool.query({ kinds: [KIND_BLOB_MANIFEST], ids: [manifestId], limit: 1 })).find((ev) => ev.id === manifestId);
+    const m = manifest ? halteManifest(manifest, blobId) : null;
+    if (!manifest || !m) throw new Error("Kein verschlüsseltes Manifest zu diesem Blob");
+    const stuecke = await this.pool.query({
+      kinds: [KIND_BLOB_CHUNK], authors: [manifest.pubkey], "#blob": [blobId], limit: Math.min(m.hashes.length * 2, 5000),
+    });
+    const gehalten = new Set<number>();
+    let voll = false;
+    for (const ev of stuecke) {
+      if (ev.pubkey !== manifest.pubkey) continue; // nur Stücke desselben Autors
+      const index = Number(getTag(ev, "index") ?? "-1");
+      if (!Number.isInteger(index) || index < 0 || index >= m.hashes.length || gehalten.has(index)) continue;
+      if (getTag(ev, "sha256") !== m.hashes[index]) continue;
+      const r = await this.storage.nimmAuf(ev, { halten: true });
+      if (r.ok) gehalten.add(index);
+      else if (r.grund === "Speicher voll") voll = true;
+    }
+    if (voll && gehalten.size === 0) throw new Error("Speicher voll");
+    const output = halteAntwortText({ gehalten: gehalten.size, noetig: m.noetig, gesamt: m.hashes.length });
+    const resultEvent = signEvent(
+      buildJobResult({
+        providerPubkey: this.cfg.keypair.pk,
+        requestId: request.id,
+        requestKind: request.kind,
+        customerPubkey: request.pubkey,
+        output,
+        amountMsat: 0,
+      }),
+      this.cfg.keypair.sk,
+    );
+    await this.antworte(resultEvent, request, true);
+    console.log(`[speicher] für den Besitzer gehalten: ${gehalten.size} von ${m.hashes.length} Stücken von ${blobId.slice(0, 8)}`);
+    return {
+      requestId: request.id,
+      resultEventId: resultEvent.id,
+      customerPubkey: request.pubkey,
+      amountMsat: 0,
+      providerMsat: 0,
+      aufteilung: [],
+      outputPreview: `${gehalten.size}/${m.hashes.length} Stücke gehalten`,
+      durationMs: Date.now() - start,
+    };
+  }
+
+  /**
    * Session-Validierung (Provider-Seite, Stufe B):
    *   1. Session-Open vom Relay laden (d-Tag = sessionId, Autor = Kunde)
    *   2. Muss an UNS adressiert sein (p-Tag = eigener pubkey)
@@ -777,6 +839,8 @@ export class DvmProvider {
     // Abruf eines Stuecks (5075): eigener Handler, kein LLM, vor der Zahlungspruefung –
     // bis 8.9c ohne Bezahlung (Entscheidung 26.09.2026).
     if (request.kind === 5075) return this.handleBlobFetch(request, privat);
+    // Halten fuer den Besitzer (5076, B-9b): nur versiegelt und mit Nachweis
+    if (request.kind === KIND_DVM_BLOB_HALTEN) return this.handleBlobHalten(request, privat);
     const input = getTag(request, "i");
     const bidMsat = Number(getTag(request, "bid") ?? "0");
     const sessionId = getTag(request, "session");

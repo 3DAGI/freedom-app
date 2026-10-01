@@ -56,6 +56,7 @@ export const KIND_DVM_BROWSER = 5062;       // Browser-Automation
 export const KIND_DVM_IMAGE_GEN = 5070;     // Bild-Generierung
 export const KIND_DVM_VIDEO_GEN = 5071;     // Video-Generierung (Minimax H3)
 export const KIND_DVM_BLOB_FETCH = 5075;    // Storage: Chunk-Fetch (Micro-Reward pro Shard)
+export const KIND_DVM_BLOB_HALTEN = 5076;   // Storage: Blob beim eigenen Knoten halten (nur Besitzer, versiegelt, B-9b)
 
 export function isDvmRequest(kind: number): boolean {
   return kind >= KIND_DVM_REQUEST_MIN && kind <= KIND_DVM_REQUEST_MAX;

@@ -107,6 +107,7 @@ Bestehende Kinds sind reserviert und semantisch eingefroren:
 | 5070 | Bild-Generierung |
 | 5071 | Video-Generierung |
 | **5075** | Blob-Chunk-Fetch (Storage-Micro-Reward) |
+| **5076** | Blob beim eigenen Knoten halten – nur versiegelt, nur mit Besitzer-Nachweis (§23) |
 
 ### Freedom-spezifisch (38xxx)
 | Kind | Bedeutung |
@@ -586,3 +587,31 @@ Event, von anderen nur, wenn
 Neue Kanäle zählen höchstens bis 100 je Raum; Events, die mehr als 600 s in
 der Zukunft liegen, gar nicht (`KANAL_GRENZEN`) – sonst gewönne ein
 vordatiertes Event gegen jede spätere Änderung, auch die des Gründers.
+
+## 23. Halten beim eigenen Knoten (Kind 5076, seit B-9b)
+
+Entscheidung L4 A: Der Besitzer lässt einen verschlüsselten Blob von seinem
+Knoten dauerhaft halten. Hochgeladen wird wie bisher (§6, nur Chiffrat);
+der Auftrag sagt nur, *welchen* Blob der Knoten holen und behalten soll.
+
+**Kern** (DVM-Anfrage, nur versiegelt vom Sitzungsschlüssel an den gekoppelten
+Knoten, `baueHalteAuftrag()`):
+
+| Tag | Inhalt |
+|---|---|
+| `i` | Blob-Id (64 Hex-Zeichen) |
+| `param` | `manifest`, Id des Manifests (38040) – nur dieses zählt |
+| `p` | Schlüssel des Knotens |
+| `besitzer` | Nachweis nach §21 |
+
+Der Knoten bearbeitet ihn nur aus einem Umschlag und nur mit gültigem
+Nachweis. Er holt genau das genannte Manifest – verschlüsselt, dieselbe
+Blob-Id im Inhalt, Erasure-Angaben stimmig (`halteManifest()`) – und nur
+Stücke von dessen Autor mit den Hashes aus dem Manifest. Gehaltene Stücke
+verdrängt er nie; sie zählen zur Quota, darüber nimmt er keine an.
+
+**Antwort** (6076, versiegelt an den Sitzungsschlüssel): Inhalt
+`{"gehalten": n, "noetig": d, "gesamt": t}` – gehaltene Stücke, Daten-Stücke
+über alle Gruppen, alle Stücke (`leseHalteAntwort()`, sonst nichts anzeigen).
+Abgerufen werden gehaltene Stücke wie alle über 5075.
+

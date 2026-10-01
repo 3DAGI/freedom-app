@@ -24,7 +24,8 @@
  */
 import { sha256, toHex } from "./htlc.js";
 import { UnsignedEvent, buildEvent, getTag } from "./event.js";
-import { KIND_BLOB_MANIFEST, KIND_BLOB_CHUNK, KIND_DVM_BLOB_FETCH } from "./kinds.js";
+import { KIND_BLOB_MANIFEST, KIND_BLOB_CHUNK, KIND_DVM_BLOB_FETCH, KIND_DVM_BLOB_HALTEN } from "./kinds.js";
+import { type Kopplung, mitBesitzerNachweis } from "./kopplung.js";
 import { buildJobRequest } from "./dvm.js";
 import { buildPrivateJobRequest } from "./private-job.js";
 import type { NostrEvent } from "./event.js";
@@ -396,3 +397,73 @@ export async function baueStueckAbruf(p: {
   }, p.nowSecs);
   return buildPrivateJobRequest({ request, sessionSigner: p.sitzung, providerPk: p.knotenPk, powBits: p.powBits, nowSecs: p.nowSecs });
 }
+
+/**
+ * Halte-Auftrag an den eigenen Knoten (B-9b, Entscheidung L4 A), versiegelt
+ * vom Sitzungsschluessel: „Halte alle Stuecke von `blobId`, ohne sie zu
+ * verdraengen.“ Nur mit Besitzer-Nachweis (B-8) – Fremden haelt der Knoten
+ * nichts dauerhaft. Hochgeladen wird wie bisher (nur Chiffrat, 8.9a); der
+ * Knoten holt die Stuecke selbst von den Relays und antwortet versiegelt,
+ * wie viele er haelt (`leseHalteAntwort()`). Der Auftrag nennt das Manifest
+ * (`manifestId`): Ein fremdes mit derselben Blob-Id zaehlt nicht, und der
+ * Knoten nimmt nur Stuecke desselben Autors.
+ */
+export async function baueHalteAuftrag(p: {
+  sitzung: Signer; kopplung: Kopplung; blobId: string; manifestId: string; powBits?: number; nowSecs?: number;
+}): Promise<{ wrap: NostrEvent; requestId: string }> {
+  if (!/^[0-9a-f]{64}$/.test(p.blobId) || !/^[0-9a-f]{64}$/.test(p.manifestId)) throw new Error("Halte-Auftrag ungültig");
+  const kern = buildJobRequest({
+    kind: KIND_DVM_BLOB_HALTEN, customerPubkey: p.sitzung.publicKey(), input: p.blobId, bidMsat: 0,
+    providerPubkey: p.kopplung.knoten, params: [["manifest", p.manifestId]],
+  }, p.nowSecs);
+  const request = mitBesitzerNachweis(kern, p.kopplung);
+  return buildPrivateJobRequest({ request, sessionSigner: p.sitzung, providerPk: p.kopplung.knoten, powBits: p.powBits, nowSecs: p.nowSecs });
+}
+
+/**
+ * Manifest fuer einen Halte-Auftrag streng lesen (`parseBlobManifest()` prueft
+ * nichts): genau dieser Blob, verschluesselt, Erasure-Angaben stimmig, jede
+ * Kennung 64 Hex-Zeichen. `noetig` = Daten-Stuecke ueber alle Gruppen – so
+ * viele braucht die Datei mindestens.
+ */
+export function halteManifest(ev: UnsignedEvent, blobId: string): { hashes: string[]; noetig: number } | null {
+  if (ev.kind !== KIND_BLOB_MANIFEST || getTag(ev, "blob") !== blobId) return null;
+  let m: Partial<BlobManifest>;
+  try {
+    m = JSON.parse(ev.content) as Partial<BlobManifest>;
+  } catch {
+    return null;
+  }
+  const d = m.dataShards, q = m.parityShards, h = m.shardHashes;
+  if (m.blobId !== blobId || m.encrypted !== true || !Number.isSafeInteger(d) || !Number.isSafeInteger(q)) return null;
+  if ((d as number) < 1 || (q as number) < 0 || !Array.isArray(h) || h.length < 1 || h.length > 100_000) return null;
+  if (h.length % ((d as number) + (q as number)) !== 0 || !h.every((x) => typeof x === "string" && /^[0-9a-f]{64}$/.test(x))) return null;
+  return { hashes: h as string[], noetig: (h.length / ((d as number) + (q as number))) * (d as number) };
+}
+
+/** Antwort auf einen Halte-Auftrag: so viele Stuecke haelt der Knoten, so viele braucht der Blob. */
+export interface HalteAntwort {
+  gehalten: number;
+  noetig: number;
+  gesamt: number;
+}
+
+/** Ausgabe des Knotens streng lesen – sonst null (nie Fremdtext anzeigen). */
+export function leseHalteAntwort(output: string): HalteAntwort | null {
+  let roh: unknown;
+  try {
+    roh = JSON.parse(output);
+  } catch {
+    return null;
+  }
+  const { gehalten, noetig, gesamt } = (roh ?? {}) as Record<string, unknown>;
+  const zahl = (x: unknown): x is number => Number.isSafeInteger(x) && (x as number) >= 0 && (x as number) <= 100_000;
+  if (!zahl(gehalten) || !zahl(noetig) || !zahl(gesamt) || noetig < 1 || noetig > gesamt || gehalten > gesamt) return null;
+  return { gehalten, noetig, gesamt };
+}
+
+/** Ausgabe fuer die Antwort des Knotens – dasselbe Format, das `leseHalteAntwort()` liest. */
+export function halteAntwortText(a: HalteAntwort): string {
+  return JSON.stringify({ gehalten: a.gehalten, noetig: a.noetig, gesamt: a.gesamt });
+}
+
