@@ -13468,3 +13468,47 @@ Endstand (B-20b, 01.10.): protocol 1146 (6 übersprungen) · node 275 (7
 übersprungen ohne Netz – mit Netz 276) · app 750 (+1) · mls 13 · Leak-Tests 69
 grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0
 · Website ok · Smoke-Test bestanden. Knoten-Stand: unverändert.
+
+## Schritt B-9a – „Mein Knoten“ in der Modellwahl
+
+Sammlung B-9 (Lokal 13.3), erster Teil; Zielbild aus Anhang B: „Wo rechnet die
+KI? Netz / Mein Knoten / Dieses Gerät“. Aufgeteilt: a Modellwahl, b Speichern
+bei meinem Knoten, c „Alles über meinen Knoten“ samt Weg nur über sein Relay.
+
+**App:**
+- `knoten-wahl.ts` (ohne DOM): Wahlwert `knoten:<modell>`, leer heißt das
+  Modell, das der Knoten wählt (`knotenWahlwert()`, `knotenModellAus()`).
+- `shell/tabs/agent.ts`:
+  - `zeigeKnotenBereich()`: nur gekoppelt (`meineKopplung()`, B-8c) die
+    Gruppe „Mein Knoten“ zwischen Netz und „Dieses Gerät“ – Modelle aus dem
+    Angebot des Knotens (`angebotVon()`), ohne Angebot „Modell des Knotens“;
+    nur DOM mit `textContent`. Gezeichnet nach dem Laden der Netz-Modelle und
+    beim Öffnen der Wahl (auch gleich nach dem Koppeln).
+  - `askAi()` → `frageMeinenKnoten()` nach Funk und Gerät, vor Kontingent und
+    Netz: nur an den gekoppelten Knoten, Gebot 0, Nachweis über
+    `buildJobEvent()` (`kopplungFuer()`), Rechenarbeit aus seinem Angebot; kein
+    Ausweichen – lehnt er ab oder schweigt er (300 s), steht das im Verlauf.
+  - `buildJobEvent(…, modell?)`: das Modell ohne „knoten:“; Knopf, Toast und
+    Schätzung („gratis · mein Knoten“) kennen den neuen Wert.
+- **Fund:** „Stopp“ wirkte nie – `askAi()` prüfte den Prompt vor dem
+  Stopp-Fall, und nach dem Senden ist das Feld leer. Jetzt steht der Stopp-Fall
+  davor (betrifft auch „Dieses Gerät“ und den Vergleich).
+
+**Gesendet** wird wie jede Anfrage über die Relays des Pools – „nur über sein
+Relay“ braucht Änderungen im Knoten (der Provider liest heute nur die Relays
+aus `RELAYS`, die eigene Relay-Rolle liefert Umschläge nur an den angemeldeten
+Empfänger, nicht an Sitzungsschlüssel) und kommt mit B-9c.
+
+**Tests:** app +4 (`mein-knoten-wahl.test.ts`: Wahlwert; Reihenfolge in
+`askAi()` samt Stopp vor der Prompt-Prüfung; `frageMeinenKnoten()` nur an den
+Knoten, ohne Provider-Suche, Failover oder Zahlung, Ablehnung und Schweigen im
+Verlauf; Gruppe nur gekoppelt, vor dem Gerät, nur Text). Angepasst:
+`mein-knoten.test.ts` (der Import in `agent.ts` nennt jetzt mehr Namen).
+Smoke „lokal“: koppeln über den Dialog, die Wahl zeigt „Netz · Mein Knoten ·
+Dieses Gerät“, der Knopf „Modell des Knotens · mein Knoten“; die Frage geht als
+genau ein Umschlag an den Knoten – kein Auftrag offen, kein Klartext –, „Stopp“
+bricht ab („[abgebrochen]“).
+
+**Verdrahtet:** `packages/app/src/shell/tabs/agent.ts` – `askAi()` →
+`frageMeinenKnoten()` → `buildJobEvent()`; `refreshModelDropdown()` und
+`setupModelPicker()` → `zeigeKnotenBereich()`.

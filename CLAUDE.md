@@ -948,4 +948,10 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   über `shell/mein-knoten.ts`: der Code nur in `geheim`
   (`freedom.knoten.kopplung`, `SICHERUNG_NIE`), eingegeben verdeckt;
   `buildJobEvent()` setzt den Nachweis nur für `kopplungFuer(ziel)` – dann
-  ohne Gebot, Anteile, Kanal und Sitzung, höchstens 0 msat.
+  ohne Gebot, Anteile, Kanal und Sitzung, höchstens 0 msat. In der Modellwahl
+  (seit B-9a) „Mein Knoten“ nur gekoppelt (`zeigeKnotenBereich()`, Modelle aus
+  `angebotVon()`, nur Text), Wahlwert `knoten:<modell>` (`knoten-wahl.ts`);
+  `askAi()` → `frageMeinenKnoten()` nach Funk und Gerät, vor Kontingent und
+  Netz – nur an diesen Knoten, nie ein anderer Provider, nie still ins Netz.
+  Der Stopp-Fall in `askAi()` steht vor der Prüfung des Prompts (nach dem
+  Senden ist das Feld leer).

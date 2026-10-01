@@ -34,6 +34,7 @@ import { werkzeugPreise, werkzeugPreisText } from "../../werkzeug-preise.js";
 import type { ToolPrice } from "@freedomstack/protocol";
 import { merkeGratisAbgelehnt, switchTab, zeigeOnboarding } from "../app.js";
 import {
+  angebotVon,
   ensurePool,
   ensureSessionClient,
   findProviders,
@@ -46,7 +47,8 @@ import { geheim } from "../tresor.js";
 import { beiFunkAntwort, sendeKiUeberFunk } from "../ki-ueber-funk.js";
 import { quittungNachKanal, quittungNachZahlung } from "../quittungen.js";
 import { deklaration, empfaengerFuer, kanalAntwort, kanalGutschrift, merkeAnfrage, perKanal, providerZahlung, rechneAntwortAb, zahleAnteile } from "../ki-zahlung.js";
-import { kopplungFuer } from "../mein-knoten.js";
+import { kopplungFuer, meineKopplung } from "../mein-knoten.js";
+import { knotenModellAus, knotenWahlwert } from "../../knoten-wahl.js";
 import { hoechstMsat } from "../../anteile-kasse.js";
 import {
   $,
@@ -130,8 +132,98 @@ export async function refreshModelDropdown(): Promise<void> {
     updateModelBtnLabel();
   } catch { /* dropdown bleibt bei auto */ } finally {
     zeigeLokalBereich();
+    void zeigeKnotenBereich();
   }
 }
+
+// ------------------------------------------------ Mein Knoten (B-9a)
+
+/**
+ * „Mein Knoten“ in der Modellwahl – nur, wenn dieses Gerät gekoppelt ist
+ * (B-8c). Die Modelle kommen aus dem Angebot des Knotens; ohne Angebot bleibt
+ * „Modell des Knotens“. Nur DOM mit textContent: Die Namen stehen im Angebot.
+ */
+async function zeigeKnotenBereich(): Promise<void> {
+  const pop = $("#model-popover");
+  if (!pop) return;
+  const k = meineKopplung();
+  const angebot = k ? await angebotVon(k.knoten).catch(() => undefined) : undefined;
+  pop.querySelector(".knoten-bereich")?.remove();
+  if (!k) return;
+  const gewaehlt = ($("#ai-model") as HTMLInputElement | null)?.value ?? "";
+  const bereich = document.createElement("div");
+  bereich.className = "knoten-bereich";
+  const kopf = document.createElement("div");
+  kopf.className = "mc-gruppe";
+  kopf.textContent = t("agent.gruppeKnoten");
+  bereich.append(kopf);
+  const modelle = angebot?.models?.length ? angebot.models : [""];
+  for (const m of modelle) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "model-card";
+    b.dataset.model = knotenWahlwert(m);
+    if (gewaehlt === b.dataset.model) b.classList.add("selected");
+    const head = document.createElement("div");
+    head.className = "mc-head";
+    const name = document.createElement("b");
+    name.textContent = m ? m.split(":")[0]! : t("agent.knotenStandard");
+    const marke = document.createElement("span");
+    marke.className = "mc-speed lokal";
+    marke.textContent = t("agent.knotenKurz");
+    head.append(name, marke);
+    const sub = document.createElement("div");
+    sub.className = "mc-sub";
+    sub.textContent = angebot ? t("agent.knotenModellSub", { knoten: pkShort(k.knoten) }) : t("agent.knotenOhneAngebot", { knoten: pkShort(k.knoten) });
+    b.append(head, sub);
+    bereich.append(b);
+  }
+  pop.insertBefore(bereich, pop.querySelector(".lokal-bereich"));
+}
+
+/**
+ * Frage an meinen Knoten: nur an ihn – kein anderer Provider, kein Ausweichen,
+ * kein Kontingent. Die Anfrage trägt den Nachweis (`buildJobEvent()` mit
+ * `kopplungFuer()`) und zahlt nichts; lehnt der Knoten ab oder schweigt er,
+ * steht das im Verlauf.
+ */
+async function frageMeinenKnoten(prompt: string, modell: string, btn: HTMLButtonElement): Promise<void> {
+  const k = meineKopplung();
+  if (!k) {
+    toast(t("agent.knotenNichtGekoppelt"), true);
+    resetSendBtn(btn);
+    return;
+  }
+  jobAbort = new AbortController();
+  maybeInsertModelSwitchSummary(t("agent.knotenKurz"));
+  addAiMessage("user", prompt, "");
+  ($("#ai-prompt") as HTMLTextAreaElement).value = "";
+  hideEmptyState();
+  showTyping("connecting");
+  try {
+    // Rechenarbeit aus dem Angebot des Knotens – ohne Angebot keine, dann sagt der Knoten, was fehlt
+    const angebot = await angebotVon(k.knoten).catch(() => undefined);
+    if (angebot?.powBits !== undefined && angebot.powBits <= MAX_POW_APP) powJeProvider.set(k.knoten, angebot.powBits);
+    const { wrap, requestId } = await buildJobEvent(prompt, 0, "free", k.knoten, ensureSessionClient(), [], modell);
+    await (await ensurePool()).publish(wrap);
+    setTypingStatus("thinking");
+    const antwort = await waitForAnswer(requestId, KNOTEN_ZEIT_MS, k.knoten, { signal: jobAbort.signal });
+    hideTyping();
+    if (!antwort) addAiMessage("ai", t("agent.knotenSchweigt", { knoten: pkShort(k.knoten) }), "");
+    else if (antwort.aborted) addAiMessage("ai", t("agent.abgebrochen"), "");
+    else if ("providerError" in antwort && antwort.providerError) addAiMessage("ai", t("agent.knotenLehntAb", { grund: antwort.providerError.slice(0, 200) }), "");
+    else await handleAnswer(antwort.ev, antwort.parsed!, prompt);
+  } catch (e) {
+    hideTyping();
+    addAiMessage("ai", fehlerText(e), "");
+  } finally {
+    jobAbort = null;
+    resetSendBtn(btn);
+  }
+}
+
+/** So lange wartet die App auf den eigenen Knoten – wie auf den ersten Provider im Netz. */
+const KNOTEN_ZEIT_MS = 300_000;
 
 // ------------------------------------------------ KI auf diesem Gerät (B-1)
 
@@ -258,8 +350,11 @@ function updateModelBtnLabel(): void {
   if (!sel || !btn) return;
   const v = sel.value;
   const lokalModell = lokalesModellAus(v);
+  const knotenModell = knotenModellAus(v);
   btn.innerHTML = lokalModell
     ? `${icon("monitor", 14)} ${escapeHtml(lokalModell)} · ${escapeHtml(t("agent.lokalKurz"))}`
+    : knotenModell !== null
+    ? `${icon("server", 14)} ${escapeHtml(knotenModell.split(":")[0] || t("agent.knotenStandard"))} · ${escapeHtml(t("agent.knotenKurz"))}`
     : v
     ? `${icon("bot", 14)} ${escapeHtml(v.split(":")[0])}`
     : `${icon("bot", 14)} ${escapeHtml(t("agent.autoSchnellste"))}`;
@@ -273,7 +368,10 @@ export function setupModelPicker(): void {
   btn.addEventListener("click", (e) => {
     e.stopPropagation();
     pop.classList.toggle("hidden");
-    if (!pop.classList.contains("hidden") && lokalAktiv(localStorage)) void sucheLokal();
+    if (pop.classList.contains("hidden")) return;
+    // Mein Knoten (B-9a): auch gleich nach dem Koppeln, ohne dass die Modelle des Netzes neu geladen werden
+    void zeigeKnotenBereich();
+    if (lokalAktiv(localStorage)) void sucheLokal();
   });
   // Karten-Klicks (delegiert, da Inhalt dynamisch)
   pop.addEventListener("click", async (e) => {
@@ -286,7 +384,9 @@ export function setupModelPicker(): void {
     sel.value = card.dataset.model ?? "";
     updateModelBtnLabel();
     pop.classList.add("hidden");
-    toast(sel.value ? t("agent.modellGewaehlt", { modell: lokalesModellAus(sel.value) ?? sel.value.split(":")[0] ?? "" }) : t("agent.modellAuto"));
+    const knotenModell = knotenModellAus(sel.value);
+    toast(knotenModell !== null ? t("agent.modellGewaehlt", { modell: knotenModell.split(":")[0] || t("agent.knotenKurz") })
+      : sel.value ? t("agent.modellGewaehlt", { modell: lokalesModellAus(sel.value) ?? sel.value.split(":")[0] ?? "" }) : t("agent.modellAuto"));
     updateTokenEstimate();
   });
   // klick außerhalb schließt
@@ -443,6 +543,7 @@ export function updateTokenEstimate(): void {
   const promptLen = ($("#ai-prompt") as HTMLTextAreaElement).value.length;
   if (promptLen < 10) { el.textContent = ""; return; }
   if (lokalesModellAus(($("#ai-model") as HTMLInputElement | null)?.value)) { el.textContent = t("agent.lokalGratis"); return; }
+  if (knotenModellAus(($("#ai-model") as HTMLInputElement | null)?.value) !== null) { el.textContent = t("agent.knotenGratis"); return; }
   const estTokens = Math.ceil(promptLen / 4) + 300; // +300 für Antwort-Puffer
   // Rate: aus Modell-Katalog (falls geladen) oder Default 1500 msat/1k
   let rate = 1500;
@@ -509,14 +610,15 @@ export async function askAi(): Promise<void> {
   const promptEl = $("#ai-prompt") as HTMLTextAreaElement;
   const prompt = promptEl.value.trim();
   const bid = Number(($("#ai-bid") as HTMLInputElement).value);
-  if (!prompt) return;
-
   const btn = $("#ai-send") as HTMLButtonElement;
-  // STOP: läuft bereits ein Job → abbrechen statt neuen senden
+  // STOP: läuft bereits ein Job → abbrechen statt neuen senden – vor der Prüfung des Prompts,
+  // der ist nach dem Senden leer (bis B-9a kehrte askAi deshalb vorher zurück, Stopp wirkte nie)
   if (btn.dataset.running === "1" && jobAbort) {
     jobAbort.abort();
     return;
   }
+  if (!prompt) return;
+
   // KI über Funk (7.4c3): gewählt – die Antwort kommt später über setupFunkAntworten()
   if (($("#ai-funk") as HTMLInputElement | null)?.checked) {
     await frageUeberFunk(prompt, bid);
@@ -529,6 +631,12 @@ export async function askAi(): Promise<void> {
   const lokalModell = lokalesModellAus(($("#ai-model") as HTMLInputElement | null)?.value);
   if (lokalModell) {
     await frageAufDiesemGeraet(prompt, lokalModell, btn);
+    return;
+  }
+  // Mein Knoten (B-9a): nur an ihn, gratis mit Nachweis – vor Kontingent und Netz, nie an einen anderen Provider
+  const knotenModell = knotenModellAus(($("#ai-model") as HTMLInputElement | null)?.value);
+  if (knotenModell !== null) {
+    await frageMeinenKnoten(prompt, knotenModell, btn);
     return;
   }
   // Retry-Kontext ausserhalb des try-Blocks (catch braucht ihn)
@@ -964,6 +1072,7 @@ async function buildJobEvent(
   targetPubkey: string,
   sc: SessionClient,
   zusatzTags: string[][] = [],
+  modell?: string,
 ): Promise<{ wrap: NostrEvent; requestId: string }> {
   if (!state.keypair) throw new Error("no keypair"); // kein UI-Text
   const sitzung = kiSitzungen.fuer(targetPubkey);
@@ -989,10 +1098,10 @@ async function buildJobEvent(
   for (const tk of selectedTools) {
     extraTags.push(["tool", String(tk.kind), tk.input]);
   }
-  // Modell-Wahl: aus Dropdown (leer = provider-default, nemotron bevorzugt)
-  const modelSel = $("#ai-model") as HTMLSelectElement | null;
-  if (modelSel && modelSel.value) {
-    extraTags.push(["param", "model", modelSel.value]);
+  // Modell-Wahl: aus Dropdown (leer = provider-default, nemotron bevorzugt); für meinen Knoten (B-9a) ohne „knoten:“
+  const gewaehltesModell = modell ?? ($("#ai-model") as HTMLSelectElement | null)?.value ?? "";
+  if (gewaehltesModell) {
+    extraTags.push(["param", "model", gewaehltesModell]);
   }
   const useSession = !eigen && !kanal && sc.activeFor(targetPubkey);
   const request = useSession

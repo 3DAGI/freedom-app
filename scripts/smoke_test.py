@@ -1411,6 +1411,43 @@ def lokal_pruefen(browser, url: str) -> dict:
                  " return b ? { text: b.querySelector('.body')?.textContent ?? '', meta: b.querySelector('.cost')?.textContent ?? '' } : null; }")
     s.wait_for_timeout(1000)
     neu = relay.gesendet[vorher:]
+    # Mein Knoten (B-9a): gekoppelt steht die Gruppe zwischen Netz und Gerät; die Frage geht nur als Umschlag an den
+    # Knoten (kein Klartext, kein anderer Provider), ohne Antwort wartet die App – „Stopp“ bricht ab
+    knoten_pk = "ab" * 32
+    ev("() => document.getElementById('knoten-koppeln').click()")
+    s.wait_for_selector("[role=dialog] input", timeout=10000)
+    ev("(c) => { document.querySelector('[role=dialog] input').value = c; }", "freedom-kopplung:1:" + knoten_pk + ":" + "cd" * 32)
+    ev("() => document.querySelector('[role=dialog] .dlg-knoepfe button:last-child').click()")
+    s.wait_for_function("() => !document.querySelector('[role=dialog][aria-modal=true]')", timeout=10000)
+    ev("() => document.getElementById('ai-model-btn').click()")
+    karte_k = '#model-popover .knoten-bereich .model-card[data-model="knoten:"]'
+    s.wait_for_selector(karte_k, timeout=20000)
+    gruppen = ev("() => [...document.querySelectorAll('#model-popover .mc-gruppe')].map(g => g.textContent)")
+    ev(f"() => document.querySelector('{karte_k}').click()")
+    knopf_k = ev("() => document.getElementById('ai-model-btn').textContent.trim()")
+    vorher_k = len(relay.gesendet)
+    frage_k = "Frage an meinen Knoten 0815"
+    ev("(f) => { document.getElementById('ai-prompt').value = f; document.getElementById('ai-send').click(); }", frage_k)
+    for _ in range(150):
+        if any(e.get("kind") == 1059 for e in relay.gesendet[vorher_k:]):
+            break
+        s.wait_for_timeout(100)
+    s.wait_for_timeout(500)
+    ev("() => document.getElementById('ai-send').click()")  # Stopp
+    try:
+        s.wait_for_function("() => [...document.querySelectorAll('#ai-thread .bubble.ai')].some(b => b.textContent.includes('[abgebrochen]'))", timeout=15000)
+        abgebrochen = True
+    except Exception:
+        abgebrochen = False
+    neu_k = list({e["id"]: e for e in relay.gesendet[vorher_k:]}.values())
+    umschlaege = [e for e in neu_k if e.get("kind") == 1059]
+    erg["knoten"] = {"gruppen": gruppen, "knopf": knopf_k, "abgebrochen": abgebrochen,
+                     "arten": sorted({e.get("kind") for e in neu_k}),
+                     "an": sorted({t[1] for e in umschlaege for t in e["tags"] if t[0] == "p"})}
+    if gruppen != ["Netz", "Mein Knoten", "Dieses Gerät"] or knopf_k != "Modell des Knotens · mein Knoten" or not abgebrochen \
+            or len(umschlaege) != 1 or erg["knoten"]["an"] != [knoten_pk] \
+            or any(5000 <= int(e.get("kind", 0)) < 7000 for e in neu_k) or any(frage_k in json.dumps(e) for e in neu_k):
+        erg["fehler"].append(f"Mein Knoten {erg['knoten']}")
     ctx.close()
     anfragen = [a for a in lokal if a["methode"] == "POST"]
     erg.update({"vor_klick": vor_klick, "wahl": wahl, "antwort": antwort, "lokal": [f"{a['methode']} {a['url']}" for a in lokal],
