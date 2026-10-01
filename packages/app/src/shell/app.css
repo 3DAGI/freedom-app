@@ -1721,6 +1721,10 @@ header .ident[data-initial=""]::before { display: none; }
 .issue-titel { overflow-wrap: anywhere; }
 .issue-text { white-space: pre-wrap; overflow-wrap: anywhere; margin: 6px 0 10px; }
 .issue-label { margin-left: 4px; }
+/* Seit C-20e: Labels als Knöpfe, Auswahl in der Filterzeile */
+.issue-label-knopf { background: none; color: inherit; font-family: inherit; font-weight: normal; text-transform: none; letter-spacing: normal; cursor: pointer; }
+.issue-label-knopf:hover { color: var(--accent); }
+.issue-label-wahl { width: auto; max-width: 100%; }
 .issue-abschnitt { margin: 14px 0 6px; font-size: 12px; }
 .issue-kommentar { border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; margin: 6px 0; }
 .issue-neu { margin-bottom: 8px; }

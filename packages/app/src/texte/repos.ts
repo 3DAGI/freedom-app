@@ -161,4 +161,8 @@ export const repos: Texte = {
   "repo.sucheMehr": { de: "Mehr als {n} Treffer – bitte genauer suchen.", en: "More than {n} results – please narrow the search." },
   "repo.sucheOrt": { de: "{pfad}:{nr}", en: "{pfad}:{nr}" },
   "repo.sucheDateiname": { de: "Dateiname", en: "File name" },
+  "repo.labelFilter": { de: "Nach Label filtern", en: "Filter by label" },
+  "repo.alleLabels": { de: "Alle Labels", en: "All labels" },
+  "repo.labelZahl": { de: "{label} ({n})", en: "{label} ({n})" },
+  "repo.labelZeigen": { de: "Issues mit Label „{label}“ zeigen", en: "Show issues labelled “{label}”" },
 };

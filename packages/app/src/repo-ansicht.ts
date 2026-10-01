@@ -305,6 +305,18 @@ export interface IssueZeile {
 export type IssueFilter = "offen" | "geschlossen";
 export const issueFilterVon = (s: IssueStatus): IssueFilter => (s === "offen" ? "offen" : "geschlossen");
 
+/** Labels der Issues mit ihrer Zahl, häufigste zuerst (C-20e) – für die Auswahl im Reiter. */
+export function issueLabels(zeilen: readonly IssueZeile[]): Array<{ label: string; n: number }> {
+  const zahl = new Map<string, number>();
+  for (const z of zeilen) for (const l of z.issue.labels) zahl.set(l, (zahl.get(l) ?? 0) + 1);
+  return [...zahl].map(([label, n]) => ({ label, n })).sort((a, b) => b.n - a.n || (a.label < b.label ? -1 : a.label > b.label ? 1 : 0));
+}
+
+/** Issues nach offen/geschlossen und – wenn gewählt – nach Label (C-20e). */
+export function filtereIssues(zeilen: readonly IssueZeile[], f: IssueFilter, label: string | null): IssueZeile[] {
+  return zeilen.filter((z) => issueFilterVon(z.status) === f && (!label || z.issue.labels.includes(label)));
+}
+
 /** Die Issues eines Repos: nur an genau dieses Repo adressierte, jedes einmal, neuestes zuerst; Unfug fällt heraus. */
 export function issueZeilen(
   repo: GelesenesRepo, issues: readonly NostrEvent[], status: readonly NostrEvent[], kommentare: readonly NostrEvent[], ich: string | undefined,

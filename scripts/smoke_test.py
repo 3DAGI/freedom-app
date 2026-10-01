@@ -1718,6 +1718,29 @@ def raum_pruefen(browser, url: str) -> dict:
                 or issues["erledigt"] != ["erledigt ✓", ["Wieder öffnen"]] or issues["wieder"] != "offen" \
                 or issues["status_events"] != [[1631, issue_id], [1630, issue_id]]:
             erg["fehler"].append(f"{groesse}: Issue kommentieren/schließen {issues}")
+        # Seit C-20e: nach Label filtern – Auswahl mit Zahlen, Label-Knopf in der Zeile; die Zahlen offen/geschlossen folgen dem Filter
+        ev("() => document.querySelector('#repo-seite .issue-zurueck')?.click()")
+        s.wait_for_timeout(150)
+        betreffe_i = "() => [...document.querySelectorAll('#repo-seite .issue-betreff')].map(b => b.textContent)"
+        lf = {"wahl": ev("() => [...(document.getElementById('issue-label-wahl')?.options ?? [])].map(o => [o.value, o.textContent])")}
+        if lf["wahl"]:
+            s.select_option("#issue-label-wahl", "wartung")
+            s.wait_for_timeout(150)
+            lf["wartung"] = [ev(betreffe_i), ev("() => [...document.querySelectorAll('#repo-seite .repo-filter button[data-filter]')].map(b => b.textContent)"),
+                             ev("() => document.activeElement?.id")]
+            s.select_option("#issue-label-wahl", "")
+            s.wait_for_timeout(150)
+            ev("() => [...document.querySelectorAll('#repo-seite .issue-label-knopf')].find(b => b.textContent === 'bug')?.click()")
+            s.wait_for_timeout(150)
+            lf["bug"] = [ev(betreffe_i), ev("() => document.getElementById('issue-label-wahl')?.value"), ev("() => document.activeElement?.id")]
+            s.select_option("#issue-label-wahl", "")
+            s.wait_for_timeout(150)
+            lf["alle"] = ev(betreffe_i)
+        erg[groesse]["label_filter"] = lf
+        if lf != {"wahl": [["", "Alle Labels"], ["bug", "bug (1)"], ["wartung", "wartung (1)"]],
+                  "wartung": [["Säge stumpf"], ["offen (1)", "geschlossen (0)"], "issue-label-wahl"],
+                  "bug": [["Hammer klemmt"], "bug", "issue-label-wahl"], "alle": ["Säge stumpf", "Hammer klemmt"]}:
+            erg["fehler"].append(f"{groesse}: Label-Filter {lf}")
         # Seit 11.4c: im eigenen öffentlichen Raum „Repo anlegen“ aus dem Raum-Menü – mit Verweis auf genau diesen Raum,
         # danach steht es in der Liste des Raums (am Ende, damit die Prüfungen der Repo-Liste oben nichts davon sehen)
         if not mobil:

@@ -12583,3 +12583,46 @@ Internet) · app 713 (+3) · mls 13 · Leak-Tests 68 grün + 1 todo · 0 rot ·
 check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 (keine neue
 Ausnahme) · Website ok · Smoke-Test bestanden (mit den neuen Prüfungen) ·
 Website-Bau ok · reproduzierbarer Build ok. Knoten-Stand: unverändert.
+
+## Schritt C-20e – Issues nach Label filtern
+
+Spur C, Sammlung C-20 (Repos 1:1 wie GitHub, ohne neues Format). Issues
+tragen seit C-17a Labels (`t`-Tags nach NIP-34), die App zeigte sie nur an.
+Bei GitHub filtert ein Klick auf ein Label die Liste – das geht jetzt auch.
+
+**Was:**
+- `repo-ansicht.ts` (ohne DOM): `issueLabels()` – die Labels der Issues mit
+  ihrer Zahl, häufigste zuerst, sonst nach Namen; `filtereIssues()` – nach
+  offen/geschlossen und, wenn gewählt, nach Label.
+- `shell/tabs/issues-reiter.ts`: in der Filterzeile die Auswahl „Nach Label
+  filtern“ („Alle Labels“, „bug (1)“ …); Labels in der Liste und auf der Seite
+  eines Issues sind Knöpfe, ein Klick zeigt die Liste mit genau diesem Label.
+  Die Zahlen „offen (n)“/„geschlossen (n)“ folgen dem Filter. Ein Label, das es
+  im Repo nicht gibt (Wechsel des Repos), gilt nicht; die Wahl steht nur im
+  Speicher und fällt mit `vergissIssue()`.
+- Texte (de und en), CSS.
+
+Labels nachträglich ändern und Zuständige setzen sieht NIP-34 nicht vor – dafür
+bräuchte es ein Format (etwa NIP-32, Kind 1985, mit derselben Regel wie beim
+Status: Autorin, Eigentümer, Maintainer). Das entscheidet der MENSCH.
+
+**Verdrahtet:** `app/src/shell/tabs/issues-reiter.ts` (`issuesReiter()` →
+`issueLabels()`, `filtereIssues()`; `labels()` an Zeile und Seite).
+
+**Tests:** app +2 in `test/issues-ansicht.test.ts` (Auswahl mit Zahl und
+Reihenfolge, Filter nach Status und Label auch für geschlossene, unbekanntes
+Label; Verdrahtung: Zahlen folgen dem Label, fremdes Label gilt nicht, Knöpfe
+in Zeile und Seite, nichts in die Adresse). Smoke „raum“ (Desktop und Handy):
+Die Auswahl zeigt „Alle Labels“, „bug (1)“, „wartung (1)“; „wartung“ lässt nur
+„Säge stumpf“ stehen, die Knöpfe zählen „offen (1)“/„geschlossen (0)“, der
+Fokus bleibt auf der Auswahl; ein Klick auf das Label „bug“ in der Zeile zeigt
+nur „Hammer klemmt“ und stellt die Auswahl auf „bug“; „Alle Labels“ zeigt
+wieder beide.
+Bild: `docs/ausbau/bilder/c20e/desktop-issues-labels.jpg` (Filterzeile mit
+„Alle Labels“, Label „bug“ als Knopf).
+
+Endstand: protocol 1140 (6 übersprungen) · node 272 (6 übersprungen, mit
+Internet) · app 715 (+2) · mls 13 · Leak-Tests 68 grün + 1 todo · 0 rot ·
+check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 (keine neue
+Ausnahme) · Website ok · Smoke-Test bestanden (mit den neuen Prüfungen) ·
+Website-Bau ok · reproduzierbarer Build ok. Knoten-Stand: unverändert.
