@@ -468,3 +468,97 @@ export function alsText(daten: Uint8Array): string | null {
     return null;
   }
 }
+
+/** Kennung dessen, was unter `pfad` im Baum `baum` liegt (Ordner oder Datei) – `null`, wenn dort nichts liegt. */
+function kennungUnterPfad(b: GelesenesBundle, baum: string, pfad: readonly string[]): string | null {
+  let jetzt = baum;
+  for (const teil of pfad) {
+    const o = b.objekte.get(jetzt);
+    const e = o?.art === "tree" ? leseBaum(o.daten).find((x) => x.name === teil) : undefined;
+    if (!e) return null;
+    jetzt = e.sha;
+  }
+  return jetzt;
+}
+
+export type DateiAenderung = "neu" | "geaendert" | "geloescht";
+
+/**
+ * Verlauf einer Datei (seit C-20d): die Commits ab `sha` entlang der ersten
+ * Eltern, in denen sich die Kennung unter `pfad` gegenüber den Eltern ändert –
+ * angelegt, geändert oder gelöscht. Höchstens `max` Commits werden angesehen;
+ * `abgeschnitten`, wenn danach noch Verlauf käme oder die Eltern nicht im
+ * Bundle liegen (dann lässt sich nicht sagen, was der Commit tat).
+ */
+export function dateiVerlauf(
+  b: GelesenesBundle, sha: string, pfad: readonly string[], max = 100,
+): { eintraege: Array<{ sha: string; art: DateiAenderung } & GelesenerCommit>; abgeschnitten: boolean } {
+  const eintraege: Array<{ sha: string; art: DateiAenderung } & GelesenerCommit> = [];
+  const commits = commitsAb(b, sha, max);
+  for (const c of commits) {
+    const jetzt = kennungUnterPfad(b, c.baum, pfad);
+    let vorher: string | null = null;
+    const eltern = c.eltern[0];
+    if (eltern) {
+      const o = b.objekte.get(eltern);
+      if (o?.art !== "commit") return { eintraege, abgeschnitten: true };
+      vorher = kennungUnterPfad(b, leseCommit(o.daten).baum, pfad);
+    }
+    if (jetzt !== vorher) eintraege.push({ ...c, art: vorher === null ? "neu" : jetzt === null ? "geloescht" : "geaendert" });
+  }
+  const letzter = commits.at(-1);
+  return { eintraege, abgeschnitten: commits.length >= max && !!letzter?.eltern[0] };
+}
+
+export interface CodeTreffer {
+  pfad: string[];
+  /** Zeile ab 1; 0 heißt: der Name der Datei passt. */
+  nr: number;
+  zeile: string;
+}
+
+/** Grenzen der Suche im Code – fremde Bundles, also nie unbegrenzt. */
+export const SUCHE_GRENZEN = { dateien: 5000, treffer: 200, groesse: 1_000_000, zeile: 300, tiefe: 32 } as const;
+
+/**
+ * Suche im Code (seit C-20d): Namen und Zeilen aller Textdateien unter
+ * `baum`, die `text` enthalten (Groß/klein egal), in der Reihenfolge des
+ * Reiters „Code“ – nur im Speicher, mit den Grenzen aus `SUCHE_GRENZEN`;
+ * `mehr`, wenn eine Grenze griff. Unter zwei Zeichen wird nicht gesucht.
+ */
+export function sucheImCode(b: GelesenesBundle, baum: string, text: string): { treffer: CodeTreffer[]; mehr: boolean } {
+  const suche = text.trim().toLowerCase();
+  const treffer: CodeTreffer[] = [];
+  let dateien = 0;
+  let mehr = false;
+  const nimm = (x: CodeTreffer) => {
+    if (treffer.length >= SUCHE_GRENZEN.treffer) mehr = true;
+    else treffer.push(x);
+  };
+  const geh = (sha: string, pfad: string[]) => {
+    const o = b.objekte.get(sha);
+    if (o?.art !== "tree" || pfad.length > SUCHE_GRENZEN.tiefe) return;
+    for (const e of leseBaum(o.daten)) {
+      if (mehr) return;
+      if (e.art === "ordner") {
+        geh(e.sha, [...pfad, e.name]);
+        continue;
+      }
+      if (e.art !== "datei") continue;
+      if (++dateien > SUCHE_GRENZEN.dateien) {
+        mehr = true;
+        return;
+      }
+      if (e.name.toLowerCase().includes(suche)) nimm({ pfad: [...pfad, e.name], nr: 0, zeile: "" });
+      const d = b.objekte.get(e.sha);
+      const inhalt = d?.art === "blob" && d.daten.length <= SUCHE_GRENZEN.groesse ? alsText(d.daten) : null;
+      if (inhalt === null) continue;
+      const zeilen = inhalt.split("\n");
+      for (let i = 0; i < zeilen.length && !mehr; i++) {
+        if (zeilen[i]!.toLowerCase().includes(suche)) nimm({ pfad: [...pfad, e.name], nr: i + 1, zeile: zeilen[i]!.trim().slice(0, SUCHE_GRENZEN.zeile) });
+      }
+    }
+  };
+  if (suche.length >= 2) geh(baum, []);
+  return { treffer, mehr };
+}

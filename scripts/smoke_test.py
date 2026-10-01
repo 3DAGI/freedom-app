@@ -1459,6 +1459,45 @@ def raum_pruefen(browser, url: str) -> dict:
                       "commits": ["zweig:entwurf", ["Entwurf: neuer Titel", "Werkzeugkiste mit Anleitung"]],
                       "tag": ["Werkzeugkiste mit Anleitung"]}:
             erg["fehler"].append(f"{groesse}: Zweige und Tags {zweige}")
+        # Seit C-20d: Verlauf einer Datei (im gewählten Zweig) und Suche im Code; ein Treffer öffnet die Datei
+        ev("() => document.querySelector('#repo-seite [data-reiter=code]')?.click()")
+        s.wait_for_timeout(200)
+        s.select_option("#code-ref-wahl", "zweig:entwurf")
+        s.wait_for_timeout(200)
+        ev("() => document.querySelector('#repo-seite .code-verlauf-knopf')?.click()")
+        s.wait_for_timeout(200)
+        verlauf = ev("""() => ({ pfad: [...document.querySelectorAll('#repo-seite .code-pfad > :not(.muted)')].map(e => e.textContent),
+          offen: document.querySelector('#repo-seite .code-verlauf-knopf')?.getAttribute('aria-expanded'),
+          fokus: !!document.activeElement?.classList.contains('code-verlauf-knopf'),
+          zeilen: [...document.querySelectorAll('#repo-seite .code-verlauf-zeile')].map(z => [z.querySelector('.code-commit-betreff')?.textContent,
+            z.querySelector('.repo-status')?.textContent]) })""")
+        ev("() => document.querySelector('#repo-seite .code-pfad-knopf')?.click()")
+        s.wait_for_timeout(150)
+        suche: dict = {}
+        if ev("() => !!document.getElementById('code-suche')"):
+            s.fill("#code-suche", "hammer")
+            s.press("#code-suche", "Enter")
+            s.wait_for_timeout(200)
+            suche = {"zahl": ev("() => document.querySelector('#repo-seite .code-suche-zahl')?.textContent"),
+                     "treffer": ev("() => [...document.querySelectorAll('#repo-seite .code-treffer li')].map(l => [l.querySelector('.code-treffer-ort')?.textContent, l.querySelector('span')?.textContent])"),
+                     "fokus": ev("() => document.activeElement?.id")}
+            ev("() => document.querySelector('#repo-seite .code-treffer-ort')?.click()")
+            s.wait_for_timeout(150)
+            suche["geoeffnet"] = [ev(pfad), ev("() => document.querySelector('#repo-seite .code-datei')?.textContent"), ev("() => location.hash") == hash_vorher]
+            ev("() => document.querySelector('#repo-seite .code-pfad-knopf')?.click()")
+            s.wait_for_timeout(150)
+            suche["bleibt"] = ev("() => document.querySelectorAll('#repo-seite .code-treffer li').length")
+            s.fill("#code-suche", "x")
+            s.press("#code-suche", "Enter")
+            s.wait_for_timeout(150)
+            suche["kurz"] = ev("() => document.querySelector('#repo-seite .code-suche')?.nextElementSibling?.textContent")
+        erg[groesse]["verlauf_suche"] = {"verlauf": verlauf, "suche": suche}
+        if verlauf != {"pfad": ["meins", "README.md"], "offen": "true", "fokus": True,
+                       "zeilen": [["Entwurf: neuer Titel", "geändert"], ["Werkzeugkiste mit Anleitung", "neu"]]} \
+                or suche != {"zahl": "Treffer: 2", "treffer": [["src/liste.txt:1", "Hammer, Zange"], ["README.md:5", "| Hammer | 2 | [Liste](src/liste.txt) |"]],
+                             "fokus": "code-suche", "geoeffnet": [["meins", "src", "liste.txt"], "Hammer, Zange\n", True], "bleibt": 2,
+                             "kurz": "Bitte mindestens zwei Zeichen."}:
+            erg["fehler"].append(f"{groesse}: Verlauf und Suche {erg[groesse]['verlauf_suche']}")
         erg[groesse]["repo_c3a2"] = {"fremd_reiter": fremd_reiter, "mitwirkende": mitwirkende, "eigen_reiter": eigen_reiter,
                                      "abgewiesen": abgewiesen, "tags": tags, "links": links, "bleibt": noch_einstellungen,
                                      "bundle": bundle_tags, "bundle_knopf": bundle_knopf}

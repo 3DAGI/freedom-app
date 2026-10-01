@@ -10,7 +10,7 @@ import { createHash } from "node:crypto";
 import { deflateSync } from "node:zlib";
 import {
   BUNDLE_GRENZEN, BundleFehler, type BundleFehlerArt, type GelesenesBundle, type GitObjekt, alsText, commitsAb, kopfCommit, leseBaum, leseBundle, leseCommit, objektSha,
-  unterPfad, wendeDeltaAn, zweigeUndTags,
+  SUCHE_GRENZEN, dateiVerlauf, sucheImCode, unterPfad, wendeDeltaAn, zweigeUndTags,
 } from "../src/git-bundle.js";
 
 const fixture = (name: string) => new Uint8Array(readFileSync(new URL(`fixtures/${name}`, import.meta.url)));
@@ -232,4 +232,59 @@ test("Verdrahtung (C-20c): Code und Commits zeigen den gewählten Stand – Wahl
   assert.match(code, /const kopf = stand\(b, bundle\.id\)\.commit;\s*if \(!kopf\)[^\n]*\n\s*const commits = commitsAb\(b, kopf, COMMITS_MAX \+ 1\);/, "Reiter „Commits“");
   assert.match(code, /refWahl\.delete\(alt\);/, "vergessen, wenn das Bundle aus dem Speicher fällt");
   assert.doesNotMatch(code, /location\.hash|history\.(push|replace)State|localStorage/);
+});
+
+test("C-20d: Verlauf einer Datei – angelegt, geändert, je Zweig; abgeschnitten am Rand des Bundles und nach max", async () => {
+  const md = await leseBundle(fixture("probe-md.bundle"));
+  const zweig = (name: string) => zweigeUndTags(md).find((r) => r.name === name)!.commit;
+  const kurz = (v: ReturnType<typeof dateiVerlauf>) => [v.eintraege.map((e) => [e.betreff, e.art]), v.abgeschnitten];
+  assert.deepEqual(kurz(dateiVerlauf(md, zweig("entwurf"), ["README.md"])), [[["Entwurf: neuer Titel", "geaendert"], ["Werkzeugkiste mit Anleitung", "neu"]], false]);
+  assert.deepEqual(kurz(dateiVerlauf(md, zweig("entwurf"), ["src", "liste.txt"])), [[["Werkzeugkiste mit Anleitung", "neu"]], false], "nicht geändert im Entwurf");
+  assert.deepEqual(kurz(dateiVerlauf(md, zweig("main"), ["README.md"])), [[["Werkzeugkiste mit Anleitung", "neu"]], false]);
+  assert.deepEqual(kurz(dateiVerlauf(md, zweig("main"), ["gibt-es-nicht"])), [[], false]);
+  assert.deepEqual(kurz(dateiVerlauf(md, zweig("entwurf"), ["README.md"], 1)), [[["Entwurf: neuer Titel", "geaendert"]], true], "nach max kommt noch Verlauf");
+  const v2 = await leseBundle(fixture("probe-v2.bundle"));
+  assert.deepEqual(kurz(dateiVerlauf(v2, HEAD, ["src", "liste.txt"])), [[["Liste ergänzt", "geaendert"], ["Erster Stand", "neu"]], false]);
+  assert.deepEqual(kurz(dateiVerlauf(v2, HEAD, ["README.md"])), [[["Erster Stand", "neu"]], false]);
+  // Eltern fehlen im Bundle: was der Commit tat, lässt sich nicht sagen
+  const ohneEltern: GelesenesBundle = { ...v2, objekte: new Map([...v2.objekte].filter(([k]) => k !== commitsAb(v2, HEAD, 2)[1]!.sha)) };
+  assert.deepEqual(kurz(dateiVerlauf(ohneEltern, HEAD, ["src", "liste.txt"])), [[], true]);
+});
+
+test("C-20d: Suche im Code – Namen und Zeilen, Groß/klein egal, Reihenfolge des Reiters, Grenzen", async () => {
+  const md = await leseBundle(fixture("probe-md.bundle"));
+  const baum = commitsAb(md, kopfCommit(md)!, 1)[0]!.baum;
+  const ort = (r: ReturnType<typeof sucheImCode>) => [r.treffer.map((x) => `${x.pfad.join("/")}:${x.nr}`), r.mehr];
+  assert.deepEqual(ort(sucheImCode(md, baum, "HAMMER")), [["src/liste.txt:1", "README.md:5"], false]);
+  assert.deepEqual(sucheImCode(md, baum, "hammer").treffer[1]!.zeile, "| Hammer | 2 | [Liste](src/liste.txt) |");
+  assert.deepEqual(ort(sucheImCode(md, baum, "liste")), [["src/liste.txt:0", "README.md:5"], false], "Dateiname mit Zeile 0");
+  assert.deepEqual(ort(sucheImCode(md, baum, " a ")), [[], false], "unter zwei Zeichen keine Suche");
+  assert.deepEqual(ort(sucheImCode(md, baum, "gibt es nicht")), [[], false]);
+  // Grenze: 300 passende Zeilen – nur SUCHE_GRENZEN.treffer, dazu „mehr“; Binäres und Übergroßes zählen nicht
+  const sha = (n: number) => n.toString(16).padStart(40, "0");
+  const eintrag = (modus: string, name: string, k: string) => [...new TextEncoder().encode(`${modus} ${name}\0`), ...Buffer.from(k, "hex")];
+  const hand: GelesenesBundle = {
+    version: 2, refs: [], voraussetzungen: [],
+    objekte: new Map<string, GitObjekt>([
+      [sha(1), { art: "tree", daten: new Uint8Array([...eintrag("100644", "bin.dat", sha(3)), ...eintrag("100644", "gross.txt", sha(4)), ...eintrag("100644", "viel.txt", sha(2))]) }],
+      [sha(2), { art: "blob", daten: new TextEncoder().encode("treffer\n".repeat(300)) }],
+      [sha(3), { art: "blob", daten: new Uint8Array([0x74, 0x72, 0x65, 0x66, 0x66, 0x65, 0x72, 0x00]) }],
+      [sha(4), { art: "blob", daten: new TextEncoder().encode("treffer ".repeat(SUCHE_GRENZEN.groesse / 8 + 1)) }],
+    ]),
+  };
+  const r = sucheImCode(hand, sha(1), "treffer");
+  assert.equal(r.treffer.length, SUCHE_GRENZEN.treffer);
+  assert.equal(r.mehr, true);
+  assert.ok(r.treffer.every((x) => x.pfad[0] === "viel.txt"), "Binäres und Übergroßes nicht durchsucht");
+});
+
+test("Verdrahtung (C-20d): Verlauf und Suche im Reiter „Code“ – nur im Speicher, Treffer öffnen die Datei", () => {
+  const code = readFileSync(new URL("../src/shell/tabs/code-reiter.ts", import.meta.url), "utf8");
+  assert.match(code, /const \{ eintraege, abgeschnitten \} = dateiVerlauf\(b, commit, pfad, COMMITS_MAX\);/);
+  assert.match(code, /if \(vOffen\) teile\.push\(\.\.\.verlaufListe\(b, kopf, pfad\)\);/, "Verlauf des gewählten Stands");
+  assert.match(code, /teile\.push\(\.\.\.suchFeld\(b, id, c!\.baum, kopf, geh, neu\)\);/, "Suche im ganzen Stand, aus jedem Ordner");
+  assert.match(code, /s\.ergebnis = sucheImCode\(b, baum, s\.text\);/);
+  assert.match(code, /"code-treffer-ort mono-sm", \(\) => geh\(x\.pfad\)\)/);
+  assert.match(code, /const verlaufOffen = new Set<string>\(\);/);
+  assert.doesNotMatch(code, /innerHTML|location\.hash|history\.(push|replace)State|localStorage/);
 });
