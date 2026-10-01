@@ -13033,3 +13033,9 @@ aller Leak-Regeln kennt die neue.
 **Verdrahtet:** noch nicht – `neueKopplung` (Knoten, B-8b),
 `leseKopplungscode` und `mitBesitzerNachweis` (App, B-8c) stehen bis dahin in
 `scripts/wiring-ausnahmen.txt`.
+
+Endstand (B-8a, 01.10.): protocol 1144 (+4, 6 übersprungen) · node 271 (7
+übersprungen ohne Netz – mit Netz 272) · app 734 · mls 13 · Leak-Tests 68 grün
++ 1 todo · 0 rot · check-wiring `--streng` Exit 0 (drei Ausnahmen mit Verweis
+auf B-8b/B-8c) · innerHTML streng Exit 0 · Website ok · Smoke-Test bestanden.
+Knoten-Stand: unverändert.
