@@ -13503,7 +13503,9 @@ Empfänger, nicht an Sitzungsschlüssel) und kommt mit B-9c.
 `askAi()` samt Stopp vor der Prompt-Prüfung; `frageMeinenKnoten()` nur an den
 Knoten, ohne Provider-Suche, Failover oder Zahlung, Ablehnung und Schweigen im
 Verlauf; Gruppe nur gekoppelt, vor dem Gerät, nur Text). Angepasst:
-`mein-knoten.test.ts` (der Import in `agent.ts` nennt jetzt mehr Namen).
+`mein-knoten.test.ts` (der Import in `agent.ts` nennt jetzt mehr Namen) und
+`ki-funk.test.ts` (7.4c3: zwischen Stopp-Fall und Funk steht jetzt die
+Prüfung des Prompts – Funk geht weiter vor allem anderen).
 Smoke „lokal“: koppeln über den Dialog, die Wahl zeigt „Netz · Mein Knoten ·
 Dieses Gerät“, der Knopf „Modell des Knotens · mein Knoten“; die Frage geht als
 genau ein Umschlag an den Knoten – kein Auftrag offen, kein Klartext –, „Stopp“
@@ -13512,3 +13514,9 @@ bricht ab („[abgebrochen]“).
 **Verdrahtet:** `packages/app/src/shell/tabs/agent.ts` – `askAi()` →
 `frageMeinenKnoten()` → `buildJobEvent()`; `refreshModelDropdown()` und
 `setupModelPicker()` → `zeigeKnotenBereich()`.
+
+Endstand (B-9a, 01.10.): protocol 1146 (6 übersprungen) · node 275 (7
+übersprungen ohne Netz – mit Netz 276) · app 754 (+4) · mls 13 · Leak-Tests 69
+grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0
+· Website ok · Smoke-Test bestanden (mit „Mein Knoten“ im Teil „lokal“).
+Knoten-Stand: B-8b (GX10) – der Nachweis braucht ihn.
