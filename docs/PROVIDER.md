@@ -85,6 +85,44 @@ Dann `RELAY_PUBLIC_URL=ws://<adresse>.onion` (aus
 `/var/lib/tor/freedom-relay/hostname`). Erreichbar ist er nur für Clients mit
 Tor – die App erkennt das und sagt es im Datenschutzbericht (6.2).
 
+## Die App vom eigenen Knoten (B-10)
+
+Der Relay liefert auf seinem Port auch die App aus, aber nur einen
+reproduzierbaren Build mit bekannter Prüfsumme:
+
+```bash
+cd ~/freedomstack/packages/app && node build.mjs          # baut dist/freedom.html und zeigt die SHA-256
+```
+
+In der Umgebungsdatei setzt du `APP_SHA256=<64 Hex-Zeichen>`. Die Summe nimmst
+du von der Website (Startseite, `freedom.html.sha256`), aus dem Release oder aus
+`bash scripts/repro-build.sh`.
+- `APP_DATEI` ist nur nötig, wenn die Datei woanders liegt. Standard ist
+  `packages/app/dist/freedom.html` im eigenen Checkout.
+- Der Knoten prüft die Datei beim Start und liefert danach nur die geprüfte
+  Fassung aus dem Speicher – eine spätere Änderung der Datei geht nie hinaus.
+- Ist die Summe anders, liefert er nichts aus. Im Log steht dann
+  `[app] nicht ausgeliefert: …`.
+- Gleiche Summe heißt: derselbe Quelltext, dieselbe Node-Hauptversion
+  (`.nvmrc`) und dieselben Abhängigkeiten.
+
+Erreichbar ist die App so:
+- **Im Heimnetz:** unter `http://<rechner>:7777/`, also auf demselben Port wie
+  der Relay (nur mit `RELAY_ENABLED=1`).
+- **Über Tor:** mit dem Onion-Dienst oben unter `http://<adresse>.onion/`.
+- **Prüfsumme:** sie steht unter `/freedom.html.sha256` und im ETag, zum
+  Vergleich mit der Website.
+
+**Grenzen über http im Heimnetz:**
+- Der Browser zählt die Seite nicht als sicheren Kontext. WebCrypto fehlt dann,
+  also gibt es keinen Tresor. Damit fehlt auch alles, was einen Tresor braucht
+  (Wallet verbinden, MLS), und die Kamera.
+- Wer sich im selben Netz dazwischenschaltet, kann die Datei unterwegs verändern.
+- Sicher sind `.onion` im Tor Browser und `http://localhost` auf dem Rechner
+  des Knotens selbst.
+- Die App unter einer neuen Adresse hat eigene Daten. Die Identität kommt per
+  Schlüssel mit oder als Gerät (Settings → Geräte).
+
 ## Mit dem Besitzer koppeln (B-8)
 
 ```bash

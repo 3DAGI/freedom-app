@@ -959,3 +959,12 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   Netz – nur an diesen Knoten, nie ein anderer Provider, nie still ins Netz.
   Der Stopp-Fall in `askAi()` steht vor der Prüfung des Prompts (nach dem
   Senden ist das Feld leer).
+- **App vom Knoten nur mit Prüfsumme** (seit B-10a, `node/src/app-auslieferung.ts`):
+  Die Relay-Rolle liefert freedom.html nur als Ergebnis von `ladeApp()` aus –
+  die Summe gibt der Betreiber vor (`APP_SHA256`), nie aus der Datei
+  übernehmen; geprüft beim Start, danach nur aus dem Speicher (kein `readFile`
+  beim Ausliefern). Mit `Accept: application/nostr+json` bleibt `/` NIP-11.
+  Über http im Heimnetz ist die Seite kein sicherer Kontext: kein
+  `crypto.subtle` (Tresor, MLS-Zustand, Suche, Git-Bundles), keine Kamera –
+  sicher sind .onion (Tor Browser) und localhost; Texte versprechen dort
+  nichts anderes.

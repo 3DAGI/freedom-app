@@ -24,12 +24,16 @@
  *   `RateLimiter` aus dem Protokoll, nach aussen nur feste Texte nach NIP-01
  *   (`rate-limited:`, `error:`). Umschlaege (1059) kommen von Wegwerf-
  *   Schluesseln; sie bremst die Grenze je Verbindung.
+ * - App (seit B-10, Sammlung Neuordnung): mit `app` liefert der Relay auf
+ *   demselben Port auch freedom.html aus (`/`, `/freedom.html`) samt Summe –
+ *   nur die beim Start gepruefte Datei (`ladeApp()`), aus dem Speicher.
  */
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { randomBytes } from "node:crypto";
 import { readFileSync, renameSync, writeFileSync } from "node:fs";
 import { readFile, rename, writeFile } from "node:fs/promises";
 import { KasseFehler, type RelayKasse, type Schiene } from "./relay-kasse.js";
+import { appKopfzeilen, istAppPfad, type App } from "./app-auslieferung.js";
 import { WebSocketServer, WebSocket } from "ws";
 import {
   ablaufVon, baueRelayInfo, brauchtAnmeldung, relayNimmtAn, darfAusliefern, ersetzSchluessel, hasValidEventShape, istFluechtig,
@@ -57,6 +61,8 @@ export interface RelayConfig {
   maxEvents?: number;
   /** Flutschutz (B-3); fehlende Werte aus `FLUTSCHUTZ`. */
   flutschutz?: Partial<Flutschutz>;
+  /** Die App auf demselben Port (B-10) – nur aus `ladeApp()`, also mit gepruefter Summe. */
+  app?: App;
   /** Unix-Sekunden (Tests). */
   jetzt?: () => number;
 }
@@ -205,7 +211,8 @@ export class RelayRole {
     }
     console.log(
       `Relay-Rolle aktiv: ws://0.0.0.0:${this.cfg.port} (retention ${this.cfg.retentionDays}d` +
-      `${this.cfg.beschraenkt ? ", nur mit Zugang" : ""}${this.schuetzen ? ", Umschlaege nur an Angemeldete" : ""})`,
+      `${this.cfg.beschraenkt ? ", nur mit Zugang" : ""}${this.schuetzen ? ", Umschlaege nur an Angemeldete" : ""}` +
+      `${this.cfg.app ? `, App unter http://<host>:${this.cfg.port}/ (SHA-256 ${this.cfg.app.sha256})` : ""})`,
     );
   }
 
@@ -218,11 +225,11 @@ export class RelayRole {
     this.http?.close();
   }
 
-  /** NIP-11 und Zugang kaufen auf demselben Port; sonst ein kurzer Hinweis. */
+  /** NIP-11, Zugang kaufen und die App (B-10) auf demselben Port; sonst ein kurzer Hinweis. */
   private async beantworte(req: IncomingMessage, res: ServerResponse): Promise<void> {
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Access-Control-Allow-Headers", "Accept, Content-Type");
-    res.setHeader("Access-Control-Allow-Methods", "GET, POST");
+    res.setHeader("Access-Control-Allow-Methods", "GET, HEAD, POST");
     if (req.method === "OPTIONS") {
       res.statusCode = 204;
       res.end();
@@ -230,7 +237,11 @@ export class RelayRole {
     }
     const pfad = (req.url ?? "/").split("?")[0];
     if (req.method === "POST" && /^\/zugang(\/[0-9a-f]{32})?$/.test(pfad)) return this.kauf(req, res, pfad.slice("/zugang/".length));
-    if (req.method === "GET" && /application\/nostr\+json/.test(req.headers.accept ?? "")) {
+    const nip11 = /application\/nostr\+json/.test(req.headers.accept ?? "");
+    const app = this.cfg.app;
+    const appPfad = app && !nip11 && (req.method === "GET" || req.method === "HEAD") ? istAppPfad(pfad) : undefined;
+    if (app && appPfad) return this.liefereApp(req, res, app, appPfad);
+    if (req.method === "GET" && nip11) {
       res.setHeader("Content-Type", "application/nostr+json");
       const kasse = this.cfg.kasse && this.cfg.kasse.schienen().length > 0 ? this.cfg.kasse : undefined;
       res.end(JSON.stringify(baueRelayInfo({
@@ -247,6 +258,24 @@ export class RelayRole {
     }
     res.setHeader("Content-Type", "text/plain; charset=utf-8");
     res.end("Freedom-Relay – mit einem Nostr-Client verbinden.\n");
+  }
+
+  /** Die App (B-10): genau die gepruefte Datei, daneben ihre Summe; ETag ist die Summe. */
+  private liefereApp(req: IncomingMessage, res: ServerResponse, app: App, was: "app" | "summe"): void {
+    if (was === "summe") {
+      res.setHeader("Content-Type", "text/plain; charset=utf-8");
+      res.setHeader("Cache-Control", "no-cache");
+      res.end(req.method === "HEAD" ? undefined : `${app.sha256}\n`);
+      return;
+    }
+    for (const [k, w] of Object.entries(appKopfzeilen(app))) res.setHeader(k, w);
+    if (req.headers["if-none-match"] === `"${app.sha256}"`) {
+      res.statusCode = 304;
+      res.end();
+      return;
+    }
+    res.setHeader("Content-Length", app.html.length);
+    res.end(req.method === "HEAD" ? undefined : app.html);
   }
 
   /** Oeffentliche HTTP-Adresse dieses Relays (fuer `payments_url`). */

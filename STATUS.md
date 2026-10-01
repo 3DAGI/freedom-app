@@ -13568,3 +13568,50 @@ Endstand (B-20c, 01.10.): protocol 1147 (+1, 6 übersprungen) · node 275 (7
 übersprungen ohne Netz – mit Netz 276) · app 756 (+2) · mls 13 · Leak-Tests 69
 grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0
 · Website ok · Smoke-Test bestanden. Knoten-Stand: unverändert.
+
+## Schritt B-10a – Der Knoten liefert die App aus
+
+Sammlung B-10 (Lokal 13.4), Entscheidung L2 A: „ja, nur reproduzierbarer
+Build mit Prüfsumme“. Erster Teil: der Knoten.
+
+**Warum:** Die App von GitHub Pages läuft über https; von dort lassen Browser
+keine Verbindung zu `ws://…` im Heimnetz zu – auch nicht zum Relay des eigenen
+Knotens (Anhang B der Sammlung). Kommt die App vom Knoten, ist sie dort zu Hause.
+
+**Knoten** (`node/src/app-auslieferung.ts`, `relay-role.ts`, `main.ts`):
+- `APP_SHA256` schaltet ein, `APP_DATEI` nennt die Datei (Standard: der Build
+  im eigenen Checkout, `../app/dist/freedom.html` vom Ordner des Knotens).
+- `ladeApp()` liest die Datei beim Start und gibt sie nur mit genau dieser
+  SHA-256 heraus (sonst ein Grund: keine Summe, nicht lesbar, zu groß, andere
+  Summe). Im Log nur feste Texte (`APP_GRUND_TEXT`), nie Pfad oder Systemmeldung.
+- Die Relay-Rolle bekommt nur das Ergebnis (`app`) und liefert es aus dem
+  Speicher – eine spätere Änderung der Datei geht nie hinaus. Pfade `/` und
+  `/freedom.html` (nicht mit `Accept: application/nostr+json` – das bleibt
+  NIP-11), daneben `/freedom.html.sha256`; `GET` und `HEAD`, ETag = Summe
+  (304 bei gleicher), `nosniff`, `no-referrer`, kein fremder Rahmen
+  (`X-Frame-Options`, `frame-ancestors 'none'` – die übrige CSP steht in der
+  Datei). Ohne `RELAY_ENABLED=1` nur ein Hinweis im Log.
+- Gleicher Ursprung wie der Relay: im Heimnetz `http://<rechner>:7777/`, über
+  den Onion-Dienst aus `docs/PROVIDER.md` (Port 80 → 7777) `http://<adresse>.onion/`.
+- Installer: mit `APP_SHA256` (geprüft: 64 Hex-Zeichen, erst dann in die
+  Umgebungsdatei) baut er die App im Checkout und sagt, ob die Summe passt.
+- `docs/PROVIDER.md`: neuer Abschnitt „Die App vom eigenen Knoten (B-10)“.
+
+**Fund (für B-10b):** Über http im Heimnetz ist die Seite kein sicherer
+Kontext (geprüft im Browser: `isSecureContext` false, `crypto.subtle`
+undefined). Damit fehlen Tresor, MLS-Zustand, die lokale Suche und das Lesen
+von Git-Bundles; die Kamera ebenso. Die App startet und schreibt, sagt es aber
+noch nicht – das Einrichten des Tresors scheitert mit einer unklaren Meldung.
+B-10b macht das ehrlich. Sicher sind `.onion` im Tor Browser und `localhost`.
+Außerdem kann im selben Netz jemand die Datei unterwegs verändern – die Grenze
+steht in `docs/PROVIDER.md`.
+
+**Tests:** node +5 (`app-auslieferung.test.ts`: `ladeApp()` nur mit der Summe,
+feste Gründe; Umgebung, leere Werte, Pfade; der Relay liefert genau die
+geprüfte Datei – auch nachdem sie auf der Platte geändert wurde –, Summe,
+HEAD, 304, NIP-11 und WebSocket auf demselben Port; ohne App keine Seite;
+Verdrahtung in `main.ts` und Installer).
+
+**Verdrahtet:** `packages/node/src/main.ts` – `appAusUmgebung()` → `ladeApp()`
+→ `new RelayRole({ …, app })`; `relay-role.ts` – `beantworte()` →
+`istAppPfad()` → `liefereApp()` → `appKopfzeilen()`.
