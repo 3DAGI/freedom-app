@@ -325,6 +325,11 @@ async function main(): Promise<void> {
     });
     await kasse.laden();
     if (kasse.schienen().length > 0) console.log(`[relay] Zugang zu kaufen: ${kasse.schienen().join(", ")}`);
+    // Die App auf demselben Port (B-10): APP_SHA256 schaltet ein, nur mit passender Datei (APP_DATEI)
+    const { APP_GRUND_TEXT, appAusUmgebung, ladeApp } = await import("./app-auslieferung.js");
+    const appWahl = appAusUmgebung(process.env, process.cwd());
+    const appGeladen = appWahl ? await ladeApp(appWahl.datei, appWahl.soll) : undefined;
+    if (appGeladen && !appGeladen.ok) console.warn(`[app] nicht ausgeliefert: ${APP_GRUND_TEXT[appGeladen.grund]}`);
     relayRole = new RelayRole({
       port: Number(process.env.RELAY_PORT ?? 7777),
       retentionDays: Number(process.env.RELAY_RETENTION_DAYS ?? 30),
@@ -338,8 +343,11 @@ async function main(): Promise<void> {
       kasse,
       eventDatei: join(process.env.HOME ?? ".", ".freedom", "relay-events.json"),
       maxEvents: Number(process.env.RELAY_MAX_EVENTS ?? 100_000),
+      app: appGeladen?.ok ? appGeladen.app : undefined,
     });
     await relayRole.start();
+  } else if (process.env.APP_SHA256?.trim()) {
+    console.warn("[app] nicht ausgeliefert: nur mit RELAY_ENABLED=1 – die App kommt vom Port des Relays");
   }
 
   // Funk-Gateway (optional, 7.4b2): FUNK_GATEWAY=host:port – TCP-Brücke zum
