@@ -786,6 +786,30 @@ def einstellungen_pruefen(browser, url: str) -> dict:
     if not (md["felder"] == ["Für wen meldest du? (npub oder hex)", "Warum? (wird veröffentlicht)"]
             and md_falsch["meldung"] == "Kein gültiger öffentlicher Schlüssel"):
         erg["fehler"].append(f"Melden {erg['melden']}")
+    # Mein Knoten (B-8c, Settings → Geräte): ein falscher Code meldet sich im Dialog, ein gültiger wird verdeckt eingegeben
+    # und gemerkt, entkoppeln nach Rückfrage – dabei geht nichts hinaus (Prüfung „gesendet“ unten)
+    ev("() => document.getElementById('knoten-koppeln').click()")
+    kd = seite.warte_dialog("Mein Knoten koppeln")
+    kd_typen = ev("() => [...document.querySelectorAll('[role=dialog] input')].map(i => i.type)")
+    feld(0, "freedom-kopplung:1:kaputt")
+    kd_falsch = bestaetigen()
+    code = "freedom-kopplung:1:" + "ab" * 32 + ":" + "cd" * 32
+    feld(0, code)
+    bestaetigen()
+    seite.warte_zu()
+    knoten = {"typen": kd_typen, "falsch": kd_falsch["meldung"] if kd_falsch else None,
+              "status": ev("() => document.getElementById('knoten-status')?.textContent"),
+              "gemerkt": ev("() => localStorage.getItem('freedom.knoten.kopplung')") == code,
+              "entkoppeln": ev("() => !document.getElementById('knoten-entkoppeln').hidden")}
+    ev("() => document.getElementById('knoten-entkoppeln').click()")
+    seite.warte_dialog("entkoppeln")
+    bestaetigen()
+    seite.warte_zu()
+    knoten["danach"] = [ev("() => document.getElementById('knoten-status')?.textContent"), ev("() => localStorage.getItem('freedom.knoten.kopplung')")]
+    erg["knoten"] = knoten
+    if knoten != {"typen": ["password"], "falsch": "Kein Kopplungscode – er beginnt mit freedom-kopplung:1:", "status": "Gekoppelt mit abababab…abab",
+                  "gemerkt": True, "entkoppeln": True, "danach": ["Nicht gekoppelt", None]}:
+        erg["fehler"].append(f"Mein Knoten {knoten}")
     # Abgebrochen: nichts veröffentlicht – kein Widerruf, kein Plan, keine Meldung
     erg["gesendet"] = sorted({e["kind"] for e in relay.gesendet if e.get("kind") not in (10002, 10050)})
     if erg["gesendet"]:

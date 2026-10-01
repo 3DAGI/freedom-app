@@ -93,8 +93,8 @@ cd ~/freedomstack/packages/node && npm run koppeln           # Docker: docker co
 
 Zeigt den Kopplungscode als QR und als Text; beim ersten Aufruf entsteht ein
 Geheimnis in `~/.freedom/kopplung.json` (nur für den Knoten lesbar). Das
-Gerät des Besitzers liest ihn ein – in der App unter „Mein Knoten koppeln“
-(ab B-8c). Danach rechnet der Knoten Anfragen dieses Geräts gratis, ohne
+Gerät des Besitzers liest ihn ein – in der App unter Settings → Geräte →
+„Mein Knoten koppeln“. Danach rechnet der Knoten Anfragen dieses Geräts gratis, ohne
 Gebot und ohne Kontingent; erkannt wird der Besitzer nur an einem Nachweis im
 versiegelten Auftrag, nie offen. Der Code ist ein Schlüssel: nur dem eigenen
 Gerät zeigen. `npm run koppeln -- --neu` erzeugt ein neues Geheimnis – alle

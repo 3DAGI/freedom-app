@@ -919,4 +919,8 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   nur über `npm run koppeln` (QR fürs Terminal mit `kopplungImTerminal()`),
   nie ins Log; der Provider liest es je Anfrage (`besitzer` in der
   Konfiguration) und rechnet den Besitzer gratis, ohne Gebot und Kontingent –
-  eine offene Anfrage mit Nachweis lehnt er ab.
+  eine offene Anfrage mit Nachweis lehnt er ab. In der App (seit B-8c) nur
+  über `shell/mein-knoten.ts`: der Code nur in `geheim`
+  (`freedom.knoten.kopplung`, `SICHERUNG_NIE`), eingegeben verdeckt;
+  `buildJobEvent()` setzt den Nachweis nur für `kopplungFuer(ziel)` – dann
+  ohne Gebot, Anteile, Kanal und Sitzung, höchstens 0 msat.

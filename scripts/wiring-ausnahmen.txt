@@ -76,8 +76,6 @@ git.ts|restoreGitBundle|Git über Blobs, noch ohne vollständige Oberfläche (Re
 http-auth.ts|btoaBase64|NIP-98-Anmeldung auf Client-Seite, noch ohne Speicher-Client (Speicher, 8.9)
 http-auth.ts|buildHttpAuth|NIP-98-Anmeldung auf Client-Seite, noch ohne Speicher-Client (Speicher, 8.9)
 
-kopplung.ts|leseKopplungscode|Kopplung von Knoten und Besitzer, in der App noch nicht gekoppelt (B-8c)
-kopplung.ts|mitBesitzerNachweis|Kopplung von Knoten und Besitzer, in der App noch nicht gekoppelt (B-8c)
 
 leak-rules.ts|regelAutorNicht|Prüfregeln der Leak-Tests, gehören in die Tests (1.5)
 leak-rules.ts|regelKeinBolt11|Prüfregeln der Leak-Tests, gehören in die Tests (1.5)

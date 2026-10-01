@@ -13,6 +13,7 @@ import { LANGS, Lang, detectLang, gespeicherteSprache, getLang, setLang, t } fro
 import { fehlerText } from "../protokoll-texte.js";
 import { escapeHtml, pkShort } from "../shell-logic.js";
 import { nimmBunkerAuf, wireBunkerKarte } from "./bunker.js";
+import { wireMeinKnoten } from "./mein-knoten.js";
 import { wireEingebauteWallet } from "./eingebaute-wallet.js";
 import { zeigeDatenschutz } from "./datenschutz.js";
 import { nachNotfallLoeschung, wireNotfallLoeschung } from "./notfall.js";
@@ -677,6 +678,7 @@ function starte(): void {
   const beschaeftigt = (): boolean => geldVorgangLaeuft() || $("#ai-send")?.dataset.running === "1";
   starteAutoSperre(beschaeftigt);
   wireBunkerKarte(beschaeftigt);
+  wireMeinKnoten();
   wireSicherheitsKnoepfe();
   wireNotfallLoeschung(geldVorgangLaeuft);
   checkOwnProvider();

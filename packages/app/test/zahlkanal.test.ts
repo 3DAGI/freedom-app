@@ -220,9 +220,10 @@ test("Verdrahtung: Gutschrift vor dem Versiegeln statt Deklaration, gemerkt vor 
   const tresor = readFileSync(new URL("../src/shell/tresor.ts", import.meta.url), "utf8");
   const bau = agent.slice(agent.indexOf("async function buildJobEvent("));
   const i = (s: string) => { const n = bau.indexOf(s); assert.ok(n >= 0, s); return n; };
-  assert.ok(i("const kanal = await kanalGutschrift(targetPubkey, hoechst);") < i("buildPrivateJobRequest({"));
-  i("extraTags.push(...(kanal ? kanal.tags : deklaration(empfaenger)));");
-  i("const useSession = !kanal && sc.activeFor(targetPubkey);");
+  // Seit B-8c: an den eigenen Knoten kein Kanal (er rechnet gratis)
+  assert.ok(i("const kanal = eigen ? undefined : await kanalGutschrift(targetPubkey, hoechst);") < i("buildPrivateJobRequest({"));
+  i("extraTags.push(...(eigen ? [] : kanal ? kanal.tags : deklaration(empfaenger)));");
+  i("const useSession = !eigen && !kanal && sc.activeFor(targetPubkey);");
   assert.ok(i("buildPrivateJobRequest({") < i("if (kanal) await kanal.merke(auftrag.requestId);"));
   assert.ok(i("if (kanal) await kanal.merke(auftrag.requestId);") < i("return auftrag;"));
   const antwort = agent.slice(agent.indexOf("async function handleAnswer("));
