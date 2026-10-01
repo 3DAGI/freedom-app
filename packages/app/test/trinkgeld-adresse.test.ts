@@ -75,7 +75,7 @@ test("Keine Antwort: Fremde, alte Anfragen, andere Kette, ohne eingebaute Wallet
 
 test("Verdrahtung (4.9d): Trinkgeld fragt erst versiegelt an, Profil nur mit Warnung; Posteingang beantwortet Anfragen, jede Minute", () => {
   const z = readFileSync(new URL("../src/chat-zap.ts", import.meta.url), "utf8");
-  const [gemerkt, gefragt, profil] = ["gemerkteAdresse(geheim, state.recipientPubkey, kette)", "await frageAdresseAn({", "if (!ziel && offen && confirm("].map((x) => z.indexOf(x));
+  const [gemerkt, gefragt, profil] = ["gemerkteAdresse(geheim, state.recipientPubkey, kette)", "await frageAdresseAn({", "if (!ziel && offen && await bestaetige({"].map((x) => z.indexOf(x));
   assert.ok(gemerkt > 0 && gemerkt < gefragt && gefragt < profil, "gemerkt → anfragen → Profil nur mit Rueckfrage");
   const k = readFileSync(new URL("../src/shell/tabs/kommunikation.ts", import.meta.url), "utf8");
   assert.match(k, /\(await alsTrinkgeld\(w\)\) \?\? \(await alsAdressAnfrage\(w\)\)/);

@@ -138,6 +138,7 @@ export const waehrung: Texte = {
   "waehr.fuerDeposit": { de: "das Deposit", en: "the deposit" },
   "waehr.fuerKanal": { de: "den Zahlkanal", en: "the payment channel" },
   "waehr.kanalTitel": { de: "Zahlkanal (SOL)", en: "Payment channel (SOL)" },
+  "waehr.kanalEinzahlen": { de: "Einzahlen", en: "Deposit" },
   "waehr.kanalErklaerung": { de: "Einmal SOL einzahlen, dann bezahlt jede KI-Antwort dieses Providers eine versiegelte Gutschrift – ohne Transaktion je Antwort. Die Anteile nach A+ teilt das Programm beim Einlösen auf: an Empfänger mit SOL-Adresse, sonst an den Provider. Bleibt eine Antwort aus, zählt ihr Gebot vorsichtshalber mit. Nach Ablauf holt die App zurück, was nicht verbraucht ist.", en: "Deposit SOL once, then every AI answer from this provider is paid with a sealed credit – no transaction per answer. When redeeming, the program splits the A+ shares: to recipients with a SOL address, otherwise to the provider. If an answer never arrives, its bid counts to be safe. After expiry the app reclaims whatever is unused." },
   "waehr.kanalEinTag": { de: "1 Tag", en: "1 day" },
   "waehr.kanalSiebenTage": { de: "7 Tage", en: "7 days" },
@@ -190,6 +191,7 @@ export const waehrung: Texte = {
   "waehr.eingebauteBereit": { de: "Eingebaute Wallet bereit: {adresse}…", en: "Built-in wallet ready: {adresse}…" },
   "waehr.limitGesetzt": { de: "Ohne Nachfrage höchstens {betrag} in 24 Stunden", en: "Without asking at most {betrag} per 24 hours" },
   "waehr.entfernenFrage": { de: "Eingebaute Wallet von diesem Gerät entfernen? Das Guthaben bleibt auf der Kette – mit deinen 12 Wörtern richtest du sie wieder ein (hier oder in Phantom).", en: "Remove the built-in wallet from this device? The balance stays on the chain – with your 12 words you set it up again (here or in Phantom)." },
+  "waehr.entfernenKnopf": { de: "Entfernen", en: "Remove" },
   "waehr.eingebauteEntfernt": { de: "Eingebaute Wallet entfernt", en: "Built-in wallet removed" },
   "waehr.adresseKopiert": { de: "Adresse kopiert", en: "Address copied" },
   // Ohne Internet zahlen (shell/offline-zahlung.ts)
@@ -205,6 +207,7 @@ export const waehrung: Texte = {
   "waehr.nonceGeschlossen": { de: "Nonce-Konto geschlossen – {betrag} zurück an die Wallet", en: "Nonce account closed – {betrag} back to the wallet" },
   "waehr.anWelcheAdresse": { de: "An welche Solana-Adresse?", en: "To which Solana address?" },
   "waehr.wievielSol": { de: "Wie viel SOL?", en: "How much SOL?" },
+  "waehr.signieren": { de: "Signieren", en: "Sign" },
   "waehr.funkName": { de: "SOL offline", en: "SOL offline" },
   "waehr.anFunkGegeben": { de: "{betrag} signiert und ans Funkgerät gegeben – ein Gerät mit Netz reicht die Zahlung ein.", en: "{betrag} signed and handed to the radio – a device with a network submits the payment." },
   "waehr.alsDateiGespeichert": { de: "{betrag} signiert und als Datei gespeichert – auf einem Gerät mit Netz unter „Netz“ → Mesh → „Datei einlesen“.", en: "{betrag} signed and saved as a file – on a device with a network under “Network” → Mesh → “Import file”." },

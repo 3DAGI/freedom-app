@@ -11,6 +11,7 @@
 import { t } from "./i18n.js";
 import { fehlerText } from "./protokoll-texte.js";
 import { escapeHtml } from "./shell-logic.js";
+import { bestaetige, dialog } from "./shell/dialog.js";
 import { ausLamports, ausMsat } from "./preis-anzeige.js";
 import { standardSchiene } from "./standard-schiene.js";
 import { aktualisiereKurs, aktuellerKurs } from "./shell/marktkurs.js";
@@ -196,9 +197,17 @@ async function sendZap(state: ZapDialogState, el: HTMLElement): Promise<void> {
         ziel = await frageAdresseAn({ pool, speicher: geheim, signer: appState.signer!, empfaenger: state.recipientPubkey, kette, sende: veroeffentlicheDm }) ?? "";
       }
       const offen = profile[0] ? solAdresseAusProfil(profile[0].content) : "";
-      if (!ziel && offen && confirm(t("zahl.oeffentlicheAdresseFrage", { name: state.recipientName }))) ziel = offen;
+      // Dialoge statt confirm()/prompt() (C-1d): die öffentliche Adresse nur mit Warnung, eine eingegebene nur geprüft
+      if (!ziel && offen && await bestaetige({ titel: t("zahl.trinkgeldTitel"), text: t("zahl.oeffentlicheAdresseFrage", { name: state.recipientName }), ok: t("zahl.trotzdemDorthin") })) ziel = offen;
       if (!ziel) {
-        ziel = (prompt(t("zahl.solAdresseVon", { name: state.recipientName })) ?? "").trim();
+        const { isValidSolanaAddress } = await import("./solana-connect.js");
+        const w = await dialog({
+          titel: t("zahl.trinkgeldTitel"),
+          felder: [{ art: "text", name: "adresse", label: t("zahl.solAdresseVon", { name: state.recipientName }), pflicht: true, mono: true, scannen: true }],
+          pruefe: (w) => (isValidSolanaAddress(String(w.adresse).trim()) ? null : t("waehr.keineSolAdresse")),
+          ok: t("zahl.weiterZurZahlung"),
+        });
+        ziel = String(w?.adresse ?? "").trim();
         if (!ziel) throw new Error(t("zahl.ohneEmpfaengerAdresse"));
       }
       statusEl.textContent = t("zahl.warteAufSignatur");
