@@ -13165,3 +13165,32 @@ Begründung der bestehenden Zeile für die Liste nennt jetzt
 zwei Leistungs-Events eines Probe-Knotens aus `scripts/einnahmen-probe.mts`
 (Wegwerfschlüssel, über `freedom.earn.knoten` gewählt) – „21 sats“ und „SOL,
 Wert 1.500 sats (kein Kurs)“; Untertitel mit „oder SOL“.
+
+## Schritt C-3 – Dashboard: Preise in sats und SOL
+
+Spur C, Sammlung C-3. Die Status-Seite der Website (`dashboard.html`) zeigte
+je Angebot nur „sats je 1.000 Tokens“. SOL ist gleichwertig – der Preis steht
+jetzt in beiden Einheiten.
+
+**Was:**
+- `website/js/dashboard-daten.js`:
+  - `kursAus()`: der Kurs des Anbieters aus seinem Angebot (`kurs`-Tag
+    „SOL/BTC“), geprüft wie `parseCapabilities()` (4.4) – nur eine ganze
+    Zahl sats je SOL und eine bekannte Quelle, sonst keiner.
+  - `lamportsAus()`: msat → Lamports wie `msatZuLamports()` (aufgerundet,
+    1 SOL = Kurs · 1000 msat); jedes Angebot trägt `lamportsJe1k` (oder
+    `null` ohne Kurs).
+- `website/dashboard.html`: Spalte „Preis je 1.000 Tokens“ – „2 sats · ≈
+  0,000013334 SOL“, ohne Kurs „2 sats · SOL: kein Kurs“; gratis bleibt
+  „gratis“.
+- Kein neuer Abruf und keine neue Art: `filter()` ist unverändert, der Kurs
+  steht schon im Angebot (38027).
+
+**Verdrahtet:** `dashboard-daten.js:46` (`kursAus()`), `:52` (`lamportsAus()`),
+`:70` (`angebote()` → `lamportsJe1k`); `dashboard.html:202` (`renderProviders()`).
+
+**Tests:** app +1 in `test/website-dashboard.test.ts`: mit Kurs aus dem
+Angebot dieselbe Zahl wie `msatZuLamports()` (2000 msat bei 150.000 sats/SOL
+→ 13.334 Lamports), ohne Kurs `null`, ein Kurs „1e5“ zählt nicht; drei
+weitere Beträge gegen `msatZuLamports()`; die Seite zeigt beides und „SOL:
+kein Kurs“. `check-website.py` ok.

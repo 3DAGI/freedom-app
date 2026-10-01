@@ -132,6 +132,7 @@ const el = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 const short = (pk) => pk.slice(0, 8) + "…" + pk.slice(-4);
 const fmt = (n) => n.toLocaleString("de-DE");
+const solFmt = (lamports) => (lamports / 1e9).toLocaleString("de-DE", { maximumFractionDigits: 9 });
 
 /** Eine Abfrage an einen Relay. Bewusst mit Timeout: ein hängender Relay darf
  *  die Seite nicht blockieren, das Ergebnis wird aus dem Rest gebildet. */
@@ -193,10 +194,12 @@ function renderProviders(liste) {
     el("providers").innerHTML = `<p class="muted">Kein Angebot in den letzten 24 Stunden erneuert.</p>`;
     return;
   }
-  el("providers").innerHTML = tabelle(["Provider", "Stufe (angeboten)", "Modelle", "sats je 1.000 Tokens", "Zahlwege", "erneuert"],
+  el("providers").innerHTML = tabelle(["Provider", "Stufe (angeboten)", "Modelle", "Preis je 1.000 Tokens", "Zahlwege", "erneuert"],
     liste.slice(0, 40).map((p) => {
       const wege = [p.lightning ? "Lightning" : "", p.solKanal ? "SOL-Kanal" : "", p.funkGateway ? "Funk-Gateway" : ""].filter(Boolean).join(" · ") || "—";
-      const preis = p.gratis ? "gratis" : p.satsJe1k === null ? "—" : fmt(Math.round(p.satsJe1k * 1000) / 1000);
+      // sats und SOL (C-3) – SOL nur aus dem Kurs im Angebot, ohne Kurs keiner
+      const sats = p.satsJe1k === null ? null : `${fmt(Math.round(p.satsJe1k * 1000) / 1000)} sats`;
+      const preis = p.gratis ? "gratis" : sats === null ? "—" : p.lamportsJe1k === null ? `${sats} · SOL: kein Kurs` : `${sats} · ≈ ${solFmt(p.lamportsJe1k)} SOL`;
       return `<tr>
         <td class="mono">${esc(short(p.pubkey))}</td>
         <td>${esc(STUFE[p.stufe])}</td>
