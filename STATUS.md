@@ -12917,3 +12917,8 @@ nichts); Grenzen, Prüfung wie beim Ankündigen, Löschen samt Chiffrat; nie in
 Sicherung und Export, im Tresor, in der Notfall-Löschung.
 
 **Verdrahtet:** noch nicht in der Oberfläche – das ist B-2b.
+
+Endstand (B-2a, 01.10.): protocol 1140 (6 übersprungen) · node 271 (7
+übersprungen ohne Netz – mit Netz 272) · app 732 (+4) · mls 13 · Leak-Tests 68
+grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng
+Exit 0 · Website ok · Smoke-Test bestanden. Knoten-Stand: unverändert.
