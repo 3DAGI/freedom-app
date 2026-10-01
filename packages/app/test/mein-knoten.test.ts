@@ -35,5 +35,5 @@ test("B-8c: verdrahtet – Karte in Settings → Geräte, Code verdeckt und scan
   assert.match(k, /pruefe: \(v\) => \(leseKopplungscode\(String\(v\.code \?\? ""\)\) \? null : t\("set\.knotenCodeFalsch"\)\),/);
   assert.match(k, /if \(alt && alt\.knoten !== k\.knoten\n\s+&& !await bestaetige\(/, "einen anderen Knoten ersetzt es nur nach Rückfrage");
   assert.match(k, /export function kopplungFuer\(knoten: string\): Kopplung \| null \{\n\s+const k = meineKopplung\(\);\n\s+return k && k\.knoten === knoten \? k : null;/);
-  assert.match(lies("shell/tabs/agent.ts"), /import \{ kopplungFuer \} from "\.\.\/mein-knoten\.js";/);
+  assert.match(lies("shell/tabs/agent.ts"), /import \{[^}]*\bkopplungFuer\b[^}]*\} from "\.\.\/mein-knoten\.js";/);
 });
