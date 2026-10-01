@@ -256,6 +256,7 @@
                 <button id="space-invite" class="menue-punkt hidden" role="menuitem" type="button" data-i18n="komm.einladen">einladen</button>
                 <button id="space-mods" class="menue-punkt hidden" role="menuitem" type="button" data-i18n="komm.moderatoren">Moderatoren</button>
                 <button id="space-kanal-neu" class="menue-punkt hidden" role="menuitem" type="button" data-i18n="raum.kanalAnlegen">Kanal anlegen</button>
+                <button id="space-kanal-aendern" class="menue-punkt hidden" role="menuitem" type="button" data-i18n="raum.kanalAendern">Diesen Kanal ändern</button>
                 <button id="space-repo-neu" class="menue-punkt hidden" role="menuitem" type="button" data-i18n="raum.repoAnlegen">Repo anlegen</button>
                 <div class="menue-trenner hidden" role="separator"></div>
                 <button id="space-join" class="menue-punkt" role="menuitem" type="button" data-i18n="komm.raumBeitreten">Raum beitreten</button>
@@ -701,6 +702,14 @@
           <div id="device-list" class="mono-sm"><span data-i18n="earn.lade">lade …</span></div>
           <button id="device-add" class="ghost" style="width:auto;padding:6px 10px;margin-top:8px" data-i18n="set.geraetHinzufuegen">
             Gerät hinzufügen</button>
+        </div><div class="card" id="knoten-karte">
+          <h3><span class="ic" data-icon="server"></span> <span data-i18n="set.knotenTitel">Mein Knoten</span></h3>
+          <p class="mono-sm" data-i18n="set.knotenText">Den eigenen Provider-Knoten koppeln: den Code aus „npm run koppeln“ scannen oder einfügen. Anfragen an ihn rechnet er dann gratis – erkannt nur an einem Nachweis im versiegelten Auftrag.</p>
+          <div id="knoten-status" class="mono-sm"></div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
+            <button id="knoten-koppeln" class="ghost" style="width:auto;padding:6px 10px" type="button" data-i18n="set.knotenKoppeln">Mein Knoten koppeln</button>
+            <button id="knoten-entkoppeln" class="ghost" style="width:auto;padding:6px 10px" type="button" hidden data-i18n="set.knotenEntkoppeln">entkoppeln</button>
+          </div>
         </div><div class="card" id="bunker-karte">
           <h3><span class="ic" data-icon="shield"></span> <span data-i18n="set.bunkerTitel">Anmelden per Bunker (NIP-46)</span></h3>
           <p class="mono-sm" data-i18n="set.bunkerText">Dein Schlüssel bleibt in einem Signer, z. B. Amber oder nsecBunker; die App fragt jede Unterschrift dort an. Ohne den Schlüssel selbst gehen nicht: Sicherungsdatei, Schlüssel-Export, Zustandssicherung, Nachfolge und abgeleitete Swap-Adressen – der Datenexport geht.</p>

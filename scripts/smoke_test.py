@@ -806,6 +806,30 @@ def einstellungen_pruefen(browser, url: str) -> dict:
     if not (md["felder"] == ["Für wen meldest du? (npub oder hex)", "Warum? (wird veröffentlicht)"]
             and md_falsch["meldung"] == "Kein gültiger öffentlicher Schlüssel"):
         erg["fehler"].append(f"Melden {erg['melden']}")
+    # Mein Knoten (B-8c, Settings → Geräte): ein falscher Code meldet sich im Dialog, ein gültiger wird verdeckt eingegeben
+    # und gemerkt, entkoppeln nach Rückfrage – dabei geht nichts hinaus (Prüfung „gesendet“ unten)
+    ev("() => document.getElementById('knoten-koppeln').click()")
+    kd = seite.warte_dialog("Mein Knoten koppeln")
+    kd_typen = ev("() => [...document.querySelectorAll('[role=dialog] input')].map(i => i.type)")
+    feld(0, "freedom-kopplung:1:kaputt")
+    kd_falsch = bestaetigen()
+    code = "freedom-kopplung:1:" + "ab" * 32 + ":" + "cd" * 32
+    feld(0, code)
+    bestaetigen()
+    seite.warte_zu()
+    knoten = {"typen": kd_typen, "falsch": kd_falsch["meldung"] if kd_falsch else None,
+              "status": ev("() => document.getElementById('knoten-status')?.textContent"),
+              "gemerkt": ev("() => localStorage.getItem('freedom.knoten.kopplung')") == code,
+              "entkoppeln": ev("() => !document.getElementById('knoten-entkoppeln').hidden")}
+    ev("() => document.getElementById('knoten-entkoppeln').click()")
+    seite.warte_dialog("entkoppeln")
+    bestaetigen()
+    seite.warte_zu()
+    knoten["danach"] = [ev("() => document.getElementById('knoten-status')?.textContent"), ev("() => localStorage.getItem('freedom.knoten.kopplung')")]
+    erg["knoten"] = knoten
+    if knoten != {"typen": ["password"], "falsch": "Kein Kopplungscode – er beginnt mit freedom-kopplung:1:", "status": "Gekoppelt mit abababab…abab",
+                  "gemerkt": True, "entkoppeln": True, "danach": ["Nicht gekoppelt", None]}:
+        erg["fehler"].append(f"Mein Knoten {knoten}")
     # Abgebrochen: nichts veröffentlicht – kein Widerruf, kein Plan, keine Meldung
     erg["gesendet"] = sorted({e["kind"] for e in relay.gesendet if e.get("kind") not in (10002, 10050)})
     if erg["gesendet"]:
@@ -1407,6 +1431,43 @@ def lokal_pruefen(browser, url: str) -> dict:
                  " return b ? { text: b.querySelector('.body')?.textContent ?? '', meta: b.querySelector('.cost')?.textContent ?? '' } : null; }")
     s.wait_for_timeout(1000)
     neu = relay.gesendet[vorher:]
+    # Mein Knoten (B-9a): gekoppelt steht die Gruppe zwischen Netz und Gerät; die Frage geht nur als Umschlag an den
+    # Knoten (kein Klartext, kein anderer Provider), ohne Antwort wartet die App – „Stopp“ bricht ab
+    knoten_pk = "ab" * 32
+    ev("() => document.getElementById('knoten-koppeln').click()")
+    s.wait_for_selector("[role=dialog] input", timeout=10000)
+    ev("(c) => { document.querySelector('[role=dialog] input').value = c; }", "freedom-kopplung:1:" + knoten_pk + ":" + "cd" * 32)
+    ev("() => document.querySelector('[role=dialog] .dlg-knoepfe button:last-child').click()")
+    s.wait_for_function("() => !document.querySelector('[role=dialog][aria-modal=true]')", timeout=10000)
+    ev("() => document.getElementById('ai-model-btn').click()")
+    karte_k = '#model-popover .knoten-bereich .model-card[data-model="knoten:"]'
+    s.wait_for_selector(karte_k, timeout=20000)
+    gruppen = ev("() => [...document.querySelectorAll('#model-popover .mc-gruppe')].map(g => g.textContent)")
+    ev(f"() => document.querySelector('{karte_k}').click()")
+    knopf_k = ev("() => document.getElementById('ai-model-btn').textContent.trim()")
+    vorher_k = len(relay.gesendet)
+    frage_k = "Frage an meinen Knoten 0815"
+    ev("(f) => { document.getElementById('ai-prompt').value = f; document.getElementById('ai-send').click(); }", frage_k)
+    for _ in range(150):
+        if any(e.get("kind") == 1059 for e in relay.gesendet[vorher_k:]):
+            break
+        s.wait_for_timeout(100)
+    s.wait_for_timeout(500)
+    ev("() => document.getElementById('ai-send').click()")  # Stopp
+    try:
+        s.wait_for_function("() => [...document.querySelectorAll('#ai-thread .bubble.ai')].some(b => b.textContent.includes('[abgebrochen]'))", timeout=15000)
+        abgebrochen = True
+    except Exception:
+        abgebrochen = False
+    neu_k = list({e["id"]: e for e in relay.gesendet[vorher_k:]}.values())
+    umschlaege = [e for e in neu_k if e.get("kind") == 1059]
+    erg["knoten"] = {"gruppen": gruppen, "knopf": knopf_k, "abgebrochen": abgebrochen,
+                     "arten": sorted({e.get("kind") for e in neu_k}),
+                     "an": sorted({t[1] for e in umschlaege for t in e["tags"] if t[0] == "p"})}
+    if gruppen != ["Netz", "Mein Knoten", "Dieses Gerät"] or knopf_k != "Modell des Knotens · mein Knoten" or not abgebrochen \
+            or len(umschlaege) != 1 or erg["knoten"]["an"] != [knoten_pk] \
+            or any(5000 <= int(e.get("kind", 0)) < 7000 for e in neu_k) or any(frage_k in json.dumps(e) for e in neu_k):
+        erg["fehler"].append(f"Mein Knoten {erg['knoten']}")
     ctx.close()
     anfragen = [a for a in lokal if a["methode"] == "POST"]
     erg.update({"vor_klick": vor_klick, "wahl": wahl, "antwort": antwort, "lokal": [f"{a['methode']} {a['url']}" for a in lokal],
@@ -1620,7 +1681,6 @@ def raum_pruefen(browser, url: str) -> dict:
             except Exception:
                 pass
             s.keyboard.press("Escape")  # der Dialog mit der Kennung
-            s.wait_for_timeout(1100)  # die neue Definition braucht einen späteren Zeitstempel
             rechte = ev("""() => ['space-mods', 'space-kanal-neu'].map(id => !document.getElementById(id).classList.contains('hidden'))""")
             ev("() => document.getElementById('space-kanal-neu').click()")
             s.wait_for_timeout(200)
@@ -1633,12 +1693,52 @@ def raum_pruefen(browser, url: str) -> dict:
             except Exception:
                 pass
             kanaele = ev("() => [...document.querySelectorAll('#channel-list .channel-item')].map(b => b.textContent.trim())")
+            # Seit B-20b als Kanal-Event (34703) an die Adresse des Raums, nicht mehr als neue Definition
             definitionen = [e for e in relay.gesendet if e.get("kind") == 34700]
-            neu = [t for t in (definitionen[-1]["tags"] if definitionen else []) if t[0] == "channel" and t[1] == "technik-co"]
-            erg["desktop"]["eigener_raum"] = {"rechte": rechte, "kanaele": kanaele, "definitionen": len({e["id"] for e in definitionen}), "neu": neu}
+            kanal_events = list({e["id"]: e for e in relay.gesendet if e.get("kind") == 34703}.values())  # je Relay-Verbindung einmal gesendet
+            neu = [t for e in kanal_events for t in e["tags"] if t[0] == "channel" and t[1] == "technik-co"]
+            adresse = [t[1] for e in kanal_events for t in e["tags"] if t[0] == "a"]
+            erg["desktop"]["eigener_raum"] = {"rechte": rechte, "kanaele": kanaele, "definitionen": len({e["id"] for e in definitionen}), "neu": neu, "adresse": adresse}
             if rechte != [True, True] or not any(k.endswith("Technik & Co") for k in kanaele) \
-                    or neu != [["channel", "technik-co", "Technik & Co", "offen", "2", "mod", ""]]:
+                    or neu != [["channel", "technik-co", "Technik & Co", "offen", "2", "mod", ""]] \
+                    or len({e["id"] for e in definitionen}) != 1 or len(adresse) != 1 or not adresse[0].startswith("34700:"):
                 erg["fehler"].append(f"desktop: eigener Raum, Kanal anlegen {erg['desktop']['eigener_raum']}")
+            # Kanal ändern und entfernen (B-20c): umbenennen, dann nach Rückfrage entfernen – je ein Kanal-Event an die Adresse
+            s.wait_for_timeout(1100)  # ein späteres Event braucht einen späteren Zeitstempel (Sekunden, wie bei Definitionen)
+            ev("() => document.getElementById('space-kanal-aendern').click()")
+            s.wait_for_selector("[role=dialog] input", timeout=10000)
+            titel_aendern = ev("() => document.getElementById(document.querySelector('[role=dialog]').getAttribute('aria-labelledby'))?.textContent")
+            ev("() => { const i = document.querySelector('[role=dialog] input'); i.value = 'Technik'; }")
+            ev("() => document.querySelector('[role=dialog] .dlg-knoepfe button:last-child').click()")
+            try:
+                s.wait_for_function("() => document.getElementById('channel-name').textContent === '#Technik'", timeout=10000)
+            except Exception:
+                pass
+            nach_umbenennen = ev("() => [...document.querySelectorAll('#channel-list .channel-item')].map(b => b.textContent.trim())")
+            s.wait_for_timeout(1100)
+            ev("() => document.getElementById('space-kanal-aendern').click()")
+            s.wait_for_selector("[role=dialog] input", timeout=10000)
+            ev("() => { const k = [...document.querySelectorAll('[role=dialog] input[type=checkbox]')].pop(); k.checked = true; }")
+            ev("() => document.querySelector('[role=dialog] .dlg-knoepfe button:last-child').click()")
+            s.wait_for_timeout(300)
+            rueckfrage = ev("() => document.getElementById(document.querySelector('[role=dialog]')?.getAttribute('aria-labelledby') ?? '')?.textContent ?? null")
+            ev("() => document.querySelector('[role=dialog] .dlg-knoepfe button:last-child')?.click()")
+            try:
+                s.wait_for_function("() => ![...document.querySelectorAll('#channel-list .channel-item')].some(b => b.textContent.includes('Technik'))", timeout=10000)
+            except Exception:
+                pass
+            nach_entfernen = ev("() => [...document.querySelectorAll('#channel-list .channel-item')].map(b => b.textContent.trim())")
+            kanal_events = list({e["id"]: e for e in relay.gesendet if e.get("kind") == 34703}.values())
+            umbenannt = [t for e in kanal_events for t in e["tags"] if t[0] == "channel" and t[1] == "technik-co" and t[2] == "Technik"]
+            entfernt = [t for e in kanal_events for t in e["tags"] if t[0] == "entfernt"]
+            aendern = {"titel": titel_aendern, "umbenannt": nach_umbenennen, "rueckfrage": rueckfrage, "entfernt": nach_entfernen,
+                       "events": [len(umbenannt), entfernt], "definitionen": len({e["id"] for e in relay.gesendet if e.get("kind") == 34700})}
+            erg["desktop"]["kanal_aendern"] = aendern
+            if titel_aendern != "Kanal „Technik & Co“ ändern" or not any(k.endswith("Technik") and "&" not in k for k in nach_umbenennen) \
+                    or rueckfrage != "Kanal entfernen" or any("Technik" in k for k in nach_entfernen) \
+                    or umbenannt != [["channel", "technik-co", "Technik", "offen", "2", "mod", ""]] or entfernt != [["entfernt", "technik-co"]] \
+                    or aendern["definitionen"] != 1:
+                erg["fehler"].append(f"desktop: Kanal ändern und entfernen {aendern}")
         # Seit B-7: gemerkt ist die Adresse mit dem Gründer – eine neuere Definition eines Fremden mit derselben Kennung
         # übernimmt den Raum nicht (vorher gewann die neueste Definition, gleich von wem)
         if not mobil:

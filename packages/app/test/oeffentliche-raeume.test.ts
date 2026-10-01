@@ -90,7 +90,7 @@ test("B-7: verdrahtet – Raum nur aus der Adresse, Kennung nur eindeutig gebund
   assert.match(beitritt, /scannen: true/);
   // Tags tragen die Kennung, nie die Adresse
   assert.match(raeume, /const kennung = offeneKennung\(\);\s*if \(!state\.keypair \|\| !spacesUi\.spaceId \|\| !kennung\) return;/, "Moderieren nur mit Kennung");
-  for (const stelle of ["spaceId: offeneKennung()!,", "buildRoleGrant(\n        kennung,", "buildHide(kennung,", "buildBan(kennung,", "buildModeratorList(\n      offeneKennung()!"]) {
+  for (const stelle of ["spaceId: offeneKennung()!,", "buildRoleGrant(\n        kennung,", "buildHide(kennung,", "buildBan(kennung,", "buildRoleGrant(kennung, ich, pk,", "buildRoles(kennung, ich,"]) {
     assert.ok(raeume.includes(stelle), stelle);
   }
   // Vom Repo in den Raum: mit der ganzen Adresse, nicht nur der Kennung

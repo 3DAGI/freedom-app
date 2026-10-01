@@ -23,17 +23,18 @@ import {
 } from "./nip34.js";
 import { KIND_KOMMENTAR, baueKommentar } from "./kommentar.js";
 import type { InneresEvent, InneresSenden } from "./raum-gruppe.js";
-import { KIND_SPACE, buildSpaceState, can, leseRaumAdresse, type SpaceState } from "./spaces.js";
+import { KIND_SPACE, buildSpaceState, can, leseRaumAdresse, mitRaumKanaelen, type SpaceState } from "./spaces.js";
 
 export const RAUM_REPO_RECHT = "repos_pflegen" as const;
 
-/** Raum-Zustand zur Adresse – Definitionen anderer Autoren fallen vorher heraus. */
-export function raumZustandFuer(adresse: string, events: readonly NostrEvent[]): SpaceState | undefined {
+/** Raum-Zustand zur Adresse – Definitionen anderer Autoren fallen vorher heraus, Kanal-Events (B-20) kommen dazu. */
+export function raumZustandFuer(adresse: string, events: readonly NostrEvent[], jetzt?: number): SpaceState | undefined {
   const a = leseRaumAdresse(adresse);
   if (!a) return undefined;
   const eigene = events.filter((e) => e.kind !== KIND_SPACE || e.pubkey === a.besitzer);
   const zustand = buildSpaceState(a.spaceId, eigene);
-  return zustand.space && zustand.ownerPubkey === a.besitzer ? zustand : undefined;
+  // Kanäle (B-20): auch von Berechtigten, nur an diese Adresse
+  return zustand.space && zustand.ownerPubkey === a.besitzer ? mitRaumKanaelen(zustand, events, jetzt) : undefined;
 }
 
 /**

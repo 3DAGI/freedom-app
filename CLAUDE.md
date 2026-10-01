@@ -45,9 +45,9 @@ bash packages/mls/bauen.sh --pruefen                     # nur bei Änderungen a
 bash contracts/solana-channel/pruefen.sh --werkzeuge     # nur bei Änderungen am Zahlkanal: bauen + Tests gegen Validator (Agave 3.1.10)
 ```
 
-Stand 30.09.2026 (nach 8.2c, 5.5a–c, 8.15, 11.1a, C.3c2, 11.1b, 5.9a–b, 6.3a–b2, 11.4a–b2, C.4a–b, C.5a–b, C.6b, 11.4c, C-18, C-17a–c, C-20a–f, C-1a–e, C-2, C-3, C-4, C-6a–c, 11.2a–b, A-4 bis A-7, B-1, B-2a–c, B-3 bis B-7, B-8a–b, B-15 und B-19): protocol 1144 grün (6 übersprungen), node 276 grün
+Stand 01.10.2026 (nach 8.2c, 5.5a–c, 8.15, 11.1a, C.3c2, 11.1b, 5.9a–b, 6.3a–b2, 11.4a–b2, C.4a–b, C.5a–b, C.6b, 11.4c, C-18, C-17a–c, C-20a–f, C-1a–e, C-2, C-3, C-4, C-6a–c, 11.2a–b, A-4 bis A-7, B-1, B-2a–c, B-3 bis B-7, B-8a–c, B-9a, B-15, B-19, B-20a–c und B-10a): protocol 1147 grün (6 übersprungen), node 281 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 749 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 68 grün + 1 `todo` (heutige Lecks,
+in `tools.test.ts`), app 758 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 69 grün + 1 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
 Ausnahme: gesendete SOL-Zahlungen von frischen Adressen, eine bewusste Grenze
 nach Entscheidung 4.9 A – im Datenschutzbericht unter „Bewusste Grenzen“).
@@ -893,6 +893,21 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   über `raumModeration()` (Recht „moderieren“, nur gegen Niedrigere, den
   Gründer trifft keine Maßnahme eines anderen) – nie über die Liste 34550 der
   Communities; die Lücke bleibt sichtbar, „anzeigen“ nur für die Sitzung.
+  Kanäle (seit B-20a) auch von Berechtigten, nur über Kanal-Events (34703,
+  `baueRaumKanal()`/`baueKanalEntfernung()`) an die Adresse des Raums;
+  ausgewertet nur über `mitRaumKanaelen()` in `raumZustandFuer()` – je Kanal
+  die neueste Aussage, von anderen als dem Gründer nur mit
+  „kanaele_verwalten“ (heutiger Stand) und nur für Kanäle bis zum eigenen
+  Rang, nichts aus der Zukunft (`KANAL_GRENZEN`). Kanäle im offenen Raum sind
+  immer „offen“ – nie „verschlüsselt“ versprechen. In der App (seit B-20b)
+  „Kanal anlegen“ offen nur mit `darfKanaele()` und nur über `baueRaumKanal()`
+  – nie eine neue Definition (34700) dafür. Moderatoren offener Räume sind die
+  mit der Rolle „mod“ (34702, `MOD_RECHTE`), ernannt über
+  `ernenneModeratoren()` – nie mehr die Liste 34550, sie zählt in Räumen nicht.
+  Ändern und entfernen (seit B-20c) nur über `aendereKanal()`: offen vorher
+  `darfKanalAendern()` (dieselbe Regel wie `mitRaumKanaelen()`), privat
+  `aenderePrivatenKanal()`; nie den letzten Kanal. Zwei Kanal-Events derselben
+  Sekunde entscheidet die Id – im Test eine Sekunde dazwischen.
 - **Umfragen und Termine nur in der Gruppe** (seit B-15a, `raum-planung.ts`):
   NIP-88 (1068/1018) und NIP-52 (31922/31923/31925) nur als innere Events
   privater Räume über `raumUmfrage()`, `raumStimme()`, `raumTermin()`,
@@ -937,4 +952,23 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   nur über `npm run koppeln` (QR fürs Terminal mit `kopplungImTerminal()`),
   nie ins Log; der Provider liest es je Anfrage (`besitzer` in der
   Konfiguration) und rechnet den Besitzer gratis, ohne Gebot und Kontingent –
-  eine offene Anfrage mit Nachweis lehnt er ab.
+  eine offene Anfrage mit Nachweis lehnt er ab. In der App (seit B-8c) nur
+  über `shell/mein-knoten.ts`: der Code nur in `geheim`
+  (`freedom.knoten.kopplung`, `SICHERUNG_NIE`), eingegeben verdeckt;
+  `buildJobEvent()` setzt den Nachweis nur für `kopplungFuer(ziel)` – dann
+  ohne Gebot, Anteile, Kanal und Sitzung, höchstens 0 msat. In der Modellwahl
+  (seit B-9a) „Mein Knoten“ nur gekoppelt (`zeigeKnotenBereich()`, Modelle aus
+  `angebotVon()`, nur Text), Wahlwert `knoten:<modell>` (`knoten-wahl.ts`);
+  `askAi()` → `frageMeinenKnoten()` nach Funk und Gerät, vor Kontingent und
+  Netz – nur an diesen Knoten, nie ein anderer Provider, nie still ins Netz.
+  Der Stopp-Fall in `askAi()` steht vor der Prüfung des Prompts (nach dem
+  Senden ist das Feld leer).
+- **App vom Knoten nur mit Prüfsumme** (seit B-10a, `node/src/app-auslieferung.ts`):
+  Die Relay-Rolle liefert freedom.html nur als Ergebnis von `ladeApp()` aus –
+  die Summe gibt der Betreiber vor (`APP_SHA256`), nie aus der Datei
+  übernehmen; geprüft beim Start, danach nur aus dem Speicher (kein `readFile`
+  beim Ausliefern). Mit `Accept: application/nostr+json` bleibt `/` NIP-11.
+  Über http im Heimnetz ist die Seite kein sicherer Kontext: kein
+  `crypto.subtle` (Tresor, MLS-Zustand, Suche, Git-Bundles), keine Kamera –
+  sicher sind .onion (Tor Browser) und localhost; Texte versprechen dort
+  nichts anderes.

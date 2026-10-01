@@ -136,9 +136,10 @@ test("Verdrahtung: buildJobEvent() baut die Anfrage wie das Szenario", () => {
   assert.match(f, /const sitzung = kiSitzungen\.fuer\(targetPubkey\);/);
   assert.match(f, /buildEvent\(sitzung\.publicKey\(\), KIND_DVM_TEXT_GENERATION, \[\s*\["i", fullPrompt, "text"\],\s*\.\.\.sc\.jobTags\(targetPubkey/);
   assert.match(f, /buildJobRequest\(\{\s*customerPubkey: sitzung\.publicKey\(\),\s*input: fullPrompt,/);
-  assert.match(f, /const auftrag = await buildPrivateJobRequest\(\{\s*request, sessionSigner: sitzung, providerPk: targetPubkey,/);
+  // Seit B-8c: an den eigenen Knoten mit dem Nachweis im Kern (Szenario in leak/mein-knoten.test.ts)
+  assert.match(f, /const auftrag = await buildPrivateJobRequest\(\{\s*request: eigen \? mitBesitzerNachweis\(request, eigen\) : request, sessionSigner: sitzung, providerPk: targetPubkey,/);
   // Deklaration bzw. Gutschrift des Zahlkanals (4.3d) kommen vor dem Versiegeln in den Kern, nie danach
-  assert.match(f, /extraTags\.push\(\.\.\.\(kanal \? kanal\.tags : deklaration\(empfaenger\)\)\);[\s\S]*\.\.\.extraTags,[\s\S]*const auftrag = await buildPrivateJobRequest/);
+  assert.match(f, /extraTags\.push\(\.\.\.\(eigen \? \[\] : kanal \? kanal\.tags : deklaration\(empfaenger\)\)\);[\s\S]*\.\.\.extraTags,[\s\S]*const auftrag = await buildPrivateJobRequest/);
   assert.doesNotMatch(agent, /customerPubkey: state\.keypair\.pk/);
   // Gesendet wird nur der Umschlag
   assert.doesNotMatch(agent, /await buildJobEvent\([^)]*\);\s*await pool\.publish\(ev\)/);

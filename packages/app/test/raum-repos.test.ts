@@ -76,5 +76,8 @@ test("Verdrahtung (11.4a): Karten mit Raum-Struktur, Auswahl in den Einstellunge
   const seite = lies("shell/tabs/repo-seite.ts");
   assert.match(seite, /raum\.id = "repo-feld-raum";/);
   assert.match(seite, /ersterCommit: wert\("ersterCommit"\), raum: wert\("raum"\),/);
-  assert.match(lies("shell/tabs/raeume.ts"), /permissions: \["lesen", "schreiben", "threads", "moderieren", "rollen_vergeben", "repos_pflegen"\] \},/);
+  // Seit B-20b stehen die Rechte der Moderatoren in MOD_RECHTE (dazu „kanaele_verwalten“)
+  const raeume = lies("shell/tabs/raeume.ts");
+  assert.match(raeume, /const MOD_RECHTE = \["lesen", "schreiben", "threads", "moderieren", "rollen_vergeben", "repos_pflegen", "kanaele_verwalten"\] as const;/);
+  assert.match(raeume, /\{ id: MOD_ROLLE, name: "Moderator", rank: 50, permissions: \[\.\.\.MOD_RECHTE\] \}, \/\/ kein UI-Text/);
 });

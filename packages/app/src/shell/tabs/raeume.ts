@@ -7,13 +7,13 @@
  * Dialoge (`shell/dialog.ts`) statt `prompt()`, `confirm()` und `alert()`.
  */
 import {
-  MELDE_GRUENDE, RAUM_REPO_RECHT, applyModeration, can as darf, gruenderZurKennung, leseRaumAdresse, raumAdresse, raumModeration, raumZustandFuer, type Channel, type ChannelMessage, type MeldeGrund, type Space, type SpaceState, type ThreadView,
+  MELDE_GRUENDE, RAUM_REPO_RECHT, applyModeration, can as darf, darfKanalAendern, gruenderZurKennung, leseRaumAdresse, raumAdresse, raumModeration, raumZustandFuer, type Channel, type ChannelMessage, type MeldeGrund, type Space, type SpaceState, type ThreadView,
 } from "@freedomstack/protocol";
-import { pkShort } from "../../shell-logic.js";
+import { pkShort, schluesselAusEingabe } from "../../shell-logic.js";
 import { ensurePool, signiere, state } from "../state.js";
 import { mlsAbgleichen, mlsGesperrt } from "../mls-konto.js";
 import {
-  PRIVAT, type PrivaterRaum, einladungsText, entferneAusRaum, gruppeVon, istPrivat, ladeInPrivatenRaum, ladePrivatenRaum, legePrivatenKanalAn, legePrivatenRaumAn, loescheImRaum, meldeImRaum, meldungErledigt, meldungenFuer, privateRaeume, sendePrivat, setzeModeratoren, wennMeldung,
+  PRIVAT, type PrivaterRaum, aenderePrivatenKanal, einladungsText, entferneAusRaum, gruppeVon, istPrivat, ladeInPrivatenRaum, ladePrivatenRaum, legePrivatenKanalAn, legePrivatenRaumAn, loescheImRaum, meldeImRaum, meldungErledigt, meldungenFuer, privateRaeume, sendePrivat, setzeModeratoren, wennMeldung,
 } from "../raum-mls.js";
 import { $, toast } from "../ui.js";
 import { bestaetige, dialog, hinweis, type Option } from "../dialog.js";
@@ -30,6 +30,10 @@ import { beitreten, bindeKennung, istAdresse, kennungVon, raumEintraege } from "
 import { neueUmfrage, neuerTermin, zeigePlanung } from "../raum-planung-ui.js";
 
 // ------------------------------------------------------------- Räume
+
+/** Rolle der Moderatoren offener Räume und ihre Rechte (B-20b: auch Kanäle verwalten, wie privat). */
+const MOD_ROLLE = "mod";
+const MOD_RECHTE = ["lesen", "schreiben", "threads", "moderieren", "rollen_vergeben", "repos_pflegen", "kanaele_verwalten"] as const;
 
 interface SpaceUiState {
   spaceId: string | null;
@@ -159,11 +163,12 @@ async function oeffneRaum(spaceId: string): Promise<void> {
     $("#space-name").textContent = t("komm.raumNichtGefunden");
     return;
   }
-  const { KIND_SPACE, KIND_SPACE_ROLES, KIND_ROLE_GRANT, KIND_CHANNEL_MESSAGE, KIND_MODERATION_HIDE, KIND_MODERATION_BAN } = await import("@freedomstack/protocol");
+  const { KIND_SPACE, KIND_SPACE_ROLES, KIND_ROLE_GRANT, KIND_RAUM_KANAL, KIND_CHANNEL_MESSAGE, KIND_MODERATION_HIDE, KIND_MODERATION_BAN } = await import("@freedomstack/protocol");
   try {
     const pool = await ensurePool();
     const [struktur, nachrichten, massnahmen] = await Promise.all([
-      pool.query({ kinds: [KIND_SPACE, KIND_SPACE_ROLES, KIND_ROLE_GRANT], "#space": [kennung], limit: 500 }),
+      // Kanäle (B-20b) auch von Berechtigten – raumZustandFuer() nimmt sie nur an die Adresse des Raums
+      pool.query({ kinds: [KIND_SPACE, KIND_SPACE_ROLES, KIND_ROLE_GRANT, KIND_RAUM_KANAL], "#space": [kennung], limit: 500 }),
       pool.query({ kinds: [KIND_CHANNEL_MESSAGE], "#space": [kennung], limit: 1000 }),
       // Ausblenden und Sperren (B-19) – gelten nur von Moderatoren des Raums, siehe raumModeration()
       pool.query({ kinds: [KIND_MODERATION_HIDE, KIND_MODERATION_BAN], "#h": [kennung], limit: 500 }),
@@ -203,7 +208,8 @@ async function oeffneRaum(spaceId: string): Promise<void> {
  * Art des Raums sichtbar machen (2.3b): Offene Räume liest jeder mit – der
  * Hinweis steht über dem Raum. Einladen nur privat und als Moderator.
  * Seit C.2d2 auch die übrigen Menüpunkte nach Rechten: Moderatoren ernennen
- * und Kanäle anlegen privat die Moderatoren, offen nur der Gründer.
+ * privat die Moderatoren, offen nur der Gründer; Kanäle anlegen privat die
+ * Moderatoren, offen seit B-20b alle mit „kanaele_verwalten“ (der Gründer hat es immer).
  */
 function zeigeRaumArt(spaceId: string): void {
   const privat = istPrivat(spaceId);
@@ -211,12 +217,14 @@ function zeigeRaumArt(spaceId: string): void {
   const moderator = !!spacesUi.privat && spacesUi.privat.admins.includes(spacesUi.privat.ich);
   const gruender = !privat && !!state.keypair && (spacesUi.state as { ownerPubkey?: string } | null)?.ownerPubkey === state.keypair.pk;
   const verwalten = privat ? moderator : gruender;
+  const kanaele = privat ? moderator : darfKanaele();
   document.getElementById("space-invite")?.classList.toggle("hidden", !privat || !moderator);
   document.getElementById("space-mods")?.classList.toggle("hidden", !verwalten);
-  document.getElementById("space-kanal-neu")?.classList.toggle("hidden", !verwalten);
+  document.getElementById("space-kanal-neu")?.classList.toggle("hidden", !kanaele);
+  document.getElementById("space-kanal-aendern")?.classList.toggle("hidden", !kanaele);
   const repos = darfRepos();
   document.getElementById("space-repo-neu")?.classList.toggle("hidden", !repos);
-  document.querySelector("#space-menue .menue-trenner")?.classList.toggle("hidden", !verwalten && !repos);
+  document.querySelector("#space-menue .menue-trenner")?.classList.toggle("hidden", !verwalten && !kanaele && !repos);
   // Nie die Repos des vorigen Raums zeigen, solange der neue lädt
   zeigeRaumRepos();
 }
@@ -232,6 +240,12 @@ function raumZiel(): RaumZiel | null {
   } catch {
     return null; // Kennung, die keine Adresse ergibt – dann keine Repos
   }
+}
+
+/** Darf ich in diesem offenen Raum Kanäle anlegen (Recht „kanaele_verwalten“, B-20b)? */
+function darfKanaele(): boolean {
+  const st = spacesUi.state as SpaceState | null;
+  return !!st?.space && !!state.keypair && raumZiel() !== null && darf(state.keypair.pk, "kanaele_verwalten", st);
 }
 
 /** Darf ich hier Repos anlegen und pflegen (Recht „repos_pflegen“, 11.4a/b)? */
@@ -274,9 +288,13 @@ export async function geheZuRaum(k: RepoKarte): Promise<void> {
   document.querySelector<HTMLElement>(`#raum-repos [data-schluessel="${CSS.escape(k.schluessel)}"]`)?.focus();
 }
 
-/** Kanal anlegen (C.2d2): Name und wer schreiben darf; offen als neue Definition des Gründers, privat in die Gruppe. */
+/**
+ * Kanal anlegen (C.2d2): Name und wer schreiben darf; privat als Definition in
+ * die Gruppe, offen seit B-20b als Kanal-Event an die Adresse des Raums – von
+ * jedem mit „kanaele_verwalten“, nicht mehr nur als Definition des Gründers.
+ */
 async function legeKanalAn(): Promise<void> {
-  const st = spacesUi.state as { space?: Space } | null;
+  const st = spacesUi.state as SpaceState | null;
   const raum = spacesUi.privat;
   if (!st?.space || !state.keypair || !spacesUi.spaceId) return;
   const w = await dialog({
@@ -292,17 +310,15 @@ async function legeKanalAn(): Promise<void> {
   const kanal: Channel = {
     id: kanalKennung(name, space.channels.map((c) => c.id)), name,
     privacy: raum ? "verschluesselt" : "offen",
-    writeRoles: (w.schreiben as string[]).includes("mod") ? ["mod"] : [], position: space.channels.length,
+    writeRoles: (w.schreiben as string[]).includes("mod") ? ["mod"] : [], position: Math.max(-1, ...space.channels.map((c) => c.position)) + 1,
   };
   let ok = false;
+  const ziel = raumZiel();
   if (raum) ok = await legePrivatenKanalAn(raum, kanal).catch(() => false);
-  else if (space.ownerPubkey === state.keypair.pk) {
+  else if (ziel && "adresse" in ziel && darf(state.keypair.pk, "kanaele_verwalten", st)) {
     try {
-      const { buildSpace } = await import("@freedomstack/protocol");
-      await (await ensurePool()).publish(await signiere(buildSpace({
-        spaceId: space.spaceId, name: space.name, description: space.description, ownerPubkey: space.ownerPubkey,
-        channels: [...space.channels, kanal],
-      })));
+      const { baueRaumKanal } = await import("@freedomstack/protocol");
+      await (await ensurePool()).publish(await signiere(baueRaumKanal(state.keypair.pk, ziel.adresse, kanal)));
       ok = true;
     } catch (e) {
       toast(fehlerText(e), true);
@@ -313,6 +329,72 @@ async function legeKanalAn(): Promise<void> {
   if (!ok) return;
   await oeffneRaum(spacesUi.spaceId);
   await oeffneKanal(kanal.id);
+}
+
+/**
+ * Den offenen Kanal ändern oder entfernen (B-20c): Name und wer schreiben darf,
+ * Entfernen nach Rückfrage. Privat eine neue Definition in die Gruppe, offen
+ * ein Kanal-Event (`baueRaumKanal()`/`baueKanalEntfernung()`) – vorher
+ * `darfKanalAendern()`, damit nichts hinausgeht, das niemand zählt.
+ */
+async function aendereKanal(): Promise<void> {
+  const st = spacesUi.state as SpaceState | null;
+  const raum = spacesUi.privat;
+  if (!st?.space || !state.keypair || !spacesUi.spaceId) return;
+  const kanal = st.space.channels.find((c) => c.id === spacesUi.channelId);
+  if (!kanal) {
+    toast(t("raum.kanalErstOeffnen"));
+    return;
+  }
+  const ziel = raumZiel();
+  const offen = !raum && ziel && "adresse" in ziel ? ziel.adresse : null;
+  if (!raum && (!offen || !darfKanalAendern(state.keypair.pk, kanal, kanal, st))) {
+    toast(t("raum.kanalUeberDir"), true);
+    return;
+  }
+  const w = await dialog({
+    titel: t("raum.kanalAendernTitel", { name: kanal.name }), ok: t("dlg.speichern"),
+    felder: [
+      { art: "text", name: "name", label: t("raum.kanalName"), wert: kanal.name, pflicht: true },
+      { art: "mehrfach", name: "schreiben", label: t("raum.kanalSchreiben"), werte: kanal.writeRoles.includes("mod") ? ["mod"] : [], optionen: [{ wert: "mod", text: t("raum.nurModsSchreiben") }] },
+      { art: "mehrfach", name: "weg", label: t("raum.kanalEntfernen"), optionen: [{ wert: "ja", text: t("raum.kanalEntfernen") }] },
+    ],
+  });
+  if (!w) return;
+  const name = String(w.name ?? "").trim();
+  const entfernen = (w.weg as string[]).includes("ja");
+  if (!entfernen && !name) return;
+  if (entfernen && st.space.channels.length <= 1) {
+    toast(t("raum.kanalLetzter"), true);
+    return;
+  }
+  if (entfernen && !await bestaetige({ titel: t("raum.kanalEntfernen"), text: t("raum.kanalEntfernenText", { name: kanal.name }), ok: t("raum.kanalEntfernen"), gefahr: true })) return;
+  // Andere Schreibrollen bleiben, nur „nur Moderatoren“ schaltet um
+  const neu: Channel | null = entfernen ? null : {
+    ...kanal, name,
+    writeRoles: [...kanal.writeRoles.filter((r) => r !== "mod"), ...((w.schreiben as string[]).includes("mod") ? ["mod"] : [])],
+  };
+  let ok = false;
+  if (raum) ok = await aenderePrivatenKanal(raum, kanal.id, neu).catch(() => false);
+  else if (offen) {
+    if (!darfKanalAendern(state.keypair.pk, kanal, neu, st)) {
+      toast(t("raum.kanalUeberDir"), true);
+      return;
+    }
+    try {
+      const { baueKanalEntfernung, baueRaumKanal } = await import("@freedomstack/protocol");
+      await (await ensurePool()).publish(await signiere(neu ? baueRaumKanal(state.keypair.pk, offen, neu) : baueKanalEntfernung(state.keypair.pk, offen, kanal.id)));
+      ok = true;
+    } catch (e) {
+      toast(fehlerText(e), true);
+      return;
+    }
+  }
+  toast(ok ? t(neu ? "raum.kanalGeaendert" : "raum.kanalEntfernt", { name: neu?.name ?? kanal.name }) : t("komm.nichtGeaendert"), !ok);
+  if (!ok) return;
+  if (!neu) spacesUi.channelId = null;
+  await oeffneRaum(spacesUi.spaceId);
+  if (neu) await oeffneKanal(kanal.id);
 }
 
 /** Kanäle mit Ungelesenem. */
@@ -839,8 +921,7 @@ async function legeRaumAn(oeffentlich = false): Promise<void> {
     } as never)));
 
     await pool.publish(await signiere(buildRoles(spaceId, state.keypair.pk, [
-      { id: "mod", name: "Moderator", rank: 50, // kein UI-Text
-        permissions: ["lesen", "schreiben", "threads", "moderieren", "rollen_vergeben", "repos_pflegen"] },
+      { id: MOD_ROLLE, name: "Moderator", rank: 50, permissions: [...MOD_RECHTE] }, // kein UI-Text
       { id: "mitglied", name: "Mitglied", rank: 10, // kein UI-Text
         permissions: ["lesen", "schreiben", "threads"] },
     ] as never)));
@@ -988,23 +1069,39 @@ async function ernenneModeratoren(): Promise<void> {
     return;
   }
 
-  const schluessel = (w: Record<string, unknown>) => String(w.mods ?? "").split(/[\s,]+/).map((x) => x.trim().toLowerCase()).filter(Boolean);
+  // Offen seit B-20b über die Rolle „mod“ (34702) – nur sie zählt beim Moderieren (B-19) und für Kanäle;
+  // die Moderatorenliste der Communities (34550), die hier bis dahin hinausging, zählt in Räumen nicht
+  const kennung = offeneKennung();
+  const raumSt = spacesUi.state as SpaceState | null;
+  if (!kennung || !raumSt?.space) return;
+  const bisher = [...raumSt.grants].filter(([, r]) => r.includes(MOD_ROLLE)).map(([pk]) => pk);
+  const { decodeNpub } = await import("../../identity.js");
+  const eintraege = (w: Record<string, unknown>) => String(w.mods ?? "").split(/[\s,]+/).filter(Boolean);
   const w = await dialog({
-    titel: t("komm.moderatoren"),
-    felder: [
-      { art: "textarea", name: "mods", label: t("komm.modPubkeys"), mono: true },
-      { art: "textarea", name: "regeln", label: t("komm.regeln") },
-    ],
-    pruefe: (w) => (schluessel(w).every((x) => /^[0-9a-f]{64}$/.test(x)) ? null : t("komm.keinSchluessel")),
+    titel: t("komm.moderatoren"), text: t("raum.modRechte"),
+    felder: [{ art: "textarea", name: "mods", label: t("komm.modPubkeys"), mono: true, wert: bisher.join("\n") }],
+    pruefe: (w) => (eintraege(w).every((x) => schluesselAusEingabe(x, decodeNpub)) ? null : t("komm.keinSchluessel")),
   });
   if (!w) return;
-  const mods = schluessel(w);
-  const regeln = String(w.regeln ?? "").trim() || null;
+  const ich = state.keypair.pk;
+  const mods = [...new Set(eintraege(w).map((x) => schluesselAusEingabe(x, decodeNpub)))].filter((pk) => pk !== ich);
 
   try {
-    const { buildModeratorList } = await import("@freedomstack/protocol");
-    await (await ensurePool()).publish(await signiere(buildModeratorList(
-      offeneKennung()!, state.keypair.pk, mods, regeln ?? undefined)));
+    const { buildRoles, buildRoleGrant } = await import("@freedomstack/protocol");
+    const pool = await ensurePool();
+    // Ältere Räume: Die Rolle bekommt die Rechte neuer Räume (seit B-20b auch Kanäle verwalten) – erst die Rolle, dann die Zuweisungen
+    const rolle = raumSt.roles.get(MOD_ROLLE);
+    if (!rolle || MOD_RECHTE.some((p) => !rolle.permissions.includes(p))) {
+      const mod = { ...(rolle ?? { id: MOD_ROLLE, name: "Moderator", rank: 50 }), permissions: [...new Set([...(rolle?.permissions ?? []), ...MOD_RECHTE])] }; // kein UI-Text
+      await pool.publish(await signiere(buildRoles(kennung, ich, [mod, ...[...raumSt.roles.values()].filter((r) => r.id !== MOD_ROLLE)])));
+    }
+    // Neu ernannte bekommen die Rolle dazu, Abgesetzte verlieren nur sie
+    for (const pk of mods.filter((pk) => !bisher.includes(pk))) {
+      await pool.publish(await signiere(buildRoleGrant(kennung, ich, pk, [...(raumSt.grants.get(pk) ?? []), MOD_ROLLE])));
+    }
+    for (const pk of bisher.filter((pk) => !mods.includes(pk))) {
+      await pool.publish(await signiere(buildRoleGrant(kennung, ich, pk, (raumSt.grants.get(pk) ?? []).filter((r) => r !== MOD_ROLLE))));
+    }
     toast(t("komm.modsBenannt", { n: mods.length }));
     await oeffneRaum(spacesUi.spaceId);
   } catch (e) {
@@ -1083,6 +1180,7 @@ export async function wireSpacesTab(): Promise<void> {
   const mods = $("#space-mods");
   if (mods) mods.onclick = () => void ernenneModeratoren();
   document.getElementById("space-kanal-neu")?.addEventListener("click", () => void legeKanalAn());
+  document.getElementById("space-kanal-aendern")?.addEventListener("click", () => void aendereKanal());
   // Repos im Raum (11.4c): anlegen aus dem Menü, die Liste folgt jedem Laden der Repos
   document.getElementById("space-repo-neu")?.addEventListener("click", () => {
     const ziel = raumZiel();

@@ -13328,6 +13328,301 @@ Nachfolge-Stand bis zum Neuladen leer – der Start fragt ihn ab, bevor die
 Identität steht, und der Settings-Tab fragt ihn nicht neu ab. Der Smoke-Test
 lädt dafür einmal neu.
 
+## Schritt B-8c – Knoten mit Besitzer koppeln: App
+
+Dritter Teil von B-8 (Protokoll in B-8a, Knoten in B-8b).
+
+**App:**
+- `shell/mein-knoten.ts`: Karte „Mein Knoten“ in Settings → Geräte. Der
+  Kopplungscode aus `npm run koppeln` wird gescannt oder eingefügt – verdeckt,
+  streng geprüft (`leseKopplungscode()`, ein falscher meldet sich im Dialog);
+  ist schon ein anderer Knoten gekoppelt, ersetzt ihn der neue nur nach
+  Rückfrage. Entkoppeln nach Rückfrage vergisst den Code auf diesem Gerät
+  (ungültig für alle Geräte wird er nur mit `npm run koppeln -- --neu`). Der
+  Code liegt nur in `geheim` (`freedom.knoten.kopplung`, in `GEHEIM_FEST`).
+- `shell/tabs/agent.ts`, `buildJobEvent()`: an den gekoppelten Knoten
+  (`kopplungFuer(ziel)`) der Nachweis im Kern vor dem Versiegeln
+  (`mitBesitzerNachweis()`) – ohne Gebot, Anteile, Kanal und Sitzung, gemerkt
+  mit höchstens 0 msat (eine Rechnung würde nicht bezahlt).
+- `protocol/src/state-backup.ts`: `freedom.knoten.kopplung` in `SICHERUNG_NIE`
+  (damit auch nicht im Export).
+- Texte `set.knoten*` in beiden Sprachen; `docs/PROVIDER.md` nennt den Ort in
+  der App; `scripts/wiring-ausnahmen.txt`: die letzten zwei Zeilen zu
+  `kopplung.ts` fallen weg.
+
+**Tests:** app +2 (`mein-knoten.test.ts`: nur auf dem Gerät – Tresor, nicht in
+Sicherung und Export, nur `geheim`, nichts hinaus, nichts ins Log; Karte, Feld
+verdeckt und scanbar, streng geprüft, Ersetzen nach Rückfrage, `kopplungFuer`
+nur für genau diesen Knoten), Leak-Tests +1 (`leak/mein-knoten.test.ts`: nur der
+Umschlag, Nachweis und Geheimnis nie offen, kein Prompt, Identität und
+Sitzungsschlüssel verborgen, p-Tag nur der Knoten, keine Zahlungsdaten; der
+Pfad in `buildJobEvent()` baut genau so). Angepasst, weil sie `buildJobEvent()`
+wörtlich lasen: `ki-zahlung.test.ts`, `zahlkanal.test.ts`,
+`leak/ki-anfrage.test.ts` – Deklaration und Gutschrift weiter vor dem Versiegeln,
+für den eigenen Knoten keine. Smoke „einstellungen“: falscher Code meldet sich,
+ein gültiger wird verdeckt eingegeben und gemerkt, Status „Gekoppelt mit …“,
+entkoppeln – dabei geht nichts hinaus.
+
+**Verdrahtet:** `packages/app/src/shell/app.ts` → `wireMeinKnoten()`;
+`packages/app/src/shell/tabs/agent.ts` → `kopplungFuer()`, `mitBesitzerNachweis()`.
+
+Endstand (B-8c, 01.10., nach dem Einmergen von `main` mit C-1e bis C-6b):
+protocol 1144 (6 übersprungen) · node 275 (7 übersprungen ohne Netz – mit Netz
+276) · app 749 (+2) · mls 13 · Leak-Tests 69 grün (+1) + 1 todo · 0 rot ·
+check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 · Website ok ·
+Smoke-Test bestanden. Knoten-Stand: B-8b (GX10).
+
+## Schritt B-20a – Kanäle offener Räume durch Berechtigte: Protokoll
+
+Sammlung B-20, entschieden am 01.10.2026 (MENSCH): ja, ein eigenes Event für
+Kanäle, das Berechtigte signieren. Bis dahin änderte nur der Gründer die Kanäle
+eines offenen Raums (34700 trägt seine Signatur); „kanaele_verwalten“ wirkte
+nur privat. Aufgeteilt: a Protokoll, b App.
+
+**Protokoll (`spaces.ts`):**
+- Kind 34703 je Kanal: `d` = `kanal:<kennung>:<kanal>`, `space`, `a` = Adresse
+  des Raums, dazu genau eines von `channel` (anlegen/ändern, Felder wie in
+  34700) und `entfernt`. `baueRaumKanal()`, `baueKanalEntfernung()` bauen nur
+  Gültiges (`ProtokollFehler` „raum-kanal“, Text `pf.raumKanal` in der App),
+  `leseRaumKanal()` liest streng; ein Kanal im offenen Raum ist immer „offen“.
+- `mitRaumKanaelen(zustand, events, jetzt)`: Kanal-Events nur an genau die
+  Adresse des Raums; je Kanal gilt die neueste Aussage – die Definition des
+  Gründers sagt etwas über die Kanäle, die sie nennt, zu ihrer Zeit, entfernt
+  aber nicht, was sie nicht nennt. Von anderen nur mit „kanaele_verwalten“
+  nach heutigem Stand (wie B-19 – ein zurückdatiertes Event eines Abgesetzten
+  hilft nicht) und nur, wenn der Kanal vorher wie nachher nur Schreibrollen bis
+  zum eigenen Rang nennt. Höchstens 100 neue Kanäle, nichts mehr als 600 s
+  voraus (`KANAL_GRENZEN`) – sonst gewönne ein vordatiertes Event gegen jede
+  spätere Änderung des Gründers. Verworfenes steht mit Grund in `ignored`.
+- `raum-repo.ts`: `raumZustandFuer(adresse, events, jetzt?)` wendet
+  `mitRaumKanaelen()` an – alle Aufrufer bekommen die Kanäle mit.
+- `docs/PROTOCOL.md` Abschnitt 22.
+
+**Tests (+2, `spaces.test.ts`):** Hin und zurück, Entfernen, Bauen nur von
+Gültigem; zwölf Fälle fremder Daten ergeben `null` (falsches `d`, falsche Kennung,
+fremde Adresse, ohne `a`, beides oder doppelt, „verschluesselt“, ohne Namen,
+negative Position, zu viele Rollen, zu langes Thema, anderes Kind). Auswertung:
+Moderator legt an, benennt um, öffnet einen Kanal seines Rangs; über ihm
+(nur Admins) weder öffnen noch entfernen noch anlegen; Mitglied und Fremder
+ohne Recht; Admin darf; älter als die Definition verliert; zu weit voraus
+zählt nicht; Entfernen und Rückkehr über eine neuere Definition; abgesetzt
+fallen seine Änderungen weg; fremde Adresse zählt nicht; Grenze 100.
+
+**Verdrahtet:** `packages/protocol/src/raum-repo.ts` → `raumZustandFuer()` →
+`mitRaumKanaelen()` → `leseRaumKanal()` (aufgerufen aus
+`packages/app/src/shell/tabs/raeume.ts`, `oeffneRaum()`, und
+`repo-ansicht.ts`). `baueRaumKanal()`/`baueKanalEntfernung()` stehen bis
+B-20b in `scripts/wiring-ausnahmen.txt`.
+
+Endstand (B-20a, 01.10.): protocol 1146 (+2, 6 übersprungen) · node 275 (7
+übersprungen ohne Netz – mit Netz 276) · app 749 · mls 13 · Leak-Tests 69 grün
++ 1 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 ·
+Website ok · Smoke-Test bestanden. Knoten-Stand: unverändert.
+
+## Schritt B-20b – Kanäle offener Räume durch Berechtigte: App
+
+Zweiter Teil von B-20 (Protokoll in B-20a).
+
+**App (`shell/tabs/raeume.ts`):**
+- `oeffneRaum()` lädt mit der Struktur auch die Kanal-Events (Kind 34703);
+  `raumZustandFuer()` nimmt sie nur an die Adresse des Raums.
+- „Kanal anlegen“ im offenen Raum für alle mit „kanaele_verwalten“
+  (`darfKanaele()`, der Gründer hat es immer), gesendet als Kanal-Event
+  (`baueRaumKanal()`) – keine neue Definition mehr. Die Position folgt dem
+  letzten Kanal (mit Kanälen anderer konnte die Zahl der Kanäle eine schon
+  belegte Position sein).
+- Neue offene Räume: die Rolle „mod“ hat `MOD_RECHTE`, also auch
+  „kanaele_verwalten“ – wie privat, wo Moderatoren Kanäle anlegen.
+- **Fund:** „Moderatoren ernennen“ veröffentlichte im offenen Raum die
+  Moderatorenliste der Communities (34550). Die zählt in Räumen seit B-19
+  nicht – Ernannte konnten weder moderieren noch (jetzt) Kanäle verwalten; das
+  Feld „Regeln (erscheinen bei jedem Mitglied)“ wurde nirgends gezeigt. Jetzt
+  vergibt der Gründer die Rolle „mod“ (34702): Ernannte bekommen sie zu ihren
+  Rollen dazu, Abgesetzte verlieren nur sie; fehlen der Rolle in älteren
+  Räumen Rechte aus `MOD_RECHTE`, legt er sie vorher neu fest. Schlüssel als
+  npub oder Hex (`schluesselAusEingabe()`), die bisherigen stehen schon im
+  Feld; der Dialog nennt, was Moderatoren dürfen (`raum.modRechte`). Das Feld
+  „Regeln“ fällt weg (`komm.regeln`).
+
+**Tests:** app +1 (`raum-kanal.test.ts`): Moderatoren ernennen über die Rolle
+– keine Liste 34550, keine Regeln, nur der Gründer, npub/Hex geprüft, erst die
+Rolle, dann die Zuweisungen; so gebaut moderiert der Ernannte und verwaltet
+Kanäle, der Abgesetzte nicht mehr, eine ältere Rolle bekommt „kanaele_verwalten“.
+Angepasst mit derselben Absicht: der Test „offen“ in `raum-kanal.test.ts`
+(jetzt Kanal-Event von einem Moderator, ein Mitglied zählt nicht, die Abfrage
+lädt 34703) und die Menü-Prüfung (Kanäle nach `darfKanaele()`);
+`oeffentliche-raeume.test.ts` findet die Kennung jetzt in Rolle und Zuweisung
+statt in der Liste 34550; `raum-repos.test.ts` (11.4a) findet „repos_pflegen“
+der Moderatoren jetzt in `MOD_RECHTE`. Smoke „eigener Raum“: Der Gründer legt „Technik & Co“
+an – ein Kanal-Event an die Adresse, nur eine Definition (keine zweite mehr);
+die Pause für einen späteren Zeitstempel entfällt.
+
+**Verdrahtet:** `packages/app/src/shell/tabs/raeume.ts` – `oeffneRaum()`
+(Abfrage mit `KIND_RAUM_KANAL`), `legeKanalAn()` → `baueRaumKanal()`,
+`zeigeRaumArt()` → `darfKanaele()`, `ernenneModeratoren()` →
+`buildRoles()`/`buildRoleGrant()`. `baueKanalEntfernung()` bleibt bis B-20c
+(ändern und entfernen) in `scripts/wiring-ausnahmen.txt`; `buildModeratorList()`
+ruft die App nicht mehr auf und steht dort jetzt mit Begründung.
+
+Endstand (B-20b, 01.10.): protocol 1146 (6 übersprungen) · node 275 (7
+übersprungen ohne Netz – mit Netz 276) · app 750 (+1) · mls 13 · Leak-Tests 69
+grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0
+· Website ok · Smoke-Test bestanden. Knoten-Stand: unverändert.
+
+## Schritt B-9a – „Mein Knoten“ in der Modellwahl
+
+Sammlung B-9 (Lokal 13.3), erster Teil; Zielbild aus Anhang B: „Wo rechnet die
+KI? Netz / Mein Knoten / Dieses Gerät“. Aufgeteilt: a Modellwahl, b Speichern
+bei meinem Knoten, c „Alles über meinen Knoten“ samt Weg nur über sein Relay.
+
+**App:**
+- `knoten-wahl.ts` (ohne DOM): Wahlwert `knoten:<modell>`, leer heißt das
+  Modell, das der Knoten wählt (`knotenWahlwert()`, `knotenModellAus()`).
+- `shell/tabs/agent.ts`:
+  - `zeigeKnotenBereich()`: nur gekoppelt (`meineKopplung()`, B-8c) die
+    Gruppe „Mein Knoten“ zwischen Netz und „Dieses Gerät“ – Modelle aus dem
+    Angebot des Knotens (`angebotVon()`), ohne Angebot „Modell des Knotens“;
+    nur DOM mit `textContent`. Gezeichnet nach dem Laden der Netz-Modelle und
+    beim Öffnen der Wahl (auch gleich nach dem Koppeln).
+  - `askAi()` → `frageMeinenKnoten()` nach Funk und Gerät, vor Kontingent und
+    Netz: nur an den gekoppelten Knoten, Gebot 0, Nachweis über
+    `buildJobEvent()` (`kopplungFuer()`), Rechenarbeit aus seinem Angebot; kein
+    Ausweichen – lehnt er ab oder schweigt er (300 s), steht das im Verlauf.
+  - `buildJobEvent(…, modell?)`: das Modell ohne „knoten:“; Knopf, Toast und
+    Schätzung („gratis · mein Knoten“) kennen den neuen Wert.
+- **Fund:** „Stopp“ wirkte nie – `askAi()` prüfte den Prompt vor dem
+  Stopp-Fall, und nach dem Senden ist das Feld leer. Jetzt steht der Stopp-Fall
+  davor (betrifft auch „Dieses Gerät“ und den Vergleich).
+
+**Gesendet** wird wie jede Anfrage über die Relays des Pools – „nur über sein
+Relay“ braucht Änderungen im Knoten (der Provider liest heute nur die Relays
+aus `RELAYS`, die eigene Relay-Rolle liefert Umschläge nur an den angemeldeten
+Empfänger, nicht an Sitzungsschlüssel) und kommt mit B-9c.
+
+**Tests:** app +4 (`mein-knoten-wahl.test.ts`: Wahlwert; Reihenfolge in
+`askAi()` samt Stopp vor der Prompt-Prüfung; `frageMeinenKnoten()` nur an den
+Knoten, ohne Provider-Suche, Failover oder Zahlung, Ablehnung und Schweigen im
+Verlauf; Gruppe nur gekoppelt, vor dem Gerät, nur Text). Angepasst:
+`mein-knoten.test.ts` (der Import in `agent.ts` nennt jetzt mehr Namen) und
+`ki-funk.test.ts` (7.4c3: zwischen Stopp-Fall und Funk steht jetzt die
+Prüfung des Prompts – Funk geht weiter vor allem anderen).
+Smoke „lokal“: koppeln über den Dialog, die Wahl zeigt „Netz · Mein Knoten ·
+Dieses Gerät“, der Knopf „Modell des Knotens · mein Knoten“; die Frage geht als
+genau ein Umschlag an den Knoten – kein Auftrag offen, kein Klartext –, „Stopp“
+bricht ab („[abgebrochen]“).
+
+**Verdrahtet:** `packages/app/src/shell/tabs/agent.ts` – `askAi()` →
+`frageMeinenKnoten()` → `buildJobEvent()`; `refreshModelDropdown()` und
+`setupModelPicker()` → `zeigeKnotenBereich()`.
+
+Endstand (B-9a, 01.10.): protocol 1146 (6 übersprungen) · node 275 (7
+übersprungen ohne Netz – mit Netz 276) · app 754 (+4) · mls 13 · Leak-Tests 69
+grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0
+· Website ok · Smoke-Test bestanden (mit „Mein Knoten“ im Teil „lokal“).
+Knoten-Stand: B-8b (GX10) – der Nachweis braucht ihn.
+
+## Schritt B-20c – Kanäle ändern und entfernen
+
+Dritter Teil von B-20 (Protokoll in B-20a, Anlegen in B-20b). Bisher ließen
+sich Kanäle in keiner Raumart ändern oder entfernen.
+
+**Protokoll (`spaces.ts`):** `darfKanalAendern(pk, vorher, nachher, zustand)` –
+der Gründer immer, sonst nur mit „kanaele_verwalten“ und nur, wenn der Kanal
+vorher wie nachher nur Schreibrollen bis zum eigenen Rang nennt. Dieselbe Regel
+wie in `mitRaumKanaelen()`, das sie jetzt nutzt (die Gründe in `ignored` bleiben).
+
+**App:**
+- Raum-Menü „Diesen Kanal ändern“ (`#space-kanal-aendern`, nach denselben
+  Rechten wie „Kanal anlegen“) → `aendereKanal()` für den offenen Kanal: Name,
+  „nur Moderatoren schreiben“ (andere Schreibrollen bleiben) und „Kanal
+  entfernen“ – Entfernen nach Rückfrage, nie den letzten Kanal.
+- Privat: `aenderePrivatenKanal()` (`raum-mls.ts`) – eine neue Definition in
+  die Gruppe, nur Admins, wie beim Anlegen.
+- Offen: vorher `darfKanalAendern()` für alte und neue Fassung, sonst geht
+  nichts hinaus („In diesen Kanal schreiben nur Höhere“); dann ein Kanal-Event
+  (`baueRaumKanal()` bzw. `baueKanalEntfernung()`) an die Adresse des Raums.
+- Texte `raum.kanalAendern*`, `raum.kanalEntfernen*`, `dlg.speichern`.
+- `scripts/wiring-ausnahmen.txt`: `baueKanalEntfernung` fällt weg (verdrahtet).
+
+**Grenze:** Kanal-Events sind ersetzbar je Autor und Kanal; zwei Fassungen
+derselben Sekunde entscheidet die Id (wie bei Definitionen). Wer schneller als
+einmal je Sekunde ändert, kann die vorige Fassung behalten – der Smoke-Test
+lässt deshalb eine Sekunde dazwischen.
+
+**Tests:** protocol +1 (`spaces.test.ts`: `darfKanalAendern()` – Moderator legt
+an, benennt um, schränkt auf Moderatoren ein und entfernt bis zum eigenen
+Rang; über ihm und mit unbekannter Rolle nie; ohne Recht nie, der Gründer
+immer), app +2 (`raum-kanal.test.ts`: Verdrahtung – nur der offene Kanal,
+offen vorher geprüft, kein `buildSpace`, nie den letzten, Rückfrage, andere
+Schreibrollen bleiben, privat nur Admins; so gebaut zählt es – privat ändert und
+entfernt nur ein Admin, offen benennt der Moderator um und entfernt). Smoke
+„eigener Raum“: „Technik & Co“ umbenannt in „Technik“, dann nach Rückfrage
+entfernt – je ein Kanal-Event (`channel` mit neuem Namen, `entfernt`), keine
+zweite Definition.
+
+**Verdrahtet:** `packages/app/src/shell/tabs/raeume.ts` – `wireSpacesTab()` →
+`aendereKanal()` → `darfKanalAendern()`, `baueRaumKanal()`,
+`baueKanalEntfernung()`, `aenderePrivatenKanal()`.
+
+Endstand (B-20c, 01.10.): protocol 1147 (+1, 6 übersprungen) · node 275 (7
+übersprungen ohne Netz – mit Netz 276) · app 756 (+2) · mls 13 · Leak-Tests 69
+grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0
+· Website ok · Smoke-Test bestanden. Knoten-Stand: unverändert.
+
+## Schritt B-10a – Der Knoten liefert die App aus
+
+Sammlung B-10 (Lokal 13.4), Entscheidung L2 A: „ja, nur reproduzierbarer
+Build mit Prüfsumme“. Erster Teil: der Knoten.
+
+**Warum:** Die App von GitHub Pages läuft über https; von dort lassen Browser
+keine Verbindung zu `ws://…` im Heimnetz zu – auch nicht zum Relay des eigenen
+Knotens (Anhang B der Sammlung). Kommt die App vom Knoten, ist sie dort zu Hause.
+
+**Knoten** (`node/src/app-auslieferung.ts`, `relay-role.ts`, `main.ts`):
+- `APP_SHA256` schaltet ein, `APP_DATEI` nennt die Datei (Standard: der Build
+  im eigenen Checkout, `../app/dist/freedom.html` vom Ordner des Knotens).
+- `ladeApp()` liest die Datei beim Start und gibt sie nur mit genau dieser
+  SHA-256 heraus (sonst ein Grund: keine Summe, nicht lesbar, zu groß, andere
+  Summe). Im Log nur feste Texte (`APP_GRUND_TEXT`), nie Pfad oder Systemmeldung.
+- Die Relay-Rolle bekommt nur das Ergebnis (`app`) und liefert es aus dem
+  Speicher – eine spätere Änderung der Datei geht nie hinaus. Pfade `/` und
+  `/freedom.html` (nicht mit `Accept: application/nostr+json` – das bleibt
+  NIP-11), daneben `/freedom.html.sha256`; `GET` und `HEAD`, ETag = Summe
+  (304 bei gleicher), `nosniff`, `no-referrer`, kein fremder Rahmen
+  (`X-Frame-Options`, `frame-ancestors 'none'` – die übrige CSP steht in der
+  Datei). Ohne `RELAY_ENABLED=1` nur ein Hinweis im Log.
+- Gleicher Ursprung wie der Relay: im Heimnetz `http://<rechner>:7777/`, über
+  den Onion-Dienst aus `docs/PROVIDER.md` (Port 80 → 7777) `http://<adresse>.onion/`.
+- Installer: mit `APP_SHA256` (geprüft: 64 Hex-Zeichen, erst dann in die
+  Umgebungsdatei) baut er die App im Checkout und sagt, ob die Summe passt.
+- `docs/PROVIDER.md`: neuer Abschnitt „Die App vom eigenen Knoten (B-10)“.
+
+**Fund (für B-10b):** Über http im Heimnetz ist die Seite kein sicherer
+Kontext (geprüft im Browser: `isSecureContext` false, `crypto.subtle`
+undefined). Damit fehlen Tresor, MLS-Zustand, die lokale Suche und das Lesen
+von Git-Bundles; die Kamera ebenso. Die App startet und schreibt, sagt es aber
+noch nicht – das Einrichten des Tresors scheitert mit einer unklaren Meldung.
+B-10b macht das ehrlich. Sicher sind `.onion` im Tor Browser und `localhost`.
+Außerdem kann im selben Netz jemand die Datei unterwegs verändern – die Grenze
+steht in `docs/PROVIDER.md`.
+
+**Tests:** node +5 (`app-auslieferung.test.ts`: `ladeApp()` nur mit der Summe,
+feste Gründe; Umgebung, leere Werte, Pfade; der Relay liefert genau die
+geprüfte Datei – auch nachdem sie auf der Platte geändert wurde –, Summe,
+HEAD, 304, NIP-11 und WebSocket auf demselben Port; ohne App keine Seite;
+Verdrahtung in `main.ts` und Installer).
+
+**Verdrahtet:** `packages/node/src/main.ts` – `appAusUmgebung()` → `ladeApp()`
+→ `new RelayRole({ …, app })`; `relay-role.ts` – `beantworte()` →
+`istAppPfad()` → `liefereApp()` → `appKopfzeilen()`.
+
+Endstand (B-10a, 01.10.): protocol 1147 (6 übersprungen) · node 280 (+5, 7
+übersprungen ohne Netz – mit Netz 281) · app 756 · mls 13 · Leak-Tests 69 grün
++ 1 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 ·
+Website ok · Smoke-Test bestanden · im Browser: die echte `freedom.html` vom
+Relay unter `http://knoten.test:<port>/` startet. Knoten-Stand: nur für die
+App vom Knoten nötig (`APP_SHA256`), KI-Anfragen unberührt.
+
 ## Schritt C-6c – innerHTML abbauen: Chat und Kanalliste
 
 **Warum:** Dritter Teil von C-6 (Sammlung). Im Chat steht fast nur

@@ -76,8 +76,6 @@ git.ts|restoreGitBundle|Git über Blobs, noch ohne vollständige Oberfläche (Re
 http-auth.ts|btoaBase64|NIP-98-Anmeldung auf Client-Seite, noch ohne Speicher-Client (Speicher, 8.9)
 http-auth.ts|buildHttpAuth|NIP-98-Anmeldung auf Client-Seite, noch ohne Speicher-Client (Speicher, 8.9)
 
-kopplung.ts|leseKopplungscode|Kopplung von Knoten und Besitzer, in der App noch nicht gekoppelt (B-8c)
-kopplung.ts|mitBesitzerNachweis|Kopplung von Knoten und Besitzer, in der App noch nicht gekoppelt (B-8c)
 
 leak-rules.ts|regelAutorNicht|Prüfregeln der Leak-Tests, gehören in die Tests (1.5)
 leak-rules.ts|regelKeinBolt11|Prüfregeln der Leak-Tests, gehören in die Tests (1.5)
@@ -126,6 +124,7 @@ mocks.ts|MockLightning|Test-Attrappe für Lightning
 model-registry.ts|fitsOnDevice|gehört zum Laden von Gewichten beim Provider – das gibt es noch nicht (nach 8.8 offen; 8.8 brachte Kataloge und Preise)
 model-registry.ts|verifyFile|gehört zum Laden von Gewichten beim Provider – das gibt es noch nicht (nach 8.8 offen; 8.8 brachte Kataloge und Preise)
 
+moderation.ts|buildModeratorList|Moderatorenliste der Communities (34550) – in Räumen zählt sie seit B-19 nicht, Moderatoren offener Räume ernennt die App seit B-20b über die Rolle „mod“ (34702)
 moderation.ts|canModerate|Moderationsrechte und Hinweistext ohne Oberfläche (Räume und Moderation, 8.5)
 moderation.ts|moderationInfo|Moderationsrechte und Hinweistext ohne Oberfläche (Räume und Moderation, 8.5)
 

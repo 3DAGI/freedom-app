@@ -15,6 +15,8 @@
 #   PROVIDER_MODELS=a,b            Ollama-Modelle
 #   STORAGE_ENABLED=1              Blob-Seeding (default an)
 #   RELAY_ENABLED=1                eigener Relay (default an)
+#   APP_SHA256=<sha256>            die App vom eigenen Knoten (B-10): gebaut wird sie hier,
+#                                  ausgeliefert nur mit dieser Pruefsumme (von der Website)
 #   SKIP_MODEL_PULL=1              Modell nicht automatisch laden
 #   FREEDOM_REPO=<git-url>         abweichende Quelle
 # ============================================================
@@ -128,6 +130,19 @@ npm install --workspaces --include-workspace-root --no-audit --no-fund >/dev/nul
   || npm install --no-audit --no-fund >/dev/null 2>&1 \
   || die "npm install fehlgeschlagen — Details: cd $FREEDOM_DIR && npm install"
 ok "Abhaengigkeiten installiert"
+
+# Die App vom eigenen Knoten (B-10): nur mit der Pruefsumme von der Website –
+# eine andere baut der Knoten zwar, liefert sie aber nicht aus.
+if [ -n "${APP_SHA256:-}" ]; then
+  [[ "$APP_SHA256" =~ ^[0-9a-f]{64}$ ]] || die "APP_SHA256 ist keine SHA-256 (64 Hex-Zeichen, klein)."
+  if (cd packages/app && node build.mjs >/dev/null 2>&1); then
+    APP_IST="$(sha256sum packages/app/dist/freedom.html | cut -d' ' -f1)"
+    if [ "$APP_IST" = "$APP_SHA256" ]; then ok "App gebaut, Pruefsumme passt"
+    else warn "App gebaut, aber mit anderer Pruefsumme ($APP_IST) – der Knoten liefert sie nicht aus (Node-Version nach .nvmrc?)"; fi
+  else
+    warn "App-Build gescheitert – der Knoten liefert keine App aus"
+  fi
+fi
 
 # ------------------------------------------------ 5. Identitaet
 step "5/8  Provider-Identitaet"
@@ -252,6 +267,8 @@ RELAY_PORT=${RELAY_PORT:-7777}
 # ist fuer das Netz aber unsichtbar — und traegt nichts zur Zensurresistenz
 # bei. Erst die Ankuendigung macht das Netz selbsttragend.
 RELAY_PUBLIC_URL=${RELAY_PUBLIC_URL:-}
+# Die App auf dem Port des Relays (B-10) – nur mit dieser Pruefsumme; leer: aus.
+APP_SHA256=${APP_SHA256:-}
 FREE_TOKENS_PER_DAY=${FREE_TOKENS_PER_DAY:-2000}
 QUOTA_API_PORT=$QUOTA_API_PORT
 ENV_EOF
