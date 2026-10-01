@@ -117,6 +117,10 @@ export const einstieg: Texte = {
   "ein.passMin": { de: "Mindestens {n} Zeichen – besser ein kurzer Satz.", en: "At least {n} characters – better a short sentence." },
   "ein.passUngleich": { de: "Die beiden Eingaben stimmen nicht überein.", en: "The two entries don't match." },
   "ein.tresorSchon": { de: "Der Tresor ist schon eingerichtet", en: "The vault is already set up" },
+  "ein.tresorUnsicher": {
+    de: "Diese Seite kam ohne sichere Verbindung (http im Heimnetz). Der Browser gibt dann keine Verschlüsselung frei: Ein Tresor geht hier nicht – und damit nichts, was ihn braucht (Wallet, MLS). Sicher ist die App über https, als .onion im Tor Browser oder unter localhost auf dem Rechner des Knotens.",
+    en: "This page came without a secure connection (http in the home network). The browser then grants no encryption: a vault is not possible here – nor anything that needs one (wallet, MLS). The app is secure over https, as .onion in Tor Browser or at localhost on the node's computer.",
+  },
   "ein.tresorErklaerung": { de: "Eine Passphrase verschlüsselt deinen Schlüssel, Wallet-Zugänge, Swap-Geheimnisse und Unterhaltungen auf diesem Gerät. Beim Start fragt die App danach. Vergisst du sie, hilft nur deine Merkphrase (12 Wörter) – sichere sie vorher.", en: "A passphrase encrypts your key, wallet access, swap secrets and conversations on this device. The app asks for it at start. If you forget it, only your recovery phrase (12 words) helps – back it up first." },
   "ein.passNeu": { de: "Passphrase (mind. 8 Zeichen)", en: "Passphrase (at least 8 characters)" },
   "ein.nochEinmal": { de: "noch einmal", en: "once more" },

@@ -32,7 +32,7 @@ export const BUNDLE_GRENZEN = {
 /** Grenzen als Zahlen – Tests setzen kleinere ein. */
 export type BundleGrenzen = { [K in keyof typeof BUNDLE_GRENZEN]: number };
 
-export type BundleFehlerArt = "format" | "gross" | "objekte" | "entpacken" | "delta" | "tiefe" | "pruefsumme" | "kaputt";
+export type BundleFehlerArt = "format" | "gross" | "objekte" | "entpacken" | "delta" | "tiefe" | "pruefsumme" | "kaputt" | "unsicher";
 
 /** Fehler beim Lesen – `art` ist die Kennung für den Text in der Oberfläche. */
 export class BundleFehler extends Error {
@@ -59,6 +59,8 @@ const OFS_DELTA = 6, REF_DELTA = 7;
 const hex = (b: Uint8Array): string => Array.from(b, (x) => x.toString(16).padStart(2, "0")).join("");
 
 async function sha1(daten: Uint8Array): Promise<Uint8Array> {
+  // ohne sicheren Kontext (http im Heimnetz, B-10b) gibt es kein crypto.subtle
+  if (typeof globalThis.crypto?.subtle?.digest !== "function") throw new BundleFehler("unsicher");
   return new Uint8Array(await crypto.subtle.digest("SHA-1", daten as BufferSource));
 }
 
