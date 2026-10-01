@@ -14,6 +14,7 @@ import { ausMsat } from "../../preis-anzeige.js";
 import { escapeHtml, pkShort } from "../../shell-logic.js";
 import { aktualisiereKurs, aktuellerKurs } from "../marktkurs.js";
 import { alleAngebote, alsGeraet, ensurePool, signiere, state } from "../state.js";
+import { dialog } from "../dialog.js";
 import { $, toast } from "../ui.js";
 
 /**
@@ -67,20 +68,25 @@ export async function zeigeModelle(): Promise<void> {
  */
 export async function kuendigeModellAn(): Promise<void> {
   if (!state.keypair) return;
-  const id = prompt(t("agent.modellKennungFrage"));
-  if (!id?.trim()) return;
-  const dateien = prompt(t("agent.dateienFrage"));
-  if (!dateien?.trim()) return;
-
-  const files = dateien.split("\n").map((z) => {
+  const dateiZeilen = (text: string) => text.split("\n").map((z) => {
     const [name, sha256, size] = z.trim().split(/\s+/);
     return { name, sha256: (sha256 ?? "").toLowerCase(), sizeBytes: Number(size) };
   }).filter((f) => f.name && /^[0-9a-f]{64}$/.test(f.sha256) && f.sizeBytes > 0);
-
-  if (files.length === 0) {
-    toast(t("agent.keineZeileBrauchbar"), true);
-    return;
-  }
+  // Dialog statt prompt() (C-1b): eine Zeile ohne Prüfsumme meldet sich im Dialog, die Eingabe bleibt
+  const w = await dialog({
+    titel: t("agent.modellAnkuendigen"),
+    text: t("agent.dateienHinweis"),
+    felder: [
+      { art: "text", name: "id", label: t("agent.modellKennungFrage"), pflicht: true, mono: true },
+      { art: "textarea", name: "dateien", label: t("agent.dateienFrage"), pflicht: true, mono: true },
+    ],
+    pruefe: (w) => (dateiZeilen(String(w.dateien)).length ? null : t("agent.keineZeileBrauchbar")),
+    ok: t("agent.ankuendigen"),
+  });
+  if (!w) return;
+  const id = String(w.id);
+  const files = dateiZeilen(String(w.dateien));
+  if (!id.trim() || files.length === 0) return;
 
   try {
     const { buildModelManifest } = await import("@freedomstack/protocol");
@@ -97,9 +103,17 @@ export async function kuendigeModellAn(): Promise<void> {
 /** Melden, dass man ein Modell vorhaelt. */
 export async function haltevorModell(): Promise<void> {
   if (!state.keypair) return;
-  const id = prompt(t("agent.welchesModell"));
-  if (!id?.trim()) return;
-  const dateien = prompt(t("agent.welcheDateien")) ?? "";
+  const w = await dialog({
+    titel: t("agent.modellVorhalten"),
+    felder: [
+      { art: "text", name: "id", label: t("agent.welchesModell"), pflicht: true, mono: true },
+      { art: "text", name: "dateien", label: t("agent.welcheDateien"), mono: true },
+    ],
+    ok: t("agent.vorhaltenMelden"),
+  });
+  const id = String(w?.id ?? "");
+  if (!id.trim()) return;
+  const dateien = String(w?.dateien ?? "");
 
   try {
     const { buildModelSeed, buildRegistry, KIND_MODEL_MANIFEST } =
@@ -249,10 +263,19 @@ export async function veroeffentlicheKatalog(): Promise<void> {
     toast(t("agent.nurHauptKatalog"), true);
     return;
   }
-  const titel = prompt(t("agent.katalogTitelFrage"));
-  if (!titel?.trim()) return;
-  const eingabe = prompt(t("agent.katalogModelleFrage"));
-  if (!eingabe?.trim()) return;
+  const w = await dialog({
+    titel: t("agent.katalogVeroeffentlichenTitel"),
+    text: t("agent.katalogBeispiel"),
+    felder: [
+      { art: "text", name: "titel", label: t("agent.katalogTitelFrage"), pflicht: true },
+      { art: "textarea", name: "modelle", label: t("agent.katalogModelleFrage"), pflicht: true, mono: true },
+    ],
+    pruefe: (w) => (leseKatalogEingabe(String(w.modelle)).length ? null : t("dlg.pflicht")),
+    ok: t("agent.veroeffentlichen"),
+  });
+  const titel = String(w?.titel ?? "");
+  const eingabe = String(w?.modelle ?? "");
+  if (!titel.trim() || !eingabe.trim()) return;
   try {
     const { baueModellKatalog } = await import("@freedomstack/protocol");
     const modelle = leseKatalogEingabe(eingabe);

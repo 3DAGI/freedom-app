@@ -26,6 +26,7 @@ import { mlsAbgleichen, mlsBeiNeuem, mlsEinladungAnnehmen, mlsErreichbar, mlsGes
 import { alsRaumMeldung, merkePrivatenRaum } from "../raum-mls.js";
 import { alsRufZusammenfassung } from "../ruf.js";
 import { geheim } from "../tresor.js";
+import { dialog, hinweis } from "../dialog.js";
 import { $, toast } from "../ui.js";
 import { pruefStand } from "../kontakt-pruefen-ui.js";
 import { t } from "../../i18n.js";
@@ -420,15 +421,7 @@ export function loadChatList(): void {
       const cid = (el as HTMLElement).dataset.cid!;
       const c = conversations.find((x) => x.id === cid);
       if (!c || c.type !== "dm") return;
-      const name = prompt(t("komm.eigenerName", { pk: pkShort(cid) }), c.name);
-      if (name === null) return;
-      const teilen = name.trim()
-        ? confirm(t("komm.nameVeroeffentlichen", { name: name.trim() }))
-        : false;
-      setzePetname(cid, name, teilen);
-      c.name = name.trim() || pkShort(cid);
-      saveConversations();
-      loadChatList();
+      void benenneKontakt(c);
     });
   });
 
@@ -459,6 +452,31 @@ function openConversation(cid: string): void {
 }
 
 /** Wie diese 1:1-Unterhaltung verschluesselt ist (2.2b-d2) – feste Texte. */
+/**
+ * Eigener Name für einen Kontakt – ein Dialog statt prompt() und confirm()
+ * (C-1b). Veröffentlicht wird nur mit Häkchen; ohne gilt er nur hier.
+ */
+async function benenneKontakt(c: ChatConversation): Promise<void> {
+  const w = await dialog({
+    titel: t("komm.nameTitel"),
+    felder: [
+      // Vorbelegt nur ein echter Name, nicht der gekürzte Schlüssel aus newDm()
+      { art: "text", name: "name", label: t("komm.eigenerName", { pk: pkShort(c.id) }), wert: [c.id.slice(0, 12) + "…", pkShort(c.id)].includes(c.name) ? "" : c.name },
+      { art: "mehrfach", name: "teilen", label: t("komm.nameSichtbar"), optionen: [
+        { wert: "ja", text: t("komm.nameVeroeffentlichen"), hinweis: t("komm.nameVeroeffentlichenHinweis") },
+      ] },
+    ],
+    ok: t("komm.nameSpeichern"),
+  });
+  if (!w) return;
+  const name = String(w.name);
+  const teilen = !!name.trim() && Array.isArray(w.teilen) && w.teilen.includes("ja");
+  setzePetname(c.id, name, teilen);
+  c.name = name.trim() || pkShort(c.id);
+  saveConversations();
+  loadChatList();
+}
+
 function dmHinweis(c: ChatConversation): string {
   const nip17 = t("komm.nip17");
   if (c.ablaufSecs) return `${nip17} ${t("komm.mitAblauf")}`;
@@ -956,7 +974,7 @@ export async function loadChatMessages(cid: string): Promise<void> {
       b.addEventListener("click", () => {
         const id = (b as HTMLElement).dataset.id!;
         const ev = decrypted.find((x) => x.id === id);
-        if (ev) alert(ev.content);
+        if (ev) void hinweis(t("komm.ausgeblendetTitel"), ev.content);
       });
     });
   } catch { /* offline */ }
@@ -1051,23 +1069,29 @@ async function sendeUeberMls(c: ChatConversation, inhalt: string): Promise<boole
 }
 
 export async function newDm(): Promise<void> {
-  const eingabe = prompt(t("komm.kontaktSchluessel"));
-  if (!eingabe) return;
-  let id = eingabe.trim();
-  if (id.startsWith("npub1")) {
-    try {
-      const { decodeNpub } = await import("../../identity.js");
-      id = decodeNpub(id);
-    } catch {
-      toast(t("komm.keinNpub"), true);
-      return;
+  const { decodeNpub } = await import("../../identity.js");
+  // npub (auch mit „nostr:“ davor, wie ihn QR-Codes anderer Apps tragen) oder 64 Zeichen Hex, sonst null
+  const schluessel = (roh: unknown): string | null => {
+    let id = String(roh ?? "").trim().replace(/^nostr:/i, "");
+    if (id.startsWith("npub1")) {
+      try {
+        id = decodeNpub(id);
+      } catch {
+        return null;
+      }
     }
-  }
-  id = id.toLowerCase();
-  if (!/^[0-9a-f]{64}$/.test(id)) {
-    toast(t("komm.npubOderHex"), true);
-    return;
-  }
+    id = id.toLowerCase();
+    return /^[0-9a-f]{64}$/.test(id) ? id : null;
+  };
+  // Dialog statt prompt() (C-1b): ein Tippfehler meldet sich im Dialog, Scannen auf Klick
+  const w = await dialog({
+    titel: t("komm.neueNachricht"),
+    felder: [{ art: "text", name: "schluessel", label: t("komm.kontaktSchluessel"), pflicht: true, mono: true, scannen: true }],
+    pruefe: (w) => (schluessel(w.schluessel) ? null : t(/^(nostr:)?npub1/i.test(String(w.schluessel).trim()) ? "komm.keinNpub" : "komm.npubOderHex")),
+    ok: t("komm.unterhaltungBeginnen"),
+  });
+  const id = w ? schluessel(w.schluessel) : null;
+  if (!id) return;
   if (!conversations.find((c) => c.id === id)) {
     conversations.push({ id, type: "dm", name: id.slice(0, 12) + "…", lastTs: 0 });
     saveConversations();

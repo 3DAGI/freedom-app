@@ -21,7 +21,7 @@ function dateien(dir: string): string[] {
     e.isDirectory() ? dateien(join(dir, e.name)) : e.name.endsWith(".ts") ? [join(dir, e.name)] : []);
 }
 
-/** Wo es noch Browser-Dialoge gibt (Datei → Zahl) – C-1b und C-1c leeren den Rest. */
+/** Wo es noch Browser-Dialoge gibt (Datei → Zahl) – C-1c und C-1d leeren den Rest, `newCommunity()` fällt mit C-10. */
 const NOCH_OFFEN: Record<string, number> = {
   "chat-zap.ts": 2,
   "shell/app.ts": 1,
@@ -31,9 +31,8 @@ const NOCH_OFFEN: Record<string, number> = {
   "shell/notfall.ts": 1,
   "shell/offline-zahlung.ts": 4,
   "shell/pruefauftraege-ui.ts": 1,
-  "shell/tabs/agent-netz.ts": 6,
   "shell/tabs/agent.ts": 5,
-  "shell/tabs/kommunikation.ts": 5,
+  "shell/tabs/kommunikation.ts": 1,
   "shell/tabs/profil.ts": 3,
   "shell/tabs/settings.ts": 12,
   "shell/zahlkanal-ui.ts": 1,
@@ -86,4 +85,45 @@ test("C-1a: Währung-Tab fragt nur über Dialoge – Beträge, Adresse und Rechn
   // Relayer und Deposit: abgelehnt heißt nichts geschieht
   assert.match(w, /if \(!\(await bestaetige\(\{ titel: t\("waehr\.relayerTitel"\), text: t\("waehr\.relayerFrage", \{ betrag: solText\(teuerster\) \}\), ok: t\("waehr\.einloesen"\) \}\)\)\) return undefined;/);
   assert.match(w, /if \(kursWarnung && !\(await bestaetige\(\{ titel: t\("waehr\.solHinterlegen"\), text: t\("waehr\.trotzdemHinterlegen", \{ warnung: kursWarnung \}\), ok: t\("waehr\.hinterlegenTrotzdem"\) \}\)\)\) return;/);
+});
+
+test("C-1b: Modelle und Kataloge – Dialoge statt prompt(), unbrauchbare Eingaben melden sich im Dialog", () => {
+  const n = readFileSync(join(SRC, "shell/tabs/agent-netz.ts"), "utf8");
+  assert.doesNotMatch(ohneKommentare(n), BROWSER_DIALOG);
+  assert.match(n, /import \{ dialog \} from "\.\.\/dialog\.js";/);
+  const an = n.slice(n.indexOf("export async function kuendigeModellAn("), n.indexOf("export async function haltevorModell("));
+  // Ohne eine Zeile mit Prüfsumme geht der Dialog nicht zu – vorher kam erst danach ein Toast
+  assert.match(an, /pruefe: \(w\) => \(dateiZeilen\(String\(w\.dateien\)\)\.length \? null : t\("agent\.keineZeileBrauchbar"\)\),/);
+  assert.match(an, /\/\^\[0-9a-f\]\{64\}\$\/\.test\(f\.sha256\) && f\.sizeBytes > 0/, "nur Zeilen mit Prüfsumme und Größe");
+  assert.match(an, /if \(!w\) return;/);
+  assert.ok(an.indexOf("await dialog(") < an.indexOf("await signiere(buildModelManifest("), "erst fragen, dann signieren");
+  const vor = n.slice(n.indexOf("export async function haltevorModell("), n.indexOf("export async function haltevorModell(") + 900);
+  assert.match(vor, /const id = String\(w\?\.id \?\? ""\);\s*if \(!id\.trim\(\)\) return;/, "abgebrochen → nichts gemeldet");
+  const kat = n.slice(n.indexOf("export async function veroeffentlicheKatalog("));
+  assert.ok(kat.indexOf("if (alsGeraet())") < kat.indexOf("await dialog("), "als Gerät gar nicht erst fragen");
+  assert.match(kat, /pruefe: \(w\) => \(leseKatalogEingabe\(String\(w\.modelle\)\)\.length \? null : t\("dlg\.pflicht"\)\),/);
+  assert.match(kat, /if \(!titel\.trim\(\) \|\| !eingabe\.trim\(\)\) return;/);
+});
+
+test("C-1b: Kommunikation – Name, neue Unterhaltung und Ausgeblendetes über Dialoge; veröffentlicht nur mit Häkchen", () => {
+  const k = readFileSync(join(SRC, "shell/tabs/kommunikation.ts"), "utf8");
+  const ohne = ohneKommentare(k);
+  // Übrig ist nur newCommunity() – mit C-10 fällt das Anlegen von Communities ganz weg
+  assert.deepEqual(ohne.match(BROWSER_DIALOG), ["prompt("]);
+  assert.match(ohne.slice(ohne.indexOf("export function newCommunity(")), /prompt\(t\("komm\.communityName"\)\)/);
+  assert.match(k, /import \{ dialog, hinweis \} from "\.\.\/dialog\.js";/);
+  // Eigener Name: der Name als Feld, Veröffentlichen als Häkchen (vorher war „OK“ im confirm() das Veröffentlichen)
+  const name = k.slice(k.indexOf("async function benenneKontakt("), k.indexOf("function dmHinweis("));
+  assert.match(name, /\{ art: "mehrfach", name: "teilen", label: t\("komm\.nameSichtbar"\), optionen: \[/);
+  assert.match(name, /const teilen = !!name\.trim\(\) && Array\.isArray\(w\.teilen\) && w\.teilen\.includes\("ja"\);/);
+  assert.match(name, /if \(!w\) return;\s*const name/, "abgebrochen → nichts geändert");
+  assert.match(name, /wert: \[c\.id\.slice\(0, 12\) \+ "…", pkShort\(c\.id\)\]\.includes\(c\.name\) \? "" : c\.name/, "nicht mit dem gekürzten Schlüssel vorbelegt");
+  assert.match(k, /if \(!c \|\| c\.type !== "dm"\) return;\s*void benenneKontakt\(c\);/);
+  // Ausgeblendetes nur als Text im Dialog
+  assert.match(k, /if \(ev\) void hinweis\(t\("komm\.ausgeblendetTitel"\), ev\.content\);/);
+  // Neue Unterhaltung: npub (auch „nostr:npub…“ aus QR-Codes) oder Hex, geprüft im Dialog, scannen auf Klick
+  const dm = k.slice(k.indexOf("export async function newDm("), k.indexOf("export function newCommunity("));
+  assert.match(dm, /String\(roh \?\? ""\)\.trim\(\)\.replace\(\/\^nostr:\/i, ""\)/);
+  assert.match(dm, /name: "schluessel", label: t\("komm\.kontaktSchluessel"\), pflicht: true, mono: true, scannen: true/);
+  assert.match(dm, /const id = w \? schluessel\(w\.schluessel\) : null;\s*if \(!id\) return;/);
 });
