@@ -13775,3 +13775,32 @@ C.1a („im Pool, nie verbunden“) heißt jetzt C-16 – beide Zahlen im Satz,
 gleich). Smoke „rahmen“ prüft die Form „x von y Relays verbunden“ (ohne
 Relays: 0), „fremdtext“ mit der Relay-Attrappe mindestens eine offene
 Verbindung, `x/y` in der Leiste und den leuchtenden Punkt.
+
+## Schritt C-10 – Communities nach E3 b
+
+**Warum:** Am 27.09. entschieden (E3 b), nie gebaut (B6): Neben „offener“ und
+„privater Raum“ gab es als dritten Begriff die „Community“ – eine lokale
+Unterhaltung mit zufälliger Kennung, Nachrichten als Kind 42 mit `h`-Tag,
+angelegt über `prompt()` (Sammlung C-10).
+
+**Was:**
+- Keine neuen Communities: Knopf `#chat-new-community`, `newCommunity()` und
+  die Texte `komm.neueCommunity`/`komm.communityName` fallen weg – damit auch
+  das letzte `prompt()` in `kommunikation.ts` (`NOCH_OFFEN` in
+  `browser-dialoge.test.ts` nennt nur noch `agent.ts`).
+- Bestehende stehen als „Community (offen)“ in der Raum-Leiste
+  (`zeigeRaumLeiste()`: 🏠 + Anfangsbuchstabe, Name im Titel und als
+  `aria-label`, nur als Text), nicht mehr unter den Direktnachrichten
+  (`loadChatList()` zeigt nur `dm`). Angetippt zeigt `oeffneCommunity()` den
+  Verlauf wie bisher; der Hinweis darüber nennt sie „Community (offen)“ und
+  verweist auf Räume.
+- Kein Format ändert sich.
+
+**Verdrahtet:** `zeigeRaumLeiste()` (`shell/tabs/raeume.ts`, beim Öffnen der
+Seite Kommunikation) → `oeffneCommunity()` (`shell/tabs/kommunikation.ts`).
+
+**Tests:** app +2 in `test/communities.test.ts` (kein Anlegen mehr; in der
+Leiste statt unter den Direktnachrichten, auch ohne Räume, Texte in beiden
+Sprachen); `browser-dialoge.test.ts`: `kommunikation.ts` ohne Browser-Dialog.
+Smoke „fremdtext“: eine gemerkte Community (Name mit HTML) steht in der
+Leiste, nicht in der Liste der Direktnachrichten, und öffnet ihren Verlauf.
