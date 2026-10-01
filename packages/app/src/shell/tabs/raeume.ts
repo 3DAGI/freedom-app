@@ -27,7 +27,7 @@ import { abrufTakt } from "../versand.js";
 import { conversations, oeffneCommunity, setzeKommModus } from "./kommunikation.js";
 import type { RaumZiel, RepoKarte } from "../../repo-ansicht.js";
 import { switchTab } from "../app.js";
-import { beiReposGeladen, legeRepoImRaumAn, merkeRaumAdresse, oeffneRepo, reposVonRaum } from "./repos.js";
+import { beiReposGeladen, ladeNip34Repos, legeRepoImRaumAn, merkeRaumAdresse, oeffneRepo, reposVonRaum } from "./repos.js";
 import { beitreten, bindeKennung, istAdresse, kennungVon, raumEintraege } from "../../oeffentliche-raeume.js";
 import { neueUmfrage, neuerTermin, zeigePlanung } from "../raum-planung-ui.js";
 
@@ -157,6 +157,8 @@ async function oeffneRaum(spaceId: string): Promise<void> {
     // Privat (2.3b): Gruppe abgleichen, dann aus den inneren Events bauen
     const gruppe = gruppeVon(spaceId);
     await mlsAbgleichen([gruppe]).catch(() => undefined);
+    // Die Engine läuft jetzt – die Repos privater Räume gehören ab hier in die Liste (C-11)
+    void ladeNip34Repos({ privat: true });
     const raum = await ladePrivatenRaum(gruppe).catch(() => null);
     if (!raum) {
       // Nie in den zuvor offenen Raum weiterschreiben
@@ -1219,7 +1221,9 @@ export async function wireSpacesTab(): Promise<void> {
     await hinweis(t("komm.rauminfo"), kanalVertraulichkeit(kanal));
   };
 
+  // Beim Start nur einen offenen Raum vorbereiten (C-11): ein privater lädt die MLS-Engine –
+  // er öffnet erst beim Antippen in der Leiste (private stehen vorn)
   const raeume = meineRaeume();
-  if (raeume.length > 0) await oeffneRaum(raeume[0]);
+  if (raeume.length > 0 && !istPrivat(raeume[0])) await oeffneRaum(raeume[0]);
   else void zeigeRaumLeiste();
 }

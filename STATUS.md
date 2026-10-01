@@ -13804,3 +13804,31 @@ Leiste statt unter den Direktnachrichten, auch ohne Räume, Texte in beiden
 Sprachen); `browser-dialoge.test.ts`: `kommunikation.ts` ohne Browser-Dialog.
 Smoke „fremdtext“: eine gemerkte Community (Name mit HTML) steht in der
 Leiste, nicht in der Liste der Direktnachrichten, und öffnet ihren Verlauf.
+
+## Schritt C-11 – MLS-Engine nie beim Start
+
+**Warum:** Die Regel „die Engine lädt erst bei Bedarf, nie beim Start“ galt
+nur ohne private Räume (Sammlung C-11, aus dem Code gelesen). Jetzt im
+Browser gemessen: Mit Tresor und einem gemerkten privaten Raum übersetzte die
+App beim Start WebAssembly – `wireSpacesTab()` öffnete den ersten Raum
+(private stehen vorn) und glich ihn per MLS ab, `wireNip34()` las die Repos
+privater Räume aus dem MLS-Verlauf.
+
+**Was:**
+- `raeume.ts`: Der Start öffnet einen ersten Raum nur, wenn er offen ist;
+  private öffnen erst beim Antippen in der Leiste. Ist ein privater Raum
+  abgeglichen (die Engine läuft), lädt er die Repo-Liste mit den privaten
+  Repos nach.
+- `repos.ts`: `ladeNip34Repos({ privat: true })` schaltet die Repos privater
+  Räume zu (`mitPrivaten`), ohne bleiben sie außen vor; die Seite Repos ruft es
+  mit (`shell/app.ts`).
+
+**Verdrahtet:** `wireSpacesTab()` (Start), `oeffneRaum()` (Antippen in der
+Leiste), `switchTab("repos")` → `ladeNip34Repos({ privat: true })`.
+
+**Tests:** app +2 in `test/mls-start.test.ts`. Smoke „mls_start“ (neu): ein
+frisches Profil, ein privater Raum gemerkt, Tresor eingerichtet (der Eintrag
+wandert hinein), neu laden und entsperren – dann gezählt, wie oft WebAssembly
+übersetzt wird: beim Start 0, nach dem Öffnen der Kommunikation 0, nach dem
+Antippen des privaten Raums 1; ebenso nach dem Öffnen der Seite Repos 1. Auf
+dem alten Stand meldete er beim Start 1.

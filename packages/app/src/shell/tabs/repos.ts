@@ -93,9 +93,15 @@ export const reposVonRaum = (ziel: RaumZiel): RepoKarte[] => reposImRaum(karten,
 
 let laeuft: Promise<void> | null = null;
 let danach: Promise<void> | null = null;
+/**
+ * Repos privater Räume erst, wenn die Seite Repos oder ein privater Raum offen war (C-11):
+ * sie kommen aus dem MLS-Verlauf, und die Engine lädt nie beim Start.
+ */
+let mitPrivaten = false;
 
 /** Laden – läuft es schon, danach genau einmal neu, damit inzwischen Gemerktes (Raum, neues Event) dabei ist. */
-export function ladeNip34Repos(): Promise<void> {
+export function ladeNip34Repos(opts: { privat?: boolean } = {}): Promise<void> {
+  if (opts.privat) mitPrivaten = true;
   if (!laeuft) {
     laeuft = ladeJetzt().finally(() => { laeuft = null; });
     return laeuft;
@@ -126,7 +132,7 @@ async function ladeJetzt(): Promise<void> {
     const { leseRaumAdresse } = await import("@freedomstack/protocol");
     const raumIds = [...new Set(ankuendigungen.flatMap((ev) => ev.tags.filter((x) => x[0] === "a").map((x) => leseRaumAdresse(x[1])?.spaceId ?? "")).filter(Boolean))];
     // Repos privater Räume (11.4b2) nur aus dem MLS-Verlauf – eigene Karten, Aktionen nur in die Gruppe
-    privat = await privateRaumRepos().catch(() => []);
+    if (mitPrivaten) privat = await privateRaumRepos().catch(() => []);
     karten = [...repoKarten(ankuendigungen, bundles, patches, status, state.keypair?.pk, await raumStruktur(raumIds)),
       ...privat.flatMap((p) => privateRaumKarten(p, state.keypair?.pk))].sort((a, b) => b.zuletzt - a.zuletzt || a.name.localeCompare(b.name));
     // Issues, ihr Status und Kommentare an Issues und Patches (C-17b): öffentliche nur an öffentliche Karten
