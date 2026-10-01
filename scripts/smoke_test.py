@@ -388,6 +388,75 @@ def mls_pruefen(browser, url: str) -> dict:
     return erg
 
 
+def mls_start_pruefen(browser, url: str) -> dict:
+    """MLS-Engine mit privatem Raum (C-11): Tresor eingerichtet, ein privater Raum gemerkt – beim Start
+    wird trotzdem kein WebAssembly übersetzt, auch nicht beim Öffnen der Kommunikation; erst der private
+    Raum (angetippt) bzw. die Seite Repos (Repos privater Räume) lädt die Engine."""
+    erg = {"fehler": []}
+    basis = url.rsplit("/", 1)[0]
+    relay = ProbeRelay()
+    ctx = browser.new_context(locale="de-DE", viewport={"width": 1280, "height": 800})
+    ctx.route("**/*", lambda r: r.continue_() if r.request.url.startswith(basis) else r.abort())
+    ctx.route_web_socket(re.compile(r"^wss?://"), relay.verbinde)
+    ctx.add_init_script(
+        "window.__wasm = 0; for (const k of ['instantiate', 'compile', 'instantiateStreaming', 'compileStreaming']) {"
+        " const o = WebAssembly[k]; if (o) WebAssembly[k] = function (...a) { window.__wasm++; return o.apply(this, a); }; }"
+        " const M = WebAssembly.Module; WebAssembly.Module = function (...a) { window.__wasm++; return new M(...a); };")
+    s = ctx.new_page()
+    s.on("pageerror", lambda e: erg["fehler"].append(str(e)[:300]))
+    ev = s.evaluate
+    s.goto(url, wait_until="load")
+    s.wait_for_selector("#bk-done", timeout=30000)
+    w = ev("() => [...document.querySelectorAll('.mnemonic-list li')].map(l => l.textContent)")
+    ev("(w) => document.querySelectorAll('#bk-challenge input').forEach(i => i.value = w[+i.dataset.pos])", w)
+    ev("() => document.getElementById('bk-done').click()")
+    s.wait_for_timeout(1500)
+    ev("() => document.getElementById('ein-abbrechen')?.click()")
+    # Ein privater Raum (Gruppen-Kennung) – wandert mit dem Einrichten des Tresors hinein
+    ev("() => localStorage.setItem('freedom.raeume.privat', JSON.stringify(['ab'.repeat(16)]))")
+    ev("() => { location.hash = '#/settings'; }")
+    ev("() => document.querySelector('.sec-action[data-step=\"4\"]').click()")
+    ev("() => { document.getElementById('tr-neu1').value = 'smoke tresor mls'; document.getElementById('tr-neu2').value = 'smoke tresor mls';"
+       " document.getElementById('tr-ok').click(); }")
+    s.wait_for_function("() => !document.getElementById('tr-ok')", timeout=30000)
+    erg["im_tresor"] = ev("() => localStorage.getItem('freedom.raeume.privat') === null && localStorage.getItem('freedom.vault') === '1'")
+
+    def neu_starten(seite: str) -> list:
+        """Neu laden, entsperren, warten; dann die Seite öffnen (Kommunikation: danach den privaten Raum
+        antippen) – Übersetzungen vorher, nach dem Öffnen und am Ende."""
+        ev("() => { location.hash = '#/agent'; }")
+        s.reload(wait_until="load")
+        s.wait_for_function("() => !!document.getElementById('tr-pass')", timeout=30000)
+        ev("() => { document.getElementById('tr-pass').value = 'smoke tresor mls'; document.getElementById('tr-ok').click(); }")
+        s.wait_for_function("() => !document.getElementById('tr-pass')", timeout=30000)
+        s.wait_for_timeout(4000)  # Start, Abgleich, Repos – was beim Start lädt, hätte jetzt geladen
+        vorher = ev("() => window.__wasm")
+        ev("(t) => { location.hash = t === 'comm' ? '#/chat' : '#/repos'; }", seite)
+        s.wait_for_timeout(3000)
+        geoeffnet = ev("() => window.__wasm")
+        if seite == "comm":
+            ev("() => document.querySelector('#space-rail .space-pill')?.click()")
+        try:
+            s.wait_for_function("() => window.__wasm > 0", timeout=30000)
+        except Exception:
+            pass
+        return [vorher, geoeffnet, ev("() => window.__wasm")]
+
+    erg["kommunikation"] = neu_starten("comm")
+    erg["repos"] = neu_starten("repos")
+    ctx.close()
+    if erg["im_tresor"] is not True:
+        erg["fehler"].append("privater Raum nicht im Tresor")
+    # Kommunikation: offen noch ohne Engine, erst der private Raum lädt sie; Repos: die Seite lädt sie
+    k, r = erg["kommunikation"], erg["repos"]
+    if k[0] != 0 or k[1] != 0 or k[2] < 1:
+        erg["fehler"].append(f"Kommunikation: Übersetzungen beim Start {k[0]}, offen {k[1]}, Raum angetippt {k[2]}")
+    if r[0] != 0 or r[2] < 1:
+        erg["fehler"].append(f"Repos: Übersetzungen beim Start {r[0]}, Seite offen {r[2]}")
+    erg["bestanden"] = not erg["fehler"]
+    return erg
+
+
 SICHTBAR = """(sel) => { const e = document.querySelector(sel); if (!e) return false;
   const r = e.getBoundingClientRect(); const cs = getComputedStyle(e);
   return cs.display !== 'none' && cs.visibility !== 'hidden' && r.width > 0 && r.height > 0 && r.right > 0 && r.left < innerWidth; }"""
@@ -2912,6 +2981,10 @@ def main() -> int:
             except Exception as e:
                 erg["mls"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
             try:
+                erg["mls_start"] = mls_start_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
+            except Exception as e:
+                erg["mls_start"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
+            try:
                 erg["rahmen"] = rahmen_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
             except Exception as e:
                 erg["rahmen"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
@@ -2983,6 +3056,7 @@ def main() -> int:
           and erg.get("notfall", {}).get("bestanden") is True
           and erg.get("sprache", {}).get("bestanden") is True
           and erg.get("mls", {}).get("bestanden") is True
+          and erg.get("mls_start", {}).get("bestanden") is True
           and erg.get("rahmen", {}).get("bestanden") is True
           and erg.get("dialog", {}).get("bestanden") is True
           and erg.get("waehrung", {}).get("bestanden") is True

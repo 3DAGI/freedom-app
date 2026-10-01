@@ -521,7 +521,7 @@ export function switchTab(name: string): void {
   // Karte und Mesh stehen seit C.1b auf der Seite „Netz“
   if (name === "netz") { void ladeAbdeckung(); void zeigeMeshWeg(); }
   // Repos (C.3a): beim Öffnen frisch laden – Ankündigungen, Bundles, Patches
-  if (name === "repos") void import("./tabs/repos.js").then((m) => m.ladeNip34Repos());
+  if (name === "repos") void import("./tabs/repos.js").then((m) => m.ladeNip34Repos({ privat: true }));
   if (name === "mehr") void aktualisiereNavStatus();
   updateSidebarBalances();
   // Adresse (nur die Seite, nie eine Kennung) und „Mehr“ nachziehen (C.1a)
