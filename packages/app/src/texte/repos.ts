@@ -169,4 +169,22 @@ export const repos: Texte = {
   "repo.markeNeu": { de: "{n} neu", en: "{n} new" },
   "repo.neuDetails": { de: "Seit deinem letzten Blick: Issues {issues}, Patches {patches}, Kommentare {kommentare}", en: "Since you last looked: issues {issues}, patches {patches}, comments {kommentare}" },
   "repo.nichtsNeues": { de: "Nichts Neues in Repos, an denen du beteiligt bist.", en: "Nothing new in repos you take part in." },
+  // B-2: Repos nur auf diesem Gerät
+  "repo.woLokal": { de: "nur dieses Gerät – privat, nichts geht hinaus", en: "this device only – private, nothing leaves it" },
+  "repo.markeLokal": { de: "nur dieses Gerät", en: "this device only" },
+  "repo.imLokal": { de: "🔒 Nur auf diesem Gerät – niemand sonst sieht dieses Repo, nichts liegt auf Relays oder im Speichernetz. Sichern mit „Bundle laden“.", en: "🔒 Only on this device – nobody else sees this repo, nothing is on relays or in the storage network. Back it up with “Download bundle”." },
+  "repo.lokalAngelegt": { de: "{id}: angelegt – nur auf diesem Gerät", en: "{id}: created – on this device only" },
+  "repo.lokalGespeichert": { de: "{id}: auf diesem Gerät gespeichert", en: "{id}: saved on this device" },
+  "repo.lokalBundle": { de: "{name}: neue Version auf diesem Gerät ({kb} KB)", en: "{name}: new version on this device ({kb} KB)" },
+  "repo.lokalVoll": { de: "Höchstens {n} Repos nur auf diesem Gerät.", en: "At most {n} repos on this device only." },
+  "repo.lokalLoeschen": { de: "Vom Gerät löschen", en: "Delete from device" },
+  "repo.lokalLoeschenFrage": { de: "„{id}“ samt Bundle von diesem Gerät löschen? Es liegt nirgends sonst – vorher mit „Bundle laden“ sichern.", en: "Delete “{id}” and its bundle from this device? It is stored nowhere else – back it up first with “Download bundle”." },
+  "repo.lokalGeloescht": { de: "{id}: vom Gerät gelöscht", en: "{id}: deleted from the device" },
+  "repo.codeLadenLokal": { de: "Das Bundle liegt nur auf diesem Gerät, mit Tresor verschlüsselt; die App liest es nur hier.", en: "The bundle is only on this device, encrypted with a vault; the app reads it only here." },
+  "repo.neueVersionTextLokal": { de: "Ein Bundle aus git bundle create repo.bundle --all. Es bleibt auf diesem Gerät (mit Tresor verschlüsselt) – nichts geht hinaus.", en: "A bundle from git bundle create repo.bundle --all. It stays on this device (encrypted with a vault) – nothing leaves it." },
+  // B-2c: veröffentlichen
+  "repo.lokalVeroeffentlichen": { de: "Veröffentlichen", en: "Publish" },
+  "repo.lokalVeroeffentlichenFrage": { de: "„{id}“ veröffentlichen? Die Ankündigung geht öffentlich und mit deinem Schlüssel signiert hinaus, das Bundle verschlüsselt ins Speichernetz – der Schlüssel steht öffentlich in der Referenz, lesen kann dann jeder. Das lässt sich nicht zurücknehmen; die Kopie nur auf diesem Gerät entfällt.", en: "Publish “{id}”? The announcement goes out publicly, signed with your key, the bundle goes encrypted into the storage network – the key is public in the reference, so anyone can read it. This cannot be undone; the copy only on this device goes away." },
+  "repo.lokalVeroeffentlichenErsetzt": { de: "„{id}“ veröffentlichen? Es ersetzt dein öffentliches Repo gleicher Kennung. Die Ankündigung geht öffentlich und mit deinem Schlüssel signiert hinaus, das Bundle verschlüsselt ins Speichernetz – der Schlüssel steht öffentlich in der Referenz, lesen kann dann jeder. Das lässt sich nicht zurücknehmen.", en: "Publish “{id}”? It replaces your public repo with the same name. The announcement goes out publicly, signed with your key, the bundle goes encrypted into the storage network – the key is public in the reference, so anyone can read it. This cannot be undone." },
+  "repo.lokalVeroeffentlicht": { de: "{id}: veröffentlicht", en: "{id}: published" },
 };

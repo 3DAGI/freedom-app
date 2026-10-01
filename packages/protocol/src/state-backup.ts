@@ -195,13 +195,14 @@ const SICHERUNG_PRAEFIXE = ["freedom.mod."];
  * zurueck: Schluessel und Zugaenge, Geld-Geheimnisse, fremde Anteile, und
  * Schluessel von Gruppen (MLS, Epochen). Gruppenschluessel bewusst nicht:
  * Forward Secrecy hiesse sonst nur „bis zur naechsten Sicherung“ – ein neues
- * Geraet tritt Raeumen neu bei.
+ * Geraet tritt Raeumen neu bei. Repos nur auf diesem Geraet (B-2) ebenso nie:
+ * Die Sicherung geht auf Relays.
  */
 export const SICHERUNG_NIE = [
   /^freedom\.nsec$/, /^freedom\.bunker$/, /^freedom\.nwc\./, /^freedom\.swap\./, /^freedom\.htlc\./,
   /^freedom\.solWallet/, /^freedom\.pending\./, /^freedom\.vault/, /^freedom\.suche\./, /^freedom\.nachfolge/,
   /^freedom\.notfall\./, /^freedom\.(mls|gruppe|epoch)/, /^freedom\.merkphrase$/, /^freedom\.reklamationen$/, /^freedom\.coverage\.eintrag$/,
-  /^freedom\.kanaele$/, /^freedom\.quittungen$/, /^freedom\.ruf\.(kontakte|gesendet)$/,
+  /^freedom\.kanaele$/, /^freedom\.quittungen$/, /^freedom\.ruf\.(kontakte|gesendet)$/, /^freedom\.repos\.lokal$/,
 ];
 
 /** Hoechstens so gross (NIP-44 fasst 65.535 Byte Klartext). */

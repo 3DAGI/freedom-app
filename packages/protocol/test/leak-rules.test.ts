@@ -10,7 +10,7 @@ import {
   LEAK_REGELN, regelAutorNicht, regelKeinBolt11, regelKeinKind4, regelKeinKlartext, regelKeinKlartextPrompt,
   regelKeineSolAdresse, regelKeineZahlungsdaten, regelKundeVerborgen, regelPTagsNur, regelSolAdresseFrisch,
   regelUploadVerschluesselt, regelMeshVerschluesselt, regelMlsGruppe, regelAnmeldungNichtOffen, regelKopienEntkoppelt,
-  regelKeineLnAdresse, regelZapAnonym, regelRaumRepoPrivat,
+  regelKeineLnAdresse, regelZapAnonym, regelRaumRepoPrivat, regelBesitzerVersiegelt,
 } from "../src/leak-rules.js";
 import { bech32 } from "@scure/base";
 import { fromHex } from "../src/htlc.js";
@@ -88,6 +88,7 @@ test("jede Regel meldet unter einem Namen aus LEAK_REGELN", () => {
     ...regelKeineLnAdresse([ev(0, [], JSON.stringify({ lud16: "ada@wallet.example" }))], ["ada@wallet.example"]),
     ...regelZapAnonym([ev(9734, [["p", provider.pk]])], kunde.pk),
     ...regelRaumRepoPrivat([ev(30617, [["d", "werkstatt"]])], { repoIds: ["werkstatt"], schluessel: [] }),
+    ...regelBesitzerVersiegelt([ev(5050, [["besitzer", "ab".repeat(32)]])]),
   ];
   const gemeldet = new Set(funde.map((f) => f.regel));
   assert.deepEqual([...gemeldet].sort(), Object.keys(LEAK_REGELN).sort());

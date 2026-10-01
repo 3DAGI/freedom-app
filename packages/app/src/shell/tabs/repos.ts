@@ -23,10 +23,15 @@ import { kennungVon } from "../../oeffentliche-raeume.js";
 import { eigentuemerName, vergissReiter, zeigeRepoSeite } from "./repo-seite.js";
 import { geheim } from "../tresor.js";
 import { type Gesehen, LS_REPOS_GESEHEN, type Neuigkeiten, beteiligt, gesehenAbgleichen, leseGesehen, neuGesamt, neuigkeiten } from "../../repo-neuigkeiten.js";
+import { LOKAL_MAX, LokalVoll } from "../../lokale-repos.js";
+import { BUNDLE_GRENZEN } from "../../git-bundle.js";
+import { lokaleRepos } from "../lokale-repos-ablage.js";
 
 const STATUS_KINDS = [1630, 1631, 1632, 1633];
 
 let karten: RepoKarte[] = [];
+/** Wert für „Wo“: nur auf diesem Gerät (B-2) – Gruppen-Ids sind Hex, kein Zusammenstoß. */
+const LOKAL = "lokal"; // kein UI-Text
 /** Offenes Repo – nur im Speicher, nie in der Adresse (C.1a). */
 let offenesRepo: string | null = null;
 let nurMeine = false;
@@ -132,6 +137,8 @@ async function ladeJetzt(): Promise<void> {
       pool.query({ kinds: [KIND_KOMMENTAR], "#E": wurzeln, limit: 1000 }),
     ]) : [[], []];
     karten = mitIssues(karten, { issues, status: issueStatus, kommentare }, privat, state.keypair?.pk);
+    // Repos nur auf diesem Gerät (B-2) erst danach: nie Issues eines öffentlichen Repos gleicher Kennung
+    karten = [...karten, ...lokaleRepos.karten(state.keypair?.pk)].sort((a, b) => b.zuletzt - a.zuletzt || a.name.localeCompare(b.name));
     // Neu beteiligte Repos beginnen jetzt – sonst wäre beim ersten Mal alles „neu“ (C-20f)
     const abgleich = gesehenAbgleichen(gesehenVon(), karten, state.keypair?.pk, jetztSek());
     if (abgleich.geaendert) merkeGesehen(abgleich.gesehen);
@@ -139,7 +146,14 @@ async function ladeJetzt(): Promise<void> {
     zeige();
     for (const fn of nachLaden) fn();
   } catch {
-    box.textContent = t("repo.relaysWeg");
+    // Ohne Relays bleiben die Repos dieses Geräts (B-2) sichtbar
+    karten = lokaleRepos.karten(state.keypair?.pk);
+    if (!karten.length) {
+      box.textContent = t("repo.relaysWeg");
+      return;
+    }
+    zeige();
+    box.prepend(el("p", t("repo.relaysWeg"), "mono-sm muted"));
   }
 }
 
@@ -188,6 +202,7 @@ function zeige(fokus = false): void {
         zeige();
         void geheZuRaum(offen);
       },
+      veroeffentlichen: veroeffentlicheLokal,
     });
     if (fokus || warZurueck) seite.querySelector<HTMLElement>(".repo-zurueck")?.focus();
     return;
@@ -207,6 +222,7 @@ function karte(k: RepoKarte): HTMLElement {
   kopf.append(el("span", eigentuemerName(k.eigentuemer), "repo-eigentuemer"), el("span", " / ", "muted"), el("span", k.name, "repo-name"));
   if (k.bundle) kopf.append(el("span", t("repo.markeBundle"), "msg-role"));
   if (k.privatRaum) kopf.append(el("span", t("repo.markePrivat"), "msg-role"));
+  if (k.lokal) kopf.append(el("span", t("repo.markeLokal"), "msg-role"));
   // Raum (11.4c): nur, wenn das Repo bestätigt dazugehört – der Name ist fremder Text
   if (k.raumName) kopf.append(el("span", t("repo.markeRaum", { name: k.raumName }), "msg-role repo-marke-raum"));
   // Neu seit dem letzten Blick (C-20f): Issues, Patches, Kommentare von anderen
@@ -256,10 +272,21 @@ function ladeBeitraege(): Promise<NostrEvent[]> {
  * (Entscheidung 26.09.2026): lesen kann jeder, Speicherknoten halten nur Chiffrat.
  * Im privaten Raum (11.4b2) geht die Referenz samt Schlüssel nur in die Gruppe.
  */
-export async function ladeBundleHoch(datei: File, kennung: string, gruppe?: string): Promise<boolean> {
+export async function ladeBundleHoch(datei: File, kennung: string, gruppe?: string, lokal = false): Promise<boolean> {
   if (!state.keypair) return false;
   try {
     const bytes = new Uint8Array(await datei.arrayBuffer());
+    // Nur auf diesem Gerät (B-2): verschlüsselt in die eigene IndexedDB, nichts geht hinaus
+    if (lokal) {
+      if (bytes.length > BUNDLE_GRENZEN.bytes) {
+        toast(t("repo.bundleGross"), true);
+        return false;
+      }
+      await lokaleRepos.legeBundleAb(state.keypair.pk, kennung, bytes);
+      toast(t("repo.lokalBundle", { name: kennung, kb: Math.round(bytes.length / 1024) }));
+      await ladeNip34Repos();
+      return true;
+    }
     const { uploadAnhang } = await import("../../blob-client.js");
     const pool = await ensurePool();
     toast(t(gruppe ? "repo.ladeVerschluesseltHoch" : "ein.gitPubliziere", { name: datei.name, kb: Math.round(bytes.length / 1024) }));
@@ -275,6 +302,43 @@ export async function ladeBundleHoch(datei: File, kennung: string, gruppe?: stri
   } catch (e) {
     toast(t("ein.gitFehler", { fehler: fehlerText(e) }), true);
     return false;
+  }
+}
+
+/**
+ * Ein Repo nur auf diesem Gerät veröffentlichen (B-2c, Wechsel nach S1): nach
+ * Rückfrage geht die Ankündigung signiert hinaus, das Bundle wie jede neue
+ * Version verschlüsselt ins Blob-Netz (der Schlüssel steht öffentlich in der
+ * Referenz). Erst wenn beides draußen ist, entfällt die Kopie auf dem Gerät –
+ * scheitert etwas, bleibt sie, und ein zweiter Versuch ersetzt die Ankündigung.
+ */
+async function veroeffentlicheLokal(k: RepoKarte): Promise<void> {
+  if (!state.keypair || !k.lokal) return;
+  const ich = state.keypair.pk;
+  const r = lokaleRepos.finde(ich, k.id);
+  if (!r) return;
+  // Ein öffentliches Repo gleicher Kennung wird ersetzt (30617 ist je Kennung ersetzbar) – das sagt die Rückfrage
+  const ersetzt = karten.some((x) => !x.lokal && !x.privatRaum && x.schluessel === `${ich}:${k.id}`);
+  const frage = ersetzt ? "repo.lokalVeroeffentlichenErsetzt" : "repo.lokalVeroeffentlichenFrage";
+  if (!await bestaetige({ titel: t("repo.lokalVeroeffentlichen"), text: t(frage, { id: k.id }), ok: t("repo.lokalVeroeffentlichen") })) return;
+  try {
+    const { baueRepoAnkuendigung } = await import("@freedomstack/protocol");
+    await (await ensurePool()).publish(await signiere(baueRepoAnkuendigung(r.angaben, ich)));
+    if (r.bundle) {
+      const bytes = await lokaleRepos.holeBundle(ich, k.id);
+      if (!bytes) {
+        toast(t("agent.bundleKaputt"), true);
+        return;
+      }
+      // Wie jede neue Version; einen Fehler meldet ladeBundleHoch – die lokale Kopie bleibt
+      if (!await ladeBundleHoch(new File([bytes as BlobPart], `${k.id}.bundle`), k.id)) return;
+    }
+    await lokaleRepos.entferne(ich, k.id);
+    toast(t("repo.lokalVeroeffentlicht", { id: k.id }));
+    offenesRepo = `${ich}:${k.id}`;
+    await ladeNip34Repos();
+  } catch (e) {
+    toast(fehlerText(e), true);
   }
 }
 
@@ -300,7 +364,7 @@ async function sendePatch(r: GelesenesRepo, text: string, gruppe?: string): Prom
  */
 async function kuendigeAn(imRaum?: RaumZiel & { name: string }): Promise<void> {
   if (!state.keypair) return;
-  // Wo (11.4b2): öffentlich oder in einem privaten Raum, in dem ich Repos pflegen darf
+  // Wo (11.4b2): öffentlich, nur auf diesem Gerät (B-2) oder in einem privaten Raum, in dem ich Repos pflegen darf
   const raeume = privat.filter((p) => p.darfPflegen);
   const w = await dialog({
     titel: t("agent.repoAnkuendigen"), ok: t("agent.repoAnkuendigen"),
@@ -308,8 +372,9 @@ async function kuendigeAn(imRaum?: RaumZiel & { name: string }): Promise<void> {
       { art: "text", name: "id", label: t("agent.repoKennungPh"), pflicht: true, mono: true },
       { art: "textarea", name: "beschreibung", label: t("repo.beschreibung") },
       { art: "text", name: "klon", label: t("agent.klonPh"), mono: true },
-      ...(raeume.length && !imRaum ? [{ art: "wahl" as const, name: "wo", label: t("repo.wo"), optionen: [
-        { wert: "", text: t("repo.woOeffentlich") }, ...raeume.map((p) => ({ wert: p.gruppe, text: p.name || t("repo.privaterRaum") })),
+      ...(!imRaum ? [{ art: "wahl" as const, name: "wo", label: t("repo.wo"), wert: "", optionen: [
+        { wert: "", text: t("repo.woOeffentlich") }, { wert: LOKAL, text: t("repo.woLokal") },
+        ...raeume.map((p) => ({ wert: p.gruppe, text: p.name || t("repo.privaterRaum") })),
       ] }] : []),
     ],
   });
@@ -322,6 +387,13 @@ async function kuendigeAn(imRaum?: RaumZiel & { name: string }): Promise<void> {
   try {
     const { baueRepoAnkuendigung, raumRepoAnkuendigung } = await import("@freedomstack/protocol");
     const angaben = { id, name: id, klon, ...(beschreibung ? { beschreibung } : {}), ...(raum ? { raum } : {}) };
+    // Nur auf diesem Gerät (B-2): gemerkt, nichts geht hinaus – keine Rückfrage nötig
+    if (!imRaum && w.wo === LOKAL) {
+      await lokaleRepos.merke(state.keypair.pk, angaben);
+      toast(t("repo.lokalAngelegt", { id }));
+      await ladeNip34Repos();
+      return;
+    }
     const ev = baueRepoAnkuendigung(angaben, state.keypair.pk);
     const frage = gruppe ? "repo.ankuendigenFrageRaum" : raum ? "repo.ankuendigenFrageOeffentlich" : "repo.ankuendigenFrage";
     if (!await bestaetige({ titel: t("agent.repoAnkuendigen"), text: t(frage, { id, raum: imRaum?.name ?? "" }), ok: t("agent.repoAnkuendigen") })) return;
@@ -330,7 +402,7 @@ async function kuendigeAn(imRaum?: RaumZiel & { name: string }): Promise<void> {
     toast(t("repo.angekuendigt", { id }));
     await ladeNip34Repos();
   } catch (e) {
-    toast(fehlerText(e), true);
+    toast(e instanceof LokalVoll ? t("repo.lokalVoll", { n: LOKAL_MAX }) : fehlerText(e), true);
   }
 }
 

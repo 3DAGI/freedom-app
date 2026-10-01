@@ -76,6 +76,10 @@ git.ts|restoreGitBundle|Git über Blobs, noch ohne vollständige Oberfläche (Re
 http-auth.ts|btoaBase64|NIP-98-Anmeldung auf Client-Seite, noch ohne Speicher-Client (Speicher, 8.9)
 http-auth.ts|buildHttpAuth|NIP-98-Anmeldung auf Client-Seite, noch ohne Speicher-Client (Speicher, 8.9)
 
+kopplung.ts|leseKopplungscode|Kopplung von Knoten und Besitzer, in der App noch nicht gekoppelt (B-8c)
+kopplung.ts|mitBesitzerNachweis|Kopplung von Knoten und Besitzer, in der App noch nicht gekoppelt (B-8c)
+kopplung.ts|neueKopplung|Kopplung von Knoten und Besitzer, im Knoten noch nicht erzeugt (B-8b)
+
 leak-rules.ts|regelAutorNicht|Prüfregeln der Leak-Tests, gehören in die Tests (1.5)
 leak-rules.ts|regelKeinBolt11|Prüfregeln der Leak-Tests, gehören in die Tests (1.5)
 leak-rules.ts|regelKeineSolAdresse|Prüfregeln der Leak-Tests, gehören in die Tests (1.5)
@@ -94,6 +98,7 @@ leak-rules.ts|regelKundeVerborgen|Prüfregeln der Leak-Tests, gehören in die Te
 leak-rules.ts|regelPTagsNur|Prüfregeln der Leak-Tests, gehören in die Tests (1.5)
 leak-rules.ts|regelSolAdresseFrisch|Prüfregeln der Leak-Tests, gehören in die Tests (1.5)
 leak-rules.ts|regelUploadVerschluesselt|Prüfregeln der Leak-Tests, gehören in die Tests (1.5)
+leak-rules.ts|regelBesitzerVersiegelt|Prüfregeln der Leak-Tests, gehören in die Tests (1.5)
 
 local-search.ts|indexStats|Suche verdrahtet (8.13, suche.ts); Vorschläge und Statistik ohne Oberfläche
 local-search.ts|searchInfo|Suche verdrahtet (8.13, suche.ts); Vorschläge und Statistik ohne Oberfläche

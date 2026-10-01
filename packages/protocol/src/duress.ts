@@ -44,11 +44,12 @@ export const WIPE_TARGETS: WipeTarget[] = [
 ];
 
 /**
- * IndexedDB-Datenbanken der App: Tresor, Suchindex (8.13), Blob-Speicher.
+ * IndexedDB-Datenbanken der App: Tresor, Suchindex (8.13), Blob-Speicher,
+ * MLS (2.2b), Repos nur auf diesem Gerät (B-2).
  * Geloescht wird zusaetzlich jede Datenbank, deren Name mit `freedom`
  * beginnt – wie beim Praefix fuer localStorage.
  */
-export const WIPE_DATENBANKEN = ["freedom-vault", "freedom-suche", "freedom-blobs", "freedom-mls", "freedom-mls-verlauf"];
+export const WIPE_DATENBANKEN = ["freedom-vault", "freedom-suche", "freedom-blobs", "freedom-mls", "freedom-mls-verlauf", "freedom-repos"];
 
 const unsere = (name: string): boolean => name.startsWith("freedom");
 

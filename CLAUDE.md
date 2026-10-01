@@ -45,9 +45,9 @@ bash packages/mls/bauen.sh --pruefen                     # nur bei Änderungen a
 bash contracts/solana-channel/pruefen.sh --werkzeuge     # nur bei Änderungen am Zahlkanal: bauen + Tests gegen Validator (Agave 3.1.10)
 ```
 
-Stand 30.09.2026 (nach 8.2c, 5.5a–c, 8.15, 11.1a, C.3c2, 11.1b, 5.9a–b, 6.3a–b2, 11.4a–b2, C.4a–b, C.5a–b, C.6b, 11.4c, C-18, C-17a–c, C-20a–f, C-1a–e, 11.2a–b, A-4 bis A-7, B-1, B-3 bis B-7, B-15 und B-19): protocol 1140 grün (6 übersprungen), node 272 grün
+Stand 30.09.2026 (nach 8.2c, 5.5a–c, 8.15, 11.1a, C.3c2, 11.1b, 5.9a–b, 6.3a–b2, 11.4a–b2, C.4a–b, C.5a–b, C.6b, 11.4c, C-18, C-17a–c, C-20a–f, C-1a–e, 11.2a–b, A-4 bis A-7, B-1, B-2a–c, B-3 bis B-7, B-8a, B-15 und B-19): protocol 1144 grün (6 übersprungen), node 272 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 729 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 68 grün + 1 `todo` (heutige Lecks,
+in `tools.test.ts`), app 735 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 68 grün + 1 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
 Ausnahme: gesendete SOL-Zahlungen von frischen Adressen, eine bewusste Grenze
 nach Entscheidung 4.9 A – im Datenschutzbericht unter „Bewusste Grenzen“).
@@ -884,3 +884,34 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   In der App (seit B-15b) nur über `shell/raum-planung-ui.ts`: gesendet nur
   mit `mlsSendeEvent(raum.gruppe, …)`, gezeigt nur als Text über dem Verlauf
   des Kanals (`zeigePlanung()`), die Knöpfe nur privat und mit Schreibrecht.
+- **Repos nur auf diesem Gerät nur über `LokaleRepos`** (seit B-2a,
+  `lokale-repos.ts`, Ablage `shell/lokale-repos-ablage.ts`): Angaben und Bundle
+  bleiben auf dem Gerät – nie `publish()`, nie `uploadAnhang()`, nie in die
+  Sicherung (`SICHERUNG_NIE`: `freedom.repos.lokal`). Das Bundle nur
+  verschlüsselt (`legeBundleAb()`: frischer Schlüssel je Version, erst das
+  Chiffrat ablegen, dann merken, dann die alte Version löschen); die Liste mit
+  den Schlüsseln nur in `geheim`, die Chiffrate nur in der IndexedDB
+  `freedom-repos` (in `WIPE_DATENBANKEN`). Gelesen wird streng
+  (`leseLokaleRepos()`), ein lokales Repo hat nie einen Raum. Karten
+  (`lokaleKarten()`) tragen `lokal` und einen eigenen Schlüssel `lokal:…` –
+  nie mit einem öffentlichen Repo gleicher Kennung vermischen, auch nicht in
+  `mitIssues()`. In der App (seit B-2b): anlegen über „Wo: nur dieses Gerät“
+  beim Ankündigen (ohne Rückfrage – nichts geht hinaus), neue Versionen über
+  `ladeBundleHoch(…, lokal)` (vor dem Blob-Netz, höchstens
+  `BUNDLE_GRENZEN.bytes`), Code und Commits nur über die `BundleQuelle`
+  (`quelleVon()` in `repo-seite.ts`, das Netz über `netzQuelle()`). Lokale Repos
+  zeigen nur Code, Commits und Einstellungen – Issues, Patches und Mitwirkende
+  gibt es erst im Netz. Ohne Relays bleiben sie in der Liste. Veröffentlicht
+  wird (seit B-2c) nur über `veroeffentlicheLokal()`: Rückfrage (nennt ein
+  ersetztes öffentliches Repo gleicher Kennung), Ankündigung, Bundle über
+  `ladeBundleHoch()` – erst dann `entferne()`; scheitert etwas, bleibt die
+  Kopie auf dem Gerät.
+- **Knoten mit Besitzer koppeln nur über `kopplung.ts`** (seit B-8a, L1 A):
+  Kopplungscode `freedom-kopplung:1:<knoten>:<geheimnis>` nur aus
+  `neueKopplung()`/`leseKopplungscode()`. In einer Anfrage an den eigenen
+  Knoten steht nur der Nachweis (`mitBesitzerNachweis()`: HMAC über
+  Sitzungsschlüssel und Zeit) – nie das Geheimnis, nur im Kern vor dem
+  Versiegeln, nur an den gekoppelten Knoten. Der Knoten erkennt den Besitzer
+  nur über `istBesitzer()` und nur bei Anfragen aus einem Umschlag (Leak-Regel
+  `besitzer-versiegelt`). Ein neues Geheimnis widerruft alle bisher
+  gekoppelten Geräte.

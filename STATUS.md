@@ -12884,6 +12884,162 @@ erweitert: „Ohne Internet zahlen“ meldet „Keine gültige Solana-Adresse“
 bei `1e3` „Ungültiger Betrag“; „Eingebaute Wallet“ entfernen hat den Fokus
 zuerst auf Abbrechen; kein Browser-Dialog.
 
+## Schritt B-2a – Repos nur auf diesem Gerät: Baustein und Ablage
+
+Sammlung B-2, Entscheidung S1 (30.09., MENSCH): „B mit Wechsel“ – ein Repo
+lässt sich auf „privat, nur dieses Gerät“ schalten (nichts auf Relays), später
+auf „öffentlich“. Aufgeteilt, weil der ganze Schritt über 400 Zeilen braucht:
+a Baustein und Ablage (dieser Schritt), b Oberfläche, c Wechsel.
+
+**App (`lokale-repos.ts`, ohne DOM):** `LokaleRepos` hält die Liste
+(`freedom.repos.lokal` in `geheim`, mit Tresor im Tresor) und die Bundles
+zusammen. Gemerkt werden die Angaben der Ankündigung – geprüft wie beim
+Ankündigen (`baueRepoAnkuendigung()`), ohne Raum (ein Raum ist öffentlich) –
+und je Repo das neueste Bundle: verschlüsselt mit frischem Schlüssel
+(`verschluesseleDatei()`, AES-GCM mit Prüfsumme), das Chiffrat in der
+IndexedDB `freedom-repos`, der Schlüssel im Eintrag. Eine neue Version wird erst
+abgelegt, dann gemerkt, dann die alte gelöscht – bricht etwas ab, bleibt die
+bisherige lesbar. Gelesen wird streng (`leseLokaleRepos()`: Kaputtes fällt weg,
+je Eigentümer und Kennung einmal), höchstens `LOKAL_MAX` (50) je Identität.
+`lokaleKarten()` baut dieselben Karten wie im Netz, mit eigenem Schlüssel
+(`lokal:…`) und dem Merkmal `lokal`, nur für die eigene Identität.
+`shell/lokale-repos-ablage.ts`: die IndexedDB und `lokaleRepos` für die App.
+
+**Nie auf Relays:** `freedom.repos.lokal` in `SICHERUNG_NIE` (die Sicherung geht
+auf Relays), damit auch nicht im Export (B-6); `freedom-repos` in
+`WIPE_DATENBANKEN`; der Schlüsselname in `GEHEIM_FEST`.
+
+**Tests (+4, `app/test/lokale-repos.test.ts`):** anlegen, ablegen, lesen (kein
+Klartext in Datenbank und Liste, kein Raum, eigene Karten, neue Version mit
+frischem Schlüssel, Angaben ändern behält das Bundle); streng gelesen (zehn
+kaputte und doppelte Einträge, verändertes Chiffrat wirft, fehlendes ist
+nichts); Grenzen, Prüfung wie beim Ankündigen, Löschen samt Chiffrat; nie in
+Sicherung und Export, im Tresor, in der Notfall-Löschung.
+
+**Verdrahtet:** noch nicht in der Oberfläche – das ist B-2b.
+
+Endstand (B-2a, 01.10.): protocol 1140 (6 übersprungen) · node 271 (7
+übersprungen ohne Netz – mit Netz 272) · app 732 (+4) · mls 13 · Leak-Tests 68
+grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng
+Exit 0 · Website ok · Smoke-Test bestanden. Knoten-Stand: unverändert.
+
+## Schritt B-2b – Repos nur auf diesem Gerät: Oberfläche
+
+Zweiter Teil von B-2 (Baustein in B-2a).
+
+**App:**
+- `shell/tabs/repos.ts`: „Repo ankündigen“ fragt immer „Wo“ – öffentlich (wie
+  bisher zuerst), **nur dieses Gerät** oder ein privater Raum, in dem ich Repos
+  pflege. Lokal wird nur gemerkt (`lokaleRepos.merke()`), ohne Rückfrage, und
+  nichts geht hinaus. Neue Versionen lokal über `ladeBundleHoch(…, lokal)`:
+  höchstens 32 MB (`BUNDLE_GRENZEN.bytes`), verschlüsselt abgelegt, vor jedem
+  Blob-Netz. Die lokalen Karten kommen nach `mitIssues()` in die Liste (nie
+  Issues eines öffentlichen Repos gleicher Kennung) und bleiben ohne Relays
+  sichtbar. Marke „nur dieses Gerät“.
+- `shell/tabs/repo-seite.ts`: Zeile „🔒 Nur auf diesem Gerät …“ mit „Vom Gerät
+  löschen“ (rot, nach Rückfrage); Reiter nur Code, Commits und Einstellungen;
+  Einstellungen speichern lokal, ohne Raum; „Bundle laden“ sichert das lokale
+  Bundle als `.bundle`-Datei.
+- `shell/tabs/code-reiter.ts` (Spur C, nur die Form): Code und Commits bekommen
+  eine `BundleQuelle` (`id`, `hole()`, Hinweis) statt der Netz-Referenz –
+  `netzQuelle()` für das Speichernetz, vom Gerät aus `quelleVon()`. Der Hinweis
+  über „Code laden“ sagt, woher das Bundle kommt.
+- Texte `repo.woLokal`, `repo.markeLokal`, `repo.imLokal`, `repo.lokal*`,
+  `repo.codeLadenLokal`, `repo.neueVersionTextLokal` in beiden Sprachen.
+
+**Tests:** +1 (`lokale-repos.test.ts`: Verdrahtung – „Wo“ mit dem Gerät, lokal vor
+jedem Senden und mit `return`, vor dem Blob-Netz mit Grenze, nach `mitIssues()`,
+ohne Relays sichtbar, Reiter, Einstellungen lokal ohne Raum). Angepasst, weil sie
+die alte Form wörtlich lasen: `git-bundle.test.ts` (Code und Commits über die
+Quelle), `repo-karten.test.ts` (Bundle laden über die Quelle),
+`repo-einstellungen.test.ts`, `raum-repos-privat.test.ts` (`hochladen` mit
+`lokal`, kein Raum für lokale Repos), `issues-ansicht.test.ts` (Reiter Issues nur im
+Netz), `raum-repos-ui.test.ts` („Wo“ immer, aus dem Raum nie). Smoke „raum“
+(Desktop): „nurhier“ über „Wo“ angelegt, Bundle abgelegt, README gelesen, in der
+Datenbank nur Chiffrat, gelöscht – dabei kein Event 30617, 38040–38042.
+
+**Verdrahtet:** `packages/app/src/shell/tabs/repos.ts` – `kuendigeAn()` →
+`lokaleRepos.merke()`, `ladeBundleHoch()` → `lokaleRepos.legeBundleAb()`,
+`ladeJetzt()` → `lokaleRepos.karten()`; `packages/app/src/shell/tabs/repo-seite.ts`
+– `quelleVon()` → `lokaleRepos.holeBundle()`, `lokalZeile()` →
+`lokaleRepos.entferne()`, `speichereEinstellungen()` → `lokaleRepos.merke()`.
+
+Endstand (B-2b, 01.10.): protocol 1140 (6 übersprungen) · node 271 (7
+übersprungen ohne Netz – mit Netz 272) · app 733 (+1) · mls 13 · Leak-Tests 68
+grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng
+Exit 0 · Website ok · Smoke-Test bestanden (mit der Prüfung „Repo nur auf
+diesem Gerät“). Knoten-Stand: unverändert.
+
+## Schritt B-2c – Repos nur auf diesem Gerät: Wechsel auf „öffentlich“
+
+Dritter Teil von B-2: der Wechsel aus S1 („später auf öffentlich“).
+
+**App (`shell/tabs/repos.ts`, `repo-seite.ts`):** „Veröffentlichen“ in der Zeile
+„🔒 Nur auf diesem Gerät“ ruft `veroeffentlicheLokal()`: nach Rückfrage – sie
+sagt, dass die Ankündigung signiert hinausgeht, das Bundle verschlüsselt ins
+Speichernetz (der Schlüssel steht öffentlich in der Referenz) und dass es sich
+nicht zurücknehmen lässt; gibt es schon ein öffentliches Repo gleicher Kennung,
+nennt sie, dass es ersetzt wird – geht die Ankündigung hinaus, dann das Bundle
+über `ladeBundleHoch()` wie jede neue Version. Erst wenn beides draußen ist,
+entfällt die Kopie auf dem Gerät (`lokaleRepos.entferne()`); scheitert etwas,
+bleibt sie, und ein zweiter Versuch ersetzt die Ankündigung. Danach steht die
+öffentliche Seite offen (mit Issues, Patches, Mitwirkenden). Texte
+`repo.lokalVeroeffentlich*` in beiden Sprachen.
+
+**Tests:** +1 (`lokale-repos.test.ts`: Reihenfolge Rückfrage → Ankündigung →
+Bundle → Kopie weg, scheitert das Bundle, bleibt die Kopie, ersetztes Repo in der
+Rückfrage, Knopf verdrahtet). Smoke „raum“ (Desktop): „nurhier“ samt Bundle
+veröffentlicht – 30617 und 38042 gehen hinaus, die Liste auf dem Gerät ist leer,
+die öffentliche Seite zeigt alle Reiter; gelöscht wird jetzt ein zweites lokales
+Repo „weg“ (ohne ein Event ans Relay).
+
+**Verdrahtet:** `packages/app/src/shell/tabs/repo-seite.ts` – `lokalZeile()` →
+`h.veroeffentlichen`; `packages/app/src/shell/tabs/repos.ts` – `zeige()` →
+`veroeffentlicheLokal()` → `publish()`, `ladeBundleHoch()`, `lokaleRepos.entferne()`.
+
+Endstand (B-2c, 01.10.): protocol 1140 (6 übersprungen) · node 271 (7
+übersprungen ohne Netz – mit Netz 272) · app 734 (+1) · mls 13 · Leak-Tests 68
+grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng
+Exit 0 · Website ok · Smoke-Test bestanden (mit „veröffentlichen“ und
+„löschen“). Knoten-Stand: unverändert.
+
+## Schritt B-8a – Knoten mit Besitzer koppeln: Protokoll
+
+Sammlung B-8, Entscheidung L1 (01.10., MENSCH): A – ein Kopplungsgeheimnis,
+als QR, im Tresor, nur im versiegelten Kern an den eigenen Knoten. KI-Anfragen
+kommen absichtlich von Wegwerf-Schlüsseln (3.1); ohne Kopplung behandelt der
+Knoten seinen Besitzer wie jeden Fremden. Aufgeteilt: a Protokoll (dieser
+Schritt), b Knoten, c App.
+
+**Protokoll (`kopplung.ts`):** Kopplungscode
+`freedom-kopplung:1:<knoten>:<geheimnis>` (`neueKopplung()` mit frischem
+Geheimnis aus 32 Byte, `kopplungscode()`, `leseKopplungscode()` streng – auch
+mit Leerraum aus dem Einfügen). Nachweis `["besitzer", HMAC-SHA256(geheimnis,
+„freedomstack-besitzer-v1:<pubkey des Kerns>:<created_at>“)]` über
+`mitBesitzerNachweis()` – nie das Geheimnis selbst, nur an den Knoten im
+`p`-Tag (sonst `ProtokollFehler` „kopplung-fremd“), ein vorhandener wird
+ersetzt. Prüfung `istBesitzer()`: genau ein Tag, Zeit höchstens 600 s von der
+Uhr des Knotens, Vergleich in fester Zeit, eines von mehreren Geheimnissen.
+Leak-Regel `besitzer-versiegelt`: offen nie. Format in `docs/PROTOCOL.md` 21;
+Fehlertexte `pf.kopplung*` in der App.
+
+**Tests:** protocol +4 (`kopplung.test.ts`: Code neu und streng gelesen;
+Nachweis gebunden an Geheimnis, Sitzung und Zeit, nur an den gekoppelten
+Knoten; Prüfung mit Fenster, falschem und neuem Geheimnis, veränderter Zeit,
+anderer Sitzung, doppelt, kein Hex; versiegelt kein Nachweis sichtbar, der
+Knoten liest ihn aus dem Umschlag, offen meldet ihn die Regel), die Prüfung
+aller Leak-Regeln kennt die neue.
+
+**Verdrahtet:** noch nicht – `neueKopplung` (Knoten, B-8b),
+`leseKopplungscode` und `mitBesitzerNachweis` (App, B-8c) stehen bis dahin in
+`scripts/wiring-ausnahmen.txt`.
+
+Endstand (B-8a, 01.10.): protocol 1144 (+4, 6 übersprungen) · node 271 (7
+übersprungen ohne Netz – mit Netz 272) · app 734 · mls 13 · Leak-Tests 68 grün
++ 1 todo · 0 rot · check-wiring `--streng` Exit 0 (drei Ausnahmen mit Verweis
+auf B-8b/B-8c) · innerHTML streng Exit 0 · Website ok · Smoke-Test bestanden.
+Knoten-Stand: unverändert.
+
 ## Schritt C-1e – Dialoge: der Rest
 
 Spur C, Sammlung C-1, Teil e: die letzten 10 Browser-Dialoge außerhalb von
