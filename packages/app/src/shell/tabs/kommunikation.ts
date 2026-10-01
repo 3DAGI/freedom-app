@@ -432,14 +432,16 @@ export function loadChatList(): void {
   void syncDmInbox();
   loadConversations();
   const list = $("#chat-list");
-  if (conversations.length === 0) {
+  // Nur Direktnachrichten – Communities stehen seit C-10 in der Raum-Leiste
+  const dms = conversations.filter((c) => c.type === "dm");
+  if (dms.length === 0) {
     const leer = el("div", t("komm.keineUnterhaltungen"), "mono-sm");
     leer.style.cssText = "padding:10px;color:var(--text-muted)";
     list.replaceChildren(leer);
     return;
   }
   // Namen kommen aus Profilen und Petnames – nur als Text (C-6c)
-  list.replaceChildren(...conversations
+  list.replaceChildren(...dms
     .sort((a, b) => b.lastTs - a.lastTs)
     .map((c) => {
       const zeile = el("div", undefined, c.id === activeConversation ? "chat-item active" : "chat-item");
@@ -1148,12 +1150,14 @@ export async function newDm(): Promise<void> {
   openConversation(id);
 }
 
-export function newCommunity(): void {
-  const name = prompt(t("komm.communityName"));
-  if (!name) return;
-  const id = "comm-" + Math.random().toString(36).slice(2, 10);
-  conversations.push({ id, type: "community", name: name.trim(), lastTs: 0 });
-  saveConversations();
-  loadChatList();
+/**
+ * Eine bestehende Community öffnen (C-10, Entscheidung E3 b): Neue gibt es
+ * nicht mehr – Gruppen sind offene oder private Räume. Bestehende stehen als
+ * „Community (offen)“ in der Raum-Leiste, nicht unter den Direktnachrichten;
+ * ihr Verlauf erscheint wie eine Unterhaltung.
+ */
+export function oeffneCommunity(id: string): void {
+  setzeKommModus("dm");
   openConversation(id);
+  document.querySelector(".comm-layout")?.classList.add("thread-open");
 }

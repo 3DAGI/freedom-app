@@ -24,7 +24,7 @@ import { antwortBezug, gruppiereVerlauf, kanalKennung } from "../../raum-verlauf
 import { gebietsschema, t } from "../../i18n.js";
 import { fehlerText, kanalVertraulichkeit } from "../../protokoll-texte.js";
 import { abrufTakt } from "../versand.js";
-import { conversations, setzeKommModus } from "./kommunikation.js";
+import { conversations, oeffneCommunity, setzeKommModus } from "./kommunikation.js";
 import type { RaumZiel, RepoKarte } from "../../repo-ansicht.js";
 import { switchTab } from "../app.js";
 import { beiReposGeladen, legeRepoImRaumAn, merkeRaumAdresse, oeffneRepo, reposVonRaum } from "./repos.js";
@@ -109,12 +109,23 @@ export async function zeigeRaumLeiste(): Promise<void> {
   const rail = $("#space-rail");
   if (!rail) return;
   const ids = meineRaeume();
-  if (ids.length === 0) {
-    rail.replaceChildren();
-    return;
-  }
+  // Bestehende Communities (C-10, E3 b): offen, in der Leiste neben den Räumen – neue gibt es nicht mehr
+  const communities = conversations.filter((c) => c.type === "community").map((c) => {
+    const b = document.createElement("button");
+    b.className = "space-pill";
+    b.dataset.community = c.id;
+    b.setAttribute("aria-current", "false");
+    b.title = t("komm.communityOffen", { name: c.name });
+    b.setAttribute("aria-label", b.title);
+    b.textContent = `🏠${c.name.slice(0, 1).toUpperCase()}`;
+    b.addEventListener("click", () => {
+      oeffneCommunity(c.id);
+      b.setAttribute("aria-current", "true");
+    });
+    return b;
+  });
   // Namen privater Räume kommen aus ihrer Definition (Fremddaten) – nur textContent
-  rail.replaceChildren(...ids.map((id) => {
+  rail.replaceChildren(...communities, ...ids.map((id) => {
     const name = istPrivat(id) ? privatNamen.get(id) ?? t("komm.privaterRaum") : kennungVon(id) ?? id;
     const b = document.createElement("button");
     b.className = "space-pill";

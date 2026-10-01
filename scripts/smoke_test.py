@@ -907,6 +907,8 @@ def fremdtext_pruefen(browser, url: str) -> dict:
     # C-6b: Settings und Sprachmenü – als DOM gebaut, Text und Verhalten wie vorher. Die Nachfolge liest
     # der Start, in einer eben angelegten Identität erst nach dem Neuladen
     ev("(p) => localStorage.setItem('freedom.petnames', JSON.stringify([[p[0], p[1]]]))", [probe["absender"], html("kontakt")])
+    # C-10: eine Community aus einer älteren Version – gemerkt wie bisher (ohne Tresor in localStorage)
+    ev("(n) => localStorage.setItem('freedom.chats', JSON.stringify([{ id: 'comm-probe', type: 'community', name: n, lastTs: 0 }]))", html("community"))
     seite.s.reload(wait_until="load")
     # C-6c: die Direktnachricht – erst nach dem Neuladen, der Posteingang wird höchstens je Minute abgeglichen
     ev("() => { location.hash = '#/chat'; }")
@@ -932,6 +934,19 @@ def fremdtext_pruefen(browser, url: str) -> dict:
         erg["fehler"].append(f"Verlauf {erg['chat']}")
     if not re.fullmatch(r"\d+/\d+", erg["relays"][1]) or erg["relays"][2] is not True:
         erg["fehler"].append(f"Relay-Stand {erg['relays']}")
+    # C-10: die Community steht in der Raum-Leiste, nicht unter den Direktnachrichten, und öffnet ihren Verlauf
+    pille = "#space-rail .space-pill[data-community='comm-probe']"
+    seite.s.wait_for_selector(pille, state="attached", timeout=10000)
+    vorher = ev(f"""() => [document.querySelector("{pille}").title, document.querySelector("{pille}").textContent,
+      !!document.querySelector("#chat-list [data-cid='comm-probe']")]""")
+    ev(f"""() => document.querySelector("{pille}").click()""")
+    seite.s.wait_for_timeout(300)
+    nachher = ev(f"""() => [document.querySelector("{pille}").getAttribute('aria-current'),
+      document.querySelector('#chat-thread .empty-state')?.textContent ?? '']""")
+    erg["community"] = [vorher, nachher]
+    if vorher != [f"Community (offen): {html('community')}", "🏠<", False] or nachher[0] != "true" \
+            or not nachher[1].startswith(html("community") + "Community (offen) –"):
+        erg["fehler"].append(f"Community {erg['community']}")
     ev("() => { location.hash = '#/settings'; }")
     seite.s.wait_for_function("() => document.querySelector('#device-list span') && document.querySelector('#succession-status span')", timeout=30000)
     erg["settings"] = ev("() => [document.querySelector('#device-list span').textContent.split('.')[0],"

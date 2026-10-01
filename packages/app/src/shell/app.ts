@@ -69,7 +69,6 @@ import {
   handleChatFiles,
   loadChatList,
   loadChatMessages,
-  newCommunity,
   newDm,
   sendChatMessage,
   setzeAblauf,
@@ -925,7 +924,6 @@ function starte(): void {
   $("#dep-refund").onclick = refundDeposit;
   $("#kanal-start").onclick = () => void oeffneZahlkanal();
   $("#chat-new-dm").onclick = () => void newDm();
-  $("#chat-new-community").onclick = newCommunity;
   setupAttach();
   setupToolChips();
   setupModelPicker();

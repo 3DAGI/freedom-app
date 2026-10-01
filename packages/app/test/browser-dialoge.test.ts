@@ -23,12 +23,11 @@ function dateien(dir: string): string[] {
 }
 
 /**
- * Wo es noch Browser-Dialoge gibt (Datei → Zahl): `newCommunity()` fällt mit
- * C-10 ganz weg, `agent.ts` zieht nach B-9 nach (Spur B arbeitet dort).
+ * Wo es noch Browser-Dialoge gibt (Datei → Zahl): seit C-10 (ohne
+ * `newCommunity()`) nur `agent.ts` – zieht nach B-9 nach (Spur B arbeitet dort).
  */
 const NOCH_OFFEN: Record<string, number> = {
   "shell/tabs/agent.ts": 5,
-  "shell/tabs/kommunikation.ts": 1,
 };
 
 test("C-1: Browser-Dialoge nur noch, wo sie noch nicht umgestellt sind – keine neuen", () => {
@@ -101,9 +100,9 @@ test("C-1b: Modelle und Kataloge – Dialoge statt prompt(), unbrauchbare Eingab
 test("C-1b: Kommunikation – Name, neue Unterhaltung und Ausgeblendetes über Dialoge; veröffentlicht nur mit Häkchen", () => {
   const k = readFileSync(join(SRC, "shell/tabs/kommunikation.ts"), "utf8");
   const ohne = ohneKommentare(k);
-  // Übrig ist nur newCommunity() – mit C-10 fällt das Anlegen von Communities ganz weg
-  assert.deepEqual(ohne.match(BROWSER_DIALOG), ["prompt("]);
-  assert.match(ohne.slice(ohne.indexOf("export function newCommunity(")), /prompt\(t\("komm\.communityName"\)\)/);
+  // Seit C-10 kein Browser-Dialog mehr – das Anlegen von Communities (prompt) fiel ganz weg
+  assert.equal(ohne.match(BROWSER_DIALOG), null);
+  assert.doesNotMatch(k, /function newCommunity\(/);
   assert.match(k, /import \{ dialog, hinweis \} from "\.\.\/dialog\.js";/);
   // Eigener Name: der Name als Feld, Veröffentlichen als Häkchen (vorher war „OK“ im confirm() das Veröffentlichen)
   const name = k.slice(k.indexOf("async function benenneKontakt("), k.indexOf("function dmHinweis("));
@@ -115,7 +114,7 @@ test("C-1b: Kommunikation – Name, neue Unterhaltung und Ausgeblendetes über D
   // Ausgeblendetes nur als Text im Dialog
   assert.match(k, /if \(ev\) void hinweis\(t\("komm\.ausgeblendetTitel"\), ev\.content\);/);
   // Neue Unterhaltung: npub (auch „nostr:npub…“ aus QR-Codes) oder Hex, geprüft im Dialog, scannen auf Klick
-  const dm = k.slice(k.indexOf("export async function newDm("), k.indexOf("export function newCommunity("));
+  const dm = k.slice(k.indexOf("export async function newDm("), k.indexOf("export function oeffneCommunity("));
   assert.match(dm, /const schluessel = \(roh: unknown\): string => schluesselAusEingabe\(roh, decodeNpub\);/);
   assert.match(dm, /name: "schluessel", label: t\("komm\.kontaktSchluessel"\), pflicht: true, mono: true, scannen: true/);
   assert.match(dm, /const id = w \? schluessel\(w\.schluessel\) : "";\s*if \(!id\) return;/);
