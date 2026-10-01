@@ -9,7 +9,7 @@ import { readFileSync } from "node:fs";
 import {
   KIND_ISSUE, baueIssue, baueIssueStatus, baueKommentar, baueRepoAnkuendigung, generateKeypair, leseRepoAnkuendigung, signEvent, type NostrEvent,
 } from "@freedomstack/protocol";
-import { issueFilterVon, issueZeilen, mitIssues, privateRaumKarten, repoKarten } from "../src/repo-ansicht.js";
+import { filtereIssues, issueFilterVon, issueLabels, issueZeilen, mitIssues, privateRaumKarten, repoKarten } from "../src/repo-ansicht.js";
 
 const eigentuemer = generateKeypair();
 const maintainer = generateKeypair();
@@ -100,4 +100,33 @@ test("Verdrahtung (C-17b2, C-17c): kommentieren und Status – öffentlich signi
   const seite = lies("shell/tabs/repo-seite.ts");
   assert.match(seite, /wurzel: \{ id: offen\.patch\.id, autor: offen\.patch\.autor, kind: KIND_PATCH \}, kommentare: k\.patchKommentare\?\.\[offen\.patch\.id\] \?\? \[\]/);
   assert.match(lies("shell/tabs/patch-seite.ts"), /teile\.push\(\.\.\.bloecke, \.\.\.\(p\.unten \?\? \[\]\)\);/, "die Vorschau hat keine Diskussion");
+});
+
+test("C-20e: Labels – Auswahl mit Zahl (häufigste zuerst), Filter nach Status und Label", () => {
+  const mit = (betreff: string, labels: string[], zeit: number) =>
+    s(baueIssue({ repo: { eigentuemer: eigentuemer.pk, id: "app" }, betreff, text: "t", labels }, autorin.pk), autorin, zeit);
+  const a = mit("A", ["bug", "ui"], 200);
+  const b = mit("B", ["bug"], 210);
+  const c = mit("C", ["doku"], 220);
+  const d = mit("D", [], 230);
+  const zu = s(baueIssueStatus({ issue: { id: b.id, autor: autorin.pk, repoAdresse: repo.adresse }, status: "erledigt", eigentuemer: eigentuemer.pk }, eigentuemer.pk), eigentuemer, 300);
+  const zeilen = issueZeilen(repo, [a, b, c, d], [zu], [], autorin.pk);
+  assert.deepEqual(issueLabels(zeilen), [{ label: "bug", n: 2 }, { label: "doku", n: 1 }, { label: "ui", n: 1 }], "häufigste zuerst, sonst nach Namen");
+  const namen = (x: typeof zeilen) => x.map((z) => z.issue.betreff);
+  assert.deepEqual(namen(filtereIssues(zeilen, "offen", null)), ["D", "C", "A"]);
+  assert.deepEqual(namen(filtereIssues(zeilen, "offen", "bug")), ["A"]);
+  assert.deepEqual(namen(filtereIssues(zeilen, "geschlossen", "bug")), ["B"], "geschlossen zählt mit dem Label");
+  assert.deepEqual(namen(filtereIssues(zeilen, "offen", "gibt-es-nicht")), []);
+  assert.deepEqual(issueLabels([]), []);
+});
+
+test("Verdrahtung (C-20e): Label-Filter im Reiter – Auswahl, Labels als Knöpfe, nur im Speicher", () => {
+  const reiter = lies("shell/tabs/issues-reiter.ts");
+  assert.match(reiter, /const gezeigt = filtereIssues\(zeilen, f, letztesLabel\);/);
+  assert.match(reiter, /n: filtereIssues\(zeilen, f, letztesLabel\)\.length/, "die Zahlen folgen dem Label");
+  assert.match(reiter, /if \(letztesLabel && !vorhanden\.some\(\(x\) => x\.label === letztesLabel\)\) letztesLabel = null;/, "ein Label aus einem anderen Repo gilt nicht");
+  assert.match(reiter, /rechts\.append\(\.\.\.labels\(z, neu\), statusMarke\(z\)\);/);
+  assert.match(reiter, /"muted"\), \.\.\.labels\(z, neu\)\);/, "auch auf der Seite des Issues");
+  assert.match(reiter, /letztesLabel = null;\n\};/, "vergissIssue vergisst das Label");
+  assert.doesNotMatch(reiter, /innerHTML|location|history\.|localStorage/);
 });

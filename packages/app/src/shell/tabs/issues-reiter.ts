@@ -10,7 +10,7 @@
 import { gebietsschema, t } from "../../i18n.js";
 import { fehlerText } from "../../protokoll-texte.js";
 import { KIND_ISSUE, type IssueStatus } from "@freedomstack/protocol";
-import { type IssueFilter, type IssueZeile, type RepoKarte, issueFilterVon } from "../../repo-ansicht.js";
+import { type IssueFilter, type IssueZeile, type RepoKarte, filtereIssues, issueLabels } from "../../repo-ansicht.js";
 import { dialog } from "../dialog.js";
 import { markdownDom } from "../markdown-ui.js";
 import { sendeInRaum } from "../raum-repos.js";
@@ -21,9 +21,12 @@ import { diskussion } from "./diskussion.js";
 /** Offenes Issue und gewählter Filter – nur im Speicher. */
 let offenesIssue: string | null = null;
 let letzterFilter: IssueFilter = "offen";
+/** Gewähltes Label (C-20e) – nur im Speicher. */
+let letztesLabel: string | null = null;
 export const vergissIssue = (): void => {
   offenesIssue = null;
   letzterFilter = "offen";
+  letztesLabel = null;
 };
 
 const ISSUE_STATUS_TEXT = { offen: "repo.issueOffen", erledigt: "repo.issueErledigt", geschlossen: "repo.issueGeschlossen" } as const;
@@ -48,8 +51,18 @@ function statusMarke(z: IssueZeile): HTMLElement {
   return el("span", t(ISSUE_STATUS_TEXT[z.status]), `repo-status issue-status-${z.status}`); // kein UI-Text
 }
 
-function labels(z: IssueZeile): HTMLElement[] {
-  return z.issue.labels.map((l) => el("span", l, "msg-role issue-label"));
+/** Labels als Knöpfe (C-20e): ein Klick zeigt die Liste mit genau diesem Label – wie bei GitHub. */
+function labels(z: IssueZeile, neu: () => void): HTMLElement[] {
+  return z.issue.labels.map((l) => {
+    const b = knopf(l, "msg-role issue-label issue-label-knopf", () => {
+      letztesLabel = l;
+      offenesIssue = null;
+      neu();
+      document.getElementById("issue-label-wahl")?.focus();
+    });
+    b.setAttribute("aria-label", t("repo.labelZeigen", { label: l }));
+    return b;
+  });
 }
 
 /**
@@ -59,7 +72,7 @@ function labels(z: IssueZeile): HTMLElement[] {
 export function issuesReiter(k: RepoKarte, name: (pk: string) => string, neu: () => void, neuLaden: () => Promise<void>): HTMLElement[] {
   const zeilen = k.issues ?? [];
   const offen = zeilen.find((z) => z.issue.id === offenesIssue);
-  if (offen) return issueSeite(offen, k, name, neuLaden, () => {
+  if (offen) return issueSeite(offen, k, name, neuLaden, neu, () => {
     offenesIssue = null;
     neu();
     document.querySelector<HTMLElement>(`[data-issue="${CSS.escape(offen.issue.id)}"]`)?.focus();
@@ -69,17 +82,40 @@ export function issuesReiter(k: RepoKarte, name: (pk: string) => string, neu: ()
   if (k.repo && state.keypair) teile.push(knopf(t("repo.neuesIssue"), "ghost mini issue-neu", () => void neuesIssue(k, neuLaden)));
   const liste = el("div", undefined, "repo-patches issue-liste");
   const filter = el("div", undefined, "repo-filter");
+  // Label-Filter (C-20e): nur Labels, die es hier gibt; die Zahlen offen/geschlossen folgen ihm
+  const vorhanden = issueLabels(zeilen);
+  if (letztesLabel && !vorhanden.some((x) => x.label === letztesLabel)) letztesLabel = null;
   const zeige = (f: IssueFilter) => {
     letzterFilter = f;
-    filter.querySelectorAll("button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.filter === f)));
-    const gezeigt = zeilen.filter((z) => issueFilterVon(z.status) === f);
+    filter.querySelectorAll<HTMLButtonElement>("button[data-filter]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.filter === f)));
+    const gezeigt = filtereIssues(zeilen, f, letztesLabel);
     liste.replaceChildren(...(gezeigt.length ? gezeigt.map((z) => issueZeile(z, name, neu)) : [el("p", t("repo.keineIssues"), "mono-sm muted")]));
   };
   for (const f of ["offen", "geschlossen"] as const) {
-    const b = knopf(t("repo.filterZahl", { status: t(f === "offen" ? "repo.issueOffen" : "repo.issueGeschlossen"), n: zeilen.filter((z) => issueFilterVon(z.status) === f).length }),
+    const b = knopf(t("repo.filterZahl", { status: t(f === "offen" ? "repo.issueOffen" : "repo.issueGeschlossen"), n: filtereIssues(zeilen, f, letztesLabel).length }),
       "ghost mini repo-knopf", () => zeige(f));
     b.dataset.filter = f;
     filter.append(b);
+  }
+  if (vorhanden.length) {
+    const wahl = el("select", undefined, "issue-label-wahl");
+    wahl.id = "issue-label-wahl";
+    wahl.setAttribute("aria-label", t("repo.labelFilter"));
+    const alle = el("option", t("repo.alleLabels"));
+    alle.value = "";
+    wahl.append(alle);
+    for (const x of vorhanden) {
+      const o = el("option", t("repo.labelZahl", { label: x.label, n: x.n }));
+      o.value = x.label;
+      o.selected = x.label === letztesLabel;
+      wahl.append(o);
+    }
+    wahl.addEventListener("change", () => {
+      letztesLabel = wahl.value || null;
+      neu();
+      document.getElementById("issue-label-wahl")?.focus();
+    });
+    filter.append(wahl);
   }
   teile.push(filter, liste);
   zeige(letzterFilter);
@@ -99,7 +135,7 @@ function issueZeile(z: IssueZeile, name: (pk: string) => string, neu: () => void
   if (z.kommentare.length) meta.append(el("span", ` · ${t("repo.kommentareZahl", { n: z.kommentare.length })}`));
   links.append(titel, meta);
   const rechts = el("div", undefined, "repo-patch-status");
-  rechts.append(...labels(z), statusMarke(z));
+  rechts.append(...labels(z, neu), statusMarke(z));
   zeile.append(links, rechts);
   return zeile;
 }
@@ -109,11 +145,11 @@ function issueZeile(z: IssueZeile, name: (pk: string) => string, neu: () => void
  * (Autorin, Eigentümer, Maintainer), schließt oder öffnet wieder (C-17b2);
  * darunter die Diskussion (`diskussion.ts`).
  */
-function issueSeite(z: IssueZeile, k: RepoKarte, name: (pk: string) => string, neuLaden: () => Promise<void>, zurueck: () => void): HTMLElement[] {
+function issueSeite(z: IssueZeile, k: RepoKarte, name: (pk: string) => string, neuLaden: () => Promise<void>, neu: () => void, zurueck: () => void): HTMLElement[] {
   const kopf = el("div", undefined, "issue-kopf");
   kopf.append(el("h3", z.issue.betreff, "patch-titel issue-titel"));
   const meta = el("p", undefined, "patch-meta mono-sm");
-  meta.append(statusMarke(z), el("span", ` ${t("repo.patchVon", { name: name(z.issue.autor), datum: datum(z.issue.zeit) })}`, "muted"), ...labels(z));
+  meta.append(statusMarke(z), el("span", ` ${t("repo.patchVon", { name: name(z.issue.autor), datum: datum(z.issue.zeit) })}`, "muted"), ...labels(z, neu));
   // Beschreibung als Markdown wie bei GitHub (C-20a), Zeilenumbrüche bleiben
   const text = z.issue.text.trim() ? markdownDom(z.issue.text, "issue-text", { umbrueche: true }) : el("div", t("repo.issueOhneText"), "issue-text muted");
   const teile: HTMLElement[] = [knopf(t("repo.alleIssues"), "ghost mini issue-zurueck", zurueck), kopf, meta, text];
