@@ -14,10 +14,14 @@
  * jedem Stueck merkt sich der Knoten das signierte Event ohne Inhalt
  * (`<blob>.<index>.json`), um es auf Abruf wieder zu veroeffentlichen
  * (`ereignis`) – der Inhalt kommt aus der .bin-Datei, die ID prueft beides.
+ *
+ * Seit B-9b: Stuecke, die der Besitzer halten laesst (`nimmAuf(ev, { halten })`),
+ * verdraengt die LRU nie; sie stehen in `gehalten.json` und zaehlen zur Quota –
+ * ist sie damit voll, nimmt der Knoten keine weiteren zum Halten an.
  */
 import { promises as fs } from "node:fs";
 import { join } from "node:path";
-import { computeEventId, pruefeSpeicherStueck, sha256, toHex, type NostrEvent } from "@freedomstack/protocol";
+import { computeEventId, getTag, pruefeSpeicherStueck, sha256, toHex, type NostrEvent } from "@freedomstack/protocol";
 
 export interface StorageConfig {
   /** Speicherort fuer Chunk-Dateien. */
@@ -41,6 +45,9 @@ export class StorageRole {
   private totalBytes = 0;
   /** blobId:idx -> sha256 (fuer Chunk-Fetch-Jobs). */
   private blobIndex = new Map<string, string>();
+  /** Vom Besitzer gehaltene Stuecke (sha256) – nie verdraengt (B-9b). */
+  private gehalten = new Set<string>();
+  private gehaltenBytes = 0;
 
   constructor(private cfg: StorageConfig) {}
 
@@ -67,6 +74,17 @@ export class StorageRole {
         } catch { /* zeile skip */ }
       }
     } catch { /* keine index-datei */ }
+    // gehaltene Stuecke (B-9b)
+    try {
+      const liste = JSON.parse(await fs.readFile(join(this.cfg.dir, "gehalten.json"), "utf8")) as unknown;
+      for (const h of Array.isArray(liste) ? liste : []) {
+        if (typeof h !== "string" || !/^[0-9a-f]{64}$/.test(h)) continue;
+        try {
+          this.gehaltenBytes += (await fs.stat(join(this.cfg.dir, `${h}.bin`))).size;
+          this.gehalten.add(h);
+        } catch { /* Datei fehlt – nicht mehr gehalten */ }
+      }
+    } catch { /* noch keine Datei */ }
   }
 
   /** Chunk speichern (dedup via sha256) + blob-index eintrag. */
@@ -101,15 +119,36 @@ export class StorageRole {
    * gekennzeichnet ist und die Pruefung besteht. Gibt den Grund der Ablehnung
    * zurueck (nie den Inhalt).
    */
-  async nimmAuf(ev: NostrEvent): Promise<{ ok: true } | { ok: false; grund: string }> {
+  async nimmAuf(ev: NostrEvent, opts: { halten?: boolean } = {}): Promise<{ ok: true } | { ok: false; grund: string }> {
     const r = pruefeSpeicherStueck(ev);
     if (!r.ok) return r;
+    const hash = getTag(ev, "sha256") ?? "";
+    if (opts.halten && !this.gehalten.has(hash) && this.cfg.quotaBytes > 0 && this.gehaltenBytes + r.bytes.length > this.cfg.quotaBytes) {
+      return { ok: false, grund: "Speicher voll" };
+    }
     await this.put(r.blobId, r.index, r.bytes);
+    if (opts.halten && !this.gehalten.has(hash)) {
+      this.gehalten.add(hash);
+      this.gehaltenBytes += r.bytes.length;
+      await this.sichereGehalten();
+    }
     const { content: _, ...ohneInhalt } = ev;
     try {
       await fs.writeFile(join(this.cfg.dir, `${r.blobId}.${r.index}.json`), JSON.stringify(ohneInhalt));
     } catch { /* ohne Event kein Wiederveroeffentlichen – das Stueck bleibt gehalten */ }
     return { ok: true };
+  }
+
+  /** Die Liste der gehaltenen Stuecke ablegen – erst eine neue Datei, dann umbenennen. */
+  private async sichereGehalten(): Promise<void> {
+    const datei = join(this.cfg.dir, "gehalten.json");
+    await fs.writeFile(`${datei}.tmp`, JSON.stringify([...this.gehalten]), { mode: 0o600 });
+    await fs.rename(`${datei}.tmp`, datei);
+  }
+
+  /** Haelt der Knoten dieses Stueck fuer den Besitzer (B-9b)? */
+  haelt(sha256Hex: string): boolean {
+    return this.gehalten.has(sha256Hex);
   }
 
   /** Das gespeicherte Stueck-Event wieder zusammensetzen (fuer Abruf-Auftraege); null, wenn nicht gehalten. */
@@ -183,7 +222,7 @@ export class StorageRole {
     let oldest: string | null = null;
     let oldestAt = Infinity;
     for (const [hash, at] of this.lastAccess) {
-      if (hash === excludeHash) continue;
+      if (hash === excludeHash || this.gehalten.has(hash)) continue; // gehaltene nie (B-9b)
       if (at < oldestAt) { oldestAt = at; oldest = hash; }
     }
     if (!oldest) return false;
@@ -199,7 +238,10 @@ export class StorageRole {
     }
   }
 
-  stats(): { chunks: number; totalBytes: number; quotaBytes: number; bootstrap: boolean } {
-    return { chunks: this.lastAccess.size, totalBytes: this.totalBytes, quotaBytes: this.cfg.quotaBytes, bootstrap: this.cfg.bootstrapSeeder };
+  stats(): { chunks: number; totalBytes: number; quotaBytes: number; bootstrap: boolean; gehalten: number; gehaltenBytes: number } {
+    return {
+      chunks: this.lastAccess.size, totalBytes: this.totalBytes, quotaBytes: this.cfg.quotaBytes, bootstrap: this.cfg.bootstrapSeeder,
+      gehalten: this.gehalten.size, gehaltenBytes: this.gehaltenBytes,
+    };
   }
 }

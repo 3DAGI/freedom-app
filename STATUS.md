@@ -13861,3 +13861,56 @@ Repo-Liste zweimal, wenn der erste Raum öffentlich war (`wireNip34()` und
 jetzt, dass `wireNip34()` gar nicht lädt. Smoke „raum“: beigetreten kein
 Knopf; ohne Eintrag in der Leiste führt „Zum Raum“ in den Raum, der Knopf ist
 da, Beitreten nimmt ihn genau einmal wieder auf.
+
+## Schritt B-9b1 – Halten beim eigenen Knoten: Protokoll und Knoten
+
+Sammlung B-9 (Lokal 13.5), Entscheidung L4 A (MENSCH 01.10.: „Ja zu allen
+Empfehlungen“ – L4, L5, L6, W2, T2 jeweils A, eingetragen in der Sammlung).
+Bisher holte die Speicher-Rolle verschlüsselte Stücke nur aus dem Strom der
+Relays und verdrängte sie nach LRU; einen Besitzer kannte sie nicht.
+
+**Protokoll** (`blob.ts`, `kinds.ts`, `docs/PROTOCOL.md` §23):
+- Kind 5076 (`KIND_DVM_BLOB_HALTEN`), Antwort 6076.
+- `baueHalteAuftrag()`: DVM-Kern mit Blob-Id (`i`), Manifest-Id
+  (`param manifest`) und Besitzer-Nachweis (`mitBesitzerNachweis()`, B-8),
+  versiegelt vom Sitzungsschlüssel an den gekoppelten Knoten.
+- `halteManifest()`: Manifest streng lesen – `parseBlobManifest()` prüft
+  nichts. Nur genau dieser Blob, nur verschlüsselt, stimmige Erasure-Angaben,
+  jede Kennung 64 Hex-Zeichen; `noetig` = Daten-Stücke über alle Gruppen.
+- `leseHalteAntwort()` / `halteAntwortText()`: Antwort in fester Form.
+
+**Knoten:**
+- `dvm-provider.ts` – `handleBlobHalten()`: nur aus einem Umschlag und mit
+  Nachweis (`istBesitzer()`), sonst „Halten nur für den Besitzer“. Genau das
+  genannte Manifest (ein fremdes mit derselben Blob-Id zählt nicht), nur
+  Stücke von dessen Autor mit den Hashes daraus, aufgenommen über `nimmAuf()`
+  (nur Verschlüsseltes, 8.9a). Antwort versiegelt.
+- `storage-role.ts` – `nimmAuf(ev, { halten: true })`: gehaltene Stücke
+  stehen in `gehalten.json` (0600, je Hash einmal), die LRU verdrängt sie nie;
+  sie zählen zur Quota – darüber „Speicher voll“. Nach einem Neustart wieder
+  gelesen; abgerufen werden sie wie alle über 5075.
+- `docs/PROVIDER.md`: ein Absatz unter „Mit dem Besitzer koppeln“.
+
+**Fund:** Leere Füllstücke eines Blobs haben alle denselben Hash; die
+Ablage hält jeden Hash einmal. Gezählt wird in der Antwort je Stück (Index),
+in `gehalten.json` je Hash.
+
+**Tests:** protocol +3 (`blob-halten.test.ts`: versiegelt, Kern mit Blob,
+Manifest und Nachweis, offen steht nichts davon; ungültige Kennungen gehen
+nicht hinaus; `halteManifest()` mit allen Negativfällen; Antwort nur in fester
+Form), node +4 (`blob-halten.test.ts`: der Besitzer lässt halten – alle
+Stücke, versiegelte Antwort, nach dem Neustart noch da; die LRU verdrängt
+gehaltene nie, andere schon; ohne Nachweis, offen, mit fremdem Geheimnis oder
+fremdem Manifest gleicher Blob-Id hält der Knoten nichts, kein Stück des
+Angreifers; unverschlüsselt nie, über die Quota nie).
+
+**Verdrahtet:** `packages/node/src/dvm-provider.ts` – `handleJob()` →
+`handleBlobHalten()` → `halteManifest()`, `StorageRole.nimmAuf(…, { halten })`,
+`halteAntwortText()`. `baueHalteAuftrag()` und `leseHalteAntwort()` stehen bis
+B-9b2 in `scripts/wiring-ausnahmen.txt`.
+
+Endstand (B-9b1, 01.10.): protocol 1151 (+3, 6 übersprungen) · node 284 (+4, 7
+übersprungen ohne Netz – mit Netz 285) · app 772 · mls 13 · Leak-Tests 69 grün
++ 1 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 ·
+Website ok · Smoke-Test bestanden. Knoten-Stand: für das Halten nötig (B-9b1,
+mit `STORAGE_ENABLED=1`); KI-Anfragen unberührt.
