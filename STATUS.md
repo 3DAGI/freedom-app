@@ -12996,3 +12996,9 @@ Repo „weg“ (ohne ein Event ans Relay).
 **Verdrahtet:** `packages/app/src/shell/tabs/repo-seite.ts` – `lokalZeile()` →
 `h.veroeffentlichen`; `packages/app/src/shell/tabs/repos.ts` – `zeige()` →
 `veroeffentlicheLokal()` → `publish()`, `ladeBundleHoch()`, `lokaleRepos.entferne()`.
+
+Endstand (B-2c, 01.10.): protocol 1140 (6 übersprungen) · node 271 (7
+übersprungen ohne Netz – mit Netz 272) · app 734 (+1) · mls 13 · Leak-Tests 68
+grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng
+Exit 0 · Website ok · Smoke-Test bestanden (mit „veröffentlichen“ und
+„löschen“). Knoten-Stand: unverändert.
