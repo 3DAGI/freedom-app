@@ -12,10 +12,10 @@ import { verschluesseleMitPassphrase } from "../src/vault.js";
 
 const PASS = "richtig-langes-passwort";
 const lokal: Record<string, string> = {
-  "freedom.chats": JSON.stringify([{ id: "a".repeat(64), name: "Alice" }]),
-  "freedom.petnames": JSON.stringify({ ["b".repeat(64)]: "Bob" }),
+  "freedom.chats": JSON.stringify([{ id: "a".repeat(64), name: "Alice Muster" }]),
+  "freedom.petnames": JSON.stringify({ ["b".repeat(64)]: "Bob Beispiel" }),
   "freedom.lang": "de",
-  "freedom.agentHistory": JSON.stringify([{ id: "1", title: "Frage" }]),
+  "freedom.agentHistory": JSON.stringify([{ id: "1", title: "Frage zum Wetter" }]),
   "freedom.quittungen": JSON.stringify([{ provider: "c".repeat(64) }]),
   "freedom.kontakte.geprueft": JSON.stringify({ ["b".repeat(64)]: 1_800_000_000 }),
   // nie in den Export:
@@ -48,7 +48,8 @@ test("B-6: hin und zurück – gleiche Daten, Zeit und Kennung in der Hülle, ke
   assert.equal(huelle.art, EXPORT_ART);
   assert.equal(huelle.v, 1);
   assert.equal(huelle.zeit, 1_800_000_000);
-  for (const w of ["Alice", "Bob", "Frage"]) assert.ok(!datei.includes(w), `kein Klartext: ${w}`);
+  // mit Leerzeichen: „Bob“ allein steht in ~0,3 % der Läufe zufällig im Base64-Chiffrat (so in C-1e gesehen, wie B-8b beim MLS-Test)
+  for (const w of ["Alice Muster", "Bob Beispiel", "Frage zum Wetter"]) assert.ok(!datei.includes(w), `kein Klartext: ${w}`);
   const zurueck = await leseExport(datei, PASS);
   assert.deepEqual(zurueck, { daten, zeit: 1_800_000_000 });
 });

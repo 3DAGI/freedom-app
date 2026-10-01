@@ -13128,3 +13128,11 @@ Dialog; Notfall-Hinweis vor dem Start). `NOCH_OFFEN` nur noch `agent.ts` (5)
 und `kommunikation.ts` (1). Smoke „einstellungen“ erweitert: „Anmelden per
 Bunker (NIP-46)“ fragt vor dem Wechsel; „Abzeichen vergeben“ mit Name,
 Empfänger, Zweck – „npub1falsch“ meldet „Kein gültiger Pubkey dabei“.
+
+**Nebenbei (Spur B, Test):** Im vollen Lauf nach dem Einmergen von B-8b war
+„B-6: hin und zurück … kein Klartext“ (`datenexport.test.ts`) einmal rot. Der
+Test suchte „Alice“, „Bob“ und „Frage“ in der Datei – das Chiffrat ist Base64
+(rund 900 Zeichen), und „Bob“ stand bei 400 nachgezählten Läufen einmal
+zufällig darin, der Klartext nie. Wie B-8b beim MLS-Test: Die Probe-Daten
+tragen jetzt Namen mit Leerzeichen („Alice Muster“, „Bob Beispiel“, „Frage zum
+Wetter“), gesucht wird danach – ein Leerzeichen kommt in Base64 nicht vor.
