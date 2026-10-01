@@ -1731,6 +1731,12 @@ def raum_pruefen(browser, url: str) -> dict:
             except Exception:
                 pass
             kanaele = ev("() => [...document.querySelectorAll('#channel-list .channel-item')].map(b => b.textContent.trim())")
+            # Lesestand (C-14): als Objekt je Kanal (ohne Tresor über geheim in localStorage) – nie mehr als Liste von Paaren
+            lesestand = ev("() => localStorage.getItem('freedom.lastRead')")
+            stand = json.loads(lesestand or "null")
+            erg["desktop"]["lesestand"] = stand
+            if not isinstance(stand, dict) or not stand or not all(isinstance(v, int) and v > 0 for v in stand.values()):
+                erg["fehler"].append(f"desktop: Lesestand {lesestand!r}")
             # Seit B-20b als Kanal-Event (34703) an die Adresse des Raums, nicht mehr als neue Definition
             definitionen = [e for e in relay.gesendet if e.get("kind") == 34700]
             kanal_events = list({e["id"]: e for e in relay.gesendet if e.get("kind") == 34703}.values())  # je Relay-Verbindung einmal gesendet
