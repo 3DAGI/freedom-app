@@ -13615,3 +13615,10 @@ Verdrahtung in `main.ts` und Installer).
 **Verdrahtet:** `packages/node/src/main.ts` – `appAusUmgebung()` → `ladeApp()`
 → `new RelayRole({ …, app })`; `relay-role.ts` – `beantworte()` →
 `istAppPfad()` → `liefereApp()` → `appKopfzeilen()`.
+
+Endstand (B-10a, 01.10.): protocol 1147 (6 übersprungen) · node 280 (+5, 7
+übersprungen ohne Netz – mit Netz 281) · app 756 · mls 13 · Leak-Tests 69 grün
++ 1 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 ·
+Website ok · Smoke-Test bestanden · im Browser: die echte `freedom.html` vom
+Relay unter `http://knoten.test:<port>/` startet. Knoten-Stand: nur für die
+App vom Knoten nötig (`APP_SHA256`), KI-Anfragen unberührt.
