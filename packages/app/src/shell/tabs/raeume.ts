@@ -7,13 +7,13 @@
  * Dialoge (`shell/dialog.ts`) statt `prompt()`, `confirm()` und `alert()`.
  */
 import {
-  MELDE_GRUENDE, RAUM_REPO_RECHT, applyModeration, can as darf, gruenderZurKennung, leseRaumAdresse, raumAdresse, raumModeration, raumZustandFuer, type Channel, type ChannelMessage, type MeldeGrund, type Space, type SpaceState, type ThreadView,
+  MELDE_GRUENDE, RAUM_REPO_RECHT, applyModeration, can as darf, darfKanalAendern, gruenderZurKennung, leseRaumAdresse, raumAdresse, raumModeration, raumZustandFuer, type Channel, type ChannelMessage, type MeldeGrund, type Space, type SpaceState, type ThreadView,
 } from "@freedomstack/protocol";
 import { escapeHtml, pkShort, schluesselAusEingabe } from "../../shell-logic.js";
 import { ensurePool, signiere, state } from "../state.js";
 import { mlsAbgleichen, mlsGesperrt } from "../mls-konto.js";
 import {
-  PRIVAT, type PrivaterRaum, einladungsText, entferneAusRaum, gruppeVon, istPrivat, ladeInPrivatenRaum, ladePrivatenRaum, legePrivatenKanalAn, legePrivatenRaumAn, loescheImRaum, meldeImRaum, meldungErledigt, meldungenFuer, privateRaeume, sendePrivat, setzeModeratoren, wennMeldung,
+  PRIVAT, type PrivaterRaum, aenderePrivatenKanal, einladungsText, entferneAusRaum, gruppeVon, istPrivat, ladeInPrivatenRaum, ladePrivatenRaum, legePrivatenKanalAn, legePrivatenRaumAn, loescheImRaum, meldeImRaum, meldungErledigt, meldungenFuer, privateRaeume, sendePrivat, setzeModeratoren, wennMeldung,
 } from "../raum-mls.js";
 import { $, toast } from "../ui.js";
 import { bestaetige, dialog, hinweis, type Option } from "../dialog.js";
@@ -221,6 +221,7 @@ function zeigeRaumArt(spaceId: string): void {
   document.getElementById("space-invite")?.classList.toggle("hidden", !privat || !moderator);
   document.getElementById("space-mods")?.classList.toggle("hidden", !verwalten);
   document.getElementById("space-kanal-neu")?.classList.toggle("hidden", !kanaele);
+  document.getElementById("space-kanal-aendern")?.classList.toggle("hidden", !kanaele);
   const repos = darfRepos();
   document.getElementById("space-repo-neu")?.classList.toggle("hidden", !repos);
   document.querySelector("#space-menue .menue-trenner")?.classList.toggle("hidden", !verwalten && !kanaele && !repos);
@@ -328,6 +329,72 @@ async function legeKanalAn(): Promise<void> {
   if (!ok) return;
   await oeffneRaum(spacesUi.spaceId);
   await oeffneKanal(kanal.id);
+}
+
+/**
+ * Den offenen Kanal ändern oder entfernen (B-20c): Name und wer schreiben darf,
+ * Entfernen nach Rückfrage. Privat eine neue Definition in die Gruppe, offen
+ * ein Kanal-Event (`baueRaumKanal()`/`baueKanalEntfernung()`) – vorher
+ * `darfKanalAendern()`, damit nichts hinausgeht, das niemand zählt.
+ */
+async function aendereKanal(): Promise<void> {
+  const st = spacesUi.state as SpaceState | null;
+  const raum = spacesUi.privat;
+  if (!st?.space || !state.keypair || !spacesUi.spaceId) return;
+  const kanal = st.space.channels.find((c) => c.id === spacesUi.channelId);
+  if (!kanal) {
+    toast(t("raum.kanalErstOeffnen"));
+    return;
+  }
+  const ziel = raumZiel();
+  const offen = !raum && ziel && "adresse" in ziel ? ziel.adresse : null;
+  if (!raum && (!offen || !darfKanalAendern(state.keypair.pk, kanal, kanal, st))) {
+    toast(t("raum.kanalUeberDir"), true);
+    return;
+  }
+  const w = await dialog({
+    titel: t("raum.kanalAendernTitel", { name: kanal.name }), ok: t("dlg.speichern"),
+    felder: [
+      { art: "text", name: "name", label: t("raum.kanalName"), wert: kanal.name, pflicht: true },
+      { art: "mehrfach", name: "schreiben", label: t("raum.kanalSchreiben"), werte: kanal.writeRoles.includes("mod") ? ["mod"] : [], optionen: [{ wert: "mod", text: t("raum.nurModsSchreiben") }] },
+      { art: "mehrfach", name: "weg", label: t("raum.kanalEntfernen"), optionen: [{ wert: "ja", text: t("raum.kanalEntfernen") }] },
+    ],
+  });
+  if (!w) return;
+  const name = String(w.name ?? "").trim();
+  const entfernen = (w.weg as string[]).includes("ja");
+  if (!entfernen && !name) return;
+  if (entfernen && st.space.channels.length <= 1) {
+    toast(t("raum.kanalLetzter"), true);
+    return;
+  }
+  if (entfernen && !await bestaetige({ titel: t("raum.kanalEntfernen"), text: t("raum.kanalEntfernenText", { name: kanal.name }), ok: t("raum.kanalEntfernen"), gefahr: true })) return;
+  // Andere Schreibrollen bleiben, nur „nur Moderatoren“ schaltet um
+  const neu: Channel | null = entfernen ? null : {
+    ...kanal, name,
+    writeRoles: [...kanal.writeRoles.filter((r) => r !== "mod"), ...((w.schreiben as string[]).includes("mod") ? ["mod"] : [])],
+  };
+  let ok = false;
+  if (raum) ok = await aenderePrivatenKanal(raum, kanal.id, neu).catch(() => false);
+  else if (offen) {
+    if (!darfKanalAendern(state.keypair.pk, kanal, neu, st)) {
+      toast(t("raum.kanalUeberDir"), true);
+      return;
+    }
+    try {
+      const { baueKanalEntfernung, baueRaumKanal } = await import("@freedomstack/protocol");
+      await (await ensurePool()).publish(await signiere(neu ? baueRaumKanal(state.keypair.pk, offen, neu) : baueKanalEntfernung(state.keypair.pk, offen, kanal.id)));
+      ok = true;
+    } catch (e) {
+      toast(fehlerText(e), true);
+      return;
+    }
+  }
+  toast(ok ? t(neu ? "raum.kanalGeaendert" : "raum.kanalEntfernt", { name: neu?.name ?? kanal.name }) : t("komm.nichtGeaendert"), !ok);
+  if (!ok) return;
+  if (!neu) spacesUi.channelId = null;
+  await oeffneRaum(spacesUi.spaceId);
+  if (neu) await oeffneKanal(kanal.id);
 }
 
 /** Kanäle mit Ungelesenem. */
@@ -1112,6 +1179,7 @@ export async function wireSpacesTab(): Promise<void> {
   const mods = $("#space-mods");
   if (mods) mods.onclick = () => void ernenneModeratoren();
   document.getElementById("space-kanal-neu")?.addEventListener("click", () => void legeKanalAn());
+  document.getElementById("space-kanal-aendern")?.addEventListener("click", () => void aendereKanal());
   // Repos im Raum (11.4c): anlegen aus dem Menü, die Liste folgt jedem Laden der Repos
   document.getElementById("space-repo-neu")?.addEventListener("click", () => {
     const ziel = raumZiel();

@@ -420,6 +420,22 @@ export function leseRaumKanal(ev: NostrEvent): RaumKanal | null {
 }
 
 /**
+ * Darf diese Person den Kanal von `vorher` nach `nachher` bringen (anlegen:
+ * `vorher` leer, entfernen: `nachher` null)? Der Gründer immer; sonst nur mit
+ * „kanaele_verwalten“ und nur, wenn der Kanal vorher wie nachher nur
+ * Schreibrollen bis zum eigenen Rang nennt (B-20). Dieselbe Regel wie in
+ * `mitRaumKanaelen()` – die App fragt vorher, statt ein Event zu senden, das
+ * niemand zählt (B-20c).
+ */
+export function darfKanalAendern(pubkey: string, vorher: Channel | null | undefined, nachher: Channel | null, zustand: SpaceState): boolean {
+  if (pubkey === zustand.ownerPubkey) return true;
+  if (!can(pubkey, "kanaele_verwalten", zustand)) return false;
+  const rang = rangVon(pubkey, zustand);
+  const rolleRang = (r: string) => zustand.roles.get(r)?.rank ?? Number.POSITIVE_INFINITY;
+  return ![vorher, nachher].some((c) => c?.writeRoles.some((r) => rolleRang(r) > rang));
+}
+
+/**
  * Kanäle eines offenen Raums (B-20): zur Definition des Gründers kommen die
  * Kanal-Events (34703) an die Adresse des Raums. Je Kanal gilt die neueste
  * Aussage – die Definition sagt etwas über jeden Kanal, den sie nennt, zu
@@ -452,19 +468,11 @@ export function mitRaumKanaelen(
 
   const ignored = [...zustand.ignored];
   const stand = new Map<string, Channel | null>();
-  const rolleRang = (r: string) => zustand.roles.get(r)?.rank ?? Number.POSITIVE_INFINITY;
   for (const a of aussagen) {
     const vorher = stand.get(a.kanalId);
-    if (a.autor !== gruender) {
-      if (!can(a.autor, "kanaele_verwalten", zustand)) {
-        ignored.push({ by: a.autor, reason: "darf keine Kanäle verwalten" });
-        continue;
-      }
-      const rang = rangVon(a.autor, zustand);
-      if ([vorher, a.kanal].some((c) => c?.writeRoles.some((r) => rolleRang(r) > rang))) {
-        ignored.push({ by: a.autor, reason: "Kanal über eigenem Rang" });
-        continue;
-      }
+    if (a.autor !== gruender && !darfKanalAendern(a.autor, vorher, a.kanal, zustand)) {
+      ignored.push({ by: a.autor, reason: can(a.autor, "kanaele_verwalten", zustand) ? "Kanal über eigenem Rang" : "darf keine Kanäle verwalten" });
+      continue;
     }
     if (a.kanal && !vorher && !a.definition && [...stand.values()].filter(Boolean).length >= KANAL_GRENZEN.anzahl) {
       ignored.push({ by: a.autor, reason: "zu viele Kanäle" });

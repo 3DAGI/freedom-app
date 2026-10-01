@@ -900,6 +900,10 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   – nie eine neue Definition (34700) dafür. Moderatoren offener Räume sind die
   mit der Rolle „mod“ (34702, `MOD_RECHTE`), ernannt über
   `ernenneModeratoren()` – nie mehr die Liste 34550, sie zählt in Räumen nicht.
+  Ändern und entfernen (seit B-20c) nur über `aendereKanal()`: offen vorher
+  `darfKanalAendern()` (dieselbe Regel wie `mitRaumKanaelen()`), privat
+  `aenderePrivatenKanal()`; nie den letzten Kanal. Zwei Kanal-Events derselben
+  Sekunde entscheidet die Id – im Test eine Sekunde dazwischen.
 - **Umfragen und Termine nur in der Gruppe** (seit B-15a, `raum-planung.ts`):
   NIP-88 (1068/1018) und NIP-52 (31922/31923/31925) nur als innere Events
   privater Räume über `raumUmfrage()`, `raumStimme()`, `raumTermin()`,

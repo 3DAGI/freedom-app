@@ -164,7 +164,6 @@ sol-deposit.ts|buildSolDepositSettle|Abschluss eines SOL-Deposits, noch nicht an
 sol-deposit.ts|checkSolDeposit|Abschluss eines SOL-Deposits, noch nicht angebunden (Verdienen in SOL, 4.5)
 sol-deposit.ts|parseSolDepositSettle|Abschluss eines SOL-Deposits, noch nicht angebunden (Verdienen in SOL, 4.5)
 
-spaces.ts|baueKanalEntfernung|Kanäle offener Räume entfernen, in der App noch ohne Oberfläche – ändern und entfernen folgt mit B-20c
 spaces.ts|searchMessages|Suche in Raum-Nachrichten, ohne Oberfläche – die lokale Suche (8.13) deckt Direktnachrichten und Communities
 
 state-backup.ts|checkExpiry|Ablauf allgemein, ohne Oberfläche – Direktnachrichten laufen seit 2.5 über private-dm.ts (dmAbgelaufen)

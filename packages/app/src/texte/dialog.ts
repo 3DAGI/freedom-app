@@ -4,6 +4,7 @@ import type { Texte } from "../i18n.js";
 export const dialog: Texte = {
   "dlg.ok": { de: "OK", en: "OK" },
   "dlg.abbrechen": { de: "Abbrechen", en: "Cancel" },
+  "dlg.speichern": { de: "Speichern", en: "Save" },
   "dlg.schliessen": { de: "Schließen", en: "Close" },
   "dlg.kopieren": { de: "Kopieren", en: "Copy" },
   "dlg.kopiert": { de: "Kopiert", en: "Copied" },

@@ -7,7 +7,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
-  type Channel, type InneresEvent, type InneresSenden, baueRaumKanal, buildRoleGrant, buildRoles, buildSpace, can, generateKeypair,
+  type Channel, type InneresEvent, type InneresSenden, baueKanalEntfernung, baueRaumKanal, buildRoleGrant, buildRoles, buildSpace, can, generateKeypair,
   gruppenRaum, raumAdresse, raumDefinition, raumZustandFuer, signEvent,
 } from "@freedomstack/protocol";
 import { kanalKennung } from "../src/raum-verlauf.js";
@@ -131,4 +131,62 @@ test("B-20b: Moderatoren offener Räume über die Rolle „mod“ – nie mehr d
   const nachher = raumZustandFuer(adresse, [...raum, ...neu], T + 100)!;
   assert.ok(can(anna.pk, "moderieren", nachher) && can(anna.pk, "kanaele_verwalten", nachher));
   assert.ok(!can(bo.pk, "moderieren", nachher), "abgesetzt");
+});
+
+test("B-20c: Kanal ändern und entfernen – offen als Kanal-Event nach darfKanalAendern(), privat als neue Definition", () => {
+  const fn = raeume.slice(raeume.indexOf("async function aendereKanal("), raeume.indexOf("/** Kanäle mit Ungelesenem."));
+  // nur der offene Kanal; offen vorher geprüft – nichts hinaus, was niemand zählt
+  assert.match(fn, /const kanal = st\.space\.channels\.find\(\(c\) => c\.id === spacesUi\.channelId\);\s*if \(!kanal\) \{\s*toast\(t\("raum\.kanalErstOeffnen"\)\);/);
+  assert.match(fn, /if \(!raum && \(!offen \|\| !darfKanalAendern\(state\.keypair\.pk, kanal, kanal, st\)\)\) \{/);
+  assert.match(fn, /if \(!darfKanalAendern\(state\.keypair\.pk, kanal, neu, st\)\) \{\s*toast\(t\("raum\.kanalUeberDir"\), true\);\s*return;/, "auch die neue Fassung bis zum eigenen Rang");
+  assert.match(fn, /publish\(await signiere\(neu \? baueRaumKanal\(state\.keypair\.pk, offen, neu\) : baueKanalEntfernung\(state\.keypair\.pk, offen, kanal\.id\)\)\)/);
+  assert.match(fn, /if \(raum\) ok = await aenderePrivatenKanal\(raum, kanal\.id, neu\)/);
+  assert.doesNotMatch(fn, /buildSpace\(/, "offen nie eine neue Definition");
+  // entfernen nur nach Rückfrage, nie den letzten
+  assert.match(fn, /if \(entfernen && st\.space\.channels\.length <= 1\) \{\s*toast\(t\("raum\.kanalLetzter"\), true\);/);
+  assert.match(fn, /if \(entfernen && !await bestaetige\(\{ titel: t\("raum\.kanalEntfernen"\), text: t\("raum\.kanalEntfernenText", \{ name: kanal\.name \}\), ok: t\("raum\.kanalEntfernen"\), gefahr: true \}\)\) return;/);
+  // andere Schreibrollen bleiben
+  assert.match(fn, /writeRoles: \[\.\.\.kanal\.writeRoles\.filter\(\(r\) => r !== "mod"\), \.\.\.\(\(w\.schreiben as string\[\]\)\.includes\("mod"\) \? \["mod"\] : \[\]\)\],/);
+  // privat: nur Admins, eine neue Definition mit dem geänderten oder ohne den Kanal
+  const privat = raumMls.slice(raumMls.indexOf("export function aenderePrivatenKanal"), raumMls.indexOf("/** Moderatoren ernennen"));
+  assert.match(privat, /if \(!sp \|\| !raum\.admins\.includes\(raum\.ich\) \|\| !sp\.channels\.some\(\(c\) => c\.id === kanalId\)\) return Promise\.resolve\(false\);/);
+  assert.match(privat, /mlsSendeEvent\(raum\.gruppe, raumDefinition\(raum\.gruppe, \{ name: sp\.name, beschreibung: sp\.description, kanaele \}\)\)/);
+  // Menüpunkt nach denselben Rechten wie „Kanal anlegen“
+  assert.match(html, /<button id="space-kanal-aendern" class="menue-punkt hidden" role="menuitem" type="button" data-i18n="raum\.kanalAendern">/);
+  assert.match(raeume, /getElementById\("space-kanal-aendern"\)\?\.classList\.toggle\("hidden", !kanaele\);/);
+});
+
+test("B-20c: so gebaut, zählt es – privat ändert und entfernt nur ein Admin, offen nur bis zum eigenen Rang", () => {
+  const RAUM = "e".repeat(64);
+  const [ADMIN, ANNA] = ["1", "3"].map((c) => c.repeat(64)) as [string, string];
+  const alt: Channel[] = [
+    { id: "allgemein", name: "allgemein", privacy: "verschluesselt", writeRoles: [], position: 0 },
+    { id: "technik", name: "Technik", privacy: "verschluesselt", writeRoles: [], position: 1 },
+  ];
+  let n = 0;
+  const ev = (von: string, s: InneresSenden): InneresEvent =>
+    ({ id: (++n).toString(16).padStart(64, "0"), von, art: s.art, tags: s.tags, text: s.text, zeit: 1000 + n });
+  const basis = ev(ADMIN, raumDefinition(RAUM, { name: "Werkstatt", kanaele: alt }));
+  // wie aenderePrivatenKanal(): umbenennen, dann entfernen
+  const umbenannt = ev(ADMIN, raumDefinition(RAUM, { name: "Werkstatt", kanaele: alt.map((c) => (c.id === "technik" ? { ...c, name: "Bastelecke", writeRoles: ["mod"] } : c)) }));
+  const p = { admins: [ADMIN], mitglieder: [ADMIN, ANNA] };
+  assert.deepEqual(gruppenRaum(RAUM, [basis, umbenannt], p).zustand.space?.channels.map((c) => [c.id, c.name, c.writeRoles]), [["allgemein", "allgemein", []], ["technik", "Bastelecke", ["mod"]]]);
+  const entfernt = ev(ADMIN, raumDefinition(RAUM, { name: "Werkstatt", kanaele: alt.filter((c) => c.id !== "technik") }));
+  assert.deepEqual(gruppenRaum(RAUM, [basis, umbenannt, entfernt], p).zustand.space?.channels.map((c) => c.id), ["allgemein"]);
+  const vonAnna = ev(ANNA, raumDefinition(RAUM, { name: "Werkstatt", kanaele: [] }));
+  assert.deepEqual(gruppenRaum(RAUM, [basis, vonAnna], p).zustand.space?.channels.map((c) => c.id), ["allgemein", "technik"], "ein Mitglied entfernt nichts");
+  // offen: der Moderator benennt um und entfernt, was bis zu seinem Rang reicht
+  const [ich, mod] = [generateKeypair(), generateKeypair()];
+  const T = 1_790_000_000;
+  const adresse = raumAdresse(ich.pk, "werkstatt");
+  const offen: Channel[] = [{ id: "allgemein", name: "allgemein", privacy: "offen", writeRoles: [], position: 0 }, { id: "technik", name: "Technik", privacy: "offen", writeRoles: [], position: 1 }];
+  const raum = [
+    signEvent(buildSpace({ spaceId: "werkstatt", name: "Werkstatt", ownerPubkey: ich.pk, channels: offen }, T), ich.sk),
+    signEvent(buildRoles("werkstatt", ich.pk, [{ id: "mod", name: "Moderator", rank: 50, permissions: ["kanaele_verwalten"] }], T), ich.sk),
+    signEvent(buildRoleGrant("werkstatt", ich.pk, mod.pk, ["mod"], T + 1), ich.sk),
+  ];
+  const umbenanntOffen = signEvent(baueRaumKanal(mod.pk, adresse, { ...offen[1]!, name: "Bastelecke" }, T + 5), mod.sk);
+  assert.equal(raumZustandFuer(adresse, [...raum, umbenanntOffen], T + 100)!.space?.channels.find((c) => c.id === "technik")?.name, "Bastelecke");
+  const weg = signEvent(baueKanalEntfernung(mod.pk, adresse, "technik", T + 6), mod.sk);
+  assert.deepEqual(raumZustandFuer(adresse, [...raum, umbenanntOffen, weg], T + 100)!.space?.channels.map((c) => c.id), ["allgemein"]);
 });

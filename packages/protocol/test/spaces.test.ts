@@ -424,3 +424,33 @@ test("B-20: Kanäle von Berechtigten – neueste Aussage je Kanal, nur bis zum e
   const leer = buildSpaceState(S, []);
   assert.equal(mitRaumKanaelen(leer, ereignisse, jetzt), leer);
 });
+
+test("B-20c: darfKanalAendern – Gründer immer, sonst mit Recht und nur bis zum eigenen Rang; anlegen, ändern, entfernen", async () => {
+  const { darfKanalAendern } = await import("../src/spaces.js");
+  const rechte: Role[] = [
+    { id: "admin", name: "Admin", rank: 80, permissions: ["kanaele_verwalten"] },
+    { id: "mod", name: "Moderator", rank: 50, permissions: ["kanaele_verwalten"] },
+    { id: "mitglied", name: "Mitglied", rank: 10, permissions: ["lesen", "schreiben"] },
+  ];
+  const st = buildSpaceState(S, [raumEv(), signEvent(buildRoles(S, BESITZER.pk, rechte, NOW), BESITZER.sk),
+    grant(BESITZER, MOD.pk, ["mod"]), grant(BESITZER, MITGLIED.pk, ["mitglied"])]);
+  const offen: Channel = { id: "x", name: "x", privacy: "offen", writeRoles: [], position: 0 };
+  const nurMods: Channel = { ...offen, writeRoles: ["mod"] };
+  const nurAdmins: Channel = { ...offen, writeRoles: ["admin"] };
+  const unbekannt: Channel = { ...offen, writeRoles: ["gibt-es-nicht"] };
+  // Moderator: anlegen, umbenennen, Moderatoren-Kanal, entfernen – alles bis zum eigenen Rang
+  assert.ok(darfKanalAendern(MOD.pk, undefined, offen, st));
+  assert.ok(darfKanalAendern(MOD.pk, offen, { ...offen, name: "y" }, st));
+  assert.ok(darfKanalAendern(MOD.pk, offen, nurMods, st));
+  assert.ok(darfKanalAendern(MOD.pk, nurMods, null, st));
+  // über ihm nie: weder öffnen noch entfernen noch einschränken; unbekannte Rollen zählen als darüber
+  assert.ok(!darfKanalAendern(MOD.pk, nurAdmins, offen, st));
+  assert.ok(!darfKanalAendern(MOD.pk, nurAdmins, null, st));
+  assert.ok(!darfKanalAendern(MOD.pk, offen, nurAdmins, st));
+  assert.ok(!darfKanalAendern(MOD.pk, undefined, unbekannt, st));
+  // ohne Recht nie, der Gründer immer
+  assert.ok(!darfKanalAendern(MITGLIED.pk, undefined, offen, st));
+  assert.ok(!darfKanalAendern(FREMD.pk, offen, null, st));
+  assert.ok(darfKanalAendern(BESITZER.pk, nurAdmins, null, st));
+  assert.ok(darfKanalAendern(BESITZER.pk, undefined, unbekannt, st));
+});

@@ -13520,3 +13520,46 @@ Endstand (B-9a, 01.10.): protocol 1146 (6 übersprungen) · node 275 (7
 grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0
 · Website ok · Smoke-Test bestanden (mit „Mein Knoten“ im Teil „lokal“).
 Knoten-Stand: B-8b (GX10) – der Nachweis braucht ihn.
+
+## Schritt B-20c – Kanäle ändern und entfernen
+
+Dritter Teil von B-20 (Protokoll in B-20a, Anlegen in B-20b). Bisher ließen
+sich Kanäle in keiner Raumart ändern oder entfernen.
+
+**Protokoll (`spaces.ts`):** `darfKanalAendern(pk, vorher, nachher, zustand)` –
+der Gründer immer, sonst nur mit „kanaele_verwalten“ und nur, wenn der Kanal
+vorher wie nachher nur Schreibrollen bis zum eigenen Rang nennt. Dieselbe Regel
+wie in `mitRaumKanaelen()`, das sie jetzt nutzt (die Gründe in `ignored` bleiben).
+
+**App:**
+- Raum-Menü „Diesen Kanal ändern“ (`#space-kanal-aendern`, nach denselben
+  Rechten wie „Kanal anlegen“) → `aendereKanal()` für den offenen Kanal: Name,
+  „nur Moderatoren schreiben“ (andere Schreibrollen bleiben) und „Kanal
+  entfernen“ – Entfernen nach Rückfrage, nie den letzten Kanal.
+- Privat: `aenderePrivatenKanal()` (`raum-mls.ts`) – eine neue Definition in
+  die Gruppe, nur Admins, wie beim Anlegen.
+- Offen: vorher `darfKanalAendern()` für alte und neue Fassung, sonst geht
+  nichts hinaus („In diesen Kanal schreiben nur Höhere“); dann ein Kanal-Event
+  (`baueRaumKanal()` bzw. `baueKanalEntfernung()`) an die Adresse des Raums.
+- Texte `raum.kanalAendern*`, `raum.kanalEntfernen*`, `dlg.speichern`.
+- `scripts/wiring-ausnahmen.txt`: `baueKanalEntfernung` fällt weg (verdrahtet).
+
+**Grenze:** Kanal-Events sind ersetzbar je Autor und Kanal; zwei Fassungen
+derselben Sekunde entscheidet die Id (wie bei Definitionen). Wer schneller als
+einmal je Sekunde ändert, kann die vorige Fassung behalten – der Smoke-Test
+lässt deshalb eine Sekunde dazwischen.
+
+**Tests:** protocol +1 (`spaces.test.ts`: `darfKanalAendern()` – Moderator legt
+an, benennt um, schränkt auf Moderatoren ein und entfernt bis zum eigenen
+Rang; über ihm und mit unbekannter Rolle nie; ohne Recht nie, der Gründer
+immer), app +2 (`raum-kanal.test.ts`: Verdrahtung – nur der offene Kanal,
+offen vorher geprüft, kein `buildSpace`, nie den letzten, Rückfrage, andere
+Schreibrollen bleiben, privat nur Admins; so gebaut zählt es – privat ändert und
+entfernt nur ein Admin, offen benennt der Moderator um und entfernt). Smoke
+„eigener Raum“: „Technik & Co“ umbenannt in „Technik“, dann nach Rückfrage
+entfernt – je ein Kanal-Event (`channel` mit neuem Namen, `entfernt`), keine
+zweite Definition.
+
+**Verdrahtet:** `packages/app/src/shell/tabs/raeume.ts` – `wireSpacesTab()` →
+`aendereKanal()` → `darfKanalAendern()`, `baueRaumKanal()`,
+`baueKanalEntfernung()`, `aenderePrivatenKanal()`.

@@ -131,6 +131,17 @@ export function legePrivatenKanalAn(raum: PrivaterRaum, kanal: Channel): Promise
   return mlsSendeEvent(raum.gruppe, raumDefinition(raum.gruppe, { name: sp.name, beschreibung: sp.description, kanaele: [...sp.channels, kanal] }));
 }
 
+/**
+ * Kanal eines privaten Raums ändern oder entfernen (B-20c, `neu` null): eine
+ * neue Definition in die Gruppe, wie beim Anlegen – nur Moderatoren (Admins).
+ */
+export function aenderePrivatenKanal(raum: PrivaterRaum, kanalId: string, neu: Channel | null): Promise<boolean> {
+  const sp = raum.zustand.space;
+  if (!sp || !raum.admins.includes(raum.ich) || !sp.channels.some((c) => c.id === kanalId)) return Promise.resolve(false);
+  const kanaele = neu ? sp.channels.map((c) => (c.id === kanalId ? neu : c)) : sp.channels.filter((c) => c.id !== kanalId);
+  return mlsSendeEvent(raum.gruppe, raumDefinition(raum.gruppe, { name: sp.name, beschreibung: sp.description, kanaele }));
+}
+
 /** Moderatoren ernennen oder absetzen – die Admins der Gruppe, per Commit. Ich bleibe dabei. */
 export function setzeModeratoren(raum: PrivaterRaum, moderatoren: string[]): Promise<boolean> {
   const neu = [...new Set([raum.ich, ...moderatoren.filter((m) => raum.mitglieder.includes(m))])];
