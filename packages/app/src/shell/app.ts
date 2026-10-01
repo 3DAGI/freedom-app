@@ -824,7 +824,8 @@ function starte(): void {
       await navigator.clipboard.writeText(state.keypair.pk);
       toast(t("ein.pubkeyKopiert"));
     } catch {
-      prompt(t("ein.pubkey"), state.keypair.pk);
+      // Ohne Zwischenablage zum Markieren im Dialog (C-1e, statt prompt())
+      await dialog({ titel: t("ein.pubkeyTitel"), felder: [{ art: "nurlesen", name: "pk", label: t("ein.pubkey"), wert: state.keypair.pk }], ok: t("dlg.schliessen"), abbrechen: false });
     }
   });
   const ziele: Record<string, string> = { "1": "backup-now", "2": "rotation-prepare", "3": "succ-setup" };

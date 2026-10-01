@@ -16,6 +16,7 @@ import { fehlerText } from "../protokoll-texte.js";
 import { pkShort } from "../shell-logic.js";
 import { GRUND_TEXT, LS_PRUEFUNGEN_ERLEDIGT, erstattungFuer, leseErledigt, pruefauftragAus } from "../streitfall.js";
 import { alsGeraet, angebotVon, ensurePool, state } from "./state.js";
+import { dialog } from "./dialog.js";
 import { toast } from "./ui.js";
 
 const offen = new Map<string, Dispute & { id: string }>();
@@ -83,8 +84,14 @@ export function zeigePruefauftraege(): void {
 async function urteile(d: Dispute & { id: string }, ergebnis: Resolution): Promise<void> {
   const signer = state.signer;
   if (!signer || alsGeraet()) return;
-  const notiz = prompt(t("agent.begruendungFrage"));
-  if (notiz === null) return;
+  // Dialog statt prompt() (C-1e): die Begründung darf leer bleiben, Abbrechen sendet nichts
+  const w = await dialog({
+    titel: t("agent.urteilTitel"),
+    felder: [{ art: "textarea", name: "notiz", label: t("agent.begruendungFrage") }],
+    ok: t("agent.urteilSenden"),
+  });
+  if (!w) return;
+  const notiz = String(w.notiz ?? "");
   try {
     const { buildPrivateUrteil, buildResolution } = await import("@freedomstack/protocol");
     const urteil = buildResolution({

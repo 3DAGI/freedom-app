@@ -40,8 +40,11 @@ export const profil: Texte = {
   "profil.stilWellen": { de: "Wellen", en: "waves" },
   "profil.stilVerlauf": { de: "Verlauf", en: "gradient" },
   // tabs/profil.ts
-  "profil.abzeichenName": { de: "Name des Abzeichens:", en: "Badge name:" },
-  "profil.abzeichenAnWen": { de: "An wen? (Pubkeys, kommagetrennt)", en: "To whom? (pubkeys, comma-separated)" },
+  "profil.abzeichenTitel": { de: "Abzeichen vergeben", en: "Award a badge" },
+  "profil.abzeichenName": { de: "Name des Abzeichens", en: "Badge name" },
+  "profil.abzeichenKontakte": { de: "An Kontakte", en: "To contacts" },
+  "profil.abzeichenAnWen": { de: "An Schlüssel (npub oder hex), durch Komma oder je Zeile", en: "To keys (npub or hex), separated by commas or one per line" },
+  "profil.vergeben": { de: "Vergeben", en: "Award" },
   "profil.keinPubkey": { de: "Kein gültiger Pubkey dabei", en: "No valid pubkey included" },
   "profil.abzeichenWofuer": { de: "Wofür? (erscheint bei jedem Träger)", en: "What for? (shown with every holder)" },
   "profil.abzeichenVergeben": { de: "An {n} vergeben – wert so viel wie dein Ruf", en: "Awarded to {n} – worth as much as your reputation" },

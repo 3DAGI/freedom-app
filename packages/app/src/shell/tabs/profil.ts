@@ -6,9 +6,11 @@
 import { t } from "../../i18n.js";
 import { abzeichenHerkunft, abzeichenQuelle, aufgabeStand, aufgabeText, aufgabeTitel, bildWarnung, fehlerText, profilOffenlegung } from "../../protokoll-texte.js";
 import { lnOeffentlich, setzeLnOeffentlich } from "../../profil-lightning.js";
-import { escapeHtml, pkShort } from "../../shell-logic.js";
+import { escapeHtml, pkShort, schluesselAusEingabe } from "../../shell-logic.js";
+import { dialog, type Option } from "../dialog.js";
 import { ensurePool, signiere, state } from "../state.js";
 import { $, toast, zeigeIdent } from "../ui.js";
+import { conversations } from "./kommunikation.js";
 
 /**
  * Ein Abzeichen definieren und verleihen.
@@ -18,16 +20,28 @@ import { $, toast, zeigeIdent } from "../ui.js";
  */
 export async function vergebeAbzeichen(): Promise<void> {
   if (!state.keypair) return;
-  const name = prompt(t("profil.abzeichenName"));
-  if (!name?.trim()) return;
-  const empfaenger = prompt(t("profil.abzeichenAnWen"));
-  if (!empfaenger?.trim()) return;
-
-  const pks = empfaenger.split(",").map((x) => x.trim()).filter((x) => /^[0-9a-f]{64}$/.test(x));
-  if (pks.length === 0) {
-    toast(t("profil.keinPubkey"), true);
-    return;
-  }
+  // Seit C-1e wirklich ein Dialog: Name, Empfänger (Kontakte als Häkchen oder Schlüssel) und Zweck zusammen
+  const { decodeNpub } = await import("../../identity.js");
+  const kontakte = conversations.filter((c) => c.type === "dm" && /^[0-9a-f]{64}$/.test(c.id));
+  const empfaengerAus = (w: Record<string, string | string[]>): string[] => [...new Set([
+    ...(Array.isArray(w.kontakte) ? w.kontakte : []),
+    ...String(w.schluessel ?? "").split(/[\s,]+/).map((x) => schluesselAusEingabe(x, decodeNpub)),
+  ].filter((x) => /^[0-9a-f]{64}$/.test(x)))];
+  const w = await dialog({
+    titel: t("profil.abzeichenTitel"),
+    felder: [
+      { art: "text", name: "name", label: t("profil.abzeichenName"), pflicht: true },
+      ...(kontakte.length ? [{ art: "mehrfach" as const, name: "kontakte", label: t("profil.abzeichenKontakte"), optionen: kontakte.map((c): Option => ({ wert: c.id, text: c.name })) }] : []),
+      { art: "textarea", name: "schluessel", label: t("profil.abzeichenAnWen"), mono: true },
+      { art: "textarea", name: "wofuer", label: t("profil.abzeichenWofuer") },
+    ],
+    pruefe: (w) => (empfaengerAus(w).length ? null : t("profil.keinPubkey")),
+    ok: t("profil.vergeben"),
+  });
+  if (!w) return;
+  const name = String(w.name);
+  const pks = empfaengerAus(w);
+  if (!name.trim() || pks.length === 0) return;
 
   try {
     const { buildBadgeDefinition, buildBadgeAward } =
@@ -37,7 +51,7 @@ export async function vergebeAbzeichen(): Promise<void> {
 
     await pool.publish(await signiere(buildBadgeDefinition({
       id, name: name.trim(),
-      description: prompt(t("profil.abzeichenWofuer")) ?? "",
+      description: String(w.wofuer ?? ""),
       issuerPubkey: state.keypair.pk,
     })));
     await pool.publish(await signiere(buildBadgeAward(id, state.keypair.pk, pks)));
