@@ -10,7 +10,10 @@ export const earn: Texte = {
     en: "Put freedom.html on your own server, IPFS or Tor – more copies are harder to block. Put freedom-spiegel.json with your addresses next to it and you get 1% of every AI payment made through your copy.",
   },
   // Seite (8.16f)
-  "earn.untertitel": { de: "Rechenzeit, Speicher und Relays gegen Sats.", en: "Compute, storage and relays for sats." },
+  "earn.untertitel": { de: "Rechenzeit, Speicher und Relays gegen Sats oder SOL.", en: "Compute, storage and relays for sats or SOL." },
+  // Einnahmen je Kette (C-2): der Wert steht im Event in msat
+  "earn.betragSol": { de: "≈ {sol} (Wert {sats})", en: "≈ {sol} (worth {sats})" },
+  "earn.betragSolOhneKurs": { de: "SOL, Wert {sats} (kein Kurs)", en: "SOL, worth {sats} (no rate)" },
   "earn.tabHosten": { de: "Hosten", en: "Host" },
   "earn.tabKarte": { de: "Karte", en: "Map" },
   "earn.einnahmen": { de: "Einnahmen", en: "Earnings" },

@@ -32,6 +32,20 @@ export function ausLamports(lamports: number, kurs?: Pick<MarktKurs, "satsProSol
   return kurs ? `${solText(l)} ≈ ${satsText(lamportsZuMsat(l, kurs.satsProSol))}` : t("zahl.ohneKursSats", { betrag: solText(l) });
 }
 
+/**
+ * Eine Einnahme in der Einheit ihrer Kette (C-2): Lightning in sats, Solana in
+ * SOL. Das Leistungs-Event (38010) nennt den Wert nur in msat – SOL also nur
+ * umgerechnet mit dem Kurs von jetzt (≈); ohne Kurs keinen SOL-Betrag erfinden.
+ */
+export function einnahmeText(volumeMsat: unknown, kette: unknown, kurs?: Pick<MarktKurs, "satsProSol">): string {
+  const msat = typeof volumeMsat === "string" && /^\d{1,18}$/.test(volumeMsat) ? Number(volumeMsat) : NaN;
+  if (!Number.isSafeInteger(msat)) return "—";
+  if (kette !== "solana") return satsText(msat);
+  return kurs
+    ? t("earn.betragSol", { sol: solText(msatZuLamports(msat, kurs.satsProSol)), sats: satsText(msat) })
+    : t("earn.betragSolOhneKurs", { sats: satsText(msat) });
+}
+
 /** Kurszeile fuer die Anzeige: Kurs, Quellen, Warnungen. */
 export function kursZeile(kurs?: MarktKurs): { text: string; warnung: boolean } {
   if (!kurs) return { text: t("zahl.keinKurs"), warnung: true };

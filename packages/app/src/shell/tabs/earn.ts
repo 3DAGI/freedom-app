@@ -5,10 +5,12 @@
  *
  * Aus app.ts verschoben (Schritt 1.0) – wörtlich, ohne Logikänderung.
  */
-import { KIND_PERFORMANCE, loeseNip05, parseProfileSafe } from "@freedomstack/protocol";
+import { KIND_PERFORMANCE, type NostrEvent, loeseNip05, parseProfileSafe } from "@freedomstack/protocol";
 import { t } from "../../i18n.js";
 import { abdeckungEinwilligung, abdeckungHier, ebeneName, fehlerText, zellenStufe } from "../../protokoll-texte.js";
 import { escapeHtml, pkShort } from "../../shell-logic.js";
+import { einnahmeText } from "../../preis-anzeige.js";
+import { aktualisiereKurs, aktuellerKurs } from "../marktkurs.js";
 import { ensurePool, frageBeiAutoren, signiere, state } from "../state.js";
 import { geheim } from "../tresor.js";
 import { $, timeAgo, toast } from "../ui.js";
@@ -239,12 +241,15 @@ export async function loadEarnings(): Promise<void> {
       limit: 20,
     });
     const sorted = events.sort((a, b) => b.created_at - a.created_at);
+    const kette = (ev: NostrEvent) => ev.tags.find((x) => x[0] === "chain")?.[1];
+    // SOL-Einnahmen in SOL (C-2) – den Kurs nur holen, wenn es welche gibt
+    const kurs = sorted.some((ev) => kette(ev) === "solana") ? (aktuellerKurs() ?? await aktualisiereKurs().catch(() => undefined)) : undefined;
     box.innerHTML = sorted.length
       ? sorted
           .map((ev) => {
             const get = (n: string) => ev.tags.find((t) => t[0] === n)?.[1] ?? "—";
             return `<div class="stat"><span class="k">${escapeHtml(get("work_type"))} · ${escapeHtml(t("earn.einheiten", { n: get("units") }))}</span>
-              <span>${Math.floor(Number(get("volume_msat")) / 1000)} sats · ${timeAgo(ev.created_at)}</span></div>`;
+              <span>${escapeHtml(einnahmeText(get("volume_msat"), kette(ev), kurs))} · ${timeAgo(ev.created_at)}</span></div>`;
           })
           .join("")
       : `<div class='mono-sm'>${escapeHtml(t("earn.keineEinnahmen"))}</div>`;

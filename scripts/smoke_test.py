@@ -818,6 +818,30 @@ def einstellungen_pruefen(browser, url: str) -> dict:
     return erg
 
 
+def einnahmen_pruefen(browser, url: str) -> dict:
+    """Earn (C-2): Einnahmen in der Einheit ihrer Kette – Lightning in sats, Solana in SOL; ohne Kurs kein
+    erfundener SOL-Betrag. Leistungs-Events eines Probe-Knotens aus `scripts/einnahmen-probe.mts`."""
+    erg = {"fehler": []}
+    wurzel = Path(__file__).resolve().parent.parent
+    aus = subprocess.run(["npx", "tsx", "scripts/einnahmen-probe.mts"], cwd=wurzel, capture_output=True, text=True, timeout=180, check=True)
+    probe = json.loads(aus.stdout)
+    relay = ProbeRelay()
+    relay.events = probe["events"]
+    seite = DialogSeite(browser, url, relay, erg)
+    seite.ev("(k) => { localStorage.setItem('freedom.earn.knoten', k); location.hash = '#/verdienen'; }", probe["knoten"])
+    seite.s.wait_for_function("() => document.querySelectorAll('#earn-events .stat').length === 2", timeout=30000)
+    zeilen = seite.ev("() => [...document.querySelectorAll('#earn-events .stat span:last-child')].map(s => s.textContent.split(' · ')[0])")
+    erg["zeilen"] = zeilen
+    erg["untertitel"] = seite.ev("() => document.querySelector('[data-i18n=\"earn.untertitel\"]')?.textContent")
+    if zeilen != ["SOL, Wert 1.500 sats (kein Kurs)", "21 sats"]:
+        erg["fehler"].append(f"Einnahmen {zeilen}")
+    if erg["untertitel"] != "Rechenzeit, Speicher und Relays gegen Sats oder SOL.":
+        erg["fehler"].append(f"Untertitel {erg['untertitel']}")
+    seite.ctx.close()
+    erg["bestanden"] = not erg["fehler"]
+    return erg
+
+
 # Echtes Git-Bundle (v2, mit Deltas) für den Reiter „Code“ (seit C.3c1) – dasselbe wie im Test von git-bundle.ts
 PROBE_BUNDLE = (Path(__file__).resolve().parent.parent / "packages/app/test/fixtures/probe-v2.bundle").read_bytes()
 # Seit C-20b: README mit Tabelle und Verweisen (src/liste.txt, docs/ANLEITUNG.md, einer hinaus)
@@ -2574,6 +2598,10 @@ def main() -> int:
             except Exception as e:
                 erg["einstellungen"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
             try:
+                erg["einnahmen"] = einnahmen_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
+            except Exception as e:
+                erg["einnahmen"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
+            try:
                 erg["raum"] = raum_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
             except Exception as e:
                 erg["raum"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
@@ -2614,6 +2642,7 @@ def main() -> int:
           and erg.get("waehrung", {}).get("bestanden") is True
           and erg.get("kontakt", {}).get("bestanden") is True
           and erg.get("einstellungen", {}).get("bestanden") is True
+          and erg.get("einnahmen", {}).get("bestanden") is True
           and erg.get("raum", {}).get("bestanden") is True
           and erg.get("karte", {}).get("bestanden") is True
           and erg.get("qr", {}).get("bestanden") is True
