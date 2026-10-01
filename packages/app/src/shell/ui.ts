@@ -172,21 +172,25 @@ export function wireOfflineHinweis(): void {
 }
 
 /**
- * Relay-Stand in der Leiste und unter „Mehr“ (C.1a): wie viele Relays im Pool
- * sind – nicht, wie viele verbunden sind; das weiß die App nicht (E8). Der
- * Punkt leuchtet nur, solange der Browser Netz meldet.
+ * Relay-Stand in der Leiste und unter „Mehr“: seit C-16 wie viele Relays des
+ * Pools gerade verbunden sind (`WebSocketRelay.verbunden`, nur lesend) – vorher
+ * nur, wie viele im Pool stehen (C.1a, E8). Eine Verbindung entsteht erst beim
+ * ersten Gebrauch. Der Punkt leuchtet nur mit einer offenen Verbindung und
+ * solange der Browser Netz meldet.
  */
 export async function aktualisiereNavStatus(): Promise<void> {
   let n = 0;
+  let verbunden = 0;
   try {
     const r = (await ensurePool() as unknown as { relays?: unknown[] }).relays;
     n = Array.isArray(r) ? r.length : 0;
+    verbunden = Array.isArray(r) ? r.filter((x) => (x as { verbunden?: unknown }).verbunden === true).length : 0;
   } catch { /* kein Pool: 0 */ }
-  const satz = t("nav.relaysImPool", { n });
+  const satz = t("nav.relaysVerbunden", { verbunden, n });
   const text = document.getElementById("nav-status-text");
-  if (text) text.textContent = n > 0 ? String(n) : "—";
+  if (text) text.textContent = n > 0 ? `${verbunden}/${n}` : "—";
   text?.parentElement?.setAttribute("title", satz);
-  document.getElementById("nav-status-dot")?.classList.toggle("on", n > 0 && netzDa());
+  document.getElementById("nav-status-dot")?.classList.toggle("on", verbunden > 0 && netzDa());
   const mehr = document.getElementById("mehr-relays");
   if (mehr) mehr.textContent = satz;
 }

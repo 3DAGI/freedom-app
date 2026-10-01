@@ -67,13 +67,20 @@ test("C.1a: Desktop-Raster – Leiste links über die volle Höhe, Hinweise und 
   assert.match(raster, /#app > main \{ grid-column: 2;/);
 });
 
-test("C.1a: Relay-Stand ehrlich – „im Pool“, nie „verbunden“ (B5)", () => {
+test("C-16: Relay-Stand ehrlich – „verbunden“ nur aus dem Getter, nie die Zahl im Pool dafür ausgeben (B5, E8)", () => {
   for (const sprache of ["de", "en"] as const) {
     setLang(sprache);
-    assert.doesNotMatch(`${t("relaysTitle")} ${t("nav.relaysImPool", { n: 8 })}`, /verbunden|connected/i);
-    assert.match(t("nav.relaysImPool", { n: 8 }), /^8 /);
+    assert.match(t("nav.relaysVerbunden", { verbunden: 3, n: 8 }), /^3 .*8 /, "beide Zahlen");
   }
+  setLang("de");
+  assert.equal(t("nav.relaysVerbunden", { verbunden: 0, n: 8 }), "0 von 8 Relays verbunden");
   setLang("en");
+  const ui = readFileSync(new URL("../src/shell/ui.ts", import.meta.url), "utf8");
+  // Verbunden zählt nur, was der Relay selbst meldet (WebSocketRelay.verbunden, offene Leitung)
+  assert.match(ui, /verbunden = Array\.isArray\(r\) \? r\.filter\(\(x\) => \(x as \{ verbunden\?: unknown \}\)\.verbunden === true\)\.length : 0;/);
+  assert.match(ui, /classList\.toggle\("on", verbunden > 0 && netzDa\(\)\)/, "der Punkt leuchtet nur mit offener Verbindung");
+  const ws = readFileSync(new URL("../../protocol/src/ws-relay.ts", import.meta.url), "utf8");
+  assert.match(ws, /get verbunden\(\): boolean \{\s*return this\.ws !== null && this\.ws\.readyState === WebSocket\.OPEN;\s*\}/);
 });
 
 /** Inhalt eines Bereichs `#page-<name>` aus index.html. */

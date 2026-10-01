@@ -185,3 +185,17 @@ test("WebSocketRelay: OutboxPool-Kompatibilitaet (Multi-Relay)", async () => {
   assert.equal(report.accepted.length, 2, "beide Relays acken");
   wsRelay.close();
 });
+
+test("C-16: verbunden – erst nach dem ersten Gebrauch, nach close() nicht mehr; ein toter Relay nie", async () => {
+  const relay = new WebSocketRelay(`ws://127.0.0.1:${server.port}`);
+  assert.equal(relay.verbunden, false, "die Verbindung entsteht erst beim ersten Gebrauch");
+  await relay.query({ kinds: [1] });
+  assert.equal(relay.verbunden, true);
+  relay.close();
+  assert.equal(relay.verbunden, false);
+  // Ein Port ohne Relay: die Anfrage scheitert, verbunden bleibt falsch
+  const tot = new WebSocketRelay("ws://127.0.0.1:1", { timeoutMs: 1000 });
+  await assert.rejects(() => tot.query({ kinds: [1] }));
+  assert.equal(tot.verbunden, false);
+  tot.close();
+});
