@@ -1939,6 +1939,29 @@ def raum_pruefen(browser, url: str) -> dict:
             erg["fehler"].append(f"{groesse}: Repo-Seite aus dem Raum {auf_seite}")
         if zurueck_raum != {"hash": "#/chat", "raum": "Probe-Raum", "fokus": True, "sichtbar": True}:
             erg["fehler"].append(f"{groesse}: „Zum Raum“ {zurueck_raum}")
+        # C-15: beigetreten – kein „Diesem Raum beitreten“; ohne Eintrag in der Leiste führt „Zum Raum“ in den Raum,
+        # dort beitreten nimmt ihn wieder auf
+        if not mobil:
+            hier = "() => !document.getElementById('space-hier-beitreten').classList.contains('hidden')"
+            schon = ev(hier)
+            ev("() => localStorage.setItem('freedom.spaces', JSON.stringify(JSON.parse(localStorage.getItem('freedom.spaces') || '[]')"
+               ".filter(e => !e.endsWith('probe-raum'))))")
+            ev("() => document.querySelector('#raum-repos .raum-repo')?.click()")
+            s.wait_for_timeout(300)
+            ev("() => document.querySelector('#repo-seite .repo-zum-raum')?.click()")
+            try:
+                s.wait_for_function(hier, timeout=10000)
+            except Exception:
+                pass
+            nicht_beigetreten = [ev("() => document.getElementById('space-name').textContent"), ev(hier),
+                                 ev("() => !!document.querySelector('#space-rail .space-pill[data-space=\"probe-raum\"]')")]
+            ev("() => document.getElementById('space-hier-beitreten').click()")
+            s.wait_for_timeout(300)
+            wieder = [ev(hier), ev("() => !!document.querySelector('#space-rail .space-pill[data-space=\"probe-raum\"]')"),
+                      ev("() => JSON.parse(localStorage.getItem('freedom.spaces')).filter(e => e.endsWith('probe-raum')).length")]
+            erg[groesse]["beitreten"] = {"schon": schon, "nicht": nicht_beigetreten, "wieder": wieder}
+            if schon is not False or nicht_beigetreten != ["Probe-Raum", True, False] or wieder != [False, True, 1]:
+                erg["fehler"].append(f"{groesse}: hier beitreten {erg[groesse]['beitreten']}")
         # Repos (C.3a): eine Karte aus Ankündigung und Bundle, Suche, „Meine“, Repo-Seite, Patch annehmen per Dialog
         ev("() => { location.hash = '#/repos'; }")
         try:

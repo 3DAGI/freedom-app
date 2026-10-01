@@ -32,6 +32,8 @@ const STATUS_KINDS = [1630, 1631, 1632, 1633];
 let karten: RepoKarte[] = [];
 /** Wert für „Wo“: nur auf diesem Gerät (B-2) – Gruppen-Ids sind Hex, kein Zusammenstoß. */
 const LOKAL = "lokal"; // kein UI-Text
+/** Wahlwert eines öffentlichen Raums im „Wo“ (C-15) – davor die Adresse des Raums. */
+const OEFFENTLICH = "raum:"; // kein UI-Text
 /** Offenes Repo – nur im Speicher, nie in der Adresse (C.1a). */
 let offenesRepo: string | null = null;
 let nurMeine = false;
@@ -370,8 +372,10 @@ async function sendePatch(r: GelesenesRepo, text: string, gruppe?: string): Prom
  */
 async function kuendigeAn(imRaum?: RaumZiel & { name: string }): Promise<void> {
   if (!state.keypair) return;
-  // Wo (11.4b2): öffentlich, nur auf diesem Gerät (B-2) oder in einem privaten Raum, in dem ich Repos pflegen darf
+  // Wo (11.4b2): öffentlich, nur auf diesem Gerät (B-2) oder in einem Raum, in dem ich Repos pflegen darf –
+  // privat aus dem MLS-Verlauf, seit C-15 auch beigetretene öffentliche (Rechte aus ihrem Zustand)
   const raeume = privat.filter((p) => p.darfPflegen);
+  const oeffentlich = imRaum ? [] : await meineRepoRaeume().catch(() => []);
   const w = await dialog({
     titel: t("agent.repoAnkuendigen"), ok: t("agent.repoAnkuendigen"),
     felder: [
@@ -381,6 +385,7 @@ async function kuendigeAn(imRaum?: RaumZiel & { name: string }): Promise<void> {
       ...(!imRaum ? [{ art: "wahl" as const, name: "wo", label: t("repo.wo"), wert: "", optionen: [
         { wert: "", text: t("repo.woOeffentlich") }, { wert: LOKAL, text: t("repo.woLokal") },
         ...raeume.map((p) => ({ wert: p.gruppe, text: p.name || t("repo.privaterRaum") })),
+        ...oeffentlich.map((r) => ({ wert: OEFFENTLICH + r.adresse, text: t("repo.oeffentlicherRaum", { name: r.name }) })),
       ] }] : []),
     ],
   });
@@ -389,7 +394,8 @@ async function kuendigeAn(imRaum?: RaumZiel & { name: string }): Promise<void> {
   const klon = String(w.klon ?? "").split(",").map((k) => k.trim()).filter(Boolean);
   const beschreibung = String(w.beschreibung ?? "").trim();
   const gruppe = imRaum ? ("gruppe" in imRaum ? imRaum.gruppe : undefined) : raeume.find((p) => p.gruppe === w.wo)?.gruppe;
-  const raum = imRaum && "adresse" in imRaum ? imRaum.adresse : undefined;
+  const gewaehlt = imRaum ? undefined : oeffentlich.find((r) => OEFFENTLICH + r.adresse === w.wo);
+  const raum = imRaum && "adresse" in imRaum ? imRaum.adresse : gewaehlt?.adresse;
   try {
     const { baueRepoAnkuendigung, raumRepoAnkuendigung } = await import("@freedomstack/protocol");
     const angaben = { id, name: id, klon, ...(beschreibung ? { beschreibung } : {}), ...(raum ? { raum } : {}) };
@@ -402,7 +408,7 @@ async function kuendigeAn(imRaum?: RaumZiel & { name: string }): Promise<void> {
     }
     const ev = baueRepoAnkuendigung(angaben, state.keypair.pk);
     const frage = gruppe ? "repo.ankuendigenFrageRaum" : raum ? "repo.ankuendigenFrageOeffentlich" : "repo.ankuendigenFrage";
-    if (!await bestaetige({ titel: t("agent.repoAnkuendigen"), text: t(frage, { id, raum: imRaum?.name ?? "" }), ok: t("agent.repoAnkuendigen") })) return;
+    if (!await bestaetige({ titel: t("agent.repoAnkuendigen"), text: t(frage, { id, raum: imRaum?.name ?? gewaehlt?.name ?? "" }), ok: t("agent.repoAnkuendigen") })) return;
     if (gruppe) await sendeInRaum(gruppe, raumRepoAnkuendigung(gruppe, angaben));
     else await (await ensurePool()).publish(await signiere(ev));
     toast(t("repo.angekuendigt", { id }));
@@ -442,5 +448,6 @@ export function wireNip34(): void {
     });
     zeige();
   }));
-  void ladeNip34Repos();
+  // Geladen wird erst beim Öffnen der Seite Repos oder eines Raums (C-15) – beim Start lud die Liste
+  // sonst doppelt, wenn der erste Raum öffentlich ist (Start und merkeRaumAdresse)
 }

@@ -13832,3 +13832,32 @@ wandert hinein), neu laden und entsperren – dann gezählt, wie oft WebAssembly
 übersetzt wird: beim Start 0, nach dem Öffnen der Kommunikation 0, nach dem
 Antippen des privaten Raums 1; ebenso nach dem Öffnen der Seite Repos 1. Auf
 dem alten Stand meldete er beim Start 1.
+
+## Schritt C-15 – Raum-Repos, Rest aus 11.4c
+
+**Warum:** Drei Reste aus 11.4c (#195, Sammlung C-15): „Zum Raum“ öffnete
+auch einen öffentlichen Raum, dem man nicht beigetreten ist, ohne dort einen
+Weg zum Beitreten; „Wo“ beim Ankündigen bot nur private Räume an (öffentliche
+mit `repos_pflegen` erst in den Einstellungen eines Repos); beim Start lud die
+Repo-Liste zweimal, wenn der erste Raum öffentlich war (`wireNip34()` und
+`merkeRaumAdresse()`).
+
+**Was:**
+- `raeume.ts`: Knopf „Diesem Raum beitreten“ (`#space-hier-beitreten`) – nur
+  in offenen Räumen, die nicht in der Leiste stehen (`beigetreten()`: dieselbe
+  Adresse oder eine bloße Kennung von vor B-7); er tritt über denselben Weg bei
+  wie das Menü (`raumBeitreten()`, B-7) und zeichnet die Leiste neu.
+- `repos.ts`: „Wo“ bietet zusätzlich beigetretene öffentliche Räume, in denen
+  ich Repos pflegen darf (`meineRepoRaeume()`, wie in den Einstellungen); die
+  Adresse wird zum Verweis (`raum`), die Rückfrage nennt den Raum.
+- `repos.ts`: `wireNip34()` lädt nicht mehr beim Start – die Seite Repos
+  (`ladeNip34Repos({ privat: true })`) und Räume (`merkeRaumAdresse()`) laden.
+  Weniger Abfragen beim Start, keine doppelte.
+
+**Verdrahtet:** `zeigeRaumArt()`/`wireSpacesTab()` (`shell/tabs/raeume.ts`),
+`kuendigeAn()` (Knopf „Ankündigen“ auf der Seite Repos).
+
+**Tests:** app +3 in `test/raum-repos-rest.test.ts`; der Test zu C-11 prüft
+jetzt, dass `wireNip34()` gar nicht lädt. Smoke „raum“: beigetreten kein
+Knopf; ohne Eintrag in der Leiste führt „Zum Raum“ in den Raum, der Knopf ist
+da, Beitreten nimmt ihn genau einmal wieder auf.

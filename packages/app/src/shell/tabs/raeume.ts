@@ -99,6 +99,15 @@ function meineRaeume(): string[] {
 /** Namen privater Räume aus ihrer Definition – nur im Speicher. */
 const privatNamen = new Map<string, string>();
 
+/**
+ * Ist ein offener Raum beigetreten, steht er also in der Leiste? Dieselbe Adresse – oder eine bloße
+ * Kennung von vor B-7, die noch an keinen Gründer gebunden ist.
+ */
+function beigetreten(spaceId: string): boolean {
+  const k = kennungVon(spaceId);
+  return oeffentlicheRaeume().some((e) => e === spaceId || (!istAdresse(e) && kennungVon(e) === k));
+}
+
 /** Beitreten (B-7): Adresse oder – wie bisher – Kennung; `null`, wenn es keins von beiden ist. */
 function raumBeitreten(eingabe: string): string | null {
   return beitreten(localStorage, eingabe);
@@ -237,6 +246,8 @@ async function oeffneRaum(spaceId: string): Promise<void> {
 function zeigeRaumArt(spaceId: string): void {
   const privat = istPrivat(spaceId);
   document.getElementById("space-oeffentlich")?.classList.toggle("hidden", privat);
+  // Über „Zum Raum“ geöffnet, aber nicht beigetreten (C-15): hier beitreten statt über das Menü
+  document.getElementById("space-hier-beitreten")?.classList.toggle("hidden", privat || beigetreten(spaceId));
   const moderator = !!spacesUi.privat && spacesUi.privat.admins.includes(spacesUi.privat.ich);
   const gruender = !privat && !!state.keypair && (spacesUi.state as { ownerPubkey?: string } | null)?.ownerPubkey === state.keypair.pk;
   const verwalten = privat ? moderator : gruender;
@@ -1158,6 +1169,12 @@ export async function wireSpacesTab(): Promise<void> {
   // Private Räume (2.3b): solange einer offen und sichtbar ist, im Abruftakt abgleichen (6.4: etwa 30 s, mit Zufall)
   abrufTakt.melde("raum", () => {
     if (spacesUi.privat && spacesUi.spaceId && !document.hidden && document.getElementById("channel-thread")?.offsetParent) void oeffneRaum(spacesUi.spaceId);
+  });
+  document.getElementById("space-hier-beitreten")?.addEventListener("click", () => {
+    const id = spacesUi.spaceId;
+    if (!id || istPrivat(id) || !raumBeitreten(id)) return;
+    zeigeRaumArt(id);
+    void zeigeRaumLeiste();
   });
   const join = $("#space-join");
   if (join) join.onclick = async () => {

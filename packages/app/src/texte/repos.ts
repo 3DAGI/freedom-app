@@ -72,6 +72,7 @@ export const repos: Texte = {
   "repo.wo": { de: "Wo", en: "Where" },
   "repo.woOeffentlich": { de: "öffentlich – jeder liest mit", en: "public – anyone can read" },
   "repo.privaterRaum": { de: "privater Raum", en: "private room" },
+  "repo.oeffentlicherRaum": { de: "{name} (öffentlicher Raum)", en: "{name} (public room)" },
   "repo.nichtInRaum": { de: "Nicht in den Raum gesendet – der private Raum ist gerade nicht erreichbar. Nichts ging offen hinaus.", en: "Not sent to the room – the private room is not reachable right now. Nothing went out in the open." },
   "repo.statusImRaum": { de: "Nur im privaten Raum – verschlüsselt (MLS), nur Mitglieder sehen es.", en: "Only in the private room – encrypted (MLS), only members see it." },
   "repo.speichernFrageRaum": { de: "Die neue Ankündigung ersetzt die bisherige – nur im privaten Raum, verschlüsselt (MLS).", en: "The new announcement replaces the previous one – only in the private room, encrypted (MLS)." },
