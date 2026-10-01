@@ -45,9 +45,9 @@ bash packages/mls/bauen.sh --pruefen                     # nur bei Änderungen a
 bash contracts/solana-channel/pruefen.sh --werkzeuge     # nur bei Änderungen am Zahlkanal: bauen + Tests gegen Validator (Agave 3.1.10)
 ```
 
-Stand 01.10.2026 (nach 8.2c, 5.5a–c, 8.15, 11.1a, C.3c2, 11.1b, 5.9a–b, 6.3a–b2, 11.4a–b2, C.4a–b, C.5a–b, C.6b, 11.4c, C-18, C-17a–c, C-20a–f, C-1a–e, C-2, C-3, C-4, C-6a–b, 11.2a–b, A-4 bis A-7, B-1, B-2a–c, B-3 bis B-7, B-8a–c, B-15, B-19 und B-20a): protocol 1146 grün (6 übersprungen), node 276 grün
+Stand 01.10.2026 (nach 8.2c, 5.5a–c, 8.15, 11.1a, C.3c2, 11.1b, 5.9a–b, 6.3a–b2, 11.4a–b2, C.4a–b, C.5a–b, C.6b, 11.4c, C-18, C-17a–c, C-20a–f, C-1a–e, C-2, C-3, C-4, C-6a–b, 11.2a–b, A-4 bis A-7, B-1, B-2a–c, B-3 bis B-7, B-8a–c, B-15, B-19 und B-20a–b): protocol 1146 grün (6 übersprungen), node 276 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 749 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 69 grün + 1 `todo` (heutige Lecks,
+in `tools.test.ts`), app 750 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 69 grün + 1 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
 Ausnahme: gesendete SOL-Zahlungen von frischen Adressen, eine bewusste Grenze
 nach Entscheidung 4.9 A – im Datenschutzbericht unter „Bewusste Grenzen“).
@@ -895,7 +895,11 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   die neueste Aussage, von anderen als dem Gründer nur mit
   „kanaele_verwalten“ (heutiger Stand) und nur für Kanäle bis zum eigenen
   Rang, nichts aus der Zukunft (`KANAL_GRENZEN`). Kanäle im offenen Raum sind
-  immer „offen“ – nie „verschlüsselt“ versprechen.
+  immer „offen“ – nie „verschlüsselt“ versprechen. In der App (seit B-20b)
+  „Kanal anlegen“ offen nur mit `darfKanaele()` und nur über `baueRaumKanal()`
+  – nie eine neue Definition (34700) dafür. Moderatoren offener Räume sind die
+  mit der Rolle „mod“ (34702, `MOD_RECHTE`), ernannt über
+  `ernenneModeratoren()` – nie mehr die Liste 34550, sie zählt in Räumen nicht.
 - **Umfragen und Termine nur in der Gruppe** (seit B-15a, `raum-planung.ts`):
   NIP-88 (1068/1018) und NIP-52 (31922/31923/31925) nur als innere Events
   privater Räume über `raumUmfrage()`, `raumStimme()`, `raumTermin()`,

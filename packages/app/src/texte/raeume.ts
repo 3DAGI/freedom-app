@@ -57,6 +57,7 @@ export const raeume: Texte = {
   "raum.kanalName": { de: "Name des Kanals", en: "Channel name" },
   "raum.kanalSchreiben": { de: "Wer schreiben darf", en: "Who may write" },
   "raum.nurModsSchreiben": { de: "Nur Moderatoren (alle anderen lesen)", en: "Moderators only (everyone else reads)" },
+  "raum.modRechte": { de: "Moderatoren bekommen die Rolle „Moderator“: Nachrichten ausblenden, sperren, Rollen vergeben, Repos pflegen und Kanäle verwalten – jeweils nur gegenüber Niedrigeren. Wer hier fehlt, verliert die Rolle.", en: "Moderators get the “Moderator” role: hide messages, ban, assign roles, maintain repos and manage channels – only towards lower ranks. Anyone missing here loses the role." },
   "raum.kanalAngelegt": { de: "Kanal „{name}“ angelegt", en: "Channel “{name}” created" },
   "raum.infoVerschluesselt": {
     de: "Verschlüsselt (MLS): Nur Mitglieder können mitlesen – alle Kanäle des Raums.\n\nGrenze: Wer entfernt wird, behält den Schlüssel für alles, was er vorher\ngesehen hat. Das Entfernen wechselt den Schlüssel – danach liest er nichts\nmehr. Neue Mitglieder lesen nur, was nach ihrem Eintritt kommt.",
