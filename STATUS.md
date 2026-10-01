@@ -13077,3 +13077,8 @@ Geheimnis nie im Log.
 `packages/node/src/dvm-provider.ts` → `istBesitzer()`;
 `packages/node/src/koppeln.ts` (`npm run koppeln`) → `erneuereKopplung()` →
 `neueKopplung()`, `kopplungImTerminal()`.
+
+Endstand (B-8b, 01.10.): protocol 1144 (6 übersprungen) · node 275 (+4, 7
+übersprungen ohne Netz – mit Netz 276) · app 734 · mls 13 · Leak-Tests 68 grün
++ 1 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 ·
+Website ok · Smoke-Test bestanden. Knoten-Stand: **dieser Stand** (GX10).
