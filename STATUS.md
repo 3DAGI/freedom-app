@@ -13136,3 +13136,32 @@ Test suchte „Alice“, „Bob“ und „Frage“ in der Datei – das Chiffrat
 zufällig darin, der Klartext nie. Wie B-8b beim MLS-Test: Die Probe-Daten
 tragen jetzt Namen mit Leerzeichen („Alice Muster“, „Bob Beispiel“, „Frage zum
 Wetter“), gesucht wird danach – ein Leerzeichen kommt in Base64 nicht vor.
+
+## Schritt C-2 – Einnahmen je Kette
+
+Spur C, Sammlung C-2, reine Anzeige. Die Einnahmenliste im Earn-Tab zeigte
+für jedes Leistungs-Event (38010) „… sats“ – auch für Aufträge, die in SOL
+bezahlt wurden (Zahlkanal, Deposit). Das Event nennt die Kette (`chain`).
+
+**Was:**
+- `preis-anzeige.ts`: `einnahmeText(volume_msat, chain, kurs)` – Lightning
+  in sats, Solana in SOL. Das Event nennt den Wert nur in msat (der Knoten
+  rechnet den SOL-Preis daraus); SOL steht deshalb mit „≈“ und dem Kurs von
+  jetzt da, dahinter der Wert in sats. Ohne Kurs: „SOL, Wert … sats (kein
+  Kurs)“ – kein erfundener SOL-Betrag. Nur ganze, nicht negative msat; sonst
+  „—“ (vorher „NaN sats“, wenn das Tag fehlte).
+- `tabs/earn.ts`: jede Zeile über `einnahmeText()`; den Kurs holt der Tab nur,
+  wenn es SOL-Einnahmen gibt (`aktuellerKurs()`, sonst `aktualisiereKurs()`).
+- Untertitel „Rechenzeit, Speicher und Relays gegen Sats oder SOL.“
+
+**Verdrahtet:** `earn.ts:246` (Kurs nur bei SOL-Einnahmen), `:252`
+(`loadEarnings()` → `einnahmeText()`); `preis-anzeige.ts:40`.
+
+**Tests:** app +1 in `test/preis-anzeige.test.ts` (Lightning, ohne Kette,
+Solana mit und ohne Kurs, gratis 0, Unfug aus dem Event – `—`, `1e3`, `-5`,
+zu lang –, Englisch; Verdrahtung im Earn-Tab). `innerhtml-ausnahmen.txt`: die
+Begründung der bestehenden Zeile für die Liste nennt jetzt
+`escapeHtml(einnahmeText(...))` statt `Math.floor`. Smoke „einnahmen“ (neu):
+zwei Leistungs-Events eines Probe-Knotens aus `scripts/einnahmen-probe.mts`
+(Wegwerfschlüssel, über `freedom.earn.knoten` gewählt) – „21 sats“ und „SOL,
+Wert 1.500 sats (kein Kurs)“; Untertitel mit „oder SOL“.
