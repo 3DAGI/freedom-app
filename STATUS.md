@@ -13226,7 +13226,9 @@ jeden Unterreiter, Desktop und Handy, dazu `index.html` ohne Browser):
   Vertrauensleiste halb durchsichtig über `rgba`, nicht `opacity`; leerer
   Kontostand über `--text-muted` statt `opacity: .45`.
 - Identität in der Kopfzeile: `role="button"`, `tabindex="0"`, Enter und
-  Leertaste exportieren wie der Klick (`app.ts`).
+  Leertaste exportieren wie der Klick (`app.ts`). Als Knopf ist sie auch eine
+  Berührfläche: mobil mindestens 40 px hoch (die Prüfung „mobil“ aus C.5a
+  fand sie danach mit 14 px).
 
 **Verdrahtet:** `app.ts` (`nbIdent` mit Tastatur), `index.html` (Namen, über
 `applyI18n()` → `data-i18n-aria`), `app.css`.
