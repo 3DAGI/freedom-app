@@ -9,7 +9,7 @@
 import {
   MELDE_GRUENDE, RAUM_REPO_RECHT, applyModeration, can as darf, darfKanalAendern, gruenderZurKennung, leseRaumAdresse, raumAdresse, raumModeration, raumZustandFuer, type Channel, type ChannelMessage, type MeldeGrund, type Space, type SpaceState, type ThreadView,
 } from "@freedomstack/protocol";
-import { escapeHtml, pkShort, schluesselAusEingabe } from "../../shell-logic.js";
+import { pkShort, schluesselAusEingabe } from "../../shell-logic.js";
 import { ensurePool, signiere, state } from "../state.js";
 import { mlsAbgleichen, mlsGesperrt } from "../mls-konto.js";
 import {
@@ -100,7 +100,7 @@ export async function zeigeRaumLeiste(): Promise<void> {
   if (!rail) return;
   const ids = meineRaeume();
   if (ids.length === 0) {
-    rail.innerHTML = "";
+    rail.replaceChildren();
     return;
   }
   // Namen privater Räume kommen aus ihrer Definition (Fremddaten) – nur textContent
@@ -402,7 +402,7 @@ async function zeigeKanalliste(): Promise<void> {
   const box = $("#channel-list");
   const st = spacesUi.state as { space?: { name: string; channels: { id: string; name: string; privacy: string }[] } } | null;
   if (!box || !st?.space) {
-    if (box) box.innerHTML = `<span class="muted mono-sm">${escapeHtml(t("komm.raumNichtGefunden"))}</span>`;
+    if (box) box.replaceChildren(el("span", t("komm.raumNichtGefunden"), "muted mono-sm"));
     return;
   }
   $("#space-name").textContent = st.space.name;
@@ -417,18 +417,19 @@ async function zeigeKanalliste(): Promise<void> {
       .map((b) => [b.channelId, b]),
   );
 
-  box.innerHTML = st.space.channels.map((c) => {
+  // Kanalnamen kommen aus der Raum-Definition – nur als Text (C-6c)
+  box.replaceChildren(...st.space.channels.map((c) => {
     const b = badges.get(c.id);
+    const knopf = el("button", undefined, "channel-item");
+    knopf.dataset.ch = c.id;
+    knopf.setAttribute("aria-current", String(c.id === spacesUi.channelId));
+    knopf.append(el("span", c.privacy === "verschluesselt" ? "🔒" : "#", "hash"), el("span", c.name));
     // Erwaehnungen als Zahl, sonstiges Ungelesenes nur als Punkt: Eine Zahl
     // neben jedem Kanal ist Laerm.
-    const marke = b?.mentions
-      ? `<span class="mention">${b.mentions}</span>`
-      : b?.unread ? `<span class="dot"></span>` : "";
-    const schloss = c.privacy === "verschluesselt" ? "&#128274;" : "#";
-    return `<button class="channel-item" data-ch="${escapeHtml(c.id)}"
-      aria-current="${c.id === spacesUi.channelId}">
-      <span class="hash">${schloss}</span><span>${escapeHtml(c.name)}</span>${marke}</button>`;
-  }).join("");
+    if (b?.mentions) knopf.append(el("span", String(b.mentions), "mention"));
+    else if (b?.unread) knopf.append(el("span", undefined, "dot"));
+    return knopf;
+  }));
 
   box.querySelectorAll(".channel-item").forEach((b) => {
     b.addEventListener("click", () => void oeffneKanal((b as HTMLElement).dataset.ch!));

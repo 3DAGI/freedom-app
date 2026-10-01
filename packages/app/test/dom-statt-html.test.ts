@@ -13,7 +13,10 @@ const quelle = (p: string) => readFileSync(new URL(p, import.meta.url), "utf8");
 const ausnahmen = quelle("../../../scripts/innerhtml-ausnahmen.txt").split("\n").filter((z) => z && !z.startsWith("#"));
 
 /** Ohne innerHTML gebaut (C-6a) – die Liste wächst mit jedem Teilschritt. */
-const FERTIG = ["shell/tabs/agent-netz.ts", "shell/tabs/earn.ts", "shell/tabs/profil.ts", "shell/tabs/settings.ts", "shell/state.ts"];
+const FERTIG = [
+  "shell/tabs/agent-netz.ts", "shell/tabs/earn.ts", "shell/tabs/profil.ts", "shell/tabs/settings.ts", "shell/state.ts",
+  "shell/tabs/kommunikation.ts", "shell/tabs/raeume.ts",
+];
 
 test("C-6a: fertige Dateien ohne innerHTML und ohne Ausnahme", () => {
   for (const d of FERTIG) {
@@ -85,4 +88,32 @@ test("C-6b: Merkphrase, Sicherungs-Warnung und Sprachmenü als DOM", () => {
   assert.deepEqual(ausnahmen.filter((z) => z.startsWith("app.ts|")).length, 0);
   const smoke = quelle("../../../scripts/smoke_test.py");
   assert.match(smoke, /erg\["sprachen"\] != \[\["DE · Deutsch", "button", "active"\], \["EN · English", "button", ""\]\]/);
+});
+
+test("C-6c: Anhänge aus anhangAnsicht() nur über Eigenschaften und dataset, kein HTML-Baustein mehr", () => {
+  const komm = quelle("../src/shell/tabs/kommunikation.ts");
+  const rumpf = /function anhangElement\([^]*?\n\}/.exec(komm)?.[0] ?? "";
+  assert.match(rumpf, /const v = anhangAnsicht\(a\);/);
+  assert.match(rumpf, /Object\.assign\(b\.dataset, v\.daten\);/);
+  assert.match(rumpf, /img\.src = v\.url;/);
+  assert.match(rumpf, /img\.alt = v\.name;/);
+  assert.match(rumpf, /l\.relList\.add\("noopener", "noreferrer"\);/, "fremde Links ohne window.opener");
+  assert.doesNotMatch(rumpf, /innerHTML|setAttribute\("on|insertAdjacentHTML/);
+  const logik = quelle("../src/shell-logic.ts");
+  assert.doesNotMatch(logik, /renderAttachment|<img|<a /, "kein HTML-Baustein für Anhänge");
+});
+
+test("C-6c: Chat-Liste, Verlauf und Kanalliste als DOM – Namen, Text und Gerätenamen als Text", () => {
+  const komm = quelle("../src/shell/tabs/kommunikation.ts");
+  assert.match(komm, /zeile\.append\(el\("span", c\.type === "community" \? "🏠" : c\.name\.slice\(0, 1\)\.toUpperCase\(\), "av"\), el\("span", c\.name, "label"\)\);/);
+  assert.match(komm, /const inhalt = el\("div", text, "txt"\);\s*inhalt\.append\(\.\.\.media\);/);
+  assert.match(komm, /if \(g\) wer\.append\(" ", el\("span", `· \$\{g\.text\}`/);
+  assert.match(komm, /zap\.dataset\.pk = ev\.pubkey;/);
+  const raeume = quelle("../src/shell/tabs/raeume.ts");
+  assert.match(raeume, /knopf\.append\(el\("span", c\.privacy === "verschluesselt" \? "🔒" : "#", "hash"\), el\("span", c\.name\)\);/);
+  assert.match(raeume, /knopf\.setAttribute\("aria-current", String\(c\.id === spacesUi\.channelId\)\);/);
+  // Im Browser: eine versiegelte Direktnachricht eines Fremden mit HTML in Name, Text und Anhängen
+  const smoke = quelle("../../../scripts/smoke_test.py");
+  assert.match(smoke, /erg\["chat"\] != \{"text": html\("text"\), "bild": html\("bild"\)/);
+  assert.match(quelle("../../../scripts/fremdtext-probe.mts"), /const dm = await buildPrivateDm\(\{/);
 });

