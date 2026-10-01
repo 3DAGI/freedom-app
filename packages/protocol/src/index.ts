@@ -109,6 +109,7 @@ export * from "./privacy-audit.js";
 export * from "./swap-privacy.js";
 export * from "./sol-offline.js";
 export * from "./nip34.js";
+export * from "./kopplung.js";
 export * from "./kommentar.js";
 export * from "./raum-repo.js";
 export * from "./ki-lokal.js";

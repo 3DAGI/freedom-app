@@ -285,6 +285,12 @@ export function regelMlsGruppe(
   return funde;
 }
 
+/** Der Nachweis des Besitzers (Kopplung, B-8) steht nur im versiegelten Kern an den eigenen Knoten – nie in einem offenen Event. */
+export function regelBesitzerVersiegelt(events: readonly NostrEvent[]): LeakFinding[] {
+  return events.filter((e) => e.tags.some((t) => t[0] === "besitzer"))
+    .map((e) => ({ regel: "besitzer-versiegelt", eventId: e.id, detail: `Besitzer-Nachweis offen (Kind ${e.kind})` }));
+}
+
 /** Alle Regeln mit ihrer Aussage – Datenschutz-Aussagen verweisen hierauf. */
 export const LEAK_REGELN: Readonly<Record<string, string>> = {
   "kein-kind4": "Keine Direktnachrichten im alten, offenen Format (Kind 4).",
@@ -305,4 +311,5 @@ export const LEAK_REGELN: Readonly<Record<string, string>> = {
   "keine-ln-adresse": "Keine Lightning-Adresse des Nutzers in öffentlichen Events – im Profil nur auf ausdrücklichen Wunsch.",
   "zap-anonym": "Zap-Anfragen tragen nie die Identität des Zahlers.",
   "raum-repo-privat": "Repos privater Räume – Ankündigung, Bundle-Schlüssel, Patches, Status – nur in der MLS-Gruppe, nie offen.",
+  "besitzer-versiegelt": "Der Nachweis des Besitzers an den eigenen Knoten nur versiegelt, nie offen.",
 };
