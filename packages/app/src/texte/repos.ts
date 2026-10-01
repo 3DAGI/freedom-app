@@ -124,6 +124,7 @@ export const repos: Texte = {
   "repo.bundleTiefe": { de: "Delta-Ketten im Bundle sind zu tief.", en: "Delta chains in the bundle are too deep." },
   "repo.bundlePruefsumme": { de: "Die Prüfsumme des Bundles stimmt nicht – beschädigt?", en: "The bundle checksum does not match – damaged?" },
   "repo.bundleKaputt": { de: "Das Bundle ist beschädigt.", en: "The bundle is damaged." },
+  "repo.bundleUnsicher": { de: "Ohne sichere Verbindung (http im Heimnetz) prüft der Browser keine Bundles – über https, .onion oder localhost geht es.", en: "Without a secure connection (http in the home network) the browser checks no bundles – it works over https, .onion or localhost." },
   // Seit C.3c2: Ordner, Dateien, Commits
   "repo.commits": { de: "Commits", en: "Commits" },
   "repo.pfadAria": { de: "Pfad im Repo", en: "Path in the repo" },

@@ -27,7 +27,9 @@ import {
 } from "../vault.js";
 import { t } from "../i18n.js";
 import { fehlerText } from "../protokoll-texte.js";
+import { verschluesselungMoeglich } from "../sicherer-kontext.js";
 import { escapeHtml } from "../shell-logic.js";
+import { hinweis } from "./dialog.js";
 import { LS_BUNKER, LS_KEY, LS_MERKPHRASE } from "./state.js";
 import { $, toast } from "./ui.js";
 
@@ -141,6 +143,11 @@ export function richteTresorEin(grund = ""): Promise<boolean> {
   if (tresorEingerichtet()) {
     toast(t("ein.tresorSchon"));
     return Promise.resolve(false);
+  }
+  // Über http im Heimnetz (B-10) gibt der Browser keine Verschlüsselung frei – vorher sagen, nicht scheitern
+  if (!verschluesselungMoeglich()) {
+    const text = grund ? `${grund}\n\n${t("ein.tresorUnsicher")}` : t("ein.tresorUnsicher");
+    return hinweis(t("ein.tresorAktion"), text).then(() => false);
   }
   const box = dialog(`
     <h3>${escapeHtml(t("ein.tresorAktion"))}</h3>
