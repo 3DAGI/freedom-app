@@ -11,7 +11,8 @@
     "test": "node --import tsx --test test/*.test.ts",
     "start": "node --import tsx src/main.ts",
     "lp-abnahme": "node --import tsx src/lp-abnahme-lauf.ts",
-    "pruefen": "node --import tsx src/pruefen.ts"
+    "pruefen": "node --import tsx src/pruefen.ts",
+    "koppeln": "node --import tsx src/koppeln.ts"
   },
   "devDependencies": {
     "@types/node": "^26.1.1",

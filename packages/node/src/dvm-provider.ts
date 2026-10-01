@@ -52,7 +52,7 @@ import {
 } from "@freedomstack/protocol";
 import {
   verifyDepositOnChain, DepositVerificationCache, providerAnteilMsat, pruefeAufteilung, type Anteil,
-  leseGutschriftTags, teileKanalZahlung, type KanalEmpfaenger,
+  leseGutschriftTags, teileKanalZahlung, type KanalEmpfaenger, BESITZER_TAG, istBesitzer,
   kuerzeAntwort, leseKurzWunsch,
 } from "@freedomstack/protocol";
 import type { KanalKasse } from "./kanal-kasse.js";
@@ -119,6 +119,12 @@ export interface ProviderConfig {
    * als Provider des Kanals einlösen kann (eigener Solana-Schlüssel = Adresse).
    */
   kanalKasse?: KanalKasse;
+  /**
+   * Kopplung mit dem Besitzer (B-8b, L1 A): die Geheimnisse, gegen die ein
+   * Nachweis in einer versiegelten Anfrage geprüft wird (`istBesitzer()`).
+   * Leer oder nicht gesetzt: kein Besitzer.
+   */
+  besitzer?: () => readonly string[];
   /** Free-Tier (Provider-Marketing, lokal entschieden — KEIN Protokoll-Feature):
    *  Gratis-Tokens pro pubkey pro Tag. 0 = aus. Der Provider verschenkt
    *  eigene Rechenzeit als Werbung; es gibt keinen Topf und keinen Betreiber. */
@@ -800,8 +806,13 @@ export class DvmProvider {
     // TEST-MODUS: SKIP_BOOTSTRAP=1 umgeht die Bootstrap-Phase (nur fuer Entwicklung!)
     const skipBootstrap = process.env.SKIP_BOOTSTRAP === "1";
     const bootstrap = this.isInBootstrap(now) && !skipBootstrap;
+    // Besitzer (B-8b): nur aus einem Umschlag – dann gratis, ohne Gebot und ohne Kontingent
+    if (!privat && request.tags.some((t) => t[0] === BESITZER_TAG)) throw new Error("Besitzer-Nachweis nur im versiegelten Auftrag");
+    const besitzer = privat && istBesitzer(request, this.cfg.besitzer?.() ?? [], now);
 
-    if (gutschrift) {
+    if (besitzer) {
+      isFreeJob = true;
+    } else if (gutschrift) {
       // Nie offen: Eine Gutschrift verrät Kanal und Betrag.
       if (!privat) throw new Error("Zahlkanal: Gutschrift nur im versiegelten Auftrag");
       if (!this.cfg.kanalKasse) throw new Error("Zahlkanal: dieser Knoten nimmt keine Kanäle an");
