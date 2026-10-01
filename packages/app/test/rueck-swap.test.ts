@@ -103,8 +103,8 @@ test("Verdrahtung (4.6c): Angebotsliste, Ablauf, Waechter, Deposit", () => {
   assert.match(w, /rueck \? startRueckSwap\(ev\.pubkey, offer\) : startSwap\(ev\.pubkey, offer\.offerId, offer\.vorabSats\)/);
   assert.match(w, /\(Number\(offer\.feePpm\) \/ 10_000\)\.toLocaleString\(gebietsschema\(\), \{ minimumFractionDigits: 2, maximumFractionDigits: 2 \}\)/, "Gebuehr in Prozent, nicht ppm/100");
   const f = w.slice(w.indexOf("async function startRueckSwap("), w.indexOf("async function warteAufRueckAntwort("));
-  // Reihenfolge: planen → merken → sperren → Wegwerf-Schluessel → Anfrage
-  const reihenfolge = ["planeRueckSwap(offer, bolt11", "rememberLock({ kind: \"swap\"", "lockRueckSwap({", "rueckAnfrage({ lpPk: lpPubkey, offerId: offer.offerId, bolt11 })", ".publish(post.wrap)"];
+  // Reihenfolge: planen → fragen (C-1a: Dialog statt confirm()) → merken → sperren → Wegwerf-Schluessel → Anfrage
+  const reihenfolge = ["planeRueckSwap(offer, bolt11", 'ok: t("waehr.sperren")', "rememberLock({ kind: \"swap\"", "lockRueckSwap({", "rueckAnfrage({ lpPk: lpPubkey, offerId: offer.offerId, bolt11 })", ".publish(post.wrap)"];
   const stellen = reihenfolge.map((x) => f.indexOf(x));
   assert.ok(stellen.every((i) => i >= 0), `alle Schritte vorhanden: ${stellen}`);
   assert.deepEqual([...stellen].sort((a, b) => a - b), stellen, "in dieser Reihenfolge");

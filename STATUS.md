@@ -12682,3 +12682,59 @@ Internet) · app 719 (+4) · mls 13 · Leak-Tests 68 grün + 1 todo · 0 rot ·
 check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 (keine neue
 Ausnahme) · Website ok · Smoke-Test bestanden (mit den neuen Prüfungen) ·
 Website-Bau ok · reproduzierbarer Build ok. Knoten-Stand: unverändert.
+
+## Schritt C-1a – Dialoge statt prompt()/confirm() im Währung-Tab
+
+Spur C, Sammlung C-1 (Browser-Dialoge nach `shell/dialog.ts`). Der
+Währung-Tab fragte an 9 Stellen mit `prompt()` und `confirm()` – Fenster des
+Browsers, ohne Prüfung der Eingabe, mobil schwer zu bedienen. Jetzt fragen
+dieselben Stellen über `dialog()`/`bestaetige()`: Titel, Text, Feld, eigene
+Beschriftung des Knopfs; Esc bricht ab.
+
+**Was:**
+- `shell/tabs/waehrung.ts`, alle 9 Stellen:
+  - Tausch sats → SOL: Betrag (nur ganze sats), Warnung zum Adressverlauf als
+    eigener Dialog („Bevor du tauschst“, Knopf „Trotzdem weiter“), dann die
+    Empfangsadresse (Vorschlag wie bisher die frische Adresse der eingebauten
+    Wallet, geprüft mit `isValidSolanaAddress()`), Knopf „Tausch anfragen“.
+  - Vorab-Gebühr („Zahlen“), Einlösen über einen Relayer („Einlösen“).
+  - Tausch SOL → sats: Betrag nur im Rahmen des Angebots (`minSats`–`maxSats`),
+    Rechnung (wenn keine Wallet verbunden ist), Sperren – die Kurswarnung
+    steht im selben Dialog über der Frage.
+  - Deposit trotz Kurswarnung („Trotzdem hinterlegen“).
+- `shell-logic.ts`: `ganzeSats()` – ganze sats über 0, nur Ziffern. Bisher
+  nahm `Number()` auch `1e3`, `0x10` oder `1.5`.
+- Reihenfolge und Folgen bleiben: abgebrochen geht nichts hinaus, gemerkt
+  wird erst nach der Adresse und dem Tresor.
+
+**Verdrahtet:** `app/src/shell/tabs/waehrung.ts` – `startSwap()` (Betrag
+:133, Warnung :158, Adresse :175), `zahleVorab()` (:358),
+`einloesenUeberRelayer()` (:474), `startRueckSwap()` (Betrag :549, Rechnung
+:565, Sperren :582), `startDeposit()` (Kurswarnung :918); `ganzeSats()` aus
+`shell-logic.ts`.
+
+**Tests:** app +3 in `test/browser-dialoge.test.ts`: Browser-Dialoge nur noch
+in den Dateien aus `NOCH_OFFEN` (je Datei die Zahl – sie darf nur sinken);
+`ganzeSats()` mit `1e3`, `0x10`, `1,5`, `-5`, Leerzeichen, zu lang;
+Verdrahtung des Währung-Tabs (Prüfungen im Dialog, Reihenfolge warnen →
+Adresse → Tresor, Kurswarnung im selben Dialog, abgelehnt → nichts). Die
+Reihenfolge-Tests in `swap-vorab.test.ts` (prüfen → fragen → zahlen) und
+`rueck-swap.test.ts` (planen → fragen → merken → sperren) folgen dem Dialog;
+der zweite prüft das Fragen jetzt mit. Smoke „waehrung“ (neu): drei
+LP-Angebote aus `scripts/lp-probe.mts` (Wegwerfschlüssel) über die
+Relay-Attrappe – ein veraltetes ist gesperrt; „tauschen“ → `1e3` meldet
+„Ungültiger Betrag“, `10000` führt zur Warnung (0,010 SOL ist rund), dann zur
+Adresse; `keine-adresse` meldet „Keine gültige Solana-Adresse“, Esc bricht ab:
+keine Anfrage gesendet, kein Adressverlauf gemerkt, kein Browser-Dialog.
+SOL → sats ohne Solana-Wallet öffnet keinen Dialog, nur den Hinweis.
+Bilder: `docs/ausbau/bilder/c-1a/` (Betrag mit Fehler, Warnung, Adresse –
+Desktop und Handy; der Ordner `c1a` gehört zu C.1a aus Phase 10).
+
+C-1 ist geteilt: b `agent-netz.ts` und `kommunikation.ts`, c `settings.ts`
+(seit dem Merge von #183 frei), d der Rest (Offline-Zahlung, Profil,
+Nachfolge, Bunker, Zap, Zahlkanal, Prüfaufträge, Notfall, eingebaute Wallet,
+`app.ts`); `agent.ts` erst nach B-9 (Spur B arbeitet dort).
+
+Gesehen, nicht geändert: Die Warnung zum runden Betrag empfiehlt einen
+Betrag in SOL, gefragt wird nach sats; die Knöpfe der Angebotsliste brechen
+auf dem Handy in zwei Zeilen um („TAUS CHEN“). Beides war vorher so.
