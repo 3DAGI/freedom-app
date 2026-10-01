@@ -17,6 +17,17 @@ export const $ = <T extends HTMLElement = HTMLElement>(sel: string): T =>
 
 
 
+/**
+ * Element mit Text und Klasse – Text nur über `textContent` (C-6): für Listen
+ * und Zeilen statt `innerHTML`, auch wenn darin Fremddaten stehen.
+ */
+export function el<K extends keyof HTMLElementTagNameMap>(tag: K, text?: string, klasse?: string): HTMLElementTagNameMap[K] {
+  const e = document.createElement(tag);
+  if (text !== undefined) e.textContent = text;
+  if (klasse) e.className = klasse;
+  return e;
+}
+
 export function toast(msg: string, isErr = false): void {
   const box = $("#toast");
   box.textContent = msg;

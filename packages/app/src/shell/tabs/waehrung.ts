@@ -34,7 +34,7 @@ import { bestaetige, dialog } from "../dialog.js";
 import { eingebauterHtlcSigner, frischeEmpfangsadresse, zeigeEingebauteWallet } from "../eingebaute-wallet.js";
 import { aktualisiereKurs, zeigeKurs } from "../marktkurs.js";
 import { geheim, verlangeTresor } from "../tresor.js";
-import { $, toast, updateSidebarBalances } from "../ui.js";
+import { $, el, toast, updateSidebarBalances } from "../ui.js";
 import { updateBudgetBar } from "./agent.js";
 
 // ------------------------------------------------------------- Wallet-Tab
@@ -309,9 +309,8 @@ async function pollSwapResponse(
         });
 
         if (!verdict.ok) {
-          statusEl.innerHTML =
-            `<strong>${escapeHtml(t("waehr.nichtZahlen"))}</strong><br>`
-            + verdict.problems.map((p) => escapeHtml(p)).join("<br>");
+          // Befunde der Prüfung als Text, je einer in einer Zeile (C-6)
+          statusEl.replaceChildren(el("strong", t("waehr.nichtZahlen")), ...verdict.problems.flatMap((p) => [document.createElement("br"), document.createTextNode(p)]));
           statusEl.className = "mono-sm err";
           return;
         }

@@ -13245,3 +13245,45 @@ Elemente ausgenommen), nichts nur per Maus, kein `tabindex > 0`. Vor den
 
 Nicht in dieser Prüfung: Dialoge und Räume mit Inhalt (die prüfen „dialog“
 und „raum“ auf Tastatur und Fokus), Fokusreihenfolge über die ganze Seite.
+
+## Schritt C-6a – innerHTML abbauen: kleine Dateien
+
+**Warum:** In `scripts/innerhtml-ausnahmen.txt` standen 64 Stellen, an denen
+HTML aus Vorlagen gebaut wird und eine Begründung sagt, warum es sicher ist
+(Sammlung C-6). Jede davon hängt daran, dass niemand ein `escapeHtml()`
+vergisst. Wo Fremddaten in Zeilen stehen, ist DOM mit `textContent` sicher
+ohne Begründung. C-6 ist aufgeteilt: C-6a die kleinen Dateien, C-6b
+`settings.ts`, `app.ts`, `ui.ts`, `state.ts`, C-6c `kommunikation.ts`,
+`raeume.ts`; `agent.ts` erst nach B-9.
+
+**Was:**
+- `shell/ui.ts`: `el(tag, text?, klasse?)` – Element mit Text über
+  `textContent` und Klasse.
+- `agent-netz.ts`: Modell-Liste (Name und Quantisierung aus fremden
+  Manifesten) als Zeilen aus `el()`.
+- `earn.ts`: Einnahmen (Tags vom Relay), Ladetext und Fehler.
+- `profil.ts`: Vorschau (Bild nur als `img.src`, Layout und Muster über
+  `classList` aus der festen Auswahl nach `normalizeStyle()`), Stil-Auswahl
+  über `new Option(…)`, Offenlegung, Abzeichen (Namen von Fremden).
+- `waehrung.ts`: Befunde der Swap-Prüfung als Textknoten, je einer in einer
+  Zeile.
+- `chat-zap.ts`: der Betrag als Wert des Feldes, nicht in die Vorlage
+  eingesetzt.
+- `scripts/innerhtml-ausnahmen.txt`: 12 Zeilen fallen weg (64 → 52);
+  `check_innerhtml.py --streng` meldete sie als veraltet.
+
+**Verdrahtet:** dieselben Aufrufer wie vorher – `zeigeModelle()`
+(`app.ts`, Start und Knopf), `loadEarnings()` (Earn-Tab),
+`zeigeProfilVorschau()`/`zeigeAbzeichen()` (`switchTab("profile")`),
+`pollSwapResponse()` (Swap), `openZapDialog()` (Chat).
+
+**Tests:** app +5 in `test/dom-statt-html.test.ts` (fertige Dateien ohne
+`innerHTML` und ohne Ausnahme, `el()` nur mit `textContent`, Fremddaten als
+Text, Swap-Befunde und Zap-Betrag, Smoke verdrahtet); der Quelltext-Test aus
+C-2 (`preis-anzeige.test.ts`) sucht die Einnahme jetzt im `el("span", …)`.
+Smoke „fremdtext“ (neu): `scripts/fremdtext-probe.mts` signiert mit
+Wegwerfschlüsseln ein Modell-Manifest, eine Einnahme und ein Abzeichen an
+den eigenen Schlüssel, deren Felder `<img src=x onerror=…>` und `<b>`
+tragen; dazu ein Profilentwurf mit demselben Text. Geprüft: der Text steht
+wörtlich da, kein Element daraus, kein Skript lief. Gegenprobe: mit einer
+Zeile wieder über `innerHTML` meldet er „2 Elemente“.

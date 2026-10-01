@@ -842,6 +842,60 @@ def einnahmen_pruefen(browser, url: str) -> dict:
     return erg
 
 
+def fremdtext_pruefen(browser, url: str) -> dict:
+    """innerHTML abgebaut (C-6a): Fremdtext mit HTML – Einnahme, Modell-Manifest, Abzeichen, eigener
+    Profilentwurf – erscheint nur als Text; kein Element daraus, kein Skript läuft. Events aus
+    `scripts/fremdtext-probe.mts`, signiert erst, wenn die Attrappe den eigenen Schlüssel kennt."""
+    erg = {"fehler": []}
+    wurzel = Path(__file__).resolve().parent.parent
+    relay = ProbeRelay()
+    seite = DialogSeite(browser, url, relay, erg)
+    ev = seite.ev
+    ev("() => { location.hash = '#/chat'; }")
+    for _ in range(80):
+        if relay.ich:
+            break
+        seite.s.wait_for_timeout(250)
+    if not relay.ich:
+        seite.ctx.close()
+        return {"bestanden": False, "fehler": ["keine Abfrage der eigenen Relay-Listen – eigener Schlüssel unbekannt"]}
+    aus = subprocess.run(["npx", "tsx", "scripts/fremdtext-probe.mts", relay.ich], cwd=wurzel,
+                         capture_output=True, text=True, timeout=180, check=True)
+    probe = json.loads(aus.stdout)
+    relay.events = probe["events"]
+    html = lambda wo: probe["html"].replace("WO", wo)  # noqa: E731
+    # Einnahmen: work_type aus dem Event des Knotens
+    ev("([k, p]) => { localStorage.setItem('freedom.earn.knoten', k); localStorage.setItem('freedom.profile', JSON.stringify(p));"
+       " location.hash = '#/verdienen'; }", [probe["knoten"], {"name": html("profil"), "about": html("about")}])
+    seite.s.wait_for_function("() => document.querySelectorAll('#earn-events .stat').length === 1", timeout=30000)
+    erg["einnahme"] = ev("() => document.querySelector('#earn-events .stat .k').textContent")
+    # Modelle: Name und Quantisierung aus dem Manifest
+    ev("() => document.getElementById('models-refresh').click()")
+    seite.s.wait_for_function("() => document.querySelector('#models-list .usage-row')", timeout=30000)
+    erg["modell"] = ev("() => document.querySelector('#models-list .usage-row span').textContent")
+    # Profil: Vorschau aus dem Entwurf, Abzeichen aus der Verleihung an den eigenen Schlüssel
+    ev("() => { location.hash = '#/profil'; }")
+    seite.s.wait_for_function("() => document.querySelector('#badge-list .badge-row') && document.querySelector('#profile-preview h3')", timeout=30000)
+    erg["profil"] = ev("() => [document.querySelector('#profile-preview h3').textContent, document.querySelector('#profile-preview p').textContent]")
+    erg["abzeichen"] = ev("() => [...document.querySelectorAll('#badge-list .badge-row span span:first-child')].map(s => s.textContent)")
+    erg["elemente"] = ev("() => document.querySelectorAll('#earn-events img, #earn-events b, #models-list img, #models-list b,"
+                         " #profile-preview b, #profile-preview img, #badge-list img, #badge-list b').length")
+    erg["skript"] = ev("() => window.__fremd ?? null")
+    if erg["einnahme"] != f"{html('arbeit')} · 7 Einheiten":
+        erg["fehler"].append(f"Einnahme {erg['einnahme']}")
+    if erg["modell"] != f"{html('modell')} · {html('quant')}":
+        erg["fehler"].append(f"Modell {erg['modell']}")
+    if erg["profil"] != [html("profil"), html("about")]:
+        erg["fehler"].append(f"Profil {erg['profil']}")
+    if html("abzeichen") not in erg["abzeichen"]:
+        erg["fehler"].append(f"Abzeichen {erg['abzeichen']}")
+    if erg["elemente"] != 0 or erg["skript"] is not None:
+        erg["fehler"].append(f"HTML aus Fremdtext: {erg['elemente']} Elemente, Skript {erg['skript']}")
+    seite.ctx.close()
+    erg["bestanden"] = not erg["fehler"]
+    return erg
+
+
 # Barrierefreiheit (seit C-4): je Ansicht, was ein Vorleser oder die Tastatur nicht erreicht
 ZUGANG_PRUEFUNG = r"""() => {
   const sichtbar = (e) => { const r = e.getBoundingClientRect(); const s = getComputedStyle(e);
@@ -2678,6 +2732,10 @@ def main() -> int:
             except Exception as e:
                 erg["einnahmen"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
             try:
+                erg["fremdtext"] = fremdtext_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
+            except Exception as e:
+                erg["fremdtext"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
+            try:
                 erg["zugang"] = zugang_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
             except Exception as e:
                 erg["zugang"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
@@ -2723,6 +2781,7 @@ def main() -> int:
           and erg.get("kontakt", {}).get("bestanden") is True
           and erg.get("einstellungen", {}).get("bestanden") is True
           and erg.get("einnahmen", {}).get("bestanden") is True
+          and erg.get("fremdtext", {}).get("bestanden") is True
           and erg.get("zugang", {}).get("bestanden") is True
           and erg.get("raum", {}).get("bestanden") is True
           and erg.get("karte", {}).get("bestanden") is True

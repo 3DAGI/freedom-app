@@ -61,7 +61,7 @@ export function openZapDialog(recipientPubkey: string, recipientName: string): v
         </div>
         <div class="zap-field">
           <label>${escapeHtml(t("zahl.betrag"))}</label>
-          <input type="number" id="zap-amount" value="${state.amount}" min="0" step="any" />
+          <input type="number" id="zap-amount" min="0" step="any" />
           <select id="zap-unit">
             <option value="sats"${state.unit === "sats" ? " selected" : ""}>${escapeHtml(t("zahl.einheitSats"))}</option>
             <option value="sol"${state.unit === "sol" ? " selected" : ""}>${escapeHtml(t("zahl.einheitSol"))}</option>
@@ -90,6 +90,8 @@ export function openZapDialog(recipientPubkey: string, recipientName: string): v
     </div>
   `;
   document.body.appendChild(el);
+  // Der Betrag als Wert des Feldes, nicht ins HTML eingesetzt (C-6)
+  (document.getElementById("zap-amount") as HTMLInputElement).value = String(state.amount);
 
   // Event-Listener
   // Die Einheit folgt der Schiene: Lightning zahlt in sats, Solana in SOL.
