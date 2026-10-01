@@ -16,10 +16,9 @@ import { KiSitzungen } from "../ki-sitzung.js";
 import { SessionClient } from "../session-client.js";
 import { t } from "../i18n.js";
 import { fehlerText } from "../protokoll-texte.js";
-import { escapeHtml } from "../shell-logic.js";
 import { eigeneListenAbgleichen, ladeEigeneRelays, poolRelays } from "../relay-satz.js";
 import { OutboxLeser } from "../outbox-lesen.js";
-import { $, toast } from "./ui.js";
+import { $, el, toast } from "./ui.js";
 
 // ------------------------------------------------------------- Konstanten
 
@@ -221,12 +220,14 @@ export async function wireRpcSetting(): Promise<void> {
       rpcPool = null;
       const pool = await ensureRpcPool();
       const st = await pool.healthCheck();
-      status.innerHTML = st.map((s) => {
-        const name = escapeHtml(s.label ?? new URL(s.url).hostname);
-        return s.available
-          ? `<span class="ok">${name} · ${s.lastLatencyMs ?? "?"} ms</span>`
-          : `<span class="err">${name} · ${escapeHtml(s.lastError ?? t("ein.keineAntwortRpc"))}</span>`;
-      }).join("<br>");
+      // Je Endpunkt eine Zeile als Text (C-6b) – Fehlermeldungen kommen vom Anbieter
+      status.replaceChildren(...st.flatMap((s, i) => {
+        const name = s.label ?? new URL(s.url).hostname;
+        const zeile = s.available
+          ? el("span", `${name} · ${s.lastLatencyMs ?? "?"} ms`, "ok")
+          : el("span", `${name} · ${s.lastError ?? t("ein.keineAntwortRpc")}`, "err");
+        return i > 0 ? [document.createElement("br"), zeile] : [zeile];
+      }));
       // 5.8: zwei Anbieter gegeneinander – ohne Adresse, verraet nichts ueber den Nutzer.
       const { stichprobeText } = await import("../rpc-stichprobe.js");
       const probe = stichprobeText(await pool.stichprobe());
