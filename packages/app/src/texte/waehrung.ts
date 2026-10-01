@@ -138,6 +138,7 @@ export const waehrung: Texte = {
   "waehr.fuerDeposit": { de: "das Deposit", en: "the deposit" },
   "waehr.fuerKanal": { de: "den Zahlkanal", en: "the payment channel" },
   "waehr.kanalTitel": { de: "Zahlkanal (SOL)", en: "Payment channel (SOL)" },
+  "waehr.kanalLaufzeitAria": { de: "Laufzeit des Zahlkanals", en: "Payment channel duration" },
   "waehr.kanalEinzahlen": { de: "Einzahlen", en: "Deposit" },
   "waehr.kanalErklaerung": { de: "Einmal SOL einzahlen, dann bezahlt jede KI-Antwort dieses Providers eine versiegelte Gutschrift – ohne Transaktion je Antwort. Die Anteile nach A+ teilt das Programm beim Einlösen auf: an Empfänger mit SOL-Adresse, sonst an den Provider. Bleibt eine Antwort aus, zählt ihr Gebot vorsichtshalber mit. Nach Ablauf holt die App zurück, was nicht verbraucht ist.", en: "Deposit SOL once, then every AI answer from this provider is paid with a sealed credit – no transaction per answer. When redeeming, the program splits the A+ shares: to recipients with a SOL address, otherwise to the provider. If an answer never arrives, its bid counts to be safe. After expiry the app reclaims whatever is unused." },
   "waehr.kanalEinTag": { de: "1 Tag", en: "1 day" },

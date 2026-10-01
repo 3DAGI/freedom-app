@@ -694,7 +694,13 @@ function starte(): void {
   // Sidebar-Balances: ident + import klonen die header-handler (desktop)
   const nbIdent = $("#nb-ident");
   const nbImport = $("#nb-import");
-  if (nbIdent) nbIdent.onclick = exportIdentity;
+  if (nbIdent) {
+    nbIdent.onclick = exportIdentity;
+    // Auch per Tastatur (C-4): die Identität ist ein Knopf, kein bloßer Text
+    nbIdent.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); void exportIdentity(); }
+    });
+  }
   if (nbImport) nbImport.onclick = importIdentity;
   // Wallet-Button in der Sidebar: springt zum Wallet-Tab (verbinden/deposit)
   const nbWallet = $("#nb-wallet");
