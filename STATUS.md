@@ -13327,3 +13327,50 @@ Aufgefallen, nicht geändert: In einer eben angelegten Identität bleibt der
 Nachfolge-Stand bis zum Neuladen leer – der Start fragt ihn ab, bevor die
 Identität steht, und der Settings-Tab fragt ihn nicht neu ab. Der Smoke-Test
 lädt dafür einmal neu.
+
+## Schritt C-6c – innerHTML abbauen: Chat und Kanalliste
+
+**Warum:** Dritter Teil von C-6 (Sammlung). Im Chat steht fast nur
+Fremdtext: Namen, Nachrichten, Gerätenamen aus Vollmachten, Anhänge mit
+Name, Typ und Adresse aus fremden Nachrichten. Bis hier hing das an 13
+begründeten Ausnahmen und an `renderAttachment()`, das HTML-Text baute.
+
+**Was:**
+- `shell-logic.ts`: `anhangAnsicht()` statt `renderAttachment()` – eine
+  Beschreibung (`hinweis`, `knopf` mit `daten`, `bild`/`video`/`audio`,
+  `link`) statt HTML. Geprüft wird wie bisher: Schlüssel
+  (`istDateiSchluessel()`), Schema (`isSafeAttachmentUrl()`, verschlüsselt nur
+  https oder Blob-Netz), Art nach Typ; Chiffrat nie als Bild.
+- `kommunikation.ts`: `anhangElement()` baut daraus Elemente nur mit
+  Eigenschaften (`src`, `alt`, `href`, `relList`), `dataset` und Text;
+  Chat-Liste, leerer Verlauf (mit Prüfstand), jede Blase (Text, Marken
+  „alt“/MLS/„wartet“, Diebstahl-Warnung, Gerätename, Zap- und Zahlknopf) als
+  DOM. Kein `innerHTML`, kein `escapeHtml` mehr in der Datei.
+- `raeume.ts`: Kanalliste (Schloss, Name, Erwähnungen, Punkt) als DOM; die
+  Datei hatte schon ein eigenes `el()`.
+- `scripts/innerhtml-ausnahmen.txt`: 13 Zeilen fallen weg (35 → 22).
+
+**Verdrahtet:** wie vorher – `loadChatList()`/`openConversation()`/
+`loadChatMessages()` (Chat-Tab), `zeigeKanalliste()` (Raum öffnen);
+`anhangElement()` aus `loadChatMessages()`; die Knöpfe verdrahtet weiter
+`wireBlobButtons()` über `dataset`.
+
+**Tests:** app +2 in `dom-statt-html.test.ts` (Anhänge nur über Eigenschaften
+und `dataset`; Chat und Kanalliste als DOM); `kommunikation.ts` und
+`raeume.ts` in `FERTIG`. Die neun Anhang-Tests in `shell-logic.test.ts`
+prüfen jetzt `anhangAnsicht()` – dieselben Fälle (böser Name, `javascript:`,
+Anführungszeichen in der Adresse, Medientypen, Blob-Knopf, leerer Name,
+verschlüsselt mit Blob und Blossom, kaputter Schlüssel, `http:`, böser Typ);
+statt „maskiert“ prüfen sie, dass der Wert unverändert Daten bleibt, die
+Oberfläche setzt ihn nur als Eigenschaft (Quelltext-Test) und der Browser
+zeigt ihn als Text (Smoke). Zahl gleich (34). `kontakt-pruefung.test.ts`
+sucht den Prüfstand im DOM-Aufbau. Smoke „fremdtext“: `fremdtext-probe.mts`
+baut eine versiegelte Direktnachricht (NIP-17) eines Fremden an den eigenen
+Schlüssel – Text, ein Bild und eine verschlüsselte Datei mit bösem Typ, alle
+mit `<img onerror>` im Namen; der Name des Kontakts kommt als Petname. Geprüft:
+Name in der Liste, Text, `alt` des Bildes, Text und `data-mime` des Knopfs
+wörtlich, kein `onclick`-Attribut, kein Element aus dem Fremdtext, Zap-Knopf da.
+
+Aufgefallen: `el()` steht in neun Dateien als lokale Kopie (`raeume.ts`,
+`repos.ts`, `notfall.ts` …) neben der aus `shell/ui.ts` – zusammenlegen wäre
+ein eigener kleiner Schritt.

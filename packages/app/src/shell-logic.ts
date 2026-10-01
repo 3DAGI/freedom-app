@@ -67,37 +67,46 @@ export function isSafeAttachmentUrl(url: string): boolean {
   return SAFE_URL.test(clean);
 }
 
-/** Einen Anhang als HTML darstellen. `freedom-blob:` lädt on demand nach. */
-export function renderAttachment(a: ChatAttachment): string {
-  const name = escapeHtml(a.name || t("ein.datei"));
+/**
+ * Wie ein Anhang erscheint – als Beschreibung, nicht als HTML (seit C-6c). Die
+ * Oberfläche baut daraus Elemente nur mit `textContent`, `dataset` und
+ * Eigenschaften; Name, Typ und Adresse bleiben Daten. Geprüft wird hier:
+ * Schlüssel, Schema, Art. `freedom-blob:` lädt auf Knopfdruck nach.
+ */
+export type AnhangAnsicht =
+  | { art: "hinweis"; text: string }
+  | { art: "knopf"; text: string; daten: Record<string, string> }
+  | { art: "bild" | "video" | "audio"; url: string; name: string }
+  | { art: "link"; url: string; text: string };
+
+export function anhangAnsicht(a: ChatAttachment): AnhangAnsicht {
+  const name = a.name || t("ein.datei");
 
   // Verschluesselt (2.4): nur als Knopf – laden, entschluesseln, speichern.
-  // Schluessel und Typ kommen aus fremder Nachricht: erst pruefen, dann maskieren.
+  // Schluessel und Typ kommen aus fremder Nachricht: erst pruefen.
   if (a.enc !== undefined) {
-    if (!istDateiSchluessel(a.enc)) return `<div class="mono-sm">[${escapeHtml(t("ein.anhangSchluessel", { name: a.name || t("ein.datei") }))}]</div>`;
-    const ziel = a.url.startsWith("freedom-blob:")
-      ? `data-blob="${escapeHtml(a.url.slice("freedom-blob:".length))}"`
-      : a.url.startsWith("https://") && isSafeAttachmentUrl(a.url) ? `data-url="${escapeHtml(a.url)}"` : "";
-    if (!ziel) return `<div class="mono-sm">[${escapeHtml(t("ein.anhangLink", { name: a.name || t("ein.datei") }))}]</div>`;
-    return `<button class="ghost copy-btn chat-blob-btn" ${ziel} data-key="${a.enc.key}" data-nonce="${a.enc.nonce}" ` // kein UI-Text
-      + `data-ox="${a.enc.ox}" data-mime="${escapeHtml(a.mime || "application/octet-stream")}" data-name="${name}">🔒 ${name}</button>`;
+    if (!istDateiSchluessel(a.enc)) return { art: "hinweis", text: `[${t("ein.anhangSchluessel", { name })}]` };
+    const ziel: Record<string, string> | null = a.url.startsWith("freedom-blob:")
+      ? { blob: a.url.slice("freedom-blob:".length) }
+      : a.url.startsWith("https://") && isSafeAttachmentUrl(a.url) ? { url: a.url } : null;
+    if (!ziel) return { art: "hinweis", text: `[${t("ein.anhangLink", { name })}]` };
+    return {
+      art: "knopf", text: `🔒 ${name}`,
+      daten: { ...ziel, key: a.enc.key, nonce: a.enc.nonce, ox: a.enc.ox, mime: a.mime || "application/octet-stream", name },
+    };
   }
 
   if (a.url.startsWith("freedom-blob:")) {
-    const blobId = a.url.slice("freedom-blob:".length);
-    return `<button class="ghost copy-btn chat-blob-btn" data-blob="${escapeHtml(blobId)}" data-name="${name}">📥 ${name}</button>`;
+    return { art: "knopf", text: `📥 ${name}`, daten: { blob: a.url.slice("freedom-blob:".length), name } };
   }
 
-  if (!isSafeAttachmentUrl(a.url)) {
-    return `<div class="mono-sm">[${escapeHtml(t("ein.anhangLink", { name: a.name || t("ein.datei") }))}]</div>`;
-  }
+  if (!isSafeAttachmentUrl(a.url)) return { art: "hinweis", text: `[${t("ein.anhangLink", { name })}]` };
 
-  const url = escapeHtml(a.url);
   const mime = (a.mime || "").toLowerCase();
-  if (mime.startsWith("image/")) return `<img src="${url}" class="chat-media" loading="lazy" alt="${name}" />`;
-  if (mime.startsWith("video/")) return `<video src="${url}" class="chat-media" controls preload="metadata"></video>`;
-  if (mime.startsWith("audio/")) return `<audio src="${url}" controls preload="metadata"></audio>`;
-  return `<a class="mono-sm" href="${url}" target="_blank" rel="noopener noreferrer">📎 ${name}</a>`;
+  if (mime.startsWith("image/")) return { art: "bild", url: a.url, name };
+  if (mime.startsWith("video/")) return { art: "video", url: a.url, name };
+  if (mime.startsWith("audio/")) return { art: "audio", url: a.url, name };
+  return { art: "link", url: a.url, text: `📎 ${name}` };
 }
 
 /**

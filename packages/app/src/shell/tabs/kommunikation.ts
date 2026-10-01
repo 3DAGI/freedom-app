@@ -8,12 +8,11 @@
 import { type DateiSchluessel, type KeyState, NostrEvent, type PrivateDm, buildEvent } from "@freedomstack/protocol";
 import {
   type ChatAttachment,
-  escapeHtml,
+  anhangAnsicht,
   parseDmBody,
   parseImetaTags,
   pkShort,
   imetaSchluessel,
-  renderAttachment,
   schluesselAusEingabe,
 } from "../../shell-logic.js";
 import { aktuellerKurs } from "../marktkurs.js";
@@ -28,7 +27,7 @@ import { alsRaumMeldung, merkePrivatenRaum } from "../raum-mls.js";
 import { alsRufZusammenfassung } from "../ruf.js";
 import { geheim } from "../tresor.js";
 import { dialog, hinweis } from "../dialog.js";
-import { $, toast } from "../ui.js";
+import { $, el, toast } from "../ui.js";
 import { pruefStand } from "../kontakt-pruefen-ui.js";
 import { t } from "../../i18n.js";
 import { versendeVerzoegert } from "../versand.js";
@@ -114,6 +113,41 @@ function setAttachStatus(el: HTMLElement | null, text: string): void {
   if (el) el.textContent = text;
 }
 
+
+/** Anhang als Element (C-6c): aus `anhangAnsicht()`, nur Eigenschaften, `dataset` und Text. */
+function anhangElement(a: ChatAttachment): HTMLElement {
+  const v = anhangAnsicht(a);
+  switch (v.art) {
+    case "hinweis": return el("div", v.text, "mono-sm");
+    case "knopf": {
+      const b = el("button", v.text, "ghost copy-btn chat-blob-btn");
+      Object.assign(b.dataset, v.daten);
+      return b;
+    }
+    case "bild": {
+      const img = el("img", undefined, "chat-media");
+      img.src = v.url;
+      img.loading = "lazy";
+      img.alt = v.name;
+      return img;
+    }
+    case "video":
+    case "audio": {
+      const m = el(v.art, undefined, v.art === "video" ? "chat-media" : undefined);
+      m.src = v.url;
+      m.controls = true;
+      m.preload = "metadata";
+      return m;
+    }
+    case "link": {
+      const l = el("a", v.text, "mono-sm");
+      l.href = v.url;
+      l.target = "_blank";
+      l.relList.add("noopener", "noreferrer");
+      return l;
+    }
+  }
+}
 
 /** Blob-Buttons aktivieren: Chunks aus dem Netz holen und als Download geben. */
 function wireBlobButtons(root: HTMLElement): void {
@@ -399,18 +433,20 @@ export function loadChatList(): void {
   loadConversations();
   const list = $("#chat-list");
   if (conversations.length === 0) {
-    list.innerHTML = `<div class="mono-sm" style="padding:10px;color:var(--text-muted)">${escapeHtml(t("komm.keineUnterhaltungen"))}</div>`;
+    const leer = el("div", t("komm.keineUnterhaltungen"), "mono-sm");
+    leer.style.cssText = "padding:10px;color:var(--text-muted)";
+    list.replaceChildren(leer);
     return;
   }
-  list.innerHTML = conversations
+  // Namen kommen aus Profilen und Petnames – nur als Text (C-6c)
+  list.replaceChildren(...conversations
     .sort((a, b) => b.lastTs - a.lastTs)
-    .map(
-      (c) => `<div class="chat-item ${c.id === activeConversation ? "active" : ""}" data-cid="${escapeHtml(c.id)}">
-        <span class="av">${c.type === "community" ? "🏠" : escapeHtml(c.name.slice(0, 1).toUpperCase())}</span>
-        <span class="label">${escapeHtml(c.name)}</span>
-      </div>`,
-    )
-    .join("");
+    .map((c) => {
+      const zeile = el("div", undefined, c.id === activeConversation ? "chat-item active" : "chat-item");
+      zeile.dataset.cid = c.id;
+      zeile.append(el("span", c.type === "community" ? "🏠" : c.name.slice(0, 1).toUpperCase(), "av"), el("span", c.name, "label"));
+      return zeile;
+    }));
   markiereSchluessel(list);
   list.querySelectorAll(".chat-item").forEach((el) => {
     el.addEventListener("click", () => openConversation((el as HTMLElement).dataset.cid!));
@@ -442,10 +478,10 @@ function openConversation(cid: string): void {
   loadChatList();
   const c = conversations.find((x) => x.id === cid);
   const thread = $("#chat-thread");
-  thread.innerHTML = `<div class="empty-state">${c ? escapeHtml(c.name) : ""}<br/>` +
-    escapeHtml(c?.type === "dm" ? dmHinweis(c) : t("komm.community")) +
-    (c?.type === "dm" ? `<br/><span class="pruef-stand">${escapeHtml(pruefStand(c.id))}</span>` : "") +
-    `</div>`;
+  const leer = el("div", undefined, "empty-state");
+  leer.append(c ? c.name : "", document.createElement("br"), c?.type === "dm" ? dmHinweis(c) : t("komm.community"));
+  if (c?.type === "dm") leer.append(document.createElement("br"), el("span", pruefStand(c.id), "pruef-stand"));
+  thread.replaceChildren(leer);
   zeigeAblauf(c);
   loadChatMessages(cid);
   // Erst hier wird MLS gebraucht (2.2b-d1): eigenes KeyPackage, wenn keins da oder faellig
@@ -915,7 +951,8 @@ export async function loadChatMessages(cid: string): Promise<void> {
       }
     }
 
-    thread.innerHTML = decrypted
+    // Jede Blase als DOM (C-6c): Text, Namen und Gerätenamen sind Fremddaten
+    thread.replaceChildren(...decrypted
       .sort((a, b) => a.created_at - b.created_at)
       .map((ev) => {
         const mine = [state.keypair!.pk, state.person].includes(ev.pubkey);
@@ -930,8 +967,7 @@ export async function loadChatMessages(cid: string): Promise<void> {
         } else {
           atts = parseImetaTags(ev.tags);
         }
-        const media = atts.map((a) => renderAttachment(a)).join("");
-        const body = escapeHtml(text);
+        const media = atts.map((a) => anhangElement(a));
         // Zap-Button neben jeder Nachricht (nur fuer DMs, nicht eigene)
         const v = versteckt.get(ev.id);
         // Lokale Suche (8.13): was hier gezeigt wird, in den Index (mit Tresor verschluesselt gespeichert)
@@ -942,32 +978,54 @@ export async function loadChatMessages(cid: string): Promise<void> {
         if (v) {
           // Platzhalter statt spurlosem Entfernen: Eine Luecke, die man sieht,
           // ist Moderation. Eine, die man nicht sieht, ist Manipulation.
-          return `<div class="bubble hidden-msg"><div class="txt mono-sm">` +
-            `${escapeHtml(t("komm.ausgeblendetMarke", { grund: v.reason }))} ` +
-            `<button class="ghost show-anyway" data-id="${escapeHtml(ev.id)}" style="width:auto;padding:2px 6px;font-size:10px">${escapeHtml(t("komm.trotzdemZeigen"))}</button></div></div>`;
+          const zeigen = el("button", t("komm.trotzdemZeigen"), "ghost show-anyway");
+          zeigen.dataset.id = ev.id;
+          zeigen.style.cssText = "width:auto;padding:2px 6px;font-size:10px";
+          const marke = el("div", `${t("komm.ausgeblendetMarke", { grund: v.reason })} `, "txt mono-sm");
+          marke.append(zeigen);
+          const blase = el("div", undefined, "bubble hidden-msg");
+          blase.append(marke);
+          return blase;
         }
         // Zahlungsanforderung (A-5): nur in Direktnachrichten anderer, nur zahlbare
         const anf = !mine && c.type === "dm" ? leseAnforderung(text) : null;
         if (anf) anforderungen.set(ev.id, { anf, von: ev.pubkey });
-        const anfBtn = anf ? `<button class="ghost anf-zahlen-btn" data-id="${escapeHtml(ev.id)}">${escapeHtml(t("anf.bezahlen"))}</button>` : "";
-        const zapBtn = !mine && c.type === "dm" ? `<button class="zap-msg-btn" data-pk="${escapeHtml(ev.pubkey)}" data-name="${escapeHtml(pkShort(ev.pubkey))}" title="${escapeHtml(t("komm.zapSenden"))}">⚡</button>` : "";
+        const wer = el("div", mine ? t("komm.du") : pkShort(ev.pubkey), "who");
+        const marke = (text: string, titel: string, klasse: string): HTMLElement => {
+          const m = el("span", text, klasse);
+          m.title = titel;
+          return m;
+        };
+        const dm = ev as DmAnzeige;
+        if (dm.legacy) wer.append(" ", marke(t("komm.alt"), t("komm.altTitel"), "mono-sm"));
+        else if (dm.mls) wer.append(" ", marke("· MLS", t("komm.mlsTitel"), "mono-sm"));
+        else if (dm.wartet) wer.append(" ", marke(t("komm.wartet"), t("komm.wartetTitel"), "mono-sm"));
         // Nach dem Diebstahl (8.6a): nicht glauben, dass es von dieser Person ist
-        const diebstahl = c.type === "dm" && nachDiebstahl(ev, schluesselStand.get(c.id))
-          ? ` <span class="mono-sm warn" title="${escapeHtml(t("komm.diebstahlTitel"))}">${escapeHtml(t("komm.diebstahl"))}</span>`
-          : "";
-        const alt = (ev as DmAnzeige).legacy
-          ? ` <span class="mono-sm" title="${escapeHtml(t("komm.altTitel"))}">${escapeHtml(t("komm.alt"))}</span>`
-          : (ev as DmAnzeige).mls
-            ? ` <span class="mono-sm" title="${escapeHtml(t("komm.mlsTitel"))}">· MLS</span>`
-            : (ev as DmAnzeige).wartet
-              ? ` <span class="mono-sm" title="${escapeHtml(t("komm.wartetTitel"))}">${escapeHtml(t("komm.wartet"))}</span>`
-              : "";
+        if (c.type === "dm" && nachDiebstahl(ev, schluesselStand.get(c.id))) {
+          wer.append(" ", marke(t("komm.diebstahl"), t("komm.diebstahlTitel"), "mono-sm warn"));
+        }
         // Von einem Geraet geschrieben (8.6b) – der Name steht in der Vollmacht (Fremddaten)
-        const g = (ev as DmAnzeige).geraet;
-        const geraet = g ? ` <span class="mono-sm geraet-hinweis${g.warnung ? " warn" : ""}">· ${escapeHtml(g.text)}</span>` : "";
-        return `<div class="bubble ${mine ? "user" : "ai"}"><div class="who">${escapeHtml(mine ? t("komm.du") : pkShort(ev.pubkey))}${alt}${diebstahl}${geraet}${zapBtn}</div><div class="txt">${body}${media}${anfBtn}</div></div>`;
-      })
-      .join("");
+        const g = dm.geraet;
+        if (g) wer.append(" ", el("span", `· ${g.text}`, g.warnung ? "mono-sm geraet-hinweis warn" : "mono-sm geraet-hinweis"));
+        if (!mine && c.type === "dm") {
+          const zap = el("button", "⚡", "zap-msg-btn");
+          zap.dataset.pk = ev.pubkey;
+          zap.dataset.name = pkShort(ev.pubkey);
+          zap.title = t("komm.zapSenden");
+          wer.append(zap);
+        }
+        const inhalt = el("div", text, "txt");
+        inhalt.append(...media);
+        if (anf) {
+          const zahlen = el("button", t("anf.bezahlen"), "ghost anf-zahlen-btn");
+          zahlen.dataset.id = ev.id;
+          inhalt.append(zahlen);
+        }
+        const blase = el("div", undefined, "bubble");
+        blase.classList.add(mine ? "user" : "ai");
+        blase.append(wer, inhalt);
+        return blase;
+      }));
     if (c.type === "dm") schluesselHinweis(thread, c.id);
     thread.scrollTop = thread.scrollHeight;
     wireBlobButtons(thread);

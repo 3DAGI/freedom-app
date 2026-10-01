@@ -846,7 +846,8 @@ def fremdtext_pruefen(browser, url: str) -> dict:
     """innerHTML abgebaut (C-6a): Fremdtext mit HTML – Einnahme, Modell-Manifest, Abzeichen, eigener
     Profilentwurf – erscheint nur als Text; kein Element daraus, kein Skript läuft. Events aus
     `scripts/fremdtext-probe.mts`, signiert erst, wenn die Attrappe den eigenen Schlüssel kennt.
-    Seit C-6b auch Settings (Geräte, Nachfolge, ohne Internet) und das Sprachmenü als DOM."""
+    Seit C-6b auch Settings (Geräte, Nachfolge, ohne Internet) und das Sprachmenü als DOM, seit C-6c
+    eine versiegelte Direktnachricht eines Fremden: Name in der Liste, Text und Anhänge im Verlauf."""
     erg = {"fehler": []}
     wurzel = Path(__file__).resolve().parent.parent
     relay = ProbeRelay()
@@ -881,7 +882,26 @@ def fremdtext_pruefen(browser, url: str) -> dict:
     erg["abzeichen"] = ev("() => [...document.querySelectorAll('#badge-list .badge-row span span:first-child')].map(s => s.textContent)")
     # C-6b: Settings und Sprachmenü – als DOM gebaut, Text und Verhalten wie vorher. Die Nachfolge liest
     # der Start, in einer eben angelegten Identität erst nach dem Neuladen
+    ev("(p) => localStorage.setItem('freedom.petnames', JSON.stringify([[p[0], p[1]]]))", [probe["absender"], html("kontakt")])
     seite.s.reload(wait_until="load")
+    # C-6c: die Direktnachricht – erst nach dem Neuladen, der Posteingang wird höchstens je Minute abgeglichen
+    ev("() => { location.hash = '#/chat'; }")
+    zeile = f"#chat-list .chat-item[data-cid='{probe['absender']}']"
+    seite.s.wait_for_function(f"() => document.querySelector(\"{zeile} .label\")?.textContent.includes('kontakt')", timeout=30000)
+    erg["chat_name"] = ev(f"() => document.querySelector(\"{zeile} .label\").textContent")
+    ev(f"() => document.querySelector(\"{zeile}\").click()")
+    seite.s.wait_for_function("() => document.querySelector('#chat-thread .bubble .txt')", timeout=30000)
+    erg["chat"] = ev("""() => { const txt = document.querySelector('#chat-thread .bubble .txt');
+      const knopf = txt.querySelector('.chat-blob-btn');
+      return { text: txt.firstChild.textContent, bild: txt.querySelector('img.chat-media')?.alt ?? null,
+               knopf: knopf && [knopf.textContent, knopf.dataset.mime, knopf.getAttribute('onclick')],
+               zap: !!document.querySelector('#chat-thread .zap-msg-btn'),
+               elemente: document.querySelectorAll('#chat-list b, #chat-list img, #chat-thread b, #chat-thread img:not(.chat-media)').length }; }""")
+    if html("kontakt") not in erg["chat_name"]:
+        erg["fehler"].append(f"Name in der Liste {erg['chat_name']}")
+    if erg["chat"] != {"text": html("text"), "bild": html("bild"), "knopf": [f"🔒 {html('datei')}", "x\" onclick=\"window.__fremd='mime'", None],
+                       "zap": True, "elemente": 0}:
+        erg["fehler"].append(f"Verlauf {erg['chat']}")
     ev("() => { location.hash = '#/settings'; }")
     seite.s.wait_for_function("() => document.querySelector('#device-list span') && document.querySelector('#succession-status span')", timeout=30000)
     erg["settings"] = ev("() => [document.querySelector('#device-list span').textContent.split('.')[0],"

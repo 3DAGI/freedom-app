@@ -64,5 +64,6 @@ test("B-4: verdrahtet – Knopf im Chat, Code aus beiden Schlüsseln der Persone
   assert.match(ui, /return eingabe && !sicherheitscodeStimmt\(eingabe, code\) \? t\("komm\.pruefFalsch"\) : null;/, "ein falscher Code lässt sich nicht bestätigen");
   assert.doesNotMatch(ui, /innerHTML|publish|signiere/, "nur DOM über den Dialog, nichts geht hinaus");
   const komm = lies("shell/tabs/kommunikation.ts");
-  assert.match(komm, /\(c\?\.type === "dm" \? `<br\/><span class="pruef-stand">\$\{escapeHtml\(pruefStand\(c\.id\)\)\}<\/span>` : ""\)/);
+  // Seit C-6c als DOM
+  assert.match(komm, /if \(c\?\.type === "dm"\) leer\.append\(document\.createElement\("br"\), el\("span", pruefStand\(c\.id\), "pruef-stand"\)\);/);
 });
