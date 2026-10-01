@@ -1624,7 +1624,6 @@ def raum_pruefen(browser, url: str) -> dict:
             except Exception:
                 pass
             s.keyboard.press("Escape")  # der Dialog mit der Kennung
-            s.wait_for_timeout(1100)  # die neue Definition braucht einen späteren Zeitstempel
             rechte = ev("""() => ['space-mods', 'space-kanal-neu'].map(id => !document.getElementById(id).classList.contains('hidden'))""")
             ev("() => document.getElementById('space-kanal-neu').click()")
             s.wait_for_timeout(200)
@@ -1637,11 +1636,15 @@ def raum_pruefen(browser, url: str) -> dict:
             except Exception:
                 pass
             kanaele = ev("() => [...document.querySelectorAll('#channel-list .channel-item')].map(b => b.textContent.trim())")
+            # Seit B-20b als Kanal-Event (34703) an die Adresse des Raums, nicht mehr als neue Definition
             definitionen = [e for e in relay.gesendet if e.get("kind") == 34700]
-            neu = [t for t in (definitionen[-1]["tags"] if definitionen else []) if t[0] == "channel" and t[1] == "technik-co"]
-            erg["desktop"]["eigener_raum"] = {"rechte": rechte, "kanaele": kanaele, "definitionen": len({e["id"] for e in definitionen}), "neu": neu}
+            kanal_events = list({e["id"]: e for e in relay.gesendet if e.get("kind") == 34703}.values())  # je Relay-Verbindung einmal gesendet
+            neu = [t for e in kanal_events for t in e["tags"] if t[0] == "channel" and t[1] == "technik-co"]
+            adresse = [t[1] for e in kanal_events for t in e["tags"] if t[0] == "a"]
+            erg["desktop"]["eigener_raum"] = {"rechte": rechte, "kanaele": kanaele, "definitionen": len({e["id"] for e in definitionen}), "neu": neu, "adresse": adresse}
             if rechte != [True, True] or not any(k.endswith("Technik & Co") for k in kanaele) \
-                    or neu != [["channel", "technik-co", "Technik & Co", "offen", "2", "mod", ""]]:
+                    or neu != [["channel", "technik-co", "Technik & Co", "offen", "2", "mod", ""]] \
+                    or len({e["id"] for e in definitionen}) != 1 or len(adresse) != 1 or not adresse[0].startswith("34700:"):
                 erg["fehler"].append(f"desktop: eigener Raum, Kanal anlegen {erg['desktop']['eigener_raum']}")
         # Seit B-7: gemerkt ist die Adresse mit dem Gründer – eine neuere Definition eines Fremden mit derselben Kennung
         # übernimmt den Raum nicht (vorher gewann die neueste Definition, gleich von wem)

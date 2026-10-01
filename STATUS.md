@@ -13418,3 +13418,48 @@ Endstand (B-20a, 01.10.): protocol 1146 (+2, 6 übersprungen) · node 275 (7
 übersprungen ohne Netz – mit Netz 276) · app 749 · mls 13 · Leak-Tests 69 grün
 + 1 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 ·
 Website ok · Smoke-Test bestanden. Knoten-Stand: unverändert.
+
+## Schritt B-20b – Kanäle offener Räume durch Berechtigte: App
+
+Zweiter Teil von B-20 (Protokoll in B-20a).
+
+**App (`shell/tabs/raeume.ts`):**
+- `oeffneRaum()` lädt mit der Struktur auch die Kanal-Events (Kind 34703);
+  `raumZustandFuer()` nimmt sie nur an die Adresse des Raums.
+- „Kanal anlegen“ im offenen Raum für alle mit „kanaele_verwalten“
+  (`darfKanaele()`, der Gründer hat es immer), gesendet als Kanal-Event
+  (`baueRaumKanal()`) – keine neue Definition mehr. Die Position folgt dem
+  letzten Kanal (mit Kanälen anderer konnte die Zahl der Kanäle eine schon
+  belegte Position sein).
+- Neue offene Räume: die Rolle „mod“ hat `MOD_RECHTE`, also auch
+  „kanaele_verwalten“ – wie privat, wo Moderatoren Kanäle anlegen.
+- **Fund:** „Moderatoren ernennen“ veröffentlichte im offenen Raum die
+  Moderatorenliste der Communities (34550). Die zählt in Räumen seit B-19
+  nicht – Ernannte konnten weder moderieren noch (jetzt) Kanäle verwalten; das
+  Feld „Regeln (erscheinen bei jedem Mitglied)“ wurde nirgends gezeigt. Jetzt
+  vergibt der Gründer die Rolle „mod“ (34702): Ernannte bekommen sie zu ihren
+  Rollen dazu, Abgesetzte verlieren nur sie; fehlen der Rolle in älteren
+  Räumen Rechte aus `MOD_RECHTE`, legt er sie vorher neu fest. Schlüssel als
+  npub oder Hex (`schluesselAusEingabe()`), die bisherigen stehen schon im
+  Feld; der Dialog nennt, was Moderatoren dürfen (`raum.modRechte`). Das Feld
+  „Regeln“ fällt weg (`komm.regeln`).
+
+**Tests:** app +1 (`raum-kanal.test.ts`): Moderatoren ernennen über die Rolle
+– keine Liste 34550, keine Regeln, nur der Gründer, npub/Hex geprüft, erst die
+Rolle, dann die Zuweisungen; so gebaut moderiert der Ernannte und verwaltet
+Kanäle, der Abgesetzte nicht mehr, eine ältere Rolle bekommt „kanaele_verwalten“.
+Angepasst mit derselben Absicht: der Test „offen“ in `raum-kanal.test.ts`
+(jetzt Kanal-Event von einem Moderator, ein Mitglied zählt nicht, die Abfrage
+lädt 34703) und die Menü-Prüfung (Kanäle nach `darfKanaele()`);
+`oeffentliche-raeume.test.ts` findet die Kennung jetzt in Rolle und Zuweisung
+statt in der Liste 34550; `raum-repos.test.ts` (11.4a) findet „repos_pflegen“
+der Moderatoren jetzt in `MOD_RECHTE`. Smoke „eigener Raum“: Der Gründer legt „Technik & Co“
+an – ein Kanal-Event an die Adresse, nur eine Definition (keine zweite mehr);
+die Pause für einen späteren Zeitstempel entfällt.
+
+**Verdrahtet:** `packages/app/src/shell/tabs/raeume.ts` – `oeffneRaum()`
+(Abfrage mit `KIND_RAUM_KANAL`), `legeKanalAn()` → `baueRaumKanal()`,
+`zeigeRaumArt()` → `darfKanaele()`, `ernenneModeratoren()` →
+`buildRoles()`/`buildRoleGrant()`. `baueKanalEntfernung()` bleibt bis B-20c
+(ändern und entfernen) in `scripts/wiring-ausnahmen.txt`; `buildModeratorList()`
+ruft die App nicht mehr auf und steht dort jetzt mit Begründung.

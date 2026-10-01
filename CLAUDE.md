@@ -895,7 +895,11 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   die neueste Aussage, von anderen als dem Gründer nur mit
   „kanaele_verwalten“ (heutiger Stand) und nur für Kanäle bis zum eigenen
   Rang, nichts aus der Zukunft (`KANAL_GRENZEN`). Kanäle im offenen Raum sind
-  immer „offen“ – nie „verschlüsselt“ versprechen.
+  immer „offen“ – nie „verschlüsselt“ versprechen. In der App (seit B-20b)
+  „Kanal anlegen“ offen nur mit `darfKanaele()` und nur über `baueRaumKanal()`
+  – nie eine neue Definition (34700) dafür. Moderatoren offener Räume sind die
+  mit der Rolle „mod“ (34702, `MOD_RECHTE`), ernannt über
+  `ernenneModeratoren()` – nie mehr die Liste 34550, sie zählt in Räumen nicht.
 - **Umfragen und Termine nur in der Gruppe** (seit B-15a, `raum-planung.ts`):
   NIP-88 (1068/1018) und NIP-52 (31922/31923/31925) nur als innere Events
   privater Räume über `raumUmfrage()`, `raumStimme()`, `raumTermin()`,

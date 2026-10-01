@@ -124,6 +124,7 @@ mocks.ts|MockLightning|Test-Attrappe für Lightning
 model-registry.ts|fitsOnDevice|gehört zum Laden von Gewichten beim Provider – das gibt es noch nicht (nach 8.8 offen; 8.8 brachte Kataloge und Preise)
 model-registry.ts|verifyFile|gehört zum Laden von Gewichten beim Provider – das gibt es noch nicht (nach 8.8 offen; 8.8 brachte Kataloge und Preise)
 
+moderation.ts|buildModeratorList|Moderatorenliste der Communities (34550) – in Räumen zählt sie seit B-19 nicht, Moderatoren offener Räume ernennt die App seit B-20b über die Rolle „mod“ (34702)
 moderation.ts|canModerate|Moderationsrechte und Hinweistext ohne Oberfläche (Räume und Moderation, 8.5)
 moderation.ts|moderationInfo|Moderationsrechte und Hinweistext ohne Oberfläche (Räume und Moderation, 8.5)
 
@@ -163,8 +164,7 @@ sol-deposit.ts|buildSolDepositSettle|Abschluss eines SOL-Deposits, noch nicht an
 sol-deposit.ts|checkSolDeposit|Abschluss eines SOL-Deposits, noch nicht angebunden (Verdienen in SOL, 4.5)
 sol-deposit.ts|parseSolDepositSettle|Abschluss eines SOL-Deposits, noch nicht angebunden (Verdienen in SOL, 4.5)
 
-spaces.ts|baueRaumKanal|Kanäle offener Räume durch Berechtigte, in der App noch nicht angelegt (B-20b)
-spaces.ts|baueKanalEntfernung|Kanäle offener Räume durch Berechtigte, in der App noch nicht angelegt (B-20b)
+spaces.ts|baueKanalEntfernung|Kanäle offener Räume entfernen, in der App noch ohne Oberfläche – ändern und entfernen folgt mit B-20c
 spaces.ts|searchMessages|Suche in Raum-Nachrichten, ohne Oberfläche – die lokale Suche (8.13) deckt Direktnachrichten und Communities
 
 state-backup.ts|checkExpiry|Ablauf allgemein, ohne Oberfläche – Direktnachrichten laufen seit 2.5 über private-dm.ts (dmAbgelaufen)
