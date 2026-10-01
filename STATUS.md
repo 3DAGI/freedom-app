@@ -12969,3 +12969,36 @@ Endstand (B-2b, 01.10.): protocol 1140 (6 übersprungen) · node 271 (7
 grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng
 Exit 0 · Website ok · Smoke-Test bestanden (mit der Prüfung „Repo nur auf
 diesem Gerät“). Knoten-Stand: unverändert.
+
+## Schritt B-2c – Repos nur auf diesem Gerät: Wechsel auf „öffentlich“
+
+Dritter Teil von B-2: der Wechsel aus S1 („später auf öffentlich“).
+
+**App (`shell/tabs/repos.ts`, `repo-seite.ts`):** „Veröffentlichen“ in der Zeile
+„🔒 Nur auf diesem Gerät“ ruft `veroeffentlicheLokal()`: nach Rückfrage – sie
+sagt, dass die Ankündigung signiert hinausgeht, das Bundle verschlüsselt ins
+Speichernetz (der Schlüssel steht öffentlich in der Referenz) und dass es sich
+nicht zurücknehmen lässt; gibt es schon ein öffentliches Repo gleicher Kennung,
+nennt sie, dass es ersetzt wird – geht die Ankündigung hinaus, dann das Bundle
+über `ladeBundleHoch()` wie jede neue Version. Erst wenn beides draußen ist,
+entfällt die Kopie auf dem Gerät (`lokaleRepos.entferne()`); scheitert etwas,
+bleibt sie, und ein zweiter Versuch ersetzt die Ankündigung. Danach steht die
+öffentliche Seite offen (mit Issues, Patches, Mitwirkenden). Texte
+`repo.lokalVeroeffentlich*` in beiden Sprachen.
+
+**Tests:** +1 (`lokale-repos.test.ts`: Reihenfolge Rückfrage → Ankündigung →
+Bundle → Kopie weg, scheitert das Bundle, bleibt die Kopie, ersetztes Repo in der
+Rückfrage, Knopf verdrahtet). Smoke „raum“ (Desktop): „nurhier“ samt Bundle
+veröffentlicht – 30617 und 38042 gehen hinaus, die Liste auf dem Gerät ist leer,
+die öffentliche Seite zeigt alle Reiter; gelöscht wird jetzt ein zweites lokales
+Repo „weg“ (ohne ein Event ans Relay).
+
+**Verdrahtet:** `packages/app/src/shell/tabs/repo-seite.ts` – `lokalZeile()` →
+`h.veroeffentlichen`; `packages/app/src/shell/tabs/repos.ts` – `zeige()` →
+`veroeffentlicheLokal()` → `publish()`, `ladeBundleHoch()`, `lokaleRepos.entferne()`.
+
+Endstand (B-2c, 01.10.): protocol 1140 (6 übersprungen) · node 271 (7
+übersprungen ohne Netz – mit Netz 272) · app 734 (+1) · mls 13 · Leak-Tests 68
+grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng
+Exit 0 · Website ok · Smoke-Test bestanden (mit „veröffentlichen“ und
+„löschen“). Knoten-Stand: unverändert.

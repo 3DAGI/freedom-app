@@ -64,6 +64,8 @@ export interface RepoSeiteHilfe {
   raeume: () => Promise<{ adresse: string; name: string }[]>;
   /** In den Raum des Repos wechseln (11.4c). */
   zumRaum: () => void;
+  /** Ein Repo nur auf diesem Gerät veröffentlichen (B-2c) – nach Rückfrage, die lokale Kopie entfällt erst danach. */
+  veroeffentlichen: (k: RepoKarte) => Promise<void>;
 }
 
 export type RepoReiter = "code" | "commits" | "issues" | "patches" | "mitwirkende" | "einstellungen";
@@ -169,7 +171,8 @@ function raumZeile(k: RepoKarte, h: RepoSeiteHilfe): HTMLElement | undefined {
 
 /**
  * Nur auf diesem Gerät (B-2): niemand sonst sieht das Repo, nichts liegt auf
- * Relays oder im Speichernetz. Löschen nimmt Angaben und Bundle vom Gerät.
+ * Relays oder im Speichernetz. Löschen nimmt Angaben und Bundle vom Gerät,
+ * „Veröffentlichen“ (B-2c) bringt beides ins Netz.
  */
 function lokalZeile(k: RepoKarte, h: RepoSeiteHilfe): HTMLElement {
   const zeile = el("p", undefined, "repo-raum repo-lokal mono-sm");
@@ -184,7 +187,8 @@ function lokalZeile(k: RepoKarte, h: RepoSeiteHilfe): HTMLElement {
       toast(fehlerText(e), true);
     }
   })());
-  zeile.append(el("span", t("repo.imLokal")), loeschen);
+  const raus = knopf(t("repo.lokalVeroeffentlichen"), "ghost mini repo-lokal-veroeffentlichen", () => void h.veroeffentlichen(k));
+  zeile.append(el("span", t("repo.imLokal")), raus, loeschen);
   return zeile;
 }
 
