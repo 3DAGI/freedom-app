@@ -165,4 +165,8 @@ export const repos: Texte = {
   "repo.alleLabels": { de: "Alle Labels", en: "All labels" },
   "repo.labelZahl": { de: "{label} ({n})", en: "{label} ({n})" },
   "repo.labelZeigen": { de: "Issues mit Label „{label}“ zeigen", en: "Show issues labelled “{label}”" },
+  "repo.neu": { de: "Neu", en: "New" },
+  "repo.markeNeu": { de: "{n} neu", en: "{n} new" },
+  "repo.neuDetails": { de: "Seit deinem letzten Blick: Issues {issues}, Patches {patches}, Kommentare {kommentare}", en: "Since you last looked: issues {issues}, patches {patches}, comments {kommentare}" },
+  "repo.nichtsNeues": { de: "Nichts Neues in Repos, an denen du beteiligt bist.", en: "Nothing new in repos you take part in." },
 };

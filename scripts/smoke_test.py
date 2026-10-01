@@ -540,6 +540,12 @@ def dialog_pruefen(browser, url: str) -> dict:
 # Echtes Git-Bundle (v2, mit Deltas) für den Reiter „Code“ (seit C.3c1) – dasselbe wie im Test von git-bundle.ts
 PROBE_BUNDLE = (Path(__file__).resolve().parent.parent / "packages/app/test/fixtures/probe-v2.bundle").read_bytes()
 # Seit C-20b: README mit Tabelle und Verweisen (src/liste.txt, docs/ANLEITUNG.md, einer hinaus)
+# Seit C-20f: Karten der Repo-Liste nach dem zurückgedrehten Blick auf „werkzeug“ – [Name, Marke „neu“, Einzelheiten].
+# Neu sind nur Beiträge anderer: das Issue von Bo, der Patch und der Kommentar von Ada; „meins“ und „raumrepo“ (nur Desktop)
+# haben nichts von anderen.
+_WERKZEUG_NEU = ["werkzeug", "3 neu", "Seit deinem letzten Blick: Issues 1, Patches 1, Kommentare 1"]
+NEUIGKEITEN_KARTEN = {"desktop": [["raumrepo", None, None], ["meins", None, None], _WERKZEUG_NEU],
+                      "mobil": [["meins", None, None], _WERKZEUG_NEU]}
 PROBE_MD_BUNDLE = (Path(__file__).resolve().parent.parent / "packages/app/test/fixtures/probe-md.bundle").read_bytes()
 
 
@@ -1770,6 +1776,34 @@ def raum_pruefen(browser, url: str) -> dict:
             if not frage.startswith("Repo „raumrepo“ im öffentlichen Raum „Werkstatt“ ankündigen?") or not werkstatt \
                     or verweis_raum != [f"34700:{relay.ich}:space:{werkstatt}"] or liste_raum != ["raumrepo"]:
                 erg["fehler"].append(f"desktop: Repo im Raum anlegen {erg['desktop']['repo_im_raum']} {werkstatt}")
+        # Seit C-20f: Neues seit dem letzten Blick. Den Blick auf „werkzeug“ zurückdrehen (ohne Tresor liegt er wie jedes
+        # Geheimnis im localStorage) und neu laden: Die Karte zählt, was andere schrieben, „Neu“ filtert, Öffnen gilt als gesehen
+        werkzeug_k = f"{next(e['pubkey'] for e in relay.events if e.get('kind') == 30617)}:werkzeug"
+        ev("(k) => { const g = JSON.parse(localStorage.getItem('freedom.repos.gesehen') || '{}'); g[k] = 1; localStorage.setItem('freedom.repos.gesehen', JSON.stringify(g)); }", werkzeug_k)
+        s.reload(wait_until="load")
+        s.wait_for_timeout(1500)
+        ev("() => document.getElementById('ein-abbrechen')?.click()")
+        ev("() => { location.hash = '#/repos'; }")
+        try:
+            s.wait_for_function("() => !!document.querySelector('#repos-karten .repo-marke-neu')", timeout=15000)
+        except Exception:
+            pass
+        neuig = {"karten": ev("() => [...document.querySelectorAll('#repos-karten .repo-karte')].map(k => [k.querySelector('.repo-name').textContent, k.querySelector('.repo-marke-neu')?.textContent ?? null, k.querySelector('.repo-marke-neu')?.title ?? null])")}
+        ev("() => document.querySelector('#repos-filter [data-filter=neu]')?.click()")
+        s.wait_for_timeout(150)
+        neuig["filter"] = ev("() => [...document.querySelectorAll('#repos-karten .repo-name')].map(n => n.textContent)")
+        ev("() => [...document.querySelectorAll('#repos-karten .repo-karte')].find(k => k.querySelector('.repo-name').textContent === 'werkzeug')?.click()")
+        s.wait_for_timeout(300)
+        ev("() => document.querySelector('#repo-seite .repo-zurueck')?.click()")
+        s.wait_for_timeout(200)
+        neuig["danach"] = [ev("() => [...document.querySelectorAll('#repos-karten .repo-name')].map(n => n.textContent)"),
+                           ev("() => document.querySelector('#repos-karten p')?.textContent"),
+                           ev("(k) => JSON.parse(localStorage.getItem('freedom.repos.gesehen') || '{}')[k] > 1", werkzeug_k)]
+        ev("() => document.querySelector('#repos-filter [data-filter=alle]')?.click()")
+        erg[groesse]["neuigkeiten"] = neuig
+        if neuig != {"karten": NEUIGKEITEN_KARTEN[groesse], "filter": ["werkzeug"],
+                     "danach": [[], "Nichts Neues in Repos, an denen du beteiligt bist.", True]}:
+            erg["fehler"].append(f"{groesse}: Neuigkeiten {neuig}")
         ctx.close()
     erg["bestanden"] = not erg["fehler"]
     return erg
