@@ -12531,3 +12531,55 @@ bis B-7, B-15a–b, B-19): protocol 1140 (6 übersprungen) · node 272 (6
 check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 (keine neue
 Ausnahme) · Website ok · Smoke-Test bestanden (mit den neuen Prüfungen) ·
 Website-Bau ok · reproduzierbarer Build ok. Knoten-Stand: unverändert.
+
+## Schritt C-20d – Verlauf einer Datei und Suche im Code
+
+Spur C, Sammlung C-20 (Repos 1:1 wie GitHub, ohne neues Format). Bei GitHub
+zeigt jede Datei ihren Verlauf, und im Repo lässt sich suchen. Beides geht
+jetzt im Reiter „Code“ – aus dem geladenen Bundle, nur im Speicher.
+
+**Was:**
+- `git-bundle.ts`:
+  - `dateiVerlauf()` geht die Commits entlang der ersten Eltern ab dem
+    gewählten Stand und nimmt jeden auf, in dem sich die Kennung unter dem
+    Pfad gegenüber den Eltern ändert – „neu“, „geändert“ oder „gelöscht“.
+    Höchstens 100 Commits; `abgeschnitten`, wenn danach noch Verlauf käme
+    oder die Eltern nicht im Bundle liegen (dann lässt sich nicht sagen, was
+    der Commit tat).
+  - `sucheImCode()` sucht Dateinamen und Zeilen aller Textdateien des Stands,
+    Groß/klein egal, in der Reihenfolge des Reiters. Grenzen in
+    `SUCHE_GRENZEN`: 5000 Dateien, 200 Treffer, 1 MB je Datei, Tiefe 32,
+    Zeile gekürzt auf 300 Zeichen; Binäres zählt nicht; unter zwei Zeichen
+    wird nicht gesucht.
+- `shell/tabs/code-reiter.ts`:
+  - Knopf „Verlauf“ an jeder Datei (`aria-expanded`): je Commit Betreff,
+    Autor, Datum, Kennung und was mit der Datei geschah.
+  - In jedem Ordner ein Suchfeld „Im Code suchen“: Treffer als
+    „Pfad:Zeile“ mit der Zeile, ein Klick öffnet die Datei; die Treffer
+    bleiben stehen, bis neu gesucht wird. Gesucht wird im gewählten Stand –
+    wechselt der Zweig, sucht die App dort neu.
+  - Offener Verlauf und Suche stehen nur im Speicher und fallen mit dem
+    Bundle heraus.
+- Texte (de und en), CSS.
+
+**Verdrahtet:** `app/src/shell/tabs/code-reiter.ts` (`zeigeCode()` →
+`verlaufListe()` → `dateiVerlauf()`; `zeigeCode()` → `suchFeld()` →
+`sucheImCode()`).
+
+**Tests:** app +3 in `test/git-bundle.test.ts` (Verlauf je Zweig in beiden
+Probe-Bundles, nach `max` und am Rand des Bundles abgeschnitten; Suche nach
+Namen und Zeilen, Groß/klein, Reihenfolge, zu kurz, keine Treffer, Grenze mit
+300 passenden Zeilen, Binäres und Übergroßes nicht durchsucht; Verdrahtung).
+Smoke „raum“ (Desktop und Handy): Im Zweig „entwurf“ zeigt der Verlauf der
+README „Entwurf: neuer Titel – geändert“ und „Werkzeugkiste mit Anleitung –
+neu“, der Fokus bleibt auf dem Knopf; die Suche nach „hammer“ findet
+src/liste.txt:1 und README.md:5, der erste Treffer öffnet die Datei (Adresse
+unverändert), zurück im Ordner stehen die Treffer noch, „x“ ergibt den Hinweis
+auf zwei Zeichen. Keine Bilder: Verlauf und Suche erscheinen nur mit geladenem
+Bundle, das die Bilder-Probe nicht hat.
+
+Endstand: protocol 1140 (6 übersprungen) · node 272 (6 übersprungen, mit
+Internet) · app 713 (+3) · mls 13 · Leak-Tests 68 grün + 1 todo · 0 rot ·
+check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 (keine neue
+Ausnahme) · Website ok · Smoke-Test bestanden (mit den neuen Prüfungen) ·
+Website-Bau ok · reproduzierbarer Build ok. Knoten-Stand: unverändert.

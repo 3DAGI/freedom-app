@@ -9,7 +9,10 @@
  * Namen, Nachrichten und die README kommen von Fremden.
  */
 import type { NostrEvent } from "@freedomstack/protocol";
-import { BundleFehler, type BundleFehlerArt, type GelesenesBundle, alsText, commitsAb, kopfCommit, leseBundle, unterPfad, zweigeUndTags } from "../../git-bundle.js";
+import {
+  BundleFehler, type BundleFehlerArt, type CodeTreffer, type DateiAenderung, type GelesenesBundle, SUCHE_GRENZEN, alsText, commitsAb, dateiVerlauf,
+  kopfCommit, leseBundle, sucheImCode, unterPfad, zweigeUndTags,
+} from "../../git-bundle.js";
 import { gebietsschema, t } from "../../i18n.js";
 import { fehlerText } from "../../protokoll-texte.js";
 import { loesePfad } from "../../markdown.js";
@@ -46,6 +49,9 @@ const ort = new Map<string, string[]>();
 const alsQuelltext = new Set<string>();
 /** Gewählter Zweig oder Tag je Bundle (C-20c), als „zweig:<name>“ bzw. „tag:<name>“ – nur im Speicher. */
 const refWahl = new Map<string, string>();
+/** Dateien mit offenem Verlauf und die Suche je Bundle (C-20d) – nur im Speicher. */
+const verlaufOffen = new Set<string>();
+const suchen = new Map<string, { text: string; commit: string; ergebnis: { treffer: CodeTreffer[]; mehr: boolean } }>();
 const COMMITS_MAX = 100;
 const README = /^readme(\.(md|markdown|txt))?$/i;
 const MARKDOWN = /\.(md|markdown)$/i;
@@ -82,6 +88,8 @@ function ladeKnopf(bundle: NostrEvent, neu: () => void): HTMLElement[] {
         gelesen.delete(alt);
         ort.delete(alt);
         refWahl.delete(alt);
+        suchen.delete(alt);
+        for (const k of verlaufOffen) if (k.startsWith(`${alt}:`)) verlaufOffen.delete(k);
       }
       gelesen.set(bundle.id, gelesenesBundle);
       neu();
@@ -182,6 +190,7 @@ function zeigeCode(b: GelesenesBundle, id: string, name: string, neu: () => void
   const an = unterPfad(b, c!.baum, pfad);
   if (!an) return [...teile, el("p", t("repo.pfadFehlt"), "mono-sm muted")];
   if (an.art === "ordner") {
+    teile.push(...suchFeld(b, id, c!.baum, kopf, geh, neu));
     const liste = el("ul", undefined, "code-dateien");
     for (const e of an.eintraege) {
       const li = el("li", undefined, `code-${e.art} mono`);
@@ -202,6 +211,18 @@ function zeigeCode(b: GelesenesBundle, id: string, name: string, neu: () => void
   }
   if (an.art === "modul") return [...teile, el("p", t("repo.submodul", { name: pfad.at(-1)!, sha: an.sha.slice(0, 7) }), "mono-sm muted")];
   teile.push(el("div", t("repo.dateiGroesse", { bytes: an.daten.length.toLocaleString(gebietsschema()) }), "mono-sm muted"));
+  // Verlauf der Datei (C-20d): welche Commits sie anlegten, änderten oder löschten – auf Knopfdruck
+  const vSchluessel = `${id}:${pfad.join("/")}`; // kein UI-Text
+  const vOffen = verlaufOffen.has(vSchluessel);
+  const vKnopf = knopf(t("repo.verlauf"), "ghost mini repo-knopf code-verlauf-knopf", () => {
+    if (vOffen) verlaufOffen.delete(vSchluessel);
+    else verlaufOffen.add(vSchluessel);
+    neu();
+    document.querySelector<HTMLElement>(".code-verlauf-knopf")?.focus();
+  });
+  vKnopf.setAttribute("aria-expanded", String(vOffen));
+  teile.push(vKnopf);
+  if (vOffen) teile.push(...verlaufListe(b, kopf, pfad));
   const text = alsText(an.daten);
   if (an.art === "link") teile.push(el("p", t("repo.linkZiel", { ziel: text ?? "?" }), "mono-sm"));
   else if (text === null) teile.push(el("p", t("repo.dateiBinaer"), "mono-sm muted"));
@@ -226,6 +247,69 @@ function zeigeCode(b: GelesenesBundle, id: string, name: string, neu: () => void
     }
     teile.push(vorschau ? markdownDom(text.slice(0, TEXT_MAX), "code-md", { oeffne: oeffne(pfad.slice(0, -1)) }) : el("pre", text.slice(0, TEXT_MAX), "code-datei"));
   }
+  return teile;
+}
+
+const AENDERUNG: Record<DateiAenderung, string> = { neu: "repo.aenderungNeu", geaendert: "repo.aenderungGeaendert", geloescht: "repo.aenderungGeloescht" };
+
+/** Verlauf einer Datei (C-20d): je Commit Betreff, Autor, Datum, Kennung und was mit der Datei geschah. */
+function verlaufListe(b: GelesenesBundle, commit: string, pfad: string[]): HTMLElement[] {
+  const { eintraege, abgeschnitten } = dateiVerlauf(b, commit, pfad, COMMITS_MAX);
+  if (!eintraege.length) return [el("p", t(abgeschnitten ? "repo.verlaufAbgeschnitten" : "repo.verlaufLeer"), "mono-sm muted")];
+  const liste = el("ol", undefined, "code-verlauf");
+  for (const v of eintraege) {
+    const li = el("li", undefined, "code-verlauf-zeile");
+    li.append(el("span", v.betreff, "code-commit-betreff"), el("span", t("repo.commitMeta", { autor: v.autor, datum: datumVon(v.zeit), sha: v.sha.slice(0, 7) }), "mono-sm muted"),
+      el("span", t(AENDERUNG[v.art]), `repo-status code-aenderung-${v.art}`)); // kein UI-Text
+    liste.append(li);
+  }
+  return abgeschnitten ? [liste, el("p", t("repo.verlaufAbgeschnitten"), "mono-sm muted")] : [liste];
+}
+
+/** Suche im Code (C-20d): Feld und Treffer – gesucht wird im ganzen Stand, nur im Speicher; ein Treffer öffnet die Datei. */
+function suchFeld(b: GelesenesBundle, id: string, baum: string, commit: string, geh: (p: string[]) => void, neu: () => void): HTMLElement[] {
+  const form = el("form", undefined, "code-suche");
+  form.setAttribute("role", "search");
+  const feld = el("input", undefined, "code-suche-feld");
+  feld.type = "search";
+  feld.id = "code-suche";
+  feld.placeholder = t("repo.sucheLabel");
+  feld.setAttribute("aria-label", t("repo.sucheLabel"));
+  feld.value = suchen.get(id)?.text ?? "";
+  const los = el("button", t("repo.sucheKnopf"), "ghost mini repo-knopf");
+  los.type = "submit";
+  form.append(feld, los);
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const text = feld.value.trim();
+    if (text) suchen.set(id, { text, commit: "", ergebnis: { treffer: [], mehr: false } });
+    else suchen.delete(id);
+    neu();
+    document.getElementById("code-suche")?.focus();
+  });
+  const s = suchen.get(id);
+  if (!s) return [form];
+  if (s.text.length < 2) return [form, el("p", t("repo.sucheKurz"), "mono-sm muted")];
+  // Neu suchen nur, wenn sich der Stand änderte (anderer Zweig oder Tag)
+  if (s.commit !== commit) {
+    s.ergebnis = sucheImCode(b, baum, s.text);
+    s.commit = commit;
+  }
+  const { treffer, mehr } = s.ergebnis;
+  const zahl = el("p", treffer.length ? t("repo.sucheTreffer", { n: treffer.length }) : t("repo.sucheKeine", { text: s.text }), "mono-sm muted code-suche-zahl");
+  zahl.setAttribute("role", "status");
+  const teile: HTMLElement[] = [form, zahl];
+  if (treffer.length) {
+    const liste = el("ul", undefined, "code-treffer");
+    for (const x of treffer) {
+      const li = el("li");
+      li.append(knopf(x.nr ? t("repo.sucheOrt", { pfad: x.pfad.join("/"), nr: x.nr }) : x.pfad.join("/"), "code-treffer-ort mono-sm", () => geh(x.pfad)),
+        el("span", x.nr ? x.zeile : t("repo.sucheDateiname"), x.nr ? "code-treffer-zeile mono-sm" : "mono-sm muted"));
+      liste.append(li);
+    }
+    teile.push(liste);
+  }
+  if (mehr) teile.push(el("p", t("repo.sucheMehr", { n: SUCHE_GRENZEN.treffer }), "mono-sm muted"));
   return teile;
 }
 
