@@ -13563,3 +13563,8 @@ zweite Definition.
 **Verdrahtet:** `packages/app/src/shell/tabs/raeume.ts` – `wireSpacesTab()` →
 `aendereKanal()` → `darfKanalAendern()`, `baueRaumKanal()`,
 `baueKanalEntfernung()`, `aenderePrivatenKanal()`.
+
+Endstand (B-20c, 01.10.): protocol 1147 (+1, 6 übersprungen) · node 275 (7
+übersprungen ohne Netz – mit Netz 276) · app 756 (+2) · mls 13 · Leak-Tests 69
+grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0
+· Website ok · Smoke-Test bestanden. Knoten-Stand: unverändert.
