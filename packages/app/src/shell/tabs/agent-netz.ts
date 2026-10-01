@@ -11,11 +11,11 @@ import { t } from "../../i18n.js";
 import { fehlerText } from "../../protokoll-texte.js";
 import { LS_KATALOGE, katalogKennung, katalogRang, leseAbos, leseKatalogEingabe, mitAbo, ohneAbo } from "../../modell-kataloge.js";
 import { ausMsat } from "../../preis-anzeige.js";
-import { escapeHtml, pkShort } from "../../shell-logic.js";
+import { pkShort } from "../../shell-logic.js";
 import { aktualisiereKurs, aktuellerKurs } from "../marktkurs.js";
 import { alleAngebote, alsGeraet, ensurePool, signiere, state } from "../state.js";
 import { dialog } from "../dialog.js";
-import { $, toast } from "../ui.js";
+import { $, el, toast } from "../ui.js";
 
 /**
  * Verfügbarkeit eines Modells in der Sprache der Oberfläche (8.16e) – aus den
@@ -36,14 +36,17 @@ export async function zeigeModelle(): Promise<void> {
     const pool = await ensurePool();
     const evs = await pool.query({ kinds: [KIND_MODEL_MANIFEST, KIND_MODEL_SEED], limit: 1000 });
     const r = buildRegistry(evs);
-    box.innerHTML = r.models.length === 0
-      ? `<span class="muted">${escapeHtml(t("agent.keineModelle"))}</span>`
+    // Namen und Quantisierung kommen aus fremden Manifesten – nur als Text (C-6)
+    box.replaceChildren(...(r.models.length === 0
+      ? [el("span", t("agent.keineModelle"), "muted")]
       : r.models.slice(0, 20).map((m) => {
-          const cls = m.availability === "gut" ? "ok" : m.availability === "knapp" ? "warn" : "err";
-          return `<div class="usage-row"><span>${escapeHtml(m.manifest.name)}` +
-            `${m.manifest.quant ? ` · ${escapeHtml(m.manifest.quant)}` : ""}</span>` +
-            `<span class="${cls}">${escapeHtml(modellNotiz(m))}</span></div>`;
-        }).join("");
+          const zeile = el("div", undefined, "usage-row");
+          zeile.append(
+            el("span", m.manifest.quant ? `${m.manifest.name} · ${m.manifest.quant}` : m.manifest.name),
+            el("span", modellNotiz(m), m.availability === "gut" ? "ok" : m.availability === "knapp" ? "warn" : "err"),
+          );
+          return zeile;
+        })));
     // Gefaehrdete zuerst nennen (8.8) – die Liste oben ist nach Seedern sortiert und schneidet sie sonst ab.
     const gefaehrdet = modelsAtRisk(r.models);
     if (gefaehrdet.length > 0) {

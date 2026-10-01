@@ -74,7 +74,8 @@ test("C-2: Einnahmen in der Einheit ihrer Kette – SOL nur mit Kurs, sonst ehrl
   setLang("de");
   // Verdrahtet: der Earn-Tab zeigt jede Einnahme über einnahmeText(); den Kurs holt er nur, wenn es SOL-Einnahmen gibt
   const earn = readFileSync(new URL("../src/shell/tabs/earn.ts", import.meta.url), "utf8");
-  assert.match(earn, /\$\{escapeHtml\(einnahmeText\(get\("volume_msat"\), kette\(ev\), kurs\)\)\} · \$\{timeAgo\(ev\.created_at\)\}/);
+  // seit C-6 als Text im DOM, nicht mehr über innerHTML
+  assert.match(earn, /el\("span", `\$\{einnahmeText\(get\("volume_msat"\), kette\(ev\), kurs\)\} · \$\{timeAgo\(ev\.created_at\)\}`\)/);
   assert.match(earn, /const kurs = sorted\.some\(\(ev\) => kette\(ev\) === "solana"\) \? \(aktuellerKurs\(\) \?\? await aktualisiereKurs\(\)\.catch\(\(\) => undefined\)\) : undefined;/);
   assert.doesNotMatch(earn, /\/ 1000\)\} sats/, "nicht mehr fest „sats“");
 });
