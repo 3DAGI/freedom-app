@@ -37,6 +37,8 @@ function zeigeStatus(): void {
   const koppeln = document.getElementById("knoten-koppeln");
   if (koppeln) koppeln.textContent = t(k ? "set.knotenNeu" : "set.knotenKoppeln");
   document.getElementById("knoten-entkoppeln")?.toggleAttribute("hidden", !k);
+  // Halten (B-9b2, `knoten-halten-ui.ts`): nur gekoppelt zu sehen
+  document.getElementById("knoten-halten-zeile")?.toggleAttribute("hidden", !k);
 }
 
 async function koppeln(): Promise<void> {

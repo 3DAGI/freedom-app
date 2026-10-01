@@ -8,8 +8,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
-  BESITZER_TAG, buildJobRequest, buildPrivateJobRequest, generateKeypair, mitBesitzerNachweis, neueKopplung,
-  regelBesitzerVersiegelt, regelKeinBolt11, regelKeinKlartextPrompt, regelKeineZahlungsdaten, regelKundeVerborgen, regelPTagsNur,
+  BESITZER_TAG, LocalSigner, baueHalteAuftrag, buildJobRequest, buildPrivateJobRequest, generateKeypair, mitBesitzerNachweis, neueKopplung,
+  openPrivateKundenEvent, regelBesitzerVersiegelt, regelKeinBolt11, regelKeinKlartextPrompt, regelKeineZahlungsdaten, regelKundeVerborgen, regelPTagsNur,
 } from "@freedomstack/protocol";
 import { KiSitzungen } from "../../src/ki-sitzung.js";
 import { aufzeichnung } from "./aufzeichnung.js";
@@ -50,3 +50,27 @@ test("Mein Knoten: Nachweis und Geheimnis nur versiegelt, kein Gebot, Identität
   assert.match(bau, /bidMsat: eigen \? 0 : bid \* 1000,/);
   assert.match(bau, /request: eigen \? mitBesitzerNachweis\(request, eigen\) : request, sessionSigner: sitzung,/, "vor dem Versiegeln, im Kern");
 });
+
+test("Mein Knoten hält (B-9b2): der Halte-Auftrag nur versiegelt – welcher Blob, welches Manifest und der Nachweis stehen nirgends offen", async () => {
+  const { pool, relay } = aufzeichnung();
+  const identitaet = generateKeypair().pk;
+  const knoten = generateKeypair();
+  const k = neueKopplung(knoten.pk);
+  const sitzung = new LocalSigner(generateKeypair().sk);
+  const blobId = "ab".repeat(32), manifestId = "cd".repeat(32);
+  const { wrap } = await baueHalteAuftrag({ sitzung, kopplung: k, blobId, manifestId, powBits: 8 });
+  await pool.publish(wrap);
+  const gesendet = relay.gesendet;
+  assert.deepEqual(gesendet.map((e) => e.kind), [1059]);
+  assert.deepEqual(regelBesitzerVersiegelt(gesendet), []);
+  const offen = JSON.stringify(gesendet);
+  for (const geheim of [blobId, manifestId, k.geheimnis]) assert.ok(!offen.includes(geheim), "Relays erfahren nicht, welche Datei ich halten lasse");
+  const kern = await openPrivateKundenEvent(wrap, new LocalSigner(knoten.sk));
+  assert.ok(kern.ok);
+  assert.ok(!offen.includes(kern.request.tags.find((t) => t[0] === BESITZER_TAG)![1]!), "der Nachweis nur im Kern");
+  assert.deepEqual(regelKundeVerborgen(gesendet, identitaet), []);
+  assert.deepEqual(regelKundeVerborgen(gesendet, sitzung.publicKey()), []);
+  assert.deepEqual(regelPTagsNur(gesendet, [knoten.pk]), []);
+  assert.deepEqual(regelKeineZahlungsdaten(gesendet), []);
+});
+

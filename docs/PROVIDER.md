@@ -141,9 +141,10 @@ bisher gekoppelten Geräte gelten dann nicht mehr als Besitzer. Im Log steht
 beim Start `[kopplung] mit dem Besitzer gekoppelt` oder `nicht gekoppelt`.
 
 Mit `STORAGE_ENABLED=1` hält der Knoten verschlüsselte Dateien seines
-Besitzers dauerhaft (B-9b): Ein versiegelter Auftrag mit dem Nachweis (die
-App sendet ihn ab B-9b2) lässt den Knoten die Stücke von den Relays holen; er
-verdrängt sie nie.
+Besitzers dauerhaft (B-9b): Nach jedem Hochladen (Repo-Bundles, Anhänge)
+schickt die App einen versiegelten Auftrag mit dem Nachweis – abschaltbar unter
+Settings → Geräte → „Mein Knoten“. Der Knoten holt die Stücke von den Relays
+und verdrängt sie nie.
 Sie zählen zur Quota (`STORAGE_QUOTA_MB`); ist sie damit voll, hält er keine
 weiteren. Welche er hält, steht in `gehalten.json` im Speicherordner – nur
 Prüfsummen, keine Namen. Im Log steht `[speicher] für den Besitzer gehalten: …`.

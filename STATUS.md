@@ -13914,3 +13914,49 @@ Endstand (B-9b1, 01.10.): protocol 1151 (+3, 6 übersprungen) · node 284 (+4, 7
 + 1 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 ·
 Website ok · Smoke-Test bestanden. Knoten-Stand: für das Halten nötig (B-9b1,
 mit `STORAGE_ENABLED=1`); KI-Anfragen unberührt.
+
+## Schritt B-9b2 – Halten beim eigenen Knoten: App
+
+Sammlung B-9, Entscheidung L4 A, zweiter Teil (b1: #252, Protokoll und Knoten).
+
+**App:**
+- Settings → Geräte → „Mein Knoten“: Haken „Meine Dateien bei meinem Knoten
+  halten“ – nur gekoppelt zu sehen, Standard an, gemerkt als `1`/`0` in
+  `freedom.knoten.halten` (`knoten-halten.ts`, `haltenAn()`; eine Einstellung,
+  kein Geheimnis).
+- `halteBeiMeinemKnoten()` (`shell/knoten-halten-ui.ts`): nur gekoppelt und mit
+  Haken; frischer Sitzungsschlüssel, `baueHalteAuftrag()` an genau das
+  Manifest, Rechenarbeit aus dem Angebot des Knotens bis 16 Bit (wie
+  `MAX_POW_APP`). Gewartet wird höchstens 90 s auf die versiegelte Antwort zu
+  genau diesem Auftrag (6076 oder Rückmeldung 7000); gezeigt nur als fester
+  Text: alle Stücke, n von m, keins, antwortet nicht, lehnt ab (Grund gekürzt,
+  nur als Text). Scheitert es, gilt der Upload trotzdem.
+- Aufgerufen nach jedem verschlüsselten Upload: `ladeBundleHoch()`
+  (`tabs/repos.ts`, nie für die Kopie nur auf dem Gerät) und Chat-Anhänge
+  (`tabs/kommunikation.ts`, eine Zeile in einer Datei der Spur C).
+  `uploadAnhang()` (`blob-client.ts`) nennt dafür die Manifest-Id.
+- `scripts/wiring-ausnahmen.txt`: `baueHalteAuftrag` und `leseHalteAntwort`
+  fallen weg (verdrahtet).
+- Eigenes Modul `shell/knoten-halten-ui.ts` (Haken und Auftrag):
+  `mein-knoten.ts` hält den Kopplungscode und schickt nichts hinaus – das
+  prüft der Test aus B-8c (kein `localStorage`, kein `publish`); er blieb
+  unverändert, `mein-knoten.ts` blendet nur die Zeile ein.
+
+**Tests:** app +3 (`knoten-halten.test.ts`: Haken, Ergebnis, Grund; nur
+gekoppelt und mit Haken, frischer Sitzungsschlüssel, genau das Manifest, nur
+feste Texte, nur die Antwort zu diesem Auftrag; nach Bundles und Anhängen, nie
+lokal), Leak-Tests +1 (`leak/mein-knoten.test.ts`: nur ein Umschlag, Blob,
+Manifest und Nachweis nirgends offen, Identität verborgen). Smoke
+„einstellungen“: gekoppelt erscheint der Haken (an), aus wird gemerkt,
+entkoppelt verschwindet er.
+
+**Verdrahtet:** `packages/app/src/shell/tabs/repos.ts` – `ladeBundleHoch()` →
+`halteBeiMeinemKnoten()`; `packages/app/src/shell/tabs/kommunikation.ts` –
+Anhang → `halteBeiMeinemKnoten()`; `packages/app/src/shell/knoten-halten-ui.ts` →
+`baueHalteAuftrag()`, `leseHalteAntwort()`.
+
+Endstand (B-9b2, 02.10.): protocol 1151 (6 übersprungen) · node 284 (7
+übersprungen ohne Netz – mit Netz 285) · app 775 (+3) · mls 13 · Leak-Tests 70
+grün (+1) + 1 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng
+Exit 0 · Website ok · Smoke-Test bestanden. Knoten-Stand: B-9b1 (#252) mit
+`STORAGE_ENABLED=1`, sonst antwortet der Knoten „keine Speicher-Rolle“.
