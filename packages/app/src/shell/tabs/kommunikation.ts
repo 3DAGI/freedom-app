@@ -221,6 +221,8 @@ export function setzeKommModus(modus: "dm" | "space"): void {
   if (modus === "dm") {
     document.querySelectorAll("#space-rail .space-pill").forEach((p) => p.setAttribute("aria-current", "false"));
     loadChatList();
+    // Der Raum steht nicht mehr vor Augen – sein Ungelesenes als Punkt in der Leiste (C-13a)
+    void zeigeRaumLeiste();
   }
 }
 
@@ -1142,12 +1144,19 @@ export async function newDm(): Promise<void> {
   });
   const id = w ? schluessel(w.schluessel) : "";
   if (!id) return;
+  oeffneDirektnachricht(id);
+}
+
+/** Eine Unterhaltung mit diesem Schlüssel öffnen – neu, wenn es noch keine gibt (auch aus dem Mitglieder-Menü, C-13b). */
+export function oeffneDirektnachricht(id: string): void {
   if (!conversations.find((c) => c.id === id)) {
     conversations.push({ id, type: "dm", name: id.slice(0, 12) + "…", lastTs: 0 });
     saveConversations();
   }
+  setzeKommModus("dm");
   loadChatList();
   openConversation(id);
+  document.querySelector(".comm-layout")?.classList.add("thread-open");
 }
 
 /**

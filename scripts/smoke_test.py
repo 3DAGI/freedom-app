@@ -1637,6 +1637,9 @@ def raum_pruefen(browser, url: str) -> dict:
         ctx = browser.new_context(locale="de-DE", viewport=vp, is_mobile=mobil, has_touch=mobil)
         ctx.route("**/*", lambda r: r.continue_() if r.request.url.startswith(basis) else r.abort())
         ctx.route_web_socket(re.compile(r"^wss?://"), relay.verbinde)
+        # „Neu“ (C-13b): allgemein schon gelesen bis kurz nach den ersten Nachrichten (gestern 10:00 + 130 s, wie raum-probe.mts)
+        gelesen = (int(datetime.datetime.now(datetime.timezone.utc).timestamp()) // 86400) * 86400 - 86400 + 10 * 3600 + 130
+        ctx.add_init_script(f"localStorage.setItem('freedom.lastRead', JSON.stringify({{ allgemein: {gelesen} }}));")
         s = ctx.new_page()
         s.on("pageerror", lambda e: erg["fehler"].append(str(e)[:300]))
         ev = s.evaluate
@@ -1673,6 +1676,8 @@ def raum_pruefen(browser, url: str) -> dict:
             tage: th.querySelectorAll('.msg-tag').length, bilder: th.querySelectorAll('img').length,
             xss: window.__raumXss === 1, alsText: th.textContent.includes('<img src=x'),
             aktionen: th.querySelectorAll('.msg-aktionen .mod-hide').length,
+            neu: [th.querySelectorAll('.msg-neu').length, th.querySelector('.msg-neu')?.textContent ?? '',
+              th.querySelector('.msg-neu')?.nextElementSibling?.querySelector('.msg-text')?.textContent ?? ''],
             sichtbar: th.getBoundingClientRect().height > 0,
             schreiben: !document.getElementById('channel-composer').classList.contains('hidden') }; }""")
         deckkraft = "() => getComputedStyle(document.querySelectorAll('.msg-aktionen')[2]).opacity"
@@ -1690,7 +1695,8 @@ def raum_pruefen(browser, url: str) -> dict:
         erg[groesse]["planung_offen"] = planung
         if planung != [True, True, True]:
             erg["fehler"].append(f"{groesse}: Umfragen/Termine im offenen Raum sichtbar {planung}")
-        erwartet = {"gruppen": [2, 2, 1], "tage": 2, "bilder": 0, "xss": False, "alsText": True, "aktionen": 5, "schreiben": True}
+        erwartet = {"gruppen": [2, 2, 1], "tage": 2, "bilder": 0, "xss": False, "alsText": True, "aktionen": 5, "schreiben": True,
+                    "neu": [1, "Neu", "Hallo! <img src=x onerror=\"window.__raumXss=1\"> bleibt Text."]}
         abweichung = {k: verlauf.get(k) for k, v in erwartet.items() if verlauf.get(k) != v}
         # Namen: ohne Kontakte der gekürzte Schlüssel – nie „Du“ für andere, nie leer
         if abweichung or not all(a and a != "Du" for a in verlauf["autoren"]):
@@ -1742,7 +1748,7 @@ def raum_pruefen(browser, url: str) -> dict:
           return { sichtbar: r(col).width > 0, kanal: r(document.querySelector('.channel-main')).width > 0,
             zeilen: [...col.querySelectorAll('#member-list .member-row')].map(z => [z.querySelector('.mitglied-name').textContent === 'Du',
               [...z.querySelectorAll('.msg-role')].map(x => x.textContent), !!z.querySelector('.mitglied-knopf')]) }; }""")
-        ev("() => document.querySelectorAll('#member-list .mitglied-knopf')[0].click()")
+        ev("() => document.querySelectorAll('#member-list .member-row')[1].querySelector('.mitglied-knopf').click()")
         s.wait_for_timeout(150)
         menue_stand = """() => { const m = document.querySelector('.menue-schwebend');
           return { punkte: m ? [...m.querySelectorAll('[role=menuitem]')].map(b => b.textContent) : null,
@@ -1754,10 +1760,11 @@ def raum_pruefen(browser, url: str) -> dict:
         s.wait_for_timeout(100)
         zu_m = ev("() => [!!document.querySelector('.menue-schwebend'), document.activeElement?.classList.contains('mitglied-knopf')]")
         erg[groesse]["mitglieder"] = {"liste": mitglieder, "menue": auf_m, "runter": runter, "zu": zu_m}
-        soll_zeilen = [[False, ["Gründer"], False], [False, ["Mitglied"], True], [False, ["Mitglied"], True], [True, ["Moderator"], False]]
+        soll_zeilen = [[False, ["Gründer"], True], [False, ["Mitglied"], True], [False, ["Mitglied"], True], [True, ["Moderator"], False]]
         if not mitglieder["sichtbar"] or mitglieder["kanal"] == mobil or mitglieder["zeilen"] != soll_zeilen:
             erg["fehler"].append(f"{groesse}: Mitglieder {mitglieder}")
-        if auf_m != {"punkte": ["Rolle vergeben", "Absender sperren"], "fokus": "Rolle vergeben"} or runter != "Absender sperren" or zu_m != [False, True]:
+        if auf_m != {"punkte": ["Direktnachricht schreiben", "Rolle vergeben", "Absender sperren"], "fokus": "Direktnachricht schreiben"} \
+                or runter != "Rolle vergeben" or zu_m != [False, True]:
             erg["fehler"].append(f"{groesse}: Mitglied-Menü {auf_m} {runter} {zu_m}")
         if mobil:
             ev("() => document.getElementById('mitglieder-zu').click()")
@@ -1962,6 +1969,45 @@ def raum_pruefen(browser, url: str) -> dict:
             erg[groesse]["beitreten"] = {"schon": schon, "nicht": nicht_beigetreten, "wieder": wieder}
             if schon is not False or nicht_beigetreten != ["Probe-Raum", True, False] or wieder != [False, True, 1]:
                 erg["fehler"].append(f"{groesse}: hier beitreten {erg[groesse]['beitreten']}")
+            # C-13a: offen mit Weltkugel, für Vorleser „Offener Raum …“; der Kanal ankündigungen ist ungelesen –
+            # vor Augen kein Punkt, zurück bei den Direktnachrichten ein Punkt; die Leiste hat einen Tab-Halt, Pfeile wandern
+            pille = "#space-rail .space-pill[data-space=\"probe-raum\"]"
+            vor_augen = ev(f"""() => [document.querySelector('{pille}').textContent, document.querySelector('{pille}').getAttribute('aria-label'),
+              !!document.querySelector('{pille} .rail-punkt')]""")
+            ev("() => document.getElementById('comm-dm-btn').click()")
+            try:  # die Leiste zeichnet sich nach dem Wechsel neu – auf den Punkt warten, fehlt er, meldet es die Prüfung unten
+                s.wait_for_function(f"() => !!document.querySelector('{pille} .rail-punkt')", timeout=10000)
+            except Exception:
+                pass
+            weg = ev(f"""() => [document.querySelector('{pille}').getAttribute('aria-label'), !!document.querySelector('{pille} .rail-punkt'),
+              [...document.querySelectorAll('.comm-rail button')].filter(b => b.tabIndex === 0).map(b => b.id || b.dataset.space)]""")
+            ev("() => document.getElementById('comm-dm-btn').focus()")
+            s.keyboard.press("ArrowDown")
+            pfeil = ev("() => [document.activeElement?.dataset.space ?? document.activeElement?.id ?? '',"
+                       " [...document.querySelectorAll('.comm-rail button')].filter(b => b.tabIndex === 0).length]")
+            erg[groesse]["leiste"] = {"vor_augen": vor_augen, "weg": weg, "pfeil": pfeil}
+            if vor_augen != ["🌐P", "Offener Raum probe-raum", False] \
+                    or weg != ["Offener Raum probe-raum, ungelesen", True, ["comm-dm-btn"]] or pfeil[1] != 1 or pfeil[0] in ("", "comm-dm-btn"):
+                erg["fehler"].append(f"{groesse}: Leiste {erg[groesse]['leiste']}")
+            ev(f"() => document.querySelector('{pille}').click()")
+            s.wait_for_function("() => document.querySelector('.comm-layout')?.dataset.commMode === 'space'", timeout=10000)
+            # C-13b: aus dem Mitglieder-Menü eine Direktnachricht an den Gründer – Unterhaltung neu, offen bei den Direktnachrichten
+            s.wait_for_function("() => document.querySelectorAll('#member-list .member-row .mitglied-knopf').length > 0", timeout=10000)
+            gruender_pk = ev("() => document.querySelectorAll('#member-list .member-row')[0].querySelector('.mitglied-name').title")
+            ev("() => document.querySelectorAll('#member-list .member-row')[0].querySelector('.mitglied-knopf').click()")
+            s.wait_for_function("() => document.querySelectorAll('.menue-schwebend [role=menuitem]').length > 0", timeout=10000)
+            ev("() => [...document.querySelectorAll('.menue-schwebend [role=menuitem]')].find(b => b.textContent === 'Direktnachricht schreiben')?.click()")
+            try:
+                s.wait_for_function("(pk) => !!document.querySelector(`#chat-list .chat-item.active[data-cid=\"${pk}\"]`)", arg=gruender_pk, timeout=10000)
+            except Exception:
+                pass
+            dm = ev("""(pk) => [document.querySelector('.comm-layout').dataset.commMode,
+              !!document.querySelector(`#chat-list .chat-item.active[data-cid="${pk}"]`), !!document.querySelector('#chat-thread .empty-state')]""", gruender_pk)
+            erg[groesse]["direktnachricht"] = dm
+            if dm != ["dm", True, True]:
+                erg["fehler"].append(f"{groesse}: Direktnachricht aus dem Mitglieder-Menü {dm}")
+            ev(f"() => document.querySelector('{pille}').click()")
+            s.wait_for_function("() => document.querySelector('.comm-layout')?.dataset.commMode === 'space'", timeout=10000)
         # Repos (C.3a): eine Karte aus Ankündigung und Bundle, Suche, „Meine“, Repo-Seite, Patch annehmen per Dialog
         ev("() => { location.hash = '#/repos'; }")
         try:

@@ -34,9 +34,9 @@ const events = [
   ...[[ada.pk, "mitglied"], [bo.pk, "mitglied"], [ich, "mod"]].map(([pk, rolle]) =>
     signEvent(buildRoleGrant(spaceId, gruender.pk, pk!, [rolle!], gestern - 500), gruender.sk)),
 ];
-const nachricht = (von: typeof ada, text: string, zeit: number, bezug: { threadRoot?: string; replyTo?: string } = {}) =>
+const nachricht = (von: typeof ada, text: string, zeit: number, bezug: { threadRoot?: string; replyTo?: string } = {}, channelId = "allgemein") =>
   signEvent(buildChannelMessage({
-    authorPubkey: von.pk, spaceId, channelId: "allgemein", content: text, mentions: [], ...bezug,
+    authorPubkey: von.pk, spaceId, channelId, content: text, mentions: [], ...bezug,
   } as never, zeit), von.sk);
 const willkommen = nachricht(gruender, "Willkommen im Probe-Raum.", gestern);
 // Seit C.2c ein Thread an der ersten Nachricht: eine Antwort und eine Antwort auf die Antwort
@@ -48,6 +48,8 @@ events.push(
   nachricht(ada, "Ich auch.", gestern + 150, { threadRoot: willkommen.id, replyTo: danke.id }),
   nachricht(ada, "Hallo! <img src=x onerror=\"window.__raumXss=1\"> bleibt Text.", gestern + 180),
   nachricht(ada, "Zweite Zeile, gleiche Gruppe.", gestern + 240),
+  // Seit C-13a eine Nachricht im zweiten Kanal: ungelesen, solange man ihn nicht öffnet (Punkt in der Leiste)
+  nachricht(gruender, "Neue Regeln sind da.", gestern + 90, {}, "ankuendigungen"),
 );
 const morgen = nachricht(bo, "Guten Morgen – ein neuer Tag.", heute + 9 * 3600);
 events.push(morgen);

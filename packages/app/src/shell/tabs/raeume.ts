@@ -24,7 +24,7 @@ import { antwortBezug, gruppiereVerlauf, kanalKennung } from "../../raum-verlauf
 import { gebietsschema, t } from "../../i18n.js";
 import { fehlerText, kanalVertraulichkeit } from "../../protokoll-texte.js";
 import { abrufTakt } from "../versand.js";
-import { conversations, oeffneCommunity, setzeKommModus } from "./kommunikation.js";
+import { activeConversation, conversations, oeffneCommunity, oeffneDirektnachricht, setzeKommModus } from "./kommunikation.js";
 import type { RaumZiel, RepoKarte } from "../../repo-ansicht.js";
 import { switchTab } from "../app.js";
 import { beiReposGeladen, ladeNip34Repos, legeRepoImRaumAn, merkeRaumAdresse, oeffneRepo, reposVonRaum } from "./repos.js";
@@ -100,6 +100,53 @@ function meineRaeume(): string[] {
 const privatNamen = new Map<string, string>();
 
 /**
+ * Räume mit Ungelesenem (C-13a) – nur, was in dieser Sitzung geladen war: Für
+ * die übrigen fragt die App nicht (sonst nennte eine Abfrage alle eigenen
+ * Räume auf einmal, privat bräuchte es die MLS-Engine). Nur im Speicher.
+ */
+const ungelesen = new Map<string, boolean>();
+
+/** Ungelesenes des Raums, der gerade geladen ist, merken – nach dem Laden und beim Verlassen. */
+async function merkeUngelesen(): Promise<void> {
+  const id = spacesUi.spaceId;
+  if (!id) return;
+  const { parseChannelMessage, unreadBadges } = await import("@freedomstack/protocol");
+  const geparst = spacesUi.messages.map((e) => {
+    try { return parseChannelMessage(e as never); } catch { return null; }
+  }).filter((m): m is NonNullable<typeof m> => m !== null);
+  ungelesen.set(id, unreadBadges(state.keypair?.pk ?? "", geparst, { lastRead: spacesUi.lastRead }).some((b) => b.unread > 0));
+}
+
+/** Der Raum steht gerade vor Augen – dort braucht es keinen Punkt. */
+function vorAugen(id: string): boolean {
+  return id === spacesUi.spaceId && document.querySelector<HTMLElement>(".comm-layout")?.dataset.commMode === "space";
+}
+
+/**
+ * Leiste mit einem Tab-Halt (C-13a): der aktuelle Knopf (sonst der erste) ist
+ * per Tab erreichbar, die übrigen über die Pfeiltasten, Pos1 und Ende.
+ */
+function railTabHalt(): void {
+  const knoepfe = [...document.querySelectorAll<HTMLButtonElement>(".comm-rail button")];
+  const aktiv = knoepfe.find((b) => b.getAttribute("aria-current") === "true") ?? knoepfe[0];
+  for (const b of knoepfe) b.tabIndex = b === aktiv ? 0 : -1;
+}
+
+function railPfeile(e: KeyboardEvent): void {
+  const knoepfe = [...document.querySelectorAll<HTMLButtonElement>(".comm-rail button")].filter((b) => b.offsetParent !== null);
+  const jetzt = knoepfe.indexOf(document.activeElement as HTMLButtonElement);
+  if (jetzt < 0) return;
+  const ziel = e.key === "ArrowDown" || e.key === "ArrowRight" ? Math.min(jetzt + 1, knoepfe.length - 1)
+    : e.key === "ArrowUp" || e.key === "ArrowLeft" ? Math.max(jetzt - 1, 0)
+      : e.key === "Home" ? 0 : e.key === "End" ? knoepfe.length - 1 : -1;
+  if (ziel < 0) return;
+  e.preventDefault();
+  for (const b of knoepfe) b.tabIndex = -1;
+  knoepfe[ziel]!.tabIndex = 0;
+  knoepfe[ziel]!.focus();
+}
+
+/**
  * Ist ein offener Raum beigetreten, steht er also in der Leiste? Dieselbe Adresse – oder eine bloße
  * Kennung von vor B-7, die noch an keinen Gründer gebunden ist.
  */
@@ -123,13 +170,14 @@ export async function zeigeRaumLeiste(): Promise<void> {
     const b = document.createElement("button");
     b.className = "space-pill";
     b.dataset.community = c.id;
-    b.setAttribute("aria-current", "false");
+    // Aktuell, solange ihr Verlauf offen ist – die Leiste zeichnet sich beim Wechsel neu (C-13a)
+    b.setAttribute("aria-current", String(document.querySelector<HTMLElement>(".comm-layout")?.dataset.commMode === "dm" && activeConversation === c.id));
     b.title = t("komm.communityOffen", { name: c.name });
     b.setAttribute("aria-label", b.title);
     b.textContent = `🏠${c.name.slice(0, 1).toUpperCase()}`;
     b.addEventListener("click", () => {
       oeffneCommunity(c.id);
-      b.setAttribute("aria-current", "true");
+      void zeigeRaumLeiste();
     });
     return b;
   });
@@ -140,19 +188,29 @@ export async function zeigeRaumLeiste(): Promise<void> {
     b.className = "space-pill";
     // Offen: die Kennung zeigen, geöffnet wird die Adresse mit dem Gründer (B-7)
     b.dataset.space = istPrivat(id) ? id : name;
-    b.setAttribute("aria-current", String(id === spacesUi.spaceId));
+    // Aktuell nur, was vor Augen steht – bei den Direktnachrichten ist kein Raum aktuell (C-13a)
+    b.setAttribute("aria-current", String(vorAugen(id)));
     b.title = name;
-    b.textContent = istPrivat(id) ? `🔒${name.slice(0, 1).toUpperCase()}` : name.slice(0, 2).toUpperCase();
+    // Privat mit Schloss, offen mit Weltkugel (C-13a); der Name für Vorleser samt Art und Ungelesenem
+    b.textContent = istPrivat(id) ? `🔒${name.slice(0, 1).toUpperCase()}` : `🌐${name.slice(0, 1).toUpperCase()}`;
+    const art = t(istPrivat(id) ? "komm.raumPrivatAria" : "komm.raumOffenAria", { name });
+    const punkt = ungelesen.get(id) === true && !vorAugen(id);
+    b.setAttribute("aria-label", punkt ? t("komm.ungelesenAria", { raum: art }) : art);
+    if (punkt) b.append(el("span", undefined, "rail-punkt"));
     b.addEventListener("click", () => void oeffneRaum(id));
     return b;
   }));
+  railTabHalt();
 }
 
 /** Einen Raum laden: Definition, Rollen, Zuweisungen, Nachrichten. */
 async function oeffneRaum(spaceId: string): Promise<void> {
   if (spacesUi.spaceId !== spaceId) {
+    // Beim Verlassen: was dort noch ungelesen ist, bleibt als Punkt in der Leiste (C-13a)
+    await merkeUngelesen().catch(() => undefined);
     spacesUi.channelId = null;
     spacesUi.thread = null;
+    neuSeit = null;
     // Nie Rechte oder Nachrichten des vorigen Raums zeigen, solange der neue lädt (C.2d2)
     spacesUi.state = null;
     spacesUi.privat = null;
@@ -450,6 +508,8 @@ async function zeigeKanalliste(): Promise<void> {
     unreadBadges(state.keypair?.pk ?? "", geparst, { lastRead: spacesUi.lastRead })
       .map((b) => [b.channelId, b]),
   );
+  // Punkt in der Leiste (C-13a): ein Raum, der im Hintergrund geladen ist, zeigt sein Ungelesenes
+  if (spacesUi.spaceId) ungelesen.set(spacesUi.spaceId, [...badges.values()].some((b) => b.unread > 0));
 
   // Kanalnamen kommen aus der Raum-Definition – nur als Text (C-6c)
   box.replaceChildren(...st.space.channels.map((c) => {
@@ -480,6 +540,9 @@ async function oeffneKanal(channelId: string): Promise<void> {
   spacesUi.channelId = channelId;
   // Mobil (bis 900 px) ist der Kanal eine eigene Ebene – vor C.2b2 blieb er dort unsichtbar
   document.querySelector(".comm-space-inner")?.classList.add("showing-channel");
+  // „Neu“ (C-13b): der Lesestand beim Betreten des Kanals – er bleibt, solange man im Kanal ist,
+  // auch wenn der Verlauf neu gezeichnet wird (der Lesestand selbst springt beim Öffnen auf jetzt)
+  if (neuSeit?.kanal !== channelId) neuSeit = { kanal: channelId, seit: spacesUi.lastRead.get(channelId) ?? 0 };
   const st = spacesUi.state as never;
   const { buildThreads, canWriteTo, can } = await import("@freedomstack/protocol");
   const darfModerieren = state.keypair ? can(state.keypair.pk, "moderieren", st) : false;
@@ -505,7 +568,7 @@ async function oeffneKanal(channelId: string): Promise<void> {
   const { topLevel, threads } = buildThreads(nachrichten as never[], kanal as never, st);
   const darf = state.keypair ? canWriteTo(state.keypair.pk, kanal as never, st) : false;
   const alle = new Map([...topLevel, ...[...threads.values()].flatMap((f) => f.replies)].map((m) => [m.id, m]));
-  spacesUi.verlauf = { threads, alle, darfModerieren, darfSchreiben: darf, imThread: false };
+  spacesUi.verlauf = { threads, alle, darfModerieren, darfSchreiben: darf, imThread: false, neuSeit: neuSeit?.seit ?? 0 };
   const thread = $("#channel-thread");
   if (thread) {
     // Seit C.2b2 gruppiert, mit Namen statt Schlüsseln – nur DOM und textContent
@@ -584,8 +647,13 @@ function knopf(text: string, klasse: string, tun: () => void): HTMLButtonElement
   return b;
 }
 
+/** Lesestand des offenen Kanals beim Betreten (C-13b) – für die Linie „Neu“, nur im Speicher; ein anderer Raum setzt ihn zurück. */
+let neuSeit: { kanal: string; seit: number } | null = null;
+
 /** Was der Verlauf eines Kanals zum Zeichnen braucht (C.2b2, seit C.2c auch der Thread). */
 interface VerlaufKontext {
+  /** Gelesen bis (Sekunden) – darüber die Linie „Neu“; 0: noch nie gelesen, keine Linie (C-13b). */
+  neuSeit?: number;
   threads: Map<string, ThreadView>;
   /** Jede sichtbare Nachricht des Kanals nach Id – für den Bezug einer Antwort. */
   alle: Map<string, ChannelMessage>;
@@ -635,14 +703,20 @@ function nachrichtZeile(m: ChannelMessage, k: VerlaufKontext): HTMLElement {
 function verlaufGruppen(liste: readonly ChannelMessage[], k: VerlaufKontext): HTMLElement[] {
   const zeit = (s: number) => new Date(s * 1000).toLocaleTimeString(gebietsschema(), { hour: "2-digit", minute: "2-digit" });
   const tag = (s: number) => new Date(s * 1000).toLocaleDateString(gebietsschema(), { weekday: "long", day: "numeric", month: "long" });
+  // „Neu“ vor der ersten Gruppe mit einer fremden Nachricht nach dem Lesestand – nur, wenn der Kanal schon gelesen war
+  const ich = state.keypair?.pk;
+  let neuGezeigt = !k.neuSeit || k.imThread;
   return gruppiereVerlauf(liste).flatMap((g) => {
+    const neu = !neuGezeigt && g.nachrichten.some((m) => m.authorPubkey !== ich && m.createdAt > k.neuSeit!);
+    if (neu) neuGezeigt = true;
     const kopf = el("div", undefined, "msg-meta");
     const name = el("span", nameVon(g.autor), "msg-author");
     name.title = g.autor;
     kopf.append(name, el("span", zeit(g.nachrichten[0]!.createdAt), "msg-time"));
     const gruppe = el("div", undefined, "msg-group");
     gruppe.append(kopf, ...g.nachrichten.map((m) => nachrichtZeile(m, k)));
-    return g.neuerTag ? [el("div", tag(g.nachrichten[0]!.createdAt), "msg-tag"), gruppe] : [gruppe];
+    const linie = neu ? [el("div", t("raum.neu"), "msg-neu")] : [];
+    return g.neuerTag ? [el("div", tag(g.nachrichten[0]!.createdAt), "msg-tag"), ...linie, gruppe] : [...linie, gruppe];
   });
 }
 
@@ -829,10 +903,18 @@ async function zeigeMitglieder(): Promise<void> {
   zeigeMeldungen();
 }
 
-/** Was ich mit einem Mitglied tun darf – privat als Moderator, offen nach meinen Rechten im Raum. */
+/** Menü eines Mitglieds: schreiben, dazu was ich darf. */
 function mitgliedAktionen(pk: string, gruender: boolean, can: (pk: string, recht: "moderieren" | "rollen_vergeben", st: never) => boolean): MenuePunkt[] {
   const ich = state.keypair?.pk;
   if (!ich || pk === ich) return [];
+  // Jedem Mitglied schreiben (C-13b) – privat, als Direktnachricht nach NIP-17
+  const schreiben: MenuePunkt = { text: t("raum.direktnachricht"), tun: () => oeffneDirektnachricht(pk) };
+  return [schreiben, ...rechteAktionen(pk, gruender, can)];
+}
+
+/** Was ich mit einem Mitglied tun darf – privat als Moderator, offen nach meinen Rechten im Raum. */
+function rechteAktionen(pk: string, gruender: boolean, can: (pk: string, recht: "moderieren" | "rollen_vergeben", st: never) => boolean): MenuePunkt[] {
+  const ich = state.keypair!.pk;
   const raum = spacesUi.privat;
   if (raum) {
     if (!raum.admins.includes(raum.ich)) return [];
@@ -1170,6 +1252,7 @@ export async function wireSpacesTab(): Promise<void> {
   abrufTakt.melde("raum", () => {
     if (spacesUi.privat && spacesUi.spaceId && !document.hidden && document.getElementById("channel-thread")?.offsetParent) void oeffneRaum(spacesUi.spaceId);
   });
+  document.querySelector<HTMLElement>(".comm-rail")?.addEventListener("keydown", railPfeile);
   document.getElementById("space-hier-beitreten")?.addEventListener("click", () => {
     const id = spacesUi.spaceId;
     if (!id || istPrivat(id) || !raumBeitreten(id)) return;

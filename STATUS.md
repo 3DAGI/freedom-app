@@ -13861,3 +13861,65 @@ Repo-Liste zweimal, wenn der erste Raum öffentlich war (`wireNip34()` und
 jetzt, dass `wireNip34()` gar nicht lädt. Smoke „raum“: beigetreten kein
 Knopf; ohne Eintrag in der Leiste führt „Zum Raum“ in den Raum, der Knopf ist
 da, Beitreten nimmt ihn genau einmal wieder auf.
+
+## Schritt C-13 – Räume, Rest aus dem Entwurf C.2
+
+**Warum:** Was der Entwurf C.2 (`phase-10.md`, „Räume“) vorsah und C.2a–d
+nicht baute (Sammlung C-13):
+- In der Raum-Leiste trugen offene Räume zwei Buchstaben, private ein
+  Schloss. Ungelesenes sah man dort nicht, und jeder Knopf war ein eigener
+  Tab-Halt.
+- Im Verlauf fehlte die Linie „Neu“ am Lesestand.
+- Wer nicht moderiert, sah im Mitglieder-Menü keinen Knopf, also auch keinen
+  Weg, einem Mitglied zu schreiben.
+
+**Was:**
+- **Leiste** (`raeume.ts`):
+  - Offene Räume zeigen 🌐 und den ersten Buchstaben. Vorleser hören
+    „Offener Raum …“ bzw. „Privater Raum …“.
+  - „Aktuell“ (`aria-current`) ist nur der Raum, der vor Augen steht.
+    Bei den Direktnachrichten ist keiner aktuell; `setzeKommModus("dm")`
+    zeichnet die Leiste neu.
+  - Eine Community (C-10) ist aktuell, solange ihr Verlauf offen ist
+    (`activeConversation`). Vorher setzte erst der Klick das Attribut, und
+    das Neuzeichnen hätte es gelöscht – der Smoke-Test „fremdtext“ fand das.
+  - Pfeiltasten, Pos1 und Ende wandern durch die Leiste; nur ein Knopf ist
+    per Tab erreichbar (`railTabHalt()`, `railPfeile()`).
+- **Punkt bei Ungelesenem** (`.rail-punkt`, Vorleser: „…, ungelesen“):
+  - Er erscheint nur für Räume, die in dieser Sitzung geladen waren
+    (`ungelesen`, nur im Speicher). Die App merkt ihn nach dem Laden der
+    Kanalliste und beim Verlassen eines Raums.
+  - Eine Abfrage aller eigenen Räume nennte sie alle auf einmal, und private
+    Räume bräuchten die Engine. Beides ist ausgeschlossen (C-11).
+- **Linie „Neu“:** Sie steht vor der ersten Gruppe mit einer fremden
+  Nachricht nach dem Lesestand.
+  - Maßgeblich ist der Lesestand beim Betreten des Kanals (`neuSeit`, ein
+    Wert für den offenen Kanal; ein anderer Raum setzt ihn zurück, weil
+    Kanäle zweier Räume gleich heißen können): Der Lesestand selbst springt
+    beim Öffnen auf jetzt, die Linie bleibt beim Neuzeichnen. Gemerkt wird
+    erst nach den Zeilen, die der Test zu C.2b2 wörtlich festhält.
+  - War der Kanal nie gelesen, gibt es keine Linie. In Threads gibt es auch
+    keine.
+- **Mitglieder-Menü:** „Direktnachricht schreiben“ steht bei jedem Mitglied
+  außer einem selbst. Es öffnet die Unterhaltung nach NIP-17 über
+  `oeffneDirektnachricht()` (`kommunikation.ts`, aus `newDm()` gelöst).
+  Die Rechte-Punkte folgen wie bisher (`rechteAktionen()`).
+
+**Verdrahtet:** `zeigeRaumLeiste()`, `zeigeKanalliste()`, `oeffneKanal()`,
+`zeigeMitglieder()` → `mitgliedAktionen()`, `wireSpacesTab()` (Pfeiltasten)
+in `shell/tabs/raeume.ts`; `setzeKommModus()` in `shell/tabs/kommunikation.ts`.
+
+**Tests:**
+- app +5 in `test/raeume-rest.test.ts`.
+- `raum-probe.mts` legt eine Nachricht im zweiten Kanal an, damit es
+  Ungelesenes gibt.
+- Smoke „raum“ auf Desktop und Handy:
+  - Die Pille zeigt 🌐 und hat den richtigen Namen für Vorleser.
+  - Vor Augen ist kein Punkt da, nach dem Wechsel zu den Direktnachrichten
+    schon.
+  - Es gibt einen Tab-Halt, und der Pfeil wandert.
+  - Die Linie „Neu“ steht vor der richtigen Gruppe (Lesestand als
+    Init-Skript).
+  - Das Menü am Gründer beginnt mit „Direktnachricht schreiben“, und der
+    Klick öffnet die neue Unterhaltung.
+- Gewartet wird auf Zustände, nicht mit festen Pausen.
