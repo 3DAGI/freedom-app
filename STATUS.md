@@ -12963,3 +12963,9 @@ Datenbank nur Chiffrat, gelöscht – dabei kein Event 30617, 38040–38042.
 `ladeJetzt()` → `lokaleRepos.karten()`; `packages/app/src/shell/tabs/repo-seite.ts`
 – `quelleVon()` → `lokaleRepos.holeBundle()`, `lokalZeile()` →
 `lokaleRepos.entferne()`, `speichereEinstellungen()` → `lokaleRepos.merke()`.
+
+Endstand (B-2b, 01.10.): protocol 1140 (6 übersprungen) · node 271 (7
+übersprungen ohne Netz – mit Netz 272) · app 733 (+1) · mls 13 · Leak-Tests 68
+grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng
+Exit 0 · Website ok · Smoke-Test bestanden (mit der Prüfung „Repo nur auf
+diesem Gerät“). Knoten-Stand: unverändert.
