@@ -13371,3 +13371,50 @@ protocol 1144 (6 übersprungen) · node 275 (7 übersprungen ohne Netz – mit N
 276) · app 749 (+2) · mls 13 · Leak-Tests 69 grün (+1) + 1 todo · 0 rot ·
 check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 · Website ok ·
 Smoke-Test bestanden. Knoten-Stand: B-8b (GX10).
+
+## Schritt B-20a – Kanäle offener Räume durch Berechtigte: Protokoll
+
+Sammlung B-20, entschieden am 01.10.2026 (MENSCH): ja, ein eigenes Event für
+Kanäle, das Berechtigte signieren. Bis dahin änderte nur der Gründer die Kanäle
+eines offenen Raums (34700 trägt seine Signatur); „kanaele_verwalten“ wirkte
+nur privat. Aufgeteilt: a Protokoll, b App.
+
+**Protokoll (`spaces.ts`):**
+- Kind 34703 je Kanal: `d` = `kanal:<kennung>:<kanal>`, `space`, `a` = Adresse
+  des Raums, dazu genau eines von `channel` (anlegen/ändern, Felder wie in
+  34700) und `entfernt`. `baueRaumKanal()`, `baueKanalEntfernung()` bauen nur
+  Gültiges (`ProtokollFehler` „raum-kanal“, Text `pf.raumKanal` in der App),
+  `leseRaumKanal()` liest streng; ein Kanal im offenen Raum ist immer „offen“.
+- `mitRaumKanaelen(zustand, events, jetzt)`: Kanal-Events nur an genau die
+  Adresse des Raums; je Kanal gilt die neueste Aussage – die Definition des
+  Gründers sagt etwas über die Kanäle, die sie nennt, zu ihrer Zeit, entfernt
+  aber nicht, was sie nicht nennt. Von anderen nur mit „kanaele_verwalten“
+  nach heutigem Stand (wie B-19 – ein zurückdatiertes Event eines Abgesetzten
+  hilft nicht) und nur, wenn der Kanal vorher wie nachher nur Schreibrollen bis
+  zum eigenen Rang nennt. Höchstens 100 neue Kanäle, nichts mehr als 600 s
+  voraus (`KANAL_GRENZEN`) – sonst gewönne ein vordatiertes Event gegen jede
+  spätere Änderung des Gründers. Verworfenes steht mit Grund in `ignored`.
+- `raum-repo.ts`: `raumZustandFuer(adresse, events, jetzt?)` wendet
+  `mitRaumKanaelen()` an – alle Aufrufer bekommen die Kanäle mit.
+- `docs/PROTOCOL.md` Abschnitt 22.
+
+**Tests (+2, `spaces.test.ts`):** Hin und zurück, Entfernen, Bauen nur von
+Gültigem; zwölf Fälle fremder Daten ergeben `null` (falsches `d`, falsche Kennung,
+fremde Adresse, ohne `a`, beides oder doppelt, „verschluesselt“, ohne Namen,
+negative Position, zu viele Rollen, zu langes Thema, anderes Kind). Auswertung:
+Moderator legt an, benennt um, öffnet einen Kanal seines Rangs; über ihm
+(nur Admins) weder öffnen noch entfernen noch anlegen; Mitglied und Fremder
+ohne Recht; Admin darf; älter als die Definition verliert; zu weit voraus
+zählt nicht; Entfernen und Rückkehr über eine neuere Definition; abgesetzt
+fallen seine Änderungen weg; fremde Adresse zählt nicht; Grenze 100.
+
+**Verdrahtet:** `packages/protocol/src/raum-repo.ts` → `raumZustandFuer()` →
+`mitRaumKanaelen()` → `leseRaumKanal()` (aufgerufen aus
+`packages/app/src/shell/tabs/raeume.ts`, `oeffneRaum()`, und
+`repo-ansicht.ts`). `baueRaumKanal()`/`baueKanalEntfernung()` stehen bis
+B-20b in `scripts/wiring-ausnahmen.txt`.
+
+Endstand (B-20a, 01.10.): protocol 1146 (+2, 6 übersprungen) · node 275 (7
+übersprungen ohne Netz – mit Netz 276) · app 749 · mls 13 · Leak-Tests 69 grün
++ 1 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 ·
+Website ok · Smoke-Test bestanden. Knoten-Stand: unverändert.

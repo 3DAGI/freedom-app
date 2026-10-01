@@ -551,3 +551,38 @@ Nie das Geheimnis selbst, nur an den Knoten im `p`-Tag. Der Knoten prüft ihn
 nur in Anfragen aus einem Umschlag (`istBesitzer()`): genau ein Tag, die Zeit
 höchstens 600 s von seiner Uhr entfernt, Vergleich in fester Zeit. Offen steht
 der Tag nie (Leak-Regel `besitzer-versiegelt`).
+
+## 22. Kanäle offener Räume (Kind 34703, seit B-20a)
+
+Bis B-20 änderte nur der Gründer die Kanäle eines offenen Raums – die
+Definition (34700) trägt seine Signatur. Seit B-20 (Entscheidung 01.10.2026)
+schreiben auch Berechtigte ein eigenes Event je Kanal (`spaces.ts`):
+
+| Tag | Inhalt |
+|---|---|
+| `d` | `kanal:<kennung>:<kanal>` |
+| `space` | Kennung des Raums |
+| `a` | Adresse des Raums, `34700:<gründer>:space:<kennung>` (`raumAdresse()`) |
+| `channel` | `<kanal>`, `<name>`, `offen`, `<position>`, `<schreibrollen>` (durch senkrechten Strich getrennt, wie in 34700), `<thema>` – anlegen oder ändern (`baueRaumKanal()`) |
+| `entfernt` | `<kanal>` – statt `channel`: Kanal entfernen (`baueKanalEntfernung()`) |
+
+Genau einer von `channel` und `entfernt`; Kanal-Kennung aus Buchstaben,
+Ziffern, `. _ -` (höchstens 64), Name höchstens 100 Zeichen, Thema 500,
+höchstens 20 Schreibrollen. Ein Kanal im offenen Raum ist immer `offen` –
+jeder liest mit (`leseRaumKanal()` nimmt nichts anderes an).
+
+**Auswertung** (`mitRaumKanaelen()`, aus `raumZustandFuer()`): Es zählen nur
+Events an genau die Adresse des Raums. Je Kanal gilt die neueste Aussage; die
+Definition des Gründers sagt zu ihrer Zeit etwas über jeden Kanal, den sie
+nennt – was sie nicht nennt, entfernt sie nicht. Vom Gründer zählt jedes
+Event, von anderen nur, wenn
+
+- der Autor heute „kanaele_verwalten“ hat (wie bei der Moderation, B-19:
+  Wird ihm das Recht entzogen, fallen seine Änderungen weg, auch
+  zurückdatierte), und
+- der Kanal vorher wie nachher nur Schreibrollen bis zu seinem Rang nennt –
+  einen Kanal, in den nur Höhere schreiben, öffnet oder entfernt er nicht.
+
+Neue Kanäle zählen höchstens bis 100 je Raum; Events, die mehr als 600 s in
+der Zukunft liegen, gar nicht (`KANAL_GRENZEN`) – sonst gewönne ein
+vordatiertes Event gegen jede spätere Änderung, auch die des Gründers.

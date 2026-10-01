@@ -21,6 +21,7 @@
  */
 import { NostrEvent, UnsignedEvent, buildEvent, getTag } from "./event.js";
 import { type ModerationState, parseModerationAction } from "./moderation.js";
+import { ProtokollFehler } from "./fehler.js";
 
 /** Definition eines Raums (Server). */
 export const KIND_SPACE = 34700;
@@ -28,6 +29,8 @@ export const KIND_SPACE = 34700;
 export const KIND_SPACE_ROLES = 34701;
 /** Rollenzuweisung an ein Mitglied. */
 export const KIND_ROLE_GRANT = 34702;
+/** Kanal eines offenen Raums, signiert von jemandem mit „kanaele_verwalten“ (B-20). */
+export const KIND_RAUM_KANAL = 34703;
 /** Nachricht in einem Kanal. */
 export const KIND_CHANNEL_MESSAGE = 42;
 
@@ -346,6 +349,132 @@ export function raumModeration(state: SpaceState, massnahmen: readonly NostrEven
     (m.kind === "hide" ? aus.hiddenEvents : aus.bannedPubkeys).set(m.target, m);
   }
   return aus;
+}
+
+// ------------------------------------------------------------ Kanäle offener Räume (B-20)
+
+/**
+ * Grenzen für Kanal-Events: Kanäle je Raum, Länge von Name und Thema,
+ * Schreibrollen je Kanal, und wie weit ein Event in der Zukunft liegen darf.
+ * Ohne die Zukunftsgrenze gewönne ein vordatiertes Event gegen jede spätere
+ * Änderung, auch die des Gründers.
+ */
+export const KANAL_GRENZEN = { anzahl: 100, name: 100, thema: 500, rollen: 20, zukunft: 600 } as const;
+
+/** Ein gelesenes Kanal-Event: der Kanal, oder `null`, wenn er entfernt wird. */
+export interface RaumKanal {
+  adresse: string;
+  spaceId: string;
+  kanalId: string;
+  kanal: Channel | null;
+  autor: string;
+  zeit: number;
+}
+
+function raumKanalEvent(autor: string, adresse: string, kanalId: string, inhalt: string[], createdAt?: number): UnsignedEvent {
+  const a = leseRaumAdresse(adresse);
+  if (!a || !HEX64.test(autor) || !SPACE_ID.test(kanalId)) throw new ProtokollFehler("raum-kanal", "Kanal ungültig");
+  const u = buildEvent(autor, KIND_RAUM_KANAL, [
+    ["d", `kanal:${a.spaceId}:${kanalId}`], ["space", a.spaceId], ["a", adresse], inhalt,
+  ], "", createdAt);
+  if (!leseRaumKanal({ ...u, id: "", sig: "" })) throw new ProtokollFehler("raum-kanal", "Kanal ungültig");
+  return u;
+}
+
+/**
+ * Kanal eines offenen Raums anlegen oder ändern (B-20): ein Event je Kanal,
+ * an die Adresse des Raums gebunden. Zählt nur vom Gründer oder von jemandem
+ * mit „kanaele_verwalten“ (`mitRaumKanaelen()`). Offene Räume liest jeder mit –
+ * ein Kanal hier ist immer „offen“.
+ */
+export function baueRaumKanal(autor: string, adresse: string, k: Channel, createdAt?: number): UnsignedEvent {
+  if (k.privacy !== "offen") throw new ProtokollFehler("raum-kanal", "Kanal ungültig");
+  return raumKanalEvent(autor, adresse, k.id, [
+    "channel", k.id, k.name, "offen", String(k.position), k.writeRoles.join("|"), k.topic ?? "",
+  ], createdAt);
+}
+
+/** Kanal eines offenen Raums entfernen (B-20) – mit denselben Rechten wie ändern. */
+export function baueKanalEntfernung(autor: string, adresse: string, kanalId: string, createdAt?: number): UnsignedEvent {
+  return raumKanalEvent(autor, adresse, kanalId, ["entfernt", kanalId], createdAt);
+}
+
+/** Kanal-Event lesen (fremde Daten); null, wenn es keins ist oder eine Grenze überschreitet. */
+export function leseRaumKanal(ev: NostrEvent): RaumKanal | null {
+  if (ev.kind !== KIND_RAUM_KANAL || !HEX64.test(ev.pubkey) || !Number.isSafeInteger(ev.created_at)) return null;
+  const adresse = getTag(ev, "a") ?? "";
+  const a = leseRaumAdresse(adresse);
+  if (!a || getTag(ev, "space") !== a.spaceId) return null;
+  const setzen = ev.tags.filter((t) => t[0] === "channel");
+  const entfernt = ev.tags.filter((t) => t[0] === "entfernt");
+  if (setzen.length + entfernt.length !== 1) return null;
+  const kanalId = (setzen[0] ?? entfernt[0])![1] ?? "";
+  if (!SPACE_ID.test(kanalId) || getTag(ev, "d") !== `kanal:${a.spaceId}:${kanalId}`) return null;
+  const basis = { adresse, spaceId: a.spaceId, kanalId, autor: ev.pubkey, zeit: ev.created_at };
+  if (entfernt.length) return { ...basis, kanal: null };
+  const [, , name = "", privacy, position = "", rollen = "", thema = ""] = setzen[0]!;
+  const writeRoles = rollen.split("|").filter(Boolean);
+  if (!name || name.length > KANAL_GRENZEN.name || privacy !== "offen" || !/^\d{1,6}$/.test(position)
+    || writeRoles.length > KANAL_GRENZEN.rollen || thema.length > KANAL_GRENZEN.thema) return null;
+  return { ...basis, kanal: { id: kanalId, name, privacy: "offen", position: Number(position), writeRoles, topic: thema || undefined } };
+}
+
+/**
+ * Kanäle eines offenen Raums (B-20): zur Definition des Gründers kommen die
+ * Kanal-Events (34703) an die Adresse des Raums. Je Kanal gilt die neueste
+ * Aussage – die Definition sagt etwas über jeden Kanal, den sie nennt, zu
+ * ihrer Zeit; was sie nicht nennt, entfernt sie nicht.
+ *
+ * Von anderen als dem Gründer zählt ein Event nur, wenn der Autor heute
+ * „kanaele_verwalten“ hat (wie bei der Moderation, B-19: Wird ihm das Recht
+ * entzogen, fallen seine Änderungen weg – ein zurückdatiertes Event aus der
+ * Zeit davor hilft ihm deshalb nicht) und der Kanal vorher wie nachher nur
+ * Schreibrollen bis zu seinem eigenen Rang nennt: Einen Kanal, in den nur
+ * Höhere schreiben, öffnet oder entfernt er nicht. Neue Kanäle höchstens bis
+ * `KANAL_GRENZEN.anzahl`, Events höchstens `zukunft` Sekunden voraus.
+ */
+export function mitRaumKanaelen(
+  zustand: SpaceState, events: readonly NostrEvent[], jetzt = Math.floor(Date.now() / 1000),
+): SpaceState {
+  const space = zustand.space;
+  const gruender = zustand.ownerPubkey;
+  if (!space || !gruender || !HEX64.test(gruender) || !SPACE_ID.test(space.spaceId)) return zustand;
+  const adresse = raumAdresse(gruender, space.spaceId);
+  type Aussage = { zeit: number; id: string; autor: string; kanalId: string; kanal: Channel | null; definition: boolean };
+  const aussagen: Aussage[] = space.channels.map((c) => ({ zeit: space.createdAt, id: "", autor: gruender, kanalId: c.id, kanal: c, definition: true }));
+  for (const ev of events) {
+    if (ev.kind !== KIND_RAUM_KANAL || ev.created_at > jetzt + KANAL_GRENZEN.zukunft) continue;
+    const k = leseRaumKanal(ev);
+    if (k?.adresse === adresse) aussagen.push({ zeit: k.zeit, id: ev.id, autor: k.autor, kanalId: k.kanalId, kanal: k.kanal, definition: false });
+  }
+  // Zeitlich; bei gleicher Sekunde erst die Definition, dann nach Id – so rechnet jeder Client gleich
+  aussagen.sort((x, y) => x.zeit - y.zeit || Number(y.definition) - Number(x.definition) || (x.id < y.id ? -1 : x.id > y.id ? 1 : 0));
+
+  const ignored = [...zustand.ignored];
+  const stand = new Map<string, Channel | null>();
+  const rolleRang = (r: string) => zustand.roles.get(r)?.rank ?? Number.POSITIVE_INFINITY;
+  for (const a of aussagen) {
+    const vorher = stand.get(a.kanalId);
+    if (a.autor !== gruender) {
+      if (!can(a.autor, "kanaele_verwalten", zustand)) {
+        ignored.push({ by: a.autor, reason: "darf keine Kanäle verwalten" });
+        continue;
+      }
+      const rang = rangVon(a.autor, zustand);
+      if ([vorher, a.kanal].some((c) => c?.writeRoles.some((r) => rolleRang(r) > rang))) {
+        ignored.push({ by: a.autor, reason: "Kanal über eigenem Rang" });
+        continue;
+      }
+    }
+    if (a.kanal && !vorher && !a.definition && [...stand.values()].filter(Boolean).length >= KANAL_GRENZEN.anzahl) {
+      ignored.push({ by: a.autor, reason: "zu viele Kanäle" });
+      continue;
+    }
+    stand.set(a.kanalId, a.kanal);
+  }
+  const channels = [...stand.values()].filter((c): c is Channel => !!c)
+    .sort((x, y) => x.position - y.position || (x.id < y.id ? -1 : x.id > y.id ? 1 : 0));
+  return { ...zustand, space: { ...space, channels }, ignored };
 }
 
 /**

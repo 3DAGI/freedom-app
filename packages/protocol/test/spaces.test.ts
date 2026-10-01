@@ -318,3 +318,109 @@ test("B-19: Ausblenden und Sperren nur mit „moderieren“ und nur gegen Niedri
   // Ohne Raum-Zustand keine Moderation
   assert.equal(raumModeration(buildSpaceState(S, []), massnahmen, nachrichten).hiddenEvents.size, 0);
 });
+
+// ------------------------------------------------------------- Kanäle offener Räume (B-20)
+
+test("B-20: Kanal-Event – Hin und zurück, entfernt, Fremdes und Übergroßes fällt weg", async () => {
+  const { raumAdresse, baueRaumKanal, baueKanalEntfernung, leseRaumKanal, KANAL_GRENZEN, KIND_RAUM_KANAL } = await import("../src/spaces.js");
+  const adr = raumAdresse(BESITZER.pk, S);
+  const k: Channel = { id: "hilfe", name: "Hilfe", privacy: "offen", writeRoles: ["mod"], position: 3, topic: "Fragen" };
+  const ev = signEvent(baueRaumKanal(MOD.pk, adr, k, NOW), MOD.sk);
+  assert.equal(ev.kind, KIND_RAUM_KANAL);
+  assert.deepEqual(ev.tags.slice(0, 3), [["d", `kanal:${S}:hilfe`], ["space", S], ["a", adr]]);
+  assert.deepEqual(leseRaumKanal(ev), { adresse: adr, spaceId: S, kanalId: "hilfe", kanal: k, autor: MOD.pk, zeit: NOW });
+  const weg = signEvent(baueKanalEntfernung(MOD.pk, adr, "hilfe", NOW), MOD.sk);
+  assert.equal(leseRaumKanal(weg)?.kanal, null);
+  // Bauen nur Gültiges – offene Räume sind nie verschlüsselt
+  assert.throws(() => baueRaumKanal(MOD.pk, adr, { ...k, privacy: "verschluesselt" }), /Kanal ungültig/);
+  assert.throws(() => baueRaumKanal(MOD.pk, adr, { ...k, id: "mit leerzeichen" }), /Kanal ungültig/);
+  assert.throws(() => baueRaumKanal(MOD.pk, adr, { ...k, name: "x".repeat(KANAL_GRENZEN.name + 1) }), /Kanal ungültig/);
+  assert.throws(() => baueRaumKanal(MOD.pk, `34700:${BESITZER.pk}:${S}`, k), /Kanal ungültig/);
+  // Fremde Daten: jede Abweichung ergibt null
+  const mit = (tags: string[][]) => signEvent(buildEvent(MOD.pk, KIND_RAUM_KANAL, tags, "", NOW), MOD.sk);
+  const gut = ev.tags;
+  const ersetze = (name: string, t: string[]) => gut.map((x) => (x[0] === name ? t : x));
+  for (const kaputt of [
+    ersetze("d", ["d", `kanal:${S}:anders`]),
+    ersetze("space", ["space", "anderer-raum"]),
+    ersetze("a", ["a", raumAdresse(FREMD.pk, "anderer-raum")]),
+    gut.filter((x) => x[0] !== "a"),
+    [...gut, ["entfernt", "hilfe"]],
+    [...gut, ["channel", "hilfe", "Hilfe", "offen", "1", "", ""]],
+    ersetze("channel", ["channel", "hilfe", "Hilfe", "verschluesselt", "3", "mod", ""]),
+    ersetze("channel", ["channel", "hilfe", "", "offen", "3", "", ""]),
+    ersetze("channel", ["channel", "hilfe", "Hilfe", "offen", "-1", "", ""]),
+    ersetze("channel", ["channel", "hilfe", "Hilfe", "offen", "3", Array.from({ length: KANAL_GRENZEN.rollen + 1 }, (_, i) => `r${i}`).join("|"), ""]),
+    ersetze("channel", ["channel", "hilfe", "Hilfe", "offen", "3", "", "t".repeat(KANAL_GRENZEN.thema + 1)]),
+  ]) assert.equal(leseRaumKanal(mit(kaputt)), null, JSON.stringify(kaputt));
+  assert.equal(leseRaumKanal({ ...ev, kind: KIND_SPACE }), null);
+});
+
+test("B-20: Kanäle von Berechtigten – neueste Aussage je Kanal, nur bis zum eigenen Rang", async () => {
+  const { raumAdresse, baueRaumKanal, baueKanalEntfernung, mitRaumKanaelen } = await import("../src/spaces.js");
+  const { raumZustandFuer } = await import("../src/raum-repo.js");
+  const adr = raumAdresse(BESITZER.pk, S);
+  const ADMIN = generateKeypair();
+  // Rollen mit „kanaele_verwalten“; über dem Moderator steht ein Admin
+  const mitKanaelen: Role[] = [
+    { id: "admin", name: "Admin", rank: 80, permissions: ["lesen", "schreiben", "moderieren", "kanaele_verwalten"] },
+    { id: "mod", name: "Moderator", rank: 50, permissions: ["lesen", "schreiben", "moderieren", "kanaele_verwalten"] },
+    { id: "mitglied", name: "Mitglied", rank: 10, permissions: ["lesen", "schreiben"] },
+  ];
+  const nurAdmins: Channel = { id: "vorstand", name: "vorstand", privacy: "offen", writeRoles: ["admin"], position: 5 };
+  const raum = [
+    signEvent(buildSpace({ spaceId: S, name: "FreedomStack", ownerPubkey: BESITZER.pk, channels: [...kanaele.slice(0, 2), nurAdmins] }, NOW), BESITZER.sk),
+    signEvent(buildRoles(S, BESITZER.pk, mitKanaelen, NOW), BESITZER.sk),
+    grant(BESITZER, ADMIN.pk, ["admin"]), grant(BESITZER, MOD.pk, ["mod"]), grant(BESITZER, MITGLIED.pk, ["mitglied"]),
+  ];
+  const kanal = (kp: typeof BESITZER, k: Channel, at: number) => signEvent(baueRaumKanal(kp.pk, adr, k, at), kp.sk);
+  const weg = (kp: typeof BESITZER, id: string, at: number) => signEvent(baueKanalEntfernung(kp.pk, adr, id, at), kp.sk);
+  const hilfe: Channel = { id: "hilfe", name: "hilfe", privacy: "offen", writeRoles: [], position: 2 };
+  const ereignisse = [
+    kanal(MOD, hilfe, NOW + 100),                                                             // neu: zählt
+    kanal(MOD, { ...kanaele[0]!, name: "Allgemeines" }, NOW + 101),                           // umbenannt: zählt
+    kanal(MOD, { ...kanaele[1]!, writeRoles: [] }, NOW + 102),                                // eigener Rang: zählt
+    kanal(MOD, { ...nurAdmins, writeRoles: [] }, NOW + 103),                                  // über ihm: nie
+    weg(MOD, "vorstand", NOW + 104),                                                          // über ihm: nie
+    kanal(MOD, { id: "geheim", name: "geheim", privacy: "offen", writeRoles: ["admin"], position: 9 }, NOW + 105), // über ihm: nie
+    kanal(MITGLIED, { ...hilfe, id: "spam", name: "spam" }, NOW + 106),                      // ohne Recht
+    kanal(FREMD, { ...hilfe, id: "fremd", name: "fremd" }, NOW + 107),                        // ohne Recht
+    kanal(ADMIN, { ...nurAdmins, name: "Vorstand" }, NOW + 108),                              // Admin darf
+    kanal(MOD, { ...kanaele[0]!, name: "zu alt" }, NOW - 5),                                  // älter als die Definition
+    kanal(MOD, { ...hilfe, id: "zukunft", name: "zukunft" }, NOW + 10_000),                   // zu weit voraus
+  ];
+  const jetzt = NOW + 1000;
+  const z = raumZustandFuer(adr, [...raum, ...ereignisse], jetzt)!;
+  const mit = mitRaumKanaelen(raumZustandFuer(adr, raum, jetzt)!, ereignisse, jetzt);
+  assert.deepEqual(mit.space!.channels.map((c) => [c.id, c.name, c.writeRoles.join("|")]), [
+    ["allgemein", "Allgemeines", ""], ["ankuendigungen", "ankündigungen", ""], ["hilfe", "hilfe", ""], ["vorstand", "Vorstand", "admin"],
+  ]);
+  assert.deepEqual(mit.ignored.map((i) => i.reason).sort(), [
+    "Kanal über eigenem Rang", "Kanal über eigenem Rang", "Kanal über eigenem Rang", "darf keine Kanäle verwalten", "darf keine Kanäle verwalten",
+  ]);
+  // raumZustandFuer wendet sie an
+  assert.deepEqual(z.space!.channels, mit.space!.channels);
+  // Moderator entfernt „hilfe“, der Gründer bringt sie mit einer neueren Definition zurück
+  const entfernt = mitRaumKanaelen(mit, [weg(MOD, "hilfe", NOW + 200)], jetzt);
+  assert.ok(!entfernt.space!.channels.some((c) => c.id === "hilfe"));
+  const zurueck = signEvent(buildSpace({ spaceId: S, name: "FreedomStack", ownerPubkey: BESITZER.pk, channels: [...kanaele.slice(0, 2), hilfe] }, NOW + 300), BESITZER.sk);
+  const z2 = raumZustandFuer(adr, [...raum.slice(1), zurueck, ...ereignisse, weg(MOD, "hilfe", NOW + 200)], jetzt)!;
+  assert.ok(mitRaumKanaelen(z2, [], jetzt).space!.channels.some((c) => c.id === "hilfe"), "die neuere Definition gilt");
+  assert.equal(z2.space!.channels.find((c) => c.id === "allgemein")?.name, "allgemein", "auch für Umbenanntes: neueste Aussage");
+  // Recht entzogen: Seine Änderungen fallen weg, auch zurückdatierte
+  const abgesetzt = raumZustandFuer(adr, [...raum, grant(BESITZER, MOD.pk, ["mitglied"], NOW + 500), ...ereignisse], jetzt)!;
+  assert.ok(!abgesetzt.space!.channels.some((c) => c.id === "hilfe"));
+  assert.equal(abgesetzt.space!.channels.find((c) => c.id === "allgemein")?.name, "allgemein");
+  // Nur an die Adresse dieses Gründers: dieselbe Kennung bei einem anderen Gründer zählt nicht
+  const fremdeAdresse = signEvent(baueRaumKanal(MOD.pk, raumAdresse(FREMD.pk, S), { ...hilfe, id: "falsch", name: "falsch" }, NOW + 110), MOD.sk);
+  assert.ok(!mitRaumKanaelen(mit, [fremdeAdresse], jetzt).space!.channels.some((c) => c.id === "falsch"));
+  // Grenze: höchstens KANAL_GRENZEN.anzahl Kanäle aus Events
+  const { KANAL_GRENZEN } = await import("../src/spaces.js");
+  const viele = Array.from({ length: KANAL_GRENZEN.anzahl + 5 }, (_, i) => kanal(MOD, { ...hilfe, id: `k${i}`, name: `k${i}`, position: 10 + i }, NOW + 400 + i));
+  const voll = mitRaumKanaelen(mit, viele, jetzt);
+  assert.equal(voll.space!.channels.length, KANAL_GRENZEN.anzahl);
+  assert.equal(voll.ignored.filter((i) => i.reason === "zu viele Kanäle").length, 9);
+  // Ohne Raum bleibt alles, wie es ist
+  const leer = buildSpaceState(S, []);
+  assert.equal(mitRaumKanaelen(leer, ereignisse, jetzt), leer);
+});
