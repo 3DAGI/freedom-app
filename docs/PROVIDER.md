@@ -85,6 +85,22 @@ Dann `RELAY_PUBLIC_URL=ws://<adresse>.onion` (aus
 `/var/lib/tor/freedom-relay/hostname`). Erreichbar ist er nur für Clients mit
 Tor – die App erkennt das und sagt es im Datenschutzbericht (6.2).
 
+## Mit dem Besitzer koppeln (B-8)
+
+```bash
+cd ~/freedomstack/packages/node && npm run koppeln           # Docker: docker compose exec node npm run koppeln
+```
+
+Zeigt den Kopplungscode als QR und als Text; beim ersten Aufruf entsteht ein
+Geheimnis in `~/.freedom/kopplung.json` (nur für den Knoten lesbar). Das
+Gerät des Besitzers liest ihn ein – in der App unter „Mein Knoten koppeln“
+(ab B-8c). Danach rechnet der Knoten Anfragen dieses Geräts gratis, ohne
+Gebot und ohne Kontingent; erkannt wird der Besitzer nur an einem Nachweis im
+versiegelten Auftrag, nie offen. Der Code ist ein Schlüssel: nur dem eigenen
+Gerät zeigen. `npm run koppeln -- --neu` erzeugt ein neues Geheimnis – alle
+bisher gekoppelten Geräte gelten dann nicht mehr als Besitzer. Im Log steht
+beim Start `[kopplung] mit dem Besitzer gekoppelt` oder `nicht gekoppelt`.
+
 ## Was die Kette zeigt
 
 Dein Knoten hat **eine** SOL-Adresse: Alle Zahlkanäle an ihn und seine

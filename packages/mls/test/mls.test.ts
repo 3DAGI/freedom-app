@@ -73,7 +73,8 @@ test("Nachricht: Kind 445 von einem Wegwerf-Schlüssel, nur h-Tag, kein Klartext
   assert.equal(ev.kind, KIND_GRUPPENNACHRICHT);
   assert.ok(![a.pk, b.pk, c.pk].includes(ev.pubkey));
   assert.deepEqual(ev.tags.map((t) => t[0]), ["h"]);
-  assert.ok(!JSON.stringify(ev).includes("4711"), "kein Klartext");
+  // mit Leerzeichen: „4711“ allein steht in ~0,2 % der Fälle zufällig in Id, Signatur oder Schlüssel (Hex)
+  assert.ok(!JSON.stringify(ev).includes("Gruppe 4711"), "kein Klartext");
   assert.notEqual(ev.tags[0][1], gruppe, "gehashte Gruppen-Id, nicht die MLS-Gruppen-Id");
   for (const p of [b, c]) {
     const r = await p.mls.empfangen(ev);

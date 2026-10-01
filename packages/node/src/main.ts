@@ -27,6 +27,7 @@ import {
 import { DvmProvider, DEFAULT_PROVIDER_CONFIG } from "./dvm-provider.js";
 import { kanalKasseAusUmgebung, kanalOrte } from "./kanal-kasse.js";
 import { befundeText, holeJson, kettenBlick, pruefeEinrichtung } from "./einrichtung.js";
+import { kopplungsDatei, leseKopplung } from "./kopplung-datei.js";
 import { torAusUmgebung, torWebSocket } from "./tor.js";
 import { OllamaBackend } from "./inference.js";
 import http from "node:http";
@@ -170,11 +171,15 @@ async function main(): Promise<void> {
     }))
     .then((befunde) => console.log(befundeText(befunde).replace(/^/gm, "[einrichtung] ")))
     .catch((e) => console.warn(`[einrichtung] Prüfung nicht möglich (${(e as Error).name})`));
+  // Kopplung mit dem Besitzer (B-8b): je Anfrage frisch gelesen – ein neues Geheimnis (npm run koppeln -- --neu) gilt sofort
+  const kopplungOrt = kopplungsDatei();
+  console.log(leseKopplung(kopplungOrt, keypair.pk) ? "[kopplung] mit dem Besitzer gekoppelt" : "[kopplung] nicht gekoppelt – npm run koppeln");
   const provider = new DvmProvider(
     {
       keypair,
       lud16,
       werber,
+      besitzer: () => { const k = leseKopplung(kopplungOrt, keypair.pk); return k ? [k.geheimnis] : []; },
       pricePerKTokenMsat: Number(process.env.PRICE_PER_K_TOKEN_MSAT ?? DEFAULT_PROVIDER_CONFIG.pricePerKTokenMsat),
       minBidMsat: Number(process.env.MIN_BID_MSAT ?? DEFAULT_PROVIDER_CONFIG.minBidMsat),
       powDifficulty: Number(process.env.POW_DIFFICULTY ?? DEFAULT_PROVIDER_CONFIG.powDifficulty),
