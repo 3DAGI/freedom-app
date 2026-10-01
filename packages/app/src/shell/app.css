@@ -1725,6 +1725,8 @@ header .ident[data-initial=""]::before { display: none; }
 .issue-label-knopf { background: none; color: inherit; font-family: inherit; font-weight: normal; text-transform: none; letter-spacing: normal; cursor: pointer; }
 .issue-label-knopf:hover { color: var(--accent); }
 .issue-label-wahl { width: auto; max-width: 100%; }
+/* Seit C-20f: Neues seit dem letzten Blick */
+.repo-marke-neu { color: var(--accent); }
 .issue-abschnitt { margin: 14px 0 6px; font-size: 12px; }
 .issue-kommentar { border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; margin: 6px 0; }
 .issue-neu { margin-bottom: 8px; }

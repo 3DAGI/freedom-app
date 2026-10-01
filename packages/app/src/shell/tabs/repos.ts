@@ -21,6 +21,8 @@ import { switchTab } from "../app.js";
 import { geheZuRaum, oeffentlicheRaeume } from "./raeume.js";
 import { kennungVon } from "../../oeffentliche-raeume.js";
 import { eigentuemerName, vergissReiter, zeigeRepoSeite } from "./repo-seite.js";
+import { geheim } from "../tresor.js";
+import { type Gesehen, LS_REPOS_GESEHEN, type Neuigkeiten, beteiligt, gesehenAbgleichen, leseGesehen, neuGesamt, neuigkeiten } from "../../repo-neuigkeiten.js";
 
 const STATUS_KINDS = [1630, 1631, 1632, 1633];
 
@@ -28,6 +30,29 @@ let karten: RepoKarte[] = [];
 /** Offenes Repo – nur im Speicher, nie in der Adresse (C.1a). */
 let offenesRepo: string | null = null;
 let nurMeine = false;
+/** „Neu“-Filter und „zuletzt gesehen“ je Repo (C-20f) – gemerkt nur im Tresor (`geheim`), die Liste verrät, was man verfolgt. */
+let nurNeu = false;
+let gesehen: Gesehen | null = null;
+const jetztSek = () => Math.floor(Date.now() / 1000);
+function gesehenVon(): Gesehen {
+  gesehen ??= leseGesehen(geheim.getItem(LS_REPOS_GESEHEN));
+  return gesehen;
+}
+function merkeGesehen(g: Gesehen): void {
+  gesehen = g;
+  geheim.setItem(LS_REPOS_GESEHEN, JSON.stringify(g));
+}
+/** Was seit dem letzten Blick neu ist – nur für Repos, an denen man beteiligt ist; sonst `null`. */
+function neuIn(k: RepoKarte): Neuigkeiten | null {
+  const ich = state.keypair?.pk;
+  if (!beteiligt(k, ich)) return null;
+  const was = neuigkeiten(k, gesehenVon()[k.schluessel] ?? jetztSek(), ich);
+  return neuGesamt(was) ? was : null;
+}
+/** Ein Repo geöffnet: alles darin gilt als gesehen. */
+function gesehenJetzt(schluessel: string): void {
+  merkeGesehen({ ...gesehenVon(), [schluessel]: jetztSek() });
+}
 /** Beiträge (38056), einmal je Laden der Liste geholt – erst, wenn ein Reiter „Mitwirkende“ sie braucht. */
 let beitraege: Promise<NostrEvent[]> | null = null;
 
@@ -107,6 +132,9 @@ async function ladeJetzt(): Promise<void> {
       pool.query({ kinds: [KIND_KOMMENTAR], "#E": wurzeln, limit: 1000 }),
     ]) : [[], []];
     karten = mitIssues(karten, { issues, status: issueStatus, kommentare }, privat, state.keypair?.pk);
+    // Neu beteiligte Repos beginnen jetzt – sonst wäre beim ersten Mal alles „neu“ (C-20f)
+    const abgleich = gesehenAbgleichen(gesehenVon(), karten, state.keypair?.pk, jetztSek());
+    if (abgleich.geaendert) merkeGesehen(abgleich.gesehen);
     beitraege = null;
     zeige();
     for (const fn of nachLaden) fn();
@@ -165,8 +193,9 @@ function zeige(fokus = false): void {
     return;
   }
   const suche = (document.getElementById("repos-suche") as HTMLInputElement | null)?.value ?? "";
-  const gezeigt = filtereKarten(karten, suche, nurMeine, state.keypair?.pk);
-  box.replaceChildren(...(gezeigt.length ? gezeigt.map(karte) : [el("p", t(karten.length ? "repo.nichtsGefunden" : "repo.keineRepos"), "mono-sm muted")]));
+  const gezeigt = filtereKarten(karten, suche, nurMeine, state.keypair?.pk).filter((k) => !nurNeu || neuIn(k));
+  const leer = nurNeu ? "repo.nichtsNeues" : karten.length ? "repo.nichtsGefunden" : "repo.keineRepos";
+  box.replaceChildren(...(gezeigt.length ? gezeigt.map(karte) : [el("p", t(leer), "mono-sm muted")]));
 }
 
 /** Eine Karte: Name, Eigentümer, Beschreibung, offene Patches, letzte Aktivität, Marke „Bundle“. */
@@ -180,12 +209,20 @@ function karte(k: RepoKarte): HTMLElement {
   if (k.privatRaum) kopf.append(el("span", t("repo.markePrivat"), "msg-role"));
   // Raum (11.4c): nur, wenn das Repo bestätigt dazugehört – der Name ist fremder Text
   if (k.raumName) kopf.append(el("span", t("repo.markeRaum", { name: k.raumName }), "msg-role repo-marke-raum"));
+  // Neu seit dem letzten Blick (C-20f): Issues, Patches, Kommentare von anderen
+  const was = neuIn(k);
+  if (was) {
+    const marke = el("span", t("repo.markeNeu", { n: neuGesamt(was) }), "msg-role repo-marke-neu");
+    marke.title = t("repo.neuDetails", { issues: was.issues, patches: was.patches, kommentare: was.kommentare });
+    kopf.append(marke);
+  }
   b.append(kopf);
   if (k.beschreibung) b.append(el("span", k.beschreibung, "repo-karte-text"));
   const datum = new Date(k.zuletzt * 1000).toLocaleDateString(gebietsschema(), { day: "numeric", month: "short", year: "numeric" });
   b.append(el("span", t("repo.karteFuss", { n: k.offen, datum }), "mono-sm muted"));
   b.addEventListener("click", () => {
     offenesRepo = k.schluessel;
+    gesehenJetzt(k.schluessel);
     vergissReiter();
     zeige(true);
   });
@@ -195,6 +232,7 @@ function karte(k: RepoKarte): HTMLElement {
 /** Ein Repo aus seinem Raum öffnen (11.4c): Seite „Repos“, gleich die Repo-Seite. */
 export function oeffneRepo(schluessel: string): void {
   offenesRepo = schluessel;
+  gesehenJetzt(schluessel);
   vergissReiter();
   switchTab("repos");
   zeige(true);
@@ -319,6 +357,7 @@ export function wireNip34(): void {
   document.getElementById("repos-suche")?.addEventListener("input", () => zeige());
   document.querySelectorAll<HTMLButtonElement>("#repos-filter button").forEach((b) => b.addEventListener("click", () => {
     nurMeine = b.dataset.filter === "meine";
+    nurNeu = b.dataset.filter === "neu";
     document.querySelectorAll("#repos-filter button").forEach((x) => {
       x.classList.toggle("active", x === b);
       x.setAttribute("aria-pressed", String(x === b));

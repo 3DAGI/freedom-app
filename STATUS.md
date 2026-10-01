@@ -12626,3 +12626,59 @@ Internet) · app 715 (+2) · mls 13 · Leak-Tests 68 grün + 1 todo · 0 rot ·
 check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 (keine neue
 Ausnahme) · Website ok · Smoke-Test bestanden (mit den neuen Prüfungen) ·
 Website-Bau ok · reproduzierbarer Build ok. Knoten-Stand: unverändert.
+
+## Schritt C-20f – Benachrichtigungen: Neues seit dem letzten Blick
+
+Spur C, Sammlung C-20 (Repos 1:1 wie GitHub, ohne neues Format). GitHub
+meldet neue Issues, Patches und Kommentare in Repos, an denen man beteiligt
+ist. Die App zeigt das jetzt in der Repo-Liste – berechnet aus dem, was sie
+ohnehin lädt.
+
+**Was:**
+- `repo-neuigkeiten.ts` (neu, ohne DOM):
+  - `beteiligt()`: Eigentümer, Maintainer oder Autor eines Issues, Patches
+    oder Kommentars im Repo.
+  - `neuigkeiten()`: Issues, Patches und Kommentare anderer nach dem letzten
+    Blick – eigene Beiträge sind nie neu.
+  - `leseGesehen()`/`gesehenAbgleichen()`: die gemerkte Liste (Unfug fällt
+    heraus); neu beteiligte Repos beginnen „jetzt“, sonst wäre beim ersten Mal
+    alles neu; was gerade nicht geladen ist, bleibt gemerkt (ein stummes Relay
+    soll nichts vergessen machen); höchstens 500, die ältesten gehen zuerst.
+- `shell/tabs/repos.ts`: „zuletzt gesehen“ je Repo nur im Tresor
+  (`freedom.repos.gesehen` über `geheim`, in `GEHEIM_FEST`) – die Liste
+  verrät, welche Repos man verfolgt. Karten tragen die Marke „n neu“ (Titel:
+  Issues, Patches, Kommentare einzeln), der Filter „Neu“ zeigt nur diese
+  Repos; das Öffnen eines Repos (Karte oder aus dem Raum) gilt als gesehen.
+- `shell/index.html`: dritter Knopf „Neu“ im Filter der Liste; Texte, CSS.
+
+Kein Abruf im Hintergrund: Die Liste lädt wie bisher beim Start und beim
+Öffnen der Seite – ein eigener Takt für Benachrichtigungen fragte die Relays
+regelmäßig nach den eigenen Repos und wäre ein neues Verkehrsmuster.
+
+**Verdrahtet:** `app/src/shell/tabs/repos.ts` (`ladeJetzt()` →
+`gesehenAbgleichen()`; `karte()` → `neuIn()` → `neuigkeiten()`; Klick auf die
+Karte und `oeffneRepo()` → `gesehenJetzt()`).
+
+**Tests:** app +4 in `test/repo-neuigkeiten.test.ts` (beteiligt oder nicht;
+nur nach dem Blick und nur von anderen; gemerkte Liste mit Unfug, Abgleich ab
+jetzt, nichts verloren, Grenze 500; Verdrahtung: nur `geheim`, nie
+localStorage, Schlüssel in `GEHEIM_FEST`, gesehen an beiden Stellen, Filter
+„Neu“). Smoke „raum“ (Desktop und Handy), am Ende: den Blick auf „werkzeug“
+zurückgedreht und neu geladen – die Karte zeigt „3 neu“ (Issue von Bo, Patch
+und Kommentar von Ada; eigene Beiträge zählen nicht), „meins“ und „raumrepo“
+nichts; „Neu“ zeigt nur „werkzeug“; nach dem Öffnen ist nichts mehr neu
+(„Nichts Neues in Repos, an denen du beteiligt bist.“), der Blick ist gemerkt.
+Bild: `docs/ausbau/bilder/c20f/desktop-repos-filter.jpg` (Filter „Alle ·
+Meine · Neu“; beim ersten Laden ist nichts neu – die Marke „n neu“ prüft der
+Smoke-Test).
+
+Eine Prüfung aus B-4 (`kontakt-pruefung.test.ts`) verlangt den Schlüssel
+`freedom.kontakte.geprueft` als letzten Eintrag von `GEHEIM_FEST` – der neue
+Schlüssel `freedom.repos.gesehen` steht deshalb davor; die eigene Prüfung
+verlangt nur, dass er in der Liste steht.
+
+Endstand: protocol 1140 (6 übersprungen) · node 272 (6 übersprungen, mit
+Internet) · app 719 (+4) · mls 13 · Leak-Tests 68 grün + 1 todo · 0 rot ·
+check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 (keine neue
+Ausnahme) · Website ok · Smoke-Test bestanden (mit den neuen Prüfungen) ·
+Website-Bau ok · reproduzierbarer Build ok. Knoten-Stand: unverändert.
