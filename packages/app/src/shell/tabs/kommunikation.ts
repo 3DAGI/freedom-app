@@ -14,6 +14,7 @@ import {
   pkShort,
   imetaSchluessel,
   renderAttachment,
+  schluesselAusEingabe,
 } from "../../shell-logic.js";
 import { aktuellerKurs } from "../marktkurs.js";
 import { alsGeraet, eigeneRelayListen, ensurePool, frageBeiAutoren, posteingangVon, signiere, solRpcUrl, solTransaktion, sprichtFuer, state, veroeffentlicheAn } from "../state.js";
@@ -1070,19 +1071,8 @@ async function sendeUeberMls(c: ChatConversation, inhalt: string): Promise<boole
 
 export async function newDm(): Promise<void> {
   const { decodeNpub } = await import("../../identity.js");
-  // npub (auch mit „nostr:“ davor, wie ihn QR-Codes anderer Apps tragen) oder 64 Zeichen Hex, sonst null
-  const schluessel = (roh: unknown): string | null => {
-    let id = String(roh ?? "").trim().replace(/^nostr:/i, "");
-    if (id.startsWith("npub1")) {
-      try {
-        id = decodeNpub(id);
-      } catch {
-        return null;
-      }
-    }
-    id = id.toLowerCase();
-    return /^[0-9a-f]{64}$/.test(id) ? id : null;
-  };
+  // npub (auch mit „nostr:“ davor, wie ihn QR-Codes anderer Apps tragen) oder 64 Zeichen Hex, sonst ""
+  const schluessel = (roh: unknown): string => schluesselAusEingabe(roh, decodeNpub);
   // Dialog statt prompt() (C-1b): ein Tippfehler meldet sich im Dialog, Scannen auf Klick
   const w = await dialog({
     titel: t("komm.neueNachricht"),
@@ -1090,7 +1080,7 @@ export async function newDm(): Promise<void> {
     pruefe: (w) => (schluessel(w.schluessel) ? null : t(/^(nostr:)?npub1/i.test(String(w.schluessel).trim()) ? "komm.keinNpub" : "komm.npubOderHex")),
     ok: t("komm.unterhaltungBeginnen"),
   });
-  const id = w ? schluessel(w.schluessel) : null;
+  const id = w ? schluessel(w.schluessel) : "";
   if (!id) return;
   if (!conversations.find((c) => c.id === id)) {
     conversations.push({ id, type: "dm", name: id.slice(0, 12) + "…", lastTs: 0 });

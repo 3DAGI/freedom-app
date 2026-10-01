@@ -9,7 +9,8 @@ import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
 import { join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
-import { ganzeSats } from "../src/shell-logic.js";
+import { fliesstext, ganzeSats, schluesselAusEingabe } from "../src/shell-logic.js";
+import { decodeNpub, encodeNpub } from "../src/identity.js";
 
 const SRC = fileURLToPath(new URL("../src", import.meta.url));
 /** Code ohne Kommentare – ein Wort im Kommentar ist kein Aufruf. */
@@ -21,7 +22,7 @@ function dateien(dir: string): string[] {
     e.isDirectory() ? dateien(join(dir, e.name)) : e.name.endsWith(".ts") ? [join(dir, e.name)] : []);
 }
 
-/** Wo es noch Browser-Dialoge gibt (Datei → Zahl) – C-1c und C-1d leeren den Rest, `newCommunity()` fällt mit C-10. */
+/** Wo es noch Browser-Dialoge gibt (Datei → Zahl) – C-1d leert den Rest, `newCommunity()` fällt mit C-10, `agent.ts` nach B-9. */
 const NOCH_OFFEN: Record<string, number> = {
   "chat-zap.ts": 2,
   "shell/app.ts": 1,
@@ -34,7 +35,6 @@ const NOCH_OFFEN: Record<string, number> = {
   "shell/tabs/agent.ts": 5,
   "shell/tabs/kommunikation.ts": 1,
   "shell/tabs/profil.ts": 3,
-  "shell/tabs/settings.ts": 12,
   "shell/zahlkanal-ui.ts": 1,
 };
 
@@ -123,7 +123,61 @@ test("C-1b: Kommunikation – Name, neue Unterhaltung und Ausgeblendetes über D
   assert.match(k, /if \(ev\) void hinweis\(t\("komm\.ausgeblendetTitel"\), ev\.content\);/);
   // Neue Unterhaltung: npub (auch „nostr:npub…“ aus QR-Codes) oder Hex, geprüft im Dialog, scannen auf Klick
   const dm = k.slice(k.indexOf("export async function newDm("), k.indexOf("export function newCommunity("));
-  assert.match(dm, /String\(roh \?\? ""\)\.trim\(\)\.replace\(\/\^nostr:\/i, ""\)/);
+  assert.match(dm, /const schluessel = \(roh: unknown\): string => schluesselAusEingabe\(roh, decodeNpub\);/);
   assert.match(dm, /name: "schluessel", label: t\("komm\.kontaktSchluessel"\), pflicht: true, mono: true, scannen: true/);
-  assert.match(dm, /const id = w \? schluessel\(w\.schluessel\) : null;\s*if \(!id\) return;/);
+  assert.match(dm, /const id = w \? schluessel\(w\.schluessel\) : "";\s*if \(!id\) return;/);
+});
+
+test("C-1c: öffentlicher Schlüssel aus einer Eingabe – npub (auch „nostr:“), Hex in jeder Schreibung, sonst leer", () => {
+  const hex = "ab".repeat(32);
+  const npub = encodeNpub(hex);
+  assert.equal(schluesselAusEingabe(hex, decodeNpub), hex);
+  assert.equal(schluesselAusEingabe(` ${hex.toUpperCase()} `, decodeNpub), hex);
+  assert.equal(schluesselAusEingabe(npub, decodeNpub), hex);
+  assert.equal(schluesselAusEingabe(`nostr:${npub}`, decodeNpub), hex, "so tragen QR-Codes anderer Apps den Schlüssel");
+  assert.equal(schluesselAusEingabe(npub.toUpperCase(), decodeNpub), hex, "bech32 auch in Großbuchstaben");
+  for (const v of ["npub1falsch", npub.slice(0, -1) + (npub.endsWith("q") ? "p" : "q"), hex.slice(1), hex + "a", "zz".repeat(32), "", "nostr:", undefined, 42, [hex]]) {
+    assert.equal(schluesselAusEingabe(v, decodeNpub), "", String(v));
+  }
+  // Ein nsec ist kein öffentlicher Schlüssel – nie still annehmen
+  assert.equal(schluesselAusEingabe("nsec1" + npub.slice(5), decodeNpub), "");
+});
+
+test("C-1c: Settings fragen nur über Dialoge – Vertraute als Häkchen, Ersatzschlüssel verdeckt, Löschen & Co. mit Gefahr", () => {
+  const st = readFileSync(join(SRC, "shell/tabs/settings.ts"), "utf8");
+  assert.doesNotMatch(ohneKommentare(st), BROWSER_DIALOG);
+  const funktion = (name: string) => { const a = st.indexOf(name); return st.slice(a, st.indexOf("\n}\n", a)); };
+  // Nachfolge: Kontakte als Häkchen, weitere Schlüssel als Text, unter drei meldet sich der Dialog – erst danach die Warnung
+  const nf = funktion("export async function richteNachfolgeEin(");
+  assert.match(nf, /\{ art: "mehrfach" as const, name: "kontakte", label: t\("set\.vertrauteKontakte"\)/);
+  assert.match(nf, /\.filter\(\(x\) => \/\^\[0-9a-f\]\{64\}\$\/\.test\(x\) && x !== ich\)\)\];/, "nie sich selbst");
+  assert.match(nf, /pruefe: \(w\) => \(vertraute\(w\)\.length >= 3 \? null : t\("set\.mindestensDrei"\)\),/);
+  assert.ok(nf.indexOf("await dialog(") < nf.indexOf("nachfolgeWarnung(") && nf.indexOf("nachfolgeWarnung(") < nf.indexOf("mitRohemSchluessel("), "fragen → warnen → erst dann der Schlüssel");
+  // Diebstahl vorbeugen: erst bestätigen, dann erzeugen
+  const wv = funktion("async function bereiteWechselVor(");
+  assert.ok(wv.indexOf("await bestaetige({ titel: t(\"set.schritt3\"), text: fliesstext(wechselWarnung())") < wv.indexOf("generateKeypair()"));
+  // Widerruf: ein Dialog, Ersatzschlüssel verdeckt, Gefahr; Hex vor fromHex
+  const wr = funktion("async function widerrufeSchluessel(");
+  assert.match(wr, /name: "ersatz", label: t\("set\.ersatzFrage"\), pflicht: true, mono: true, verdeckt: true/);
+  assert.match(wr, /name: "seit", label: t\("set\.seitWann"\), typ: "date"/);
+  assert.match(wr, /ok: t\("set\.widerrufenKnopf"\),\s*gefahr: true,/);
+  assert.ok(wr.indexOf("await dialog(") < wr.indexOf("fromHex(ersatzHex)"));
+  // Gerät entziehen mit Gefahr; Melden nur für einen gültigen Schlüssel; Relay-Kauf erst nach Bestätigung
+  assert.match(st, /await bestaetige\(\{ titel: t\("set\.entziehenTitel"\), text: t\("set\.entziehenFrage"\), ok: t\("set\.entziehenKnopf"\), gefahr: true \}\)/);
+  const md = funktion("async function meldeFuerAnderen(");
+  assert.match(md, /pruefe: \(w\) => \(pubkeyAus\(w\.wen\) \? null : t\("set\.keinPubkey"\)\),/);
+  assert.match(md, /buildRecoveryClaim\(state\.keypair\.pk, wen, grund\.trim\(\)\)/);
+  const kauf = st.slice(st.indexOf("const kaufe = async (schiene: Schiene) => {"));
+  assert.ok(kauf.indexOf("await bestaetige({ titel: t(\"set.zugangTitel\")") < kauf.indexOf("await kaufeRelayZugang({"), "erst bestätigen, dann zahlen");
+});
+
+test("C-1c: Fließtext für Dialoge – feste Zeilen verbunden, Absätze, Aufzählungen und Nummern bleiben", () => {
+  assert.equal(fliesstext("ab dem du den\n   Diebstahl vermutest."), "ab dem du den Diebstahl vermutest.");
+  assert.equal(fliesstext("Erster Absatz.\n\nZweiter."), "Erster Absatz.\n\nZweiter.");
+  assert.equal(fliesstext("So geht es:\n\n1. Suchen.\n2. Veröffentlichen — mit dem\n   Zeitpunkt.\n3. Melden."),
+    "So geht es:\n\n1. Suchen.\n2. Veröffentlichen — mit dem Zeitpunkt.\n3. Melden.");
+  assert.equal(fliesstext("Was das schützt:\n  · Gerät weg,\n    du kommst zurück.\n  · Zweiter Punkt."),
+    "Was das schützt:\n  · Gerät weg, du kommst zurück.\n  · Zweiter Punkt.");
+  assert.equal(fliesstext(""), "");
+  assert.equal(fliesstext("eine Zeile"), "eine Zeile");
 });

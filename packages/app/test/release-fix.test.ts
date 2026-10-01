@@ -13,7 +13,8 @@ test("Verdrahtung (5.2): Start prueft die fixierte Version, Settings fixieren nu
   assert.match(s, /fixierung: pruefeFixierung\(ladeFixierung\(\), hash, r\)/);
   assert.match(s, /if \(r\.status === "echt" && r\.version && fix\?\.sha256 !== hash\)/, "fixieren nur, was k Signierer bestaetigen");
   // Seit 8.16g2b2 bildet fixierungText() die Rueckfrage in der Sprache der Oberflaeche
-  assert.match(s, /fixierung\.status === "andere-echt" && r\.version && confirm\(fixierungText\(fixierung\.status, fixVersion, r\.version\)\)/, "neue Version nur nach Rueckfrage");
+  // Seit C-1c als Dialog statt confirm()
+  assert.match(s, /fixierung\.status === "andere-echt" && r\.version && await bestaetige\(\{ titel: t\("set\.neueVersionTitel"\), text: fixierungText\(fixierung\.status, fixVersion, r\.version\), ok: t\("set\.uebernehmen"\) \}\)/, "neue Version nur nach Rueckfrage");
   // Seit 11.2a stehen die Signierer in release-signierer.ts – auch für die Prüfung der eigenen Adresse
   const signierer = readFileSync(new URL("../src/release-signierer.ts", import.meta.url), "utf8");
   assert.match(signierer, /mindestens `RELEASE_MIN_SIGNATUREN` \(2\)/);

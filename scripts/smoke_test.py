@@ -712,6 +712,71 @@ def kontakt_pruefen(browser, url: str) -> dict:
     return erg
 
 
+def einstellungen_pruefen(browser, url: str) -> dict:
+    """Settings (C-1c): Widerruf, Nachfolge und „für jemanden melden“ über Dialoge statt prompt()/confirm() –
+    Fehler melden sich im Dialog, der private Ersatzschlüssel steht verdeckt, abgebrochen geht nichts hinaus."""
+    erg = {"fehler": []}
+    relay = ProbeRelay()
+    seite = DialogSeite(browser, url, relay, erg)
+    ev = seite.ev
+    ev("() => { location.hash = '#/settings'; }")
+    seite.s.wait_for_selector("#rotation-revoke", state="attached", timeout=30000)
+
+    def feld(nr: int, wert: str) -> None:
+        ev("([n, v]) => { const f = document.querySelectorAll('[role=dialog] input:not([type=checkbox]), [role=dialog] textarea')[n]; f.value = v; }", [nr, wert])
+
+    def bestaetigen() -> dict | None:
+        ev("() => document.querySelector('[role=dialog] .dlg-knoepfe button:last-child').click()")
+        seite.s.wait_for_timeout(200)
+        return seite.stand()
+
+    # Widerruf: ein Dialog mit Anleitung; der Ersatzschlüssel verdeckt; Gefahr → Fokus zuerst auf Abbrechen
+    ev("() => document.getElementById('rotation-revoke').click()")
+    wr = seite.warte_dialog("Schlüssel widerrufen")
+    wr["typen"] = ev("() => [...document.querySelectorAll('[role=dialog] input')].map(i => i.type)")
+    wr["fokus"] = ev("() => document.activeElement?.textContent")
+    feld(1, "abc")
+    wr_falsch = bestaetigen()
+    seite.s.keyboard.press("Escape")
+    seite.warte_zu()
+    # Nachfolge: unter drei Vertrauten meldet sich der Dialog
+    ev("() => document.getElementById('succ-setup').click()")
+    nf = seite.warte_dialog("Nachfolge einrichten")
+    feld(0, "ab" * 32 + ", " + "cd" * 32)
+    nf_zwei = bestaetigen()
+    seite.s.keyboard.press("Escape")
+    seite.warte_zu()
+    # Für jemanden melden: nur ein gültiger Schlüssel
+    ev("() => document.getElementById('succ-claim').click()")
+    md = seite.warte_dialog("für jemanden melden")  # erster Buchstabe groß nur per CSS
+    feld(0, "npub1falsch")
+    feld(1, "Seit Wochen still")
+    md_falsch = bestaetigen()
+    seite.s.keyboard.press("Escape")
+    seite.warte_zu()
+    erg["widerruf"], erg["nachfolge"], erg["melden"] = (
+        {"dialog": wr, "falsch": wr_falsch}, {"dialog": nf, "zwei": nf_zwei}, {"dialog": md, "falsch": md_falsch})
+    if not (wr["text"] and wr["text"].startswith("So widerrufst du") and wr["typen"] == ["text", "password", "date"]
+            and wr["fokus"] == "Abbrechen" and wr_falsch["meldung"] == "Der Ersatzschlüssel muss 64 Zeichen hex sein"):
+        erg["fehler"].append(f"Widerruf {erg['widerruf']}")
+    if not (nf["text"] == "Mindestens 3 Personen, die sich NICHT kennen und FreedomStack nutzen."
+            and nf_zwei["meldung"] == "Mindestens drei Vertraute – bei weniger ist eine Absprache zu leicht"):
+        erg["fehler"].append(f"Nachfolge {erg['nachfolge']}")
+    if not (md["felder"] == ["Für wen meldest du? (npub oder hex)", "Warum? (wird veröffentlicht)"]
+            and md_falsch["meldung"] == "Kein gültiger öffentlicher Schlüssel"):
+        erg["fehler"].append(f"Melden {erg['melden']}")
+    # Abgebrochen: nichts veröffentlicht – kein Widerruf, kein Plan, keine Meldung
+    erg["gesendet"] = sorted({e["kind"] for e in relay.gesendet if e.get("kind") not in (10002, 10050)})
+    if erg["gesendet"]:
+        erg["fehler"].append(f"abgebrochen, aber gesendet: {erg['gesendet']}")
+    erg["browser_dialoge"] = seite.browser_dialoge
+    if seite.browser_dialoge:
+        erg["fehler"].append(f"Browser-Dialoge: {seite.browser_dialoge}")
+    seite.ctx.close()
+    erg["bestanden"] = not erg["fehler"]
+    return erg
+
+
 # Echtes Git-Bundle (v2, mit Deltas) für den Reiter „Code“ (seit C.3c1) – dasselbe wie im Test von git-bundle.ts
 PROBE_BUNDLE = (Path(__file__).resolve().parent.parent / "packages/app/test/fixtures/probe-v2.bundle").read_bytes()
 # Seit C-20b: README mit Tabelle und Verweisen (src/liste.txt, docs/ANLEITUNG.md, einer hinaus)
@@ -2385,6 +2450,10 @@ def main() -> int:
             except Exception as e:
                 erg["kontakt"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
             try:
+                erg["einstellungen"] = einstellungen_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
+            except Exception as e:
+                erg["einstellungen"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
+            try:
                 erg["raum"] = raum_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
             except Exception as e:
                 erg["raum"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
@@ -2424,6 +2493,7 @@ def main() -> int:
           and erg.get("dialog", {}).get("bestanden") is True
           and erg.get("waehrung", {}).get("bestanden") is True
           and erg.get("kontakt", {}).get("bestanden") is True
+          and erg.get("einstellungen", {}).get("bestanden") is True
           and erg.get("raum", {}).get("bestanden") is True
           and erg.get("karte", {}).get("bestanden") is True
           and erg.get("qr", {}).get("bestanden") is True

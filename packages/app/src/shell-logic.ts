@@ -135,6 +135,35 @@ export function ganzeSats(v: unknown): number {
   return Number.isSafeInteger(n) && n > 0 ? n : 0;
 }
 
+/**
+ * Öffentlicher Schlüssel aus einem Eingabefeld (C-1): npub – auch mit
+ * „nostr:“ davor, wie ihn QR-Codes anderer Apps tragen – oder 64 Zeichen Hex,
+ * gleich in welcher Schreibung; sonst "". `decodeNpub` kommt vom Aufrufer
+ * (`identity.ts`), damit dieser Baustein ohne Kryptografie auskommt.
+ */
+export function schluesselAusEingabe(roh: unknown, decodeNpub: (npub: string) => string): string {
+  let x = typeof roh === "string" ? roh.trim().replace(/^nostr:/i, "") : "";
+  if (/^npub1/i.test(x)) {
+    try {
+      x = decodeNpub(x.toLowerCase());
+    } catch {
+      return "";
+    }
+  }
+  x = x.toLowerCase();
+  return /^[0-9a-f]{64}$/.test(x) ? x : "";
+}
+
+/**
+ * Hart umbrochene Zeilen zu Fließtext (C-1c): Sätze des Protokolls sind für
+ * `alert()` mit festen Zeilen gesetzt und bleiben dort wortgleich; im Dialog
+ * bricht der Browser selbst um. Absätze, Aufzählungen (·, -, •) und
+ * nummerierte Punkte bleiben eigene Zeilen.
+ */
+export function fliesstext(s: string): string {
+  return s.replace(/([^\n])\n(?!\n|[ \t]*(?:\d+\.|·|-|•)\s)[ \t]*/g, "$1 ");
+}
+
 /** Lamports als SOL, mit genug Nachkommastellen für kleine Beträge. */
 export function fmtSol(lamports: number): string {
   if (!Number.isFinite(lamports) || lamports < 0) return "—";
