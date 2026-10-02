@@ -9,6 +9,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
 import { WIPE_DATENBANKEN } from "@freedomstack/protocol";
+import { weckerAbmelden } from "../src/wecker-abmelden.js";
 
 function dateien(dir: URL): { name: string; text: string }[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
@@ -72,4 +73,38 @@ test("8.14: verdrahtet – Knopf in den Settings, zweiter Durchgang vor allem an
   assert.match(notfall, /wipeConfirmation\(\)/, "der rechtliche Hinweis steht vor dem Löschen");
   assert.match(notfall, /sucheVergessen\(\)/, "der Suchindex schreibt nicht zurück");
   assert.doesNotMatch(notfall, /\.innerHTML\s*=/);
+});
+
+/** Eine Anmeldung zum Nachstellen – zählt, was gekündigt und abgemeldet wird. */
+function anmeldung(p: { abo?: boolean; aboFehler?: boolean; abmelden?: boolean | "wirft" }, zaehler: { gekuendigt: number; abgemeldet: number }) {
+  return {
+    pushManager: {
+      getSubscription: async () => (p.abo ? { unsubscribe: async () => { if (p.aboFehler) throw new Error("x"); zaehler.gekuendigt++; return true; } } : null),
+    },
+    unregister: async () => { if (p.abmelden === "wirft") throw new Error("x"); zaehler.abgemeldet++; return p.abmelden ?? true; },
+  } as unknown as ServiceWorkerRegistration;
+}
+
+test("B-12d1: Notfall-Löschung kündigt Push-Abos und meldet jeden Weck-Worker ab", async () => {
+  const z = { gekuendigt: 0, abgemeldet: 0 };
+  const sw = { getRegistrations: async () => [anmeldung({ abo: true }, z), anmeldung({}, z)] };
+  assert.deepEqual(await weckerAbmelden(sw), []);
+  assert.deepEqual(z, { gekuendigt: 1, abgemeldet: 2 });
+  // Negativfälle: was nicht ging, steht im Ergebnis – und alles andere wird trotzdem versucht
+  const y = { gekuendigt: 0, abgemeldet: 0 };
+  const schief = { getRegistrations: async () => [anmeldung({ abo: true, aboFehler: true }, y), anmeldung({ abmelden: false }, y), anmeldung({ abmelden: "wirft" }, y)] };
+  assert.deepEqual(await weckerAbmelden(schief), ["push", "worker", "worker"]);
+  assert.equal(y.abgemeldet, 2, "trotz gescheitertem Abo abgemeldet");
+  assert.deepEqual(await weckerAbmelden({ getRegistrations: async () => { throw new Error("x"); } }), ["worker"]);
+  assert.deepEqual(await weckerAbmelden(undefined), [], "ohne sicheren Kontext gibt es keine Worker");
+});
+
+test("B-12d1: verdrahtet – vor dem Löschen und im zweiten Durchgang, Reste werden gemeldet", () => {
+  const notfall = readFileSync(new URL("../src/shell/notfall.ts", import.meta.url), "utf8");
+  const jetzt = notfall.slice(notfall.indexOf("export async function loescheJetzt("), notfall.indexOf("export async function nachNotfallLoeschung("));
+  assert.ok(jetzt.indexOf("await weckerAbmelden()") > 0 && jetzt.indexOf("await weckerAbmelden()") < jetzt.indexOf("await loescheAllesLokal("));
+  assert.match(jetzt, /const offen = \[\.\.\.new Set\(\[\.\.\.worker, \.\.\.b\.failed, \.\.\.b\.uebrig\]\)\];/);
+  const zweiter = notfall.slice(notfall.indexOf("export async function nachNotfallLoeschung("));
+  assert.match(zweiter, /const worker = await weckerAbmelden\(\)\.catch\(\(\) => \["worker"\]\);\s*const zweiter = await loescheAllesLokal/);
+  assert.match(zweiter, /\[\.\.\.worker, \.\.\.zweiter\.failed, \.\.\.zweiter\.uebrig\]/);
 });

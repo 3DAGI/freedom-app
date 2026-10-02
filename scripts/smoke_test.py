@@ -328,6 +328,9 @@ def loeschen_pruefen(browser, url: str) -> dict:
     s.wait_for_timeout(1000)
     erg["vorher_da"] = ev("async () => (await indexedDB.databases()).map(d => d.name).sort().join(',')") == \
         "freedom-blobs,freedom-kuenftig,freedom-suche,freedom-vault"
+    # Weck-Worker (B-12d1): angemeldet wie später der Haken aus B-12d2 – die Löschung meldet ihn ab
+    erg["worker_vorher"] = ev("async () => { await navigator.serviceWorker.register('freedom-sw.js?sprache=de');"
+                              " return (await navigator.serviceWorker.getRegistrations()).length; }") == 1
 
     ev("() => document.querySelector('.app-nav button[data-tab=\"settings\"]').click()")
     ev("() => document.getElementById('notfall-loeschen').click()")
@@ -347,16 +350,18 @@ def loeschen_pruefen(browser, url: str) -> dict:
         q.onsuccess = () => { const db = q.result; if (![...db.objectStoreNames].includes('tresor')) { db.close(); return r(null); }
           const g = db.transaction('tresor').objectStore('tresor').get('blob');
           g.onsuccess = () => { db.close(); r(g.result ?? null); }; }; q.onerror = () => r(null); });
-      return { ls, ss, dbs, tresorBlob, ident: document.getElementById('ident').textContent };
+      const worker = (await navigator.serviceWorker.getRegistrations()).length;
+      return { ls, ss, dbs, tresorBlob, worker, ident: document.getElementById('ident').textContent };
     }""")
     muster = [nsec, "ProbeSitzung"] + PROBE_MUSTER
     erg["nichts_uebrig"] = (not any(m in scan["ls"] for m in muster)
                             and not any(k + "=" in scan["ls"] for k in PROBE_GEHEIM)
                             and "freedom.vault=1" not in scan["ls"] and scan["ss"] == ""
-                            and set(scan["dbs"]) <= {"freedom-vault"} and scan["tresorBlob"] is None)
+                            and set(scan["dbs"]) <= {"freedom-vault"} and scan["tresorBlob"] is None
+                            and scan["worker"] == 0)
     erg["leer_neu_gestartet"] = scan["ident"] != ident and not ev("() => !!document.getElementById('tr-pass')")
     if not erg["nichts_uebrig"]:
-        erg["fehler"].append(f"Rest: dbs={scan['dbs']} ss={scan['ss']!r}")
+        erg["fehler"].append(f"Rest: dbs={scan['dbs']} ss={scan['ss']!r} worker={scan['worker']}")
     ctx.close()
     erg["bestanden"] = (not erg["fehler"] and all(v is True for k, v in erg.items()
                                                    if k not in ("fehler", "bestanden")))

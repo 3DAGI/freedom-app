@@ -14957,3 +14957,30 @@ und der braucht eine eigene Datei neben freedom.html (W2 A). Entscheidung W3 A
 
 Knoten-Stand: unverändert. Eine vom Knoten ausgelieferte App (B-10) hat den
 Worker nicht – B-12d sagt das dort, statt zu scheitern.
+
+## Schritt B-12d1 – Notfall-Löschung meldet Weck-Worker ab
+
+**Warum:** B-12d gibt der App den Haken „Wecken“: Service Worker anmelden,
+Push abonnieren, beim Knoten anmelden. Ein Service Worker und sein Push-Abo
+liegen außerhalb von localStorage und IndexedDB – `loescheAllesLokal()`
+erreichte sie nicht (Regel 8.14: erst die Löschung erweitern). Der Schritt ist
+geteilt: d1 die Löschung, d2 der Haken samt Datenschutz-Aussage.
+
+**Was:**
+- `weckerAbmelden()` (`wecker-abmelden.ts`, ohne DOM): Für jeden Worker dieser
+  Herkunft das Push-Abo kündigen und den Worker abmelden. Was nicht ging, kommt
+  als `push`/`worker` zurück; das Übrige wird trotzdem versucht. Ohne sicheren
+  Kontext gibt es keine Worker. Ohne Abo antwortet der Push-Dienst dem Knoten
+  mit 410, und der vergisst die Adresse (B-12b).
+- `notfall.ts`: vor `loescheAllesLokal()` und im zweiten Durchgang nach dem
+  Neustart. Reste stehen in der Meldung wie nicht gelöschte Einträge.
+
+**Tests:**
+- app +2 in `test/notfall.test.ts`: Kündigen und Abmelden samt Negativfällen
+  (Abo wirft, Abmelden scheitert oder wirft, Liste wirft, kein Worker-Zugang)
+  und die Verdrahtung in beiden Durchgängen.
+- Smoke „notfall“: Vor dem Löschen ist `freedom-sw.js` angemeldet, danach ist
+  kein Worker mehr da. Gegenprobe: Ohne das Abmelden schlägt die Prüfung an
+  (`worker=1`).
+
+Knoten-Stand: unverändert.

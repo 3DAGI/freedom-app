@@ -45,9 +45,9 @@ bash packages/mls/bauen.sh --pruefen                     # nur bei Änderungen a
 bash contracts/solana-channel/pruefen.sh --werkzeuge     # nur bei Änderungen am Zahlkanal: bauen + Tests gegen Validator (Agave 3.1.10)
 ```
 
-Stand 01.10.2026 (nach 8.2c, 5.5a–c, 8.15, 11.1a, C.3c2, 11.1b, 5.9a–b, 6.3a–b2, 11.4a–b2, C.4a–b, C.5a–b, C.6b, 11.4c, C-18, C-17a–c, C-20a–f, C-1a–f, C-2, C-3, C-4, C-6a–d2, C-7a–b, C-8, C-10 bis C-16, 11.2a–b, A-4 bis A-7, B-1, B-2a–c, B-3 bis B-7, B-8a–c, B-9a, B-15, B-19, B-20a–c, B-10a–b, B-9b1–b2, B-9c1–c3, B-11a–c, B-12a–c und B-13a–c): protocol 1164 grün (6 übersprungen), node 313 grün
+Stand 01.10.2026 (nach 8.2c, 5.5a–c, 8.15, 11.1a, C.3c2, 11.1b, 5.9a–b, 6.3a–b2, 11.4a–b2, C.4a–b, C.5a–b, C.6b, 11.4c, C-18, C-17a–c, C-20a–f, C-1a–f, C-2, C-3, C-4, C-6a–d2, C-7a–b, C-8, C-10 bis C-16, 11.2a–b, A-4 bis A-7, B-1, B-2a–c, B-3 bis B-7, B-8a–c, B-9a, B-15, B-19, B-20a–c, B-10a–b, B-9b1–b2, B-9c1–c3, B-11a–c, B-12a–c, B-12d1 und B-13a–c): protocol 1164 grün (6 übersprungen), node 313 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 814 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 70 grün + 1 `todo` (heutige Lecks,
+in `tools.test.ts`), app 816 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 70 grün + 1 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
 Ausnahme: gesendete SOL-Zahlungen von frischen Adressen, eine bewusste Grenze
 nach Entscheidung 4.9 A – im Datenschutzbericht unter „Bewusste Grenzen“).
@@ -366,7 +366,9 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   mit `freedom` und stehen in `WIPE_DATENBANKEN` – sonst entgehen sie der
   Notfall-Löschung. Keine neue Speicherart (Cache Storage, OPFS, Cookies,
   Service Worker), ohne `loescheAllesLokal()` zu erweitern.
-  `app/test/notfall.test.ts` prüft das.
+  `app/test/notfall.test.ts` prüft das. Service Worker und Push-Abos meldet die
+  Löschung seit B-12d1 über `weckerAbmelden()` (`wecker-abmelden.ts`) ab – vor
+  `loescheAllesLokal()` und im zweiten Durchgang; was nicht ging, steht im Ergebnis.
 - **Nachfolge nur versiegelt** (seit 8.11): Anteile gehen mit
   `baueAnteilUmschlag()` an je einen Vertrauten, Anfrage und Übergabe über
   `baueAnteilAnfrage()`/`baueAnteilUebergabe()` – nie als Datei, nie offen.
