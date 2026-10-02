@@ -11,7 +11,7 @@ import { readFileSync } from "node:fs";
 
 test("5.1.3: je Antwort die Aufteilung nach A+ statt „Zahlung prüfen“ am Beleg des Knotens; Kettenprüfung bleibt über den RPC-Pool", () => {
   const agent = readFileSync(new URL("../src/shell/tabs/agent.ts", import.meta.url), "utf8");
-  assert.match(agent, /\$\{abrechnung && abrechnung\.providerMsat > 0 \? aufteilungZeilen\(abrechnung, zeile\) : ""\}/);
+  assert.match(agent, /if \(abrechnung && abrechnung\.providerMsat > 0\) koerper\.append\(\.\.\.aufteilungZeilen\(abrechnung, zeile\)\);/);
   assert.match(agent, /zeile\(t\("agent\.anDenProvider"\), satText\(a\.providerMsat\)\)/);
   assert.match(agent, /zeile\(t\("agent\.weitereAnteile"\), t\("agent\.keinEmpfaenger"\)\)/, "nicht Zuordenbares sichtbar beim Provider");
   assert.match(readFileSync(new URL("../src/texte/agent.ts", import.meta.url), "utf8"), /"agent\.keinEmpfaenger": \{ de: "kein Empfänger – beim Provider"/);

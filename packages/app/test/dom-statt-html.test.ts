@@ -15,7 +15,7 @@ const ausnahmen = quelle("../../../scripts/innerhtml-ausnahmen.txt").split("\n")
 /** Ohne innerHTML gebaut (C-6a) – die Liste wächst mit jedem Teilschritt. */
 const FERTIG = [
   "shell/tabs/agent-netz.ts", "shell/tabs/earn.ts", "shell/tabs/profil.ts", "shell/tabs/settings.ts", "shell/state.ts",
-  "shell/tabs/kommunikation.ts", "shell/tabs/raeume.ts",
+  "shell/tabs/kommunikation.ts", "shell/tabs/raeume.ts", "shell/tabs/agent.ts",
 ];
 
 test("C-6a: fertige Dateien ohne innerHTML und ohne Ausnahme", () => {
@@ -139,4 +139,28 @@ test("C-6d1: agent.ts – Modellwahl, Verlauf, Werkzeuge, Fehler und Vorschau al
   // Im Browser: ein Angebot mit HTML im Modellnamen
   assert.match(quelle("../../../scripts/fremdtext-probe.mts"), /signEvent\(buildCapabilities\(\{/);
   assert.match(quelle("../../../scripts/smoke_test.py"), /if erg\["modellwahl"\] != \[html\("ki"\), 0, True, \[html\("ki"\), 0, True\]\]:/);
+});
+
+test("C-6d2: Antworten über markdownDom(), Code-Blöcke, Kosten und Schritte als DOM – renderMarkdown() entfällt", () => {
+  const agent = quelle("../src/shell/tabs/agent.ts");
+  // Blasen: Modellname vom Provider nur als Text, Antworten nur über antwortDom()
+  assert.match(agent, /blase\.append\(el\("div", role === "user" \? t\("komm\.du"\) : `agent\$\{model \? ` · \$\{model\}` : ""\}`, "who"\), koerper\);/);
+  assert.match(agent, /koerper\.append\(role === "ai" \? antwortDom\(text\) : text\);/);
+  assert.match(agent, /bodyEl\.replaceChildren\(antwortDom\(text\)\);/);
+  // Kosten: Werkzeugnamen vom Provider nur als Text; eine Klappe mit richtigem aria-expanded
+  assert.match(agent, /karte\.append\(haken\(\), el\("span", w\.name, "tool-name"\)/);
+  assert.match(agent, /const zu = koerper\.classList\.toggle\("hidden"\);\n\s*toggle\.setAttribute\("aria-expanded", String\(!zu\)\);/);
+  assert.doesNotMatch(agent, /agent\.details|tog\.textContent/, "der Kopf der Klappe bleibt beim Aufklappen");
+  // Schritte: Symbole nur aus der festen Tabelle
+  assert.match(agent, /ic\.append\(iconEl\(symbol, 12\)\);/);
+  // Der Zeichner: markdownDom() mit Umbrüchen, Code nur über textContent
+  const antwort = quelle("../src/shell/antwort-ui.ts");
+  assert.match(antwort, /markdownDom\(text, "antwort", \{ umbrueche: true \}\)/);
+  assert.match(antwort, /codeTeile\(roh\)\.map\(\(s\) => \(s\.art \? el\("span", s\.text, `tok-\$\{s\.art\}`\) : document\.createTextNode\(s\.text\)\)\)/);
+  assert.match(antwort, /navigator\.clipboard\.writeText\(roh\)/, "kopiert wird der Code, nicht das Gefärbte");
+  assert.doesNotMatch(antwort, /innerHTML|insertAdjacentHTML/);
+  assert.doesNotMatch(quelle("../src/shell/ui.ts"), /renderMarkdown|activateCodeBlocks|highlightCode|pendingCodeBlocks/);
+  assert.doesNotMatch(quelle("../src/shell/app.ts"), /activateCodeBlocks/);
+  // Im Browser: eine Antwort mit HTML und einem Code-Block
+  assert.match(quelle("../../../scripts/smoke_test.py"), /if erg\["antwort_md"\] != /);
 });

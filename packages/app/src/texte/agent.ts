@@ -221,7 +221,6 @@ export const agent: Texte = {
   "agent.dieseAntwort": { de: "Diese Antwort", en: "This answer" },
   "agent.sitzungGesamt": { de: "Sitzung gesamt", en: "Session total" },
   "agent.reklamieren": { de: "Reklamieren", en: "Complain" },
-  "agent.details": { de: "{pfeil} Details · {sats} sats", en: "{pfeil} details · {sats} sats" },
   "agent.anteilEntwicklung": { de: "Entwicklung", en: "Development" },
   "agent.anteilRelays": { de: "Relay", en: "Relay" },
   "agent.anteilWerberKunde": { de: "Dein Werber", en: "Your referrer" },

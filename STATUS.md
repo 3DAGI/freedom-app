@@ -14825,6 +14825,54 @@ jeder unter 400 Zeilen bleibt:
   - Nach der Wahl zeigt der Knopf denselben Text samt Symbol.
   - Es läuft kein Skript.
 
+## Schritt C-6d2 – `innerHTML` abbauen: `agent.ts`, zweiter Teil
+
+**Warum:** Sammlung C-6, Rest aus C-6d1. Die Antworten der Provider liefen
+über `renderMarkdown()`: Text erst maskiert, dann per Ersetzen zu HTML-Text
+gebaut und über `innerHTML` gesetzt. Das ging gut, solange jede Ersetzung
+sauber war – eine Ausnahme je Stelle in `scripts/innerhtml-ausnahmen.txt`.
+
+**Was** (als DOM über `el()`, Text nur über `textContent`):
+- **Blasen:** `blasenGeruest()` baut Absender, Körper und Kosten-Zeile. Der
+  Modellname kommt vom Provider und steht nur als Text da.
+- **Antworten:** nur über `antwortDom()` (`shell/antwort-ui.ts`). Darunter
+  liegt `markdownDom()` aus C-20a mit Zeilenumbrüchen: rohes HTML bleibt Text,
+  Links nur https, Bilder werden nie geladen. Damit können Antworten jetzt
+  auch Überschriften, Zitate, Tabellen und nummerierte Listen.
+- **Code-Blöcke:** Kopf mit der Sprache aus dem Block (sonst „code“),
+  Kopier-Knopf und Färbung. Der Knopf kopiert den rohen Code. Bisher wirkte er
+  nur bei Antworten mit Tipp-Effekt; bei allen anderen (Funk, dieses Gerät)
+  tat er nichts.
+- **Färbung:** `codeTeile()` (`code-farbe.ts`, ohne DOM) zerlegt den Code in
+  Stücke mit Art (Zeichenkette, Kommentar, Schlüsselwort, Zahl). Kein Muster
+  reicht über ein Zeilenende; Zeilen über 500 Zeichen und Blöcke über 50.000
+  Zeichen bleiben ungefärbt. Ohne diese Grenze braucht eine Zeile aus
+  `"\"\"…` mit 20.000 Zeichen 200 ms, mit 50.000 über eine Sekunde – jeder
+  Anfang einer offenen Zeichenkette sucht bis zum Zeilenende.
+- **Kosten-Blase:** Werkzeuge, Zeilen und Aufteilung (`aufteilungZeilen()`
+  liefert jetzt Elemente). Nebenbei behoben: Ein zweiter Klick-Handler
+  ersetzte beim Aufklappen den ganzen Kopf durch „▾ Details · n sats“
+  (Modell, Tokens und Haken waren weg), und `aria-expanded` stand verkehrt
+  herum. Jetzt eine Klappe, der Pfeil dreht sich über `aria-expanded`; der
+  Text „agent.details“ fällt weg.
+- **Schritt-Leiste und Symbole:** als Elemente, Symbole über `iconEl()`.
+- **Weg:** `renderMarkdown()`, `activateCodeBlocks()`, `highlightCode()`
+  (`ui.ts`) und der Re-Export in `app.ts`.
+- **Ausnahmen:** 16 → 4, `agent.ts` ohne `innerHTML` (in `FERTIG`). Es bleiben
+  das Logo-SVG (`ui.ts`) und die festen Vorlagen in `tresor.ts` und
+  `einrichtung-ui.ts`. `docs/INNERHTML-AUDIT.md` neu erzeugt (stand seit #79).
+
+**Tests:**
+- app +5: `test/code-farbe.test.ts` (Stücke ergeben den Code, Arten, Grenzen,
+  böse Texte unter einer Sekunde) und C-6d2 in `test/dom-statt-html.test.ts`.
+- Der Test zu 5.1.3 prüft die Aufteilung an der DOM-Form.
+- Smoke „lokal“: Das Gerät antwortet einmal mit Markdown, HTML und einem
+  Code-Block. Geprüft wird:
+  - Kein `img`, kein `script`, kein `onerror` im DOM.
+  - Das HTML steht als Text im Absatz.
+  - Der Kopf zeigt „ts“, die Stücke sind gefärbt.
+  - Der Kopier-Knopf meldet „kopiert“, in der Zwischenablage steht der rohe Code.
+
 ## Übergabe Spur B – 02.10.2026
 
 Spur B hat alles gebaut, was ohne Entscheidung geht (bis B-13c, #263). Offen

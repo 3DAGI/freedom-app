@@ -132,7 +132,6 @@ import {
   wireOfflineHinweis,
 } from "./ui.js";
 import { abrufTakt, starteVerkehr } from "./versand.js";
-export { activateCodeBlocks } from "./ui.js";
 
 // ------------------------------------------------------------- Identitaet
 
