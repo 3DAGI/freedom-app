@@ -1298,18 +1298,28 @@ def einstellungen_pruefen(browser, url: str) -> dict:
     knoten["halten_aus"] = ev("() => localStorage.getItem('freedom.knoten.halten')")
     ev("() => document.getElementById('knoten-nur').click()")
     knoten["nur_an"] = ev("() => localStorage.getItem('freedom.knoten.nurUeber')")
+    # Wecken (B-12d2): sichtbar, ohne Abo aus; mit „nur über meinen Knoten“ und ohne bekanntes Relay scheitert es
+    # sofort – Haken wieder aus, kein Worker angemeldet, nichts gesendet (Prüfung „gesendet“ unten)
+    knoten["wecken_vorher"] = ev("() => [!document.getElementById('knoten-wecken-zeile').hidden, document.getElementById('knoten-wecken').checked]")
+    ev("() => document.getElementById('knoten-wecken').click()")
+    seite.s.wait_for_function("() => document.getElementById('knoten-status-anzeige').textContent.includes('nennt kein Relay')"
+                              " && !document.getElementById('knoten-wecken').disabled", timeout=20000)
+    knoten["wecken_ohne"] = [ev("() => document.getElementById('knoten-wecken').checked"),
+                             ev("async () => (await navigator.serviceWorker.getRegistrations()).length")]
     ev("() => document.getElementById('knoten-entkoppeln').click()")
     seite.warte_dialog("entkoppeln")
     bestaetigen()
     seite.warte_zu()
     knoten["danach"] = [ev("() => document.getElementById('knoten-status')?.textContent"), ev("() => localStorage.getItem('freedom.knoten.kopplung')"),
                         ev("() => document.getElementById('knoten-halten-zeile').hidden"), ev("() => document.getElementById('knoten-nur-zeile').hidden"),
-                        ev("() => document.getElementById('knoten-status-holen').hidden"), ev("() => document.getElementById('knoten-relay-uebernehmen').hidden")]
+                        ev("() => document.getElementById('knoten-status-holen').hidden"), ev("() => document.getElementById('knoten-relay-uebernehmen').hidden"),
+                        ev("() => document.getElementById('knoten-wecken-zeile').hidden")]
     erg["knoten"] = knoten
     if knoten != {"typen": ["password"], "falsch": "Kein Kopplungscode – er beginnt mit freedom-kopplung:1:", "status": "Gekoppelt mit abababab…abab",
                   "gemerkt": True, "entkoppeln": True, "halten": [True, True], "nur": [True, False], "status": [True, ""], "halten_aus": "0", "nur_an": "1",
                   "relay_knopf": True, "relay_ohne": ["Mein Knoten nennt kein Relay – nichts übernommen", False, True],
-                  "danach": ["Nicht gekoppelt", None, True, True, True, True]}:
+                  "wecken_vorher": [True, False], "wecken_ohne": [False, 0],
+                  "danach": ["Nicht gekoppelt", None, True, True, True, True, True]}:
         erg["fehler"].append(f"Mein Knoten {knoten}")
     # Abgebrochen: nichts veröffentlicht – kein Widerruf, kein Plan, keine Meldung
     erg["gesendet"] = sorted({e["kind"] for e in relay.gesendet if e.get("kind") not in (10002, 10050)})

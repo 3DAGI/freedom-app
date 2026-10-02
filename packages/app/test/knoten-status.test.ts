@@ -63,12 +63,16 @@ test("B-11b: Zeilen auf Englisch, und jede Rolle hat einen Text in beiden Sprach
 
 test("B-11b: Verdrahtung – nur auf Knopfdruck, über den Weg, ohne Relay nichts, nur gelesener Status als Text", () => {
   const ui = lies("shell/knoten-status-ui.ts");
-  const fn = ui.slice(ui.indexOf("export async function zeigeKnotenStatus("), ui.indexOf("export function wireKnotenStatus("));
-  assert.match(fn, /const weg = await wegZumKnoten\(k\.knoten, sitzung\);\s*if \(!weg\) return zeige\(ziel, \[t\("set\.knotenOhneRelay"\)\]\);/);
+  // Seit B-12d2 fragt `frageKnotenStatus()` (auch für den Haken „Wecken“), `zeigeKnotenStatus()` zeigt nur
+  const fn = ui.slice(ui.indexOf("export async function frageKnotenStatus("), ui.indexOf("/** „Status abfragen“"));
+  assert.match(fn, /const weg = await wegZumKnoten\(k\.knoten, sitzung\);\s*if \(!weg\) return \{ grund: t\("set\.knotenOhneRelay"\) \};/);
   assert.ok(fn.indexOf("if (!weg)") < fn.indexOf("await baueStatusAuftrag("), "ohne Weg kein Auftrag");
   assert.match(fn, /await weg\.publish\(wrap\);/);
   assert.match(fn, /\} finally \{\s*weg\.schliesse\(\);/);
-  assert.match(fn, /const s = leseKnotenStatus\(antwort\.ergebnis\);\s*zeige\(ziel, s \? statusZeilen\(s, aktuellerKurs\(\)\) : \[t\("set\.statusUnlesbar"\)\]\);/);
+  assert.match(fn, /warteAufKnoten\(weg, sitzung, requestId, KIND_DVM_KNOTEN_STATUS \+ 1000, STATUS_ZEIT_MS, STATUS_TAKT_MS\)/);
+  assert.match(fn, /const s = leseKnotenStatus\(antwort\.ergebnis\);\s*return s \? \{ status: s \} : \{ grund: t\("set\.statusUnlesbar"\) \};/);
+  const zeigt = ui.slice(ui.indexOf("export async function zeigeKnotenStatus("), ui.indexOf("export function wireKnotenStatus("));
+  assert.match(zeigt, /const r = await frageKnotenStatus\(k\);\s*zeige\(ziel, "status" in r \? statusZeilen\(r\.status, aktuellerKurs\(\)\) : \[r\.grund\]\);/);
   assert.doesNotMatch(ui, /innerHTML|localStorage|ensurePool/, "nur Text, nichts gemerkt, nie am Weg vorbei");
   assert.match(ui, /ziel\.replaceChildren\(\.\.\.zeilen\.map\(\(z\) => el\("div", z\)\)\);/);
   // Gefragt wird nur beim Klick, nie beim Start

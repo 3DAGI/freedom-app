@@ -16,6 +16,7 @@ import { bestaetige, dialog } from "./dialog.js";
 import { geheim } from "./tresor.js";
 import { pkShort } from "../shell-logic.js";
 import { toast } from "./ui.js";
+import { weckerAbmelden } from "../wecker-abmelden.js";
 
 export const LS_KOPPLUNG = "freedom.knoten.kopplung";
 
@@ -41,6 +42,7 @@ function zeigeStatus(): void {
   document.getElementById("knoten-halten-zeile")?.toggleAttribute("hidden", !k);
   document.getElementById("knoten-nur-zeile")?.toggleAttribute("hidden", !k); // B-9c2, `knoten-weg-ui.ts`
   document.getElementById("knoten-relay-uebernehmen")?.toggleAttribute("hidden", !k); // B-9c3, ebenda
+  document.getElementById("knoten-wecken-zeile")?.toggleAttribute("hidden", !k); // B-12d2, `wecken-ui.ts`
   // Status (B-11b, `knoten-status-ui.ts`): nur gekoppelt; entkoppelt bleibt keine alte Anzeige stehen
   document.getElementById("knoten-status-holen")?.toggleAttribute("hidden", !k);
   if (!k) document.getElementById("knoten-status-anzeige")?.replaceChildren();
@@ -65,6 +67,8 @@ async function koppeln(): Promise<void> {
 async function entkoppeln(): Promise<void> {
   if (!await bestaetige({ titel: t("set.knotenEntkoppeln"), text: t("set.knotenEntkoppelnText"), ok: t("set.knotenEntkoppeln"), gefahr: true })) return;
   await geheim.removeItem(LS_KOPPLUNG);
+  // Wecken (B-12d2) hängt an der Kopplung: Abo und Worker weg – der Knoten vergisst die Adresse beim nächsten Wecken (410)
+  await weckerAbmelden().catch(() => []);
   zeigeStatus();
 }
 

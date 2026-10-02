@@ -53,8 +53,11 @@ test("B-12c: Website, reproduzierbarer Build, Pages und Release führen den Work
   assert.match(wurzel("scripts/publish-release.mjs"), /\{ name: "freedom-sw\.js", sha256: createHash\("sha256"\)\.update\(sw\)\.digest\("hex"\), sizeBytes: sw\.length \}/);
 });
 
-test("B-12c: die App meldet noch keinen Worker an – das tut erst der Haken aus B-12d", () => {
-  const app = lies("src/shell/app.ts");
-  assert.doesNotMatch(app, /serviceWorker/);
-  assert.doesNotMatch(lies("src/shell/knoten-weg-ui.ts") + lies("src/shell/mein-knoten.ts"), /serviceWorker/);
+test("B-12c/d2: die App meldet den Worker nie beim Start an – nur der Haken, mit der Sprache der App", () => {
+  assert.doesNotMatch(lies("src/shell/app.ts"), /serviceWorker/);
+  const ui = lies("src/shell/wecken-ui.ts");
+  assert.equal((ui.match(/serviceWorker\.register\(/g) ?? []).length, 1);
+  assert.match(ui, /navigator\.serviceWorker\.register\(weckWorkerAdresse\(getLang\(\)\)\)/);
+  const wire = ui.slice(ui.indexOf("export function wireWecken("));
+  assert.doesNotMatch(wire.slice(0, wire.indexOf('haken.addEventListener("change"')), /schalteAn\(|register\(/, "beim Start nur lesen, ob es ein Abo gibt");
 });
