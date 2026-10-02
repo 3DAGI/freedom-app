@@ -628,10 +628,12 @@ class DialogSeite:
     """Frische App ohne Einrichtung hinter der Relay-Attrappe (seit C-1a, für C-1): zählt Browser-Dialoge
     (`prompt`/`confirm`/`alert` – es darf keinen geben) und bedient die Dialoge aus `shell/dialog.ts`."""
 
-    def __init__(self, browser, url: str, relay: "ProbeRelay", erg: dict) -> None:
+    def __init__(self, browser, url: str, relay: "ProbeRelay", erg: dict, init: str | None = None) -> None:
         basis = url.rsplit("/", 1)[0]
         self.browser_dialoge: list[str] = []
         self.ctx = browser.new_context(locale="de-DE", viewport={"width": 1280, "height": 800})
+        if init:
+            self.ctx.add_init_script(init)
         self.ctx.route("**/*", lambda r: r.continue_() if r.request.url.startswith(basis) else r.abort())
         self.ctx.route_web_socket(re.compile(r"^wss?://"), relay.verbinde)
         s = self.s = self.ctx.new_page()
@@ -821,6 +823,100 @@ def kontakt_pruefen(browser, url: str) -> dict:
         erg["fehler"].append(f"mit Häkchen: {gesendet}")
     if erg["name"]["label"] != "Ada Lovelace":
         erg["fehler"].append(f"Name in der Liste: {erg['name']['label']}")
+    erg["browser_dialoge"] = seite.browser_dialoge
+    if seite.browser_dialoge:
+        erg["fehler"].append(f"Browser-Dialoge: {seite.browser_dialoge}")
+    seite.ctx.close()
+    erg["bestanden"] = not erg["fehler"]
+    return erg
+
+
+# Mikrofon-Attrappe (seit C-7): ein Ton aus dem Oszillator statt eines Geräts. Sie zählt, wie oft die App das
+# Mikrofon anfragt, und merkt sich jede Spur – gestoppt heißt `readyState === "ended"`.
+MIKROFON_ATTRAPPE = """
+(() => {
+  const st = window.__mikro = { fragen: 0, spuren: [] };
+  if (!navigator.mediaDevices) return;
+  navigator.mediaDevices.getUserMedia = async (c) => {
+    st.fragen++;
+    if (!c || !c.audio || c.video) throw new DOMException('nur Ton', 'NotAllowedError');
+    const ctx = new AudioContext();
+    await ctx.resume();
+    const osz = ctx.createOscillator();
+    const ziel = ctx.createMediaStreamDestination();
+    osz.connect(ziel);
+    osz.start();
+    for (const s of ziel.stream.getTracks()) st.spuren.push(s);
+    return ziel.stream;
+  };
+  // Keine Verzögerung beim Senden (6.4) – sonst wartet der Test bis zu 30 s auf die Umschläge
+  localStorage.setItem('freedom.versand.verzoegerung', '0');
+})();
+"""
+
+
+def sprachnachricht_pruefen(browser, url: str) -> dict:
+    """Sprachnachrichten (C-7): Mikrofon erst auf Klick, nach dem Beenden und Verwerfen aus; die Aufnahme ist ein
+    Anhang, reist klein in der verschlüsselten Nachricht und spielt im eigenen Verlauf."""
+    erg = {"fehler": []}
+    relay = ProbeRelay()
+    seite = DialogSeite(browser, url, relay, erg, init=MIKROFON_ATTRAPPE)
+    s, ev = seite.s, seite.ev
+    mikro = "() => [window.__mikro.fragen, window.__mikro.spuren.length, window.__mikro.spuren.every(t => t.readyState === 'ended')]"
+    ev("() => { location.hash = '#/chat'; }")
+    s.wait_for_selector("#chat-new-dm", timeout=30000)
+    ev("() => document.getElementById('chat-new-dm').click()")
+    seite.warte_dialog("Neue Nachricht")
+    pk = "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798"  # ein gültiger Punkt (x von G) – geht nur an die Attrappe
+    seite.tippe(pk)
+    seite.warte_zu()
+    s.wait_for_function("(pk) => !!document.querySelector(`#chat-list .chat-item.active[data-cid='${pk}']`)", arg=pk, timeout=10000)
+    erg["vorher"] = ev(mikro)
+    knopf = "#chat-voice-btn"
+    erg["knopf"] = ev(f"() => [document.querySelector('{knopf}').getAttribute('aria-label'), document.querySelector('{knopf}').getAttribute('aria-pressed'),"
+                      " document.getElementById('chat-voice-status').hidden]")
+    # Aufnehmen – ein echter Klick, damit der Browser das Abspielen erlaubt
+    s.click(knopf)
+    s.wait_for_function(f"() => document.querySelector('{knopf}').getAttribute('aria-pressed') === 'true'", timeout=10000)
+    s.wait_for_function("() => /0:01 von 2:00/.test(document.getElementById('chat-voice-status').textContent)", timeout=10000)
+    erg["laeuft"] = ev(f"() => [document.querySelector('{knopf}').getAttribute('aria-label'), document.getElementById('chat-voice-status').textContent]") + [ev(mikro)]
+    s.click(knopf)
+    s.wait_for_function("() => /sprachnachricht\\.webm/.test(document.getElementById('chat-attach-list').textContent)", timeout=15000)
+    erg["beendet"] = {"mikro": ev(mikro), "liste": ev("() => document.getElementById('chat-attach-list').textContent"),
+                      "knopf": ev(f"() => [document.querySelector('{knopf}').getAttribute('aria-pressed'), document.getElementById('chat-voice-status').hidden]")}
+    # Eine zweite Aufnahme verwerfen: Mikrofon aus, nichts kommt dazu
+    s.click(knopf)
+    s.wait_for_function(f"() => document.querySelector('{knopf}').getAttribute('aria-pressed') === 'true'", timeout=10000)
+    s.click("#chat-voice-status button")
+    s.wait_for_function(f"() => document.querySelector('{knopf}').getAttribute('aria-pressed') === 'false'", timeout=10000)
+    erg["verworfen"] = {"mikro": ev(mikro), "liste": ev("() => document.getElementById('chat-attach-list').textContent")}
+    # Senden: im eigenen Verlauf ein Abspieler mit data:audio, hinaus nur Umschläge (1059)
+    s.click("#chat-send")
+    s.wait_for_function("() => (document.querySelector('#chat-thread audio')?.src ?? '').startsWith('data:audio/webm')", timeout=15000)
+    erg["verlauf"] = ev("() => [document.querySelectorAll('#chat-thread audio').length, document.querySelector('#chat-thread audio').controls]")
+
+    def umschlaege() -> list[dict]:
+        return list({e["id"]: e for e in relay.gesendet if e.get("kind") == 1059}.values())
+    for _ in range(100):
+        if len(umschlaege()) >= 2:
+            break
+        s.wait_for_timeout(200)
+    gesendet = umschlaege()
+    # Nur lange Folgen suchen – kurze stehen im Base64 des Chiffrats gelegentlich zufällig (Fallstrick seit B-13a)
+    erg["gesendet"] = {"umschlaege": len(gesendet), "klartext": any("audio/webm" in json.dumps(e) or "sprachnachricht.webm" in json.dumps(e) for e in relay.gesendet)}
+    if erg["vorher"] != [0, 0, True]:
+        erg["fehler"].append(f"Mikrofon vor dem Klick: {erg['vorher']}")
+    if erg["knopf"] != ["Sprachnachricht aufnehmen", "false", True]:
+        erg["fehler"].append(f"Knopf {erg['knopf']}")
+    if not (erg["laeuft"][0] == "Aufnahme beenden" and erg["laeuft"][1].startswith("● Aufnahme 0:01 von 2:00") and erg["laeuft"][2][:2] == [1, 1]
+            and erg["laeuft"][2][2] is False):
+        erg["fehler"].append(f"Aufnahme {erg['laeuft']}")
+    if not (erg["beendet"]["mikro"] == [1, 1, True] and erg["beendet"]["knopf"] == ["false", True]):
+        erg["fehler"].append(f"beendet {erg['beendet']}")
+    if not (erg["verworfen"]["mikro"] == [2, 2, True] and erg["verworfen"]["liste"] == erg["beendet"]["liste"]):
+        erg["fehler"].append(f"verworfen {erg['verworfen']}")
+    if erg["verlauf"] != [1, True] or erg["gesendet"]["umschlaege"] < 2 or erg["gesendet"]["klartext"]:
+        erg["fehler"].append(f"gesendet {erg['verlauf']} {erg['gesendet']}")
     erg["browser_dialoge"] = seite.browser_dialoge
     if seite.browser_dialoge:
         erg["fehler"].append(f"Browser-Dialoge: {seite.browser_dialoge}")
@@ -3110,6 +3206,10 @@ def main() -> int:
             except Exception as e:
                 erg["kontakt"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
             try:
+                erg["sprachnachricht"] = sprachnachricht_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
+            except Exception as e:
+                erg["sprachnachricht"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
+            try:
                 erg["einstellungen"] = einstellungen_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
             except Exception as e:
                 erg["einstellungen"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
@@ -3170,6 +3270,7 @@ def main() -> int:
           and erg.get("dialog", {}).get("bestanden") is True
           and erg.get("waehrung", {}).get("bestanden") is True
           and erg.get("kontakt", {}).get("bestanden") is True
+          and erg.get("sprachnachricht", {}).get("bestanden") is True
           and erg.get("einstellungen", {}).get("bestanden") is True
           and erg.get("einnahmen", {}).get("bestanden") is True
           and erg.get("fremdtext", {}).get("bestanden") is True

@@ -14677,3 +14677,49 @@ Strom, Spur und Recorder):
 - Beenden, Verwerfen und die Grenze.
 - Verweigert oder kaputt.
 - Abgebrochen, während der Browser noch fragt.
+
+## Schritt C-7b – Sprachnachrichten: Knopf, Anhang, Abspielen
+
+**Warum:** zweiter Teil von C-7; verdrahtet die Aufnahme aus C-7a.
+
+**Was:**
+- **Knopf** `#chat-voice-btn` (Mikrofon) neben „Anhängen“
+  (`shell/sprachnachricht-ui.ts`):
+  - Erst der Klick fragt das Mikrofon an. Während der Aufnahme zeigen
+    `aria-pressed` und eine Zeile mit Laufzeit und Grenze, dass
+    aufgenommen wird; dazu gibt es „verwerfen“.
+  - Ein zweiter Klick beendet. Im Hintergrund beendet die App von selbst,
+    beim Verlassen der Seite verwirft sie. Ohne Mikrofon-Schnittstelle gibt
+    es den Knopf nicht.
+- **Anhang:** Die Aufnahme ist ein Anhang über `handleChatFiles()`, derselbe
+  Weg wie eine gewählte Datei (Regel „Anhänge nur verschlüsselt“).
+  - Klein reist sie in der verschlüsselten Nachricht, sonst verschlüsselt
+    über `uploadAnhang()`.
+  - Gekoppelt hält sie der eigene Knoten (B-9b2).
+  - Gesendet wird mit „Senden“; vorher lässt sie sich verwerfen.
+  - `handleChatFiles()` nimmt dafür auch eine Liste von `File`.
+- **Abspielen:**
+  - Inline (`data:audio`) spielt der Verlauf direkt.
+  - Ein verschlüsselter Ton heißt „🔒 ▶ … abspielen“. Nach dem Laden und
+    Entschlüsseln steht dort ein Abspieler statt eines Downloads, nur mit
+    geprüftem Typ (`istAudioTyp()`).
+- **Texte** in beiden Sprachen, CSS mit `--red-text` für die laufende
+  Aufnahme.
+
+**Verdrahtet:** `wireSprachnachricht()` in `shell/app.ts` neben den Anhängen;
+Abspielen in `wireBlobButtons()` (`kommunikation.ts`), Text in
+`anhangAnsicht()` (`shell-logic.ts`).
+
+**Tests:**
+- app +2 in `test/sprachnachricht.test.ts`: Anzeige verschlüsselter Töne,
+  Verdrahtung, Bitrate.
+- Smoke „sprachnachricht“ (neu) mit einer Mikrofon-Attrappe (Oszillator),
+  die zählt, wie oft die App fragt, und jede Spur merkt:
+  - Vor dem Klick wird nicht gefragt.
+  - Während der Aufnahme sind Name und Zeile richtig.
+  - Nach dem Beenden und Verwerfen sind alle Spuren aus.
+  - Der Anhang heißt `sprachnachricht.webm`, Verwerfen fügt nichts hinzu.
+  - Nach dem Senden steht im eigenen Verlauf ein Abspieler mit
+    `data:audio/webm`.
+  - Hinaus gehen nur Umschläge (1059), ohne „audio/webm“ oder den Dateinamen im
+    Klartext.

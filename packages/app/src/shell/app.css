@@ -1205,6 +1205,9 @@ main { min-width: 0; }
   background: transparent; border: 1px solid var(--line2); color: var(--accent);
 }
 .chat-composer .zap-btn:hover { border-color: var(--accent); }
+/* Sprachnachricht (C-7): die Aufnahme sieht man am Knopf und in einer Zeile darunter */
+#chat-voice-btn.nimmt-auf { border-color: var(--red); color: var(--red-text); }
+.chat-voice-status { padding: 0 12px 6px; color: var(--red-text); }
 
 /* Hauptnavigation: kein abgeschnittener Eintrag */
 @media (min-width: 1024px) {

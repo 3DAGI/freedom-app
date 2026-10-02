@@ -35,6 +35,7 @@ import { kontaktName, zeigeRaumLeiste } from "./raeume.js";
 import { fehlerText, schluesselText } from "../../protokoll-texte.js";
 import { leseAnforderung, type Anforderung } from "../../zahlungs-anforderung.js";
 import { halteBeiMeinemKnoten } from "../knoten-halten-ui.js";
+import { istAudioTyp } from "../../sprachnachricht.js";
 
 /** Zahlungsanforderungen der gezeigten Nachrichten (A-5): Id → Anforderung und Absender. */
 const anforderungen = new Map<string, { anf: Anforderung; von: string }>();
@@ -69,7 +70,7 @@ async function uploadToBlossom(file: File): Promise<string> {
  */
 const INLINE_MAX_BYTES = 32_000;
 
-export async function handleChatFiles(files: FileList | null): Promise<void> {
+export async function handleChatFiles(files: FileList | File[] | null): Promise<void> {
   if (!files || files.length === 0) return;
   const listEl = $("#chat-attach-list");
   for (const file of Array.from(files)) {
@@ -183,6 +184,15 @@ function wireBlobButtons(root: HTMLElement): void {
           datei = { bytes: res.bytes, mime: res.mime, name: res.name || d.name || "datei" };
         }
         const url = URL.createObjectURL(new Blob([datei.bytes as BlobPart], { type: datei.mime }));
+        // Ein Ton (Sprachnachricht, C-7) spielt an Ort und Stelle – der Typ kommt aus fremder Nachricht, erst prüfen
+        if (istAudioTyp(datei.mime)) {
+          const ton = document.createElement("audio");
+          ton.controls = true;
+          ton.src = url;
+          el.replaceWith(ton);
+          ton.play().catch(() => { /* ohne Erlaubnis zum Abspielen: der Knopf im Abspieler */ });
+          return;
+        }
         const a = document.createElement("a");
         a.href = url;
         a.download = datei.name;

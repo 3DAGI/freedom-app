@@ -1,16 +1,20 @@
 /**
- * Schritt C-7a: Sprachnachrichten, die Aufnahme ohne DOM. Das Mikrofon geht
- * nur nach `starte()` an und nach jedem Ende wieder aus – beendet, verworfen,
- * an der Grenze, bei einem Fehler, und auch, wenn der Browser die Erlaubnis
- * erst gibt, nachdem abgebrochen wurde. Ein Ton aus fremder Nachricht gilt nur
- * mit geprüftem Typ als Ton. Knopf, Anhang und Abspielen kommen mit C-7b.
+ * Schritt C-7: Sprachnachrichten. Das Mikrofon geht nur auf Klick an und nach
+ * jedem Ende wieder aus – beendet, verworfen, an der Grenze, bei einem Fehler,
+ * und auch, wenn der Browser die Erlaubnis erst gibt, nachdem abgebrochen
+ * wurde. Die Aufnahme wird ein Anhang wie jede Datei (klein in der
+ * verschlüsselten Nachricht, sonst `uploadAnhang()`); ein Ton aus fremder
+ * Nachricht spielt nur mit geprüftem Typ.
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import {
   SPRACH_FORMATE, SPRACH_GRENZEN, SprachAufnahme, type SprachErgebnis, type SprachUmgebung,
   dauerText, istAudioTyp, sprachDateiname, waehleSprachFormat,
 } from "../src/sprachnachricht.js";
+import { anhangAnsicht } from "../src/shell-logic.js";
+import { setLang } from "../src/i18n.js";
 
 class Spur { gestoppt = false; stop() { this.gestoppt = true; } }
 class Strom {
@@ -158,4 +162,43 @@ test("C-7: abgebrochen, während der Browser noch fragt – die späte Erlaubnis
   assert.ok(s.aus, "sofort wieder aus");
   assert.equal(u.recorder.length, 0, "kein Recorder");
   assert.equal(a.stand, "bereit");
+});
+
+test("C-7: ein verschlüsselter Ton heißt „abspielen“ – andere Dateien und falsche Typen bleiben ein Download", () => {
+  setLang("de");
+  const enc = { alg: "aes-gcm" as const, key: "a".repeat(64), nonce: "b".repeat(24), ox: "c".repeat(64) };
+  const ton = anhangAnsicht({ name: "sprachnachricht.webm", mime: "audio/webm;codecs=opus", size: 1, url: "freedom-blob:x", enc });
+  assert.equal(ton.art, "knopf");
+  assert.equal(ton.art === "knopf" && ton.text, "🔒 ▶ sprachnachricht.webm abspielen");
+  const datei = anhangAnsicht({ name: "a.pdf", mime: "application/pdf", size: 1, url: "freedom-blob:x", enc });
+  assert.equal(datei.art === "knopf" && datei.text, "🔒 a.pdf");
+  const falsch = anhangAnsicht({ name: "x", mime: 'audio/webm" onclick="x', size: 1, url: "freedom-blob:x", enc });
+  assert.equal(falsch.art === "knopf" && falsch.text, "🔒 x");
+  // Klein reist die Aufnahme als data:audio in der verschlüsselten Nachricht – das spielt der Verlauf direkt
+  assert.equal(anhangAnsicht({ name: "s", mime: "audio/webm", size: 1, url: "data:audio/webm;codecs=opus;base64,AAAA" }).art, "audio");
+  setLang("en");
+});
+
+test("C-7: verdrahtet – Knopf nur auf Klick, Anhang über handleChatFiles, Abspielen nur mit geprüftem Typ", () => {
+  const ui = readFileSync(new URL("../src/shell/sprachnachricht-ui.ts", import.meta.url), "utf8");
+  // getUserMedia steht genau einmal da – in der Umgebung, die erst starte() nutzt
+  assert.equal(ui.split("getUserMedia(").length - 1, 1);
+  assert.match(ui, /mikrofon: \(\) => navigator\.mediaDevices\.getUserMedia\(\{ audio: true \}\),/);
+  // Sprache mit 32 kbit/s – Browser nehmen sonst 128, und schon kurze Aufnahmen passten nicht mehr in die Nachricht
+  assert.equal(SPRACH_GRENZEN.bitsProSekunde, 32_000);
+  assert.match(ui, /audioBitsPerSecond: SPRACH_GRENZEN\.bitsProSekunde/);
+  assert.match(ui, /knopf\.onclick = \(\) => void umschalten\(knopf, stand\);/);
+  assert.match(ui, /await handleChatFiles\(\[new File\(\[e\.datei\], sprachDateiname\(e\.mime\), \{ type: e\.mime \}\)\]\);/);
+  assert.match(ui, /if \(document\.hidden && aufnahme\?\.stand === "nimmt-auf"\) void beende\(knopf, stand\);/);
+  assert.match(ui, /window\.addEventListener\("pagehide", \(\) => void aufnahme\?\.brichAb\(\)\);/);
+  assert.doesNotMatch(ui, /innerHTML|localStorage|uploadBlob|publish\(/, "nur über den Weg der Anhänge");
+  const app = readFileSync(new URL("../src/shell/app.ts", import.meta.url), "utf8");
+  assert.match(app, /\n {2}wireSprachnachricht\(\);/);
+  const komm = readFileSync(new URL("../src/shell/tabs/kommunikation.ts", import.meta.url), "utf8");
+  // Große Anhänge gehen weiter nur verschlüsselt hinaus (2.4)
+  assert.match(komm, /const res = await uploadAnhang\(file, pool as never, state\.signer!\);/);
+  assert.match(komm, /if \(istAudioTyp\(datei\.mime\)\) \{\n\s+const ton = document\.createElement\("audio"\);/);
+  const html = readFileSync(new URL("../src/shell/index.html", import.meta.url), "utf8");
+  assert.match(html, /<button id="chat-voice-btn" type="button" class="ghost copy-btn" aria-pressed="false"[^>]*data-i18n-aria="komm\.sprachAufnehmen"/);
+  assert.match(html, /<div id="chat-voice-status" class="mono-sm chat-voice-status" aria-live="polite" hidden><\/div>/);
 });
