@@ -10,17 +10,5 @@
 # Pruefen: python3 scripts/check_innerhtml.py packages/app/src --ausnahmen scripts/innerhtml-ausnahmen.txt --streng
 ui.ts|(Zuweisung) markSvg(18)|eigenes SVG mit fester Farbe
 ui.ts|(Zuweisung) markSvg(30)|eigenes SVG mit fester Farbe
-agent.ts|whoLabel|fest du, sonst agent plus escapeHtml(model)
-agent.ts|body|renderMarkdown(escapeHtml(text)) oder escapeHtml(text)
-agent.ts|whoLabel|agent plus escapeHtml(model)
-agent.ts|(Zuweisung) renderMarkdown(escapeHtml(text))|Eingabe vorher maskiert; renderMarkdown() erzeugt nur feste Tags
-agent.ts|haken|eigenes SVG, Konstante
-agent.ts|werkzeugTeil|Template mit toolRows: escapeHtml(t.name) und Math.floor
-agent.ts|zeile(t("agent.modell"), usage.model ?? "—")|zeile() maskiert Schlüssel und Wert selbst
-agent.ts|zeile(t("agent.provider"), pkShort(providerPk))|zeile() maskiert Schlüssel und Wert selbst
-agent.ts|zeile(t("agent.tokens"), t("agent.reinRaus", { rein: ganzeZahl(usage.promptTokens), raus: ganzeZahl(usage.completionToke|zeile() maskiert Schlüssel und Wert selbst
-agent.ts|zeile(t("agent.dieseAntwort"), `${Math.floor(amountMsat / 1000)} sat`)|zeile() maskiert Schlüssel und Wert selbst
-agent.ts|aufteilungZeilen(abrechnung, zeile)|nur zeile(), das Schlüssel und Wert selbst maskiert; Namen der Anteile fest, Beträge lokal gerechnet (5.1.3)
-agent.ts|(Zuweisung) svg|icon(...) aus der festen Symboltabelle
 tresor.ts|html|dialog() ist modulintern; alle drei Aufrufer übergeben feste Templates, deren einzige Einsetzungen escapeHtml(t(…)) sind (8.16g1); Eingaben und Meldungen laufen über textContent
 einrichtung-ui.ts|inhalt(seite)|feste Seiten der Einrichtung aus diesem Modul (8.1b); Fremddaten darin nur über escapeHtml (Werber-Schlüssel, Datenschutz-Aussagen)

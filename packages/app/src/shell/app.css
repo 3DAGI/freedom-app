@@ -593,6 +593,9 @@ input:focus, textarea:focus, select:focus {
 .tok-str { color: #e8c66a; }
 .tok-com { color: #6b6b6b; font-style: italic; }
 .tok-num { color: #7ec8e8; }
+/* C-6d2: Antworten über markdownDom() – der Block trägt Rahmen und Abstand, nicht das pre */
+.bubble.ai .body .codeblock pre, .md .codeblock pre { margin: 0; border: 0; border-radius: 0; padding: 12px; background: none; }
+.bubble.ai .body li > p { margin: 0; }
 
 /* Inline-code (nicht in Blöcken) */
 .bubble code, p > code {
