@@ -15,7 +15,7 @@ import type { NostrEvent } from "./event.js";
 import type { Signer } from "./signer.js";
 
 /** Rollen, die ein Knoten melden kann – feste Kennungen, die App übersetzt sie. */
-export const STATUS_ROLLEN = ["ki", "relay", "speicher", "gateway", "zahlkanal", "lnurl", "lp", "relayer", "tor", "app"] as const;
+export const STATUS_ROLLEN = ["ki", "relay", "speicher", "gateway", "zahlkanal", "lnurl", "lp", "relayer", "tor", "app", "turn"] as const;
 export type StatusRolle = (typeof STATUS_ROLLEN)[number];
 
 /** Grenzen der Antwort – was darüber liegt, liest `leseKnotenStatus()` nicht. */
@@ -134,8 +134,9 @@ export function leseKnotenStatus(text: string): KnotenStatus | null {
   const { fassung, seit, rollen, modelle, auftraege, abgerechnetMsat, speicher, relay, einrichtung, weckSchluessel } = roh;
   if (typeof fassung !== "string" || !new RegExp(`^[0-9A-Za-z.+-]{1,${STATUS_GRENZEN.fassungZeichen}}$`).test(fassung)) return null;
   if (!zahl(seit) || !zahl(abgerechnetMsat)) return null;
-  if (!Array.isArray(rollen) || rollen.length > STATUS_ROLLEN.length || new Set(rollen).size !== rollen.length) return null;
-  if (!rollen.every((r) => (STATUS_ROLLEN as readonly unknown[]).includes(r))) return null;
+  // Rollen: Kennungen aus Buchstaben, je einmal; unbekannte (neuerer Knoten, B-13a) bleiben unbeachtet
+  if (!Array.isArray(rollen) || rollen.length > 40 || new Set(rollen).size !== rollen.length) return null;
+  if (!rollen.every((r) => typeof r === "string" && /^[a-z]{1,20}$/.test(r))) return null;
   if (!Array.isArray(modelle) || modelle.length > STATUS_GRENZEN.modelle || new Set(modelle).size !== modelle.length) return null;
   if (!modelle.every((m) => typeof m === "string" && m.length >= 1 && m.length <= STATUS_GRENZEN.modellZeichen && !STEUERZEICHEN.test(m))) return null;
   if (!objekt(auftraege) || !zahl(auftraege.erledigt) || !zahl(auftraege.gratis) || !zahl(auftraege.abgelehnt)) return null;
@@ -158,7 +159,7 @@ export function leseKnotenStatus(text: string): KnotenStatus | null {
   return {
     fassung,
     seit,
-    rollen: rollen as StatusRolle[],
+    rollen: STATUS_ROLLEN.filter((r) => rollen.includes(r)),
     modelle: modelle as string[],
     auftraege: { erledigt: auftraege.erledigt, gratis: auftraege.gratis, abgelehnt: auftraege.abgelehnt },
     abgerechnetMsat,
