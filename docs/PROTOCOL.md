@@ -109,6 +109,7 @@ Bestehende Kinds sind reserviert und semantisch eingefroren:
 | **5075** | Blob-Chunk-Fetch (Storage-Micro-Reward) |
 | **5076** | Blob beim eigenen Knoten halten – nur versiegelt, nur mit Besitzer-Nachweis (§23) |
 | **5077** | Status des eigenen Knotens – nur versiegelt, nur mit Besitzer-Nachweis, nur lesen (§24) |
+| **5078** | Wecken: Push-Adresse beim eigenen Knoten an- oder abmelden – nur versiegelt, nur mit Besitzer-Nachweis (§25) |
 
 ### Freedom-spezifisch (38xxx)
 | Kind | Bedeutung |
@@ -640,8 +641,36 @@ Aufträge.
 | `abgerechnetMsat` | seit dem Start in Antworten verlangt (nicht unbedingt schon bezahlt) |
 | `speicher` | `belegtBytes`, `quotaBytes` (0 = ohne Grenze), `gehalten` – oder `null` |
 | `relay` | `events`, `verbindungen` – oder `null` |
+| `weckSchluessel` | seit B-12a, darf fehlen: öffentlicher VAPID-Schlüssel des Knotens (P-256, unkomprimiert, base64url, 87 Zeichen) |
 | `einrichtung` | seit B-11c, darf fehlen: Befunde der Selbstprüfung beim Start, höchstens 40, je `schiene` (`lightning`, `sol`), `stufe` (`ok`, `hinweis`, `fehler`), `fall` (`ln.…`/`sol.…`) und `werte` (höchstens 6, nur ganze Zahlen ab 0 oder Fehlernamen aus Buchstaben) |
 
 Unbekannte Felder bleiben unbeachtet, damit ein neuerer Knoten mehr melden
 kann; bekannte müssen stimmen, sonst zeigt die App nichts. Kein Text aus
 Aufträgen, keine Meldungen, keine Adressen.
+
+## 25. Wecken über den eigenen Knoten (Kind 5078, seit B-12a)
+
+Entscheidungen W1 A und W2 A: Ist die App zu, weckt der eigene Knoten den
+Browser per Web Push – ohne Inhalt, ohne Absender, nur mit VAPID (RFC 8030,
+RFC 8292). Der Push-Dienst des Browserherstellers sieht, *dass* geweckt wird,
+nicht was.
+
+**Kern** (DVM-Anfrage, nur versiegelt vom Sitzungsschlüssel an den gekoppelten
+Knoten, `baueWeckAnmeldung()`): `i` = `wecken`, `bid` = 0, `p` = Schlüssel des
+Knotens, `besitzer` = Nachweis nach §21, dazu als `param`:
+
+| Name | Inhalt |
+|---|---|
+| `aktion` | `an` (ersetzt eine frühere Anmeldung derselben Adresse) oder `ab` – genau einmal |
+| `endpunkt` | Push-Adresse aus `PushSubscription.endpoint`: https, öffentlicher Host, ohne Zugangsdaten, höchstens 1000 Zeichen – genau einmal |
+| `schluessel` | je ein Schlüssel, dessen Post weckt (die Person, ihre Geräte), 1–20; beim Abmelden keiner |
+
+Andere Namen machen die Anmeldung ungültig (`leseWeckAnmeldung()`). Der Knoten
+nimmt sie nur aus einem Umschlag mit gültigem Nachweis an und hält höchstens 10
+Adressen. Die Push-Adresse ist ein Zugang zu einem Browser: Sie steht nur im
+Kern, nie offen und nie im Log des Knotens.
+
+**Antwort** (6078, versiegelt an den Sitzungsschlüssel): `{"aktion": "an"|"ab",
+"schluessel": n}` – wie viele Schlüssel der Knoten für diese Adresse beobachtet,
+nach dem Abmelden 0 (`leseWeckAntwort()`). Den öffentlichen VAPID-Schlüssel nennt
+der Status (§24, `weckSchluessel`); ohne ihn kann die App kein Abo anlegen.

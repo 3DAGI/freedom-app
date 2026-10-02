@@ -14234,3 +14234,70 @@ Endstand (B-11c, 02.10.): protocol 1155 (+1, 6 übersprungen) · node 292 (+1,
 70 grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng
 Exit 0 · Website ok · Smoke-Test bestanden. Knoten-Stand: für die Einrichtung
 im Status nötig (B-11c); ein älterer Knoten zeigt „noch nicht geprüft“.
+
+## Schritt B-12a – Weckdienst: Anmeldung beim eigenen Knoten
+
+Sammlung B-12 („Weckdienst“), Entscheidungen W1 A und W2 A, erster Teil. Ist
+die App zu, soll der eigene Knoten den Browser wecken – ohne Inhalt, ohne
+Absender. Dafür muss er wissen, wohin (Push-Adresse) und für wen (Schlüssel).
+
+**Protokoll** (`wecken.ts`, Kind 5078, `docs/PROTOCOL.md` 25):
+- `baueWeckAnmeldung()`: An- oder Abmeldung, nur versiegelt vom
+  Sitzungsschlüssel an den gekoppelten Knoten, mit Besitzer-Nachweis.
+- `pruefeWeckEndpunkt()`: nur https, öffentlicher Host, ohne Zugangsdaten,
+  höchstens 1000 Zeichen.
+- Beobachtet werden 1–20 Schlüssel (die Person, ihre Geräte).
+- Der Knoten liest nur über `leseWeckAnmeldung()`: je Name genau ein Wert,
+  nichts Unbekanntes.
+- Antwort 6078 (`leseWeckAntwort()`).
+- Der Status (5077) nennt den öffentlichen VAPID-Schlüssel des Knotens
+  (`weckSchluessel`, optional, genau 87 Zeichen base64url).
+
+**Knoten** (`wecken.ts`, `dvm-provider.ts`, `main.ts`):
+- `ladeVapid()`: eigenes P-256-Schlüsselpaar mit `node:crypto`, beim ersten
+  Start erzeugt (`~/.freedom/vapid.json`, 0600). Eine kaputte Datei bleibt
+  liegen – dann gibt es keinen Weckdienst, nie einen neuen Schlüssel darüber.
+- `WeckBuch`: Anmeldungen je Push-Adresse in `~/.freedom/wecken.json` (0600),
+  höchstens 10. „an“ ersetzt dieselbe Adresse, „ab“ entfernt sie, `vergiss()`
+  für abgelaufene (B-12b).
+- `handleWecken()`: nur aus einem Umschlag mit `istBesitzer()`. Nach außen nur
+  feste Texte; die Push-Adresse nie ins Log. Weck-Anmeldungen zählen wie
+  Statusabfragen nicht als Aufträge.
+- Geweckt wird erst ab B-12b.
+
+**Neue Frage W3** (Sammlung, Abschnitt 5): Den Service Worker (B-12c) meldet die
+App nur an, wenn die CSP `worker-src 'self'` erlaubt. CLAUDE.md verlangt, vorher
+zu fragen. Vorschlag A.
+
+**Tests:**
+- protocol +4 (`wecken.test.ts`):
+  - Anmeldung versiegelt mit Nachweis, offen weder Adresse noch Schlüssel;
+  - Abmelden;
+  - 14 ungültige Push-Adressen (http, lokal, privat auch als IPv4 in IPv6,
+    `.local`, ohne Punkt, Zugangsdaten, Fragment, zu lang);
+  - ungültige Anmeldungen gehen nicht hinaus, kaputte Kerne werden nicht
+    gelesen;
+  - Antwort und Weckschlüssel nur in fester Form, mit einem echten
+    P-256-Schlüssel geprüft.
+- node +5 (`wecken.test.ts`):
+  - VAPID: 0600, derselbe nach dem Neustart, Signatur prüfbar, kaputt bleibt
+    kaputt;
+  - `WeckBuch`: ersetzen, entfernen, höchstens zehn, 0600, streng gelesen;
+  - der Besitzer meldet an und ab, die Adresse steht nie im Log, der Status
+    nennt den Schlüssel, Anmeldungen zählen nicht;
+  - ohne Nachweis, mit fremdem Geheimnis oder ohne Buch keine Anmeldung;
+  - Verdrahtung in `main.ts`.
+
+**Verdrahtet:**
+- `packages/node/src/main.ts`: `ladeVapid(vapidDatei())`,
+  `new WeckBuch(weckDatei())` → `DvmProvider({ weckBuch })`,
+  `weckSchluessel: vapid?.oeffentlich` im Status.
+- `packages/node/src/dvm-provider.ts`: `handleJob()` → `handleWecken()`.
+- Die App folgt mit B-12d. Bis dahin stehen `baueWeckAnmeldung` und
+  `leseWeckAntwort` mit Begründung in `scripts/wiring-ausnahmen.txt`.
+
+Endstand (B-12a, 02.10.): protocol 1159 (+4, 6 übersprungen) · node 297 (+5,
+7 übersprungen ohne Netz – mit Netz 298) · app 784 · mls 13 · Leak-Tests 70
+grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 (zwei Ausnahmen bis
+B-12d) · innerHTML streng Exit 0 · Website ok · Smoke-Test bestanden.
+Knoten-Stand: für Weck-Anmeldungen nötig (B-12a); sonst unverändert.

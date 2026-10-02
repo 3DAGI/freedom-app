@@ -52,7 +52,16 @@ export interface KnotenStatus {
   relay: { events: number; verbindungen: number } | null;
   /** Selbstprüfung beim Start (B-11c) – fehlt, solange sie läuft, und bei Knoten vor B-11c. */
   einrichtung?: StatusBefund[];
+  /**
+   * Öffentlicher VAPID-Schlüssel des Knotens zum Wecken (B-12a, RFC 8292):
+   * P-256, unkomprimiert, base64url (87 Zeichen) – die App braucht ihn für
+   * `PushManager.subscribe()`. Fehlt bei Knoten ohne Weckdienst.
+   */
+  weckSchluessel?: string;
 }
+
+/** VAPID-Schlüssel in der Form von `applicationServerKey`: 65 Byte (0x04 …) als base64url ohne Auffüllung. */
+export const WECK_SCHLUESSEL = /^B[A-Za-z0-9_-]{86}$/;
 
 /** Statusabfrage an den eigenen Knoten – versiegelt, mit Nachweis, ohne Gebot. */
 export async function baueStatusAuftrag(p: {
@@ -77,6 +86,7 @@ export function knotenStatusText(s: KnotenStatus): string {
     speicher: s.speicher && { belegtBytes: s.speicher.belegtBytes, quotaBytes: s.speicher.quotaBytes, gehalten: s.speicher.gehalten },
     relay: s.relay && { events: s.relay.events, verbindungen: s.relay.verbindungen },
     einrichtung: s.einrichtung?.slice(0, STATUS_GRENZEN.befunde).map((b) => ({ schiene: b.schiene, stufe: b.stufe, fall: b.fall, werte: b.werte })),
+    weckSchluessel: s.weckSchluessel,
   });
 }
 
@@ -121,7 +131,7 @@ export function leseKnotenStatus(text: string): KnotenStatus | null {
     return null;
   }
   if (!objekt(roh)) return null;
-  const { fassung, seit, rollen, modelle, auftraege, abgerechnetMsat, speicher, relay, einrichtung } = roh;
+  const { fassung, seit, rollen, modelle, auftraege, abgerechnetMsat, speicher, relay, einrichtung, weckSchluessel } = roh;
   if (typeof fassung !== "string" || !new RegExp(`^[0-9A-Za-z.+-]{1,${STATUS_GRENZEN.fassungZeichen}}$`).test(fassung)) return null;
   if (!zahl(seit) || !zahl(abgerechnetMsat)) return null;
   if (!Array.isArray(rollen) || rollen.length > STATUS_ROLLEN.length || new Set(rollen).size !== rollen.length) return null;
@@ -132,6 +142,8 @@ export function leseKnotenStatus(text: string): KnotenStatus | null {
   if (auftraege.gratis > auftraege.erledigt) return null;
   if (speicher !== null && (!objekt(speicher) || !zahl(speicher.belegtBytes) || !zahl(speicher.quotaBytes) || !zahl(speicher.gehalten))) return null;
   if (relay !== null && (!objekt(relay) || !zahl(relay.events) || !zahl(relay.verbindungen))) return null;
+  // Der Weckschlüssel (B-12a) darf fehlen; ist er da, nur in genau dieser Form
+  if (weckSchluessel !== undefined && (typeof weckSchluessel !== "string" || !WECK_SCHLUESSEL.test(weckSchluessel))) return null;
   // Die Selbstprüfung (B-11c) darf fehlen; ist sie da, zählt nur ganz richtig
   let befunde: StatusBefund[] | undefined;
   if (einrichtung !== undefined) {
@@ -153,5 +165,6 @@ export function leseKnotenStatus(text: string): KnotenStatus | null {
     speicher: speicher === null ? null : { belegtBytes: speicher.belegtBytes as number, quotaBytes: speicher.quotaBytes as number, gehalten: speicher.gehalten as number },
     relay: relay === null ? null : { events: relay.events as number, verbindungen: relay.verbindungen as number },
     ...(befunde ? { einrichtung: befunde } : {}),
+    ...(weckSchluessel !== undefined ? { weckSchluessel: weckSchluessel as string } : {}),
   };
 }
