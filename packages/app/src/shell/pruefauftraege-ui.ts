@@ -1,7 +1,7 @@
 /**
  * Pruefauftraege (Schritt 5.6c): Jemand aus meinem Netz hat mich als Pruefer
  * einer Reklamation genannt. Die Reklamation kommt versiegelt in meinen
- * Posteingang (tabs/kommunikation.ts reicht sie hierher), ich lese Grund,
+ * Posteingang (tabs/posteingang.ts reicht sie hierher), ich lese Grund,
  * Notiz und – wenn der Kunde zugestimmt hat – Frage und Antwort und gebe ein
  * Urteil. Es geht versiegelt nur an den Kunden (seinen Sitzungsschluessel)
  * und den Provider und gilt nur zwischen ihnen.
@@ -23,7 +23,7 @@ const offen = new Map<string, Dispute & { id: string }>();
 
 const erledigt = () => leseErledigt(localStorage.getItem(LS_PRUEFUNGEN_ERLEDIGT));
 
-/** Posteingang: ist der Umschlag ein Pruefauftrag an mich, merken (aus tabs/kommunikation.ts). */
+/** Posteingang: ist der Umschlag ein Pruefauftrag an mich, merken (aus tabs/posteingang.ts). */
 export async function alsPruefauftrag(w: NostrEvent): Promise<null> {
   const signer = state.signer;
   if (!signer || alsGeraet()) return null;

@@ -177,7 +177,7 @@ async function sendZap(state: ZapDialogState, el: HTMLElement): Promise<void> {
         // seine App stellt sie mit seiner Wallet aus und antwortet ebenso versiegelt.
         if (betragMsat % 1000 !== 0) throw new Error(t("zahl.nurGanzeSats"));
         statusEl.textContent = t("zahl.frageRechnung", { name: state.recipientName });
-        const [{ frageRechnungAn }, { veroeffentlicheDm }] = await Promise.all([import("./ln-rechnung-anfrage.js"), import("./shell/tabs/kommunikation.js")]);
+        const [{ frageRechnungAn }, { veroeffentlicheDm }] = await Promise.all([import("./ln-rechnung-anfrage.js"), import("./shell/tabs/posteingang.js")]);
         rechnung = await frageRechnungAn({ pool, signer: appState.signer!, empfaenger: state.recipientPubkey, betragMsat, sende: veroeffentlicheDm }) ?? "";
         if (!rechnung) throw new Error(t("zahl.keineRechnungVersiegelt", { name: state.recipientName }));
       }
@@ -195,7 +195,7 @@ async function sendZap(state: ZapDialogState, el: HTMLElement): Promise<void> {
       let ziel = gemerkteAdresse(geheim, state.recipientPubkey, kette) ?? "";
       if (!ziel) {
         statusEl.textContent = t("zahl.frageAdresse");
-        const { veroeffentlicheDm } = await import("./shell/tabs/kommunikation.js");
+        const { veroeffentlicheDm } = await import("./shell/tabs/posteingang.js");
         ziel = await frageAdresseAn({ pool, speicher: geheim, signer: appState.signer!, empfaenger: state.recipientPubkey, kette, sende: veroeffentlicheDm }) ?? "";
       }
       const offen = profile[0] ? solAdresseAusProfil(profile[0].content) : "";

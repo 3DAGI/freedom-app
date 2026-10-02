@@ -165,7 +165,7 @@ test("8.16b: Zahlen und Daten im Gebietsschema der Sprache; ein Sprachwechsel ze
 });
 
 test("8.16c: Kommunikation – Texte über Schlüssel; die Markierung abgelöster Unterhaltungen in beiden Sprachen erkannt", () => {
-  const kom = readFileSync(pfad(SRC, "shell/tabs/kommunikation.ts"), "utf8");
+  const kom = ["kommunikation", "chat-anhaenge", "kontakte", "posteingang"].map((d) => readFileSync(pfad(SRC, `shell/tabs/${d}.ts`), "utf8")).join("\n");
   // Die Räume (mit Uhrzeit) stehen seit C.2a in raeume.ts
   const raeume = readFileSync(pfad(SRC, "shell/tabs/raeume.ts"), "utf8");
   assert.match(raeume, /import \{ gebietsschema, t \} from "\.\.\/\.\.\/i18n\.js";/);

@@ -126,7 +126,7 @@ test("Verdrahtung: Pool aus dem eigenen Satz, Listen je Sitzung abgeglichen, DMs
   assert.match(state, /eigeneListenAbgleichen\(\{\s*pool: await ensurePool\(\), pk: state\.keypair\.pk, signiere, weit: veroeffentlicheWeit, speicher: localStorage,/);
   assert.match(state, /return \(await veroeffentlicheAn\(ev, \[\.\.\.pool\.urls, \.\.\.startUrls\(\)\]\)\) > 0;/);
 
-  const kom = quelle("../src/shell/tabs/kommunikation.ts");
+  const kom = ["kommunikation", "chat-anhaenge", "kontakte", "posteingang"].map((d) => quelle(`../src/shell/tabs/${d}.ts`)).join("\n");
   const sync = kom.slice(kom.indexOf("async function syncDmInbox("));
   assert.match(sync.slice(0, 800), /await eigeneRelayListen\(\)/);
   const dm = kom.slice(kom.indexOf("async function veroeffentlicheDm("), kom.indexOf("let letzterDmAbgleich"));

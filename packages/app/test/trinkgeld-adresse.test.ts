@@ -77,7 +77,7 @@ test("Verdrahtung (4.9d): Trinkgeld fragt erst versiegelt an, Profil nur mit War
   const z = readFileSync(new URL("../src/chat-zap.ts", import.meta.url), "utf8");
   const [gemerkt, gefragt, profil] = ["gemerkteAdresse(geheim, state.recipientPubkey, kette)", "await frageAdresseAn({", "if (!ziel && offen && await bestaetige({"].map((x) => z.indexOf(x));
   assert.ok(gemerkt > 0 && gemerkt < gefragt && gefragt < profil, "gemerkt → anfragen → Profil nur mit Rueckfrage");
-  const k = readFileSync(new URL("../src/shell/tabs/kommunikation.ts", import.meta.url), "utf8");
+  const k = ["kommunikation", "chat-anhaenge", "kontakte", "posteingang"].map((d) => readFileSync(new URL(`../src/shell/tabs/${d}.ts`, import.meta.url), "utf8")).join("\n");
   assert.match(k, /\(await alsTrinkgeld\(w\)\) \?\? \(await alsAdressAnfrage\(w\)\)/);
   assert.match(k, /istKontakt: \(pk\) => conversations\.some\(\(c\) => c\.type === "dm" && c\.id === pk\)/);
   const app = readFileSync(new URL("../src/shell/app.ts", import.meta.url), "utf8");

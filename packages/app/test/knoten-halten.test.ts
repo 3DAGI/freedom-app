@@ -63,7 +63,7 @@ test("B-9b2: nach jedem verschlüsselten Upload – Bundles und Anhänge, nie di
   assert.ok(halten > hoch.indexOf("await uploadAnhang("), "erst hochgeladen");
   assert.ok(halten > hoch.indexOf("if (lokal) {") && hoch.indexOf("if (lokal) {") < hoch.indexOf("return true;"), "die Kopie nur auf dem Gerät kehrt vorher zurück");
   assert.ok(hoch.slice(hoch.indexOf("if (lokal) {"), hoch.indexOf("const { uploadAnhang }")).indexOf("halteBeiMeinemKnoten") < 0, "lokal geht nichts hinaus");
-  const komm = lies("shell/tabs/kommunikation.ts");
+  const komm = ["kommunikation", "chat-anhaenge", "kontakte", "posteingang"].map((d) => lies(`shell/tabs/${d}.ts`)).join("\n");
   const anhang = komm.indexOf("const res = await uploadAnhang(file, pool as never, state.signer!);");
   assert.ok(anhang > 0 && komm.indexOf("void halteBeiMeinemKnoten(res);", anhang) > anhang, "auch Chat-Anhänge");
 });

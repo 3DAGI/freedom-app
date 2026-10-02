@@ -194,7 +194,7 @@ test("C-7: verdrahtet – Knopf nur auf Klick, Anhang über handleChatFiles, Abs
   assert.doesNotMatch(ui, /innerHTML|localStorage|uploadBlob|publish\(/, "nur über den Weg der Anhänge");
   const app = readFileSync(new URL("../src/shell/app.ts", import.meta.url), "utf8");
   assert.match(app, /\n {2}wireSprachnachricht\(\);/);
-  const komm = readFileSync(new URL("../src/shell/tabs/kommunikation.ts", import.meta.url), "utf8");
+  const komm = ["kommunikation", "chat-anhaenge", "kontakte", "posteingang"].map((d) => readFileSync(new URL(`../src/shell/tabs/${d}.ts`, import.meta.url), "utf8")).join("\n");
   // Große Anhänge gehen weiter nur verschlüsselt hinaus (2.4)
   assert.match(komm, /const res = await uploadAnhang\(file, pool as never, state\.signer!\);/);
   assert.match(komm, /if \(istAudioTyp\(datei\.mime\)\) \{\n\s+const ton = document\.createElement\("audio"\);/);

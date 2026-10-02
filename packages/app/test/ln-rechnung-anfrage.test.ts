@@ -75,7 +75,7 @@ test("Verdrahtung (6.3b): Zap ohne öffentliche Adresse fragt versiegelt; der Po
   const z = readFileSync(new URL("../src/chat-zap.ts", import.meta.url), "utf8");
   assert.match(z, /if \(lud16\) \{[\s\S]*?baueZapAnfrage[\s\S]*?\} else \{[\s\S]*?rechnung = await frageRechnungAn\(\{ pool, signer: appState\.signer!, empfaenger: state\.recipientPubkey, betragMsat, sende: veroeffentlicheDm \}\) \?\? "";/, "an den Posteingang des Empfängers");
   assert.match(z, /await zahle\(zahlschienen\(\), \{ ziel: rechnung, betrag: \{ einheit: "msat", wert: betragMsat \}, zweck: "zap" \}\)/, "gezahlt über die Schiene, die den Betrag prüft");
-  const k = readFileSync(new URL("../src/shell/tabs/kommunikation.ts", import.meta.url), "utf8");
+  const k = ["kommunikation", "chat-anhaenge", "kontakte", "posteingang"].map((d) => readFileSync(new URL(`../src/shell/tabs/${d}.ts`, import.meta.url), "utf8")).join("\n");
   assert.match(k, /async function alsRechnungsAnfrage\(w: NostrEvent\): Promise<null> \{[\s\S]*?stelleAus: eigeneRechnung,/);
   const s = readFileSync(new URL("../src/shell/zahlschienen.ts", import.meta.url), "utf8");
   assert.match(s, /return nwc \? \(await nwc\.makeInvoice\(betragMsat, ""\)\)\.invoice : undefined;/, "Rechnung der eigenen Wallet, ohne Beschreibung");

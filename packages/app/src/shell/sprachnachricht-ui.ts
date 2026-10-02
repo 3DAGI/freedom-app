@@ -10,7 +10,7 @@ import { SPRACH_GRENZEN, SprachAufnahme, type SprachErgebnis, type SprachUmgebun
 import { t } from "../i18n.js";
 import { fehlerText } from "../protokoll-texte.js";
 import { el, toast } from "./ui.js";
-import { handleChatFiles } from "./tabs/kommunikation.js";
+import { handleChatFiles } from "./tabs/chat-anhaenge.js";
 
 /** Der Browser: Mikrofon nur hier, nur aus `starte()` – nie beim Laden. */
 function browserUmgebung(): SprachUmgebung {

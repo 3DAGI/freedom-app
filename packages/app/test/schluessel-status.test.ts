@@ -50,7 +50,7 @@ test("8.6a: verdrahtet – Widerruf prueft Eingaben und Mandat, Chat wertet Wide
   assert.ok(f.indexOf("test(ersatzHex)") < f.indexOf("fromHex(ersatzHex)"));
   assert.match(f, /parseRotationMandate\(ev\)\.newPubkey === pk/, "nur mit passendem Mandat");
   assert.match(f, /sk\.fill\(0\)/);
-  const kom = readFileSync(new URL("../src/shell/tabs/kommunikation.ts", import.meta.url), "utf8");
+  const kom = ["kommunikation", "chat-anhaenge", "kontakte", "posteingang"].map((d) => readFileSync(new URL(`../src/shell/tabs/${d}.ts`, import.meta.url), "utf8")).join("\n");
   assert.match(kom, /await aktualisiereSchluessel\(\);/);
   assert.match(kom, /pruefeKontakte\(kontakte, \[\.\.\.mandate, \.\.\.widerrufe\], leseGemerkt\(geheim\.getItem\(LS_MANDATE\)\)\)/);
   assert.match(kom, /nachDiebstahl\(ev, schluesselStand\.get\(c\.id\)\)/);

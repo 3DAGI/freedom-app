@@ -62,7 +62,7 @@ export interface MlsUmgebung {
   geraete: GeraeteQuelle;
 }
 // Dasselbe Buch wie im Chat (erst beim Aufruf geladen – der Chat lädt dieses Modul)
-const buch = async () => (await import("./tabs/kommunikation.js")).geraeteBuch;
+const buch = async () => (await import("./tabs/posteingang.js")).geraeteBuch;
 const APP: MlsUmgebung = {
   zustand: mlsDatenbank, verlauf: mlsVerlaufDatenbank, geheim,
   geraete: { kopienFuer: async (pk) => (await buch()).kopienFuer(pk), alle: async (pk) => (await buch()).alle(pk) },

@@ -114,7 +114,7 @@ test("8.6b: Entzug – danach nicht mehr die Person, vorher nur mit Hinweis; fre
 });
 
 test("8.6b: Verdrahtung – der Chat liest fuer die eigenen Geraete, ordnet zu und versiegelt an Geraete", () => {
-  const kom = readFileSync(new URL("../src/shell/tabs/kommunikation.ts", import.meta.url), "utf8");
+  const kom = ["kommunikation", "chat-anhaenge", "kontakte", "posteingang"].map((d) => readFileSync(new URL(`../src/shell/tabs/${d}.ts`, import.meta.url), "utf8")).join("\n");
   assert.match(kom, /openPrivateDm\(w, state\.signer, undefined, \{ auchFuer: \[ich, \.\.\.\(await geraeteBuch\.alle\(ich\)/);
   assert.match(kom, /await ordneDmZu\(r\.dm, ich, geraeteBuch, .*, selbst\)/);
   assert.match(kom, /weitereEmpfaenger: \[\.\.\.ihre!, \.\.\.meine!, ich\],/);

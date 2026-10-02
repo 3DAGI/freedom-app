@@ -194,7 +194,7 @@ let beiMeldung: () => void = () => {};
 export const wennMeldung = (f: () => void) => { beiMeldung = f; };
 
 /**
- * Posteingang (aus tabs/kommunikation.ts): eine Meldung zu einem meiner
+ * Posteingang (aus tabs/posteingang.ts): eine Meldung zu einem meiner
  * privaten Räume? Nur im Speicher – sie trägt, was jemand über andere sagt.
  */
 export async function alsRaumMeldung(w: NostrEvent): Promise<null> {

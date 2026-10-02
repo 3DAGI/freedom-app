@@ -12,7 +12,8 @@ import {
   LS_REKLAMATIONEN, type EigeneReklamation, type Pruefer, leseReklamationen, mitReklamation, prueferAusNetz, reklamationText,
 } from "../streitfall.js";
 import { ensurePool, sprichtFuer, state } from "./state.js";
-import { conversations, veroeffentlicheDm } from "./tabs/kommunikation.js";
+import { conversations } from "./tabs/kommunikation.js";
+import { veroeffentlicheDm } from "./tabs/posteingang.js";
 import { geheim } from "./tresor.js";
 import { $, toast } from "./ui.js";
 import { abrufTakt } from "./versand.js";
