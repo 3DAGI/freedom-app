@@ -10,7 +10,7 @@ ist seither durch Spur C weiter. Kein weiterer PR von Spur B ist offen.
 | Punkt | Stand | PRs |
 |---|---|---|
 | B-1 bis B-8, B-10, B-15, B-19, B-20 | fertig | siehe FORTSCHRITT |
-| B-9 „Mein Knoten“ | a, b1–b2, c1–c3 fertig (c3 nach L7 A) | #240, #252–#255, B-9c3 |
+| B-9 „Mein Knoten“ | a, b1–b2, c1–c3 fertig (c3 nach L7 A) | #240, #252–#255, #272 |
 | B-11 Knoten verwalten (nur lesen, L6 A) | a–c fertig (Status 5077, App, Einrichtung) | #256–#258 |
 | B-12 Weckdienst (W1 A, W2 A, W3 A) | a–b fertig (Anmeldung 5078, Knoten weckt); **c–d offen** | #259, #260 |
 | B-13 Anrufe (T1 A, T2 A, T3 B) | a–c fertig (TURN-Zugang 5079, coturn, Anruf-Aufbau 25040); **d offen** | #261–#263 |
