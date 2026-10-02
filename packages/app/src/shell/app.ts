@@ -56,6 +56,7 @@ import { wireFunkGateway } from "./funk-gateway-ui.js";
 import { dialog } from "./dialog.js";
 import { wireEigeneAdresse, wireWerbeName } from "./werben-ui.js";
 import { wireBelege } from "./belege-ui.js";
+import { wireSprachnachricht } from "./sprachnachricht-ui.js";
 import {
   captureReferral,
   ladeAbdeckung,
@@ -744,6 +745,8 @@ function starte(): void {
     chatMediaBtn.onclick = () => chatFileInput.click();
     chatFileInput.onchange = () => { void handleChatFiles(chatFileInput.files); chatFileInput.value = ""; };
   }
+  // Sprachnachrichten (C-7): Mikrofon erst auf Klick, die Aufnahme wird ein Anhang wie oben
+  wireSprachnachricht();
   // Ablauf neuer Nachrichten je Unterhaltung (NIP-40, Schritt 2.5)
   const ablaufSel = document.getElementById("chat-ablauf") as HTMLSelectElement | null;
   if (ablaufSel) ablaufSel.onchange = () => setzeAblauf(ablaufSel.value);

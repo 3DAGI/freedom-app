@@ -16,6 +16,7 @@
 
 import { type DateiSchluessel, istDateiSchluessel } from "@freedomstack/protocol";
 import { gebietsschema, t } from "./i18n.js";
+import { istAudioTyp } from "./sprachnachricht.js";
 
 export interface ChatAttachment {
   name: string;
@@ -90,8 +91,9 @@ export function anhangAnsicht(a: ChatAttachment): AnhangAnsicht {
       ? { blob: a.url.slice("freedom-blob:".length) }
       : a.url.startsWith("https://") && isSafeAttachmentUrl(a.url) ? { url: a.url } : null;
     if (!ziel) return { art: "hinweis", text: `[${t("ein.anhangLink", { name })}]` };
+    // Ein Ton (Sprachnachricht, C-7) spielt nach dem Laden an Ort und Stelle
     return {
-      art: "knopf", text: `🔒 ${name}`,
+      art: "knopf", text: istAudioTyp(a.mime || "") ? t("ein.anhangAbspielen", { name }) : `🔒 ${name}`,
       daten: { ...ziel, key: a.enc.key, nonce: a.enc.nonce, ox: a.enc.ox, mime: a.mime || "application/octet-stream", name },
     };
   }

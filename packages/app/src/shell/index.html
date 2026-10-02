@@ -225,6 +225,7 @@
             <div class="chat-composer">
               <textarea id="chat-input" data-i18n-aria="chatPlaceholder" rows="1" data-i18n-ph="chatPlaceholder" placeholder="Nachricht…"></textarea>
               <button id="chat-media-btn" data-i18n-aria="komm.anhaengen" class="ghost copy-btn" title="Bild, Video oder Datei anhängen (über das Chunk-Netz)" data-i18n-title="komm.anhaengen"><span class="ic" data-icon="paperclip"></span></button>
+              <button id="chat-voice-btn" type="button" class="ghost copy-btn" aria-pressed="false" title="Sprachnachricht aufnehmen" aria-label="Sprachnachricht aufnehmen" data-i18n-title="komm.sprachAufnehmen" data-i18n-aria="komm.sprachAufnehmen"><span class="ic" data-icon="mic"></span></button>
               <input type="file" id="chat-file-input" accept="image/*,video/*,audio/*,.pdf,.txt,.zip" multiple style="display:none" />
               <select id="chat-ablauf" class="ghost mini" hidden title="Neue Nachrichten verschwinden nach … (NIP-40). Löschen ist eine Bitte an die Relays." aria-label="Ablauf neuer Nachrichten" data-i18n-title="komm.ablaufTitel" data-i18n-aria="komm.ablaufAria">
                 <option value="" data-i18n="komm.ablaufAus">⏱ aus</option>
@@ -237,6 +238,7 @@
               <button id="chat-pruefen" class="ghost copy-btn" title="Kontakt prüfen – Sicherheitscode vergleichen" aria-label="Kontakt prüfen" data-i18n-title="komm.pruefenTitel" data-i18n-aria="komm.pruefen"><span class="ic" data-icon="shield"></span></button>
               <button id="chat-send" data-i18n-aria="komm.sendenAria" class="send-btn"><span class="ic" data-icon="send"></span></button>
             </div>
+            <div id="chat-voice-status" class="mono-sm chat-voice-status" aria-live="polite" hidden></div>
             <div id="chat-attach-list" class="mono-sm" style="padding:0 12px 8px"></div>
           </div>
         </div>
