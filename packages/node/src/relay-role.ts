@@ -26,7 +26,10 @@
  *   Schluesseln; sie bremst die Grenze je Verbindung.
  * - App (seit B-10, Sammlung Neuordnung): mit `app` liefert der Relay auf
  *   demselben Port auch freedom.html aus (`/`, `/freedom.html`) samt Summe –
- *   nur die beim Start gepruefte Datei (`ladeApp()`), aus dem Speicher.
+ *   nur die beim Start gepruefte Datei (`ladeApp()`), aus dem Speicher. * - Im eigenen Prozess (seit B-9c, L5 A): `alsRelay()` – der Knoten liest und
+ *   schreibt hier ohne WebSocket, als sei er mit seinem Schluessel angemeldet
+ *   (Umschlaege nur an ihn). So erreichen ihn Anfragen, die nur ueber sein
+ *   Relay kommen, und seine Antworten liegen dort fuer den Sitzungsschluessel.
  */
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { randomBytes } from "node:crypto";
@@ -37,7 +40,7 @@ import { appKopfzeilen, istAppPfad, type App } from "./app-auslieferung.js";
 import { WebSocketServer, WebSocket } from "ws";
 import {
   ablaufVon, baueRelayInfo, brauchtAnmeldung, relayNimmtAn, darfAusliefern, ersetzSchluessel, hasValidEventShape, istFluechtig,
-  istNeuer, pruefeRelayAuth, relayHost, verifyEvent, RateLimiter, type NostrEvent,
+  istNeuer, pruefeRelayAuth, relayHost, verifyEvent, RateLimiter, type NostrEvent, type Relay, type RelayFilter,
 } from "@freedomstack/protocol";
 
 export interface RelayConfig {
@@ -407,28 +410,56 @@ export class RelayRole {
   }
 
   private nimmAn(ws: WebSocket, ev: unknown): void {
-    const id = eventId(ev);
-    if (!hasValidEventShape(ev)) return this.reply(ws, ["OK", id, false, "invalid: kein Event nach NIP-01"]);
-    if (JSON.stringify(ev).length > this.cfg.maxEventBytes) return this.reply(ws, ["OK", ev.id, false, "too large"]);
-    if (!verifyEvent(ev)) return this.reply(ws, ["OK", ev.id, false, "invalid signature"]);
+    const r = this.aufnehmen(ev, true);
+    this.reply(ws, ["OK", eventId(ev), r.ok, r.text]);
+  }
+
+  /**
+   * Ein Event annehmen – ueber das Netz (`nimmAn`) und im eigenen Prozess
+   * (`alsRelay()`) nach denselben Regeln: Form, Groesse, Signatur, Zugang,
+   * Ablauf. Der Flutschutz je Schluessel gilt nur fuer Fremde (`flut`).
+   */
+  private aufnehmen(ev: unknown, flut: boolean): { ok: boolean; text: string } {
+    if (!hasValidEventShape(ev)) return { ok: false, text: "invalid: kein Event nach NIP-01" };
+    if (JSON.stringify(ev).length > this.cfg.maxEventBytes) return { ok: false, text: "too large" };
+    if (!verifyEvent(ev)) return { ok: false, text: "invalid signature" };
     const jetzt = this.jetzt();
     const zul = relayNimmtAn(ev, { beschraenkt: this.cfg.beschraenkt === true, hatZugang: (pk) => this.zugang.hat(pk, jetzt) });
-    if (!zul.ok) return this.reply(ws, ["OK", ev.id, false, zul.grund]);
+    if (!zul.ok) return { ok: false, text: zul.grund };
     const ablauf = ablaufVon(ev);
-    if (ablauf !== null && ablauf <= jetzt) return this.reply(ws, ["OK", ev.id, false, "invalid: abgelaufen (NIP-40)"]);
-    if (!istFluechtig(ev.kind) && !this.events.has(ev.id) && !this.darf(this.eventsJeSchluessel, ev.pubkey, this.zugang.hat(ev.pubkey, jetzt))) {
-      return this.reply(ws, ["OK", ev.id, false, "rate-limited: zu viele Events von diesem Schlüssel – später erneut versuchen"]);
+    if (ablauf !== null && ablauf <= jetzt) return { ok: false, text: "invalid: abgelaufen (NIP-40)" };
+    if (flut && !istFluechtig(ev.kind) && !this.events.has(ev.id) && !this.darf(this.eventsJeSchluessel, ev.pubkey, this.zugang.hat(ev.pubkey, jetzt))) {
+      return { ok: false, text: "rate-limited: zu viele Events von diesem Schlüssel – später erneut versuchen" };
     }
     if (istFluechtig(ev.kind)) {
-      this.reply(ws, ["OK", ev.id, true, ""]);
-      return this.verteile(ev);
+      this.verteile(ev);
+      return { ok: true, text: "" };
     }
     if (this.events.size >= (this.cfg.maxEvents ?? 100_000) && !this.events.has(ev.id) && !ersetzSchluessel(ev)) {
-      return this.reply(ws, ["OK", ev.id, false, "error: Relay voll – später erneut versuchen"]);
+      return { ok: false, text: "error: Relay voll – später erneut versuchen" };
     }
     const s = this.speichere(ev, jetzt);
-    this.reply(ws, ["OK", ev.id, true, s === "neu" ? "" : s === "doppelt" ? "duplicate: schon vorhanden" : "duplicate: neuere Fassung liegt vor"]);
     if (s === "neu") this.verteile(ev);
+    return { ok: true, text: s === "neu" ? "" : s === "doppelt" ? "duplicate: schon vorhanden" : "duplicate: neuere Fassung liegt vor" };
+  }
+
+  /**
+   * Der Relay im eigenen Prozess (B-9c, L5 A): Der Knoten liest und schreibt
+   * ohne WebSocket, als sei er mit `ich` angemeldet – Umschlaege bekommt er
+   * nur an sich. Geschrieben wird nach denselben Regeln wie ueber das Netz.
+   * Die Adresse ist die oeffentliche, damit der Pool eine Verbindung zu sich
+   * selbst durch diesen Weg ersetzt (ohne Anmeldung saehe sie keine Umschlaege).
+   */
+  alsRelay(ich: string): Relay {
+    const angemeldet = new Set([ich]);
+    return {
+      url: this.cfg.oeffentlicheUrl?.replace(/\/+$/, "") || "intern://relay-rolle",
+      publish: async (ev: NostrEvent) => {
+        const r = this.aufnehmen(ev, false);
+        if (!r.ok) throw new Error(r.text);
+      },
+      query: async (f: RelayFilter) => this.gespeichert([f as Record<string, unknown>], { angemeldet }),
+    };
   }
 
   private speichere(ev: NostrEvent, jetzt: number): "neu" | "doppelt" | "veraltet" {
@@ -454,7 +485,7 @@ export class RelayRole {
   }
 
   /** Gespeicherte Treffer: je Filter die neuesten bis `limit`, zusammen hoechstens 5000. */
-  private gespeichert(filters: Record<string, unknown>[], v: Verbindung): NostrEvent[] {
+  private gespeichert(filters: Record<string, unknown>[], v: Pick<Verbindung, "angemeldet">): NostrEvent[] {
     const jetzt = this.jetzt();
     const alle = [...this.events.values()]
       .map((x) => x.ev)

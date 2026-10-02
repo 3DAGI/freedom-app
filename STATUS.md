@@ -13960,3 +13960,41 @@ Endstand (B-9b2, 02.10.): protocol 1151 (6 übersprungen) · node 284 (7
 grün (+1) + 1 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng
 Exit 0 · Website ok · Smoke-Test bestanden. Knoten-Stand: B-9b1 (#252) mit
 `STORAGE_ENABLED=1`, sonst antwortet der Knoten „keine Speicher-Rolle“.
+
+## Schritt B-9c1 – Alles über meinen Knoten: der Knoten liest sein eigenes Relay
+
+Sammlung B-9c (Lokal 13.3/13.5), Entscheidung L5 A, erster Teil. Bisher las
+der Provider nur `RELAYS` – über das Netz, ohne Anmeldung. Kam eine Anfrage
+nur über das Relay des Knotens, sah er sie nicht; eine Verbindung zu sich selbst
+sähe keine Umschläge (Anmeldepflicht seit 8.4c).
+
+**Knoten** (`relay-role.ts`, `main.ts`):
+- `aufnehmen()`: die Annahme eines Events, ausgelagert aus `nimmAn()` – Form,
+  Größe, Signatur, Zugang (beschränkt), Ablauf (NIP-40), Platz; der Flutschutz
+  je Schlüssel nur für Fremde. Über das Netz unverändert (dieselben Antworten).
+- `alsRelay(ich)`: der Relay im eigenen Prozess als `Relay` für den Pool –
+  lesen wie mit `ich` angemeldet (Umschläge nur an den Knoten), schreiben über
+  `aufnehmen()`. Adresse ist die öffentliche (`RELAY_PUBLIC_URL`), sonst
+  `intern://relay-rolle`.
+- `main.ts`: nach dem Start `pool.removeRelay(intern.url)` und
+  `pool.addRelay(intern)` – eine Verbindung zu sich selbst aus `RELAYS` ersetzt
+  der Weg im Prozess.
+
+**Folge:** Eine Anfrage, die nur über das Relay des Knotens kommt, erreicht den
+Provider (KI, Halten, Abruf); seine Antwort liegt dort und geht nur an den
+Sitzungsschlüssel, der sich dort anmeldet. Die App nutzt das ab B-9c2.
+
+**Tests:** node +3 (`relay-intern.test.ts`: dieselben Regeln, Umschläge nur an
+den Knoten, im Prozess geschrieben über das Netz lesbar, kaputte Signatur und
+fehlender Zugang abgelehnt; Ende zu Ende nur über das Relay des Knotens – die
+Anfrage kommt an, die Antwort bekommt nur der angemeldete Sitzungsschlüssel;
+Verdrahtung in `main.ts`).
+
+**Verdrahtet:** `packages/node/src/main.ts` – `relayRole.alsRelay(keypair.pk)`
+→ `pool.addRelay()`; `relay-role.ts` – `nimmAn()` → `aufnehmen()`.
+
+Endstand (B-9c1, 02.10.): protocol 1151 (6 übersprungen) · node 287 (+3, 7
+übersprungen ohne Netz – mit Netz 288) · app 775 · mls 13 · Leak-Tests 70 grün
++ 1 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 ·
+Website ok · Smoke-Test bestanden. Knoten-Stand: für den Weg über das eigene
+Relay nötig (B-9c1, mit `RELAY_ENABLED=1`); sonst unverändert.
