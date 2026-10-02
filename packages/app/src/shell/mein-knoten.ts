@@ -40,6 +40,9 @@ function zeigeStatus(): void {
   // Halten (B-9b2, `knoten-halten-ui.ts`): nur gekoppelt zu sehen
   document.getElementById("knoten-halten-zeile")?.toggleAttribute("hidden", !k);
   document.getElementById("knoten-nur-zeile")?.toggleAttribute("hidden", !k); // B-9c2, `knoten-weg-ui.ts`
+  // Status (B-11b, `knoten-status-ui.ts`): nur gekoppelt; entkoppelt bleibt keine alte Anzeige stehen
+  document.getElementById("knoten-status-holen")?.toggleAttribute("hidden", !k);
+  if (!k) document.getElementById("knoten-status-anzeige")?.replaceChildren();
 }
 
 async function koppeln(): Promise<void> {

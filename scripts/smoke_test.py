@@ -893,7 +893,9 @@ def einstellungen_pruefen(browser, url: str) -> dict:
               # Halten (B-9b2): gekoppelt sichtbar, Standard an, der Haken merkt sich „aus“
               "halten": ev("() => [!document.getElementById('knoten-halten-zeile').hidden, document.getElementById('knoten-halten').checked]"),
               # Alles über meinen Knoten (B-9c2): gekoppelt sichtbar, Standard aus, „an“ wird gemerkt
-              "nur": ev("() => [!document.getElementById('knoten-nur-zeile').hidden, document.getElementById('knoten-nur').checked]")}
+              "nur": ev("() => [!document.getElementById('knoten-nur-zeile').hidden, document.getElementById('knoten-nur').checked]"),
+              # Status (B-11b): Knopf nur gekoppelt, gefragt wird erst beim Klick – die Anzeige ist leer
+              "status": ev("() => [!document.getElementById('knoten-status-holen').hidden, document.getElementById('knoten-status-anzeige').textContent]")}
     ev("() => document.getElementById('knoten-halten').click()")
     knoten["halten_aus"] = ev("() => localStorage.getItem('freedom.knoten.halten')")
     ev("() => document.getElementById('knoten-nur').click()")
@@ -903,11 +905,12 @@ def einstellungen_pruefen(browser, url: str) -> dict:
     bestaetigen()
     seite.warte_zu()
     knoten["danach"] = [ev("() => document.getElementById('knoten-status')?.textContent"), ev("() => localStorage.getItem('freedom.knoten.kopplung')"),
-                        ev("() => document.getElementById('knoten-halten-zeile').hidden"), ev("() => document.getElementById('knoten-nur-zeile').hidden")]
+                        ev("() => document.getElementById('knoten-halten-zeile').hidden"), ev("() => document.getElementById('knoten-nur-zeile').hidden"),
+                        ev("() => document.getElementById('knoten-status-holen').hidden")]
     erg["knoten"] = knoten
     if knoten != {"typen": ["password"], "falsch": "Kein Kopplungscode – er beginnt mit freedom-kopplung:1:", "status": "Gekoppelt mit abababab…abab",
-                  "gemerkt": True, "entkoppeln": True, "halten": [True, True], "nur": [True, False], "halten_aus": "0", "nur_an": "1",
-                  "danach": ["Nicht gekoppelt", None, True, True]}:
+                  "gemerkt": True, "entkoppeln": True, "halten": [True, True], "nur": [True, False], "status": [True, ""], "halten_aus": "0", "nur_an": "1",
+                  "danach": ["Nicht gekoppelt", None, True, True, True]}:
         erg["fehler"].append(f"Mein Knoten {knoten}")
     # Abgebrochen: nichts veröffentlicht – kein Widerruf, kein Plan, keine Meldung
     erg["gesendet"] = sorted({e["kind"] for e in relay.gesendet if e.get("kind") not in (10002, 10050)})
