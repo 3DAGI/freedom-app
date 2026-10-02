@@ -81,6 +81,8 @@ const FAKT: Record<string, readonly [string, string?]> = {
   "relay-zugang": ["ds.fRelayZugang", "ds.gRelayZugang"],
   "werbe-name": ["ds.fWerbeName", "ds.gWerbeName"],
   "wecken": ["ds.fWecken", "ds.gWecken"],
+  "anruf-ip": ["ds.fAnrufIp"],
+  "anruf-vermittler": ["ds.fAnrufVermittler", "ds.gAnrufVermittler"],
 };
 
 /** Hat jede Kennung einen Text? (für den Test – eine neue Aussage im Protokoll braucht einen hier) */

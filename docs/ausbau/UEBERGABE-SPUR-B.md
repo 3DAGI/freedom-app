@@ -2,8 +2,9 @@
 
 Für den nächsten Agenten in Spur B. Zuerst `CLAUDE.md`, dann diese Datei,
 dann `docs/neuordnung/SAMMLUNG.md` (Zeilen B-1 bis B-20, Abschnitt 5 = offene
-Entscheidungen). Spur B zuletzt: #263 (B-13c), diese Übergabe #264; `main`
-ist seither durch Spur C weiter. Kein weiterer PR von Spur B ist offen.
+Entscheidungen). Spur B zuletzt: B-13d3 (Anrufe: Oberfläche) – damit sind alle
+entschiedenen Punkte der Spur fertig. Offen ist nur, was auf den MENSCHEN oder
+Spur A wartet (Abschnitt 3).
 
 ## 1. Was fertig ist
 
@@ -12,17 +13,17 @@ ist seither durch Spur C weiter. Kein weiterer PR von Spur B ist offen.
 | B-1 bis B-8, B-10, B-15, B-19, B-20 | fertig | siehe FORTSCHRITT |
 | B-9 „Mein Knoten“ | a, b1–b2, c1–c3 fertig (c3 nach L7 A) | #240, #252–#255, #272 |
 | B-11 Knoten verwalten (nur lesen, L6 A) | a–c fertig (Status 5077, App, Einrichtung) | #256–#258 |
-| B-12 Weckdienst (W1 A, W2 A, W3 A) | fertig (Anmeldung 5078, Knoten weckt, Weck-Worker `freedom-sw.js`, Notfall-Löschung, Haken „Wecken“) | #259, #260, #273 |
-| B-13 Anrufe (T1 A, T2 A, T3 B) | a–c, d1–d2 fertig (TURN-Zugang 5079, coturn, Anruf-Aufbau 25040, `turn` im Angebot, Logik `shell/anruf.ts`); **d3 (Oberfläche) offen** | #261–#263 |
+| B-12 Weckdienst (W1 A, W2 A, W3 A) | fertig (Anmeldung 5078, Knoten weckt, Weck-Worker `freedom-sw.js`, Notfall-Löschung, Haken „Wecken“) | #259, #260, #273–#275 |
+| B-13 Anrufe (T1 A, T2 A, T3 B) | fertig (TURN-Zugang 5079, coturn, Anruf-Aufbau 25040, `turn` im Angebot, Logik `shell/anruf.ts`, Oberfläche `shell/anruf-ui.ts`, Datenschutz „anruf-ip“/„anruf-vermittler“) | #261–#263, #276–#278 |
 | B-14 | entfällt (I1 B) | – |
 | B-16 / B-17 / B-18 | später / wartet (Kalender) / wartet (Deploy Zahlkanal, MENSCH) | – |
 
 Zahlen auf `main`:
-- protocol 1164 (6 übersprungen)
+- protocol 1168 (6 übersprungen)
 - node 312 (7 übersprungen ohne Netz, mit Netz 313)
-- app 808 (Stand #271 – Spur C zählt weiter, maßgeblich ist die Zeile „Stand …“ in CLAUDE.md)
+- app 828 (Spur C zählt weiter, maßgeblich ist die Zeile „Stand …“ in CLAUDE.md)
 - mls 13
-- Leak 70 + 1 todo
+- Leak 72 + 1 todo
 
 Die Zeile „Stand …“ in CLAUDE.md ist aktuell.
 
@@ -61,7 +62,7 @@ Die Zeile „Stand …“ in CLAUDE.md ist aktuell.
   - Nur Kontakte; Fingerabdruck und Sicherheitscode (B-4) anzeigen.
 - **Leak-Regel „anruf-nur-relay“** über die inneren Events, dazu ein Test in `app/test/leak/`.
 - **Ausnahmen (erledigt in d2):** `anruf.ts|…` (3) und `turn-zugang.ts|…` (2) gestrichen.
-- **d3 offen:** Anrufknopf im Chat (nur Kontakte), eingehender Anruf mit Hinweis bei `fremderVermittler` und Sicherheitscode (B-4), Auflegen, Audio-/Video-Elemente; Datenschutz-Aussagen (Gegenüber sieht die IP nicht; ohne eigenen Knoten sieht ihn der Knoten der Anruferin); Smoke mit zwei Browsern (Signalweg).
+- **d3 (fertig):** Knöpfe im Kopf der Unterhaltung (nur 1:1), Leiste mit Sicherheitscode (B-4) und Hinweis bei `fremderVermittler` vor dem Annehmen, Auflegen, Audio-/Video-Elemente; Datenschutz „anruf-ip“ (belegt) und „anruf-vermittler“ (Grenze). Smoke „anruf“ mit einem Browser und `scripts/anruf-probe.mts` statt eines zweiten Browsers (Signalweg bis „Ende“; Medien brauchen echten TURN).
 
 **L7 → B-9c3 (fertig)** (A): ein Knopf „Relay meines Knotens übernehmen“ – das Relay aus `knotenRelay()` (`shell/knoten-weg-ui.ts`) über `setzeEigeneRelays()` als Schreib-Relay und Posteingang übernehmen; beide Listen veröffentlichen.
 
@@ -72,6 +73,9 @@ Die Zeile „Stand …“ in CLAUDE.md ist aktuell.
   - `STORAGE_ENABLED=1` – Halten;
   - `APP_SHA256` – App vom Knoten.
 - Anrufe: Installer mit `TURN_NAME=<öffentlicher-name>` erneut laufen lassen. Freigeben UDP/TCP 3478 und UDP 49160–49200, prüfen mit `turnutils_uclient`. coturn war in der Sitzung nicht erreichbar, also ungetestet.
+- Anrufe durchgehend prüfen (MENSCH-Checkliste): zwei Geräte mit je gekoppeltem Knoten und coturn – Ton und Bild; dann eines ohne Knoten – Hinweis vor dem Annehmen, Anruf über den Knoten des Anrufers.
+- Offen in Spur B nur noch: B-16 (später), B-17 (wartet auf den Kalender), B-18 (wartet auf den Deploy des Zahlkanals) und 11.5 (mit Spur A nach 11.3).
+- Möglicher nächster Schritt (braucht eine Entscheidung): eingehende Anrufe kommen nur mit dem Abgleich des Posteingangs (je Minute) – bei 60 s Klingeln kann einer verpasst werden. Ein dauerndes Abo änderte das Verkehrsmuster (6.4); Vorschlag: den Weckdienst (B-12) auch für Anrufe nutzen.
 
 ## 4. Arbeitsweise, die sich bewährt hat (und Fallen)
 

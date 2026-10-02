@@ -15126,3 +15126,54 @@ klingelt unsichtbar und endet nach 60 s mit „zeit“. Ein durchgehender Test m
 echtem TURN ist hier nicht möglich (MENSCH-Checkliste in d3).
 
 Knoten-Stand: B-13a (TURN-Zugang 5079) und coturn (B-13b) für Anrufe.
+
+## Schritt B-13d3 – Anrufe: Oberfläche und Datenschutz
+
+**Warum:** Letzter Teil von B-13 (T1 A, T2 A, T3 B): Anrufen und Annehmen in
+der App, ehrlich im Datenschutzbericht.
+
+**Was:**
+- `shell/anruf-ui.ts` (`wireAnrufe()`, aus `app.ts`):
+  - Knöpfe „Anrufen“ und „Videoanruf“ im Kopf der Unterhaltung (`.chat-kopf`,
+    neben „Zurück“) – in der Eingabezeile ist mobil kein Platz. Angerufen wird
+    nur auf Klick und nur in 1:1; ohne eigenen Knoten nur der Hinweis.
+  - Eine Leiste während des Anrufs (Region mit `aria-live`): wer, Phase, der
+    Sicherheitscode (B-4, aus `sprichtFuer()`) mit Prüfstand, bei einem
+    eingehenden Anruf ohne eigenen Vermittler **vor dem Annehmen** der Hinweis,
+    dass der Knoten der anrufenden Person die IP sieht (T3 B). Hat keine Seite
+    einen Vermittler, lässt sich nicht annehmen. Annehmen, Ablehnen, Auflegen,
+    Schließen.
+  - Medien nur als Ströme an `<audio>`/`<video>`; das eigene Bild stumm. Nur
+    DOM mit Text.
+- Datenschutzbericht: „anruf-ip“ (belegt, Regel `anruf-nur-relay`, Szenario:
+  Angebot an Person und Gerät, nur Relay, versiegelt, ein Host-Kandidat geht
+  nicht hinaus) und „anruf-vermittler“ (Grenze: der Vermittler sieht IP und
+  Zeiten; ohne eigenen Knoten der Knoten der anrufenden Person; Umschläge eines
+  Anrufs sind am kurzen Ablauf erkennbar). Texte in beiden Sprachen.
+- `icons.ts`: Symbol `phone`; 27 Texte (`komm.anruf*`, `komm.videoanruf`, `komm.videoKnopf`) in `texte/kommunikation.ts`.
+- `scripts/anruf-probe.mts`: ein Angebot eines Wegwerf-Kontakts für den
+  Smoke-Test, dazu „oeffne“ für Umschläge der App an ihn.
+
+**Tests:**
+- protocol +1 (`privacy-facts.test.ts`: Grenze mit Grund, Text im Bericht;
+  dazu das Szenario „anruf-ip“ im bestehenden Szenario-Test).
+- app +4 (`test/anruf-ui.test.ts`): Knöpfe mit Namen, verdrahtet, nur auf
+  Klick, nur 1:1; Leiste nur DOM, keine Medien oder Verbindung im UI-Modul,
+  Hinweis vor „Annehmen“, Annehmen gesperrt ohne Weg; Texte in beiden
+  Sprachen; Bericht wortgleich mit dem Protokoll.
+- Smoke „anruf“: Knöpfe; Anrufen ohne Knoten fragt kein Mikrofon, baut keine
+  Verbindung und sendet nichts; ein Angebot eines Kontakts klingelt nach dem
+  Abgleich des Posteingangs mit Sicherheitscode und Hinweis; Ablehnen schickt
+  genau ein versiegeltes „Ende“ (abgelehnt, geöffnet mit dem Schlüssel des
+  Anrufers) – ohne Mikrofon, ohne Verbindung.
+
+**Grenzen:**
+- Ein eingehendes Angebot kommt mit dem Abgleich des Posteingangs (höchstens
+  einmal je Minute) – bei 60 s Klingeln kann ein Anruf verpasst werden. Ein
+  dauerndes Abo des Posteingangs änderte das Verkehrsmuster (6.4); eher über
+  den Weckdienst (B-12) – nicht in diesem Schritt.
+- Ein durchgehender Anruf mit echtem TURN war hier nicht möglich
+  (MENSCH-Checkliste): zwei Geräte, je mit gekoppeltem Knoten und coturn;
+  dann eines ohne Knoten (Hinweis, Anruf über den Knoten des Anrufers).
+
+Knoten-Stand: B-13a (TURN-Zugang 5079) und coturn (B-13b) für Anrufe.
