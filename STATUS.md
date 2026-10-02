@@ -14641,3 +14641,39 @@ Kennungen, `wireGebuehrenKarte()` (`settings.ts`) die Gebühren-Karte.
   Uhr“). Nachgestellt mit einer Uhr, die je Aufruf 600 ms vorrückt: vorher
   rot, jetzt grün. Die Zeit kommt jetzt einmal aus der Uhr; die Prüfungen
   sind unverändert.
+
+## Schritt C-7a – Sprachnachrichten: die Aufnahme
+
+**Warum:** Sammlung C-7 („aufnehmen – Mikrofon nur auf Klick, danach aus –,
+als verschlüsselter Anhang, abspielen“). Der ganze Schritt bräuchte rund 650
+geänderte Zeilen, darum zwei Teile, wie bei C-17:
+- **a** die Aufnahme ohne DOM,
+- **b** Knopf, Anhang, Abspielen und Browser-Test.
+
+**Was:** `packages/app/src/sprachnachricht.ts` (neu, ohne DOM):
+- `SprachAufnahme` mit den Zuständen bereit, startet und nimmt auf:
+  - `starte()` fragt das Mikrofon an.
+  - `beende()` liefert die Aufnahme, `brichAb()` verwirft sie.
+  - Endet die Aufnahme von selbst (Grenze, Gerät weg), kommt das Ergebnis
+    über `beiEnde`.
+- Nach jedem Ende sind alle Spuren gestoppt: beendet, verworfen, an der
+  Grenze, bei einem Fehler, und auch, wenn die Erlaubnis erst nach dem
+  Abbrechen kam.
+- Mikrofon, Recorder und Uhr kommen von außen (`SprachUmgebung`).
+- `SPRACH_GRENZEN`: 120 s, 32 kbit/s. Browser nehmen sonst 128 kbit/s; mit
+  32 kbit/s reisen kurze Nachrichten in der verschlüsselten Nachricht selbst.
+- Hilfen:
+  - `waehleSprachFormat()`: Opus in WebM oder Ogg, sonst MP4 für Safari.
+  - `sprachDateiname()`.
+  - `istAudioTyp()`: nur `audio/<name>` mit Parametern – der Typ kommt aus
+    fremder Nachricht.
+  - `dauerText()`.
+
+**Verdrahtet:** noch nicht – das bringt C-7b (Knopf im Chat), wie bei C-17a.
+
+**Tests:** app +6 in `test/sprachnachricht.test.ts` (mit Attrappen für
+Strom, Spur und Recorder):
+- Format, Name, Dauer und Typprüfung.
+- Beenden, Verwerfen und die Grenze.
+- Verweigert oder kaputt.
+- Abgebrochen, während der Browser noch fragt.
