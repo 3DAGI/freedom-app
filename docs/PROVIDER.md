@@ -149,6 +149,17 @@ Sie zählen zur Quota (`STORAGE_QUOTA_MB`); ist sie damit voll, hält er keine
 weiteren. Welche er hält, steht in `gehalten.json` im Speicherordner – nur
 Prüfsummen, keine Namen. Im Log steht `[speicher] für den Besitzer gehalten: …`.
 
+**Status (B-11):** Unter Settings → Geräte → „Mein Knoten“ fragt „Status
+abfragen“ den Knoten versiegelt nach seinem Stand. Er antwortet nur dem
+gekoppelten Besitzer mit:
+- Fassung und gestarteten Rollen;
+- Modellen;
+- Aufträgen und Abgerechnetem seit dem Start;
+- Speicher und Relay;
+- der Prüfung der Einrichtung vom Start, wie bei `npm run pruefen`, aber ohne Adressen.
+
+Steuern lässt sich der Knoten aus der App nicht.
+
 **Alles über meinen Knoten (B-9c):** Mit dem Haken unter Settings → Geräte →
 „Mein Knoten“ schickt die App KI-Anfragen an deinen Knoten und Halte-Aufträge
 nur an sein Relay, nie an fremde. Dafür braucht der Knoten `RELAY_ENABLED=1`.

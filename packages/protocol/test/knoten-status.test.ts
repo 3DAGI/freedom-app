@@ -46,7 +46,7 @@ test("B-11a: Antwort – gelesen wird genau, was geschrieben wurde; unbekannte F
   assert.deepEqual(leseKnotenStatus(knotenStatusText(ohne)), ohne);
   // Rollen in fester Reihenfolge, Unbekanntes im Eingang fällt beim Schreiben weg
   assert.deepEqual(leseKnotenStatus(knotenStatusText({ ...s, rollen: ["speicher", "ki"] }))!.rollen, ["ki", "speicher"]);
-  const mehr = JSON.stringify({ ...JSON.parse(knotenStatusText(s)), einrichtung: [{ stufe: "ok" }] });
+  const mehr = JSON.stringify({ ...JSON.parse(knotenStatusText(s)), zukunft: [{ stufe: "ok" }] });
   assert.deepEqual(leseKnotenStatus(mehr), s, "ein neuerer Knoten darf mehr melden");
   assert.ok(STATUS_ROLLEN.includes("ki") && STATUS_ROLLEN.length === 10);
 });
@@ -67,4 +67,30 @@ test("B-11a: Antwort – alles andere ist null", () => {
     mit({ relay: { events: "3", verbindungen: 1 } }),
     JSON.stringify({ ...gut, modelle: ["x"], fuell: "y".repeat(STATUS_GRENZEN.zeichen) }),
   ]) assert.equal(leseKnotenStatus(kaputt), null, kaputt.slice(0, 80));
+});
+
+test("B-11c: Selbstprüfung im Status – nur Kennungen, Zahlen und Fehlernamen; darf fehlen, ist sie da, zählt nur ganz richtig", () => {
+  const einrichtung: KnotenStatus["einrichtung"] = [
+    { schiene: "lightning", stufe: "ok", fall: "ln.ok", werte: { min: 1, max: 100_000 } },
+    { schiene: "sol", stufe: "hinweis", fall: "sol.wenigGuthaben", werte: { lamports: 0, mindestLamports: 1_000_000 } },
+    { schiene: "sol", stufe: "hinweis", fall: "sol.ketteUnerreichbar", werte: { fehler: "FetchError" } },
+  ];
+  const s = { ...beispiel(), einrichtung };
+  assert.deepEqual(leseKnotenStatus(knotenStatusText(s)), s);
+  assert.equal("einrichtung" in leseKnotenStatus(knotenStatusText(beispiel()))!, false, "ohne Prüfung kein Feld");
+  const gut = JSON.parse(knotenStatusText(s)) as Record<string, unknown>;
+  const mit = (b: unknown) => JSON.stringify({ ...gut, einrichtung: [b] });
+  for (const kaputt of [
+    mit({ schiene: "btc", stufe: "ok", fall: "ln.ok", werte: {} }),
+    mit({ schiene: "sol", stufe: "gut", fall: "sol.ok", werte: {} }),
+    mit({ schiene: "sol", stufe: "ok", fall: "Zahlkanal an, Adresse des Knotens 7xKX", werte: {} }),
+    mit({ schiene: "sol", stufe: "ok", fall: "x.ok", werte: {} }),
+    mit({ schiene: "sol", stufe: "ok", fall: "sol.ok" }),
+    mit({ schiene: "sol", stufe: "ok", fall: "sol.ok", werte: { adresse: "7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU" } }),
+    mit({ schiene: "sol", stufe: "ok", fall: "sol.ok", werte: { fehler: "Fehler: 10.0.0.7" } }),
+    mit({ schiene: "sol", stufe: "ok", fall: "sol.ok", werte: { lamports: -1 } }),
+    mit({ schiene: "sol", stufe: "ok", fall: "sol.ok", werte: { a: 1, b: 2, c: 3, d: 4, e: 5, f: 6, g: 7 } }),
+    JSON.stringify({ ...gut, einrichtung: "ok" }),
+    JSON.stringify({ ...gut, einrichtung: Array.from({ length: STATUS_GRENZEN.befunde + 1 }, () => einrichtung[0]) }),
+  ]) assert.equal(leseKnotenStatus(kaputt), null, kaputt.slice(-120));
 });

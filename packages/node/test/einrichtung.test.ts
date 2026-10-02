@@ -40,6 +40,9 @@ test("Lightning: Adresse, die Rechnungen ausstellt – mit echter Rechnung über
   const b = await pruefeLightning("Provider@Wallet.test", l.holen);
   assert.deepEqual(b.map((x) => x.stufe), ["ok"]);
   assert.match(b[0]!.text, /provider@wallet\.test stellt Rechnungen aus \(1 bis 100000 sats\)/);
+  // Kennung und Werte für den Status (B-11c) – ohne die Adresse
+  assert.equal(b[0]!.fall, "ln.ok");
+  assert.deepEqual(b[0]!.werte, { min: 1, max: 100000 });
   assert.equal(l.gefragt[0], "https://wallet.test/.well-known/lnurlp/provider");
   assert.equal(new URL(l.gefragt[1]!).searchParams.get("amount"), "1000", "1 sat, dazu die übrigen Parameter des Callbacks");
   assert.equal(new URL(l.gefragt[1]!).searchParams.get("x"), "1");
@@ -63,6 +66,19 @@ test("Lightning: was die App nicht bezahlen könnte, meldet die Prüfung", async
   // Nur der Fehlername – nie die Meldung eines fremden Servers
   const f = await stufen("a@w.test", { wirft: Object.assign(new Error("interne Adresse 10.0.0.7 abgelehnt"), { name: "AbortError" }) });
   assert.deepEqual(f, ["fehler:a@w.test nicht erreichbar (AbortError)"]);
+  // B-11c: Kennungen je Fall, Werte nur Zahlen und Fehlernamen – nie die Adresse
+  const faelle = async (lud16: string | undefined, p: Parameters<typeof lnurl>[0] = {}) => (await pruefeLightning(lud16, lnurl(p).holen)).map((x) => x.fall);
+  assert.deepEqual(await faelle(undefined), ["ln.fehlt"]);
+  assert.deepEqual(await faelle("keine-adresse"), ["ln.keineAdresse"]);
+  assert.deepEqual(await faelle("a@w.test", { status: 404 }), ["ln.http"]);
+  assert.deepEqual(await faelle("a@w.test", { cors: null }), ["ln.cors", "ln.ok"]);
+  assert.deepEqual(await faelle("a@w.test", { min: 10_000_000, prefix: "lnbc100u" }), ["ln.mindestens", "ln.ok"]);
+  assert.deepEqual(await faelle("a@w.test", { prefix: "lnbc20n" }), ["ln.andererBetrag"]);
+  const fw = await pruefeLightning("a@w.test", lnurl({ wirft: Object.assign(new Error("interne Adresse 10.0.0.7"), { name: "AbortError" }) }).holen);
+  assert.deepEqual([fw[0]!.fall, fw[0]!.werte], ["ln.unerreichbar", { fehler: "AbortError" }]);
+  for (const x of [...fw, ...(await pruefeLightning("Provider@Wallet.test", lnurl().holen))]) {
+    assert.ok(!JSON.stringify(x.werte ?? {}).includes("@"), "keine Adresse in den Werten");
+  }
 });
 
 test("SOL: Zahlkanal, Programm, Guthaben für Gebühren und Auszahlung", async () => {
@@ -99,6 +115,24 @@ test("SOL: Zahlkanal, Programm, Guthaben für Gebühren und Auszahlung", async (
     assert.match((await pruefe({ ...basis, NODE_SOL_PAYOUT: payout, RELAYER_ENABLED: "1" })).at(-1)!, /^hinweis:.*denselben Schlüssel/);
     const offline = await pruefe({ ...basis, NODE_SOL_PAYOUT: payout }, kette({ wirft: true }));
     assert.equal(offline[1], "hinweis:Kette nicht erreichbar (FetchError) – Programm und Guthaben ungeprüft");
+    // B-11c: Kennungen je Fall, Werte nur Zahlen und Fehlernamen – nie eine Adresse
+    const faelle = async (env: Record<string, string>, k = kette()) => (await pruefeSol(env, { kanal: await kanalKasseAusUmgebung(env, o), kette: k }));
+    assert.deepEqual((await faelle({ ...basis, NODE_SOL_PAYOUT: payout })).map((x) => x.fall), ["sol.kanalAn", "sol.guthaben", "sol.auszahlung"]);
+    assert.deepEqual((await faelle({})).map((x) => x.fall), ["sol.kanalAus"]);
+    assert.deepEqual((await faelle({ ZAHLKANAL: "1" })).map((x) => x.fall), ["sol.kanalAdresseFehlt"]);
+    assert.deepEqual((await faelle({ ZAHLKANAL: "1", NODE_SOL_ADDRESS: payout })).map((x) => x.fall), ["sol.kanalSchluesselPasstNicht"]);
+    assert.deepEqual((await faelle({ ZAHLKANAL: "1", NODE_SOL_ADDRESS: payout, SOLANA_KEYPAIR: join(dir, "fehlt.json") })).map((x) => x.fall), ["sol.kanalSchluesselUnlesbar"]);
+    const wenig = await faelle({ ...basis }, kette({ bereit: false, guthaben: 0n }));
+    assert.deepEqual(wenig.map((x) => x.fall), ["sol.kanalAn", "sol.programmFehlt", "sol.wenigGuthaben", "sol.auszahlungAus"]);
+    assert.deepEqual(wenig[2]!.werte, { lamports: 0, mindestLamports: 1_000_000 });
+    assert.equal((await faelle({ ...basis, NODE_SOL_PAYOUT: "kaputt" })).at(-1)!.fall, "sol.auszahlungUngueltig");
+    assert.equal((await faelle({ ...basis, NODE_SOL_PAYOUT: payout }, kette({ programm: true }))).at(-1)!.fall, "sol.auszahlungProgramm");
+    assert.equal((await faelle({ ...basis, NODE_SOL_PAYOUT: payout, RELAYER_ENABLED: "1" })).at(-1)!.fall, "sol.auszahlungTeilt");
+    const off = await faelle({ ...basis, NODE_SOL_PAYOUT: payout }, kette({ wirft: true }));
+    assert.deepEqual([off[1]!.fall, off[1]!.werte], ["sol.ketteUnerreichbar", { fehler: "FetchError" }]);
+    for (const x of [...wenig, ...off]) {
+      for (const w of Object.values(x.werte ?? {})) assert.ok(typeof w === "number" || /^[A-Za-z]+$/.test(w), "nur Zahlen und Fehlernamen");
+    }
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -110,7 +144,7 @@ test("Bericht: beide Schienen, Zeichen je Stufe; verdrahtet beim Start und als n
   const main = readFileSync(new URL("../src/main.ts", import.meta.url), "utf8");
   const start = main.indexOf("await kanalKasseAusUmgebung(process.env");
   assert.ok(start > 0 && main.indexOf("pruefeEinrichtung(process.env", start) > start, "beim Start, mit dem Ergebnis der Kasse");
-  assert.match(main, /kanal: \{ kasse: kanalKasse, grund: kanalGrund, auszahlung, auszahlungGrund \}/);
+  assert.match(main, /kanal: \{ kasse: kanalKasse, grund: kanalGrund, fall: kanalFall, auszahlung, auszahlungGrund \}/, "samt Kennung (B-11c)");
   assert.match(main, /void kettenBlick\(solRpc\)\.catch\(\(\) => undefined\)/, "ohne Kette trotzdem Lightning prüfen");
   await assert.rejects(kettenBlick(""), "leerer Endpunkt");
   const pkg = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as { scripts: Record<string, string> };

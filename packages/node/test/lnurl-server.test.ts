@@ -102,7 +102,7 @@ test("Durchstich: Die Selbstprüfung (8.2a) erkennt den Server über HTTP als gu
       return { status: r.status, cors: r.headers.get("access-control-allow-origin"), json: await r.json() };
     };
     const b = await pruefeLightning("provider@knoten.test", holen);
-    assert.deepEqual(b, [{ schiene: "lightning", stufe: "ok", text: "provider@knoten.test stellt Rechnungen aus (1 bis 100000 sats)" }]);
+    assert.deepEqual(b, [{ schiene: "lightning", stufe: "ok", fall: "ln.ok", werte: { min: 1, max: 100000 }, text: "provider@knoten.test stellt Rechnungen aus (1 bis 100000 sats)" }]);
     const post = await fetch(`http://127.0.0.1:${port}/.well-known/lnurlp/provider`, { method: "POST" });
     assert.equal(post.status, 405);
     assert.equal(post.headers.get("content-type"), "application/json");

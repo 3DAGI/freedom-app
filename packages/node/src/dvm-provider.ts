@@ -132,7 +132,7 @@ export interface ProviderConfig {
    * den Prozess weiß (Fassung, Start, laufende Rollen, Modelle, Relay).
    * Aufträge und Speicher zählt der Provider selbst. Ohne: keine Statusabfrage.
    */
-  status?: () => Pick<KnotenStatus, "fassung" | "seit" | "rollen" | "modelle" | "relay">;
+  status?: () => Pick<KnotenStatus, "fassung" | "seit" | "rollen" | "modelle" | "relay" | "einrichtung">;
   /** Free-Tier (Provider-Marketing, lokal entschieden — KEIN Protokoll-Feature):
    *  Gratis-Tokens pro pubkey pro Tag. 0 = aus. Der Provider verschenkt
    *  eigene Rechenzeit als Werbung; es gibt keinen Topf und keinen Betreiber. */

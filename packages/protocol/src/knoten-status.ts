@@ -19,7 +19,19 @@ export const STATUS_ROLLEN = ["ki", "relay", "speicher", "gateway", "zahlkanal",
 export type StatusRolle = (typeof STATUS_ROLLEN)[number];
 
 /** Grenzen der Antwort – was darüber liegt, liest `leseKnotenStatus()` nicht. */
-export const STATUS_GRENZEN = { zeichen: 20_000, modelle: 50, modellZeichen: 100, fassungZeichen: 32 } as const;
+export const STATUS_GRENZEN = { zeichen: 20_000, modelle: 50, modellZeichen: 100, fassungZeichen: 32, befunde: 40, werte: 6 } as const;
+
+/**
+ * Ein Befund der Selbstprüfung (B-11c, `einrichtung.ts` im Knoten): Schiene,
+ * Stufe, Kennung (`ln.ok`, `sol.wenigGuthaben` …) und nur Zahlen oder
+ * Fehlernamen als Werte – kein Satz, keine Adresse. Die App bildet den Text.
+ */
+export interface StatusBefund {
+  schiene: "lightning" | "sol";
+  stufe: "ok" | "hinweis" | "fehler";
+  fall: string;
+  werte: Record<string, number | string>;
+}
 
 export interface KnotenStatus {
   /** Fassung des Knotens (`version` aus `packages/node/package.json`). */
@@ -38,6 +50,8 @@ export interface KnotenStatus {
   speicher: { belegtBytes: number; quotaBytes: number; gehalten: number } | null;
   /** Relay-Rolle (8.4): gespeicherte Events und offene Verbindungen. */
   relay: { events: number; verbindungen: number } | null;
+  /** Selbstprüfung beim Start (B-11c) – fehlt, solange sie läuft, und bei Knoten vor B-11c. */
+  einrichtung?: StatusBefund[];
 }
 
 /** Statusabfrage an den eigenen Knoten – versiegelt, mit Nachweis, ohne Gebot. */
@@ -62,7 +76,32 @@ export function knotenStatusText(s: KnotenStatus): string {
     abgerechnetMsat: s.abgerechnetMsat,
     speicher: s.speicher && { belegtBytes: s.speicher.belegtBytes, quotaBytes: s.speicher.quotaBytes, gehalten: s.speicher.gehalten },
     relay: s.relay && { events: s.relay.events, verbindungen: s.relay.verbindungen },
+    einrichtung: s.einrichtung?.slice(0, STATUS_GRENZEN.befunde).map((b) => ({ schiene: b.schiene, stufe: b.stufe, fall: b.fall, werte: b.werte })),
   });
+}
+
+const FALL = /^(ln|sol)\.[a-zA-Z]{1,40}$/;
+const WERT_NAME = /^[a-zA-Z]{1,20}$/;
+const FEHLERNAME = /^[A-Za-z]{1,40}$/;
+
+/** Ein Befund streng – sonst null. Werte nur ganze Zahlen ab 0 oder Fehlernamen aus Buchstaben. */
+function leseBefund(x: unknown): StatusBefund | null {
+  if (typeof x !== "object" || x === null || Array.isArray(x)) return null;
+  const { schiene, stufe, fall, werte } = x as Record<string, unknown>;
+  if (schiene !== "lightning" && schiene !== "sol") return null;
+  if (stufe !== "ok" && stufe !== "hinweis" && stufe !== "fehler") return null;
+  if (typeof fall !== "string" || !FALL.test(fall)) return null;
+  if (typeof werte !== "object" || werte === null || Array.isArray(werte)) return null;
+  const paare = Object.entries(werte as Record<string, unknown>);
+  if (paare.length > STATUS_GRENZEN.werte) return null;
+  const gelesen: Record<string, number | string> = {};
+  for (const [k, w] of paare) {
+    if (!WERT_NAME.test(k)) return null;
+    if (Number.isSafeInteger(w) && (w as number) >= 0) gelesen[k] = w as number;
+    else if (typeof w === "string" && FEHLERNAME.test(w)) gelesen[k] = w;
+    else return null;
+  }
+  return { schiene, stufe, fall, werte: gelesen };
 }
 
 const zahl = (x: unknown): x is number => Number.isSafeInteger(x) && (x as number) >= 0;
@@ -82,7 +121,7 @@ export function leseKnotenStatus(text: string): KnotenStatus | null {
     return null;
   }
   if (!objekt(roh)) return null;
-  const { fassung, seit, rollen, modelle, auftraege, abgerechnetMsat, speicher, relay } = roh;
+  const { fassung, seit, rollen, modelle, auftraege, abgerechnetMsat, speicher, relay, einrichtung } = roh;
   if (typeof fassung !== "string" || !new RegExp(`^[0-9A-Za-z.+-]{1,${STATUS_GRENZEN.fassungZeichen}}$`).test(fassung)) return null;
   if (!zahl(seit) || !zahl(abgerechnetMsat)) return null;
   if (!Array.isArray(rollen) || rollen.length > STATUS_ROLLEN.length || new Set(rollen).size !== rollen.length) return null;
@@ -93,6 +132,17 @@ export function leseKnotenStatus(text: string): KnotenStatus | null {
   if (auftraege.gratis > auftraege.erledigt) return null;
   if (speicher !== null && (!objekt(speicher) || !zahl(speicher.belegtBytes) || !zahl(speicher.quotaBytes) || !zahl(speicher.gehalten))) return null;
   if (relay !== null && (!objekt(relay) || !zahl(relay.events) || !zahl(relay.verbindungen))) return null;
+  // Die Selbstprüfung (B-11c) darf fehlen; ist sie da, zählt nur ganz richtig
+  let befunde: StatusBefund[] | undefined;
+  if (einrichtung !== undefined) {
+    if (!Array.isArray(einrichtung) || einrichtung.length > STATUS_GRENZEN.befunde) return null;
+    befunde = [];
+    for (const x of einrichtung) {
+      const b = leseBefund(x);
+      if (!b) return null;
+      befunde.push(b);
+    }
+  }
   return {
     fassung,
     seit,
@@ -102,5 +152,6 @@ export function leseKnotenStatus(text: string): KnotenStatus | null {
     abgerechnetMsat,
     speicher: speicher === null ? null : { belegtBytes: speicher.belegtBytes as number, quotaBytes: speicher.quotaBytes as number, gehalten: speicher.gehalten as number },
     relay: relay === null ? null : { events: relay.events as number, verbindungen: relay.verbindungen as number },
+    ...(befunde ? { einrichtung: befunde } : {}),
   };
 }

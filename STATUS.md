@@ -14171,3 +14171,66 @@ Endstand (B-11b, 02.10.): protocol 1154 (6 übersprungen) · node 291 (7
 grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 (Ausnahmen aus B-11a
 gestrichen) · innerHTML streng Exit 0 · Website ok · Smoke-Test bestanden.
 Knoten-Stand: B-11a (#256) für den Status; sonst unverändert.
+
+## Schritt B-11c – Status meines Knotens: Prüfung der Einrichtung
+
+Sammlung B-11, Entscheidung L6 A, dritter Teil. Die Selbstprüfung (8.2a)
+schrieb bisher nur deutsche Sätze mit Adressen ins Log. Für den Status an den
+Besitzer braucht sie Kennungen.
+
+**Knoten** (`einrichtung.ts`, `kanal-kasse.ts`, `main.ts`):
+- Jeder Befund trägt jetzt eine Kennung (`fall`, z. B. `ln.ok`,
+  `sol.wenigGuthaben`) – 27 Fälle.
+- Werte (`werte`) sind nur Zahlen (sats, Lamports, HTTP-Status) und
+  Fehlernamen. Der Satz fürs Log und `npm run pruefen` bleibt unverändert.
+- `kanalKasseAusUmgebung()` nennt neben dem Satz `grund` eine Kennung
+  (`KanalAusFall`), daraus wird `sol.kanal…`.
+- `main.ts` merkt sich die Befunde vom Start. Der Status gibt sie mit
+  (`einrichtung`), nur Kennung, Stufe und Werte.
+
+**Protokoll** (`knoten-status.ts`, `docs/PROTOCOL.md` 24):
+- `einrichtung` ist optional: Es fehlt, solange die Prüfung läuft, und bei
+  Knoten vor B-11c.
+- Ist es da, liest `leseKnotenStatus()` nur ganz richtige Befunde:
+  - Schiene und Stufe aus festen Werten;
+  - Kennung `ln.…` oder `sol.…`;
+  - höchstens 6 Werte, nur ganze Zahlen ab 0 oder Fehlernamen aus Buchstaben.
+
+  Keine Adresse passt durch.
+
+**App** (`knoten-status-ansicht.ts`):
+- `EINRICHTUNG_TEXT` hat je Kennung einen Text in beiden Sprachen.
+- `befundZeile()` setzt Zeichen, Schiene und Text zusammen; Lamports zeigt sie
+  als SOL.
+- Eine unbekannte Kennung (neuerer Knoten) erscheint nur mit Kennung und
+  Stufe.
+- Fehlt die Prüfung, steht dort „noch nicht geprüft – oder der Knoten ist
+  älter“ – nie ein erfundenes „alles gut“.
+
+**Tests:**
+- protocol +1 (`knoten-status.test.ts`): Befunde hin und zurück; ohne Prüfung
+  kein Feld; 11 kaputte Fälle ergeben null, darunter eine Adresse als Wert, ein
+  Satz als Kennung und eine Meldung als Fehlername.
+- node +1 (`knoten-status.test.ts`): Befunde gehen mit. In
+  `einrichtung.test.ts` kommen Kennungen und Werte je Fall dazu, ohne Adresse
+  in den Werten. `kanal-kasse.test.ts`, `lnurl-server.test.ts` und
+  `sol-auszahlung.test.ts` erwarten jetzt die Kennung, sonst unverändert.
+- app +2 (`knoten-status.test.ts`):
+  - Zeilen auf Deutsch und Englisch, SOL aus Lamports, Unbekanntes nur mit
+    Kennung.
+  - Jede Kennung des Knotens hat einen Text, gelesen aus dem Quelltext des
+    Knotens, und keine ohne Knoten.
+
+  Die Zeilenzahlen aus B-11b haben jetzt eine Zeile mehr (die Einrichtung).
+
+**Verdrahtet:**
+- `packages/node/src/main.ts`: `pruefeEinrichtung()` → `einrichtung = befunde`
+  → `status: () => ({ …, einrichtung })`.
+- `packages/app/src/knoten-status-ansicht.ts`: `statusZeilen()` →
+  `befundZeile()` (aus `zeigeKnotenStatus()`, B-11b).
+
+Endstand (B-11c, 02.10.): protocol 1155 (+1, 6 übersprungen) · node 292 (+1,
+7 übersprungen ohne Netz – mit Netz 293) · app 784 (+2) · mls 13 · Leak-Tests
+70 grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng
+Exit 0 · Website ok · Smoke-Test bestanden. Knoten-Stand: für die Einrichtung
+im Status nötig (B-11c); ein älterer Knoten zeigt „noch nicht geprüft“.

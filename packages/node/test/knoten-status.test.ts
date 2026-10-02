@@ -108,6 +108,23 @@ test("B-11a: ohne Nachweis, mit fremdem Geheimnis oder offen gibt der Knoten kei
   assert.equal((await relay.query({ kinds: [KIND_DVM_KNOTEN_STATUS + 1000] })).length, 0, "nie offen");
 });
 
+test("B-11c: die Selbstprüfung geht mit, wie der Knoten sie kennt – nur Kennungen und Werte", async () => {
+  const relay = new MemoryRelay(`mem://status-${randomBytes(4).toString("hex")}`);
+  const pool = new OutboxPool([relay], { minAcks: 1 });
+  const kp = generateKeypair();
+  const k = neueKopplung(kp.pk);
+  const einrichtung: KnotenStatus["einrichtung"] = [{ schiene: "sol", stufe: "hinweis", fall: "sol.kanalAus", werte: {} }];
+  const provider = new DvmProvider({
+    keypair: kp, lud16: "p@x.cash", pricePerKTokenMsat: 1000, minBidMsat: 100, powDifficulty: 2, seasonId: "s",
+    besitzer: () => [k.geheimnis], status: () => ({ ...BASIS, einrichtung }),
+  }, pool, new MerkBackend());
+  const { sitzung } = await frage(pool, k);
+  await provider.pollOnce();
+  const a = (await antworten(relay, sitzung)).find((r) => r.kind === KIND_DVM_KNOTEN_STATUS + 1000);
+  assert.deepEqual(leseKnotenStatus(a!.content)!.einrichtung, einrichtung);
+  assert.equal(leseKnotenStatus(a!.content)!.speicher, null, "ohne Speicher-Rolle null");
+});
+
 test("B-11a: ohne Status in der Konfiguration lehnt der Knoten ab", async () => {
   const { relay, pool, k, provider } = await aufbau(false);
   const { sitzung } = await frage(pool, k);
@@ -117,7 +134,10 @@ test("B-11a: ohne Status in der Konfiguration lehnt der Knoten ab", async () => 
 
 test("B-11a: main.ts – Rollen erst nach dem Start, Status aus Fassung, Start, Modellen und Relay", () => {
   const main = readFileSync(new URL("../src/main.ts", import.meta.url), "utf8");
-  assert.match(main, /status: \(\) => \{\s*const r = relayRole\?\.stats\(\);\s*return \{ fassung, seit: statusSeit, rollen: \[\.\.\.statusRollen\], modelle: angebotModelle\(\), relay: r \? \{ events: r\.events, verbindungen: r\.verbindungen \} : null \};/);
+  assert.match(main, /status: \(\) => \{\s*const r = relayRole\?\.stats\(\);\s*return \{\s*fassung, seit: statusSeit, rollen: \[\.\.\.statusRollen\], modelle: angebotModelle\(\), relay: r \? \{ events: r\.events, verbindungen: r\.verbindungen \} : null,/);
+  // Selbstprüfung (B-11c): die Befunde vom Start, nur Kennung, Stufe und Werte – nie der Satz
+  assert.match(main, /einrichtung: einrichtung\?\.map\(\(\{ schiene, stufe, fall, werte \}\) => \(\{ schiene, stufe, fall, werte: werte \?\? \{\} \}\)\),/);
+  assert.match(main, /\.then\(\(befunde\) => \{\s*einrichtung = befunde;/);
   for (const [nach, rolle] of [
     ["await relayRole.start();", "relay"], ["funkGateway.starte();", "gateway"], ["starteLnurlServer(new LnurlDienst(r.konfig, r.quelle), Number(process.env.LNURL_PORT || 3601));", "lnurl"],
     ["await relayer.veroeffentlicheAngebot();", "relayer"], ["if (provider.storage) await provider.storage.init();", "speicher"],

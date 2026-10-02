@@ -164,18 +164,20 @@ test("4.3c2: Kasse nur mit ZAHLKANAL=1 und einem Schlüssel, der zu NODE_SOL_ADD
     writeFileSync(pfad, JSON.stringify([...schluessel.secretKey]));
     const o = { rpcUrl: "http://127.0.0.1:1", datei: join(dir, "kanaele.json"), standardSchluessel: join(dir, "fehlt.json") };
     const adresse = schluessel.publicKey.toBase58();
-    assert.deepEqual(await kanalKasseAusUmgebung({ NODE_SOL_ADDRESS: adresse, SOLANA_KEYPAIR: pfad }, o), { grund: "aus (ZAHLKANAL=1 setzen)" });
-    assert.deepEqual(await kanalKasseAusUmgebung({ ZAHLKANAL: "1", SOLANA_KEYPAIR: pfad }, o), { grund: "NODE_SOL_ADDRESS fehlt" });
-    assert.match((await kanalKasseAusUmgebung({ ZAHLKANAL: "1", NODE_SOL_ADDRESS: adresse }, o)).grund!, /nicht lesbar/);
+    assert.deepEqual(await kanalKasseAusUmgebung({ NODE_SOL_ADDRESS: adresse, SOLANA_KEYPAIR: pfad }, o), { grund: "aus (ZAHLKANAL=1 setzen)", fall: "aus" });
+    assert.deepEqual(await kanalKasseAusUmgebung({ ZAHLKANAL: "1", SOLANA_KEYPAIR: pfad }, o), { grund: "NODE_SOL_ADDRESS fehlt", fall: "adresseFehlt" });
+    const unlesbar = await kanalKasseAusUmgebung({ ZAHLKANAL: "1", NODE_SOL_ADDRESS: adresse }, o);
+    assert.match(unlesbar.grund!, /nicht lesbar/);
+    assert.equal(unlesbar.fall, "schluesselUnlesbar", "Kennung für den Status (B-11c)");
     assert.deepEqual(await kanalKasseAusUmgebung({ ZAHLKANAL: "1", NODE_SOL_ADDRESS: Keypair.generate().publicKey.toBase58(), SOLANA_KEYPAIR: pfad }, o),
-      { grund: "Schlüssel aus SOLANA_KEYPAIR passt nicht zu NODE_SOL_ADDRESS" });
+      { grund: "Schlüssel aus SOLANA_KEYPAIR passt nicht zu NODE_SOL_ADDRESS", fall: "schluesselPasstNicht" });
     const r = await kanalKasseAusUmgebung({ ZAHLKANAL: "1", NODE_SOL_ADDRESS: adresse, SOLANA_KEYPAIR: pfad, KANAL_EINLOES_SCHWELLE_LAMPORTS: "5000" }, o);
     assert.ok(r.kasse instanceof KanalKasse);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
   const main = readFileSync(new URL("../src/main.ts", import.meta.url), "utf8");
-  assert.match(main, /const \{ kasse: kanalKasse, grund: kanalGrund(?:, [a-zA-Z]+)* \} = await kanalKasseAusUmgebung\(process\.env, \{/);
+  assert.match(main, /const \{ kasse: kanalKasse, grund: kanalGrund(?:, [a-zA-Z]+(?:: [a-zA-Z]+)?)* \} = await kanalKasseAusUmgebung\(process\.env, \{/);
   assert.match(main, /solanaAddress: process\.env\.NODE_SOL_ADDRESS \|\| undefined,\s*kanalKasse,/, "an den Provider");
   assert.match(main, /kanal: kanalKasse && process\.env\.NODE_SOL_ADDRESS \? \{ adresse: process\.env\.NODE_SOL_ADDRESS, programm: KANAL_PROGRAMM_ID \} : undefined,/, "Angebot nur mit Kasse");
   assert.match(main, /kanalKasse\.loeseFaelligeEin\(\)/, "Einlösen im Takt");
