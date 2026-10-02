@@ -89,11 +89,11 @@ test("5.6b: der Sitzungsschluessel der Reklamation oeffnet das Urteil auch nach 
 
 test("5.6b verdrahtet: Pruefer aus dem Netz, Material nur mit Zustimmung, Schluessel nur im Tresor, Urteile nur an Sitzungsschluessel", () => {
   const agent = readFileSync(new URL("../src/shell/tabs/agent.ts", import.meta.url), "utf8");
-  const wahl = agent.slice(agent.indexOf("async function waehlePruefer("), agent.indexOf("async function reklamiere("));
-  assert.match(wahl, /const kandidaten = netzPruefer\(beschuldigt\);/);
   assert.doesNotMatch(agent, /prueferKandidaten|jobsCompleted} Aufträge/, "keine globale Rangliste mehr");
   const rekl = agent.slice(agent.indexOf("async function reklamiere("), agent.indexOf("function addUsageBubble("));
-  assert.match(rekl, /const material = pruefer && frageAntwort && confirm\(/);
+  // Seit C-1f im Dialog: Prüfer nur aus dem Netz, Material nur mit Haken
+  assert.match(rekl, /const kandidaten = netzPruefer\(providerPk\);/);
+  assert.match(rekl, /const material = pruefer && frageAntwort && zustimmung \? frageAntwort : undefined;/);
   assert.match(rekl, /await merkeReklamation\(\{[\s\S]*?sitzungSk: sk,/);
   assert.match(agent, /await handleAnswer\(answer\.ev, answer\.parsed!, prompt\);/);
 

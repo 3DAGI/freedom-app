@@ -199,10 +199,15 @@ export const agent: Texte = {
   "agent.sitzung": { de: "Sitzung: {bezahlt}/{max} sats ({pct} %)", en: "session: {bezahlt}/{max} sats ({pct}%)" },
   // Reklamation
   "agent.keinPruefer": { de: "Kein Prüfer in deinem Netz – die Reklamation geht nur an den Provider. Prüfen kann ein Kontakt oder ein eigener Provider.", en: "No reviewer in your network – the complaint goes only to the provider. A contact or one of your own providers can review." },
-  "agent.werPrueft": { de: "Wer aus deinem Netz soll nachprüfen? Er bekommt die Reklamation versiegelt; sein Urteil gilt nur zwischen dir und dem Provider.\n{liste}\n  leer = nur der Provider", en: "Who in your network should review? They get the complaint sealed; their verdict applies only between you and the provider.\n{liste}\n  empty = only the provider" },
   "agent.ohneBezug": { de: "Ohne Bezug zur Antwort nicht reklamierbar", en: "Can't complain without a reference to the answer" },
-  "agent.problem": { de: "Was war das Problem?\n  1 = gar keine Antwort\n  2 = Antwort unbrauchbar\n  3 = anderes Modell als vereinbart\n  4 = mittendrin abgebrochen", en: "What was the problem?\n  1 = no answer at all\n  2 = answer unusable\n  3 = different model than agreed\n  4 = cut off midway" },
-  "agent.materialMitschicken": { de: "Frage und Antwort an {name} mitschicken? Ohne sie sieht der Prüfer nur Grund und Notiz. Der Provider bekommt sie nicht noch einmal, Relays sehen sie nicht.", en: "Send question and answer to {name}? Without them the reviewer only sees reason and note. The provider doesn't get them again, relays don't see them." },
+  // Reklamation im Dialog (C-1f)
+  "agent.reklamierenTitel": { de: "Auftrag reklamieren", en: "Complain about the job" },
+  "agent.weiter": { de: "Weiter", en: "Continue" },
+  "agent.problemFrage": { de: "Was war das Problem?", en: "What was the problem?" },
+  "agent.prueferFrage": { de: "Wer aus deinem Netz soll nachprüfen? Er bekommt die Reklamation versiegelt; sein Urteil gilt nur zwischen dir und dem Provider.", en: "Who in your network should review? They get the complaint sealed; their verdict applies only between you and the provider." },
+  "agent.nurProvider": { de: "niemand – nur der Provider", en: "nobody – only the provider" },
+  "agent.materialFrage": { de: "Frage und Antwort", en: "Question and answer" },
+  "agent.materialHaken": { de: "dem Prüfer mitschicken – ohne sie sieht er nur Grund und Notiz. Der Provider bekommt sie nicht noch einmal, Relays sehen sie nicht.", en: "send them to the reviewer – without them they only see reason and note. The provider doesn't get them again, relays don't see them." },
   "agent.beschreibung": { de: "Kurze Beschreibung (nur für Provider und Prüfer):", en: "Short description (only for provider and reviewer):" },
   "agent.reklamiert": { de: "Reklamiert. {info}", en: "Complaint filed. {info}" },
   "agent.reklamiertMit": { de: "Reklamiert – Provider und {name} benachrichtigt. {info}", en: "Complaint filed – provider and {name} notified. {info}" },
