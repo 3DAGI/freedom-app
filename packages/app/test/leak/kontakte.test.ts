@@ -2,7 +2,7 @@
  * Leak-Szenario „Kontaktliste“ (Schritt 2.5b): Die App veroeffentlicht die
  * Kontakte nur, wenn der Nutzer es einschaltet (Standard aus) – und dann als
  * NIP-51-Liste mit allen Eintraegen verschluesselt an sich selbst, so gebaut
- * wie `sichereKontakte()` in `tabs/kommunikation.ts`.
+ * wie `sichereKontakte()` in `tabs/kontakte.ts`.
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -28,7 +28,7 @@ test("Kontaktliste: nur verschluesselt, kein Kontakt und kein Name offen", async
 });
 
 test("Verdrahtung: Standard aus, nur bei Aenderung gesichert, beim Ausschalten geleert, beim Abgleich geladen", () => {
-  const kom = readFileSync(new URL("../../src/shell/tabs/kommunikation.ts", import.meta.url), "utf8");
+  const kom = ["kommunikation", "chat-anhaenge", "kontakte", "posteingang"].map((d) => readFileSync(new URL(`../../src/shell/tabs/${d}.ts`, import.meta.url), "utf8")).join("\n");
   const set = readFileSync(new URL("../../src/shell/tabs/settings.ts", import.meta.url), "utf8");
   const f = kom.slice(kom.indexOf("export async function sichereKontakte("), kom.indexOf("export async function ladeKontakte("));
   assert.match(f, /if \(!state\.signer \|\| \(!leeren && \(!kontakteSichernAn\(\) \|\| gesicherterStand === null\)\)\) return;/);

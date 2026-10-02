@@ -24,7 +24,9 @@ import { $, el, ganzeZahl, toast } from "../ui.js";
 import { bestaetige, dialog, type Option, type Werte } from "../dialog.js";
 import { TRUSTED_SIGNERS, ladeManifeste } from "../../release-signierer.js";
 import { ladeAbdeckung, nutzeStandort, trageAbdeckungEin, vergissStandort, widerrufeAbdeckung } from "./earn.js";
-import { LS_KONTAKTE_SICHERN, conversations, geraeteBuch, kontakteEinschalten, kontakteSichernAn, sichereKontakte } from "./kommunikation.js";
+import { conversations } from "./kommunikation.js";
+import { LS_KONTAKTE_SICHERN, kontakteEinschalten, kontakteSichernAn, sichereKontakte } from "./kontakte.js";
+import { geraeteBuch } from "./posteingang.js";
 import { LS_STANDARD_SCHIENE, standardSchiene } from "../../standard-schiene.js";
 
 /** Was das Zusammenfuehren (B-5) tut – vor dem Schreiben gezeigt. */
@@ -118,7 +120,7 @@ export async function richteNachfolgeEin(): Promise<void> {
       teile: splitSecret(sk, guardians.length, threshold), hash: secretHashOf(sk),
     }));
     const teilung = neueTeilung();
-    const { veroeffentlicheDm } = await import("./kommunikation.js");
+    const { veroeffentlicheDm } = await import("./posteingang.js");
     try {
       for (const [i, t] of teile.entries()) {
         const wrap = await baueAnteilUmschlag({

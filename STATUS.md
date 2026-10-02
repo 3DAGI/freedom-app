@@ -15261,3 +15261,46 @@ zählt im Diff doppelt.
 - app +2 in `test/dateigroesse.test.ts` (neu):
   - Die aufgeteilten Dateien bleiben unter 700 Zeilen.
   - Tausch und Hinterlegen kommen aus ihren eigenen Modulen.
+
+## Schritt C-5b – Große Dateien aufteilen: `kommunikation.ts`
+
+**Warum:** Sammlung C-5, je Datei ein PR (MENSCH 02.10.2026). Die Sammlung
+verlangt, das Aufteilen von `kommunikation.ts` vorher in FORTSCHRITT zu
+vermerken. Das steht dort; keine andere Spur hatte einen offenen PR an der
+Datei.
+
+**Was** (wörtlich verschoben, keine Verhaltensänderung):
+- `kommunikation.ts` (494 Zeilen, vorher 1186): Modus, Unterhaltungen,
+  Chat-Liste, Ablauf, Verlauf, Senden, neue Direktnachricht, Communities.
+- `chat-anhaenge.ts` (208): Anhänge inline, im Blob-Netz oder über Blossom,
+  Zahlungsanforderungen, Knöpfe an Anhängen.
+- `kontakte.ts` (237): private Kontaktliste (2.5b), Namen (Petnames),
+  Schlüsselwechsel der Kontakte (8.6a).
+- `posteingang.ts` (295): die Kette `oeffneUmschlag()` mit allen `als…()`,
+  Verlauf einer Direktnachricht laden, Abgleich des Posteingangs,
+  `veroeffentlicheDm()`, `geraeteBuch`.
+- **Codeänderungen:**
+  - `export` für alles, was ein anderes der vier Module braucht.
+  - `chatAttachments = []` nach dem Senden wird zu `leereAnhaenge()`. Eine
+    importierte Bindung kann nur ihr eigenes Modul neu zuweisen; die Wirkung
+    ist dieselbe.
+  - Ein Skript hat geprüft, dass sonst jede Zeile unverändert geblieben ist.
+- **Aufrufer:** `app.ts`, `settings.ts` und `sprachnachricht-ui.ts` (Spur C)
+  sowie `anruf.ts`, `wecken-ui.ts`, `mls-konto.ts`, `chat-zap.ts`,
+  `nachfolge-ui.ts` und `streitfall-ui.ts` (andere Spuren) bekamen nur einen
+  neuen Importpfad. Ebenso die Kommentare, die den Posteingang nannten
+  (`pruefauftraege-ui.ts`, `raum-mls.ts`, `nachfolge-ui.ts`).
+
+**Tests:**
+- 24 Tests lasen Code, der umgezogen ist. Wo sie den ganzen Tab meinen, lesen
+  sie jetzt alle vier Dateien. Die Kette der Umschläge (5.5c) prüft der Test
+  in `posteingang.ts`.
+- Jeder Ausschnitt zwischen zwei Funktionsnamen bleibt innerhalb einer Datei;
+  ein Skript hat das geprüft.
+- app +1: C-5b in `dateigroesse.test.ts`. Die vier Dateien stehen unter der
+  Grenze von 700 Zeilen.
+- Wo ein Test eine Liste von Dateien prüft, stehen die drei neuen Module mit
+  drin. Damit verliert keine Prüfung durch den Umzug an Reichweite:
+  - `FERTIG` (kein `innerHTML`),
+  - keine alten Relays,
+  - Texte nur über Schlüssel.

@@ -72,15 +72,15 @@ import {
 import {
   activeConversation,
   conversations,
-  handleChatFiles,
   loadChatList,
   loadChatMessages,
   newDm,
   sendChatMessage,
   setzeAblauf,
-  posteingangAbgleichen,
   wireKommunikation,
 } from "./tabs/kommunikation.js";
+import { handleChatFiles } from "./tabs/chat-anhaenge.js";
+import { posteingangAbgleichen } from "./tabs/posteingang.js";
 import { wireSpacesTab, zeigeRaumLeiste } from "./tabs/raeume.js";
 import { vergebeAbzeichen, wireProfil, zeigeAbzeichen, zeigeProfilTexte, zeigeProfilVorschau } from "./tabs/profil.js";
 import {

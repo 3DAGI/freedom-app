@@ -1,6 +1,6 @@
 /**
  * Leak-Szenario „Trinkgeld-Adresse“ (Schritt 4.9d): Anfrage und Antwort so,
- * wie `chat-zap.ts` und die Posteingang-Antwort in `kommunikation.ts` sie
+ * wie `chat-zap.ts` und die Posteingang-Antwort in `posteingang.ts` sie
  * senden – mitgeschnitten am Relay. Weder die Adresse noch Geber oder
  * Empfaenger als Autor.
  */

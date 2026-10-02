@@ -71,7 +71,7 @@ test("5.4b: Listen bleiben zehn Minuten gemerkt; ohne Liste nur der Pool; ein to
 });
 
 test("5.4b: verdrahtet – Schlüsselwechsel, Geräte-Vollmachten und Zap-Profil lesen bei den Autoren", () => {
-  const kom = readFileSync(new URL("../src/shell/tabs/kommunikation.ts", import.meta.url), "utf8");
+  const kom = ["kommunikation", "chat-anhaenge", "kontakte", "posteingang"].map((d) => readFileSync(new URL(`../src/shell/tabs/${d}.ts`, import.meta.url), "utf8")).join("\n");
   const zap = readFileSync(new URL("../src/chat-zap.ts", import.meta.url), "utf8");
   assert.match(kom, /frageBeiAutoren\(\{ kinds: \[KIND_ROTATION_MANDATE\], authors: kontakte, limit: 200 \}\)/);
   assert.match(kom, /new GeraeteBuch\(async \(f\) =>\s*Array\.isArray\(f\.authors\) \? frageBeiAutoren\(/);

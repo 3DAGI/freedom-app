@@ -79,7 +79,7 @@ test("Verdrahtet: Anfordern aus dem Zap-Dialog, Bezahlen nur an fremden Direktna
   const zap = src("../src/chat-zap.ts");
   assert.match(zap, /id="zap-anfordern"/);
   assert.match(zap, /fordereAn\(recipientPubkey, recipientName,/);
-  const komm = src("../src/shell/tabs/kommunikation.ts");
+  const komm = ["kommunikation", "chat-anhaenge", "kontakte", "posteingang"].map((d) => src(`../src/shell/tabs/${d}.ts`)).join("\n");
   assert.match(komm, /const anf = !mine && c\.type === "dm" \? leseAnforderung\(text\) : null;/);
   assert.match(komm, /bezahleAnforderung\(z\.anf, z\.von, pkShort\(z\.von\)\)/);
   const ui = src("../src/shell/anforderung-ui.ts");

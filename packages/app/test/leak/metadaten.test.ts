@@ -38,7 +38,7 @@ test("DM mit Ablauf: Umschlag nur mit Empfaenger und Ablauf, sonst nichts", asyn
 });
 
 test("Verdrahtung: Ablauf je Unterhaltung beim Senden, Ausblenden beim Laden, Bericht", () => {
-  const kom = readFileSync(new URL("../../src/shell/tabs/kommunikation.ts", import.meta.url), "utf8");
+  const kom = ["kommunikation", "chat-anhaenge", "kontakte", "posteingang"].map((d) => readFileSync(new URL(`../../src/shell/tabs/${d}.ts`, import.meta.url), "utf8")).join("\n");
   const senden = kom.slice(kom.indexOf("export async function sendChatMessage("));
   assert.match(senden, /\.\.\.\(c\.ablaufSecs \? \{ ablaufSecs: c\.ablaufSecs \} : \{\}\)/);
   const laden = kom.slice(kom.indexOf("async function ladeDmNachrichten("), kom.indexOf("async function veroeffentlicheDm("));

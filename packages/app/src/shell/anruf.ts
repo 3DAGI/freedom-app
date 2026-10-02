@@ -104,7 +104,7 @@ export async function eigenerTurnZugang(): Promise<TurnZugang | null> {
 async function sende(partner: string, n: AnrufNachricht): Promise<void> {
   // rufeAn() und nimmAn() fangen es und melden „fehler“ – der Satz erscheint nie
   if (!state.signer) throw new Error("keine Identität"); // kein UI-Text
-  const { geraeteBuch, veroeffentlicheDm } = await import("./tabs/kommunikation.js");
+  const { geraeteBuch, veroeffentlicheDm } = await import("./tabs/posteingang.js");
   const geraete = await geraeteBuch.kopienFuer(partner).catch(() => []);
   const wraps = await baueAnrufNachricht({ von: state.signer, an: [partner, ...geraete], nachricht: n });
   // Ein Anruf ist jetzt oder nie: sofort hinaus, nicht über versendeVerzoegert() (das gilt für Chat-Nachrichten)
@@ -235,7 +235,7 @@ export async function alsAnruf(w: NostrEvent): Promise<null> {
   const r = await oeffneAnrufNachricht(w, state.signer);
   if (!r) return null;
   // Für wen spricht der Absender? Ein gültiges Gerät eines Kontakts zählt als der Kontakt
-  const { geraeteBuch } = await import("./tabs/kommunikation.js");
+  const { geraeteBuch } = await import("./tabs/posteingang.js");
   const z = await geraeteBuch.zuordnen(r.von, jetzt(), () => false).catch(() => null);
   const person = z?.gueltig ? z.person : r.von;
   const n = r.nachricht;

@@ -55,7 +55,7 @@ test("Verdrahtung: Zap sendet den Beleg (Standard privat), der Chat erkennt und 
   const zap = readFileSync(new URL("../src/chat-zap.ts", import.meta.url), "utf8");
   assert.match(zap, /<input type="checkbox" id="zap-oeffentlich" \/>/, "nicht vorausgewaehlt");
   assert.match(zap, /await sendeTrinkgeldBeleg\(pool, appState\.signer!, \{\n\s+empfaenger: state\.recipientPubkey, signatur: beleg\.ref, lamports, an: ziel, kette: ketteAusRpc\(await solRpcUrl\(\)\),\n\s+\}, oeffentlich\);/);
-  const kom = readFileSync(new URL("../src/shell/tabs/kommunikation.ts", import.meta.url), "utf8");
+  const kom = ["kommunikation", "chat-anhaenge", "kontakte", "posteingang"].map((d) => readFileSync(new URL(`../src/shell/tabs/${d}.ts`, import.meta.url), "utf8")).join("\n");
   assert.match(kom, /: \(await alsTrinkgeld\(w\)\) \?\? \(await alsAdressAnfrage\(w\)\) \?\? \(await alsNachfolge\(w\)\) \?\? \(await alsPruefauftrag\(w\)\) \?\? \(await alsRaumMeldung\(w\)\) \?\? \(await alsRufZusammenfassung\(w\)\) \?\? \(await alsRechnungsAnfrage\(w\)\) \?\? \(await alsAnruf\(w\)\);/);
   assert.match(kom, /const p = await pruefeTrinkgeld\(t, ketteAusRpc\(await solRpcUrl\(\)\), solTransaktion\);/);
 });

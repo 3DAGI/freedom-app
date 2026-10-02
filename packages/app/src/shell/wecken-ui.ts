@@ -79,7 +79,7 @@ async function schalteAn(k: Kopplung): Promise<{ an: boolean; text: string }> {
       await weckerAbmelden();
       return { an: false, text: t("set.weckenEndpunkt") };
     }
-    const geraete = await (await import("./tabs/kommunikation.js")).geraeteBuch.alle(ich).catch(() => []);
+    const geraete = await (await import("./tabs/posteingang.js")).geraeteBuch.alle(ich).catch(() => []);
     const r = await anKnoten(k, { aktion: "an", endpunkt, schluessel: weckSchluesselFuer(ich, geraete) });
     if ("grund" in r) {
       await weckerAbmelden();

@@ -6,7 +6,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
-const kom = readFileSync(new URL("../src/shell/tabs/kommunikation.ts", import.meta.url), "utf8");
+// Der Kommunikations-Tab steht seit C-5b in vier Dateien
+const kom = ["kommunikation", "chat-anhaenge", "kontakte", "posteingang"].map((d) => readFileSync(new URL(`../src/shell/tabs/${d}.ts`, import.meta.url), "utf8")).join("\n");
 const konto = readFileSync(new URL("../src/shell/mls-konto.ts", import.meta.url), "utf8");
 
 test("2.2b-d1: KeyPackage erst beim Öffnen einer 1:1-Unterhaltung", () => {

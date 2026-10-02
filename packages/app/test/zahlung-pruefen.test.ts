@@ -18,7 +18,7 @@ test("5.1.3: je Antwort die Aufteilung nach A+ statt „Zahlung prüfen“ am Be
   assert.doesNotMatch(agent, /verifyFeeProof|KIND_FEE_PROOF|Zahlung prüfen/, "kein Beleg des Knotens mehr – sonst hieße es fälschlich „nicht abgeführt“");
   const state = readFileSync(new URL("../src/shell/state.ts", import.meta.url), "utf8");
   assert.match(state, /return \(await ensureRpcPool\(\)\)\.getTransaction\(signatur\);/);
-  const kom = readFileSync(new URL("../src/shell/tabs/kommunikation.ts", import.meta.url), "utf8");
+  const kom = ["kommunikation", "chat-anhaenge", "kontakte", "posteingang"].map((d) => readFileSync(new URL(`../src/shell/tabs/${d}.ts`, import.meta.url), "utf8")).join("\n");
   assert.match(kom, /pruefeTrinkgeld\(t, ketteAusRpc\(await solRpcUrl\(\)\), solTransaktion\)/);
 });
 

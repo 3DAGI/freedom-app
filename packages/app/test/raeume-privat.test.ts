@@ -8,7 +8,8 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 const quelle = (p: string) => readFileSync(new URL(p, import.meta.url), "utf8");
-const kom = quelle("../src/shell/tabs/kommunikation.ts");
+// Der Kommunikations-Tab steht seit C-5b in vier Dateien
+const kom = ["kommunikation", "chat-anhaenge", "kontakte", "posteingang"].map((d) => quelle(`../src/shell/tabs/${d}.ts`)).join("\n");
 // Der Raum-Teil steht seit C.2a wörtlich in raeume.ts
 const raeume = quelle("../src/shell/tabs/raeume.ts");
 const raum = quelle("../src/shell/raum-mls.ts");

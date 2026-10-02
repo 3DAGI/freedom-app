@@ -165,12 +165,12 @@ test("8.16b: Zahlen und Daten im Gebietsschema der Sprache; ein Sprachwechsel ze
 });
 
 test("8.16c: Kommunikation – Texte über Schlüssel; die Markierung abgelöster Unterhaltungen in beiden Sprachen erkannt", () => {
-  const kom = readFileSync(pfad(SRC, "shell/tabs/kommunikation.ts"), "utf8");
+  const kom = ["kommunikation", "chat-anhaenge", "kontakte", "posteingang"].map((d) => readFileSync(pfad(SRC, `shell/tabs/${d}.ts`), "utf8")).join("\n");
   // Die Räume (mit Uhrzeit) stehen seit C.2a in raeume.ts
   const raeume = readFileSync(pfad(SRC, "shell/tabs/raeume.ts"), "utf8");
   assert.match(raeume, /import \{ gebietsschema, t \} from "\.\.\/\.\.\/i18n\.js";/);
   assert.doesNotMatch(kom + raeume, /"de-DE"/);
-  assert.ok(offenImCode("shell/tabs/kommunikation.ts") === 0 && offenImCode("shell/tabs/raeume.ts") === 0 && offenImHtml("page-comm") === 0, "fertig: Seite und Code auf 0");
+  assert.ok(["kommunikation", "chat-anhaenge", "kontakte", "posteingang", "raeume"].every((d) => offenImCode(`shell/tabs/${d}.ts`) === 0) && offenImHtml("page-comm") === 0, "fertig: Seite und Code auf 0");
   // Die Markierung steht im gespeicherten Namen – eine Unterhaltung aus der anderen Sprache bleibt erkannt
   const marke = /^\((alter Schlüssel|old key)\) /;
   assert.match(kom, /const ALT_MARKE = \/\^\\\(\(alter Schlüssel\|old key\)\\\) \/;/);

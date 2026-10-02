@@ -49,7 +49,7 @@ function nacheinander<T>(f: () => Promise<T>): Promise<T> {
   return r;
 }
 
-/** Posteingang: gehoert ein Umschlag zur Nachfolge, einordnen (aus tabs/kommunikation.ts). */
+/** Posteingang: gehoert ein Umschlag zur Nachfolge, einordnen (aus tabs/posteingang.ts). */
 export async function alsNachfolge(w: NostrEvent): Promise<null> {
   const signer = state.signer;
   if (!signer) return null;
@@ -66,7 +66,7 @@ export async function alsNachfolge(w: NostrEvent): Promise<null> {
 }
 
 async function sende(wrap: NostrEvent, an: string): Promise<void> {
-  const { veroeffentlicheDm } = await import("./tabs/kommunikation.js");
+  const { veroeffentlicheDm } = await import("./tabs/posteingang.js");
   await veroeffentlicheDm(wrap, an);
 }
 

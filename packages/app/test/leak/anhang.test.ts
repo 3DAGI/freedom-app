@@ -46,7 +46,7 @@ test("Anhang: der Empfaenger laedt und oeffnet ihn mit dem Schluessel aus der Na
 });
 
 test("Verdrahtung: Chat-Anhang verschluesselt (Blob-Netz und Blossom), Git-Bundle verschluesselt mit oeffentlichem Schluessel", () => {
-  const kom = readFileSync(new URL("../../src/shell/tabs/kommunikation.ts", import.meta.url), "utf8");
+  const kom = ["kommunikation", "chat-anhaenge", "kontakte", "posteingang"].map((d) => readFileSync(new URL(`../../src/shell/tabs/${d}.ts`, import.meta.url), "utf8")).join("\n");
   const app = readFileSync(new URL("../../src/shell/app.ts", import.meta.url), "utf8");
   // Seit C.3a2 lädt die Seite „Repos“ Bundles hoch (vorher app.ts)
   const repos = readFileSync(new URL("../../src/shell/tabs/repos.ts", import.meta.url), "utf8");
