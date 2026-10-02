@@ -57,8 +57,10 @@ import {
   KIND_BLOB_CHUNK, KIND_BLOB_MANIFEST, KIND_DVM_BLOB_HALTEN, halteAntwortText, halteManifest,
   KIND_DVM_KNOTEN_STATUS, knotenStatusText, type KnotenStatus,
   KIND_DVM_WECKEN, leseWeckAnmeldung, weckAntwortText,
+  KIND_DVM_TURN, turnZugangText,
 } from "@freedomstack/protocol";
 import type { WeckBuch } from "./wecken.js";
+import { type TurnDienst, turnZugang } from "./turn.js";
 import type { KanalKasse } from "./kanal-kasse.js";
 import type { Connection } from "@solana/web3.js";
 import { InferenceBackend, OllamaBackend } from "./inference.js";
@@ -137,6 +139,8 @@ export interface ProviderConfig {
   status?: () => Pick<KnotenStatus, "fassung" | "seit" | "rollen" | "modelle" | "relay" | "einrichtung" | "weckSchluessel">;
   /** Anmeldungen zum Wecken (B-12a, W1 A) – ohne: keine Weck-Anmeldung. */
   weckBuch?: WeckBuch;
+  /** TURN des eigenen Knotens (B-13a, T2 A) – ohne: keine Zugänge. */
+  turn?: TurnDienst;
   /** Free-Tier (Provider-Marketing, lokal entschieden — KEIN Protokoll-Feature):
    *  Gratis-Tokens pro pubkey pro Tag. 0 = aus. Der Provider verschenkt
    *  eigene Rechenzeit als Werbung; es gibt keinen Topf und keinen Betreiber. */
@@ -213,9 +217,9 @@ export class DvmProvider {
   /** Aufträge seit dem Start, für den Status (B-11a) – nur Zahlen, nur im Speicher. */
   private zaehler = { erledigt: 0, gratis: 0, abgelehnt: 0, abgerechnetMsat: 0 };
 
-  /** Ausgang eines Auftrags zählen – Statusabfragen und Weck-Anmeldungen nicht. */
+  /** Ausgang eines Auftrags zählen – Statusabfragen, Weck-Anmeldungen und TURN-Zugänge des Besitzers nicht. */
   private zaehle(request: NostrEvent, job: ProcessedJob | null): void {
-    if (request.kind === KIND_DVM_KNOTEN_STATUS || request.kind === KIND_DVM_WECKEN) return;
+    if (request.kind === KIND_DVM_KNOTEN_STATUS || request.kind === KIND_DVM_WECKEN || request.kind === KIND_DVM_TURN) return;
     if (!job) {
       this.zaehler.abgelehnt++;
       return;
@@ -837,6 +841,40 @@ export class DvmProvider {
   }
 
   /**
+   * TURN-Zugang (5079, seit B-13a, Entscheidungen T1 A, T2 A): nur aus einem
+   * Umschlag und mit Nachweis (`istBesitzer()`), je Anfrage ein frischer
+   * Zugang nach TURN-REST (`turnZugang()`). Der Zugang reist nur versiegelt
+   * und geht nie ins Log; nach außen nur feste Texte.
+   */
+  private async handleTurn(request: NostrEvent, privat: boolean): Promise<ProcessedJob> {
+    const start = Date.now();
+    if (!privat || !istBesitzer(request, this.cfg.besitzer?.() ?? [], Math.floor(start / 1000))) throw new Error("TURN nur für den Besitzer");
+    if (!this.cfg.turn) throw new Error("kein TURN");
+    const resultEvent = signEvent(
+      buildJobResult({
+        providerPubkey: this.cfg.keypair.pk,
+        requestId: request.id,
+        requestKind: request.kind,
+        customerPubkey: request.pubkey,
+        output: turnZugangText(turnZugang(this.cfg.turn, Math.floor(start / 1000))),
+        amountMsat: 0,
+      }),
+      this.cfg.keypair.sk,
+    );
+    await this.antworte(resultEvent, request, true);
+    return {
+      requestId: request.id,
+      resultEventId: resultEvent.id,
+      customerPubkey: request.pubkey,
+      amountMsat: 0,
+      providerMsat: 0,
+      aufteilung: [],
+      outputPreview: "TURN-Zugang an den Besitzer",
+      durationMs: Date.now() - start,
+    };
+  }
+
+  /**
    * Session-Validierung (Provider-Seite, Stufe B):
    *   1. Session-Open vom Relay laden (d-Tag = sessionId, Autor = Kunde)
    *   2. Muss an UNS adressiert sein (p-Tag = eigener pubkey)
@@ -955,6 +993,8 @@ export class DvmProvider {
     if (request.kind === KIND_DVM_KNOTEN_STATUS) return this.handleKnotenStatus(request, privat);
     // Wecken anmelden (5078, B-12a): nur versiegelt und mit Nachweis
     if (request.kind === KIND_DVM_WECKEN) return this.handleWecken(request, privat);
+    // TURN-Zugang (5079, B-13a): nur versiegelt und mit Nachweis
+    if (request.kind === KIND_DVM_TURN) return this.handleTurn(request, privat);
     const input = getTag(request, "i");
     const bidMsat = Number(getTag(request, "bid") ?? "0");
     const sessionId = getTag(request, "session");
