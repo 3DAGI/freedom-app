@@ -8,14 +8,8 @@
 # Dateinamen, URLs) gehoeren NICHT hierher, sondern in escapeHtml()/ganzeZahl().
 #
 # Pruefen: python3 scripts/check_innerhtml.py packages/app/src --ausnahmen scripts/innerhtml-ausnahmen.txt --streng
-agent.ts|entries.map(([m, info]) => { const sp = speedOf(m); const short = m.split(":")[0]; const preis = ausMsat(info.priceMsat,|Callback: Template mit escapeHtml(m), escapeHtml(short) und escapeHtml(preis); übrige Werte siehe folgende Zeilen
-agent.ts|sp.cls|fester Klassenname aus speedOf()
 ui.ts|(Zuweisung) markSvg(18)|eigenes SVG mit fester Farbe
 ui.ts|(Zuweisung) markSvg(30)|eigenes SVG mit fester Farbe
-agent.ts|(Zuweisung) alle.map((v) => { const d = new Date(v.at * 1000); const gruppe = t(d.toDateString() === heute ? "agent.heute" : "agent.|Callback: Template mit escapeHtml(v.id) und escapeHtml(v.title); übrige Werte siehe folgende Zeilen
-agent.ts|kopf|Template mit dem festen Gruppennamen oder leer
-agent.ts|aktiv|fest: active oder leer
-agent.ts|(Zuweisung) tools.map((x) => `<div class="panel-row"> <span class="panel-check">${markSvgCheck()}</span> <span class="panel-name">${|Callback: Template mit escapeHtml(x.name) und Math.floor
 agent.ts|whoLabel|fest du, sonst agent plus escapeHtml(model)
 agent.ts|body|renderMarkdown(escapeHtml(text)) oder escapeHtml(text)
 agent.ts|whoLabel|agent plus escapeHtml(model)

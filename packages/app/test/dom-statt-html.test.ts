@@ -117,3 +117,26 @@ test("C-6c: Chat-Liste, Verlauf und Kanalliste als DOM – Namen, Text und Gerä
   assert.match(smoke, /erg\["chat"\] != \{"text": html\("text"\), "bild": html\("bild"\)/);
   assert.match(quelle("../../../scripts/fremdtext-probe.mts"), /const dm = await buildPrivateDm\(\{/);
 });
+
+test("C-6d1: agent.ts – Modellwahl, Verlauf, Werkzeuge, Fehler und Vorschau als DOM; Symbole nur aus der festen Tabelle", () => {
+  const agent = quelle("../src/shell/tabs/agent.ts");
+  // Modellwahl: Namen aus fremden Angeboten nur als Text und als Eigenschaft
+  assert.match(agent, /b\.dataset\.model = wert;/);
+  assert.match(agent, /kopf\.append\(el\("b", name\), tempo\);/);
+  assert.match(agent, /btn\.replaceChildren\(iconEl\(symbol, 14\), ` \$\{text\}`\);/);
+  // Verlauf, Werkzeuge, Fehler, Hinweis zum Modellwechsel, Vorschau eines Bildes
+  assert.match(agent, /b\.append\(el\("span", v\.title, "history-title"\)/);
+  assert.match(agent, /el\("span", x\.name, "panel-name"\)/);
+  assert.match(agent, /koerper\.append\(el\("b", cause\)\);/);
+  assert.match(agent, /innen\.append\(el\("b", newTier\)/);
+  assert.match(agent, /bild\.src = attachment\.dataUrl;/);
+  assert.doesNotMatch(agent, /\b(pop|btn|box|c|note|status)\.innerHTML/);
+  // Die Helfer setzen nur Symbole aus der festen Tabelle
+  assert.match(quelle("../src/icons.ts"), /export function iconEl\([^]*?vorlage\.innerHTML = icon\(name, size\);/);
+  assert.match(quelle("../src/shell/ui.ts"), /export function haekchenEl\([^]*?vorlage\.innerHTML = markSvgCheck\(\);/);
+  // Die Liste schrumpft nur – was bleibt, baut C-6d2 um (Blasen, Kosten, Schritte)
+  assert.ok(ausnahmen.filter((z) => z.startsWith("agent.ts|")).length <= 12);
+  // Im Browser: ein Angebot mit HTML im Modellnamen
+  assert.match(quelle("../../../scripts/fremdtext-probe.mts"), /signEvent\(buildCapabilities\(\{/);
+  assert.match(quelle("../../../scripts/smoke_test.py"), /if erg\["modellwahl"\] != \[html\("ki"\), 0, True, \[html\("ki"\), 0, True\]\]:/);
+});

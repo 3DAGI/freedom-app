@@ -14790,3 +14790,37 @@ Reklamation.
   Prüfer nur aus dem Netz, Material nur mit Zustimmung.
 - Ohne eigenen Browser-Test: Die Reklamation braucht eine bezahlte
   Antwort; der Smoke-Test „dialog“ prüft die Dialoge selbst.
+
+## Schritt C-6d1 – `innerHTML` abbauen: `agent.ts`, erster Teil
+
+**Warum:** Sammlung C-6. `agent.ts` war bis B-9 gesperrt und hatte mit 18
+die meisten Ausnahmen in `scripts/innerhtml-ausnahmen.txt`. Zwei Teile, damit
+jeder unter 400 Zeilen bleibt:
+- **d1:** Listen und kleine Bausteine.
+- **d2:** die Blasen der Antworten samt Markdown, die Kosten und die
+  Schritte.
+
+**Was** (als DOM über `el()`, Text nur über `textContent`):
+- **Modellwahl:** Die Karten aus den Angeboten der Provider zeigen Modellnamen
+  nur als Text und als `dataset`. Das Werkzeug-Symbol ist ein Element.
+- **Modell-Knopf:** Der Knopf mit dem gewählten Modell setzt Symbol plus Text.
+- **Liste der Aufgaben:** Der Verlauf zeigt Titel aus eigenen Fragen als Text.
+- **Rechte Spalte:** Werkzeuge und Kosten der Sitzung; Werkzeugnamen kommen
+  vom Provider.
+- **Fehler und Hinweise:** Die Fehler-Blase zeigt die Ursache als Text,
+  ebenso der Hinweis zum Modellwechsel.
+- **Bild-Vorschau:** Bei einem angehängten Bild ist `src` eine Eigenschaft.
+- **Neue Helfer:** `iconEl()` (`icons.ts`) und `haekchenEl()` (`ui.ts`)
+  machen Symbole aus der festen Tabelle zu Elementen. Nur sie setzen dafür
+  noch HTML, und nur aus `icon()`/`markSvgCheck()`.
+- **Ausnahmen:** 22 → 16 (davon `agent.ts` 18 → 12).
+
+**Tests:**
+- app +1 in `test/dom-statt-html.test.ts` (C-6d1).
+- Der Test zu B-9a (Knopf „Mein Knoten“) prüft dasselbe an der DOM-Form.
+- Smoke „fremdtext“: Die Probe trägt jetzt ein Angebot (38025) mit HTML im
+  Modellnamen und einem Werkzeug. Geprüft wird:
+  - Die Karte in der Modellwahl zeigt den Namen als Text, ohne Bild, mit
+    Werkzeug-Symbol.
+  - Nach der Wahl zeigt der Knopf denselben Text samt Symbol.
+  - Es läuft kein Skript.

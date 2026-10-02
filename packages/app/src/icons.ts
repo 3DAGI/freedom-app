@@ -60,6 +60,13 @@ export function icon(name: keyof typeof P | string, size = 16): string {
   return `<svg class="ic-svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${path}</svg>`;
 }
 
+/** Dasselbe Symbol als Element (seit C-6d) – für Code, der DOM baut statt HTML-Text. */
+export function iconEl(name: keyof typeof P | string, size = 16): SVGElement {
+  const vorlage = document.createElement("template");
+  vorlage.innerHTML = icon(name, size);
+  return vorlage.content.firstElementChild as SVGElement;
+}
+
 export function hasIcon(name: string): boolean {
   return name in P;
 }
