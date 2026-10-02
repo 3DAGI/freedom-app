@@ -346,6 +346,11 @@ async function main(): Promise<void> {
       app: appGeladen?.ok ? appGeladen.app : undefined,
     });
     await relayRole.start();
+    // Der Knoten liest und schreibt auch im eigenen Relay (B-9c, L5 A) – im Prozess, ohne WebSocket. Eine
+    // Verbindung zu sich selbst aus RELAYS ersetzt dieser Weg: ohne Anmeldung sähe sie keine Umschläge.
+    const intern = relayRole.alsRelay(keypair.pk);
+    pool.removeRelay(intern.url);
+    pool.addRelay(intern);
   } else if (process.env.APP_SHA256?.trim()) {
     console.warn("[app] nicht ausgeliefert: nur mit RELAY_ENABLED=1 – die App kommt vom Port des Relays");
   }
