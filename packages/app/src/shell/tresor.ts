@@ -7,8 +7,8 @@
  * (freedom.nsec). Mit Tresor steht er nur verschluesselt in IndexedDB;
  * localStorage merkt sich lediglich, DASS es einen Tresor gibt.
  *
- * Die Dialoge setzen nur feste Texte per innerHTML; alles Eingegebene und
- * jede Fehlermeldung laeuft ueber textContent.
+ * Die Dialoge sind DOM (seit C-6e): feste Texte, alles Eingegebene und jede
+ * Fehlermeldung laufen ueber textContent.
  */
 import { toHex } from "@freedomstack/protocol";
 import {
@@ -28,10 +28,9 @@ import {
 import { t } from "../i18n.js";
 import { fehlerText } from "../protokoll-texte.js";
 import { verschluesselungMoeglich } from "../sicherer-kontext.js";
-import { escapeHtml } from "../shell-logic.js";
 import { hinweis } from "./dialog.js";
 import { LS_BUNKER, LS_KEY, LS_MERKPHRASE } from "./state.js";
-import { $, toast } from "./ui.js";
+import { $, el, toast } from "./ui.js";
 
 /** Nur ein Merker, kein Geheimnis: Gibt es auf diesem Geraet einen Tresor? */
 export const LS_TRESOR = "freedom.vault";
@@ -90,14 +89,41 @@ export async function speichereSchluessel(hex: string): Promise<void> {
 
 // ------------------------------------------------------------- Dialoge
 
-function dialog(html: string): HTMLElement {
-  const box = document.createElement("div");
-  box.className = "modal-backdrop";
-  box.innerHTML = `<div class="modal">${html}</div>`;
+/** Feste Bausteine der Dialoge (seit C-6e als DOM, Texte über `textContent`). */
+function dialog(...teile: HTMLElement[]): HTMLElement {
+  const box = el("div", undefined, "modal-backdrop");
+  const modal = el("div", undefined, "modal");
+  modal.append(...teile);
+  box.append(modal);
   document.body.appendChild(box);
   (box.querySelector("input, textarea") as HTMLElement | null)?.focus();
   return box;
 }
+
+function mitId<E extends HTMLElement>(e: E, id: string): E {
+  e.id = id;
+  return e;
+}
+
+/** Feld für die Passphrase; der Platzhalter ist auch der Name für Vorleser (C-4). */
+function passFeld(id: string, autocomplete: "new-password" | "current-password", platzhalter: string): HTMLInputElement {
+  const f = mitId(el("input"), id);
+  f.type = "password";
+  f.autocomplete = autocomplete;
+  f.placeholder = platzhalter;
+  f.setAttribute("aria-label", platzhalter);
+  return f;
+}
+
+function knopf(id: string, text: string, klasse: "send-btn" | "ghost"): HTMLButtonElement {
+  return mitId(el("button", text, klasse), id);
+}
+
+const meldung = (): HTMLElement => {
+  const m = mitId(el("div", undefined, "mono-sm"), "tr-meldung");
+  m.classList.add("err");
+  return m;
+};
 
 function feld(box: HTMLElement, id: string): string {
   return (box.querySelector(`#${id}`) as HTMLInputElement | HTMLTextAreaElement).value;
@@ -149,18 +175,19 @@ export function richteTresorEin(grund = ""): Promise<boolean> {
     const text = grund ? `${grund}\n\n${t("ein.tresorUnsicher")}` : t("ein.tresorUnsicher");
     return hinweis(t("ein.tresorAktion"), text).then(() => false);
   }
-  const box = dialog(`
-    <h3>${escapeHtml(t("ein.tresorAktion"))}</h3>
-    <p id="tr-grund" class="mono-sm warn"></p>
-    <p class="mono-sm">${escapeHtml(t("ein.tresorErklaerung"))}</p>
-    <input id="tr-neu1" type="password" autocomplete="new-password" placeholder="${escapeHtml(t("ein.passNeu"))}" />
-    <input id="tr-neu2" type="password" autocomplete="new-password" placeholder="${escapeHtml(t("ein.nochEinmal"))}" />
-    <div id="tr-meldung" class="mono-sm err"></div>
-    <button id="tr-ok" class="send-btn">${escapeHtml(t("ein.einrichten"))}</button>
-    <button id="tr-abbruch" class="ghost">${escapeHtml(t("ein.abbrechen"))}</button>`);
-  const grundEl = box.querySelector("#tr-grund") as HTMLElement;
-  grundEl.textContent = grund;
+  const grundEl = mitId(el("p", grund, "mono-sm"), "tr-grund");
+  grundEl.classList.add("warn");
   grundEl.hidden = !grund;
+  const box = dialog(
+    el("h3", t("ein.tresorAktion")),
+    grundEl,
+    el("p", t("ein.tresorErklaerung"), "mono-sm"),
+    passFeld("tr-neu1", "new-password", t("ein.passNeu")),
+    passFeld("tr-neu2", "new-password", t("ein.nochEinmal")),
+    meldung(),
+    knopf("tr-ok", t("ein.einrichten"), "send-btn"),
+    knopf("tr-abbruch", t("ein.abbrechen"), "ghost"),
+  );
   return new Promise<boolean>((resolve) => {
     box.querySelector("#tr-abbruch")!.addEventListener("click", () => { box.remove(); resolve(false); });
     beiAbsenden(box, "tr-ok", async () => {
@@ -216,13 +243,14 @@ export async function entsperreBeimStart(): Promise<void> {
 }
 
 function entsperrDialog(): Promise<void> {
-  const box = dialog(`
-    <h3>${escapeHtml(t("ein.entsperrenTitel"))}</h3>
-    <p class="mono-sm">${escapeHtml(t("ein.liegtVerschluesselt"))}</p>
-    <input id="tr-pass" type="password" autocomplete="current-password" placeholder="${escapeHtml(t("ein.passphrase"))}" />
-    <div id="tr-meldung" class="mono-sm err"></div>
-    <button id="tr-ok" class="send-btn">${escapeHtml(t("ein.entsperren"))}</button>
-    <button id="tr-vergessen" class="ghost">${escapeHtml(t("ein.vergessen"))}</button>`);
+  const box = dialog(
+    el("h3", t("ein.entsperrenTitel")),
+    el("p", t("ein.liegtVerschluesselt"), "mono-sm"),
+    passFeld("tr-pass", "current-password", t("ein.passphrase")),
+    meldung(),
+    knopf("tr-ok", t("ein.entsperren"), "send-btn"),
+    knopf("tr-vergessen", t("ein.vergessen"), "ghost"),
+  );
   return new Promise<void>((resolve) => {
     box.querySelector("#tr-vergessen")!.addEventListener("click", () => {
       box.remove();
@@ -250,15 +278,21 @@ function entsperrDialog(): Promise<void> {
  * kommen ueber die verschluesselte Sicherung zurueck.
  */
 function neuBeginnen(): Promise<void> {
-  const box = dialog(`
-    <h3>${escapeHtml(t("ein.neuTitel"))}</h3>
-    <p class="mono-sm">${escapeHtml(t("ein.neuText"))}</p>
-    <textarea id="tr-phrase" rows="3" autocomplete="off" placeholder="${escapeHtml(t("ein.phraseOderNsec"))}"></textarea>
-    <input id="tr-neu1" type="password" autocomplete="new-password" placeholder="${escapeHtml(t("ein.passNeuNeu"))}" />
-    <input id="tr-neu2" type="password" autocomplete="new-password" placeholder="${escapeHtml(t("ein.nochEinmal"))}" />
-    <div id="tr-meldung" class="mono-sm err"></div>
-    <button id="tr-ok" class="send-btn">${escapeHtml(t("ein.neuEinrichten"))}</button>
-    <button id="tr-zurueck" class="ghost">${escapeHtml(t("ein.zurueck"))}</button>`);
+  const phrase = mitId(el("textarea"), "tr-phrase");
+  phrase.rows = 3;
+  phrase.autocomplete = "off";
+  phrase.placeholder = t("ein.phraseOderNsec");
+  phrase.setAttribute("aria-label", phrase.placeholder);
+  const box = dialog(
+    el("h3", t("ein.neuTitel")),
+    el("p", t("ein.neuText"), "mono-sm"),
+    phrase,
+    passFeld("tr-neu1", "new-password", t("ein.passNeuNeu")),
+    passFeld("tr-neu2", "new-password", t("ein.nochEinmal")),
+    meldung(),
+    knopf("tr-ok", t("ein.neuEinrichten"), "send-btn"),
+    knopf("tr-zurueck", t("ein.zurueck"), "ghost"),
+  );
   return new Promise<void>((resolve) => {
     box.querySelector("#tr-zurueck")!.addEventListener("click", () => {
       box.remove();

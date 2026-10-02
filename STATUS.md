@@ -15177,3 +15177,51 @@ der App, ehrlich im Datenschutzbericht.
   dann eines ohne Knoten (Hinweis, Anruf über den Knoten des Anrufers).
 
 Knoten-Stand: B-13a (TURN-Zugang 5079) und coturn (B-13b) für Anrufe.
+
+## Schritt C-6e – `innerHTML` abbauen: die letzten Ausnahmen
+
+**Warum:** Sammlung C-6, Rest nach C-6d2. In `scripts/innerhtml-ausnahmen.txt`
+standen noch vier Stellen: das Logo zweimal (`ui.ts`), die Tresor-Dialoge
+(`tresor.ts`) und die Seiten der Einrichtung (`einrichtung-ui.ts`). Alle vier
+setzten nur feste Texte, aber als HTML-Text mit eigener Begründung je Stelle.
+
+**Was** (als DOM, Texte über `textContent`):
+- **Logo und Häkchen:** `svgEl()` (`ui.ts`, nur für eigene Zeichen) baut
+  SVG-Elemente mit `createElementNS`/`setAttribute`. Das Favicon kommt aus
+  demselben Element über `XMLSerializer` – vorher wurde der SVG-Text mit
+  `replace("<svg ", …)` um den Namensraum ergänzt. `markSvg()` und
+  `markSvgCheck()` fallen weg.
+- **Tresor-Dialoge** (einrichten, entsperren, neu beginnen): Die IDs bleiben,
+  damit Handler und Smoke-Test unverändert greifen. Neu:
+  - Die Felder für die Passphrase und das Feld für die Merkphrase tragen ihren
+    Platzhalter auch als `aria-label`. Bisher hatten sie nur den Platzhalter;
+    nach C-4 reicht der für Vorleser nicht.
+  - `escapeHtml` fällt weg.
+- **Einrichtung:** Die Seiten bestehen aus `knopf()`, `kasten()` und `leise()`.
+  Das Aussehen bleibt gleich und kommt über `style.cssText` (CSSOM).
+  - Häkchen gibt es nur über `kasten()` – es setzt nie `checked`.
+  - Die Datenschutz-Zeilen sind Text mit `<br>` als Element.
+- **Merkphrase:** Der Rahmen des Dialogs ist jetzt auch DOM (die Wörter und
+  Felder waren es seit C-6b).
+- **Symbole:** `data-icon` wird über `iconEl()` gesetzt.
+- **Ausnahmen:** `scripts/innerhtml-ausnahmen.txt` ist leer (zu Beginn von
+  C-6 waren es 63). `app.ts`, `ui.ts`, `tresor.ts` und `einrichtung-ui.ts`
+  stehen in `FERTIG`.
+- **Was bleibt:** `innerHTML` mit festen Texten über `escapeHtml(t(…))` und
+  Symbolen aus `icon()`. Das nimmt `check_innerhtml.py` ohne Eintrag an.
+
+**Tests:**
+- app +1: C-6e in `test/dom-statt-html.test.ts`. Die Tests zu 8.1a/8.1b
+  (Häkchen nicht vorausgewählt, „später bestätigen“) und C-6b prüfen dasselbe
+  an der DOM-Form.
+- Smoke „einrichtung“ (neu; bisher lief kein Browser-Test über die Seiten nach
+  „Schutz“):
+  - Logo als SVG-Element, Favicon aus demselben Zeichen mit Namensraum.
+  - Sicherungsdialog: 12 Wörter, 3 Abfragefelder, vier Knöpfe.
+  - Tresor-Dialog aus der Einrichtung: Felder mit Namen für Vorleser,
+    „abbrechen“ führt weiter.
+  - Alle Seiten mit ihren Knöpfen und „Schritt n von 5“.
+  - „Privat“ mit Werber aus dem Werbelink: beide Häkchen aus, drei
+    Verbindungsarten.
+  - Danach steht die Wahl wie in den Settings: Schiene `solana`, Vorhaben
+    `nutzen`, Zustimmung `0`, Seite `#/agent`.

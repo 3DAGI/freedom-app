@@ -11,7 +11,7 @@ import { fromHex, toHex } from "@freedomstack/protocol";
 import { startHero } from "../hero.js";
 import { LANGS, Lang, detectLang, gespeicherteSprache, getLang, setLang, t } from "../i18n.js";
 import { fehlerText } from "../protokoll-texte.js";
-import { escapeHtml, pkShort } from "../shell-logic.js";
+import { pkShort } from "../shell-logic.js";
 import { nimmBunkerAuf, wireBunkerKarte } from "./bunker.js";
 import { wireMeinKnoten } from "./mein-knoten.js";
 import { wireKnotenHalten } from "./knoten-halten-ui.js";
@@ -193,30 +193,26 @@ async function baueSicherungsDialog(mnemonic: string): Promise<void> {
   const { createIdentity: _c, importIdentity: _i } = await import("../identity.js");
   void _c; void _i;
 
-  const box = document.createElement("div");
-  box.className = "modal-backdrop";
   const woerter = mnemonic.split(" ");
   const positionen = pickChallengePositions(woerter.length, 3);
 
-  box.innerHTML = `
-    <div class="modal">
-      <h3>${escapeHtml(t("ein.phraseTitel"))}</h3>
-      <p class="mono-sm">${escapeHtml(t("ein.phraseText"))}</p>
-      <ol class="mnemonic-list"></ol>
-      <div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0">
-        <button id="bk-copy" class="ghost" style="width:auto;padding:6px 10px">${escapeHtml(t("ein.kopieren"))}</button>
-        <button id="bk-file" class="ghost" style="width:auto;padding:6px 10px">${escapeHtml(t("ein.alsDatei"))}</button>
-      </div>
-      <p class="mono-sm">${escapeHtml(t("ein.zurBestaetigung"))}</p>
-      <div id="bk-challenge" style="display:flex;gap:6px;flex-wrap:wrap"></div>
-      <div id="bk-error" class="mono-sm err"></div>
-      <button id="bk-done" class="send-btn" style="margin-top:8px">${escapeHtml(t("ein.bestaetigen"))}</button>
-      <button id="bk-later" class="ghost" style="width:auto;padding:6px 10px;margin-top:8px">${escapeHtml(t("ein.spaeterBestaetigen"))}</button>
-      <p class="mono-sm muted">${escapeHtml(t("ein.bisBestaetigt"))}</p>
-    </div>`;
-  // Wörter und Abfragefelder als DOM (C-6b): die Merkphrase nur als Text
-  box.querySelector(".mnemonic-list")!.replaceChildren(...woerter.map((w) => el("li", w)));
-  box.querySelector("#bk-challenge")!.replaceChildren(...positionen.map((p) => {
+  // Als DOM (Rahmen seit C-6e, Wörter und Abfragefelder seit C-6b): die Merkphrase nur als Text
+  const KLEIN = "width:auto;padding:6px 10px"; // kein UI-Text
+  const knopf = (id: string, text: string, klasse: string, stil: string): HTMLButtonElement => {
+    const b = el("button", text, klasse);
+    b.id = id;
+    b.style.cssText = stil;
+    return b;
+  };
+  const liste = el("ol", undefined, "mnemonic-list");
+  liste.append(...woerter.map((w) => el("li", w)));
+  const ablage = el("div");
+  ablage.style.cssText = "display:flex;gap:6px;flex-wrap:wrap;margin:8px 0"; // kein UI-Text
+  ablage.append(knopf("bk-copy", t("ein.kopieren"), "ghost", KLEIN), knopf("bk-file", t("ein.alsDatei"), "ghost", KLEIN));
+  const abfrage = el("div");
+  abfrage.id = "bk-challenge";
+  abfrage.style.cssText = "display:flex;gap:6px;flex-wrap:wrap"; // kein UI-Text
+  abfrage.append(...positionen.map((p) => {
     const feld = el("input", undefined, "mono-sm");
     feld.dataset.pos = String(p);
     feld.style.width = "110px";
@@ -225,6 +221,21 @@ async function baueSicherungsDialog(mnemonic: string): Promise<void> {
     label.append(`${t("ein.nummer", { n: p + 1 })} `, feld);
     return label;
   }));
+  const fehler = el("div", undefined, "mono-sm");
+  fehler.id = "bk-error";
+  fehler.classList.add("err");
+  const bisBestaetigt = el("p", t("ein.bisBestaetigt"), "mono-sm");
+  bisBestaetigt.classList.add("muted");
+  const modal = el("div", undefined, "modal");
+  modal.append(
+    el("h3", t("ein.phraseTitel")), el("p", t("ein.phraseText"), "mono-sm"), liste, ablage,
+    el("p", t("ein.zurBestaetigung"), "mono-sm"), abfrage, fehler,
+    knopf("bk-done", t("ein.bestaetigen"), "send-btn", "margin-top:8px"),
+    knopf("bk-later", t("ein.spaeterBestaetigen"), "ghost", `${KLEIN};margin-top:8px`),
+    bisBestaetigt,
+  );
+  const box = el("div", undefined, "modal-backdrop");
+  box.append(modal);
   document.body.appendChild(box);
 
   return new Promise<void>((resolve) => {
@@ -677,9 +688,9 @@ function starte(): void {
   captureReferral();
   void publishReferralClaim();
   // SVG-Icons: alle [data-icon]-Elemente bekommen ihr Inline-SVG (ersetzt Emojis)
-  import("../icons.js").then(({ icon }) => {
-    document.querySelectorAll<HTMLElement>("[data-icon]").forEach((el) => {
-      el.innerHTML = icon(el.dataset.icon!);
+  import("../icons.js").then(({ iconEl }) => {
+    document.querySelectorAll<HTMLElement>("[data-icon]").forEach((x) => {
+      x.replaceChildren(iconEl(x.dataset.icon!));
     });
   });
   // Sprache (8.16): in boot() gesetzt – hier Knöpfe und Texte der Seite

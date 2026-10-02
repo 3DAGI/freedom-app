@@ -33,7 +33,7 @@ test("8.1a: Merkphrase bis zur Bestaetigung im Geheimspeicher, danach geloescht;
   const dialog = funktion("async function baueSicherungsDialog(");
   assert.match(funktion("function zeigeSicherungsDialog("), /offenerSicherungsDialog \?\?= baueSicherungsDialog\(mnemonic\)/, "nie zwei Dialoge uebereinander");
   assert.match(dialog, /markBackupConfirmed\(\);\s*\/\/[^\n]*\n\s*void geheim\.removeItem\(LS_MERKPHRASE\);/);
-  assert.match(dialog, /id="bk-later"/);
+  assert.match(dialog, /knopf\("bk-later", t\("ein\.spaeterBestaetigen"\)/);
   assert.match(funktion("async function sichereJetzt("), /const merkphrase = geheim\.getItem\(LS_MERKPHRASE\);\s*if \(merkphrase\) \{\s*await zeigeSicherungsDialog\(merkphrase\);/);
   assert.doesNotMatch(app, /localStorage\.setItem\(LS_MERKPHRASE/, "nie am Tresor vorbei");
   assert.match(tresor, /const GEHEIM_FEST = \[LS_KEY, LS_BUNKER, LS_MERKPHRASE,/, "mit Tresor verschluesselt, Notfall-Loeschung erfasst sie");
@@ -128,6 +128,10 @@ test("8.1b: Verdrahtung – neue Identitaet startet die Einrichtung, Fortsetzen 
   assert.match(ui, /kontakteSel\.dispatchEvent\(new Event\("change"\)\)/, "Kontakte ueber den Handler der Settings");
   assert.match(ui, /localStorage\.setItem\(LS_STANDARD_SCHIENE, s\);/);
   assert.match(ui, /localStorage\.setItem\(LS_WERBER_ZUSTIMMUNG, werber\.checked \? "1" : "0"\);\s*if \(werber\.checked\) nenneWerber\(\);/);
-  assert.match(ui, /<input type="checkbox" id="ein-kontakte" \/>/, "Kontakte-Abgleich nicht vorausgewaehlt");
-  assert.match(ui, /<input type="checkbox" id="ein-werber" \/>/, "Werber nicht vorausgewaehlt");
+  // Häkchen nur über kasten() – das setzt nie `checked` (seit C-6e als DOM)
+  const kasten = ui.slice(ui.indexOf("function kasten("), ui.indexOf("function leise("));
+  assert.match(kasten, /k\.type = "checkbox";/);
+  assert.doesNotMatch(kasten, /checked/);
+  assert.match(ui, /kasten\("ein-kontakte", t\("ein\.kontakteAbgleichen"\)\)/, "Kontakte-Abgleich nicht vorausgewaehlt");
+  assert.match(ui, /kasten\("ein-werber", t\("ein\.werberNennen", \{ wer: pkShort\(werber!\) \}\)\)/, "Werber nicht vorausgewaehlt");
 });

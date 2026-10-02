@@ -8,7 +8,3 @@
 # Dateinamen, URLs) gehoeren NICHT hierher, sondern in escapeHtml()/ganzeZahl().
 #
 # Pruefen: python3 scripts/check_innerhtml.py packages/app/src --ausnahmen scripts/innerhtml-ausnahmen.txt --streng
-ui.ts|(Zuweisung) markSvg(18)|eigenes SVG mit fester Farbe
-ui.ts|(Zuweisung) markSvg(30)|eigenes SVG mit fester Farbe
-tresor.ts|html|dialog() ist modulintern; alle drei Aufrufer übergeben feste Templates, deren einzige Einsetzungen escapeHtml(t(…)) sind (8.16g1); Eingaben und Meldungen laufen über textContent
-einrichtung-ui.ts|inhalt(seite)|feste Seiten der Einrichtung aus diesem Modul (8.1b); Fremddaten darin nur über escapeHtml (Werber-Schlüssel, Datenschutz-Aussagen)

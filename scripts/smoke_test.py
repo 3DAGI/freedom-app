@@ -2028,6 +2028,81 @@ def unsicher_pruefen(browser, url: str) -> dict:
     return erg
 
 
+def einrichtung_pruefen(browser, url: str) -> dict:
+    """Einrichtung beim ersten Start (8.1b), seit C-6e als DOM: Sicherungsdialog, dann jede Seite einmal –
+    Knöpfe, nie vorausgewählte Häkchen, die Wahl landet wie in den Settings. Dazu das Logo als SVG-Element,
+    das Favicon aus demselben Zeichen und die Felder des Tresor-Dialogs mit Namen für Vorleser."""
+    erg = {"fehler": []}
+    basis = url.rsplit("/", 1)[0]
+    relay = ProbeRelay()
+    ctx = browser.new_context(locale="de-DE", viewport={"width": 1280, "height": 800})
+    ctx.route("**/*", lambda r: r.continue_() if r.request.url.startswith(basis) else r.abort())
+    ctx.route_web_socket(re.compile(r"^wss?://"), relay.verbinde)
+    # Ein Werber aus dem Werbelink – nur dann zeigt „privat“ das Häkchen dafür
+    werber = "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798"
+    ctx.add_init_script(f"if (!localStorage.getItem('freedom.referrer')) localStorage.setItem('freedom.referrer', '{werber}');")
+    s = ctx.new_page()
+    s.on("pageerror", lambda e: erg["fehler"].append(str(e)[:300]))
+    ev = s.evaluate
+    s.goto(url, wait_until="load")
+    s.wait_for_selector("#bk-done", timeout=30000)
+    erg["logo"] = ev("""() => { const k = document.querySelector('#head-mark svg'), n = document.querySelector('#nav-mark svg');
+        const f = decodeURIComponent(document.querySelector('link[rel=icon]')?.href ?? '');
+        return [k?.namespaceURI ?? null, k?.childElementCount ?? 0, k?.getAttribute('width') ?? null, n?.getAttribute('width') ?? null,
+                f.startsWith('data:image/svg+xml,<svg') && f.includes('xmlns="http://www.w3.org/2000/svg"') && f.includes('#7BC80A')]; }""")
+    erg["sicherung"] = ev("() => [document.querySelectorAll('.modal .mnemonic-list li').length, document.querySelectorAll('#bk-challenge input').length,"
+                          " ['bk-copy', 'bk-file', 'bk-done', 'bk-later'].map((i) => document.getElementById(i)?.textContent ?? null)]")
+    w = ev("() => [...document.querySelectorAll('.mnemonic-list li')].map(l => l.textContent)")
+    ev("(w) => document.querySelectorAll('#bk-challenge input').forEach(i => i.value = w[+i.dataset.pos])", w)
+    ev("() => document.getElementById('bk-done').click()")
+    lies = """() => { const k = document.querySelector('#einrichtung .onboarding-card');
+        return k ? [k.dataset.seite, k.querySelector('h2')?.textContent ?? null, [...k.querySelectorAll('button')].map((b) => b.id),
+          [...k.querySelectorAll('input[type=checkbox]')].map((i) => [i.id, i.checked]),
+          [...k.querySelectorAll('#ein-netz option')].map((o) => o.value), k.querySelector('p')?.childNodes.length ?? 0,
+          k.lastElementChild.textContent] : null; }"""
+    seiten = []
+    s.wait_for_selector("#einrichtung .onboarding-card[data-seite=schutz]", timeout=15000)
+    seiten.append(ev(lies))
+    # Der Tresor-Dialog aus der Einrichtung: abbrechen führt zur nächsten Seite
+    ev("() => document.getElementById('ein-tresor').click()")
+    s.wait_for_selector("#tr-neu1", timeout=10000)
+    erg["tresor_felder"] = ev("() => ['tr-neu1', 'tr-neu2'].map((i) => [document.getElementById(i).type, document.getElementById(i).getAttribute('aria-label')])")
+    ev("() => document.getElementById('tr-abbruch').click()")
+    for seite, knopf in [("zahlen", "ein-solana"), ("privat", "ein-weiter"), ("los", "ein-nutzen")]:
+        s.wait_for_selector(f"#einrichtung .onboarding-card[data-seite={seite}]", timeout=10000)
+        seiten.append(ev(lies))
+        if seite == "privat":
+            erg["werber"] = ev("() => document.getElementById('ein-werber').parentElement.textContent")
+        ev(f"() => document.getElementById('{knopf}').click()")
+    s.wait_for_function("() => !document.getElementById('einrichtung')", timeout=10000)
+    erg["seiten"] = seiten
+    erg["danach"] = ev("() => [localStorage.getItem('freedom.standardSchiene'), localStorage.getItem('freedom.intent'),"
+                       " localStorage.getItem('freedom.referrer.zustimmung'), location.hash]")
+    ctx.close()
+    fuss = lambda nr: f"Schritt {nr} von 5 · Einrichtung überspringen"  # noqa: E731
+    if erg["logo"] != ["http://www.w3.org/2000/svg", 3, "18", "30", True]:
+        erg["fehler"].append(f"Logo {erg['logo']}")
+    if erg["sicherung"] != [12, 3, ["kopieren", "als Datei sichern", "bestätigen", "später bestätigen"]]:
+        erg["fehler"].append(f"Sicherung {erg['sicherung']}")
+    if erg["tresor_felder"] != [["password", "Passphrase (mind. 8 Zeichen)"], ["password", "noch einmal"]]:
+        erg["fehler"].append(f"Tresor-Felder {erg['tresor_felder']}")
+    erwartet = [
+        ["schutz", "Schutz", ["ein-tresor", "ein-weiter", "ein-abbrechen"], [], [], 1, fuss(2)],
+        ["zahlen", "Womit zahlst du?", ["ein-lightning", "ein-solana", "ein-abbrechen"], [], [], 1, fuss(3)],
+        ["privat", "Privat von Anfang an", ["ein-weiter", "ein-abbrechen"], [["ein-kontakte", False], ["ein-werber", False]],
+         ["klar", "tor", "mixnet"], 7, fuss(4)],
+        ["los", "Womit fängst du an?", ["ein-nutzen", "ein-kommunizieren", "ein-verdienen", "ein-abbrechen"], [], [], 1, fuss(5)],
+    ]
+    if seiten != erwartet:
+        erg["fehler"].append(f"Seiten {seiten}")
+    if "79be667e" not in erg.get("werber", "") or "öffentlich als meinen Werber nennen" not in erg.get("werber", ""):
+        erg["fehler"].append(f"Werber {erg.get('werber')}")
+    if erg["danach"] != ["solana", "nutzen", "0", "#/agent"]:
+        erg["fehler"].append(f"danach {erg['danach']}")
+    erg["bestanden"] = not erg["fehler"]
+    return erg
+
+
 def weckworker_pruefen(browser, url: str) -> dict:
     """B-12c (W3 A): freedom-sw.js lässt sich unter der CSP der App anmelden (worker-src 'self').
     Ein Push – hier mit Daten, die nie erscheinen dürfen – ergibt genau eine Meldung mit festem
@@ -3731,6 +3806,10 @@ def main() -> int:
             except Exception as e:
                 erg["lokal"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
             try:
+                erg["einrichtung"] = einrichtung_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
+            except Exception as e:
+                erg["einrichtung"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
+            try:
                 erg["mobil"] = mobil_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
             except Exception as e:
                 erg["mobil"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
@@ -3764,6 +3843,7 @@ def main() -> int:
           and erg.get("werben", {}).get("bestanden") is True
           and erg.get("unsicher", {}).get("bestanden") is True
           and erg.get("lokal", {}).get("bestanden") is True
+          and erg.get("einrichtung", {}).get("bestanden") is True
           and erg.get("weckworker", {}).get("bestanden") is True
           and erg.get("mobil", {}).get("bestanden") is True)
     erg["bestanden"] = bool(ok)
