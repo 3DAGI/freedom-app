@@ -36,6 +36,7 @@ import { fehlerText, schluesselText } from "../../protokoll-texte.js";
 import { leseAnforderung, type Anforderung } from "../../zahlungs-anforderung.js";
 import { halteBeiMeinemKnoten } from "../knoten-halten-ui.js";
 import { istAudioTyp } from "../../sprachnachricht.js";
+import { alsAnruf } from "../anruf.js";
 
 /** Zahlungsanforderungen der gezeigten Nachrichten (A-5): Id → Anforderung und Absender. */
 const anforderungen = new Map<string, { anf: Anforderung; von: string }>();
@@ -623,8 +624,9 @@ async function oeffneUmschlag(w: NostrEvent): Promise<{ partner: string; ev: DmA
         dm: r.dm,
       }
     // Keine DM: vielleicht ein SOL-Trinkgeld-Beleg (4.7b), eine Adress-Anfrage (4.9d), Nachfolge (8.11b), ein Pruefauftrag (5.6c),
-    // eine Raum-Meldung (8.5), die Zusammenfassung eines Kontakts ueber Provider (5.5c) oder eine Rechnungs-Anfrage (6.3b).
-    : (await alsTrinkgeld(w)) ?? (await alsAdressAnfrage(w)) ?? (await alsNachfolge(w)) ?? (await alsPruefauftrag(w)) ?? (await alsRaumMeldung(w)) ?? (await alsRufZusammenfassung(w)) ?? (await alsRechnungsAnfrage(w));
+    // eine Raum-Meldung (8.5), die Zusammenfassung eines Kontakts ueber Provider (5.5c), eine Rechnungs-Anfrage (6.3b)
+    // oder ein Anruf (B-13d2, erscheint nicht im Chat).
+    : (await alsTrinkgeld(w)) ?? (await alsAdressAnfrage(w)) ?? (await alsNachfolge(w)) ?? (await alsPruefauftrag(w)) ?? (await alsRaumMeldung(w)) ?? (await alsRufZusammenfassung(w)) ?? (await alsRechnungsAnfrage(w)) ?? (await alsAnruf(w));
   dmCache.set(w.id, e);
   return e;
 }

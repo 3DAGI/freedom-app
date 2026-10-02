@@ -159,7 +159,7 @@ test("5.5c: Zusammenfassungen von Kontakten heben den Ruf – eine Stimme je Kon
 });
 
 test("5.5c: verdrahtet – Empfang am Ende der Kette, Versand im Abruftakt, Zustimmung in den Settings", () => {
-  assert.match(lies("shell/tabs/kommunikation.ts"), /\?\? \(await alsRaumMeldung\(w\)\) \?\? \(await alsRufZusammenfassung\(w\)\) \?\? \(await alsRechnungsAnfrage\(w\)\);/);
+  assert.match(lies("shell/tabs/kommunikation.ts"), /\?\? \(await alsRaumMeldung\(w\)\) \?\? \(await alsRufZusammenfassung\(w\)\) \?\? \(await alsRechnungsAnfrage\(w\)\) \?\? \(await alsAnruf\(w\)\);/);
   assert.match(lies("shell/app.ts"), /abrufTakt\.melde\("ruf", \(\) => import\("\.\/ruf\.js"\)\.then\(\(r\) => r\.rufTakt\(\)\), 1\);/);
   const ruf = lies("shell/ruf.ts");
   assert.match(ruf, /signer: \(\) => \(alsGeraet\(\) \? null : state\.signer\)/, "als Gerät nicht");

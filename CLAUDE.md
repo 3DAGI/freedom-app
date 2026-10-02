@@ -45,9 +45,9 @@ bash packages/mls/bauen.sh --pruefen                     # nur bei Änderungen a
 bash contracts/solana-channel/pruefen.sh --werkzeuge     # nur bei Änderungen am Zahlkanal: bauen + Tests gegen Validator (Agave 3.1.10)
 ```
 
-Stand 01.10.2026 (nach 8.2c, 5.5a–c, 8.15, 11.1a, C.3c2, 11.1b, 5.9a–b, 6.3a–b2, 11.4a–b2, C.4a–b, C.5a–b, C.6b, 11.4c, C-18, C-17a–c, C-20a–f, C-1a–f, C-2, C-3, C-4, C-6a–d2, C-7a–b, C-8, C-10 bis C-16, 11.2a–b, A-4 bis A-7, B-1, B-2a–c, B-3 bis B-7, B-8a–c, B-9a, B-15, B-19, B-20a–c, B-10a–b, B-9b1–b2, B-9c1–c3, B-11a–c, B-12a–d, B-13a–c und B-13d1): protocol 1167 grün (6 übersprungen), node 313 grün
+Stand 01.10.2026 (nach 8.2c, 5.5a–c, 8.15, 11.1a, C.3c2, 11.1b, 5.9a–b, 6.3a–b2, 11.4a–b2, C.4a–b, C.5a–b, C.6b, 11.4c, C-18, C-17a–c, C-20a–f, C-1a–f, C-2, C-3, C-4, C-6a–d2, C-7a–b, C-8, C-10 bis C-16, 11.2a–b, A-4 bis A-7, B-1, B-2a–c, B-3 bis B-7, B-8a–c, B-9a, B-15, B-19, B-20a–c, B-10a–b, B-9b1–b2, B-9c1–c3, B-11a–c, B-12a–d, B-13a–c und B-13d1–d2): protocol 1167 grün (6 übersprungen), node 313 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 820 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 70 grün + 1 `todo` (heutige Lecks,
+in `tools.test.ts`), app 824 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 72 grün + 1 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
 Ausnahme: gesendete SOL-Zahlungen von frischen Adressen, eine bewusste Grenze
 nach Entscheidung 4.9 A – im Datenschutzbericht unter „Bewusste Grenzen“).
@@ -1080,6 +1080,18 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   zum eigenen TURN im Angebot (seit B-13d1, T3 B, Feld `turn`) nur geprüft über
   `pruefeTurnZugang()` (wie `leseTurnZugang()`) und nur im versiegelten Kern;
   Leak-Regel `anruf-nur-relay` (`regelAnrufNurRelay()`, mit den inneren Events).
+  In der App (seit B-13d2) nur über `shell/anruf.ts`: Verbindung nur mit
+  `iceTransportPolicy: "relay"` und `iceServerAus()`, hinaus nur
+  `nurRelaySdp()`/`sendbarerKandidat()` (`anruf-ablauf.ts`), gesendet nur über
+  `baueAnrufNachricht()` an Person und Geräte, an deren Posteingang
+  (`veroeffentlicheDm()`, nicht verzögert – ein Anruf ist jetzt). Anrufen nur
+  mit eigenem Vermittler (`eigenerTurnZugang()`, 5079), dessen Zugang im
+  Angebot mitreist; annehmen mit dem eigenen, sonst dem aus dem Angebot
+  (`waehleVermittler()`, dann `fremderVermittler`). Nur Kontakte; Fremden
+  nie eine Antwort, auch nicht „besetzt“. Empfangen über `alsAnruf()` am Ende
+  der Kette in `oeffneUmschlag()`, während eines Anrufs zusätzlich über ein Abo
+  an den eigenen Schlüssel – nur so lange wie der Anruf. Der Zustand nur über
+  `naechsterZustand()` (Fristen `KLINGELN_SEK`, `VERBINDEN_SEK`).
 - **App vom Knoten nur mit Prüfsumme** (seit B-10a, `node/src/app-auslieferung.ts`):
   Die Relay-Rolle liefert freedom.html nur als Ergebnis von `ladeApp()` aus –
   die Summe gibt der Betreiber vor (`APP_SHA256`), nie aus der Datei
