@@ -28,6 +28,7 @@ import { DvmProvider, DEFAULT_PROVIDER_CONFIG } from "./dvm-provider.js";
 import { kanalKasseAusUmgebung, kanalOrte } from "./kanal-kasse.js";
 import { type Befund, befundeText, holeJson, kettenBlick, pruefeEinrichtung } from "./einrichtung.js";
 import { WECKEN_KONTAKT, WECKEN_TAKT_MS, WeckBuch, WeckDienst, ladeVapid, vapidDatei, weckDatei } from "./wecken.js";
+import { turnAusUmgebung } from "./turn.js";
 import { kopplungsDatei, leseKopplung } from "./kopplung-datei.js";
 import { torAusUmgebung, torWebSocket } from "./tor.js";
 import { OllamaBackend } from "./inference.js";
@@ -191,10 +192,15 @@ async function main(): Promise<void> {
   const vapid = ladeVapid(vapidDatei());
   if (!vapid) console.warn("[wecken] vapid.json nicht lesbar – kein Weckdienst");
   const weckBuch = vapid ? new WeckBuch(weckDatei()) : undefined;
+  // TURN des eigenen Knotens (B-13a, T2 A): coturn läuft als eigener Dienst, der Knoten vergibt nur Zugänge
+  const { dienst: turn, grund: turnGrund } = turnAusUmgebung(process.env);
+  console.log(turn ? `[turn] Zugänge für den Besitzer an (${turn.urls.length} Adresse(n), je ${turn.gueltigSek} s)` : `[turn] ${turnGrund}`);
+  if (turn) statusRollen.add("turn");
   const provider = new DvmProvider(
     {
       keypair,
       weckBuch,
+      turn,
       lud16,
       werber,
       besitzer: () => { const k = leseKopplung(kopplungOrt, keypair.pk); return k ? [k.geheimnis] : []; },

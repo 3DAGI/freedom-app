@@ -14350,3 +14350,68 @@ Endstand (B-12b, 02.10.): protocol 1159 (6 übersprungen) · node 304 (+7, 7
 + 1 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 ·
 Website ok · Smoke-Test bestanden. Knoten-Stand: für das Wecken nötig (B-12b);
 geweckt wird erst, wenn die App anmeldet (B-12c/d, wartet auf W3).
+
+## Schritt B-13a – Anrufe: TURN-Zugang beim eigenen Knoten
+
+Sammlung B-13 („Anrufe“), Entscheidungen T1 A und T2 A, erster Teil. Anrufe
+sollen nur über einen Vermittler (TURN) auf dem eigenen Knoten laufen – das
+Gegenüber sieht nie die IP. Den Vermittler stellt coturn als eigener Dienst
+(keine npm-Abhängigkeit); der Knoten vergibt nur kurzlebige Zugänge.
+
+**Protokoll** (`turn-zugang.ts`, Kind 5079, `docs/PROTOCOL.md` 26):
+- `baueTurnAnfrage()`: nur versiegelt vom Sitzungsschlüssel an den gekoppelten
+  Knoten, mit Besitzer-Nachweis, ohne Gebot.
+- `leseTurnZugang()` liest die Antwort (6079) streng:
+  - 1–4 Adressen `turn:`/`turns:` (`istTurnUrl()`);
+  - Nutzer `Ablauf:Zufall`, Passwort base64(HMAC-SHA1), 28 Zeichen;
+  - Ablauf gleich dem im Nutzernamen, in der Zukunft, höchstens einen Tag
+    entfernt.
+- Status: neue Rolle `turn`. Unbekannte Rollen bleiben jetzt unbeachtet –
+  bisher machte jede neue Rolle den Status für ältere Apps unlesbar.
+
+**Knoten** (`turn.ts`, `dvm-provider.ts`, `main.ts`):
+- `turnAusUmgebung()`: `TURN_URLS` (1–4), `TURN_SECRET` ab 32 Zeichen,
+  `TURN_GUELTIG_SEK` (60 bis 86400, Standard 3600) – nie halb. Ein Geheimnis
+  ohne Adresse ist ein Fehler, keine Wahl.
+- `turnZugang()`: je Anfrage ein frischer Zugang nach TURN-REST, so wie coturn
+  ihn mit `use-auth-secret` prüft.
+- `handleTurn()`: nur aus einem Umschlag mit `istBesitzer()`, versiegelt. Nach
+  außen nur feste Texte; der Zugang nie ins Log. Zählt nicht als Auftrag.
+- Die Rolle `turn` meldet der Knoten nur mit gültiger Umgebung.
+
+**Neue Frage T3** (Sammlung, Abschnitt 5): Wer angerufen wird und keinen eigenen
+Knoten hat, hat keinen eigenen Vermittler. Vorschlag B: Die Anruferin gibt einen
+kurzlebigen Zugang zu ihrem TURN mit, mit ehrlichem Hinweis vor dem Annehmen.
+
+**Ein unsicherer Test behoben:** Zwei Tests (`turn-zugang.test.ts` neu,
+`knoten-status.test.ts` aus B-11a) suchten die Nummer des Kinds („5079“,
+„5077“) im Text des Umschlags. In den Hex-Feldern steht sie gelegentlich
+zufällig; ein voller Lauf schlug so einmal an. Sie prüfen jetzt die Struktur
+(`wrap.tags` nur `p`) – ein neuer Fallstrick in CLAUDE.md. Danach lief der Test
+achtmal hintereinander grün.
+
+**Tests:**
+- protocol +2 (`turn-zugang.test.ts`): Anfrage versiegelt mit Nachweis; Zugang
+  nur in der Form von TURN-REST, mit 18 kaputten Fällen, abgelaufen und mehr als
+  ein Tag. In `knoten-status.test.ts` bleibt eine unbekannte Rolle unbeachtet.
+- node +5 (`turn.test.ts`):
+  - Umgebung nie halb;
+  - Zugang wie coturn ihn prüft, je Anfrage neu;
+  - der Besitzer bekommt ihn versiegelt, nie im Log, nicht als Auftrag gezählt,
+    der Status nennt `turn`;
+  - ohne Nachweis, mit fremdem Geheimnis oder ohne TURN kein Zugang;
+  - Verdrahtung in `main.ts`.
+
+**Verdrahtet:**
+- `packages/node/src/main.ts`: `turnAusUmgebung(process.env)` →
+  `DvmProvider({ turn })`, `statusRollen.add("turn")`.
+- `packages/node/src/dvm-provider.ts`: `handleJob()` → `handleTurn()`.
+- Die App folgt mit B-13d. Bis dahin stehen `baueTurnAnfrage` und
+  `leseTurnZugang` mit Begründung in `scripts/wiring-ausnahmen.txt`.
+
+Endstand (B-13a, 02.10.): protocol 1161 (+2, 6 übersprungen) · node 309 (+5,
+7 übersprungen ohne Netz – mit Netz 310) · app 784 · mls 13 · Leak-Tests 70
+grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 (zwei Ausnahmen bis
+B-13d) · innerHTML streng Exit 0 · Website ok · Smoke-Test bestanden.
+Knoten-Stand: für TURN-Zugänge nötig (B-13a), dazu coturn (B-13b) und
+`TURN_URLS`/`TURN_SECRET`; sonst unverändert.

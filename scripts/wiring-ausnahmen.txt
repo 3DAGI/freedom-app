@@ -223,3 +223,5 @@ mesh-sync.ts|offlineCapabilities|deutsche Referenz; die App bildet die Liste sei
 spaces.ts|privacyInfo|deutsche Referenz; die App bildet die Rauminfo seit C.2b2 in protokoll-texte.ts (kanalVertraulichkeit) nach, ein Test hält sie wortgleich
 wecken.ts|baueWeckAnmeldung|Push-Adresse beim eigenen Knoten anmelden – der Knoten nimmt sie seit B-12a an, die App meldet ab B-12d an (Haken „Wecken“)
 wecken.ts|leseWeckAntwort|Antwort auf die Weck-Anmeldung lesen – die App zeigt sie ab B-12d
+turn-zugang.ts|baueTurnAnfrage|Zugang zum TURN des eigenen Knotens anfragen – der Knoten vergibt ihn seit B-13a, die App fragt ab B-13d (Anruf)
+turn-zugang.ts|leseTurnZugang|Antwort mit dem TURN-Zugang lesen – die App nutzt sie ab B-13d (RTCPeerConnection, nur „relay“)

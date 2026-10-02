@@ -110,6 +110,7 @@ Bestehende Kinds sind reserviert und semantisch eingefroren:
 | **5076** | Blob beim eigenen Knoten halten – nur versiegelt, nur mit Besitzer-Nachweis (§23) |
 | **5077** | Status des eigenen Knotens – nur versiegelt, nur mit Besitzer-Nachweis, nur lesen (§24) |
 | **5078** | Wecken: Push-Adresse beim eigenen Knoten an- oder abmelden – nur versiegelt, nur mit Besitzer-Nachweis (§25) |
+| **5079** | Zugang zum TURN des eigenen Knotens – nur versiegelt, nur mit Besitzer-Nachweis (§26) |
 
 ### Freedom-spezifisch (38xxx)
 | Kind | Bedeutung |
@@ -635,7 +636,7 @@ Aufträge.
 |---|---|
 | `fassung` | Fassung des Knotens, 1–32 Zeichen `0-9A-Za-z.+-` |
 | `seit` | Start des Prozesses, Unix-Sekunden |
-| `rollen` | gestartete Rollen aus `ki`, `relay`, `speicher`, `gateway`, `zahlkanal`, `lnurl`, `lp`, `relayer`, `tor`, `app` |
+| `rollen` | gestartete Rollen aus `ki`, `relay`, `speicher`, `gateway`, `zahlkanal`, `lnurl`, `lp`, `relayer`, `tor`, `app`, `turn` (seit B-13a); unbekannte Kennungen (Kleinbuchstaben) bleiben unbeachtet |
 | `modelle` | angebotene Modelle, höchstens 50 Namen zu je höchstens 100 Zeichen, ohne Steuerzeichen |
 | `auftraege` | `erledigt`, davon `gratis`, und `abgelehnt` seit dem Start |
 | `abgerechnetMsat` | seit dem Start in Antworten verlangt (nicht unbedingt schon bezahlt) |
@@ -682,3 +683,28 @@ mit `Authorization: vapid t=<ES256-Token>, k=<weckSchluessel>` (RFC 8292, `aud`
 `Topic: freedom` – kein Inhalt, kein Absender. Neu heißt: nach Kennung noch nicht
 gesehen (Umschläge sind bis zu zwei Tage zurückdatiert, NIP-59); höchstens
 ein Weckruf je Adresse und Minute.
+
+## 26. Zugang zum TURN des eigenen Knotens (Kind 5079, seit B-13a)
+
+Entscheidungen T1 A und T2 A: Anrufe laufen nur über einen Vermittler (TURN,
+RFC 8656) auf dem eigenen Knoten – das Gegenüber sieht nie die IP. Den
+Vermittler stellt coturn als eigener Dienst; der Knoten vergibt nur zeitlich
+begrenzte Zugänge nach TURN-REST.
+
+**Kern** (DVM-Anfrage, nur versiegelt vom Sitzungsschlüssel an den gekoppelten
+Knoten, `baueTurnAnfrage()`): `i` = `turn`, `bid` = 0, `p` = Schlüssel des
+Knotens, `besitzer` = Nachweis nach §21. Der Knoten antwortet nur aus einem
+Umschlag mit gültigem Nachweis; Zugänge zählen nicht als Aufträge.
+
+**Antwort** (6079, versiegelt an den Sitzungsschlüssel), gelesen nur mit
+`leseTurnZugang()`:
+
+| Feld | Inhalt |
+|---|---|
+| `urls` | 1–4 Adressen `turn:`/`turns:host[:port][?transport=udp|tcp]` (RFC 7065) |
+| `nutzer` | `<Ablauf>:<Zufall>` – Ablauf in Unix-Sekunden, Zufall 8–64 Zeichen base64url |
+| `passwort` | base64(HMAC-SHA1(`TURN_SECRET`, `nutzer`)), 28 Zeichen – so prüft coturn mit `use-auth-secret` |
+| `bis` | Ablauf, gleich der Zahl im Nutzernamen; in der Zukunft, höchstens einen Tag entfernt |
+
+Der Zugang ist ein Geheimnis: nur versiegelt, nie offen, nie im Log, nicht
+über seinen Ablauf hinaus gemerkt.

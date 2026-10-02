@@ -192,6 +192,23 @@ im eigenen Prozess, eine Verbindung zu sich selbst in `RELAYS` ersetzt er. An
 seinem Relay meldet sich die App mit dem Schlüssel der jeweiligen Anfrage an,
 nur so bekommt sie die versiegelte Antwort.
 
+## Anrufe über den eigenen Knoten (B-13, im Aufbau)
+
+Anrufe laufen nur über einen Vermittler (TURN) auf deinem Knoten – dein
+Gegenüber sieht nie deine IP. Den Vermittler stellt coturn als eigener Dienst;
+der Knoten vergibt dafür nur kurzlebige Zugänge an deine Geräte.
+
+- **coturn:** mit `use-auth-secret` und `static-auth-secret=<Geheimnis>`. Die
+  Einrichtung über Installer und Docker kommt mit B-13b.
+- **Umgebung des Knotens:**
+  - `TURN_SECRET`: dasselbe Geheimnis, mindestens 32 Zeichen;
+  - `TURN_URLS`: z. B. `turns:knoten.example.org:5349?transport=tcp,turn:knoten.example.org:3478`;
+  - optional `TURN_GUELTIG_SEK` (Standard 3600, höchstens 86400).
+- **Nie halb:** Fehlt eines davon oder ist es ungültig, vergibt der Knoten keine
+  Zugänge. Im Log steht `[turn] …`.
+- **Wer einen Zugang bekommt:** nur gekoppelte Geräte des Besitzers, versiegelt.
+  Der Zugang steht nie im Log.
+
 ## Was die Kette zeigt
 
 Dein Knoten hat **eine** SOL-Adresse: Alle Zahlkanäle an ihn und seine
