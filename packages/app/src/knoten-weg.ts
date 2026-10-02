@@ -9,7 +9,8 @@
  * eigener Ursprung – aber nur, wenn NIP-11 dort den Schlüssel des Knotens nennt.
  * Sonst aus der NIP-65-Liste, die der Knoten signiert (Kind 10002).
  */
-import { KIND_RELAY_LIST, isPlausibleRelayUrl, type NostrEvent } from "@freedomstack/protocol";
+import { KIND_RELAY_LIST, isPlausibleRelayUrl, normalizeRelayUrl, type NostrEvent } from "@freedomstack/protocol";
+import { pruefeRelayEingabe, taugtFuerSatz } from "./relay-satz.js";
 
 /** Haken „Alles über meinen Knoten“ – nur „1“ heißt an. Eine Einstellung, kein Geheimnis. */
 export const LS_NUR_KNOTEN = "freedom.knoten.nurUeber";
@@ -38,4 +39,22 @@ export function ursprungAlsKnotenRelay(ort: { protocol: string; host: string }, 
   if (ort.protocol !== "http:" && ort.protocol !== "https:") return null;
   if (typeof info !== "object" || info === null || (info as { pubkey?: unknown }).pubkey !== knoten) return null;
   return `${ort.protocol === "https:" ? "wss" : "ws"}://${ort.host}`;
+}
+
+/**
+ * Relay meines Knotens in den eigenen Satz (Sammlung B-9c3, Entscheidung L7 A):
+ * angehängt, die übrigen bleiben – Kontakte erreichen einen dann auch dort.
+ * Geprüft wie eine Eingabe in Settings → Relays (`taugtFuerSatz()`, dann
+ * `pruefeRelayEingabe()` für den ganzen Satz): Ein `ws://` im Heimnetz taugt
+ * nicht, dort erreicht ihn kein Kontakt. Ohne eigenen Satz nichts – der Knoten
+ * wäre sonst der einzige Posteingang.
+ */
+export function satzMitKnotenRelay(
+  eigene: readonly string[], url: string,
+): { relays: string[] } | { fall: "kein-satz" | "schon" | "untauglich" } | { fehler: string } {
+  if (eigene.length === 0) return { fall: "kein-satz" };
+  const u = normalizeRelayUrl(url);
+  if (eigene.some((e) => normalizeRelayUrl(e) === u)) return { fall: "schon" };
+  if (!taugtFuerSatz(u)) return { fall: "untauglich" };
+  return pruefeRelayEingabe([...eigene, u].join("\n"));
 }

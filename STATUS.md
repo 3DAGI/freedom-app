@@ -14879,3 +14879,36 @@ Spur B hat alles gebaut, was ohne Entscheidung geht (bis B-13c, #263). Offen
 sind nur noch Punkte nach den Entscheidungen W3 (B-12c/d), T3 (B-13d) und
 L7 (B-9c3). Plan, Stand, MENSCH-Aufgaben und Arbeitsweise stehen in
 `docs/ausbau/UEBERGABE-SPUR-B.md`. Kein Code geändert.
+
+## Schritt B-9c3 – Relay meines Knotens übernehmen
+
+**Warum:** B-9 versprach „Alles über meinen Knoten (KI, Speicher, Relays)“.
+KI und Halten gehen seit B-9c2 mit Haken nur über sein Relay; offen war, was
+„Relays“ heißt. Entscheidung L7 A (MENSCH, 02.10.): ein Knopf, der sein Relay
+in den eigenen Satz übernimmt – Kontakte erreichen einen dann auch dort, die
+übrigen Relays bleiben. Am selben Tag entschieden: W3 A (B-12c/d) und T3 B
+(B-13d), eingetragen in der Sammlung.
+
+**Was:**
+- `satzMitKnotenRelay()` (`knoten-weg.ts`, ohne DOM): hängt das Relay an den
+  eigenen Satz an. Nicht, wenn es schon drinsteht (nach Normalform), wenn es
+  nicht taugt (Heimnetz-`ws://`, unverschlüsselt außer .onion) oder wenn es
+  noch keinen eigenen Satz gibt – sonst wäre der Knoten der einzige
+  Posteingang. Der ganze Satz läuft danach durch `pruefeRelayEingabe()`
+  (höchstens acht).
+- `taugtFuerSatz()` (`relay-satz.ts`): die Regel je Adresse aus
+  `pruefeRelayEingabe()` als eigene Funktion – dort unverändert genutzt.
+- Settings → Geräte → „Mein Knoten“: Knopf „Relay meines Knotens übernehmen“,
+  nur gekoppelt sichtbar, als Gerät gesperrt (der Satz gehört der Person).
+  Adresse über `knotenRelay()`; kommt die App im Heimnetz vom Knoten (B-10),
+  taugt der Ursprung nicht – dann seine NIP-65-Liste. Nach Rückfrage (sie sagt
+  ehrlich: wer die Listen liest, kann vermuten, dass der Knoten einem gehört)
+  nur über `setzeEigeneRelays()`: NIP-65 und Posteingang veröffentlicht, erst
+  dann gemerkt; danach in den Pool, das Feld in Settings → Relays zieht nach.
+
+**Tests:** app +2 in `test/knoten-weg.test.ts` (Anhängen und alle
+Negativfälle; Reihenfolge Gerät → Rückfrage → Veröffentlichen → Pool, kein
+`setItem`/`publish` daneben, Sichtbarkeit, Texte in beiden Sprachen).
+Smoke „einstellungen“ (Mein Knoten): Der Knopf ist nur gekoppelt sichtbar; ohne
+bekanntes Relay des Knotens steht die Meldung da, es kommt keine Rückfrage, und
+es geht keine Liste hinaus. Knoten-Stand: unverändert.
