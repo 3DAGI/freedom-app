@@ -14475,6 +14475,53 @@ Website ok · Smoke-Test bestanden. Knoten-Stand: unverändert; für Anrufe auf 
 GX10 den Installer erneut mit `TURN_NAME` laufen lassen (MENSCH, mit
 `turnutils_uclient` prüfen).
 
+## Schritt B-13c – Anrufe: Aufbau im versiegelten Umschlag
+
+Sammlung B-13, Entscheidungen T1 A und T2 A, dritter Teil. Das Format, mit dem
+sich zwei Apps zu einem Anruf (WebRTC) verabreden – ohne dass eine Adresse
+hinausgeht.
+
+**Protokoll** (`anruf.ts`, innen Kind 25040, `docs/PROTOCOL.md` 27):
+- `baueAnrufNachricht()`: Angebot (mit `medien`, Ton immer, Video optional),
+  Antwort, Kandidat und Ende (mit Grund).
+  - Je Empfänger ein Umschlag: Person und Geräte, höchstens 20, doppelte nur
+    einmal.
+  - Offen nur `p` und `expiration` (fünf Minuten, NIP-40), kein Zeitversatz – ein
+    Anruf ist jetzt oder nie.
+- **Nur Relay:** Im SDP und in Kandidaten stehen nur Kandidaten vom Typ `relay`
+  (`pruefeSdpNurRelay()`, `istRelayKandidat()`). Host-, srflx-, prflx- und
+  mDNS-Kandidaten verrieten dem Gegenüber die eigene Adresse – sie gehen nie
+  hinaus und werden nie gelesen, auch nicht über eine eingeschmuggelte zweite
+  Zeile.
+- **DTLS-Fingerabdruck SHA-256** ist Pflicht in Angebot und Antwort. Er bindet
+  die verschlüsselten Medien an den Absender des Siegels – mit B-4 prüfbar.
+- `oeffneAnrufNachricht()` nimmt nur Nachrichten an diesen Schlüssel an: nicht
+  älter als fünf Minuten, nicht aus der Zukunft, mit passender Kennung im Tag.
+- `neueAnrufKennung()`: 16 Byte Zufall.
+
+**Sammlung:** B-11 steht jetzt auf `fertig` (nur lesen), B-9 auf „wartet auf
+L7“.
+
+**Tests:** protocol +3 (`anruf.test.ts`):
+- Angebot an Person und Gerät: je ein Umschlag, offen nur Empfänger und Ablauf,
+  ohne Zeitversatz; nur der Empfänger öffnet; älter als fünf Minuten oder aus
+  der Zukunft gilt nicht. Antwort, Kandidat und Ende hin und zurück.
+- Host, srflx, prflx, mDNS und TCP-Host gehen nie hinaus. Ohne SHA-256-
+  Fingerabdruck auch nicht, zu lang nicht, eine zweite Zeile im Kandidaten
+  nicht; dazu ungültige Medien, Gründe und Kennungen.
+- Was ein anderer Client versiegelt, liest die App nur nach den Regeln: kein
+  Host-Kandidat, Kennung passend, Empfänger im Kern, richtiges Kind.
+
+**Verdrahtet:** noch nicht – die App ruft an ab B-13d (wartet auf T3). Bis dahin
+stehen `baueAnrufNachricht`, `oeffneAnrufNachricht` und `neueAnrufKennung` mit
+Begründung in `scripts/wiring-ausnahmen.txt`.
+
+Endstand (B-13c, 02.10.): protocol 1164 (+3, 6 übersprungen) · node 312 (7
+übersprungen ohne Netz – mit Netz 313) · app 784 · mls 13 · Leak-Tests 70 grün
++ 1 todo · 0 rot · check-wiring `--streng` Exit 0 (drei Ausnahmen bis B-13d) ·
+innerHTML streng Exit 0 · Website ok · Smoke-Test bestanden. Knoten-Stand:
+unverändert.
+
 ## Schritt C-13 – Räume, Rest aus dem Entwurf C.2
 
 **Warum:** Was der Entwurf C.2 (`phase-10.md`, „Räume“) vorsah und C.2a–d
