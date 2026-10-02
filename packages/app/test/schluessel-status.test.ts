@@ -44,7 +44,7 @@ test("8.6a: Gedaechtnis streng lesen", () => {
 });
 
 test("8.6a: verdrahtet – Widerruf prueft Eingaben und Mandat, Chat wertet Widerrufe aus", () => {
-  const settings = readFileSync(new URL("../src/shell/tabs/settings.ts", import.meta.url), "utf8");
+  const settings = ["settings", "sicherung", "mesh"].map((d) => readFileSync(new URL(`../src/shell/tabs/${d}.ts`, import.meta.url), "utf8")).join("\n");
   const f = settings.slice(settings.indexOf("async function widerrufeSchluessel("), settings.indexOf("/** Geraete anzeigen. */"));
   assert.match(f, /if \(!\/\^\[0-9a-f\]\{64\}\$\/\.test\(ersatzHex\)\)/, "Hex vor fromHex pruefen");
   assert.ok(f.indexOf("test(ersatzHex)") < f.indexOf("fromHex(ersatzHex)"));

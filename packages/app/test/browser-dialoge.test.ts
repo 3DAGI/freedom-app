@@ -138,7 +138,7 @@ test("C-1c: öffentlicher Schlüssel aus einer Eingabe – npub (auch „nostr:�
 });
 
 test("C-1c: Settings fragen nur über Dialoge – Vertraute als Häkchen, Ersatzschlüssel verdeckt, Löschen & Co. mit Gefahr", () => {
-  const st = readFileSync(join(SRC, "shell/tabs/settings.ts"), "utf8");
+  const st = ["settings", "sicherung", "mesh"].map((d) => readFileSync(join(SRC, `shell/tabs/${d}.ts`), "utf8")).join("\n");
   assert.doesNotMatch(ohneKommentare(st), BROWSER_DIALOG);
   const funktion = (name: string) => { const a = st.indexOf(name); return st.slice(a, st.indexOf("\n}\n", a)); };
   // Nachfolge: Kontakte als Häkchen, weitere Schlüssel als Text, unter drei meldet sich der Dialog – erst danach die Warnung

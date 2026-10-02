@@ -13,6 +13,7 @@ const GRENZE = 700;
 const AUFGETEILT = [
   "shell/tabs/waehrung.ts", "shell/tabs/tausch.ts", "shell/tabs/hinterlegen.ts",
   "shell/tabs/kommunikation.ts", "shell/tabs/chat-anhaenge.ts", "shell/tabs/kontakte.ts", "shell/tabs/posteingang.ts",
+  "shell/tabs/settings.ts", "shell/tabs/sicherung.ts", "shell/tabs/mesh.ts",
 ];
 
 test("C-5: aufgeteilte Dateien bleiben unter 700 Zeilen", () => {
@@ -54,3 +55,17 @@ test("C-5b: Anhänge, Kontakte und Posteingang aus ihren eigenen Modulen; der Ch
   assert.match(lies("shell/mls-konto.ts"), /\(await import\("\.\/tabs\/posteingang\.js"\)\)\.geraeteBuch/);
   assert.match(lies("shell/app.ts"), /import \{ posteingangAbgleichen \} from "\.\/tabs\/posteingang\.js";/);
 });
+
+test("C-5c: Sicherung, Geräte und Mesh aus ihren eigenen Modulen; die Settings bleiben Stand, Nachfolge, Gebühren, Echtheit und Relays", () => {
+  const settings = lies("shell/tabs/settings.ts");
+  for (const fn of ["zeigeSicherung", "zeigeGeraete", "wireSicherheitsKnoepfe", "wireMeshTab", "sendeUeberFunk", "funkGeraetVerbunden"]) {
+    assert.doesNotMatch(settings, new RegExp(`function ${fn}\\(`), `${fn} steht nicht mehr in settings.ts`);
+  }
+  for (const fn of ["zeigeNachfolge", "aktualisiereSicherheitsStand", "pruefeEigeneEchtheit", "wireGebuehrenKarte"]) assert.match(settings, new RegExp(`^export (async )?function ${fn}\\(`, "m"));
+  assert.match(lies("shell/tabs/sicherung.ts"), /^export async function zeigeGeraete\(/m);
+  assert.match(lies("shell/tabs/mesh.ts"), /^export async function sendeUeberFunk\(/m);
+  // Aufrufer holen den Funk aus dem Mesh-Modul
+  assert.match(lies("shell/tabs/agent.ts"), /import \{ funkGeraetVerbunden, sendeUeberFunk \} from "\.\/mesh\.js";/);
+  assert.match(lies("shell/offline-zahlung.ts"), /await import\("\.\/tabs\/mesh\.js"\)/);
+});
+

@@ -111,7 +111,7 @@ test("7.4c2: Antwort aus dem Funk – Rückmeldung lässt offen, Ergebnis schlie
 
 test("7.4c2 verdrahtet: Antwort aus dem Funk vor dem Weiterverteilen, nur Zahlkanal oder gratis, Gateway im Tresor", () => {
   const lies = (pfad: string) => readFileSync(new URL(`../src/${pfad}`, import.meta.url), "utf8");
-  const settings = lies("shell/tabs/settings.ts");
+  const settings = ["settings", "sicherung", "mesh"].map((d) => lies(`shell/tabs/${d}.ts`)).join("\n");
   assert.match(settings, /const ev = meshToEvent\(payload\);[\s\S]{0,200}if \(await nimmFunkAntwort\(ev as [^\n]*?\)\) return;[\s\S]{0,300}await pool\.publish\(ev as never\)/, "zuerst die Funk-Antwort, dann erst ins Netz");
   assert.match(lies("shell/app.ts"), /setupEmptyState\(\);[\s\S]{0,80}setupFunkAntworten\(\);/);
 
@@ -150,5 +150,5 @@ test("7.4c3 verdrahtet: Gateway wählen auf der Seite Netz, „über Funk“ im 
   assert.match(frage, /await sendeKiUeberFunk\(prompt, gebot, \(w\) => sendeUeberFunk\(eventToMesh\(w\), MeshKind\.NostrEvent, t\("agent\.funkLabel"\), MeshPriority\.Nachricht\)\);/);
   assert.doesNotMatch(frage, /pendingContextSummary|kontextPraefix/, "kein Verlauf als Kontext – jedes Byte kostet Sendezeit");
   assert.ok(frage.indexOf("if (!funkGeraetVerbunden())") < frage.indexOf("await sendeKiUeberFunk("), "erst das Gerät, dann Gutschrift und Auftrag");
-  assert.match(lies("shell/tabs/settings.ts"), /meshNode\.enqueue\(payload, kind, vorrang \?\? MeshPriority\.Zahlung, label\);/);
+  assert.match(["settings", "sicherung", "mesh"].map((d) => lies(`shell/tabs/${d}.ts`)).join("\n"), /meshNode\.enqueue\(payload, kind, vorrang \?\? MeshPriority\.Zahlung, label\);/);
 });

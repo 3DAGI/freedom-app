@@ -190,7 +190,7 @@ test("5.4b2: Satz ändern – erst beide Listen veröffentlichen, dann merken; s
 });
 
 test("5.4b2: verdrahtet – Karte in den Settings, als Gerät nur lesbar, neue Relays gleich in den Pool", () => {
-  const settings = readFileSync(new URL("../src/shell/tabs/settings.ts", import.meta.url), "utf8");
+  const settings = ["settings", "sicherung", "mesh"].map((d) => readFileSync(new URL(`../src/shell/tabs/${d}.ts`, import.meta.url), "utf8")).join("\n");
   const html = readFileSync(new URL("../src/shell/index.html", import.meta.url), "utf8");
   assert.match(html, /id="eigene-relays"/);
   const f = settings.slice(settings.indexOf("function wireRelayKarte("));

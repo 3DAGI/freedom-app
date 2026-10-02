@@ -14,7 +14,7 @@ function dateien(dir: URL): string[] {
   });
 }
 const app = dateien(new URL("../src/", import.meta.url)).join("\n");
-const settings = readFileSync(new URL("../src/shell/tabs/settings.ts", import.meta.url), "utf8");
+const settings = ["settings", "sicherung", "mesh"].map((d) => readFileSync(new URL(`../src/shell/tabs/${d}.ts`, import.meta.url), "utf8")).join("\n");
 const tresor = readFileSync(new URL("../src/shell/tresor.ts", import.meta.url), "utf8");
 
 function funktion(text: string, kopf: string): string {

@@ -15304,3 +15304,31 @@ Datei.
   - `FERTIG` (kein `innerHTML`),
   - keine alten Relays,
   - Texte nur über Schlüssel.
+
+## Schritt C-5c – Große Dateien aufteilen: `settings.ts`
+
+**Warum:** Sammlung C-5, je Datei ein PR (MENSCH 02.10.2026).
+
+**Was** (wörtlich verschoben, keine Verhaltensänderung):
+- `settings.ts` (477 Zeilen, vorher 1274): Sicherheitsstand, Nachfolge,
+  Weitergeben und Echtheitsprüfung, Gebühren-Karte, Relays.
+- `sicherung.ts` (449): verschlüsselte Sicherung des Zustands, Datenexport,
+  Schlüsselwechsel und Widerruf, Geräte mit Vollmacht, Meldung für andere.
+- `mesh.ts` (379): Mesh-Knoten, Warteschlange, SOL-Zahlungen ohne Internet
+  einreichen, `sendeUeberFunk()`, `funkGeraetVerbunden()`.
+- **Einzige Codeänderung:** `export` für Querverweise. Ein Skript hat geprüft,
+  dass sonst jede Zeile unverändert ist; keine Bindung wird über Modulgrenzen
+  neu zugewiesen.
+- **Aufrufer:** `app.ts`, `agent.ts` (Funk) und `offline-zahlung.ts` bekamen
+  nur einen neuen Importpfad.
+
+**Tests:**
+- 17 Tests und ein Leak-Test lasen umgezogenen Code. Wo sie die Settings
+  meinen, lesen sie jetzt alle drei Dateien.
+- Tests, die Dateien aufzählen, nennen die neuen Module mit:
+  - „QR mit dem Gerätecode nur geheim“ – der Dialog steht jetzt in
+    `sicherung.ts`; ohne den Eintrag hätte die Prüfung ihn still nicht mehr
+    gesehen;
+  - Texte nur über Schlüssel;
+  - `FERTIG` (kein `innerHTML`).
+- app +1: C-5c in `dateigroesse.test.ts`.

@@ -29,7 +29,7 @@ test("Kontaktliste: nur verschluesselt, kein Kontakt und kein Name offen", async
 
 test("Verdrahtung: Standard aus, nur bei Aenderung gesichert, beim Ausschalten geleert, beim Abgleich geladen", () => {
   const kom = ["kommunikation", "chat-anhaenge", "kontakte", "posteingang"].map((d) => readFileSync(new URL(`../../src/shell/tabs/${d}.ts`, import.meta.url), "utf8")).join("\n");
-  const set = readFileSync(new URL("../../src/shell/tabs/settings.ts", import.meta.url), "utf8");
+  const set = ["settings", "sicherung", "mesh"].map((d) => readFileSync(new URL(`../../src/shell/tabs/${d}.ts`, import.meta.url), "utf8")).join("\n");
   const f = kom.slice(kom.indexOf("export async function sichereKontakte("), kom.indexOf("export async function ladeKontakte("));
   assert.match(f, /if \(!state\.signer \|\| \(!leeren && \(!kontakteSichernAn\(\) \|\| gesicherterStand === null\)\)\) return;/);
   assert.match(f, /if \(stand === gesicherterStand\) return;/);

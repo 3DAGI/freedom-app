@@ -90,13 +90,10 @@ import {
   pruefeFixierungBeimStart,
   richteNachfolgeEin,
   wireGebuehrenKarte,
-  wireMeshTab,
-  wireSicherheitsKnoepfe,
-  zeigeGeraete,
-  zeigeMeshWeg,
   zeigeNachfolge,
-  zeigeSicherung,
 } from "./tabs/settings.js";
+import { wireSicherheitsKnoepfe, zeigeGeraete, zeigeSicherung } from "./tabs/sicherung.js";
+import { wireMeshTab, zeigeMeshWeg } from "./tabs/mesh.js";
 import {
   connectNwc,
   connectSolana,
