@@ -66,7 +66,8 @@ import { katalogRangJetzt, zeigeModelle } from "./agent-netz.js";
 import { GRUND_TEXT, PRUEFER_ART, type Pruefer } from "../../streitfall.js";
 import { merkeReklamation, netzPruefer, stelleZu } from "../streitfall-ui.js";
 import { zeigeMitwirkende } from "./earn.js";
-import { funkGeraetVerbunden, sendeUeberFunk, zeigeNachfolge } from "./settings.js";
+import { zeigeNachfolge } from "./settings.js";
+import { funkGeraetVerbunden, sendeUeberFunk } from "./mesh.js";
 
 /** Modell des zuletzt genutzten Providers (fuer die anzeige). */
 let lastProviderModel: string | null = null;

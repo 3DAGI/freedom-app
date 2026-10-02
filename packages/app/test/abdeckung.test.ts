@@ -25,7 +25,7 @@ test("5.10a verdrahtet: Eintrag nie mit der Identitaet, Schluessel nur im Tresor
   assert.match(aus, /await geheim\.removeItem\(LS_ABDECKUNG_EINTRAG\);/);
   assert.doesNotMatch(earn, /localStorage\.setItem\(LS_ABDECKUNG_EINTRAG/);
 
-  const settings = readFileSync(new URL("../src/shell/tabs/settings.ts", import.meta.url), "utf8");
+  const settings = ["settings", "sicherung", "mesh"].map((d) => readFileSync(new URL(`../src/shell/tabs/${d}.ts`, import.meta.url), "utf8")).join("\n");
   assert.match(settings, /leave\.onclick = \(\) => void widerrufeAbdeckung\(\);/);
   const html = readFileSync(new URL("../src/shell/index.html", import.meta.url), "utf8");
   assert.match(html, /id="coverage-leave"/);

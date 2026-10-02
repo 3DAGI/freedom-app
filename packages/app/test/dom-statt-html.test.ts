@@ -14,7 +14,7 @@ const ausnahmen = quelle("../../../scripts/innerhtml-ausnahmen.txt").split("\n")
 
 /** Ohne innerHTML gebaut (C-6a) – die Liste wächst mit jedem Teilschritt. */
 const FERTIG = [
-  "shell/tabs/agent-netz.ts", "shell/tabs/earn.ts", "shell/tabs/profil.ts", "shell/tabs/settings.ts", "shell/state.ts",
+  "shell/tabs/agent-netz.ts", "shell/tabs/earn.ts", "shell/tabs/profil.ts", "shell/tabs/settings.ts", "shell/tabs/sicherung.ts", "shell/tabs/mesh.ts", "shell/state.ts",
   "shell/tabs/kommunikation.ts", "shell/tabs/chat-anhaenge.ts", "shell/tabs/kontakte.ts", "shell/tabs/posteingang.ts", "shell/tabs/raeume.ts", "shell/tabs/agent.ts",
   "shell/app.ts", "shell/ui.ts", "shell/tresor.ts", "shell/einrichtung-ui.ts",
 ];
@@ -69,7 +69,7 @@ test("C-6a: der Smoke-Test schiebt HTML durch die umgebauten Ansichten", () => {
 });
 
 test("C-6b: Settings und RPC-Stand – Gerätenamen, Fehler der Anbieter und Prüfsumme als Text", () => {
-  const settings = quelle("../src/shell/tabs/settings.ts");
+  const settings = ["settings", "sicherung", "mesh"].map((d) => quelle(`../src/shell/tabs/${d}.ts`)).join("\n");
   assert.match(settings, /zeile\.append\(el\("span", x\.label\), stand\);/);
   assert.match(settings, /knopf\.dataset\.pk = x\.devicePubkey;/);
   assert.match(settings, /el\("span", hash, "mono-sm"\)/);

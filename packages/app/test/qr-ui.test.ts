@@ -45,12 +45,12 @@ test("Gerätecode: nur auf Klick, Warnung vorher, nach 60 s weg, nie gespeichert
   assert.ok(knopf.indexOf("qrSvg(") > knopf.indexOf('zeigen.addEventListener("click"'), "Bild erst nach dem Klick");
   assert.match(knopf, /if \(o\.geheim\) \{\s*hinweis\.textContent = t\("qr\.verschwindet", \{ s: QR_SICHTBAR_MS \/ 1000 \}\);\s*uhr = setTimeout\(verbirg, QR_SICHTBAR_MS\);/);
   // Settings: der Code nur als geheimer QR, der Schlüssel vorher genullt, kein prompt() mehr
-  const settings = src("../src/shell/tabs/settings.ts");
+  const settings = ["settings", "sicherung", "mesh"].map((d) => src(`../src/shell/tabs/${d}.ts`)).join("\n");
   const hinzu = settings.slice(settings.indexOf("async function fuegeGeraetHinzu("), settings.indexOf("async function entzieheGeraet("));
   assert.doesNotMatch(hinzu, /prompt\(|confirm\(|alert\(/);
   assert.ok(hinzu.indexOf("geraet.sk.fill(0);") < hinzu.indexOf("await dialog({\n      titel: t(\"set.geraetCodeTitel\""), "Schlüssel genullt, bevor der Code gezeigt wird");
   // Überall: ein QR mit dem Gerätecode nur geheim
-  for (const datei of ["../src/shell/tabs/settings.ts", "../src/shell/tabs/earn.ts", "../src/shell/app.ts"]) {
+  for (const datei of ["../src/shell/tabs/settings.ts", "../src/shell/tabs/sicherung.ts", "../src/shell/tabs/mesh.ts", "../src/shell/tabs/earn.ts", "../src/shell/app.ts"]) {
     for (const m of src(datei).matchAll(/art: "qr"[^}]*\}/g)) assert.match(m[0], /geheim: true/, datei);
   }
 });

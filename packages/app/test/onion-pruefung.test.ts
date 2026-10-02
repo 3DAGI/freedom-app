@@ -87,7 +87,7 @@ test("6.2 verdrahtet: Bericht rechnet nur bei erreichbarem .onion-Relay mit Tor,
   assert.match(readFileSync(new URL("../src/datenschutz-bericht.ts", import.meta.url), "utf8"), /const facts = faktenDieserSitzung\(tor\);/);
   assert.match(ds, /pruefeOnion\(kandidaten, \(u\) => new WebSocket\(u\)\)/);
   assert.doesNotMatch(ds, /das kann die App nicht prüfen\./, "der alte Pauschalsatz ist weg");
-  const settings = readFileSync(new URL("../src/shell/tabs/settings.ts", import.meta.url), "utf8");
+  const settings = ["settings", "sicherung", "mesh"].map((d) => readFileSync(new URL(`../src/shell/tabs/${d}.ts`, import.meta.url), "utf8")).join("\n");
   assert.match(settings, /pruefen\.onclick = \(\) => void zeigeDatenschutz\(true\);/);
   assert.match(settings, /localStorage\.setItem\(LS_ONION_PRUEFRELAY, url\)/);
   // Nur in Bedienelementen (Verbindung, Pruef-Relay, erneut pruefen) – nicht mehr beim Start in wireMeshTab().

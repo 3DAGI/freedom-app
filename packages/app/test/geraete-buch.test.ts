@@ -119,6 +119,6 @@ test("8.6b: Verdrahtung – der Chat liest fuer die eigenen Geraete, ordnet zu u
   assert.match(kom, /await ordneDmZu\(r\.dm, ich, geraeteBuch, .*, selbst\)/);
   assert.match(kom, /weitereEmpfaenger: \[\.\.\.ihre!, \.\.\.meine!, ich\],/);
   assert.match(kom, /geraeteBuch\.kopienFuer\(pk\)/);
-  const settings = readFileSync(new URL("../src/shell/tabs/settings.ts", import.meta.url), "utf8");
+  const settings = ["settings", "sicherung", "mesh"].map((d) => readFileSync(new URL(`../src/shell/tabs/${d}.ts`, import.meta.url), "utf8")).join("\n");
   assert.equal(settings.match(/geraeteBuch\.vergiss\(state\.keypair\.pk\)/g)?.length, 2, "nach Ausstellen und Entziehen");
 });

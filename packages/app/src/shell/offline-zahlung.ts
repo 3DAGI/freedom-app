@@ -86,7 +86,7 @@ async function zahlen(): Promise<void> {
   try {
     const { zahleSolOffline } = await import("./zahlschienen.js");
     const roh = await zahleSolOffline(an, lamports);
-    const { sendeUeberFunk } = await import("./tabs/settings.js");
+    const { sendeUeberFunk } = await import("./tabs/mesh.js");
     if (await sendeUeberFunk(roh, MeshKind.SolanaTx, t("waehr.funkName"))) {
       toast(t("waehr.anFunkGegeben", { betrag: solText(lamports) }));
     } else {

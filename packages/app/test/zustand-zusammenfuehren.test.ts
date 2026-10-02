@@ -67,7 +67,7 @@ test("B-5: Einzelwerte wie bisher aus der Sicherung; Unlesbares fällt auf die S
 });
 
 test("B-5: verdrahtet – Wiederherstellen und Einlesen führen zusammen, erst nach Rückfrage", () => {
-  const s = readFileSync(new URL("../src/shell/tabs/settings.ts", import.meta.url), "utf8");
+  const s = ["settings", "sicherung", "mesh"].map((d) => readFileSync(new URL(`../src/shell/tabs/${d}.ts`, import.meta.url), "utf8")).join("\n");
   const wieder = s.slice(s.indexOf("async function stelleZustandWieder("), s.indexOf("async function stelleZustandWieder(") + 2500);
   assert.match(wieder, /const \{ werte, bericht \} = fuehreZusammen\(daten, \(k\) => \(istGeheimnis\(k\) \? geheim\.getItem\(k\) : localStorage\.getItem\(k\)\)\);/);
   assert.ok(wieder.indexOf("await bestaetige(") < wieder.indexOf("for (const [k, v] of Object.entries(werte))"), "erst fragen, dann schreiben");

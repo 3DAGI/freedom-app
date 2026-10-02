@@ -88,7 +88,7 @@ test("B-6: verdrahtet – Knöpfe in der Sicherung, Passphrase verdeckt, eingele
   assert.match(html, /<button id="export-datei" [^>]*data-i18n="set\.exportDatei">/);
   assert.match(html, /<button id="export-einlesen" [^>]*data-i18n="set\.exportEinlesen">/);
   assert.match(html, /<input type="file" id="export-file" accept="\.json,application\/json" style="display:none" \/>/);
-  const s = lies("shell/tabs/settings.ts");
+  const s = ["settings", "sicherung", "mesh"].map((d) => lies(`shell/tabs/${d}.ts`)).join("\n");
   assert.match(s, /if \(ex\) ex\.onclick = \(\) => void exportiereDaten\(\);/);
   assert.match(s, /const daten = waehleExport\(alle, \(k\) => \(istGeheimnis\(k\) \? geheim\.getItem\(k\) : localStorage\.getItem\(k\)\)\);/, "jeder Wert aus seinem Speicher");
   const einlesen = s.slice(s.indexOf("async function leseExportDatei("), s.indexOf("async function leseExportDatei(") + 1500);

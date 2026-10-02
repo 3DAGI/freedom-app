@@ -284,7 +284,7 @@ test("8.16e: Agent-Rest, Währung, Zahlwege und Swaps – über Schlüssel; Text
 });
 
 test("8.16f: Earn, Profil, Settings – über Schlüssel; Sätze des Protokolls auf Deutsch wortgleich, auf Englisch übersetzt", async () => {
-  for (const d of ["shell/tabs/earn.ts", "shell/tabs/profil.ts", "shell/tabs/repos.ts", "shell/tabs/settings.ts", "repo-ansicht.ts", "protokoll-texte.ts"]) {
+  for (const d of ["shell/tabs/earn.ts", "shell/tabs/profil.ts", "shell/tabs/repos.ts", "shell/tabs/settings.ts", "shell/tabs/sicherung.ts", "shell/tabs/mesh.ts", "repo-ansicht.ts", "protokoll-texte.ts"]) {
     assert.equal(offenImCode(d), 0, `${d} fertig`);
     assert.doesNotMatch(readFileSync(pfad(SRC, d), "utf8"), /"de-DE"/, d);
   }

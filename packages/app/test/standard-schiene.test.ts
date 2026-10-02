@@ -24,7 +24,7 @@ test("Standard-Schiene: ohne Einstellung Lightning, sonst die gewaehlte; Unfug z
 });
 
 test("Verdrahtung: Einstellung in den Settings, Vorgabe im Zap-Dialog, Einheit folgt der Schiene", () => {
-  const set = readFileSync(new URL("../src/shell/tabs/settings.ts", import.meta.url), "utf8");
+  const set = ["settings", "sicherung", "mesh"].map((d) => readFileSync(new URL(`../src/shell/tabs/${d}.ts`, import.meta.url), "utf8")).join("\n");
   assert.match(set, /schiene\.value = standardSchiene\(\);/);
   assert.match(set, /localStorage\.setItem\(LS_STANDARD_SCHIENE, schiene\.value === "solana" \? "solana" : "lightning"\)/);
   const zap = readFileSync(new URL("../src/chat-zap.ts", import.meta.url), "utf8");
