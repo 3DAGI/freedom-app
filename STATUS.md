@@ -14872,3 +14872,10 @@ sauber war – eine Ausnahme je Stelle in `scripts/innerhtml-ausnahmen.txt`.
   - Das HTML steht als Text im Absatz.
   - Der Kopf zeigt „ts“, die Stücke sind gefärbt.
   - Der Kopier-Knopf meldet „kopiert“, in der Zwischenablage steht der rohe Code.
+
+## Übergabe Spur B – 02.10.2026
+
+Spur B hat alles gebaut, was ohne Entscheidung geht (bis B-13c, #263). Offen
+sind nur noch Punkte nach den Entscheidungen W3 (B-12c/d), T3 (B-13d) und
+L7 (B-9c3). Plan, Stand, MENSCH-Aufgaben und Arbeitsweise stehen in
+`docs/ausbau/UEBERGABE-SPUR-B.md`. Kein Code geändert.
