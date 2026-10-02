@@ -450,6 +450,19 @@ export class RelayRole {
    * Die Adresse ist die oeffentliche, damit der Pool eine Verbindung zu sich
    * selbst durch diesen Weg ersetzt (ohne Anmeldung saehe sie keine Umschlaege).
    */
+  /**
+   * Welche Umschläge (1059) an diese Schlüssel hier liegen (B-12b, Weckdienst)
+   * – nur für den Knoten im eigenen Prozess, für die Schlüssel, die sein
+   * Besitzer zum Wecken gemeldet hat. Geliefert werden Kennung, Zeit und
+   * Empfänger, nie der Inhalt.
+   */
+  umschlaegeAn(schluessel: readonly string[], seit: number): { id: string; created_at: number; an: string[] }[] {
+    if (schluessel.length === 0) return [];
+    const gesucht = new Set(schluessel);
+    return this.gespeichert([{ kinds: [1059], "#p": [...gesucht], since: seit }], { angemeldet: gesucht })
+      .map((ev) => ({ id: ev.id, created_at: ev.created_at, an: ev.tags.filter((t) => t[0] === "p" && gesucht.has(t[1] ?? "")).map((t) => t[1]!) }));
+  }
+
   alsRelay(ich: string): Relay {
     const angemeldet = new Set([ich]);
     return {

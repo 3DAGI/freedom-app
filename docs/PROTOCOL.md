@@ -674,3 +674,11 @@ Kern, nie offen und nie im Log des Knotens.
 "schluessel": n}` – wie viele Schlüssel der Knoten für diese Adresse beobachtet,
 nach dem Abmelden 0 (`leseWeckAntwort()`). Den öffentlichen VAPID-Schlüssel nennt
 der Status (§24, `weckSchluessel`); ohne ihn kann die App kein Abo anlegen.
+
+**Wecken** (seit B-12b): Liegt ein neuer Umschlag an einen gemeldeten Schlüssel,
+schickt der Knoten an die passende Push-Adresse eine leere Nachricht (RFC 8030)
+mit `Authorization: vapid t=<ES256-Token>, k=<weckSchluessel>` (RFC 8292, `aud`
+= Ursprung der Adresse, 12 Stunden gültig), `TTL: 3600`, `Urgency: high` und
+`Topic: freedom` – kein Inhalt, kein Absender. Neu heißt: nach Kennung noch nicht
+gesehen (Umschläge sind bis zu zwei Tage zurückdatiert, NIP-59); höchstens
+ein Weckruf je Adresse und Minute.

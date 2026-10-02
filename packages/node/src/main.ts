@@ -27,7 +27,7 @@ import {
 import { DvmProvider, DEFAULT_PROVIDER_CONFIG } from "./dvm-provider.js";
 import { kanalKasseAusUmgebung, kanalOrte } from "./kanal-kasse.js";
 import { type Befund, befundeText, holeJson, kettenBlick, pruefeEinrichtung } from "./einrichtung.js";
-import { WeckBuch, ladeVapid, vapidDatei, weckDatei } from "./wecken.js";
+import { WECKEN_KONTAKT, WECKEN_TAKT_MS, WeckBuch, WeckDienst, ladeVapid, vapidDatei, weckDatei } from "./wecken.js";
 import { kopplungsDatei, leseKopplung } from "./kopplung-datei.js";
 import { torAusUmgebung, torWebSocket } from "./tor.js";
 import { OllamaBackend } from "./inference.js";
@@ -383,6 +383,25 @@ async function main(): Promise<void> {
     pool.addRelay(intern);
   } else if (process.env.APP_SHA256?.trim()) {
     console.warn("[app] nicht ausgeliefert: nur mit RELAY_ENABLED=1 – die App kommt vom Port des Relays");
+  }
+
+  // Wecken (B-12b, W1 A): Umschläge an die gemeldeten Schlüssel → leere Push-Nachricht an den Browser des Besitzers.
+  // Gesucht wird im eigenen Relay und – außer mit WECKEN_RELAYS=eigen – in den Relays des Pools (die sehen dann,
+  // dass der Knoten nach Umschlägen an diese Schlüssel fragt). Die Push-Adressen nie ins Log.
+  if (vapid && weckBuch) {
+    const nurEigen = process.env.WECKEN_RELAYS === "eigen";
+    const kontakt = /^(mailto:[^\s@]+@[^\s@]+\.[^\s@]+|https:\/\/[^\s]+)$/.test(process.env.WECKEN_KONTAKT ?? "") ? process.env.WECKEN_KONTAKT! : WECKEN_KONTAKT;
+    const weckDienst = new WeckDienst({
+      buch: weckBuch, vapid, kontakt,
+      abfrage: async (schluessel, seit) => {
+        const eigen = relayRole?.umschlaegeAn(schluessel, seit) ?? [];
+        if (nurEigen) return eigen;
+        const netz = await pool.query({ kinds: [1059], "#p": schluessel, since: seit, limit: 500 }).catch(() => []);
+        return [...eigen, ...netz.map((ev) => ({ id: ev.id, created_at: ev.created_at, an: ev.tags.filter((t) => t[0] === "p" && schluessel.includes(t[1] ?? "")).map((t) => t[1]!) }))];
+      },
+    });
+    setInterval(() => void weckDienst.pruefe().catch((e) => console.warn(`[wecken] ${(e as Error).name}`)), WECKEN_TAKT_MS);
+    console.log(`[wecken] an – ${weckBuch.alle().length} Push-Adresse(n), gesucht ${nurEigen ? "nur im eigenen Relay" : "im eigenen Relay und in den Relays des Pools"}`);
   }
 
   // Funk-Gateway (optional, 7.4b2): FUNK_GATEWAY=host:port – TCP-Brücke zum

@@ -14302,6 +14302,55 @@ grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 (zwei Ausnahmen bis
 B-12d) · innerHTML streng Exit 0 · Website ok · Smoke-Test bestanden.
 Knoten-Stand: für Weck-Anmeldungen nötig (B-12a); sonst unverändert.
 
+## Schritt B-12b – Weckdienst: der Knoten weckt
+
+Sammlung B-12, Entscheidungen W1 A und W2 A, zweiter Teil. Seit B-12a nimmt
+der Knoten Push-Adressen und Schlüssel seines Besitzers an; jetzt weckt er.
+
+**Knoten** (`wecken.ts`, `relay-role.ts`, `main.ts`):
+- `WeckDienst.pruefe()` läuft alle 30 s (`WECKEN_TAKT_MS`) und sucht Umschläge
+  (1059) an die gemeldeten Schlüssel:
+  - im eigenen Relay über `RelayRole.umschlaegeAn()` – nur Kennung, Zeit und
+    Empfänger, nie der Inhalt; `alsRelay()` bleibt beim Schlüssel des Knotens;
+  - außer mit `WECKEN_RELAYS=eigen` auch in den Relays des Pools.
+- **Neu nach Kennung, nicht nach Zeit:** Umschläge sind bis zu zwei Tage
+  zurückdatiert (NIP-59), also gilt ein Fenster von zwei Tagen und eine Stunde,
+  dazu die gemerkten Kennungen. Was schon lag, als ein Schlüssel dazukam (auch
+  beim Start), weckt nie.
+- **Die Nachricht ist leer:** VAPID-Kopf (`vapidKopf()`, ES256 über
+  `node:crypto`, `aud` = Ursprung der Adresse, 12 h), `TTL: 3600`,
+  `Urgency: high`, `Topic: freedom` – wartende Weckrufe ersetzen sich.
+- **Senden:** `sendePush()` erst nach `checkUrlSafe()` (kein privates Ziel),
+  ohne Weiterleitung, 10 s Zeit.
+- **Gebremst:** je Adresse höchstens einmal je Minute.
+- **Abgelaufen:** 404 oder 410 → `vergiss()`.
+- **Fehler** einer Adresse halten die anderen nicht auf.
+- **Ins Log** nie Adresse oder Meldung, nur der Fehlername bzw. der HTTP-Status.
+- `WECKEN_KONTAKT` ersetzt den Kontakt im Token (Standard: die Projektseite).
+
+**Tests:** node +7 (`wecken-dienst.test.ts`):
+- VAPID-Kopf mit dem öffentlichen Schlüssel prüfbar, Token-Inhalt und
+  Kopfzeilen fest;
+- neue Post weckt genau die passende Adresse, einmal, auch zurückdatiert; was
+  schon da war, nicht;
+- Bremse je Adresse; später gemeldete Schlüssel beginnen mit Grundstand; ohne
+  Anmeldung keine Abfrage;
+- 410 vergessen, Fehler halten die andere Adresse nicht auf, das Log ohne
+  Adresse;
+- `sendePush` nie an private Ziele;
+- `umschlaegeAn()` ohne Inhalt, über den Pool weiter nicht sichtbar;
+- Verdrahtung in `main.ts`.
+
+**Verdrahtet:** `packages/node/src/main.ts`: `new WeckDienst({ buch, vapid,
+abfrage: relayRole?.umschlaegeAn + pool.query })` → `setInterval(…pruefe(),
+WECKEN_TAKT_MS)`, nur mit Schlüssel und Buch, nach dem Start des Relays.
+
+Endstand (B-12b, 02.10.): protocol 1159 (6 übersprungen) · node 304 (+7, 7
+übersprungen ohne Netz – mit Netz 305) · app 784 · mls 13 · Leak-Tests 70 grün
++ 1 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 ·
+Website ok · Smoke-Test bestanden. Knoten-Stand: für das Wecken nötig (B-12b);
+geweckt wird erst, wenn die App anmeldet (B-12c/d, wartet auf W3).
+
 ## Schritt C-13 – Räume, Rest aus dem Entwurf C.2
 
 **Warum:** Was der Entwurf C.2 (`phase-10.md`, „Räume“) vorsah und C.2a–d
