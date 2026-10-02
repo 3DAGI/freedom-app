@@ -26,9 +26,8 @@ function dateien(dir: string): string[] {
  * Wo es noch Browser-Dialoge gibt (Datei → Zahl): seit C-10 (ohne
  * `newCommunity()`) nur `agent.ts` – zieht nach B-9 nach (Spur B arbeitet dort).
  */
-const NOCH_OFFEN: Record<string, number> = {
-  "shell/tabs/agent.ts": 5,
-};
+// Seit C-1f leer: keine Datei hat noch Browser-Dialoge – eine neue Stelle macht den Test rot
+const NOCH_OFFEN: Record<string, number> = {};
 
 test("C-1: Browser-Dialoge nur noch, wo sie noch nicht umgestellt sind – keine neuen", () => {
   const gefunden: Record<string, number> = {};
@@ -228,4 +227,18 @@ test("C-1e: der Rest – Abzeichen, Nachfolge, Bunker, Urteil, Notfall, Schlüss
   // Notfall: der Hinweis vor dem weiteren Start; Schlüssel ohne Zwischenablage nur zum Ansehen
   assert.match(q("shell/notfall.ts"), /await hinweis\(t\("ein\.notfallTitel"\), t\("ein\.nichtAllesGeloescht", \{ offen: offen\.join\(", "\) \}\)\);\s*return;/);
   assert.match(q("shell/app.ts"), /\{ art: "nurlesen", name: "pk", label: t\("ein\.pubkey"\), wert: state\.keypair\.pk \}/);
+});
+
+test("C-1f: Reklamation im Dialog – Verfahren als Fließtext, Grund, Prüfer nur aus dem Netz, Material nur mit Haken", () => {
+  const agent = readFileSync(new URL("../src/shell/tabs/agent.ts", import.meta.url), "utf8");
+  const rekl = agent.slice(agent.indexOf("async function reklamiere("), agent.indexOf("function addUsageBubble("));
+  assert.match(rekl, /await bestaetige\(\{ titel: t\("agent\.reklamierenTitel"\), text: fliesstext\(disputeInfo\(\)\), ok: t\("agent\.weiter"\) \}\)/);
+  assert.match(rekl, /optionen: arten\.map\(\(a\) => \(\{ wert: a, text: t\(GRUND_TEXT\[a\]\) \}\)\)/, "Gründe als Wahl, Texte aus GRUND_TEXT");
+  assert.match(rekl, /\[\{ wert: "", text: t\("agent\.nurProvider"\) \}, \.\.\.kandidaten\.map\(/, "„niemand“ steht zur Wahl");
+  // Der Haken für Frage und Antwort nur, wenn es einen Prüfer geben kann und es Frage und Antwort gibt
+  assert.match(rekl, /\.\.\.\(kandidaten\.length && frageAntwort \? \[\{ art: "mehrfach" as const, name: "material"/);
+  // Der Prüfer kommt nur aus den Kandidaten – ein fremder Wert ergibt keinen
+  assert.match(rekl, /const pruefer: Pruefer \| null = kandidaten\.find\(\(c\) => c\.pk === eingabe\.pruefer\) \?\? null;/);
+  assert.match(rekl, /note: String\(eingabe\.notiz \?\? ""\)/);
+  assert.doesNotMatch(ohneKommentare(rekl), /prompt\(|confirm\(/);
 });

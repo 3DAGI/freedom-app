@@ -14752,3 +14752,41 @@ derselben Relay-Attrappe, je mit Tresor und echter MLS-Engine.
 - `DialogSeite(init=…)`.
 - Zwei Attrappen mit gemeinsamer Ereignisliste, jede mit dem eigenen
   Schlüssel.
+
+## Schritt C-1f – Browser-Dialoge: der Rest in `agent.ts`
+
+**Warum:** Sammlung C-1. `agent.ts` war bis B-9 gesperrt (dieselbe Datei);
+seit B-9 ist sie frei. Übrig waren fünf Browser-Dialoge, alle in der
+Reklamation.
+- Sie fragte nacheinander mit `confirm()`/`prompt()`: das Verfahren, den
+  Grund als Nummer, den Prüfer als Nummer, das Material und die Notiz.
+- Eine Tippnummer außerhalb der Liste ergab still „unbrauchbar“ bzw. keinen
+  Prüfer.
+
+**Was** (`shell/tabs/agent.ts`, `reklamiere()`; `waehlePruefer()` entfällt):
+- **Zwei Dialoge über `shell/dialog.ts`:**
+  - Zuerst das Verfahren als Fließtext (`fliesstext(disputeInfo())` – der
+    Satz des Protokolls bleibt, wie er ist).
+  - Dann ein Dialog mit dem Grund als Wahl (Texte aus `GRUND_TEXT`), dem
+    Prüfer aus dem eigenen Netz (`netzPruefer()`, „niemand – nur der
+    Provider“), einem Haken für Frage und Antwort und der Notiz.
+- **Der Haken für Frage und Antwort** steht nur da, wenn es einen Prüfer
+  geben kann und es Material gibt. Mitgeschickt wird nur mit Haken und
+  gewähltem Prüfer.
+- **Der Prüfer** kommt nur aus den Kandidaten; ein fremder Wert ergibt
+  keinen.
+- **Die Frist** prüft die App jetzt vor dem Ausfüllen, nicht danach.
+- **Texte:** neu in beiden Sprachen; `agent.problem`, `agent.werPrueft` und
+  `agent.materialMitschicken` (Nummernlisten) fallen weg.
+- `NOCH_OFFEN` in `browser-dialoge.test.ts` ist leer: Keine Datei hat mehr
+  Browser-Dialoge.
+
+**Verdrahtet:** unverändert über den Knopf „Reklamieren“ unter einer Antwort
+(`addUsageBubble()` → `reklamiere()`).
+
+**Tests:**
+- app +1 in `test/browser-dialoge.test.ts` (C-1f).
+- Der Test zu 5.6b prüft dasselbe wie vorher an der neuen Stelle:
+  Prüfer nur aus dem Netz, Material nur mit Zustimmung.
+- Ohne eigenen Browser-Test: Die Reklamation braucht eine bezahlte
+  Antwort; der Smoke-Test „dialog“ prüft die Dialoge selbst.

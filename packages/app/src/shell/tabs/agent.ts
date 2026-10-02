@@ -28,7 +28,7 @@ import { KONSENS_MIN, KONSENS_WARTEN_MS, KonsensSammlung, konsensText, konsensZi
 import { LS_LOKAL_AKTIV, frageLokal, lokalAktiv, lokaleAdresse, lokaleModelle, lokalerWahlwert, lokalesModellAus, setzeLokaleAdresse } from "../../ki-lokal.js";
 import { bestaetige, dialog } from "../dialog.js";
 import { SessionClient } from "../../session-client.js";
-import { escapeHtml, pkShort } from "../../shell-logic.js";
+import { escapeHtml, fliesstext, pkShort } from "../../shell-logic.js";
 import { ausMsat, solText } from "../../preis-anzeige.js";
 import { werkzeugPreise, werkzeugPreisText } from "../../werkzeug-preise.js";
 import type { ToolPrice } from "@freedomstack/protocol";
@@ -63,7 +63,7 @@ import {
   updateSidebarBalances,
 } from "../ui.js";
 import { katalogRangJetzt, zeigeModelle } from "./agent-netz.js";
-import { PRUEFER_ART, type Pruefer } from "../../streitfall.js";
+import { GRUND_TEXT, PRUEFER_ART, type Pruefer } from "../../streitfall.js";
 import { merkeReklamation, netzPruefer, stelleZu } from "../streitfall-ui.js";
 import { zeigeMitwirkende } from "./earn.js";
 import { funkGeraetVerbunden, sendeUeberFunk, zeigeNachfolge } from "./settings.js";
@@ -1442,23 +1442,6 @@ function addAiMessageStreaming(role: "ai", text: string, meta: string, model?: s
 
 /** Claude-Stil ausklappbare Kosten-/Usage-Bubble unter einer AI-Antwort. */
 /**
- * Pruefer fuer eine Reklamation waehlen (Schritt 5.6): aus dem eigenen Netz –
- * Kontakte und eigene Provider –, nie aus einer Rangliste des Netzes.
- * null = keiner, undefined = abgebrochen.
- */
-async function waehlePruefer(beschuldigt: string): Promise<Pruefer | null | undefined> {
-  const kandidaten = netzPruefer(beschuldigt);
-  if (kandidaten.length === 0) {
-    toast(t("agent.keinPruefer"));
-    return null;
-  }
-  const liste = kandidaten.map((c, i) => `  ${i + 1} = ${c.name} (${t(PRUEFER_ART[c.art])})`).join("\n");
-  const wahl = prompt(t("agent.werPrueft", { liste }), "1");
-  if (wahl === null) return undefined;
-  return kandidaten[Number(wahl) - 1] ?? null;
-}
-
-/**
  * Auftrag reklamieren.
  *
  * Bei Swaps liegt das Geld in einem HTLC mit Frist; bei Rechenauftraegen gab
@@ -1475,30 +1458,45 @@ async function reklamiere(
   const { disputeInfo, buildDispute, buildPrivateDispute, disputeWindowOpen } =
     await import("@freedomstack/protocol");
 
-  if (!confirm(disputeInfo())) return;
-
-  const grund = prompt(t("agent.problem"), "2");
-  if (!grund) return;
+  // Dialoge statt confirm()/prompt() (C-1f): erst, was das Verfahren leistet – der Satz des Protokolls ist für
+  // alert() umbrochen –, dann Grund, Prüfer, Zustimmung und Notiz in einem Dialog
+  if (!(await bestaetige({ titel: t("agent.reklamierenTitel"), text: fliesstext(disputeInfo()), ok: t("agent.weiter") }))) return;
+  const w = disputeWindowOpen(Math.floor(Date.now() / 1000) - 60);
+  if (!w.open) {
+    toast(reklamationsFrist(w), true);
+    return;
+  }
+  // Prüfer nur aus dem eigenen Netz (5.6) – Kontakte und eigene Provider, nie aus einer Rangliste des Netzes
+  const kandidaten = netzPruefer(providerPk);
+  if (kandidaten.length === 0) toast(t("agent.keinPruefer"));
   const arten = ["nichts_geliefert", "unbrauchbar", "falsches_modell", "abgebrochen"] as const;
-  const art = arten[Number(grund) - 1] ?? "unbrauchbar";
+  const eingabe = await dialog({
+    titel: t("agent.reklamierenTitel"), ok: t("agent.reklamieren"),
+    felder: [
+      { art: "wahl", name: "grund", label: t("agent.problemFrage"), pflicht: true, wert: "unbrauchbar",
+        optionen: arten.map((a) => ({ wert: a, text: t(GRUND_TEXT[a]) })) },
+      ...(kandidaten.length ? [{ art: "wahl" as const, name: "pruefer", label: t("agent.prueferFrage"), wert: "",
+        optionen: [{ wert: "", text: t("agent.nurProvider") }, ...kandidaten.map((c) => ({ wert: c.pk, text: `${c.name} (${t(PRUEFER_ART[c.art])})` }))] }] : []),
+      // Frage und Antwort nur mit Zustimmung und nur für den Prüfer (5.6)
+      ...(kandidaten.length && frageAntwort ? [{ art: "mehrfach" as const, name: "material", label: t("agent.materialFrage"),
+        optionen: [{ wert: "ja", text: t("agent.materialHaken") }] }] : []),
+      { art: "textarea", name: "notiz", label: t("agent.beschreibung") },
+    ],
+  });
+  if (!eingabe) return;
+  const art = arten.find((a) => a === eingabe.grund) ?? "unbrauchbar";
+  const pruefer: Pruefer | null = kandidaten.find((c) => c.pk === eingabe.pruefer) ?? null;
+  const zustimmung = Array.isArray(eingabe.material) && eingabe.material.includes("ja");
 
   try {
-    const w = disputeWindowOpen(Math.floor(Date.now() / 1000) - 60);
-    if (!w.open) {
-      toast(reklamationsFrist(w), true);
-      return;
-    }
-    const pruefer = await waehlePruefer(providerPk);
-    if (pruefer === undefined) return;
-    // Frage und Antwort nur mit Zustimmung und nur fuer den Pruefer (5.6).
-    const material = pruefer && frageAntwort && confirm(t("agent.materialMitschicken", { name: pruefer.name })) ? frageAntwort : undefined;
+    const material = pruefer && frageAntwort && zustimmung ? frageAntwort : undefined;
     // Vom Sitzungsschluessel wie der Auftrag selbst (3.1) – nicht von der
     // Identitaet – und nur versiegelt an Provider und Pruefer (3.4).
     const sitzung = kiSitzungen.fuer(providerPk);
     // Die Reklamation nennt den Pruefer (5.6) – nur sein Urteil zaehlt, und der Provider sieht, wer es ist.
     const dispute = buildDispute({
       jobId, customerPubkey: sitzung.publicKey(), providerPubkey: providerPk,
-      reason: art, amountMsat, note: prompt(t("agent.beschreibung")) ?? "",
+      reason: art, amountMsat, note: String(eingabe.notiz ?? ""),
       pruefer: pruefer ? [pruefer.pk] : [],
     });
     const empfaenger = [
