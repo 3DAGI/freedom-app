@@ -138,7 +138,7 @@ test("Verdrahtung: Pool aus dem eigenen Satz, Listen je Sitzung abgeglichen, DMs
 });
 
 test("Verdrahtung: keine fest verdrahteten alten Relays in App, Knoten und Veroeffentlichung", () => {
-  for (const pfad of ["../src/shell/state.ts", "../src/shell/tabs/kommunikation.ts", "../src/chat-zap.ts", "../../node/src/main.ts", "../../../scripts/publish-release.mjs"]) {
+  for (const pfad of ["../src/shell/state.ts", "../src/shell/tabs/kommunikation.ts", "../src/shell/tabs/chat-anhaenge.ts", "../src/shell/tabs/kontakte.ts", "../src/shell/tabs/posteingang.ts", "../src/chat-zap.ts", "../../node/src/main.ts", "../../../scripts/publish-release.mjs"]) {
     assert.doesNotMatch(quelle(pfad), /relay\.nostr\.band/, pfad);
   }
   assert.match(quelle("../../node/src/main.ts"), /const RELAYS_DEFAULT = startUrls\(\)\.join\(","\);/);

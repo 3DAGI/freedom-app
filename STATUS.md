@@ -15299,3 +15299,8 @@ Datei.
   ein Skript hat das geprüft.
 - app +1: C-5b in `dateigroesse.test.ts`. Die vier Dateien stehen unter der
   Grenze von 700 Zeilen.
+- Wo ein Test eine Liste von Dateien prüft, stehen die drei neuen Module mit
+  drin. Damit verliert keine Prüfung durch den Umzug an Reichweite:
+  - `FERTIG` (kein `innerHTML`),
+  - keine alten Relays,
+  - Texte nur über Schlüssel.

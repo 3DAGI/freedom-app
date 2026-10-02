@@ -15,7 +15,7 @@ const ausnahmen = quelle("../../../scripts/innerhtml-ausnahmen.txt").split("\n")
 /** Ohne innerHTML gebaut (C-6a) – die Liste wächst mit jedem Teilschritt. */
 const FERTIG = [
   "shell/tabs/agent-netz.ts", "shell/tabs/earn.ts", "shell/tabs/profil.ts", "shell/tabs/settings.ts", "shell/state.ts",
-  "shell/tabs/kommunikation.ts", "shell/tabs/raeume.ts", "shell/tabs/agent.ts",
+  "shell/tabs/kommunikation.ts", "shell/tabs/chat-anhaenge.ts", "shell/tabs/kontakte.ts", "shell/tabs/posteingang.ts", "shell/tabs/raeume.ts", "shell/tabs/agent.ts",
   "shell/app.ts", "shell/ui.ts", "shell/tresor.ts", "shell/einrichtung-ui.ts",
 ];
 
