@@ -738,6 +738,25 @@ def waehrung_pruefen(browser, url: str) -> dict:
     s.wait_for_function("() => document.getElementById('swap-status')?.textContent.startsWith('Erst eine Solana-Wallet')", timeout=10000)
     if ev(stand) is not None:
         erg["fehler"].append("SOL → sats ohne Wallet öffnet einen Dialog")
+    # Umzug (C-8): Gebühren und Standard-Schiene unter Währung › Zahlen, Modell vorhalten unter Verdienen › Hosten
+    ev("() => document.querySelector('[data-subtab-group=wallet] [data-subtab=pay]').click()")
+    s.wait_for_function("() => document.getElementById('anteile-stand')?.textContent === 'Nichts gesammelt.'", timeout=10000)
+    umzug = {"reiter": ev("() => [...document.querySelectorAll('[data-subtab-group=wallet] [data-subtab]')].map(b => b.textContent)"),
+             "zahlen": ev("() => ['standard-schiene', 'anteile-zahlen'].map(id => !!document.getElementById(id).offsetParent)"),
+             "settings": ev("() => [...document.querySelectorAll('[data-subtab-group=settings] [data-subtab]')].map(b => b.dataset.subtab)")}
+    ev("() => { location.hash = '#/verdienen'; }")
+    s.wait_for_function("() => !!document.querySelector('[data-subtab-group=earn] [data-subtab=host]')?.offsetParent", timeout=10000)
+    ev("() => document.querySelector('[data-subtab-group=earn] [data-subtab=host]').click()")
+    umzug["hosten"] = ev("() => ['models-seed', 'models-publish'].map(id => document.getElementById(id).offsetParent?.closest('.subpane')?.dataset.subpane)")
+    ev("() => document.getElementById('models-seed').click()")
+    umzug["vorhalten"] = warte_dialog("Modell vorhalten")
+    s.keyboard.press("Escape")
+    seite.warte_zu()
+    erg["umzug"] = umzug
+    if not (umzug["reiter"] == ["Übersicht", "Tauschen", "Hinterlegen", "Zahlen"] and umzug["zahlen"] == [True, True]
+            and "fees" not in umzug["settings"] and umzug["hosten"] == ["earn:host", "earn:host"]
+            and umzug["vorhalten"]["felder"] == ["Welches Modell hältst du vor?", "Welche Dateien? (kommagetrennt, leer = alle)"]):
+        erg["fehler"].append(f"Umzug {umzug}")
     erg["browser_dialoge"] = browser_dialoge
     if browser_dialoge:
         erg["fehler"].append(f"Browser-Dialoge: {browser_dialoge}")
@@ -2869,8 +2888,8 @@ def karte_pruefen(browser, url: str) -> dict:
 # Seiten für den Durchgang auf dem Handy (seit C.5a): Adresse und Unter-Reiter („gruppe:reiter“)
 MOBIL_SEITEN = [
     ("#/agent", ""), ("#/agent/verlauf", ""), ("#/agent/modelle", ""), ("#/agent/details", ""), ("#/chat", ""), ("#/repos", ""),
-    ("#/waehrung", ""), ("#/waehrung", "wallet:swap"), ("#/waehrung", "wallet:lp"), ("#/verdienen", ""),
-    ("#/verdienen", "earn:refer"), ("#/netz", ""), ("#/netz", "netz:mesh"), ("#/profil", ""),
+    ("#/waehrung", ""), ("#/waehrung", "wallet:swap"), ("#/waehrung", "wallet:lp"), ("#/waehrung", "wallet:pay"), ("#/verdienen", ""),
+    ("#/verdienen", "earn:host"), ("#/verdienen", "earn:refer"), ("#/netz", ""), ("#/netz", "netz:mesh"), ("#/profil", ""),
     ("#/settings", ""), ("#/settings", "settings:network"), ("#/mehr", ""),
 ]
 MOBIL_MESSEN = """() => {

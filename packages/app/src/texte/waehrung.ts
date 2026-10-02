@@ -3,12 +3,14 @@ import type { Texte } from "../i18n.js";
 
 export const waehrung: Texte = {
   // Seite (index.html)
-  "waehr.untertitel": { de: "Lightning, Solana, Tausch und Liquidität.", en: "Lightning, Solana, swaps and liquidity." },
+  "waehr.untertitel": { de: "Lightning, Solana, Tausch, Hinterlegen und Zahlen.", en: "Lightning, Solana, swaps, deposits and payments." },
   "waehr.walletVerbinden": { de: "Wallet verbinden", en: "Connect wallet" },
   "waehr.solDeposit": { de: "+ SOL hinterlegen", en: "+ SOL deposit" },
   "waehr.tabUebersicht": { de: "Übersicht", en: "Overview" },
   "waehr.tabTauschen": { de: "Tauschen", en: "Swap" },
-  "waehr.tabLiquiditaet": { de: "Liquidität", en: "Liquidity" },
+  // C-8 (C.6a, E2): „Liquidität“ hieß der Reiter mit Deposit und Zahlkanal; „Zahlen“ kam aus Settings › Gebühren
+  "waehr.tabHinterlegen": { de: "Hinterlegen", en: "Deposit" },
+  "waehr.tabZahlen": { de: "Zahlen", en: "Pay" },
   "waehr.nwcPh": { de: "nostr+walletconnect://… (aus deiner Wallet)", en: "nostr+walletconnect://… (from your wallet)" },
   "waehr.trennen": { de: "trennen", en: "disconnect" },
   "waehr.nichtVerbunden": { de: "Nicht verbunden", en: "Not connected" },
