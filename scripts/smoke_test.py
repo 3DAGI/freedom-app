@@ -166,12 +166,20 @@ def tresor_pruefen(browser, url: str) -> dict:
     warte("() => document.getElementById('tr-meldung').textContent.includes('falsch')")
     felder({"tr-pass": "smoke tresor 1"}, "tr-ok")
     warte("() => !document.getElementById('tr-pass')")
-    s.wait_for_timeout(1000)
+
+    # Auf den Zustand warten statt fester Pausen (C-18): auf dem Runner reichten 500 ms einmal nicht (C-13, #251)
+    def bis(bedingung: str, arg=None) -> None:
+        try:
+            s.wait_for_function(bedingung, arg=arg, timeout=15000)
+        except Exception:
+            pass  # die Prüfung unten meldet es
+    bis("(i) => document.getElementById('ident').textContent === i", ident)
     erg["entsperrt_gleiche_identitaet"] = ev("() => document.getElementById('ident').textContent") == ident
     ev("() => document.querySelector('.app-nav button[data-tab=\"comm\"]').click()")
-    s.wait_for_timeout(500)
-    erg["daten_aus_tresor"] = ev("() => document.getElementById('chat-list').textContent.includes('ProbeChat')"
-                                 " && document.getElementById('agent-history').textContent.includes('ProbeVerlauf')")
+    daten = ("() => document.getElementById('chat-list').textContent.includes('ProbeChat')"
+             " && document.getElementById('agent-history').textContent.includes('ProbeVerlauf')")
+    bis(daten)
+    erg["daten_aus_tresor"] = ev(daten)
 
     s.reload(wait_until="load")
     warte("() => !!document.getElementById('tr-vergessen')")

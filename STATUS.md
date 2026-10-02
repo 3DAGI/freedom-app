@@ -14536,3 +14536,10 @@ in `shell/tabs/raeume.ts`; `setzeKommModus()` in `shell/tabs/kommunikation.ts`.
   - Das Menü am Gründer beginnt mit „Direktnachricht schreiben“, und der
     Klick öffnet die neue Unterhaltung.
 - Gewartet wird auf Zustände, nicht mit festen Pausen.
+- Nachtrag beim Einmergen von `main`: Ein CI-Lauf auf #251 war im
+  Smoke-Test „tresor“ rot (`daten_aus_tresor`). Der App-Code war derselbe
+  wie im grünen Lauf davor (#262 änderte nur Installer und Knoten), und lokal
+  blieb die Prüfung grün, auch mit sechsfach gedrosselter CPU. Ursache: Nach
+  dem Entsperren wartete die Prüfung fest 1 s bzw. 500 ms. Jetzt wartet sie
+  auf den Zustand (Identität, Chat-Liste und Verlauf, Frist 15 s); die
+  Bedingung ist unverändert.
