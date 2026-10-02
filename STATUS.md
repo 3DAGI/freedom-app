@@ -14723,3 +14723,32 @@ Abspielen in `wireBlobButtons()` (`kommunikation.ts`), Text in
     `data:audio/webm`.
   - Hinaus gehen nur Umschläge (1059), ohne „audio/webm“ oder den Dateinamen im
     Klartext.
+
+## Schritt C-12 – Privater Raum einmal vollständig im Browser
+
+**Warum:** offen aus 10.4 (Sammlung C-12). Private Räume waren nur über
+`gruppenRaum()`, Unit- und Leak-Tests geprüft; der Smoke-Test kannte nur den
+offenen Probe-Raum.
+
+**Was:** Smoke „privatraum“ (neu, rund 25 s): zwei Browser (Ada, Bo) hinter
+derselben Relay-Attrappe, je mit Tresor und echter MLS-Engine.
+- Bo öffnet eine Unterhaltung mit Ada und veröffentlicht dabei sein
+  KeyPackage (30443).
+- Ada legt „Probe privat“ an und lädt Bo mit seinem Schlüssel ein. Die
+  Einladung geht versiegelt an seinen Posteingang (1059).
+- Bo startet neu und entsperrt: Der Raum steht in seiner Leiste. Den Namen
+  kennt er erst, wenn er ihn öffnet.
+- Ada schreibt, Bo liest und antwortet im Thread, Ada sieht die Antwort.
+- Bo meldet Adas Nachricht: Der Umschlag geht nur an Ada. Nach ihrem Start
+  steht die Meldung im Raum (wer, über wen, Grund, Maßnahmen).
+- Ada löscht Bos Antwort für alle (4891 in der Gruppe), bei Bo ist sie weg.
+- Ada legt ein Repo im Raum an, Bo sieht es und schickt einen Patch, Ada
+  sieht den Patch. Kein offenes 1617.
+- Auf dem Relay steht nichts davon im Klartext: kein Raumname, kein Text,
+  keine Repo-Kennung, kein Betreff. Kinds nur 445, 1059, 10002, 10050, 30443.
+
+**Ohne Änderung an der App.** Neu in `smoke_test.py` (dazu app +1 in `test/privatraum-browser.test.ts`, der festhält, dass der Smoke-Test die Schritte geht und zählt):
+- `tresor_an()` und `entsperre_neu()`.
+- `DialogSeite(init=…)`.
+- Zwei Attrappen mit gemeinsamer Ereignisliste, jede mit dem eigenen
+  Schlüssel.
