@@ -38,7 +38,8 @@ test("B-9a: frageMeinenKnoten – nur an den gekoppelten Knoten, ohne Gebot, mit
   const fn = teil("async function frageMeinenKnoten(", "/** So lange wartet die App");
   assert.match(fn, /const k = meineKopplung\(\);\s*if \(!k\) \{\s*toast\(t\("agent\.knotenNichtGekoppelt"\), true\);/, "ungekoppelt geht nichts hinaus");
   assert.match(fn, /await buildJobEvent\(prompt, 0, "free", k\.knoten, ensureSessionClient\(\), \[\], modell\)/, "Gebot 0, Ziel nur der Knoten");
-  assert.match(fn, /await waitForAnswer\(requestId, KNOTEN_ZEIT_MS, k\.knoten, \{ signal: jobAbort\.signal \}\)/);
+  // seit B-9c2 mit der Quelle des Wegs (Relay meines Knotens oder Pool) – weiter nur dieser Knoten
+  assert.match(fn, /await waitForAnswer\(requestId, KNOTEN_ZEIT_MS, k\.knoten, \{ signal: jobAbort\.signal, quelle: weg \}\)/);
   for (const anderes of ["findProviders", "askWithFailover", "askRace", "askSwarm", "privatFaehig", "for (", "zahle("]) {
     assert.ok(!fn.includes(anderes), `kein ${anderes} – nur dieser Knoten`);
   }

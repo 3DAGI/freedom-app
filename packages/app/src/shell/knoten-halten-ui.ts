@@ -14,17 +14,18 @@ import { t } from "../i18n.js";
 import { HALTEN_MAX_POW, HALTEN_TAKT_MS, HALTEN_ZEIT_MS, LS_HALTEN, ablehnungsGrund, halteErgebnis, haltenAn } from "../knoten-halten.js";
 import { fehlerText } from "../protokoll-texte.js";
 import { meineKopplung } from "./mein-knoten.js";
-import { angebotVon, ensurePool } from "./state.js";
+import { angebotVon } from "./state.js";
+import { type KnotenWeg, wegZumKnoten } from "./knoten-weg-ui.js";
 import { toast } from "./ui.js";
 
 /** Auf die versiegelte Antwort zum Auftrag warten – Ergebnis 6076 oder Rückmeldung 7000; null nach der Frist. */
 async function warteAufHalten(
-  pool: Awaited<ReturnType<typeof ensurePool>>, sitzung: LocalSigner, requestId: string,
+  weg: KnotenWeg, sitzung: LocalSigner, requestId: string,
 ): Promise<{ ergebnis: string } | { abgelehnt: string } | null> {
   const seit = Math.floor(Date.now() / 1000) - 60;
   for (let t0 = Date.now(); Date.now() - t0 < HALTEN_ZEIT_MS;) {
     await new Promise((ok) => setTimeout(ok, HALTEN_TAKT_MS));
-    const umschlaege = await pool.query({ kinds: [1059], "#p": [sitzung.publicKey()], since: seit }).catch(() => []);
+    const umschlaege = await weg.query({ kinds: [1059], "#p": [sitzung.publicKey()], since: seit }).catch(() => []);
     for (const w of umschlaege) {
       const a = await openPrivateJobResponse(w, sitzung);
       if (!a.ok || getTag(a.response, "e") !== requestId) continue;
@@ -43,13 +44,20 @@ export async function halteBeiMeinemKnoten(r: { blobId: string; manifestEventId:
   const k = meineKopplung();
   if (!k || !haltenAn(localStorage)) return;
   try {
-    const pool = await ensurePool();
     const angebot = await angebotVon(k.knoten).catch(() => undefined);
     const powBits = angebot?.powBits !== undefined && angebot.powBits <= HALTEN_MAX_POW ? angebot.powBits : 0;
     const sitzung = new LocalSigner(generateKeypair().sk);
-    const { wrap, requestId } = await baueHalteAuftrag({ sitzung, kopplung: k, blobId: r.blobId, manifestId: r.manifestEventId, powBits });
-    await pool.publish(wrap);
-    const antwort = await warteAufHalten(pool, sitzung, requestId);
+    // Alles über meinen Knoten (B-9c2): mit Haken nur über sein Relay – ohne Relay geht nichts hinaus
+    const weg = await wegZumKnoten(k.knoten, sitzung);
+    if (!weg) return toast(t("set.knotenOhneRelay"), true);
+    let antwort: Awaited<ReturnType<typeof warteAufHalten>>;
+    try {
+      const { wrap, requestId } = await baueHalteAuftrag({ sitzung, kopplung: k, blobId: r.blobId, manifestId: r.manifestEventId, powBits });
+      await weg.publish(wrap);
+      antwort = await warteAufHalten(weg, sitzung, requestId);
+    } finally {
+      weg.schliesse();
+    }
     if (!antwort) return toast(t("set.knotenHaltenSchweigt"), true);
     if ("abgelehnt" in antwort) return toast(t("set.knotenHaltenAbgelehnt", { grund: antwort.abgelehnt }), true);
     const gelesen = leseHalteAntwort(antwort.ergebnis);

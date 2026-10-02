@@ -30,7 +30,8 @@ test("B-9b2: halteBeiMeinemKnoten – nur gekoppelt und mit Haken, an genau das 
   const mk = lies("shell/knoten-halten-ui.ts");
   const fn = mk.slice(mk.indexOf("export async function halteBeiMeinemKnoten("), mk.indexOf("export function wireKnotenHalten("));
   const tor = fn.indexOf("if (!k || !haltenAn(localStorage)) return;");
-  assert.ok(tor > 0 && tor < fn.indexOf("ensurePool()"), "ungekoppelt oder ohne Haken geht nichts hinaus");
+  // seit B-9c2 ist der erste Schritt ins Netz der Weg zum Knoten (sein Relay oder der Pool)
+  assert.ok(tor > 0 && tor < fn.indexOf("wegZumKnoten("), "ungekoppelt oder ohne Haken geht nichts hinaus");
   assert.match(fn, /const sitzung = new LocalSigner\(generateKeypair\(\)\.sk\);/, "ein frischer Sitzungsschlüssel, nie die Identität");
   assert.match(fn, /baueHalteAuftrag\(\{ sitzung, kopplung: k, blobId: r\.blobId, manifestId: r\.manifestEventId, powBits \}\)/);
   assert.match(fn, /angebot\.powBits <= HALTEN_MAX_POW \? angebot\.powBits : 0/);

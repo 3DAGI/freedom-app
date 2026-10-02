@@ -261,7 +261,9 @@ export async function solRpcUrl(): Promise<string> {
 /**
  * Relay-Verbindung mit NIP-42 (8.4c): anmelden nur, wenn der Relay es verlangt,
  * und nur bei eigenen Relays und solchen mit gekauftem Zugang – eine Anmeldung
- * sagt dem Relay, wer diese Verbindung ist. Nie mit einem Sitzungsschluessel.
+ * sagt dem Relay, wer diese Verbindung ist. Nie mit einem Sitzungsschluessel –
+ * einzige Ausnahme: das Relay des eigenen Knotens ueber eine eigene Verbindung
+ * (`knoten-weg-ui.ts`, B-9c2, Entscheidung L5 A).
  */
 export function darfAnmelden(url: string): boolean {
   const n = normalizeRelayUrl(url);

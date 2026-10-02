@@ -13998,3 +13998,65 @@ Endstand (B-9c1, 02.10.): protocol 1151 (6 übersprungen) · node 287 (+3, 7
 + 1 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 ·
 Website ok · Smoke-Test bestanden. Knoten-Stand: für den Weg über das eigene
 Relay nötig (B-9c1, mit `RELAY_ENABLED=1`); sonst unverändert.
+
+## Schritt B-9c2 – Alles über meinen Knoten: die App
+
+Sammlung B-9c (Lokal 13.3/13.5), Entscheidung L5 A, zweiter Teil. Seit B-9c1
+liest der Knoten sein eigenes Relay im Prozess; die App schickte Aufträge an
+ihn bisher über die Relays des Pools.
+
+**App** (`knoten-weg.ts`, `shell/knoten-weg-ui.ts`):
+- Haken „Alles über meinen Knoten“ in Settings → Geräte → „Mein Knoten“: nur
+  gekoppelt sichtbar, Standard aus, gemerkt in `freedom.knoten.nurUeber`
+  (eine Einstellung, kein Geheimnis).
+- `knotenRelay()`: Kommt die App vom Knoten (B-10), gilt ihr eigener Ursprung,
+  aber nur, wenn NIP-11 dort genau den Schlüssel des Knotens nennt. Sonst gilt
+  seine NIP-65-Liste (Kind 10002): nur von ihm signiert, die neueste, das erste
+  Relay mit öffentlicher Adresse, das nicht nur zum Lesen ist.
+- `wegZumKnoten()`: Mit Haken entsteht eine eigene Verbindung zu diesem Relay.
+  Dort meldet sich der Sitzungsschlüssel des Auftrags an (NIP-42), sonst
+  nirgends. Ohne Relay liefert die Funktion `null`, und nichts geht hinaus.
+  Ohne Haken läuft alles über den Pool wie bisher.
+- KI an „Mein Knoten“ (`frageMeinenKnoten()`) und Halten
+  (`halteBeiMeinemKnoten()`) senden und lesen über diesen Weg. Die Verbindung
+  wird danach geschlossen.
+- Antworten fragt der Weg nur für den Schlüssel des Auftrags ab
+  (`sitzungPk`). Das Relay des Knotens liefert Umschläge nur, wenn jeder
+  Schlüssel im Filter angemeldet ist. Mit mehreren Sitzungen wäre die Antwort
+  sonst still ausgeblieben.
+
+**Offen:** „Relays“ über den Knoten (B-9: „KI, Speicher, Relays“) ist nicht
+eindeutig, deshalb Frage L7 in der Sammlung, Abschnitt 5. Bis dahin tut der
+Haken genau das, was sein Text sagt: KI und Halten.
+
+**Tests:** app +4 (`knoten-weg.test.ts`):
+- Haken: Standard aus.
+- Relay aus der Liste: nur vom Knoten, die neueste, keine privaten Adressen,
+  keine reinen Lese-Relays.
+- Eigener Ursprung nur mit dem Schlüssel des Knotens.
+- Weg: ohne Relay nichts; Anmeldung mit `baueRelayAuth()` nur in `state.ts`
+  und hier; KI und Halten nur über den Weg; Antworten nur für den Schlüssel
+  des Auftrags; Texte in beiden Sprachen.
+
+Angepasst wurden `mein-knoten-wahl.test.ts`, `knoten-halten.test.ts` und
+`ki-antworten.test.ts` (Weg statt Pool, `privateAntworten()` mit `opts.quelle` –
+weiter nur private Antworten). Der Smoke-Test prüft den Haken: gekoppelt sichtbar,
+Standard aus, „an“ gemerkt, nach dem Entkoppeln weg.
+
+Ende zu Ende ist der Weg im Knoten getestet (B-9c1, `relay-intern.test.ts`):
+Anmeldung mit dem Sitzungsschlüssel, die Anfrage kommt nur über das Relay des
+Knotens an, die Antwort nur an den angemeldeten Schlüssel.
+
+**Verdrahtet:**
+- `packages/app/src/shell/app.ts`: `wireKnotenWeg()` in `starte()`.
+- `shell/tabs/agent.ts`: `frageMeinenKnoten()` → `wegZumKnoten()` →
+  `weg.publish()` und `waitForAnswer(…, { quelle: weg })`.
+- `shell/knoten-halten-ui.ts`: `halteBeiMeinemKnoten()` → `wegZumKnoten()`.
+- `shell/mein-knoten.ts`: Zeile des Hakens.
+
+Endstand (B-9c2, 02.10.): protocol 1151 (6 übersprungen) · node 287 (7
+übersprungen ohne Netz – mit Netz 288) · app 779 (+4) · mls 13 · Leak-Tests 70
+grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng
+Exit 0 · Website ok · Smoke-Test bestanden. Knoten-Stand: B-9c1 (#254) mit
+`RELAY_ENABLED=1` und `RELAY_PUBLIC_URL` (oder die App vom Knoten); ohne
+Haken unverändert.
