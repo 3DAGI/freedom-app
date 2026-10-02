@@ -15332,3 +15332,43 @@ Datei.
   - Texte nur über Schlüssel;
   - `FERTIG` (kein `innerHTML`).
 - app +1: C-5c in `dateigroesse.test.ts`.
+
+## Schritt C-5d – Große Dateien aufteilen: `agent.ts`
+
+**Warum:** Sammlung C-5, je Datei ein PR (MENSCH 02.10.2026). `agent.ts`
+war mit 1892 Zeilen die größte Datei.
+
+**Was** (wörtlich verschoben, keine Verhaltensänderung):
+- `agent.ts` (653 Zeilen): `askAi()`, Konsens, Auftrag bauen
+  (`buildJobEvent()`), auf die Antwort warten und sie abrechnen
+  (`waitForAnswer()`, `handleAnswer()`), KI über Funk, `frageMeinenKnoten()`,
+  `frageAufDiesemGeraet()`.
+- `modellwahl.ts` (288): Dropdown und Popover, Gruppe „Mein Knoten“,
+  „Dieses Gerät“.
+- `agent-verlauf.ts` (137): Aufgaben und Nachrichten auf diesem Gerät,
+  rechte Spalte.
+- `agent-wege.ts` (240): Failover, Race (Max), Schwarm, Video, private
+  Antworten.
+- `agent-anzeige.ts` (505): Gebühren- und Token-Vorschau, Fehler-Blase, Budget,
+  Blasen, Kosten-Blase mit Reklamation, Schritt-Leiste und Orb.
+- `agent-eingabe.ts` (124): Werkzeug-Knöpfe mit Preisen, leerer Zustand, Bild
+  anhängen.
+- **Einzige Codeänderung:** `export` für Querverweise. Ein Skript hat
+  geprüft, dass sonst jede Zeile unverändert ist.
+- **Bewusster Schnitt:** `frageMeinenKnoten()`, `frageAufDiesemGeraet()` und
+  der Konsens bleiben in `agent.ts`. Sie setzen `jobAbort` neu, und eine
+  importierte Bindung kann nur ihr eigenes Modul neu zuweisen.
+- **Aufrufer:** `app.ts` und `hinterlegen.ts` bekamen nur einen neuen
+  Importpfad.
+- Damit ist Sammlung C-5 fertig. Keine Tab-Datei hat mehr als 700 Zeilen;
+  `dateigroesse.test.ts` hält das fest.
+
+**Tests:**
+- 15 Tests und ein Leak-Test lasen umgezogenen Code. Wo sie den Agenten
+  meinen, lesen sie jetzt alle sechs Dateien.
+- Ein Ausschnitt (`askAi()` bis zur nächsten Funktion) endet jetzt an der
+  nächsten Funktion in `agent.ts`. Er lief sonst über die Dateigrenze, weil
+  `askWithFailover()` umgezogen ist.
+- Listen von Dateien (`FERTIG`, Texte) nennen die neuen Module mit.
+- app +1: C-5d in `dateigroesse.test.ts`. Es prüft auch, dass kein neues Modul
+  `jobAbort` neu setzt.

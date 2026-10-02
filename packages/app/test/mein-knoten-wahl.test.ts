@@ -10,7 +10,7 @@ import { KNOTEN_PRAEFIX, knotenModellAus, knotenWahlwert } from "../src/knoten-w
 import { lokalesModellAus, lokalerWahlwert } from "../src/ki-lokal.js";
 
 const lies = (p: string) => readFileSync(new URL(`../src/${p}`, import.meta.url), "utf8");
-const agent = lies("shell/tabs/agent.ts");
+const agent = ["agent", "modellwahl", "agent-verlauf", "agent-wege", "agent-anzeige", "agent-eingabe"].map((d) => lies(`shell/tabs/${d}.ts`)).join("\n");
 const teil = (von: string, bis: string) => agent.slice(agent.indexOf(von), agent.indexOf(bis, agent.indexOf(von) + von.length));
 
 test("B-9a: Wahlwert – knoten:<modell>, leer heißt das Modell des Knotens; nie mit Netz oder Gerät verwechselt", () => {

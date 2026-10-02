@@ -53,7 +53,7 @@ test("8.1a: Leiste mit echtem Zustand – kein erfundener Gratis-Zaehler, Erinne
   assert.doesNotMatch(app, /freedom\.freeLeft/, "der Zaehler wurde nie gesetzt – stand immer auf 10");
   const warn = funktion("async function zeigeBackupWarnung(");
   assert.match(warn, /localStorage\.getItem\("freedom\.usedOnce"\) === "1" && !leisteZeigtSichern/);
-  const agent = src("../src/shell/tabs/agent.ts");
+  const agent = ["agent", "modellwahl", "agent-verlauf", "agent-wege", "agent-anzeige", "agent-eingabe"].map((d) => src(`../src/shell/tabs/${d}.ts`)).join("\n");
   assert.ok(agent.includes('if (retryTier === "free" && /bid zu niedrig/i.test((e as Error)?.message ?? String(e))) merkeGratisAbgelehnt();'));
 });
 

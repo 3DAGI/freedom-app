@@ -75,7 +75,7 @@ test("private Antworten: geoeffnete Umschlaege werden gemerkt, neueste zuerst", 
 });
 
 test("Verdrahtung: waitForAnswer() und askRace() nehmen nur private Antworten (seit 3.2e)", () => {
-  const agent = readFileSync(new URL("../src/shell/tabs/agent.ts", import.meta.url), "utf8");
+  const agent = ["agent", "modellwahl", "agent-verlauf", "agent-wege", "agent-anzeige", "agent-eingabe"].map((d) => readFileSync(new URL(`../src/shell/tabs/${d}.ts`, import.meta.url), "utf8")).join("\n");
   const warten = agent.slice(agent.indexOf("async function waitForAnswer("), agent.indexOf("async function handleAnswer("));
   assert.match(warten, /const privat = await privateAntworten\(new Set\(ids\), seit, cache, opts\.quelle\);/, "über den Weg zu meinem Knoten (B-9c2) dort, sonst im Pool");
   assert.match(warten, /const feedback = privat\.rueckmeldungen\.filter/);

@@ -233,7 +233,7 @@ test("C-1e: der Rest – Abzeichen, Nachfolge, Bunker, Urteil, Notfall, Schlüss
 });
 
 test("C-1f: Reklamation im Dialog – Verfahren als Fließtext, Grund, Prüfer nur aus dem Netz, Material nur mit Haken", () => {
-  const agent = readFileSync(new URL("../src/shell/tabs/agent.ts", import.meta.url), "utf8");
+  const agent = ["agent", "modellwahl", "agent-verlauf", "agent-wege", "agent-anzeige", "agent-eingabe"].map((d) => readFileSync(new URL(`../src/shell/tabs/${d}.ts`, import.meta.url), "utf8")).join("\n");
   const rekl = agent.slice(agent.indexOf("async function reklamiere("), agent.indexOf("function addUsageBubble("));
   assert.match(rekl, /await bestaetige\(\{ titel: t\("agent\.reklamierenTitel"\), text: fliesstext\(disputeInfo\(\)\), ok: t\("agent\.weiter"\) \}\)/);
   assert.match(rekl, /optionen: arten\.map\(\(a\) => \(\{ wert: a, text: t\(GRUND_TEXT\[a\]\) \}\)\)/, "Gründe als Wahl, Texte aus GRUND_TEXT");

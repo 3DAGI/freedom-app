@@ -61,7 +61,7 @@ test("B-9c2: Weg – mit Haken nur das Relay des Knotens, ohne Relay nichts; nur
   assert.deepEqual(mitAuth, ["shell/knoten-weg-ui.ts", "shell/state.ts"], "Anmeldung nur in state.ts (Identität) und hier (Sitzung am eigenen Knoten)");
   assert.match(lies("shell/state.ts"), /anmelden: async \(u, challenge\) => \(state\.keypair && darfAnmelden\(u\) \? signiere\(baueRelayAuth\(state\.keypair\.pk, u, challenge\)\) : null\)/, "der Pool weiter nur mit der Identität");
   // Beide Aufträge an den Knoten nehmen den Weg; ohne ihn geht nichts hinaus
-  const agentTs = lies("shell/tabs/agent.ts");
+  const agentTs = ["agent", "modellwahl", "agent-verlauf", "agent-wege", "agent-anzeige", "agent-eingabe"].map((d) => lies(`shell/tabs/${d}.ts`)).join("\n");
   const frage = agentTs.slice(agentTs.indexOf("async function frageMeinenKnoten("), agentTs.indexOf("/** So lange wartet die App"));
   const pruefung = frage.indexOf("if (!weg) {");
   assert.ok(pruefung > 0 && pruefung < frage.indexOf("await buildJobEvent(") && pruefung < frage.indexOf("await weg.publish(wrap);"));

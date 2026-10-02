@@ -13,7 +13,7 @@ import { bestaetige } from "../dialog.js";
 import { aktualisiereKurs } from "../marktkurs.js";
 import { geheim, verlangeTresor } from "../tresor.js";
 import { $, toast, updateSidebarBalances } from "../ui.js";
-import { updateBudgetBar } from "./agent.js";
+import { updateBudgetBar } from "./agent-anzeige.js";
 import { activeSwap, sperren, starteRueckholWaechter } from "./tausch.js";
 import { htlcSigner, solWallet } from "./waehrung.js";
 

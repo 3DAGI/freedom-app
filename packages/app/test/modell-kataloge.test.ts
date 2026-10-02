@@ -70,7 +70,7 @@ test("5.7/8.8 verdrahtet: alle Kataloge holen und lokal waehlen, Anzeige ohne in
   assert.match(pub, /if \(alsGeraet\(\)\) \{/, "als Geraet nicht – der Katalog gehoert der Person");
   assert.match(pub, /await signiere\(baueModellKatalog\(/);
 
-  const agent = readFileSync(new URL("../src/shell/tabs/agent.ts", import.meta.url), "utf8");
+  const agent = ["agent", "modellwahl", "agent-verlauf", "agent-wege", "agent-anzeige", "agent-eingabe"].map((d) => readFileSync(new URL(`../src/shell/tabs/${d}.ts`, import.meta.url), "utf8")).join("\n");
   assert.doesNotMatch(agent, /nemotron zuerst/, "keine feste Vorliebe des Projekts im Dropdown");
   assert.match(agent, /const rang = katalogRangJetzt\(\);/);
   const app = readFileSync(new URL("../src/shell/app.ts", import.meta.url), "utf8");

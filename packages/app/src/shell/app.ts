@@ -38,21 +38,11 @@ import {
 } from "./state.js";
 import { haltevorModell, kuendigeModellAn, veroeffentlicheKatalog, zeigeKataloge, zeigeModelle } from "./tabs/agent-netz.js";
 import { starteStreitfall } from "./streitfall-ui.js";
-import {
-  askAi,
-  neueAufgabe,
-  refreshModelDropdown,
-  setupAttach,
-  setupEmptyState,
-  setupFunkAntworten,
-  setupKonsens,
-  setupModelPicker,
-  setupToolChips,
-  updateBudgetBar,
-  updateFeePreview,
-  updateTokenEstimate,
-  zeigeVerlaeufe,
-} from "./tabs/agent.js";
+import { askAi, setupFunkAntworten, setupKonsens } from "./tabs/agent.js";
+import { neueAufgabe, zeigeVerlaeufe } from "./tabs/agent-verlauf.js";
+import { refreshModelDropdown, setupModelPicker } from "./tabs/modellwahl.js";
+import { setupAttach, setupEmptyState, setupToolChips } from "./tabs/agent-eingabe.js";
+import { updateBudgetBar, updateFeePreview, updateTokenEstimate } from "./tabs/agent-anzeige.js";
 import { wireFunkGateway } from "./funk-gateway-ui.js";
 import { dialog } from "./dialog.js";
 import { wireEigeneAdresse, wireWerbeName } from "./werben-ui.js";

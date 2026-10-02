@@ -62,7 +62,7 @@ test("Reklamation: Provider und Pruefer lesen sie vollstaendig", async () => {
 });
 
 test("Verdrahtung: reklamiere() versiegelt wie das Szenario, der KI-Verlauf liegt nur im Tresor", () => {
-  const agent = readFileSync(new URL("../../src/shell/tabs/agent.ts", import.meta.url), "utf8");
+  const agent = ["agent", "modellwahl", "agent-verlauf", "agent-wege", "agent-anzeige", "agent-eingabe"].map((d) => readFileSync(new URL(`../../src/shell/tabs/${d}.ts`, import.meta.url), "utf8")).join("\n");
   const f = agent.slice(agent.indexOf("async function reklamiere("), agent.indexOf("function addUsageBubble("));
   assert.match(f, /const sitzung = kiSitzungen\.fuer\(providerPk\);/);
   assert.match(f, /buildDispute\(\{\s*jobId, customerPubkey: sitzung\.publicKey\(\), providerPubkey: providerPk,/);
