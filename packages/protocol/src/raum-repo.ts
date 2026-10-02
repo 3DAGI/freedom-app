@@ -22,6 +22,7 @@ import {
   baueIssue, baueIssueStatus, baueRepoAnkuendigung, bauePatch, baueStatus, type GelesenesRepo, type RepoAnkuendigung,
 } from "./nip34.js";
 import { KIND_KOMMENTAR, baueKommentar } from "./kommentar.js";
+import { baueBewertung, baueZeilenKommentar } from "./review.js";
 import type { InneresEvent, InneresSenden } from "./raum-gruppe.js";
 import { KIND_SPACE, buildSpaceState, can, leseRaumAdresse, mitRaumKanaelen, type SpaceState } from "./spaces.js";
 
@@ -106,6 +107,16 @@ export function raumRepoIssueStatus(raumId: string, p: Parameters<typeof baueIss
 /** Kommentar an ein Issue oder einen Patch im Raum (C-17a) – Bezüge sind Ids innerer Events. */
 export function raumRepoKommentar(raumId: string, k: Parameters<typeof baueKommentar>[0]): InneresSenden {
   return inRaum(raumId, baueKommentar(k, ""));
+}
+
+/** Kommentar an einer Zeile eines Patches im Raum (C-20g1) – der Patch ist ein inneres Event. */
+export function raumRepoZeilenKommentar(raumId: string, k: Parameters<typeof baueZeilenKommentar>[0]): InneresSenden {
+  return inRaum(raumId, baueZeilenKommentar(k, ""));
+}
+
+/** Bewertung eines Patches im Raum (C-20g1). */
+export function raumRepoBewertung(raumId: string, b: Parameters<typeof baueBewertung>[0]): InneresSenden {
+  return inRaum(raumId, baueBewertung(b, ""));
 }
 
 /**

@@ -497,6 +497,30 @@ Kommentars sind die Ids der inneren Events. `raumReposPrivat()` liefert sie als
 `issues` und `kommentare`. Die Leak-Regel `raum-repo-privat` weist offene
 Issues zum Repo und offene Kommentare zu inneren Issues und Patches ab.
 
+**Reviews an Patches** (seit C-20g1, `review.ts`; Vorschlag nach der
+Entscheidung des MENSCHEN vom 02.10.2026, alle Formate aus C-20 auszuarbeiten).
+Wie ein Review bei GitHub: Kommentare an einzelnen Zeilen des Diffs und eine
+Bewertung. Beides ist ein Kommentar nach NIP-22 (Kind 1111, Tags wie oben) am
+Patch mit **einem Tag mehr** – andere Clients zeigen es als gewöhnlichen
+Kommentar.
+
+| Tag | Inhalt |
+|---|---|
+| `zeile` | `<pfad>`, `<seite>`, `<nummer>` – Kommentar an einer Zeile: Pfad nach dem Diff (ohne `a/`/`b/`, höchstens 2.000 Zeichen, keine Steuerzeichen), Seite `neu` (Zeilennummer nach der Änderung) oder `alt` (davor, für entfernte Zeilen), Nummer 1 bis 10.000.000 ohne führende Null |
+| `bewertung` | `genehmigt` oder `aenderungen` – nur direkt am Patch (`E` = `e`, `K` = `k` = 1617); der Inhalt ist die Begründung und darf leer sein |
+
+Ein Zeilenkommentar darf wie jeder Kommentar antworten (`e` = Kommentar); er
+trägt dann denselben Zeilenbezug. Gelesen wird streng
+(`zeilenKommentareZu()`, `leseBewertung()`): ein kaputter Bezug oder eine
+unbekannte Bewertung fällt heraus. Es zählt je Person die neueste Bewertung
+(bei gleicher Sekunde die größere Id); die eigene Bewertung des Patch-Autors
+zählt nicht (`bewertungenZu()`), Bewertungen von Eigentümer und Maintainern
+sind als solche markiert. Annehmen bleibt eine Sache des Status (1631) –
+eine Bewertung nimmt nichts an. In privaten Räumen nur als innere Events
+(`raumRepoZeilenKommentar()`, `raumRepoBewertung()`); die Leak-Regel
+`raum-repo-privat` weist sie offen ab wie jeden Kommentar zu einem inneren
+Patch.
+
 ## 20. Umfragen und Termine in privaten Räumen (NIP-88, NIP-52, seit B-15a)
 
 Standard-Events anderer Clients, kein eigenes Format – aber nur als innere

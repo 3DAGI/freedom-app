@@ -15372,3 +15372,39 @@ war mit 1892 Zeilen die größte Datei.
 - Listen von Dateien (`FERTIG`, Texte) nennen die neuen Module mit.
 - app +1: C-5d in `dateigroesse.test.ts`. Es prüft auch, dass kein neues Modul
   `jobAbort` neu setzt.
+
+## Schritt C-20g1 – Reviews an Patches: Zeilenkommentare und Bewertungen (Protokoll)
+
+**Warum:** Sammlung C-20, Ziel „Repos 1:1 wie GitHub“. Reviews brauchen ein
+Format; der MENSCH hat am 02.10.2026 entschieden, alle offenen Formate als
+Vorschlag auszuarbeiten und umzusetzen, je Punkt ein Schritt.
+
+**Was:**
+- `protocol/src/review.ts` (neu): `baueZeilenKommentar()` – ein Kommentar nach
+  NIP-22 (Kind 1111) am Patch mit `["zeile", pfad, seite, nummer]` (Seite `neu`
+  oder `alt` für entfernte Zeilen); `baueBewertung()` – Kommentar direkt am
+  Patch mit `["bewertung", "genehmigt" | "aenderungen"]`, Begründung darf leer
+  sein. Andere Clients zeigen beides als gewöhnlichen Kommentar.
+- Lesen streng: `leseZeilenbezug()` (Pfad ohne Steuerzeichen, höchstens 2000
+  Zeichen, Zeile 1 bis 10 Mio., nur Ziffern), `zeilenKommentareZu()` (ältester
+  zuerst), `leseBewertung()` (nur direkt am Patch: `E` = `e`, `K` = `k` = 1617),
+  `bewertungenZu()` – je Person die neueste (gleiche Sekunde: die größere Id),
+  die eigene des Patch-Autors zählt nicht, `maintainer` über `darfAnnehmen()`.
+  `istReviewTeil()` für die Diskussion.
+- Private Räume: `raumRepoZeilenKommentar()`, `raumRepoBewertung()`
+  (`raum-repo.ts`) – nur innere Events.
+- Format in `docs/PROTOCOL.md` (19, „Reviews an Patches“). Fehler mit Kennung
+  (`review-zeile`, `review-patch`, `review-bewertung`) und Texten in beiden
+  Sprachen (`pf.*`).
+- Bewusst: Eine Bewertung ändert den Status eines Patches nie. Annehmen bleibt
+  bei Eigentümer und Maintainern (`darfAnnehmen()`); die Bewertung ist eine
+  Aussage, keine Freigabe.
+
+**Tests:** protocol +6 (`review.test.ts`): Bau und Lesen, Negativfälle
+(Zeile 0, Steuerzeichen, unbekannte Seite oder Bewertung, Bezug auf ein
+Issue, Antwort statt direkt am Patch), neueste je Person, Autor zählt nicht,
+privat als inneres Event samt Leak-Regel `raum-repo-privat`.
+
+**Verdrahtet:** noch nicht in der App – das ist C-20g2 (Knöpfe an Diff-Zeilen,
+Bewertung auf der Patch-Seite). `check-wiring.py --streng` führt die neuen
+Exporte bis dahin als Ausnahme.

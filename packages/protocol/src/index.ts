@@ -115,6 +115,7 @@ export * from "./wecken.js";
 export * from "./turn-zugang.js";
 export * from "./anruf.js";
 export * from "./kommentar.js";
+export * from "./review.js";
 export * from "./raum-repo.js";
 export * from "./ki-lokal.js";
 export * from "./sicherheitscode.js";
