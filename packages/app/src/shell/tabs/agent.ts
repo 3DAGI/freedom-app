@@ -20,15 +20,16 @@ import {
 } from "@freedomstack/protocol";
 import { gebietsschema, t } from "../../i18n.js";
 import { fehlerText, hatFehlerText, reklamationsFrist } from "../../protokoll-texte.js";
-import { icon, iconEl } from "../../icons.js";
+import { iconEl } from "../../icons.js";
 import { DEFAULT_MAX_MODE, ScoredProvider, matchRaceProviders } from "../../matchmaking.js";
 import { type AntwortCache, oeffneAntworten } from "../../ki-antworten.js";
 import { kontextPraefix } from "../../ki-kontext.js";
 import { KONSENS_MIN, KONSENS_WARTEN_MS, KonsensSammlung, konsensText, konsensZiele } from "../../konsens.js";
 import { LS_LOKAL_AKTIV, frageLokal, lokalAktiv, lokaleAdresse, lokaleModelle, lokalerWahlwert, lokalesModellAus, setzeLokaleAdresse } from "../../ki-lokal.js";
 import { bestaetige, dialog } from "../dialog.js";
+import { antwortDom } from "../antwort-ui.js";
 import { SessionClient } from "../../session-client.js";
-import { escapeHtml, fliesstext, pkShort } from "../../shell-logic.js";
+import { fliesstext, pkShort } from "../../shell-logic.js";
 import { ausMsat, solText } from "../../preis-anzeige.js";
 import { werkzeugPreise, werkzeugPreisText } from "../../werkzeug-preise.js";
 import type { ToolPrice } from "@freedomstack/protocol";
@@ -53,11 +54,9 @@ import { knotenModellAus, knotenWahlwert } from "../../knoten-wahl.js";
 import { hoechstMsat } from "../../anteile-kasse.js";
 import {
   $,
-  activateCodeBlocks,
   ganzeZahl,
   quotaExhausted,
   refreshQuota,
-  renderMarkdown,
   toast,
   updateSidebarBalances,
   el,
@@ -1373,19 +1372,27 @@ export function updateBudgetBar(): void {
   updateSidebarBalances();
 }
 
+/**
+ * Gerüst einer Blase im Verlauf (seit C-6d2 als DOM). Der Modellname kommt vom
+ * Provider (usage.model, Ankündigung) – nur als Text.
+ */
+function blasenGeruest(role: "user" | "ai", meta: string, model?: string): { blase: HTMLElement; koerper: HTMLElement } {
+  const blase = el("div", undefined, "bubble");
+  blase.classList.add(role);
+  const koerper = el("div", undefined, "body");
+  blase.append(el("div", role === "user" ? t("komm.du") : `agent${model ? ` · ${model}` : ""}`, "who"), koerper);
+  if (meta) blase.append(el("div", meta, "cost"));
+  return { blase, koerper };
+}
+
 function addAiMessage(role: "user" | "ai", text: string, meta: string, model?: string): HTMLElement {
-  const el = document.createElement("div");
-  el.className = `bubble ${role}`;
-  // AI-Antworten: Markdown rendern. User: plain (escaped).
-  const body = role === "ai" ? renderMarkdown(escapeHtml(text)) : escapeHtml(text);
-  // Der Modellname kommt vom Provider (usage.model, Ankuendigung) – nie roh ins HTML.
-  const whoLabel = role === "user" ? escapeHtml(t("komm.du")) : `agent${model ? ` · ${escapeHtml(model)}` : ""}`;
-  el.innerHTML = `<div class="who">${whoLabel}</div>
-    <div class="body">${body}</div>${meta ? `<div class="cost">${escapeHtml(meta)}</div>` : ""}`;
-  $("#ai-thread").appendChild(el);
-  stickToBottom(() => el.scrollIntoView({ behavior: "smooth", block: "end" }));
+  const { blase, koerper } = blasenGeruest(role, meta, model);
+  // AI-Antworten: Markdown nur über antwortDom(). User: reiner Text.
+  koerper.append(role === "ai" ? antwortDom(text) : text);
+  $("#ai-thread").appendChild(blase);
+  stickToBottom(() => blase.scrollIntoView({ behavior: "smooth", block: "end" }));
   merkeNachricht(role, text, meta, model);
-  return el;
+  return blase;
 }
 
 /**
@@ -1434,32 +1441,27 @@ async function zeigeFunkAntwort(ev: NostrEvent, frage: string, ergebnis: boolean
 /** Simuliertes Streaming: zeigt die AI-Antwort buchstabenweise an (typewriter).
  *  Echtes Nostr-Streaming waere komplex (multi-event); so wirkt es lebendig. */
 function addAiMessageStreaming(role: "ai", text: string, meta: string, model?: string, onDone?: () => void): HTMLElement {
-  const el = document.createElement("div");
-  el.className = `bubble ${role}`;
-  const whoLabel = `agent${model ? ` · ${escapeHtml(model)}` : ""}`;
-  el.innerHTML = `<div class="who">${whoLabel}</div><div class="body"></div>${meta ? `<div class="cost">${escapeHtml(meta)}</div>` : ""}`;
-  const bodyEl = el.querySelector(".body") as HTMLElement;
-  $("#ai-thread").appendChild(el);
-  stickToBottom(() => el.scrollIntoView({ behavior: "smooth", block: "end" }));
+  const { blase, koerper: bodyEl } = blasenGeruest(role, meta, model);
+  $("#ai-thread").appendChild(blase);
+  stickToBottom(() => blase.scrollIntoView({ behavior: "smooth", block: "end" }));
 
   let i = 0;
   const speed = 12; // ms pro zeichen (schneller: nutzer wollen die antwort)
   const tick = () => {
     if (i < text.length) {
       bodyEl.textContent = text.slice(0, ++i);
-      stickToBottom(() => el.scrollIntoView({ behavior: "smooth", block: "end" }));
+      stickToBottom(() => blase.scrollIntoView({ behavior: "smooth", block: "end" }));
       setTimeout(tick, speed);
     } else {
-      // fertig: markdown rendern + code-block-copy-buttons aktivieren
-      bodyEl.innerHTML = renderMarkdown(escapeHtml(text));
-      activateCodeBlocks(bodyEl);
-      stickToBottom(() => el.scrollIntoView({ behavior: "smooth", block: "end" }));
+      // fertig: Markdown samt Code-Blöcken (Kopier-Knopf) als DOM
+      bodyEl.replaceChildren(antwortDom(text));
+      stickToBottom(() => blase.scrollIntoView({ behavior: "smooth", block: "end" }));
       merkeNachricht("ai", text, meta, model);
       onDone?.();
     }
   };
   setTimeout(tick, speed);
-  return el;
+  return blase;
 }
 
 /** Claude-Stil ausklappbare Kosten-/Usage-Bubble unter einer AI-Antwort. */
@@ -1553,65 +1555,76 @@ function addUsageBubble(usage: {
   sessionTotalMsat?: number;
 }, amountMsat: number, providerPk: string, resultEventId?: string, frageAntwort?: { frage: string; antwort: string },
 abrechnung?: { providerMsat: number; posten: Array<{ anteil: string; msat: number }> }): void {
-  const el = document.createElement("div");
-  el.className = "usage-bubble";
+  const blase = el("div", undefined, "usage-bubble");
   aktualisiereAgentPanel(usage.toolCalls ?? [], usage.sessionTotalMsat);
   // Jedes Werkzeug als eigene Zeile mit Haken — im Entwurf war das der Kern:
   // man sieht auf einen Blick, was der Agent getan hat und was es gekostet hat.
-  const haken = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--accent)"
-    stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7"/></svg>`;
-  const toolRows = (usage.toolCalls ?? [])
-    .map((w) => `<div class="tool-card">
-      <span class="tool-check">${haken}</span>
-      <span class="tool-name">${escapeHtml(w.name)}</span>
-      <span class="tool-cost">${Math.floor(w.costMsat / 1000)} sat</span></div>`)
-    .join("");
+  const haken = (): HTMLElement => {
+    const h = el("span", undefined, "tool-check");
+    h.append(haekchenEl());
+    return h;
+  };
+  // Nur Text – Werkzeug- und Modellnamen kommen vom Provider.
+  const zeile = (k: string, v: string): HTMLElement => {
+    const z = el("div", undefined, "usage-row");
+    z.append(el("span", k), el("span", v));
+    return z;
+  };
 
-  // Nimmt Klartext und maskiert selbst – so kann kein Aufrufer es vergessen.
-  const zeile = (k: string, v: string): string =>
-    `<div class="usage-row"><span>${escapeHtml(k)}</span><span>${escapeHtml(v)}</span></div>`;
-
-  const werkzeugTeil = toolRows
-    ? `<div class="tool-list">${toolRows}</div>`
-    : "";
-
-  el.innerHTML = `
-    <button class="usage-toggle" type="button" aria-expanded="false">
-      <span class="tool-check">${haken}</span>
-      <span class="usage-title">${escapeHtml(usage.model ?? t("agent.antwort"))}</span>
-      <span class="usage-meta">${escapeHtml(t("agent.tokensMeta", { n: ganzeZahl(usage.completionTokens), sat: Math.floor(amountMsat / 1000) }))}</span>
-      <span class="usage-chev" aria-hidden="true">›</span>
-    </button>
-    <div class="usage-body hidden">
-      ${werkzeugTeil}
-      ${zeile(t("agent.modell"), usage.model ?? "—")}
-      ${zeile(t("agent.provider"), pkShort(providerPk))}
-      ${zeile(t("agent.tokens"), t("agent.reinRaus", { rein: ganzeZahl(usage.promptTokens), raus: ganzeZahl(usage.completionTokens) }))}
-      ${zeile(t("agent.dieseAntwort"), `${Math.floor(amountMsat / 1000)} sat`)}
-      ${usage.sessionTotalMsat !== undefined
-        ? `<div class="usage-row total"><span>${escapeHtml(t("agent.sitzungGesamt"))}</span><span>${Math.floor(usage.sessionTotalMsat / 1000)} sat</span></div>`
-        : ""}
-      ${abrechnung && abrechnung.providerMsat > 0 ? aufteilungZeilen(abrechnung, zeile) : ""}
-      ${amountMsat > 0 ? `<div class="usage-actions">
-        <button class="ghost file-dispute" type="button">${escapeHtml(t("agent.reklamieren"))}</button></div>` : ""}
-    </div>`;
-  const toggle = el.querySelector<HTMLElement>(".usage-toggle");
-  toggle?.addEventListener("click", () => {
-    const offen = el.querySelector(".usage-body")?.classList.contains("hidden") === false;
-    toggle.setAttribute("aria-expanded", String(offen));
+  const toggle = el("button", undefined, "usage-toggle");
+  toggle.type = "button";
+  toggle.setAttribute("aria-expanded", "false");
+  const chevron = el("span", "›", "usage-chev");
+  chevron.setAttribute("aria-hidden", "true");
+  toggle.append(
+    haken(),
+    el("span", usage.model ?? t("agent.antwort"), "usage-title"),
+    el("span", t("agent.tokensMeta", { n: ganzeZahl(usage.completionTokens), sat: Math.floor(amountMsat / 1000) }), "usage-meta"),
+    chevron,
+  );
+  const koerper = el("div", undefined, "usage-body");
+  koerper.classList.add("hidden");
+  const werkzeuge = (usage.toolCalls ?? []).map((w) => {
+    const karte = el("div", undefined, "tool-card");
+    karte.append(haken(), el("span", w.name, "tool-name"), el("span", `${Math.floor(w.costMsat / 1000)} sat`, "tool-cost"));
+    return karte;
   });
-  el.querySelector(".file-dispute")?.addEventListener("click", () => {
-    void reklamiere(resultEventId, providerPk, amountMsat, frageAntwort);
+  if (werkzeuge.length) {
+    const liste = el("div", undefined, "tool-list");
+    liste.append(...werkzeuge);
+    koerper.append(liste);
+  }
+  koerper.append(
+    zeile(t("agent.modell"), usage.model ?? "—"),
+    zeile(t("agent.provider"), pkShort(providerPk)),
+    zeile(t("agent.tokens"), t("agent.reinRaus", { rein: ganzeZahl(usage.promptTokens), raus: ganzeZahl(usage.completionTokens) })),
+    zeile(t("agent.dieseAntwort"), `${Math.floor(amountMsat / 1000)} sat`),
+  );
+  if (usage.sessionTotalMsat !== undefined) {
+    const gesamt = zeile(t("agent.sitzungGesamt"), `${Math.floor(usage.sessionTotalMsat / 1000)} sat`);
+    gesamt.classList.add("total");
+    koerper.append(gesamt);
+  }
+  if (abrechnung && abrechnung.providerMsat > 0) koerper.append(...aufteilungZeilen(abrechnung, zeile));
+  if (amountMsat > 0) {
+    const reklamieren = el("button", t("agent.reklamieren"), "file-dispute");
+    reklamieren.type = "button";
+    reklamieren.classList.add("ghost");
+    reklamieren.addEventListener("click", () => {
+      void reklamiere(resultEventId, providerPk, amountMsat, frageAntwort);
+    });
+    const aktionen = el("div", undefined, "usage-actions");
+    aktionen.append(reklamieren);
+    koerper.append(aktionen);
+  }
+  // Auf- und zuklappen; der Pfeil dreht sich über aria-expanded (app.css)
+  toggle.addEventListener("click", () => {
+    const zu = koerper.classList.toggle("hidden");
+    toggle.setAttribute("aria-expanded", String(!zu));
   });
-
-  el.querySelector(".usage-toggle")!.addEventListener("click", () => {
-    const body = el.querySelector(".usage-body")!;
-    const tog = el.querySelector(".usage-toggle")!;
-    const open = body.classList.toggle("hidden");
-    tog.textContent = t("agent.details", { pfeil: open ? "▸" : "▾", sats: Math.floor(amountMsat / 1000) });
-  });
-  $("#ai-thread").appendChild(el);
-  stickToBottom(() => el.scrollIntoView({ behavior: "smooth", block: "end" }));
+  blase.append(toggle, koerper);
+  $("#ai-thread").appendChild(blase);
+  stickToBottom(() => blase.scrollIntoView({ behavior: "smooth", block: "end" }));
 }
 
 const ANTEIL_NAME: Record<string, string> = {
@@ -1627,27 +1640,30 @@ const satText = (msat: number): string => `${(msat / 1000).toLocaleString(gebiet
  * bleibt ein Anteil beim Provider. Seit 5.1.2 gibt es keinen Fee-Beweis des
  * Knotens mehr; die App zahlt selbst.
  */
-function aufteilungZeilen(a: { providerMsat: number; posten: Array<{ anteil: string; msat: number }> }, zeile: (k: string, v: string) => string): string {
-  const weitere = a.posten.map((p) => zeile(ANTEIL_NAME[p.anteil] ? t(ANTEIL_NAME[p.anteil]!) : p.anteil, t("agent.gesammelt", { betrag: satText(p.msat) }))).join("");
-  return zeile(t("agent.anDenProvider"), satText(a.providerMsat)) +
-    (weitere || zeile(t("agent.weitereAnteile"), t("agent.keinEmpfaenger")));
+function aufteilungZeilen(a: { providerMsat: number; posten: Array<{ anteil: string; msat: number }> }, zeile: (k: string, v: string) => HTMLElement): HTMLElement[] {
+  const weitere = a.posten.map((p) => zeile(ANTEIL_NAME[p.anteil] ? t(ANTEIL_NAME[p.anteil]!) : p.anteil, t("agent.gesammelt", { betrag: satText(p.msat) })));
+  return [zeile(t("agent.anDenProvider"), satText(a.providerMsat)),
+    ...(weitere.length ? weitere : [zeile(t("agent.weitereAnteile"), t("agent.keinEmpfaenger"))])];
 }
 
 /** Thinking-Orb (wie orbs.jakubantalik.com): animierte Kugel statt Text.
  *  Leichte Canvas-Version (kein npm-Dep). States: working/searching/etc. */
 function showTyping(status: string = "thinking"): HTMLElement {
-  const el = document.createElement("div");
-  el.className = "typing";
-  el.id = "ai-typing";
+  const tippt = el("div", undefined, "typing");
+  tippt.id = "ai-typing";
   // Replit-Stil: wachsende Icon-Leiste. Jeder Schritt hängt sein Symbol an,
   // das Label zeigt dynamisch was GERADE passiert (auch provider-feedback).
-  el.innerHTML = `
-    <div class="step-rail" id="step-rail"></div>
-    <div class="step-label"><span class="spinner"></span><span id="step-label-text">${escapeHtml(t(status))}</span></div>`;
-  $("#ai-thread").appendChild(el);
+  const leiste = el("div", undefined, "step-rail");
+  leiste.id = "step-rail";
+  const text = el("span", t(status));
+  text.id = "step-label-text";
+  const label = el("div", undefined, "step-label");
+  label.append(el("span", undefined, "spinner"), text);
+  tippt.append(leiste, label);
+  $("#ai-thread").appendChild(tippt);
   addStepIcon(status);
-  stickToBottom(() => el.scrollIntoView({ behavior: "smooth", block: "end" }));
-  return el;
+  stickToBottom(() => tippt.scrollIntoView({ behavior: "smooth", block: "end" }));
+  return tippt;
 }
 
 /** Fügt ein Schritt-Icon an die wachsende Leiste an (Replit-Stil).
@@ -1655,22 +1671,22 @@ function showTyping(status: string = "thinking"): HTMLElement {
 function addStepIcon(stepKey: string): void {
   const rail = document.getElementById("step-rail");
   if (!rail) return;
-  const iconFor = (k: string): { svg: string; title: string } => {
+  const iconFor = (k: string): { symbol: string; title: string } => {
     switch (k) {
-      case "connecting": return { svg: icon("zap", 12), title: t("agent.schrittVerbinden") };
-      case "researching": return { svg: icon("search", 12), title: t("agent.schrittRecherche") };
-      case "thinking": return { svg: icon("bot", 12), title: t("agent.schrittModell") };
-      case "creating": return { svg: icon("image", 12), title: t("agent.schrittMedien") };
-      default: return { svg: icon("wrench", 12), title: k };
+      case "connecting": return { symbol: "zap", title: t("agent.schrittVerbinden") };
+      case "researching": return { symbol: "search", title: t("agent.schrittRecherche") };
+      case "thinking": return { symbol: "bot", title: t("agent.schrittModell") };
+      case "creating": return { symbol: "image", title: t("agent.schrittMedien") };
+      default: return { symbol: "wrench", title: k };
     }
   };
-  const { svg, title } = iconFor(stepKey);
+  const { symbol, title } = iconFor(stepKey);
   const prev = rail.querySelector(".step-ic.active");
   if (prev) { prev.classList.remove("active"); prev.classList.add("done"); }
   const ic = document.createElement("span");
   ic.className = "step-ic active";
   ic.title = title;
-  ic.innerHTML = svg;
+  ic.append(iconEl(symbol, 12));
   ic.addEventListener("click", () => {
     // Klick: Schritt-Erklärung kurz im Label zeigen
     setTypingLabel(title);

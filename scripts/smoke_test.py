@@ -1910,6 +1910,9 @@ def unsicher_pruefen(browser, url: str) -> dict:
     return erg
 
 
+ANTWORT_MD = "**fett** <img src=x onerror=alert(1)>\n\n```ts\nconst a = \"<b>\"; // x\n```"
+
+
 def lokal_pruefen(browser, url: str) -> dict:
     """KI auf diesem Gerät (B-1): „Dieses Gerät“ steht in der Modellwahl, gesucht wird
     erst auf Klick, die Frage geht nur an localhost – kein Auftrag, kein Umschlag ans Relay."""
@@ -1931,7 +1934,9 @@ def lokal_pruefen(browser, url: str) -> dict:
         elif req.url.endswith("/v1/models"):
             route.fulfill(json={"data": [{"id": "probe-modell:1b"}]}, headers=cors)
         elif req.url.endswith("/v1/chat/completions"):
-            route.fulfill(json={"model": "probe-modell:1b", "choices": [{"message": {"content": "Antwort vom Gerät"}}],
+            # C-6d2: auf Wunsch eine Antwort mit Markdown, HTML darin und einem Code-Block
+            inhalt = ANTWORT_MD if "Markdown bitte" in (req.post_data or "") else "Antwort vom Gerät"
+            route.fulfill(json={"model": "probe-modell:1b", "choices": [{"message": {"content": inhalt}}],
                                 "usage": {"prompt_tokens": 7, "completion_tokens": 3}}, headers=cors)
         else:
             route.fulfill(status=404, headers=cors)
@@ -1968,6 +1973,26 @@ def lokal_pruefen(browser, url: str) -> dict:
                  " return b ? { text: b.querySelector('.body')?.textContent ?? '', meta: b.querySelector('.cost')?.textContent ?? '' } : null; }")
     s.wait_for_timeout(1000)
     neu = relay.gesendet[vorher:]
+    anfragen = [a for a in lokal if a["methode"] == "POST"]
+    # C-6d2: Antworten als DOM – HTML aus der Antwort bleibt Text, der Code-Block ist gefärbt
+    # und kopiert den Code selbst
+    ctx.grant_permissions(["clipboard-read", "clipboard-write"], origin=basis)
+    ev("() => { document.getElementById('ai-prompt').value = 'Markdown bitte'; document.getElementById('ai-send').click(); }")
+    try:
+        s.wait_for_function("() => document.querySelector('#ai-thread .bubble.ai .codeblock .cb-copy')", timeout=15000)
+        ev("() => document.querySelector('#ai-thread .bubble.ai .codeblock .cb-copy').click()")
+        s.wait_for_function("() => document.querySelector('#ai-thread .bubble.ai .cb-copy').textContent.includes('kopiert')", timeout=5000)
+    except Exception:
+        pass
+    erg["antwort_md"] = ev("""async () => { const b = [...document.querySelectorAll('#ai-thread .bubble.ai')].pop();
+        const k = b?.querySelector('.codeblock');
+        return [b?.querySelectorAll('img, script, [onerror]').length ?? -1, b?.querySelector('.body p')?.textContent ?? '',
+          b?.querySelector('.body strong')?.textContent ?? '', k?.querySelector('.cb-head span')?.textContent ?? '',
+          [...(k?.querySelectorAll('code span') ?? [])].map((x) => `${x.className}:${x.textContent}`),
+          k?.querySelector('.cb-copy')?.textContent ?? '', await navigator.clipboard.readText().catch(() => '')]; }""")
+    if erg["antwort_md"] != [0, "fett <img src=x onerror=alert(1)>", "fett", "ts",
+                             ["tok-kw:const", 'tok-str:"<b>"', "tok-com:// x"], "✓ kopiert", 'const a = "<b>"; // x']:
+        erg["fehler"].append(f"Antwort mit Markdown {erg['antwort_md']}")
     # Mein Knoten (B-9a): gekoppelt steht die Gruppe zwischen Netz und Gerät; die Frage geht nur als Umschlag an den
     # Knoten (kein Klartext, kein anderer Provider), ohne Antwort wartet die App – „Stopp“ bricht ab
     knoten_pk = "ab" * 32
@@ -2006,7 +2031,6 @@ def lokal_pruefen(browser, url: str) -> dict:
             or any(5000 <= int(e.get("kind", 0)) < 7000 for e in neu_k) or any(frage_k in json.dumps(e) for e in neu_k):
         erg["fehler"].append(f"Mein Knoten {erg['knoten']}")
     ctx.close()
-    anfragen = [a for a in lokal if a["methode"] == "POST"]
     erg.update({"vor_klick": vor_klick, "wahl": wahl, "antwort": antwort, "lokal": [f"{a['methode']} {a['url']}" for a in lokal],
                 "relay_danach": [e.get("kind") for e in neu]})
     if vor_klick != 0:
