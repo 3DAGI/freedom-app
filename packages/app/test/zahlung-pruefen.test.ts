@@ -10,7 +10,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 test("5.1.3: je Antwort die Aufteilung nach A+ statt „Zahlung prüfen“ am Beleg des Knotens; Kettenprüfung bleibt über den RPC-Pool", () => {
-  const agent = readFileSync(new URL("../src/shell/tabs/agent.ts", import.meta.url), "utf8");
+  const agent = ["agent", "modellwahl", "agent-verlauf", "agent-wege", "agent-anzeige", "agent-eingabe"].map((d) => readFileSync(new URL(`../src/shell/tabs/${d}.ts`, import.meta.url), "utf8")).join("\n");
   assert.match(agent, /if \(abrechnung && abrechnung\.providerMsat > 0\) koerper\.append\(\.\.\.aufteilungZeilen\(abrechnung, zeile\)\);/);
   assert.match(agent, /zeile\(t\("agent\.anDenProvider"\), satText\(a\.providerMsat\)\)/);
   assert.match(agent, /zeile\(t\("agent\.weitereAnteile"\), t\("agent\.keinEmpfaenger"\)\)/, "nicht Zuordenbares sichtbar beim Provider");

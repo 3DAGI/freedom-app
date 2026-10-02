@@ -191,8 +191,8 @@ test("8.16c: Kommunikation – Texte über Schlüssel; die Markierung abgelöste
 });
 
 test("8.16d1: Agent – Seite und tabs/agent.ts über Schlüssel; eigene Meldungen nicht umgedeutet, Beispiel-Prompts in der Sprache", () => {
-  const ag = readFileSync(pfad(SRC, "shell/tabs/agent.ts"), "utf8");
-  assert.ok(offenImCode("shell/tabs/agent.ts") === 0 && offenImHtml("page-ai") === 0, "fertig: Seite und Code auf 0");
+  const ag = ["agent", "modellwahl", "agent-verlauf", "agent-wege", "agent-anzeige", "agent-eingabe"].map((d) => readFileSync(pfad(SRC, `shell/tabs/${d}.ts`), "utf8")).join("\n");
+  assert.ok(["agent", "modellwahl", "agent-verlauf", "agent-wege", "agent-anzeige", "agent-eingabe"].every((d) => offenImCode(`shell/tabs/${d}.ts`) === 0) && offenImHtml("page-ai") === 0, "fertig: Seite und Code auf 0");
   assert.doesNotMatch(ag, /"de-DE"/);
   // Eigene Meldungen sind schon übersetzt – explainError deutet sie nicht nach deutschen Mustern um
   assert.match(ag, /if \(e instanceof EigeneMeldung\) return e\.message;/);
@@ -234,8 +234,8 @@ test("8.16e: Agent-Rest, Währung, Zahlwege und Swaps – über Schlüssel; Text
   for (const d of ["waehrung", "tausch", "hinterlegen"]) assert.doesNotMatch(lies(`shell/tabs/${d}.ts`), /caps\.note|swapPrivacyCheck/, d);
   assert.match(lies("shell/tabs/tausch.ts"), /const pruefung = tauschPruefung\(\{/);
   // Der Prüfer hat eine Art, keinen Text – angezeigt über den Schlüssel
-  assert.match(lies("shell/tabs/agent.ts"), /pruefer\.art === "provider" \?/);
-  assert.doesNotMatch(lies("shell/tabs/agent.ts"), /eigener Provider| je Aufruf/);
+  assert.match(["agent", "modellwahl", "agent-verlauf", "agent-wege", "agent-anzeige", "agent-eingabe"].map((d) => lies(`shell/tabs/${d}.ts`)).join("\n"), /pruefer\.art === "provider" \?/);
+  assert.doesNotMatch(["agent", "modellwahl", "agent-verlauf", "agent-wege", "agent-anzeige", "agent-eingabe"].map((d) => lies(`shell/tabs/${d}.ts`)).join("\n"), /eigener Provider| je Aufruf/);
   // Knöpfe, deren Text der Code ändert, tragen den neuen Schlüssel – ein Sprachwechsel setzt nicht zurück
   assert.match(lies("shell/tabs/waehrung.ts"), /btn\.dataset\.i18n = "waehr\.knopfVerbunden";\s*btn\.textContent = t\("waehr\.knopfVerbunden"\);/);
   assert.match(lies("shell/app.ts"), /nbWallet\.dataset\.i18n = "waehr\.solDeposit";/);
@@ -733,7 +733,7 @@ test("8.16g2b3b: Gründe – Relay-Adressen, Geräte, Nachfolge, Funk, Abgleich,
   assert.equal(stelle("geraete-buch.ts").match(/geraetGrund\(z\)/g)?.length, 2);
   assert.doesNotMatch(stelle("mesh-radio.ts"), /plan\.note|machbar\.note/);
   assert.match(stelle("mesh-radio.ts"), /syncNotiz\(plan, this\.link, falsePositiveRate\(fremd\)\)/);
-  assert.doesNotMatch(stelle("shell/tabs/agent.ts"), /w\.message/);
+  assert.doesNotMatch(["agent", "modellwahl", "agent-verlauf", "agent-wege", "agent-anzeige", "agent-eingabe"].map((d) => stelle(`shell/tabs/${d}.ts`)).join("\n"), /w\.message/);
   assert.doesNotMatch(stelle("shell/tabs/kommunikation.ts"), /\?\? "ausgeblendet"/);
 
   const P = await import("@freedomstack/protocol");
@@ -820,7 +820,7 @@ test("8.16g2b3b: Gründe – Relay-Adressen, Geräte, Nachfolge, Funk, Abgleich,
 test("8.16i1: Fehlermeldungen des Protokolls (Geld und Netz) – mit Kennung, deutsch wortgleich; die App zeigt Fehler nur über fehlerText()", async () => {
   // Keine Anzeige mehr direkt aus der Meldung – fehlerText() übersetzt, was eine Kennung hat
   assert.equal(code.match(/\((e|err|fehler|error) as Error\)\.message/g), null, "(e as Error).message im Code");
-  assert.match(readFileSync(pfad(SRC, "shell/tabs/agent.ts"), "utf8"), /if \(hatFehlerText\(e\)\) return fehlerText\(e\);/, "explainError deutet sie nicht um");
+  assert.match(["agent", "modellwahl", "agent-verlauf", "agent-wege", "agent-anzeige", "agent-eingabe"].map((d) => readFileSync(pfad(SRC, `shell/tabs/${d}.ts`), "utf8")).join("\n"), /if \(hatFehlerText\(e\)\) return fehlerText\(e\);/, "explainError deutet sie nicht um");
 
   const P = await import("@freedomstack/protocol");
   const T = await import("../src/protokoll-texte.js");

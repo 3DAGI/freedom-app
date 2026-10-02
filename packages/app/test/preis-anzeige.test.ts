@@ -44,7 +44,7 @@ test("Deposit-Deckel: Anbieterpreis in Lamports plus 10 %; Anbieterkurs neben de
 
 test("Verdrahtung: kein fester SOL-Kurs mehr, Kurs in Modellwahl, Schaetzung, Zap, Wallet-Tab und Deposit", () => {
   const lies = (p: string) => readFileSync(new URL(p, import.meta.url), "utf8");
-  const agent = lies("../src/shell/tabs/agent.ts");
+  const agent = ["agent", "modellwahl", "agent-verlauf", "agent-wege", "agent-anzeige", "agent-eingabe"].map((d) => lies(`../src/shell/tabs/${d}.ts`)).join("\n");
   assert.ok(!agent.includes("FREEDOM_SOL_PRICE_SATS") && !agent.includes("150_000"), "fester Kurs entfernt");
   assert.match(agent, /const preis = ausMsat\(info\.priceMsat, aktuellerKurs\(\)\);/);
   assert.match(agent, /t\("agent\.schaetzung", \{ tokens: estTokens, preis: ausMsat\(estSats \* 1000, aktuellerKurs\(\)\) \}\)/);

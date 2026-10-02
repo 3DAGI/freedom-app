@@ -16,6 +16,7 @@ const ausnahmen = quelle("../../../scripts/innerhtml-ausnahmen.txt").split("\n")
 const FERTIG = [
   "shell/tabs/agent-netz.ts", "shell/tabs/earn.ts", "shell/tabs/profil.ts", "shell/tabs/settings.ts", "shell/tabs/sicherung.ts", "shell/tabs/mesh.ts", "shell/state.ts",
   "shell/tabs/kommunikation.ts", "shell/tabs/chat-anhaenge.ts", "shell/tabs/kontakte.ts", "shell/tabs/posteingang.ts", "shell/tabs/raeume.ts", "shell/tabs/agent.ts",
+  "shell/tabs/modellwahl.ts", "shell/tabs/agent-verlauf.ts", "shell/tabs/agent-wege.ts", "shell/tabs/agent-anzeige.ts", "shell/tabs/agent-eingabe.ts",
   "shell/app.ts", "shell/ui.ts", "shell/tresor.ts", "shell/einrichtung-ui.ts",
 ];
 
@@ -120,7 +121,7 @@ test("C-6c: Chat-Liste, Verlauf und Kanalliste als DOM – Namen, Text und Gerä
 });
 
 test("C-6d1: agent.ts – Modellwahl, Verlauf, Werkzeuge, Fehler und Vorschau als DOM; Symbole nur aus der festen Tabelle", () => {
-  const agent = quelle("../src/shell/tabs/agent.ts");
+  const agent = ["agent", "modellwahl", "agent-verlauf", "agent-wege", "agent-anzeige", "agent-eingabe"].map((d) => quelle(`../src/shell/tabs/${d}.ts`)).join("\n");
   // Modellwahl: Namen aus fremden Angeboten nur als Text und als Eigenschaft
   assert.match(agent, /b\.dataset\.model = wert;/);
   assert.match(agent, /kopf\.append\(el\("b", name\), tempo\);/);
@@ -143,7 +144,7 @@ test("C-6d1: agent.ts – Modellwahl, Verlauf, Werkzeuge, Fehler und Vorschau al
 });
 
 test("C-6d2: Antworten über markdownDom(), Code-Blöcke, Kosten und Schritte als DOM – renderMarkdown() entfällt", () => {
-  const agent = quelle("../src/shell/tabs/agent.ts");
+  const agent = ["agent", "modellwahl", "agent-verlauf", "agent-wege", "agent-anzeige", "agent-eingabe"].map((d) => quelle(`../src/shell/tabs/${d}.ts`)).join("\n");
   // Blasen: Modellname vom Provider nur als Text, Antworten nur über antwortDom()
   assert.match(agent, /blase\.append\(el\("div", role === "user" \? t\("komm\.du"\) : `agent\$\{model \? ` · \$\{model\}` : ""\}`, "who"\), koerper\);/);
   assert.match(agent, /koerper\.append\(role === "ai" \? antwortDom\(text\) : text\);/);

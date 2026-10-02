@@ -14,6 +14,8 @@ const AUFGETEILT = [
   "shell/tabs/waehrung.ts", "shell/tabs/tausch.ts", "shell/tabs/hinterlegen.ts",
   "shell/tabs/kommunikation.ts", "shell/tabs/chat-anhaenge.ts", "shell/tabs/kontakte.ts", "shell/tabs/posteingang.ts",
   "shell/tabs/settings.ts", "shell/tabs/sicherung.ts", "shell/tabs/mesh.ts",
+  "shell/tabs/agent.ts", "shell/tabs/modellwahl.ts", "shell/tabs/agent-verlauf.ts", "shell/tabs/agent-wege.ts", "shell/tabs/agent-anzeige.ts",
+  "shell/tabs/agent-eingabe.ts",
 ];
 
 test("C-5: aufgeteilte Dateien bleiben unter 700 Zeilen", () => {
@@ -69,3 +71,17 @@ test("C-5c: Sicherung, Geräte und Mesh aus ihren eigenen Modulen; die Settings 
   assert.match(lies("shell/offline-zahlung.ts"), /await import\("\.\/tabs\/mesh\.js"\)/);
 });
 
+test("C-5d: Modellwahl, Verlauf, Wege, Anzeige und Eingabe aus eigenen Modulen; agent.ts bleibt Frage, Konsens, Auftrag und Antwort", () => {
+  const agent = lies("shell/tabs/agent.ts");
+  for (const fn of ["refreshModelDropdown", "zeigeVerlaeufe", "askWithFailover", "addAiMessage", "addUsageBubble", "setupAttach"]) {
+    assert.doesNotMatch(agent, new RegExp(`function ${fn}\\(`), `${fn} steht nicht mehr in agent.ts`);
+  }
+  for (const fn of ["askAi", "buildJobEvent", "waitForAnswer", "handleAnswer", "setupKonsens"]) assert.match(agent, new RegExp(`^export (async )?function ${fn}\\(`, "m"));
+  // Wer den laufenden Auftrag abbricht oder setzt, steht beim Auftrag selbst – keine fremde Neuzuweisung
+  assert.match(agent, /^export let jobAbort: AbortController \| null = null;/m);
+  for (const d of ["modellwahl", "agent-verlauf", "agent-wege", "agent-anzeige", "agent-eingabe"]) {
+    assert.doesNotMatch(lies(`shell/tabs/${d}.ts`), /\bjobAbort = /, d);
+  }
+  assert.match(lies("shell/tabs/agent-anzeige.ts"), /^async function reklamiere\(/m, "Reklamation neben der Kosten-Blase, die sie anbietet");
+  assert.match(lies("shell/app.ts"), /import \{ askAi, setupFunkAntworten, setupKonsens \} from "\.\/tabs\/agent\.js";/);
+});
