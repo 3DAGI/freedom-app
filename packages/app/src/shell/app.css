@@ -1093,6 +1093,8 @@ main { min-width: 0; }
   content: ""; position: absolute; left: -12px; top: 4px; bottom: 4px; width: 4px;
   border-radius: 0 3px 3px 0; background: var(--text);
 }
+/* Ungelesenes in einem Raum (C-13a) – nur, was in dieser Sitzung geladen war */
+.comm-rail .rail-punkt { position: absolute; right: 2px; top: 2px; width: 10px; height: 10px; border-radius: 50%; background: var(--text); border: 2px solid var(--bg); }
 .comm-rail .dm-pill { color: var(--accent); }
 .comm-rail .dm-pill[aria-current="true"] { background: var(--accent-dim); color: var(--text); }
 
@@ -1203,6 +1205,9 @@ main { min-width: 0; }
   background: transparent; border: 1px solid var(--line2); color: var(--accent);
 }
 .chat-composer .zap-btn:hover { border-color: var(--accent); }
+/* Sprachnachricht (C-7): die Aufnahme sieht man am Knopf und in einer Zeile darunter */
+#chat-voice-btn.nimmt-auf { border-color: var(--red); color: var(--red-text); }
+.chat-voice-status { padding: 0 12px 6px; color: var(--red-text); }
 
 /* Hauptnavigation: kein abgeschnittener Eintrag */
 @media (min-width: 1024px) {
@@ -1408,6 +1413,9 @@ button.dlg-gefahr:hover { background: #A52A2A; }
   color: var(--text-muted); font-size: 11px;
 }
 .msg-tag::before, .msg-tag::after { content: ""; flex: 1; border-top: 1px solid var(--border); }
+/* Linie „Neu“ am Lesestand (C-13b) – Rot als Schrift ist --red-text (C-4) */
+.msg-neu { display: flex; align-items: center; gap: 8px; margin: 10px 0 4px; font-size: 11px; font-weight: 600; color: var(--red-text); text-transform: uppercase; letter-spacing: .04em; }
+.msg-neu::before { content: ""; flex: 1; border-top: 1px solid var(--red-text); }
 .msg-zeile { position: relative; padding: 2px 6px; margin: 0 -6px; border-radius: 4px; }
 .msg-zeile:hover, .msg-zeile:focus-within { background: #111315; }
 /* Aktionen erscheinen beim Zeigen und mit dem Fokus; mobil nach Antippen der

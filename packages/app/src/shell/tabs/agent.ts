@@ -20,7 +20,7 @@ import {
 } from "@freedomstack/protocol";
 import { gebietsschema, t } from "../../i18n.js";
 import { fehlerText, hatFehlerText, reklamationsFrist } from "../../protokoll-texte.js";
-import { icon } from "../../icons.js";
+import { icon, iconEl } from "../../icons.js";
 import { DEFAULT_MAX_MODE, ScoredProvider, matchRaceProviders } from "../../matchmaking.js";
 import { type AntwortCache, oeffneAntworten } from "../../ki-antworten.js";
 import { kontextPraefix } from "../../ki-kontext.js";
@@ -28,7 +28,7 @@ import { KONSENS_MIN, KONSENS_WARTEN_MS, KonsensSammlung, konsensText, konsensZi
 import { LS_LOKAL_AKTIV, frageLokal, lokalAktiv, lokaleAdresse, lokaleModelle, lokalerWahlwert, lokalesModellAus, setzeLokaleAdresse } from "../../ki-lokal.js";
 import { bestaetige, dialog } from "../dialog.js";
 import { SessionClient } from "../../session-client.js";
-import { escapeHtml, pkShort } from "../../shell-logic.js";
+import { escapeHtml, fliesstext, pkShort } from "../../shell-logic.js";
 import { ausMsat, solText } from "../../preis-anzeige.js";
 import { werkzeugPreise, werkzeugPreisText } from "../../werkzeug-preise.js";
 import type { ToolPrice } from "@freedomstack/protocol";
@@ -55,15 +55,16 @@ import {
   $,
   activateCodeBlocks,
   ganzeZahl,
-  markSvgCheck,
   quotaExhausted,
   refreshQuota,
   renderMarkdown,
   toast,
   updateSidebarBalances,
+  el,
+  haekchenEl,
 } from "../ui.js";
 import { katalogRangJetzt, zeigeModelle } from "./agent-netz.js";
-import { PRUEFER_ART, type Pruefer } from "../../streitfall.js";
+import { GRUND_TEXT, PRUEFER_ART, type Pruefer } from "../../streitfall.js";
 import { merkeReklamation, netzPruefer, stelleZu } from "../streitfall-ui.js";
 import { zeigeMitwirkende } from "./earn.js";
 import { funkGeraetVerbunden, sendeUeberFunk, zeigeNachfolge } from "./settings.js";
@@ -112,22 +113,32 @@ export async function refreshModelDropdown(): Promise<void> {
         }
         return { label: t("agent.mittel"), cls: "mid" };
       };
-      pop.innerHTML = `
-        <div class="mc-gruppe">${escapeHtml(t("agent.gruppeNetz"))}</div>
-        <button type="button" class="model-card ${current === "" ? "selected" : ""}" data-model="">
-          <div class="mc-head"><b>${escapeHtml(t("agent.auto"))}</b><span class="mc-speed fast">${escapeHtml(t("agent.schnellste"))}</span></div>
-          <div class="mc-sub">${escapeHtml(t("agent.autoSub"))}</div>
-        </button>
-        ${entries.map(([m, info]) => {
-          const sp = speedOf(m);
-          const short = m.split(":")[0];
+      // Als DOM (C-6d): Modellnamen kommen aus Angeboten im Netz – nur als Text und als Eigenschaft
+      const karte = (wert: string, name: string, speed: { label: string; cls: string }, sub: (string | Node)[]): HTMLButtonElement => {
+        const b = el("button", undefined, "model-card");
+        b.type = "button";
+        if (current === wert) b.classList.add("selected");
+        b.dataset.model = wert;
+        const kopf = el("div", undefined, "mc-head");
+        const tempo = el("span", speed.label, "mc-speed");
+        tempo.classList.add(speed.cls);
+        kopf.append(el("b", name), tempo);
+        const unter = el("div", undefined, "mc-sub");
+        unter.append(...sub);
+        b.append(kopf, unter);
+        return b;
+      };
+      pop.replaceChildren(
+        el("div", t("agent.gruppeNetz"), "mc-gruppe"),
+        karte("", t("agent.auto"), { label: t("agent.schnellste"), cls: "fast" }, [t("agent.autoSub")]),
+        ...entries.map(([m, info]) => {
           // Beide Einheiten aus dem Marktkurs (4.4b) – vorher fest 150.000 sats/SOL.
           const preis = ausMsat(info.priceMsat, aktuellerKurs());
-          return `<button type="button" class="model-card ${current === m ? "selected" : ""}" data-model="${escapeHtml(m)}">
-            <div class="mc-head"><b>${escapeHtml(short)}</b><span class="mc-speed ${sp.cls}">${escapeHtml(sp.label)}</span></div>
-            <div class="mc-sub">${escapeHtml(t("agent.mcSub", { preis, n: info.count }))}${escapeHtml(katalogHinweis(inKatalogen(m)))}${info.tools.size ? " · " + icon("wrench", 11) : ""}</div>
-          </button>`;
-        }).join("")}`;
+          const sub: (string | Node)[] = [t("agent.mcSub", { preis, n: info.count }) + katalogHinweis(inKatalogen(m))];
+          if (info.tools.size) sub.push(" · ", iconEl("wrench", 11));
+          return karte(m, m.split(":")[0]!, speedOf(m), sub);
+        }),
+      );
     }
     // button-label aktualisieren
     updateModelBtnLabel();
@@ -361,13 +372,15 @@ function updateModelBtnLabel(): void {
   const v = sel.value;
   const lokalModell = lokalesModellAus(v);
   const knotenModell = knotenModellAus(v);
-  btn.innerHTML = lokalModell
-    ? `${icon("monitor", 14)} ${escapeHtml(lokalModell)} · ${escapeHtml(t("agent.lokalKurz"))}`
+  // Als DOM (C-6d): Symbol, dann der Name als Text
+  const [symbol, text] = lokalModell
+    ? ["monitor", `${lokalModell} · ${t("agent.lokalKurz")}`]
     : knotenModell !== null
-    ? `${icon("server", 14)} ${escapeHtml(knotenModell.split(":")[0] || t("agent.knotenStandard"))} · ${escapeHtml(t("agent.knotenKurz"))}`
+    ? ["server", `${knotenModell.split(":")[0] || t("agent.knotenStandard")} · ${t("agent.knotenKurz")}`]
     : v
-    ? `${icon("bot", 14)} ${escapeHtml(v.split(":")[0])}`
-    : `${icon("bot", 14)} ${escapeHtml(t("agent.autoSchnellste"))}`;
+    ? ["bot", v.split(":")[0]!]
+    : ["bot", t("agent.autoSchnellste")];
+  btn.replaceChildren(iconEl(symbol, 14), ` ${text}`);
 }
 
 /** Modell-Popover öffnen/schliessen. */
@@ -458,24 +471,27 @@ export function zeigeVerlaeufe(): void {
   if (!box) return;
   const alle = ladeVerlaeufe();
   if (alle.length === 0) {
-    box.innerHTML = `<p class="muted mono-sm history-empty">${escapeHtml(t("agent.keineAufgaben"))}</p>`;
+    const leer = el("p", t("agent.keineAufgaben"), "muted");
+    leer.classList.add("mono-sm", "history-empty");
+    box.replaceChildren(leer);
     return;
   }
+  // Als DOM (C-6d): Titel stammen aus eigenen Fragen – nur als Text
   const heute = new Date().toDateString();
   let letzteGruppe = "";
-  box.innerHTML = alle.map((v) => {
+  box.replaceChildren(...alle.flatMap((v) => {
     const d = new Date(v.at * 1000);
     const gruppe = t(d.toDateString() === heute ? "agent.heute" : "agent.frueher");
-    const kopf = gruppe !== letzteGruppe ? `<div class="history-group">${escapeHtml(gruppe)}</div>` : "";
+    const kopf = gruppe !== letzteGruppe ? [el("div", gruppe, "history-group")] : [];
     letzteGruppe = gruppe;
-    const aktiv = aktuellerVerlauf?.id === v.id ? " active" : "";
-    return `${kopf}<button class="history-item${aktiv}" data-hid="${escapeHtml(v.id)}" type="button">
-      <span class="history-title">${escapeHtml(v.title)}</span>
-      <span class="history-sub">${escapeHtml(t("agent.nachrichten", { n: v.messages.length }))}</span></button>`;
-  }).join("");
-  box.querySelectorAll<HTMLElement>(".history-item").forEach((b) => {
-    b.addEventListener("click", () => oeffneVerlauf(b.dataset.hid!));
-  });
+    const b = el("button", undefined, "history-item");
+    b.type = "button";
+    if (aktuellerVerlauf?.id === v.id) b.classList.add("active");
+    b.dataset.hid = v.id;
+    b.append(el("span", v.title, "history-title"), el("span", t("agent.nachrichten", { n: v.messages.length }), "history-sub"));
+    b.addEventListener("click", () => oeffneVerlauf(v.id));
+    return [...kopf, b];
+  }));
 }
 
 function oeffneVerlauf(id: string): void {
@@ -483,7 +499,7 @@ function oeffneVerlauf(id: string): void {
   if (!v) return;
   aktuellerVerlauf = v;
   const thread = document.getElementById("ai-thread");
-  if (thread) thread.innerHTML = "";
+  thread?.replaceChildren();
   verlaufWiederherstellen = true;
   try {
     for (const m of v.messages) addAiMessage(m.role, m.text, m.meta ?? "", m.model);
@@ -497,10 +513,7 @@ export function neueAufgabe(): void {
   aktuellerVerlauf = null;
   const thread = document.getElementById("ai-thread");
   const leer = document.getElementById("ai-empty");
-  if (thread) {
-    thread.innerHTML = "";
-    if (leer) thread.appendChild(leer);
-  }
+  if (thread) thread.replaceChildren(...(leer ? [leer] : []));
   if (leer) leer.style.display = "";
   zeigeVerlaeufe();
   (document.getElementById("ai-prompt") as HTMLTextAreaElement | null)?.focus();
@@ -514,16 +527,21 @@ function aktualisiereAgentPanel(
   const box = document.getElementById("agent-tools");
   if (box && tools.length > 0) {
     box.classList.remove("muted");
-    box.innerHTML = tools.map((x) => `<div class="panel-row">
-      <span class="panel-check">${markSvgCheck()}</span>
-      <span class="panel-name">${escapeHtml(x.name)}</span>
-      <span class="panel-meta">${Math.floor(x.costMsat / 1000)} sat</span></div>`).join("");
+    // Als DOM (C-6d): Werkzeugnamen kommen vom Provider – nur als Text
+    box.replaceChildren(...tools.map((x) => {
+      const zeile = el("div", undefined, "panel-row");
+      const haken = el("span", undefined, "panel-check");
+      haken.append(haekchenEl());
+      zeile.append(haken, el("span", x.name, "panel-name"), el("span", `${Math.floor(x.costMsat / 1000)} sat`, "panel-meta"));
+      return zeile;
+    }));
   }
   const c = document.getElementById("agent-cost");
   if (c && sessionTotalMsat !== undefined) {
     c.classList.remove("muted");
-    c.innerHTML = `<div class="panel-row"><span class="panel-name">${escapeHtml(t("agent.dieseSitzung"))}</span>
-      <span class="panel-meta">${Math.floor(sessionTotalMsat / 1000)} sat</span></div>`;
+    const zeile = el("div", undefined, "panel-row");
+    zeile.append(el("span", t("agent.dieseSitzung"), "panel-name"), el("span", `${Math.floor(sessionTotalMsat / 1000)} sat`, "panel-meta"));
+    c.replaceChildren(zeile);
   }
 }
 
@@ -594,10 +612,12 @@ function showAiError(e: unknown, retryPrompt: string, retryBid: number, retryTie
   const cause = explainError(e);
   // Gratis-Anfrage abgelehnt (8.1a): Die Fuehrung fragt jetzt nach der Wallet
   if (retryTier === "free" && /bid zu niedrig/i.test((e as Error)?.message ?? String(e))) merkeGratisAbgelehnt();
-  const el = document.createElement("div");
-  el.className = "bubble ai error";
-  el.innerHTML = `<div class="who">${escapeHtml(t("agent.fehler"))}</div>
-    <div class="body">${escapeHtml(t("agent.ursache"))} <b>${escapeHtml(cause)}</b></div>`;
+  // Als DOM (C-6d): die Ursache kann Text des Providers tragen – nur als Text
+  const blase = el("div", undefined, "bubble");
+  blase.classList.add("ai", "error");
+  const koerper = el("div", `${t("agent.ursache")} `, "body");
+  koerper.append(el("b", cause));
+  blase.append(el("div", t("agent.fehler"), "who"), koerper);
   const btn = document.createElement("button");
   btn.className = "btn-retry";
   btn.textContent = t("agent.erneut");
@@ -608,9 +628,9 @@ function showAiError(e: unknown, retryPrompt: string, retryBid: number, retryTie
     ($("#ai-tier") as HTMLSelectElement).value = retryMode.max ? "max" : retryMode.swarm ? "swarm" : retryTier;
     void askAi();
   };
-  el.appendChild(btn);
-  $("#ai-thread").appendChild(el);
-  stickToBottom(() => el.scrollIntoView({ behavior: "smooth", block: "end" }));
+  blase.appendChild(btn);
+  $("#ai-thread").appendChild(blase);
+  stickToBottom(() => blase.scrollIntoView({ behavior: "smooth", block: "end" }));
   const sendBtn = $("#ai-send") as HTMLButtonElement;
   resetSendBtn(sendBtn);
 }
@@ -1049,7 +1069,9 @@ function maybeInsertModelSwitchSummary(newTier: string): void {
   if (lastTier && lastTier !== newTier && pendingContextSummary) {
     const note = document.createElement("div");
     note.className = "model-switch";
-    note.innerHTML = `<div class="model-switch-inner">${escapeHtml(t("agent.modellGewechselt"))} <b>${escapeHtml(newTier)}</b> — ${escapeHtml(t("agent.kontextMit", { n: msgs.length }))}</div>`;
+    const innen = el("div", `${t("agent.modellGewechselt")} `, "model-switch-inner");
+    innen.append(el("b", newTier), ` — ${t("agent.kontextMit", { n: msgs.length })}`);
+    note.replaceChildren(innen);
     thread.appendChild(note);
     stickToBottom(() => note.scrollIntoView({ behavior: "smooth", block: "end" }));
   }
@@ -1442,23 +1464,6 @@ function addAiMessageStreaming(role: "ai", text: string, meta: string, model?: s
 
 /** Claude-Stil ausklappbare Kosten-/Usage-Bubble unter einer AI-Antwort. */
 /**
- * Pruefer fuer eine Reklamation waehlen (Schritt 5.6): aus dem eigenen Netz –
- * Kontakte und eigene Provider –, nie aus einer Rangliste des Netzes.
- * null = keiner, undefined = abgebrochen.
- */
-async function waehlePruefer(beschuldigt: string): Promise<Pruefer | null | undefined> {
-  const kandidaten = netzPruefer(beschuldigt);
-  if (kandidaten.length === 0) {
-    toast(t("agent.keinPruefer"));
-    return null;
-  }
-  const liste = kandidaten.map((c, i) => `  ${i + 1} = ${c.name} (${t(PRUEFER_ART[c.art])})`).join("\n");
-  const wahl = prompt(t("agent.werPrueft", { liste }), "1");
-  if (wahl === null) return undefined;
-  return kandidaten[Number(wahl) - 1] ?? null;
-}
-
-/**
  * Auftrag reklamieren.
  *
  * Bei Swaps liegt das Geld in einem HTLC mit Frist; bei Rechenauftraegen gab
@@ -1475,30 +1480,45 @@ async function reklamiere(
   const { disputeInfo, buildDispute, buildPrivateDispute, disputeWindowOpen } =
     await import("@freedomstack/protocol");
 
-  if (!confirm(disputeInfo())) return;
-
-  const grund = prompt(t("agent.problem"), "2");
-  if (!grund) return;
+  // Dialoge statt confirm()/prompt() (C-1f): erst, was das Verfahren leistet – der Satz des Protokolls ist für
+  // alert() umbrochen –, dann Grund, Prüfer, Zustimmung und Notiz in einem Dialog
+  if (!(await bestaetige({ titel: t("agent.reklamierenTitel"), text: fliesstext(disputeInfo()), ok: t("agent.weiter") }))) return;
+  const w = disputeWindowOpen(Math.floor(Date.now() / 1000) - 60);
+  if (!w.open) {
+    toast(reklamationsFrist(w), true);
+    return;
+  }
+  // Prüfer nur aus dem eigenen Netz (5.6) – Kontakte und eigene Provider, nie aus einer Rangliste des Netzes
+  const kandidaten = netzPruefer(providerPk);
+  if (kandidaten.length === 0) toast(t("agent.keinPruefer"));
   const arten = ["nichts_geliefert", "unbrauchbar", "falsches_modell", "abgebrochen"] as const;
-  const art = arten[Number(grund) - 1] ?? "unbrauchbar";
+  const eingabe = await dialog({
+    titel: t("agent.reklamierenTitel"), ok: t("agent.reklamieren"),
+    felder: [
+      { art: "wahl", name: "grund", label: t("agent.problemFrage"), pflicht: true, wert: "unbrauchbar",
+        optionen: arten.map((a) => ({ wert: a, text: t(GRUND_TEXT[a]) })) },
+      ...(kandidaten.length ? [{ art: "wahl" as const, name: "pruefer", label: t("agent.prueferFrage"), wert: "",
+        optionen: [{ wert: "", text: t("agent.nurProvider") }, ...kandidaten.map((c) => ({ wert: c.pk, text: `${c.name} (${t(PRUEFER_ART[c.art])})` }))] }] : []),
+      // Frage und Antwort nur mit Zustimmung und nur für den Prüfer (5.6)
+      ...(kandidaten.length && frageAntwort ? [{ art: "mehrfach" as const, name: "material", label: t("agent.materialFrage"),
+        optionen: [{ wert: "ja", text: t("agent.materialHaken") }] }] : []),
+      { art: "textarea", name: "notiz", label: t("agent.beschreibung") },
+    ],
+  });
+  if (!eingabe) return;
+  const art = arten.find((a) => a === eingabe.grund) ?? "unbrauchbar";
+  const pruefer: Pruefer | null = kandidaten.find((c) => c.pk === eingabe.pruefer) ?? null;
+  const zustimmung = Array.isArray(eingabe.material) && eingabe.material.includes("ja");
 
   try {
-    const w = disputeWindowOpen(Math.floor(Date.now() / 1000) - 60);
-    if (!w.open) {
-      toast(reklamationsFrist(w), true);
-      return;
-    }
-    const pruefer = await waehlePruefer(providerPk);
-    if (pruefer === undefined) return;
-    // Frage und Antwort nur mit Zustimmung und nur fuer den Pruefer (5.6).
-    const material = pruefer && frageAntwort && confirm(t("agent.materialMitschicken", { name: pruefer.name })) ? frageAntwort : undefined;
+    const material = pruefer && frageAntwort && zustimmung ? frageAntwort : undefined;
     // Vom Sitzungsschluessel wie der Auftrag selbst (3.1) – nicht von der
     // Identitaet – und nur versiegelt an Provider und Pruefer (3.4).
     const sitzung = kiSitzungen.fuer(providerPk);
     // Die Reklamation nennt den Pruefer (5.6) – nur sein Urteil zaehlt, und der Provider sieht, wer es ist.
     const dispute = buildDispute({
       jobId, customerPubkey: sitzung.publicKey(), providerPubkey: providerPk,
-      reason: art, amountMsat, note: prompt(t("agent.beschreibung")) ?? "",
+      reason: art, amountMsat, note: String(eingabe.notiz ?? ""),
       pruefer: pruefer ? [pruefer.pk] : [],
     });
     const empfaenger = [
@@ -1842,7 +1862,11 @@ export function setupAttach(): void {
       status.textContent = t("agent.angehaengt", { name: f.name });
       status.className = "mono-sm ok";
       if (attachment.type === "image" || attachment.type === "camera") {
-        status.innerHTML = `${escapeHtml(f.name)} <img class="attach-thumb" src="${escapeHtml(attachment.dataUrl)}" />`;
+        // Als DOM (C-6d): Dateiname als Text, die Vorschau als Eigenschaft
+        const bild = el("img", undefined, "attach-thumb");
+        bild.src = attachment.dataUrl;
+        bild.alt = "";
+        status.replaceChildren(`${f.name} `, bild);
       }
     };
     reader.readAsDataURL(f);

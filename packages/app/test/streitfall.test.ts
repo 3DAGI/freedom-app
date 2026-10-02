@@ -89,11 +89,11 @@ test("5.6b: der Sitzungsschluessel der Reklamation oeffnet das Urteil auch nach 
 
 test("5.6b verdrahtet: Pruefer aus dem Netz, Material nur mit Zustimmung, Schluessel nur im Tresor, Urteile nur an Sitzungsschluessel", () => {
   const agent = readFileSync(new URL("../src/shell/tabs/agent.ts", import.meta.url), "utf8");
-  const wahl = agent.slice(agent.indexOf("async function waehlePruefer("), agent.indexOf("async function reklamiere("));
-  assert.match(wahl, /const kandidaten = netzPruefer\(beschuldigt\);/);
   assert.doesNotMatch(agent, /prueferKandidaten|jobsCompleted} Aufträge/, "keine globale Rangliste mehr");
   const rekl = agent.slice(agent.indexOf("async function reklamiere("), agent.indexOf("function addUsageBubble("));
-  assert.match(rekl, /const material = pruefer && frageAntwort && confirm\(/);
+  // Seit C-1f im Dialog: Prüfer nur aus dem Netz, Material nur mit Haken
+  assert.match(rekl, /const kandidaten = netzPruefer\(providerPk\);/);
+  assert.match(rekl, /const material = pruefer && frageAntwort && zustimmung \? frageAntwort : undefined;/);
   assert.match(rekl, /await merkeReklamation\(\{[\s\S]*?sitzungSk: sk,/);
   assert.match(agent, /await handleAnswer\(answer\.ev, answer\.parsed!, prompt\);/);
 
@@ -119,8 +119,10 @@ test("5.6b verdrahtet: Pruefer aus dem Netz, Material nur mit Zustimmung, Schlue
 
 test("5.6c: ein Pruefauftrag ist nur eine Reklamation, die mich nennt", () => {
   const ich = generateKeypair().pk, anderer = generateKeypair().pk, sitzung = generateKeypair().pk, provider = generateKeypair().pk;
+  // Die Zeit nur einmal aus der Uhr (Fallstrick „Fristen in Tests“): sonst unterscheiden sich die Ids, wenn dazwischen die Sekunde umspringt
+  const jetzt = Math.floor(Date.now() / 1000);
   const kern = (pruefer: string[], jobId = pk("1")) => {
-    const u = buildDispute({ jobId, customerPubkey: sitzung, providerPubkey: provider, reason: "falsches_modell", amountMsat: 21_000, note: "n", pruefer, material: { frage: "F", antwort: "A" } });
+    const u = buildDispute({ jobId, customerPubkey: sitzung, providerPubkey: provider, reason: "falsches_modell", amountMsat: 21_000, note: "n", pruefer, material: { frage: "F", antwort: "A" } }, jetzt);
     return { ...u, id: computeEventId(u) };
   };
   const d = pruefauftragAus(kern([ich]), ich)!;

@@ -14522,6 +14522,309 @@ Endstand (B-13c, 02.10.): protocol 1164 (+3, 6 übersprungen) · node 312 (7
 innerHTML streng Exit 0 · Website ok · Smoke-Test bestanden. Knoten-Stand:
 unverändert.
 
+## Schritt C-13 – Räume, Rest aus dem Entwurf C.2
+
+**Warum:** Was der Entwurf C.2 (`phase-10.md`, „Räume“) vorsah und C.2a–d
+nicht baute (Sammlung C-13):
+- In der Raum-Leiste trugen offene Räume zwei Buchstaben, private ein
+  Schloss. Ungelesenes sah man dort nicht, und jeder Knopf war ein eigener
+  Tab-Halt.
+- Im Verlauf fehlte die Linie „Neu“ am Lesestand.
+- Wer nicht moderiert, sah im Mitglieder-Menü keinen Knopf, also auch keinen
+  Weg, einem Mitglied zu schreiben.
+
+**Was:**
+- **Leiste** (`raeume.ts`):
+  - Offene Räume zeigen 🌐 und den ersten Buchstaben. Vorleser hören
+    „Offener Raum …“ bzw. „Privater Raum …“.
+  - „Aktuell“ (`aria-current`) ist nur der Raum, der vor Augen steht.
+    Bei den Direktnachrichten ist keiner aktuell; `setzeKommModus("dm")`
+    zeichnet die Leiste neu.
+  - Eine Community (C-10) ist aktuell, solange ihr Verlauf offen ist
+    (`activeConversation`). Vorher setzte erst der Klick das Attribut, und
+    das Neuzeichnen hätte es gelöscht – der Smoke-Test „fremdtext“ fand das.
+  - Pfeiltasten, Pos1 und Ende wandern durch die Leiste; nur ein Knopf ist
+    per Tab erreichbar (`railTabHalt()`, `railPfeile()`).
+- **Punkt bei Ungelesenem** (`.rail-punkt`, Vorleser: „…, ungelesen“):
+  - Er erscheint nur für Räume, die in dieser Sitzung geladen waren
+    (`ungelesen`, nur im Speicher). Die App merkt ihn nach dem Laden der
+    Kanalliste und beim Verlassen eines Raums.
+  - Eine Abfrage aller eigenen Räume nennte sie alle auf einmal, und private
+    Räume bräuchten die Engine. Beides ist ausgeschlossen (C-11).
+- **Linie „Neu“:** Sie steht vor der ersten Gruppe mit einer fremden
+  Nachricht nach dem Lesestand.
+  - Maßgeblich ist der Lesestand beim Betreten des Kanals (`neuSeit`, ein
+    Wert für den offenen Kanal; ein anderer Raum setzt ihn zurück, weil
+    Kanäle zweier Räume gleich heißen können): Der Lesestand selbst springt
+    beim Öffnen auf jetzt, die Linie bleibt beim Neuzeichnen. Gemerkt wird
+    erst nach den Zeilen, die der Test zu C.2b2 wörtlich festhält.
+  - War der Kanal nie gelesen, gibt es keine Linie. In Threads gibt es auch
+    keine.
+- **Mitglieder-Menü:** „Direktnachricht schreiben“ steht bei jedem Mitglied
+  außer einem selbst. Es öffnet die Unterhaltung nach NIP-17 über
+  `oeffneDirektnachricht()` (`kommunikation.ts`, aus `newDm()` gelöst).
+  Die Rechte-Punkte folgen wie bisher (`rechteAktionen()`).
+
+**Verdrahtet:** `zeigeRaumLeiste()`, `zeigeKanalliste()`, `oeffneKanal()`,
+`zeigeMitglieder()` → `mitgliedAktionen()`, `wireSpacesTab()` (Pfeiltasten)
+in `shell/tabs/raeume.ts`; `setzeKommModus()` in `shell/tabs/kommunikation.ts`.
+
+**Tests:**
+- app +5 in `test/raeume-rest.test.ts`.
+- `raum-probe.mts` legt eine Nachricht im zweiten Kanal an, damit es
+  Ungelesenes gibt.
+- Smoke „raum“ auf Desktop und Handy:
+  - Die Pille zeigt 🌐 und hat den richtigen Namen für Vorleser.
+  - Vor Augen ist kein Punkt da, nach dem Wechsel zu den Direktnachrichten
+    schon.
+  - Es gibt einen Tab-Halt, und der Pfeil wandert.
+  - Die Linie „Neu“ steht vor der richtigen Gruppe (Lesestand als
+    Init-Skript).
+  - Das Menü am Gründer beginnt mit „Direktnachricht schreiben“, und der
+    Klick öffnet die neue Unterhaltung.
+- Gewartet wird auf Zustände, nicht mit festen Pausen.
+- Nachtrag beim Einmergen von `main`: Ein CI-Lauf auf #251 war im
+  Smoke-Test „tresor“ rot (`daten_aus_tresor`). Der App-Code war derselbe
+  wie im grünen Lauf davor (#262 änderte nur Installer und Knoten), und lokal
+  blieb die Prüfung grün, auch mit sechsfach gedrosselter CPU. Ursache: Nach
+  dem Entsperren wartete die Prüfung fest 1 s bzw. 500 ms. Jetzt wartet sie
+  auf den Zustand (Identität, Chat-Liste und Verlauf, Frist 15 s); die
+  Bedingung ist unverändert.
+
+## Schritt C-8 – C.6a, reines Verschieben
+
+**Warum:** Rest von B14 (Entscheidung E2, `phase-10.md`, Sammlung C-8). Der
+Schritt wartete auf #183 (11.2a, Spur A), das `settings.ts` und `index.html`
+änderte; #183 ist gemergt.
+- Gebühren und Standard-Schiene standen in den Settings, gehören aber zum Geld.
+- Der Reiter „Liquidität“ enthielt Deposit und Zahlkanal, keine Liquidität.
+- „Modell vorhalten/ankündigen“ ist ein Beitrag ans Netz und stand beim Agenten.
+
+**Was:**
+- `index.html`:
+  - Settings › Gebühren (Aufteilung, fällige Anteile, Standard-Schiene)
+    steht wörtlich unter Währung › Zahlen (`wallet:pay`). Der Reiter
+    „Gebühren“ in den Settings entfällt.
+  - Der Reiter „Liquidität“ heißt „Hinterlegen“; sein Inhalt bleibt.
+  - „Modell vorhalten“ und „Modell ankündigen“ stehen in einer eigenen Karte
+    unter Verdienen › Hosten.
+  - Kennungen und Verdrahtung bleiben (`wireGebuehrenKarte()`,
+    `#standard-schiene`, `#models-seed`/`#models-publish` in `app.ts`).
+- **Texte:**
+  - Neu: `waehr.tabHinterlegen`, `waehr.tabZahlen`, `earn.modelleTitel` und
+    `earn.modelleText`.
+  - `waehr.tabLiquiditaet` und `set.tabGebuehren` nutzt nichts mehr; sie
+    fallen weg (der i18n-Test verlangt das).
+  - Wo Texte den alten Ort nannten, nennen sie den neuen: „unklare Zahlung“
+    → Währung › Zahlen, die Modell-Liste → Verdienen › Hosten, der
+    Untertitel der Währung, die FAQ der Website.
+
+**Verdrahtet:** unverändert – `app.ts` verdrahtet die Knöpfe über ihre
+Kennungen, `wireGebuehrenKarte()` (`settings.ts`) die Gebühren-Karte.
+
+**Tests:**
+- app +3 in `test/umzug-zahlen.test.ts`:
+  - Reiter und Inhalt am neuen Ort.
+  - Jede Kennung genau einmal.
+  - Neue Texte in beiden Sprachen, FAQ.
+- Smoke:
+  - „waehrung“: Reiter Übersicht/Tauschen/Hinterlegen/Zahlen; unter Zahlen
+    „Nichts gesammelt.“ und die Standard-Schiene.
+  - Die Settings haben kein „fees“ mehr.
+  - Verdienen › Hosten öffnet den Dialog „Modell vorhalten“.
+  - „mobil“ misst `wallet:pay` und `earn:host`.
+- Nebenbei (außerhalb von Spur C, klein): Beim vollen Lauf war
+  `streitfall.test.ts` („5.6c: ein Pruefauftrag …“) einmal rot. Der Test
+  baute dieselbe Reklamation zweimal und verglich die Ids; `buildDispute()`
+  liest ohne Zeitangabe jedes Mal die Uhr. Sprang dazwischen die Sekunde um,
+  unterschieden sich die Ids (Fallstrick „Fristen in Tests nur einmal aus der
+  Uhr“). Nachgestellt mit einer Uhr, die je Aufruf 600 ms vorrückt: vorher
+  rot, jetzt grün. Die Zeit kommt jetzt einmal aus der Uhr; die Prüfungen
+  sind unverändert.
+
+## Schritt C-7a – Sprachnachrichten: die Aufnahme
+
+**Warum:** Sammlung C-7 („aufnehmen – Mikrofon nur auf Klick, danach aus –,
+als verschlüsselter Anhang, abspielen“). Der ganze Schritt bräuchte rund 650
+geänderte Zeilen, darum zwei Teile, wie bei C-17:
+- **a** die Aufnahme ohne DOM,
+- **b** Knopf, Anhang, Abspielen und Browser-Test.
+
+**Was:** `packages/app/src/sprachnachricht.ts` (neu, ohne DOM):
+- `SprachAufnahme` mit den Zuständen bereit, startet und nimmt auf:
+  - `starte()` fragt das Mikrofon an.
+  - `beende()` liefert die Aufnahme, `brichAb()` verwirft sie.
+  - Endet die Aufnahme von selbst (Grenze, Gerät weg), kommt das Ergebnis
+    über `beiEnde`.
+- Nach jedem Ende sind alle Spuren gestoppt: beendet, verworfen, an der
+  Grenze, bei einem Fehler, und auch, wenn die Erlaubnis erst nach dem
+  Abbrechen kam.
+- Mikrofon, Recorder und Uhr kommen von außen (`SprachUmgebung`).
+- `SPRACH_GRENZEN`: 120 s, 32 kbit/s. Browser nehmen sonst 128 kbit/s; mit
+  32 kbit/s reisen kurze Nachrichten in der verschlüsselten Nachricht selbst.
+- Hilfen:
+  - `waehleSprachFormat()`: Opus in WebM oder Ogg, sonst MP4 für Safari.
+  - `sprachDateiname()`.
+  - `istAudioTyp()`: nur `audio/<name>` mit Parametern – der Typ kommt aus
+    fremder Nachricht.
+  - `dauerText()`.
+
+**Verdrahtet:** noch nicht – das bringt C-7b (Knopf im Chat), wie bei C-17a.
+
+**Tests:** app +6 in `test/sprachnachricht.test.ts` (mit Attrappen für
+Strom, Spur und Recorder):
+- Format, Name, Dauer und Typprüfung.
+- Beenden, Verwerfen und die Grenze.
+- Verweigert oder kaputt.
+- Abgebrochen, während der Browser noch fragt.
+
+## Schritt C-7b – Sprachnachrichten: Knopf, Anhang, Abspielen
+
+**Warum:** zweiter Teil von C-7; verdrahtet die Aufnahme aus C-7a.
+
+**Was:**
+- **Knopf** `#chat-voice-btn` (Mikrofon) neben „Anhängen“
+  (`shell/sprachnachricht-ui.ts`):
+  - Erst der Klick fragt das Mikrofon an. Während der Aufnahme zeigen
+    `aria-pressed` und eine Zeile mit Laufzeit und Grenze, dass
+    aufgenommen wird; dazu gibt es „verwerfen“.
+  - Ein zweiter Klick beendet. Im Hintergrund beendet die App von selbst,
+    beim Verlassen der Seite verwirft sie. Ohne Mikrofon-Schnittstelle gibt
+    es den Knopf nicht.
+- **Anhang:** Die Aufnahme ist ein Anhang über `handleChatFiles()`, derselbe
+  Weg wie eine gewählte Datei (Regel „Anhänge nur verschlüsselt“).
+  - Klein reist sie in der verschlüsselten Nachricht, sonst verschlüsselt
+    über `uploadAnhang()`.
+  - Gekoppelt hält sie der eigene Knoten (B-9b2).
+  - Gesendet wird mit „Senden“; vorher lässt sie sich verwerfen.
+  - `handleChatFiles()` nimmt dafür auch eine Liste von `File`.
+- **Abspielen:**
+  - Inline (`data:audio`) spielt der Verlauf direkt.
+  - Ein verschlüsselter Ton heißt „🔒 ▶ … abspielen“. Nach dem Laden und
+    Entschlüsseln steht dort ein Abspieler statt eines Downloads, nur mit
+    geprüftem Typ (`istAudioTyp()`).
+- **Texte** in beiden Sprachen, CSS mit `--red-text` für die laufende
+  Aufnahme.
+
+**Verdrahtet:** `wireSprachnachricht()` in `shell/app.ts` neben den Anhängen;
+Abspielen in `wireBlobButtons()` (`kommunikation.ts`), Text in
+`anhangAnsicht()` (`shell-logic.ts`).
+
+**Tests:**
+- app +2 in `test/sprachnachricht.test.ts`: Anzeige verschlüsselter Töne,
+  Verdrahtung, Bitrate.
+- Smoke „sprachnachricht“ (neu) mit einer Mikrofon-Attrappe (Oszillator),
+  die zählt, wie oft die App fragt, und jede Spur merkt:
+  - Vor dem Klick wird nicht gefragt.
+  - Während der Aufnahme sind Name und Zeile richtig.
+  - Nach dem Beenden und Verwerfen sind alle Spuren aus.
+  - Der Anhang heißt `sprachnachricht.webm`, Verwerfen fügt nichts hinzu.
+  - Nach dem Senden steht im eigenen Verlauf ein Abspieler mit
+    `data:audio/webm`.
+  - Hinaus gehen nur Umschläge (1059), ohne „audio/webm“ oder den Dateinamen im
+    Klartext.
+
+## Schritt C-12 – Privater Raum einmal vollständig im Browser
+
+**Warum:** offen aus 10.4 (Sammlung C-12). Private Räume waren nur über
+`gruppenRaum()`, Unit- und Leak-Tests geprüft; der Smoke-Test kannte nur den
+offenen Probe-Raum.
+
+**Was:** Smoke „privatraum“ (neu, rund 25 s): zwei Browser (Ada, Bo) hinter
+derselben Relay-Attrappe, je mit Tresor und echter MLS-Engine.
+- Bo öffnet eine Unterhaltung mit Ada und veröffentlicht dabei sein
+  KeyPackage (30443).
+- Ada legt „Probe privat“ an und lädt Bo mit seinem Schlüssel ein. Die
+  Einladung geht versiegelt an seinen Posteingang (1059).
+- Bo startet neu und entsperrt: Der Raum steht in seiner Leiste. Den Namen
+  kennt er erst, wenn er ihn öffnet.
+- Ada schreibt, Bo liest und antwortet im Thread, Ada sieht die Antwort.
+- Bo meldet Adas Nachricht: Der Umschlag geht nur an Ada. Nach ihrem Start
+  steht die Meldung im Raum (wer, über wen, Grund, Maßnahmen).
+- Ada löscht Bos Antwort für alle (4891 in der Gruppe), bei Bo ist sie weg.
+- Ada legt ein Repo im Raum an, Bo sieht es und schickt einen Patch, Ada
+  sieht den Patch. Kein offenes 1617.
+- Auf dem Relay steht nichts davon im Klartext: kein Raumname, kein Text,
+  keine Repo-Kennung, kein Betreff. Kinds nur 445, 1059, 10002, 10050, 30443.
+
+**Ohne Änderung an der App.** Neu in `smoke_test.py` (dazu app +1 in `test/privatraum-browser.test.ts`, der festhält, dass der Smoke-Test die Schritte geht und zählt):
+- `tresor_an()` und `entsperre_neu()`.
+- `DialogSeite(init=…)`.
+- Zwei Attrappen mit gemeinsamer Ereignisliste, jede mit dem eigenen
+  Schlüssel.
+
+## Schritt C-1f – Browser-Dialoge: der Rest in `agent.ts`
+
+**Warum:** Sammlung C-1. `agent.ts` war bis B-9 gesperrt (dieselbe Datei);
+seit B-9 ist sie frei. Übrig waren fünf Browser-Dialoge, alle in der
+Reklamation.
+- Sie fragte nacheinander mit `confirm()`/`prompt()`: das Verfahren, den
+  Grund als Nummer, den Prüfer als Nummer, das Material und die Notiz.
+- Eine Tippnummer außerhalb der Liste ergab still „unbrauchbar“ bzw. keinen
+  Prüfer.
+
+**Was** (`shell/tabs/agent.ts`, `reklamiere()`; `waehlePruefer()` entfällt):
+- **Zwei Dialoge über `shell/dialog.ts`:**
+  - Zuerst das Verfahren als Fließtext (`fliesstext(disputeInfo())` – der
+    Satz des Protokolls bleibt, wie er ist).
+  - Dann ein Dialog mit dem Grund als Wahl (Texte aus `GRUND_TEXT`), dem
+    Prüfer aus dem eigenen Netz (`netzPruefer()`, „niemand – nur der
+    Provider“), einem Haken für Frage und Antwort und der Notiz.
+- **Der Haken für Frage und Antwort** steht nur da, wenn es einen Prüfer
+  geben kann und es Material gibt. Mitgeschickt wird nur mit Haken und
+  gewähltem Prüfer.
+- **Der Prüfer** kommt nur aus den Kandidaten; ein fremder Wert ergibt
+  keinen.
+- **Die Frist** prüft die App jetzt vor dem Ausfüllen, nicht danach.
+- **Texte:** neu in beiden Sprachen; `agent.problem`, `agent.werPrueft` und
+  `agent.materialMitschicken` (Nummernlisten) fallen weg.
+- `NOCH_OFFEN` in `browser-dialoge.test.ts` ist leer: Keine Datei hat mehr
+  Browser-Dialoge.
+
+**Verdrahtet:** unverändert über den Knopf „Reklamieren“ unter einer Antwort
+(`addUsageBubble()` → `reklamiere()`).
+
+**Tests:**
+- app +1 in `test/browser-dialoge.test.ts` (C-1f).
+- Der Test zu 5.6b prüft dasselbe wie vorher an der neuen Stelle:
+  Prüfer nur aus dem Netz, Material nur mit Zustimmung.
+- Ohne eigenen Browser-Test: Die Reklamation braucht eine bezahlte
+  Antwort; der Smoke-Test „dialog“ prüft die Dialoge selbst.
+
+## Schritt C-6d1 – `innerHTML` abbauen: `agent.ts`, erster Teil
+
+**Warum:** Sammlung C-6. `agent.ts` war bis B-9 gesperrt und hatte mit 18
+die meisten Ausnahmen in `scripts/innerhtml-ausnahmen.txt`. Zwei Teile, damit
+jeder unter 400 Zeilen bleibt:
+- **d1:** Listen und kleine Bausteine.
+- **d2:** die Blasen der Antworten samt Markdown, die Kosten und die
+  Schritte.
+
+**Was** (als DOM über `el()`, Text nur über `textContent`):
+- **Modellwahl:** Die Karten aus den Angeboten der Provider zeigen Modellnamen
+  nur als Text und als `dataset`. Das Werkzeug-Symbol ist ein Element.
+- **Modell-Knopf:** Der Knopf mit dem gewählten Modell setzt Symbol plus Text.
+- **Liste der Aufgaben:** Der Verlauf zeigt Titel aus eigenen Fragen als Text.
+- **Rechte Spalte:** Werkzeuge und Kosten der Sitzung; Werkzeugnamen kommen
+  vom Provider.
+- **Fehler und Hinweise:** Die Fehler-Blase zeigt die Ursache als Text,
+  ebenso der Hinweis zum Modellwechsel.
+- **Bild-Vorschau:** Bei einem angehängten Bild ist `src` eine Eigenschaft.
+- **Neue Helfer:** `iconEl()` (`icons.ts`) und `haekchenEl()` (`ui.ts`)
+  machen Symbole aus der festen Tabelle zu Elementen. Nur sie setzen dafür
+  noch HTML, und nur aus `icon()`/`markSvgCheck()`.
+- **Ausnahmen:** 22 → 16 (davon `agent.ts` 18 → 12).
+
+**Tests:**
+- app +1 in `test/dom-statt-html.test.ts` (C-6d1).
+- Der Test zu B-9a (Knopf „Mein Knoten“) prüft dasselbe an der DOM-Form.
+- Smoke „fremdtext“: Die Probe trägt jetzt ein Angebot (38025) mit HTML im
+  Modellnamen und einem Werkzeug. Geprüft wird:
+  - Die Karte in der Modellwahl zeigt den Namen als Text, ohne Bild, mit
+    Werkzeug-Symbol.
+  - Nach der Wahl zeigt der Knopf denselben Text samt Symbol.
+  - Es läuft kein Skript.
+
 ## Übergabe Spur B – 02.10.2026
 
 Spur B hat alles gebaut, was ohne Entscheidung geht (bis B-13c, #263). Offen

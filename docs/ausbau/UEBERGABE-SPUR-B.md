@@ -2,7 +2,8 @@
 
 Für den nächsten Agenten in Spur B. Zuerst `CLAUDE.md`, dann diese Datei,
 dann `docs/neuordnung/SAMMLUNG.md` (Zeilen B-1 bis B-20, Abschnitt 5 = offene
-Entscheidungen). `main` ist bei Merge #263 (B-13c); kein PR von Spur B ist offen.
+Entscheidungen). Spur B zuletzt: #263 (B-13c), diese Übergabe #264; `main`
+seither weiter durch Spur C (bis #270). Kein weiterer PR von Spur B ist offen.
 
 ## 1. Was fertig ist
 
@@ -19,7 +20,7 @@ Entscheidungen). `main` ist bei Merge #263 (B-13c); kein PR von Spur B ist offen
 Zahlen auf `main`:
 - protocol 1164 (6 übersprungen)
 - node 312 (7 übersprungen ohne Netz, mit Netz 313)
-- app 784
+- app 803 (Spur C seit #263)
 - mls 13
 - Leak 70 + 1 todo
 

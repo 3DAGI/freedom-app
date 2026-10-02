@@ -242,6 +242,7 @@ export const einstieg: Texte = {
   // Darstellung (shell-logic.ts)
   "ein.datei": { de: "datei", en: "file" },
   "ein.anhangSchluessel": { de: "Anhang mit ungültigem Schlüssel: {name}", en: "Attachment with invalid key: {name}" },
+  "ein.anhangAbspielen": { de: "🔒 ▶ {name} abspielen", en: "🔒 ▶ play {name}" },
   "ein.anhangLink": { de: "Anhang mit nicht unterstütztem Link: {name}", en: "Attachment with unsupported link: {name}" },
   "ein.keineSession": { de: "keine Session — die erste Anfrage startet eine", en: "no session — the first request starts one" },
   "ein.budgetAufgebraucht": { de: "Budget aufgebraucht ({budget}) — Session erneuern", en: "Budget used up ({budget}) — renew session" },

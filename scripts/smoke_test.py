@@ -166,12 +166,20 @@ def tresor_pruefen(browser, url: str) -> dict:
     warte("() => document.getElementById('tr-meldung').textContent.includes('falsch')")
     felder({"tr-pass": "smoke tresor 1"}, "tr-ok")
     warte("() => !document.getElementById('tr-pass')")
-    s.wait_for_timeout(1000)
+
+    # Auf den Zustand warten statt fester Pausen (C-18): auf dem Runner reichten 500 ms einmal nicht (C-13, #251)
+    def bis(bedingung: str, arg=None) -> None:
+        try:
+            s.wait_for_function(bedingung, arg=arg, timeout=15000)
+        except Exception:
+            pass  # die Prüfung unten meldet es
+    bis("(i) => document.getElementById('ident').textContent === i", ident)
     erg["entsperrt_gleiche_identitaet"] = ev("() => document.getElementById('ident').textContent") == ident
     ev("() => document.querySelector('.app-nav button[data-tab=\"comm\"]').click()")
-    s.wait_for_timeout(500)
-    erg["daten_aus_tresor"] = ev("() => document.getElementById('chat-list').textContent.includes('ProbeChat')"
-                                 " && document.getElementById('agent-history').textContent.includes('ProbeVerlauf')")
+    daten = ("() => document.getElementById('chat-list').textContent.includes('ProbeChat')"
+             " && document.getElementById('agent-history').textContent.includes('ProbeVerlauf')")
+    bis(daten)
+    erg["daten_aus_tresor"] = ev(daten)
 
     s.reload(wait_until="load")
     warte("() => !!document.getElementById('tr-vergessen')")
@@ -620,10 +628,12 @@ class DialogSeite:
     """Frische App ohne Einrichtung hinter der Relay-Attrappe (seit C-1a, für C-1): zählt Browser-Dialoge
     (`prompt`/`confirm`/`alert` – es darf keinen geben) und bedient die Dialoge aus `shell/dialog.ts`."""
 
-    def __init__(self, browser, url: str, relay: "ProbeRelay", erg: dict) -> None:
+    def __init__(self, browser, url: str, relay: "ProbeRelay", erg: dict, init: str | None = None) -> None:
         basis = url.rsplit("/", 1)[0]
         self.browser_dialoge: list[str] = []
         self.ctx = browser.new_context(locale="de-DE", viewport={"width": 1280, "height": 800})
+        if init:
+            self.ctx.add_init_script(init)
         self.ctx.route("**/*", lambda r: r.continue_() if r.request.url.startswith(basis) else r.abort())
         self.ctx.route_web_socket(re.compile(r"^wss?://"), relay.verbinde)
         s = self.s = self.ctx.new_page()
@@ -730,6 +740,25 @@ def waehrung_pruefen(browser, url: str) -> dict:
     s.wait_for_function("() => document.getElementById('swap-status')?.textContent.startsWith('Erst eine Solana-Wallet')", timeout=10000)
     if ev(stand) is not None:
         erg["fehler"].append("SOL → sats ohne Wallet öffnet einen Dialog")
+    # Umzug (C-8): Gebühren und Standard-Schiene unter Währung › Zahlen, Modell vorhalten unter Verdienen › Hosten
+    ev("() => document.querySelector('[data-subtab-group=wallet] [data-subtab=pay]').click()")
+    s.wait_for_function("() => document.getElementById('anteile-stand')?.textContent === 'Nichts gesammelt.'", timeout=10000)
+    umzug = {"reiter": ev("() => [...document.querySelectorAll('[data-subtab-group=wallet] [data-subtab]')].map(b => b.textContent)"),
+             "zahlen": ev("() => ['standard-schiene', 'anteile-zahlen'].map(id => !!document.getElementById(id).offsetParent)"),
+             "settings": ev("() => [...document.querySelectorAll('[data-subtab-group=settings] [data-subtab]')].map(b => b.dataset.subtab)")}
+    ev("() => { location.hash = '#/verdienen'; }")
+    s.wait_for_function("() => !!document.querySelector('[data-subtab-group=earn] [data-subtab=host]')?.offsetParent", timeout=10000)
+    ev("() => document.querySelector('[data-subtab-group=earn] [data-subtab=host]').click()")
+    umzug["hosten"] = ev("() => ['models-seed', 'models-publish'].map(id => document.getElementById(id).offsetParent?.closest('.subpane')?.dataset.subpane)")
+    ev("() => document.getElementById('models-seed').click()")
+    umzug["vorhalten"] = warte_dialog("Modell vorhalten")
+    s.keyboard.press("Escape")
+    seite.warte_zu()
+    erg["umzug"] = umzug
+    if not (umzug["reiter"] == ["Übersicht", "Tauschen", "Hinterlegen", "Zahlen"] and umzug["zahlen"] == [True, True]
+            and "fees" not in umzug["settings"] and umzug["hosten"] == ["earn:host", "earn:host"]
+            and umzug["vorhalten"]["felder"] == ["Welches Modell hältst du vor?", "Welche Dateien? (kommagetrennt, leer = alle)"]):
+        erg["fehler"].append(f"Umzug {umzug}")
     erg["browser_dialoge"] = browser_dialoge
     if browser_dialoge:
         erg["fehler"].append(f"Browser-Dialoge: {browser_dialoge}")
@@ -798,6 +827,361 @@ def kontakt_pruefen(browser, url: str) -> dict:
     if seite.browser_dialoge:
         erg["fehler"].append(f"Browser-Dialoge: {seite.browser_dialoge}")
     seite.ctx.close()
+    erg["bestanden"] = not erg["fehler"]
+    return erg
+
+
+# Mikrofon-Attrappe (seit C-7): ein Ton aus dem Oszillator statt eines Geräts. Sie zählt, wie oft die App das
+# Mikrofon anfragt, und merkt sich jede Spur – gestoppt heißt `readyState === "ended"`.
+MIKROFON_ATTRAPPE = """
+(() => {
+  const st = window.__mikro = { fragen: 0, spuren: [] };
+  if (!navigator.mediaDevices) return;
+  navigator.mediaDevices.getUserMedia = async (c) => {
+    st.fragen++;
+    if (!c || !c.audio || c.video) throw new DOMException('nur Ton', 'NotAllowedError');
+    const ctx = new AudioContext();
+    await ctx.resume();
+    const osz = ctx.createOscillator();
+    const ziel = ctx.createMediaStreamDestination();
+    osz.connect(ziel);
+    osz.start();
+    for (const s of ziel.stream.getTracks()) st.spuren.push(s);
+    return ziel.stream;
+  };
+  // Keine Verzögerung beim Senden (6.4) – sonst wartet der Test bis zu 30 s auf die Umschläge
+  localStorage.setItem('freedom.versand.verzoegerung', '0');
+})();
+"""
+
+
+def sprachnachricht_pruefen(browser, url: str) -> dict:
+    """Sprachnachrichten (C-7): Mikrofon erst auf Klick, nach dem Beenden und Verwerfen aus; die Aufnahme ist ein
+    Anhang, reist klein in der verschlüsselten Nachricht und spielt im eigenen Verlauf."""
+    erg = {"fehler": []}
+    relay = ProbeRelay()
+    seite = DialogSeite(browser, url, relay, erg, init=MIKROFON_ATTRAPPE)
+    s, ev = seite.s, seite.ev
+    mikro = "() => [window.__mikro.fragen, window.__mikro.spuren.length, window.__mikro.spuren.every(t => t.readyState === 'ended')]"
+    ev("() => { location.hash = '#/chat'; }")
+    s.wait_for_selector("#chat-new-dm", timeout=30000)
+    ev("() => document.getElementById('chat-new-dm').click()")
+    seite.warte_dialog("Neue Nachricht")
+    pk = "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798"  # ein gültiger Punkt (x von G) – geht nur an die Attrappe
+    seite.tippe(pk)
+    seite.warte_zu()
+    s.wait_for_function("(pk) => !!document.querySelector(`#chat-list .chat-item.active[data-cid='${pk}']`)", arg=pk, timeout=10000)
+    erg["vorher"] = ev(mikro)
+    knopf = "#chat-voice-btn"
+    erg["knopf"] = ev(f"() => [document.querySelector('{knopf}').getAttribute('aria-label'), document.querySelector('{knopf}').getAttribute('aria-pressed'),"
+                      " document.getElementById('chat-voice-status').hidden]")
+    # Aufnehmen – ein echter Klick, damit der Browser das Abspielen erlaubt
+    s.click(knopf)
+    s.wait_for_function(f"() => document.querySelector('{knopf}').getAttribute('aria-pressed') === 'true'", timeout=10000)
+    s.wait_for_function("() => /0:01 von 2:00/.test(document.getElementById('chat-voice-status').textContent)", timeout=10000)
+    erg["laeuft"] = ev(f"() => [document.querySelector('{knopf}').getAttribute('aria-label'), document.getElementById('chat-voice-status').textContent]") + [ev(mikro)]
+    s.click(knopf)
+    s.wait_for_function("() => /sprachnachricht\\.webm/.test(document.getElementById('chat-attach-list').textContent)", timeout=15000)
+    erg["beendet"] = {"mikro": ev(mikro), "liste": ev("() => document.getElementById('chat-attach-list').textContent"),
+                      "knopf": ev(f"() => [document.querySelector('{knopf}').getAttribute('aria-pressed'), document.getElementById('chat-voice-status').hidden]")}
+    # Eine zweite Aufnahme verwerfen: Mikrofon aus, nichts kommt dazu
+    s.click(knopf)
+    s.wait_for_function(f"() => document.querySelector('{knopf}').getAttribute('aria-pressed') === 'true'", timeout=10000)
+    s.click("#chat-voice-status button")
+    s.wait_for_function(f"() => document.querySelector('{knopf}').getAttribute('aria-pressed') === 'false'", timeout=10000)
+    erg["verworfen"] = {"mikro": ev(mikro), "liste": ev("() => document.getElementById('chat-attach-list').textContent")}
+    # Senden: im eigenen Verlauf ein Abspieler mit data:audio, hinaus nur Umschläge (1059)
+    s.click("#chat-send")
+    s.wait_for_function("() => (document.querySelector('#chat-thread audio')?.src ?? '').startsWith('data:audio/webm')", timeout=15000)
+    erg["verlauf"] = ev("() => [document.querySelectorAll('#chat-thread audio').length, document.querySelector('#chat-thread audio').controls]")
+
+    def umschlaege() -> list[dict]:
+        return list({e["id"]: e for e in relay.gesendet if e.get("kind") == 1059}.values())
+    for _ in range(100):
+        if len(umschlaege()) >= 2:
+            break
+        s.wait_for_timeout(200)
+    gesendet = umschlaege()
+    # Nur lange Folgen suchen – kurze stehen im Base64 des Chiffrats gelegentlich zufällig (Fallstrick seit B-13a)
+    erg["gesendet"] = {"umschlaege": len(gesendet), "klartext": any("audio/webm" in json.dumps(e) or "sprachnachricht.webm" in json.dumps(e) for e in relay.gesendet)}
+    if erg["vorher"] != [0, 0, True]:
+        erg["fehler"].append(f"Mikrofon vor dem Klick: {erg['vorher']}")
+    if erg["knopf"] != ["Sprachnachricht aufnehmen", "false", True]:
+        erg["fehler"].append(f"Knopf {erg['knopf']}")
+    if not (erg["laeuft"][0] == "Aufnahme beenden" and erg["laeuft"][1].startswith("● Aufnahme 0:01 von 2:00") and erg["laeuft"][2][:2] == [1, 1]
+            and erg["laeuft"][2][2] is False):
+        erg["fehler"].append(f"Aufnahme {erg['laeuft']}")
+    if not (erg["beendet"]["mikro"] == [1, 1, True] and erg["beendet"]["knopf"] == ["false", True]):
+        erg["fehler"].append(f"beendet {erg['beendet']}")
+    if not (erg["verworfen"]["mikro"] == [2, 2, True] and erg["verworfen"]["liste"] == erg["beendet"]["liste"]):
+        erg["fehler"].append(f"verworfen {erg['verworfen']}")
+    if erg["verlauf"] != [1, True] or erg["gesendet"]["umschlaege"] < 2 or erg["gesendet"]["klartext"]:
+        erg["fehler"].append(f"gesendet {erg['verlauf']} {erg['gesendet']}")
+    erg["browser_dialoge"] = seite.browser_dialoge
+    if seite.browser_dialoge:
+        erg["fehler"].append(f"Browser-Dialoge: {seite.browser_dialoge}")
+    seite.ctx.close()
+    erg["bestanden"] = not erg["fehler"]
+    return erg
+
+
+def tresor_an(seite: "DialogSeite", passphrase: str) -> None:
+    """Tresor einrichten (Settings › Sicherheit, Schritt 5) – MLS gibt es nur mit Tresor (2.2b-e1)."""
+    ev = seite.ev
+    ev("() => { location.hash = '#/settings'; }")
+    seite.s.wait_for_selector('.sec-action[data-step="4"]', state="attached", timeout=15000)
+    ev("() => document.querySelector('.sec-action[data-step=\"4\"]').click()")
+    seite.s.wait_for_selector("#tr-neu1", timeout=10000)
+    ev("(p) => { document.getElementById('tr-neu1').value = p; document.getElementById('tr-neu2').value = p;"
+       " document.getElementById('tr-ok').click(); }", passphrase)
+    seite.s.wait_for_function("() => !document.getElementById('tr-ok')", timeout=30000)
+
+
+def entsperre_neu(seite: "DialogSeite", passphrase: str) -> None:
+    """Neu laden und den Tresor entsperren – wie ein neuer Start der App: der Posteingang wird sofort abgeglichen."""
+    seite.s.reload(wait_until="load")
+    seite.s.wait_for_function("() => !!document.getElementById('tr-pass')", timeout=30000)
+    seite.ev("(p) => { document.getElementById('tr-pass').value = p; document.getElementById('tr-ok').click(); }", passphrase)
+    seite.s.wait_for_function("() => !document.getElementById('tr-pass')", timeout=30000)
+
+
+def dialog_ok(seite: "DialogSeite", text: str) -> None:
+    """Den Knopf mit diesem Text im offenen Dialog drücken (Wahlfelder schicken mit Enter nicht ab)."""
+    seite.ev("(t) => [...document.querySelectorAll('[role=dialog][aria-modal=true] button')].find(b => b.textContent === t).click()", text)
+
+
+def privatraum_moderation(ada: "DialogSeite", bo: "DialogSeite", relay: "ProbeRelay", pk_bo: str, pille: str, gruss: str, antwort: str, erg: dict) -> None:
+    """C-12b: Bo meldet Adas Nachricht – versiegelt nur an die Moderatorin, nie in die Gruppe; Ada sieht die Meldung nach
+    dem nächsten Start. Ada löscht Bos Antwort für alle (4891 in der Gruppe), bei Bo ist sie danach weg."""
+    zeile = "(t) => [...document.querySelectorAll('#channel-thread .msg-zeile')].find(z => z.querySelector('.msg-text')?.textContent === t)"
+    vorher = len([e for e in relay.events if e.get("kind") == 1059])
+    bo.ev(f"(t) => ({zeile})(t).querySelector('button.raum-aktion').click()", gruss)
+    melden = bo.warte_dialog("Nachricht melden")
+    dialog_ok(bo, "melden")
+    bo.warte_zu()
+    umschlaege = []
+    for _ in range(150):
+        umschlaege = [e for e in relay.events if e.get("kind") == 1059][vorher:]
+        if umschlaege:
+            break
+        bo.s.wait_for_timeout(200)
+    an = sorted({t[1] for e in umschlaege for t in e.get("tags", []) if t[0] == "p"})
+    # Ada startet neu: der Posteingang bringt die Meldung (nur im Speicher), der Raum zeigt sie
+    entsperre_neu(ada, "ada tresor 1")
+    ada.ev("() => { location.hash = '#/chat'; }")
+    ada.s.wait_for_function(f"() => !!document.querySelector(\"{pille}\")", timeout=30000)
+    ada.ev(f"() => document.querySelector(\"{pille}\").click()")
+    try:
+        ada.s.wait_for_function("() => !document.getElementById('raum-meldungen')?.classList.contains('hidden')", timeout=60000)
+        gesehen = ada.ev("() => document.getElementById('raum-meldungen').textContent")
+    except Exception:
+        gesehen = None
+    # Die Moderatorin sieht, wer was über wen meldet (gekürzte Schlüssel), und die Maßnahmen
+    soll = f"Meldung von {pk_bo[:8]}…{pk_bo[-4:]} über {relay.ich[:8]}…{relay.ich[-4:]} · Spam"
+    erg["meldung"] = {"dialog": melden["titel"] if melden else None, "an": an, "gesehen": bool(gesehen and gesehen.startswith(soll))}
+    if not (erg["meldung"]["dialog"] == "Nachricht melden" and an == [relay.ich] and erg["meldung"]["gesehen"]):
+        erg["fehler"].append(f"Meldung {erg['meldung']} {gesehen}")
+    # Ada löscht Bos Antwort für alle
+    ada.s.wait_for_function("() => !!document.querySelector('#channel-thread .thread-link')", timeout=30000)
+    ada.ev("() => document.querySelector('#channel-thread .thread-link').click()")
+    ada.s.wait_for_function("(t) => document.getElementById('thread-verlauf')?.textContent.includes(t)", arg=antwort, timeout=10000)
+    ada.ev("(t) => [...document.querySelectorAll('#thread-verlauf .msg-zeile')].find(z => z.querySelector('.msg-text')?.textContent === t)"
+           ".querySelector('button.raum-aktion').click()", antwort)
+    mod = ada.warte_dialog("Nachricht moderieren")
+    dialog_ok(ada, "moderieren")
+    ada.warte_zu()
+    ada.s.wait_for_function("() => !document.querySelector('#channel-thread .thread-link')", timeout=30000)
+    bo.ev(f"() => document.querySelector(\"{pille}\").click()")
+    try:
+        bo.s.wait_for_function("() => !document.querySelector('#channel-thread .thread-link')", timeout=60000)
+        weg = True
+    except Exception:
+        weg = False
+    erg["moderation"] = {"dialog": mod["titel"] if mod else None, "bei_bo_weg": weg,
+                         "bo_liest_noch": bo.ev("(t) => document.getElementById('channel-thread').textContent.includes(t)", gruss)}
+    if erg["moderation"] != {"dialog": "Nachricht moderieren", "bei_bo_weg": True, "bo_liest_noch": True}:
+        erg["fehler"].append(f"Moderation {erg['moderation']}")
+
+
+def privatraum_repo(ada: "DialogSeite", bo: "DialogSeite", relay: "ProbeRelay", pille: str, repo_id: str, betreff: str, erg: dict) -> None:
+    """C-12b: Ada legt im privaten Raum ein Repo an (nur in der Gruppe), Bo sieht es dort und schickt einen Patch,
+    Ada sieht den Patch – alles als innere Events, auf dem Relay nur Chiffrat."""
+    ada.s.wait_for_function("() => document.getElementById('space-repo-neu')?.classList.contains('hidden') === false", timeout=30000)
+    ada.ev("() => document.getElementById('space-repo-neu').click()")
+    ada.warte_dialog("Repo ankündigen")
+    ada.tippe(repo_id)
+    # Die Rückfrage trägt denselben Titel – auf ihren Text warten
+    ada.s.wait_for_function("() => /im privaten Raum anlegen\\?/.test(document.querySelector('[role=dialog] .dlg-text')?.textContent ?? '')", timeout=10000)
+    frage = ada.stand()
+    dialog_ok(ada, "Repo ankündigen")
+    ada.warte_zu()
+    liste = "() => [...document.querySelectorAll('#raum-repos .raum-repo')].map(b => b.textContent)"
+    try:
+        ada.s.wait_for_function(f"() => ({liste})().includes('{repo_id}')", timeout=30000)
+    except Exception:
+        pass
+    bo.ev(f"() => document.querySelector(\"{pille}\").click()")
+    try:
+        bo.s.wait_for_function(f"() => ({liste})().includes('{repo_id}')", timeout=60000)
+    except Exception:
+        pass
+    erg["repo"] = {"frage": (frage or {}).get("text"), "ada": ada.ev(liste), "bo": bo.ev(liste)}
+    if not (erg["repo"]["ada"] == [repo_id] and erg["repo"]["bo"] == [repo_id]):
+        erg["fehler"].append(f"Repo im privaten Raum {erg['repo']}")
+        return
+    # Bo schickt einen Patch an das Repo des Raums
+    patch = (f"From {'c' * 40} Mon Sep 17 00:00:00 2001\nFrom: Bo <bo@example.org>\nSubject: [PATCH] {betreff}\n\n"
+             "Erste Zeile.\n---\ndiff --git a/LIESMICH b/LIESMICH\nnew file mode 100644\n--- /dev/null\n+++ b/LIESMICH\n"
+             "@@ -0,0 +1 @@\n+# Raum\n-- \n2.43.0\n")
+    bo.ev(f"() => [...document.querySelectorAll('#raum-repos .raum-repo')].find(b => b.textContent === '{repo_id}').click()")
+    bo.s.wait_for_selector("#repo-seite [data-reiter=patches]", timeout=30000)
+    bo.ev("() => document.querySelector('#repo-seite [data-reiter=patches]').click()")
+    bo.s.wait_for_selector("#repo-seite .repo-patch-datei", state="attached", timeout=10000)
+    bo.s.set_input_files("#repo-seite .repo-patch-datei", files=[{"name": "0001.patch", "mimeType": "text/plain", "buffer": patch.encode()}])
+    bo.s.wait_for_selector("#repo-seite .patch-senden", timeout=10000)
+    bo.ev("() => document.querySelector('#repo-seite .patch-senden').click()")
+    try:
+        bo.s.wait_for_function("(b) => [...document.querySelectorAll('#repo-seite .repo-patch-betreff')].some(x => x.textContent.includes(b))", arg=betreff, timeout=30000)
+        bo_sieht = True
+    except Exception:
+        bo_sieht = False
+    # Ada öffnet das Repo aus dem Raum und sieht den Patch
+    ada.ev("() => { location.hash = '#/chat'; }")
+    ada.ev(f"() => document.querySelector(\"{pille}\").click()")
+    ada.s.wait_for_function(f"() => ({liste})().includes('{repo_id}')", timeout=30000)
+    ada.ev(f"() => [...document.querySelectorAll('#raum-repos .raum-repo')].find(b => b.textContent === '{repo_id}').click()")
+    ada.s.wait_for_selector("#repo-seite [data-reiter=patches]", timeout=30000)
+    ada.ev("() => document.querySelector('#repo-seite [data-reiter=patches]').click()")
+    try:
+        ada.s.wait_for_function("(b) => [...document.querySelectorAll('#repo-seite .repo-patch-betreff')].some(x => x.textContent.includes(b))", arg=betreff, timeout=60000)
+        ada_sieht = True
+    except Exception:
+        ada_sieht = False
+    erg["patch"] = {"bo": bo_sieht, "ada": ada_sieht, "offen_1617": any(e.get("kind") == 1617 for e in relay.events)}
+    if erg["patch"] != {"bo": True, "ada": True, "offen_1617": False}:
+        erg["fehler"].append(f"Patch im privaten Raum {erg['patch']}")
+
+
+def privatraum_pruefen(browser, url: str) -> dict:
+    """Privater Raum (C-12) mit echter MLS-Engine: zwei Browser hinter derselben Relay-Attrappe. Ada legt den Raum an
+    und lädt Bo ein (KeyPackage, Einladung versiegelt an seinen Posteingang), Bo nimmt beim nächsten Start an,
+    Nachricht und Antwort im Thread gehen in beide Richtungen; dazu Meldung, Moderation, Repo und Patch – auf dem
+    Relay steht nichts davon im Klartext."""
+    erg = {"fehler": []}
+    ra, rb = ProbeRelay(), ProbeRelay()
+    rb.events = ra.events  # ein Relay für beide, jeder Browser mit eigener Verbindung (der eigene Schlüssel je Attrappe)
+    ada = DialogSeite(browser, url, ra, erg)
+    bo = DialogSeite(browser, url, rb, erg)
+    for seite, pw in ((ada, "ada tresor 1"), (bo, "bo tresor 1")):
+        tresor_an(seite, pw)
+        # Die Liste der Unterhaltungen gleicht den Posteingang ab – dabei fragt die App ihre eigenen Relay-Listen
+        seite.ev("() => { location.hash = '#/chat'; }")
+    for _ in range(150):
+        if ra.ich and rb.ich:
+            break
+        ada.s.wait_for_timeout(100)
+    pk_ada, pk_bo = ra.ich, rb.ich
+    erg["schluessel"] = bool(pk_ada and pk_bo and pk_ada != pk_bo)
+    if not erg["schluessel"]:
+        erg["fehler"].append("eigene Schlüssel nicht erkannt")
+        return erg
+
+    def warte_relay(bedingung, sekunden: int = 60) -> bool:
+        for _ in range(sekunden * 5):
+            if any(bedingung(e) for e in list(ra.events)):
+                return True
+            ada.s.wait_for_timeout(200)
+        return False
+
+    # Bo öffnet eine Unterhaltung mit Ada – dabei veröffentlicht er sein KeyPackage (Marmot, adressierbar: 30443, 2.2b-c1)
+    bo.ev("() => { location.hash = '#/chat'; }")
+    bo.s.wait_for_selector("#chat-new-dm", timeout=30000)
+    bo.ev("() => document.getElementById('chat-new-dm').click()")
+    bo.warte_dialog("Neue Nachricht")
+    bo.tippe(pk_ada)
+    bo.warte_zu()
+    erg["keypackage"] = warte_relay(lambda e: e.get("kind") == 30443 and e.get("pubkey") == pk_bo)
+
+    # Ada legt den Raum an und lädt Bo mit seinem Schlüssel ein
+    ada.ev("() => { location.hash = '#/chat'; }")
+    ada.s.wait_for_selector("#space-create", state="attached", timeout=30000)
+    ada.ev("() => document.getElementById('space-create').click()")
+    ada.warte_dialog("Raum anlegen (privat)")
+    ada.tippe("Probe privat")
+    ada.warte_zu()
+    ada.s.wait_for_function("() => document.getElementById('space-name')?.textContent === 'Probe privat'", timeout=60000)
+    pille = "#space-rail .space-pill[data-space^='mls:']"
+    erg["angelegt"] = ada.ev(f"() => [document.querySelectorAll(\"{pille}\").length, document.querySelector(\"{pille}\")?.getAttribute('aria-label')]")
+    ada.ev("() => document.getElementById('space-invite').click()")
+    ada.warte_dialog("In den Raum einladen")
+    ada.tippe(pk_bo)
+    ada.warte_zu()
+    erg["einladung"] = warte_relay(lambda e: e.get("kind") == 1059 and ["p", pk_bo] in [t[:2] for t in e.get("tags", [])])
+
+    # Bo startet neu: der Posteingang bringt die Einladung, der Raum steht in seiner Leiste
+    entsperre_neu(bo, "bo tresor 1")
+    bo.ev("() => { location.hash = '#/chat'; }")
+    try:
+        bo.s.wait_for_function(f"() => !!document.querySelector(\"{pille}\")", timeout=60000)
+    except Exception:
+        pass
+    # Den Namen kennt Bo erst aus der Definition in der Gruppe – bis er den Raum öffnet, heißt er „privater Raum“
+    erg["angenommen"] = bo.ev(f"() => document.querySelector(\"{pille}\")?.getAttribute('aria-label') ?? null")
+
+    # Ada schreibt im Kanal, Bo liest und antwortet im Thread, Ada sieht die Antwort
+    gruss, antwort = "Hallo Bo – nur wir lesen mit.", "Antwort von Bo im Thread."
+    ada.ev("(t) => { const i = document.getElementById('space-msg'); i.value = t; i.focus(); }", gruss)
+    ada.s.keyboard.press("Enter")
+    ada.s.wait_for_function("(t) => document.getElementById('channel-thread')?.textContent.includes(t)", arg=gruss, timeout=30000)
+    if erg["angenommen"]:
+        bo.ev(f"() => document.querySelector(\"{pille}\").click()")
+        try:
+            bo.s.wait_for_function("(t) => document.getElementById('channel-thread')?.textContent.includes(t)", arg=gruss, timeout=60000)
+            erg["bo_liest"] = True
+            erg["bo_name"] = bo.ev(f"() => [document.getElementById('space-name').textContent, document.querySelector(\"{pille}\").getAttribute('aria-label')]")
+        except Exception:
+            erg["bo_liest"] = False
+        if erg["bo_liest"]:
+            bo.ev("(t) => [...document.querySelectorAll('#channel-thread .msg-zeile')].find(z => z.textContent.includes(t))"
+                  ".querySelector('button.antworten').click()", gruss)
+            bo.s.wait_for_function("() => document.activeElement?.id === 'thread-msg'", timeout=10000)
+            bo.s.keyboard.type(antwort)
+            bo.s.keyboard.press("Enter")
+            bo.s.wait_for_function("(t) => document.getElementById('thread-verlauf')?.textContent.includes(t)", arg=antwort, timeout=30000)
+            ada.ev(f"() => document.querySelector(\"{pille}\").click()")
+            try:
+                ada.s.wait_for_function("() => !!document.querySelector('#channel-thread .thread-link')", timeout=60000)
+                ada.ev("() => document.querySelector('#channel-thread .thread-link').click()")
+                ada.s.wait_for_function("(t) => document.getElementById('thread-verlauf')?.textContent.includes(t)", arg=antwort, timeout=10000)
+                erg["ada_liest"] = True
+            except Exception:
+                erg["ada_liest"] = False
+    # C-12b: Meldung, Moderation, Repo und Patch – nur, wenn der Austausch oben stand
+    repo_id, betreff = "geheimrepo", "Liesmich im Raum"
+    if erg.get("ada_liest") is True:
+        privatraum_moderation(ada, bo, ra, pk_bo, pille, gruss, antwort, erg)
+        privatraum_repo(ada, bo, ra, pille, repo_id, betreff, erg)
+    # Auf dem Relay nur Chiffrat: weder Name noch Text des Raums im Klartext
+    roh = json.dumps(ra.events, ensure_ascii=False)
+    erg["klartext"] = [x for x in ("Probe privat", gruss, antwort, repo_id, betreff) if x in roh]
+    erg["kinds"] = sorted({e.get("kind") for e in ra.events})
+    if not erg["keypackage"]:
+        erg["fehler"].append("Bo hat kein KeyPackage veröffentlicht")
+    if erg["angelegt"] != [1, "Privater Raum Probe privat"]:
+        erg["fehler"].append(f"angelegt {erg['angelegt']}")
+    if not erg["einladung"]:
+        erg["fehler"].append("keine Einladung an Bo")
+    if erg["angenommen"] != "Privater Raum privater Raum" or erg.get("bo_name") != ["Probe privat", "Privater Raum Probe privat"]:
+        erg["fehler"].append(f"Bo hat die Einladung nicht angenommen: {erg['angenommen']} {erg.get('bo_name')}")
+    if erg.get("bo_liest") is not True or erg.get("ada_liest") is not True:
+        erg["fehler"].append(f"Nachricht/Thread: Bo liest {erg.get('bo_liest')}, Ada liest {erg.get('ada_liest')}")
+    if erg["klartext"]:
+        erg["fehler"].append(f"Klartext auf dem Relay: {erg['klartext']}")
+    erg["browser_dialoge"] = ada.browser_dialoge + bo.browser_dialoge
+    if erg["browser_dialoge"]:
+        erg["fehler"].append(f"Browser-Dialoge: {erg['browser_dialoge']}")
+    ada.ctx.close()
+    bo.ctx.close()
     erg["bestanden"] = not erg["fehler"]
     return erg
 
@@ -1029,6 +1413,18 @@ def fremdtext_pruefen(browser, url: str) -> dict:
     if vorher != [f"Community (offen): {html('community')}", "🏠<", False] or nachher[0] != "true" \
             or not nachher[1].startswith(html("community") + "Community (offen) –"):
         erg["fehler"].append(f"Community {erg['community']}")
+    # C-6d: die Modellwahl des Agenten – der Name aus einem fremden Angebot als Text, auch im Knopf nach der Wahl
+    ev("() => { location.hash = '#/agent'; }")
+    karte = "(m) => [...document.querySelectorAll('#model-popover .model-card')].find(k => k.dataset.model === m)"
+    seite.s.wait_for_function(f"(m) => !!({karte})(m)", arg=html("ki"), timeout=30000)
+    ev("() => document.getElementById('ai-model-btn').click()")
+    vorher = ev(f"(m) => {{ const k = ({karte})(m); return [k.querySelector('.mc-head b').textContent, k.querySelectorAll('img').length,"
+                " !!k.querySelector('.mc-sub svg')]; }", html("ki"))
+    ev(f"(m) => ({karte})(m).click()", html("ki"))
+    erg["modellwahl"] = vorher + [ev("() => [document.getElementById('ai-model-btn').textContent.trim(),"
+                                     " document.querySelectorAll('#ai-model-btn img, #model-popover img').length, !!document.querySelector('#ai-model-btn svg')]")]
+    if erg["modellwahl"] != [html("ki"), 0, True, [html("ki"), 0, True]]:
+        erg["fehler"].append(f"Modellwahl {erg['modellwahl']}")
     ev("() => { location.hash = '#/settings'; }")
     seite.s.wait_for_function("() => document.querySelector('#device-list span') && document.querySelector('#succession-status span')", timeout=30000)
     erg["settings"] = ev("() => [document.querySelector('#device-list span').textContent.split('.')[0],"
@@ -1650,6 +2046,9 @@ def raum_pruefen(browser, url: str) -> dict:
         ctx = browser.new_context(locale="de-DE", viewport=vp, is_mobile=mobil, has_touch=mobil)
         ctx.route("**/*", lambda r: r.continue_() if r.request.url.startswith(basis) else r.abort())
         ctx.route_web_socket(re.compile(r"^wss?://"), relay.verbinde)
+        # „Neu“ (C-13b): allgemein schon gelesen bis kurz nach den ersten Nachrichten (gestern 10:00 + 130 s, wie raum-probe.mts)
+        gelesen = (int(datetime.datetime.now(datetime.timezone.utc).timestamp()) // 86400) * 86400 - 86400 + 10 * 3600 + 130
+        ctx.add_init_script(f"localStorage.setItem('freedom.lastRead', JSON.stringify({{ allgemein: {gelesen} }}));")
         s = ctx.new_page()
         s.on("pageerror", lambda e: erg["fehler"].append(str(e)[:300]))
         ev = s.evaluate
@@ -1686,6 +2085,8 @@ def raum_pruefen(browser, url: str) -> dict:
             tage: th.querySelectorAll('.msg-tag').length, bilder: th.querySelectorAll('img').length,
             xss: window.__raumXss === 1, alsText: th.textContent.includes('<img src=x'),
             aktionen: th.querySelectorAll('.msg-aktionen .mod-hide').length,
+            neu: [th.querySelectorAll('.msg-neu').length, th.querySelector('.msg-neu')?.textContent ?? '',
+              th.querySelector('.msg-neu')?.nextElementSibling?.querySelector('.msg-text')?.textContent ?? ''],
             sichtbar: th.getBoundingClientRect().height > 0,
             schreiben: !document.getElementById('channel-composer').classList.contains('hidden') }; }""")
         deckkraft = "() => getComputedStyle(document.querySelectorAll('.msg-aktionen')[2]).opacity"
@@ -1703,7 +2104,8 @@ def raum_pruefen(browser, url: str) -> dict:
         erg[groesse]["planung_offen"] = planung
         if planung != [True, True, True]:
             erg["fehler"].append(f"{groesse}: Umfragen/Termine im offenen Raum sichtbar {planung}")
-        erwartet = {"gruppen": [2, 2, 1], "tage": 2, "bilder": 0, "xss": False, "alsText": True, "aktionen": 5, "schreiben": True}
+        erwartet = {"gruppen": [2, 2, 1], "tage": 2, "bilder": 0, "xss": False, "alsText": True, "aktionen": 5, "schreiben": True,
+                    "neu": [1, "Neu", "Hallo! <img src=x onerror=\"window.__raumXss=1\"> bleibt Text."]}
         abweichung = {k: verlauf.get(k) for k, v in erwartet.items() if verlauf.get(k) != v}
         # Namen: ohne Kontakte der gekürzte Schlüssel – nie „Du“ für andere, nie leer
         if abweichung or not all(a and a != "Du" for a in verlauf["autoren"]):
@@ -1755,7 +2157,7 @@ def raum_pruefen(browser, url: str) -> dict:
           return { sichtbar: r(col).width > 0, kanal: r(document.querySelector('.channel-main')).width > 0,
             zeilen: [...col.querySelectorAll('#member-list .member-row')].map(z => [z.querySelector('.mitglied-name').textContent === 'Du',
               [...z.querySelectorAll('.msg-role')].map(x => x.textContent), !!z.querySelector('.mitglied-knopf')]) }; }""")
-        ev("() => document.querySelectorAll('#member-list .mitglied-knopf')[0].click()")
+        ev("() => document.querySelectorAll('#member-list .member-row')[1].querySelector('.mitglied-knopf').click()")
         s.wait_for_timeout(150)
         menue_stand = """() => { const m = document.querySelector('.menue-schwebend');
           return { punkte: m ? [...m.querySelectorAll('[role=menuitem]')].map(b => b.textContent) : null,
@@ -1767,10 +2169,11 @@ def raum_pruefen(browser, url: str) -> dict:
         s.wait_for_timeout(100)
         zu_m = ev("() => [!!document.querySelector('.menue-schwebend'), document.activeElement?.classList.contains('mitglied-knopf')]")
         erg[groesse]["mitglieder"] = {"liste": mitglieder, "menue": auf_m, "runter": runter, "zu": zu_m}
-        soll_zeilen = [[False, ["Gründer"], False], [False, ["Mitglied"], True], [False, ["Mitglied"], True], [True, ["Moderator"], False]]
+        soll_zeilen = [[False, ["Gründer"], True], [False, ["Mitglied"], True], [False, ["Mitglied"], True], [True, ["Moderator"], False]]
         if not mitglieder["sichtbar"] or mitglieder["kanal"] == mobil or mitglieder["zeilen"] != soll_zeilen:
             erg["fehler"].append(f"{groesse}: Mitglieder {mitglieder}")
-        if auf_m != {"punkte": ["Rolle vergeben", "Absender sperren"], "fokus": "Rolle vergeben"} or runter != "Absender sperren" or zu_m != [False, True]:
+        if auf_m != {"punkte": ["Direktnachricht schreiben", "Rolle vergeben", "Absender sperren"], "fokus": "Direktnachricht schreiben"} \
+                or runter != "Rolle vergeben" or zu_m != [False, True]:
             erg["fehler"].append(f"{groesse}: Mitglied-Menü {auf_m} {runter} {zu_m}")
         if mobil:
             ev("() => document.getElementById('mitglieder-zu').click()")
@@ -1975,6 +2378,45 @@ def raum_pruefen(browser, url: str) -> dict:
             erg[groesse]["beitreten"] = {"schon": schon, "nicht": nicht_beigetreten, "wieder": wieder}
             if schon is not False or nicht_beigetreten != ["Probe-Raum", True, False] or wieder != [False, True, 1]:
                 erg["fehler"].append(f"{groesse}: hier beitreten {erg[groesse]['beitreten']}")
+            # C-13a: offen mit Weltkugel, für Vorleser „Offener Raum …“; der Kanal ankündigungen ist ungelesen –
+            # vor Augen kein Punkt, zurück bei den Direktnachrichten ein Punkt; die Leiste hat einen Tab-Halt, Pfeile wandern
+            pille = "#space-rail .space-pill[data-space=\"probe-raum\"]"
+            vor_augen = ev(f"""() => [document.querySelector('{pille}').textContent, document.querySelector('{pille}').getAttribute('aria-label'),
+              !!document.querySelector('{pille} .rail-punkt')]""")
+            ev("() => document.getElementById('comm-dm-btn').click()")
+            try:  # die Leiste zeichnet sich nach dem Wechsel neu – auf den Punkt warten, fehlt er, meldet es die Prüfung unten
+                s.wait_for_function(f"() => !!document.querySelector('{pille} .rail-punkt')", timeout=10000)
+            except Exception:
+                pass
+            weg = ev(f"""() => [document.querySelector('{pille}').getAttribute('aria-label'), !!document.querySelector('{pille} .rail-punkt'),
+              [...document.querySelectorAll('.comm-rail button')].filter(b => b.tabIndex === 0).map(b => b.id || b.dataset.space)]""")
+            ev("() => document.getElementById('comm-dm-btn').focus()")
+            s.keyboard.press("ArrowDown")
+            pfeil = ev("() => [document.activeElement?.dataset.space ?? document.activeElement?.id ?? '',"
+                       " [...document.querySelectorAll('.comm-rail button')].filter(b => b.tabIndex === 0).length]")
+            erg[groesse]["leiste"] = {"vor_augen": vor_augen, "weg": weg, "pfeil": pfeil}
+            if vor_augen != ["🌐P", "Offener Raum probe-raum", False] \
+                    or weg != ["Offener Raum probe-raum, ungelesen", True, ["comm-dm-btn"]] or pfeil[1] != 1 or pfeil[0] in ("", "comm-dm-btn"):
+                erg["fehler"].append(f"{groesse}: Leiste {erg[groesse]['leiste']}")
+            ev(f"() => document.querySelector('{pille}').click()")
+            s.wait_for_function("() => document.querySelector('.comm-layout')?.dataset.commMode === 'space'", timeout=10000)
+            # C-13b: aus dem Mitglieder-Menü eine Direktnachricht an den Gründer – Unterhaltung neu, offen bei den Direktnachrichten
+            s.wait_for_function("() => document.querySelectorAll('#member-list .member-row .mitglied-knopf').length > 0", timeout=10000)
+            gruender_pk = ev("() => document.querySelectorAll('#member-list .member-row')[0].querySelector('.mitglied-name').title")
+            ev("() => document.querySelectorAll('#member-list .member-row')[0].querySelector('.mitglied-knopf').click()")
+            s.wait_for_function("() => document.querySelectorAll('.menue-schwebend [role=menuitem]').length > 0", timeout=10000)
+            ev("() => [...document.querySelectorAll('.menue-schwebend [role=menuitem]')].find(b => b.textContent === 'Direktnachricht schreiben')?.click()")
+            try:
+                s.wait_for_function("(pk) => !!document.querySelector(`#chat-list .chat-item.active[data-cid=\"${pk}\"]`)", arg=gruender_pk, timeout=10000)
+            except Exception:
+                pass
+            dm = ev("""(pk) => [document.querySelector('.comm-layout').dataset.commMode,
+              !!document.querySelector(`#chat-list .chat-item.active[data-cid="${pk}"]`), !!document.querySelector('#chat-thread .empty-state')]""", gruender_pk)
+            erg[groesse]["direktnachricht"] = dm
+            if dm != ["dm", True, True]:
+                erg["fehler"].append(f"{groesse}: Direktnachricht aus dem Mitglieder-Menü {dm}")
+            ev(f"() => document.querySelector('{pille}').click()")
+            s.wait_for_function("() => document.querySelector('.comm-layout')?.dataset.commMode === 'space'", timeout=10000)
         # Repos (C.3a): eine Karte aus Ankündigung und Bundle, Suche, „Meine“, Repo-Seite, Patch annehmen per Dialog
         ev("() => { location.hash = '#/repos'; }")
         try:
@@ -2815,8 +3257,8 @@ def karte_pruefen(browser, url: str) -> dict:
 # Seiten für den Durchgang auf dem Handy (seit C.5a): Adresse und Unter-Reiter („gruppe:reiter“)
 MOBIL_SEITEN = [
     ("#/agent", ""), ("#/agent/verlauf", ""), ("#/agent/modelle", ""), ("#/agent/details", ""), ("#/chat", ""), ("#/repos", ""),
-    ("#/waehrung", ""), ("#/waehrung", "wallet:swap"), ("#/waehrung", "wallet:lp"), ("#/verdienen", ""),
-    ("#/verdienen", "earn:refer"), ("#/netz", ""), ("#/netz", "netz:mesh"), ("#/profil", ""),
+    ("#/waehrung", ""), ("#/waehrung", "wallet:swap"), ("#/waehrung", "wallet:lp"), ("#/waehrung", "wallet:pay"), ("#/verdienen", ""),
+    ("#/verdienen", "earn:host"), ("#/verdienen", "earn:refer"), ("#/netz", ""), ("#/netz", "netz:mesh"), ("#/profil", ""),
     ("#/settings", ""), ("#/settings", "settings:network"), ("#/mehr", ""),
 ]
 MOBIL_MESSEN = """() => {
@@ -3037,6 +3479,14 @@ def main() -> int:
             except Exception as e:
                 erg["kontakt"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
             try:
+                erg["sprachnachricht"] = sprachnachricht_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
+            except Exception as e:
+                erg["sprachnachricht"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
+            try:
+                erg["privatraum"] = privatraum_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
+            except Exception as e:
+                erg["privatraum"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
+            try:
                 erg["einstellungen"] = einstellungen_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
             except Exception as e:
                 erg["einstellungen"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
@@ -3097,6 +3547,8 @@ def main() -> int:
           and erg.get("dialog", {}).get("bestanden") is True
           and erg.get("waehrung", {}).get("bestanden") is True
           and erg.get("kontakt", {}).get("bestanden") is True
+          and erg.get("sprachnachricht", {}).get("bestanden") is True
+          and erg.get("privatraum", {}).get("bestanden") is True
           and erg.get("einstellungen", {}).get("bestanden") is True
           and erg.get("einnahmen", {}).get("bestanden") is True
           and erg.get("fremdtext", {}).get("bestanden") is True

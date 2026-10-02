@@ -140,6 +140,13 @@ export function setzeLogo(): void {
   link.href = "data:image/svg+xml," + encodeURIComponent(svg);
 }
 
+/** Das Häkchen als Element (seit C-6d). */
+export function haekchenEl(): SVGElement {
+  const vorlage = document.createElement("template");
+  vorlage.innerHTML = markSvgCheck();
+  return vorlage.content.firstElementChild as SVGElement;
+}
+
 export function markSvgCheck(): string {
   return `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--accent)"
     stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
