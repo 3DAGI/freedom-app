@@ -222,3 +222,12 @@ devices.ts|deviceWarning|deutsche Referenz; die App bildet die Rückfrage seit 8
 release.ts|sharingInstructions|deutsche Referenz; die App bildet den Begleittext seit 8.16g2b2 in protokoll-texte.ts (weitergabeText) nach, ein Test hält ihn wortgleich
 mesh-sync.ts|offlineCapabilities|deutsche Referenz; die App bildet die Liste seit 8.16g2b2 in protokoll-texte.ts (offlineFaehigkeiten) nach, ein Test hält sie gleich
 spaces.ts|privacyInfo|deutsche Referenz; die App bildet die Rauminfo seit C.2b2 in protokoll-texte.ts (kanalVertraulichkeit) nach, ein Test hält sie wortgleich
+raum-repo.ts|raumRepoBewertung|Reviews an Patches, Protokoll seit C-20g1; die Oberfläche (Knöpfe an Diff-Zeilen, Bewertung auf der Patch-Seite) folgt in C-20g2
+raum-repo.ts|raumRepoZeilenKommentar|Reviews an Patches, Protokoll seit C-20g1; die Oberfläche (Knöpfe an Diff-Zeilen, Bewertung auf der Patch-Seite) folgt in C-20g2
+review.ts|baueBewertung|Reviews an Patches, Protokoll seit C-20g1; die Oberfläche (Knöpfe an Diff-Zeilen, Bewertung auf der Patch-Seite) folgt in C-20g2
+review.ts|baueZeilenKommentar|Reviews an Patches, Protokoll seit C-20g1; die Oberfläche (Knöpfe an Diff-Zeilen, Bewertung auf der Patch-Seite) folgt in C-20g2
+review.ts|bewertungenZu|Reviews an Patches, Protokoll seit C-20g1; die Oberfläche (Knöpfe an Diff-Zeilen, Bewertung auf der Patch-Seite) folgt in C-20g2
+review.ts|istReviewTeil|Reviews an Patches, Protokoll seit C-20g1; die Oberfläche (Knöpfe an Diff-Zeilen, Bewertung auf der Patch-Seite) folgt in C-20g2
+review.ts|leseBewertung|Reviews an Patches, Protokoll seit C-20g1; die Oberfläche (Knöpfe an Diff-Zeilen, Bewertung auf der Patch-Seite) folgt in C-20g2
+review.ts|leseZeilenbezug|Reviews an Patches, Protokoll seit C-20g1; die Oberfläche (Knöpfe an Diff-Zeilen, Bewertung auf der Patch-Seite) folgt in C-20g2
+review.ts|zeilenKommentareZu|Reviews an Patches, Protokoll seit C-20g1; die Oberfläche (Knöpfe an Diff-Zeilen, Bewertung auf der Patch-Seite) folgt in C-20g2
