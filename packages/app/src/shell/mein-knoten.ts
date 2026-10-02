@@ -39,6 +39,7 @@ function zeigeStatus(): void {
   document.getElementById("knoten-entkoppeln")?.toggleAttribute("hidden", !k);
   // Halten (B-9b2, `knoten-halten-ui.ts`): nur gekoppelt zu sehen
   document.getElementById("knoten-halten-zeile")?.toggleAttribute("hidden", !k);
+  document.getElementById("knoten-nur-zeile")?.toggleAttribute("hidden", !k); // B-9c2, `knoten-weg-ui.ts`
 }
 
 async function koppeln(): Promise<void> {

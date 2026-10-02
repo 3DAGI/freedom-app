@@ -61,6 +61,8 @@ export const settings: Texte = {
   "set.knotenHaltenSchweigt": { de: "Mein Knoten antwortet nicht – die Datei liegt nur im Netz", en: "My node does not answer – the file is only on the network" },
   "set.knotenHaltenAbgelehnt": { de: "Mein Knoten hält die Datei nicht: {grund}", en: "My node does not keep the file: {grund}" },
   "set.knotenHaltenFehler": { de: "Halten bei meinem Knoten gescheitert: {fehler}", en: "Keeping on my node failed: {fehler}" },
+  "set.knotenNur": { de: "Alles über meinen Knoten – KI-Anfragen und Halten nur über sein Relay, dort mit dem Sitzungsschlüssel angemeldet; ist es nicht erreichbar, geht nichts an ihn", en: "Everything through my node – AI requests and keeping only via its relay, signed in there with the session key; if it cannot be reached, nothing goes to it" },
+  "set.knotenOhneRelay": { de: "Mein Knoten nennt kein Relay – mit „Alles über meinen Knoten“ geht nichts an ihn", en: "My node names no relay – with “Everything through my node” nothing goes to it" },
   "set.knotenNicht": { de: "Nicht gekoppelt", en: "Not paired" },
   "set.knotenEntkoppelnText": { de: "Den Code auf diesem Gerät vergessen? Für alle Geräte ungültig wird er erst mit „npm run koppeln -- --neu“ am Knoten.", en: "Forget the code on this device? It becomes invalid for all devices only with “npm run koppeln -- --neu” on the node." },
   "set.bunkerTitel": { de: "Anmelden per Bunker (NIP-46)", en: "Sign in with a bunker (NIP-46)" },
