@@ -66,5 +66,7 @@ test("B-9a: Modellwahl – Gruppe „Mein Knoten“ nur gekoppelt, zwischen Netz
   assert.match(teil("export function setupModelPicker(", "// klick außerhalb"), /if \(pop\.classList\.contains\("hidden"\)\) return;\s*\/\/[^\n]*\n\s*void zeigeKnotenBereich\(\);/, "beim Öffnen neu – auch gleich nach dem Koppeln");
   // Gratis in der Schätzung, Knopf mit eigenem Zeichen
   assert.match(agent, /if \(knotenModellAus\(\(\$\("#ai-model"\) as HTMLInputElement \| null\)\?\.value\) !== null\) \{ el\.textContent = t\("agent\.knotenGratis"\); return; \}/);
-  assert.match(agent, /\? `\$\{icon\("server", 14\)\} \$\{escapeHtml\(knotenModell\.split\(":"\)\[0\] \|\| t\("agent\.knotenStandard"\)\)\}/);
+  // Seit C-6d als DOM: Symbol „server“, dann der Name (oder „Standard“) als Text
+  assert.match(agent, /\? \["server", `\$\{knotenModell\.split\(":"\)\[0\] \|\| t\("agent\.knotenStandard"\)\} · \$\{t\("agent\.knotenKurz"\)\}`\]/);
+  assert.match(agent, /btn\.replaceChildren\(iconEl\(symbol, 14\), ` \$\{text\}`\);/);
 });

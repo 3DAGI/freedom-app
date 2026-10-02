@@ -1,12 +1,12 @@
 // Fremdtext für Browser-Prüfungen (seit C-6a): Events, deren Felder HTML tragen – ein Modell-Manifest, eine
 // Einnahme und ein Abzeichen an den eigenen Schlüssel, seit C-6c eine versiegelte Direktnachricht (NIP-17) mit
-// Anhängen –, signiert mit Wegwerfschlüsseln; nur für smoke_test.py, nie für ein echtes Relay. Die App darf das
+// Anhängen, seit C-6d ein Provider-Angebot –, signiert mit Wegwerfschlüsseln; nur für smoke_test.py, nie für ein echtes Relay. Die App darf das
 // HTML nur als Text zeigen.
 // Aufruf: npx tsx scripts/fremdtext-probe.mts <eigener Schlüssel hex>
 //   ->  {"knoten": "<hex>", "absender": "<hex>", "html": "...", "events": [...]}
 import {
-  buildBadgeAward, buildBadgeDefinition, buildModelManifest, buildPerformanceEvent, buildPrivateDm, generateKeypair, signEvent,
-  verschluesseleDatei,
+  buildBadgeAward, buildBadgeDefinition, buildCapabilities, buildModelManifest, buildPerformanceEvent, buildPrivateDm, generateKeypair,
+  signEvent, verschluesseleDatei,
 } from "../packages/protocol/src/index.ts";
 
 const ich = process.argv[2] ?? "";
@@ -16,6 +16,7 @@ const jetzt = Math.floor(Date.now() / 1000);
 const herausgeber = generateKeypair();
 const knoten = generateKeypair();
 const absender = generateKeypair();
+const anbieter = generateKeypair();
 // Direktnachricht eines Fremden: Text und Anhänge (Bild mit https, verschlüsselte Datei mit bösem Typ)
 const dm = await buildPrivateDm({
   senderSk: absender.sk, senderPk: absender.pk, recipientPk: ich, nowSecs: jetzt - 20,
@@ -40,5 +41,10 @@ const events = [
   signEvent(buildBadgeDefinition({ id: "probe", name: html("abzeichen"), description: "", issuerPubkey: herausgeber.pk }, jetzt - 90), herausgeber.sk),
   signEvent(buildBadgeAward("probe", herausgeber.pk, [ich], jetzt - 80), herausgeber.sk),
   dm.toRecipient,
+  // Seit C-6d ein Angebot (38025) mit HTML im Modellnamen – erscheint in der Modellwahl des Agenten
+  signEvent(buildCapabilities({
+    pubkey: anbieter.pk, tier: "pro", models: [html("ki")], textRatePerKTokenMsat: 1500, currentlyFree: false,
+    tools: [{ kind: 5300, name: html("werkzeug"), priceMsat: 1000 }],
+  } as never, jetzt - 40), anbieter.sk),
 ];
 console.log(JSON.stringify({ knoten: knoten.pk, absender: absender.pk, html: html("WO"), events }));

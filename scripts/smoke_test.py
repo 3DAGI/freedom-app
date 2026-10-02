@@ -1413,6 +1413,18 @@ def fremdtext_pruefen(browser, url: str) -> dict:
     if vorher != [f"Community (offen): {html('community')}", "🏠<", False] or nachher[0] != "true" \
             or not nachher[1].startswith(html("community") + "Community (offen) –"):
         erg["fehler"].append(f"Community {erg['community']}")
+    # C-6d: die Modellwahl des Agenten – der Name aus einem fremden Angebot als Text, auch im Knopf nach der Wahl
+    ev("() => { location.hash = '#/agent'; }")
+    karte = "(m) => [...document.querySelectorAll('#model-popover .model-card')].find(k => k.dataset.model === m)"
+    seite.s.wait_for_function(f"(m) => !!({karte})(m)", arg=html("ki"), timeout=30000)
+    ev("() => document.getElementById('ai-model-btn').click()")
+    vorher = ev(f"(m) => {{ const k = ({karte})(m); return [k.querySelector('.mc-head b').textContent, k.querySelectorAll('img').length,"
+                " !!k.querySelector('.mc-sub svg')]; }", html("ki"))
+    ev(f"(m) => ({karte})(m).click()", html("ki"))
+    erg["modellwahl"] = vorher + [ev("() => [document.getElementById('ai-model-btn').textContent.trim(),"
+                                     " document.querySelectorAll('#ai-model-btn img, #model-popover img').length, !!document.querySelector('#ai-model-btn svg')]")]
+    if erg["modellwahl"] != [html("ki"), 0, True, [html("ki"), 0, True]]:
+        erg["fehler"].append(f"Modellwahl {erg['modellwahl']}")
     ev("() => { location.hash = '#/settings'; }")
     seite.s.wait_for_function("() => document.querySelector('#device-list span') && document.querySelector('#succession-status span')", timeout=30000)
     erg["settings"] = ev("() => [document.querySelector('#device-list span').textContent.split('.')[0],"
