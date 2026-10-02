@@ -15073,3 +15073,56 @@ versiegelten Angebot einen kurzlebigen Zugang zum TURN der Anruferin.
 - `leak-rules.test.ts`: Der Regelname steht in `LEAK_REGELN`.
 
 Knoten-Stand: unverändert.
+
+## Schritt B-13d2 – Anrufe: Logik in der App
+
+**Warum:** Zweiter Teil von B-13d (T1 A, T2 A, T3 B): Verbindung, Aufbau und
+Empfang. Die Oberfläche folgt in d3.
+
+**Was:**
+- `anruf-ablauf.ts` (ohne DOM, ohne WebRTC):
+  - `waehleVermittler()`: der eigene Vermittler zuerst, sonst der Zugang aus
+    dem Angebot (`fremd` – T3 B), sonst keiner.
+  - `iceServerAus()` macht aus dem Zugang einen `RTCIceServer`.
+  - `nurRelaySdp()` und `sendbarerKandidat()`: hinaus nur Relay-Kandidaten,
+    geprüft wie beim Empfänger.
+  - Zustand nur über `naechsterZustand()`: klingelt/eingehend → verbindet →
+    verbunden → beendet; Fristen `KLINGELN_SEK` (60) und `VERBINDEN_SEK` (30);
+    Ende ist endgültig.
+  - `eingehendesAngebot()`: nur von Kontakten, sonst still; läuft ein Anruf,
+    „besetzt“ – Fremden nie eine Antwort.
+- `shell/anruf.ts`:
+  - `rufeAn()`: nur Kontakte, nur mit eigenem Vermittler – frischer Zugang über
+    `eigenerTurnZugang()` (5079, über `wegZumKnoten()`). Der Zugang reist im
+    Angebot mit.
+  - `nimmAn()` (Vermittler nach `waehleVermittler()`), `legeAuf()`,
+    `vergissAnruf()`; die Oberfläche hört über `beiAnruf()` zu.
+  - `RTCPeerConnection` nur mit `iceTransportPolicy: "relay"`. Gesendet über
+    `baueAnrufNachricht()` an Person und Geräte, an deren Posteingang
+    (`veroeffentlicheDm()`), sofort – nicht verzögert wie Chat-Nachrichten.
+  - Empfang über `alsAnruf()` am Ende der Kette in `oeffneUmschlag()`. Absender
+    über `geraeteBuch.zuordnen()`: ein gültiges Gerät eines Kontakts zählt als
+    der Kontakt. Während eines Anrufs kommen Antwort und Kandidaten über ein Abo
+    an den eigenen Schlüssel, nur so lange wie der Anruf.
+- `wiring-ausnahmen.txt`: fünf Ausnahmen aus B-13a/c gestrichen
+  (`baueAnrufNachricht`, `neueAnrufKennung`, `oeffneAnrufNachricht`,
+  `baueTurnAnfrage`, `leseTurnZugang`) – jetzt verdrahtet.
+
+**Tests:**
+- app +4 in `test/anruf-ablauf.test.ts`: Vermittler, nur Relay hinaus,
+  Zustand mit Fristen und Negativfällen, eingehende Angebote nur von Kontakten.
+- Leak +2 in `test/leak/anruf.test.ts`:
+  - Aus einem gesammelten SDP mit Host- und srflx-Kandidaten geht nur Relay
+    hinaus.
+  - Versiegelt an Person und Gerät; die Regel `anruf-nur-relay` läuft mit den
+    inneren Events.
+  - Weder der Zugang noch eine eigene Adresse stehen offen; `publish` nur für
+    die TURN-Anfrage.
+- Die vier Tests, die die Kette in `oeffneUmschlag()` wörtlich prüfen, kennen
+  das neue Glied `alsAnruf(w)`.
+
+**Grenze bis d3:** Ohne Oberfläche ruft niemand an. Ein eingehendes Angebot
+klingelt unsichtbar und endet nach 60 s mit „zeit“. Ein durchgehender Test mit
+echtem TURN ist hier nicht möglich (MENSCH-Checkliste in d3).
+
+Knoten-Stand: B-13a (TURN-Zugang 5079) und coturn (B-13b) für Anrufe.
