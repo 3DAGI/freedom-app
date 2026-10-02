@@ -10,10 +10,10 @@ ist seither durch Spur C weiter. Kein weiterer PR von Spur B ist offen.
 | Punkt | Stand | PRs |
 |---|---|---|
 | B-1 bis B-8, B-10, B-15, B-19, B-20 | fertig | siehe FORTSCHRITT |
-| B-9 „Mein Knoten“ | a, b1–b2, c1–c2 fertig; **c3 wartet auf L7** | #240, #252–#255 |
+| B-9 „Mein Knoten“ | a, b1–b2, c1–c3 fertig (c3 nach L7 A) | #240, #252–#255, B-9c3 |
 | B-11 Knoten verwalten (nur lesen, L6 A) | a–c fertig (Status 5077, App, Einrichtung) | #256–#258 |
-| B-12 Weckdienst (W1 A, W2 A) | a–b fertig (Anmeldung 5078, Knoten weckt); **c–d warten auf W3** | #259, #260 |
-| B-13 Anrufe (T1 A, T2 A) | a–c fertig (TURN-Zugang 5079, coturn, Anruf-Aufbau 25040); **d wartet auf T3** | #261–#263 |
+| B-12 Weckdienst (W1 A, W2 A, W3 A) | a–b fertig (Anmeldung 5078, Knoten weckt); **c–d offen** | #259, #260 |
+| B-13 Anrufe (T1 A, T2 A, T3 B) | a–c fertig (TURN-Zugang 5079, coturn, Anruf-Aufbau 25040); **d offen** | #261–#263 |
 | B-14 | entfällt (I1 B) | – |
 | B-16 / B-17 / B-18 | später / wartet (Kalender) / wartet (Deploy Zahlkanal, MENSCH) | – |
 
@@ -26,9 +26,9 @@ Zahlen auf `main`:
 
 Die Zeile „Stand …“ in CLAUDE.md ist aktuell.
 
-## 2. Offene Entscheidungen (MENSCH) und was danach zu bauen ist
+## 2. Entschieden 02.10.2026 (MENSCH): W3 A, T3 B, L7 A – was zu bauen ist
 
-**W3 → B-12c, B-12d** (Vorschlag A: `worker-src blob: 'self'` in der CSP von `packages/app/build.mjs`).
+**W3 → B-12c, B-12d** (A: `worker-src blob: 'self'` in der CSP von `packages/app/build.mjs`).
 
 - **B-12c:**
   - Zweite Datei `dist/freedom-sw.js` aus `build.mjs`, nur Wecken: `push` → `showNotification` mit festem Text ohne Inhalt, `notificationclick` → App öffnen; kein Cache, kein `fetch`-Handler.
@@ -50,9 +50,9 @@ Die Zeile „Stand …“ in CLAUDE.md ist aktuell.
   - **Datenschutzbericht:** neue Aussage „Wecken“ (der Push-Dienst sieht, *dass* geweckt wird). Sie gehört nach `privacy-facts.ts` mit Szenario in `privacy-facts.test.ts` und braucht Texte in `datenschutz-bericht.ts`.
   - **Ausnahmen streichen:** `wecken.ts|baueWeckAnmeldung` und `|leseWeckAntwort` aus `scripts/wiring-ausnahmen.txt`.
 
-**T3 → B-13d** (Vorschlag B: Die Anruferin gibt einen kurzlebigen Zugang zu ihrem TURN im versiegelten Angebot mit; die App warnt vor dem Annehmen).
+**T3 → B-13d** (B: Die Anruferin gibt einen kurzlebigen Zugang zu ihrem TURN im versiegelten Angebot mit; die App warnt vor dem Annehmen).
 
-- **Bei B:** `anruf.ts` bekommt im Angebot ein optionales Feld `turn` (Form wie `leseTurnZugang()`). Das ist ein Format-Zusatz, also in `docs/PROTOCOL.md` §27 nachtragen.
+- `anruf.ts` bekommt im Angebot ein optionales Feld `turn` (Form wie `leseTurnZugang()`). Das ist ein Format-Zusatz, also in `docs/PROTOCOL.md` §27 nachtragen.
 - **App:**
   - `baueTurnAnfrage()` über `wegZumKnoten()` → `RTCPeerConnection({ iceServers, iceTransportPolicy: "relay" })`.
   - Angebot, Antwort und Kandidaten über `baueAnrufNachricht()` an `sprichtFuer()` plus Geräte; empfangen über `oeffneAnrufNachricht()` am Ende der Kette in `oeffneUmschlag()`.
@@ -60,7 +60,7 @@ Die Zeile „Stand …“ in CLAUDE.md ist aktuell.
 - **Leak-Regel „anruf-nur-relay“** über die inneren Events, dazu ein Test in `app/test/leak/`.
 - **Ausnahmen streichen:** `anruf.ts|…` (3) und `turn-zugang.ts|…` (2) aus `wiring-ausnahmen.txt`.
 
-**L7 → B-9c3** (Vorschlag A): ein Knopf „Relay meines Knotens übernehmen“ – das Relay aus `knotenRelay()` (`shell/knoten-weg-ui.ts`) über `setzeEigeneRelays()` als Schreib-Relay und Posteingang übernehmen; beide Listen veröffentlichen.
+**L7 → B-9c3 (fertig)** (A): ein Knopf „Relay meines Knotens übernehmen“ – das Relay aus `knotenRelay()` (`shell/knoten-weg-ui.ts`) über `setzeEigeneRelays()` als Schreib-Relay und Posteingang übernehmen; beide Listen veröffentlichen.
 
 ## 3. Was der MENSCH sonst tun muss
 

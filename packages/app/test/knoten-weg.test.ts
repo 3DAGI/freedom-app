@@ -9,7 +9,8 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildRelayList, generateKeypair, signEvent } from "@freedomstack/protocol";
-import { LS_NUR_KNOTEN, knotenRelayAus, nurUeberKnoten, ursprungAlsKnotenRelay } from "../src/knoten-weg.js";
+import { LS_NUR_KNOTEN, knotenRelayAus, nurUeberKnoten, satzMitKnotenRelay, ursprungAlsKnotenRelay } from "../src/knoten-weg.js";
+import { MAX_EIGENE } from "../src/relay-satz.js";
 import { agent } from "../src/texte/agent.js";
 import { settings } from "../src/texte/settings.js";
 
@@ -78,4 +79,41 @@ test("B-9c2: Weg – mit Haken nur das Relay des Knotens, ohne Relay nichts; nur
   assert.match(lies("shell/mein-knoten.ts"), /document\.getElementById\("knoten-nur-zeile"\)\?\.toggleAttribute\("hidden", !k\);/);
   assert.match(lies("shell/index.html"), /<label id="knoten-nur-zeile"[^>]* hidden><input type="checkbox" id="knoten-nur" \/> <span data-i18n="set\.knotenNur">/);
   for (const [texte, k] of [[settings, "set.knotenNur"], [settings, "set.knotenOhneRelay"], [agent, "agent.knotenOhneRelay"]] as const) assert.ok(texte[k]?.de && texte[k]?.en, k);
+});
+
+test("B-9c3: Relay meines Knotens in den eigenen Satz – angehängt, die übrigen bleiben, geprüft wie eine Eingabe", () => {
+  const eigene = ["wss://eins.example", "wss://zwei.example"];
+  assert.deepEqual(satzMitKnotenRelay(eigene, "wss://knoten.example"), { relays: ["wss://eins.example", "wss://zwei.example", "wss://knoten.example"] });
+  assert.deepEqual(eigene, ["wss://eins.example", "wss://zwei.example"], "der alte Satz wird nicht verändert");
+  assert.deepEqual(satzMitKnotenRelay(eigene, "wss://abc.onion"), { relays: [...eigene, "wss://abc.onion"] });
+  assert.deepEqual(satzMitKnotenRelay(eigene, "ws://abc.onion"), { relays: [...eigene, "ws://abc.onion"] }, "über Tor verschlüsselt Tor");
+  // Negativfälle
+  assert.deepEqual(satzMitKnotenRelay([], "wss://knoten.example"), { fall: "kein-satz" }, "sonst wäre der Knoten der einzige Posteingang");
+  assert.deepEqual(satzMitKnotenRelay(eigene, "wss://ZWEI.example/"), { fall: "schon" }, "gleich nach Normalform");
+  assert.deepEqual(satzMitKnotenRelay(eigene, "ws://192.168.1.5:7777"), { fall: "untauglich" }, "Heimnetz – dort erreicht ihn kein Kontakt");
+  assert.deepEqual(satzMitKnotenRelay(eigene, "ws://knoten.example"), { fall: "untauglich" }, "unverschlüsselt nur .onion");
+  assert.deepEqual(satzMitKnotenRelay(eigene, "kein relay"), { fall: "untauglich" });
+  const voll = Array.from({ length: MAX_EIGENE }, (_, i) => `wss://r${i}.example`);
+  const r = satzMitKnotenRelay(voll, "wss://knoten.example");
+  assert.ok("fehler" in r && r.fehler.includes(String(MAX_EIGENE)), "höchstens MAX_EIGENE – nichts still verdrängt");
+});
+
+test("B-9c3: Knopf „übernehmen“ – nur gekoppelt, nur nach Rückfrage, nur über setzeEigeneRelays(), als Gerät nicht", () => {
+  const ui = lies("shell/knoten-weg-ui.ts");
+  const f = ui.slice(ui.indexOf("export async function uebernimmKnotenRelay("), ui.indexOf("/** Haken und Knopf"));
+  const geraet = f.indexOf("if (alsGeraet()) return zeige(t(\"set.geraetSatz\"));");
+  const frage = f.indexOf("await bestaetige(");
+  const setzen = f.indexOf("await setzeEigeneRelays({ relays, pk, signiere, weit: veroeffentlicheWeit, speicher: localStorage })");
+  const pool = f.indexOf("await nimmInPool(relays);");
+  assert.ok(geraet > 0 && geraet < frage && frage < setzen && setzen < pool, "Gerät gesperrt, dann Rückfrage, dann veröffentlichen, erst danach in den Pool");
+  assert.match(f, /if \(!url \|\| !r\) return zeige\(t\("set\.knotenRelayKeins"\)\);/, "ohne Relay nichts");
+  assert.doesNotMatch(f, /localStorage\.setItem|\.publish\(/, "gemerkt und veröffentlicht nur über setzeEigeneRelays()");
+  assert.match(f, /satzMitKnotenRelay\(eigene, url\)/);
+  assert.match(lies("shell/mein-knoten.ts"), /document\.getElementById\("knoten-relay-uebernehmen"\)\?\.toggleAttribute\("hidden", !k\);/);
+  assert.match(lies("shell/index.html"), /<button id="knoten-relay-uebernehmen"[^>]* hidden data-i18n="set\.knotenRelayUebernehmen">/);
+  assert.match(ui, /getElementById\("knoten-relay-uebernehmen"\)\?\.addEventListener\("click", \(\) => void uebernimmKnotenRelay\(\)\)/);
+  for (const k of ["set.knotenRelayUebernehmen", "set.knotenRelayFrage", "set.knotenRelayKeins", "set.knotenRelaySchon", "set.knotenRelayUntauglich", "set.knotenRelayDrin", "set.keinSatz"] as const) {
+    assert.ok(settings[k]?.de && settings[k]?.en, k);
+  }
+  assert.match(settings["set.knotenRelayFrage"].de, /vermuten, dass der Knoten dir gehört/, "ehrlich: die Liste ist öffentlich");
 });
