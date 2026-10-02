@@ -14416,6 +14416,65 @@ B-13d) · innerHTML streng Exit 0 · Website ok · Smoke-Test bestanden.
 Knoten-Stand: für TURN-Zugänge nötig (B-13a), dazu coturn (B-13b) und
 `TURN_URLS`/`TURN_SECRET`; sonst unverändert.
 
+## Schritt B-13b – Anrufe: coturn in Installer und Docker
+
+Sammlung B-13, Entscheidung T2 A, zweiter Teil. Seit B-13a vergibt der Knoten
+Zugänge nach TURN-REST; jetzt gibt es den Vermittler dazu – coturn als eigener
+Dienst, keine npm-Abhängigkeit.
+
+**`scripts/turn-einrichten.sh`** `<ziel> <öffentlicher-name> [--docker]` schreibt
+die Datei für coturn mit 0600:
+- **Nur TURN-REST:** `use-auth-secret`, das Geheimnis zufällig mit 64 Hex-Zeichen.
+  Keine festen Nutzer, keine Konsole.
+- **Nie in private Netze:** `denied-peer-ip` für alle privaten, lokalen und
+  reservierten Bereiche, IPv4 und IPv6 – sonst wäre der TURN ein Weg ins
+  Heimnetz.
+- **Grenzen:** je Nutzer 4 Sitzungen, gesamt 40, je Sitzung 500 000 Byte/s
+  (rund 4 Mbit/s).
+- **Kein Protokoll:** Die IPs der Gesprächspartner gehören nicht auf die Platte.
+- **Ausgabe:** `TURN_SECRET`/`TURN_URLS` für die Umgebung des Knotens, mit
+  `--docker` auch `TURN_UID`/`TURN_GID`. Der Name wird geprüft; eine vorhandene
+  Datei wird nie überschrieben.
+
+**Installer** (`install-freedom.sh`):
+- Optionaler Schritt „Anrufe“ (`TURN_NAME`, sonst eine Frage; leer: aus).
+- coturn kommt aus dem Paket; dessen Dienst bleibt aus.
+- Eigener Dienst `freedom-turn` als Nutzer mit `-c ~/.freedom/turnserver.conf`
+  – das Geheimnis nie auf der Befehlszeile.
+- `TURN_SECRET`/`TURN_URLS` in der Umgebungsdatei, dazu ein Hinweis auf die
+  Ports.
+
+**Docker** (`docker-compose.yml`):
+- Profil „anrufe“ mit `coturn/coturn:4.18` (feste Version), Netz des Hosts, als
+  Nutzer (die Datei hat 0600).
+- `TURN_URLS`/`TURN_SECRET` für den Knoten.
+- Kein `${…:?}`: Compose liest die ganze Datei auch ohne das Profil.
+
+**`.gitignore`:** `turnserver.conf` und `.env` – beide tragen das Geheimnis.
+
+**Tests:** node +3 (`turn-einrichten.test.ts`):
+- Das Skript läuft wirklich: 0600, Pflichtzeilen, keine festen Nutzer, alle
+  privaten Bereiche gesperrt.
+- Seine Ausgabe nimmt `turnAusUmgebung()` an; überschrieben wird nie.
+- Ungültige Namen (Leerzeichen, Befehle, `$`, zu lang) und Aufrufe gehen nicht
+  durch; `--docker` nennt den Nutzer.
+- Installer und Docker: der Name nur als Argument, das Geheimnis nie
+  ausgegeben, feste Version, Profil, nie eingecheckt.
+
+**Verdrahtet:**
+- `scripts/install-freedom.sh` → `scripts/turn-einrichten.sh` →
+  `freedom-turn.service` und `TURN_SECRET`/`TURN_URLS` in `node.env` →
+  `turnAusUmgebung()` (B-13a).
+- `docker-compose.yml`: Dienst `coturn` (Profil „anrufe“) und Umgebung des
+  Knotens.
+
+Endstand (B-13b, 02.10.): protocol 1161 (6 übersprungen) · node 312 (+3, 7
+übersprungen ohne Netz – mit Netz 313) · app 784 · mls 13 · Leak-Tests 70 grün
++ 1 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 ·
+Website ok · Smoke-Test bestanden. Knoten-Stand: unverändert; für Anrufe auf dem
+GX10 den Installer erneut mit `TURN_NAME` laufen lassen (MENSCH, mit
+`turnutils_uclient` prüfen).
+
 ## Schritt C-13 – Räume, Rest aus dem Entwurf C.2
 
 **Warum:** Was der Entwurf C.2 (`phase-10.md`, „Räume“) vorsah und C.2a–d
