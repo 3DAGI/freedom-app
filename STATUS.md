@@ -14521,3 +14521,10 @@ Endstand (B-13c, 02.10.): protocol 1164 (+3, 6 übersprungen) · node 312 (7
 + 1 todo · 0 rot · check-wiring `--streng` Exit 0 (drei Ausnahmen bis B-13d) ·
 innerHTML streng Exit 0 · Website ok · Smoke-Test bestanden. Knoten-Stand:
 unverändert.
+
+## Übergabe Spur B – 02.10.2026
+
+Spur B hat alles gebaut, was ohne Entscheidung geht (bis B-13c, #263). Offen
+sind nur noch Punkte nach den Entscheidungen W3 (B-12c/d), T3 (B-13d) und
+L7 (B-9c3). Plan, Stand, MENSCH-Aufgaben und Arbeitsweise stehen in
+`docs/ausbau/UEBERGABE-SPUR-B.md`. Kein Code geändert.
