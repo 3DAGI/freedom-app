@@ -589,9 +589,9 @@ Meldungen (B3), C.2d2 Kanal anlegen.
 - Gefunden: B20 (offene Räume lassen sich übernehmen) – Protokoll, nicht
   Oberfläche; offen für Spur A/B bzw. eine Entscheidung.
 
-Mit C.2d2 ist C.2 fertig. Aus 10.4 für Räume noch offen: ein privater Raum
-einmal vollständig mit echter MLS-Gruppe im Browser (heute über
-`gruppenRaum()` getestet).
+Mit C.2d2 ist C.2 fertig. Aus 10.4 für Räume offen war ein privater Raum
+einmal vollständig mit echter MLS-Gruppe im Browser – seit C-12 der Smoke-Test
+„privatraum“ (zwei Browser, Tresor, echte Engine, von der Einladung bis zum Patch).
 
 **C.3a1 – fertig (28.09.2026).** C.3a ist geteilt: C.3a1 Liste und
 Repo-Seite, C.3a2 Einstellungen des Eigentümers, Bundle hochladen auf der
