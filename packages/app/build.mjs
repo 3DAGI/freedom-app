@@ -3,7 +3,8 @@
  *
  *   node build.mjs
  *
- * Ergebnis: dist/freedom.html + dist/manifest.json
+ * Ergebnis: dist/freedom.html + dist/manifest.json, dazu dist/freedom-sw.js
+ * (seit B-12c: Service Worker nur zum Wecken, eigene Datei neben der App).
  */
 import { build } from "esbuild";
 import { readFile, writeFile, mkdir } from "node:fs/promises";
@@ -190,7 +191,9 @@ html = html.replace("<!-- APP_JS -->", () => `<script>${scriptBody}</script>`);
     "media-src https: data: blob:",
     "font-src https: data:",
     "connect-src https: http: wss: ws: data: blob:",
-    "worker-src blob:",
+    // 'self' seit B-12c (W3 A): nur freedom-sw.js derselben Herkunft – aus demselben,
+    // über pages.yml veröffentlichten und bitgleich nachgebauten Stand
+    "worker-src blob: 'self'",
     "manifest-src 'self'",
     "base-uri 'none'",
     "form-action 'none'",
@@ -210,13 +213,32 @@ await writeFile(
   await readFile(join(root, "src/shell/manifest.json"), "utf8"),
 );
 
+// Service Worker nur zum Wecken (B-12c): eigene Datei, gleiche Regeln wie die App –
+// nichts Zeit- oder Pfadabhängiges, damit der Build bitgleich bleibt (5.9).
+const sw = await build({
+  entryPoints: [join(root, "src/sw/freedom-sw.ts")],
+  bundle: true,
+  format: "iife",
+  platform: "browser",
+  target: "es2020",
+  minify: true,
+  legalComments: "none",
+  write: false,
+});
+const swJs = sw.outputFiles[0].text;
+if (/\bimportScripts\b|addEventListener\("fetch"|\bcaches\b/.test(swJs)) throw new Error("build: der Weck-Worker darf nichts laden und nichts zwischenspeichern");
+await writeFile(join(root, "dist/freedom-sw.js"), swJs);
+
 // Pruefsumme ausgeben: Sie gehoert in das signierte Release-Manifest, damit
 // eine weitergereichte Kopie ueberpruefbar ist.
 const { createHash } = await import("node:crypto");
 const sha = createHash("sha256").update(html).digest("hex");
 console.log(`dist/freedom.html (${(html.length / 1024).toFixed(0)} KB)`);
 console.log(`sha256: ${sha}`);
+const swSha = createHash("sha256").update(swJs).digest("hex");
+console.log(`dist/freedom-sw.js (${(swJs.length / 1024).toFixed(1)} KB, sha256 ${swSha})`);
 await (await import("node:fs/promises")).writeFile(
   "dist/freedom.html.sha256",
   `${sha}  freedom.html\n`,
 );
+await writeFile("dist/freedom-sw.js.sha256", `${swSha}  freedom-sw.js\n`);

@@ -14912,3 +14912,48 @@ Negativfälle; Reihenfolge Gerät → Rückfrage → Veröffentlichen → Pool, 
 Smoke „einstellungen“ (Mein Knoten): Der Knopf ist nur gekoppelt sichtbar; ohne
 bekanntes Relay des Knotens steht die Meldung da, es kommt keine Rückfrage, und
 es geht keine Liste hinaus. Knoten-Stand: unverändert.
+
+## Schritt B-12c – Weck-Worker als zweite Datei
+
+**Warum:** Der eigene Knoten weckt seit B-12b per Web Push – leer, ohne Inhalt
+und Absender. Ankommen kann ein Push im Browser nur bei einem Service Worker,
+und der braucht eine eigene Datei neben freedom.html (W2 A). Entscheidung W3 A
+(MENSCH, 02.10.): die CSP erlaubt Worker von derselben Herkunft
+(`worker-src blob: 'self'`).
+
+**Was:**
+- `src/sw/freedom-sw.ts` → `dist/freedom-sw.js` (esbuild, eigener Lauf in
+  `build.mjs`, 0,9 KB):
+  - `push` → eine Meldung mit festem Text aus `texte/wecken.ts`, Tag
+    `freedom-weck` – eine neue ersetzt die alte.
+  - `notificationclick` → ein offenes Fenster der App nach vorn holen, sonst
+    freedom.html neben dem Worker öffnen.
+  - Die Sprache kommt aus `?sprache=` der eigenen Adresse (B-12d meldet so an),
+    sonst aus der des Browsers.
+  - Aus dem Push wird nichts gelesen. Kein Cache, kein `fetch`-Handler, kein
+    `importScripts` – der Build bricht ab, wenn so etwas im Ergebnis steht.
+- CSP: `worker-src blob: 'self'`; `script-src` bleibt beim Hash.
+- `build-site.sh` legt die Datei neben freedom.html, samt `freedom-sw.js.sha256`.
+- `repro-build.sh` gibt beide Summen aus, `--pruefen` vergleicht beide. Neu ist
+  `--vergleiche-ordner <ordner>` für beide Dateien – `pages.yml` veröffentlicht
+  nur damit. `--vergleiche <sha256>` bleibt für freedom.html (Release-Manifest).
+- `publish-release.mjs`: Das Manifest nennt `freedom-sw.js` als zweites Artefakt.
+- Die App meldet den Worker noch nicht an – das tut erst der Haken aus B-12d.
+  `dist/freedom.html.sha256` bleibt unverändert (der Knoten liefert es aus, B-10).
+
+**Tests:**
+- app +4 in `test/weck-worker.test.ts`:
+  - Worker: nur drei Ereignisse, nichts aus dem Push, kein Cache, kein `fetch`,
+    nur der feste Text.
+  - CSP, Build, Website, repro, Pages und Release führen die Datei mit.
+  - Die App meldet noch nichts an.
+- Smoke „weckworker“ (volles Chromium – die Headless-Shell verweigert Meldungen
+  immer):
+  - Beim Start ist kein Worker angemeldet.
+  - `freedom-sw.js?sprache=de` lässt sich unter der CSP anmelden.
+  - Ein Push mit Daten über CDP ergibt genau eine Meldung, mit festem deutschem
+    Text und ohne die Daten.
+  - Danach ist der Worker wieder abgemeldet.
+
+Knoten-Stand: unverändert. Eine vom Knoten ausgelieferte App (B-10) hat den
+Worker nicht – B-12d sagt das dort, statt zu scheitern.

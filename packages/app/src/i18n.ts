@@ -28,6 +28,7 @@ import { dialog } from "./texte/dialog.js";
 import { raeume } from "./texte/raeume.js";
 import { repos } from "./texte/repos.js";
 import { karte } from "./texte/karte.js";
+import { wecken } from "./texte/wecken.js";
 
 export type Lang = "de" | "en";
 export type Texte = Record<string, { de: string; en: string }>;
@@ -38,7 +39,7 @@ export const LANGS: Array<{ code: Lang; label: string }> = [
 ];
 
 /** Je Bereich eine Datei – ein Schlüssel gehört genau einem Bereich (Test). */
-export const BEREICHE: Record<string, Texte> = { rahmen, navigation, dialog, agent, kommunikation, raeume, repos, karte, waehrung, zahlung, earn, profil, settings, einstieg, bausteine, datenschutz, protokollsaetze, pruefgruende, fehler };
+export const BEREICHE: Record<string, Texte> = { rahmen, navigation, dialog, agent, kommunikation, raeume, repos, karte, waehrung, zahlung, earn, profil, settings, einstieg, bausteine, datenschutz, protokollsaetze, pruefgruende, fehler, wecken };
 const TEXTE: Texte = Object.assign({}, ...Object.values(BEREICHE));
 
 let current: Lang = "en";

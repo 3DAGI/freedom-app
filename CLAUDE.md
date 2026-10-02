@@ -45,9 +45,9 @@ bash packages/mls/bauen.sh --pruefen                     # nur bei Änderungen a
 bash contracts/solana-channel/pruefen.sh --werkzeuge     # nur bei Änderungen am Zahlkanal: bauen + Tests gegen Validator (Agave 3.1.10)
 ```
 
-Stand 01.10.2026 (nach 8.2c, 5.5a–c, 8.15, 11.1a, C.3c2, 11.1b, 5.9a–b, 6.3a–b2, 11.4a–b2, C.4a–b, C.5a–b, C.6b, 11.4c, C-18, C-17a–c, C-20a–f, C-1a–f, C-2, C-3, C-4, C-6a–d2, C-7a–b, C-8, C-10 bis C-16, 11.2a–b, A-4 bis A-7, B-1, B-2a–c, B-3 bis B-7, B-8a–c, B-9a, B-15, B-19, B-20a–c, B-10a–b, B-9b1–b2, B-9c1–c3, B-11a–c, B-12a–b und B-13a–c): protocol 1164 grün (6 übersprungen), node 313 grün
+Stand 01.10.2026 (nach 8.2c, 5.5a–c, 8.15, 11.1a, C.3c2, 11.1b, 5.9a–b, 6.3a–b2, 11.4a–b2, C.4a–b, C.5a–b, C.6b, 11.4c, C-18, C-17a–c, C-20a–f, C-1a–f, C-2, C-3, C-4, C-6a–d2, C-7a–b, C-8, C-10 bis C-16, 11.2a–b, A-4 bis A-7, B-1, B-2a–c, B-3 bis B-7, B-8a–c, B-9a, B-15, B-19, B-20a–c, B-10a–b, B-9b1–b2, B-9c1–c3, B-11a–c, B-12a–c und B-13a–c): protocol 1164 grün (6 übersprungen), node 313 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 810 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 70 grün + 1 `todo` (heutige Lecks,
+in `tools.test.ts`), app 814 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 70 grün + 1 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
 Ausnahme: gesendete SOL-Zahlungen von frischen Adressen, eine bewusste Grenze
 nach Entscheidung 4.9 A – im Datenschutzbericht unter „Bewusste Grenzen“).
@@ -127,7 +127,8 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
 - **`build-site.sh` löscht sein Zielverzeichnis** vollständig. Nie in einen Git-Checkout bauen.
 - **CSP:** `build.mjs` erlaubt genau ein eingebettetes Skript (per Hash). Keine
   Inline-Handler, kein `eval`. `'wasm-unsafe-eval'` steht seit 2.2b-b drin – nur für
-  die MLS-Engine; weiteres WASM oder andere Lockerungen → vorher fragen.
+  die MLS-Engine; `worker-src blob: 'self'` seit B-12c (W3 A) nur für den Weck-Worker
+  `freedom-sw.js`; weiteres WASM oder andere Lockerungen → vorher fragen.
 - **Fremddaten nie ungeprüft in `innerHTML`:** `escapeHtml()` für Text,
   `ganzeZahl()` für Zahlen, sonst `textContent`. `scripts/check_innerhtml.py` prüft
   jede HTML-Zuweisung streng (CI und `pages.yml`); neue sichere Stellen mit Begründung
@@ -1041,6 +1042,14 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   Schlüssel dazukam, weckt nie. Im eigenen Relay nur über `umschlaegeAn()`
   (Kennung, Zeit, Empfänger, nie Inhalt) – `alsRelay()` bleibt beim
   Knotenschlüssel. 404/410 → `vergiss()`; ins Log nie Adresse oder Meldung.
+  Der Weck-Worker (seit B-12c, `src/sw/freedom-sw.ts` → `dist/freedom-sw.js`)
+  zeigt nur den festen Text aus `texte/wecken.ts` (Sprache aus `?sprache=` seiner
+  Adresse), liest nichts aus dem Push, hat keinen Cache und keinen `fetch`-Handler –
+  der Build bricht sonst ab. Er gehört zu jeder Auslieferung: `build-site.sh`
+  kopiert ihn, `repro-build.sh` vergleicht beide Dateien, `pages.yml` veröffentlicht
+  nur mit `--vergleiche-ordner site`, das Release-Manifest nennt ihn. Meldungen
+  zeigt im Smoke-Test nur das volle Chromium (`channel="chromium"`) – die
+  Headless-Shell verweigert die Erlaubnis immer.
   TURN (seit B-13a, T1 A, T2 A): Zugänge nur über `baueTurnAnfrage()` (Kind
   5079, versiegelt, Nachweis) und `leseTurnZugang()`; der Knoten vergibt sie
   nur mit `turnAusUmgebung()` (`TURN_URLS`, `TURN_SECRET` ab 32 Zeichen, nie
