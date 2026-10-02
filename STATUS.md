@@ -14060,3 +14060,63 @@ grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng
 Exit 0 · Website ok · Smoke-Test bestanden. Knoten-Stand: B-9c1 (#254) mit
 `RELAY_ENABLED=1` und `RELAY_PUBLIC_URL` (oder die App vom Knoten); ohne
 Haken unverändert.
+
+## Schritt B-11a – Status meines Knotens: Protokoll und Knoten
+
+Sammlung B-11 („Knoten aus der App verwalten“), Entscheidung L6 A: zuerst nur
+lesen. Steuern (Modelle laden, Neustart, Einstellungen) wäre L6 B und eine
+eigene Entscheidung.
+
+**Protokoll** (`knoten-status.ts`, Kind 5077, `docs/PROTOCOL.md` 24):
+- `baueStatusAuftrag()`: nur versiegelt vom Sitzungsschlüssel an den
+  gekoppelten Knoten, mit Besitzer-Nachweis (B-8), ohne Gebot.
+- `knotenStatusText()` schreibt die Antwort in fester Form, `leseKnotenStatus()`
+  liest sie streng. Inhalt:
+  - Fassung und Start;
+  - gestartete Rollen als feste Kennungen (`STATUS_ROLLEN`);
+  - angebotene Modelle (höchstens 50, ohne Steuerzeichen);
+  - Aufträge seit dem Start (erledigt, gratis, abgelehnt);
+  - abgerechnete msat;
+  - Speicher und Relay.
+- Unbekannte Felder bleiben unbeachtet, damit ein neuerer Knoten mehr melden
+  kann (B-11c).
+
+**Knoten** (`dvm-provider.ts`, `main.ts`):
+- `handleKnotenStatus()` antwortet nur aus einem Umschlag mit `istBesitzer()`,
+  versiegelt (6077). Nach außen gehen nur die festen Texte „Status nur für den
+  Besitzer“ und „kein Status“.
+- Der Provider zählt Aufträge im Speicher (`zaehle()`), Statusabfragen nicht.
+  Den Speicher liest er aus der eigenen Speicher-Rolle.
+- `main.ts` liefert Fassung (`package.json`), Start, Modelle (dieselben wie im
+  Angebot, `angebotModelle()`) und Relay-Zahlen.
+- Eine Rolle meldet `main.ts` erst, wenn sie gestartet ist
+  (`statusRollen.add()`).
+- Kein Text aus Aufträgen, keine Meldungen, keine Adressen.
+
+**Tests:**
+- protocol +3 (`knoten-status.test.ts`):
+  - Auftrag versiegelt, mit Nachweis, offen steht nichts;
+  - Antwort hin und zurück;
+  - unbekannte Felder bleiben unbeachtet;
+  - 32 kaputte Antworten ergeben null.
+- node +4 (`knoten-status.test.ts`):
+  - der Besitzer bekommt die Antwort versiegelt, mit Zählern (ein gratis
+    erledigter, ein abgelehnter Auftrag), ohne den Text der Frage;
+  - die Statusabfrage zählt nicht;
+  - ohne Nachweis, mit fremdem Geheimnis oder offen: kein Status, feste
+    Rückmeldung;
+  - ohne Konfiguration „kein Status“;
+  - in `main.ts` kommen die Rollen erst nach dem Start.
+
+**Verdrahtet:**
+- `packages/node/src/dvm-provider.ts`: `handleJob()` → `handleKnotenStatus()`;
+  `pollOnce()` → `zaehle()`.
+- `packages/node/src/main.ts`: `status:` in der Konfiguration des Providers,
+  `statusRollen.add()` an jeder Rolle.
+- Die App folgt mit B-11b.
+
+Endstand (B-11a, 02.10.): protocol 1154 (+3, 6 übersprungen) · node 291 (+4,
+7 übersprungen ohne Netz – mit Netz 292) · app 779 · mls 13 · Leak-Tests 70
+grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 (zwei Ausnahmen bis
+B-11b) · innerHTML streng Exit 0 · Website ok · Smoke-Test bestanden.
+Knoten-Stand: für den Status nötig (B-11a); sonst unverändert.

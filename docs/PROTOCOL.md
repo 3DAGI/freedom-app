@@ -108,6 +108,7 @@ Bestehende Kinds sind reserviert und semantisch eingefroren:
 | 5071 | Video-Generierung |
 | **5075** | Blob-Chunk-Fetch (Storage-Micro-Reward) |
 | **5076** | Blob beim eigenen Knoten halten – nur versiegelt, nur mit Besitzer-Nachweis (§23) |
+| **5077** | Status des eigenen Knotens – nur versiegelt, nur mit Besitzer-Nachweis, nur lesen (§24) |
 
 ### Freedom-spezifisch (38xxx)
 | Kind | Bedeutung |
@@ -615,3 +616,31 @@ verdrängt er nie; sie zählen zur Quota, darüber nimmt er keine an.
 über alle Gruppen, alle Stücke (`leseHalteAntwort()`, sonst nichts anzeigen).
 Abgerufen werden gehaltene Stücke wie alle über 5075.
 
+## 24. Status des eigenen Knotens (Kind 5077, seit B-11a)
+
+Entscheidung L6 A: Der Besitzer sieht, wie es seinem Knoten geht – nur lesen.
+Steuern (Modelle laden, Neustart, Einstellungen) gehört nicht dazu.
+
+**Kern** (DVM-Anfrage, nur versiegelt vom Sitzungsschlüssel an den gekoppelten
+Knoten, `baueStatusAuftrag()`): `i` = `status`, `bid` = 0, `p` = Schlüssel
+des Knotens, `besitzer` = Nachweis nach §21. Der Knoten bearbeitet sie nur aus
+einem Umschlag und nur mit gültigem Nachweis; Statusabfragen zählen nicht als
+Aufträge.
+
+**Antwort** (6077, versiegelt an den Sitzungsschlüssel), Inhalt als JSON
+(`knotenStatusText()`, gelesen nur mit `leseKnotenStatus()`):
+
+| Feld | Inhalt |
+|---|---|
+| `fassung` | Fassung des Knotens, 1–32 Zeichen `0-9A-Za-z.+-` |
+| `seit` | Start des Prozesses, Unix-Sekunden |
+| `rollen` | gestartete Rollen aus `ki`, `relay`, `speicher`, `gateway`, `zahlkanal`, `lnurl`, `lp`, `relayer`, `tor`, `app` |
+| `modelle` | angebotene Modelle, höchstens 50 Namen zu je höchstens 100 Zeichen, ohne Steuerzeichen |
+| `auftraege` | `erledigt`, davon `gratis`, und `abgelehnt` seit dem Start |
+| `abgerechnetMsat` | seit dem Start in Antworten verlangt (nicht unbedingt schon bezahlt) |
+| `speicher` | `belegtBytes`, `quotaBytes` (0 = ohne Grenze), `gehalten` – oder `null` |
+| `relay` | `events`, `verbindungen` – oder `null` |
+
+Unbekannte Felder bleiben unbeachtet, damit ein neuerer Knoten mehr melden
+kann; bekannte müssen stimmen, sonst zeigt die App nichts. Kein Text aus
+Aufträgen, keine Meldungen, keine Adressen.
