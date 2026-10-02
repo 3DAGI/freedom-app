@@ -45,9 +45,9 @@ bash packages/mls/bauen.sh --pruefen                     # nur bei Änderungen a
 bash contracts/solana-channel/pruefen.sh --werkzeuge     # nur bei Änderungen am Zahlkanal: bauen + Tests gegen Validator (Agave 3.1.10)
 ```
 
-Stand 01.10.2026 (nach 8.2c, 5.5a–c, 8.15, 11.1a, C.3c2, 11.1b, 5.9a–b, 6.3a–b2, 11.4a–b2, C.4a–b, C.5a–b, C.6b, 11.4c, C-18, C-17a–c, C-20a–f, C-1a–e, C-2, C-3, C-4, C-6a–c, C-10, C-11, C-14 bis C-16, 11.2a–b, A-4 bis A-7, B-1, B-2a–c, B-3 bis B-7, B-8a–c, B-9a, B-15, B-19, B-20a–c, B-10a–b und B-9b1): protocol 1151 grün (6 übersprungen), node 285 grün
+Stand 01.10.2026 (nach 8.2c, 5.5a–c, 8.15, 11.1a, C.3c2, 11.1b, 5.9a–b, 6.3a–b2, 11.4a–b2, C.4a–b, C.5a–b, C.6b, 11.4c, C-18, C-17a–c, C-20a–f, C-1a–e, C-2, C-3, C-4, C-6a–c, C-10, C-11, C-14 bis C-16, 11.2a–b, A-4 bis A-7, B-1, B-2a–c, B-3 bis B-7, B-8a–c, B-9a, B-15, B-19, B-20a–c, B-10a–b und B-9b1–b2): protocol 1151 grün (6 übersprungen), node 285 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 772 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 69 grün + 1 `todo` (heutige Lecks,
+in `tools.test.ts`), app 775 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 70 grün + 1 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
 Ausnahme: gesendete SOL-Zahlungen von frischen Adressen, eine bewusste Grenze
 nach Entscheidung 4.9 A – im Datenschutzbericht unter „Bewusste Grenzen“).
@@ -982,6 +982,13 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   `gehalten.json`) verdrängt die LRU nie, sie zählen zur Quota. Antworten nur
   über `leseHalteAntwort()`. Leere Füllstücke teilen sich einen Hash – im
   Test je Hash zählen, nicht je Index.
+  In der App (seit B-9b2) nur über `halteBeiMeinemKnoten()`
+  (`shell/knoten-halten-ui.ts`) nach einem verschlüsselten Upload, nur gekoppelt und
+  mit Haken (`haltenAn()`, `freedom.knoten.halten`, Standard an), mit frischem
+  Sitzungsschlüssel – nie für die Kopie nur auf dem Gerät; `uploadAnhang()`
+  nennt dafür die Manifest-Id. Gezeigt wird nur ein fester Text. Nie in
+  `mein-knoten.ts`: Dort liegt der Kopplungscode, und ein Test hält das Modul
+  frei von `localStorage` und `publish`.
 - **App vom Knoten nur mit Prüfsumme** (seit B-10a, `node/src/app-auslieferung.ts`):
   Die Relay-Rolle liefert freedom.html nur als Ergebnis von `ladeApp()` aus –
   die Summe gibt der Betreiber vor (`APP_SHA256`), nie aus der Datei

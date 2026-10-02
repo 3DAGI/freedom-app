@@ -19,8 +19,6 @@ antispam.ts|spamFilterInfo|Spam- und Flutschutz, weder im Relay des Knotens noch
 
 
 blob.ts|parseBlobChunk|Blob-Stücke lesen, noch ohne Speicher-Client (Speicher, 8.9)
-blob.ts|baueHalteAuftrag|Halte-Auftrag an den eigenen Knoten – der Knoten bearbeitet ihn seit B-9b1, die App sendet ihn ab B-9b2 („Wo: Mein Knoten“)
-blob.ts|leseHalteAntwort|Antwort auf den Halte-Auftrag lesen – die App zeigt sie ab B-9b2
 
 
 cluster.ts|buildClusterOffer|Cluster-Pairing ohne Oberfläche und ohne Anbindung im Knoten (Provider-Knoten, 8.2)

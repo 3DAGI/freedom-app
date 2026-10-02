@@ -26,6 +26,7 @@ import { type Gesehen, LS_REPOS_GESEHEN, type Neuigkeiten, beteiligt, gesehenAbg
 import { LOKAL_MAX, LokalVoll } from "../../lokale-repos.js";
 import { BUNDLE_GRENZEN } from "../../git-bundle.js";
 import { lokaleRepos } from "../lokale-repos-ablage.js";
+import { halteBeiMeinemKnoten } from "../knoten-halten-ui.js";
 
 const STATUS_KINDS = [1630, 1631, 1632, 1633];
 
@@ -305,6 +306,7 @@ export async function ladeBundleHoch(datei: File, kennung: string, gruppe?: stri
     if (gruppe) await sendeInRaum(gruppe, raumRepoBundle(gruppe, angaben));
     else await pool.publish(await signiere(buildGitRepoRef(angaben, state.keypair.pk)));
     toast(t(gruppe ? "repo.bundleImRaum" : "ein.gitPubliziert", { name: kennung, blob: res.blobId.slice(0, 8) }));
+    void halteBeiMeinemKnoten(res); // B-9b2: gekoppelt und mit Haken hält der eigene Knoten das Chiffrat
     await ladeNip34Repos();
     return true;
   } catch (e) {

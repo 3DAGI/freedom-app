@@ -889,15 +889,20 @@ def einstellungen_pruefen(browser, url: str) -> dict:
     knoten = {"typen": kd_typen, "falsch": kd_falsch["meldung"] if kd_falsch else None,
               "status": ev("() => document.getElementById('knoten-status')?.textContent"),
               "gemerkt": ev("() => localStorage.getItem('freedom.knoten.kopplung')") == code,
-              "entkoppeln": ev("() => !document.getElementById('knoten-entkoppeln').hidden")}
+              "entkoppeln": ev("() => !document.getElementById('knoten-entkoppeln').hidden"),
+              # Halten (B-9b2): gekoppelt sichtbar, Standard an, der Haken merkt sich „aus“
+              "halten": ev("() => [!document.getElementById('knoten-halten-zeile').hidden, document.getElementById('knoten-halten').checked]")}
+    ev("() => document.getElementById('knoten-halten').click()")
+    knoten["halten_aus"] = ev("() => localStorage.getItem('freedom.knoten.halten')")
     ev("() => document.getElementById('knoten-entkoppeln').click()")
     seite.warte_dialog("entkoppeln")
     bestaetigen()
     seite.warte_zu()
-    knoten["danach"] = [ev("() => document.getElementById('knoten-status')?.textContent"), ev("() => localStorage.getItem('freedom.knoten.kopplung')")]
+    knoten["danach"] = [ev("() => document.getElementById('knoten-status')?.textContent"), ev("() => localStorage.getItem('freedom.knoten.kopplung')"),
+                        ev("() => document.getElementById('knoten-halten-zeile').hidden")]
     erg["knoten"] = knoten
     if knoten != {"typen": ["password"], "falsch": "Kein Kopplungscode – er beginnt mit freedom-kopplung:1:", "status": "Gekoppelt mit abababab…abab",
-                  "gemerkt": True, "entkoppeln": True, "danach": ["Nicht gekoppelt", None]}:
+                  "gemerkt": True, "entkoppeln": True, "halten": [True, True], "halten_aus": "0", "danach": ["Nicht gekoppelt", None, True]}:
         erg["fehler"].append(f"Mein Knoten {knoten}")
     # Abgebrochen: nichts veröffentlicht – kein Widerruf, kein Plan, keine Meldung
     erg["gesendet"] = sorted({e["kind"] for e in relay.gesendet if e.get("kind") not in (10002, 10050)})

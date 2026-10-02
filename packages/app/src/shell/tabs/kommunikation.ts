@@ -34,6 +34,7 @@ import { versendeVerzoegert } from "../versand.js";
 import { kontaktName, zeigeRaumLeiste } from "./raeume.js";
 import { fehlerText, schluesselText } from "../../protokoll-texte.js";
 import { leseAnforderung, type Anforderung } from "../../zahlungs-anforderung.js";
+import { halteBeiMeinemKnoten } from "../knoten-halten-ui.js";
 
 /** Zahlungsanforderungen der gezeigten Nachrichten (A-5): Id → Anforderung und Absender. */
 const anforderungen = new Map<string, { anf: Anforderung; von: string }>();
@@ -93,6 +94,7 @@ export async function handleChatFiles(files: FileList | null): Promise<void> {
           const res = await uploadAnhang(file, pool as never, state.signer!);
           url = `freedom-blob:${res.blobId}`;
           enc = res.schluessel;
+          void halteBeiMeinemKnoten(res); // B-9b2: gekoppelt und mit Haken hält der eigene Knoten das Chiffrat
         } catch {
           setAttachStatus(listEl, t("komm.blossomAusweg", { name: file.name }));
           const { verschluesseleDatei } = await import("@freedomstack/protocol");
