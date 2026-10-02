@@ -930,6 +930,99 @@ def sprachnachricht_pruefen(browser, url: str) -> dict:
     return erg
 
 
+# Anrufe (seit B-13d3): zählt Fragen nach dem Mikrofon und neue Verbindungen – ohne Annehmen darf es keine geben
+ANRUF_ZAEHLER = """
+(() => {
+  const st = window.__anruf = { medien: 0, verbindungen: 0 };
+  if (navigator.mediaDevices) navigator.mediaDevices.getUserMedia = async () => { st.medien++; throw new DOMException('nein', 'NotAllowedError'); };
+  const Echt = window.RTCPeerConnection;
+  if (Echt) window.RTCPeerConnection = function (...a) { st.verbindungen++; return new Echt(...a); };
+})();
+"""
+
+
+def anruf_pruefen(browser, url: str) -> dict:
+    """Anrufe (B-13d3): Knöpfe im Kopf der Unterhaltung; ohne eigenen Knoten geht kein Anruf hinaus (kein Mikrofon,
+    keine Verbindung, kein Umschlag). Ein Angebot eines Kontakts (`scripts/anruf-probe.mts`, mit Zugang zum
+    Vermittler des Anrufers – T3 B) klingelt mit Sicherheitscode und dem Hinweis, wer die IP sieht; Ablehnen schickt
+    nur ein versiegeltes „Ende“ zurück – ohne Mikrofon und ohne Verbindung."""
+    erg = {"fehler": []}
+    wurzel = Path(__file__).resolve().parent.parent
+    relay = ProbeRelay()
+    seite = DialogSeite(browser, url, relay, erg, init=ANRUF_ZAEHLER)
+    s, ev = seite.s, seite.ev
+    ev("() => { location.hash = '#/chat'; }")
+    for _ in range(80):
+        if relay.ich:
+            break
+        s.wait_for_timeout(250)
+    if not relay.ich:
+        seite.ctx.close()
+        return {"bestanden": False, "fehler": ["keine Abfrage der eigenen Relay-Listen – eigener Schlüssel unbekannt"]}
+    aus = subprocess.run(["npx", "tsx", "scripts/anruf-probe.mts", relay.ich], cwd=wurzel, capture_output=True, text=True, timeout=180, check=True)
+    probe = json.loads(aus.stdout)
+    anrufer = probe["anrufer"]
+
+    def an_anrufer() -> list[dict]:
+        return list({e["id"]: e for e in relay.gesendet if e.get("kind") == 1059 and ["p", anrufer] in [t[:2] for t in e.get("tags", [])]}.values())
+    # Der Anrufer wird Kontakt: eine Unterhaltung über „Neue Nachricht“
+    s.wait_for_selector("#chat-new-dm", timeout=30000)
+    ev("() => document.getElementById('chat-new-dm').click()")
+    seite.warte_dialog("Neue Nachricht")
+    seite.tippe(anrufer)
+    seite.warte_zu()
+    s.wait_for_function("(pk) => !!document.querySelector(`#chat-list .chat-item.active[data-cid='${pk}']`)", arg=anrufer, timeout=10000)
+    erg["knoepfe"] = ev("() => ['chat-anruf', 'chat-video'].map(id => { const b = document.getElementById(id);"
+                        " return [b.getAttribute('aria-label'), b.title.split(' – ')[0], !!b.querySelector('svg')]; })")
+    # Anrufen ohne eigenen Knoten: nur der Hinweis – kein Mikrofon, keine Verbindung, nichts hinaus
+    s.click("#chat-anruf")
+    s.wait_for_function("() => /eigenen Knoten mit Vermittler/.test(document.getElementById('toast')?.textContent ?? '')", timeout=10000)
+    erg["ohne_knoten"] = ev("() => [window.__anruf.medien, window.__anruf.verbindungen, !!document.querySelector('.anruf-leiste')]") + [len(an_anrufer())]
+    # Das Angebot kommt mit dem Abgleich des Posteingangs beim Start
+    relay.events = relay.events + probe["events"]
+    s.reload(wait_until="load")
+    ev("() => { location.hash = '#/chat'; }")
+    s.wait_for_function("() => document.querySelectorAll('.anruf-leiste .anruf-knoepfe button').length === 2", timeout=30000)
+    erg["klingelt"] = ev("""() => { const l = document.querySelector('.anruf-leiste');
+      return { rolle: [l.getAttribute('role'), l.getAttribute('aria-label'), l.getAttribute('aria-live')],
+        titel: l.querySelector('.anruf-titel').textContent, code: l.querySelector('div.mono-sm')?.textContent ?? '',
+        hinweis: l.querySelector('p.warn')?.textContent ?? '', medien: l.querySelectorAll('audio, video').length,
+        knoepfe: [...l.querySelectorAll('.anruf-knoepfe button')].map(b => [b.textContent, b.disabled]),
+        zaehler: [window.__anruf.medien, window.__anruf.verbindungen] }; }""")
+    vorher = len(an_anrufer())
+    s.click(".anruf-leiste .anruf-knoepfe button:nth-child(2)")
+    for _ in range(100):
+        if len(an_anrufer()) > vorher:
+            break
+        s.wait_for_timeout(200)
+    neu = an_anrufer()[vorher:]
+    geoeffnet = [json.loads(subprocess.run(["npx", "tsx", "scripts/anruf-probe.mts", "oeffne", probe["sk"]], cwd=wurzel, input=json.dumps(w),
+                                           capture_output=True, text=True, timeout=180, check=True).stdout) for w in neu]
+    s.wait_for_function("() => document.querySelector('.anruf-leiste .anruf-titel')?.textContent === 'Abgelehnt'", timeout=10000)
+    erg["abgelehnt"] = {"nachrichten": [g and g["nachricht"] for g in geoeffnet],
+                        "zaehler": ev("() => [window.__anruf.medien, window.__anruf.verbindungen]"),
+                        "knoepfe": ev("() => [...document.querySelectorAll('.anruf-leiste button')].map(b => b.textContent)")}
+    ev("() => document.querySelector('.anruf-leiste button').click()")
+    s.wait_for_function("() => !document.querySelector('.anruf-leiste')", timeout=5000)
+    if erg["knoepfe"] != [["Anrufen", "Anrufen", True], ["Videoanruf", "Videoanruf", True]]:
+        erg["fehler"].append(f"Knöpfe {erg['knoepfe']}")
+    if erg["ohne_knoten"] != [0, 0, False, 0]:
+        erg["fehler"].append(f"ohne Knoten {erg['ohne_knoten']}")
+    k = erg["klingelt"]
+    if not (k["rolle"] == ["region", "Anruf", "polite"] and k["titel"].endswith(" ruft an") and k["code"].startswith("Sicherheitscode: ")
+            and k["code"].endswith("nicht geprüft") and "Knoten der anrufenden Person – er sieht deine IP-Adresse" in k["hinweis"]
+            and k["knoepfe"] == [["Annehmen", False], ["Ablehnen", False]] and k["medien"] == 0 and k["zaehler"] == [0, 0]):
+        erg["fehler"].append(f"klingelt {k}")
+    if erg["abgelehnt"] != {"nachrichten": [{"anruf": probe["kennung"], "typ": "ende", "grund": "abgelehnt"}], "zaehler": [0, 0], "knoepfe": ["Schließen"]}:
+        erg["fehler"].append(f"abgelehnt {erg['abgelehnt']}")
+    erg["browser_dialoge"] = seite.browser_dialoge
+    if seite.browser_dialoge:
+        erg["fehler"].append(f"Browser-Dialoge: {seite.browser_dialoge}")
+    seite.ctx.close()
+    erg["bestanden"] = not erg["fehler"]
+    return erg
+
+
 def tresor_an(seite: "DialogSeite", passphrase: str) -> None:
     """Tresor einrichten (Settings › Sicherheit, Schritt 5) – MLS gibt es nur mit Tresor (2.2b-e1)."""
     ev = seite.ev
@@ -3586,6 +3679,10 @@ def main() -> int:
             except Exception as e:
                 erg["sprachnachricht"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
             try:
+                erg["anruf"] = anruf_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
+            except Exception as e:
+                erg["anruf"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
+            try:
                 erg["privatraum"] = privatraum_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
             except Exception as e:
                 erg["privatraum"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
@@ -3655,6 +3752,7 @@ def main() -> int:
           and erg.get("waehrung", {}).get("bestanden") is True
           and erg.get("kontakt", {}).get("bestanden") is True
           and erg.get("sprachnachricht", {}).get("bestanden") is True
+          and erg.get("anruf", {}).get("bestanden") is True
           and erg.get("privatraum", {}).get("bestanden") is True
           and erg.get("einstellungen", {}).get("bestanden") is True
           and erg.get("einnahmen", {}).get("bestanden") is True

@@ -58,6 +58,7 @@ import { dialog } from "./dialog.js";
 import { wireEigeneAdresse, wireWerbeName } from "./werben-ui.js";
 import { wireBelege } from "./belege-ui.js";
 import { wireSprachnachricht } from "./sprachnachricht-ui.js";
+import { wireAnrufe } from "./anruf-ui.js";
 import {
   captureReferral,
   ladeAbdeckung,
@@ -748,6 +749,8 @@ function starte(): void {
   }
   // Sprachnachrichten (C-7): Mikrofon erst auf Klick, die Aufnahme wird ein Anhang wie oben
   wireSprachnachricht();
+  // Anrufe (B-13d3): nur auf Klick; eingehende kommen über den Posteingang (alsAnruf)
+  wireAnrufe();
   // Ablauf neuer Nachrichten je Unterhaltung (NIP-40, Schritt 2.5)
   const ablaufSel = document.getElementById("chat-ablauf") as HTMLSelectElement | null;
   if (ablaufSel) ablaufSel.onchange = () => setzeAblauf(ablaufSel.value);
