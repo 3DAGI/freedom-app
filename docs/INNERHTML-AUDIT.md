@@ -8,9 +8,5 @@ Nicht abgedeckt: andere Eingänge wie `href` oder `src`, die per Eigenschaft ges
 
 | Datei | Zeile | Ausdruck | Bewertung |
 |---|---|---|---|
-| `packages/app/src/shell/einrichtung-ui.ts` | 58 | `inhalt(seite)` | feste Seiten der Einrichtung aus diesem Modul (8.1b); Fremddaten darin nur über escapeHtml (Werber-Schlüssel, Datenschutz-Aussagen) |
-| `packages/app/src/shell/tresor.ts` | 96 | `html` | dialog() ist modulintern; alle drei Aufrufer übergeben feste Templates, deren einzige Einsetzungen escapeHtml(t(…)) sind (8.16g1); Eingaben und Meldungen laufen über textContent |
-| `packages/app/src/shell/ui.ts` | 129 | `(Zuweisung) markSvg(18)` | eigenes SVG mit fester Farbe |
-| `packages/app/src/shell/ui.ts` | 131 | `(Zuweisung) markSvg(30)` | eigenes SVG mit fester Farbe |
 
-4 Fundstellen, davon 0 unbewertet.
+0 Fundstellen, davon 0 unbewertet.

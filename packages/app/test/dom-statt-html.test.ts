@@ -16,6 +16,7 @@ const ausnahmen = quelle("../../../scripts/innerhtml-ausnahmen.txt").split("\n")
 const FERTIG = [
   "shell/tabs/agent-netz.ts", "shell/tabs/earn.ts", "shell/tabs/profil.ts", "shell/tabs/settings.ts", "shell/state.ts",
   "shell/tabs/kommunikation.ts", "shell/tabs/raeume.ts", "shell/tabs/agent.ts",
+  "shell/app.ts", "shell/ui.ts", "shell/tresor.ts", "shell/einrichtung-ui.ts",
 ];
 
 test("C-6a: fertige Dateien ohne innerHTML und ohne Ausnahme", () => {
@@ -79,7 +80,7 @@ test("C-6b: Settings und RPC-Stand – Gerätenamen, Fehler der Anbieter und Pr�
 
 test("C-6b: Merkphrase, Sicherungs-Warnung und Sprachmenü als DOM", () => {
   const app = quelle("../src/shell/app.ts");
-  assert.match(app, /box\.querySelector\("\.mnemonic-list"\)!\.replaceChildren\(\.\.\.woerter\.map\(\(w\) => el\("li", w\)\)\);/);
+  assert.match(app, /liste\.append\(\.\.\.woerter\.map\(\(w\) => el\("li", w\)\)\);/);
   assert.match(app, /feld\.dataset\.pos = String\(p\);/);
   assert.match(app, /warn\.replaceChildren\(`⚠ \$\{st\.warning\} `, knopf\);/);
   assert.match(app, /const b = el\("button", `\$\{l\.code\.toUpperCase\(\)\} · \$\{l\.label\}`, l\.code === getLang\(\) \? "active" : undefined\);/);
@@ -133,7 +134,7 @@ test("C-6d1: agent.ts – Modellwahl, Verlauf, Werkzeuge, Fehler und Vorschau al
   assert.doesNotMatch(agent, /\b(pop|btn|box|c|note|status)\.innerHTML/);
   // Die Helfer setzen nur Symbole aus der festen Tabelle
   assert.match(quelle("../src/icons.ts"), /export function iconEl\([^]*?vorlage\.innerHTML = icon\(name, size\);/);
-  assert.match(quelle("../src/shell/ui.ts"), /export function haekchenEl\([^]*?vorlage\.innerHTML = markSvgCheck\(\);/);
+  assert.match(quelle("../src/shell/ui.ts"), /export function haekchenEl\([^]*?svgEl\("path", \{ d: "M5 12l5 5L20 7" \}\)/);
   // Die Liste schrumpft nur – was bleibt, baut C-6d2 um (Blasen, Kosten, Schritte)
   assert.ok(ausnahmen.filter((z) => z.startsWith("agent.ts|")).length <= 12);
   // Im Browser: ein Angebot mit HTML im Modellnamen
@@ -163,4 +164,26 @@ test("C-6d2: Antworten über markdownDom(), Code-Blöcke, Kosten und Schritte al
   assert.doesNotMatch(quelle("../src/shell/app.ts"), /activateCodeBlocks/);
   // Im Browser: eine Antwort mit HTML und einem Code-Block
   assert.match(quelle("../../../scripts/smoke_test.py"), /if erg\["antwort_md"\] != /);
+});
+
+test("C-6e: die letzten Ausnahmen – Logo, Tresor-Dialoge, Einrichtung, Rahmen der Merkphrase – als DOM; die Liste ist leer", () => {
+  assert.deepEqual(ausnahmen, [], "keine bewertete Ausnahme mehr");
+  const ui = quelle("../src/shell/ui.ts");
+  // Eigene Zeichen als SVG-Elemente; das Favicon aus demselben Element
+  assert.match(ui, /function svgEl<[^]*?document\.createElementNS\("http:\/\/www\.w3\.org\/2000\/svg", tag\);[^]*?e\.setAttribute\(k, String\(v\)\);/);
+  assert.match(ui, /kopf\?\.replaceChildren\(markEl\(18\)\);/);
+  assert.match(ui, /const svg = new XMLSerializer\(\)\.serializeToString\(markEl\(64, "#7BC80A"\)\);/);
+  assert.doesNotMatch(ui, /markSvg/);
+  // Tresor: Felder für die Passphrase mit Namen für Vorleser, Meldungen nur als Text
+  const tresor = quelle("../src/shell/tresor.ts");
+  assert.match(tresor, /f\.setAttribute\("aria-label", platzhalter\);/);
+  assert.match(tresor, /box\.querySelector\("#tr-meldung"\)!\.textContent = text;/);
+  assert.doesNotMatch(tresor, /escapeHtml/);
+  // Einrichtung und Merkphrase: Aussehen über style (CSSOM), Symbole über iconEl()
+  assert.match(quelle("../src/shell/einrichtung-ui.ts"), /b\.style\.cssText = haupt \? HAUPT_STIL : KNOPF_STIL;/);
+  const app = quelle("../src/shell/app.ts");
+  assert.match(app, /x\.replaceChildren\(iconEl\(x\.dataset\.icon!\)\);/);
+  assert.doesNotMatch(app, /escapeHtml/);
+  // Im Browser: alle Seiten der Einrichtung, Logo und Favicon
+  assert.match(quelle("../../../scripts/smoke_test.py"), /erg\["einrichtung"\] = einrichtung_pruefen\(browser, /);
 });

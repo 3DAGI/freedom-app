@@ -19,12 +19,20 @@ export const $ = <T extends HTMLElement = HTMLElement>(sel: string): T =>
 
 /**
  * Element mit Text und Klasse – Text nur über `textContent` (C-6): für Listen
- * und Zeilen statt `innerHTML`, auch wenn darin Fremddaten stehen.
+ * und Zeilen statt HTML-Text, auch wenn darin Fremddaten stehen.
  */
 export function el<K extends keyof HTMLElementTagNameMap>(tag: K, text?: string, klasse?: string): HTMLElementTagNameMap[K] {
   const e = document.createElement(tag);
   if (text !== undefined) e.textContent = text;
   if (klasse) e.className = klasse;
+  return e;
+}
+
+/** SVG-Element mit festen Attributen (seit C-6e) – für eigene Zeichen, nie für Fremddaten. */
+function svgEl<K extends keyof SVGElementTagNameMap>(tag: K, attr: Record<string, string | number>, ...kinder: SVGElement[]): SVGElementTagNameMap[K] {
+  const e = document.createElementNS("http://www.w3.org/2000/svg", tag); // kein UI-Text
+  for (const [k, v] of Object.entries(attr)) e.setAttribute(k, String(v));
+  e.append(...kinder);
   return e;
 }
 
@@ -114,23 +122,23 @@ export function updateSidebarBalances(): void {
 
 // -------------------------------------------------- Neuer Aufbau: Hilfslogik
 
-/** Zeichen 09 — Klammer. Eine Quelle fuer Kopf, Seitenleiste und Favicon. */
-function markSvg(size: number, color = "var(--accent)"): string {
-  return `<svg width="${size}" height="${size}" viewBox="0 0 64 64" fill="none" aria-hidden="true">
-    <path d="M22 10 H12 V54 H22" stroke="${color}" stroke-width="7" stroke-linecap="square"/>
-    <path d="M42 10 H52 V54 H42" stroke="${color}" stroke-width="7" stroke-linecap="square"/>
-    <rect x="27" y="27" width="10" height="10" fill="${color}"/></svg>`;
+/** Zeichen 09 — Klammer. Eine Quelle fuer Kopf, Seitenleiste und Favicon (seit C-6e als Element). */
+function markEl(size: number, color = "var(--accent)"): SVGSVGElement {
+  const klammer = (d: string) => svgEl("path", { d, stroke: color, "stroke-width": 7, "stroke-linecap": "square" });
+  return svgEl("svg", { width: size, height: size, viewBox: "0 0 64 64", fill: "none", "aria-hidden": "true" },
+    klammer("M22 10 H12 V54 H22"), klammer("M42 10 H52 V54 H42"),
+    svgEl("rect", { x: 27, y: 27, width: 10, height: 10, fill: color })); // kein UI-Text
 }
 
 
 
 export function setzeLogo(): void {
   const kopf = document.getElementById("head-mark");
-  if (kopf) kopf.innerHTML = markSvg(18);
+  kopf?.replaceChildren(markEl(18));
   const leiste = document.getElementById("nav-mark");
-  if (leiste) leiste.innerHTML = markSvg(30);
+  leiste?.replaceChildren(markEl(30));
   // Favicon aus demselben Zeichen, damit Tab und App gleich aussehen.
-  const svg = markSvg(64, "#7BC80A").replace("<svg ", `<svg xmlns="http://www.w3.org/2000/svg" `); // kein UI-Text
+  const svg = new XMLSerializer().serializeToString(markEl(64, "#7BC80A"));
   let link = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
   if (!link) {
     link = document.createElement("link");
@@ -140,17 +148,12 @@ export function setzeLogo(): void {
   link.href = "data:image/svg+xml," + encodeURIComponent(svg);
 }
 
-/** Das Häkchen als Element (seit C-6d). */
-export function haekchenEl(): SVGElement {
-  const vorlage = document.createElement("template");
-  vorlage.innerHTML = markSvgCheck();
-  return vorlage.content.firstElementChild as SVGElement;
-}
-
-export function markSvgCheck(): string {
-  return `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--accent)"
-    stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-    <path d="M5 12l5 5L20 7"/></svg>`;
+/** Das Häkchen als Element (seit C-6d, seit C-6e ohne HTML-Text). */
+export function haekchenEl(): SVGSVGElement {
+  return svgEl("svg", {
+    width: 12, height: 12, viewBox: "0 0 24 24", fill: "none", stroke: "var(--accent)",
+    "stroke-width": 3, "stroke-linecap": "round", "stroke-linejoin": "round", "aria-hidden": "true",
+  }, svgEl("path", { d: "M5 12l5 5L20 7" })); // kein UI-Text
 }
 
 /**
@@ -202,7 +205,7 @@ export async function aktualisiereNavStatus(): Promise<void> {
   if (mehr) mehr.textContent = satz;
 }
 
-/** Zahl aus Fremddaten sicher als Text – nie ein ungepruefter Wert in innerHTML. */
+/** Zahl aus Fremddaten sicher als Text – nie ein ungepruefter Wert im HTML. */
 export function ganzeZahl(v: unknown): string {
   const n = typeof v === "number" ? v : Number(v);
   return Number.isFinite(n) && n >= 0 ? String(Math.floor(n)) : "0";

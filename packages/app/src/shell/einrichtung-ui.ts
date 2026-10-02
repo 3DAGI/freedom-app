@@ -10,11 +10,11 @@ import {
 } from "../einrichtung.js";
 import { t } from "../i18n.js";
 import type { Intent } from "../onboarding.js";
-import { escapeHtml, pkShort } from "../shell-logic.js";
+import { pkShort } from "../shell-logic.js";
 import { LS_STANDARD_SCHIENE, standardSchiene } from "../standard-schiene.js";
 import { mitBunker, state } from "./state.js";
 import { richteTresorEin, tresorEingerichtet } from "./tresor.js";
-import { ganzeZahl } from "./ui.js";
+import { el } from "./ui.js";
 
 let laeuft = false;
 
@@ -49,25 +49,59 @@ export async function zeigeEinrichtung(p: {
   }
 }
 
-const KNOPF = 'class="ghost" style="width:auto;padding:8px 14px;margin:4px 6px 0 0"';
+// Aussehen wie bisher, über `style` (CSSOM) statt HTML-Text (seit C-6e)
+const KNOPF_STIL = "width:auto;padding:8px 14px;margin:4px 6px 0 0"; // kein UI-Text
+const HAUPT_STIL = "width:auto;padding:8px 18px"; // kein UI-Text
+const ZEILE_STIL = "display:block;margin:8px 0"; // kein UI-Text
+
+function knopf(id: string, text: string, haupt = false): HTMLButtonElement {
+  const b = el("button", text, haupt ? "cta" : "ghost");
+  b.id = id;
+  b.style.cssText = haupt ? HAUPT_STIL : KNOPF_STIL;
+  return b;
+}
+
+/** Häkchen mit Text – nie vorausgewählt (Zustimmung heißt: selbst gesetzt). */
+function kasten(id: string, text: string): HTMLLabelElement {
+  const k = el("input");
+  k.type = "checkbox";
+  k.id = id;
+  const l = el("label", undefined, "mono-sm");
+  l.style.cssText = ZEILE_STIL;
+  l.append(k, ` ${text}`);
+  return l;
+}
+
+function leise(text: string): HTMLElement {
+  const p = el("p", text, "mono-sm");
+  p.classList.add("muted");
+  return p;
+}
 
 function zeigeSeite(
   box: HTMLElement, seite: Seite, nr: number, von: number,
   p: { oeffne: (tab: string) => void; nenneWerber: () => void },
 ): Promise<"weiter" | "abbrechen"> {
-  box.innerHTML = `<div class="onboarding-card" data-seite="${escapeHtml(seite)}">${inhalt(seite)}` +
-    `<p class="mono-sm muted" style="margin-top:14px">${escapeHtml(t("ein.schrittVon", { nr: ganzeZahl(nr), von: ganzeZahl(von) }))} · ` +
-    `<button id="ein-abbrechen" class="ghost" style="width:auto;padding:2px 8px;font-size:10px">${escapeHtml(t("ein.ueberspringen"))}</button></p></div>`;
+  const karte = el("div", undefined, "onboarding-card");
+  karte.dataset.seite = seite;
+  const ueberspringen = el("button", t("ein.ueberspringen"), "ghost");
+  ueberspringen.id = "ein-abbrechen";
+  ueberspringen.style.cssText = "width:auto;padding:2px 8px;font-size:10px"; // kein UI-Text
+  const fuss = leise(`${t("ein.schrittVon", { nr, von })} · `);
+  fuss.style.marginTop = "14px";
+  fuss.append(ueberspringen);
+  karte.append(...inhalt(seite), fuss);
+  box.replaceChildren(karte);
   return new Promise((fertig) => {
-    const knopf = (id: string, fn: () => unknown) => box.querySelector(`#${id}`)?.addEventListener("click", () => {
+    const beiKlick = (id: string, fn: () => unknown) => box.querySelector(`#${id}`)?.addEventListener("click", () => {
       void Promise.resolve(fn()).then(() => fertig("weiter"));
     });
     box.querySelector("#ein-abbrechen")?.addEventListener("click", () => fertig("abbrechen"));
-    knopf("ein-weiter", () => (seite === "privat" ? uebernehmePrivat(p.nenneWerber) : undefined));
-    knopf("ein-tresor", () => richteTresorEin());
-    for (const s of ["lightning", "solana"] as const) knopf(`ein-${s}`, () => setzeSchiene(s));
+    beiKlick("ein-weiter", () => (seite === "privat" ? uebernehmePrivat(p.nenneWerber) : undefined));
+    beiKlick("ein-tresor", () => richteTresorEin());
+    for (const s of ["lightning", "solana"] as const) beiKlick(`ein-${s}`, () => setzeSchiene(s));
     for (const i of ["nutzen", "kommunizieren", "verdienen"] as const) {
-      knopf(`ein-${i}`, () => {
+      beiKlick(`ein-${i}`, () => {
         localStorage.setItem(LS_INTENT, i);
         p.oeffne(zielNachEinrichtung(i as Intent));
       });
@@ -75,48 +109,40 @@ function zeigeSeite(
   });
 }
 
-function inhalt(seite: Seite): string {
+function inhalt(seite: Seite): HTMLElement[] {
   switch (seite) {
     case "schutz":
-      return `<h2>${escapeHtml(t("ein.schutz"))}</h2>
-        <p class="mono-sm">${escapeHtml(t("ein.schutzText"))}</p>
-        <button id="ein-tresor" class="cta" style="width:auto;padding:8px 18px">${escapeHtml(t("ein.passFestlegen"))}</button>
-        <button id="ein-weiter" ${KNOPF}>${escapeHtml(t("ein.spaeter"))}</button>`;
+      return [el("h2", t("ein.schutz")), el("p", t("ein.schutzText"), "mono-sm"),
+        knopf("ein-tresor", t("ein.passFestlegen"), true), knopf("ein-weiter", t("ein.spaeter"))];
     case "zahlen": {
       const jetzt = standardSchiene();
-      return `<h2>${escapeHtml(t("ein.womitZahlen"))}</h2>
-        <p class="mono-sm">${escapeHtml(t("ein.womitZahlenText"))}</p>
-        <button id="ein-lightning" ${KNOPF}>${jetzt === "lightning" ? "✓ " : ""}${escapeHtml(t("zahl.optLightning"))}</button>
-        <button id="ein-solana" ${KNOPF}>${jetzt === "solana" ? "✓ " : ""}${escapeHtml(t("zahl.optSolana"))}</button>`;
+      return [el("h2", t("ein.womitZahlen")), el("p", t("ein.womitZahlenText"), "mono-sm"),
+        knopf("ein-lightning", `${jetzt === "lightning" ? "✓ " : ""}${t("zahl.optLightning")}`),
+        knopf("ein-solana", `${jetzt === "solana" ? "✓ " : ""}${t("zahl.optSolana")}`)];
     }
     case "privat": {
       const { belegt, offen } = datenschutzKurz();
       const werber = localStorage.getItem("freedom.referrer");
       const mitWerber = !!werber && /^[0-9a-f]{64}$/.test(werber) && werber !== state.keypair?.pk;
-      return `<h2>${escapeHtml(t("ein.privat"))}</h2>
-        <p class="mono-sm">${belegt.map((a) => `✓ ${escapeHtml(a)}`).join("<br>")}${offen.map((a) => `<br>○ ${escapeHtml(t("ein.nochNicht", { was: a }))}`).join("")}</p>
-        <label class="mono-sm" style="display:block;margin:8px 0">${escapeHtml(t("ein.verbindung"))}
-          <select id="ein-netz" class="mono-sm">
-            <option value="klar">${escapeHtml(t("set.netzKlar"))}</option>
-            <option value="tor">${escapeHtml(t("set.netzTor"))}</option>
-            <option value="mixnet">${escapeHtml(t("set.netzMixnet"))}</option>
-          </select></label>
-        <label class="mono-sm" style="display:block;margin:8px 0">
-          <input type="checkbox" id="ein-kontakte" /> ${escapeHtml(t("ein.kontakteAbgleichen"))}</label>
-        ${mitWerber ? `<label class="mono-sm" style="display:block;margin:8px 0">
-          <input type="checkbox" id="ein-werber" /> ${escapeHtml(t("ein.werberNennen", { wer: pkShort(werber!) }))}</label>
-          <p class="mono-sm muted">${escapeHtml(t("ein.werberText"))}</p>` : ""}
-        <p class="mono-sm muted">${escapeHtml(t("ein.spaeterSettings"))}</p>
-        <button id="ein-weiter" class="cta" style="width:auto;padding:8px 18px">${escapeHtml(t("ein.weiter"))}</button>`;
+      const stand = el("p", undefined, "mono-sm");
+      [...belegt.map((a) => `✓ ${a}`), ...offen.map((a) => `○ ${t("ein.nochNicht", { was: a })}`)]
+        .forEach((zeile, i) => stand.append(...(i ? [el("br")] : []), zeile));
+      const netz = el("select", undefined, "mono-sm");
+      netz.id = "ein-netz";
+      netz.append(new Option(t("set.netzKlar"), "klar"), new Option(t("set.netzTor"), "tor"), new Option(t("set.netzMixnet"), "mixnet"));
+      const verbindung = el("label", undefined, "mono-sm");
+      verbindung.style.cssText = ZEILE_STIL;
+      verbindung.append(`${t("ein.verbindung")} `, netz);
+      return [el("h2", t("ein.privat")), stand, verbindung, kasten("ein-kontakte", t("ein.kontakteAbgleichen")),
+        ...(mitWerber ? [kasten("ein-werber", t("ein.werberNennen", { wer: pkShort(werber!) })), leise(t("ein.werberText"))] : []),
+        leise(t("ein.spaeterSettings")), knopf("ein-weiter", t("ein.weiter"), true)];
     }
     case "los":
-      return `<h2>${escapeHtml(t("ein.womitAnfangen"))}</h2>
-        <p class="mono-sm">${escapeHtml(t("ein.leisteDanach"))}</p>
-        <button id="ein-nutzen" ${KNOPF}>${escapeHtml(t("ein.kiFragen"))}</button>
-        <button id="ein-kommunizieren" ${KNOPF}>${escapeHtml(t("ein.nachrichtenSchreiben"))}</button>
-        <button id="ein-verdienen" ${KNOPF}>${escapeHtml(t("ein.vermietenTitel"))}</button>`;
+      return [el("h2", t("ein.womitAnfangen")), el("p", t("ein.leisteDanach"), "mono-sm"),
+        knopf("ein-nutzen", t("ein.kiFragen")), knopf("ein-kommunizieren", t("ein.nachrichtenSchreiben")),
+        knopf("ein-verdienen", t("ein.vermietenTitel"))];
     default:
-      return "";
+      return [];
   }
 }
 
