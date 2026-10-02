@@ -15043,3 +15043,33 @@ Weck-Worker (c) gab es schon.
 
 Knoten-Stand: B-12a/b (Weckdienst, `RELAY_ENABLED`). Ohne ihn meldet die App
 „Dein Knoten weckt nicht“.
+
+## Schritt B-13d1 – Zugang im Anruf-Angebot, Leak-Regel
+
+**Warum:** B-13d (Anrufe in der App) ist in drei Schritte geteilt: d1 Protokoll,
+d2 Anruf-Logik, d3 Oberfläche mit Datenschutz-Aussage. Entscheidung T3 B
+(MENSCH, 02.10.): Wer angerufen wird und keinen eigenen Knoten hat, bekommt im
+versiegelten Angebot einen kurzlebigen Zugang zum TURN der Anruferin.
+
+**Was:**
+- `anruf.ts`: Das Angebot darf ein Feld `turn` tragen. Es wird beim Bauen und
+  beim Öffnen geprüft (gültig zum jeweiligen Zeitpunkt, höchstens ein Tag) und
+  steht nur im Kern. Ohne `turn` bleibt alles wie in B-13c.
+- `pruefeTurnZugang()` (`turn-zugang.ts`): die Prüfung aus `leseTurnZugang()`
+  für einen schon gelesenen Wert – beide nutzen sie.
+- Leak-Regel `anruf-nur-relay` (`regelAnrufNurRelay()`): Kind 25040 nie offen
+  gesendet; in den inneren Events (Mitschnitt vor dem Versiegeln) nur
+  Relay-Kandidaten mit Fingerabdruck.
+- `docs/PROTOCOL.md` §27 ergänzt (Zugang im Angebot, Leak-Regel).
+- Die Datenschutz-Aussagen (Gegenüber sieht die IP nicht; ohne eigenen Knoten
+  sieht der Knoten der Anruferin sie) kommen mit der Oberfläche in d3 – vorher
+  gäbe es die Funktion nicht.
+
+**Tests:** protocol +2:
+- `anruf.test.ts`: Angebot mit Zugang, Zugang nie offen. Negativfälle:
+  abgelaufen, über einen Tag, keine `turn:`-Adresse, Nutzer passt nicht zum
+  Ablauf, falsches Passwort, kein Objekt, beim Öffnen abgelaufen. Dazu die
+  Leak-Regel mit allen Fällen.
+- `leak-rules.test.ts`: Der Regelname steht in `LEAK_REGELN`.
+
+Knoten-Stand: unverändert.

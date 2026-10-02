@@ -737,3 +737,20 @@ Ein Anruf ist jetzt oder nie.
   verschlüsselten Medien an den Absender des Siegels.
 - `oeffneAnrufNachricht()` nimmt nur Nachrichten an diesen Schlüssel, nicht
   älter als fünf Minuten, mit passender Kennung im Tag.
+
+**Zugang im Angebot** (seit B-13d1, Entscheidung T3 B): Wer angerufen wird und
+keinen eigenen Knoten hat, hat keinen eigenen Vermittler. Das Angebot darf
+deshalb ein Feld `turn` tragen:
+- Form wie die Antwort aus §26: `urls`, `nutzer`, `passwort`, `bis`.
+- Geprüft mit `pruefeTurnZugang()`, wie bei `leseTurnZugang()`: gültig beim
+  Bauen und beim Öffnen, höchstens einen Tag.
+- Mit ihm verbindet sich die Angerufene über den TURN der Anruferin. Dann
+  sieht deren Knoten die IP-Adresse der Angerufenen; die App sagt das vor dem
+  Annehmen.
+- Der Zugang ist ein Geheimnis – er steht nur im versiegelten Kern.
+- In Antwort, Kandidat und Ende gibt es kein `turn`.
+
+**Leak-Regel `anruf-nur-relay`** (`regelAnrufNurRelay()`):
+- Kind 25040 steht nie in einem gesendeten Event.
+- In den inneren Events (Mitschnitt vor dem Versiegeln) stehen nur
+  Relay-Kandidaten mit Fingerabdruck.

@@ -14,10 +14,17 @@
  * - Ablauf nach fünf Minuten (NIP-40), kein Zeitversatz: Ein Anruf ist jetzt
  *   oder nie; Relays sollen ihn nicht aufheben. Was älter als fünf Minuten ist,
  *   liest die App nicht mehr.
+ * - Zugang im Angebot (seit B-13d1, Entscheidung T3 B): Wer angerufen wird und
+ *   keinen eigenen Knoten hat, hat keinen eigenen Vermittler. Das Angebot darf
+ *   deshalb einen kurzlebigen Zugang zum TURN der Anruferin tragen (`turn`,
+ *   geprüft wie `leseTurnZugang()`). Dann sieht deren Knoten die IP der
+ *   Angerufenen – die App sagt das vor dem Annehmen. Der Zugang ist ein
+ *   Geheimnis: Er steht nur im versiegelten Kern.
  */
 import type { NostrEvent, UnsignedEvent } from "./event.js";
 import { giftUnwrapMitSigner, giftWrapMitSigner } from "./gift-wrap.js";
 import type { Signer } from "./signer.js";
+import { type TurnZugang, pruefeTurnZugang } from "./turn-zugang.js";
 
 /** Innen Kind des Anruf-Aufbaus – nie offen veröffentlicht. */
 export const KIND_ANRUF = 25040;
@@ -30,7 +37,7 @@ export type EndeGrund = (typeof ENDE_GRUENDE)[number];
 export type Medium = "audio" | "video";
 
 export type AnrufNachricht =
-  | { anruf: string; typ: "angebot"; sdp: string; medien: Medium[] }
+  | { anruf: string; typ: "angebot"; sdp: string; medien: Medium[]; turn?: TurnZugang }
   | { anruf: string; typ: "antwort"; sdp: string }
   | { anruf: string; typ: "kandidat"; kandidat: { candidate: string; sdpMid: string | null; sdpMLineIndex: number | null } }
   | { anruf: string; typ: "ende"; grund: EndeGrund };
@@ -63,8 +70,8 @@ export function pruefeSdpNurRelay(sdp: string): boolean {
   return zeilen.filter((z) => z.startsWith("a=candidate:")).every((z) => istRelayKandidat(z.slice(2)));
 }
 
-/** Nachricht streng prüfen – sonst null. */
-function geprueft(n: unknown): AnrufNachricht | null {
+/** Nachricht streng prüfen – sonst null. Ein Zugang im Angebot muss jetzt (`jetzt`) gelten. */
+function geprueft(n: unknown, jetzt: number): AnrufNachricht | null {
   if (typeof n !== "object" || n === null || Array.isArray(n)) return null;
   const x = n as Record<string, unknown>;
   if (typeof x.anruf !== "string" || !ANRUF_ID.test(x.anruf)) return null;
@@ -74,7 +81,9 @@ function geprueft(n: unknown): AnrufNachricht | null {
       if (!Array.isArray(medien) || medien.length < 1 || medien.length > 2 || new Set(medien).size !== medien.length) return null;
       if (!medien.every((m) => m === "audio" || m === "video") || !medien.includes("audio")) return null;
       if (!pruefeSdpNurRelay(x.sdp as string)) return null;
-      return { anruf: x.anruf, typ: "angebot", sdp: x.sdp as string, medien: medien as Medium[] };
+      if (x.turn === undefined) return { anruf: x.anruf, typ: "angebot", sdp: x.sdp as string, medien: medien as Medium[] };
+      const turn = pruefeTurnZugang(x.turn, jetzt);
+      return turn ? { anruf: x.anruf, typ: "angebot", sdp: x.sdp as string, medien: medien as Medium[], turn } : null;
     }
     case "antwort":
       return pruefeSdpNurRelay(x.sdp as string) ? { anruf: x.anruf, typ: "antwort", sdp: x.sdp as string } : null;
@@ -101,11 +110,11 @@ function geprueft(n: unknown): AnrufNachricht | null {
 export async function baueAnrufNachricht(p: {
   von: Signer; an: readonly string[]; nachricht: AnrufNachricht; nowSecs?: number;
 }): Promise<NostrEvent[]> {
-  const n = geprueft(p.nachricht);
-  if (!n) throw new Error("Anruf-Nachricht ungültig (nur Relay-Kandidaten, mit Fingerabdruck)");
+  const now = p.nowSecs ?? Math.floor(Date.now() / 1000);
+  const n = geprueft(p.nachricht, now);
+  if (!n) throw new Error("Anruf-Nachricht ungültig (nur Relay-Kandidaten, mit Fingerabdruck, Zugang gültig)");
   const an = [...new Set(p.an)];
   if (an.length < 1 || an.length > ANRUF_GRENZEN.empfaenger || !an.every((k) => HEX64.test(k))) throw new Error("Empfänger ungültig");
-  const now = p.nowSecs ?? Math.floor(Date.now() / 1000);
   const kern = (empfaenger: string): UnsignedEvent => ({
     pubkey: p.von.publicKey(), kind: KIND_ANRUF, created_at: now, tags: [["p", empfaenger], ["anruf", n.anruf]], content: JSON.stringify(n),
   });
@@ -130,7 +139,7 @@ export async function oeffneAnrufNachricht(
   } catch {
     return null;
   }
-  const n = geprueft(roh);
+  const n = geprueft(roh, jetzt);
   if (!n || inner.tags.find((t) => t[0] === "anruf")?.[1] !== n.anruf) return null;
   return { von: inner.pubkey, nachricht: n };
 }
