@@ -1,6 +1,6 @@
 /**
  * Leak-Szenario „SOL empfangen“ (Schritt 4.9c): drei Taeusche sats → SOL mit
- * der eingebauten Wallet, wie `startSwap()` in `tabs/waehrung.ts` sie
+ * der eingebauten Wallet, wie `startSwap()` in `tabs/tausch.ts` sie
  * adressiert – je Tausch eine frische Adresse aus dem Vorrat
  * (`frischeEmpfangsadresse()`), nie die Hauptadresse, nie zweimal dieselbe.
  * Gesendete Zahlungen sind nicht Teil davon (Entscheidung 4.9 A) – siehe
@@ -25,7 +25,7 @@ test("SOL empfangen: jeder Tausch an eine frische Adresse, nie an die Hauptadres
 });
 
 test("Verdrahtung: startSwap() nimmt die frische Adresse als Vorschlag", () => {
-  const w = readFileSync(new URL("../../src/shell/tabs/waehrung.ts", import.meta.url), "utf8");
+  const w = readFileSync(new URL("../../src/shell/tabs/tausch.ts", import.meta.url), "utf8");
   const f = w.slice(w.indexOf("async function startSwap("), w.indexOf("async function pollSwapResponse("));
   assert.ok(f.indexOf("frischeEmpfangsadresse()") < f.indexOf("hinAnfrage("), "erst die frische Adresse, dann die Anfrage");
 });

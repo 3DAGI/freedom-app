@@ -46,7 +46,8 @@ test("Antworten: nur versiegelt, nur vom LP, nur zur eigenen Anfrage – offene 
 });
 
 test("Verdrahtung (4.9b): Angebotsliste fragt LPs ohne Umschlag nicht an; beide Richtungen lesen nur swapAntworten", () => {
-  const w = readFileSync(new URL("../src/shell/tabs/waehrung.ts", import.meta.url), "utf8");
+  // Der Währung-Tab steht seit C-5a in drei Dateien
+  const w = ["waehrung", "tausch", "hinterlegen"].map((d) => readFileSync(new URL(`../src/shell/tabs/${d}.ts`, import.meta.url), "utf8")).join("\n");
   assert.match(w, /if \(!liestUmschlaege\(offer\)\) \{[^}]*knopf\.disabled = true;/);
   const rueck = w.slice(w.indexOf("async function warteAufRueckAntwort("), w.indexOf("export async function exportSwapBackup("));
   assert.match(rueck, /\(await swapAntworten\(pool, post\)\)\.map\(leseRueckAntwort\)/);

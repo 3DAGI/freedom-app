@@ -1,6 +1,6 @@
 /**
  * Leak-Szenario „Tausch SOL → sats“ (Schritt 4.6c, seit 4.9b versiegelt): die
- * Anfrage so, wie `startRueckSwap()` in `tabs/waehrung.ts` sie sendet – mit
+ * Anfrage so, wie `startRueckSwap()` in `tabs/tausch.ts` sie sendet – mit
  * `rueckAnfrage()` im Umschlag von einem Wegwerf-Schluessel. Bis 4.9 stand die
  * Rechnung offen darin, weil der LP (4.6b) nur offene Anfragen las.
  */
@@ -39,7 +39,7 @@ test("Tausch SOL → sats: keine Rechnung im oeffentlichen Event", async () => {
 });
 
 test("Verdrahtung: startRueckSwap() sendet die Anfrage wie das Szenario – nur versiegelt", () => {
-  const w = readFileSync(new URL("../../src/shell/tabs/waehrung.ts", import.meta.url), "utf8");
+  const w = readFileSync(new URL("../../src/shell/tabs/tausch.ts", import.meta.url), "utf8");
   const f = w.slice(w.indexOf("async function startRueckSwap("), w.indexOf("async function warteAufRueckAntwort("));
   assert.match(f, /const post = await rueckAnfrage\(\{ lpPk: lpPubkey, offerId: offer\.offerId, bolt11 \}\);\s*await \(await ensurePool\(\)\)\.publish\(post\.wrap\);/);
 });

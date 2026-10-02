@@ -82,7 +82,7 @@ fremder Empfänger, zu kurze Frist → LP zahlt gar nicht erst.
 ### In der App (4.6c)
 
 Im Tab Währung → Tausch stehen die Angebote mit Richtung („SOL → sats“).
-`startRueckSwap()` (`tabs/waehrung.ts`) plant mit `planeRueckSwap()`
+`startRueckSwap()` (`tabs/tausch.ts`) plant mit `planeRueckSwap()`
 (`rueck-swap.ts`), bevor irgendetwas gesperrt wird:
 
 1. Betrag in sats; die Rechnung erstellt die verbundene Lightning-Wallet (NWC

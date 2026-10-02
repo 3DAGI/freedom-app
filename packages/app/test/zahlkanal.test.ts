@@ -299,7 +299,7 @@ test("4.3d2 Verdrahtung: Programm und Angebot prüfen, Tresor, merken, dann einz
   const app = readFileSync(new URL("../src/shell/app.ts", import.meta.url), "utf8");
   assert.match(app, /if \(name === "wallet"\) \{ loadWallet\(\); void zeigeKanaele\(\); \}/);
   assert.match(app, /\$\("#kanal-start"\)\.onclick = \(\) => void oeffneZahlkanal\(\);/);
-  const waehrung = readFileSync(new URL("../src/shell/tabs/waehrung.ts", import.meta.url), "utf8");
+  const waehrung = readFileSync(new URL("../src/shell/tabs/hinterlegen.ts", import.meta.url), "utf8");
   assert.match(waehrung, /return activeSwap !== null \|\| activeDeposit !== null \|\| kanalEinzahlung;/, "Tresor sperrt nicht während der Einzahlung");
   assert.ok(i("setzeKanalEinzahlung(true);") < i("await sendeMitWallet(") && i("await sendeMitWallet(") < i("setzeKanalEinzahlung(false);"));
   const html = readFileSync(new URL("../src/shell/index.html", import.meta.url), "utf8");

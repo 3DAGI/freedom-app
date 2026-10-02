@@ -53,8 +53,11 @@ test("C-1a: ganze sats aus einem Eingabefeld – nur Ziffern, sonst 0", () => {
 });
 
 test("C-1a: Währung-Tab fragt nur über Dialoge – Beträge, Adresse und Rechnung geprüft im Dialog", () => {
-  const w = readFileSync(join(SRC, "shell/tabs/waehrung.ts"), "utf8");
-  assert.doesNotMatch(ohneKommentare(w), BROWSER_DIALOG);
+  // Seit C-5a steht der Tab in drei Dateien – keine fragt über den Browser
+  for (const d of ["waehrung", "tausch", "hinterlegen"]) {
+    assert.doesNotMatch(ohneKommentare(readFileSync(join(SRC, `shell/tabs/${d}.ts`), "utf8")), BROWSER_DIALOG, d);
+  }
+  const w = readFileSync(join(SRC, "shell/tabs/tausch.ts"), "utf8");
   assert.match(w, /import \{ bestaetige, dialog \} from "\.\.\/dialog\.js";/);
   const hin = w.slice(w.indexOf("async function startSwap("), w.indexOf("async function pollSwapResponse("));
   // Betrag: nur ganze sats; Adresse: nur eine Solana-Adresse, Vorschlag bleibt die frische
@@ -75,7 +78,7 @@ test("C-1a: Währung-Tab fragt nur über Dialoge – Beträge, Adresse und Rechn
 
   // Relayer und Deposit: abgelehnt heißt nichts geschieht
   assert.match(w, /if \(!\(await bestaetige\(\{ titel: t\("waehr\.relayerTitel"\), text: t\("waehr\.relayerFrage", \{ betrag: solText\(teuerster\) \}\), ok: t\("waehr\.einloesen"\) \}\)\)\) return undefined;/);
-  assert.match(w, /if \(kursWarnung && !\(await bestaetige\(\{ titel: t\("waehr\.solHinterlegen"\), text: t\("waehr\.trotzdemHinterlegen", \{ warnung: kursWarnung \}\), ok: t\("waehr\.hinterlegenTrotzdem"\) \}\)\)\) return;/);
+  assert.match(readFileSync(join(SRC, "shell/tabs/hinterlegen.ts"), "utf8"), /if \(kursWarnung && !\(await bestaetige\(\{ titel: t\("waehr\.solHinterlegen"\), text: t\("waehr\.trotzdemHinterlegen", \{ warnung: kursWarnung \}\), ok: t\("waehr\.hinterlegenTrotzdem"\) \}\)\)\) return;/);
 });
 
 test("C-1b: Modelle und Kataloge – Dialoge statt prompt(), unbrauchbare Eingaben melden sich im Dialog", () => {

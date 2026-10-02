@@ -1,4 +1,4 @@
-/** Texte des Währung-Tabs (8.16e): Seite, tabs/waehrung.ts, eingebaute Wallet, offline zahlen. */
+/** Texte des Währung-Tabs (8.16e): Seite, tabs/waehrung.ts (seit C-5a auch tausch.ts, hinterlegen.ts), eingebaute Wallet, offline zahlen. */
 import type { Texte } from "../i18n.js";
 
 export const waehrung: Texte = {

@@ -1,6 +1,6 @@
 /**
  * Leak-Szenario „Swap starten“ (Schritt 1.5, seit 4.9b versiegelt): die
- * Swap-Anfrage so, wie `startSwap()` in `tabs/waehrung.ts` sie sendet – mit
+ * Swap-Anfrage so, wie `startSwap()` in `tabs/tausch.ts` sie sendet – mit
  * `hinAnfrage()` im Umschlag von einem Wegwerf-Schluessel an den LP. Bis 4.9
  * stand die Solana-Empfangsadresse offen im Event, vom eigenen npub.
  */
@@ -43,7 +43,7 @@ test("Swap: nicht vom eigenen npub", async () => {
 });
 
 test("Verdrahtung: startSwap() sendet die Anfrage wie das Szenario – nur versiegelt", () => {
-  const w = readFileSync(new URL("../../src/shell/tabs/waehrung.ts", import.meta.url), "utf8");
+  const w = readFileSync(new URL("../../src/shell/tabs/tausch.ts", import.meta.url), "utf8");
   const f = w.slice(w.indexOf("async function startSwap("), w.indexOf("async function pollSwapResponse("));
   assert.match(f, /const post = await hinAnfrage\(\{ lpPk: lpPubkey, offerId, amountSats: amount, hashlockHex: toHex\(H\), solAdresse: solAddr \}\);\s*await pool\.publish\(post\.wrap\);/);
   assert.doesNotMatch(f, /signiere\(|buildEvent\(/, "keine offene Anfrage mehr");

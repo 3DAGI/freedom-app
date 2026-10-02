@@ -99,7 +99,8 @@ test("Texte: ehrlich, wo das Geld ist", () => {
 });
 
 test("Verdrahtung (4.6c): Angebotsliste, Ablauf, Waechter, Deposit", () => {
-  const w = readFileSync(new URL("../src/shell/tabs/waehrung.ts", import.meta.url), "utf8");
+  // Der Währung-Tab steht seit C-5a in drei Dateien
+  const w = ["waehrung", "tausch", "hinterlegen"].map((d) => readFileSync(new URL(`../src/shell/tabs/${d}.ts`, import.meta.url), "utf8")).join("\n");
   assert.match(w, /rueck \? startRueckSwap\(ev\.pubkey, offer\) : startSwap\(ev\.pubkey, offer\.offerId, offer\.vorabSats\)/);
   assert.match(w, /\(Number\(offer\.feePpm\) \/ 10_000\)\.toLocaleString\(gebietsschema\(\), \{ minimumFractionDigits: 2, maximumFractionDigits: 2 \}\)/, "Gebuehr in Prozent, nicht ppm/100");
   const f = w.slice(w.indexOf("async function startRueckSwap("), w.indexOf("async function warteAufRueckAntwort("));
