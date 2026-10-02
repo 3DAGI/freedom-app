@@ -160,6 +160,13 @@ gekoppelten Besitzer mit:
 
 Steuern lässt sich der Knoten aus der App nicht.
 
+**Wecken (B-12, im Aufbau):** Ist die App zu, kann der Knoten den Browser
+des Besitzers per Web Push wecken – ohne Inhalt und ohne Absender. Dafür legt
+er beim ersten Start einen eigenen VAPID-Schlüssel an (`~/.freedom/vapid.json`,
+nur für ihn lesbar). Angemeldete Push-Adressen liegen in
+`~/.freedom/wecken.json` – ein Zugang zu deinen Browsern, nie weitergeben.
+Bis B-12b nimmt der Knoten Anmeldungen nur an, geweckt wird noch nicht.
+
 **Alles über meinen Knoten (B-9c):** Mit dem Haken unter Settings → Geräte →
 „Mein Knoten“ schickt die App KI-Anfragen an deinen Knoten und Halte-Aufträge
 nur an sein Relay, nie an fremde. Dafür braucht der Knoten `RELAY_ENABLED=1`.

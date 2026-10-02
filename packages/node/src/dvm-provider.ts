@@ -56,7 +56,9 @@ import {
   kuerzeAntwort, leseKurzWunsch,
   KIND_BLOB_CHUNK, KIND_BLOB_MANIFEST, KIND_DVM_BLOB_HALTEN, halteAntwortText, halteManifest,
   KIND_DVM_KNOTEN_STATUS, knotenStatusText, type KnotenStatus,
+  KIND_DVM_WECKEN, leseWeckAnmeldung, weckAntwortText,
 } from "@freedomstack/protocol";
+import type { WeckBuch } from "./wecken.js";
 import type { KanalKasse } from "./kanal-kasse.js";
 import type { Connection } from "@solana/web3.js";
 import { InferenceBackend, OllamaBackend } from "./inference.js";
@@ -132,7 +134,9 @@ export interface ProviderConfig {
    * den Prozess weiß (Fassung, Start, laufende Rollen, Modelle, Relay).
    * Aufträge und Speicher zählt der Provider selbst. Ohne: keine Statusabfrage.
    */
-  status?: () => Pick<KnotenStatus, "fassung" | "seit" | "rollen" | "modelle" | "relay" | "einrichtung">;
+  status?: () => Pick<KnotenStatus, "fassung" | "seit" | "rollen" | "modelle" | "relay" | "einrichtung" | "weckSchluessel">;
+  /** Anmeldungen zum Wecken (B-12a, W1 A) – ohne: keine Weck-Anmeldung. */
+  weckBuch?: WeckBuch;
   /** Free-Tier (Provider-Marketing, lokal entschieden — KEIN Protokoll-Feature):
    *  Gratis-Tokens pro pubkey pro Tag. 0 = aus. Der Provider verschenkt
    *  eigene Rechenzeit als Werbung; es gibt keinen Topf und keinen Betreiber. */
@@ -209,9 +213,9 @@ export class DvmProvider {
   /** Aufträge seit dem Start, für den Status (B-11a) – nur Zahlen, nur im Speicher. */
   private zaehler = { erledigt: 0, gratis: 0, abgelehnt: 0, abgerechnetMsat: 0 };
 
-  /** Ausgang eines Auftrags zählen – Statusabfragen nicht. */
+  /** Ausgang eines Auftrags zählen – Statusabfragen und Weck-Anmeldungen nicht. */
   private zaehle(request: NostrEvent, job: ProcessedJob | null): void {
-    if (request.kind === KIND_DVM_KNOTEN_STATUS) return;
+    if (request.kind === KIND_DVM_KNOTEN_STATUS || request.kind === KIND_DVM_WECKEN) return;
     if (!job) {
       this.zaehler.abgelehnt++;
       return;
@@ -796,6 +800,43 @@ export class DvmProvider {
   }
 
   /**
+   * Weck-Anmeldung (5078, seit B-12a, Entscheidungen W1 A, W2 A): nur aus
+   * einem Umschlag und mit Nachweis (`istBesitzer()`). Übernommen nur, was
+   * `leseWeckAnmeldung()` durchlässt; die Push-Adresse geht nie ins Log.
+   * Nach außen nur feste Texte.
+   */
+  private async handleWecken(request: NostrEvent, privat: boolean): Promise<ProcessedJob> {
+    const start = Date.now();
+    if (!privat || !istBesitzer(request, this.cfg.besitzer?.() ?? [], Math.floor(start / 1000))) throw new Error("Wecken nur für den Besitzer");
+    if (!this.cfg.weckBuch) throw new Error("kein Weckdienst");
+    const a = leseWeckAnmeldung(request);
+    if (!a) throw new Error("Weck-Anmeldung ungültig");
+    const schluessel = this.cfg.weckBuch.nimm(a);
+    const resultEvent = signEvent(
+      buildJobResult({
+        providerPubkey: this.cfg.keypair.pk,
+        requestId: request.id,
+        requestKind: request.kind,
+        customerPubkey: request.pubkey,
+        output: weckAntwortText({ aktion: a.aktion, schluessel }),
+        amountMsat: 0,
+      }),
+      this.cfg.keypair.sk,
+    );
+    await this.antworte(resultEvent, request, true);
+    return {
+      requestId: request.id,
+      resultEventId: resultEvent.id,
+      customerPubkey: request.pubkey,
+      amountMsat: 0,
+      providerMsat: 0,
+      aufteilung: [],
+      outputPreview: a.aktion === "an" ? `Wecken an (${schluessel} Schlüssel)` : "Wecken ab",
+      durationMs: Date.now() - start,
+    };
+  }
+
+  /**
    * Session-Validierung (Provider-Seite, Stufe B):
    *   1. Session-Open vom Relay laden (d-Tag = sessionId, Autor = Kunde)
    *   2. Muss an UNS adressiert sein (p-Tag = eigener pubkey)
@@ -912,6 +953,8 @@ export class DvmProvider {
     if (request.kind === KIND_DVM_BLOB_HALTEN) return this.handleBlobHalten(request, privat);
     // Status für den Besitzer (5077, B-11a): nur versiegelt und mit Nachweis, nur lesen
     if (request.kind === KIND_DVM_KNOTEN_STATUS) return this.handleKnotenStatus(request, privat);
+    // Wecken anmelden (5078, B-12a): nur versiegelt und mit Nachweis
+    if (request.kind === KIND_DVM_WECKEN) return this.handleWecken(request, privat);
     const input = getTag(request, "i");
     const bidMsat = Number(getTag(request, "bid") ?? "0");
     const sessionId = getTag(request, "session");
