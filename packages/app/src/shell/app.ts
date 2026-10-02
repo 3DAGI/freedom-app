@@ -17,6 +17,7 @@ import { wireMeinKnoten } from "./mein-knoten.js";
 import { wireKnotenHalten } from "./knoten-halten-ui.js";
 import { wireKnotenWeg } from "./knoten-weg-ui.js";
 import { wireKnotenStatus } from "./knoten-status-ui.js";
+import { wireWecken } from "./wecken-ui.js";
 import { wireEingebauteWallet } from "./eingebaute-wallet.js";
 import { zeigeDatenschutz } from "./datenschutz.js";
 import { nachNotfallLoeschung, wireNotfallLoeschung } from "./notfall.js";
@@ -700,6 +701,7 @@ function starte(): void {
   wireKnotenHalten();
   wireKnotenWeg();
   wireKnotenStatus();
+  wireWecken();
   wireSicherheitsKnoepfe();
   wireNotfallLoeschung(geldVorgangLaeuft);
   checkOwnProvider();

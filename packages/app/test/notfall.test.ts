@@ -57,10 +57,13 @@ test("8.14: jede IndexedDB-Datenbank der App steht in WIPE_DATENBANKEN", () => {
 
 test("8.14: keine Speicherart, die die Notfall-Loeschung nicht kennt", () => {
   for (const { name, text } of quellen) {
-    for (const verboten of [/\bcaches\.open\(/, /navigator\.storage\.getDirectory\(/, /document\.cookie\s*=/, /\bopenDatabase\(/, /serviceWorker\.register\(/]) {
+    for (const verboten of [/\bcaches\.open\(/, /navigator\.storage\.getDirectory\(/, /document\.cookie\s*=/, /\bopenDatabase\(/]) {
       assert.doesNotMatch(text, verboten, `${name}: ${verboten} – erst die Notfall-Löschung erweitern`);
     }
   }
+  // Service Worker seit B-12d2: nur der Weck-Worker, nur aus dem Haken – die Löschung kennt ihn (weckerAbmelden(), B-12d1)
+  const mitWorker = quellen.filter(({ text }) => /serviceWorker\.register\(/.test(text)).map(({ name }) => name);
+  assert.deepEqual(mitWorker, ["wecken-ui.ts"]);
 });
 
 test("8.14: verdrahtet – Knopf in den Settings, zweiter Durchgang vor allem anderen beim Start", () => {

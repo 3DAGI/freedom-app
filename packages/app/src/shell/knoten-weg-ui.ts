@@ -6,7 +6,9 @@
  * sich anmeldet, und nur am Relay des gekoppelten Knotens (`knotenRelay()`).
  * Ohne bekanntes Relay geht nichts an ihn – nie still über den Pool.
  */
-import { KIND_RELAY_LIST, WebSocketRelay, baueRelayAuth, type NostrEvent, type RelayFilter, type Signer } from "@freedomstack/protocol";
+import {
+  KIND_RELAY_LIST, WebSocketRelay, baueRelayAuth, getTag, openPrivateJobResponse, type NostrEvent, type RelayFilter, type Signer,
+} from "@freedomstack/protocol";
 import { t } from "../i18n.js";
 import { LS_NUR_KNOTEN, knotenRelayAus, nurUeberKnoten, satzMitKnotenRelay, ursprungAlsKnotenRelay } from "../knoten-weg.js";
 import { fehlerText } from "../protokoll-texte.js";
@@ -52,6 +54,28 @@ export interface KnotenWeg {
   publish(ev: NostrEvent): Promise<unknown>;
   query(f: RelayFilter): Promise<NostrEvent[]>;
   schliesse(): void;
+}
+
+/**
+ * Auf die versiegelte Antwort meines Knotens warten – Ergebnis (`ergebnisKind`)
+ * oder Rückmeldung 7000; null nach der Frist. Nur nach dem Sitzungsschlüssel
+ * des Auftrags fragen (siehe `KnotenWeg.sitzungPk`).
+ */
+export async function warteAufKnoten(
+  weg: KnotenWeg, sitzung: Signer, requestId: string, ergebnisKind: number, zeitMs: number, taktMs: number,
+): Promise<{ ergebnis: string } | { abgelehnt: string } | null> {
+  const seit = Math.floor(Date.now() / 1000) - 60;
+  for (let t0 = Date.now(); Date.now() - t0 < zeitMs;) {
+    await new Promise((ok) => setTimeout(ok, taktMs));
+    const umschlaege = await weg.query({ kinds: [1059], "#p": [weg.sitzungPk], since: seit }).catch(() => []);
+    for (const w of umschlaege) {
+      const a = await openPrivateJobResponse(w, sitzung);
+      if (!a.ok || getTag(a.response, "e") !== requestId) continue;
+      if (a.response.kind === ergebnisKind) return { ergebnis: a.response.content };
+      if (a.response.kind === 7000) return { abgelehnt: a.response.content };
+    }
+  }
+  return null;
 }
 
 /**

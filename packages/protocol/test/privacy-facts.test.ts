@@ -26,7 +26,9 @@ import { buildSessionOpen, buildSessionPayment } from "../src/stream.js";
 import { LocalSigner } from "../src/signer.js";
 import { buildPrivateSolTrinkgeld } from "../src/sol-trinkgeld.js";
 import { MeshKind, fragment, pruefeMeshInhalt } from "../src/mesh-transport.js";
-import { regelMeshVerschluesselt } from "../src/leak-rules.js";
+import { regelBesitzerVersiegelt, regelMeshVerschluesselt } from "../src/leak-rules.js";
+import { neueKopplung } from "../src/kopplung.js";
+import { baueWeckAnmeldung } from "../src/wecken.js";
 import { versiegleSwapAnfrage, versiegleSwapAntwort } from "../src/swap-versiegelt.js";
 import { buildAdressAnfrage, buildAdressAntwort } from "../src/trinkgeld-adresse.js";
 import { regelKeinBolt11, regelSolAdresseFrisch } from "../src/leak-rules.js";
@@ -507,6 +509,25 @@ test("11.2b: die Abfrage eines Werbe-Namens steht als Grenze im Bericht – kein
   const t = privacyFactsText();
   const grenzen = t.slice(t.indexOf("Bewusste Grenzen:"));
   assert.match(grenzen, /△ Kommst du über einen Werbelink mit Namen \(name@domain\), fragt die App diese Domain beim ersten Start einmal .*Werbelinks mit Schlüssel fragen niemanden\./);
+});
+
+test("B-12d2: Wecken steht als Grenze im Bericht – die Anmeldung selbst ist versiegelt, die Push-Adresse nie offen", async () => {
+  const f = PRIVACY_FACTS.find((x) => x.id === "wecken");
+  assert.equal(f?.status, "grenze");
+  assert.equal(f?.regel, "besitzer-versiegelt");
+  const t = privacyFactsText();
+  assert.match(t.slice(t.indexOf("Bewusste Grenzen:")), /△ Mit „Wecken“ in „Mein Knoten“ sieht der Push-Dienst deines Browsers .*nicht, was kam und von wem\./);
+  // Szenario: Anmeldung beim eigenen Knoten – die Push-Adresse ist ein Zugang zum Browser, sie steht nur im Kern
+  const knoten = generateKeypair(), ich = generateKeypair(), geraet = generateKeypair();
+  const kopplung = neueKopplung(knoten.pk);
+  const endpunkt = "https://push.example.org/wpush/v2/" + "a".repeat(120);
+  const { wrap } = await baueWeckAnmeldung({
+    sitzung: new LocalSigner(generateKeypair().sk), kopplung, anmeldung: { aktion: "an", endpunkt, schluessel: [ich.pk, geraet.pk] },
+  });
+  assert.deepEqual(regelBesitzerVersiegelt([wrap]), []);
+  const offen = JSON.stringify(wrap);
+  for (const geheim of [endpunkt, ich.pk, geraet.pk]) assert.ok(!offen.includes(geheim), "nichts davon offen");
+  assert.deepEqual(wrap.tags, [["p", knoten.pk]], "nur der Knoten als Empfänger");
 });
 
 test("Grenzen nennen ihren Grund", () => {

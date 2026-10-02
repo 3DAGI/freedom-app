@@ -14984,3 +14984,62 @@ geteilt: d1 die Löschung, d2 der Haken samt Datenschutz-Aussage.
   (`worker=1`).
 
 Knoten-Stand: unverändert.
+
+## Schritt B-12d2 – Haken „Wecken“
+
+**Warum:** Der letzte Teil von B-12 (W1 A, W2 A, W3 A). Die App kann sich jetzt
+vom eigenen Knoten wecken lassen, wenn sie zu ist. Notfall-Löschung (d1) und
+Weck-Worker (c) gab es schon.
+
+**Was:**
+- Settings → Geräte → „Mein Knoten“: Haken „Wecken“, nur gekoppelt sichtbar.
+  Der Text am Haken sagt schon, dass der Push-Dienst des Browsers sieht, *wann*
+  geweckt wird.
+- **an** (`shell/wecken-ui.ts`, nur auf Klick), Schritt für Schritt:
+  1. den Status des Knotens erfragen (`frageKnotenStatus()`, für seinen
+     VAPID-Schlüssel – fehlt er, weckt der Knoten nicht);
+  2. Erlaubnis für Meldungen;
+  3. Weck-Worker anmelden (`freedom-sw.js?sprache=…`);
+  4. Push abonnieren und die Adresse prüfen (`pruefeWeckEndpunkt()`);
+  5. Anmeldung 5078 versiegelt mit Nachweis über `wegZumKnoten()` – Schlüssel
+     sind Person und Geräte (`weckSchluesselFuer()`).
+
+  Bestätigt der Knoten nicht – Schweigen, Ablehnung, Fehler, untaugliche
+  Adresse –, wird alles lokal wieder abgemeldet; nichts bleibt halb an.
+- **aus:** zuerst beim Knoten abmelden (`aktion: "ab"`, soweit er antwortet),
+  dann Abo und Worker weg (`weckerAbmelden()`). Antwortet er nicht, vergisst er
+  die Adresse beim nächsten Wecken (410).
+- Gemerkt wird nichts: Der Haken zeigt, ob es ein Abo gibt (beim Start nur
+  gelesen). Entkoppeln nimmt Wecken mit.
+- Ohne sicheren Kontext (App vom Knoten über http) oder ohne Push sagt die App,
+  dass es hier nicht geht. Fehlt der Worker in der Auslieferung (App vom Knoten,
+  B-10), sagt sie, dass es nur über die Website geht.
+- `frageKnotenStatus()` und `warteAufKnoten()` aus der Status-Abfrage
+  herausgelöst; Status und Wecken teilen sie, das Verhalten des Status-Knopfs
+  ist gleich.
+- **Datenschutzbericht:** neue Grenze „wecken“. Der Push-Dienst des Browsers
+  (Google, Mozilla, Apple) sieht, wann dein Knoten dich weckt – nicht was und
+  von wem; die Push-Adresse geht nur versiegelt an den Knoten. Regel
+  `besitzer-versiegelt`, Texte in beiden Sprachen.
+- `wiring-ausnahmen.txt`: `baueWeckAnmeldung` und `leseWeckAntwort` gestrichen –
+  jetzt verdrahtet.
+
+**Tests:**
+- app +4 in `test/wecken-app.test.ts`:
+  - wann es geht; der VAPID-Schlüssel streng (Länge, 0x04, base64url);
+  - die Schlüsselliste (Person zuerst, ohne Doppelte, Grenze);
+  - Verdrahtung: Reihenfolge, dreimal Zurücknehmen, nur über den Weg, nichts
+    gemerkt, erst Knoten dann lokal abmelden, Entkoppeln, Texte.
+- Weitere App-Tests:
+  - `weck-worker.test.ts`: `register` nur im Haken, mit der Sprache.
+  - `notfall.test.ts`: `serviceWorker.register(` nur in `wecken-ui.ts`.
+  - B-11b an der neuen Form.
+- protocol +1 in `privacy-facts.test.ts`: die Grenze im Bericht und ein
+  Szenario – die Anmeldung mit Push-Adresse und Schlüsseln zeigt nichts davon
+  offen, nur der Knoten ist Empfänger.
+- Smoke „einstellungen“: Der Haken ist gekoppelt sichtbar und ohne Abo aus. Mit
+  „nur über meinen Knoten“ und ohne bekanntes Relay scheitert er sofort – Haken
+  aus, kein Worker angemeldet, nichts gesendet.
+
+Knoten-Stand: B-12a/b (Weckdienst, `RELAY_ENABLED`). Ohne ihn meldet die App
+„Dein Knoten weckt nicht“.
