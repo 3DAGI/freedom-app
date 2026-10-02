@@ -27,6 +27,7 @@ import {
 import { DvmProvider, DEFAULT_PROVIDER_CONFIG } from "./dvm-provider.js";
 import { kanalKasseAusUmgebung, kanalOrte } from "./kanal-kasse.js";
 import { type Befund, befundeText, holeJson, kettenBlick, pruefeEinrichtung } from "./einrichtung.js";
+import { WeckBuch, ladeVapid, vapidDatei, weckDatei } from "./wecken.js";
 import { kopplungsDatei, leseKopplung } from "./kopplung-datei.js";
 import { torAusUmgebung, torWebSocket } from "./tor.js";
 import { OllamaBackend } from "./inference.js";
@@ -186,9 +187,14 @@ async function main(): Promise<void> {
   // Kopplung mit dem Besitzer (B-8b): je Anfrage frisch gelesen – ein neues Geheimnis (npm run koppeln -- --neu) gilt sofort
   const kopplungOrt = kopplungsDatei();
   console.log(leseKopplung(kopplungOrt, keypair.pk) ? "[kopplung] mit dem Besitzer gekoppelt" : "[kopplung] nicht gekoppelt – npm run koppeln");
+  // Weckdienst (B-12a, W1 A): VAPID-Schlüssel und Anmeldungen des Besitzers, beide 0600 in ~/.freedom
+  const vapid = ladeVapid(vapidDatei());
+  if (!vapid) console.warn("[wecken] vapid.json nicht lesbar – kein Weckdienst");
+  const weckBuch = vapid ? new WeckBuch(weckDatei()) : undefined;
   const provider = new DvmProvider(
     {
       keypair,
+      weckBuch,
       lud16,
       werber,
       besitzer: () => { const k = leseKopplung(kopplungOrt, keypair.pk); return k ? [k.geheimnis] : []; },
@@ -197,6 +203,7 @@ async function main(): Promise<void> {
         return {
           fassung, seit: statusSeit, rollen: [...statusRollen], modelle: angebotModelle(), relay: r ? { events: r.events, verbindungen: r.verbindungen } : null,
           einrichtung: einrichtung?.map(({ schiene, stufe, fall, werte }) => ({ schiene, stufe, fall, werte: werte ?? {} })),
+          weckSchluessel: vapid?.oeffentlich,
         };
       },
       pricePerKTokenMsat: Number(process.env.PRICE_PER_K_TOKEN_MSAT ?? DEFAULT_PROVIDER_CONFIG.pricePerKTokenMsat),

@@ -111,6 +111,7 @@ export * from "./sol-offline.js";
 export * from "./nip34.js";
 export * from "./kopplung.js";
 export * from "./knoten-status.js";
+export * from "./wecken.js";
 export * from "./kommentar.js";
 export * from "./raum-repo.js";
 export * from "./ki-lokal.js";
