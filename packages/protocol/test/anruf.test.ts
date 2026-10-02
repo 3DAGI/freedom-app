@@ -7,7 +7,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   ANRUF_GRENZEN, KIND_ANRUF, KIND_GIFT_WRAP, LocalSigner, baueAnrufNachricht, generateKeypair, giftWrapMitSigner, istRelayKandidat,
-  neueAnrufKennung, oeffneAnrufNachricht, pruefeSdpNurRelay, type AnrufNachricht,
+  neueAnrufKennung, oeffneAnrufNachricht, pruefeSdpNurRelay, regelAnrufNurRelay, type AnrufNachricht, type TurnZugang,
 } from "../src/index.js";
 
 const FP = Array.from({ length: 32 }, (_, i) => (i * 7 % 256).toString(16).toUpperCase().padStart(2, "0")).join(":");
@@ -97,4 +97,56 @@ test("B-13c: was ein anderer Client versiegelt, liest die App nur, wenn es den R
   ]) assert.equal(await oeffneAnrufNachricht(await wrap(k), du, JETZT), null, k.content.slice(0, 60));
   const gut = await wrap(kern({ anruf, typ: "ende", grund: "besetzt" }));
   assert.deepEqual((await oeffneAnrufNachricht(gut, du, JETZT))!.nachricht, { anruf, typ: "ende", grund: "besetzt" });
+});
+
+/** Zugang zum TURN der Anruferin – Form wie aus `turnZugang()` des Knotens. */
+const zugang = (bis: number, urls = ["turn:knoten.example:3478?transport=udp", "turns:knoten.example:5349"]): TurnZugang =>
+  ({ urls, nutzer: `${bis}:${"x".repeat(16)}`, passwort: "A".repeat(27) + "=", bis });
+
+test("B-13d1: Angebot mit Zugang zum TURN der Anruferin (T3 B) – nur gültig, nur im versiegelten Kern", async () => {
+  const ich = new LocalSigner(generateKeypair().sk), du = new LocalSigner(generateKeypair().sk);
+  const anruf = neueAnrufKennung();
+  const turn = zugang(JETZT + 3600);
+  const n: AnrufNachricht = { anruf, typ: "angebot", sdp: sdp(), medien: ["audio"], turn };
+  const [w] = await baueAnrufNachricht({ von: ich, an: [du.publicKey()], nachricht: n, nowSecs: JETZT });
+  assert.deepEqual((await oeffneAnrufNachricht(w!, du, JETZT))!.nachricht, n);
+  assert.ok(!JSON.stringify(w).includes(turn.nutzer) && !JSON.stringify(w).includes("knoten.example"), "Zugang nie offen");
+  // Ohne Zugang bleibt das Angebot wie bisher
+  const ohne: AnrufNachricht = { anruf, typ: "angebot", sdp: sdp(), medien: ["audio"] };
+  const [w2] = await baueAnrufNachricht({ von: ich, an: [du.publicKey()], nachricht: ohne, nowSecs: JETZT });
+  assert.equal("turn" in (await oeffneAnrufNachricht(w2!, du, JETZT))!.nachricht, false);
+  // Negativfälle – geprüft wie leseTurnZugang()
+  for (const [falsch, warum] of [
+    [zugang(JETZT - 1), "abgelaufen"],
+    [zugang(JETZT + 90_000), "mehr als einen Tag"],
+    [zugang(JETZT + 3600, ["http://knoten.example"]), "keine turn:-Adresse"],
+    [{ ...zugang(JETZT + 3600), nutzer: "1:kurz" }, "Nutzer passt nicht zum Ablauf"],
+    [{ ...zugang(JETZT + 3600), passwort: "kurz" }, "Passwort nicht nach TURN-REST"],
+    ["turn:knoten.example", "kein Objekt"],
+  ] as const) {
+    await assert.rejects(baueAnrufNachricht({ von: ich, an: [du.publicKey()], nachricht: { ...ohne, turn: falsch as TurnZugang }, nowSecs: JETZT }), /Zugang/, warum);
+  }
+  // Auch beim Lesen: Läuft der Zugang ab, bevor der Anruf ankommt, gilt das Angebot nicht
+  const kurz: AnrufNachricht = { ...ohne, turn: zugang(JETZT + 30) };
+  const [w3] = await baueAnrufNachricht({ von: ich, an: [du.publicKey()], nachricht: kurz, nowSecs: JETZT });
+  assert.equal(await oeffneAnrufNachricht(w3!, du, JETZT + 60), null);
+});
+
+test("B-13d1: Leak-Regel anruf-nur-relay – nie offen, innen nur Relay mit Fingerabdruck", () => {
+  const ev = (kind: number, content: string) => ({ id: "e".repeat(64), pubkey: "a".repeat(64), created_at: JETZT, kind, tags: [], content, sig: "" });
+  const anruf = neueAnrufKennung();
+  const gut = [
+    ev(KIND_ANRUF, JSON.stringify({ anruf, typ: "angebot", sdp: sdp(), medien: ["audio"] })),
+    ev(KIND_ANRUF, JSON.stringify({ anruf, typ: "antwort", sdp: sdp([]) })),
+    ev(KIND_ANRUF, JSON.stringify({ anruf, typ: "kandidat", kandidat: { candidate: RELAY, sdpMid: "0", sdpMLineIndex: 0 } })),
+    ev(KIND_ANRUF, JSON.stringify({ anruf, typ: "ende", grund: "aufgelegt" })),
+  ];
+  assert.deepEqual(regelAnrufNurRelay([ev(KIND_GIFT_WRAP, "x")], gut), []);
+  const HOST = "candidate:1 1 udp 2122260223 192.168.1.5 54321 typ host generation 0";
+  assert.equal(regelAnrufNurRelay(gut).length, 4, "offen gesendet ist jeder Anruf-Aufbau ein Fund – auch ein gültiger");
+  assert.equal(regelAnrufNurRelay([], [ev(KIND_ANRUF, JSON.stringify({ anruf, typ: "angebot", sdp: sdp([HOST]), medien: ["audio"] }))]).length, 1, "Host im SDP");
+  assert.equal(regelAnrufNurRelay([], [ev(KIND_ANRUF, JSON.stringify({ anruf, typ: "antwort", sdp: sdp([], "a=nichts") }))]).length, 1, "ohne Fingerabdruck");
+  assert.equal(regelAnrufNurRelay([], [ev(KIND_ANRUF, JSON.stringify({ anruf, typ: "kandidat", kandidat: { candidate: HOST } }))]).length, 1, "Host als Kandidat");
+  assert.equal(regelAnrufNurRelay([], [ev(KIND_ANRUF, "kein json")]).length, 1);
+  assert.equal(regelAnrufNurRelay([], [ev(KIND_ANRUF, JSON.stringify({ anruf, typ: "unbekannt" }))]).length, 1);
 });

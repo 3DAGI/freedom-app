@@ -26,7 +26,12 @@ import { buildSessionOpen, buildSessionPayment } from "../src/stream.js";
 import { LocalSigner } from "../src/signer.js";
 import { buildPrivateSolTrinkgeld } from "../src/sol-trinkgeld.js";
 import { MeshKind, fragment, pruefeMeshInhalt } from "../src/mesh-transport.js";
-import { regelMeshVerschluesselt } from "../src/leak-rules.js";
+import { regelBesitzerVersiegelt, regelMeshVerschluesselt } from "../src/leak-rules.js";
+import { neueKopplung } from "../src/kopplung.js";
+import { KIND_ANRUF, baueAnrufNachricht, neueAnrufKennung } from "../src/anruf.js";
+import { giftUnwrapMitSigner } from "../src/gift-wrap.js";
+import { regelAnrufNurRelay } from "../src/leak-rules.js";
+import { baueWeckAnmeldung } from "../src/wecken.js";
 import { versiegleSwapAnfrage, versiegleSwapAntwort } from "../src/swap-versiegelt.js";
 import { buildAdressAnfrage, buildAdressAntwort } from "../src/trinkgeld-adresse.js";
 import { regelKeinBolt11, regelSolAdresseFrisch } from "../src/leak-rules.js";
@@ -451,6 +456,22 @@ const SZENARIEN: Record<string, () => Promise<number>> = {
     if (alle.length !== 4) return 1;
     return regelKeinKlartext(alle, [GEHEIM]).length + regelAutorNicht(alle, a.pk).length + regelPTagsNur(alle, [a.pk, b.pk, handy, tablet]).length;
   },
+  "anruf-ip": async () => {
+    // Wie die App seit B-13d2: Angebot an Person und Gerät, nur Relay-Kandidaten, versiegelt; ein Host-Kandidat geht nicht hinaus
+    const FP = Array.from({ length: 32 }, (_, i) => (i * 5 % 256).toString(16).toUpperCase().padStart(2, "0")).join(":");
+    const relay = "candidate:842163049 1 udp 41885439 203.0.113.7 50001 typ relay raddr 0.0.0.0 rport 0 generation 0";
+    const sdp = (k: string) => ["v=0", "o=- 1 2 IN IP4 127.0.0.1", "s=-", "t=0 0", "m=audio 9 UDP/TLS/RTP/SAVPF 111", `a=${k}`, `a=fingerprint:sha-256 ${FP}`, "a=mid:0", ""].join("\r\n");
+    const geraet = generateKeypair();
+    const anruf = neueAnrufKennung();
+    const wraps = await baueAnrufNachricht({ von: new LocalSigner(a.sk), an: [b.pk, geraet.pk], nachricht: { anruf, typ: "angebot", sdp: sdp(relay), medien: ["audio"] } });
+    const innere = await Promise.all(wraps.map(async (w, i) => ({ id: "", sig: "", ...(await giftUnwrapMitSigner(w, new LocalSigner([b, geraet][i]!.sk))).inner! })));
+    if (innere.length !== 2 || innere.some((e) => e.kind !== KIND_ANRUF)) return 1;
+    let hostGingHinaus = 1;
+    await baueAnrufNachricht({ von: new LocalSigner(a.sk), an: [b.pk], nachricht: { anruf, typ: "angebot", sdp: sdp("candidate:1 1 udp 2122260223 192.168.1.5 54321 typ host generation 0"), medien: ["audio"] } })
+      .catch(() => { hostGingHinaus = 0; });
+    return hostGingHinaus + regelAnrufNurRelay(wraps, innere).length + regelAutorNicht(wraps, a.pk).length
+      + regelPTagsNur(wraps, [b.pk, geraet.pk]).length + regelKeinKlartext(wraps, [anruf, FP, "203.0.113.7"]).length;
+  },
   "abdeckung-zelle": async () => {
     const [lat, lon] = [48.137154, 11.576124];
     const funde = (["lora", "bluetooth"] as const).flatMap((layer) => {
@@ -507,6 +528,36 @@ test("11.2b: die Abfrage eines Werbe-Namens steht als Grenze im Bericht – kein
   const t = privacyFactsText();
   const grenzen = t.slice(t.indexOf("Bewusste Grenzen:"));
   assert.match(grenzen, /△ Kommst du über einen Werbelink mit Namen \(name@domain\), fragt die App diese Domain beim ersten Start einmal .*Werbelinks mit Schlüssel fragen niemanden\./);
+});
+
+test("B-13d3: Anrufe – die IP vor dem Gegenüber belegt, der Vermittler als Grenze mit Grund", () => {
+  assert.equal(PRIVACY_FACTS.find((x) => x.id === "anruf-ip")?.status, "belegt");
+  const f = PRIVACY_FACTS.find((x) => x.id === "anruf-vermittler");
+  assert.equal(f?.status, "grenze");
+  assert.equal(f?.regel, "anruf-nur-relay");
+  assert.match(f?.grund ?? "", /versiegelt und kurzlebig/, "T3 B: der Zugang reist nur versiegelt");
+  const t = privacyFactsText();
+  assert.match(t.slice(0, t.indexOf("Bewusste Grenzen:")), /✓ Bei Anrufen sieht dein Gegenüber deine IP-Adresse nicht/);
+  assert.match(t.slice(t.indexOf("Bewusste Grenzen:")), /△ Ein Anruf läuft immer über einen Vermittler \(TURN\) .*die App sagt dir das vor dem Annehmen\./);
+});
+
+test("B-12d2: Wecken steht als Grenze im Bericht – die Anmeldung selbst ist versiegelt, die Push-Adresse nie offen", async () => {
+  const f = PRIVACY_FACTS.find((x) => x.id === "wecken");
+  assert.equal(f?.status, "grenze");
+  assert.equal(f?.regel, "besitzer-versiegelt");
+  const t = privacyFactsText();
+  assert.match(t.slice(t.indexOf("Bewusste Grenzen:")), /△ Mit „Wecken“ in „Mein Knoten“ sieht der Push-Dienst deines Browsers .*nicht, was kam und von wem\./);
+  // Szenario: Anmeldung beim eigenen Knoten – die Push-Adresse ist ein Zugang zum Browser, sie steht nur im Kern
+  const knoten = generateKeypair(), ich = generateKeypair(), geraet = generateKeypair();
+  const kopplung = neueKopplung(knoten.pk);
+  const endpunkt = "https://push.example.org/wpush/v2/" + "a".repeat(120);
+  const { wrap } = await baueWeckAnmeldung({
+    sitzung: new LocalSigner(generateKeypair().sk), kopplung, anmeldung: { aktion: "an", endpunkt, schluessel: [ich.pk, geraet.pk] },
+  });
+  assert.deepEqual(regelBesitzerVersiegelt([wrap]), []);
+  const offen = JSON.stringify(wrap);
+  for (const geheim of [endpunkt, ich.pk, geraet.pk]) assert.ok(!offen.includes(geheim), "nichts davon offen");
+  assert.deepEqual(wrap.tags, [["p", knoten.pk]], "nur der Knoten als Empfänger");
 });
 
 test("Grenzen nennen ihren Grund", () => {

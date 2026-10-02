@@ -73,6 +73,13 @@ export async function eigeneListenAbgleichen(p: {
 /** Höchstens so viele eigene Relays (wie `ladeEigeneRelays`). */
 export const MAX_EIGENE = 8;
 
+/** Taugt eine Adresse für den eigenen Satz? Plausibel und verschlüsselt (`wss://`; `ws://` nur für .onion), kein lokaler Host. */
+export function taugtFuerSatz(adresse: string): boolean {
+  if (!isPlausibleRelayUrl(adresse).ok) return false;
+  const u = normalizeRelayUrl(adresse);
+  return isUsableDmRelay(u) || (u.startsWith("ws://") && new URL(u).hostname.endsWith(".onion"));
+}
+
 /**
  * Eigenen Satz aus einer Eingabe (Settings, 5.4b2): Adressen durch Komma oder
  * Leerraum, jede plausibel und verschlüsselt (`wss://`; `ws://` nur für
@@ -88,7 +95,7 @@ export function pruefeRelayEingabe(text: string): { relays: string[] } | { fehle
     const p = isPlausibleRelayUrl(adresse);
     if (!p.ok) return { fehler: t("ein.relayAdresse", { n: i + 1, grund: relayUrlGrund(p) }) };
     const u = normalizeRelayUrl(adresse);
-    if (!isUsableDmRelay(u) && !(u.startsWith("ws://") && new URL(u).hostname.endsWith(".onion"))) {
+    if (!taugtFuerSatz(u)) {
       return { fehler: t("ein.relayNurWss", { n: i + 1 }) };
     }
     if (!relays.includes(u)) relays.push(u);

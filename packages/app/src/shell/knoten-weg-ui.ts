@@ -6,9 +6,17 @@
  * sich anmeldet, und nur am Relay des gekoppelten Knotens (`knotenRelay()`).
  * Ohne bekanntes Relay geht nichts an ihn – nie still über den Pool.
  */
-import { KIND_RELAY_LIST, WebSocketRelay, baueRelayAuth, type NostrEvent, type RelayFilter, type Signer } from "@freedomstack/protocol";
-import { LS_NUR_KNOTEN, knotenRelayAus, nurUeberKnoten, ursprungAlsKnotenRelay } from "../knoten-weg.js";
-import { ensurePool } from "./state.js";
+import {
+  KIND_RELAY_LIST, WebSocketRelay, baueRelayAuth, getTag, openPrivateJobResponse, type NostrEvent, type RelayFilter, type Signer,
+} from "@freedomstack/protocol";
+import { t } from "../i18n.js";
+import { LS_NUR_KNOTEN, knotenRelayAus, nurUeberKnoten, satzMitKnotenRelay, ursprungAlsKnotenRelay } from "../knoten-weg.js";
+import { fehlerText } from "../protokoll-texte.js";
+import { ladeEigeneRelays, setzeEigeneRelays } from "../relay-satz.js";
+import { bestaetige } from "./dialog.js";
+import { meineKopplung } from "./mein-knoten.js";
+import { alsGeraet, ensurePool, nimmInPool, signiere, state, veroeffentlicheWeit } from "./state.js";
+import { el } from "./ui.js";
 
 /** Gefundene Adresse je Knoten – nur für diese Sitzung. */
 let gemerkt: { knoten: string; url: string | null } | null = null;
@@ -49,6 +57,28 @@ export interface KnotenWeg {
 }
 
 /**
+ * Auf die versiegelte Antwort meines Knotens warten – Ergebnis (`ergebnisKind`)
+ * oder Rückmeldung 7000; null nach der Frist. Nur nach dem Sitzungsschlüssel
+ * des Auftrags fragen (siehe `KnotenWeg.sitzungPk`).
+ */
+export async function warteAufKnoten(
+  weg: KnotenWeg, sitzung: Signer, requestId: string, ergebnisKind: number, zeitMs: number, taktMs: number,
+): Promise<{ ergebnis: string } | { abgelehnt: string } | null> {
+  const seit = Math.floor(Date.now() / 1000) - 60;
+  for (let t0 = Date.now(); Date.now() - t0 < zeitMs;) {
+    await new Promise((ok) => setTimeout(ok, taktMs));
+    const umschlaege = await weg.query({ kinds: [1059], "#p": [weg.sitzungPk], since: seit }).catch(() => []);
+    for (const w of umschlaege) {
+      const a = await openPrivateJobResponse(w, sitzung);
+      if (!a.ok || getTag(a.response, "e") !== requestId) continue;
+      if (a.response.kind === ergebnisKind) return { ergebnis: a.response.content };
+      if (a.response.kind === 7000) return { abgelehnt: a.response.content };
+    }
+  }
+  return null;
+}
+
+/**
  * Der Weg für einen Auftrag an meinen Knoten: mit Haken nur sein Relay – oder
  * null, dann geht nichts hinaus; ohne Haken der Pool wie bisher.
  */
@@ -63,8 +93,55 @@ export async function wegZumKnoten(knoten: string, sitzung: Signer): Promise<Kno
   return { sitzungPk: sitzung.publicKey(), publish: (ev) => v.publish(ev), query: (f) => v.query(f), schliesse: () => v.close() };
 }
 
-/** Haken in der Karte „Mein Knoten“ (einmal beim Start) – gemerkt als „1“/„0“. */
+const SATZ_FALL = { "kein-satz": "set.keinSatz", schon: "set.knotenRelaySchon", untauglich: "set.knotenRelayUntauglich" } as const;
+
+/**
+ * „Relay meines Knotens übernehmen“ (Sammlung B-9c3, Entscheidung L7 A): sein
+ * Relay in den eigenen Satz, als Schreib-Relay und Posteingang – nur über
+ * `setzeEigeneRelays()` (beide Listen veröffentlicht, erst dann gemerkt), nach
+ * Rückfrage. Als Gerät nicht: Der Satz gehört der Person (8.6c).
+ */
+export async function uebernimmKnotenRelay(): Promise<void> {
+  const k = meineKopplung();
+  const ziel = document.getElementById("knoten-status-anzeige");
+  const knopf = document.getElementById("knoten-relay-uebernehmen") as HTMLButtonElement | null;
+  if (!k || !ziel || !knopf) return;
+  const zeige = (text: string) => ziel.replaceChildren(el("div", text));
+  if (alsGeraet()) return zeige(t("set.geraetSatz"));
+  const pk = state.keypair?.pk;
+  if (!pk) return zeige(t("set.keineIdentitaet"));
+  knopf.disabled = true;
+  try {
+    const eigene = ladeEigeneRelays(localStorage);
+    let url = await knotenRelay(k.knoten);
+    let r = url ? satzMitKnotenRelay(eigene, url) : null;
+    if (!r || ("fall" in r && r.fall === "untauglich")) {
+      // App vom Knoten im Heimnetz (B-10): der Ursprung ist ws:// – Kontakte brauchen seine Adresse aus NIP-65
+      const pool = await ensurePool();
+      const ausListe = knotenRelayAus(await pool.query({ kinds: [KIND_RELAY_LIST], authors: [k.knoten], limit: 5 }).catch(() => []), k.knoten);
+      if (ausListe && ausListe !== url) { url = ausListe; r = satzMitKnotenRelay(eigene, ausListe); }
+    }
+    if (!url || !r) return zeige(t("set.knotenRelayKeins"));
+    if ("fall" in r) return zeige(t(SATZ_FALL[r.fall], { url }));
+    if ("fehler" in r) return zeige(r.fehler);
+    const relays = r.relays;
+    if (!await bestaetige({ titel: t("set.knotenRelayUebernehmen"), text: t("set.knotenRelayFrage", { url }), ok: t("set.knotenRelayUebernehmen") })) return;
+    zeige(t("set.veroeffentliche"));
+    if (!await setzeEigeneRelays({ relays, pk, signiere, weit: veroeffentlicheWeit, speicher: localStorage })) return zeige(t("set.nichtVeroeffentlichtKeiner"));
+    await nimmInPool(relays);
+    const feld = document.getElementById("eigene-relays") as HTMLTextAreaElement | null;
+    if (feld) feld.value = relays.join("\n");
+    zeige(t("set.knotenRelayDrin", { url, n: relays.length }));
+  } catch (e) {
+    zeige(t("set.nichtVeroeffentlicht", { fehler: fehlerText(e) }));
+  } finally {
+    knopf.disabled = false;
+  }
+}
+
+/** Haken und Knopf in der Karte „Mein Knoten“ (einmal beim Start) – der Haken gemerkt als „1“/„0“. */
 export function wireKnotenWeg(): void {
+  document.getElementById("knoten-relay-uebernehmen")?.addEventListener("click", () => void uebernimmKnotenRelay());
   const nur = document.getElementById("knoten-nur") as HTMLInputElement | null;
   if (!nur) return;
   nur.checked = nurUeberKnoten(localStorage);

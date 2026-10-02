@@ -67,7 +67,12 @@ if (sources.length < 2) {
 }
 
 const kp = keypairFromSecret(Uint8Array.from(Buffer.from(sk, "hex")));
-const artifacts = [{ name: "freedom.html", sha256: sha, sizeBytes: html.length }];
+// Seit B-12c gehört der Weck-Worker dazu – er läuft mit derselben Herkunft wie die App.
+const sw = await readFile("packages/app/dist/freedom-sw.js");
+const artifacts = [
+  { name: "freedom.html", sha256: sha, sizeBytes: html.length },
+  { name: "freedom-sw.js", sha256: createHash("sha256").update(sw).digest("hex"), sizeBytes: sw.length },
+];
 const unsigned = buildReleaseManifest(
   {
     version,

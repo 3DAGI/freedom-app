@@ -66,7 +66,7 @@ test("8.5: Meldungen versiegelt nur an die Moderatoren, an ihren Posteingang; be
   assert.match(melden, /const ziele = await posteingangVon\(an\)/);
   assert.match(melden, /await veroeffentlicheAn\(w, ziele\)/);
   assert.doesNotMatch(melden, /mlsSendeEvent|sendenEvent/, "nie in die Gruppe – die anderen Mitglieder erführen es");
-  assert.match(kom, /\?\? \(await alsPruefauftrag\(w\)\) \?\? \(await alsRaumMeldung\(w\)\) \?\? \(await alsRufZusammenfassung\(w\)\) \?\? \(await alsRechnungsAnfrage\(w\)\);/);
+  assert.match(kom, /\?\? \(await alsPruefauftrag\(w\)\) \?\? \(await alsRaumMeldung\(w\)\) \?\? \(await alsRufZusammenfassung\(w\)\) \?\? \(await alsRechnungsAnfrage\(w\)\) \?\? \(await alsAnruf\(w\)\);/);
   assert.match(raum, /const offeneMeldungen = new Map<string, RaumMeldung>\(\);/);
   assert.match(raum, /if \(!raum\.admins\.includes\(raum\.ich\)\) return \[\];/, "nur Moderatoren sehen Meldungen");
   assert.match(raum, /await geheim\.setItem\(LS_MELDUNGEN_ERLEDIGT, /);

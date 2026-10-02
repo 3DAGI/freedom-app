@@ -1,6 +1,7 @@
 /**
  * Notfall-Loeschung (Schritt 8.14): Settings → Sicherheit. Loescht alles
- * Lokale ueber `loescheAllesLokal()` (duress.ts) und prueft nach. Vorher
+ * Lokale ueber `loescheAllesLokal()` (duress.ts) und prueft nach – dazu seit
+ * B-12d1 Weck-Worker und Push-Abo (`weckerAbmelden()`). Vorher
  * steht der Text aus `wipeConfirmation()` mit dem rechtlichen Hinweis (in der
  * Sprache der Oberflaeche: `loeschRueckfrage()`); bestaetigt wird durch
  * Eintippen von LÖSCHEN (englisch DELETE).
@@ -17,6 +18,7 @@ import { type LoeschUmgebung, loescheAllesLokal } from "@freedomstack/protocol";
 import { t } from "../i18n.js";
 import { fehlerText, loeschRueckfrage } from "../protokoll-texte.js";
 import { sucheVergessen } from "./suche-ui.js";
+import { weckerAbmelden } from "../wecker-abmelden.js";
 import { hinweis } from "./dialog.js";
 import { toast } from "./ui.js";
 
@@ -45,8 +47,9 @@ function umgebung(): LoeschUmgebung {
 export async function loescheJetzt(): Promise<void> {
   // Zeitgeber des Suchindex anhalten, sonst schreibt er gleich wieder
   await sucheVergessen().catch(() => undefined);
+  const worker = await weckerAbmelden().catch(() => ["worker"]);
   const b = await loescheAllesLokal(umgebung());
-  const offen = [...new Set([...b.failed, ...b.uebrig])];
+  const offen = [...new Set([...worker, ...b.failed, ...b.uebrig])];
   try {
     sessionStorage.setItem(MERKER, JSON.stringify({ n: b.cleared.length, offen }));
   } catch { /* ohne Merker kein zweiter Durchgang – das Ergebnis zeigt dann nur die leere App */ }
@@ -70,8 +73,9 @@ export async function nachNotfallLoeschung(): Promise<void> {
   try {
     erster = JSON.parse(merker) as typeof erster;
   } catch { /* unlesbar – der zweite Durchgang zaehlt */ }
+  const worker = await weckerAbmelden().catch(() => ["worker"]);
   const zweiter = await loescheAllesLokal(umgebung()).catch(() => null);
-  const offen = zweiter ? [...new Set([...zweiter.failed, ...zweiter.uebrig])] : [t("ein.zweiterDurchgang")];
+  const offen = zweiter ? [...new Set([...worker, ...zweiter.failed, ...zweiter.uebrig])] : [t("ein.zweiterDurchgang")];
   // Was der erste nicht schaffte, der zweite aber schon, ist geloescht
   if (offen.length > 0 || !zweiter) {
     // Als Hinweis statt alert() (C-1e) – erst nach dem Schließen geht der Start weiter

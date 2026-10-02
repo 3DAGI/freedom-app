@@ -14873,6 +14873,311 @@ sauber war – eine Ausnahme je Stelle in `scripts/innerhtml-ausnahmen.txt`.
   - Der Kopf zeigt „ts“, die Stücke sind gefärbt.
   - Der Kopier-Knopf meldet „kopiert“, in der Zwischenablage steht der rohe Code.
 
+## Übergabe Spur B – 02.10.2026
+
+Spur B hat alles gebaut, was ohne Entscheidung geht (bis B-13c, #263). Offen
+sind nur noch Punkte nach den Entscheidungen W3 (B-12c/d), T3 (B-13d) und
+L7 (B-9c3). Plan, Stand, MENSCH-Aufgaben und Arbeitsweise stehen in
+`docs/ausbau/UEBERGABE-SPUR-B.md`. Kein Code geändert.
+
+## Schritt B-9c3 – Relay meines Knotens übernehmen
+
+**Warum:** B-9 versprach „Alles über meinen Knoten (KI, Speicher, Relays)“.
+KI und Halten gehen seit B-9c2 mit Haken nur über sein Relay; offen war, was
+„Relays“ heißt. Entscheidung L7 A (MENSCH, 02.10.): ein Knopf, der sein Relay
+in den eigenen Satz übernimmt – Kontakte erreichen einen dann auch dort, die
+übrigen Relays bleiben. Am selben Tag entschieden: W3 A (B-12c/d) und T3 B
+(B-13d), eingetragen in der Sammlung.
+
+**Was:**
+- `satzMitKnotenRelay()` (`knoten-weg.ts`, ohne DOM): hängt das Relay an den
+  eigenen Satz an. Nicht, wenn es schon drinsteht (nach Normalform), wenn es
+  nicht taugt (Heimnetz-`ws://`, unverschlüsselt außer .onion) oder wenn es
+  noch keinen eigenen Satz gibt – sonst wäre der Knoten der einzige
+  Posteingang. Der ganze Satz läuft danach durch `pruefeRelayEingabe()`
+  (höchstens acht).
+- `taugtFuerSatz()` (`relay-satz.ts`): die Regel je Adresse aus
+  `pruefeRelayEingabe()` als eigene Funktion – dort unverändert genutzt.
+- Settings → Geräte → „Mein Knoten“: Knopf „Relay meines Knotens übernehmen“,
+  nur gekoppelt sichtbar, als Gerät gesperrt (der Satz gehört der Person).
+  Adresse über `knotenRelay()`; kommt die App im Heimnetz vom Knoten (B-10),
+  taugt der Ursprung nicht – dann seine NIP-65-Liste. Nach Rückfrage (sie sagt
+  ehrlich: wer die Listen liest, kann vermuten, dass der Knoten einem gehört)
+  nur über `setzeEigeneRelays()`: NIP-65 und Posteingang veröffentlicht, erst
+  dann gemerkt; danach in den Pool, das Feld in Settings → Relays zieht nach.
+
+**Tests:** app +2 in `test/knoten-weg.test.ts` (Anhängen und alle
+Negativfälle; Reihenfolge Gerät → Rückfrage → Veröffentlichen → Pool, kein
+`setItem`/`publish` daneben, Sichtbarkeit, Texte in beiden Sprachen).
+Smoke „einstellungen“ (Mein Knoten): Der Knopf ist nur gekoppelt sichtbar; ohne
+bekanntes Relay des Knotens steht die Meldung da, es kommt keine Rückfrage, und
+es geht keine Liste hinaus. Knoten-Stand: unverändert.
+
+## Schritt B-12c – Weck-Worker als zweite Datei
+
+**Warum:** Der eigene Knoten weckt seit B-12b per Web Push – leer, ohne Inhalt
+und Absender. Ankommen kann ein Push im Browser nur bei einem Service Worker,
+und der braucht eine eigene Datei neben freedom.html (W2 A). Entscheidung W3 A
+(MENSCH, 02.10.): die CSP erlaubt Worker von derselben Herkunft
+(`worker-src blob: 'self'`).
+
+**Was:**
+- `src/sw/freedom-sw.ts` → `dist/freedom-sw.js` (esbuild, eigener Lauf in
+  `build.mjs`, 0,9 KB):
+  - `push` → eine Meldung mit festem Text aus `texte/wecken.ts`, Tag
+    `freedom-weck` – eine neue ersetzt die alte.
+  - `notificationclick` → ein offenes Fenster der App nach vorn holen, sonst
+    freedom.html neben dem Worker öffnen.
+  - Die Sprache kommt aus `?sprache=` der eigenen Adresse (B-12d meldet so an),
+    sonst aus der des Browsers.
+  - Aus dem Push wird nichts gelesen. Kein Cache, kein `fetch`-Handler, kein
+    `importScripts` – der Build bricht ab, wenn so etwas im Ergebnis steht.
+- CSP: `worker-src blob: 'self'`; `script-src` bleibt beim Hash.
+- `build-site.sh` legt die Datei neben freedom.html, samt `freedom-sw.js.sha256`.
+- `repro-build.sh` gibt beide Summen aus, `--pruefen` vergleicht beide. Neu ist
+  `--vergleiche-ordner <ordner>` für beide Dateien – `pages.yml` veröffentlicht
+  nur damit. `--vergleiche <sha256>` bleibt für freedom.html (Release-Manifest).
+- `publish-release.mjs`: Das Manifest nennt `freedom-sw.js` als zweites Artefakt.
+- Die App meldet den Worker noch nicht an – das tut erst der Haken aus B-12d.
+  `dist/freedom.html.sha256` bleibt unverändert (der Knoten liefert es aus, B-10).
+
+**Tests:**
+- app +4 in `test/weck-worker.test.ts`:
+  - Worker: nur drei Ereignisse, nichts aus dem Push, kein Cache, kein `fetch`,
+    nur der feste Text.
+  - CSP, Build, Website, repro, Pages und Release führen die Datei mit.
+  - Die App meldet noch nichts an.
+- Smoke „weckworker“ (volles Chromium – die Headless-Shell verweigert Meldungen
+  immer):
+  - Beim Start ist kein Worker angemeldet.
+  - `freedom-sw.js?sprache=de` lässt sich unter der CSP anmelden.
+  - Ein Push mit Daten über CDP ergibt genau eine Meldung, mit festem deutschem
+    Text und ohne die Daten.
+  - Danach ist der Worker wieder abgemeldet.
+
+Knoten-Stand: unverändert. Eine vom Knoten ausgelieferte App (B-10) hat den
+Worker nicht – B-12d sagt das dort, statt zu scheitern.
+
+## Schritt B-12d1 – Notfall-Löschung meldet Weck-Worker ab
+
+**Warum:** B-12d gibt der App den Haken „Wecken“: Service Worker anmelden,
+Push abonnieren, beim Knoten anmelden. Ein Service Worker und sein Push-Abo
+liegen außerhalb von localStorage und IndexedDB – `loescheAllesLokal()`
+erreichte sie nicht (Regel 8.14: erst die Löschung erweitern). Der Schritt ist
+geteilt: d1 die Löschung, d2 der Haken samt Datenschutz-Aussage.
+
+**Was:**
+- `weckerAbmelden()` (`wecker-abmelden.ts`, ohne DOM): Für jeden Worker dieser
+  Herkunft das Push-Abo kündigen und den Worker abmelden. Was nicht ging, kommt
+  als `push`/`worker` zurück; das Übrige wird trotzdem versucht. Ohne sicheren
+  Kontext gibt es keine Worker. Ohne Abo antwortet der Push-Dienst dem Knoten
+  mit 410, und der vergisst die Adresse (B-12b).
+- `notfall.ts`: vor `loescheAllesLokal()` und im zweiten Durchgang nach dem
+  Neustart. Reste stehen in der Meldung wie nicht gelöschte Einträge.
+
+**Tests:**
+- app +2 in `test/notfall.test.ts`: Kündigen und Abmelden samt Negativfällen
+  (Abo wirft, Abmelden scheitert oder wirft, Liste wirft, kein Worker-Zugang)
+  und die Verdrahtung in beiden Durchgängen.
+- Smoke „notfall“: Vor dem Löschen ist `freedom-sw.js` angemeldet, danach ist
+  kein Worker mehr da. Gegenprobe: Ohne das Abmelden schlägt die Prüfung an
+  (`worker=1`).
+
+Knoten-Stand: unverändert.
+
+## Schritt B-12d2 – Haken „Wecken“
+
+**Warum:** Der letzte Teil von B-12 (W1 A, W2 A, W3 A). Die App kann sich jetzt
+vom eigenen Knoten wecken lassen, wenn sie zu ist. Notfall-Löschung (d1) und
+Weck-Worker (c) gab es schon.
+
+**Was:**
+- Settings → Geräte → „Mein Knoten“: Haken „Wecken“, nur gekoppelt sichtbar.
+  Der Text am Haken sagt schon, dass der Push-Dienst des Browsers sieht, *wann*
+  geweckt wird.
+- **an** (`shell/wecken-ui.ts`, nur auf Klick), Schritt für Schritt:
+  1. den Status des Knotens erfragen (`frageKnotenStatus()`, für seinen
+     VAPID-Schlüssel – fehlt er, weckt der Knoten nicht);
+  2. Erlaubnis für Meldungen;
+  3. Weck-Worker anmelden (`freedom-sw.js?sprache=…`);
+  4. Push abonnieren und die Adresse prüfen (`pruefeWeckEndpunkt()`);
+  5. Anmeldung 5078 versiegelt mit Nachweis über `wegZumKnoten()` – Schlüssel
+     sind Person und Geräte (`weckSchluesselFuer()`).
+
+  Bestätigt der Knoten nicht – Schweigen, Ablehnung, Fehler, untaugliche
+  Adresse –, wird alles lokal wieder abgemeldet; nichts bleibt halb an.
+- **aus:** zuerst beim Knoten abmelden (`aktion: "ab"`, soweit er antwortet),
+  dann Abo und Worker weg (`weckerAbmelden()`). Antwortet er nicht, vergisst er
+  die Adresse beim nächsten Wecken (410).
+- Gemerkt wird nichts: Der Haken zeigt, ob es ein Abo gibt (beim Start nur
+  gelesen). Entkoppeln nimmt Wecken mit.
+- Ohne sicheren Kontext (App vom Knoten über http) oder ohne Push sagt die App,
+  dass es hier nicht geht. Fehlt der Worker in der Auslieferung (App vom Knoten,
+  B-10), sagt sie, dass es nur über die Website geht.
+- `frageKnotenStatus()` und `warteAufKnoten()` aus der Status-Abfrage
+  herausgelöst; Status und Wecken teilen sie, das Verhalten des Status-Knopfs
+  ist gleich.
+- **Datenschutzbericht:** neue Grenze „wecken“. Der Push-Dienst des Browsers
+  (Google, Mozilla, Apple) sieht, wann dein Knoten dich weckt – nicht was und
+  von wem; die Push-Adresse geht nur versiegelt an den Knoten. Regel
+  `besitzer-versiegelt`, Texte in beiden Sprachen.
+- `wiring-ausnahmen.txt`: `baueWeckAnmeldung` und `leseWeckAntwort` gestrichen –
+  jetzt verdrahtet.
+
+**Tests:**
+- app +4 in `test/wecken-app.test.ts`:
+  - wann es geht; der VAPID-Schlüssel streng (Länge, 0x04, base64url);
+  - die Schlüsselliste (Person zuerst, ohne Doppelte, Grenze);
+  - Verdrahtung: Reihenfolge, dreimal Zurücknehmen, nur über den Weg, nichts
+    gemerkt, erst Knoten dann lokal abmelden, Entkoppeln, Texte.
+- Weitere App-Tests:
+  - `weck-worker.test.ts`: `register` nur im Haken, mit der Sprache.
+  - `notfall.test.ts`: `serviceWorker.register(` nur in `wecken-ui.ts`.
+  - B-11b an der neuen Form.
+- protocol +1 in `privacy-facts.test.ts`: die Grenze im Bericht und ein
+  Szenario – die Anmeldung mit Push-Adresse und Schlüsseln zeigt nichts davon
+  offen, nur der Knoten ist Empfänger.
+- Smoke „einstellungen“: Der Haken ist gekoppelt sichtbar und ohne Abo aus. Mit
+  „nur über meinen Knoten“ und ohne bekanntes Relay scheitert er sofort – Haken
+  aus, kein Worker angemeldet, nichts gesendet.
+
+Knoten-Stand: B-12a/b (Weckdienst, `RELAY_ENABLED`). Ohne ihn meldet die App
+„Dein Knoten weckt nicht“.
+
+## Schritt B-13d1 – Zugang im Anruf-Angebot, Leak-Regel
+
+**Warum:** B-13d (Anrufe in der App) ist in drei Schritte geteilt: d1 Protokoll,
+d2 Anruf-Logik, d3 Oberfläche mit Datenschutz-Aussage. Entscheidung T3 B
+(MENSCH, 02.10.): Wer angerufen wird und keinen eigenen Knoten hat, bekommt im
+versiegelten Angebot einen kurzlebigen Zugang zum TURN der Anruferin.
+
+**Was:**
+- `anruf.ts`: Das Angebot darf ein Feld `turn` tragen. Es wird beim Bauen und
+  beim Öffnen geprüft (gültig zum jeweiligen Zeitpunkt, höchstens ein Tag) und
+  steht nur im Kern. Ohne `turn` bleibt alles wie in B-13c.
+- `pruefeTurnZugang()` (`turn-zugang.ts`): die Prüfung aus `leseTurnZugang()`
+  für einen schon gelesenen Wert – beide nutzen sie.
+- Leak-Regel `anruf-nur-relay` (`regelAnrufNurRelay()`): Kind 25040 nie offen
+  gesendet; in den inneren Events (Mitschnitt vor dem Versiegeln) nur
+  Relay-Kandidaten mit Fingerabdruck.
+- `docs/PROTOCOL.md` §27 ergänzt (Zugang im Angebot, Leak-Regel).
+- Die Datenschutz-Aussagen (Gegenüber sieht die IP nicht; ohne eigenen Knoten
+  sieht der Knoten der Anruferin sie) kommen mit der Oberfläche in d3 – vorher
+  gäbe es die Funktion nicht.
+
+**Tests:** protocol +2:
+- `anruf.test.ts`: Angebot mit Zugang, Zugang nie offen. Negativfälle:
+  abgelaufen, über einen Tag, keine `turn:`-Adresse, Nutzer passt nicht zum
+  Ablauf, falsches Passwort, kein Objekt, beim Öffnen abgelaufen. Dazu die
+  Leak-Regel mit allen Fällen.
+- `leak-rules.test.ts`: Der Regelname steht in `LEAK_REGELN`.
+
+Knoten-Stand: unverändert.
+
+## Schritt B-13d2 – Anrufe: Logik in der App
+
+**Warum:** Zweiter Teil von B-13d (T1 A, T2 A, T3 B): Verbindung, Aufbau und
+Empfang. Die Oberfläche folgt in d3.
+
+**Was:**
+- `anruf-ablauf.ts` (ohne DOM, ohne WebRTC):
+  - `waehleVermittler()`: der eigene Vermittler zuerst, sonst der Zugang aus
+    dem Angebot (`fremd` – T3 B), sonst keiner.
+  - `iceServerAus()` macht aus dem Zugang einen `RTCIceServer`.
+  - `nurRelaySdp()` und `sendbarerKandidat()`: hinaus nur Relay-Kandidaten,
+    geprüft wie beim Empfänger.
+  - Zustand nur über `naechsterZustand()`: klingelt/eingehend → verbindet →
+    verbunden → beendet; Fristen `KLINGELN_SEK` (60) und `VERBINDEN_SEK` (30);
+    Ende ist endgültig.
+  - `eingehendesAngebot()`: nur von Kontakten, sonst still; läuft ein Anruf,
+    „besetzt“ – Fremden nie eine Antwort.
+- `shell/anruf.ts`:
+  - `rufeAn()`: nur Kontakte, nur mit eigenem Vermittler – frischer Zugang über
+    `eigenerTurnZugang()` (5079, über `wegZumKnoten()`). Der Zugang reist im
+    Angebot mit.
+  - `nimmAn()` (Vermittler nach `waehleVermittler()`), `legeAuf()`,
+    `vergissAnruf()`; die Oberfläche hört über `beiAnruf()` zu.
+  - `RTCPeerConnection` nur mit `iceTransportPolicy: "relay"`. Gesendet über
+    `baueAnrufNachricht()` an Person und Geräte, an deren Posteingang
+    (`veroeffentlicheDm()`), sofort – nicht verzögert wie Chat-Nachrichten.
+  - Empfang über `alsAnruf()` am Ende der Kette in `oeffneUmschlag()`. Absender
+    über `geraeteBuch.zuordnen()`: ein gültiges Gerät eines Kontakts zählt als
+    der Kontakt. Während eines Anrufs kommen Antwort und Kandidaten über ein Abo
+    an den eigenen Schlüssel, nur so lange wie der Anruf.
+- `wiring-ausnahmen.txt`: fünf Ausnahmen aus B-13a/c gestrichen
+  (`baueAnrufNachricht`, `neueAnrufKennung`, `oeffneAnrufNachricht`,
+  `baueTurnAnfrage`, `leseTurnZugang`) – jetzt verdrahtet.
+
+**Tests:**
+- app +4 in `test/anruf-ablauf.test.ts`: Vermittler, nur Relay hinaus,
+  Zustand mit Fristen und Negativfällen, eingehende Angebote nur von Kontakten.
+- Leak +2 in `test/leak/anruf.test.ts`:
+  - Aus einem gesammelten SDP mit Host- und srflx-Kandidaten geht nur Relay
+    hinaus.
+  - Versiegelt an Person und Gerät; die Regel `anruf-nur-relay` läuft mit den
+    inneren Events.
+  - Weder der Zugang noch eine eigene Adresse stehen offen; `publish` nur für
+    die TURN-Anfrage.
+- Die vier Tests, die die Kette in `oeffneUmschlag()` wörtlich prüfen, kennen
+  das neue Glied `alsAnruf(w)`.
+
+**Grenze bis d3:** Ohne Oberfläche ruft niemand an. Ein eingehendes Angebot
+klingelt unsichtbar und endet nach 60 s mit „zeit“. Ein durchgehender Test mit
+echtem TURN ist hier nicht möglich (MENSCH-Checkliste in d3).
+
+Knoten-Stand: B-13a (TURN-Zugang 5079) und coturn (B-13b) für Anrufe.
+
+## Schritt B-13d3 – Anrufe: Oberfläche und Datenschutz
+
+**Warum:** Letzter Teil von B-13 (T1 A, T2 A, T3 B): Anrufen und Annehmen in
+der App, ehrlich im Datenschutzbericht.
+
+**Was:**
+- `shell/anruf-ui.ts` (`wireAnrufe()`, aus `app.ts`):
+  - Knöpfe „Anrufen“ und „Videoanruf“ im Kopf der Unterhaltung (`.chat-kopf`,
+    neben „Zurück“) – in der Eingabezeile ist mobil kein Platz. Angerufen wird
+    nur auf Klick und nur in 1:1; ohne eigenen Knoten nur der Hinweis.
+  - Eine Leiste während des Anrufs (Region mit `aria-live`): wer, Phase, der
+    Sicherheitscode (B-4, aus `sprichtFuer()`) mit Prüfstand, bei einem
+    eingehenden Anruf ohne eigenen Vermittler **vor dem Annehmen** der Hinweis,
+    dass der Knoten der anrufenden Person die IP sieht (T3 B). Hat keine Seite
+    einen Vermittler, lässt sich nicht annehmen. Annehmen, Ablehnen, Auflegen,
+    Schließen.
+  - Medien nur als Ströme an `<audio>`/`<video>`; das eigene Bild stumm. Nur
+    DOM mit Text.
+- Datenschutzbericht: „anruf-ip“ (belegt, Regel `anruf-nur-relay`, Szenario:
+  Angebot an Person und Gerät, nur Relay, versiegelt, ein Host-Kandidat geht
+  nicht hinaus) und „anruf-vermittler“ (Grenze: der Vermittler sieht IP und
+  Zeiten; ohne eigenen Knoten der Knoten der anrufenden Person; Umschläge eines
+  Anrufs sind am kurzen Ablauf erkennbar). Texte in beiden Sprachen.
+- `icons.ts`: Symbol `phone`; 27 Texte (`komm.anruf*`, `komm.videoanruf`, `komm.videoKnopf`) in `texte/kommunikation.ts`.
+- `scripts/anruf-probe.mts`: ein Angebot eines Wegwerf-Kontakts für den
+  Smoke-Test, dazu „oeffne“ für Umschläge der App an ihn.
+
+**Tests:**
+- protocol +1 (`privacy-facts.test.ts`: Grenze mit Grund, Text im Bericht;
+  dazu das Szenario „anruf-ip“ im bestehenden Szenario-Test).
+- app +4 (`test/anruf-ui.test.ts`): Knöpfe mit Namen, verdrahtet, nur auf
+  Klick, nur 1:1; Leiste nur DOM, keine Medien oder Verbindung im UI-Modul,
+  Hinweis vor „Annehmen“, Annehmen gesperrt ohne Weg; Texte in beiden
+  Sprachen; Bericht wortgleich mit dem Protokoll.
+- Smoke „anruf“: Knöpfe; Anrufen ohne Knoten fragt kein Mikrofon, baut keine
+  Verbindung und sendet nichts; ein Angebot eines Kontakts klingelt nach dem
+  Abgleich des Posteingangs mit Sicherheitscode und Hinweis; Ablehnen schickt
+  genau ein versiegeltes „Ende“ (abgelehnt, geöffnet mit dem Schlüssel des
+  Anrufers) – ohne Mikrofon, ohne Verbindung.
+
+**Grenzen:**
+- Ein eingehendes Angebot kommt mit dem Abgleich des Posteingangs (höchstens
+  einmal je Minute) – bei 60 s Klingeln kann ein Anruf verpasst werden. Ein
+  dauerndes Abo des Posteingangs änderte das Verkehrsmuster (6.4); eher über
+  den Weckdienst (B-12) – nicht in diesem Schritt.
+- Ein durchgehender Anruf mit echtem TURN war hier nicht möglich
+  (MENSCH-Checkliste): zwei Geräte, je mit gekoppeltem Knoten und coturn;
+  dann eines ohne Knoten (Hinweis, Anruf über den Knoten des Anrufers).
+
+Knoten-Stand: B-13a (TURN-Zugang 5079) und coturn (B-13b) für Anrufe.
+
 ## Schritt C-6e – `innerHTML` abbauen: die letzten Ausnahmen
 
 **Warum:** Sammlung C-6, Rest nach C-6d2. In `scripts/innerhtml-ausnahmen.txt`

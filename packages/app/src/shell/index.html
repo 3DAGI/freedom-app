@@ -218,7 +218,13 @@
             <div id="chat-list" class="chat-list"></div>
           </aside>
           <div class="chat-main">
+            <div class="chat-kopf">
           <button id="chat-back" class="chat-back" type="button" aria-label="Zurück zur Liste" data-i18n-aria="komm.zurueckAria" data-i18n="komm.zurueck">‹ Zurück</button>
+              <span class="chat-anruf-knoepfe">
+                <button id="chat-anruf" type="button" class="ghost mini" title="Anrufen" aria-label="Anrufen" data-i18n-title="komm.anrufen" data-i18n-aria="komm.anrufKnopf"><span class="ic" data-icon="phone"></span></button>
+                <button id="chat-video" type="button" class="ghost mini" title="Videoanruf" aria-label="Videoanruf" data-i18n-title="komm.videoanruf" data-i18n-aria="komm.videoKnopf"><span class="ic" data-icon="video"></span></button>
+              </span>
+            </div>
             <div id="chat-thread" class="chat-thread">
               <div class="empty-state"><span data-i18n="komm.waehle">Wähl eine Unterhaltung.</span><br/><span data-i18n="komm.dmE2e">Direktnachrichten sind Ende-zu-Ende verschlüsselt.</span></div>
             </div>
@@ -738,9 +744,11 @@
           <div id="knoten-status" class="mono-sm"></div>
           <label id="knoten-halten-zeile" class="mono-sm" style="display:block;margin-top:6px" hidden><input type="checkbox" id="knoten-halten" /> <span data-i18n="set.knotenHalten">Meine Dateien bei meinem Knoten halten – nach jedem Hochladen (Repo-Bundles, Anhänge) bittet die App ihn versiegelt, die verschlüsselten Stücke dauerhaft zu behalten</span></label>
           <label id="knoten-nur-zeile" class="mono-sm" style="display:block;margin-top:6px" hidden><input type="checkbox" id="knoten-nur" /> <span data-i18n="set.knotenNur">Alles über meinen Knoten – KI-Anfragen und Halten nur über sein Relay, dort mit dem Sitzungsschlüssel angemeldet; ist es nicht erreichbar, geht nichts an ihn</span></label>
+          <label id="knoten-wecken-zeile" class="mono-sm" style="display:block;margin-top:6px" hidden><input type="checkbox" id="knoten-wecken" /> <span data-i18n="set.knotenWecken">Wecken – kommt Post für mich, weckt mein Knoten diesen Browser mit einer Meldung ohne Inhalt und Absender; der Push-Dienst des Browsers sieht, wann</span></label>
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
             <button id="knoten-koppeln" class="ghost" style="width:auto;padding:6px 10px" type="button" data-i18n="set.knotenKoppeln">Mein Knoten koppeln</button>
             <button id="knoten-status-holen" class="ghost" style="width:auto;padding:6px 10px" type="button" hidden data-i18n="set.knotenStatusHolen">Status abfragen</button>
+            <button id="knoten-relay-uebernehmen" class="ghost" style="width:auto;padding:6px 10px" type="button" hidden data-i18n="set.knotenRelayUebernehmen">Relay meines Knotens übernehmen</button>
             <button id="knoten-entkoppeln" class="ghost" style="width:auto;padding:6px 10px" type="button" hidden data-i18n="set.knotenEntkoppeln">entkoppeln</button>
           </div>
           <div id="knoten-status-anzeige" class="mono-sm" style="margin-top:6px" aria-live="polite"></div>

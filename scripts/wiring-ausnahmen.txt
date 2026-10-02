@@ -96,6 +96,7 @@ leak-rules.ts|regelPTagsNur|Prüfregeln der Leak-Tests, gehören in die Tests (1
 leak-rules.ts|regelSolAdresseFrisch|Prüfregeln der Leak-Tests, gehören in die Tests (1.5)
 leak-rules.ts|regelUploadVerschluesselt|Prüfregeln der Leak-Tests, gehören in die Tests (1.5)
 leak-rules.ts|regelBesitzerVersiegelt|Prüfregeln der Leak-Tests, gehören in die Tests (1.5)
+leak-rules.ts|regelAnrufNurRelay|Prüfregeln der Leak-Tests, gehören in die Tests (1.5, B-13d1)
 
 local-search.ts|indexStats|Suche verdrahtet (8.13, suche.ts); Vorschläge und Statistik ohne Oberfläche
 local-search.ts|searchInfo|Suche verdrahtet (8.13, suche.ts); Vorschläge und Statistik ohne Oberfläche
@@ -221,10 +222,3 @@ devices.ts|deviceWarning|deutsche Referenz; die App bildet die Rückfrage seit 8
 release.ts|sharingInstructions|deutsche Referenz; die App bildet den Begleittext seit 8.16g2b2 in protokoll-texte.ts (weitergabeText) nach, ein Test hält ihn wortgleich
 mesh-sync.ts|offlineCapabilities|deutsche Referenz; die App bildet die Liste seit 8.16g2b2 in protokoll-texte.ts (offlineFaehigkeiten) nach, ein Test hält sie gleich
 spaces.ts|privacyInfo|deutsche Referenz; die App bildet die Rauminfo seit C.2b2 in protokoll-texte.ts (kanalVertraulichkeit) nach, ein Test hält sie wortgleich
-wecken.ts|baueWeckAnmeldung|Push-Adresse beim eigenen Knoten anmelden – der Knoten nimmt sie seit B-12a an, die App meldet ab B-12d an (Haken „Wecken“)
-wecken.ts|leseWeckAntwort|Antwort auf die Weck-Anmeldung lesen – die App zeigt sie ab B-12d
-turn-zugang.ts|baueTurnAnfrage|Zugang zum TURN des eigenen Knotens anfragen – der Knoten vergibt ihn seit B-13a, die App fragt ab B-13d (Anruf)
-turn-zugang.ts|leseTurnZugang|Antwort mit dem TURN-Zugang lesen – die App nutzt sie ab B-13d (RTCPeerConnection, nur „relay“)
-anruf.ts|baueAnrufNachricht|Anruf-Aufbau versiegelt senden – Format seit B-13c, die App ruft an ab B-13d (wartet auf T3)
-anruf.ts|oeffneAnrufNachricht|Anruf-Aufbau versiegelt lesen – die App nimmt Anrufe an ab B-13d
-anruf.ts|neueAnrufKennung|Kennung eines Anrufs – die App vergibt sie ab B-13d

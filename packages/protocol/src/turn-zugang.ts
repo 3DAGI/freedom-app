@@ -70,6 +70,11 @@ export function leseTurnZugang(text: string, jetzt = Math.floor(Date.now() / 100
   } catch {
     return null;
   }
+  return pruefeTurnZugang(roh, jetzt);
+}
+
+/** Dieselbe Prüfung für einen schon gelesenen Wert – etwa den Zugang im Anruf-Angebot (B-13d1, T3 B). */
+export function pruefeTurnZugang(roh: unknown, jetzt = Math.floor(Date.now() / 1000)): TurnZugang | null {
   if (typeof roh !== "object" || roh === null || Array.isArray(roh)) return null;
   const { urls, nutzer, passwort, bis } = roh as Record<string, unknown>;
   if (!Array.isArray(urls) || urls.length < 1 || urls.length > TURN_GRENZEN.urls || new Set(urls).size !== urls.length) return null;

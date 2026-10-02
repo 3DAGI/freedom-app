@@ -328,6 +328,9 @@ def loeschen_pruefen(browser, url: str) -> dict:
     s.wait_for_timeout(1000)
     erg["vorher_da"] = ev("async () => (await indexedDB.databases()).map(d => d.name).sort().join(',')") == \
         "freedom-blobs,freedom-kuenftig,freedom-suche,freedom-vault"
+    # Weck-Worker (B-12d1): angemeldet wie später der Haken aus B-12d2 – die Löschung meldet ihn ab
+    erg["worker_vorher"] = ev("async () => { await navigator.serviceWorker.register('freedom-sw.js?sprache=de');"
+                              " return (await navigator.serviceWorker.getRegistrations()).length; }") == 1
 
     ev("() => document.querySelector('.app-nav button[data-tab=\"settings\"]').click()")
     ev("() => document.getElementById('notfall-loeschen').click()")
@@ -347,16 +350,18 @@ def loeschen_pruefen(browser, url: str) -> dict:
         q.onsuccess = () => { const db = q.result; if (![...db.objectStoreNames].includes('tresor')) { db.close(); return r(null); }
           const g = db.transaction('tresor').objectStore('tresor').get('blob');
           g.onsuccess = () => { db.close(); r(g.result ?? null); }; }; q.onerror = () => r(null); });
-      return { ls, ss, dbs, tresorBlob, ident: document.getElementById('ident').textContent };
+      const worker = (await navigator.serviceWorker.getRegistrations()).length;
+      return { ls, ss, dbs, tresorBlob, worker, ident: document.getElementById('ident').textContent };
     }""")
     muster = [nsec, "ProbeSitzung"] + PROBE_MUSTER
     erg["nichts_uebrig"] = (not any(m in scan["ls"] for m in muster)
                             and not any(k + "=" in scan["ls"] for k in PROBE_GEHEIM)
                             and "freedom.vault=1" not in scan["ls"] and scan["ss"] == ""
-                            and set(scan["dbs"]) <= {"freedom-vault"} and scan["tresorBlob"] is None)
+                            and set(scan["dbs"]) <= {"freedom-vault"} and scan["tresorBlob"] is None
+                            and scan["worker"] == 0)
     erg["leer_neu_gestartet"] = scan["ident"] != ident and not ev("() => !!document.getElementById('tr-pass')")
     if not erg["nichts_uebrig"]:
-        erg["fehler"].append(f"Rest: dbs={scan['dbs']} ss={scan['ss']!r}")
+        erg["fehler"].append(f"Rest: dbs={scan['dbs']} ss={scan['ss']!r} worker={scan['worker']}")
     ctx.close()
     erg["bestanden"] = (not erg["fehler"] and all(v is True for k, v in erg.items()
                                                    if k not in ("fehler", "bestanden")))
@@ -925,6 +930,99 @@ def sprachnachricht_pruefen(browser, url: str) -> dict:
     return erg
 
 
+# Anrufe (seit B-13d3): zählt Fragen nach dem Mikrofon und neue Verbindungen – ohne Annehmen darf es keine geben
+ANRUF_ZAEHLER = """
+(() => {
+  const st = window.__anruf = { medien: 0, verbindungen: 0 };
+  if (navigator.mediaDevices) navigator.mediaDevices.getUserMedia = async () => { st.medien++; throw new DOMException('nein', 'NotAllowedError'); };
+  const Echt = window.RTCPeerConnection;
+  if (Echt) window.RTCPeerConnection = function (...a) { st.verbindungen++; return new Echt(...a); };
+})();
+"""
+
+
+def anruf_pruefen(browser, url: str) -> dict:
+    """Anrufe (B-13d3): Knöpfe im Kopf der Unterhaltung; ohne eigenen Knoten geht kein Anruf hinaus (kein Mikrofon,
+    keine Verbindung, kein Umschlag). Ein Angebot eines Kontakts (`scripts/anruf-probe.mts`, mit Zugang zum
+    Vermittler des Anrufers – T3 B) klingelt mit Sicherheitscode und dem Hinweis, wer die IP sieht; Ablehnen schickt
+    nur ein versiegeltes „Ende“ zurück – ohne Mikrofon und ohne Verbindung."""
+    erg = {"fehler": []}
+    wurzel = Path(__file__).resolve().parent.parent
+    relay = ProbeRelay()
+    seite = DialogSeite(browser, url, relay, erg, init=ANRUF_ZAEHLER)
+    s, ev = seite.s, seite.ev
+    ev("() => { location.hash = '#/chat'; }")
+    for _ in range(80):
+        if relay.ich:
+            break
+        s.wait_for_timeout(250)
+    if not relay.ich:
+        seite.ctx.close()
+        return {"bestanden": False, "fehler": ["keine Abfrage der eigenen Relay-Listen – eigener Schlüssel unbekannt"]}
+    aus = subprocess.run(["npx", "tsx", "scripts/anruf-probe.mts", relay.ich], cwd=wurzel, capture_output=True, text=True, timeout=180, check=True)
+    probe = json.loads(aus.stdout)
+    anrufer = probe["anrufer"]
+
+    def an_anrufer() -> list[dict]:
+        return list({e["id"]: e for e in relay.gesendet if e.get("kind") == 1059 and ["p", anrufer] in [t[:2] for t in e.get("tags", [])]}.values())
+    # Der Anrufer wird Kontakt: eine Unterhaltung über „Neue Nachricht“
+    s.wait_for_selector("#chat-new-dm", timeout=30000)
+    ev("() => document.getElementById('chat-new-dm').click()")
+    seite.warte_dialog("Neue Nachricht")
+    seite.tippe(anrufer)
+    seite.warte_zu()
+    s.wait_for_function("(pk) => !!document.querySelector(`#chat-list .chat-item.active[data-cid='${pk}']`)", arg=anrufer, timeout=10000)
+    erg["knoepfe"] = ev("() => ['chat-anruf', 'chat-video'].map(id => { const b = document.getElementById(id);"
+                        " return [b.getAttribute('aria-label'), b.title.split(' – ')[0], !!b.querySelector('svg')]; })")
+    # Anrufen ohne eigenen Knoten: nur der Hinweis – kein Mikrofon, keine Verbindung, nichts hinaus
+    s.click("#chat-anruf")
+    s.wait_for_function("() => /eigenen Knoten mit Vermittler/.test(document.getElementById('toast')?.textContent ?? '')", timeout=10000)
+    erg["ohne_knoten"] = ev("() => [window.__anruf.medien, window.__anruf.verbindungen, !!document.querySelector('.anruf-leiste')]") + [len(an_anrufer())]
+    # Das Angebot kommt mit dem Abgleich des Posteingangs beim Start
+    relay.events = relay.events + probe["events"]
+    s.reload(wait_until="load")
+    ev("() => { location.hash = '#/chat'; }")
+    s.wait_for_function("() => document.querySelectorAll('.anruf-leiste .anruf-knoepfe button').length === 2", timeout=30000)
+    erg["klingelt"] = ev("""() => { const l = document.querySelector('.anruf-leiste');
+      return { rolle: [l.getAttribute('role'), l.getAttribute('aria-label'), l.getAttribute('aria-live')],
+        titel: l.querySelector('.anruf-titel').textContent, code: l.querySelector('div.mono-sm')?.textContent ?? '',
+        hinweis: l.querySelector('p.warn')?.textContent ?? '', medien: l.querySelectorAll('audio, video').length,
+        knoepfe: [...l.querySelectorAll('.anruf-knoepfe button')].map(b => [b.textContent, b.disabled]),
+        zaehler: [window.__anruf.medien, window.__anruf.verbindungen] }; }""")
+    vorher = len(an_anrufer())
+    s.click(".anruf-leiste .anruf-knoepfe button:nth-child(2)")
+    for _ in range(100):
+        if len(an_anrufer()) > vorher:
+            break
+        s.wait_for_timeout(200)
+    neu = an_anrufer()[vorher:]
+    geoeffnet = [json.loads(subprocess.run(["npx", "tsx", "scripts/anruf-probe.mts", "oeffne", probe["sk"]], cwd=wurzel, input=json.dumps(w),
+                                           capture_output=True, text=True, timeout=180, check=True).stdout) for w in neu]
+    s.wait_for_function("() => document.querySelector('.anruf-leiste .anruf-titel')?.textContent === 'Abgelehnt'", timeout=10000)
+    erg["abgelehnt"] = {"nachrichten": [g and g["nachricht"] for g in geoeffnet],
+                        "zaehler": ev("() => [window.__anruf.medien, window.__anruf.verbindungen]"),
+                        "knoepfe": ev("() => [...document.querySelectorAll('.anruf-leiste button')].map(b => b.textContent)")}
+    ev("() => document.querySelector('.anruf-leiste button').click()")
+    s.wait_for_function("() => !document.querySelector('.anruf-leiste')", timeout=5000)
+    if erg["knoepfe"] != [["Anrufen", "Anrufen", True], ["Videoanruf", "Videoanruf", True]]:
+        erg["fehler"].append(f"Knöpfe {erg['knoepfe']}")
+    if erg["ohne_knoten"] != [0, 0, False, 0]:
+        erg["fehler"].append(f"ohne Knoten {erg['ohne_knoten']}")
+    k = erg["klingelt"]
+    if not (k["rolle"] == ["region", "Anruf", "polite"] and k["titel"].endswith(" ruft an") and k["code"].startswith("Sicherheitscode: ")
+            and k["code"].endswith("nicht geprüft") and "Knoten der anrufenden Person – er sieht deine IP-Adresse" in k["hinweis"]
+            and k["knoepfe"] == [["Annehmen", False], ["Ablehnen", False]] and k["medien"] == 0 and k["zaehler"] == [0, 0]):
+        erg["fehler"].append(f"klingelt {k}")
+    if erg["abgelehnt"] != {"nachrichten": [{"anruf": probe["kennung"], "typ": "ende", "grund": "abgelehnt"}], "zaehler": [0, 0], "knoepfe": ["Schließen"]}:
+        erg["fehler"].append(f"abgelehnt {erg['abgelehnt']}")
+    erg["browser_dialoge"] = seite.browser_dialoge
+    if seite.browser_dialoge:
+        erg["fehler"].append(f"Browser-Dialoge: {seite.browser_dialoge}")
+    seite.ctx.close()
+    erg["bestanden"] = not erg["fehler"]
+    return erg
+
+
 def tresor_an(seite: "DialogSeite", passphrase: str) -> None:
     """Tresor einrichten (Settings › Sicherheit, Schritt 5) – MLS gibt es nur mit Tresor (2.2b-e1)."""
     ev = seite.ev
@@ -1279,22 +1377,42 @@ def einstellungen_pruefen(browser, url: str) -> dict:
               # Alles über meinen Knoten (B-9c2): gekoppelt sichtbar, Standard aus, „an“ wird gemerkt
               "nur": ev("() => [!document.getElementById('knoten-nur-zeile').hidden, document.getElementById('knoten-nur').checked]"),
               # Status (B-11b): Knopf nur gekoppelt, gefragt wird erst beim Klick – die Anzeige ist leer
-              "status": ev("() => [!document.getElementById('knoten-status-holen').hidden, document.getElementById('knoten-status-anzeige').textContent]")}
+              "status": ev("() => [!document.getElementById('knoten-status-holen').hidden, document.getElementById('knoten-status-anzeige').textContent]"),
+              # Relay übernehmen (B-9c3): nur gekoppelt sichtbar
+              "relay_knopf": ev("() => !document.getElementById('knoten-relay-uebernehmen').hidden")}
+    # Ohne bekanntes Relay des Knotens (die Attrappe kennt keine Liste von ihm): Meldung, keine Rückfrage, nichts veröffentlicht
+    listen_vorher = sum(1 for e in relay.gesendet if e.get("kind") in (10002, 10050))
+    ev("() => document.getElementById('knoten-relay-uebernehmen').click()")
+    seite.s.wait_for_function("() => document.getElementById('knoten-status-anzeige').textContent.includes('nennt kein Relay')", timeout=20000)
+    knoten["relay_ohne"] = [ev("() => document.getElementById('knoten-status-anzeige').textContent"),
+                            ev("() => !!document.querySelector('[role=dialog][aria-modal=true]')"),
+                            sum(1 for e in relay.gesendet if e.get("kind") in (10002, 10050)) == listen_vorher]
     ev("() => document.getElementById('knoten-halten').click()")
     knoten["halten_aus"] = ev("() => localStorage.getItem('freedom.knoten.halten')")
     ev("() => document.getElementById('knoten-nur').click()")
     knoten["nur_an"] = ev("() => localStorage.getItem('freedom.knoten.nurUeber')")
+    # Wecken (B-12d2): sichtbar, ohne Abo aus; mit „nur über meinen Knoten“ und ohne bekanntes Relay scheitert es
+    # sofort – Haken wieder aus, kein Worker angemeldet, nichts gesendet (Prüfung „gesendet“ unten)
+    knoten["wecken_vorher"] = ev("() => [!document.getElementById('knoten-wecken-zeile').hidden, document.getElementById('knoten-wecken').checked]")
+    ev("() => document.getElementById('knoten-wecken').click()")
+    seite.s.wait_for_function("() => document.getElementById('knoten-status-anzeige').textContent.includes('nennt kein Relay')"
+                              " && !document.getElementById('knoten-wecken').disabled", timeout=20000)
+    knoten["wecken_ohne"] = [ev("() => document.getElementById('knoten-wecken').checked"),
+                             ev("async () => (await navigator.serviceWorker.getRegistrations()).length")]
     ev("() => document.getElementById('knoten-entkoppeln').click()")
     seite.warte_dialog("entkoppeln")
     bestaetigen()
     seite.warte_zu()
     knoten["danach"] = [ev("() => document.getElementById('knoten-status')?.textContent"), ev("() => localStorage.getItem('freedom.knoten.kopplung')"),
                         ev("() => document.getElementById('knoten-halten-zeile').hidden"), ev("() => document.getElementById('knoten-nur-zeile').hidden"),
-                        ev("() => document.getElementById('knoten-status-holen').hidden")]
+                        ev("() => document.getElementById('knoten-status-holen').hidden"), ev("() => document.getElementById('knoten-relay-uebernehmen').hidden"),
+                        ev("() => document.getElementById('knoten-wecken-zeile').hidden")]
     erg["knoten"] = knoten
     if knoten != {"typen": ["password"], "falsch": "Kein Kopplungscode – er beginnt mit freedom-kopplung:1:", "status": "Gekoppelt mit abababab…abab",
                   "gemerkt": True, "entkoppeln": True, "halten": [True, True], "nur": [True, False], "status": [True, ""], "halten_aus": "0", "nur_an": "1",
-                  "danach": ["Nicht gekoppelt", None, True, True, True]}:
+                  "relay_knopf": True, "relay_ohne": ["Mein Knoten nennt kein Relay – nichts übernommen", False, True],
+                  "wecken_vorher": [True, False], "wecken_ohne": [False, 0],
+                  "danach": ["Nicht gekoppelt", None, True, True, True, True, True]}:
         erg["fehler"].append(f"Mein Knoten {knoten}")
     # Abgebrochen: nichts veröffentlicht – kein Widerruf, kein Plan, keine Meldung
     erg["gesendet"] = sorted({e["kind"] for e in relay.gesendet if e.get("kind") not in (10002, 10050)})
@@ -1981,6 +2099,60 @@ def einrichtung_pruefen(browser, url: str) -> dict:
         erg["fehler"].append(f"Werber {erg.get('werber')}")
     if erg["danach"] != ["solana", "nutzen", "0", "#/agent"]:
         erg["fehler"].append(f"danach {erg['danach']}")
+    erg["bestanden"] = not erg["fehler"]
+    return erg
+
+
+def weckworker_pruefen(browser, url: str) -> dict:
+    """B-12c (W3 A): freedom-sw.js lässt sich unter der CSP der App anmelden (worker-src 'self').
+    Ein Push – hier mit Daten, die nie erscheinen dürfen – ergibt genau eine Meldung mit festem
+    Text in der Sprache aus der Adresse, ohne Inhalt und Absender. Danach wieder abgemeldet.
+    Die App selbst meldet ihn beim Start nicht an (das tut erst der Haken aus B-12d)."""
+    erg = {"fehler": []}
+    ursprung = url.rsplit("/", 1)[0]
+    # Meldungen zeigt nur das volle Chromium (die Headless-Shell verweigert sie immer)
+    voll = browser.browser_type.launch(channel="chromium")
+    ctx = voll.new_context(locale="de-DE")
+    ctx.route("**/*", lambda r: r.continue_() if r.request.url.startswith(ursprung) else r.abort())
+    ctx.grant_permissions(["notifications"], origin=ursprung)
+    s = ctx.new_page()
+    s.on("pageerror", lambda e: erg["fehler"].append(str(e)[:300]))
+    s.goto(url, wait_until="load")
+    s.wait_for_function("() => typeof window.freedomApp === 'object'", timeout=30000)
+    erg["ohne_worker"] = s.evaluate("async () => (await navigator.serviceWorker.getRegistrations()).length")
+    cdp = ctx.new_cdp_session(s)
+    regs: list = []
+    cdp.on("ServiceWorker.workerRegistrationUpdated", lambda p: regs.extend(p.get("registrations", [])))
+    cdp.send("ServiceWorker.enable")
+    scope = s.evaluate("async () => (await navigator.serviceWorker.register('freedom-sw.js?sprache=de')).scope")
+    s.evaluate("async () => { await navigator.serviceWorker.ready; return true; }")
+    for _ in range(100):
+        if any(r.get("scopeURL") == scope and not r.get("isDeleted") for r in regs):
+            break
+        s.wait_for_timeout(100)
+    reg_id = next((r["registrationId"] for r in regs if r.get("scopeURL") == scope and not r.get("isDeleted")), None)
+    erg["angemeldet"] = scope == ursprung + "/" and reg_id is not None
+    if reg_id is not None:
+        cdp.send("ServiceWorker.deliverPushMessage", {"origin": ursprung, "registrationId": reg_id, "data": "GEHEIMER-INHALT"})
+    meldungen = "async () => (await (await navigator.serviceWorker.ready).getNotifications()).map((n) => [n.title, n.body, n.tag])"
+    # wait_for_function wartet nicht auf ein Promise – also selbst fragen, mit Frist
+    for _ in range(100 if reg_id is not None else 0):
+        if s.evaluate(meldungen):
+            break
+        s.wait_for_timeout(200)
+    erg["meldungen"] = s.evaluate(meldungen)
+    erg["abgemeldet"] = s.evaluate("async () => { for (const r of await navigator.serviceWorker.getRegistrations()) await r.unregister();"
+                                   " return (await navigator.serviceWorker.getRegistrations()).length === 0; }")
+    ctx.close()
+    voll.close()
+    if erg["ohne_worker"] != 0:
+        erg["fehler"].append(f"die App meldet schon beim Start einen Worker an ({erg['ohne_worker']})")
+    if not erg["angemeldet"]:
+        erg["fehler"].append(f"nicht angemeldet: {scope}")
+    if erg["meldungen"] != [["Neue Nachricht", "Öffne FreedomStack, um sie zu lesen – Inhalt und Absender kennt nur die App.", "freedom-weck"]]:
+        erg["fehler"].append(f"Meldung {erg['meldungen']}")
+    if not erg["abgemeldet"]:
+        erg["fehler"].append("nicht abgemeldet")
     erg["bestanden"] = not erg["fehler"]
     return erg
 
@@ -3582,6 +3754,10 @@ def main() -> int:
             except Exception as e:
                 erg["sprachnachricht"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
             try:
+                erg["anruf"] = anruf_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
+            except Exception as e:
+                erg["anruf"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
+            try:
                 erg["privatraum"] = privatraum_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
             except Exception as e:
                 erg["privatraum"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
@@ -3622,6 +3798,10 @@ def main() -> int:
             except Exception as e:
                 erg["unsicher"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
             try:
+                erg["weckworker"] = weckworker_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
+            except Exception as e:
+                erg["weckworker"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
+            try:
                 erg["lokal"] = lokal_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
             except Exception as e:
                 erg["lokal"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
@@ -3651,6 +3831,7 @@ def main() -> int:
           and erg.get("waehrung", {}).get("bestanden") is True
           and erg.get("kontakt", {}).get("bestanden") is True
           and erg.get("sprachnachricht", {}).get("bestanden") is True
+          and erg.get("anruf", {}).get("bestanden") is True
           and erg.get("privatraum", {}).get("bestanden") is True
           and erg.get("einstellungen", {}).get("bestanden") is True
           and erg.get("einnahmen", {}).get("bestanden") is True
@@ -3663,6 +3844,7 @@ def main() -> int:
           and erg.get("unsicher", {}).get("bestanden") is True
           and erg.get("lokal", {}).get("bestanden") is True
           and erg.get("einrichtung", {}).get("bestanden") is True
+          and erg.get("weckworker", {}).get("bestanden") is True
           and erg.get("mobil", {}).get("bestanden") is True)
     erg["bestanden"] = bool(ok)
     print(json.dumps(erg, indent=1, ensure_ascii=False))

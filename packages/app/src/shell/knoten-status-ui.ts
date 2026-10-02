@@ -8,7 +8,7 @@
  * den Kopplungscode und schickt nichts hinaus.
  */
 import {
-  KIND_DVM_KNOTEN_STATUS, LocalSigner, baueStatusAuftrag, generateKeypair, getTag, leseKnotenStatus, openPrivateJobResponse,
+  KIND_DVM_KNOTEN_STATUS, LocalSigner, baueStatusAuftrag, generateKeypair, leseKnotenStatus, type Kopplung, type KnotenStatus,
 } from "@freedomstack/protocol";
 import { t } from "../i18n.js";
 import { HALTEN_MAX_POW, ablehnungsGrund } from "../knoten-halten.js";
@@ -17,30 +17,43 @@ import { fehlerText } from "../protokoll-texte.js";
 import { aktuellerKurs } from "./marktkurs.js";
 import { meineKopplung } from "./mein-knoten.js";
 import { angebotVon } from "./state.js";
-import { type KnotenWeg, wegZumKnoten } from "./knoten-weg-ui.js";
+import { warteAufKnoten, wegZumKnoten } from "./knoten-weg-ui.js";
 import { el } from "./ui.js";
-
-/** Auf die versiegelte Antwort warten – Ergebnis 6077 oder Rückmeldung 7000; null nach der Frist. */
-async function warteAufStatus(
-  weg: KnotenWeg, sitzung: LocalSigner, requestId: string,
-): Promise<{ ergebnis: string } | { abgelehnt: string } | null> {
-  const seit = Math.floor(Date.now() / 1000) - 60;
-  for (let t0 = Date.now(); Date.now() - t0 < STATUS_ZEIT_MS;) {
-    await new Promise((ok) => setTimeout(ok, STATUS_TAKT_MS));
-    const umschlaege = await weg.query({ kinds: [1059], "#p": [sitzung.publicKey()], since: seit }).catch(() => []);
-    for (const w of umschlaege) {
-      const a = await openPrivateJobResponse(w, sitzung);
-      if (!a.ok || getTag(a.response, "e") !== requestId) continue;
-      if (a.response.kind === KIND_DVM_KNOTEN_STATUS + 1000) return { ergebnis: a.response.content };
-      if (a.response.kind === 7000) return { abgelehnt: ablehnungsGrund(a.response.content) };
-    }
-  }
-  return null;
-}
 
 /** Zeilen in die Anzeige – nur als Text. */
 function zeige(ziel: HTMLElement, zeilen: string[]): void {
   ziel.replaceChildren(...zeilen.map((z) => el("div", z)));
+}
+
+/** Rechenarbeit für den Umschlag, wie sie das Angebot des Knotens verlangt – höchstens `HALTEN_MAX_POW`. */
+export async function powFuerKnoten(knoten: string): Promise<number> {
+  const angebot = await angebotVon(knoten).catch(() => undefined);
+  return angebot?.powBits !== undefined && angebot.powBits <= HALTEN_MAX_POW ? angebot.powBits : 0;
+}
+
+/**
+ * Den Status meines Knotens einmal versiegelt erfragen – auch für den Haken
+ * „Wecken“ (B-12d2, sein VAPID-Schlüssel). Zurück der gelesene Status oder ein
+ * Satz, warum es keinen gibt (nur als Text zeigen).
+ */
+export async function frageKnotenStatus(k: Kopplung): Promise<{ status: KnotenStatus } | { grund: string }> {
+  const powBits = await powFuerKnoten(k.knoten);
+  const sitzung = new LocalSigner(generateKeypair().sk);
+  // Alles über meinen Knoten (B-9c2): mit Haken nur über sein Relay – ohne Relay geht nichts hinaus
+  const weg = await wegZumKnoten(k.knoten, sitzung);
+  if (!weg) return { grund: t("set.knotenOhneRelay") };
+  let antwort: Awaited<ReturnType<typeof warteAufKnoten>>;
+  try {
+    const { wrap, requestId } = await baueStatusAuftrag({ sitzung, kopplung: k, powBits });
+    await weg.publish(wrap);
+    antwort = await warteAufKnoten(weg, sitzung, requestId, KIND_DVM_KNOTEN_STATUS + 1000, STATUS_ZEIT_MS, STATUS_TAKT_MS);
+  } finally {
+    weg.schliesse();
+  }
+  if (!antwort) return { grund: t("set.statusSchweigt") };
+  if ("abgelehnt" in antwort) return { grund: t("set.statusAbgelehnt", { grund: ablehnungsGrund(antwort.abgelehnt) }) };
+  const s = leseKnotenStatus(antwort.ergebnis);
+  return s ? { status: s } : { grund: t("set.statusUnlesbar") };
 }
 
 /** „Status abfragen“: einmal fragen, die Antwort als Zeilen zeigen. */
@@ -52,24 +65,8 @@ export async function zeigeKnotenStatus(): Promise<void> {
   knopf.disabled = true;
   zeige(ziel, [t("set.statusFragt")]);
   try {
-    const angebot = await angebotVon(k.knoten).catch(() => undefined);
-    const powBits = angebot?.powBits !== undefined && angebot.powBits <= HALTEN_MAX_POW ? angebot.powBits : 0;
-    const sitzung = new LocalSigner(generateKeypair().sk);
-    // Alles über meinen Knoten (B-9c2): mit Haken nur über sein Relay – ohne Relay geht nichts hinaus
-    const weg = await wegZumKnoten(k.knoten, sitzung);
-    if (!weg) return zeige(ziel, [t("set.knotenOhneRelay")]);
-    let antwort: Awaited<ReturnType<typeof warteAufStatus>>;
-    try {
-      const { wrap, requestId } = await baueStatusAuftrag({ sitzung, kopplung: k, powBits });
-      await weg.publish(wrap);
-      antwort = await warteAufStatus(weg, sitzung, requestId);
-    } finally {
-      weg.schliesse();
-    }
-    if (!antwort) return zeige(ziel, [t("set.statusSchweigt")]);
-    if ("abgelehnt" in antwort) return zeige(ziel, [t("set.statusAbgelehnt", { grund: antwort.abgelehnt })]);
-    const s = leseKnotenStatus(antwort.ergebnis);
-    zeige(ziel, s ? statusZeilen(s, aktuellerKurs()) : [t("set.statusUnlesbar")]);
+    const r = await frageKnotenStatus(k);
+    zeige(ziel, "status" in r ? statusZeilen(r.status, aktuellerKurs()) : [r.grund]);
   } catch (e) {
     zeige(ziel, [t("set.statusFehler", { fehler: fehlerText(e) })]);
   } finally {
