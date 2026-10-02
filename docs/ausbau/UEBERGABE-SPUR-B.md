@@ -41,7 +41,7 @@ Die Zeile „Stand …“ in CLAUDE.md ist aktuell.
   - Smoke-Test: Anmeldung auf `localhost`.
   - Umgesetzt mit `--vergleiche-ordner` (repro) und der Sprache aus `?sprache=` der Worker-Adresse.
   - Vom Knoten ausgeliefert (B-10) fehlt der Worker – B-12d muss das ehrlich sagen (oder `app-auslieferung.ts` liefert ihn mit Summe mit).
-- **B-12d (fertig: d1 #274, d2):**
+- **B-12d (fertig: d1 #274, d2 #275):**
   - **Haken in „Mein Knoten“:** nur gekoppelt und nur in sicherem Kontext (`verschluesselungMoeglich()`). Beim Klick:
     1. `Notification.requestPermission()`;
     2. `navigator.serviceWorker.register("freedom-sw.js?sprache=" + getLang())`;
