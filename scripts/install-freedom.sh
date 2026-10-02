@@ -17,6 +17,8 @@
 #   RELAY_ENABLED=1                eigener Relay (default an)
 #   APP_SHA256=<sha256>            die App vom eigenen Knoten (B-10): gebaut wird sie hier,
 #                                  ausgeliefert nur mit dieser Pruefsumme (von der Website)
+#   TURN_NAME=<name>               Anrufe (B-13): oeffentlicher Name dieses Rechners fuer den
+#                                  TURN-Vermittler (coturn); leer: keine Anrufe
 #   SKIP_MODEL_PULL=1              Modell nicht automatisch laden
 #   FREEDOM_REPO=<git-url>         abweichende Quelle
 # ============================================================
@@ -242,6 +244,46 @@ if [ "${SKIP_MODEL_PULL:-0}" != "1" ]; then
 fi
 ok "primaeres Modell: $OLLAMA_MODEL"
 
+# ------------------------------------------------ Anrufe (TURN, B-13b)
+step "Anrufe (TURN, optional)"
+
+# Anrufe laufen nur ueber einen Vermittler auf dem eigenen Knoten (coturn) – das
+# Gegenueber sieht nie deine IP. Zugaenge vergibt der Knoten (TURN-REST); er und
+# coturn teilen dafuer ein Geheimnis, das hier entsteht (docs/PROVIDER.md).
+TURN_CONF="$STATE_DIR/turnserver.conf"
+TURN_SECRET="${TURN_SECRET:-}"
+TURN_URLS="${TURN_URLS:-}"
+if [ -z "$TURN_SECRET" ] && [ -f "$ENV_FILE" ]; then
+  TURN_SECRET="$(grep -m1 '^TURN_SECRET=' "$ENV_FILE" 2>/dev/null | cut -d= -f2- || true)"
+  TURN_URLS="$(grep -m1 '^TURN_URLS=' "$ENV_FILE" 2>/dev/null | cut -d= -f2- || true)"
+fi
+if [ -z "$TURN_SECRET" ] && [ -z "${TURN_NAME:-}" ] && [ -n "$TTY" ]; then
+  printf 'Oeffentlicher Name dieses Rechners fuer Anrufe (leer: keine Anrufe): '
+  read -r TURN_NAME < "$TTY"
+fi
+if [ -z "$TURN_SECRET" ] && [ -n "${TURN_NAME:-}" ]; then
+  [ ! -f "$TURN_CONF" ] || die "$TURN_CONF gibt es schon, aber kein TURN_SECRET in $ENV_FILE – erst klaeren, dann erneut installieren."
+  # Der Name nur als Argument an das Skript – es prueft ihn und schreibt die Datei mit 0600
+  TURN_ZEILEN="$(bash "$FREEDOM_DIR/scripts/turn-einrichten.sh" "$TURN_CONF" "$TURN_NAME")" || die "TURN nicht eingerichtet."
+  TURN_SECRET="$(printf '%s\n' "$TURN_ZEILEN" | grep -m1 '^TURN_SECRET=' | cut -d= -f2-)"
+  TURN_URLS="$(printf '%s\n' "$TURN_ZEILEN" | grep -m1 '^TURN_URLS=' | cut -d= -f2-)"
+  ok "TURN eingerichtet: $TURN_CONF (nur fuer dich lesbar)"
+fi
+if [ -n "$TURN_SECRET" ]; then
+  if ! command -v turnserver >/dev/null; then
+    if command -v apt-get >/dev/null && { [ -n "$SUDO" ] || [ "$(id -u)" -eq 0 ]; }; then
+      $SUDO apt-get install -y coturn >/dev/null || warn "coturn nicht installiert – bitte selbst: apt-get install coturn"
+      # Der Dienst des Pakets saesse auf demselben Port – er bleibt aus, es laeuft freedom-turn
+      $SUDO systemctl disable --now coturn >/dev/null 2>&1 || true
+    else
+      warn "coturn fehlt – bitte installieren (Paket coturn), sonst nimmt niemand die Zugaenge an."
+    fi
+  fi
+  warn "Fuer Anrufe UDP und TCP 3478 sowie UDP 49160-49200 an Firewall und Router freigeben."
+else
+  ok "Anrufe aus (spaeter: TURN_NAME=<oeffentlicher-name> erneut installieren)"
+fi
+
 # ------------------------------------------------ 8. Dienst
 step "8/8  Dienst einrichten"
 
@@ -271,6 +313,9 @@ RELAY_PUBLIC_URL=${RELAY_PUBLIC_URL:-}
 APP_SHA256=${APP_SHA256:-}
 FREE_TOKENS_PER_DAY=${FREE_TOKENS_PER_DAY:-2000}
 QUOTA_API_PORT=$QUOTA_API_PORT
+# Anrufe (B-13): Geheimnis mit coturn ($TURN_CONF) und seine Adressen; leer: aus
+TURN_SECRET=${TURN_SECRET:-}
+TURN_URLS=${TURN_URLS:-}
 ENV_EOF
 chmod 600 "$ENV_FILE"
 
@@ -299,8 +344,33 @@ ReadWritePaths=$HOME/freedom-data $STATE_DIR
 [Install]
 WantedBy=multi-user.target
 UNIT_EOF
+  # Anrufe (B-13b): coturn als eigener Dienst mit der Datei von oben – als du, nicht als root
+  if [ -n "$TURN_SECRET" ] && [ -f "$TURN_CONF" ] && command -v turnserver >/dev/null; then
+    $SUDO tee /etc/systemd/system/freedom-turn.service >/dev/null <<TURN_EOF
+[Unit]
+Description=FreedomStack TURN (Anrufe)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=$USER
+ExecStart=$(command -v turnserver) -c $TURN_CONF
+Restart=always
+RestartSec=10
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=read-only
+
+[Install]
+WantedBy=multi-user.target
+TURN_EOF
+  fi
   mkdir -p "$HOME/freedom-data"
   $SUDO systemctl daemon-reload
+  if [ -f /etc/systemd/system/freedom-turn.service ]; then
+    $SUDO systemctl enable --now freedom-turn && ok "TURN laeuft (freedom-turn)" || warn "TURN startet nicht: systemctl status freedom-turn"
+  fi
   $SUDO systemctl enable --now freedom-node
   sleep 4
 

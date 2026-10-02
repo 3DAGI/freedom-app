@@ -127,6 +127,10 @@ services:
       LNURL_BASE_URL: "${LNURL_BASE_URL:-}"
       LNURL_NAME: "${LNURL_NAME:-provider}"
       LNURL_LND_MACAROON: "${LNURL_LND_MACAROON:-}"
+      # B-13: Zugaenge zum TURN fuer Anrufe (Profil „anrufe“ unten) – beide aus
+      # scripts/turn-einrichten.sh; leer: keine Zugaenge.
+      TURN_URLS: "${TURN_URLS:-}"
+      TURN_SECRET: "${TURN_SECRET:-}"
       QUOTA_API_PORT: "3602"
     volumes:
       # Identitaet und Bootstrap-Zeitpunkt ueberleben Neustarts. Ohne dieses
@@ -137,6 +141,22 @@ services:
     ports:
       - "127.0.0.1:3602:3602"
       - "127.0.0.1:3601:3601"   # LNURL (8.2b), nur für den Reverse-Proxy
+
+  # Anrufe (B-13b, T2 A): TURN-Vermittler, nur mit dem Profil „anrufe“. Einmal einrichten:
+  #   bash scripts/turn-einrichten.sh ./turnserver.conf <oeffentlicher-name> --docker >> .env
+  #   docker compose --profile anrufe up -d
+  # Die Datei ist nur fuer dich lesbar (0600) – der Container laeuft deshalb als du (TURN_UID/GID).
+  # Freigeben: UDP und TCP 3478, UDP 49160-49200. Zugaenge vergibt nur der Knoten.
+  coturn:
+    image: coturn/coturn:4.18
+    container_name: freedom-coturn
+    profiles: ["anrufe"]
+    restart: unless-stopped
+    network_mode: host
+    # Standard 1000 (erster Nutzer); sonst die Zeilen aus --docker in .env. Ein „:?“ hier braeche jedes `up`.
+    user: "${TURN_UID:-1000}:${TURN_GID:-1000}"
+    volumes:
+      - ./turnserver.conf:/etc/coturn/turnserver.conf:ro
 
 volumes:
   ollama-models:

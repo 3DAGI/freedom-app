@@ -20,3 +20,7 @@ packages/website/freedom.html
 
 # Python-Cache der Prüfskripte (smoke_test.py & Co.)
 __pycache__/
+# TURN-Konfiguration mit Geheimnis (B-13b, scripts/turn-einrichten.sh) – nie einchecken
+turnserver.conf
+# Umgebung für docker compose (B-13b: TURN_SECRET) – nie einchecken
+.env
