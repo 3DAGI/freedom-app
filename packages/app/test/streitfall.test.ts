@@ -119,8 +119,10 @@ test("5.6b verdrahtet: Pruefer aus dem Netz, Material nur mit Zustimmung, Schlue
 
 test("5.6c: ein Pruefauftrag ist nur eine Reklamation, die mich nennt", () => {
   const ich = generateKeypair().pk, anderer = generateKeypair().pk, sitzung = generateKeypair().pk, provider = generateKeypair().pk;
+  // Die Zeit nur einmal aus der Uhr (Fallstrick „Fristen in Tests“): sonst unterscheiden sich die Ids, wenn dazwischen die Sekunde umspringt
+  const jetzt = Math.floor(Date.now() / 1000);
   const kern = (pruefer: string[], jobId = pk("1")) => {
-    const u = buildDispute({ jobId, customerPubkey: sitzung, providerPubkey: provider, reason: "falsches_modell", amountMsat: 21_000, note: "n", pruefer, material: { frage: "F", antwort: "A" } });
+    const u = buildDispute({ jobId, customerPubkey: sitzung, providerPubkey: provider, reason: "falsches_modell", amountMsat: 21_000, note: "n", pruefer, material: { frage: "F", antwort: "A" } }, jetzt);
     return { ...u, id: computeEventId(u) };
   };
   const d = pruefauftragAus(kern([ich]), ich)!;

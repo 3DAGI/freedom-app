@@ -14633,3 +14633,11 @@ Kennungen, `wireGebuehrenKarte()` (`settings.ts`) die Gebühren-Karte.
   - Die Settings haben kein „fees“ mehr.
   - Verdienen › Hosten öffnet den Dialog „Modell vorhalten“.
   - „mobil“ misst `wallet:pay` und `earn:host`.
+- Nebenbei (außerhalb von Spur C, klein): Beim vollen Lauf war
+  `streitfall.test.ts` („5.6c: ein Pruefauftrag …“) einmal rot. Der Test
+  baute dieselbe Reklamation zweimal und verglich die Ids; `buildDispute()`
+  liest ohne Zeitangabe jedes Mal die Uhr. Sprang dazwischen die Sekunde um,
+  unterschieden sich die Ids (Fallstrick „Fristen in Tests nur einmal aus der
+  Uhr“). Nachgestellt mit einer Uhr, die je Aufruf 600 ms vorrückt: vorher
+  rot, jetzt grün. Die Zeit kommt jetzt einmal aus der Uhr; die Prüfungen
+  sind unverändert.
