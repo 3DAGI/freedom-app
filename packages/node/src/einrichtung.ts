@@ -13,13 +13,25 @@
  *
  * Nach außen nur eigene Texte und Fehlernamen – nie Antworten fremder Server.
  * Aufgerufen beim Start (`main.ts`) und über `npm run pruefen` (Installer).
+ * Jeder Befund trägt seit B-11c eine Kennung (`fall`) und nur Zahlen oder
+ * Fehlernamen (`werte`) – so geht er im Status an den Besitzer (5077), ohne
+ * deutschen Satz und ohne Adressen; die App bildet den Text selbst.
  */
 import { adresseFuer, leseBolt11 } from "@freedomstack/protocol";
 import { teiltSchluessel, type kanalKasseAusUmgebung, type KanalUmgebung } from "./kanal-kasse.js";
 import { MIN_RUECKLAGE } from "./sol-auszahlung.js";
 
 export type Stufe = "ok" | "hinweis" | "fehler";
-export interface Befund { schiene: "lightning" | "sol"; stufe: Stufe; text: string }
+export interface Befund {
+  schiene: "lightning" | "sol";
+  stufe: Stufe;
+  /** Kennung des Befunds, z. B. `ln.ok` – die App hat je Kennung einen Text. */
+  fall: string;
+  /** Nur Zahlen (sats, Lamports, HTTP-Status) und Fehlernamen – nie Adressen. */
+  werte?: Record<string, number | string>;
+  /** Satz fürs Log und `npm run pruefen`. */
+  text: string;
+}
 
 /** Ab diesem Mindestbetrag (msat) weist die Lightning-Adresse kleine Anteile ab. */
 export const KLEINSTER_ANTEIL_MSAT = 1_000;
@@ -43,76 +55,83 @@ const fehlerName = (e: unknown): string => (e instanceof Error && e.name) || "Fe
 const sol = (l: bigint): string => (Number(l) / 1e9).toLocaleString("de-DE", { maximumFractionDigits: 6 });
 
 export async function pruefeLightning(lud16: string | undefined, holen: PruefHilfen["holen"]): Promise<Befund[]> {
-  const b = (stufe: Stufe, text: string): Befund => ({ schiene: "lightning", stufe, text });
+  const b = (stufe: Stufe, fall: string, text: string, werte?: Befund["werte"]): Befund => ({ schiene: "lightning", stufe, fall, werte, text });
   const adresse = lud16 ? adresseFuer({ lud16 }, "lightning") : undefined;
   if (!adresse) {
-    return [b("fehler", lud16 ? "NODE_LUD16 ist keine Lightning-Adresse (name@domain)" : "NODE_LUD16 fehlt – ohne Lightning-Adresse startet der Knoten nicht")];
+    return [lud16
+      ? b("fehler", "ln.keineAdresse", "NODE_LUD16 ist keine Lightning-Adresse (name@domain)")
+      : b("fehler", "ln.fehlt", "NODE_LUD16 fehlt – ohne Lightning-Adresse startet der Knoten nicht")];
   }
   const [name, host] = adresse.split("@") as [string, string];
   const aus: Befund[] = [];
   let d: { tag?: unknown; callback?: unknown; minSendable?: unknown; maxSendable?: unknown };
   try {
     const r = await holen(`https://${host}/.well-known/lnurlp/${encodeURIComponent(name)}`);
-    if (r.status !== 200) return [b("fehler", `${adresse} antwortet mit HTTP ${r.status}`)];
-    if (r.cors !== "*") aus.push(b("hinweis", `${adresse} erlaubt keine Abfrage aus dem Browser (CORS) – die App kann dort keine Rechnung holen`));
+    if (r.status !== 200) return [b("fehler", "ln.http", `${adresse} antwortet mit HTTP ${r.status}`, { status: r.status })];
+    if (r.cors !== "*") aus.push(b("hinweis", "ln.cors", `${adresse} erlaubt keine Abfrage aus dem Browser (CORS) – die App kann dort keine Rechnung holen`));
     d = (r.json ?? {}) as typeof d;
   } catch (e) {
-    return [b("fehler", `${adresse} nicht erreichbar (${fehlerName(e)})`)];
+    return [b("fehler", "ln.unerreichbar", `${adresse} nicht erreichbar (${fehlerName(e)})`, { fehler: fehlerName(e) })];
   }
   if (d.tag !== "payRequest" || typeof d.callback !== "string" || !d.callback.startsWith("https://")) {
-    return [...aus, b("fehler", `${adresse} ist keine LNURL-pay-Adresse mit https-Callback`)];
+    return [...aus, b("fehler", "ln.keinPay", `${adresse} ist keine LNURL-pay-Adresse mit https-Callback`)];
   }
   const min = Number(d.minSendable), max = Number(d.maxSendable);
   if (!Number.isSafeInteger(min) || !Number.isSafeInteger(max) || min < 1 || max < min) {
-    return [...aus, b("fehler", `${adresse} nennt keine gültigen Beträge`)];
+    return [...aus, b("fehler", "ln.betraege", `${adresse} nennt keine gültigen Beträge`)];
   }
   if (min > KLEINSTER_ANTEIL_MSAT) {
-    aus.push(b("hinweis", `${adresse} nimmt erst ab ${Math.ceil(min / 1000)} sats an – kleinere Anteile kommen nicht an`));
+    aus.push(b("hinweis", "ln.mindestens", `${adresse} nimmt erst ab ${Math.ceil(min / 1000)} sats an – kleinere Anteile kommen nicht an`, { sats: Math.ceil(min / 1000) }));
   }
   // Eine echte Rechnung über den kleinsten Betrag – unbezahlt, sie verfällt
   const betrag = Math.max(min, KLEINSTER_ANTEIL_MSAT);
-  if (betrag > max) return [...aus, b("fehler", `${adresse} nimmt ${Math.ceil(betrag / 1000)} sats nicht an`)];
+  if (betrag > max) return [...aus, b("fehler", "ln.nimmtNicht", `${adresse} nimmt ${Math.ceil(betrag / 1000)} sats nicht an`, { sats: Math.ceil(betrag / 1000) })];
   try {
     const cb = new URL(d.callback);
     cb.searchParams.set("amount", String(betrag));
     const r = await holen(cb.toString());
     const pr = (r.json as { pr?: unknown } | null)?.pr;
-    if (r.status !== 200 || typeof pr !== "string") return [...aus, b("fehler", `${adresse} stellt keine Rechnung aus`)];
-    if (leseBolt11(pr).betragMsat !== betrag) return [...aus, b("fehler", `${adresse} stellt eine Rechnung über einen anderen Betrag aus`)];
+    if (r.status !== 200 || typeof pr !== "string") return [...aus, b("fehler", "ln.keineRechnung", `${adresse} stellt keine Rechnung aus`)];
+    if (leseBolt11(pr).betragMsat !== betrag) return [...aus, b("fehler", "ln.andererBetrag", `${adresse} stellt eine Rechnung über einen anderen Betrag aus`)];
   } catch (e) {
-    return [...aus, b("fehler", `${adresse} stellt keine gültige Rechnung aus (${fehlerName(e)})`)];
+    return [...aus, b("fehler", "ln.ungueltig", `${adresse} stellt keine gültige Rechnung aus (${fehlerName(e)})`, { fehler: fehlerName(e) })];
   }
-  return [...aus, b("ok", `${adresse} stellt Rechnungen aus (${Math.ceil(min / 1000)} bis ${Math.floor(max / 1000)} sats)`)];
+  return [...aus, b("ok", "ln.ok", `${adresse} stellt Rechnungen aus (${Math.ceil(min / 1000)} bis ${Math.floor(max / 1000)} sats)`,
+    { min: Math.ceil(min / 1000), max: Math.floor(max / 1000) })];
 }
 
 export async function pruefeSol(env: KanalUmgebung, h: Pick<PruefHilfen, "kanal" | "kette">): Promise<Befund[]> {
-  const b = (stufe: Stufe, text: string): Befund => ({ schiene: "sol", stufe, text });
-  const { kasse, grund, auszahlungGrund } = h.kanal;
+  const b = (stufe: Stufe, fall: string, text: string, werte?: Befund["werte"]): Befund => ({ schiene: "sol", stufe, fall, werte, text });
+  const { kasse, grund, fall, auszahlungGrund } = h.kanal;
   if (!kasse) {
     // Ohne ZAHLKANAL=1 ist das eine Wahl, sonst ein Fehler in der Einrichtung
-    return [b(env.ZAHLKANAL === "1" ? "fehler" : "hinweis", `Zahlkanal ${grund} – Kunden zahlen dann nur mit Lightning`)];
+    const kennung = `sol.kanal${(fall ?? "aus").charAt(0).toUpperCase()}${(fall ?? "aus").slice(1)}`;
+    return [b(env.ZAHLKANAL === "1" ? "fehler" : "hinweis", kennung, `Zahlkanal ${grund} – Kunden zahlen dann nur mit Lightning`)];
   }
   const adresse = env.NODE_SOL_ADDRESS!;
-  const aus = [b("ok", `Zahlkanal an, Adresse des Knotens ${adresse}`)];
+  const aus = [b("ok", "sol.kanalAn", `Zahlkanal an, Adresse des Knotens ${adresse}`)];
   if (h.kette) {
     try {
-      if (!(await h.kette.programmBereit())) aus.push(b("hinweis", "Das Kanal-Programm liegt auf dieser Kette noch nicht – Kunden können noch keine Kanäle öffnen"));
+      if (!(await h.kette.programmBereit())) aus.push(b("hinweis", "sol.programmFehlt", "Das Kanal-Programm liegt auf dieser Kette noch nicht – Kunden können noch keine Kanäle öffnen"));
       const g = await h.kette.guthaben(adresse);
       aus.push(g < MIN_RUECKLAGE
-        ? b("hinweis", `Die Adresse des Knotens hat ${sol(g)} SOL – für die Gebühren der Einlösungen braucht sie mindestens ${sol(MIN_RUECKLAGE)} SOL`)
-        : b("ok", `Guthaben der Adresse des Knotens: ${sol(g)} SOL`));
+        ? b("hinweis", "sol.wenigGuthaben", `Die Adresse des Knotens hat ${sol(g)} SOL – für die Gebühren der Einlösungen braucht sie mindestens ${sol(MIN_RUECKLAGE)} SOL`,
+          { lamports: Number(g), mindestLamports: Number(MIN_RUECKLAGE) })
+        : b("ok", "sol.guthaben", `Guthaben der Adresse des Knotens: ${sol(g)} SOL`, { lamports: Number(g) }));
     } catch (e) {
-      aus.push(b("hinweis", `Kette nicht erreichbar (${fehlerName(e)}) – Programm und Guthaben ungeprüft`));
+      aus.push(b("hinweis", "sol.ketteUnerreichbar", `Kette nicht erreichbar (${fehlerName(e)}) – Programm und Guthaben ungeprüft`, { fehler: fehlerName(e) }));
     }
   }
   if (!auszahlungGrund) {
     const an = env.NODE_SOL_PAYOUT!;
     const programm = await h.kette?.istProgramm(an).catch(() => false);
-    aus.push(programm ? b("fehler", `NODE_SOL_PAYOUT ${an} ist ein Programm – dorthin zahlt der Knoten nicht aus`) : b("ok", `Auszahlung an ${an}`));
+    aus.push(programm
+      ? b("fehler", "sol.auszahlungProgramm", `NODE_SOL_PAYOUT ${an} ist ein Programm – dorthin zahlt der Knoten nicht aus`)
+      : b("ok", "sol.auszahlung", `Auszahlung an ${an}`));
   } else if (!env.NODE_SOL_PAYOUT || teiltSchluessel(env)) {
-    aus.push(b("hinweis", `Auszahlung ${auszahlungGrund} – Eingelöstes bleibt auf dem Schlüssel des Knotens`));
+    aus.push(b("hinweis", env.NODE_SOL_PAYOUT ? "sol.auszahlungTeilt" : "sol.auszahlungAus", `Auszahlung ${auszahlungGrund} – Eingelöstes bleibt auf dem Schlüssel des Knotens`));
   } else {
-    aus.push(b("fehler", `Auszahlung: ${auszahlungGrund}`));
+    aus.push(b("fehler", "sol.auszahlungUngueltig", `Auszahlung: ${auszahlungGrund}`));
   }
   return aus;
 }

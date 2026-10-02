@@ -640,6 +640,7 @@ Aufträge.
 | `abgerechnetMsat` | seit dem Start in Antworten verlangt (nicht unbedingt schon bezahlt) |
 | `speicher` | `belegtBytes`, `quotaBytes` (0 = ohne Grenze), `gehalten` – oder `null` |
 | `relay` | `events`, `verbindungen` – oder `null` |
+| `einrichtung` | seit B-11c, darf fehlen: Befunde der Selbstprüfung beim Start, höchstens 40, je `schiene` (`lightning`, `sol`), `stufe` (`ok`, `hinweis`, `fehler`), `fall` (`ln.…`/`sol.…`) und `werte` (höchstens 6, nur ganze Zahlen ab 0 oder Fehlernamen aus Buchstaben) |
 
 Unbekannte Felder bleiben unbeachtet, damit ein neuerer Knoten mehr melden
 kann; bekannte müssen stimmen, sonst zeigt die App nichts. Kein Text aus

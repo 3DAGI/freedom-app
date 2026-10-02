@@ -26,7 +26,7 @@ import {
 } from "@freedomstack/protocol";
 import { DvmProvider, DEFAULT_PROVIDER_CONFIG } from "./dvm-provider.js";
 import { kanalKasseAusUmgebung, kanalOrte } from "./kanal-kasse.js";
-import { befundeText, holeJson, kettenBlick, pruefeEinrichtung } from "./einrichtung.js";
+import { type Befund, befundeText, holeJson, kettenBlick, pruefeEinrichtung } from "./einrichtung.js";
 import { kopplungsDatei, leseKopplung } from "./kopplung-datei.js";
 import { torAusUmgebung, torWebSocket } from "./tor.js";
 import { OllamaBackend } from "./inference.js";
@@ -165,18 +165,23 @@ async function main(): Promise<void> {
   }
   // Zahlkanal (4.3c): nur mit ZAHLKANAL=1 und passendem Solana-Schlüssel
   const solRpc = process.env.SOLANA_RPC_URL || defaultSolanaRpc();
-  const { kasse: kanalKasse, grund: kanalGrund, auszahlung, auszahlungGrund } = await kanalKasseAusUmgebung(process.env, {
+  const { kasse: kanalKasse, grund: kanalGrund, fall: kanalFall, auszahlung, auszahlungGrund } = await kanalKasseAusUmgebung(process.env, {
     rpcUrl: solRpc,
     ...kanalOrte(),
   });
   console.log(kanalKasse ? `[kanal] Zahlkanal an (Provider ${process.env.NODE_SOL_ADDRESS})` : `[kanal] Zahlkanal ${kanalGrund}`);
   if (kanalKasse) console.log(auszahlung ? `[kanal] Auszahlung an ${process.env.NODE_SOL_PAYOUT}` : `[kanal] Auszahlung ${auszahlungGrund}`);
-  // Selbstprüfung (8.2a): verdient der Knoten in beiden Schienen? Nur ins Log, blockiert den Start nicht
+  // Selbstprüfung (8.2a): verdient der Knoten in beiden Schienen? Ins Log, blockiert den Start nicht.
+  // Die Befunde gehen seit B-11c auch in den Status an den Besitzer – nur Kennungen und Zahlen.
+  let einrichtung: Befund[] | undefined;
   void kettenBlick(solRpc).catch(() => undefined)
     .then((kette) => pruefeEinrichtung(process.env, {
-      holen: (u) => holeJson(u), kanal: { kasse: kanalKasse, grund: kanalGrund, auszahlung, auszahlungGrund }, kette,
+      holen: (u) => holeJson(u), kanal: { kasse: kanalKasse, grund: kanalGrund, fall: kanalFall, auszahlung, auszahlungGrund }, kette,
     }))
-    .then((befunde) => console.log(befundeText(befunde).replace(/^/gm, "[einrichtung] ")))
+    .then((befunde) => {
+      einrichtung = befunde;
+      console.log(befundeText(befunde).replace(/^/gm, "[einrichtung] "));
+    })
     .catch((e) => console.warn(`[einrichtung] Prüfung nicht möglich (${(e as Error).name})`));
   // Kopplung mit dem Besitzer (B-8b): je Anfrage frisch gelesen – ein neues Geheimnis (npm run koppeln -- --neu) gilt sofort
   const kopplungOrt = kopplungsDatei();
@@ -189,7 +194,10 @@ async function main(): Promise<void> {
       besitzer: () => { const k = leseKopplung(kopplungOrt, keypair.pk); return k ? [k.geheimnis] : []; },
       status: () => {
         const r = relayRole?.stats();
-        return { fassung, seit: statusSeit, rollen: [...statusRollen], modelle: angebotModelle(), relay: r ? { events: r.events, verbindungen: r.verbindungen } : null };
+        return {
+          fassung, seit: statusSeit, rollen: [...statusRollen], modelle: angebotModelle(), relay: r ? { events: r.events, verbindungen: r.verbindungen } : null,
+          einrichtung: einrichtung?.map(({ schiene, stufe, fall, werte }) => ({ schiene, stufe, fall, werte: werte ?? {} })),
+        };
       },
       pricePerKTokenMsat: Number(process.env.PRICE_PER_K_TOKEN_MSAT ?? DEFAULT_PROVIDER_CONFIG.pricePerKTokenMsat),
       minBidMsat: Number(process.env.MIN_BID_MSAT ?? DEFAULT_PROVIDER_CONFIG.minBidMsat),

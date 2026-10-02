@@ -8,7 +8,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { STATUS_ROLLEN, type KnotenStatus } from "@freedomstack/protocol";
 import { setLang } from "../src/i18n.js";
-import { ROLLEN_TEXT, statusZeilen } from "../src/knoten-status-ansicht.js";
+import { EINRICHTUNG_TEXT, ROLLEN_TEXT, befundZeile, statusZeilen } from "../src/knoten-status-ansicht.js";
 import { settings } from "../src/texte/settings.js";
 
 const lies = (p: string) => readFileSync(new URL(`../src/${p}`, import.meta.url), "utf8");
@@ -40,8 +40,9 @@ test("B-11b: Zeilen auf Deutsch – Rollen übersetzt, Modelle wie gemeldet, Bet
     assert.equal(leer[2], "Modelle: keine");
     assert.match(leer[4]!, /84 sats \(SOL: kein Kurs\)/);
     assert.equal(leer[5], "Speicher: 0 MB belegt (ohne Grenze), 0 Stücke für mich gehalten");
-    assert.equal(leer.length, 6);
-    assert.equal(statusZeilen({ ...status(), speicher: null, relay: null }).length, 5);
+    assert.equal(leer.length, 7, "dazu die Zeile zur Einrichtung (B-11c)");
+    assert.equal(leer.at(-1), "Einrichtung: noch nicht geprüft – oder der Knoten ist älter als B-11c", "ohne Prüfung nie „alles gut“");
+    assert.equal(statusZeilen({ ...status(), speicher: null, relay: null }).length, 6);
   } finally {
     setLang("en");
   }
@@ -80,4 +81,36 @@ test("B-11b: Verdrahtung – nur auf Knopfdruck, über den Weg, ohne Relay nicht
   const html = lies("shell/index.html");
   assert.match(html, /<button id="knoten-status-holen" class="ghost"[^>]* hidden data-i18n="set\.knotenStatusHolen">/);
   assert.match(html, /<div id="knoten-status-anzeige" class="mono-sm"[^>]* aria-live="polite"><\/div>/);
+});
+
+test("B-11c: Befunde der Einrichtung – Text aus der Kennung, SOL aus Lamports, Unbekanntes nur mit Kennung", () => {
+  setLang("de");
+  try {
+    assert.equal(befundZeile({ schiene: "lightning", stufe: "ok", fall: "ln.ok", werte: { min: 1, max: 100_000 } }),
+      "✓ Lightning: Die Lightning-Adresse stellt Rechnungen aus (1 bis 100.000 sats)");
+    assert.equal(befundZeile({ schiene: "sol", stufe: "hinweis", fall: "sol.wenigGuthaben", werte: { lamports: 0, mindestLamports: 1_000_000 } }),
+      "! SOL: Die Adresse des Knotens hat 0 SOL – für die Gebühren der Einlösungen braucht sie mindestens 0,001 SOL");
+    assert.equal(befundZeile({ schiene: "lightning", stufe: "fehler", fall: "ln.unerreichbar", werte: { fehler: "AbortError" } }),
+      "✗ Lightning: Die Lightning-Adresse ist nicht erreichbar (AbortError)");
+    assert.equal(befundZeile({ schiene: "sol", stufe: "hinweis", fall: "sol.neuerFall", werte: {} }), "! SOL: Befund sol.neuerFall – diese App kennt ihn noch nicht");
+    const z = statusZeilen({ ...status(), einrichtung: [{ schiene: "sol", stufe: "ok", fall: "sol.kanalAn", werte: {} }] });
+    assert.deepEqual(z.slice(-2), ["Einrichtung (Prüfung beim Start):", "✓ SOL: Zahlkanal an"]);
+  } finally {
+    setLang("en");
+  }
+  assert.equal(befundZeile({ schiene: "sol", stufe: "ok", fall: "sol.kanalAn", werte: {} }), "✓ SOL: Payment channel on");
+});
+
+test("B-11c: jede Kennung des Knotens hat einen Text in beiden Sprachen – und keine ohne Knoten", () => {
+  const knoten = readFileSync(new URL("../../node/src/einrichtung.ts", import.meta.url), "utf8");
+  const kasse = readFileSync(new URL("../../node/src/kanal-kasse.ts", import.meta.url), "utf8");
+  const faelle = new Set([...knoten.matchAll(/"((?:ln|sol)\.[a-zA-Z]+)"/g)].map((m) => m[1]!));
+  // sol.kanal… entsteht aus den Kennungen der Kasse (`KanalAusFall`)
+  const aus = kasse.match(/export type KanalAusFall = ([^;]+);/)![1]!.match(/"([a-zA-Z]+)"/g)!.map((x) => x.slice(1, -1));
+  for (const f of aus) faelle.add(`sol.kanal${f.charAt(0).toUpperCase()}${f.slice(1)}`);
+  assert.ok(faelle.size >= 27, `${faelle.size} Kennungen`);
+  assert.deepEqual(Object.keys(EINRICHTUNG_TEXT).sort(), [...faelle].sort());
+  for (const k of [...Object.values(EINRICHTUNG_TEXT), "set.statusEinrichtung", "set.statusEinrichtungFehlt", "set.einUnbekannt", "set.schieneLightning", "set.schieneSol"]) {
+    assert.ok(settings[k]?.de && settings[k]?.en, k);
+  }
 });
