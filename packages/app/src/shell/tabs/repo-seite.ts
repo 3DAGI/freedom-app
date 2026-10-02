@@ -23,6 +23,7 @@ import { lokaleRepos } from "../lokale-repos-ablage.js";
 import { issuesReiter, vergissIssue } from "./issues-reiter.js";
 import { diskussion } from "./diskussion.js";
 import { zeigePatch } from "./patch-seite.js";
+import { reviewAnsicht } from "./review-ui.js";
 import { kontaktName } from "./raeume.js";
 
 const AKTION_TEXT: Record<PatchAktion, string> = {
@@ -257,6 +258,11 @@ function patchReiter(k: RepoKarte, h: RepoSeiteHilfe, neu: () => void): HTMLElem
       betreff: offen.patch.betreff, commit: offen.patch.commit, text: offen.patch.text,
       von: eigentuemerName(offen.patch.autor), zeit: offen.patch.zeit, marke: statusMarke(offen.status), aktionen: aktionsKnoepfe(offen, k, h),
       status: statusAngaben(offen),
+      // Review (C-20g2): Bewertungen über den Änderungen, Kommentare an Zeilen
+      review: reviewAnsicht({
+        patch: { id: offen.patch.id, autor: offen.patch.autor, kind: KIND_PATCH }, review: k.patchReviews?.[offen.patch.id] ?? { zeilen: [], bewertungen: [] },
+        name: eigentuemerName, neuLaden: h.neuLaden, ...(k.privatRaum ? { privatRaum: k.privatRaum } : {}),
+      }),
       // Diskussion unter dem Patch (C-17c) – wie unter einem Pull Request
       unten: diskussion({
         wurzel: { id: offen.patch.id, autor: offen.patch.autor, kind: KIND_PATCH }, kommentare: k.patchKommentare?.[offen.patch.id] ?? [],

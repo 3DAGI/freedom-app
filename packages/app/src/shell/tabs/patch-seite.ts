@@ -3,13 +3,16 @@
  * Status, Autor, Zeit, Commit, Nachricht und die Änderungen aus dem
  * Diff-Leser (`diff-ansicht.ts`): Dateiliste mit +/−, Abschnitte, Zeilennummern,
  * hinzugefügt und entfernt farbig und mit Zeichen, nicht nur mit Farbe.
- * Dieselbe Ansicht dient als Vorschau vor dem Senden.
+ * Dieselbe Ansicht dient als Vorschau vor dem Senden. Seit C-20g2 mit Review:
+ * Bewertungen über den Änderungen, Kommentare an Zeilen (`review-ui.ts`).
  *
  * Nur DOM und `textContent` – Betreff, Nachricht und Diff kommen von Fremden.
  */
+import type { Zeilenbezug } from "@freedomstack/protocol";
 import { type DateiArt, type DiffDatei, type DiffZeile, leseDiff } from "../../diff-ansicht.js";
 import { gebietsschema, t } from "../../i18n.js";
 import { toast } from "../ui.js";
+import { type ReviewAnsicht, zeilenSchluessel } from "./review-ui.js";
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, text?: string, klasse?: string): HTMLElementTagNameMap[K] {
   const e = document.createElement(tag);
@@ -43,6 +46,8 @@ export interface PatchAnsicht {
   zurueck: { text: string; tun: () => void };
   /** Unter den Änderungen: die Diskussion (seit C-17c) – fehlt in der Vorschau. */
   unten?: HTMLElement[];
+  /** Review (seit C-20g2) – fehlt in der Vorschau. */
+  review?: ReviewAnsicht;
 }
 
 const ART_TEXT: Record<Exclude<DateiArt, "geaendert">, string> = { neu: "repo.dateiNeu", geloescht: "repo.dateiGeloescht", umbenannt: "repo.dateiUmbenannt" };
@@ -65,13 +70,26 @@ export function zeigePatch(p: PatchAnsicht): HTMLElement[] {
   aktionen.append(...p.aktionen, patchKnopf(t("repo.alsDatei"), "ghost mini repo-knopf", () => ladeAlsDatei(p)));
   teile.push(aktionen);
   if (diff.nachricht) teile.push(el("p", diff.nachricht, "patch-nachricht"));
+  if (p.review) teile.push(p.review.kopf);
 
   // Änderungen: Zusammenfassung, Dateiliste, je Datei die Abschnitte
   const kopf = el("h4", t("repo.aenderungen"), "patch-aenderungen");
   kopf.append(el("span", t("repo.aenderungenZahl", { dateien: diff.dateien.length, plus: diff.plus, minus: diff.minus }), "mono-sm muted"));
-  teile.push(kopf);
+  const gezeigt = new Set<string>();
+  const bloecke = diff.dateien.map((d) => dateiBlock(d, p.review, gezeigt));
+  if (p.review?.kommentieren) {
+    // Knöpfe an den Zeilen erst auf Wunsch – sonst stünde vor jeder Zeile einer im Weg der Tastatur
+    const an = patchKnopf(t("review.zeilenKommentieren"), "ghost mini review-schalter", () => {
+      const jetzt = an.getAttribute("aria-pressed") !== "true";
+      an.setAttribute("aria-pressed", String(jetzt));
+      for (const b of bloecke) b.classList.toggle("review-an", jetzt);
+    });
+    an.setAttribute("aria-pressed", "false");
+    teile.push(kopf, an);
+  } else {
+    teile.push(kopf);
+  }
   if (diff.gekuerzt) teile.push(el("p", t("repo.diffGekuerzt"), "mono-sm muted"));
-  const bloecke = diff.dateien.map(dateiBlock);
   const liste = el("ul", undefined, "diff-dateien");
   diff.dateien.forEach((d, n) => {
     const li = el("li");
@@ -82,13 +100,23 @@ export function zeigePatch(p: PatchAnsicht): HTMLElement[] {
     liste.append(li);
   });
   if (diff.dateien.length) teile.push(liste);
-  teile.push(...bloecke, ...(p.unten ?? []));
+  teile.push(...bloecke);
+  const rest = p.review?.rest(gezeigt);
+  if (rest) teile.push(rest);
+  teile.push(...(p.unten ?? []));
   return teile;
 }
 
 const pfad = (d: DiffDatei): string => (d.alt !== d.neu ? `${d.alt} → ${d.neu}` : d.neu);
 
-function dateiBlock(d: DiffDatei): HTMLElement {
+/** Wo eine Zeile im Review steht: neue und unveränderte nach der neuen Nummer, entfernte nach der alten. */
+function bezugVon(d: DiffDatei, z: DiffZeile): Zeilenbezug | undefined {
+  if (z.neu !== undefined) return { pfad: d.neu, seite: "neu", zeile: z.neu };
+  if (z.alt !== undefined) return { pfad: d.alt, seite: "alt", zeile: z.alt };
+  return undefined;
+}
+
+function dateiBlock(d: DiffDatei, review: ReviewAnsicht | undefined, gezeigt: Set<string>): HTMLElement {
   const block = el("section", undefined, "diff-datei");
   block.tabIndex = -1;
   const kopf = el("div", undefined, "diff-datei-kopf");
@@ -102,9 +130,32 @@ function dateiBlock(d: DiffDatei): HTMLElement {
     for (const z of a.zeilen) {
       const zeile = el("div");
       zeile.className = `diff-zeile diff-${z.art} mono`;
+      const bezug = review ? bezugVon(d, z) : undefined;
+      if (review) {
+        zeile.classList.add("mit-review");
+        const plus = el("span");
+        if (bezug && review.kommentieren) {
+          const k = review.kommentieren;
+          const b = patchKnopf("+", "zeile-plus", () => k(bezug));
+          b.setAttribute("aria-label", t(bezug.seite === "alt" ? "review.ortAlt" : "review.ort", { pfad: bezug.pfad, zeile: bezug.zeile }));
+          plus.append(b);
+        }
+        zeile.append(plus);
+      }
       zeile.append(el("span", z.alt === undefined ? "" : String(z.alt), "diff-nr"), el("span", z.neu === undefined ? "" : String(z.neu), "diff-nr"),
         el("span", ZEICHEN[z.art], "diff-zeichen"), el("span", z.text, "diff-text"));
       block.append(zeile);
+      if (!bezug || !review) continue;
+      // Unveränderte Zeilen haben beide Nummern – ein Kommentar an der alten gehört auch hierher
+      const bezuege = z.art === "kontext" && z.alt !== undefined ? [bezug, { pfad: d.alt, seite: "alt" as const, zeile: z.alt }] : [bezug];
+      for (const b of bezuege) {
+        const schluessel = zeilenSchluessel(b);
+        if (gezeigt.has(schluessel)) continue;
+        const faden = review.faden(b);
+        if (!faden) continue;
+        gezeigt.add(schluessel);
+        block.append(faden);
+      }
     }
   }
   return block;

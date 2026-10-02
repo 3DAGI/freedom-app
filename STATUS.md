@@ -15408,3 +15408,42 @@ privat als inneres Event samt Leak-Regel `raum-repo-privat`.
 **Verdrahtet:** noch nicht in der App – das ist C-20g2 (Knöpfe an Diff-Zeilen,
 Bewertung auf der Patch-Seite). `check-wiring.py --streng` führt die neuen
 Exporte bis dahin als Ausnahme.
+
+## Schritt C-20g2 – Reviews an Patches: Oberfläche
+
+**Warum:** Sammlung C-20, zweiter Teil zu C-20g1 – das Format allein nützt
+niemandem, solange die App es nicht zeigt und senden kann.
+
+**Was:**
+- `shell/tabs/review-ui.ts` (neu, `reviewAnsicht()`): über den Änderungen
+  „Reviews“ mit Stand („1 genehmigt · 0 Änderungen erbeten“), je Person die
+  neueste Bewertung mit Marke „Maintainer“ und Begründung (Markdown, nur DOM).
+  Knöpfe „Genehmigen“ und „Änderungen erbitten“ – nicht für den Autor des
+  Patches, seine Bewertung zählt nicht. „Änderungen erbitten“ verlangt eine
+  Begründung, „Genehmigen“ nicht. Der Dialog sagt, dass eine Bewertung den
+  Status nicht ändert, und wer mitliest.
+- `patch-seite.ts`: „Zeilen kommentieren“ (aria-pressed) zeigt an jeder Zeile
+  einen Knopf „+“ mit Namen für Vorleser („Kommentar an hammer.txt, Zeile 1“).
+  Vorher ist er nicht da (`display: none`) – sonst stünde vor jeder Zeile ein
+  Tab-Halt, und mobil wären alle Zeilen 40 px hoch. Neue und unveränderte
+  Zeilen zählen nach der neuen Nummer, entfernte nach der alten.
+- Kommentare an einer Zeile stehen als Faden darunter, mit „Antworten“
+  (gleiche Zeile, Eltern ist der erste Kommentar des Fadens). Kommentare an
+  Zeilen, die im Diff nicht stehen, sammelt ein Abschnitt unter den Dateien.
+- `repo-ansicht.ts`: `mitIssues()` liefert `patchReviews` je Patch – aus
+  denselben Daten wie die Kommentare, öffentlich und privat getrennt. Die
+  Diskussion (`patchKommentare`) zeigt keine Review-Teile mehr; die
+  Neuigkeiten (C-20f) zählen sie trotzdem mit.
+- Senden öffentlich signiert (`baueZeilenKommentar()`, `baueBewertung()`),
+  privat nur `sendeInRaum()` mit den Bausteinen aus `raum-repo.ts`.
+- Die Ausnahmen aus C-20g1 in `wiring-ausnahmen.txt` sind gestrichen – alle
+  Exporte sind jetzt verdrahtet.
+
+**Tests:** app +3 (`review-ansicht.test.ts`): Reviews an der Karte getrennt
+von der Diskussion, die eigene Bewertung der Autorin zählt nicht, nie über
+die Grenze öffentlich/privat; Neuigkeiten; Verdrahtung. Eine Prüfung in
+`issues-ansicht.test.ts` folgt dem neuen Ende der Patch-Seite. Smoke
+(desktop und mobil): „+“ erst nach dem Schalter, mobil 40 px; Kommentar an
+„scharf“ mit `["zeile", "hammer.txt", "neu", "1"]` unter der Zeile, nicht in
+der Diskussion; „Genehmigen“ mit `["bewertung", "genehmigt"]`, oben mit
+„Maintainer“, Status bleibt „angenommen“.

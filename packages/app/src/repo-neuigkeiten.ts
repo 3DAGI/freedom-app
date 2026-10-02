@@ -23,7 +23,11 @@ export interface Neuigkeiten {
   kommentare: number;
 }
 
-const kommentareVon = (k: RepoKarte) => [...(k.issues ?? []).flatMap((z) => z.kommentare), ...Object.values(k.patchKommentare ?? {}).flat()];
+// Seit C-20g2 zählen Reviews (Zeilenkommentare, Bewertungen) mit – sie stehen nicht mehr unter `patchKommentare`
+const kommentareVon = (k: RepoKarte) => [
+  ...(k.issues ?? []).flatMap((z) => z.kommentare), ...Object.values(k.patchKommentare ?? {}).flat(),
+  ...Object.values(k.patchReviews ?? {}).flatMap((r) => [...r.zeilen, ...r.bewertungen]),
+];
 
 /** Ist man an diesem Repo beteiligt? Eigentümer, Maintainer oder Autor eines Issues, Patches, Kommentars. */
 export function beteiligt(k: RepoKarte, ich: string | undefined): boolean {
