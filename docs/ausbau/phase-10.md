@@ -9,8 +9,8 @@ sind; sonst gilt die STOPP-Regel aus `CLAUDE.md`.
 
 Stand dieser Karte: **C.0 bis C.5 fertig** – Rahmen, Räume, Repositories, Abdeckungskarte, Feinschliff Mobil. Der MENSCH hat den
 Entwurf am 27.09.2026 freigegeben – E1–E8 wie vorgeschlagen (Abschnitt 10.3).
-Nächster Schritt: C.6a – wartet, bis Spur A #183 (11.2a) gemergt hat: #183 ändert `settings.ts`
-und `index.html`, C.6a verschiebt genau „Settings › Gebühren“. C.6b ist fertig.
+C.6 ist fertig: C.6b (#193), C.6a als C-8 aus der Sammlung, nachdem Spur A #183 (11.2a) gemergt hatte –
+Settings › Gebühren steht unter Währung › Zahlen, „Liquidität“ heißt „Hinterlegen“, Modell vorhalten unter Verdienen › Hosten.
 
 ---
 

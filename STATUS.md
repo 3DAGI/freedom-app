@@ -14590,3 +14590,54 @@ in `shell/tabs/raeume.ts`; `setzeKommModus()` in `shell/tabs/kommunikation.ts`.
   dem Entsperren wartete die Prüfung fest 1 s bzw. 500 ms. Jetzt wartet sie
   auf den Zustand (Identität, Chat-Liste und Verlauf, Frist 15 s); die
   Bedingung ist unverändert.
+
+## Schritt C-8 – C.6a, reines Verschieben
+
+**Warum:** Rest von B14 (Entscheidung E2, `phase-10.md`, Sammlung C-8). Der
+Schritt wartete auf #183 (11.2a, Spur A), das `settings.ts` und `index.html`
+änderte; #183 ist gemergt.
+- Gebühren und Standard-Schiene standen in den Settings, gehören aber zum Geld.
+- Der Reiter „Liquidität“ enthielt Deposit und Zahlkanal, keine Liquidität.
+- „Modell vorhalten/ankündigen“ ist ein Beitrag ans Netz und stand beim Agenten.
+
+**Was:**
+- `index.html`:
+  - Settings › Gebühren (Aufteilung, fällige Anteile, Standard-Schiene)
+    steht wörtlich unter Währung › Zahlen (`wallet:pay`). Der Reiter
+    „Gebühren“ in den Settings entfällt.
+  - Der Reiter „Liquidität“ heißt „Hinterlegen“; sein Inhalt bleibt.
+  - „Modell vorhalten“ und „Modell ankündigen“ stehen in einer eigenen Karte
+    unter Verdienen › Hosten.
+  - Kennungen und Verdrahtung bleiben (`wireGebuehrenKarte()`,
+    `#standard-schiene`, `#models-seed`/`#models-publish` in `app.ts`).
+- **Texte:**
+  - Neu: `waehr.tabHinterlegen`, `waehr.tabZahlen`, `earn.modelleTitel` und
+    `earn.modelleText`.
+  - `waehr.tabLiquiditaet` und `set.tabGebuehren` nutzt nichts mehr; sie
+    fallen weg (der i18n-Test verlangt das).
+  - Wo Texte den alten Ort nannten, nennen sie den neuen: „unklare Zahlung“
+    → Währung › Zahlen, die Modell-Liste → Verdienen › Hosten, der
+    Untertitel der Währung, die FAQ der Website.
+
+**Verdrahtet:** unverändert – `app.ts` verdrahtet die Knöpfe über ihre
+Kennungen, `wireGebuehrenKarte()` (`settings.ts`) die Gebühren-Karte.
+
+**Tests:**
+- app +3 in `test/umzug-zahlen.test.ts`:
+  - Reiter und Inhalt am neuen Ort.
+  - Jede Kennung genau einmal.
+  - Neue Texte in beiden Sprachen, FAQ.
+- Smoke:
+  - „waehrung“: Reiter Übersicht/Tauschen/Hinterlegen/Zahlen; unter Zahlen
+    „Nichts gesammelt.“ und die Standard-Schiene.
+  - Die Settings haben kein „fees“ mehr.
+  - Verdienen › Hosten öffnet den Dialog „Modell vorhalten“.
+  - „mobil“ misst `wallet:pay` und `earn:host`.
+- Nebenbei (außerhalb von Spur C, klein): Beim vollen Lauf war
+  `streitfall.test.ts` („5.6c: ein Pruefauftrag …“) einmal rot. Der Test
+  baute dieselbe Reklamation zweimal und verglich die Ids; `buildDispute()`
+  liest ohne Zeitangabe jedes Mal die Uhr. Sprang dazwischen die Sekunde um,
+  unterschieden sich die Ids (Fallstrick „Fristen in Tests nur einmal aus der
+  Uhr“). Nachgestellt mit einer Uhr, die je Aufruf 600 ms vorrückt: vorher
+  rot, jetzt grün. Die Zeit kommt jetzt einmal aus der Uhr; die Prüfungen
+  sind unverändert.

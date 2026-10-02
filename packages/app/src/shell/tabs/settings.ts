@@ -1099,7 +1099,8 @@ export async function pruefeFixierungBeimStart(): Promise<void> {
 }
 
 /**
- * Gebühren (A+, 5.1.3): was die App an Anteilen gesammelt hat – gezahlt ab
+ * Gebühren (A+, 5.1.3; seit C-8 unter Währung › Zahlen): was die App an
+ * Anteilen gesammelt hat – gezahlt ab
  * 100 sats je Empfänger. Zahlungen mit unklarem Ausgang klärt der Nutzer hier;
  * von selbst zahlt die App sie nie ein zweites Mal.
  */

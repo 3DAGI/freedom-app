@@ -8,7 +8,6 @@ export const settings: Texte = {
   "set.tabGeraete": { de: "Geräte", en: "Devices" },
   "set.tabVerbindung": { de: "Verbindung", en: "Connection" },
   "set.tabDatenschutz": { de: "Datenschutz", en: "Privacy" },
-  "set.tabGebuehren": { de: "Gebühren", en: "Fees" },
   "set.tabMesh": { de: "Mesh", en: "Mesh" },
   "set.tabWeitergeben": { de: "Weitergeben", en: "Share" },
   "set.lead": { de: "Zwei der fünf Schritte gehen nur vorher.", en: "Two of the five steps only work beforehand." },

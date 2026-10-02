@@ -30,7 +30,7 @@ export const agent: Texte = {
   "agent.reklamationenText": { de: "Den Prüfer hast du aus deinem Netz gewählt. Sein Urteil gilt nur zwischen dir und dem Provider – erstatten muss der Provider selbst.", en: "You chose the reviewer from your network. Their verdict applies only between you and the provider – the provider has to refund you." },
   "agent.nachUrteilen": { de: "nach Urteilen sehen", en: "check for verdicts" },
   "agent.modelleImNetz": { de: "Modelle im Netz", en: "Models in the network" },
-  "agent.modelleText": { de: "Was im Netz vorgehalten wird. Modelle mit nur einem Seeder sind gefährdet.", en: "What the network keeps available. Models with only one seeder are at risk." },
+  "agent.modelleText": { de: "Was im Netz vorgehalten wird. Modelle mit nur einem Seeder sind gefährdet. Selbst vorhalten oder ankündigen: Verdienen › Hosten.", en: "What the network keeps available. Models with only one seeder are at risk. To seed or announce one yourself: Earn › Host." },
   "agent.lade": { de: "lade …", en: "loading …" },
   "agent.aktualisieren": { de: "aktualisieren", en: "refresh" },
   "agent.modellVorhalten": { de: "Modell vorhalten", en: "Seed a model" },
@@ -194,7 +194,7 @@ export const agent: Texte = {
   "agent.zahlungUnklar": { de: "Zahlung an den Provider unklar – sieh in deiner Wallet nach. In dieser Sitzung zahlt die App nicht noch einmal.", en: "Payment to the provider unclear – check your wallet. The app won't pay again in this session." },
   "agent.belegGesammelt": { de: "Beleg gespeichert – gezahlt wird gesammelt ab {sats} sats", en: "Receipt saved – paid in bulk from {sats} sats" },
   "agent.belegNichtBezahlt": { de: "Beleg gespeichert, nicht bezahlt: {grund}", en: "Receipt saved, not paid: {grund}" },
-  "agent.anteilUnklar": { de: "Eine gesammelte Zahlung ist unklar – in den Settings unter Gebühren prüfen.", en: "A bulk payment is unclear – check under fees in the settings." },
+  "agent.anteilUnklar": { de: "Eine gesammelte Zahlung ist unklar – unter Währung › Zahlen prüfen.", en: "A bulk payment is unclear – check under Wallet › Pay." },
   "agent.keineSitzung": { de: "Noch keine Sitzung. Die erste Anfrage startet eine.", en: "No session yet. The first request starts one." },
   "agent.sitzung": { de: "Sitzung: {bezahlt}/{max} sats ({pct} %)", en: "session: {bezahlt}/{max} sats ({pct}%)" },
   // Reklamation

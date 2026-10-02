@@ -65,12 +65,10 @@
         </div><div id="agent-history" class="agent-history"></div></div>
             <div class="subpane" data-subpane="agent:models"><div class="card">
           <h3><span class="ic" data-icon="server"></span> <span data-i18n="agent.modelleImNetz">Modelle im Netz</span></h3>
-          <p class="mono-sm" data-i18n="agent.modelleText">Was im Netz vorgehalten wird. Modelle mit nur einem Seeder sind gefährdet.</p>
+          <p class="mono-sm" data-i18n="agent.modelleText">Was im Netz vorgehalten wird. Modelle mit nur einem Seeder sind gefährdet. Selbst vorhalten oder ankündigen: Verdienen › Hosten.</p>
           <div id="models-list" class="mono-sm"><span data-i18n="agent.lade">lade …</span></div>
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
             <button id="models-refresh" class="ghost" style="width:auto;padding:6px 10px" data-i18n="agent.aktualisieren">aktualisieren</button>
-            <button id="models-seed" class="ghost" style="width:auto;padding:6px 10px" data-i18n="agent.modellVorhalten">Modell vorhalten</button>
-            <button id="models-publish" class="ghost" style="width:auto;padding:6px 10px" data-i18n="agent.modellAnkuendigen">Modell ankündigen</button>
           </div>
         </div><div class="card">
           <h3><span class="ic" data-icon="scroll"></span> <span data-i18n="agent.kataloge">Modellkataloge</span></h3>
@@ -322,13 +320,13 @@
 
       <!-- WAEHRUNG -->
       <section id="page-wallet" class="tab-page">
-        <header class="page-head"><div><h1 class="page-title" data-i18n="navWallet">Währung</h1><p class="page-sub" data-i18n="waehr.untertitel">Lightning, Solana, Tausch und Liquidität.</p></div>
+        <header class="page-head"><div><h1 class="page-title" data-i18n="navWallet">Währung</h1><p class="page-sub" data-i18n="waehr.untertitel">Lightning, Solana, Tausch, Hinterlegen und Zahlen.</p></div>
           <div class="nav-balances head-balances" id="nav-balances">
             <div class="nb-row"><span class="nb-label">Sats</span><span class="nb-val" id="nb-sats">—</span></div>
             <div class="nb-row"><span class="nb-label">SOL</span><span class="nb-val" id="nb-sol">—</span></div>
             <button id="nb-wallet" class="ghost" type="button" data-i18n="waehr.walletVerbinden">Wallet verbinden</button>
           </div></header>
-        <div class="seg" role="tablist" data-subtab-group="wallet"><button role="tab" data-subtab="overview" class="active" data-i18n="waehr.tabUebersicht">Übersicht</button><button role="tab" data-subtab="swap" data-i18n="waehr.tabTauschen">Tauschen</button><button role="tab" data-subtab="lp" data-i18n="waehr.tabLiquiditaet">Liquidität</button></div>
+        <div class="seg" role="tablist" data-subtab-group="wallet"><button role="tab" data-subtab="overview" class="active" data-i18n="waehr.tabUebersicht">Übersicht</button><button role="tab" data-subtab="swap" data-i18n="waehr.tabTauschen">Tauschen</button><button role="tab" data-subtab="lp" data-i18n="waehr.tabHinterlegen">Hinterlegen</button><button role="tab" data-subtab="pay" data-i18n="waehr.tabZahlen">Zahlen</button></div>
         <div class="page-body">
           <div class="subpane active" data-subpane="wallet:overview"><div class="grid-2"><div class="card">
           <h3>Lightning</h3>
@@ -406,6 +404,30 @@
           <div id="swap-status" class="mono-sm"></div>
           <button id="swap-backup" class="ghost" style="width:auto;padding:4px 8px;font-size:10px" data-i18n="waehr.preimageSicherung">Preimage-Sicherung</button>
           <button id="wallet-refresh" class="ghost" data-i18n="waehr.aktualisieren">Aktualisieren</button></div></div>
+          <div class="subpane" data-subpane="wallet:pay"><div class="card">
+          <h3><span class="ic" data-icon="info"></span> <span data-i18n="set.aufteilungTitel">Aufteilung</span></h3>
+          <p class="mono-sm" data-i18n="set.aufteilungText">Jede KI-Zahlung ist fest aufgeteilt: 94 % Provider, 2,5 % Entwicklung, 1,5 % Relays, je 0,5 % für deinen Werber und den des Providers, 1 % Hosting. Kein Topf: Die App zahlt jeden Anteil selbst an seinen Empfänger – der Provider stellt nur seinen in Rechnung.</p>
+          <p class="mono-sm muted" data-i18n="set.aufteilungDetails">
+            Fehlt ein Empfänger mit Lightning-Adresse, bekommt den Anteil der Provider – nie die Entwicklung.
+            Heute gehen die weiteren Anteile an die Werber beider Seiten, wenn die App sie kennt (Angebot des
+            Providers, dein Werbelink), und an bis zu drei Relays deines Pools, deren Betreiber per Selbstauskunft
+            (NIP-11) und Profil eine Lightning-Adresse nennt, sowie an den Spiegel, von dem die App geladen wurde, wenn er
+            eine Zahladresse nennt (Datei freedom-spiegel.json). Die Entwicklung hat noch keine eigene Adresse. Anteile unter 100 sats je Empfänger
+            sammelt die App; bis dahin bleibt das Geld bei dir. SOL-Aufträge gehen ganz an den Provider, bis der
+            Zahlkanal aufteilt. Ändern lässt sich die Aufteilung nur mit einem signierten Release. Beim Holen einer
+            Rechnung sieht der Server hinter der Lightning-Adresse deine IP-Adresse und den Betrag – wie bei jedem Zap.
+          </p>
+          <div id="anteile-stand" class="mono-sm"></div>
+          <button id="anteile-zahlen" class="ghost" style="width:auto;padding:6px 10px" type="button" data-i18n="set.faelligeZahlen">Fällige jetzt zahlen</button>
+        </div><div class="card">
+          <h3><span class="ic" data-icon="info"></span> <span data-i18n="set.zahlenTitel">Zahlen</span></h3>
+          <label class="mono-sm" style="display:block;margin:8px 0"><span data-i18n="set.standardSchiene">Standard-Schiene</span>
+            <select id="standard-schiene" class="mono-sm">
+              <option value="lightning" data-i18n="zahl.optLightning">Lightning (sats)</option>
+              <option value="solana" data-i18n="zahl.optSolana">Solana (SOL)</option>
+            </select></label>
+          <p class="mono-sm muted" data-i18n="set.schieneText">Vorgabe für Zaps und Trinkgeld – bei jeder Zahlung änderbar. Die App zahlt nie still in der anderen Währung.</p>
+        </div></div>
           <div class="subpane" data-subpane="wallet:lp"><div class="card">
           <h3 data-i18n="waehr.solHinterlegen">SOL hinterlegen</h3>
           <input id="dep-amount" data-i18n-aria="waehr.betragSolPh" type="number" step="any" placeholder="Betrag in SOL" data-i18n-ph="waehr.betragSolPh" class="mono-sm" />
@@ -456,6 +478,13 @@
           <div class="subpane" data-subpane="earn:host"><div class="card">
           <h3><span class="ic" data-icon="globe"></span> <span data-i18n="hostReward">App verbreiten</span></h3>
           <p class="muted" data-i18n="hostSub">Leg freedom.html auf einen eigenen Server, IPFS oder Tor – mehr Kopien sind schwerer zu sperren. Legst du freedom-spiegel.json mit deinen Adressen daneben, bekommst du 1 % jeder KI-Zahlung, die über deine Kopie läuft.</p>
+        </div><div class="card">
+          <h3><span class="ic" data-icon="server"></span> <span data-i18n="earn.modelleTitel">Modelle vorhalten</span></h3>
+          <p class="muted" data-i18n="earn.modelleText">Halte Modelldateien für andere bereit oder kündige ein Modell an. Was im Netz vorgehalten wird, steht unter Agent › Modelle.</p>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
+            <button id="models-seed" class="ghost" style="width:auto;padding:6px 10px" data-i18n="agent.modellVorhalten">Modell vorhalten</button>
+            <button id="models-publish" class="ghost" style="width:auto;padding:6px 10px" data-i18n="agent.modellAnkuendigen">Modell ankündigen</button>
+          </div>
         </div></div>
           <div class="subpane" data-subpane="earn:refer"><div class="card">
           <h3><span class="ic" data-icon="link"></span> <span data-i18n="referral">Werben</span></h3>
@@ -660,7 +689,6 @@
             <button role="tab" data-subtab="devices"><span class="ic" data-icon="monitor"></span> <span data-i18n="set.tabGeraete">Geräte</span></button>
             <button role="tab" data-subtab="network"><span class="ic" data-icon="globe"></span> <span data-i18n="set.tabVerbindung">Verbindung</span></button>
             <button role="tab" data-subtab="privacy"><span class="ic" data-icon="shield"></span> <span data-i18n="set.tabDatenschutz">Datenschutz</span></button>
-            <button role="tab" data-subtab="fees"><span class="ic" data-icon="coins"></span> <span data-i18n="set.tabGebuehren">Gebühren</span></button>
             <button role="tab" data-subtab="share"><span class="ic" data-icon="link"></span> <span data-i18n="set.tabWeitergeben">Weitergeben</span></button>
             <div class="nav-lang settings-lang">
               <div class="lang-dropdown">
@@ -787,30 +815,6 @@
           <p class="mono-sm muted" data-i18n="set.mlsText">Eingebaut (MLS nach Marmot), nur mit Tresor: 1:1-Nachrichten gehen darüber, wenn der Kontakt es kann – eure Geräte sind eigene Mitglieder. Sonst, mit Ablauf, mit Bunker, ohne Tresor oder wenn einem Gerät das KeyPackage fehlt, weiter über NIP-17. Der Selbsttest lädt die Engine in diesem Browser und spielt ohne Netz eine Gruppe mit zwei Wegwerf-Identitäten durch.</p>
           <button id="mls-selbsttest" class="ghost" style="width:auto;padding:6px 10px" type="button" data-i18n="set.selbsttest">Selbsttest</button>
           <p id="mls-ergebnis" class="mono-sm" aria-live="polite"></p>
-        </div></div>
-            <div class="subpane" data-subpane="settings:fees"><h2 class="settings-h" data-i18n="set.tabGebuehren">Gebühren</h2><div class="card">
-          <h3><span class="ic" data-icon="info"></span> <span data-i18n="set.aufteilungTitel">Aufteilung</span></h3>
-          <p class="mono-sm" data-i18n="set.aufteilungText">Jede KI-Zahlung ist fest aufgeteilt: 94 % Provider, 2,5 % Entwicklung, 1,5 % Relays, je 0,5 % für deinen Werber und den des Providers, 1 % Hosting. Kein Topf: Die App zahlt jeden Anteil selbst an seinen Empfänger – der Provider stellt nur seinen in Rechnung.</p>
-          <p class="mono-sm muted" data-i18n="set.aufteilungDetails">
-            Fehlt ein Empfänger mit Lightning-Adresse, bekommt den Anteil der Provider – nie die Entwicklung.
-            Heute gehen die weiteren Anteile an die Werber beider Seiten, wenn die App sie kennt (Angebot des
-            Providers, dein Werbelink), und an bis zu drei Relays deines Pools, deren Betreiber per Selbstauskunft
-            (NIP-11) und Profil eine Lightning-Adresse nennt, sowie an den Spiegel, von dem die App geladen wurde, wenn er
-            eine Zahladresse nennt (Datei freedom-spiegel.json). Die Entwicklung hat noch keine eigene Adresse. Anteile unter 100 sats je Empfänger
-            sammelt die App; bis dahin bleibt das Geld bei dir. SOL-Aufträge gehen ganz an den Provider, bis der
-            Zahlkanal aufteilt. Ändern lässt sich die Aufteilung nur mit einem signierten Release. Beim Holen einer
-            Rechnung sieht der Server hinter der Lightning-Adresse deine IP-Adresse und den Betrag – wie bei jedem Zap.
-          </p>
-          <div id="anteile-stand" class="mono-sm"></div>
-          <button id="anteile-zahlen" class="ghost" style="width:auto;padding:6px 10px" type="button" data-i18n="set.faelligeZahlen">Fällige jetzt zahlen</button>
-        </div><div class="card">
-          <h3><span class="ic" data-icon="info"></span> <span data-i18n="set.zahlenTitel">Zahlen</span></h3>
-          <label class="mono-sm" style="display:block;margin:8px 0"><span data-i18n="set.standardSchiene">Standard-Schiene</span>
-            <select id="standard-schiene" class="mono-sm">
-              <option value="lightning" data-i18n="zahl.optLightning">Lightning (sats)</option>
-              <option value="solana" data-i18n="zahl.optSolana">Solana (SOL)</option>
-            </select></label>
-          <p class="mono-sm muted" data-i18n="set.schieneText">Vorgabe für Zaps und Trinkgeld – bei jeder Zahlung änderbar. Die App zahlt nie still in der anderen Währung.</p>
         </div></div>
             <div class="subpane" data-subpane="settings:share"><h2 class="settings-h" data-i18n="set.tabWeitergeben">Weitergeben</h2><div class="card">
           <h3><span class="ic" data-icon="download"></span> <span data-i18n="set.alsDateiTitel">Als Datei</span></h3>
