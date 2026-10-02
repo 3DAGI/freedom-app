@@ -706,10 +706,14 @@
           <h3><span class="ic" data-icon="server"></span> <span data-i18n="set.knotenTitel">Mein Knoten</span></h3>
           <p class="mono-sm" data-i18n="set.knotenText">Den eigenen Provider-Knoten koppeln: den Code aus „npm run koppeln“ scannen oder einfügen. Anfragen an ihn rechnet er dann gratis – erkannt nur an einem Nachweis im versiegelten Auftrag.</p>
           <div id="knoten-status" class="mono-sm"></div>
+          <label id="knoten-halten-zeile" class="mono-sm" style="display:block;margin-top:6px" hidden><input type="checkbox" id="knoten-halten" /> <span data-i18n="set.knotenHalten">Meine Dateien bei meinem Knoten halten – nach jedem Hochladen (Repo-Bundles, Anhänge) bittet die App ihn versiegelt, die verschlüsselten Stücke dauerhaft zu behalten</span></label>
+          <label id="knoten-nur-zeile" class="mono-sm" style="display:block;margin-top:6px" hidden><input type="checkbox" id="knoten-nur" /> <span data-i18n="set.knotenNur">Alles über meinen Knoten – KI-Anfragen und Halten nur über sein Relay, dort mit dem Sitzungsschlüssel angemeldet; ist es nicht erreichbar, geht nichts an ihn</span></label>
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
             <button id="knoten-koppeln" class="ghost" style="width:auto;padding:6px 10px" type="button" data-i18n="set.knotenKoppeln">Mein Knoten koppeln</button>
+            <button id="knoten-status-holen" class="ghost" style="width:auto;padding:6px 10px" type="button" hidden data-i18n="set.knotenStatusHolen">Status abfragen</button>
             <button id="knoten-entkoppeln" class="ghost" style="width:auto;padding:6px 10px" type="button" hidden data-i18n="set.knotenEntkoppeln">entkoppeln</button>
           </div>
+          <div id="knoten-status-anzeige" class="mono-sm" style="margin-top:6px" aria-live="polite"></div>
         </div><div class="card" id="bunker-karte">
           <h3><span class="ic" data-icon="shield"></span> <span data-i18n="set.bunkerTitel">Anmelden per Bunker (NIP-46)</span></h3>
           <p class="mono-sm" data-i18n="set.bunkerText">Dein Schlüssel bleibt in einem Signer, z. B. Amber oder nsecBunker; die App fragt jede Unterschrift dort an. Ohne den Schlüssel selbst gehen nicht: Sicherungsdatei, Schlüssel-Export, Zustandssicherung, Nachfolge und abgeleitete Swap-Adressen – der Datenexport geht.</p>

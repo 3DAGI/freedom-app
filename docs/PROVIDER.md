@@ -140,6 +140,39 @@ Gerät zeigen. `npm run koppeln -- --neu` erzeugt ein neues Geheimnis – alle
 bisher gekoppelten Geräte gelten dann nicht mehr als Besitzer. Im Log steht
 beim Start `[kopplung] mit dem Besitzer gekoppelt` oder `nicht gekoppelt`.
 
+Mit `STORAGE_ENABLED=1` hält der Knoten verschlüsselte Dateien seines
+Besitzers dauerhaft (B-9b): Nach jedem Hochladen (Repo-Bundles, Anhänge)
+schickt die App einen versiegelten Auftrag mit dem Nachweis – abschaltbar unter
+Settings → Geräte → „Mein Knoten“. Der Knoten holt die Stücke von den Relays
+und verdrängt sie nie.
+Sie zählen zur Quota (`STORAGE_QUOTA_MB`); ist sie damit voll, hält er keine
+weiteren. Welche er hält, steht in `gehalten.json` im Speicherordner – nur
+Prüfsummen, keine Namen. Im Log steht `[speicher] für den Besitzer gehalten: …`.
+
+**Status (B-11):** Unter Settings → Geräte → „Mein Knoten“ fragt „Status
+abfragen“ den Knoten versiegelt nach seinem Stand. Er antwortet nur dem
+gekoppelten Besitzer mit:
+- Fassung und gestarteten Rollen;
+- Modellen;
+- Aufträgen und Abgerechnetem seit dem Start;
+- Speicher und Relay;
+- der Prüfung der Einrichtung vom Start, wie bei `npm run pruefen`, aber ohne Adressen.
+
+Steuern lässt sich der Knoten aus der App nicht.
+
+**Alles über meinen Knoten (B-9c):** Mit dem Haken unter Settings → Geräte →
+„Mein Knoten“ schickt die App KI-Anfragen an deinen Knoten und Halte-Aufträge
+nur an sein Relay, nie an fremde. Dafür braucht der Knoten `RELAY_ENABLED=1`.
+Die App findet das Relay auf einem von zwei Wegen:
+- `RELAY_PUBLIC_URL` (wss:// oder ws://….onion): Der Knoten kündigt sie in
+  seiner Relay-Liste an.
+- Die App kommt vom Knoten selbst (oben).
+
+Findet sie kein Relay, geht nichts an den Knoten. Der Knoten liest sein Relay
+im eigenen Prozess, eine Verbindung zu sich selbst in `RELAYS` ersetzt er. An
+seinem Relay meldet sich die App mit dem Schlüssel der jeweiligen Anfrage an,
+nur so bekommt sie die versiegelte Antwort.
+
 ## Was die Kette zeigt
 
 Dein Knoten hat **eine** SOL-Adresse: Alle Zahlkanäle an ihn und seine

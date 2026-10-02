@@ -132,6 +132,7 @@ export const agent: Texte = {
   "agent.knotenSchweigt": { de: "Dein Knoten {knoten} hat nicht geantwortet. Die Frage ging an keinen anderen Provider.", en: "Your node {knoten} did not answer. The question went to no other provider." },
   "agent.knotenLehntAb": { de: "Dein Knoten lehnt ab: {grund}", en: "Your node declines: {grund}" },
   "agent.knotenGratis": { de: "gratis · mein Knoten", en: "free · my node" },
+  "agent.knotenOhneRelay": { de: "Mein Knoten nennt kein Relay – mit „Alles über meinen Knoten“ geht die Frage nicht hinaus (Settings → Geräte)", en: "My node names no relay – with “Everything through my node” the question does not go out (Settings → Devices)" },
   "agent.lokalKurz": { de: "dieses Gerät", en: "this device" },
   "agent.lokalSuchen": { de: "Modell auf diesem Gerät suchen", en: "Look for a model on this device" },
   "agent.lokalSuchenSub": { de: "Ollama, llama.cpp oder LM Studio – gratis, ohne Netz, die Frage bleibt auf dem Gerät. Der Browser fragt eventuell um Erlaubnis.", en: "Ollama, llama.cpp or LM Studio – free, without a network, the question stays on the device. The browser may ask for permission." },

@@ -109,11 +109,12 @@ export async function uploadAnhang(
   file: File,
   pool: { publish: (ev: NostrEvent) => Promise<unknown> },
   signer: Signer,
-): Promise<{ blobId: string; schluessel: DateiSchluessel }> {
+): Promise<{ blobId: string; manifestEventId: string; schluessel: DateiSchluessel }> {
   const { verschluesseleDatei } = await import("@freedomstack/protocol");
   const { chiffrat, schluessel } = verschluesseleDatei(new Uint8Array(await file.arrayBuffer()));
   const res = await uploadBlob(new File([chiffrat as BlobPart], "", { type: "application/octet-stream" }), pool, signer, { verschluesselt: true });
-  return { blobId: res.blobId, schluessel };
+  // Die Manifest-Id braucht der Halte-Auftrag an den eigenen Knoten (B-9b2)
+  return { blobId: res.blobId, manifestEventId: res.manifestEventId, schluessel };
 }
 
 /** Verschluesselte Datei oeffnen (2.4) – wirft bei Manipulation oder falschem Schluessel. */

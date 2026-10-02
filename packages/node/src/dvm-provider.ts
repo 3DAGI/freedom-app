@@ -54,6 +54,8 @@ import {
   verifyDepositOnChain, DepositVerificationCache, providerAnteilMsat, pruefeAufteilung, type Anteil,
   leseGutschriftTags, teileKanalZahlung, type KanalEmpfaenger, BESITZER_TAG, istBesitzer,
   kuerzeAntwort, leseKurzWunsch,
+  KIND_BLOB_CHUNK, KIND_BLOB_MANIFEST, KIND_DVM_BLOB_HALTEN, halteAntwortText, halteManifest,
+  KIND_DVM_KNOTEN_STATUS, knotenStatusText, type KnotenStatus,
 } from "@freedomstack/protocol";
 import type { KanalKasse } from "./kanal-kasse.js";
 import type { Connection } from "@solana/web3.js";
@@ -125,6 +127,12 @@ export interface ProviderConfig {
    * Leer oder nicht gesetzt: kein Besitzer.
    */
   besitzer?: () => readonly string[];
+  /**
+   * Status für den Besitzer (B-11a, L6 A – nur lesen): was `main.ts` über
+   * den Prozess weiß (Fassung, Start, laufende Rollen, Modelle, Relay).
+   * Aufträge und Speicher zählt der Provider selbst. Ohne: keine Statusabfrage.
+   */
+  status?: () => Pick<KnotenStatus, "fassung" | "seit" | "rollen" | "modelle" | "relay" | "einrichtung">;
   /** Free-Tier (Provider-Marketing, lokal entschieden — KEIN Protokoll-Feature):
    *  Gratis-Tokens pro pubkey pro Tag. 0 = aus. Der Provider verschenkt
    *  eigene Rechenzeit als Werbung; es gibt keinen Topf und keinen Betreiber. */
@@ -198,6 +206,20 @@ export class DvmProvider {
    * auftauchen.
    */
   private seen = new Set<string>();
+  /** Aufträge seit dem Start, für den Status (B-11a) – nur Zahlen, nur im Speicher. */
+  private zaehler = { erledigt: 0, gratis: 0, abgelehnt: 0, abgerechnetMsat: 0 };
+
+  /** Ausgang eines Auftrags zählen – Statusabfragen nicht. */
+  private zaehle(request: NostrEvent, job: ProcessedJob | null): void {
+    if (request.kind === KIND_DVM_KNOTEN_STATUS) return;
+    if (!job) {
+      this.zaehler.abgelehnt++;
+      return;
+    }
+    this.zaehler.erledigt++;
+    if (job.amountMsat === 0) this.zaehler.gratis++;
+    else this.zaehler.abgerechnetMsat += job.amountMsat;
+  }
   /** Oeffnet Umschlaege privater Anfragen (Schritt 3.1). */
   private readonly signer: LocalSigner;
   private static readonly SEEN_LIMIT = 20_000;
@@ -589,8 +611,11 @@ export class DvmProvider {
       this.seen.add(ev.id);
       this.pruneSeen();
       try {
-        processed.push(await this.handleJob(ev));
+        const job = await this.handleJob(ev);
+        this.zaehle(ev, job);
+        processed.push(job);
       } catch (err) {
+        this.zaehle(ev, null);
         // NIP-90 Feedback (kind 7000): Dem Client SOFORT mitteilen warum der
         // Job abgelehnt wurde — sonst wartet er bis zum Timeout.
         console.error(`Job ${ev.id} fehlgeschlagen:`, err);
@@ -614,8 +639,11 @@ export class DvmProvider {
     }
     for (const request of anfragen) {
       try {
-        processed.push(await this.bearbeitePrivat(request));
+        const job = await this.bearbeitePrivat(request);
+        this.zaehle(request, job);
+        processed.push(job);
       } catch (err) {
+        this.zaehle(request, null);
         console.error(`Private Anfrage fehlgeschlagen:`, err);
       }
     }
@@ -660,6 +688,109 @@ export class DvmProvider {
       providerMsat: amountMsat,
       aufteilung: [],
       outputPreview: `Stück ${blobId.slice(0, 8)}:${shardIdx} wieder veröffentlicht`,
+      durationMs: Date.now() - start,
+    };
+  }
+
+  /**
+   * Halte-Auftrag (5076, seit B-9b, Entscheidung L4 A): nur vom Besitzer – aus
+   * einem Umschlag und mit Nachweis (`istBesitzer()`, B-8). Der Knoten holt
+   * Manifest und Stuecke des Blobs von den Relays, nimmt nur Verschluesseltes
+   * auf (`halteManifest()`, `nimmAuf()`) und haelt es ohne Verdraengung.
+   * Antwort versiegelt: wie viele Stuecke er haelt (`halteAntwortText()`).
+   * Nach aussen nur feste Texte.
+   */
+  private async handleBlobHalten(request: NostrEvent, privat: boolean): Promise<ProcessedJob> {
+    const start = Date.now();
+    const now = Math.floor(start / 1000);
+    if (!privat || !istBesitzer(request, this.cfg.besitzer?.() ?? [], now)) throw new Error("Halten nur für den Besitzer");
+    if (!this.storage) throw new Error("keine Speicher-Rolle");
+    const blobId = getTag(request, "i") ?? "";
+    const manifestId = request.tags.find((t) => t[0] === "param" && t[1] === "manifest")?.[2] ?? "";
+    if (!/^[0-9a-f]{64}$/.test(blobId) || !/^[0-9a-f]{64}$/.test(manifestId)) throw new Error("Halte-Auftrag ohne gültigen Blob");
+    // Genau das genannte Manifest – ein fremdes mit derselben Blob-Id zählt nicht
+    const manifest = (await this.pool.query({ kinds: [KIND_BLOB_MANIFEST], ids: [manifestId], limit: 1 })).find((ev) => ev.id === manifestId);
+    const m = manifest ? halteManifest(manifest, blobId) : null;
+    if (!manifest || !m) throw new Error("Kein verschlüsseltes Manifest zu diesem Blob");
+    const stuecke = await this.pool.query({
+      kinds: [KIND_BLOB_CHUNK], authors: [manifest.pubkey], "#blob": [blobId], limit: Math.min(m.hashes.length * 2, 5000),
+    });
+    const gehalten = new Set<number>();
+    let voll = false;
+    for (const ev of stuecke) {
+      if (ev.pubkey !== manifest.pubkey) continue; // nur Stücke desselben Autors
+      const index = Number(getTag(ev, "index") ?? "-1");
+      if (!Number.isInteger(index) || index < 0 || index >= m.hashes.length || gehalten.has(index)) continue;
+      if (getTag(ev, "sha256") !== m.hashes[index]) continue;
+      const r = await this.storage.nimmAuf(ev, { halten: true });
+      if (r.ok) gehalten.add(index);
+      else if (r.grund === "Speicher voll") voll = true;
+    }
+    if (voll && gehalten.size === 0) throw new Error("Speicher voll");
+    const output = halteAntwortText({ gehalten: gehalten.size, noetig: m.noetig, gesamt: m.hashes.length });
+    const resultEvent = signEvent(
+      buildJobResult({
+        providerPubkey: this.cfg.keypair.pk,
+        requestId: request.id,
+        requestKind: request.kind,
+        customerPubkey: request.pubkey,
+        output,
+        amountMsat: 0,
+      }),
+      this.cfg.keypair.sk,
+    );
+    await this.antworte(resultEvent, request, true);
+    console.log(`[speicher] für den Besitzer gehalten: ${gehalten.size} von ${m.hashes.length} Stücken von ${blobId.slice(0, 8)}`);
+    return {
+      requestId: request.id,
+      resultEventId: resultEvent.id,
+      customerPubkey: request.pubkey,
+      amountMsat: 0,
+      providerMsat: 0,
+      aufteilung: [],
+      outputPreview: `${gehalten.size}/${m.hashes.length} Stücke gehalten`,
+      durationMs: Date.now() - start,
+    };
+  }
+
+  /**
+   * Status für den Besitzer (5077, seit B-11a, Entscheidung L6 A – nur
+   * lesen): nur aus einem Umschlag und mit Nachweis (`istBesitzer()`, B-8).
+   * Die Antwort hat die feste Form aus `knotenStatusText()` – Zahlen, feste
+   * Kennungen, Modellnamen; nie Text aus Aufträgen. Nach außen nur feste Texte.
+   */
+  private async handleKnotenStatus(request: NostrEvent, privat: boolean): Promise<ProcessedJob> {
+    const start = Date.now();
+    if (!privat || !istBesitzer(request, this.cfg.besitzer?.() ?? [], Math.floor(start / 1000))) throw new Error("Status nur für den Besitzer");
+    const basis = this.cfg.status?.();
+    if (!basis) throw new Error("kein Status");
+    const sp = this.storage?.stats();
+    const output = knotenStatusText({
+      ...basis,
+      auftraege: { erledigt: this.zaehler.erledigt, gratis: this.zaehler.gratis, abgelehnt: this.zaehler.abgelehnt },
+      abgerechnetMsat: this.zaehler.abgerechnetMsat,
+      speicher: sp ? { belegtBytes: sp.totalBytes, quotaBytes: sp.quotaBytes, gehalten: sp.gehalten } : null,
+    });
+    const resultEvent = signEvent(
+      buildJobResult({
+        providerPubkey: this.cfg.keypair.pk,
+        requestId: request.id,
+        requestKind: request.kind,
+        customerPubkey: request.pubkey,
+        output,
+        amountMsat: 0,
+      }),
+      this.cfg.keypair.sk,
+    );
+    await this.antworte(resultEvent, request, true);
+    return {
+      requestId: request.id,
+      resultEventId: resultEvent.id,
+      customerPubkey: request.pubkey,
+      amountMsat: 0,
+      providerMsat: 0,
+      aufteilung: [],
+      outputPreview: "Status an den Besitzer",
       durationMs: Date.now() - start,
     };
   }
@@ -777,6 +908,10 @@ export class DvmProvider {
     // Abruf eines Stuecks (5075): eigener Handler, kein LLM, vor der Zahlungspruefung –
     // bis 8.9c ohne Bezahlung (Entscheidung 26.09.2026).
     if (request.kind === 5075) return this.handleBlobFetch(request, privat);
+    // Halten fuer den Besitzer (5076, B-9b): nur versiegelt und mit Nachweis
+    if (request.kind === KIND_DVM_BLOB_HALTEN) return this.handleBlobHalten(request, privat);
+    // Status für den Besitzer (5077, B-11a): nur versiegelt und mit Nachweis, nur lesen
+    if (request.kind === KIND_DVM_KNOTEN_STATUS) return this.handleKnotenStatus(request, privat);
     const input = getTag(request, "i");
     const bidMsat = Number(getTag(request, "bid") ?? "0");
     const sessionId = getTag(request, "session");

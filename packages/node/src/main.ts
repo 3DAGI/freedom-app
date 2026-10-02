@@ -26,7 +26,7 @@ import {
 } from "@freedomstack/protocol";
 import { DvmProvider, DEFAULT_PROVIDER_CONFIG } from "./dvm-provider.js";
 import { kanalKasseAusUmgebung, kanalOrte } from "./kanal-kasse.js";
-import { befundeText, holeJson, kettenBlick, pruefeEinrichtung } from "./einrichtung.js";
+import { type Befund, befundeText, holeJson, kettenBlick, pruefeEinrichtung } from "./einrichtung.js";
 import { kopplungsDatei, leseKopplung } from "./kopplung-datei.js";
 import { torAusUmgebung, torWebSocket } from "./tor.js";
 import { OllamaBackend } from "./inference.js";
@@ -119,6 +119,12 @@ async function main(): Promise<void> {
     process.exit(1);
   }
   const storageEnabled = process.env.STORAGE_ENABLED === "1";
+  // Status für den Besitzer (B-11a, L6 A – nur lesen): Rollen erst, wenn sie gestartet sind
+  const statusSeit = Math.floor(Date.now() / 1000);
+  const statusRollen = new Set<import("@freedomstack/protocol").StatusRolle>(["ki"]);
+  const fassung = (JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as { version?: string }).version ?? "unbekannt";
+  const angebotModelle = () =>
+    (process.env.PROVIDER_MODELS ?? process.env.OLLAMA_MODEL ?? "nemotron-3.5-lightning:30b-a3b-nvfp4").split(",").map((m) => m.trim()).filter(Boolean);
 
   const keypair = loadKeypair();
   const backend = new OllamaBackend();
@@ -141,6 +147,7 @@ async function main(): Promise<void> {
     console.error(`[tor] ${torGrund} – der Knoten startet nicht ohne Tor, wenn Tor verlangt ist`);
     process.exit(1);
   }
+  if (torProxy) statusRollen.add("tor");
   if (torProxy) console.log(`[tor] Relays über Tor (SOCKS ${torProxy.host}:${torProxy.port}) – Solana-RPC, LND und Ollama nicht`);
   const verbinde = torProxy ? torWebSocket(torProxy) : undefined;
   const relays = useMemory
@@ -158,18 +165,23 @@ async function main(): Promise<void> {
   }
   // Zahlkanal (4.3c): nur mit ZAHLKANAL=1 und passendem Solana-Schlüssel
   const solRpc = process.env.SOLANA_RPC_URL || defaultSolanaRpc();
-  const { kasse: kanalKasse, grund: kanalGrund, auszahlung, auszahlungGrund } = await kanalKasseAusUmgebung(process.env, {
+  const { kasse: kanalKasse, grund: kanalGrund, fall: kanalFall, auszahlung, auszahlungGrund } = await kanalKasseAusUmgebung(process.env, {
     rpcUrl: solRpc,
     ...kanalOrte(),
   });
   console.log(kanalKasse ? `[kanal] Zahlkanal an (Provider ${process.env.NODE_SOL_ADDRESS})` : `[kanal] Zahlkanal ${kanalGrund}`);
   if (kanalKasse) console.log(auszahlung ? `[kanal] Auszahlung an ${process.env.NODE_SOL_PAYOUT}` : `[kanal] Auszahlung ${auszahlungGrund}`);
-  // Selbstprüfung (8.2a): verdient der Knoten in beiden Schienen? Nur ins Log, blockiert den Start nicht
+  // Selbstprüfung (8.2a): verdient der Knoten in beiden Schienen? Ins Log, blockiert den Start nicht.
+  // Die Befunde gehen seit B-11c auch in den Status an den Besitzer – nur Kennungen und Zahlen.
+  let einrichtung: Befund[] | undefined;
   void kettenBlick(solRpc).catch(() => undefined)
     .then((kette) => pruefeEinrichtung(process.env, {
-      holen: (u) => holeJson(u), kanal: { kasse: kanalKasse, grund: kanalGrund, auszahlung, auszahlungGrund }, kette,
+      holen: (u) => holeJson(u), kanal: { kasse: kanalKasse, grund: kanalGrund, fall: kanalFall, auszahlung, auszahlungGrund }, kette,
     }))
-    .then((befunde) => console.log(befundeText(befunde).replace(/^/gm, "[einrichtung] ")))
+    .then((befunde) => {
+      einrichtung = befunde;
+      console.log(befundeText(befunde).replace(/^/gm, "[einrichtung] "));
+    })
     .catch((e) => console.warn(`[einrichtung] Prüfung nicht möglich (${(e as Error).name})`));
   // Kopplung mit dem Besitzer (B-8b): je Anfrage frisch gelesen – ein neues Geheimnis (npm run koppeln -- --neu) gilt sofort
   const kopplungOrt = kopplungsDatei();
@@ -180,6 +192,13 @@ async function main(): Promise<void> {
       lud16,
       werber,
       besitzer: () => { const k = leseKopplung(kopplungOrt, keypair.pk); return k ? [k.geheimnis] : []; },
+      status: () => {
+        const r = relayRole?.stats();
+        return {
+          fassung, seit: statusSeit, rollen: [...statusRollen], modelle: angebotModelle(), relay: r ? { events: r.events, verbindungen: r.verbindungen } : null,
+          einrichtung: einrichtung?.map(({ schiene, stufe, fall, werte }) => ({ schiene, stufe, fall, werte: werte ?? {} })),
+        };
+      },
       pricePerKTokenMsat: Number(process.env.PRICE_PER_K_TOKEN_MSAT ?? DEFAULT_PROVIDER_CONFIG.pricePerKTokenMsat),
       minBidMsat: Number(process.env.MIN_BID_MSAT ?? DEFAULT_PROVIDER_CONFIG.minBidMsat),
       powDifficulty: Number(process.env.POW_DIFFICULTY ?? DEFAULT_PROVIDER_CONFIG.powDifficulty),
@@ -224,6 +243,8 @@ async function main(): Promise<void> {
   );
   // storage init frueh (vor dem poll-loop)
   if (provider.storage) await provider.storage.init();
+  if (provider.storage) statusRollen.add("speicher");
+  if (kanalKasse) statusRollen.add("zahlkanal");
 
   // Quota-API: GET /api/quota?pk=<hex> → Free-Kontingent-Status des Kunden.
   // Die App zeigt daraus "noch X gratis tokens heute" + Wallet-CTA bei 0.
@@ -346,6 +367,13 @@ async function main(): Promise<void> {
       app: appGeladen?.ok ? appGeladen.app : undefined,
     });
     await relayRole.start();
+    statusRollen.add("relay");
+    if (appGeladen?.ok) statusRollen.add("app");
+    // Der Knoten liest und schreibt auch im eigenen Relay (B-9c, L5 A) – im Prozess, ohne WebSocket. Eine
+    // Verbindung zu sich selbst aus RELAYS ersetzt dieser Weg: ohne Anmeldung sähe sie keine Umschläge.
+    const intern = relayRole.alsRelay(keypair.pk);
+    pool.removeRelay(intern.url);
+    pool.addRelay(intern);
   } else if (process.env.APP_SHA256?.trim()) {
     console.warn("[app] nicht ausgeliefert: nur mit RELAY_ENABLED=1 – die App kommt vom Port des Relays");
   }
@@ -361,6 +389,7 @@ async function main(): Promise<void> {
     const strecke = funkBruecke(process.env.FUNK_GATEWAY, (f) => void funkGateway?.empfange(f).catch((e) => console.warn(`[funk] ${(e as Error).name}`)));
     funkGateway = new GatewayRolle({ strecke, gateway: new LocalSigner(keypair.sk), netz: pool });
     funkGateway.starte();
+    statusRollen.add("gateway");
     console.log("[funk] Gateway an (TCP-Brücke zum Funkgerät)");
   }
 
@@ -379,6 +408,7 @@ async function main(): Promise<void> {
       console.error(`[lnurl] aus – ${r.grund}`);
     } else {
       starteLnurlServer(new LnurlDienst(r.konfig, r.quelle), Number(process.env.LNURL_PORT || 3601));
+      statusRollen.add("lnurl");
       const eigene = `${r.konfig.name}@${r.konfig.domain}`;
       console.log(`[lnurl] Lightning-Adresse ${eigene} beim eigenen LND (Port ${process.env.LNURL_PORT || 3601}, hinter dem Reverse-Proxy)`);
       if (lud16.toLowerCase() !== eigene) console.warn(`[lnurl] NODE_LUD16 ist ${lud16} – die App zahlt dorthin, nicht an ${eigene}`);
@@ -392,8 +422,7 @@ async function main(): Promise<void> {
   // Speicherangabe und (seit 3.1) die Rechenarbeit fuer private Anfragen.
   const baueAngebot = async () => {
     const { buildCapabilities, defaultPriceFor, DEFAULT_TOOL_PRICES, signEvent, KANAL_PROGRAMM_ID } = await import("@freedomstack/protocol");
-    const modelsEnv = process.env.PROVIDER_MODELS ?? process.env.OLLAMA_MODEL ?? "nemotron-3.5-lightning:30b-a3b-nvfp4";
-    const models = modelsEnv.split(",").map((m) => m.trim()).filter(Boolean);
+    const models = angebotModelle();
     const model = models[0]; // primaer
     const mp = defaultPriceFor(model);
     const tier = (process.env.PROVIDER_TIER as "free" | "classic" | "pro") ?? mp?.tier ?? "classic";
@@ -601,6 +630,7 @@ async function main(): Promise<void> {
       const offerEvId = await lp.publishOffer();
       console.log(`LP-Angebot publiziert (${offerEvId.slice(0, 12)}...) fee=${process.env.LP_FEE_PPM ?? 3000}ppm`);
     }
+    if (lps.length > 0) statusRollen.add("lp");
   }
 
   // Optional: Relayer (4.6e) – zahlt die Gebuehr fuer Einloesungen von Kunden
@@ -621,6 +651,7 @@ async function main(): Promise<void> {
       maxProStunde: Number(process.env.RELAYER_MAX_PRO_STUNDE ?? 30),
     }, pool, (roh) => conn.sendRawTransaction(roh, { skipPreflight: false, preflightCommitment: "confirmed" }));
     await relayer.veroeffentlicheAngebot();
+    statusRollen.add("relayer");
     console.log(`Relayer aktiv (${relayer.solAdresse.slice(0, 8)}…)`);
   }
 

@@ -48,6 +48,7 @@ import { beiFunkAntwort, sendeKiUeberFunk } from "../ki-ueber-funk.js";
 import { quittungNachKanal, quittungNachZahlung } from "../quittungen.js";
 import { deklaration, empfaengerFuer, kanalAntwort, kanalGutschrift, merkeAnfrage, perKanal, providerZahlung, rechneAntwortAb, zahleAnteile } from "../ki-zahlung.js";
 import { kopplungFuer, meineKopplung } from "../mein-knoten.js";
+import { type KnotenWeg, wegZumKnoten } from "../knoten-weg-ui.js";
 import { knotenModellAus, knotenWahlwert } from "../../knoten-wahl.js";
 import { hoechstMsat } from "../../anteile-kasse.js";
 import {
@@ -195,6 +196,7 @@ async function frageMeinenKnoten(prompt: string, modell: string, btn: HTMLButton
     return;
   }
   jobAbort = new AbortController();
+  let weg: KnotenWeg | null = null;
   maybeInsertModelSwitchSummary(t("agent.knotenKurz"));
   addAiMessage("user", prompt, "");
   ($("#ai-prompt") as HTMLTextAreaElement).value = "";
@@ -204,10 +206,17 @@ async function frageMeinenKnoten(prompt: string, modell: string, btn: HTMLButton
     // Rechenarbeit aus dem Angebot des Knotens – ohne Angebot keine, dann sagt der Knoten, was fehlt
     const angebot = await angebotVon(k.knoten).catch(() => undefined);
     if (angebot?.powBits !== undefined && angebot.powBits <= MAX_POW_APP) powJeProvider.set(k.knoten, angebot.powBits);
+    // Alles über meinen Knoten (B-9c2): mit Haken nur über sein Relay, dort mit dem Sitzungsschlüssel angemeldet
+    weg = await wegZumKnoten(k.knoten, kiSitzungen.fuer(k.knoten));
+    if (!weg) {
+      hideTyping();
+      addAiMessage("ai", t("agent.knotenOhneRelay"), "");
+      return;
+    }
     const { wrap, requestId } = await buildJobEvent(prompt, 0, "free", k.knoten, ensureSessionClient(), [], modell);
-    await (await ensurePool()).publish(wrap);
+    await weg.publish(wrap);
     setTypingStatus("thinking");
-    const antwort = await waitForAnswer(requestId, KNOTEN_ZEIT_MS, k.knoten, { signal: jobAbort.signal });
+    const antwort = await waitForAnswer(requestId, KNOTEN_ZEIT_MS, k.knoten, { signal: jobAbort.signal, quelle: weg });
     hideTyping();
     if (!antwort) addAiMessage("ai", t("agent.knotenSchweigt", { knoten: pkShort(k.knoten) }), "");
     else if (antwort.aborted) addAiMessage("ai", t("agent.abgebrochen"), "");
@@ -217,6 +226,7 @@ async function frageMeinenKnoten(prompt: string, modell: string, btn: HTMLButton
     hideTyping();
     addAiMessage("ai", fehlerText(e), "");
   } finally {
+    weg?.schliesse();
     jobAbort = null;
     resetSendBtn(btn);
   }
@@ -782,10 +792,11 @@ async function askWithFailover(prompt: string, bid: number, tier: "free" | "clas
  * Seite abfragen und oeffnen – Ergebnisse und Rueckmeldungen zu den gesuchten
  * Anfragen, wie offene Events.
  */
-async function privateAntworten(ids: ReadonlySet<string>, seit: number, cache: AntwortCache) {
-  const pks = kiSitzungen.pubkeys();
+async function privateAntworten(ids: ReadonlySet<string>, seit: number, cache: AntwortCache, quelle?: Pick<KnotenWeg, "query" | "sitzungPk">) {
+  // Über den Weg zu meinem Knoten (B-9c2) nur der Schlüssel des Auftrags – sein Relay liefert nur an Angemeldete
+  const pks = quelle ? [quelle.sitzungPk] : kiSitzungen.pubkeys();
   if (pks.length === 0) return { ergebnisse: [], rueckmeldungen: [] };
-  const umschlaege = await (await ensurePool()).query({ kinds: [KIND_GIFT_WRAP], "#p": pks, since: seit });
+  const umschlaege = await (quelle ?? await ensurePool()).query({ kinds: [KIND_GIFT_WRAP], "#p": pks, since: seit });
   return oeffneAntworten(umschlaege, kiSitzungen, ids, cache);
 }
 
@@ -1144,6 +1155,8 @@ async function waitForAnswer(
     onFeedback?: (message: string) => void;
     /** AbortController des Stop-Buttons. */
     signal?: AbortSignal;
+    /** Nur hier lesen – das Relay meines Knotens (B-9c2), sonst der Pool. */
+    quelle?: Pick<KnotenWeg, "query" | "sitzungPk">;
   } = {},
 ) {
   const deadline = Date.now() + timeoutMs;
@@ -1153,7 +1166,7 @@ async function waitForAnswer(
     if (opts.signal?.aborted) return { aborted: true as const };
     const ids = opts.extraJobIds ? [...opts.extraJobIds] : [requestId];
     // Private Antworten (3.2) an unsere Sitzungsschluessel – offene gelten weiter.
-    const privat = await privateAntworten(new Set(ids), seit, cache);
+    const privat = await privateAntworten(new Set(ids), seit, cache, opts.quelle);
     // Feedback-Events (kind 7000): Ablehnung -> Failover. ABER: status=progress
     // ist KEINE Ablehnung (provider arbeitet noch) — weiter warten.
     // Seit 3.2e nur noch versiegelte: Auf eine private Anfrage antwortet ein

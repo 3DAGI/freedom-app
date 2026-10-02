@@ -13862,6 +13862,379 @@ jetzt, dass `wireNip34()` gar nicht lädt. Smoke „raum“: beigetreten kein
 Knopf; ohne Eintrag in der Leiste führt „Zum Raum“ in den Raum, der Knopf ist
 da, Beitreten nimmt ihn genau einmal wieder auf.
 
+## Schritt B-9b1 – Halten beim eigenen Knoten: Protokoll und Knoten
+
+Sammlung B-9 (Lokal 13.5), Entscheidung L4 A (MENSCH 01.10.: „Ja zu allen
+Empfehlungen“ – L4, L5, L6, W2, T2 jeweils A, eingetragen in der Sammlung).
+Bisher holte die Speicher-Rolle verschlüsselte Stücke nur aus dem Strom der
+Relays und verdrängte sie nach LRU; einen Besitzer kannte sie nicht.
+
+**Protokoll** (`blob.ts`, `kinds.ts`, `docs/PROTOCOL.md` §23):
+- Kind 5076 (`KIND_DVM_BLOB_HALTEN`), Antwort 6076.
+- `baueHalteAuftrag()`: DVM-Kern mit Blob-Id (`i`), Manifest-Id
+  (`param manifest`) und Besitzer-Nachweis (`mitBesitzerNachweis()`, B-8),
+  versiegelt vom Sitzungsschlüssel an den gekoppelten Knoten.
+- `halteManifest()`: Manifest streng lesen – `parseBlobManifest()` prüft
+  nichts. Nur genau dieser Blob, nur verschlüsselt, stimmige Erasure-Angaben,
+  jede Kennung 64 Hex-Zeichen; `noetig` = Daten-Stücke über alle Gruppen.
+- `leseHalteAntwort()` / `halteAntwortText()`: Antwort in fester Form.
+
+**Knoten:**
+- `dvm-provider.ts` – `handleBlobHalten()`: nur aus einem Umschlag und mit
+  Nachweis (`istBesitzer()`), sonst „Halten nur für den Besitzer“. Genau das
+  genannte Manifest (ein fremdes mit derselben Blob-Id zählt nicht), nur
+  Stücke von dessen Autor mit den Hashes daraus, aufgenommen über `nimmAuf()`
+  (nur Verschlüsseltes, 8.9a). Antwort versiegelt.
+- `storage-role.ts` – `nimmAuf(ev, { halten: true })`: gehaltene Stücke
+  stehen in `gehalten.json` (0600, je Hash einmal), die LRU verdrängt sie nie;
+  sie zählen zur Quota – darüber „Speicher voll“. Nach einem Neustart wieder
+  gelesen; abgerufen werden sie wie alle über 5075.
+- `docs/PROVIDER.md`: ein Absatz unter „Mit dem Besitzer koppeln“.
+
+**Fund:** Leere Füllstücke eines Blobs haben alle denselben Hash; die
+Ablage hält jeden Hash einmal. Gezählt wird in der Antwort je Stück (Index),
+in `gehalten.json` je Hash.
+
+**Tests:** protocol +3 (`blob-halten.test.ts`: versiegelt, Kern mit Blob,
+Manifest und Nachweis, offen steht nichts davon; ungültige Kennungen gehen
+nicht hinaus; `halteManifest()` mit allen Negativfällen; Antwort nur in fester
+Form), node +4 (`blob-halten.test.ts`: der Besitzer lässt halten – alle
+Stücke, versiegelte Antwort, nach dem Neustart noch da; die LRU verdrängt
+gehaltene nie, andere schon; ohne Nachweis, offen, mit fremdem Geheimnis oder
+fremdem Manifest gleicher Blob-Id hält der Knoten nichts, kein Stück des
+Angreifers; unverschlüsselt nie, über die Quota nie).
+
+**Verdrahtet:** `packages/node/src/dvm-provider.ts` – `handleJob()` →
+`handleBlobHalten()` → `halteManifest()`, `StorageRole.nimmAuf(…, { halten })`,
+`halteAntwortText()`. `baueHalteAuftrag()` und `leseHalteAntwort()` stehen bis
+B-9b2 in `scripts/wiring-ausnahmen.txt`.
+
+Endstand (B-9b1, 01.10.): protocol 1151 (+3, 6 übersprungen) · node 284 (+4, 7
+übersprungen ohne Netz – mit Netz 285) · app 772 · mls 13 · Leak-Tests 69 grün
++ 1 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 ·
+Website ok · Smoke-Test bestanden. Knoten-Stand: für das Halten nötig (B-9b1,
+mit `STORAGE_ENABLED=1`); KI-Anfragen unberührt.
+
+## Schritt B-9b2 – Halten beim eigenen Knoten: App
+
+Sammlung B-9, Entscheidung L4 A, zweiter Teil (b1: #252, Protokoll und Knoten).
+
+**App:**
+- Settings → Geräte → „Mein Knoten“: Haken „Meine Dateien bei meinem Knoten
+  halten“ – nur gekoppelt zu sehen, Standard an, gemerkt als `1`/`0` in
+  `freedom.knoten.halten` (`knoten-halten.ts`, `haltenAn()`; eine Einstellung,
+  kein Geheimnis).
+- `halteBeiMeinemKnoten()` (`shell/knoten-halten-ui.ts`): nur gekoppelt und mit
+  Haken; frischer Sitzungsschlüssel, `baueHalteAuftrag()` an genau das
+  Manifest, Rechenarbeit aus dem Angebot des Knotens bis 16 Bit (wie
+  `MAX_POW_APP`). Gewartet wird höchstens 90 s auf die versiegelte Antwort zu
+  genau diesem Auftrag (6076 oder Rückmeldung 7000); gezeigt nur als fester
+  Text: alle Stücke, n von m, keins, antwortet nicht, lehnt ab (Grund gekürzt,
+  nur als Text). Scheitert es, gilt der Upload trotzdem.
+- Aufgerufen nach jedem verschlüsselten Upload: `ladeBundleHoch()`
+  (`tabs/repos.ts`, nie für die Kopie nur auf dem Gerät) und Chat-Anhänge
+  (`tabs/kommunikation.ts`, eine Zeile in einer Datei der Spur C).
+  `uploadAnhang()` (`blob-client.ts`) nennt dafür die Manifest-Id.
+- `scripts/wiring-ausnahmen.txt`: `baueHalteAuftrag` und `leseHalteAntwort`
+  fallen weg (verdrahtet).
+- Eigenes Modul `shell/knoten-halten-ui.ts` (Haken und Auftrag):
+  `mein-knoten.ts` hält den Kopplungscode und schickt nichts hinaus – das
+  prüft der Test aus B-8c (kein `localStorage`, kein `publish`); er blieb
+  unverändert, `mein-knoten.ts` blendet nur die Zeile ein.
+
+**Tests:** app +3 (`knoten-halten.test.ts`: Haken, Ergebnis, Grund; nur
+gekoppelt und mit Haken, frischer Sitzungsschlüssel, genau das Manifest, nur
+feste Texte, nur die Antwort zu diesem Auftrag; nach Bundles und Anhängen, nie
+lokal), Leak-Tests +1 (`leak/mein-knoten.test.ts`: nur ein Umschlag, Blob,
+Manifest und Nachweis nirgends offen, Identität verborgen). Smoke
+„einstellungen“: gekoppelt erscheint der Haken (an), aus wird gemerkt,
+entkoppelt verschwindet er.
+
+**Verdrahtet:** `packages/app/src/shell/tabs/repos.ts` – `ladeBundleHoch()` →
+`halteBeiMeinemKnoten()`; `packages/app/src/shell/tabs/kommunikation.ts` –
+Anhang → `halteBeiMeinemKnoten()`; `packages/app/src/shell/knoten-halten-ui.ts` →
+`baueHalteAuftrag()`, `leseHalteAntwort()`.
+
+Endstand (B-9b2, 02.10.): protocol 1151 (6 übersprungen) · node 284 (7
+übersprungen ohne Netz – mit Netz 285) · app 775 (+3) · mls 13 · Leak-Tests 70
+grün (+1) + 1 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng
+Exit 0 · Website ok · Smoke-Test bestanden. Knoten-Stand: B-9b1 (#252) mit
+`STORAGE_ENABLED=1`, sonst antwortet der Knoten „keine Speicher-Rolle“.
+
+## Schritt B-9c1 – Alles über meinen Knoten: der Knoten liest sein eigenes Relay
+
+Sammlung B-9c (Lokal 13.3/13.5), Entscheidung L5 A, erster Teil. Bisher las
+der Provider nur `RELAYS` – über das Netz, ohne Anmeldung. Kam eine Anfrage
+nur über das Relay des Knotens, sah er sie nicht; eine Verbindung zu sich selbst
+sähe keine Umschläge (Anmeldepflicht seit 8.4c).
+
+**Knoten** (`relay-role.ts`, `main.ts`):
+- `aufnehmen()`: die Annahme eines Events, ausgelagert aus `nimmAn()` – Form,
+  Größe, Signatur, Zugang (beschränkt), Ablauf (NIP-40), Platz; der Flutschutz
+  je Schlüssel nur für Fremde. Über das Netz unverändert (dieselben Antworten).
+- `alsRelay(ich)`: der Relay im eigenen Prozess als `Relay` für den Pool –
+  lesen wie mit `ich` angemeldet (Umschläge nur an den Knoten), schreiben über
+  `aufnehmen()`. Adresse ist die öffentliche (`RELAY_PUBLIC_URL`), sonst
+  `intern://relay-rolle`.
+- `main.ts`: nach dem Start `pool.removeRelay(intern.url)` und
+  `pool.addRelay(intern)` – eine Verbindung zu sich selbst aus `RELAYS` ersetzt
+  der Weg im Prozess.
+
+**Folge:** Eine Anfrage, die nur über das Relay des Knotens kommt, erreicht den
+Provider (KI, Halten, Abruf); seine Antwort liegt dort und geht nur an den
+Sitzungsschlüssel, der sich dort anmeldet. Die App nutzt das ab B-9c2.
+
+**Tests:** node +3 (`relay-intern.test.ts`: dieselben Regeln, Umschläge nur an
+den Knoten, im Prozess geschrieben über das Netz lesbar, kaputte Signatur und
+fehlender Zugang abgelehnt; Ende zu Ende nur über das Relay des Knotens – die
+Anfrage kommt an, die Antwort bekommt nur der angemeldete Sitzungsschlüssel;
+Verdrahtung in `main.ts`).
+
+**Verdrahtet:** `packages/node/src/main.ts` – `relayRole.alsRelay(keypair.pk)`
+→ `pool.addRelay()`; `relay-role.ts` – `nimmAn()` → `aufnehmen()`.
+
+Endstand (B-9c1, 02.10.): protocol 1151 (6 übersprungen) · node 287 (+3, 7
+übersprungen ohne Netz – mit Netz 288) · app 775 · mls 13 · Leak-Tests 70 grün
++ 1 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng Exit 0 ·
+Website ok · Smoke-Test bestanden. Knoten-Stand: für den Weg über das eigene
+Relay nötig (B-9c1, mit `RELAY_ENABLED=1`); sonst unverändert.
+
+## Schritt B-9c2 – Alles über meinen Knoten: die App
+
+Sammlung B-9c (Lokal 13.3/13.5), Entscheidung L5 A, zweiter Teil. Seit B-9c1
+liest der Knoten sein eigenes Relay im Prozess; die App schickte Aufträge an
+ihn bisher über die Relays des Pools.
+
+**App** (`knoten-weg.ts`, `shell/knoten-weg-ui.ts`):
+- Haken „Alles über meinen Knoten“ in Settings → Geräte → „Mein Knoten“: nur
+  gekoppelt sichtbar, Standard aus, gemerkt in `freedom.knoten.nurUeber`
+  (eine Einstellung, kein Geheimnis).
+- `knotenRelay()`: Kommt die App vom Knoten (B-10), gilt ihr eigener Ursprung,
+  aber nur, wenn NIP-11 dort genau den Schlüssel des Knotens nennt. Sonst gilt
+  seine NIP-65-Liste (Kind 10002): nur von ihm signiert, die neueste, das erste
+  Relay mit öffentlicher Adresse, das nicht nur zum Lesen ist.
+- `wegZumKnoten()`: Mit Haken entsteht eine eigene Verbindung zu diesem Relay.
+  Dort meldet sich der Sitzungsschlüssel des Auftrags an (NIP-42), sonst
+  nirgends. Ohne Relay liefert die Funktion `null`, und nichts geht hinaus.
+  Ohne Haken läuft alles über den Pool wie bisher.
+- KI an „Mein Knoten“ (`frageMeinenKnoten()`) und Halten
+  (`halteBeiMeinemKnoten()`) senden und lesen über diesen Weg. Die Verbindung
+  wird danach geschlossen.
+- Antworten fragt der Weg nur für den Schlüssel des Auftrags ab
+  (`sitzungPk`). Das Relay des Knotens liefert Umschläge nur, wenn jeder
+  Schlüssel im Filter angemeldet ist. Mit mehreren Sitzungen wäre die Antwort
+  sonst still ausgeblieben.
+
+**Offen:** „Relays“ über den Knoten (B-9: „KI, Speicher, Relays“) ist nicht
+eindeutig, deshalb Frage L7 in der Sammlung, Abschnitt 5. Bis dahin tut der
+Haken genau das, was sein Text sagt: KI und Halten.
+
+**Tests:** app +4 (`knoten-weg.test.ts`):
+- Haken: Standard aus.
+- Relay aus der Liste: nur vom Knoten, die neueste, keine privaten Adressen,
+  keine reinen Lese-Relays.
+- Eigener Ursprung nur mit dem Schlüssel des Knotens.
+- Weg: ohne Relay nichts; Anmeldung mit `baueRelayAuth()` nur in `state.ts`
+  und hier; KI und Halten nur über den Weg; Antworten nur für den Schlüssel
+  des Auftrags; Texte in beiden Sprachen.
+
+Angepasst wurden `mein-knoten-wahl.test.ts`, `knoten-halten.test.ts` und
+`ki-antworten.test.ts` (Weg statt Pool, `privateAntworten()` mit `opts.quelle` –
+weiter nur private Antworten). Der Smoke-Test prüft den Haken: gekoppelt sichtbar,
+Standard aus, „an“ gemerkt, nach dem Entkoppeln weg.
+
+Ende zu Ende ist der Weg im Knoten getestet (B-9c1, `relay-intern.test.ts`):
+Anmeldung mit dem Sitzungsschlüssel, die Anfrage kommt nur über das Relay des
+Knotens an, die Antwort nur an den angemeldeten Schlüssel.
+
+**Verdrahtet:**
+- `packages/app/src/shell/app.ts`: `wireKnotenWeg()` in `starte()`.
+- `shell/tabs/agent.ts`: `frageMeinenKnoten()` → `wegZumKnoten()` →
+  `weg.publish()` und `waitForAnswer(…, { quelle: weg })`.
+- `shell/knoten-halten-ui.ts`: `halteBeiMeinemKnoten()` → `wegZumKnoten()`.
+- `shell/mein-knoten.ts`: Zeile des Hakens.
+
+Endstand (B-9c2, 02.10.): protocol 1151 (6 übersprungen) · node 287 (7
+übersprungen ohne Netz – mit Netz 288) · app 779 (+4) · mls 13 · Leak-Tests 70
+grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng
+Exit 0 · Website ok · Smoke-Test bestanden. Knoten-Stand: B-9c1 (#254) mit
+`RELAY_ENABLED=1` und `RELAY_PUBLIC_URL` (oder die App vom Knoten); ohne
+Haken unverändert.
+
+## Schritt B-11a – Status meines Knotens: Protokoll und Knoten
+
+Sammlung B-11 („Knoten aus der App verwalten“), Entscheidung L6 A: zuerst nur
+lesen. Steuern (Modelle laden, Neustart, Einstellungen) wäre L6 B und eine
+eigene Entscheidung.
+
+**Protokoll** (`knoten-status.ts`, Kind 5077, `docs/PROTOCOL.md` 24):
+- `baueStatusAuftrag()`: nur versiegelt vom Sitzungsschlüssel an den
+  gekoppelten Knoten, mit Besitzer-Nachweis (B-8), ohne Gebot.
+- `knotenStatusText()` schreibt die Antwort in fester Form, `leseKnotenStatus()`
+  liest sie streng. Inhalt:
+  - Fassung und Start;
+  - gestartete Rollen als feste Kennungen (`STATUS_ROLLEN`);
+  - angebotene Modelle (höchstens 50, ohne Steuerzeichen);
+  - Aufträge seit dem Start (erledigt, gratis, abgelehnt);
+  - abgerechnete msat;
+  - Speicher und Relay.
+- Unbekannte Felder bleiben unbeachtet, damit ein neuerer Knoten mehr melden
+  kann (B-11c).
+
+**Knoten** (`dvm-provider.ts`, `main.ts`):
+- `handleKnotenStatus()` antwortet nur aus einem Umschlag mit `istBesitzer()`,
+  versiegelt (6077). Nach außen gehen nur die festen Texte „Status nur für den
+  Besitzer“ und „kein Status“.
+- Der Provider zählt Aufträge im Speicher (`zaehle()`), Statusabfragen nicht.
+  Den Speicher liest er aus der eigenen Speicher-Rolle.
+- `main.ts` liefert Fassung (`package.json`), Start, Modelle (dieselben wie im
+  Angebot, `angebotModelle()`) und Relay-Zahlen.
+- Eine Rolle meldet `main.ts` erst, wenn sie gestartet ist
+  (`statusRollen.add()`).
+- Kein Text aus Aufträgen, keine Meldungen, keine Adressen.
+
+**Tests:**
+- protocol +3 (`knoten-status.test.ts`):
+  - Auftrag versiegelt, mit Nachweis, offen steht nichts;
+  - Antwort hin und zurück;
+  - unbekannte Felder bleiben unbeachtet;
+  - 32 kaputte Antworten ergeben null.
+- node +4 (`knoten-status.test.ts`):
+  - der Besitzer bekommt die Antwort versiegelt, mit Zählern (ein gratis
+    erledigter, ein abgelehnter Auftrag), ohne den Text der Frage;
+  - die Statusabfrage zählt nicht;
+  - ohne Nachweis, mit fremdem Geheimnis oder offen: kein Status, feste
+    Rückmeldung;
+  - ohne Konfiguration „kein Status“;
+  - in `main.ts` kommen die Rollen erst nach dem Start.
+
+**Verdrahtet:**
+- `packages/node/src/dvm-provider.ts`: `handleJob()` → `handleKnotenStatus()`;
+  `pollOnce()` → `zaehle()`.
+- `packages/node/src/main.ts`: `status:` in der Konfiguration des Providers,
+  `statusRollen.add()` an jeder Rolle.
+- Die App folgt mit B-11b.
+
+Endstand (B-11a, 02.10.): protocol 1154 (+3, 6 übersprungen) · node 291 (+4,
+7 übersprungen ohne Netz – mit Netz 292) · app 779 · mls 13 · Leak-Tests 70
+grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 (zwei Ausnahmen bis
+B-11b) · innerHTML streng Exit 0 · Website ok · Smoke-Test bestanden.
+Knoten-Stand: für den Status nötig (B-11a); sonst unverändert.
+
+## Schritt B-11b – Status meines Knotens: die App
+
+Sammlung B-11, Entscheidung L6 A, zweiter Teil. Der Knoten beantwortet die
+Statusabfrage seit B-11a (#256); jetzt fragt die App.
+
+**App** (`knoten-status-ansicht.ts`, `shell/knoten-status-ui.ts`):
+- Knopf „Status abfragen“ in Settings → Geräte → „Mein Knoten“: nur gekoppelt
+  sichtbar, gefragt wird nur beim Klick, nie beim Start.
+- `zeigeKnotenStatus()` fragt mit einem frischen Sitzungsschlüssel versiegelt
+  und mit Nachweis (`baueStatusAuftrag()`). Der Weg ist der aus B-9c2
+  (`wegZumKnoten()`): mit Haken nur über das Relay des Knotens, ohne Relay geht
+  nichts hinaus.
+- Die App wartet auf 6077 oder eine Rückmeldung. Gezeigt wird nur, was
+  `leseKnotenStatus()` durchlässt.
+- `statusZeilen()` bildet daraus Zeilen in der Sprache der App:
+  - Fassung und Start;
+  - Rollen, übersetzt aus festen Kennungen (`ROLLEN_TEXT`);
+  - Modelle, wie gemeldet;
+  - Aufträge;
+  - Abgerechnetes in sats und SOL (`ausMsat()`, ohne Kurs kein SOL-Betrag);
+  - Speicher und Relay.
+
+  Die Zeilen kommen nur als Text in den DOM (`el()`).
+- Nichts davon wird gemerkt. Entkoppelt bleibt keine alte Anzeige stehen.
+- `scripts/wiring-ausnahmen.txt`: Die zwei Ausnahmen aus B-11a sind gestrichen,
+  beide Exporte sind jetzt verdrahtet.
+
+**Tests:** app +3 (`knoten-status.test.ts`):
+- Zeilen auf Deutsch und Englisch: Rollen übersetzt, Modellnamen nur als Text,
+  Beträge mit und ohne Kurs, leere Listen „keine“, ohne Speicher und Relay
+  keine Zeile.
+- Jede Rolle hat einen Text in beiden Sprachen.
+- Verdrahtung: nur beim Klick, über den Weg, ohne Relay nichts, nur gelesener
+  Status, kein `innerHTML`, `localStorage` oder Pool; nur gekoppelt sichtbar;
+  `mein-knoten.ts` bleibt frei von `localStorage` und `publish`.
+
+Der Smoke-Test prüft den Knopf: gekoppelt sichtbar, die Anzeige leer (gefragt
+wird erst beim Klick), nach dem Entkoppeln weg.
+
+**Verdrahtet:**
+- `packages/app/src/shell/app.ts`: `wireKnotenStatus()` in `starte()`.
+- `shell/knoten-status-ui.ts`: `zeigeKnotenStatus()` → `wegZumKnoten()` →
+  `baueStatusAuftrag()` → `leseKnotenStatus()` → `statusZeilen()`.
+- `shell/mein-knoten.ts`: Knopf nur bei Kopplung.
+
+Endstand (B-11b, 02.10.): protocol 1154 (6 übersprungen) · node 291 (7
+übersprungen ohne Netz – mit Netz 292) · app 782 (+3) · mls 13 · Leak-Tests 70
+grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 (Ausnahmen aus B-11a
+gestrichen) · innerHTML streng Exit 0 · Website ok · Smoke-Test bestanden.
+Knoten-Stand: B-11a (#256) für den Status; sonst unverändert.
+
+## Schritt B-11c – Status meines Knotens: Prüfung der Einrichtung
+
+Sammlung B-11, Entscheidung L6 A, dritter Teil. Die Selbstprüfung (8.2a)
+schrieb bisher nur deutsche Sätze mit Adressen ins Log. Für den Status an den
+Besitzer braucht sie Kennungen.
+
+**Knoten** (`einrichtung.ts`, `kanal-kasse.ts`, `main.ts`):
+- Jeder Befund trägt jetzt eine Kennung (`fall`, z. B. `ln.ok`,
+  `sol.wenigGuthaben`) – 27 Fälle.
+- Werte (`werte`) sind nur Zahlen (sats, Lamports, HTTP-Status) und
+  Fehlernamen. Der Satz fürs Log und `npm run pruefen` bleibt unverändert.
+- `kanalKasseAusUmgebung()` nennt neben dem Satz `grund` eine Kennung
+  (`KanalAusFall`), daraus wird `sol.kanal…`.
+- `main.ts` merkt sich die Befunde vom Start. Der Status gibt sie mit
+  (`einrichtung`), nur Kennung, Stufe und Werte.
+
+**Protokoll** (`knoten-status.ts`, `docs/PROTOCOL.md` 24):
+- `einrichtung` ist optional: Es fehlt, solange die Prüfung läuft, und bei
+  Knoten vor B-11c.
+- Ist es da, liest `leseKnotenStatus()` nur ganz richtige Befunde:
+  - Schiene und Stufe aus festen Werten;
+  - Kennung `ln.…` oder `sol.…`;
+  - höchstens 6 Werte, nur ganze Zahlen ab 0 oder Fehlernamen aus Buchstaben.
+
+  Keine Adresse passt durch.
+
+**App** (`knoten-status-ansicht.ts`):
+- `EINRICHTUNG_TEXT` hat je Kennung einen Text in beiden Sprachen.
+- `befundZeile()` setzt Zeichen, Schiene und Text zusammen; Lamports zeigt sie
+  als SOL.
+- Eine unbekannte Kennung (neuerer Knoten) erscheint nur mit Kennung und
+  Stufe.
+- Fehlt die Prüfung, steht dort „noch nicht geprüft – oder der Knoten ist
+  älter“ – nie ein erfundenes „alles gut“.
+
+**Tests:**
+- protocol +1 (`knoten-status.test.ts`): Befunde hin und zurück; ohne Prüfung
+  kein Feld; 11 kaputte Fälle ergeben null, darunter eine Adresse als Wert, ein
+  Satz als Kennung und eine Meldung als Fehlername.
+- node +1 (`knoten-status.test.ts`): Befunde gehen mit. In
+  `einrichtung.test.ts` kommen Kennungen und Werte je Fall dazu, ohne Adresse
+  in den Werten. `kanal-kasse.test.ts`, `lnurl-server.test.ts` und
+  `sol-auszahlung.test.ts` erwarten jetzt die Kennung, sonst unverändert.
+- app +2 (`knoten-status.test.ts`):
+  - Zeilen auf Deutsch und Englisch, SOL aus Lamports, Unbekanntes nur mit
+    Kennung.
+  - Jede Kennung des Knotens hat einen Text, gelesen aus dem Quelltext des
+    Knotens, und keine ohne Knoten.
+
+  Die Zeilenzahlen aus B-11b haben jetzt eine Zeile mehr (die Einrichtung).
+
+**Verdrahtet:**
+- `packages/node/src/main.ts`: `pruefeEinrichtung()` → `einrichtung = befunde`
+  → `status: () => ({ …, einrichtung })`.
+- `packages/app/src/knoten-status-ansicht.ts`: `statusZeilen()` →
+  `befundZeile()` (aus `zeigeKnotenStatus()`, B-11b).
+
+Endstand (B-11c, 02.10.): protocol 1155 (+1, 6 übersprungen) · node 292 (+1,
+7 übersprungen ohne Netz – mit Netz 293) · app 784 (+2) · mls 13 · Leak-Tests
+70 grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 · innerHTML streng
+Exit 0 · Website ok · Smoke-Test bestanden. Knoten-Stand: für die Einrichtung
+im Status nötig (B-11c); ein älterer Knoten zeigt „noch nicht geprüft“.
+
 ## Schritt C-13 – Räume, Rest aus dem Entwurf C.2
 
 **Warum:** Was der Entwurf C.2 (`phase-10.md`, „Räume“) vorsah und C.2a–d

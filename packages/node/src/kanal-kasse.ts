@@ -246,22 +246,25 @@ export function teiltSchluessel(env: KanalUmgebung): boolean {
  * `sol-auszahlung.ts`); ist sie ungültig oder laufen LP bzw. Relayer mit
  * demselben Schlüssel, läuft die Kasse ohne sie.
  */
+/** Warum keine Kasse läuft – Kennung neben dem Satz `grund` (B-11c, Befund `sol.kanal…`). */
+export type KanalAusFall = "aus" | "adresseFehlt" | "schluesselUnlesbar" | "schluesselPasstNicht";
+
 export async function kanalKasseAusUmgebung(
   env: KanalUmgebung,
   o: { rpcUrl: string; datei: string; standardSchluessel: string },
-): Promise<{ kasse?: KanalKasse; grund?: string; auszahlung?: SolAuszahlung; auszahlungGrund?: string }> {
-  if (env.ZAHLKANAL !== "1") return { grund: "aus (ZAHLKANAL=1 setzen)" };
-  if (!env.NODE_SOL_ADDRESS) return { grund: "NODE_SOL_ADDRESS fehlt" };
+): Promise<{ kasse?: KanalKasse; grund?: string; fall?: KanalAusFall; auszahlung?: SolAuszahlung; auszahlungGrund?: string }> {
+  if (env.ZAHLKANAL !== "1") return { grund: "aus (ZAHLKANAL=1 setzen)", fall: "aus" };
+  if (!env.NODE_SOL_ADDRESS) return { grund: "NODE_SOL_ADDRESS fehlt", fall: "adresseFehlt" };
   const { Connection, PublicKey, SystemProgram, Transaction, sendAndConfirmTransaction } = await import("@solana/web3.js");
   const { loadSolanaKeypair } = await import("@freedomstack/protocol");
   let schluessel;
   try {
     schluessel = await loadSolanaKeypair(env.SOLANA_KEYPAIR ?? o.standardSchluessel);
   } catch (e) {
-    return { grund: `Solana-Schlüssel nicht lesbar (${(e as Error).name})` };
+    return { grund: `Solana-Schlüssel nicht lesbar (${(e as Error).name})`, fall: "schluesselUnlesbar" };
   }
   if (schluessel.publicKey.toBase58() !== env.NODE_SOL_ADDRESS) {
-    return { grund: "Schlüssel aus SOLANA_KEYPAIR passt nicht zu NODE_SOL_ADDRESS" };
+    return { grund: "Schlüssel aus SOLANA_KEYPAIR passt nicht zu NODE_SOL_ADDRESS", fall: "schluesselPasstNicht" };
   }
   const conn = new Connection(o.rpcUrl, "confirmed");
   const zahl = (w: string | undefined): number | undefined => (w && /^\d{1,12}$/.test(w) ? Number(w) : undefined);

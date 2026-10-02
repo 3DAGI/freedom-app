@@ -97,7 +97,7 @@ test("Einrichtung: nur mit NODE_SOL_PAYOUT und gültiger Adresse, nicht neben LP
     rmSync(dir, { recursive: true, force: true });
   }
   const main = readFileSync(new URL("../src/main.ts", import.meta.url), "utf8");
-  assert.match(main, /const \{ kasse: kanalKasse, grund: kanalGrund, auszahlung, auszahlungGrund \} = await kanalKasseAusUmgebung\(process\.env, \{/);
+  assert.match(main, /const \{ kasse: kanalKasse, grund: kanalGrund, fall: kanalFall, auszahlung, auszahlungGrund \} = await kanalKasseAusUmgebung\(process\.env, \{/);
   const takt = main.slice(main.indexOf("const einloesen = async () => {"), main.indexOf("void einloesen();"));
   assert.ok(takt.indexOf("kanalKasse.loeseFaelligeEin()") < takt.indexOf("await auszahlung?.pruefe()"), "erst einlösen, dann auszahlen");
 });
