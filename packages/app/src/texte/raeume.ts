@@ -4,6 +4,8 @@ import type { Texte } from "../i18n.js";
 export const raeume: Texte = {
   "raum.anlegen": { de: "Anlegen", en: "Create" },
   "raum.hierBeitreten": { de: "Diesem Raum beitreten", en: "Join this room" },
+  "raum.direktnachricht": { de: "Direktnachricht schreiben", en: "Send direct message" },
+  "raum.neu": { de: "Neu", en: "New" },
   "raum.oeffentlichAnlegen": { de: "Öffentlich anlegen", en: "Create publicly" },
   "raum.angelegtTitel": { de: "Raum angelegt", en: "Room created" },
   "raum.einladenTitel": { de: "In den Raum einladen", en: "Invite to the room" },
