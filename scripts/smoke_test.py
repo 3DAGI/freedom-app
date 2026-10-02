@@ -1920,6 +1920,60 @@ def unsicher_pruefen(browser, url: str) -> dict:
     return erg
 
 
+def weckworker_pruefen(browser, url: str) -> dict:
+    """B-12c (W3 A): freedom-sw.js lässt sich unter der CSP der App anmelden (worker-src 'self').
+    Ein Push – hier mit Daten, die nie erscheinen dürfen – ergibt genau eine Meldung mit festem
+    Text in der Sprache aus der Adresse, ohne Inhalt und Absender. Danach wieder abgemeldet.
+    Die App selbst meldet ihn beim Start nicht an (das tut erst der Haken aus B-12d)."""
+    erg = {"fehler": []}
+    ursprung = url.rsplit("/", 1)[0]
+    # Meldungen zeigt nur das volle Chromium (die Headless-Shell verweigert sie immer)
+    voll = browser.browser_type.launch(channel="chromium")
+    ctx = voll.new_context(locale="de-DE")
+    ctx.route("**/*", lambda r: r.continue_() if r.request.url.startswith(ursprung) else r.abort())
+    ctx.grant_permissions(["notifications"], origin=ursprung)
+    s = ctx.new_page()
+    s.on("pageerror", lambda e: erg["fehler"].append(str(e)[:300]))
+    s.goto(url, wait_until="load")
+    s.wait_for_function("() => typeof window.freedomApp === 'object'", timeout=30000)
+    erg["ohne_worker"] = s.evaluate("async () => (await navigator.serviceWorker.getRegistrations()).length")
+    cdp = ctx.new_cdp_session(s)
+    regs: list = []
+    cdp.on("ServiceWorker.workerRegistrationUpdated", lambda p: regs.extend(p.get("registrations", [])))
+    cdp.send("ServiceWorker.enable")
+    scope = s.evaluate("async () => (await navigator.serviceWorker.register('freedom-sw.js?sprache=de')).scope")
+    s.evaluate("async () => { await navigator.serviceWorker.ready; return true; }")
+    for _ in range(100):
+        if any(r.get("scopeURL") == scope and not r.get("isDeleted") for r in regs):
+            break
+        s.wait_for_timeout(100)
+    reg_id = next((r["registrationId"] for r in regs if r.get("scopeURL") == scope and not r.get("isDeleted")), None)
+    erg["angemeldet"] = scope == ursprung + "/" and reg_id is not None
+    if reg_id is not None:
+        cdp.send("ServiceWorker.deliverPushMessage", {"origin": ursprung, "registrationId": reg_id, "data": "GEHEIMER-INHALT"})
+    meldungen = "async () => (await (await navigator.serviceWorker.ready).getNotifications()).map((n) => [n.title, n.body, n.tag])"
+    # wait_for_function wartet nicht auf ein Promise – also selbst fragen, mit Frist
+    for _ in range(100 if reg_id is not None else 0):
+        if s.evaluate(meldungen):
+            break
+        s.wait_for_timeout(200)
+    erg["meldungen"] = s.evaluate(meldungen)
+    erg["abgemeldet"] = s.evaluate("async () => { for (const r of await navigator.serviceWorker.getRegistrations()) await r.unregister();"
+                                   " return (await navigator.serviceWorker.getRegistrations()).length === 0; }")
+    ctx.close()
+    voll.close()
+    if erg["ohne_worker"] != 0:
+        erg["fehler"].append(f"die App meldet schon beim Start einen Worker an ({erg['ohne_worker']})")
+    if not erg["angemeldet"]:
+        erg["fehler"].append(f"nicht angemeldet: {scope}")
+    if erg["meldungen"] != [["Neue Nachricht", "Öffne FreedomStack, um sie zu lesen – Inhalt und Absender kennt nur die App.", "freedom-weck"]]:
+        erg["fehler"].append(f"Meldung {erg['meldungen']}")
+    if not erg["abgemeldet"]:
+        erg["fehler"].append("nicht abgemeldet")
+    erg["bestanden"] = not erg["fehler"]
+    return erg
+
+
 ANTWORT_MD = "**fett** <img src=x onerror=alert(1)>\n\n```ts\nconst a = \"<b>\"; // x\n```"
 
 
@@ -3557,6 +3611,10 @@ def main() -> int:
             except Exception as e:
                 erg["unsicher"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
             try:
+                erg["weckworker"] = weckworker_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
+            except Exception as e:
+                erg["weckworker"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
+            try:
                 erg["lokal"] = lokal_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
             except Exception as e:
                 erg["lokal"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
@@ -3593,6 +3651,7 @@ def main() -> int:
           and erg.get("werben", {}).get("bestanden") is True
           and erg.get("unsicher", {}).get("bestanden") is True
           and erg.get("lokal", {}).get("bestanden") is True
+          and erg.get("weckworker", {}).get("bestanden") is True
           and erg.get("mobil", {}).get("bestanden") is True)
     erg["bestanden"] = bool(ok)
     print(json.dumps(erg, indent=1, ensure_ascii=False))

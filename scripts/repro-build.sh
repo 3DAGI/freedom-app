@@ -4,7 +4,12 @@
 #
 #   scripts/repro-build.sh [commit]                     baut, gibt die SHA-256 aus
 #   scripts/repro-build.sh --pruefen [commit]           baut zweimal an zwei Pfaden – verschiedene Summen: Fehler (CI)
-#   scripts/repro-build.sh --vergleiche <sha256> [commit]  baut und vergleicht (z. B. mit dem Release-Manifest)
+#   scripts/repro-build.sh --vergleiche <sha256> [commit]  baut und vergleicht freedom.html (z. B. mit dem Release-Manifest)
+#   scripts/repro-build.sh --vergleiche-ordner <ordner> [commit]  baut und vergleicht freedom.html und freedom-sw.js
+#                                                       mit den Dateien im Ordner (pages.yml, vor dem Veröffentlichen)
+#
+# Seit B-12c gehört der Weck-Worker freedom-sw.js dazu: Er läuft mit derselben
+# Herkunft wie die App (CSP `worker-src 'self'`), also muss auch er bitgleich sein.
 #
 # Fest ist: der Quelltext (ein frischer Arbeitsbaum des Commits – nichts aus dem
 # eigenen Checkout, kein node_modules), die Abhängigkeiten (`npm ci` nach
@@ -24,6 +29,13 @@ case "${1:-}" in
     MODUS=vergleiche
     SOLL="${2:-}"
     [[ "$SOLL" =~ ^[0-9a-f]{64}$ ]] || { echo "Aufruf: --vergleiche <sha256, 64 Hex-Zeichen> [commit]" >&2; exit 2; }
+    shift 2 ;;
+  --vergleiche-ordner)
+    MODUS=ordner
+    ORDNER="${2:-}"
+    [ -f "$ORDNER/freedom.html" ] && [ -f "$ORDNER/freedom-sw.js" ] \
+      || { echo "Aufruf: --vergleiche-ordner <Ordner mit freedom.html und freedom-sw.js> [commit]" >&2; exit 2; }
+    SOLL="$(sha256sum "$ORDNER/freedom.html" | cut -d' ' -f1) $(sha256sum "$ORDNER/freedom-sw.js" | cut -d' ' -f1)"
     shift 2 ;;
   -*) echo "Unbekannte Option: $1" >&2; exit 2 ;;
 esac
@@ -51,19 +63,23 @@ aufraeumen() {
 }
 trap aufraeumen EXIT
 
-# Ein frischer Arbeitsbaum des Commits, npm ci, Build – ausgegeben wird nur die Summe.
+# Ein frischer Arbeitsbaum des Commits, npm ci, Build – ausgegeben werden nur die Summen (App, Weck-Worker).
 baue() {
   local ziel="$ARBEIT/$1"
   mkdir -p "$(dirname "$ziel")"
   git -C "$ROOT" worktree add -q --detach "$ziel" "$COMMIT"
   (cd "$ziel" && npm ci --silent >/dev/null) || { echo "npm ci gescheitert ($1)" >&2; return 1; }
   (cd "$ziel/packages/app" && node build.mjs >/dev/null) || { echo "Build gescheitert ($1)" >&2; return 1; }
-  sha256sum "$ziel/packages/app/dist/freedom.html" | cut -d' ' -f1
+  local app sw
+  app="$(sha256sum "$ziel/packages/app/dist/freedom.html" | cut -d' ' -f1)"
+  sw="$(sha256sum "$ziel/packages/app/dist/freedom-sw.js" | cut -d' ' -f1)"
+  echo "$app $sw"
 }
 
 echo "Commit ${COMMIT:0:12} · Node $NODE_IST · SOURCE_DATE_EPOCH $SOURCE_DATE_EPOCH"
 A="$(baue a)"
-echo "freedom.html  $A"
+echo "freedom.html  ${A% *}"
+echo "freedom-sw.js ${A#* }"
 case "$MODUS" in
   pruefen)
     # Zweiter Build an einem anderen, tieferen Pfad – absolute Pfade dürfen nicht ins Ergebnis
@@ -72,6 +88,9 @@ case "$MODUS" in
     [ "$A" = "$B" ] || { echo "NICHT reproduzierbar: zwei Builds, zwei Summen" >&2; exit 1; }
     echo "reproduzierbar: zweimal dieselbe Summe" ;;
   vergleiche)
-    [ "$A" = "$SOLL" ] || { echo "ANDERS als erwartet ($SOLL)" >&2; exit 1; }
+    [ "${A% *}" = "$SOLL" ] || { echo "ANDERS als erwartet ($SOLL)" >&2; exit 1; }
     echo "gleich: die erwartete Summe" ;;
+  ordner)
+    [ "$A" = "$SOLL" ] || { echo "ANDERS als im Ordner ($SOLL)" >&2; exit 1; }
+    echo "gleich: beide Dateien wie im Ordner" ;;
 esac

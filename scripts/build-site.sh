@@ -27,6 +27,9 @@ cp -r "$W"/js "$OUT"/
 cp "$ROOT/packages/app/dist/freedom.html" "$OUT"/freedom.html
 SUM="$(cd "$OUT" && sha256sum freedom.html | cut -d' ' -f1)"
 echo "$SUM" > "$OUT/freedom.html.sha256"
+# Weck-Worker (B-12c): neben freedom.html, sonst deckt worker-src 'self' ihn nicht
+cp "$ROOT/packages/app/dist/freedom-sw.js" "$OUT"/freedom-sw.js
+(cd "$OUT" && sha256sum freedom-sw.js | cut -d' ' -f1) > "$OUT/freedom-sw.js.sha256"
 
 # Die Pruefsumme auch in die Startseite schreiben. Vorher stand dort ein fest
 # eingetragener alter Wert — wer ihn nachrechnete, bekam einen Widerspruch.

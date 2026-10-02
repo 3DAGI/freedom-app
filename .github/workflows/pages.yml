@@ -55,10 +55,10 @@ jobs:
           # Adresse dieser Auslieferung – Webseed des Torrents (5.3b)
           SPIEGEL_BASIS_URL: ${{ steps.pages.outputs.base_url }}
         run: scripts/build-site.sh site
-      - name: Veroeffentlichte freedom.html nachbauen
+      - name: Veroeffentlichte freedom.html und freedom-sw.js nachbauen
         # 5.9: Was hinausgeht, muss ein frischer Build desselben Commits bitgleich
-        # ergeben – sonst wird nichts veroeffentlicht.
-        run: bash scripts/repro-build.sh --vergleiche "$(sha256sum site/freedom.html | cut -d' ' -f1)"
+        # ergeben – sonst wird nichts veroeffentlicht. Seit B-12c auch der Weck-Worker.
+        run: bash scripts/repro-build.sh --vergleiche-ordner site
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site

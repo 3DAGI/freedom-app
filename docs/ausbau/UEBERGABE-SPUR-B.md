@@ -12,7 +12,7 @@ ist seither durch Spur C weiter. Kein weiterer PR von Spur B ist offen.
 | B-1 bis B-8, B-10, B-15, B-19, B-20 | fertig | siehe FORTSCHRITT |
 | B-9 „Mein Knoten“ | a, b1–b2, c1–c3 fertig (c3 nach L7 A) | #240, #252–#255, #272 |
 | B-11 Knoten verwalten (nur lesen, L6 A) | a–c fertig (Status 5077, App, Einrichtung) | #256–#258 |
-| B-12 Weckdienst (W1 A, W2 A, W3 A) | a–b fertig (Anmeldung 5078, Knoten weckt); **c–d offen** | #259, #260 |
+| B-12 Weckdienst (W1 A, W2 A, W3 A) | a–c fertig (Anmeldung 5078, Knoten weckt, Weck-Worker `freedom-sw.js`); **d offen** | #259, #260, B-12c |
 | B-13 Anrufe (T1 A, T2 A, T3 B) | a–c fertig (TURN-Zugang 5079, coturn, Anruf-Aufbau 25040); **d offen** | #261–#263 |
 | B-14 | entfällt (I1 B) | – |
 | B-16 / B-17 / B-18 | später / wartet (Kalender) / wartet (Deploy Zahlkanal, MENSCH) | – |
@@ -30,7 +30,7 @@ Die Zeile „Stand …“ in CLAUDE.md ist aktuell.
 
 **W3 → B-12c, B-12d** (A: `worker-src blob: 'self'` in der CSP von `packages/app/build.mjs`).
 
-- **B-12c:**
+- **B-12c (fertig):**
   - Zweite Datei `dist/freedom-sw.js` aus `build.mjs`, nur Wecken: `push` → `showNotification` mit festem Text ohne Inhalt, `notificationclick` → App öffnen; kein Cache, kein `fetch`-Handler.
   - Mitziehen:
     - `scripts/build-site.sh` (kopieren, Prüfsumme);
@@ -39,10 +39,12 @@ Die Zeile „Stand …“ in CLAUDE.md ist aktuell.
     - `scripts/publish-release.mjs` (Artefakt).
   - Der Spiegel braucht sie nicht.
   - Smoke-Test: Anmeldung auf `localhost`.
+  - Umgesetzt mit `--vergleiche-ordner` (repro) und der Sprache aus `?sprache=` der Worker-Adresse.
+  - Vom Knoten ausgeliefert (B-10) fehlt der Worker – B-12d muss das ehrlich sagen (oder `app-auslieferung.ts` liefert ihn mit Summe mit).
 - **B-12d:**
   - **Haken in „Mein Knoten“:** nur gekoppelt und nur in sicherem Kontext (`verschluesselungMoeglich()`). Beim Klick:
     1. `Notification.requestPermission()`;
-    2. `navigator.serviceWorker.register("freedom-sw.js")`;
+    2. `navigator.serviceWorker.register("freedom-sw.js?sprache=" + getLang())`;
     3. `pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: status.weckSchluessel })` – den Schlüssel liefert die Statusabfrage (B-11);
     4. `baueWeckAnmeldung()` über `wegZumKnoten()` mit den Schlüsseln aus `sprichtFuer()` und `geraeteBuch.alle()`.
   - **Abmelden:** `aktion: "ab"`.
