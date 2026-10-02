@@ -198,8 +198,18 @@ Anrufe laufen nur über einen Vermittler (TURN) auf deinem Knoten – dein
 Gegenüber sieht nie deine IP. Den Vermittler stellt coturn als eigener Dienst;
 der Knoten vergibt dafür nur kurzlebige Zugänge an deine Geräte.
 
-- **coturn:** mit `use-auth-secret` und `static-auth-secret=<Geheimnis>`. Die
-  Einrichtung über Installer und Docker kommt mit B-13b.
+- **coturn einrichten (B-13b):**
+  - **Installer:** Er fragt nach dem öffentlichen Namen dieses Rechners
+    (`TURN_NAME`, leer: keine Anrufe), installiert coturn und richtet den Dienst
+    `freedom-turn` ein. Er läuft als du, mit `~/.freedom/turnserver.conf`.
+  - **Docker:** einmal
+    `bash scripts/turn-einrichten.sh ./turnserver.conf <name> --docker >> .env`,
+    dann `docker compose --profile anrufe up -d`. Beide Dateien stehen in
+    `.gitignore`.
+  - **Die Datei** (0600) erlaubt nur Zugänge vom Knoten (`use-auth-secret`). Sie
+    vermittelt nie in private, lokale oder reservierte Netze (`denied-peer-ip`),
+    begrenzt Sitzungen und Bandbreite und schreibt kein Protokoll.
+  - **Freigeben:** UDP und TCP 3478 sowie UDP 49160–49200 an Firewall und Router.
 - **Umgebung des Knotens:**
   - `TURN_SECRET`: dasselbe Geheimnis, mindestens 32 Zeichen;
   - `TURN_URLS`: z. B. `turns:knoten.example.org:5349?transport=tcp,turn:knoten.example.org:3478`;
