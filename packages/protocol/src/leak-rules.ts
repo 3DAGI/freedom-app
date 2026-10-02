@@ -8,6 +8,7 @@
 import type { NostrEvent } from "./event.js";
 import { fromHex, toHex } from "./htlc.js";
 import { bech32 } from "@scure/base";
+import { KIND_ANRUF, istRelayKandidat, pruefeSdpNurRelay } from "./anruf.js";
 
 export interface LeakFinding {
   regel: string;
@@ -291,6 +292,32 @@ export function regelBesitzerVersiegelt(events: readonly NostrEvent[]): LeakFind
     .map((e) => ({ regel: "besitzer-versiegelt", eventId: e.id, detail: `Besitzer-Nachweis offen (Kind ${e.kind})` }));
 }
 
+/**
+ * Anrufe nur über den Vermittler (B-13d1): Der Anruf-Aufbau (Kind 25040) steht
+ * nie offen in einem gesendeten Event, und in den inneren Events – die der Test
+ * vor dem Versiegeln mitschneidet – stehen nur Kandidaten vom Typ `relay`, mit
+ * DTLS-Fingerabdruck. Eine Host-, srflx- oder prflx-Adresse verriete dem
+ * Gegenüber die eigene IP.
+ */
+export function regelAnrufNurRelay(events: readonly NostrEvent[], innere: readonly NostrEvent[] = []): LeakFinding[] {
+  const funde: LeakFinding[] = events.filter((e) => e.kind === KIND_ANRUF)
+    .map((e) => ({ regel: "anruf-nur-relay", eventId: e.id, detail: "Anruf-Aufbau offen" }));
+  for (const e of innere.filter((x) => x.kind === KIND_ANRUF)) {
+    let n: { typ?: unknown; sdp?: unknown; kandidat?: { candidate?: unknown } };
+    try {
+      n = JSON.parse(e.content) as typeof n;
+    } catch {
+      funde.push({ regel: "anruf-nur-relay", eventId: e.id, detail: "Inhalt unlesbar" });
+      continue;
+    }
+    const ok = n.typ === "angebot" || n.typ === "antwort" ? pruefeSdpNurRelay(n.sdp as string)
+      : n.typ === "kandidat" ? istRelayKandidat(n.kandidat?.candidate as string)
+      : n.typ === "ende";
+    if (!ok) funde.push({ regel: "anruf-nur-relay", eventId: e.id, detail: `${String(n.typ)}: nicht nur über den Vermittler` });
+  }
+  return funde;
+}
+
 /** Alle Regeln mit ihrer Aussage – Datenschutz-Aussagen verweisen hierauf. */
 export const LEAK_REGELN: Readonly<Record<string, string>> = {
   "kein-kind4": "Keine Direktnachrichten im alten, offenen Format (Kind 4).",
@@ -312,4 +339,5 @@ export const LEAK_REGELN: Readonly<Record<string, string>> = {
   "zap-anonym": "Zap-Anfragen tragen nie die Identität des Zahlers.",
   "raum-repo-privat": "Repos privater Räume – Ankündigung, Bundle-Schlüssel, Patches, Status – nur in der MLS-Gruppe, nie offen.",
   "besitzer-versiegelt": "Der Nachweis des Besitzers an den eigenen Knoten nur versiegelt, nie offen.",
+  "anruf-nur-relay": "Anrufe nur über den Vermittler: Anruf-Aufbau nie offen, innen nur Relay-Kandidaten mit Fingerabdruck.",
 };

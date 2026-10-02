@@ -13,7 +13,7 @@ ist seither durch Spur C weiter. Kein weiterer PR von Spur B ist offen.
 | B-9 „Mein Knoten“ | a, b1–b2, c1–c3 fertig (c3 nach L7 A) | #240, #252–#255, #272 |
 | B-11 Knoten verwalten (nur lesen, L6 A) | a–c fertig (Status 5077, App, Einrichtung) | #256–#258 |
 | B-12 Weckdienst (W1 A, W2 A, W3 A) | fertig (Anmeldung 5078, Knoten weckt, Weck-Worker `freedom-sw.js`, Notfall-Löschung, Haken „Wecken“) | #259, #260, #273 |
-| B-13 Anrufe (T1 A, T2 A, T3 B) | a–c fertig (TURN-Zugang 5079, coturn, Anruf-Aufbau 25040); **d offen** | #261–#263 |
+| B-13 Anrufe (T1 A, T2 A, T3 B) | a–c und d1 fertig (TURN-Zugang 5079, coturn, Anruf-Aufbau 25040, `turn` im Angebot); **d2 (Logik), d3 (Oberfläche) offen** | #261–#263 |
 | B-14 | entfällt (I1 B) | – |
 | B-16 / B-17 / B-18 | später / wartet (Kalender) / wartet (Deploy Zahlkanal, MENSCH) | – |
 
@@ -54,7 +54,7 @@ Die Zeile „Stand …“ in CLAUDE.md ist aktuell.
 
 **T3 → B-13d** (B: Die Anruferin gibt einen kurzlebigen Zugang zu ihrem TURN im versiegelten Angebot mit; die App warnt vor dem Annehmen).
 
-- `anruf.ts` bekommt im Angebot ein optionales Feld `turn` (Form wie `leseTurnZugang()`). Das ist ein Format-Zusatz, also in `docs/PROTOCOL.md` §27 nachtragen.
+- **d1 (fertig):** `anruf.ts` hat im Angebot ein optionales Feld `turn` (Form wie `leseTurnZugang()`). Das ist ein Format-Zusatz, also in `docs/PROTOCOL.md` §27 nachtragen.
 - **App:**
   - `baueTurnAnfrage()` über `wegZumKnoten()` → `RTCPeerConnection({ iceServers, iceTransportPolicy: "relay" })`.
   - Angebot, Antwort und Kandidaten über `baueAnrufNachricht()` an `sprichtFuer()` plus Geräte; empfangen über `oeffneAnrufNachricht()` am Ende der Kette in `oeffneUmschlag()`.
