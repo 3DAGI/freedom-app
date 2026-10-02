@@ -160,12 +160,24 @@ gekoppelten Besitzer mit:
 
 Steuern lässt sich der Knoten aus der App nicht.
 
-**Wecken (B-12, im Aufbau):** Ist die App zu, kann der Knoten den Browser
-des Besitzers per Web Push wecken – ohne Inhalt und ohne Absender. Dafür legt
-er beim ersten Start einen eigenen VAPID-Schlüssel an (`~/.freedom/vapid.json`,
-nur für ihn lesbar). Angemeldete Push-Adressen liegen in
-`~/.freedom/wecken.json` – ein Zugang zu deinen Browsern, nie weitergeben.
-Bis B-12b nimmt der Knoten Anmeldungen nur an, geweckt wird noch nicht.
+**Wecken (B-12):** Ist die App zu, weckt der Knoten den Browser des
+Besitzers per Web Push – ohne Inhalt und ohne Absender.
+- **Schlüssel:** Beim ersten Start legt er einen eigenen VAPID-Schlüssel an
+  (`~/.freedom/vapid.json`, nur für ihn lesbar).
+- **Push-Adressen:** Angemeldete Adressen liegen in `~/.freedom/wecken.json` –
+  ein Zugang zu deinen Browsern, nie weitergeben.
+- **Wann er weckt:** Alle 30 s sieht der Knoten nach, ob neue Umschläge an die
+  gemeldeten Schlüssel liegen. Er sucht im eigenen Relay und in den Relays aus
+  `RELAYS`. Die Relays sehen dabei, dass dein Knoten nach Post an diese
+  Schlüssel fragt.
+- **Nur im eigenen Relay:** Mit `WECKEN_RELAYS=eigen` sucht er nur dort. Dann
+  weckt nur Post, die dort ankommt – etwa wenn sein Relay dein Posteingang ist.
+- **Gebremst:** Höchstens ein Weckruf je Browser und Minute.
+- **Abgelaufen:** Eine Adresse, die der Push-Dienst nicht mehr kennt, vergisst er.
+- **Kontakt im VAPID-Token:** Standard ist die Projektseite;
+  `WECKEN_KONTAKT=mailto:…` oder `https://…` ersetzt sie.
+- **Grenze:** Relays, die Umschläge nur an angemeldete Empfänger geben, kann der
+  Knoten nicht beobachten – Post dort weckt nicht.
 
 **Alles über meinen Knoten (B-9c):** Mit dem Haken unter Settings → Geräte →
 „Mein Knoten“ schickt die App KI-Anfragen an deinen Knoten und Halte-Aufträge
