@@ -14120,3 +14120,54 @@ Endstand (B-11a, 02.10.): protocol 1154 (+3, 6 übersprungen) · node 291 (+4,
 grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 (zwei Ausnahmen bis
 B-11b) · innerHTML streng Exit 0 · Website ok · Smoke-Test bestanden.
 Knoten-Stand: für den Status nötig (B-11a); sonst unverändert.
+
+## Schritt B-11b – Status meines Knotens: die App
+
+Sammlung B-11, Entscheidung L6 A, zweiter Teil. Der Knoten beantwortet die
+Statusabfrage seit B-11a (#256); jetzt fragt die App.
+
+**App** (`knoten-status-ansicht.ts`, `shell/knoten-status-ui.ts`):
+- Knopf „Status abfragen“ in Settings → Geräte → „Mein Knoten“: nur gekoppelt
+  sichtbar, gefragt wird nur beim Klick, nie beim Start.
+- `zeigeKnotenStatus()` fragt mit einem frischen Sitzungsschlüssel versiegelt
+  und mit Nachweis (`baueStatusAuftrag()`). Der Weg ist der aus B-9c2
+  (`wegZumKnoten()`): mit Haken nur über das Relay des Knotens, ohne Relay geht
+  nichts hinaus.
+- Die App wartet auf 6077 oder eine Rückmeldung. Gezeigt wird nur, was
+  `leseKnotenStatus()` durchlässt.
+- `statusZeilen()` bildet daraus Zeilen in der Sprache der App:
+  - Fassung und Start;
+  - Rollen, übersetzt aus festen Kennungen (`ROLLEN_TEXT`);
+  - Modelle, wie gemeldet;
+  - Aufträge;
+  - Abgerechnetes in sats und SOL (`ausMsat()`, ohne Kurs kein SOL-Betrag);
+  - Speicher und Relay.
+
+  Die Zeilen kommen nur als Text in den DOM (`el()`).
+- Nichts davon wird gemerkt. Entkoppelt bleibt keine alte Anzeige stehen.
+- `scripts/wiring-ausnahmen.txt`: Die zwei Ausnahmen aus B-11a sind gestrichen,
+  beide Exporte sind jetzt verdrahtet.
+
+**Tests:** app +3 (`knoten-status.test.ts`):
+- Zeilen auf Deutsch und Englisch: Rollen übersetzt, Modellnamen nur als Text,
+  Beträge mit und ohne Kurs, leere Listen „keine“, ohne Speicher und Relay
+  keine Zeile.
+- Jede Rolle hat einen Text in beiden Sprachen.
+- Verdrahtung: nur beim Klick, über den Weg, ohne Relay nichts, nur gelesener
+  Status, kein `innerHTML`, `localStorage` oder Pool; nur gekoppelt sichtbar;
+  `mein-knoten.ts` bleibt frei von `localStorage` und `publish`.
+
+Der Smoke-Test prüft den Knopf: gekoppelt sichtbar, die Anzeige leer (gefragt
+wird erst beim Klick), nach dem Entkoppeln weg.
+
+**Verdrahtet:**
+- `packages/app/src/shell/app.ts`: `wireKnotenStatus()` in `starte()`.
+- `shell/knoten-status-ui.ts`: `zeigeKnotenStatus()` → `wegZumKnoten()` →
+  `baueStatusAuftrag()` → `leseKnotenStatus()` → `statusZeilen()`.
+- `shell/mein-knoten.ts`: Knopf nur bei Kopplung.
+
+Endstand (B-11b, 02.10.): protocol 1154 (6 übersprungen) · node 291 (7
+übersprungen ohne Netz – mit Netz 292) · app 782 (+3) · mls 13 · Leak-Tests 70
+grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 (Ausnahmen aus B-11a
+gestrichen) · innerHTML streng Exit 0 · Website ok · Smoke-Test bestanden.
+Knoten-Stand: B-11a (#256) für den Status; sonst unverändert.

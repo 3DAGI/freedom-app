@@ -45,9 +45,9 @@ bash packages/mls/bauen.sh --pruefen                     # nur bei Änderungen a
 bash contracts/solana-channel/pruefen.sh --werkzeuge     # nur bei Änderungen am Zahlkanal: bauen + Tests gegen Validator (Agave 3.1.10)
 ```
 
-Stand 01.10.2026 (nach 8.2c, 5.5a–c, 8.15, 11.1a, C.3c2, 11.1b, 5.9a–b, 6.3a–b2, 11.4a–b2, C.4a–b, C.5a–b, C.6b, 11.4c, C-18, C-17a–c, C-20a–f, C-1a–e, C-2, C-3, C-4, C-6a–c, C-10, C-11, C-14 bis C-16, 11.2a–b, A-4 bis A-7, B-1, B-2a–c, B-3 bis B-7, B-8a–c, B-9a, B-15, B-19, B-20a–c, B-10a–b, B-9b1–b2, B-9c1–c2 und B-11a): protocol 1154 grün (6 übersprungen), node 292 grün
+Stand 01.10.2026 (nach 8.2c, 5.5a–c, 8.15, 11.1a, C.3c2, 11.1b, 5.9a–b, 6.3a–b2, 11.4a–b2, C.4a–b, C.5a–b, C.6b, 11.4c, C-18, C-17a–c, C-20a–f, C-1a–e, C-2, C-3, C-4, C-6a–c, C-10, C-11, C-14 bis C-16, 11.2a–b, A-4 bis A-7, B-1, B-2a–c, B-3 bis B-7, B-8a–c, B-9a, B-15, B-19, B-20a–c, B-10a–b, B-9b1–b2, B-9c1–c2 und B-11a–b): protocol 1154 grün (6 übersprungen), node 292 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 779 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 70 grün + 1 `todo` (heutige Lecks,
+in `tools.test.ts`), app 782 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 70 grün + 1 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
 Ausnahme: gesendete SOL-Zahlungen von frischen Adressen, eine bewusste Grenze
 nach Entscheidung 4.9 A – im Datenschutzbericht unter „Bewusste Grenzen“).
@@ -1009,6 +1009,10 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   Kennungen (`STATUS_ROLLEN`), Modellnamen, nie Text aus Aufträgen. Rollen
   meldet `main.ts` erst, wenn sie gestartet sind (`statusRollen.add()`). Nur
   lesen – Steuern ist eine eigene Entscheidung (L6 B).
+  In der App (seit B-11b) nur über `zeigeKnotenStatus()`
+  (`shell/knoten-status-ui.ts`): nur auf Klick, nur gekoppelt, über
+  `wegZumKnoten()`; gezeigt nur `statusZeilen()` als Text (Rollen über
+  `ROLLEN_TEXT`, Beträge über `ausMsat()`). Nichts davon wird gemerkt.
 - **App vom Knoten nur mit Prüfsumme** (seit B-10a, `node/src/app-auslieferung.ts`):
   Die Relay-Rolle liefert freedom.html nur als Ergebnis von `ladeApp()` aus –
   die Summe gibt der Betreiber vor (`APP_SHA256`), nie aus der Datei
