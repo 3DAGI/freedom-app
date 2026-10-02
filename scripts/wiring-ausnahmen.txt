@@ -225,3 +225,6 @@ wecken.ts|baueWeckAnmeldung|Push-Adresse beim eigenen Knoten anmelden – der Kn
 wecken.ts|leseWeckAntwort|Antwort auf die Weck-Anmeldung lesen – die App zeigt sie ab B-12d
 turn-zugang.ts|baueTurnAnfrage|Zugang zum TURN des eigenen Knotens anfragen – der Knoten vergibt ihn seit B-13a, die App fragt ab B-13d (Anruf)
 turn-zugang.ts|leseTurnZugang|Antwort mit dem TURN-Zugang lesen – die App nutzt sie ab B-13d (RTCPeerConnection, nur „relay“)
+anruf.ts|baueAnrufNachricht|Anruf-Aufbau versiegelt senden – Format seit B-13c, die App ruft an ab B-13d (wartet auf T3)
+anruf.ts|oeffneAnrufNachricht|Anruf-Aufbau versiegelt lesen – die App nimmt Anrufe an ab B-13d
+anruf.ts|neueAnrufKennung|Kennung eines Anrufs – die App vergibt sie ab B-13d

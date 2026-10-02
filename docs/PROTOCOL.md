@@ -708,3 +708,32 @@ Umschlag mit gültigem Nachweis; Zugänge zählen nicht als Aufträge.
 
 Der Zugang ist ein Geheimnis: nur versiegelt, nie offen, nie im Log, nicht
 über seinen Ablauf hinaus gemerkt.
+
+## 27. Anruf-Aufbau im Umschlag (innen Kind 25040, seit B-13c)
+
+Entscheidungen T1 A und T2 A: Angebot, Antwort, Kandidaten und Ende eines Anrufs
+(WebRTC) reisen nur versiegelt (NIP-59), je Empfänger ein Umschlag – an die
+Person und ihre Geräte (`baueAnrufNachricht()`, höchstens 20). Der Umschlag
+trägt offen nur `p` und `expiration` (fünf Minuten, NIP-40), keinen Zeitversatz:
+Ein Anruf ist jetzt oder nie.
+
+**Kern:** Kind 25040, Tags `["p", <Empfänger>]`, `["anruf", <Kennung>]`, Inhalt JSON:
+
+| `typ` | Felder |
+|---|---|
+| `angebot` | `anruf` (32 Hex), `sdp`, `medien` (`["audio"]` oder `["audio","video"]`) |
+| `antwort` | `anruf`, `sdp` |
+| `kandidat` | `anruf`, `kandidat` (`candidate`, `sdpMid`, `sdpMLineIndex`) |
+| `ende` | `anruf`, `grund` (`aufgelegt`, `abgelehnt`, `besetzt`, `zeit`, `fehler`) |
+
+**Nur über den Vermittler:**
+- Gesprochen wird nur über den TURN des eigenen Knotens (§26,
+  `iceTransportPolicy: "relay"`).
+- Im SDP und in Kandidaten stehen nur Kandidaten vom Typ `relay`
+  (`pruefeSdpNurRelay()`, `istRelayKandidat()`). Host-, srflx-, prflx- und
+  mDNS-Kandidaten verrieten dem Gegenüber die eigene Adresse – sie gehen nie
+  hinaus und werden nie gelesen.
+- Angebot und Antwort tragen einen DTLS-Fingerabdruck (SHA-256). Er bindet die
+  verschlüsselten Medien an den Absender des Siegels.
+- `oeffneAnrufNachricht()` nimmt nur Nachrichten an diesen Schlüssel, nicht
+  älter als fünf Minuten, mit passender Kennung im Tag.
