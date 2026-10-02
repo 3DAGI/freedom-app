@@ -216,7 +216,7 @@ test("8.16d1: Agent – Seite und tabs/agent.ts über Schlüssel; eigene Meldung
 test("8.16e: Agent-Rest, Währung, Zahlwege und Swaps – über Schlüssel; Texte des Protokolls aus den Zahlen neu gebildet", async () => {
   const fertig = [
     "shell/tabs/agent-netz.ts", "streitfall.ts", "shell/streitfall-ui.ts", "shell/pruefauftraege-ui.ts", "shell/ki-zahlung.ts",
-    "modell-kataloge.ts", "werkzeug-preise.ts", "ki-kontext.ts", "shell/tabs/waehrung.ts", "shell/eingebaute-wallet.ts",
+    "modell-kataloge.ts", "werkzeug-preise.ts", "ki-kontext.ts", "shell/tabs/waehrung.ts", "shell/tabs/tausch.ts", "shell/tabs/hinterlegen.ts", "shell/eingebaute-wallet.ts",
     "shell/offline-zahlung.ts", "shell/zahlschienen.ts", "swap-client.ts", "sol-htlc.ts", "rueck-swap.ts", "rails.ts",
     "sol-wallet.ts", "solana-connect.ts", "zap-zahlung.ts", "refund-watcher.ts", "relay-kauf.ts", "rpc-stichprobe.ts",
     "sol-offline-zahlung.ts", "wallet-standard.ts", "trinkgeld-beleg.ts", "chat-zap.ts", "sol-transfer.ts",
@@ -231,8 +231,8 @@ test("8.16e: Agent-Rest, Währung, Zahlwege und Swaps – über Schlüssel; Text
   // Deutsche Texte des Protokolls nicht mehr anzeigen – die App bildet sie aus den Feldern
   assert.doesNotMatch(lies("shell/tabs/agent-netz.ts"), /m\.note\b/);
   assert.doesNotMatch(lies("shell/pruefauftraege-ui.ts"), /DISPUTE_LABEL/);
-  assert.doesNotMatch(lies("shell/tabs/waehrung.ts"), /caps\.note|swapPrivacyCheck/);
-  assert.match(lies("shell/tabs/waehrung.ts"), /const pruefung = tauschPruefung\(\{/);
+  for (const d of ["waehrung", "tausch", "hinterlegen"]) assert.doesNotMatch(lies(`shell/tabs/${d}.ts`), /caps\.note|swapPrivacyCheck/, d);
+  assert.match(lies("shell/tabs/tausch.ts"), /const pruefung = tauschPruefung\(\{/);
   // Der Prüfer hat eine Art, keinen Text – angezeigt über den Schlüssel
   assert.match(lies("shell/tabs/agent.ts"), /pruefer\.art === "provider" \?/);
   assert.doesNotMatch(lies("shell/tabs/agent.ts"), /eigener Provider| je Aufruf/);

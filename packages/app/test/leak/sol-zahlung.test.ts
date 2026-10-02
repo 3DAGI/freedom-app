@@ -1,7 +1,7 @@
 /**
  * Leak-Szenario „SOL-Zahlung“ (Schritt 1.5): zwei Deposits mit dem echten
  * `lockDeposit()` aus `sol-htlc.ts` (so ruft ihn `startDeposit()` in
- * `tabs/waehrung.ts` auf), mitgeschnitten an einer Aufzeichnungs-RPC, dazu die
+ * `tabs/hinterlegen.ts` auf), mitgeschnitten an einer Aufzeichnungs-RPC, dazu die
  * Ankuendigung per Nostr. Heute zahlt jede Einzahlung von derselben
  * Wallet-Adresse – Schritt 4.9 leitet je Zahlung eine frische ab.
  */
@@ -60,7 +60,7 @@ test("SOL-Zahlung: jede Zahlung von einer frischen Adresse", { todo: "bewusste G
 });
 
 test("Verdrahtung: startDeposit() sperrt mit lockDeposit und kuendigt mit buildSolDepositOpen an", () => {
-  const w = readFileSync(new URL("../../src/shell/tabs/waehrung.ts", import.meta.url), "utf8");
+  const w = readFileSync(new URL("../../src/shell/tabs/hinterlegen.ts", import.meta.url), "utf8");
   // Seit 4.6c mit dem Signierer aus der Verbindung (auch Wallet-Standard-Wallets)
   assert.match(w, /await lockDeposit\(\{\s*connection: conn,\s*wallet: signer,/);
   assert.match(w, /signiere\(buildSolDepositOpen\(\{\s*customerPubkey: state\.keypair\.pk,/);

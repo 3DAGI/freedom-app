@@ -72,7 +72,7 @@ test("Ohne Signatur der Wallet geht der Auftrag gar nicht erst raus", async () =
 });
 
 test("Verdrahtung (4.6f): ohne SOL ueber den Relayer, Auftrag versiegelt vom Wegwerf-Schluessel, nie der LP", () => {
-  const w = readFileSync(new URL("../src/shell/tabs/waehrung.ts", import.meta.url), "utf8");
+  const w = readFileSync(new URL("../src/shell/tabs/tausch.ts", import.meta.url), "utf8");
   assert.match(w, /brauchtRelayer\(guthaben\)\s*\? await einloesenUeberRelayer\(/);
   const f = w.slice(w.indexOf("async function einloesenUeberRelayer("), w.indexOf("/** Sicherung aller offenen Preimages"));
   assert.match(f, /waehleRelayer\(angebote, \{ kette: ketteAusRpc\(p\.rpcUrl\), lpPubkey: p\.swap\.lpPubkey, lpSol: p\.swap\.initiator \}\)/);

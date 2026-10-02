@@ -98,18 +98,15 @@ import {
   zeigeSicherung,
 } from "./tabs/settings.js";
 import {
-  claimActiveSwap,
   connectNwc,
   connectSolana,
   disconnectNwc,
   wireNwcRelays,
-  exportSwapBackup,
-  geldVorgangLaeuft,
   loadWallet,
   nwc,
-  refundDeposit,
-  startDeposit,
 } from "./tabs/waehrung.js";
+import { claimActiveSwap, exportSwapBackup } from "./tabs/tausch.js";
+import { geldVorgangLaeuft, refundDeposit, startDeposit } from "./tabs/hinterlegen.js";
 import { oeffneZahlkanal, zeigeKanaele } from "./zahlkanal-ui.js";
 import { wireVerdienst, zeigeSolEinnahmen } from "./verdienst-ui.js";
 import { seiteGezeigt, startSeite, wireNavigation } from "./navigation.js";

@@ -55,7 +55,7 @@ export const geheim: GeheimSpeicher = geheimSpeicher(() => tresor, tresorEingeri
  * nur mit Tresor – sowie eigene Reklamationen mit ihrem Sitzungsschluessel (5.6b)
  * und der Schluessel des MLS-Zustands (2.2b-c) sowie die gesammelten Gebuehrenanteile (5.1.3)
  * und die Zahlkanaele mit ihren Sitzungsschluesseln (4.3d).
- * Die Namen stehen auch in tabs/waehrung.ts, tabs/agent.ts,
+ * Die Namen stehen auch in tabs/waehrung.ts, tabs/tausch.ts, tabs/agent.ts,
  * tabs/kommunikation.ts, swap-client.ts, sol-wallet.ts, suche-ui.ts,
  * nachfolge.ts, mls-speicher.ts, anteile-kasse.ts und zahlkanal.ts.
  */

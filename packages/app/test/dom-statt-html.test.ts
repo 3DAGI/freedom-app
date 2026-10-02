@@ -51,7 +51,7 @@ test("C-6a: Fremddaten in Zeilen – Modelle, Einnahmen, Profil, Abzeichen als T
 });
 
 test("C-6a: Befunde der Swap-Prüfung als Textknoten, Zap-Betrag als Wert des Feldes", () => {
-  const waehrung = quelle("../src/shell/tabs/waehrung.ts");
+  const waehrung = quelle("../src/shell/tabs/tausch.ts");
   assert.match(waehrung, /statusEl\.replaceChildren\(el\("strong", t\("waehr\.nichtZahlen"\)\), \.\.\.verdict\.problems\.flatMap\(\(p\) => \[document\.createElement\("br"\), document\.createTextNode\(p\)\]\)\);/);
   assert.doesNotMatch(waehrung, /verdict\.problems\.map\(\(p\) => escapeHtml/);
   const zap = quelle("../src/chat-zap.ts");

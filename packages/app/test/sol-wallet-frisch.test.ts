@@ -117,7 +117,7 @@ test("Solana-Schiene zahlt von der gewaehlten eigenen Adresse", async () => {
 });
 
 test("Verdrahtung (4.9c): Tausch schlaegt eine frische Adresse vor, Einloesen nur mit dem Schluessel der Empfangsadresse, Schiene waehlt den Absender", () => {
-  const w = readFileSync(new URL("../src/shell/tabs/waehrung.ts", import.meta.url), "utf8");
+  const w = readFileSync(new URL("../src/shell/tabs/tausch.ts", import.meta.url), "utf8");
   const start = w.slice(w.indexOf("async function startSwap("), w.indexOf("async function pollSwapResponse("));
   assert.match(start, /const frisch = await frischeEmpfangsadresse\(\)/);
   assert.match(start, /frisch \?\? solWallet\.pubkey \?\? ""/);

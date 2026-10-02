@@ -51,11 +51,11 @@ test("Verdrahtung: kein fester SOL-Kurs mehr, Kurs in Modellwahl, Schaetzung, Za
   const zap = lies("../src/chat-zap.ts");
   assert.match(zap, /id="zap-umrechnung"/);
   assert.match(zap, /einheit === "sol" \? ausLamports\(wert \* 1e9, aktuellerKurs\(\)\) : ausMsat\(wert \* 1000, aktuellerKurs\(\)\)/);
-  const tab = lies("../src/shell/tabs/waehrung.ts");
+  const tab = lies("../src/shell/tabs/hinterlegen.ts");
   assert.match(tab, /const maxLamportsPerKToken = depositDeckel\(angebot\.textRatePerKTokenMsat, markt\);/);
   assert.match(tab, /maxLamportsPerKToken,\n\s+\}\)\);/);
   assert.ok(!tab.includes("maxLamportsPerKToken: 1000"), "fester Deckel entfernt");
-  assert.match(tab, /zeigeKurs\(\);/);
+  assert.match(lies("../src/shell/tabs/waehrung.ts"), /zeigeKurs\(\);/);
   assert.match(lies("../src/shell/index.html"), /<div id="kurs-info" class="mono-sm"><\/div>/);
 });
 

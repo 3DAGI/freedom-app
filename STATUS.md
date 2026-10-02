@@ -15225,3 +15225,39 @@ setzten nur feste Texte, aber als HTML-Text mit eigener Begründung je Stelle.
     Verbindungsarten.
   - Danach steht die Wahl wie in den Settings: Schiene `solana`, Vorhaben
     `nutzen`, Zustimmung `0`, Seite `#/agent`.
+
+## Schritt C-5a – Große Dateien aufteilen: `waehrung.ts`
+
+**Warum:** Sammlung C-5. `waehrung.ts` war mit 1079 Zeilen eine der großen
+Dateien. Entschieden am 02.10.2026 (MENSCH): je Datei ein Pull Request. Reine
+Umzüge dürfen dafür über die 400-Zeilen-Grenze gehen – ein verschobener Block
+zählt im Diff doppelt.
+
+**Was** (wörtlich verschoben, keine Verhaltensänderung):
+- `waehrung.ts` (337 Zeilen): Seite und Angebotsliste, Solana-Wallet
+  (`htlcSigner()`, `connectSolana()`), Lightning über NWC.
+- `tausch.ts` (551): Tausch sats → SOL, Einlösen über Relayer, Rückhol-Wächter,
+  Gegenrichtung SOL → sats (4.6c), Sicherung der Preimages.
+- `hinterlegen.ts` (226): Deposit und Zurückholen, Einzahlung in einen
+  Zahlkanal, `geldVorgangLaeuft()`.
+- **Einzige Codeänderung:** `export` für `startSwap`, `startRueckSwap`,
+  `activeSwap` und `solWallet`. Die Module verwenden einander nur in
+  Funktionen, nicht beim Laden. `activeSwap` bleibt eine lebende Bindung –
+  `geldVorgangLaeuft()` liest es wie vorher.
+- Ein Skript hat geprüft, dass die Blöcke wörtlich gleich sind (bis auf diese
+  vier `export`).
+- **Aufrufer:** `app.ts` und `zahlkanal-ui.ts` importieren aus dem neuen Ort.
+- **Doku:** `docs/SWAPS.md` und die Kommentare in `tresor.ts` und
+  `texte/waehrung.ts` nennen ihn ebenfalls.
+
+**Tests:**
+- 14 Tests lasen den Quelltext von `waehrung.ts`. Sie lesen jetzt die Datei,
+  in der der Code steht. Wo ein Test den ganzen Tab meint, liest er alle drei
+  Dateien:
+  - „kein Browser-Dialog“ (C-1a) und „keine deutschen Protokolltexte“ (8.16e)
+    gelten für jede der drei Dateien;
+  - `tausch.ts` und `hinterlegen.ts` stehen in der Liste der fertig
+    übersetzten Dateien.
+- app +2 in `test/dateigroesse.test.ts` (neu):
+  - Die aufgeteilten Dateien bleiben unter 700 Zeilen.
+  - Tausch und Hinterlegen kommen aus ihren eigenen Modulen.
