@@ -6,8 +6,8 @@
 import {
   KIND_GIT_REPO_REF, KIND_REPO_ANKUENDIGUNG, KIND_STATUS_ANGENOMMEN, KIND_STATUS_ENTWURF, KIND_STATUS_GESCHLOSSEN, KIND_STATUS_OFFEN,
   KIND_SPACE, RAUM_REPO_RECHT, bewertungenZu, can, darfAnnehmen, issueStatus, istReviewTeil, kommentareZu, leseIssue, lesePatch, leseRepoAnkuendigung,
-  mitRaumRechten, patchStatus, raumAdresse, raumZustandFuer, zeilenKommentareZu,
-  type GeleseneBewertung, type GelesenerKommentar, type GelesenerZeilenKommentar, type GelesenerPatch, type GelesenesIssue, type GelesenesRepo, type IssueStatus, type NostrEvent, type PatchStatus,
+  mitRaumRechten, patchStatus, raumAdresse, raumZustandFuer, repoReleasesZu, zeilenKommentareZu,
+  type GeleseneBewertung, type GelesenesRepoRelease, type GelesenerKommentar, type GelesenerZeilenKommentar, type GelesenerPatch, type GelesenesIssue, type GelesenesRepo, type IssueStatus, type NostrEvent, type PatchStatus,
   type RepoAnkuendigung,
 } from "@freedomstack/protocol";
 
@@ -133,6 +133,8 @@ export interface RepoKarte {
   patchKommentare?: Record<string, GelesenerKommentar[]>;
   /** Reviews je Patch-Id (C-20g2): Kommentare an Zeilen und Bewertungen – erst nach `mitIssues()`. */
   patchReviews?: Record<string, PatchReview>;
+  /** Releases (C-20h2), neuestes zuerst – erst nach `mitIssues()`. */
+  releases?: GelesenesRepoRelease[];
   zeilen: PatchZeile[];
   offen: number;
   /** Letzte Aktivität (Sekunden): Ankündigung, Bundle, Patch oder Status. */
@@ -349,7 +351,7 @@ export interface PatchReview {
   bewertungen: Array<GeleseneBewertung & { maintainer: boolean }>;
 }
 
-type IssueDaten = { issues: readonly NostrEvent[]; status: readonly NostrEvent[]; kommentare: readonly NostrEvent[] };
+type IssueDaten = { issues: readonly NostrEvent[]; status: readonly NostrEvent[]; kommentare: readonly NostrEvent[]; releases?: readonly NostrEvent[] };
 
 /**
  * Karten um ihre Issues ergänzen (C-17b): öffentliche Karten nur mit
@@ -373,6 +375,8 @@ export function mitIssues(
       zeilen: d ? zeilenKommentareZu(z.patch.id, d.kommentare) : [],
       bewertungen: d ? bewertungenZu(z.patch, repo, d.kommentare) : [],
     }]));
-    return { ...k, issues: zeilen, offeneIssues: zeilen.filter((z) => z.status === "offen").length, patchKommentare, patchReviews };
+    // Releases (C-20h2) ebenso: öffentliche nur an öffentliche Karten, private nur aus ihrer Gruppe
+    const releases = d ? repoReleasesZu(repo, d.releases ?? []) : [];
+    return { ...k, issues: zeilen, offeneIssues: zeilen.filter((z) => z.status === "offen").length, patchKommentare, patchReviews, releases };
   });
 }

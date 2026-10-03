@@ -24,6 +24,7 @@ import { issuesReiter, vergissIssue } from "./issues-reiter.js";
 import { diskussion } from "./diskussion.js";
 import { zeigePatch } from "./patch-seite.js";
 import { reviewAnsicht } from "./review-ui.js";
+import { releasesReiter } from "./releases-reiter.js";
 import { kontaktName } from "./raeume.js";
 
 const AKTION_TEXT: Record<PatchAktion, string> = {
@@ -69,7 +70,7 @@ export interface RepoSeiteHilfe {
   veroeffentlichen: (k: RepoKarte) => Promise<void>;
 }
 
-export type RepoReiter = "code" | "commits" | "issues" | "patches" | "mitwirkende" | "einstellungen";
+export type RepoReiter = "code" | "commits" | "issues" | "patches" | "releases" | "mitwirkende" | "einstellungen";
 /** Zuletzt gewählter Reiter je Repo – damit „Neu laden“ nach dem Speichern dort bleibt; nur im Speicher. */
 let gemerkt: { schluessel: string; reiter: RepoReiter } | null = null;
 /** Offener Patch, zuletzt gewählter Filter und die Vorschau vor dem Senden (C.3b1) – nur im Speicher. */
@@ -122,7 +123,7 @@ export function zeigeRepoSeite(box: HTMLElement, k: RepoKarte, h: RepoSeiteHilfe
   const quelle = quelleVon(k);
   teile.push(klonKasten(k, quelle));
 
-  // Reiter: Code, Patches, Mitwirkende, Einstellungen (nur Eigentümer)
+  // Reiter: Code, Commits, Issues, Patches, Releases, Mitwirkende, Einstellungen (nur Eigentümer)
   const leiste = el("div", undefined, "seg repo-reiter");
   leiste.setAttribute("role", "tablist");
   const inhalt = el("div", undefined, "repo-inhalt");
@@ -140,7 +141,7 @@ export function zeigeRepoSeite(box: HTMLElement, k: RepoKarte, h: RepoSeiteHilfe
   leiste.append(reiterKnopf("code", t("repo.code")), reiterKnopf("commits", t("repo.commits")));
   if (!k.lokal) {
     leiste.append(reiterKnopf("issues", t("repo.issuesZahl", { n: k.offeneIssues ?? 0 })), reiterKnopf("patches", t("repo.patchesZahl", { n: k.offen })),
-      reiterKnopf("mitwirkende", t("earn.mitwirkende")));
+      reiterKnopf("releases", t("repo.releasesZahl", { n: k.releases?.length ?? 0 })), reiterKnopf("mitwirkende", t("earn.mitwirkende")));
   }
   if (eigentuemer) leiste.append(reiterKnopf("einstellungen", t("repo.einstellungen")));
   const angenommen = k.zeilen.filter((z) => z.status === "angenommen").map((z) => ({ betreff: z.patch.betreff, commits: z.commits ?? [] }));
@@ -148,6 +149,7 @@ export function zeigeRepoSeite(box: HTMLElement, k: RepoKarte, h: RepoSeiteHilfe
     : reiter === "commits" ? commitsReiter(quelle, angenommen, () => zeigeRepoSeite(box, k, h, "commits"))
     : reiter === "issues" ? issuesReiter(k, eigentuemerName, () => zeigeRepoSeite(box, k, h, "issues"), h.neuLaden)
     : reiter === "patches" ? patchReiter(k, h, () => zeigeRepoSeite(box, k, h, "patches"))
+    : reiter === "releases" ? releasesReiter(k, eigentuemerName, h.neuLaden)
     : reiter === "mitwirkende" ? mitwirkendeReiter(k, h) : einstellungenReiter(k, h)));
   box.replaceChildren(...teile, leiste, inhalt);
 }

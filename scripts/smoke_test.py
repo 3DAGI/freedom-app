@@ -2971,9 +2971,9 @@ def raum_pruefen(browser, url: str) -> dict:
         erg[groesse]["repo_c3a2"] = {"fremd_reiter": fremd_reiter, "mitwirkende": mitwirkende, "eigen_reiter": eigen_reiter,
                                      "abgewiesen": abgewiesen, "tags": tags, "links": links, "bleibt": noch_einstellungen,
                                      "bundle": bundle_tags, "bundle_knopf": bundle_knopf}
-        if fremd_reiter != ["code", "commits", "issues", "patches", "mitwirkende"] or mitwirkende != 2:
+        if fremd_reiter != ["code", "commits", "issues", "patches", "releases", "mitwirkende"] or mitwirkende != 2:
             erg["fehler"].append(f"{groesse}: fremdes Repo, Reiter/Mitwirkende {fremd_reiter} {mitwirkende}")
-        if eigen_reiter != ["code", "commits", "issues", "patches", "mitwirkende", "einstellungen"]:
+        if eigen_reiter != ["code", "commits", "issues", "patches", "releases", "mitwirkende", "einstellungen"]:
             erg["fehler"].append(f"{groesse}: eigenes Repo ohne Einstellungen {eigen_reiter}")
         if "Maintainer" not in abgewiesen[0] or abgewiesen[1] != 0 or abgewiesen[2]:
             erg["fehler"].append(f"{groesse}: ungültiger Maintainer nicht abgewiesen {abgewiesen}")
@@ -3253,6 +3253,53 @@ def raum_pruefen(browser, url: str) -> dict:
                   "wartung": [["Säge stumpf"], ["offen (1)", "geschlossen (0)"], "issue-label-wahl"],
                   "bug": [["Hammer klemmt"], "bug", "issue-label-wahl"], "alle": ["Säge stumpf", "Hammer klemmt"]}:
             erg["fehler"].append(f"{groesse}: Label-Filter {lf}")
+        # Seit C-20h2: Reiter „Releases“ – leer, „Neues Release“ per Dialog (ich pflege „werkzeug“ mit): öffentlich, signiert,
+        # Kind 30063 an das Repo, danach als Karte mit „Neuestes“ und Notizen als Markdown; „Zurückziehen“ fragt nach und ersetzt
+        # das Release mit ["zurueckgezogen"] (eine Sekunde später – je Version zählt die neueste Aussage)
+        ev("() => document.querySelector('#repo-seite [data-reiter=releases]')?.click()")
+        s.wait_for_timeout(150)
+        rel = {"reiter": ev("() => document.querySelector('#repo-seite [data-reiter=releases]')?.textContent"),
+               "leer": ev("() => document.querySelector('#repo-seite .repo-inhalt p.muted')?.textContent")}
+        vorher_rel = len(relay.gesendet)
+        ev("() => document.querySelector('#repo-seite .release-neu')?.click()")
+        s.wait_for_timeout(200)
+        rel["hinweis"] = ev("() => document.querySelector('[role=dialog] .dlg-text')?.textContent ?? ''")
+        s.keyboard.type("v1.0")
+        s.keyboard.press("Tab")
+        s.keyboard.type("Erste Version")
+        s.keyboard.press("Tab")
+        s.keyboard.type("**Neu:** der Hammer")
+        s.keyboard.press("Control+Enter")
+        try:
+            s.wait_for_function("() => document.querySelector('#repo-seite .release-titel')?.textContent === 'Erste Version'", timeout=10000)
+        except Exception:
+            pass
+        r_neu = [e for e in relay.gesendet[vorher_rel:] if e.get("kind") == 30063]
+        r_tags = {t[0]: t[1:] for t in (r_neu[-1]["tags"] if r_neu else [])}
+        rel["gesendet"] = {"anzahl": len({e["id"] for e in r_neu}), "d": r_tags.get("d"), "a": r_tags.get("a"), "version": r_tags.get("version"),
+                           "title": r_tags.get("title"), "inhalt": r_neu[-1]["content"] if r_neu else None}
+        rel["karte"] = ev("""() => { const k = document.querySelector('#repo-seite .release-karte'); return k ? [k.querySelector('.release-titel').textContent,
+          [...k.querySelectorAll('.release-meta span')].slice(0, 2).map(e => e.textContent), k.querySelector('.issue-text strong')?.textContent,
+          document.querySelector('#repo-seite [data-reiter=releases]')?.textContent] : null; }""")
+        s.wait_for_timeout(1100)
+        ev("() => document.querySelector('#repo-seite .release-zurueckziehen')?.click()")
+        s.wait_for_timeout(200)
+        rel["frage"] = ev("() => document.querySelector('[role=dialog] .dlg-titel')?.textContent ?? ''")
+        ev("() => [...document.querySelectorAll('[role=dialog][aria-modal=true] button')].find(b => b.textContent === 'Zurückziehen')?.click()")
+        try:
+            s.wait_for_function("() => !document.querySelector('#repo-seite .release-karte')", timeout=10000)
+        except Exception:
+            pass
+        rueck = [e for e in relay.gesendet[vorher_rel:] if e.get("kind") == 30063 and ["zurueckgezogen"] in e["tags"]]
+        rel["rueckzug"] = [len({e["id"] for e in rueck}), ev("() => document.querySelector('#repo-seite .repo-inhalt p.muted')?.textContent")]
+        erg[groesse]["releases"] = rel
+        if rel["reiter"] != "Releases (0)" or rel["leer"] != "Noch keine Releases." \
+                or not rel["hinweis"].startswith("Öffentlich und mit deinem Schlüssel signiert – jeder kann das Release") \
+                or rel["gesendet"] != {"anzahl": 1, "d": ["werkzeug@v1.0"], "a": [f"30617:{gruender_pk}:werkzeug"], "version": ["v1.0"],
+                                       "title": ["Erste Version"], "inhalt": "**Neu:** der Hammer"} \
+                or rel["karte"] != ["Erste Version", ["v1.0", "Neuestes"], "Neu:", "Releases (1)"] \
+                or rel["frage"] != "Release v1.0 zurückziehen?" or rel["rueckzug"] != [1, "Noch keine Releases."]:
+            erg["fehler"].append(f"{groesse}: Releases {rel}")
         # Seit 11.4c: im eigenen öffentlichen Raum „Repo anlegen“ aus dem Raum-Menü – mit Verweis auf genau diesen Raum,
         # danach steht es in der Liste des Raums (am Ende, damit die Prüfungen der Repo-Liste oben nichts davon sehen)
         if not mobil:

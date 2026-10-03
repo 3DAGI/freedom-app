@@ -119,7 +119,7 @@ async function ladeJetzt(): Promise<void> {
   if (!box) return;
   try {
     const pool = await ensurePool();
-    const { KIND_REPO_ANKUENDIGUNG, KIND_PATCH, KIND_GIT_REPO_REF, KIND_ISSUE, KIND_KOMMENTAR } = await import("@freedomstack/protocol");
+    const { KIND_REPO_ANKUENDIGUNG, KIND_PATCH, KIND_GIT_REPO_REF, KIND_ISSUE, KIND_KOMMENTAR, KIND_REPO_RELEASE } = await import("@freedomstack/protocol");
     const [allgemein, bundles, ausRaeumen] = await Promise.all([
       pool.query({ kinds: [KIND_REPO_ANKUENDIGUNG], limit: 100 }),
       pool.query({ kinds: [KIND_GIT_REPO_REF], limit: 50 }),
@@ -129,6 +129,8 @@ async function ladeJetzt(): Promise<void> {
     const adressen = ankuendigungen.map((ev) => `${KIND_REPO_ANKUENDIGUNG}:${ev.pubkey}:${ev.tags.find((x) => x[0] === "d")?.[1] ?? ""}`);
     // Issues (C-17b) laufen neben den Patches
     const issuesLaden = adressen.length ? pool.query({ kinds: [KIND_ISSUE], "#a": adressen, limit: 300 }) : Promise.resolve([] as NostrEvent[]);
+    // Releases (C-20h2) ebenso – nach Repo-Adresse, wie Issues
+    const releasesLaden = adressen.length ? pool.query({ kinds: [KIND_REPO_RELEASE], "#a": adressen, limit: 300 }) : Promise.resolve([] as NostrEvent[]);
     const patches: NostrEvent[] = adressen.length ? await pool.query({ kinds: [KIND_PATCH], "#a": adressen, limit: 300 }) : [];
     const status = patches.length ? await pool.query({ kinds: STATUS_KINDS, "#e": patches.map((p) => p.id), limit: 1000 }) : [];
     // Räume, auf die Repos verweisen (11.4a): ihre Rollen bestimmen, wer mitpflegt
@@ -145,7 +147,7 @@ async function ladeJetzt(): Promise<void> {
       issues.length ? pool.query({ kinds: STATUS_KINDS, "#e": issues.map((e) => e.id), limit: 1000 }) : Promise.resolve([] as NostrEvent[]),
       pool.query({ kinds: [KIND_KOMMENTAR], "#E": wurzeln, limit: 1000 }),
     ]) : [[], []];
-    karten = mitIssues(karten, { issues, status: issueStatus, kommentare }, privat, state.keypair?.pk);
+    karten = mitIssues(karten, { issues, status: issueStatus, kommentare, releases: await releasesLaden }, privat, state.keypair?.pk);
     // Repos nur auf diesem Gerät (B-2) erst danach: nie Issues eines öffentlichen Repos gleicher Kennung
     karten = [...karten, ...lokaleRepos.karten(state.keypair?.pk)].sort((a, b) => b.zuletzt - a.zuletzt || a.name.localeCompare(b.name));
     // Neu beteiligte Repos beginnen jetzt – sonst wäre beim ersten Mal alles „neu“ (C-20f)
