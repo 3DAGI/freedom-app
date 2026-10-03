@@ -45,7 +45,7 @@ bash packages/mls/bauen.sh --pruefen                     # nur bei Änderungen a
 bash contracts/solana-channel/pruefen.sh --werkzeuge     # nur bei Änderungen am Zahlkanal: bauen + Tests gegen Validator (Agave 3.1.10)
 ```
 
-Stand 02.10.2026 (nach 8.2c, 5.5a–c, 8.15, 11.1a, C.3c2, 11.1b, 5.9a–b, 6.3a–b2, 11.4a–b2, C.4a–b, C.5a–b, C.6b, 11.4c, C-18, C-17a–c, C-20a–i2, C-1a–f, C-2, C-3, C-4, C-5a–d, C-6a–e, C-7a–b, C-8, C-10 bis C-16, 11.2a–b, A-4 bis A-7, B-1, B-2a–c, B-3 bis B-7, B-8a–c, B-9a, B-15, B-19, B-20a–c, B-10a–b, B-9b1–b2, B-9c1–c3, B-11a–c, B-12a–d und B-13a–d): protocol 1184 grün (6 übersprungen), node 313 grün
+Stand 02.10.2026 (nach 8.2c, 5.5a–c, 8.15, 11.1a, C.3c2, 11.1b, 5.9a–b, 6.3a–b2, 11.4a–b2, C.4a–b, C.5a–b, C.6b, 11.4c, C-18, C-17a–c, C-20a–j1, C-1a–f, C-2, C-3, C-4, C-5a–d, C-6a–e, C-7a–b, C-8, C-10 bis C-16, 11.2a–b, A-4 bis A-7, B-1, B-2a–c, B-3 bis B-7, B-8a–c, B-9a, B-15, B-19, B-20a–c, B-10a–b, B-9b1–b2, B-9c1–c3, B-11a–c, B-12a–d und B-13a–d): protocol 1188 grün (6 übersprungen), node 313 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
 in `tools.test.ts`), app 841 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 72 grün + 1 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
@@ -850,6 +850,12 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   In der App (seit C-20i2) nur über `labelLeiste()` (`shell/tabs/labels-ui.ts`) auf
   Issue- und Patch-Seite; der Stand kommt nur aus `mitIssues()` (ersetzt die `t`-Tags,
   `patchLabels`), ändern nur mit `darfAnnehmen()`, privat nur `sendeInRaum()`.
+  Forks, Sterne, Beobachten (seit C-20j1): Fork nur über `forkVon` in
+  `baueRepoAnkuendigung()` (`["a", …, "", "fork"]`); Sterne nur über `baueStern()`/
+  `baueSternWeg()`, gezählt nur über `sterneZu()`; Beobachten ist privat – die Liste
+  10018 nur über `baueBeobachtungsListe()` mit Chiffrat (NIP-44 an sich selbst über den
+  Signer), nie mit offenen Tags, gelesen über `leseBeobachtungsInhalt()`. Keine Zahl
+  der Beobachter versprechen – es gibt keine.
 - **Markdown nur über `markdownDom()`** (seit C-20a, `shell/markdown-ui.ts`):
   gelesen von `leseMarkdown()` (`markdown.ts`, ohne DOM), gezeichnet nur mit
   `createElement`/`textContent` – rohes HTML bleibt Text, Links nur über
