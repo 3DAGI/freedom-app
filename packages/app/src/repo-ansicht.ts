@@ -141,6 +141,10 @@ export interface RepoKarte {
   sterne?: { anzahl: number; eigener?: string };
   /** Beobachte ich das Repo (C-20j2, private Liste)? */
   beobachtet?: boolean;
+  /** Forks (C-20j3): Schlüssel ihrer Karten – erst nach `mitForks()`, nur öffentliche Repos. */
+  forks?: string[];
+  /** Schlüssel der Karte des Originals, wenn es in der Liste steht (C-20j3). */
+  forkVonKarte?: string;
   zeilen: PatchZeile[];
   offen: number;
   /** Letzte Aktivität (Sekunden): Ankündigung, Bundle, Patch oder Status. */
@@ -414,5 +418,22 @@ export function mitSternen(karten: readonly RepoKarte[], events: readonly NostrE
     if (!k.repo || k.privatRaum || k.lokal) return k;
     const s = sterneZu(k.repo.adresse, events, ich);
     return { ...k, sterne: { anzahl: s.anzahl, ...(s.eigener ? { eigener: s.eigener } : {}) }, beobachtet: beobachtet.has(k.repo.adresse) };
+  });
+}
+
+/**
+ * Forks (C-20j3) an die Karten: je öffentlichem Repo die Karten, die mit
+ * `forkVon` darauf verweisen, und beim Fork die Karte des Originals. Private
+ * und lokale Karten zählen weder als Fork noch als Original.
+ */
+export function mitForks(karten: readonly RepoKarte[]): RepoKarte[] {
+  const oeffentlich = karten.flatMap((k) => (k.repo && !k.privatRaum && !k.lokal ? [{ k, repo: k.repo }] : []));
+  const nachAdresse = new Map(oeffentlich.map((x) => [x.repo.adresse, x.k.schluessel]));
+  return karten.map((k) => {
+    if (!k.repo || k.privatRaum || k.lokal) return k;
+    const adresse = k.repo.adresse;
+    const forks = oeffentlich.filter((x) => x.k !== k && x.repo.forkVon === adresse).map((x) => x.k.schluessel);
+    const original = k.repo.forkVon ? nachAdresse.get(k.repo.forkVon) : undefined;
+    return { ...k, forks, ...(original ? { forkVonKarte: original } : {}) };
   });
 }

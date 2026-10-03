@@ -41,7 +41,7 @@ test("Verdrahtung (C-20j2): Stern nur nach Rückfrage, Beobachten nur verschlüs
   const repos = lies("shell/tabs/repos.ts");
   assert.match(repos, /pool\.query\(\{ kinds: \[KIND_REAKTION\], "#a": adressen, limit: 1000 \}\)/);
   assert.match(repos, /pool\.query\(\{ kinds: \[KIND_LOESCHUNG\], "#e": sterne\.map\(\(e\) => e\.id\), limit: 1000 \}\)/);
-  assert.match(repos, /karten = mitSternen\(karten, \[\.\.\.sterne, \.\.\.loeschungen\], state\.keypair\?\.pk, await beobachtetLaden\);/);
+  assert.match(repos, /mitSternen\(karten, \[\.\.\.sterne, \.\.\.loeschungen\], state\.keypair\?\.pk, await beobachtetLaden\)/);
   const ui = lies("shell/tabs/repo-sterne-ui.ts");
   assert.match(ui, /if \(!eigener && !\(await bestaetige\(\{ titel: t\("repo\.sternFrage"/, "ein Stern ist öffentlich – erst fragen");
   assert.match(ui, /const neu = new Set\(await ladeBeobachtet\(pool, true\)\);/, "vor dem Schreiben frisch und streng lesen – sonst überschriebe man eine fremde Fassung");
