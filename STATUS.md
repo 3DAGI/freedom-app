@@ -15633,3 +15633,33 @@ Lesen), Leak-Regel.
 
 **Verdrahtet:** noch nicht in der App – das ist C-20j2; bis dahin sieben
 begründete Ausnahmen in `wiring-ausnahmen.txt`.
+
+## Schritt C-20j2 – Sterne und Beobachten: Oberfläche
+
+**Warum:** Sammlung C-20, Oberfläche zu C-20j1 (#290). Forks folgen in C-20j3.
+
+**Was:**
+- `shell/tabs/repo-sterne-ui.ts` (neu): unter dem Titel eines öffentlichen
+  Repos „☆ Stern (n)“ bzw. „★ Stern entfernen (n)“ und „Beobachten“ bzw.
+  „Nicht mehr beobachten“ (aria-pressed). Ohne Identität nur die Zahl.
+- Stern: vergeben erst nach Rückfrage – öffentlich und signiert; der Text sagt
+  auch, dass nicht jedes Relay eine Löschung befolgt. Zurücknehmen ohne
+  Rückfrage (Löschung nach NIP-09).
+- Beobachten: die eigene Liste (10018) wird vor jedem Schreiben frisch gelesen
+  (`ladeBeobachtet(pool, true)` – scheitert die Abfrage oder das Entschlüsseln,
+  etwa weil der Bunker nicht antwortet, wird nichts geschrieben; sonst
+  überschriebe ein Gerät die Fassung eines anderen), über den Signer an sich
+  selbst verschlüsselt und ohne offene Tags veröffentlicht. Die Menge liegt
+  nur im Speicher.
+- `repos.ts`: Sterne nach Repo-Adresse, ihre Löschungen nach Id, die eigene
+  Liste nach Autor laden; `mitSternen()` (`repo-ansicht.ts`) nur an
+  öffentliche Karten. In der Liste „⭐ n“ an der Karte.
+- `repo-neuigkeiten.ts`: Beobachtete Repos melden Neues wie eigene (C-20f).
+- Die sieben Ausnahmen aus C-20j1 in `wiring-ausnahmen.txt` sind gestrichen.
+
+**Tests:** app +2 (`sterne-ansicht.test.ts`): Karte (eigener Stern, gelöschte
+zählen nicht, nur öffentliche Repos), Neuigkeiten für beobachtete Repos;
+Verdrahtung (Rückfrage, frisch lesen vor dem Schreiben, verschlüsselt, nichts im
+localStorage). Smoke (desktop und mobil): Stern nach Rückfrage (Kind 7, `⭐`,
+`a` = Repo), „★ Stern entfernen (1)“, zurück (eine Löschung mit `e` = Stern),
+„Beobachten“ (eine Liste 10018, `tags` leer, die Adresse nicht im Inhalt).

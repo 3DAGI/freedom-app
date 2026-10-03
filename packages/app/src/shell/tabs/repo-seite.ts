@@ -26,6 +26,7 @@ import { zeigePatch } from "./patch-seite.js";
 import { reviewAnsicht } from "./review-ui.js";
 import { releasesReiter } from "./releases-reiter.js";
 import { labelLeiste } from "./labels-ui.js";
+import { sternUndBeobachten } from "./repo-sterne-ui.js";
 import { kontaktName } from "./raeume.js";
 
 const AKTION_TEXT: Record<PatchAktion, string> = {
@@ -103,6 +104,9 @@ export function zeigeRepoSeite(box: HTMLElement, k: RepoKarte, h: RepoSeiteHilfe
   kopf.append(el("span", eigentuemerName(k.eigentuemer), "repo-eigentuemer"), el("span", " / ", "muted"), el("span", k.name));
   kopf.title = k.eigentuemer;
   const teile: HTMLElement[] = [zurueck, kopf];
+  // Stern (öffentlich) und Beobachten (privat) unter dem Titel (C-20j2) – nur öffentliche Repos
+  const folgen = sternUndBeobachten(k, h.neuLaden);
+  if (folgen) teile.push(folgen);
   if (k.beschreibung) teile.push(el("p", k.beschreibung, "repo-beschreibung"));
   const web = sichereWebAdressen(k.repo?.web);
   if (web.length) {
