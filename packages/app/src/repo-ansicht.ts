@@ -6,7 +6,7 @@
 import {
   KIND_GIT_REPO_REF, KIND_REPO_ANKUENDIGUNG, KIND_STATUS_ANGENOMMEN, KIND_STATUS_ENTWURF, KIND_STATUS_GESCHLOSSEN, KIND_STATUS_OFFEN,
   KIND_SPACE, RAUM_REPO_RECHT, bewertungenZu, can, darfAnnehmen, issueStatus, istReviewTeil, kommentareZu, leseIssue, lesePatch, leseRepoAnkuendigung,
-  labelStandZu, mitRaumRechten, patchStatus, raumAdresse, raumZustandFuer, repoReleasesZu, zeilenKommentareZu,
+  labelStandZu, mitRaumRechten, patchStatus, raumAdresse, raumZustandFuer, repoReleasesZu, sterneZu, zeilenKommentareZu,
   type GeleseneBewertung, type GelesenesRepoRelease, type GelesenerKommentar, type GelesenerZeilenKommentar, type GelesenerPatch, type GelesenesIssue, type GelesenesRepo, type IssueStatus, type NostrEvent, type PatchStatus,
   type RepoAnkuendigung,
 } from "@freedomstack/protocol";
@@ -137,6 +137,10 @@ export interface RepoKarte {
   releases?: GelesenesRepoRelease[];
   /** Labels und Zuständige je Patch-Id (C-20i2) – erst nach `mitIssues()`. */
   patchLabels?: Record<string, PatchLabels>;
+  /** Sterne (C-20j2): Zahl und Id des eigenen – erst nach `mitSternen()`, nur öffentliche Repos. */
+  sterne?: { anzahl: number; eigener?: string };
+  /** Beobachte ich das Repo (C-20j2, private Liste)? */
+  beobachtet?: boolean;
   zeilen: PatchZeile[];
   offen: number;
   /** Letzte Aktivität (Sekunden): Ankündigung, Bundle, Patch oder Status. */
@@ -397,5 +401,18 @@ export function mitIssues(
       labels: stand(z.patch.id, "labels") ?? [], zustaendige: stand(z.patch.id, "zustaendig") ?? [],
     }]));
     return { ...k, issues: zeilen, offeneIssues: zeilen.filter((z) => z.status === "offen").length, patchKommentare, patchReviews, releases, patchLabels };
+  });
+}
+
+/**
+ * Sterne und Beobachten (C-20j2) an die Karten: nur öffentliche Repos – nicht
+ * private Räume, nicht Repos nur auf diesem Gerät. `beobachtet` sind die
+ * Adressen aus der eigenen, verschlüsselten Liste.
+ */
+export function mitSternen(karten: readonly RepoKarte[], events: readonly NostrEvent[], ich: string | undefined, beobachtet: ReadonlySet<string>): RepoKarte[] {
+  return karten.map((k) => {
+    if (!k.repo || k.privatRaum || k.lokal) return k;
+    const s = sterneZu(k.repo.adresse, events, ich);
+    return { ...k, sterne: { anzahl: s.anzahl, ...(s.eigener ? { eigener: s.eigener } : {}) }, beobachtet: beobachtet.has(k.repo.adresse) };
   });
 }

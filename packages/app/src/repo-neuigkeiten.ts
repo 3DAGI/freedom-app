@@ -32,7 +32,8 @@ const kommentareVon = (k: RepoKarte) => [
 /** Ist man an diesem Repo beteiligt? Eigentümer, Maintainer oder Autor eines Issues, Patches, Kommentars. */
 export function beteiligt(k: RepoKarte, ich: string | undefined): boolean {
   if (!ich) return false;
-  return k.eigentuemer === ich || !!k.repo?.maintainer.includes(ich)
+  // Beobachtete Repos (C-20j2) melden Neues wie eigene
+  return !!k.beobachtet || k.eigentuemer === ich || !!k.repo?.maintainer.includes(ich)
     || (k.issues ?? []).some((z) => z.issue.autor === ich) || k.zeilen.some((z) => z.patch.autor === ich)
     || kommentareVon(k).some((x) => x.autor === ich);
 }

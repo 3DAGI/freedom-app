@@ -12,7 +12,8 @@
 import type { GelesenesRepo, NostrEvent } from "@freedomstack/protocol";
 import { gebietsschema, t } from "../../i18n.js";
 import { fehlerText } from "../../protokoll-texte.js";
-import { type RaumZiel, type RepoKarte, filtereKarten, mitIssues, privateRaumKarten, raumAuswahl, reposImRaum, repoKarten } from "../../repo-ansicht.js";
+import { type RaumZiel, type RepoKarte, filtereKarten, mitIssues, mitSternen, privateRaumKarten, raumAuswahl, reposImRaum, repoKarten } from "../../repo-ansicht.js";
+import { ladeBeobachtet } from "./repo-sterne-ui.js";
 import { type PrivateRepos, privateRaumRepos, sendeInRaum } from "../raum-repos.js";
 import { bestaetige, dialog } from "../dialog.js";
 import { ensurePool, signiere, state } from "../state.js";
@@ -119,7 +120,7 @@ async function ladeJetzt(): Promise<void> {
   if (!box) return;
   try {
     const pool = await ensurePool();
-    const { KIND_REPO_ANKUENDIGUNG, KIND_PATCH, KIND_GIT_REPO_REF, KIND_ISSUE, KIND_KOMMENTAR, KIND_REPO_RELEASE, KIND_LABEL } = await import("@freedomstack/protocol");
+    const { KIND_REPO_ANKUENDIGUNG, KIND_PATCH, KIND_GIT_REPO_REF, KIND_ISSUE, KIND_KOMMENTAR, KIND_REPO_RELEASE, KIND_LABEL, KIND_REAKTION, KIND_LOESCHUNG } = await import("@freedomstack/protocol");
     const [allgemein, bundles, ausRaeumen] = await Promise.all([
       pool.query({ kinds: [KIND_REPO_ANKUENDIGUNG], limit: 100 }),
       pool.query({ kinds: [KIND_GIT_REPO_REF], limit: 50 }),
@@ -131,6 +132,9 @@ async function ladeJetzt(): Promise<void> {
     const issuesLaden = adressen.length ? pool.query({ kinds: [KIND_ISSUE], "#a": adressen, limit: 300 }) : Promise.resolve([] as NostrEvent[]);
     // Releases (C-20h2) ebenso – nach Repo-Adresse, wie Issues
     const releasesLaden = adressen.length ? pool.query({ kinds: [KIND_REPO_RELEASE], "#a": adressen, limit: 300 }) : Promise.resolve([] as NostrEvent[]);
+    // Sterne (C-20j2) ebenso; die eigene Beobachtungsliste nur verschlüsselt
+    const sterneLaden = adressen.length ? pool.query({ kinds: [KIND_REAKTION], "#a": adressen, limit: 1000 }) : Promise.resolve([] as NostrEvent[]);
+    const beobachtetLaden = ladeBeobachtet(pool).catch(() => new Set<string>());
     const patches: NostrEvent[] = adressen.length ? await pool.query({ kinds: [KIND_PATCH], "#a": adressen, limit: 300 }) : [];
     const status = patches.length ? await pool.query({ kinds: STATUS_KINDS, "#e": patches.map((p) => p.id), limit: 1000 }) : [];
     // Räume, auf die Repos verweisen (11.4a): ihre Rollen bestimmen, wer mitpflegt
@@ -150,6 +154,9 @@ async function ladeJetzt(): Promise<void> {
       pool.query({ kinds: [KIND_LABEL], "#e": wurzeln, limit: 1000 }),
     ]) : [[], [], []];
     karten = mitIssues(karten, { issues, status: issueStatus, kommentare, releases: await releasesLaden, labels }, privat, state.keypair?.pk);
+    const sterne = await sterneLaden;
+    const loeschungen = sterne.length ? await pool.query({ kinds: [KIND_LOESCHUNG], "#e": sterne.map((e) => e.id), limit: 1000 }) : [];
+    karten = mitSternen(karten, [...sterne, ...loeschungen], state.keypair?.pk, await beobachtetLaden);
     // Repos nur auf diesem Gerät (B-2) erst danach: nie Issues eines öffentlichen Repos gleicher Kennung
     karten = [...karten, ...lokaleRepos.karten(state.keypair?.pk)].sort((a, b) => b.zuletzt - a.zuletzt || a.name.localeCompare(b.name));
     // Neu beteiligte Repos beginnen jetzt – sonst wäre beim ersten Mal alles „neu“ (C-20f)
@@ -236,6 +243,7 @@ function karte(k: RepoKarte): HTMLElement {
   if (k.bundle) kopf.append(el("span", t("repo.markeBundle"), "msg-role"));
   if (k.privatRaum) kopf.append(el("span", t("repo.markePrivat"), "msg-role"));
   if (k.lokal) kopf.append(el("span", t("repo.markeLokal"), "msg-role"));
+  if (k.sterne?.anzahl) kopf.append(el("span", t("repo.markeSterne", { n: k.sterne.anzahl }), "msg-role repo-marke-sterne"));
   // Raum (11.4c): nur, wenn das Repo bestätigt dazugehört – der Name ist fremder Text
   if (k.raumName) kopf.append(el("span", t("repo.markeRaum", { name: k.raumName }), "msg-role repo-marke-raum"));
   // Neu seit dem letzten Blick (C-20f): Issues, Patches, Kommentare von anderen

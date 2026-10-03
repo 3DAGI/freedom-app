@@ -3337,6 +3337,41 @@ def raum_pruefen(browser, url: str) -> dict:
                 or rel["karte"] != ["Erste Version", ["v1.0", "Neuestes"], "Neu:", "Releases (1)"] \
                 or rel["frage"] != "Release v1.0 zurückziehen?" or rel["rueckzug"] != [1, "Noch keine Releases."]:
             erg["fehler"].append(f"{groesse}: Releases {rel}")
+        # Seit C-20j2: Stern (öffentlich, erst nach Rückfrage; zurück mit Löschung nach NIP-09) und Beobachten (privat –
+        # Kind 10018 ohne offene Tags, die Adresse steht nicht im Inhalt)
+        knopf_st = "() => [document.querySelector('#repo-seite .repo-stern')?.textContent, document.querySelector('#repo-seite .repo-stern')?.getAttribute('aria-pressed')]"
+        st = {"vorher": ev(knopf_st)}
+        vorher_st = len(relay.gesendet)
+        ev("() => document.querySelector('#repo-seite .repo-stern')?.click()")
+        s.wait_for_timeout(200)
+        st["frage"] = ev("() => document.querySelector('[role=dialog] .dlg-titel')?.textContent ?? ''")
+        ev("() => [...document.querySelectorAll('[role=dialog][aria-modal=true] button')].find(b => b.textContent === 'Stern geben')?.click()")
+        try:
+            s.wait_for_function("() => document.querySelector('#repo-seite .repo-stern')?.getAttribute('aria-pressed') === 'true'", timeout=10000)
+        except Exception:
+            pass
+        st["danach"] = ev(knopf_st)
+        sterne_neu = list({e["id"]: e for e in relay.gesendet[vorher_st:] if e.get("kind") == 7}.values())
+        st["event"] = [len(sterne_neu), sterne_neu[-1]["content"] if sterne_neu else None, [t for t in (sterne_neu[-1]["tags"] if sterne_neu else []) if t[0] == "a"]]
+        ev("() => document.querySelector('#repo-seite .repo-stern')?.click()")
+        try:
+            s.wait_for_function("() => document.querySelector('#repo-seite .repo-stern')?.getAttribute('aria-pressed') === 'false'", timeout=10000)
+        except Exception:
+            pass
+        st["weg"] = [ev(knopf_st), len({e["id"] for e in relay.gesendet[vorher_st:] if e.get("kind") == 5 and sterne_neu and ["e", sterne_neu[-1]["id"]] in e["tags"]})]
+        ev("() => document.querySelector('#repo-seite .repo-beobachten')?.click()")
+        try:
+            s.wait_for_function("() => document.querySelector('#repo-seite .repo-beobachten')?.getAttribute('aria-pressed') === 'true'", timeout=10000)
+        except Exception:
+            pass
+        listen = [e for e in relay.gesendet[vorher_st:] if e.get("kind") == 10018]
+        st["beobachten"] = [len({e["id"] for e in listen}), listen[-1]["tags"] if listen else None,
+                            bool(listen) and "werkzeug" not in listen[-1]["content"], ev("() => document.querySelector('#repo-seite .repo-beobachten')?.textContent")]
+        erg[groesse]["sterne"] = st
+        if st["vorher"] != ["☆ Stern (0)", "false"] or st["frage"] != "„werkzeug“ einen Stern geben?" or st["danach"] != ["★ Stern entfernen (1)", "true"] \
+                or st["event"] != [1, "⭐", [["a", f"30617:{gruender_pk}:werkzeug"]]] or st["weg"] != [["☆ Stern (0)", "false"], 1] \
+                or st["beobachten"] != [1, [], True, "Nicht mehr beobachten"]:
+            erg["fehler"].append(f"{groesse}: Sterne und Beobachten {st}")
         # Seit 11.4c: im eigenen öffentlichen Raum „Repo anlegen“ aus dem Raum-Menü – mit Verweis auf genau diesen Raum,
         # danach steht es in der Liste des Raums (am Ende, damit die Prüfungen der Repo-Liste oben nichts davon sehen)
         if not mobil:
