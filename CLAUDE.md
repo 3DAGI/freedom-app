@@ -857,7 +857,8 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   Signer), nie mit offenen Tags, gelesen über `leseBeobachtungsInhalt()`. Keine Zahl
   der Beobachter versprechen – es gibt keine.
   In der App (seit C-20j2) nur über `shell/tabs/repo-sterne-ui.ts`: Stern erst nach
-  `bestaetige()`, Beobachten nur nach frischem `ladeBeobachtet()` (sonst überschriebe man
+  `bestaetige()`, Beobachten nur nach frischem, strengem `ladeBeobachtet(pool, true)` (auch ein
+  Fehler beim Entschlüsseln bricht ab – sonst überschriebe man
   eine Fassung eines anderen Geräts), Daten an die Karten nur über `mitSternen()` – nur
   öffentliche Repos. Beobachtete Repos zählen in `beteiligt()` mit.
 - **Markdown nur über `markdownDom()`** (seit C-20a, `shell/markdown-ui.ts`):

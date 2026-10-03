@@ -15646,7 +15646,8 @@ begründete Ausnahmen in `wiring-ausnahmen.txt`.
   auch, dass nicht jedes Relay eine Löschung befolgt. Zurücknehmen ohne
   Rückfrage (Löschung nach NIP-09).
 - Beobachten: die eigene Liste (10018) wird vor jedem Schreiben frisch gelesen
-  (`ladeBeobachtet()` – scheitert die Abfrage, wird nichts geschrieben; sonst
+  (`ladeBeobachtet(pool, true)` – scheitert die Abfrage oder das Entschlüsseln,
+  etwa weil der Bunker nicht antwortet, wird nichts geschrieben; sonst
   überschriebe ein Gerät die Fassung eines anderen), über den Signer an sich
   selbst verschlüsselt und ohne offene Tags veröffentlicht. Die Menge liegt
   nur im Speicher.

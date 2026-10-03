@@ -44,7 +44,8 @@ test("Verdrahtung (C-20j2): Stern nur nach Rückfrage, Beobachten nur verschlüs
   assert.match(repos, /karten = mitSternen\(karten, \[\.\.\.sterne, \.\.\.loeschungen\], state\.keypair\?\.pk, await beobachtetLaden\);/);
   const ui = lies("shell/tabs/repo-sterne-ui.ts");
   assert.match(ui, /if \(!eigener && !\(await bestaetige\(\{ titel: t\("repo\.sternFrage"/, "ein Stern ist öffentlich – erst fragen");
-  assert.match(ui, /const neu = new Set\(await ladeBeobachtet\(pool\)\);/, "vor dem Schreiben frisch lesen – sonst überschriebe man eine fremde Fassung");
+  assert.match(ui, /const neu = new Set\(await ladeBeobachtet\(pool, true\)\);/, "vor dem Schreiben frisch und streng lesen – sonst überschriebe man eine fremde Fassung");
+  assert.match(ui, /catch \(e\) \{\s*if \(streng\) throw e;\s*\}/, "scheitert das Entschlüsseln, wird nicht geschrieben");
   assert.match(ui, /const chiffrat = await signer\.nip44Encrypt\(ich, beobachtungsInhalt\(\[\.\.\.neu\]\)\);\s*await pool\.publish\(await signiere\(baueBeobachtungsListe\(chiffrat, ich\)\)\);/);
   assert.match(ui, /if \(!repo \|\| k\.privatRaum \|\| k\.lokal\) return null;/, "nur öffentliche Repos");
   assert.doesNotMatch(ui, /innerHTML|insertAdjacentHTML|location|history\.|localStorage/, "nichts davon liegt im Klartext auf dem Gerät");

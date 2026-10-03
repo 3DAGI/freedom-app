@@ -39,9 +39,11 @@ let beobachtet: ReadonlySet<string> = new Set();
 
 /**
  * Die eigene Liste holen und entschlüsseln. Wirft, wenn die Abfrage scheitert –
- * wer danach schreibt, überschriebe sonst eine Liste, die er nicht kennt.
+ * und mit `streng` auch, wenn das Entschlüsseln scheitert (etwa der Bunker
+ * nicht antwortet): Wer danach schreibt, überschriebe sonst eine Liste, die er
+ * nicht kennt. Zum Anzeigen gilt eine unlesbare Liste als leer.
  */
-export async function ladeBeobachtet(pool: Pool): Promise<ReadonlySet<string>> {
+export async function ladeBeobachtet(pool: Pool, streng = false): Promise<ReadonlySet<string>> {
   const ich = state.keypair?.pk;
   const signer = state.signer;
   if (!ich || !signer) return (beobachtet = new Set());
@@ -50,7 +52,9 @@ export async function ladeBeobachtet(pool: Pool): Promise<ReadonlySet<string>> {
   if (liste) {
     try {
       adressen = leseBeobachtungsInhalt(await signer.nip44Decrypt(ich, liste.content));
-    } catch { /* nicht lesbar – wie leer */ }
+    } catch (e) {
+      if (streng) throw e;
+    }
   }
   return (beobachtet = new Set(adressen));
 }
@@ -94,7 +98,7 @@ async function beobachten(adresse: string, an: boolean, neuLaden: () => Promise<
   if (!ich || !signer) return;
   try {
     const pool = await ensurePool();
-    const neu = new Set(await ladeBeobachtet(pool));
+    const neu = new Set(await ladeBeobachtet(pool, true));
     if (an) neu.add(adresse);
     else neu.delete(adresse);
     const chiffrat = await signer.nip44Encrypt(ich, beobachtungsInhalt([...neu]));
