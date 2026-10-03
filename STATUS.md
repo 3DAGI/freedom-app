@@ -15447,3 +15447,44 @@ die Grenze öffentlich/privat; Neuigkeiten; Verdrahtung. Eine Prüfung in
 „scharf“ mit `["zeile", "hammer.txt", "neu", "1"]` unter der Zeile, nicht in
 der Diskussion; „Genehmigen“ mit `["bewertung", "genehmigt"]`, oben mit
 „Maintainer“, Status bleibt „angenommen“.
+
+## Schritt C-20h1 – Releases von Repos (Protokoll)
+
+**Warum:** Sammlung C-20, Format nach der Entscheidung des MENSCHEN vom
+02.10.2026. GitHub kennt Releases: eine Version mit Notizen und Dateien.
+
+**Was:**
+- `protocol/src/repo-release.ts` (neu): Release als NIP-51-Satz „Release
+  artifact set“ (Kind 30063), ersetzbar je Autor, `d` = `<kennung>@<version>`.
+  `a` zeigt auf das Repo (30617) – es steht für die „Anwendung“ aus NIP-51.
+  Tags: `version` (wie ein Git-Tag, kein `..`, höchstens 100), `title`
+  (Pflicht, höchstens 200), optional `commit`, `blob` + `aes-gcm` (Bundle
+  dieser Version), `vorab`. Der Inhalt sind die Notizen (Markdown, 64 KB).
+- Bewusste Abweichung von NIP-51: das Bundle nicht als NIP-94-Datei (1063),
+  sondern im Release selbst. Der Bundle-Verweis 38042 ist ersetzbar und zeigt
+  immer auf das neueste Bundle; ein Release muss seine Version festhalten.
+- Lesen streng (`leseRepoRelease()`: `d` muss zu `a` und `version` passen,
+  ein kaputtes Bundle oder ein kaputter Commit fallen nur für sich heraus).
+  `repoReleasesZu()`: nur Eigentümer und Maintainer, je Version die neueste
+  Aussage; ein Rückzug (`baueRepoReleaseRueckzug()`, `["zurueckgezogen"]`)
+  blendet die Version aus. `neuestesRepoRelease()`: das jüngste ohne `vorab`.
+- Private Räume: `raumRepoRelease()`, `raumRepoReleaseRueckzug()`;
+  `raumReposPrivat()` liefert `releases`. Die Leak-Regel `raum-repo-privat`
+  kennt Kind 30063.
+- Fehler mit Kennung (`release-repo`, `-version`, `-titel`, `-gross`,
+  `-commit`, `-bundle`) und Texten in beiden Sprachen.
+- Format in `docs/PROTOCOL.md` (19, „Releases“, und in der Tabelle der Kinds).
+
+**Fund unterwegs:** Die Datei hieß zuerst `release.ts` – die gibt es schon
+(Release-Manifest der App, 38054). Beim ersten Schreiben im Arbeitsbaum
+überschrieben, vor jedem Commit aus git wiederhergestellt; das Format heißt
+jetzt `repo-release.ts` mit eigenen Namen (`KIND_REPO_RELEASE`, …). Als
+Fallstrick in `CLAUDE.md` vermerkt.
+
+**Tests:** protocol +6 (`repo-release.test.ts`): Bau und Lesen, Negativfälle
+(Version, Titel, Größe, Commit, Bundle, Repo), strenges Lesen fremder Events,
+Liste (nur Pfleger, neueste je Version, Rückzug, Fremde ziehen nichts zurück,
+neuestes ohne Vorab), privat als inneres Event, Leak-Regel.
+
+**Verdrahtet:** noch nicht in der App – das ist C-20h2 (Reiter „Releases“);
+bis dahin sechs begründete Ausnahmen in `wiring-ausnahmen.txt`.

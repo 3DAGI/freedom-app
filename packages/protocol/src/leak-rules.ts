@@ -144,7 +144,7 @@ export function regelRaumRepoPrivat(
   events: readonly NostrEvent[],
   p: { repoIds: readonly string[]; schluessel: readonly string[]; innere?: readonly string[] },
 ): LeakFinding[] {
-  const arten = new Set([30617, 38042, 1617, 1621, 1630, 1631, 1632, 1633]);
+  const arten = new Set([30617, 38042, 1617, 1621, 1630, 1631, 1632, 1633, 30063]);
   const innere = new Set(p.innere ?? []);
   const schluessel = p.schluessel.filter((k) => k.length >= 16).map((k) => k.toLowerCase());
   return events.filter((e) => e.kind !== 1059 && e.kind !== 445).flatMap((e) => {
