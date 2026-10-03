@@ -15499,3 +15499,35 @@ ist also nicht schuld. Die Prüfung stellt jetzt bis zu fünfmal zu, je mit Fris
 bis eine Meldung da ist – wartet also auf einen Zustand statt auf eine Pause.
 Die Erwartung bleibt: genau eine Meldung mit festem Text, ohne Inhalt.
 Danach 0 von 40 rot, 4 brauchten eine zweite Zustellung.
+
+## Schritt C-20h2 – Releases von Repos: Oberfläche
+
+**Warum:** Sammlung C-20, zweiter Teil zu C-20h1 (#286).
+
+**Was:**
+- `shell/tabs/releases-reiter.ts` (neu, `releasesReiter()`): je Release Titel,
+  Version, „Neuestes“ (das jüngste ohne Vorab) bzw. „Vorabversion“, wer und
+  wann, Commit, Notizen als Markdown (nur DOM). „Bundle dieser Version laden“
+  holt das Chiffrat aus dem Blob-Netz und entschlüsselt mit dem Schlüssel aus
+  dem Release – nicht aus dem ersetzbaren Verweis 38042.
+- Eigentümer und Maintainer (`darfAnnehmen()`): „Neues Release“ im Dialog –
+  Version (wie ein Git-Tag, eine vorhandene Version wird abgewiesen), Titel,
+  Notizen, „aktuelles Bundle festhalten“ (nur wenn der Verweis einen Schlüssel
+  trägt; mit vollem SHA-1 auch der Commit), „als Vorabversion“. „Zurückziehen“
+  mit Rückfrage. Der Text sagt ehrlich, was bleibt: Wer das Bundle schon
+  geladen hat, behält es.
+- `repo-seite.ts`: Reiter „Releases (n)“ zwischen Patches und Mitwirkenden,
+  nicht für Repos nur auf diesem Gerät.
+- `repos.ts`: Releases nach Repo-Adresse laden wie Issues (`#a`);
+  `repo-ansicht.ts`: `mitIssues()` hängt `releases` an – öffentlich nur an
+  öffentliche Karten, privat nur aus ihrer Gruppe (`raumReposPrivat()` liefert
+  sie seit C-20h1).
+- Die sechs Ausnahmen aus C-20h1 in `wiring-ausnahmen.txt` sind gestrichen.
+
+**Tests:** app +2 (`releases-ansicht.test.ts`): Releases an der Karte (nur
+Pfleger, neuestes zuerst, nie über die Grenze öffentlich/privat), Verdrahtung.
+Zwei ältere Prüfungen folgen dem neuen Aufruf von `mitIssues()` bzw. der
+Reiterliste. Smoke (desktop und mobil): „Releases (0)“ leer, „Neues Release“
+mit Tastatur, gesendet Kind 30063 mit `d`, `a`, `version`, `title` und den
+Notizen, Karte mit „Neuestes“ und Markdown, „Releases (1)“; „Zurückziehen“
+fragt nach, sendet `["zurueckgezogen"]`, danach wieder leer.

@@ -63,7 +63,8 @@ test("Verdrahtung (C-17b1): laden, Reiter, anlegen – öffentlich signiert, pri
   const repos = lies("shell/tabs/repos.ts");
   assert.match(repos, /pool\.query\(\{ kinds: \[KIND_ISSUE\], "#a": adressen, limit: 300 \}\)/);
   assert.match(repos, /pool\.query\(\{ kinds: \[KIND_KOMMENTAR\], "#E": wurzeln, limit: 1000 \}\)/);
-  assert.match(repos, /karten = mitIssues\(karten, \{ issues, status: issueStatus, kommentare \}, privat, state\.keypair\?\.pk\);/);
+  // Seit C-20h2 kommen die Releases in denselben Aufruf
+  assert.match(repos, /karten = mitIssues\(karten, \{ issues, status: issueStatus, kommentare, releases: await releasesLaden \}, privat, state\.keypair\?\.pk\);/);
   const seite = lies("shell/tabs/repo-seite.ts");
   // Seit B-2 nicht für Repos nur auf diesem Gerät – Issues gibt es erst im Netz
   assert.match(seite, /reiterKnopf\("commits", t\("repo\.commits"\)\)\);\s*if \(!k\.lokal\) \{\s*leiste\.append\(reiterKnopf\("issues", t\("repo\.issuesZahl", \{ n: k\.offeneIssues \?\? 0 \}\)\), reiterKnopf\("patches"/);
