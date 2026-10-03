@@ -12,7 +12,7 @@
 import type { GelesenesRepo, NostrEvent } from "@freedomstack/protocol";
 import { gebietsschema, t } from "../../i18n.js";
 import { fehlerText } from "../../protokoll-texte.js";
-import { type RaumZiel, type RepoKarte, filtereKarten, mitIssues, mitSternen, privateRaumKarten, raumAuswahl, reposImRaum, repoKarten } from "../../repo-ansicht.js";
+import { type RaumZiel, type RepoKarte, filtereKarten, mitForks, mitIssues, mitSternen, privateRaumKarten, raumAuswahl, reposImRaum, repoKarten } from "../../repo-ansicht.js";
 import { ladeBeobachtet } from "./repo-sterne-ui.js";
 import { type PrivateRepos, privateRaumRepos, sendeInRaum } from "../raum-repos.js";
 import { bestaetige, dialog } from "../dialog.js";
@@ -126,7 +126,10 @@ async function ladeJetzt(): Promise<void> {
       pool.query({ kinds: [KIND_GIT_REPO_REF], limit: 50 }),
       raumAdressen.size ? pool.query({ kinds: [KIND_REPO_ANKUENDIGUNG], "#a": [...raumAdressen].slice(0, 50), limit: 100 }) : Promise.resolve([] as NostrEvent[]),
     ]);
-    const ankuendigungen = [...new Map([...allgemein, ...ausRaeumen].map((ev) => [ev.id, ev])).values()];
+    // Forks (C-20j3): Ankündigungen, die mit „fork“ auf eines dieser Repos verweisen – auch wenn sie nicht unter den neuesten sind
+    const ersteAdressen = [...allgemein, ...ausRaeumen].map((ev) => `${KIND_REPO_ANKUENDIGUNG}:${ev.pubkey}:${ev.tags.find((x) => x[0] === "d")?.[1] ?? ""}`);
+    const forks = ersteAdressen.length ? await pool.query({ kinds: [KIND_REPO_ANKUENDIGUNG], "#a": ersteAdressen.slice(0, 100), limit: 100 }) : [];
+    const ankuendigungen = [...new Map([...allgemein, ...ausRaeumen, ...forks].map((ev) => [ev.id, ev])).values()];
     const adressen = ankuendigungen.map((ev) => `${KIND_REPO_ANKUENDIGUNG}:${ev.pubkey}:${ev.tags.find((x) => x[0] === "d")?.[1] ?? ""}`);
     // Issues (C-17b) laufen neben den Patches
     const issuesLaden = adressen.length ? pool.query({ kinds: [KIND_ISSUE], "#a": adressen, limit: 300 }) : Promise.resolve([] as NostrEvent[]);
@@ -156,7 +159,7 @@ async function ladeJetzt(): Promise<void> {
     karten = mitIssues(karten, { issues, status: issueStatus, kommentare, releases: await releasesLaden, labels }, privat, state.keypair?.pk);
     const sterne = await sterneLaden;
     const loeschungen = sterne.length ? await pool.query({ kinds: [KIND_LOESCHUNG], "#e": sterne.map((e) => e.id), limit: 1000 }) : [];
-    karten = mitSternen(karten, [...sterne, ...loeschungen], state.keypair?.pk, await beobachtetLaden);
+    karten = mitForks(mitSternen(karten, [...sterne, ...loeschungen], state.keypair?.pk, await beobachtetLaden));
     // Repos nur auf diesem Gerät (B-2) erst danach: nie Issues eines öffentlichen Repos gleicher Kennung
     karten = [...karten, ...lokaleRepos.karten(state.keypair?.pk)].sort((a, b) => b.zuletzt - a.zuletzt || a.name.localeCompare(b.name));
     // Neu beteiligte Repos beginnen jetzt – sonst wäre beim ersten Mal alles „neu“ (C-20f)
@@ -223,6 +226,8 @@ function zeige(fokus = false): void {
         void geheZuRaum(offen);
       },
       veroeffentlichen: veroeffentlicheLokal,
+      zuRepo: oeffneRepo,
+      eigeneKennungen: () => karten.flatMap((x) => (x.repo && !x.privatRaum && !x.lokal && x.eigentuemer === state.keypair?.pk ? [x.repo.id] : [])),
     });
     if (fokus || warZurueck) seite.querySelector<HTMLElement>(".repo-zurueck")?.focus();
     return;

@@ -58,6 +58,17 @@ export const repos: Texte = {
   "repo.kommentarHinweis": { de: "Öffentlich und mit deinem Schlüssel signiert – jeder kann den Kommentar lesen.", en: "Public and signed with your key – anyone can read the comment." },
   "repo.kommentarHinweisRaum": { de: "Nur im privaten Raum – verschlüsselt (MLS), nur Mitglieder lesen den Kommentar.", en: "Only in the private room – encrypted (MLS), only members read the comment." },
   "repo.kommentarGesendet": { de: "Kommentar gesendet", en: "Comment sent" },
+  // Forks (C-20j3)
+  "repo.geforktVon": { de: "Geforkt von {name}", en: "Forked from {name}" },
+  "repo.zumOriginal": { de: "Zum Original", en: "To the original" },
+  "repo.forksZahl": { de: "Forks: {n}", en: "Forks: {n}" },
+  "repo.forken": { de: "Forken", en: "Fork" },
+  "repo.forkTitel": { de: "„{name}“ forken", en: "Fork “{name}”" },
+  "repo.forkHinweis": { de: "Öffentlich und mit deinem Schlüssel signiert: eine eigene Ankündigung mit Verweis auf das Original. Das Bundle wird nicht neu hochgeladen – dein Verweis zeigt auf dasselbe.", en: "Public and signed with your key: your own announcement with a reference to the original. The bundle is not uploaded again – your reference points to the same one." },
+  "repo.forkKennung": { de: "Kennung deines Forks", en: "ID of your fork" },
+  "repo.forkName": { de: "Name", en: "Name" },
+  "repo.forkGibtEs": { de: "Du hast schon ein Repo „{kennung}“ – eine andere Kennung wählen", en: "You already have a repository “{kennung}” – choose another ID" },
+  "repo.geforkt": { de: "Fork „{kennung}“ angelegt", en: "Fork “{kennung}” created" },
   // Sterne und Beobachten (C-20j2)
   "repo.sterneZahl": { de: "⭐ {n}", en: "⭐ {n}" },
   "repo.markeSterne": { de: "⭐ {n}", en: "⭐ {n}" },

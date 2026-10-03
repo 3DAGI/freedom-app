@@ -15663,3 +15663,39 @@ Verdrahtung (Rückfrage, frisch lesen vor dem Schreiben, verschlüsselt, nichts 
 localStorage). Smoke (desktop und mobil): Stern nach Rückfrage (Kind 7, `⭐`,
 `a` = Repo), „★ Stern entfernen (1)“, zurück (eine Löschung mit `e` = Stern),
 „Beobachten“ (eine Liste 10018, `tags` leer, die Adresse nicht im Inhalt).
+
+## Schritt C-20j3 – Forks: Oberfläche
+
+**Warum:** Sammlung C-20, der letzte Teil – Forks wie bei GitHub (Format aus
+C-20j1, #290).
+
+**Was:**
+- `shell/tabs/fork-ui.ts` (neu, `forkZeile()`): auf der Seite eines
+  öffentlichen Repos „Forks: n“ und „Forken“ (nicht für das eigene).
+- Forken öffnet einen Dialog mit Kennung und Name, vorbelegt wie beim
+  Original. Eine Kennung, die schon ein eigenes Repo trägt, wird abgewiesen –
+  sonst ersetzte der Fork dessen Ankündigung (ersetzbar je Kennung).
+  Veröffentlicht wird eine eigene Ankündigung mit `forkVon` (samt Beschreibung
+  und erstem Commit). Trägt der Verweis des Originals einen Schlüssel, kommt
+  ein eigener Verweis (38042) auf denselben Blob mit demselben Schlüssel dazu –
+  nichts wird neu hochgeladen; der Schlüssel stand ohnehin öffentlich.
+- Am Fork steht „Geforkt von … / …“ und – wenn das Original in der Liste
+  steht – „Zum Original“ (über `oeffneRepo()`, gilt also wie jedes Öffnen als
+  gesehen).
+- `repos.ts`: Forks der geladenen Repos per `#a` mitladen (auch wenn sie
+  nicht unter den neuesten Ankündigungen sind); `mitForks()`
+  (`repo-ansicht.ts`) nur an öffentliche Karten. `RepoSeiteHilfe` hat dafür
+  `zuRepo` und `eigeneKennungen`.
+
+**Tests:** app +2 (`forks-ansicht.test.ts`): Karte (Zahl beim Original, Weg
+zurück beim Fork, private zählen nicht, ohne Original kein Weg), Verdrahtung.
+Eine Prüfung aus C-20j2 folgt dem Aufruf in `mitForks()`. Smoke (desktop und
+mobil): „werkzeug“ forken (vorbelegt, Enter) – eine Ankündigung mit
+`["a", <original>, "", "fork"]`, kein Bundle-Verweis (das Probe-Original hat
+keinen Schlüssel), „Forks: 1“; der Fork zeigt „Geforkt von … / werkzeug“, kein
+„Forken“, und „Zum Original“ führt zurück.
+
+**Damit ist Sammlung C-20 fertig:** Repos wie GitHub mit Markdown, Zweigen
+und Tags, Verlauf, Suche, Labels, Benachrichtigungen, Reviews, Releases,
+Zuständigen, Sternen, Beobachten und Forks. Ohne Server bleiben Actions und
+Pages (höchstens über Provider-Knoten mit Sandbox, Spur A/B).

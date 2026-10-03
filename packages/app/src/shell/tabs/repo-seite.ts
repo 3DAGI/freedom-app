@@ -27,6 +27,7 @@ import { reviewAnsicht } from "./review-ui.js";
 import { releasesReiter } from "./releases-reiter.js";
 import { labelLeiste } from "./labels-ui.js";
 import { sternUndBeobachten } from "./repo-sterne-ui.js";
+import { forkZeile } from "./fork-ui.js";
 import { kontaktName } from "./raeume.js";
 
 const AKTION_TEXT: Record<PatchAktion, string> = {
@@ -70,6 +71,10 @@ export interface RepoSeiteHilfe {
   zumRaum: () => void;
   /** Ein Repo nur auf diesem Gerät veröffentlichen (B-2c) – nach Rückfrage, die lokale Kopie entfällt erst danach. */
   veroeffentlichen: (k: RepoKarte) => Promise<void>;
+  /** Ein anderes Repo der Liste öffnen – das Original eines Forks (C-20j3). */
+  zuRepo: (schluessel: string) => void;
+  /** Kennungen meiner öffentlichen Repos – ein Fork ersetzt keines davon (C-20j3). */
+  eigeneKennungen: () => readonly string[];
 }
 
 export type RepoReiter = "code" | "commits" | "issues" | "patches" | "releases" | "mitwirkende" | "einstellungen";
@@ -107,6 +112,9 @@ export function zeigeRepoSeite(box: HTMLElement, k: RepoKarte, h: RepoSeiteHilfe
   // Stern (öffentlich) und Beobachten (privat) unter dem Titel (C-20j2) – nur öffentliche Repos
   const folgen = sternUndBeobachten(k, h.neuLaden);
   if (folgen) teile.push(folgen);
+  // Forks (C-20j3): Herkunft, Zahl, „Forken“
+  const fork = forkZeile(k, { name: eigentuemerName, neuLaden: h.neuLaden, zuRepo: h.zuRepo, eigeneKennungen: h.eigeneKennungen });
+  if (fork) teile.push(fork);
   if (k.beschreibung) teile.push(el("p", k.beschreibung, "repo-beschreibung"));
   const web = sichereWebAdressen(k.repo?.web);
   if (web.length) {

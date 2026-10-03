@@ -3429,6 +3429,41 @@ def raum_pruefen(browser, url: str) -> dict:
         if neuig != {"karten": NEUIGKEITEN_KARTEN[groesse], "filter": ["werkzeug"],
                      "danach": [[], "Nichts Neues in Repos, an denen du beteiligt bist.", True]}:
             erg["fehler"].append(f"{groesse}: Neuigkeiten {neuig}")
+        # Seit C-20j3: „werkzeug“ forken (ich bin Maintainer, nicht Eigentümer) – eigene Ankündigung mit
+        # ["a", <original>, "", "fork"], kein Bundle-Verweis (das Original hat keinen Schlüssel), danach „Forks: 1“;
+        # der Fork zeigt „Geforkt von … / werkzeug“ und führt zum Original zurück
+        werkzeug_karte = "() => [...document.querySelectorAll('#repos-karten .repo-karte')].find(k => k.querySelector('.repo-name').textContent === 'werkzeug' && k.querySelector('.repo-eigentuemer').textContent !== 'Du')"
+        ev(f"() => ({werkzeug_karte})()?.click()")
+        s.wait_for_timeout(200)
+        fk = {"vorher": ev("() => document.querySelector('#repo-seite .repo-fork-zahl span')?.textContent")}
+        vorher_fk = len(relay.gesendet)
+        ev("() => document.querySelector('#repo-seite .repo-forken')?.click()")
+        s.wait_for_timeout(200)
+        fk["felder"] = ev("() => [...document.querySelectorAll('[role=dialog] input')].map(i => i.value)")
+        s.keyboard.press("Enter")
+        try:
+            s.wait_for_function("() => document.querySelector('#repo-seite .repo-fork-zahl span')?.textContent === 'Forks: 1'", timeout=10000)
+        except Exception:
+            pass
+        fk["danach"] = ev("() => document.querySelector('#repo-seite .repo-fork-zahl span')?.textContent")
+        ank = list({e["id"]: e for e in relay.gesendet[vorher_fk:] if e.get("kind") == 30617}.values())
+        fk["gesendet"] = [len(ank), [t for t in (ank[-1]["tags"] if ank else []) if t[0] in ("d", "a")],
+                          len({e["id"] for e in relay.gesendet[vorher_fk:] if e.get("kind") == 38042})]
+        ev("() => document.querySelector('#repo-seite .repo-zurueck')?.click()")
+        s.wait_for_timeout(200)
+        ev("() => [...document.querySelectorAll('#repos-karten .repo-karte')].find(k => k.querySelector('.repo-name').textContent === 'werkzeug' && k.querySelector('.repo-eigentuemer').textContent === 'Du')?.click()")
+        s.wait_for_timeout(200)
+        fk["herkunft"] = ev("() => document.querySelector('#repo-seite .repo-fork-herkunft span')?.textContent ?? ''")
+        fk["forken_bei_mir"] = ev("() => !!document.querySelector('#repo-seite .repo-forken')")
+        ev("() => document.querySelector('#repo-seite .repo-zum-original')?.click()")
+        s.wait_for_timeout(200)
+        fk["original"] = ev("() => [document.querySelector('#repo-seite .repo-eigentuemer')?.textContent !== 'Du', document.querySelector('#repo-seite .repo-fork-zahl span')?.textContent]")
+        erg[groesse]["fork"] = fk
+        if fk["vorher"] != "Forks: 0" or fk["felder"] != ["werkzeug", "werkzeug"] or fk["danach"] != "Forks: 1" \
+                or fk["gesendet"] != [1, [["d", "werkzeug"], ["a", f"30617:{gruender_pk}:werkzeug", "", "fork"]], 0] \
+                or not (fk["herkunft"].startswith("Geforkt von ") and fk["herkunft"].endswith(" / werkzeug")) or fk["forken_bei_mir"] \
+                or fk["original"] != [True, "Forks: 1"]:
+            erg["fehler"].append(f"{groesse}: Fork {fk}")
         # Seit B-2b: Repo nur auf diesem Gerät – über „Wo“ angelegt (ohne Rückfrage), Bundle abgelegt, Code gelesen.
         # Dabei geht nichts hinaus: keine Ankündigung, keine Bundle-Referenz, kein Stück ins Blob-Netz.
         # Seit B-2c: danach veröffentlicht (Ankündigung und Bundle gehen hinaus, die Kopie auf dem Gerät entfällt);
