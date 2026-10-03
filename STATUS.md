@@ -15488,3 +15488,14 @@ neuestes ohne Vorab), privat als inneres Event, Leak-Regel.
 
 **Verdrahtet:** noch nicht in der App – das ist C-20h2 (Reiter „Releases“);
 bis dahin sechs begründete Ausnahmen in `wiring-ausnahmen.txt`.
+
+**Nachtrag (Smoke „weckworker“, Code von Spur B, B-12c):** Lokal war der
+Teil zweimal rot (keine Meldung nach dem Push), die CI grün. Gemessen: Ein
+Push per CDP direkt nach der Aktivierung des Workers geht in Chromium
+gelegentlich verloren (3 von 40). Mit einer Sekunde Abstand passierte es in 0
+von 40 Läufen, ein zweiter Push zeigte die Meldung jedes Mal. Erlaubnis, Zustand
+(`activated`) und Fehlerberichte des Workers waren dabei unauffällig. Der Worker
+ist also nicht schuld. Die Prüfung stellt jetzt bis zu fünfmal zu, je mit Frist,
+bis eine Meldung da ist – wartet also auf einen Zustand statt auf eine Pause.
+Die Erwartung bleibt: genau eine Meldung mit festem Text, ohne Inhalt.
+Danach 0 von 40 rot, 4 brauchten eine zweite Zustellung.

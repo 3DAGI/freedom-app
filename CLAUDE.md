@@ -1069,7 +1069,9 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   kopiert ihn, `repro-build.sh` vergleicht beide Dateien, `pages.yml` veröffentlicht
   nur mit `--vergleiche-ordner site`, das Release-Manifest nennt ihn. Meldungen
   zeigt im Smoke-Test nur das volle Chromium (`channel="chromium"`) – die
-  Headless-Shell verweigert die Erlaubnis immer.
+  Headless-Shell verweigert die Erlaubnis immer. Einen Push per CDP
+  direkt nach der Aktivierung verliert Chromium gelegentlich (C-20h1: 3 von 40) – bis zur
+  Meldung neu zustellen (begrenzt), nie eine feste Pause.
   In der App (seit B-12d2) nur über den Haken „Wecken“ (`shell/wecken-ui.ts`):
   nur auf Klick, nie beim Start; der VAPID-Schlüssel nur aus dem Status des
   eigenen Knotens (`frageKnotenStatus()`), angemeldet nur über `wegZumKnoten()`
