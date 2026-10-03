@@ -98,6 +98,7 @@ Bestehende Kinds sind reserviert und semantisch eingefroren:
 | 9734 / 9735 | Zap-Request / Zap-Receipt (NIP-57) |
 | 9736 | SOL-Trinkgeld-Beleg (Entwurf, `docs/NIP-SOL-TIP.md`; privat im Gift-Wrap) |
 | 27235 | HTTP-Auth (NIP-98) |
+| 30063 | Release eines Repos (NIP-51-Satz „Release artifact set“, §19, seit C-20h1) |
 
 ### DVM-Jobs (NIP-90; Result = Request + 1000)
 | Kind | Bedeutung |
@@ -520,6 +521,35 @@ eine Bewertung nimmt nichts an. In privaten Räumen nur als innere Events
 (`raumRepoZeilenKommentar()`, `raumRepoBewertung()`); die Leak-Regel
 `raum-repo-privat` weist sie offen ab wie jeden Kommentar zu einem inneren
 Patch.
+
+**Releases** (seit C-20h1, `repo-release.ts`; Vorschlag nach derselben
+Entscheidung). Wie ein Release bei GitHub: eine Version mit Titel, Notizen und
+auf Wunsch dem Bundle genau dieser Version. Format ist der NIP-51-Satz
+„Release artifact set“ (Kind 30063), ersetzbar je Autor:
+
+| Tag | Inhalt |
+|---|---|
+| `d` | `<repo-kennung>@<version>` |
+| `a` | `30617:<eigentümer>:<kennung>` – das Repo; es steht für die „Anwendung“ aus NIP-51 |
+| `p` | Eigentümer des Repos |
+| `version` | wie ein Git-Tag: Buchstabe oder Ziffer, dann auch `. _ + - /`, kein `..`, höchstens 100 Zeichen |
+| `title` | Titel, Pflicht, höchstens 200 Zeichen, keine Steuerzeichen |
+| `commit` | SHA-1 des Commits (optional) |
+| `blob`, `aes-gcm` | Bundle dieser Version (optional): Manifest-Id und öffentlicher Schlüssel `[key, nonce, ox]` wie im Bundle-Verweis 38042 |
+| `vorab` | Vorabversion (ohne Wert, optional) |
+| `zurueckgezogen` | Rückzug: ersetzt das eigene Release dieser Version, ohne Titel und Inhalt |
+
+Der Inhalt sind die Notizen (Markdown, höchstens 64 KB). Abweichend von NIP-51
+steht das Bundle nicht als NIP-94-Datei (1063, `e`), sondern im Release selbst:
+Der Bundle-Verweis 38042 ist ersetzbar und zeigt immer auf das neueste Bundle,
+ein Release hält seine Version fest. Es zählen nur Releases von Eigentümer und
+Maintainern (`repoReleasesZu()`), je Version die neueste Aussage (bei gleicher
+Sekunde die größere Id); ist sie ein Rückzug, fehlt die Version. Das neueste
+Release ist das jüngste ohne `vorab` (`neuestesRepoRelease()`). Nicht zu
+verwechseln mit dem Release-Manifest der App (38054, `release.ts`). In privaten
+Räumen nur als inneres Event (`raumRepoRelease()`, `raumRepoReleaseRueckzug()`;
+`raumReposPrivat()` liefert `releases`); die Leak-Regel `raum-repo-privat`
+weist ein offenes Release eines solchen Repos ab.
 
 ## 20. Umfragen und Termine in privaten Räumen (NIP-88, NIP-52, seit B-15a)
 

@@ -2132,14 +2132,21 @@ def weckworker_pruefen(browser, url: str) -> dict:
         s.wait_for_timeout(100)
     reg_id = next((r["registrationId"] for r in regs if r.get("scopeURL") == scope and not r.get("isDeleted")), None)
     erg["angemeldet"] = scope == ursprung + "/" and reg_id is not None
-    if reg_id is not None:
-        cdp.send("ServiceWorker.deliverPushMessage", {"origin": ursprung, "registrationId": reg_id, "data": "GEHEIMER-INHALT"})
     meldungen = "async () => (await (await navigator.serviceWorker.ready).getNotifications()).map((n) => [n.title, n.body, n.tag])"
-    # wait_for_function wartet nicht auf ein Promise – also selbst fragen, mit Frist
-    for _ in range(100 if reg_id is not None else 0):
+    # Chromium verliert einen Push per CDP, der direkt nach der Aktivierung kommt (gemessen in C-20h1: 3 von 40 ohne,
+    # 0 von 40 mit einer Sekunde Abstand; ein zweiter Push zeigte die Meldung jedes Mal). Also bis zu fünfmal zustellen,
+    # je mit Frist, bis eine Meldung da ist – dasselbe Tag ersetzt sie, es bleibt eine. wait_for_function wartet nicht
+    # auf ein Promise – also selbst fragen.
+    erg["zustellungen"] = 0
+    for _ in range(5 if reg_id is not None else 0):
+        cdp.send("ServiceWorker.deliverPushMessage", {"origin": ursprung, "registrationId": reg_id, "data": "GEHEIMER-INHALT"})
+        erg["zustellungen"] += 1
+        for _ in range(20):
+            if s.evaluate(meldungen):
+                break
+            s.wait_for_timeout(200)
         if s.evaluate(meldungen):
             break
-        s.wait_for_timeout(200)
     erg["meldungen"] = s.evaluate(meldungen)
     erg["abgemeldet"] = s.evaluate("async () => { for (const r of await navigator.serviceWorker.getRegistrations()) await r.unregister();"
                                    " return (await navigator.serviceWorker.getRegistrations()).length === 0; }")
