@@ -9,7 +9,7 @@
  */
 import { gebietsschema, t } from "../../i18n.js";
 import { fehlerText } from "../../protokoll-texte.js";
-import { KIND_ISSUE, type IssueStatus } from "@freedomstack/protocol";
+import { KIND_ISSUE, darfAnnehmen, type IssueStatus } from "@freedomstack/protocol";
 import { type IssueFilter, type IssueZeile, type RepoKarte, filtereIssues, issueLabels } from "../../repo-ansicht.js";
 import { dialog } from "../dialog.js";
 import { markdownDom } from "../markdown-ui.js";
@@ -17,6 +17,7 @@ import { sendeInRaum } from "../raum-repos.js";
 import { ensurePool, signiere, state } from "../state.js";
 import { toast } from "../ui.js";
 import { diskussion } from "./diskussion.js";
+import { labelLeiste } from "./labels-ui.js";
 
 /** Offenes Issue und gewählter Filter – nur im Speicher. */
 let offenesIssue: string | null = null;
@@ -152,7 +153,17 @@ function issueSeite(z: IssueZeile, k: RepoKarte, name: (pk: string) => string, n
   meta.append(statusMarke(z), el("span", ` ${t("repo.patchVon", { name: name(z.issue.autor), datum: datum(z.issue.zeit) })}`, "muted"), ...labels(z, neu));
   // Beschreibung als Markdown wie bei GitHub (C-20a), Zeilenumbrüche bleiben
   const text = z.issue.text.trim() ? markdownDom(z.issue.text, "issue-text", { umbrueche: true }) : el("div", t("repo.issueOhneText"), "issue-text muted");
-  const teile: HTMLElement[] = [knopf(t("repo.alleIssues"), "ghost mini issue-zurueck", zurueck), kopf, meta, text];
+  const teile: HTMLElement[] = [knopf(t("repo.alleIssues"), "ghost mini issue-zurueck", zurueck), kopf, meta];
+  // Zuständige und – für Eigentümer und Maintainer – Labels ändern (C-20i2); die Labels selbst stehen schon in der Zeile darüber
+  if (k.repo) {
+    const repo = k.repo;
+    teile.push(labelLeiste({
+      ziel: { id: z.issue.id, kind: KIND_ISSUE }, labels: z.issue.labels, zustaendige: z.zustaendige ?? [], ohneLabels: true,
+      darf: !!state.keypair && darfAnnehmen(repo, state.keypair.pk), kandidaten: [repo.eigentuemer, ...repo.maintainer, z.issue.autor],
+      name, neuLaden, ...(k.privatRaum ? { privatRaum: k.privatRaum } : {}),
+    }));
+  }
+  teile.push(text);
   if (z.darfStatus && k.repo) {
     const aktionen = el("div", undefined, "patch-aktionen issue-aktionen");
     const ziele: IssueStatus[] = z.status === "offen" ? ["erledigt", "geschlossen"] : ["offen"];

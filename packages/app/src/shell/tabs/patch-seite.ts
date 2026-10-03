@@ -41,6 +41,8 @@ export interface PatchAnsicht {
   marke?: HTMLElement;
   /** Wer den Status setzte, Commits, Begründung (seit C.3b2). */
   status?: HTMLElement | undefined;
+  /** Labels und Zuständige (seit C-20i2) – fehlt in der Vorschau. */
+  labels?: HTMLElement;
   aktionen: HTMLElement[];
   hinweis?: string;
   zurueck: { text: string; tun: () => void };
@@ -65,6 +67,7 @@ export function zeigePatch(p: PatchAnsicht): HTMLElement[] {
   if (diff.autor) meta.append(el("span", t("repo.autorLautPatch", { autor: diff.autor })));
   teile.push(meta);
   if (p.status) teile.push(p.status);
+  if (p.labels) teile.push(p.labels);
   if (p.hinweis) teile.push(el("p", p.hinweis, "patch-hinweis"));
   const aktionen = el("div", undefined, "patch-aktionen");
   aktionen.append(...p.aktionen, patchKnopf(t("repo.alsDatei"), "ghost mini repo-knopf", () => ladeAlsDatei(p)));

@@ -15567,3 +15567,31 @@ nicht, Namensräume getrennt, leer entfernt), privat und Leak-Regel.
 
 **Verdrahtet:** noch nicht in der App – das ist C-20i2; bis dahin vier
 begründete Ausnahmen in `wiring-ausnahmen.txt`.
+
+## Schritt C-20i2 – Labels ändern und Zuständige: Oberfläche
+
+**Warum:** Sammlung C-20, zweiter Teil zu C-20i1 (#288).
+
+**Was:**
+- `shell/tabs/labels-ui.ts` (neu, `labelLeiste()`): „Zuständig: …“ bzw.
+  „niemand“, auf Wunsch die Labels. Für Eigentümer und Maintainer gibt es
+  „Labels bearbeiten“ (Dialog, mit Komma getrennt, vorbelegt, geprüft wie beim
+  Anlegen) und „Zuständige wählen“ (Häkchen: Eigentümer, Maintainer, wer das
+  Issue oder den Patch schrieb). Gesendet wird je Namensraum der ganze Stand
+  (`baueLabelStand()`), öffentlich signiert, privat nur `sendeInRaum()`. Der
+  Dialog sagt, wer es sieht.
+- Issue-Seite: die Leiste unter der Kopfzeile (die Labels stehen dort schon
+  seit C-20e). Patch-Seite: Labels und Zuständige unter dem Status
+  (`PatchAnsicht.labels`, fehlt in der Vorschau).
+- `repos.ts`: Label-Events nach Ziel laden (`#e`, wie die Kommentare).
+  `repo-ansicht.ts`: `mitIssues()` setzt den Stand an die Issues – er ersetzt
+  deren `t`-Tags, also folgt auch der Label-Filter aus C-20e – und als
+  `patchLabels` an die Patches; öffentlich und privat getrennt.
+- Die vier Ausnahmen aus C-20i1 in `wiring-ausnahmen.txt` sind gestrichen.
+
+**Tests:** app +2 (`labels-ansicht.test.ts`): Stand ersetzt Labels, Zuständige,
+Fremde zählen nicht, Label-Filter folgt, nie über die Grenze
+öffentlich/privat; Verdrahtung. Smoke (desktop und mobil): an „Hammer
+klemmt“ „Labels bearbeiten“ (vorbelegt „bug“, dazu „dringend“) und
+„Zuständige wählen“ (drei Kandidaten, „Du“) – zwei Events 1985 mit dem ganzen
+Stand je Namensraum, danach „bug“, „dringend“ und „Zuständig: Du“ auf der Seite.

@@ -7,7 +7,7 @@
  * Nur DOM und `textContent` – Namen, Betreffe und Adressen kommen von Fremden.
  * Welches Repo offen ist, steht nur im Speicher (nie in der Adresse).
  */
-import { KIND_PATCH, type GelesenerPatch, type GelesenesRepo, type NostrEvent, type PatchStatus } from "@freedomstack/protocol";
+import { KIND_PATCH, darfAnnehmen, type GelesenerPatch, type GelesenesRepo, type NostrEvent, type PatchStatus } from "@freedomstack/protocol";
 import { gebietsschema, t } from "../../i18n.js";
 import { fehlerText } from "../../protokoll-texte.js";
 import {
@@ -25,6 +25,7 @@ import { diskussion } from "./diskussion.js";
 import { zeigePatch } from "./patch-seite.js";
 import { reviewAnsicht } from "./review-ui.js";
 import { releasesReiter } from "./releases-reiter.js";
+import { labelLeiste } from "./labels-ui.js";
 import { kontaktName } from "./raeume.js";
 
 const AKTION_TEXT: Record<PatchAktion, string> = {
@@ -260,6 +261,13 @@ function patchReiter(k: RepoKarte, h: RepoSeiteHilfe, neu: () => void): HTMLElem
       betreff: offen.patch.betreff, commit: offen.patch.commit, text: offen.patch.text,
       von: eigentuemerName(offen.patch.autor), zeit: offen.patch.zeit, marke: statusMarke(offen.status), aktionen: aktionsKnoepfe(offen, k, h),
       status: statusAngaben(offen),
+      // Labels und Zuständige (C-20i2) – ändern nur Eigentümer und Maintainer
+      ...(repo ? { labels: labelLeiste({
+        ziel: { id: offen.patch.id, kind: KIND_PATCH }, labels: k.patchLabels?.[offen.patch.id]?.labels ?? [],
+        zustaendige: k.patchLabels?.[offen.patch.id]?.zustaendige ?? [], darf: !!state.keypair && darfAnnehmen(repo, state.keypair.pk),
+        kandidaten: [repo.eigentuemer, ...repo.maintainer, offen.patch.autor], name: eigentuemerName, neuLaden: h.neuLaden,
+        ...(k.privatRaum ? { privatRaum: k.privatRaum } : {}),
+      }) } : {}),
       // Review (C-20g2): Bewertungen über den Änderungen, Kommentare an Zeilen
       review: reviewAnsicht({
         patch: { id: offen.patch.id, autor: offen.patch.autor, kind: KIND_PATCH }, review: k.patchReviews?.[offen.patch.id] ?? { zeilen: [], bewertungen: [] },

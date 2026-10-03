@@ -27,6 +27,8 @@ export interface PrivateRepos {
   kommentare: NostrEvent[];
   /** Releases (C-20h1) – nur innere Events der Gruppe. */
   releases: NostrEvent[];
+  /** Labels und Zuständige (C-20i1) – nur innere Events der Gruppe. */
+  labels: NostrEvent[];
 }
 
 /** Repos aller privaten Räume – leer ohne private Räume, mit Bunker oder ohne Tresor. */

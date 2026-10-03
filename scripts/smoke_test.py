@@ -3253,6 +3253,43 @@ def raum_pruefen(browser, url: str) -> dict:
                   "wartung": [["Säge stumpf"], ["offen (1)", "geschlossen (0)"], "issue-label-wahl"],
                   "bug": [["Hammer klemmt"], "bug", "issue-label-wahl"], "alle": ["Säge stumpf", "Hammer klemmt"]}:
             erg["fehler"].append(f"{groesse}: Label-Filter {lf}")
+        # Seit C-20i2: Labels bearbeiten und Zuständige an „Hammer klemmt“ (ich pflege „werkzeug“ mit) – je ein Label-Event
+        # (1985) mit dem ganzen Stand, danach auf der Seite: Labels in der Kopfzeile, „Zuständig: Du“
+        ev("() => [...document.querySelectorAll('#repo-seite .issue-betreff')].find(b => b.textContent === 'Hammer klemmt')?.click()")
+        s.wait_for_timeout(200)
+        lab = {"vorher": ev("() => document.querySelector('#repo-seite .label-zustaendig')?.textContent")}
+        vorher_l = len(relay.gesendet)
+        ev("() => document.querySelector('#repo-seite .labels-bearbeiten')?.click()")
+        s.wait_for_timeout(200)
+        lab["feld"] = ev("() => document.querySelector('[role=dialog] input')?.value ?? null")
+        s.keyboard.press("End")
+        s.keyboard.type(", dringend")
+        s.keyboard.press("Enter")
+        try:
+            s.wait_for_function("() => [...document.querySelectorAll('#repo-seite .patch-meta .issue-label-knopf')].some(b => b.textContent === 'dringend')", timeout=10000)
+        except Exception:
+            pass
+        lab["labels"] = ev("() => [...document.querySelectorAll('#repo-seite .patch-meta .issue-label-knopf')].map(b => b.textContent)")
+        s.wait_for_timeout(1100)
+        ev("() => document.querySelector('#repo-seite .zustaendige-waehlen')?.click()")
+        s.wait_for_timeout(200)
+        lab["kandidaten"] = ev("() => [...document.querySelectorAll('[role=dialog] .dlg-wahl label')].map(l => l.textContent.trim())")
+        ev("() => [...document.querySelectorAll('[role=dialog] .dlg-wahl label')].find(l => l.textContent.trim() === 'Du')?.querySelector('input')?.click()")
+        ev("() => [...document.querySelectorAll('[role=dialog][aria-modal=true] button')].find(b => b.textContent === 'Speichern')?.click()")
+        try:
+            s.wait_for_function("() => document.querySelector('#repo-seite .label-zustaendig')?.textContent === 'Zuständig:Du'", timeout=10000)
+        except Exception:
+            pass
+        lab["zustaendig"] = ev("() => document.querySelector('#repo-seite .label-zustaendig')?.textContent")
+        l_neu = list({e["id"]: e for e in relay.gesendet[vorher_l:] if e.get("kind") == 1985}.values())
+        lab["events"] = [[[t for t in e["tags"] if t[0] in ("L", "l")], next((t[1] for t in e["tags"] if t[0] == "e"), None) == issue_id,
+                          next((t[1] for t in e["tags"] if t[0] == "k"), None)] for e in l_neu]
+        erg[groesse]["labels"] = lab
+        if lab["vorher"] != "Zuständig:niemand" or lab["feld"] != "bug" or lab["labels"] != ["bug", "dringend"] \
+                or lab["zustaendig"] != "Zuständig:Du" or len(lab["kandidaten"]) != 3 or "Du" not in lab["kandidaten"] \
+                or lab["events"] != [[[["L", "#t"], ["l", "bug", "#t"], ["l", "dringend", "#t"]], True, "1621"],
+                                     [[["L", "freedomstack.zustaendig"], ["l", relay.ich, "freedomstack.zustaendig"]], True, "1621"]]:
+            erg["fehler"].append(f"{groesse}: Labels und Zuständige {lab}")
         # Seit C-20h2: Reiter „Releases“ – leer, „Neues Release“ per Dialog (ich pflege „werkzeug“ mit): öffentlich, signiert,
         # Kind 30063 an das Repo, danach als Karte mit „Neuestes“ und Notizen als Markdown; „Zurückziehen“ fragt nach und ersetzt
         # das Release mit ["zurueckgezogen"] (eine Sekunde später – je Version zählt die neueste Aussage)
