@@ -22,6 +22,7 @@ import {
   baueIssue, baueIssueStatus, baueRepoAnkuendigung, bauePatch, baueStatus, type GelesenesRepo, type RepoAnkuendigung,
 } from "./nip34.js";
 import { KIND_KOMMENTAR, baueKommentar } from "./kommentar.js";
+import { KIND_LABEL, baueLabelStand } from "./repo-labels.js";
 import { KIND_REPO_RELEASE, baueRepoRelease, baueRepoReleaseRueckzug } from "./repo-release.js";
 import { baueBewertung, baueZeilenKommentar } from "./review.js";
 import type { InneresEvent, InneresSenden } from "./raum-gruppe.js";
@@ -66,7 +67,7 @@ export function mitRaumRechten(repo: GelesenesRepo, zustand: SpaceState | undefi
  */
 export const RAUM_REPO_ARTEN: readonly number[] = [
   KIND_REPO_ANKUENDIGUNG, KIND_GIT_REPO_REF, KIND_PATCH, KIND_STATUS_OFFEN, KIND_STATUS_ANGENOMMEN, KIND_STATUS_GESCHLOSSEN, KIND_STATUS_ENTWURF,
-  KIND_ISSUE, KIND_KOMMENTAR, KIND_REPO_RELEASE,
+  KIND_ISSUE, KIND_KOMMENTAR, KIND_REPO_RELEASE, KIND_LABEL,
 ];
 
 /** Ein NIP-34-Baustein als inneres Event des Raums – der Autor ist, wen MLS belegt. */
@@ -130,6 +131,11 @@ export function raumRepoReleaseRueckzug(raumId: string, r: Parameters<typeof bau
   return inRaum(raumId, baueRepoReleaseRueckzug(r, ""));
 }
 
+/** Labels oder Zuständige an einem Issue oder Patch im Raum (C-20i1) – das Ziel ist ein inneres Event. */
+export function raumRepoLabels(raumId: string, a: Parameters<typeof baueLabelStand>[0]): InneresSenden {
+  return inRaum(raumId, baueLabelStand(a, ""));
+}
+
 /**
  * Die Repos eines privaten Raums aus seinen inneren Events – in der Form, die
  * die Repo-Ansicht liest. Ankündigungen und Bundles zählen nur von Pflegern
@@ -137,11 +143,12 @@ export function raumRepoReleaseRueckzug(raumId: string, r: Parameters<typeof bau
  * Maintainer sind alle Pfleger (als `maintainers` eingesetzt – der Absender
  * ist von MLS belegt). Patches, Issues und Kommentare (C-17a) von jedem
  * Mitglied; Status werten `patchStatus()` bzw. `issueStatus()` nach diesen
- * Maintainern aus, Releases (C-20h1) ebenso `repoReleasesZu()`.
+ * Maintainern aus, Releases (C-20h1) ebenso `repoReleasesZu()`, Labels und
+ * Zuständige (C-20i1) `labelStandZu()`.
  */
 export function raumReposPrivat(raumId: string, ereignisse: readonly InneresEvent[], zustand: SpaceState): {
   ankuendigungen: NostrEvent[]; bundles: NostrEvent[]; patches: NostrEvent[]; status: NostrEvent[]; issues: NostrEvent[]; kommentare: NostrEvent[];
-  releases: NostrEvent[];
+  releases: NostrEvent[]; labels: NostrEvent[];
 } {
   const imRaum = ereignisse.filter((e) => RAUM_REPO_ARTEN.includes(e.art) && e.tags.find((t) => t[0] === "space")?.[1] === raumId);
   const alsEv = (e: InneresEvent, tags = e.tags): NostrEvent => ({ id: e.id, pubkey: e.von, created_at: e.zeit, kind: e.art, tags, content: e.text, sig: "" });
@@ -169,5 +176,6 @@ export function raumReposPrivat(raumId: string, ereignisse: readonly InneresEven
     issues: imRaum.filter((e) => e.art === KIND_ISSUE).map((e) => alsEv(e)),
     kommentare: imRaum.filter((e) => e.art === KIND_KOMMENTAR).map((e) => alsEv(e)),
     releases: imRaum.filter((e) => e.art === KIND_REPO_RELEASE).map((e) => alsEv(e)),
+    labels: imRaum.filter((e) => e.art === KIND_LABEL).map((e) => alsEv(e)),
   };
 }

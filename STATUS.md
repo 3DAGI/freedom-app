@@ -15531,3 +15531,39 @@ Reiterliste. Smoke (desktop und mobil): „Releases (0)“ leer, „Neues Releas
 mit Tastatur, gesendet Kind 30063 mit `d`, `a`, `version`, `title` und den
 Notizen, Karte mit „Neuestes“ und Markdown, „Releases (1)“; „Zurückziehen“
 fragt nach, sendet `["zurueckgezogen"]`, danach wieder leer.
+
+## Schritt C-20i1 – Labels ändern und Zuständige (Protokoll)
+
+**Warum:** Sammlung C-20, Format nach der Entscheidung des MENSCHEN vom
+02.10.2026. Labels stehen bisher nur als `t`-Tags im Issue selbst (C-20e
+filtert danach); ändern und zuweisen ging nicht.
+
+**Was:**
+- `protocol/src/repo-labels.ts` (neu): Label-Event nach NIP-32 (Kind 1985) an
+  genau einem Issue oder Patch (`e` = Id, `k` = 1621/1617). Namensraum `#t`
+  für Labels (wie die `t`-Tags nach NIP-34) oder `freedomstack.zustaendig`
+  für Zuständige – deren Werte sind Schlüssel als Hex, bewusst keine
+  `p`-Tags, denn in 1985 wären das weitere Ziele.
+- Bewusste Abweichung vom additiven NIP-32: Ein Event nennt den ganzen Stand
+  seines Namensraums. Es zählt je Ziel und Namensraum die neueste Aussage
+  von Eigentümer oder Maintainern (`labelStandZu()`, bei gleicher Sekunde die
+  größere Id); ein Event ohne `l` entfernt alles. Ohne Aussage gelten die
+  `t`-Tags des Issues. Andere Clients sehen gewöhnliche Labels.
+- Lesen streng (`leseLabelStand()`): genau ein Namensraum, genau ein Ziel der
+  richtigen Art, nur gültige Werte, höchstens 20 Labels bzw. 10 Zuständige;
+  `l`-Tags anderer Namensräume zählen nicht.
+- Private Räume: `raumRepoLabels()`; `raumReposPrivat()` liefert `labels`. Die
+  Leak-Regel `raum-repo-privat` weist ein offenes 1985 zu einem inneren Issue
+  oder Patch ab (wie Kommentare).
+- Kind 1985 wertete bisher niemand aus. MDK merkt sich in Gruppen bei 1985 nur,
+  ob der Absender Admin war – das stört nicht.
+- Fehler mit Kennung (`label-ziel`, `-art`, `-zustaendig`, `-viele`; Labels
+  selbst wie bisher `issue-label`) und Texten in beiden Sprachen. Format in
+  `docs/PROTOCOL.md` (19).
+
+**Tests:** protocol +4 (`repo-labels.test.ts`): Bau und Lesen, Negativfälle,
+strenges Lesen fremder Events, Stand (neueste von Pflegern, Fremde zählen
+nicht, Namensräume getrennt, leer entfernt), privat und Leak-Regel.
+
+**Verdrahtet:** noch nicht in der App – das ist C-20i2; bis dahin vier
+begründete Ausnahmen in `wiring-ausnahmen.txt`.

@@ -551,6 +551,28 @@ Räumen nur als inneres Event (`raumRepoRelease()`, `raumRepoReleaseRueckzug()`;
 `raumReposPrivat()` liefert `releases`); die Leak-Regel `raum-repo-privat`
 weist ein offenes Release eines solchen Repos ab.
 
+**Labels ändern und Zuständige** (seit C-20i1, `repo-labels.ts`; Vorschlag nach
+derselben Entscheidung). Wie bei GitHub setzen Eigentümer und Maintainer
+nachträglich Labels und weisen Personen zu – als Label-Event nach NIP-32
+(Kind 1985) an genau einem Issue oder Patch:
+
+| Tag | Inhalt |
+|---|---|
+| `L` | genau ein Namensraum: `#t` (Labels, wie die `t`-Tags eines Issues) oder `freedomstack.zustaendig` (Zuständige) |
+| `l` | je Wert einer, mit dem Namensraum als drittem Feld: Label (ohne Leerzeichen und Komma, höchstens 40 Zeichen, höchstens 20) bzw. Schlüssel als Hex (höchstens 10) |
+| `e` | das Ziel: Id des Issues oder Patches – genau eines |
+| `k` | Art des Ziels: `1621` oder `1617` |
+
+Zuständige stehen bewusst nicht als `p`-Tags im Event: In 1985 wären das
+weitere Ziele. Abweichend vom additiven NIP-32 nennt ein Event den **ganzen
+Stand** seines Namensraums: Es zählt je Ziel und Namensraum die neueste
+Aussage von Eigentümer oder Maintainern (`labelStandZu()`, bei gleicher Sekunde
+die größere Id); ein Event ohne `l` entfernt alle. Ohne Aussage gelten die
+`t`-Tags des Issues. Andere Clients sehen die Labels als gewöhnliche Labels
+nach NIP-32. In privaten Räumen nur als inneres Event (`raumRepoLabels()`;
+`raumReposPrivat()` liefert `labels`); die Leak-Regel `raum-repo-privat` weist
+ein offenes Label-Event zu einem inneren Issue oder Patch ab.
+
 ## 20. Umfragen und Termine in privaten Räumen (NIP-88, NIP-52, seit B-15a)
 
 Standard-Events anderer Clients, kein eigenes Format – aber nur als innere
