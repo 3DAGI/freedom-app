@@ -5,9 +5,9 @@
  */
 import {
   KIND_GIT_REPO_REF, KIND_REPO_ANKUENDIGUNG, KIND_STATUS_ANGENOMMEN, KIND_STATUS_ENTWURF, KIND_STATUS_GESCHLOSSEN, KIND_STATUS_OFFEN,
-  KIND_SPACE, RAUM_REPO_RECHT, can, darfAnnehmen, issueStatus, kommentareZu, leseIssue, lesePatch, leseRepoAnkuendigung, mitRaumRechten, patchStatus,
-  raumAdresse, raumZustandFuer,
-  type GelesenerKommentar, type GelesenerPatch, type GelesenesIssue, type GelesenesRepo, type IssueStatus, type NostrEvent, type PatchStatus,
+  KIND_SPACE, RAUM_REPO_RECHT, bewertungenZu, can, darfAnnehmen, issueStatus, istReviewTeil, kommentareZu, leseIssue, lesePatch, leseRepoAnkuendigung,
+  mitRaumRechten, patchStatus, raumAdresse, raumZustandFuer, zeilenKommentareZu,
+  type GeleseneBewertung, type GelesenerKommentar, type GelesenerZeilenKommentar, type GelesenerPatch, type GelesenesIssue, type GelesenesRepo, type IssueStatus, type NostrEvent, type PatchStatus,
   type RepoAnkuendigung,
 } from "@freedomstack/protocol";
 
@@ -131,6 +131,8 @@ export interface RepoKarte {
   offeneIssues?: number;
   /** Kommentare je Patch-Id (C-17c), ältester zuerst – erst nach `mitIssues()`. */
   patchKommentare?: Record<string, GelesenerKommentar[]>;
+  /** Reviews je Patch-Id (C-20g2): Kommentare an Zeilen und Bewertungen – erst nach `mitIssues()`. */
+  patchReviews?: Record<string, PatchReview>;
   zeilen: PatchZeile[];
   offen: number;
   /** Letzte Aktivität (Sekunden): Ankündigung, Bundle, Patch oder Status. */
@@ -341,6 +343,12 @@ export function issueZeilen(
   return [...out.values()].sort((a, b) => b.issue.zeit - a.issue.zeit || a.issue.id.localeCompare(b.issue.id));
 }
 
+/** Review eines Patches (C-20g2): Kommentare an Zeilen (ältester zuerst) und je Person die neueste Bewertung. */
+export interface PatchReview {
+  zeilen: GelesenerZeilenKommentar[];
+  bewertungen: Array<GeleseneBewertung & { maintainer: boolean }>;
+}
+
 type IssueDaten = { issues: readonly NostrEvent[]; status: readonly NostrEvent[]; kommentare: readonly NostrEvent[] };
 
 /**
@@ -356,8 +364,15 @@ export function mitIssues(
     if (!k.repo) return k;
     const d = k.privatRaum ? privat.find((p) => p.gruppe === k.privatRaum) : oeffentlich;
     const zeilen = d ? issueZeilen(k.repo, d.issues, d.status, d.kommentare, ich) : [];
-    // Kommentare an Patches (C-17c) aus denselben Daten – nie über die Grenze öffentlich/privat
-    const patchKommentare = Object.fromEntries(k.zeilen.map((z) => [z.patch.id, d ? kommentareZu(z.patch.id, d.kommentare) : []]));
-    return { ...k, issues: zeilen, offeneIssues: zeilen.filter((z) => z.status === "offen").length, patchKommentare };
+    // Kommentare an Patches (C-17c) aus denselben Daten – nie über die Grenze öffentlich/privat;
+    // Teile eines Reviews (C-20g2) stehen an ihrer Zeile bzw. oben, nicht in der Diskussion
+    const allgemein = d ? d.kommentare.filter((e) => !istReviewTeil(e)) : [];
+    const patchKommentare = Object.fromEntries(k.zeilen.map((z) => [z.patch.id, kommentareZu(z.patch.id, allgemein)]));
+    const repo = k.repo;
+    const patchReviews = Object.fromEntries(k.zeilen.map((z): [string, PatchReview] => [z.patch.id, {
+      zeilen: d ? zeilenKommentareZu(z.patch.id, d.kommentare) : [],
+      bewertungen: d ? bewertungenZu(z.patch, repo, d.kommentare) : [],
+    }]));
+    return { ...k, issues: zeilen, offeneIssues: zeilen.filter((z) => z.status === "offen").length, patchKommentare, patchReviews };
   });
 }

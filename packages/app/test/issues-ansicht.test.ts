@@ -100,7 +100,8 @@ test("Verdrahtung (C-17b2, C-17c): kommentieren und Status – öffentlich signi
   assert.match(reiter, /wurzel: \{ id: z\.issue\.id, autor: z\.issue\.autor, kind: KIND_ISSUE \}, kommentare: z\.kommentare/);
   const seite = lies("shell/tabs/repo-seite.ts");
   assert.match(seite, /wurzel: \{ id: offen\.patch\.id, autor: offen\.patch\.autor, kind: KIND_PATCH \}, kommentare: k\.patchKommentare\?\.\[offen\.patch\.id\] \?\? \[\]/);
-  assert.match(lies("shell/tabs/patch-seite.ts"), /teile\.push\(\.\.\.bloecke, \.\.\.\(p\.unten \?\? \[\]\)\);/, "die Vorschau hat keine Diskussion");
+  // Seit C-20g2 stehen zwischen den Dateien und der Diskussion die Kommentare an Zeilen außerhalb des Diffs
+  assert.match(lies("shell/tabs/patch-seite.ts"), /teile\.push\(\.\.\.bloecke\);\s*const rest = p\.review\?\.rest\(gezeigt\);\s*if \(rest\) teile\.push\(rest\);\s*teile\.push\(\.\.\.\(p\.unten \?\? \[\]\)\);/, "die Vorschau hat keine Diskussion");
 });
 
 test("C-20e: Labels – Auswahl mit Zahl (häufigste zuerst), Filter nach Status und Label", () => {

@@ -3085,12 +3085,54 @@ def raum_pruefen(browser, url: str) -> dict:
           return { fett: k.querySelector('p strong')?.textContent, links: a, bilder: k.querySelectorAll('img').length, roh: !k.querySelector('b') && k.textContent.includes('<b>roh</b>'),
             umbruch: k.querySelectorAll('p br').length, liste: [...k.querySelectorAll('ul > li')].map(l => l.textContent), code: k.querySelector('li code')?.textContent }; }""")
         seite_patch["bild_anfragen"] = len(bild_anfragen)
+        # Seit C-20g2: Review – „Zeilen kommentieren“ zeigt „+“ an den Zeilen (vorher nicht da, mobil 40 px); ein Kommentar
+        # an „scharf“ trägt ["zeile", "hammer.txt", "neu", "1"] und steht unter der Zeile, nicht in der Diskussion; „Genehmigen“
+        # sendet ["bewertung", "genehmigt"] und steht oben mit „Maintainer“ – der Status des Patches bleibt
+        plus = "() => [...document.querySelectorAll('#repo-seite .zeile-plus')].map(b => [b.getAttribute('aria-label'), getComputedStyle(b).display, Math.round(b.getBoundingClientRect().height)])"
+        review = {"vorher": [p[1] for p in ev(plus)]}
+        ev("() => document.querySelector('#repo-seite .review-schalter')?.click()")
+        review["schalter"] = ev("() => document.querySelector('#repo-seite .review-schalter')?.getAttribute('aria-pressed')")
+        review["plus"] = ev(plus)
+        vorher_r = len(relay.gesendet)
+        ev("() => [...document.querySelectorAll('#repo-seite .zeile-plus')].at(-1)?.click()")
+        try:
+            s.wait_for_selector("[role=dialog] textarea", timeout=5000)
+            s.keyboard.type("Warum *scharf*?")
+            s.keyboard.press("Control+Enter")
+            s.wait_for_function("() => !!document.querySelector('#repo-seite .review-faden .issue-text')", timeout=10000)
+        except Exception:
+            pass
+        z_neu = list({e["id"]: e for e in relay.gesendet[vorher_r:] if e.get("kind") == 1111}.values())
+        review["zeile"] = [len(z_neu), [t for t in (z_neu[-1]["tags"] if z_neu else []) if t[0] == "zeile"]]
+        review["faden"] = ev("""() => { const f = document.querySelector('#repo-seite .review-faden');
+          return f ? [f.previousElementSibling?.querySelector('.diff-text')?.textContent, f.querySelector('.issue-text em')?.textContent] : null; }""")
+        review["diskussion"] = ev("() => document.querySelectorAll('#repo-seite .issue-kommentar').length")
+        vorher_b = len(relay.gesendet)
+        ev("() => document.querySelector('#repo-seite .review-genehmigen')?.click()")
+        try:
+            s.wait_for_selector("[role=dialog] textarea", timeout=5000)
+            s.keyboard.press("Control+Enter")
+            s.wait_for_function("() => !!document.querySelector('#repo-seite .review-bewertung')", timeout=10000)
+        except Exception:
+            pass
+        b_neu = list({e["id"]: e for e in relay.gesendet[vorher_b:] if e.get("kind") == 1111}.values())
+        review["bewertung"] = [len(b_neu), [t for t in (b_neu[-1]["tags"] if b_neu else []) if t[0] == "bewertung"],
+                               ev("() => [...document.querySelectorAll('#repo-seite .review-bewertung > div:first-child > span')].map(e => e.textContent).slice(1, 3)"),
+                               ev("() => document.querySelector('#repo-seite .review-kopf h4 span')?.textContent"),
+                               ev("() => document.querySelector('#repo-seite .patch-meta .repo-status')?.textContent")]
+        seite_patch["review"] = review
+        hoehe_ok = all(p[2] >= 40 for p in review["plus"]) if groesse == "mobil" else True
+        if review["vorher"] != ["none", "none"] or review["schalter"] != "true" or not hoehe_ok \
+                or [p[:2] for p in review["plus"]] != [["Kommentar an hammer.txt, entfernte Zeile 1", "block"], ["Kommentar an hammer.txt, Zeile 1", "block"]] \
+                or review["zeile"] != [1, [["zeile", "hammer.txt", "neu", "1"]]] or review["faden"] != ["scharf", "scharf"] or review["diskussion"] != 2 \
+                or review["bewertung"] != [1, [["bewertung", "genehmigt"]], ["genehmigt ✓", "Maintainer"], "1 genehmigt · 0 Änderungen erbeten", "angenommen ✓"]:
+            erg["fehler"].append(f"{groesse}: Review {review}")
         ev("() => document.querySelector('#repo-seite .patch-zurueck')?.click()")
         s.wait_for_timeout(200)
         seite_patch["zurueck"] = ev("() => [!!document.querySelector('#repo-seite .repo-patches'), document.activeElement?.dataset?.patch?.length === 64]")
         erg[groesse]["patch_seite"] = seite_patch
         if seite_patch["titel"] != "Hammer schärfen" or seite_patch["marke"] != "angenommen ✓" or seite_patch["dateien"] != ["hammer.txt+1−1"] \
-                or seite_patch["zeilen"] != [["1", "", "−", "stumpf"], ["", "1", "+", "scharf"]] or not seite_patch["fokus"] \
+                or seite_patch["zeilen"] != [["+", "1", "", "−", "stumpf"], ["+", "", "1", "+", "scharf"]] or not seite_patch["fokus"] \
                 or seite_patch["datei"] != "aaaaaaa.patch" or seite_patch["zurueck"] != [True, True] \
                 or len(seite_patch["angaben"]) != 3 or not seite_patch["angaben"][0].startswith("angenommen ✓ von Du") \
                 or seite_patch["angaben"][1:] != ["Eingespielt als ccccccc", "Danke – <i>sauber</i>."] or seite_patch["fett"] != 0 \
