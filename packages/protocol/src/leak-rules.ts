@@ -135,7 +135,8 @@ export function regelZapAnonym(zapAnfragen: readonly NostrEvent[], identitaet: s
 /**
  * Repos privater Räume nie offen (Schritt 11.4b): kein offenes Event der
  * Arten 30617, 38042, 1617, 1630–1633 und (seit C-17a) 1621 zu ihren
- * Kennungen, (seit C-20h1) kein offenes Release (30063), kein offener
+ * Kennungen, (seit C-20h1) kein offenes Release (30063), (seit C-20j1) kein
+ * Stern (7) und kein offener Eintrag einer Repo-Liste (10018), kein offener
  * Kommentar (1111) und (seit C-20i1) kein offenes Label-Event (1985) zu ihren
  * inneren Issues und Patches (`innere`), und ihr Bundle-Schlüssel nirgends im
  * Klartext.
@@ -146,7 +147,7 @@ export function regelRaumRepoPrivat(
   events: readonly NostrEvent[],
   p: { repoIds: readonly string[]; schluessel: readonly string[]; innere?: readonly string[] },
 ): LeakFinding[] {
-  const arten = new Set([30617, 38042, 1617, 1621, 1630, 1631, 1632, 1633, 30063]);
+  const arten = new Set([30617, 38042, 1617, 1621, 1630, 1631, 1632, 1633, 30063, 7, 10018]);
   const innere = new Set(p.innere ?? []);
   const schluessel = p.schluessel.filter((k) => k.length >= 16).map((k) => k.toLowerCase());
   return events.filter((e) => e.kind !== 1059 && e.kind !== 445).flatMap((e) => {

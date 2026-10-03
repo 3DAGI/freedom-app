@@ -573,6 +573,29 @@ nach NIP-32. In privaten Räumen nur als inneres Event (`raumRepoLabels()`;
 `raumReposPrivat()` liefert `labels`); die Leak-Regel `raum-repo-privat` weist
 ein offenes Label-Event zu einem inneren Issue oder Patch ab.
 
+**Forks, Sterne und Beobachten** (seit C-20j1, `nip34.ts`, `repo-sterne.ts`;
+Vorschlag nach derselben Entscheidung).
+
+- **Fork:** eine eigene Ankündigung (30617) des Forkenden mit
+  `["a", "30617:<eigentümer>:<kennung>", "", "fork"]` – gelesen nur mit der
+  Marke `fork` und nie mit der eigenen Adresse (`forkVon`, `forksVon()`). Wie
+  bei NIP-34 üblich trägt ein Fork denselben ersten Commit (`r` mit `euc`).
+- **Stern:** öffentlich, eine Reaktion nach NIP-25 (Kind 7, Inhalt `⭐`) mit
+  genau einem `a` = Repo, dazu `p` = Eigentümer und `k` = `30617`.
+  Zurücknehmen mit einer Löschung nach NIP-09 (Kind 5, `e` = Id des Sterns,
+  `k` = `7`). Gezählt wird je Person höchstens ein Stern; ein Stern, den sein
+  Autor gelöscht hat, zählt nicht – auch wenn ein Relay die Löschung nicht
+  befolgt (`sterneZu()`).
+- **Beobachten:** privat – eine NIP-51-Liste „Git repositories“ (Kind 10018)
+  **nur mit privaten Einträgen**: Der Inhalt ist `[["a", <adresse>], …]`,
+  mit dem eigenen Schlüssel nach NIP-44 verschlüsselt; offene Tags gibt es
+  nicht (`baueBeobachtungsListe()`, `leseBeobachtungsInhalt()`, höchstens 500).
+  Anders als bei GitHub gibt es darum keine Zahl der Beobachter.
+
+In privaten Räumen gibt es Sterne und Forks nicht offen; die Leak-Regel
+`raum-repo-privat` weist einen Stern (7), einen offenen Listeneintrag (10018)
+und einen Fork (30617 mit Verweis) zu einem Repo eines privaten Raums ab.
+
 ## 20. Umfragen und Termine in privaten Räumen (NIP-88, NIP-52, seit B-15a)
 
 Standard-Events anderer Clients, kein eigenes Format – aber nur als innere

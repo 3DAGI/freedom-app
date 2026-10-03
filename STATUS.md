@@ -15595,3 +15595,41 @@ Fremde zählen nicht, Label-Filter folgt, nie über die Grenze
 klemmt“ „Labels bearbeiten“ (vorbelegt „bug“, dazu „dringend“) und
 „Zuständige wählen“ (drei Kandidaten, „Du“) – zwei Events 1985 mit dem ganzen
 Stand je Namensraum, danach „bug“, „dringend“ und „Zuständig: Du“ auf der Seite.
+
+## Schritt C-20j1 – Forks, Sterne und Beobachten (Protokoll)
+
+**Warum:** Sammlung C-20, der letzte Punkt mit eigenem Format, nach der
+Entscheidung des MENSCHEN vom 02.10.2026.
+
+**Was:**
+- Fork (`nip34.ts`): neues Feld `forkVon` in der Ankündigung →
+  `["a", "30617:<eigentümer>:<kennung>", "", "fork"]`. Gelesen nur mit der
+  Marke `fork` und nie auf die eigene Adresse; ein bloßes `a`-Tag ist kein
+  Fork. Fehler `repo-fork`. `forksVon()` (`repo-sterne.ts`) sammelt die Forks.
+- Stern (`repo-sterne.ts`): öffentlich, Reaktion nach NIP-25 (Kind 7, Inhalt
+  `⭐`, genau ein `a` = Repo, `p` = Eigentümer, `k` = 30617). Zurück mit
+  einer Löschung nach NIP-09 (Kind 5, `e` = Id des Sterns). `sterneZu()`
+  zählt je Person den jüngsten Stern; einer, den sein Autor gelöscht hat,
+  zählt nie – auch wenn ein Relay die Löschung nicht befolgt. Die Löschung
+  eines anderen zählt nicht.
+- Beobachten: privat. NIP-51-Liste „Git repositories“ (Kind 10018) nur mit
+  privaten Einträgen: `beobachtungsInhalt()` liefert den Klartext
+  `[["a", …], …]`, die App verschlüsselt ihn über den Signer (NIP-44 an sich
+  selbst); `baueBeobachtungsListe()` nimmt nur das Chiffrat und hat keine
+  offenen Tags. `leseBeobachtungsInhalt()` liest streng (höchstens 500).
+  `eigeneBeobachtungsListe()` nimmt die jüngste eigene ohne offene Einträge.
+  Darum gibt es – anders als bei GitHub – keine Zahl der Beobachter.
+- Leak-Regel `raum-repo-privat` kennt jetzt Kind 7 und 10018: Ein Stern, ein
+  offener Listeneintrag oder ein Fork (30617 mit Verweis) zu einem Repo eines
+  privaten Raums ist ein Leck.
+- `KIND_LOESCHUNG` gab es schon (`coverage.ts`) – mitgenutzt, nicht doppelt.
+- Fehler mit Kennung (`repo-fork`, `stern-repo`, `beobachten-liste`) und
+  Texten in beiden Sprachen. Format in `docs/PROTOCOL.md` (19).
+
+**Tests:** protocol +4 (`repo-sterne.test.ts`): Fork (Marke, nie auf sich
+selbst), Sterne (einer je Person, Löschung nur vom Autor, nur genau dieses
+Repo, ein Like ist kein Stern), Beobachten (keine offenen Tags, strenges
+Lesen), Leak-Regel.
+
+**Verdrahtet:** noch nicht in der App – das ist C-20j2; bis dahin sieben
+begründete Ausnahmen in `wiring-ausnahmen.txt`.

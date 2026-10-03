@@ -51,7 +51,12 @@ export interface RepoAnkuendigung {
   maintainer?: string[];
   /** Öffentlicher Raum, zu dem das Repo gehört (`raumAdresse()`, 11.4a) – Tag „a“. */
   raum?: string;
+  /** Fork von diesem Repo (C-20j1): `30617:<eigentümer>:<kennung>` – Tag `["a", …, "", "fork"]`. */
+  forkVon?: string;
 }
+
+/** Adresse eines Repos (`repoAdresse()`), streng. */
+export const REPO_ADRESSE = /^30617:[0-9a-f]{64}:[a-zA-Z0-9._-]{1,64}$/;
 
 export function repoAdresse(eigentuemer: string, id: string): string {
   return `${KIND_REPO_ANKUENDIGUNG}:${eigentuemer}:${id}`;
@@ -63,6 +68,9 @@ export function baueRepoAnkuendigung(r: RepoAnkuendigung, eigentuemer: string): 
   for (const m of r.maintainer ?? []) if (!HEX64.test(m)) throw new ProtokollFehler("repo-maintainer", "Maintainer muss ein 64-stelliger Hex-Schlüssel sein");
   if (r.ersterCommit !== undefined && !SHA1.test(r.ersterCommit)) throw new ProtokollFehler("repo-erster-commit", "Erster Commit muss ein SHA-1 sein");
   if (r.raum !== undefined && !leseRaumAdresse(r.raum)) throw new ProtokollFehler("repo-raum", "Kein öffentlicher Raum (34700:<Schlüssel>:space:<Kennung>)");
+  if (r.forkVon !== undefined && (!REPO_ADRESSE.test(r.forkVon) || r.forkVon === repoAdresse(eigentuemer, r.id))) {
+    throw new ProtokollFehler("repo-fork", "Fork nur von einem anderen Repo (30617:<Schlüssel>:<Kennung>)");
+  }
   const tags: string[][] = [["d", r.id], ["name", r.name.slice(0, 100)]];
   if (r.beschreibung) tags.push(["description", r.beschreibung.slice(0, 500)]);
   if (r.klon.length) tags.push(["clone", ...r.klon]);
@@ -70,6 +78,7 @@ export function baueRepoAnkuendigung(r: RepoAnkuendigung, eigentuemer: string): 
   if (r.ersterCommit) tags.push(["r", r.ersterCommit, "euc"]);
   if (r.maintainer?.length) tags.push(["maintainers", ...r.maintainer]);
   if (r.raum) tags.push(["a", r.raum]);
+  if (r.forkVon) tags.push(["a", r.forkVon, "", "fork"]);
   return buildEvent(eigentuemer, KIND_REPO_ANKUENDIGUNG, tags, "");
 }
 
@@ -83,6 +92,8 @@ export function leseRepoAnkuendigung(ev: UnsignedEvent): GelesenesRepo {
   const alle = (name: string) => getTags(ev, name).flatMap((t) => t.slice(1));
   const euc = ev.tags.find((t) => t[0] === "r" && t[2] === "euc")?.[1];
   const raum = ev.tags.find((t) => t[0] === "a" && leseRaumAdresse(t[1]))?.[1];
+  // Fork (C-20j1): nur mit Marke „fork“, nur die Adresse eines anderen Repos
+  const forkVon = ev.tags.find((t) => t[0] === "a" && t[3] === "fork" && REPO_ADRESSE.test(t[1] ?? "") && t[1] !== repoAdresse(ev.pubkey, id))?.[1];
   return {
     id,
     name: (getTag(ev, "name") ?? id).slice(0, 100),
@@ -92,6 +103,7 @@ export function leseRepoAnkuendigung(ev: UnsignedEvent): GelesenesRepo {
     ersterCommit: euc && SHA1.test(euc) ? euc : undefined,
     maintainer: alle("maintainers").filter((m) => HEX64.test(m) && m !== ev.pubkey),
     ...(raum ? { raum } : {}),
+    ...(forkVon ? { forkVon } : {}),
     eigentuemer: ev.pubkey,
     adresse: repoAdresse(ev.pubkey, id),
   };
