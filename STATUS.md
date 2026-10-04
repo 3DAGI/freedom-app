@@ -15699,3 +15699,45 @@ keinen Schlüssel), „Forks: 1“; der Fork zeigt „Geforkt von … / werkzeug
 und Tags, Verlauf, Suche, Labels, Benachrichtigungen, Reviews, Releases,
 Zuständigen, Sternen, Beobachten und Forks. Ohne Server bleiben Actions und
 Pages (höchstens über Provider-Knoten mit Sandbox, Spur A/B).
+
+## Schritt A-7r – Entscheidungen 04.10., „vergleichen“ zurückgenommen, Entwurf Freedom-Prüfung
+
+Entscheidungen des MENSCHEN vom 04.10.2026 (Sammlung, Abschnitt 5):
+
+| Frage | Entscheidung |
+|---|---|
+| E1 | A: frische Adresse, keine Verwahrung |
+| E2 | A |
+| E3 | A: der Zahlkanal ist vorab einzahlen, Treuhand, Rest zurück. Neu dazu Z1 A: `refund` nach Ablauf ohne Unterschrift des Kunden. Seed Vault erst in der nativen App. |
+| E4 | A |
+| E5 | aufgeteilt: Logik Spur A, Oberfläche Spur C |
+| E7 | wie OpenRouter, mit automatischen Kontrollen statt Vergleichen für Kunden |
+| E8 | B, dazu Aufstocken und Warnung |
+| E9 | A |
+| E10 | B |
+| E11 | B jetzt, A nach dem Devnet-Deploy |
+
+**Was:**
+- **Haken „vergleichen“ (A-7) entfernt.** Der MENSCH will ihn nicht als
+  Kundenfunktion und nicht auf der Agent-Seite. Raus sind:
+  - `askKonsens()`, `konsensVorbereiten()`, `setupKonsens()` und `nachAnzeige` in
+    `handleAnswer()` (`shell/tabs/agent.ts`);
+  - das Label in `index.html` und die Texte `agent.konsens*`;
+  - `app/src/konsens.ts` und `konsens.test.ts` (−4 Tests, Funktion entfernt);
+  - im Test `ki-lokal.test.ts` die Grenze des Ausschnitts von `askAi()`, jetzt
+    die nächste Funktion.
+- **`consensus.ts` bleibt** als Baustein des Prüfers. Die fünf Ausnahmen in
+  `wiring-ausnahmen.txt` sind mit dem neuen Grund zurück.
+- **`docs/FREEDOM-PRUEFUNG.md` (neu):**
+  - Recherche, wie OpenRouter prüft und auswählt (Testverkehr vor dem
+    Freischalten, Verfügbarkeit in Stufen 95/80 %, Ausfall zurückstellen, 1/Preis²,
+    Auto Exacto mit Neuen in der Mitte, öffentliche Kennzahlen).
+  - Übertragung auf FreedomStack: eigene Messung nur auf dem Gerät; Prüfer als
+    Rolle des Knotens mit synthetischen Prüffragen; Messbericht 38081;
+    Auswahl in der App; Probezeit mit Grundtest.
+  - Schritte P1–P4.
+- **Sammlung:** E1–E11 entschieden, Z1 neu, A-1/A-6–A-10 nachgezogen.
+- **FORTSCHRITT:** Reihenfolge der Spur A.
+- **CLAUDE.md:** Fallstrick „Kein Vergleichen für Kunden“ statt der Regel aus
+  A-7.
+- **Whitepaper:** Prüfung „im Aufbau“ statt „gibt es“.

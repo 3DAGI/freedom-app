@@ -937,18 +937,13 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   Passphrase nur im Dialog (`verdeckt: true`). Was nie auf ein Relay darf
   (Quittungen, KI-Verläufe), steht in `EXPORT_ZUSAETZLICH`, nicht in
   `SICHERUNG_EINTRAEGE`.
-- **Vergleich über mehrere Provider nur über `konsens.ts`** (seit A-7):
-  Nur auf Wunsch je Frage – der Haken `#ai-konsens` wird beim Senden gelesen
-  und wieder aus (`konsensGewaehlt()`), nie bei Max/Swarm. Vor dem Senden die
-  Provider wählen (`konsensZiele()`, mindestens `KONSENS_MIN`, sonst geht
-  nichts hinaus – auch kein Einzelauftrag) und die Kosten über
-  `consensusCostPreview()` bestätigen lassen. Gesendet nur über
-  `buildJobEvent()` je Provider (eigener Sitzungsschlüssel, kein Zusatz-Tag –
-  die Provider erfahren nichts voneinander), angenommen nur über
-  `KonsensSammlung.nimm()` (eine je Anfrage, nur vom Gefragten), bezahlt wie
-  jede Antwort über `handleAnswer()`. Das Ergebnis nur als Text aus den
-  Feldern (`konsensText()`, nie die deutsche `explanation`) und nie im
-  Verlauf – der reist als Kontext mit der nächsten Frage.
+- **Kein Vergleichen für Kunden** (A-7 zurückgenommen 04.10.2026, MENSCH):
+  Auf der Agent-Seite gibt es keinen Haken „vergleichen“ mehr – nicht wieder
+  einbauen (Max und Swarm bleiben, wie sie sind). Verfügbarkeit und Qualität
+  der Provider prüft die App automatisch nach `docs/FREEDOM-PRUEFUNG.md` (E7,
+  OpenRouter-Vorbild): eigene Messung nur auf dem Gerät, Prüfer stellen nur
+  eigene Prüffragen, nie Fragen von Nutzern. `consensus.ts` bleibt Baustein
+  des Prüfers (Ausnahmen in `wiring-ausnahmen.txt` mit diesem Grund).
 - **Offene Räume nur über die Adresse des Gründers** (seit B-7): gemerkt
   (`freedom.spaces`, `oeffentliche-raeume.ts`) und weitergegeben wird
   `34700:<gründer>:space:<kennung>`; den Raum baut nur `raumZustandFuer()` –

@@ -38,7 +38,7 @@ import {
 } from "./state.js";
 import { haltevorModell, kuendigeModellAn, veroeffentlicheKatalog, zeigeKataloge, zeigeModelle } from "./tabs/agent-netz.js";
 import { starteStreitfall } from "./streitfall-ui.js";
-import { askAi, setupFunkAntworten, setupKonsens } from "./tabs/agent.js";
+import { askAi, setupFunkAntworten } from "./tabs/agent.js";
 import { neueAufgabe, zeigeVerlaeufe } from "./tabs/agent-verlauf.js";
 import { refreshModelDropdown, setupModelPicker } from "./tabs/modellwahl.js";
 import { setupAttach, setupEmptyState, setupToolChips } from "./tabs/agent-eingabe.js";
@@ -935,8 +935,6 @@ function starte(): void {
   setupAttach();
   setupToolChips();
   setupModelPicker();
-  // Vergleich über mehrere Provider nur bei free, classic, pro (A-7)
-  setupKonsens();
   setupEmptyState();
   // Antworten auf KI-Anfragen über Funk (7.4c2)
   setupFunkAntworten();
