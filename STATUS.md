@@ -16250,6 +16250,8 @@ danach Spur B. Vorlage: `docs/E9-ENTWURF.md`.
 
 Dazu Fragen F1–F6 und eine Aufteilung E9-1 bis E9-5.
 
-**Prüfungen:** nur Doku – alle Befehle grün wie auf `main` (siehe PR).
+**Prüfungen:** nur Doku. Alle Befehle grün und unverändert gegenüber `main`:
+protocol 1155, node 314, app 865, mls 13, Leak 72 + 1 todo, check-wiring
+Exit 0, innerHTML Exit 0, Website ok, Smoke-Test bestanden.
 
 Knoten-Stand: unverändert.
