@@ -128,7 +128,9 @@ Die Messung bleibt nur auf dem Gerät.
    - Quittungen und Ruf wirken wie heute zusätzlich.
 4. **Neue ohne genug Daten stehen in der Mitte:** vor den Herabgestuften, hinter
    den Normalen mit Daten. Heute stehen sie ganz hinten (Score -1) – genau das
-   verhindert, was E7 will.
+   verhindert, was E7 will. Unter den Neuen stehen bekannte (mit Quittungen,
+   eigene oder von Kontakten) vor unbekannten: Ein Unbekannter wird normal erst
+   durch Messung – eigene oder die eines Prüfers (Grundtest, 3.4).
 5. **Lastverteilung:** Unter gleich Guten wählt die App zufällig, gewichtet mit
    1/Preis² (`sichererZufall()`), statt immer denselben. So bekommen günstige
    und neue Provider Verkehr.
@@ -177,7 +179,8 @@ Die Messung bleibt nur auf dem Gerät.
 ## 7. Schritte (Spur A, je ein PR, jeweils unter ~400 Zeilen)
 | Schritt | Inhalt |
 |---|---|
-| P1 | Protokoll ohne DOM: Prüffragen aus Vorlagen und ihre Prüfung; Messbericht bauen und lesen; Auswahl-Rechnung (Stufen, Mitte für Neue, Ausreißer, 1/Preis²). Tests, auch Negativfälle. |
+| P1a | Protokoll ohne DOM (`pruefung.ts`): Prüffragen aus Vorlagen und ihre Prüfung (Rechnen, Umkehren, Zählen, Sortieren, JSON); eigene Messung (Fenster, Median, Ausfall); Auswahl-Rechnung (Stufen, Mitte für Neue, Ausreißer, 1/Preis²). Tests, auch Negativfälle. Wissensfragen und Werkzeug-Aufruf kommen mit P3. |
+| P1b | Messbericht 38081 (`messbericht.ts`): bauen und lesen (Treffer je Prüfart, Durchsatz freiwillig; Arten, die ein Leser nicht kennt, zählen nicht), `docs/PROTOCOL.md` §28. |
 | P2 | App: eigene Messung (Tresor), Auswahl in `matchmaking.ts` über P1, Berichte der gewählten Prüfer lesen, Anzeige auf der Seite Netz (nur Text), Datenschutzbericht. |
 | P3 | Knoten: Prüfer-Rolle – Grundtest, laufende Prüfung, Budget, Bericht veröffentlichen; `pruefeEinrichtung()` kennt sie. |
 | P4 | Probezeit und Prüfer verbinden, FAQ, MENSCH-Checkliste. |
