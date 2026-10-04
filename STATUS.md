@@ -15741,3 +15741,10 @@ Entscheidungen des MENSCHEN vom 04.10.2026 (Sammlung, Abschnitt 5):
 - **CLAUDE.md:** Fallstrick „Kein Vergleichen für Kunden“ statt der Regel aus
   A-7.
 - **Whitepaper:** Prüfung „im Aufbau“ statt „gibt es“.
+
+Endstand (A-7r, 04.10.): protocol 1188 (6 übersprungen) · node 313 (6
+übersprungen, mit Netz) · app 842 (−4 `konsens.test.ts`, Funktion auf Wunsch
+des MENSCHEN entfernt; +1 Test, dass der Haken nicht wiederkommt) · mls 13 ·
+Leak-Tests 72 grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 (159
+Ausnahmen) · innerHTML streng Exit 0 · Website ok · Smoke-Test bestanden.
+Knoten-Stand: unverändert.
