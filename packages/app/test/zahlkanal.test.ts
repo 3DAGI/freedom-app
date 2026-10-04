@@ -169,7 +169,7 @@ function kette(konten: Map<string, { owner: string; data: Buffer }>) {
   return { conn: conn as unknown as import("@solana/web3.js").Connection, wallet, gesendet };
 }
 
-test("Rückholen: offen ist ein Kanal, solange sein Konto beim Programm liegt; refund mit dem Kunden als Unterzeichner", async () => {
+test("Rückholen: offen ist ein Kanal, solange sein Konto beim Programm liegt; refund ohne Unterschrift des Kunden (Z1)", async () => {
   const offen = Keypair.generate().publicKey.toBase58();
   const fremdesProgramm = Keypair.generate().publicKey.toBase58();
   const weg = Keypair.generate().publicKey.toBase58();
@@ -185,17 +185,20 @@ test("Rückholen: offen ist ein Kanal, solange sein Konto beim Programm liegt; r
   assert.deepEqual(r, { signature: "sig1", refunded: [offen], failed: [] });
   const [ix] = k.gesendet[0]!.instructions;
   assert.equal(ix!.programId.toBase58(), KANAL_PROGRAMM_ID);
-  assert.deepEqual(ix!.keys.map((x) => [x.pubkey.toBase58(), x.isSigner]), [[kunde, true], [offen, false]]);
+  assert.deepEqual(ix!.keys.map((x) => [x.pubkey.toBase58(), x.isSigner]), [[kunde, false], [offen, false]]);
 });
 
-test("Rückholen: Kanal einer anderen Wallet – keine Transaktion, klarer Grund", async () => {
+test("Rückholen (Z1): Kanal einer anderen Wallet – das Geld geht an deren Adresse, diese Wallet zahlt nur die Gebühr", async () => {
   const fremd = Keypair.generate().publicKey.toBase58();
   const kanalFremd = Keypair.generate().publicKey.toBase58();
   const k = kette(new Map([[kanalFremd, { owner: KANAL_PROGRAMM_ID, data: kontoDaten(fremd) }]]));
   const r = await erstatteKanaele(k.conn, k.wallet, [kanalFremd]);
-  assert.equal(k.gesendet.length, 0);
-  assert.deepEqual(r.refunded, []);
-  assert.match(r.failed[0]!.reason, new RegExp(fremd.slice(0, 6)));
+  assert.deepEqual(r, { signature: "sig1", refunded: [kanalFremd], failed: [] });
+  const tx = k.gesendet[0]!;
+  const [ix] = tx.instructions;
+  assert.deepEqual(ix!.keys.map((x) => [x.pubkey.toBase58(), x.isSigner, x.isWritable]), [[fremd, false, true], [kanalFremd, false, true]], "Empfänger ist der Kunde auf der Kette");
+  assert.notEqual(fremd, kunde);
+  assert.equal(tx.feePayer?.toBase58(), kunde, "die Gebühr zahlt diese Wallet");
 });
 
 test("Wächter: gibt die Art der Sperre an den Runner – ein Kanal wird wie ein Kanal zurückgeholt", async () => {
@@ -305,4 +308,35 @@ test("4.3d2 Verdrahtung: Programm und Angebot prüfen, Tresor, merken, dann einz
   const html = readFileSync(new URL("../src/shell/index.html", import.meta.url), "utf8");
   const lp = html.slice(html.indexOf('data-subpane="wallet:lp"'), html.indexOf("<!-- EARN -->"));
   for (const id of ["kanal-karte", "kanal-betrag", "kanal-laufzeit", "kanal-status", "kanal-start", "kanal-liste"]) assert.match(lp, new RegExp(`id="${id}"`));
+});
+
+test("E8: „knapp“, sobald der Rest weniger als drei weitere Anfragen dieser Größe deckt; Aufstocken erhöht nur die Einlage", async () => {
+  const { eintrag } = kanal({ eingezahlt: "1000000" });
+  const { buch } = await buchMit(eintrag);
+  const w1 = buch.gutschriftFuer({ provider: PROVIDER, bedarf: 200_000n, jetzt: JETZT });
+  assert.equal(w1.art === "kanal" && w1.knapp, false, "800 000 frei – reicht für vier weitere");
+  const w2 = buch.gutschriftFuer({ provider: PROVIDER, bedarf: 300_000n, jetzt: JETZT });
+  assert.equal(w2.art === "kanal" && w2.knapp, true, "700 000 frei – weniger als drei weitere zu 300 000");
+  await buch.aufgestockt(eintrag.kanal, 2_000_000n);
+  const nachher = buch.alle().find((x) => x.kanal === eintrag.kanal)!;
+  assert.equal(nachher.eingezahlt, "3000000");
+  assert.deepEqual({ ...nachher, eingezahlt: eintrag.eingezahlt }, eintrag, "sonst unverändert");
+  const w3 = buch.gutschriftFuer({ provider: PROVIDER, bedarf: 300_000n, jetzt: JETZT });
+  assert.equal(w3.art === "kanal" && w3.knapp, false, "nach dem Aufstocken wieder genug");
+  await buch.aufgestockt(eintrag.kanal, 0n);
+  await buch.aufgestockt("fremd", 5n);
+  assert.equal(buch.alle().find((x) => x.kanal === eintrag.kanal)!.eingezahlt, "3000000", "0 und fremde Kanäle ändern nichts");
+});
+
+test("E8 Verdrahtung: Aufstocken nur mit der Wallet des Kunden, erst bestätigen, Einlage erst nach der Kette; Warnung einmal je Kanal", () => {
+  const ui = readFileSync(new URL("../src/shell/zahlkanal-ui.ts", import.meta.url), "utf8");
+  const fn = ui.slice(ui.indexOf("export async function stockeKanalAuf("));
+  assert.ok(fn.indexOf("signer.publicKey.toBase58() !== e.kunde") < fn.indexOf("await dialog("), "die Wallet zuerst prüfen");
+  assert.ok(fn.indexOf("await bestaetige(") < fn.indexOf("await sendeMitWallet("), "erst bestätigen");
+  assert.ok(fn.indexOf("await sendeMitWallet(") < fn.indexOf("await kanalBuch.aufgestockt("), "Einlage erst nach der Kette");
+  assert.match(fn, /stockeKanalAufIx\(\{ kunde: e\.kunde, kanal, betrag: lamports \}\)/);
+  assert.match(fn, /solZuLamports\(String\(w\.sol\)\)/, "Betrag ohne Gleitkomma");
+  assert.match(ui, /if \(e\.ablauf - jetzt >= KANAL_NUTZBAR_SEK\) \{\s*const knopf = el\("button", t\("waehr\.kanalAufstocken"\)/, "Knopf nur, solange der Kanal taugt");
+  const kz = readFileSync(new URL("../src/shell/ki-zahlung.ts", import.meta.url), "utf8");
+  assert.match(kz, /if \(wahl\.knapp && !knappGemeldet\.has\(wahl\.eintrag\.kanal\)\) \{\s*knappGemeldet\.add\(wahl\.eintrag\.kanal\);/);
 });

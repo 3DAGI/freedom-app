@@ -110,7 +110,7 @@ test("B-1: Frage – Stopp bricht ab, zu lange heißt Zeit abgelaufen", async ()
 
 test("B-1: verdrahtet – askAi fragt „Dieses Gerät“ nach dem gewählten Funk, vor Kontingent und Netz; die Wahl zeigt den Bereich immer", () => {
   const src = ["agent", "modellwahl", "agent-verlauf", "agent-wege", "agent-anzeige", "agent-eingabe"].map((d) => readFileSync(new URL(`../src/shell/tabs/${d}.ts`, import.meta.url), "utf8")).join("\n");
-  const ask = src.slice(src.indexOf("export async function askAi("), src.indexOf("function konsensGewaehlt(")); // seit C-5d folgt askWithFailover in agent-wege.ts
+  const ask = src.slice(src.indexOf("export async function askAi("), src.indexOf("function maybeInsertModelSwitchSummary(")); // seit C-5d folgt askWithFailover in agent-wege.ts
   const lokal = ask.indexOf("await frageAufDiesemGeraet(prompt, lokalModell, btn);");
   assert.ok(lokal > 0, "askAi ruft frageAufDiesemGeraet");
   assert.ok(lokal > ask.indexOf("await frageUeberFunk("), "ein ausdrücklich gewählter Funk geht vor");

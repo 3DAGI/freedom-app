@@ -282,11 +282,15 @@ könnte.
 ### Werben – eine Ebene je Seite (`werbung.ts`)
 
 - Der Werbelink trägt Schlüssel und Lightning-Adresse des Werbers
-  (`?ref=<pk>&ln=<lud16>`). Die App des Geworbenen merkt sich den ersten Werber
+  (`?ref=<pk>&ln=<lud16>`), seit 12.2 auch eine SOL-Adresse (`&sol=<adresse>`,
+  eine frische aus der eingebauten Wallet, je Kette einmal vergeben). Die App des Geworbenen merkt sich den ersten Werber
   und zahlt ihm 0,5 % jeder KI-Zahlung – ohne öffentliche Nennung; ein
   späterer Link verdrängt ihn nicht.
-- Den Werber eines Providers nennt dessen Angebot (38027); die App des Kunden
-  zahlt ihm 0,5 % der Aufträge dieses Providers.
+- Den Werber eines Providers nennt dessen Angebot (38027: `werber` mit
+  Lightning-Adresse, seit 12.3 `werber_sol` mit SOL-Adresse); die App des Kunden
+  zahlt ihm 0,5 % der Aufträge dieses Providers – per Zahlkanal teilt das
+  Programm den Anteil an die SOL-Adresse zu. Relays bekommen ihren Anteil an
+  die Adressen aus dem signierten Profil ihres Betreibers (`lud16`, `sol`).
 - **Keine Stufen, keine zweite Ebene.** Stufen hingen an gezählten „aktiven
   Geworbenen“ – Selbstauskunft, also fälschbar; eine zweite Ebene bräuchte
   öffentliche Werbebeziehungen, die es nur mit Zustimmung gibt (§15).

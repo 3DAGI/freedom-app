@@ -18,12 +18,12 @@ Spur A wartet (Abschnitt 3).
 | B-14 | entfällt (I1 B) | – |
 | B-16 / B-17 / B-18 | später / nach Freigabe der Kalender bauen (04.10.) / wartet (Deploy Zahlkanal, MENSCH) | – |
 | B-21 Überholtes entfernen (04.10.) | offen: `merge.ts`, `decrementTtl`, Ablauf in `state-backup.ts`, Belege in `mesh.ts` | – |
-| Phase 12 (E5, 04.10.) | baut Spur A | – |
+| Phase 12 (E5, 04.10.) | Logik Spur A, Oberfläche Spur C – nicht Spur B | – |
 
 Zahlen auf `main`:
-- protocol 1188 (6 übersprungen)
+- protocol 1190 (6 übersprungen)
 - node 312 (7 übersprungen ohne Netz, mit Netz 313)
-- app 848 (Spur C zählt weiter, maßgeblich ist die Zeile „Stand …“ in CLAUDE.md)
+- app 855 (Spur C zählt weiter, maßgeblich ist die Zeile „Stand …“ in CLAUDE.md)
 - mls 13
 - Leak 72 + 1 todo
 

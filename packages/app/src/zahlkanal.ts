@@ -29,6 +29,8 @@ import { fehlerText } from "./protokoll-texte.js";
 export const LS_KANAELE = "freedom.kanaele";
 /** So lange muss ein Kanal noch laufen, damit die App ihn nutzt (der Knoten verlangt 1 h). */
 export const KANAL_NUTZBAR_SEK = 2 * 3_600;
+/** „Fast leer“ (E8): Nach dieser Gutschrift deckt der Rest weniger als so viele weitere Anfragen. */
+export const KANAL_KNAPP_ANFRAGEN = 3n;
 /** Spielraum auf den Bedarf, falls sich der Kurs des Providers seit dem Angebot bewegt hat. */
 export const KURS_SPIELRAUM_PROMILLE = 20;
 
@@ -69,7 +71,7 @@ export function bedarfLamports(hoechstMsat: number, satsProSol: number): bigint 
 }
 
 export type GutschriftWahl =
-  | { art: "kanal"; eintrag: KanalEintrag; betrag: bigint; tags: string[][] }
+  | { art: "kanal"; eintrag: KanalEintrag; betrag: bigint; tags: string[][]; knapp: boolean }
   | { art: "erschoepft"; eintrag: KanalEintrag }
   | { art: "keiner" };
 
@@ -122,7 +124,16 @@ export class KanalBuch {
     const sitzung = fromHex(e.sitzung);
     const g = signiereGutschrift(sitzung, e.kanal, betrag, BigInt(e.ablauf));
     sitzung.fill(0);
-    return { art: "kanal", eintrag: e, betrag, tags: gutschriftTags(g) };
+    // Fast leer (E8): Danach reicht der Rest für weniger als KANAL_KNAPP_ANFRAGEN Anfragen dieser Größe
+    const knapp = BigInt(e.eingezahlt) - betrag < p.bedarf * KANAL_KNAPP_ANFRAGEN;
+    return { art: "kanal", eintrag: e, betrag, tags: gutschriftTags(g), knapp };
+  }
+
+  /** Aufgestockt (E8, `top_up` auf der Kette bestätigt): die Einlage wächst, sonst nichts. */
+  async aufgestockt(kanal: string, lamports: bigint): Promise<void> {
+    const e = this.alle().find((x) => x.kanal === kanal);
+    if (!e || lamports <= 0n) return;
+    await this.merke({ ...e, eingezahlt: (BigInt(e.eingezahlt) + lamports).toString() });
   }
 
   /** Die Anfrage mit dieser Gutschrift geht hinaus: letzte Gutschrift und offene Anfrage merken. */
@@ -214,23 +225,20 @@ export async function programmBereit(conn: Connection): Promise<boolean> {
 }
 
 /**
- * Abgelaufene Kanäle zurückholen (Rest und Miete an den Kunden). Nur Kanäle
- * dieser Wallet – eines anderen Kunden lehnt das Programm ab, das meldet die
- * App vorher. Alles in einer Transaktion.
+ * Abgelaufene Kanäle zurückholen (Rest und Miete an den Kunden). Seit Z1 ohne
+ * Unterschrift des Kunden: Diese Wallet zahlt nur die Gebühr, das Geld geht an
+ * den Kunden, der auf der Kette steht – auch wenn es eine andere Wallet ist
+ * (z. B. eine, die gerade nicht verbunden ist). Alles in einer Transaktion.
  */
 export async function erstatteKanaele(
   conn: Connection, wallet: WalletSigner, kanaele: string[],
 ): Promise<{ signature?: string; refunded: string[]; failed: { swapId: string; reason: string }[] }> {
-  const kunde = wallet.publicKey.toBase58();
   const ixs: TransactionInstruction[] = [];
   const dabei: string[] = [];
   const failed: { swapId: string; reason: string }[] = [];
   for (const kanal of kanaele) {
-    const stand = await kanalAufKette(conn, kanal);
-    if (stand && stand.kunde !== kunde) {
-      failed.push({ swapId: kanal, reason: t("zahl.kanalAndereWallet", { adresse: `${stand.kunde.slice(0, 6)}…` }) });
-      continue;
-    }
+    // Empfänger ist der Kunde auf der Kette – nie diese Wallet einsetzen, sonst lehnte das Programm ab
+    const kunde = (await kanalAufKette(conn, kanal))?.kunde ?? wallet.publicKey.toBase58();
     ixs.push(erstatteKanalIx({ kunde, kanal }));
     dabei.push(kanal);
   }

@@ -153,7 +153,7 @@ App des Kunden zahlt jeden Anteil direkt (`docs/GEBUEHREN-ENTSCHEIDUNG.md`).
       eigenen Knoten, SOL-Mehrfachsignatur) – bis dahin bleibt der
       Entwicklungsanteil beim Provider
 - [ ] Provider mit `NODE_LUD16` und, falls geworben, `PROVIDER_WERBER_LUD16`
-      starten; im Angebot (Kind 38027) stehen beide
+      bzw. `PROVIDER_WERBER_SOL` (12.3) starten; im Angebot (Kind 38027) stehen sie
 - [ ] Einen bezahlten Auftrag laufen lassen und bei jedem Empfänger nachsehen,
       ob sein Anteil ankam. Nicht annehmen: fragen.
 

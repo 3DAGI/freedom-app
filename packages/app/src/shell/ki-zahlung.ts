@@ -21,6 +21,8 @@ import type { ProviderZahlung } from "../session-client.js";
 import { werberZahlziel } from "../werbung.js";
 import { KanalBuch, bedarfLamports } from "../zahlkanal.js";
 import { angebotVon, ensurePool, frageBeiAutoren, state } from "./state.js";
+import { solText } from "../preis-anzeige.js";
+import { toast } from "./ui.js";
 import { hostingZahlziel } from "./hosting.js";
 import { geheim } from "./tresor.js";
 import { zahlschienen } from "./zahlschienen.js";
@@ -46,7 +48,9 @@ export const kanalBuch = new KanalBuch(geheim);
  * bekannt ist; Hosting aus der Spiegel-Datei neben freedom.html (5.3).
  */
 export async function empfaengerFuer(providerPk: string): Promise<Empfaenger> {
-  const werber = (await angebotVon(providerPk).catch(() => undefined))?.werber;
+  const angebot = await angebotVon(providerPk).catch(() => undefined);
+  // Werber des Providers (5.1) – mit SOL-Adresse auch per Zahlkanal (12.3)
+  const werber = angebot?.werber || angebot?.werberSol ? { ...(angebot.werber ? { lud16: angebot.werber } : {}), ...(angebot.werberSol ? { sol: angebot.werberSol } : {}) } : undefined;
   const kundenWerber = werberZahlziel(localStorage, state.keypair?.pk);
   const urls = (await ensurePool()).urls;
   void relayZiele.lerne(urls).catch(() => { /* beim nächsten Auftrag */ });
@@ -54,7 +58,7 @@ export async function empfaengerFuer(providerPk: string): Promise<Empfaenger> {
   const hosting = await hostingZahlziel();
   return {
     entwicklung: ENTWICKLUNG,
-    ...(werber ? { "werber-provider": { lud16: werber } } : {}),
+    ...(werber ? { "werber-provider": werber } : {}),
     ...(kundenWerber ? { "werber-kunde": kundenWerber } : {}),
     ...(relays.length > 0 ? { relays } : {}),
     ...(hosting ? { hosting } : {}),
@@ -80,6 +84,8 @@ export function merkeAnfrage(requestId: string, empfaenger: Empfaenger, hoechst:
  * Kanal das Gebot nicht (mehr) oder fehlt der Kurs: Fehler – nie still über
  * Lightning zahlen, wenn der Nutzer einen Kanal für diesen Provider hat.
  */
+const knappGemeldet = new Set<string>();
+
 export async function kanalGutschrift(
   providerPk: string, hoechst: number,
   /** Kurs aus einem gemerkten Angebot – ohne Netz gibt es keine Angebote (7.4c2). */
@@ -92,6 +98,11 @@ export async function kanalGutschrift(
   const wahl = kanalBuch.gutschriftFuer({ provider: providerPk, bedarf: bedarfLamports(hoechst, kurs.satsProSol), jetzt });
   if (wahl.art === "erschoepft") throw new Error(t("zahl.kanalErschoepft"));
   if (wahl.art !== "kanal") return undefined;
+  // Fast leer (E8): einmal je Kanal und Sitzung sagen – lange Sessions sollen nicht still abbrechen
+  if (wahl.knapp && !knappGemeldet.has(wahl.eintrag.kanal)) {
+    knappGemeldet.add(wahl.eintrag.kanal);
+    toast(t("zahl.kanalKnapp", { frei: solText(Number(BigInt(wahl.eintrag.eingezahlt) - wahl.betrag)) }), true);
+  }
   return { tags: wahl.tags, merke: (requestId) => kanalBuch.gesendet(wahl.eintrag.kanal, wahl.betrag, requestId) };
 }
 

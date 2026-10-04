@@ -4,7 +4,8 @@
  * `docs/ZAHLKANAL.md`. Die Tests der Karte: open; mehrere Gutschriften;
  * settle; zweites settle mit niedrigerem Betrag scheitert; settle nach Ablauf
  * scheitert; falsche Signatur scheitert; Gutschrift eines anderen Kanals
- * (Replay) scheitert; refund vor Ablauf scheitert, danach klappt er;
+ * (Replay) scheitert; refund vor Ablauf scheitert, danach klappt er – seit Z1 ohne
+ * Unterschrift des Kunden;
  * Aufteilung stimmt auf den Lamport.
  *
  * Braucht `solana-test-validator` im PATH und das gebaute Programm
@@ -256,18 +257,19 @@ test("top_up: Einlage steigt; eine Gutschrift über der Einlage zahlt nur bis zu
   await scheitert(schicke([stockeKanalAufIx({ kunde: k1.provider.publicKey.toBase58(), kanal: k1.adresse, betrag: 1n })], [k1.provider]), F.FalscherKunde);
 });
 
-test("refund vor Ablauf scheitert, settle nach Ablauf scheitert, refund danach: Rest und Miete an den Kunden, Konto geschlossen", { skip }, async () => {
+test("refund vor Ablauf scheitert, settle nach Ablauf scheitert, refund danach – auch ohne Unterschrift des Kunden (Z1): Rest und Miete an den Kunden, Konto geschlossen", { skip }, async () => {
   const k3 = await oeffne({ nonce: 3n, betrag: 300_000n, laufzeit: 4n, empfaenger: [] });
-  const erstatten = (kunde = k3.kunde) => schicke([erstatteKanalIx({ kunde: kunde.publicKey.toBase58(), kanal: k3.adresse })], [kunde]);
+  // Z1: Der Kunde unterschreibt nicht – die Gebühr zahlt der Zahler der Tests, das Geld geht an den Kunden
+  const erstatten = (kunde = k3.kunde.publicKey) => schicke([erstatteKanalIx({ kunde: kunde.toBase58(), kanal: k3.adresse })], []);
   await scheitert(erstatten(), F.NochNichtAbgelaufen);
   const g = signiereGutschrift(k3.sitzung.geheim, k3.adresse, 100_000n, k3.ablauf);
   await warteBis(k3.ablauf);
   await scheitert(einloesen(k3, g), F.Abgelaufen);
-  await scheitert(erstatten(await neuesKonto(1)), F.FalscherKunde);
+  await scheitert(erstatten((await neuesKonto(1)).publicKey), F.FalscherKunde);
   const imKanal = await lamports(k3.adresse);
   const vorher = await lamports(k3.kunde.publicKey);
   await erstatten();
-  assert.equal((await lamports(k3.kunde.publicKey)) - vorher, imKanal, "Einlage und Miete zurück");
+  assert.equal((await lamports(k3.kunde.publicKey)) - vorher, imKanal, "Einlage und Miete zurück, ohne Abzug – die Gebühr zahlte ein anderer");
   assert.equal(await conn.getAccountInfo(new PublicKey(k3.adresse), "confirmed"), null, "Konto geschlossen");
 });
 

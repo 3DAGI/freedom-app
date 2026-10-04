@@ -126,14 +126,15 @@ test("settle: Ed25519-Anweisung mit Schlüssel, Signatur und Gutschrift direkt d
   ]);
 });
 
-test("refund und top_up: nur Diskriminator bzw. Betrag; Kunde signiert", () => {
+test("refund und top_up: nur Diskriminator bzw. Betrag; refund ohne Unterschrift des Kunden (Z1), top_up mit", () => {
   const kanal = kanalAdresse(kunde, provider, 1n).adresse;
   const r = erstatteKanalIx({ kunde, kanal });
   assert.deepEqual(r.data, disk("global:refund"));
-  assert.deepEqual(r.keys.map((x) => [x.pubkey.toBase58(), x.isSigner, x.isWritable]), [[kunde, true, true], [kanal, false, true]]);
+  assert.deepEqual(r.keys.map((x) => [x.pubkey.toBase58(), x.isSigner, x.isWritable]), [[kunde, false, true], [kanal, false, true]]);
   const t = stockeKanalAufIx({ kunde, kanal, betrag: 77n });
   assert.deepEqual(t.data.subarray(0, 8), disk("global:top_up"));
   assert.equal(t.data.readBigUInt64LE(8), 77n);
+  assert.deepEqual(t.keys.slice(0, 2).map((x) => [x.pubkey.toBase58(), x.isSigner]), [[kunde, true], [kanal, false]], "aufstocken nur der Kunde selbst");
   assert.throws(() => stockeKanalAufIx({ kunde, kanal, betrag: 0n }), /größer als 0/);
 });
 

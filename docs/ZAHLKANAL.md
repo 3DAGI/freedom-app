@@ -60,8 +60,12 @@ Borsh.
    `min(cumulative_amount, deposited) − settled`; ist das nicht mehr als 0,
    scheitert die Anweisung (eine ältere oder gleiche Gutschrift zahlt nichts).
 3. **`refund()`**
-   Konten: customer (Signer, schreibbar), channel (schreibbar). Nur der Kunde,
-   nur **ab** `expiry`. Schließt das Konto: Rest und Miete an den Kunden.
+   Konten: customer (schreibbar, **kein** Signer), channel (schreibbar). Seit Z1
+   (Entscheidung 04.10.2026, vor dem Deploy) darf **jeder** aufrufen – die
+   Gebühr zahlt, wer die Transaktion bezahlt. Nur **ab** `expiry`; `customer`
+   muss der Kunde aus dem Kanal sein (`has_one`). Schließt das Konto: Rest und
+   Miete an den Kunden. So kommt der Rest auch zurück, wenn die Wallet des
+   Kunden nicht unterschreiben kann (z. B. nicht verbunden).
 4. **`top_up(amount: u64)`**
    Konten: customer (Signer, schreibbar), channel (schreibbar), System-Programm.
    Nur der Kunde, nur vor `expiry`, `amount > 0`.
@@ -176,9 +180,10 @@ Gebühr der Einlösung); sonst lehnt die Laufzeit eine kleine Auszahlung ab.
   still über Lightning, wenn der Nutzer für diesen Provider einen Kanal hat.
 - **Zurückholen:** Der Rückhol-Wächter kennt Kanäle als Sperre
   (`kind: "kanal"`, Referenz = Kanal-Adresse). Offen ist ein Kanal, solange sein
-  Konto beim Programm liegt; nach Ablauf holt die verbundene Wallet mit
-  `refund` Rest und Miete zurück. Gehört der Kanal einer anderen Wallet, geht
-  keine Transaktion hinaus, die App nennt den Grund.
+  Konto beim Programm liegt; nach Ablauf holt die App mit `refund` Rest und
+  Miete zurück – an den Kunden, der auf der Kette steht. Die Wallet, die die
+  App gerade hat, zahlt nur die Gebühr (Z1); das gilt auch für einen Kanal
+  einer anderen Wallet.
 - **Öffnen** (4.3d2, Währung → Unterseite mit dem Deposit, `shell/zahlkanal-ui.ts`):
   nur mit verbundener Wallet und nur, wenn der Provider im Angebot einen Kanal
   bei genau diesem Programm nennt und das Programm auf der Kette liegt (bis zum
@@ -186,8 +191,14 @@ Gebühr der Einlösung); sonst lehnt die Laufzeit eine kleine Auszahlung ab.
   nach A+ mit SOL-Adresse (`kanalEmpfaenger()`), nie Provider oder Kunde
   selbst. Erst Tresor, dann merken (Kanal-Buch, Sperre für den Wächter), dann
   einzahlen; scheitert die Einzahlung und zeigt die Kette keinen Kanal, fliegt
-  er aus dem Kanal-Buch. Laufzeit 1, 7 oder 30 Tage. Aufstocken bietet die App
-  nicht an – ein neuer Kanal tut es auch.
+  er aus dem Kanal-Buch. Laufzeit 1, 7 oder 30 Tage.
+- **Aufstocken** (E8, `stockeKanalAuf()`): nur mit der Wallet, die eingezahlt
+  hat (`top_up` will den Kunden als Unterzeichner), nur solange der Kanal noch
+  taugt (mindestens zwei Stunden); erst Betrag und Bestätigung, die Einlage im
+  Kanal-Buch wächst erst nach der Bestätigung der Kette. Reicht der Rest nach
+  einer Gutschrift für weniger als drei weitere Anfragen dieser Größe, sagt die
+  App das einmal je Kanal und Sitzung – lange Sessions sollen nicht still
+  abbrechen.
 - Der Datenschutzbericht nennt als Grenze, was auf der Kette steht (Aussage
   „zahlkanal“).
 - **Verdienen** (4.5b, Earn → Übersicht, `verdienst.ts` + `shell/verdienst-ui.ts`):

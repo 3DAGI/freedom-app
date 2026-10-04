@@ -71,17 +71,24 @@ test("C-5c: Sicherung, Geräte und Mesh aus ihren eigenen Modulen; die Settings 
   assert.match(lies("shell/offline-zahlung.ts"), /await import\("\.\/tabs\/mesh\.js"\)/);
 });
 
-test("C-5d: Modellwahl, Verlauf, Wege, Anzeige und Eingabe aus eigenen Modulen; agent.ts bleibt Frage, Konsens, Auftrag und Antwort", () => {
+test("C-5d: Modellwahl, Verlauf, Wege, Anzeige und Eingabe aus eigenen Modulen; agent.ts bleibt Frage, Auftrag und Antwort (Konsens seit 04.10.2026 entfernt)", () => {
   const agent = lies("shell/tabs/agent.ts");
   for (const fn of ["refreshModelDropdown", "zeigeVerlaeufe", "askWithFailover", "addAiMessage", "addUsageBubble", "setupAttach"]) {
     assert.doesNotMatch(agent, new RegExp(`function ${fn}\\(`), `${fn} steht nicht mehr in agent.ts`);
   }
-  for (const fn of ["askAi", "buildJobEvent", "waitForAnswer", "handleAnswer", "setupKonsens"]) assert.match(agent, new RegExp(`^export (async )?function ${fn}\\(`, "m"));
+  for (const fn of ["askAi", "buildJobEvent", "waitForAnswer", "handleAnswer", "setupFunkAntworten"]) assert.match(agent, new RegExp(`^export (async )?function ${fn}\\(`, "m"));
   // Wer den laufenden Auftrag abbricht oder setzt, steht beim Auftrag selbst – keine fremde Neuzuweisung
   assert.match(agent, /^export let jobAbort: AbortController \| null = null;/m);
   for (const d of ["modellwahl", "agent-verlauf", "agent-wege", "agent-anzeige", "agent-eingabe"]) {
     assert.doesNotMatch(lies(`shell/tabs/${d}.ts`), /\bjobAbort = /, d);
   }
   assert.match(lies("shell/tabs/agent-anzeige.ts"), /^async function reklamiere\(/m, "Reklamation neben der Kosten-Blase, die sie anbietet");
-  assert.match(lies("shell/app.ts"), /import \{ askAi, setupFunkAntworten, setupKonsens \} from "\.\/tabs\/agent\.js";/);
+  assert.match(lies("shell/app.ts"), /import \{ askAi, setupFunkAntworten \} from "\.\/tabs\/agent\.js";/);
+});
+
+test("04.10.2026: kein „vergleichen“ für Kunden – weder auf der Agent-Seite noch im Code des Agenten", () => {
+  assert.doesNotMatch(lies("shell/index.html"), /ai-konsens/);
+  for (const d of ["agent", "modellwahl", "agent-verlauf", "agent-wege", "agent-anzeige", "agent-eingabe"]) {
+    assert.doesNotMatch(lies(`shell/tabs/${d}.ts`), /konsens|consensus/i, d);
+  }
 });

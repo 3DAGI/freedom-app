@@ -15700,6 +15700,193 @@ und Tags, Verlauf, Suche, Labels, Benachrichtigungen, Reviews, Releases,
 Zuständigen, Sternen, Beobachten und Forks. Ohne Server bleiben Actions und
 Pages (höchstens über Provider-Knoten mit Sandbox, Spur A/B).
 
+## Schritt A-7r – Entscheidungen 04.10., „vergleichen“ zurückgenommen, Entwurf Freedom-Prüfung
+
+Entscheidungen des MENSCHEN vom 04.10.2026 (Sammlung, Abschnitt 5):
+
+| Frage | Entscheidung |
+|---|---|
+| E1 | A: frische Adresse, keine Verwahrung |
+| E2 | A |
+| E3 | A: der Zahlkanal ist vorab einzahlen, Treuhand, Rest zurück. Neu dazu Z1 A: `refund` nach Ablauf ohne Unterschrift des Kunden. Seed Vault erst in der nativen App. |
+| E4 | A |
+| E5 | aufgeteilt: Logik Spur A, Oberfläche Spur C |
+| E7 | wie OpenRouter, mit automatischen Kontrollen statt Vergleichen für Kunden |
+| E8 | B, dazu Aufstocken und Warnung |
+| E9 | A |
+| E10 | B |
+| E11 | B jetzt, A nach dem Devnet-Deploy |
+
+**Was:**
+- **Haken „vergleichen“ (A-7) entfernt.** Der MENSCH will ihn nicht als
+  Kundenfunktion und nicht auf der Agent-Seite. Raus sind:
+  - `askKonsens()`, `konsensVorbereiten()`, `setupKonsens()` und `nachAnzeige` in
+    `handleAnswer()` (`shell/tabs/agent.ts`);
+  - das Label in `index.html` und die Texte `agent.konsens*`;
+  - `app/src/konsens.ts` und `konsens.test.ts` (−4 Tests, Funktion entfernt);
+  - im Test `ki-lokal.test.ts` die Grenze des Ausschnitts von `askAi()`, jetzt
+    die nächste Funktion.
+- **`consensus.ts` bleibt** als Baustein des Prüfers. Die fünf Ausnahmen in
+  `wiring-ausnahmen.txt` sind mit dem neuen Grund zurück.
+- **`docs/FREEDOM-PRUEFUNG.md` (neu):**
+  - Recherche, wie OpenRouter prüft und auswählt (Testverkehr vor dem
+    Freischalten, Verfügbarkeit in Stufen 95/80 %, Ausfall zurückstellen, 1/Preis²,
+    Auto Exacto mit Neuen in der Mitte, öffentliche Kennzahlen).
+  - Übertragung auf FreedomStack: eigene Messung nur auf dem Gerät; Prüfer als
+    Rolle des Knotens mit synthetischen Prüffragen; Messbericht 38081;
+    Auswahl in der App; Probezeit mit Grundtest.
+  - Schritte P1–P4.
+- **Sammlung:** E1–E11 entschieden, Z1 neu, A-1/A-6–A-10 nachgezogen.
+- **FORTSCHRITT:** Reihenfolge der Spur A.
+- **CLAUDE.md:** Fallstrick „Kein Vergleichen für Kunden“ statt der Regel aus
+  A-7.
+- **Whitepaper:** Prüfung „im Aufbau“ statt „gibt es“.
+
+Endstand (A-7r, 04.10.): protocol 1188 (6 übersprungen) · node 313 (6
+übersprungen, mit Netz) · app 842 (−4 `konsens.test.ts`, Funktion auf Wunsch
+des MENSCHEN entfernt; +1 Test, dass der Haken nicht wiederkommt) · mls 13 ·
+Leak-Tests 72 grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 (159
+Ausnahmen) · innerHTML streng Exit 0 · Website ok · Smoke-Test bestanden.
+Knoten-Stand: unverändert.
+
+## Schritt Z1 – Zahlkanal: Rest nach Ablauf ohne Unterschrift des Kunden
+
+Entscheidung 04.10.2026 (Z1 A, aus E3): Der Rest eines Kanals soll nach
+Ablauf auch dann zurückkommen, wenn die Wallet des Kunden nicht unterschreiben
+kann – nicht verbunden oder später eine Seed Vault in der nativen App. Geändert
+vor dem Deploy, daher ohne neue Programmversion: Es gibt noch kein
+veröffentlichtes Programm, dessen Verhalten sich ändern würde.
+
+**Was:**
+- **Programm** (`contracts/solana-channel/.../lib.rs`): `refund` hat als
+  Kunden ein `UncheckedAccount` statt `Signer`.
+  - `has_one = customer` bindet die Adresse an den Kunden aus dem Kanal.
+  - `close = customer` schickt Rest und Miete nur dorthin.
+  - Die Gebühr zahlt, wer die Transaktion bezahlt.
+  - Unverändert: nur ab `expiry`; ein falscher Kunde scheitert mit
+    `FalscherKunde`.
+- **Client** (`protocol/src/channel.ts`): `erstatteKanalIx()` ohne
+  Signer-Flag.
+- **App** (`zahlkanal.ts`): `erstatteKanaele()` holt jeden abgelaufenen Kanal
+  zurück, Empfänger ist der Kunde auf der Kette. Die Wallet der App zahlt nur
+  die Gebühr, auch bei einem Kanal einer anderen Wallet; vorher brach die App
+  dort mit „gehört einer anderen Wallet“ ab. Der Text dazu fällt weg.
+- **`docs/ZAHLKANAL.md`, `CLAUDE.md`:** Regel nachgezogen.
+
+**Tests:**
+- Validator (`contracts/solana-channel/tests/kanal.test.ts`, lokal mit Agave
+  3.1.10): 7/7. `refund` jetzt ohne Unterschrift des Kunden – mit dem alten
+  Programm schlüge das fehl. Zurück kommt der volle Betrag, weil ein anderer
+  die Gebühr zahlte.
+- `channel.test.ts`: refund ohne Signer, top_up weiter mit.
+- `zahlkanal.test.ts`: Kanal einer anderen Wallet wird an deren Adresse
+  zurückgeholt.
+
+**Verdrahtet:** `refund-watcher.ts` (`walletRefundRunner` → `erstatteKanaele()`).
+
+**Prüfungen:**
+- protocol 1188 grün (6 übersprungen), node 313 grün, app 842 grün, mls 13;
+- Leak-Tests 72 grün + 1 todo; Zahlkanal 7/7 gegen den Validator;
+- check-wiring `--streng` Exit 0, innerHTML streng Exit 0, Website ok;
+- Smoke-Test bestanden.
+
+Die Zahl der Tests bleibt gleich: Die Fälle sind angepasst, nicht neu.
+
+Knoten-Stand: unverändert. Der Knoten ruft `refund` nicht auf.
+Programm-Stand: Der Devnet-Deploy (MENSCH) muss dieses Programm nehmen.
+
+## Schritt 12.2 + 12.3 – SOL-Adressen für Werber und Relays
+
+Entscheidungen 04.10.2026: E1 (frische Adresse, nichts verwahrt) und E2 A.
+Bei Zahlungen per Zahlkanal fand `kanalEmpfaenger()` bisher nur die
+Hosting-Adresse. Die Anteile von Werbern (2 × 0,5 %) und Relays (1,5 %) blieben
+deshalb beim Provider. Jetzt kennen alle drei auch eine SOL-Adresse.
+
+**12.2 – Werbelink mit SOL-Adresse (App):**
+- `werbung.ts`: `werbeLink(basis, ref, lud16?, sol?)` hängt `&sol=` an, nur
+  eine gültige Adresse.
+- `werbeSolAdresse()` vergibt je Kette einmal eine frische Adresse aus der
+  eingebauten Wallet und merkt sie unter `freedom.solWallet.werbelink`. Das ist
+  das Präfix der Wallet, also im Tresor und nie in der Sicherung. Die
+  Hauptadresse steht nie im Link.
+- Die App des Geworbenen merkt die Adresse wie die Lightning-Adresse
+  (`freedom.referrer.sol`, in der Sicherung): nur vom ersten Werber, nie
+  überschrieben.
+- Beim kurzen Namen (11.2b) gilt sie erst nach der Auflösung.
+- `werberZahlziel()` liefert `{ lud16?, sol? }`.
+- Earn-Tab (`earn.ts`, `ergaenzeWerbeSol()`): Der Link bekommt die Adresse,
+  sobald die Wallet sie hat. Ohne eingebaute Wallet gibt es keine; der Text
+  sagt, was der Link trägt.
+
+**12.3 – Werber des Providers und Relays (Protokoll, Knoten, App):**
+- Angebot 38027 mit `werber_sol` (`tiers.ts`, `werberSol`).
+- Knoten: `PROVIDER_WERBER_SOL`, geprüft; ist sie ungültig, startet er nicht.
+- App: `empfaengerFuer()` gibt dem Anteil `werber-provider` beide Adressen.
+- Relays: `RelayZahlziele` liest aus dem signierten Profil des Betreibers
+  neben `lud16` auch `sol` (`ausProfil()`, nur plausible Adressen).
+- `docs/PROTOCOL.md`, `GO-LIVE.md` und FAQ sind nachgezogen.
+
+**Tests:**
+- app `werbung-sol.test.ts` (+7) und `relay-zahlziel.test.ts` (+1);
+- protocol `werber-sol.test.ts` (+2);
+- node `werber-sol.test.ts` (+1);
+- drei Verdrahtungs-Regexe an die neue Link-Zeile angepasst.
+
+**Verdrahtet:**
+- `shell/tabs/earn.ts` (`updateReferralLink()` → `werbeLink(…, sol)`);
+- `main.ts` (`buildCapabilities({ werberSol })`);
+- `shell/ki-zahlung.ts` (`empfaengerFuer()` → `kanalEmpfaenger()`).
+
+Knoten-Stand: für `werber_sol` im Angebot `main` ab diesem PR (optional; ohne
+Variable ändert sich nichts).
+
+**Prüfungen:**
+- protocol 1190 grün (6 übersprungen; vorher 1188), node 314 grün (vorher 313), app 850 grün (vorher 842);
+- mls 13, Leak-Tests 72 grün + 1 todo;
+- check-wiring `--streng` Exit 0, innerHTML streng Exit 0, Website ok;
+- Smoke-Test bestanden.
+
+## Schritt E8 – Zahlkanal aufstocken und Warnung, bevor er leer ist
+
+Entscheidung 04.10.2026 (E8: Zahlkanal mit Aufstocken und Warnung). Der
+Zahlkanal trägt lange Sitzungen (Agentic Coding) nur, wenn er sich auffüllen
+lässt und rechtzeitig warnt. Bisher brach die Sitzung ab, sobald die Einlage
+aufgebraucht war.
+
+**Was:**
+- **Aufstocken** (`shell/zahlkanal-ui.ts`, `stockeKanalAuf()`):
+  - Knopf je Kanal, solange er noch mindestens `KANAL_NUTZBAR_SEK` läuft.
+  - Geht nur mit der Wallet, die den Kanal eröffnet hat; der Betrag wird im
+    Dialog in SOL eingegeben, gezahlt erst nach der Rückfrage.
+  - Ablauf: `top_up` über `sendeMitWallet()`, die Einlage wächst erst nach
+    der Bestätigung auf der Kette (`KanalBuch.aufgestockt()`).
+- **Warnung** (`zahlkanal.ts`, `ki-zahlung.ts`):
+  - Eine Gutschrift meldet `knapp`, wenn der Rest danach weniger als drei
+    weitere Anfragen derselben Größe deckt (`KANAL_KNAPP_ANFRAGEN`).
+  - Die App sagt es einmal je Kanal und Sitzung.
+  - Der Hinweis beim erschöpften Kanal nennt das Aufstocken.
+- **`docs/ZAHLKANAL.md`:** Aufstocken in der App.
+- **`scripts/wiring-ausnahmen.txt`:** veraltete Ausnahme
+  `channel.ts|stockeKanalAufIx` entfernt, jetzt verdrahtet.
+
+**Tests:** `zahlkanal.test.ts` (+2): knapp und Aufstocken.
+
+**Verdrahtet:**
+- `shell/zahlkanal-ui.ts` (Knopf „Aufstocken“ → `stockeKanalAufIx()`);
+- `shell/ki-zahlung.ts` (`kanalGutschrift()` → Hinweis `zahl.kanalKnapp`).
+
+**Offen:** Die Hinterlegung für KI-Anfragen fällt erst nach dem
+Devnet-Deploy weg – bis dahin ist sie der Weg ohne Kanal.
+
+Knoten-Stand: unverändert. Der Knoten liest die Einlage neu, wenn eine
+Gutschrift über der alten liegt (4.3c).
+
+**Prüfungen:**
+- protocol 1190 grün (6 übersprungen), node 314 grün, app 852 grün (vorher 850);
+- mls 13, Leak-Tests 72 grün + 1 todo;
+- check-wiring `--streng` Exit 0 (158 Ausnahmen, eine veraltete weniger), innerHTML streng Exit 0, Website ok;
+- Smoke-Test bestanden.
+
 ## Schritt B-13e – Anrufe sofort: Abo für Anrufe, drei Minuten klingeln
 
 **Warum:** Entscheidung T4 A (04.10.2026). Ein Angebot sah die App erst beim
