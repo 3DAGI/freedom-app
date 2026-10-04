@@ -149,6 +149,17 @@ export function fasseMessungZusammen(punkte: readonly Messpunkt[], jetzt: number
 
 // ------------------------------------------------------------ Auswahl
 
+/**
+ * Stufe für die Auswahl (3.3): die eigene Messung, sobald sie genug Anfragen
+ * hat (`minEigene`), sonst der Stand der gewählten Prüfer ab `minPruefer`
+ * Prüffragen, sonst „neu“. Eigene Messungen gehen immer vor.
+ */
+export function stufeFuerAuswahl(eigene?: { stufe: Stufe }, pruefer?: { stufe: Stufe }): Stufe {
+  if (eigene && eigene.stufe !== "neu") return eigene.stufe;
+  if (pruefer && pruefer.stufe !== "neu") return pruefer.stufe;
+  return "neu";
+}
+
 export interface PruefKandidat {
   pk: string;
   /** Preis je Auftrag oder je 1k Tokens – nur der Vergleich zählt; 0 = gratis. */

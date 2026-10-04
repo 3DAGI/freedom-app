@@ -52,6 +52,7 @@ import { regelKeineLnAdresse, regelRaumRepoPrivat, regelZapAnonym } from "../src
 import { raumRepoAnkuendigung, raumRepoBundle, raumRepoIssue, raumRepoIssueStatus, raumRepoKommentar, raumRepoPatch } from "../src/raum-repo.js";
 import { fromHex, toHex } from "../src/htlc.js";
 import { LOKAL_STANDARD_ADRESSE, lokaleKiAdresse, lokaleKiAnfrage } from "../src/ki-lokal.js";
+import { baueMessbericht, messberichtFilter } from "../src/messbericht.js";
 import type { NostrEvent, UnsignedEvent } from "../src/event.js";
 import { readFileSync } from "node:fs";
 import { gunzipSync } from "node:zlib";
@@ -187,6 +188,19 @@ const SZENARIEN: Record<string, () => Promise<number>> = {
       .filter((a) => lokaleKiAdresse(a) !== undefined || lokaleKiAnfrage({ adresse: a, modell: "m", frage: PROMPT }) !== undefined).length;
     const events: NostrEvent[] = [];
     return woanders + fremd + regelKeinKlartextPrompt(events, [PROMPT]).length;
+  },
+  pruefung: async () => {
+    // Wie die App seit P2b: Berichte ohne Prüfer im Filter holen; die eigene Messung ist kein Event.
+    const verraet = Object.keys(messberichtFilter()).filter((k) => k !== "kinds" && k !== "limit").length;
+    // Ein Bericht nennt Provider und Zahlen – nie einen Kunden
+    const pruefer = generateKeypair();
+    const jetzt = Math.floor(Date.now() / 1000);
+    const bericht = signEvent(baueMessbericht({
+      provider: b.pk, modell: "llama3.1:8b", von: jetzt - 3600, bis: jetzt, anfragen: 60, erfolge: 59, medianMs: 900,
+      treffer: { rechnen: { richtig: 20, geprueft: 20 } }, stufe: "normal",
+    }, pruefer.pk, jetzt), pruefer.sk);
+    const vonDerApp: NostrEvent[] = [];
+    return verraet + regelKeinKlartext([...vonDerApp, bericht], [a.pk]).length + regelAutorNicht([bericht], a.pk).length;
   },
   "ki-zahlung": async () => {
     const { wraps } = await privateKiRunde();

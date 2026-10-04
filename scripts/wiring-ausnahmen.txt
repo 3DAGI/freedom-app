@@ -202,10 +202,8 @@ release.ts|sharingInstructions|deutsche Referenz; die App bildet den Begleittext
 mesh-sync.ts|offlineCapabilities|deutsche Referenz; die App bildet die Liste seit 8.16g2b2 in protokoll-texte.ts (offlineFaehigkeiten) nach, ein Test hält sie gleich
 spaces.ts|privacyInfo|deutsche Referenz; die App bildet die Rauminfo seit C.2b2 in protokoll-texte.ts (kanalVertraulichkeit) nach, ein Test hält sie wortgleich
 messbericht.ts|baueMessbericht|Freedom-Prüfung P1b (E7, docs/FREEDOM-PRUEFUNG.md) – verdrahtet in P2 (App) und P3 (Prüfer im Knoten)
-messbericht.ts|leseMessbericht|Freedom-Prüfung P1b (E7, docs/FREEDOM-PRUEFUNG.md) – verdrahtet in P2 (App) und P3 (Prüfer im Knoten)
 pruefung.ts|neuePruefFrage|Freedom-Prüfung P1a (E7, docs/FREEDOM-PRUEFUNG.md) – verdrahtet in P2 (App) und P3 (Prüfer im Knoten)
 pruefung.ts|pruefeAntwort|Freedom-Prüfung P1a (E7, docs/FREEDOM-PRUEFUNG.md) – verdrahtet in P2 (App) und P3 (Prüfer im Knoten)
-messbericht.ts|trefferQuote|Freedom-Prüfung P1b (E7, docs/FREEDOM-PRUEFUNG.md) – verdrahtet in P2 (App) und P3 (Prüfer im Knoten)
 kopfgeld.ts|aktuelleKopfgelder|Kopfgelder (E10 B, 04.10.2026) – verdrahtet in E10b (App: Kopfgeld am Issue, Zahlung per Klick)
 kopfgeld.ts|baueKopfgeld|Kopfgelder (E10 B, 04.10.2026) – verdrahtet in E10b (App: Kopfgeld am Issue, Zahlung per Klick)
 kopfgeld.ts|kopfgelderZuIssue|Kopfgelder (E10 B, 04.10.2026) – verdrahtet in E10b (App: Kopfgeld am Issue, Zahlung per Klick)

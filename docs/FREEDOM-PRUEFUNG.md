@@ -182,7 +182,8 @@ Die Messung bleibt nur auf dem Gerät.
 | P1a | Protokoll ohne DOM (`pruefung.ts`): Prüffragen aus Vorlagen und ihre Prüfung (Rechnen, Umkehren, Zählen, Sortieren, JSON); eigene Messung (Fenster, Median, Ausfall); Auswahl-Rechnung (Stufen, Mitte für Neue, Ausreißer, 1/Preis²). Tests, auch Negativfälle. Wissensfragen und Werkzeug-Aufruf kommen mit P3. |
 | P1b | Messbericht 38081 (`messbericht.ts`): bauen und lesen (Treffer je Prüfart, Durchsatz freiwillig; Arten, die ein Leser nicht kennt, zählen nicht), `docs/PROTOCOL.md` §28. |
 | P2a | App: eigene Messung (`messbuch.ts`, Tresor `freedom.messungen`, geschrieben nach jedem Lauf in `askWithFailover()`), Auswahl in `matchmaking.ts` über `ordneNachPruefung()`. |
-| P2b | App: Berichte der gewählten Prüfer lesen (Stufe und Qualität, wo die eigene Messung zu wenig hat), Anzeige auf der Seite Netz (nur Text), Datenschutzbericht. |
+| P2b1 | App: Berichte der gewählten Prüfer lesen (Stufe und Qualität, wo die eigene Messung zu wenig hat; abgefragt ohne Filter nach Prüfer, nur wenn jemand gewählt ist), Datenschutzbericht. |
+| P2b2 | App: Prüfer wählen und Anzeige auf der Seite Netz (nur Text): Verfügbarkeit, Antwortzeit, Stand, Quelle der Zahl. |
 | P3 | Knoten: Prüfer-Rolle – Grundtest, laufende Prüfung, Budget, Bericht veröffentlichen; `pruefeEinrichtung()` kennt sie. |
 | P4 | Probezeit und Prüfer verbinden, FAQ, MENSCH-Checkliste. |
 
