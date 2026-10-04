@@ -11,7 +11,10 @@ import { fliesstext, schluesselAusEingabe } from "../../shell-logic.js";
 import { zeigeVertraute } from "../nachfolge-ui.js";
 import { alsGeraet, ensurePool, mitRohemSchluessel, nimmInPool, signiere, state, veroeffentlicheWeit } from "../state.js";
 import { ladeEigeneRelays, pruefeRelayEingabe, setzeEigeneRelays } from "../../relay-satz.js";
-import { kaufeRelayZugang, leseRelayPreise, merkeZugang, pruefeBeimRelay, zugaenge, type RelayPreise, type Schiene } from "../../relay-kauf.js";
+import {
+  faelligeVerlaengerungen, kaufeRelayZugang, leseRelayPreise, merkeZugang, pruefeBeimRelay, schieneZumVerlaengern, zuErinnern, zugaenge,
+  type RelayPreise, type Schiene,
+} from "../../relay-kauf.js";
 import { satsText, solText } from "../../preis-anzeige.js";
 import { echtheitText, fehlerText, fixierungText, nachfolgeStand, nachfolgeWarnung, weitergabeText } from "../../protokoll-texte.js";
 import { geheim, tresorEingerichtet, wireTresorKarte } from "../tresor.js";
@@ -363,9 +366,10 @@ export async function wireGebuehrenKarte(): Promise<void> {
 export function wireRelayZugang(): void {
   const $e = <T extends HTMLElement>(id: string) => document.getElementById(id) as T | null;
   const feld = $e<HTMLInputElement>("relay-zugang-url");
-  const [preisK, satsK, solK, pruefK] = ["relay-zugang-preis", "relay-zugang-sats", "relay-zugang-sol", "relay-zugang-pruefen"].map((id) => $e<HTMLButtonElement>(id));
+  const [preisK, satsK, solK, pruefK, verlK] = ["relay-zugang-preis", "relay-zugang-sats", "relay-zugang-sol", "relay-zugang-pruefen", "relay-zugang-verlaengern"]
+    .map((id) => $e<HTMLButtonElement>(id));
   const status = $e("relay-zugang-status");
-  if (!feld || !preisK || !satsK || !solK || !pruefK || !status) return;
+  if (!feld || !preisK || !satsK || !solK || !pruefK || !verlK || !status) return;
   if (alsGeraet()) {
     preisK.disabled = true;
     status.textContent = t("set.geraetKauftNicht");
@@ -374,10 +378,16 @@ export function wireRelayZugang(): void {
   feld.value = ladeEigeneRelays(localStorage)[0] ?? "";
   let preise: RelayPreise | null = null;
   const relay = () => feld.value.trim();
+  const datum = (bis: number) => new Date(bis * 1000).toLocaleDateString(gebietsschema());
+  /** Bald ablaufend (E11 B): Hinweis und „Verlängern“ – gezahlt wird erst nach Klick und Rückfrage. */
+  const faellig = () => faelligeVerlaengerungen(zugaenge(localStorage), Math.floor(Date.now() / 1000)).find((f) => f.relay === relay());
   const zeigeStand = (mitText = true) => {
     const z = zugaenge(localStorage)[relay()];
+    const f = faellig();
     pruefK.classList.toggle("hidden", !z?.offen);
-    if (mitText && z?.bis) status.textContent = t("set.zugangBis", { datum: new Date(z.bis * 1000).toLocaleDateString(gebietsschema()) });
+    verlK.classList.toggle("hidden", !f);
+    if (mitText && f) status.textContent = t(f.bis * 1000 > Date.now() ? "set.laeuftAb" : "set.abgelaufen", { relay: f.relay, datum: datum(f.bis) });
+    else if (mitText && z?.bis) status.textContent = t("set.zugangBis", { datum: datum(z.bis) });
   };
   feld.oninput = () => { preise = null; satsK.classList.add("hidden"); solK.classList.add("hidden"); status.textContent = ""; zeigeStand(); };
   preisK.onclick = async () => {
@@ -419,6 +429,19 @@ export function wireRelayZugang(): void {
   };
   satsK.onclick = () => void kaufe("lightning");
   solK.onclick = () => void kaufe("solana");
+  verlK.onclick = async () => {
+    const f = faellig();
+    if (!f) return;
+    status.textContent = t("set.frageRelay");
+    try {
+      preise = await leseRelayPreise(f.relay);
+    } catch {
+      preise = null;
+    }
+    const schiene = preise ? schieneZumVerlaengern(f, preise) : null;
+    if (!schiene) { status.textContent = t("set.keinVerkauf"); return; }
+    await kaufe(schiene);
+  };
   pruefK.onclick = async () => {
     const offen = zugaenge(localStorage)[relay()]?.offen;
     if (!offen) return;
@@ -432,6 +455,12 @@ export function wireRelayZugang(): void {
     }
     zeigeStand();
   };
+  // Erinnerung beim Start (E11 B): einmal am Tag, nur aus dem Gemerkten – kein Netz
+  const erinnern = zuErinnern(localStorage, Math.floor(Date.now() / 1000));
+  if (erinnern.length > 0) {
+    feld.value = erinnern[0].relay;
+    toast(t("set.erinnerung"));
+  }
   zeigeStand();
 }
 
