@@ -15748,3 +15748,49 @@ des MENSCHEN entfernt; +1 Test, dass der Haken nicht wiederkommt) · mls 13 ·
 Leak-Tests 72 grün + 1 todo · 0 rot · check-wiring `--streng` Exit 0 (159
 Ausnahmen) · innerHTML streng Exit 0 · Website ok · Smoke-Test bestanden.
 Knoten-Stand: unverändert.
+
+## Schritt Z1 – Zahlkanal: Rest nach Ablauf ohne Unterschrift des Kunden
+
+Entscheidung 04.10.2026 (Z1 A, aus E3): Der Rest eines Kanals soll nach
+Ablauf auch dann zurückkommen, wenn die Wallet des Kunden nicht unterschreiben
+kann – nicht verbunden oder später eine Seed Vault in der nativen App. Geändert
+vor dem Deploy, daher ohne neue Programmversion: Es gibt noch kein
+veröffentlichtes Programm, dessen Verhalten sich ändern würde.
+
+**Was:**
+- **Programm** (`contracts/solana-channel/.../lib.rs`): `refund` hat als
+  Kunden ein `UncheckedAccount` statt `Signer`.
+  - `has_one = customer` bindet die Adresse an den Kunden aus dem Kanal.
+  - `close = customer` schickt Rest und Miete nur dorthin.
+  - Die Gebühr zahlt, wer die Transaktion bezahlt.
+  - Unverändert: nur ab `expiry`; ein falscher Kunde scheitert mit
+    `FalscherKunde`.
+- **Client** (`protocol/src/channel.ts`): `erstatteKanalIx()` ohne
+  Signer-Flag.
+- **App** (`zahlkanal.ts`): `erstatteKanaele()` holt jeden abgelaufenen Kanal
+  zurück, Empfänger ist der Kunde auf der Kette. Die Wallet der App zahlt nur
+  die Gebühr, auch bei einem Kanal einer anderen Wallet; vorher brach die App
+  dort mit „gehört einer anderen Wallet“ ab. Der Text dazu fällt weg.
+- **`docs/ZAHLKANAL.md`, `CLAUDE.md`:** Regel nachgezogen.
+
+**Tests:**
+- Validator (`contracts/solana-channel/tests/kanal.test.ts`, lokal mit Agave
+  3.1.10): 7/7. `refund` jetzt ohne Unterschrift des Kunden – mit dem alten
+  Programm schlüge das fehl. Zurück kommt der volle Betrag, weil ein anderer
+  die Gebühr zahlte.
+- `channel.test.ts`: refund ohne Signer, top_up weiter mit.
+- `zahlkanal.test.ts`: Kanal einer anderen Wallet wird an deren Adresse
+  zurückgeholt.
+
+**Verdrahtet:** `refund-watcher.ts` (`walletRefundRunner` → `erstatteKanaele()`).
+
+**Prüfungen:**
+- protocol 1188 grün (6 übersprungen), node 313 grün, app 842 grün, mls 13;
+- Leak-Tests 72 grün + 1 todo; Zahlkanal 7/7 gegen den Validator;
+- check-wiring `--streng` Exit 0, innerHTML streng Exit 0, Website ok;
+- Smoke-Test bestanden.
+
+Die Zahl der Tests bleibt gleich: Die Fälle sind angepasst, nicht neu.
+
+Knoten-Stand: unverändert. Der Knoten ruft `refund` nicht auf.
+Programm-Stand: Der Devnet-Deploy (MENSCH) muss dieses Programm nehmen.
