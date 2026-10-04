@@ -47,7 +47,7 @@ test("verdrahtet: Deklaration vor dem Versiegeln, Abrechnung bei der Antwort, Za
   const earn = lies("shell/tabs/earn.ts");
   // seit 11.2a mit der eigenen Adresse der App, falls gesetzt; seit 11.2b mit dem Namen statt des Schlüssels, falls geprüft
   assert.match(earn, /const basis = eigeneBasis\(localStorage\) \?\? window\.location\.origin \+ window\.location\.pathname;/);
-  assert.match(earn, /link\.value = werbeLink\(basis, werbeRef\(localStorage, pub, basis\), lud16\);/);
+  assert.match(earn, /link\.value = werbeLink\(basis, werbeRef\(localStorage, pub, basis\), lud16, sol\);/);
   assert.match(earn, /merkeWerber\(window\.location\.search, localStorage, window\.location\.hostname\);/);
   assert.match(kz, /new AnteilsKasse\(\{ speicher: geheim \}\)/, "Stand nur über geheim");
   assert.match(lies("shell/tresor.ts"), /"freedom\.anteile"/, "im Tresor");
