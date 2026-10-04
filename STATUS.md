@@ -15839,3 +15839,9 @@ deshalb beim Provider. Jetzt kennen alle drei auch eine SOL-Adresse.
 
 Knoten-Stand: für `werber_sol` im Angebot `main` ab diesem PR (optional; ohne
 Variable ändert sich nichts).
+
+**Prüfungen:**
+- protocol 1190 grün (6 übersprungen; vorher 1188), node 314 grün (vorher 313), app 850 grün (vorher 842);
+- mls 13, Leak-Tests 72 grün + 1 todo;
+- check-wiring `--streng` Exit 0, innerHTML streng Exit 0, Website ok;
+- Smoke-Test bestanden.
