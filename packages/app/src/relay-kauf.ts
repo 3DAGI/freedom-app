@@ -7,6 +7,11 @@
  * (`leseBolt11`), SOL geht mit einer Referenz an eine Adresse. Nie still in der
  * anderen Waehrung. Bestaetigt der Relay noch nicht, bleibt das Angebot
  * gemerkt und laesst sich spaeter erneut pruefen – bezahlt ist bezahlt.
+ *
+ * Verlaengern (E11 B, 04.10.2026): Kurz vor dem Ablauf erinnert die App einmal
+ * am Tag (`zuErinnern()`); verlaengert wird nur auf Klick mit Rueckfrage, ueber
+ * denselben Kauf und dieselbe Schiene wie zuletzt – nie Geld ohne Klick.
+ * Automatisch ueber einen Zahlkanal erst nach dem Devnet-Deploy (E11 A).
  */
 import { leseBolt11, relayHost, type Beleg, type Zahlanfrage } from "@freedomstack/protocol";
 import { t } from "./i18n.js";
@@ -27,7 +32,48 @@ export interface RelayPreise {
 
 export interface Zugang {
   bis?: number;
+  /** Womit zuletzt bezahlt wurde – das Verlaengern nimmt dieselbe Schiene. */
+  schiene?: Schiene;
   offen?: { id: string; kaufUrl: string; signatur?: string };
+}
+
+/** Wann gezahlte Tage zuletzt gemeldet wurden, je Relay (Tag seit 1970) – kein Geheimnis. */
+export const LS_RELAY_ERINNERT = "freedom.relays.erinnert";
+/** Erinnern ab drei Tagen vor dem Ablauf und bis eine Woche danach. */
+export const ERINNERUNG = Object.freeze({ vorherSek: 3 * 86_400, nachherSek: 7 * 86_400 });
+
+export interface Faellig { relay: string; bis: number; schiene?: Schiene }
+
+/** Zugaenge, die bald ablaufen oder gerade abgelaufen sind – der baldigste zuerst. */
+export function faelligeVerlaengerungen(alle: Record<string, Zugang>, jetzt: number): Faellig[] {
+  return Object.entries(alle)
+    .filter(([, z]) => ganz(z?.bis) && z.bis! - jetzt <= ERINNERUNG.vorherSek && jetzt - z.bis! <= ERINNERUNG.nachherSek)
+    .map(([relay, z]) => ({ relay, bis: z.bis!, ...(z.schiene === "lightning" || z.schiene === "solana" ? { schiene: z.schiene } : {}) }))
+    .sort((a, b) => a.bis - b.bis);
+}
+
+/** Die faelligen, an die heute noch nicht erinnert wurde – und merkt sie als erinnert. */
+export function zuErinnern(s: Pick<Storage, "getItem" | "setItem">, jetzt: number): Faellig[] {
+  const heute = Math.floor(jetzt / 86_400);
+  let erinnert: Record<string, unknown> = {};
+  try {
+    const d = JSON.parse(s.getItem(LS_RELAY_ERINNERT) ?? "{}") as unknown;
+    if (typeof d === "object" && d !== null && !Array.isArray(d)) erinnert = d as Record<string, unknown>;
+  } catch { /* neu beginnen */ }
+  const faellig = faelligeVerlaengerungen(zugaenge(s), jetzt).filter((f) => erinnert[f.relay] !== heute);
+  if (faellig.length > 0) {
+    const neu: Record<string, number> = {};
+    for (const f of faelligeVerlaengerungen(zugaenge(s), jetzt)) neu[f.relay] = heute;
+    s.setItem(LS_RELAY_ERINNERT, JSON.stringify(neu));
+  }
+  return faellig;
+}
+
+/** Die Schiene zum Verlaengern: die zuletzt genutzte, wenn der Relay sie noch anbietet, sonst die angebotene. */
+export function schieneZumVerlaengern(f: Pick<Faellig, "schiene">, preise: Pick<RelayPreise, "msat" | "lamports">): Schiene | null {
+  const bietet = (s: Schiene) => (s === "lightning" ? !!preise.msat : !!preise.lamports);
+  if (f.schiene && bietet(f.schiene)) return f.schiene;
+  return bietet("lightning") ? "lightning" : bietet("solana") ? "solana" : null;
 }
 
 const SOL = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
@@ -124,7 +170,7 @@ export async function kaufeRelayZugang(p: {
   const mitBeleg = { ...offen, ...(p.schiene === "solana" ? { signatur: beleg.ref } : {}) };
   p.merke({ offen: mitBeleg });
   const r = await pruefeBeimRelay(mitBeleg, { f, warte: p.warte });
-  if (r) p.merke({ bis: r.bis });
+  if (r) p.merke({ bis: r.bis, schiene: p.schiene });
   return r;
 }
 
@@ -140,6 +186,9 @@ export function zugaenge(s: Pick<Storage, "getItem">): Record<string, Zugang> {
 
 export function merkeZugang(s: Pick<Storage, "getItem" | "setItem">, relay: string, z: Zugang): void {
   const alle = zugaenge(s);
-  alle[relay] = z.bis ? { bis: z.bis } : { ...alle[relay], ...z };
+  // Bestaetigt nach „erneut pruefen“: die Schiene aus dem offenen Kauf (nur SOL hat eine Signatur)
+  const bisher = alle[relay];
+  const schiene = z.schiene ?? (bisher?.offen ? (bisher.offen.signatur ? "solana" : "lightning") : bisher?.schiene);
+  alle[relay] = z.bis ? { bis: z.bis, ...(schiene ? { schiene } : {}) } : { ...bisher, ...z };
   s.setItem(LS_RELAY_ZUGANG, JSON.stringify(alle));
 }

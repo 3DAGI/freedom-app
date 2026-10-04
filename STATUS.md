@@ -16170,3 +16170,52 @@ per Klick über die Zahlschienen.
 - Smoke-Test bestanden.
 
 Knoten-Stand: unverändert.
+
+## Schritt E11 – Relay-Zugang verlängern: Erinnerung und ein Klick mit Rückfrage
+
+Entscheidung E11 B vom 04.10.2026: Verlängern per Erinnerung und einem Klick.
+Die App zahlt dabei nie von selbst. Ein Abo über den Zahlkanal (E11 A) kommt
+erst nach dem Devnet-Deploy, weil Relays dafür Gutschriften annehmen müssten –
+ein neues Format.
+
+**Was:**
+- **`packages/app/src/relay-kauf.ts`:**
+  - `Zugang` merkt die zuletzt genutzte Schiene. Bestätigt der Relay erst über
+    „erneut prüfen“, ergibt sie sich aus dem offenen Kauf: nur SOL hat eine
+    Signatur.
+  - `faelligeVerlaengerungen()`: von drei Tagen vor bis eine Woche nach dem
+    Ablauf, der baldigste zuerst.
+  - `zuErinnern()`: einmal am Tag je Relay (`freedom.relays.erinnert`, kein
+    Geheimnis).
+  - `schieneZumVerlaengern()`: dieselbe Schiene wie zuletzt, wenn der Relay
+    sie noch anbietet, sonst die angebotene.
+- **`shell/tabs/settings.ts`, `index.html`, `texte/settings.ts`:**
+  - Neuer Knopf „Verlängern“ in der Karte Relay-Zugang. Er erscheint nur, wenn
+    ein Zugang fällig ist, und kauft über denselben Weg wie „kaufen“, also mit
+    `bestaetige()` vorher.
+  - Der Stand sagt „läuft am … ab“ bzw. „ist am … abgelaufen“.
+  - Beim Start erinnert ein Hinweis einmal am Tag, nur aus dem Gemerkten –
+    kein Netz und kein Geld.
+- **`CLAUDE.md`:** Regel ergänzt.
+
+**Tests:** `relay-verlaengern.test.ts` (+5) prüft:
+- Fälligkeit und Grenzen;
+- einmal am Tag, nach dem Verlängern nicht mehr;
+- Wahl der Schiene;
+- Schiene aus dem offenen Kauf;
+- Verdrahtung: beim Start kein Netz und kein Kauf; „Verlängern“ ruft
+  `kaufe()` mit Rückfrage auf.
+
+**Verdrahtet:** `shell/tabs/settings.ts` (`wireRelayZugang()`, aufgerufen beim
+Start aus `wireMeshTab()`): `zuErinnern()` und Knopf `relay-zugang-verlaengern`
+→ `leseRelayPreise()` → `schieneZumVerlaengern()` → `kaufe()` →
+`kaufeRelayZugang()`.
+
+**Prüfungen:**
+- protocol 1155 grün (6 übersprungen), node 314, app 865 grün (vorher 860);
+- mls 13, Leak-Tests 72 grün + 1 todo;
+- check-wiring `--streng` Exit 0, innerHTML streng Exit 0, Website ok;
+- Smoke-Test bestanden (auch „mobil“ und „zugang“ mit dem neuen Knopf, der
+  ohne fälligen Zugang verborgen bleibt).
+
+Knoten-Stand: unverändert.
