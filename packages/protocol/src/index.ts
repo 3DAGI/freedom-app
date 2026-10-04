@@ -43,7 +43,6 @@ export * from "./profile.js";
 export * from "./outbox.js";
 export * from "./ws-relay.js";
 export * from "./file-relay.js";
-export * from "./mesh.js";
 export * from "./pow.js";
 export * from "./wot.js";
 
@@ -102,7 +101,6 @@ export * from "./state-backup.js";
 export * from "./gift-wrap.js";
 export * from "./devices.js";
 export * from "./disputes-relays.js";
-export * from "./merge.js";
 export * from "./duress.js";
 export * from "./local-search.js";
 export * from "./privacy-audit.js";

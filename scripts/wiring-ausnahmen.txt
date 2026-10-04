@@ -108,23 +108,10 @@ local-search.ts|indexStats|Suche verdrahtet (8.13, suche.ts); Vorschläge und St
 local-search.ts|searchInfo|Suche verdrahtet (8.13, suche.ts); Vorschläge und Statistik ohne Oberfläche
 local-search.ts|suggest|Suche verdrahtet (8.13, suche.ts); Vorschläge und Statistik ohne Oberfläche
 
-merge.ts|emptySet|Mengen mit Zeitstempeln je Feld – die gespeicherten Daten tragen keine; B-5 führt ohne sie zusammen (zustand-zusammenfuehren.ts)
-merge.ts|mergeField|Mengen mit Zeitstempeln je Feld – die gespeicherten Daten tragen keine; B-5 führt ohne sie zusammen (zustand-zusammenfuehren.ts)
-merge.ts|mergeSets|Mengen mit Zeitstempeln je Feld – die gespeicherten Daten tragen keine; B-5 führt ohne sie zusammen (zustand-zusammenfuehren.ts)
-merge.ts|setAdd|Mengen mit Zeitstempeln je Feld – die gespeicherten Daten tragen keine; B-5 führt ohne sie zusammen (zustand-zusammenfuehren.ts)
-merge.ts|setRemove|Mengen mit Zeitstempeln je Feld – die gespeicherten Daten tragen keine; B-5 führt ohne sie zusammen (zustand-zusammenfuehren.ts)
-merge.ts|setValues|Mengen mit Zeitstempeln je Feld – die gespeicherten Daten tragen keine; B-5 führt ohne sie zusammen (zustand-zusammenfuehren.ts)
-merge.ts|summarizeConflicts|Mengen mit Zeitstempeln je Feld – die gespeicherten Daten tragen keine; B-5 führt ohne sie zusammen (zustand-zusammenfuehren.ts)
 
 mesh-sync.ts|blobFeasibility|Machbarkeit großer Dateien offline, ohne Oberfläche (Phase 7)
 
-mesh.ts|buildDeliveryReceipt|Mesh-Pakete und Zustellbelege mit Kurier-Belohnung (Geld über HTLC, keine Karte); offen gebaut – über Mesh gingen sie seit 7.1 nur im Umschlag
-mesh.ts|buildMeshPacket|Mesh-Pakete und Zustellbelege mit Kurier-Belohnung (Geld über HTLC, keine Karte); offen gebaut – über Mesh gingen sie seit 7.1 nur im Umschlag
-mesh.ts|parseDeliveryReceipt|Mesh-Pakete und Zustellbelege mit Kurier-Belohnung (Geld über HTLC, keine Karte); offen gebaut – über Mesh gingen sie seit 7.1 nur im Umschlag
-mesh.ts|parseMeshPacket|Mesh-Pakete und Zustellbelege mit Kurier-Belohnung (Geld über HTLC, keine Karte); offen gebaut – über Mesh gingen sie seit 7.1 nur im Umschlag
-mesh.ts|receiptMatchesPacket|Mesh-Pakete und Zustellbelege mit Kurier-Belohnung (Geld über HTLC, keine Karte); offen gebaut – über Mesh gingen sie seit 7.1 nur im Umschlag
 
-mesh-transport.ts|decrementTtl|seit 7.1 ungenutzt: der Knoten reicht erst die geprüfte ganze Nachricht weiter (MeshQueue mit Sprungzahl − 1), nicht mehr einzelne Rahmen
 
 mocks.ts|MockLightning|Test-Attrappe für Lightning
 
@@ -173,10 +160,6 @@ sol-deposit.ts|parseSolDepositSettle|Abschluss eines SOL-Deposits, noch nicht an
 
 spaces.ts|searchMessages|Suche in Raum-Nachrichten, ohne Oberfläche – die lokale Suche (8.13) deckt Direktnachrichten und Communities
 
-state-backup.ts|checkExpiry|Ablauf allgemein, ohne Oberfläche – Direktnachrichten laufen seit 2.5 über private-dm.ts (dmAbgelaufen)
-state-backup.ts|expirationTag|Ablauf allgemein, ohne Oberfläche – Direktnachrichten laufen seit 2.5 über private-dm.ts (dmAbgelaufen)
-state-backup.ts|expiryWarning|Ablauf allgemein, ohne Oberfläche – Direktnachrichten laufen seit 2.5 über private-dm.ts (dmAbgelaufen)
-state-backup.ts|filterExpired|Ablauf allgemein, ohne Oberfläche – Direktnachrichten laufen seit 2.5 über private-dm.ts (dmAbgelaufen)
 state-backup.ts|stateFingerprint|Prüfsumme für eine automatische Sicherung bei Änderung – die App sichert von Hand (8.12)
 
 stream.ts|amountDue|Streaming-Abrechnung: fälliger Betrag, noch nicht angebunden (PaymentRail, 4.1)

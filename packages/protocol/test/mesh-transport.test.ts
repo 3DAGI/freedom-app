@@ -9,7 +9,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  fragment, parseFrame, decrementTtl, messageId,
+  fragment, parseFrame, messageId,
   Reassembler, ForwardingCache, MeshQueue,
   meshFeasibility, MeshKind, MeshPriority,
   LORA_MTU, MAX_PAYLOAD_PER_FRAME,
@@ -172,16 +172,6 @@ test("Ausgelaufene Sprungzahl beendet die Weitergabe", () => {
   const c = new ForwardingCache();
   const f = fragment(text("hallo"), MeshKind.NostrEvent, MeshPriority.Nachricht, 1)[0];
   assert.equal(c.shouldForward(f, NOW), false, "sonst kreist ein Paket ewig");
-});
-
-test("Sprungzahl wird bei jeder Weitergabe verringert", () => {
-  let f: Uint8Array | null = fragment(text("hallo"), MeshKind.NostrEvent, MeshPriority.Nachricht, 3)[0];
-  assert.equal(parseFrame(f).ttl, 3);
-  f = decrementTtl(f);
-  assert.equal(parseFrame(f!).ttl, 2);
-  f = decrementTtl(f!);
-  assert.equal(parseFrame(f!).ttl, 1);
-  assert.equal(decrementTtl(f!), null, "danach ist Schluss");
 });
 
 test("Weiterleitungs-Speicher waechst nicht unbegrenzt", () => {

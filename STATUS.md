@@ -15931,3 +15931,34 @@ aber nur 60 s. Viele Anrufe wurden so verpasst.
 
 Knoten-Stand: unverändert (B-13a TURN-Zugang, B-13b coturn).
 
+## Schritt B-21 – Überholte Bausteine entfernen
+
+**Warum:** Hinweis von Spur C in der Sammlung: Unverdrahtete Exporte sollen
+angebunden oder entfernt werden. Für die überholten Bausteine aus Spur B hat
+der MENSCH am 04.10.2026 entschieden: entfernen, samt Tests, auch die
+Kurier-Belege aus `mesh.ts`.
+
+**Was:**
+- `protocol/src/merge.ts` ist weg: Mengen mit Zeitstempeln je Feld. Die
+  gespeicherten Daten tragen keine Zeiten; zusammengeführt wird seit B-5 in
+  der App (`zustand-zusammenfuehren.ts`).
+- `protocol/src/mesh.ts` ist weg: offene Mesh-Pakete und Zustellbelege mit
+  Kurier-Belohnung. Sie waren nie angebunden, und über Mesh geht seit 7.1 nur
+  der Umschlag. Die Kinds 38030/38031 sind in `kinds.ts` und PROTOCOL.md als
+  „nicht mehr belegt“ geführt und dürfen nicht wiederverwendet werden.
+- `decrementTtl` (`mesh-transport.ts`) ist weg. Seit 7.1 reicht der Knoten die
+  geprüfte ganze Nachricht weiter (`MeshQueue`, Sprungzahl − 1).
+- Der allgemeine Ablauf in `state-backup.ts` ist weg (`expirationTag`,
+  `checkExpiry`, `filterExpired`, `expiryWarning`, `EXPIRY_*`,
+  `TAG_EXPIRATION`). Ablaufende Nachrichten laufen seit 2.5 über
+  `private-dm.ts`.
+- 17 Zeilen aus `scripts/wiring-ausnahmen.txt` gestrichen; Kommentare, die
+  auf die entfernten Dateien verwiesen, angepasst.
+
+**Tests:** protocol 1190 → 1160. Die 30 Tests der entfernten Bausteine fallen
+mit ihnen weg: Zusammenführung 16, Mesh-Belege 4, Sprungzahl 1, Ablauf 9. Die
+Testzahl sinkt also begründet – entfernt wurde, was entschieden war. Alle
+anderen Prüfungen sind unverändert grün.
+
+Knoten-Stand: unverändert.
+

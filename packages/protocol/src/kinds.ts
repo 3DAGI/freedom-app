@@ -46,8 +46,6 @@ export const KIND_SOL_DEPOSIT_OPEN = 38023; // Solana-Deposit-Session (Escrow)
 export const KIND_SOL_DEPOSIT_SETTLE = 38024; // Solana-Deposit Abrechnung
 export const KIND_PROVIDER_CAPABILITIES = 38027; // Provider-Faehigkeiten (Tier/Modelle/Tools/Preise) — v2, invalidiert alte 38025-Events
 export const KIND_PRICE_TICKER = 38026;        // Dezentraler Kurs-Ticker (SOL/sats)
-export const KIND_MESH_PACKET = 38030;         // Mesh-Paket (Store-and-Forward)
-export const KIND_DELIVERY_RECEIPT = 38031;    // Kurier-Zustell-Beleg (oeffnet Belohnung)
 
 // --- DVM-Tool-Jobtypen (NIP-90, Request 5xxx / Result 6xxx = +1000) ---
 export const KIND_DVM_WEB_SEARCH = 5060;    // Web-Suche
@@ -81,3 +79,6 @@ export function resultKindFor(requestKind: number): number {
 // und 38053 (Verteilungsbericht) fielen mit dem Gebührenmodell A+ (5.1.2–5.1.4d)
 // – nicht für Neues wiederverwenden: Alte Events dieser Arten liegen noch auf
 // Relays.
+// 38030 (Mesh-Paket) und 38031 (Kurier-Zustellbeleg) fielen mit B-21 – nie
+// angebunden, über Mesh geht seit 7.1 nur der Umschlag (`pruefeMeshInhalt`).
+// Ebenso nicht wiederverwenden.
