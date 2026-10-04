@@ -69,3 +69,18 @@ test("B-13d3: Datenschutzbericht – beide Aussagen mit Text, deutsch wortgleich
     if (grund) assert.equal(texte[grund]?.de, f.grund, id);
   }
 });
+
+test("B-13e: sofort klingeln – ein Abo an den eigenen Schlüssel, solange die App offen ist; entschlüsselt nur Anruf-artiges", () => {
+  const ui = ohneKommentare(lies("shell/anruf-ui.ts"));
+  const wire = ui.slice(ui.indexOf("export function wireAnrufe("));
+  assert.match(wire, /void lauscheAufAnrufe\(\);\n {2}abrufTakt\.melde\("anrufe", lauscheAufAnrufe, 2\);/, "beim Start und im Abruftakt nachsehen");
+  const a = ohneKommentare(lies("shell/anruf.ts"));
+  const lausche = a.slice(a.indexOf("export async function lauscheAufAnrufe("), a.indexOf("function starteTakt("));
+  assert.match(lausche, /pool\.subscribe\(\{ kinds: \[1059\], "#p": \[ich\], since: jetzt\(\) - 60 \}/, "nur Umschläge an den eigenen Schlüssel");
+  assert.match(lausche, /if \(vielleichtAnruf\(w, jetzt\(\)\)\) void alsAnruf\(w\);/, "Chat-Umschläge werden hier nicht entschlüsselt");
+  assert.match(lausche, /if \(!ich \|\| abo\?\.fuer === ich\) return;/, "ein Abo je Schlüssel");
+  assert.equal((a.match(/pool\.subscribe\(/g) ?? []).length, 1, "kein zweites Abo daneben");
+  const raeume = a.slice(a.indexOf("function raeumeAuf("), a.indexOf("\n}\n", a.indexOf("function raeumeAuf(")));
+  assert.match(raeume, /pc\?\.close\(\);/);
+  assert.doesNotMatch(raeume, /\babo\b/, "das Ende eines Anrufs beendet das Abo nicht");
+});

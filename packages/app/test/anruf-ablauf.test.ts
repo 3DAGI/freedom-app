@@ -5,9 +5,12 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import type { TurnZugang } from "@freedomstack/protocol";
 import {
-  KLINGELN_SEK, VERBINDEN_SEK, eingehendesAngebot, iceServerAus, naechsterZustand, nurRelaySdp, sendbarerKandidat, waehleVermittler, type Anruf,
+  ANRUF_GRENZEN, LocalSigner, baueAnrufNachricht, buildPrivateDm, generateKeypair, neueAnrufKennung, type TurnZugang,
+} from "@freedomstack/protocol";
+import {
+  KLINGELN_SEK, VERBINDEN_SEK, eingehendesAngebot, iceServerAus, naechsterZustand, nurRelaySdp, sendbarerKandidat, vielleichtAnruf,
+  waehleVermittler, type Anruf,
 } from "../src/anruf-ablauf.js";
 
 const FP = Array.from({ length: 32 }, (_, i) => (i * 7 % 256).toString(16).toUpperCase().padStart(2, "0")).join(":");
@@ -68,4 +71,29 @@ test("B-13d2: eingehendes Angebot – nur von Kontakten; läuft ein Anruf, beset
   assert.equal(eingehendesAngebot({ vonKontakt: true, laufend: { ...laufend, phase: "beendet" } }), "klingeln");
   assert.equal(eingehendesAngebot({ vonKontakt: false, laufend: null }), "still");
   assert.equal(eingehendesAngebot({ vonKontakt: false, laufend }), "still", "auch nicht „besetzt“ – das verriete, dass die App offen ist");
+});
+
+test("B-13e: drei Minuten klingeln (T4 A) – kürzer, als das Angebot gilt", () => {
+  assert.equal(KLINGELN_SEK, 180);
+  assert.ok(KLINGELN_SEK < ANRUF_GRENZEN.ablaufSek, "sonst klingelt ein Angebot, das die Gegenseite nicht mehr annimmt");
+});
+
+test("B-13e: Vorfilter am Umschlag – nur was wie ein Anruf aussieht, wird entschlüsselt", async () => {
+  const JETZT = 1_790_000_000;
+  const ich = new LocalSigner(generateKeypair().sk), du = generateKeypair();
+  const [anruf] = await baueAnrufNachricht({
+    von: ich, an: [du.pk], nowSecs: JETZT, nachricht: { anruf: neueAnrufKennung(), typ: "ende", grund: "aufgelegt" },
+  });
+  assert.equal(vielleichtAnruf(anruf!, JETZT), true);
+  assert.equal(vielleichtAnruf(anruf!, JETZT + ANRUF_GRENZEN.ablaufSek - 1), true, "bis kurz vor dem Ablauf");
+  assert.equal(vielleichtAnruf(anruf!, JETZT + ANRUF_GRENZEN.ablaufSek), false, "abgelaufen");
+  assert.equal(vielleichtAnruf(anruf!, JETZT - 61), false, "aus der Zukunft");
+  // Chat-Umschläge: zurückdatiert, ohne Ablauf – oder mit Ablauf, der länger läuft (NIP-40, ab einer Stunde)
+  const dm = await buildPrivateDm({ signer: ich, recipientPk: du.pk, content: "hallo", nowSecs: JETZT });
+  assert.equal(vielleichtAnruf(dm.toRecipient, JETZT), false);
+  const mitAblauf = { ...anruf!, tags: [["p", du.pk], ["expiration", String(JETZT + 3600)]] };
+  assert.equal(vielleichtAnruf(mitAblauf, JETZT), false, "verschwindende Nachricht");
+  assert.equal(vielleichtAnruf({ ...anruf!, tags: [["p", du.pk]] }, JETZT), false, "ohne Ablauf");
+  assert.equal(vielleichtAnruf({ ...anruf!, tags: [["p", du.pk], ["expiration", "kaputt"]] }, JETZT), false);
+  assert.equal(vielleichtAnruf({ ...anruf!, kind: 4 }, JETZT), false, "nur Umschläge");
 });

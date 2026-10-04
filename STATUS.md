@@ -15886,3 +15886,48 @@ Gutschrift über der alten liegt (4.3c).
 - mls 13, Leak-Tests 72 grün + 1 todo;
 - check-wiring `--streng` Exit 0 (158 Ausnahmen, eine veraltete weniger), innerHTML streng Exit 0, Website ok;
 - Smoke-Test bestanden.
+
+## Schritt B-13e – Anrufe sofort: Abo für Anrufe, drei Minuten klingeln
+
+**Warum:** Entscheidung T4 A (04.10.2026). Ein Angebot sah die App erst beim
+Abgleich des Posteingangs, also etwa jede Minute, die anrufende Seite klingelte
+aber nur 60 s. Viele Anrufe wurden so verpasst.
+
+**Was:**
+- `anruf-ablauf.ts`:
+  - `KLINGELN_SEK` 60 → 180. Das Angebot gilt 5 min, so kommt auch ein per
+    „Wecken“ geöffneter Browser rechtzeitig.
+  - `vielleichtAnruf()`: Vorfilter am offenen Umschlag. Durch kommt nur, was
+    jetzt erstellt ist und höchstens 5 min Ablauf hat – so sehen die Umschläge
+    eines Anrufs aus.
+  - Chat-Umschläge sind zurückdatiert (6.4) oder laufen länger. Sie werden im
+    Abo nicht entschlüsselt, das spart mit einem Bunker je Nachricht eine
+    Anfrage an den Signer.
+- `shell/anruf.ts`: `lauscheAufAnrufe()` ersetzt das Abo, das nur während
+  eines Anrufs lief.
+  - Ein Abo an den eigenen Schlüssel, je Schlüssel eines, solange die App offen
+    ist.
+  - Gestartet von `wireAnrufe()`. Im Abruftakt wird nur nachgesehen, ob es
+    steht – eine eben erzeugte Identität kommt erst nach dem Start.
+  - Das Ende eines Anrufs beendet das Abo nicht.
+- Datenschutzbericht, Grenze „anruf-vermittler“: „Damit ein Anruf sofort
+  klingelt, hält die App, solange sie offen ist, bei ihren Relays eine Abfrage
+  nach Umschlägen an dich offen – die Relays sehen also, wann sie läuft.“
+  (Deutsch und Englisch.)
+- Smoke: Die Relay-Attrappe stellt neue Events an offene Abos zu
+  (`ProbeRelay.zustellen()`).
+  - Die Prüfung „anruf“ liefert das Angebot nur über das Abo, nicht über den
+    Abgleich des Posteingangs.
+  - Es klingelt 0,1 s nach dem Zustellen.
+
+**Tests:**
+- app +3:
+  - drei Minuten Klingeln, kürzer als die Gültigkeit des Angebots;
+  - der Vorfilter mit Negativfällen: Chat-Umschlag, verschwindende Nachricht,
+    ohne Ablauf, abgelaufen, aus der Zukunft, kein Umschlag;
+  - die Verdrahtung: ein Abo, nur 1059 an sich selbst, Vorfilter vor
+    `alsAnruf()`, kein Ende mit dem Anruf.
+- Der Satz im Bericht ist im Test zu „anruf-vermittler“ festgehalten.
+
+Knoten-Stand: unverändert (B-13a TURN-Zugang, B-13b coturn).
+
