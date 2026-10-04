@@ -9,7 +9,7 @@
  * veröffentlicht niemand – die Rangfolge bildet jede App selbst.
  */
 import { type NostrEvent, type UnsignedEvent, buildEvent, getTag, verifyEvent } from "./event.js";
-import { PRUEF_ARTEN, PRUEF_STUFEN, type PruefArt, type Stufe } from "./pruefung.js";
+import { PRUEF_ARTEN, PRUEF_GRENZEN, PRUEF_STUFEN, stufeAus, type PruefArt, type Stufe } from "./pruefung.js";
 
 /** Messbericht eines Prüfers je Provider und Modell (ersetzbar, `d` = `<provider>:<modell>`). */
 export const KIND_MESSBERICHT = 38081;
@@ -98,4 +98,75 @@ export function leseMessbericht(ev: NostrEvent, jetzt: number): Messbericht | nu
     pruefer: ev.pubkey, provider, modell, von, bis, anfragen, erfolge, medianMs,
     ...(tokensJeSek === undefined ? {} : { tokensJeSek }), treffer, stufe, zeit: ev.created_at,
   };
+}
+
+// ------------------------------------------------------------ lesen in der App (P2b)
+
+/**
+ * Standard-Prüfer des Projekts (E7, „Freedom-Prüfer“) – leer, bis der MENSCH
+ * den Schlüssel einträgt (wie `TRUSTED_SIGNERS`). Weitere wählt der Nutzer.
+ */
+export const FREEDOM_PRUEFER: readonly string[] = [
+  // VOR DEM RELEASE SETZEN: Pubkey des Freedom-Prüfers (MENSCH, nach P3).
+];
+
+/** Abfrage aller Messberichte – nie nach Prüfer gefiltert: Ein Filter verriete den Relays, wem die App folgt (wie bei den Katalogen, 5.7). */
+export function messberichtFilter(limit = 500): { kinds: number[]; limit: number } {
+  return { kinds: [KIND_MESSBERICHT], limit };
+}
+
+/** Stand eines Providers aus den Berichten der gewählten Prüfer. */
+export interface PruefStand {
+  anfragen: number;
+  erfolge: number;
+  /** Aus den Zahlen neu gerechnet (`stufeAus()`, ab `PRUEF_GRENZEN.minPruefer`) – nicht die Stufe aus dem Bericht. */
+  stufe: Stufe;
+  /** Trefferquote über alle Prüfarten und Modelle (0..1). */
+  qualitaet?: number;
+  /** Median der Mediane der Berichte. */
+  medianMs?: number;
+  /** Von wie vielen Prüfern. */
+  pruefer: number;
+}
+
+/**
+ * Je Provider der Stand aus den Berichten der gewählten Prüfer: je Prüfer,
+ * Provider und Modell der neueste gültige Bericht (`leseMessbericht()`),
+ * Anfragen, Erfolge und Treffer summiert. Berichte anderer Prüfer zählen nicht.
+ */
+export function pruefStaende(events: readonly NostrEvent[], pruefer: readonly string[], jetzt: number): Map<string, PruefStand> {
+  const gewaehlt = new Set(pruefer);
+  const neueste = new Map<string, Messbericht>();
+  for (const ev of events) {
+    if (!gewaehlt.has(ev.pubkey)) continue;
+    const m = leseMessbericht(ev, jetzt);
+    if (!m) continue;
+    const schluessel = `${m.pruefer}:${m.provider}:${m.modell}`;
+    const alt = neueste.get(schluessel);
+    if (!alt || m.zeit > alt.zeit) neueste.set(schluessel, m);
+  }
+  const jeProvider = new Map<string, Messbericht[]>();
+  for (const m of neueste.values()) jeProvider.set(m.provider, [...(jeProvider.get(m.provider) ?? []), m]);
+  const staende = new Map<string, PruefStand>();
+  for (const [provider, berichte] of jeProvider) {
+    const anfragen = berichte.reduce((s, m) => s + m.anfragen, 0);
+    const erfolge = berichte.reduce((s, m) => s + m.erfolge, 0);
+    const treffer: Messbericht["treffer"] = {};
+    for (const m of berichte) {
+      for (const art of PRUEF_ARTEN) {
+        const t = m.treffer[art];
+        if (t) treffer[art] = { richtig: (treffer[art]?.richtig ?? 0) + t.richtig, geprueft: (treffer[art]?.geprueft ?? 0) + t.geprueft };
+      }
+    }
+    const qualitaet = trefferQuote({ treffer });
+    const mediane = berichte.filter((m) => m.erfolge > 0).map((m) => m.medianMs).sort((a, b) => a - b);
+    staende.set(provider, {
+      anfragen, erfolge,
+      stufe: stufeAus(anfragen, erfolge, PRUEF_GRENZEN.minPruefer),
+      ...(qualitaet === undefined ? {} : { qualitaet }),
+      ...(mediane.length > 0 ? { medianMs: mediane[Math.floor((mediane.length - 1) / 2)] } : {}),
+      pruefer: new Set(berichte.map((m) => m.pruefer)).size,
+    });
+  }
+  return staende;
 }

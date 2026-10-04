@@ -16289,3 +16289,43 @@ Verdrahtung), protocol 1155, node 314, mls 13, Leak 72 + 1 todo, Build,
 check-wiring Exit 0, innerHTML Exit 0, Website ok, Smoke-Test bestanden.
 
 Knoten-Stand: unverändert.
+
+## Schritt P2b1 – Berichte gewählter Prüfer in der Auswahl
+
+Freedom-Prüfung (E7, `docs/FREEDOM-PRUEFUNG.md` 3.3). P2b ist geteilt: P2b1
+(dieser Schritt) rechnet die Messberichte gewählter Prüfer in die Auswahl ein,
+P2b2 bringt die Wahl der Prüfer und die Anzeige auf der Seite Netz.
+
+**Was sich ändert:**
+- Protokoll `messbericht.ts`:
+  - `FREEDOM_PRUEFER`: der Standard-Prüfer, leer bis MENSCH (wie
+    `TRUSTED_SIGNERS`).
+  - `messberichtFilter()`: alle Berichte holen, nie nach Prüfer filtern – ein
+    Filter verriete den Relays, wem die App folgt (wie bei den Katalogen, 5.7).
+  - `pruefStaende()`: je Provider der Stand aus den Berichten der gewählten
+    Prüfer – je Prüfer, Provider und Modell der neueste gültige, Zahlen
+    summiert, die Stufe aus den Zahlen neu gerechnet (nicht aus dem Bericht).
+- Protokoll `pruefung.ts`: `stufeFuerAuswahl()` – die eigene Messung ab 20
+  Anfragen geht vor, sonst die Prüfer ab 50 Prüffragen, sonst „neu“.
+- App:
+  - `pruefer-wahl.ts`: `gewaehltePruefer()` – Standard plus eigene Wahl
+    (`freedom.pruefer`), höchstens zehn.
+  - `matchmaking.ts`: `mitPruefung()`; `matchProviders()` nimmt Stufe und
+    Qualität (Ausreißer nach hinten) aus den Berichten.
+  - `shell/state.ts`: `findProviders()` holt die Berichte nur, wenn jemand
+    gewählt ist, 5 Minuten Cache.
+- Datenschutzbericht: neue Aussage „pruefung“ (belegt, Regel
+  `kein-klartext`, Szenario in `privacy-facts.test.ts`). Sie sagt: Die
+  Messung bleibt auf dem Gerät, Berichte werden ohne Filter geholt.
+- `scripts/wiring-ausnahmen.txt`: `leseMessbericht` und `trefferQuote` sind
+  jetzt verdrahtet, ihre Zeilen fallen weg.
+
+**Verdrahtet:** `packages/app/src/shell/state.ts:168` (`findProviders()`),
+`packages/app/src/matchmaking.ts:164`.
+
+**Prüfungen:** protocol 1157 grün (+2), node 314, app 871 grün (+3,
+`pruefer-wahl.test.ts`), mls 13, Leak 72 + 1 todo, check-wiring Exit 0,
+innerHTML Exit 0, Website ok, Smoke-Test bestanden.
+
+Knoten-Stand: unverändert. Solange `FREEDOM_PRUEFER` leer ist und niemand
+einen Prüfer wählt (P2b2), fragt die App keine Berichte ab.

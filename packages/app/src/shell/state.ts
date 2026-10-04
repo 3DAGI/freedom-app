@@ -8,10 +8,12 @@
  * Aus app.ts verschoben (Schritt 1.0) – woertlich, ohne Logikaenderung.
  */
 import {
-  LocalSigner, type NostrEvent, OutboxPool, type RelayFilter, type Signer, type UnsignedEvent, WebSocketRelay, baueRelayAuth, normalizeRelayUrl, startUrls,
+  LocalSigner, type NostrEvent, OutboxPool, type PruefStand, type RelayFilter, type Signer, type UnsignedEvent, WebSocketRelay, baueRelayAuth, messberichtFilter,
+  normalizeRelayUrl, pruefStaende, startUrls,
 } from "@freedomstack/protocol";
 import { zugaenge } from "../relay-kauf.js";
-import { ScoredProvider, discoverProviders, matchProviders, mitMessung } from "../matchmaking.js";
+import { ScoredProvider, discoverProviders, matchProviders, mitMessung, mitPruefung } from "../matchmaking.js";
+import { gewaehltePruefer } from "../pruefer-wahl.js";
 import { KiSitzungen } from "../ki-sitzung.js";
 import { SessionClient } from "../session-client.js";
 import { t } from "../i18n.js";
@@ -139,11 +141,31 @@ export async function alleAngebote(): Promise<ScoredProvider["caps"][]> {
   return (await bekannteProvider()).map((p) => p.caps);
 }
 
+let berichtCache: NostrEvent[] = [];
+let berichtCacheAt = 0;
+
+/**
+ * Messberichte der gewählten Prüfer (P2b) – nur, wenn jemand gewählt ist; dann
+ * alle holen (`messberichtFilter()`, nie nach Prüfer gefiltert) und selbst
+ * auswählen. 5 Minuten Cache; scheitert die Abfrage, gilt der alte Stand.
+ */
+async function pruefBerichte(pruefer: readonly string[], jetzt: number): Promise<Map<string, PruefStand>> {
+  if (pruefer.length === 0) return new Map();
+  if (Date.now() - berichtCacheAt > 300_000) {
+    const pool = await ensurePool();
+    berichtCache = await pool.query(messberichtFilter()).catch(() => berichtCache);
+    berichtCacheAt = Date.now();
+  }
+  return pruefStaende(berichtCache, pruefer, jetzt);
+}
+
 /** Auto-Matchmaking: beste Provider fuer ein Tier (5min Cache). Kein manuelles pubkey. */
 export async function findProviders(tier: string): Promise<ScoredProvider[]> {
-  // Eigene Messung (P2a) frisch je Auswahl – nur auf dem Gerät, aus dem Tresor
+  // Eigene Messung (P2a) frisch je Auswahl – nur auf dem Gerät, aus dem Tresor;
+  // wo sie zu wenig hat, die Berichte der gewählten Prüfer (P2b)
   const { messBuch } = await import("./messung.js");
-  const mit = mitMessung(await bekannteProvider(), messBuch.staende(Math.floor(Date.now() / 1000)));
+  const jetzt = Math.floor(Date.now() / 1000);
+  const mit = mitPruefung(mitMessung(await bekannteProvider(), messBuch.staende(jetzt)), await pruefBerichte(gewaehltePruefer(localStorage), jetzt));
   return matchProviders(mit, tier as "free" | "classic" | "pro", { allowlist: getAllowlist() });
 }
 

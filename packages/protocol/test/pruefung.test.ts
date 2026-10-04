@@ -6,7 +6,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  PRUEF_ARTEN, fasseMessungZusammen, merkeMesspunkt, neuePruefFrage, ordneNachPruefung, pruefeAntwort, stufeAus, type PruefKandidat,
+  PRUEF_ARTEN, fasseMessungZusammen, merkeMesspunkt, neuePruefFrage, ordneNachPruefung, pruefeAntwort, stufeAus, stufeFuerAuswahl, type PruefKandidat,
 } from "../src/index.js";
 
 const JETZT = 1_790_000_000;
@@ -111,4 +111,13 @@ test("Lastverteilung: unter gleich Guten 1/Preis² – halb so teuer, viermal so
   assert.ok(Math.abs(mitVertrauen - 333) <= 2, `teuer mit vollem Vertrauen ${mitVertrauen} von 1000 vorn (2/6)`);
   assert.equal(ordneNachPruefung([], folge(0.5)).length, 0);
   assert.equal(ordneNachPruefung([{ pk: "gratis", preisMsat: 0, stufe: "normal" }], folge(0.5))[0].pk, "gratis", "gratis zählt wie 1 msat");
+});
+
+test("P2b: Stufe für die Auswahl – eigene Messung ab 20 geht vor, sonst Prüfer ab 50, sonst neu", () => {
+  assert.equal(stufeFuerAuswahl(), "neu");
+  assert.equal(stufeFuerAuswahl({ stufe: "neu" }, { stufe: "neu" }), "neu");
+  assert.equal(stufeFuerAuswahl({ stufe: "neu" }, { stufe: "herabgestuft" }), "herabgestuft", "eigene zu wenig – der Prüfer zählt");
+  assert.equal(stufeFuerAuswahl(undefined, { stufe: "normal" }), "normal");
+  assert.equal(stufeFuerAuswahl({ stufe: "ausgefallen" }, { stufe: "normal" }), "ausgefallen", "eigene Messung geht vor");
+  assert.equal(stufeFuerAuswahl({ stufe: "normal" }, { stufe: "ausgefallen" }), "normal");
 });
