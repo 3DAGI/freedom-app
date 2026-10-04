@@ -10,8 +10,9 @@
  *   die App sagt das vor dem Annehmen (`fremderVermittler`).
  * - Hinaus geht nur, was `nurRelaySdp()`/`sendbarerKandidat()` durchlässt.
  * - Eingehende Angebote kommen mit dem Posteingang (`alsAnruf()` am Ende der
- *   Kette in `oeffneUmschlag()`); Antwort und Kandidaten während eines Anrufs
- *   über ein Abo, das nur so lange läuft wie der Anruf.
+ *   Kette in `oeffneUmschlag()`) und – damit es sofort klingelt (B-13e, T4 A) –
+ *   über ein Abo an den eigenen Schlüssel, solange die App offen ist
+ *   (`lauscheAufAnrufe()`); daraus nur, was `vielleichtAnruf()` durchlässt.
  *
  * Die Oberfläche (B-13d3) hört über `beiAnruf()` zu; hier nur Zustand und Verbindung.
  */
@@ -20,7 +21,8 @@ import {
   oeffneAnrufNachricht, type AnrufNachricht, type EndeGrund, type Medium, type NostrEvent, type TurnZugang,
 } from "@freedomstack/protocol";
 import {
-  type Anruf, type AnrufEreignis, eingehendesAngebot, iceServerAus, naechsterZustand, nurRelaySdp, sendbarerKandidat, waehleVermittler,
+  type Anruf, type AnrufEreignis, eingehendesAngebot, iceServerAus, naechsterZustand, nurRelaySdp, sendbarerKandidat, vielleichtAnruf,
+  waehleVermittler,
 } from "../anruf-ablauf.js";
 import { STATUS_TAKT_MS, STATUS_ZEIT_MS } from "../knoten-status-ansicht.js";
 import { powFuerKnoten } from "./knoten-status-ui.js";
@@ -37,7 +39,7 @@ let pc: RTCPeerConnection | null = null;
 let lokal: MediaStream | null = null;
 let entfernt: MediaStream | null = null;
 let wartendeKandidaten: RTCIceCandidateInit[] = [];
-let aboStopp: (() => void) | null = null;
+let abo: { fuer: string; stopp: () => void } | null = null;
 let takt: ReturnType<typeof setInterval> | null = null;
 const zuhoerer = new Set<(a: AnrufAnsicht) => void>();
 
@@ -70,8 +72,6 @@ function raeumeAuf(): void {
   entfernt = null;
   wartendeKandidaten = [];
   angebot = null;
-  aboStopp?.();
-  aboStopp = null;
   if (takt) clearInterval(takt);
   takt = null;
 }
@@ -111,12 +111,21 @@ async function sende(partner: string, n: AnrufNachricht): Promise<void> {
   await Promise.all(wraps.map((w) => veroeffentlicheDm(w, partner)));
 }
 
-/** Während eines Anrufs: Antwort und Kandidaten sofort, über ein Abo an den eigenen Schlüssel. */
-async function abonniere(): Promise<void> {
-  if (!state.signer || aboStopp) return;
+/**
+ * Solange die App offen ist: ein Abo an den eigenen Schlüssel (B-13e, T4 A), damit Angebot, Antwort und
+ * Kandidaten sofort ankommen. Entschlüsselt wird nur, was am Umschlag wie ein Anruf aussieht – Chat-Nachrichten
+ * kommen weiter mit dem Abgleich des Posteingangs. Gelingt das Abo nicht, versucht der nächste Aufruf es neu.
+ */
+export async function lauscheAufAnrufe(): Promise<void> {
+  const ich = state.signer?.publicKey();
+  if (!ich || abo?.fuer === ich) return;
+  abo?.stopp();
+  abo = null;
   const pool = await ensurePool();
-  aboStopp = await pool.subscribe({ kinds: [1059], "#p": [state.signer.publicKey()], since: jetzt() - 60 }, (w) => void alsAnruf(w))
-    .catch(() => null);
+  const stopp = await pool.subscribe({ kinds: [1059], "#p": [ich], since: jetzt() - 60 }, (w) => {
+    if (vielleichtAnruf(w, jetzt())) void alsAnruf(w);
+  }).catch(() => null);
+  if (stopp) abo = { fuer: ich, stopp };
 }
 
 function starteTakt(): void {
@@ -170,7 +179,7 @@ export async function rufeAn(partner: string, m: Medium[]): Promise<null | "laeu
     await pc.setLocalDescription(o);
     const sdp = nurRelaySdp(o.sdp ?? "");
     if (!sdp) throw new Error("sdp");
-    await abonniere();
+    await lauscheAufAnrufe();
     // Der eigene Zugang reist mit (T3 B) – die Angerufene nimmt ihn nur ohne eigenen Vermittler
     await sende(partner, { anruf: kennung, typ: "angebot", sdp, medien: m, turn: zugang });
     starteTakt();
@@ -227,7 +236,7 @@ export function vergissAnruf(): void {
 }
 
 /**
- * Am Ende der Kette in `oeffneUmschlag()` (und im Abo während eines Anrufs):
+ * Am Ende der Kette in `oeffneUmschlag()` (und aus dem Abo `lauscheAufAnrufe()`):
  * eine Anruf-Nachricht annehmen. Im Chat erscheint nichts – immer null.
  */
 export async function alsAnruf(w: NostrEvent): Promise<null> {
@@ -248,7 +257,7 @@ export async function alsAnruf(w: NostrEvent): Promise<null> {
     wartendeKandidaten = [];
     const eigenerMoeglich = meineKopplung() !== null;
     anruf = { kennung: n.anruf, partner: person, richtung: "ein", medien: n.medien, phase: "eingehend", fremderVermittler: !eigenerMoeglich && !!n.turn, seit: jetzt() };
-    await abonniere();
+    await lauscheAufAnrufe();
     starteTakt();
     melde();
     return null;

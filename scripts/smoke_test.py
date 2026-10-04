@@ -945,7 +945,8 @@ def anruf_pruefen(browser, url: str) -> dict:
     """Anrufe (B-13d3): Knöpfe im Kopf der Unterhaltung; ohne eigenen Knoten geht kein Anruf hinaus (kein Mikrofon,
     keine Verbindung, kein Umschlag). Ein Angebot eines Kontakts (`scripts/anruf-probe.mts`, mit Zugang zum
     Vermittler des Anrufers – T3 B) klingelt mit Sicherheitscode und dem Hinweis, wer die IP sieht; Ablehnen schickt
-    nur ein versiegeltes „Ende“ zurück – ohne Mikrofon und ohne Verbindung."""
+    nur ein versiegeltes „Ende“ zurück – ohne Mikrofon und ohne Verbindung. Seit B-13e (T4 A) kommt das Angebot
+    über das Abo für Anrufe – es klingelt sofort, ohne den Abgleich des Posteingangs."""
     erg = {"fehler": []}
     wurzel = Path(__file__).resolve().parent.parent
     relay = ProbeRelay()
@@ -978,11 +979,23 @@ def anruf_pruefen(browser, url: str) -> dict:
     s.click("#chat-anruf")
     s.wait_for_function("() => /eigenen Knoten mit Vermittler/.test(document.getElementById('toast')?.textContent ?? '')", timeout=10000)
     erg["ohne_knoten"] = ev("() => [window.__anruf.medien, window.__anruf.verbindungen, !!document.querySelector('.anruf-leiste')]") + [len(an_anrufer())]
-    # Das Angebot kommt mit dem Abgleich des Posteingangs beim Start
-    relay.events = relay.events + probe["events"]
+    # B-13e: Eine eben erzeugte Identität gibt es erst nach dem Start – nach dem Neuladen steht das Abo gleich.
+    # Das Angebot liegt auf keinem Relay: Es kommt nur über das Abo, nicht über den Abgleich des Posteingangs.
     s.reload(wait_until="load")
     ev("() => { location.hash = '#/chat'; }")
-    s.wait_for_function("() => document.querySelectorAll('.anruf-leiste .anruf-knoepfe button').length === 2", timeout=30000)
+
+    def anruf_abos() -> int:
+        return sum(1 for _, fs in relay.abos.values() for f in fs
+                   if f.get("kinds") == [1059] and f.get("#p") == [relay.ich] and "since" in f and "limit" not in f)
+    for _ in range(80):
+        if anruf_abos():
+            break
+        s.wait_for_timeout(250)
+    erg["abo"] = anruf_abos()
+    beginn = datetime.datetime.now()
+    erg["zugestellt"] = relay.zustellen(probe["events"][0])
+    s.wait_for_function("() => document.querySelectorAll('.anruf-leiste .anruf-knoepfe button').length === 2", timeout=15000)
+    erg["klingelt_nach_s"] = round((datetime.datetime.now() - beginn).total_seconds(), 1)
     erg["klingelt"] = ev("""() => { const l = document.querySelector('.anruf-leiste');
       return { rolle: [l.getAttribute('role'), l.getAttribute('aria-label'), l.getAttribute('aria-live')],
         titel: l.querySelector('.anruf-titel').textContent, code: l.querySelector('div.mono-sm')?.textContent ?? '',
@@ -1008,6 +1021,8 @@ def anruf_pruefen(browser, url: str) -> dict:
         erg["fehler"].append(f"Knöpfe {erg['knoepfe']}")
     if erg["ohne_knoten"] != [0, 0, False, 0]:
         erg["fehler"].append(f"ohne Knoten {erg['ohne_knoten']}")
+    if erg["abo"] < 1 or erg["zugestellt"] < 1:
+        erg["fehler"].append(f"Abo für Anrufe: {erg['abo']} offen, {erg['zugestellt']} zugestellt")
     k = erg["klingelt"]
     if not (k["rolle"] == ["region", "Anruf", "polite"] and k["titel"].endswith(" ruft an") and k["code"].startswith("Sicherheitscode: ")
             and k["code"].endswith("nicht geprüft") and "Knoten der anrufenden Person – er sieht deine IP-Adresse" in k["hinweis"]
@@ -1674,6 +1689,7 @@ class ProbeRelay:
         self.ich: str | None = None
         self.events: list[dict] = []
         self.gesendet: list[dict] = []  # was die App veröffentlicht (seit C.2c)
+        self.abos: dict[tuple, tuple] = {}  # offene REQs je Verbindung (seit B-13e) – für zustellen()
 
     @staticmethod
     def passt(ev: dict, f: dict) -> bool:
@@ -1697,6 +1713,7 @@ class ProbeRelay:
             if not isinstance(m, list) or len(m) < 2:
                 return
             if m[0] == "REQ":
+                self.abos[(id(ws), m[1])] = (ws, [x for x in m[2:] if isinstance(x, dict)])
                 for f in (x for x in m[2:] if isinstance(x, dict)):
                     if 10002 in f.get("kinds", []) and len(f.get("authors", [])) == 1 and not self.ich:
                         self.ich = f["authors"][0]
@@ -1708,7 +1725,18 @@ class ProbeRelay:
                 self.gesendet.append(m[1])
                 self.events.append(m[1])  # wie ein Relay: später abfragbar (seit C.2d2)
                 ws.send(json.dumps(["OK", m[1].get("id", ""), True, ""]))
+            elif m[0] == "CLOSE":
+                self.abos.pop((id(ws), m[1]), None)
         ws.on_message(nachricht)
+
+    def zustellen(self, ev: dict) -> int:
+        """Wie ein Relay mit offenen Abos (seit B-13e): ein neues Event an jede passende offene REQ – zurück die Zahl."""
+        n = 0
+        for (_, sub), (ws, filter_) in list(self.abos.items()):
+            if any(self.passt(ev, f) for f in filter_):
+                ws.send(json.dumps(["EVENT", sub, ev]))
+                n += 1
+        return n
 
 
 def qr_pruefen(browser, url: str) -> dict:

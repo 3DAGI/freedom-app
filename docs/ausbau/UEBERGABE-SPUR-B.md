@@ -14,14 +14,16 @@ Spur A wartet (Abschnitt 3).
 | B-9 „Mein Knoten“ | a, b1–b2, c1–c3 fertig (c3 nach L7 A) | #240, #252–#255, #272 |
 | B-11 Knoten verwalten (nur lesen, L6 A) | a–c fertig (Status 5077, App, Einrichtung) | #256–#258 |
 | B-12 Weckdienst (W1 A, W2 A, W3 A) | fertig (Anmeldung 5078, Knoten weckt, Weck-Worker `freedom-sw.js`, Notfall-Löschung, Haken „Wecken“) | #259, #260, #273–#275 |
-| B-13 Anrufe (T1 A, T2 A, T3 B) | fertig (TURN-Zugang 5079, coturn, Anruf-Aufbau 25040, `turn` im Angebot, Logik `shell/anruf.ts`, Oberfläche `shell/anruf-ui.ts`, Datenschutz „anruf-ip“/„anruf-vermittler“) | #261–#263, #276–#278 |
+| B-13 Anrufe (T1 A, T2 A, T3 B, T4 A) | fertig (TURN-Zugang 5079, coturn, Anruf-Aufbau 25040, `turn` im Angebot, Logik `shell/anruf.ts`, Oberfläche `shell/anruf-ui.ts`, Datenschutz „anruf-ip“/„anruf-vermittler“; e: Abo für Anrufe, 3 min klingeln) | #261–#263, #276–#278, B-13e |
 | B-14 | entfällt (I1 B) | – |
-| B-16 / B-17 / B-18 | später / wartet (Kalender) / wartet (Deploy Zahlkanal, MENSCH) | – |
+| B-16 / B-17 / B-18 | später / nach Freigabe der Kalender bauen (04.10.) / wartet (Deploy Zahlkanal, MENSCH) | – |
+| B-21 Überholtes entfernen (04.10.) | offen: `merge.ts`, `decrementTtl`, Ablauf in `state-backup.ts`, Belege in `mesh.ts` | – |
+| Phase 12 (E5, 04.10.) | baut Spur A | – |
 
 Zahlen auf `main`:
-- protocol 1168 (6 übersprungen)
+- protocol 1188 (6 übersprungen)
 - node 312 (7 übersprungen ohne Netz, mit Netz 313)
-- app 828 (Spur C zählt weiter, maßgeblich ist die Zeile „Stand …“ in CLAUDE.md)
+- app 848 (Spur C zählt weiter, maßgeblich ist die Zeile „Stand …“ in CLAUDE.md)
 - mls 13
 - Leak 72 + 1 todo
 
@@ -75,7 +77,8 @@ Die Zeile „Stand …“ in CLAUDE.md ist aktuell.
 - Anrufe: Installer mit `TURN_NAME=<öffentlicher-name>` erneut laufen lassen. Freigeben UDP/TCP 3478 und UDP 49160–49200, prüfen mit `turnutils_uclient`. coturn war in der Sitzung nicht erreichbar, also ungetestet.
 - Anrufe durchgehend prüfen (MENSCH-Checkliste): zwei Geräte mit je gekoppeltem Knoten und coturn – Ton und Bild; dann eines ohne Knoten – Hinweis vor dem Annehmen, Anruf über den Knoten des Anrufers.
 - Offen in Spur B nur noch: B-16 (später), B-17 (wartet auf den Kalender), B-18 (wartet auf den Deploy des Zahlkanals) und 11.5 (mit Spur A nach 11.3).
-- Möglicher nächster Schritt (braucht eine Entscheidung): eingehende Anrufe kommen nur mit dem Abgleich des Posteingangs (je Minute) – bei 60 s Klingeln kann einer verpasst werden. Ein dauerndes Abo änderte das Verkehrsmuster (6.4); Vorschlag: den Weckdienst (B-12) auch für Anrufe nutzen.
+- Anrufe verpasst (T4): entschieden 04.10. A – Abo für Anrufe, solange die App offen ist, und 3 min Klingeln (B-13e).
+- B-17: Der MENSCH trägt die OpenTimestamps-Kalender unter „Network access“ der Umgebung ein; danach in einer neuen Sitzung 5.10b bauen (vorher mit `curl` prüfen, ob sie erreichbar sind).
 
 ## 4. Arbeitsweise, die sich bewährt hat (und Fallen)
 

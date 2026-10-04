@@ -10,11 +10,12 @@
  */
 import { sicherheitscode, type EndeGrund } from "@freedomstack/protocol";
 import { t } from "../i18n.js";
-import { beiAnruf, legeAuf, nimmAn, rufeAn, vergissAnruf, type AnrufAnsicht } from "./anruf.js";
+import { beiAnruf, lauscheAufAnrufe, legeAuf, nimmAn, rufeAn, vergissAnruf, type AnrufAnsicht } from "./anruf.js";
 import { pruefStand } from "./kontakt-pruefen-ui.js";
 import { meineKopplung } from "./mein-knoten.js";
 import { sprichtFuer } from "./state.js";
 import { el, toast } from "./ui.js";
+import { abrufTakt } from "./versand.js";
 
 const ENDE_TEXT: Record<EndeGrund, string> = {
   aufgelegt: "komm.anrufEndeAufgelegt", abgelehnt: "komm.anrufEndeAbgelehnt", besetzt: "komm.anrufEndeBesetzt",
@@ -117,10 +118,14 @@ async function anrufen(video: boolean): Promise<void> {
   if (r) toast(t(GRUND_TEXT[r]), true);
 }
 
-/** Knöpfe und Leiste (einmal beim Start) – angerufen wird nur auf Klick. */
+/** Knöpfe, Leiste und das Abo für eingehende Anrufe (einmal beim Start) – angerufen wird nur auf Klick. */
 export function wireAnrufe(): void {
   for (const [id, video] of [["chat-anruf", false], ["chat-video", true]] as const) {
     document.getElementById(id)?.addEventListener("click", () => void anrufen(video));
   }
   beiAnruf((a) => void zeichne(a));
+  // Sofort klingeln (B-13e, T4 A): solange die App offen ist, ein Abo an den eigenen Schlüssel. Im Abruftakt
+  // nur nachsehen, ob es steht – eine neue Identität (Merkphrase, Bunker) kommt erst nach dem Start.
+  void lauscheAufAnrufe();
+  abrufTakt.melde("anrufe", lauscheAufAnrufe, 2);
 }
