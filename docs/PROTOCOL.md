@@ -127,6 +127,8 @@ Bestehende Kinds sind reserviert und semantisch eingefroren:
 | 38050 / 38051 | *nicht mehr belegt* (Treasury-Ankündigung bis 5.1.4a, Fee-Beweis des Knotens bis 5.1.4c) |
 | 38052 | Werbe-Nennung, signiert vom Geworbenen (§15) |
 | 38053 | *nicht mehr belegt* (Verteilungsbericht des Reward-Pools, bis 5.1.2) |
+| 38059 / 38060 | *nicht mehr belegt* (Runde und Zuteilung aus einem Topf, nie veröffentlicht, entfernt mit E10 B am 04.10.2026) |
+| 38061 | Kopfgeld für eine Aufgabe, meist ein Issue – in sats, SOL oder beiden (§29, `kopfgeld.ts`) |
 | 38075 | Zusammenfassung des Rufs, nur als versiegelter Kern an Kontakte (§17) |
 | 38080 | Modellkatalog eines Kurators (NIP-51-Set: `d`, `title`, `description`, je Modell `["model", <kennung>, <notiz?>]`; `modell-katalog.ts`) |
 | 38081 | Messbericht eines Prüfers je Provider und Modell (§28, `messbericht.ts`) |
@@ -897,3 +899,29 @@ Zählen, Sortieren, JSON – aus Vorlagen mit Zufall, die Antwort prüft Code, k
 Sprachmodell. Ein Prüfer fragt wie jeder Kunde: versiegelt, mit
 Sitzungsschlüssel, bezahlt – der Provider kann Prüffragen nicht von anderen
 unterscheiden, außer an ihrer Form.
+
+## 29. Kopfgelder (Kind 38061, Entscheidung E10 B)
+
+Jemand beschreibt eine Aufgabe und sagt einen Betrag zu; wer sie erledigt,
+bekommt ihn direkt vom Geldgeber. Kein Topf, keine Runde, niemand verwahrt
+etwas – A+ kennt keinen Topf (§3). Ersetzbar je Autor und `d`: Den Stand
+setzt nur der Geldgeber.
+
+| Tag | Inhalt |
+|---|---|
+| `d` | `bounty:<kennung>` |
+| `bounty` | Kennung (Buchstaben, Ziffern, `._-`, höchstens 64) |
+| `title` | Titel (höchstens 200 Zeichen) |
+| `amount_msat` | Zusage in Lightning (msat) – mindestens eine der beiden Zusagen |
+| `amount_lamports` | Zusage in SOL (Lamports) |
+| `status` | `offen`, `vergeben`, `erledigt`, `zurueckgezogen` |
+| `p` | bei `vergeben` und `erledigt`: an wen (nie der Geldgeber selbst) |
+| `e` | das Issue (Id des Events 1621, §19) – freiwillig |
+| `a` | das Repo (`30617:<besitzer>:<kennung>`) – freiwillig |
+
+Inhalt: die Beschreibung (höchstens 8.000 Zeichen). Gebaut nur über
+`baueKopfgeld()`, gelesen nur über `leseKopfgeld()` (Signatur, ganze Beträge
+über 0, bekannter Stand, `p` genau bei vergeben und erledigt, `d` passend zur
+Kennung). Den Stand liefert `aktuelleKopfgelder()` – je Geldgeber und Kennung
+der neueste; ein Fremder kann ein Kopfgeld nicht als erledigt melden, er legt
+höchstens ein eigenes an. Zum Issue: `kopfgelderZuIssue()`.

@@ -16123,3 +16123,44 @@ will: Neue bekommen Verkehr, sobald sie sich bewähren.
   der Test ist unverändert.
 
 Knoten-Stand: unverändert.
+
+## Schritt E10a – Kopfgelder in sats und SOL mit Verweis aufs Issue, kein Topf
+
+Entscheidung E10 B vom 04.10.2026: nur Kopfgelder, die jemand ausdrücklich
+zahlt, direkt an den, der die Aufgabe erledigt – kein Topf, keine Runde. A+
+kennt keinen Topf, und die Entwicklung bekommt ihre 2,5 % ohnehin
+(`ENTWICKLUNG`). E10a bringt das Format, E10b die Zahlung per Klick in der App.
+
+**Was:**
+- **`packages/protocol/src/kopfgeld.ts`** (neu, ersetzt `contributor-funding.ts`),
+  Kind 38061:
+  - Zusage in sats (`amount_msat`), in SOL (`amount_lamports`) oder in beiden.
+  - Verweis aufs Issue (`e`, 1621) und aufs Repo (`a`).
+  - Stand: offen, vergeben, erledigt, zurückgezogen; `p` nur bei vergeben
+    und erledigt, nie der Geldgeber selbst.
+- **Bauen und lesen:** `baueKopfgeld()` und `leseKopfgeld()` (streng:
+  Signatur, ganze Beträge über 0, `d` passend zur Kennung).
+- **`aktuelleKopfgelder()`:** je Geldgeber und Kennung der neueste Stand.
+  Bisher galt die Kennung allein, und ein Fremder hätte ein Kopfgeld als
+  erledigt melden können.
+  - Dazu `kopfgelderZuIssue()` und `offeneKopfgelder()`.
+- **Entfernt:** Runden und Zuteilungen aus einem Topf (38059/38060, nie
+  veröffentlicht, nie angebunden) samt `suggestAllocations()`. Die Kinds
+  stehen in `docs/PROTOCOL.md` als „nicht mehr belegt“.
+- **`docs/PROTOCOL.md`:** §29 Kopfgelder.
+- **Website (`roadmap.html`):** Phase „Mitentwickler“ sagt jetzt, dass es
+  keinen Topf und keine rückwirkenden Runden gibt.
+- **`scripts/wiring-ausnahmen.txt`:** neun alte Zeilen raus, fünf neue bis
+  E10b.
+
+**Tests:**
+- `kopfgeld.test.ts` (+5): Hin und zurück in beiden Währungen; Unsinn beim
+  Bauen und Lesen; nur der Geldgeber ändert den Stand; Bezug zum Issue.
+- `contributor-funding.test.ts` (−17) fällt mit dem Topf weg.
+- protocol damit 1167 → 1155. Begründet, wie mit E10 B entschieden: Der Topf
+  ist entfernt; die Tests der Kopfgelder sind neu und strenger.
+
+**Verdrahtet:** noch nicht – Format; E10b zeigt Kopfgelder am Issue und zahlt
+per Klick über die Zahlschienen.
+
+Knoten-Stand: unverändert.
