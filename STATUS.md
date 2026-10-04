@@ -16357,7 +16357,7 @@ Prüfern die App folgt.
 - Texte `pruef.*` (de/en) in `texte/karte.ts`. Der Smoke-Test „mobil“ misst den
   neuen Reiter, „zugang“ erfasst ihn von selbst.
 
-**Verdrahtet:** `packages/app/src/shell/app.ts:841` (`wirePruefung()`),
+**Verdrahtet:** `packages/app/src/shell/app.ts:843` (`wirePruefung()`),
 `packages/app/src/shell/state.ts:163` (`providerMitStand()`).
 
 **Prüfungen:** protocol 1157, node 314, app 874 grün (+3), mls 13, Leak 72 +

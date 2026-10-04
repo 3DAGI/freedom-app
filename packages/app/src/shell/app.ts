@@ -837,10 +837,10 @@ function starte(): void {
   void wireGebuehrenKarte();
   void pruefeFixierungBeimStart();
   void wireMeshTab();
-  // Seite Netz › Prüfung (P2b2): lädt erst beim Öffnen des Reiters
-  wirePruefung();
   // KI über Funk (7.4c3): Gateway wählen, „über Funk“ im Agenten
   wireFunkGateway();
+  // Seite Netz › Prüfung (P2b2): lädt erst beim Öffnen des Reiters
+  wirePruefung();
   void wireSpacesTab();
   void wireProfil();
   setzeLogo();
