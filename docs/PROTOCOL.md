@@ -121,7 +121,7 @@ Bestehende Kinds sind reserviert und semantisch eingefroren:
 | 38013 | *nicht mehr belegt* (Reward-Claim, bis 5.1.4b) |
 | 38020–38022 | Sessions (Open/Payment/Close) |
 | 38027 | Provider-Capabilities (models, tools, storage, relay) |
-| 38030 / 38031 | Mesh-Packet / Delivery-Receipt |
+| 38030 / 38031 | *nicht mehr belegt* (Mesh-Paket / Kurier-Zustellbeleg; nie angebunden, entfernt mit B-21 – über Mesh geht seit 7.1 nur der Umschlag) |
 | 38040 / 38041 | Blob-Manifest / Blob-Chunk |
 | 38042 | Git-Repo-Referenz |
 | 38050 / 38051 | *nicht mehr belegt* (Treasury-Ankündigung bis 5.1.4a, Fee-Beweis des Knotens bis 5.1.4c) |

@@ -5,8 +5,8 @@
  * in einem Ordner, der physisch zwischen Geraeten wandern kann.
  *
  * Das ist der einfachste Mesh-Transport: Outbox exportieren -> USB-Stick ->
- * auf anderem Geraet importieren. Belohnung via Delivery-Receipt (siehe
- * mesh.ts): der Ueberbringer beweist Zustellung, Empfaenger zahlt aus Escrow.
+ * auf anderem Geraet importieren. (Eine Belohnung fuer Ueberbringer gibt es
+ * nicht – die Kurier-Belege aus `mesh.ts` fielen ungenutzt mit B-21.)
  */
 import { NostrEvent, verifyEvent } from "./event.js";
 import { Relay, RelayFilter } from "./outbox.js";

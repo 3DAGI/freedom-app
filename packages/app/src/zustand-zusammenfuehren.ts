@@ -14,8 +14,8 @@
  *   Sicherung – das zählt als Konflikt und wird genannt.
  * - Einzelwerte (Sprache, Profil, Einstellungen): wie bisher aus der Sicherung.
  *
- * Die gespeicherten Daten tragen keine Zeit je Feld – deshalb nicht die
- * Mengen mit Zeitstempeln aus `merge.ts`, sondern Vereinigung: Bei echtem
+ * Die gespeicherten Daten tragen keine Zeit je Feld – deshalb keine Mengen
+ * mit Zeitstempeln (das frühere `merge.ts`, entfernt mit B-21), sondern Vereinigung: Bei echtem
  * Konflikt verliert eine Seite, und die App sagt, wie oft.
  */
 
