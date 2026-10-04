@@ -130,6 +130,8 @@ pub mod solana_channel {
     }
 
     /// Nach Ablauf: Rest und Miete an den Kunden, das Konto wird geschlossen.
+    /// Aufrufen darf jeder (Z1, 04.10.2026) – die Gebühr zahlt der Aufrufer, das
+    /// Geld geht nur an den Kunden aus dem Kanal (`has_one`, `close`).
     pub fn refund(ctx: Context<Refund>) -> Result<()> {
         require!(
             Clock::get()?.unix_timestamp >= ctx.accounts.channel.expiry,
@@ -234,8 +236,10 @@ pub struct Settle<'info> {
 
 #[derive(Accounts)]
 pub struct Refund<'info> {
+    /// CHECK: nur Empfänger von Rest und Miete – `has_one` bindet die Adresse an den
+    /// Kunden des Kanals; eine Unterschrift braucht es nicht (Z1).
     #[account(mut)]
-    pub customer: Signer<'info>,
+    pub customer: UncheckedAccount<'info>,
     #[account(
         mut,
         has_one = customer @ KanalFehler::FalscherKunde,
