@@ -16052,4 +16052,10 @@ freigegeben (`docs/FREEDOM-PRUEFUNG.md`, Abschnitt 6).
 **Verdrahtet:** noch nicht – Bausteinschritt; P2b liest Berichte in der App,
 P3 baut sie im Knoten.
 
+**Prüfungen:**
+- protocol 1167 grün (6 übersprungen; vorher 1166), node 314, app 855;
+- mls 13, Leak-Tests 72 grün + 1 todo;
+- check-wiring `--streng` Exit 0, innerHTML streng Exit 0, Website ok;
+- Smoke-Test bestanden.
+
 Knoten-Stand: unverändert.
