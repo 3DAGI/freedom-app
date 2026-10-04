@@ -15880,3 +15880,9 @@ Devnet-Deploy weg – bis dahin ist sie der Weg ohne Kanal.
 
 Knoten-Stand: unverändert. Der Knoten liest die Einlage neu, wenn eine
 Gutschrift über der alten liegt (4.3c).
+
+**Prüfungen:**
+- protocol 1190 grün (6 übersprungen), node 314 grün, app 852 grün (vorher 850);
+- mls 13, Leak-Tests 72 grün + 1 todo;
+- check-wiring `--streng` Exit 0 (158 Ausnahmen, eine veraltete weniger), innerHTML streng Exit 0, Website ok;
+- Smoke-Test bestanden.
