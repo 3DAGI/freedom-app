@@ -15887,6 +15887,58 @@ Gutschrift über der alten liegt (4.3c).
 - check-wiring `--streng` Exit 0 (158 Ausnahmen, eine veraltete weniger), innerHTML streng Exit 0, Website ok;
 - Smoke-Test bestanden.
 
+## Schritt P1a – Freedom-Prüfung: Stufen, Prüffragen, eigene Messung, Auswahl
+
+Entscheidung E7 vom 04.10.2026: Provider werden automatisch geprüft, nach dem
+Vorbild von OpenRouter (Entwurf `docs/FREEDOM-PRUEFUNG.md`). P1a bringt die
+Bausteine ohne DOM und ohne Netz. Verdrahtet werden sie in P2a (App) und P3
+(Prüfer im Knoten).
+
+**Was** (`packages/protocol/src/pruefung.ts`):
+- **Stufen** (`stufeAus()`, `PRUEF_GRENZEN`):
+  - ab 95 % Erfolg normal, ab 80 % herabgestuft, darunter ausgefallen;
+  - erst ab genug Anfragen (eigene 20, Prüfer 50) – davor „neu“.
+- **Prüffragen** (`neuePruefFrage()`, `pruefeAntwort()`):
+  - Arten: Rechnen, Umkehren, Zählen, Sortieren, JSON;
+  - aus Vorlagen mit Zufall; die Antwort prüft Code, kein Sprachmodell;
+  - großzügig bei der Hülle (Codeblock, Leerzeichen, Tausender-Trennzeichen),
+    streng beim Inhalt.
+- **Eigene Messung** (`merkeMesspunkt()`, `fasseMessungZusammen()`): die
+  letzten 100 Punkte, Median der Zeit, Ausfall in den letzten 60 Sekunden.
+- **Auswahl** (`ordneNachPruefung()`), in dieser Reihenfolge:
+  - normale;
+  - Neue, bekannte (mit Quittungen) vor unbekannten;
+  - Ausreißer bei der Qualität;
+  - Herabgestufte;
+  - gerade ausgefallene;
+  - ausgefallene.
+  - In den ersten drei Gruppen zufällig, gewichtet mit 1/Preis² mal
+    (1 + Vertrauen/100); dahinter fest nach Vertrauen und Preis.
+- **`docs/FREEDOM-PRUEFUNG.md`:** P1 in P1a und P1b geteilt (je unter ~400
+  Zeilen). Ergänzt: unter den Neuen stehen bekannte vor unbekannten. Ein
+  Unbekannter wird erst durch Messung „normal“.
+- **`scripts/wiring-ausnahmen.txt`:** sechs Exporte bis P2a/P3.
+
+**Tests:** `pruefung.test.ts` (+6), darunter:
+- Stufengrenzen;
+- je Art die richtige Antwort besteht, eine fremde nicht;
+- Hüllen;
+- Fenster und Ausfall;
+- Reihenfolge der Gruppen;
+- Lastverteilung 4:1 bei halbem Preis, mit Vertrauen 2:1 – mit fester
+  Zufallsfolge.
+
+**Verdrahtet:** noch nicht – Bausteinschritt; P2a verdrahtet `ordneNachPruefung()`,
+`fasseMessungZusammen()`, `merkeMesspunkt()`, `stufeAus()`.
+
+**Prüfungen** (nach dem Einmergen von `main` mit B-13e und B-21):
+- protocol 1166 grün (6 übersprungen; 1160 nach B-21 + 6), node 314, app 855;
+- mls 13, Leak-Tests 72 grün + 1 todo;
+- check-wiring `--streng` Exit 0, innerHTML streng Exit 0, Website ok;
+- Smoke-Test bestanden.
+
+Knoten-Stand: unverändert.
+
 ## Schritt B-13e – Anrufe sofort: Abo für Anrufe, drei Minuten klingeln
 
 **Warum:** Entscheidung T4 A (04.10.2026). Ein Angebot sah die App erst beim
