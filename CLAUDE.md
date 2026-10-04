@@ -45,9 +45,9 @@ bash packages/mls/bauen.sh --pruefen                     # nur bei Änderungen a
 bash contracts/solana-channel/pruefen.sh --werkzeuge     # nur bei Änderungen am Zahlkanal: bauen + Tests gegen Validator (Agave 3.1.10)
 ```
 
-Stand 04.10.2026 (nach 8.2c, 5.5a–c, 8.15, 11.1a, C.3c2, 11.1b, 5.9a–b, 6.3a–b2, 11.4a–b2, C.4a–b, C.5a–b, C.6b, 11.4c, C-18, C-17a–c, C-20a–j3, C-1a–f, C-2, C-3, C-4, C-5a–d, C-6a–e, C-7a–b, C-8, C-10 bis C-16, 11.2a–b, A-4 bis A-7, A-7r, Z1, 12.2–12.3, E8, P1a–b, B-1, B-2a–c, B-3 bis B-7, B-8a–c, B-9a, B-15, B-19, B-20a–c, B-10a–b, B-9b1–b2, B-9c1–c3, B-11a–c, B-12a–d, B-13a–e und B-21): protocol 1167 grün (6 übersprungen), node 314 grün
+Stand 04.10.2026 (nach 8.2c, 5.5a–c, 8.15, 11.1a, C.3c2, 11.1b, 5.9a–b, 6.3a–b2, 11.4a–b2, C.4a–b, C.5a–b, C.6b, 11.4c, C-18, C-17a–c, C-20a–j3, C-1a–f, C-2, C-3, C-4, C-5a–d, C-6a–e, C-7a–b, C-8, C-10 bis C-16, 11.2a–b, A-4 bis A-7, A-7r, Z1, 12.2–12.3, E8, P1a–b, P2a, B-1, B-2a–c, B-3 bis B-7, B-8a–c, B-9a, B-15, B-19, B-20a–c, B-10a–b, B-9b1–b2, B-9c1–c3, B-11a–c, B-12a–d, B-13a–e und B-21): protocol 1167 grün (6 übersprungen), node 314 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 855 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 72 grün + 1 `todo` (heutige Lecks,
+in `tools.test.ts`), app 860 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 72 grün + 1 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
 Ausnahme: gesendete SOL-Zahlungen von frischen Adressen, eine bewusste Grenze
 nach Entscheidung 4.9 A – im Datenschutzbericht unter „Bewusste Grenzen“).
@@ -669,8 +669,9 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   `freedom.quittungen` in `geheim` (in `SICHERUNG_NIE`), angelegt in
   `handleAnswer()` – je Stelle ein Aufruf; Provider-Auswahl nur mit
   `discoverProviders(pool, aktuellerRuf())`. 38010 nie für Rang, Stufe oder
-  Relay-Gewicht abfragen. Ungeprüfte Provider bleiben wählbar, stehen aber
-  hinten; die Vertrauensschwelle gilt nur bei bestätigten Reklamationen – sonst
+  Relay-Gewicht abfragen. Ungeprüfte Provider bleiben wählbar; die Reihenfolge
+  macht seit P2a `ordneNachPruefung()` (unter den Neuen bekannte vor
+  unbekannten); die Vertrauensschwelle gilt nur bei bestätigten Reklamationen – sonst
   stünde ein einmal bezahlter hinter einem unbekannten. Zusammenfassungen
   (seit 5.5c) nur über `RufVersand` (`ruf-teilen.ts`, `shell/ruf.ts`): nur mit
   Zustimmung (`freedom.ruf.teilen`), je Schlag des Abruftakts höchstens ein
@@ -952,6 +953,15 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   OpenRouter-Vorbild): eigene Messung nur auf dem Gerät, Prüfer stellen nur
   eigene Prüffragen, nie Fragen von Nutzern. `consensus.ts` bleibt Baustein
   des Prüfers (Ausnahmen in `wiring-ausnahmen.txt` mit diesem Grund).
+  Auswahl seit P2a nur über `matchProviders()` → `ordneNachPruefung()`
+  (`pruefung.ts`): eigene Provider zuerst, dann normale, Neue (bekannte vor
+  unbekannten), Ausreißer, Herabgestufte, gerade und länger Ausgefallene; vorn
+  zufällig mit 1/Preis² aus `sichererZufall()` – in Tests immer `zufall`
+  übergeben, sonst würfelt der Test. Die eigene Messung nur über `MessBuch`
+  (`messbuch.ts`, `freedom.messungen` in `geheim` und `SICHERUNG_NIE`),
+  geschrieben nur aus `askWithFailover()` über `ergebnisDesLaufs()`:
+  Ablehnungen und Abbrüche zählen nicht (oft Fehler des Nutzers), eine
+  verpasste Frist und ein kaputtes Ergebnis schon.
 - **Offene Räume nur über die Adresse des Gründers** (seit B-7): gemerkt
   (`freedom.spaces`, `oeffentliche-raeume.ts`) und weitergegeben wird
   `34700:<gründer>:space:<kennung>`; den Raum baut nur `raumZustandFuer()` –

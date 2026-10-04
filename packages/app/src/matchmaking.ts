@@ -9,8 +9,11 @@
  * Auswahl-Logik:
  *   1. Filter nach gewuenschtem Tier (tierSatisfies) auf die Stufe: das Angebot,
  *      durch Quittungen hoeher, durch bestaetigte Reklamationen tiefer
- *   2. Sortierung: Provider mit Ruf vor ungeprueften, Ruf absteigend,
- *      dann Preis aufsteigend
+ *   2. Reihenfolge seit P2a (E7, wie OpenRouter, `ordneNachPruefung()`): eigene
+ *      Provider zuerst, dann nach der eigenen Messung (`messbuch.ts`) – normale,
+ *      Neue (bekannte mit Quittungen vor unbekannten), Herabgestufte, gerade und
+ *      laenger Ausgefallene; in den vorderen Gruppen zufaellig, gewichtet mit
+ *      1/Preis² und dem Ruf
  *   3. Failover: antwortet der beste nicht in timeoutMs -> naechster
  *
  * Race-Modus (optional, NICHT default): siehe requestRace(). User zahlt
@@ -24,7 +27,10 @@ import {
   tierSatisfies,
   recommendedTier,
   KIND_PROVIDER_CAPABILITIES,
+  type MessStand,
   type Ruf,
+  ordneNachPruefung,
+  sichererZufall,
 } from "@freedomstack/protocol";
 
 export interface ScoredProvider {
@@ -38,6 +44,16 @@ export interface ScoredProvider {
   geprueft: boolean;
   /** Bestaetigte Reklamationen (eigene, von Kontakten zur Haelfte). */
   reklamationen: number;
+  /** Eigene Messung (P2a) – nur auf dem Geraet; ohne sie gilt der Provider als neu. */
+  messung?: MessStand;
+}
+
+/** Die eigene Messung an die Provider haengen (frisch je Auswahl, der Angebots-Cache bleibt). */
+export function mitMessung(providers: readonly ScoredProvider[], staende: ReadonlyMap<string, MessStand>): ScoredProvider[] {
+  return providers.map((p) => {
+    const m = staende.get(p.caps.pubkey);
+    return m ? { ...p, messung: m } : p;
+  });
 }
 
 const RANG: Record<ProviderTier, number> = { free: 1, classic: 2, pro: 3 };
@@ -108,7 +124,7 @@ export async function discoverProviders(pool: OutboxPool, ruf: ReadonlyMap<strin
 export function matchProviders(
   providers: ScoredProvider[],
   wantedTier: ProviderTier,
-  opts: { model?: string; maxResults?: number; minTrust?: number; allowlist?: string[] } = {},
+  opts: { model?: string; maxResults?: number; minTrust?: number; allowlist?: string[]; zufall?: () => number } = {},
 ): ScoredProvider[] {
   const max = opts.maxResults ?? 5;
   // Scam-Filter: Wer bestaetigte Reklamationen hat, braucht fuer classic/pro
@@ -118,19 +134,27 @@ export function matchProviders(
   // (score -1). Die Allowlist (eigene Provider) ist immer erlaubt.
   const minTrust = opts.minTrust ?? (wantedTier === "free" ? 0 : 10);
   const allow = new Set(opts.allowlist ?? []);
-  return providers
+  const passend = providers
     .filter((p) => tierSatisfies(p.repTier, wantedTier))
     .filter((p) => allow.has(p.caps.pubkey) || p.reklamationen === 0 || p.trustScore >= minTrust)
-    .filter((p) => (opts.model ? p.caps.models.includes(opts.model) : true))
-    .sort((a, b) => {
-      // allowlist zuerst, dann score absteigend
-      const aAllow = allow.has(a.caps.pubkey) ? 1 : 0;
-      const bAllow = allow.has(b.caps.pubkey) ? 1 : 0;
-      if (aAllow !== bAllow) return bAllow - aAllow;
-      if (b.score !== a.score) return b.score - a.score;
-      return a.caps.textRatePerKTokenMsat - b.caps.textRatePerKTokenMsat;
-    })
-    .slice(0, max);
+    .filter((p) => (opts.model ? p.caps.models.includes(opts.model) : true));
+  // Eigene Provider (Allowlist) zuerst, unter sich nach Ruf und Preis
+  const eigene = passend.filter((p) => allow.has(p.caps.pubkey))
+    .sort((a, b) => b.score - a.score || a.caps.textRatePerKTokenMsat - b.caps.textRatePerKTokenMsat);
+  // Alle anderen nach der Pruefung (P2a): Stufe aus der eigenen Messung, Gewicht aus Preis und Ruf
+  const andere = ordneNachPruefung(
+    passend.filter((p) => !allow.has(p.caps.pubkey)).map((p) => ({
+      p,
+      pk: p.caps.pubkey,
+      preisMsat: p.caps.textRatePerKTokenMsat,
+      stufe: p.messung?.stufe ?? "neu",
+      ausfallJetzt: p.messung?.ausfallJetzt ?? false,
+      vertrauen: p.trustScore,
+      bekannt: p.geprueft,
+    })),
+    opts.zufall ?? sichererZufall,
+  ).map((k) => k.p);
+  return [...eigene, ...andere].slice(0, max);
 }
 
 // ------------------------------------------------------------- MAX MODE

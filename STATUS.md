@@ -16059,3 +16059,67 @@ P3 baut sie im Knoten.
 - Smoke-Test bestanden.
 
 Knoten-Stand: unverändert.
+
+## Schritt P2a – Eigene Messung der Provider und Auswahl nach der Prüfung
+
+Entscheidung E7 vom 04.10.2026 (`docs/FREEDOM-PRUEFUNG.md` 3.1, 3.3). Die App
+misst die Provider selbst. Ausgewählt wird nach dem Vorbild von OpenRouter:
+normale vorn, Neue in der Mitte, gerade Ausgefallene und schwache hinten.
+Unter gleich Guten wählt sie zufällig, gewichtet mit 1/Preis². Bisher standen
+ungeprüfte Provider immer ganz hinten (Score −1). Das verhinderte, was E7
+will: Neue bekommen Verkehr, sobald sie sich bewähren.
+
+**Was:**
+- **`packages/app/src/messbuch.ts` (neu):** `MessBuch`.
+  - Je Provider die letzten 100 Punkte, höchstens 200 Provider.
+  - Streng gelesen, nur im Tresor (`freedom.messungen`).
+  - `ergebnisDesLaufs()` wertet einen Lauf mit Failover und Hedging aus:
+    - Antwort → Erfolg mit Zeit; kaputtes Ergebnis → Fehler;
+    - verpasste Frist ohne spätere Antwort → Fehler;
+    - wer noch in der Frist lief, zählt nicht.
+- **`shell/messung.ts` (neu):** Buch über `geheim`; `merkeMessung()` – bei
+  gesperrtem Tresor fehlt die Messung, sie wird nie offen abgelegt.
+- **`shell/tabs/agent-wege.ts`:** `askWithFailover()` merkt Sendezeit und
+  verpasste Fristen und schreibt nach der Antwort bzw. wenn alle versagten.
+  Ablehnungen (oft Fehler des Nutzers: Gebot, Kanal) und Abbrüche zählen nicht.
+- **`shell/tabs/agent.ts`:** `waitForAnswer()` kennzeichnet ein kaputtes
+  Ergebnis (`kaputt`).
+- **`matchmaking.ts`:**
+  - `mitMessung()` hängt die Messung an.
+  - `matchProviders()` stellt eigene Provider zuerst, dann gilt
+    `ordneNachPruefung()`. Die Stufe kommt aus der eigenen Messung; ohne
+    Messung ist ein Provider „neu“, bekannte (mit Quittungen) stehen vor
+    unbekannten. Gewichtet wird mit 1/Preis² und dem Ruf.
+  - Zufall über `sichererZufall()`, in Tests mit `zufall`.
+- **`shell/state.ts`:** `findProviders()` liest die Messung frisch je Auswahl
+  (der Angebots-Cache bleibt).
+- **`shell/tresor.ts`, `protocol/src/state-backup.ts`:** `freedom.messungen`
+  in `GEHEIM_FEST` und `SICHERUNG_NIE`.
+- **`CLAUDE.md`:** Regel zur Auswahl und Messung; der Satz „ungeprüfte stehen
+  hinten“ ist nachgezogen.
+- **`scripts/wiring-ausnahmen.txt`:** vier P1a-Ausnahmen entfallen, jetzt
+  verdrahtet.
+
+**Tests:**
+- `messbuch.test.ts` (+5): Buch, Grenzen, Lauf, Reihenfolge, Ablage und
+  Verdrahtung.
+- `quittungen.test.ts`: Die Abnahme aus 5.5b gilt weiter (bezahlt vor
+  unbekannt, die Flut ändert nichts). Bei zwei Unbekannten entscheidet jetzt
+  das Gewicht 1/Preis² statt des festen Preises; der Test gibt dafür eine
+  feste Zufallszahl vor und prüft beide Richtungen.
+
+**Verdrahtet:**
+- `shell/tabs/agent-wege.ts` (`askWithFailover()` → `merkeMessung(ergebnisDesLaufs(…))`);
+- `shell/state.ts` (`findProviders()` → `mitMessung()` → `matchProviders()` →
+  `ordneNachPruefung()`).
+
+**Prüfungen:**
+- protocol 1167 grün (6 übersprungen), node 314, app 860 grün (vorher 855);
+- mls 13, Leak-Tests 72 grün + 1 todo;
+- check-wiring `--streng` Exit 0 (vier Ausnahmen weniger), innerHTML streng Exit 0, Website ok;
+- Smoke-Test bestanden.
+- Im ersten Lauf war ein Test rot: B-4 erwartet `freedom.kontakte.geprueft`
+  am Ende von `GEHEIM_FEST`. Behoben, indem der neue Eintrag davor steht;
+  der Test ist unverändert.
+
+Knoten-Stand: unverändert.

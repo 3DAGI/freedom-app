@@ -395,8 +395,8 @@ export async function waitForAnswer(
       try {
         return { ev: filtered[0], parsed: parseJobResult(filtered[0]) };
       } catch {
-        // Result ohne e/p/amount (z.B. provider-fehler) — als text-antwort zeigen
-        return { ev: filtered[0], parsed: { requestId, customerPubkey: "", providerPubkey: filtered[0].pubkey, output: filtered[0].content, amountMsat: 0 } as ReturnType<typeof parseJobResult> };
+        // Result ohne e/p/amount (z.B. provider-fehler) — als text-antwort zeigen; die Messung (P2a) zählt es als Fehler
+        return { ev: filtered[0], parsed: { requestId, customerPubkey: "", providerPubkey: filtered[0].pubkey, output: filtered[0].content, amountMsat: 0 } as ReturnType<typeof parseJobResult>, kaputt: true };
       }
     }
     await new Promise((res) => setTimeout(res, 3000));

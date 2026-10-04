@@ -59,7 +59,7 @@ export const geheim: GeheimSpeicher = geheimSpeicher(() => tresor, tresorEingeri
  * tabs/kommunikation.ts, swap-client.ts, sol-wallet.ts, suche-ui.ts,
  * nachfolge.ts, mls-speicher.ts, anteile-kasse.ts und zahlkanal.ts.
  */
-const GEHEIM_FEST = [LS_KEY, LS_BUNKER, LS_MERKPHRASE, "freedom.nwc.uri", "freedom.chats", "freedom.agentHistory", "freedom.swapHistory", "freedom.suche.schluessel", "freedom.nachfolge", "freedom.reklamationen", "freedom.coverage.eintrag", "freedom.mls.schluessel", "freedom.raeume.privat", "freedom.raeume.meldungen.erledigt", "freedom.anteile", "freedom.mandate", "freedom.kanaele", "freedom.funk.gateway", "freedom.quittungen", "freedom.ruf.kontakte", "freedom.ruf.gesendet", "freedom.repos.gesehen", "freedom.repos.lokal", "freedom.knoten.kopplung", "freedom.lastRead", "freedom.kontakte.geprueft"];
+const GEHEIM_FEST = [LS_KEY, LS_BUNKER, LS_MERKPHRASE, "freedom.nwc.uri", "freedom.chats", "freedom.agentHistory", "freedom.swapHistory", "freedom.suche.schluessel", "freedom.nachfolge", "freedom.reklamationen", "freedom.coverage.eintrag", "freedom.mls.schluessel", "freedom.raeume.privat", "freedom.raeume.meldungen.erledigt", "freedom.anteile", "freedom.mandate", "freedom.kanaele", "freedom.funk.gateway", "freedom.quittungen", "freedom.ruf.kontakte", "freedom.ruf.gesendet", "freedom.repos.gesehen", "freedom.repos.lokal", "freedom.knoten.kopplung", "freedom.lastRead", "freedom.messungen", "freedom.kontakte.geprueft"];
 const GEHEIM_PRAEFIXE = ["freedom.swap.", "freedom.htlc.", "freedom.solWallet", "freedom.pending."];
 
 function geheimnisse(): string[] {
