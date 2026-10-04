@@ -15931,7 +15931,14 @@ Bausteine ohne DOM und ohne Netz. Verdrahtet werden sie in P2a (App) und P3
 **Verdrahtet:** noch nicht – Bausteinschritt; P2a verdrahtet `ordneNachPruefung()`,
 `fasseMessungZusammen()`, `merkeMesspunkt()`, `stufeAus()`.
 
+**Prüfungen** (nach dem Einmergen von `main` mit B-13e und B-21):
+- protocol 1166 grün (6 übersprungen; 1160 nach B-21 + 6), node 314, app 855;
+- mls 13, Leak-Tests 72 grün + 1 todo;
+- check-wiring `--streng` Exit 0, innerHTML streng Exit 0, Website ok;
+- Smoke-Test bestanden.
+
 Knoten-Stand: unverändert.
+
 ## Schritt B-13e – Anrufe sofort: Abo für Anrufe, drei Minuten klingeln
 
 **Warum:** Entscheidung T4 A (04.10.2026). Ein Angebot sah die App erst beim
