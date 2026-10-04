@@ -169,7 +169,7 @@ function kette(konten: Map<string, { owner: string; data: Buffer }>) {
   return { conn: conn as unknown as import("@solana/web3.js").Connection, wallet, gesendet };
 }
 
-test("Rückholen: offen ist ein Kanal, solange sein Konto beim Programm liegt; refund mit dem Kunden als Unterzeichner", async () => {
+test("Rückholen: offen ist ein Kanal, solange sein Konto beim Programm liegt; refund ohne Unterschrift des Kunden (Z1)", async () => {
   const offen = Keypair.generate().publicKey.toBase58();
   const fremdesProgramm = Keypair.generate().publicKey.toBase58();
   const weg = Keypair.generate().publicKey.toBase58();
@@ -185,17 +185,20 @@ test("Rückholen: offen ist ein Kanal, solange sein Konto beim Programm liegt; r
   assert.deepEqual(r, { signature: "sig1", refunded: [offen], failed: [] });
   const [ix] = k.gesendet[0]!.instructions;
   assert.equal(ix!.programId.toBase58(), KANAL_PROGRAMM_ID);
-  assert.deepEqual(ix!.keys.map((x) => [x.pubkey.toBase58(), x.isSigner]), [[kunde, true], [offen, false]]);
+  assert.deepEqual(ix!.keys.map((x) => [x.pubkey.toBase58(), x.isSigner]), [[kunde, false], [offen, false]]);
 });
 
-test("Rückholen: Kanal einer anderen Wallet – keine Transaktion, klarer Grund", async () => {
+test("Rückholen (Z1): Kanal einer anderen Wallet – das Geld geht an deren Adresse, diese Wallet zahlt nur die Gebühr", async () => {
   const fremd = Keypair.generate().publicKey.toBase58();
   const kanalFremd = Keypair.generate().publicKey.toBase58();
   const k = kette(new Map([[kanalFremd, { owner: KANAL_PROGRAMM_ID, data: kontoDaten(fremd) }]]));
   const r = await erstatteKanaele(k.conn, k.wallet, [kanalFremd]);
-  assert.equal(k.gesendet.length, 0);
-  assert.deepEqual(r.refunded, []);
-  assert.match(r.failed[0]!.reason, new RegExp(fremd.slice(0, 6)));
+  assert.deepEqual(r, { signature: "sig1", refunded: [kanalFremd], failed: [] });
+  const tx = k.gesendet[0]!;
+  const [ix] = tx.instructions;
+  assert.deepEqual(ix!.keys.map((x) => [x.pubkey.toBase58(), x.isSigner, x.isWritable]), [[fremd, false, true], [kanalFremd, false, true]], "Empfänger ist der Kunde auf der Kette");
+  assert.notEqual(fremd, kunde);
+  assert.equal(tx.feePayer?.toBase58(), kunde, "die Gebühr zahlt diese Wallet");
 });
 
 test("Wächter: gibt die Art der Sperre an den Runner – ein Kanal wird wie ein Kanal zurückgeholt", async () => {

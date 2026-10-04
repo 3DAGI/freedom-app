@@ -214,23 +214,20 @@ export async function programmBereit(conn: Connection): Promise<boolean> {
 }
 
 /**
- * Abgelaufene Kanäle zurückholen (Rest und Miete an den Kunden). Nur Kanäle
- * dieser Wallet – eines anderen Kunden lehnt das Programm ab, das meldet die
- * App vorher. Alles in einer Transaktion.
+ * Abgelaufene Kanäle zurückholen (Rest und Miete an den Kunden). Seit Z1 ohne
+ * Unterschrift des Kunden: Diese Wallet zahlt nur die Gebühr, das Geld geht an
+ * den Kunden, der auf der Kette steht – auch wenn es eine andere Wallet ist
+ * (z. B. eine, die gerade nicht verbunden ist). Alles in einer Transaktion.
  */
 export async function erstatteKanaele(
   conn: Connection, wallet: WalletSigner, kanaele: string[],
 ): Promise<{ signature?: string; refunded: string[]; failed: { swapId: string; reason: string }[] }> {
-  const kunde = wallet.publicKey.toBase58();
   const ixs: TransactionInstruction[] = [];
   const dabei: string[] = [];
   const failed: { swapId: string; reason: string }[] = [];
   for (const kanal of kanaele) {
-    const stand = await kanalAufKette(conn, kanal);
-    if (stand && stand.kunde !== kunde) {
-      failed.push({ swapId: kanal, reason: t("zahl.kanalAndereWallet", { adresse: `${stand.kunde.slice(0, 6)}…` }) });
-      continue;
-    }
+    // Empfänger ist der Kunde auf der Kette – nie diese Wallet einsetzen, sonst lehnte das Programm ab
+    const kunde = (await kanalAufKette(conn, kanal))?.kunde ?? wallet.publicKey.toBase58();
     ixs.push(erstatteKanalIx({ kunde, kanal }));
     dabei.push(kanal);
   }

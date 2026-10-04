@@ -287,7 +287,9 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   (`shell/ki-zahlung.ts`): Gutschrift statt Deklaration vor dem Versiegeln,
   gemerkt vor dem Senden; eine Kanal-Antwort zahlt Lightning nie (`perKanal()`
   aus dem Speicher, nicht aus dem Tresor). Deckt der Kanal nicht, geht nichts
-  hinaus. Kanäle holt der Wächter als `kind: "kanal"` zurück. Geöffnet wird
+  hinaus. Kanäle holt der Wächter als `kind: "kanal"` zurück – seit Z1 ohne
+  Unterschrift des Kunden (`refund` darf jeder, das Geld geht nur an den Kunden
+  aus dem Kanal; Empfänger immer aus der Kette, nie die Wallet). Geöffnet wird
   nur über `oeffneZahlkanal()` (`shell/zahlkanal-ui.ts`, seit 4.3d2): Angebot
   nennt diesen Kanal, Programm liegt auf der Kette, Tresor, dann merken, dann
   einzahlen; Empfänger nur über `kanalEmpfaenger()`.

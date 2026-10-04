@@ -237,12 +237,16 @@ export function rechneKanalAbIxs(p: {
   return [pruefung, settle];
 }
 
-/** Rest nach Ablauf zurück an den Kunden; schließt den Kanal. */
+/**
+ * Rest nach Ablauf zurück an den Kunden; schließt den Kanal. Seit Z1 ohne
+ * Unterschrift des Kunden: Wer die Transaktion bezahlt, ist gleich – das Geld
+ * geht nur an den Kunden des Kanals.
+ */
 export function erstatteKanalIx(p: { kunde: string; kanal: string }, programmId = KANAL_PROGRAMM_ID): TransactionInstruction {
   return new TransactionInstruction({
     programId: new PublicKey(programmId),
     keys: [
-      { pubkey: new PublicKey(p.kunde), isSigner: true, isWritable: true },
+      { pubkey: new PublicKey(p.kunde), isSigner: false, isWritable: true },
       { pubkey: new PublicKey(p.kanal), isSigner: false, isWritable: true },
     ],
     data: Buffer.from(diskriminator("global", "refund")),
