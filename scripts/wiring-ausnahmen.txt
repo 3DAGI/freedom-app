@@ -38,15 +38,6 @@ consensus.ts|normalizeAnswer|Redundanz-Konsens – vom Kunden nicht mehr wählba
 consensus.ts|recommendedRedundancy|Redundanz-Konsens – vom Kunden nicht mehr wählbar (Entscheidung 04.10.2026), Baustein der automatischen Prüfung (E7, docs/FREEDOM-PRUEFUNG.md)
 consensus.ts|similarity|Redundanz-Konsens – vom Kunden nicht mehr wählbar (Entscheidung 04.10.2026), Baustein der automatischen Prüfung (E7, docs/FREEDOM-PRUEFUNG.md)
 
-contributor-funding.ts|buildAllocation|Vergütung von Mitentwicklern, ohne Oberfläche (Repositories, 8.10)
-contributor-funding.ts|buildBounty|Vergütung von Mitentwicklern, ohne Oberfläche (Repositories, 8.10)
-contributor-funding.ts|buildFundingRound|Vergütung von Mitentwicklern, ohne Oberfläche (Repositories, 8.10)
-contributor-funding.ts|openBounties|Vergütung von Mitentwicklern, ohne Oberfläche (Repositories, 8.10)
-contributor-funding.ts|parseAllocation|Vergütung von Mitentwicklern, ohne Oberfläche (Repositories, 8.10)
-contributor-funding.ts|parseBounty|Vergütung von Mitentwicklern, ohne Oberfläche (Repositories, 8.10)
-contributor-funding.ts|parseFundingRound|Vergütung von Mitentwicklern, ohne Oberfläche (Repositories, 8.10)
-contributor-funding.ts|suggestAllocations|Vergütung von Mitentwicklern, ohne Oberfläche (Repositories, 8.10)
-contributor-funding.ts|verifyRound|Vergütung von Mitentwicklern, ohne Oberfläche (Repositories, 8.10)
 
 derivation.ts|slip10PublicKey|SLIP-10-Ableitung aus 1.1, Verdrahtung mit der eingebauten SOL-Wallet (4.2)
 
@@ -215,3 +206,8 @@ messbericht.ts|leseMessbericht|Freedom-Prüfung P1b (E7, docs/FREEDOM-PRUEFUNG.m
 pruefung.ts|neuePruefFrage|Freedom-Prüfung P1a (E7, docs/FREEDOM-PRUEFUNG.md) – verdrahtet in P2 (App) und P3 (Prüfer im Knoten)
 pruefung.ts|pruefeAntwort|Freedom-Prüfung P1a (E7, docs/FREEDOM-PRUEFUNG.md) – verdrahtet in P2 (App) und P3 (Prüfer im Knoten)
 messbericht.ts|trefferQuote|Freedom-Prüfung P1b (E7, docs/FREEDOM-PRUEFUNG.md) – verdrahtet in P2 (App) und P3 (Prüfer im Knoten)
+kopfgeld.ts|aktuelleKopfgelder|Kopfgelder (E10 B, 04.10.2026) – verdrahtet in E10b (App: Kopfgeld am Issue, Zahlung per Klick)
+kopfgeld.ts|baueKopfgeld|Kopfgelder (E10 B, 04.10.2026) – verdrahtet in E10b (App: Kopfgeld am Issue, Zahlung per Klick)
+kopfgeld.ts|kopfgelderZuIssue|Kopfgelder (E10 B, 04.10.2026) – verdrahtet in E10b (App: Kopfgeld am Issue, Zahlung per Klick)
+kopfgeld.ts|leseKopfgeld|Kopfgelder (E10 B, 04.10.2026) – verdrahtet in E10b (App: Kopfgeld am Issue, Zahlung per Klick)
+kopfgeld.ts|offeneKopfgelder|Kopfgelder (E10 B, 04.10.2026) – verdrahtet in E10b (App: Kopfgeld am Issue, Zahlung per Klick)
