@@ -16113,4 +16113,13 @@ will: Neue bekommen Verkehr, sobald sie sich bewähren.
 - `shell/state.ts` (`findProviders()` → `mitMessung()` → `matchProviders()` →
   `ordneNachPruefung()`).
 
+**Prüfungen:**
+- protocol 1167 grün (6 übersprungen), node 314, app 860 grün (vorher 855);
+- mls 13, Leak-Tests 72 grün + 1 todo;
+- check-wiring `--streng` Exit 0 (vier Ausnahmen weniger), innerHTML streng Exit 0, Website ok;
+- Smoke-Test bestanden.
+- Im ersten Lauf war ein Test rot: B-4 erwartet `freedom.kontakte.geprueft`
+  am Ende von `GEHEIM_FEST`. Behoben, indem der neue Eintrag davor steht;
+  der Test ist unverändert.
+
 Knoten-Stand: unverändert.
