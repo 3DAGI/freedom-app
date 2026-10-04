@@ -84,6 +84,7 @@ import {
 } from "./tabs/settings.js";
 import { wireSicherheitsKnoepfe, zeigeGeraete, zeigeSicherung } from "./tabs/sicherung.js";
 import { wireMeshTab, zeigeMeshWeg } from "./tabs/mesh.js";
+import { wirePruefung } from "./tabs/pruefung-ui.js";
 import {
   connectNwc,
   connectSolana,
@@ -838,6 +839,8 @@ function starte(): void {
   void wireMeshTab();
   // KI über Funk (7.4c3): Gateway wählen, „über Funk“ im Agenten
   wireFunkGateway();
+  // Seite Netz › Prüfung (P2b2): lädt erst beim Öffnen des Reiters
+  wirePruefung();
   void wireSpacesTab();
   void wireProfil();
   setzeLogo();

@@ -169,6 +169,7 @@ export const SICHERUNG_EINTRAEGE: readonly string[] = [
   "freedom.standardSchiene",
   "freedom.mandate",            // zuerst gesehene Mandate der Kontakte (8.6a)
   "freedom.kataloge",           // abonnierte Modellkataloge (5.7)
+  "freedom.pruefer",            // Prüfer, denen die App folgt (Freedom-Prüfung P2b2)
   "freedom.referrer",           // eigener Werber – ihm gehen 0,5 % jeder KI-Zahlung (5.1.3b)
   "freedom.referrer.ln",        // seine Lightning-Adresse aus dem Werbelink
   "freedom.referrer.sol",       // seine SOL-Adresse aus dem Werbelink (12.2)

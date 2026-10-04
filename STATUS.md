@@ -16329,3 +16329,38 @@ innerHTML Exit 0, Website ok, Smoke-Test bestanden.
 
 Knoten-Stand: unverändert. Solange `FREEDOM_PRUEFER` leer ist und niemand
 einen Prüfer wählt (P2b2), fragt die App keine Berichte ab.
+
+## Schritt P2b2 – Seite Netz › Prüfung, Prüfer wählen
+
+Freedom-Prüfung (E7, `docs/FREEDOM-PRUEFUNG.md` 4): Nutzer sehen, wie
+zuverlässig Provider antworten und woher die Zahl kommt, und wählen, welchen
+Prüfern die App folgt.
+
+**Was sich ändert:**
+- `pruef-anzeige.ts` (neu, ohne DOM):
+  - `pruefZeile()` liefert je Provider Stand, Verfügbarkeit in Prozent,
+    Antwortzeit und Quelle (eigene Messung, Prüfer oder noch keine). Die Quelle
+    folgt derselben Regel wie die Auswahl (`stufeFuerAuswahl()`).
+  - `pruefZeilen()` sortiert nach Stand. Gezeigt wird nur auf dem Gerät; eine
+    Rangliste veröffentlicht niemand.
+- `pruefer-wahl.ts`: `folgePruefer()`, `entfolgePruefer()`, `eigenePruefer()`
+  (höchstens zehn, nur Schlüssel).
+- `shell/state.ts`: `providerMitStand()` – die bekannten Provider mit Messung
+  und Prüfer-Stand; `findProviders()` nutzt sie.
+- Neuer Unterreiter Netz › Prüfung (`shell/tabs/pruefung-ui.ts`, `index.html`):
+  - nur DOM mit Text;
+  - geladen erst beim Öffnen des Reiters oder auf „aktualisieren“, nie beim
+    Start;
+  - Prüfer folgen per npub oder Schlüssel (`schluesselAusEingabe()`).
+- Sicherung: `freedom.pruefer` in `SICHERUNG_EINTRAEGE`, mit Regel zum
+  Zusammenführen (Liste, höchstens zehn).
+- Texte `pruef.*` (de/en) in `texte/karte.ts`. Der Smoke-Test „mobil“ misst den
+  neuen Reiter, „zugang“ erfasst ihn von selbst.
+
+**Verdrahtet:** `packages/app/src/shell/app.ts:843` (`wirePruefung()`),
+`packages/app/src/shell/state.ts:163` (`providerMitStand()`).
+
+**Prüfungen:** protocol 1157, node 314, app 874 grün (+3), mls 13, Leak 72 +
+1 todo, check-wiring Exit 0, innerHTML Exit 0, Website ok, Smoke-Test bestanden.
+
+Knoten-Stand: unverändert.
