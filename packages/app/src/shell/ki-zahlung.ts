@@ -46,7 +46,9 @@ export const kanalBuch = new KanalBuch(geheim);
  * bekannt ist; Hosting aus der Spiegel-Datei neben freedom.html (5.3).
  */
 export async function empfaengerFuer(providerPk: string): Promise<Empfaenger> {
-  const werber = (await angebotVon(providerPk).catch(() => undefined))?.werber;
+  const angebot = await angebotVon(providerPk).catch(() => undefined);
+  // Werber des Providers (5.1) – mit SOL-Adresse auch per Zahlkanal (12.3)
+  const werber = angebot?.werber || angebot?.werberSol ? { ...(angebot.werber ? { lud16: angebot.werber } : {}), ...(angebot.werberSol ? { sol: angebot.werberSol } : {}) } : undefined;
   const kundenWerber = werberZahlziel(localStorage, state.keypair?.pk);
   const urls = (await ensurePool()).urls;
   void relayZiele.lerne(urls).catch(() => { /* beim nächsten Auftrag */ });
@@ -54,7 +56,7 @@ export async function empfaengerFuer(providerPk: string): Promise<Empfaenger> {
   const hosting = await hostingZahlziel();
   return {
     entwicklung: ENTWICKLUNG,
-    ...(werber ? { "werber-provider": { lud16: werber } } : {}),
+    ...(werber ? { "werber-provider": werber } : {}),
     ...(kundenWerber ? { "werber-kunde": kundenWerber } : {}),
     ...(relays.length > 0 ? { relays } : {}),
     ...(hosting ? { hosting } : {}),

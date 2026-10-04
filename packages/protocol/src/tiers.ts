@@ -61,6 +61,11 @@ export interface ProviderCapabilities {
    */
   werber?: string;
   /**
+   * SOL-Adresse seines Werbers (12.3, E2 A): bei Zahlungen per Zahlkanal geht
+   * der Anteil (0,5 %) dorthin – vom Programm aufgeteilt. Ohne Angabe beim Provider.
+   */
+  werberSol?: string;
+  /**
    * Zahlkanal (4.3c): Der Knoten nimmt Gutschriften für Kanäle an, deren
    * Provider diese Solana-Adresse ist, beim genannten Programm. Ohne Angabe
    * zahlt die App nicht über einen Kanal.
@@ -97,6 +102,8 @@ export function buildCapabilities(
   if (lud16) tags.push(["lud16", lud16]);
   const werber = adresseFuer({ lud16: c.werber }, "lightning");
   if (werber) tags.push(["werber", werber]);
+  const werberSol = adresseFuer({ sol: c.werberSol }, "solana");
+  if (werberSol) tags.push(["werber_sol", werberSol]);
   const kanal = c.kanal && adresseFuer({ sol: c.kanal.adresse }, "solana") && adresseFuer({ sol: c.kanal.programm }, "solana");
   if (kanal) tags.push(["kanal", c.kanal!.adresse, c.kanal!.programm]);
   if (c.funkGateway) tags.push(["funk", "gateway"]);
@@ -144,6 +151,7 @@ export function parseCapabilities(ev: UnsignedEvent): ProviderCapabilities {
   // Zahladressen (5.1): fremde Angaben – nur plausible Lightning-Adressen
   const lud16 = adresseFuer({ lud16: getTag(ev, "lud16") }, "lightning");
   const werber = adresseFuer({ lud16: getTag(ev, "werber") }, "lightning");
+  const werberSol = adresseFuer({ sol: getTag(ev, "werber_sol") }, "solana");
   // Zahlkanal (4.3c): fremde Angabe – nur zwei plausible Solana-Adressen
   const kt2 = ev.tags.find((t) => t[0] === "kanal");
   const kanalAdr = adresseFuer({ sol: kt2?.[1] }, "solana");
@@ -164,6 +172,7 @@ export function parseCapabilities(ev: UnsignedEvent): ProviderCapabilities {
     ...(kurs ? { kurs } : {}),
     ...(lud16 ? { lud16 } : {}),
     ...(werber ? { werber } : {}),
+    ...(werberSol ? { werberSol } : {}),
     ...(kanal ? { kanal } : {}),
     ...(ev.tags.some((t) => t[0] === "funk" && t[1] === "gateway") ? { funkGateway: true } : {}),
     updatedAt: ev.created_at,
