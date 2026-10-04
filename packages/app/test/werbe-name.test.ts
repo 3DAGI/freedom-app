@@ -126,7 +126,7 @@ test("Der erste Werber bleibt; eine gescheiterte Abfrage wird nie wiederholt", a
 
 test("Verdrahtet: Link mit Name, Auflösung beim Erfassen, Übernehmen nur mit eigenem Schlüssel", () => {
   const earn = src("../src/shell/tabs/earn.ts");
-  assert.match(earn, /link\.value = werbeLink\(basis, werbeRef\(localStorage, pub, basis\), lud16\);/);
+  assert.match(earn, /link\.value = werbeLink\(basis, werbeRef\(localStorage, pub, basis\), lud16, sol\);/);
   assert.match(earn, /merkeWerber\(window\.location\.search, localStorage, window\.location\.hostname\);\s*void loeseWerberNameJetzt\(\);/);
   assert.match(earn, /loeseWerberName\(localStorage, \(k\) => loeseNip05\(k\),/);
   assert.match(earn, /frageBeiAutoren\(\{ kinds: \[0\], authors: \[pk\]/, "Adresse nur aus dem signierten Profil");

@@ -57,6 +57,8 @@ export const earn: Texte = {
   "earn.keineEinnahmen": { de: "Noch keine Einnahmen. Sie erscheinen, sobald dein Provider-Knoten Jobs erledigt.", en: "No earnings yet. They appear as soon as your provider node completes jobs." },
   "earn.linkKopiert": { de: "Werbelink kopiert", en: "Referral link copied" },
   "earn.codeMitAdresse": { de: "dein Code: {code} – mit deiner Lightning-Adresse", en: "your code: {code} – with your Lightning address" },
+  "earn.codeMitSol": { de: "dein Code: {code} – mit einer eigenen SOL-Adresse nur für diesen Link", en: "your code: {code} – with a SOL address of its own, only for this link" },
+  "earn.codeMitBeiden": { de: "dein Code: {code} – mit deiner Lightning-Adresse und einer eigenen SOL-Adresse nur für diesen Link", en: "your code: {code} – with your Lightning address and a SOL address of its own, only for this link" },
   // Eigene Adresse der App (11.2a)
   "earn.adresseLabel": { de: "Eigene Adresse der App – leer: die, unter der sie gerade läuft", en: "Your own address of the app – empty: the one it is running at now" },
   "earn.adressePh": { de: "https://…", en: "https://…" },
@@ -93,7 +95,7 @@ export const earn: Texte = {
   "earn.nameUnbekannt": { de: "Nicht übernommen: Die Domain kennt diesen Namen nicht.", en: "Not applied: the domain doesn't know this name." },
   "earn.werbelinkQr": { de: "Werbelink als QR-Code", en: "Referral link as QR code" },
   "earn.werbelinkAria": { de: "Dein Werbelink", en: "Your referral link" },
-  "earn.codeOhneAdresse": { de: "dein Code: {code} – ohne Lightning-Adresse im Profil kommt dein Anteil nicht an", en: "your code: {code} – without a Lightning address in your profile your share doesn't arrive" },
+  "earn.codeOhneAdresse": { de: "dein Code: {code} – ohne Lightning-Adresse im Profil und ohne eingebaute SOL-Wallet kommt dein Anteil nicht an", en: "your code: {code} – without a Lightning address in your profile and without the built-in SOL wallet your share doesn't arrive" },
   "earn.keineNennung": { de: "Noch niemand nennt dich öffentlich als Werber.", en: "Nobody names you publicly as referrer yet." },
   "earn.nennungen": { de: "{n} Geworbene nennen dich öffentlich als Werber.", en: "{n} referred people name you publicly as referrer." },
   "earn.spaeterGezaehlt": { de: "Wird beim nächsten Netzkontakt gezählt.", en: "Counted at the next network contact." },

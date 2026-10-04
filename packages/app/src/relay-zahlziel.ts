@@ -4,7 +4,8 @@
  * 1,5 % jeder KI-Zahlung gehen an die Relays, über die der Auftrag lief –
  * an höchstens drei, deren Betreiber eine Zahladresse nennt: sein Schlüssel
  * aus der Selbstauskunft (NIP-11 `pubkey`), die Lightning-Adresse aus seinem
- * Profil. Gelernt wird im Hintergrund und gemerkt (einen Tag, nach einem
+ * Profil – seit 12.3 (E2 A) ebenso die SOL-Adresse (`sol`), für Zahlungen per
+ * Zahlkanal. Gelernt wird im Hintergrund und gemerkt (einen Tag, nach einem
  * Fehlschlag eine Stunde); beim Senden zählt nur, was schon bekannt ist – so
  * hält nichts einen Auftrag auf. Relays sehen die App ohnehin; neu ist nur
  * der Abruf ihrer Selbstauskunft über HTTPS.
@@ -17,7 +18,19 @@ export const FEHLER_MS = 3600_000;
 const MAX_EINTRAEGE = 100;
 const MAX_INFO_BYTES = 100_000;
 
-interface Eintrag { at: number; ok: boolean; lud16?: string }
+interface Eintrag { at: number; ok: boolean; lud16?: string; sol?: string }
+
+/** Zahladressen aus dem Profil des Betreibers – nur plausible. */
+function ausProfil(content: string | undefined): { lud16?: string; sol?: string } {
+  try {
+    const p = JSON.parse(content ?? "{}") as { lud16?: unknown; sol?: unknown };
+    const lud16 = adresseFuer({ lud16: typeof p.lud16 === "string" ? p.lud16 : undefined }, "lightning");
+    const sol = adresseFuer({ sol: typeof p.sol === "string" ? p.sol : undefined }, "solana");
+    return { ...(lud16 ? { lud16 } : {}), ...(sol ? { sol } : {}) };
+  } catch {
+    return {};
+  }
+}
 
 /** Adresse der Selbstauskunft – nur für wss (ws und .onion erreicht der Browser so nicht). */
 export function infoUrl(relay: string): string | undefined {
@@ -46,7 +59,8 @@ export class RelayZahlziele {
   /** Die bekannten Zahlziele dieser Relays, in ihrer Reihenfolge. */
   bekannte(relays: readonly string[]): Zahlziel[] {
     const m = this.lies();
-    return relays.map((u) => m[normalizeRelayUrl(u)]?.lud16).filter((x): x is string => !!x).map((lud16) => ({ lud16 }));
+    return relays.map((u) => m[normalizeRelayUrl(u)]).filter((e): e is Eintrag => !!e && !!(e.lud16 || e.sol))
+      .map((e) => ({ ...(e.lud16 ? { lud16: e.lud16 } : {}), ...(e.sol ? { sol: e.sol } : {}) }));
   }
 
   /** Selbstauskunft und Betreiber-Profile holen, wo nichts Frisches gemerkt ist. */
@@ -69,9 +83,7 @@ export class RelayZahlziele {
         if (profile === null) { m[u] = { at: jetzt, ok: false }; return; }
         const neuestes = profile.filter((ev) => ev.kind === 0 && ev.pubkey === pk && verifyEvent(ev))
           .sort((a, b) => b.created_at - a.created_at)[0];
-        let lud16: string | undefined;
-        try { lud16 = adresseFuer({ lud16: (JSON.parse(neuestes?.content ?? "{}") as { lud16?: string }).lud16 }, "lightning"); } catch { /* kein Profil */ }
-        m[u] = { at: jetzt, ok: true, ...(lud16 ? { lud16 } : {}) };
+        m[u] = { at: jetzt, ok: true, ...ausProfil(neuestes?.content) };
       });
       this.schreibe(m);
     } finally {
@@ -107,7 +119,8 @@ export class RelayZahlziele {
       for (const [u, e] of Object.entries(roh ?? {})) {
         if (!Number.isSafeInteger(e?.at) || typeof e.ok !== "boolean") continue;
         const lud16 = adresseFuer({ lud16: e.lud16 }, "lightning");
-        m[u] = { at: e.at, ok: e.ok, ...(lud16 ? { lud16 } : {}) };
+        const sol = adresseFuer({ sol: e.sol }, "solana");
+        m[u] = { at: e.at, ok: e.ok, ...(lud16 ? { lud16 } : {}), ...(sol ? { sol } : {}) };
       }
       return m;
     } catch {

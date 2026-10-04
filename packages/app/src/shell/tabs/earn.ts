@@ -11,10 +11,10 @@ import { abdeckungEinwilligung, abdeckungHier, ebeneName, fehlerText, zellenStuf
 import { pkShort } from "../../shell-logic.js";
 import { einnahmeText } from "../../preis-anzeige.js";
 import { aktualisiereKurs, aktuellerKurs } from "../marktkurs.js";
-import { ensurePool, frageBeiAutoren, signiere, state } from "../state.js";
+import { ensurePool, frageBeiAutoren, signiere, solRpcUrl, state } from "../state.js";
 import { geheim } from "../tresor.js";
 import { $, el, timeAgo, toast } from "../ui.js";
-import { loeseWerberName, merkeWerber, werbeLink, werbeRef } from "../../werbung.js";
+import { loeseWerberName, merkeWerber, werbeLink, werbeRef, werbeSolAdresse } from "../../werbung.js";
 import { eigeneBasis } from "../../eigene-adresse.js";
 import { knotenSchluessel } from "../verdienst-ui.js";
 import { mitwirkendeListe } from "../mitwirkende.js";
@@ -283,11 +283,13 @@ export function setupReferral(): void {
  * laufen (sonst ?ref= leer) und bei jedem Earn-Tab-Öffnen erneut — der pubkey
  * kann sich ändern (import).
  */
-export function updateReferralLink(): void {
+export function updateReferralLink(sol?: string): void {
   const link = $("#referral-link") as HTMLInputElement | null;
   const stats = $("#referral-stats");
   if (!link || !state.keypair) return;
   const pub = state.keypair.pk;
+  // SOL-Adresse (12.2): die gemerkte sofort, eine frische erst nach dem Laden der Kette
+  if (sol === undefined) void ergaenzeWerbeSol(pub);
   // Origin-basiert (funktioniert auf jeder Domain — nicht nur localhost); mit
   // der Lightning-Adresse aus dem Profil, damit der Anteil ankommt (5.1.3b)
   let lud16: string | undefined;
@@ -295,13 +297,28 @@ export function updateReferralLink(): void {
   // Eigene Adresse der App, falls gesetzt (11.2a) – sonst die, unter der sie läuft
   const basis = eigeneBasis(localStorage) ?? window.location.origin + window.location.pathname;
   // Mit dem geprüften kurzen Namen statt des Schlüssels, falls gesetzt (11.2b)
-  link.value = werbeLink(basis, werbeRef(localStorage, pub, basis), lud16);
+  link.value = werbeLink(basis, werbeRef(localStorage, pub, basis), lud16, sol);
   // Als QR-Code zum Zeigen oder Ausdrucken (11.1b) – nichts Geheimes darin
   $("#referral-qr")?.replaceChildren(qrKnopf(link.value, { beschriftung: t("earn.werbelinkQr") }));
   if (stats) {
-    stats.textContent = t(new URL(link.value).searchParams.has("ln") ? "earn.codeMitAdresse" : "earn.codeOhneAdresse", { code: pkShort(pub) });
+    const q = new URL(link.value).searchParams;
+    const schluessel = q.has("ln") && q.has("sol") ? "earn.codeMitBeiden" : q.has("ln") ? "earn.codeMitAdresse" : q.has("sol") ? "earn.codeMitSol" : "earn.codeOhneAdresse";
+    stats.textContent = t(schluessel, { code: pkShort(pub) });
   }
   void zeigeNennungen();
+}
+
+/**
+ * Eigene SOL-Adresse für den Werbelink (12.2, E1 A): je Kette eine frische aus
+ * der eingebauten Wallet, danach dieselbe – nie die Hauptadresse, nie eine
+ * fremde Wallet. Ohne eingebaute Wallet bleibt der Link ohne `sol=`.
+ */
+async function ergaenzeWerbeSol(pub: string): Promise<void> {
+  try {
+    const [{ frischeEmpfangsadresse }, { ketteAusRpc }] = await Promise.all([import("../eingebaute-wallet.js"), import("../../wallet-standard.js")]);
+    const sol = await werbeSolAdresse(geheim, ketteAusRpc(await solRpcUrl()), frischeEmpfangsadresse);
+    if (sol && state.keypair?.pk === pub) updateReferralLink(sol);
+  } catch { /* ohne SOL-Adresse */ }
 }
 
 /**

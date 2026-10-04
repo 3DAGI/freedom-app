@@ -79,3 +79,19 @@ test("Gemerkt: einen Tag, nach einem Fehlschlag eine Stunde; zwei Läufe zugleic
   await aus.lerne(["wss://a.example"]);
   assert.deepEqual(aus.bekannte(["wss://a.example"]), []);
 });
+
+test("12.3: auch die SOL-Adresse aus dem Profil des Betreibers – nur plausible, gemerkt wie die Lightning-Adresse", async () => {
+  const SOL = "9xQeWvG816bUx9EPjHmaT23yvVM2ZWbrrpZb9PusVFin";
+  const mitSol = (k: typeof betreiberA, inhalt: Record<string, string>) =>
+    signEvent({ pubkey: k.pk, created_at: 1_790_000_000, kind: 0, tags: [], content: JSON.stringify(inhalt) }, k.sk);
+  const n = netz({
+    "https://a.example/": { pubkey: betreiberA.pk },
+    "https://b.example/": { pubkey: betreiberB.pk },
+  }, [mitSol(betreiberA, { sol: SOL }), mitSol(betreiberB, { lud16: "relay-b@wallet.example", sol: "kaputt" })]);
+  const s = speicher();
+  const z = new RelayZahlziele({ profile: n.profile, holen: n.holen, speicher: s, jetzt: () => T });
+  const pool = ["wss://a.example", "wss://b.example"];
+  await z.lerne(pool);
+  assert.deepEqual(z.bekannte(pool), [{ sol: SOL }, { lud16: "relay-b@wallet.example" }]);
+  assert.deepEqual(new RelayZahlziele({ profile: n.profile, speicher: s, jetzt: () => T }).bekannte(pool), [{ sol: SOL }, { lud16: "relay-b@wallet.example" }], "gemerkt");
+});

@@ -15794,3 +15794,54 @@ Die Zahl der Tests bleibt gleich: Die Fälle sind angepasst, nicht neu.
 
 Knoten-Stand: unverändert. Der Knoten ruft `refund` nicht auf.
 Programm-Stand: Der Devnet-Deploy (MENSCH) muss dieses Programm nehmen.
+
+## Schritt 12.2 + 12.3 – SOL-Adressen für Werber und Relays
+
+Entscheidungen 04.10.2026: E1 (frische Adresse, nichts verwahrt) und E2 A.
+Bei Zahlungen per Zahlkanal fand `kanalEmpfaenger()` bisher nur die
+Hosting-Adresse. Die Anteile von Werbern (2 × 0,5 %) und Relays (1,5 %) blieben
+deshalb beim Provider. Jetzt kennen alle drei auch eine SOL-Adresse.
+
+**12.2 – Werbelink mit SOL-Adresse (App):**
+- `werbung.ts`: `werbeLink(basis, ref, lud16?, sol?)` hängt `&sol=` an, nur
+  eine gültige Adresse.
+- `werbeSolAdresse()` vergibt je Kette einmal eine frische Adresse aus der
+  eingebauten Wallet und merkt sie unter `freedom.solWallet.werbelink`. Das ist
+  das Präfix der Wallet, also im Tresor und nie in der Sicherung. Die
+  Hauptadresse steht nie im Link.
+- Die App des Geworbenen merkt die Adresse wie die Lightning-Adresse
+  (`freedom.referrer.sol`, in der Sicherung): nur vom ersten Werber, nie
+  überschrieben.
+- Beim kurzen Namen (11.2b) gilt sie erst nach der Auflösung.
+- `werberZahlziel()` liefert `{ lud16?, sol? }`.
+- Earn-Tab (`earn.ts`, `ergaenzeWerbeSol()`): Der Link bekommt die Adresse,
+  sobald die Wallet sie hat. Ohne eingebaute Wallet gibt es keine; der Text
+  sagt, was der Link trägt.
+
+**12.3 – Werber des Providers und Relays (Protokoll, Knoten, App):**
+- Angebot 38027 mit `werber_sol` (`tiers.ts`, `werberSol`).
+- Knoten: `PROVIDER_WERBER_SOL`, geprüft; ist sie ungültig, startet er nicht.
+- App: `empfaengerFuer()` gibt dem Anteil `werber-provider` beide Adressen.
+- Relays: `RelayZahlziele` liest aus dem signierten Profil des Betreibers
+  neben `lud16` auch `sol` (`ausProfil()`, nur plausible Adressen).
+- `docs/PROTOCOL.md`, `GO-LIVE.md` und FAQ sind nachgezogen.
+
+**Tests:**
+- app `werbung-sol.test.ts` (+7) und `relay-zahlziel.test.ts` (+1);
+- protocol `werber-sol.test.ts` (+2);
+- node `werber-sol.test.ts` (+1);
+- drei Verdrahtungs-Regexe an die neue Link-Zeile angepasst.
+
+**Verdrahtet:**
+- `shell/tabs/earn.ts` (`updateReferralLink()` → `werbeLink(…, sol)`);
+- `main.ts` (`buildCapabilities({ werberSol })`);
+- `shell/ki-zahlung.ts` (`empfaengerFuer()` → `kanalEmpfaenger()`).
+
+Knoten-Stand: für `werber_sol` im Angebot `main` ab diesem PR (optional; ohne
+Variable ändert sich nichts).
+
+**Prüfungen:**
+- protocol 1190 grün (6 übersprungen; vorher 1188), node 314 grün (vorher 313), app 850 grün (vorher 842);
+- mls 13, Leak-Tests 72 grün + 1 todo;
+- check-wiring `--streng` Exit 0, innerHTML streng Exit 0, Website ok;
+- Smoke-Test bestanden.

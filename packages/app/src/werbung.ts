@@ -8,6 +8,11 @@
  * Statistik (8.1b). Es gilt der erste Werber; ein später geöffneter fremder
  * Link verdrängt ihn nicht.
  *
+ * Seit 12.2 (E1 A) trägt er auch eine SOL-Adresse (`&sol=`): eine frische aus
+ * der eingebauten Wallet, je Kette einmal vergeben und dann immer dieselbe – so
+ * kommt der Anteil auch bei Zahlungen per Zahlkanal an, und die Hauptadresse
+ * steht nicht im öffentlichen Link. Nichts verwahrt ein Dritter.
+ *
  * Seit 11.2b darf statt des Schlüssels ein kurzer Name stehen
  * (`?ref=name@domain`, auf der Domain des Namens `?ref=name`). Er gilt erst mit
  * dem Schlüssel, den die Domain nach NIP-05 dafür nennt; gefragt wird genau
@@ -20,6 +25,10 @@ import {
 
 export const LS_WERBER = "freedom.referrer";
 export const LS_WERBER_LN = "freedom.referrer.ln";
+/** SOL-Adresse des eigenen Werbers aus dem Link (12.2). */
+export const LS_WERBER_SOL = "freedom.referrer.sol";
+/** Eigene SOL-Adresse für den Werbelink, je Kette (12.2) – über `geheim` (Präfix der Wallet). */
+export const LS_WERBE_SOL = "freedom.solWallet.werbelink";
 /** Name aus einem Werbelink, noch nicht aufgelöst – nie gesichert, beim Start einmal gefragt. */
 export const LS_WERBER_NAME = "freedom.referrer.name";
 /** Eigener geprüfter Name für den Werbelink samt Schlüssel, für den er galt (11.2b). */
@@ -28,15 +37,33 @@ export const LS_WERBE_NAME = "freedom.werben.name";
 type Speicher = Pick<Storage, "getItem" | "setItem">;
 const HEX64 = /^[0-9a-f]{64}$/;
 
-/** Werbelink: Schlüssel oder Name, dazu die Lightning-Adresse – nur eine plausible. */
-export function werbeLink(basis: string, ref: string, lud16?: string): string {
+/** Werbelink: Schlüssel oder Name, dazu Lightning- und SOL-Adresse – nur plausible. */
+export function werbeLink(basis: string, ref: string, lud16?: string, sol?: string): string {
   const url = new URL(basis);
   url.search = "";
   url.hash = "";
   url.searchParams.set("ref", ref);
   const ln = adresseFuer({ lud16 }, "lightning");
   if (ln) url.searchParams.set("ln", ln);
+  const solAdresse = adresseFuer({ sol }, "solana");
+  if (solAdresse) url.searchParams.set("sol", solAdresse);
   return url.toString();
+}
+
+type AsyncSpeicher = { getItem(k: string): string | null; setItem(k: string, v: string): unknown };
+
+/**
+ * Eigene SOL-Adresse für den Werbelink (12.2, E1 A): je Kette eine frische aus
+ * der eingebauten Wallet, danach immer dieselbe. Ohne eingebaute Wallet keine.
+ */
+export async function werbeSolAdresse(s: AsyncSpeicher, kette: string, frisch: () => Promise<string | undefined>): Promise<string | undefined> {
+  let m: Record<string, unknown> = {};
+  try { m = (JSON.parse(s.getItem(LS_WERBE_SOL) ?? "{}") ?? {}) as Record<string, unknown>; } catch { /* neu anlegen */ }
+  const da = adresseFuer({ sol: typeof m[kette] === "string" ? m[kette] as string : undefined }, "solana");
+  if (da) return da;
+  const neu = adresseFuer({ sol: await frisch() }, "solana");
+  if (neu) await s.setItem(LS_WERBE_SOL, JSON.stringify({ ...m, [kette]: neu }));
+  return neu;
 }
 
 /**
@@ -47,12 +74,14 @@ export function merkeWerber(suche: string, s: Speicher, herkunft?: string): void
   const q = new URLSearchParams(suche);
   const ref = q.get("ref");
   if (!ref) return;
-  if (!HEX64.test(ref)) return merkeWerberName(ref, q.get("ln"), s, herkunft);
+  if (!HEX64.test(ref)) return merkeWerberName(ref, q.get("ln"), q.get("sol"), s, herkunft);
   const gemerkt = s.getItem(LS_WERBER);
   if (gemerkt && gemerkt !== ref) return;
   if (!gemerkt) s.setItem(LS_WERBER, ref);
   const ln = adresseFuer({ lud16: q.get("ln") ?? undefined }, "lightning");
   if (ln && !s.getItem(LS_WERBER_LN)) s.setItem(LS_WERBER_LN, ln);
+  const sol = adresseFuer({ sol: q.get("sol") ?? undefined }, "solana");
+  if (sol && !s.getItem(LS_WERBER_SOL)) s.setItem(LS_WERBER_SOL, sol);
 }
 
 /** Wohin der Anteil des Werbers geht – nicht an sich selbst, nie ohne Werber. */
@@ -60,19 +89,21 @@ export function werberZahlziel(s: Pick<Storage, "getItem">, ich?: string): Zahlz
   const werber = s.getItem(LS_WERBER);
   if (!werber || werber === ich) return undefined;
   const lud16 = adresseFuer({ lud16: s.getItem(LS_WERBER_LN) ?? undefined }, "lightning");
-  return lud16 ? { lud16 } : undefined;
+  const sol = adresseFuer({ sol: s.getItem(LS_WERBER_SOL) ?? undefined }, "solana");
+  return lud16 || sol ? { ...(lud16 ? { lud16 } : {}), ...(sol ? { sol } : {}) } : undefined;
 }
 
 /**
  * Name aus dem Link vormerken (11.2b) – nur, solange es keinen Werber gibt.
  * Ohne @ gilt die Domain, von der die App geladen wurde (`herkunft`).
  */
-function merkeWerberName(ref: string, ln: string | null, s: Speicher, herkunft?: string): void {
+function merkeWerberName(ref: string, ln: string | null, sol: string | null, s: Speicher, herkunft?: string): void {
   if (s.getItem(LS_WERBER) || s.getItem(LS_WERBER_NAME)) return;
   const k = leseNip05(ref.includes("@") ? ref : herkunft ? `${ref}@${herkunft}` : "");
   if (!k) return;
   const adresse = adresseFuer({ lud16: ln ?? undefined }, "lightning");
-  s.setItem(LS_WERBER_NAME, JSON.stringify(adresse ? { name: nip05Text(k), ln: adresse } : { name: nip05Text(k) }));
+  const solAdresse = adresseFuer({ sol: sol ?? undefined }, "solana");
+  s.setItem(LS_WERBER_NAME, JSON.stringify({ name: nip05Text(k), ...(adresse ? { ln: adresse } : {}), ...(solAdresse ? { sol: solAdresse } : {}) }));
 }
 
 export type WerberNameAusgang = "kein" | "schon-werber" | "gemerkt" | Nip05Fall;
@@ -91,7 +122,7 @@ export async function loeseWerberName(
   const roh = s.getItem(LS_WERBER_NAME);
   if (roh === null) return "kein";
   s.removeItem(LS_WERBER_NAME);
-  let vorgemerkt: { name?: unknown; ln?: unknown };
+  let vorgemerkt: { name?: unknown; ln?: unknown; sol?: unknown };
   try {
     vorgemerkt = JSON.parse(roh) as typeof vorgemerkt;
   } catch {
@@ -107,6 +138,9 @@ export async function loeseWerberName(
   const ausLink = adresseFuer({ lud16: typeof vorgemerkt.ln === "string" ? vorgemerkt.ln : undefined }, "lightning");
   const ln = ausLink ?? adresseFuer({ lud16: await profilLn(r.pubkey).catch(() => undefined) }, "lightning");
   if (ln && !s.getItem(LS_WERBER_LN)) s.setItem(LS_WERBER_LN, ln);
+  // SOL nur aus dem Link – das Profilfeld `sol` steht dort nur nach Warnung (4.9d)
+  const sol = adresseFuer({ sol: typeof vorgemerkt.sol === "string" ? vorgemerkt.sol : undefined }, "solana");
+  if (sol && !s.getItem(LS_WERBER_SOL)) s.setItem(LS_WERBER_SOL, sol);
   return "gemerkt";
 }
 

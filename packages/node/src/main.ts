@@ -120,6 +120,12 @@ async function main(): Promise<void> {
     console.error("PROVIDER_WERBER_LUD16 ist keine Lightning-Adresse (name@domain).");
     process.exit(1);
   }
+  // Und seine SOL-Adresse (12.3): bei Zahlungen per Zahlkanal teilt das Programm ihm 0,5 % zu
+  const werberSol = process.env.PROVIDER_WERBER_SOL ? adresseFuer({ sol: process.env.PROVIDER_WERBER_SOL }, "solana") : undefined;
+  if (process.env.PROVIDER_WERBER_SOL && !werberSol) {
+    console.error("PROVIDER_WERBER_SOL ist keine Solana-Adresse.");
+    process.exit(1);
+  }
   const storageEnabled = process.env.STORAGE_ENABLED === "1";
   // Status für den Besitzer (B-11a, L6 A – nur lesen): Rollen erst, wenn sie gestartet sind
   const statusSeit = Math.floor(Date.now() / 1000);
@@ -474,9 +480,10 @@ async function main(): Promise<void> {
       // Mit diesem Kurs rechnet der Anbieter SOL-Preise (4.4); ohne Kurs keiner.
       kurs: provider.kurs(),
       // Gebührenmodell A+ (5.1): hierhin zahlt die App den Anteil des Providers,
-      // und dem Werber (falls genannt) 0,5 % direkt
+      // und dem Werber (falls genannt) 0,5 % direkt – per Zahlkanal an seine SOL-Adresse (12.3)
       lud16,
       werber,
+      werberSol,
       // Zahlkanal (4.3c): nur, wenn der Knoten Gutschriften auch einlösen kann
       kanal: kanalKasse && process.env.NODE_SOL_ADDRESS ? { adresse: process.env.NODE_SOL_ADDRESS, programm: KANAL_PROGRAMM_ID } : undefined,
       // Funk-Gateway (7.4b2): die App wählt es, solange sie Netz hat
