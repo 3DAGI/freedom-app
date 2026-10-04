@@ -18,7 +18,7 @@ import { switchTab, zeigeOnboarding } from "../app.js";
 import { angebotVon, ensurePool, ensureSessionClient, findProviders, kiSitzungen, powJeProvider, state } from "../state.js";
 import { beiFunkAntwort, sendeKiUeberFunk } from "../ki-ueber-funk.js";
 import { quittungNachKanal, quittungNachZahlung } from "../quittungen.js";
-import { deklaration, empfaengerFuer, kanalAntwort, kanalGutschrift, merkeAnfrage, perKanal, providerZahlung, rechneAntwortAb, zahleAnteile } from "../ki-zahlung.js";
+import { deklaration, empfaengerFuer, kanalAntwort, kanalGutschrift, merkeAnfrage, perKanal, providerZahlung, pruefeKiZahlweg, rechneAntwortAb, zahleAnteile } from "../ki-zahlung.js";
 import { kopplungFuer, meineKopplung } from "../mein-knoten.js";
 import { type KnotenWeg, wegZumKnoten } from "../knoten-weg-ui.js";
 import { knotenModellAus } from "../../knoten-wahl.js";
@@ -273,6 +273,8 @@ export async function buildJobEvent(
   const hoechst = eigen ? 0 : hoechstMsat(bid, selectedTools);
   // Zahlkanal zu diesem Provider (4.3d): Gutschrift statt Deklaration – im Kanal
   // teilt das Programm auf; deckt er das Gebot nicht, geht nichts hinaus.
+  // Zahlweg (12.4a, E3 A): mit SOL nur über den Kanal – ohne Kanal geht nichts hinaus, nie still Lightning
+  if (!eigen && hoechst > 0) pruefeKiZahlweg(targetPubkey);
   const kanal = eigen ? undefined : await kanalGutschrift(targetPubkey, hoechst);
   extraTags.push(...(eigen ? [] : kanal ? kanal.tags : deklaration(empfaenger)));
   if (attachment) {

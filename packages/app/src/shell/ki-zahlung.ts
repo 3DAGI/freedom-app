@@ -20,6 +20,8 @@ import { RelayZahlziele } from "../relay-zahlziel.js";
 import type { ProviderZahlung } from "../session-client.js";
 import { werberZahlziel } from "../werbung.js";
 import { KanalBuch, bedarfLamports } from "../zahlkanal.js";
+import { kiZahlweg, kiZiele } from "../ki-zahlweg.js";
+import { standardSchiene } from "../standard-schiene.js";
 import { angebotVon, ensurePool, frageBeiAutoren, state } from "./state.js";
 import { solText } from "../preis-anzeige.js";
 import { toast } from "./ui.js";
@@ -104,6 +106,21 @@ export async function kanalGutschrift(
     toast(t("zahl.kanalKnapp", { frei: solText(Number(BigInt(wahl.eintrag.eingezahlt) - wahl.betrag)) }), true);
   }
   return { tags: wahl.tags, merke: (requestId) => kanalBuch.gesendet(wahl.eintrag.kanal, wahl.betrag, requestId) };
+}
+
+const kanalDa = (pk: string): boolean => !!kanalBuch.fuerProvider(pk, Math.floor(Date.now() / 1000));
+
+/** Zahlweg prüfen (12.4a, E3 A): mit SOL als Standard-Schiene und ohne Kanal zu diesem Provider geht nichts hinaus. */
+export function pruefeKiZahlweg(providerPk: string): void {
+  if (kiZahlweg(standardSchiene(), kanalDa(providerPk)) === "kanal-noetig") throw new Error(t("zahl.kanalNoetig"));
+}
+
+/** Ziele eines bezahlten Laufs nach der Standard-Schiene (12.4a): mit SOL nur Provider mit Kanal; keiner → Fehler, nichts gesendet. */
+export function zieleNachSchiene(liste: readonly string[], zahlt: boolean): string[] {
+  if (!zahlt) return [...liste];
+  const ziele = kiZiele(liste, standardSchiene(), kanalDa);
+  if (liste.length > 0 && ziele.length === 0) throw new Error(t("zahl.kanalNoetig"));
+  return ziele;
 }
 
 /** Zahlt für diese Anfrage der Zahlkanal? (Aus dem Speicher dieser Sitzung – gilt auch bei gesperrtem Tresor.) */

@@ -16255,3 +16255,37 @@ protocol 1155, node 314, app 865, mls 13, Leak 72 + 1 todo, check-wiring
 Exit 0, innerHTML Exit 0, Website ok, Smoke-Test bestanden.
 
 Knoten-Stand: unverändert.
+
+## Schritt 12.4a – KI zahlt nach der Standard-Schiene
+
+Entscheidung E3 A vom 04.10.2026 („Kanal anbieten, sonst nichts“), Logik
+Spur A (E5). Die Standard-Schiene (Währung › Zahlen) galt bisher nur für Zaps
+und Trinkgeld; KI zahlte immer per Lightning, auch mit SOL als Vorgabe.
+
+**Was sich ändert:**
+- Neu `packages/app/src/ki-zahlweg.ts`: `kiZahlweg()` – ein offener Kanal
+  zahlt immer (wie seit 4.3d), sonst Lightning per Rechnung; mit SOL ohne
+  Kanal „kanal-noetig“. `kiZiele()` lässt mit SOL nur Provider mit Kanal übrig,
+  die Reihenfolge bleibt.
+- `shell/ki-zahlung.ts`: `pruefeKiZahlweg()` und `zieleNachSchiene()` lesen
+  Kanalbuch und Standard-Schiene; ohne Kanal der Fehler `zahl.kanalNoetig`
+  (Kanal öffnen oder Lightning wählen) – nichts geht hinaus, nie still
+  Lightning.
+- Verdrahtet: `buildJobEvent()` prüft vor der Gutschrift
+  (`shell/tabs/agent.ts:277`, nicht für den eigenen Knoten und nicht gratis);
+  Failover nimmt nur erlaubte Ziele (`shell/tabs/agent-wege.ts:48`), ebenso Max
+  (`agent-wege.ts:189`). Swarm scheitert über `buildJobEvent()` vor dem Senden.
+- Text der Einstellung nennt jetzt auch KI (`set.schieneText`, de/en, auch im
+  HTML).
+- Unverändert: KI über Funk (braucht schon einen Kanal), „Mein Knoten“
+  (gratis), KI auf diesem Gerät (keine Zahlung).
+
+Offen in 12.4: das Gebot in der gewählten Einheit (12.4b) zusammen mit dem
+Schalter „sats / SOL“ auf der Agent-Seite (Spur C); „Kanal anbieten“ als Knopf
+im Fehler ebenso Oberfläche.
+
+**Prüfungen:** app 868 grün (+3: `ki-zahlweg.test.ts` – Regeln, Ziele,
+Verdrahtung), protocol 1155, node 314, mls 13, Leak 72 + 1 todo, Build,
+check-wiring Exit 0, innerHTML Exit 0, Website ok, Smoke-Test bestanden.
+
+Knoten-Stand: unverändert.

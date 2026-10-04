@@ -16,6 +16,7 @@ import { ergebnisDesLaufs } from "../../messbuch.js";
 import { merkeMessung } from "../messung.js";
 import { $, toast } from "../ui.js";
 import { buildJobEvent, handleAnswer, jobAbort, keinPrivaterProvider, privatFaehig, waitForAnswer } from "./agent.js";
+import { zieleNachSchiene } from "../ki-zahlung.js";
 import { addAiMessage, EigeneMeldung, hideTyping, showAiError } from "./agent-anzeige.js";
 
 /** Sendet den Job an den besten Provider; bei Timeout automatisch der naechste.
@@ -41,7 +42,15 @@ export async function askWithFailover(prompt: string, bid: number, tier: "free" 
     showAiError(keinPrivaterProvider(), prompt, bid, tier);
     return;
   }
-  const targets = pubkeyList.slice(0, 3);
+  // Zahlweg (12.4a): mit SOL nur Provider mit Zahlkanal; ohne einen geht nichts hinaus
+  let ziele: string[];
+  try {
+    ziele = zieleNachSchiene(pubkeyList, bid > 0);
+  } catch (e) {
+    showAiError(e, prompt, bid, tier);
+    return;
+  }
+  const targets = ziele.slice(0, 3);
 
   // HEDGING: Nach HEDGE_AFTER_MS ohne Antwort wird derselbe Job ZUSÄTZLICH an
   // den nächsten Provider geschickt (der erste läuft weiter). Wer zuerst
@@ -176,7 +185,9 @@ export async function generateVideo(prompt: string): Promise<void> {
 async function askRace(prompt: string, bid: number, tier: "free" | "classic" | "pro", candidates: ScoredProvider[]): Promise<void> {
   const pool = await ensurePool();
   const sc = ensureSessionClient();
-  const racers = matchRaceProviders(candidates, tier, DEFAULT_MAX_MODE);
+  // Zahlweg (12.4a): mit SOL nur Provider mit Zahlkanal – keiner, dann Fehler, nichts gesendet
+  const erlaubt = new Set(zieleNachSchiene(candidates.map((c) => c.caps.pubkey), bid > 0));
+  const racers = matchRaceProviders(candidates.filter((c) => erlaubt.has(c.caps.pubkey)), tier, DEFAULT_MAX_MODE);
   if (racers.length === 0) {
     showAiError(new EigeneMeldung(t("agent.maxKeinProvider")), prompt, bid, tier, { max: true });
     return;
