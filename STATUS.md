@@ -16211,4 +16211,11 @@ Start aus `wireMeshTab()`): `zuErinnern()` und Knopf `relay-zugang-verlaengern`
 → `leseRelayPreise()` → `schieneZumVerlaengern()` → `kaufe()` →
 `kaufeRelayZugang()`.
 
+**Prüfungen:**
+- protocol 1155 grün (6 übersprungen), node 314, app 865 grün (vorher 860);
+- mls 13, Leak-Tests 72 grün + 1 todo;
+- check-wiring `--streng` Exit 0, innerHTML streng Exit 0, Website ok;
+- Smoke-Test bestanden (auch „mobil“ und „zugang“ mit dem neuen Knopf, der
+  ohne fälligen Zugang verborgen bleibt).
+
 Knoten-Stand: unverändert.
