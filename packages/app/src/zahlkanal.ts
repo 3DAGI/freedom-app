@@ -29,6 +29,8 @@ import { fehlerText } from "./protokoll-texte.js";
 export const LS_KANAELE = "freedom.kanaele";
 /** So lange muss ein Kanal noch laufen, damit die App ihn nutzt (der Knoten verlangt 1 h). */
 export const KANAL_NUTZBAR_SEK = 2 * 3_600;
+/** „Fast leer“ (E8): Nach dieser Gutschrift deckt der Rest weniger als so viele weitere Anfragen. */
+export const KANAL_KNAPP_ANFRAGEN = 3n;
 /** Spielraum auf den Bedarf, falls sich der Kurs des Providers seit dem Angebot bewegt hat. */
 export const KURS_SPIELRAUM_PROMILLE = 20;
 
@@ -69,7 +71,7 @@ export function bedarfLamports(hoechstMsat: number, satsProSol: number): bigint 
 }
 
 export type GutschriftWahl =
-  | { art: "kanal"; eintrag: KanalEintrag; betrag: bigint; tags: string[][] }
+  | { art: "kanal"; eintrag: KanalEintrag; betrag: bigint; tags: string[][]; knapp: boolean }
   | { art: "erschoepft"; eintrag: KanalEintrag }
   | { art: "keiner" };
 
@@ -122,7 +124,16 @@ export class KanalBuch {
     const sitzung = fromHex(e.sitzung);
     const g = signiereGutschrift(sitzung, e.kanal, betrag, BigInt(e.ablauf));
     sitzung.fill(0);
-    return { art: "kanal", eintrag: e, betrag, tags: gutschriftTags(g) };
+    // Fast leer (E8): Danach reicht der Rest für weniger als KANAL_KNAPP_ANFRAGEN Anfragen dieser Größe
+    const knapp = BigInt(e.eingezahlt) - betrag < p.bedarf * KANAL_KNAPP_ANFRAGEN;
+    return { art: "kanal", eintrag: e, betrag, tags: gutschriftTags(g), knapp };
+  }
+
+  /** Aufgestockt (E8, `top_up` auf der Kette bestätigt): die Einlage wächst, sonst nichts. */
+  async aufgestockt(kanal: string, lamports: bigint): Promise<void> {
+    const e = this.alle().find((x) => x.kanal === kanal);
+    if (!e || lamports <= 0n) return;
+    await this.merke({ ...e, eingezahlt: (BigInt(e.eingezahlt) + lamports).toString() });
   }
 
   /** Die Anfrage mit dieser Gutschrift geht hinaus: letzte Gutschrift und offene Anfrage merken. */
