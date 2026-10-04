@@ -14,7 +14,7 @@ Spur A wartet (Abschnitt 3).
 | B-9 „Mein Knoten“ | a, b1–b2, c1–c3 fertig (c3 nach L7 A) | #240, #252–#255, #272 |
 | B-11 Knoten verwalten (nur lesen, L6 A) | a–c fertig (Status 5077, App, Einrichtung) | #256–#258 |
 | B-12 Weckdienst (W1 A, W2 A, W3 A) | fertig (Anmeldung 5078, Knoten weckt, Weck-Worker `freedom-sw.js`, Notfall-Löschung, Haken „Wecken“) | #259, #260, #273–#275 |
-| B-13 Anrufe (T1 A, T2 A, T3 B, T4 A) | fertig (TURN-Zugang 5079, coturn, Anruf-Aufbau 25040, `turn` im Angebot, Logik `shell/anruf.ts`, Oberfläche `shell/anruf-ui.ts`, Datenschutz „anruf-ip“/„anruf-vermittler“; e: Abo für Anrufe, 3 min klingeln) | #261–#263, #276–#278, B-13e |
+| B-13 Anrufe (T1 A, T2 A, T3 B, T4 A) | fertig (TURN-Zugang 5079, coturn, Anruf-Aufbau 25040, `turn` im Angebot, Logik `shell/anruf.ts`, Oberfläche `shell/anruf-ui.ts`, Datenschutz „anruf-ip“/„anruf-vermittler“; e: Abo für Anrufe, 3 min klingeln) | #261–#263, #276–#278, #297 |
 | B-14 | entfällt (I1 B) | – |
 | B-16 / B-17 / B-18 | später / nach Freigabe der Kalender bauen (04.10.) / wartet (Deploy Zahlkanal, MENSCH) | – |
 | B-21 Überholtes entfernen (04.10.) | offen: `merge.ts`, `decrementTtl`, Ablauf in `state-backup.ts`, Belege in `mesh.ts` | – |
