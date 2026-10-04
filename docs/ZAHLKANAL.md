@@ -191,8 +191,14 @@ Gebühr der Einlösung); sonst lehnt die Laufzeit eine kleine Auszahlung ab.
   nach A+ mit SOL-Adresse (`kanalEmpfaenger()`), nie Provider oder Kunde
   selbst. Erst Tresor, dann merken (Kanal-Buch, Sperre für den Wächter), dann
   einzahlen; scheitert die Einzahlung und zeigt die Kette keinen Kanal, fliegt
-  er aus dem Kanal-Buch. Laufzeit 1, 7 oder 30 Tage. Aufstocken bietet die App
-  nicht an – ein neuer Kanal tut es auch.
+  er aus dem Kanal-Buch. Laufzeit 1, 7 oder 30 Tage.
+- **Aufstocken** (E8, `stockeKanalAuf()`): nur mit der Wallet, die eingezahlt
+  hat (`top_up` will den Kunden als Unterzeichner), nur solange der Kanal noch
+  taugt (mindestens zwei Stunden); erst Betrag und Bestätigung, die Einlage im
+  Kanal-Buch wächst erst nach der Bestätigung der Kette. Reicht der Rest nach
+  einer Gutschrift für weniger als drei weitere Anfragen dieser Größe, sagt die
+  App das einmal je Kanal und Sitzung – lange Sessions sollen nicht still
+  abbrechen.
 - Der Datenschutzbericht nennt als Grenze, was auf der Kette steht (Aussage
   „zahlkanal“).
 - **Verdienen** (4.5b, Earn → Übersicht, `verdienst.ts` + `shell/verdienst-ui.ts`):

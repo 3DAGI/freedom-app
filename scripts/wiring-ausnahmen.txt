@@ -212,7 +212,6 @@ scarcity.ts|normalizeRegion|Regionen, noch nicht angebunden (Abdeckungskarte, 5.
 wot.ts|computeTrust|nur vom Pool-Verteiler genutzt (entfernt mit 5.1.2); Reputation aus Quittungen (5.5, zurückgestellt)
 wot.ts|extractEdges|nur vom Pool-Verteiler genutzt (entfernt mit 5.1.2); Reputation aus Quittungen (5.5, zurückgestellt)
 profile.ts|payoutAddress|Auszahladresse aus dem Profil – nie aufgerufen; bis 5.1.4b zählte eine gleichnamige Variable im Belohnungsantrag als Aufruf
-channel.ts|stockeKanalAufIx|Zahlkanal: Aufstocken bietet die App (4.3d) nicht an – ein neuer Kanal tut es auch; Programm und Knoten (Neu-Lesen der Einlage) können es
 badges.ts|badgeSourceLabel|deutsche Referenz; die App bildet den Satz seit 8.16f in protokoll-texte.ts (abzeichenHerkunft) nach, ein Test hält ihn wortgleich
 coverage.ts|coverageConsentText|deutsche Referenz; die App bildet den Text seit 8.16f in protokoll-texte.ts (abdeckungEinwilligung) nach, ein Test hält ihn wortgleich
 profile.ts|profileDisclosure|deutsche Referenz; die App bildet die Sätze seit 8.16f in protokoll-texte.ts (profilOffenlegung) nach, ein Test hält sie wortgleich

@@ -15845,3 +15845,44 @@ Variable ändert sich nichts).
 - mls 13, Leak-Tests 72 grün + 1 todo;
 - check-wiring `--streng` Exit 0, innerHTML streng Exit 0, Website ok;
 - Smoke-Test bestanden.
+
+## Schritt E8 – Zahlkanal aufstocken und Warnung, bevor er leer ist
+
+Entscheidung 04.10.2026 (E8: Zahlkanal mit Aufstocken und Warnung). Der
+Zahlkanal trägt lange Sitzungen (Agentic Coding) nur, wenn er sich auffüllen
+lässt und rechtzeitig warnt. Bisher brach die Sitzung ab, sobald die Einlage
+aufgebraucht war.
+
+**Was:**
+- **Aufstocken** (`shell/zahlkanal-ui.ts`, `stockeKanalAuf()`):
+  - Knopf je Kanal, solange er noch mindestens `KANAL_NUTZBAR_SEK` läuft.
+  - Geht nur mit der Wallet, die den Kanal eröffnet hat; der Betrag wird im
+    Dialog in SOL eingegeben, gezahlt erst nach der Rückfrage.
+  - Ablauf: `top_up` über `sendeMitWallet()`, die Einlage wächst erst nach
+    der Bestätigung auf der Kette (`KanalBuch.aufgestockt()`).
+- **Warnung** (`zahlkanal.ts`, `ki-zahlung.ts`):
+  - Eine Gutschrift meldet `knapp`, wenn der Rest danach weniger als drei
+    weitere Anfragen derselben Größe deckt (`KANAL_KNAPP_ANFRAGEN`).
+  - Die App sagt es einmal je Kanal und Sitzung.
+  - Der Hinweis beim erschöpften Kanal nennt das Aufstocken.
+- **`docs/ZAHLKANAL.md`:** Aufstocken in der App.
+- **`scripts/wiring-ausnahmen.txt`:** veraltete Ausnahme
+  `channel.ts|stockeKanalAufIx` entfernt, jetzt verdrahtet.
+
+**Tests:** `zahlkanal.test.ts` (+2): knapp und Aufstocken.
+
+**Verdrahtet:**
+- `shell/zahlkanal-ui.ts` (Knopf „Aufstocken“ → `stockeKanalAufIx()`);
+- `shell/ki-zahlung.ts` (`kanalGutschrift()` → Hinweis `zahl.kanalKnapp`).
+
+**Offen:** Die Hinterlegung für KI-Anfragen fällt erst nach dem
+Devnet-Deploy weg – bis dahin ist sie der Weg ohne Kanal.
+
+Knoten-Stand: unverändert. Der Knoten liest die Einlage neu, wenn eine
+Gutschrift über der alten liegt (4.3c).
+
+**Prüfungen:**
+- protocol 1190 grün (6 übersprungen), node 314 grün, app 852 grün (vorher 850);
+- mls 13, Leak-Tests 72 grün + 1 todo;
+- check-wiring `--streng` Exit 0 (158 Ausnahmen, eine veraltete weniger), innerHTML streng Exit 0, Website ok;
+- Smoke-Test bestanden.

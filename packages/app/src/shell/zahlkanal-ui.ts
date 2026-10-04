@@ -15,20 +15,21 @@
  * sonst trügen weitere Anfragen Gutschriften für einen Kanal, den es nicht gibt.
  * Fremde Angaben (Schlüssel, Beträge) nur über textContent.
  */
-import { KANAL_PROGRAMM_ID, kanalEmpfaenger } from "@freedomstack/protocol";
+import { KANAL_PROGRAMM_ID, kanalEmpfaenger, stockeKanalAufIx } from "@freedomstack/protocol";
 import { gebietsschema, t } from "../i18n.js";
 import { fehlerText } from "../protokoll-texte.js";
 import { solText } from "../preis-anzeige.js";
 import { pkShort } from "../shell-logic.js";
-import { kanalAufKette, planeKanal, programmBereit, sendeMitWallet } from "../zahlkanal.js";
+import { solZuLamports } from "../zahlungs-anforderung.js";
+import { KANAL_NUTZBAR_SEK, kanalAufKette, planeKanal, programmBereit, sendeMitWallet } from "../zahlkanal.js";
 import { empfaengerFuer, kanalBuch } from "./ki-zahlung.js";
 import { angebotVon, solRpcUrl, state } from "./state.js";
 import { htlcSigner } from "./tabs/waehrung.js";
 import { setzeKanalEinzahlung } from "./tabs/hinterlegen.js";
 import { sperren, starteRueckholWaechter } from "./tabs/tausch.js";
 import { verlangeTresor } from "./tresor.js";
-import { bestaetige } from "./dialog.js";
-import { $ } from "./ui.js";
+import { bestaetige, dialog } from "./dialog.js";
+import { $, el } from "./ui.js";
 
 /** Läuft gerade eine Einzahlung? `geldVorgangLaeuft()` kennt sie – der Tresor sperrt dann nicht. */
 let oeffnet = false;
@@ -105,6 +106,53 @@ export async function zeigeKanaele(): Promise<void> {
     zeile.textContent = e.ablauf > jetzt
       ? t("waehr.kanalZeile", { provider: pkShort(e.provider), betrag: solText(Number(e.eingezahlt)), frei: solText(Number(frei)), bis })
       : t("waehr.kanalAbgelaufen", { provider: pkShort(e.provider), bis });
+    // Aufstocken (E8), solange der Kanal noch für Anfragen taugt – lange Sessions brechen sonst ab
+    if (e.ablauf - jetzt >= KANAL_NUTZBAR_SEK) {
+      const knopf = el("button", t("waehr.kanalAufstocken"), "ghost kanal-aufstocken");
+      knopf.addEventListener("click", () => void stockeKanalAuf(e.kanal));
+      zeile.append(" ", knopf);
+    }
     liste.appendChild(zeile);
+  }
+}
+
+/**
+ * Kanal aufstocken (E8): nur mit der Wallet, die eingezahlt hat (`top_up` will den
+ * Kunden als Unterzeichner), erst Betrag und Bestätigung, dann senden; die
+ * Einlage wächst im Kanal-Buch erst, wenn die Kette bestätigt hat.
+ */
+export async function stockeKanalAuf(kanal: string): Promise<void> {
+  const statusEl = $("#kanal-status");
+  const melde = (text: string, art = ""): void => { statusEl.textContent = text; statusEl.className = `mono-sm ${art}`; };
+  if (oeffnet) return;
+  const e = kanalBuch.alle().find((x) => x.kanal === kanal);
+  if (!e) return;
+  const signer = htlcSigner();
+  if (!signer) return melde(t("waehr.erstSolanaVerbinden"), "warn");
+  if (signer.publicKey.toBase58() !== e.kunde) return melde(t("waehr.kanalAndereWallet", { adresse: `${e.kunde.slice(0, 6)}…` }), "warn");
+  const w = await dialog({
+    titel: t("waehr.kanalAufstockenTitel", { provider: pkShort(e.provider) }),
+    felder: [{ name: "sol", label: t("waehr.kanalAufstockenBetrag"), art: "text", pflicht: true }],
+    ok: t("waehr.kanalAufstocken"),
+    pruefe: (v) => (solZuLamports(String(v.sol)) ? null : t("waehr.ungueltigerBetrag")),
+  });
+  const betrag = w ? solZuLamports(String(w.sol)) : undefined;
+  if (!betrag) return;
+  const lamports = BigInt(betrag);
+  if (!(await bestaetige({ titel: t("waehr.kanalAufstockenTitel", { provider: pkShort(e.provider) }), text: t("waehr.kanalAufstockenFrage", { betrag: solText(Number(lamports)) }), ok: t("waehr.kanalAufstocken") }))) return;
+  oeffnet = true;
+  setzeKanalEinzahlung(true);
+  try {
+    const { Connection } = await import("@solana/web3.js");
+    const conn = new Connection(await solRpcUrl(), "confirmed");
+    await sendeMitWallet(conn, signer, [stockeKanalAufIx({ kunde: e.kunde, kanal, betrag: lamports })], (schritt) => melde(schritt));
+    await kanalBuch.aufgestockt(kanal, lamports);
+    melde(t("waehr.kanalAufgestockt", { betrag: solText(Number(lamports)) }), "ok");
+  } catch (err) {
+    melde(t("waehr.fehler", { fehler: fehlerText(err) }), "err");
+  } finally {
+    oeffnet = false;
+    setzeKanalEinzahlung(false);
+    await zeigeKanaele();
   }
 }
