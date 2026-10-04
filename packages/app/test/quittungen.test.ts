@@ -158,8 +158,10 @@ test("5.5b Abnahme: gefälschte Leistungs-Events ohne Quittung ändern Stufe und
   const gerankt = matchProviders(await discoverProviders(mit.pool, ruf), "classic");
   assert.deepEqual(gerankt.map((p) => p.caps.pubkey), [ehrlich.k.pk, faelscher.k.pk], "ungeprüfte bleiben wählbar, aber hinten");
   assert.equal(gerankt[0].geprueft, true);
-  // Ohne Ruf entscheidet nur der Preis – nicht die Flut
-  assert.deepEqual(matchProviders(b, "classic").map((p) => p.caps.pubkey), [faelscher.k.pk, ehrlich.k.pk]);
+  // Ohne Ruf entscheidet nur der Preis – nicht die Flut. Seit P2a (E7) gewichtet zufällig mit 1/Preis²
+  // (hier 16 : 1 für den Günstigeren) – mit fester Zufallszahl, damit der Test nie würfelt
+  assert.deepEqual(matchProviders(b, "classic", { zufall: () => 0.5 }).map((p) => p.caps.pubkey), [faelscher.k.pk, ehrlich.k.pk]);
+  assert.deepEqual(matchProviders(b, "classic", { zufall: () => 0.01 }).map((p) => p.caps.pubkey), [ehrlich.k.pk, faelscher.k.pk], "der Teurere bekommt auch Verkehr");
 
   // Stufe: Die Flut hebt den Fälscher nicht über sein Angebot
   const pro = matchProviders(b, "pro");

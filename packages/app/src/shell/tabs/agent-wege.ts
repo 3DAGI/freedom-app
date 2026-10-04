@@ -12,6 +12,8 @@ import { type AntwortCache, oeffneAntworten } from "../../ki-antworten.js";
 import { pkShort } from "../../shell-logic.js";
 import { ensurePool, ensureSessionClient, findProviders, kiSitzungen, powJeProvider, state } from "../state.js";
 import { type KnotenWeg } from "../knoten-weg-ui.js";
+import { ergebnisDesLaufs } from "../../messbuch.js";
+import { merkeMessung } from "../messung.js";
 import { $, toast } from "../ui.js";
 import { buildJobEvent, handleAnswer, jobAbort, keinPrivaterProvider, privatFaehig, waitForAnswer } from "./agent.js";
 import { addAiMessage, EigeneMeldung, hideTyping, showAiError } from "./agent-anzeige.js";
@@ -48,6 +50,9 @@ export async function askWithFailover(prompt: string, bid: number, tier: "free" 
   /** Alle aktiven Job-Ids dieses Laufs (Results aus allen akzeptieren). */
   const activeJobIds = new Set<string>();
   let lastFeedbackError = "";
+  // Eigene Messung (P2a): wann wer den Auftrag bekam, wer seine Frist verpasste
+  const gesendetMs = new Map<string, number>();
+  const zuLangsam = new Set<string>();
 
   for (let i = 0; i < targets.length; i++) {
     const target = targets[i];
@@ -56,6 +61,7 @@ export async function askWithFailover(prompt: string, bid: number, tier: "free" 
     const { wrap, requestId } = await buildJobEvent(prompt, bid, tier, target, sc);
     await pool.publish(wrap);
     activeJobIds.add(requestId);
+    gesendetMs.set(target, Date.now());
 
     const answer = await waitForAnswer(requestId, timeoutMs, target, {
       extraJobIds: activeJobIds,
@@ -74,9 +80,11 @@ export async function askWithFailover(prompt: string, bid: number, tier: "free" 
         addAiMessage("ai", t("agent.abgebrochen"), "");
         return;
       }
+      void merkeMessung(ergebnisDesLaufs(gesendetMs, zuLangsam, { pk: answer.ev.pubkey, kaputt: "kaputt" in answer }, Date.now()));
       await handleAnswer(answer.ev, answer.parsed!, prompt);
       return;
     }
+    zuLangsam.add(target);
     if (i < targets.length - 1) {
       // kein Feedback, nur langsam → Hedge: nächster Provider bekommt ihn JETZT,
       // der aktuelle bleibt aktiv (seine Antwort wird via activeJobIds noch
@@ -85,6 +93,7 @@ export async function askWithFailover(prompt: string, bid: number, tier: "free" 
     }
   }
   // Alle Kandidaten versagt (Timeout oder Ablehnung):
+  void merkeMessung(ergebnisDesLaufs(gesendetMs, zuLangsam, null, Date.now()));
   showAiError(
     lastFeedbackError ? new Error(lastFeedbackError) : new EigeneMeldung(t("agent.keinProviderAntwort")),
     prompt, bid, tier,
