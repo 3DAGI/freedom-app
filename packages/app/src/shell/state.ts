@@ -159,14 +159,18 @@ async function pruefBerichte(pruefer: readonly string[], jetzt: number): Promise
   return pruefStaende(berichtCache, pruefer, jetzt);
 }
 
-/** Auto-Matchmaking: beste Provider fuer ein Tier (5min Cache). Kein manuelles pubkey. */
-export async function findProviders(tier: string): Promise<ScoredProvider[]> {
+/** Die bekannten Provider mit eigener Messung und Prüfer-Stand – für die Auswahl und die Seite Netz (P2b2). */
+export async function providerMitStand(): Promise<ScoredProvider[]> {
   // Eigene Messung (P2a) frisch je Auswahl – nur auf dem Gerät, aus dem Tresor;
   // wo sie zu wenig hat, die Berichte der gewählten Prüfer (P2b)
   const { messBuch } = await import("./messung.js");
   const jetzt = Math.floor(Date.now() / 1000);
-  const mit = mitPruefung(mitMessung(await bekannteProvider(), messBuch.staende(jetzt)), await pruefBerichte(gewaehltePruefer(localStorage), jetzt));
-  return matchProviders(mit, tier as "free" | "classic" | "pro", { allowlist: getAllowlist() });
+  return mitPruefung(mitMessung(await bekannteProvider(), messBuch.staende(jetzt)), await pruefBerichte(gewaehltePruefer(localStorage), jetzt));
+}
+
+/** Auto-Matchmaking: beste Provider fuer ein Tier (5min Cache). Kein manuelles pubkey. */
+export async function findProviders(tier: string): Promise<ScoredProvider[]> {
+  return matchProviders(await providerMitStand(), tier as "free" | "classic" | "pro", { allowlist: getAllowlist() });
 }
 
 

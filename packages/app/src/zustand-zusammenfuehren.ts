@@ -99,6 +99,7 @@ const REGELN: Record<string, (l: unknown, s: unknown, b: ZusammenfuehrBericht) =
   "freedom.chats": unterhaltungen,
   "freedom.spaces": (l, s, b) => liste(l, s, b),
   "freedom.kataloge": (l, s, b) => liste(l, s, b, 20),
+  "freedom.pruefer": (l, s, b) => liste(l, s, b, 10),
   "freedom.lastRead": spaetestes,
   "freedom.kontakte.geprueft": spaetestes,
   "freedom.mandate": mandate,

@@ -3760,8 +3760,8 @@ def karte_pruefen(browser, url: str) -> dict:
 MOBIL_SEITEN = [
     ("#/agent", ""), ("#/agent/verlauf", ""), ("#/agent/modelle", ""), ("#/agent/details", ""), ("#/chat", ""), ("#/repos", ""),
     ("#/waehrung", ""), ("#/waehrung", "wallet:swap"), ("#/waehrung", "wallet:lp"), ("#/waehrung", "wallet:pay"), ("#/verdienen", ""),
-    ("#/verdienen", "earn:host"), ("#/verdienen", "earn:refer"), ("#/netz", ""), ("#/netz", "netz:mesh"), ("#/profil", ""),
-    ("#/settings", ""), ("#/settings", "settings:network"), ("#/mehr", ""),
+    ("#/verdienen", "earn:host"), ("#/verdienen", "earn:refer"), ("#/netz", ""), ("#/netz", "netz:mesh"), ("#/netz", "netz:pruefung"),
+    ("#/profil", ""), ("#/settings", ""), ("#/settings", "settings:network"), ("#/mehr", ""),
 ]
 MOBIL_MESSEN = """() => {
   const sichtbar = (e) => { const r = e.getBoundingClientRect(); const s = getComputedStyle(e);

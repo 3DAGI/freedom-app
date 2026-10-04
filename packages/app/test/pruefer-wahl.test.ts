@@ -7,8 +7,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { buildCapabilities, generateKeypair, parseCapabilities, signEvent, type MessStand, type PruefStand } from "@freedomstack/protocol";
-import { LS_PRUEFER, PRUEFER_MAX, gewaehltePruefer } from "../src/pruefer-wahl.js";
+import { SICHERUNG_EINTRAEGE, buildCapabilities, generateKeypair, parseCapabilities, signEvent, type MessStand, type PruefStand } from "@freedomstack/protocol";
+import { LS_PRUEFER, PRUEFER_MAX, eigenePruefer, entfolgePruefer, folgePruefer, gewaehltePruefer } from "../src/pruefer-wahl.js";
+import { pruefZeile, pruefZeilen } from "../src/pruef-anzeige.js";
+import { fuehreZusammen } from "../src/zustand-zusammenfuehren.js";
 import { type ScoredProvider, matchProviders, mitMessung, mitPruefung } from "../src/matchmaking.js";
 
 const JETZT = 1_790_000_000;
@@ -58,4 +60,47 @@ test("Verdrahtet: Berichte nur mit gewählten Prüfern, ohne Filter nach Prüfer
   assert.match(berichte, /pool\.query\(messberichtFilter\(\)\)/, "alle holen – ein Filter nach Prüfer verriete die Wahl");
   assert.doesNotMatch(berichte, /authors/);
   assert.match(lies("matchmaking.ts"), /stufe: stufeFuerAuswahl\(p\.messung, p\.pruefung\),/);
+});
+
+test("P2b2: folgen und nicht mehr folgen – nur Schlüssel, höchstens zehn, Doppelte zählen einmal", () => {
+  const m = new Map<string, string>();
+  const s = { getItem: (k: string) => m.get(k) ?? null, setItem: (k: string, v: string) => void m.set(k, v) };
+  assert.equal(folgePruefer(s, pk("a")), true);
+  assert.equal(folgePruefer(s, pk("a")), true, "schon gefolgt");
+  assert.equal(folgePruefer(s, "npub1kaputt"), false);
+  assert.deepEqual(eigenePruefer(s), [pk("a")]);
+  for (let i = 0; i < 9; i++) assert.equal(folgePruefer(s, i.toString(16).repeat(64)), true);
+  assert.equal(folgePruefer(s, pk("b")), false, "höchstens zehn");
+  entfolgePruefer(s, pk("a"));
+  assert.equal(eigenePruefer(s).includes(pk("a")), false);
+  assert.equal(folgePruefer(s, pk("b")), true, "Platz wieder frei");
+});
+
+test("P2b2: Zeile je Provider – Quelle wie bei der Auswahl, Verfügbarkeit in ganzen Prozent, sortiert nach Stand", () => {
+  assert.deepEqual(pruefZeile(pk("a"), gemessen({ anfragen: 40, erfolge: 39, medianMs: 1800 }), geprueft({ stufe: "ausgefallen" })),
+    { pk: pk("a"), stand: "normal", quelle: "eigene", verfuegbarkeit: 97, antwortMs: 1800 }, "eigene Messung geht vor");
+  assert.deepEqual(pruefZeile(pk("b"), gemessen({ anfragen: 5, stufe: "neu" }), geprueft({ anfragen: 60, erfolge: 50, stufe: "herabgestuft", medianMs: 4000, pruefer: 2 })),
+    { pk: pk("b"), stand: "herabgestuft", quelle: "pruefer", verfuegbarkeit: 83, antwortMs: 4000, pruefer: 2 });
+  assert.deepEqual(pruefZeile(pk("c")), { pk: pk("c"), stand: "neu", quelle: "keine" });
+  const r = pruefZeilen([
+    { pk: pk("d"), messung: gemessen({ erfolge: 10, stufe: "ausgefallen" }) },
+    { pk: pk("c") },
+    { pk: pk("b"), pruefung: geprueft({}) },
+    { pk: pk("a"), pruefung: geprueft({ stufe: "herabgestuft" }) },
+  ]).map((z) => [z.pk[0], z.stand]);
+  assert.deepEqual(r, [["b", "normal"], ["c", "neu"], ["a", "herabgestuft"], ["d", "ausgefallen"]]);
+});
+
+test("P2b2: Seite Netz lädt erst beim Öffnen des Reiters; Wahl der Prüfer geht in die Sicherung, beim Zusammenführen ohne Verlust", () => {
+  const ui = lies("shell/tabs/pruefung-ui.ts");
+  assert.match(ui, /\[data-subtab="pruefung"\]'\)\?\.addEventListener\("click", \(\) => void zeigePruefung\(\)\)/);
+  assert.match(ui, /pruefZeilen\(\(await providerMitStand\(\)\)/, "dieselbe Quelle wie die Auswahl");
+  assert.doesNotMatch(ui, /innerHTML/);
+  const app = lies("shell/app.ts");
+  assert.match(app, /\n  wirePruefung\(\);\n/);
+  assert.doesNotMatch(app, /zeigePruefung/, "nie beim Start oder beim Seitenwechsel");
+  assert.match(lies("shell/state.ts"), /return matchProviders\(await providerMitStand\(\), tier/);
+  assert.ok(SICHERUNG_EINTRAEGE.includes(LS_PRUEFER));
+  const { werte } = fuehreZusammen({ [LS_PRUEFER]: JSON.stringify([pk("a")]) }, (k) => (k === LS_PRUEFER ? JSON.stringify([pk("b")]) : null));
+  assert.deepEqual(new Set(JSON.parse(werte[LS_PRUEFER]!)), new Set([pk("a"), pk("b")]));
 });

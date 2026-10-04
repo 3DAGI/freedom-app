@@ -570,7 +570,7 @@
       <!-- NETZ (C.1b): Abdeckungskarte und Mesh – vorher unter Earn und Settings -->
       <section id="page-netz" class="tab-page">
         <header class="page-head"><div><h1 class="page-title" data-i18n="nav.netz">Netz</h1><p class="page-sub" data-i18n="nav.netzUntertitel">Wo es Provider und Funk gibt – und Nachrichten ohne Internet.</p></div></header>
-        <div class="seg" role="tablist" data-subtab-group="netz"><button role="tab" data-subtab="map" class="active" data-i18n="earn.tabKarte">Karte</button><button role="tab" data-subtab="mesh" data-i18n="set.tabMesh">Mesh</button></div>
+        <div class="seg" role="tablist" data-subtab-group="netz"><button role="tab" data-subtab="map" class="active" data-i18n="earn.tabKarte">Karte</button><button role="tab" data-subtab="mesh" data-i18n="set.tabMesh">Mesh</button><button role="tab" data-subtab="pruefung" data-i18n="pruef.tab">Prüfung</button></div>
         <div class="page-body">
           <div class="subpane active" data-subpane="netz:map"><div class="card">
           <h3><span class="ic" data-icon="globe"></span> <span data-i18n="earn.abdeckung">Abdeckung</span></h3>
@@ -631,6 +631,20 @@
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
             <button id="funk-gateway-suchen" class="ghost" style="width:auto;padding:6px 10px" data-i18n="set.funkGatewaySuchen">Gateways suchen</button>
             <button id="funk-gateway-vergessen" class="ghost" style="width:auto;padding:6px 10px" data-i18n="set.funkGatewayVergessen">vergessen</button>
+          </div>
+        </div></div>
+          <div class="subpane" data-subpane="netz:pruefung"><div class="card">
+          <h3><span class="ic" data-icon="info"></span> <span data-i18n="pruef.titel">Prüfung der Provider</span></h3>
+          <p class="mono-sm" data-i18n="pruef.text">Wie zuverlässig Provider antworten – aus deiner eigenen Messung auf diesem Gerät, sobald sie 20 Anfragen hat, sonst aus den Berichten der Prüfer, denen du folgst. Danach wählt die App die Provider aus.</p>
+          <div id="pruefung-liste" class="mono-sm"></div>
+          <button id="pruefung-laden" class="ghost" style="width:auto;padding:6px 10px;margin-top:8px" type="button" data-i18n="pruef.laden">aktualisieren</button>
+        </div><div class="card">
+          <h3 data-i18n="pruef.prueferTitel">Prüfer</h3>
+          <p class="mono-sm" data-i18n="pruef.prueferText">Prüfer sind Knoten, die Providern eigene Prüffragen stellen und Messwerte veröffentlichen. Die App holt die Berichte aller Prüfer und wertet nur die aus, denen du folgst – Relays sehen nicht, welche das sind.</p>
+          <div id="pruefer-liste" class="mono-sm"></div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
+            <input id="pruefer-neu" class="mono-sm" type="text" placeholder="npub oder Schlüssel des Prüfers" data-i18n-ph="pruef.neuPh" aria-label="npub oder Schlüssel des Prüfers" data-i18n-aria="pruef.neuPh" />
+            <button id="pruefer-folgen" class="ghost" style="width:auto;padding:6px 10px" type="button" data-i18n="pruef.folgen">folgen</button>
           </div>
         </div></div>
         </div>
