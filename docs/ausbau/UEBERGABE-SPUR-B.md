@@ -17,7 +17,7 @@ Spur A wartet (Abschnitt 3).
 | B-13 Anrufe (T1 A, T2 A, T3 B, T4 A) | fertig (TURN-Zugang 5079, coturn, Anruf-Aufbau 25040, `turn` im Angebot, Logik `shell/anruf.ts`, Oberfläche `shell/anruf-ui.ts`, Datenschutz „anruf-ip“/„anruf-vermittler“; e: Abo für Anrufe, 3 min klingeln) | #261–#263, #276–#278, #297 |
 | B-14 | entfällt (I1 B) | – |
 | B-16 / B-17 / B-18 | später / nach Freigabe der Kalender bauen (04.10.) / wartet (Deploy Zahlkanal, MENSCH) | – |
-| B-21 Überholtes entfernen (04.10.) | fertig: `merge.ts`, `mesh.ts` (38030/38031 nicht mehr belegt), `decrementTtl`, Ablauf in `state-backup.ts` | B-21 |
+| B-21 Überholtes entfernen (04.10.) | fertig: `merge.ts`, `mesh.ts` (38030/38031 nicht mehr belegt), `decrementTtl`, Ablauf in `state-backup.ts` | #298 |
 | Phase 12 (E5, 04.10.) | Logik Spur A, Oberfläche Spur C – nicht Spur B | – |
 
 Zahlen auf `main`:
