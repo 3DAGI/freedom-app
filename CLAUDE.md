@@ -45,9 +45,9 @@ bash packages/mls/bauen.sh --pruefen                     # nur bei Änderungen a
 bash contracts/solana-channel/pruefen.sh --werkzeuge     # nur bei Änderungen am Zahlkanal: bauen + Tests gegen Validator (Agave 3.1.10)
 ```
 
-Stand 02.10.2026 (nach 8.2c, 5.5a–c, 8.15, 11.1a, C.3c2, 11.1b, 5.9a–b, 6.3a–b2, 11.4a–b2, C.4a–b, C.5a–b, C.6b, 11.4c, C-18, C-17a–c, C-20a–j3, C-1a–f, C-2, C-3, C-4, C-5a–d, C-6a–e, C-7a–b, C-8, C-10 bis C-16, 11.2a–b, A-4 bis A-7, B-1, B-2a–c, B-3 bis B-7, B-8a–c, B-9a, B-15, B-19, B-20a–c, B-10a–b, B-9b1–b2, B-9c1–c3, B-11a–c, B-12a–d und B-13a–d): protocol 1188 grün (6 übersprungen), node 313 grün
+Stand 04.10.2026 (nach 8.2c, 5.5a–c, 8.15, 11.1a, C.3c2, 11.1b, 5.9a–b, 6.3a–b2, 11.4a–b2, C.4a–b, C.5a–b, C.6b, 11.4c, C-18, C-17a–c, C-20a–j3, C-1a–f, C-2, C-3, C-4, C-5a–d, C-6a–e, C-7a–b, C-8, C-10 bis C-16, 11.2a–b, A-4 bis A-7, A-7r, B-1, B-2a–c, B-3 bis B-7, B-8a–c, B-9a, B-15, B-19, B-20a–c, B-10a–b, B-9b1–b2, B-9c1–c3, B-11a–c, B-12a–d und B-13a–d): protocol 1188 grün (6 übersprungen), node 313 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 845 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 72 grün + 1 `todo` (heutige Lecks,
+in `tools.test.ts`), app 842 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 72 grün + 1 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
 Ausnahme: gesendete SOL-Zahlungen von frischen Adressen, eine bewusste Grenze
 nach Entscheidung 4.9 A – im Datenschutzbericht unter „Bewusste Grenzen“).
@@ -937,18 +937,13 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   Passphrase nur im Dialog (`verdeckt: true`). Was nie auf ein Relay darf
   (Quittungen, KI-Verläufe), steht in `EXPORT_ZUSAETZLICH`, nicht in
   `SICHERUNG_EINTRAEGE`.
-- **Vergleich über mehrere Provider nur über `konsens.ts`** (seit A-7):
-  Nur auf Wunsch je Frage – der Haken `#ai-konsens` wird beim Senden gelesen
-  und wieder aus (`konsensGewaehlt()`), nie bei Max/Swarm. Vor dem Senden die
-  Provider wählen (`konsensZiele()`, mindestens `KONSENS_MIN`, sonst geht
-  nichts hinaus – auch kein Einzelauftrag) und die Kosten über
-  `consensusCostPreview()` bestätigen lassen. Gesendet nur über
-  `buildJobEvent()` je Provider (eigener Sitzungsschlüssel, kein Zusatz-Tag –
-  die Provider erfahren nichts voneinander), angenommen nur über
-  `KonsensSammlung.nimm()` (eine je Anfrage, nur vom Gefragten), bezahlt wie
-  jede Antwort über `handleAnswer()`. Das Ergebnis nur als Text aus den
-  Feldern (`konsensText()`, nie die deutsche `explanation`) und nie im
-  Verlauf – der reist als Kontext mit der nächsten Frage.
+- **Kein Vergleichen für Kunden** (A-7 zurückgenommen 04.10.2026, MENSCH):
+  Auf der Agent-Seite gibt es keinen Haken „vergleichen“ mehr – nicht wieder
+  einbauen (Max und Swarm bleiben, wie sie sind). Verfügbarkeit und Qualität
+  der Provider prüft die App automatisch nach `docs/FREEDOM-PRUEFUNG.md` (E7,
+  OpenRouter-Vorbild): eigene Messung nur auf dem Gerät, Prüfer stellen nur
+  eigene Prüffragen, nie Fragen von Nutzern. `consensus.ts` bleibt Baustein
+  des Prüfers (Ausnahmen in `wiring-ausnahmen.txt` mit diesem Grund).
 - **Offene Räume nur über die Adresse des Gründers** (seit B-7): gemerkt
   (`freedom.spaces`, `oeffentliche-raeume.ts`) und weitergegeben wird
   `34700:<gründer>:space:<kennung>`; den Raum baut nur `raumZustandFuer()` –

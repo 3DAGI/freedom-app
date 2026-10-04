@@ -32,6 +32,12 @@ cluster.ts|modelFitsOnCluster|Cluster-Pairing ohne Oberfläche und ohne Anbindun
 cluster.ts|parseClusterOffer|Cluster-Pairing ohne Oberfläche und ohne Anbindung im Knoten (Provider-Knoten, 8.2)
 cluster.ts|recommendMode|Cluster-Pairing ohne Oberfläche und ohne Anbindung im Knoten (Provider-Knoten, 8.2)
 
+consensus.ts|consensusCostPreview|Redundanz-Konsens – vom Kunden nicht mehr wählbar (Entscheidung 04.10.2026), Baustein der automatischen Prüfung (E7, docs/FREEDOM-PRUEFUNG.md)
+consensus.ts|evaluateConsensus|Redundanz-Konsens – vom Kunden nicht mehr wählbar (Entscheidung 04.10.2026), Baustein der automatischen Prüfung (E7, docs/FREEDOM-PRUEFUNG.md)
+consensus.ts|normalizeAnswer|Redundanz-Konsens – vom Kunden nicht mehr wählbar (Entscheidung 04.10.2026), Baustein der automatischen Prüfung (E7, docs/FREEDOM-PRUEFUNG.md)
+consensus.ts|recommendedRedundancy|Redundanz-Konsens – vom Kunden nicht mehr wählbar (Entscheidung 04.10.2026), Baustein der automatischen Prüfung (E7, docs/FREEDOM-PRUEFUNG.md)
+consensus.ts|similarity|Redundanz-Konsens – vom Kunden nicht mehr wählbar (Entscheidung 04.10.2026), Baustein der automatischen Prüfung (E7, docs/FREEDOM-PRUEFUNG.md)
+
 contributor-funding.ts|buildAllocation|Vergütung von Mitentwicklern, ohne Oberfläche (Repositories, 8.10)
 contributor-funding.ts|buildBounty|Vergütung von Mitentwicklern, ohne Oberfläche (Repositories, 8.10)
 contributor-funding.ts|buildFundingRound|Vergütung von Mitentwicklern, ohne Oberfläche (Repositories, 8.10)
