@@ -16014,3 +16014,42 @@ anderen Prüfungen sind unverändert grün.
 
 Knoten-Stand: unverändert.
 
+
+## Schritt P1b – Messbericht eines Prüfers (Kind 38081)
+
+Entscheidung E7 vom 04.10.2026, zweiter Teil der Bausteine. Ein Prüfer stellt
+Providern synthetische Prüffragen und veröffentlicht je Provider und Modell
+einen ersetzbaren Messbericht. Eine Rangliste gibt es nicht: Die Rangfolge
+bildet jede App selbst (`ordneNachPruefung()`, P1a). Das neue Kind war mit E7
+freigegeben (`docs/FREEDOM-PRUEFUNG.md`, Abschnitt 6).
+
+**Was** (`packages/protocol/src/messbericht.ts`):
+- `baueMessbericht()` (unsigniert, der Prüfer signiert).
+  - Tags: `d` = `<provider>:<modell>`, `p`, `modell`, `zeitraum`,
+    `anfragen` (Anfragen, Erfolge), `median_ms`, `tokens_s` (freiwillig),
+    `treffer` (je Prüfart ein Tag), `stufe`.
+  - Ablauf nach NIP-40, zwei Stunden (`BERICHT_GUELTIG_SEK`). Inhalt leer:
+    keine Prüffragen, keine Antworten, nichts über Kunden.
+- `leseMessbericht()` lehnt ab:
+  - falsche Signatur und Ablauf;
+  - Zahlen, die keine ganzen sind oder nicht zusammenpassen;
+  - unbekannte Stufe, eine Prüfart doppelt, ein `d`, das nicht zu `p` und
+    `modell` passt.
+- Prüfarten, die der Leser nicht kennt (neuere Prüfer), zählen nicht.
+- `trefferQuote()` über alle Arten.
+- **`docs/PROTOCOL.md`:** Kind 38081 in der Tabelle und §28.
+- **`scripts/wiring-ausnahmen.txt`:** drei Exporte bis P2b/P3.
+
+**Tests:** `messbericht.test.ts` (+1, viele Fälle). Geprüft werden:
+- Bauen, Signieren und Lesen;
+- Fälschung nach dem Signieren;
+- Ablauf, mehr Erfolge als Anfragen, falsches `d`, unbekannte Stufe,
+  `1e3` als Zahl, negativer Durchsatz;
+- mehr richtig als geprüft, eine Art doppelt;
+- eine unbekannte Art wird übergangen;
+- Unsinn beim Bauen.
+
+**Verdrahtet:** noch nicht – Bausteinschritt; P2b liest Berichte in der App,
+P3 baut sie im Knoten.
+
+Knoten-Stand: unverändert.

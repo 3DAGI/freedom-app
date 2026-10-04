@@ -129,6 +129,7 @@ Bestehende Kinds sind reserviert und semantisch eingefroren:
 | 38053 | *nicht mehr belegt* (Verteilungsbericht des Reward-Pools, bis 5.1.2) |
 | 38075 | Zusammenfassung des Rufs, nur als versiegelter Kern an Kontakte (§17) |
 | 38080 | Modellkatalog eines Kurators (NIP-51-Set: `d`, `title`, `description`, je Modell `["model", <kennung>, <notiz?>]`; `modell-katalog.ts`) |
+| 38081 | Messbericht eines Prüfers je Provider und Modell (§28, `messbericht.ts`) |
 
 **Regel:** Neue Features bekommen NEUE Kinds. Bestehende Kinds ändern ihre
 Semantik nie; nicht mehr belegte werden nicht wiederverwendet – alte Events
@@ -857,3 +858,42 @@ deshalb ein Feld `turn` tragen:
 - Kind 25040 steht nie in einem gesendeten Event.
 - In den inneren Events (Mitschnitt vor dem Versiegeln) stehen nur
   Relay-Kandidaten mit Fingerabdruck.
+
+## 28. Messbericht der Freedom-Prüfung (Kind 38081, seit P1b)
+
+Entwurf und Begründung: `docs/FREEDOM-PRUEFUNG.md` (Entscheidung E7, nach dem
+Vorbild von OpenRouter). Ein Prüfer stellt Providern synthetische Prüffragen
+(nie Fragen von Nutzern), misst Erfolg, Zeit und Richtigkeit und veröffentlicht
+je Provider und Modell einen ersetzbaren Bericht. Eine Rangliste gibt es nicht –
+die Rangfolge bildet jede App selbst (`ordneNachPruefung()`).
+
+| Tag | Inhalt |
+|---|---|
+| `d` | `<provider>:<modell>` – muss zu `p` und `modell` passen |
+| `p` | Schlüssel des Providers (64 Hex) |
+| `modell` | Kennung des Modells (sichtbare ASCII-Zeichen, höchstens 100) |
+| `zeitraum` | Beginn, Ende (Unix-Sekunden) |
+| `anfragen` | Anfragen, davon erfolgreich |
+| `median_ms` | Median der Antwortzeit |
+| `tokens_s` | Durchsatz in Tokens je Sekunde (freiwillig) |
+| `treffer` | je Prüfart ein Tag: Art, richtige Antworten, geprüfte Prüffragen |
+| `stufe` | `neu`, `normal`, `herabgestuft`, `ausgefallen` (`stufeAus()`) |
+| `expiration` | NIP-40, zwei Stunden nach dem Bericht |
+
+Inhalt leer. Gebaut nur über `baueMessbericht()`, gelesen nur über
+`leseMessbericht()` – abgelehnt werden falsche Signatur, Ablauf, Zahlen, die
+keine ganzen Zahlen sind oder nicht zusammenpassen (mehr Erfolge als Anfragen),
+eine unbekannte Stufe, eine Prüfart zweimal und ein `d`, das nicht zu `p` und
+`modell` passt. Prüfarten, die der Leser nicht kennt (neuere Prüfer), zählen
+nicht; die Quote über alle Arten rechnet `trefferQuote()`.
+
+**Stufen** (`PRUEF_GRENZEN`): erst ab 50 Prüffragen (eigene Messung der App:
+ab 20 eigenen Anfragen) – davor `neu`. Ab 95 % Erfolg `normal`, ab 80 %
+`herabgestuft`, darunter `ausgefallen`. Ein Ausfall in den letzten 60 Sekunden
+stellt einen Provider in der eigenen Messung nach hinten.
+
+**Prüffragen** (`neuePruefFrage()`, `pruefeAntwort()`): Rechnen, Umkehren,
+Zählen, Sortieren, JSON – aus Vorlagen mit Zufall, die Antwort prüft Code, kein
+Sprachmodell. Ein Prüfer fragt wie jeder Kunde: versiegelt, mit
+Sitzungsschlüssel, bezahlt – der Provider kann Prüffragen nicht von anderen
+unterscheiden, außer an ihrer Form.
