@@ -16163,4 +16163,10 @@ kennt keinen Topf, und die Entwicklung bekommt ihre 2,5 % ohnehin
 **Verdrahtet:** noch nicht – Format; E10b zeigt Kopfgelder am Issue und zahlt
 per Klick über die Zahlschienen.
 
+**Prüfungen:**
+- protocol 1155 grün (6 übersprungen; vorher 1167, begründet oben), node 314, app 860;
+- mls 13, Leak-Tests 72 grün + 1 todo;
+- check-wiring `--streng` Exit 0, innerHTML streng Exit 0, Website ok;
+- Smoke-Test bestanden.
+
 Knoten-Stand: unverändert.
