@@ -210,9 +210,12 @@ devices.ts|deviceWarning|deutsche Referenz; die App bildet die Rückfrage seit 8
 release.ts|sharingInstructions|deutsche Referenz; die App bildet den Begleittext seit 8.16g2b2 in protokoll-texte.ts (weitergabeText) nach, ein Test hält ihn wortgleich
 mesh-sync.ts|offlineCapabilities|deutsche Referenz; die App bildet die Liste seit 8.16g2b2 in protokoll-texte.ts (offlineFaehigkeiten) nach, ein Test hält sie gleich
 spaces.ts|privacyInfo|deutsche Referenz; die App bildet die Rauminfo seit C.2b2 in protokoll-texte.ts (kanalVertraulichkeit) nach, ein Test hält sie wortgleich
+messbericht.ts|baueMessbericht|Freedom-Prüfung P1b (E7, docs/FREEDOM-PRUEFUNG.md) – verdrahtet in P2 (App) und P3 (Prüfer im Knoten)
 pruefung.ts|fasseMessungZusammen|Freedom-Prüfung P1a (E7, docs/FREEDOM-PRUEFUNG.md) – verdrahtet in P2 (App) und P3 (Prüfer im Knoten)
+messbericht.ts|leseMessbericht|Freedom-Prüfung P1b (E7, docs/FREEDOM-PRUEFUNG.md) – verdrahtet in P2 (App) und P3 (Prüfer im Knoten)
 pruefung.ts|merkeMesspunkt|Freedom-Prüfung P1a (E7, docs/FREEDOM-PRUEFUNG.md) – verdrahtet in P2 (App) und P3 (Prüfer im Knoten)
 pruefung.ts|neuePruefFrage|Freedom-Prüfung P1a (E7, docs/FREEDOM-PRUEFUNG.md) – verdrahtet in P2 (App) und P3 (Prüfer im Knoten)
 pruefung.ts|ordneNachPruefung|Freedom-Prüfung P1a (E7, docs/FREEDOM-PRUEFUNG.md) – verdrahtet in P2 (App) und P3 (Prüfer im Knoten)
 pruefung.ts|pruefeAntwort|Freedom-Prüfung P1a (E7, docs/FREEDOM-PRUEFUNG.md) – verdrahtet in P2 (App) und P3 (Prüfer im Knoten)
 pruefung.ts|stufeAus|Freedom-Prüfung P1a (E7, docs/FREEDOM-PRUEFUNG.md) – verdrahtet in P2 (App) und P3 (Prüfer im Knoten)
+messbericht.ts|trefferQuote|Freedom-Prüfung P1b (E7, docs/FREEDOM-PRUEFUNG.md) – verdrahtet in P2 (App) und P3 (Prüfer im Knoten)
