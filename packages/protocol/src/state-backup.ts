@@ -1,26 +1,18 @@
 /**
- * Zustandssicherung und ablaufende Nachrichten.
+ * Zustandssicherung.
  *
- * ZWEI LÜCKEN, EIN MODUL
- *
- * **Zustand.** Die Merkphrase sichert die *Identität*. Unterhaltungen,
+ * Die Merkphrase sichert die *Identität*. Unterhaltungen,
  * Raum-Mitgliedschaften, eigene Namen und Lesestände liegen im Browser. Wer
  * seine Daten löscht, behält den Schlüssel und verliert alles andere — und
  * weiß dann nicht einmal mehr, in welchen Räumen er war. Das ist der erste
  * Datenverlust, den ein echter Nutzer erleben wird, und er ist vermeidbar.
  *
- * **Ablauf.** Alles bleibt für immer auf allen Relays. Für die Zielgruppe ist
- * das eine Belastung, keine Eigenschaft: Eine Nachricht von vor drei Jahren
- * ist heute noch für jeden abrufbar, der die Kennung kennt.
- *
- * DER WICHTIGE UNTERSCHIED
  * Die Sicherung ist eine **Garantie** — verschlüsselt, vom eigenen Schlüssel
- * abgeleitet, wiederherstellbar. Der Ablauf ist eine **Bitte**: Relays löschen
- * freiwillig. Beides so zu benennen ist wichtiger als die Funktion selbst,
- * denn ein falsches Sicherheitsgefühl führt dazu, dass jemand etwas schreibt,
- * das er sonst nicht geschrieben hätte.
+ * abgeleitet, wiederherstellbar. Ablaufende Nachrichten (NIP-40, eine **Bitte**
+ * an die Relays) stehen seit 2.5 in `private-dm.ts` (`dmAbgelaufen`); der
+ * allgemeine Ablauf, der hier stand, fiel mit B-21.
  */
-import { NostrEvent, UnsignedEvent, buildEvent, getTag } from "./event.js";
+import { NostrEvent, UnsignedEvent, buildEvent } from "./event.js";
 import { encryptDM, decryptDM } from "./dm.js";
 import { hkdf } from "@noble/hashes/hkdf.js";
 import { sha256 } from "@noble/hashes/sha2.js";
@@ -30,9 +22,6 @@ import { ProtokollFehler } from "./fehler.js";
 
 /** Verschlüsselte Zustandssicherung. */
 export const KIND_STATE_BACKUP = 30078;
-
-/** Ablaufzeit (NIP-40). */
-export const TAG_EXPIRATION = "expiration";
 
 // --------------------------------------------------------- Sicherung
 
@@ -256,93 +245,4 @@ export function backupInfo(sizeBytes: number, lastAt?: number): string {
   return `${stand} Unterhaltungen, Räume und Namen, verschlüsselt — auch kein Relay kann sie lesen. ` +
     "Deine Merkphrase allein genügt zur Wiederherstellung. Nie darin: dein Schlüssel, Wallet-Zugänge, " +
     "laufende Tauschvorgänge und Gruppenschlüssel – ein neues Gerät tritt Räumen neu bei.";
-}
-
-// ----------------------------------------------------------- Ablauf
-
-export type ExpiryPreset = "keiner" | "24h" | "7t" | "30t" | "1j";
-
-export const EXPIRY_SECONDS: Record<ExpiryPreset, number | null> = {
-  keiner: null,
-  "24h": 86_400,
-  "7t": 7 * 86_400,
-  "30t": 30 * 86_400,
-  "1j": 365 * 86_400,
-};
-
-export const EXPIRY_LABEL: Record<ExpiryPreset, string> = {
-  keiner: "bleibt",
-  "24h": "nach 1 Tag",
-  "7t": "nach 1 Woche",
-  "30t": "nach 1 Monat",
-  "1j": "nach 1 Jahr",
-};
-
-/** Ablauf-Tag nach NIP-40. */
-export function expirationTag(preset: ExpiryPreset, nowSecs = Math.floor(Date.now() / 1000)): string[][] {
-  const dauer = EXPIRY_SECONDS[preset];
-  return dauer === null ? [] : [[TAG_EXPIRATION, String(nowSecs + dauer)]];
-}
-
-export interface ExpiryState {
-  expiresAt?: number;
-  expired: boolean;
-  /** Verbleibende Sekunden. */
-  remaining?: number;
-  message: string;
-}
-
-export function checkExpiry(ev: NostrEvent, nowSecs = Math.floor(Date.now() / 1000)): ExpiryState {
-  const t = getTag(ev, TAG_EXPIRATION);
-  if (!t) return { expired: false, message: "Ohne Ablauf." };
-
-  const bis = Number(t);
-  if (!Number.isFinite(bis)) return { expired: false, message: "Ablaufangabe unbrauchbar." };
-
-  if (nowSecs >= bis) {
-    return {
-      expiresAt: bis, expired: true,
-      message: "Abgelaufen. Wohlmeinende Relays haben es gelöscht.",
-    };
-  }
-  const rest = bis - nowSecs;
-  return {
-    expiresAt: bis, expired: false, remaining: rest,
-    message: rest < 86_400
-      ? `Läuft in ${Math.round(rest / 3600)} Stunden ab.`
-      : `Läuft in ${Math.round(rest / 86_400)} Tagen ab.`,
-  };
-}
-
-/** Abgelaufene Ereignisse ausblenden. */
-export function filterExpired(
-  events: NostrEvent[],
-  nowSecs = Math.floor(Date.now() / 1000),
-): { kept: NostrEvent[]; expired: number } {
-  const kept = events.filter((ev) => !checkExpiry(ev, nowSecs).expired);
-  return { kept, expired: events.length - kept.length };
-}
-
-/**
- * Was der Nutzer über den Ablauf wissen muss.
- *
- * Der zweite Absatz ist der wichtigere. Eine Funktion namens „verschwindende
- * Nachrichten" ohne diesen Hinweis erzeugt genau das falsche
- * Sicherheitsgefühl — und dann schreibt jemand etwas, das er sonst nicht
- * geschrieben hätte.
- */
-export function expiryWarning(preset: ExpiryPreset): string {
-  if (preset === "keiner") {
-    return "Diese Nachricht bleibt dauerhaft auf den Relays abrufbar.";
-  }
-  return [
-    `Ablauf gesetzt: ${EXPIRY_LABEL[preset]}.`,
-    "",
-    "Das ist eine BITTE an die Relays, keine Garantie.",
-    "Relays, die sich daran halten, löschen die Nachricht. Andere nicht.",
-    "Und wer sie vorher kopiert hat, behält sie ohnehin.",
-    "",
-    "Schreib nichts, dessen Bekanntwerden dich gefährden würde —",
-    "auch nicht mit Ablauf.",
-  ].join("\n");
 }

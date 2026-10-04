@@ -1,19 +1,14 @@
 /**
- * Tests fuer Zustandssicherung und Ablauf.
- *
- * Die Sicherung ist eine GARANTIE, der Ablauf eine BITTE. Dass beides
- * unterschiedlich benannt wird, ist wichtiger als die Funktion selbst — ein
- * falsches Sicherheitsgefuehl fuehrt dazu, dass jemand etwas schreibt, das er
- * sonst nicht geschrieben haette.
+ * Tests fuer die Zustandssicherung. (Der allgemeine Ablauf, der hier mitgetestet
+ * wurde, fiel mit B-21 – ablaufende Nachrichten testet private-dm.)
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { generateKeypair, signEvent, buildEvent, NostrEvent } from "../src/event.js";
+import { generateKeypair, signEvent, buildEvent } from "../src/event.js";
 import {
   deriveBackupKey, buildStateBackup, restoreStateBackup, latestBackup,
   stateFingerprint, backupInfo,
-  expirationTag, checkExpiry, filterExpired, expiryWarning,
-  EXPIRY_SECONDS, KIND_STATE_BACKUP, TAG_EXPIRATION,
+  KIND_STATE_BACKUP,
   waehleSicherung, filtereWiederherstellung, SICHERUNG_EINTRAEGE, SICHERUNG_MAX_BYTES,
 } from "../src/state-backup.js";
 import { regelKeinKlartext } from "../src/leak-rules.js";
@@ -112,70 +107,6 @@ test("Die Auskunft nennt, was gesichert wird und wer es lesen kann", async () =>
   assert.match(t, /Unterhaltungen/);
   assert.match(t, /auch kein Relay/);
   assert.match(t, /Merkphrase allein genügt/);
-});
-
-// ------------------------------------------------------------- Ablauf
-
-const mitAblauf = (preset: Parameters<typeof expirationTag>[0], at = NOW): NostrEvent =>
-  signEvent(buildEvent(KP.pk, 4, expirationTag(preset, at), "text", at), KP.sk);
-
-test("Ohne Ablauf wird kein Tag gesetzt", () => {
-  assert.equal(expirationTag("keiner").length, 0);
-  assert.equal(checkExpiry(mitAblauf("keiner")).expired, false);
-});
-
-test("Ablauf wird als absoluter Zeitpunkt gesetzt", () => {
-  const tags = expirationTag("7t", NOW);
-  assert.equal(tags[0][0], TAG_EXPIRATION);
-  assert.equal(Number(tags[0][1]), NOW + EXPIRY_SECONDS["7t"]!);
-});
-
-test("Vor dem Ablauf ist die Nachricht da", () => {
-  const r = checkExpiry(mitAblauf("7t", NOW), NOW + 3 * TAG);
-  assert.equal(r.expired, false);
-  assert.match(r.message, /4 Tagen ab/);
-});
-
-test("Nach dem Ablauf gilt sie als geloescht", () => {
-  const r = checkExpiry(mitAblauf("24h", NOW), NOW + 2 * TAG);
-  assert.equal(r.expired, true);
-  // "Wohlmeinende" — das Wort traegt die ganze Einschraenkung.
-  assert.match(r.message, /Wohlmeinende Relays/);
-});
-
-test("Kurz vor Ablauf wird in Stunden gerechnet", () => {
-  const r = checkExpiry(mitAblauf("24h", NOW), NOW + 20 * 3600);
-  assert.match(r.message, /Stunden/);
-});
-
-test("Unbrauchbare Ablaufangaben werden ignoriert, nicht geloescht", () => {
-  // Im Zweifel behalten: Eine kaputte Angabe darf keine Nachricht kosten.
-  const ev = signEvent(buildEvent(KP.pk, 4, [[TAG_EXPIRATION, "bald"]], "text", NOW), KP.sk);
-  assert.equal(checkExpiry(ev, NOW + 999 * TAG).expired, false);
-});
-
-test("Abgelaufenes wird gefiltert, der Rest bleibt", () => {
-  const r = filterExpired([
-    mitAblauf("24h", NOW - 10 * TAG),
-    mitAblauf("1j", NOW),
-    mitAblauf("keiner", NOW - 500 * TAG),
-  ], NOW);
-  assert.equal(r.kept.length, 2);
-  assert.equal(r.expired, 1);
-});
-
-test("DIE WICHTIGSTE MELDUNG: Ablauf ist eine Bitte, keine Garantie", () => {
-  // Eine Funktion namens "verschwindende Nachrichten" ohne diesen Hinweis
-  // erzeugt genau das falsche Sicherheitsgefuehl.
-  const t = expiryWarning("7t");
-  assert.match(t, /BITTE an die Relays, keine Garantie/);
-  assert.match(t, /Andere nicht/);
-  assert.match(t, /vorher kopiert hat, behält sie/);
-  assert.match(t, /auch nicht mit Ablauf/);
-});
-
-test("Ohne Ablauf wird das ebenso klar gesagt", () => {
-  assert.match(expiryWarning("keiner"), /dauerhaft.*abrufbar/);
 });
 
 // ------------------------------------------------- Was gesichert wird (8.12)

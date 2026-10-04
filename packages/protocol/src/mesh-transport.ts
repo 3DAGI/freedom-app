@@ -2,8 +2,7 @@
  * Mesh-Transport: Nachrichten und Zahlungen ohne Internet.
  *
  * WAS BISHER FEHLTE
- * `mesh.ts` beschreibt, WAS transportiert wird (Paket, Belohnung, Quittung) —
- * aber nicht, WIE. Über eine Funkstrecke passt kein Nostr-Event: LoRa trägt je
+ * Wie über eine Funkstrecke transportiert wird. Dort passt kein Nostr-Event: LoRa trägt je
  * nach Einstellung 200 bis 250 Byte Nutzlast pro Paket, ein signiertes Event
  * hat 500 bis 2000. Ohne Zerlegung und Wiederzusammenbau ist der ganze
  * Mesh-Zweig eine Absichtserklärung.
@@ -296,15 +295,6 @@ export function parseFrame(raw: Uint8Array): MeshFrame {
     ttl: raw[8],
     data: raw.subarray(FRAME_HEADER_BYTES),
   };
-}
-
-/** Verringert die Sprungzahl eines Rahmens. Gibt null zurück, wenn er austrudelt. */
-export function decrementTtl(raw: Uint8Array): Uint8Array | null {
-  if (raw.length < FRAME_HEADER_BYTES) return null;
-  if (raw[8] <= 1) return null;
-  const kopie = raw.slice();
-  kopie[8] -= 1;
-  return kopie;
 }
 
 export interface Reassembly {

@@ -10,15 +10,33 @@
  *   `sendbarerKandidat()`) – geprüft wie beim Empfänger.
  * - Der Zustand eines Anrufs ist eine reine Funktion der Ereignisse
  *   (`naechsterZustand()`), mit festen Fristen.
+ * - Damit ein Anruf sofort klingelt (B-13e, T4 A), hält die App ein Abo an
+ *   den eigenen Schlüssel offen; entschlüsselt wird daraus nur, was
+ *   `vielleichtAnruf()` am offenen Umschlag durchlässt.
  */
 import {
-  istRelayKandidat, pruefeSdpNurRelay, type AnrufNachricht, type EndeGrund, type Medium, type TurnZugang,
+  ANRUF_GRENZEN, istRelayKandidat, pruefeSdpNurRelay, type AnrufNachricht, type EndeGrund, type Medium, type TurnZugang,
 } from "@freedomstack/protocol";
 
-/** So lange klingelt es, bevor der Anruf als „zeit“ endet – das Angebot gilt fünf Minuten, gewartet wird kürzer. */
-export const KLINGELN_SEK = 60;
+/**
+ * So lange klingelt es, bevor der Anruf als „zeit“ endet – drei Minuten (T4 A), damit auch ein per „Wecken“
+ * geöffneter Browser rechtzeitig ist; das Angebot selbst gilt fünf Minuten.
+ */
+export const KLINGELN_SEK = 180;
 /** So lange darf der Aufbau nach dem Annehmen dauern (ICE über den Vermittler). */
 export const VERBINDEN_SEK = 30;
+
+/**
+ * Vorfilter am offenen Umschlag (B-13e): Nur was wie ein Anruf aussieht, wird entschlüsselt – jetzt
+ * erstellt (Anrufe tragen keinen Zeitversatz) und mit einem Ablauf von höchstens fünf Minuten. Chat-Umschläge
+ * sind zurückdatiert (6.4) oder laufen länger; sie kommen weiter mit dem Abgleich des Posteingangs. So kostet
+ * das Abo auch mit einem entfernten Signer (Bunker) keine Entschlüsselung je Nachricht.
+ */
+export function vielleichtAnruf(w: { kind: number; created_at: number; tags: string[][] }, jetzt: number): boolean {
+  if (w.kind !== 1059 || w.created_at < jetzt - ANRUF_GRENZEN.ablaufSek || w.created_at > jetzt + 60) return false;
+  const ablauf = Number(w.tags.find((t) => t[0] === "expiration")?.[1]);
+  return Number.isSafeInteger(ablauf) && ablauf > jetzt && ablauf <= w.created_at + ANRUF_GRENZEN.ablaufSek;
+}
 
 /** `RTCIceServer` aus einem Zugang – nur die geprüften `turn:`/`turns:`-Adressen, mit Nutzer und Passwort. */
 export function iceServerAus(z: TurnZugang): { urls: string[]; username: string; credential: string } {

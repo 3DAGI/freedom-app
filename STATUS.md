@@ -15932,3 +15932,78 @@ Bausteine ohne DOM und ohne Netz. Verdrahtet werden sie in P2a (App) und P3
 `fasseMessungZusammen()`, `merkeMesspunkt()`, `stufeAus()`.
 
 Knoten-Stand: unverändert.
+## Schritt B-13e – Anrufe sofort: Abo für Anrufe, drei Minuten klingeln
+
+**Warum:** Entscheidung T4 A (04.10.2026). Ein Angebot sah die App erst beim
+Abgleich des Posteingangs, also etwa jede Minute, die anrufende Seite klingelte
+aber nur 60 s. Viele Anrufe wurden so verpasst.
+
+**Was:**
+- `anruf-ablauf.ts`:
+  - `KLINGELN_SEK` 60 → 180. Das Angebot gilt 5 min, so kommt auch ein per
+    „Wecken“ geöffneter Browser rechtzeitig.
+  - `vielleichtAnruf()`: Vorfilter am offenen Umschlag. Durch kommt nur, was
+    jetzt erstellt ist und höchstens 5 min Ablauf hat – so sehen die Umschläge
+    eines Anrufs aus.
+  - Chat-Umschläge sind zurückdatiert (6.4) oder laufen länger. Sie werden im
+    Abo nicht entschlüsselt, das spart mit einem Bunker je Nachricht eine
+    Anfrage an den Signer.
+- `shell/anruf.ts`: `lauscheAufAnrufe()` ersetzt das Abo, das nur während
+  eines Anrufs lief.
+  - Ein Abo an den eigenen Schlüssel, je Schlüssel eines, solange die App offen
+    ist.
+  - Gestartet von `wireAnrufe()`. Im Abruftakt wird nur nachgesehen, ob es
+    steht – eine eben erzeugte Identität kommt erst nach dem Start.
+  - Das Ende eines Anrufs beendet das Abo nicht.
+- Datenschutzbericht, Grenze „anruf-vermittler“: „Damit ein Anruf sofort
+  klingelt, hält die App, solange sie offen ist, bei ihren Relays eine Abfrage
+  nach Umschlägen an dich offen – die Relays sehen also, wann sie läuft.“
+  (Deutsch und Englisch.)
+- Smoke: Die Relay-Attrappe stellt neue Events an offene Abos zu
+  (`ProbeRelay.zustellen()`).
+  - Die Prüfung „anruf“ liefert das Angebot nur über das Abo, nicht über den
+    Abgleich des Posteingangs.
+  - Es klingelt 0,1 s nach dem Zustellen.
+
+**Tests:**
+- app +3:
+  - drei Minuten Klingeln, kürzer als die Gültigkeit des Angebots;
+  - der Vorfilter mit Negativfällen: Chat-Umschlag, verschwindende Nachricht,
+    ohne Ablauf, abgelaufen, aus der Zukunft, kein Umschlag;
+  - die Verdrahtung: ein Abo, nur 1059 an sich selbst, Vorfilter vor
+    `alsAnruf()`, kein Ende mit dem Anruf.
+- Der Satz im Bericht ist im Test zu „anruf-vermittler“ festgehalten.
+
+Knoten-Stand: unverändert (B-13a TURN-Zugang, B-13b coturn).
+
+## Schritt B-21 – Überholte Bausteine entfernen
+
+**Warum:** Hinweis von Spur C in der Sammlung: Unverdrahtete Exporte sollen
+angebunden oder entfernt werden. Für die überholten Bausteine aus Spur B hat
+der MENSCH am 04.10.2026 entschieden: entfernen, samt Tests, auch die
+Kurier-Belege aus `mesh.ts`.
+
+**Was:**
+- `protocol/src/merge.ts` ist weg: Mengen mit Zeitstempeln je Feld. Die
+  gespeicherten Daten tragen keine Zeiten; zusammengeführt wird seit B-5 in
+  der App (`zustand-zusammenfuehren.ts`).
+- `protocol/src/mesh.ts` ist weg: offene Mesh-Pakete und Zustellbelege mit
+  Kurier-Belohnung. Sie waren nie angebunden, und über Mesh geht seit 7.1 nur
+  der Umschlag. Die Kinds 38030/38031 sind in `kinds.ts` und PROTOCOL.md als
+  „nicht mehr belegt“ geführt und dürfen nicht wiederverwendet werden.
+- `decrementTtl` (`mesh-transport.ts`) ist weg. Seit 7.1 reicht der Knoten die
+  geprüfte ganze Nachricht weiter (`MeshQueue`, Sprungzahl − 1).
+- Der allgemeine Ablauf in `state-backup.ts` ist weg (`expirationTag`,
+  `checkExpiry`, `filterExpired`, `expiryWarning`, `EXPIRY_*`,
+  `TAG_EXPIRATION`). Ablaufende Nachrichten laufen seit 2.5 über
+  `private-dm.ts`.
+- 17 Zeilen aus `scripts/wiring-ausnahmen.txt` gestrichen; Kommentare, die
+  auf die entfernten Dateien verwiesen, angepasst.
+
+**Tests:** protocol 1190 → 1160. Die 30 Tests der entfernten Bausteine fallen
+mit ihnen weg: Zusammenführung 16, Mesh-Belege 4, Sprungzahl 1, Ablauf 9. Die
+Testzahl sinkt also begründet – entfernt wurde, was entschieden war. Alle
+anderen Prüfungen sind unverändert grün.
+
+Knoten-Stand: unverändert.
+
