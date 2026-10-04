@@ -16219,3 +16219,39 @@ Start aus `wireMeshTab()`): `zuErinnern()` und Knopf `relay-zugang-verlaengern`
   ohne fälligen Zugang verborgen bleibt).
 
 Knoten-Stand: unverändert.
+
+## Schritt E9 – Entwurf: Cluster-Pairing, Gratis-Schwelle, Modelle laden
+
+Entscheidung E9 A vom 04.10.2026: alle drei Bausteine aus A-8 entwerfen
+(eigene Vorlage). Gebaut wird erst nach der Freigabe; „Modelle laden“ baut
+danach Spur B. Vorlage: `docs/E9-ENTWURF.md`.
+
+**Befunde** (gelten für jede Wahl):
+- **B1:** `cluster.ts` nutzt 38026 und 38027. Beide sind belegt: Kurs-Ticker
+  und Provider-Angebot. Ein Paar-Ereignis läse jede App als kaputtes Angebot.
+- **B2:** Die Bilanz rechnet noch mit 5 % „Protokollfee“, die es seit A+
+  nicht mehr gibt.
+- **B3:** Die Bilanz ist öffentlich: Wer bei wem mietet, gibt beim Matching
+  Vorrang. Das widerspricht „nie eine öffentliche Rangliste“.
+- **B4:** Die Gratis-Schwelle (`network-capacity.ts`) setzt niemand durch, und
+  sie beruht auf Selbstauskunft.
+- **B5:** Gemeint war „gratis“ bei KI, gebaut ist es für Speicher-Uploads.
+
+**Vorschläge:**
+- **V1 A:** Ein führender Knoten nach außen; er mietet den Partner und bezahlt
+  ihn direkt. A+ ändert sich nicht. Das Angebot (neu 38028) ist öffentlich,
+  die Absprache versiegelt, eine Bilanz gibt es nicht.
+- **V2 A:** Keine netzweite Schwelle. Provider und Speicherknoten nennen ihre
+  eigene im Angebot; `network-capacity.ts` entfällt.
+- **V3 A:** Modelle aus der Ollama-Registry, sonst aus dem Blob-Netz.
+  Prüfsummen stehen im Manifest 38057; vertraut wird nur dem eigenen Schlüssel
+  oder abonnierten Kuratoren (38080 mit Manifest-Verweis). Ein Modell steht
+  erst nach `verifyFile()` im Angebot.
+
+Dazu Fragen F1–F6 und eine Aufteilung E9-1 bis E9-5.
+
+**Prüfungen:** nur Doku. Alle Befehle grün und unverändert gegenüber `main`:
+protocol 1155, node 314, app 865, mls 13, Leak 72 + 1 todo, check-wiring
+Exit 0, innerHTML Exit 0, Website ok, Smoke-Test bestanden.
+
+Knoten-Stand: unverändert.
