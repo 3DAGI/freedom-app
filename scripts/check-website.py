@@ -62,6 +62,8 @@ UNGEDECKT = [
     'href="https://github.com"', "Español", "日本語",
     # Seit P2a stehen neue Provider ohne Daten in der Mitte, nicht hinten (E7, P4)
     "steht aber hinten",
+    # Prüfer, Prüffragen und Messberichte fielen mit P5a (Entscheidung 05.10.2026)
+    "Messbericht", "PRUEFER=1", "Prüfern, denen du folgst", "Prüfer, denen du folgst",
 ]
 
 # Die Status-Seite zeigt nur Öffentliches und Freiwilliges (8.15): keine

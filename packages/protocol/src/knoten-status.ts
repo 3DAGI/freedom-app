@@ -15,7 +15,7 @@ import type { NostrEvent } from "./event.js";
 import type { Signer } from "./signer.js";
 
 /** Rollen, die ein Knoten melden kann – feste Kennungen, die App übersetzt sie. */
-export const STATUS_ROLLEN = ["ki", "relay", "speicher", "gateway", "zahlkanal", "lnurl", "lp", "relayer", "tor", "app", "turn", "pruefer"] as const;
+export const STATUS_ROLLEN = ["ki", "relay", "speicher", "gateway", "zahlkanal", "lnurl", "lp", "relayer", "tor", "app", "turn"] as const;
 export type StatusRolle = (typeof STATUS_ROLLEN)[number];
 
 /** Grenzen der Antwort – was darüber liegt, liest `leseKnotenStatus()` nicht. */

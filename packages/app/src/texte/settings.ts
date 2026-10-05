@@ -105,7 +105,6 @@ export const settings: Texte = {
   "set.rolleTor": { de: "Tor", en: "Tor" },
   "set.rolleApp": { de: "App ausliefern", en: "serving the app" },
   "set.rolleTurn": { de: "Vermittler für Anrufe (TURN)", en: "relay for calls (TURN)" },
-  "set.rollePruefer": { de: "Prüfer (Freedom-Prüfung)", en: "checker (Freedom checks)" },
   "set.statusEinrichtung": { de: "Einrichtung (Prüfung beim Start):", en: "Setup (check at start):" },
   "set.statusEinrichtungFehlt": { de: "Einrichtung: noch nicht geprüft – oder der Knoten ist älter als B-11c", en: "Setup: not checked yet – or the node is older than B-11c" },
   "set.einUnbekannt": { de: "Befund {fall} – diese App kennt ihn noch nicht", en: "Finding {fall} – this app does not know it yet" },

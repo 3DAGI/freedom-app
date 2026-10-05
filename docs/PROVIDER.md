@@ -219,34 +219,6 @@ der Knoten vergibt dafür nur kurzlebige Zugänge an deine Geräte.
 - **Wer einen Zugang bekommt:** nur gekoppelte Geräte des Besitzers, versiegelt.
   Der Zugang steht nie im Log.
 
-## Prüfer (Freedom-Prüfung, P3b)
-
-Ein Knoten kann andere Provider prüfen, wie OpenRouter es mit Testverkehr tut
-(`docs/FREEDOM-PRUEFUNG.md`). Die App folgt nur Prüfern, die ihr Nutzer wählt.
-
-- **Anschalten:** `PRUEFER=1`. Im Log steht `[pruefer] …`, im Status an den
-  Besitzer die Rolle „Prüfer“.
-- **Was er tut:**
-  - liest alle 15 Minuten die Angebote (38027);
-  - stellt jedem Provider je Modell eigene Prüffragen: 20 in der ersten
-    Stunde, danach etwa alle fünf Minuten;
-  - jede Frage geht versiegelt von einem neuen Wegwerf-Schlüssel hinaus, wie
-    eine Anfrage eines Kunden;
-  - alle 30 Minuten veröffentlicht er je Provider und Modell einen
-    Messbericht (38081), signiert mit dem Schlüssel des Knotens.
-- **Nie Fragen von Nutzern:** Fragen und Antworten liegen nur im Speicher, bis
-  sie ausgewertet sind. Ins Log kommen nur Zahlen.
-- **Ohne Budget:** Bis zur Entscheidung über ein Budget (P3c) prüft er nur
-  Angebote, die gerade gratis sind (Probezeit), mit Gebot 0.
-  `PRUEFER_BUDGET_MSAT` wird noch nicht gelesen.
-- **Grenzen:**
-  - Provider, die mehr als 16 Bit Rechenarbeit verlangen, prüft er nicht. Die
-    Rechenarbeit läuft im Prozess und hielte sonst den Knoten auf.
-  - Die Antwortzeit misst er auf fünf Sekunden genau, so oft holt er ab.
-  - Antworten holt er gebündelt ab. Wer ein Relay betreibt, sieht dabei,
-    welche Sitzungsschlüssel zusammen abgefragt werden – allerdings erst
-    nach der Antwort.
-
 ## Was die Kette zeigt
 
 Dein Knoten hat **eine** SOL-Adresse: Alle Zahlkanäle an ihn und seine

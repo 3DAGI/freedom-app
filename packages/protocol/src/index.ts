@@ -65,7 +65,6 @@ export { buildLpOffer, parseLpOffer, offerMatches, buildSwapAttestation, offerMa
 export type { LpOffer, SwapDirection, SwapAttestation, UnsignedNostrEvent } from "./nostr-order.js";
 export * from "./consensus.js";
 export * from "./pruefung.js";
-export * from "./messbericht.js";
 export * from "./nip04.js";
 export * from "./nwc.js";
 export * from "./cluster.js";

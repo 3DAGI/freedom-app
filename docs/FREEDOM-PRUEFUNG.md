@@ -1,13 +1,26 @@
 # Freedom-Prüfung – Verfügbarkeit und Qualität der Provider (Entwurf zu E7)
 
-Stand 04.10.2026. Entscheidung des MENSCHEN: Neue Provider sollen in der
+Stand 05.10.2026. Entscheidung des MENSCHEN (04.10.2026): Neue Provider sollen in der
 Probezeit Qualität und Stabilität beweisen und danach, wenn alles passt,
 sofort viel Verkehr bekommen – **wie bei OpenRouter**. Das Vergleichen mehrerer
 Antworten ist keine Funktion für Kunden mehr (der Haken „vergleichen“ aus A-7
 ist entfernt), stattdessen gibt es **automatische Kontrollen von Freedom aus**.
 
+**Entscheidung des MENSCHEN vom 05.10.2026 (P3c), ersetzt die Prüfer:**
+- **Keine Prüfer.** Es gibt keine Prüfer-Knoten, keine synthetischen
+  Prüffragen und keine Messberichte (38081) mehr – zurückgebaut mit P5a.
+- **Prüfrunden:** Die App schickt die **echte Anfrage** etwa bei jeder 40.
+  Zahlung an **drei Provider statt an einen** und vergleicht die Antworten.
+- **Pflicht, ohne Schalter.** Ausgenommen sind nur Wege ohne Netz oder
+  Zahlung: KI auf diesem Gerät, der eigene Knoten, Funk.
+- **Budget:** 0,5 % jeder Zahlung, genommen vom Anteil der Entwicklung
+  (2,5 % → 2,0 %). Provider behalten 94 %.
+- **Zahlung in beiden Währungen**, je nachdem, womit der Nutzer zahlt:
+  Lightning, oder SOL über die schon offenen Zahlkanäle.
+
 Dieser Entwurf beschreibt, was OpenRouter macht, was davon hier passt, und in
-welchen Schritten Spur A es baut.
+welchen Schritten Spur A es baut. Abschnitte über Prüfer (P1b–P4) stehen nur
+noch als Verlauf da.
 
 ## 1. Was OpenRouter macht (Recherche 04.10.2026)
 
@@ -51,18 +64,17 @@ Quellen:
 | OpenRouter | FreedomStack |
 |---|---|
 | Sieht jede Anfrage im Klartext und misst am echten Verkehr. | Anfragen sind Ende-zu-Ende versiegelt, von Wegwerf-Schlüsseln. Messungen aus echtem Verkehr macht nur die **App des Kunden**, und sie bleiben auf seinem Gerät. |
-| Ein Unternehmen prüft. | Prüfen ist eine **Rolle des Knotens**, die jeder betreiben kann („Prüfer“). Die App folgt standardmäßig dem **Freedom-Prüfer** des Projekts (Schlüssel trägt der MENSCH ein, bis dahin Platzhalter) und auf Wunsch weiteren – wie bei den Modellkatalogen (5.7). |
-| Benchmarks auf den eigenen Servern. | Der Prüfer stellt **synthetische Prüffragen**, nie Fragen von Nutzern. Er stellt sie wie jeder Kunde (versiegelt, Wegwerf-Schlüssel), damit ein Provider sie nicht von echten Anfragen unterscheiden kann. Sie entstehen aus Vorlagen mit Zufall, die Antwort prüft Code – kein Sprachmodell als Richter. |
-| Rangfolge zentral. | Der Prüfer veröffentlicht **Messwerte** je Provider (signiert). Die **Rangfolge bildet jede App selbst**. |
+| Ein Unternehmen prüft. | Seit 05.10.2026 prüft **jede App selbst**: in **Prüfrunden** geht die echte Anfrage etwa bei jeder 40. Zahlung an drei Provider statt an einen (P5c). Prüfer-Knoten (P1b–P4) sind zurückgebaut. |
+| Benchmarks auf den eigenen Servern. | **Keine synthetischen Prüffragen:** Eine echte Anfrage kann ein Provider nicht von anderen unterscheiden. Die zwei zusätzlichen Antworten bezahlt das Prüfbudget (0,5 % jeder Zahlung, P5b). |
+| Rangfolge zentral. | Die **Rangfolge bildet jede App selbst**; veröffentlicht wird nichts davon. |
 
 **Regeländerung, die mit E7 freigegeben ist:**
 - „Ruf nur aus Quittungen“ bleibt für den Ruf.
-- Für Verfügbarkeit und Qualität zählen zusätzlich:
-  - die eigenen Messungen;
-  - die Messberichte der gewählten Prüfer.
+- Für Verfügbarkeit und Qualität zählen zusätzlich die eigenen Messungen,
+  künftig samt Prüfrunden (P5c). Messberichte von Prüfern zählen seit P5a nicht mehr.
 - Selbstauskünfte (38010) zählen weiter nicht.
-- „Nie eine öffentliche Rangliste“ bleibt: Messwerte sind öffentlich wie bei
-  OpenRouter, eine Rangliste veröffentlicht niemand.
+- „Nie eine öffentliche Rangliste“ bleibt. Seit P5a gibt es auch keine
+  öffentlichen Messwerte mehr.
 
 ## 3. Bausteine
 
@@ -85,52 +97,54 @@ Die Messung bleibt nur auf dem Gerät.
 - **Später, eigener Schritt:** mit Kontakten teilen über die versiegelte
   Ruf-Zusammenfassung (38075).
 
-### 3.2 Prüfer – Rolle im Knoten (`PRUEFER=1`)
-- **Wen er prüft:** Er liest die Angebote (38027) und prüft jeden Provider je
-  angebotenem Modell.
-  - **Grundtest:** Ein neuer Provider bekommt in der ersten Stunde 20
-    Prüffragen, verteilt.
-  - **Danach laufend:** etwa alle 5 Minuten eine je Provider und Modell, mit
-    Zufall im Abstand.
-- **Prüfarten**, alle maschinell prüfbar:
-  - Rechnen mit Zufallszahlen;
-  - Text umformen (umkehren, zählen, sortieren);
-  - JSON nach einem zufälligen Schema;
-  - Wissensfragen mit Mehrfachwahl aus einer festen Liste;
-  - ein Werkzeug-Aufruf, wenn der Provider Werkzeuge anbietet.
-  - Für offene Aufgaben vergleicht der Prüfer mehrere Provider untereinander
-    (`evaluateConsensus()` aus `consensus.ts`) – hier lebt das Vergleichen
-    aus A-7 weiter.
-- **Bezahlung:** Der Prüfer zahlt seine Prüffragen wie ein Kunde (kleines
-  Gebot, höchstens 300 Tokens Antwort) aus einem festen Budget
-  (`PRUEFER_BUDGET_MSAT` je Tag). In der Probezeit des Providers sind sie
-  gratis.
-- **Messbericht** (neues Kind **38081**, ersetzbar, `d` = `<provider>:<modell>`,
-  vom Prüfer signiert, Ablauf nach NIP-40 nach 2 Stunden). Er enthält:
-  - den Zeitraum;
-  - Anzahl und Erfolge, daraus die Verfügbarkeit;
-  - Median der Zeit bis zur Antwort und den Durchsatz;
-  - die Trefferquote je Prüfart;
-  - die Stufe (`neu`, `normal`, `herabgestuft`, `ausgefallen`).
+### 3.2 Prüfrunden (P5c, P5d – Entscheidung 05.10.2026)
+- **Was:** Ist das Prüfbudget groß genug für zwei weitere Antworten, geht die
+  echte Anfrage zusätzlich an zwei andere Provider – im Mittel etwa bei jeder
+  40. Zahlung. Jede Kopie geht versiegelt, von einem eigenen Sitzungsschlüssel.
+- **Was der Nutzer sieht:** die Antwort des gewählten Providers, wie immer.
+  Die zwei anderen Antworten vergleicht die App im Hintergrund
+  (`evaluateConsensus()` aus `consensus.ts` – hier lebt das Vergleichen aus A-7
+  weiter) und zeigt sie nicht.
+- **Was gezählt wird:** Verfügbarkeit und Antwortzeit aller drei in der eigenen
+  Messung (`MessBuch`), dazu die Übereinstimmung als Qualität (`qualitaet` in
+  `ordneNachPruefung()`: Ausreißer nach hinten).
+- **Pflicht, ohne Schalter.** Ausgenommen sind nur Wege ohne Netz oder Zahlung:
+  KI auf diesem Gerät, der eigene Knoten, Funk.
+- **Bezahlt** wird in der Währung des Nutzers: Lightning, bzw. SOL nur über
+  schon offene Zahlkanäle (P5d) – nie still über die andere Währung.
+- **Budget (P5b):** 0,5 % jeder KI-Zahlung bleiben beim Kunden als Prüfbudget
+  (Anteil `pruefung`), genommen vom Anteil der Entwicklung (2,5 % → 2,0 %).
+  Provider behalten 94 %. Alte Knoten kennen den neuen Anteil nicht und lehnen
+  unbekannte Anteile ab – er wird nur Providern deklariert, deren Angebot ihn
+  nennt.
+- **Datenschutz:** Bei einer Prüfrunde lesen drei Provider die Anfrage statt
+  einem. Das sagt der Datenschutzbericht ehrlich, sobald P5c läuft.
 
-  Keine Prüffragen, keine Antworten, nichts über Kunden.
+### 3.2a Prüfer (P1b–P4) – zurückgebaut mit P5a
+Von P1b bis P4 gab es eine Rolle im Knoten (`PRUEFER=1`), die Providern
+synthetische Prüffragen stellte (Rechnen, Umkehren, Zählen, Sortieren, JSON)
+und Messberichte (38081) veröffentlichte; die App folgte gewählten Prüfern.
+Entfernt am 05.10.2026: Prüffragen lassen sich am Stil erkennen, ein Prüfer
+kostet seinen Betreiber Geld, und echte Anfragen an drei Provider prüfen,
+was Kunden wirklich fragen. Kind 38081 wird nicht wiederverwendet.
 
 ### 3.3 Auswahl in der App (wie OpenRouter)
 1. **Ausschluss nach hinten:** eigener Ausfall in den letzten 60 Sekunden;
    bestätigte Reklamationen (wie heute).
 2. **Stufe nach Verfügbarkeit:**
-   - Quelle: die eigene Messung ab 20 Anfragen, sonst der Bericht eines
-     gewählten Prüfers ab 50 Prüffragen.
+   - Quelle: die eigene Messung ab 20 Anfragen, sonst gilt der Provider als
+     neu (seit P5a; vorher zählten Berichte gewählter Prüfer).
    - Ab 95 % normal, 80–94 % herabgestuft, unter 80 % nur Rückfall.
 3. **Qualität:**
-   - Liegt die Trefferquote deutlich unter dem Median aller Provider desselben
-     Modells, steht der Provider hinter den übrigen seiner Stufe (Ausreißer).
+   - Liegt die Übereinstimmung in Prüfrunden (ab P5c) deutlich unter dem
+     Median aller Provider desselben Modells, steht der Provider hinter den
+     übrigen seiner Stufe (Ausreißer).
    - Quittungen und Ruf wirken wie heute zusätzlich.
 4. **Neue ohne genug Daten stehen in der Mitte:** vor den Herabgestuften, hinter
    den Normalen mit Daten. Heute stehen sie ganz hinten (Score -1) – genau das
    verhindert, was E7 will. Unter den Neuen stehen bekannte (mit Quittungen,
    eigene oder von Kontakten) vor unbekannten: Ein Unbekannter wird normal erst
-   durch Messung – eigene oder die eines Prüfers (Grundtest, 3.4).
+   durch Messung (3.4).
 5. **Lastverteilung:** Unter gleich Guten wählt die App zufällig, gewichtet mit
    1/Preis² (`sichererZufall()`), statt immer denselben. So bekommen günstige
    und neue Provider Verkehr.
@@ -138,27 +152,11 @@ Die Messung bleibt nur auf dem Gerät.
 
 ### 3.4 Probezeit (24 Stunden), neu gedeutet
 - **Bleibt:** In den ersten 24 Stunden nimmt der Knoten nur Gratis-Aufträge an.
-- **Neu:** In dieser Zeit läuft der Grundtest des Prüfers, wie der Testverkehr
-  bei OpenRouter vor dem Freischalten.
-- **Bestanden** (Verfügbarkeit ab 95 %, Qualität im üblichen Bereich): Nach 24
-  Stunden steht der Provider in der normalen Stufe. Ist er günstig, bekommt er
-  über die Gewichtung mit 1/Preis² sofort viel Verkehr.
+- **Seit P5a:** Gemessen wird nur in den Apps der Kunden. Ein neuer Provider
+  steht dort bei den Neuen in der Mitte und bekommt so Aufträge; nach 20
+  Anfragen mit mindestens 95 % Antworten steht er bei dieser App bei den
+  Normalen. Prüfrunden (P5c) bringen zusätzliche Messpunkte.
 - **Nicht bestanden:** herabgestuft oder nur Rückfall, bis er sich erholt.
-- **So greift es ineinander (seit P4, im Code geprüft):**
-  - Der Prüfer nimmt nur Angebote mit `currentlyFree` (`PrueferPlan`). Das
-    gilt in der Probezeit immer, danach, solange der Knoten ein
-    Gratis-Kontingent anbietet (`FREE_TOKENS_PER_DAY`, Standard an). Eine
-    versiegelte Prüffrage läuft dann gratis.
-  - Ein Ziel beginnt den Grundtest, sobald der Prüfer es zum ersten Mal
-    gratis sieht – bei einem neuen Knoten also mit dem ersten Angebot.
-  - Die App zählt einen Bericht ab 50 Prüffragen (`PRUEF_GRENZEN.minPruefer`).
-    Mit 20 in der ersten Stunde und danach etwa 12 je Stunde ist das nach
-    etwa dreieinhalb Stunden erreicht, also mitten in der Probezeit.
-  - Endet das Gratis-Angebot, fällt das Ziel aus dem Plan. Der Bericht geht
-    trotzdem weiter hinaus, bis die letzte Prüffrage aus dem Fenster
-    (24 Stunden) fällt. Sein Zeitraum endet mit der letzten Prüffrage, nicht
-    mit „jetzt“. Danach läuft er nach zwei Stunden ab. Ab dann zählt die
-    eigene Messung der Kunden – bis ein Budget (P3c) weitere Prüffragen bezahlt.
 
 ## 4. Was Nutzer sehen
 - Den Haken „vergleichen“ gibt es nicht mehr (entfernt am 04.10.2026). Im
@@ -167,35 +165,30 @@ Die Messung bleibt nur auf dem Gerät.
   - Verfügbarkeit;
   - Antwortzeit;
   - Stand der Prüfung (`neu`, `geprüft`, `herabgestuft`);
-  - woher die Zahl kommt (eigene Messung oder Prüfer).
-- **Datenschutzbericht, neue Aussage:** „Prüfer stellen eigene Prüffragen,
-  nie deine. Deine Messungen bleiben auf dem Gerät.“
+  - woher die Zahl kommt (eigene Messung).
+- **Datenschutzbericht:** „Wie zuverlässig Provider bei dir antworten, misst
+  die App nur auf deinem Gerät – die Messung geht an kein Relay.“ Mit P5c kommt
+  dazu, dass bei einer Prüfrunde drei Provider die Anfrage lesen.
 - **Website (FAQ):** wie Provider geprüft und ausgewählt werden.
 
 ## 5. Grenzen (ehrlich)
-- **Prüfungen erkennen:** Ein Provider könnte Prüffragen am Stil erkennen und
-  sie besser beantworten. Dagegen helfen Vorlagen mit Zufall, Wegwerf-Schlüssel
-  und die eigenen Messungen der Kunden, die Vorrang bekommen, sobald genug
-  Daten da sind.
-- **Prüfer lügt:** Die App folgt nur gewählten Prüfern. Mehrere Prüfer sind
-  möglich, eigene Messungen gehen vor.
-- **Messberichte sind öffentlich:** Wer die Relays liest, sieht Messwerte je
-  Provider – gewollt wie bei OpenRouter. Kundenzahlen oder Einnahmen stehen
-  nicht darin.
-- **Kosten:** Der Prüfer kostet seinen Betreiber Geld. Ohne Budget prüft er nur
-  Gratis-Angebote.
-- **Abholen gebündelt (seit P3b):** Der Prüfer fragt die Antworten aller offenen
-  Prüffragen in einer Abfrage ab. Wer ein Relay betreibt, sieht dabei, welche
-  Sitzungsschlüssel zusammengehören – allerdings erst nach der Antwort.
-- **Genauigkeit:** Die Antwortzeit misst der Prüfer auf seine Runde genau
-  (5 Sekunden). Provider, die mehr als 16 Bit Rechenarbeit verlangen, prüft er
-  nicht – die Rechenarbeit läuft im Prozess des Knotens.
+- **Mehr Leser:** Bei einer Prüfrunde lesen drei Provider die Anfrage statt
+  einem – im Mittel etwa jede 40. bezahlte Anfrage.
+- **Gleiche Irrtümer:** Provider mit demselben Basismodell teilen dessen
+  Fehler. Übereinstimmung heißt nie „richtig“, erkannt wird nur Abweichung.
+- **Absprachen:** Wer mehrere Knoten betreibt, könnte gleich falsch antworten.
+  Die zwei zusätzlichen Provider wählt die App zufällig.
+- **Wenig Daten bei wenig Nutzung:** Wer selten fragt, hat wenige Prüfrunden;
+  die eigene Messung wächst langsam.
 
-## 6. Neue Formate (STOPP-Punkte, mit E7 freigegeben)
-- **Messbericht** Kind 38081 (ersetzbar), Beschreibung kommt in
-  `docs/PROTOCOL.md`.
-- **Prüfer-Rolle** im Knoten: `PRUEFER=1`, `PRUEFER_BUDGET_MSAT`.
-- **Standard-Prüfer** in der App: `FREEDOM_PRUEFER` (Platzhalter bis MENSCH).
+## 6. Formate (STOPP-Punkte)
+- **Messbericht** Kind 38081: *nicht mehr belegt* (P1b bis P5a).
+- **Prüfer-Rolle** (`PRUEFER`, `PRUEFER_BUDGET_MSAT`) und **Standard-Prüfer**
+  (`FREEDOM_PRUEFER`): entfernt mit P5a.
+- **Neuer Anteil `pruefung`** (0,5 %) und Kennzeichen im Angebot, dass ein
+  Provider ihn kennt: freigegeben am 05.10.2026, gebaut mit P5b. Die Tabelle
+  der Anteile ist eine CI-Invariante; sie ändert sich nur mit dieser
+  Entscheidung.
 
 ## 7. Schritte (Spur A, je ein PR, jeweils unter ~400 Zeilen)
 | Schritt | Inhalt |
@@ -209,31 +202,24 @@ Die Messung bleibt nur auf dem Gerät.
 | P3b | Knoten: Verdrahtung (`PRUEFER=1` in `main.ts`, `pruefer-dienst.ts`) – Angebote lesen, Fragen senden, Antworten abholen, Berichte veröffentlichen; der Status kennt die Rolle (`pruefer`), das Log nennt die Einstellung (`prueferAusUmgebung()`). Befunde der Selbstprüfung bleiben bei den zwei Schienen – eine dritte bräche ältere Apps (`leseBefund()` weist sonst den ganzen Status ab). |
 | P3c | Budget für bezahlte Prüffragen – erst nach Entscheidung des MENSCHEN (der Knoten zahlt seit 5.1.2 nichts aus). |
 | P4 | Probezeit und Prüfer verbinden (3.4, Zeitraum des Berichts endet mit der letzten Prüffrage), FAQ der Website (Auswahl, Probezeit, Grenze „Prüffragen erkennen“; `check-website.py` weist die alte Aussage „steht aber hinten“ ab), MENSCH-Checkliste (8). |
+| P5a | Rückbau nach der Entscheidung vom 05.10.2026: Prüfer-Rolle im Knoten (`pruefer-rolle.ts`, `pruefer-dienst.ts`, `PRUEFER`), Messbericht 38081 (`messbericht.ts`), Prüffragen und `stufeFuerAuswahl()`, Prüfern folgen (`pruefer-wahl.ts`, `freedom.pruefer`), Status-Rolle `pruefer`. Netz › Prüfung zeigt nur die eigene Messung. Datenschutz-Aussage, Doku, FAQ (`check-website.py` weist Prüfer-Aussagen ab). |
+| P5b | Aufteilung: Entwicklung 2,0 %, neuer Anteil `pruefung` 0,5 % (bleibt beim Kunden als Prüfbudget); CI-Invariante; Kennzeichen im Angebot; Kasse für das Budget. |
+| P5c | Pflicht-Prüfrunden mit Lightning (3.2). |
+| P5d | Pflicht-Prüfrunden mit SOL über offene Zahlkanäle. |
+
+P1b, P2b1, P3a, P3b und P4 (Prüfer-Teil) sowie die Prüffragen aus P1a und die
+Prüfer-Wahl aus P2b2 sind mit P5a zurückgebaut.
 
 **MENSCH:** siehe Abschnitt 8 (Checkliste).
 
 ## 8. MENSCH-Checkliste
 
-Was nur der MENSCH tun kann (Schlüssel, Geld, Geräte, Entscheidungen):
-
-- [ ] **Prüfer starten:** einen Knoten mit `PRUEFER=1` laufen lassen
-  (`docs/PROVIDER.md`, Abschnitt Prüfer). Im Log steht
-  `[pruefer] an – nur Angebote, die gerade gratis sind`. Im Status des
-  Knotens (App: Settings › Geräte › Mein Knoten, „Status abfragen“) steht
-  die Rolle „Prüfer“.
-- [ ] **Erster Bericht:** nach etwa 30 Minuten auf einem Relay nach Kind 38081
-  vom Schlüssel des Knotens sehen. Darin stehen nur Zahlen je Provider und
-  Modell.
-- [ ] **Entscheiden, welcher Schlüssel der Freedom-Prüfer ist:**
-  - Der GX10 ist selbst Provider. Er prüft sich nie selbst, seine Berichte
-    über andere sind aber die eines Mitbewerbers.
-  - Ein eigener Rechner, oder derselbe Rechner mit eigenem Schlüssel, trennt
-    beides.
-- [ ] **Schlüssel eintragen:** den öffentlichen Schlüssel (hex) nennen. Ein
-  Agent trägt ihn in `FREEDOM_PRUEFER` (`packages/protocol/src/messbericht.ts`)
-  ein – nie ein erfundener. Ab dann folgt jede App diesem Prüfer.
-- [ ] **In der App prüfen:** Netz › Prüfung zeigt bei geprüften Providern die
-  Quelle „Prüfer“.
-- [ ] **P3c entscheiden:** ob und wie viel Budget der Prüfer bekommt, um
-  Provider ohne Gratis-Angebot zu prüfen (Höhe je Tag, Schiene). Der Knoten
-  zahlt seit 5.1.2 nichts aus – das braucht eine neue Entscheidung.
+- [x] **P3c entschieden** (05.10.2026): keine Prüfer, Prüfrunden mit drei
+  Providern, Pflicht, Budget 0,5 % aus dem Anteil der Entwicklung, beide
+  Währungen.
+- [ ] **Knoten mit `PRUEFER=1`** (falls einer lief): den Schalter entfernen und
+  den Knoten auf `main` bringen. Ein älterer Knoten mit `PRUEFER=1` prüft und
+  veröffentlicht weiter 38081, die App liest es nicht mehr.
+- [ ] **Nach P5b:** alle Knoten auf `main` bringen, damit sie den neuen Anteil
+  kennen. Bis dahin deklariert die App ihn ihnen nicht.
+- [ ] **Nach P5c/P5d:** Prüfrunden auf Testnet bzw. Devnet ausprobieren.
