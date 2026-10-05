@@ -16483,3 +16483,31 @@ Exit 0, innerHTML Exit 0, Website ok, Smoke-Test bestanden.
 
 Knoten-Stand: nur für Prüfer-Knoten (Zeitraum der Berichte); für Provider
 unverändert.
+
+## Schritt 12.1 – Anzeigeeinheit und Standard-Schiene in allen Bereichen (Logik)
+
+Phase 12 (Sammlung A-1), E5: Logik Spur A, Oberfläche Spur C. Zaps,
+Trinkgeld (4.1c) und KI (12.4a) folgten der Standard-Schiene schon; offen
+waren die Anzeige und Zahlungsanforderungen mit beiden Einheiten.
+
+**Was sich ändert:**
+- `anzeigeEinheit()` (`app/src/standard-schiene.ts`, `freedom.anzeigeEinheit`):
+  eigene Wahl, sonst SOL bei SOL als Standard-Schiene, sonst jeder Betrag in
+  seiner Einheit wie bisher – auch ohne `localStorage`.
+- `ausMsat()`/`ausLamports()` (`preis-anzeige.ts`): die gewählte Einheit
+  zuerst, Umgerechnetes mit „≈“, der genaue Betrag in Klammern dabei
+  („≈ 0,00014 SOL (21 sats)“); ohne Kurs keine erfundene Zahl.
+- Zahlungsanforderung mit beiden Einheiten: Vorauswahl nach der
+  Standard-Schiene statt immer Lightning (`shell/anforderung-ui.ts`).
+- `freedom.anzeigeEinheit` in `SICHERUNG_EINTRAEGE` (ein Wert, keine Regel).
+
+**Verdrahtet:** jede Preisanzeige über `ausMsat()`/`ausLamports()`
+(Modellwahl, Schätzung, Anteile, Netz-Tabelle, Werkzeugpreise, Knotenstatus,
+Wallet-Guthaben, Trinkgeld, Anforderung). Die Auswahl der Anzeigeeinheit in
+den Settings baut Spur C.
+
+**Prüfungen:** protocol 1157, node 324, app 875 grün (+1, `preis-anzeige.test.ts`),
+mls 13, Leak 72 + 1 todo, check-wiring Exit 0, innerHTML Exit 0, Website ok,
+Smoke-Test bestanden.
+
+Knoten-Stand: unverändert.
