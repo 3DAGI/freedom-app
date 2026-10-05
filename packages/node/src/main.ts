@@ -29,6 +29,7 @@ import { kanalKasseAusUmgebung, kanalOrte } from "./kanal-kasse.js";
 import { type Befund, befundeText, holeJson, kettenBlick, pruefeEinrichtung } from "./einrichtung.js";
 import { WECKEN_KONTAKT, WECKEN_TAKT_MS, WeckBuch, WeckDienst, ladeVapid, vapidDatei, weckDatei } from "./wecken.js";
 import { turnAusUmgebung } from "./turn.js";
+import { PRUEFER_NETZ, PrueferDienst, prueferAusUmgebung } from "./pruefer-dienst.js";
 import { kopplungsDatei, leseKopplung } from "./kopplung-datei.js";
 import { torAusUmgebung, torWebSocket } from "./tor.js";
 import { OllamaBackend } from "./inference.js";
@@ -429,6 +430,19 @@ async function main(): Promise<void> {
     funkGateway.starte();
     statusRollen.add("gateway");
     console.log("[funk] Gateway an (TCP-Brücke zum Funkgerät)");
+  }
+
+  // Prüfer (Freedom-Prüfung P3b, E7): stellt Providern eigene Prüffragen – versiegelt, je Frage ein
+  // Wegwerf-Schlüssel – und veröffentlicht Messberichte (38081) mit dem Schlüssel des Knotens.
+  // Ohne Budget (P3c, MENSCH) nur Angebote, die gerade gratis sind. Ins Log nur Zahlen.
+  const pruefer = prueferAusUmgebung(process.env);
+  console.log(`[pruefer] ${pruefer.text}`);
+  if (pruefer.an) {
+    const dienst = new PrueferDienst({ netz: pool, schluessel: keypair });
+    setInterval(() => void dienst.runde()
+      .then((r) => { if (r && (r.gesendet || r.berichte)) console.log(`[pruefer] ${r.gesendet} Prüffrage(n) gesendet, ${r.ausgewertet} ausgewertet, ${r.berichte} Bericht(e), ${dienst.plan.anzahl} Ziel(e)`); })
+      .catch((e) => console.warn(`[pruefer] ${(e as Error).name}`)), PRUEFER_NETZ.rundeMs);
+    statusRollen.add("pruefer");
   }
 
   // Sweep der Wochen-Wallets und ihr Arweave-Spiegel sind seit 5.1.4a entfernt:

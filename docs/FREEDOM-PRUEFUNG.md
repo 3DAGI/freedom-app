@@ -169,6 +169,12 @@ Die Messung bleibt nur auf dem Gerät.
   nicht darin.
 - **Kosten:** Der Prüfer kostet seinen Betreiber Geld. Ohne Budget prüft er nur
   Gratis-Angebote.
+- **Abholen gebündelt (seit P3b):** Der Prüfer fragt die Antworten aller offenen
+  Prüffragen in einer Abfrage ab. Wer ein Relay betreibt, sieht dabei, welche
+  Sitzungsschlüssel zusammengehören – allerdings erst nach der Antwort.
+- **Genauigkeit:** Die Antwortzeit misst der Prüfer auf seine Runde genau
+  (5 Sekunden). Provider, die mehr als 16 Bit Rechenarbeit verlangen, prüft er
+  nicht – die Rechenarbeit läuft im Prozess des Knotens.
 
 ## 6. Neue Formate (STOPP-Punkte, mit E7 freigegeben)
 - **Messbericht** Kind 38081 (ersetzbar), Beschreibung kommt in
@@ -185,7 +191,7 @@ Die Messung bleibt nur auf dem Gerät.
 | P2b1 | App: Berichte der gewählten Prüfer lesen (Stufe und Qualität, wo die eigene Messung zu wenig hat; abgefragt ohne Filter nach Prüfer, nur wenn jemand gewählt ist), Datenschutzbericht. |
 | P2b2 | App: Prüfer wählen und Anzeige auf der Seite Netz (nur Text): Verfügbarkeit, Antwortzeit, Stand, Quelle der Zahl. |
 | P3a | Knoten: Kern der Prüfer-Rolle ohne Netz (`pruefer-rolle.ts`) – Zeitplan (Grundtest, laufend), Prüffrage als versiegelte Anfrage von einem Wegwerf-Schlüssel, Auswertung, Buch, Bericht. Ohne Budget nur Gratis-Angebote. |
-| P3b | Knoten: Verdrahtung (`PRUEFER=1` in `main.ts`) – Angebote lesen, Fragen senden, Antworten abholen, Berichte veröffentlichen; `pruefeEinrichtung()` und der Status kennen die Rolle. |
+| P3b | Knoten: Verdrahtung (`PRUEFER=1` in `main.ts`, `pruefer-dienst.ts`) – Angebote lesen, Fragen senden, Antworten abholen, Berichte veröffentlichen; der Status kennt die Rolle (`pruefer`), das Log nennt die Einstellung (`prueferAusUmgebung()`). Befunde der Selbstprüfung bleiben bei den zwei Schienen – eine dritte bräche ältere Apps (`leseBefund()` weist sonst den ganzen Status ab). |
 | P3c | Budget für bezahlte Prüffragen – erst nach Entscheidung des MENSCHEN (der Knoten zahlt seit 5.1.2 nichts aus). |
 | P4 | Probezeit und Prüfer verbinden, FAQ, MENSCH-Checkliste. |
 

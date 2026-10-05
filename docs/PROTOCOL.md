@@ -742,7 +742,7 @@ Aufträge.
 |---|---|
 | `fassung` | Fassung des Knotens, 1–32 Zeichen `0-9A-Za-z.+-` |
 | `seit` | Start des Prozesses, Unix-Sekunden |
-| `rollen` | gestartete Rollen aus `ki`, `relay`, `speicher`, `gateway`, `zahlkanal`, `lnurl`, `lp`, `relayer`, `tor`, `app`, `turn` (seit B-13a); unbekannte Kennungen (Kleinbuchstaben) bleiben unbeachtet |
+| `rollen` | gestartete Rollen aus `ki`, `relay`, `speicher`, `gateway`, `zahlkanal`, `lnurl`, `lp`, `relayer`, `tor`, `app`, `turn` (seit B-13a), `pruefer` (seit P3b); unbekannte Kennungen (Kleinbuchstaben) bleiben unbeachtet |
 | `modelle` | angebotene Modelle, höchstens 50 Namen zu je höchstens 100 Zeichen, ohne Steuerzeichen |
 | `auftraege` | `erledigt`, davon `gratis`, und `abgelehnt` seit dem Start |
 | `abgerechnetMsat` | seit dem Start in Antworten verlangt (nicht unbedingt schon bezahlt) |

@@ -131,6 +131,10 @@ services:
       # scripts/turn-einrichten.sh; leer: keine Zugaenge.
       TURN_URLS: "${TURN_URLS:-}"
       TURN_SECRET: "${TURN_SECRET:-}"
+      # P3b: Prüfer-Rolle (docs/FREEDOM-PRUEFUNG.md) – stellt Providern eigene Prüffragen
+      # und veröffentlicht Messberichte (38081) mit dem Schlüssel des Knotens. Ohne Budget
+      # (P3c, Entscheidung offen) nur Angebote, die gerade gratis sind. 0: aus.
+      PRUEFER: "${PRUEFER:-0}"
       QUOTA_API_PORT: "3602"
     volumes:
       # Identitaet und Bootstrap-Zeitpunkt ueberleben Neustarts. Ohne dieses

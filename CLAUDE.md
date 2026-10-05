@@ -45,7 +45,7 @@ bash packages/mls/bauen.sh --pruefen                     # nur bei Änderungen a
 bash contracts/solana-channel/pruefen.sh --werkzeuge     # nur bei Änderungen am Zahlkanal: bauen + Tests gegen Validator (Agave 3.1.10)
 ```
 
-Stand 05.10.2026 (nach 8.2c, 5.5a–c, 8.15, 11.1a, C.3c2, 11.1b, 5.9a–b, 6.3a–b2, 11.4a–b2, C.4a–b, C.5a–b, C.6b, 11.4c, C-18, C-17a–c, C-20a–j3, C-1a–f, C-2, C-3, C-4, C-5a–d, C-6a–e, C-7a–b, C-8, C-10 bis C-16, 11.2a–b, A-4 bis A-7, A-7r, Z1, 12.2–12.3, E8, P1a–b, P2a, E10a, E11, E9-Entwurf, 12.4a, P2b1–b2, P3a, B-1, B-2a–c, B-3 bis B-7, B-8a–c, B-9a, B-15, B-19, B-20a–c, B-10a–b, B-9b1–b2, B-9c1–c3, B-11a–c, B-12a–d, B-13a–e und B-21): protocol 1157 grün (6 übersprungen), node 319 grün
+Stand 05.10.2026 (nach 8.2c, 5.5a–c, 8.15, 11.1a, C.3c2, 11.1b, 5.9a–b, 6.3a–b2, 11.4a–b2, C.4a–b, C.5a–b, C.6b, 11.4c, C-18, C-17a–c, C-20a–j3, C-1a–f, C-2, C-3, C-4, C-5a–d, C-6a–e, C-7a–b, C-8, C-10 bis C-16, 11.2a–b, A-4 bis A-7, A-7r, Z1, 12.2–12.3, E8, P1a–b, P2a, E10a, E11, E9-Entwurf, 12.4a, P2b1–b2, P3a–b, B-1, B-2a–c, B-3 bis B-7, B-8a–c, B-9a, B-15, B-19, B-20a–c, B-10a–b, B-9b1–b2, B-9c1–c3, B-11a–c, B-12a–d, B-13a–e und B-21): protocol 1157 grün (6 übersprungen), node 324 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
 in `tools.test.ts`), app 874 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 72 grün + 1 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
@@ -982,7 +982,13 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   je Frage ein Wegwerf-Schlüssel, Gebot 0, nur das Modell als Parameter – sonst
   erkennt ein Provider Prüffragen), wertet nur mit `werteAntwortAus()` aus und
   prüft ohne Budget nur Angebote mit `currentlyFree` (`PrueferPlan`) – bezahlte
-  Prüffragen erst nach Entscheidung des MENSCHEN (P3c).
+  Prüffragen erst nach Entscheidung des MENSCHEN (P3c). Im Netz (seit P3b) nur
+  mit `PRUEFER=1` über `PrueferDienst` (`pruefer-dienst.ts`, Takt `PRUEFER_NETZ`):
+  eine Antwort zählt nur vom gefragten Provider zur eigenen Anfrage, eine
+  verpasste Frist nur, wenn ein Relay geantwortet hat (sonst lag es am eigenen
+  Netz); Rechenarbeit über `powMax` nicht (sie liefe im Prozess). Der Dienst loggt
+  nichts selbst – `main.ts` nur Zahlen. Die Selbstprüfung bekommt keine dritte
+  Schiene: `leseBefund()` älterer Apps wiese sonst den ganzen Status ab.
 - **Offene Räume nur über die Adresse des Gründers** (seit B-7): gemerkt
   (`freedom.spaces`, `oeffentliche-raeume.ts`) und weitergegeben wird
   `34700:<gründer>:space:<kennung>`; den Raum baut nur `raumZustandFuer()` –
