@@ -16364,3 +16364,44 @@ Prüfern die App folgt.
 1 todo, check-wiring Exit 0, innerHTML Exit 0, Website ok, Smoke-Test bestanden.
 
 Knoten-Stand: unverändert.
+
+## Schritt P3a – Kern der Prüfer-Rolle im Knoten
+
+Freedom-Prüfung (E7, `docs/FREEDOM-PRUEFUNG.md` 3.2). P3 ist geteilt:
+- P3a (dieser Schritt): der Kern ohne Netz.
+- P3b: Verdrahtung in `main.ts` (`PRUEFER=1`), Selbstprüfung, Status-Rolle.
+- P3c: Budget für bezahlte Prüffragen. Das entscheidet der MENSCH, denn der
+  Knoten zahlt seit 5.1.2 nichts aus. Bis dahin prüft der Prüfer nur Angebote,
+  die gerade gratis sind – so steht es im Entwurf („ohne Budget prüft er nur
+  Gratis-Angebote“).
+
+**Was sich ändert:** neu `packages/node/src/pruefer-rolle.ts`.
+- `PrueferPlan`:
+  - nimmt nur Angebote mit `currentlyFree` und nie den eigenen Knoten, je
+    Modell ein Ziel, höchstens 200;
+  - Grundtest: 20 Prüffragen gleichmäßig in der ersten Stunde, danach etwa
+    alle 5 Minuten ± 1 Minute;
+  - was nicht mehr gratis angeboten wird, fällt weg.
+- `bauePruefAuftrag()`:
+  - die Prüffrage als versiegelte Anfrage (`buildPrivateJobRequest()`);
+  - je Frage ein neuer Wegwerf-Schlüssel, Gebot 0, nur das Modell als
+    Parameter, wie eine Gratis-Anfrage der App.
+- `werteAntwortAus()`:
+  - ein Ergebnis zählt als Erfolg und wird mit `pruefeAntwort()` geprüft;
+  - eine Fehlermeldung oder keine Antwort bis zur Frist zählt als Ausfall;
+  - ein Zwischenstand zählt noch nicht.
+- `PrueferBuch`:
+  - nur Zahlen im Speicher;
+  - der Bericht für `baueMessbericht()` über die letzten 24 Stunden, die
+    Stufe aus den Zahlen.
+- `scripts/wiring-ausnahmen.txt`: Die Ausnahme für `pruefeAntwort` fällt weg,
+  die Funktion ist jetzt im Knoten genutzt.
+
+**Verdrahtet:** noch nicht. Der Kern ist ein Baustein für P3b, wie P1a und P1b
+für P2.
+
+**Prüfungen:** protocol 1157, node 319 grün (+5, `pruefer-rolle.test.ts`),
+app 874, mls 13, Leak 72 + 1 todo, check-wiring Exit 0, innerHTML Exit 0,
+Website ok, Smoke-Test bestanden.
+
+Knoten-Stand: unverändert (die Rolle ist noch nicht eingeschaltet).

@@ -184,7 +184,9 @@ Die Messung bleibt nur auf dem Gerät.
 | P2a | App: eigene Messung (`messbuch.ts`, Tresor `freedom.messungen`, geschrieben nach jedem Lauf in `askWithFailover()`), Auswahl in `matchmaking.ts` über `ordneNachPruefung()`. |
 | P2b1 | App: Berichte der gewählten Prüfer lesen (Stufe und Qualität, wo die eigene Messung zu wenig hat; abgefragt ohne Filter nach Prüfer, nur wenn jemand gewählt ist), Datenschutzbericht. |
 | P2b2 | App: Prüfer wählen und Anzeige auf der Seite Netz (nur Text): Verfügbarkeit, Antwortzeit, Stand, Quelle der Zahl. |
-| P3 | Knoten: Prüfer-Rolle – Grundtest, laufende Prüfung, Budget, Bericht veröffentlichen; `pruefeEinrichtung()` kennt sie. |
+| P3a | Knoten: Kern der Prüfer-Rolle ohne Netz (`pruefer-rolle.ts`) – Zeitplan (Grundtest, laufend), Prüffrage als versiegelte Anfrage von einem Wegwerf-Schlüssel, Auswertung, Buch, Bericht. Ohne Budget nur Gratis-Angebote. |
+| P3b | Knoten: Verdrahtung (`PRUEFER=1` in `main.ts`) – Angebote lesen, Fragen senden, Antworten abholen, Berichte veröffentlichen; `pruefeEinrichtung()` und der Status kennen die Rolle. |
+| P3c | Budget für bezahlte Prüffragen – erst nach Entscheidung des MENSCHEN (der Knoten zahlt seit 5.1.2 nichts aus). |
 | P4 | Probezeit und Prüfer verbinden, FAQ, MENSCH-Checkliste. |
 
 **MENSCH:** den Freedom-Prüfer auf dem GX10 starten (mit Budget) und seinen
