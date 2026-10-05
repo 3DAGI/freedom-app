@@ -16445,3 +16445,41 @@ check-wiring Exit 0, innerHTML Exit 0, Website ok, Smoke-Test bestanden.
 
 Knoten-Stand: nur nötig, wer prüfen will (`PRUEFER=1`); ohne den Schalter
 ändert sich nichts.
+
+## Schritt P4 – Probezeit und Prüfer, FAQ, MENSCH-Checkliste
+
+Freedom-Prüfung (E7, `docs/FREEDOM-PRUEFUNG.md`), letzter Schritt vor P3c
+(Budget, MENSCH).
+
+**Was sich ändert:**
+- `PrueferBuch.bericht()` (`node/src/pruefer-rolle.ts`): Der Zeitraum endet mit
+  der letzten Prüffrage, nicht mit „jetzt“. Endet das Gratis-Angebot, fällt das
+  Ziel aus dem Plan, der Bericht geht aber bis zum Ende des Fensters (24 h)
+  weiter hinaus – bisher mit einem Zeitraum bis eben.
+- `website/faq.html`:
+  - „Woran erkennt die App einen guten Provider?“ beschreibt die Auswahl seit
+    P2a–P3b: eigene Messung, Prüfer, Reihenfolge, Lastverteilung, Quittungen.
+    Bisher stand dort „steht aber hinten“ für Neue.
+  - „Wie werde ich Provider?“ nennt Probezeit, Grundtest und `PRUEFER=1`.
+  - Neu unter „Grenzen“: „Kann ein Provider Prüffragen erkennen …?“
+- `scripts/check-website.py`: „steht aber hinten“ in `UNGEDECKT` –
+  gegengetestet, die alte FAQ endet mit 1.
+- `docs/FREEDOM-PRUEFUNG.md`: 3.4 (wie Probezeit, Gratis-Kontingent, Grundtest,
+  die Schwelle 50 und das Fenster ineinandergreifen), Schritt P4, Abschnitt 8
+  MENSCH-Checkliste.
+
+**Im Code nachgesehen:** `isCurrentlyFree()` gilt auch nach der Probezeit,
+solange der Knoten ein Gratis-Kontingent anbietet (Standard an). Ohne Budget
+prüft ein Prüfer also die meisten Provider weiter. 50 Prüffragen sind nach
+etwa dreieinhalb Stunden erreicht.
+
+**Verdrahtet:** `bericht()` über `PrueferDienst.veroeffentliche()`
+(`pruefer-dienst.ts`, seit P3b mit `PRUEFER=1` in `main.ts`); die FAQ prüft
+`check-website.py` in CI und `pages.yml`.
+
+**Prüfungen:** protocol 1157, node 324 (eine Zusicherung mehr in
+`pruefer-rolle.test.ts`), app 874, mls 13, Leak 72 + 1 todo, check-wiring
+Exit 0, innerHTML Exit 0, Website ok, Smoke-Test bestanden.
+
+Knoten-Stand: nur für Prüfer-Knoten (Zeitraum der Berichte); für Provider
+unverändert.

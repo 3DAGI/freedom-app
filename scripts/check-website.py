@@ -60,6 +60,8 @@ UNGEDECKT = [
     "Das Solana-Programm ist unveränderlich", "das Solana-Programm ist unveränderlich",
     "Kern in drei Sätzen", "ARM64-GX10", "admin.macaroon", "Stunden bei 500 Tokens",
     'href="https://github.com"', "Español", "日本語",
+    # Seit P2a stehen neue Provider ohne Daten in der Mitte, nicht hinten (E7, P4)
+    "steht aber hinten",
 ]
 
 # Die Status-Seite zeigt nur Öffentliches und Freiwilliges (8.15): keine

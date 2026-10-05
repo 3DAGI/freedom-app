@@ -113,6 +113,7 @@ test("Buch und Bericht: Zahlen im Fenster, Treffer je Art, Stufe aus den Zahlen 
   assert.equal(b.erfolge, 57);
   assert.equal(b.stufe, "normal", "57 von 60 = 95 %, ab 50 Prüffragen");
   assert.equal(b.medianMs, 1028);
+  assert.deepEqual([b.von, b.bis], [JETZT - 3_000, JETZT - 3_000 + 59 * 10], "Zeitraum der Prüffragen, nicht bis jetzt (P4)");
   assert.equal(b.tokensJeSek, 40);
   assert.deepEqual(b.treffer, { rechnen: { richtig: 28, geprueft: 28 }, json: { richtig: 23, geprueft: 29 } });
   assert.deepEqual(buch.ziele(JETZT), [ziel]);
