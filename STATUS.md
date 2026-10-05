@@ -16405,3 +16405,43 @@ app 874, mls 13, Leak 72 + 1 todo, check-wiring Exit 0, innerHTML Exit 0,
 Website ok, Smoke-Test bestanden.
 
 Knoten-Stand: unverändert (die Rolle ist noch nicht eingeschaltet).
+
+## Schritt P3b – Prüfer-Rolle im Netz (`PRUEFER=1`)
+
+Freedom-Prüfung (E7, `docs/FREEDOM-PRUEFUNG.md` 3.2). P3a brachte den Kern ohne
+Netz, dieser Schritt verdrahtet ihn im Knoten. Bezahlte Prüffragen bleiben bei
+P3c (Budget, MENSCH).
+
+**Was sich ändert:** neu `packages/node/src/pruefer-dienst.ts`.
+- `PrueferDienst`, je Runde (5 s):
+  - Angebote (38027) höchstens alle 15 min lesen – je Provider das neueste,
+    nur frische (24 h), Rechenarbeit höchstens 16 Bit (sie läuft im Prozess),
+    nie der eigene Knoten; antwortet kein Relay, bleibt der Plan;
+  - Antworten abholen, nur aus Umschlägen an die Sitzungsschlüssel offener
+    Fragen: Sie zählen nur vom gefragten Provider zur eigenen Anfrage. Keine
+    Antwort bis zur Frist (120 s) ist ein Ausfall, aber nur, wenn ein Relay
+    geantwortet hat;
+  - fällige Prüffragen senden – Art zufällig (`sichererZufall()`), höchstens 5
+    je Runde und 50 unterwegs; was kein Relay annimmt, zählt nicht;
+  - Berichte (38081) alle 30 min, signiert mit dem Schlüssel des Knotens.
+- `prueferAusUmgebung()`: der Satz fürs Log; `PRUEFER_BUDGET_MSAT` gilt als
+  „noch nicht genutzt“.
+- Status-Rolle `pruefer` (`STATUS_ROLLEN`, App `ROLLEN_TEXT`, Text
+  `set.rollePruefer`). Ältere Apps übergehen unbekannte Rollen (seit B-13a).
+- Die Selbstprüfung bekommt keinen Befund: Eine dritte Schiene ließe
+  `leseBefund()` älterer Apps den ganzen Status abweisen.
+- `scripts/wiring-ausnahmen.txt`: `baueMessbericht` und `neuePruefFrage` sind
+  jetzt im Knoten genutzt, ihre Ausnahmen fallen weg.
+- Doku: `docs/PROVIDER.md` (Abschnitt Prüfer), `docker-compose.yml`
+  (`PRUEFER`), `docs/PROTOCOL.md` (Rollen), Entwurf (Schritt P3b, zwei Grenzen).
+
+**Verdrahtet:** `packages/node/src/main.ts` – mit `PRUEFER=1`
+`new PrueferDienst({ netz: pool, schluessel: keypair })` im Takt
+`PRUEFER_NETZ.rundeMs`, dann `statusRollen.add("pruefer")`.
+
+**Prüfungen:** protocol 1157, node 324 grün (+5, `pruefer-dienst.test.ts`, Ende
+zu Ende mit einem echten `DvmProvider`), app 874, mls 13, Leak 72 + 1 todo,
+check-wiring Exit 0, innerHTML Exit 0, Website ok, Smoke-Test bestanden.
+
+Knoten-Stand: nur nötig, wer prüfen will (`PRUEFER=1`); ohne den Schalter
+ändert sich nichts.
