@@ -964,9 +964,10 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   OpenRouter-Vorbild). **Keine Prüfer** (Entscheidung 05.10.2026, P5a): keine
   Prüfer-Rolle im Knoten, keine synthetischen Prüffragen, keine Messberichte –
   38081 nicht wiederverwenden, Prüfer nicht wieder einführen. Geprüft wird in
-  Pflicht-Prüfrunden (P5c/P5d, noch nicht gebaut): die echte Anfrage etwa bei
-  jeder 40. Zahlung an drei Provider statt an einen, ohne Schalter, bezahlt aus
-  dem Prüfbudget (0,5 % aus dem Anteil der Entwicklung, P5b) in der Währung des
+  Pflicht-Prüfrunden (P5c/P5d, noch nicht gebaut): die echte Anfrage an drei
+  Provider statt an einen, sobald das Prüfbudget zwei weitere Antworten deckt
+  (Häufigkeit offen – 0,5 % reichen für etwa jede 400., nicht jede 40.), ohne
+  Schalter, bezahlt aus dem Prüfbudget (0,5 % aus dem Anteil der Entwicklung, P5b) in der Währung des
   Nutzers; ausgenommen nur Gerät, eigener Knoten, Funk. `consensus.ts` bleibt
   Baustein dafür (Ausnahmen in `wiring-ausnahmen.txt` mit diesem Grund).
   Auswahl seit P2a nur über `matchProviders()` → `ordneNachPruefung()`

@@ -9,8 +9,9 @@ ist entfernt), stattdessen gibt es **automatische Kontrollen von Freedom aus**.
 **Entscheidung des MENSCHEN vom 05.10.2026 (P3c), ersetzt die Prüfer:**
 - **Keine Prüfer.** Es gibt keine Prüfer-Knoten, keine synthetischen
   Prüffragen und keine Messberichte (38081) mehr – zurückgebaut mit P5a.
-- **Prüfrunden:** Die App schickt die **echte Anfrage** etwa bei jeder 40.
-  Zahlung an **drei Provider statt an einen** und vergleicht die Antworten.
+- **Prüfrunden:** Die App schickt die **echte Anfrage** an **drei Provider
+  statt an einen** und vergleicht die Antworten – gewünscht etwa bei jeder 40.
+  Zahlung (Häufigkeit offen, siehe Rechnung in 3.2).
 - **Pflicht, ohne Schalter.** Ausgenommen sind nur Wege ohne Netz oder
   Zahlung: KI auf diesem Gerät, der eigene Knoten, Funk.
 - **Budget:** 0,5 % jeder Zahlung, genommen vom Anteil der Entwicklung
@@ -64,7 +65,7 @@ Quellen:
 | OpenRouter | FreedomStack |
 |---|---|
 | Sieht jede Anfrage im Klartext und misst am echten Verkehr. | Anfragen sind Ende-zu-Ende versiegelt, von Wegwerf-Schlüsseln. Messungen aus echtem Verkehr macht nur die **App des Kunden**, und sie bleiben auf seinem Gerät. |
-| Ein Unternehmen prüft. | Seit 05.10.2026 prüft **jede App selbst**: in **Prüfrunden** geht die echte Anfrage etwa bei jeder 40. Zahlung an drei Provider statt an einen (P5c). Prüfer-Knoten (P1b–P4) sind zurückgebaut. |
+| Ein Unternehmen prüft. | Seit 05.10.2026 prüft **jede App selbst**: in **Prüfrunden** geht die echte Anfrage an drei Provider statt an einen, sobald das Prüfbudget reicht (P5c). Prüfer-Knoten (P1b–P4) sind zurückgebaut. |
 | Benchmarks auf den eigenen Servern. | **Keine synthetischen Prüffragen:** Eine echte Anfrage kann ein Provider nicht von anderen unterscheiden. Die zwei zusätzlichen Antworten bezahlt das Prüfbudget (0,5 % jeder Zahlung, P5b). |
 | Rangfolge zentral. | Die **Rangfolge bildet jede App selbst**; veröffentlicht wird nichts davon. |
 
@@ -99,8 +100,12 @@ Die Messung bleibt nur auf dem Gerät.
 
 ### 3.2 Prüfrunden (P5c, P5d – Entscheidung 05.10.2026)
 - **Was:** Ist das Prüfbudget groß genug für zwei weitere Antworten, geht die
-  echte Anfrage zusätzlich an zwei andere Provider – im Mittel etwa bei jeder
-  40. Zahlung. Jede Kopie geht versiegelt, von einem eigenen Sitzungsschlüssel.
+  echte Anfrage zusätzlich an zwei andere Provider. Jede Kopie geht versiegelt,
+  von einem eigenen Sitzungsschlüssel.
+- **Rechnung (Rückfrage an den MENSCHEN, vor P5c):** Zwei weitere Antworten
+  kosten etwa zwei ganze Zahlungen. 0,5 % je Zahlung decken das erst nach rund
+  400 Zahlungen (2 ÷ 0,005), nicht nach 40. Für jede 40. bräuchte es rund 5 %,
+  günstigere Zusatz-Antworten oder Provider, die gerade gratis antworten.
 - **Was der Nutzer sieht:** die Antwort des gewählten Providers, wie immer.
   Die zwei anderen Antworten vergleicht die App im Hintergrund
   (`evaluateConsensus()` aus `consensus.ts` – hier lebt das Vergleichen aus A-7
@@ -173,7 +178,7 @@ was Kunden wirklich fragen. Kind 38081 wird nicht wiederverwendet.
 
 ## 5. Grenzen (ehrlich)
 - **Mehr Leser:** Bei einer Prüfrunde lesen drei Provider die Anfrage statt
-  einem – im Mittel etwa jede 40. bezahlte Anfrage.
+  einem – wie oft, hängt vom Budget ab (3.2).
 - **Gleiche Irrtümer:** Provider mit demselben Basismodell teilen dessen
   Fehler. Übereinstimmung heißt nie „richtig“, erkannt wird nur Abweichung.
 - **Absprachen:** Wer mehrere Knoten betreibt, könnte gleich falsch antworten.

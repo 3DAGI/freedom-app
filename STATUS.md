@@ -16516,7 +16516,9 @@ Knoten-Stand: unverändert.
 
 Freedom-Prüfung (E7). Am 05.10.2026 hat der MENSCH P3c entschieden:
 - **Keine Prüfer.** Stattdessen Pflicht-Prüfrunden: Die echte Anfrage geht
-  etwa bei jeder 40. Zahlung an drei Provider statt an einen, ohne Schalter.
+  an drei Provider statt an einen, ohne Schalter. Gewünscht war etwa jede 40.
+  Zahlung; 0,5 % Budget reichen aber nur für etwa jede 400. (zwei weitere
+  Antworten ≈ zwei Zahlungen) – Rückfrage offen.
   Ausgenommen sind nur Gerät, eigener Knoten und Funk.
 - **Budget:** 0,5 % jeder Zahlung aus dem Anteil der Entwicklung
   (2,5 % → 2,0 %).
