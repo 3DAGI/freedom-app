@@ -8,6 +8,7 @@
  */
 import { type MarktKurs, abweichung, lamportsZuMsat, msatZuLamports, KURS_MIN_QUELLEN, KURS_WARN_ABWEICHUNG } from "@freedomstack/protocol";
 import { gebietsschema, t } from "./i18n.js";
+import { anzeigeEinheit, type AnzeigeEinheit } from "./standard-schiene.js";
 
 const de = (n: number, stellen = 9) => n.toLocaleString(gebietsschema(), { maximumFractionDigits: stellen });
 
@@ -20,16 +21,24 @@ export function solText(lamports: number): string {
   return `${de(lamports / 1e9)} SOL`;
 }
 
-/** „21 sats ≈ 0,00014 SOL“ – ohne Kurs „21 sats (SOL: kein Kurs)“. */
-export function ausMsat(msat: number, kurs?: Pick<MarktKurs, "satsProSol">): string {
+/**
+ * „21 sats ≈ 0,00014 SOL“ – mit der Anzeigeeinheit SOL (12.1) „≈ 0,00014 SOL (21 sats)“:
+ * zuerst die gewählte Einheit, der genaue Betrag steht immer dabei. Ohne Kurs
+ * „21 sats (SOL: kein Kurs)“ – nie eine erfundene Zahl.
+ */
+export function ausMsat(msat: number, kurs?: Pick<MarktKurs, "satsProSol">, einheit: AnzeigeEinheit = anzeigeEinheit()): string {
   const m = Math.max(0, Math.round(msat));
-  return kurs ? `${satsText(m)} ≈ ${solText(msatZuLamports(m, kurs.satsProSol))}` : t("zahl.ohneKursSol", { betrag: satsText(m) });
+  if (!kurs) return t("zahl.ohneKursSol", { betrag: satsText(m) });
+  const sol = solText(msatZuLamports(m, kurs.satsProSol));
+  return einheit === "sol" ? `≈ ${sol} (${satsText(m)})` : `${satsText(m)} ≈ ${sol}`;
 }
 
-/** „0,002 SOL ≈ 300 sats“ – ohne Kurs „0,002 SOL (sats: kein Kurs)“. */
-export function ausLamports(lamports: number, kurs?: Pick<MarktKurs, "satsProSol">): string {
+/** „0,002 SOL ≈ 300 sats“ – mit der Anzeigeeinheit sats „≈ 300 sats (0,002 SOL)“; ohne Kurs „0,002 SOL (sats: kein Kurs)“. */
+export function ausLamports(lamports: number, kurs?: Pick<MarktKurs, "satsProSol">, einheit: AnzeigeEinheit = anzeigeEinheit()): string {
   const l = Math.max(0, Math.round(lamports));
-  return kurs ? `${solText(l)} ≈ ${satsText(lamportsZuMsat(l, kurs.satsProSol))}` : t("zahl.ohneKursSats", { betrag: solText(l) });
+  if (!kurs) return t("zahl.ohneKursSats", { betrag: solText(l) });
+  const sats = satsText(lamportsZuMsat(l, kurs.satsProSol));
+  return einheit === "sats" ? `≈ ${sats} (${solText(l)})` : `${solText(l)} ≈ ${sats}`;
 }
 
 /**

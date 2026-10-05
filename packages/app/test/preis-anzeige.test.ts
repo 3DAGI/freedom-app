@@ -7,6 +7,8 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { anbieterKursWarnung, ausLamports, ausMsat, depositDeckel, einnahmeText, kursZeile, satsText, solText } from "../src/preis-anzeige.js";
 import { setLang } from "../src/i18n.js";
+import { LS_ANZEIGE_EINHEIT, LS_STANDARD_SCHIENE, anzeigeEinheit } from "../src/standard-schiene.js";
+import { SICHERUNG_EINTRAEGE } from "@freedomstack/protocol";
 
 // Meldungen hier auf Deutsch prüfen (seit 8.16e über Schlüssel in der Sprache der Oberfläche)
 setLang("de");
@@ -78,4 +80,37 @@ test("C-2: Einnahmen in der Einheit ihrer Kette – SOL nur mit Kurs, sonst ehrl
   assert.match(earn, /el\("span", `\$\{einnahmeText\(get\("volume_msat"\), kette\(ev\), kurs\)\} · \$\{timeAgo\(ev\.created_at\)\}`\)/);
   assert.match(earn, /const kurs = sorted\.some\(\(ev\) => kette\(ev\) === "solana"\) \? \(aktuellerKurs\(\) \?\? await aktualisiereKurs\(\)\.catch\(\(\) => undefined\)\) : undefined;/);
   assert.doesNotMatch(earn, /\/ 1000\)\} sats/, "nicht mehr fest „sats“");
+});
+
+test("12.1: Anzeigeeinheit – zuerst die gewählte Einheit, der genaue Betrag immer dabei; ohne Wahl folgt sie der Standard-Schiene", () => {
+  assert.equal(ausMsat(21_000, KURS, "sol"), "≈ 0,00014 SOL (21 sats)");
+  assert.equal(ausMsat(21_000, KURS, "sats"), "21 sats ≈ 0,00014 SOL");
+  assert.equal(ausMsat(21_000, KURS, "eigene"), "21 sats ≈ 0,00014 SOL");
+  assert.equal(ausLamports(2_000_000, KURS, "sats"), "≈ 300 sats (0,002 SOL)");
+  assert.equal(ausLamports(2_000_000, KURS, "sol"), "0,002 SOL ≈ 300 sats");
+  assert.equal(ausLamports(2_000_000, KURS, "eigene"), "0,002 SOL ≈ 300 sats");
+  assert.equal(ausMsat(21_000, undefined, "sol"), "21 sats (SOL: kein Kurs)", "ohne Kurs keine erfundene SOL-Zahl");
+  assert.equal(ausLamports(1_000_000_000, undefined, "sats"), "1 SOL (sats: kein Kurs)");
+  assert.equal(anzeigeEinheit(), "eigene", "ohne localStorage wie bisher");
+  const g = globalThis as { localStorage?: unknown };
+  const vorher = g.localStorage;
+  const m = new Map<string, string>();
+  g.localStorage = { getItem: (k: string) => m.get(k) ?? null };
+  try {
+    assert.equal(anzeigeEinheit(), "eigene", "Lightning als Standard-Schiene: jeder Betrag in seiner Einheit");
+    assert.equal(ausLamports(2_000_000, KURS), "0,002 SOL ≈ 300 sats");
+    m.set(LS_STANDARD_SCHIENE, "solana");
+    assert.equal(anzeigeEinheit(), "sol");
+    assert.equal(ausMsat(21_000, KURS), "≈ 0,00014 SOL (21 sats)", "SOL als Standard-Schiene: SOL zuerst");
+    m.set(LS_ANZEIGE_EINHEIT, "sats");
+    assert.equal(anzeigeEinheit(), "sats", "die eigene Wahl geht vor");
+    assert.equal(ausLamports(2_000_000, KURS), "≈ 300 sats (0,002 SOL)");
+    m.set(LS_ANZEIGE_EINHEIT, "dollar");
+    assert.equal(anzeigeEinheit(), "sol", "Unbekanntes zählt nicht");
+  } finally {
+    g.localStorage = vorher;
+  }
+  assert.ok(SICHERUNG_EINTRAEGE.includes(LS_ANZEIGE_EINHEIT), "die Wahl reist mit der Sicherung");
+  const anforderung = readFileSync(new URL("../src/shell/anforderung-ui.ts", import.meta.url), "utf8");
+  assert.match(anforderung, /label: t\("anf\.womit"\), wert: standardSchiene\(\), optionen:/, "Anforderung mit beiden Einheiten: Vorauswahl nach der Standard-Schiene");
 });
