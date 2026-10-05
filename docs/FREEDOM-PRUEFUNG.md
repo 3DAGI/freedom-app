@@ -144,6 +144,21 @@ Die Messung bleibt nur auf dem Gerät.
   Stunden steht der Provider in der normalen Stufe. Ist er günstig, bekommt er
   über die Gewichtung mit 1/Preis² sofort viel Verkehr.
 - **Nicht bestanden:** herabgestuft oder nur Rückfall, bis er sich erholt.
+- **So greift es ineinander (seit P4, im Code geprüft):**
+  - Der Prüfer nimmt nur Angebote mit `currentlyFree` (`PrueferPlan`). Das
+    gilt in der Probezeit immer, danach, solange der Knoten ein
+    Gratis-Kontingent anbietet (`FREE_TOKENS_PER_DAY`, Standard an). Eine
+    versiegelte Prüffrage läuft dann gratis.
+  - Ein Ziel beginnt den Grundtest, sobald der Prüfer es zum ersten Mal
+    gratis sieht – bei einem neuen Knoten also mit dem ersten Angebot.
+  - Die App zählt einen Bericht ab 50 Prüffragen (`PRUEF_GRENZEN.minPruefer`).
+    Mit 20 in der ersten Stunde und danach etwa 12 je Stunde ist das nach
+    etwa dreieinhalb Stunden erreicht, also mitten in der Probezeit.
+  - Endet das Gratis-Angebot, fällt das Ziel aus dem Plan. Der Bericht geht
+    trotzdem weiter hinaus, bis die letzte Prüffrage aus dem Fenster
+    (24 Stunden) fällt. Sein Zeitraum endet mit der letzten Prüffrage, nicht
+    mit „jetzt“. Danach läuft er nach zwei Stunden ab. Ab dann zählt die
+    eigene Messung der Kunden – bis ein Budget (P3c) weitere Prüffragen bezahlt.
 
 ## 4. Was Nutzer sehen
 - Den Haken „vergleichen“ gibt es nicht mehr (entfernt am 04.10.2026). Im
@@ -193,7 +208,32 @@ Die Messung bleibt nur auf dem Gerät.
 | P3a | Knoten: Kern der Prüfer-Rolle ohne Netz (`pruefer-rolle.ts`) – Zeitplan (Grundtest, laufend), Prüffrage als versiegelte Anfrage von einem Wegwerf-Schlüssel, Auswertung, Buch, Bericht. Ohne Budget nur Gratis-Angebote. |
 | P3b | Knoten: Verdrahtung (`PRUEFER=1` in `main.ts`, `pruefer-dienst.ts`) – Angebote lesen, Fragen senden, Antworten abholen, Berichte veröffentlichen; der Status kennt die Rolle (`pruefer`), das Log nennt die Einstellung (`prueferAusUmgebung()`). Befunde der Selbstprüfung bleiben bei den zwei Schienen – eine dritte bräche ältere Apps (`leseBefund()` weist sonst den ganzen Status ab). |
 | P3c | Budget für bezahlte Prüffragen – erst nach Entscheidung des MENSCHEN (der Knoten zahlt seit 5.1.2 nichts aus). |
-| P4 | Probezeit und Prüfer verbinden, FAQ, MENSCH-Checkliste. |
+| P4 | Probezeit und Prüfer verbinden (3.4, Zeitraum des Berichts endet mit der letzten Prüffrage), FAQ der Website (Auswahl, Probezeit, Grenze „Prüffragen erkennen“; `check-website.py` weist die alte Aussage „steht aber hinten“ ab), MENSCH-Checkliste (8). |
 
-**MENSCH:** den Freedom-Prüfer auf dem GX10 starten (mit Budget) und seinen
-Schlüssel als `FREEDOM_PRUEFER` eintragen.
+**MENSCH:** siehe Abschnitt 8 (Checkliste).
+
+## 8. MENSCH-Checkliste
+
+Was nur der MENSCH tun kann (Schlüssel, Geld, Geräte, Entscheidungen):
+
+- [ ] **Prüfer starten:** einen Knoten mit `PRUEFER=1` laufen lassen
+  (`docs/PROVIDER.md`, Abschnitt Prüfer). Im Log steht
+  `[pruefer] an – nur Angebote, die gerade gratis sind`. Im Status des
+  Knotens (App: Settings › Geräte › Mein Knoten, „Status abfragen“) steht
+  die Rolle „Prüfer“.
+- [ ] **Erster Bericht:** nach etwa 30 Minuten auf einem Relay nach Kind 38081
+  vom Schlüssel des Knotens sehen. Darin stehen nur Zahlen je Provider und
+  Modell.
+- [ ] **Entscheiden, welcher Schlüssel der Freedom-Prüfer ist:**
+  - Der GX10 ist selbst Provider. Er prüft sich nie selbst, seine Berichte
+    über andere sind aber die eines Mitbewerbers.
+  - Ein eigener Rechner, oder derselbe Rechner mit eigenem Schlüssel, trennt
+    beides.
+- [ ] **Schlüssel eintragen:** den öffentlichen Schlüssel (hex) nennen. Ein
+  Agent trägt ihn in `FREEDOM_PRUEFER` (`packages/protocol/src/messbericht.ts`)
+  ein – nie ein erfundener. Ab dann folgt jede App diesem Prüfer.
+- [ ] **In der App prüfen:** Netz › Prüfung zeigt bei geprüften Providern die
+  Quelle „Prüfer“.
+- [ ] **P3c entscheiden:** ob und wie viel Budget der Prüfer bekommt, um
+  Provider ohne Gratis-Angebot zu prüfen (Höhe je Tag, Schiene). Der Knoten
+  zahlt seit 5.1.2 nichts aus – das braucht eine neue Entscheidung.

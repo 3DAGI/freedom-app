@@ -141,7 +141,11 @@ export class PrueferBuch {
     return [...this.zuZiel.entries()].filter(([k]) => (this.punkte.get(k) ?? []).some((p) => p.zeit > jetzt - PRUEFER_TAKT.fensterSek)).map(([, z]) => z);
   }
 
-  /** Der Bericht für `baueMessbericht()` – null ohne Prüffrage im Fenster. Die Stufe kommt aus den Zahlen. */
+  /**
+   * Der Bericht für `baueMessbericht()` – null ohne Prüffrage im Fenster. Die Stufe kommt aus den Zahlen.
+   * Der Zeitraum endet mit der letzten Prüffrage (P4): Fällt ein Ziel aus dem Plan (nicht mehr gratis),
+   * geht der Bericht noch bis zum Ende des Fensters hinaus – mit dem Zeitraum, den er wirklich misst.
+   */
   bericht(ziel: PruefZiel, jetzt: number): Omit<Messbericht, "pruefer" | "zeit"> | null {
     const punkte = (this.punkte.get(schluessel(ziel)) ?? []).filter((p) => p.zeit > jetzt - PRUEFER_TAKT.fensterSek && p.zeit <= jetzt);
     if (punkte.length === 0) return null;
@@ -154,7 +158,7 @@ export class PrueferBuch {
     const tokens = median(erfolge.flatMap((p) => (p.tokensJeSek === undefined ? [] : [p.tokensJeSek])));
     return {
       provider: ziel.provider, modell: ziel.modell,
-      von: Math.min(...punkte.map((p) => p.zeit)), bis: jetzt,
+      von: Math.min(...punkte.map((p) => p.zeit)), bis: Math.max(...punkte.map((p) => p.zeit)),
       anfragen: punkte.length, erfolge: erfolge.length,
       medianMs: median(erfolge.flatMap((p) => (p.ms === undefined ? [] : [p.ms]))) ?? 0,
       ...(tokens === undefined ? {} : { tokensJeSek: tokens }),
