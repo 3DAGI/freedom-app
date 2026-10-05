@@ -167,6 +167,7 @@ export const SICHERUNG_EINTRAEGE: readonly string[] = [
   "freedom.relays.eigene",
   "freedom.kontakteSichern",
   "freedom.standardSchiene",
+  "freedom.anzeigeEinheit",     // eigene Anzeigeeinheit (12.1), sonst die der Standard-Schiene
   "freedom.mandate",            // zuerst gesehene Mandate der Kontakte (8.6a)
   "freedom.kataloge",           // abonnierte Modellkataloge (5.7)
   "freedom.pruefer",            // Prüfer, denen die App folgt (Freedom-Prüfung P2b2)

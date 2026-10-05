@@ -15,6 +15,7 @@ import { zahle } from "@freedomstack/protocol";
 import { t } from "../i18n.js";
 import { ausLamports, ausMsat } from "../preis-anzeige.js";
 import { fehlerText } from "../protokoll-texte.js";
+import { standardSchiene } from "../standard-schiene.js";
 import { baueAnforderung, solZuLamports, type Anforderung } from "../zahlungs-anforderung.js";
 import { bestaetige, dialog, hinweis } from "./dialog.js";
 import { aktualisiereKurs, aktuellerKurs } from "./marktkurs.js";
@@ -75,7 +76,8 @@ export async function bezahleAnforderung(a: Anforderung, von: string, name: stri
   if (a.lightning && a.solana) {
     const w = await dialog({
       titel: t("anf.bezahlenTitel", { name }),
-      felder: [{ art: "wahl", name: "art", label: t("anf.womit"), wert: "lightning", optionen: [
+      // Vorauswahl nach der Standard-Schiene (12.1) – gewählt wird trotzdem bei jeder Zahlung
+      felder: [{ art: "wahl", name: "art", label: t("anf.womit"), wert: standardSchiene(), optionen: [
         { wert: "lightning", text: ausMsat(a.lightning.msat, kurs) }, { wert: "solana", text: ausLamports(a.solana.lamports, kurs) },
       ] }],
       ok: t("anf.weiter"),
