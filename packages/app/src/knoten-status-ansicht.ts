@@ -18,6 +18,7 @@ export const STATUS_TAKT_MS = 2_000;
 export const ROLLEN_TEXT: Record<StatusRolle, string> = {
   ki: "set.rolleKi", relay: "set.rolleRelay", speicher: "set.rolleSpeicher", gateway: "set.rolleGateway", zahlkanal: "set.rolleZahlkanal",
   lnurl: "set.rolleLnurl", lp: "set.rolleLp", relayer: "set.rolleRelayer", tor: "set.rolleTor", app: "set.rolleApp", turn: "set.rolleTurn",
+  pruefer: "set.rollePruefer",
 };
 
 /**
