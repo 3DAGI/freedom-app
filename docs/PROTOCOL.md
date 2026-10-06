@@ -874,9 +874,10 @@ deshalb ein Feld `turn` tragen:
 
 Von P1b bis P5a veröffentlichten Prüfer-Knoten hier Messwerte je Provider und
 Modell, aus eigenen synthetischen Prüffragen. Mit der Entscheidung vom
-05.10.2026 fielen Prüfer, Prüffragen und Berichte weg: Geprüft wird künftig in
-Prüfrunden – die App schickt die echte Anfrage an drei Provider statt an
-einen, sobald das Prüfbudget reicht (P5c, `docs/FREEDOM-PRUEFUNG.md`). Apps werten 38081 nicht mehr
+05.10.2026 fielen Prüfer, Prüffragen und Berichte weg: Geprüft wird in
+Prüfrunden – die App schickt etwa jede 400. Antwort die echte Anfrage an drei
+Provider statt an einen, bezahlt aus dem Prüfbudget (seit P5c2 mit Lightning,
+über Zahlkanäle ab P5d; `docs/FREEDOM-PRUEFUNG.md`). Apps werten 38081 nicht mehr
 aus; das Kind wird nicht wiederverwendet.
 
 **Stufen** (`PRUEF_GRENZEN`, `stufeAus()`) gelten weiter für die eigene Messung

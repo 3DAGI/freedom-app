@@ -1660,6 +1660,10 @@ ZUGANG_PRUEFUNG = r"""() => {
   }
   return { ohneName, ueberNull, nurMaus, kontrast };
 }"""
+# Erst messen, wenn Einblendungen fertig sind (`fs-in`, 0,18 s): Die Kontrastprüfung rechnet die Deckkraft mit,
+# mitten in der Einblendung stünde Schrift mit 38 % Deckkraft da (2,92:1). Endlose Animationen (Pulsieren) zählen nicht.
+ANIMATIONEN_FERTIG = ("() => document.getAnimations().every((a) => a.playState !== 'running'"
+                      " || a.effect?.getComputedTiming().iterations === Infinity)")
 ZUGANG_SEITEN = ["#/agent", "#/chat", "#/repos", "#/waehrung", "#/verdienen", "#/netz", "#/profil", "#/settings", "#/mehr"]
 
 
@@ -1676,6 +1680,7 @@ def zugang_pruefen(browser, url: str) -> dict:
         for adr in ZUGANG_SEITEN:
             seite.ev("(a) => { location.hash = a; }", adr)
             seite.s.wait_for_timeout(600)
+            seite.s.wait_for_function(ANIMATIONEN_FERTIG, timeout=10_000)
             ansichten = [(adr, None)]
             if groesse == "desktop":
                 ansichten += [(adr, x) for x in seite.ev("() => [...document.querySelectorAll('[data-subtab-group] [data-subtab]')]"
@@ -1684,6 +1689,7 @@ def zugang_pruefen(browser, url: str) -> dict:
                 if reiter:
                     seite.ev("([g, r]) => document.querySelector(`[data-subtab-group='${g}'] [data-subtab='${r}']`).click()", reiter)
                     seite.s.wait_for_timeout(300)
+                    seite.s.wait_for_function(ANIMATIONEN_FERTIG, timeout=10_000)
                 for art, liste in seite.ev(ZUGANG_PRUEFUNG).items():
                     for x in liste:
                         funde.setdefault(art, {}).setdefault(x, f"{a}{':' + reiter[1] if reiter else ''}")

@@ -13,11 +13,13 @@ import { pkShort } from "../../shell-logic.js";
 import { ensurePool, ensureSessionClient, findProviders, kiSitzungen, powJeProvider, state } from "../state.js";
 import { type KnotenWeg } from "../knoten-weg-ui.js";
 import { ergebnisDesLaufs } from "../../messbuch.js";
-import { merkeMessung } from "../messung.js";
+import { hoechstMsat } from "../../anteile-kasse.js";
+import { type Pruefrunde, messeLauf, starteRunde } from "../pruefrunde-lauf.js";
 import { $, toast } from "../ui.js";
 import { buildJobEvent, handleAnswer, jobAbort, keinPrivaterProvider, privatFaehig, waitForAnswer } from "./agent.js";
 import { zieleNachSchiene } from "../ki-zahlung.js";
 import { addAiMessage, EigeneMeldung, hideTyping, showAiError } from "./agent-anzeige.js";
+import { selectedTools } from "./agent-eingabe.js";
 
 /** Sendet den Job an den besten Provider; bei Timeout automatisch der naechste.
  *  maxMode=true: Race — Job an N Provider, schnellster gewinnt (opt-in, Aufpreis). */
@@ -62,6 +64,8 @@ export async function askWithFailover(prompt: string, bid: number, tier: "free" 
   // Eigene Messung (P2a): wann wer den Auftrag bekam, wer seine Frist verpasste
   const gesendetMs = new Map<string, number>();
   const zuLangsam = new Set<string>();
+  // Prüfrunde (P5c2): etwa jede 400. Antwort zusätzlich an zwei andere Provider – Pflicht, aus dem Prüfbudget
+  let runde: Promise<Pruefrunde | null> = Promise.resolve(null);
 
   for (let i = 0; i < targets.length; i++) {
     const target = targets[i];
@@ -71,6 +75,12 @@ export async function askWithFailover(prompt: string, bid: number, tier: "free" 
     await pool.publish(wrap);
     activeJobIds.add(requestId);
     gesendetMs.set(target, Date.now());
+    if (i === 0) {
+      runde = starteRunde({
+        prompt, bid, tier, hoechstMsat: hoechstMsat(bid, selectedTools), kandidaten: candidates, ausser: targets,
+        modell: ($("#ai-model") as HTMLSelectElement | null)?.value || undefined, publish: (ev) => pool.publish(ev), sc,
+      }).catch(() => null);
+    }
 
     const answer = await waitForAnswer(requestId, timeoutMs, target, {
       extraJobIds: activeJobIds,
@@ -87,9 +97,11 @@ export async function askWithFailover(prompt: string, bid: number, tier: "free" 
       }
       if (answer.aborted) {
         addAiMessage("ai", t("agent.abgebrochen"), "");
+        messeLauf(runde, [], null);
         return;
       }
-      void merkeMessung(ergebnisDesLaufs(gesendetMs, zuLangsam, { pk: answer.ev.pubkey, kaputt: "kaputt" in answer }, Date.now()));
+      messeLauf(runde, ergebnisDesLaufs(gesendetMs, zuLangsam, { pk: answer.ev.pubkey, kaputt: "kaputt" in answer }, Date.now()),
+        "kaputt" in answer ? null : { pk: answer.ev.pubkey, output: answer.parsed!.output });
       await handleAnswer(answer.ev, answer.parsed!, prompt);
       return;
     }
@@ -102,7 +114,7 @@ export async function askWithFailover(prompt: string, bid: number, tier: "free" 
     }
   }
   // Alle Kandidaten versagt (Timeout oder Ablehnung):
-  void merkeMessung(ergebnisDesLaufs(gesendetMs, zuLangsam, null, Date.now()));
+  messeLauf(runde, ergebnisDesLaufs(gesendetMs, zuLangsam, null, Date.now()), null);
   showAiError(
     lastFeedbackError ? new Error(lastFeedbackError) : new EigeneMeldung(t("agent.keinProviderAntwort")),
     prompt, bid, tier,

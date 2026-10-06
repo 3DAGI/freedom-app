@@ -155,8 +155,8 @@ export async function findProviders(tier: string): Promise<ScoredProvider[]> {
 
 
 /** Allowlist: eigene/vertraute provider (pubkeys), die immer prioritaet haben.
- *  Der user kann eigene provider hinzufuegen (z.B. der eigene gx10). */
-function getAllowlist(): string[] {
+ *  Der user kann eigene provider hinzufuegen (z.B. der eigene gx10). Prüfrunden (P5c2) fragen sie nie zusätzlich. */
+export function getAllowlist(): string[] {
   try {
     return JSON.parse(localStorage.getItem("freedom.allowlist") ?? "[]");
   } catch { return []; }

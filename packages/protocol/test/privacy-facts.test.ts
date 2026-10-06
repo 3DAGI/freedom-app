@@ -197,6 +197,19 @@ const SZENARIEN: Record<string, () => Promise<number>> = {
     const keinEvent = "kind" in stand || "sig" in stand ? 1 : 0;
     return wraps.filter((w) => w.kind !== 1059).length + keinEvent + regelKeinKlartext(wraps, [PROMPT, ANTWORT]).length;
   },
+  pruefrunde: async () => {
+    // Wie die App seit P5c2: dieselbe Frage an drei Provider, je ein eigener Sitzungsschlüssel, alles versiegelt
+    const runde = await Promise.all([b.pk, generateKeypair().pk, generateKeypair().pk].map(async (provider) => {
+      const sitzung = new LocalSigner(generateKeypair().sk);
+      const request = buildJobRequest({ customerPubkey: sitzung.publicKey(), input: PROMPT, bidMsat: 1000, providerPubkey: provider });
+      return { ...(await buildPrivateJobRequest({ request, sessionSigner: sitzung, providerPk: provider })), sitzung: sitzung.publicKey(), provider };
+    }));
+    const wraps = runde.map((r) => r.wrap);
+    if (new Set(runde.map((r) => r.sitzung)).size !== 3 || wraps.some((w, i) => w.kind !== 1059 || JSON.stringify(w.tags) !== JSON.stringify([["p", runde[i]!.provider]]))) return 1;
+    // Kein Umschlag nennt die Identität oder die Sitzung einer anderen Anfrage der Runde
+    const fremd = runde.flatMap((r, i) => runde.filter((_, j) => j !== i).map((x) => regelKundeVerborgen([r.wrap], x.sitzung).length));
+    return regelKundeVerborgen(wraps, a.pk).length + fremd.reduce((s, n) => s + n, 0) + regelKeinKlartextPrompt(wraps, [PROMPT]).length;
+  },
   "ki-zahlung": async () => {
     const { wraps } = await privateKiRunde();
     return regelKeineZahlungsdaten(wraps).length;
@@ -573,6 +586,17 @@ test("B-12d2: Wecken steht als Grenze im Bericht – die Anmeldung selbst ist ve
   const offen = JSON.stringify(wrap);
   for (const geheim of [endpunkt, ich.pk, geraet.pk]) assert.ok(!offen.includes(geheim), "nichts davon offen");
   assert.deepEqual(wrap.tags, [["p", knoten.pk]], "nur der Knoten als Empfänger");
+});
+
+test("P5c2: Prüfrunden stehen als Grenze im Bericht – mit Grund, Ausnahmen und Regel; das Szenario hält sie ein", async () => {
+  assert.equal(await SZENARIEN.pruefrunde!(), 0, "drei Anfragen, drei Sitzungen, nichts verbindet sie offen");
+  const f = PRIVACY_FACTS.find((x) => x.id === "pruefrunde");
+  assert.equal(f?.status, "grenze");
+  assert.equal(f?.regel, "kunde-verborgen", "jeder Provider sieht nur einen eigenen Sitzungsschlüssel");
+  assert.match(f?.grund ?? "", /Entscheidung 05\.10\.2026/);
+  assert.match(f?.grund ?? "", /Ausgenommen sind dieses Gerät, dein eigener Knoten und Funk/);
+  const t = privacyFactsText();
+  assert.match(t.slice(t.indexOf("Bewusste Grenzen:")), /△ Etwa jede 400\. Antwort geht deine Frage samt Verlauf zusätzlich an zwei andere Provider \(Prüfrunde\)/);
 });
 
 test("Grenzen nennen ihren Grund", () => {

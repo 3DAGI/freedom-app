@@ -13,7 +13,7 @@
  * auseinander (offene Fragen werden oft verschieden formuliert), gibt es keine
  * Aussage – lieber keine als eine falsche.
  */
-import { evaluateConsensus, sichererZufall } from "@freedomstack/protocol";
+import { type Messpunkt, evaluateConsensus, sichererZufall } from "@freedomstack/protocol";
 import { PRUEFRUNDE } from "./pruefbudget.js";
 
 export interface ZusatzKandidat { pk: string; modelle: readonly string[] }
@@ -66,4 +66,19 @@ export function werteRundeAus(antworten: ReadonlyArray<{ pk: string; output: str
     for (const pk of r.outliers) aus.set(pk, false);
   }
   return aus;
+}
+
+/** Die Punkte eines Laufs mit dem Ergebnis der Runde: „einig“ nur an Erfolgen, zu denen es eine Aussage gibt. */
+export function mitEinig(punkte: ReadonlyArray<readonly [string, Messpunkt]>, einig: ReadonlyMap<string, boolean>): Array<[string, Messpunkt]> {
+  return punkte.map(([pk, p]) => [pk, p.ok && einig.has(pk) ? { ...p, einig: einig.get(pk)! } : p]);
+}
+
+/**
+ * Was vom Bedarf einer Runde ins Prüfbudget zurückgeht: je zusätzlichem
+ * Provider sein Höchstbetrag minus dem, was er kostete (höchstens der
+ * Höchstbetrag – mehr zahlt die Abrechnung nie). Ohne Antwort alles.
+ */
+export function rueckgabeMsat(hoechstMsat: number, kostenMsat: readonly number[]): number {
+  if (!Number.isSafeInteger(hoechstMsat) || hoechstMsat <= 0) return 0;
+  return kostenMsat.reduce((summe, k) => summe + hoechstMsat - Math.min(hoechstMsat, Number.isSafeInteger(k) && k > 0 ? k : 0), 0);
 }
