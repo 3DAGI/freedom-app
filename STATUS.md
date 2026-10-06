@@ -16823,6 +16823,40 @@ Angaben vorher durch Platzhalter.
 
 Knoten-Stand: unverändert. Der Provider bekommt nur anderen Text.
 
+## Schritt D1c – Weniger Verlauf zu KI-Fragen
+
+Datenschutz gegenüber Providern, Stufe 1 (Karte `docs/DATENSCHUTZ-PROVIDER.md`).
+Der Knoten merkt sich nichts (3.3), die App schickt den Verlauf mit – und was
+mitgeht, liest der Provider. D1b (Schlüssel je Unterhaltung) braucht vorher das
+Begleichen offener Sitzungsbeträge und folgt danach.
+
+**Was sich ändert:**
+- **`ki-kontext.ts`:** `VERLAUF_UMFANG` mit drei Stufen – aus (nur die Frage),
+  kurz (6 Nachrichten, 3 000 Zeichen, je Nachricht 1 000; neuer Standard),
+  lang (12, 6 000, 1 500; der Umfang bis D1c). `kontextPraefix(msgs, umfang)`,
+  `leseUmfang()` (Unbekanntes heißt kurz), `LS_VERLAUF` = `freedom.verlauf`.
+- **`agent.ts`:** der Kontext mit dem gewählten Umfang.
+- **Settings › Datenschutz:** Auswahl „Verlauf zu KI-Fragen mitschicken“ mit
+  Text, was das kostet (Rückfragen werden schlechter verstanden).
+- **Datenschutz:** Grenze „ki-verlauf“ – ohne Event-Regel wie „werbe-name“:
+  Was der Provider nach dem Öffnen liest, sieht kein Mitschnitt; den Umfang
+  prüft `ki-kontext.test.ts`.
+- **Whitepaper:** ein Satz zum Verlauf.
+
+**Verdrahtet:** `maybeInsertModelSwitchSummary()` (`shell/tabs/agent.ts`) →
+`kontextPraefix(msgs, leseUmfang(localStorage.getItem(LS_VERLAUF)))`; die
+Auswahl in `shell/tabs/mesh.ts` (`#ki-verlauf`).
+
+**Prüfungen:**
+- protocol 1170 grün, 6 übersprungen, 0 rot (vorher 1169);
+- node 314 grün, 6 übersprungen;
+- app 887 grün (vorher 886), Build ok;
+- Leak 72 grün + 1 todo; mls 13 grün;
+- check-wiring `--streng` Exit 0, check-website 5 Seiten ok, check_innerhtml Exit 0;
+- Smoke-Test bestanden.
+
+Knoten-Stand: unverändert. Der Provider bekommt nur weniger Text.
+
 ## Schritt 12.6 – Profil: SOL-Adresse öffentlich nur mit Häkchen
 
 **Warum:** Phase 12 „Beide Währungen überall“ (Sammlung A-1, Anhang A: „Profil:

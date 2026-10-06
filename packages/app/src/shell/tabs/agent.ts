@@ -9,7 +9,7 @@ import { t } from "../../i18n.js";
 import { fehlerText } from "../../protokoll-texte.js";
 import { ScoredProvider } from "../../matchmaking.js";
 import { type AntwortCache } from "../../ki-antworten.js";
-import { kontextPraefix } from "../../ki-kontext.js";
+import { LS_VERLAUF, kontextPraefix, leseUmfang } from "../../ki-kontext.js";
 import { frageLokal, lokaleAdresse, lokalesModellAus } from "../../ki-lokal.js";
 import { SessionClient } from "../../session-client.js";
 import { pkShort } from "../../shell-logic.js";
@@ -216,7 +216,7 @@ let pendingContextSummary = "";
 function maybeInsertModelSwitchSummary(newTier: string): void {
   const thread = $("#ai-thread");
   const msgs = aktuellerVerlauf?.messages ?? [];
-  pendingContextSummary = kontextPraefix(msgs);
+  pendingContextSummary = kontextPraefix(msgs, leseUmfang(localStorage.getItem(LS_VERLAUF))); // D1c: Umfang aus Settings › Datenschutz
   if (lastTier && lastTier !== newTier && pendingContextSummary) {
     const note = document.createElement("div");
     note.className = "model-switch";
