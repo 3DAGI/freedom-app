@@ -31,7 +31,7 @@ test("verdrahtet: Deklaration vor dem Versiegeln, Abrechnung bei der Antwort, Za
   assert.match(bau, /merkeAnfrage\(auftrag\.requestId, empfaenger, hoechst, !!kanal\);\s*return auftrag;/);
   const antwort = agent.slice(agent.indexOf("async function handleAnswer("), agent.indexOf("/** Send-Button nach Job-Ende"));
   assert.match(antwort, /const abrechnung = kanal \? undefined : await rechneAntwortAb\(r\.requestId, r\.amountMsat\);/);
-  assert.match(antwort, /const \{ zahlung, grund \} = await providerZahlung\(r\.providerPubkey\);\s*const charge = await sc\.chargeForResult\(r\.providerPubkey, abrechnung\.providerMsat, ev\.id, zahlung\);/);
+  assert.match(antwort, /const \{ zahlung, grund \} = await providerZahlung\(r\.providerPubkey\);\s*(?:\/\/[^\n]*\n\s*)?const charge = await sc\.chargeForResult\(r\.providerPubkey, abrechnung\.providerMsat, ev\.id, zahlung, kiSitzungen\.fuerAuftrag\(r\.requestId\)\);/);
   assert.match(antwort, /void zahleAnteile\(\)/);
 
   const kz = lies("shell/ki-zahlung.ts");

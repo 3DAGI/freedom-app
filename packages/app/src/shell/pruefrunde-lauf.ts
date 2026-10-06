@@ -24,7 +24,7 @@ import { kanalDa, providerZahlung, pruefBudget, rechneAntwortAb, zahleAnteile, z
 import { kopplungFuer } from "./mein-knoten.js";
 import { merkeMessung } from "./messung.js";
 import { quittungNachZahlung } from "./quittungen.js";
-import { getAllowlist } from "./state.js";
+import { getAllowlist, kiSitzungen } from "./state.js";
 import { toast } from "./ui.js";
 import { buildJobEvent, jobAbort, waitForAnswer } from "./tabs/agent.js";
 
@@ -104,7 +104,7 @@ async function bezahle(ev: NostrEvent, r: ReturnType<typeof parseJobResult>, sc:
   const abrechnung = await rechneAntwortAb(r.requestId, r.amountMsat);
   if (abrechnung.providerMsat > 0) {
     const { zahlung } = await providerZahlung(r.providerPubkey);
-    const charge = await sc.chargeForResult(r.providerPubkey, abrechnung.providerMsat, ev.id, zahlung);
+    const charge = await sc.chargeForResult(r.providerPubkey, abrechnung.providerMsat, ev.id, zahlung, kiSitzungen.fuerAuftrag(r.requestId));
     void quittungNachZahlung(r.providerPubkey, abrechnung.providerMsat, charge);
   }
   return r.amountMsat;

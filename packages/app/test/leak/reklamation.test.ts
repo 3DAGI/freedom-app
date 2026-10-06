@@ -64,7 +64,9 @@ test("Reklamation: Provider und Pruefer lesen sie vollstaendig", async () => {
 test("Verdrahtung: reklamiere() versiegelt wie das Szenario, der KI-Verlauf liegt nur im Tresor", () => {
   const agent = ["agent", "modellwahl", "agent-verlauf", "agent-wege", "agent-anzeige", "agent-eingabe"].map((d) => readFileSync(new URL(`../../src/shell/tabs/${d}.ts`, import.meta.url), "utf8")).join("\n");
   const f = agent.slice(agent.indexOf("async function reklamiere("), agent.indexOf("function addUsageBubble("));
-  assert.match(f, /const sitzung = kiSitzungen\.fuer\(providerPk\);/);
+  // Seit D1b: der Schlüssel des Auftrags, nicht der aktuelle für den Provider
+  assert.match(f, /const sitzung = auftragId \? kiSitzungen\.fuerAuftrag\(auftragId\) : undefined;\n  if \(!state\.keypair \|\| !jobId \|\| !sitzung\) \{/);
+  assert.doesNotMatch(f, /kiSitzungen\.fuer\(/);
   assert.match(f, /buildDispute\(\{\s*jobId, customerPubkey: sitzung\.publicKey\(\), providerPubkey: providerPk,/);
   // Seit 5.6b: Pruefer aus dem eigenen Netz, genannt in der Reklamation; Material nur fuer ihn.
   assert.match(f, /const empfaenger = \[\s*\{ pk: providerPk, powBits: powJeProvider\.get\(providerPk\) \?\? 0 \},\s*\.\.\.\(pruefer \? \[\{ pk: pruefer\.pk,/);
