@@ -66,9 +66,10 @@ test("5.6b: der Sitzungsschluessel der Reklamation oeffnet das Urteil auch nach 
   const pruefer = new LocalSigner(generateKeypair().sk);
   const sitzungen = new KiSitzungen();
   const sitzung = sitzungen.fuer(provider.publicKey());
-  const sk = sitzungen.schluesselHex(provider.publicKey())!;
+  const sk = sitzungen.schluesselHex(sitzung.publicKey())!;
   assert.match(sk, /^[0-9a-f]{64}$/);
   assert.equal(sitzungen.schluesselHex(pk("9")), undefined);
+  assert.equal(sitzungen.schluesselHex(provider.publicKey()), undefined, "je Sitzungsschlüssel, nicht je Provider (D1b)");
   // Neustart: nur der gemerkte Schluessel ist noch da.
   const wieder = new LocalSigner(Uint8Array.from(Buffer.from(sk, "hex")));
   assert.equal(wieder.publicKey(), sitzung.publicKey());

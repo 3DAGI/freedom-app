@@ -90,14 +90,18 @@ export class SessionClient {
 
   constructor(private cfg: SessionClientConfig) {}
 
-  private sessionIdFor(providerPubkey: string): string {
-    return `sess-${this.cfg.signerFuer(providerPubkey).publicKey().slice(0, 8)}-${providerPubkey.slice(0, 8)}-${Math.floor(Date.now() / 1000)}`;
+  private sessionIdFor(providerPubkey: string, signer: Signer): string {
+    return `sess-${signer.publicKey().slice(0, 8)}-${providerPubkey.slice(0, 8)}-${Math.floor(Date.now() / 1000)}`;
   }
 
-  /** Aktive Session zu einem Provider (oder null). */
-  activeFor(providerPubkey: string): ActiveSession | null {
+  /**
+   * Aktive Session zu einem Provider (oder null) – nur die des Sitzungsschluessels
+   * (D1b): Eine Sitzung eines anderen Schluessels nennte dem Provider beide.
+   * Ohne Angabe gilt der aktuelle Schluessel fuer diesen Provider.
+   */
+  activeFor(providerPubkey: string, kundePk = this.cfg.signerFuer(providerPubkey).publicKey()): ActiveSession | null {
     for (const s of this.sessions.values()) {
-      if (s.open.providerPubkey === providerPubkey) {
+      if (s.open.providerPubkey === providerPubkey && s.open.customerPubkey === kundePk) {
         const now = Math.floor(Date.now() / 1000);
         if (now <= s.open.expiration && s.chargedMsat < s.open.maxTotalMsat) return s;
       }
@@ -109,9 +113,9 @@ export class SessionClient {
   async openSession(
     providerPubkey: string,
     budgetSats = this.cfg.defaultBudgetSats,
+    signer: Signer = this.cfg.signerFuer(providerPubkey),
   ): Promise<ActiveSession> {
-    const sessionId = this.sessionIdFor(providerPubkey);
-    const signer = this.cfg.signerFuer(providerPubkey);
+    const sessionId = this.sessionIdFor(providerPubkey, signer);
     const ev = await signer.signEvent(
       buildSessionOpen({
         customerPubkey: signer.publicKey(),
@@ -135,8 +139,8 @@ export class SessionClient {
   }
 
   /** Tags fuer einen DVM-Job: session-Tag wenn aktiv, sonst bid-Fallback. */
-  jobTags(providerPubkey: string, fallbackBidMsat: number): string[][] {
-    const session = this.activeFor(providerPubkey);
+  jobTags(providerPubkey: string, fallbackBidMsat: number, kundePk?: string): string[][] {
+    const session = this.activeFor(providerPubkey, kundePk);
     if (session) {
       return [["session", session.open.sessionId]];
     }
@@ -147,15 +151,18 @@ export class SessionClient {
    * Nach empfangener Antwort: den Anteil des Providers verbuchen, faellige
    * Summe zahlen (ganze sats, hoechstens bis zum Budget), Beleg publizieren.
    * settled=false im Beleg-only-Modus; unklar=true, wenn das Zahlen scheiterte.
+   * Verbucht in der Sitzung des Schluessels, der den Auftrag stellte (`kunde`,
+   * D1b) – ohne Angabe der aktuelle fuer diesen Provider.
    */
   async chargeForResult(
     providerPubkey: string,
     amountMsat: number,
     resultEventId: string,
     wallet?: ProviderZahlung,
+    kunde: Signer = this.cfg.signerFuer(providerPubkey),
   ): Promise<{ settled: boolean; unklar?: boolean; gezahltMsat?: number; faelligAbMsat: number; paymentRef?: string; rechnung?: string; remainingMsat: number }> {
-    let session = this.activeFor(providerPubkey);
-    if (!session) session = await this.openSession(providerPubkey);
+    let session = this.activeFor(providerPubkey, kunde.publicKey());
+    if (!session) session = await this.openSession(providerPubkey, undefined, kunde);
 
     session.chargedMsat += amountMsat;
     const seq = (this.seqCounters.get(session.open.sessionId) ?? 0) + 1;
@@ -194,10 +201,9 @@ export class SessionClient {
     }
 
     const cumulativeMsat = session.paidMsat;
-    const signer = this.cfg.signerFuer(providerPubkey);
-    const payment = await signer.signEvent(
+    const payment = await kunde.signEvent(
       buildSessionPayment({
-        customerPubkey: signer.publicKey(),
+        customerPubkey: kunde.publicKey(),
         sessionId: session.open.sessionId,
         seq,
         cumulativeMsat,
@@ -206,7 +212,7 @@ export class SessionClient {
         paymentRef,
       }),
     );
-    await this.versiegeltSenden(payment, providerPubkey, signer);
+    await this.versiegeltSenden(payment, providerPubkey, kunde);
     session.payments.push(parseSessionPayment(payment));
 
     return {

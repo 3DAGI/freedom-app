@@ -121,16 +121,18 @@ test("5.1.3: Anteil des Providers per Rechnung – ab dem Fenster, ganze sats, n
   assert.equal(danach.settled, false, "nie ein zweites Mal von selbst");
   assert.deepEqual(zahlungen, [25_000]);
 
-  // Neue Sitzung (Budget 100 sats): nie mehr als das Budget
+  // Neue Sitzung (Budget 100 sats): nie mehr als das Budget – ein fester Schlüssel je Provider wie KiSitzungen
+  const k2 = new LocalSigner(generateKeypair().sk);
   const sc2 = new SessionClient({
-    signerFuer: () => new LocalSigner(generateKeypair().sk), pool, defaultBudgetSats: 100, settleEverySats: 20, ttlSecs: 3600,
+    signerFuer: () => k2, pool, defaultBudgetSats: 100, settleEverySats: 20, ttlSecs: 3600,
   });
   const gross = await sc2.chargeForResult(provider.pk, 250_000, e, wallet);
   assert.equal(gross.gezahltMsat, 100_000);
 
   // Zwei Antworten zugleich: dieselbe Schuld wird nur einmal gezahlt
+  const k3 = new LocalSigner(generateKeypair().sk);
   const sc3 = new SessionClient({
-    signerFuer: () => new LocalSigner(generateKeypair().sk), pool, defaultBudgetSats: 100, settleEverySats: 20, ttlSecs: 3600,
+    signerFuer: () => k3, pool, defaultBudgetSats: 100, settleEverySats: 20, ttlSecs: 3600,
   });
   await sc3.openSession(provider.pk);
   zahlungen.length = 0;

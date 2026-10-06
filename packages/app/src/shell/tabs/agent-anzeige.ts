@@ -200,9 +200,11 @@ export function addAiMessageStreaming(role: "ai", text: string, meta: string, mo
  * wenn sie dort erreichbar ist, wo der Kunde die schlechte Antwort sieht.
  */
 async function reklamiere(
-  jobId: string | undefined, providerPk: string, amountMsat: number, frageAntwort?: { frage: string; antwort: string },
+  jobId: string | undefined, providerPk: string, amountMsat: number, frageAntwort?: { frage: string; antwort: string }, auftragId?: string,
 ): Promise<void> {
-  if (!state.keypair || !jobId) {
+  // Vom Sitzungsschlüssel des Auftrags (D1b), nicht vom aktuellen – sonst passte die Reklamation nicht zum Auftrag
+  const sitzung = auftragId ? kiSitzungen.fuerAuftrag(auftragId) : undefined;
+  if (!state.keypair || !jobId || !sitzung) {
     toast(t("agent.ohneBezug"), true);
     return;
   }
@@ -241,9 +243,8 @@ async function reklamiere(
 
   try {
     const material = pruefer && frageAntwort && zustimmung ? frageAntwort : undefined;
-    // Vom Sitzungsschluessel wie der Auftrag selbst (3.1) – nicht von der
-    // Identitaet – und nur versiegelt an Provider und Pruefer (3.4).
-    const sitzung = kiSitzungen.fuer(providerPk);
+    // Vom Sitzungsschluessel wie der Auftrag selbst (3.1, D1b oben) – nicht von
+    // der Identitaet – und nur versiegelt an Provider und Pruefer (3.4).
     // Die Reklamation nennt den Pruefer (5.6) – nur sein Urteil zaehlt, und der Provider sieht, wer es ist.
     const dispute = buildDispute({
       jobId, customerPubkey: sitzung.publicKey(), providerPubkey: providerPk,
@@ -259,7 +260,7 @@ async function reklamiere(
     if (pruefer) {
       await stelleZu(wraps[1]!, pruefer);
       // Das Urteil kommt an den Sitzungsschluessel – ihn fuer diese Reklamation im Tresor merken.
-      const sk = kiSitzungen.schluesselHex(providerPk);
+      const sk = kiSitzungen.schluesselHex(sitzung.publicKey());
       if (sk) {
         await merkeReklamation({
           jobId, providerPk, pruefer: pruefer.pk, prueferName: pruefer.name, sitzungSk: sk,
@@ -281,7 +282,7 @@ export function addUsageBubble(usage: {
   toolCalls?: Array<{ name: string; kind: number; costMsat: number }>;
   sessionTotalMsat?: number;
 }, amountMsat: number, providerPk: string, resultEventId?: string, frageAntwort?: { frage: string; antwort: string },
-abrechnung?: { providerMsat: number; posten: Array<{ anteil: string; msat: number }>; pruefbudgetMsat?: number }): void {
+abrechnung?: { providerMsat: number; posten: Array<{ anteil: string; msat: number }>; pruefbudgetMsat?: number }, auftragId?: string): void {
   const blase = el("div", undefined, "usage-bubble");
   aktualisiereAgentPanel(usage.toolCalls ?? [], usage.sessionTotalMsat);
   // Jedes Werkzeug als eigene Zeile mit Haken — im Entwurf war das der Kern:
@@ -338,7 +339,7 @@ abrechnung?: { providerMsat: number; posten: Array<{ anteil: string; msat: numbe
     reklamieren.type = "button";
     reklamieren.classList.add("ghost");
     reklamieren.addEventListener("click", () => {
-      void reklamiere(resultEventId, providerPk, amountMsat, frageAntwort);
+      void reklamiere(resultEventId, providerPk, amountMsat, frageAntwort, auftragId);
     });
     const aktionen = el("div", undefined, "usage-actions");
     aktionen.append(reklamieren);
