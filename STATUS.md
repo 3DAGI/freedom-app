@@ -16972,3 +16972,31 @@ Clients mit festem statt je Aufruf neuem Schlüssel (so arbeitet `KiSitzungen`).
 - Smoke-Test bestanden.
 
 Knoten-Stand: unverändert.
+
+## Schritt 12.7b – Wallet: Empfangen
+
+**Warum:** Phase 12 (Sammlung A-1, Anhang A: „Wallet: Empfangen“); zweiter
+Teil von 12.7.
+
+**Was:**
+- Knopf „Empfangen“ neben „Senden“ (`shell/empfangen-ui.ts`, `wireEmpfangen()`).
+  Dialog: womit (Lightning oder SOL, vorausgewählt nach der Standard-Schiene,
+  12.1) und Betrag (für Lightning Pflicht, für SOL frei – leer wählt der
+  Zahlende).
+- Lightning: Rechnung der eigenen Wallet über NWC (`eigeneRechnung()`,
+  Beschreibung leer). Ohne NWC ein Hinweis – die App stellt selbst keine
+  Rechnungen aus (E4 A).
+- SOL: `eigeneSolAdresse()` (`shell/zahlschienen.ts`, dort, wo Wallet-Zugriffe
+  hingehören): aus der eingebauten Wallet eine frische Adresse aus dem Vorrat
+  (nie die Hauptadresse, 4.9c); ohne eingebaute die der verbundenen Wallet –
+  der Text sagt, dass an ihr alles hängt, was sie je empfing und sendete;
+  Vorrat leer → Hinweis „Neue Adressen ableiten“, kein Ausweichen.
+- Gezeigt als QR-Code und Text zum Kopieren (Dialogfelder `qr` und
+  `nurlesen`). `empfangen.ts` (ohne DOM): `lightning:<rechnung>` bzw.
+  `solana:<adresse>?amount=…` nach Solana Pay – „Senden“ (12.7a) liest beides
+  zurück. Nichts geht an ein Relay, gemerkt wird nur die vergebene Adresse.
+
+**Tests:** app +3 (`empfangen.test.ts`: Links und Rundweg mit
+`leseSendeZiel()`, Reihenfolge frisch vor verbunden ohne Hauptadresse,
+Verdrahtung ohne Relay und ohne Speichern). Smoke „waehrung“: ohne Betrag
+meldet sich der Dialog, ohne NWC und ohne Solana-Wallet je ein Hinweis.

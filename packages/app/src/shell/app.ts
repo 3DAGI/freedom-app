@@ -48,6 +48,7 @@ import { dialog } from "./dialog.js";
 import { wireEigeneAdresse, wireWerbeName } from "./werben-ui.js";
 import { wireBelege } from "./belege-ui.js";
 import { wireSenden } from "./senden-ui.js";
+import { wireEmpfangen } from "./empfangen-ui.js";
 import { wireSprachnachricht } from "./sprachnachricht-ui.js";
 import { wireAnrufe } from "./anruf-ui.js";
 import {
@@ -963,6 +964,7 @@ function starte(): void {
   wireWerbeName();
   wireBelege();
   wireSenden();
+  wireEmpfangen();
   setupCopyButtons();
 }
 
