@@ -48,7 +48,8 @@ test("Verdrahtung: jede Anfrage traegt den Kontext des aktuellen Verlaufs", () =
   const senden = agent.slice(agent.indexOf("maybeInsertModelSwitchSummary(selTier);"));
   assert.ok(senden.indexOf("maybeInsertModelSwitchSummary(selTier);") < senden.indexOf('addAiMessage("user", prompt, "");'));
   const job = agent.slice(agent.indexOf("async function buildJobEvent("), agent.indexOf("function aktiveClientGebuehr("));
-  assert.match(job, /const fullPrompt = pendingContextSummary \? pendingContextSummary \+ prompt : prompt;/);
+  // Seit D1a läuft der ganze Text (Verlauf und Frage) vorher durch die Platzhalter
+  assert.match(job, /const roh = pendingContextSummary \? pendingContextSummary \+ prompt : prompt;\n  const maske = eigen \? \{ text: roh, ersetzt: 0 \} : maskiere\(roh\);\n  const fullPrompt = maske\.text;/);
   assert.match(job, /\["i", fullPrompt, "text"\]/);
   assert.match(job, /input: fullPrompt,/);
 });
