@@ -20,6 +20,7 @@ import {
   solRpcUrl,
 } from "../state.js";
 import { zeigeEingebauteWallet } from "../eingebaute-wallet.js";
+import { zeigeZahlungen } from "../verlauf-ui.js";
 import { aktualisiereKurs, zeigeKurs } from "../marktkurs.js";
 import { geheim, verlangeTresor } from "../tresor.js";
 import { $, toast, updateSidebarBalances } from "../ui.js";
@@ -49,6 +50,8 @@ export async function loadWallet(): Promise<void> {
   // Solana still wiederverbinden, wenn die Seite schon einmal erlaubt wurde.
   if (!solWallet.connected) void connectSolana(true);
   zeigeEingebauteWallet();
+  // Verlauf (12.7c): nur aus dem Tresor, ohne Netz
+  zeigeZahlungen();
   zeigeKurs();
   void aktualisiereKurs().then(() => zeigeEingebauteWallet());
 

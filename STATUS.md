@@ -17099,6 +17099,44 @@ Gleich streng angepasst: `knoten-weg.test.ts` (`pubkeysFuer(ids)` statt `pubkeys
 
 Knoten-Stand: unverändert. Der Knoten sieht nur mehr Sitzungsschlüssel.
 
+## Schritt 12.7c – Wallet: Verlauf
+
+**Warum:** Phase 12 (Sammlung A-1, Anhang A: „Wallet: Verlauf – ✗“); dritter
+und letzter Teil von 12.7.
+
+**Was:**
+- `zahlungsbuch.ts` (ohne DOM): `merkeZahlung()` legt nach jeder Zahlung
+  Zeit, Schiene, Zweck, Betrag, Ziel und Beleg (Preimage bzw. Signatur) ab,
+  `leseZahlungen()` liest streng (Kaputtes und Fremdes fällt weg), höchstens
+  `ZAHLUNGEN_MAX` = 500, neueste zuerst.
+- `shell/zahlschienen.ts`: `zahlschienen()` hängt `mitBuch()` an jede Schiene
+  – jede Zahlung über `zahle(zahlschienen(), …)` landet im Buch, erst nach dem
+  Zahlen. Scheitert das Merken (Tresor gesperrt), gilt die Zahlung trotzdem.
+- Gespeichert nur über `geheim` (`freedom.zahlungen`, in `GEHEIM_FEST`) – die
+  Liste verrät, wen man wann bezahlt hat; nie in der Sicherung auf Relays
+  (`SICHERUNG_NIE`), wohl im eigenen Datenexport (`EXPORT_ZUSAETZLICH`).
+- Karte „Verlauf“ in Währung › Übersicht (`shell/verlauf-ui.ts`): das Buch
+  beim Öffnen der Seite, ohne Netz. „Verlauf der Lightning-Wallet laden“ auf
+  Klick: `lightningVerlauf()` fragt die eigene Wallet über NWC
+  (`list_transactions`, NIP-47) – auch Eingänge; die Antwort sind Fremddaten,
+  `leseWalletBuchungen()` nimmt nur Richtung, ganze msat, Zeit und eine
+  gekürzte Beschreibung, gezeigt nur als Text.
+- Der Text sagt, was stimmt: nur auf diesem Gerät, verschlüsselt erst mit
+  eingerichtetem Tresor; Tausch, Zahlkanäle und Hinterlegung stehen in ihren
+  Bereichen (sie zahlen nicht über `zahle()`).
+
+**Bewusst nicht:** SOL-Eingänge von der Kette – das wären Abfragen je
+eigener Adresse beim RPC-Anbieter; das Guthaben steht oben.
+
+**Tests:** app +5 (`zahlungsbuch.test.ts`: merken mit Obergrenze, strenges
+Lesen, nie Sicherung/wohl Export/Tresor, Wallet-Verlauf aus Fremddaten,
+Verdrahtung – erst zahlen, dann merken, Fehler beim Merken stoppt nichts);
+der Export-Test kennt den neuen Eintrag. Smoke „waehrung“: leerer Verlauf,
+ohne NWC ein Hinweis.
+
+**Damit ist 12.7 fertig** (a #322, b #324, c). Offen in Phase 12 für Spur C:
+12.1 Auswahl der Anzeigeeinheit und 12.4 Schalter (nach 12.4b von Spur A).
+
 ## Schritt B-17b2 – OpenTimestamps: Prüfung gegen Bitcoin (5.10b, Sammlung B-17)
 
 K5 entschied der MENSCH am 06.10. mit A (alice, bob, finney); seit demselben Tag
@@ -17132,9 +17170,9 @@ selbst).
 **Verdrahtet:** noch nicht – Ausnahmen mit Grund (B-17b3: Prüfung bei Bedarf,
 Schlüsselwechsel und Streit).
 
-**Prüfungen** (nach dem Einmergen von `main` mit D1b2): protocol 1182 grün (+5,
-`ots-bitcoin.test.ts`), 6 übersprungen; node 313 (7 übersprungen ohne Netz), app
-906, mls 13, Leak 73 + 1 todo; Typprüfung überall, Build, check-wiring Exit 0,
+**Prüfungen** (nach dem Einmergen von `main` mit D1b2 und 12.7c): protocol 1182
+grün (+5, `ots-bitcoin.test.ts`), 6 übersprungen; node 313 (7 übersprungen ohne
+Netz), app 911, mls 13, Leak 73 + 1 todo; Typprüfung überall, Build, check-wiring Exit 0,
 innerHTML Exit 0, Website ok, Smoke-Test bestanden, build-site ok, reproduzierbar.
 
 Knoten-Stand: unverändert.
