@@ -272,6 +272,31 @@ export function buendele(digests: Uint8Array[], nonce: () => Uint8Array): { spit
   return { spitze: ebene[0]!, dateien };
 }
 
+/**
+ * Nur ein Weg zur niedrigsten Bitcoin-Höhe, ohne ausstehende Versprechen
+ * (B-17b1) – so will NIP-03 den Beweis. Zweige in der Reihenfolge der Datei,
+ * damit das Ergebnis byte-gleich mit der Referenz ist. `undefined` ohne
+ * Bitcoin-Attestierung.
+ */
+export function nurBitcoin(z: OtsZeitstempel): OtsZeitstempel | undefined {
+  let beste: number | undefined;
+  for (const { attestierung: a } of attestierungenVon(z)) if (a.art === "bitcoin" && (beste === undefined || a.hoehe < beste)) beste = a.hoehe;
+  if (beste === undefined) return undefined;
+  const hoehe = beste;
+  const ohne = new Set<OtsZeitstempel>();
+  const pfad = (k: OtsZeitstempel): OtsZeitstempel | undefined => {
+    if (k.attestierungen.some((a) => a.art === "bitcoin" && a.hoehe === hoehe)) return { nachricht: k.nachricht, attestierungen: [{ art: "bitcoin", hoehe }], zweige: [] };
+    if (ohne.has(k)) return undefined;
+    for (const { op, weiter } of [...k.zweige].sort((x, y) => vergleicheOp(x.op, y.op))) {
+      const unten = pfad(weiter);
+      if (unten) return { nachricht: k.nachricht, attestierungen: [], zweige: [{ op, weiter: unten }] };
+    }
+    ohne.add(k);
+    return undefined;
+  };
+  return pfad(z);
+}
+
 /** Eine Antwort (gleiche Nachricht) in einen vorhandenen Knoten übernehmen; gleiche Zweige werden zusammengeführt. */
 export function fuegeEin(ziel: OtsZeitstempel, quelle: OtsZeitstempel): void {
   if (!gleich(ziel.nachricht, quelle.nachricht)) throw new OtsFehler("andere-nachricht");
