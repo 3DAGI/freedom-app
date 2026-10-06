@@ -85,6 +85,7 @@ const FAKT: Record<string, readonly [string, string?]> = {
   "ip": ["ds.fIp"],
   "relay-zugang": ["ds.fRelayZugang", "ds.gRelayZugang"],
   "werbe-name": ["ds.fWerbeName", "ds.gWerbeName"],
+  "zeitanker": ["ds.fZeitanker", "ds.gZeitanker"],
   "wecken": ["ds.fWecken", "ds.gWecken"],
   "anruf-ip": ["ds.fAnrufIp"],
   "anruf-vermittler": ["ds.fAnrufVermittler", "ds.gAnrufVermittler"],

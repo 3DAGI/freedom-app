@@ -194,7 +194,7 @@ export const SICHERUNG_NIE = [
   /^freedom\.nsec$/, /^freedom\.bunker$/, /^freedom\.nwc\./, /^freedom\.swap\./, /^freedom\.htlc\./,
   /^freedom\.solWallet/, /^freedom\.pending\./, /^freedom\.vault/, /^freedom\.suche\./, /^freedom\.nachfolge/,
   /^freedom\.notfall\./, /^freedom\.(mls|gruppe|epoch)/, /^freedom\.merkphrase$/, /^freedom\.reklamationen$/, /^freedom\.coverage\.eintrag$/,
-  /^freedom\.kanaele$/, /^freedom\.quittungen$/, /^freedom\.zahlungen$/, /^freedom\.messungen$/, /^freedom\.ruf\.(kontakte|gesendet)$/, /^freedom\.repos\.lokal$/, /^freedom\.knoten\.kopplung$/,
+  /^freedom\.kanaele$/, /^freedom\.quittungen$/, /^freedom\.zeitanker$/, /^freedom\.zahlungen$/, /^freedom\.messungen$/, /^freedom\.ruf\.(kontakte|gesendet)$/, /^freedom\.repos\.lokal$/, /^freedom\.knoten\.kopplung$/,
 ];
 
 /** Hoechstens so gross (NIP-44 fasst 65.535 Byte Klartext). */
