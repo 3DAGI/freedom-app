@@ -16863,8 +16863,9 @@ mit Bitcoin nach – alles byte-gleich.
 von mempool.space und blockstream.info) braucht die Freigabe der beiden Hosts
 unter „Network access“ (MENSCH) für einen echten Testvektor zu Block 970158.
 
-**Prüfungen:** protocol 1168 grün (+5, `ots-kalender.test.ts`), 6 übersprungen;
-node 313 (7 übersprungen ohne Netz), app 880, mls 13, Leak 72 + 1 todo;
+**Prüfungen** (nach dem Einmergen von `main` mit P5c2 und D1a): protocol 1174
+grün (+5, `ots-kalender.test.ts`), 6 übersprungen; node 313 (7 übersprungen ohne
+Netz), app 886, mls 13, Leak 72 + 1 todo;
 Typprüfung überall, Build, check-wiring Exit 0, innerHTML Exit 0, Website ok,
 Smoke-Test bestanden, build-site ok, reproduzierbar (zweimal dieselbe Summe).
 
