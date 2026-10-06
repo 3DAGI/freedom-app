@@ -17099,6 +17099,193 @@ Gleich streng angepasst: `knoten-weg.test.ts` (`pubkeysFuer(ids)` statt `pubkeys
 
 Knoten-Stand: unverändert. Der Knoten sieht nur mehr Sitzungsschlüssel.
 
+## Schritt 12.7c – Wallet: Verlauf
+
+**Warum:** Phase 12 (Sammlung A-1, Anhang A: „Wallet: Verlauf – ✗“); dritter
+und letzter Teil von 12.7.
+
+**Was:**
+- `zahlungsbuch.ts` (ohne DOM): `merkeZahlung()` legt nach jeder Zahlung
+  Zeit, Schiene, Zweck, Betrag, Ziel und Beleg (Preimage bzw. Signatur) ab,
+  `leseZahlungen()` liest streng (Kaputtes und Fremdes fällt weg), höchstens
+  `ZAHLUNGEN_MAX` = 500, neueste zuerst.
+- `shell/zahlschienen.ts`: `zahlschienen()` hängt `mitBuch()` an jede Schiene
+  – jede Zahlung über `zahle(zahlschienen(), …)` landet im Buch, erst nach dem
+  Zahlen. Scheitert das Merken (Tresor gesperrt), gilt die Zahlung trotzdem.
+- Gespeichert nur über `geheim` (`freedom.zahlungen`, in `GEHEIM_FEST`) – die
+  Liste verrät, wen man wann bezahlt hat; nie in der Sicherung auf Relays
+  (`SICHERUNG_NIE`), wohl im eigenen Datenexport (`EXPORT_ZUSAETZLICH`).
+- Karte „Verlauf“ in Währung › Übersicht (`shell/verlauf-ui.ts`): das Buch
+  beim Öffnen der Seite, ohne Netz. „Verlauf der Lightning-Wallet laden“ auf
+  Klick: `lightningVerlauf()` fragt die eigene Wallet über NWC
+  (`list_transactions`, NIP-47) – auch Eingänge; die Antwort sind Fremddaten,
+  `leseWalletBuchungen()` nimmt nur Richtung, ganze msat, Zeit und eine
+  gekürzte Beschreibung, gezeigt nur als Text.
+- Der Text sagt, was stimmt: nur auf diesem Gerät, verschlüsselt erst mit
+  eingerichtetem Tresor; Tausch, Zahlkanäle und Hinterlegung stehen in ihren
+  Bereichen (sie zahlen nicht über `zahle()`).
+
+**Bewusst nicht:** SOL-Eingänge von der Kette – das wären Abfragen je
+eigener Adresse beim RPC-Anbieter; das Guthaben steht oben.
+
+**Tests:** app +5 (`zahlungsbuch.test.ts`: merken mit Obergrenze, strenges
+Lesen, nie Sicherung/wohl Export/Tresor, Wallet-Verlauf aus Fremddaten,
+Verdrahtung – erst zahlen, dann merken, Fehler beim Merken stoppt nichts);
+der Export-Test kennt den neuen Eintrag. Smoke „waehrung“: leerer Verlauf,
+ohne NWC ein Hinweis.
+
+**Damit ist 12.7 fertig** (a #322, b #324, c). Offen in Phase 12 für Spur C:
+12.1 Auswahl der Anzeigeeinheit und 12.4 Schalter (nach 12.4b von Spur A).
+
+## Schritt B-17b2 – OpenTimestamps: Prüfung gegen Bitcoin (5.10b, Sammlung B-17)
+
+K5 entschied der MENSCH am 06.10. mit A (alice, bob, finney); seit demselben Tag
+erlaubt die Umgebung mempool.space und blockstream.info.
+
+**Was neu ist:** `ots-bitcoin.ts` (K4 A):
+- `leseBlockkopf()` liest 80 Bytes und lässt den Kopf sich selbst prüfen: Hash
+  (doppeltes SHA-256) nachgerechnet, Arbeit nach seinem Ziel, Ziel höchstens das
+  des Hauptnetzes (Bits 0x1d00ffff) – ein gefälschter Kopf kostet Rechenarbeit.
+- `pruefeVerankerung()` fragt je Bitcoin-Höhe im Beweis (aufsteigend, höchstens
+  drei) beide Explorer aus `OTS_EXPLORER` (Esplora: Hash zur Höhe, dann der
+  Kopf). Der Kopf gilt nur, wenn er zum genannten Hash passt und beide
+  denselben liefern; fehlt einer → `nicht-erreichbar`, verschieden → `uneinig`
+  (beides: keine Aussage), passt die Wurzel bei keiner Höhe → `falsche-wurzel`.
+  Sonst Höhe, Zeit und Hash des Blocks. Anfragen „einfach“ (die Explorer
+  erlauben jede Herkunft), ohne Zugangsdaten und Weiterleitung, begrenzt.
+- `holeHoechstens()` (aus `ots-kalender.ts`) dient Kalendern und Explorern.
+
+**Testvektoren:** der echte Kopf zu Block 970158 – von beiden Explorern gleich –
+und der Genesis-Block, beide mit python-bitcoinlib nachgerechnet;
+python-opentimestamps prüft den Beweis von B-17b1 gegen den Kopf
+(`verify_against_blockheader`, Zeit 1791281192). **Live-Probe** (außerhalb der
+Tests, mit beiden Explorern): der eigene Stempel von heute ist verankert in
+Block 970158 (06.10.2026, 10:06:32 UTC), der alte aus B-17a in Block 428648.
+
+**Fallstrick:** Node-`fetch` geht hier nur mit `NODE_USE_ENV_PROXY=1` (und
+`NODE_EXTRA_CA_CERTS=/root/.ccr/ca-bundle.crt`) über den Agent-Proxy – sonst
+meldet jede Live-Probe „nicht-erreichbar“ (Python und curl nehmen den Proxy von
+selbst).
+
+**Verdrahtet:** noch nicht – Ausnahmen mit Grund (B-17b3: Prüfung bei Bedarf,
+Schlüsselwechsel und Streit).
+
+**Prüfungen** (nach dem Einmergen von `main` mit D1b2 und 12.7c): protocol 1182
+grün (+5, `ots-bitcoin.test.ts`), 6 übersprungen; node 313 (7 übersprungen ohne
+Netz), app 911, mls 13, Leak 73 + 1 todo; Typprüfung überall, Build, check-wiring Exit 0,
+innerHTML Exit 0, Website ok, Smoke-Test bestanden, build-site ok, reproduzierbar.
+
+Knoten-Stand: unverändert.
+
+## Schritt 12.1 C – Auswahl der Anzeigeeinheit
+
+**Warum:** Spur A hat in 12.1 die Logik gebaut (`anzeigeEinheit()`,
+`freedom.anzeigeEinheit`); „die Auswahl baut Spur C“ (E5).
+
+**Was:**
+- Währung › Zahlen, im Kasten „Zahlen“ unter der Standard-Schiene: „Beträge
+  zuerst zeigen in: automatisch · sats · SOL“ (`#anzeige-einheit`, verdrahtet
+  in `tabs/mesh.ts` neben der Standard-Schiene).
+- Gemerkt wird nur eine eigene Wahl („sats“ oder „sol“); „automatisch“
+  entfernt sie – dann gilt `anzeigeEinheit()` wie bisher. Die Wahl reist mit
+  der Sicherung (Eintrag seit 12.1).
+- Der Text sagt, was es tut: nur die Anzeige; die andere Einheit mit „≈“ und
+  dem Kurs von jetzt, der genaue Betrag immer dabei; ohne Kurs keine
+  umgerechnete Zahl.
+
+**Tests:** app +2 (`anzeige-einheit.test.ts`: Optionen und Ort, Sicherung,
+Verdrahtung – nur sats/SOL gemerkt, sonst entfernt). Smoke „waehrung“:
+Vorbelegung leer, „SOL“, „sats“, zurück zu „automatisch“ entfernt die Wahl.
+
+## Schritt B-17b3a – OpenTimestamps: Die App stempelt Mandate und Quittungen (5.10b, Sammlung B-17)
+
+Entscheidungen K1–K5 A (MENSCH 06.10.2026). Erster Teil der Anbindung; die
+Prüfung von Mandaten der Kontakte gegen Bitcoin folgt in B-17b3b.
+
+**Was neu ist:**
+- `zeitanker.ts` (ohne DOM): `ZeitankerBuch` (`freedom.zeitanker` in `geheim`,
+  höchstens 500, streng gelesen), `quittungsDigest()` (SHA-256 über die Felder
+  in fester Reihenfolge, ohne den Stand – der wechselt zu „belegt“) und
+  `zeitankerTakt()`: offene Werte bündeln und stempeln (bis 64 je Schlag),
+  Beweise ab einer Stunde nachreichen (bis 8 je Schlag; eine Abfrage je Adresse
+  über `mitGedaechtnis()`, Beweise eines Bündels teilen sich die Versprechen),
+  verankerte Mandate als Kind 1040 veröffentlichen. Fehler warten auf den
+  nächsten Schlag.
+- `shell/zeitanker-takt.ts`: `ankereMandat()` nach dem Veröffentlichen in
+  „Schlüsselwechsel vorbereiten“ (`tabs/sicherung.ts`), `ankereQuittung()`
+  nach jedem `quittungsBuch.lege()` (`shell/quittungen.ts`, Lightning und
+  Zahlkanal), `zeitankerSchlag()` im Abruftakt (`app.ts`, jeder 20. Schlag,
+  etwa alle zehn Minuten) – ohne offene Anker kein Netz; als Gerät kein 1040.
+- Der Beweis zur Quittung bleibt auf dem Gerät (K3 A); `freedom.zeitanker` in
+  `SICHERUNG_NIE`, im Export neben den Quittungen.
+- Datenschutzbericht: Grenze „zeitanker“ (deutsch und englisch) – die Kalender
+  sehen IP und Zeitpunkt, nie wofür; mit Tor nur den Ausgang.
+
+**Verdrahtet:** `shell/tabs/sicherung.ts` (`ankereMandat(mandat)` nach
+`publish`), `shell/quittungen.ts` (zweimal `ankereQuittung`), `shell/app.ts`
+(`abrufTakt.melde("zeitanker", …, 20)`); elf Ausnahmen in
+`wiring-ausnahmen.txt` fielen weg, offen bleiben `leseOtsBeweis`,
+`leseBlockkopf`, `pruefeVerankerung` (B-17b3b).
+
+**Tests:** `app/test/zeitanker.test.ts` mit den echten Antworten aus der
+Referenz – vormerken, stempeln, nach einer Stunde Block 970158 nachreichen,
+1040 mit genau dem Weg zu Bitcoin; Quittung nie hinaus, als Gerät kein 1040,
+Fehler ohne Verlust, eine Abfrage je Adresse; Verdrahtung im Quelltext.
+
+**Prüfungen:** protocol 1183 grün (+1, Aussage „zeitanker“), 6 übersprungen; node
+313 (7 übersprungen ohne Netz), app 919 (+6, `zeitanker.test.ts`), mls 13, Leak
+73 + 1 todo; Typprüfung überall, Build, check-wiring Exit 0 (11 Ausnahmen
+weniger), innerHTML Exit 0, Website ok, Smoke-Test bestanden, build-site ok,
+reproduzierbar.
+
+Knoten-Stand: unverändert.
+
+## Schritt B-17b3b – OpenTimestamps: Mandate von Kontakten gegen Bitcoin (5.10b, Sammlung B-17)
+
+Letzter Teil von B-17 (K1 A: „ein Anker belegt das frühe Mandat auch gegenüber
+Kontakten, die es spät sehen“; K4 A: Prüfung nur bei Bedarf, über zwei Explorer).
+
+**Was neu ist:**
+- `merkeMandate(…, anker)` (`key-rotation.ts`): `anker` nennt je Mandat die
+  geprüfte Blockzeit. Kommen mehrere zugleich zum ersten Mal, gewinnt das früher
+  verankerte vor jedem unverankerten – erst ohne Anker der Zeitstempel. Ein
+  gemerktes Mandat löst nur ein verankertes ab, das mehr als
+  `ANKER_SPIELRAUM_SEK` (zwei Stunden, die Blockzeit setzt der Miner) früher
+  liegt als alles, was das gemerkte belegt (sein Anker, sonst „gesehen“); der
+  Anker des gemerkten selbst wird festgehalten und hebt die Latte. Ein Dieb
+  verankert erst nach dem Diebstahl – zu spät.
+- `mandat-anker.ts` (ohne DOM): `streitigeMandate()` – nur alte Schlüssel mit
+  mehr als einem Nachfolger (in Mandaten oder gemerkt); `ankerZeiten()` – nur
+  Kind 1040, die genau eines dieser Mandate beweisen (Kennung und Art), je
+  Mandat die niedrigste Höhe, höchstens vier Prüfungen je Durchgang; geprüft
+  gemerkt je Beweis, „keine Aussage“ nie.
+- `ankerFuerStreit()` (`shell/zeitanker-takt.ts`) in `aktualisiereSchluessel()`
+  (`tabs/kontakte.ts`): ohne Streit kein Netz; sonst die 1040 zu den
+  streitigen Mandaten (`#e`) und `pruefeVerankerung()` gegen beide Explorer.
+- `leseGemerkt()` liest den Anker mit (streng); Datenschutz „zeitanker“ nennt
+  jetzt auch die Explorer (deutsch und englisch).
+
+**Verdrahtet:** `tabs/kontakte.ts` (`ankerFuerStreit(pool, mandate, gemerkt)` →
+`pruefeKontakte(…, anker)`); die letzten drei OTS-Ausnahmen in
+`wiring-ausnahmen.txt` entfallen – B-17 ist damit ganz im echten Pfad.
+
+**Tests:** `key-rotation.test.ts` (+3: zugleich gesehen, spät gesehen mit
+Spielraum, Dieb verankert zu spät), `mandat-anker.test.ts` (+5: Streit nur bei
+mehreren Nachfolgern; der echte Beweis zu Block 970158 über
+`pruefeVerankerung()` mit den Köpfen aus der Referenz; fremde Kennung, falsche
+Art, unlesbar, „uneinig“ nie gemerkt, Grenze; der Dieb zuerst gesehen, das echte
+früher verankert → echter Nachfolger; Verdrahtung).
+
+Ein bestehender Test (`schluessel-status.test.ts`, 8.6a) prüfte den Aufruf von
+`pruefeKontakte()` wörtlich – er prüft jetzt den neuen mit Anker (mehr, nicht weniger).
+
+**Prüfungen:** protocol 1186 grün (+3), 6 übersprungen; node 313 (7 übersprungen
+ohne Netz), app 924 (+5), mls 13, Leak 73 + 1 todo; Typprüfung überall, Build,
+check-wiring Exit 0 (keine OTS-Ausnahme mehr), innerHTML Exit 0, Website ok,
+Smoke-Test bestanden, build-site ok, reproduzierbar.
+
+Knoten-Stand: unverändert.
+
 ## Schritt D2 – Privat-Schalter je Unterhaltung
 
 Datenschutz gegenüber Providern, Stufe 2 (Karte `docs/DATENSCHUTZ-PROVIDER.md`).
@@ -17130,3 +17317,13 @@ Frage an localhost, die Frage bleibt im Feld, Hinweis im Toast; privat mit
 „Dieses Gerät“ – die Frage geht wie bisher ans Gerät. Gegenprobe: ohne Sperre
 wird die Prüfung rot (Frage gesendet, Feld leer). Gleich streng angepasst:
 `ki-funk.test.ts` (zwischen Prompt und Funk steht genau die Privat-Sperre).
+
+**Prüfungen** (nach dem Einmergen von main mit 12.7c, 12.1 C, B-17b2, B-17b3a–b):
+- protocol 1186 grün, 6 übersprungen, 0 rot (unverändert);
+- node 314 grün, 6 übersprungen;
+- app 927 grün (vorher 924), Build ok;
+- Leak 73 grün + 1 todo; mls 13 grün;
+- check-wiring `--streng` Exit 0, check-website 5 Seiten ok, check_innerhtml Exit 0;
+- Smoke-Test bestanden (mit der neuen Prüfung „privat“ in „lokal“).
+
+Knoten-Stand: unverändert.

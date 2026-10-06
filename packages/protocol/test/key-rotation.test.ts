@@ -11,7 +11,7 @@ import { generateKeypair, signEvent, buildEvent, NostrEvent } from "../src/event
 import {
   buildRotationMandate, parseRotationMandate, buildRevocation, parseRevocation,
   resolveKey, trustEvent, rotationWarning, revocationInstructions, merkeMandate,
-  KIND_ROTATION_MANDATE,
+  KIND_ROTATION_MANDATE, ANKER_SPIELRAUM_SEK,
 } from "../src/key-rotation.js";
 
 const NOW = 1_800_000_000;
@@ -232,4 +232,51 @@ test("8.6a: ein gemerktes Mandat gilt auch, wenn die Relays es nicht mehr liefer
 test("8.6a: die Warnung nennt die Grenze des Merkens", () => {
   assert.match(rotationWarning(), /merken sich diese Erklärung/);
   assert.match(rotationWarning(), /zurückdatierte des Diebs/);
+});
+
+// ------------------------------------------------ B-17b3b: Zeitanker entscheiden
+
+test("B-17b3b: zugleich zum ersten Mal gesehen – das verankerte gewinnt vor dem zurückdatierten, das frühere vor dem späteren", () => {
+  const echt = mandat(ALT, NEU.pk, NOW - 10 * TAG);
+  const dieb = mandat(ALT, DIEB.pk, 1_577_836_800); // auf 2020 zurückdatiert
+  // ohne Anker: der Zeitstempel – der Dieb gewinnt (die bekannte Grenze)
+  assert.equal(merkeMandate({}, [echt, dieb], NOW).gemerkt[ALT.pk]!.neu, DIEB.pk);
+  // mit Anker des echten: Bitcoin schlägt jeden Zeitstempel
+  const r = merkeMandate({}, [echt, dieb], NOW, new Map([[echt.id, NOW - 9 * TAG]]));
+  assert.deepEqual(r.gemerkt[ALT.pk], { neu: NEU.pk, gesehen: NOW, anker: NOW - 9 * TAG });
+  assert.equal(resolveKey(ALT.pk, [echt, dieb], { gemerkt: r.gemerkt }).currentPubkey, ALT.pk, "ohne Widerruf gilt der alte noch");
+  // beide verankert: der frühere Block
+  const beide = merkeMandate({}, [dieb, echt], NOW, new Map([[echt.id, NOW - 9 * TAG], [dieb.id, NOW - TAG]]));
+  assert.equal(beide.gemerkt[ALT.pk]!.neu, NEU.pk);
+});
+
+test("B-17b3b: wer das Mandat des Diebs zuerst sah, wechselt zum echten, wenn Bitcoin es deutlich früher belegt", () => {
+  const echt = mandat(ALT, NEU.pk, NOW - 30 * TAG);
+  const dieb = mandat(ALT, DIEB.pk, NOW - 40 * TAG);
+  // Die App sah nur das Mandat des Diebs (das echte lag nicht auf ihren Relays)
+  const { gemerkt } = merkeMandate({}, [dieb], NOW - TAG);
+  assert.equal(gemerkt[ALT.pk]!.neu, DIEB.pk);
+  // Später: das echte, in Bitcoin vor 29 Tagen verankert – lange bevor die App den Dieb sah
+  const r = merkeMandate(gemerkt, [dieb, echt], NOW, new Map([[echt.id, NOW - 29 * TAG]]));
+  assert.equal(r.neu, true);
+  assert.deepEqual(r.gemerkt[ALT.pk], { neu: NEU.pk, gesehen: NOW, anker: NOW - 29 * TAG });
+  const events = [echt, dieb, widerruf(DIEB, ALT.pk, "gestohlen", NOW + 10), widerruf(NEU, ALT.pk, "gestohlen", NOW + 20)];
+  assert.equal(resolveKey(ALT.pk, events, { gemerkt: r.gemerkt }).currentPubkey, NEU.pk);
+  // ohne Anker oder innerhalb des Spielraums: das gemerkte bleibt
+  assert.equal(merkeMandate(gemerkt, [dieb, echt], NOW).neu, false, "ohne Anker nie");
+  assert.equal(merkeMandate(gemerkt, [echt], NOW, new Map([[echt.id, NOW - TAG - ANKER_SPIELRAUM_SEK]])).neu, false, "Spielraum: zwei Stunden reichen nicht");
+  assert.equal(merkeMandate(gemerkt, [echt], NOW, new Map([[echt.id, NOW - TAG - ANKER_SPIELRAUM_SEK - 1]])).gemerkt[ALT.pk]!.neu, NEU.pk);
+});
+
+test("B-17b3b: ein Dieb verankert erst nach dem Diebstahl – das gemerkte echte bleibt, und sein eigener Anker hebt die Latte", () => {
+  const echt = mandat(ALT, NEU.pk, NOW - 100 * TAG);
+  const { gemerkt } = merkeMandate({}, [echt], NOW - 90 * TAG);
+  const dieb = mandat(ALT, DIEB.pk, 1_577_836_800);
+  // Der Dieb stiehlt heute und verankert heute: später als das gemerkte gesehen wurde
+  assert.equal(merkeMandate(gemerkt, [echt, dieb], NOW, new Map([[dieb.id, NOW - TAG]])).neu, false);
+  // Der Anker des gemerkten wird festgehalten …
+  const mitAnker = merkeMandate(gemerkt, [echt], NOW, new Map([[echt.id, NOW - 95 * TAG]]));
+  assert.deepEqual(mitAnker.gemerkt[ALT.pk], { neu: NEU.pk, gesehen: NOW - 90 * TAG, anker: NOW - 95 * TAG });
+  // … und ein noch früherer Anker eines anderen müsste davor liegen
+  assert.equal(merkeMandate(mitAnker.gemerkt, [dieb], NOW, new Map([[dieb.id, NOW - 94 * TAG]])).neu, false);
 });

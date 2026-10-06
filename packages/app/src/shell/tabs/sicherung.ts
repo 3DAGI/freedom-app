@@ -16,6 +16,7 @@ import { $, el, toast } from "../ui.js";
 import { bestaetige, dialog } from "../dialog.js";
 import { geraeteBuch } from "./posteingang.js";
 import { aktualisiereSicherheitsStand, nurHauptidentitaet, richteNachfolgeEin } from "./settings.js";
+import { ankereMandat } from "../zeitanker-takt.js";
 
 
 /** Was das Zusammenfuehren (B-5) tut – vor dem Schreiben gezeigt. */
@@ -222,8 +223,10 @@ async function bereiteWechselVor(): Promise<void> {
   if (!(await bestaetige({ titel: t("set.schritt3"), text: fliesstext(wechselWarnung()), ok: t("set.ersatzErzeugen") }))) return;
   try {
     const ersatz = generateKeypair();
-    await (await ensurePool()).publish(
-      await signiere(buildRotationMandate(state.keypair.pk, ersatz.pk)));
+    const mandat = await signiere(buildRotationMandate(state.keypair.pk, ersatz.pk));
+    await (await ensurePool()).publish(mandat);
+    // Zeitanker (B-17b3a, K1 A): Bitcoin belegt später, dass dieses Mandat vor jedem eines Diebs da war
+    await ankereMandat(mandat);
 
     // Der Ersatz darf NICHT auf diesem Geraet bleiben — wer beides hat, ist du.
     const url = URL.createObjectURL(new Blob([

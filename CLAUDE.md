@@ -45,9 +45,9 @@ bash packages/mls/bauen.sh --pruefen                     # nur bei Änderungen a
 bash contracts/solana-channel/pruefen.sh --werkzeuge     # nur bei Änderungen am Zahlkanal: bauen + Tests gegen Validator (Agave 3.1.10)
 ```
 
-Stand 06.10.2026 (nach 8.2c, 5.5a–c, 8.15, 11.1a, C.3c2, 11.1b, 5.9a–b, 6.3a–b2, 11.4a–b2, C.4a–b, C.5a–b, C.6b, 11.4c, C-18, C-17a–c, C-20a–j3, C-1a–f, C-2, C-3, C-4, C-5a–d, C-6a–e, C-7a–b, C-8, C-10 bis C-16, 11.2a–b, A-4 bis A-7, A-7r, Z1, 12.1–12.3, E8, P1a–b, P2a, E10a, E11, E9-Entwurf, 12.4a, P2b1–b2, P3a–b, P4, P5a–b, P5c1–c2, D1a, D1b1–b2, D1c, D2, 12.6, 12.7a–b, B-1, B-2a–c, B-3 bis B-7, B-8a–c, B-9a, B-15, B-19, B-20a–c, B-10a–b, B-9b1–b2, B-9c1–c3, B-11a–c, B-12a–d, B-13a–e, B-21, B-17a und B-17b1): protocol 1177 grün (6 übersprungen), node 314 grün
+Stand 06.10.2026 (nach 8.2c, 5.5a–c, 8.15, 11.1a, C.3c2, 11.1b, 5.9a–b, 6.3a–b2, 11.4a–b2, C.4a–b, C.5a–b, C.6b, 11.4c, C-18, C-17a–c, C-20a–j3, C-1a–f, C-2, C-3, C-4, C-5a–d, C-6a–e, C-7a–b, C-8, C-10 bis C-16, 11.2a–b, A-4 bis A-7, A-7r, Z1, 12.1–12.3, E8, P1a–b, P2a, E10a, E11, E9-Entwurf, 12.4a, P2b1–b2, P3a–b, P4, P5a–b, P5c1–c2, D1a, D1b1–b2, D1c, D2, 12.6, 12.7a–c, 12.1 C, B-1, B-2a–c, B-3 bis B-7, B-8a–c, B-9a, B-15, B-19, B-20a–c, B-10a–b, B-9b1–b2, B-9c1–c3, B-11a–c, B-12a–d, B-13a–e, B-21, B-17a, B-17b1, B-17b2, B-17b3a und B-17b3b): protocol 1186 grün (6 übersprungen), node 314 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 909 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 73 grün + 1 `todo` (heutige Lecks,
+in `tools.test.ts`), app 927 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 73 grün + 1 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
 Ausnahme: gesendete SOL-Zahlungen von frischen Adressen, eine bewusste Grenze
 nach Entscheidung 4.9 A – im Datenschutzbericht unter „Bewusste Grenzen“).
@@ -267,7 +267,8 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   zuerst steht, bestimmt seit 12.1 nur `anzeigeEinheit()` (`standard-schiene.ts`:
   eigene Wahl `freedom.anzeigeEinheit`, sonst SOL bei SOL als Standard-Schiene,
   sonst jeder Betrag in seiner Einheit); Umgerechnetes trägt immer „≈“, der
-  genaue Betrag steht dabei.
+  genaue Betrag steht dabei. Gewählt wird sie (seit 12.1 C) nur über
+  `#anzeige-einheit` in Währung › Zahlen – „automatisch“ entfernt die Wahl.
   Einnahmen (seit C-2) in der Einheit ihrer Kette über `einnahmeText()` – das
   Leistungs-Event nennt nur msat, SOL also nur „≈“ mit dem Kurs von jetzt.
 - **Zahlkanal nur nach `docs/ZAHLKANAL.md`** (seit 4.3a): Client
@@ -425,6 +426,12 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   zuerst gesehene Mandat gilt (`merkeMandate()`, Gedächtnis `freedom.mandate`
   im Tresor), nie das mit dem ältesten Zeitstempel allein. Mandate haben eine
   Adresse je Nachfolger (`rotation:<neu>`), damit ein Dieb sie nicht ersetzt.
+  Ausnahme seit B-17b3b (K1/K4 A): ein Mandat mit GEPRÜFTEM Bitcoin-Anker
+  (`merkeMandate(…, anker)`, Zeit aus `pruefeVerankerung()`) schlägt jedes
+  unverankerte und löst ein gemerktes nur ab, wenn es mehr als
+  `ANKER_SPIELRAUM_SEK` früher liegt als dessen Anker bzw. „gesehen“. Geholt und
+  geprüft wird nur bei Streit (`ankerFuerStreit()`: ein alter Schlüssel, mehrere
+  Nachfolger) – nie für alle Kontakte; eine bloße Höhe aus einem 1040 zählt nie.
 - **Direktnachrichten an jedes Gerät** (seit 8.6b): Chat-Nachrichten mit
   `buildPrivateDm(…, { weitereEmpfaenger })` – Geräte des Kontakts und eigene
   aus `geraeteBuch.kopienFuer()`, zugestellt am Posteingang der Person. Beim
@@ -932,7 +939,12 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   wiederholen. Empfangen (seit 12.7b, `shell/empfangen-ui.ts`): Lightning nur
   `eigeneRechnung()`, SOL nur `eigeneSolAdresse()` (frisch aus dem Vorrat, sonst
   ausdrücklich die verbundene; nie die Hauptadresse, nie ausweichen); gezeigt
-  über `empfangsLink()`, nichts an ein Relay.
+  über `empfangsLink()`, nichts an ein Relay. Verlauf (seit 12.7c): jede
+  Zahlung über `zahlschienen()` landet über `mitBuch()` im Zahlungsbuch
+  (`zahlungsbuch.ts`, `freedom.zahlungen` nur in `geheim`, `SICHERUNG_NIE`,
+  im Export) – erst nach dem Zahlen, ein Fehler beim Merken stoppt keine
+  Zahlung; der Wallet-Verlauf (NWC `list_transactions`) nur auf Klick und nur
+  über `leseWalletBuchungen()`.
 - **Zahlung im Chat anfordern** (seit A-5): Die Anforderung ist eine
   gewöhnliche Direktnachricht mit `lightning:`/`solana:`-Adresse
   (`zahlungs-anforderung.ts`) – kein eigenes Event, gesendet nur über das
@@ -1264,6 +1276,18 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   Anfragen ohne Content-Type – die Kalender erlauben jede Herkunft, beantworten aber keinen
   Preflight. NIP-03 (Kind 1040) nur über `baueOtsBeweis()` (nur Bitcoin, `nurBitcoin()`) und
   `leseOtsBeweis()`; eine Höhe darin ist ungeprüft, bis der Blockkopf passt (B-17b2).
+  „Verankert“ (seit B-17b2, K4 A) nur über `pruefeVerankerung()` (`ots-bitcoin.ts`): Blockkopf
+  von beiden Explorern aus `OTS_EXPLORER`, nur gleich gilt er, und er prüft sich selbst
+  (`leseBlockkopf()`: Hash gleich dem genannten, Arbeit, Ziel des Hauptnetzes). Fehlt einer oder
+  sind sie uneinig: keine Aussage – nie auf einen Explorer allein ausweichen. Gefragt nur bei
+  Bedarf; die Explorer sehen IP und Höhe. Node-`fetch` nutzt den Agent-Proxy nur mit
+  `NODE_USE_ENV_PROXY=1` (und `NODE_EXTRA_CA_CERTS`) – Live-Proben sonst „nicht-erreichbar“.
+  In der App (seit B-17b3a, K1–K3 A) nur über `shell/zeitanker-takt.ts`: vorgemerkt wird ein
+  eigenes Mandat nach dem Veröffentlichen (`ankereMandat()`) und eine Quittung nach dem Ablegen
+  (`ankereQuittung()`, Wert `quittungsDigest()` ohne Stand); gestempelt, nachgereicht und das
+  Mandat als 1040 veröffentlicht nur im Abruftakt (`zeitankerTakt()`, ohne Anker kein Netz) – als
+  Gerät nie. Beweise nur in `freedom.zeitanker` (`geheim`, `SICHERUNG_NIE`, im Export); der zur
+  Quittung geht nie hinaus. Grenze „zeitanker“ im Bericht nennt dieselben Kalender wie `OTS_KALENDER`.
 - **Persönliche Angaben in KI-Fragen nur über Platzhalter** (seit D1a,
   `docs/DATENSCHUTZ-PROVIDER.md`): Erkannt wird nur, was eine prüfbare Form hat
   (`ersetzeAngaben()`, `platzhalter.ts` im Protokoll: E-Mail, Telefon, IBAN mit

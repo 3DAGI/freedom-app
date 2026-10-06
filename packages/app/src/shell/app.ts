@@ -49,6 +49,7 @@ import { wireEigeneAdresse, wireWerbeName } from "./werben-ui.js";
 import { wireBelege } from "./belege-ui.js";
 import { wireSenden } from "./senden-ui.js";
 import { wireEmpfangen } from "./empfangen-ui.js";
+import { wireVerlauf } from "./verlauf-ui.js";
 import { wireSprachnachricht } from "./sprachnachricht-ui.js";
 import { wireAnrufe } from "./anruf-ui.js";
 import {
@@ -886,6 +887,8 @@ function starte(): void {
   abrufTakt.melde("quittungen", () => import("./quittungen.js").then((q) => q.hebeKanalQuittungen()), 20);
   // Zusammenfassung an Kontakte (5.5c) – nur mit Zustimmung, je Schlag höchstens ein Umschlag
   abrufTakt.melde("ruf", () => import("./ruf.js").then((r) => r.rufTakt()), 1);
+  // Zeitanker (B-17b3a, K2 A): stempeln, nachreichen, Beweis zum Mandat – etwa alle zehn Minuten, ohne Anker kein Netz
+  abrufTakt.melde("zeitanker", () => import("./zeitanker-takt.js").then((z) => z.zeitankerSchlag()), 20);
   void zeigeOnboarding();
   const succSetup = $("#succ-setup");
   if (succSetup) succSetup.onclick = () => void richteNachfolgeEin();
@@ -966,6 +969,7 @@ function starte(): void {
   wireBelege();
   wireSenden();
   wireEmpfangen();
+  wireVerlauf();
   setupCopyButtons();
 }
 

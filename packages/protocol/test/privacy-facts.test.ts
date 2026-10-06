@@ -554,7 +554,8 @@ test("belegte Aussagen nennen ihre Regel, und jede genannte Regel gibt es", () =
   // Ohne Regel nur, was kein Event-Mitschnitt pruefen kann.
   // „ki-verlauf“ (D1c): was der Provider nach dem Öffnen liest, sieht kein Mitschnitt – den Umfang prüft app/test/ki-kontext.test.ts
   // „ki-unterhaltung“ (D1b2): welcher Schlüssel je Unterhaltung, entscheidet die App – das prüft app/test/ki-wechsel.test.ts
-  assert.deepEqual(PRIVACY_FACTS.filter((f) => !f.regel).map((f) => f.id).sort(), ["dm-forward-secrecy", "ip", "ki-unterhaltung", "ki-verlauf", "werbe-name"]);
+  // „zeitanker“ (B-17b3a): die Kalender fragt die App per https, nicht über ein Relay – das prüft app/test/zeitanker.test.ts
+  assert.deepEqual(PRIVACY_FACTS.filter((f) => !f.regel).map((f) => f.id).sort(), ["dm-forward-secrecy", "ip", "ki-unterhaltung", "ki-verlauf", "werbe-name", "zeitanker"]);
 });
 
 test("4.5b: eine SOL-Adresse je Knoten steht als bewusste Grenze im Bericht – mit Grund und Entscheidung", () => {
@@ -710,4 +711,16 @@ test("6.2: nicht erreichbar → nie „verborgen“, sondern Lücke mit „nativ
   // Ohne Pruefung: der Text wie bisher, ohne Hinweis.
   assert.equal(privacyFactsText(faktenDieserSitzung()), privacyFactsText());
   assert.match(privacyFactsText(), /○ Noch nicht: Relays sehen deine IP-Adresse nicht\. \(Ausbauplan 6\.1\)\n/);
+});
+
+test("B-17b3a: Zeitanker stehen als Grenze im Bericht – was die Kalender sehen, Tor, wo die Beweise liegen", () => {
+  const f = PRIVACY_FACTS.find((x) => x.id === "zeitanker");
+  assert.equal(f?.status, "grenze");
+  assert.equal(f?.regel, undefined, "die Kalender fragt die App per https, nicht als Event an ein Relay");
+  assert.match(f?.aussage ?? "", /drei OpenTimestamps-Kalender \(alice, bob, finney\)/, "K5 A: dieselben wie OTS_KALENDER");
+  assert.match(f?.grund ?? "", /mit Tor \(Tor Browser\) sehen Kalender und Explorer nur den Ausgang/);
+  assert.match(f?.aussage ?? "", /Streiten zwei Mandate eines Kontakts, prüft die App deren Anker bei mempool\.space und blockstream\.info/, "B-17b3b: K4 A, nur bei Streit");
+  assert.match(f?.grund ?? "", /der zur Quittung bleibt im Tresor/, "K3 A");
+  const t = privacyFactsText();
+  assert.match(t.slice(t.indexOf("Bewusste Grenzen:")), /△ Für Zeitanker schickt die App Fingerabdrücke .*die Blockhöhe\./);
 });

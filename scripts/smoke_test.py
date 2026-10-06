@@ -675,7 +675,7 @@ class DialogSeite:
 
 def waehrung_pruefen(browser, url: str) -> dict:
     """Währung (C-1a): Tausch über Dialoge statt prompt()/confirm() – Betrag und Adresse prüft der Dialog,
-    abgebrochen geht nichts hinaus. Senden (12.7a): Ziel, Betrag, Bestätigung, ohne Wallet ehrlich gescheitert. Empfangen (12.7b): ohne Wallet ein Hinweis. LP-Angebote aus `scripts/lp-probe.mts` über die Relay-Attrappe."""
+    abgebrochen geht nichts hinaus. Senden (12.7a): Ziel, Betrag, Bestätigung, ohne Wallet ehrlich gescheitert. Empfangen (12.7b): ohne Wallet ein Hinweis. Verlauf (12.7c): leer, Lightning ohne NWC. LP-Angebote aus `scripts/lp-probe.mts` über die Relay-Attrappe."""
     erg = {"fehler": []}
     wurzel = Path(__file__).resolve().parent.parent
     aus = subprocess.run(["npx", "tsx", "scripts/lp-probe.mts"], cwd=wurzel, capture_output=True, text=True, timeout=180, check=True)
@@ -800,12 +800,25 @@ def waehrung_pruefen(browser, url: str) -> dict:
     if ed != {"ohne_betrag": "Für eine Rechnung den Betrag in ganzen sats eintragen",
               "ln": "Lightning empfangen braucht eine verbund", "sol": "SOL empfangen braucht eine Solana-Wallet"}:
         erg["fehler"].append(f"Empfangen {ed}")
+    # Verlauf (12.7c): leer ohne Zahlungen (nur aus dem Tresor, ohne Netz); die Lightning-Wallet nur auf Klick
+    vl = {"leer": ev("() => document.getElementById('verlauf-liste').textContent")}
+    ev("() => document.getElementById('verlauf-ln').click()")
+    s.wait_for_function("() => document.getElementById('verlauf-ln-liste').textContent !== '…' && document.getElementById('verlauf-ln-liste').textContent !== ''", timeout=10000)
+    vl["ln"] = ev("() => document.getElementById('verlauf-ln-liste').textContent")
+    erg["verlauf_wallet"] = vl
+    if vl != {"leer": "Noch keine Zahlungen. Ist der Tresor gesperrt, erst entsperren.", "ln": "Keine Lightning-Wallet verbunden (NWC)."}:
+        erg["fehler"].append(f"Verlauf {vl}")
     # Umzug (C-8): Gebühren und Standard-Schiene unter Währung › Zahlen, Modell vorhalten unter Verdienen › Hosten
     ev("() => document.querySelector('[data-subtab-group=wallet] [data-subtab=pay]').click()")
     s.wait_for_function("() => document.getElementById('anteile-stand')?.textContent === 'Nichts gesammelt.'", timeout=10000)
     umzug = {"reiter": ev("() => [...document.querySelectorAll('[data-subtab-group=wallet] [data-subtab]')].map(b => b.textContent)"),
              "zahlen": ev("() => ['standard-schiene', 'anteile-zahlen'].map(id => !!document.getElementById(id).offsetParent)"),
              "settings": ev("() => [...document.querySelectorAll('[data-subtab-group=settings] [data-subtab]')].map(b => b.dataset.subtab)")}
+    # Anzeigeeinheit (12.1): neben der Standard-Schiene; nur sats/SOL wird gemerkt, „automatisch“ entfernt die Wahl
+    def einheit(wert: str):
+        ev("(v) => { const e = document.getElementById('anzeige-einheit'); e.value = v; e.dispatchEvent(new Event('change')); }", wert)
+        return ev("() => localStorage.getItem('freedom.anzeigeEinheit')")
+    umzug["einheit"] = [ev("() => document.getElementById('anzeige-einheit').value"), einheit("sol"), einheit("sats"), einheit("")]
     ev("() => { location.hash = '#/verdienen'; }")
     s.wait_for_function("() => !!document.querySelector('[data-subtab-group=earn] [data-subtab=host]')?.offsetParent", timeout=10000)
     ev("() => document.querySelector('[data-subtab-group=earn] [data-subtab=host]').click()")
@@ -816,7 +829,7 @@ def waehrung_pruefen(browser, url: str) -> dict:
     seite.warte_zu()
     erg["umzug"] = umzug
     if not (umzug["reiter"] == ["Übersicht", "Tauschen", "Hinterlegen", "Zahlen"] and umzug["zahlen"] == [True, True]
-            and "fees" not in umzug["settings"] and umzug["hosten"] == ["earn:host", "earn:host"]
+            and "fees" not in umzug["settings"] and umzug["hosten"] == ["earn:host", "earn:host"] and umzug["einheit"] == ["", "sol", "sats", None]
             and umzug["vorhalten"]["felder"] == ["Welches Modell hältst du vor?", "Welche Dateien? (kommagetrennt, leer = alle)"]):
         erg["fehler"].append(f"Umzug {umzug}")
     erg["browser_dialoge"] = browser_dialoge

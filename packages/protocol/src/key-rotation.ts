@@ -86,31 +86,60 @@ export function buildRotationMandate(
   );
 }
 
-/** Zuerst gesehene Mandate: alter Schluessel → Nachfolger und wann gesehen. */
-export type GemerkteMandate = Record<string, { neu: string; gesehen: number }>;
+/**
+ * Zuerst gesehene Mandate: alter Schluessel → Nachfolger, wann gesehen und –
+ * seit B-17b3b – die in Bitcoin geprüfte Zeit seines Ankers (Unix-Sekunden).
+ */
+export type GemerkteMandate = Record<string, { neu: string; gesehen: number; anker?: number }>;
+
+/** Spielraum für die Zeit eines Blocks: Der Miner setzt sie, auf etwa zwei Stunden genau. */
+export const ANKER_SPIELRAUM_SEK = 7200;
 
 /**
  * Mandate merken (8.6a): je altem Schluessel nur das erste, das diese App
  * sieht – spaetere oder zurueckdatierte aendern nichts mehr. Liefert eine
  * neue Karte und ob sie sich geaendert hat.
+ *
+ * Zeitanker (B-17b3b, K1 A): `anker` nennt je Mandat (Event-Kennung) die
+ * GEPRÜFTE Zeit seines Bitcoin-Blocks (`pruefeVerankerung()`). Kommen mehrere
+ * zugleich zum ersten Mal, gewinnt das früher verankerte vor jedem
+ * unverankerten; erst ohne Anker entscheidet der Zeitstempel. Ein gemerktes
+ * Mandat löst nur ein anderes ab, das verankert ist und mehr als den
+ * Spielraum früher als alles, was das gemerkte belegt (sein Anker, sonst
+ * wann es gesehen wurde) – so belegt der Anker das frühe Mandat auch
+ * gegenüber Kontakten, die es spät sehen. Rückdatieren nützt nichts: einen
+ * Block in der Vergangenheit kann niemand nachträglich füllen.
  */
 export function merkeMandate(
   bekannt: GemerkteMandate, events: readonly NostrEvent[], nowSecs = Math.floor(Date.now() / 1000),
+  anker: ReadonlyMap<string, number> = new Map(),
 ): { gemerkt: GemerkteMandate; neu: boolean } {
   const gemerkt: GemerkteMandate = { ...bekannt };
   let neu = false;
-  // Kommen mehrere zugleich zum ersten Mal, entscheidet mangels Besserem der Zeitstempel (bis 5.10).
-  const kandidaten = new Map<string, RotationMandate>();
+  const lesbar: { m: RotationMandate; anker?: number }[] = [];
   for (const ev of events) {
     if (ev.kind !== KIND_ROTATION_MANDATE) continue;
-    let m: RotationMandate;
-    try { m = parseRotationMandate(ev); } catch { continue; }
-    if (gemerkt[m.oldPubkey]) continue;
-    const k = kandidaten.get(m.oldPubkey);
-    if (!k || m.createdAt < k.createdAt) kandidaten.set(m.oldPubkey, m);
+    try { lesbar.push({ m: parseRotationMandate(ev), anker: anker.get(ev.id) }); } catch { continue; }
   }
-  for (const m of kandidaten.values()) {
-    gemerkt[m.oldPubkey] = { neu: m.newPubkey, gesehen: nowSecs };
+  // Erst den Anker des gemerkten Mandats selbst festhalten – er hebt die Latte für andere.
+  for (const { m, anker: a } of lesbar) {
+    const fest = gemerkt[m.oldPubkey];
+    if (fest && fest.neu === m.newPubkey && a !== undefined && (fest.anker === undefined || a < fest.anker)) {
+      gemerkt[m.oldPubkey] = { ...fest, anker: a };
+      neu = true;
+    }
+  }
+  const frueher = (x: { m: RotationMandate; anker?: number }, y: { m: RotationMandate; anker?: number }): boolean =>
+    x.anker !== undefined ? y.anker === undefined || x.anker < y.anker : y.anker === undefined && x.m.createdAt < y.m.createdAt;
+  const kandidaten = new Map<string, { m: RotationMandate; anker?: number }>();
+  for (const k of lesbar) {
+    const fest = gemerkt[k.m.oldPubkey];
+    if (fest && (fest.neu === k.m.newPubkey || k.anker === undefined || k.anker + ANKER_SPIELRAUM_SEK >= (fest.anker ?? fest.gesehen))) continue;
+    const bisher = kandidaten.get(k.m.oldPubkey);
+    if (!bisher || frueher(k, bisher)) kandidaten.set(k.m.oldPubkey, k);
+  }
+  for (const { m, anker: a } of kandidaten.values()) {
+    gemerkt[m.oldPubkey] = { neu: m.newPubkey, gesehen: nowSecs, ...(a !== undefined ? { anker: a } : {}) };
     neu = true;
   }
   return { gemerkt, neu };
