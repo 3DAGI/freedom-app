@@ -17,10 +17,15 @@ byte-gleich zurück; dazu ein Bündel aus drei Werten mit festen Zufallszahlen
 Seit B-17b1 dazu: dasselbe Bündel mit den Antworten von alice, bob und finney
 (stempeln) und DIGEST bis zu Bitcoin-Block 970158 (nachreichen bei alice,
 abgeholt am 06.10.2026) samt dem Beweis nur mit dem Weg zu Bitcoin (NIP-03).
+Seit B-17b2 der echte Blockkopf zu Block 970158 (von beiden Explorern gleich),
+gegen den python-opentimestamps den Beweis prüft, und der Genesis-Block –
+beide mit python-bitcoinlib nachgerechnet.
 """
 import hashlib
 import json
 import pathlib
+
+from bitcoin.core import CBlockHeader, CoreMainParams, b2lx
 
 from opentimestamps.core.notary import BitcoinBlockHeaderAttestation, PendingAttestation
 from opentimestamps.core.op import OpAppend, OpHexlify, OpKECCAK256, OpPrepend, OpReverse, OpRIPEMD160, OpSHA1, OpSHA256
@@ -54,6 +59,11 @@ def attestierungen(t):
         else:
             out.append([msg.hex(), "unbekannt", ""])
     return out
+
+# Blockkopf zu Block 970158 (B-17b2): von mempool.space und blockstream.info am 06.10.2026,
+# beide gleich (GET /api/block-height/970158, dann /api/block/<hash>/header).
+BLOCK_970158_HASH = "000000000000000000016a9e2318ebe9c29135f5bd6d974e6983e302e2c7c99c"
+BLOCK_970158_KOPF = "00e0ff3f5cb0ec1b96b98a0b8a3f96a770422f1b49bd1ab0013f00000000000000000000b44e728e0d7b804e421254ce16e2a08576c616ad5bf47503bb4b2480ca5909d228c8c46af01e02178cbda523"
 
 
 def alle_knoten(t):
@@ -150,6 +160,18 @@ def main():
     o["nachreichung"] = {
         "vorher": vorher, "commitment": NACHREICHUNG_ALICE_COMMITMENT, "antwort": NACHREICHUNG_ALICE,
         "nachher": bytes_von(start).hex(), "attestierungen": attestierungen(start), "nurBitcoin": bytes_von(fertig).hex(),
+    }
+
+    # Blockköpfe (B-17b2): python-bitcoinlib rechnet Hash und Zeit nach, die Referenz prüft den Beweis gegen den Kopf
+    kopf = CBlockHeader.deserialize(bytes.fromhex(BLOCK_970158_KOPF))
+    assert b2lx(kopf.GetHash()) == BLOCK_970158_HASH
+    msg = [m for m, a in start.all_attestations() if isinstance(a, BitcoinBlockHeaderAttestation)][0]
+    zeit = BitcoinBlockHeaderAttestation(970158).verify_against_blockheader(msg, kopf)
+    genesis = CoreMainParams.GENESIS_BLOCK.get_header()
+    o["blockkopf"] = {
+        "hoehe": 970158, "hash": BLOCK_970158_HASH, "kopf": BLOCK_970158_KOPF, "zeit": zeit, "bits": kopf.nBits,
+        "wurzel": kopf.hashMerkleRoot.hex(),
+        "genesis": {"hash": b2lx(genesis.GetHash()), "kopf": genesis.serialize().hex(), "zeit": genesis.nTime, "bits": genesis.nBits},
     }
 
     ziel = pathlib.Path(__file__).resolve().parent.parent / "packages/protocol/test/fixtures/ots-referenz.json"
