@@ -32,7 +32,8 @@ import { zeigeMitwirkende } from "./earn.js";
 import { zeigeNachfolge } from "./settings.js";
 import { funkGeraetVerbunden, sendeUeberFunk } from "./mesh.js";
 import { lokal } from "./modellwahl.js";
-import { aktuellerVerlauf } from "./agent-verlauf.js";
+import { aktuellerVerlauf, privatGewaehlt } from "./agent-verlauf.js";
+import { kiWeg, wegErlaubt } from "../../ki-privat.js";
 import { askSwarm, askWithFailover, generateVideo, isPaymentNoise, privateAntworten } from "./agent-wege.js";
 import { addAiMessage, addAiMessageStreaming, addUsageBubble, advanceJobPipeline, EigeneMeldung, hideTyping, setTypingLabel, setTypingStatus, showAiError, showTyping, stickToBottom, toolLabel, updateBudgetBar } from "./agent-anzeige.js";
 import { attachment, hideEmptyState, selectedTools } from "./agent-eingabe.js";
@@ -133,6 +134,13 @@ export async function askAi(): Promise<void> {
     return;
   }
   if (!prompt) return;
+  // Privat (D2): nur dieses Gerät oder der eigene Knoten – nie Funk, nie das Netz (also auch keine Prüfrunde), nie still ausweichen
+  const wahl = ($("#ai-model") as HTMLInputElement | null)?.value;
+  const weg = kiWeg({ funk: ($("#ai-funk") as HTMLInputElement | null)?.checked === true, geraet: !!lokalesModellAus(wahl), knoten: knotenModellAus(wahl) !== null });
+  if (!wegErlaubt(privatGewaehlt(), weg)) {
+    toast(t("agent.privatNurGeraet"), true);
+    return;
+  }
 
   // KI über Funk (7.4c3): gewählt – die Antwort kommt später über setupFunkAntworten()
   if (($("#ai-funk") as HTMLInputElement | null)?.checked) {

@@ -18,6 +18,8 @@ interface AgentVerlauf {
   title: string;
   at: number;
   messages: { role: "user" | "ai"; text: string; meta?: string; model?: string }[];
+  /** Privat (D2): nur dieses Gerät oder der eigene Knoten. */
+  privat?: boolean;
 }
 
 export let aktuellerVerlauf: AgentVerlauf | null = null;
@@ -49,6 +51,7 @@ export function merkeNachricht(role: "user" | "ai", text: string, meta: string, 
       title: text.replace(/\s+/g, " ").trim().slice(0, 60) || t("agent.aufgabe"),
       at: Math.floor(Date.now() / 1000),
       messages: [],
+      ...(privatGewaehlt() ? { privat: true } : {}),
     };
     alle.unshift(aktuellerVerlauf);
   }
@@ -92,6 +95,7 @@ function oeffneVerlauf(id: string): void {
   if (!v) return;
   if (aktuellerVerlauf?.id !== v.id) wechsleKiSchluessel(); // D1b2: neue Sitzungsschlüssel je Unterhaltung
   aktuellerVerlauf = v;
+  setzePrivatHaken(v.privat === true); // D2: gilt je Unterhaltung
   neueZuordnung(); // Platzhalter (D1a) je Unterhaltung
   const thread = document.getElementById("ai-thread");
   thread?.replaceChildren();
@@ -108,6 +112,7 @@ export function neueAufgabe(): void {
   aktuellerVerlauf = null;
   neueZuordnung(); // Platzhalter (D1a) je Unterhaltung
   wechsleKiSchluessel(); // D1b2: neue Sitzungsschlüssel je Unterhaltung
+  setzePrivatHaken(false); // D2: eine neue Unterhaltung beginnt offen
   const thread = document.getElementById("ai-thread");
   const leer = document.getElementById("ai-empty");
   if (thread) thread.replaceChildren(...(leer ? [leer] : []));
@@ -140,4 +145,30 @@ export function aktualisiereAgentPanel(
     zeile.append(el("span", t("agent.dieseSitzung"), "panel-name"), el("span", `${Math.floor(sessionTotalMsat / 1000)} sat`, "panel-meta"));
     c.replaceChildren(zeile);
   }
+}
+
+// ------------------------------------------------ Privat je Unterhaltung (D2)
+
+/** Ist „privat“ für die Unterhaltung gewählt? Dann nur dieses Gerät oder der eigene Knoten (`wegErlaubt()`). */
+export function privatGewaehlt(): boolean {
+  return (document.getElementById("ai-privat") as HTMLInputElement | null)?.checked === true;
+}
+
+function setzePrivatHaken(an: boolean): void {
+  const h = document.getElementById("ai-privat") as HTMLInputElement | null;
+  if (h) h.checked = an;
+}
+
+/** Der Haken gehört zur Unterhaltung: geändert wird er mit ihr gemerkt (im Tresor wie der Verlauf). */
+export function wirePrivat(): void {
+  const h = document.getElementById("ai-privat") as HTMLInputElement | null;
+  if (!h) return;
+  h.addEventListener("change", () => {
+    if (!aktuellerVerlauf) return; // die neue Unterhaltung übernimmt ihn mit der ersten Frage
+    aktuellerVerlauf.privat = h.checked || undefined;
+    const alle = ladeVerlaeufe();
+    const i = alle.findIndex((x) => x.id === aktuellerVerlauf!.id);
+    if (i >= 0) alle[i] = aktuellerVerlauf;
+    speichereVerlaeufe(alle);
+  });
 }

@@ -145,7 +145,8 @@ test("7.4c3 verdrahtet: Gateway wählen auf der Seite Netz, „über Funk“ im 
 
   const agent = lies("shell/tabs/agent.ts");
   const ask = agent.slice(agent.indexOf("export async function askAi("), agent.indexOf("/** Sendet den Job an den besten Provider"));
-  assert.match(ask, /jobAbort\.abort\(\);\s*return;\s*\}\s*if \(!prompt\) return;\s*\/\/[^\n]*\n\s*if \(\(\$\("#ai-funk"\) as HTMLInputElement \| null\)\?\.checked\) \{\s*await frageUeberFunk\(prompt, bid\);\s*return;\s*\}\s*btn\.dataset\.running = "1";/);
+  // Seit D2 steht zwischen Prompt und Funk nur die Privat-Sperre (sie sendet nichts, sie kehrt höchstens zurück)
+  assert.match(ask, /jobAbort\.abort\(\);\s*return;\s*\}\s*if \(!prompt\) return;\s*\/\/ Privat \(D2\)[^\n]*\n\s*const wahl = [^\n]*\n\s*const weg = kiWeg\([^\n]*\n\s*if \(!wegErlaubt\(privatGewaehlt\(\), weg\)\) \{\s*toast\(t\("agent\.privatNurGeraet"\), true\);\s*return;\s*\}\s*\/\/[^\n]*\n\s*if \(\(\$\("#ai-funk"\) as HTMLInputElement \| null\)\?\.checked\) \{\s*await frageUeberFunk\(prompt, bid\);\s*return;\s*\}\s*btn\.dataset\.running = "1";/);
   const frage = agent.slice(agent.indexOf("async function frageUeberFunk("), agent.indexOf("export function setupFunkAntworten("));
   assert.match(frage, /await sendeKiUeberFunk\(prompt, gebot, \(w\) => sendeUeberFunk\(eventToMesh\(w\), MeshKind\.NostrEvent, t\("agent\.funkLabel"\), MeshPriority\.Nachricht\)\);/);
   assert.doesNotMatch(frage, /pendingContextSummary|kontextPraefix/, "kein Verlauf als Kontext – jedes Byte kostet Sendezeit");

@@ -17098,3 +17098,35 @@ Gleich streng angepasst: `knoten-weg.test.ts` (`pubkeysFuer(ids)` statt `pubkeys
 - Smoke-Test bestanden.
 
 Knoten-Stand: unverändert. Der Knoten sieht nur mehr Sitzungsschlüssel.
+
+## Schritt D2 – Privat-Schalter je Unterhaltung
+
+Datenschutz gegenüber Providern, Stufe 2 (Karte `docs/DATENSCHUTZ-PROVIDER.md`).
+Wer eine Unterhaltung niemandem sonst zeigen will, stellt sie auf „privat“:
+Dann fragt die App nur das Modell auf diesem Gerät (B-1) oder den eigenen
+Knoten (B-9a) – nie einen fremden Provider.
+
+**Was sich ändert:**
+- **`ki-privat.ts` (neu, ohne DOM):** `kiWeg()` (Funk vor Gerät vor Knoten vor
+  Netz, wie `askAi()` entscheidet) und `wegErlaubt(privat, weg)` – privat nur
+  „geraet“ und „knoten“.
+- **`askAi()`:** vor jedem Weg die Sperre – privat und Funk oder Netz: Hinweis
+  „Diese Unterhaltung ist privat …“, nichts geht hinaus, nie still ausweichen.
+  Damit sind auch Max, Schwarm und Prüfrunden gesperrt (alle hinter dem Netz-Weg),
+  ebenso „Erneut“ (geht über `askAi()`).
+- **Agent:** Haken „privat“ (`#ai-privat`) neben der Modellwahl, mit Titel und
+  Vorleser-Namen. Er gehört zur Unterhaltung: `privat` im Verlauf (Tresor),
+  beim Öffnen gesetzt, eine neue Aufgabe beginnt offen, geändert wird er mit der
+  Unterhaltung gemerkt (`wirePrivat()`, `app.ts`).
+- **Whitepaper:** ein Satz im Abschnitt DVM.
+
+**Verdrahtet:** `askAi()` (`shell/tabs/agent.ts`) → `wegErlaubt(privatGewaehlt(),
+kiWeg(…))`; `wirePrivat()` in `shell/app.ts`; Haken in `shell/index.html`.
+
+**Tests:** neu `ki-privat.test.ts` (3): Wege und Erlaubnis, die Sperre steht vor
+jedem Weg und vor allem, was sendet, der Haken je Unterhaltung samt Texten.
+Smoke-Test „lokal“: privat mit der Wahl Netz – kein Umschlag, kein Auftrag, keine
+Frage an localhost, die Frage bleibt im Feld, Hinweis im Toast; privat mit
+„Dieses Gerät“ – die Frage geht wie bisher ans Gerät. Gegenprobe: ohne Sperre
+wird die Prüfung rot (Frage gesendet, Feld leer). Gleich streng angepasst:
+`ki-funk.test.ts` (zwischen Prompt und Funk steht genau die Privat-Sperre).

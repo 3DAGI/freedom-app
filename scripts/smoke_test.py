@@ -2365,6 +2365,35 @@ def lokal_pruefen(browser, url: str) -> dict:
     if erg["antwort_md"] != [0, "fett <img src=x onerror=alert(1)>", "fett", "ts",
                              ["tok-kw:const", 'tok-str:"<b>"', "tok-com:// x"], "✓ kopiert", 'const a = "<b>"; // x']:
         erg["fehler"].append(f"Antwort mit Markdown {erg['antwort_md']}")
+    # D2: privat – mit der Wahl „Netz“ geht nichts hinaus (kein Umschlag, keine Frage an localhost), die Frage bleibt
+    # im Feld; mit „Dieses Gerät“ antwortet das Gerät wie bisher
+    ev("() => document.getElementById('ai-privat').click()")
+    modell_vorher = ev("() => document.getElementById('ai-model').value")
+    ev("() => { document.getElementById('ai-model').value = ''; }")
+    vorher_p, lokal_p = len(relay.gesendet), len(lokal)
+    ev("() => { document.getElementById('ai-prompt').value = 'Privat ins Netz 2342'; document.getElementById('ai-send').click(); }")
+    try:
+        s.wait_for_function("() => (document.getElementById('toast')?.textContent ?? '').startsWith('Diese Unterhaltung ist privat')", timeout=5000)
+        hinweis = True
+    except Exception:
+        hinweis = False
+    erg["privat"] = ev("() => ({ feld: document.getElementById('ai-prompt').value, laeuft: document.getElementById('ai-send').dataset.running ?? '',"
+                       " fragen: [...document.querySelectorAll('#ai-thread .bubble.user')].filter(b => b.textContent.includes('Privat ins Netz')).length })")
+    erg["privat"]["hinweis"] = hinweis
+    neu_p = relay.gesendet[vorher_p:]
+    # Nur, was eine KI-Frage wäre (Umschlag, Auftrag) oder ihren Text trägt – andere Abgleiche dürfen laufen
+    erg["privat"]["relay"] = [e.get("kind") for e in neu_p if e.get("kind") == 1059 or 5000 <= int(e.get("kind", 0)) < 7000
+                              or "Privat ins Netz" in json.dumps(e)]
+    ev("(m) => { document.getElementById('ai-model').value = m; document.getElementById('ai-prompt').value = 'Privat ans Gerät'; document.getElementById('ai-send').click(); }", modell_vorher)
+    try:
+        s.wait_for_function("() => [...document.querySelectorAll('#ai-thread .bubble.user')].some(b => b.textContent.includes('Privat ans Gerät'))", timeout=10000)
+        s.wait_for_function("() => document.getElementById('ai-send').dataset.running !== '1'", timeout=15000)
+    except Exception:
+        pass
+    erg["privat"]["geraet"] = len([a for a in lokal[lokal_p:] if a["methode"] == "POST" and "Privat ans Gerät" in a["inhalt"]])
+    ev("() => document.getElementById('ai-privat').click()")
+    if erg["privat"] != {"feld": "Privat ins Netz 2342", "laeuft": "", "fragen": 0, "hinweis": True, "relay": [], "geraet": 1}:
+        erg["fehler"].append(f"Privat {erg['privat']}")
     # Mein Knoten (B-9a): gekoppelt steht die Gruppe zwischen Netz und Gerät; die Frage geht nur als Umschlag an den
     # Knoten (kein Klartext, kein anderer Provider), ohne Antwort wartet die App – „Stopp“ bricht ab
     knoten_pk = "ab" * 32

@@ -39,7 +39,7 @@ import {
 import { haltevorModell, kuendigeModellAn, veroeffentlicheKatalog, zeigeKataloge, zeigeModelle } from "./tabs/agent-netz.js";
 import { starteStreitfall } from "./streitfall-ui.js";
 import { askAi, setupFunkAntworten } from "./tabs/agent.js";
-import { neueAufgabe, zeigeVerlaeufe } from "./tabs/agent-verlauf.js";
+import { neueAufgabe, wirePrivat, zeigeVerlaeufe } from "./tabs/agent-verlauf.js";
 import { refreshModelDropdown, setupModelPicker } from "./tabs/modellwahl.js";
 import { setupAttach, setupEmptyState, setupToolChips } from "./tabs/agent-eingabe.js";
 import { updateBudgetBar, updateFeePreview, updateTokenEstimate } from "./tabs/agent-anzeige.js";
@@ -849,6 +849,7 @@ function starte(): void {
   wireSubtabs();
   wireKommunikation();
   zeigeVerlaeufe();
+  wirePrivat(); // D2: privat je Unterhaltung
   document.getElementById("agent-new")?.addEventListener("click", neueAufgabe);
   void aktualisiereNavStatus();
   wireOfflineHinweis();

@@ -122,6 +122,10 @@ export const agent: Texte = {
   "agent.funkKeinGeraet": { de: "Kein Funkgerät verbunden (Seite Netz → Mesh).", en: "No radio connected (Network page → Mesh)." },
   "agent.funkRueckmeldung": { de: "Über Funk: Der Provider lehnt ab – {grund}", en: "Via radio: the provider declines – {grund}" },
   "agent.ueberFunk": { de: "über Funk", en: "via radio" },
+  "agent.privat": { de: "privat", en: "private" },
+  "agent.privatAria": { de: "Diese Unterhaltung privat", en: "Keep this conversation private" },
+  "agent.privatTitel": { de: "Nur dieses Gerät oder dein eigener Knoten – nie fremde Provider, nie Funk, keine Prüfrunde", en: "Only this device or your own node – never other providers, never radio, no check round" },
+  "agent.privatNurGeraet": { de: "Diese Unterhaltung ist privat: Wähle im Modell „Dieses Gerät“ oder „Mein Knoten“. An fremde Provider und über Funk geht nichts.", en: "This conversation is private: choose “This device” or “My node” as the model. Nothing goes to other providers or over radio." },
   // KI auf diesem Gerät (B-1)
   "agent.gruppeNetz": { de: "Netz", en: "Network" },
   "agent.gruppeGeraet": { de: "Dieses Gerät", en: "This device" },
