@@ -16682,3 +16682,47 @@ Runde nur für die Verfügbarkeit.
 - Smoke-Test bestanden.
 
 Knoten-Stand: unverändert.
+
+## Schritt B-17a – OpenTimestamps: Baustein (5.10b, Sammlung B-17)
+
+5.10b war seit 26.09. zurückgestellt: Die Kalender waren aus der Umgebung
+nicht erreichbar, und ohne echte `.ots`-Testvektoren ließ sich nicht prüfen,
+ob Beweise zu anderen OTS-Werkzeugen passen. Am 04.10. freigegeben, seit
+06.10. trägt die Umgebung die Kalender unter „Network access“.
+
+**Was neu ist:** `packages/protocol/src/ots.ts` – ohne neue Abhängigkeit
+(Hashes aus `@noble/hashes`):
+- `leseOtsDatei()`/`schreibeOtsDatei()` (Detached Timestamp File, Version 1,
+  nur SHA-256 – Event-Kennungen sind welche), `leseOtsZeitstempel()`/
+  `schreibeOtsZeitstempel()` (Antworten der Kalender).
+- Alle Operationen der Referenz (sha256, sha1, ripemd160, keccak256, reverse,
+  hexlify, append, prepend), Attestierungen Bitcoin, ausstehend (Kalender-
+  Adresse nur mit den Zeichen der Referenz) und unbekannt (bleibt erhalten).
+  Reihenfolge beim Schreiben wie die Referenz – Ergebnis byte-gleich.
+- Grenzen `OTS_GRENZEN` (4096 je Nachricht und Ergebnis, Tiefe 256, Knoten,
+  Größe, Nutzlast, Adresse); Fehler nur als `OtsFehler`-Kennung.
+- `buendele()`: viele Werte in einen Stempel wie der ots-Client – je Wert eine
+  Zufallszahl, dann ein Merkle-Baum; die Dateien teilen sich die Knoten, was an
+  der Spitze ankommt, steht in jeder. `fuegeEin()` übernimmt Antworten ohne
+  Doppel. `attestierungenVon()` nennt je Attestierung den Wert, den sie
+  bestätigt (bei Bitcoin: die erwartete Merkle-Wurzel des Blocks).
+
+**Testvektoren:** echt, abgeholt am 06.10.: ein Zufallswert an vier Kalender
+(alice, bob, a.pool, finney) und die Nachreichung eines alten Stempels bei
+alice bis Bitcoin-Block 428648. `scripts/ots-referenz.py` rechnet alles mit
+python-opentimestamps 0.4.5 nach und schreibt
+`test/fixtures/ots-referenz.json` (dazu ein Bündel mit festen Zufallszahlen
+und ein Baum mit allen Operationen). Gegenprobe außerhalb des Repos: die 11
+Beispieldateien der Referenz (LGPL, darum nicht eingecheckt) liest `ots.ts`
+und schreibt sie byte-gleich zurück, mit denselben Attestierungen.
+
+**Verdrahtet:** noch nicht – Ausnahmen in `wiring-ausnahmen.txt` mit Grund.
+Was gestempelt wird, wer stempelt, wo die Beweise liegen und wie „in Bitcoin
+verankert“ geprüft wird, entscheidet der MENSCH (K1–K5, Sammlung Abschnitt 5);
+danach B-17b.
+
+**Prüfungen:** protocol 1163 grün (+7, `ots.test.ts`), 6 übersprungen; node 313
+(7 übersprungen ohne Netz), app 880, mls 13, Leak 72 + 1 todo; Typprüfung
+überall, Build, check-wiring Exit 0, innerHTML Exit 0, Website ok.
+
+Knoten-Stand: unverändert.
