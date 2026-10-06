@@ -906,6 +906,9 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   Prüfung vorher lokal laufen lassen und nie auf feste Pausen bauen, wo sich
   auf einen Zustand warten lässt (`wait_for_function` mit Frist) – der Runner
   ist langsamer als die Sitzung.
+  Kontrast erst messen, wenn Einblendungen fertig sind (`ANIMATIONEN_FERTIG`,
+  `document.getAnimations()`): Seiten und Unterreiter blenden sich über `opacity`
+  ein (`fs-in`), mitten darin maß „zugang“ 2,92:1 (P5c2, beim Einmergen von `main`).
 - **Werbelink mit eigener Adresse nur geprüft** (seit 11.2a): Die Adresse
   nur über `pruefeEigeneAdresse()` (https, ohne Zugangsdaten, nicht lokal),
   gemerkt nur das Ergebnis (`freedom.werben.adresse`). Eine fremde Adresse

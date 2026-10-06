@@ -16772,5 +16772,12 @@ seines Providers und einen kurzen Hinweis.
 - check-wiring, innerHTML und Website ok.
 - Smoke-Test bestanden.
 
+**Beim Einmergen von `main` (B-17a):** Der Smoke-Test „zugang“ war einmal rot –
+Kontrast 2,92:1 auf Währung › Tausch. Ursache: Unterreiter blenden sich über
+`opacity` ein (`fs-in`, 0,18 s), gemessen wurde nach fester Pause von 300 ms und
+mit der Deckkraft der Vorfahren – mitten in der Einblendung (2,92:1 entspricht
+38 % Deckkraft). Die Prüfung wartet jetzt, bis keine endliche Animation mehr
+läuft (`ANIMATIONEN_FERTIG`); gemessen wird weiter dasselbe, nur im Endzustand.
+
 Knoten-Stand: unverändert. Die zusätzlichen Anfragen sind gewöhnliche
 Anfragen.
