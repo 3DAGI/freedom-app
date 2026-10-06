@@ -16971,6 +16971,52 @@ Clients mit festem statt je Aufruf neuem Schlüssel (so arbeitet `KiSitzungen`).
 - check-wiring `--streng` Exit 0, check-website 5 Seiten ok, check_innerhtml Exit 0;
 - Smoke-Test bestanden.
 
+## Schritt B-17b1 – OpenTimestamps: Kalender und NIP-03 (5.10b, Sammlung B-17)
+
+Entschieden 06.10.2026 (MENSCH): K1–K4 jeweils A – die App stempelt eigene
+Mandate und Quittungen, gebündelt im Abruftakt; der Beweis zum Mandat geht als
+NIP-03 hinaus, der zur Quittung bleibt im Tresor; „in Bitcoin verankert“ prüft
+die App bei Bedarf gegen zwei Explorer. K5 (Kalender) nannte der MENSCH nicht –
+angenommen A, im Pull Request erneut gefragt. Zu K2/K4 die Frage „mit Tor egal?“:
+ja, mit Tor (Tor Browser) sehen Kalender und Explorer nur den Ausgang; ohne Tor
+die IP – der Bericht sagt beides (B-17b3).
+
+**Was neu ist:**
+- `ots-kalender.ts`: `OTS_KALENDER` (alice, bob, finney – zwei Betreiber),
+  `stempele()` bündelt, schickt nur die Spitze an jeden Kalender und führt die
+  Antworten zusammen; eine Antwort zählt nur mit dem Versprechen genau dieses
+  Kalenders, unter zwei → `zu-wenige-kalender`. `reicheNach()` fragt
+  ausstehende Versprechen nach – nur Kalender der Liste (eine fremde Adresse im
+  Beweis wird nie gefragt), höchstens acht je Durchgang, 404 heißt „wartet“,
+  mit Bitcoin im Beweis gar nicht mehr. Antworten begrenzt (10.000 Bytes wie
+  die Referenz, 15 s), Fehler nur als Kennung.
+- **Fund beim Prüfen der Kalender:** Sie erlauben jede Herkunft
+  (`Access-Control-Allow-Origin: *`), beantworten aber keinen Preflight
+  (OPTIONS → 404/501). Die Anfragen sind darum „einfach“: nur `Accept`, kein
+  Content-Type – ein Test hält das fest.
+- `ots-nip03.ts`: Kind 1040 nach NIP-03 (`e`, `k`, Base64) – gebaut nur mit
+  Bitcoin-Attestierung über `nurBitcoin()` (ein Weg zur niedrigsten Höhe, keine
+  Versprechen), gelesen streng (ein `e`, ein `k`, Base64 und Größe, die Datei
+  beweist genau diese Kennung). Wer signiert hat, zählt nicht – „verankert“
+  erst nach der Prüfung gegen den Blockkopf (B-17b2).
+
+**Testvektoren:** Der Zufallswert aus B-17a, am 06.10. bei alice, bob und
+finney gestempelt, ist bei alice noch am selben Tag in Bitcoin-Block 970158
+angekommen (bob und finney: 404, „waiting for 6 confirmations“). Die echte
+Nachreichung steht in `scripts/ots-referenz.py`; die Referenz rechnet
+Stempeln (Bündel mit drei Kalender-Antworten), Nachreichen und den Beweis nur
+mit Bitcoin nach – alles byte-gleich.
+
+**Verdrahtet:** noch nicht – Ausnahmen mit Grund (B-17b3). B-17b2 (Blockkopf
+von mempool.space und blockstream.info) braucht die Freigabe der beiden Hosts
+unter „Network access“ (MENSCH) für einen echten Testvektor zu Block 970158.
+
+**Prüfungen** (nach dem Einmergen von `main` mit P5c2, D1a, D1c, 12.6, 12.7a,
+D1b1 und 12.7b): protocol 1176 grün (+5, `ots-kalender.test.ts`), 6 übersprungen;
+node 313 (7 übersprungen ohne Netz), app 903, mls 13, Leak 73 + 1 todo;
+Typprüfung überall, Build, check-wiring Exit 0, innerHTML Exit 0, Website ok,
+Smoke-Test bestanden, build-site ok, reproduzierbar (zweimal dieselbe Summe).
+
 Knoten-Stand: unverändert.
 
 ## Schritt 12.7b – Wallet: Empfangen
