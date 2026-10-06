@@ -1301,7 +1301,8 @@ def privatraum_pruefen(browser, url: str) -> dict:
 
 def einstellungen_pruefen(browser, url: str) -> dict:
     """Settings (C-1c): Widerruf, Nachfolge und „für jemanden melden“ über Dialoge statt prompt()/confirm() –
-    Fehler melden sich im Dialog, der private Ersatzschlüssel steht verdeckt, abgebrochen geht nichts hinaus."""
+    Fehler melden sich im Dialog, der private Ersatzschlüssel steht verdeckt, abgebrochen geht nichts hinaus.
+    Dazu im Profil die SOL-Adresse (12.6): öffentlich nur mit Häkchen nach der Warnung."""
     erg = {"fehler": []}
     relay = ProbeRelay()
     seite = DialogSeite(browser, url, relay, erg)
@@ -1355,6 +1356,34 @@ def einstellungen_pruefen(browser, url: str) -> dict:
     ab_falsch = bestaetigen()
     seite.s.keyboard.press("Escape")
     seite.warte_zu()
+    # SOL-Adresse im Profil (12.6): ohne Häkchen bleibt sie auf dem Gerät; einschalten erst nach der Warnung,
+    # abgebrochen bleibt aus; ohne eingebaute Wallet keine frische Adresse – gespeichert (veröffentlicht) wird hier nichts
+    sol = "7EcDhSYGxXyscszYEp35KHN8vvw3svAuLKTzXwCFLtVb"
+    ev("(a) => { const f = document.getElementById('pf-sol'); f.value = a; f.dispatchEvent(new Event('input')); }", sol)
+    offen = lambda: ev("() => document.getElementById('pf-disclosure').textContent")
+    ps = {"privat": "Deine SOL-Adresse bleibt auf dem Gerät" in offen()}
+    ev("() => document.getElementById('pf-sol-oeffentlich').click()")
+    ps["warnung"] = (seite.warte_dialog("SOL-Adresse öffentlich zeigen?")["text"] or "")[:40]
+    seite.s.keyboard.press("Escape")
+    seite.warte_zu()
+    seite.s.wait_for_timeout(100)
+    ps["abgebrochen"] = [ev("() => document.getElementById('pf-sol-oeffentlich').checked"), ev("() => localStorage.getItem('freedom.profil.solOeffentlich')")]
+    ev("() => document.getElementById('pf-sol-oeffentlich').click()")
+    seite.warte_dialog("SOL-Adresse öffentlich zeigen?")
+    bestaetigen()
+    seite.warte_zu()
+    seite.s.wait_for_function("(a) => document.getElementById('profile-preview').textContent.includes(a)", arg=sol, timeout=10000)
+    ps["an"] = [ev("() => document.getElementById('pf-sol-oeffentlich').checked"), ev("() => localStorage.getItem('freedom.profil.solOeffentlich')"),
+                "Deine Solana-Adresse ist öffentlich" in offen()]
+    ev("() => document.getElementById('pf-sol-frisch').click()")
+    seite.s.wait_for_function("() => document.getElementById('toast').textContent.startsWith('Keine frische Adresse')", timeout=10000)
+    ps["frisch_ohne_wallet"] = ev("() => document.getElementById('pf-sol').value") == sol
+    ev("() => document.getElementById('pf-sol-oeffentlich').click()")
+    ps["aus"] = [ev("() => localStorage.getItem('freedom.profil.solOeffentlich')"), sol in ev("() => document.getElementById('profile-preview').textContent")]
+    erg["profil_sol"] = ps
+    if ps != {"privat": True, "warnung": "Wer dein Profil sieht, kennt dann diese ", "abgebrochen": [False, None],
+              "an": [True, "1", True], "frisch_ohne_wallet": True, "aus": ["0", False]}:
+        erg["fehler"].append(f"Profil SOL {ps}")
     erg["bunker"], erg["abzeichen"] = bu, {"dialog": ab, "falsch": ab_falsch}
     if not (bu["text"] or "").startswith("Die App wechselt auf die Identität im Bunker"):
         erg["fehler"].append(f"Bunker {bu}")

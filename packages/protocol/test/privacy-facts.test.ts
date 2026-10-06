@@ -282,7 +282,12 @@ const SZENARIEN: Record<string, () => Promise<number>> = {
   },
   "sol-adresse": async () => {
     const wraps = await versiegelterTausch();
-    return regelKeineSolAdresse(wraps, [SOL_ADRESSE]).length + regelAutorNicht(wraps, a.pk).length;
+    // Seit 12.6: das Profil ohne Häkchen trägt sie nicht; Gegenprobe – mit Häkchen fände die Regel sie
+    const entwurf = { name: "Ada", sol: SOL_ADRESSE };
+    const profil = signEvent(buildProfile(a.pk, oeffentlichesProfil(entwurf, { lightning: false, sol: false })), a.sk);
+    const offen = signEvent(buildProfile(a.pk, oeffentlichesProfil(entwurf, { lightning: false, sol: true })), a.sk);
+    const gegenprobe = regelKeineSolAdresse([offen], [SOL_ADRESSE]).length === 1;
+    return regelKeineSolAdresse([...wraps, profil], [SOL_ADRESSE]).length + regelAutorNicht(wraps, a.pk).length + (gegenprobe ? 0 : 1);
   },
   "swap-rechnung": async () => regelKeinBolt11(await versiegelterTausch()).length,
   "sol-empfang": async () => {

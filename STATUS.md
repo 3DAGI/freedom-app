@@ -16856,3 +16856,42 @@ Auswahl in `shell/tabs/mesh.ts` (`#ki-verlauf`).
 - Smoke-Test bestanden.
 
 Knoten-Stand: unverändert. Der Provider bekommt nur weniger Text.
+
+## Schritt 12.6 – Profil: SOL-Adresse öffentlich nur mit Häkchen
+
+**Warum:** Phase 12 „Beide Währungen überall“ (Sammlung A-1, Anhang A: „Profil:
+öffentliche Adresse – ✓ mit Häkchen für Lightning, ✗ kein SOL-Feld“); nach E5
+(04.10.2026) baut Spur C die Oberfläche.
+
+**Was:**
+- Profil: Feld „SOL-Adresse“, Knopf „frische Adresse der eingebauten Wallet“
+  (aus dem Vorrat über `frischeEmpfangsadresse()`, nie die Hauptadresse – wie
+  der Werbelink nach E1 A; ohne eingebaute Wallet, mit Bunker oder leerem
+  Vorrat ein Hinweis) und Häkchen „SOL-Adresse öffentlich zeigen“.
+- `profil-sol.ts` (neu): `freedom.profil.solOeffentlich`, Standard aus – vorher
+  gab es kein Feld, also nichts zu übernehmen. Gesichert wie das
+  Lightning-Häkchen (`SICHERUNG_EINTRAEGE`).
+- Einschalten erst nach einer Warnung (`bestaetige()`, Gefahr): die ganze
+  Geschichte der Adresse auf der Kette, bleibt auf den Relays, für Trinkgeld
+  unnötig (Kontakte fragen versiegelt, 4.9d), wenn doch, dann eine frische.
+  Abgebrochen bleibt das Häkchen aus.
+- `oeffentlichesProfil(meta, { lightning, sol })` (Protokoll): ohne
+  `sol: true` gehen weder `sol` noch `chains` hinaus; die Reihenfolge der
+  Felder bleibt. Eine ungültige Adresse wird nicht gespeichert.
+- Offenlegung (live), Vorschau (◎ Adresse) und Datenschutzbericht folgen dem
+  Häkchen. Der Befund „Solana-Adresse im Profil“ (kritisch) las bisher
+  `freedom.solAddress` – einen Schlüssel, den nichts schrieb; jetzt Profil und
+  Häkchen. Abhilfe-Text nennt das Häkchen. Die Aussage „sol-adresse“ nennt die
+  Ausnahme („Einzige Ausnahme: dein Profil, wenn du sie dort ausdrücklich
+  einschaltest“).
+- Das Feld `sol` ist die bestehende Konvention: Trinkgeld nimmt es nur nach
+  Warnung (4.9d), die Relay-Zahlziele lesen es aus dem Profil des Betreibers
+  (12.3). Kein neues Format.
+
+**Tests:** protocol +1 (`profile-badges.test.ts`: Häkchen unabhängig,
+Reihenfolge, Offenlegung), Szenario „sol-adresse“ prüft zusätzlich das Profil
+mit Gegenprobe; app +3 (`profil-sol.test.ts`); Leak +1 (`leak/profil.test.ts`:
+ohne Häkchen keine SOL-Adresse, mit Häkchen genau die eingetragene). Smoke
+(„einstellungen“): Offenlegung „bleibt auf dem Gerät“, Warnung, Esc lässt aus,
+bestätigt an (Vorschau, Offenlegung), frische Adresse ohne Wallet meldet sich,
+wieder aus – nichts veröffentlicht.
