@@ -17,6 +17,7 @@ const lokal: Record<string, string> = {
   "freedom.lang": "de",
   "freedom.agentHistory": JSON.stringify([{ id: "1", title: "Frage zum Wetter" }]),
   "freedom.quittungen": JSON.stringify([{ provider: "c".repeat(64) }]),
+  "freedom.zahlungen": JSON.stringify([{ zeit: 1, rail: "lightning", zweck: "senden" }]),
   "freedom.kontakte.geprueft": JSON.stringify({ ["b".repeat(64)]: 1_800_000_000 }),
   // nie in den Export:
   "freedom.nsec": "nsec1geheim",
@@ -34,11 +35,12 @@ const NIE = ["freedom.nsec", "freedom.nwc.uri", "freedom.kanaele", "freedom.mls.
 
 test("B-6: Export – Sicherung plus KI-Verläufe und Quittungen, nie Schlüssel, Zugänge oder Geld-Geheimnisse", () => {
   const daten = waehleExport(Object.keys(lokal), lese);
-  for (const k of ["freedom.chats", "freedom.petnames", "freedom.lang", "freedom.agentHistory", "freedom.quittungen", "freedom.kontakte.geprueft"]) {
+  for (const k of ["freedom.chats", "freedom.petnames", "freedom.lang", "freedom.agentHistory", "freedom.quittungen", "freedom.zahlungen", "freedom.kontakte.geprueft"]) {
     assert.equal(daten[k], lokal[k], k);
   }
   for (const k of NIE) assert.ok(!(k in daten), `nie: ${k}`);
-  assert.deepEqual([...EXPORT_ZUSAETZLICH], ["freedom.agentHistory", "freedom.quittungen"]);
+  // Seit 12.7c auch der Verlauf der eigenen Zahlungen – nie auf ein Relay, wohl in die eigene Datei
+  assert.deepEqual([...EXPORT_ZUSAETZLICH], ["freedom.agentHistory", "freedom.quittungen", "freedom.zahlungen"]);
 });
 
 test("B-6: hin und zurück – gleiche Daten, Zeit und Kennung in der Hülle, kein Klartext", async () => {

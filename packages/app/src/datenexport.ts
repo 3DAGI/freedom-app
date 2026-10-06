@@ -21,7 +21,7 @@ import { entschluesseleMitPassphrase, verschluesseleMitPassphrase } from "./vaul
 export const EXPORT_ART = "freedomstack-export";
 export const EXPORT_FASSUNG = 1;
 /** Zusätzlich zur Sicherung – nur in die eigene, verschlüsselte Datei, nie auf ein Relay. */
-export const EXPORT_ZUSAETZLICH: readonly string[] = ["freedom.agentHistory", "freedom.quittungen"];
+export const EXPORT_ZUSAETZLICH: readonly string[] = ["freedom.agentHistory", "freedom.quittungen", "freedom.zahlungen"];
 /** Größer liest die App keine Datei ein. */
 export const EXPORT_MAX_BYTES = 20_000_000;
 

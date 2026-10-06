@@ -675,7 +675,7 @@ class DialogSeite:
 
 def waehrung_pruefen(browser, url: str) -> dict:
     """Währung (C-1a): Tausch über Dialoge statt prompt()/confirm() – Betrag und Adresse prüft der Dialog,
-    abgebrochen geht nichts hinaus. Senden (12.7a): Ziel, Betrag, Bestätigung, ohne Wallet ehrlich gescheitert. Empfangen (12.7b): ohne Wallet ein Hinweis. LP-Angebote aus `scripts/lp-probe.mts` über die Relay-Attrappe."""
+    abgebrochen geht nichts hinaus. Senden (12.7a): Ziel, Betrag, Bestätigung, ohne Wallet ehrlich gescheitert. Empfangen (12.7b): ohne Wallet ein Hinweis. Verlauf (12.7c): leer, Lightning ohne NWC. LP-Angebote aus `scripts/lp-probe.mts` über die Relay-Attrappe."""
     erg = {"fehler": []}
     wurzel = Path(__file__).resolve().parent.parent
     aus = subprocess.run(["npx", "tsx", "scripts/lp-probe.mts"], cwd=wurzel, capture_output=True, text=True, timeout=180, check=True)
@@ -800,6 +800,14 @@ def waehrung_pruefen(browser, url: str) -> dict:
     if ed != {"ohne_betrag": "Für eine Rechnung den Betrag in ganzen sats eintragen",
               "ln": "Lightning empfangen braucht eine verbund", "sol": "SOL empfangen braucht eine Solana-Wallet"}:
         erg["fehler"].append(f"Empfangen {ed}")
+    # Verlauf (12.7c): leer ohne Zahlungen (nur aus dem Tresor, ohne Netz); die Lightning-Wallet nur auf Klick
+    vl = {"leer": ev("() => document.getElementById('verlauf-liste').textContent")}
+    ev("() => document.getElementById('verlauf-ln').click()")
+    s.wait_for_function("() => document.getElementById('verlauf-ln-liste').textContent !== '…' && document.getElementById('verlauf-ln-liste').textContent !== ''", timeout=10000)
+    vl["ln"] = ev("() => document.getElementById('verlauf-ln-liste').textContent")
+    erg["verlauf_wallet"] = vl
+    if vl != {"leer": "Noch keine Zahlungen. Ist der Tresor gesperrt, erst entsperren.", "ln": "Keine Lightning-Wallet verbunden (NWC)."}:
+        erg["fehler"].append(f"Verlauf {vl}")
     # Umzug (C-8): Gebühren und Standard-Schiene unter Währung › Zahlen, Modell vorhalten unter Verdienen › Hosten
     ev("() => document.querySelector('[data-subtab-group=wallet] [data-subtab=pay]').click()")
     s.wait_for_function("() => document.getElementById('anteile-stand')?.textContent === 'Nichts gesammelt.'", timeout=10000)
