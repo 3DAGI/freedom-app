@@ -60,6 +60,7 @@ const FAKT: Record<string, readonly [string, string?]> = {
   "pruefrunde": ["ds.fPruefrunde", "ds.gPruefrunde"],
   "ki-platzhalter": ["ds.fKiPlatzhalter", "ds.gKiPlatzhalter"],
   "ki-verlauf": ["ds.fKiVerlauf", "ds.gKiVerlauf"],
+  "ki-unterhaltung": ["ds.fKiUnterhaltung", "ds.gKiUnterhaltung"],
   "ki-zahlung": ["ds.fKiZahlung"],
   "ki-reklamation": ["ds.fKiReklamation"],
   "ruf-kontakte": ["ds.fRufKontakte"],

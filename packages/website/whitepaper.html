@@ -82,7 +82,9 @@
   „verifiziert“ — bei gleichem Basismodell teilen Provider auch dessen Irrtümer.
   Was erkannt wird, ist <em>Abweichung</em>.</p>
   <p>Den Weg schützt das Netz: Relays lesen die Frage nicht, und der Provider
-  sieht einen Sitzungsschlüssel statt der Identität. Die Frage selbst muss der
+  sieht statt der Identität einen Sitzungsschlüssel – für jede Unterhaltung
+  einen neuen, über ihn verbindet er zwei Unterhaltungen nicht (mit Zahlkanal
+  schon: dessen Schlüssel bleibt). Die Frage selbst muss der
   Provider im Klartext rechnen – auf Rechnern wie DGX Spark, Macs oder
   Gaming-PCs gibt es kein TEE, das ihn daran hindert. Deshalb ersetzt die App
   erkennbare persönliche Angaben vor dem Senden durch Platzhalter: E-Mail,

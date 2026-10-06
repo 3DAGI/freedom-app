@@ -18,6 +18,7 @@ import { switchTab, zeigeOnboarding } from "../app.js";
 import { angebotVon, ensurePool, ensureSessionClient, findProviders, kiSitzungen, powJeProvider, state } from "../state.js";
 import { beiFunkAntwort, sendeKiUeberFunk } from "../ki-ueber-funk.js";
 import { quittungNachKanal, quittungNachZahlung } from "../quittungen.js";
+import { begleicheWennVerlassen } from "../ki-wechsel.js";
 import { deklaration, empfaengerFuer, kanalAntwort, kanalGutschrift, merkeAnfrage, perKanal, providerZahlung, pruefeKiZahlweg, rechneAntwortAb, zahleAnteile } from "../ki-zahlung.js";
 import { kopplungFuer, meineKopplung } from "../mein-knoten.js";
 import { entmaskiere, ersetztFuer, maskiere, merkeErsetzt } from "../ki-platzhalter.js";
@@ -471,6 +472,8 @@ export async function handleAnswer(ev: import("@freedomstack/protocol").NostrEve
   const charge = await sc.chargeForResult(r.providerPubkey, abrechnung.providerMsat, ev.id, zahlung, kiSitzungen.fuerAuftrag(r.requestId));
   // Quittung (5.5b): erst mit bezahlter Rechnung und Preimage – über alle Antworten seit der letzten Zahlung
   void quittungNachZahlung(r.providerPubkey, abrechnung.providerMsat, charge);
+  // Antwort an den Schlüssel einer verlassenen Unterhaltung (D1b2): gleich begleichen
+  void begleicheWennVerlassen(sc, r.providerPubkey, kiSitzungen.fuerAuftrag(r.requestId)).catch(() => {});
   updateBudgetBar();
   if (abrechnung.gekappt) toast(t("agent.providerVerlangte", { sats: Math.ceil(r.amountMsat / 1000) }), true);
   if (abrechnung.providerMsat === 0) {

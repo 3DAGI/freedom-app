@@ -69,7 +69,7 @@ test("B-9c2: Weg – mit Haken nur das Relay des Knotens, ohne Relay nichts; nur
   assert.match(frage, /\} finally \{\s*weg\?\.schliesse\(\);/);
   assert.doesNotMatch(frage, /ensurePool\(\)\)\.publish/, "nicht mehr am Weg vorbei");
   // Das Relay des Knotens liefert nur, wenn jeder Schlüssel im Filter angemeldet ist – also nur nach dem des Auftrags fragen
-  assert.match(agentTs, /const pks = quelle \? \[quelle\.sitzungPk\] : kiSitzungen\.pubkeys\(\);/);
+  assert.match(agentTs, /const pks = quelle \? \[quelle\.sitzungPk\] : kiSitzungen\.pubkeysFuer\(ids\);/); // seit D1b2 nur die der gesuchten Aufträge
   assert.equal((weg.match(/sitzungPk: sitzung\.publicKey\(\)/g) ?? []).length, 2, "mit und ohne Haken");
   const halten = lies("shell/knoten-halten-ui.ts");
   assert.match(halten, /const weg = await wegZumKnoten\(k\.knoten, sitzung\);\s*if \(!weg\) return toast\(t\("set\.knotenOhneRelay"\), true\);/);

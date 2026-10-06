@@ -83,8 +83,12 @@ von Spur A. Der MENSCH kann sie ändern, ohne dass sich der Plan ändert.
     eigenen Gedächtnis (`kiSitzungen.merkeAuftrag()` vor dem Senden), nie aus
     dem `p`-Tag des Ergebnisses: den setzt der Provider selbst. Ohne Wechsel
     ändert sich dadurch nichts.
-  - **D1b2:** neue Schlüssel je Unterhaltung, offene Beträge begleichen,
-    Grenze Zahlkanal im Bericht.
+  - **D1b2 ✓:** neue Schlüssel je Unterhaltung (`neueUnterhaltung()`, alte
+    halten 30 Minuten für späte Antworten), offene Beträge ab 1 sat mit dem
+    alten Schlüssel begleichen (`begleiche()`, auch nach einer späten
+    Antwort), Antworten nur für die Schlüssel der gesuchten Aufträge abfragen
+    (`pubkeysFuer()`), Grenze „ki-unterhaltung“ im Bericht (Zahlkanal,
+    wieder geöffneter Verlauf, Zeitpunkte, Relay des Providers).
 - **Grenze:** Mit Zahlkanal verbindet der feste Schlüssel des Kanals alle
   Anfragen über diesen Kanal. Das steht im Bericht.
 
@@ -125,7 +129,7 @@ von Spur A. Der MENSCH kann sie ändern, ohne dass sich der Plan ändert.
 |---|---|
 | D1a ✓ | Platzhalter für persönliche Angaben (Baustein, Verdrahtung in `buildJobEvent()` und über Funk, Rücksetzen in `handleAnswer()`, Einstellung, Grenze „ki-platzhalter“ mit Szenario, Whitepaper) |
 | D1b1 ✓ | Abrechnung und Reklamation mit dem Schlüssel des Auftrags (`merkeAuftrag()`/`fuerAuftrag()`, Zahlsitzungen je Schlüssel) |
-| D1b2 | Neuer Schlüssel je Unterhaltung (offene Beträge vorher begleichen, Grenze Zahlkanal) |
+| D1b2 ✓ | Neuer Schlüssel je Unterhaltung (offene Beträge mit dem alten begleichen, Abfrage nur je Auftrag, Grenze „ki-unterhaltung“, Whitepaper) |
 | D1c ✓ | Weniger Verlauf: Standard „kurz“ (6 Nachrichten, 3 000 Zeichen), Auswahl aus · kurz · lang (`VERLAUF_UMFANG`, `freedom.verlauf`), Grenze „ki-verlauf“ im Bericht, Whitepaper |
 | D2 | Privat-Schalter: nur Gerät oder eigener Knoten |
 | D3-Entwurf | Versiegelter Provider-Modus, zur Freigabe |
