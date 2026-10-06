@@ -16929,6 +16929,50 @@ Verdrahtung – erst bestätigen, dann ein Weg zum Geld). Smoke „waehrung“:
 Prüfungen im Dialog, Bestätigung mit ganzer Adresse, ohne Wallet ehrlich
 gescheitert („Keine Solana-Wallet verbunden“), nichts veröffentlicht.
 
+## Schritt D1b1 – Abrechnung und Reklamation mit dem Schlüssel des Auftrags
+
+Datenschutz gegenüber Providern, Stufe 1 (Karte `docs/DATENSCHUTZ-PROVIDER.md`).
+D1b (neuer Schlüssel je Unterhaltung) ist wegen des Umfangs geteilt. D1b1
+bereitet den Wechsel vor: Eine Antwort auf einen früheren Auftrag darf dem
+Provider nie den neuen Schlüssel nennen, sonst verbände er beide. Ohne Wechsel
+ändert sich nichts – es gibt je Provider weiter einen Schlüssel. D1b2 bringt den
+Wechsel selbst, das Begleichen offener Beträge und die Grenze Zahlkanal.
+
+**Was sich ändert:**
+- **`ki-sitzung.ts`:** `merkeAuftrag(requestId, sitzung)`/`fuerAuftrag()` –
+  welcher Sitzungsschlüssel welchen Auftrag stellte, nur aus dem eigenen
+  Gedächtnis (höchstens `KI_AUFTRAEGE_MAX` = 1000). Den `p`-Tag im Ergebnis
+  setzt der Provider selbst, `openPrivateJobResponse()` prüft ihn nicht – darauf
+  baut die Zuordnung deshalb nicht. `schluesselHex()` gilt je
+  Sitzungsschlüssel statt je Provider.
+- **`session-client.ts`:** Sitzungen gehören zum Schlüssel:
+  `activeFor(provider, kundePk)`, `jobTags(…, kundePk)`, `openSession(…, signer)`,
+  `chargeForResult(…, kunde)` – verbucht und belegt in der Sitzung des
+  Schlüssels, der den Auftrag stellte. Ohne Angabe gilt wie bisher der aktuelle.
+- **Verdrahtet:** `buildJobEvent()` merkt den Auftrag vor dem Senden und fragt
+  die Sitzung dieses Schlüssels; `handleAnswer()` und die Prüfrunden
+  (`pruefrunde-lauf.ts`) rechnen mit `kiSitzungen.fuerAuftrag(r.requestId)` ab;
+  die Reklamation (`reklamiere()`, `agent-anzeige.ts`) signiert mit dem Schlüssel
+  des Auftrags und merkt dessen rohen Schlüssel – ohne ihn „ohne Bezug“.
+
+**Tests:** neu `ki-auftrag-schluessel.test.ts` (3): Schlüssel je Auftrag
+(begrenzt, nie geraten, roher Schlüssel je Sitzungsschlüssel), Sitzungen je
+Schlüssel (späte Antwort auf einen alten Auftrag verbucht dort, der neue
+Schlüssel erfährt den alten nie), Verdrahtung. Gleich streng angepasst:
+`leak/reklamation.test.ts`, `leak/mein-knoten.test.ts`, `zahlkanal.test.ts`,
+`ki-zahlung.test.ts`, `streitfall.test.ts`; in `session-client.test.ts` zwei
+Clients mit festem statt je Aufruf neuem Schlüssel (so arbeitet `KiSitzungen`).
+
+**Prüfungen:**
+- protocol 1171 grün, 6 übersprungen, 0 rot (unverändert);
+- node 314 grün, 6 übersprungen;
+- app 900 grün nach dem Einmergen von main mit 12.7a (vorher 897), Build ok;
+- Leak 73 grün + 1 todo; mls 13 grün;
+- check-wiring `--streng` Exit 0, check-website 5 Seiten ok, check_innerhtml Exit 0;
+- Smoke-Test bestanden.
+
+Knoten-Stand: unverändert.
+
 ## Schritt 12.7b – Wallet: Empfangen
 
 **Warum:** Phase 12 (Sammlung A-1, Anhang A: „Wallet: Empfangen“); zweiter
