@@ -547,7 +547,8 @@ test("belegte Aussagen nennen ihre Regel, und jede genannte Regel gibt es", () =
     if (f.regel) assert.ok(f.regel in LEAK_REGELN, `Aussage "${f.id}": Regel "${f.regel}" gibt es nicht`);
   }
   // Ohne Regel nur, was kein Event-Mitschnitt pruefen kann.
-  assert.deepEqual(PRIVACY_FACTS.filter((f) => !f.regel).map((f) => f.id).sort(), ["dm-forward-secrecy", "ip", "werbe-name"]);
+  // „ki-verlauf“ (D1c): was der Provider nach dem Öffnen liest, sieht kein Mitschnitt – den Umfang prüft app/test/ki-kontext.test.ts
+  assert.deepEqual(PRIVACY_FACTS.filter((f) => !f.regel).map((f) => f.id).sort(), ["dm-forward-secrecy", "ip", "ki-verlauf", "werbe-name"]);
 });
 
 test("4.5b: eine SOL-Adresse je Knoten steht als bewusste Grenze im Bericht – mit Grund und Entscheidung", () => {
@@ -618,6 +619,14 @@ test("D1a: Platzhalter stehen als Grenze im Bericht – was ersetzt wird und was
   assert.match(f?.grund ?? "", /Namen außerhalb deines Adressbuchs, Adressen, Gesundheitsangaben und den Inhalt von Anhängen errät die App nicht/);
   const t = privacyFactsText();
   assert.match(t.slice(t.indexOf("Bewusste Grenzen:")), /△ Persönliche Angaben mit klarer Form .* Alles andere liest der Provider wie geschrieben\./);
+});
+
+test("D1c: wie viel Verlauf mitgeht, steht als Grenze im Bericht – Standard und Stufen wie im Code", () => {
+  const f = PRIVACY_FACTS.find((x) => x.id === "ki-verlauf");
+  assert.equal(f?.status, "grenze");
+  assert.match(f?.aussage ?? "", /Standard höchstens 6 Nachrichten und 3 000 Zeichen, einstellbar von „aus“ bis „lang“ \(12 Nachrichten, 6 000 Zeichen\)/);
+  const t = privacyFactsText();
+  assert.match(t.slice(t.indexOf("Bewusste Grenzen:")), /△ Zu jeder KI-Frage schickt die App die letzten Nachrichten der Unterhaltung mit/);
 });
 
 test("Grenzen nennen ihren Grund", () => {
