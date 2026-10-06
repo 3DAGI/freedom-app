@@ -16605,3 +16605,24 @@ Provider behalten 94 %.
 
 Knoten-Stand: Knoten auf `main` bringen. Erst dann deklariert die App ihnen
 Entwicklung und Prüfbudget; bis dahin bleiben beide beim Provider.
+
+## Schritt NIP04-Test – „Dritter kann nicht lesen“ ohne Zufall
+
+In der CI von P5b (#313) war `protocol/test/nwc.test.ts` einmal rot:
+„NIP-04: Dritter kann nicht lesen“ meldete „Missing expected exception“.
+
+**Ursache:**
+- NIP-04 verschlüsselt mit AES-CBC.
+- Mit falschem Schlüssel wirft meist die PKCS#7-Polsterprüfung.
+- Liegt das zufällige letzte Byte auf `0x01`, ist das Polster gültig, und es
+  kommt Unsinn heraus statt eines Fehlers.
+- Lokal gemessen mit 4000 Läufen: 12-mal kein Fehler, nie der Klartext.
+
+**Änderung:**
+- Der Test prüft die Eigenschaft selbst: 50 fremde Schlüssel lesen nie den
+  Klartext, mindestens einer wirft.
+- Neuer Fallstrick in `CLAUDE.md` neben „In Zufallsdaten nie nach kurzen
+  Zeichenfolgen suchen“.
+
+**Prüfungen:** protocol 1155 grün (unverändert). Der Test lief 20-mal einzeln,
+also mit 1000 falschen Schlüsseln, immer grün.

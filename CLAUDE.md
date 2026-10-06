@@ -1210,6 +1210,9 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   Schlüssel und Signatur sind Hex, „5079“ steht dort in etwa jedem
   zweihundertsten Lauf zufällig. Was offen nicht stehen darf, über die Struktur
   prüfen (`wrap.tags`, `wrap.kind`); nach Geheimnissen ab 32 Zeichen darf man suchen.
+  Ebenso: Entschlüsseln mit falschem Schlüssel wirft bei AES-CBC (NIP-04) nicht
+  immer – etwa jeder 256. ergibt ein zufällig gültiges Polster und Unsinn. In Tests
+  „liest den Klartext nicht“ prüfen, nie `assert.throws` allein (`nwc.test.ts`).
 - **Sprachnachrichten nur über `SprachAufnahme`** (seit C-7, `sprachnachricht.ts`,
   Oberfläche `shell/sprachnachricht-ui.ts`): das Mikrofon nur aus `starte()` auf
   Klick, nie beim Laden; nach jedem Ende alle Spuren stoppen (beendet, verworfen,
