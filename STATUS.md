@@ -17137,6 +17137,46 @@ ohne NWC ein Hinweis.
 **Damit ist 12.7 fertig** (a #322, b #324, c). Offen in Phase 12 für Spur C:
 12.1 Auswahl der Anzeigeeinheit und 12.4 Schalter (nach 12.4b von Spur A).
 
+## Schritt B-17b2 – OpenTimestamps: Prüfung gegen Bitcoin (5.10b, Sammlung B-17)
+
+K5 entschied der MENSCH am 06.10. mit A (alice, bob, finney); seit demselben Tag
+erlaubt die Umgebung mempool.space und blockstream.info.
+
+**Was neu ist:** `ots-bitcoin.ts` (K4 A):
+- `leseBlockkopf()` liest 80 Bytes und lässt den Kopf sich selbst prüfen: Hash
+  (doppeltes SHA-256) nachgerechnet, Arbeit nach seinem Ziel, Ziel höchstens das
+  des Hauptnetzes (Bits 0x1d00ffff) – ein gefälschter Kopf kostet Rechenarbeit.
+- `pruefeVerankerung()` fragt je Bitcoin-Höhe im Beweis (aufsteigend, höchstens
+  drei) beide Explorer aus `OTS_EXPLORER` (Esplora: Hash zur Höhe, dann der
+  Kopf). Der Kopf gilt nur, wenn er zum genannten Hash passt und beide
+  denselben liefern; fehlt einer → `nicht-erreichbar`, verschieden → `uneinig`
+  (beides: keine Aussage), passt die Wurzel bei keiner Höhe → `falsche-wurzel`.
+  Sonst Höhe, Zeit und Hash des Blocks. Anfragen „einfach“ (die Explorer
+  erlauben jede Herkunft), ohne Zugangsdaten und Weiterleitung, begrenzt.
+- `holeHoechstens()` (aus `ots-kalender.ts`) dient Kalendern und Explorern.
+
+**Testvektoren:** der echte Kopf zu Block 970158 – von beiden Explorern gleich –
+und der Genesis-Block, beide mit python-bitcoinlib nachgerechnet;
+python-opentimestamps prüft den Beweis von B-17b1 gegen den Kopf
+(`verify_against_blockheader`, Zeit 1791281192). **Live-Probe** (außerhalb der
+Tests, mit beiden Explorern): der eigene Stempel von heute ist verankert in
+Block 970158 (06.10.2026, 10:06:32 UTC), der alte aus B-17a in Block 428648.
+
+**Fallstrick:** Node-`fetch` geht hier nur mit `NODE_USE_ENV_PROXY=1` (und
+`NODE_EXTRA_CA_CERTS=/root/.ccr/ca-bundle.crt`) über den Agent-Proxy – sonst
+meldet jede Live-Probe „nicht-erreichbar“ (Python und curl nehmen den Proxy von
+selbst).
+
+**Verdrahtet:** noch nicht – Ausnahmen mit Grund (B-17b3: Prüfung bei Bedarf,
+Schlüsselwechsel und Streit).
+
+**Prüfungen** (nach dem Einmergen von `main` mit D1b2 und 12.7c): protocol 1182
+grün (+5, `ots-bitcoin.test.ts`), 6 übersprungen; node 313 (7 übersprungen ohne
+Netz), app 911, mls 13, Leak 73 + 1 todo; Typprüfung überall, Build, check-wiring Exit 0,
+innerHTML Exit 0, Website ok, Smoke-Test bestanden, build-site ok, reproduzierbar.
+
+Knoten-Stand: unverändert.
+
 ## Schritt 12.1 C – Auswahl der Anzeigeeinheit
 
 **Warum:** Spur A hat in 12.1 die Logik gebaut (`anzeigeEinheit()`,

@@ -101,6 +101,7 @@ export * from "./timestamps.js";
 export * from "./ots.js";
 export * from "./ots-kalender.js";
 export * from "./ots-nip03.js";
+export * from "./ots-bitcoin.js";
 export * from "./antispam.js";
 export * from "./state-backup.js";
 export * from "./gift-wrap.js";
