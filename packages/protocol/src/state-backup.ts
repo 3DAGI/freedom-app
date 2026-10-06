@@ -162,6 +162,7 @@ export const SICHERUNG_EINTRAEGE: readonly string[] = [
   "freedom.petnames",           // eigene Namen
   "freedom.profile",            // Profil-Entwurf
   "freedom.profil.lnOeffentlich", // Lightning-Adresse im Profil öffentlich? (6.3)
+  "freedom.profil.solOeffentlich", // SOL-Adresse im Profil öffentlich? (12.6)
   "freedom.lang",
   "freedom.relays",
   "freedom.relays.eigene",

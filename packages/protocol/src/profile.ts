@@ -16,6 +16,8 @@ export interface ProfileMetadata {
   picture?: string;
   /** Lightning-Adresse, z. B. "npub1abc@npub.cash" (Clawstr-Muster). */
   lud16?: string;
+  /** SOL-Adresse (Konvention im Inhalt, gelesen von `solAdresseAusProfil()` und den Relay-Zahlzielen); seit 12.6 nur mit Häkchen. */
+  sol?: string;
   /** Ist dieser Teilnehmer ein autonomer Agent? (fuer Anzeige/Filter) */
   agent?: boolean;
   /** Chain-Auszahladressen, chain-agnostische Identitaet. */
@@ -39,11 +41,16 @@ export interface ProfileMetadata {
  * Was vom Profil öffentlich wird (Schritt 6.3): die Lightning-Adresse nur mit
  * ausdrücklicher Zustimmung. Sie verbindet die Identität mit jedem Betrag, den
  * jemand an sie zahlt, und mit dem Knoten, der die Rechnungen ausstellt.
+ *
+ * Seit 12.6 ebenso die SOL-Adresse (Feld `sol`, wie es `solAdresseAusProfil()`
+ * und die Relay-Zahlziele lesen): ohne `sol: true` gehen weder `sol` noch
+ * `chains` hinaus – auf der Kette hängt an der Adresse ihre ganze Geschichte.
  */
-export function oeffentlichesProfil<T extends { lud16?: string; lud06?: string }>(meta: T, o: { lightning: boolean }): T {
-  if (o.lightning) return meta;
-  const { lud16: _a, lud06: _b, ...rest } = meta;
-  return rest as T;
+export function oeffentlichesProfil<T extends { lud16?: string; lud06?: string; sol?: string; chains?: unknown }>(
+  meta: T, o: { lightning: boolean; sol?: boolean },
+): T {
+  const weg = new Set([...(o.lightning ? [] : ["lud16", "lud06"]), ...(o.sol ? [] : ["sol", "chains"])]);
+  return Object.fromEntries(Object.entries(meta).filter(([k]) => !weg.has(k))) as T;
 }
 
 export function buildProfile(
@@ -235,7 +242,7 @@ export function profileDisclosure(p: Partial<ProfileMetadata>): string[] {
 
   if (p.lud16) zeilen.push("Deine Lightning-Adresse ist öffentlich. Wer sie kennt, kann dir zahlen.");
   if (p.website) zeilen.push("Die Webseite verknüpft dein Profil mit einer anderen Identität.");
-  if (p.chains?.solana) zeilen.push("Deine Solana-Adresse ist öffentlich — mitsamt ihrer gesamten Historie.");
+  if (p.sol || p.chains?.solana) zeilen.push("Deine Solana-Adresse ist öffentlich — mitsamt ihrer gesamten Historie.");
 
   if (zeilen.length === 0) {
     zeilen.push("Ein leeres Profil gibt nichts preis. Das ist eine gültige Wahl.");

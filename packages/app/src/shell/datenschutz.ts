@@ -16,6 +16,7 @@ import { $ } from "./ui.js";
 import { t } from "../i18n.js";
 import { fehlerText } from "../protokoll-texte.js";
 import { lnOeffentlich } from "../profil-lightning.js";
+import { solOeffentlich } from "../profil-sol.js";
 import { nwcUeberFremdesRelay } from "../nwc-relays.js";
 
 let onion: { kandidaten: string; ergebnis: Promise<OnionPruefung>; fertig: boolean } | null = null;
@@ -68,7 +69,7 @@ export async function zeigeDatenschutz(erneut = false): Promise<void> {
     const netz = (($("#net-mode") as HTMLSelectElement | null)?.value ?? "klar") as
       "klar" | "tor" | "mixnet";
     const profil = JSON.parse(localStorage.getItem("freedom.profile") ?? "{}") as
-      { picture?: string; lud16?: string };
+      { picture?: string; lud16?: string; sol?: string };
 
     const cfg = {
       ...DEFAULT_CONFIG,
@@ -80,7 +81,8 @@ export async function zeigeDatenschutz(erneut = false): Promise<void> {
       // meldete der Bericht einen Wegwerfschluessel, den es nicht gab.
       giftWrap: DMS_GIFT_WRAPPED,
       ownRelay: !!localStorage.getItem("freedom.ownRelay"),
-      solanaInProfile: !!localStorage.getItem("freedom.solAddress"),
+      // Seit 12.6 nur auf Wunsch (Häkchen im Profil) – vorher las der Bericht einen Schlüssel, den nichts schrieb
+      solanaInProfile: !!profil.sol?.trim() && solOeffentlich(localStorage),
       // Seit 6.3 nur auf Wunsch (Häkchen im Profil); vor 6.3 gespeicherte gelten als veröffentlicht
       lightningInProfile: !!profil.lud16?.trim() && lnOeffentlich(localStorage),
       // Relays der Wallet-Verbindung (6.3): nur eigenes oder .onion gilt als privat

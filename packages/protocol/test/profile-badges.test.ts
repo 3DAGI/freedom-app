@@ -10,7 +10,7 @@ import assert from "node:assert/strict";
 import { generateKeypair, signEvent, buildEvent } from "../src/event.js";
 import {
   buildProfile, parseProfileSafe, normalizeStyle, inspectPicture, inspectAbout,
-  profileDisclosure, ACCENTS, ACCENT_HEX, DEFAULT_STYLE,
+  profileDisclosure, oeffentlichesProfil, ACCENTS, ACCENT_HEX, DEFAULT_STYLE,
 } from "../src/profile.js";
 import {
   buildBadgeDefinition, parseBadgeDefinition, buildBadgeAward, collectBadges,
@@ -191,4 +191,17 @@ test("Herkunft steht in der Anzeige, nicht in einem Hilfetext", () => {
 test("Kaputte Definition wird uebersprungen, nicht geworfen", () => {
   const ohneId = signEvent(buildEvent(AUSSTELLER.pk, KIND_BADGE_DEFINITION, [["name", "X"]], ""), AUSSTELLER.sk);
   assert.doesNotThrow(() => collectBadges(ICH.pk, [ohneId]));
+});
+
+test("12.6: SOL-Adresse nur mit Häkchen öffentlich – Lightning unabhängig davon", () => {
+  const sol = "7EcDhSYGxXyscszYEp35KHN8vvw3svAuLKTzXwCFLtVb";
+  const entwurf = { name: "Ada", lud16: "ada@wallet.example", sol, chains: { solana: sol } };
+  assert.deepEqual(oeffentlichesProfil(entwurf, { lightning: false }), { name: "Ada" }, "ohne Angabe bleibt sol privat");
+  assert.deepEqual(oeffentlichesProfil(entwurf, { lightning: false, sol: false }), { name: "Ada" });
+  assert.deepEqual(oeffentlichesProfil(entwurf, { lightning: true, sol: false }), { name: "Ada", lud16: "ada@wallet.example" });
+  assert.deepEqual(oeffentlichesProfil(entwurf, { lightning: false, sol: true }), { name: "Ada", sol, chains: { solana: sol } });
+  assert.deepEqual(Object.keys(oeffentlichesProfil(entwurf, { lightning: true, sol: true })), ["name", "lud16", "sol", "chains"], "Reihenfolge bleibt");
+  // Die Offenlegung nennt die Adresse, sobald sie hinausgeht – auch im Feld `sol`
+  assert.ok(profileDisclosure({ sol }).some((z) => /Solana-Adresse ist öffentlich/.test(z)));
+  assert.ok(!profileDisclosure(oeffentlichesProfil({ sol }, { lightning: false })).some((z) => /Solana/.test(z)));
 });
