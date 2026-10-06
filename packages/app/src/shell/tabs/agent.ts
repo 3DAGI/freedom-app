@@ -292,11 +292,12 @@ export async function buildJobEvent(
   if (gewaehltesModell) {
     extraTags.push(["param", "model", gewaehltesModell]);
   }
-  const useSession = !eigen && !kanal && sc.activeFor(targetPubkey);
+  // Nur die Sitzung dieses Schlüssels (D1b) – eine andere nennte dem Provider beide
+  const useSession = !eigen && !kanal && sc.activeFor(targetPubkey, sitzung.publicKey());
   const request = useSession
     ? buildEvent(sitzung.publicKey(), KIND_DVM_TEXT_GENERATION, [
         ["i", fullPrompt, "text"],
-        ...sc.jobTags(targetPubkey, bid * 1000),
+        ...sc.jobTags(targetPubkey, bid * 1000, sitzung.publicKey()),
         ["tier", tier],
         ["p", targetPubkey],
         ...extraTags,
@@ -315,6 +316,7 @@ export async function buildJobEvent(
   });
   // Erst merken (letzte Gutschrift, offene Anfrage), dann senden
   if (kanal) await kanal.merke(auftrag.requestId);
+  kiSitzungen.merkeAuftrag(auftrag.requestId, sitzung); // D1b: Abrechnung und Reklamation mit diesem Schlüssel
   merkeErsetzt(auftrag.requestId, maske.ersetzt);
   merkeAnfrage(auftrag.requestId, empfaenger, hoechst, !!kanal);
   return auftrag;
@@ -434,7 +436,7 @@ export async function handleAnswer(ev: import("@freedomstack/protocol").NostrEve
   const ersetzt = ersetztFuer(r.requestId);
   addAiMessageStreaming("ai", ausgabe, ersetzt > 0 ? t("agent.platzhalterErsetzt", { n: ersetzt }) : "", who, () => {
     // Frage und Antwort nur im Speicher – fuer den Pruefer, wenn der Nutzer reklamiert und zustimmt (5.6).
-    addUsageBubble(r.usage ?? {}, r.amountMsat, r.providerPubkey, ev.id, frage !== undefined ? { frage, antwort: ausgabe } : undefined, abrechnung);
+    addUsageBubble(r.usage ?? {}, r.amountMsat, r.providerPubkey, ev.id, frage !== undefined ? { frage, antwort: ausgabe } : undefined, abrechnung, r.requestId);
     // KEIN Zap-Button unter jeder Antwort — das wuerde die UX kaputt machen.
     // Zaps sind nur fuer besondere Antworten (manuell vom Nutzer gewaehlt).
   });
@@ -465,7 +467,8 @@ export async function handleAnswer(ev: import("@freedomstack/protocol").NostrEve
   const sc = ensureSessionClient();
   // Den Anteil des Providers zahlt die Sitzung an seine Lightning-Adresse (5.1.3)
   const { zahlung, grund } = await providerZahlung(r.providerPubkey);
-  const charge = await sc.chargeForResult(r.providerPubkey, abrechnung.providerMsat, ev.id, zahlung);
+  // Verbucht in der Sitzung des Schlüssels, der den Auftrag stellte (D1b) – nicht aus dem Ergebnis, dessen p-Tag setzt der Provider
+  const charge = await sc.chargeForResult(r.providerPubkey, abrechnung.providerMsat, ev.id, zahlung, kiSitzungen.fuerAuftrag(r.requestId));
   // Quittung (5.5b): erst mit bezahlter Rechnung und Preimage – über alle Antworten seit der letzten Zahlung
   void quittungNachZahlung(r.providerPubkey, abrechnung.providerMsat, charge);
   updateBudgetBar();

@@ -77,6 +77,14 @@ von Spur A. Der MENSCH kann sie ändern, ohne dass sich der Plan ändert.
 - **Reklamationen** nehmen den Schlüssel des Auftrags (Zuordnung Auftrag →
   Schlüssel), nicht den aktuellen. Sonst passte die Reklamation nicht mehr zum
   Auftrag.
+- **Aufteilung** (beim Bau, wegen des Umfangs):
+  - **D1b1 ✓:** Zahlsitzungen gehören zum Schlüssel, Abrechnung und
+    Reklamation nehmen den Schlüssel des Auftrags. Der Schlüssel kommt aus dem
+    eigenen Gedächtnis (`kiSitzungen.merkeAuftrag()` vor dem Senden), nie aus
+    dem `p`-Tag des Ergebnisses: den setzt der Provider selbst. Ohne Wechsel
+    ändert sich dadurch nichts.
+  - **D1b2:** neue Schlüssel je Unterhaltung, offene Beträge begleichen,
+    Grenze Zahlkanal im Bericht.
 - **Grenze:** Mit Zahlkanal verbindet der feste Schlüssel des Kanals alle
   Anfragen über diesen Kanal. Das steht im Bericht.
 
@@ -116,7 +124,8 @@ von Spur A. Der MENSCH kann sie ändern, ohne dass sich der Plan ändert.
 | Schritt | Inhalt |
 |---|---|
 | D1a ✓ | Platzhalter für persönliche Angaben (Baustein, Verdrahtung in `buildJobEvent()` und über Funk, Rücksetzen in `handleAnswer()`, Einstellung, Grenze „ki-platzhalter“ mit Szenario, Whitepaper) |
-| D1b | Neuer Schlüssel je Unterhaltung (offene Beträge vorher begleichen, Reklamation mit dem Schlüssel des Auftrags, Grenze Zahlkanal) |
+| D1b1 ✓ | Abrechnung und Reklamation mit dem Schlüssel des Auftrags (`merkeAuftrag()`/`fuerAuftrag()`, Zahlsitzungen je Schlüssel) |
+| D1b2 | Neuer Schlüssel je Unterhaltung (offene Beträge vorher begleichen, Grenze Zahlkanal) |
 | D1c ✓ | Weniger Verlauf: Standard „kurz“ (6 Nachrichten, 3 000 Zeichen), Auswahl aus · kurz · lang (`VERLAUF_UMFANG`, `freedom.verlauf`), Grenze „ki-verlauf“ im Bericht, Whitepaper |
 | D2 | Privat-Schalter: nur Gerät oder eigener Knoten |
 | D3-Entwurf | Versiegelter Provider-Modus, zur Freigabe |
