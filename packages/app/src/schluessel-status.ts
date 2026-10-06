@@ -21,9 +21,9 @@ export function leseGemerkt(roh: string | null): GemerkteMandate {
     if (!x || typeof x !== "object" || Array.isArray(x)) return {};
     const out: GemerkteMandate = {};
     for (const [alt, v] of Object.entries(x as Record<string, unknown>)) {
-      const e = v as { neu?: unknown; gesehen?: unknown } | null;
+      const e = v as { neu?: unknown; gesehen?: unknown; anker?: unknown } | null;
       if (HEX64.test(alt) && e && typeof e.neu === "string" && HEX64.test(e.neu) && Number.isSafeInteger(e.gesehen)) {
-        out[alt] = { neu: e.neu, gesehen: e.gesehen as number };
+        out[alt] = { neu: e.neu, gesehen: e.gesehen as number, ...(Number.isSafeInteger(e.anker) ? { anker: e.anker as number } : {}) };
       }
     }
     return out;
@@ -35,11 +35,13 @@ export function leseGemerkt(roh: string | null): GemerkteMandate {
 /**
  * Stand je Kontakt aus Mandaten und Widerrufen; merkt neue Mandate.
  * `events`: Mandate der Kontakte (authors) und Widerrufe, die sie nennen (#p).
+ * `anker` (seit B-17b3b): geprüfte Bitcoin-Zeit je Mandat, nur bei Streit geholt.
  */
 export function pruefeKontakte(
   kontakte: readonly string[], events: readonly NostrEvent[], bekannt: GemerkteMandate, jetzt = Math.floor(Date.now() / 1000),
+  anker: ReadonlyMap<string, number> = new Map(),
 ): { gemerkt: GemerkteMandate; geaendert: boolean; stand: Map<string, KeyState> } {
-  const { gemerkt, neu } = merkeMandate(bekannt, events, jetzt);
+  const { gemerkt, neu } = merkeMandate(bekannt, events, jetzt, anker);
   const stand = new Map<string, KeyState>();
   for (const k of kontakte) stand.set(k, resolveKey(k, [...events], { gemerkt, nowSecs: jetzt }));
   return { gemerkt, geaendert: neu, stand };

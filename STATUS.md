@@ -17239,3 +17239,49 @@ weniger), innerHTML Exit 0, Website ok, Smoke-Test bestanden, build-site ok,
 reproduzierbar.
 
 Knoten-Stand: unverändert.
+
+## Schritt B-17b3b – OpenTimestamps: Mandate von Kontakten gegen Bitcoin (5.10b, Sammlung B-17)
+
+Letzter Teil von B-17 (K1 A: „ein Anker belegt das frühe Mandat auch gegenüber
+Kontakten, die es spät sehen“; K4 A: Prüfung nur bei Bedarf, über zwei Explorer).
+
+**Was neu ist:**
+- `merkeMandate(…, anker)` (`key-rotation.ts`): `anker` nennt je Mandat die
+  geprüfte Blockzeit. Kommen mehrere zugleich zum ersten Mal, gewinnt das früher
+  verankerte vor jedem unverankerten – erst ohne Anker der Zeitstempel. Ein
+  gemerktes Mandat löst nur ein verankertes ab, das mehr als
+  `ANKER_SPIELRAUM_SEK` (zwei Stunden, die Blockzeit setzt der Miner) früher
+  liegt als alles, was das gemerkte belegt (sein Anker, sonst „gesehen“); der
+  Anker des gemerkten selbst wird festgehalten und hebt die Latte. Ein Dieb
+  verankert erst nach dem Diebstahl – zu spät.
+- `mandat-anker.ts` (ohne DOM): `streitigeMandate()` – nur alte Schlüssel mit
+  mehr als einem Nachfolger (in Mandaten oder gemerkt); `ankerZeiten()` – nur
+  Kind 1040, die genau eines dieser Mandate beweisen (Kennung und Art), je
+  Mandat die niedrigste Höhe, höchstens vier Prüfungen je Durchgang; geprüft
+  gemerkt je Beweis, „keine Aussage“ nie.
+- `ankerFuerStreit()` (`shell/zeitanker-takt.ts`) in `aktualisiereSchluessel()`
+  (`tabs/kontakte.ts`): ohne Streit kein Netz; sonst die 1040 zu den
+  streitigen Mandaten (`#e`) und `pruefeVerankerung()` gegen beide Explorer.
+- `leseGemerkt()` liest den Anker mit (streng); Datenschutz „zeitanker“ nennt
+  jetzt auch die Explorer (deutsch und englisch).
+
+**Verdrahtet:** `tabs/kontakte.ts` (`ankerFuerStreit(pool, mandate, gemerkt)` →
+`pruefeKontakte(…, anker)`); die letzten drei OTS-Ausnahmen in
+`wiring-ausnahmen.txt` entfallen – B-17 ist damit ganz im echten Pfad.
+
+**Tests:** `key-rotation.test.ts` (+3: zugleich gesehen, spät gesehen mit
+Spielraum, Dieb verankert zu spät), `mandat-anker.test.ts` (+5: Streit nur bei
+mehreren Nachfolgern; der echte Beweis zu Block 970158 über
+`pruefeVerankerung()` mit den Köpfen aus der Referenz; fremde Kennung, falsche
+Art, unlesbar, „uneinig“ nie gemerkt, Grenze; der Dieb zuerst gesehen, das echte
+früher verankert → echter Nachfolger; Verdrahtung).
+
+Ein bestehender Test (`schluessel-status.test.ts`, 8.6a) prüfte den Aufruf von
+`pruefeKontakte()` wörtlich – er prüft jetzt den neuen mit Anker (mehr, nicht weniger).
+
+**Prüfungen:** protocol 1186 grün (+3), 6 übersprungen; node 313 (7 übersprungen
+ohne Netz), app 924 (+5), mls 13, Leak 73 + 1 todo; Typprüfung überall, Build,
+check-wiring Exit 0 (keine OTS-Ausnahme mehr), innerHTML Exit 0, Website ok,
+Smoke-Test bestanden, build-site ok, reproduzierbar.
+
+Knoten-Stand: unverändert.

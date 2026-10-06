@@ -5,7 +5,10 @@
  * (`zeitankerTakt()`). Die Kalender (`OTS_KALENDER`) sehen IP und Zeitpunkt,
  * nie einen Wert; mit Tor nur den Ausgang. Ohne Einträge geht nichts hinaus.
  */
-import { type NostrEvent, type Quittung, reicheNach, stempele } from "@freedomstack/protocol";
+import {
+  type GemerkteMandate, type NostrEvent, type Quittung, type RelayFilter, KIND_OTS_BEWEIS, pruefeVerankerung, reicheNach, stempele,
+} from "@freedomstack/protocol";
+import { ankerZeiten, streitigeMandate } from "../mandat-anker.js";
 import { ZeitankerBuch, quittungsDigest, zeitankerTakt } from "../zeitanker.js";
 import { alsGeraet, ensurePool, signiere, state } from "./state.js";
 import { geheim } from "./tresor.js";
@@ -42,4 +45,21 @@ export async function zeitankerSchlag(): Promise<void> {
   } finally {
     laeuft = false;
   }
+}
+
+/** Geprüfte Beweise dieser Sitzung (je Kind-1040-Kennung) – nur im Speicher. */
+const geprueft = new Map<string, number | null>();
+
+/**
+ * Mandate von Kontakten bei Streit gegen Bitcoin prüfen (B-17b3b, K4 A): nur
+ * wenn ein alter Schlüssel mehr als einen Nachfolger hat; dann die 1040 zu
+ * diesen Mandaten holen und gegen beide Explorer prüfen. Sonst kein Netz.
+ */
+export async function ankerFuerStreit(
+  pool: { query(f: RelayFilter): Promise<NostrEvent[]> }, mandate: readonly NostrEvent[], gemerkt: GemerkteMandate,
+): Promise<Map<string, number>> {
+  const streit = streitigeMandate(mandate, gemerkt);
+  if (streit.length === 0) return new Map();
+  const beweise = await pool.query({ kinds: [KIND_OTS_BEWEIS], "#e": streit.map((m) => m.id), limit: 50 });
+  return ankerZeiten(streit, beweise, (z) => pruefeVerankerung(z, { holen }), geprueft);
 }

@@ -203,6 +203,3 @@ kopfgeld.ts|baueKopfgeld|Kopfgelder (E10 B, 04.10.2026) – verdrahtet in E10b (
 kopfgeld.ts|kopfgelderZuIssue|Kopfgelder (E10 B, 04.10.2026) – verdrahtet in E10b (App: Kopfgeld am Issue, Zahlung per Klick)
 kopfgeld.ts|leseKopfgeld|Kopfgelder (E10 B, 04.10.2026) – verdrahtet in E10b (App: Kopfgeld am Issue, Zahlung per Klick)
 kopfgeld.ts|offeneKopfgelder|Kopfgelder (E10 B, 04.10.2026) – verdrahtet in E10b (App: Kopfgeld am Issue, Zahlung per Klick)
-ots-nip03.ts|leseOtsBeweis|NIP-03 (B-17b1, K3 A) – verdrahtet in B-17b3b (Beweise zu Mandaten von Kontakten)
-ots-bitcoin.ts|leseBlockkopf|Prüfung gegen Bitcoin (B-17b2, K4 A) – verdrahtet in B-17b3b (bei Bedarf: Schlüsselwechsel eines Kontakts)
-ots-bitcoin.ts|pruefeVerankerung|Prüfung gegen Bitcoin (B-17b2, K4 A) – verdrahtet in B-17b3b (bei Bedarf: Schlüsselwechsel eines Kontakts)

@@ -173,7 +173,11 @@ export async function aktualisiereSchluessel(): Promise<void> {
     frageBeiAutoren({ kinds: [KIND_ROTATION_MANDATE], authors: kontakte, limit: 200 }),
     pool.query({ kinds: [KIND_KEY_REVOCATION], "#p": kontakte, limit: 200 }),
   ]);
-  const r = pruefeKontakte(kontakte, [...mandate, ...widerrufe], leseGemerkt(geheim.getItem(LS_MANDATE)));
+  const gemerkt = leseGemerkt(geheim.getItem(LS_MANDATE));
+  // Zeitanker (B-17b3b): nur bei Streit um einen Nachfolger die Beweise gegen Bitcoin prüfen
+  const { ankerFuerStreit } = await import("../zeitanker-takt.js");
+  const anker = await ankerFuerStreit(pool, mandate, gemerkt).catch(() => new Map<string, number>());
+  const r = pruefeKontakte(kontakte, [...mandate, ...widerrufe], gemerkt, undefined, anker);
   if (r.geaendert) await geheim.setItem(LS_MANDATE, JSON.stringify(r.gemerkt)).catch(() => undefined);
   const vorher = JSON.stringify([...schluesselStand].map(([k, v]) => [k, v.status, v.currentPubkey]));
   schluesselStand = r.stand;
