@@ -16682,3 +16682,51 @@ Runde nur für die Verfügbarkeit.
 - Smoke-Test bestanden.
 
 Knoten-Stand: unverändert.
+
+## Schritt P5c2 – Prüfrunden mit Lightning verdrahtet
+
+Etwa jede 400. Antwort geht die echte Anfrage zusätzlich an zwei andere
+Provider (Entscheidungen 05. und 06.10.2026). Der Nutzer sieht nur die Antwort
+seines Providers und einen kurzen Hinweis.
+
+**Was sich ändert:**
+- **`shell/pruefrunde-lauf.ts` (neu):**
+  - `starteRunde()`: fällig nach `PRUEFRUNDE`; Bedarf zwei Höchstbeträge
+    (Gebot plus Werkzeuge), vom Budget abgezogen. Zwei Provider aus
+    `waehleZusatz()` – nie einer dieses Laufs, nie ein eigener Knoten
+    (gekoppelt oder Allowlist), bis P5d keiner mit Zahlkanal. Keine zwei:
+    keine Runde, die nächste Antwort versucht es wieder.
+  - Die Kopien gehen über `buildJobEvent()` wie jede Anfrage. Die Antworten
+    holt die App still ab und bezahlt sie wie jede andere
+    (`rechneAntwortAb()`, Sitzung, Quittung).
+  - Abschluss: `werteRundeAus()`, Punkte mit `einig` ins Messbuch
+    (`mitEinig()`), Rest zurück ins Budget (`rueckgabeMsat()`).
+  - `messeLauf()` zählt jede Antwort (nie den eigenen Knoten) und schließt die
+    Runde ab; ohne Runde merkt es die Messung wie bisher.
+- **`agent-wege.ts`:** `starteRunde()` nach dem ersten Senden, `messeLauf()`
+  an allen drei Enden des Laufs. Max und Schwarm bleiben, wie sie sind.
+- **`agent.ts`:** `waitForAnswer(…, { still: true })` zeigt keine Zwischenstände.
+- **`pruefrunde.ts`:** `mitEinig()`, `rueckgabeMsat()`.
+- **Datenschutz:** neue Grenze „pruefrunde“ (Regel `kunde-verborgen`, Szenario:
+  drei Anfragen, drei Sitzungen, nichts verbindet sie offen), Texte in beiden
+  Sprachen.
+- **Website:** FAQ (Aufteilung, „Woran erkennt die App einen guten
+  Provider?“) und Whitepaper.
+- **Doku:** `FREEDOM-PRUEFUNG.md` (Ablauf), `PROTOCOL.md` §28, `CLAUDE.md`.
+
+**Verdrahtet:**
+- `askWithFailover()` (`shell/tabs/agent-wege.ts`) → `starteRunde()` bei
+  `i === 0` und `messeLauf()` nach Antwort, Abbruch und Versagen.
+- `messeLauf()` → `pruefBudget.zaehleAntwort()` und `abschluss()` bzw.
+  `merkeMessung()`.
+
+**Prüfungen:**
+- protocol 1157 (+1: Grenze mit Szenario), node 314.
+- app 882 (+2: `mitEinig()`/`rueckgabeMsat()`, Verdrahtung). Der Messbuch-Test
+  sucht jetzt `messeLauf(runde, ergebnisDesLaufs(` statt `merkeMessung(`.
+- mls 13, Leak 72 + 1 todo.
+- check-wiring, innerHTML und Website ok.
+- Smoke-Test bestanden.
+
+Knoten-Stand: unverändert. Die zusätzlichen Anfragen sind gewöhnliche
+Anfragen.

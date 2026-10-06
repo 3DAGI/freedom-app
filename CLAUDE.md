@@ -45,9 +45,9 @@ bash packages/mls/bauen.sh --pruefen                     # nur bei Änderungen a
 bash contracts/solana-channel/pruefen.sh --werkzeuge     # nur bei Änderungen am Zahlkanal: bauen + Tests gegen Validator (Agave 3.1.10)
 ```
 
-Stand 06.10.2026 (nach 8.2c, 5.5a–c, 8.15, 11.1a, C.3c2, 11.1b, 5.9a–b, 6.3a–b2, 11.4a–b2, C.4a–b, C.5a–b, C.6b, 11.4c, C-18, C-17a–c, C-20a–j3, C-1a–f, C-2, C-3, C-4, C-5a–d, C-6a–e, C-7a–b, C-8, C-10 bis C-16, 11.2a–b, A-4 bis A-7, A-7r, Z1, 12.1–12.3, E8, P1a–b, P2a, E10a, E11, E9-Entwurf, 12.4a, P2b1–b2, P3a–b, P4, P5a–b, P5c1, B-1, B-2a–c, B-3 bis B-7, B-8a–c, B-9a, B-15, B-19, B-20a–c, B-10a–b, B-9b1–b2, B-9c1–c3, B-11a–c, B-12a–d, B-13a–e und B-21): protocol 1156 grün (6 übersprungen), node 314 grün
+Stand 06.10.2026 (nach 8.2c, 5.5a–c, 8.15, 11.1a, C.3c2, 11.1b, 5.9a–b, 6.3a–b2, 11.4a–b2, C.4a–b, C.5a–b, C.6b, 11.4c, C-18, C-17a–c, C-20a–j3, C-1a–f, C-2, C-3, C-4, C-5a–d, C-6a–e, C-7a–b, C-8, C-10 bis C-16, 11.2a–b, A-4 bis A-7, A-7r, Z1, 12.1–12.3, E8, P1a–b, P2a, E10a, E11, E9-Entwurf, 12.4a, P2b1–b2, P3a–b, P4, P5a–b, P5c1–c2, B-1, B-2a–c, B-3 bis B-7, B-8a–c, B-9a, B-15, B-19, B-20a–c, B-10a–b, B-9b1–b2, B-9c1–c3, B-11a–c, B-12a–d, B-13a–e und B-21): protocol 1157 grün (6 übersprungen), node 314 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 880 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 72 grün + 1 `todo` (heutige Lecks,
+in `tools.test.ts`), app 882 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 72 grün + 1 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
 Ausnahme: gesendete SOL-Zahlungen von frischen Adressen, eine bewusste Grenze
 nach Entscheidung 4.9 A – im Datenschutzbericht unter „Bewusste Grenzen“).
@@ -970,7 +970,7 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   OpenRouter-Vorbild). **Keine Prüfer** (Entscheidung 05.10.2026, P5a): keine
   Prüfer-Rolle im Knoten, keine synthetischen Prüffragen, keine Messberichte –
   38081 nicht wiederverwenden, Prüfer nicht wieder einführen. Geprüft wird in
-  Pflicht-Prüfrunden (P5c/P5d; Bausteine seit P5c1, verdrahtet ab P5c2): die echte Anfrage an drei
+  Pflicht-Prüfrunden (P5c/P5d; mit Lightning seit P5c2, über Zahlkanäle ab P5d): die echte Anfrage an drei
   Provider statt an einen, etwa jede 400. Antwort (MENSCH 06.10.2026 – Antwort,
   nicht Zahlung), ohne Schalter, bezahlt aus dem Prüfbudget (0,5 % aus dem
   Anteil der Entwicklung, seit P5b) in der Währung des
@@ -986,7 +986,12 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   eine Runde nur über `PruefBudget.faellig()`/`beginneRunde()` (`PRUEFRUNDE`),
   die zwei zusätzlichen Provider nur aus `waehleZusatz()` (nie eigene Knoten,
   Zufall aus `sichererZufall()`), ausgewertet nur über `werteRundeAus()` – bei
-  Streit keine Aussage, nie „richtig“ versprechen. Die eigene Messung nur über `MessBuch`
+  Streit keine Aussage, nie „richtig“ versprechen. Ausgeführt (seit P5c2) nur über
+  `shell/pruefrunde-lauf.ts` aus `askWithFailover()`: `starteRunde()` erst nach dem
+  ersten Senden, `messeLauf()` an jedem Ende des Laufs (schließt die Runde ab, zählt
+  die Antwort, nie den eigenen Knoten); die zwei nur über `buildJobEvent()`, still
+  abgeholt (`waitForAnswer(…, { still: true })`), bezahlt wie jede Antwort, nie
+  angezeigt – nie eigene Knoten, bis P5d nie über einen Zahlkanal. Die eigene Messung nur über `MessBuch`
   (`messbuch.ts`, `freedom.messungen` in `geheim` und `SICHERUNG_NIE`),
   geschrieben nur aus `askWithFailover()` über `ergebnisDesLaufs()`:
   Ablehnungen und Abbrüche zählen nicht (oft Fehler des Nutzers), eine

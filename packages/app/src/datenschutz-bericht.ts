@@ -57,6 +57,7 @@ const FAKT: Record<string, readonly [string, string?]> = {
   "ki-antwort": ["ds.fKiAntwort"],
   "ki-lokal": ["ds.fKiLokal"],
   "pruefung": ["ds.fPruefung"],
+  "pruefrunde": ["ds.fPruefrunde", "ds.gPruefrunde"],
   "ki-zahlung": ["ds.fKiZahlung"],
   "ki-reklamation": ["ds.fKiReklamation"],
   "ruf-kontakte": ["ds.fRufKontakte"],
