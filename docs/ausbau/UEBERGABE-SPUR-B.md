@@ -76,9 +76,9 @@ Die Zeile „Stand …“ in CLAUDE.md ist aktuell.
   - `APP_SHA256` – App vom Knoten.
 - Anrufe: Installer mit `TURN_NAME=<öffentlicher-name>` erneut laufen lassen. Freigeben UDP/TCP 3478 und UDP 49160–49200, prüfen mit `turnutils_uclient`. coturn war in der Sitzung nicht erreichbar, also ungetestet.
 - Anrufe durchgehend prüfen (MENSCH-Checkliste): zwei Geräte mit je gekoppeltem Knoten und coturn – Ton und Bild; dann eines ohne Knoten – Hinweis vor dem Annehmen, Anruf über den Knoten des Anrufers.
-- Offen in Spur B nur noch: B-16 (später), B-17b (wartet auf K1–K5; a ✓), B-18 (wartet auf den Deploy des Zahlkanals) und 11.5 (mit Spur A nach 11.3).
+- Offen in Spur B nur noch: B-16 (später), B-17b2 und b3 (K1–K4 A entschieden 06.10.; a ✓, b1 ✓), B-18 (wartet auf den Deploy des Zahlkanals) und 11.5 (mit Spur A nach 11.3).
 - Anrufe verpasst (T4): entschieden 04.10. A – Abo für Anrufe, solange die App offen ist, und 3 min Klingeln (B-13e).
-- B-17: Kalender seit 06.10. erreichbar; B-17a ✓ (Baustein `ots.ts`). B-17b nach Entscheidung K1–K5 (Sammlung, Abschnitt 5): stempeln, nachreichen, NIP-03, Prüfung gegen Bitcoin, Anbindung.
+- B-17: Kalender seit 06.10. erreichbar; B-17a ✓ (Baustein `ots.ts`). K1–K4 A (MENSCH 06.10.), K5 A angenommen. B-17b1 ✓ (`ots-kalender.ts`: stempeln, nachreichen; `ots-nip03.ts`: Kind 1040). Offen: B-17b2 Prüfung gegen den Blockkopf (mempool.space und blockstream.info sind in der Umgebung noch gesperrt – MENSCH: Network access), B-17b3 Anbindung in der App.
 
 ## 4. Arbeitsweise, die sich bewährt hat (und Fallen)
 
