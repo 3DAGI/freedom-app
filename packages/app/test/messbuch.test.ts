@@ -98,7 +98,9 @@ test("Ablage: nur im Tresor, nie in der Sicherung; verdrahtet in Auswahl und Fai
   assert.match(lies("shell/state.ts"), /mitMessung\(await bekannteProvider\(\), messBuch\.staende\(/);
   const wege = lies("shell/tabs/agent-wege.ts");
   const lauf = wege.slice(wege.indexOf("export async function askWithFailover("), wege.indexOf("export async function privateAntworten("));
-  assert.equal(lauf.match(/merkeMessung\(ergebnisDesLaufs\(/g)?.length, 2, "nach einer Antwort und wenn alle versagten");
+  // Seit P5c2 über messeLauf(): ohne Runde gleich merkeMessung(), mit Runde nach den zusätzlichen Antworten
+  assert.equal(lauf.match(/messeLauf\(runde, ergebnisDesLaufs\(/g)?.length, 2, "nach einer Antwort und wenn alle versagten");
+  assert.match(lies("shell/pruefrunde-lauf.ts"), /r \? r\.abschluss\(punkte, antwort\) : merkeMessung\(punkte\)/);
   const ablehnung = lauf.slice(lauf.indexOf('"providerError" in answer'), lauf.indexOf("continue; // Failover!"));
   assert.doesNotMatch(ablehnung, /merkeMessung|zuLangsam/, "Ablehnungen zählen nicht – oft ein Fehler des Nutzers");
   const abbruch = lauf.slice(lauf.indexOf("if (answer.aborted)"), lauf.indexOf('t("agent.abgebrochen")') + 40);

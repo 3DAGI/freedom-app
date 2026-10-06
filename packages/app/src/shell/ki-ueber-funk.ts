@@ -14,6 +14,7 @@ import type { NostrEvent, ProviderCapabilities } from "@freedomstack/protocol";
 import { t } from "../i18n.js";
 import { FunkAuftraege, baueFunkAuftrag, funkGatewayAus, leseFunkGateway, type FunkGateway } from "../ki-funk.js";
 import { kanalGutschrift, merkeAnfrage } from "./ki-zahlung.js";
+import { maskiere, merkeErsetzt } from "./ki-platzhalter.js";
 import { kiSitzungen } from "./state.js";
 import { geheim } from "./tresor.js";
 
@@ -55,11 +56,14 @@ export async function sendeKiUeberFunk(prompt: string, bidSats: number, senden: 
   if (hoechst > 0 && !g.kurs) throw new Error(t("agent.funkOhneKurs"));
   const kanal = hoechst > 0 ? await kanalGutschrift(g.pubkey, hoechst, g.kurs) : undefined;
   if (hoechst > 0 && !kanal) throw new Error(t("agent.funkNurKanal"));
-  const a = await baueFunkAuftrag({ prompt, bidMsat: hoechst, gateway: g, sitzung: kiSitzungen.fuer(g.pubkey), zahlTags: kanal?.tags });
+  // Platzhalter (D1a): auch über Funk lesen Gateway und Provider nur die ersetzte Frage
+  const maske = maskiere(prompt);
+  const a = await baueFunkAuftrag({ prompt: maske.text, bidMsat: hoechst, gateway: g, sitzung: kiSitzungen.fuer(g.pubkey), zahlTags: kanal?.tags });
   // Erst merken (Gutschrift, Anfrage), dann senden
   if (kanal) await kanal.merke(a.requestId);
   merkeAnfrage(a.requestId, {}, hoechst, !!kanal);
   auftraege.merke(a.requestId, prompt, a.bis);
+  merkeErsetzt(a.requestId, maske.ersetzt);
   // Die Weiterleitung zuerst – dann wartet das Gateway schon, wenn die Antwort kommt
   if (!(await senden(a.weiterleitung)) || !(await senden(a.auftrag))) {
     auftraege.vergiss(a.requestId);

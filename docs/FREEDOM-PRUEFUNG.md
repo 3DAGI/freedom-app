@@ -106,10 +106,22 @@ Die Messung bleibt nur auf dem Gerät.
   0,5 % je Zahlung decken das erst nach rund 400 Zahlungen (2 ÷ 0,005), nicht
   nach 40. **Entschieden 06.10.2026 (MENSCH):** „Jede 400. Antwort reicht.
   Antwort, nicht Zahlung.“ – gezählt werden Antworten, das Budget bleibt 0,5 %.
-- **Was der Nutzer sieht:** die Antwort des gewählten Providers, wie immer.
-  Die zwei anderen Antworten vergleicht die App im Hintergrund
+- **Was der Nutzer sieht:** die Antwort des gewählten Providers, wie immer,
+  und einen kurzen Hinweis, dass die Frage diesmal zusätzlich an zwei andere
+  Provider geht. Die zwei anderen Antworten vergleicht die App im Hintergrund
   (`evaluateConsensus()` aus `consensus.ts` – hier lebt das Vergleichen aus A-7
   weiter) und zeigt sie nicht.
+- **Ablauf (P5c2, `shell/pruefrunde-lauf.ts`):** Erst wenn die eigentliche
+  Anfrage draußen ist, startet `starteRunde()`: fällig nach `PRUEFRUNDE`,
+  Bedarf zwei Höchstbeträge (Gebot plus Werkzeuge), vom Budget abgezogen. Die
+  zwei kommen aus `waehleZusatz()` – nie ein Provider dieses Laufs, nie ein
+  eigener Knoten (gekoppelt oder auf der Liste eigener Provider), bis P5d nie
+  einer mit Zahlkanal. Gibt es keine zwei, fällt die Runde aus, und die nächste
+  Antwort versucht es wieder. Die Kopien gehen über `buildJobEvent()` wie jede
+  Anfrage, die Antworten holt die App still ab und bezahlt sie wie jede andere
+  (`rechneAntwortAb()`, Sitzung, Quittung). Was nicht gebraucht wurde, geht ins
+  Budget zurück. Gezählt wird jede Antwort aus `askWithFailover()` außer vom
+  eigenen Knoten; Max und Schwarm zählen nicht und prüfen nicht.
 - **Was gezählt wird:** Verfügbarkeit und Antwortzeit aller drei in der eigenen
   Messung (`MessBuch`), dazu die Übereinstimmung als Qualität (`qualitaet` in
   `ordneNachPruefung()`: Ausreißer nach hinten) – erst ab drei Vergleichen je
@@ -215,7 +227,7 @@ was Kunden wirklich fragen. Kind 38081 wird nicht wiederverwendet.
 | P5a | Rückbau nach der Entscheidung vom 05.10.2026: Prüfer-Rolle im Knoten (`pruefer-rolle.ts`, `pruefer-dienst.ts`, `PRUEFER`), Messbericht 38081 (`messbericht.ts`), Prüffragen und `stufeFuerAuswahl()`, Prüfern folgen (`pruefer-wahl.ts`, `freedom.pruefer`), Status-Rolle `pruefer`. Netz › Prüfung zeigt nur die eigene Messung. Datenschutz-Aussage, Doku, FAQ (`check-website.py` weist Prüfer-Aussagen ab). |
 | P5b | Aufteilung: Entwicklung 2,0 %, neuer Anteil `pruefung` 0,5 % (bleibt beim Kunden als Prüfbudget, `teileAuf()` → `pruefbudgetMsat`); CI-Invariante; Fassung im Angebot (`["aufteilung", "2"]`) – nur dann deklariert die App Entwicklung und Prüfbudget; Prüfbudget im Tresor (`pruefbudget.ts`, `freedom.pruefbudget`), gezeigt in der Antwort und in den Settings. Im Zahlkanal bleibt der Anteil bis P5d beim Provider. |
 | P5c1 | Bausteine ohne Netz: Zähler der Antworten und Start einer Runde im Prüfbudget (`PRUEFRUNDE`, `faellig()`, `beginneRunde()`), Wahl der zwei zusätzlichen Provider (`waehleZusatz()`: nie der gewählte, nie eigene Knoten, gleiches Modell zuerst, zufällig), Auswertung (`werteRundeAus()` über `evaluateConsensus()`: nur einstimmig oder Mehrheit, sonst keine Aussage), Übereinstimmung als Qualität der eigenen Messung (`Messpunkt.einig`, `MessStand.qualitaet` ab drei Vergleichen) – die Auswahl stellt Ausreißer nach hinten. |
-| P5c2 | Verdrahtung mit Lightning: die echte Anfrage zusätzlich versiegelt an die zwei, ihre Antworten still abholen, aus dem Budget bezahlen, auswerten, messen; Datenschutzbericht und FAQ. |
+| P5c2 | Verdrahtung mit Lightning (`shell/pruefrunde-lauf.ts`, aus `askWithFailover()`): Antworten zählen (`messeLauf()`), die echte Anfrage nach dem ersten Senden zusätzlich versiegelt an die zwei (`starteRunde()`), ihre Antworten still abholen (`waitForAnswer(…, { still: true })`), bezahlen wie jede Antwort, auswerten, messen (`mitEinig()`), Rest ins Budget (`rueckgabeMsat()`); Hinweis beim Start; Datenschutz-Grenze „pruefrunde“ mit Szenario, FAQ und Whitepaper. |
 | P5d | Pflicht-Prüfrunden mit SOL über offene Zahlkanäle. |
 
 P1b, P2b1, P3a, P3b und P4 (Prüfer-Teil) sowie die Prüffragen aus P1a und die

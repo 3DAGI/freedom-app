@@ -16727,6 +16727,102 @@ danach B-17b.
 
 Knoten-Stand: unverändert.
 
+## Schritt P5c2 – Prüfrunden mit Lightning verdrahtet
+
+Etwa jede 400. Antwort geht die echte Anfrage zusätzlich an zwei andere
+Provider (Entscheidungen 05. und 06.10.2026). Der Nutzer sieht nur die Antwort
+seines Providers und einen kurzen Hinweis.
+
+**Was sich ändert:**
+- **`shell/pruefrunde-lauf.ts` (neu):**
+  - `starteRunde()`: fällig nach `PRUEFRUNDE`; Bedarf zwei Höchstbeträge
+    (Gebot plus Werkzeuge), vom Budget abgezogen. Zwei Provider aus
+    `waehleZusatz()` – nie einer dieses Laufs, nie ein eigener Knoten
+    (gekoppelt oder Allowlist), bis P5d keiner mit Zahlkanal. Keine zwei:
+    keine Runde, die nächste Antwort versucht es wieder.
+  - Die Kopien gehen über `buildJobEvent()` wie jede Anfrage. Die Antworten
+    holt die App still ab und bezahlt sie wie jede andere
+    (`rechneAntwortAb()`, Sitzung, Quittung).
+  - Abschluss: `werteRundeAus()`, Punkte mit `einig` ins Messbuch
+    (`mitEinig()`), Rest zurück ins Budget (`rueckgabeMsat()`).
+  - `messeLauf()` zählt jede Antwort (nie den eigenen Knoten) und schließt die
+    Runde ab; ohne Runde merkt es die Messung wie bisher.
+- **`agent-wege.ts`:** `starteRunde()` nach dem ersten Senden, `messeLauf()`
+  an allen drei Enden des Laufs. Max und Schwarm bleiben, wie sie sind.
+- **`agent.ts`:** `waitForAnswer(…, { still: true })` zeigt keine Zwischenstände.
+- **`pruefrunde.ts`:** `mitEinig()`, `rueckgabeMsat()`.
+- **Datenschutz:** neue Grenze „pruefrunde“ (Regel `kunde-verborgen`, Szenario:
+  drei Anfragen, drei Sitzungen, nichts verbindet sie offen), Texte in beiden
+  Sprachen.
+- **Website:** FAQ (Aufteilung, „Woran erkennt die App einen guten
+  Provider?“) und Whitepaper.
+- **Doku:** `FREEDOM-PRUEFUNG.md` (Ablauf), `PROTOCOL.md` §28, `CLAUDE.md`.
+
+**Verdrahtet:**
+- `askWithFailover()` (`shell/tabs/agent-wege.ts`) → `starteRunde()` bei
+  `i === 0` und `messeLauf()` nach Antwort, Abbruch und Versagen.
+- `messeLauf()` → `pruefBudget.zaehleAntwort()` und `abschluss()` bzw.
+  `merkeMessung()`.
+
+**Prüfungen:**
+- protocol 1157 (+1: Grenze mit Szenario), node 314.
+- app 882 (+2: `mitEinig()`/`rueckgabeMsat()`, Verdrahtung). Der Messbuch-Test
+  sucht jetzt `messeLauf(runde, ergebnisDesLaufs(` statt `merkeMessung(`.
+- mls 13, Leak 72 + 1 todo.
+- check-wiring, innerHTML und Website ok.
+- Smoke-Test bestanden.
+
+**Beim Einmergen von `main` (B-17a):** Der Smoke-Test „zugang“ war einmal rot –
+Kontrast 2,92:1 auf Währung › Tausch. Ursache: Unterreiter blenden sich über
+`opacity` ein (`fs-in`, 0,18 s), gemessen wurde nach fester Pause von 300 ms und
+mit der Deckkraft der Vorfahren – mitten in der Einblendung (2,92:1 entspricht
+38 % Deckkraft). Die Prüfung wartet jetzt, bis keine endliche Animation mehr
+läuft (`ANIMATIONEN_FERTIG`); gemessen wird weiter dasselbe, nur im Endzustand.
+
+Knoten-Stand: unverändert. Die zusätzlichen Anfragen sind gewöhnliche
+Anfragen.
+
+## Schritt D1a – Platzhalter für persönliche Angaben in KI-Fragen
+
+Datenschutz gegenüber Providern, Stufe 1 (Entscheidung des MENSCHEN vom
+05.10.2026, Karte `docs/DATENSCHUTZ-PROVIDER.md` – neu in diesem Schritt). Der
+Provider muss die Frage im Klartext rechnen; auf DGX Spark/GB10, Macs und
+Gaming-PCs gibt es kein TEE. Die App ersetzt deshalb erkennbare persönliche
+Angaben vorher durch Platzhalter.
+
+**Was sich ändert:**
+- **Protokoll, `platzhalter.ts` (neu, ohne DOM):** `ersetzeAngaben()` und
+  `Zuordnung` (je Unterhaltung stabil: derselbe Wert ergibt denselben
+  Platzhalter, `setzeEin()` setzt zurück). Erkannt werden E-Mail, Telefon
+  (nicht mitten in einer Zifferngruppe), IBAN mit Prüfziffer, Karte mit Luhn,
+  IPv4/IPv6, `npub`/`nsec`/`nprofile`, Lightning-Rechnungen und Namen aus dem
+  Adressbuch (ab drei Zeichen, ganze Wörter). Kein Raten.
+- **App, `shell/ki-platzhalter.ts` (neu):** `maskiere()`, `entmaskiere()`,
+  `neueZuordnung()`, Zahl der ersetzten Stellen je Anfrage; Namen aus den
+  Unterhaltungen und dem eigenen Profil. Gespeichert wird nur der Schalter
+  `freedom.platzhalter` (Standard an).
+- **Verdrahtet:** `buildJobEvent()` ersetzt Frage samt Verlauf und den
+  Dateinamen eines Anhangs (nie beim eigenen Knoten); `sendeKiUeberFunk()`
+  ebenso; `handleAnswer()` setzt zurück und zeigt unter der Antwort nur die
+  Zahl; `neueAufgabe()`/`oeffneVerlauf()` beginnen eine neue Zuordnung.
+- **Settings › Datenschutz:** Haken „Persönliche Angaben in KI-Fragen durch
+  Platzhalter ersetzen“ mit Text, was erkannt wird und was nicht.
+- **Datenschutz:** Grenze „ki-platzhalter“ (Regel `kein-klartext-prompt`),
+  Szenario: der Provider öffnet den Umschlag und liest keine der Angaben.
+- **Website:** Whitepaper (Abschnitt DVM) sagt, was der Provider liest und was
+  die Platzhalter tun.
+- **Sammlung:** offene Entscheidung P5d (Prüfrunden mit SOL).
+
+**Prüfungen:**
+- protocol 1169 (+5: Platzhalter 4, Grenze mit Szenario 1), node 314.
+- app 886 (+4: Verdrahtung). `ki-kontext.test.ts` prüft die Zeile mit dem
+  Verlauf jetzt in der Form mit Platzhaltern (`roh` → `maske` → `fullPrompt`).
+- mls 13, Leak 72 + 1 todo.
+- check-wiring, innerHTML und Website ok.
+- Smoke-Test bestanden.
+
+Knoten-Stand: unverändert. Der Provider bekommt nur anderen Text.
+
 ## Schritt B-17b1 – OpenTimestamps: Kalender und NIP-03 (5.10b, Sammlung B-17)
 
 Entschieden 06.10.2026 (MENSCH): K1–K4 jeweils A – die App stempelt eigene

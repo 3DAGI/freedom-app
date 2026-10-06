@@ -20,6 +20,7 @@ import { beiFunkAntwort, sendeKiUeberFunk } from "../ki-ueber-funk.js";
 import { quittungNachKanal, quittungNachZahlung } from "../quittungen.js";
 import { deklaration, empfaengerFuer, kanalAntwort, kanalGutschrift, merkeAnfrage, perKanal, providerZahlung, pruefeKiZahlweg, rechneAntwortAb, zahleAnteile } from "../ki-zahlung.js";
 import { kopplungFuer, meineKopplung } from "../mein-knoten.js";
+import { entmaskiere, ersetztFuer, maskiere, merkeErsetzt } from "../ki-platzhalter.js";
 import { type KnotenWeg, wegZumKnoten } from "../knoten-weg-ui.js";
 import { knotenModellAus } from "../../knoten-wahl.js";
 import { hoechstMsat } from "../../anteile-kasse.js";
@@ -259,13 +260,16 @@ export async function buildJobEvent(
 ): Promise<{ wrap: NostrEvent; requestId: string }> {
   if (!state.keypair) throw new Error("no keypair"); // kein UI-Text
   const sitzung = kiSitzungen.fuer(targetPubkey);
-  // Kontext des Verlaufs (3.3): reist versiegelt mit dem Prompt, der Knoten merkt sich nichts
-  const fullPrompt = pendingContextSummary ? pendingContextSummary + prompt : prompt;
+  // Eigener Knoten (B-8c): Nachweis im Kern statt Bezahlung – kein Gebot, keine Anteile, kein Kanal, höchstens 0 msat
+  const eigen = kopplungFuer(targetPubkey);
+  // Kontext des Verlaufs (3.3): reist versiegelt mit dem Prompt, der Knoten merkt sich nichts.
+  // Platzhalter (D1a): persönliche Angaben ersetzt, bevor die Frage das Gerät verlässt – nie beim eigenen Knoten
+  const roh = pendingContextSummary ? pendingContextSummary + prompt : prompt;
+  const maske = eigen ? { text: roh, ersetzt: 0 } : maskiere(roh);
+  const fullPrompt = maske.text;
   // Extra-Tags: Anhang (multimodal) + angeforderte Tools + gewuenschtes Modell
   const extraTags: string[][] = [];
 
-  // Eigener Knoten (B-8c): Nachweis im Kern statt Bezahlung – kein Gebot, keine Anteile, kein Kanal, höchstens 0 msat
-  const eigen = kopplungFuer(targetPubkey);
   // Gebuehrenmodell A+ (5.1.3): welche Anteile die App selbst zahlt – im Kern,
   // also versiegelt; der Provider stellt nur den Rest in Rechnung. Die
   // App-Gebuehr gibt es nicht mehr, sie geht im Anteil der Entwicklung auf.
@@ -278,7 +282,7 @@ export async function buildJobEvent(
   const kanal = eigen ? undefined : await kanalGutschrift(targetPubkey, hoechst);
   extraTags.push(...(eigen ? [] : kanal ? kanal.tags : deklaration(empfaenger)));
   if (attachment) {
-    extraTags.push(["attach", attachment.type, attachment.name, attachment.dataUrl.slice(0, 2000)]);
+    extraTags.push(["attach", attachment.type, eigen ? attachment.name : maskiere(attachment.name).text, attachment.dataUrl.slice(0, 2000)]);
   }
   for (const tk of selectedTools) {
     extraTags.push(["tool", String(tk.kind), tk.input]);
@@ -311,6 +315,7 @@ export async function buildJobEvent(
   });
   // Erst merken (letzte Gutschrift, offene Anfrage), dann senden
   if (kanal) await kanal.merke(auftrag.requestId);
+  merkeErsetzt(auftrag.requestId, maske.ersetzt);
   merkeAnfrage(auftrag.requestId, empfaenger, hoechst, !!kanal);
   return auftrag;
 }
@@ -331,6 +336,8 @@ export async function waitForAnswer(
     signal?: AbortSignal;
     /** Nur hier lesen – das Relay meines Knotens (B-9c2), sonst der Pool. */
     quelle?: Pick<KnotenWeg, "query" | "sitzungPk">;
+    /** Still abholen (Prüfrunde, P5c2): keine Zwischenstände in der Anzeige. */
+    still?: boolean;
   } = {},
 ) {
   const deadline = Date.now() + timeoutMs;
@@ -349,6 +356,10 @@ export async function waitForAnswer(
     if (feedback.length > 0) {
       const statusTag = feedback[0].tags.find((t) => t[0] === "status")?.[1] ?? "";
       const fbMsg = feedback[0].content.replace(/^error:\s*/i, "");
+      if (statusTag === "progress" && opts.still) {
+        await new Promise((res) => setTimeout(res, 3000));
+        continue;
+      }
       if (statusTag === "progress") {
         // Progress vom Provider: "tool:web_search" → research-chip + label
         if (fbMsg.startsWith("tool:")) {
@@ -367,7 +378,7 @@ export async function waitForAnswer(
       }
       if (/thinking|processing|working/i.test(fbMsg) && !/^error/i.test(fbMsg)) {
         // Alte Provider ohne status-tag aber klar progressivem Text
-        setTypingLabel(t("thinking"));
+        if (!opts.still) setTypingLabel(t("thinking"));
         await new Promise((res) => setTimeout(res, 3000));
         continue;
       }
@@ -418,9 +429,12 @@ export async function handleAnswer(ev: import("@freedomstack/protocol").NostrEve
   const kanal = perKanal(r.requestId);
   const abrechnung = kanal ? undefined : await rechneAntwortAb(r.requestId, r.amountMsat);
   // Streaming-Anzeige: buchstabenweise statt ganzer block
-  addAiMessageStreaming("ai", r.output, "", who, () => {
+  // Platzhalter (D1a) zurück – nur für Anzeige und eigenen Verlauf; unter der Antwort nur die Zahl
+  const ausgabe = entmaskiere(r.output);
+  const ersetzt = ersetztFuer(r.requestId);
+  addAiMessageStreaming("ai", ausgabe, ersetzt > 0 ? t("agent.platzhalterErsetzt", { n: ersetzt }) : "", who, () => {
     // Frage und Antwort nur im Speicher – fuer den Pruefer, wenn der Nutzer reklamiert und zustimmt (5.6).
-    addUsageBubble(r.usage ?? {}, r.amountMsat, r.providerPubkey, ev.id, frage !== undefined ? { frage, antwort: r.output } : undefined, abrechnung);
+    addUsageBubble(r.usage ?? {}, r.amountMsat, r.providerPubkey, ev.id, frage !== undefined ? { frage, antwort: ausgabe } : undefined, abrechnung);
     // KEIN Zap-Button unter jeder Antwort — das wuerde die UX kaputt machen.
     // Zaps sind nur fuer besondere Antworten (manuell vom Nutzer gewaehlt).
   });
