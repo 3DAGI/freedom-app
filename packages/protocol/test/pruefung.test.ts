@@ -6,7 +6,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  fasseMessungZusammen, merkeMesspunkt, ordneNachPruefung, stufeAus, type PruefKandidat,
+  PRUEF_GRENZEN, fasseMessungZusammen, merkeMesspunkt, ordneNachPruefung, stufeAus, type PruefKandidat,
 } from "../src/index.js";
 
 const JETZT = 1_790_000_000;
@@ -75,4 +75,18 @@ test("Lastverteilung: unter gleich Guten 1/Preis² – halb so teuer, viermal so
   assert.ok(Math.abs(mitVertrauen - 333) <= 2, `teuer mit vollem Vertrauen ${mitVertrauen} von 1000 vorn (2/6)`);
   assert.equal(ordneNachPruefung([], folge(0.5)).length, 0);
   assert.equal(ordneNachPruefung([{ pk: "gratis", preisMsat: 0, stufe: "normal" }], folge(0.5))[0].pk, "gratis", "gratis zählt wie 1 msat");
+});
+
+test("P5c: Qualität aus Prüfrunden – Anteil „einig“ erst ab drei Vergleichen; Punkte ohne Vergleich zählen nicht", () => {
+  const z = (i: number) => JETZT - 100 + i;
+  const nur = (einig: Array<boolean | undefined>) => einig.map((e, i) => ({ zeit: z(i), ok: true, ms: 900, ...(e === undefined ? {} : { einig: e }) }));
+  assert.equal(fasseMessungZusammen(nur([true, false]), JETZT).qualitaet, undefined, "zu wenige Vergleiche");
+  assert.equal(fasseMessungZusammen(nur([true, undefined, undefined, false, undefined]), JETZT).qualitaet, undefined, "nur zwei Vergleiche");
+  assert.equal(fasseMessungZusammen(nur([true, true, false, undefined]), JETZT).qualitaet, 2 / 3);
+  assert.equal(fasseMessungZusammen(nur([false, false, false]), JETZT).qualitaet, 0);
+  assert.equal(PRUEF_GRENZEN.minVergleiche, 3);
+  // Ein Ausreißer in Prüfrunden steht hinter den übrigen seiner Stufe
+  const k = (pk: string, qualitaet?: number): PruefKandidat => ({ pk, preisMsat: 1000, stufe: "normal", ...(qualitaet === undefined ? {} : { qualitaet }) });
+  const r = ordneNachPruefung([k("abweichend", 0), k("einig", 1), k("auch", 1)], folge(0.1)).map((x) => x.pk);
+  assert.equal(r[2], "abweichend");
 });

@@ -16626,3 +16626,59 @@ In der CI von P5b (#313) war `protocol/test/nwc.test.ts` einmal rot:
 
 **Prüfungen:** protocol 1155 grün (unverändert). Der Test lief 20-mal einzeln,
 also mit 1000 falschen Schlüsseln, immer grün.
+
+## Schritt P5c1 – Prüfrunden: Bausteine ohne Netz
+
+Entscheidungen des MENSCHEN vom 05.10.2026 (P3c) und 06.10.2026 („Jede 400.
+Antwort reicht. Antwort, nicht Zahlung.“). P5c ist in zwei Schritte geteilt,
+weil einer deutlich über 400 Zeilen käme: P5c1 baut die Bausteine ohne Netz,
+P5c2 verdrahtet sie mit Lightning.
+
+**Was sich ändert:**
+- **`pruefung.ts` (Protokoll):**
+  - `Messpunkt.einig` – nur aus Prüfrunden: mit der Mehrheit einig oder
+    Ausreißer; ohne Aussage fehlt das Feld.
+  - `fasseMessungZusammen()` liefert `qualitaet` (Anteil „einig“) erst ab
+    `PRUEF_GRENZEN.minVergleiche` = 3 Vergleichen.
+- **`pruefbudget.ts`:**
+  - Der Stand hat jetzt einen Zähler: `{ msat, antworten }`. Ein Stand aus
+    P5b ohne Zähler beginnt bei 0.
+  - `PRUEFRUNDE` = alle 400 Antworten, zwei zusätzliche Provider.
+  - `zaehleAntwort()`, `faellig(bedarf)`, `beginneRunde(bedarf)`: Bedarf
+    abziehen, Zähler auf 0; nie ins Minus.
+- **`pruefrunde.ts` (neu, ohne DOM):**
+  - `waehleZusatz()`: nie der gewählte Provider, nie eigene Knoten, keine
+    doppelten; gleiches Modell zuerst, sonst zufällig aus `sichererZufall()`.
+  - `werteRundeAus()` über `evaluateConsensus()`: Aussage nur bei
+    Einstimmigkeit oder Mehrheit; bei Streit, doppelten Absendern oder
+    weniger als zwei Antworten keine.
+- **`messbuch.ts`:** liest `einig` nur als Wahrheitswert, sonst wird der
+  Punkt verworfen.
+- **`matchmaking.ts`:** gibt `qualitaet` an `ordneNachPruefung()` weiter –
+  Ausreißer stehen hinten.
+- **Doku:** `FREEDOM-PRUEFUNG.md` (P5c1/P5c2, Vergleich und Grenze),
+  `CLAUDE.md`. `wiring-ausnahmen.txt`: `evaluateConsensus`,
+  `normalizeAnswer`, `similarity` sind jetzt verwendet.
+
+**Verdrahtet:**
+- `providerMitStand()` → `mitMessung()` → `matchProviders()` reicht
+  `qualitaet` an `ordneNachPruefung()` (`matchmaking.ts`).
+- `MessBuch.staende()` → `fasseMessungZusammen()` liest `einig`.
+- Zähler, Auswahl und Auswertung ruft erst P5c2 aus `askWithFailover()` –
+  bis dahin gibt es keine Punkte mit `einig`, `qualitaet` bleibt leer.
+
+**Grenze:** Übereinstimmung heißt nie „richtig“: Provider mit demselben
+Basismodell teilen dessen Irrtümer. Der Vergleich über Wort-Ähnlichkeit
+(Schwelle 0,6) findet bei offenen Fragen oft keine Mehrheit – dann zählt die
+Runde nur für die Verfügbarkeit.
+
+**Prüfungen:**
+- protocol 1156 (+1: Qualität erst ab drei Vergleichen, Ausreißer hinten),
+  node 314.
+- app 880 (+5: Runde fällig und Start, Auswahl der zwei, Auswertung,
+  Verdrahtung der Qualität, `einig` im Messbuch).
+- mls 13, Leak 72 + 1 todo.
+- check-wiring Exit 0, innerHTML Exit 0, Website ok.
+- Smoke-Test bestanden.
+
+Knoten-Stand: unverändert.

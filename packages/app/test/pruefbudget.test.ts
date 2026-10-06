@@ -4,7 +4,7 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { LS_PRUEFBUDGET, PruefBudget } from "../src/pruefbudget.js";
+import { LS_PRUEFBUDGET, PRUEFRUNDE, PruefBudget } from "../src/pruefbudget.js";
 
 function speicher(start: Record<string, string> = {}) {
   const m = new Map(Object.entries(start));
@@ -18,7 +18,7 @@ test("Prüfbudget: verbucht ganze positive msat, zählt auf, Name mit Präfix fr
   await b.verbuche(5_000);
   await b.verbuche(105);
   assert.equal(b.stand(), 5_105);
-  assert.equal(sp.m.get(LS_PRUEFBUDGET), JSON.stringify({ msat: 5_105 }));
+  assert.equal(sp.m.get(LS_PRUEFBUDGET), JSON.stringify({ msat: 5_105, antworten: 0 }));
   assert.match(LS_PRUEFBUDGET, /^freedom\./);
 });
 
@@ -34,4 +34,25 @@ test("Prüfbudget: nichts für 0, negative, gebrochene oder unsichere Beträge; 
   const voll = speicher({ [LS_PRUEFBUDGET]: JSON.stringify({ msat: Number.MAX_SAFE_INTEGER }) });
   await new PruefBudget(voll).verbuche(10);
   assert.equal(new PruefBudget(voll).stand(), Number.MAX_SAFE_INTEGER);
+});
+
+test("P5c: Prüfrunde fällig erst nach 400 Antworten und mit Budget für die zusätzlichen; Start zieht ab und setzt zurück", async () => {
+  assert.equal(PRUEFRUNDE.abstand, 400);
+  assert.equal(PRUEFRUNDE.zusatz, 2);
+  const sp = speicher({ [LS_PRUEFBUDGET]: JSON.stringify({ msat: 30_000, antworten: 399 }) });
+  const b = new PruefBudget(sp);
+  assert.equal(b.faellig(20_000), false, "399 Antworten");
+  assert.equal(await b.beginneRunde(20_000), false);
+  await b.zaehleAntwort();
+  assert.equal(b.antworten(), 400);
+  assert.equal(b.faellig(40_000), false, "Budget reicht nicht – warten, nie ins Minus");
+  assert.equal(b.faellig(-1), false);
+  assert.equal(b.faellig(20_000), true);
+  assert.equal(await b.beginneRunde(20_000), true);
+  assert.deepEqual([b.stand(), b.antworten()], [10_000, 0]);
+  // Nicht Gebrauchtes kommt zurück
+  await b.verbuche(7_000);
+  assert.equal(b.stand(), 17_000);
+  // Alter Stand ohne Zähler (P5b): Zähler beginnt bei 0
+  assert.equal(new PruefBudget(speicher({ [LS_PRUEFBUDGET]: JSON.stringify({ msat: 5 }) })).antworten(), 0);
 });
