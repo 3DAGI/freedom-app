@@ -675,7 +675,7 @@ class DialogSeite:
 
 def waehrung_pruefen(browser, url: str) -> dict:
     """Währung (C-1a): Tausch über Dialoge statt prompt()/confirm() – Betrag und Adresse prüft der Dialog,
-    abgebrochen geht nichts hinaus. LP-Angebote aus `scripts/lp-probe.mts` über die Relay-Attrappe."""
+    abgebrochen geht nichts hinaus. Senden (12.7a): Ziel, Betrag, Bestätigung, ohne Wallet ehrlich gescheitert. LP-Angebote aus `scripts/lp-probe.mts` über die Relay-Attrappe."""
     erg = {"fehler": []}
     wurzel = Path(__file__).resolve().parent.parent
     aus = subprocess.run(["npx", "tsx", "scripts/lp-probe.mts"], cwd=wurzel, capture_output=True, text=True, timeout=180, check=True)
@@ -745,6 +745,38 @@ def waehrung_pruefen(browser, url: str) -> dict:
     s.wait_for_function("() => document.getElementById('swap-status')?.textContent.startsWith('Erst eine Solana-Wallet')", timeout=10000)
     if ev(stand) is not None:
         erg["fehler"].append("SOL → sats ohne Wallet öffnet einen Dialog")
+    # Senden (12.7a): Ziel und Betrag prüft der Dialog, dann die Bestätigung mit ganzem Ziel; ohne Wallet sagt die
+    # Schiene es (keine stille Umleitung), nichts geht hinaus
+    def zwei(an: str, betrag: str) -> dict | None:
+        ev("([a, b]) => { const f = document.querySelectorAll('[role=dialog] input'); f[0].value = a; f[1].value = b; f[1].focus(); }", [an, betrag])
+        s.keyboard.press("Enter")
+        s.wait_for_timeout(200)
+        return ev(stand)
+    bolt11 = ("lnbc2500u1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdq5xysxxatsyp3k7enxv4jsxqzpuaztrnwngzn3kdzw5hydlzf03qdgm2hdq27"
+              "cqv3agm2awhz5se903vruatfhq77w3ls4evs3ch9zw97j25emudupq63nyw24cg27h2rspfj9srp")
+    sol = "7EcDhSYGxXyscszYEp35KHN8vvw3svAuLKTzXwCFLtVb"
+    ev("() => document.getElementById('wallet-senden').click()")
+    sd = {"dialog": warte_dialog("Senden")}
+    sd["unbekannt"] = (tippe("hallo") or {}).get("meldung")
+    sd["ohne_betrag"] = (zwei("ada@wallet.example", "") or {}).get("meldung")
+    sd["widerspruch"] = ((zwei(bolt11, "100") or {}).get("meldung") or "")[:15]
+    sd["sol_falsch"] = (zwei(sol, "1e3") or {}).get("meldung")
+    zwei(sol, "0,05")
+    sd["frage"] = warte_dialog("Senden")["text"]
+    ev("() => document.querySelector('[role=dialog] .dlg-knoepfe button:last-child').click()")
+    s.wait_for_function("() => (document.querySelector('[role=dialog] .dlg-text')?.textContent ?? '').startsWith('Nicht gesendet')", timeout=10000)
+    sd["ergebnis"] = ev(stand)["text"]
+    s.keyboard.press("Escape")
+    seite.warte_zu()
+    erg["senden"] = sd
+    if not (sd["dialog"]["felder"] == ["An", "Betrag – sats für Lightning, SOL für Solana; leer, wenn die Rechnung ihn nennt"]
+            and (sd["unbekannt"] or "").startswith("Unbekanntes Ziel") and sd["ohne_betrag"] == "Betrag in ganzen sats eintragen"
+            and sd["widerspruch"] == "Das Ziel nennt " and sd["sol_falsch"] == "Betrag in SOL eintragen (z. B. 0,05)"
+            and sol in (sd["frage"] or "") and "0,05 SOL" in (sd["frage"] or "")
+            and "Keine Solana-Wallet verbunden" in (sd["ergebnis"] or "")):
+        erg["fehler"].append(f"Senden {sd}")
+    if [e["kind"] for e in relay.gesendet if e["kind"] not in (10002, 10050)]:
+        erg["fehler"].append("Senden ohne Wallet hat etwas veröffentlicht")
     # Umzug (C-8): Gebühren und Standard-Schiene unter Währung › Zahlen, Modell vorhalten unter Verdienen › Hosten
     ev("() => document.querySelector('[data-subtab-group=wallet] [data-subtab=pay]').click()")
     s.wait_for_function("() => document.getElementById('anteile-stand')?.textContent === 'Nichts gesammelt.'", timeout=10000)
