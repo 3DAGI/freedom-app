@@ -675,7 +675,7 @@ class DialogSeite:
 
 def waehrung_pruefen(browser, url: str) -> dict:
     """Währung (C-1a): Tausch über Dialoge statt prompt()/confirm() – Betrag und Adresse prüft der Dialog,
-    abgebrochen geht nichts hinaus. Senden (12.7a): Ziel, Betrag, Bestätigung, ohne Wallet ehrlich gescheitert. LP-Angebote aus `scripts/lp-probe.mts` über die Relay-Attrappe."""
+    abgebrochen geht nichts hinaus. Senden (12.7a): Ziel, Betrag, Bestätigung, ohne Wallet ehrlich gescheitert. Empfangen (12.7b): ohne Wallet ein Hinweis. LP-Angebote aus `scripts/lp-probe.mts` über die Relay-Attrappe."""
     erg = {"fehler": []}
     wurzel = Path(__file__).resolve().parent.parent
     aus = subprocess.run(["npx", "tsx", "scripts/lp-probe.mts"], cwd=wurzel, capture_output=True, text=True, timeout=180, check=True)
@@ -777,6 +777,29 @@ def waehrung_pruefen(browser, url: str) -> dict:
         erg["fehler"].append(f"Senden {sd}")
     if [e["kind"] for e in relay.gesendet if e["kind"] not in (10002, 10050)]:
         erg["fehler"].append("Senden ohne Wallet hat etwas veröffentlicht")
+    # Empfangen (12.7b): Lightning braucht einen Betrag und die eigene Wallet (NWC), SOL eine Solana-Wallet –
+    # ohne beides ein Hinweis statt einer erfundenen Rechnung oder Adresse
+    def empf(art: str, betrag: str) -> dict | None:
+        ev("() => document.getElementById('wallet-empfangen').click()")
+        warte_dialog("Empfangen")
+        ev("([a, b]) => { document.querySelector(`[role=dialog] input[type=radio][value=${a}]`).click();"
+           " const f = document.querySelector('[role=dialog] input[type=text]'); f.value = b; f.focus(); }", [art, betrag])
+        s.keyboard.press("Enter")
+        s.wait_for_timeout(300)
+        return ev(stand)
+    ed = {"ohne_betrag": (empf("lightning", "") or {}).get("meldung")}
+    s.keyboard.press("Escape")
+    seite.warte_zu()
+    ed["ln"] = ((empf("lightning", "21") or {}).get("text") or "")[:40]
+    s.keyboard.press("Escape")
+    seite.warte_zu()
+    ed["sol"] = ((empf("solana", "") or {}).get("text") or "")[:40]
+    s.keyboard.press("Escape")
+    seite.warte_zu()
+    erg["empfangen"] = ed
+    if ed != {"ohne_betrag": "Für eine Rechnung den Betrag in ganzen sats eintragen",
+              "ln": "Lightning empfangen braucht eine verbund", "sol": "SOL empfangen braucht eine Solana-Wallet"}:
+        erg["fehler"].append(f"Empfangen {ed}")
     # Umzug (C-8): Gebühren und Standard-Schiene unter Währung › Zahlen, Modell vorhalten unter Verdienen › Hosten
     ev("() => document.querySelector('[data-subtab-group=wallet] [data-subtab=pay]').click()")
     s.wait_for_function("() => document.getElementById('anteile-stand')?.textContent === 'Nichts gesammelt.'", timeout=10000)
