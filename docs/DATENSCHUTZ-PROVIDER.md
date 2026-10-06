@@ -106,6 +106,12 @@ von Spur A. Der MENSCH kann sie ändern, ohne dass sich der Plan ändert.
 
 - **Privat-Schalter je Unterhaltung:** nur dieses Gerät oder der eigene
   Knoten, nie ein fremder Provider, auch keine Prüfrunde.
+  - **D2 ✓:** Haken „privat“ im Agenten (`#ai-privat`), gemerkt mit der
+    Unterhaltung (`privat` im Verlauf, Tresor), beim Öffnen gesetzt, neu offen.
+    `askAi()` prüft vor jedem Weg `wegErlaubt()` (`ki-privat.ts`): Funk und Netz
+    gesperrt – damit auch Max, Schwarm und Prüfrunden –, ein Hinweis statt
+    still auszuweichen. Smoke-Test „lokal“: mit Netz geht nichts hinaus, mit
+    „Dieses Gerät“ die Antwort wie bisher.
 - **Danach** vielleicht „nur vertraute Provider“, etwa Provider von Kontakten.
   Das ist eine eigene Entscheidung, sie folgt nach Stufe 1.
 
@@ -131,5 +137,5 @@ von Spur A. Der MENSCH kann sie ändern, ohne dass sich der Plan ändert.
 | D1b1 ✓ | Abrechnung und Reklamation mit dem Schlüssel des Auftrags (`merkeAuftrag()`/`fuerAuftrag()`, Zahlsitzungen je Schlüssel) |
 | D1b2 ✓ | Neuer Schlüssel je Unterhaltung (offene Beträge mit dem alten begleichen, Abfrage nur je Auftrag, Grenze „ki-unterhaltung“, Whitepaper) |
 | D1c ✓ | Weniger Verlauf: Standard „kurz“ (6 Nachrichten, 3 000 Zeichen), Auswahl aus · kurz · lang (`VERLAUF_UMFANG`, `freedom.verlauf`), Grenze „ki-verlauf“ im Bericht, Whitepaper |
-| D2 | Privat-Schalter: nur Gerät oder eigener Knoten |
+| D2 ✓ | Privat-Schalter je Unterhaltung: nur Gerät oder eigener Knoten (`wegErlaubt()`, Haken `#ai-privat`, Smoke „lokal“) |
 | D3-Entwurf | Versiegelter Provider-Modus, zur Freigabe |

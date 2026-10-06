@@ -17285,3 +17285,45 @@ check-wiring Exit 0 (keine OTS-Ausnahme mehr), innerHTML Exit 0, Website ok,
 Smoke-Test bestanden, build-site ok, reproduzierbar.
 
 Knoten-Stand: unverändert.
+
+## Schritt D2 – Privat-Schalter je Unterhaltung
+
+Datenschutz gegenüber Providern, Stufe 2 (Karte `docs/DATENSCHUTZ-PROVIDER.md`).
+Wer eine Unterhaltung niemandem sonst zeigen will, stellt sie auf „privat“:
+Dann fragt die App nur das Modell auf diesem Gerät (B-1) oder den eigenen
+Knoten (B-9a) – nie einen fremden Provider.
+
+**Was sich ändert:**
+- **`ki-privat.ts` (neu, ohne DOM):** `kiWeg()` (Funk vor Gerät vor Knoten vor
+  Netz, wie `askAi()` entscheidet) und `wegErlaubt(privat, weg)` – privat nur
+  „geraet“ und „knoten“.
+- **`askAi()`:** vor jedem Weg die Sperre – privat und Funk oder Netz: Hinweis
+  „Diese Unterhaltung ist privat …“, nichts geht hinaus, nie still ausweichen.
+  Damit sind auch Max, Schwarm und Prüfrunden gesperrt (alle hinter dem Netz-Weg),
+  ebenso „Erneut“ (geht über `askAi()`).
+- **Agent:** Haken „privat“ (`#ai-privat`) neben der Modellwahl, mit Titel und
+  Vorleser-Namen. Er gehört zur Unterhaltung: `privat` im Verlauf (Tresor),
+  beim Öffnen gesetzt, eine neue Aufgabe beginnt offen, geändert wird er mit der
+  Unterhaltung gemerkt (`wirePrivat()`, `app.ts`).
+- **Whitepaper:** ein Satz im Abschnitt DVM.
+
+**Verdrahtet:** `askAi()` (`shell/tabs/agent.ts`) → `wegErlaubt(privatGewaehlt(),
+kiWeg(…))`; `wirePrivat()` in `shell/app.ts`; Haken in `shell/index.html`.
+
+**Tests:** neu `ki-privat.test.ts` (3): Wege und Erlaubnis, die Sperre steht vor
+jedem Weg und vor allem, was sendet, der Haken je Unterhaltung samt Texten.
+Smoke-Test „lokal“: privat mit der Wahl Netz – kein Umschlag, kein Auftrag, keine
+Frage an localhost, die Frage bleibt im Feld, Hinweis im Toast; privat mit
+„Dieses Gerät“ – die Frage geht wie bisher ans Gerät. Gegenprobe: ohne Sperre
+wird die Prüfung rot (Frage gesendet, Feld leer). Gleich streng angepasst:
+`ki-funk.test.ts` (zwischen Prompt und Funk steht genau die Privat-Sperre).
+
+**Prüfungen** (nach dem Einmergen von main mit 12.7c, 12.1 C, B-17b2, B-17b3a–b):
+- protocol 1186 grün, 6 übersprungen, 0 rot (unverändert);
+- node 314 grün, 6 übersprungen;
+- app 927 grün (vorher 924), Build ok;
+- Leak 73 grün + 1 todo; mls 13 grün;
+- check-wiring `--streng` Exit 0, check-website 5 Seiten ok, check_innerhtml Exit 0;
+- Smoke-Test bestanden (mit der neuen Prüfung „privat“ in „lokal“).
+
+Knoten-Stand: unverändert.
