@@ -814,6 +814,11 @@ def waehrung_pruefen(browser, url: str) -> dict:
     umzug = {"reiter": ev("() => [...document.querySelectorAll('[data-subtab-group=wallet] [data-subtab]')].map(b => b.textContent)"),
              "zahlen": ev("() => ['standard-schiene', 'anteile-zahlen'].map(id => !!document.getElementById(id).offsetParent)"),
              "settings": ev("() => [...document.querySelectorAll('[data-subtab-group=settings] [data-subtab]')].map(b => b.dataset.subtab)")}
+    # Anzeigeeinheit (12.1): neben der Standard-Schiene; nur sats/SOL wird gemerkt, „automatisch“ entfernt die Wahl
+    def einheit(wert: str):
+        ev("(v) => { const e = document.getElementById('anzeige-einheit'); e.value = v; e.dispatchEvent(new Event('change')); }", wert)
+        return ev("() => localStorage.getItem('freedom.anzeigeEinheit')")
+    umzug["einheit"] = [ev("() => document.getElementById('anzeige-einheit').value"), einheit("sol"), einheit("sats"), einheit("")]
     ev("() => { location.hash = '#/verdienen'; }")
     s.wait_for_function("() => !!document.querySelector('[data-subtab-group=earn] [data-subtab=host]')?.offsetParent", timeout=10000)
     ev("() => document.querySelector('[data-subtab-group=earn] [data-subtab=host]').click()")
@@ -824,7 +829,7 @@ def waehrung_pruefen(browser, url: str) -> dict:
     seite.warte_zu()
     erg["umzug"] = umzug
     if not (umzug["reiter"] == ["Übersicht", "Tauschen", "Hinterlegen", "Zahlen"] and umzug["zahlen"] == [True, True]
-            and "fees" not in umzug["settings"] and umzug["hosten"] == ["earn:host", "earn:host"]
+            and "fees" not in umzug["settings"] and umzug["hosten"] == ["earn:host", "earn:host"] and umzug["einheit"] == ["", "sol", "sats", None]
             and umzug["vorhalten"]["felder"] == ["Welches Modell hältst du vor?", "Welche Dateien? (kommagetrennt, leer = alle)"]):
         erg["fehler"].append(f"Umzug {umzug}")
     erg["browser_dialoge"] = browser_dialoge
