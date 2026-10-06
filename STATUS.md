@@ -17176,3 +17176,23 @@ Netz), app 911, mls 13, Leak 73 + 1 todo; Typprüfung überall, Build, check-wir
 innerHTML Exit 0, Website ok, Smoke-Test bestanden, build-site ok, reproduzierbar.
 
 Knoten-Stand: unverändert.
+
+## Schritt 12.1 C – Auswahl der Anzeigeeinheit
+
+**Warum:** Spur A hat in 12.1 die Logik gebaut (`anzeigeEinheit()`,
+`freedom.anzeigeEinheit`); „die Auswahl baut Spur C“ (E5).
+
+**Was:**
+- Währung › Zahlen, im Kasten „Zahlen“ unter der Standard-Schiene: „Beträge
+  zuerst zeigen in: automatisch · sats · SOL“ (`#anzeige-einheit`, verdrahtet
+  in `tabs/mesh.ts` neben der Standard-Schiene).
+- Gemerkt wird nur eine eigene Wahl („sats“ oder „sol“); „automatisch“
+  entfernt sie – dann gilt `anzeigeEinheit()` wie bisher. Die Wahl reist mit
+  der Sicherung (Eintrag seit 12.1).
+- Der Text sagt, was es tut: nur die Anzeige; die andere Einheit mit „≈“ und
+  dem Kurs von jetzt, der genaue Betrag immer dabei; ohne Kurs keine
+  umgerechnete Zahl.
+
+**Tests:** app +2 (`anzeige-einheit.test.ts`: Optionen und Ort, Sicherung,
+Verdrahtung – nur sats/SOL gemerkt, sonst entfernt). Smoke „waehrung“:
+Vorbelegung leer, „SOL“, „sats“, zurück zu „automatisch“ entfernt die Wahl.

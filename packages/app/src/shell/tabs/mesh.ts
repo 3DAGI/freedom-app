@@ -15,7 +15,7 @@ import { rufStand, rufTeilenAn, setzeRufTeilen } from "../ruf.js";
 import { $, el, toast } from "../ui.js";
 import { ladeAbdeckung, nutzeStandort, trageAbdeckungEin, vergissStandort, widerrufeAbdeckung } from "./earn.js";
 import { LS_KONTAKTE_SICHERN, kontakteEinschalten, kontakteSichernAn, sichereKontakte } from "./kontakte.js";
-import { LS_STANDARD_SCHIENE, standardSchiene } from "../../standard-schiene.js";
+import { LS_ANZEIGE_EINHEIT, LS_STANDARD_SCHIENE, standardSchiene } from "../../standard-schiene.js";
 import { wireRelayKarte, wireRelayZugang } from "./settings.js";
 import { platzhalterAn, setzePlatzhalter } from "../ki-platzhalter.js";
 import { LS_VERLAUF, leseUmfang } from "../../ki-kontext.js";
@@ -249,6 +249,19 @@ export async function wireMeshTab(): Promise<void> {
     schiene.onchange = () => {
       localStorage.setItem(LS_STANDARD_SCHIENE, schiene.value === "solana" ? "solana" : "lightning");
       toast(t("set.schieneGesetzt", { schiene: t(schiene.value === "solana" ? "zahl.optSolana" : "zahl.optLightning") }));
+    };
+  }
+
+  // Anzeigeeinheit (12.1): nur die eigene Wahl merken; „automatisch“ entfernt sie (dann gilt `anzeigeEinheit()`)
+  const einheit = document.getElementById("anzeige-einheit") as HTMLSelectElement | null;
+  if (einheit) {
+    const wahl = localStorage.getItem(LS_ANZEIGE_EINHEIT);
+    einheit.value = wahl === "sats" || wahl === "sol" ? wahl : "";
+    einheit.onchange = () => {
+      if (einheit.value === "sats" || einheit.value === "sol") localStorage.setItem(LS_ANZEIGE_EINHEIT, einheit.value);
+      else localStorage.removeItem(LS_ANZEIGE_EINHEIT);
+      const name = einheit.value === "sats" ? "set.einheitSats" : einheit.value === "sol" ? "set.einheitSol" : "set.einheitAuto";
+      toast(t("set.einheitGesetzt", { einheit: t(name) }));
     };
   }
 
