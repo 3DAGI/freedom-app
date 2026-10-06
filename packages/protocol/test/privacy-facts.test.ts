@@ -718,8 +718,9 @@ test("B-17b3a: Zeitanker stehen als Grenze im Bericht – was die Kalender sehen
   assert.equal(f?.status, "grenze");
   assert.equal(f?.regel, undefined, "die Kalender fragt die App per https, nicht als Event an ein Relay");
   assert.match(f?.aussage ?? "", /drei OpenTimestamps-Kalender \(alice, bob, finney\)/, "K5 A: dieselben wie OTS_KALENDER");
-  assert.match(f?.grund ?? "", /mit Tor \(Tor Browser\) sehen die Kalender nur den Ausgang/);
+  assert.match(f?.grund ?? "", /mit Tor \(Tor Browser\) sehen Kalender und Explorer nur den Ausgang/);
+  assert.match(f?.aussage ?? "", /Streiten zwei Mandate eines Kontakts, prüft die App deren Anker bei mempool\.space und blockstream\.info/, "B-17b3b: K4 A, nur bei Streit");
   assert.match(f?.grund ?? "", /der zur Quittung bleibt im Tresor/, "K3 A");
   const t = privacyFactsText();
-  assert.match(t.slice(t.indexOf("Bewusste Grenzen:")), /△ Für Zeitanker schickt die App Fingerabdrücke .*nie wofür\./);
+  assert.match(t.slice(t.indexOf("Bewusste Grenzen:")), /△ Für Zeitanker schickt die App Fingerabdrücke .*die Blockhöhe\./);
 });
