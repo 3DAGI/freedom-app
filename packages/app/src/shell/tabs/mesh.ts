@@ -17,6 +17,7 @@ import { ladeAbdeckung, nutzeStandort, trageAbdeckungEin, vergissStandort, wider
 import { LS_KONTAKTE_SICHERN, kontakteEinschalten, kontakteSichernAn, sichereKontakte } from "./kontakte.js";
 import { LS_STANDARD_SCHIENE, standardSchiene } from "../../standard-schiene.js";
 import { wireRelayKarte, wireRelayZugang } from "./settings.js";
+import { platzhalterAn, setzePlatzhalter } from "../ki-platzhalter.js";
 
 // ------------------------------------------------------------- Mesh-Tab
 
@@ -282,6 +283,16 @@ export async function wireMeshTab(): Promise<void> {
       setzeRufTeilen(ruf.checked);
       toast(t(ruf.checked ? "set.rufAn" : "set.rufAus"));
       zeigeRuf();
+    };
+  }
+
+  // Platzhalter für persönliche Angaben in KI-Fragen (D1a) – Standard an
+  const platzhalter = document.getElementById("ki-platzhalter") as HTMLInputElement | null;
+  if (platzhalter) {
+    platzhalter.checked = platzhalterAn();
+    platzhalter.onchange = () => {
+      setzePlatzhalter(platzhalter.checked);
+      toast(t(platzhalter.checked ? "set.platzhalterAn" : "set.platzhalterAus"));
     };
   }
 
