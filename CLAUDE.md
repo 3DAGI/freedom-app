@@ -924,6 +924,12 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   (`merkeWerbeName()`). Beim Geworbenen fragt `loeseWerberName()` die Domain
   genau einmal – sie sieht die IP (Grenze „werbe-name“ im Bericht) – und
   vergisst den Namen danach, gleich wie es ausging; nie ein zweiter Versuch.
+- **Senden aus der Wallet** (seit 12.7a, `shell/senden-ui.ts`): Ziel nur über
+  `leseSendeZiel()` (`senden.ts`), Betrag nur über `geltenderBetrag()` – die
+  Schiene folgt dem Ziel, eine Rechnung ohne Betrag wird abgewiesen, ein
+  getippter Betrag gegen den des Ziels auch. Erst `bestaetige()` mit ganzer
+  Adresse, dann `zahle(zahlschienen(), … zweck: "senden")`; nie von selbst
+  wiederholen.
 - **Zahlung im Chat anfordern** (seit A-5): Die Anforderung ist eine
   gewöhnliche Direktnachricht mit `lightning:`/`solana:`-Adresse
   (`zahlungs-anforderung.ts`) – kein eigenes Event, gesendet nur über das
