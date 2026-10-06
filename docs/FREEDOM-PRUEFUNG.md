@@ -10,8 +10,8 @@ ist entfernt), stattdessen gibt es **automatische Kontrollen von Freedom aus**.
 - **Keine Prüfer.** Es gibt keine Prüfer-Knoten, keine synthetischen
   Prüffragen und keine Messberichte (38081) mehr – zurückgebaut mit P5a.
 - **Prüfrunden:** Die App schickt die **echte Anfrage** an **drei Provider
-  statt an einen** und vergleicht die Antworten – gewünscht etwa bei jeder 40.
-  Zahlung (Häufigkeit offen, siehe Rechnung in 3.2).
+  statt an einen** und vergleicht die Antworten – **etwa jede 400. Antwort**
+  (MENSCH 06.10.2026, nach der Rechnung in 3.2: Antwort, nicht Zahlung).
 - **Pflicht, ohne Schalter.** Ausgenommen sind nur Wege ohne Netz oder
   Zahlung: KI auf diesem Gerät, der eigene Knoten, Funk.
 - **Budget:** 0,5 % jeder Zahlung, genommen vom Anteil der Entwicklung
@@ -102,10 +102,10 @@ Die Messung bleibt nur auf dem Gerät.
 - **Was:** Ist das Prüfbudget groß genug für zwei weitere Antworten, geht die
   echte Anfrage zusätzlich an zwei andere Provider. Jede Kopie geht versiegelt,
   von einem eigenen Sitzungsschlüssel.
-- **Rechnung (Rückfrage an den MENSCHEN, vor P5c):** Zwei weitere Antworten
-  kosten etwa zwei ganze Zahlungen. 0,5 % je Zahlung decken das erst nach rund
-  400 Zahlungen (2 ÷ 0,005), nicht nach 40. Für jede 40. bräuchte es rund 5 %,
-  günstigere Zusatz-Antworten oder Provider, die gerade gratis antworten.
+- **Rechnung:** Zwei weitere Antworten kosten etwa zwei ganze Zahlungen.
+  0,5 % je Zahlung decken das erst nach rund 400 Zahlungen (2 ÷ 0,005), nicht
+  nach 40. **Entschieden 06.10.2026 (MENSCH):** „Jede 400. Antwort reicht.
+  Antwort, nicht Zahlung.“ – gezählt werden Antworten, das Budget bleibt 0,5 %.
 - **Was der Nutzer sieht:** die Antwort des gewählten Providers, wie immer.
   Die zwei anderen Antworten vergleicht die App im Hintergrund
   (`evaluateConsensus()` aus `consensus.ts` – hier lebt das Vergleichen aus A-7
@@ -178,7 +178,7 @@ was Kunden wirklich fragen. Kind 38081 wird nicht wiederverwendet.
 
 ## 5. Grenzen (ehrlich)
 - **Mehr Leser:** Bei einer Prüfrunde lesen drei Provider die Anfrage statt
-  einem – wie oft, hängt vom Budget ab (3.2).
+  einem – etwa jede 400. Antwort (3.2).
 - **Gleiche Irrtümer:** Provider mit demselben Basismodell teilen dessen
   Fehler. Übereinstimmung heißt nie „richtig“, erkannt wird nur Abweichung.
 - **Absprachen:** Wer mehrere Knoten betreibt, könnte gleich falsch antworten.
@@ -191,9 +191,9 @@ was Kunden wirklich fragen. Kind 38081 wird nicht wiederverwendet.
 - **Prüfer-Rolle** (`PRUEFER`, `PRUEFER_BUDGET_MSAT`) und **Standard-Prüfer**
   (`FREEDOM_PRUEFER`): entfernt mit P5a.
 - **Neuer Anteil `pruefung`** (0,5 %) und Kennzeichen im Angebot, dass ein
-  Provider ihn kennt: freigegeben am 05.10.2026, gebaut mit P5b. Die Tabelle
-  der Anteile ist eine CI-Invariante; sie ändert sich nur mit dieser
-  Entscheidung.
+  Provider ihn kennt (`["aufteilung", "2"]`, `AUFTEILUNG_FASSUNG`):
+  freigegeben am 05.10.2026, gebaut mit P5b. Die Tabelle der Anteile ist eine
+  CI-Invariante; sie ändert sich nur mit dieser Entscheidung.
 
 ## 7. Schritte (Spur A, je ein PR, jeweils unter ~400 Zeilen)
 | Schritt | Inhalt |
@@ -208,7 +208,7 @@ was Kunden wirklich fragen. Kind 38081 wird nicht wiederverwendet.
 | P3c | Budget für bezahlte Prüffragen – erst nach Entscheidung des MENSCHEN (der Knoten zahlt seit 5.1.2 nichts aus). |
 | P4 | Probezeit und Prüfer verbinden (3.4, Zeitraum des Berichts endet mit der letzten Prüffrage), FAQ der Website (Auswahl, Probezeit, Grenze „Prüffragen erkennen“; `check-website.py` weist die alte Aussage „steht aber hinten“ ab), MENSCH-Checkliste (8). |
 | P5a | Rückbau nach der Entscheidung vom 05.10.2026: Prüfer-Rolle im Knoten (`pruefer-rolle.ts`, `pruefer-dienst.ts`, `PRUEFER`), Messbericht 38081 (`messbericht.ts`), Prüffragen und `stufeFuerAuswahl()`, Prüfern folgen (`pruefer-wahl.ts`, `freedom.pruefer`), Status-Rolle `pruefer`. Netz › Prüfung zeigt nur die eigene Messung. Datenschutz-Aussage, Doku, FAQ (`check-website.py` weist Prüfer-Aussagen ab). |
-| P5b | Aufteilung: Entwicklung 2,0 %, neuer Anteil `pruefung` 0,5 % (bleibt beim Kunden als Prüfbudget); CI-Invariante; Kennzeichen im Angebot; Kasse für das Budget. |
+| P5b | Aufteilung: Entwicklung 2,0 %, neuer Anteil `pruefung` 0,5 % (bleibt beim Kunden als Prüfbudget, `teileAuf()` → `pruefbudgetMsat`); CI-Invariante; Fassung im Angebot (`["aufteilung", "2"]`) – nur dann deklariert die App Entwicklung und Prüfbudget; Prüfbudget im Tresor (`pruefbudget.ts`, `freedom.pruefbudget`), gezeigt in der Antwort und in den Settings. Im Zahlkanal bleibt der Anteil bis P5d beim Provider. |
 | P5c | Pflicht-Prüfrunden mit Lightning (3.2). |
 | P5d | Pflicht-Prüfrunden mit SOL über offene Zahlkanäle. |
 
@@ -225,6 +225,7 @@ Prüfer-Wahl aus P2b2 sind mit P5a zurückgebaut.
 - [ ] **Knoten mit `PRUEFER=1`** (falls einer lief): den Schalter entfernen und
   den Knoten auf `main` bringen. Ein älterer Knoten mit `PRUEFER=1` prüft und
   veröffentlicht weiter 38081, die App liest es nicht mehr.
+- [x] **Häufigkeit entschieden** (06.10.2026): etwa jede 400. Antwort, Budget 0,5 %.
 - [ ] **Nach P5b:** alle Knoten auf `main` bringen, damit sie den neuen Anteil
   kennen. Bis dahin deklariert die App ihn ihnen nicht.
 - [ ] **Nach P5c/P5d:** Prüfrunden auf Testnet bzw. Devnet ausprobieren.

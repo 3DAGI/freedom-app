@@ -5,7 +5,9 @@
  * verwahrt fremdes Geld:
  *
  *   94 %  Provider
- *   2,5 % Entwicklung (selbstverwahrte Adressen des Projekts)
+ *   2,0 % Entwicklung (selbstverwahrte Adressen des Projekts)
+ *   0,5 % Prüfbudget – bleibt beim Kunden und bezahlt seine Prüfrunden
+ *         (Entscheidung 05.10.2026, P5b; vorher 2,5 % Entwicklung)
  *   1,5 % Relays, über die der Auftrag lief (höchstens drei, zu gleichen Teilen)
  *   0,5 % Werber des Kunden
  *   0,5 % Werber des Providers
@@ -33,7 +35,8 @@ export const PROVIDER_PPM = 940_000;
 
 /** Die übrigen Anteile in ppm der Zahlung – nur diese, in dieser Reihenfolge. */
 export const ANTEILE_PPM = {
-  entwicklung: 25_000,
+  entwicklung: 20_000,
+  pruefung: 5_000,
   relays: 15_000,
   "werber-kunde": 5_000,
   "werber-provider": 5_000,
@@ -49,6 +52,14 @@ export const MAX_ANTEILE_PPM = 100_000;
 export const MAX_RELAYS = 3;
 /** Tag im (versiegelten) Auftrag: welche Anteile die App des Kunden selbst zahlt. */
 export const TAG_AUFTEILUNG = "aufteilung";
+/**
+ * Fassung dieser Tabelle (P5b): Ein Knoten nennt sie im Angebot (`aufteilung`).
+ * Erst ab Fassung 2 kennt er den Anteil `pruefung` und rechnet die Entwicklung
+ * mit 2,0 % – ältere Knoten lehnen unbekannte Anteile ab und rechneten mit 2,5 %.
+ */
+export const AUFTEILUNG_FASSUNG = 2;
+/** Anteile, die ein Knoten erst ab Fassung 2 so rechnet wie die App. */
+const AB_FASSUNG_2: readonly Anteil[] = ["entwicklung", "pruefung"];
 
 // Selbstprüfung beim Import – widersprüchliche Werte fallen sofort auf.
 {
@@ -75,7 +86,11 @@ export const ENTWICKLUNG: Readonly<Zahlziel> = Object.freeze({});
 
 /** Die bekannten Empfänger eines Auftrags – was fehlt, bleibt beim Provider. */
 export interface Empfaenger {
+  /** Fassung der Aufteilung, die der Knoten im Angebot nennt – ohne Angabe 1. */
+  fassung?: number;
   entwicklung?: Zahlziel;
+  /** Prüfbudget beim Kunden (P5b) – kein Empfänger, die App behält den Anteil. */
+  pruefung?: boolean;
   relays?: readonly Zahlziel[];
   "werber-kunde"?: Zahlziel;
   "werber-provider"?: Zahlziel;
@@ -113,24 +128,35 @@ const anteilMsat = (betragMsat: number, a: Anteil) => Math.floor((betragMsat * A
 
 /**
  * Welche Anteile die App des Kunden selbst zahlt: die, für die es auf dieser
- * Schiene einen Empfänger gibt. Auf SOL vorerst keine (erst mit 4.3).
+ * Schiene einen Empfänger gibt. Auf SOL vorerst keine (erst mit 4.3). Das
+ * Prüfbudget behält die App, wenn es gewählt ist. Entwicklung und Prüfbudget
+ * nur bei Knoten ab Fassung 2 – ältere rechnen anders, dann bleibt beides beim
+ * Provider (nicht zuordenbar).
  */
 export function zahlbareAnteile(e: Empfaenger, schiene: Schiene): Anteil[] {
   if (schiene === "solana") return [];
-  return ANTEILE.filter((a) => a === "relays"
-    ? (e.relays ?? []).some((r) => adresseFuer(r, schiene))
-    : adresseFuer(e[a], schiene) !== undefined);
+  const neu = (e.fassung ?? 1) >= AUFTEILUNG_FASSUNG;
+  return ANTEILE.filter((a) => (neu || !AB_FASSUNG_2.includes(a)) && (
+    a === "pruefung" ? e.pruefung === true
+    : a === "relays" ? (e.relays ?? []).some((r) => adresseFuer(r, schiene))
+    : adresseFuer(e[a], schiene) !== undefined));
 }
 
 /**
  * Den Betrag eines Auftrags aufteilen. `posten` zahlt die App des Kunden
- * direkt; `providerMsat` stellt der Provider in Rechnung. Summe = Betrag.
+ * direkt, `pruefbudgetMsat` behält sie als Prüfbudget; `providerMsat` stellt
+ * der Provider in Rechnung. Summe = Betrag.
  */
-export function teileAuf(betragMsat: number, e: Empfaenger, schiene: Schiene): { providerMsat: number; posten: Posten[] } {
+export function teileAuf(betragMsat: number, e: Empfaenger, schiene: Schiene): { providerMsat: number; posten: Posten[]; pruefbudgetMsat: number } {
   if (!Number.isSafeInteger(betragMsat) || betragMsat < 0) throw new Error("aufteilung: Betrag ungültig");
   const posten: Posten[] = [];
+  let pruefbudgetMsat = 0;
   for (const a of zahlbareAnteile(e, schiene)) {
     const msat = anteilMsat(betragMsat, a);
+    if (a === "pruefung") {
+      pruefbudgetMsat = msat;
+      continue;
+    }
     if (a !== "relays") {
       if (msat > 0) posten.push({ anteil: a, msat, ziel: adresseFuer(e[a], schiene)! });
       continue;
@@ -143,7 +169,8 @@ export function teileAuf(betragMsat: number, e: Empfaenger, schiene: Schiene): {
       if (m > 0) posten.push({ anteil: "relays", msat: m, ziel });
     });
   }
-  return { providerMsat: providerAnteilMsat(betragMsat, [...new Set(posten.map((p) => p.anteil))]), posten };
+  const anteile = [...new Set(posten.map((p) => p.anteil)), ...(pruefbudgetMsat > 0 ? ["pruefung" as const] : [])];
+  return { providerMsat: providerAnteilMsat(betragMsat, anteile), posten, pruefbudgetMsat };
 }
 
 /**
@@ -152,7 +179,8 @@ export function teileAuf(betragMsat: number, e: Empfaenger, schiene: Schiene): {
  * Relays wie in `teileAuf()`: höchstens drei, zu gleichen Teilen, der Rest an
  * den ersten. Eine Adresse, die mehrere Anteile bekommt, steht einmal da (mit
  * der Summe); `ausser` (Provider, Kunde) bekommt keinen – was fehlt, bleibt
- * beim Provider.
+ * beim Provider. Das Prüfbudget hat keinen Empfänger im Kanal (SOL folgt mit
+ * P5d) und bleibt beim Provider.
  */
 export function kanalEmpfaenger(e: Empfaenger, ausser: readonly string[] = []): Array<{ adresse: string; ppm: number }> {
   const ppm = new Map<string, number>();
@@ -160,6 +188,7 @@ export function kanalEmpfaenger(e: Empfaenger, ausser: readonly string[] = []): 
     if (n > 0 && !ausser.includes(adresse)) ppm.set(adresse, (ppm.get(adresse) ?? 0) + n);
   };
   for (const a of ANTEILE) {
+    if (a === "pruefung") continue;
     if (a !== "relays") {
       const ziel = adresseFuer(e[a], "solana");
       if (ziel) plus(ziel, ANTEILE_PPM[a]);

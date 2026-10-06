@@ -213,3 +213,34 @@ MENSCH dem Agenten übertragen („für eine effektive und stabile Entwicklung�
 - **MENSCH (vor 5.1 live):** Empfänger-Adressen der Entwicklung, d. h. eine
   Lightning-Adresse über einen eigenen Knoten und eine SOL-Mehrfachsignatur
   (Squads, 5.9).
+
+## Änderung 05.10.2026: Prüfbudget 0,5 % (P5b)
+
+Entscheidung des MENSCHEN zur Freedom-Prüfung (P3c, `docs/FREEDOM-PRUEFUNG.md`).
+Der Anteil der Entwicklung sinkt von 2,5 % auf 2,0 %. Die frei werdenden 0,5 %
+sind ein neuer Anteil `pruefung`: Er hat keinen Empfänger, die App des Kunden
+behält ihn als Prüfbudget. Daraus zahlt sie ihre Prüfrunden – etwa jede 400.
+Antwort (MENSCH 06.10.2026) geht die echte Anfrage zusätzlich an zwei andere
+Provider (P5c, P5d).
+
+| Anteil | Empfänger | in ppm |
+|---|---|---|
+| 94 % | Provider | 940.000 |
+| 2,0 % | Entwicklung | 20.000 |
+| 0,5 % | Prüfbudget – bleibt beim Kunden | 5.000 |
+| 1,5 % | Relays | 15.000 |
+| 0,5 % | Werber des Kunden | 5.000 |
+| 0,5 % | Werber des Providers | 5.000 |
+| 1 % | Hosting | 10.000 |
+
+- **Provider behalten 94 %.** Zusammen bleiben die übrigen Anteile bei 6 %.
+- **Rückwärts verträglich:** Knoten nennen im Angebot die Fassung der
+  Aufteilung (`["aufteilung", "2"]`). Nur bei ihnen deklariert die App
+  Entwicklung und Prüfbudget; ältere Knoten lehnten den unbekannten Anteil ab
+  und rechneten die Entwicklung mit 2,5 % – bei ihnen bleiben beide beim
+  Provider (nicht zuordenbar).
+- **SOL:** Im Zahlkanal hat das Prüfbudget noch keinen Empfänger und bleibt
+  beim Provider, bis P5d die Prüfrunden in SOL baut.
+- **Kein Topf:** Das Budget ist Geld des Kunden in seiner eigenen Wallet; die
+  App zählt nur, wie viel davon für Prüfrunden bereitliegt
+  (`freedom.pruefbudget`, im Tresor).

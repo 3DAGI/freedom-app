@@ -209,6 +209,8 @@ export const agent: Texte = {
   "agent.sitzungGesamt": { de: "Sitzung gesamt", en: "Session total" },
   "agent.reklamieren": { de: "Reklamieren", en: "Complain" },
   "agent.anteilEntwicklung": { de: "Entwicklung", en: "Development" },
+  "agent.anteilPruefbudget": { de: "Prüfbudget", en: "Check budget" },
+  "agent.bleibtBeiDir": { de: "{betrag} bleiben bei dir (für Prüfrunden)", en: "{betrag} stay with you (for check rounds)" },
   "agent.anteilRelays": { de: "Relay", en: "Relay" },
   "agent.anteilWerberKunde": { de: "Dein Werber", en: "Your referrer" },
   "agent.anteilWerberProvider": { de: "Werber des Providers", en: "Provider's referrer" },

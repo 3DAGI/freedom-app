@@ -42,7 +42,8 @@ Jede KI-Zahlung wird beim Zahlen fest aufgeteilt:
 ```
    Anteil  Empfänger                                              in ppm
    94 %    Provider                                              940.000
-   2,5 %   Entwicklung (selbstverwahrte Adressen des Projekts)    25.000
+   2,0 %   Entwicklung (selbstverwahrte Adressen des Projekts)    20.000
+   0,5 %   Prüfbudget – bleibt beim Kunden (seit P5b)              5.000
    1,5 %   Relays, über die der Auftrag lief (≤ 3, gleiche Teile) 15.000
    0,5 %   Werber des Kunden (aus dem Werbelink)                   5.000
    0,5 %   Werber des Providers (nennt sein Angebot)               5.000
@@ -61,6 +62,14 @@ Jede KI-Zahlung wird beim Zahlen fest aufgeteilt:
   Provider prüft ihn vor dem Rechnen (`pruefeAufteilung()`): nur bekannte
   Anteile, jeder einmal, zusammen höchstens 10 %; ohne Tag stellt er den ganzen
   Betrag in Rechnung.
+- **Prüfbudget (seit P5b, Entscheidung 05.10.2026).** Der Anteil `pruefung`
+  hat keinen Empfänger: Die App behält ihn und zahlt daraus ihre Prüfrunden
+  (`docs/FREEDOM-PRUEFUNG.md`). Er kam aus der Entwicklung (vorher 2,5 %).
+- **Fassung im Angebot.** Ein Knoten nennt mit `["aufteilung", "2"]` im
+  Angebot (38027), dass er so rechnet (`AUFTEILUNG_FASSUNG`). Nur dann
+  deklariert die App `entwicklung` und `pruefung` – ältere Knoten lehnen
+  unbekannte Anteile ab und rechneten die Entwicklung mit 2,5 %; bei ihnen
+  bleiben beide Anteile beim Provider.
 - **Kleine Beträge bündeln, ohne Verwahrung.** Lightning-Anteile unter
   100 sats je Empfänger sammelt die App des Zahlenden; bis dahin bleibt das
   Geld bei ihm.

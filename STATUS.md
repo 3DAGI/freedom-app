@@ -16560,3 +16560,48 @@ sind deshalb:
 
 Knoten-Stand: unverändert. Wer `PRUEFER=1` gesetzt hatte, entfernt den
 Schalter.
+
+## Schritt P5b – Aufteilung: Entwicklung 2,0 %, Prüfbudget 0,5 %
+
+Entscheidung des MENSCHEN vom 05.10.2026 (P3c), Häufigkeit vom 06.10.2026:
+„Jede 400. Antwort reicht. Antwort, nicht Zahlung.“ Die Entwicklung gibt
+0,5 % ab. Daraus wird der neue Anteil `pruefung`: Er hat keinen Empfänger, die
+App des Kunden behält ihn als Prüfbudget für die Prüfrunden (P5c, P5d).
+Provider behalten 94 %.
+
+**Was sich ändert:**
+- **`aufteilung.ts`:**
+  - `ANTEILE_PPM` jetzt mit Entwicklung 20.000 und Prüfung 5.000 ppm.
+  - `AUFTEILUNG_FASSUNG = 2`.
+  - `teileAuf()` liefert `pruefbudgetMsat`.
+  - `zahlbareAnteile()` nennt Entwicklung und Prüfbudget nur bei Knoten ab
+    Fassung 2.
+  - `kanalEmpfaenger()` lässt das Prüfbudget aus, es bleibt bis P5d beim
+    Provider.
+- **Angebot (38027):** Tag `["aufteilung", "2"]` (`tiers.ts`). Der Knoten setzt
+  ihn in `main.ts`.
+- **App:**
+  - `pruefbudget.ts` (`freedom.pruefbudget`, nur über `geheim`).
+  - `empfaengerFuer()` übernimmt die Fassung aus dem Angebot.
+  - `rechneAntwortAb()` verbucht das Budget.
+  - Die Antwort zeigt „Prüfbudget – bleibt bei dir“, die Settings den Stand.
+- **CI-Invariante, Texte und Doku:** App, Website (Startseite, FAQ,
+  Whitepaper), `PROTOCOL.md`, `GEBUEHREN-ENTSCHEIDUNG.md`,
+  `FREEDOM-PRUEFUNG.md`, `KONTEN.md`, `CLAUDE.md`. `check-website.py` weist
+  „2,5 % Entwicklung“ ab.
+
+**Verdrahtet:**
+- `empfaengerFuer()` → `deklaration()`, also vor dem Versiegeln (`tabs/agent.ts`).
+- `rechneAntwortAb()` → `pruefBudget.verbuche()` in `handleAnswer()`.
+- Angebot mit Fassung aus `baueAngebot()` (`node/src/main.ts`).
+
+**Prüfungen:**
+- protocol 1155 (+3: Prüfbudget, ältere Knoten, Fassung im Angebot), node 314,
+  app 875 (+3: Abrechnung mit Budget, `pruefbudget.test.ts`).
+- mls 13, Leak 72 + 1 todo.
+- check-wiring, innerHTML und Website ok. Gegentest Website: alte Texte Exit 1.
+- CI-Invariante lokal ok.
+- Smoke-Test bestanden.
+
+Knoten-Stand: Knoten auf `main` bringen. Erst dann deklariert die App ihnen
+Entwicklung und Prüfbudget; bis dahin bleiben beide beim Provider.

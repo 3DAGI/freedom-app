@@ -281,7 +281,7 @@ export function addUsageBubble(usage: {
   toolCalls?: Array<{ name: string; kind: number; costMsat: number }>;
   sessionTotalMsat?: number;
 }, amountMsat: number, providerPk: string, resultEventId?: string, frageAntwort?: { frage: string; antwort: string },
-abrechnung?: { providerMsat: number; posten: Array<{ anteil: string; msat: number }> }): void {
+abrechnung?: { providerMsat: number; posten: Array<{ anteil: string; msat: number }>; pruefbudgetMsat?: number }): void {
   const blase = el("div", undefined, "usage-bubble");
   aktualisiereAgentPanel(usage.toolCalls ?? [], usage.sessionTotalMsat);
   // Jedes Werkzeug als eigene Zeile mit Haken — im Entwurf war das der Kern:
@@ -367,8 +367,10 @@ const satText = (msat: number): string => `${(msat / 1000).toLocaleString(gebiet
  * bleibt ein Anteil beim Provider. Seit 5.1.2 gibt es keinen Fee-Beweis des
  * Knotens mehr; die App zahlt selbst.
  */
-function aufteilungZeilen(a: { providerMsat: number; posten: Array<{ anteil: string; msat: number }> }, zeile: (k: string, v: string) => HTMLElement): HTMLElement[] {
+function aufteilungZeilen(a: { providerMsat: number; posten: Array<{ anteil: string; msat: number }>; pruefbudgetMsat?: number }, zeile: (k: string, v: string) => HTMLElement): HTMLElement[] {
   const weitere = a.posten.map((p) => zeile(ANTEIL_NAME[p.anteil] ? t(ANTEIL_NAME[p.anteil]!) : p.anteil, t("agent.gesammelt", { betrag: satText(p.msat) })));
+  // Prüfbudget (P5b): bleibt beim Kunden und bezahlt seine Prüfrunden
+  if (a.pruefbudgetMsat && a.pruefbudgetMsat > 0) weitere.push(zeile(t("agent.anteilPruefbudget"), t("agent.bleibtBeiDir", { betrag: satText(a.pruefbudgetMsat) })));
   return [zeile(t("agent.anDenProvider"), satText(a.providerMsat)),
     ...(weitere.length ? weitere : [zeile(t("agent.weitereAnteile"), t("agent.keinEmpfaenger"))])];
 }

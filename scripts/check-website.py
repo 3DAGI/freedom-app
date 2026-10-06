@@ -49,6 +49,8 @@ VERALTET = [
     "Protokollfee", "Protokollgebühr", "App-Gebühr", "App-Gebuehr", "für den Reward-Pool",
     "Fee-Beweis", "bis zum Dreifachen", "referral.ts", "scarcityMult", "tierName",
     "protocol takes", "reward pool,",
+    # Seit P5b (Entscheidung 05.10.2026): Entwicklung 2 %, 0,5 % Prüfbudget beim Kunden
+    "2,5 % Entwicklung", "2,5 % an die Entwicklung", "2.5% development",
 ]
 
 # Aussagen, die der Code nicht (mehr) deckt (0.F mit 8.16h): Das Solana-Programm

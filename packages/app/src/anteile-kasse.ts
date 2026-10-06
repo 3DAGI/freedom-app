@@ -54,8 +54,8 @@ export function hoechstMsat(gebotSats: number, werkzeuge: ReadonlyArray<{ kind: 
 export function rechneAb(
   amountMsat: number,
   anfrage: { empfaenger: Empfaenger; hoechstMsat: number } | undefined,
-): { providerMsat: number; posten: Posten[]; gekappt: boolean } {
-  if (!anfrage || !Number.isSafeInteger(amountMsat) || amountMsat <= 0) return { providerMsat: 0, posten: [], gekappt: false };
+): { providerMsat: number; posten: Posten[]; pruefbudgetMsat: number; gekappt: boolean } {
+  if (!anfrage || !Number.isSafeInteger(amountMsat) || amountMsat <= 0) return { providerMsat: 0, posten: [], pruefbudgetMsat: 0, gekappt: false };
   const gekappt = amountMsat > anfrage.hoechstMsat;
   return { ...teileAuf(gekappt ? anfrage.hoechstMsat : amountMsat, anfrage.empfaenger, "lightning"), gekappt };
 }

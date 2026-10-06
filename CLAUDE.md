@@ -45,9 +45,9 @@ bash packages/mls/bauen.sh --pruefen                     # nur bei Änderungen a
 bash contracts/solana-channel/pruefen.sh --werkzeuge     # nur bei Änderungen am Zahlkanal: bauen + Tests gegen Validator (Agave 3.1.10)
 ```
 
-Stand 05.10.2026 (nach 8.2c, 5.5a–c, 8.15, 11.1a, C.3c2, 11.1b, 5.9a–b, 6.3a–b2, 11.4a–b2, C.4a–b, C.5a–b, C.6b, 11.4c, C-18, C-17a–c, C-20a–j3, C-1a–f, C-2, C-3, C-4, C-5a–d, C-6a–e, C-7a–b, C-8, C-10 bis C-16, 11.2a–b, A-4 bis A-7, A-7r, Z1, 12.1–12.3, E8, P1a–b, P2a, E10a, E11, E9-Entwurf, 12.4a, P2b1–b2, P3a–b, P4, P5a, B-1, B-2a–c, B-3 bis B-7, B-8a–c, B-9a, B-15, B-19, B-20a–c, B-10a–b, B-9b1–b2, B-9c1–c3, B-11a–c, B-12a–d, B-13a–e und B-21): protocol 1152 grün (6 übersprungen), node 314 grün
+Stand 05.10.2026 (nach 8.2c, 5.5a–c, 8.15, 11.1a, C.3c2, 11.1b, 5.9a–b, 6.3a–b2, 11.4a–b2, C.4a–b, C.5a–b, C.6b, 11.4c, C-18, C-17a–c, C-20a–j3, C-1a–f, C-2, C-3, C-4, C-5a–d, C-6a–e, C-7a–b, C-8, C-10 bis C-16, 11.2a–b, A-4 bis A-7, A-7r, Z1, 12.1–12.3, E8, P1a–b, P2a, E10a, E11, E9-Entwurf, 12.4a, P2b1–b2, P3a–b, P4, P5a–b, B-1, B-2a–c, B-3 bis B-7, B-8a–c, B-9a, B-15, B-19, B-20a–c, B-10a–b, B-9b1–b2, B-9c1–c3, B-11a–c, B-12a–d, B-13a–e und B-21): protocol 1155 grün (6 übersprungen), node 314 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 872 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 72 grün + 1 `todo` (heutige Lecks,
+in `tools.test.ts`), app 875 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 72 grün + 1 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
 Ausnahme: gesendete SOL-Zahlungen von frischen Adressen, eine bewusste Grenze
 nach Entscheidung 4.9 A – im Datenschutzbericht unter „Bewusste Grenzen“).
@@ -223,9 +223,15 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   Betrag prüfen. Den Gebühren-Beleg des Knotens (38051) gibt es seit 5.1.4c
   nicht mehr – 38050/38051 nicht wiederverwenden.
 - **Gebühren nur über `aufteilung.ts`** (Modell A+, seit 5.1.1): feste Anteile
-  94 / 2,5 / 1,5 / 0,5 / 0,5 / 1 (CI-Invariante, ändern nur mit signiertem
+  94 / 2 / 0,5 / 1,5 / 0,5 / 0,5 / 1 (Provider, Entwicklung, Prüfbudget seit P5b,
+  Relays, Werber beider Seiten, Hosting – CI-Invariante, ändern nur mit signiertem
   Release); nicht Zuordenbares und Rundungsreste an den Provider, nie an die
-  Entwicklung; App (`teileAuf()`) und Knoten (`pruefeAufteilung()`,
+  Entwicklung. Das Prüfbudget (`pruefung`) hat keinen Empfänger: Die App behält
+  es (`pruefbudgetMsat` aus `teileAuf()`, gezählt nur über `PruefBudget`,
+  `freedom.pruefbudget` in `geheim`). Entwicklung und Prüfbudget deklariert sie
+  nur Knoten, deren Angebot die Fassung `["aufteilung", "2"]` nennt
+  (`AUFTEILUNG_FASSUNG`, `Empfaenger.fassung`) – ältere lehnen unbekannte Anteile
+  ab; im Zahlkanal bleibt das Prüfbudget bis P5d beim Provider; App (`teileAuf()`) und Knoten (`pruefeAufteilung()`,
   `providerAnteilMsat()`) rechnen mit denselben Funktionen. SOL-Anteile nur
   über den Zahlkanal (seit 4.3d, `kanalEmpfaenger()`). Der Knoten zahlt seit 5.1.2 nichts aus – keinen
   Pool, keinen Verteiler, keine Rücklage wieder einführen (Treasury, Sweep,
@@ -965,9 +971,9 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   Prüfer-Rolle im Knoten, keine synthetischen Prüffragen, keine Messberichte –
   38081 nicht wiederverwenden, Prüfer nicht wieder einführen. Geprüft wird in
   Pflicht-Prüfrunden (P5c/P5d, noch nicht gebaut): die echte Anfrage an drei
-  Provider statt an einen, sobald das Prüfbudget zwei weitere Antworten deckt
-  (Häufigkeit offen – 0,5 % reichen für etwa jede 400., nicht jede 40.), ohne
-  Schalter, bezahlt aus dem Prüfbudget (0,5 % aus dem Anteil der Entwicklung, P5b) in der Währung des
+  Provider statt an einen, etwa jede 400. Antwort (MENSCH 06.10.2026 – Antwort,
+  nicht Zahlung), ohne Schalter, bezahlt aus dem Prüfbudget (0,5 % aus dem
+  Anteil der Entwicklung, seit P5b) in der Währung des
   Nutzers; ausgenommen nur Gerät, eigener Knoten, Funk. `consensus.ts` bleibt
   Baustein dafür (Ausnahmen in `wiring-ausnahmen.txt` mit diesem Grund).
   Auswahl seit P2a nur über `matchProviders()` → `ordneNachPruefung()`

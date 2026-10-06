@@ -315,7 +315,7 @@ export async function wireGebuehrenKarte(): Promise<void> {
   const box = document.getElementById("anteile-stand");
   const knopf = document.getElementById("anteile-zahlen") as HTMLButtonElement | null;
   if (!box || !knopf) return;
-  const { kasse, zahleAnteile } = await import("../ki-zahlung.js");
+  const { kasse, pruefBudget, zahleAnteile } = await import("../ki-zahlung.js");
   const sat = (msat: number) => `${(msat / 1000).toLocaleString(gebietsschema(), { maximumFractionDigits: 3 })} sats`;
   const zeige = (): void => {
     box.replaceChildren();
@@ -328,6 +328,9 @@ export async function wireGebuehrenKarte(): Promise<void> {
     if (tresorEingerichtet() && geheim.keys().length === 0) { zeile(t("set.tresorGesperrt")); return; }
     const { offen, unklar } = kasse.stand();
     if (offen.length === 0 && unklar.length === 0) zeile(t("set.nichtsGesammelt"));
+    // Prüfbudget (P5b): bleibt beim Kunden, bezahlt seine Prüfrunden
+    const budget = pruefBudget.stand();
+    if (budget > 0) zeile(t("set.pruefbudget", { betrag: sat(budget) }));
     for (const o of offen) zeile(t("set.gesammelt", { ziel: o.ziel, betrag: sat(o.msat) }));
     for (const u of unklar) {
       const d = zeile(t("set.ausgangUnklar", { ziel: u.ziel, betrag: sat(u.msat) }));
