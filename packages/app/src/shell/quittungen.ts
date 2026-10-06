@@ -34,6 +34,11 @@ export async function quittungNachZahlung(
 ): Promise<void> {
   if (!(providerMsat > 0)) return;
   offen.zaehle(provider);
+  await quittungNachBegleichen(provider, charge);
+}
+
+/** Nach dem Begleichen offener Beträge (D1b2, `SessionClient.begleiche()`): Quittung ohne neue Antwort – über die seit der letzten Zahlung. */
+export async function quittungNachBegleichen(provider: string, charge: { settled: boolean; paymentRef?: string; rechnung?: string }): Promise<void> {
   if (!charge.settled || !charge.paymentRef || !charge.rechnung) return;
   const q = lightningQuittung({ provider, rechnung: charge.rechnung, preimage: charge.paymentRef, auftraege: offen.nimm(provider), zeit: jetzt() });
   // Tresor gesperrt: Diese Quittung fehlt dann – nie offen ablegen

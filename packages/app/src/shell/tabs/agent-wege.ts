@@ -127,8 +127,9 @@ export async function askWithFailover(prompt: string, bid: number, tier: "free" 
  * Anfragen, wie offene Events.
  */
 export async function privateAntworten(ids: ReadonlySet<string>, seit: number, cache: AntwortCache, quelle?: Pick<KnotenWeg, "query" | "sitzungPk">) {
-  // Über den Weg zu meinem Knoten (B-9c2) nur der Schlüssel des Auftrags – sein Relay liefert nur an Angemeldete
-  const pks = quelle ? [quelle.sitzungPk] : kiSitzungen.pubkeys();
+  // Über den Weg zu meinem Knoten (B-9c2) nur der Schlüssel des Auftrags – sein Relay liefert nur an Angemeldete;
+  // sonst nur die Schlüssel der gesuchten Aufträge (D1b2), nie die anderer Unterhaltungen
+  const pks = quelle ? [quelle.sitzungPk] : kiSitzungen.pubkeysFuer(ids);
   if (pks.length === 0) return { ergebnisse: [], rueckmeldungen: [] };
   const umschlaege = await (quelle ?? await ensurePool()).query({ kinds: [KIND_GIFT_WRAP], "#p": pks, since: seit });
   return oeffneAntworten(umschlaege, kiSitzungen, ids, cache);
