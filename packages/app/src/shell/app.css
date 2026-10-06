@@ -615,6 +615,8 @@ input:focus, textarea:focus, select:focus {
 h3 .ic-svg, h3 .logo-btc, h3 .logo-sol { vertical-align: -2px; margin-right: 6px; }
 .zap-btn { display: inline-flex; align-items: center; justify-content: center; }
 .send-btn { display: inline-flex; align-items: center; justify-content: center; }
+/* Wallet: Senden (12.7a) über den Karten der Übersicht */
+.wallet-aktionen { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
 .nb-row .nb-val { display: inline-flex; align-items: center; gap: 4px; }
 
 /* ---------- Replit-Stil: wachsende Schritt-Leiste ---------- */
