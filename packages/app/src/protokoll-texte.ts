@@ -85,7 +85,7 @@ export function profilOffenlegung(p: Partial<ProfileMetadata>): string[] {
   if (bild === "blob") zeilen.push(t("profil.offenBildNetz"));
   if (p.lud16) zeilen.push(t("profil.offenLud16"));
   if (p.website) zeilen.push(t("profil.offenWebsite"));
-  if (p.chains?.solana) zeilen.push(t("profil.offenSolana"));
+  if (p.sol || p.chains?.solana) zeilen.push(t("profil.offenSolana"));
   if (zeilen.length === 0) zeilen.push(t("profil.offenLeer"));
   return zeilen;
 }

@@ -797,10 +797,12 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   Upgrade-Rechte der Programme ändert nur der MENSCH nach
   `docs/SOLANA-UPGRADE-AUTHORITY.md`.
 - **Lightning-Adresse und Zaps privat** (seit 6.3a): Das Profil geht nur über
-  `oeffentlichesProfil(entwurf, { lightning: lnOeffentlich(localStorage) })`
+  `oeffentlichesProfil(entwurf, { lightning: lnOeffentlich(localStorage), sol: solOeffentlich(localStorage) })`
   hinaus (`tabs/profil.ts`) – die Lightning-Adresse nur mit Häkchen
   (`freedom.profil.lnOeffentlich`; vor 6.3 gespeicherte gelten einmalig als
-  veröffentlicht). Zap-Anfragen (9734) nur über `baueZapAnfrage()` →
+  veröffentlicht), die SOL-Adresse (Feld `sol`, seit 12.6) ebenso
+  (`freedom.profil.solOeffentlich`, Standard aus, eingeschaltet erst nach
+  `bestaetige()`; ohne `sol: true` gehen weder `sol` noch `chains` hinaus). Zap-Anfragen (9734) nur über `baueZapAnfrage()` →
   `buildAnonZapRequest()` (Wegwerf-Schlüssel je Zap, „anon“), nie mit
   `signiere()`: Der Server des Empfängers veröffentlicht sie in der Quittung.
   Leak-Regeln `keine-ln-adresse` und `zap-anonym`. Ohne öffentliche Adresse

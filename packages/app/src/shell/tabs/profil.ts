@@ -6,8 +6,9 @@
 import { t } from "../../i18n.js";
 import { abzeichenHerkunft, abzeichenQuelle, aufgabeStand, aufgabeText, aufgabeTitel, bildWarnung, fehlerText, profilOffenlegung } from "../../protokoll-texte.js";
 import { lnOeffentlich, setzeLnOeffentlich } from "../../profil-lightning.js";
+import { setzeSolOeffentlich, solOeffentlich } from "../../profil-sol.js";
 import { pkShort, schluesselAusEingabe } from "../../shell-logic.js";
-import { dialog, type Option } from "../dialog.js";
+import { bestaetige, dialog, type Option } from "../dialog.js";
 import { ensurePool, signiere, state } from "../state.js";
 import { $, el, toast, zeigeIdent } from "../ui.js";
 import { conversations } from "./kommunikation.js";
@@ -101,6 +102,13 @@ export async function zeigeProfilVorschau(): Promise<void> {
     ln.style.color = farbe;
     text.append(ln);
   }
+  // SOL-Adresse nur mit Häkchen (12.6) – wie sie hinausgeht
+  if (gespeichert.sol && solOeffentlich(localStorage)) {
+    const sol = el("p", `◎ ${gespeichert.sol}`);
+    sol.style.color = farbe;
+    sol.style.overflowWrap = "anywhere";
+    text.append(sol);
+  }
   const muster = el("div", undefined, "pf-bg");
   muster.classList.add(`pattern-${stil.pattern}`);
   kopf.append(muster, avatar, text);
@@ -108,7 +116,7 @@ export async function zeigeProfilVorschau(): Promise<void> {
 }
 
 interface ProfilEntwurf {
-  name?: string; about?: string; picture?: string; lud16?: string;
+  name?: string; about?: string; picture?: string; lud16?: string; sol?: string;
   freedom_style?: { accent: string; layout: string; pattern: string };
 }
 
@@ -137,7 +145,7 @@ export function zeigeProfilTexte(): void {
 
 /** Formular verdrahten. */
 export async function wireProfil(): Promise<void> {
-  const { ACCENTS, LAYOUTS, PATTERNS, normalizeStyle, inspectAbout, inspectPicture, oeffentlichesProfil } =
+  const { ACCENTS, LAYOUTS, PATTERNS, normalizeStyle, inspectAbout, inspectPicture, oeffentlichesProfil, adresseFuer } =
     await import("@freedomstack/protocol");
 
   const fuelle = (id: string, werte: readonly string[], aktiv: string): void => {
@@ -155,7 +163,7 @@ export async function wireProfil(): Promise<void> {
   fuelleStil(normalizeStyle(e.freedom_style));
 
   const felder: Record<string, string | undefined> = {
-    "#pf-name": e.name, "#pf-about": e.about, "#pf-picture": e.picture, "#pf-lud16": e.lud16,
+    "#pf-name": e.name, "#pf-about": e.about, "#pf-picture": e.picture, "#pf-lud16": e.lud16, "#pf-sol": e.sol,
   };
   for (const [id, wert] of Object.entries(felder)) {
     const el = $(id) as HTMLInputElement | null;
@@ -164,14 +172,18 @@ export async function wireProfil(): Promise<void> {
   // Lightning-Adresse nur auf Wunsch öffentlich (6.3) – sonst bleibt sie auf dem Gerät
   const lnHaken = $("#pf-lud16-oeffentlich") as HTMLInputElement | null;
   if (lnHaken) lnHaken.checked = lnOeffentlich(localStorage);
+  // SOL-Adresse ebenso (12.6), eingeschaltet erst nach der Warnung
+  const solHaken = $("#pf-sol-oeffentlich") as HTMLInputElement | null;
+  if (solHaken) solHaken.checked = solOeffentlich(localStorage);
   /** Was mit „Speichern“ hinausgeht. */
-  const oeffentlich = (e: ProfilEntwurf): ProfilEntwurf => oeffentlichesProfil(e, { lightning: lnOeffentlich(localStorage) });
+  const oeffentlich = (e: ProfilEntwurf): ProfilEntwurf => oeffentlichesProfil(e, { lightning: lnOeffentlich(localStorage), sol: solOeffentlich(localStorage) });
 
   const sammeln = (): ProfilEntwurf => ({
     name: ($("#pf-name") as HTMLInputElement)?.value.trim() || undefined,
     about: inspectAbout(($("#pf-about") as HTMLTextAreaElement)?.value).clean || undefined,
     picture: ($("#pf-picture") as HTMLInputElement)?.value.trim() || undefined,
     lud16: ($("#pf-lud16") as HTMLInputElement)?.value.trim() || undefined,
+    sol: ($("#pf-sol") as HTMLInputElement)?.value.trim() || undefined,
     freedom_style: {
       accent: ($("#pf-accent") as HTMLSelectElement)?.value ?? "messing",
       layout: ($("#pf-layout") as HTMLSelectElement)?.value ?? "schlicht",
@@ -191,12 +203,13 @@ export async function wireProfil(): Promise<void> {
     const entwurf = sammeln();
     const zeilen = profilOffenlegung(oeffentlich(entwurf) as never);
     if (entwurf.lud16 && !lnOeffentlich(localStorage)) zeilen.push(t("profil.offenLud16Privat"));
+    if (entwurf.sol && !solOeffentlich(localStorage)) zeilen.push(t("profil.offenSolPrivat"));
     box.replaceChildren(...zeilen.map((z) => el("div", z)));
     // Warnfarbe am Befund, nicht am Text: ein fremder Server sieht die IP der Betrachter
     box.className = inspectPicture(entwurf.picture).kind === "extern" ? "mono-sm warn" : "mono-sm muted";
   };
 
-  for (const id of ["#pf-name", "#pf-about", "#pf-picture", "#pf-lud16",
+  for (const id of ["#pf-name", "#pf-about", "#pf-picture", "#pf-lud16", "#pf-sol",
                     "#pf-accent", "#pf-layout", "#pf-pattern"]) {
     $(id)?.addEventListener("input", () => {
       localStorage.setItem("freedom.profile", JSON.stringify(sammeln()));
@@ -209,6 +222,26 @@ export async function wireProfil(): Promise<void> {
     setzeLnOeffentlich(localStorage, lnHaken.checked);
     zeigeOffenlegung();
     void zeigeProfilVorschau();
+  };
+  if (solHaken) solHaken.onchange = async () => {
+    // Einschalten nur nach der Warnung – die Adresse trägt ihre ganze Geschichte auf der Kette
+    if (solHaken.checked && !await bestaetige({ titel: t("profil.solOeffentlichTitel"), text: t("profil.solOeffentlichWarnung"), ok: t("profil.solTrotzdem"), gefahr: true })) {
+      solHaken.checked = false;
+      return;
+    }
+    setzeSolOeffentlich(localStorage, solHaken.checked);
+    zeigeOffenlegung();
+    void zeigeProfilVorschau();
+  };
+  // Eine frische Adresse aus dem Vorrat der eingebauten Wallet – nie die Hauptadresse (wie der Werbelink, E1 A)
+  const solFrisch = $("#pf-sol-frisch") as HTMLButtonElement | null;
+  if (solFrisch) solFrisch.onclick = async () => {
+    const { frischeEmpfangsadresse } = await import("../eingebaute-wallet.js");
+    const adresse = await frischeEmpfangsadresse().catch(() => undefined);
+    const feld = $("#pf-sol") as HTMLInputElement | null;
+    if (!adresse || !feld) return toast(t("profil.solKeineWallet"), true);
+    feld.value = adresse;
+    feld.dispatchEvent(new Event("input"));
   };
   zeigeOffenlegung();
   texteNeu = () => {
@@ -225,6 +258,10 @@ export async function wireProfil(): Promise<void> {
       const bild = inspectPicture(entwurf.picture);
       if (!bild.ok) {
         toast(bildWarnung(entwurf.picture) ?? t("profil.bildNichtVerwendbar"), true);
+        return;
+      }
+      if (entwurf.sol && !adresseFuer({ sol: entwurf.sol }, "solana")) {
+        toast(t("profil.solUngueltig"), true);
         return;
       }
       localStorage.setItem("freedom.profile", JSON.stringify(entwurf));

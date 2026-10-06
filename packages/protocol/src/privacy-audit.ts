@@ -207,7 +207,7 @@ export function auditPrivacy(cfg: PrivacyConfig): PrivacyFinding[] {
       whoSeesWhat:
         "Du hast deine Identität öffentlich mit einer Kettenadresse verknüpft. " +
         "Damit ist deine gesamte Transaktionshistorie einem Namen zugeordnet.",
-      remedy: "Adresse aus dem Profil entfernen. Was bereits veröffentlicht wurde, bleibt.",
+      remedy: "Im Profil „SOL-Adresse öffentlich zeigen“ ausschalten und neu speichern. Was bereits veröffentlicht wurde, bleibt.",
     });
   }
 
