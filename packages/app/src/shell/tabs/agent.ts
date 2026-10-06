@@ -331,6 +331,8 @@ export async function waitForAnswer(
     signal?: AbortSignal;
     /** Nur hier lesen – das Relay meines Knotens (B-9c2), sonst der Pool. */
     quelle?: Pick<KnotenWeg, "query" | "sitzungPk">;
+    /** Still abholen (Prüfrunde, P5c2): keine Zwischenstände in der Anzeige. */
+    still?: boolean;
   } = {},
 ) {
   const deadline = Date.now() + timeoutMs;
@@ -349,6 +351,10 @@ export async function waitForAnswer(
     if (feedback.length > 0) {
       const statusTag = feedback[0].tags.find((t) => t[0] === "status")?.[1] ?? "";
       const fbMsg = feedback[0].content.replace(/^error:\s*/i, "");
+      if (statusTag === "progress" && opts.still) {
+        await new Promise((res) => setTimeout(res, 3000));
+        continue;
+      }
       if (statusTag === "progress") {
         // Progress vom Provider: "tool:web_search" → research-chip + label
         if (fbMsg.startsWith("tool:")) {
@@ -367,7 +373,7 @@ export async function waitForAnswer(
       }
       if (/thinking|processing|working/i.test(fbMsg) && !/^error/i.test(fbMsg)) {
         // Alte Provider ohne status-tag aber klar progressivem Text
-        setTypingLabel(t("thinking"));
+        if (!opts.still) setTypingLabel(t("thinking"));
         await new Promise((res) => setTimeout(res, 3000));
         continue;
       }

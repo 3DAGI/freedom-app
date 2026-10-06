@@ -112,6 +112,7 @@ export const agent: Texte = {
   "agent.kontingentAufgebraucht": { de: "Gratis-Kontingent aufgebraucht — erst Guthaben einzahlen", en: "Free quota used up — deposit funds first" },
   "agent.providerLehntAb": { de: "Provider lehnt ab ({grund}) — nächster…", en: "Provider declines ({grund}) — next…" },
   "agent.providerLangsam": { de: "Provider {pk} langsam — der nächste bekommt den Auftrag zusätzlich…", en: "Provider {pk} slow — the next one gets the job as well…" },
+  "agent.pruefrunde": { de: "Prüfrunde: Diese Frage geht zusätzlich an zwei andere Provider – bezahlt aus deinem Prüfbudget. Du siehst nur die Antwort deines Providers.", en: "Check round: this question also goes to two other providers – paid from your check budget. You only see your provider's answer." },
   "agent.keinProviderAntwort": { de: "Kein Provider im Netz hat geantwortet", en: "No provider in the network answered" },
   "agent.abgebrochen": { de: "[abgebrochen]", en: "[cancelled]" },
   "agent.funkKeinGateway": { de: "Kein Funk-Gateway gemerkt – wähle eines, solange du Netz hast (Seite Netz).", en: "No radio gateway saved – choose one while you are online (Network page)." },

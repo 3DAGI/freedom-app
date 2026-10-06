@@ -118,7 +118,8 @@ export async function kanalGutschrift(
   return { tags: wahl.tags, merke: (requestId) => kanalBuch.gesendet(wahl.eintrag.kanal, wahl.betrag, requestId) };
 }
 
-const kanalDa = (pk: string): boolean => !!kanalBuch.fuerProvider(pk, Math.floor(Date.now() / 1000));
+/** Gibt es einen offenen Zahlkanal zu diesem Provider? */
+export const kanalDa = (pk: string): boolean => !!kanalBuch.fuerProvider(pk, Math.floor(Date.now() / 1000));
 
 /** Zahlweg prüfen (12.4a, E3 A): mit SOL als Standard-Schiene und ohne Kanal zu diesem Provider geht nichts hinaus. */
 export function pruefeKiZahlweg(providerPk: string): void {
