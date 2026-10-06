@@ -16973,6 +16973,34 @@ Clients mit festem statt je Aufruf neuem Schlüssel (so arbeitet `KiSitzungen`).
 
 Knoten-Stand: unverändert.
 
+## Schritt 12.7b – Wallet: Empfangen
+
+**Warum:** Phase 12 (Sammlung A-1, Anhang A: „Wallet: Empfangen“); zweiter
+Teil von 12.7.
+
+**Was:**
+- Knopf „Empfangen“ neben „Senden“ (`shell/empfangen-ui.ts`, `wireEmpfangen()`).
+  Dialog: womit (Lightning oder SOL, vorausgewählt nach der Standard-Schiene,
+  12.1) und Betrag (für Lightning Pflicht, für SOL frei – leer wählt der
+  Zahlende).
+- Lightning: Rechnung der eigenen Wallet über NWC (`eigeneRechnung()`,
+  Beschreibung leer). Ohne NWC ein Hinweis – die App stellt selbst keine
+  Rechnungen aus (E4 A).
+- SOL: `eigeneSolAdresse()` (`shell/zahlschienen.ts`, dort, wo Wallet-Zugriffe
+  hingehören): aus der eingebauten Wallet eine frische Adresse aus dem Vorrat
+  (nie die Hauptadresse, 4.9c); ohne eingebaute die der verbundenen Wallet –
+  der Text sagt, dass an ihr alles hängt, was sie je empfing und sendete;
+  Vorrat leer → Hinweis „Neue Adressen ableiten“, kein Ausweichen.
+- Gezeigt als QR-Code und Text zum Kopieren (Dialogfelder `qr` und
+  `nurlesen`). `empfangen.ts` (ohne DOM): `lightning:<rechnung>` bzw.
+  `solana:<adresse>?amount=…` nach Solana Pay – „Senden“ (12.7a) liest beides
+  zurück. Nichts geht an ein Relay, gemerkt wird nur die vergebene Adresse.
+
+**Tests:** app +3 (`empfangen.test.ts`: Links und Rundweg mit
+`leseSendeZiel()`, Reihenfolge frisch vor verbunden ohne Hauptadresse,
+Verdrahtung ohne Relay und ohne Speichern). Smoke „waehrung“: ohne Betrag
+meldet sich der Dialog, ohne NWC und ohne Solana-Wallet je ein Hinweis.
+
 ## Schritt D1b2 – Neuer Sitzungsschlüssel je Unterhaltung
 
 Datenschutz gegenüber Providern, Stufe 1 (Karte `docs/DATENSCHUTZ-PROVIDER.md`),
@@ -17018,7 +17046,7 @@ Gleich streng angepasst: `knoten-weg.test.ts` (`pubkeysFuer(ids)` statt `pubkeys
 **Prüfungen:**
 - protocol 1172 grün, 6 übersprungen, 0 rot (vorher 1171);
 - node 314 grün, 6 übersprungen;
-- app 903 grün (vorher 900), Build ok;
+- app 906 grün nach dem Einmergen von main mit 12.7b (vorher 903), Build ok;
 - Leak 73 grün + 1 todo; mls 13 grün;
 - check-wiring `--streng` Exit 0, check-website 5 Seiten ok, check_innerhtml Exit 0;
 - Smoke-Test bestanden.

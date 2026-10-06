@@ -13,7 +13,7 @@ import { LightningRail, SolanaRail, type SolanaWalletZugang } from "../rails.js"
 import { type NonceAblage, erstelleOfflineZahlung, leseAblage, schreibeAblage } from "../sol-offline-zahlung.js";
 import { type EingebauteSolWallet, type SignierbareTx, waehleAbsender } from "../sol-wallet.js";
 import { buildSolTransfer, solRpcUrl } from "../sol-transfer.js";
-import { benutzbareEingebauteWallet, bestaetigeUeberLimit } from "./eingebaute-wallet.js";
+import { benutzbareEingebauteWallet, bestaetigeUeberLimit, frischeEmpfangsadresse } from "./eingebaute-wallet.js";
 import { geheim } from "./tresor.js";
 import { netzDa } from "./ui.js";
 import { nwc, verbundeneSolanaWallet } from "./tabs/waehrung.js";
@@ -24,6 +24,22 @@ import { nwc, verbundeneSolanaWallet } from "./tabs/waehrung.js";
  */
 export async function eigeneRechnung(betragMsat: number): Promise<string | undefined> {
   return nwc ? (await nwc.makeInvoice(betragMsat, "")).invoice : undefined;
+}
+
+/**
+ * Eigene SOL-Adresse zum Empfangen (12.7b): aus der eingebauten Wallet eine
+ * frische aus dem Vorrat (nie die Hauptadresse, 4.9c), sonst die Adresse der
+ * verbundenen Wallet – die nennt die Oberfläche ausdrücklich, denn an ihr
+ * hängt alles, was diese Wallet je empfing. Ohne beides: warum nicht.
+ */
+export async function eigeneSolAdresse(): Promise<{ adresse: string; art: "frisch" | "verbunden" } | { fehlt: "vorrat" | "wallet" }> {
+  const e = benutzbareEingebauteWallet();
+  if (e) {
+    const adresse = await frischeEmpfangsadresse();
+    return adresse ? { adresse, art: "frisch" } : { fehlt: "vorrat" };
+  }
+  const v = verbundeneSolanaWallet();
+  return v ? { adresse: v.adresse, art: "verbunden" } : { fehlt: "wallet" };
 }
 
 type WebLN = { enable(): Promise<void>; sendPayment(bolt11: string): Promise<{ preimage: string }> };
