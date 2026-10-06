@@ -214,27 +214,29 @@ jobs:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
 
       - name: Aufteilung A+ ist in sich stimmig (5.1)
-        # Entscheidung 4.0 (26.09.2026): 94 / 2,5 / 1,5 / 0,5 / 0,5 / 1. Aendern nur
-        # mit signiertem Release (5.2) und vorher angekuendigt.
+        # Entscheidung 4.0 (26.09.2026): 94 / 2,5 / 1,5 / 0,5 / 0,5 / 1; seit P5b
+        # (Entscheidung 05.10.2026) Entwicklung 2,0 % + Pruefbudget 0,5 % beim Kunden.
+        # Aendern nur mit signiertem Release (5.2) und vorher angekuendigt.
         run: |
           cd packages/protocol
           cat > /tmp/aufteilung.mts <<'EOF'
-          import { ANTEILE, ANTEILE_PPM, MAX_ANTEILE_PPM, PROVIDER_PPM, teileAuf } from "./src/aufteilung.js";
+          import { ANTEILE, ANTEILE_PPM, AUFTEILUNG_FASSUNG, MAX_ANTEILE_PPM, PROVIDER_PPM, teileAuf } from "./src/aufteilung.js";
           const fail = (m: string) => { console.error("INVARIANTE VERLETZT: " + m); process.exit(1); };
-          const soll = { entwicklung: 25_000, relays: 15_000, "werber-kunde": 5_000, "werber-provider": 5_000, hosting: 10_000 };
+          const soll = { entwicklung: 20_000, pruefung: 5_000, relays: 15_000, "werber-kunde": 5_000, "werber-provider": 5_000, hosting: 10_000 };
+          if (AUFTEILUNG_FASSUNG !== 2) fail(`Fassung ${AUFTEILUNG_FASSUNG} statt 2`);
           if (PROVIDER_PPM !== 940_000) fail(`Provider-Anteil ${PROVIDER_PPM} ppm statt 940.000`);
-          if (JSON.stringify(ANTEILE_PPM) !== JSON.stringify(soll)) fail("Anteile weichen von der Entscheidung 4.0 ab");
+          if (JSON.stringify(ANTEILE_PPM) !== JSON.stringify(soll)) fail("Anteile weichen von den Entscheidungen 4.0 und P5b ab");
           if (MAX_ANTEILE_PPM !== 100_000) fail("Obergrenze ist nicht 10 %");
           if (PROVIDER_PPM + ANTEILE.reduce((s, a) => s + ANTEILE_PPM[a], 0) !== 1_000_000) fail("Anteile ergeben nicht 100 %");
-          const alle = { entwicklung: { lud16: "d@e.example" }, relays: [{ lud16: "r@e.example" }, { lud16: "s@e.example" }],
+          const alle = { fassung: AUFTEILUNG_FASSUNG, pruefung: true, entwicklung: { lud16: "d@e.example" }, relays: [{ lud16: "r@e.example" }, { lud16: "s@e.example" }],
             "werber-kunde": { lud16: "k@e.example" }, "werber-provider": { lud16: "p@e.example" }, hosting: { lud16: "h@e.example" } };
           for (const betrag of [0, 1, 999, 1000, 123_457, 10_000_000]) {
             const r = teileAuf(betrag, alle, "lightning");
-            const summe = r.providerMsat + r.posten.reduce((s, p) => s + p.msat, 0);
+            const summe = r.providerMsat + r.posten.reduce((s, p) => s + p.msat, 0) + r.pruefbudgetMsat;
             if (summe !== betrag) fail(`Bei ${betrag} msat gehen ${betrag - summe} msat verloren`);
             if (r.providerMsat < Math.floor(betrag * 0.94)) fail(`Provider bekommt bei ${betrag} msat weniger als 94 %`);
           }
-          console.log("Aufteilung A+ ok (94 / 2,5 / 1,5 / 0,5 / 0,5 / 1)");
+          console.log("Aufteilung A+ ok (94 / 2,0 / 0,5 Pruefbudget / 1,5 / 0,5 / 0,5 / 1)");
           EOF
           cp /tmp/aufteilung.mts . && node --import tsx aufteilung.mts && rm aufteilung.mts
 

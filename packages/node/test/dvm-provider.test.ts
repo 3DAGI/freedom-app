@@ -149,10 +149,11 @@ test("5.1.2: Aufteilung – der Provider stellt nur seinen Anteil in Rechnung; u
 
   const ohneWerber = dvm();
   const nur = async (p: DvmProvider, ev: { id: string }) => (await p.pollOnce()).filter((j) => j.requestId === ev.id);
-  const erster = await auftrag(["aufteilung", "entwicklung", "relays", "werber-kunde", "hosting"]);
+  // Seit P5b: Entwicklung 2,0 % + Prüfbudget 0,5 % (bleibt beim Kunden) statt 2,5 % Entwicklung
+  const erster = await auftrag(["aufteilung", "entwicklung", "pruefung", "relays", "werber-kunde", "hosting"]);
   const [job] = await nur(ohneWerber, erster);
-  assert.deepEqual(job!.aufteilung, ["entwicklung", "relays", "werber-kunde", "hosting"]);
-  assert.equal(job!.providerMsat, 1000 - 25 - 15 - 5 - 10, "94,5 % – dieselbe Rechnung wie in der App");
+  assert.deepEqual(job!.aufteilung, ["entwicklung", "pruefung", "relays", "werber-kunde", "hosting"]);
+  assert.equal(job!.providerMsat, 1000 - 20 - 5 - 15 - 5 - 10, "94,5 % – dieselbe Rechnung wie in der App");
   assert.equal(job!.providerMsat, providerAnteilMsat(1000, job!.aufteilung));
   assert.equal(job!.amountMsat, 1000, "das Ergebnis nennt weiter den ganzen Preis");
 

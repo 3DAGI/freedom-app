@@ -34,7 +34,7 @@ dahin leer (kein Anteil, keine Quelle, kein Upload).
 | A6 | .onion-Spiegel und -Relay | 5.3, 5.4 | kein Konto (Tor auf dem GX10) | `spiegel/quellen.json` → `onion` |
 | A7 | Hosting-Anteil (1 %) des offiziellen Spiegels | 5.1/5.3 | Lightning-Adresse + SOL-Adresse | `spiegel/freedom-spiegel.json` |
 | B1 | Release-Signaturen (mind. 2) | 0.D/5.2 | zwei Nostr-Schlüssel auf zwei Geräten | `TRUSTED_SIGNERS` in `packages/app/src/release-signierer.ts` (bis 11.2a in `settings.ts`) |
-| C1 | Entwicklung (2,5 %) | 5.1 (Spur A) | Lightning-Adresse über eigenen Knoten | `ENTWICKLUNG` in `packages/protocol/src/aufteilung.ts` |
+| C1 | Entwicklung (2 %, seit P5b) | 5.1 (Spur A) | Lightning-Adresse über eigenen Knoten | `ENTWICKLUNG` in `packages/protocol/src/aufteilung.ts` |
 | C2 | Entwicklung SOL | 5.1/5.9 (Spur A) | Squads-Mehrfachsignatur | `ENTWICKLUNG` |
 | D1 | Devnet-SOL-Wallet (Tests) | Abnahmen | Browser-Wallet | – |
 | D2 | Lightning-Testnetz (Tests) | 8.3, 8.4, 4.x | Polar oder Testnet-LND | Macaroons (siehe unten) |

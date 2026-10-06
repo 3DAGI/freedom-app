@@ -54,12 +54,12 @@ export const geheim: GeheimSpeicher = geheimSpeicher(() => tresor, tresorEingeri
  * Suchindex (8.13) und gehaltene Nachfolge-Anteile (8.11) – beide entstehen
  * nur mit Tresor – sowie eigene Reklamationen mit ihrem Sitzungsschluessel (5.6b)
  * und der Schluessel des MLS-Zustands (2.2b-c) sowie die gesammelten Gebuehrenanteile (5.1.3)
- * und die Zahlkanaele mit ihren Sitzungsschluesseln (4.3d).
+ * und die Zahlkanaele mit ihren Sitzungsschluesseln (4.3d) sowie das Pruefbudget (P5b).
  * Die Namen stehen auch in tabs/waehrung.ts, tabs/tausch.ts, tabs/agent.ts,
  * tabs/kommunikation.ts, swap-client.ts, sol-wallet.ts, suche-ui.ts,
- * nachfolge.ts, mls-speicher.ts, anteile-kasse.ts und zahlkanal.ts.
+ * nachfolge.ts, mls-speicher.ts, anteile-kasse.ts, pruefbudget.ts und zahlkanal.ts.
  */
-const GEHEIM_FEST = [LS_KEY, LS_BUNKER, LS_MERKPHRASE, "freedom.nwc.uri", "freedom.chats", "freedom.agentHistory", "freedom.swapHistory", "freedom.suche.schluessel", "freedom.nachfolge", "freedom.reklamationen", "freedom.coverage.eintrag", "freedom.mls.schluessel", "freedom.raeume.privat", "freedom.raeume.meldungen.erledigt", "freedom.anteile", "freedom.mandate", "freedom.kanaele", "freedom.funk.gateway", "freedom.quittungen", "freedom.ruf.kontakte", "freedom.ruf.gesendet", "freedom.repos.gesehen", "freedom.repos.lokal", "freedom.knoten.kopplung", "freedom.lastRead", "freedom.messungen", "freedom.kontakte.geprueft"];
+const GEHEIM_FEST = [LS_KEY, LS_BUNKER, LS_MERKPHRASE, "freedom.nwc.uri", "freedom.chats", "freedom.agentHistory", "freedom.swapHistory", "freedom.suche.schluessel", "freedom.nachfolge", "freedom.reklamationen", "freedom.coverage.eintrag", "freedom.mls.schluessel", "freedom.raeume.privat", "freedom.raeume.meldungen.erledigt", "freedom.anteile", "freedom.mandate", "freedom.kanaele", "freedom.funk.gateway", "freedom.quittungen", "freedom.ruf.kontakte", "freedom.ruf.gesendet", "freedom.repos.gesehen", "freedom.repos.lokal", "freedom.knoten.kopplung", "freedom.lastRead", "freedom.messungen", "freedom.pruefbudget", "freedom.kontakte.geprueft"];
 const GEHEIM_PRAEFIXE = ["freedom.swap.", "freedom.htlc.", "freedom.solWallet", "freedom.pending."];
 
 function geheimnisse(): string[] {

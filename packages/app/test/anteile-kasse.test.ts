@@ -6,7 +6,7 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { aufteilungTag, providerAnteilMsat, pruefeAufteilung, zahlbareAnteile, type Empfaenger } from "@freedomstack/protocol";
+import { AUFTEILUNG_FASSUNG, aufteilungTag, providerAnteilMsat, pruefeAufteilung, zahlbareAnteile, type Empfaenger } from "@freedomstack/protocol";
 import { AnteilsKasse, BUENDEL_MSAT, LS_ANTEILE, rechneAb } from "../src/anteile-kasse.js";
 
 const empfaenger: Empfaenger = { "werber-provider": { lud16: "werber@wallet.example" }, entwicklung: {} };
@@ -48,8 +48,22 @@ test("Abrechnung: derselbe Anteil des Providers wie beim Knoten; höchstens das 
   const zuViel = rechneAb(50_000, { empfaenger, hoechstMsat: 20_000 });
   assert.equal(zuViel.gekappt, true);
   assert.equal(zuViel.providerMsat + zuViel.posten.reduce((s, p) => s + p.msat, 0), 20_000, "nie mehr als das Gebot");
-  assert.deepEqual(rechneAb(50_000, undefined), { providerMsat: 0, posten: [], gekappt: false });
+  assert.deepEqual(rechneAb(50_000, undefined), { providerMsat: 0, posten: [], pruefbudgetMsat: 0, gekappt: false });
   assert.deepEqual(rechneAb(50_000, { empfaenger, hoechstMsat: 0 }).providerMsat, 0, "Gratis-Tarif: Gebot 0");
+});
+
+test("P5b: Prüfbudget – bei Knoten ab Fassung 2 bleiben 0,5 % beim Kunden; der Knoten rechnet denselben Anteil", () => {
+  const mitBudget: Empfaenger = { ...empfaenger, fassung: AUFTEILUNG_FASSUNG, pruefung: true };
+  const pruefung = pruefeAufteilung([aufteilungTag(zahlbareAnteile(mitBudget, "lightning"))], { hatWerber: true });
+  assert.ok(pruefung.ok);
+  for (const betrag of [1, 999, 21_000, 123_457]) {
+    const r = rechneAb(betrag, { empfaenger: mitBudget, hoechstMsat: 1_000_000 });
+    assert.equal(r.providerMsat, providerAnteilMsat(betrag, pruefung.anteile), `Betrag ${betrag}`);
+    assert.equal(r.pruefbudgetMsat, Math.floor(betrag * 0.005));
+    assert.equal(r.providerMsat + r.posten.reduce((s, p) => s + p.msat, 0) + r.pruefbudgetMsat, betrag, "Summe stimmt");
+  }
+  // Ohne Fassung (älterer Knoten): kein Budget, alles wie bisher
+  assert.equal(rechneAb(21_000, { empfaenger: { ...empfaenger, pruefung: true }, hoechstMsat: 1_000_000 }).pruefbudgetMsat, 0);
 });
 
 test("Kasse: je Empfänger gesammelt; unter 100 sats nichts; dann ganze sats, der Rest bleibt", async () => {

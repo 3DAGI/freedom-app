@@ -459,7 +459,7 @@ async function main(): Promise<void> {
   // Beim Start und beim Erneuern gleich gebaut: frueher fehlten beim Erneuern
   // Speicherangabe und (seit 3.1) die Rechenarbeit fuer private Anfragen.
   const baueAngebot = async () => {
-    const { buildCapabilities, defaultPriceFor, DEFAULT_TOOL_PRICES, signEvent, KANAL_PROGRAMM_ID } = await import("@freedomstack/protocol");
+    const { AUFTEILUNG_FASSUNG, buildCapabilities, defaultPriceFor, DEFAULT_TOOL_PRICES, signEvent, KANAL_PROGRAMM_ID } = await import("@freedomstack/protocol");
     const models = angebotModelle();
     const model = models[0]; // primaer
     const mp = defaultPriceFor(model);
@@ -479,6 +479,8 @@ async function main(): Promise<void> {
       powBits: privatePowBits,
       // Mit diesem Kurs rechnet der Anbieter SOL-Preise (4.4); ohne Kurs keiner.
       kurs: provider.kurs(),
+      // Mit dieser Fassung der Aufteilung rechnet der Knoten (P5b: Entwicklung 2,0 %, Prüfbudget 0,5 %)
+      aufteilung: AUFTEILUNG_FASSUNG,
       // Gebührenmodell A+ (5.1): hierhin zahlt die App den Anteil des Providers,
       // und dem Werber (falls genannt) 0,5 % direkt – per Zahlkanal an seine SOL-Adresse (12.3)
       lud16,

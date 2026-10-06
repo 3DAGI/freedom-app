@@ -8,6 +8,9 @@
  * übrigen sammelt die Kasse und zahlt sie ab 100 sats je Empfänger. Gezahlt
  * wird nur über die Zahlschienen, erst die Rechnung, dann das Geld.
  *
+ * Das Prüfbudget (0,5 %, P5b) behält die App bei Knoten ab Fassung 2 der
+ * Aufteilung; es steht in `pruefBudget` und bezahlt die Prüfrunden (P5c).
+ *
  * Mit Zahlkanal zum Provider (4.3d) trägt die Anfrage statt der Deklaration
  * eine Gutschrift – im Kanal teilt das Programm auf, und nach der Antwort zahlt
  * Lightning nichts; die App verbucht nur den Preis.
@@ -15,6 +18,7 @@
 import { ENTWICKLUNG, aufteilungTag, zahlbareAnteile, zahle, type Empfaenger, type Posten } from "@freedomstack/protocol";
 import { t } from "../i18n.js";
 import { AnteilsKasse, rechneAb } from "../anteile-kasse.js";
+import { PruefBudget } from "../pruefbudget.js";
 import { bolt11BetragMsat, rechnungVonAdresse } from "../rails.js";
 import { RelayZahlziele } from "../relay-zahlziel.js";
 import type { ProviderZahlung } from "../session-client.js";
@@ -30,6 +34,8 @@ import { geheim } from "./tresor.js";
 import { zahlschienen } from "./zahlschienen.js";
 
 export const kasse = new AnteilsKasse({ speicher: geheim });
+/** Prüfbudget (P5b) – der behaltene Anteil `pruefung`, im Tresor. */
+export const pruefBudget = new PruefBudget(geheim);
 
 /** Zahladressen der Relays (NIP-11 → Profil des Betreibers), im Hintergrund gelernt. */
 const relayZiele = new RelayZahlziele({
@@ -47,7 +53,9 @@ export const kanalBuch = new KanalBuch(geheim);
  * Die Empfänger eines Auftrags – was fehlt, bleibt beim Provider: Werber des
  * Providers aus dem Angebot, der eigene Werber aus dem Werbelink (5.1.3b), die
  * Relays des Pools – über sie geht der Auftrag –, soweit ihre Zahladresse schon
- * bekannt ist; Hosting aus der Spiegel-Datei neben freedom.html (5.3).
+ * bekannt ist; Hosting aus der Spiegel-Datei neben freedom.html (5.3). Das
+ * Prüfbudget (P5b) behält die App – deklariert nur, wenn das Angebot die
+ * Aufteilung ab Fassung 2 nennt (`zahlbareAnteile()`).
  */
 export async function empfaengerFuer(providerPk: string): Promise<Empfaenger> {
   const angebot = await angebotVon(providerPk).catch(() => undefined);
@@ -59,7 +67,9 @@ export async function empfaengerFuer(providerPk: string): Promise<Empfaenger> {
   const relays = relayZiele.bekannte(urls);
   const hosting = await hostingZahlziel();
   return {
+    ...(angebot?.aufteilung !== undefined ? { fassung: angebot.aufteilung } : {}),
     entwicklung: ENTWICKLUNG,
+    pruefung: true,
     ...(werber ? { "werber-provider": werber } : {}),
     ...(kundenWerber ? { "werber-kunde": kundenWerber } : {}),
     ...(relays.length > 0 ? { relays } : {}),
@@ -133,10 +143,11 @@ export async function kanalAntwort(requestId: string, preisLamports: number | un
   await kanalBuch.beantwortet(requestId, preisLamports).catch(() => { /* bleibt offen */ });
 }
 
-/** Eine Antwort abrechnen; die Posten der übrigen Anteile gehen in die Kasse. */
-export async function rechneAntwortAb(requestId: string, amountMsat: number): Promise<{ providerMsat: number; posten: Posten[]; gekappt: boolean }> {
+/** Eine Antwort abrechnen; die Posten der übrigen Anteile gehen in die Kasse, das Prüfbudget ins Budget. */
+export async function rechneAntwortAb(requestId: string, amountMsat: number): Promise<{ providerMsat: number; posten: Posten[]; pruefbudgetMsat: number; gekappt: boolean }> {
   const r = rechneAb(amountMsat, anfragen.get(requestId));
   await kasse.verbuche(r.posten).catch(() => { /* Tresor gesperrt – der Anteil bleibt beim Kunden */ });
+  await pruefBudget.verbuche(r.pruefbudgetMsat).catch(() => { /* Tresor gesperrt – das Geld bleibt ohnehin beim Kunden */ });
   return r;
 }
 

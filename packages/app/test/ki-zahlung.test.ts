@@ -43,7 +43,8 @@ test("verdrahtet: Deklaration vor dem Versiegeln, Abrechnung bei der Antwort, Za
   // Empfänger (5.1.3b): Werber beider Seiten, Relays des Pools – nur bekannte, gelernt im Hintergrund
   assert.match(kz, /const kundenWerber = werberZahlziel\(localStorage, state\.keypair\?\.pk\);/);
   assert.match(kz, /void relayZiele\.lerne\(urls\)[\s\S]*const relays = relayZiele\.bekannte\(urls\);/);
-  assert.match(kz, /entwicklung: ENTWICKLUNG,\s*\.\.\.\(werber \? \{ "werber-provider": werber \} : \{\}\),\s*\.\.\.\(kundenWerber \? \{ "werber-kunde": kundenWerber \} : \{\}\),\s*\.\.\.\(relays\.length > 0 \? \{ relays \} : \{\}\),/);
+  // Seit P5b: Fassung aus dem Angebot, Prüfbudget gewählt (deklariert nur ab Fassung 2)
+  assert.match(kz, /\.\.\.\(angebot\?\.aufteilung !== undefined \? \{ fassung: angebot\.aufteilung \} : \{\}\),\s*entwicklung: ENTWICKLUNG,\s*pruefung: true,\s*\.\.\.\(werber \? \{ "werber-provider": werber \} : \{\}\),\s*\.\.\.\(kundenWerber \? \{ "werber-kunde": kundenWerber \} : \{\}\),\s*\.\.\.\(relays\.length > 0 \? \{ relays \} : \{\}\),/);
   const earn = lies("shell/tabs/earn.ts");
   // seit 11.2a mit der eigenen Adresse der App, falls gesetzt; seit 11.2b mit dem Namen statt des Schlüssels, falls geprüft
   assert.match(earn, /const basis = eigeneBasis\(localStorage\) \?\? window\.location\.origin \+ window\.location\.pathname;/);
@@ -51,6 +52,10 @@ test("verdrahtet: Deklaration vor dem Versiegeln, Abrechnung bei der Antwort, Za
   assert.match(earn, /merkeWerber\(window\.location\.search, localStorage, window\.location\.hostname\);/);
   assert.match(kz, /new AnteilsKasse\(\{ speicher: geheim \}\)/, "Stand nur über geheim");
   assert.match(lies("shell/tresor.ts"), /"freedom\.anteile"/, "im Tresor");
+  // Prüfbudget (P5b): nur über geheim, verbucht bei jeder Abrechnung, im Tresor
+  assert.match(kz, /new PruefBudget\(geheim\)/);
+  assert.match(kz, /await kasse\.verbuche\(r\.posten\)[^\n]*\n\s*await pruefBudget\.verbuche\(r\.pruefbudgetMsat\)/);
+  assert.match(lies("shell/tresor.ts"), /"freedom\.pruefbudget"/, "im Tresor");
   assert.match(lies("shell/tabs/settings.ts"), /kasse\.klaere\(u\.rechnung, gezahlt\)/, "unklare Zahlungen klärt der Nutzer");
 });
 

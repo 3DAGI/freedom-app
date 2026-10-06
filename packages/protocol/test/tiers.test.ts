@@ -16,6 +16,7 @@ import {
   KIND_DVM_WEB_SEARCH,
   KIND_DVM_IMAGE_GEN,
   KIND_PROVIDER_CAPABILITIES,
+  AUFTEILUNG_FASSUNG,
 } from "../src/index.js";
 
 test("Capabilities: bauen, signieren, parsen (Roundtrip mit Modellen + Tools)", () => {
@@ -124,4 +125,18 @@ test("Capabilities (4.3c): Kanal-Annahme mit Solana-Adresse und Programm; Unsinn
   assert.equal(buildCapabilities({ ...basis, kanal: { adresse: "kaputt", programm: kanal.programm } }).tags.some((t) => t[0] === "kanal"), false);
   const fremd = signEvent({ ...buildCapabilities(basis), tags: [...buildCapabilities(basis).tags, ["kanal", kanal.adresse, "<script>"]] }, kp.sk);
   assert.equal(parseCapabilities(fremd).kanal, undefined, "fremde Angabe nur mit zwei gültigen Adressen");
+});
+
+test("Capabilities (P5b): Fassung der Aufteilung im Angebot; ohne Angabe keine, Unsinn fällt weg", () => {
+  const kp = generateKeypair();
+  const basis = { pubkey: kp.pk, tier: "classic" as const, models: ["m"], textRatePerKTokenMsat: 1000, tools: [], currentlyFree: false };
+  const mit = signEvent(buildCapabilities({ ...basis, aufteilung: AUFTEILUNG_FASSUNG }), kp.sk);
+  assert.deepEqual(mit.tags.find((t) => t[0] === "aufteilung"), ["aufteilung", "2"]);
+  assert.equal(parseCapabilities(mit).aufteilung, 2);
+  assert.equal(parseCapabilities(signEvent(buildCapabilities(basis), kp.sk)).aufteilung, undefined, "ältere Knoten: keine Angabe");
+  assert.equal(buildCapabilities({ ...basis, aufteilung: 0 }).tags.some((t) => t[0] === "aufteilung"), false);
+  for (const roh of ["0", "-2", "2.5", "abc", "1000", ""]) {
+    const fremd = signEvent({ ...buildCapabilities(basis), tags: [...buildCapabilities(basis).tags, ["aufteilung", roh]] }, kp.sk);
+    assert.equal(parseCapabilities(fremd).aufteilung, undefined, `fremde Angabe ${JSON.stringify(roh)}`);
+  }
 });
