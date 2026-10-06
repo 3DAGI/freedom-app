@@ -44,9 +44,17 @@ test("NIP-04: Roundtrip zwischen zwei Parteien", () => {
 test("NIP-04: Dritter kann nicht lesen", () => {
   const a = generateKeypair();
   const b = generateKeypair();
-  const c = generateKeypair();
   const ct = nip04Encrypt("geheim", a.sk, b.pk);
-  assert.throws(() => nip04Decrypt(ct, c.sk, a.pk));
+  // AES-CBC: Mit falschem Schlüssel wirft meist die Polsterprüfung – etwa jeder 256. ergibt
+  // zufällig ein gültiges Polster und damit Unsinn (so war der Test in der CI gelegentlich rot).
+  // Geprüft wird die Eigenschaft selbst: Den Klartext liest ein Dritter nie.
+  let fehler = 0;
+  for (let i = 0; i < 50; i++) {
+    let gelesen: string | undefined;
+    try { gelesen = nip04Decrypt(ct, generateKeypair().sk, a.pk); } catch { gelesen = undefined; fehler++; }
+    assert.notEqual(gelesen, "geheim");
+  }
+  assert.ok(fehler > 0, "in 50 Versuchen wirft die Polsterprüfung mindestens einmal");
 });
 
 test("NIP-04: kaputtes Format wird sauber abgelehnt", () => {
