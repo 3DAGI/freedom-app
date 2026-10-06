@@ -16896,6 +16896,39 @@ ohne Häkchen keine SOL-Adresse, mit Häkchen genau die eingetragene). Smoke
 bestätigt an (Vorschau, Offenlegung), frische Adresse ohne Wallet meldet sich,
 wieder aus – nichts veröffentlicht.
 
+## Schritt 12.7a – Wallet: Senden
+
+**Warum:** Phase 12 (Sammlung A-1, Anhang A: „Wallet: Senden – Lightning ✗,
+SOL ohne Online-Senden“); nach E5 baut Spur C die Oberfläche. 12.7 kommt in
+drei Teilen: a Senden, b Empfangen, c Verlauf.
+
+**Was:**
+- Knopf „Senden“ über den Karten in Währung › Übersicht
+  (`shell/senden-ui.ts`, `wireSenden()` in `app.ts`).
+- `senden.ts` (ohne DOM): `leseSendeZiel()` erkennt eine Rechnung (auch mit
+  `lightning:`), eine Lightning-Adresse, eine Solana-Adresse und `solana:`
+  nach Solana Pay (`amount`, `reference`; Token mit `spl-token` nicht). Daraus
+  folgt die Schiene – nie die andere. Eine Rechnung ohne Betrag nimmt die App
+  nicht. `geltenderBetrag()`: der Betrag des Ziels gilt; ein getippter, der
+  ihm widerspricht, wird abgewiesen. `zielAnzeige()`: Adressen ganz (zum
+  Vergleichen), Rechnungen gekürzt.
+- Bestätigung mit dem Betrag in beiden Einheiten (`ausMsat()`/`ausLamports()`)
+  und dem Ziel; bei SOL der Hinweis, dass die Überweisung samt
+  Absenderadresse öffentlich auf der Kette steht. Dann
+  `zahle(zahlschienen(), … zweck: "senden")` – mit `referenz`, wenn das Ziel
+  eine nennt. Die eingebaute SOL-Wallet fragt über dem Tageslimit wie immer.
+- Neuer `Zweck` „senden“ im Protokoll (`payment-rail.ts`) – nur zur
+  Einordnung, ändert keine Prüfung.
+- Ein Fehler oder unklarer Ausgang wird nie von selbst wiederholt; die
+  Meldung sagt, erst in der Wallet nachzusehen.
+
+**Tests:** app +7 (`senden.test.ts`: Rechnung mit/ohne Betrag, kaputte
+Prüfsumme, Adressen, Solana Pay mit Betrag, Referenz, Token, zwei Referenzen,
+kaputte Beträge, Unbekanntes, Beträge ohne Raten, Widerspruch,
+Verdrahtung – erst bestätigen, dann ein Weg zum Geld). Smoke „waehrung“:
+Prüfungen im Dialog, Bestätigung mit ganzer Adresse, ohne Wallet ehrlich
+gescheitert („Keine Solana-Wallet verbunden“), nichts veröffentlicht.
+
 ## Schritt D1b1 – Abrechnung und Reklamation mit dem Schlüssel des Auftrags
 
 Datenschutz gegenüber Providern, Stufe 1 (Karte `docs/DATENSCHUTZ-PROVIDER.md`).
@@ -16933,7 +16966,7 @@ Clients mit festem statt je Aufruf neuem Schlüssel (so arbeitet `KiSitzungen`).
 **Prüfungen:**
 - protocol 1171 grün, 6 übersprungen, 0 rot (unverändert);
 - node 314 grün, 6 übersprungen;
-- app 893 grün (vorher 890), Build ok;
+- app 900 grün nach dem Einmergen von main mit 12.7a (vorher 897), Build ok;
 - Leak 73 grün + 1 todo; mls 13 grün;
 - check-wiring `--streng` Exit 0, check-website 5 Seiten ok, check_innerhtml Exit 0;
 - Smoke-Test bestanden.
