@@ -143,13 +143,15 @@ export function matchProviders(
   const eigene = passend.filter((p) => allow.has(p.caps.pubkey))
     .sort((a, b) => b.score - a.score || a.caps.textRatePerKTokenMsat - b.caps.textRatePerKTokenMsat);
   // Alle anderen nach der Pruefung (P2a): Stufe aus der eigenen Messung (sonst neu),
-  // Gewicht aus Preis und Ruf
+  // Qualitaet aus Pruefrunden (P5c), Gewicht aus Preis und Ruf
   const andere = ordneNachPruefung(
     passend.filter((p) => !allow.has(p.caps.pubkey)).map((p) => ({
       p,
       pk: p.caps.pubkey,
       preisMsat: p.caps.textRatePerKTokenMsat,
       stufe: p.messung?.stufe ?? "neu",
+      // Übereinstimmung aus Prüfrunden (P5c) – Ausreißer nach hinten
+      ...(p.messung?.qualitaet === undefined ? {} : { qualitaet: p.messung.qualitaet }),
       ausfallJetzt: p.messung?.ausfallJetzt ?? false,
       vertrauen: p.trustScore,
       bekannt: p.geprueft,

@@ -112,7 +112,12 @@ Die Messung bleibt nur auf dem Gerät.
   weiter) und zeigt sie nicht.
 - **Was gezählt wird:** Verfügbarkeit und Antwortzeit aller drei in der eigenen
   Messung (`MessBuch`), dazu die Übereinstimmung als Qualität (`qualitaet` in
-  `ordneNachPruefung()`: Ausreißer nach hinten).
+  `ordneNachPruefung()`: Ausreißer nach hinten) – erst ab drei Vergleichen je
+  Provider (`PRUEF_GRENZEN.minVergleiche`).
+- **Vergleich:** über Wort-Ähnlichkeit (`evaluateConsensus()`, Schwelle 0,6).
+  Eine Aussage gibt es nur bei Einstimmigkeit oder klarer Mehrheit (zwei gegen
+  einen). Offene Fragen werden oft verschieden formuliert – dann gehen die
+  Antworten auseinander, und die Runde zählt nur für die Verfügbarkeit.
 - **Pflicht, ohne Schalter.** Ausgenommen sind nur Wege ohne Netz oder Zahlung:
   KI auf diesem Gerät, der eigene Knoten, Funk.
 - **Bezahlt** wird in der Währung des Nutzers: Lightning, bzw. SOL nur über
@@ -209,7 +214,8 @@ was Kunden wirklich fragen. Kind 38081 wird nicht wiederverwendet.
 | P4 | Probezeit und Prüfer verbinden (3.4, Zeitraum des Berichts endet mit der letzten Prüffrage), FAQ der Website (Auswahl, Probezeit, Grenze „Prüffragen erkennen“; `check-website.py` weist die alte Aussage „steht aber hinten“ ab), MENSCH-Checkliste (8). |
 | P5a | Rückbau nach der Entscheidung vom 05.10.2026: Prüfer-Rolle im Knoten (`pruefer-rolle.ts`, `pruefer-dienst.ts`, `PRUEFER`), Messbericht 38081 (`messbericht.ts`), Prüffragen und `stufeFuerAuswahl()`, Prüfern folgen (`pruefer-wahl.ts`, `freedom.pruefer`), Status-Rolle `pruefer`. Netz › Prüfung zeigt nur die eigene Messung. Datenschutz-Aussage, Doku, FAQ (`check-website.py` weist Prüfer-Aussagen ab). |
 | P5b | Aufteilung: Entwicklung 2,0 %, neuer Anteil `pruefung` 0,5 % (bleibt beim Kunden als Prüfbudget, `teileAuf()` → `pruefbudgetMsat`); CI-Invariante; Fassung im Angebot (`["aufteilung", "2"]`) – nur dann deklariert die App Entwicklung und Prüfbudget; Prüfbudget im Tresor (`pruefbudget.ts`, `freedom.pruefbudget`), gezeigt in der Antwort und in den Settings. Im Zahlkanal bleibt der Anteil bis P5d beim Provider. |
-| P5c | Pflicht-Prüfrunden mit Lightning (3.2). |
+| P5c1 | Bausteine ohne Netz: Zähler der Antworten und Start einer Runde im Prüfbudget (`PRUEFRUNDE`, `faellig()`, `beginneRunde()`), Wahl der zwei zusätzlichen Provider (`waehleZusatz()`: nie der gewählte, nie eigene Knoten, gleiches Modell zuerst, zufällig), Auswertung (`werteRundeAus()` über `evaluateConsensus()`: nur einstimmig oder Mehrheit, sonst keine Aussage), Übereinstimmung als Qualität der eigenen Messung (`Messpunkt.einig`, `MessStand.qualitaet` ab drei Vergleichen) – die Auswahl stellt Ausreißer nach hinten. |
+| P5c2 | Verdrahtung mit Lightning: die echte Anfrage zusätzlich versiegelt an die zwei, ihre Antworten still abholen, aus dem Budget bezahlen, auswerten, messen; Datenschutzbericht und FAQ. |
 | P5d | Pflicht-Prüfrunden mit SOL über offene Zahlkanäle. |
 
 P1b, P2b1, P3a, P3b und P4 (Prüfer-Teil) sowie die Prüffragen aus P1a und die

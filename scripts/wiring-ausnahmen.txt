@@ -33,10 +33,7 @@ cluster.ts|parseClusterOffer|Cluster-Pairing ohne Oberfläche und ohne Anbindung
 cluster.ts|recommendMode|Cluster-Pairing ohne Oberfläche und ohne Anbindung im Knoten (Provider-Knoten, 8.2)
 
 consensus.ts|consensusCostPreview|Redundanz-Konsens – vom Kunden nicht mehr wählbar (Entscheidung 04.10.2026), Baustein der Pflicht-Prüfrunden (P5c, docs/FREEDOM-PRUEFUNG.md 3.2)
-consensus.ts|evaluateConsensus|Redundanz-Konsens – vom Kunden nicht mehr wählbar (Entscheidung 04.10.2026), Baustein der Pflicht-Prüfrunden (P5c, docs/FREEDOM-PRUEFUNG.md 3.2)
-consensus.ts|normalizeAnswer|Redundanz-Konsens – vom Kunden nicht mehr wählbar (Entscheidung 04.10.2026), Baustein der Pflicht-Prüfrunden (P5c, docs/FREEDOM-PRUEFUNG.md 3.2)
 consensus.ts|recommendedRedundancy|Redundanz-Konsens – vom Kunden nicht mehr wählbar (Entscheidung 04.10.2026), Baustein der Pflicht-Prüfrunden (P5c, docs/FREEDOM-PRUEFUNG.md 3.2)
-consensus.ts|similarity|Redundanz-Konsens – vom Kunden nicht mehr wählbar (Entscheidung 04.10.2026), Baustein der Pflicht-Prüfrunden (P5c, docs/FREEDOM-PRUEFUNG.md 3.2)
 
 
 derivation.ts|slip10PublicKey|SLIP-10-Ableitung aus 1.1, Verdrahtung mit der eingebauten SOL-Wallet (4.2)

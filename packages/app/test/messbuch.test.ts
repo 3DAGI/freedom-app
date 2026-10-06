@@ -104,3 +104,20 @@ test("Ablage: nur im Tresor, nie in der Sicherung; verdrahtet in Auswahl und Fai
   const abbruch = lauf.slice(lauf.indexOf("if (answer.aborted)"), lauf.indexOf('t("agent.abgebrochen")') + 40);
   assert.doesNotMatch(abbruch, /merkeMessung/, "Abbrüche zählen nicht");
 });
+
+test("P5c: Messpunkte aus Prüfrunden – „einig“ wird gemerkt und streng gelesen; Ausreißer stehen in der Auswahl hinten", async () => {
+  const s = speicher();
+  const buch = new MessBuch(s);
+  for (let i = 0; i < 3; i++) await buch.merke(pk("a"), { zeit: JETZT - 10 + i, ok: true, ms: 900, einig: false });
+  await buch.merke(pk("a"), { zeit: JETZT - 1, ok: true, ms: 900, einig: "ja" } as never);
+  assert.equal(buch.alle().get(pk("a"))!.length, 3, "„einig“ nur als Wahrheitswert");
+  assert.equal(buch.staende(JETZT).get(pk("a"))!.qualitaet, 0);
+  s.setItem(LS_MESSUNGEN, JSON.stringify({ [pk("b")]: [{ zeit: JETZT, ok: true, einig: 1 }, { zeit: JETZT, ok: true, einig: true }] }));
+  assert.deepEqual(buch.alle().get(pk("b")), [{ zeit: JETZT, ok: true, einig: true }]);
+  // Gleich gut verfügbar, aber in Prüfrunden abgewichen: hinter den übrigen
+  const [abweichend, einig1, einig2] = [provider(500), provider(500), provider(500)];
+  const r = matchProviders(mitMessung([abweichend, einig1, einig2], new Map([
+    [abweichend.caps.pubkey, stand({ qualitaet: 0 })], [einig1.caps.pubkey, stand({ qualitaet: 1 })], [einig2.caps.pubkey, stand({ qualitaet: 1 })],
+  ])), "classic", { maxResults: 10, zufall: () => 0.5 }).map((p) => p.caps.pubkey);
+  assert.equal(r[2], abweichend.caps.pubkey);
+});

@@ -10,8 +10,10 @@
  *
  * Gemessen wird nur in der App, am eigenen Verkehr und nur auf dem Gerät. Prüfer
  * mit eigenen Prüffragen und Messberichte (38081) fielen mit der Entscheidung vom
- * 05.10.2026 (P5a) weg; geprüft wird künftig in Prüfrunden – die echte Anfrage an
- * drei Provider statt an einen (P5c). Die Rangfolge bildet jede App selbst.
+ * 05.10.2026 (P5a) weg; geprüft wird in Prüfrunden – die echte Anfrage an drei
+ * Provider statt an einen (P5c). Wer dort mit der Mehrheit einig ist oder abweicht,
+ * steht im Messpunkt (`einig`) und ergibt ab `minVergleiche` die Qualität. Die
+ * Rangfolge bildet jede App selbst.
  */
 export const PRUEF_GRENZEN = Object.freeze({
   /** Ab diesem Anteil Erfolge normal. */
@@ -26,6 +28,8 @@ export const PRUEF_GRENZEN = Object.freeze({
   fenster: 100,
   /** So weit unter dem Median der Trefferquote gilt ein Provider als Ausreißer. */
   ausreisser: 0.15,
+  /** So viele Vergleiche aus Prüfrunden (P5c), bevor die Übereinstimmung als Qualität zählt. */
+  minVergleiche: 3,
 });
 
 export type Stufe = "neu" | "normal" | "herabgestuft" | "ausgefallen";
@@ -40,25 +44,41 @@ export function stufeAus(anfragen: number, erfolge: number, mindestens: number):
 
 // ------------------------------------------------------------ eigene Messung
 
-export interface Messpunkt { zeit: number; ok: boolean; ms?: number }
+export interface Messpunkt {
+  zeit: number;
+  ok: boolean;
+  ms?: number;
+  /** Nur aus Prüfrunden (P5c): mit der Mehrheit einig (true) oder Ausreißer (false); ohne Aussage fehlt es. */
+  einig?: boolean;
+}
 
 /** Neuen Punkt anhängen, nur die letzten `fenster` behalten. */
 export function merkeMesspunkt(punkte: readonly Messpunkt[], p: Messpunkt, fenster = PRUEF_GRENZEN.fenster): Messpunkt[] {
   return [...punkte, p].slice(-fenster);
 }
 
-export interface MessStand { anfragen: number; erfolge: number; medianMs?: number; ausfallJetzt: boolean; stufe: Stufe }
+export interface MessStand {
+  anfragen: number;
+  erfolge: number;
+  medianMs?: number;
+  ausfallJetzt: boolean;
+  stufe: Stufe;
+  /** Anteil der Prüfrunden, in denen der Provider mit der Mehrheit einig war – erst ab `minVergleiche`. */
+  qualitaet?: number;
+}
 
 export function fasseMessungZusammen(punkte: readonly Messpunkt[], jetzt: number): MessStand {
   const erfolge = punkte.filter((p) => p.ok).length;
   const zeiten = punkte.filter((p) => p.ok && Number.isFinite(p.ms)).map((p) => p.ms!).sort((a, b) => a - b);
   const letzterAusfall = Math.max(-Infinity, ...punkte.filter((p) => !p.ok).map((p) => p.zeit));
+  const vergleiche = punkte.filter((p) => p.einig !== undefined);
   return {
     anfragen: punkte.length,
     erfolge,
     ...(zeiten.length > 0 ? { medianMs: zeiten[Math.floor((zeiten.length - 1) / 2)] } : {}),
     ausfallJetzt: jetzt - letzterAusfall < PRUEF_GRENZEN.ausfallSek,
     stufe: stufeAus(punkte.length, erfolge, PRUEF_GRENZEN.minEigene),
+    ...(vergleiche.length >= PRUEF_GRENZEN.minVergleiche ? { qualitaet: vergleiche.filter((p) => p.einig).length / vergleiche.length } : {}),
   };
 }
 
@@ -69,7 +89,7 @@ export interface PruefKandidat {
   /** Preis je Auftrag oder je 1k Tokens – nur der Vergleich zählt; 0 = gratis. */
   preisMsat: number;
   stufe: Stufe;
-  /** Qualität (0..1), falls bekannt – künftig die Übereinstimmung in Prüfrunden (P5c). */
+  /** Qualität (0..1), falls bekannt – die Übereinstimmung in Prüfrunden (P5c, `MessStand.qualitaet`). */
   qualitaet?: number;
   /** Eigener Ausfall in den letzten Sekunden (`PRUEF_GRENZEN.ausfallSek`). */
   ausfallJetzt?: boolean;

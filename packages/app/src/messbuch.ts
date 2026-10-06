@@ -22,10 +22,11 @@ const HEX64 = /^[0-9a-f]{64}$/;
 const ZEIT_MAX = 10_000_000_000;
 
 function lesePunkt(x: unknown): Messpunkt | null {
-  const p = x as { zeit?: unknown; ok?: unknown; ms?: unknown } | null;
+  const p = x as { zeit?: unknown; ok?: unknown; ms?: unknown; einig?: unknown } | null;
   if (!p || typeof p.ok !== "boolean" || !Number.isSafeInteger(p.zeit) || (p.zeit as number) < 0 || (p.zeit as number) > ZEIT_MAX) return null;
   if (p.ms !== undefined && (!Number.isSafeInteger(p.ms) || (p.ms as number) < 0)) return null;
-  return { zeit: p.zeit as number, ok: p.ok, ...(p.ms !== undefined ? { ms: p.ms as number } : {}) };
+  if (p.einig !== undefined && typeof p.einig !== "boolean") return null;
+  return { zeit: p.zeit as number, ok: p.ok, ...(p.ms !== undefined ? { ms: p.ms as number } : {}), ...(p.einig !== undefined ? { einig: p.einig } : {}) };
 }
 
 export class MessBuch {
