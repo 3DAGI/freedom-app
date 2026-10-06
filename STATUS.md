@@ -16782,6 +16782,47 @@ läuft (`ANIMATIONEN_FERTIG`); gemessen wird weiter dasselbe, nur im Endzustand.
 Knoten-Stand: unverändert. Die zusätzlichen Anfragen sind gewöhnliche
 Anfragen.
 
+## Schritt D1a – Platzhalter für persönliche Angaben in KI-Fragen
+
+Datenschutz gegenüber Providern, Stufe 1 (Entscheidung des MENSCHEN vom
+05.10.2026, Karte `docs/DATENSCHUTZ-PROVIDER.md` – neu in diesem Schritt). Der
+Provider muss die Frage im Klartext rechnen; auf DGX Spark/GB10, Macs und
+Gaming-PCs gibt es kein TEE. Die App ersetzt deshalb erkennbare persönliche
+Angaben vorher durch Platzhalter.
+
+**Was sich ändert:**
+- **Protokoll, `platzhalter.ts` (neu, ohne DOM):** `ersetzeAngaben()` und
+  `Zuordnung` (je Unterhaltung stabil: derselbe Wert ergibt denselben
+  Platzhalter, `setzeEin()` setzt zurück). Erkannt werden E-Mail, Telefon
+  (nicht mitten in einer Zifferngruppe), IBAN mit Prüfziffer, Karte mit Luhn,
+  IPv4/IPv6, `npub`/`nsec`/`nprofile`, Lightning-Rechnungen und Namen aus dem
+  Adressbuch (ab drei Zeichen, ganze Wörter). Kein Raten.
+- **App, `shell/ki-platzhalter.ts` (neu):** `maskiere()`, `entmaskiere()`,
+  `neueZuordnung()`, Zahl der ersetzten Stellen je Anfrage; Namen aus den
+  Unterhaltungen und dem eigenen Profil. Gespeichert wird nur der Schalter
+  `freedom.platzhalter` (Standard an).
+- **Verdrahtet:** `buildJobEvent()` ersetzt Frage samt Verlauf und den
+  Dateinamen eines Anhangs (nie beim eigenen Knoten); `sendeKiUeberFunk()`
+  ebenso; `handleAnswer()` setzt zurück und zeigt unter der Antwort nur die
+  Zahl; `neueAufgabe()`/`oeffneVerlauf()` beginnen eine neue Zuordnung.
+- **Settings › Datenschutz:** Haken „Persönliche Angaben in KI-Fragen durch
+  Platzhalter ersetzen“ mit Text, was erkannt wird und was nicht.
+- **Datenschutz:** Grenze „ki-platzhalter“ (Regel `kein-klartext-prompt`),
+  Szenario: der Provider öffnet den Umschlag und liest keine der Angaben.
+- **Website:** Whitepaper (Abschnitt DVM) sagt, was der Provider liest und was
+  die Platzhalter tun.
+- **Sammlung:** offene Entscheidung P5d (Prüfrunden mit SOL).
+
+**Prüfungen:**
+- protocol 1169 (+5: Platzhalter 4, Grenze mit Szenario 1), node 314.
+- app 886 (+4: Verdrahtung). `ki-kontext.test.ts` prüft die Zeile mit dem
+  Verlauf jetzt in der Form mit Platzhaltern (`roh` → `maske` → `fullPrompt`).
+- mls 13, Leak 72 + 1 todo.
+- check-wiring, innerHTML und Website ok.
+- Smoke-Test bestanden.
+
+Knoten-Stand: unverändert. Der Provider bekommt nur anderen Text.
+
 ## Schritt 12.6 – Profil: SOL-Adresse öffentlich nur mit Häkchen
 
 **Warum:** Phase 12 „Beide Währungen überall“ (Sammlung A-1, Anhang A: „Profil:

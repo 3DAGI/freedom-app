@@ -17,7 +17,7 @@ import { baueRelayAuth } from "../src/relay-zugang.js";
 import { LAYER_CELL_DEGREES, baueCoverageEintrag, baueCoverageWiderruf, buildCoverageAnnouncement, toCell } from "../src/coverage.js";
 import { signEvent } from "../src/event.js";
 import { buildJobRequest, buildJobResult } from "../src/dvm.js";
-import { buildPrivateDispute, buildPrivateJobRequest, buildPrivateJobResponse, buildPrivateSessionEvent, buildPrivateUrteil } from "../src/private-job.js";
+import { buildPrivateDispute, buildPrivateJobRequest, buildPrivateJobResponse, buildPrivateSessionEvent, buildPrivateUrteil, openPrivateJobRequest } from "../src/private-job.js";
 import { buildDispute, buildResolution } from "../src/disputes-relays.js";
 import { verschluesseleDatei } from "../src/datei-krypto.js";
 import { buildPrivateKontaktliste } from "../src/kontaktliste.js";
@@ -53,6 +53,7 @@ import { raumRepoAnkuendigung, raumRepoBundle, raumRepoIssue, raumRepoIssueStatu
 import { fromHex, toHex } from "../src/htlc.js";
 import { LOKAL_STANDARD_ADRESSE, lokaleKiAdresse, lokaleKiAnfrage } from "../src/ki-lokal.js";
 import { fasseMessungZusammen, merkeMesspunkt } from "../src/pruefung.js";
+import { Zuordnung, ersetzeAngaben } from "../src/platzhalter.js";
 import type { NostrEvent, UnsignedEvent } from "../src/event.js";
 import { readFileSync } from "node:fs";
 import { gunzipSync } from "node:zlib";
@@ -209,6 +210,21 @@ const SZENARIEN: Record<string, () => Promise<number>> = {
     // Kein Umschlag nennt die Identität oder die Sitzung einer anderen Anfrage der Runde
     const fremd = runde.flatMap((r, i) => runde.filter((_, j) => j !== i).map((x) => regelKundeVerborgen([r.wrap], x.sitzung).length));
     return regelKundeVerborgen(wraps, a.pk).length + fremd.reduce((s, n) => s + n, 0) + regelKeinKlartextPrompt(wraps, [PROMPT]).length;
+  },
+  "ki-platzhalter": async () => {
+    // Wie die App seit D1a: persönliche Angaben ersetzt vor dem Versiegeln; was der Provider nach dem Öffnen liest
+    const angaben = ["anna.mueller@example.org", "+49 170 1234567", "DE89 3704 0044 0532 0130 00", "Anna Müller"];
+    const z = new Zuordnung();
+    const frage = ersetzeAngaben(`Schreib an ${angaben[3]} (${angaben[0]}, Tel. ${angaben[1]}), IBAN ${angaben[2]}.`, z, ["Anna Müller"]).text;
+    const sitzung = new LocalSigner(generateKeypair().sk);
+    const { wrap } = await buildPrivateJobRequest({ sessionSigner: sitzung, providerPk: b.pk, request: buildJobRequest({
+      customerPubkey: sitzung.publicKey(), input: frage, bidMsat: 1000, providerPubkey: b.pk,
+    }) });
+    const offen = await openPrivateJobRequest(wrap, new LocalSigner(b.sk));
+    if (!offen.ok) return 1;
+    const beimProvider = angaben.filter((w) => JSON.stringify(offen.request).includes(w)).length;
+    const zurueck = z.setzeEin("An [NAME_1] unter [EMAIL_1]") === `An ${angaben[3]} unter ${angaben[0]}` ? 0 : 1;
+    return beimProvider + zurueck + regelKeinKlartextPrompt([wrap], angaben).length;
   },
   "ki-zahlung": async () => {
     const { wraps } = await privateKiRunde();
@@ -597,6 +613,16 @@ test("P5c2: Prüfrunden stehen als Grenze im Bericht – mit Grund, Ausnahmen un
   assert.match(f?.grund ?? "", /Ausgenommen sind dieses Gerät, dein eigener Knoten und Funk/);
   const t = privacyFactsText();
   assert.match(t.slice(t.indexOf("Bewusste Grenzen:")), /△ Etwa jede 400\. Antwort geht deine Frage samt Verlauf zusätzlich an zwei andere Provider \(Prüfrunde\)/);
+});
+
+test("D1a: Platzhalter stehen als Grenze im Bericht – was ersetzt wird und was nicht; das Szenario hält sie ein", async () => {
+  assert.equal(await SZENARIEN["ki-platzhalter"]!(), 0, "der Provider liest keine der erkannten Angaben");
+  const f = PRIVACY_FACTS.find((x) => x.id === "ki-platzhalter");
+  assert.equal(f?.status, "grenze");
+  assert.equal(f?.regel, "kein-klartext-prompt");
+  assert.match(f?.grund ?? "", /Namen außerhalb deines Adressbuchs, Adressen, Gesundheitsangaben und den Inhalt von Anhängen errät die App nicht/);
+  const t = privacyFactsText();
+  assert.match(t.slice(t.indexOf("Bewusste Grenzen:")), /△ Persönliche Angaben mit klarer Form .* Alles andere liest der Provider wie geschrieben\./);
 });
 
 test("Grenzen nennen ihren Grund", () => {

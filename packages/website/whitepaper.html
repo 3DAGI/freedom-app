@@ -81,6 +81,14 @@
   App vergleicht die Antworten. Das Ergebnis heißt nie
   „verifiziert“ — bei gleichem Basismodell teilen Provider auch dessen Irrtümer.
   Was erkannt wird, ist <em>Abweichung</em>.</p>
+  <p>Den Weg schützt das Netz: Relays lesen die Frage nicht, und der Provider
+  sieht einen Sitzungsschlüssel statt der Identität. Die Frage selbst muss der
+  Provider im Klartext rechnen – auf Rechnern wie DGX Spark, Macs oder
+  Gaming-PCs gibt es kein TEE, das ihn daran hindert. Deshalb ersetzt die App
+  erkennbare persönliche Angaben vor dem Senden durch Platzhalter: E-Mail,
+  Telefon, IBAN, Kartennummer, IP-Adresse, Nostr-Schlüssel, Lightning-Rechnung
+  und die Namen aus dem eigenen Adressbuch. In der Antwort setzt sie die Werte
+  zurück. Was keine prüfbare Form hat, geht unverändert hinaus.</p>
   <p>Modelle werden über das eigene Netz verteilt, beschrieben durch signierte
   Manifeste mit Prüfsumme je Datei. Der Katalog meldet, wenn eine Datei im Netz
   fehlt — ein Modell mit zwanzig Seedern, denen allen dieselbe Datei fehlt, ist
