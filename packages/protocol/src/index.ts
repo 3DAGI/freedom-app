@@ -97,6 +97,7 @@ export * from "./mesh-sync.js";
 export * from "./http-auth.js";
 export * from "./key-rotation.js";
 export * from "./timestamps.js";
+export * from "./ots.js";
 export * from "./antispam.js";
 export * from "./state-backup.js";
 export * from "./gift-wrap.js";
