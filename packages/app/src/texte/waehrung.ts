@@ -268,7 +268,7 @@ export const waehrung: Texte = {
   "empf.rechnung": { de: "Rechnung", en: "Invoice" },
   "empf.adresse": { de: "Adresse", en: "Address" },
   "verlauf.titel": { de: "Verlauf", en: "History" },
-  "verlauf.text": { de: "Was diese App über deine Wallets gezahlt hat – nur auf diesem Gerät, im Tresor, die neuesten 500. Tausch, Zahlkanäle und Hinterlegung stehen in ihren Bereichen.", en: "What this app paid through your wallets – only on this device, in the vault, the latest 500. Swaps, payment channels and deposits are listed in their own sections." },
+  "verlauf.text": { de: "Was diese App über deine Wallets gezahlt hat – die neuesten 500, nur auf diesem Gerät, verschlüsselt, sobald der Tresor eingerichtet ist. Tausch, Zahlkanäle und Hinterlegung stehen in ihren Bereichen.", en: "What this app paid through your wallets – the latest 500, only on this device, encrypted once the vault is set up. Swaps, payment channels and deposits are listed in their own sections." },
   "verlauf.leer": { de: "Noch keine Zahlungen. Ist der Tresor gesperrt, erst entsperren.", en: "No payments yet. If the vault is locked, unlock it first." },
   "verlauf.zeile": { de: "{wann} · {zweck} · {betrag} an {an}", en: "{wann} · {zweck} · {betrag} to {an}" },
   "verlauf.lnLaden": { de: "Verlauf der Lightning-Wallet laden", en: "Load the Lightning wallet's history" },
