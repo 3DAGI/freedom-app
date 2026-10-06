@@ -13,6 +13,7 @@ import { LightningRail, SolanaRail, type SolanaWalletZugang } from "../rails.js"
 import { type NonceAblage, erstelleOfflineZahlung, leseAblage, schreibeAblage } from "../sol-offline-zahlung.js";
 import { type EingebauteSolWallet, type SignierbareTx, waehleAbsender } from "../sol-wallet.js";
 import { buildSolTransfer, solRpcUrl } from "../sol-transfer.js";
+import { NWC_VERLAUF_MAX, leseWalletBuchungen, merkeZahlung, type WalletBuchung } from "../zahlungsbuch.js";
 import { benutzbareEingebauteWallet, bestaetigeUeberLimit, frischeEmpfangsadresse } from "./eingebaute-wallet.js";
 import { geheim } from "./tresor.js";
 import { netzDa } from "./ui.js";
@@ -97,7 +98,28 @@ export function zahlschienen(): PaymentRail[] {
       online: () => netzDa(),
     }),
     new SolanaRail({ wallet: solanaWallet, baueUeberweisung: buildSolTransfer, online: () => netzDa() }),
-  ];
+  ].map(mitBuch);
+}
+
+/**
+ * Nach dem Zahlen ins Zahlungsbuch (12.7c). Scheitert das Merken (Tresor
+ * gesperrt), gilt die Zahlung trotzdem – sie fehlt dann nur im Verlauf.
+ */
+function mitBuch(r: PaymentRail): PaymentRail {
+  const zahlen = r.pay.bind(r);
+  r.pay = async (a) => {
+    const beleg = await zahlen(a);
+    try {
+      await merkeZahlung(geheim, a.zweck, beleg);
+    } catch { /* nur der Verlauf fehlt */ }
+    return beleg;
+  };
+  return r;
+}
+
+/** Verlauf der eigenen Lightning-Wallet (12.7c, NIP-47 `list_transactions`) – undefined ohne NWC. */
+export async function lightningVerlauf(): Promise<WalletBuchung[] | undefined> {
+  return nwc ? leseWalletBuchungen(await nwc.call("list_transactions", { limit: NWC_VERLAUF_MAX })) : undefined;
 }
 
 // ------------------------------------------------ SOL ohne Internet (7.2b)
