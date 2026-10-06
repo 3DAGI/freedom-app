@@ -17196,3 +17196,46 @@ Knoten-Stand: unverändert.
 **Tests:** app +2 (`anzeige-einheit.test.ts`: Optionen und Ort, Sicherung,
 Verdrahtung – nur sats/SOL gemerkt, sonst entfernt). Smoke „waehrung“:
 Vorbelegung leer, „SOL“, „sats“, zurück zu „automatisch“ entfernt die Wahl.
+
+## Schritt B-17b3a – OpenTimestamps: Die App stempelt Mandate und Quittungen (5.10b, Sammlung B-17)
+
+Entscheidungen K1–K5 A (MENSCH 06.10.2026). Erster Teil der Anbindung; die
+Prüfung von Mandaten der Kontakte gegen Bitcoin folgt in B-17b3b.
+
+**Was neu ist:**
+- `zeitanker.ts` (ohne DOM): `ZeitankerBuch` (`freedom.zeitanker` in `geheim`,
+  höchstens 500, streng gelesen), `quittungsDigest()` (SHA-256 über die Felder
+  in fester Reihenfolge, ohne den Stand – der wechselt zu „belegt“) und
+  `zeitankerTakt()`: offene Werte bündeln und stempeln (bis 64 je Schlag),
+  Beweise ab einer Stunde nachreichen (bis 8 je Schlag; eine Abfrage je Adresse
+  über `mitGedaechtnis()`, Beweise eines Bündels teilen sich die Versprechen),
+  verankerte Mandate als Kind 1040 veröffentlichen. Fehler warten auf den
+  nächsten Schlag.
+- `shell/zeitanker-takt.ts`: `ankereMandat()` nach dem Veröffentlichen in
+  „Schlüsselwechsel vorbereiten“ (`tabs/sicherung.ts`), `ankereQuittung()`
+  nach jedem `quittungsBuch.lege()` (`shell/quittungen.ts`, Lightning und
+  Zahlkanal), `zeitankerSchlag()` im Abruftakt (`app.ts`, jeder 20. Schlag,
+  etwa alle zehn Minuten) – ohne offene Anker kein Netz; als Gerät kein 1040.
+- Der Beweis zur Quittung bleibt auf dem Gerät (K3 A); `freedom.zeitanker` in
+  `SICHERUNG_NIE`, im Export neben den Quittungen.
+- Datenschutzbericht: Grenze „zeitanker“ (deutsch und englisch) – die Kalender
+  sehen IP und Zeitpunkt, nie wofür; mit Tor nur den Ausgang.
+
+**Verdrahtet:** `shell/tabs/sicherung.ts` (`ankereMandat(mandat)` nach
+`publish`), `shell/quittungen.ts` (zweimal `ankereQuittung`), `shell/app.ts`
+(`abrufTakt.melde("zeitanker", …, 20)`); elf Ausnahmen in
+`wiring-ausnahmen.txt` fielen weg, offen bleiben `leseOtsBeweis`,
+`leseBlockkopf`, `pruefeVerankerung` (B-17b3b).
+
+**Tests:** `app/test/zeitanker.test.ts` mit den echten Antworten aus der
+Referenz – vormerken, stempeln, nach einer Stunde Block 970158 nachreichen,
+1040 mit genau dem Weg zu Bitcoin; Quittung nie hinaus, als Gerät kein 1040,
+Fehler ohne Verlust, eine Abfrage je Adresse; Verdrahtung im Quelltext.
+
+**Prüfungen:** protocol 1183 grün (+1, Aussage „zeitanker“), 6 übersprungen; node
+313 (7 übersprungen ohne Netz), app 919 (+6, `zeitanker.test.ts`), mls 13, Leak
+73 + 1 todo; Typprüfung überall, Build, check-wiring Exit 0 (11 Ausnahmen
+weniger), innerHTML Exit 0, Website ok, Smoke-Test bestanden, build-site ok,
+reproduzierbar.
+
+Knoten-Stand: unverändert.

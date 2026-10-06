@@ -76,9 +76,9 @@ Die Zeile „Stand …“ in CLAUDE.md ist aktuell.
   - `APP_SHA256` – App vom Knoten.
 - Anrufe: Installer mit `TURN_NAME=<öffentlicher-name>` erneut laufen lassen. Freigeben UDP/TCP 3478 und UDP 49160–49200, prüfen mit `turnutils_uclient`. coturn war in der Sitzung nicht erreichbar, also ungetestet.
 - Anrufe durchgehend prüfen (MENSCH-Checkliste): zwei Geräte mit je gekoppeltem Knoten und coturn – Ton und Bild; dann eines ohne Knoten – Hinweis vor dem Annehmen, Anruf über den Knoten des Anrufers.
-- Offen in Spur B nur noch: B-16 (später), B-17b3 (K1–K5 A entschieden 06.10.; a ✓, b1 ✓, b2 ✓), B-18 (wartet auf den Deploy des Zahlkanals) und 11.5 (mit Spur A nach 11.3).
+- Offen in Spur B nur noch: B-16 (später), B-17b3b (K1–K5 A entschieden 06.10.; a ✓, b1 ✓, b2 ✓, b3a ✓), B-18 (wartet auf den Deploy des Zahlkanals) und 11.5 (mit Spur A nach 11.3).
 - Anrufe verpasst (T4): entschieden 04.10. A – Abo für Anrufe, solange die App offen ist, und 3 min Klingeln (B-13e).
-- B-17: Kalender seit 06.10. erreichbar; B-17a ✓ (Baustein `ots.ts`). K1–K5 A (MENSCH 06.10.). B-17b1 ✓ (`ots-kalender.ts`: stempeln, nachreichen; `ots-nip03.ts`: Kind 1040), B-17b2 ✓ (`ots-bitcoin.ts`: Prüfung gegen den Blockkopf zweier Explorer). Offen: B-17b3 Anbindung in der App.
+- B-17: Kalender seit 06.10. erreichbar; B-17a ✓ (Baustein `ots.ts`). K1–K5 A (MENSCH 06.10.). B-17b1 ✓ (`ots-kalender.ts`: stempeln, nachreichen; `ots-nip03.ts`: Kind 1040), B-17b2 ✓ (`ots-bitcoin.ts`: Prüfung gegen den Blockkopf zweier Explorer). B-17b3a ✓ (`zeitanker.ts`, `shell/zeitanker-takt.ts`: App stempelt Mandate und Quittungen, NIP-03 zum Mandat). Offen: B-17b3b – Mandate von Kontakten gegen Bitcoin prüfen.
 
 ## 4. Arbeitsweise, die sich bewährt hat (und Fallen)
 

@@ -40,7 +40,7 @@ test("B-6: Export – Sicherung plus KI-Verläufe und Quittungen, nie Schlüssel
   }
   for (const k of NIE) assert.ok(!(k in daten), `nie: ${k}`);
   // Seit 12.7c auch der Verlauf der eigenen Zahlungen – nie auf ein Relay, wohl in die eigene Datei
-  assert.deepEqual([...EXPORT_ZUSAETZLICH], ["freedom.agentHistory", "freedom.quittungen", "freedom.zahlungen"]);
+  assert.deepEqual([...EXPORT_ZUSAETZLICH], ["freedom.agentHistory", "freedom.quittungen", "freedom.zahlungen", "freedom.zeitanker"]);
 });
 
 test("B-6: hin und zurück – gleiche Daten, Zeit und Kennung in der Hülle, kein Klartext", async () => {

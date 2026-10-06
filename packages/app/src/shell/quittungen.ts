@@ -17,6 +17,7 @@ import { LS_REKLAMATIONEN, leseReklamationen } from "../streitfall.js";
 import { kanalBuch } from "./ki-zahlung.js";
 import { solRpcUrl } from "./state.js";
 import { geheim } from "./tresor.js";
+import { ankereQuittung } from "./zeitanker-takt.js";
 
 export const quittungsBuch = new QuittungsBuch(geheim);
 /** Zusammenfassungen der Kontakte (5.5c) – nur im Tresor. */
@@ -42,7 +43,7 @@ export async function quittungNachBegleichen(provider: string, charge: { settled
   if (!charge.settled || !charge.paymentRef || !charge.rechnung) return;
   const q = lightningQuittung({ provider, rechnung: charge.rechnung, preimage: charge.paymentRef, auftraege: offen.nimm(provider), zeit: jetzt() });
   // Tresor gesperrt: Diese Quittung fehlt dann – nie offen ablegen
-  if (q) await quittungsBuch.lege(q).catch(() => {});
+  if (q) await quittungsBuch.lege(q).then(() => ankereQuittung(q)).catch(() => {});
 }
 
 /**
@@ -54,7 +55,7 @@ export async function quittungNachKanal(provider: string, requestId: string, pre
   const e = kanalBuch.fuerProvider(provider, jetzt());
   if (!e || !preisLamports) return;
   const q = kanalQuittung({ provider, kanal: e.kanal, gutschrift: BigInt(e.letzte), preisLamports, anfrage: requestId, zeit: jetzt() });
-  if (q) await quittungsBuch.lege(q).catch(() => {});
+  if (q) await quittungsBuch.lege(q).then(() => ankereQuittung(q)).catch(() => {});
 }
 
 /** Zahlkanal-Quittungen mit der Auszahlung auf der Kette auf „belegt“ heben. */
