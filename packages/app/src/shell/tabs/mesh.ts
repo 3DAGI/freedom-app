@@ -18,6 +18,7 @@ import { LS_KONTAKTE_SICHERN, kontakteEinschalten, kontakteSichernAn, sichereKon
 import { LS_STANDARD_SCHIENE, standardSchiene } from "../../standard-schiene.js";
 import { wireRelayKarte, wireRelayZugang } from "./settings.js";
 import { platzhalterAn, setzePlatzhalter } from "../ki-platzhalter.js";
+import { LS_VERLAUF, leseUmfang } from "../../ki-kontext.js";
 
 // ------------------------------------------------------------- Mesh-Tab
 
@@ -293,6 +294,18 @@ export async function wireMeshTab(): Promise<void> {
     platzhalter.onchange = () => {
       setzePlatzhalter(platzhalter.checked);
       toast(t(platzhalter.checked ? "set.platzhalterAn" : "set.platzhalterAus"));
+    };
+  }
+
+  // Verlauf zu KI-Fragen (D1c) – Standard „kurz“
+  const verlauf = document.getElementById("ki-verlauf") as HTMLSelectElement | null;
+  if (verlauf) {
+    verlauf.value = leseUmfang(localStorage.getItem(LS_VERLAUF));
+    verlauf.onchange = () => {
+      const umfang = leseUmfang(verlauf.value);
+      localStorage.setItem(LS_VERLAUF, umfang);
+      verlauf.value = umfang;
+      toast(t("set.verlaufGesetzt", { umfang: verlauf.selectedOptions[0]?.textContent ?? umfang }));
     };
   }
 

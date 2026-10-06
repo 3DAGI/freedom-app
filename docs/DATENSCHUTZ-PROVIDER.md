@@ -117,6 +117,6 @@ von Spur A. Der MENSCH kann sie ändern, ohne dass sich der Plan ändert.
 |---|---|
 | D1a ✓ | Platzhalter für persönliche Angaben (Baustein, Verdrahtung in `buildJobEvent()` und über Funk, Rücksetzen in `handleAnswer()`, Einstellung, Grenze „ki-platzhalter“ mit Szenario, Whitepaper) |
 | D1b | Neuer Schlüssel je Unterhaltung (offene Beträge vorher begleichen, Reklamation mit dem Schlüssel des Auftrags, Grenze Zahlkanal) |
-| D1c | Weniger Verlauf (kürzerer Standard, Einstellung, Bericht) |
+| D1c ✓ | Weniger Verlauf: Standard „kurz“ (6 Nachrichten, 3 000 Zeichen), Auswahl aus · kurz · lang (`VERLAUF_UMFANG`, `freedom.verlauf`), Grenze „ki-verlauf“ im Bericht, Whitepaper |
 | D2 | Privat-Schalter: nur Gerät oder eigener Knoten |
 | D3-Entwurf | Versiegelter Provider-Modus, zur Freigabe |

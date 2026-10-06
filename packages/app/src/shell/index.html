@@ -819,6 +819,13 @@
           <label class="mono-sm" style="display:block;margin:8px 0">
             <input type="checkbox" id="ruf-teilen" /> <span data-i18n="set.rufTeilen">Meine Erfahrung mit Providern versiegelt mit Kontakten teilen</span></label>
           <p class="mono-sm muted"><span data-i18n="set.rufTeilenText">Standard: aus. Deine Kontakte erfahren, bei welchen Providern du wie viele Antworten bezahlt hast, in welchem Umfang und mit wie vielen bestätigten Reklamationen – ihre App reiht Provider danach, wie deine es mit ihren Zusammenfassungen tut. Jeder Kontakt bekommt einen eigenen Umschlag an seinen Posteingang, einer nach dem anderen im Abruftakt; Relays sehen nur, dass Kontakte Post bekommen. Als Gerät einer Person teilt die App nicht.</span> <span id="ruf-stand"></span></p>
+          <label class="mono-sm" style="display:block;margin:8px 0"><span data-i18n="set.verlaufLabel">Verlauf zu KI-Fragen mitschicken</span>
+            <select id="ki-verlauf" class="mono-sm">
+              <option value="aus" data-i18n="set.verlaufAus">aus – nur die Frage</option>
+              <option value="kurz" data-i18n="set.verlaufKurz">kurz – letzte 6 Nachrichten, höchstens 3 000 Zeichen (Standard)</option>
+              <option value="lang" data-i18n="set.verlaufLang">lang – letzte 12 Nachrichten, höchstens 6 000 Zeichen</option>
+            </select></label>
+          <p class="mono-sm muted" data-i18n="set.verlaufText">Der Knoten merkt sich nichts – damit er Rückfragen versteht, schickt die App die letzten Nachrichten der Unterhaltung mit, versiegelt wie die Frage. Was mitgeht, liest der Provider. Weniger Verlauf heißt: er liest weniger, versteht Rückfragen aber schlechter.</p>
           <label class="mono-sm" style="display:block;margin:8px 0"><span data-i18n="set.verzoegerungLabel">Direktnachrichten verzögert senden</span>
             <select id="versand-verzoegerung" class="mono-sm">
               <option value="0" data-i18n="set.verzoegerung0">aus – sofort</option>
