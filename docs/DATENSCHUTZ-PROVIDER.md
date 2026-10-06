@@ -115,7 +115,9 @@ von Spur A. Der MENSCH kann sie ändern, ohne dass sich der Plan ändert.
 - **Danach** vielleicht „nur vertraute Provider“, etwa Provider von Kontakten.
   Das ist eine eigene Entscheidung, sie folgt nach Stufe 1.
 
-## 4. Stufe 3 – versiegelter Provider-Modus (Entwurf folgt, D3)
+## 4. Stufe 3 – versiegelter Provider-Modus (Entwurf D3: `docs/D3-ENTWURF.md`)
+
+Der Entwurf ist fertig und wartet auf Freigabe (V1–V7, F1–F5). Kurz:
 
 - **Ziel:** Die App kann prüfen, dass auf dem Knoten genau die veröffentlichte,
   reproduzierbar gebaute Software läuft, die nichts mitschreibt.
@@ -138,4 +140,4 @@ von Spur A. Der MENSCH kann sie ändern, ohne dass sich der Plan ändert.
 | D1b2 ✓ | Neuer Schlüssel je Unterhaltung (offene Beträge mit dem alten begleichen, Abfrage nur je Auftrag, Grenze „ki-unterhaltung“, Whitepaper) |
 | D1c ✓ | Weniger Verlauf: Standard „kurz“ (6 Nachrichten, 3 000 Zeichen), Auswahl aus · kurz · lang (`VERLAUF_UMFANG`, `freedom.verlauf`), Grenze „ki-verlauf“ im Bericht, Whitepaper |
 | D2 ✓ | Privat-Schalter je Unterhaltung: nur Gerät oder eigener Knoten (`wegErlaubt()`, Haken `#ai-privat`, Smoke „lokal“) |
-| D3-Entwurf | Versiegelter Provider-Modus, zur Freigabe |
+| D3-Entwurf ✓ | Versiegelter Provider-Modus (`docs/D3-ENTWURF.md`) – wartet auf Freigabe; danach D3a–D3f |

@@ -17327,3 +17327,23 @@ wird die Prüfung rot (Frage gesendet, Feld leer). Gleich streng angepasst:
 - Smoke-Test bestanden (mit der neuen Prüfung „privat“ in „lokal“).
 
 Knoten-Stand: unverändert.
+
+## Schritt D3-Entwurf – Versiegelter Provider-Modus (zur Freigabe)
+
+Datenschutz gegenüber Providern, Stufe 3 (Karte `docs/DATENSCHUTZ-PROVIDER.md`,
+Abschnitt 4). Nur ein Entwurf: `docs/D3-ENTWURF.md` – am Code ändert sich nichts.
+
+**Inhalt:** Was es heute gibt (reproduzierbarer Build nur der App, Release-Manifest,
+Klartext-Regel nur für den eigenen Code); Bedrohungsmodell – was ein TPM-Beleg
+leistet (Software-Mitschnitt erkennen, mit an die PCR gebundenem Schlüssel keine
+spätere Entschlüsselung) und was nicht (physischer Zugriff auf Speicher und GPU,
+Angriffe auf das TPM, Fehler im Image, Macs); Ablauf (Image mit UKI und dm-verity,
+gemessener Start, PCR 7 und 11, Schlüssel und AK im TPM, versiegelter Beleg mit
+Zufallszahl und Provider-Schlüssel, Prüfung gegen das Release-Manifest);
+Vorschläge V1–V7 mit Empfehlung, Fragen F1–F5 (F1/F2: TPM und Secure Boot am
+GX10 messen), Schritte D3a–D3f nach der Freigabe. Offene Entscheidung D3 in der
+Sammlung (Abschnitt 5).
+
+**Prüfungen:** Nur Doku – `check-website.py` (5 Seiten ok), `check-wiring.py
+--streng` Exit 0; Tests unverändert (protocol 1186, node 314, app 927, Leak 73
++ 1 todo).
