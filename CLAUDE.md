@@ -45,9 +45,9 @@ bash packages/mls/bauen.sh --pruefen                     # nur bei Änderungen a
 bash contracts/solana-channel/pruefen.sh --werkzeuge     # nur bei Änderungen am Zahlkanal: bauen + Tests gegen Validator (Agave 3.1.10)
 ```
 
-Stand 05.10.2026 (nach 8.2c, 5.5a–c, 8.15, 11.1a, C.3c2, 11.1b, 5.9a–b, 6.3a–b2, 11.4a–b2, C.4a–b, C.5a–b, C.6b, 11.4c, C-18, C-17a–c, C-20a–j3, C-1a–f, C-2, C-3, C-4, C-5a–d, C-6a–e, C-7a–b, C-8, C-10 bis C-16, 11.2a–b, A-4 bis A-7, A-7r, Z1, 12.1–12.3, E8, P1a–b, P2a, E10a, E11, E9-Entwurf, 12.4a, P2b1–b2, P3a–b, P4, B-1, B-2a–c, B-3 bis B-7, B-8a–c, B-9a, B-15, B-19, B-20a–c, B-10a–b, B-9b1–b2, B-9c1–c3, B-11a–c, B-12a–d, B-13a–e und B-21): protocol 1157 grün (6 übersprungen), node 324 grün
+Stand 05.10.2026 (nach 8.2c, 5.5a–c, 8.15, 11.1a, C.3c2, 11.1b, 5.9a–b, 6.3a–b2, 11.4a–b2, C.4a–b, C.5a–b, C.6b, 11.4c, C-18, C-17a–c, C-20a–j3, C-1a–f, C-2, C-3, C-4, C-5a–d, C-6a–e, C-7a–b, C-8, C-10 bis C-16, 11.2a–b, A-4 bis A-7, A-7r, Z1, 12.1–12.3, E8, P1a–b, P2a, E10a, E11, E9-Entwurf, 12.4a, P2b1–b2, P3a–b, P4, P5a, B-1, B-2a–c, B-3 bis B-7, B-8a–c, B-9a, B-15, B-19, B-20a–c, B-10a–b, B-9b1–b2, B-9c1–c3, B-11a–c, B-12a–d, B-13a–e und B-21): protocol 1152 grün (6 übersprungen), node 314 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 875 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 72 grün + 1 `todo` (heutige Lecks,
+in `tools.test.ts`), app 872 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 72 grün + 1 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
 Ausnahme: gesendete SOL-Zahlungen von frischen Adressen, eine bewusste Grenze
 nach Entscheidung 4.9 A – im Datenschutzbericht unter „Bewusste Grenzen“).
@@ -961,42 +961,30 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   Auf der Agent-Seite gibt es keinen Haken „vergleichen“ mehr – nicht wieder
   einbauen (Max und Swarm bleiben, wie sie sind). Verfügbarkeit und Qualität
   der Provider prüft die App automatisch nach `docs/FREEDOM-PRUEFUNG.md` (E7,
-  OpenRouter-Vorbild): eigene Messung nur auf dem Gerät, Prüfer stellen nur
-  eigene Prüffragen, nie Fragen von Nutzern. `consensus.ts` bleibt Baustein
-  des Prüfers (Ausnahmen in `wiring-ausnahmen.txt` mit diesem Grund).
+  OpenRouter-Vorbild). **Keine Prüfer** (Entscheidung 05.10.2026, P5a): keine
+  Prüfer-Rolle im Knoten, keine synthetischen Prüffragen, keine Messberichte –
+  38081 nicht wiederverwenden, Prüfer nicht wieder einführen. Geprüft wird in
+  Pflicht-Prüfrunden (P5c/P5d, noch nicht gebaut): die echte Anfrage an drei
+  Provider statt an einen, sobald das Prüfbudget zwei weitere Antworten deckt
+  (Häufigkeit offen – 0,5 % reichen für etwa jede 400., nicht jede 40.), ohne
+  Schalter, bezahlt aus dem Prüfbudget (0,5 % aus dem Anteil der Entwicklung, P5b) in der Währung des
+  Nutzers; ausgenommen nur Gerät, eigener Knoten, Funk. `consensus.ts` bleibt
+  Baustein dafür (Ausnahmen in `wiring-ausnahmen.txt` mit diesem Grund).
   Auswahl seit P2a nur über `matchProviders()` → `ordneNachPruefung()`
   (`pruefung.ts`): eigene Provider zuerst, dann normale, Neue (bekannte vor
   unbekannten), Ausreißer, Herabgestufte, gerade und länger Ausgefallene; vorn
   zufällig mit 1/Preis² aus `sichererZufall()` – in Tests immer `zufall`
-  übergeben, sonst würfelt der Test. Die eigene Messung nur über `MessBuch`
+  übergeben, sonst würfelt der Test. Die Stufe kommt nur aus der eigenen
+  Messung (ab 20 Anfragen, sonst „neu“). Die eigene Messung nur über `MessBuch`
   (`messbuch.ts`, `freedom.messungen` in `geheim` und `SICHERUNG_NIE`),
   geschrieben nur aus `askWithFailover()` über `ergebnisDesLaufs()`:
   Ablehnungen und Abbrüche zählen nicht (oft Fehler des Nutzers), eine
-  verpasste Frist und ein kaputtes Ergebnis schon. Berichte von Prüfern
-  (38081, seit P2b1) nur über `pruefStaende()` mit `gewaehltePruefer()`
-  (`FREEDOM_PRUEFER` leer bis MENSCH, dazu `freedom.pruefer`), abgefragt mit
-  `messberichtFilter()` – nie nach Prüfer filtern, das verriete die Wahl – und
-  nur, wenn jemand gewählt ist; die Stufe zählt über `stufeFuerAuswahl()` nur,
-  wo die eigene Messung zu wenig hat. Gezeigt (seit P2b2) nur auf der Seite
-  Netz › Prüfung (`shell/tabs/pruefung-ui.ts`) über `pruefZeilen()` aus
-  `providerMitStand()` – derselben Quelle wie die Auswahl –, geladen erst beim
-  Öffnen des Reiters; folgen nur über `folgePruefer()` (höchstens zehn, in der
-  Sicherung mit Regel zum Zusammenführen). Die Prüfer-Rolle im Knoten (seit P3a,
-  `node/src/pruefer-rolle.ts`) fragt nur über `bauePruefAuftrag()` (versiegelt,
-  je Frage ein Wegwerf-Schlüssel, Gebot 0, nur das Modell als Parameter – sonst
-  erkennt ein Provider Prüffragen), wertet nur mit `werteAntwortAus()` aus und
-  prüft ohne Budget nur Angebote mit `currentlyFree` (`PrueferPlan`) – bezahlte
-  Prüffragen erst nach Entscheidung des MENSCHEN (P3c). Im Netz (seit P3b) nur
-  mit `PRUEFER=1` über `PrueferDienst` (`pruefer-dienst.ts`, Takt `PRUEFER_NETZ`):
-  eine Antwort zählt nur vom gefragten Provider zur eigenen Anfrage, eine
-  verpasste Frist nur, wenn ein Relay geantwortet hat (sonst lag es am eigenen
-  Netz); Rechenarbeit über `powMax` nicht (sie liefe im Prozess). Der Dienst loggt
-  nichts selbst – `main.ts` nur Zahlen. Die Selbstprüfung bekommt keine dritte
-  Schiene: `leseBefund()` älterer Apps wiese sonst den ganzen Status ab. Der
-  Zeitraum eines Berichts endet mit der letzten Prüffrage, nie mit „jetzt“ (seit
-  P4) – nach dem Ende des Gratis-Angebots geht er noch bis zum Fensterende hinaus.
-  Die FAQ der Website beschreibt Auswahl und Probezeit wie der Code;
-  `check-website.py` weist die alte Aussage „steht aber hinten“ ab.
+  verpasste Frist und ein kaputtes Ergebnis schon. Gezeigt (seit P2b2) nur auf
+  der Seite Netz › Prüfung (`shell/tabs/pruefung-ui.ts`) über `pruefZeilen()`
+  aus `providerMitStand()` – derselben Quelle wie die Auswahl –, geladen erst
+  beim Öffnen des Reiters. Die FAQ der Website beschreibt Auswahl und Probezeit
+  wie der Code; `check-website.py` weist „steht aber hinten“ und Aussagen über
+  Prüfer (Messbericht, `PRUEFER=1`, Prüfern folgen) ab.
 - **Offene Räume nur über die Adresse des Gründers** (seit B-7): gemerkt
   (`freedom.spaces`, `oeffentliche-raeume.ts`) und weitergegeben wird
   `34700:<gründer>:space:<kennung>`; den Raum baut nur `raumZustandFuer()` –

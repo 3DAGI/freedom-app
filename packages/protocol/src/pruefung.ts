@@ -1,5 +1,5 @@
 /**
- * Freedom-Prüfung (E7, `docs/FREEDOM-PRUEFUNG.md`), Schritt P1a – ohne DOM, ohne Netz.
+ * Freedom-Prüfung (E7, `docs/FREEDOM-PRUEFUNG.md`) – ohne DOM, ohne Netz.
  *
  * Nach dem Vorbild von OpenRouter:
  * - Verfügbarkeit in Stufen (ab 95 % normal, 80–94 % herabgestuft, darunter nur
@@ -8,14 +8,10 @@
  * - Ausreißer bei der Qualität nach hinten;
  * - unter gleich Guten zufällig, gewichtet mit 1/Preis².
  *
- * Gemessen wird zweifach: die App am eigenen Verkehr (nur auf dem Gerät) und
- * Prüfer mit synthetischen Prüffragen (nie Fragen von Nutzern), die sie als
- * Messbericht (Kind 38081, `messbericht.ts`) veröffentlichen. Die Rangfolge bildet jede App
- * selbst – veröffentlicht werden nur Messwerte, keine Rangliste.
- *
- * Prüffragen entstehen aus Vorlagen mit Zufall, die Antwort prüft Code – kein
- * Sprachmodell als Richter. Die Fragen sind Daten an Provider, keine Texte der
- * Oberfläche (deshalb englisch, wie Modelle sie am sichersten verstehen).
+ * Gemessen wird nur in der App, am eigenen Verkehr und nur auf dem Gerät. Prüfer
+ * mit eigenen Prüffragen und Messberichte (38081) fielen mit der Entscheidung vom
+ * 05.10.2026 (P5a) weg; geprüft wird künftig in Prüfrunden – die echte Anfrage an
+ * drei Provider statt an einen (P5c). Die Rangfolge bildet jede App selbst.
  */
 export const PRUEF_GRENZEN = Object.freeze({
   /** Ab diesem Anteil Erfolge normal. */
@@ -24,8 +20,6 @@ export const PRUEF_GRENZEN = Object.freeze({
   herabgestuft: 0.8,
   /** So viele eigene Anfragen, bevor die eigene Messung zählt. */
   minEigene: 20,
-  /** So viele Prüffragen, bevor ein Bericht zählt. */
-  minPruefer: 50,
   /** Ein Ausfall so kurz zurück stellt den Provider nach hinten (Sekunden). */
   ausfallSek: 60,
   /** So viele eigene Messpunkte je Provider. */
@@ -42,85 +36,6 @@ export function stufeAus(anfragen: number, erfolge: number, mindestens: number):
   if (!(anfragen >= mindestens) || anfragen <= 0) return "neu";
   const quote = erfolge / anfragen;
   return quote >= PRUEF_GRENZEN.normal ? "normal" : quote >= PRUEF_GRENZEN.herabgestuft ? "herabgestuft" : "ausgefallen";
-}
-
-// ------------------------------------------------------------ Prüffragen
-
-export type PruefArt = "rechnen" | "umkehren" | "zaehlen" | "sortieren" | "json";
-export const PRUEF_ARTEN: readonly PruefArt[] = ["rechnen", "umkehren", "zaehlen", "sortieren", "json"];
-
-export interface PruefFrage { art: PruefArt; frage: string; erwartet: string }
-
-const ganz = (zufall: () => number, von: number, bis: number) => von + Math.floor(zufall() * (bis - von + 1));
-const wort = (zufall: () => number, laenge: number) =>
-  Array.from({ length: laenge }, () => "abcdefghijkmnopqrstuvwxyz"[ganz(zufall, 0, 24)]).join("");
-
-/** Eine Prüffrage dieser Art – jedes Mal andere Zahlen und Wörter, die Antwort prüft `pruefeAntwort()`. */
-export function neuePruefFrage(art: PruefArt, zufall: () => number): PruefFrage {
-  switch (art) {
-    case "rechnen": {
-      const a = ganz(zufall, 100, 999);
-      const b = ganz(zufall, 100, 999);
-      return { art, frage: `Compute ${a} + ${b}. Reply with the number only.`, erwartet: String(a + b) }; // kein UI-Text
-    }
-    case "umkehren": {
-      const w = wort(zufall, ganz(zufall, 6, 9));
-      return { art, frage: `Write the word "${w}" backwards. Reply with the result only.`, erwartet: [...w].reverse().join("") }; // kein UI-Text
-    }
-    case "zaehlen": {
-      const w = wort(zufall, ganz(zufall, 12, 20));
-      const z = w[ganz(zufall, 0, w.length - 1)];
-      return { art, frage: `How many times does the letter "${z}" occur in "${w}"? Reply with the number only.`, erwartet: String([...w].filter((x) => x === z).length) }; // kein UI-Text
-    }
-    case "sortieren": {
-      const zahlen = Array.from({ length: 5 }, () => ganz(zufall, 1, 999));
-      return {
-        art,
-        frage: `Sort these numbers in ascending order: ${zahlen.join(", ")}. Reply with the numbers only, separated by commas.`, // kein UI-Text
-        erwartet: [...zahlen].sort((x, y) => x - y).join(","),
-      };
-    }
-    case "json": {
-      const schluessel = wort(zufall, 5);
-      const zahl = ganz(zufall, 1, 9_999);
-      const text = wort(zufall, 7);
-      return {
-        art,
-        frage: `Return exactly this JSON object and nothing else: key "${schluessel}" with the number ${zahl}, key "text" with the string "${text}".`, // kein UI-Text
-        erwartet: JSON.stringify({ [schluessel]: zahl, text }),
-      };
-    }
-  }
-}
-
-/** Antwort prüfen – großzügig bei Hülle (Leerzeichen, Codeblock), streng beim Inhalt. */
-export function pruefeAntwort(f: PruefFrage, antwort: string): boolean {
-  const a = antwort.slice(0, 4_000).replace(/```[a-z]*\n?|```/gi, "").trim();
-  switch (f.art) {
-    case "rechnen":
-    case "zaehlen": {
-      // Die letzte Zahl zählt („347 + 829 = 1176“ ist richtig), Tausender-Trennzeichen fallen weg
-      const zahlen = a.replace(/(\d)[,.'’](?=\d{3}\b)/g, "$1").match(/-?\d+/g) ?? [];
-      return zahlen.length > 0 && zahlen[zahlen.length - 1] === f.erwartet;
-    }
-    case "umkehren":
-      return a.toLowerCase().replace(/[^a-z]/g, "") === f.erwartet;
-    case "sortieren":
-      return (a.match(/\d+/g) ?? []).join(",") === f.erwartet;
-    case "json": {
-      const anfang = a.indexOf("{");
-      const ende = a.lastIndexOf("}");
-      if (anfang < 0 || ende < anfang) return false;
-      try {
-        const erhalten = JSON.parse(a.slice(anfang, ende + 1)) as Record<string, unknown>;
-        const erwartet = JSON.parse(f.erwartet) as Record<string, unknown>;
-        const k = Object.keys(erwartet);
-        return Object.keys(erhalten).length === k.length && k.every((x) => erhalten[x] === erwartet[x]);
-      } catch {
-        return false;
-      }
-    }
-  }
 }
 
 // ------------------------------------------------------------ eigene Messung
@@ -149,23 +64,12 @@ export function fasseMessungZusammen(punkte: readonly Messpunkt[], jetzt: number
 
 // ------------------------------------------------------------ Auswahl
 
-/**
- * Stufe für die Auswahl (3.3): die eigene Messung, sobald sie genug Anfragen
- * hat (`minEigene`), sonst der Stand der gewählten Prüfer ab `minPruefer`
- * Prüffragen, sonst „neu“. Eigene Messungen gehen immer vor.
- */
-export function stufeFuerAuswahl(eigene?: { stufe: Stufe }, pruefer?: { stufe: Stufe }): Stufe {
-  if (eigene && eigene.stufe !== "neu") return eigene.stufe;
-  if (pruefer && pruefer.stufe !== "neu") return pruefer.stufe;
-  return "neu";
-}
-
 export interface PruefKandidat {
   pk: string;
   /** Preis je Auftrag oder je 1k Tokens – nur der Vergleich zählt; 0 = gratis. */
   preisMsat: number;
   stufe: Stufe;
-  /** Trefferquote der Prüffragen (0..1), falls bekannt. */
+  /** Qualität (0..1), falls bekannt – künftig die Übereinstimmung in Prüfrunden (P5c). */
   qualitaet?: number;
   /** Eigener Ausfall in den letzten Sekunden (`PRUEF_GRENZEN.ausfallSek`). */
   ausfallJetzt?: boolean;

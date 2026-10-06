@@ -131,7 +131,7 @@ Bestehende Kinds sind reserviert und semantisch eingefroren:
 | 38061 | Kopfgeld für eine Aufgabe, meist ein Issue – in sats, SOL oder beiden (§29, `kopfgeld.ts`) |
 | 38075 | Zusammenfassung des Rufs, nur als versiegelter Kern an Kontakte (§17) |
 | 38080 | Modellkatalog eines Kurators (NIP-51-Set: `d`, `title`, `description`, je Modell `["model", <kennung>, <notiz?>]`; `modell-katalog.ts`) |
-| 38081 | Messbericht eines Prüfers je Provider und Modell (§28, `messbericht.ts`) |
+| 38081 | *nicht mehr belegt* (Messbericht eines Prüfers je Provider und Modell, P1b bis P5a; Prüfer entfielen mit der Entscheidung vom 05.10.2026, §28) |
 
 **Regel:** Neue Features bekommen NEUE Kinds. Bestehende Kinds ändern ihre
 Semantik nie; nicht mehr belegte werden nicht wiederverwendet – alte Events
@@ -742,7 +742,7 @@ Aufträge.
 |---|---|
 | `fassung` | Fassung des Knotens, 1–32 Zeichen `0-9A-Za-z.+-` |
 | `seit` | Start des Prozesses, Unix-Sekunden |
-| `rollen` | gestartete Rollen aus `ki`, `relay`, `speicher`, `gateway`, `zahlkanal`, `lnurl`, `lp`, `relayer`, `tor`, `app`, `turn` (seit B-13a), `pruefer` (seit P3b); unbekannte Kennungen (Kleinbuchstaben) bleiben unbeachtet |
+| `rollen` | gestartete Rollen aus `ki`, `relay`, `speicher`, `gateway`, `zahlkanal`, `lnurl`, `lp`, `relayer`, `tor`, `app`, `turn` (seit B-13a); unbekannte Kennungen (Kleinbuchstaben, z. B. `pruefer` älterer Knoten von P3b bis P5a) bleiben unbeachtet |
 | `modelle` | angebotene Modelle, höchstens 50 Namen zu je höchstens 100 Zeichen, ohne Steuerzeichen |
 | `auftraege` | `erledigt`, davon `gratis`, und `abgelehnt` seit dem Start |
 | `abgerechnetMsat` | seit dem Start in Antworten verlangt (nicht unbedingt schon bezahlt) |
@@ -861,44 +861,20 @@ deshalb ein Feld `turn` tragen:
 - In den inneren Events (Mitschnitt vor dem Versiegeln) stehen nur
   Relay-Kandidaten mit Fingerabdruck.
 
-## 28. Messbericht der Freedom-Prüfung (Kind 38081, seit P1b)
+## 28. Messbericht der Freedom-Prüfung (Kind 38081) – nicht mehr belegt
 
-Entwurf und Begründung: `docs/FREEDOM-PRUEFUNG.md` (Entscheidung E7, nach dem
-Vorbild von OpenRouter). Ein Prüfer stellt Providern synthetische Prüffragen
-(nie Fragen von Nutzern), misst Erfolg, Zeit und Richtigkeit und veröffentlicht
-je Provider und Modell einen ersetzbaren Bericht. Eine Rangliste gibt es nicht –
+Von P1b bis P5a veröffentlichten Prüfer-Knoten hier Messwerte je Provider und
+Modell, aus eigenen synthetischen Prüffragen. Mit der Entscheidung vom
+05.10.2026 fielen Prüfer, Prüffragen und Berichte weg: Geprüft wird künftig in
+Prüfrunden – die App schickt die echte Anfrage an drei Provider statt an
+einen, sobald das Prüfbudget reicht (P5c, `docs/FREEDOM-PRUEFUNG.md`). Apps werten 38081 nicht mehr
+aus; das Kind wird nicht wiederverwendet.
+
+**Stufen** (`PRUEF_GRENZEN`, `stufeAus()`) gelten weiter für die eigene Messung
+der App: erst ab 20 eigenen Anfragen, davor `neu`. Ab 95 % Erfolg `normal`, ab
+80 % `herabgestuft`, darunter `ausgefallen`. Ein Ausfall in den letzten
+60 Sekunden stellt einen Provider nach hinten. Eine Rangliste gibt es nicht –
 die Rangfolge bildet jede App selbst (`ordneNachPruefung()`).
-
-| Tag | Inhalt |
-|---|---|
-| `d` | `<provider>:<modell>` – muss zu `p` und `modell` passen |
-| `p` | Schlüssel des Providers (64 Hex) |
-| `modell` | Kennung des Modells (sichtbare ASCII-Zeichen, höchstens 100) |
-| `zeitraum` | Beginn, Ende (Unix-Sekunden) |
-| `anfragen` | Anfragen, davon erfolgreich |
-| `median_ms` | Median der Antwortzeit |
-| `tokens_s` | Durchsatz in Tokens je Sekunde (freiwillig) |
-| `treffer` | je Prüfart ein Tag: Art, richtige Antworten, geprüfte Prüffragen |
-| `stufe` | `neu`, `normal`, `herabgestuft`, `ausgefallen` (`stufeAus()`) |
-| `expiration` | NIP-40, zwei Stunden nach dem Bericht |
-
-Inhalt leer. Gebaut nur über `baueMessbericht()`, gelesen nur über
-`leseMessbericht()` – abgelehnt werden falsche Signatur, Ablauf, Zahlen, die
-keine ganzen Zahlen sind oder nicht zusammenpassen (mehr Erfolge als Anfragen),
-eine unbekannte Stufe, eine Prüfart zweimal und ein `d`, das nicht zu `p` und
-`modell` passt. Prüfarten, die der Leser nicht kennt (neuere Prüfer), zählen
-nicht; die Quote über alle Arten rechnet `trefferQuote()`.
-
-**Stufen** (`PRUEF_GRENZEN`): erst ab 50 Prüffragen (eigene Messung der App:
-ab 20 eigenen Anfragen) – davor `neu`. Ab 95 % Erfolg `normal`, ab 80 %
-`herabgestuft`, darunter `ausgefallen`. Ein Ausfall in den letzten 60 Sekunden
-stellt einen Provider in der eigenen Messung nach hinten.
-
-**Prüffragen** (`neuePruefFrage()`, `pruefeAntwort()`): Rechnen, Umkehren,
-Zählen, Sortieren, JSON – aus Vorlagen mit Zufall, die Antwort prüft Code, kein
-Sprachmodell. Ein Prüfer fragt wie jeder Kunde: versiegelt, mit
-Sitzungsschlüssel, bezahlt – der Provider kann Prüffragen nicht von anderen
-unterscheiden, außer an ihrer Form.
 
 ## 29. Kopfgelder (Kind 38061, Entscheidung E10 B)
 

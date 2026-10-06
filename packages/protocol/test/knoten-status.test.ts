@@ -50,7 +50,7 @@ test("B-11a: Antwort – gelesen wird genau, was geschrieben wurde; unbekannte F
   assert.deepEqual(leseKnotenStatus(knotenStatusText({ ...s, rollen: ["speicher", "ki"] }))!.rollen, ["ki", "speicher"]);
   const mehr = JSON.stringify({ ...JSON.parse(knotenStatusText(s)), zukunft: [{ stufe: "ok" }] });
   assert.deepEqual(leseKnotenStatus(mehr), s, "ein neuerer Knoten darf mehr melden");
-  assert.ok(STATUS_ROLLEN.includes("ki") && STATUS_ROLLEN.includes("turn") && STATUS_ROLLEN.includes("pruefer") && STATUS_ROLLEN.length === 12);
+  assert.ok(STATUS_ROLLEN.includes("ki") && STATUS_ROLLEN.includes("turn") && !(STATUS_ROLLEN as readonly string[]).includes("pruefer") && STATUS_ROLLEN.length === 11);
   // Eine Rolle, die diese Fassung nicht kennt (neuerer Knoten), bleibt unbeachtet – der Rest des Status gilt (seit B-13a)
   const neuer = JSON.stringify({ ...JSON.parse(knotenStatusText(s)), rollen: ["ki", "zukunft", "relay"] });
   assert.deepEqual(leseKnotenStatus(neuer)!.rollen, ["ki", "relay"]);

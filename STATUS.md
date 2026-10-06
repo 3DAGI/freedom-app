@@ -16511,3 +16511,52 @@ mls 13, Leak 72 + 1 todo, check-wiring Exit 0, innerHTML Exit 0, Website ok,
 Smoke-Test bestanden.
 
 Knoten-Stand: unverändert.
+
+## Schritt P5a – Rückbau der Prüfer-Rolle (Entscheidung 05.10.2026)
+
+Freedom-Prüfung (E7). Am 05.10.2026 hat der MENSCH P3c entschieden:
+- **Keine Prüfer.** Stattdessen Pflicht-Prüfrunden: Die echte Anfrage geht
+  an drei Provider statt an einen, ohne Schalter. Gewünscht war etwa jede 40.
+  Zahlung; 0,5 % Budget reichen aber nur für etwa jede 400. (zwei weitere
+  Antworten ≈ zwei Zahlungen) – Rückfrage offen.
+  Ausgenommen sind nur Gerät, eigener Knoten und Funk.
+- **Budget:** 0,5 % jeder Zahlung aus dem Anteil der Entwicklung
+  (2,5 % → 2,0 %).
+- **Beide Währungen**, je nachdem, womit der Nutzer zahlt.
+
+Dazu kam eine Frage zum Datenschutz gegenüber Providern (D1 in `SAMMLUNG.md`).
+Ein echtes TEE gibt es auf DGX Spark/GB10, Macs und Gaming-PCs nicht. Geplant
+sind deshalb:
+- zuerst Stufe 1 in der App (Platzhalter für persönliche Daten, Schlüssel je
+  Unterhaltung);
+- danach ein Entwurf „Versiegelter Provider-Modus“ (gemessener Start mit TPM).
+
+**Was sich ändert:**
+- **Entfernt:**
+  - Prüfer-Rolle im Knoten (`pruefer-rolle.ts`, `pruefer-dienst.ts`,
+    `PRUEFER`);
+  - Messbericht 38081 (`messbericht.ts`, `FREEDOM_PRUEFER`);
+  - Prüffragen und `stufeFuerAuswahl()` (`pruefung.ts`);
+  - Prüfern folgen (`pruefer-wahl.ts`, `freedom.pruefer` samt Sicherung und
+    Regel);
+  - Status-Rolle `pruefer`.
+- **Auswahl** und Netz › Prüfung nur aus der eigenen Messung.
+- **Datenschutz-Aussage** „pruefung“ ohne Prüfer.
+- **Website:** FAQ ohne Prüfer, Whitepaper nennt Prüfrunden als „im Aufbau“;
+  `check-website.py` weist Aussagen über Prüfer ab.
+- **Doku:** `FREEDOM-PRUEFUNG.md` neu nach der Entscheidung (P5a–P5d),
+  `PROTOCOL.md` §28 „nicht mehr belegt“, `PROVIDER.md`.
+
+**Verdrahtet:** `providerMitStand()` → `mitMessung()` → `matchProviders()`
+(`stufe: p.messung?.stufe ?? "neu"`); `zeigePruefung()` → `pruefZeilen()`.
+
+**Prüfungen:**
+- protocol 1152 (−5) und node 314 (−10), weil die Karte Funktionen entfernt.
+- app 872 (−6 Prüfer-Wahl, +3 `pruef-anzeige.test.ts`).
+- mls 13, Leak 72 + 1 todo.
+- check-wiring Exit 0, innerHTML Exit 0, Website ok (Gegentest mit alter FAQ:
+  Exit 1).
+- Smoke-Test bestanden.
+
+Knoten-Stand: unverändert. Wer `PRUEFER=1` gesetzt hatte, entfernt den
+Schalter.

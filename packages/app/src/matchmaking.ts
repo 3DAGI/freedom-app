@@ -13,8 +13,8 @@
  *      Provider zuerst, dann nach der eigenen Messung (`messbuch.ts`) – normale,
  *      Neue (bekannte mit Quittungen vor unbekannten), Herabgestufte, gerade und
  *      laenger Ausgefallene; in den vorderen Gruppen zufaellig, gewichtet mit
- *      1/Preis² und dem Ruf. Hat die eigene Messung zu wenig, zaehlen seit P2b
- *      die Berichte der gewaehlten Pruefer (Stufe, Qualitaet: Ausreisser hinten)
+ *      1/Preis² und dem Ruf. Hat die eigene Messung zu wenig, gilt der Provider
+ *      als neu (Pruefer und ihre Berichte fielen mit P5a weg)
  *   3. Failover: antwortet der beste nicht in timeoutMs -> naechster
  *
  * Race-Modus (optional, NICHT default): siehe requestRace(). User zahlt
@@ -29,10 +29,8 @@ import {
   recommendedTier,
   KIND_PROVIDER_CAPABILITIES,
   type MessStand,
-  type PruefStand,
   type Ruf,
   ordneNachPruefung,
-  stufeFuerAuswahl,
   sichererZufall,
 } from "@freedomstack/protocol";
 
@@ -49,16 +47,6 @@ export interface ScoredProvider {
   reklamationen: number;
   /** Eigene Messung (P2a) – nur auf dem Geraet; ohne sie gilt der Provider als neu. */
   messung?: MessStand;
-  /** Stand aus den Berichten der gewaehlten Pruefer (P2b) – zaehlt, wo die eigene Messung zu wenig hat. */
-  pruefung?: PruefStand;
-}
-
-/** Die Berichte der gewaehlten Pruefer an die Provider haengen (P2b, frisch je Auswahl). */
-export function mitPruefung(providers: readonly ScoredProvider[], staende: ReadonlyMap<string, PruefStand>): ScoredProvider[] {
-  return providers.map((p) => {
-    const s = staende.get(p.caps.pubkey);
-    return s ? { ...p, pruefung: s } : p;
-  });
 }
 
 /** Die eigene Messung an die Provider haengen (frisch je Auswahl, der Angebots-Cache bleibt). */
@@ -154,15 +142,14 @@ export function matchProviders(
   // Eigene Provider (Allowlist) zuerst, unter sich nach Ruf und Preis
   const eigene = passend.filter((p) => allow.has(p.caps.pubkey))
     .sort((a, b) => b.score - a.score || a.caps.textRatePerKTokenMsat - b.caps.textRatePerKTokenMsat);
-  // Alle anderen nach der Pruefung (P2a): Stufe aus der eigenen Messung, sonst aus den Berichten
-  // der gewaehlten Pruefer (P2b), Qualitaet aus deren Prueffragen, Gewicht aus Preis und Ruf
+  // Alle anderen nach der Pruefung (P2a): Stufe aus der eigenen Messung (sonst neu),
+  // Gewicht aus Preis und Ruf
   const andere = ordneNachPruefung(
     passend.filter((p) => !allow.has(p.caps.pubkey)).map((p) => ({
       p,
       pk: p.caps.pubkey,
       preisMsat: p.caps.textRatePerKTokenMsat,
-      stufe: stufeFuerAuswahl(p.messung, p.pruefung),
-      ...(p.pruefung?.qualitaet === undefined ? {} : { qualitaet: p.pruefung.qualitaet }),
+      stufe: p.messung?.stufe ?? "neu",
       ausfallJetzt: p.messung?.ausfallJetzt ?? false,
       vertrauen: p.trustScore,
       bekannt: p.geprueft,

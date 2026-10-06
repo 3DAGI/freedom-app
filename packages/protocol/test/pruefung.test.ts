@@ -1,12 +1,12 @@
 /**
  * Freedom-Prüfung P1a (E7, docs/FREEDOM-PRUEFUNG.md): Stufen wie bei OpenRouter,
- * Prüffragen mit maschineller Antwortprüfung, eigene Messung und Auswahl
- * (Neue in der Mitte, Ausreißer nach hinten, 1/Preis²).
+ * eigene Messung und Auswahl (Neue in der Mitte, Ausreißer nach hinten, 1/Preis²).
+ * Prüffragen und die Stufe aus Prüferberichten fielen mit P5a weg.
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  PRUEF_ARTEN, fasseMessungZusammen, merkeMesspunkt, neuePruefFrage, ordneNachPruefung, pruefeAntwort, stufeAus, stufeFuerAuswahl, type PruefKandidat,
+  fasseMessungZusammen, merkeMesspunkt, ordneNachPruefung, stufeAus, type PruefKandidat,
 } from "../src/index.js";
 
 const JETZT = 1_790_000_000;
@@ -23,42 +23,6 @@ test("Stufen wie OpenRouter: erst ab genug Anfragen; 95 % normal, 80–94 % hera
   assert.equal(stufeAus(100, 94, 20), "herabgestuft");
   assert.equal(stufeAus(100, 80, 20), "herabgestuft");
   assert.equal(stufeAus(100, 79, 20), "ausgefallen");
-});
-
-test("Prüffragen: jedes Mal andere Werte, die richtige Antwort besteht, falsche nicht", () => {
-  for (const art of PRUEF_ARTEN) {
-    const a = neuePruefFrage(art, folge(0.1, 0.7, 0.3, 0.9, 0.5, 0.2, 0.8, 0.4, 0.6, 0.05, 0.95));
-    const b = neuePruefFrage(art, folge(0.65, 0.25, 0.85, 0.15, 0.45, 0.95, 0.35, 0.75, 0.55, 0.12, 0.88));
-    assert.notEqual(a.frage, b.frage, art);
-    assert.ok(pruefeAntwort(a, a.erwartet), `${art}: erwartete Antwort`);
-    assert.ok(!pruefeAntwort(a, b.erwartet), `${art}: fremde Antwort`);
-    assert.ok(!pruefeAntwort(a, ""), `${art}: leer`);
-  }
-});
-
-test("Antworten mit Hülle zählen, falsche Inhalte nicht", () => {
-  const r = neuePruefFrage("rechnen", folge(0.5, 0.5));
-  assert.ok(pruefeAntwort(r, `The result is ${r.erwartet}.`));
-  assert.ok(pruefeAntwort(r, `450 + 450 = ${r.erwartet}`), "die letzte Zahl zählt");
-  assert.ok(pruefeAntwort({ ...r, erwartet: "1176" }, "1,176"), "Tausender-Trennzeichen");
-  assert.ok(!pruefeAntwort(r, `${Number(r.erwartet) + 1}`));
-  const j = neuePruefFrage("json", folge(0.3, 0.6, 0.9));
-  assert.ok(pruefeAntwort(j, "```json\n" + j.erwartet + "\n```"), "im Codeblock");
-  const obj = JSON.parse(j.erwartet) as Record<string, unknown>;
-  assert.ok(!pruefeAntwort(j, JSON.stringify({ ...obj, mehr: 1 })), "kein zusätzlicher Schlüssel");
-  assert.ok(!pruefeAntwort(j, JSON.stringify({ ...obj, text: "anders" })));
-  assert.ok(!pruefeAntwort(j, "{kaputt"));
-  const s = neuePruefFrage("sortieren", folge(0.9, 0.1, 0.5, 0.3, 0.7));
-  assert.ok(pruefeAntwort(s, s.erwartet.split(",").join(", ")));
-  assert.ok(!pruefeAntwort(s, s.erwartet.split(",").reverse().join(",")));
-  const z = neuePruefFrage("zaehlen", folge(0.2, 0.7, 0.1, 0.9, 0.3));
-  assert.match(z.frage, /letter "[a-z]"/);
-  assert.ok(Number(z.erwartet) >= 1, "der Buchstabe steht mindestens einmal darin");
-  assert.ok(pruefeAntwort(z, `There are ${z.erwartet} occurrences.`));
-  assert.ok(!pruefeAntwort(z, `${Number(z.erwartet) + 1}`));
-  const u = neuePruefFrage("umkehren", folge(0.4, 0.2, 0.8));
-  assert.ok(pruefeAntwort(u, `  ${u.erwartet.toUpperCase()} `));
-  assert.ok(!pruefeAntwort(u, [...u.erwartet].reverse().join("")), "nicht das Original");
 });
 
 test("Eigene Messung: letzte 100 Punkte, Median der Zeiten, Ausfall in den letzten 60 Sekunden, Stufe erst ab 20", () => {
@@ -111,13 +75,4 @@ test("Lastverteilung: unter gleich Guten 1/Preis² – halb so teuer, viermal so
   assert.ok(Math.abs(mitVertrauen - 333) <= 2, `teuer mit vollem Vertrauen ${mitVertrauen} von 1000 vorn (2/6)`);
   assert.equal(ordneNachPruefung([], folge(0.5)).length, 0);
   assert.equal(ordneNachPruefung([{ pk: "gratis", preisMsat: 0, stufe: "normal" }], folge(0.5))[0].pk, "gratis", "gratis zählt wie 1 msat");
-});
-
-test("P2b: Stufe für die Auswahl – eigene Messung ab 20 geht vor, sonst Prüfer ab 50, sonst neu", () => {
-  assert.equal(stufeFuerAuswahl(), "neu");
-  assert.equal(stufeFuerAuswahl({ stufe: "neu" }, { stufe: "neu" }), "neu");
-  assert.equal(stufeFuerAuswahl({ stufe: "neu" }, { stufe: "herabgestuft" }), "herabgestuft", "eigene zu wenig – der Prüfer zählt");
-  assert.equal(stufeFuerAuswahl(undefined, { stufe: "normal" }), "normal");
-  assert.equal(stufeFuerAuswahl({ stufe: "ausgefallen" }, { stufe: "normal" }), "ausgefallen", "eigene Messung geht vor");
-  assert.equal(stufeFuerAuswahl({ stufe: "normal" }, { stufe: "ausgefallen" }), "normal");
 });

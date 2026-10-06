@@ -52,7 +52,7 @@ import { regelKeineLnAdresse, regelRaumRepoPrivat, regelZapAnonym } from "../src
 import { raumRepoAnkuendigung, raumRepoBundle, raumRepoIssue, raumRepoIssueStatus, raumRepoKommentar, raumRepoPatch } from "../src/raum-repo.js";
 import { fromHex, toHex } from "../src/htlc.js";
 import { LOKAL_STANDARD_ADRESSE, lokaleKiAdresse, lokaleKiAnfrage } from "../src/ki-lokal.js";
-import { baueMessbericht, messberichtFilter } from "../src/messbericht.js";
+import { fasseMessungZusammen, merkeMesspunkt } from "../src/pruefung.js";
 import type { NostrEvent, UnsignedEvent } from "../src/event.js";
 import { readFileSync } from "node:fs";
 import { gunzipSync } from "node:zlib";
@@ -190,17 +190,12 @@ const SZENARIEN: Record<string, () => Promise<number>> = {
     return woanders + fremd + regelKeinKlartextPrompt(events, [PROMPT]).length;
   },
   pruefung: async () => {
-    // Wie die App seit P2b: Berichte ohne Prüfer im Filter holen; die eigene Messung ist kein Event.
-    const verraet = Object.keys(messberichtFilter()).filter((k) => k !== "kinds" && k !== "limit").length;
-    // Ein Bericht nennt Provider und Zahlen – nie einen Kunden
-    const pruefer = generateKeypair();
-    const jetzt = Math.floor(Date.now() / 1000);
-    const bericht = signEvent(baueMessbericht({
-      provider: b.pk, modell: "llama3.1:8b", von: jetzt - 3600, bis: jetzt, anfragen: 60, erfolge: 59, medianMs: 900,
-      treffer: { rechnen: { richtig: 20, geprueft: 20 } }, stufe: "normal",
-    }, pruefer.pk, jetzt), pruefer.sk);
-    const vonDerApp: NostrEvent[] = [];
-    return verraet + regelKeinKlartext([...vonDerApp, bericht], [a.pk]).length + regelAutorNicht([bericht], a.pk).length;
+    // Die eigene Messung (P2a) entsteht auf dem Gerät aus dem Ausgang der Runde und ist kein Event;
+    // hinaus gehen nur die Umschläge der Runde selbst. Prüfer und Messberichte (38081) fielen mit P5a weg.
+    const { wraps } = await privateKiRunde();
+    const stand = fasseMessungZusammen(merkeMesspunkt([], { zeit: 1_790_000_000, ok: true, ms: 900 }), 1_790_000_000);
+    const keinEvent = "kind" in stand || "sig" in stand ? 1 : 0;
+    return wraps.filter((w) => w.kind !== 1059).length + keinEvent + regelKeinKlartext(wraps, [PROMPT, ANTWORT]).length;
   },
   "ki-zahlung": async () => {
     const { wraps } = await privateKiRunde();
