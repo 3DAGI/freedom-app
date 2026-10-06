@@ -74,12 +74,15 @@ async function leseHoechstens(r: Response, max: number): Promise<Uint8Array | un
   return alles;
 }
 
-/** Eine Anfrage: Status und (bei 200) die Antwort; `undefined`, wenn nichts Brauchbares kam. */
-async function frage(holen: OtsHolen, url: string, extra: RequestInit): Promise<{ status: number; bytes?: Uint8Array } | undefined> {
+/**
+ * Eine Anfrage ohne Zugangsdaten, Weiterleitung und Verweis, mit Frist:
+ * Status und (bei 200) höchstens `max` Bytes; `undefined`, wenn nichts
+ * Brauchbares kam. Auch für die Explorer (`ots-bitcoin.ts`).
+ */
+export async function holeHoechstens(holen: OtsHolen, url: string, extra: RequestInit, max: number): Promise<{ status: number; bytes?: Uint8Array } | undefined> {
   try {
     const r = await holen(url, {
       ...extra,
-      headers: { Accept: "application/vnd.opentimestamps.v1" },
       redirect: "error",
       credentials: "omit",
       referrerPolicy: "no-referrer",
@@ -91,12 +94,15 @@ async function frage(holen: OtsHolen, url: string, extra: RequestInit): Promise<
       void r.body?.cancel().catch(() => undefined);
       return { status: r.status };
     }
-    const bytes = await leseHoechstens(r, OTS_KALENDER_GRENZEN.antwortBytes);
+    const bytes = await leseHoechstens(r, max);
     return bytes ? { status: 200, bytes } : undefined;
   } catch {
     return undefined;
   }
 }
+
+const frage = (holen: OtsHolen, url: string, extra: RequestInit) =>
+  holeHoechstens(holen, url, { ...extra, headers: { Accept: "application/vnd.opentimestamps.v1" } }, OTS_KALENDER_GRENZEN.antwortBytes);
 
 export interface OtsStempel {
   /** Je Wert ein Beweis, alle mit denselben Versprechen der Kalender. */

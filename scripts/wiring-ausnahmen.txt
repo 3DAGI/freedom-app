@@ -215,3 +215,5 @@ ots-kalender.ts|reicheNach|OpenTimestamps-Kalender (B-17b1, K2/K5 A) – verdrah
 ots-kalender.ts|stempele|OpenTimestamps-Kalender (B-17b1, K2/K5 A) – verdrahtet in B-17b3 (App stempelt im Abruftakt)
 ots-nip03.ts|baueOtsBeweis|NIP-03 (B-17b1, K3 A) – verdrahtet in B-17b3 (Beweis zum eigenen Mandat)
 ots-nip03.ts|leseOtsBeweis|NIP-03 (B-17b1, K3 A) – verdrahtet in B-17b3 (Beweise zu Mandaten von Kontakten)
+ots-bitcoin.ts|leseBlockkopf|Prüfung gegen Bitcoin (B-17b2, K4 A) – verdrahtet in B-17b3 (bei Bedarf: Schlüsselwechsel, Streit)
+ots-bitcoin.ts|pruefeVerankerung|Prüfung gegen Bitcoin (B-17b2, K4 A) – verdrahtet in B-17b3 (bei Bedarf: Schlüsselwechsel, Streit)
