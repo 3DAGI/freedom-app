@@ -17046,3 +17046,55 @@ Teil von 12.7.
 `leseSendeZiel()`, Reihenfolge frisch vor verbunden ohne Hauptadresse,
 Verdrahtung ohne Relay und ohne Speichern). Smoke „waehrung“: ohne Betrag
 meldet sich der Dialog, ohne NWC und ohne Solana-Wallet je ein Hinweis.
+
+## Schritt D1b2 – Neuer Sitzungsschlüssel je Unterhaltung
+
+Datenschutz gegenüber Providern, Stufe 1 (Karte `docs/DATENSCHUTZ-PROVIDER.md`),
+nach D1b1. Bisher gab es je Provider einen Schlüssel für die ganze Sitzung der
+Seite – ein Provider konnte alle Unterhaltungen eines Kunden verbinden. Jetzt
+bekommt er für jede Unterhaltung einen neuen.
+
+**Was sich ändert:**
+- **`ki-sitzung.ts`:** `neueUnterhaltung()` – neue Schlüssel beim nächsten
+  Auftrag, die bisherigen kommen zurück (zum Begleichen) und bleiben
+  `ALT_HALTEN_MS` (30 Minuten) für späte Antworten (`mitPubkey()`).
+  `pubkeysFuer(ids)` statt `pubkeys()`: Antworten fragt die App nur für die
+  Schlüssel der gesuchten Aufträge ab – nie alte und neue in einer Abfrage.
+  `aktuell(provider)` ohne anzulegen.
+- **`session-client.ts`:** `offeneVon(kundePk)` und `begleiche(provider, kunde,
+  wallet)` – offene ganze sats ab 1 sat mit dem alten Schlüssel, sonst wie
+  `chargeForResult()` (gemeinsam `zahleFaellig()`: Rechnung zuerst, nie über
+  das Budget, unklar nie von selbst, nie zwei Zahlungen zugleich); der Beleg
+  (38022) vom selben Schlüssel, ohne neue Antwort (`units` 0, kein `e`).
+- **`shell/ki-wechsel.ts` (neu):** `wechsleKiSchluessel()` (Wechsel, dann
+  begleichen über `providerZahlung()`, Quittung über `quittungNachBegleichen()`)
+  und `begleicheWennVerlassen()` für Antworten, die nach dem Wechsel an einen
+  alten Schlüssel kommen.
+- **Datenschutz:** Grenze „ki-unterhaltung“ – ohne Event-Regel wie
+  „ki-verlauf“ (welcher Schlüssel je Unterhaltung, entscheidet die App; das
+  prüft `ki-wechsel.test.ts`). Grund: Zahlkanal (fester Schlüssel), wieder
+  geöffneter Verlauf, Zeitpunkte des Begleichens, Relay des Providers (IP ohne Tor).
+- **Whitepaper:** ein Satz im Abschnitt DVM.
+
+**Verdrahtet:** `neueAufgabe()` und `oeffneVerlauf()` (bei einer anderen
+Unterhaltung, `shell/tabs/agent-verlauf.ts`) → `wechsleKiSchluessel()`;
+`handleAnswer()` (`shell/tabs/agent.ts`) und `bezahle()`
+(`shell/pruefrunde-lauf.ts`) → `begleicheWennVerlassen()` nach der Quittung;
+`privateAntworten()` (`shell/tabs/agent-wege.ts`) → `kiSitzungen.pubkeysFuer(ids)`.
+
+**Tests:** neu `ki-wechsel.test.ts` (3): neue Schlüssel je Unterhaltung, alte nur
+bis zur Haltezeit, Abfrage nur je Auftrag; `begleiche()` (ab 1 sat, alter
+Schlüssel, Beleg ohne neue Antwort, Rechnung gescheitert → nicht unklar,
+unklar → nie von selbst); Verdrahtung. `privacy-facts.test.ts`: Grenze
+„ki-unterhaltung“ mit allen vier Gründen, Liste ohne Event-Regel ergänzt.
+Gleich streng angepasst: `knoten-weg.test.ts` (`pubkeysFuer(ids)` statt `pubkeys()`).
+
+**Prüfungen:**
+- protocol 1177 grün nach dem Einmergen von main mit B-17b1 (vorher 1176), 6 übersprungen, 0 rot;
+- node 314 grün, 6 übersprungen;
+- app 906 grün nach dem Einmergen von main mit 12.7b (vorher 903), Build ok;
+- Leak 73 grün + 1 todo; mls 13 grün;
+- check-wiring `--streng` Exit 0, check-website 5 Seiten ok, check_innerhtml Exit 0;
+- Smoke-Test bestanden.
+
+Knoten-Stand: unverändert. Der Knoten sieht nur mehr Sitzungsschlüssel.

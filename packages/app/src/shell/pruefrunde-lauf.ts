@@ -20,6 +20,7 @@ import { type ScoredProvider } from "../matchmaking.js";
 import { PRUEFRUNDE } from "../pruefbudget.js";
 import { mitEinig, rueckgabeMsat, waehleZusatz, werteRundeAus } from "../pruefrunde.js";
 import { type SessionClient } from "../session-client.js";
+import { begleicheWennVerlassen } from "./ki-wechsel.js";
 import { kanalDa, providerZahlung, pruefBudget, rechneAntwortAb, zahleAnteile, zieleNachSchiene } from "./ki-zahlung.js";
 import { kopplungFuer } from "./mein-knoten.js";
 import { merkeMessung } from "./messung.js";
@@ -106,6 +107,7 @@ async function bezahle(ev: NostrEvent, r: ReturnType<typeof parseJobResult>, sc:
     const { zahlung } = await providerZahlung(r.providerPubkey);
     const charge = await sc.chargeForResult(r.providerPubkey, abrechnung.providerMsat, ev.id, zahlung, kiSitzungen.fuerAuftrag(r.requestId));
     void quittungNachZahlung(r.providerPubkey, abrechnung.providerMsat, charge);
+    void begleicheWennVerlassen(sc, r.providerPubkey, kiSitzungen.fuerAuftrag(r.requestId)).catch(() => {});
   }
   return r.amountMsat;
 }

@@ -553,7 +553,8 @@ test("belegte Aussagen nennen ihre Regel, und jede genannte Regel gibt es", () =
   }
   // Ohne Regel nur, was kein Event-Mitschnitt pruefen kann.
   // „ki-verlauf“ (D1c): was der Provider nach dem Öffnen liest, sieht kein Mitschnitt – den Umfang prüft app/test/ki-kontext.test.ts
-  assert.deepEqual(PRIVACY_FACTS.filter((f) => !f.regel).map((f) => f.id).sort(), ["dm-forward-secrecy", "ip", "ki-verlauf", "werbe-name"]);
+  // „ki-unterhaltung“ (D1b2): welcher Schlüssel je Unterhaltung, entscheidet die App – das prüft app/test/ki-wechsel.test.ts
+  assert.deepEqual(PRIVACY_FACTS.filter((f) => !f.regel).map((f) => f.id).sort(), ["dm-forward-secrecy", "ip", "ki-unterhaltung", "ki-verlauf", "werbe-name"]);
 });
 
 test("4.5b: eine SOL-Adresse je Knoten steht als bewusste Grenze im Bericht – mit Grund und Entscheidung", () => {
@@ -632,6 +633,15 @@ test("D1c: wie viel Verlauf mitgeht, steht als Grenze im Bericht – Standard un
   assert.match(f?.aussage ?? "", /Standard höchstens 6 Nachrichten und 3 000 Zeichen, einstellbar von „aus“ bis „lang“ \(12 Nachrichten, 6 000 Zeichen\)/);
   const t = privacyFactsText();
   assert.match(t.slice(t.indexOf("Bewusste Grenzen:")), /△ Zu jeder KI-Frage schickt die App die letzten Nachrichten der Unterhaltung mit/);
+});
+
+test("D1b2: neuer Schlüssel je Unterhaltung steht als Grenze im Bericht – mit Zahlkanal, Verlauf, Zeitpunkten und Relay", () => {
+  const f = PRIVACY_FACTS.find((x) => x.id === "ki-unterhaltung");
+  assert.equal(f?.status, "grenze");
+  assert.match(f?.aussage ?? "", /^Für jede KI-Unterhaltung bekommt jeder Provider einen neuen Sitzungsschlüssel/);
+  for (const g of [/Zahlkanal/, /wieder geöffnete Unterhaltung schickt ihren Verlauf mit/, /Zeitpunkte/, /Relay/]) assert.match(f?.grund ?? "", g);
+  const t = privacyFactsText();
+  assert.match(t.slice(t.indexOf("Bewusste Grenzen:")), /△ Für jede KI-Unterhaltung bekommt jeder Provider einen neuen Sitzungsschlüssel/);
 });
 
 test("Grenzen nennen ihren Grund", () => {

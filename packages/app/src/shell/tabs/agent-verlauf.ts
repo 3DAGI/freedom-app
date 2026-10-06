@@ -9,6 +9,7 @@ import { geheim } from "../tresor.js";
 import { $, el, haekchenEl } from "../ui.js";
 import { addAiMessage } from "./agent-anzeige.js";
 import { neueZuordnung } from "../ki-platzhalter.js";
+import { wechsleKiSchluessel } from "../ki-wechsel.js";
 
 // -------------------------------------------------- Agent: lokaler Verlauf
 
@@ -89,6 +90,7 @@ export function zeigeVerlaeufe(): void {
 function oeffneVerlauf(id: string): void {
   const v = ladeVerlaeufe().find((x) => x.id === id);
   if (!v) return;
+  if (aktuellerVerlauf?.id !== v.id) wechsleKiSchluessel(); // D1b2: neue Sitzungsschlüssel je Unterhaltung
   aktuellerVerlauf = v;
   neueZuordnung(); // Platzhalter (D1a) je Unterhaltung
   const thread = document.getElementById("ai-thread");
@@ -105,6 +107,7 @@ function oeffneVerlauf(id: string): void {
 export function neueAufgabe(): void {
   aktuellerVerlauf = null;
   neueZuordnung(); // Platzhalter (D1a) je Unterhaltung
+  wechsleKiSchluessel(); // D1b2: neue Sitzungsschlüssel je Unterhaltung
   const thread = document.getElementById("ai-thread");
   const leer = document.getElementById("ai-empty");
   if (thread) thread.replaceChildren(...(leer ? [leer] : []));

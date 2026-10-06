@@ -84,6 +84,15 @@ export interface ProviderZahlung {
   zahle(rechnung: string, amountMsat: number): Promise<string>;
 }
 
+/** Ergebnis von `begleiche()` – mit Rechnung und Preimage die Quittung (5.5b). */
+export interface Beglichen {
+  settled: boolean;
+  unklar: boolean;
+  gezahltMsat: number;
+  paymentRef?: string;
+  rechnung?: string;
+}
+
 export class SessionClient {
   private sessions = new Map<string, ActiveSession>();
   private seqCounters = new Map<string, number>();
@@ -169,36 +178,7 @@ export class SessionClient {
     this.seqCounters.set(session.open.sessionId, seq);
 
     // Settlement-Fenster erreicht? Nie ueber das Budget der Sitzung hinaus.
-    const offen = Math.min(session.chargedMsat, session.open.maxTotalMsat) - session.paidMsat;
-    const due = offen - (offen % 1000);
-    let paymentRef: string | undefined;
-    // Die bezahlte Rechnung – mit dem Preimage die Quittung (5.5b)
-    let bezahlteRechnung: string | undefined;
-    let settled = false;
-    let unklar = false;
-
-    if (due > 0 && due >= session.open.settleEveryMsat && wallet && !session.unklar && !session.zahlt) {
-      session.zahlt = true;
-      try {
-        let rechnung: string | undefined;
-        try {
-          rechnung = await wallet.rechnung(due);
-        } catch { /* nichts gezahlt – Beleg-only, beim naechsten Mal wieder */ }
-        if (rechnung) {
-          try {
-            paymentRef = await wallet.zahle(rechnung, due);
-            bezahlteRechnung = rechnung;
-            settled = true;
-            session.paidMsat += due;
-          } catch {
-            session.unklar = rechnung;
-            unklar = true;
-          }
-        }
-      } finally {
-        session.zahlt = false;
-      }
-    }
+    const { settled, unklar, due, paymentRef, rechnung: bezahlteRechnung } = await this.zahleFaellig(session, session.open.settleEveryMsat, wallet);
 
     const cumulativeMsat = session.paidMsat;
     const payment = await kunde.signEvent(
@@ -224,6 +204,72 @@ export class SessionClient {
       ...(bezahlteRechnung ? { rechnung: bezahlteRechnung } : {}),
       remainingMsat: session.open.maxTotalMsat - session.chargedMsat,
     };
+  }
+
+  /**
+   * Faellige Summe zahlen – ganze sats, nie ueber das Budget, ab `abMsat`:
+   * erst die Rechnung (bewegt kein Geld), dann zahlen; nach unklarem Ausgang
+   * zahlt diese Sitzung nie wieder von selbst, und nie zwei Zahlungen zugleich.
+   */
+  private async zahleFaellig(session: ActiveSession, abMsat: number, wallet?: ProviderZahlung): Promise<{ settled: boolean; unklar: boolean; due: number; paymentRef?: string; rechnung?: string }> {
+    const offen = Math.min(session.chargedMsat, session.open.maxTotalMsat) - session.paidMsat;
+    const due = offen - (offen % 1000);
+    if (!(due > 0 && due >= abMsat && wallet && !session.unklar && !session.zahlt)) return { settled: false, unklar: false, due };
+    session.zahlt = true;
+    try {
+      let rechnung: string | undefined;
+      try {
+        rechnung = await wallet.rechnung(due);
+      } catch { /* nichts gezahlt – Beleg-only, beim naechsten Mal wieder */ }
+      if (!rechnung) return { settled: false, unklar: false, due };
+      try {
+        const paymentRef = await wallet.zahle(rechnung, due);
+        session.paidMsat += due;
+        // Die bezahlte Rechnung – mit dem Preimage die Quittung (5.5b)
+        return { settled: true, unklar: false, due, paymentRef, rechnung };
+      } catch {
+        session.unklar = rechnung;
+        return { settled: false, unklar: true, due };
+      }
+    } finally {
+      session.zahlt = false;
+    }
+  }
+
+  /** Provider, bei denen dieser Schluessel noch ganze sats schuldet (D1b2) – auch abgelaufene und volle Sitzungen. */
+  offeneVon(kundePk: string): string[] {
+    const offen = new Set<string>();
+    for (const s of this.sessions.values()) {
+      if (s.open.customerPubkey !== kundePk || s.unklar) continue;
+      if (Math.min(s.chargedMsat, s.open.maxTotalMsat) - s.paidMsat >= 1000) offen.add(s.open.providerPubkey);
+    }
+    return [...offen];
+  }
+
+  /**
+   * Offene Betraege dieses Schluessels beim Provider begleichen (D1b2) – vor dem
+   * Wechsel zu einem neuen Schluessel: ab 1 sat statt erst ab dem Fenster,
+   * sonst wie `chargeForResult()`. Der Beleg kommt vom selben Schluessel und
+   * nennt keine neue Antwort.
+   */
+  async begleiche(providerPubkey: string, kunde: Signer, wallet?: ProviderZahlung): Promise<Beglichen> {
+    let ergebnis: Beglichen = { settled: false, unklar: false, gezahltMsat: 0 };
+    for (const session of this.sessions.values()) {
+      if (session.open.providerPubkey !== providerPubkey || session.open.customerPubkey !== kunde.publicKey()) continue;
+      const z = await this.zahleFaellig(session, 1000, wallet);
+      if (z.unklar) ergebnis = { ...ergebnis, unklar: true };
+      if (!z.settled) continue;
+      const seq = (this.seqCounters.get(session.open.sessionId) ?? 0) + 1;
+      this.seqCounters.set(session.open.sessionId, seq);
+      const beleg = await kunde.signEvent(buildSessionPayment({
+        customerPubkey: kunde.publicKey(), sessionId: session.open.sessionId, seq,
+        cumulativeMsat: session.paidMsat, unitsSinceLast: 0, paymentRef: z.paymentRef,
+      }));
+      await this.versiegeltSenden(beleg, providerPubkey, kunde);
+      session.payments.push(parseSessionPayment(beleg));
+      ergebnis = { settled: true, unklar: ergebnis.unklar, gezahltMsat: ergebnis.gezahltMsat + z.due, paymentRef: z.paymentRef, rechnung: z.rechnung };
+    }
+    return ergebnis;
   }
 
   /**

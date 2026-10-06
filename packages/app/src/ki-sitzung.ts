@@ -9,11 +9,17 @@
  * Seit D1b1 (`docs/DATENSCHUTZ-PROVIDER.md`) merkt sie, welcher Schluessel
  * welchen Auftrag stellte: Abrechnung und Reklamation nehmen diesen, nicht den
  * aktuellen – den `p`-Tag im Ergebnis setzt der Provider selbst.
+ *
+ * Seit D1b2 gibt es je Unterhaltung neue Schluessel (`neueUnterhaltung()`):
+ * Ueber den Schluessel kann ein Provider zwei Unterhaltungen nicht verbinden.
+ * Die bisherigen bleiben `ALT_HALTEN_MS` fuer spaete Antworten.
  */
 import { LocalSigner, generateKeypair, toHex } from "@freedomstack/protocol";
 
 /** So viele Auftraege merkt sich die Seite ihren Schluessel. */
 export const KI_AUFTRAEGE_MAX = 1000;
+/** So lange holt das Abo Antworten an die Schluessel einer verlassenen Unterhaltung noch ab – laenger als ein Lauf mit Failover. */
+export const ALT_HALTEN_MS = 30 * 60_000;
 
 export class KiSitzungen {
   readonly #je = new Map<string, LocalSigner>();
@@ -21,6 +27,8 @@ export class KiSitzungen {
   readonly #roh = new Map<string, string>();
   /** Auftrag (Request-Id) → Sitzungsschluessel, der ihn stellte. */
   readonly #auftraege = new Map<string, LocalSigner>();
+  /** Schluessel verlassener Unterhaltungen – nur noch fuer spaete Antworten, bis `bis`. */
+  #alt: Array<{ signer: LocalSigner; bis: number }> = [];
 
   /** Der Sitzungsschluessel fuer diesen Provider – beim ersten Mal neu. */
   fuer(providerPk: string): LocalSigner {
@@ -55,14 +63,46 @@ export class KiSitzungen {
     return this.#auftraege.get(requestId);
   }
 
-  /** Alle bisher erzeugten Sitzungsschluessel (Pubkeys) – fuer das Abo privater Antworten (3.2). */
-  pubkeys(): string[] {
-    return [...this.#je.values()].map((s) => s.publicKey());
+  /**
+   * Neue Unterhaltung (D1b2): Jeder Provider bekommt beim naechsten Auftrag
+   * einen neuen Schluessel. Die bisherigen kommen zurueck – mit ihnen begleicht
+   * die App offene Betraege – und bleiben `ALT_HALTEN_MS` fuer spaete Antworten.
+   */
+  neueUnterhaltung(jetzt = Date.now()): LocalSigner[] {
+    const bisher = [...this.#je.values()];
+    for (const signer of bisher) this.#alt.push({ signer, bis: jetzt + ALT_HALTEN_MS });
+    this.#je.clear();
+    return bisher;
   }
 
-  /** Der Sitzungsschluessel mit diesem Pubkey, falls es ihn gibt. */
-  mitPubkey(pk: string): LocalSigner | undefined {
-    for (const s of this.#je.values()) if (s.publicKey() === pk) return s;
-    return undefined;
+  /** Aktuelle und noch gehaltene Schluessel – abgelaufene vergisst sie dabei. */
+  #alle(jetzt: number): LocalSigner[] {
+    this.#alt = this.#alt.filter((a) => a.bis > jetzt);
+    return [...this.#je.values(), ...this.#alt.map((a) => a.signer)];
+  }
+
+  /**
+   * Die Schluessel dieser Auftraege, solange gehalten – fuer die Abfrage ihrer
+   * Antworten (3.2). Seit D1b2 nur diese: nie die Schluessel anderer
+   * Unterhaltungen in derselben Abfrage.
+   */
+  pubkeysFuer(requestIds: Iterable<string>, jetzt = Date.now()): string[] {
+    const gehalten = new Set(this.#alle(jetzt));
+    const pks = new Set<string>();
+    for (const id of requestIds) {
+      const s = this.#auftraege.get(id);
+      if (s && gehalten.has(s)) pks.add(s.publicKey());
+    }
+    return [...pks];
+  }
+
+  /** Der Sitzungsschluessel mit diesem Pubkey, falls es ihn gibt (auch einer verlassenen Unterhaltung, solange gehalten). */
+  mitPubkey(pk: string, jetzt = Date.now()): LocalSigner | undefined {
+    return this.#alle(jetzt).find((s) => s.publicKey() === pk);
+  }
+
+  /** Der aktuelle Schluessel fuer diesen Provider, ohne einen anzulegen. */
+  aktuell(providerPk: string): LocalSigner | undefined {
+    return this.#je.get(providerPk);
   }
 }
