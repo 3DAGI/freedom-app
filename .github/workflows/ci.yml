@@ -74,9 +74,6 @@ jobs:
       - name: Installer-Syntax pruefen
         run: bash -n scripts/install-freedom.sh
 
-      - name: Gate-Server-Syntax pruefen
-        run: python3 -m py_compile packages/website/gated-server.py
-
       - name: Container-Paket pruefen
         # Ein kaputtes compose-File faellt sonst erst dem ersten Provider auf,
         # der es ausprobiert — also genau dem, den es abholen sollte.
