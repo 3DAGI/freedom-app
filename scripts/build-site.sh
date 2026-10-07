@@ -2,8 +2,7 @@
 # Baut den veroeffentlichbaren Website-Ordner.
 #
 # Nur oeffentliche Dateien: Startseite, Unterseiten, Stil, Manifest, die
-# App und der Provider-Installer (install.sh). Interne Dateien (build.sh, gated-server.py, DEPLOY.md) bleiben draussen —
-# DEPLOY.md enthaelt lokale Pfade, die niemanden etwas angehen.
+# App und der Provider-Installer (install.sh). Nichts sonst aus dem Repository.
 #
 # Die App kommt immer frisch aus dem Build, mit passender Pruefsumme daneben.
 #

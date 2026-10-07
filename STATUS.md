@@ -17433,3 +17433,42 @@ für Kanäle, Konten und Wortwahl. `docs/mls-spike/` bleibt (Beleg für
 check-wiring `--streng` Exit 0, check-website 5 Seiten und 4 Einstiegsdateien ok
 (auch das neue README), check_innerhtml Exit 0, repro-build reproduzierbar,
 build-site Exit 0, Smoke-Test bestanden.
+
+## Schritt C-22c – Aufräumen: Code-Reste
+
+Sammlung C-22, entschieden 07.10.2026 (N1). Nur Entfernen und Verschieben –
+kein Verhalten der App, des Knotens oder der Website ändert sich.
+
+**Entfernt:**
+- `packages/launcher/` – Tauri-Prototyp für den Provider-Knoten aus der Zeit
+  vor 5.1 (Lightning-Adresse und Preis in einer JSON-Datei, der geheime
+  Schlüssel des Knotens als Klartext darin). Nie in der CI gebaut, nirgends
+  verlinkt außer als „geplant“ auf der Website. 6.1a (C-23) legt
+  `packages/launcher/` nach der Karte neu an – als Hülle der App, nicht des
+  Knotens; der Eintrag für `target/` in `.gitignore` bleibt dafür.
+- `packages/website/gated-server.py` – Passwort-Riegel für die Zeit vor GitHub
+  Pages – samt CI-Schritt „Gate-Server-Syntax prüfen“.
+- `packages/website/build.sh` – alter Build, der die App in den Website-Ordner
+  kopierte; veröffentlicht wird seit 0.I nur über `scripts/build-site.sh`. Der
+  Eintrag für die Kopie in `.gitignore` fällt mit.
+- `agent/patch/freedomstack-interop-2.1.patch` (in 2.1 eingespielt) und
+  `scripts/interop/create-pr.sh` (einmaliger Helfer dazu).
+
+**Ins Archiv:** `agent/ANLEITUNG-INTEROP.md` (der Interop-Test aus 2.1; die
+Werkzeuge `scripts/interop/nip17-bot.mjs` und `nip17_ui_test.py` bleiben) und
+`packages/website/DEPLOY.md` als `docs/archiv/website-DEPLOY.md` (Handanleitung
+für IPFS, Tor, ENS mit lokalen Pfaden – heute Spiegel-Job und `docs/KONTEN.md`).
+
+**Gefunden:** Wer beim Einstieg „Rechner vermieten“ wählt, liest „Ein Befehl
+richtet alles ein“ – Earn zeigt aber keinen Befehl, und `providerNextStep()`
+ist nirgends verdrahtet. Nicht hier behoben (das wäre Oberfläche, kein
+Aufräumen), sondern als C-24 in der Sammlung.
+
+Offen bleibt auf der Website die Karte „freedom launcher – geplant“; sie wird
+mit 6.1a an die Entscheidung N2 angepasst.
+
+**Prüfungen:** protocol 1186 grün (6 übersprungen), node 314 grün (6
+übersprungen), app 928 grün, Leak 73 grün + 1 todo, mls 13 grün – unverändert;
+check-wiring `--streng` Exit 0, check-website ok, check_innerhtml Exit 0,
+`ci.yml` gültig (YAML), repro-build reproduzierbar, build-site Exit 0,
+Smoke-Test bestanden.
