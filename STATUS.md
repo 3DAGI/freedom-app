@@ -17379,3 +17379,16 @@ obwohl der Knoten seit 8.2b selbst Rechnungen ausstellen kann.
 
 Entscheidungen vom 07.10.2026 in der Sammlung (Abschnitt 5): N1 Aufräumen durch
 Spur C (C-22), N2 Native Apps jetzt mit Tauri 2 (C-23 = 6.1), L1 Lizenz offen.
+
+**Prüfungen:**
+- protocol 1186 grün, 6 übersprungen, 0 rot (unverändert);
+- node 314 grün, 6 übersprungen;
+- app 928 grün (vorher 927), Build ok;
+- Leak 73 grün + 1 todo; mls 13 grün;
+- check-wiring `--streng` Exit 0, check-website 5 Seiten und 4 Einstiegsdateien ok,
+  check_innerhtml Exit 0;
+- repro-build reproduzierbar; build-site Exit 0, `install.sh.sha256` gleich der
+  Summe von `scripts/install-freedom.sh`;
+- Smoke-Test bestanden.
+
+Knoten-Stand: unverändert (nur ein Kommentar in `main.ts`).
