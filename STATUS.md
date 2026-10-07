@@ -17653,3 +17653,40 @@ derselbe Fallstrick wie in 11.1b.
   + 1 todo, mls 13 grün.
 - check-wiring `--streng` Exit 0, check-website ok, check_innerhtml Exit 0.
 - repro-build reproduzierbar, build-site Exit 0, Smoke-Test bestanden.
+
+## Schritt 6.1a4a – Pakete der Desktop-Hülle in der CI
+
+Teil a4 von 6.1a (Sammlung C-23), aufgeteilt in a4a und a4b. a4a bringt Pakete
+zum Testen auf Geräten. a4b ist das Selbst-Update der Hülle; dafür braucht es
+einen Signierschlüssel (MENSCH).
+
+**CI (`launcher.yml`):**
+- Nach Tests und Release-Bau baut der Job mit `tauri-cli` 2 die Pakete:
+  - Linux: `.deb` (5,1 MB; hängt an `libwebkit2gtk-4.1-0` und `libgtk-3-0`)
+    und AppImage (80 MB, WebKitGTK eingepackt).
+  - Windows: NSIS-Installer für den eigenen Benutzer, ohne
+    Administratorrechte.
+- `tauri-cli` ist das Bauwerkzeug von Tauri 2 (freigegeben mit N2) und liegt
+  im Zwischenspeicher.
+- Abgelegt wird alles mit `SHA256SUMS` als Artefakt des Laufs (14 Tage). Das
+  ist **kein Release**: unsigniert (Windows warnt über SmartScreen), nirgends
+  verlinkt. Die Website sagt weiter „Pakete folgen“.
+
+**`tauri.conf.json`:** Kurzbeschreibung, Beschreibung, Kategorie, `publisher`
+(sonst stand „github“ als Maintainer im `.deb`), NSIS `installMode:
+currentUser`.
+
+**Lokal geprüft:**
+- `cargo tauri build --bundles deb,appimage` baut beide Pakete.
+- Im `.deb` stehen Abhängigkeiten, Symbole und Desktop-Eintrag.
+- Die AppImage startet unter Xvfb (`APPIMAGE_EXTRACT_AND_RUN=1`) und zeigt
+  die App. Das Test-Profil ist danach gelöscht.
+
+**Offen:**
+- Der Windows-Installer ist nur in der CI gebaut. Testen auf Geräten:
+  MENSCH.
+- Der AppImage-Bau lädt linuxdeploy und dessen Plugin von GitHub. Tauri pinnt
+  das Plugin nicht („continuous“). Für Releases (a4b) prüfen oder selbst
+  pinnen.
+
+**Prüfungen:** PRUEF_PLATZHALTER
