@@ -31,13 +31,20 @@ pub fn antwort(pfad: &str, html: &[u8]) -> Response<Vec<u8>> {
     gebaut.unwrap_or_else(|_| Response::new(Vec::new()))
 }
 
+/// Unter Windows und Android erwartet das Webview eigene Schemata als
+/// `http://<schema>.localhost` (Tauri), unter Linux als `<schema>://localhost`.
+const HTTP_FORM: bool = cfg!(any(windows, target_os = "android"));
+
+/// Woran die App die Hülle erkennt (`__FREEDOM_NATIVE__.huelle`).
+pub const HUELLE: &str = if cfg!(target_os = "android") { "android" } else { "desktop" };
+
 /// Wohin das Fenster navigieren darf: nur der eigene Ursprung – und Blob-Adressen
 /// dieses Ursprungs (Downloads wie der Export der App). Ein Link auf eine fremde
 /// Seite ersetzt die App also nie; neue Fenster lehnt `main.rs` ganz ab.
 pub fn darf_navigieren(url: &Url) -> bool {
     let eigen = |u: &Url| match (u.scheme(), u.host_str()) {
-        ("freedom", Some("localhost")) => cfg!(not(windows)),
-        ("http", Some("freedom.localhost")) => cfg!(windows),
+        ("freedom", Some("localhost")) => !HTTP_FORM,
+        ("http", Some("freedom.localhost")) => HTTP_FORM,
         _ => false,
     };
     if url.scheme() == "blob" {
@@ -49,14 +56,14 @@ pub fn darf_navigieren(url: &Url) -> bool {
 /// Woran die App erkennt, dass sie in der Hülle läuft – als Skript vor jeder Seite.
 pub fn kennung_skript() -> String {
     format!(
-        "Object.defineProperty(window, \"__FREEDOM_NATIVE__\", {{ value: Object.freeze({{ huelle: \"desktop\", fassung: \"{}\" }}), writable: false, configurable: false }});",
+        "Object.defineProperty(window, \"__FREEDOM_NATIVE__\", {{ value: Object.freeze({{ huelle: \"{HUELLE}\", fassung: \"{}\" }}), writable: false, configurable: false }});",
         env!("CARGO_PKG_VERSION")
     )
 }
 
 /// Die Adresse der Oberfläche – je Plattform die Form, die das Webview für eigene Schemata erwartet.
 pub fn adresse() -> &'static str {
-    if cfg!(windows) {
+    if HTTP_FORM {
         "http://freedom.localhost/"
     } else {
         "freedom://localhost/"
@@ -100,6 +107,15 @@ mod tests {
         assert!(s.contains("__FREEDOM_NATIVE__"));
         assert!(s.contains("writable: false") && s.contains("configurable: false"));
         assert!(s.contains(env!("CARGO_PKG_VERSION")));
+        // Die App unterscheidet Desktop und Android am Feld `huelle` (6.1c) – genau diese zwei
+        assert!(s.contains(&format!("huelle: \"{HUELLE}\"")));
+        assert_eq!(HUELLE, if cfg!(target_os = "android") { "android" } else { "desktop" });
+    }
+
+    #[test]
+    fn android_und_windows_nutzen_die_http_form() {
+        assert_eq!(HTTP_FORM, cfg!(any(windows, target_os = "android")));
+        assert_eq!(adresse(), if HTTP_FORM { "http://freedom.localhost/" } else { "freedom://localhost/" });
     }
 
     #[test]
@@ -122,7 +138,7 @@ mod tests {
             assert!(!darf_navigieren(&u(fremd)), "{fremd}");
         }
         // Die Form der jeweils anderen Plattform gilt hier nicht
-        let andere = if cfg!(windows) { "freedom://localhost/" } else { "http://freedom.localhost/" };
+        let andere = if HTTP_FORM { "freedom://localhost/" } else { "http://freedom.localhost/" };
         assert!(!darf_navigieren(&u(andere)));
     }
 

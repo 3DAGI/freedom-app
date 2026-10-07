@@ -4,6 +4,8 @@
 # Pakete zum Testen auf Geraeten (deb, AppImage, Installer fuer Windows) und legt
 # sie mit Pruefsummen als Artefakt des Laufs ab – unsigniert und kein Release:
 # veroeffentlicht wird nichts (das Selbst-Update der Hülle folgt mit 6.1a4b).
+# Seit 6.1c auch Android: ein APK fuer arm64, signiert mit einem Wegwerf-Schluessel,
+# der nur in diesem Lauf entsteht – zum Testen, kein Release.
 
 name: Desktop-Hülle
 
@@ -102,5 +104,87 @@ jobs:
             packages/launcher/target/release/bundle/deb/*.deb
             packages/launcher/target/release/bundle/appimage/*.AppImage
             packages/launcher/target/release/bundle/nsis/*-setup.exe
+          if-no-files-found: error
+          retention-days: 14
+
+  android:
+    name: Android-APK bauen (Test)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      NDK_VERSION: "27.3.13750724"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: App bauen (wird beigelegt)
+        run: |
+          npm install --workspaces --include-workspace-root --no-audit --no-fund
+          cd packages/app && node build.mjs && test -f dist/freedom.html
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Android-NDK (fester Stand)
+        run: |
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;$NDK_VERSION" > /dev/null
+          echo "NDK_HOME=$ANDROID_HOME/ndk/$NDK_VERSION" >> "$GITHUB_ENV"
+
+      - name: Rust zwischenspeichern
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ~/.cargo/bin/cargo-tauri
+            packages/launcher/target
+          key: launcher-android-${{ hashFiles('packages/launcher/Cargo.lock') }}
+
+      - name: tauri-cli (Tauri 2)
+        run: |
+          if ! cargo tauri --version 2>/dev/null | grep -q '^tauri-cli 2\.'; then
+            cargo install tauri-cli --version "^2" --locked
+          fi
+
+      - name: Android-Projekt erzeugen, eigene Symbole
+        working-directory: packages/launcher
+        run: |
+          cargo tauri android init --ci
+          python3 ../../scripts/launcher-symbole.py --android
+
+      - name: APK bauen (arm64)
+        working-directory: packages/launcher
+        run: cargo tauri android build --apk --target aarch64 --ci
+
+      - name: Signieren mit Wegwerf-Schluessel (nur dieser Lauf)
+        working-directory: packages/launcher/gen/android/app/build/outputs/apk/universal/release
+        run: |
+          BT="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)"
+          PW="$(head -c 24 /dev/urandom | base64 | tr -d '/+=')"
+          keytool -genkeypair -keystore "$RUNNER_TEMP/wegwerf.jks" -storepass "$PW" -keypass "$PW" -alias test \
+            -keyalg EC -groupname secp256r1 -validity 30 -dname "CN=FreedomStack Test (je Lauf neu)" 2> /dev/null
+          "$BT/zipalign" -P 16 -f 4 app-universal-release-unsigned.apk ausgerichtet.apk
+          "$BT/apksigner" sign --ks "$RUNNER_TEMP/wegwerf.jks" --ks-pass "pass:$PW" --out freedom-android-arm64-test.apk ausgerichtet.apk
+          rm -f "$RUNNER_TEMP/wegwerf.jks" ausgerichtet.apk
+          "$BT/apksigner" verify --print-certs freedom-android-arm64-test.apk | head -2
+          sha256sum freedom-android-arm64-test.apk > SHA256SUMS
+          cat SHA256SUMS
+
+      - name: APK ablegen (Artefakt, kein Release)
+        uses: actions/upload-artifact@v4
+        with:
+          name: freedom-android
+          path: |
+            packages/launcher/gen/android/app/build/outputs/apk/universal/release/freedom-android-arm64-test.apk
+            packages/launcher/gen/android/app/build/outputs/apk/universal/release/SHA256SUMS
           if-no-files-found: error
           retention-days: 14

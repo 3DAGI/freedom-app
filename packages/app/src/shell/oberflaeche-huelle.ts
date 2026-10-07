@@ -1,13 +1,15 @@
 /**
  * Neue Oberfläche in der Desktop-Hülle installieren (6.1a3c, Sammlung C-23).
  *
- * Nur in der Hülle (`packages/launcher`, erkennbar an `window.__FREEDOM_NATIVE__`):
+ * Nur in der Hülle (`packages/launcher`, Desktop und seit 6.1c Android, erkennbar an
+ * `window.__FREEDOM_NATIVE__`):
  * Die App findet ein Update über `suchUpdate()` (Settings › Echtheit), lädt die
  * Datei von einer https-Quelle des Angebots und prüft sie (`pruefeDatei()`). Erst
  * nach der Rückfrage gibt sie Datei und Belege an die Hülle – und die prüft
  * dieselben Belege selbst noch einmal (`update::pruefe()`): Die App kann ihr
  * nichts unterschieben, was nicht k vertraute Signierer bestätigt haben.
- * Zurück geht es nur über den Start der Hülle (`--oberflaeche=vorher`), nie von hier.
+ * Zurück geht es nur über die Hülle (Desktop: `--oberflaeche=vorher`, Android: „Cache
+ * leeren“ in den Einstellungen des Systems), nie von hier.
  */
 import { type UpdateAngebot, UPDATE_GRENZEN, pruefeDatei } from "@freedomstack/protocol";
 import { t } from "../i18n.js";
@@ -40,19 +42,33 @@ export const INSTALL_FEHLER_TEXT: Record<InstallFehler, string> = {
   kodierung: "set.huelleFKodierung", unbekannt: "set.huelleFUnbekannt",
 };
 
+/** Welche Hülle: Desktop (6.1a) oder Android (6.1c) – im Browser `null`. */
+export type HuellenArt = "desktop" | "android";
+
+export function huellenArt(w: unknown = globalThis): HuellenArt | null {
+  const art = (w as { __FREEDOM_NATIVE__?: { huelle?: unknown } }).__FREEDOM_NATIVE__?.huelle;
+  return art === "desktop" || art === "android" ? art : null;
+}
+
+/** Der Rückweg je Hülle: Desktop über den Start, Android über „Cache leeren“ (keine Startargumente). */
+export function rueckwegText(art: HuellenArt): string {
+  return t(art === "android" ? "set.huelleRueckAndroid" : "set.huelleRueckDesktop");
+}
+
 /** Was die Settings über die laufende Oberfläche der Hülle sagen. */
-export function huellenStandZeilen(s: HuellenStand): string[] {
+export function huellenStandZeilen(s: HuellenStand, art: HuellenArt): string[] {
   const zeilen = [s.quelle === "installiert" && s.version ? t("set.huelleInstalliert", { version: s.version }) : t("set.huelleBeigelegt")];
   if (s.nurBeigelegt) zeilen.push(t("set.huelleNurBeigelegt"));
-  if (s.vorher) zeilen.push(t("set.huelleVorher"));
+  if (art === "desktop" && s.vorher) zeilen.push(t("set.huelleVorher"));
+  if (art === "android" && s.quelle === "installiert") zeilen.push(t("set.huelleAndroidZurueck"));
   return zeilen;
 }
 
 /** Der Weg in die Hülle – nur dort, sonst `null` (Browser). */
 export function huellenAufruf(w: unknown = globalThis): HuellenAufruf | null {
-  const g = w as { __FREEDOM_NATIVE__?: { huelle?: unknown }; __TAURI_INTERNALS__?: { invoke?: unknown } };
+  const g = w as { __TAURI_INTERNALS__?: { invoke?: unknown } };
   const innen = g.__TAURI_INTERNALS__;
-  if (g.__FREEDOM_NATIVE__?.huelle !== "desktop" || typeof innen?.invoke !== "function") return null;
+  if (huellenArt(w) === null || typeof innen?.invoke !== "function") return null;
   const invoke = innen.invoke as HuellenAufruf;
   // nie als Methode gespeichert aufrufen (wie bei `fetch`): `this` bleibt das Objekt der Hülle
   return (befehl, argumente) => invoke.call(innen, befehl, argumente);

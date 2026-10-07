@@ -22,7 +22,7 @@ vollständig fertig. Ausführlich: `docs/ausbau/UEBERSICHT.md`.
 | `packages/node` | Provider-Knoten (TypeScript), Tests in `test/` |
 | `packages/app` | Web-App; `src/shell/app.ts` (Einstieg: `boot()`, `switchTab()`, Identität, Onboarding), `state.ts` (Zustand, Pools), `ui.ts` (Hilfsfunktionen), `datenschutz.ts` (Bericht), `tresor.ts` (Tresor-Dialoge; Krypto in `src/vault.ts`), `bunker.ts` (Anmelden per NIP-46), `tabs/` (je Tab ein Modul: `kommunikation.ts` + `chat-anhaenge.ts` + `kontakte.ts` + `posteingang.ts` + `raeume.ts`, `agent.ts` + `modellwahl.ts` + `agent-verlauf.ts` + `agent-wege.ts` + `agent-anzeige.ts` + `agent-eingabe.ts` + `agent-netz.ts`, `waehrung.ts` + `tausch.ts` + `hinterlegen.ts`, `earn.ts`, `profil.ts`, `settings.ts` + `sicherung.ts` + `mesh.ts`); Build → `dist/freedom.html` |
 | `packages/website` | Startseite, Whitepaper, FAQ, Roadmap, Dashboard |
-| `packages/launcher` | Desktop-Hülle (Tauri 2, seit 6.1a1): legt `freedom.html` bei, liefert sie über `freedom://localhost/`; Tests `cargo test` |
+| `packages/launcher` | Hülle (Tauri 2): Desktop seit 6.1a1, Android seit 6.1c1 (`src/lib.rs`); legt `freedom.html` bei, liefert sie über `freedom://localhost/` (Windows, Android `http://freedom.localhost/`); Tests `cargo test` |
 | `contracts/solana-htlc` | Anchor-Programm (Rust) für Swaps und Deposits |
 | `scripts/` | Build, Prüfungen, `smoke_test.py`, `check_innerhtml.py` |
 | `docs/ausbau/` | Ausbauplan: Fortschritt, Aufgabenkarten je Phase, Vorlagen |
@@ -47,9 +47,9 @@ bash contracts/solana-channel/pruefen.sh --werkzeuge     # nur bei Änderungen a
 cd packages/launcher && cargo test --locked && cd ../..  # nur bei Änderungen an der Hülle (Linux: WebKitGTK 4.1, App vorher bauen)
 ```
 
-Stand 07.10.2026 (nach 8.2c, 5.5a–c, 8.15, 11.1a, C.3c2, 11.1b, 5.9a–b, 6.3a–b2, 11.4a–b2, C.4a–b, C.5a–b, C.6b, 11.4c, C-18, C-17a–c, C-20a–j3, C-1a–f, C-2, C-3, C-4, C-5a–d, C-6a–e, C-7a–b, C-8, C-10 bis C-16, 11.2a–b, A-4 bis A-7, A-7r, Z1, 12.1–12.3, E8, P1a–b, P2a, E10a, E11, E9-Entwurf, 12.4a, P2b1–b2, P3a–b, P4, P5a–b, P5c1–c2, D1a, D1b1–b2, D1c, D2, D3-Entwurf, 12.6, 12.7a–c, 12.1 C, C-21, C-22a, C-22c, C-24, 6.1a1–a2, 6.1a3a–c, 6.1a4a, B-1, B-2a–c, B-3 bis B-7, B-8a–c, B-9a, B-15, B-19, B-20a–c, B-10a–b, B-9b1–b2, B-9c1–c3, B-11a–c, B-12a–d, B-13a–e, B-21, B-17a, B-17b1, B-17b2, B-17b3a und B-17b3b): protocol 1214 grün (6 übersprungen), node 314 grün
+Stand 07.10.2026 (nach 8.2c, 5.5a–c, 8.15, 11.1a, C.3c2, 11.1b, 5.9a–b, 6.3a–b2, 11.4a–b2, C.4a–b, C.5a–b, C.6b, 11.4c, C-18, C-17a–c, C-20a–j3, C-1a–f, C-2, C-3, C-4, C-5a–d, C-6a–e, C-7a–b, C-8, C-10 bis C-16, 11.2a–b, A-4 bis A-7, A-7r, Z1, 12.1–12.3, E8, P1a–b, P2a, E10a, E11, E9-Entwurf, 12.4a, P2b1–b2, P3a–b, P4, P5a–b, P5c1–c2, D1a, D1b1–b2, D1c, D2, D3-Entwurf, 12.6, 12.7a–c, 12.1 C, C-21, C-22a, C-22c, C-24, 6.1a1–a2, 6.1a3a–c, 6.1a4a, 6.1c1, B-1, B-2a–c, B-3 bis B-7, B-8a–c, B-9a, B-15, B-19, B-20a–c, B-10a–b, B-9b1–b2, B-9c1–c3, B-11a–c, B-12a–d, B-13a–e, B-21, B-17a, B-17b1, B-17b2, B-17b3a und B-17b3b): protocol 1214 grün (6 übersprungen), node 314 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 937 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 73 grün + 1 `todo` (heutige Lecks,
+in `tools.test.ts`), app 938 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 73 grün + 1 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
 Ausnahme: gesendete SOL-Zahlungen von frischen Adressen, eine bewusste Grenze
 nach Entscheidung 4.9 A – im Datenschutzbericht unter „Bewusste Grenzen“).
@@ -1374,3 +1374,12 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   `uebergibHuelle()` nach `bestaetige()` – nie ein Kommando am Modul vorbei. In der
   Hülle unter Linux lässt die CSP kein `fetch` auf `freedom://` zu: die Prüfsumme der
   eigenen Datei dort aus `oberflaeche_stand`, Selbst-Export geht nicht (H1, MENSCH).
+  Android (seit 6.1c1): dieselbe Hülle aus `src/lib.rs` (`run()`), Paketname nur über
+  `tauri.android.conf.json` (`io.github.threedagi.freedom` – Desktop behält seine Kennung,
+  sonst sind dort Tresor und Verläufe weg). Ablage im Cache (`ablageordner()`): ohne
+  Startargumente ist „Cache leeren“ der Rückweg. `gen/android` nie einchecken – die CI
+  erzeugt es je Lauf, Symbole nur über `launcher-symbole.py --android`. Das Test-APK
+  signiert ein Wegwerf-Schlüssel je Lauf; einen festen Schlüssel legt nur der MENSCH an.
+  Maven Central antwortet in dieser Umgebung über den Proxy oft mit 429 – lokal ein
+  Gradle-Init-Skript mit Googles Spiegel (`maven-central.storage-download.googleapis.com`),
+  nie ins Repo.
