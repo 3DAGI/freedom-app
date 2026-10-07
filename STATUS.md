@@ -17427,3 +17427,9 @@ waren schon vergeben (Spur B).
 `GO-LIVE.md` bleibt die eine Checkliste und verweist auf `docs/archiv/START.md`
 für Kanäle, Konten und Wortwahl. `docs/mls-spike/` bleibt (Beleg für
 `docs/MLS-ENTSCHEIDUNG.md`).
+
+**Prüfungen:** protocol 1186 grün (6 übersprungen), node 314 grün (6
+übersprungen), app 928 grün, Leak 73 grün + 1 todo, mls 13 grün – unverändert;
+check-wiring `--streng` Exit 0, check-website 5 Seiten und 4 Einstiegsdateien ok
+(auch das neue README), check_innerhtml Exit 0, repro-build reproduzierbar,
+build-site Exit 0, Smoke-Test bestanden.
