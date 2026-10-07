@@ -15,7 +15,26 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["deb", "appimage", "nsis"],
-    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.png", "icons/icon.ico"]
+    "publisher": "FreedomStack",
+    "targets": [
+      "deb",
+      "appimage",
+      "nsis"
+    ],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.png",
+      "icons/icon.ico"
+    ],
+    "category": "Utility",
+    "shortDescription": "Nachrichten, Zahlungen und KI ohne Betreiber",
+    "longDescription": "FreedomStack als Desktop-App: dieselbe Oberfläche wie im Browser (freedom.html) – Nachrichten über Nostr, Bezahlen mit Lightning und Solana, KI-Anfragen an Provider im Netz.",
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser"
+      }
+    }
   }
 }

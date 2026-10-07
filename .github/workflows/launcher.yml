@@ -1,7 +1,9 @@
 # Desktop-Hülle (6.1a, Entscheidung N2): baut packages/launcher (Tauri 2) unter
 # Linux und Windows und fuehrt ihre Tests aus. Die Hülle legt freedom.html bei –
-# deshalb laeuft der Job auch, wenn sich die App aendert. Pakete zum Herunterladen
-# (deb, AppImage, Installer fuer Windows) folgen mit 6.1a4.
+# deshalb laeuft der Job auch, wenn sich die App aendert. Seit 6.1a4a baut er
+# Pakete zum Testen auf Geraeten (deb, AppImage, Installer fuer Windows) und legt
+# sie mit Pruefsummen als Artefakt des Laufs ab – unsigniert und kein Release:
+# veroeffentlicht wird nichts (das Selbst-Update der Hülle folgt mit 6.1a4b).
 
 name: Desktop-Hülle
 
@@ -55,6 +57,8 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
+            ~/.cargo/bin/cargo-tauri
+            ~/.cargo/bin/cargo-tauri.exe
             packages/launcher/target
           key: launcher-${{ runner.os }}-${{ hashFiles('packages/launcher/Cargo.lock') }}
 
@@ -65,3 +69,38 @@ jobs:
       - name: Bauen (Release)
         working-directory: packages/launcher
         run: cargo build --release --locked
+
+      - name: tauri-cli (Tauri 2)
+        shell: bash
+        run: |
+          if ! cargo tauri --version 2>/dev/null | grep -q '^tauri-cli 2\.'; then
+            cargo install tauri-cli --version "^2" --locked
+          fi
+
+      - name: Pakete bauen
+        working-directory: packages/launcher
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = "Linux" ]; then B=deb,appimage; else B=nsis; fi
+          cargo tauri build --bundles "$B" -- --locked
+
+      - name: Pruefsummen
+        working-directory: packages/launcher/target/release/bundle
+        shell: bash
+        run: |
+          find . -type f \( -name '*.deb' -o -name '*.AppImage' -o -name '*-setup.exe' \) -print0 \
+            | sort -z | xargs -0 sha256sum | sed 's#[ *]\./# #' > SHA256SUMS
+          cat SHA256SUMS
+          test -s SHA256SUMS
+
+      - name: Pakete ablegen (Artefakt, kein Release)
+        uses: actions/upload-artifact@v4
+        with:
+          name: freedom-desktop-${{ runner.os }}
+          path: |
+            packages/launcher/target/release/bundle/SHA256SUMS
+            packages/launcher/target/release/bundle/deb/*.deb
+            packages/launcher/target/release/bundle/appimage/*.AppImage
+            packages/launcher/target/release/bundle/nsis/*-setup.exe
+          if-no-files-found: error
+          retention-days: 14

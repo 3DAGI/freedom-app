@@ -16,8 +16,8 @@ Linux, WebView2 unter Windows).
 - Die Oberfläche bekommt keine Rechte der Hülle (keine Tauri-Capabilities).
 - Die Hülle selbst spricht mit niemandem im Netz; das tut nur die App, mit
   denselben Regeln wie im Browser.
-- Noch nicht: Selbst-Update der Oberfläche über das Release-Manifest (6.1a2,
-  6.1a3), Pakete zum Herunterladen (6.1a4), Tor (6.1b), Android (6.1c).
+- Noch nicht: das Installieren einer neuen Oberfläche (6.1a3; geprüft wird sie
+  seit 6.1a2), Selbst-Update der Hülle (6.1a4b), Tor (6.1b), Android (6.1c).
 
 ## Bauen
 
@@ -32,6 +32,17 @@ Die CI baut und testet unter Linux und Windows (`.github/workflows/launcher.yml`
 
 `leer/` ist nur da, weil Tauri ein `frontendDist` verlangt – die App kommt nie
 von dort, sondern über das eigene Schema.
+
+## Pakete zum Testen (seit 6.1a4a)
+
+Jeder Lauf von `launcher.yml` baut Pakete und legt sie mit `SHA256SUMS` als
+Artefakt ab (14 Tage): `freedom-desktop-Linux` (`.deb`, AppImage) und
+`freedom-desktop-Windows` (Installer für den eigenen Benutzer, ohne
+Administratorrechte). Zu finden unter Actions › Desktop-Hülle › Lauf ›
+Artifacts. Das ist kein Release: unsigniert – Windows warnt (SmartScreen) –,
+nirgends verlinkt, nur zum Testen auf Geräten. Lokal:
+`cargo install tauri-cli --version "^2" --locked`, dann
+`cargo tauri build --bundles deb,appimage -- --locked`.
 
 Die Symbole in `icons/` entstehen nur aus dem Logo der App:
 `python3 scripts/launcher-symbole.py` (prüfen: `--pruefen`).
