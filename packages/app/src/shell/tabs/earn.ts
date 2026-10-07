@@ -22,6 +22,7 @@ import { gebietText, zeigeKarte } from "./karte.js";
 import { leseStandort, rundeStandort } from "../../karte-ansicht.js";
 import { bestaetige, dialog } from "../dialog.js";
 import { qrKnopf } from "../qr-ui.js";
+import { providerBefehl } from "../../onboarding.js";
 
 /** Mitwirkende am Projekt anzeigen. */
 export async function zeigeMitwirkende(): Promise<void> {
@@ -275,6 +276,26 @@ export function setupReferral(): void {
       document.execCommand("copy");
       toast(t("earn.linkKopiert"));
     }
+  });
+}
+
+/**
+ * Eigener Knoten (C-24): den Installer-Befehl zeigen und kopieren. Der Befehl
+ * kommt nur aus `providerBefehl()` – eine Adresse, die das Projekt besitzt (C-21).
+ */
+export function setupKnotenKarte(): void {
+  const feld = $("#knoten-befehl") as HTMLInputElement | null;
+  const knopf = $("#knoten-befehl-kopieren");
+  if (!feld || !knopf) return;
+  feld.value = providerBefehl();
+  knopf.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(feld.value);
+    } catch {
+      feld.select();
+      document.execCommand("copy");
+    }
+    toast(t("earn.befehlKopiert"));
   });
 }
 

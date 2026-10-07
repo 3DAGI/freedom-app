@@ -65,3 +65,10 @@ test("C-4: die Identität in der Kopfzeile geht auch mit der Tastatur; keine Tab
   assert.match(smoke, /erg\["zugang"\] = zugang_pruefen\(browser,/);
   assert.match(smoke, /and erg\.get\("zugang", \{\}\)\.get\("bestanden"\) is True/);
 });
+
+test("C-24: jede id in index.html nur einmal – Labels, aria und getElementById träfen sonst die falsche", () => {
+  const ids = [...html.matchAll(/\sid="([^"]+)"/g)].map((m) => m[1]!);
+  const doppelt = [...new Set(ids.filter((id, i) => ids.indexOf(id) !== i))];
+  assert.deepEqual(doppelt, []);
+  assert.ok(ids.length > 100, "die Prüfung findet die Kennungen");
+});

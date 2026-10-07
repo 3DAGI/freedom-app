@@ -17472,3 +17472,44 @@ mit 6.1a an die Entscheidung N2 angepasst.
 check-wiring `--streng` Exit 0, check-website ok, check_innerhtml Exit 0,
 `ci.yml` gültig (YAML), repro-build reproduzierbar, build-site Exit 0,
 Smoke-Test bestanden.
+
+## Schritt C-24 – Provider werden: der Befehl in der App
+
+Sammlung C-24, gefunden bei C-22c (07.10.2026). Wer beim Einstieg „Rechner
+vermieten“ wählte, las „Ein Befehl richtet alles ein“ und landete mit
+„Anleitung“ in der Übersicht von Earn – dort stand kein Befehl.
+`providerNextStep()` (`onboarding.ts`) hätte einen geliefert, war aber nirgends
+verdrahtet.
+
+**Neu:** Earn › Hosten beginnt mit der Karte „Eigenen Knoten betreiben“
+(`index.html`, `#knoten-betreiben`): was ein Knoten tut (KI-Aufträge gegen sats
+oder SOL, Speicher und Relay), dass ein Befehl Ollama, Modell, Dienst,
+Lightning-Adresse und auf Wunsch die SOL-Auszahlung einrichtet (so tut es
+`scripts/install-freedom.sh`), „ohne GPU lohnt es sich kaum“, der Befehl in
+einem Feld nur zum Lesen mit „Kopieren“ und der Weg über einen eigenen
+Checkout und `docs/PROVIDER.md` (dort auch Docker). Der Befehl kommt nur aus
+`providerBefehl()` – `bash <(curl -fsSL ${INSTALLER_URL})`, die Adresse aus
+C-21; im HTML steht keine Adresse. Verdrahtet über `setupKnotenKarte()`
+(`shell/tabs/earn.ts`) beim Start (`shell/app.ts`, neben `setupReferral()`).
+Der Einstieg „Rechner vermieten“ öffnet jetzt Earn › Hosten.
+
+**Entfernt:** `providerNextStep()` samt `ProviderCheck` und acht Texten
+`ein.prov*` – nie aufgerufen. Was die Funktion prüfen sollte (Ollama da?
+Lightning-Adresse?), prüft der Installer selbst: Er installiert Ollama und
+bricht ohne Lightning-Adresse ab. Ihre vier Tests sind durch fünf ersetzt:
+Befehl und Herkunft, keine Beispieladresse im Befehl, Karte in Hosten (Feld
+nur lesbar, Name für Vorleser, keine Adresse im HTML), Einstieg führt nach
+Hosten, GPU-Hinweis in beiden Sprachen. Der Smoke-Test („umzug“) kopiert den
+Befehl und prüft Wert, Unterreiter und Toast.
+
+Nebenbei gefunden: Die Karte hieß zuerst `#knoten-karte` – die Kennung trägt
+schon die Karte „Mein Knoten“ in den Settings. Ein neuer Test in
+`zugang.test.ts` hält jede Kennung in `index.html` einmalig.
+
+**Prüfungen:** protocol 1186 grün (6 übersprungen), node 314 grün (6
+übersprungen), app 930 grün (vier alte Tests weg, sechs neue), Leak 73 grün +
+1 todo, mls 13 grün; check-wiring `--streng` Exit 0, check-website ok,
+check_innerhtml Exit 0, repro-build reproduzierbar, build-site Exit 0,
+Smoke-Test bestanden. Der erste Lauf fand einen roten App-Test
+(`eigene-adresse.test.ts`: `wireEigeneAdresse()` direkt nach `setupReferral()`) –
+`setupKnotenKarte()` steht jetzt davor, der Test blieb unverändert.

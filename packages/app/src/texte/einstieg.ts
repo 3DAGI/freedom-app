@@ -40,14 +40,6 @@ export const einstieg: Texte = {
   "ein.pitch1": { de: "Nichts einzurichten zum Ausprobieren.", en: "Nothing to set up to try it." },
   "ein.pitch2": { de: "Läuft weiter, wenn einzelne Teile ausfallen.", en: "Keeps working when individual parts fail." },
   "ein.pitch3": { de: "Du behältst deine Schlüssel.", en: "You keep your keys." },
-  "ein.provAdresse": { de: "Zuerst: Auszahlungsadresse", en: "First: payout address" },
-  "ein.provAdresseText": { de: "Ohne Lightning-Adresse gibt es niemanden, an den ausgezahlt werden kann. Eine beliebige Wallet mit Adresse der Form name@anbieter.tld genügt — das ist in fünf Minuten erledigt.", en: "Without a Lightning address there is nobody to pay out to. Any wallet with an address of the form name@provider.tld is enough — done in five minutes." },
-  "ein.provOllama": { de: "Inferenz-Software fehlt", en: "Inference software missing" },
-  "ein.provOllamaText": { de: "Ollama führt die Modelle aus. Der Installer richtet danach alles Weitere ein — oder du nimmst gleich das Container-Paket, das beides zusammen startet.", en: "Ollama runs the models. The installer then sets up everything else — or you take the container package right away, which starts both together." },
-  "ein.provLangsam": { de: "Läuft, aber langsam", en: "Runs, but slowly" },
-  "ein.provLangsamText": { de: "Ohne GPU rechnet der Knoten auf dem Prozessor. Das funktioniert, ist aber so langsam, dass sich kaum ein Kunde dafür entscheidet. Ehrlicher Hinweis vorab, statt später Enttäuschung.", en: "Without a GPU the node computes on the processor. That works, but it is so slow that hardly any customer chooses it. An honest note up front instead of disappointment later." },
-  "ein.provBereit": { de: "Bereit", en: "Ready" },
-  "ein.provBereitText": { de: "Ein Befehl richtet Dienst, Modell und Region ein.", en: "One command sets up service, model and region." },
 
   // Start, Sicherung und Menü (shell/app.ts)
   "ein.phraseTitel": { de: "Deine Wiederherstellungs-Phrase", en: "Your recovery phrase" },

@@ -10,8 +10,8 @@ import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { INSTALLER_URL, nextStep, pitchFor, providerNextStep, Readiness } from "../src/onboarding.js";
-import { setLang } from "../src/i18n.js";
+import { INSTALLER_URL, nextStep, pitchFor, providerBefehl, Readiness } from "../src/onboarding.js";
+import { setLang, t } from "../src/i18n.js";
 
 // Meldungen hier auf Deutsch prüfen (seit 8.16g1 über Schlüssel in der Sprache der Oberfläche)
 setLang("de");
@@ -181,36 +181,58 @@ test("8.16g1: Erklaerung verspricht keinen Aufschlag – den Knappheitsbonus gib
 
 // ------------------------------------------------------------- Provider
 
-test("Provider: zuerst die Auszahlungsadresse", () => {
-  // Ohne sie arbeitet der Knoten und das Geld geht nirgendwo hin.
-  const s = providerNextStep({ ollama: true, lightningAddress: false, gpu: true });
-  assert.match(s.title, /Auszahlungsadresse/);
-});
+// Bis C-24 stand hier `providerNextStep()` – nirgends aufgerufen, der Einstieg
+// „Rechner vermieten“ führte in eine Übersicht ohne Befehl. Jetzt zeigt Earn ›
+// Hosten den Befehl aus `providerBefehl()`; Ollama, Modell, Lightning-Adresse
+// und SOL-Auszahlung richtet der Installer selbst ein.
 
-test("Provider: fehlende Software kommt mit kopierbarem Befehl", () => {
-  // "Installiere Ollama" ist keine Anleitung. Ein Befehl ist eine.
-  const s = providerNextStep({ ollama: false, lightningAddress: true, gpu: true });
-  assert.ok(s.command);
-  assert.match(s.command!, /ollama/);
-});
+const quelle = (pfad: string) => readFileSync(fileURLToPath(new URL(pfad, import.meta.url)), "utf8");
 
-test("Provider: ohne GPU wird vorher gewarnt, nicht hinterher enttaeuscht", () => {
-  const s = providerNextStep({ ollama: true, lightningAddress: true, gpu: false });
-  assert.match(s.body, /langsam/);
-  assert.match(s.body, /Enttäuschung|kaum ein Kunde/);
-});
-
-test("Provider: bereit heisst ein Befehl – mit dem Installer aus diesem Repository", () => {
+test("Provider: der Befehl holt den Installer des Projekts", () => {
   // Bis C-21 zeigte der Befehl auf freedomstack.io – eine Domain, die nicht zum
-  // Projekt gehört. Die Lightning-Adresse fragt der Installer selbst ab (ohne sie
-  // bricht er ab), deshalb steht im Befehl keine Beispieladresse mehr.
-  const s = providerNextStep({ ollama: true, lightningAddress: true, gpu: true });
-  assert.match(s.title, /Bereit/);
-  assert.equal(s.command, `bash <(curl -fsSL ${INSTALLER_URL})`);
+  // Projekt gehört.
+  assert.equal(providerBefehl(), `bash <(curl -fsSL ${INSTALLER_URL})`);
   const u = new URL(INSTALLER_URL);
   assert.equal(u.protocol, "https:");
   assert.equal(u.hostname, "3dagi.github.io", "die Pages-Auslieferung des Projekts (build-site.sh legt install.sh dorthin)");
   assert.equal(u.pathname, "/freedom-app/install.sh");
+});
+
+test("Provider: im Befehl steht keine Beispieladresse", () => {
+  // Die Lightning-Adresse fragt der Installer selbst ab (ohne sie bricht er ab) –
+  // eine Beispieladresse im Befehl führte zu einer falschen.
+  assert.doesNotMatch(providerBefehl(), /@|NODE_LUD16|NODE_SOL_PAYOUT/);
+});
+
+test("Provider: Earn › Hosten zeigt den Befehl zum Kopieren", () => {
+  const html = quelle("../src/shell/index.html");
+  const host = html.slice(html.indexOf('data-subpane="earn:host"'), html.indexOf('data-subpane="earn:refer"'));
+  assert.match(host, /id="knoten-befehl"[^>]*readonly/, "Feld nur zum Lesen");
+  assert.match(host, /id="knoten-befehl"[^>]*data-i18n-aria="earn\.knotenBefehl"/, "Name für Vorleser");
+  assert.match(host, /id="knoten-befehl-kopieren"/);
+  assert.doesNotMatch(host, /curl|https:\/\//, "der Befehl kommt nur aus providerBefehl(), nicht aus dem HTML");
+  const earn = quelle("../src/shell/tabs/earn.ts");
+  assert.match(earn, /feld\.value = providerBefehl\(\)/);
+  assert.match(quelle("../src/shell/app.ts"), /\n  setupKnotenKarte\(\);/, "beim Start verdrahtet");
+});
+
+test("Provider: der Einstieg „Rechner vermieten“ führt zu Earn › Hosten", () => {
+  const app = quelle("../src/shell/app.ts");
+  const ab = app.indexOf('schritt.id === "provider-anleitung"');
+  assert.ok(ab > 0);
+  const zweig = app.slice(ab, app.indexOf("else document", ab));
+  assert.match(zweig, /\[data-tab="earn"\]/);
+  assert.match(zweig, /\[data-subtab-group="earn"\] \[data-subtab="host"\]/);
+});
+
+test("Provider: ohne GPU wird vorher gesagt, dass es sich kaum lohnt", () => {
+  assert.match(t("earn.knotenText"), /Ohne GPU lohnt es sich kaum/);
+  setLang("en");
+  try {
+    assert.match(t("earn.knotenText"), /Without a GPU it is hardly worth it/);
+  } finally {
+    setLang("de");
+  }
 });
 
 test("Provider: keine fremden Adressen im Code der App (C-21)", () => {
