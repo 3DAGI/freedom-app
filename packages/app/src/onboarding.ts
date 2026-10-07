@@ -187,36 +187,14 @@ export function pitchFor(intent: Intent): { headline: string; points: string[] }
  */
 export const INSTALLER_URL = "https://3dagi.github.io/freedom-app/install.sh"; // kein UI-Text
 
-export interface ProviderCheck {
-  ollama: boolean;
-  lightningAddress: boolean;
-  gpu: boolean;
-}
-
 /**
- * Was einem angehenden Provider noch fehlt — mit konkretem Befehl.
- *
- * „Installiere Ollama" ist keine Anleitung. Ein Befehl, den man kopieren kann,
- * ist eine.
+ * Der Befehl, mit dem ein Linux-Rechner zum Knoten wird (C-24) – gezeigt in
+ * Earn › Hosten; dorthin führt auch der Einstieg „Rechner vermieten“.
+ * „Installiere Ollama“ ist keine Anleitung, ein Befehl zum Kopieren schon: Der
+ * Installer richtet Ollama, Modell und Dienst ein. Ohne `NODE_LUD16` – er fragt
+ * die eigene Lightning-Adresse ab und bricht ohne sie ab; eine Beispieladresse
+ * im Befehl führte zu einer falschen.
  */
-export function providerNextStep(c: ProviderCheck): { title: string; command?: string; body: string } {
-  if (!c.lightningAddress) {
-    return { title: t("ein.provAdresse"), body: t("ein.provAdresseText") };
-  }
-  if (!c.ollama) {
-    return {
-      title: t("ein.provOllama"),
-      command: "curl -fsSL https://ollama.com/install.sh | sh", // kein UI-Text
-      body: t("ein.provOllamaText"),
-    };
-  }
-  if (!c.gpu) {
-    return { title: t("ein.provLangsam"), body: t("ein.provLangsamText") };
-  }
-  return {
-    title: t("ein.provBereit"),
-    // Ohne NODE_LUD16: Der Installer fragt die eigene Lightning-Adresse ab und bricht ohne sie ab.
-    command: `bash <(curl -fsSL ${INSTALLER_URL})`, // kein UI-Text
-    body: t("ein.provBereitText"),
-  };
+export function providerBefehl(): string {
+  return `bash <(curl -fsSL ${INSTALLER_URL})`; // kein UI-Text
 }

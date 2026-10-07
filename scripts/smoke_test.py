@@ -823,13 +823,18 @@ def waehrung_pruefen(browser, url: str) -> dict:
     s.wait_for_function("() => !!document.querySelector('[data-subtab-group=earn] [data-subtab=host]')?.offsetParent", timeout=10000)
     ev("() => document.querySelector('[data-subtab-group=earn] [data-subtab=host]').click()")
     umzug["hosten"] = ev("() => ['models-seed', 'models-publish'].map(id => document.getElementById(id).offsetParent?.closest('.subpane')?.dataset.subpane)")
+    # Eigener Knoten (C-24): der Befehl aus providerBefehl() in Earn › Hosten, kopierbar
+    ev("() => document.getElementById('knoten-befehl-kopieren').click()")
+    s.wait_for_function("() => (document.getElementById('toast')?.textContent ?? '') === 'Befehl kopiert'", timeout=5000)
+    umzug["knoten"] = ev("() => { const e = document.getElementById('knoten-befehl'); return [e.value, e.offsetParent?.closest('.subpane')?.dataset.subpane, e.readOnly]; }")
     ev("() => document.getElementById('models-seed').click()")
     umzug["vorhalten"] = warte_dialog("Modell vorhalten")
     s.keyboard.press("Escape")
     seite.warte_zu()
     erg["umzug"] = umzug
     if not (umzug["reiter"] == ["Übersicht", "Tauschen", "Hinterlegen", "Zahlen"] and umzug["zahlen"] == [True, True]
-            and "fees" not in umzug["settings"] and umzug["hosten"] == ["earn:host", "earn:host"] and umzug["einheit"] == ["", "sol", "sats", None]
+            and "fees" not in umzug["settings"] and umzug["hosten"] == ["earn:host", "earn:host"]
+            and umzug["knoten"] == ["bash <(curl -fsSL https://3dagi.github.io/freedom-app/install.sh)", "earn:host", True] and umzug["einheit"] == ["", "sol", "sats", None]
             and umzug["vorhalten"]["felder"] == ["Welches Modell hältst du vor?", "Welche Dateien? (kommagetrennt, leer = alle)"]):
         erg["fehler"].append(f"Umzug {umzug}")
     erg["browser_dialoge"] = browser_dialoge

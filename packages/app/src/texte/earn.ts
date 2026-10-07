@@ -16,6 +16,12 @@ export const earn: Texte = {
   "earn.betragSolOhneKurs": { de: "SOL, Wert {sats} (kein Kurs)", en: "SOL, worth {sats} (no rate)" },
   "earn.tabHosten": { de: "Hosten", en: "Host" },
   "earn.tabKarte": { de: "Karte", en: "Map" },
+  // Eigener Knoten (C-24): der Befehl, den der Einstieg „Rechner vermieten“ verspricht
+  "earn.knotenTitel": { de: "Eigenen Knoten betreiben", en: "Run your own node" },
+  "earn.knotenText": { de: "Ein Linux-Rechner mit GPU rechnet KI-Aufträge gegen sats oder SOL und bietet Speicher und ein Relay mit an. Ein Befehl im Terminal richtet alles ein: Ollama und ein Modell, den Dienst, deine Lightning-Adresse und auf Wunsch eine SOL-Auszahlungsadresse. Ohne GPU lohnt es sich kaum.", en: "A Linux computer with a GPU runs AI jobs for sats or SOL and also offers storage and a relay. One command in the terminal sets everything up: Ollama and a model, the service, your Lightning address and, if you like, a SOL payout address. Without a GPU it is hardly worth it." },
+  "earn.knotenBefehl": { de: "Befehl zum Einrichten", en: "Setup command" },
+  "earn.knotenHinweis": { de: "Der Installer kommt von der Website des Projekts (GitHub Pages), die Prüfsumme steht daneben (install.sh.sha256). Wer lieber selbst nachliest: Repository klonen und bash scripts/install-freedom.sh. Deine Lightning-Adresse liegt am besten beim eigenen Knoten statt bei einem Dienst, der das Geld verwahrt – Anleitung in docs/PROVIDER.md im Repository.", en: "The installer comes from the project's website (GitHub Pages), its checksum sits next to it (install.sh.sha256). If you prefer to read it first: clone the repository and run bash scripts/install-freedom.sh. Your Lightning address is best kept at your own node rather than with a service that holds the money – guide in docs/PROVIDER.md in the repository." },
+  "earn.befehlKopiert": { de: "Befehl kopiert", en: "Command copied" },
   // Modelle vorhalten (C-8, C.6a): die Knöpfe kamen aus Agent › Modelle
   "earn.modelleTitel": { de: "Modelle vorhalten", en: "Seed models" },
   "earn.modelleText": { de: "Halte Modelldateien für andere bereit oder kündige ein Modell an. Was im Netz vorgehalten wird, steht unter Agent › Modelle.", en: "Keep model files available for others or announce a model. What the network keeps available is listed under Agent › Models." },

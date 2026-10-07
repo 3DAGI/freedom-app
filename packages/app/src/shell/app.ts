@@ -58,6 +58,7 @@ import {
   loadEarnings,
   loadTrust,
   publishReferralClaim,
+  setupKnotenKarte,
   setupReferral,
   updateReferralLink,
   zeigeMitwirkende,
@@ -469,7 +470,11 @@ export async function zeigeOnboarding(): Promise<void> {
       if (schritt.id === "sichern") void sichereJetzt();
       else if (schritt.id === "tresor") void richteTresorEin().then(() => zeigeOnboarding());
       else if (schritt.id === "wallet") document.querySelector<HTMLElement>('[data-tab="wallet"]')?.click();
-      else if (schritt.id === "provider-anleitung") document.querySelector<HTMLElement>('[data-tab="earn"]')?.click();
+      else if (schritt.id === "provider-anleitung") {
+        // Der Befehl steht in Earn › Hosten (C-24), nicht in der Übersicht
+        document.querySelector<HTMLElement>('[data-tab="earn"]')?.click();
+        document.querySelector<HTMLElement>('[data-subtab-group="earn"] [data-subtab="host"]')?.click();
+      }
       else document.querySelector<HTMLElement>('[data-tab="ai"]')?.click();
     });
     // "Spaeter" blendet nur diesen Schritt aus, nicht die Fuehrung: Wer
@@ -964,6 +969,7 @@ function starte(): void {
     });
   }
   setupReferral();
+  setupKnotenKarte();
   wireEigeneAdresse();
   wireWerbeName();
   wireBelege();
