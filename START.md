@@ -156,7 +156,7 @@ abbrechen und Rückfluss sehen.
 ## 1.6 Der erste vollständige Job
 
 ```bash
-NODE_LUD16=du@wallet.cash REGION=eu docker compose up -d
+NODE_LUD16=provider@knoten.example.org REGION=eu docker compose up -d   # eigene Adresse, docs/PROVIDER.md
 docker compose logs -f
 ```
 

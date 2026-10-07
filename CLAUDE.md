@@ -1323,3 +1323,12 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   Prüfrunde), nie still ausweichen. Der Haken gehört zur Unterhaltung
   (`privat` im Verlauf, nur über `speichereVerlaeufe()`); ein neuer Weg zur KI
   gehört hinter diese Prüfung.
+- **Befehle zum Kopieren nur mit Adressen des Projekts** (seit C-21): Der
+  Provider-Installer kommt nur von der eigenen Pages-Auslieferung
+  (`INSTALLER_URL` in `onboarding.ts`; `build-site.sh` legt `install.sh` und
+  `install.sh.sha256` neben die App) oder aus dem Repo. Keine Domain in
+  `curl … | bash`, die das Projekt nicht besitzt – `freedomstack.io` gehört
+  niemandem von uns (NXDOMAIN). Beispiele für Provider-Einnahmen ohne
+  verwahrenden Dienst (`provider@knoten.example.org`, Profil `du@example.com`).
+  `check-website.py` (`FREMDE_ADRESSEN`, auch README, PROVIDER, docker-compose,
+  Installer) und `onboarding.test.ts` weisen beide alten Adressen ab.

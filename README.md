@@ -58,10 +58,10 @@ Zwei Wege, je nachdem wie verbindlich es sein soll:
 
 ```bash
 # Container — nichts am System, rückstandsfrei entfernbar
-NODE_LUD16=du@wallet.cash REGION=eu docker compose up -d
+NODE_LUD16=provider@knoten.example.org REGION=eu docker compose up -d
 
 # Installer — systemd-Dienst, für den Dauerbetrieb
-NODE_LUD16=du@wallet.cash bash <(curl -fsSL https://freedomstack.io/install.sh)
+bash <(curl -fsSL https://3dagi.github.io/freedom-app/install.sh)   # fragt die Lightning-Adresse ab
 ```
 
 Ohne `NODE_LUD16` startet nichts. Ein Provider, der arbeitet und dessen
@@ -99,7 +99,7 @@ cd ../app && npm test                             # 3 Tests
 
 # Provider-Knoten starten (verdient sats via DVM-Jobs)
 cd packages/node
-NODE_LUD16=you@wallet.cash node --import tsx src/main.ts
+NODE_LUD16=provider@knoten.example.org node --import tsx src/main.ts
 
 # Solana-HTLC bauen + on-chain testen
 cd contracts/solana-htlc

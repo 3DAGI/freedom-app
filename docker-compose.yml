@@ -11,7 +11,8 @@
 # Einstiegsvariante — wer bleibt, kann später auf den Installer wechseln.
 #
 # START
-#   NODE_LUD16=du@wallet.cash REGION=eu docker compose up -d
+#   NODE_LUD16=provider@knoten.example.org REGION=eu docker compose up -d
+#   (deine eigene Lightning-Adresse – am besten beim eigenen Knoten, docs/PROVIDER.md)
 #
 # Ohne NODE_LUD16 startet der Knoten NICHT. Das ist Absicht: Ein Provider, der
 # arbeitet und dessen Einnahmen nirgendwo ankommen, ist schlimmer als einer,
