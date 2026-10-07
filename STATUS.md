@@ -17635,4 +17635,16 @@ installiert wird mit a3.
   prüfen den neuen Pfad statt des alten Wortlauts. Neu verlangen sie, dass
   `latestRelease()` dort nicht mehr steht.
 
+**Nebenbei, Spur B, klein:** `mesh-radio.test.ts` war im ersten vollen Lauf
+rot. „Knoten reicht fremde Pakete weiter“ wartete eine feste Pause von 50 ms
+auf das Weiterreichen, das im Takt sendet. Unter Last war die Pause zu kurz –
+derselbe Fallstrick wie in 11.1b.
+- Unter künstlicher Last nachgestellt: die alte Fassung ist in 3 von 5 Läufen
+  rot, die neue in 5 von 5 grün.
+- Behoben mit `bisGesendet()` (warten bis zur Zahl, höchstens 2 s), ebenso
+  „Dasselbe Paket wird nicht zweimal weitergereicht“. Dort folgt danach noch
+  die kurze Pause, in der ein zweites Senden käme.
+- Tests, die „nichts gesendet“ prüfen, behalten die Pause: Last kann sie nicht
+  rot machen.
+
 **Prüfungen:** PRUEF_PLATZHALTER
