@@ -1,0 +1,67 @@
+# Desktop-Hülle (6.1a, Entscheidung N2): baut packages/launcher (Tauri 2) unter
+# Linux und Windows und fuehrt ihre Tests aus. Die Hülle legt freedom.html bei –
+# deshalb laeuft der Job auch, wenn sich die App aendert. Pakete zum Herunterladen
+# (deb, AppImage, Installer fuer Windows) folgen mit 6.1a4.
+
+name: Desktop-Hülle
+
+on:
+  push:
+    branches: [main]
+    paths: ["packages/launcher/**", "packages/app/**", "packages/protocol/src/**", "scripts/launcher-symbole.py", ".github/workflows/launcher.yml"]
+  pull_request:
+    paths: ["packages/launcher/**", "packages/app/**", "packages/protocol/src/**", "scripts/launcher-symbole.py", ".github/workflows/launcher.yml"]
+  workflow_dispatch:
+
+jobs:
+  bauen:
+    name: Hülle bauen und testen (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: App bauen (wird beigelegt)
+        shell: bash
+        run: |
+          npm install --workspaces --include-workspace-root --no-audit --no-fund
+          cd packages/app && node build.mjs && test -f dist/freedom.html
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+
+      - name: Systempakete fuer WebKitGTK (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev libssl-dev
+
+      - name: Symbole passen zum Logo
+        shell: bash
+        run: python3 scripts/launcher-symbole.py --pruefen
+
+      - name: Rust zwischenspeichern
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            packages/launcher/target
+          key: launcher-${{ runner.os }}-${{ hashFiles('packages/launcher/Cargo.lock') }}
+
+      - name: Tests
+        working-directory: packages/launcher
+        run: cargo test --locked
+
+      - name: Bauen (Release)
+        working-directory: packages/launcher
+        run: cargo build --release --locked

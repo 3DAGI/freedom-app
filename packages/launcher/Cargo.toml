@@ -1,0 +1,20 @@
+[package]
+name = "freedom-launcher"
+version = "0.1.0"
+description = "FreedomStack als Desktop-App: eine Hülle um freedom.html (6.1a)"
+edition = "2021"
+rust-version = "1.90"
+publish = false
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+strip = true
+panic = "abort"

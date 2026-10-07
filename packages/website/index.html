@@ -132,18 +132,10 @@
 
     <div class="dl">
       <div class="meta">
-        <div class="name">freedom launcher (Linux)</div>
-        <div class="desc">Geplant: 1-Klick Provider-Knoten — KI-Compute vermieten (.AppImage/.deb)</div>
+        <div class="name">FreedomStack Desktop (Linux, Windows)</div>
+        <div class="desc">In Arbeit: dieselbe App als eigenes Programm. Die Oberfläche aktualisiert sich erst, wenn zwei Signierer die neue Version bestätigen – nach Rückfrage, die alte bleibt als Rückfall. Pakete zum Herunterladen folgen.</div>
       </div>
-      <a class="btn ghost" href="#provide" id="dl-launcher-linux">Geplant</a>
-    </div>
-
-    <div class="dl">
-      <div class="meta">
-        <div class="name">freedom launcher (Windows / macOS)</div>
-        <div class="desc">Geplant: .msi / .dmg, gebaut in der CI</div>
-      </div>
-      <a class="btn ghost" href="#provide">Geplant</a>
+      <span class="btn ghost" id="dl-desktop">In Arbeit</span>
     </div>
 
     <div class="dl">
@@ -176,8 +168,9 @@
 
     <div class="grid">
       <div class="card">
-        <h3><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="12" y1="17" x2="12" y2="21"/><line x1="8" y1="21" x2="16" y2="21"/></svg> <span data-i18n="provDesktop">Desktop (1-Klick)</span></h3>
-        <p>Geplant: freedom launcher für Windows/Mac/Linux. Er soll Ollama installieren, Schlüssel erzeugen und deine Lightning-Adresse abfragen — „Verdienen starten“. Bis dahin: Headless.</p>
+        <h3><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="12" y1="17" x2="12" y2="21"/><line x1="8" y1="21" x2="16" y2="21"/></svg> <span data-i18n="provDesktop">Linux (ein Befehl)</span></h3>
+        <p style="margin-bottom:8px">Ein Befehl richtet Ollama, ein Modell, den Dienst und deine Lightning-Adresse ein (Prüfsumme daneben: install.sh.sha256). Die App zeigt ihn unter Verdienen › Hosten.</p>
+        <pre class="mono" style="background:#000;padding:10px;border-radius:2px">bash &lt;(curl -fsSL https://3dagi.github.io/freedom-app/install.sh)</pre>
       </div>
       <div class="card">
         <h3><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg> <span data-i18n="provHeadless">Headless (Server)</span></h3>
@@ -249,7 +242,7 @@ const LANDING_I18N = {
     dlTitle: "Downloads \u2014 no app store, no KYC",
     provideTitle: "Rent out compute — three income streams, one node",
     appTitle: "The app \u2014 runs entirely in your browser",
-    provDesktop: "Desktop (1-click)",
+    provDesktop: "Linux (one command)",
     provHeadless: "Headless (server)",
   },
   de: {
@@ -275,7 +268,7 @@ const LANDING_I18N = {
     dlTitle: "Downloads — ohne App-Store, ohne KYC",
     provideTitle: "Rechenzeit vermieten — drei Einnahmen, ein Knoten",
     appTitle: "Die App — läuft komplett in deinem Browser",
-    provDesktop: "Desktop (1-Klick)",
+    provDesktop: "Linux (ein Befehl)",
     provHeadless: "Headless (Server)",
   },
   es: {
@@ -290,7 +283,7 @@ const LANDING_I18N = {
     featNoToken: "Sin token, sin mixer",
     dlTitle: "Descargas — sin app store, sin KYC",
     appTitle: "La app — funciona entirely en tu navegador",
-    provDesktop: "Escritorio (1-clic)",
+    provDesktop: "Linux (un comando)",
     provHeadless: "Headless (servidor)",
   },
   fr: {
@@ -305,7 +298,7 @@ const LANDING_I18N = {
     featNoToken: "Pas de token, pas de mixer",
     dlTitle: "Téléchargements — sans app store, sans KYC",
     appTitle: "L'app — fonctionne entièrement dans votre navigateur",
-    provDesktop: "Bureau (1-clic)",
+    provDesktop: "Linux (une commande)",
     provHeadless: "Headless (serveur)",
   },
   it: {
@@ -320,7 +313,7 @@ const LANDING_I18N = {
     featNoToken: "Nessun token, nessun mixer",
     dlTitle: "Download — senza app store, senza KYC",
     appTitle: "L'app — gira interamente nel tuo browser",
-    provDesktop: "Desktop (1-clic)",
+    provDesktop: "Linux (un comando)",
     provHeadless: "Headless (server)",
   },
   pt: {
@@ -335,7 +328,7 @@ const LANDING_I18N = {
     featNoToken: "Sem token, sem mixer",
     dlTitle: "Downloads — sem app store, sem KYC",
     appTitle: "O app — roda inteiramente no seu navegador",
-    provDesktop: "Desktop (1-clique)",
+    provDesktop: "Linux (um comando)",
     provHeadless: "Headless (servidor)",
   },
   zh: {
@@ -350,7 +343,7 @@ const LANDING_I18N = {
     featNoToken: "无代币，无混币器",
     dlTitle: "下载 —— 无应用商店，无需 KYC",
     appTitle: "应用 —— 完全在你的浏览器中运行",
-    provDesktop: "桌面版（一键）",
+    provDesktop: "Linux（一条命令）",
     provHeadless: "无界面（服务器）",
   },
   ja: {
@@ -365,7 +358,7 @@ const LANDING_I18N = {
     featNoToken: "トークンなし、ミキサーなし",
     dlTitle: "ダウンロード — アプリストア不要、KYC 不要",
     appTitle: "アプリ — 完全にブラウザ内で動作",
-    provDesktop: "デスクトップ（1クリック）",
+    provDesktop: "Linux（コマンド1つ）",
     provHeadless: "ヘッドレス（サーバー）",
   },
 };

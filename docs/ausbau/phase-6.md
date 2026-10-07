@@ -18,6 +18,13 @@ Relays, RPC-Anbietern und Lightning-Diensten.
   kommt keine Verbindung von der echten IP-Adresse.
 - **MENSCH:** Builds für Desktop und Android testen; für iOS klären, ob Tor dort
   zulässig und umsetzbar ist.
+- **Aufteilung (Spur C, C-23, 07.10.2026 nach Entscheidung N2):** a Desktop
+  (Linux, Windows) – a1 Hülle ✓ (eigenes Schema, Navigation nur im eigenen
+  Ursprung, CI), a2 Update der Oberfläche prüfen (Release-Manifest 38054, k von
+  n, nie älter als die laufende), a3 Update installieren (die Hülle prüft
+  Signaturen und Prüfsumme selbst, alte Fassung als Rückfall), a4 Pakete (deb,
+  AppImage, Installer für Windows) und Selbst-Update der Hülle; b Tor (arti, vorher
+  fragen), c Android. Schritt 1–3 oben gehören zu b.
 
 ## 6.2 Ehrlicher Modus in der Web-App
 
