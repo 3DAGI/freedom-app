@@ -133,5 +133,5 @@ test("Verdrahtet: Werbelink mit eigener Adresse, Prüfen nur auf Knopfdruck, Sig
   assert.match(src("../src/shell/app.ts"), /setupReferral\(\);\s*wireEigeneAdresse\(\);/);
   const settings = src("../src/shell/tabs/settings.ts");
   assert.doesNotMatch(settings, /const TRUSTED_SIGNERS/, "die Liste steht nur in release-signierer.ts");
-  assert.match(settings, /import \{ TRUSTED_SIGNERS, ladeManifeste \} from "\.\.\/\.\.\/release-signierer\.js";/);
+  assert.match(settings, /import \{ TRUSTED_SIGNERS, ladeManifestEvents, manifesteAus \} from "\.\.\/\.\.\/release-signierer\.js";/);
 });

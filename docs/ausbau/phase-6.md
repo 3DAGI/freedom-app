@@ -20,7 +20,7 @@ Relays, RPC-Anbietern und Lightning-Diensten.
   zulässig und umsetzbar ist.
 - **Aufteilung (Spur C, C-23, 07.10.2026 nach Entscheidung N2):** a Desktop
   (Linux, Windows) – a1 Hülle ✓ (eigenes Schema, Navigation nur im eigenen
-  Ursprung, CI), a2 Update der Oberfläche prüfen (Release-Manifest 38054, k von
+  Ursprung, CI), a2 Update der Oberfläche prüfen ✓ (Release-Manifest 38054, k von
   n, nie älter als die laufende), a3 Update installieren (die Hülle prüft
   Signaturen und Prüfsumme selbst, alte Fassung als Rückfall), a4 Pakete (deb,
   AppImage, Installer für Windows) und Selbst-Update der Hülle; b Tor (arti, vorher

@@ -18,7 +18,24 @@ test("Verdrahtung (5.2): Start prueft die fixierte Version, Settings fixieren nu
   // Seit 11.2a stehen die Signierer in release-signierer.ts – auch für die Prüfung der eigenen Adresse
   const signierer = readFileSync(new URL("../src/release-signierer.ts", import.meta.url), "utf8");
   assert.match(signierer, /mindestens `RELEASE_MIN_SIGNATUREN` \(2\)/);
-  assert.match(s, /const manifeste = await ladeManifeste\(await ensurePool\(\)\);\s*const r = verifyArtifact\(hash, "freedom\.html", manifeste, TRUSTED_SIGNERS\);/);
+  assert.match(s, /const events = await ladeManifestEvents\(await ensurePool\(\)\);\s*const manifeste = manifesteAus\(events\);\s*const r = verifyArtifact\(hash, "freedom\.html", manifeste, TRUSTED_SIGNERS\);/);
+  // Seit 6.1a2: „neuere Version“ nur über suchUpdate() – k Signierer, neuer als die laufende, Signaturen selbst geprüft
+  assert.match(s, /const update = suchUpdate\(events, TRUSTED_SIGNERS, \{ sha256: hash \}\);/);
+  assert.doesNotMatch(s, /latestRelease\(/, "latestRelease() nannte auch eine ältere als „neuer“");
   const skript = readFileSync(new URL("../../../scripts/publish-release.mjs", import.meta.url), "utf8");
   assert.match(skript, /nutzlast\(\{ version, artifacts \}\)/, "Nutzlast-Hash zum Abgleich unter den Signierern");
+});
+
+test("6.1a2: Manifeste als Events laden – nur Kind 38054, unlesbare fallen beim Lesen weg", async () => {
+  const { ladeManifestEvents, manifesteAus } = await import("../src/release-signierer.js");
+  const { buildReleaseManifest, generateKeypair, signEvent, KIND_RELEASE_MANIFEST } = await import("@freedomstack/protocol");
+  const kp = generateKeypair();
+  const gut = signEvent(buildReleaseManifest({ version: "1.0.0", releasedAt: 1000, artifacts: [], sources: [] }, kp.pk, 1_700_000_000), kp.sk);
+  const ohneVersion = signEvent({ kind: KIND_RELEASE_MANIFEST, pubkey: kp.pk, created_at: 1_700_000_000, tags: [], content: "" }, kp.sk);
+  const anderes = signEvent({ kind: 1, pubkey: kp.pk, created_at: 1_700_000_000, tags: [], content: "x" }, kp.sk);
+  const gefragt: unknown[] = [];
+  const evs = await ladeManifestEvents({ query: async (f) => { gefragt.push(f); return [gut, ohneVersion, anderes]; } });
+  assert.deepEqual(gefragt, [{ kinds: [KIND_RELEASE_MANIFEST], limit: 50 }]);
+  assert.equal(evs.length, 3, "Events unverändert – suchUpdate() prüft sie selbst");
+  assert.deepEqual(manifesteAus(evs).map((m) => m.version), ["1.0.0"]);
 });

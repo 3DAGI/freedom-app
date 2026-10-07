@@ -16,9 +16,20 @@ export const TRUSTED_SIGNERS: string[] = [
   // VOR DEM RELEASE SETZEN: Pubkeys der Signierschluessel (mindestens zwei Personen oder Geraete).
 ];
 
+type ManifestPool = { query(f: { kinds: number[]; limit: number }): Promise<NostrEvent[]> };
+
+/** Release-Manifeste als signierte Events – für `suchUpdate()` (6.1a2), das jede Signatur selbst prüft. */
+export async function ladeManifestEvents(pool: ManifestPool): Promise<NostrEvent[]> {
+  return pool.query({ kinds: [KIND_RELEASE_MANIFEST], limit: 50 });
+}
+
 /** Release-Manifeste aus dem Netz, unlesbare übersprungen. */
-export async function ladeManifeste(pool: { query(f: { kinds: number[]; limit: number }): Promise<NostrEvent[]> }): Promise<ReleaseManifest[]> {
-  const evs = await pool.query({ kinds: [KIND_RELEASE_MANIFEST], limit: 50 });
+export async function ladeManifeste(pool: ManifestPool): Promise<ReleaseManifest[]> {
+  return manifesteAus(await ladeManifestEvents(pool));
+}
+
+/** Lesbare Manifeste aus Events. */
+export function manifesteAus(evs: NostrEvent[]): ReleaseManifest[] {
   return evs.flatMap((e) => {
     try { return [parseReleaseManifest(e)]; } catch { return []; }
   });

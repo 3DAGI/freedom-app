@@ -20,7 +20,7 @@ import { echtheitText, fehlerText, fixierungText, nachfolgeStand, nachfolgeWarnu
 import { geheim, tresorEingerichtet, wireTresorKarte } from "../tresor.js";
 import { $, el, toast } from "../ui.js";
 import { bestaetige, dialog, type Option, type Werte } from "../dialog.js";
-import { TRUSTED_SIGNERS, ladeManifeste } from "../../release-signierer.js";
+import { TRUSTED_SIGNERS, ladeManifestEvents, manifesteAus } from "../../release-signierer.js";
 import { conversations } from "./kommunikation.js";
 import { zeigeGeraete, zeigeSicherung } from "./sicherung.js";
 
@@ -237,14 +237,17 @@ function ladeFixierung(): import("@freedomstack/protocol").Fixierung | null {
 
 /** Eigene Datei hashen und gegen die Manifeste im Netz pruefen (k von n). */
 async function echtheit() {
-  const { hashText, verifyArtifact, latestRelease, allSources, pruefeFixierung } = await import("@freedomstack/protocol");
+  const { hashText, verifyArtifact, suchUpdate, allSources, pruefeFixierung } = await import("@freedomstack/protocol");
   const res = await fetch(location.href, { cache: "no-store" });
   const hash = hashText(await res.text());
-  const manifeste = await ladeManifeste(await ensurePool());
+  const events = await ladeManifestEvents(await ensurePool());
+  const manifeste = manifesteAus(events);
   const r = verifyArtifact(hash, "freedom.html", manifeste, TRUSTED_SIGNERS);
+  // Neuere Version nur, wenn k Signierer sie bestätigen und sie neuer ist als die laufende (6.1a2)
+  const update = suchUpdate(events, TRUSTED_SIGNERS, { sha256: hash });
   return {
     hash, r,
-    neueste: latestRelease(manifeste, TRUSTED_SIGNERS),
+    neueste: "angebot" in update ? update.angebot : null,
     quellen: allSources(manifeste, TRUSTED_SIGNERS),
     fixierung: pruefeFixierung(ladeFixierung(), hash, r),
   };
@@ -259,7 +262,7 @@ export async function pruefeEigeneEchtheit(): Promise<void> {
     const cls = r.status === "echt" ? "ok" : r.status === "abweichend" ? "err" : "warn";
 
     box.replaceChildren(el("span", echtheitText(r, "freedom.html"), cls));
-    if (neueste && neueste.version !== r.version) box.append(document.createElement("br"), t("set.neuereVersion", { version: neueste.version }));
+    if (neueste) box.append(document.createElement("br"), t("set.neuereVersion", { version: neueste.version }));
     if (quellen.length > 0) box.append(document.createElement("br"), el("span", t("set.bezugsquellen", { quellen: quellen.join(", ") }), "muted"));
     // Fixieren (5.2): Danach laeuft keine andere Version ohne Rueckfrage.
     const fix = ladeFixierung();
