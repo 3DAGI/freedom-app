@@ -204,4 +204,3 @@ kopfgeld.ts|baueKopfgeld|Kopfgelder (E10 B, 04.10.2026) – verdrahtet in E10b (
 kopfgeld.ts|kopfgelderZuIssue|Kopfgelder (E10 B, 04.10.2026) – verdrahtet in E10b (App: Kopfgeld am Issue, Zahlung per Klick)
 kopfgeld.ts|leseKopfgeld|Kopfgelder (E10 B, 04.10.2026) – verdrahtet in E10b (App: Kopfgeld am Issue, Zahlung per Klick)
 kopfgeld.ts|offeneKopfgelder|Kopfgelder (E10 B, 04.10.2026) – verdrahtet in E10b (App: Kopfgeld am Issue, Zahlung per Klick)
-oberflaeche-update.ts|pruefeDatei|prüft die geladene Oberfläche vor dem Installieren in der Hülle (6.1a3)

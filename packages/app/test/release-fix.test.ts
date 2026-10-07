@@ -20,7 +20,8 @@ test("Verdrahtung (5.2): Start prueft die fixierte Version, Settings fixieren nu
   assert.match(signierer, /mindestens `RELEASE_MIN_SIGNATUREN` \(2\)/);
   assert.match(s, /const events = await ladeManifestEvents\(await ensurePool\(\)\);\s*const manifeste = manifesteAus\(events\);\s*const r = verifyArtifact\(hash, "freedom\.html", manifeste, TRUSTED_SIGNERS\);/);
   // Seit 6.1a2: „neuere Version“ nur über suchUpdate() – k Signierer, neuer als die laufende, Signaturen selbst geprüft
-  assert.match(s, /const update = suchUpdate\(events, TRUSTED_SIGNERS, \{ sha256: hash \}\);/);
+  // Seit 6.1a3c nennt die Desktop-Hülle den Zeitpunkt der laufenden Fassung (sonst wie bisher nur die Prüfsumme)
+  assert.match(s, /const update = suchUpdate\(events, TRUSTED_SIGNERS, \{ sha256: hash, \.\.\.seit \}\);/);
   assert.doesNotMatch(s, /latestRelease\(/, "latestRelease() nannte auch eine ältere als „neuer“");
   const skript = readFileSync(new URL("../../../scripts/publish-release.mjs", import.meta.url), "utf8");
   assert.match(skript, /nutzlast\(\{ version, artifacts \}\)/, "Nutzlast-Hash zum Abgleich unter den Signierern");

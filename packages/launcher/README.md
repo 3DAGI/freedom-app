@@ -19,13 +19,17 @@ Linux, WebView2 unter Windows).
   keine Kommandos von Tauri selbst (Fenster, App, Dateien).
 - Die Hülle selbst spricht mit niemandem im Netz; das tut nur die App, mit
   denselben Regeln wie im Browser.
-- Noch nicht: der Knopf „Installieren“ in der App (6.1a3c), Selbst-Update der
-  Hülle (6.1a4b), Tor (6.1b), Android (6.1c).
+- Noch nicht: Selbst-Update der Hülle (6.1a4b), Tor (6.1b), Android (6.1c).
+- Unter Linux geht „App exportieren“ (Weitergeben) in der Hülle nicht: Die CSP der
+  App lässt kein `fetch` auf `freedom://` zu (Entscheidung H1 in der Sammlung).
 
 ## Neue Oberfläche installieren (seit 6.1a3b)
 
-Die App findet ein Update über das Release-Manifest (Kind 38054) und lädt die
-Datei. Installiert wird sie nur, wenn die Hülle selbst zustimmt
+Die App findet ein Update über das Release-Manifest (Kind 38054): Settings ›
+Echtheit nennt in der Hülle die laufende Fassung und bietet „Version …
+installieren“ an (seit 6.1a3c). Die App lädt die Datei von einer https-Quelle des
+Manifests, prüft Größe und Prüfsumme und fragt nach. Installiert wird sie nur,
+wenn die Hülle selbst zustimmt
 (`src/update.rs`): k vertraute Signierer bestätigen genau diese Datei (SHA-256,
 Größe), und sie ist neuer als die laufende **und** als die abgelegte Fassung.
 Vertraute Signierer und k liest `build.rs` aus der App – solange
