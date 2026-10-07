@@ -1,0 +1,8 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "oberflaeche",
+  "description": "Die App im Fenster der Hülle darf nur den Stand ihrer Oberfläche abfragen und eine geprüfte, neuere Fassung installieren lassen (6.1a3b) – sonst nichts.",
+  "local": true,
+  "windows": ["haupt"],
+  "permissions": ["allow-oberflaeche-stand", "allow-oberflaeche-installieren"]
+}

@@ -1,6 +1,8 @@
 // Die Oberfläche wird beigelegt (6.1a1): Ohne gebaute App gibt es keine Hülle.
 // Seit 6.1a3a liest der Bau auch die vertrauten Signierer und k aus denselben
-// Dateien wie die App – eine Liste, nie zwei, die auseinanderlaufen.
+// Dateien wie die App – eine Liste, nie zwei, die auseinanderlaufen. Seit 6.1a3b
+// nennt er die Kommandos der Hülle: Die App darf nur, was
+// `capabilities/oberflaeche.json` ausdrücklich erlaubt.
 use std::path::Path;
 
 fn main() {
@@ -22,7 +24,11 @@ fn main() {
         vertraut.iter().map(|s| format!("\"{s}\"")).collect::<Vec<_>>().join(", ")
     );
     std::fs::write(Path::new(&std::env::var("OUT_DIR").unwrap()).join("vertrauen.rs"), rs).unwrap();
-    tauri_build::build()
+    println!("cargo:rerun-if-env-changed=FREEDOM_RELEASED_AT");
+    tauri_build::try_build(
+        tauri_build::Attributes::new().app_manifest(tauri_build::AppManifest::new().commands(&["oberflaeche_stand", "oberflaeche_installieren"])),
+    )
+    .expect("tauri-build");
 }
 
 /// Die 64-stelligen Hex-Schlüssel zwischen `TRUSTED_SIGNERS: string[] = [` und `];` – Kommentare zählen nicht.

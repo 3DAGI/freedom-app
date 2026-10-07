@@ -47,7 +47,7 @@ bash contracts/solana-channel/pruefen.sh --werkzeuge     # nur bei Änderungen a
 cd packages/launcher && cargo test --locked && cd ../..  # nur bei Änderungen an der Hülle (Linux: WebKitGTK 4.1, App vorher bauen)
 ```
 
-Stand 07.10.2026 (nach 8.2c, 5.5a–c, 8.15, 11.1a, C.3c2, 11.1b, 5.9a–b, 6.3a–b2, 11.4a–b2, C.4a–b, C.5a–b, C.6b, 11.4c, C-18, C-17a–c, C-20a–j3, C-1a–f, C-2, C-3, C-4, C-5a–d, C-6a–e, C-7a–b, C-8, C-10 bis C-16, 11.2a–b, A-4 bis A-7, A-7r, Z1, 12.1–12.3, E8, P1a–b, P2a, E10a, E11, E9-Entwurf, 12.4a, P2b1–b2, P3a–b, P4, P5a–b, P5c1–c2, D1a, D1b1–b2, D1c, D2, D3-Entwurf, 12.6, 12.7a–c, 12.1 C, C-21, C-22a, C-22c, C-24, 6.1a1–a2, 6.1a3a, 6.1a4a, B-1, B-2a–c, B-3 bis B-7, B-8a–c, B-9a, B-15, B-19, B-20a–c, B-10a–b, B-9b1–b2, B-9c1–c3, B-11a–c, B-12a–d, B-13a–e, B-21, B-17a, B-17b1, B-17b2, B-17b3a und B-17b3b): protocol 1214 grün (6 übersprungen), node 314 grün
+Stand 07.10.2026 (nach 8.2c, 5.5a–c, 8.15, 11.1a, C.3c2, 11.1b, 5.9a–b, 6.3a–b2, 11.4a–b2, C.4a–b, C.5a–b, C.6b, 11.4c, C-18, C-17a–c, C-20a–j3, C-1a–f, C-2, C-3, C-4, C-5a–d, C-6a–e, C-7a–b, C-8, C-10 bis C-16, 11.2a–b, A-4 bis A-7, A-7r, Z1, 12.1–12.3, E8, P1a–b, P2a, E10a, E11, E9-Entwurf, 12.4a, P2b1–b2, P3a–b, P4, P5a–b, P5c1–c2, D1a, D1b1–b2, D1c, D2, D3-Entwurf, 12.6, 12.7a–c, 12.1 C, C-21, C-22a, C-22c, C-24, 6.1a1–a2, 6.1a3a–b, 6.1a4a, B-1, B-2a–c, B-3 bis B-7, B-8a–c, B-9a, B-15, B-19, B-20a–c, B-10a–b, B-9b1–b2, B-9c1–c3, B-11a–c, B-12a–d, B-13a–e, B-21, B-17a, B-17b1, B-17b2, B-17b3a und B-17b3b): protocol 1214 grün (6 übersprungen), node 314 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
 in `tools.test.ts`), app 931 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 73 grün + 1 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
@@ -1340,9 +1340,10 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   Verläufe nach einem Update weg; nie über `tauri://` oder eine Datei-Adresse.
   Ausgeliefert wird nur `freedom.html` (sonst 404, auch keine `freedom-spiegel.json`
   – die Hülle ist kein Spiegel). Navigation nur über `darf_navigieren()` (eigener
-  Ursprung, Blob-Adressen dieses Ursprungs), neue Fenster `Deny`; die Oberfläche hat
-  keine Tauri-Rechte (keine Capabilities) – ein neues Kommando bekommt nur die
-  geprüften Rechte, die es braucht. `window.__FREEDOM_NATIVE__` setzt nur
+  Ursprung, Blob-Adressen dieses Ursprungs), neue Fenster `Deny`; die Oberfläche darf
+  nur die Kommandos aus `capabilities/oberflaeche.json` (seit 6.1a3b zwei) – ein neues
+  Kommando nur über das App-Manifest in `build.rs` und mit eigener Erlaubnis dort,
+  nie `core:default` oder Rechte von Tauri selbst. `window.__FREEDOM_NATIVE__` setzt nur
   `kennung_skript()`. `build.rs` bricht ohne gebaute App ab; Symbole nur über
   `scripts/launcher-symbole.py`. Unter Xvfb prüfen (`xvfb-run`): die Hülle startet,
   `isSecureContext` und `crypto.subtle` sind wahr – ein Prüf-Skript nur lokal, nie
@@ -1362,3 +1363,8 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   Signierer und k liest `build.rs` aus `release-signierer.ts`/`release.ts` – nie eine
   zweite Liste in Rust. Ändert sich eine Regel, beide Seiten ändern und die
   gemeinsamen Fälle mit `scripts/oberflaeche-vektoren.mts` neu erzeugen.
+  Abgelegt (seit 6.1a3b) nur über `Ablage::installiere()` (`ablage.rs`: erst `neu.*`
+  ganz schreiben, dann umbenennen; geladen nur, wenn die Datei zum Stand passt),
+  installiert nur über `Oberflaeche::installiere()` – nie älter als die laufende und
+  die abgelegte Fassung, eine neuere beigelegte schlägt eine ältere installierte.
+  Zurück nur über den Start (`--oberflaeche=vorher|beigelegt`), nie ein Kommando dafür.

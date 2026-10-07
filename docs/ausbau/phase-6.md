@@ -22,8 +22,8 @@ Relays, RPC-Anbietern und Lightning-Diensten.
   (Linux, Windows) – a1 Hülle ✓ (eigenes Schema, Navigation nur im eigenen
   Ursprung, CI), a2 Update der Oberfläche prüfen ✓ (Release-Manifest 38054, k von
   n, nie älter als die laufende), a3 Update installieren (die Hülle prüft
-  Signaturen und Prüfsumme selbst – a3a ✓ mit `k256`; a3b Ablage, alte Fassung als
-  Rückfall; a3c Knopf in der App), a4a Pakete ✓ (deb,
+  Signaturen und Prüfsumme selbst – a3a ✓ mit `k256`; a3b ✓ Ablage, alte Fassung als
+  Rückfall nur über den Start; a3c Knopf in der App), a4a Pakete ✓ (deb,
   AppImage, Installer für Windows – als Artefakt der CI, unsigniert), a4b
   Selbst-Update der Hülle (Signierschlüssel: MENSCH); b Tor (arti, vorher
   fragen), c Android. Schritt 1–3 oben gehören zu b.
