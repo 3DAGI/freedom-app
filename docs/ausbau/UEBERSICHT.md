@@ -57,7 +57,8 @@ Relay-Sortierung (6.x); Rangliste aus Selbstauskunft (5.5).
 |---|---|
 | `STATUS.md` | vollständiges Entwicklungsprotokoll, neueste Abschnitte am Ende |
 | `DEPLOY.md` | Devnet-Deploy und Website-Prüfsumme |
-| `GO-LIVE.md` | ursprünglicher Go-Live-Plan |
+| `GO-LIVE.md` | Go-Live-Checkliste |
+| `docs/archiv/` | frühere Stände, Pläne und Analysen – nicht als heutigen Stand lesen (Übersicht dort) |
 | `docs/SCHLUESSEL.md` | alle Ableitungspfade |
 | `docs/ausbau/FORTSCHRITT.md` | Stand aller Schritte |
 | `docs/ausbau/phase-*.md` | Aufgabenkarten |
