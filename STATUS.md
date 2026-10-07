@@ -17753,4 +17753,9 @@ dieselben stehen schon in `packages/mls/Cargo.lock`. `sha2`, `serde` und
 
 **Aufgerufen** wird `pruefe()` ab a3b; bis dahin nur aus den Tests.
 
-**Prüfungen:** PRUEF_PLATZHALTER
+**Prüfungen:**
+- launcher: 14 Rust-Tests grün (+8), `cargo clippy --all-targets` ohne Warnung.
+- protocol 1214 grün (6 übersprungen, +14), node 314 grün (6 übersprungen), app
+  931 grün, Leak 73 grün + 1 todo, mls 13 grün.
+- check-wiring `--streng` Exit 0, check-website ok, check_innerhtml Exit 0.
+- repro-build reproduzierbar, build-site Exit 0, Smoke-Test bestanden.
