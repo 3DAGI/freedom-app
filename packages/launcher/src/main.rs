@@ -8,6 +8,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod oberflaeche;
+mod update;
 
 use tauri::webview::NewWindowResponse;
 use tauri::{WebviewUrl, WebviewWindowBuilder};

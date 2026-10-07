@@ -17696,3 +17696,66 @@ currentUser`.
 - check-wiring `--streng` Exit 0, check-website ok, check_innerhtml Exit 0.
 - repro-build reproduzierbar, build-site Exit 0, Smoke-Test bestanden.
 - `launcher.yml` ist gültiges YAML.
+
+## Schritt 6.1a3a – Update der Oberfläche: Prüfung in der Hülle
+
+Teil a3 von 6.1a (Sammlung C-23), aufgeteilt in drei Schritte:
+- **a3a** (dieser Schritt): Prüfung in Rust.
+- **a3b**: Ablage und Auslieferung der installierten Fassung, die alte bleibt
+  als Rückfall.
+- **a3c**: Knopf „Installieren“ in der App.
+
+`k256` hat der MENSCH am 07.10.2026 freigegeben.
+
+**Warum in der Hülle:** Die App findet ein Update über `suchUpdate()` und lädt die
+Datei. Würde die Hülle der Oberfläche glauben, könnte eine Lücke in der
+Oberfläche eine eigene Fassung dauerhaft einsetzen. Deshalb prüft die Hülle
+dieselben Belege noch einmal selbst.
+
+**Neu `packages/launcher/src/update.rs`:** `pruefe(html, belege, vertraut, k,
+laufend_seit)` prüft:
+- die Kennung nach NIP-01 – `serde_json` serialisiert wie `JSON.stringify`;
+- die Schnorr-Signatur nach BIP-340 (`k256` 0.13.4, `verify_raw` über die
+  Kennung);
+- dass nur vertraute Schlüssel zählen;
+- dass k Signierer dieselbe Version bestätigen – Versionsangabe und alle Dateien
+  gleich, je Signierer sein neuestes Manifest;
+- dass die Datei genau `freedom.html` dieser Version ist (Größe, SHA-256);
+- als Zeitpunkt den frühesten der Signierer und nur Neueres als die laufende
+  Fassung.
+
+Fehler gibt es nur als Kennung: `kein-beleg`, `zu-wenig`, `abweichend`,
+`nicht-neuer`, `zu-gross`. Zahlen und Namen liest die Hülle im Zweifel strenger
+als das Protokoll – sie lehnt dann ab, nimmt aber nie mehr an.
+
+**Eine Liste:** `build.rs` liest `TRUSTED_SIGNERS` aus
+`packages/app/src/release-signierer.ts` und `RELEASE_MIN_SIGNATUREN` aus
+`packages/protocol/src/release.ts` (k muss mindestens 2 sein). Es gibt keine
+zweite Liste in Rust, die auseinanderlaufen könnte.
+
+**Gemeinsame Prüffälle:**
+- `scripts/oberflaeche-vektoren.mts` erzeugt `packages/launcher/tests/vektoren.json`.
+  Die Datei enthält 13 Fälle mit Wegwerfschlüsseln – nur öffentliche Schlüssel
+  und signierte Events.
+- Fälle: ok; Sonderzeichen in der Kennung (Steuerzeichen, Anführungszeichen,
+  Emoji, U+2028); frühester Zeitpunkt; ein Signierer; derselbe Signierer zweimal;
+  ein fremder Signierer; gefälschte Prüfsumme; ein untergeschobenes Manifest;
+  Uneinigkeit über Version und Dateien; eine andere Datei; nicht neuer; keine
+  Belege.
+- Rust (`update.rs`) und Protokoll (`oberflaeche-vektoren.test.ts`) entscheiden
+  alle Fälle gleich.
+
+**Neue Pakete in `Cargo.lock`:** `k256` mit dem RustCrypto-Unterbau (`base16ct`,
+`base64ct`, `const-oid`, `crypto-bigint`, `der`, `ecdsa`, `elliptic-curve`, `ff`,
+`group`, `pkcs8`, `rand_core`, `sec1`, `signature`, `spki`, `subtle`, `zeroize`) –
+dieselben stehen schon in `packages/mls/Cargo.lock`. `sha2`, `serde` und
+`serde_json` waren über Tauri schon da.
+
+**Aufgerufen** wird `pruefe()` ab a3b; bis dahin nur aus den Tests.
+
+**Prüfungen:**
+- launcher: 14 Rust-Tests grün (+8), `cargo clippy --all-targets` ohne Warnung.
+- protocol 1214 grün (6 übersprungen, +14), node 314 grün (6 übersprungen), app
+  931 grün, Leak 73 grün + 1 todo, mls 13 grün.
+- check-wiring `--streng` Exit 0, check-website ok, check_innerhtml Exit 0.
+- repro-build reproduzierbar, build-site Exit 0, Smoke-Test bestanden.

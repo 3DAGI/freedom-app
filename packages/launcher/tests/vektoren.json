@@ -1,0 +1,1029 @@
+{
+ "hinweis": "Erzeugt mit scripts/oberflaeche-vektoren.mts – nur Wegwerfschlüssel, nicht von Hand ändern.",
+ "vertraut": [
+  "b79aa255c45db4e97662087ab38495bce00f368b00747aca7179cb1ddfc4cf4d",
+  "9b89f44ee7e104c6e43d07565416b4b2d9f8056cf357a08e9979069b99da66f7",
+  "86239b951512094c8d09c4bf5800f7d589ef1944ebd801546d29a76e38a469c2"
+ ],
+ "k": 2,
+ "faelle": [
+  {
+   "name": "zwei vertraute Signierer, Datei stimmt",
+   "html": "<!doctype html><title>Fassung 2</title><p>Oberfläche 2 – „Zitat“ \\ ü</p>\n",
+   "laufend_seit": 1000,
+   "belege": [
+    {
+     "pubkey": "b79aa255c45db4e97662087ab38495bce00f368b00747aca7179cb1ddfc4cf4d",
+     "created_at": 1700000000,
+     "kind": 38054,
+     "tags": [
+      [
+       "d",
+       "release:2.0.0"
+      ],
+      [
+       "version",
+       "2.0.0"
+      ],
+      [
+       "released_at",
+       "2000"
+      ],
+      [
+       "artifact",
+       "freedom.html",
+       "340b179309ad143b7b8b0d618a29b98d1a40be2c231b60753fbdc9e463770473",
+       "81"
+      ],
+      [
+       "artifact",
+       "freedom-sw.js",
+       "01f7a859d3abaeb69adc86feea1888c86f776ce6fbaaa193c3785c6c7c6ad192",
+       "40"
+      ],
+      [
+       "source",
+       "https://3dagi.github.io/freedom-app/freedom.html"
+      ]
+     ],
+     "content": "",
+     "id": "2fb42d431a2c911a386f0d98f68e923bce1d20d94ce5b7b506a3ca2623d18ed2",
+     "sig": "593efd756ba7d0907a3bfacd7d19e7a95617809bafa1bb1c43f2a1bc6833c2be23aa757792094ff5224b6fc3eba3a30520290c8ab6e3ba41965c7748f597d759"
+    },
+    {
+     "pubkey": "9b89f44ee7e104c6e43d07565416b4b2d9f8056cf357a08e9979069b99da66f7",
+     "created_at": 1700000000,
+     "kind": 38054,
+     "tags": [
+      [
+       "d",
+       "release:2.0.0"
+      ],
+      [
+       "version",
+       "2.0.0"
+      ],
+      [
+       "released_at",
+       "2000"
+      ],
+      [
+       "artifact",
+       "freedom.html",
+       "340b179309ad143b7b8b0d618a29b98d1a40be2c231b60753fbdc9e463770473",
+       "81"
+      ],
+      [
+       "artifact",
+       "freedom-sw.js",
+       "01f7a859d3abaeb69adc86feea1888c86f776ce6fbaaa193c3785c6c7c6ad192",
+       "40"
+      ],
+      [
+       "source",
+       "https://3dagi.github.io/freedom-app/freedom.html"
+      ]
+     ],
+     "content": "",
+     "id": "19afb71f9c52e1c1329726988ea86a43d5142e58b3852535135d3ee21dd192eb",
+     "sig": "999e0040b67eeffc6c82bba0c4d541555082489485c0c553a8ef5538c2bdeb13c8842d21d8e4e8bdd559952dd527448a036f05e120ae493b1f79261efc4efcab"
+    }
+   ],
+   "erwartet": {
+    "ok": {
+     "version": "2.0.0",
+     "released_at": 2000
+    }
+   }
+  },
+  {
+   "name": "Notizen mit Steuerzeichen, Anführungszeichen und Emoji – Kennung nach NIP-01",
+   "html": "<!doctype html><title>Fassung 2</title><p>Oberfläche 2 – „Zitat“ \\ ü</p>\n",
+   "laufend_seit": 0,
+   "belege": [
+    {
+     "pubkey": "b79aa255c45db4e97662087ab38495bce00f368b00747aca7179cb1ddfc4cf4d",
+     "created_at": 1700000000,
+     "kind": 38054,
+     "tags": [
+      [
+       "d",
+       "release:2.0.0"
+      ],
+      [
+       "version",
+       "2.0.0"
+      ],
+      [
+       "released_at",
+       "2000"
+      ],
+      [
+       "artifact",
+       "freedom.html",
+       "340b179309ad143b7b8b0d618a29b98d1a40be2c231b60753fbdc9e463770473",
+       "81"
+      ],
+      [
+       "artifact",
+       "freedom-sw.js",
+       "01f7a859d3abaeb69adc86feea1888c86f776ce6fbaaa193c3785c6c7c6ad192",
+       "40"
+      ],
+      [
+       "source",
+       "https://3dagi.github.io/freedom-app/freedom.html"
+      ],
+      [
+       "notes",
+       "Zeile 1\nZeile 2\t\"zitiert\" \\ ü 😀 \u0001  "
+      ]
+     ],
+     "content": "Zeile 1\nZeile 2\t\"zitiert\" \\ ü 😀 \u0001  ",
+     "id": "d3365dbdc609058026a369e498f8a6ee6fc0c7fdbd1a738ec905cb9b6caa4551",
+     "sig": "197d6c4e77d7a5f0c92f6e4844fa2b9fd8324ac8c8d0031bb3b2627dde593e8c0fdf94e9bb06c0b373dd4a6f030821d9c1418534af809d6867b6cf09d3df86fb"
+    },
+    {
+     "pubkey": "86239b951512094c8d09c4bf5800f7d589ef1944ebd801546d29a76e38a469c2",
+     "created_at": 1700000000,
+     "kind": 38054,
+     "tags": [
+      [
+       "d",
+       "release:2.0.0"
+      ],
+      [
+       "version",
+       "2.0.0"
+      ],
+      [
+       "released_at",
+       "2000"
+      ],
+      [
+       "artifact",
+       "freedom.html",
+       "340b179309ad143b7b8b0d618a29b98d1a40be2c231b60753fbdc9e463770473",
+       "81"
+      ],
+      [
+       "artifact",
+       "freedom-sw.js",
+       "01f7a859d3abaeb69adc86feea1888c86f776ce6fbaaa193c3785c6c7c6ad192",
+       "40"
+      ],
+      [
+       "source",
+       "https://3dagi.github.io/freedom-app/freedom.html"
+      ],
+      [
+       "notes",
+       "</script>"
+      ]
+     ],
+     "content": "</script>",
+     "id": "d111bd403a7c57123b4a03856979e14c931d0723e9e7669df03ca97f7540fe84",
+     "sig": "0be1c772ae92153edfd9c552d6b3e636d008710512d608a620f724063ad78ac2d06a3266051c419f943a558b89054b1615ef0a0bc1b308df9cd18ce30cccc63e"
+    }
+   ],
+   "erwartet": {
+    "ok": {
+     "version": "2.0.0",
+     "released_at": 2000
+    }
+   }
+  },
+  {
+   "name": "der früheste Zeitpunkt der Signierer zählt",
+   "html": "<!doctype html><title>Fassung 2</title><p>Oberfläche 2 – „Zitat“ \\ ü</p>\n",
+   "laufend_seit": 0,
+   "belege": [
+    {
+     "pubkey": "b79aa255c45db4e97662087ab38495bce00f368b00747aca7179cb1ddfc4cf4d",
+     "created_at": 1700000000,
+     "kind": 38054,
+     "tags": [
+      [
+       "d",
+       "release:2.0.0"
+      ],
+      [
+       "version",
+       "2.0.0"
+      ],
+      [
+       "released_at",
+       "9000"
+      ],
+      [
+       "artifact",
+       "freedom.html",
+       "340b179309ad143b7b8b0d618a29b98d1a40be2c231b60753fbdc9e463770473",
+       "81"
+      ],
+      [
+       "artifact",
+       "freedom-sw.js",
+       "01f7a859d3abaeb69adc86feea1888c86f776ce6fbaaa193c3785c6c7c6ad192",
+       "40"
+      ],
+      [
+       "source",
+       "https://3dagi.github.io/freedom-app/freedom.html"
+      ]
+     ],
+     "content": "",
+     "id": "288cbbadb974fa5129a624940775a6a050689c7e8d9c26b1bc75a43c61f252d7",
+     "sig": "866c7b867fa823904191fbff68d2a37c12c1c2d366070e485cbe22f3ab33d80f349299fbff3ad89323219d47156e878387317a0b475e99ec9494dba439490753"
+    },
+    {
+     "pubkey": "9b89f44ee7e104c6e43d07565416b4b2d9f8056cf357a08e9979069b99da66f7",
+     "created_at": 1700000000,
+     "kind": 38054,
+     "tags": [
+      [
+       "d",
+       "release:2.0.0"
+      ],
+      [
+       "version",
+       "2.0.0"
+      ],
+      [
+       "released_at",
+       "2500"
+      ],
+      [
+       "artifact",
+       "freedom.html",
+       "340b179309ad143b7b8b0d618a29b98d1a40be2c231b60753fbdc9e463770473",
+       "81"
+      ],
+      [
+       "artifact",
+       "freedom-sw.js",
+       "01f7a859d3abaeb69adc86feea1888c86f776ce6fbaaa193c3785c6c7c6ad192",
+       "40"
+      ],
+      [
+       "source",
+       "https://3dagi.github.io/freedom-app/freedom.html"
+      ]
+     ],
+     "content": "",
+     "id": "296c5cc3852b5543f84ccd9f18d2dd3d2b3b3984ca2d26150585fe69a5e835cd",
+     "sig": "f8cdcc583f44612ee3afcf2b4b38bc418fda52f3f8f22e1249c005e69481b0763e150bc8277273c3fcae6dfa3ef7a64826805dbafa7c03d471943794888e99f4"
+    }
+   ],
+   "erwartet": {
+    "ok": {
+     "version": "2.0.0",
+     "released_at": 2500
+    }
+   }
+  },
+  {
+   "name": "ein Signierer allein",
+   "html": "<!doctype html><title>Fassung 2</title><p>Oberfläche 2 – „Zitat“ \\ ü</p>\n",
+   "laufend_seit": 0,
+   "belege": [
+    {
+     "pubkey": "b79aa255c45db4e97662087ab38495bce00f368b00747aca7179cb1ddfc4cf4d",
+     "created_at": 1700000000,
+     "kind": 38054,
+     "tags": [
+      [
+       "d",
+       "release:2.0.0"
+      ],
+      [
+       "version",
+       "2.0.0"
+      ],
+      [
+       "released_at",
+       "2000"
+      ],
+      [
+       "artifact",
+       "freedom.html",
+       "340b179309ad143b7b8b0d618a29b98d1a40be2c231b60753fbdc9e463770473",
+       "81"
+      ],
+      [
+       "artifact",
+       "freedom-sw.js",
+       "01f7a859d3abaeb69adc86feea1888c86f776ce6fbaaa193c3785c6c7c6ad192",
+       "40"
+      ],
+      [
+       "source",
+       "https://3dagi.github.io/freedom-app/freedom.html"
+      ]
+     ],
+     "content": "",
+     "id": "2fb42d431a2c911a386f0d98f68e923bce1d20d94ce5b7b506a3ca2623d18ed2",
+     "sig": "1c47bf1f53e7b89d7d2cd14e2e10239472d3cc03a1836c6eae1fd377848f112e6616c36ed5b3077f5063abe775dd310465c7ebd0e626b2dd4b588a3462cb9b8f"
+    }
+   ],
+   "erwartet": {
+    "fehler": "zu-wenig"
+   }
+  },
+  {
+   "name": "derselbe Signierer zweimal",
+   "html": "<!doctype html><title>Fassung 2</title><p>Oberfläche 2 – „Zitat“ \\ ü</p>\n",
+   "laufend_seit": 0,
+   "belege": [
+    {
+     "pubkey": "b79aa255c45db4e97662087ab38495bce00f368b00747aca7179cb1ddfc4cf4d",
+     "created_at": 1700000000,
+     "kind": 38054,
+     "tags": [
+      [
+       "d",
+       "release:2.0.0"
+      ],
+      [
+       "version",
+       "2.0.0"
+      ],
+      [
+       "released_at",
+       "2000"
+      ],
+      [
+       "artifact",
+       "freedom.html",
+       "340b179309ad143b7b8b0d618a29b98d1a40be2c231b60753fbdc9e463770473",
+       "81"
+      ],
+      [
+       "artifact",
+       "freedom-sw.js",
+       "01f7a859d3abaeb69adc86feea1888c86f776ce6fbaaa193c3785c6c7c6ad192",
+       "40"
+      ],
+      [
+       "source",
+       "https://3dagi.github.io/freedom-app/freedom.html"
+      ]
+     ],
+     "content": "",
+     "id": "2fb42d431a2c911a386f0d98f68e923bce1d20d94ce5b7b506a3ca2623d18ed2",
+     "sig": "f60fbe301d0a4c7b3d9444cec6f56e3a43c7a9fa04b6917f60f3098e39556b88e1c7f05531877e3e2568f3df5a38355d27ccdc77960aeba45fd6a2fc71fb8aa5"
+    },
+    {
+     "pubkey": "b79aa255c45db4e97662087ab38495bce00f368b00747aca7179cb1ddfc4cf4d",
+     "created_at": 1700000000,
+     "kind": 38054,
+     "tags": [
+      [
+       "d",
+       "release:2.0.0"
+      ],
+      [
+       "version",
+       "2.0.0"
+      ],
+      [
+       "released_at",
+       "2000"
+      ],
+      [
+       "artifact",
+       "freedom.html",
+       "340b179309ad143b7b8b0d618a29b98d1a40be2c231b60753fbdc9e463770473",
+       "81"
+      ],
+      [
+       "artifact",
+       "freedom-sw.js",
+       "01f7a859d3abaeb69adc86feea1888c86f776ce6fbaaa193c3785c6c7c6ad192",
+       "40"
+      ],
+      [
+       "source",
+       "https://3dagi.github.io/freedom-app/freedom.html"
+      ],
+      [
+       "notes",
+       "noch einmal"
+      ]
+     ],
+     "content": "noch einmal",
+     "id": "cfaf5c571adb4ab6602e075d978a7c23b0ba9607d6e28ada40f66b377e6d3504",
+     "sig": "5032af24131f39625ad09f809bab0e7a7803d6d849f0e9ac8b59a96c486a760dc7282c6b127a0cffc35f2507f7c080a19a9782e20665574dca4dc71230f96717"
+    }
+   ],
+   "erwartet": {
+    "fehler": "zu-wenig"
+   }
+  },
+  {
+   "name": "zweite Stimme von einem fremden Schlüssel",
+   "html": "<!doctype html><title>Fassung 2</title><p>Oberfläche 2 – „Zitat“ \\ ü</p>\n",
+   "laufend_seit": 0,
+   "belege": [
+    {
+     "pubkey": "b79aa255c45db4e97662087ab38495bce00f368b00747aca7179cb1ddfc4cf4d",
+     "created_at": 1700000000,
+     "kind": 38054,
+     "tags": [
+      [
+       "d",
+       "release:2.0.0"
+      ],
+      [
+       "version",
+       "2.0.0"
+      ],
+      [
+       "released_at",
+       "2000"
+      ],
+      [
+       "artifact",
+       "freedom.html",
+       "340b179309ad143b7b8b0d618a29b98d1a40be2c231b60753fbdc9e463770473",
+       "81"
+      ],
+      [
+       "artifact",
+       "freedom-sw.js",
+       "01f7a859d3abaeb69adc86feea1888c86f776ce6fbaaa193c3785c6c7c6ad192",
+       "40"
+      ],
+      [
+       "source",
+       "https://3dagi.github.io/freedom-app/freedom.html"
+      ]
+     ],
+     "content": "",
+     "id": "2fb42d431a2c911a386f0d98f68e923bce1d20d94ce5b7b506a3ca2623d18ed2",
+     "sig": "c92180363d88cfc01516169e1bfe86341ae8b6cee01351a27947b770f091dc6eb9e6f4b80883b3fc4baa138ce91f69f5602914dc3315a7bc3c731d3860e01602"
+    },
+    {
+     "pubkey": "f4f4021ce99b8c12fcc9810626fb252f87a7e46ba9f877f876fd0e4c73d0c746",
+     "created_at": 1700000000,
+     "kind": 38054,
+     "tags": [
+      [
+       "d",
+       "release:2.0.0"
+      ],
+      [
+       "version",
+       "2.0.0"
+      ],
+      [
+       "released_at",
+       "2000"
+      ],
+      [
+       "artifact",
+       "freedom.html",
+       "340b179309ad143b7b8b0d618a29b98d1a40be2c231b60753fbdc9e463770473",
+       "81"
+      ],
+      [
+       "artifact",
+       "freedom-sw.js",
+       "01f7a859d3abaeb69adc86feea1888c86f776ce6fbaaa193c3785c6c7c6ad192",
+       "40"
+      ],
+      [
+       "source",
+       "https://3dagi.github.io/freedom-app/freedom.html"
+      ]
+     ],
+     "content": "",
+     "id": "22a80c6b6ef2577333787a8b61650634ef5939c044ca74b0d25307d8bef200ce",
+     "sig": "7ab70ae63addb143e81d0e113887f0d9d2ee8445fabf5ae04f0559f20fc09af96faffdacf824887e08eb4e078de36f97352a5154fc052198aebbb2afe93b671c"
+    }
+   ],
+   "erwartet": {
+    "fehler": "zu-wenig"
+   }
+  },
+  {
+   "name": "Prüfsumme nach dem Signieren geändert",
+   "html": "<!doctype html><title>Fassung 2</title><p>Oberfläche 2 – „Zitat“ \\ ü</p>\n",
+   "laufend_seit": 0,
+   "belege": [
+    {
+     "pubkey": "b79aa255c45db4e97662087ab38495bce00f368b00747aca7179cb1ddfc4cf4d",
+     "created_at": 1700000000,
+     "kind": 38054,
+     "tags": [
+      [
+       "d",
+       "release:2.0.0"
+      ],
+      [
+       "version",
+       "2.0.0"
+      ],
+      [
+       "released_at",
+       "2000"
+      ],
+      [
+       "artifact",
+       "freedom.html",
+       "340b179309ad143b7b8b0d618a29b98d1a40be2c231b60753fbdc9e463770473",
+       "81"
+      ],
+      [
+       "artifact",
+       "freedom-sw.js",
+       "01f7a859d3abaeb69adc86feea1888c86f776ce6fbaaa193c3785c6c7c6ad192",
+       "40"
+      ],
+      [
+       "source",
+       "https://3dagi.github.io/freedom-app/freedom.html"
+      ]
+     ],
+     "content": "",
+     "id": "2fb42d431a2c911a386f0d98f68e923bce1d20d94ce5b7b506a3ca2623d18ed2",
+     "sig": "95869e01c2a1ae0ff48dfbe5b550592619ae206268b0dba95aa9d3c46f8cddb7109594fc53af19461338b4854fa050f8a30e28a53df98436cc8909e9be1bb6c7"
+    },
+    {
+     "pubkey": "9b89f44ee7e104c6e43d07565416b4b2d9f8056cf357a08e9979069b99da66f7",
+     "created_at": 1700000000,
+     "kind": 38054,
+     "tags": [
+      [
+       "d",
+       "release:2.0.0"
+      ],
+      [
+       "version",
+       "2.0.0"
+      ],
+      [
+       "released_at",
+       "2000"
+      ],
+      [
+       "artifact",
+       "freedom.html",
+       "569e51d8bb3248bc3ececd96d95362d177fd71c2aa0eaefc4345b25fe6c6cec3",
+       "81"
+      ],
+      [
+       "artifact",
+       "freedom-sw.js",
+       "01f7a859d3abaeb69adc86feea1888c86f776ce6fbaaa193c3785c6c7c6ad192",
+       "40"
+      ],
+      [
+       "source",
+       "https://3dagi.github.io/freedom-app/freedom.html"
+      ]
+     ],
+     "content": "",
+     "id": "19afb71f9c52e1c1329726988ea86a43d5142e58b3852535135d3ee21dd192eb",
+     "sig": "582589fa0d2206c2f18bf39b878d1c7c6854107e477154fc3e7a9cfa5eb9610098583e3984e90eeb88c94708fabb0e178e8aea09c39db9d02e1edfa5a5ba28fc"
+    }
+   ],
+   "erwartet": {
+    "fehler": "zu-wenig"
+   }
+  },
+  {
+   "name": "fremdes Manifest unter vertrautem Schlüssel ausgegeben",
+   "html": "<!doctype html><title>Fassung 2</title><p>Oberfläche 2 – „Zitat“ \\ ü</p>\n",
+   "laufend_seit": 0,
+   "belege": [
+    {
+     "pubkey": "b79aa255c45db4e97662087ab38495bce00f368b00747aca7179cb1ddfc4cf4d",
+     "created_at": 1700000000,
+     "kind": 38054,
+     "tags": [
+      [
+       "d",
+       "release:2.0.0"
+      ],
+      [
+       "version",
+       "2.0.0"
+      ],
+      [
+       "released_at",
+       "2000"
+      ],
+      [
+       "artifact",
+       "freedom.html",
+       "340b179309ad143b7b8b0d618a29b98d1a40be2c231b60753fbdc9e463770473",
+       "81"
+      ],
+      [
+       "artifact",
+       "freedom-sw.js",
+       "01f7a859d3abaeb69adc86feea1888c86f776ce6fbaaa193c3785c6c7c6ad192",
+       "40"
+      ],
+      [
+       "source",
+       "https://3dagi.github.io/freedom-app/freedom.html"
+      ]
+     ],
+     "content": "",
+     "id": "2fb42d431a2c911a386f0d98f68e923bce1d20d94ce5b7b506a3ca2623d18ed2",
+     "sig": "70248069c11585efdba871c54088bea693cf2aa55a8f87aefb3aede3e69eea1c6dce6b6c5eb4caecc3627bb1878c820a94e3fa92ae9dff846e0209c398c7ed82"
+    },
+    {
+     "pubkey": "9b89f44ee7e104c6e43d07565416b4b2d9f8056cf357a08e9979069b99da66f7",
+     "created_at": 1700000000,
+     "kind": 38054,
+     "tags": [
+      [
+       "d",
+       "release:2.0.0"
+      ],
+      [
+       "version",
+       "2.0.0"
+      ],
+      [
+       "released_at",
+       "2000"
+      ],
+      [
+       "artifact",
+       "freedom.html",
+       "340b179309ad143b7b8b0d618a29b98d1a40be2c231b60753fbdc9e463770473",
+       "81"
+      ],
+      [
+       "artifact",
+       "freedom-sw.js",
+       "01f7a859d3abaeb69adc86feea1888c86f776ce6fbaaa193c3785c6c7c6ad192",
+       "40"
+      ],
+      [
+       "source",
+       "https://3dagi.github.io/freedom-app/freedom.html"
+      ]
+     ],
+     "content": "",
+     "id": "22a80c6b6ef2577333787a8b61650634ef5939c044ca74b0d25307d8bef200ce",
+     "sig": "fe4de6a1f29a63d9b0fad1235b4a70f18d9e4f4d0e7a638b74fbc5b9323f5465607c0b8e46425b94fb8b630e2bc79e0e229681737e1c8d3f8c046ed21ffd51a1"
+    }
+   ],
+   "erwartet": {
+    "fehler": "zu-wenig"
+   }
+  },
+  {
+   "name": "uneinig über die Version",
+   "html": "<!doctype html><title>Fassung 2</title><p>Oberfläche 2 – „Zitat“ \\ ü</p>\n",
+   "laufend_seit": 0,
+   "belege": [
+    {
+     "pubkey": "b79aa255c45db4e97662087ab38495bce00f368b00747aca7179cb1ddfc4cf4d",
+     "created_at": 1700000000,
+     "kind": 38054,
+     "tags": [
+      [
+       "d",
+       "release:2.0.0"
+      ],
+      [
+       "version",
+       "2.0.0"
+      ],
+      [
+       "released_at",
+       "2000"
+      ],
+      [
+       "artifact",
+       "freedom.html",
+       "340b179309ad143b7b8b0d618a29b98d1a40be2c231b60753fbdc9e463770473",
+       "81"
+      ],
+      [
+       "artifact",
+       "freedom-sw.js",
+       "01f7a859d3abaeb69adc86feea1888c86f776ce6fbaaa193c3785c6c7c6ad192",
+       "40"
+      ],
+      [
+       "source",
+       "https://3dagi.github.io/freedom-app/freedom.html"
+      ]
+     ],
+     "content": "",
+     "id": "2fb42d431a2c911a386f0d98f68e923bce1d20d94ce5b7b506a3ca2623d18ed2",
+     "sig": "41d3d2dd09ee0ca6ae3a5268c12a636b616fbb0ef6c658a5d988072b37613fdbe5da5416ea703ef30f28291a2f172b174f7cb637836c41c4916c7a4642fe0c6d"
+    },
+    {
+     "pubkey": "9b89f44ee7e104c6e43d07565416b4b2d9f8056cf357a08e9979069b99da66f7",
+     "created_at": 1700000000,
+     "kind": 38054,
+     "tags": [
+      [
+       "d",
+       "release:2.0.1"
+      ],
+      [
+       "version",
+       "2.0.1"
+      ],
+      [
+       "released_at",
+       "2000"
+      ],
+      [
+       "artifact",
+       "freedom.html",
+       "340b179309ad143b7b8b0d618a29b98d1a40be2c231b60753fbdc9e463770473",
+       "81"
+      ],
+      [
+       "artifact",
+       "freedom-sw.js",
+       "01f7a859d3abaeb69adc86feea1888c86f776ce6fbaaa193c3785c6c7c6ad192",
+       "40"
+      ],
+      [
+       "source",
+       "https://3dagi.github.io/freedom-app/freedom.html"
+      ]
+     ],
+     "content": "",
+     "id": "2cee4c5cef56c54ccb4a5f6e59699c902cdc16fefb00acad92186faf62559a55",
+     "sig": "7a28a663c050a1c253a363b1eaf59c956d4f9fbb14e90017fb64c88b97728f7ca6207027c1f6100f5d9484fdead43e4b69e57996378855cd0cd27526484f3c30"
+    }
+   ],
+   "erwartet": {
+    "fehler": "zu-wenig"
+   }
+  },
+  {
+   "name": "uneinig über die Dateien",
+   "html": "<!doctype html><title>Fassung 2</title><p>Oberfläche 2 – „Zitat“ \\ ü</p>\n",
+   "laufend_seit": 0,
+   "belege": [
+    {
+     "pubkey": "b79aa255c45db4e97662087ab38495bce00f368b00747aca7179cb1ddfc4cf4d",
+     "created_at": 1700000000,
+     "kind": 38054,
+     "tags": [
+      [
+       "d",
+       "release:2.0.0"
+      ],
+      [
+       "version",
+       "2.0.0"
+      ],
+      [
+       "released_at",
+       "2000"
+      ],
+      [
+       "artifact",
+       "freedom.html",
+       "340b179309ad143b7b8b0d618a29b98d1a40be2c231b60753fbdc9e463770473",
+       "81"
+      ],
+      [
+       "artifact",
+       "freedom-sw.js",
+       "01f7a859d3abaeb69adc86feea1888c86f776ce6fbaaa193c3785c6c7c6ad192",
+       "40"
+      ],
+      [
+       "source",
+       "https://3dagi.github.io/freedom-app/freedom.html"
+      ]
+     ],
+     "content": "",
+     "id": "2fb42d431a2c911a386f0d98f68e923bce1d20d94ce5b7b506a3ca2623d18ed2",
+     "sig": "eb379de9ea3118de9f1fff6cab2ed90256ada6bacf13fdbf98e4261388dc8aab9d485657724076292eb86f11070a3417cab2dd305616bb15fdf31ef9713b4bfa"
+    },
+    {
+     "pubkey": "9b89f44ee7e104c6e43d07565416b4b2d9f8056cf357a08e9979069b99da66f7",
+     "created_at": 1700000000,
+     "kind": 38054,
+     "tags": [
+      [
+       "d",
+       "release:2.0.0"
+      ],
+      [
+       "version",
+       "2.0.0"
+      ],
+      [
+       "released_at",
+       "2000"
+      ],
+      [
+       "artifact",
+       "freedom.html",
+       "340b179309ad143b7b8b0d618a29b98d1a40be2c231b60753fbdc9e463770473",
+       "81"
+      ],
+      [
+       "source",
+       "https://3dagi.github.io/freedom-app/freedom.html"
+      ]
+     ],
+     "content": "",
+     "id": "4600ad92cd20f0fe6f5ec300dde7fa1bc45ea748fe9a4c7816c6617fe7b84271",
+     "sig": "db5c9f6977f8eec18f08f0def9600324349df172d2af08cf77747f8cf7d892e21ed6f359e6dbcb5337d5d72fbb9de218e13045cef4431e108586d77a1e63b107"
+    }
+   ],
+   "erwartet": {
+    "fehler": "zu-wenig"
+   }
+  },
+  {
+   "name": "die Datei ist eine andere als bestätigt",
+   "html": "<!doctype html><title>Fassung 3</title><p>Oberfläche 3 – „Zitat“ \\ ü</p>\n",
+   "laufend_seit": 0,
+   "belege": [
+    {
+     "pubkey": "b79aa255c45db4e97662087ab38495bce00f368b00747aca7179cb1ddfc4cf4d",
+     "created_at": 1700000000,
+     "kind": 38054,
+     "tags": [
+      [
+       "d",
+       "release:2.0.0"
+      ],
+      [
+       "version",
+       "2.0.0"
+      ],
+      [
+       "released_at",
+       "2000"
+      ],
+      [
+       "artifact",
+       "freedom.html",
+       "340b179309ad143b7b8b0d618a29b98d1a40be2c231b60753fbdc9e463770473",
+       "81"
+      ],
+      [
+       "artifact",
+       "freedom-sw.js",
+       "01f7a859d3abaeb69adc86feea1888c86f776ce6fbaaa193c3785c6c7c6ad192",
+       "40"
+      ],
+      [
+       "source",
+       "https://3dagi.github.io/freedom-app/freedom.html"
+      ]
+     ],
+     "content": "",
+     "id": "2fb42d431a2c911a386f0d98f68e923bce1d20d94ce5b7b506a3ca2623d18ed2",
+     "sig": "629410f9624d8245fa7e975fe3b42dc42544bc354ecbda47e8fbdd77b6cb2861d007b979685608233065209c5b09182e90fac551784a101d63959d1e8159e470"
+    },
+    {
+     "pubkey": "9b89f44ee7e104c6e43d07565416b4b2d9f8056cf357a08e9979069b99da66f7",
+     "created_at": 1700000000,
+     "kind": 38054,
+     "tags": [
+      [
+       "d",
+       "release:2.0.0"
+      ],
+      [
+       "version",
+       "2.0.0"
+      ],
+      [
+       "released_at",
+       "2000"
+      ],
+      [
+       "artifact",
+       "freedom.html",
+       "340b179309ad143b7b8b0d618a29b98d1a40be2c231b60753fbdc9e463770473",
+       "81"
+      ],
+      [
+       "artifact",
+       "freedom-sw.js",
+       "01f7a859d3abaeb69adc86feea1888c86f776ce6fbaaa193c3785c6c7c6ad192",
+       "40"
+      ],
+      [
+       "source",
+       "https://3dagi.github.io/freedom-app/freedom.html"
+      ]
+     ],
+     "content": "",
+     "id": "19afb71f9c52e1c1329726988ea86a43d5142e58b3852535135d3ee21dd192eb",
+     "sig": "e5aa5270ff03aba0bc353cc95c0d7f7c45e64b364e33c6fafc614824d3161a3d4b6da5ca0c3cbd3d1ad46cc43c009bb9572ca230c8dd729851adab39ff32a6b3"
+    }
+   ],
+   "erwartet": {
+    "fehler": "abweichend"
+   }
+  },
+  {
+   "name": "nicht neuer als die laufende Fassung",
+   "html": "<!doctype html><title>Fassung 2</title><p>Oberfläche 2 – „Zitat“ \\ ü</p>\n",
+   "laufend_seit": 2000,
+   "belege": [
+    {
+     "pubkey": "b79aa255c45db4e97662087ab38495bce00f368b00747aca7179cb1ddfc4cf4d",
+     "created_at": 1700000000,
+     "kind": 38054,
+     "tags": [
+      [
+       "d",
+       "release:2.0.0"
+      ],
+      [
+       "version",
+       "2.0.0"
+      ],
+      [
+       "released_at",
+       "2000"
+      ],
+      [
+       "artifact",
+       "freedom.html",
+       "340b179309ad143b7b8b0d618a29b98d1a40be2c231b60753fbdc9e463770473",
+       "81"
+      ],
+      [
+       "artifact",
+       "freedom-sw.js",
+       "01f7a859d3abaeb69adc86feea1888c86f776ce6fbaaa193c3785c6c7c6ad192",
+       "40"
+      ],
+      [
+       "source",
+       "https://3dagi.github.io/freedom-app/freedom.html"
+      ]
+     ],
+     "content": "",
+     "id": "2fb42d431a2c911a386f0d98f68e923bce1d20d94ce5b7b506a3ca2623d18ed2",
+     "sig": "da2c185784da4387627070ceeb2127d2bdf7d68b8dd4263188ecd794b0faf150b62b64931301990cc11fddddc702920bf9f9584013c9ccff1647e584fb827169"
+    },
+    {
+     "pubkey": "9b89f44ee7e104c6e43d07565416b4b2d9f8056cf357a08e9979069b99da66f7",
+     "created_at": 1700000000,
+     "kind": 38054,
+     "tags": [
+      [
+       "d",
+       "release:2.0.0"
+      ],
+      [
+       "version",
+       "2.0.0"
+      ],
+      [
+       "released_at",
+       "2000"
+      ],
+      [
+       "artifact",
+       "freedom.html",
+       "340b179309ad143b7b8b0d618a29b98d1a40be2c231b60753fbdc9e463770473",
+       "81"
+      ],
+      [
+       "artifact",
+       "freedom-sw.js",
+       "01f7a859d3abaeb69adc86feea1888c86f776ce6fbaaa193c3785c6c7c6ad192",
+       "40"
+      ],
+      [
+       "source",
+       "https://3dagi.github.io/freedom-app/freedom.html"
+      ]
+     ],
+     "content": "",
+     "id": "19afb71f9c52e1c1329726988ea86a43d5142e58b3852535135d3ee21dd192eb",
+     "sig": "4dd4c87832cb1197a1efc74c948eaddd69d9c750b57736b3474382b43712b0facbb77ef68dc2ad033c5173ad361f4abc8682c3e4e631e2f6bb3903955b69544b"
+    }
+   ],
+   "erwartet": {
+    "fehler": "nicht-neuer"
+   }
+  },
+  {
+   "name": "keine Belege",
+   "html": "<!doctype html><title>Fassung 2</title><p>Oberfläche 2 – „Zitat“ \\ ü</p>\n",
+   "laufend_seit": 0,
+   "belege": [],
+   "erwartet": {
+    "fehler": "kein-beleg"
+   }
+  }
+ ]
+}
