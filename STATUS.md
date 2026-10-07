@@ -17466,3 +17466,9 @@ Aufräumen), sondern als C-24 in der Sammlung.
 
 Offen bleibt auf der Website die Karte „freedom launcher – geplant“; sie wird
 mit 6.1a an die Entscheidung N2 angepasst.
+
+**Prüfungen:** protocol 1186 grün (6 übersprungen), node 314 grün (6
+übersprungen), app 928 grün, Leak 73 grün + 1 todo, mls 13 grün – unverändert;
+check-wiring `--streng` Exit 0, check-website ok, check_innerhtml Exit 0,
+`ci.yml` gültig (YAML), repro-build reproduzierbar, build-site Exit 0,
+Smoke-Test bestanden.
