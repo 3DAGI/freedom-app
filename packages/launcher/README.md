@@ -13,11 +13,39 @@ Linux, WebView2 unter Windows).
   `crypto.subtle` gehen wie im Browser.
 - Nur die App selbst; jeder andere Pfad ist 404. Das Fenster navigiert nie zu
   einer fremden Seite, neue Fenster werden abgelehnt.
-- Die Oberfläche bekommt keine Rechte der Hülle (keine Tauri-Capabilities).
+- Die Oberfläche darf genau zwei Kommandos der Hülle rufen
+  (`capabilities/oberflaeche.json`, seit 6.1a3b): den Stand ihrer Fassung
+  abfragen und eine neuere Fassung installieren lassen. Sonst nichts – auch
+  keine Kommandos von Tauri selbst (Fenster, App, Dateien).
 - Die Hülle selbst spricht mit niemandem im Netz; das tut nur die App, mit
   denselben Regeln wie im Browser.
-- Noch nicht: das Installieren einer neuen Oberfläche (6.1a3; geprüft wird sie
-  seit 6.1a2), Selbst-Update der Hülle (6.1a4b), Tor (6.1b), Android (6.1c).
+- Noch nicht: der Knopf „Installieren“ in der App (6.1a3c), Selbst-Update der
+  Hülle (6.1a4b), Tor (6.1b), Android (6.1c).
+
+## Neue Oberfläche installieren (seit 6.1a3b)
+
+Die App findet ein Update über das Release-Manifest (Kind 38054) und lädt die
+Datei. Installiert wird sie nur, wenn die Hülle selbst zustimmt
+(`src/update.rs`): k vertraute Signierer bestätigen genau diese Datei (SHA-256,
+Größe), und sie ist neuer als die laufende **und** als die abgelegte Fassung.
+Vertraute Signierer und k liest `build.rs` aus der App – solange
+`TRUSTED_SIGNERS` leer ist, wird nichts installiert.
+
+Abgelegt wird im Datenverzeichnis der Hülle (`oberflaeche/`, unter Linux
+`~/.local/share/io.github.3dagi.freedom/oberflaeche/`): `aktuell.*` und
+`vorher.*`, je Datei und Stand. Beim Start gilt `aktuell`, wenn die Datei zu
+ihrem Stand passt und neuer ist als die beigelegte – sonst die beigelegte.
+
+Zurück geht es nur über den Start, nie aus der App (sonst könnte eine Lücke in
+der Oberfläche auf eine ältere, verwundbare Fassung zurückschalten):
+
+```bash
+freedom-launcher --oberflaeche=vorher     # die vorige installierte wird wieder aktuell (dauerhaft)
+freedom-launcher --oberflaeche=beigelegt  # diesmal die beigelegte, die Ablage bleibt
+```
+
+Ein Release-Bau setzt `FREEDOM_RELEASED_AT` (Unix-Sekunden der beigelegten
+Fassung); ohne gilt jede bestätigte Fassung als neuer.
 
 ## Bauen
 

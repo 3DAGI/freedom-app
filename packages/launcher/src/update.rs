@@ -16,8 +16,6 @@
 //! Die Regeln sind dieselben wie in `packages/protocol/src/oberflaeche-update.ts`; die
 //! gemeinsamen Prüffälle (`tests/vektoren.json`) halten beide Seiten gleich.
 //! Vertraute Signierer und k kommen beim Bauen aus denselben Dateien wie in der App.
-// Aufgerufen wird `pruefe()` ab 6.1a3b (Installieren); bis dahin nur aus den Tests.
-#![cfg_attr(not(test), allow(dead_code))]
 
 use k256::schnorr::{Signature, VerifyingKey};
 use serde::Deserialize;
@@ -99,7 +97,7 @@ fn hex<const N: usize>(s: &str) -> Option<[u8; N]> {
     Some(aus)
 }
 
-fn sha256_hex(daten: &[u8]) -> String {
+pub fn sha256_hex(daten: &[u8]) -> String {
     Sha256::digest(daten).iter().map(|b| format!("{b:02x}")).collect()
 }
 
