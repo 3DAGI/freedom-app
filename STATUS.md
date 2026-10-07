@@ -17647,4 +17647,9 @@ derselbe Fallstrick wie in 11.1b.
 - Tests, die „nichts gesendet“ prüfen, behalten die Pause: Last kann sie nicht
   rot machen.
 
-**Prüfungen:** PRUEF_PLATZHALTER
+**Prüfungen:**
+- protocol 1200 grün (6 übersprungen, +14), node 314 grün (6 übersprungen),
+  app 931 grün (+1; im zweiten Lauf mit dem behobenen Mesh-Test), Leak 73 grün
+  + 1 todo, mls 13 grün.
+- check-wiring `--streng` Exit 0, check-website ok, check_innerhtml Exit 0.
+- repro-build reproduzierbar, build-site Exit 0, Smoke-Test bestanden.
