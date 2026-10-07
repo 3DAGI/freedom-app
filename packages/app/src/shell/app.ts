@@ -968,8 +968,8 @@ function starte(): void {
       aiPromptEl.style.height = Math.min(aiPromptEl.scrollHeight, 160) + "px";
     });
   }
-  setupReferral();
   setupKnotenKarte();
+  setupReferral();
   wireEigeneAdresse();
   wireWerbeName();
   wireBelege();
