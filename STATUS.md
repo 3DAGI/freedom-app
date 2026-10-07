@@ -17575,4 +17575,10 @@ und Windows. Der Job läuft bei Änderungen an Hülle, App oder Protokoll.
 - Für a3 die Prüfung der Signaturen in Rust: eine weitere Abhängigkeit (`k256`),
   wird vorher gefragt.
 
-**Prüfungen:** PRUEF_PLATZHALTER
+**Prüfungen:**
+- launcher: 6 Rust-Tests grün; Release-Bau unter Linux ok (11,4 MB mit
+  beigelegter App); Symbole passen.
+- protocol 1186 grün (6 übersprungen), node 314 grün (6 übersprungen), app 930
+  grün, Leak 73 grün + 1 todo, mls 13 grün – unverändert.
+- check-wiring `--streng` Exit 0, check-website ok, check_innerhtml Exit 0.
+- repro-build reproduzierbar, build-site Exit 0, Smoke-Test bestanden.
