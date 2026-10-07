@@ -2,13 +2,14 @@
 # ============================================================
 # FreedomStack Provider-Installer
 #
-#   curl -fsSL https://freedomstack.io/install.sh | bash
+#   bash <(curl -fsSL https://3dagi.github.io/freedom-app/install.sh)
+#   (Pruefsumme daneben: install.sh.sha256 – oder aus dem Repo: bash scripts/install-freedom.sh)
 #
 # Macht aus einem Linux-Rechner (GX10, VPS, Laptop) einen Provider:
 # Compute + Storage + Relay in einem Prozess.
 #
 # Env (optional):
-#   NODE_LUD16=you@wallet.cash     Lightning-Adresse (wird sonst abgefragt)
+#   NODE_LUD16=name@domain         eigene Lightning-Adresse (wird sonst abgefragt)
 #   NODE_SOL_PAYOUT=<Adresse>      eigene SOL-Adresse fuer Auszahlungen (wird sonst
 #                                  abgefragt; leer: nur Lightning)
 #   SOLANA_RPC_URL=<url>           eigener Solana-Endpunkt (sonst oeffentliche)
@@ -95,7 +96,7 @@ if [ -z "${NODE_LUD16:-}" ] && [ -f "$ENV_FILE" ]; then
   NODE_LUD16="$(grep -m1 '^NODE_LUD16=' "$ENV_FILE" 2>/dev/null | cut -d= -f2- || true)"
 fi
 
-# Frueher stand hier ein Default "test@wallet.cash". Der fuehrt dazu, dass ein
+# Frueher stand hier eine feste Test-Adresse bei einem verwahrenden Dienst. Die fuehrt dazu, dass ein
 # Provider arbeitet und die Einnahmen an eine fremde Adresse gehen — deshalb
 # wird jetzt gefragt und im Zweifel abgebrochen.
 if [ -z "${NODE_LUD16:-}" ]; then
@@ -106,7 +107,7 @@ if [ -z "${NODE_LUD16:-}" ]; then
     printf 'Deine Lightning-Adresse fuer Einnahmen (name@domain): '
     read -r NODE_LUD16 < "$TTY"
   else
-    die "NODE_LUD16 fehlt. Aufruf: NODE_LUD16=du@wallet.cash bash install-freedom.sh"
+    die "NODE_LUD16 fehlt. Aufruf: NODE_LUD16=<deine Lightning-Adresse> bash install-freedom.sh"
   fi
 fi
 case "$NODE_LUD16" in
@@ -427,7 +428,7 @@ if [ "$MODE" = "systemd" ]; then
   say "  Logs   : journalctl -u freedom-node -f"
   say "  Stoppen: sudo systemctl stop freedom-node"
 fi
-say "  Status : https://freedomstack.io/dashboard.html  (Suche nach deinem pubkey)"
+say "  Status : https://3dagi.github.io/freedom-app/dashboard.html  (Suche nach deinem pubkey)"
 say ""
 
 if [ "$MODE" = "vordergrund" ]; then

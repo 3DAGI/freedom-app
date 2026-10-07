@@ -17347,3 +17347,48 @@ Sammlung (Abschnitt 5).
 **Prüfungen:** Nur Doku – `check-website.py` (5 Seiten ok), `check-wiring.py
 --streng` Exit 0; Tests unverändert (protocol 1186, node 314, app 927, Leak 73
 + 1 todo).
+
+## Schritt C-21 – Installer-Adresse und Beispiel-Wallet
+
+Befund beim Gegenlesen einer externen Analyse (07.10.2026, Sammlung C-21): Der
+Befehl zum Einrichten eines Providers zeigte auf `freedomstack.io/install.sh` –
+in `onboarding.ts` (`providerNextStep()`, derzeit nicht in der Oberfläche
+verdrahtet), README, `docs/PROVIDER.md` und im Kopf des Installers. Die Domain
+gehört nicht zum Projekt: DNS meldet NXDOMAIN. Wer sie registriert, hätte jedem,
+der den Befehl kopiert, beliebigen Code untergeschoben. Den Installer
+veröffentlichte bisher auch niemand. Dazu nannten Beispiele für die
+Lightning-Adresse eines Providers `wallet.cash` – einen verwahrenden Dienst,
+obwohl der Knoten seit 8.2b selbst Rechnungen ausstellen kann.
+
+**Geändert:**
+- `scripts/build-site.sh` legt den Installer als `install.sh` mit
+  `install.sh.sha256` neben die App – aus demselben Stand, über `pages.yml`.
+- `onboarding.ts`: `INSTALLER_URL` (`https://3dagi.github.io/freedom-app/install.sh`),
+  der Befehl ohne Beispieladresse – der Installer fragt sie ab und bricht ohne
+  sie ab.
+- Installer (Kopf, Fehlermeldung, Status-Adresse), README, `docs/PROVIDER.md`,
+  START (Befehl), `docker-compose.yml`, Kommentar in `node/src/main.ts`, FAQ und
+  Startseite der Website: `provider@knoten.example.org` wie in `docs/PROVIDER.md`;
+  im Profil der Platzhalter `du@example.com` (RFC 2606).
+- `check-website.py`: `FREMDE_ADRESSEN` auf allen Website-Seiten und in
+  README, `docs/PROVIDER.md`, `docker-compose.yml`, Installer.
+- Tests: `onboarding.test.ts` prüft Befehl und Herkunft des Installers (statt
+  `NODE_LUD16` im Befehl) und dass der Code der App keine der beiden Adressen
+  enthält (+1). Gegenprobe: mit dem alten Befehl schlagen beide an; mit dem alten
+  README meldet `check-website.py` beide Adressen.
+
+Entscheidungen vom 07.10.2026 in der Sammlung (Abschnitt 5): N1 Aufräumen durch
+Spur C (C-22), N2 Native Apps jetzt mit Tauri 2 (C-23 = 6.1), L1 Lizenz offen.
+
+**Prüfungen:**
+- protocol 1186 grün, 6 übersprungen, 0 rot (unverändert);
+- node 314 grün, 6 übersprungen;
+- app 928 grün (vorher 927), Build ok;
+- Leak 73 grün + 1 todo; mls 13 grün;
+- check-wiring `--streng` Exit 0, check-website 5 Seiten und 4 Einstiegsdateien ok,
+  check_innerhtml Exit 0;
+- repro-build reproduzierbar; build-site Exit 0, `install.sh.sha256` gleich der
+  Summe von `scripts/install-freedom.sh`;
+- Smoke-Test bestanden.
+
+Knoten-Stand: unverändert (nur ein Kommentar in `main.ts`).

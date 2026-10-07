@@ -7,7 +7,10 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { nextStep, pitchFor, providerNextStep, Readiness } from "../src/onboarding.js";
+import { readFileSync, readdirSync } from "node:fs";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { INSTALLER_URL, nextStep, pitchFor, providerNextStep, Readiness } from "../src/onboarding.js";
 import { setLang } from "../src/i18n.js";
 
 // Meldungen hier auf Deutsch prüfen (seit 8.16g1 über Schlüssel in der Sprache der Oberfläche)
@@ -197,9 +200,25 @@ test("Provider: ohne GPU wird vorher gewarnt, nicht hinterher enttaeuscht", () =
   assert.match(s.body, /Enttäuschung|kaum ein Kunde/);
 });
 
-test("Provider: bereit heisst ein Befehl", () => {
+test("Provider: bereit heisst ein Befehl – mit dem Installer aus diesem Repository", () => {
+  // Bis C-21 zeigte der Befehl auf freedomstack.io – eine Domain, die nicht zum
+  // Projekt gehört. Die Lightning-Adresse fragt der Installer selbst ab (ohne sie
+  // bricht er ab), deshalb steht im Befehl keine Beispieladresse mehr.
   const s = providerNextStep({ ollama: true, lightningAddress: true, gpu: true });
   assert.match(s.title, /Bereit/);
-  assert.match(s.command!, /install\.sh/);
-  assert.match(s.command!, /NODE_LUD16/);
+  assert.equal(s.command, `bash <(curl -fsSL ${INSTALLER_URL})`);
+  const u = new URL(INSTALLER_URL);
+  assert.equal(u.protocol, "https:");
+  assert.equal(u.hostname, "3dagi.github.io", "die Pages-Auslieferung des Projekts (build-site.sh legt install.sh dorthin)");
+  assert.equal(u.pathname, "/freedom-app/install.sh");
+});
+
+test("Provider: keine fremden Adressen im Code der App (C-21)", () => {
+  // freedomstack.io gehört niemandem von uns (NXDOMAIN), wallet.cash verwahrt Geld.
+  const ohneKommentare = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  const dateien = (dir: string): string[] => readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
+    e.isDirectory() ? dateien(join(dir, e.name)) : /\.(ts|html)$/.test(e.name) ? [join(dir, e.name)] : []);
+  const treffer = dateien(fileURLToPath(new URL("../src", import.meta.url))).filter((f) =>
+    /freedomstack\.io|wallet\.cash/.test(ohneKommentare(readFileSync(f, "utf8"))));
+  assert.deepEqual(treffer, []);
 });

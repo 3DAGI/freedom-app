@@ -178,6 +178,15 @@ export function pitchFor(intent: Intent): { headline: string; points: string[] }
   }
 }
 
+/**
+ * Woher der Provider-Installer kommt (C-21): von der Pages-Auslieferung dieses
+ * Repositorys, gebaut aus demselben Stand wie die App (`build-site.sh`, mit
+ * `install.sh.sha256` daneben). Bis 07.10.2026 stand hier `freedomstack.io` –
+ * eine Domain, die niemand von uns besitzt: Wer sie registriert, hätte jedem,
+ * der den Befehl kopiert, beliebigen Code untergeschoben.
+ */
+export const INSTALLER_URL = "https://3dagi.github.io/freedom-app/install.sh"; // kein UI-Text
+
 export interface ProviderCheck {
   ollama: boolean;
   lightningAddress: boolean;
@@ -206,7 +215,8 @@ export function providerNextStep(c: ProviderCheck): { title: string; command?: s
   }
   return {
     title: t("ein.provBereit"),
-    command: "NODE_LUD16=du@wallet.cash bash <(curl -fsSL https://freedomstack.io/install.sh)", // kein UI-Text
+    // Ohne NODE_LUD16: Der Installer fragt die eigene Lightning-Adresse ab und bricht ohne sie ab.
+    command: `bash <(curl -fsSL ${INSTALLER_URL})`, // kein UI-Text
     body: t("ein.provBereitText"),
   };
 }

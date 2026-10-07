@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Baut den veroeffentlichbaren Website-Ordner.
 #
-# Nur oeffentliche Dateien: Startseite, Unterseiten, Stil, Manifest und die
-# App. Interne Dateien (build.sh, gated-server.py, DEPLOY.md) bleiben draussen —
+# Nur oeffentliche Dateien: Startseite, Unterseiten, Stil, Manifest, die
+# App und der Provider-Installer (install.sh). Interne Dateien (build.sh, gated-server.py, DEPLOY.md) bleiben draussen —
 # DEPLOY.md enthaelt lokale Pfade, die niemanden etwas angehen.
 #
 # Die App kommt immer frisch aus dem Build, mit passender Pruefsumme daneben.
@@ -30,6 +30,9 @@ echo "$SUM" > "$OUT/freedom.html.sha256"
 # Weck-Worker (B-12c): neben freedom.html, sonst deckt worker-src 'self' ihn nicht
 cp "$ROOT/packages/app/dist/freedom-sw.js" "$OUT"/freedom-sw.js
 (cd "$OUT" && sha256sum freedom-sw.js | cut -d' ' -f1) > "$OUT/freedom-sw.js.sha256"
+# Provider-Installer (C-21): aus demselben Stand wie die App, nie von einer fremden Domain
+cp "$ROOT/scripts/install-freedom.sh" "$OUT"/install.sh
+(cd "$OUT" && sha256sum install.sh | cut -d' ' -f1) > "$OUT/install.sh.sha256"
 
 # Die Pruefsumme auch in die Startseite schreiben. Vorher stand dort ein fest
 # eingetragener alter Wert — wer ihn nachrechnete, bekam einen Widerspruch.

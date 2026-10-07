@@ -12,7 +12,7 @@ export const profil: Texte = {
   "profil.bild": { de: "Bild", en: "Picture" },
   "profil.bildPh": { de: "freedom-blob:… oder https://…", en: "freedom-blob:… or https://…" },
   "profil.lightningAdresse": { de: "Lightning-Adresse", en: "Lightning address" },
-  "profil.lud16Ph": { de: "du@wallet.cash", en: "you@wallet.cash" },
+  "profil.lud16Ph": { de: "du@example.com", en: "you@example.com" },
   "profil.farbe": { de: "Farbe", en: "Color" },
   "profil.anordnung": { de: "Anordnung", en: "Layout" },
   "profil.muster": { de: "Muster", en: "Pattern" },

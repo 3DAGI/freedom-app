@@ -68,6 +68,15 @@ UNGEDECKT = [
     "Messbericht", "PRUEFER=1", "Prüfern, denen du folgst", "Prüfer, denen du folgst",
 ]
 
+# Fremde Adressen in Befehlen zum Kopieren (C-21): freedomstack.io gehört nicht
+# zum Projekt (DNS: NXDOMAIN, 07.10.2026) – wer sie registriert, bekäme jeden
+# „curl … | bash“; wallet.cash ist ein verwahrender Dienst und taugt nicht als
+# Beispiel für Provider-Einnahmen. Geprüft auf der Website und in den
+# Einstiegsdateien des Repositorys.
+FREMDE_ADRESSEN = ["freedomstack.io", "wallet.cash"]
+EINSTIEG = ["README.md", os.path.join("docs", "PROVIDER.md"), "docker-compose.yml",
+            os.path.join("scripts", "install-freedom.sh")]
+
 # Die Status-Seite zeigt nur Öffentliches und Freiwilliges (8.15): keine
 # Selbstauskünfte der Provider (38010), nie Quittungen oder ihre
 # Zusammenfassungen (38075), keine alten Angebote (38025).
@@ -106,6 +115,9 @@ def main() -> int:
         for alt in UNGEDECKT:
             if alt in inhalt:
                 fehler.append(f"{datei}: Aussage, die der Code nicht deckt: „{alt}“ (0.F)")
+        for adresse in FREMDE_ADRESSEN:
+            if adresse in inhalt:
+                fehler.append(f"{datei}: fremde Adresse „{adresse}“ (C-21)")
 
         # Eine Seite ohne Titel oder Beschreibung ist in Suchergebnissen blind.
         if "<title>" not in inhalt:
@@ -113,12 +125,18 @@ def main() -> int:
         if 'name="description"' not in inhalt:
             fehler.append(f"{datei}: keine Beschreibung")
 
+    for datei in EINSTIEG:
+        inhalt = open(datei, encoding="utf-8").read()
+        for adresse in FREMDE_ADRESSEN:
+            if adresse in inhalt:
+                fehler.append(f"{datei}: fremde Adresse „{adresse}“ (C-21)")
+
     if fehler:
         for f in fehler:
             print(f"FEHLER: {f}")
         return 1
 
-    print(f"{len(SEITEN)} Website-Seiten ok")
+    print(f"{len(SEITEN)} Website-Seiten ok, {len(EINSTIEG)} Einstiegsdateien ohne fremde Adressen")
     return 0
 
 

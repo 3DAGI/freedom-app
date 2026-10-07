@@ -2,7 +2,7 @@
  * freedomstack-node: Provider-Knoten Daemon.
  *
  * Start:
- *   NODE_SECRET_KEY=<hex64> NODE_LUD16=you@wallet.cash \
+ *   NODE_SECRET_KEY=<hex64> NODE_LUD16=provider@knoten.example.org \
  *     node --import tsx src/main.ts
  *
  * Verhalten:

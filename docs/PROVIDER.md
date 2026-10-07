@@ -6,7 +6,7 @@ zum Zahlkanal in `docs/ZAHLKANAL.md`, zum Tausch in `docs/SWAPS.md`.
 ## Einrichten
 
 ```bash
-curl -fsSL https://freedomstack.io/install.sh | bash      # oder: bash scripts/install-freedom.sh
+bash <(curl -fsSL https://3dagi.github.io/freedom-app/install.sh)   # oder aus dem Repo: bash scripts/install-freedom.sh
 ```
 
 Der Installer fragt die **Lightning-Adresse** (dorthin zahlt die App deinen
