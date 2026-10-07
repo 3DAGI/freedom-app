@@ -86,7 +86,7 @@ zwischen Deposit- und Job-Event), reparieren, dann 20 Läufe am Stück grün:
 
 ## 0.I Veröffentlichung über GitHub Actions – MENSCH
 
-Siehe `START-HIER.md`, Weg A: Pages-Quelle „GitHub Actions“, danach
+Siehe `docs/archiv/START-HIER.md`, Weg A: Pages-Quelle „GitHub Actions“, danach
 veröffentlicht `pages.yml` bei jedem Merge nach `main`. Der Agent prüft danach
 live: Prüfsumme der Datei = `freedom.html.sha256` = Wert auf der Startseite.
 

@@ -707,7 +707,7 @@ function starte(): void {
   checkOwnProvider();
   const enter = setupFlow();
   // Kein Gate: App öffnet direkt. Wallet-Connect/Deposit über sidebar-CTA
-  // → wallet-tab. (R1 in docs/ROADMAP.md ändert das vor dem Launch.)
+  // → wallet-tab. (Offene Frage RM1 in docs/neuordnung/SAMMLUNG.md, Abschnitt 5.)
   enter();
 
   // App-Interna (werden nach Login aktiv)

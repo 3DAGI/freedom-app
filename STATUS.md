@@ -17378,7 +17378,7 @@ obwohl der Knoten seit 8.2b selbst Rechnungen ausstellen kann.
   README meldet `check-website.py` beide Adressen.
 
 Entscheidungen vom 07.10.2026 in der Sammlung (Abschnitt 5): N1 Aufräumen durch
-Spur C (C-22), N2 Native Apps jetzt mit Tauri 2 (C-23 = 6.1), L1 Lizenz offen.
+Spur C (C-22), N2 Native Apps jetzt mit Tauri 2 (C-23 = 6.1), LIZ Lizenz offen.
 
 **Prüfungen:**
 - protocol 1186 grün, 6 übersprungen, 0 rot (unverändert);
@@ -17392,3 +17392,38 @@ Spur C (C-22), N2 Native Apps jetzt mit Tauri 2 (C-23 = 6.1), L1 Lizenz offen.
 - Smoke-Test bestanden.
 
 Knoten-Stand: unverändert (nur ein Kommentar in `main.ts`).
+
+## Schritt C-22a – Aufräumen: Wurzel und Doku
+
+Sammlung C-22, entschieden 07.10.2026 (N1). Nur Dokumente – am Code ändert sich
+ein Kommentar in `shell/app.ts` (Verweis auf die offene Frage RM1 statt auf die
+archivierte Roadmap).
+
+**Archiviert** (`git mv` nach `docs/archiv/`, Übersicht mit „was es war, was
+heute gilt“ in `docs/archiv/README.md`): `ANFANGEN.md`, `START-HIER.md`,
+`START.md`, `AGENT_HANDOFF.md`, `CHANGELOG-OPUS.md`, `ABSCHLUSSPRUEFUNG.md`,
+`LUECKEN.md`, `docs/ANALYSIS.md`, `docs/PROJECT-PLAN.md`, `docs/UI-UPGRADE.md`,
+`docs/ROADMAP.md`, `docs/Whitepaper.md`, `docs/dApp-Konzept.md`,
+`docs/Techstack-Resistenz.md`, `docs/Master-Whitepaper.md`. Die Verweise darauf
+(`phase-0.md`, `UEBERSICHT.md`, Sammlung Anhang C) zeigen ins Archiv.
+
+**Gelöscht:** `yarn.lock` der Wurzel (kam mit 2.2b-c2 hinein; die CI und alle
+Befehle nutzen `npm ci`, `contracts/solana-htlc` hat ein eigenes),
+`docs/INNERHTML-AUDIT.md` (von `check_innerhtml.py --markdown` erzeugt, seit C-6e
+ohne Fundstelle).
+
+**README neu:** Was es ist, Adresse von App und Website, Aufbau mit allen
+Paketen, Provider werden (Installer von Pages, aus dem Repo oder Docker),
+Gebühren nach Modell A+ wie im Whitepaper der Website, Grundsätze – ehrlich: die
+Solana-Programme haben noch Upgrade-Rechte –, Entwickeln, Stand. Keine
+Testzahlen mehr: Sie veralteten mit jedem Schritt (das alte README nannte 901 /
+158 / 153 und 2,5 % Protokollgebühr); die Zahlen stehen in `CLAUDE.md`.
+
+**Offene Fragen:** R1 (Wallet-Pflicht) und R2 (Sitzungs-Budget auf Kredit,
+`defaultBudgetSats: 100`) der alten Roadmap stehen ungeprüft als RM1 und RM2 in
+der Sammlung (Abschnitt 5). Die Lizenz-Frage aus C-21 heißt LIZ – „L1“ und „R1“
+waren schon vergeben (Spur B).
+
+`GO-LIVE.md` bleibt die eine Checkliste und verweist auf `docs/archiv/START.md`
+für Kanäle, Konten und Wortwahl. `docs/mls-spike/` bleibt (Beleg für
+`docs/MLS-ENTSCHEIDUNG.md`).

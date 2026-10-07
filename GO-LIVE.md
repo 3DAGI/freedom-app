@@ -6,6 +6,10 @@ ist, sucht später Fehler an der falschen Stelle.
 
 **Zeitangaben** sind für eine Person, nebenberuflich.
 
+Die ausführlichere Fassung mit Kanälen, Konten und Wortwahl für die ersten
+Nutzer liegt seit C-22a im Archiv (`docs/archiv/START.md`) – Technik und
+Zahlen dort sind veraltet, die Checkliste hier gilt.
+
 ---
 
 ## 0 — Bevor irgendetwas live geht (1 Tag)
