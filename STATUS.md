@@ -17582,3 +17582,74 @@ und Windows. Der Job läuft bei Änderungen an Hülle, App oder Protokoll.
   grün, Leak 73 grün + 1 todo, mls 13 grün – unverändert.
 - check-wiring `--streng` Exit 0, check-website ok, check_innerhtml Exit 0.
 - repro-build reproduzierbar, build-site Exit 0, Smoke-Test bestanden.
+
+## Schritt 6.1a2 – Update der Oberfläche prüfen
+
+Teil a2 von 6.1a (Sammlung C-23). Die Desktop-Hülle soll ihre Oberfläche nur
+gegen eine Version tauschen, die mindestens k vertraute Signierer bestätigen
+und die neuer ist als die laufende. Dieser Schritt baut die Prüfung;
+installiert wird mit a3.
+
+**Neu `protocol/src/oberflaeche-update.ts`:**
+- `suchUpdate(events, vertraut, laufend, k)` prüft so:
+  - Es zählen nur Release-Manifeste (Kind 38054) von vertrauten Schlüsseln mit
+    gültiger Signatur. Geprüft wird selbst, nicht dem Relay-Pool geglaubt.
+  - Gleich ist eine Version nur, wenn Versionsangabe und alle Dateien (Name,
+    Prüfsumme, Größe) übereinstimmen. Sortiert wird nach Bytes, nicht nach
+    Sprache, damit die Hülle in Rust dasselbe rechnet.
+  - Quellen und Notizen dürfen je Signierer abweichen.
+  - Je Signierer zählt nur sein neuestes Manifest einer Version.
+  - Als Zeitpunkt einer Version gilt der früheste der Signierer. Einer allein
+    kann sie nicht neuer machen.
+  - Angeboten wird nur, was neuer ist als die laufende Fassung. Deren Zeitpunkt
+    kommt aus ihrer eigenen Bestätigung oder von der Hülle.
+  - Quellen nur über https ohne Zugangsdaten.
+  - Grenzen in `UPDATE_GRENZEN`: Zahl der Manifeste, Dateigröße, Zahl der
+    Quellen.
+  - Ergebnis ist ein Angebot (Version, Zeitpunkt, Prüfsumme, Größe, Quellen,
+    je Signierer ein Beleg) oder ein Fall: `kein-manifest`, `zu-wenig` (mit der
+    Zahl der Bestätigungen) oder `aktuell`.
+- `pruefeDatei(angebot, daten)`: Größe, dann Prüfsumme.
+
+**In der App:**
+- Settings › Echtheit nennt „Neuere Version“ nur noch über `suchUpdate()`.
+  Bisher kam der Hinweis aus `latestRelease()`, das auch eine ältere Version
+  „neuer“ nannte, sobald ein eigener Bau lief.
+- `ladeManifestEvents()` (`release-signierer.ts`) liefert die signierten Events,
+  `manifesteAus()` die lesbaren Manifeste daraus.
+- `latestRelease()` und `pruefeDatei()` stehen begründet in
+  `wiring-ausnahmen.txt`; `pruefeDatei()` wird mit a3 verdrahtet.
+
+**Tests:**
+- 14 neue im Protokoll:
+  - Angebot mit Belegen; ein Signierer allein, fremde Signierer, gefälschte und
+    untergeschobene Signatur.
+  - Uneinige Signierer, wenn sich Datei, Version oder Dateienliste
+    unterscheiden.
+  - Quellen werden zusammengeführt (nur https).
+  - `aktuell`; nie eine ältere Version, auch wenn ein Relay nur die alte zeigt;
+    der früheste Zeitpunkt zählt; je Signierer das neueste Manifest.
+  - Kaputte Angaben, Grenzen, k = 3, `pruefeDatei()`.
+- Ein neuer Test in der App für das Laden der Events.
+- Zwei Verdrahtungstests (`release-fix.test.ts`, `eigene-adresse.test.ts`)
+  prüfen den neuen Pfad statt des alten Wortlauts. Neu verlangen sie, dass
+  `latestRelease()` dort nicht mehr steht.
+
+**Nebenbei, Spur B, klein:** `mesh-radio.test.ts` war im ersten vollen Lauf
+rot. „Knoten reicht fremde Pakete weiter“ wartete eine feste Pause von 50 ms
+auf das Weiterreichen, das im Takt sendet. Unter Last war die Pause zu kurz –
+derselbe Fallstrick wie in 11.1b.
+- Unter künstlicher Last nachgestellt: die alte Fassung ist in 3 von 5 Läufen
+  rot, die neue in 5 von 5 grün.
+- Behoben mit `bisGesendet()` (warten bis zur Zahl, höchstens 2 s), ebenso
+  „Dasselbe Paket wird nicht zweimal weitergereicht“. Dort folgt danach noch
+  die kurze Pause, in der ein zweites Senden käme.
+- Tests, die „nichts gesendet“ prüfen, behalten die Pause: Last kann sie nicht
+  rot machen.
+
+**Prüfungen:**
+- protocol 1200 grün (6 übersprungen, +14), node 314 grün (6 übersprungen),
+  app 931 grün (+1; im zweiten Lauf mit dem behobenen Mesh-Test), Leak 73 grün
+  + 1 todo, mls 13 grün.
+- check-wiring `--streng` Exit 0, check-website ok, check_innerhtml Exit 0.
+- repro-build reproduzierbar, build-site Exit 0, Smoke-Test bestanden.

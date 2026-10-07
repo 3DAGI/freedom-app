@@ -49,6 +49,15 @@ function fakeTransport(kind: "seriell" | "bluetooth" | "datei" = "datei"):
   };
 }
 
+/**
+ * Warten, bis so viele Rahmen gesendet sind – höchstens zwei Sekunden. Gesendet
+ * wird im Takt; eine feste Pause von 50 ms reichte im vollen Lauf nicht (11.1b,
+ * 6.1a2: „Knoten reicht fremde Pakete weiter“ sah dort 0 Rahmen).
+ */
+async function bisGesendet(t: { gesendet: Uint8Array[] }, anzahl: number): Promise<void> {
+  for (let i = 0; i < 200 && t.gesendet.length < anzahl; i++) await new Promise((res) => setTimeout(res, 10));
+}
+
 function node(onMessage: (p: Uint8Array, k: MeshKind) => void = () => {}) {
   return new MeshNode({ onMessage }, 100_000); // schnell, damit Tests nicht warten
 }
@@ -215,7 +224,7 @@ test("Knoten reicht fremde Pakete weiter — sonst waere das Netz ein Geraet", a
   await n.attach(t);
   const fremd = fragment(umschlag(300), MeshKind.NostrEvent, MeshPriority.Nachricht, 5);
   for (const f of fremd) n.receive(f);
-  await new Promise((res) => setTimeout(res, 50));
+  await bisGesendet(t, fremd.length);
   assert.equal(t.gesendet.length, fremd.length, "die Nachricht muss weiter");
   assert.ok(t.gesendet.every((f) => parseFrame(f).ttl === 4), "mit verringerter Sprungzahl");
 });
@@ -228,7 +237,8 @@ test("Dasselbe Paket wird nicht zweimal weitergereicht", async () => {
   const fremd = fragment(umschlag(300), MeshKind.NostrEvent, MeshPriority.Nachricht, 5);
   for (const f of fremd) n.receive(f);
   for (const f of [...fremd].reverse()) n.receive(f);
-  await new Promise((res) => setTimeout(res, 50));
+  await bisGesendet(t, fremd.length);
+  await new Promise((res) => setTimeout(res, 50)); // ein zweites Mal käme danach
   assert.equal(t.gesendet.length, fremd.length);
 });
 
