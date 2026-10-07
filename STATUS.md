@@ -17513,3 +17513,66 @@ check_innerhtml Exit 0, repro-build reproduzierbar, build-site Exit 0,
 Smoke-Test bestanden. Der erste Lauf fand einen roten App-Test
 (`eigene-adresse.test.ts`: `wireEigeneAdresse()` direkt nach `setupReferral()`) –
 `setupKnotenKarte()` steht jetzt davor, der Test blieb unverändert.
+
+## Schritt 6.1a1 – Desktop-Hülle
+
+Sammlung C-23, Entscheidung N2 (07.10.2026): native Apps jetzt, Desktop zuerst,
+Tauri 2 als neue Abhängigkeit freigegeben. 6.1a ist aufgeteilt (Karte
+`phase-6.md`): a1 Hülle, a2 Update der Oberfläche prüfen, a3 Update installieren,
+a4 Pakete und Selbst-Update der Hülle.
+
+**Neu: `packages/launcher`** (Tauri 2.12, WebKitGTK 4.1 unter Linux, WebView2
+unter Windows):
+- `build.rs` legt `packages/app/dist/freedom.html` bei und bricht ohne sie ab.
+- `oberflaeche.rs` liefert sie über ein eigenes Schema aus: `freedom://localhost/`,
+  unter Windows `http://freedom.localhost/`. Es ist immer derselbe Ursprung, denn
+  localStorage, IndexedDB und damit Tresor und Verläufe hängen am Ursprung. Ein
+  späteres Update der Oberfläche (a3) muss deshalb unter derselben Adresse liegen.
+- Ausgeliefert werden nur `/` und `/freedom.html`, alles andere ergibt 404, auch
+  `freedom-spiegel.json`. Die Hülle ist kein Spiegel; der Hosting-Anteil geht wie
+  bei jeder Kopie ohne Zahlziel an den Provider.
+- `darf_navigieren()` lässt das Fenster nur im eigenen Ursprung navigieren, dazu
+  Blob-Adressen dieses Ursprungs für Downloads. Neue Fenster werden abgelehnt.
+  Ein fremder Link ersetzt die App also nie; öffnen lässt er sich vorerst auch
+  nicht.
+- Die Oberfläche bekommt keine Tauri-Rechte (keine Capabilities).
+- `window.__FREEDOM_NATIVE__ = { huelle: "desktop", fassung }`, unveränderlich,
+  per Skript vor jeder Seite.
+- Tests (Rust, 6): Auslieferung, 404 für alles andere (auch `..`), beigelegte
+  Datei ist die gebaute App mit CSP, Navigation (eigener Ursprung ja; fremde,
+  `file:`, `data:`, `javascript:`, fremde Blobs und die Form der anderen Plattform
+  nein), Kennung, Adresse.
+
+**Unter Xvfb geprüft:**
+- Die App startet in der Hülle, erzeugt eine Identität und verbindet Relays (8/8).
+- Eine Prüf-Einblendung, nur lokal und nicht eingecheckt, zeigte
+  `isSecureContext = true` und `crypto.subtle` vorhanden, Ursprung
+  `freedom://localhost`, localStorage und IndexedDB gehen.
+- Das Test-Profil samt Wegwerf-Schlüssel ist danach gelöscht.
+
+**Symbole:** `scripts/launcher-symbole.py` rechnet das Logo aus dem Manifest
+der Website Pixel für Pixel nach. Das geht ohne Bildbibliothek, und dieselbe
+Eingabe ergibt immer dieselben Dateien. Mit `--pruefen` vergleicht das Skript
+nur; das tut auch die CI.
+
+**CI:** `launcher.yml` testet und baut die Release-Fassung unter Ubuntu 24.04
+und Windows. Der Job läuft bei Änderungen an Hülle, App oder Protokoll.
+
+**Website:**
+- Die Karten „freedom launcher (Linux)“ und „(Windows / macOS)“ beschrieben
+  einen Provider-Installer, den es so nie geben wird. Sie sind ersetzt durch
+  „FreedomStack Desktop (Linux, Windows) – in Arbeit“ mit dem geplanten
+  Update-Weg.
+- Die Provider-Karte „Desktop (1-Klick)“ heißt jetzt „Linux (ein Befehl)“ und
+  zeigt den Installer-Befehl aus C-21/C-24, in allen acht Sprachen der Website.
+
+**Offen:**
+- Fremde Links im System-Browser öffnen (nach Rückfrage); das braucht das
+  Opener-Plugin von Tauri.
+- Downloads (Export der App, Sicherung) in der Hülle testen (MENSCH, auf
+  Geräten).
+- Push-Wecker (Service Worker) gibt es im eigenen Schema voraussichtlich nicht.
+- Für a3 die Prüfung der Signaturen in Rust: eine weitere Abhängigkeit (`k256`),
+  wird vorher gefragt.
+
+**Prüfungen:** PRUEF_PLATZHALTER

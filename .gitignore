@@ -21,3 +21,5 @@ __pycache__/
 turnserver.conf
 # Umgebung für docker compose (B-13b: TURN_SECRET) – nie einchecken
 .env
+# Desktop-Hülle: von tauri-build erzeugt
+packages/launcher/gen/
