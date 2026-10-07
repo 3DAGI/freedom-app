@@ -19,8 +19,9 @@ import { satsText, solText } from "../../preis-anzeige.js";
 import { echtheitText, fehlerText, fixierungText, nachfolgeStand, nachfolgeWarnung, weitergabeText } from "../../protokoll-texte.js";
 import { geheim, tresorEingerichtet, wireTresorKarte } from "../tresor.js";
 import { $, el, toast } from "../ui.js";
-import { bestaetige, dialog, type Option, type Werte } from "../dialog.js";
+import { bestaetige, dialog, hinweis, type Option, type Werte } from "../dialog.js";
 import { TRUSTED_SIGNERS, ladeManifestEvents, manifesteAus } from "../../release-signierer.js";
+import { INSTALL_FEHLER_TEXT, huellenStand, huellenStandZeilen, ladeOberflaeche, uebergibHuelle } from "../oberflaeche-huelle.js";
 import { conversations } from "./kommunikation.js";
 import { zeigeGeraete, zeigeSicherung } from "./sicherung.js";
 
@@ -238,15 +239,19 @@ function ladeFixierung(): import("@freedomstack/protocol").Fixierung | null {
 /** Eigene Datei hashen und gegen die Manifeste im Netz pruefen (k von n). */
 async function echtheit() {
   const { hashText, verifyArtifact, suchUpdate, allSources, pruefeFixierung } = await import("@freedomstack/protocol");
-  const res = await fetch(location.href, { cache: "no-store" });
-  const hash = hashText(await res.text());
+  // In der Desktop-Hülle nennt sie die Prüfsumme der ausgelieferten Datei (6.1a3c) – dort lässt die CSP
+  // kein fetch aufs eigene Schema zu (freedom://, Linux); sonst die eigene Datei lesen wie bisher
+  const stand = await huellenStand();
+  const hash = stand ? stand.sha256 : hashText(await (await fetch(location.href, { cache: "no-store" })).text());
   const events = await ladeManifestEvents(await ensurePool());
   const manifeste = manifesteAus(events);
   const r = verifyArtifact(hash, "freedom.html", manifeste, TRUSTED_SIGNERS);
-  // Neuere Version nur, wenn k Signierer sie bestätigen und sie neuer ist als die laufende (6.1a2)
-  const update = suchUpdate(events, TRUSTED_SIGNERS, { sha256: hash });
+  // Neuere Version nur, wenn k Signierer sie bestätigen und sie neuer ist als die laufende (6.1a2);
+  // in der Desktop-Hülle kennt sie deren Zeitpunkt (6.1a3c) – 0 heißt unbekannt (Bau ohne FREEDOM_RELEASED_AT)
+  const seit = stand && stand.releasedAt > 0 ? { releasedAt: stand.releasedAt } : {};
+  const update = suchUpdate(events, TRUSTED_SIGNERS, { sha256: hash, ...seit });
   return {
-    hash, r,
+    hash, r, stand,
     neueste: "angebot" in update ? update.angebot : null,
     quellen: allSources(manifeste, TRUSTED_SIGNERS),
     fixierung: pruefeFixierung(ladeFixierung(), hash, r),
@@ -258,11 +263,22 @@ export async function pruefeEigeneEchtheit(): Promise<void> {
   const box = $("#selfcheck-status");
   if (!box) return;
   try {
-    const { hash, r, neueste, quellen, fixierung } = await echtheit();
+    const { hash, r, neueste, quellen, fixierung, stand } = await echtheit();
     const cls = r.status === "echt" ? "ok" : r.status === "abweichend" ? "err" : "warn";
 
     box.replaceChildren(el("span", echtheitText(r, "freedom.html"), cls));
     if (neueste) box.append(document.createElement("br"), t("set.neuereVersion", { version: neueste.version }));
+    // In der Desktop-Hülle (6.1a3c): welche Fassung läuft, und die neuere installieren
+    if (stand) for (const zeile of huellenStandZeilen(stand)) box.append(document.createElement("br"), el("span", zeile, "muted"));
+    if (stand && neueste) {
+      const installieren = el("button", t("set.huelleInstallieren", { version: neueste.version }), "ghost");
+      installieren.style.cssText = "width:auto;padding:4px 8px;margin-top:4px";
+      installieren.addEventListener("click", () => {
+        installieren.disabled = true;
+        void installiereNeue(neueste, box).finally(() => { installieren.disabled = false; });
+      });
+      box.append(document.createElement("br"), installieren);
+    }
     if (quellen.length > 0) box.append(document.createElement("br"), el("span", t("set.bezugsquellen", { quellen: quellen.join(", ") }), "muted"));
     // Fixieren (5.2): Danach laeuft keine andere Version ohne Rueckfrage.
     const fix = ladeFixierung();
@@ -287,6 +303,33 @@ export async function pruefeEigeneEchtheit(): Promise<void> {
     box.textContent = t("set.echtheitFehler", { fehler: fehlerText(e) });
     box.className = "mono-sm warn";
   }
+}
+
+/**
+ * Neue Oberfläche in der Desktop-Hülle (6.1a3c): laden und prüfen, fragen, dann
+ * übergeben – die Hülle prüft die Belege selbst noch einmal und legt erst dann ab.
+ */
+async function installiereNeue(angebot: import("@freedomstack/protocol").UpdateAngebot, box: HTMLElement): Promise<void> {
+  const zeile = el("div", t("set.huelleLaedt", { version: angebot.version }), "muted");
+  box.appendChild(zeile);
+  const daten = await ladeOberflaeche(angebot);
+  if (!daten) {
+    zeile.textContent = t(INSTALL_FEHLER_TEXT.laden);
+    return;
+  }
+  const mb = (angebot.sizeBytes / (1024 * 1024)).toLocaleString(gebietsschema(), { maximumFractionDigits: 1 });
+  const datum = new Date(angebot.releasedAt * 1000).toLocaleDateString(gebietsschema());
+  if (!(await bestaetige({ titel: t("set.huelleFrageTitel", { version: angebot.version }), text: t("set.huelleFrageText", { mb, signierer: angebot.belege.length, datum }), ok: t("set.huelleOk") }))) {
+    zeile.remove();
+    return;
+  }
+  const r = await uebergibHuelle(angebot, daten);
+  if (!r.ok) {
+    zeile.textContent = t(INSTALL_FEHLER_TEXT[r.fehler]);
+    return;
+  }
+  await hinweis(t("set.huelleFertigTitel"), t("set.huelleFertigText", { version: angebot.version }));
+  location.reload();
 }
 
 /**
