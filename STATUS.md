@@ -18303,6 +18303,61 @@ den Test mit `https://check.torproject.org/api/ip` macht der MENSCH.
 - check-wiring `--streng` Exit 0, check-website ok, check_innerhtml Exit 0.
 - repro-build reproduzierbar, build-site Exit 0, Smoke-Test bestanden.
 
+## Schritt C-25 – Repo-Auftritt: Banner in der README
+
+Wunsch des MENSCHEN (08.10.2026): Das Repo soll auf den ersten Blick zeigen, worum es geht.
+Von drei Entwürfen (Hero, drei Säulen, Social Preview; je Deutsch und Englisch) gewählt:
+**Hero, Englisch**.
+
+**Banner (`docs/bilder/banner.png`, 2560×800):** im Stil der Website – Hintergrund #050505,
+Akzent #7BC80A, Monospace, Marke „[■] FREEDOM“ wie in der Navigation. Links die Aussage der
+Startseite („Message. Use AI. Pay — without an operator.“) mit Unterzeile und Chips
+(Lightning, Solana, Nostr, Non-custodial, Open source), rechts das Agent-Fenster mit der
+Demo-Szene der Startseite, dahinter dasselbe Partikel-Netz wie im Website-Hero, fest
+gewürfelt. Erzeugt mit `scripts/banner.py` (Python-Playwright wie der Smoke-Test, Chromium,
+doppelte Auflösung; `--sprache de` für eine deutsche Fassung) – kein Teil der App und des
+reproduzierbaren Builds.
+
+**README:** Banner oben (mit Alternativtext), die Zeile zur Hülle sagt jetzt „Linux, Windows
+und Android, auf Wunsch über Tor“.
+
+**About-Feld:** Der GitHub-Zugang dieser Sitzung darf Repo-Einstellungen nicht ändern
+(„Repository settings writes are not permitted through this proxy“). Beschreibung, Website
+und Topics trägt der MENSCH ein; die Werte stehen im Pull Request.
+
+**Offen:** Der Chip „Open source“ (wie auf der Website) gilt streng erst mit einer Lizenz
+(Entscheidung LIZ) – ändert sie sich, Banner mit `scripts/banner.py` neu erzeugen.
+
+## Schritt 6.1b3 – Hülle: ein Fehler in arti reißt die App nicht
+
+Gefunden beim Durchsehen von 6.1b1a: Um den Start von arti steht seitdem ein `catch_unwind`
+(„ein Fehler in arti reißt die Hülle nicht“). Das Release-Profil der Hülle hatte aber
+`panic = "abort"` aus Tauris Vorlage. Damit wirkt `catch_unwind` nicht, und ein Panik in arti
+beendete die App, bei gewähltem Tor bei jedem Start. Unter Android ginge es zurück auf
+„direkt“ nur über „Daten löschen“, und dann wären Tresor und Verläufe weg. Die Tests merkten
+nichts: Tests wickeln immer ab.
+
+**`packages/launcher/Cargo.toml`:** kein `panic = "abort"` mehr im Release, Begründung als
+Kommentar.
+
+**`packages/launcher/src/netz.rs`:**
+- `melde_ende()`: Das Verbinden mit dem Tor-Netz läuft in einer eigenen Aufgabe. Fehler oder
+  Panik ergeben den Stand „bootstrap“; vorher blieb er nach einem Panik auf „verbindet …“
+  stehen.
+- Ein Panik in einer einzelnen Verbindung trifft nur deren Aufgabe.
+- `#[cfg(panic = "abort")] compile_error!(…)`: Der Build bricht ab, wenn die Einstellung
+  zurückkommt (auch über `RUSTFLAGS`). Lokal mit einem Probe-Crate geprüft.
+
+**Größe:** Abwickeln kostet Tabellen. Das Android-APK (aarch64, lokal) wächst von 21,5 auf
+23,6 MB, die Bibliothek darin von 19,9 auf 22,0 MB. Das ist der Preis dafür, dass ein Fehler in
+Tor die App nicht sperrt.
+
+**Prüfungen:**
+- launcher 43 grün (+2: Panik beim Verbinden wird „bootstrap“, Release-Profil ohne `panic`);
+  clippy sauber.
+- APK lokal gebaut, ohne Rust-Warnung.
+- check-wiring `--streng` Exit 0, check-website ok, check_innerhtml Exit 0.
+
 ## Schritt 7.5d – Meshtastic: Gateway im Knoten per TCP, Smoke-Test
 
 **Knoten:** `FUNK_GATEWAY=meshtastic:host[:4403]` verbindet das Funk-Gateway
