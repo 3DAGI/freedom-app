@@ -29,11 +29,11 @@ import {
   fragment, parseFrame, Reassembler, ForwardingCache, MeshQueue,
   MeshKind, MeshPriority, meshFeasibility, LORA_MTU, pruefeMeshInhalt, Sendezeitkonto,
   BESTAND_MARKE, buildDigest, falsePositiveRate, planSync, type SyncDigest, type Link, type NostrEvent,
-  Sendegedaechtnis, baueNachforderung, leseNachforderung, LaengenRahmen, mitLaenge,
+  Sendegedaechtnis, baueNachforderung, leseNachforderung, LaengenRahmen, mitLaenge, MESHTASTIC_BLE,
 } from "@freedomstack/protocol";
 import { t } from "./i18n.js";
 import { fehlerText, funkText, meshGrund, syncNotiz } from "./protokoll-texte.js";
-import { erkenneSerielleStrecke, type SerielleStrecke } from "./meshtastic-strecke.js";
+import { erkenneSerielleStrecke, meshtasticBluetooth, type BleMerkmal, type SerielleStrecke } from "./meshtastic-strecke.js";
 
 export type TransportKind = "seriell" | "bluetooth" | "datei";
 
@@ -162,7 +162,7 @@ const BLE_CHUNK = 180;
 
 export async function connectBluetooth(
   onFrame?: (raw: Uint8Array) => void,
-): Promise<MeshTransport> {
+): Promise<SerielleStrecke> {
   const nav = navigator as unknown as {
     bluetooth?: { requestDevice(o: unknown): Promise<BluetoothDeviceLike> };
   };
@@ -171,15 +171,22 @@ export async function connectBluetooth(
   }
 
   const device = await nav.bluetooth.requestDevice({
-    filters: [{ services: [NUS_SERVICE] }],
-    optionalServices: [NUS_SERVICE],
+    filters: [{ services: [NUS_SERVICE] }, { services: [MESHTASTIC_BLE.dienst] }],
+    optionalServices: [NUS_SERVICE, MESHTASTIC_BLE.dienst],
   });
   const server = await device.gatt.connect();
+  const name = device.name ?? t("bau.bluetoothGeraet");
+  const trenne = () => device.gatt.disconnect();
+  // Meshtastic hat einen eigenen Dienst (7.5c) – sonst Nordic UART mit Längenpräfix wie bisher
+  const mesh = await server.getPrimaryService(MESHTASTIC_BLE.dienst).catch(() => null);
+  if (mesh) {
+    const [zumGeraet, vomGeraet, meldung] = await Promise.all(
+      [MESHTASTIC_BLE.zumGeraet, MESHTASTIC_BLE.vomGeraet, MESHTASTIC_BLE.meldung].map((u) => mesh.getCharacteristic(u)),
+    );
+    return meshtasticBluetooth({ zumGeraet: zumGeraet!, vomGeraet: vomGeraet!, meldung: meldung! }, name, trenne, onFrame);
+  }
   const service = await server.getPrimaryService(NUS_SERVICE);
-  return bluetoothStrecke(
-    await service.getCharacteristic(NUS_RX), await service.getCharacteristic(NUS_TX),
-    device.name ?? t("bau.bluetoothGeraet"), () => device.gatt.disconnect(), onFrame,
-  );
+  return bluetoothStrecke(await service.getCharacteristic(NUS_RX), await service.getCharacteristic(NUS_TX), name, trenne, onFrame);
 }
 
 /**
@@ -232,7 +239,7 @@ interface BluetoothDeviceLike {
   name?: string;
   gatt: {
     connect(): Promise<{
-      getPrimaryService(uuid: string): Promise<{ getCharacteristic(uuid: string): Promise<NusMerkmal> }>;
+      getPrimaryService(uuid: string): Promise<{ getCharacteristic(uuid: string): Promise<NusMerkmal & BleMerkmal> }>;
     }>;
     disconnect(): void;
   };

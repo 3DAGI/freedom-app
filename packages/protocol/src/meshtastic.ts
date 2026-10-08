@@ -25,6 +25,7 @@
  * - Eine Paket-Id setzt die App nicht: Fehlt sie, vergibt die Firmware eine.
  */
 import { hexToBytes } from "@noble/hashes/utils.js";
+import { ProtokollFehler } from "./fehler.js";
 
 /** Beginn jeder Nachricht im Strom (USB, TCP): START1, START2. */
 const MESHTASTIC_START = Uint8Array.from([0x94, 0xc3]);
@@ -96,6 +97,25 @@ export function baueFunkPaket(p: { kanal: number; hopLimit: number; nutzlast: Ui
     ...teil(4, daten),
     ...zahl(9, uint32(p.hopLimit, "hopLimit")),
   ];
+  return Uint8Array.from(teil(1, paket));
+}
+
+/** Port der Verwaltung (`PortNum.ADMIN_APP`) und Rolle „zweiter Kanal“ (`Channel.Role.SECONDARY`). */
+const ADMIN_PORT = 6;
+const ROLLE_ZWEIT = 2;
+
+/**
+ * `ToRadio { packet }` an das eigene Gerät (`knoten` = eigene Nummer): Kanal
+ * „freedom“ als zweiten Kanal an Platz `index` (1–7) anlegen
+ * (`AdminMessage.set_channel`, wie `writeChannel()` der Python-Bibliothek).
+ * Lokal braucht das keinen Sitzungsschlüssel (`AdminModule.cpp`, `from == 0`).
+ */
+export function baueKanalAnlegen(p: { knoten: number; index: number }): Uint8Array {
+  if (!Number.isInteger(p.index) || p.index < 1 || p.index > 7) throw new RangeError("meshtastic: Kanal-Index ungültig");
+  const einstellungen = [...teil(2, FREEDOM_KANAL.psk), ...teil(3, new TextEncoder().encode(FREEDOM_KANAL.name))];
+  const kanal = [...zahl(1, p.index), ...teil(2, einstellungen), ...zahl(3, ROLLE_ZWEIT)];
+  const daten = [...zahl(1, ADMIN_PORT), ...teil(2, teil(33, kanal)), ...zahl(3, 1)];
+  const paket = [...fest32(2, uint32(p.knoten, "knoten")), ...teil(4, daten), ...zahl(10, 1)];
   return Uint8Array.from(teil(1, paket));
 }
 
@@ -348,4 +368,120 @@ export function meshtasticSendezeit(e: { preset: number; vorgabe: boolean }, nut
   const de = symbol > 0.016 ? 1 : 0;
   const symbole = 8 + Math.max(Math.ceil((8 * laenge - 4 * sf + 28 + 16) / (4 * (sf - 2 * de))) * cr, 0);
   return (PRAEAMBEL + 4.25) * symbol + symbole * symbol;
+}
+
+// --- Sitzung mit einem Gerät (7.5c) ---
+
+/** Was das Gerät über sich sagt. */
+export interface MeshtasticStand {
+  /** Index des Kanals „freedom“ mit unserem Schlüssel; null: fehlt. */
+  kanal: number | null;
+  /** Es gibt einen Kanal „freedom“ mit anderem Schlüssel – den lesen die anderen nicht. */
+  kanalFremd: boolean;
+  region: number;
+  hopLimit: number;
+  senden: boolean;
+  preset: number;
+  vorgabe: boolean;
+}
+
+/** Hop-Limit der Firmware, wenn das Gerät keines nennt (`HOP_RELIABLE`). */
+const HOP_STANDARD = 3;
+const gleich = (a: Uint8Array, b: Uint8Array): boolean => a.length === b.length && a.every((x, i) => x === b[i]);
+const neueId = (): number => crypto.getRandomValues(new Uint32Array(1))[0]! || 1;
+
+/**
+ * Eine Verbindung zu einem Meshtastic-Gerät (7.5c) – gleich für USB und Bluetooth
+ * (App) und TCP (Knoten): Einstellungen lesen, Rahmen senden und empfangen, den
+ * Kanal „freedom“ anlegen. `schreibe` bekommt eine `ToRadio`-Nachricht ohne Kopf;
+ * die Rahmung (Strom oder Bluetooth) macht die Strecke.
+ */
+export class MeshtasticSitzung {
+  readonly stand: MeshtasticStand = { kanal: null, kanalFremd: false, region: 0, hopLimit: 0, senden: false, preset: 0, vorgabe: true };
+  /** Eine Nachricht kam, wie sie nur ein Meshtastic-Gerät schickt. */
+  belegt = false;
+  /** Ab dem ersten „Ende der Einstellungen“ gehen Pakete an den Knoten. */
+  aktiv = false;
+  #knoten: number | null = null;
+  #rollen = new Map<number, number>();
+  #fremdIndex: number | null = null;
+  /** Kanäle der laufenden Abfrage – sie gelten erst ab „Ende der Einstellungen“. */
+  #neu = { kanal: null as number | null, fremdIndex: null as number | null, rollen: new Map<number, number>() };
+  #wartet = new Map<number, () => void>();
+  #letzteId = 0;
+
+  constructor(private schreibe: (m: Uint8Array) => Promise<void>, private onFrame?: (raw: Uint8Array) => void) {}
+
+  verarbeite(v: VomGeraet): void {
+    if (v.art === "ich") {
+      this.belegt = true;
+      this.#knoten = v.knoten;
+    } else if (v.art === "lora") {
+      Object.assign(this.stand, { region: v.region, hopLimit: v.hopLimit, senden: v.senden, preset: v.preset, vorgabe: v.vorgabe });
+      this.belegt = true;
+    } else if (v.art === "kanal") {
+      this.belegt = true;
+      this.#neu.rollen.set(v.index, v.rolle);
+      if (v.name !== FREEDOM_KANAL.name || v.rolle === 0) return;
+      if (gleich(v.psk, FREEDOM_KANAL.psk)) this.#neu.kanal = v.index;
+      else this.#neu.fremdIndex = v.index;
+    } else if (v.art === "fertig") {
+      this.#wartet.get(v.id)?.();
+    } else if (v.art === "neustart") void this.frage().catch(() => { /* getrennt */ });
+    else if (v.art === "paket" && this.aktiv && v.port === MESHTASTIC_PORT && this.stand.kanal !== null && v.kanal === this.stand.kanal) {
+      this.onFrame?.(v.nutzlast);
+    }
+  }
+
+  /**
+   * Die Kanäle der letzten Abfrage übernehmen. Bis dahin gilt der alte Stand –
+   * sonst ginge ein Rahmen verloren, den der Knoten während eines Neustarts des
+   * Geräts sendet.
+   */
+  uebernimm(): void {
+    this.stand.kanal = this.#neu.kanal;
+    this.stand.kanalFremd = this.#neu.fremdIndex !== null;
+    this.#fremdIndex = this.#neu.fremdIndex;
+    this.#rollen = this.#neu.rollen;
+  }
+
+  /** Einstellungen (neu) erfragen; erfüllt, wenn das Gerät sie ganz geschickt hat. */
+  frage(id = neueId()): Promise<void> {
+    this.#neu = { kanal: null, fremdIndex: null, rollen: new Map() };
+    this.#letzteId = id;
+    const fertig = new Promise<void>((r) => this.#wartet.set(id, () => {
+      this.#wartet.delete(id);
+      this.uebernimm();
+      this.aktiv = true;
+      r();
+    }));
+    return this.schreibe(baueKonfigAnfrage(id)).then(() => fertig);
+  }
+
+  /** Dieselbe Anfrage noch einmal (das Gerät startete vielleicht gerade neu). */
+  wiederhole(): Promise<void> {
+    return this.schreibe(baueKonfigAnfrage(this.#letzteId));
+  }
+
+  /** Ein Rahmen als Paket an alle auf dem Kanal „freedom“ – ohne Kanal geht nichts hinaus. */
+  async sende(frame: Uint8Array): Promise<void> {
+    if (this.stand.kanal === null) throw new ProtokollFehler("meshtastic-ohne-kanal", "Auf dem Meshtastic-Gerät fehlt der Kanal „freedom“ – nichts gesendet.");
+    await this.schreibe(baueFunkPaket({ kanal: this.stand.kanal, hopLimit: this.stand.hopLimit || HOP_STANDARD, nutzlast: frame }));
+  }
+
+  /**
+   * Kanal „freedom“ anlegen (7.5c) – auf dem Platz eines gleichnamigen mit fremdem
+   * Schlüssel, sonst auf dem ersten freien (1–7); der Hauptkanal bleibt (Variante a).
+   * Danach neu fragen: Erst die Einstellungen des Geräts belegen den Kanal.
+   */
+  async legeKanalAn(fristMs = 15_000): Promise<boolean> {
+    if (this.stand.kanal !== null) return true;
+    const index = this.#fremdIndex ?? [1, 2, 3, 4, 5, 6, 7].find((i) => (this.#rollen.get(i) ?? 0) === 0);
+    if (this.#knoten === null || index === undefined) return false;
+    await this.schreibe(baueKanalAnlegen({ knoten: this.#knoten, index }));
+    let zeit: ReturnType<typeof setTimeout> | undefined;
+    await Promise.race([this.frage(), new Promise<void>((r) => { zeit = setTimeout(r, fristMs); })]);
+    clearTimeout(zeit);
+    return this.stand.kanal !== null;
+  }
 }
