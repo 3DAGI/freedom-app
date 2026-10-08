@@ -18062,6 +18062,54 @@ absichtlich eingebaute Fehler macht je ein Test rot.
 check-wiring `--streng` Exit 0 (0 offen), check-website ok, check_innerhtml
 Exit 0; repro-build reproduzierbar, build-site Exit 0, Smoke-Test bestanden.
 
+## Schritt 6.1b1a – Tor in der Desktop-Hülle
+
+Teil b von 6.1 (Sammlung C-23). Der MENSCH hat am 07.10.2026 arti freigegeben (TOR1 A:
+Desktop zuerst, Android später). Gemessen vorher: rund +5 MB, 237 neue Rust-Pakete (44
+aus dem Tor-Projekt), C-Code (SQLite, liblzma, ring), MIT/Apache-2.0.
+
+**Neu `packages/launcher/src/tor.rs`:** ein SOCKS5-Zugang nach RFC 1928, nur das Nötige:
+- ohne Anmeldung (das Webview kann keine), nur CONNECT; BIND und UDP werden abgelehnt;
+- Namen gehen als Name an Tor (Adresstyp 3) und werden nie hier aufgelöst; nur saubere
+  Namen (Buchstaben, Ziffern, `.-_`), Port 0 abgelehnt;
+- höchstens 256 Verbindungen zugleich, Handschlag mit Frist (10 s), nur von 127.0.0.1;
+- dahinter eine Verbindungsfunktion: in der Hülle arti (`TorClient::connect`), in den
+  Tests eine Attrappe.
+
+**Neu `packages/launcher/src/netz.rs`:**
+- Die Wahl Direkt/Tor liegt in `netz.json` bei den Daten der Hülle; fehlt die Datei oder
+  ist sie kaputt: direkt. Geschrieben wird erst eine neue Datei, dann umbenannt.
+- Mit „Tor“ startet die Hülle arti (Zustand unter `tor/` bei den Daten, Konsens im Cache)
+  und den Zugang auf einem Port vom System; das Fenster bekommt ihn als Proxy
+  (`socks5://127.0.0.1:<port>`). Startet nichts, bekommt das Fenster trotzdem einen Proxy
+  (Port 1) – dann scheitern die Verbindungen, nie geht etwas still direkt hinaus.
+- rustls (über arti) braucht einen Krypto-Anbieter, den das Programm festlegt: `ring`
+  (stand schon im Lock). Ohne ihn brach die Hülle mit „Tor“ beim Start ab – unter Xvfb
+  gefunden. Ein Fehler in arti reißt die Hülle seitdem nicht mehr (`catch_unwind`).
+- Kommandos `netz_stand` (verfügbar, gewählt, aktiv, bereit, Fehler als Kennung) und
+  `netz_setzen(tor, neustart)` – im App-Manifest und in der Capability. Der Schalter in
+  der App folgt mit b1b.
+- Nur Desktop: arti steht in `Cargo.toml` nur für Ziele außer Android/iOS; das
+  Android-APK wird nicht größer.
+
+**Unter Xvfb geprüft (nur lokale Probe, nicht eingecheckt):**
+- Mit `strace -f -Y -e trace=connect` (WebKit-Sandbox dafür aus): Der Netzwerkprozess von
+  WebKit verband sich nur mit `127.0.0.1:<Port des Zugangs>` – keine anderen Verbindungen,
+  keine DNS-Anfragen, kein UDP. Nach außen verbanden sich nur Threads von arti, zu
+  Tor-Relays (ORPorts 9001, 443, auch 53 als TCP).
+- Ins Tor-Netz kam arti hier nicht: auch nach 240 s (Release-Bau) nicht „bereit“, auch
+  ein arti-Programm allein nicht in 150 s. Die Umgebung lässt die Relay-Verbindungen
+  beginnen, aber nicht zu Ende kommen. Den Echtheitstest (`check.torproject.org` meldet
+  `IsTor: true`) macht der MENSCH auf einem Gerät.
+
+**Prüfungen:**
+- launcher: 34 grün (+8: SOCKS5 6, Netz 2), `cargo clippy --all-targets` ohne Warnung,
+  auch für `aarch64-linux-android` (ohne arti).
+- protocol 1214 grün (6 übersprungen), node 314 grün (6 übersprungen), app 938 grün,
+  Leak 73 grün + 1 todo, mls 13 grün – unverändert, der Schritt ändert nur die Hülle.
+- check-wiring `--streng` Exit 0, check-website ok, check_innerhtml Exit 0.
+- repro-build reproduzierbar, build-site Exit 0, Smoke-Test bestanden.
+
 ## Schritt 7.5d – Meshtastic: Gateway im Knoten per TCP, Smoke-Test
 
 **Knoten:** `FUNK_GATEWAY=meshtastic:host[:4403]` verbindet das Funk-Gateway

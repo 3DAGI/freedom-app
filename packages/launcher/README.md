@@ -21,8 +21,10 @@ Activity.
   keine Kommandos von Tauri selbst (Fenster, App, Dateien).
 - Die Hülle selbst spricht mit niemandem im Netz; das tut nur die App, mit
   denselben Regeln wie im Browser.
-- Noch nicht: Selbst-Update der Hülle (6.1a4b), Tor (6.1b), ein Android-Paket mit
-  festem Schlüssel (6.1c2).
+- Auf dem Desktop geht der Verkehr der App auf Wunsch über Tor (seit 6.1b1a, siehe
+  unten).
+- Noch nicht: Selbst-Update der Hülle (6.1a4b), der Schalter „Direkt / Tor“ in der App
+  (6.1b1b), Tor unter Android (6.1b2), ein Android-Paket mit festem Schlüssel (6.1c2).
 - Unter Linux geht „App exportieren“ (Weitergeben) in der Hülle nicht: Die CSP der
   App lässt kein `fetch` auf `freedom://` zu (Entscheidung H1 in der Sammlung).
 
@@ -81,6 +83,27 @@ nirgends verlinkt, nur zum Testen auf Geräten. Lokal:
 
 Die Symbole in `icons/` entstehen nur aus dem Logo der App:
 `python3 scripts/launcher-symbole.py` (prüfen: `--pruefen`).
+
+## Tor (seit 6.1b1a, nur Desktop)
+
+Mit „Tor“ startet die Hülle arti (Tor-Client des Tor-Projekts in Rust, freigegeben am
+07.10.2026) und einen SOCKS5-Zugang auf `127.0.0.1` (Port vom System), den nur ihr
+eigenes Fenster als Proxy bekommt (`src/tor.rs`, `src/netz.rs`). Dann geht der gesamte
+Verkehr der App über Tor – Relays, Solana-RPC, Downloads, auch `.onion`.
+
+- Der Zugang spricht nur das Nötige von SOCKS5: ohne Anmeldung (das Webview kann keine),
+  nur CONNECT, Namen gehen als Name an Tor (nie hier aufgelöst), höchstens 256
+  Verbindungen, Handschlag mit Frist.
+- Mit „Tor“ bekommt das Fenster immer einen Proxy: Startet arti nicht, scheitern die
+  Verbindungen – nie geht etwas still direkt hinaus.
+- Die Wahl liegt in `netz.json` bei den Daten der Hülle und gilt ab dem nächsten Start
+  (der Proxy eines Webviews steht beim Bauen des Fensters fest). Die App fragt sie über
+  `netz_stand` ab und setzt sie über `netz_setzen` (mit Neustart); den Schalter dafür
+  bekommt die App mit 6.1b1b. Bis dahin von Hand:
+  `echo '{"tor":true}' > ~/.local/share/io.github.3dagi.freedom/netz.json`.
+- arti legt seinen Zustand unter `tor/` bei den Daten der Hülle ab, den Konsens im Cache.
+- Grenzen: Anrufe (WebRTC) laufen nicht über den Proxy des Webviews; andere Programme
+  auf demselben Rechner könnten den Zugang ebenfalls nutzen (sie bekämen nur Tor).
 
 ## Android (seit 6.1c1)
 
