@@ -18583,6 +18583,68 @@ gratis, nur mit 12 Bit Rechenarbeit. A-14 ist geteilt: a Knoten und Protokoll
 Die Live-App schickt Gratis-Fragen noch mit 12 Bit; ein aktualisierter Knoten
 lehnte sie bis dahin ab.
 
+## Schritt 6.1d – Kamera und Mikrofon in der Hülle
+
+Gefunden bei der Frage, ob man mit dem Handy den eigenen Knoten koppeln kann: In der
+Android-App ging die Kamera nicht. Damit ging auch kein QR-Scan für den Kopplungscode, kein
+Mikrofon für Sprachnachrichten und kein Anruf. Unter Linux war es genauso.
+
+**Ursachen:**
+- **Android:** Im Manifest aus Tauris Vorlage steht nur `INTERNET`. Android lehnt eine
+  Anfrage nach Rechten ab, die das Manifest nicht nennt – bevor der Nutzer gefragt wird.
+- **Linux:** WebKitGTK lehnt Kamera und Mikrofon still ab, wenn niemand die Anfrage
+  beantwortet. Eine Nachfrage gibt es dort nicht.
+- **Windows:** WebView2 fragt selbst nach. Das ging schon.
+
+**Neu `packages/launcher/src/erlaubnis.rs`:**
+- Antwort auf jede Anfrage des Webviews (`on_permission_request` in `lib.rs`), nur für die
+  eigene Oberfläche (`darf_navigieren()`); fremde Seiten bekommen nichts.
+- Kamera und Mikrofon: unter Linux erlaubt, sonst `Default` – Windows und Android fragen
+  selbst nach.
+- Alles andere bleibt, wie das Webview es hält: Standort, Meldungen, Bildschirm.
+- Die App fragt Kamera und Mikrofon ohnehin nur auf Klick an.
+
+**Neu `scripts/android-rechte.py`:**
+- Trägt nach `tauri android init` genau `CAMERA`, `RECORD_AUDIO` und
+  `MODIFY_AUDIO_SETTINGS` ins Manifest ein, dazu Kamera und Mikrofon als nicht nötige
+  Hardware. So behalten Geräte ohne Kamera die App.
+- Läuft auch ein zweites Mal ohne Änderung durch; `--pruefen` prüft nur.
+
+**`launcher.yml`:** ruft das Skript und prüft danach im APK mit `aapt2 dump permissions`,
+dass die drei Rechte drin sind.
+
+**Grenze:** Den QR-Code erkennt die App über `BarcodeDetector`. WebKitGTK kennt ihn nicht,
+das Android-WebView je nach Gerät. Dann bleibt der Hinweis zum Einfügen – auch für den
+Kopplungscode. Gerätetest: MENSCH.
+
+**Prüfungen:**
+- launcher 45 grün (+2: Kamera und Mikrofon für die eigene Oberfläche, fremde Seiten
+  bekommen nichts); clippy sauber.
+- Skript: vorher „fehlt“ (Exit 1), danach vollständig (Exit 0), zweiter Lauf ohne
+  Änderung, XML gültig.
+- APK lokal mit den neuen Rechten gebaut (siehe Pull Request).
+
+## Schritt C-26 – Website mobil: Befehle scrollen im Kasten
+
+Gefunden bei 6.1c2a: Die Startseite war auf dem Handy 479 px breit statt 390. Man konnte
+sie seitlich schieben.
+
+**Ursache:** Die Befehle zum Kopieren im Abschnitt „Rechenzeit vermieten“ stehen in
+`pre.mono`. Sie brechen nicht um, und ein Rasterfeld darf nicht schmaler werden als sein
+Inhalt (`min-width: auto`). So schob der längste Befehl die ganze Seite breiter. Auf dem
+Desktop liefen die Befehle über den schwarzen Kasten hinaus.
+
+**`packages/website/css/style.css`:**
+- `pre.mono { overflow-x: auto; }`: Befehle bleiben eine Zeile und scrollen im Kasten.
+  Beim Kopieren kommt der Befehl so heraus, wie er dasteht.
+- `.grid > * { min-width: 0; }`: Rasterfelder dürfen schmaler werden als ihr Inhalt.
+
+**Geprüft:**
+- Alle fünf Seiten (Start, FAQ, Roadmap, Whitepaper, Status) bei 360 und 390 px gebaut
+  und gemessen: keine Seite breiter als der Bildschirm (vorher Start 479 px).
+- Abschnitt auf Handy und Desktop angesehen.
+- check-website ok.
+
 ## Schritt E9-3a – Modelle laden im Knoten: Manifest, Prüfung, Angebot
 
 Freigabe des MENSCHEN vom 08.10.2026: E9 wie vorgeschlagen (V1–V3 A, F1–F6 ja).

@@ -29,7 +29,9 @@ Relays, RPC-Anbietern und Lightning-Diensten.
   07.10.2026, Desktop zuerst: b1a ✓ Hülle (SOCKS5 nur fürs eigene Webview, Wahl
   Direkt/Tor, nie still direkt), b1b ✓ Schalter in der App, b2 Android – b2a ✓ Hülle (HTTP CONNECT, Proxy über androidx.webkit, Warteseite bis er gilt), b2b ✓ Schalter in der App (Rückfrage „App schließen“), b3 ✓ Release ohne `panic = "abort"` (ein Fehler in arti reißt die Hülle nicht); c Android – c1 ✓ APK zum Testen (CI, Wegwerf-Schlüssel je Lauf), c2
   Verteilung: c2a ✓ Release von Hand (Linux x64/arm64, Windows, APK nur mit festem
-  Schlüssel), Downloads auf der Website; den Schlüssel legt der MENSCH an. Schritt 1–3 oben gehören zu b.
+  Schlüssel), Downloads auf der Website; den Schlüssel legt der MENSCH an; d ✓ Kamera
+  und Mikrofon in der Hülle (QR-Code, Sprachnachricht, Anruf – Linux erlaubt, Android mit
+  Rechten im Manifest). Schritt 1–3 oben gehören zu b.
 
 ## 6.2 Ehrlicher Modus in der Web-App
 
