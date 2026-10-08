@@ -17971,3 +17971,8 @@ gerechnet – LongFast rund 134 Byte/s, ein voller Rahmen rund 1,9 s statt der
 gebuchten 1,0 s, behoben in 7.5b), Karte `phase-7.md` 7.5, FORTSCHRITT mit Hinweis in
 der Zeile von Spur B, GO-LIVE (Geräte mit Meshtastic-Firmware, App ab 7.5b).
 Verdrahtet wird mit 7.5b (Ausnahmen in `wiring-ausnahmen.txt` mit diesem Verweis).
+
+**Prüfungen:** protocol 1222 grün (+8, 6 übersprungen), node 314 grün (6
+übersprungen), app 938 grün, Leak 73 grün + 1 todo, mls 13 grün; check-wiring
+`--streng` Exit 0 (0 offen), check-website ok, check_innerhtml Exit 0;
+repro-build reproduzierbar, build-site Exit 0, Smoke-Test bestanden.
