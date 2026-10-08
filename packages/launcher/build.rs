@@ -26,7 +26,7 @@ fn main() {
     std::fs::write(Path::new(&std::env::var("OUT_DIR").unwrap()).join("vertrauen.rs"), rs).unwrap();
     println!("cargo:rerun-if-env-changed=FREEDOM_RELEASED_AT");
     tauri_build::try_build(
-        tauri_build::Attributes::new().app_manifest(tauri_build::AppManifest::new().commands(&["oberflaeche_stand", "oberflaeche_installieren"])),
+        tauri_build::Attributes::new().app_manifest(tauri_build::AppManifest::new().commands(&["oberflaeche_stand", "oberflaeche_installieren", "netz_stand", "netz_setzen"])),
     )
     .expect("tauri-build");
 }
