@@ -12,8 +12,8 @@ import { generateKeypair, signEvent, buildEvent, NostrEvent } from "../src/event
 import {
   buildSpace, parseSpace, buildRoles, buildRoleGrant, buildSpaceState,
   permissionsOf, can, canWriteTo, buildChannelMessage, parseChannelMessage,
-  buildThreads, unreadBadges, searchMessages, privacyInfo,
-  Channel, Role, KIND_SPACE,
+  buildThreads, unreadBadges, searchMessages, privacyInfo, raumModeration,
+  Channel, Role, KIND_SPACE, JEDER_ROLLE, JEDER_RECHTE,
 } from "../src/spaces.js";
 
 const NOW = 1_800_000_000;
@@ -144,6 +144,51 @@ test("Der Besitzer schreibt ueberall", () => {
 test("Fremde schreiben nirgends", () => {
   const st = buildSpaceState(S, basis());
   for (const c of st.space!.channels) assert.equal(canWriteTo(FREMD.pk, c, st), false);
+});
+
+test("Rolle für alle (B-22): Beigetretene schreiben, wo der Kanal es erlaubt – wie @everyone", () => {
+  const jeder: Role = { id: JEDER_ROLLE, name: "Jeder", rank: 0, permissions: [...JEDER_RECHTE] };
+  const mitJeder = (at = NOW + 1) => signEvent(buildRoles(S, BESITZER.pk, [...rollen, jeder], at), BESITZER.sk);
+  const st = buildSpaceState(S, [raumEv(), mitJeder(), grant(BESITZER, MOD.pk, ["mod"])]);
+  const [allgemein, ank] = st.space!.channels;
+  assert.equal(canWriteTo(FREMD.pk, allgemein!, st), true, "ohne Zuweisung im offenen Kanal");
+  assert.equal(canWriteTo(FREMD.pk, ank!, st), false, "#ankündigungen bleibt bei den Moderatoren");
+  assert.equal(canWriteTo(MOD.pk, ank!, st), true);
+  assert.deepEqual([...permissionsOf(FREMD.pk, st)].sort(), [...JEDER_RECHTE].sort());
+  // Nennt ein Kanal die Rolle ausdrücklich, zählt sie dort wie eine zugewiesene
+  const nurJeder: Channel = { id: "frei", name: "frei", privacy: "offen", writeRoles: [JEDER_ROLLE], position: 3 };
+  assert.equal(canWriteTo(FREMD.pk, nurJeder, st), true);
+  // Ohne die Rolle bleibt alles wie bisher: wer keine Rolle hat, schreibt nirgends
+  const ohne = buildSpaceState(S, basis());
+  assert.equal(canWriteTo(FREMD.pk, ohne.space!.channels[0]!, ohne), false);
+  assert.equal(canWriteTo(FREMD.pk, nurJeder, ohne), false);
+  // Neueste Rollenliste gilt: zurückgenommen heißt wieder zu
+  const zu = buildSpaceState(S, [raumEv(), mitJeder(NOW + 1), rollenEv(BESITZER, NOW + 2)]);
+  assert.equal(canWriteTo(FREMD.pk, zu.space!.channels[0]!, zu), false);
+});
+
+test("Rolle für alle (B-22): nur Grundrechte – kein Moderieren, Vergeben, Verwalten; nur vom Besitzer", () => {
+  const zuViel: Role = { id: JEDER_ROLLE, name: "Jeder", rank: 99, permissions: ["lesen", "schreiben", "threads", "moderieren", "rollen_vergeben", "kanaele_verwalten", "repos_pflegen", "anheften"] };
+  const st = buildSpaceState(S, [raumEv(), signEvent(buildRoles(S, BESITZER.pk, [...rollen, zuViel], NOW + 1), BESITZER.sk)]);
+  assert.deepEqual([...permissionsOf(FREMD.pk, st)].sort(), [...JEDER_RECHTE].sort());
+  for (const p of ["moderieren", "rollen_vergeben", "kanaele_verwalten", "repos_pflegen", "anheften"] as const) {
+    assert.equal(can(FREMD.pk, p, st), false, p);
+  }
+  // Wer nur die Rolle für alle hat, vergibt keine Rollen – auch nicht sich selbst
+  const selbst = buildSpaceState(S, [raumEv(), signEvent(buildRoles(S, BESITZER.pk, [...rollen, zuViel], NOW + 1), BESITZER.sk),
+    grant(FREMD, FREMD.pk, ["mitglied"], NOW + 20)]);
+  assert.equal(selbst.grants.has(FREMD.pk), false);
+  // Ausblenden durch jemanden, der nur die Rolle für alle hat, zählt nicht
+  const ziel = signEvent(buildEvent(MITGLIED.pk, 42, [["h", S]], "hallo", NOW + 30), MITGLIED.sk);
+  const ausblenden = signEvent(buildEvent(FREMD.pk, 34551, [["d", `hide:${ziel.id}`], ["h", S], ["e", ziel.id]], "", NOW + 40), FREMD.sk);
+  assert.equal(raumModeration(selbst, [ausblenden], [ziel]).hiddenEvents.size, 0);
+  // Gegenprobe: derselbe Vorgang vom zugewiesenen Moderator zählt
+  const mitMod = buildSpaceState(S, [raumEv(), signEvent(buildRoles(S, BESITZER.pk, [...rollen, zuViel], NOW + 1), BESITZER.sk), grant(BESITZER, MOD.pk, ["mod"])]);
+  const vomMod = signEvent(buildEvent(MOD.pk, 34551, [["d", `hide:${ziel.id}`], ["h", S], ["e", ziel.id]], "", NOW + 40), MOD.sk);
+  assert.equal(raumModeration(mitMod, [vomMod], [ziel]).hiddenEvents.size, 1);
+  // Eine Rollenliste mit „jeder“ von jemand anderem zählt nicht (Rollen nur vom Besitzer)
+  const fremd = buildSpaceState(S, [raumEv(), signEvent(buildRoles(S, FREMD.pk, [zuViel], NOW + 5), FREMD.sk)]);
+  assert.equal(canWriteTo(FREMD.pk, fremd.space!.channels[0]!, fremd), false);
 });
 
 // ------------------------------------------------------------- Threads

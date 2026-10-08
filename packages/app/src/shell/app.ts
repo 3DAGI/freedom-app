@@ -123,6 +123,7 @@ import {
   wireOfflineHinweis,
 } from "./ui.js";
 import { abrufTakt, starteVerkehr } from "./versand.js";
+import { wireHuellenTor } from "./netz-huelle.js";
 
 // ------------------------------------------------------------- Identitaet
 
@@ -924,6 +925,7 @@ function starte(): void {
   starteStreitfall();
   void zeigeMitwirkende();
   void wireRpcSetting();
+  void wireHuellenTor();
   const exportBtn = $("#selfexport-btn");
   if (exportBtn) exportBtn.onclick = () => void exportiereApp();
   const checkBtn = $("#selfcheck-btn");

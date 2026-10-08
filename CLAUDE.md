@@ -47,9 +47,9 @@ bash contracts/solana-channel/pruefen.sh --werkzeuge     # nur bei Änderungen a
 cd packages/launcher && cargo test --locked && cd ../..  # nur bei Änderungen an der Hülle (Linux: WebKitGTK 4.1, App vorher bauen)
 ```
 
-Stand 08.10.2026 (nach 8.2c, 5.5a–c, 8.15, 11.1a, C.3c2, 11.1b, 5.9a–b, 6.3a–b2, 11.4a–b2, C.4a–b, C.5a–b, C.6b, 11.4c, C-18, C-17a–c, C-20a–j3, C-1a–f, C-2, C-3, C-4, C-5a–d, C-6a–e, C-7a–b, C-8, C-10 bis C-16, 11.2a–b, A-4 bis A-7, A-7r, Z1, 12.1–12.3, E8, P1a–b, P2a, E10a, E11, E9-Entwurf, 12.4a, P2b1–b2, P3a–b, P4, P5a–b, P5c1–c2, D1a, D1b1–b2, D1c, D2, D3-Entwurf, 12.6, 12.7a–c, 12.1 C, C-21, C-22a, C-22c, C-24, 6.1a1–a2, 6.1a3a–c, 6.1a4a, 6.1b1a, 6.1c1, B-1, B-2a–c, B-3 bis B-7, B-8a–c, B-9a, B-15, B-19, B-20a–c, B-10a–b, B-9b1–b2, B-9c1–c3, B-11a–c, B-12a–d, B-13a–e, B-21, B-17a, B-17b1, B-17b2, B-17b3a, B-17b3b und 7.5a–d): protocol 1225 grün (6 übersprungen), node 317 grün
+Stand 08.10.2026 (nach 8.2c, 5.5a–c, 8.15, 11.1a, C.3c2, 11.1b, 5.9a–b, 6.3a–b2, 11.4a–b2, C.4a–b, C.5a–b, C.6b, 11.4c, C-18, C-17a–c, C-20a–j3, C-1a–f, C-2, C-3, C-4, C-5a–d, C-6a–e, C-7a–b, C-8, C-10 bis C-16, 11.2a–b, A-4 bis A-7, A-7r, Z1, 12.1–12.3, E8, P1a–b, P2a, E10a, E11, E9-Entwurf, 12.4a, P2b1–b2, P3a–b, P4, P5a–b, P5c1–c2, D1a, D1b1–b2, D1c, D2, D3-Entwurf, 12.6, 12.7a–c, 12.1 C, C-21, C-22a, C-22c, C-24, 6.1a1–a2, 6.1a3a–c, 6.1a4a, 6.1b1a–b, 6.1b2a–b, 6.1c1, B-1, B-2a–c, B-3 bis B-7, B-8a–c, B-9a, B-15, B-19, B-20a–c, B-10a–b, B-9b1–b2, B-9c1–c3, B-11a–c, B-12a–d, B-13a–e, B-21, B-17a, B-17b1, B-17b2, B-17b3a, B-17b3b und 7.5a–d, B-22): protocol 1227 grün (6 übersprungen), node 317 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 949 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 73 grün + 1 `todo` (heutige Lecks,
+in `tools.test.ts`), app 959 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 73 grün + 1 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
 Ausnahme: gesendete SOL-Zahlungen von frischen Adressen, eine bewusste Grenze
 nach Entscheidung 4.9 A – im Datenschutzbericht unter „Bewusste Grenzen“).
@@ -768,7 +768,10 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   quer (keine Laufleiste, keine Fläche unter 40 px) – neue Seiten dort
   eintragen. Häkchen stehen im Label; die Kopfzeile setzt die Identität nur
   über `zeigeIdent()` und lädt nie ein Bild aus dem Netz. Die untere Leiste
-  weicht beim Tippen (`tipptIn()`, `body.tippt`).
+  weicht beim Tippen (`tipptIn()`, `body.tippt`). Ein Tipp auf einen Knopf beim Tippen nimmt dem Feld
+  den Fokus nicht (seit B-22, `navigation.ts`: `mousedown` unter 1024 px abgefangen) – sonst kehrt die
+  Leiste beim Drücken zurück, alles rutscht, und das Loslassen trifft daneben; der Smoke-Test „mobil“
+  prüft „Senden beim Tippen“ (Klick am Knopf, Fokus bleibt im Feld).
 - **QR-Codes nur über `shell/qr-ui.ts`** (seit 11.1b): erzeugt mit `qrCode()`
   (`protocol/src/qr.ts`, 11.1a, Bit für Bit gegen python-qrcode – die Referenz
   nur mit `scripts/qr-referenz.py` neu erzeugen), gezeigt nur als SVG über
@@ -1056,6 +1059,12 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   `darfKanalAendern()` (dieselbe Regel wie `mitRaumKanaelen()`), privat
   `aenderePrivatenKanal()`; nie den letzten Kanal. Zwei Kanal-Events derselben
   Sekunde entscheidet die Id – im Test eine Sekunde dazwischen.
+  Wer beitritt, schreibt mit (seit B-22, MENSCH 08.10.: wie @everyone) über die
+  Rolle für alle in der Rollenliste des Gründers (`JEDER_ROLLE`) – sie bringt nur
+  `JEDER_RECHTE` (lesen, schreiben, Threads), nie Moderieren, Vergeben oder
+  Verwalten; Kanäle mit Schreibrollen (#ankündigungen) bleiben beschränkt. Neue
+  offene Räume legt die App mit ihr an, umgeschaltet wird nur über
+  `stelleSchreibrechtEin()` (Gründer, neue Rollenliste, übrige Rollen bleiben).
 - **Umfragen und Termine nur in der Gruppe** (seit B-15a, `raum-planung.ts`):
   NIP-88 (1068/1018) und NIP-52 (31922/31923/31925) nur als innere Events
   privater Räume über `raumUmfrage()`, `raumStimme()`, `raumTermin()`,
@@ -1340,7 +1349,8 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   aus `oberflaeche::antwort()` – immer derselbe Ursprung, sonst sind Tresor und
   Verläufe nach einem Update weg; nie über `tauri://` oder eine Datei-Adresse.
   Ausgeliefert wird nur `freedom.html` (sonst 404, auch keine `freedom-spiegel.json`
-  – die Hülle ist kein Spiegel). Navigation nur über `darf_navigieren()` (eigener
+  – die Hülle ist kein Spiegel; einzige Ausnahme seit 6.1b2a: die feste Warteseite `/tor`
+  unter Android, ohne Skript). Navigation nur über `darf_navigieren()` (eigener
   Ursprung, Blob-Adressen dieses Ursprungs), neue Fenster `Deny`; die Oberfläche darf
   nur die Kommandos aus `capabilities/oberflaeche.json` (seit 6.1a3b zwei) – ein neues
   Kommando nur über das App-Manifest in `build.rs` und mit eigener Erlaubnis dort,
@@ -1392,6 +1402,17 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   Prüfen unter Xvfb mit `strace -f -Y -e trace=connect` (WebKit-Sandbox dafür lokal aus:
   `WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1`): WebKit nur zu 127.0.0.1. Ins Tor-Netz kommt
   arti in dieser Umgebung nicht – Live-Tests macht der MENSCH.
+  In der App (seit 6.1b1b) nur über `shell/netz-huelle.ts`: Schalter `#huelle-tor` nur in der
+  Hülle (`huellenArt()`, seit 6.1b2b auch Android) und nur mit `verfuegbar`, umschalten nur nach
+  `bestaetige(torRueckfrage())` mit Neustart (`setzeTor()`; Android: „App schließen“); Texte sagen „es geht nichts hinaus“ statt Ausweichen, Anrufe nicht über Tor.
+  Unter Android (seit 6.1b2a) setzt die Hülle den Proxy nur über `android_tor.rs` (JNI,
+  androidx.webkit `ProxyController`, Regel `http://127.0.0.1:<port>` – HTTP CONNECT; `socks://` hieße in
+  Chromium SOCKS4, dann löste das WebView Namen selbst auf); mit Tor lädt die App erst nach dem Proxy, bis
+  dahin die Warteseite – nie die App ohne Proxy. Klassen aus androidx nur über `find_class()`
+  (wry, Lader der Activity); offene Java-Ausnahmen vor dem nächsten JNI-Aufruf löschen
+  (`raeume_auf()`). „Neu starten“ heißt unter Android: die App schließt sich. Was nur JNI ruft,
+  entfernt R8 aus dem Release-APK – Keep-Regel `proguard-tor.pro` (die CI kopiert sie nach
+  `gen/android/app/` und prüft die Klassen im APK); Signaturen gegen `dexdump` prüfen.
 - **Meshtastic nur über `meshtastic.ts`** (seit 7.5a, Befunde `docs/MESHTASTIC.md`):
   Format ohne Abhängigkeit, Byte für Byte gegen meshtastic 2.7.11 – die Vektoren nur
   mit `scripts/meshtastic-referenz.py` neu erzeugen. Ein Rahmen geht nur als Paket an

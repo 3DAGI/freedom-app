@@ -128,8 +128,8 @@ export const kommunikation: Texte = {
   "komm.raumUngueltig": { de: "Das ist weder eine Raum-Adresse noch eine Kennung.", en: "That is neither a room address nor an identifier." },
   "komm.raumMehrdeutig": { de: "Mehrere behaupten, diesen Raum gegründet zu haben. Frag nach der Raum-Adresse (beginnt mit 34700:) und tritt damit bei.", en: "Several people claim to have founded this room. Ask for the room address (starts with 34700:) and join with it." },
   "komm.oeffentlichWarnung": {
-    de: "Öffentlicher Raum: Jeder kann mitlesen, auch ohne diese App – die Nachrichten liegen unverschlüsselt auf den Relays, mit deinem Schlüssel als Absender. Private Räume sind Ende-zu-Ende-verschlüsselt.\n\nTrotzdem öffentlich anlegen?",
-    en: "Public room: anyone can read along, even without this app – the messages sit unencrypted on the relays, with your key as the sender. Private rooms are end-to-end encrypted.\n\nCreate it publicly anyway?",
+    de: "Öffentlicher Raum: Jeder kann mitlesen, auch ohne diese App – die Nachrichten liegen unverschlüsselt auf den Relays, mit deinem Schlüssel als Absender. Wer beitritt, schreibt in #allgemein mit (im Raum-Menü unter „Wer im Raum schreiben darf“ änderbar). Private Räume sind Ende-zu-Ende-verschlüsselt.\n\nTrotzdem öffentlich anlegen?",
+    en: "Public room: anyone can read along, even without this app – the messages sit unencrypted on the relays, with your key as the sender. Whoever joins can write in #allgemein (changeable in the room menu under “Who may write in this room”). Private rooms are end-to-end encrypted.\n\nCreate it publicly anyway?",
   },
   "komm.einladenSchluessel": { de: "Wen einladen? Schlüssel (hex):", en: "Invite whom? Key (hex):" },
   "komm.keinSchluessel": { de: "Kein gültiger Schlüssel", en: "Not a valid key" },

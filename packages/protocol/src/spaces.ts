@@ -50,6 +50,16 @@ export const ALL_PERMISSIONS: Permission[] = [
   "kanaele_verwalten", "rollen_vergeben", "repos_pflegen",
 ];
 
+/**
+ * Rolle für alle (B-22, MENSCH 08.10.: wie @everyone bei Discord): Steht sie in
+ * der Rollenliste des Besitzers, gilt sie für jeden – ohne Zuweisung. Davon
+ * zählen nur die Grundrechte aus `JEDER_RECHTE`: Moderieren, Rollen vergeben und
+ * Verwalten gibt es nur über eine zugewiesene Rolle mit Rang. Wo ein Kanal
+ * Rollen nennt (#ankündigungen: „mod“), schreibt weiter nur, wer eine davon hat.
+ */
+export const JEDER_ROLLE = "jeder";
+export const JEDER_RECHTE: readonly Permission[] = ["lesen", "schreiben", "threads"];
+
 const HEX64 = /^[0-9a-f]{64}$/;
 const SPACE_ID = /^[A-Za-z0-9._-]{1,64}$/;
 
@@ -303,6 +313,8 @@ export function permissionsOf(pubkey: string, state: SpaceState): Set<Permission
     const r = state.roles.get(id);
     if (r) for (const p of r.permissions) out.add(p);
   }
+  // Rolle für alle (B-22): nur ihre Grundrechte, ohne Zuweisung
+  for (const p of state.roles.get(JEDER_ROLLE)?.permissions ?? []) if (JEDER_RECHTE.includes(p)) out.add(p);
   return out;
 }
 
@@ -497,6 +509,8 @@ export function canWriteTo(pubkey: string, channel: Channel, state: SpaceState):
   if (!can(pubkey, "schreiben", state)) return false;
   if (channel.writeRoles.length === 0) return true;
   const eigene = new Set(state.grants.get(pubkey) ?? []);
+  // Nennt ein Kanal die Rolle für alle, schreibt dort jeder mit Schreibrecht (B-22)
+  if (state.roles.has(JEDER_ROLLE)) eigene.add(JEDER_ROLLE);
   return channel.writeRoles.some((r) => eigene.has(r));
 }
 

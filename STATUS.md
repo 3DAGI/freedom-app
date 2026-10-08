@@ -18062,6 +18062,72 @@ absichtlich eingebaute Fehler macht je ein Test rot.
 check-wiring `--streng` Exit 0 (0 offen), check-website ok, check_innerhtml
 Exit 0; repro-build reproduzierbar, build-site Exit 0, Smoke-Test bestanden.
 
+## Schritt B-22 – Öffentliche Räume: Wer beitritt, schreibt mit
+
+Entscheidung MENSCH 08.10.2026 nach dem Nutzertest (Befund R-8): Wer einem
+öffentlichen Raum beitritt, schreibt in den Kanälen, die das erlauben – wie
+„@everyone“ bei Discord. Bis hier hatte ein Beigetretener keine Rolle und damit
+kein Recht „schreiben“, auch nicht in #allgemein; die Gründerin erfuhr nichts
+vom Beitritt, und der Hinweis sagte nicht, wie man schreiben darf.
+
+**Was neu ist:**
+- `JEDER_ROLLE` („jeder“) und `JEDER_RECHTE` (lesen, schreiben, Threads) in
+  `spaces.ts`: Nennt die Rollenliste des Gründers (34701) die Rolle, gilt sie für
+  jeden, ohne Zuweisung (`permissionsOf()`); nur ihre Grundrechte zählen –
+  Moderieren, Rollen vergeben, Kanäle verwalten und Repos pflegen gibt es weiter
+  nur über eine zugewiesene Rolle mit Rang. `canWriteTo()`: Kanäle ohne
+  Schreibrollen und Kanäle, die `jeder` nennen; #ankündigungen (`mod`) bleibt bei
+  den Moderatoren. Eine Rollenliste mit `jeder` von jemand anderem zählt wie bisher nicht.
+- App (`shell/tabs/raeume.ts`): neue offene Räume mit der Rolle für alle;
+  Menüpunkt „Wer im Raum schreiben darf“ (`#space-schreiben`, nur der Gründer eines
+  offenen Raums) → `stelleSchreibrechtEin()`: „Alle, die beitreten“ oder „Nur wer
+  eine Rolle hat“, veröffentlicht eine neue Rollenliste, die übrigen Rollen
+  bleiben. Ohne die Rolle sagt der Hinweis im Kanal jetzt, dass der Gründer den
+  Raum für alle öffnen kann (`raum.nurMitRolle`); die Warnung beim Anlegen nennt
+  das Mitschreiben. Ältere Räume bleiben, wie sie sind, bis der Gründer umschaltet.
+
+**Verdrahtet:** `legeRaumAn()` (Rollenliste mit `JEDER_ROLLE`), `zeigeRaumArt()`
+(`#space-schreiben`), `stelleSchreibrechtEin()` über `wireSpacesTab()`,
+`oeffneKanal()` (Hinweis mit `JEDER_ROLLE`); `permissionsOf()`/`canWriteTo()` im
+echten Pfad jeder Schreibprüfung offener Räume.
+
+**Tests:** `spaces.test.ts` (+2: Beigetretene schreiben im offenen Kanal, nicht in
+#ankündigungen, ausdrücklich genannte Rolle, zurückgeschaltet wieder zu; nur
+Grundrechte – kein Moderieren, Vergeben, Verwalten, keine Selbst-Zuweisung,
+Ausblenden zählt nicht mit Gegenprobe, fremde Rollenliste zählt nicht),
+`app/test/raum-jeder.test.ts` (+5: Raum wie die App ihn anlegt über
+`raumZustandFuer()`, Kanal-Event eines Beigetretenen zählt nicht, zurückgeschaltet
+und ältere Räume, frühere Nachrichten beim Ab- und Wiedereinschalten, Verdrahtung,
+Texte).
+
+**Rechte gelten, wie sie jetzt sind:** Schaltet der Gründer ab, verschwinden
+auch frühere Nachrichten von Leuten ohne Rolle aus der Ansicht (wie bei jedem
+entzogenen Recht seit B-19/B-20); schaltet er wieder ein, sind sie zurück. Der
+Dialog sagt das vorher (`raum.schreibenText`) – bei Discord blieben sie stehen,
+das bräuchte hier eine Geschichte der Rollenlisten.
+
+**Fund beim Prüfen im Browser (klein, Oberfläche, Spur C genannt):** Am Handy
+ging ein Tipp auf „Senden“ beim Tippen ins Leere – in Chat, Räumen und beim
+Agenten. Gemessen: `mousedown` auf dem Knopf (y 786), der Fokus wechselt, die
+untere Leiste kehrt zurück (`body.tippt`), der Knopf rutscht 48 px nach oben,
+`mouseup` trifft einen Knopf der Leiste, der Klick geht an `#app`. Das erklärt
+Befund C-13 des Nutzertests (Carol konnte nicht senden). `navigation.ts`: unter
+1024 px nimmt ein Tipp auf einen Knopf beim Tippen dem Feld den Fokus nicht
+(`mousedown` abgefangen) – der Klick kommt an, die Tastatur bleibt offen. Neue
+Prüfung „Senden beim Tippen“ im Smoke-Test „mobil“ (hoch und quer); ohne die
+Änderung rot (hoch: Klick an ein DIV, quer: Fokus verloren), mit ihr grün.
+
+**Doku:** `docs/PROTOCOL.md` §22 (Rolle für alle), CLAUDE.md (Fallstricke Offene
+Räume, Mobil), FORTSCHRITT (Spur B), Sammlung (B-22, O1; dazu G1 und A-14 für Spur A).
+
+**Prüfungen** (nach dem Einmergen von `main` mit 7.5b/7.5c): protocol 1227 grün
+(+2, 6 übersprungen), node 313 (7 übersprungen ohne Netz, mit Netz 314), app 954
+(+5), Leak 73 + 1 todo, mls 13; Typprüfung überall, Build, check-wiring
+`--streng` Exit 0, check-website ok, check_innerhtml Exit 0, Smoke-Test bestanden
+(mit „Senden beim Tippen“), build-site Exit 0.
+
+Knoten-Stand: unverändert.
+
 ## Schritt 6.1b1a – Tor in der Desktop-Hülle
 
 Teil b von 6.1 (Sammlung C-23). Der MENSCH hat am 07.10.2026 arti freigegeben (TOR1 A:
@@ -18107,6 +18173,133 @@ aus dem Tor-Projekt), C-Code (SQLite, liblzma, ring), MIT/Apache-2.0.
   auch für `aarch64-linux-android` (ohne arti).
 - protocol 1214 grün (6 übersprungen), node 314 grün (6 übersprungen), app 938 grün,
   Leak 73 grün + 1 todo, mls 13 grün – unverändert, der Schritt ändert nur die Hülle.
+- check-wiring `--streng` Exit 0, check-website ok, check_innerhtml Exit 0.
+- repro-build reproduzierbar, build-site Exit 0, Smoke-Test bestanden.
+
+## Schritt 6.1b1b – Tor in der Desktop-App: der Schalter
+
+Teil b von 6.1 (Sammlung C-23, TOR1 A). Seit b1a kann die Desktop-Hülle den Verkehr der
+App über Tor leiten; jetzt gibt es den Schalter dafür.
+
+**Neu `packages/app/src/shell/netz-huelle.ts`:**
+- `leseNetzStand()` liest die Antwort auf `netz_stand` streng; `netzStand()` nur in der Hülle.
+- `netzZeilen()` sagt, wie diese Sitzung läuft – verbunden, verbindet („bis dahin geht
+  nichts hinaus“), startet nicht oder erreicht das Tor-Netz nicht („es geht nichts
+  hinaus“), direkt („Relays und Dienste sehen deine IP-Adresse“) – und was ab dem
+  nächsten Start gilt.
+- `setzeTor()` ruft `netz_setzen` mit Neustart; `wireHuellenTor()` zeigt den Schalter nur
+  in der Desktop-Hülle mit `verfuegbar` und schaltet nur nach `bestaetige()` um
+  (langsamer, Anrufe nicht über Tor, Neustart); scheitert das Speichern, bleibt alles,
+  wie es war.
+
+**Settings › Datenschutz:** unter „Verbindung“ der Block „Tor in dieser App: der gesamte
+Verkehr über Tor (Desktop)“ – verborgen, bis die Hülle ihn zeigt. „.onion-Relays
+bevorzugen“ und die Erklärung der IP-Prüfung sagen jetzt „über Tor (Tor Browser oder Tor
+in der Desktop-App)“ statt nur Tor Browser. Datenschutzbericht und Fakten bleiben: Sie
+raten schon „Native App oder Tor Browser“, und „verborgen“ meldet weiter nur die
+geprüfte .onion-Verbindung (6.2).
+
+**Unter Xvfb in der echten Hülle (nur lokale Probe):** Der Block ist sichtbar, steht auf
+„Direkt“; Haken setzen öffnet die Rückfrage, „Neu starten“ speichert `{"tor":true}` in
+`netz.json`. Nach dem Neustart steht der Haken, der Stand lautet „Tor: verbindet … bis
+dahin geht nichts hinaus.“ (ins Tor-Netz kommt arti hier nicht, siehe 6.1b1a).
+
+**Website:** Die Karte „FreedomStack als App“ nennt Tor auf dem Desktop (langsamer,
+Anrufe nicht).
+
+**Prüfungen:**
+- app 953 grün (+4: Stand lesen, nur in der Hülle, Texte je Lage, Verdrahtung).
+- Leak 73 grün + 1 todo, protocol 1225 grün (6 übersprungen), node 314 grün (6
+  übersprungen), mls 13 grün, launcher 34 grün (unverändert).
+- check-wiring `--streng` Exit 0, check-website ok, check_innerhtml Exit 0.
+- repro-build reproduzierbar, build-site Exit 0, Smoke-Test bestanden.
+
+## Schritt 6.1b2a – Tor in der Android-App: die Hülle
+
+Teil b2 von 6.1 (Sammlung C-23, TOR1 A: arti freigegeben 07.10.2026, Desktop zuerst,
+Android danach). Seit 6.1b1 geht der Verkehr der Desktop-App auf Wunsch über Tor; jetzt
+kann es die Android-Hülle auch.
+
+**arti unter Android:** dieselben Abhängigkeiten wie auf dem Desktop, jetzt für alle
+Ziele außer iOS (`Cargo.toml`). arti prüft die Rechte der Ordner über den App-Daten; unter
+Android gehören sie dem System (Gruppe schreibbar) – dort ist die Prüfung aus, es schützt
+die Sandbox je App (`netz.rs`).
+
+**Der Proxy (`src/android_tor.rs`):** wry setzt unter Android keinen Proxy. androidx.webkit
+kann es (`ProxyController`, Merkmal `PROXY_OVERRIDE`, seit WebView 72) – für alle WebViews
+der App. Die Hülle ruft es über JNI auf (`jni` 0.21 steckt schon in wry, jetzt direkt
+genannt), ohne eigene Java-Klassen: Klassen aus androidx über `find_class()` (Lader der
+Activity), Ausführer und Zusage aus der Java-Bibliothek (`FutureTask` um einen leeren
+`Thread`); gewartet wird in einem eigenen Thread, höchstens 15 s.
+
+**Nichts vor dem Proxy:** Mit „Tor“ öffnet das Fenster erst eine feste Warteseite der Hülle
+(`/tor`, `oberflaeche.rs`: ohne Skript, ohne Bild, CSP `default-src 'none'`, beide
+Sprachen) und navigiert erst zur App, wenn androidx.webkit meldet, dass der Proxy gilt.
+Kann das WebView keinen Proxy oder läuft die Frist ab, bleibt die Warteseite, der Stand
+sagt `proxy` – nie lädt die App dann direkt. Ihr Link „Direkt verbinden“ (`/tor/direkt`,
+nur per Klick, nur unter Android) wählt direkt und schließt die App. Ohne Tor prüft die
+Hülle beim Start nur, ob ein Proxy ginge (`netz_stand.verfuegbar`; `netz_setzen` lehnt Tor
+sonst ab).
+
+**HTTP CONNECT (`tor.rs`):** Der Zugang erkennt am ersten Byte SOCKS5 (Desktop) oder HTTP
+(Android). Von HTTP nur `CONNECT host:port HTTP/1.x`: Name als Name an Tor (dieselben
+Zeichen wie bei SOCKS5), IPv4 und IPv6 in Klammern, Port 1–65535 nur als Ziffern; andere
+Methoden 405 (kein `GET http://…` – nichts geht als Klartext weiter), Kaputtes 400, Kopf
+höchstens 8 KB, Byte für Byte gelesen (was danach kommt, geht unverändert durch).
+Scheitert Tor: 502. `socks://` hätte Chromium als SOCKS4 gelesen und Namen selbst
+aufgelöst – deshalb CONNECT.
+
+**R8:** Der Release-Build entfernt Klassen, die nur JNI ruft – im ersten APK fehlten
+`ProxyController`, `ProxyConfig$Builder` und `WebViewFeature` (die App wäre mit Tor auf der
+Warteseite geblieben). `packages/launcher/proguard-tor.pro` hält androidx.webkit; die CI
+(`launcher.yml`) kopiert die Datei nach `tauri android init` und prüft danach, dass die drei
+Klassen im APK stehen. Die Signaturen der JNI-Aufrufe stimmen mit `dexdump` überein.
+
+**Neu starten:** Eine Android-App kann sich nicht selbst neu starten – dort schließt sie
+sich (`neu_starten()`), beim nächsten Antippen gilt die neue Wahl. Desktop unverändert.
+
+**Grenzen:** Auf einem Gerät ist das noch nicht geprüft – es gibt hier keinen Emulator
+(kein KVM). Den Test mit `https://check.torproject.org/api/ip` macht der MENSCH. Der
+Schalter in der App folgt mit 6.1b2b (bis dahin bleibt er unter Android verborgen).
+
+**Prüfungen:**
+- launcher 41 grün (+7: HTTP CONNECT ×4, Proxy-Regel und Stand `proxy`, Warteseite, Ausweg),
+  clippy `--all-targets -D warnings` sauber.
+- Android-APK lokal gebaut (`cargo tauri android build --apk --target aarch64`, ohne
+  Warnung, 21,5 MB statt 13,6 MB); androidx.webkit-Klassen im APK, JNI-Signaturen gegen
+  `dexdump` geprüft.
+- Desktop unter Xvfb mit Tor und `strace`: WebKit verbindet sich nur mit dem eigenen Zugang.
+- protocol 1227 grün (6 übersprungen), node 314 grün (6 übersprungen), app 958 grün,
+  Leak 73 grün + 1 todo, mls 13 grün – unverändert, der Schritt ändert nur die Hülle.
+- check-wiring `--streng` Exit 0, check-website ok, check_innerhtml Exit 0.
+- repro-build reproduzierbar, build-site Exit 0, Smoke-Test bestanden.
+
+## Schritt 6.1b2b – Tor in der Android-App: der Schalter
+
+Teil b2 von 6.1 (Sammlung C-23, TOR1 A). Seit 6.1b2a kann die Android-Hülle den Verkehr
+der App über Tor leiten; jetzt zeigt die App dort auch den Schalter.
+
+**`shell/netz-huelle.ts`:** `wireHuellenTor()` zeigt den Block in jeder Hülle
+(`huellenArt()`), weiter nur, wenn die Hülle Tor kann (`netz_stand.verfuegbar` – unter
+Android nur mit `PROXY_OVERRIDE` im WebView, im Browser nie). Neu `torRueckfrage()`: Die
+Rückfrage sagt je Hülle, was passiert – Desktop „Die App startet neu …“ mit „Neu starten“,
+Android „Die App schließt sich. Öffnest du sie wieder, …“ mit „App schließen“ (eine
+Android-App kann sich nicht selbst neu starten, 6.1b2a). `leseNetzStand()` kennt den
+Fehler `proxy` (das WebView nahm den Zugang nicht an), `netzZeilen()` erklärt ihn.
+
+**Texte:** „Tor in dieser App“ ohne „(Desktop)“; die Erklärung sagt „Umschalten braucht
+einen Neustart der App“; „.onion-Relays bevorzugen“ nennt „Tor Browser oder Tor in der App
+– Desktop und Android“. Website-Karte „FreedomStack als App“: Tor auf dem Desktop und unter
+Android (langsamer, Anrufe nicht).
+
+**Grenzen:** Auf einem Gerät ist das noch nicht geprüft (kein Emulator hier, kein KVM) –
+den Test mit `https://check.torproject.org/api/ip` macht der MENSCH.
+
+**Prüfungen:**
+- app 959 grün (+1: Rückfrage je Hülle; dazu „proxy“ im Stand und im Text, Verdrahtung
+  ohne „nur Desktop“).
+- protocol 1227 grün (6 übersprungen), node 314 grün (6 übersprungen), Leak 73 grün +
+  1 todo, mls 13 grün, launcher 41 grün (unverändert).
 - check-wiring `--streng` Exit 0, check-website ok, check_innerhtml Exit 0.
 - repro-build reproduzierbar, build-site Exit 0, Smoke-Test bestanden.
 
