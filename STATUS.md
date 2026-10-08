@@ -18648,8 +18648,9 @@ Registry-Manifest):
 
 Eine Live-Probe gegen die echte Registry und ein echtes Ollama macht der MENSCH.
 
-**Prüfungen:** protocol 1233 grün (+6, 6 übersprungen), node 327 grün (+11, ohne
-Netz 7 übersprungen; mit Netz 328), app 959 grün, Leak 73 grün + 1 todo, mls 13 grün;
+**Prüfungen** (nach dem Einmergen von A-14a): protocol 1237 grün (+6, 6 übersprungen),
+node 333 grün (+11, ohne Netz 7 übersprungen; mit Netz 334), app 959 grün, Leak 73 grün
++ 1 todo, mls 13 grün;
 check-wiring `--streng` Exit 0 (zwei Ausnahmen entfernt: `verifyFile`, `fitsOnDevice`),
 check-website ok, check_innerhtml Exit 0, Smoke-Test bestanden, build-site Exit 0.
 
