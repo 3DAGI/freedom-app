@@ -18465,6 +18465,56 @@ breit – schon auf `main`, nicht durch diesen Schritt.
 Android. Für Linux und Windows muss das erste Release laufen, sobald das hier gemergt
 ist – bis dahin führen die Links ins Leere.
 
+## Schritt 11.3a, E9, D3 – Entscheidungen vom 08.10.2026 eingetragen
+
+Spur A, nur Doku. Der MENSCH hat am 08.10. drei Entwürfe freigegeben. Damit die
+anderen Spuren daran arbeiten können, stehen die Entscheidungen jetzt in den
+Entwürfen, in `FORTSCHRITT.md` (Spur A, Hinweise an B und C) und in der Sammlung.
+
+**11.3a Agenten in Räumen** (`docs/AGENTEN-RAUM-ENTWURF.md`, neuer Abschnitt
+„Entscheidungen vom 08.10.2026“):
+- **F1 A, F4 A, F6 A.**
+- **F2: Monatsbudget mit Pfand.** Der Einlader zahlt in einen Zahlkanal zum Knoten
+  ein (30 Tage). Gutschriften gehen in Stufen hinaus, Standard 10 % des Budgets.
+  Nach Ablauf kommt der Rest von selbst zurück (`refund`, Z1). Neu eingezahlt wird
+  nur auf Klick. Nur SOL, erst nach dem Devnet-Deploy; mit sats zahlt die App des
+  Einladers je Antwort, solange sie offen ist.
+- **F5: Agentenketten mit Schalter** (Wunsch MENSCH: Agenten sollen sich beim
+  gemeinsamen Arbeiten abstimmen). Standard aus. Jede Kette beginnt bei einem
+  Menschen, Grenze 10 (höchstens 50) Agenten-Antworten bis zur nächsten Nachricht
+  eines Menschen. Agenten antworten Agenten nur aus einem Budget – Knoten zahlen
+  nichts.
+- **F3 B** (nachgereicht am 08.10.): Agenten auf dem Gerät zahlt, wer sie anlegt.
+  Ein Grund mehr für B: Mit F4 A kennt nur das Gerät des Erstellers die Persona.
+- **Seit dem Entwurf geändert (gilt beim Bau):**
+  - B-22: Jeder in offenen Räumen kann erwähnen.
+  - D1c: Kontext nach `VERLAUF_UMFANG`.
+  - D1b2: Sitzungsschlüssel je Agent und Raum.
+  - 12.4a: Mit SOL zahlt KI nur über einen Kanal.
+
+**E9** (`docs/E9-ENTWURF.md`): wie vorgeschlagen (V1–V3 A, F1–F6 ja).
+- Den KI-Teil von E9-2 (Gratis-Werte im Angebot) baut schon A-14 (G1); E9-2
+  macht nur den Speicher.
+- E9-3 „Modelle laden“ gehört Spur B und kann sofort beginnen, mit Manifesten vom
+  eigenen Schlüssel.
+- E9-5 erst mit zwei Geräten.
+
+**D3** (`docs/D3-ENTWURF.md`, Nachtrag):
+- Freigegeben: V1 und V3–V6 A, F3–F5 wie vorgeschlagen.
+- Gemessen am GX10: Secure Boot an, kein TPM, kein EK-Zertifikat. Damit gibt es
+  dort kein Siegel. D3 ruht und ist später optional (MENSCH) – nur auf Wunsch
+  und mit einem Testgerät mit TPM 2.0.
+- Zwei Korrekturen am eigenen Entwurf, neu vorzulegen:
+  - V2: PCR 7 ist je Hersteller verschieden – nur PCR 11 fest, PCR 7 über das
+    Startprotokoll.
+  - V7: Ein Update kostete den Schlüssel – Wege (a) bis (c), Tendenz (b) Übergabe
+    per Mandat.
+- `docs/DATENSCHUTZ-PROVIDER.md` nennt den GX10 nicht mehr als Gerät für das
+  Siegel.
+
+**Prüfungen:** nur Doku – `check-website.py` und `check-wiring.py --streng`
+gelaufen (Exit 0). Kein Code, keine Tests geändert. Knoten-Stand: unverändert.
+
 ## Schritt E9-3a – Modelle laden im Knoten: Manifest, Prüfung, Angebot
 
 Freigabe des MENSCHEN vom 08.10.2026: „Modelle laden“ (E9-3) ist frei – V3 A aus
