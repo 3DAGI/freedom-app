@@ -9,7 +9,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
-  JEDER_RECHTE, JEDER_ROLLE, baueRaumKanal, buildRoles, buildSpace, can, canWriteTo, generateKeypair, raumAdresse,
+  JEDER_RECHTE, JEDER_ROLLE, baueRaumKanal, buildChannelMessage, buildRoles, buildSpace, buildThreads, can, canWriteTo, generateKeypair, raumAdresse,
   raumZustandFuer, signEvent, type Channel, type Role,
 } from "@freedomstack/protocol";
 import { setLang, t } from "../src/i18n.js";
@@ -55,6 +55,17 @@ test("B-22: zurückgeschaltet (neuere Rollenliste ohne „jeder“) – wieder n
   assert.equal(canWriteTo(BEIGETRETEN.pk, st.space!.channels[0]!, st), false);
 });
 
+test("B-22: Rechte gelten, wie sie jetzt sind – frühere Nachrichten ohne Rolle verschwinden beim Abschalten und kehren zurück", () => {
+  const nachricht = signEvent(buildChannelMessage({ authorPubkey: BEIGETRETEN.pk, spaceId: KENNUNG, channelId: "allgemein", content: "hallo", mentions: [] }, T + 10), BEIGETRETEN.sk);
+  const sichtbar = (rollenEvents: ReturnType<typeof rollen>[]) => {
+    const st = raumZustandFuer(adresse, [raum, ...rollenEvents], T + 100)!;
+    return buildThreads([nachricht], st.space!.channels[0]!, st).topLevel.length;
+  };
+  assert.equal(sichtbar([rollen([mod, mitglied, jeder], T + 1)]), 1);
+  assert.equal(sichtbar([rollen([mod, mitglied, jeder], T + 1), rollen([mod, mitglied], T + 20)]), 0, "abgeschaltet: auch die frühere");
+  assert.equal(sichtbar([rollen([mod, mitglied, jeder], T + 1), rollen([mod, mitglied], T + 20), rollen([mod, mitglied, jeder], T + 30)]), 1, "wieder an: zurück");
+});
+
 test("B-22 verdrahtet: Anlegen mit der Rolle für alle, Menüpunkt nur für den Gründer, Umschalten behält die übrigen Rollen", () => {
   const anlegen = raeume.slice(raeume.indexOf("await pool.publish(await signiere(buildRoles(spaceId, state.keypair.pk, ["), raeume.indexOf("// Gemerkt und weitergegeben wird die Adresse (B-7)"));
   assert.match(anlegen, /\{ id: JEDER_ROLLE, name: "Jeder", rank: 0, permissions: \[\.\.\.JEDER_RECHTE\] \}, \/\/ kein UI-Text/);
@@ -80,6 +91,7 @@ test("B-22 Texte: Hinweis sagt, wie man schreiben darf; Warnung beim Anlegen nen
     assert.match(t("raum.nurMitRolle"), /kann ihn für alle öffnen/);
     assert.match(t("komm.oeffentlichWarnung"), /Wer beitritt, schreibt in #allgemein mit/);
     assert.match(t("raum.schreibenText"), /#ankündigungen bleibt bei den Moderatoren/);
+    assert.match(t("raum.schreibenText"), /verschwinden auch frühere Nachrichten von Leuten ohne Rolle aus der Ansicht/, "ehrlich: Rechte gelten rückwirkend");
   } finally {
     setLang("en");
   }

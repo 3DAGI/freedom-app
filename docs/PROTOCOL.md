@@ -715,7 +715,9 @@ zugewiesene Rolle mit Rang. Wer nur sie hat, schreibt in Kanälen ohne
 Schreibrollen und in Kanälen, die `jeder` nennen; #ankündigungen (`mod`) bleibt
 bei den Moderatoren. Neue offene Räume legt die App mit ihr an; der Gründer
 nimmt sie mit einer neuen Rollenliste wieder heraus (dann schreibt nur, wer eine
-Rolle hat, wie vor B-22). Ältere Räume ohne sie bleiben, wie sie sind.
+Rolle hat, wie vor B-22). Ältere Räume ohne sie bleiben, wie sie sind. Wie
+jedes Recht gilt sie im heutigen Stand: Fehlt sie, zählen auch frühere
+Nachrichten von Leuten ohne Rolle nicht mehr; kehrt sie zurück, wieder.
 
 ## 23. Halten beim eigenen Knoten (Kind 5076, seit B-9b)
 

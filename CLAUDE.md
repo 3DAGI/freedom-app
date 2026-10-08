@@ -767,7 +767,10 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   quer (keine Laufleiste, keine Fläche unter 40 px) – neue Seiten dort
   eintragen. Häkchen stehen im Label; die Kopfzeile setzt die Identität nur
   über `zeigeIdent()` und lädt nie ein Bild aus dem Netz. Die untere Leiste
-  weicht beim Tippen (`tipptIn()`, `body.tippt`).
+  weicht beim Tippen (`tipptIn()`, `body.tippt`). Ein Tipp auf einen Knopf beim Tippen nimmt dem Feld
+  den Fokus nicht (seit B-22, `navigation.ts`: `mousedown` unter 1024 px abgefangen) – sonst kehrt die
+  Leiste beim Drücken zurück, alles rutscht, und das Loslassen trifft daneben; der Smoke-Test „mobil“
+  prüft „Senden beim Tippen“ (Klick am Knopf, Fokus bleibt im Feld).
 - **QR-Codes nur über `shell/qr-ui.ts`** (seit 11.1b): erzeugt mit `qrCode()`
   (`protocol/src/qr.ts`, 11.1a, Bit für Bit gegen python-qrcode – die Referenz
   nur mit `scripts/qr-referenz.py` neu erzeugen), gezeigt nur als SVG über

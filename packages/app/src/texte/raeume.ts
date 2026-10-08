@@ -125,8 +125,8 @@ export const raeume: Texte = {
   "raum.planungLoeschenText": { de: "Für alle Mitglieder löschen? Wer sie schon gesehen hat, hat sie gesehen.", en: "Delete for all members? Whoever has already seen it has seen it." },
   "raum.schreibenAlle": { de: "Wer im Raum schreiben darf", en: "Who may write in this room" },
   "raum.schreibenText": {
-    de: "Wie „@everyone“ bei Discord: Mit „Alle, die beitreten“ schreibt jeder in den Kanälen, die nicht auf Rollen beschränkt sind – #ankündigungen bleibt bei den Moderatoren. Moderieren, Rollen vergeben und Kanäle verwalten gibt es weiter nur über eine Rolle; Ausblenden und Sperren wirken wie bisher.",
-    en: "Like “@everyone” on Discord: with “Everyone who joins”, anyone writes in the channels that are not limited to roles – #ankündigungen stays with the moderators. Moderating, assigning roles and managing channels still need a role; hiding and banning work as before.",
+    de: "Wie „@everyone“ bei Discord: Mit „Alle, die beitreten“ schreibt jeder in den Kanälen, die nicht auf Rollen beschränkt sind – #ankündigungen bleibt bei den Moderatoren. Moderieren, Rollen vergeben und Kanäle verwalten gibt es weiter nur über eine Rolle; Ausblenden und Sperren wirken wie bisher. Rechte gelten, wie sie jetzt sind: Mit „Nur wer eine Rolle hat“ verschwinden auch frühere Nachrichten von Leuten ohne Rolle aus der Ansicht – schaltest du wieder um, sind sie zurück.",
+    en: "Like “@everyone” on Discord: with “Everyone who joins”, anyone writes in the channels that are not limited to roles – #ankündigungen stays with the moderators. Moderating, assigning roles and managing channels still need a role; hiding and banning work as before. Rights apply as they are now: with “Only those with a role”, earlier messages from people without a role also disappear from view – switch back and they return.",
   },
   "raum.schreibenJeder": { de: "Alle, die beitreten", en: "Everyone who joins" },
   "raum.schreibenRolle": { de: "Nur wer eine Rolle hat (Mitglied, Moderator)", en: "Only those with a role (member, moderator)" },

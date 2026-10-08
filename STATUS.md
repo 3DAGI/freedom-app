@@ -18010,12 +18010,30 @@ echten Pfad jeder Schreibprüfung offener Räume.
 #ankündigungen, ausdrücklich genannte Rolle, zurückgeschaltet wieder zu; nur
 Grundrechte – kein Moderieren, Vergeben, Verwalten, keine Selbst-Zuweisung,
 Ausblenden zählt nicht mit Gegenprobe, fremde Rollenliste zählt nicht),
-`app/test/raum-jeder.test.ts` (+4: Raum wie die App ihn anlegt über
+`app/test/raum-jeder.test.ts` (+5: Raum wie die App ihn anlegt über
 `raumZustandFuer()`, Kanal-Event eines Beigetretenen zählt nicht, zurückgeschaltet
-und ältere Räume, Verdrahtung, Texte).
+und ältere Räume, frühere Nachrichten beim Ab- und Wiedereinschalten, Verdrahtung,
+Texte).
 
-**Doku:** `docs/PROTOCOL.md` §22 (Rolle für alle), CLAUDE.md (Fallstrick Offene
-Räume), FORTSCHRITT (Spur B).
+**Rechte gelten, wie sie jetzt sind:** Schaltet der Gründer ab, verschwinden
+auch frühere Nachrichten von Leuten ohne Rolle aus der Ansicht (wie bei jedem
+entzogenen Recht seit B-19/B-20); schaltet er wieder ein, sind sie zurück. Der
+Dialog sagt das vorher (`raum.schreibenText`) – bei Discord blieben sie stehen,
+das bräuchte hier eine Geschichte der Rollenlisten.
+
+**Fund beim Prüfen im Browser (klein, Oberfläche, Spur C genannt):** Am Handy
+ging ein Tipp auf „Senden“ beim Tippen ins Leere – in Chat, Räumen und beim
+Agenten. Gemessen: `mousedown` auf dem Knopf (y 786), der Fokus wechselt, die
+untere Leiste kehrt zurück (`body.tippt`), der Knopf rutscht 48 px nach oben,
+`mouseup` trifft einen Knopf der Leiste, der Klick geht an `#app`. Das erklärt
+Befund C-13 des Nutzertests (Carol konnte nicht senden). `navigation.ts`: unter
+1024 px nimmt ein Tipp auf einen Knopf beim Tippen dem Feld den Fokus nicht
+(`mousedown` abgefangen) – der Klick kommt an, die Tastatur bleibt offen. Neue
+Prüfung „Senden beim Tippen“ im Smoke-Test „mobil“ (hoch und quer); ohne die
+Änderung rot (hoch: Klick an ein DIV, quer: Fokus verloren), mit ihr grün.
+
+**Doku:** `docs/PROTOCOL.md` §22 (Rolle für alle), CLAUDE.md (Fallstricke Offene
+Räume, Mobil), FORTSCHRITT (Spur B), Sammlung (B-22, O1; dazu G1 und A-14 für Spur A).
 
 **Prüfungen:** PRUEFUNGEN_B22
 
