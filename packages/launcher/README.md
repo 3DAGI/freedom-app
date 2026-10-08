@@ -186,6 +186,23 @@ Lokal (Android-SDK mit Plattform 36, Build-Tools, NDK r27d; Java 17 oder neuer):
 export ANDROID_HOME=… NDK_HOME=$ANDROID_HOME/ndk/27.3.13750724
 cd packages/launcher && cargo tauri android init --ci
 python3 ../../scripts/launcher-symbole.py --android
+cp proguard-tor.pro gen/android/app/freedom-tor.pro
+python3 ../../scripts/android-rechte.py gen/android/app/src/main/AndroidManifest.xml
 cargo tauri android build --apk --target aarch64
 ```
+
+## Kamera und Mikrofon (seit 6.1d)
+
+QR-Code scannen, Sprachnachricht und Anruf brauchen Kamera bzw. Mikrofon. Die App fragt
+beides nur auf Klick an. Die Hülle beantwortet die Anfrage des Webviews in `src/erlaubnis.rs`
+(`on_permission_request`), nur für die eigene Oberfläche – fremde Seiten bekommen nichts:
+
+| System | Verhalten |
+|---|---|
+| Linux (WebKitGTK) | erlaubt – ohne Antwort lehnt WebKitGTK still ab, eine Nachfrage gibt es dort nicht |
+| Windows (WebView2) | WebView2 fragt selbst nach |
+| Android | Android fragt beim ersten Mal nach; dafür stehen `CAMERA`, `RECORD_AUDIO` und `MODIFY_AUDIO_SETTINGS` im Manifest (`scripts/android-rechte.py` nach `tauri android init`, die CI prüft das APK) – Kamera und Mikrofon sind keine Pflicht-Hardware |
+
+Den QR-Code erkennt die App über `BarcodeDetector` des Webviews. WebKitGTK kennt ihn nicht,
+das Android-WebView je nach Gerät – dann bleibt der Hinweis zum Einfügen.
 

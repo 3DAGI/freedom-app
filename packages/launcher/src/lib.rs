@@ -7,11 +7,13 @@
 //! Oberfläche installiert die Hülle seit 6.1a3b nur nach eigener Prüfung
 //! (`installation.rs`, `update.rs`). Der Verkehr der App geht auf Wunsch über Tor
 //! (6.1b1a Desktop, 6.1b2a Android: `netz.rs`, `tor.rs`, `android_tor.rs`). Die App darf
-//! nur die Kommandos aus `capabilities/oberflaeche.json` rufen.
+//! nur die Kommandos aus `capabilities/oberflaeche.json` rufen. Kamera und Mikrofon
+//! regelt seit 6.1d `erlaubnis.rs`.
 
 mod ablage;
 #[cfg(target_os = "android")]
 mod android_tor;
+mod erlaubnis;
 mod installation;
 mod netz;
 mod oberflaeche;
@@ -30,6 +32,9 @@ pub fn run() {
         .register_uri_scheme_protocol("freedom", |ctx, anfrage| match ctx.app_handle().try_state::<Oberflaeche>() {
             Some(o) => oberflaeche::antwort(anfrage.uri().path(), &o.html()),
             None => oberflaeche::antwort(anfrage.uri().path(), oberflaeche::BEIGELEGT),
+        })
+        .on_permission_request(|webview, art| {
+            erlaubnis::antwort(art, webview.url().is_ok_and(|u| oberflaeche::darf_navigieren(&u)))
         })
         .invoke_handler(tauri::generate_handler![
             installation::oberflaeche_stand,
