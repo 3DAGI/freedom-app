@@ -5,15 +5,17 @@
 //! über das eigene Schema aus `oberflaeche.rs`. Die Hülle selbst spricht mit niemandem
 //! im Netz – das tut nur die App, mit denselben Regeln wie im Browser. Eine neuere
 //! Oberfläche installiert die Hülle seit 6.1a3b nur nach eigener Prüfung
-//! (`installation.rs`, `update.rs`). Auf dem Desktop geht der Verkehr der App auf
-//! Wunsch über Tor (6.1b1a, `netz.rs`, `tor.rs`). Die App darf nur die Kommandos aus
-//! `capabilities/oberflaeche.json` rufen.
+//! (`installation.rs`, `update.rs`). Der Verkehr der App geht auf Wunsch über Tor
+//! (6.1b1a Desktop, 6.1b2a Android: `netz.rs`, `tor.rs`, `android_tor.rs`). Die App darf
+//! nur die Kommandos aus `capabilities/oberflaeche.json` rufen.
 
 mod ablage;
+#[cfg(target_os = "android")]
+mod android_tor;
 mod installation;
 mod netz;
 mod oberflaeche;
-#[cfg(desktop)]
+#[cfg(any(desktop, target_os = "android"))]
 mod tor;
 mod update;
 
@@ -37,21 +39,38 @@ pub fn run() {
         ])
         .setup(|app| {
             app.manage(Oberflaeche::starte(installation::ablageordner(app.path()), Startwahl::aus(std::env::args())));
-            // Mit Tor bekommt das Fenster seinen eigenen SOCKS5-Zugang als Proxy – nur dieses Fenster.
+            // Mit Tor bekommt das Fenster seinen eigenen Zugang als Proxy – nur dieses Fenster
+            // (Desktop: SOCKS5 beim Bauen; Android: erst die Warteseite, dann `android_tor.rs`).
             let netz = netz::Netz::starte(app.path());
+            #[cfg(desktop)]
             let proxy = netz.proxy();
+            let start = if cfg!(target_os = "android") && netz.proxy_regel().is_some() {
+                oberflaeche::warte_adresse()
+            } else {
+                oberflaeche::adresse().to_string()
+            };
             app.manage(netz);
-            let fenster = WebviewWindowBuilder::new(app, "haupt", WebviewUrl::CustomProtocol(oberflaeche::adresse().parse()?))
+            let handle = app.handle().clone();
+            let fenster = WebviewWindowBuilder::new(app, "haupt", WebviewUrl::CustomProtocol(start.parse()?))
                 .title("FreedomStack")
                 .inner_size(1200.0, 800.0)
                 .min_inner_size(360.0, 560.0)
                 .initialization_script(oberflaeche::kennung_skript())
-                .on_navigation(oberflaeche::darf_navigieren)
+                .on_navigation(move |url| {
+                    if oberflaeche::will_direkt(url) {
+                        netz::direkt_und_neu(&handle);
+                    }
+                    oberflaeche::darf_navigieren(url)
+                })
                 .on_new_window(|_, _| NewWindowResponse::Deny);
-            match proxy {
-                Some(p) => fenster.proxy_url(p).build()?,
-                None => fenster.build()?,
+            #[cfg(desktop)]
+            let fenster = match proxy {
+                Some(p) => fenster.proxy_url(p),
+                None => fenster,
             };
+            let _fenster = fenster.build()?;
+            #[cfg(target_os = "android")]
+            android_tor::richte_ein(&_fenster)?;
             Ok(())
         })
         .run(tauri::generate_context!())

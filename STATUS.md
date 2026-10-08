@@ -18213,3 +18213,63 @@ Anrufe nicht).
   übersprungen), mls 13 grün, launcher 34 grün (unverändert).
 - check-wiring `--streng` Exit 0, check-website ok, check_innerhtml Exit 0.
 - repro-build reproduzierbar, build-site Exit 0, Smoke-Test bestanden.
+
+## Schritt 6.1b2a – Tor in der Android-App: die Hülle
+
+Teil b2 von 6.1 (Sammlung C-23, TOR1 A: arti freigegeben 07.10.2026, Desktop zuerst,
+Android danach). Seit 6.1b1 geht der Verkehr der Desktop-App auf Wunsch über Tor; jetzt
+kann es die Android-Hülle auch.
+
+**arti unter Android:** dieselben Abhängigkeiten wie auf dem Desktop, jetzt für alle
+Ziele außer iOS (`Cargo.toml`). arti prüft die Rechte der Ordner über den App-Daten; unter
+Android gehören sie dem System (Gruppe schreibbar) – dort ist die Prüfung aus, es schützt
+die Sandbox je App (`netz.rs`).
+
+**Der Proxy (`src/android_tor.rs`):** wry setzt unter Android keinen Proxy. androidx.webkit
+kann es (`ProxyController`, Merkmal `PROXY_OVERRIDE`, seit WebView 72) – für alle WebViews
+der App. Die Hülle ruft es über JNI auf (`jni` 0.21 steckt schon in wry, jetzt direkt
+genannt), ohne eigene Java-Klassen: Klassen aus androidx über `find_class()` (Lader der
+Activity), Ausführer und Zusage aus der Java-Bibliothek (`FutureTask` um einen leeren
+`Thread`); gewartet wird in einem eigenen Thread, höchstens 15 s.
+
+**Nichts vor dem Proxy:** Mit „Tor“ öffnet das Fenster erst eine feste Warteseite der Hülle
+(`/tor`, `oberflaeche.rs`: ohne Skript, ohne Bild, CSP `default-src 'none'`, beide
+Sprachen) und navigiert erst zur App, wenn androidx.webkit meldet, dass der Proxy gilt.
+Kann das WebView keinen Proxy oder läuft die Frist ab, bleibt die Warteseite, der Stand
+sagt `proxy` – nie lädt die App dann direkt. Ihr Link „Direkt verbinden“ (`/tor/direkt`,
+nur per Klick, nur unter Android) wählt direkt und schließt die App. Ohne Tor prüft die
+Hülle beim Start nur, ob ein Proxy ginge (`netz_stand.verfuegbar`; `netz_setzen` lehnt Tor
+sonst ab).
+
+**HTTP CONNECT (`tor.rs`):** Der Zugang erkennt am ersten Byte SOCKS5 (Desktop) oder HTTP
+(Android). Von HTTP nur `CONNECT host:port HTTP/1.x`: Name als Name an Tor (dieselben
+Zeichen wie bei SOCKS5), IPv4 und IPv6 in Klammern, Port 1–65535 nur als Ziffern; andere
+Methoden 405 (kein `GET http://…` – nichts geht als Klartext weiter), Kaputtes 400, Kopf
+höchstens 8 KB, Byte für Byte gelesen (was danach kommt, geht unverändert durch).
+Scheitert Tor: 502. `socks://` hätte Chromium als SOCKS4 gelesen und Namen selbst
+aufgelöst – deshalb CONNECT.
+
+**R8:** Der Release-Build entfernt Klassen, die nur JNI ruft – im ersten APK fehlten
+`ProxyController`, `ProxyConfig$Builder` und `WebViewFeature` (die App wäre mit Tor auf der
+Warteseite geblieben). `packages/launcher/proguard-tor.pro` hält androidx.webkit; die CI
+(`launcher.yml`) kopiert die Datei nach `tauri android init` und prüft danach, dass die drei
+Klassen im APK stehen. Die Signaturen der JNI-Aufrufe stimmen mit `dexdump` überein.
+
+**Neu starten:** Eine Android-App kann sich nicht selbst neu starten – dort schließt sie
+sich (`neu_starten()`), beim nächsten Antippen gilt die neue Wahl. Desktop unverändert.
+
+**Grenzen:** Auf einem Gerät ist das noch nicht geprüft – es gibt hier keinen Emulator
+(kein KVM). Den Test mit `https://check.torproject.org/api/ip` macht der MENSCH. Der
+Schalter in der App folgt mit 6.1b2b (bis dahin bleibt er unter Android verborgen).
+
+**Prüfungen:**
+- launcher 41 grün (+7: HTTP CONNECT ×4, Proxy-Regel und Stand `proxy`, Warteseite, Ausweg),
+  clippy `--all-targets -D warnings` sauber.
+- Android-APK lokal gebaut (`cargo tauri android build --apk --target aarch64`, ohne
+  Warnung, 21,5 MB statt 13,6 MB); androidx.webkit-Klassen im APK, JNI-Signaturen gegen
+  `dexdump` geprüft.
+- Desktop unter Xvfb mit Tor und `strace`: WebKit verbindet sich nur mit dem eigenen Zugang.
+- protocol 1227 grün (6 übersprungen), node 314 grün (6 übersprungen), app 958 grün,
+  Leak 73 grün + 1 todo, mls 13 grün – unverändert, der Schritt ändert nur die Hülle.
+- check-wiring `--streng` Exit 0, check-website ok, check_innerhtml Exit 0.
+- repro-build reproduzierbar, build-site Exit 0, Smoke-Test bestanden.

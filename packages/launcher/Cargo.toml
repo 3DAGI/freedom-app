@@ -22,12 +22,16 @@ sha2 = "0.10"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 
-# 6.1b1a: Tor in der Desktop-Hülle – arti freigegeben 07.10.2026 (nur Desktop)
-[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+# 6.1b1a: Tor in der Hülle – arti freigegeben 07.10.2026 (Desktop, seit 6.1b2a auch Android)
+[target.'cfg(not(target_os = "ios"))'.dependencies]
 arti-client = { version = "=0.46.0", default-features = false, features = ["tokio", "rustls", "compression", "static-sqlite", "onion-service-client"] }
 tokio = { version = "1", features = ["net", "io-util", "time", "sync"] }
 # rustls (über arti) braucht einen Krypto-Anbieter, den das Programm festlegt – ring steckt schon darin
 rustls = { version = "0.23", default-features = false, features = ["ring"] }
+
+# 6.1b2a: den Proxy der WebViews setzt unter Android nur androidx.webkit – über JNI (steckt schon in wry)
+[target.'cfg(target_os = "android")'.dependencies]
+jni = "0.21"
 
 [dev-dependencies]
 tokio = { version = "1", features = ["macros", "rt", "net", "io-util", "time", "sync"] }

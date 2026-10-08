@@ -155,15 +155,25 @@ jobs:
             cargo install tauri-cli --version "^2" --locked
           fi
 
-      - name: Android-Projekt erzeugen, eigene Symbole
+      - name: Android-Projekt erzeugen, eigene Symbole, Keep-Regel fuer androidx.webkit
         working-directory: packages/launcher
         run: |
           cargo tauri android init --ci
           python3 ../../scripts/launcher-symbole.py --android
+          cp proguard-tor.pro gen/android/app/freedom-tor.pro
 
       - name: APK bauen (arm64)
         working-directory: packages/launcher
         run: cargo tauri android build --apk --target aarch64 --ci
+
+      - name: Pruefen – Proxy-Klassen fuer Tor im APK (6.1b2a, nur ueber JNI gerufen)
+        working-directory: packages/launcher/gen/android/app/build/outputs/apk/universal/release
+        run: |
+          rm -rf dex && mkdir dex && unzip -q app-universal-release-unsigned.apk 'classes*.dex' -d dex
+          for k in 'Landroidx/webkit/ProxyController;' 'Landroidx/webkit/ProxyConfig$Builder;' 'Landroidx/webkit/WebViewFeature;'; do
+            grep -q -a -F "$k" dex/classes*.dex || { echo "fehlt im APK: $k"; exit 1; }
+          done
+          rm -rf dex
 
       - name: Signieren mit Wegwerf-Schluessel (nur dieser Lauf)
         working-directory: packages/launcher/gen/android/app/build/outputs/apk/universal/release

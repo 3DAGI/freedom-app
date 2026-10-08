@@ -1743,6 +1743,7 @@ name = "freedom-launcher"
 version = "0.1.0"
 dependencies = [
  "arti-client",
+ "jni",
  "k256",
  "rustls",
  "serde",

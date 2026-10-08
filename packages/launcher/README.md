@@ -21,10 +21,10 @@ Activity.
   keine Kommandos von Tauri selbst (Fenster, App, Dateien).
 - Die Hülle selbst spricht mit niemandem im Netz; das tut nur die App, mit
   denselben Regeln wie im Browser.
-- Auf dem Desktop geht der Verkehr der App auf Wunsch über Tor (seit 6.1b1a, siehe
-  unten).
-- Noch nicht: Selbst-Update der Hülle (6.1a4b), Tor unter Android (6.1b2), ein
-  Android-Paket mit festem Schlüssel (6.1c2).
+- Der Verkehr der App geht auf Wunsch über Tor (Desktop seit 6.1b1a, Android seit
+  6.1b2a – siehe unten).
+- Noch nicht: Selbst-Update der Hülle (6.1a4b), der Schalter für Tor in der
+  Android-App (6.1b2b), ein Android-Paket mit festem Schlüssel (6.1c2).
 - Unter Linux geht „App exportieren“ (Weitergeben) in der Hülle nicht: Die CSP der
   App lässt kein `fetch` auf `freedom://` zu (Entscheidung H1 in der Sammlung).
 
@@ -84,7 +84,7 @@ nirgends verlinkt, nur zum Testen auf Geräten. Lokal:
 Die Symbole in `icons/` entstehen nur aus dem Logo der App:
 `python3 scripts/launcher-symbole.py` (prüfen: `--pruefen`).
 
-## Tor (seit 6.1b1a, nur Desktop)
+## Tor (seit 6.1b1a Desktop, 6.1b2a Android)
 
 Mit „Tor“ startet die Hülle arti (Tor-Client des Tor-Projekts in Rust, freigegeben am
 07.10.2026) und einen SOCKS5-Zugang auf `127.0.0.1` (Port vom System), den nur ihr
@@ -104,6 +104,28 @@ Verkehr der App über Tor – Relays, Solana-RPC, Downloads, auch `.onion`.
 - arti legt seinen Zustand unter `tor/` bei den Daten der Hülle ab, den Konsens im Cache.
 - Grenzen: Anrufe (WebRTC) laufen nicht über den Proxy des Webviews; andere Programme
   auf demselben Rechner könnten den Zugang ebenfalls nutzen (sie bekämen nur Tor).
+
+**Android (6.1b2a):** wry setzt dort keinen Proxy. Die Hülle setzt ihn über JNI mit
+androidx.webkit (`ProxyController`, steckt in Tauris Android-Vorlage) für alle WebViews
+der App (`src/android_tor.rs`). Der Zugang spricht dafür auch HTTP CONNECT (am ersten Byte
+erkannt): Der Name geht als Name hinaus, andere Methoden (`GET http://…`) lehnt er ab.
+
+- Mit „Tor“ öffnet das Fenster erst eine feste Warteseite der Hülle (`/tor`, ohne Skript,
+  ohne Netz) und lädt die App erst, wenn androidx.webkit meldet, dass der Proxy gilt.
+  Kann das WebView keinen Proxy (`PROXY_OVERRIDE` fehlt) oder dauert es länger als 15 s,
+  bleibt die Warteseite – nie lädt die App dann direkt. Ihr Link „Direkt verbinden“
+  wählt direkt und schließt die App (nur per Klick).
+- Ohne Tor prüft die Hülle beim Start nur, ob ein Proxy ginge (`netz_stand.verfuegbar`).
+- Neu starten kann sich eine Android-App nicht selbst: Mit Neustart schließt sie sich und
+  öffnet sich beim nächsten Antippen mit der neuen Wahl.
+- arti prüft die Rechte der Ordner über den App-Daten; unter Android gehören sie dem
+  System – dort schützt die Sandbox je App, die Prüfung ist aus.
+- androidx.webkit ruft nur die Hülle über JNI auf – R8 entfernte die Klassen sonst aus dem
+  Release-APK. `proguard-tor.pro` hält sie; die CI legt die Datei nach `tauri android init`
+  nach `gen/android/app/` und prüft danach, dass die Klassen im APK stehen. Lokal ebenso:
+  `cp proguard-tor.pro gen/android/app/freedom-tor.pro`.
+- Auf einem Gerät geprüft ist das noch nicht (kein Emulator in der Entwicklungsumgebung):
+  Den Test mit `https://check.torproject.org/api/ip` macht der MENSCH.
 
 ## Android (seit 6.1c1)
 
