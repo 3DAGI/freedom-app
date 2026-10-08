@@ -1,10 +1,11 @@
-//! Direkt oder über Tor (6.1b1a): die Wahl, der Start von arti, die Kommandos.
+//! Direkt oder über Tor (6.1b1a, Android seit 6.1b2a): die Wahl, der Start von arti,
+//! die Kommandos.
 //!
 //! Die Wahl liegt in `netz.json` bei den Daten der Hülle und gilt ab dem nächsten
-//! Start – der Proxy eines Webviews steht beim Bauen des Fensters fest. Mit „Tor“
-//! bekommt das Fenster immer einen Proxy, auch wenn arti nicht startet: Dann
-//! scheitern die Verbindungen, statt still direkt hinauszugehen. Tor gibt es nur
-//! auf dem Desktop; Android folgt als eigener Schritt (6.1b2).
+//! Start – der Proxy eines Webviews steht beim Bauen des Fensters fest (unter
+//! Android setzt ihn `android_tor.rs`, bevor die App lädt). Mit „Tor“ bekommt das
+//! Fenster immer einen Proxy, auch wenn arti nicht startet: Dann scheitern die
+//! Verbindungen, statt still direkt hinauszugehen.
 
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
@@ -31,6 +32,9 @@ pub fn schreibe_wahl(datei: &Path, tor: bool) -> std::io::Result<()> {
     std::fs::rename(neu, datei)
 }
 
+/// Tor gibt es auf dem Desktop und unter Android (nicht unter iOS).
+pub const TOR_MOEGLICH: bool = cfg!(any(desktop, target_os = "android"));
+
 /// Zustand dieser Sitzung.
 pub struct Netz {
     datei: Option<PathBuf>,
@@ -39,6 +43,9 @@ pub struct Netz {
     port: Option<u16>,
     bereit: Arc<AtomicBool>,
     fehler: Arc<Mutex<Option<&'static str>>>,
+    /// Kann dieses Webview einen Proxy bekommen? Desktop immer, Android nur mit
+    /// `PROXY_OVERRIDE` (androidx.webkit) – die Hülle prüft es beim Start.
+    proxy_moeglich: Arc<AtomicBool>,
 }
 
 /// Was die App über das Netz der Hülle erfährt.
@@ -53,7 +60,8 @@ pub struct NetzStand {
     pub aktiv: bool,
     /// arti ist verbunden (Bootstrap fertig).
     pub bereit: bool,
-    /// `start` (arti startet nicht) oder `bootstrap` (keine Verbindung ins Tor-Netz).
+    /// `start` (arti startet nicht), `bootstrap` (keine Verbindung ins Tor-Netz) oder
+    /// `proxy` (das Webview nahm den Proxy nicht an – unter Android bleibt die App dann ungeladen).
     pub fehler: Option<&'static str>,
 }
 
@@ -64,21 +72,40 @@ impl Netz {
         let gewaehlt = datei.as_deref().is_some_and(lies_wahl);
         let bereit = Arc::new(AtomicBool::new(false));
         let fehler = Arc::new(Mutex::new(None));
-        let (aktiv, port) = if cfg!(desktop) && gewaehlt { (true, starte_tor(pfade, &bereit, &fehler)) } else { (false, None) };
+        let (aktiv, port) = if TOR_MOEGLICH && gewaehlt { (true, starte_tor(pfade, &bereit, &fehler)) } else { (false, None) };
         if aktiv && port.is_none() {
             *fehler.lock().unwrap() = Some("start");
         }
-        Netz { datei, aktiv, port, bereit, fehler }
+        Netz { datei, aktiv, port, bereit, fehler, proxy_moeglich: Arc::new(AtomicBool::new(cfg!(desktop))) }
     }
 
-    /// Der Proxy fürs Fenster: mit Tor immer einer – startet nichts, einer, der nie antwortet.
+    /// Der Proxy fürs Fenster (Desktop, SOCKS5): mit Tor immer einer – startet nichts, einer, der nie antwortet.
+    #[cfg_attr(target_os = "android", allow(dead_code))]
     pub fn proxy(&self) -> Option<tauri::Url> {
         self.aktiv.then(|| format!("socks5://127.0.0.1:{}", self.port.unwrap_or(1)).parse().expect("Proxy-Adresse"))
     }
 
+    /// Die Regel für androidx.webkit (`ProxyConfig`): derselbe Zugang über HTTP CONNECT –
+    /// so geht jeder Name als Name hinaus, nie über eine Auflösung im Webview.
+    pub fn proxy_regel(&self) -> Option<String> {
+        self.aktiv.then(|| format!("http://127.0.0.1:{}", self.port.unwrap_or(1)))
+    }
+
+    /// Ob das Webview einen Proxy annehmen kann (Android, aus `android_tor.rs`).
+    #[cfg_attr(not(target_os = "android"), allow(dead_code))]
+    pub fn proxy_moeglich(&self, ja: bool) {
+        self.proxy_moeglich.store(ja, Ordering::SeqCst);
+    }
+
+    /// Das Webview nahm den Proxy nicht an – mit Tor lädt die App dann nicht.
+    #[cfg_attr(not(target_os = "android"), allow(dead_code))]
+    pub fn proxy_gescheitert(&self) {
+        *self.fehler.lock().unwrap() = Some("proxy");
+    }
+
     pub fn stand(&self) -> NetzStand {
         NetzStand {
-            verfuegbar: cfg!(desktop),
+            verfuegbar: TOR_MOEGLICH && self.proxy_moeglich.load(Ordering::SeqCst),
             tor: self.datei.as_deref().is_some_and(lies_wahl),
             aktiv: self.aktiv,
             bereit: self.aktiv && self.bereit.load(Ordering::SeqCst),
@@ -87,15 +114,15 @@ impl Netz {
     }
 }
 
-/// Startet Tor (nur Desktop) und meldet den Port des Zugangs.
-#[cfg(desktop)]
+/// Startet Tor und meldet den Port des Zugangs.
+#[cfg(any(desktop, target_os = "android"))]
 fn starte_tor<R: tauri::Runtime>(pfade: &tauri::path::PathResolver<R>, bereit: &Arc<AtomicBool>, fehler: &Arc<Mutex<Option<&'static str>>>) -> Option<u16> {
     let zustand = pfade.app_data_dir().ok()?.join("tor");
     let cache = pfade.app_cache_dir().ok()?.join("tor");
     tor_start::starte(zustand, cache, bereit.clone(), fehler.clone()).ok()
 }
 
-#[cfg(not(desktop))]
+#[cfg(not(any(desktop, target_os = "android")))]
 fn starte_tor<R: tauri::Runtime>(_: &tauri::path::PathResolver<R>, _: &Arc<AtomicBool>, _: &Arc<Mutex<Option<&'static str>>>) -> Option<u16> {
     None
 }
@@ -108,19 +135,38 @@ pub fn netz_stand(n: tauri::State<'_, Netz>) -> NetzStand {
 /// Speichert die Wahl; mit `neustart` startet die Hülle gleich neu (der Proxy gilt ab dem Start).
 #[tauri::command]
 pub fn netz_setzen<R: tauri::Runtime>(app: tauri::AppHandle<R>, n: tauri::State<'_, Netz>, tor: bool, neustart: bool) -> Result<NetzStand, String> {
-    if tor && !cfg!(desktop) {
+    if tor && !n.stand().verfuegbar {
         return Err("nicht-verfuegbar".into());
     }
     let Some(datei) = &n.datei else { return Err("keine-ablage".into()) };
     schreibe_wahl(datei, tor).map_err(|_| "ablage".to_string())?;
     if neustart {
-        app.restart();
+        neu_starten(&app);
     }
     Ok(n.stand())
 }
 
-/// arti hinter dem SOCKS5-Zugang (nur Desktop).
-#[cfg(desktop)]
+/// Der Ausweg der Warteseite (Android): direkt wählen und schließen – nur auf Klick.
+#[cfg_attr(not(target_os = "android"), allow(dead_code))]
+pub fn direkt_und_neu<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> ! {
+    use tauri::Manager;
+    if let Some(datei) = app.try_state::<Netz>().and_then(|n| n.datei.clone()) {
+        let _ = schreibe_wahl(&datei, false);
+    }
+    neu_starten(app);
+}
+
+/// Damit die Wahl gilt: Der Desktop startet die Hülle neu. Android startet keinen Prozess
+/// aus sich selbst – dort endet die App und öffnet sich beim nächsten Antippen neu.
+fn neu_starten<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> ! {
+    if cfg!(target_os = "android") {
+        std::process::exit(0)
+    }
+    app.restart()
+}
+
+/// arti hinter dem Zugang (Desktop und Android).
+#[cfg(any(desktop, target_os = "android"))]
 mod tor_start {
     use crate::tor::{self, Strom, Verbinden, Ziel};
     use arti_client::{TorClient, TorClientConfig};
@@ -138,7 +184,13 @@ mod tor_start {
         // Ein Fehler in arti darf die Hülle nicht reißen – dann scheitern nur die Verbindungen
         let client = std::panic::catch_unwind(|| {
             tauri::async_runtime::block_on(async move {
-                let cfg: TorClientConfig = arti_client::config::TorClientConfigBuilder::from_directories(zustand, cache).build().ok()?;
+                let mut cfg = arti_client::config::TorClientConfigBuilder::from_directories(zustand, cache);
+                // Unter Android gehören die Ordner über den App-Daten dem System (Gruppe
+                // schreibbar) – arti lehnte sie ab. Dort schützt die Sandbox je App.
+                if cfg!(target_os = "android") {
+                    cfg.storage().permissions().dangerously_trust_everyone();
+                }
+                let cfg: TorClientConfig = cfg.build().ok()?;
                 TorClient::builder().config(cfg).create_unbootstrapped().ok()
             })
         })
@@ -199,16 +251,43 @@ mod tests {
         std::fs::remove_dir_all(d.parent().unwrap()).unwrap();
     }
 
+    fn netz(aktiv: bool, port: Option<u16>, fehler: Option<&'static str>, proxy_moeglich: bool) -> Netz {
+        Netz {
+            datei: None,
+            aktiv,
+            port,
+            bereit: Arc::new(AtomicBool::new(true)),
+            fehler: Arc::new(Mutex::new(fehler)),
+            proxy_moeglich: Arc::new(AtomicBool::new(proxy_moeglich)),
+        }
+    }
+
     #[test]
     fn mit_tor_immer_ein_proxy_auch_wenn_nichts_startet() {
-        let n = Netz { datei: None, aktiv: true, port: None, bereit: Arc::new(AtomicBool::new(false)), fehler: Arc::new(Mutex::new(Some("start"))) };
+        let n = netz(true, None, Some("start"), true);
+        n.bereit.store(false, Ordering::SeqCst);
         assert_eq!(n.proxy().unwrap().as_str(), "socks5://127.0.0.1:1");
+        assert_eq!(n.proxy_regel().as_deref(), Some("http://127.0.0.1:1"), "Android: derselbe tote Zugang");
         let s = n.stand();
         assert_eq!((s.aktiv, s.bereit, s.fehler), (true, false, Some("start")));
         let n = Netz { port: Some(40123), ..n };
         assert_eq!(n.proxy().unwrap().as_str(), "socks5://127.0.0.1:40123");
-        let direkt = Netz { datei: None, aktiv: false, port: None, bereit: Arc::new(AtomicBool::new(true)), fehler: Arc::new(Mutex::new(Some("start"))) };
-        assert_eq!(direkt.proxy(), None);
+        assert_eq!(n.proxy_regel().as_deref(), Some("http://127.0.0.1:40123"));
+        let direkt = netz(false, None, Some("start"), true);
+        assert_eq!((direkt.proxy(), direkt.proxy_regel()), (None, None));
         assert_eq!((direkt.stand().bereit, direkt.stand().fehler), (false, None));
+    }
+
+    #[test]
+    fn ohne_proxy_im_webview_kein_tor_und_der_fehler_wird_gesagt() {
+        let n = netz(true, Some(40123), None, false);
+        assert!(!n.stand().verfuegbar, "Android ohne PROXY_OVERRIDE: kein Schalter");
+        n.proxy_moeglich(true);
+        assert_eq!(n.stand().verfuegbar, TOR_MOEGLICH);
+        n.proxy_gescheitert();
+        assert_eq!(n.stand().fehler, Some("proxy"));
+        // Direkt bleibt still – ein alter Fehler zählt dort nicht
+        let direkt = netz(false, None, Some("proxy"), true);
+        assert_eq!(direkt.stand().fehler, None);
     }
 }
