@@ -195,23 +195,28 @@ nur so bekommt sie die versiegelte Antwort.
 ## Modelle laden, geprüft (E9-3)
 
 ```bash
-cd ~/freedomstack/packages/node && npm run modell -- qwen2.5:0.5b   # Docker: docker compose exec node npm run modell -- qwen2.5:0.5b
-npm run modell                                                     # Stand: geprüft, lädt, gescheitert
+cd ~/freedomstack/packages/node
+npm run modell -- qwen2.5:0.5b --aus-registry   # beim ersten Mal: festhalten, was die Registry jetzt nennt
+npm run modell -- qwen2.5:0.5b                  # später: erneut laden und gegen das Festgehaltene prüfen
+npm run modell                                  # Stand: geprüft, lädt, gescheitert
+# Docker: docker compose exec node npm run modell -- qwen2.5:0.5b --aus-registry
 ```
 
 Der Name ist der Name bei Ollama. `npm run modell` merkt den Wunsch nur vor
 (`~/.freedom/modell-wunsch.json`); der laufende Knoten erledigt den Rest:
 
-1. **Manifest suchen:** Er sucht über seine Relays ein Modell-Manifest
-   (Kind 38057) zu genau diesem Namen. Es zählt nur eines vom eigenen
-   Schlüssel des Knotens oder von Schlüsseln, denen du folgst:
-   `MODELL_HERAUSGEBER=<hex>,<hex>`. Einen voreingestellten Herausgeber gibt
-   es nicht. Nennen deine Herausgeber verschiedene Dateien, lädt er nichts;
-   ein eigenes Manifest geht vor.
+1. **Manifest:** Es zählt nur ein Modell-Manifest (Kind 38057), das der Knoten
+   selbst signiert hat. Mit `--aus-registry` legt er es an: Er fragt
+   `registry.ollama.ai`, welche Dateien das Modell jetzt hat, signiert daraus
+   sein Manifest und veröffentlicht es. Ohne `--aus-registry` sucht er es über
+   seine Relays. Manifeste von Kuratoren aus Modellkatalogen kommen später
+   dazu (E9-4); einen voreingestellten Herausgeber gibt es nicht.
 2. **Speicher prüfen:** Er prüft, ob das Modell in den Speicher passt –
    `MODELL_SPEICHER_GB`, sonst der Arbeitsspeicher des Rechners.
-3. **Vorab vergleichen:** Er fragt bei `registry.ollama.ai`, ob die Registry
-   dieselben Dateien nennt. Weicht sie ab, lädt er nichts.
+3. **Vorab vergleichen:** Nennt die Registry andere Dateien als das Manifest,
+   lädt er nichts. Das ist der Fall, wenn das Modell dort seit dem Festhalten
+   ersetzt wurde: Wer die neue Fassung will, hält sie mit `--aus-registry`
+   neu fest.
 4. **Laden:** Ollama lädt und prüft jede Schicht gegen ihre Summe.
 5. **Abgleichen:** Erst wenn die geladenen Schichten genau die des Manifests
    sind, steht das Modell im Angebot – neben `PROVIDER_MODELS`, wie bisher.
@@ -222,7 +227,7 @@ nennt (`~/.freedom/modelle.json`). Im Log steht `[modell] <name>: geprüft, im
 Angebot` oder `nicht angeboten (<Kennung>)`; `npm run modell` zeigt dazu den
 Grund.
 
-Die Prüfung sagt nur, ob die Bytes die angekündigten sind – nicht, ob ein
+Die Prüfung sagt nur, ob die Bytes die festgehaltenen sind – nicht, ob ein
 Modell gut, sicher oder legal ist. Ein Manifest für Ollama hat:
 - `model`: den Namen bei Ollama, mit Tag;
 - `upstream`: `ollama:<derselbe Name>`;

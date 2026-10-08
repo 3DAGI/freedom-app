@@ -1,8 +1,9 @@
 /**
  * Modelle laden im Knoten (Schritt E9-3a, Entwurf `docs/E9-ENTWURF.md`, V3 A).
  *
- * Ablauf je Modell: Manifest (38057) nur von vertrauten Schlüsseln
- * (`vertrautesManifest()`), passt es auf das Gerät (`fitsOnDevice()`), nennt
+ * Ablauf je Modell: Manifest (38057) nur vom eigenen Schlüssel des Knotens
+ * (`vertrautesManifest()`; Kuratoren über Kataloge kommen mit E9-4 dazu –
+ * Freigabe vom 08.10.), passt es auf das Gerät (`fitsOnDevice()`), nennt
  * die Registry dieselben Dateien (Vorprüfung, spart einen falschen Download),
  * dann lädt Ollama – und erst wenn die Schichten, die Ollama geladen und
  * geprüft hat, genau die des Manifests sind (`pruefeSchichten()`), steht das
@@ -11,7 +12,9 @@
  * es aus dem Angebot.
  *
  * Gewünscht wird über `npm run modell -- <name>` (`modell.ts`); das schreibt
- * nur `~/.freedom/modell-wunsch.json`. Geladen wird im laufenden Knoten über
+ * nur `~/.freedom/modell-wunsch.json`. Mit `--aus-registry` hält der Knoten
+ * vorher fest, was die Registry jetzt nennt: Er signiert daraus ein eigenes
+ * Manifest und veröffentlicht es – spätere Ladevorgänge prüfen dagegen. Geladen wird im laufenden Knoten über
  * seine Relays – Relay-Verbindungen entstehen nur in `main.ts` (Tor, 8.2c).
  * Den Stand schreibt nur der Knoten (`~/.freedom/modelle.json`).
  *
@@ -49,7 +52,12 @@ export interface ModellStand {
   /** Je Name das letzte Ergebnis. */
   ergebnisse: Ergebnis[];
 }
-export interface Wunsch { name: string; seit: number }
+export interface Wunsch {
+  name: string;
+  seit: number;
+  /** Vorher festhalten, was die Registry jetzt nennt (eigenes Manifest). */
+  ausRegistry?: true;
+}
 
 function leseJson<T>(datei: string, leer: T): T {
   if (!existsSync(datei)) return leer;
@@ -74,14 +82,17 @@ export function leseStand(datei: string): ModellStand {
 
 export function leseWuensche(datei: string): Wunsch[] {
   const w = leseJson<unknown>(datei, []);
-  return Array.isArray(w) ? w.filter((x): x is Wunsch => typeof x?.name === "string" && leseOllamaName(x.name)?.voll === x.name && Number.isSafeInteger(x.seit)) : [];
+  if (!Array.isArray(w)) return [];
+  return w.filter((x) => typeof x?.name === "string" && leseOllamaName(x.name)?.voll === x.name && Number.isSafeInteger(x.seit))
+    .map((x: Wunsch) => (x.ausRegistry === true ? { name: x.name, seit: x.seit, ausRegistry: true } : { name: x.name, seit: x.seit }));
 }
 
 /** Für `npm run modell`: den Namen vormerken (ersetzt einen älteren Wunsch desselben Namens). */
-export function merkeWunsch(datei: string, eingabe: string, jetzt = Math.floor(Date.now() / 1000)): string | null {
+export function merkeWunsch(datei: string, eingabe: string, jetzt = Math.floor(Date.now() / 1000), ausRegistry = false): string | null {
   const name = leseOllamaName(eingabe)?.voll;
   if (!name) return null;
-  schreibeJson(datei, [...leseWuensche(datei).filter((w) => w.name !== name), { name, seit: jetzt }]);
+  const wunsch: Wunsch = ausRegistry ? { name, seit: jetzt, ausRegistry: true } : { name, seit: jetzt };
+  schreibeJson(datei, [...leseWuensche(datei).filter((w) => w.name !== name), wunsch]);
   return name;
 }
 
@@ -90,21 +101,18 @@ export function offeneWuensche(wuensche: readonly Wunsch[], stand: ModellStand):
   return wuensche.filter((w) => !stand.ergebnisse.some((e) => e.name === w.name && e.zeit >= w.seit));
 }
 
-/** Schlüssel aus `MODELL_HERAUSGEBER` (hex, durch Komma getrennt); ein ungültiger → null (kein Start). */
-export function vertrauteHerausgeber(wert: string | undefined): Set<string> | null {
-  const teile = (wert ?? "").split(",").map((x) => x.trim().toLowerCase()).filter(Boolean);
-  return teile.every((x) => /^[0-9a-f]{64}$/.test(x)) ? new Set(teile) : null;
-}
-
 export interface LaderHilfen {
   /** Manifeste zu `model:<name>` von den Relays des Knotens (die Wahl trifft `vertrautesManifest()`). */
   manifeste(name: string): Promise<NostrEvent[]>;
   /** Dateien laut Registry; null, wenn sie nicht zu befragen war. */
   registry(q: OllamaName): Promise<ModelFile[] | null>;
+  /** Eigenes Manifest aus diesen Dateien signieren und veröffentlichen (`--aus-registry`). */
+  festhalten(name: string, dateien: ModelFile[]): Promise<NostrEvent>;
   /** Ollama lädt; zurück die Schichten, die es gemeldet hat. */
   pull(name: string, fortschritt: (geladen: number) => void): Promise<Schicht[]>;
   tags(): Promise<Array<{ name: string; digest: string }>>;
   speicherGb: number;
+  /** Kuratoren – bis E9-4 (Kataloge) leer: es zählt nur der eigene Schlüssel. */
   vertraut: ReadonlySet<string>;
   eigener: string;
 }
@@ -113,10 +121,26 @@ export type LadeErgebnis = { ok: true; modell: GeprueftesModell } | { ok: false;
 const fehlerName = (e: unknown): string => (e instanceof Error && e.name) || "Fehler";
 
 export async function ladeModell(
-  name: string, h: LaderHilfen, melde: (schritt: Schritt, geladen?: number, gesamt?: number) => void, jetzt = () => Math.floor(Date.now() / 1000),
+  name: string, h: LaderHilfen, melde: (schritt: Schritt, geladen?: number, gesamt?: number) => void,
+  jetzt = () => Math.floor(Date.now() / 1000), ausRegistry = false,
 ): Promise<LadeErgebnis> {
   melde("manifest");
-  const wahl = vertrautesManifest(await h.manifeste(name), name, h.vertraut, h.eigener);
+  let events: NostrEvent[];
+  let reg: ModelFile[] | null | undefined;
+  if (ausRegistry) {
+    // Festhalten, was die Registry jetzt nennt – ohne sie gibt es nichts festzuhalten
+    const q = leseOllamaName(name);
+    reg = q ? await h.registry(q).catch(() => null) : null;
+    if (!reg) return { ok: false, fall: "registry.nichtErreichbar" };
+    try {
+      events = [await h.festhalten(name, reg)];
+    } catch (e) {
+      return { ok: false, fall: "manifest.nichtVeroeffentlicht", werte: { fehler: fehlerName(e) } };
+    }
+  } else {
+    events = await h.manifeste(name);
+  }
+  const wahl = vertrautesManifest(events, name, h.vertraut, h.eigener);
   if (!wahl.ok) return { ok: false, fall: wahl.fall, werte: wahl.werte };
   const { manifest: m, quelle } = wahl;
   const passt = fitsOnDevice(m, h.speicherGb);
@@ -124,7 +148,7 @@ export async function ladeModell(
   // Vorprüfung: nennt die Registry andere Dateien, wird nichts geladen. Ist sie nicht
   // zu befragen, entscheidet die Prüfung nach dem Laden allein.
   melde("vorpruefung");
-  const reg = await h.registry(quelle).catch(() => null);
+  if (reg === undefined) reg = await h.registry(quelle).catch(() => null);
   if (reg) {
     const vor = pruefeSchichten(m, reg.map((f) => ({ digest: `sha256:${f.sha256}`, groesse: f.sizeBytes })));
     if (!vor.ok) return { ok: false, fall: "registry.anders", werte: vor.werte };
@@ -183,7 +207,7 @@ export class ModellDienst {
     };
     try {
       this.log(`[modell] ${w.name}: suche Manifest, prüfe, lade`);
-      const r = await ladeModell(w.name, this.h, melde, this.jetzt).catch((e): LadeErgebnis => ({ ok: false, fall: "fehler", werte: { fehler: fehlerName(e) } }));
+      const r = await ladeModell(w.name, this.h, melde, this.jetzt, w.ausRegistry === true).catch((e): LadeErgebnis => ({ ok: false, fall: "fehler", werte: { fehler: fehlerName(e) } }));
       const s = leseStand(this.dateien.stand);
       const ergebnis: Ergebnis = r.ok ? { name: w.name, fall: "ok", zeit: this.jetzt() } : { name: w.name, fall: r.fall, werte: r.werte, zeit: this.jetzt() };
       schreibeJson(this.dateien.stand, {

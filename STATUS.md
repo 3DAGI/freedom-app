@@ -18517,10 +18517,11 @@ gelaufen (Exit 0). Kein Code, keine Tests geändert. Knoten-Stand: unverändert.
 
 ## Schritt E9-3a – Modelle laden im Knoten: Manifest, Prüfung, Angebot
 
-Freigabe des MENSCHEN vom 08.10.2026: „Modelle laden“ (E9-3) ist frei – V3 A aus
-`docs/E9-ENTWURF.md`, F5 und F6 wie vorgeschlagen (kein Standard-Kurator, Spur B).
-Aufgeteilt: E9-3a lädt, prüft und bietet an; E9-3b bringt die Selbstprüfung mit
-eigenen Kennungen und den Fortschritt im Status des eigenen Knotens (B-11).
+Freigabe des MENSCHEN vom 08.10.2026: E9 wie vorgeschlagen (V1–V3 A, F1–F6 ja).
+Für E9-3 heißt das: sofort beginnen, mit Manifesten vom eigenen Schlüssel;
+Kuratoren über Kataloge kommen mit E9-4 (Spur A). Aufgeteilt: E9-3a lädt, prüft
+und bietet an; E9-3b bringt die Selbstprüfung mit eigenen Kennungen und den
+Fortschritt im Status des eigenen Knotens (B-11).
 
 **Protokoll** (`modell-ollama.ts`):
 - `leseOllamaName()`: Namen wie bei Ollama (`name:tag`, `ns/name:tag`, ohne Tag
@@ -18530,17 +18531,21 @@ eigenen Kennungen und den Fortschritt im Status des eigenen Knotens (B-11).
   Schichten und Konfiguration, benannt `sha256-<hex>`.
 - `pruefeSchichten()`: genau die Dateien des Manifests – jede über
   `verifyFile()`, Größe gleich, keine fremde, keine fehlende.
-- `vertrautesManifest()`: nur eigener Schlüssel und vertraute, je Schlüssel das
-  neueste, das eigene geht vor, bei Streit keine Wahl.
+- `vertrautesManifest()`: nur eigener Schlüssel und vertraute Kuratoren (bis
+  E9-4 keine), je Schlüssel das neueste, das eigene geht vor, bei Streit keine Wahl.
 
 **Knoten** (`modell-laden.ts`, verdrahtet in `main.ts`):
 - `npm run modell -- <name>` merkt nur vor (`~/.freedom/modell-wunsch.json`, 0600).
   Ohne Namen zeigt es den Stand. Es verbindet sich mit keinem Relay –
   Verbindungen entstehen nur in `main.ts` (Tor, 8.2c).
+- Mit `--aus-registry` hält der Knoten fest, was die Registry jetzt nennt: Er
+  signiert daraus ein eigenes Manifest und veröffentlicht es über den Pool
+  (`festhalten()`). Spätere Ladevorgänge prüfen dagegen; eine neue Fassung in
+  der Registry braucht ein neues Festhalten.
 - `ModellDienst` sieht einmal je Minute nach und arbeitet einen Wunsch nach dem
   anderen ab:
-  1. Manifest über die Relays des Knotens, gewählt mit `vertrautesManifest()`
-     (`MODELL_HERAUSGEBER`).
+  1. Manifest über die Relays des Knotens (oder eben festgehalten), gewählt
+     mit `vertrautesManifest()`.
   2. Passt das Modell in den Speicher (`fitsOnDevice()`, `MODELL_SPEICHER_GB`)?
   3. Vorprüfung gegen `registry.ollama.ai`: nennt sie andere Dateien, wird nichts
      geladen.
@@ -18556,18 +18561,27 @@ eigenen Kennungen und den Fortschritt im Status des eigenen Knotens (B-11).
   nicht genutzt worden.
 - Ins Log nur Name und Kennung (`fall`); von Ollama nur der Fehlername.
 
-**Im echten Knoten geprüft** (lokales Relay im Knoten, Ollama-Attrappe mit
-`/api/pull` wie Ollama):
-1. Manifest nur von einem fremden Schlüssel: `nicht angeboten (manifest.keins)`,
-   kein Download.
-2. Manifest vom vertrauten Kurator: geladen, geprüft, das neue Angebot (38027)
-   nennt `basis:1` und `qwen2.5:0.5b`.
-3. `registry.ollama.ai` ist aus dieser Umgebung nicht erreichbar – die
-   Vorprüfung entfiel, die Prüfung danach entschied. Eine Live-Probe gegen die
-   echte Registry und ein echtes Ollama macht der MENSCH.
+Zuerst hatte ich daneben eine Liste vertrauter Herausgeber (`MODELL_HERAUSGEBER`)
+gebaut. Die Freigabe vom 08.10. sieht Kuratoren nur über Kataloge vor (E9-4) –
+die Liste ist wieder draußen, eine zweite Vertrauensquelle gibt es nicht.
 
-**Prüfungen:** protocol 1233 grün (+6, 6 übersprungen), node 326 grün (+10, ohne
-Netz 7 übersprungen; mit Netz 327), app 959 grün, Leak 73 grün + 1 todo, mls 13 grün;
+**Im echten Knoten geprüft** (`main.ts` mit eigenem Relay, Ollama-Attrappe mit
+`/api/pull` als NDJSON wie Ollama; `registry.ollama.ai` ist aus dieser Umgebung
+nicht erreichbar, für den Lauf lieferte ein vorgeladenes Skript ein
+Registry-Manifest):
+1. Nur das Manifest eines Kurators: `nicht angeboten (manifest.keins)`, kein
+   Download; `npm run modell` nennt den Weg mit `--aus-registry`.
+2. `--aus-registry`: einmal die Registry gefragt, eigenes Manifest am Relay
+   (3 Dateien, Schlüssel des Knotens), Ollama lädt, geprüft; das neue Angebot
+   (38027) nennt `basis:1` und `qwen2.5:0.5b`.
+3. Erneut ohne `--aus-registry`: gegen das Festgehaltene geprüft und geladen.
+4. Registry nennt eine andere Modell-Schicht: `nicht angeboten (registry.anders)`,
+   kein Download; die geprüfte Fassung bleibt im Angebot.
+
+Eine Live-Probe gegen die echte Registry und ein echtes Ollama macht der MENSCH.
+
+**Prüfungen:** protocol 1233 grün (+6, 6 übersprungen), node 327 grün (+11, ohne
+Netz 7 übersprungen; mit Netz 328), app 959 grün, Leak 73 grün + 1 todo, mls 13 grün;
 check-wiring `--streng` Exit 0 (zwei Ausnahmen entfernt: `verifyFile`, `fitsOnDevice`),
 check-website ok, check_innerhtml Exit 0, Smoke-Test bestanden, build-site Exit 0.
 

@@ -17,12 +17,14 @@ import { join } from "node:path";
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { totalmem } from "node:os";
 import {
+  buildModelManifest,
   generateKeypair,
   KIND_MODEL_MANIFEST,
   OutboxPool,
   WebSocketRelay,
   MemoryRelay,
   fromHex,
+  signEvent,
   startUrls,
   toHex,
 } from "@freedomstack/protocol";
@@ -34,7 +36,7 @@ import { turnAusUmgebung } from "./turn.js";
 import { kopplungsDatei, leseKopplung } from "./kopplung-datei.js";
 import { torAusUmgebung, torWebSocket } from "./tor.js";
 import { OllamaBackend } from "./inference.js";
-import { ModellDienst, ollamaPull, ollamaTags, registryDateien, vertrauteHerausgeber } from "./modell-laden.js";
+import { ModellDienst, ollamaPull, ollamaTags, registryDateien } from "./modell-laden.js";
 import http from "node:http";
 
 /** Ohne RELAYS: die ganze Startliste (5.4) – so teilt jede App-Sitzung Relays mit dem Knoten. */
@@ -170,21 +172,22 @@ async function main(): Promise<void> {
     : relayUrls.map((url) => new WebSocketRelay(url, { verbinde }));
   const pool = new OutboxPool(relays, { minAcks: useMemory ? 1 : Math.min(2, relays.length) });
 
-  // Modelle laden (E9-3a, V3 A): Manifest nur vom eigenen Schlüssel oder aus MODELL_HERAUSGEBER,
-  // Ollama lädt, die Schichten müssen genau die des Manifests sein – erst dann im Angebot
-  const vertraut = vertrauteHerausgeber(process.env.MODELL_HERAUSGEBER);
-  if (!vertraut) {
-    console.error("MODELL_HERAUSGEBER: nur öffentliche Schlüssel als hex (64 Zeichen), durch Komma getrennt.");
-    process.exit(1);
-  }
+  // Modelle laden (E9-3a, V3 A): Manifest nur vom eigenen Schlüssel des Knotens (Kuratoren über
+  // Kataloge kommen mit E9-4), Ollama lädt, die Schichten müssen genau die des Manifests sein – erst
+  // dann im Angebot. Mit --aus-registry signiert der Knoten vorher, was die Registry jetzt nennt.
   const ollamaUrl = process.env.OLLAMA_URL ?? "http://localhost:11434";
   const modellDienst = new ModellDienst({
     manifeste: (name) => pool.query({ kinds: [KIND_MODEL_MANIFEST], "#d": [`model:${name}`], limit: 100 }),
     registry: registryDateien,
+    festhalten: async (name, files) => {
+      const ev = signEvent(buildModelManifest({ modelId: name, name, files, upstream: `ollama:${name}`, publisherPubkey: keypair.pk }), keypair.sk);
+      await pool.publish(ev);
+      return ev;
+    },
     pull: (name, fortschritt) => ollamaPull(ollamaUrl, name, fortschritt),
     tags: () => ollamaTags(ollamaUrl),
     speicherGb: Number(process.env.MODELL_SPEICHER_GB) || totalmem() / 1e9,
-    vertraut,
+    vertraut: new Set(),
     eigener: keypair.pk,
   });
   gepruefteModelle = await modellDienst.imAngebot();

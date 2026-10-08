@@ -17,7 +17,7 @@ import {
   type ModelFile, type NostrEvent, type Schicht,
 } from "@freedomstack/protocol";
 import {
-  ladeModell, leseStand, leseWuensche, merkeWunsch, ModellDienst, offeneWuensche, ollamaPull, ollamaTags, registryDateien, vertrauteHerausgeber,
+  ladeModell, leseStand, leseWuensche, merkeWunsch, ModellDienst, offeneWuensche, ollamaPull, ollamaTags, registryDateien,
   type LaderHilfen,
 } from "../src/modell-laden.js";
 import { DvmProvider } from "../src/dvm-provider.js";
@@ -33,41 +33,44 @@ const REGISTRY = {
 const DATEIEN = ollamaDateien(REGISTRY)!;
 const SCHICHTEN: Schicht[] = [...REGISTRY.layers, REGISTRY.config].map((s) => ({ digest: s.digest, groesse: s.size }));
 const NAME = "qwen2.5:0.5b";
-const manifest = (kp = KURATOR, files: ModelFile[] = DATEIEN): NostrEvent =>
-  signEvent(buildModelManifest({ modelId: NAME, name: "Qwen", files, upstream: `ollama:${NAME}`, publisherPubkey: kp.pk }), kp.sk);
+const T = 1_800_000_000;
+const manifest = (kp = KNOTEN, files: ModelFile[] = DATEIEN): NostrEvent =>
+  signEvent(buildModelManifest({ modelId: NAME, name: "Qwen", files, upstream: `ollama:${NAME}`, publisherPubkey: kp.pk }, T), kp.sk);
 
-/** Hilfen mit Zählern: was wurde gefragt, was geladen. */
+/** Hilfen mit Zählern: was wurde gefragt, festgehalten, geladen. Vertraut ist bis E9-4 nur der eigene Schlüssel. */
 function hilfen(teile: Partial<LaderHilfen> = {}) {
-  const zaehler = { registry: 0, pull: 0 };
+  const zaehler = { manifeste: 0, registry: 0, festhalten: [] as ModelFile[][], pull: 0 };
   const h: LaderHilfen = {
-    manifeste: async () => [manifest()],
+    manifeste: async () => { zaehler.manifeste++; return [manifest()]; },
     registry: async () => { zaehler.registry++; return DATEIEN; },
+    festhalten: async (name, files) => { zaehler.festhalten.push(files); return signEvent(buildModelManifest({ modelId: name, name, files, upstream: `ollama:${name}`, publisherPubkey: KNOTEN.pk }, T), KNOTEN.sk); },
     pull: async (_name, fortschritt) => { zaehler.pull++; fortschritt(200_000_000); return SCHICHTEN; },
     tags: async () => [{ name: NAME, digest: "d1" }],
     speicherGb: 16,
-    vertraut: new Set([KURATOR.pk]),
+    vertraut: new Set(),
     eigener: KNOTEN.pk,
     ...teile,
   };
   return { h, zaehler };
 }
 
-test("Laden: vertrautes Manifest, passt, Registry gleich, Ollama lädt genau die Schichten → geprüft, mit Fingerabdruck", async () => {
+test("Laden: eigenes Manifest, passt, Registry gleich, Ollama lädt genau die Schichten → geprüft, mit Fingerabdruck", async () => {
   const { h, zaehler } = hilfen();
   const schritte: string[] = [];
-  const r = await ladeModell(NAME, h, (s, g) => schritte.push(g === undefined ? s : `${s}:${g}`), () => 1_800_000_000);
+  const r = await ladeModell(NAME, h, (s, g) => schritte.push(g === undefined ? s : `${s}:${g}`), () => T);
   assert.ok(r.ok);
   assert.deepEqual(r.modell, {
-    name: NAME, manifest: manifest().id, herausgeber: KURATOR.pk, dateien: 3, bytes: 397_807_936 + 1_482 + 487, ollama: "d1", geprueft: 1_800_000_000,
+    name: NAME, manifest: manifest().id, herausgeber: KNOTEN.pk, dateien: 3, bytes: 397_807_936 + 1_482 + 487, ollama: "d1", geprueft: T,
   });
   assert.deepEqual(schritte, ["manifest", "vorpruefung", "laden:0", "laden:200000000", "pruefen"]);
-  assert.deepEqual(zaehler, { registry: 1, pull: 1 });
+  assert.deepEqual(zaehler, { manifeste: 1, registry: 1, festhalten: [], pull: 1 });
 });
 
-test("Laden: ohne vertrautes Manifest, zu groß oder abweichende Registry – Ollama lädt nichts", async () => {
+test("Laden: ohne eigenes Manifest (ein Kurator zählt bis E9-4 nicht), zu groß oder abweichende Registry – Ollama lädt nichts", async () => {
   for (const [teile, fall] of [
     [{ manifeste: async () => [manifest(FREMD)] }, "manifest.keins"],
-    [{ manifeste: async () => [manifest(KURATOR, DATEIEN.slice(1))], registry: async () => DATEIEN }, "registry.anders"],
+    [{ manifeste: async () => [manifest(KURATOR)] }, "manifest.keins"],
+    [{ manifeste: async () => [manifest(KNOTEN, DATEIEN.slice(1))], registry: async () => DATEIEN }, "registry.anders"],
     [{ speicherGb: 0.4 }, "passt.nicht"],
   ] as Array<[Partial<LaderHilfen>, string]>) {
     const { h, zaehler } = hilfen(teile);
@@ -88,6 +91,24 @@ test("Laden: ohne Registry entscheidet die Prüfung danach; fremde Schichten, Ab
   assert.deepEqual(abbruch, { ok: false, fall: "ollama.laden", werte: { fehler: "OllamaFehler" } }, "nur der Fehlername");
   const weg = await ladeModell(NAME, hilfen({ tags: async () => [] }).h, () => {});
   assert.deepEqual(weg, { ok: false, fall: "ollama.fehlt" });
+});
+
+test("Festhalten (--aus-registry): eigenes Manifest aus dem, was die Registry jetzt nennt – ohne Registry oder Veröffentlichung nichts", async () => {
+  const gut = hilfen();
+  const r = await ladeModell(NAME, gut.h, () => {}, () => T, true);
+  assert.ok(r.ok && r.modell.herausgeber === KNOTEN.pk);
+  assert.deepEqual(gut.zaehler.festhalten, [DATEIEN], "festgehalten genau die Dateien der Registry");
+  assert.equal(gut.zaehler.manifeste, 0, "nicht über die Relays gesucht");
+  assert.equal(gut.zaehler.registry, 1, "die Registry nur einmal gefragt");
+  // Danach lädt Ollama, und die Schichten müssen trotzdem passen
+  const anders = await ladeModell(NAME, hilfen({ pull: async () => SCHICHTEN.slice(1) }).h, () => {}, () => T, true);
+  assert.deepEqual(anders, { ok: false, fall: "schicht.fehlt", werte: { anzahl: 1 } });
+  const ohne = hilfen({ registry: async () => null });
+  assert.deepEqual(await ladeModell(NAME, ohne.h, () => {}, () => T, true), { ok: false, fall: "registry.nichtErreichbar" });
+  assert.deepEqual([ohne.zaehler.festhalten.length, ohne.zaehler.pull], [0, 0]);
+  const stumm = hilfen({ festhalten: async () => { throw Object.assign(new Error("relay sagt nein"), { name: "PublishFehler" }); } });
+  assert.deepEqual(await ladeModell(NAME, stumm.h, () => {}, () => T, true), { ok: false, fall: "manifest.nichtVeroeffentlicht", werte: { fehler: "PublishFehler" } });
+  assert.equal(stumm.zaehler.pull, 0);
 });
 
 test("Dienst: Wunsch → geprüft und im Angebot; anderer Fingerabdruck bei Ollama → raus; jeder Wunsch nur einmal", async () => {
@@ -113,6 +134,12 @@ test("Dienst: Wunsch → geprüft und im Angebot; anderer Fingerabdruck bei Olla
   tags = [{ name: NAME, digest: "d2" }];
   assert.deepEqual(await d.imAngebot(), []);
   assert.deepEqual(d.angebot, []);
+  // Neu festgehalten (--aus-registry): der Dienst reicht den Wunsch so weiter, danach wieder im Angebot
+  jetzt += 60;
+  merkeWunsch(dateien.wunsch, NAME, jetzt, true);
+  assert.equal(await d.arbeite(), true);
+  assert.equal(zaehler.festhalten.length, 1);
+  assert.deepEqual(await d.imAngebot(), [NAME], "geprüft mit dem neuen Fingerabdruck");
   // Ollama nicht erreichbar: nichts Geprüftes im Angebot (nicht bestätigen, was man nicht sieht)
   const tot = new ModellDienst(hilfen({ tags: async () => { throw new Error("weg"); } }).h, dateien, () => {}, () => jetzt);
   assert.deepEqual(await tot.imAngebot(), []);
@@ -146,7 +173,7 @@ test("Dienst: ein gescheiterter Wunsch bleibt gescheitert, bis er neu vorgemerkt
   assert.equal(zaehler.pull, 0);
 });
 
-test("Wunsch und Herausgeber: nur Namen wie bei Ollama, nur hex-Schlüssel", () => {
+test("Wunsch: nur Namen wie bei Ollama; --aus-registry bleibt gemerkt", () => {
   const ort = mkdtempSync(join(tmpdir(), "modell-"));
   const datei = join(ort, "w.json");
   assert.equal(merkeWunsch(datei, "qwen2.5", 1), "qwen2.5:latest");
@@ -154,16 +181,15 @@ test("Wunsch und Herausgeber: nur Namen wie bei Ollama, nur hex-Schlüssel", () 
   assert.equal(merkeWunsch(datei, "../../etc"), null);
   merkeWunsch(datei, "qwen2.5:latest", 5);
   assert.deepEqual(leseWuensche(datei), [{ name: "qwen2.5:latest", seit: 5 }], "derselbe Name ersetzt den älteren Wunsch");
+  merkeWunsch(datei, "qwen2.5", 6, true);
+  assert.deepEqual(leseWuensche(datei), [{ name: "qwen2.5:latest", seit: 6, ausRegistry: true }]);
   // Eine kaputte oder fremde Datei bricht nichts ab
-  writeFileSync(datei, JSON.stringify([null, 5, { name: 7, seit: 1 }, { name: "x:1" }, { name: "x y", seit: 1 }, { name: "x:1", seit: 2 }]));
-  assert.deepEqual(leseWuensche(datei), [{ name: "x:1", seit: 2 }]);
+  writeFileSync(datei, JSON.stringify([null, 5, { name: 7, seit: 1 }, { name: "x:1" }, { name: "x y", seit: 1 }, { name: "x:1", seit: 2, ausRegistry: "ja" }]));
+  assert.deepEqual(leseWuensche(datei), [{ name: "x:1", seit: 2 }], "nur true zählt als Festhalten");
   writeFileSync(datei, "{kaputt");
   assert.deepEqual(leseWuensche(datei), []);
   writeFileSync(datei, JSON.stringify({ modelle: [{ name: 5 }, null], laeuft: { name: 1 }, ergebnisse: "x" }));
   assert.deepEqual(leseStand(datei), { modelle: [], laeuft: undefined, ergebnisse: [] });
-  assert.deepEqual(vertrauteHerausgeber(undefined), new Set());
-  assert.deepEqual(vertrauteHerausgeber(` ${KURATOR.pk.toUpperCase()} ,`), new Set([KURATOR.pk]));
-  assert.equal(vertrauteHerausgeber("npub1abc"), null);
 });
 
 /** Ollama-Attrappe: `/api/pull` als NDJSON in Stücken, `/api/tags`. */
@@ -260,7 +286,9 @@ test("Provider: ein geprüftes Modell aus dem Angebot wird angenommen, ein nicht
 test("Verdrahtet: main.ts lädt über den Dienst und bietet Geprüftes an; npm run modell verbindet sich mit keinem Relay", () => {
   const quelle = (p: string) => readFileSync(new URL(p, import.meta.url), "utf8");
   const main = quelle("../src/main.ts");
-  assert.match(main, /const vertraut = vertrauteHerausgeber\(process\.env\.MODELL_HERAUSGEBER\);\n  if \(!vertraut\) \{/);
+  assert.match(main, /vertraut: new Set\(\),\n    eigener: keypair\.pk,/, "bis E9-4 nur der eigene Schlüssel");
+  assert.match(main, /festhalten: async \(name, files\) => \{\n      const ev = signEvent\(buildModelManifest\(\{ modelId: name, name, files, upstream: `ollama:\$\{name\}`, publisherPubkey: keypair\.pk \}\), keypair\.sk\);\n      await pool\.publish\(ev\);/);
+  assert.doesNotMatch(main, /MODELL_HERAUSGEBER/);
   assert.match(main, /manifeste: \(name\) => pool\.query\(\{ kinds: \[KIND_MODEL_MANIFEST\], "#d": \[`model:\$\{name\}`\], limit: 100 \}\)/);
   assert.match(main, /\.\.\.gepruefteModelle,\n  \]\)\];/);
   assert.match(main, /modelle: angebotModelle,/);

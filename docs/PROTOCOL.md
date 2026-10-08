@@ -929,7 +929,9 @@ höchstens ein eigenes an. Zum Issue: `kopfgelderZuIssue()`.
 
 Ein Manifest beschreibt ein Modell samt Prüfsummen (`model-registry.ts`).
 Ersetzbar je Autor und `d`. Jeder kann eines veröffentlichen; wem ein Knoten
-glaubt, entscheidet sein Betreiber (V3 A aus `docs/E9-ENTWURF.md`).
+glaubt, entscheidet sein Betreiber (V3 A aus `docs/E9-ENTWURF.md`, freigegeben
+08.10.2026): bis E9-4 nur dem eigenen Schlüssel, danach auch Kuratoren aus
+abonnierten Modellkatalogen (38080).
 
 | Tag | Inhalt |
 |---|---|
@@ -946,11 +948,15 @@ glaubt, entscheidet sein Betreiber (V3 A aus `docs/E9-ENTWURF.md`).
   Dazu gehören alle Schichten und die Konfiguration aus dem Manifest der
   Registry (Docker-Format v2); `ollamaDateien()` baut diese Liste.
 - **Manifest wählen:** Der Knoten wählt eines über `vertrautesManifest()`.
-  - Es zählen nur der eigene Schlüssel und die aus `MODELL_HERAUSGEBER`, je
-    Schlüssel das neueste.
+  - Es zählen nur der eigene Schlüssel und vertraute Kuratoren (bis E9-4
+    keine), je Schlüssel das neueste.
   - Das eigene geht vor.
   - Sonst müssen alle vertrauten dieselben Dateien nennen; bei Streit wählt
     er keines.
+- **Eigenes Manifest:** `npm run modell -- <name> --aus-registry`. Der Knoten
+  signiert, was die Registry jetzt nennt, und veröffentlicht es. Später geladen
+  wird gegen dieses Manifest; eine neue Fassung in der Registry braucht ein
+  neues Festhalten.
 - **Prüfen:** Geprüft wird vor dem Laden gegen die Registry und danach gegen
   die Schichten, die Ollama gemeldet hat (`pruefeSchichten()`: jede über
   `verifyFile()`, Größe gleich, keine fremde, keine fehlende).

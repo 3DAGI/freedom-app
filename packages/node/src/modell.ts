@@ -1,16 +1,19 @@
 /**
  * Modell laden lassen (Schritt E9-3a): `npm run modell -- <name>` im Ordner
  * `packages/node`, mit derselben Umgebung wie der Knoten. Merkt nur den Wunsch
- * vor – der laufende Knoten sucht das Manifest über seine Relays, prüft, lädt
- * über Ollama und bietet das Modell erst nach bestandener Prüfung an.
- * `npm run modell` ohne Namen zeigt den Stand.
+ * vor – der laufende Knoten sucht sein eigenes Manifest über seine Relays,
+ * prüft, lädt über Ollama und bietet das Modell erst nach bestandener Prüfung
+ * an. Mit `--aus-registry` hält er vorher fest, was die Registry jetzt nennt
+ * (eigenes Manifest, signiert und veröffentlicht). Ohne Namen: der Stand.
  */
 import { leseStand, leseWuensche, merkeWunsch, modellDatei, offeneWuensche, wunschDatei } from "./modell-laden.js";
 
 const FALL: Record<string, (w: Record<string, number | string>) => string> = {
   "ok": () => "geprüft, im Angebot",
-  "manifest.keins": () => "kein Manifest vom eigenen Schlüssel oder aus MODELL_HERAUSGEBER",
-  "manifest.uneinig": (w) => `${w.herausgeber} vertraute Herausgeber nennen verschiedene Dateien – keine Wahl (eigenes Manifest veröffentlichen oder MODELL_HERAUSGEBER kürzen)`,
+  "manifest.keins": () => "kein eigenes Manifest des Knotens – festhalten, was die Registry jetzt nennt: npm run modell -- <name> --aus-registry",
+  "manifest.uneinig": (w) => `${w.herausgeber} Herausgeber nennen verschiedene Dateien – keine Wahl`,
+  "manifest.nichtVeroeffentlicht": (w) => `eigenes Manifest nicht veröffentlicht (${w.fehler}) – nichts geladen`,
+  "registry.nichtErreichbar": () => "die Registry war nicht zu befragen – nichts festgehalten, nichts geladen",
   "manifest.keineQuelle": () => "das Manifest nennt keine Ollama-Quelle zu diesem Namen (upstream ollama:<name>)",
   "passt.nicht": (w) => `braucht etwa ${w.brauchtGb} GB, das Gerät hat ${w.hatGb} GB (MODELL_SPEICHER_GB)`,
   "registry.anders": () => "die Registry nennt andere Dateien als das Manifest – nichts geladen",
@@ -24,14 +27,18 @@ const FALL: Record<string, (w: Record<string, number | string>) => string> = {
 };
 const text = (fall: string, werte: Record<string, number | string> = {}) => FALL[fall]?.(werte) ?? fall;
 
-const name = process.argv[2];
+const args = process.argv.slice(2);
+const ausRegistry = args.includes("--aus-registry");
+const name = args.find((a) => !a.startsWith("--"));
 if (name) {
-  const gemerkt = merkeWunsch(wunschDatei(), name);
+  const gemerkt = merkeWunsch(wunschDatei(), name, undefined, ausRegistry);
   if (!gemerkt) {
     console.error("Kein Modellname wie bei Ollama (name:tag oder namensraum/name:tag).");
     process.exit(1);
   }
-  console.log(`Vorgemerkt: ${gemerkt}. Der laufende Knoten sucht das Manifest, prüft und lädt über Ollama;`);
+  console.log(ausRegistry
+    ? `Vorgemerkt: ${gemerkt}. Der laufende Knoten hält fest, was die Registry jetzt nennt (eigenes Manifest), lädt über Ollama und prüft;`
+    : `Vorgemerkt: ${gemerkt}. Der laufende Knoten sucht sein Manifest, prüft und lädt über Ollama;`);
   console.log("im Angebot steht das Modell erst nach bestandener Prüfung. Stand: npm run modell");
 } else {
   const stand = leseStand(modellDatei());
