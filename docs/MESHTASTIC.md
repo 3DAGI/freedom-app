@@ -54,8 +54,8 @@ Variante (a) für den Kanal; die Befunde gehen über dieses Dokument an Spur B.
   Geräts und Position (bei GPS) auf dem Hauptkanal – unabhängig von Freedom.
   Die Texte der App sagen das und wo man es abschaltet.
 
-Mit 7.5b – sobald die App Meshtastic nutzt – kommen die Aussage „mesh“ im
-Bericht (Gerätenummer) und diese Texte.
+Seit 7.5b steht das als Grenze „mesh-geraet“ im Datenschutzbericht, in der
+Mesh-Karte und in der FAQ.
 
 ## Sendezeit – ehrlich gerechnet
 
@@ -67,8 +67,12 @@ Bericht (Gerätenummer) und diese Texte.
   Frage an den MENSCHEN (nicht dringend).
 - Standard ist LongFast (SF 11, 250 kHz, CR 4/5): rund 134 Byte/s. Ein voller
   Rahmen kostet damit samt Meshtastic-Kopf rund 1,9 s Sendezeit. Die App
-  rechnete mit 200 Byte/s, also 1,0 s je Rahmen – 7.5b nimmt die Rate aus den
-  Einstellungen des Geräts, damit Schätzung und Konto stimmen.
+  rechnete mit 200 Byte/s, also 1,0 s je Rahmen – seit 7.5b nimmt sie die
+  Sendezeit aus dem Preset des Geräts (`meshtasticSendezeit()`).
+- Eine kurze Direktnachricht ist als Umschlag rund 1,7 KB, also 10 Rahmen:
+  mit LongFast rund 18 s Sendezeit. Bei 1 % sind das **etwa zwei kurze
+  Nachrichten je Stunde** (die Texte sagten bis 7.5b „drei bis vier“); bei den
+  10 % des Bands wären es rund zwanzig.
 - Jeder Sprung kostet dieselbe Zeit noch einmal – auf den Geräten, die
   weiterleiten, nicht auf unserem Konto.
 

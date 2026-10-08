@@ -11,7 +11,7 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import {
   FREEDOM_KANAL, MESHTASTIC_MAX_NUTZLAST, MESHTASTIC_PORT, MeshtasticStrom,
-  baueFunkPaket, baueKonfigAnfrage, leseVomGeraet, mitMeshtasticKopf, type VomGeraet,
+  baueFunkPaket, baueKonfigAnfrage, leseVomGeraet, meshtasticSendezeit, mitMeshtasticKopf, type VomGeraet,
 } from "../src/meshtastic.js";
 import { LORA_MTU } from "../src/mesh-transport.js";
 
@@ -144,4 +144,28 @@ test("Rundweg: ein Rahmen der App, wie ihn ein anderes Gerät liefert", () => {
   const vom = Uint8Array.from([0x12, (n & 0x7f) | 0x80, n >> 7, ...von, ...mesh]);
   const v = leseVomGeraet(vom) as Extract<VomGeraet, { art: "paket" }>;
   assert.deepEqual({ ...v, nutzlast: hex(v.nutzlast) }, { art: "paket", von: 0x12345678, an: 0xffffffff, kanal: 1, port: MESHTASTIC_PORT, nutzlast: hex(rahmen) });
+});
+
+test("Sendezeit nach Semtech: Presets der Firmware, Meshtastic-Kopf, eigene Werte langsam (7.5b)", () => {
+  // Eigene Rechnung nach der Formel von Semtech (AN1200.13), verankert an zwei veröffentlichten
+  // Werten: 20 Byte mit SF7/125 kHz 56,6 ms, mit SF12/125 kHz 1318,9 ms (Präambel 8, CR 4/5).
+  const semtech = (pl: number, sf: number, bwKhz: number, cr: number, praeambel: number) => {
+    const ts = 2 ** sf / (bwKhz * 1000);
+    const de = ts > 0.016 ? 1 : 0;
+    return (praeambel + 4.25) * ts + (8 + Math.max(Math.ceil((8 * pl - 4 * sf + 44) / (4 * (sf - 2 * de))) * cr, 0)) * ts;
+  };
+  assert.equal(Math.round(semtech(20, 7, 125, 5, 8) * 10000) / 10, 56.6);
+  assert.equal(Math.round(semtech(20, 12, 125, 5, 8) * 10000) / 10, 1318.9);
+  // Ein voller Rahmen der App: 16 Byte Kopf + Port (3) + Nutzlast mit Länge (1 + 2 + 200) + Bitfeld (2)
+  const voll = 16 + 3 + 1 + 2 + LORA_MTU + 2;
+  const longFast = meshtasticSendezeit({ preset: 0, vorgabe: true }, LORA_MTU);
+  assert.equal(longFast, semtech(voll, 11, 250, 5, 16));
+  assert.ok(longFast > 1.9 && longFast < 1.92, `LongFast ${longFast}`);
+  assert.equal(meshtasticSendezeit({ preset: 1, vorgabe: true }, LORA_MTU), semtech(voll, 12, 125, 8, 16)); // LongSlow
+  assert.equal(meshtasticSendezeit({ preset: 6, vorgabe: true }, 10), semtech(16 + 3 + 1 + 1 + 10 + 2, 7, 250, 5, 16)); // ShortFast, kurze Länge
+  // Unbekanntes Preset: wie die Firmware LongFast; eigene Werte (ohne Vorgabe): so langsam wie LongSlow
+  assert.equal(meshtasticSendezeit({ preset: 99, vorgabe: true }, LORA_MTU), longFast);
+  assert.equal(meshtasticSendezeit({ preset: 0, vorgabe: false }, LORA_MTU), semtech(voll, 12, 125, 8, 16));
+  // Die alte Annahme der App (200 Byte/s) rechnete mit LongFast fast die Hälfte zu wenig
+  assert.ok(longFast > 1.8 * (LORA_MTU / 200));
 });

@@ -17976,3 +17976,51 @@ Verdrahtet wird mit 7.5b (Ausnahmen in `wiring-ausnahmen.txt` mit diesem Verweis
 übersprungen), app 938 grün, Leak 73 grün + 1 todo, mls 13 grün; check-wiring
 `--streng` Exit 0 (0 offen), check-website ok, check_innerhtml Exit 0;
 repro-build reproduzierbar, build-site Exit 0, Smoke-Test bestanden.
+
+## Schritt 7.5b – Meshtastic-Geräte direkt: USB in der App
+
+**Strecke (`meshtastic-strecke.ts`, aus `connectSerial()`):**
+`erkenneSerielleStrecke()` weckt das Gerät (32 × `0xC3` wie die Python-Bibliothek)
+und fragt nach den Einstellungen (`want_config`), alle 2 s erneut – ein ESP32
+startet beim Öffnen des Ports oft neu. Antwortet in 10 s nichts, was nur
+Meshtastic schickt (eigene Nummer, LoRa, Kanal), bleibt der Weg mit Längenpräfix
+aus 7.4c1; was bis dahin kam, wird dafür gelesen. Mit Meshtastic:
+- Kanal „freedom“ nur mit unserem Schlüssel (ein gleichnamiger mit anderem
+  Schlüssel gilt als fremd – die anderen läsen ihn nicht).
+- Senden: `baueFunkPaket()` auf diesem Kanal, Hop-Limit des Geräts (ohne Angabe 3
+  wie `HOP_RELIABLE`); ohne Kanal geht nichts hinaus.
+- Empfangen: nur Port 256 auf diesem Kanal; Text und andere Kanäle nicht.
+- Nach einem Neustart des Geräts fragt die App erneut.
+- `leitetSelbstWeiter` und `sendezeit` (`meshtasticSendezeit()`: Formel von
+  Semtech mit Präambel 16, Meshtastic-Kopf und Datenhülle; Presets wie
+  `modemPresetToParams()` der Firmware, eigene Funkwerte wie LongSlow).
+
+**Funkknoten:** Über eine Strecke mit `leitetSelbstWeiter` reicht er nichts
+weiter (Meshtastic flutet selbst – sonst ginge jeder Rahmen doppelt in die
+Luft); Sendezeit, Wartezeit und Takt nimmt er von der Strecke
+(`sendezeitFuer()`), sonst wie bisher 200 Byte/s.
+
+**Oberfläche und Texte:** In der Mesh-Karte nach dem Verbinden die Hinweise aus
+`meshtasticHinweise()`: Kanal fehlt (mit Name und öffentlichem Schlüssel zum
+Abtippen in der Meshtastic-App) oder fremd, Region nicht gesetzt, Senden aus.
+Neue Grenze „mesh-geraet“ im Datenschutzbericht (offene Gerätenummer, Name und
+Position je nach Einstellung, öffentlicher Kanal). Gemessen: Eine kurze
+Direktnachricht ist als Umschlag rund 1,7 KB (10 Rahmen) und braucht mit
+LongFast rund 18 s Sendezeit – bei 1 % etwa zwei je Stunde. „Drei bis vier“
+(App, Protokoll-Satz, FAQ, Whitepaper) beruhte auf angenommenen 200 Byte/s und
+ist korrigiert.
+
+**Tests:** `app/test/meshtastic-strecke.test.ts` (neu, 6) mit einer
+Geräte-Attrappe aus den Referenz-Nachrichten: Erkennung, Senden und Empfangen nur
+auf dem Kanal, Neustart, Hop-Limit 3, ohne Kanal nichts hinaus, Hinweise,
+Rückfall auf Längenpräfix samt schon Empfangenem, kein Weiterreichen, Dauer nach
+der Sendezeit der Strecke, Verdrahtung. Protokoll: Sendezeit gegen eine eigene
+Rechnung, verankert an zwei veröffentlichten Werten (56,6 ms und 1318,9 ms);
+Grenze „mesh-geraet“. Gegenprobe: neun absichtlich eingebaute Fehler macht je
+ein Test rot.
+
+**Prüfungen:** protocol 1224 grün (+2, 6 übersprungen), node 314 grün (6
+übersprungen), app 944 grün (+6), Leak 73 grün + 1 todo, mls 13 grün;
+check-wiring `--streng` Exit 0 (0 offen, fünf Ausnahmen aus 7.5a gestrichen),
+check-website ok, check_innerhtml Exit 0; repro-build reproduzierbar, build-site
+Exit 0, Smoke-Test bestanden.
