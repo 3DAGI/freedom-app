@@ -2405,6 +2405,54 @@ def meshtastic_pruefen(browser, url: str) -> dict:
 ANTWORT_MD = "**fett** <img src=x onerror=alert(1)>\n\n```ts\nconst a = \"<b>\"; // x\n```"
 
 
+def gratis_auto_pruefen(browser, url: str) -> dict:
+    """Tarif „Automatisch“ (A-14b2): Vorgabe im Agenten. Ohne Gratis-Anbieter und ohne Wallet geht
+    nichts hinaus, kein Dialog fragt nach Geld – nur ein Hinweis, die Frage bleibt im Feld."""
+    erg = {"fehler": []}
+    basis = url.rsplit("/", 1)[0]
+    relay = ProbeRelay()
+    ctx = browser.new_context(locale="de-DE", viewport={"width": 1280, "height": 800})
+    ctx.route("**/*", lambda r: r.continue_() if r.request.url.startswith(basis) else r.abort())
+    ctx.route_web_socket(re.compile(r"^wss?://"), relay.verbinde)
+    s = ctx.new_page()
+    s.on("pageerror", lambda e: erg["fehler"].append(str(e)[:300]))
+    ev = s.evaluate
+    s.goto(url, wait_until="load")
+    s.wait_for_selector("#bk-done", timeout=30000)
+    w = ev("() => [...document.querySelectorAll('.mnemonic-list li')].map(l => l.textContent)")
+    ev("(w) => document.querySelectorAll('#bk-challenge input').forEach(i => i.value = w[+i.dataset.pos])", w)
+    ev("() => document.getElementById('bk-done').click()")
+    s.wait_for_timeout(1500)
+    ev("() => document.getElementById('ein-abbrechen')?.click()")
+    ev("() => document.querySelector('.app-nav button[data-tab=\"ai\"]').click()")
+    s.wait_for_timeout(500)
+    erg["vorgabe"] = ev("() => document.getElementById('ai-tier').value")
+    vorher = len(relay.gesendet)
+    frage = "Automatisch ohne Wallet 8150"
+    ev("(f) => { document.getElementById('ai-prompt').value = f; document.getElementById('ai-send').click(); }", frage)
+    try:
+        s.wait_for_function("() => (document.getElementById('toast')?.textContent ?? '').startsWith('Gerade bietet kein erreichbarer Provider gratis an')", timeout=20000)
+        erg["hinweis"] = True
+    except Exception:
+        erg["hinweis"] = False
+    erg["danach"] = ev("() => ({ feld: document.getElementById('ai-prompt').value, laeuft: document.getElementById('ai-send').dataset.running ?? '',"
+                       " dialog: !!document.querySelector('.modal.dlg-box, .dlg-box'),"
+                       " fragen: [...document.querySelectorAll('#ai-thread .bubble.user')].filter(b => b.textContent.includes('8150')).length })")
+    neu = relay.gesendet[vorher:]
+    erg["relay"] = [e.get("kind") for e in neu if e.get("kind") == 1059 or 5000 <= int(e.get("kind", 0)) < 7000 or "8150" in json.dumps(e)]
+    ctx.close()
+    if erg["vorgabe"] != "auto":
+        erg["fehler"].append(f"Vorgabe {erg['vorgabe']}")
+    if not erg["hinweis"]:
+        erg["fehler"].append("kein Hinweis")
+    if erg["danach"] != {"feld": frage, "laeuft": "", "dialog": False, "fragen": 0}:
+        erg["fehler"].append(f"danach {erg['danach']}")
+    if erg["relay"]:
+        erg["fehler"].append(f"hinaus {erg['relay']}")
+    erg["bestanden"] = not erg["fehler"]
+    return erg
+
+
 def lokal_pruefen(browser, url: str) -> dict:
     """KI auf diesem Gerät (B-1): „Dieses Gerät“ steht in der Modellwahl, gesucht wird
     erst auf Klick, die Frage geht nur an localhost – kein Auftrag, kein Umschlag ans Relay."""
@@ -4289,6 +4337,10 @@ def main() -> int:
             except Exception as e:
                 erg["weckworker"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
             try:
+                erg["gratis_auto"] = gratis_auto_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
+            except Exception as e:
+                erg["gratis_auto"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
+            try:
                 erg["lokal"] = lokal_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
             except Exception as e:
                 erg["lokal"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
@@ -4333,6 +4385,7 @@ def main() -> int:
           and erg.get("qr", {}).get("bestanden") is True
           and erg.get("werben", {}).get("bestanden") is True
           and erg.get("unsicher", {}).get("bestanden") is True
+          and erg.get("gratis_auto", {}).get("bestanden") is True
           and erg.get("lokal", {}).get("bestanden") is True
           and erg.get("meshtastic", {}).get("bestanden") is True
           and erg.get("einrichtung", {}).get("bestanden") is True

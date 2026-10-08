@@ -17,8 +17,7 @@ import { hoechstMsat } from "../../anteile-kasse.js";
 import { type Pruefrunde, messeLauf, starteRunde } from "../pruefrunde-lauf.js";
 import { $, toast } from "../ui.js";
 import { MAX_POW_APP, buildJobEvent, handleAnswer, jobAbort, keinPrivaterProvider, privatFaehig, waitForAnswer } from "./agent.js";
-import { gratisKandidaten } from "../../gratis-kontingent.js";
-import { zaehleGratisAntwort } from "../gratis-start.js";
+import { gratisAnbieter, merkeGratisLeer, zaehleGratisAntwort } from "../gratis-start.js";
 import { merkeGratisAbgelehnt } from "../app.js";
 import { zieleNachSchiene } from "../ki-zahlung.js";
 import { addAiMessage, EigeneMeldung, hideTyping, showAiError } from "./agent-anzeige.js";
@@ -31,7 +30,7 @@ export async function askWithFailover(prompt: string, bid: number, tier: "free" 
   const sc = ensureSessionClient();
   // Gratis (Gebot 0, A-14b): nur an Provider, die gerade gratis anbieten – mit machbarer Rechenarbeit
   const privat = privatFaehig(await findProviders(tier));
-  const candidates = bid === 0 ? gratisKandidaten(privat, MAX_POW_APP) : privat;
+  const candidates = bid === 0 ? gratisAnbieter(privat, MAX_POW_APP) : privat;
 
   if (maxMode) {
     return askRace(prompt, bid, tier, candidates);
@@ -107,6 +106,7 @@ export async function askWithFailover(prompt: string, bid: number, tier: "free" 
         lastFeedbackError = answer.providerError;
         if (answer.fall === GRATIS_LEER) {
           gratisLeer = true;
+          merkeGratisLeer(target); // heute nicht mehr gratis fragen – sein Angebot sagt es erst später
           toast(t("agent.gratisLeerProvider", { pk: pkShort(target) }));
         } else {
           toast(t("agent.providerLehntAb", { grund: answer.providerError.slice(0, 50) }));

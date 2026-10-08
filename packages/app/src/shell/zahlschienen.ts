@@ -90,6 +90,12 @@ function solanaWallet(): SolanaWalletZugang | undefined {
   };
 }
 
+/** Ist eine Schiene verbunden, die zahlen kann (A-14b2)? Sonst fragt der Tarif „Automatisch“ gar nicht erst. */
+export async function eineSchieneDa(): Promise<boolean> {
+  const da = await Promise.all(zahlschienen().map((r) => r.verfuegbar().catch(() => false)));
+  return da.some(Boolean);
+}
+
 export function zahlschienen(): PaymentRail[] {
   return [
     new LightningRail({

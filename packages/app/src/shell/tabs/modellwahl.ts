@@ -12,6 +12,7 @@ import { LS_LOKAL_AKTIV, lokalAktiv, lokaleAdresse, lokaleModelle, lokalerWahlwe
 import { dialog } from "../dialog.js";
 import { pkShort } from "../../shell-logic.js";
 import { ausMsat } from "../../preis-anzeige.js";
+import { tierFuerListe } from "../../gratis-kontingent.js";
 import { angebotVon, findProviders } from "../state.js";
 import { aktualisiereKurs, aktuellerKurs } from "../marktkurs.js";
 import { meineKopplung } from "../mein-knoten.js";
@@ -30,7 +31,7 @@ export async function refreshModelDropdown(): Promise<void> {
   if (!sel || !btn) return;
   const current = sel.value;
   try {
-    const [providers] = await Promise.all([findProviders(($("#ai-tier") as HTMLSelectElement).value), aktualisiereKurs()]);
+    const [providers] = await Promise.all([findProviders(tierFuerListe(($("#ai-tier") as HTMLSelectElement).value)), aktualisiereKurs()]);
     // modelle + preise der top-provider sammeln (dedupe, haeufigkeit)
     const counts = new Map<string, { count: number; priceMsat: number; tools: Set<string> }>();
     for (const p of providers.slice(0, 5)) {

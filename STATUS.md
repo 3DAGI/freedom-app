@@ -18703,6 +18703,60 @@ Eintrag von `GEHEIM_FEST` – der neue Schlüssel steht deshalb davor.
 Gratis-Fragen mit den verlangten Bits. Offen bleibt A-14b2: Tarif „Automatisch“
 als Vorgabe und eine Rückfrage vor dem ersten Bezahlen.
 
+## Schritt A-14b2 – Gratis-Start: Tarif „Automatisch“, Rückfrage vor dem ersten Bezahlen
+
+Spur A, G1 vom 08.10.2026: Die App hat den Tarif „Automatisch“, und er ist die
+Vorgabe. Bezahlt wird nie still: vorher einmal fragen. Damit ist A-14 im Code fertig.
+
+**App:**
+- **`gratis-kontingent.ts`:**
+  - `waehleAuto()` (ohne DOM, getestet) entscheidet:
+    - gratis, solange das Gerät Kontingent hat und ein Gratis-Anbieter da ist;
+    - sonst bezahlt, das erste Mal nur nach Rückfrage;
+    - ohne Wallet nie.
+  - `tierFuerListe()` sorgt dafür, dass die Modell-Liste unter „Automatisch“ alles
+    zeigt, was gratis geht und darüber.
+- **`shell/gratis-start.ts`:**
+  - `merkeGratisLeer()`/`gratisAnbieter()`: Wer heute `gratis-leer` gemeldet hat,
+    bekommt bis morgen (UTC) keine Gratis-Frage. Sein Angebot sagt es erst mit der
+    nächsten Erneuerung, sonst liefe „Automatisch“ immer wieder in dieselbe Absage.
+  - Die Zustimmung zum Bezahlen steht in `freedom.gratis.bezahlenOk` und gilt nur
+    auf diesem Gerät.
+- **`shell/zahlschienen.ts`:** `eineSchieneDa()` prüft, ob eine Schiene zahlen
+  kann.
+- **`agent.ts` `askAi()`:**
+  - „Automatisch“ wird vor dem Kontingent und vor dem Senden entschieden.
+  - Ohne Wallet: Hinweis, Frage nach der Wallet, nichts geht hinaus.
+  - Erstes Bezahlen: Rückfrage `bestaetige()` mit dem Gebot in der Anzeigeeinheit.
+    Abgelehnt heißt: nichts geht hinaus, die Frage bleibt im Feld.
+  - Über Funk heißt „Automatisch“ nur gratis.
+- **`index.html`:** `auto` ist die Vorgabe, `classic` nicht mehr.
+- **Texte (de/en):** `tierAuto`, `agent.autoTitel`, `agent.autoFrage*`,
+  `agent.autoOk`, `agent.autoWallet*`. Die FAQ nennt die Rückfrage.
+
+**Tests:**
+- `gratis-kontingent.test.ts` (+2):
+  - Entscheidungstabelle;
+  - Verdrahtung: Vorgabe, entschieden vor Kontingent und Senden, erst gefragt
+    dann gemerkt, abgelehnt heißt nichts hinaus, Funk nur gratis, leere Provider
+    gemerkt.
+- Die b1-Prüfung erwartet jetzt `gratisAnbieter()` (baut auf `gratisKandidaten()` auf).
+- **Smoke-Test „gratis_auto“ (neu):** Vorgabe `auto`. Ohne Gratis-Anbieter und ohne
+  Wallet kommt der Hinweis, die Frage bleibt im Feld, es gibt keinen Dialog und
+  nichts geht ans Relay.
+- **Gegenprobe:** Mit „Rückfrage auch ohne Wallet“ wird der Smoke-Test rot
+  (Dialog statt Hinweis).
+
+**Prüfungen:**
+- app 968 grün (+2); protocol 1231 und node 323 unverändert.
+- Leak 73 + 1 todo, mls 13.
+- check-wiring `--streng`, check-website und innerHTML streng: Exit 0.
+- Smoke bestanden.
+
+**Auslegung:** „einmal fragen“ heißt einmal je Gerät. Danach zahlt „Automatisch“
+nach dem Gratis-Anteil ohne neue Rückfrage, mit Gebot und Tageslimit der Wallet
+wie bisher. Wer nur gratis will, wählt „Free“.
+
 ## Schritt E9-3a – Modelle laden im Knoten: Manifest, Prüfung, Angebot
 
 Freigabe des MENSCHEN vom 08.10.2026: E9 wie vorgeschlagen (V1–V3 A, F1–F6 ja).
