@@ -138,6 +138,11 @@ export interface ProviderConfig {
    * Aufträge und Speicher zählt der Provider selbst. Ohne: keine Statusabfrage.
    */
   status?: () => Pick<KnotenStatus, "fassung" | "seit" | "rollen" | "modelle" | "relay" | "einrichtung" | "weckSchluessel">;
+  /**
+   * Was der Knoten anbietet (`main.ts`): `PROVIDER_MODELS` und seit E9-3a die
+   * geprüft geladenen Modelle. Ohne: nur `PROVIDER_MODELS`.
+   */
+  modelle?: () => readonly string[];
   /** Anmeldungen zum Wecken (B-12a, W1 A) – ohne: keine Weck-Anmeldung. */
   weckBuch?: WeckBuch;
   /** TURN des eigenen Knotens (B-13a, T2 A) – ohne: keine Zugänge. */
@@ -1248,7 +1253,7 @@ export class DvmProvider {
     // Gewuenschtes Modell aus dem Job lesen ([\"param\", \"model\", \"...\"]).
     // Nur akzeptieren wenn der Provider dieses Modell anbietet; sonst Default.
     const modelParam = request.tags.find((t) => t[0] === "param" && t[1] === "model")?.[2];
-    const offeredModels = (process.env.PROVIDER_MODELS ?? process.env.OLLAMA_MODEL ?? "")
+    const offeredModels = this.cfg.modelle?.() ?? (process.env.PROVIDER_MODELS ?? process.env.OLLAMA_MODEL ?? "")
       .split(",").map((m) => m.trim()).filter(Boolean);
     const requestedModel = modelParam && offeredModels.includes(modelParam) ? modelParam : undefined;
 

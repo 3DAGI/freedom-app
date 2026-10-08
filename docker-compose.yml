@@ -81,6 +81,9 @@ services:
       OLLAMA_URL: "http://ollama:11434"
       OLLAMA_MODEL: "${OLLAMA_MODEL:-qwen2.5:7b}"
       PROVIDER_MODELS: "${PROVIDER_MODELS:-qwen2.5:7b}"
+      # E9-3: Modelle geprueft laden (docker compose exec node npm run modell -- <name> --aus-registry,
+      # docs/PROVIDER.md); passt es in den Speicher? Leer: Arbeitsspeicher des Rechners
+      MODELL_SPEICHER_GB: "${MODELL_SPEICHER_GB:-}"
       FREE_TOKENS_PER_DAY: "${FREE_TOKENS_PER_DAY:-2000}"
       # Gratis-Start (A-14): Budget des Knotens je Tag fuer alle zusammen, Grenze je Antwort,
       # Rechenarbeit einer Gratis-Anfrage. Leer = Vorgabe (100000 / 2000 / 16), GRATIS_TOKENS_TAG=0 schaltet ab.

@@ -47,7 +47,7 @@ bash contracts/solana-channel/pruefen.sh --werkzeuge     # nur bei Änderungen a
 cd packages/launcher && cargo test --locked && cd ../..  # nur bei Änderungen an der Hülle (Linux: WebKitGTK 4.1, App vorher bauen)
 ```
 
-Stand 08.10.2026 (nach 8.2c, 5.5a–c, 8.15, 11.1a, C.3c2, 11.1b, 5.9a–b, 6.3a–b2, 11.4a–b2, C.4a–b, C.5a–b, C.6b, 11.4c, C-18, C-17a–c, C-20a–j3, C-1a–f, C-2, C-3, C-4, C-5a–d, C-6a–e, C-7a–b, C-8, C-10 bis C-16, 11.2a–b, A-4 bis A-7, A-7r, Z1, 12.1–12.3, E8, P1a–b, P2a, E10a, E11, E9-Entwurf, 12.4a, P2b1–b2, P3a–b, P4, P5a–b, P5c1–c2, D1a, D1b1–b2, D1c, D2, D3-Entwurf, 12.6, 12.7a–c, 12.1 C, C-21, C-22a, C-22c, C-24, C-25, C-26, 6.1a1–a2, 6.1a3a–c, 6.1a4a, 6.1b1a–b, 6.1b2a–b, 6.1b3, 6.1c1, 6.1c2a, 6.1d, B-1, B-2a–c, B-3 bis B-7, B-8a–c, B-9a, B-15, B-19, B-20a–c, B-10a–b, B-9b1–b2, B-9c1–c3, B-11a–c, B-12a–d, B-13a–e, B-21, B-17a, B-17b1, B-17b2, B-17b3a, B-17b3b und 7.5a–d, B-22, A-14a–b2): protocol 1231 grün (6 übersprungen), node 323 grün
+Stand 08.10.2026 (nach 8.2c, 5.5a–c, 8.15, 11.1a, C.3c2, 11.1b, 5.9a–b, 6.3a–b2, 11.4a–b2, C.4a–b, C.5a–b, C.6b, 11.4c, C-18, C-17a–c, C-20a–j3, C-1a–f, C-2, C-3, C-4, C-5a–d, C-6a–e, C-7a–b, C-8, C-10 bis C-16, 11.2a–b, A-4 bis A-7, A-7r, Z1, 12.1–12.3, E8, P1a–b, P2a, E10a, E11, E9-Entwurf, 12.4a, P2b1–b2, P3a–b, P4, P5a–b, P5c1–c2, D1a, D1b1–b2, D1c, D2, D3-Entwurf, 12.6, 12.7a–c, 12.1 C, C-21, C-22a, C-22c, C-24, C-25, C-26, 6.1a1–a2, 6.1a3a–c, 6.1a4a, 6.1b1a–b, 6.1b2a–b, 6.1b3, 6.1c1, 6.1c2a, 6.1d, B-1, B-2a–c, B-3 bis B-7, B-8a–c, B-9a, B-15, B-19, B-20a–c, B-10a–b, B-9b1–b2, B-9c1–c3, B-11a–c, B-12a–d, B-13a–e, B-21, B-17a, B-17b1, B-17b2, B-17b3a, B-17b3b und 7.5a–d, B-22, A-14a–b2, E9-3a): protocol 1237 grün (6 übersprungen), node 334 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
 in `tools.test.ts`), app 968 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 73 grün + 1 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
@@ -1470,3 +1470,18 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   Gateway-Rolle rechnet Sendezeit, Wartezeit und Takt nur über `zeit()` (Strecke, sonst
   200 Byte/s). Im Smoke-Test („meshtastic“) spielt eine Web-Serial-Attrappe das Gerät mit
   Bytes aus der Referenz.
+- **Modelle laden nur geprüft** (seit E9-3a, V3 A aus `docs/E9-ENTWURF.md`): Ein Manifest
+  (38057) wählt der Knoten nur über `vertrautesManifest()` (`modell-ollama.ts`) – bis E9-4 nur
+  der eigene Schlüssel (Freigabe 08.10.: Kuratoren nur über Kataloge, keine zweite Liste daneben),
+  kein voreingestellter Kurator; bei Streit keine Wahl, das eigene geht vor. Ein eigenes legt nur
+  `--aus-registry` an (`festhalten()`: signiert, was die Registry jetzt nennt, veröffentlicht über
+  den Pool). Für Ollama: `model` = Name bei Ollama mit Tag, `upstream` = `ollama:<derselbe>`,
+  Dateien heißen `sha256-<hex>` (Schichten und Konfiguration, `ollamaDateien()`). Geladen wird nur
+  im laufenden Knoten über `ModellDienst` (`node/src/modell-laden.ts`) – `npm run modell` merkt nur
+  den Wunsch vor (`modell-wunsch.json`) und verbindet sich mit keinem Relay (Tor, 8.2c). Ins
+  Angebot kommt ein Modell nur nach `pruefeSchichten()` gegen die Schichten, die Ollama gemeldet
+  hat, und nur solange `/api/tags` denselben Fingerabdruck nennt (`imAngebot()` bei jedem
+  Angebot); `PROVIDER_MODELS` bleibt daneben. Der Provider nimmt Modelle nur aus `cfg.modelle()`.
+  Nach außen und ins Log nur Kennung (`fall`), Zahlen, Fehlernamen, Modellnamen – nie Text aus
+  Ollama oder der Registry. Die Registry ist aus dieser Umgebung nicht erreichbar – Live-Proben
+  macht der MENSCH.

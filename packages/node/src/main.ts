@@ -15,12 +15,16 @@
 import { schnorr } from "@noble/curves/secp256k1.js";
 import { join } from "node:path";
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { totalmem } from "node:os";
 import {
+  buildModelManifest,
   generateKeypair,
+  KIND_MODEL_MANIFEST,
   OutboxPool,
   WebSocketRelay,
   MemoryRelay,
   fromHex,
+  signEvent,
   startUrls,
   toHex,
   gratisAusUmgebung,
@@ -33,6 +37,7 @@ import { turnAusUmgebung } from "./turn.js";
 import { kopplungsDatei, leseKopplung } from "./kopplung-datei.js";
 import { torAusUmgebung, torWebSocket } from "./tor.js";
 import { OllamaBackend } from "./inference.js";
+import { ModellDienst, ollamaPull, ollamaTags, registryDateien } from "./modell-laden.js";
 import http from "node:http";
 
 /** Ohne RELAYS: die ganze Startliste (5.4) – so teilt jede App-Sitzung Relays mit dem Knoten. */
@@ -132,8 +137,12 @@ async function main(): Promise<void> {
   const statusSeit = Math.floor(Date.now() / 1000);
   const statusRollen = new Set<import("@freedomstack/protocol").StatusRolle>(["ki"]);
   const fassung = (JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as { version?: string }).version ?? "unbekannt";
-  const angebotModelle = () =>
-    (process.env.PROVIDER_MODELS ?? process.env.OLLAMA_MODEL ?? "nemotron-3.5-lightning:30b-a3b-nvfp4").split(",").map((m) => m.trim()).filter(Boolean);
+  // Angeboten wird PROVIDER_MODELS wie bisher, dazu seit E9-3a die geprüft geladenen Modelle (`npm run modell`)
+  let gepruefteModelle: readonly string[] = [];
+  const angebotModelle = () => [...new Set([
+    ...(process.env.PROVIDER_MODELS ?? process.env.OLLAMA_MODEL ?? "nemotron-3.5-lightning:30b-a3b-nvfp4").split(",").map((m) => m.trim()).filter(Boolean),
+    ...gepruefteModelle,
+  ])];
 
   const keypair = loadKeypair();
   const backend = new OllamaBackend();
@@ -173,6 +182,27 @@ async function main(): Promise<void> {
     ? [new MemoryRelay("mem://local")]
     : relayUrls.map((url) => new WebSocketRelay(url, { verbinde }));
   const pool = new OutboxPool(relays, { minAcks: useMemory ? 1 : Math.min(2, relays.length) });
+
+  // Modelle laden (E9-3a, V3 A): Manifest nur vom eigenen Schlüssel des Knotens (Kuratoren über
+  // Kataloge kommen mit E9-4), Ollama lädt, die Schichten müssen genau die des Manifests sein – erst
+  // dann im Angebot. Mit --aus-registry signiert der Knoten vorher, was die Registry jetzt nennt.
+  const ollamaUrl = process.env.OLLAMA_URL ?? "http://localhost:11434";
+  const modellDienst = new ModellDienst({
+    manifeste: (name) => pool.query({ kinds: [KIND_MODEL_MANIFEST], "#d": [`model:${name}`], limit: 100 }),
+    registry: registryDateien,
+    festhalten: async (name, files) => {
+      const ev = signEvent(buildModelManifest({ modelId: name, name, files, upstream: `ollama:${name}`, publisherPubkey: keypair.pk }), keypair.sk);
+      await pool.publish(ev);
+      return ev;
+    },
+    pull: (name, fortschritt) => ollamaPull(ollamaUrl, name, fortschritt),
+    tags: () => ollamaTags(ollamaUrl),
+    speicherGb: Number(process.env.MODELL_SPEICHER_GB) || totalmem() / 1e9,
+    vertraut: new Set(),
+    eigener: keypair.pk,
+  });
+  gepruefteModelle = await modellDienst.imAngebot();
+  if (gepruefteModelle.length) console.log(`[modell] geprüft im Angebot: ${gepruefteModelle.join(",")}`);
 
   // Rechenarbeit fuer private Anfragen (3.1) – steht im Angebot. Ueber 24 rechnet
   // ein Handy Minuten; die App wiese solche Angebote ab.
@@ -221,6 +251,7 @@ async function main(): Promise<void> {
       lud16,
       werber,
       besitzer: () => { const k = leseKopplung(kopplungOrt, keypair.pk); return k ? [k.geheimnis] : []; },
+      modelle: angebotModelle,
       status: () => {
         const r = relayRole?.stats();
         return {
@@ -477,6 +508,7 @@ async function main(): Promise<void> {
   // Speicherangabe und (seit 3.1) die Rechenarbeit fuer private Anfragen.
   const baueAngebot = async () => {
     const { AUFTEILUNG_FASSUNG, buildCapabilities, defaultPriceFor, DEFAULT_TOOL_PRICES, signEvent, KANAL_PROGRAMM_ID } = await import("@freedomstack/protocol");
+    gepruefteModelle = await modellDienst.imAngebot();
     const models = angebotModelle();
     const model = models[0]; // primaer
     const mp = defaultPriceFor(model);
@@ -530,6 +562,14 @@ async function main(): Promise<void> {
       console.error("[caps-refresh] Fehler:", err);
     }
   }, CAPS_REFRESH_MS);
+
+  // Modelle laden (E9-3a): gewünscht über `npm run modell`, einmal je Minute nachsehen – eines nach dem anderen;
+  // kam eines dazu, gleich ein neues Angebot
+  const modellTakt = async () => {
+    if (await modellDienst.arbeite().catch(() => false)) await pool.publish((await baueAngebot()).ev).catch(() => undefined);
+  };
+  void modellTakt();
+  setInterval(() => void modellTakt(), 60_000);
 
   // Zahlkanal: fällige Gutschriften einlösen (ab Schwelle oder vor Ablauf) –
   // nur Kanal, Betrag und Fehlername ins Log

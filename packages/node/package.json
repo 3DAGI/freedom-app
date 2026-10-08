@@ -12,7 +12,8 @@
     "start": "node --import tsx src/main.ts",
     "lp-abnahme": "node --import tsx src/lp-abnahme-lauf.ts",
     "pruefen": "node --import tsx src/pruefen.ts",
-    "koppeln": "node --import tsx src/koppeln.ts"
+    "koppeln": "node --import tsx src/koppeln.ts",
+    "modell": "node --import tsx src/modell.ts"
   },
   "devDependencies": {
     "@types/node": "^26.1.1",

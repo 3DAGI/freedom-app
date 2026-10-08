@@ -953,3 +953,41 @@ alle zusammen und nennt es im Angebot:
   Knoten nichts nach dieser Regel.
 - Wie viel ein Gerät gratis fragt, zählt die App selbst (A-14b) – eine
   Fairness-Regel, keine Sperre.
+
+## 31. Modell-Manifest und Laden über Ollama (Kind 38057, seit E9-3a)
+
+Ein Manifest beschreibt ein Modell samt Prüfsummen (`model-registry.ts`).
+Ersetzbar je Autor und `d`. Jeder kann eines veröffentlichen; wem ein Knoten
+glaubt, entscheidet sein Betreiber (V3 A aus `docs/E9-ENTWURF.md`, freigegeben
+08.10.2026): bis E9-4 nur dem eigenen Schlüssel, danach auch Kuratoren aus
+abonnierten Modellkatalogen (38080).
+
+| Tag | Inhalt |
+|---|---|
+| `d` | `model:<name>` |
+| `model` | Name; bei Ollama der Name dort, mit Tag (`qwen2.5:0.5b`) |
+| `name` | Anzeigename |
+| `bytes` | Summe der Dateigrößen |
+| `file` | je Datei: Name, SHA-256 (hex), Größe in Byte, Blob-Kennung im eigenen Netz (leer erlaubt) |
+| `upstream` | Herkunft; für Ollama `ollama:<derselbe Name>` |
+| `quant`, `params_b`, `license` | freiwillig |
+
+**Laden über Ollama:**
+- **Dateinamen:** Jede Datei heißt wie ihr Blob bei Ollama (`sha256-<hex>`).
+  Dazu gehören alle Schichten und die Konfiguration aus dem Manifest der
+  Registry (Docker-Format v2); `ollamaDateien()` baut diese Liste.
+- **Manifest wählen:** Der Knoten wählt eines über `vertrautesManifest()`.
+  - Es zählen nur der eigene Schlüssel und vertraute Kuratoren (bis E9-4
+    keine), je Schlüssel das neueste.
+  - Das eigene geht vor.
+  - Sonst müssen alle vertrauten dieselben Dateien nennen; bei Streit wählt
+    er keines.
+- **Eigenes Manifest:** `npm run modell -- <name> --aus-registry`. Der Knoten
+  signiert, was die Registry jetzt nennt, und veröffentlicht es. Später geladen
+  wird gegen dieses Manifest; eine neue Fassung in der Registry braucht ein
+  neues Festhalten.
+- **Prüfen:** Geprüft wird vor dem Laden gegen die Registry und danach gegen
+  die Schichten, die Ollama gemeldet hat (`pruefeSchichten()`: jede über
+  `verifyFile()`, Größe gleich, keine fremde, keine fehlende).
+- **Grenze der Prüfung:** Ollama prüft die Bytes jeder Schicht gegen ihre
+  Summe. Der Knoten prüft, dass es die Summen des Manifests sind.
