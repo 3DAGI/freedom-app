@@ -199,13 +199,7 @@ mod tor_start {
         let verbinden: Verbinden = match client {
             Some(client) => {
                 let c = client.clone();
-                let fehler = fehler.clone();
-                tauri::async_runtime::spawn(async move {
-                    match c.bootstrap().await {
-                        Ok(()) => bereit.store(true, Ordering::SeqCst),
-                        Err(_) => *fehler.lock().unwrap() = Some("bootstrap"),
-                    }
-                });
+                melde_ende(tauri::async_runtime::spawn(async move { c.bootstrap().await }), bereit, fehler.clone());
                 Arc::new(move |z: Ziel| {
                     let c = client.clone();
                     Box::pin(async move {
@@ -226,7 +220,26 @@ mod tor_start {
         });
         Ok(port)
     }
+
+    /// Meldet das Ende des Verbindens (eigene Aufgabe): bereit – sonst „bootstrap“, auch
+    /// nach einem Panik in arti.
+    pub(super) fn melde_ende<E: Send + 'static>(
+        lauf: tauri::async_runtime::JoinHandle<Result<(), E>>,
+        bereit: Arc<AtomicBool>,
+        fehler: Arc<Mutex<Option<&'static str>>>,
+    ) {
+        tauri::async_runtime::spawn(async move {
+            match lauf.await {
+                Ok(Ok(())) => bereit.store(true, Ordering::SeqCst),
+                _ => *fehler.lock().unwrap() = Some("bootstrap"),
+            }
+        });
+    }
 }
+
+// `catch_unwind` und `melde_ende()` fangen einen Fehler in arti nur mit Abwickeln
+#[cfg(panic = "abort")]
+compile_error!("Die Hülle braucht panic = \"unwind\" – sonst reißt ein Fehler in arti die App (netz.rs)");
 
 #[cfg(test)]
 mod tests {
@@ -289,5 +302,38 @@ mod tests {
         // Direkt bleibt still – ein alter Fehler zählt dort nicht
         let direkt = netz(false, None, Some("proxy"), true);
         assert_eq!(direkt.stand().fehler, None);
+    }
+
+    /// Wartet mit Frist, bis Tor bereit ist oder einen Fehler meldet.
+    fn ende_von<E: Send + 'static>(lauf: tauri::async_runtime::JoinHandle<Result<(), E>>) -> (bool, Option<&'static str>) {
+        let (bereit, fehler) = (Arc::new(AtomicBool::new(false)), Arc::new(Mutex::new(None)));
+        tor_start::melde_ende(lauf, bereit.clone(), fehler.clone());
+        let frist = std::time::Instant::now() + std::time::Duration::from_secs(10);
+        while !bereit.load(Ordering::SeqCst) && fehler.lock().unwrap().is_none() && std::time::Instant::now() < frist {
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        let f = *fehler.lock().unwrap();
+        (bereit.load(Ordering::SeqCst), f)
+    }
+
+    #[test]
+    fn ein_panik_beim_verbinden_ist_ein_fehler_und_reisst_die_huelle_nicht() {
+        assert_eq!(ende_von(tauri::async_runtime::spawn(async { Ok::<(), ()>(()) })), (true, None));
+        assert_eq!(ende_von(tauri::async_runtime::spawn(async { Err::<(), ()>(()) })), (false, Some("bootstrap")));
+        let panik = tauri::async_runtime::spawn(async {
+            if std::hint::black_box(true) {
+                panic!("Panik in arti (gewollt im Test)");
+            }
+            Ok::<(), ()>(())
+        });
+        assert_eq!(ende_von(panik), (false, Some("bootstrap")));
+    }
+
+    #[test]
+    fn das_release_wickelt_ab() {
+        // Mit `panic = "abort"` wären `catch_unwind` und `melde_ende()` wirkungslos
+        let profil = include_str!("../Cargo.toml").split("[profile.release]").nth(1).expect("Profil fehlt");
+        let profil = profil.split("\n[").next().unwrap_or("");
+        assert!(!profil.lines().any(|z| z.trim_start().starts_with("panic")), "panic im Release-Profil");
     }
 }
