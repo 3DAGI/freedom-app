@@ -18411,3 +18411,56 @@ Gegenprobe: Sechs absichtlich eingebaute Fehler im Gateway macht je ein Test rot
 - Andere Port-Grenze.
 
 Im Smoke-Test: Anlegen ohne Rückfrage.
+
+## Schritt 6.1c2a – Downloads: Release von Hand, Website, Linux arm64
+
+Wunsch des MENSCHEN (08.10.2026): Downloads für Linux, Windows und das Handy auf der
+Website. Entscheidung dazu: Android nur mit **festem Schlüssel** (den legt der MENSCH an);
+bis dahin bietet die Website Linux und Windows an, Android „folgt“. Desktop als
+unsignierte Vorschau – freigegeben mit dieser Entscheidung.
+
+**`.github/workflows/launcher.yml`:**
+- Linux auch für arm64 (`ubuntu-24.04-arm`, z. B. für NVIDIA DGX Spark). Artefakte und
+  Cache tragen jetzt die Architektur im Namen. Fehlt Rust im Abbild, kommt es über
+  rustup.
+- Der Android-Job legt zusätzlich das unsignierte APK ab – für den festen Schlüssel
+  im Release.
+- Neuer Job „veroeffentlichen“: nur über „Run workflow“ mit Haken und nur auf `main`
+  (wie der Spiegel). Er hängt an allen Bau-Jobs und prüft die Pakete gegen deren
+  `SHA256SUMS`. Danach benennt er sie fest (`freedom-linux-x64.AppImage` … `freedom-windows-x64-setup.exe`),
+  signiert das APK mit dem festen Schlüssel aus den Secrets und legt das Release
+  `app-v<version>-<lauf>` mit `SHA256SUMS` und ehrlichen Notizen an.
+- Die Secrets liest nur dieser eine Schritt, das Passwort geht über `env:` an
+  `apksigner` und nie auf die Befehlszeile. v4-Signatur aus, sonst läge eine
+  `.idsig` im Release.
+- Fehlen die Secrets, kommt das Release ohne APK – nie mit dem Wegwerf-Schlüssel.
+  Mit dem ginge jedes Update nur nach dem Deinstallieren, und Tresor und Verläufe
+  wären weg.
+
+**Website (`#downloads`):** je eine Zeile für Linux (AppImage/.deb, x64/arm64), Windows
+(Installer, Hinweis auf die SmartScreen-Warnung) und Android (folgt mit dem festen
+Schlüssel). Dazu: neue Versionen über die alte installieren, Daten bleiben;
+`SHA256SUMS` und alle Versionen verlinkt. Mobil brechen die Knöpfe um.
+
+**`scripts/check-website.py`:** Download-Links nur unter
+`github.com/3DAGI/freedom-app/releases/latest/download/` und nur mit Namen, die der Job
+erzeugt. Die Namen liest das Skript aus `launcher.yml`, sonst zeigte die Seite auf eine
+Datei, die es nie gibt. Geprüft mit drei falschen Links (falscher Name, fremdes Repo,
+Test-APK): alle abgewiesen.
+
+**Lokal geprüft:** die drei Skripte des Jobs mit nachgebauten Artefakten.
+- Namen und Summen stimmen.
+- Ohne Secrets: Warnung, kein APK.
+- Mit einem Wegwerf-Schlüssel nur für die Probe: APK signiert und geprüft,
+  Schlüsseldatei danach gelöscht.
+- Die Notizen nennen den Fingerabdruck des Zertifikats.
+
+Website gebaut und auf Desktop und Handy angesehen.
+
+**Gefunden, nicht Teil des Schritts:** Die Startseite ist auf dem Handy (390 px) 479 px
+breit – schon auf `main`, nicht durch diesen Schritt.
+
+**Offen:** Den festen Schlüssel legt der MENSCH an (Anleitung in
+`packages/launcher/README.md`). Danach ein Release von Hand, dann zeigt die Website
+Android. Für Linux und Windows muss das erste Release laufen, sobald das hier gemergt
+ist – bis dahin führen die Links ins Leere.

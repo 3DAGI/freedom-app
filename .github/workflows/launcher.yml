@@ -6,6 +6,10 @@
 # veroeffentlicht wird nichts (das Selbst-Update der Hülle folgt mit 6.1a4b).
 # Seit 6.1c auch Android: ein APK fuer arm64, signiert mit einem Wegwerf-Schluessel,
 # der nur in diesem Lauf entsteht – zum Testen, kein Release.
+# Seit 6.1c2a (Freigabe MENSCH 08.10.2026) auch Linux arm64 und ein Release zum
+# Herunterladen: nur ueber „Run workflow“ mit Haken „veroeffentlichen“ auf main
+# (Job unten). Feste Dateinamen, auf die die Website zeigt; Desktop unsigniert,
+# das APK nur mit dem festen Schluessel aus den Secrets – ohne ihn kein APK.
 
 name: Desktop-Hülle
 
@@ -16,6 +20,14 @@ on:
   pull_request:
     paths: ["packages/launcher/**", "packages/app/**", "packages/protocol/src/**", "scripts/launcher-symbole.py", ".github/workflows/launcher.yml"]
   workflow_dispatch:
+    inputs:
+      veroeffentlichen:
+        description: "Release zum Herunterladen veröffentlichen (nur main)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
 
 jobs:
   bauen:
@@ -25,7 +37,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04, windows-latest]
+        os: [ubuntu-24.04, ubuntu-24.04-arm, windows-latest]
 
     steps:
       - uses: actions/checkout@v4
@@ -49,6 +61,14 @@ jobs:
           sudo apt-get update -q
           sudo apt-get install -y -q libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev libssl-dev
 
+      - name: Rust (falls das Abbild keins hat)
+        shell: bash
+        run: |
+          if ! command -v cargo > /dev/null; then
+            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
+            echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          fi
+
       - name: Symbole passen zum Logo
         shell: bash
         run: python3 scripts/launcher-symbole.py --pruefen
@@ -62,7 +82,7 @@ jobs:
             ~/.cargo/bin/cargo-tauri
             ~/.cargo/bin/cargo-tauri.exe
             packages/launcher/target
-          key: launcher-${{ runner.os }}-${{ hashFiles('packages/launcher/Cargo.lock') }}
+          key: launcher-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('packages/launcher/Cargo.lock') }}
 
       - name: Tests
         working-directory: packages/launcher
@@ -98,7 +118,7 @@ jobs:
       - name: Pakete ablegen (Artefakt, kein Release)
         uses: actions/upload-artifact@v4
         with:
-          name: freedom-desktop-${{ runner.os }}
+          name: freedom-desktop-${{ runner.os }}-${{ runner.arch }}
           path: |
             packages/launcher/target/release/bundle/SHA256SUMS
             packages/launcher/target/release/bundle/deb/*.deb
@@ -184,7 +204,7 @@ jobs:
             -keyalg EC -groupname secp256r1 -validity 30 -dname "CN=FreedomStack Test (je Lauf neu)" 2> /dev/null
           "$BT/zipalign" -P 16 -f 4 app-universal-release-unsigned.apk ausgerichtet.apk
           "$BT/apksigner" sign --ks "$RUNNER_TEMP/wegwerf.jks" --ks-pass "pass:$PW" --out freedom-android-arm64-test.apk ausgerichtet.apk
-          rm -f "$RUNNER_TEMP/wegwerf.jks" ausgerichtet.apk
+          rm -f "$RUNNER_TEMP/wegwerf.jks" ausgerichtet.apk  # das unsignierte bleibt – fuer den festen Schluessel im Release
           "$BT/apksigner" verify --print-certs freedom-android-arm64-test.apk | head -2
           sha256sum freedom-android-arm64-test.apk > SHA256SUMS
           cat SHA256SUMS
@@ -196,5 +216,86 @@ jobs:
           path: |
             packages/launcher/gen/android/app/build/outputs/apk/universal/release/freedom-android-arm64-test.apk
             packages/launcher/gen/android/app/build/outputs/apk/universal/release/SHA256SUMS
+            packages/launcher/gen/android/app/build/outputs/apk/universal/release/app-universal-release-unsigned.apk
           if-no-files-found: error
           retention-days: 14
+
+  # Release zum Herunterladen (6.1c2a): nur von Hand („Run workflow“, Haken
+  # „veroeffentlichen“) und nur auf main – wie der Spiegel in pages.yml. Die
+  # Secrets des festen Android-Schluessels gibt es nur im Schritt, der signiert;
+  # ohne sie kommt das Release ohne APK (nie mit dem Wegwerf-Schluessel).
+  veroeffentlichen:
+    name: Release veroeffentlichen (von Hand, nur main)
+    if: github.event_name == 'workflow_dispatch' && inputs.veroeffentlichen && github.ref == 'refs/heads/main'
+    needs: [bauen, android]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: artefakte
+
+      - name: Pakete pruefen und fest benennen
+        run: |
+          set -euo pipefail
+          for d in artefakte/freedom-desktop-*; do (cd "$d" && sha256sum -c --quiet SHA256SUMS); done
+          mkdir release
+          nimm() {
+            mapfile -t t < <(find "artefakte/$1" -type f -name "$2")
+            [ "${#t[@]}" = 1 ] || { echo "nicht genau eine Datei: $1/$2"; exit 1; }
+            cp "${t[0]}" "release/$3"
+          }
+          nimm freedom-desktop-Linux-X64 '*.AppImage' freedom-linux-x64.AppImage
+          nimm freedom-desktop-Linux-X64 '*.deb' freedom-linux-x64.deb
+          nimm freedom-desktop-Linux-ARM64 '*.AppImage' freedom-linux-arm64.AppImage
+          nimm freedom-desktop-Linux-ARM64 '*.deb' freedom-linux-arm64.deb
+          nimm freedom-desktop-Windows-X64 '*-setup.exe' freedom-windows-x64-setup.exe
+
+      - name: APK mit dem festen Schluessel signieren (nur hier)
+        env:
+          ANDROID_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          set -euo pipefail
+          if [ -z "$ANDROID_KEYSTORE" ] || [ -z "$ANDROID_KEYSTORE_PASSWORD" ] || [ -z "$ANDROID_KEY_ALIAS" ]; then
+            echo "::warning::Kein fester Android-Schluessel in den Secrets – das Release kommt ohne APK."
+            exit 0
+          fi
+          BT="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)"
+          umask 077
+          printf '%s' "$ANDROID_KEYSTORE" | base64 -d > "$RUNNER_TEMP/fest.jks"
+          "$BT/zipalign" -P 16 -f 4 artefakte/freedom-android/app-universal-release-unsigned.apk "$RUNNER_TEMP/ausgerichtet.apk"
+          "$BT/apksigner" sign --ks "$RUNNER_TEMP/fest.jks" --ks-pass env:ANDROID_KEYSTORE_PASSWORD \
+            --ks-key-alias "$ANDROID_KEY_ALIAS" --v4-signing-enabled false --out release/freedom-android-arm64.apk "$RUNNER_TEMP/ausgerichtet.apk"
+          rm -f "$RUNNER_TEMP/fest.jks" "$RUNNER_TEMP/ausgerichtet.apk"
+          "$BT/apksigner" verify --print-certs release/freedom-android-arm64.apk | grep 'SHA-256' | tee "$RUNNER_TEMP/zertifikat.txt"
+
+      - name: Pruefsummen und Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          VERSION="$(python3 -c 'import json; print(json.load(open("packages/launcher/tauri.conf.json"))["version"])')"
+          TAG="app-v$VERSION-$GITHUB_RUN_NUMBER"
+          (cd release && sha256sum -- * > "$RUNNER_TEMP/SHA256SUMS") && mv "$RUNNER_TEMP/SHA256SUMS" release/
+          {
+            echo "Vorschau der App als eigenes Programm (Hülle $VERSION, Commit $GITHUB_SHA)."
+            echo
+            echo "- Linux (x64, arm64) und Windows: unsigniert – Windows warnt beim Installieren. Vorher die Summe mit SHA256SUMS vergleichen."
+            if [ -f release/freedom-android-arm64.apk ]; then
+              echo "- Android (arm64): signiert mit dem festen Schlüssel des Projekts – $(cut -d: -f2- "$RUNNER_TEMP/zertifikat.txt" | tr -d ' ')."
+            else
+              echo "- Android: noch nicht – es fehlt der feste Schlüssel."
+            fi
+            echo "- Neue Versionen: neu herunterladen und darüber installieren; Daten bleiben."
+            echo
+            echo "Preview of the app as its own program. Desktop builds are unsigned; compare the checksum with SHA256SUMS first."
+          } > "$RUNNER_TEMP/notizen.md"
+          gh release create "$TAG" release/* --target "$GITHUB_SHA" --latest \
+            --title "FreedomStack $VERSION – Vorschau (Lauf $GITHUB_RUN_NUMBER)" --notes-file "$RUNNER_TEMP/notizen.md"

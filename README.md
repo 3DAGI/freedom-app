@@ -21,7 +21,7 @@ kann das Netz allein abschalten.
 | `packages/node` | Provider-Knoten: KI-Aufträge, Abrechnung, Liquidität für Swaps, Relay-, Speicher- und Gateway-Rolle |
 | `packages/mls` | MLS (Marmot/MDK) als WebAssembly – Gruppen- und 1:1-Verschlüsselung mit Vorwärtsgeheimnis |
 | `packages/website` | Startseite, Whitepaper, FAQ, Roadmap, Status-Seite |
-| `packages/launcher` | Die App als eigenes Programm für Linux, Windows und Android (Tauri 2), auf Wunsch über Tor – in Arbeit, Pakete als Test-Artefakte der CI |
+| `packages/launcher` | Die App als eigenes Programm für Linux, Windows und Android (Tauri 2), auf Wunsch über Tor – Vorschau zum Herunterladen über die Releases (Linux x64/arm64, Windows; Android mit festem Schlüssel) |
 | `contracts/solana-htlc` | Hash-Zeitschloss für Swaps Lightning ↔ SOL (Devnet) |
 | `contracts/solana-channel` | Zahlkanal für SOL (`docs/ZAHLKANAL.md`) |
 | `docs/` | Protokoll (`PROTOCOL.md`), Ausbauplan (`ausbau/`), Entscheidungen (`neuordnung/SAMMLUNG.md`) |
