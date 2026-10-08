@@ -109,3 +109,29 @@ export function gratisKandidaten<T extends { caps: Pick<ProviderCapabilities, "c
 ): T[] {
   return kandidaten.filter((c) => c.caps.currentlyFree && powFuerAnfrage(c.caps.powBits ?? 0, c.caps.gratis) <= maxPow);
 }
+
+/** Zustimmung zum Bezahlen im Tarif „Automatisch“ (A-14b2) – nur auf diesem Gerät. */
+export const LS_AUTO_BEZAHLEN = "freedom.gratis.bezahlenOk";
+
+export type AutoWahl =
+  | { art: "gratis" }
+  | { art: "bezahlt" }
+  | { art: "fragen"; grund: "kontingent" | "keinGratis" }
+  | { art: "wallet"; grund: "kontingent" | "keinGratis" };
+
+/**
+ * Tarif „Automatisch“ (A-14b2, G1): gratis, solange das Gerät Kontingent hat
+ * und ein Provider gratis anbietet. Sonst bezahlt – das erste Mal nur nach
+ * Rückfrage, ohne Wallet gar nicht. Nie still bezahlen.
+ */
+export function waehleAuto(o: { kontingentLeer: boolean; gratisAnbieter: number; zugestimmt: boolean; wallet: boolean }): AutoWahl {
+  if (!o.kontingentLeer && o.gratisAnbieter > 0) return { art: "gratis" };
+  const grund = o.kontingentLeer ? "kontingent" : "keinGratis";
+  if (!o.wallet) return { art: "wallet", grund };
+  return o.zugestimmt ? { art: "bezahlt" } : { art: "fragen", grund };
+}
+
+/** Für die Modell-Liste: „Automatisch“ zeigt, was gratis geht – und alles darüber (A-14b2). */
+export function tierFuerListe(wahl: string): string {
+  return wahl === "auto" ? "free" : wahl;
+}

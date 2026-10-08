@@ -26,8 +26,12 @@ import { type KnotenWeg, wegZumKnoten } from "../knoten-weg-ui.js";
 import { knotenModellAus } from "../../knoten-wahl.js";
 import { hoechstMsat } from "../../anteile-kasse.js";
 import { $, quotaExhausted, refreshQuota, toast, el } from "../ui.js";
-import { GERAET_GRATIS, powFuerAnfrage } from "../../gratis-kontingent.js";
-import { geraeteKontingent, gratisJeProvider } from "../gratis-start.js";
+import { GERAET_GRATIS, powFuerAnfrage, waehleAuto } from "../../gratis-kontingent.js";
+import { autoZugestimmt, geraeteKontingent, gratisAnbieter, gratisJeProvider, merkeAutoZustimmung } from "../gratis-start.js";
+import { eineSchieneDa } from "../zahlschienen.js";
+import { bestaetige } from "../dialog.js";
+import { ausMsat } from "../../preis-anzeige.js";
+import { aktuellerKurs } from "../marktkurs.js";
 import { zeigeModelle } from "./agent-netz.js";
 import { type Pruefer } from "../../streitfall.js";
 import { zeigeMitwirkende } from "./earn.js";
@@ -168,7 +172,36 @@ export async function askAi(): Promise<void> {
   const selTier = ($("#ai-tier") as HTMLSelectElement).value;
   const maxMode = selTier === "max";
   const swarmMode = selTier === "swarm";
-  const tier = (maxMode || swarmMode ? "pro" : selTier) as "free" | "classic" | "pro";
+  let tier = (maxMode || swarmMode ? "pro" : selTier) as "free" | "classic" | "pro";
+  // Tarif „Automatisch“ (A-14b2, G1): erst gratis – danach bezahlt, das erste Mal nur nach Rückfrage, nie still
+  if (selTier === "auto") {
+    const wahl = waehleAuto({
+      kontingentLeer: geraeteKontingent.erschoepft(),
+      gratisAnbieter: gratisAnbieter(privatFaehig(await findProviders("free")), MAX_POW_APP).length,
+      zugestimmt: autoZugestimmt(),
+      wallet: await eineSchieneDa(),
+    });
+    if (wahl.art === "wallet") {
+      toast(t(wahl.grund === "kontingent" ? "agent.autoWalletKontingent" : "agent.autoWalletKeinGratis"), true);
+      merkeGratisAbgelehnt();
+      resetSendBtn(btn);
+      return;
+    }
+    if (wahl.art === "fragen") {
+      const gebot = ausMsat(bid * 1000, aktuellerKurs());
+      const ok = await bestaetige({
+        titel: t("agent.autoTitel"),
+        text: t(wahl.grund === "kontingent" ? "agent.autoFrageKontingent" : "agent.autoFrageKeinGratis", { gebot }),
+        ok: t("agent.autoOk"),
+      });
+      if (!ok) {
+        resetSendBtn(btn);
+        return;
+      }
+      merkeAutoZustimmung();
+    }
+    tier = wahl.art === "gratis" ? "free" : "classic";
+  }
   // Gratis-Kontingent dieses Geräts (A-14b, G1): aufgebraucht → nichts hinaus, die Wallet ist dran
   if (tier === "free" && geraeteKontingent.erschoepft()) {
     toast(t("agent.gratisGeraetLeer", { antworten: GERAET_GRATIS.antworten, tokens: GERAET_GRATIS.tokens.toLocaleString(gebietsschema()) }), true);
@@ -541,7 +574,9 @@ async function pollAiAnswer(requestId: string): Promise<void> {
  * jedes Byte kostet Sendezeit. Gratis-Tarif heißt Gebot 0.
  */
 async function frageUeberFunk(prompt: string, bid: number): Promise<void> {
-  const gebot = ($("#ai-tier") as HTMLSelectElement).value === "free" ? 0 : bid;
+  // „Automatisch“ über Funk nur gratis (A-14b2) – die Rückfrage vor dem Bezahlen gibt es dort nicht
+  const wahlFunk = ($("#ai-tier") as HTMLSelectElement).value;
+  const gebot = wahlFunk === "free" || wahlFunk === "auto" ? 0 : bid;
   hideEmptyState();
   addAiMessage("user", prompt, "");
   ($("#ai-prompt") as HTMLTextAreaElement).value = "";
