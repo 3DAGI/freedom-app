@@ -25,8 +25,9 @@ Relays, RPC-Anbietern und Lightning-Diensten.
   Signaturen und Prüfsumme selbst – a3a ✓ mit `k256`; a3b ✓ Ablage, alte Fassung als
   Rückfall nur über den Start; a3c ✓ Knopf in der App), a4a Pakete ✓ (deb,
   AppImage, Installer für Windows – als Artefakt der CI, unsigniert), a4b
-  Selbst-Update der Hülle (Signierschlüssel: MENSCH); b Tor (arti, vorher
-  fragen), c Android – c1 ✓ APK zum Testen (CI, Wegwerf-Schlüssel je Lauf), c2 fester
+  Selbst-Update der Hülle (Signierschlüssel: MENSCH); b Tor – arti freigegeben
+  07.10.2026, Desktop zuerst: b1a ✓ Hülle (SOCKS5 nur fürs eigene Webview, Wahl
+  Direkt/Tor, nie still direkt), b1b Schalter in der App, b2 Android; c Android – c1 ✓ APK zum Testen (CI, Wegwerf-Schlüssel je Lauf), c2 fester
   Schlüssel und Verteilung (MENSCH). Schritt 1–3 oben gehören zu b.
 
 ## 6.2 Ehrlicher Modus in der Web-App
