@@ -1055,6 +1055,12 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   `darfKanalAendern()` (dieselbe Regel wie `mitRaumKanaelen()`), privat
   `aenderePrivatenKanal()`; nie den letzten Kanal. Zwei Kanal-Events derselben
   Sekunde entscheidet die Id – im Test eine Sekunde dazwischen.
+  Wer beitritt, schreibt mit (seit B-22, MENSCH 08.10.: wie @everyone) über die
+  Rolle für alle in der Rollenliste des Gründers (`JEDER_ROLLE`) – sie bringt nur
+  `JEDER_RECHTE` (lesen, schreiben, Threads), nie Moderieren, Vergeben oder
+  Verwalten; Kanäle mit Schreibrollen (#ankündigungen) bleiben beschränkt. Neue
+  offene Räume legt die App mit ihr an, umgeschaltet wird nur über
+  `stelleSchreibrechtEin()` (Gründer, neue Rollenliste, übrige Rollen bleiben).
 - **Umfragen und Termine nur in der Gruppe** (seit B-15a, `raum-planung.ts`):
   NIP-88 (1068/1018) und NIP-52 (31922/31923/31925) nur als innere Events
   privater Räume über `raumUmfrage()`, `raumStimme()`, `raumTermin()`,

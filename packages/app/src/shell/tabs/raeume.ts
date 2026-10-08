@@ -7,7 +7,7 @@
  * Dialoge (`shell/dialog.ts`) statt `prompt()`, `confirm()` und `alert()`.
  */
 import {
-  MELDE_GRUENDE, RAUM_REPO_RECHT, applyModeration, can as darf, darfKanalAendern, gruenderZurKennung, leseRaumAdresse, raumAdresse, raumModeration, raumZustandFuer, type Channel, type ChannelMessage, type MeldeGrund, type Space, type SpaceState, type ThreadView,
+  JEDER_RECHTE, JEDER_ROLLE, MELDE_GRUENDE, RAUM_REPO_RECHT, applyModeration, can as darf, darfKanalAendern, gruenderZurKennung, leseRaumAdresse, raumAdresse, raumModeration, raumZustandFuer, type Channel, type ChannelMessage, type MeldeGrund, type Space, type SpaceState, type ThreadView,
 } from "@freedomstack/protocol";
 import { pkShort, schluesselAusEingabe } from "../../shell-logic.js";
 import { ensurePool, signiere, state } from "../state.js";
@@ -312,6 +312,7 @@ function zeigeRaumArt(spaceId: string): void {
   const kanaele = privat ? moderator : darfKanaele();
   document.getElementById("space-invite")?.classList.toggle("hidden", !privat || !moderator);
   document.getElementById("space-mods")?.classList.toggle("hidden", !verwalten);
+  document.getElementById("space-schreiben")?.classList.toggle("hidden", privat || !gruender);
   document.getElementById("space-kanal-neu")?.classList.toggle("hidden", !kanaele);
   document.getElementById("space-kanal-aendern")?.classList.toggle("hidden", !kanaele);
   const repos = darfRepos();
@@ -590,7 +591,9 @@ async function oeffneKanal(channelId: string): Promise<void> {
   const ro = $("#channel-readonly");
   if (ro) {
     ro.classList.toggle("hidden", darf);
-    ro.textContent = darf ? "" : t("komm.nurRollen");
+    // Offen ohne Rolle für alle (B-22): sagen, wie man schreiben darf
+    const nurMitRolle = !spacesUi.privat && (kanal as Channel).writeRoles.length === 0 && !(st as SpaceState).roles?.has(JEDER_ROLLE);
+    ro.textContent = darf ? "" : t(nurMitRolle ? "raum.nurMitRolle" : "komm.nurRollen");
   }
 
   merkeLesestand(channelId);
@@ -1040,6 +1043,8 @@ async function legeRaumAn(oeffentlich = false): Promise<void> {
       { id: MOD_ROLLE, name: "Moderator", rank: 50, permissions: [...MOD_RECHTE] }, // kein UI-Text
       { id: "mitglied", name: "Mitglied", rank: 10, // kein UI-Text
         permissions: ["lesen", "schreiben", "threads"] },
+      // Wer beitritt, schreibt mit (B-22, MENSCH 08.10.: wie @everyone) – Kanäle mit Rollen bleiben beschränkt
+      { id: JEDER_ROLLE, name: "Jeder", rank: 0, permissions: [...JEDER_RECHTE] }, // kein UI-Text
     ] as never)));
 
     // Gemerkt und weitergegeben wird die Adresse (B-7): mit ihr zählt nur meine Definition
@@ -1225,6 +1230,36 @@ async function ernenneModeratoren(): Promise<void> {
   }
 }
 
+/**
+ * Wer im offenen Raum schreibt (B-22, MENSCH 08.10.): mit der Rolle für alle
+ * (`JEDER_ROLLE`) jeder, der beitritt – in Kanälen ohne Rollen-Beschränkung, wie
+ * „@everyone“ bei Discord. Nur der Gründer, über seine Rollenliste (34701); die
+ * übrigen Rollen bleiben, wie sie sind.
+ */
+async function stelleSchreibrechtEin(): Promise<void> {
+  if (!state.keypair || !spacesUi.spaceId || spacesUi.privat) return;
+  const kennung = offeneKennung();
+  const raumSt = spacesUi.state as SpaceState | null;
+  if (!kennung || !raumSt?.space || raumSt.ownerPubkey !== state.keypair.pk) return;
+  const offen = raumSt.roles.has(JEDER_ROLLE);
+  const w = await dialog({
+    titel: t("raum.schreibenAlle"), text: t("raum.schreibenText"),
+    felder: [{ art: "wahl", name: "wer", label: t("raum.kanalSchreiben"), wert: offen ? "jeder" : "rolle",
+      optionen: [{ wert: "jeder", text: t("raum.schreibenJeder") }, { wert: "rolle", text: t("raum.schreibenRolle") }] }],
+  });
+  if (!w || (w.wer === "jeder") === offen) return;
+  const { buildRoles } = await import("@freedomstack/protocol");
+  const rollen = [...raumSt.roles.values()].filter((r) => r.id !== JEDER_ROLLE);
+  if (w.wer === "jeder") rollen.push({ id: JEDER_ROLLE, name: "Jeder", rank: 0, permissions: [...JEDER_RECHTE] }); // kein UI-Text
+  try {
+    await (await ensurePool()).publish(await signiere(buildRoles(kennung, state.keypair.pk, rollen)));
+    toast(t(w.wer === "jeder" ? "raum.schreibenJederAn" : "raum.schreibenJederAus"));
+    await oeffneRaum(spacesUi.spaceId);
+  } catch (e) {
+    toast(fehlerText(e), true);
+  }
+}
+
 export async function wireSpacesTab(): Promise<void> {
   ladeLesestand();
   const send = $("#space-send");
@@ -1302,6 +1337,8 @@ export async function wireSpacesTab(): Promise<void> {
   });
   const mods = $("#space-mods");
   if (mods) mods.onclick = () => void ernenneModeratoren();
+  const schreiben = $("#space-schreiben");
+  if (schreiben) schreiben.onclick = () => void stelleSchreibrechtEin();
   document.getElementById("space-kanal-neu")?.addEventListener("click", () => void legeKanalAn());
   document.getElementById("space-kanal-aendern")?.addEventListener("click", () => void aendereKanal());
   // Repos im Raum (11.4c): anlegen aus dem Menü, die Liste folgt jedem Laden der Repos

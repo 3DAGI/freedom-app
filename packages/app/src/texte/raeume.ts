@@ -123,6 +123,16 @@ export const raeume: Texte = {
   "raum.terminAbsagen": { de: "✗ Absage · {n}", en: "✗ Not going · {n}" },
   "raum.planungLoeschen": { de: "Löschen?", en: "Delete?" },
   "raum.planungLoeschenText": { de: "Für alle Mitglieder löschen? Wer sie schon gesehen hat, hat sie gesehen.", en: "Delete for all members? Whoever has already seen it has seen it." },
+  "raum.schreibenAlle": { de: "Wer im Raum schreiben darf", en: "Who may write in this room" },
+  "raum.schreibenText": {
+    de: "Wie „@everyone“ bei Discord: Mit „Alle, die beitreten“ schreibt jeder in den Kanälen, die nicht auf Rollen beschränkt sind – #ankündigungen bleibt bei den Moderatoren. Moderieren, Rollen vergeben und Kanäle verwalten gibt es weiter nur über eine Rolle; Ausblenden und Sperren wirken wie bisher.",
+    en: "Like “@everyone” on Discord: with “Everyone who joins”, anyone writes in the channels that are not limited to roles – #ankündigungen stays with the moderators. Moderating, assigning roles and managing channels still need a role; hiding and banning work as before.",
+  },
+  "raum.schreibenJeder": { de: "Alle, die beitreten", en: "Everyone who joins" },
+  "raum.schreibenRolle": { de: "Nur wer eine Rolle hat (Mitglied, Moderator)", en: "Only those with a role (member, moderator)" },
+  "raum.schreibenJederAn": { de: "Jetzt schreiben alle, die beitreten", en: "Everyone who joins can now write" },
+  "raum.schreibenJederAus": { de: "Jetzt schreibt nur, wer eine Rolle hat", en: "Now only those with a role can write" },
+  "raum.nurMitRolle": { de: "Hier schreibt nur, wer im Raum eine Rolle hat – wer den Raum gegründet hat, kann ihn für alle öffnen. Lesen kannst du alles.", en: "Only those with a role in this room can write here – whoever founded the room can open it to everyone. You can read everything." },
   "raum.infoOffen": {
     de: "Offen: Jeder kann mitlesen, auch ohne diese App.\n\nDie Rechte hier regeln, wer schreiben darf — nicht, wer lesen kann.\nNachrichten liegen unverschlüsselt auf den Relays.",
     en: "Open: anyone can read along, even without this app.\n\nThe rights here govern who may write — not who can read.\nMessages sit unencrypted on the relays.",

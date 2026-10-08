@@ -17976,3 +17976,47 @@ Verdrahtet wird mit 7.5b (Ausnahmen in `wiring-ausnahmen.txt` mit diesem Verweis
 übersprungen), app 938 grün, Leak 73 grün + 1 todo, mls 13 grün; check-wiring
 `--streng` Exit 0 (0 offen), check-website ok, check_innerhtml Exit 0;
 repro-build reproduzierbar, build-site Exit 0, Smoke-Test bestanden.
+
+## Schritt B-22 – Öffentliche Räume: Wer beitritt, schreibt mit
+
+Entscheidung MENSCH 08.10.2026 nach dem Nutzertest (Befund R-8): Wer einem
+öffentlichen Raum beitritt, schreibt in den Kanälen, die das erlauben – wie
+„@everyone“ bei Discord. Bis hier hatte ein Beigetretener keine Rolle und damit
+kein Recht „schreiben“, auch nicht in #allgemein; die Gründerin erfuhr nichts
+vom Beitritt, und der Hinweis sagte nicht, wie man schreiben darf.
+
+**Was neu ist:**
+- `JEDER_ROLLE` („jeder“) und `JEDER_RECHTE` (lesen, schreiben, Threads) in
+  `spaces.ts`: Nennt die Rollenliste des Gründers (34701) die Rolle, gilt sie für
+  jeden, ohne Zuweisung (`permissionsOf()`); nur ihre Grundrechte zählen –
+  Moderieren, Rollen vergeben, Kanäle verwalten und Repos pflegen gibt es weiter
+  nur über eine zugewiesene Rolle mit Rang. `canWriteTo()`: Kanäle ohne
+  Schreibrollen und Kanäle, die `jeder` nennen; #ankündigungen (`mod`) bleibt bei
+  den Moderatoren. Eine Rollenliste mit `jeder` von jemand anderem zählt wie bisher nicht.
+- App (`shell/tabs/raeume.ts`): neue offene Räume mit der Rolle für alle;
+  Menüpunkt „Wer im Raum schreiben darf“ (`#space-schreiben`, nur der Gründer eines
+  offenen Raums) → `stelleSchreibrechtEin()`: „Alle, die beitreten“ oder „Nur wer
+  eine Rolle hat“, veröffentlicht eine neue Rollenliste, die übrigen Rollen
+  bleiben. Ohne die Rolle sagt der Hinweis im Kanal jetzt, dass der Gründer den
+  Raum für alle öffnen kann (`raum.nurMitRolle`); die Warnung beim Anlegen nennt
+  das Mitschreiben. Ältere Räume bleiben, wie sie sind, bis der Gründer umschaltet.
+
+**Verdrahtet:** `legeRaumAn()` (Rollenliste mit `JEDER_ROLLE`), `zeigeRaumArt()`
+(`#space-schreiben`), `stelleSchreibrechtEin()` über `wireSpacesTab()`,
+`oeffneKanal()` (Hinweis mit `JEDER_ROLLE`); `permissionsOf()`/`canWriteTo()` im
+echten Pfad jeder Schreibprüfung offener Räume.
+
+**Tests:** `spaces.test.ts` (+2: Beigetretene schreiben im offenen Kanal, nicht in
+#ankündigungen, ausdrücklich genannte Rolle, zurückgeschaltet wieder zu; nur
+Grundrechte – kein Moderieren, Vergeben, Verwalten, keine Selbst-Zuweisung,
+Ausblenden zählt nicht mit Gegenprobe, fremde Rollenliste zählt nicht),
+`app/test/raum-jeder.test.ts` (+4: Raum wie die App ihn anlegt über
+`raumZustandFuer()`, Kanal-Event eines Beigetretenen zählt nicht, zurückgeschaltet
+und ältere Räume, Verdrahtung, Texte).
+
+**Doku:** `docs/PROTOCOL.md` §22 (Rolle für alle), CLAUDE.md (Fallstrick Offene
+Räume), FORTSCHRITT (Spur B).
+
+**Prüfungen:** PRUEFUNGEN_B22
+
+Knoten-Stand: unverändert.

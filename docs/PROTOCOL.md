@@ -706,6 +706,17 @@ Neue Kanäle zählen höchstens bis 100 je Raum; Events, die mehr als 600 s in
 der Zukunft liegen, gar nicht (`KANAL_GRENZEN`) – sonst gewönne ein
 vordatiertes Event gegen jede spätere Änderung, auch die des Gründers.
 
+**Rolle für alle** (seit B-22, Entscheidung 08.10.2026 – wie „@everyone“ bei
+Discord): Nennt die Rollenliste des Gründers (34701) eine Rolle mit der Kennung
+`jeder` (`JEDER_ROLLE`), gilt sie für jeden, auch ohne Zuweisung (34702). Davon
+zählen nur `lesen`, `schreiben` und `threads` (`JEDER_RECHTE`) – Moderieren,
+Rollen vergeben, Kanäle verwalten und Repos pflegen gibt es nur über eine
+zugewiesene Rolle mit Rang. Wer nur sie hat, schreibt in Kanälen ohne
+Schreibrollen und in Kanälen, die `jeder` nennen; #ankündigungen (`mod`) bleibt
+bei den Moderatoren. Neue offene Räume legt die App mit ihr an; der Gründer
+nimmt sie mit einer neuen Rollenliste wieder heraus (dann schreibt nur, wer eine
+Rolle hat, wie vor B-22). Ältere Räume ohne sie bleiben, wie sie sind.
+
 ## 23. Halten beim eigenen Knoten (Kind 5076, seit B-9b)
 
 Entscheidung L4 A: Der Besitzer lässt einen verschlüsselten Blob von seinem
