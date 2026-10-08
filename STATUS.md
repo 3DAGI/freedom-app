@@ -17929,3 +17929,50 @@ baut die CI, Pakete zum Herunterladen folgen mit dem ersten signierten Release.
   (6 übersprungen), node 314 grün (6 übersprungen), mls 13 grün.
 - check-wiring `--streng` Exit 0, check-website ok, check_innerhtml Exit 0.
 - repro-build reproduzierbar, build-site Exit 0, Smoke-Test bestanden.
+
+## Schritt 7.5a – Meshtastic-Geräte direkt: Format im Protokoll
+
+**Anlass (MENSCH 08.10.):** Die Frage, ob Freedom ohne Internet nur mit LoRa geht.
+LoRaWAN/The Things Network passt tatsächlich nicht (Stern über Internet, Fair Use
+rund 30 s Sendezeit am Tag). Das Mesh aus Phase 7 braucht kein Internet – aber seit
+7.4c1 schickte die App rohe Rahmen mit Längenpräfix über USB und den Bluetooth-Dienst
+„Nordic UART“. Meshtastic, die verbreitete Firmware der LoRa-Geräte um 40 €, spricht
+ein eigenes Protobuf-Format und verwarf die Rahmen still; die „Firmware mit
+Längenpräfix“ aus 7.4 gab es nie. Entscheidung: Spur A baut die Anbindung (7.5a–d),
+Kanal nach Variante (a); die Befunde gehen über `docs/MESHTASTIC.md` an Spur B.
+
+**Protokoll (`meshtastic.ts`, ohne Abhängigkeit):**
+- `baueKonfigAnfrage(id)` (`ToRadio.want_config_id`), `baueFunkPaket()`
+  (`ToRadio.packet`: an alle, Port `PRIVATE_APP` 256, Kanal, Hop-Limit, ohne
+  Paket-Id – die vergibt die Firmware; ohne `want_ack` bliebe ein Hop-Limit 0
+  bei 0, das Paket ginge nur einen Sprung weit).
+- `mitMeshtasticKopf()` und `MeshtasticStrom` für USB und TCP: `0x94 0xC3` plus
+  Länge, höchstens 512 Byte; Text aus dem Debug-Log der Firmware wird
+  übergangen, eine zu große Länge setzt neu auf (wie die Python-Bibliothek).
+- `leseVomGeraet()`: Paket (Absender, Empfänger, Kanal, Port, Nutzlast als
+  Kopie), eigene Nummer, LoRa-Einstellungen (Region, Hop-Limit, Senden, Preset),
+  Kanal (Index 0–7, Name, Schlüssel, Rolle), Ende der Einstellungen,
+  Warteschlange, Neustart; Unbekanntes wird übersprungen (auch fixed64), bei
+  Oneof gilt das letzte Feld, Kaputtes ergibt `null`, nie eine Ausnahme.
+- `FREEDOM_KANAL`: „freedom“, Schlüssel SHA-256 von
+  `freedomstack-meshtastic-kanal-v1` – öffentlich, trennt nur den Verkehr.
+
+**Referenz:** `scripts/meshtastic-referenz.py` erzeugt mit der offiziellen
+Python-Bibliothek meshtastic 2.7.11 `test/fixtures/meshtastic-referenz.json`: 7
+Nachrichten an das Gerät (Byte für Byte), 13 vom Gerät mit Feldern, die der Leser
+überspringen muss. Firmware-Verhalten (Hop-Limit, Paket-Id, Zustellung von
+Rundrufen, lokale Admin-Nachrichten, EU_868 mit 10 % im Teilband 869,4–869,65 MHz)
+aus dem Quelltext belegt, Stände in `docs/MESHTASTIC.md`. Gegenprobe: sechs
+absichtlich eingebaute Fehler (Kanal-Index, Neuaufsetzen, Feldnummer, Oneof,
+Längengrenze, Zahl mit elf Byte) macht je ein Test rot.
+
+**Doku:** `docs/MESHTASTIC.md` (Befunde, Festlegungen, Sendezeit ehrlich
+gerechnet – LongFast rund 134 Byte/s, ein voller Rahmen rund 1,9 s statt der
+gebuchten 1,0 s, behoben in 7.5b), Karte `phase-7.md` 7.5, FORTSCHRITT mit Hinweis in
+der Zeile von Spur B, GO-LIVE (Geräte mit Meshtastic-Firmware, App ab 7.5b).
+Verdrahtet wird mit 7.5b (Ausnahmen in `wiring-ausnahmen.txt` mit diesem Verweis).
+
+**Prüfungen:** protocol 1222 grün (+8, 6 übersprungen), node 314 grün (6
+übersprungen), app 938 grün, Leak 73 grün + 1 todo, mls 13 grün; check-wiring
+`--streng` Exit 0 (0 offen), check-website ok, check_innerhtml Exit 0;
+repro-build reproduzierbar, build-site Exit 0, Smoke-Test bestanden.

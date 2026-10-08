@@ -79,6 +79,7 @@ export * from "./release.js";
 export * from "./oberflaeche-update.js";
 export * from "./rpc-pool.js";
 export * from "./mesh-transport.js";
+export * from "./meshtastic.js";
 export * from "./coverage.js";
 export * from "./moderation.js";
 export * from "./git-contributors.js";
