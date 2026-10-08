@@ -117,19 +117,23 @@ von Spur A. Der MENSCH kann sie ändern, ohne dass sich der Plan ändert.
 
 ## 4. Stufe 3 – versiegelter Provider-Modus (Entwurf D3: `docs/D3-ENTWURF.md`)
 
-Der Entwurf ist fertig und wartet auf Freigabe (V1–V7, F1–F5). Kurz:
+Freigegeben am 08.10.2026, **ruht – später optional** (MENSCH): Der GX10 hat
+kein TPM (gemessen: Secure Boot an, kein `/dev/tpm*`, kein EK-Zertifikat).
+Wieder aufgenommen nur auf Wunsch und mit einem Testgerät mit TPM 2.0 –
+Nachtrag im Entwurf. Kurz:
 
 - **Ziel:** Die App kann prüfen, dass auf dem Knoten genau die veröffentlichte,
   reproduzierbar gebaute Software läuft, die nichts mitschreibt.
 - **Weg:** gemessener Start mit Secure Boot und TPM (PCR-Werte), Attestierung
   im Angebot, Vergleich mit den Werten eines reproduzierbaren Images.
-- **Geräte:** GB10 (fTPM/dTPM, UEFI Secure Boot) und Linux-PCs. Auf Macs nicht:
-  App Attest belegt dort zu wenig.
+- **Geräte:** Linux-PCs mit TPM 2.0 und Secure Boot. Der GX10 (GB10) hat nach
+  der Messung vom 08.10. kein TPM – dort kein Siegel. Auf Macs nicht: App Attest
+  belegt dort zu wenig.
 - **Grenze:** Das ist kein TEE. Wer physischen Zugriff hat, kann den Speicher
   auslesen. Es belegt nur, welche Software gestartet wurde. Die Texte dürfen
   nicht mehr versprechen.
-- **MENSCH:** auf dem GX10 `ls /dev/tpm*` und `mokutil --sb-state` ausführen
-  und das Ergebnis nennen.
+- **MENSCH:** gemessen am 08.10. (Secure Boot an, kein TPM); D3 ruht, später
+  optional.
 
 ## 5. Schritte
 
@@ -140,4 +144,4 @@ Der Entwurf ist fertig und wartet auf Freigabe (V1–V7, F1–F5). Kurz:
 | D1b2 ✓ | Neuer Schlüssel je Unterhaltung (offene Beträge mit dem alten begleichen, Abfrage nur je Auftrag, Grenze „ki-unterhaltung“, Whitepaper) |
 | D1c ✓ | Weniger Verlauf: Standard „kurz“ (6 Nachrichten, 3 000 Zeichen), Auswahl aus · kurz · lang (`VERLAUF_UMFANG`, `freedom.verlauf`), Grenze „ki-verlauf“ im Bericht, Whitepaper |
 | D2 ✓ | Privat-Schalter je Unterhaltung: nur Gerät oder eigener Knoten (`wegErlaubt()`, Haken `#ai-privat`, Smoke „lokal“) |
-| D3-Entwurf ✓ | Versiegelter Provider-Modus (`docs/D3-ENTWURF.md`) – wartet auf Freigabe; danach D3a–D3f |
+| D3-Entwurf ✓ | Versiegelter Provider-Modus (`docs/D3-ENTWURF.md`) – freigegeben 08.10., ruht (später optional, GX10 ohne TPM); D3a–D3f erst auf Wunsch und mit Testgerät |
