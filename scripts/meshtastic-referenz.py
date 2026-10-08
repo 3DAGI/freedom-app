@@ -16,7 +16,7 @@ import hashlib
 import json
 import pathlib
 
-from meshtastic.protobuf import channel_pb2, config_pb2, mesh_pb2, portnums_pb2
+from meshtastic.protobuf import admin_pb2, channel_pb2, config_pb2, mesh_pb2, portnums_pb2
 
 START = bytes([0x94, 0xC3])
 RUNDRUF = 0xFFFFFFFF
@@ -43,6 +43,20 @@ def zum_geraet():
         m.packet.hop_limit = hop
         faelle.append({"fall": "paket", "kanal": kanal, "hopLimit": hop, "nutzlast": nutzlast.hex(),
                        "hex": m.SerializeToString().hex()})
+    # Kanal „freedom“ als zweiten Kanal anlegen (7.5c): AdminMessage an das eigene Gerät
+    for knoten, index in ((0xDEADBEEF, 1), (42, 7)):
+        a = admin_pb2.AdminMessage()
+        a.set_channel.index = index
+        a.set_channel.settings.name = "freedom"
+        a.set_channel.settings.psk = PSK
+        a.set_channel.role = channel_pb2.Channel.Role.SECONDARY
+        m = mesh_pb2.ToRadio()
+        m.packet.to = knoten
+        m.packet.decoded.portnum = portnums_pb2.PortNum.ADMIN_APP
+        m.packet.decoded.payload = a.SerializeToString()
+        m.packet.decoded.want_response = True
+        m.packet.want_ack = True
+        faelle.append({"fall": "kanal-anlegen", "knoten": knoten, "index": index, "hex": m.SerializeToString().hex()})
     return faelle
 
 

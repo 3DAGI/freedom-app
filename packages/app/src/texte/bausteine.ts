@@ -21,7 +21,7 @@ export const bausteine: Texte = {
   "bau.keinSeriell": { de: "Dieser Browser unterstützt keine serielle Verbindung.", en: "This browser does not support serial connections." },
   "bau.usbFunk": { de: "USB-Funkgerät", en: "USB radio" },
   "bau.meshtasticUsb": { de: "Meshtastic-Gerät (USB)", en: "Meshtastic device (USB)" },
-  "bau.meshtasticOhneKanal": { de: "Auf dem Meshtastic-Gerät fehlt der Kanal „freedom“ – nichts gesendet.", en: "The Meshtastic device has no “freedom” channel – nothing sent." },
+  "bau.meshtasticStumm": { de: "Das Meshtastic-Gerät antwortet nicht über Bluetooth.", en: "The Meshtastic device does not answer over Bluetooth." },
   "bau.rahmenZuGross": { de: "Rahmen zu groß für Funk: {n} > {max} Byte", en: "Frame too large for radio: {n} > {max} bytes" },
   "bau.keinBluetooth": { de: "Dieser Browser kann kein Bluetooth. Auf iOS ist das die Regel — nimm den Datei-Weg.", en: "This browser cannot do Bluetooth. On iOS that is the rule — use the file route." },
   "bau.bluetoothGeraet": { de: "Bluetooth-Gerät", en: "Bluetooth device" },

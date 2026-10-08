@@ -96,11 +96,16 @@ test("Meshtastic: erkannt, Kanal „freedom“ gefunden, Rahmen hin und zurück 
   await tr.send(rahmen);
   assert.equal(hex(port.geschrieben.at(-1)!), hex(mitMeshtasticKopf(baueFunkPaket({ kanal: 1, hopLimit: 3, nutzlast: rahmen }))));
   await assert.rejects(tr.send(new Uint8Array(LORA_MTU + 1)));
-  // Startet das Gerät neu, fragt die App erneut nach den Einstellungen
+  // Startet das Gerät neu, fragt die App erneut nach den Einstellungen (schon geweckt: ohne 0xC3 davor)
   const vorher = port.geschrieben.length;
   port.nach(vom("neustart"));
   await bis(() => port.geschrieben.length > vorher);
-  assert.equal(hex(port.geschrieben.at(-1)!), "c3".repeat(32) + hex(mitMeshtasticKopf(baueKonfigAnfrage(KONFIG_ID))));
+  const neu = port.geschrieben.at(-1)!;
+  assert.deepEqual([...neu.subarray(0, 2)], [0x94, 0xc3]);
+  assert.equal(neu[4], 0x18, "want_config");
+  // Bis das Gerät seine Einstellungen wieder ganz geschickt hat, gilt der alte Kanal – nichts geht verloren
+  await tr.send(rahmen);
+  assert.equal(hex(port.geschrieben.at(-1)!), hex(mitMeshtasticKopf(baueFunkPaket({ kanal: 1, hopLimit: 3, nutzlast: rahmen }))));
   await tr.close();
   assert.ok(port.abgebrochen(), "Lesen beim Trennen beendet");
 });
@@ -120,7 +125,7 @@ test("Meshtastic: ohne Hop-Limit im Gerät 3 wie die Firmware; ohne Kanal geht n
   const ohne = await erkenneSerielleStrecke(port, () => {}, { konfigId: KONFIG_ID });
   assert.equal(ohne.meshtastic?.kanal, null);
   const zahl = port.geschrieben.length;
-  await assert.rejects(ohne.send(rahmen), new RegExp(t("bau.meshtasticOhneKanal")));
+  await assert.rejects(ohne.send(rahmen), { kennung: "meshtastic-ohne-kanal" });
   assert.equal(port.geschrieben.length, zahl, "nichts geschrieben");
   await ohne.close();
 });

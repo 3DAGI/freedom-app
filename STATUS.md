@@ -18025,6 +18025,43 @@ check-wiring `--streng` Exit 0 (0 offen, fünf Ausnahmen aus 7.5a gestrichen),
 check-website ok, check_innerhtml Exit 0; repro-build reproduzierbar, build-site
 Exit 0, Smoke-Test bestanden.
 
+## Schritt 7.5c – Meshtastic-Geräte direkt: Bluetooth und Kanal anlegen
+
+**Bluetooth:** `connectBluetooth()` fragt nach Nordic UART oder dem Dienst von
+Meshtastic und nimmt Meshtastic, wenn das Gerät ihn hat (`meshtasticBluetooth()`).
+Wie die Python-Bibliothek: `ToRadio` ohne Kopf an „zum Gerät“ (mit Antwort),
+„vom Gerät“ lesen, bis es leer ist – nach jedem Schreiben und bei „Meldung“ –,
+ohne zwei Lesevorgänge zugleich. Antwortet das Gerät in 15 s nicht, trennt die
+App und sagt es.
+
+**Eine Sitzung für beide Wege (`MeshtasticSitzung`):** Einstellungen lesen,
+senden, empfangen, Kanal anlegen. Kanäle einer Abfrage gelten erst ab „Ende der
+Einstellungen“ (`uebernimm()`): Bis dahin gilt der alte Stand – sonst ginge ein
+Rahmen verloren, den der Knoten während eines Neustarts des Geräts sendet; ein am
+Gerät gelöschter Kanal gilt danach nicht mehr.
+
+**Kanal anlegen:** `baueKanalAnlegen()` (Protokoll) –
+`AdminMessage.set_channel` an die eigene Nummer, Port `ADMIN_APP`, mit
+`want_response` und `want_ack` wie `writeChannel()` der Python-Bibliothek; zwei
+Vektoren aus der Referenz. In der Mesh-Karte ein Knopf, nur wenn der Kanal
+fehlt, und nur nach `bestaetige()` (Text: zweiter Kanal, Hauptkanal bleibt, ein
+fremder „freedom“ wird ersetzt, Schlüssel öffentlich). Platz: der eines
+„freedom“ mit fremdem Schlüssel, sonst der erste freie (1–7); ohne Platz geht
+nichts an das Gerät. Danach fragt die App neu – erst die Einstellungen des
+Geräts belegen den Kanal.
+
+**Tests:** `app/test/meshtastic-geraet.test.ts` (neu, 5) mit einer Attrappe, die
+wie ein Gerät antwortet (Einstellungen auf `want_config`, `set_channel` an sich
+selbst, USB und Bluetooth): anlegen über USB und Bluetooth, fremden ersetzen,
+kein Platz, gelöschter Kanal nach Neustart, Lesen bis leer, stummes Gerät,
+Verdrahtung (Dienstwahl, Rückfrage vor dem Anlegen). Gegenprobe: neun
+absichtlich eingebaute Fehler macht je ein Test rot.
+
+**Prüfungen:** protocol 1225 grün (+1, 6 übersprungen), node 314 grün (6
+übersprungen), app 949 grün (+5), Leak 73 grün + 1 todo, mls 13 grün;
+check-wiring `--streng` Exit 0 (0 offen), check-website ok, check_innerhtml
+Exit 0; repro-build reproduzierbar, build-site Exit 0, Smoke-Test bestanden.
+
 ## Schritt 6.1b1a – Tor in der Desktop-Hülle
 
 Teil b von 6.1 (Sammlung C-23). Der MENSCH hat am 07.10.2026 arti freigegeben (TOR1 A:
