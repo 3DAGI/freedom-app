@@ -61,6 +61,7 @@ const FAKT: Record<string, readonly [string, string?]> = {
   "ki-platzhalter": ["ds.fKiPlatzhalter", "ds.gKiPlatzhalter"],
   "ki-verlauf": ["ds.fKiVerlauf", "ds.gKiVerlauf"],
   "ki-unterhaltung": ["ds.fKiUnterhaltung", "ds.gKiUnterhaltung"],
+  "mesh-geraet": ["ds.fMeshGeraet", "ds.gMeshGeraet"],
   "ki-zahlung": ["ds.fKiZahlung"],
   "ki-reklamation": ["ds.fKiReklamation"],
   "ruf-kontakte": ["ds.fRufKontakte"],

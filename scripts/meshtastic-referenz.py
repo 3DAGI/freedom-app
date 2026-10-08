@@ -107,11 +107,11 @@ def vom_geraet():
     lora.tx_enabled = True
     lora.tx_power = 27
     lora.ignore_incoming.extend([1, 2, 0xFFFFFFFF])
-    fall("lora", m, {"art": "lora", "region": 3, "hopLimit": 3, "senden": True, "preset": 0})
+    fall("lora", m, {"art": "lora", "region": 3, "hopLimit": 3, "senden": True, "preset": 0, "vorgabe": True})
 
     m = mesh_pb2.FromRadio()
     m.config.lora.modem_preset = config_pb2.Config.LoRaConfig.ModemPreset.MEDIUM_FAST
-    fall("lora-neu", m, {"art": "lora", "region": 0, "hopLimit": 0, "senden": False, "preset": 4})
+    fall("lora-neu", m, {"art": "lora", "region": 0, "hopLimit": 0, "senden": False, "preset": 4, "vorgabe": False})
 
     m = mesh_pb2.FromRadio()
     m.config.device.role = config_pb2.Config.DeviceConfig.Role.CLIENT

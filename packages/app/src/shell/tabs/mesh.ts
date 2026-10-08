@@ -155,9 +155,14 @@ export async function wireMeshTab(): Promise<void> {
   if (connect) connect.onclick = async () => {
     try {
       const { connectSerial } = await import("../../mesh-radio.js");
+      const { meshtasticHinweise } = await import("../../meshtastic-strecke.js");
       const n = await ensureMeshNode();
-      await n.attach(await connectSerial(115200, (raw) => n.receive(raw)));
+      const tr = await connectSerial(115200, (raw) => n.receive(raw));
+      await n.attach(tr);
       $("#mesh-status").textContent = t("set.verbundenMit", { name: n.transportName ?? "" });
+      // Meshtastic (7.5b): was am Gerät fehlt – Kanal „freedom“, Region, Senden
+      const hinweis = $("#mesh-hinweis");
+      if (hinweis) hinweis.textContent = tr.meshtastic ? meshtasticHinweise(tr.meshtastic).join(" ") : "";
       toast(t("set.funkVerbunden"));
     } catch (e) {
       $("#mesh-status").textContent = fehlerText(e);

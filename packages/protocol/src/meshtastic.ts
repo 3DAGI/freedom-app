@@ -147,7 +147,7 @@ export class MeshtasticStrom {
 export type VomGeraet =
   | { art: "paket"; von: number; an: number; kanal: number; port: number; nutzlast: Uint8Array }
   | { art: "ich"; knoten: number }
-  | { art: "lora"; region: number; hopLimit: number; senden: boolean; preset: number }
+  | { art: "lora"; region: number; hopLimit: number; senden: boolean; preset: number; vorgabe: boolean }
   | { art: "kanal"; index: number; name: string; psk: Uint8Array; rolle: number }
   | { art: "fertig"; id: number }
   | { art: "warteschlange"; frei: number; max: number }
@@ -246,9 +246,10 @@ function leseKonfig(b: Uint8Array): VomGeraet {
       lora = { art: "anderes" };
       return;
     }
-    const l = { art: "lora" as const, region: 0, hopLimit: 0, senden: false, preset: 0 };
+    const l = { art: "lora" as const, region: 0, hopLimit: 0, senden: false, preset: 0, vorgabe: false };
     felder(roh(f), (ln, lf) => {
-      if (ln === 2) l.preset = u32(lf);
+      if (ln === 1) l.vorgabe = u32(lf) !== 0;
+      else if (ln === 2) l.preset = u32(lf);
       else if (ln === 7) l.region = u32(lf);
       else if (ln === 8) l.hopLimit = u32(lf);
       else if (ln === 9) l.senden = u32(lf) !== 0;
@@ -303,4 +304,48 @@ export function leseVomGeraet(b: Uint8Array): VomGeraet | null {
     if (e instanceof Kaputt) return null;
     throw e;
   }
+}
+
+// --- Sendezeit (7.5b) ---
+
+/**
+ * Funkparameter der Presets (Bandbreite kHz, Spreizfaktor, Coding-Rate 4/x) wie
+ * `modemPresetToParams()` der Firmware (`MeshRadio.h`); Unbekanntes gilt dort als
+ * LongFast. Breitband (2,4 GHz) ist schneller – die Zahlen hier rechnen dann zu viel.
+ */
+const PRESETS: Record<number, [number, number, number]> = {
+  0: [250, 11, 5], // LONG_FAST
+  1: [125, 12, 8], // LONG_SLOW
+  3: [250, 10, 5], // MEDIUM_SLOW
+  4: [250, 9, 5], // MEDIUM_FAST
+  5: [250, 8, 5], // SHORT_SLOW
+  6: [250, 7, 5], // SHORT_FAST
+  7: [125, 11, 8], // LONG_MODERATE
+  8: [500, 7, 5], // SHORT_TURBO
+  9: [500, 11, 8], // LONG_TURBO
+  10: [125, 9, 5], // LITE_FAST
+  11: [125, 10, 5], // LITE_SLOW
+  12: [62.5, 7, 6], // NARROW_FAST
+  13: [62.5, 8, 6], // NARROW_SLOW
+  16: [500, 9, 5], // MEDIUM_TURBO
+};
+/** Kopf jedes Meshtastic-Pakets in der Luft (`MESHTASTIC_HEADER_LENGTH`). */
+const MESHTASTIC_KOPF = 16;
+/** Präambel der Firmware in Symbolen (`preambleLength`). */
+const PRAEAMBEL = 16;
+
+/**
+ * Sendezeit eines Pakets mit `nutzlast` Byte in Sekunden – Formel von Semtech
+ * (explizite Kopfzeile, CRC an), dazu der Meshtastic-Kopf und die Hülle der
+ * Daten (Port, Längenangabe, Bitfeld der Firmware). Eigene Funkparameter
+ * (`vorgabe` aus) kennt die App nicht: dann so langsam wie LongSlow.
+ */
+export function meshtasticSendezeit(e: { preset: number; vorgabe: boolean }, nutzlast: number): number {
+  const [bw, sf, cr] = (e.vorgabe ? PRESETS[e.preset] : undefined) ?? (e.vorgabe ? PRESETS[0]! : PRESETS[1]!);
+  const daten = 3 + 1 + (nutzlast > 127 ? 2 : 1) + nutzlast + 2;
+  const laenge = MESHTASTIC_KOPF + daten;
+  const symbol = 2 ** sf / (bw * 1000);
+  const de = symbol > 0.016 ? 1 : 0;
+  const symbole = 8 + Math.max(Math.ceil((8 * laenge - 4 * sf + 28 + 16) / (4 * (sf - 2 * de))) * cr, 0);
+  return (PRAEAMBEL + 4.25) * symbol + symbole * symbol;
 }
