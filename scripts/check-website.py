@@ -77,6 +77,22 @@ FREMDE_ADRESSEN = ["freedomstack.io", "wallet.cash"]
 EINSTIEG = ["README.md", os.path.join("docs", "PROVIDER.md"), "docker-compose.yml",
             os.path.join("scripts", "install-freedom.sh")]
 
+# Downloads der App (6.1c2a): Links auf Dateien des Releases nur unter dieser
+# Adresse und nur mit Namen, die der Job „veroeffentlichen“ in launcher.yml
+# erzeugt (plus SHA256SUMS) – sonst zeigte die Seite auf eine Datei, die es nie
+# gibt. Das APK nur, wenn der Job es mit dem festen Schlüssel signiert.
+RELEASE_DOWNLOAD = "https://github.com/3DAGI/freedom-app/releases/latest/download/"
+RELEASE_JOB = os.path.join(".github", "workflows", "launcher.yml")
+
+
+def release_dateien() -> set[str]:
+    job = open(RELEASE_JOB, encoding="utf-8").read().split("\n  veroeffentlichen:", 1)
+    if len(job) < 2:
+        return set()
+    namen = set(re.findall(r"\bfreedom-(?:linux|windows|android)-[a-z0-9]+(?:\.AppImage|\.deb|-setup\.exe|\.apk)\b", job[1]))
+    return namen | {"SHA256SUMS"}
+
+
 # Die Status-Seite zeigt nur Öffentliches und Freiwilliges (8.15): keine
 # Selbstauskünfte der Provider (38010), nie Quittungen oder ihre
 # Zusammenfassungen (38075), keine alten Angebote (38025).
@@ -85,6 +101,9 @@ DASHBOARD_NIE = ["38010", "38075", "38025", "KIND_PERFORMANCE", "Leistungsnachwe
 
 def main() -> int:
     fehler: list[str] = []
+    im_release = release_dateien()
+    if not im_release - {"SHA256SUMS"}:
+        fehler.append(f"{RELEASE_JOB}: kein Job „veroeffentlichen“ mit Dateinamen (6.1c2a)")
 
     for datei in SEITEN:
         pfad = os.path.join(BASIS, datei)
@@ -118,6 +137,10 @@ def main() -> int:
         for adresse in FREMDE_ADRESSEN:
             if adresse in inhalt:
                 fehler.append(f"{datei}: fremde Adresse „{adresse}“ (C-21)")
+
+        for link in re.findall(r'href="(https://github\.com/[^"]*/releases/[^"]*download/[^"]*)"', inhalt):
+            if not link.startswith(RELEASE_DOWNLOAD) or link[len(RELEASE_DOWNLOAD):] not in im_release:
+                fehler.append(f"{datei}: Download „{link}“ – den erzeugt der Release-Job nicht (6.1c2a)")
 
         # Eine Seite ohne Titel oder Beschreibung ist in Suchergebnissen blind.
         if "<title>" not in inhalt:

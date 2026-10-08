@@ -73,13 +73,46 @@ von dort, sondern über das eigene Schema.
 ## Pakete zum Testen (seit 6.1a4a)
 
 Jeder Lauf von `launcher.yml` baut Pakete und legt sie mit `SHA256SUMS` als
-Artefakt ab (14 Tage): `freedom-desktop-Linux` (`.deb`, AppImage) und
-`freedom-desktop-Windows` (Installer für den eigenen Benutzer, ohne
+Artefakt ab (14 Tage): `freedom-desktop-Linux-X64` und `freedom-desktop-Linux-ARM64`
+(`.deb`, AppImage; arm64 seit 6.1c2a, z. B. für NVIDIA DGX Spark) und
+`freedom-desktop-Windows-X64` (Installer für den eigenen Benutzer, ohne
 Administratorrechte). Zu finden unter Actions › Desktop-Hülle › Lauf ›
-Artifacts. Das ist kein Release: unsigniert – Windows warnt (SmartScreen) –,
-nirgends verlinkt, nur zum Testen auf Geräten. Lokal:
+Artifacts. Lokal:
 `cargo install tauri-cli --version "^2" --locked`, dann
 `cargo tauri build --bundles deb,appimage -- --locked`.
+
+## Release zum Herunterladen (seit 6.1c2a)
+
+Veröffentlicht wird nur von Hand: Actions › Desktop-Hülle › „Run workflow“ auf
+`main`, Haken „veroeffentlichen“. Der Job baut alles neu, prüft die Pakete gegen die
+Summen der Bau-Jobs und legt ein Release `app-v<version>-<lauf>` mit festen Namen an –
+darauf zeigt die Website (`releases/latest/download/…`, `check-website.py` vergleicht
+die Namen):
+
+| Datei | |
+|---|---|
+| `freedom-linux-x64.AppImage`, `freedom-linux-x64.deb` | Linux x64, unsigniert |
+| `freedom-linux-arm64.AppImage`, `freedom-linux-arm64.deb` | Linux arm64, unsigniert |
+| `freedom-windows-x64-setup.exe` | Windows, unsigniert – SmartScreen warnt |
+| `freedom-android-arm64.apk` | nur mit dem festen Schlüssel (unten), sonst fehlt es |
+| `SHA256SUMS` | Summen aller Dateien |
+
+**Fester Android-Schlüssel (MENSCH, einmal):** Ohne ihn kommt kein APK ins Release –
+mit dem Wegwerf-Schlüssel ginge jedes Update nur nach dem Deinstallieren, und Tresor
+und Verläufe wären weg. Auf einem eigenen Rechner (nicht in der CI, nicht im Repo):
+
+```bash
+keytool -genkeypair -keystore freedom-release.jks -alias freedom \
+  -keyalg RSA -keysize 4096 -validity 10000 -dname "CN=FreedomStack"
+base64 -w0 freedom-release.jks    # Ausgabe = Secret ANDROID_KEYSTORE
+```
+
+Dann unter Settings › Secrets and variables › Actions drei Secrets anlegen:
+`ANDROID_KEYSTORE` (die base64-Ausgabe), `ANDROID_KEYSTORE_PASSWORD` (das Passwort aus
+`keytool`), `ANDROID_KEY_ALIAS` (`freedom`). Die Datei `freedom-release.jks` und das
+Passwort zusätzlich offline sichern: Wer sie verliert, kann installierte Apps nie
+wieder aktualisieren. Die Secrets liest nur der Schritt, der im Release signiert –
+nie die Bau-Jobs, nie Pull Requests.
 
 Die Symbole in `icons/` entstehen nur aus dem Logo der App:
 `python3 scripts/launcher-symbole.py` (prüfen: `--pruefen`).
@@ -144,8 +177,8 @@ erkannt): Der Name geht als Name hinaus, andere Methoden (`GET http://…`) lehn
   `freedom-android-arm64-test.apk` mit `SHA256SUMS` als Artefakt ab (14 Tage),
   signiert mit einem Wegwerf-Schlüssel, der nur in diesem Lauf entsteht. Deshalb
   geht ein Update von einem Lauf auf den nächsten nur nach dem Deinstallieren –
-  dabei sind die Daten der App weg. Zum Testen, kein Release; ein fester Schlüssel
-  ist eine Aufgabe für den MENSCHEN (6.1c2).
+  dabei sind die Daten der App weg. Zum Testen, kein Release. Ins Release kommt nur
+  ein APK mit dem festen Schlüssel (6.1c2a, oben).
 
 Lokal (Android-SDK mit Plattform 36, Build-Tools, NDK r27d; Java 17 oder neuer):
 

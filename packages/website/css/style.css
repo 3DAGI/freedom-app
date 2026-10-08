@@ -85,7 +85,10 @@ section h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 1px; co
 .dl:last-child { border-bottom: none; }
 .dl .meta .name { font-size: 14px; font-weight: 700; }
 .dl .meta .desc { font-size: 11px; color: var(--text-muted); }
-.dl .btn { padding: 10px 16px; font-size: 10px; }
+.dl .btn { padding: 10px 16px; font-size: 10px; white-space: nowrap; }
+.dl .meta { flex: 1 1 auto; min-width: 0; }
+.dl-wahl { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; max-width: 50%; }
+.hash a { color: var(--accent); }
 .hash { font-size: 10px; color: var(--text-muted); word-break: break-all; margin-top: 4px; }
 
 /* ---------- App Frame ---------- */
@@ -105,6 +108,8 @@ footer .wrap { display: flex; justify-content: space-between; flex-wrap: wrap; g
 @media (max-width: 640px) {
   .hero h1 { font-size: 28px; }
   .topnav nav a { margin-left: 10px; font-size: 10px; }
+  .dl { flex-wrap: wrap; gap: 8px; }
+  .dl-wahl { max-width: none; justify-content: flex-start; }
 }
 
 /* ---------- Hero: 2-spaltig mit Terminal-Demo ---------- */

@@ -130,13 +130,34 @@
     </div>
     <div class="hash">sha256: <span id="hash-pwa">dee0377fd5bd16ca74d1e842c70809e09e967dd45e17e62b7f397eb490255580</span></div>
 
+    <!-- Downloads der App (6.1c2a): nur Dateien aus dem Release-Job in launcher.yml – check-website.py vergleicht die Namen -->
     <div class="dl">
       <div class="meta">
-        <div class="name">FreedomStack als App (Linux, Windows, Android)</div>
-        <div class="desc">In Arbeit: dieselbe App als eigenes Programm. Die Oberfläche aktualisiert sich erst, wenn zwei Signierer die neue Version bestätigen – nach Rückfrage, die beigelegte bleibt als Rückfall. Auf dem Desktop und unter Android geht die App auf Wunsch über Tor (langsamer; Anrufe nicht). Testpakete baut die CI; Pakete zum Herunterladen folgen mit dem ersten signierten Release.</div>
+        <div class="name">FreedomStack für Linux</div>
+        <div class="desc">Vorschau, unsigniert: AppImage (ausführbar machen, starten) oder .deb. arm64 passt auch auf ARM-Rechner wie NVIDIA DGX Spark. Auf Wunsch über Tor (langsamer; Anrufe nicht).</div>
       </div>
-      <span class="btn ghost" id="dl-desktop">In Arbeit</span>
+      <span class="dl-wahl">
+        <a class="btn" href="https://github.com/3DAGI/freedom-app/releases/latest/download/freedom-linux-x64.AppImage">AppImage x64</a>
+        <a class="btn ghost" href="https://github.com/3DAGI/freedom-app/releases/latest/download/freedom-linux-x64.deb">.deb x64</a>
+        <a class="btn ghost" href="https://github.com/3DAGI/freedom-app/releases/latest/download/freedom-linux-arm64.AppImage">AppImage arm64</a>
+        <a class="btn ghost" href="https://github.com/3DAGI/freedom-app/releases/latest/download/freedom-linux-arm64.deb">.deb arm64</a>
+      </span>
     </div>
+    <div class="dl">
+      <div class="meta">
+        <div class="name">FreedomStack für Windows</div>
+        <div class="desc">Vorschau, unsigniert – Windows warnt beim Installieren („Weitere Informationen“ › „Trotzdem ausführen“). Auf Wunsch über Tor.</div>
+      </div>
+      <a class="btn" href="https://github.com/3DAGI/freedom-app/releases/latest/download/freedom-windows-x64-setup.exe">Installer x64</a>
+    </div>
+    <div class="dl">
+      <div class="meta">
+        <div class="name">FreedomStack für Android (auch Seeker)</div>
+        <div class="desc">Folgt mit dem ersten Release, das der feste Schlüssel des Projekts signiert – erst dann gehen Updates über die alte Version, ohne dass Tresor und Verläufe verloren gehen. Bis dahin: die Web-App oben.</div>
+      </div>
+      <span class="btn ghost" id="dl-android">Folgt</span>
+    </div>
+    <div class="hash">Neue Versionen: neu herunterladen und darüber installieren – die Daten bleiben. Die Oberfläche aktualisiert sich selbst erst, wenn zwei Signierer eine neue Version bestätigen. Prüfsummen: <a href="https://github.com/3DAGI/freedom-app/releases/latest/download/SHA256SUMS">SHA256SUMS</a> · <a href="https://github.com/3DAGI/freedom-app/releases">alle Versionen</a></div>
 
     <div class="dl">
       <div class="meta">
