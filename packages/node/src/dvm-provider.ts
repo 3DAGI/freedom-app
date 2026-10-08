@@ -58,6 +58,7 @@ import {
   KIND_DVM_KNOTEN_STATUS, knotenStatusText, type KnotenStatus,
   KIND_DVM_WECKEN, leseWeckAnmeldung, weckAntwortText,
   KIND_DVM_TURN, turnZugangText,
+  GRATIS_LEER, type GratisAngebot,
 } from "@freedomstack/protocol";
 import type { WeckBuch } from "./wecken.js";
 import { type TurnDienst, turnZugang } from "./turn.js";
@@ -155,6 +156,22 @@ export interface ProviderConfig {
    *  In dieser Zeit arbeitet der Provider gratis, um Reputation aufzubauen
    *  und Stabilitaet zu beweisen. Danach automatisch paid. */
   bootstrapFreeSecs?: number;
+  /**
+   * Gratis-Start (A-14, G1): Budget des Knotens je Tag (UTC) für alle
+   * zusammen, Grenze je Antwort, Rechenarbeit einer Gratis-Anfrage
+   * (`gratis.ts`). Gratis gibt es dann ohne Werkzeuge und ohne Schwarm; ist
+   * das Budget verbraucht, lehnt er mit `gratis-leer` ab. Ohne Angabe gilt
+   * die alte Regel (Bootstrap, freiwilliges Free-Tier) ohne Budget.
+   */
+  gratis?: GratisAngebot;
+}
+
+/** Ablehnung mit Kennung (A-14): Das Gratis-Budget des Tages ist verbraucht. */
+export class GratisLeer extends Error {
+  readonly fall = GRATIS_LEER;
+  constructor() {
+    super("Gratis-Budget für heute aufgebraucht");
+  }
 }
 
 export const DEFAULT_PROVIDER_CONFIG: Omit<ProviderConfig, "keypair" | "lud16"> = {
@@ -249,6 +266,10 @@ export class DvmProvider {
   private solConnection?: Connection;
   /** Free-Tier: verbrauchte Gratis-Tokens pro pubkey pro Tag (RAM). */
   private freeUsage = new Map<string, { day: string; used: number }>();
+  /** Gratis-Budget des Knotens (A-14): verbrauchte Tokens des Tages, für alle zusammen (RAM). */
+  private gratisVerbrauch = { tag: "", tokens: 0 };
+  /** Rechenarbeit je geöffnetem Umschlag – für die Gratis-Prüfung (A-14). */
+  private powJeAnfrage = new Map<string, number>();
 
   /** Free-Quota-Status für einen Kunden (für die Quota-API / App-Anzeige). */
   freeQuotaFor(customerPubkey: string, now = Math.floor(Date.now() / 1000)): {
@@ -387,9 +408,41 @@ export class DvmProvider {
 
   /** Ob dieser Provider aktuell gratis arbeitet (Bootstrap ODER freiwillig). */
   isCurrentlyFree(now = Math.floor(Date.now() / 1000)): boolean {
+    // Budget des Tages verbraucht (A-14): heute nichts mehr gratis
+    if (this.cfg.gratis && this.gratisRest(now) <= 0) return false;
     if (this.isInBootstrap(now)) return true;
     if (this.cfg.freeTierUntil && now < this.cfg.freeTierUntil) return true;
+    if (this.cfg.gratis) return true;
     return (this.cfg.freeTokensPerPubkeyPerDay ?? 0) > 0;
+  }
+
+  /** Übrige Gratis-Tokens des Knotens heute (A-14) – ohne Budget-Regel unbegrenzt. */
+  gratisRest(now = Math.floor(Date.now() / 1000)): number {
+    const g = this.cfg.gratis;
+    if (!g) return Number.POSITIVE_INFINITY;
+    const tag = new Date(now * 1000).toISOString().slice(0, 10);
+    const verbraucht = this.gratisVerbrauch.tag === tag ? this.gratisVerbrauch.tokens : 0;
+    return Math.max(0, g.tokensProTag - verbraucht);
+  }
+
+  private bucheGratis(tokens: number, now: number): void {
+    const tag = new Date(now * 1000).toISOString().slice(0, 10);
+    const vorher = this.gratisVerbrauch.tag === tag ? this.gratisVerbrauch.tokens : 0;
+    this.gratisVerbrauch = { tag, tokens: vorher + Math.max(0, tokens) };
+  }
+
+  /**
+   * Budget-Regel (A-14) vor jeder Gratis-Antwort: Budget übrig, und eine
+   * private Anfrage ohne Gebot trägt die Rechenarbeit aus dem Angebot. Wirft
+   * mit Grund – die App zeigt ihn. Ohne Regel: nichts zu prüfen.
+   */
+  private pruefeGratisBudget(now: number, privat: boolean, powBits: number | undefined): void {
+    const g = this.cfg.gratis;
+    if (!g) return;
+    if (this.gratisRest(now) <= 0) throw new GratisLeer();
+    if (privat && powBits !== undefined && powBits < g.powBits) {
+      throw new Error(`Gratis nur mit ${g.powBits} Bit Rechenarbeit (gesendet: ${powBits})`);
+    }
   }
 
   /**
@@ -398,7 +451,11 @@ export class DvmProvider {
    * geleistet, der Schluessel wechselt je Sitzung – also gilt nur, ob der
    * Provider ueberhaupt gratis anbietet.
    */
-  private gratisErlaubt(customerPubkey: string, now: number, privat: boolean): boolean {
+  private gratisErlaubt(customerPubkey: string, now: number, privat: boolean, powBits?: number): boolean {
+    if (this.cfg.gratis) {
+      this.pruefeGratisBudget(now, privat, powBits);
+      return privat || this.freeAllowanceLeft(customerPubkey, now) > 0;
+    }
     return privat ? this.isCurrentlyFree(now) : this.freeAllowanceLeft(customerPubkey, now) > 0;
   }
 
@@ -482,6 +539,7 @@ export class DvmProvider {
     if (this.seen.has(r.request.id)) return null;
     this.seen.add(r.request.id);
     const request: NostrEvent = { ...r.request, sig: "" };
+    if (isDvmRequest(request.kind)) this.powJeAnfrage.set(request.id, r.powBits);
     if (request.kind === KIND_SESSION_OPEN || request.kind === KIND_SESSION_PAYMENT) {
       this.merkeSitzungsEvent(request);
       return null;
@@ -591,6 +649,8 @@ export class DvmProvider {
           ["e", request.id],
           ["p", request.pubkey],
           ["status", "error"],
+          // Kennung (A-14): Die App erkennt den Fall, ohne den Text zu lesen
+          ...(err instanceof GratisLeer ? [["fall", err.fall]] : []),
         ], `error: ${(err as Error).message.slice(0, 200)}`),
         this.cfg.keypair.sk,
       );
@@ -984,6 +1044,9 @@ export class DvmProvider {
   }
 
   private async handleJob(request: NostrEvent, privat = false): Promise<ProcessedJob> {
+    // Rechenarbeit des Umschlags (A-14) – gemerkt beim Öffnen, hier einmal abgeholt
+    const powBits = privat ? this.powJeAnfrage.get(request.id) : undefined;
+    this.powJeAnfrage.delete(request.id);
     // Abruf eines Stuecks (5075): eigener Handler, kein LLM, vor der Zahlungspruefung –
     // bis 8.9c ohne Bezahlung (Entscheidung 26.09.2026).
     if (request.kind === 5075) return this.handleBlobFetch(request, privat);
@@ -1016,11 +1079,14 @@ export class DvmProvider {
     let session: ParsedSessionOpen | undefined;
     let solDeposit: ParsedSolDepositOpen | undefined;
     let isFreeJob = false;
+    // Gratis nach G1 (A-14): Grenze je Antwort, keine Werkzeuge, kein Schwarm, zählt ins Budget
+    let gratisRegel = false;
     const now = Math.floor(Date.now() / 1000);
 
-    // Bootstrap-Phase (neue Provider, erste 24h): NUR Gratis-Jobs annehmen.
-    // Bezahlte Jobs werden abgelehnt — der Knoten soll erst eine Weile stabil
-    // laufen, bevor er verdient.
+    // Bootstrap-Phase (neue Provider, erste 24h): kein Verdienst. Gebote
+    // bedient der Knoten seit A-14 (G1) gratis, statt sie abzulehnen – sonst
+    // scheitert die erste Frage jedes Kunden, dessen App ein Gebot schickt.
+    // Kanal und Sitzung lehnt er weiter ab: Eine Gutschrift gälte auch später.
     // TEST-MODUS: SKIP_BOOTSTRAP=1 umgeht die Bootstrap-Phase (nur fuer Entwicklung!)
     const skipBootstrap = process.env.SKIP_BOOTSTRAP === "1";
     const bootstrap = this.isInBootstrap(now) && !skipBootstrap;
@@ -1067,20 +1133,31 @@ export class DvmProvider {
           // pubkey. Der Chat bricht bei einem Provider-Neustart also weiterhin
           // nicht ab (solange Gratis-Tokens uebrig sind), aber die Sybil-Grenze
           // aus freeAllowanceLeft() gilt.
-          if (this.gratisErlaubt(request.pubkey, now, privat)) {
+          if (this.gratisErlaubt(request.pubkey, now, privat, powBits)) {
             console.warn(`[provider] Session ${sessionId} ungueltig — fahre auf Free-Tier fort`);
             isFreeJob = true;
+            gratisRegel = !!this.cfg.gratis;
           } else {
             throw new Error(`Session ${sessionId} ungueltig und kein Free-Tier-Kontingent`);
           }
         }
       }
     } else if (bidMsat >= this.cfg.minBidMsat) {
-      // Bezahlter Bid-Job — in Bootstrap ABLEHNEN (Reputation zuerst aufbauen)
-      if (bootstrap) throw new Error("Bootstrap-Phase: neue Provider nehmen nur Gratis-Jobs");
-    } else if (this.gratisErlaubt(request.pubkey, now, privat) || bootstrap) {
-      // Free-Tier ODER Bootstrap: Gratis-Job ohne Bid
+      // Gebot in der Bootstrap-Phase (A-14): gratis bedienen, nach der Budget-Regel
+      if (bootstrap) {
+        this.pruefeGratisBudget(now, privat, undefined);
+        isFreeJob = true;
+        gratisRegel = true;
+      }
+    } else if (bootstrap) {
+      // Bootstrap: Gratis-Job ohne Gebot – mit Budget-Regel auch mit deren Rechenarbeit
+      this.pruefeGratisBudget(now, privat, powBits);
       isFreeJob = true;
+      gratisRegel = !!this.cfg.gratis;
+    } else if (this.gratisErlaubt(request.pubkey, now, privat, powBits)) {
+      // Free-Tier bzw. Gratis-Budget des Knotens
+      isFreeJob = true;
+      gratisRegel = !!this.cfg.gratis;
     } else {
       throw new Error(`Bid zu niedrig: ${bidMsat} und kein Free-Tier-Kontingent`);
     }
@@ -1094,6 +1171,10 @@ export class DvmProvider {
     // Werden LOKAL ausgefuehrt, Ergebnisse in den Prompt-Kontext eingebaut
     // und als usage.toolCalls abgerechnet.
     const toolCalls = this.parseToolCalls(request);
+    // Gratis (A-14, G1): Werkzeuge und Schwarm nur gegen Bezahlung – beide sprengen die Grenze je Antwort
+    const isSwarm = request.tags.some((t) => t[0] === "swarm" && t[1] === "1");
+    if (gratisRegel && toolCalls.length > 0) throw new Error("Werkzeuge nur gegen Bezahlung");
+    if (gratisRegel && isSwarm) throw new Error("Schwarm nur gegen Bezahlung");
     const toolResults: Array<{ name: string; kind: number; costMsat: number; output: string; ok: boolean }> = [];
     let toolContext = "";
     if (toolCalls.length > 0 && this.toolRegistry) {
@@ -1108,7 +1189,6 @@ export class DvmProvider {
     }
 
     // SWARM-MODUS: Job mit ["swarm", "1"] tag -> beide Modelle parallel
-    const isSwarm = request.tags.some((t) => t[0] === "swarm" && t[1] === "1");
     if (isSwarm) {
       console.log("[dvm] Swarm-Modus erkannt — beide Modelle parallel");
       const result = await this.backend.complete({
@@ -1191,6 +1271,8 @@ export class DvmProvider {
       model: requestedModel,
       // Über Funk keine Zwischenstände (7.4): jede Rückmeldung kostet Sendezeit
       onProgress: kurz ? undefined : onProgress,
+      // Gratis (A-14): höchstens so viele Tokens, ohne Werkzeuge des Modells
+      ...(gratisRegel && this.cfg.gratis ? { maxTokens: this.cfg.gratis.tokensJeAntwort, ohneWerkzeuge: true } : {}),
     });
 
     // Preis: Session-Rate, Deposit-Rate, Free-Tier (0), oder Bid-Preis.
@@ -1202,6 +1284,8 @@ export class DvmProvider {
     if (isFreeJob) {
       amountMsat = 0; // Gratis — Provider-Marketing, kein Topf (Tools in free auch 0)
       if (!privat) this.recordFreeUsage(request.pubkey, result.completionTokens);
+      // Budget des Knotens (A-14): Frage samt Verlauf und Antwort, aus der eigenen Abrechnung
+      if (gratisRegel) this.bucheGratis(result.promptTokens + result.completionTokens, now);
     } else if (kanalEmpfaenger) {
       // Zahlkanal: wie ein Gebot – höchstens das Gebot, dazu die Werkzeuge
       amountMsat = Math.min(bidMsat, rawPrice) + toolCostMsat;

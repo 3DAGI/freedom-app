@@ -13,6 +13,11 @@ export interface InferenceRequest {
   prompt: string;
   model?: string;
   maxTokens?: number;
+  /**
+   * Ohne Werkzeuge rechnen (A-14, G1): Gratis-Antworten bekommen keine – das
+   * Modell ruft sie sonst selbst auf, und jede Runde hätte wieder `maxTokens`.
+   */
+  ohneWerkzeuge?: boolean;
   /** Konversations-Kontext (Live-Chat): bisherige Messages der Session.
    *  Aufbau: [{role:'user'|'assistant', content}] — aelteste zuerst. */
   history?: Array<{ role: "user" | "assistant" | "system"; content: string }>;
@@ -257,7 +262,7 @@ WICHTIG:
     ];
 
     // Tool-Calling Loop: LLM entscheidet selbst, welche Tools es nutzt
-    const tools = this.getTools();
+    const tools = req.ohneWerkzeuge ? undefined : this.getTools();
     let finalOutput = "";
     let promptTokens = 0;
     let completionTokens = 0;

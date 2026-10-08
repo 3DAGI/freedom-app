@@ -219,6 +219,27 @@ der Knoten vergibt dafür nur kurzlebige Zugänge an deine Geräte.
 - **Wer einen Zugang bekommt:** nur gekoppelte Geräte des Besitzers, versiegelt.
   Der Zugang steht nie im Log.
 
+## Gratis-Start (A-14)
+
+Neue Kunden fragen zuerst gratis. Dein Knoten verschenkt dafür ein Budget je
+Tag für alle zusammen und nennt es im Angebot. Ein Kontingent je Person geht
+nicht, ohne Anfragen zu verknüpfen – Schlüssel kosten nichts.
+
+- **Budget je Tag:** `GRATIS_TOKENS_TAG`, Standard 100 000 Tokens (Frage samt
+  Verlauf und Antwort), Tag nach UTC; `0` schaltet ab. Das Budget liegt nur im
+  Speicher – nach einem Neustart beginnt es neu.
+- **Je Antwort:** `GRATIS_TOKENS_JE_ANTWORT`, Standard 2 000 – der Knoten
+  begrenzt beim Modell. Werkzeuge und Schwarm gibt es gratis nicht.
+- **Rechenarbeit:** `GRATIS_POW_BITS`, Standard 16 – so viel muss der Umschlag
+  einer Gratis-Anfrage tragen (bezahlte: `PRIVATE_POW_BITS`, Standard 12).
+- **Leer:** Ist das Budget verbraucht, lehnt der Knoten mit der Kennung
+  `gratis-leer` ab; die App sagt das dem Kunden.
+- **Erste 24 Stunden (Bootstrap):** Der Knoten verdient noch nichts. Fragen
+  mit Gebot beantwortet er gratis, nach derselben Regel – sonst scheiterte die
+  erste Frage jedes Kunden.
+- **Ungültige Werte:** Der Knoten startet nicht (`[gratis] …` im Log), statt
+  still etwas anderes zu verschenken.
+
 ## Funk-Gateway (7.4b2, 7.5d)
 
 Ein Knoten mit Netz und Funkgerät reicht kurze KI-Anfragen aus dem Funk ins

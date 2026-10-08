@@ -2,8 +2,9 @@
  * Bootstrap-Tests: 24h-Pflicht-Gratis neuer Provider (Kaltstart-Reputation).
  *
  * Beweist das Modell:
- *  - Neue Provider (providerSince = jetzt) nehmen NUR Gratis-Jobs
- *  - Bezahlte Jobs (Bid/Session) werden in Bootstrap abgelehnt
+ *  - Neue Provider (providerSince = jetzt) verdienen nichts
+ *  - Ein Gebot wird seit A-14 (G1) gratis bedient statt abgelehnt – sonst
+ *    scheitert die erste Frage jedes Kunden, dessen App ein Gebot schickt
  *  - Nach 24h: automatisch paid (Bid-Jobs funktionieren)
  *  - Bootstrap-Arbeit erzeugt 38010-Events mit bootstrap-Markierung (Reputation)
  *  - Gratis-Arbeit zaehlt ins Leaderboard (volume_msat=0, aber units>0)
@@ -51,7 +52,7 @@ function mkNewProvider(pool: OutboxPool, kp: ReturnType<typeof generateKeypair>,
   );
 }
 
-test("Bootstrap: neuer Provider (<24h) nimmt NUR Gratis-Jobs, lehnt Bid ab", async () => {
+test("Bootstrap: neuer Provider (<24h) verdient nichts – auch ein Gebot wird gratis bedient (A-14)", async () => {
   const customer = generateKeypair();
   const providerKp = generateKeypair();
   const pool = new OutboxPool([new MemoryRelay("mem://bs1")], { minAcks: 1 });
@@ -67,12 +68,13 @@ test("Bootstrap: neuer Provider (<24h) nimmt NUR Gratis-Jobs, lehnt Bid ab", asy
   assert.equal(r.length, 1, "Gratis-Job akzeptiert");
   assert.equal(r[0].amountMsat, 0);
 
-  // Bid-Job (bezahlt): abgelehnt in Bootstrap
+  // Bid-Job: seit A-14 gratis bedient (vorher abgelehnt – die erste Frage scheiterte)
   await pool.publish(
     signEvent(buildJobRequest({ customerPubkey: customer.pk, input: "bezahlt", bidMsat: 10_000 }), customer.sk),
   );
   r = await provider.pollOnce();
-  assert.equal(r.length, 0, "Bid-Job in Bootstrap abgelehnt (muss erst Reputation aufbauen)");
+  assert.equal(r.length, 1, "Gebot in Bootstrap beantwortet");
+  assert.equal(r[0].amountMsat, 0, "kein Verdienst in der Bootstrap-Phase");
 });
 
 test("Bootstrap: nach 24h automatisch paid (Bid-Jobs funktionieren)", async () => {

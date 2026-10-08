@@ -82,6 +82,11 @@ services:
       OLLAMA_MODEL: "${OLLAMA_MODEL:-qwen2.5:7b}"
       PROVIDER_MODELS: "${PROVIDER_MODELS:-qwen2.5:7b}"
       FREE_TOKENS_PER_DAY: "${FREE_TOKENS_PER_DAY:-2000}"
+      # Gratis-Start (A-14): Budget des Knotens je Tag fuer alle zusammen, Grenze je Antwort,
+      # Rechenarbeit einer Gratis-Anfrage. Leer = Vorgabe (100000 / 2000 / 16), GRATIS_TOKENS_TAG=0 schaltet ab.
+      GRATIS_TOKENS_TAG: "${GRATIS_TOKENS_TAG:-}"
+      GRATIS_TOKENS_JE_ANTWORT: "${GRATIS_TOKENS_JE_ANTWORT:-}"
+      GRATIS_POW_BITS: "${GRATIS_POW_BITS:-}"
       STORAGE_ENABLED: "${STORAGE_ENABLED:-1}"
       RELAY_ENABLED: "${RELAY_ENABLED:-0}"
       # Ein Relay ohne oeffentliche Adresse ist fuer das Netz unsichtbar —

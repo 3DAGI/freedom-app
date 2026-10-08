@@ -129,7 +129,7 @@ Bestehende Kinds sind reserviert und semantisch eingefroren:
 | 38011 / 38012 | *nicht mehr belegt* (Reward-Payout-Nachweis, Saison mit Pool-Regeln; nie veröffentlicht, entfernt mit 5.1.4d) |
 | 38013 | *nicht mehr belegt* (Reward-Claim, bis 5.1.4b) |
 | 38020–38022 | Sessions (Open/Payment/Close) |
-| 38027 | Provider-Capabilities (models, tools, storage, relay) |
+| 38027 | Provider-Capabilities (models, tools, storage, relay; Gratis-Start §30) |
 | 38030 / 38031 | *nicht mehr belegt* (Mesh-Paket / Kurier-Zustellbeleg; nie angebunden, entfernt mit B-21 – über Mesh geht seit 7.1 nur der Umschlag) |
 | 38040 / 38041 | Blob-Manifest / Blob-Chunk |
 | 38042 | Git-Repo-Referenz |
@@ -924,3 +924,32 @@ Inhalt: die Beschreibung (höchstens 8.000 Zeichen). Gebaut nur über
 Kennung). Den Stand liefert `aktuelleKopfgelder()` – je Geldgeber und Kennung
 der neueste; ein Fremder kann ein Kopfgeld nicht als erledigt melden, er legt
 höchstens ein eigenes an. Zum Issue: `kopfgelderZuIssue()`.
+
+## 30. Gratis-Start im Angebot (Tag `gratis` in 38027, seit A-14a)
+
+Entscheidung G1 vom 08.10.2026. Ein Kontingent je Person kann ein Knoten nicht
+durchsetzen, ohne Anfragen zu verknüpfen: Schlüssel kosten nichts, und die App
+wechselt sie je Unterhaltung. Deshalb verschenkt jeder Knoten ein Budget für
+alle zusammen und nennt es im Angebot:
+
+`["gratis", <Tokens am Tag>, <Tokens je Antwort>, <Bits>]`
+
+| Feld | Bedeutung |
+|---|---|
+| Tokens am Tag | so viel rechnet der Knoten je Tag (UTC) gratis, Frage samt Verlauf und Antwort aus seiner eigenen Abrechnung; Vorgabe 100 000 |
+| Tokens je Antwort | höchstens so lang wird eine Gratis-Antwort – der Knoten begrenzt beim Modell; Vorgabe 2 000 |
+| Bits | Rechenarbeit (NIP-13) des Umschlags einer Gratis-Anfrage ohne Gebot – mehr als `pow` für bezahlte; Vorgabe 16 |
+
+- Gratis gibt es ohne Werkzeuge und ohne Schwarm, beides sprengte die Grenze je
+  Antwort.
+- Ist das Budget verbraucht, sagt die Rückmeldung (7000, `status` `error`) das
+  mit dem Tag `["fall", "gratis-leer"]` – die App erkennt den Fall daran, nicht
+  am Text. `["free", "0"]` im Angebot heißt dann: heute nichts mehr gratis.
+- In der Bootstrap-Phase (erste 24 Stunden) bedient der Knoten auch Gebote
+  gratis, nach derselben Regel; Gutschriften (Zahlkanal) und Sitzungen lehnt er
+  dort weiter ab – eine Gutschrift gälte auch später.
+- Gebaut und gelesen nur über `gratisTag()`/`leseGratisTag()` (`gratis.ts`):
+  drei ganze Zahlen im Bereich, sonst keine Angabe. Ohne den Tag verschenkt ein
+  Knoten nichts nach dieser Regel.
+- Wie viel ein Gerät gratis fragt, zählt die App selbst (A-14b) – eine
+  Fairness-Regel, keine Sperre.
