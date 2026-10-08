@@ -173,7 +173,9 @@ was Kunden wirklich fragen. Kind 38081 wird nicht wiederverwendet.
 6. **Rückfall:** Die Reihenfolge bei Ausfall ist diese Liste.
 
 ### 3.4 Probezeit (24 Stunden), neu gedeutet
-- **Bleibt:** In den ersten 24 Stunden nimmt der Knoten nur Gratis-Aufträge an.
+- **Bleibt:** In den ersten 24 Stunden verdient der Knoten nichts. Seit A-14
+  (G1) beantwortet er dort auch Fragen mit Gebot – gratis, nach seinem
+  Gratis-Budget; Zahlkanal und Sitzungen lehnt er weiter ab.
 - **Seit P5a:** Gemessen wird nur in den Apps der Kunden. Ein neuer Provider
   steht dort bei den Neuen in der Mitte und bekommt so Aufträge; nach 20
   Anfragen mit mindestens 95 % Antworten steht er bei dieser App bei den
