@@ -23,8 +23,8 @@ Activity.
   denselben Regeln wie im Browser.
 - Auf dem Desktop geht der Verkehr der App auf Wunsch über Tor (seit 6.1b1a, siehe
   unten).
-- Noch nicht: Selbst-Update der Hülle (6.1a4b), der Schalter „Direkt / Tor“ in der App
-  (6.1b1b), Tor unter Android (6.1b2), ein Android-Paket mit festem Schlüssel (6.1c2).
+- Noch nicht: Selbst-Update der Hülle (6.1a4b), Tor unter Android (6.1b2), ein
+  Android-Paket mit festem Schlüssel (6.1c2).
 - Unter Linux geht „App exportieren“ (Weitergeben) in der Hülle nicht: Die CSP der
   App lässt kein `fetch` auf `freedom://` zu (Entscheidung H1 in der Sammlung).
 
@@ -98,8 +98,8 @@ Verkehr der App über Tor – Relays, Solana-RPC, Downloads, auch `.onion`.
   Verbindungen – nie geht etwas still direkt hinaus.
 - Die Wahl liegt in `netz.json` bei den Daten der Hülle und gilt ab dem nächsten Start
   (der Proxy eines Webviews steht beim Bauen des Fensters fest). Die App fragt sie über
-  `netz_stand` ab und setzt sie über `netz_setzen` (mit Neustart); den Schalter dafür
-  bekommt die App mit 6.1b1b. Bis dahin von Hand:
+  `netz_stand` ab und setzt sie über `netz_setzen` (mit Neustart) – seit 6.1b1b über den
+  Schalter in Settings › Datenschutz („Tor in dieser App“, nach Rückfrage). Von Hand:
   `echo '{"tor":true}' > ~/.local/share/io.github.3dagi.freedom/netz.json`.
 - arti legt seinen Zustand unter `tor/` bei den Daten der Hülle ab, den Konsens im Cache.
 - Grenzen: Anrufe (WebRTC) laufen nicht über den Proxy des Webviews; andere Programme

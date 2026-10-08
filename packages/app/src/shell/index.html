@@ -834,10 +834,16 @@
           <label class="mono-sm" style="display:block;margin:8px 0"><span data-i18n="set.verbindungLabel">Verbindung</span>
             <select id="net-mode" class="mono-sm">
               <option value="klar" data-i18n="set.netzKlar">direkt (Relays sehen deine IP)</option>
-              <option value="tor" data-i18n="set.netzTor">.onion-Relays bevorzugen (nur im Tor Browser wirksam)</option>
+              <option value="tor" data-i18n="set.netzTor">.onion-Relays bevorzugen (nur über Tor wirksam: Tor Browser oder Tor in der Desktop-App)</option>
               <option value="mixnet" data-i18n="set.netzMixnet">Mixnetz (nur wirksam, wenn du selbst eines nutzt)</option>
             </select></label>
-          <p class="mono-sm muted"><span data-i18n="set.onionText">Ob deine IP-Adresse verborgen ist, prüft die App, wenn du diesen Bericht öffnest: Erreicht sie ein .onion-Relay, läuft dein Browser über Tor. Sie versucht bis zu drei .onion-Relays, die sie kennt, höchstens 10 Sekunden.</span> <button id="onion-pruefen" class="ghost mini" type="button" data-i18n="set.erneutPruefen">erneut prüfen</button></p>
+          <div id="huelle-tor-block" class="hidden">
+            <label class="mono-sm" style="display:block;margin:8px 0">
+              <input type="checkbox" id="huelle-tor" /> <span data-i18n="set.torHaken">Tor in dieser App: der gesamte Verkehr über Tor (Desktop)</span></label>
+            <p class="mono-sm muted" data-i18n="set.torText">Langsamer als direkt – Relays, Solana-RPC und Downloads sehen deine IP-Adresse nicht mehr. Anrufe laufen nicht über Tor. Ist Tor nicht verbunden, geht nichts hinaus – nie still direkt. Umschalten startet die App neu.</p>
+            <p id="huelle-tor-stand" class="mono-sm" aria-live="polite"></p>
+          </div>
+          <p class="mono-sm muted"><span data-i18n="set.onionText">Ob deine IP-Adresse verborgen ist, prüft die App, wenn du diesen Bericht öffnest: Erreicht sie ein .onion-Relay, läuft deine Verbindung über Tor. Sie versucht bis zu drei .onion-Relays, die sie kennt, höchstens 10 Sekunden.</span> <button id="onion-pruefen" class="ghost mini" type="button" data-i18n="set.erneutPruefen">erneut prüfen</button></p>
           <label class="mono-sm" style="display:block;margin:8px 0"><span data-i18n="set.onionLabel">.onion-Relay zum Prüfen (optional – nur für diese Prüfung)</span>
             <input id="onion-pruefrelay" class="mono-sm" placeholder="ws://….onion" autocomplete="off" spellcheck="false" style="width:100%" /></label>
           <label class="mono-sm" style="display:block;margin:8px 0">
