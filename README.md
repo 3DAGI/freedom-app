@@ -1,3 +1,5 @@
+<p align="center"><img src="docs/bilder/banner.png" alt="FREEDOM – Message. Use AI. Pay – without an operator. Nostr, Lightning and Solana, non-custodial." width="100%"></p>
+
 # FreedomStack
 
 Nachrichten, Zahlungen und KI-Anfragen ohne Betreiber: Kommunikation über
@@ -19,7 +21,7 @@ kann das Netz allein abschalten.
 | `packages/node` | Provider-Knoten: KI-Aufträge, Abrechnung, Liquidität für Swaps, Relay-, Speicher- und Gateway-Rolle |
 | `packages/mls` | MLS (Marmot/MDK) als WebAssembly – Gruppen- und 1:1-Verschlüsselung mit Vorwärtsgeheimnis |
 | `packages/website` | Startseite, Whitepaper, FAQ, Roadmap, Status-Seite |
-| `packages/launcher` | Desktop-App für Linux und Windows (Tauri 2) – dieselbe App als eigenes Programm, in Arbeit |
+| `packages/launcher` | Die App als eigenes Programm für Linux, Windows und Android (Tauri 2), auf Wunsch über Tor – in Arbeit, Pakete als Test-Artefakte der CI |
 | `contracts/solana-htlc` | Hash-Zeitschloss für Swaps Lightning ↔ SOL (Devnet) |
 | `contracts/solana-channel` | Zahlkanal für SOL (`docs/ZAHLKANAL.md`) |
 | `docs/` | Protokoll (`PROTOCOL.md`), Ausbauplan (`ausbau/`), Entscheidungen (`neuordnung/SAMMLUNG.md`) |
