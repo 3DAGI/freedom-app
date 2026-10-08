@@ -124,6 +124,9 @@ services:
       # 8.2c: Relays über Tor – host:port eines Tor-SOCKS-Proxys (z. B. ein eigener
       # Tor-Container). Ungültig: der Knoten startet nicht. Leer: ohne Tor.
       TOR_SOCKS: "${TOR_SOCKS:-}"
+      # 7.4b2/7.5d: Funk-Gateway (docs/PROVIDER.md) – meshtastic:<ip> fuer ein
+      # Meshtastic-Geraet mit WLAN, host:port fuer eine TCP-Bruecke. Leer: aus.
+      FUNK_GATEWAY: "${FUNK_GATEWAY:-}"
       LNURL_ENABLED: "${LNURL_ENABLED:-0}"
       LNURL_BASE_URL: "${LNURL_BASE_URL:-}"
       LNURL_NAME: "${LNURL_NAME:-provider}"

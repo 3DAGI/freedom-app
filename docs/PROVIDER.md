@@ -219,6 +219,31 @@ der Knoten vergibt dafür nur kurzlebige Zugänge an deine Geräte.
 - **Wer einen Zugang bekommt:** nur gekoppelte Geräte des Besitzers, versiegelt.
   Der Zugang steht nie im Log.
 
+## Funk-Gateway (7.4b2, 7.5d)
+
+Ein Knoten mit Netz und Funkgerät reicht kurze KI-Anfragen aus dem Funk ins
+Netz und funkt die Antworten zurück. Er sieht dabei nur Umschläge – weder
+Frage noch Antwort noch wer fragt.
+
+- **Meshtastic-Gerät mit WLAN (seit 7.5d):** `FUNK_GATEWAY=meshtastic:<ip>`
+  (Port 4403, sonst `meshtastic:<ip>:<port>`). Auf dem Gerät gehört dazu ein
+  zweiter Kanal „freedom“ mit dem öffentlichen Schlüssel aus
+  [`MESHTASTIC.md`](MESHTASTIC.md), dazu Region und Senden an. Was fehlt, steht
+  beim Start im Log (`[funk] Meshtastic: …`, mit dem Schlüssel zum Abtippen);
+  anlegen lässt sich der Kanal in der App (Netz › Mesh, per USB oder
+  Bluetooth) oder in der Meshtastic-App. Ohne den Kanal funkt der Knoten nichts.
+  Das Gerät hält per WLAN nur eine Verbindung – eine neue wirft die alte hinaus.
+  Die Meshtastic-App daher über Bluetooth verbinden, sonst verdrängen sich App
+  und Knoten gegenseitig (der Knoten verbindet alle 30 s neu).
+- **Eigenes Funkgerät mit Längenpräfix:** `FUNK_GATEWAY=host:port` – eine
+  TCP-Brücke zum Gerät, z. B.
+  `socat TCP-LISTEN:4403,reuseaddr FILE:/dev/ttyUSB0,raw`; je Rahmen zwei Byte
+  Länge, dann der Rahmen.
+- **Sendezeit:** höchstens 1 % je Stunde. Mit Meshtastic zählt die Sendezeit,
+  die das Gerät mit seinem Preset braucht (LongFast: rund 1,9 s je Rahmen) –
+  eine Antwort mit 500 Zeichen (16 Rahmen) kostet so rund eine halbe Minute,
+  bei 1 % schafft ein Gateway etwa eine Antwort je Stunde.
+
 ## Was die Kette zeigt
 
 Dein Knoten hat **eine** SOL-Adresse: Alle Zahlkanäle an ihn und seine

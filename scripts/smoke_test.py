@@ -2300,6 +2300,108 @@ def weckworker_pruefen(browser, url: str) -> dict:
     return erg
 
 
+# Meshtastic über USB (seit 7.5d): ein Gerät mit Hauptkanal, aber ohne Kanal „freedom“ – antwortet auf `want_config`
+# mit Nachrichten aus der Referenz (meshtastic 2.7.11) und legt den Kanal nur an, wenn genau `set_channel` aus der
+# Referenz kommt. Zählt alles, was ankommt.
+MESHTASTIC_ATTRAPPE = """
+((ref) => {
+  const hex = (h) => Uint8Array.from(h.match(/../g).map((x) => parseInt(x, 16)));
+  const alsHex = (b) => [...b].map((x) => x.toString(16).padStart(2, '0')).join('');
+  const st = window.__mt = { geoeffnet: 0, fragen: 0, admin: 0, fremd: 0, kanal: false };
+  let ctrl, puffer = [];
+  const sende = (m) => ctrl.enqueue(Uint8Array.from([0x94, 0xc3, m.length >> 8, m.length & 0xff, ...m]));
+  const nimm = (m) => {
+    if (m[0] === 0x18) {
+      let id = 0, f = 1;
+      for (let i = 1; i < m.length; i++) { id += (m[i] & 0x7f) * f; f *= 128; if (m[i] < 0x80) break; }
+      st.fragen++;
+      const fertig = [0x38]; for (let n = id; ; n = Math.floor(n / 128)) { if (n < 0x80) { fertig.push(n); break; } fertig.push((n % 128) | 0x80); }
+      for (const a of [ref.ich, ref.lora, ref.primaer, ...(st.kanal ? [ref.kanal] : [])]) sende(hex(a));
+      sende(Uint8Array.from(fertig));
+    } else if (alsHex(m) === ref.anlegen) { st.admin++; st.kanal = true; }
+    else st.fremd++;
+  };
+  const port = {
+    async open() { st.geoeffnet++; },
+    async close() {},
+    readable: new ReadableStream({ start(c) { ctrl = c; } }),
+    writable: new WritableStream({ write(chunk) {
+      puffer.push(...chunk);
+      for (;;) {
+        const i = puffer.findIndex((b, j) => b === 0x94 && puffer[j + 1] === 0xc3);
+        if (i < 0 || puffer.length < i + 4) break;
+        const n = (puffer[i + 2] << 8) | puffer[i + 3];
+        if (puffer.length < i + 4 + n) break;
+        nimm(Uint8Array.from(puffer.slice(i + 4, i + 4 + n)));
+        puffer = puffer.slice(i + 4 + n);
+      }
+    } }),
+  };
+  Object.defineProperty(navigator, 'serial', { value: { requestPort: async () => port, getPorts: async () => [] } });
+})(__REF__);
+"""
+
+
+def meshtastic_pruefen(browser, url: str) -> dict:
+    """Meshtastic über USB (7.5b–d): erkannt, Hinweis auf den fehlenden Kanal samt öffentlichem Schlüssel, „Kanal anlegen“
+    erst nach der Rückfrage (Abbrechen schickt nichts), danach ist der Hinweis weg."""
+    erg = {"fehler": []}
+    wurzel = Path(__file__).resolve().parent.parent
+    r = json.loads((wurzel / "packages/protocol/test/fixtures/meshtastic-referenz.json").read_text())
+    vom = {f["fall"]: f["hex"] for f in r["vomGeraet"]}
+    anlegen = next(f["hex"] for f in r["zumGeraet"] if f["fall"] == "kanal-anlegen" and f["index"] == 1)
+    ref = {"ich": vom["ich"], "lora": vom["lora"], "primaer": vom["kanal-primaer"], "kanal": vom["kanal"], "anlegen": anlegen}
+    seite = DialogSeite(browser, url, ProbeRelay(), erg, init=MESHTASTIC_ATTRAPPE.replace("__REF__", json.dumps(ref)))
+    s, ev = seite.s, seite.ev
+    mt = "() => ({ ...window.__mt })"
+    ev("() => { location.hash = '#/netz'; }")
+    s.wait_for_selector('[data-subtab-group="netz"] [data-subtab="mesh"]', timeout=15000)
+    ev("() => document.querySelector('[data-subtab-group=\"netz\"] [data-subtab=\"mesh\"]').click()")
+    s.wait_for_selector("#mesh-connect", state="visible", timeout=10000)
+    erg["vorher"] = ev(mt)
+    s.click("#mesh-connect")
+    s.wait_for_function("() => document.getElementById('mesh-hinweis').textContent.length > 0", timeout=20000)
+    kanal_sichtbar = "() => !document.getElementById('mesh-kanal').classList.contains('hidden')"
+    psk = __import__("base64").b64encode(bytes.fromhex(r["kanal"]["psk"])).decode()
+    erg["verbunden"] = {"status": ev("() => document.getElementById('mesh-status').textContent"),
+                        "hinweis": ev("() => document.getElementById('mesh-hinweis').textContent"),
+                        "knopf": ev(kanal_sichtbar), "mt": ev(mt)}
+    # Abbrechen: nichts geht an das Gerät
+    s.click("#mesh-kanal")
+    erg["frage"] = seite.warte_dialog("Kanal „freedom“ auf dem Gerät anlegen?")
+    s.keyboard.press("Escape")
+    seite.warte_zu()
+    s.wait_for_timeout(300)
+    erg["abgebrochen"] = ev(mt)
+    # Anlegen: genau `set_channel` aus der Referenz, danach neu gefragt – Hinweis und Knopf weg
+    s.click("#mesh-kanal")
+    seite.warte_dialog("Kanal „freedom“ auf dem Gerät anlegen?")
+    dialog_ok(seite, "Kanal „freedom“ anlegen")
+    s.wait_for_function(f"() => document.getElementById('mesh-hinweis').textContent === '' && !({kanal_sichtbar})()", timeout=20000)
+    erg["angelegt"] = ev(mt)
+    v = erg["verbunden"]
+    if erg["vorher"] != {"geoeffnet": 0, "fragen": 0, "admin": 0, "fremd": 0, "kanal": False}:
+        erg["fehler"].append(f"vor dem Klick: {erg['vorher']}")
+    if not ("Meshtastic-Gerät (USB)" in v["status"] or v["status"] in ("bereit", "")):
+        erg["fehler"].append(f"Status {v['status']!r}")
+    if not ("fehlt der Kanal „freedom“" in v["hinweis"] and psk in v["hinweis"] and v["knopf"] is True
+            and v["mt"]["geoeffnet"] == 1 and v["mt"]["fragen"] >= 1 and v["mt"]["admin"] == 0 and v["mt"]["fremd"] == 0):
+        erg["fehler"].append(f"verbunden {v}")
+    if not (erg["frage"] and "öffentlich" in json.dumps(erg["frage"], ensure_ascii=False)):
+        erg["fehler"].append(f"Rückfrage {erg['frage']}")
+    if erg["abgebrochen"]["admin"] != 0 or erg["abgebrochen"]["fremd"] != 0:
+        erg["fehler"].append(f"abgebrochen {erg['abgebrochen']}")
+    a = erg["angelegt"]
+    if not (a["admin"] == 1 and a["kanal"] is True and a["fremd"] == 0 and a["fragen"] > v["mt"]["fragen"]):
+        erg["fehler"].append(f"angelegt {a}")
+    erg["browser_dialoge"] = seite.browser_dialoge
+    if seite.browser_dialoge:
+        erg["fehler"].append(f"Browser-Dialoge: {seite.browser_dialoge}")
+    seite.ctx.close()
+    erg["bestanden"] = not erg["fehler"]
+    return erg
+
+
 ANTWORT_MD = "**fett** <img src=x onerror=alert(1)>\n\n```ts\nconst a = \"<b>\"; // x\n```"
 
 
@@ -4191,6 +4293,10 @@ def main() -> int:
             except Exception as e:
                 erg["lokal"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
             try:
+                erg["meshtastic"] = meshtastic_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
+            except Exception as e:
+                erg["meshtastic"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
+            try:
                 erg["einrichtung"] = einrichtung_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
             except Exception as e:
                 erg["einrichtung"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
@@ -4228,6 +4334,7 @@ def main() -> int:
           and erg.get("werben", {}).get("bestanden") is True
           and erg.get("unsicher", {}).get("bestanden") is True
           and erg.get("lokal", {}).get("bestanden") is True
+          and erg.get("meshtastic", {}).get("bestanden") is True
           and erg.get("einrichtung", {}).get("bestanden") is True
           and erg.get("weckworker", {}).get("bestanden") is True
           and erg.get("mobil", {}).get("bestanden") is True)
