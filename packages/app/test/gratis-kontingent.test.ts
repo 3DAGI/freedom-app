@@ -15,8 +15,8 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { waehleSicherung } from "@freedomstack/protocol";
 import {
-  GERAET_GRATIS, GeraeteKontingent, LS_GRATIS_KONTINGENT, gratisKandidaten, kontingentErschoepft, kontingentRest,
-  leseKontingent, powFuerAnfrage, tokensDerAntwort,
+  GERAET_GRATIS, GeraeteKontingent, LS_AUTO_BEZAHLEN, LS_GRATIS_KONTINGENT, gratisKandidaten, kontingentErschoepft, kontingentRest,
+  leseKontingent, powFuerAnfrage, tierFuerListe, tokensDerAntwort, waehleAuto,
 } from "../src/gratis-kontingent.js";
 import type { GeheimSpeicher } from "../src/vault.js";
 
@@ -102,7 +102,8 @@ test("Gratis-Start verdrahtet: prüfen vor dem Senden, zählen nach der Antwort,
   assert.match(agent, /fall: feedback\[0\]\.tags\.find\(\(x\) => x\[0\] === "fall"\)\?\.\[1\]/);
   assert.match(wege, /answer\.fall === GRATIS_LEER/);
   // Nur Gratis-Anbieter, gezählt erst nach der Antwort
-  assert.match(wege, /bid === 0 \? gratisKandidaten\(privat, MAX_POW_APP\) : privat/);
+  assert.match(wege, /bid === 0 \? gratisAnbieter\(privat, MAX_POW_APP\) : privat/);
+  assert.match(lies("shell/gratis-start.ts"), /return gratisKandidaten\(kandidaten, maxPow\)\.filter\(/, "gratisAnbieter baut auf gratisKandidaten auf");
   assert.ok(wege.indexOf("zaehleGratisAntwort(answer.parsed?.usage)") > wege.indexOf("await handleAnswer(answer.ev"));
 });
 
@@ -110,4 +111,36 @@ test("Gratis-Kontingent: nur in geheim, nie in der Sicherung", () => {
   assert.match(lies("shell/tresor.ts"), /"freedom\.gratis\.kontingent"/);
   assert.match(lies("shell/gratis-start.ts"), /new GeraeteKontingent\(geheim\)/);
   assert.ok(!(LS_GRATIS_KONTINGENT in waehleSicherung([LS_GRATIS_KONTINGENT], () => "{}")), "ein neues Gerät fängt neu an – der Stand verrät, wie viel man fragt");
+});
+
+test("Automatisch (A-14b2): erst gratis, dann bezahlt – das erste Mal nur nach Rückfrage, ohne Wallet nie", () => {
+  const w = (kontingentLeer: boolean, gratisAnbieter: number, zugestimmt: boolean, wallet: boolean) =>
+    waehleAuto({ kontingentLeer, gratisAnbieter, zugestimmt, wallet });
+  assert.deepEqual(w(false, 2, false, false), { art: "gratis" }, "Kontingent und Gratis-Anbieter: gratis, auch ohne Wallet");
+  assert.deepEqual(w(true, 2, false, true), { art: "fragen", grund: "kontingent" });
+  assert.deepEqual(w(false, 0, false, true), { art: "fragen", grund: "keinGratis" });
+  assert.deepEqual(w(true, 0, true, true), { art: "bezahlt" }, "einmal zugestimmt: bezahlt ohne neue Rückfrage");
+  assert.deepEqual(w(true, 2, true, false), { art: "wallet", grund: "kontingent" }, "ohne Wallet nie bezahlen, auch nach Zustimmung");
+  assert.deepEqual(w(false, 0, false, false), { art: "wallet", grund: "keinGratis" });
+  assert.equal(tierFuerListe("auto"), "free");
+  assert.equal(tierFuerListe("classic"), "classic");
+  assert.ok(LS_AUTO_BEZAHLEN.startsWith("freedom."), "Präfix für die Notfall-Löschung");
+});
+
+test("Automatisch verdrahtet: Vorgabe, Rückfrage vor dem Merken, Funk nur gratis, leere Provider gemerkt", () => {
+  const html = lies("shell/index.html");
+  const auswahl = html.slice(html.indexOf('<select id="ai-tier"'), html.indexOf("</select>", html.indexOf('<select id="ai-tier"')));
+  assert.match(auswahl, /^<select id="ai-tier"[^>]*>\s*<option value="auto" selected data-i18n="tierAuto">/, "Automatisch ist die Vorgabe");
+  assert.equal((auswahl.match(/ selected/g) ?? []).length, 1);
+  const agent = lies("shell/tabs/agent.ts");
+  const auto = agent.indexOf('if (selTier === "auto")');
+  assert.ok(auto > 0 && auto < agent.indexOf('if (tier === "free" && geraeteKontingent.erschoepft())') && auto < agent.indexOf("await askWithFailover("),
+    "entschieden vor dem Kontingent und vor dem Senden");
+  const frage = agent.indexOf("await bestaetige({", auto);
+  assert.ok(frage > auto && frage < agent.indexOf("merkeAutoZustimmung();", auto), "erst gefragt, dann gemerkt");
+  assert.match(agent, /if \(!ok\) \{\s*resetSendBtn\(btn\);\s*return;\s*\}/, "abgelehnt: nichts hinaus");
+  assert.match(agent, /const gebot = wahlFunk === "free" \|\| wahlFunk === "auto" \? 0 : bid;/, "über Funk nie ohne Rückfrage bezahlen");
+  const wege = lies("shell/tabs/agent-wege.ts");
+  assert.match(wege, /gratisLeer = true;\s*merkeGratisLeer\(target\);/);
+  assert.match(wege, /bid === 0 \? gratisAnbieter\(privat, MAX_POW_APP\) : privat/);
 });
