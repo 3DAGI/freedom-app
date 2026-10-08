@@ -249,7 +249,7 @@ test("Jede Ereignisart hat eine Einordnung – ueber Mesh nur Umschlaege", () =>
   assert.equal(policyFor(99999), undefined);
 });
 
-test("0.F/7.4: „KI über Funk“ rechnet nach – 500 Wörter bräuchten mehr als eine Stunde, 500 Zeichen über ein Gateway gut 15 s", async () => {
+test("0.F/7.4/7.5d: „KI über Funk“ rechnet nach – 500 Wörter bräuchten mehr als eine Stunde, 500 Zeichen über ein Gateway rund 30 s (Meshtastic)", async () => {
   const { buildPrivateDm } = await import("../src/private-dm.js");
   const { luftBytes, SENDEZEIT_ANTEIL, SENDEZEIT_FENSTER_SEKUNDEN } = await import("../src/mesh-transport.js");
   const b = generateKeypair();
@@ -259,7 +259,8 @@ test("0.F/7.4: „KI über Funk“ rechnet nach – 500 Wörter bräuchten mehr 
   const budget = SENDEZEIT_ANTEIL * SENDEZEIT_FENSTER_SEKUNDEN;
   assert.ok(sekunden > budget, `${sekunden.toFixed(1)} s Sendezeit > ${budget} s je Stunde`);
   assert.ok(sekunden < 3 * budget, "nicht „Stunden“ – gut eine Stunde");
-  // Seit 7.4: eine kurze Antwort (höchstens 500 Zeichen) über ein Gateway – als Umschlag gut 15 s, rund zwei je Stunde
+  // Seit 7.4: eine kurze Antwort (höchstens 500 Zeichen) über ein Gateway; seit 7.5d mit der Sendezeit von Meshtastic
+  // (LongFast) je Rahmen gerechnet statt mit 200 Byte/s – rund 30 s, etwa eine je Stunde
   const { buildPrivateJobResponse } = await import("../src/private-job.js");
   const { LocalSigner } = await import("../src/signer.js");
   const sitzung = generateKeypair();
@@ -267,10 +268,19 @@ test("0.F/7.4: „KI über Funk“ rechnet nach – 500 Wörter bräuchten mehr 
   const antwort = buildEvent(KP.pk, 6050, [["e", "a".repeat(64)], ["p", sitzung.pk], ["amount", "21000"], ["usage", JSON.stringify({ model: "m", input_tokens: 40, output_tokens: 180 })]],
     "Wasser mindestens eine Minute sprudelnd abkochen, dann abgedeckt abkühlen lassen. ".repeat(6).slice(0, 499) + "…");
   const { wrap } = await buildPrivateJobResponse({ response: antwort, providerSigner: provider, sessionPk: sitzung.pk });
-  const kurz = luftBytes(new TextEncoder().encode(JSON.stringify(wrap)).length) / LINK_BYTES_PER_SEC.lora;
-  assert.ok(kurz > 12 && kurz < budget / 2, `${kurz.toFixed(1)} s: gut 15 s, zwei passen in eine Stunde`);
+  const { meshtasticSendezeit } = await import("../src/meshtastic.js");
+  const { FRAME_HEADER_BYTES, MAX_PAYLOAD_PER_FRAME } = await import("../src/mesh-transport.js");
+  const n = new TextEncoder().encode(JSON.stringify(wrap)).length;
+  const rahmen = Math.ceil(n / MAX_PAYLOAD_PER_FRAME);
+  let kurz = 0;
+  for (let r = 0; r < rahmen; r++) {
+    kurz += meshtasticSendezeit({ preset: 0, vorgabe: true }, Math.min(MAX_PAYLOAD_PER_FRAME, n - r * MAX_PAYLOAD_PER_FRAME) + FRAME_HEADER_BYTES);
+  }
+  assert.ok(rahmen >= 15 && rahmen <= 17, `${rahmen} Rahmen`);
+  assert.ok(kurz > 25 && kurz < 35, `${kurz.toFixed(1)} s: rund eine halbe Minute`);
+  assert.ok(kurz > budget / 2 && kurz < budget, "etwa eine passt in eine Stunde – nicht zwei");
   const ki = offlineCapabilities("lora").find((x) => x.feature === "KI-Anfragen")!;
   assert.equal(ki.works, true);
-  assert.match(ki.note, /rund zwei je Stunde und Gateway – eine Antwort kostet als Umschlag gut 15 s Sendezeit/);
+  assert.match(ki.note, /etwa eine je Stunde und Gateway – eine Antwort kostet als Umschlag rund eine halbe Minute Sendezeit \(Meshtastic-Standard\)/);
   assert.equal(offlineCapabilities("datei").find((x) => x.feature === "KI-Anfragen")!.works, false, "per Datei nicht");
 });

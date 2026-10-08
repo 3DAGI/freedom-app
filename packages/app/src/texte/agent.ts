@@ -161,7 +161,7 @@ export const agent: Texte = {
   "agent.lokalGratis": { de: "gratis · dieses Gerät", en: "free · this device" },
   "agent.ueberFunkTitel": { de: "Frage über dein Funkgerät an das gemerkte Gateway – kurze Antwort, höchstens 500 Zeichen", en: "Ask via your radio through the saved gateway – short answer, at most 500 characters" },
   "agent.funkLabel": { de: "KI über Funk", en: "AI via radio" },
-  "agent.funkUnterwegs": { de: "Über Funk unterwegs. Die Antwort (höchstens 500 Zeichen) kommt in einigen Minuten – nur, solange die App offen bleibt. Ein Gateway schafft rund zwei Antworten je Stunde.", en: "On its way via radio. The answer (at most 500 characters) arrives within a few minutes – only while the app stays open. A gateway manages about two answers per hour." },
+  "agent.funkUnterwegs": { de: "Über Funk unterwegs. Die Antwort (höchstens 500 Zeichen) kommt in einigen Minuten – nur, solange die App offen bleibt. Ein Gateway schafft etwa eine Antwort je Stunde.", en: "On its way via radio. The answer (at most 500 characters) arrives within a few minutes – only while the app stays open. A gateway manages about one answer per hour." },
   "agent.funkMeta": { de: "über Funk · auf „{frage}“", en: "via radio · to “{frage}”" },
   "agent.keinPrivaterProvider": { de: "Kein Provider für private Anfragen gefunden – die Knoten brauchen mindestens Stand 3.1.", en: "No provider for private requests found – nodes need at least version 3.1." },
   // Video (ComfyUI)

@@ -200,8 +200,10 @@ gelaufen ist, wäre eine Ankündigung — und davon hat das Projekt genug hinter
 sich.
 
 - [ ] Zwei LoRa-Geräte mit Meshtastic-Firmware kaufen (~40 € das Stück, Region
-      EU_868). Die App spricht Meshtastic erst ab 7.5b (USB) bzw. 7.5c (Bluetooth) –
-      vorher verwarf das Gerät ihre Rahmen (`docs/MESHTASTIC.md`)
+      EU_868). Die App spricht Meshtastic über USB und Bluetooth und legt den
+      Kanal „freedom“ auf Knopfdruck an (seit 7.5c); ein Gerät mit WLAN kann am
+      Gateway-Knoten hängen (`FUNK_GATEWAY=meshtastic:<ip>`, seit 7.5d) –
+      Einzelheiten in `docs/MESHTASTIC.md`
 - [ ] Echten Nachrichtenversand über Funk testen
 - [ ] **Eine Solana-Transaktion über Funk einreichen.** Das ist das Bild,
       das die Geschichte trägt.

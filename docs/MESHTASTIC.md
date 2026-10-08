@@ -40,6 +40,7 @@ Variante (a) für den Kanal; die Befunde gehen über dieses Dokument an Spur B.
 | Schlüssel des Kanals | SHA-256 von `freedomstack-meshtastic-kanal-v1`, steht im Code (`FREEDOM_KANAL`) – **kein Geheimnis**, er trennt nur unseren Verkehr vom Chat der anderen. Geschützt sind die Nachrichten durch ihre Umschläge (7.1) | `channel.proto`: 32 Byte = AES-256, Name unter 12 Byte |
 | Kanal anlegen | Nur auf Klick und nach Rückfrage (seit 7.5c), per `AdminMessage.set_channel` an das eigene Gerät – auf dem Platz eines „freedom“ mit fremdem Schlüssel, sonst dem ersten freien; lokal braucht das keinen Sitzungsschlüssel (außer `is_managed`) | `AdminModule.cpp` (`mp.from == 0`), `node.py` (`writeChannel`) |
 | Region | Ein neues Gerät hat die Region `UNSET` und sendet nicht – die App sagt das und setzt sie nicht selbst (die Region ist Recht des Landes) | `config.proto` |
+| Gateway im Knoten | `FUNK_GATEWAY=meshtastic:host[:4403]` (seit 7.5d): Gerät mit WLAN direkt per TCP, Strom wie über USB, dieselbe `MeshtasticSitzung`; Sendezeit und Takt aus dem Preset. Was am Gerät fehlt (Kanal mit Schlüssel, Region, Senden), steht im Log – angelegt wird dort nichts. Per WLAN nur eine Verbindung: eine neue schließt die alte | `tcp_interface.py` (Port 4403), `ServerAPI.cpp` („Force close previous TCP connection“) |
 
 ## Datenschutz – was Meshtastic dazu verrät
 
@@ -83,11 +84,13 @@ Mesh-Karte und in der FAQ.
 | 7.5a | Protokoll: Meshtastic-Format ohne Abhängigkeit (`meshtastic.ts`), Prüfvektoren aus der offiziellen Python-Bibliothek (`scripts/meshtastic-referenz.py`, meshtastic 2.7.11), dieses Dokument | `protocol/src/meshtastic.ts` |
 | 7.5b | App: Meshtastic über USB – Start, Kanal „freedom“ finden, Hop-Limit und Rate aus den Einstellungen, kein Weiterreichen über Meshtastic; der Weg mit Längenpräfix bleibt (eigene Firmware, TCP-Brücke); Bericht und Texte zum Datenschutz | `app/src/mesh-radio.ts`, `shell/tabs/mesh.ts` |
 | 7.5c | App: Meshtastic über Bluetooth; Kanal „freedom“ anlegen (Rückfrage), Hinweis bei Region `UNSET` | dieselben |
-| 7.5d | Knoten: Gateway direkt an ein Meshtastic-Gerät per TCP (Port 4403); Texte (FAQ, Mesh-Karte, GO-LIVE); Smoke-Test mit Meshtastic-Attrappe | `node/src/gateway-role.ts` |
+| 7.5d | Knoten: Gateway direkt an ein Meshtastic-Gerät per TCP (Port 4403, `meshtasticTcp()`), Sendezeit der Strecke in der Gateway-Rolle; Texte (FAQ, Provider, GO-LIVE); Smoke-Test „meshtastic“ mit Geräte-Attrappe | `node/src/gateway-role.ts`, `node/src/main.ts`, `scripts/smoke_test.py` |
 
-**Für Spur B:** Bis 7.5d fertig ist, ändert Spur A die genannten Mesh-Dateien.
-Bitte dort nichts parallel umbauen; Fragen und Funde gern als Zeile in diesem
-Dokument. Am Rahmenformat (`mesh-transport.ts`) ändert 7.5 nichts.
+**Für Spur B:** 7.5 ist im Code fertig (a–d); die Mesh-Dateien sind wieder
+frei. Wer dort weiterbaut, hält sich an die Festlegungen oben und die Regel
+„Meshtastic“ in `CLAUDE.md`: Über Meshtastic nie selbst weiterreichen
+(`leitetSelbstWeiter`), Sendezeit von der Strecke, Kanal nur mit
+`FREEDOM_KANAL`. Am Rahmenformat (`mesh-transport.ts`) hat 7.5 nichts geändert.
 
 ## Quellen (geprüfter Stand)
 
@@ -97,7 +100,9 @@ Dokument. Am Rahmenformat (`mesh-transport.ts`) ändert 7.5 nichts.
 
 ## MENSCH
 
-- Zwei Meshtastic-Geräte (Region EU_868) – nach 7.5b Nachrichten über USB, nach
-  7.5c über Bluetooth testen, dann die SOL-Zahlung über Funk (GO-LIVE 5).
+- Zwei Meshtastic-Geräte (Region EU_868) – Nachrichten über USB und Bluetooth
+  testen, „Kanal anlegen“ einmal ausprobieren, dann die SOL-Zahlung über Funk
+  (GO-LIVE 5). Für KI über Funk: ein Gerät mit WLAN am Gateway-Knoten
+  (`FUNK_GATEWAY=meshtastic:<ip>`).
 - Frage (nicht dringend): Darf die App über Meshtastic mehr als 1 % Sendezeit
   nutzen (bis zu den 10 % des Bands)?

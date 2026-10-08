@@ -145,5 +145,17 @@
     eines „freedom“ mit fremdem Schlüssel, sonst dem ersten freien (1–7) – der
     Hauptkanal bleibt; ohne Platz nichts. Danach neu gefragt. Hinweis bei
     Region `UNSET` seit 7.5b; die Region setzt die App nie.
-  - **7.5d:** Gateway des Knotens direkt an ein Meshtastic-Gerät per TCP
-    (Port 4403); Texte (FAQ, Mesh-Karte, GO-LIVE); Smoke-Test mit Attrappe.
+  - **7.5d – FERTIG:** Gateway des Knotens direkt an ein Meshtastic-Gerät mit
+    WLAN (`FUNK_GATEWAY=meshtastic:host[:4403]`, `meshtasticTcp()` in
+    `gateway-role.ts`): dieselbe `MeshtasticSitzung` wie die App, Strom mit
+    `0x94 0xC3`, neu verbinden nach Trennung; ohne Kanal geht nichts hinaus.
+    Was fehlt (Kanal samt öffentlichem Schlüssel, Region, Senden), steht im Log
+    (`meshtasticBefunde()`) – der Knoten legt nichts an. Die Gateway-Rolle
+    nimmt Sendezeit, Wartezeit und Takt von der Strecke (`sendezeit`), sonst wie
+    bisher 200 Byte/s. Ehrlich nachgerechnet: eine KI-Antwort mit 500 Zeichen
+    (16 Rahmen) braucht mit LongFast rund 30 s statt „gut 15 s“ – etwa eine je
+    Stunde und Gateway statt „zwei“ (Protokoll-Satz, App, FAQ, Provider). Texte:
+    FAQ, `docs/PROVIDER.md` (neu: Funk-Gateway), GO-LIVE. Smoke-Test
+    „meshtastic“: Web Serial mit Geräte-Attrappe (Bytes aus der Referenz) –
+    Hinweis samt Schlüssel, Abbrechen schickt nichts, Anlegen genau
+    `set_channel` aus der Referenz, danach ist der Hinweis weg.

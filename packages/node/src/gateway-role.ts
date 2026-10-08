@@ -12,24 +12,38 @@
  * (7.4b1). Das Funkgerät hängt über eine TCP-Brücke am Knoten (z. B. ser2net
  * oder `socat TCP-LISTEN:4403,reuseaddr FILE:/dev/ttyUSB0,raw`): je Rahmen zwei
  * Byte Länge (Big Endian), dann der Rahmen – keine neue Abhängigkeit.
+ * Seit 7.5d spricht der Knoten auch direkt mit einem Meshtastic-Gerät mit WLAN
+ * (`FUNK_GATEWAY=meshtastic:host[:4403]`, `meshtasticTcp()`).
  */
 import net from "node:net";
 import {
   GatewayBuch, KIND_FUNK_WEITERLEITUNG, KIND_GIFT_WRAP, LORA_MTU, LaengenRahmen, MeshKind, MeshPriority, MeshQueue, Reassembler, Sendegedaechtnis,
   Sendezeitkonto, WEITERLEITUNG_MAX_SECS, baueNachforderung, getTag, giftUnwrapMitSigner, leseNachforderung, oeffneWeiterleitung,
   mitLaenge, parseFrame, pruefeMeshInhalt, type NostrEvent, type RelayFilter, type Signer,
+  FREEDOM_KANAL, MESHTASTIC_REGION_UNGESETZT, MESHTASTIC_TCP_PORT, MeshtasticSitzung, MeshtasticStrom, leseVomGeraet,
+  meshtasticSendezeit, mitMeshtasticKopf, type MeshtasticStand,
 } from "@freedomstack/protocol";
 
 /** Weg zum Funkgerät: Rahmen senden (höchstens `LORA_MTU` Byte). */
 export interface FunkStrecke {
   send(frame: Uint8Array): Promise<void>;
   close(): Promise<void>;
+  /** Sendezeit eines Rahmens in Sekunden, wie das Gerät sie braucht (Meshtastic, 7.5d). */
+  sendezeit?: (bytes: number) => number;
 }
 
 /** Was das Gateway vom Netz braucht – der Relay-Pool des Knotens. */
 export interface GatewayNetz {
   publish(ev: NostrEvent): Promise<unknown>;
   query(f: RelayFilter): Promise<NostrEvent[]>;
+}
+
+/** `host:port` (mit Standard-Port auch nur `host`); IPv6 in eckigen Klammern. */
+function leseAdresse(adresse: string, standardPort?: number): { host: string; port: number } {
+  const m = /^([A-Za-z0-9.-]+|\[[0-9a-fA-F:]+\])(?::(\d{1,5}))?$/.exec(adresse);
+  const port = m?.[2] === undefined ? standardPort : Number(m[2]);
+  if (!m || port === undefined || port < 1 || port > 65535) throw new Error("FUNK_GATEWAY: host:port erwartet");
+  return { host: m[1].replace(/^\[|\]$/g, ""), port };
 }
 
 /**
@@ -39,10 +53,7 @@ export interface GatewayNetz {
 export function funkBruecke(
   adresse: string, onFrame: (f: Uint8Array) => void, log: (z: string) => void = console.log, neuMs = 30_000,
 ): FunkStrecke {
-  const m = /^([A-Za-z0-9.-]+|\[[0-9a-fA-F:]+\]):(\d{1,5})$/.exec(adresse);
-  const port = Number(m?.[2]);
-  if (!m || port < 1 || port > 65535) throw new Error("FUNK_GATEWAY: host:port erwartet");
-  const host = m[1].replace(/^\[|\]$/g, "");
+  const { host, port } = leseAdresse(adresse);
   let sock: net.Socket | null = null;
   let aus = false;
   let wecker: ReturnType<typeof setTimeout> | null = null;
@@ -64,6 +75,72 @@ export function funkBruecke(
       if (!sock) return fehler(new Error("Funkbrücke getrennt"));
       sock.write(mitLaenge(frame), (e) => (e ? fehler(e) : ok()));
     }),
+    close: async () => {
+      aus = true;
+      if (wecker) clearTimeout(wecker);
+      const s = sock;
+      sock = null;
+      s?.destroy();
+    },
+  };
+}
+
+/** Was am Meshtastic-Gerät fehlt – fürs Log, angelegt wird nichts (7.5d). */
+export function meshtasticBefunde(s: MeshtasticStand): string[] {
+  const out: string[] = [];
+  if (s.region === MESHTASTIC_REGION_UNGESETZT) out.push("keine Region gesetzt – das Gerät sendet nicht");
+  else if (!s.senden) out.push("Senden am Gerät ausgeschaltet");
+  if (s.kanal === null) {
+    const psk = Buffer.from(FREEDOM_KANAL.psk).toString("base64");
+    out.push(`Kanal „${FREEDOM_KANAL.name}“ fehlt${s.kanalFremd ? " (einer mit anderem Schlüssel ist da)" : ""} – anlegen in der App (Mesh-Karte) oder der Meshtastic-App: Name „${FREEDOM_KANAL.name}“, Schlüssel ${psk} (öffentlich)`);
+  }
+  return out;
+}
+
+/**
+ * Meshtastic-Gerät mit WLAN direkt per TCP (7.5d; Port 4403 wie die
+ * Python-Bibliothek): dieselbe Sitzung wie in der App (`MeshtasticSitzung`),
+ * Strom mit `0x94 0xC3`. Was fehlt, sagt das Log (`meshtasticBefunde()`);
+ * angelegt wird nichts. Verbindet nach einer Trennung alle `neuMs` neu.
+ */
+export function meshtasticTcp(
+  adresse: string, onFrame: (f: Uint8Array) => void, log: (z: string) => void = console.log, neuMs = 30_000,
+): FunkStrecke & { stand: () => MeshtasticStand } {
+  const { host, port } = leseAdresse(adresse, MESHTASTIC_TCP_PORT);
+  let sock: net.Socket | null = null;
+  let sitzung = new MeshtasticSitzung(async () => { throw new Error("Funkbrücke getrennt"); });
+  let aus = false;
+  let wecker: ReturnType<typeof setTimeout> | null = null;
+  const verbinde = () => {
+    if (aus) return;
+    const strom = new MeshtasticStrom();
+    const s = net.connect({ host, port });
+    const neu = new MeshtasticSitzung((m) => new Promise((ok, fehler) => s.write(mitMeshtasticKopf(m), (e) => (e ? fehler(e) : ok()))), onFrame);
+    s.on("connect", () => {
+      sock = s;
+      sitzung = neu;
+      log("[funk] Meshtastic verbunden");
+      void neu.frage().then(() => {
+        for (const b of meshtasticBefunde(neu.stand)) log(`[funk] Meshtastic: ${b}`);
+      }, (e: unknown) => log(`[funk] Meshtastic: ${(e as Error).name}`));
+    });
+    s.on("data", (d: Buffer) => {
+      for (const m of strom.push(new Uint8Array(d))) {
+        const v = leseVomGeraet(m);
+        if (v) neu.verarbeite(v);
+      }
+    });
+    s.on("error", (e) => log(`[funk] Meshtastic: ${e.name}`));
+    s.on("close", () => {
+      if (sock === s) sock = null;
+      if (!aus) wecker = setTimeout(verbinde, neuMs);
+    });
+  };
+  verbinde();
+  return {
+    stand: () => sitzung.stand,
+    sendezeit: (n) => meshtasticSendezeit(sitzung.stand, n),
+    send: (frame) => (sock ? sitzung.sende(frame) : Promise.reject(new Error("Funkbrücke getrennt"))),
     close: async () => {
       aus = true;
       if (wecker) clearTimeout(wecker);
@@ -108,6 +185,11 @@ export class GatewayRolle {
     this.jetzt = o.jetzt ?? (() => Math.floor(Date.now() / 1000));
     this.schlafe = o.schlafe ?? ((ms) => new Promise((r) => setTimeout(r, ms)));
     this.log = o.log ?? ((z) => console.log(z));
+  }
+
+  /** Sendezeit eines Rahmens: vom Gerät (Meshtastic, 7.5d) oder aus dem Durchsatz. */
+  private zeit(bytes: number): number {
+    return this.o.strecke.sendezeit?.(bytes) ?? bytes / this.bytesProSek;
   }
 
   /** Post holen alle `postMs`, Lücken prüfen alle `lueckenMs`. */
@@ -213,7 +295,7 @@ export class GatewayRolle {
 
   private async sende(): Promise<void> {
     while (!this.gestoppt && this.queue.pending.some((m) => m.framesLeft > 0)) {
-      const warte = this.konto.wartezeit(LORA_MTU / this.bytesProSek, this.jetzt());
+      const warte = this.konto.wartezeit(this.zeit(LORA_MTU), this.jetzt());
       if (warte > 0) {
         await this.schlafe(Math.min(warte, 60) * 1000);
         continue;
@@ -229,9 +311,9 @@ export class GatewayRolle {
         await this.schlafe(30_000);
         continue;
       }
-      this.konto.buche(next.frame.length / this.bytesProSek, this.jetzt());
+      this.konto.buche(this.zeit(next.frame.length), this.jetzt());
       // Takt einhalten: Ein zugeschüttetes Funkgerät verwirft still
-      await this.schlafe((next.frame.length / this.bytesProSek) * 1000);
+      await this.schlafe(this.zeit(next.frame.length) * 1000);
     }
   }
 }
