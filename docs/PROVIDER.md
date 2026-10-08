@@ -71,8 +71,8 @@ ungültig, startet der Knoten nicht; ist Tor nicht erreichbar, verbindet er
 gar nicht – nie still ohne Tor.
 
 **Nicht** über Tor gehen: Solana-RPC (sieht die Adresse deines Knotens),
-LND, Ollama, die Abrufe der Werkzeuge des Agenten, Modell-Downloads und die
-Selbstprüfung.
+LND, Ollama, die Abrufe der Werkzeuge des Agenten, Modell-Downloads samt Vorprüfung
+bei `registry.ollama.ai` (E9-3) und die Selbstprüfung.
 
 Der eigene Relay als Onion-Dienst, in der `torrc`:
 
@@ -191,6 +191,43 @@ Findet sie kein Relay, geht nichts an den Knoten. Der Knoten liest sein Relay
 im eigenen Prozess, eine Verbindung zu sich selbst in `RELAYS` ersetzt er. An
 seinem Relay meldet sich die App mit dem Schlüssel der jeweiligen Anfrage an,
 nur so bekommt sie die versiegelte Antwort.
+
+## Modelle laden, geprüft (E9-3)
+
+```bash
+cd ~/freedomstack/packages/node && npm run modell -- qwen2.5:0.5b   # Docker: docker compose exec node npm run modell -- qwen2.5:0.5b
+npm run modell                                                     # Stand: geprüft, lädt, gescheitert
+```
+
+Der Name ist der Name bei Ollama. `npm run modell` merkt den Wunsch nur vor
+(`~/.freedom/modell-wunsch.json`); der laufende Knoten erledigt den Rest:
+
+1. **Manifest suchen:** Er sucht über seine Relays ein Modell-Manifest
+   (Kind 38057) zu genau diesem Namen. Es zählt nur eines vom eigenen
+   Schlüssel des Knotens oder von Schlüsseln, denen du folgst:
+   `MODELL_HERAUSGEBER=<hex>,<hex>`. Einen voreingestellten Herausgeber gibt
+   es nicht. Nennen deine Herausgeber verschiedene Dateien, lädt er nichts;
+   ein eigenes Manifest geht vor.
+2. **Speicher prüfen:** Er prüft, ob das Modell in den Speicher passt –
+   `MODELL_SPEICHER_GB`, sonst der Arbeitsspeicher des Rechners.
+3. **Vorab vergleichen:** Er fragt bei `registry.ollama.ai`, ob die Registry
+   dieselben Dateien nennt. Weicht sie ab, lädt er nichts.
+4. **Laden:** Ollama lädt und prüft jede Schicht gegen ihre Summe.
+5. **Abgleichen:** Erst wenn die geladenen Schichten genau die des Manifests
+   sind, steht das Modell im Angebot – neben `PROVIDER_MODELS`, wie bisher.
+
+Lädt jemand unter demselben Namen später etwas anderes in Ollama, fällt das
+Modell aus dem Angebot. Gemerkt wird das mit dem Fingerabdruck, den Ollama
+nennt (`~/.freedom/modelle.json`). Im Log steht `[modell] <name>: geprüft, im
+Angebot` oder `nicht angeboten (<Kennung>)`; `npm run modell` zeigt dazu den
+Grund.
+
+Die Prüfung sagt nur, ob die Bytes die angekündigten sind – nicht, ob ein
+Modell gut, sicher oder legal ist. Ein Manifest für Ollama hat:
+- `model`: den Namen bei Ollama, mit Tag;
+- `upstream`: `ollama:<derselbe Name>`;
+- je Datei den Namen ihres Blobs (`sha256-<hex>`), mit Summe und Größe – alle
+  Schichten und die Konfiguration aus dem Manifest der Registry.
 
 ## Anrufe über den eigenen Knoten (B-13, im Aufbau)
 

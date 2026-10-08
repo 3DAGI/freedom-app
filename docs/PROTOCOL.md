@@ -924,3 +924,35 @@ Inhalt: die Beschreibung (höchstens 8.000 Zeichen). Gebaut nur über
 Kennung). Den Stand liefert `aktuelleKopfgelder()` – je Geldgeber und Kennung
 der neueste; ein Fremder kann ein Kopfgeld nicht als erledigt melden, er legt
 höchstens ein eigenes an. Zum Issue: `kopfgelderZuIssue()`.
+
+## 30. Modell-Manifest und Laden über Ollama (Kind 38057, seit E9-3a)
+
+Ein Manifest beschreibt ein Modell samt Prüfsummen (`model-registry.ts`).
+Ersetzbar je Autor und `d`. Jeder kann eines veröffentlichen; wem ein Knoten
+glaubt, entscheidet sein Betreiber (V3 A aus `docs/E9-ENTWURF.md`).
+
+| Tag | Inhalt |
+|---|---|
+| `d` | `model:<name>` |
+| `model` | Name; bei Ollama der Name dort, mit Tag (`qwen2.5:0.5b`) |
+| `name` | Anzeigename |
+| `bytes` | Summe der Dateigrößen |
+| `file` | je Datei: Name, SHA-256 (hex), Größe in Byte, Blob-Kennung im eigenen Netz (leer erlaubt) |
+| `upstream` | Herkunft; für Ollama `ollama:<derselbe Name>` |
+| `quant`, `params_b`, `license` | freiwillig |
+
+**Laden über Ollama:**
+- **Dateinamen:** Jede Datei heißt wie ihr Blob bei Ollama (`sha256-<hex>`).
+  Dazu gehören alle Schichten und die Konfiguration aus dem Manifest der
+  Registry (Docker-Format v2); `ollamaDateien()` baut diese Liste.
+- **Manifest wählen:** Der Knoten wählt eines über `vertrautesManifest()`.
+  - Es zählen nur der eigene Schlüssel und die aus `MODELL_HERAUSGEBER`, je
+    Schlüssel das neueste.
+  - Das eigene geht vor.
+  - Sonst müssen alle vertrauten dieselben Dateien nennen; bei Streit wählt
+    er keines.
+- **Prüfen:** Geprüft wird vor dem Laden gegen die Registry und danach gegen
+  die Schichten, die Ollama gemeldet hat (`pruefeSchichten()`: jede über
+  `verifyFile()`, Größe gleich, keine fremde, keine fehlende).
+- **Grenze der Prüfung:** Ollama prüft die Bytes jeder Schicht gegen ihre
+  Summe. Der Knoten prüft, dass es die Summen des Manifests sind.

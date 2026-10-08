@@ -103,8 +103,6 @@ mesh-sync.ts|blobFeasibility|Machbarkeit großer Dateien offline, ohne Oberfläc
 
 mocks.ts|MockLightning|Test-Attrappe für Lightning
 
-model-registry.ts|fitsOnDevice|gehört zum Laden von Gewichten beim Provider – das gibt es noch nicht (nach 8.8 offen; 8.8 brachte Kataloge und Preise)
-model-registry.ts|verifyFile|gehört zum Laden von Gewichten beim Provider – das gibt es noch nicht (nach 8.8 offen; 8.8 brachte Kataloge und Preise)
 
 moderation.ts|buildModeratorList|Moderatorenliste der Communities (34550) – in Räumen zählt sie seit B-19 nicht, Moderatoren offener Räume ernennt die App seit B-20b über die Rolle „mod“ (34702)
 moderation.ts|canModerate|Moderationsrechte und Hinweistext ohne Oberfläche (Räume und Moderation, 8.5)

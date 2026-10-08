@@ -18464,3 +18464,62 @@ breit – schon auf `main`, nicht durch diesen Schritt.
 `packages/launcher/README.md`). Danach ein Release von Hand, dann zeigt die Website
 Android. Für Linux und Windows muss das erste Release laufen, sobald das hier gemergt
 ist – bis dahin führen die Links ins Leere.
+
+## Schritt E9-3a – Modelle laden im Knoten: Manifest, Prüfung, Angebot
+
+Freigabe des MENSCHEN vom 08.10.2026: „Modelle laden“ (E9-3) ist frei – V3 A aus
+`docs/E9-ENTWURF.md`, F5 und F6 wie vorgeschlagen (kein Standard-Kurator, Spur B).
+Aufgeteilt: E9-3a lädt, prüft und bietet an; E9-3b bringt die Selbstprüfung mit
+eigenen Kennungen und den Fortschritt im Status des eigenen Knotens (B-11).
+
+**Protokoll** (`modell-ollama.ts`):
+- `leseOllamaName()`: Namen wie bei Ollama (`name:tag`, `ns/name:tag`, ohne Tag
+  `latest`); ein Host davor (`hf.co/…`) gilt nicht. Dazu `registryAdresse()`.
+- `ollamaQuelle()`: nur `upstream` = `ollama:<derselbe Name wie model>`.
+- `ollamaDateien()`: Dateien aus dem Manifest der Registry (Docker-Format v2) –
+  Schichten und Konfiguration, benannt `sha256-<hex>`.
+- `pruefeSchichten()`: genau die Dateien des Manifests – jede über
+  `verifyFile()`, Größe gleich, keine fremde, keine fehlende.
+- `vertrautesManifest()`: nur eigener Schlüssel und vertraute, je Schlüssel das
+  neueste, das eigene geht vor, bei Streit keine Wahl.
+
+**Knoten** (`modell-laden.ts`, verdrahtet in `main.ts`):
+- `npm run modell -- <name>` merkt nur vor (`~/.freedom/modell-wunsch.json`, 0600).
+  Ohne Namen zeigt es den Stand. Es verbindet sich mit keinem Relay –
+  Verbindungen entstehen nur in `main.ts` (Tor, 8.2c).
+- `ModellDienst` sieht einmal je Minute nach und arbeitet einen Wunsch nach dem
+  anderen ab:
+  1. Manifest über die Relays des Knotens, gewählt mit `vertrautesManifest()`
+     (`MODELL_HERAUSGEBER`).
+  2. Passt das Modell in den Speicher (`fitsOnDevice()`, `MODELL_SPEICHER_GB`)?
+  3. Vorprüfung gegen `registry.ollama.ai`: nennt sie andere Dateien, wird nichts
+     geladen.
+  4. Ollama lädt (`/api/pull`); Ollama prüft jede Schicht gegen ihre Summe.
+  5. `pruefeSchichten()` gegen die Schichten, die Ollama gemeldet hat.
+  6. Gemerkt mit dem Fingerabdruck aus `/api/tags` (`~/.freedom/modelle.json`,
+     0600).
+- Angebot: `PROVIDER_MODELS` wie bisher, dazu die geprüften – nur, solange Ollama
+  unter dem Namen denselben Fingerabdruck nennt (`imAngebot()` bei jedem
+  Angebot). Kam ein Modell dazu, gleich ein neues Angebot.
+- Der Provider nimmt Modelle aus `cfg.modelle()`. Bisher las er nur
+  `PROVIDER_MODELS` – ein geprüftes Modell wäre sonst zwar angeboten, aber
+  nicht genutzt worden.
+- Ins Log nur Name und Kennung (`fall`); von Ollama nur der Fehlername.
+
+**Im echten Knoten geprüft** (lokales Relay im Knoten, Ollama-Attrappe mit
+`/api/pull` wie Ollama):
+1. Manifest nur von einem fremden Schlüssel: `nicht angeboten (manifest.keins)`,
+   kein Download.
+2. Manifest vom vertrauten Kurator: geladen, geprüft, das neue Angebot (38027)
+   nennt `basis:1` und `qwen2.5:0.5b`.
+3. `registry.ollama.ai` ist aus dieser Umgebung nicht erreichbar – die
+   Vorprüfung entfiel, die Prüfung danach entschied. Eine Live-Probe gegen die
+   echte Registry und ein echtes Ollama macht der MENSCH.
+
+**Prüfungen:** protocol 1233 grün (+6, 6 übersprungen), node 326 grün (+10, ohne
+Netz 7 übersprungen; mit Netz 327), app 959 grün, Leak 73 grün + 1 todo, mls 13 grün;
+check-wiring `--streng` Exit 0 (zwei Ausnahmen entfernt: `verifyFile`, `fitsOnDevice`),
+check-website ok, check_innerhtml Exit 0, Smoke-Test bestanden, build-site Exit 0.
+
+Knoten-Stand: neu (E9-3a). Ohne Update bleibt alles wie bisher – `npm run modell`
+gibt es dann noch nicht.

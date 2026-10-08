@@ -81,6 +81,10 @@ services:
       OLLAMA_URL: "http://ollama:11434"
       OLLAMA_MODEL: "${OLLAMA_MODEL:-qwen2.5:7b}"
       PROVIDER_MODELS: "${PROVIDER_MODELS:-qwen2.5:7b}"
+      # E9-3: Modelle geprueft laden (docker compose exec node npm run modell -- <name>) –
+      # Manifeste nur vom eigenen Schluessel und von diesen (hex, kommagetrennt; leer: nur eigene)
+      MODELL_HERAUSGEBER: "${MODELL_HERAUSGEBER:-}"
+      MODELL_SPEICHER_GB: "${MODELL_SPEICHER_GB:-}"
       FREE_TOKENS_PER_DAY: "${FREE_TOKENS_PER_DAY:-2000}"
       STORAGE_ENABLED: "${STORAGE_ENABLED:-1}"
       RELAY_ENABLED: "${RELAY_ENABLED:-0}"
