@@ -18302,3 +18302,28 @@ den Test mit `https://check.torproject.org/api/ip` macht der MENSCH.
   1 todo, mls 13 grün, launcher 41 grün (unverändert).
 - check-wiring `--streng` Exit 0, check-website ok, check_innerhtml Exit 0.
 - repro-build reproduzierbar, build-site Exit 0, Smoke-Test bestanden.
+
+## Schritt C-25 – Repo-Auftritt: Banner in der README
+
+Wunsch des MENSCHEN (08.10.2026): Das Repo soll auf den ersten Blick zeigen, worum es geht.
+Von drei Entwürfen (Hero, drei Säulen, Social Preview; je Deutsch und Englisch) gewählt:
+**Hero, Englisch**.
+
+**Banner (`docs/bilder/banner.png`, 2560×800):** im Stil der Website – Hintergrund #050505,
+Akzent #7BC80A, Monospace, Marke „[■] FREEDOM“ wie in der Navigation. Links die Aussage der
+Startseite („Message. Use AI. Pay — without an operator.“) mit Unterzeile und Chips
+(Lightning, Solana, Nostr, Non-custodial, Open source), rechts das Agent-Fenster mit der
+Demo-Szene der Startseite, dahinter dasselbe Partikel-Netz wie im Website-Hero, fest
+gewürfelt. Erzeugt mit `scripts/banner.py` (Python-Playwright wie der Smoke-Test, Chromium,
+doppelte Auflösung; `--sprache de` für eine deutsche Fassung) – kein Teil der App und des
+reproduzierbaren Builds.
+
+**README:** Banner oben (mit Alternativtext), die Zeile zur Hülle sagt jetzt „Linux, Windows
+und Android, auf Wunsch über Tor“.
+
+**About-Feld:** Der GitHub-Zugang dieser Sitzung darf Repo-Einstellungen nicht ändern
+(„Repository settings writes are not permitted through this proxy“). Beschreibung, Website
+und Topics trägt der MENSCH ein; die Werte stehen im Pull Request.
+
+**Offen:** Der Chip „Open source“ (wie auf der Website) gilt streng erst mit einer Lizenz
+(Entscheidung LIZ) – ändert sie sich, Banner mit `scripts/banner.py` neu erzeugen.
