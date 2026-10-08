@@ -18062,6 +18062,72 @@ absichtlich eingebaute Fehler macht je ein Test rot.
 check-wiring `--streng` Exit 0 (0 offen), check-website ok, check_innerhtml
 Exit 0; repro-build reproduzierbar, build-site Exit 0, Smoke-Test bestanden.
 
+## Schritt B-22 – Öffentliche Räume: Wer beitritt, schreibt mit
+
+Entscheidung MENSCH 08.10.2026 nach dem Nutzertest (Befund R-8): Wer einem
+öffentlichen Raum beitritt, schreibt in den Kanälen, die das erlauben – wie
+„@everyone“ bei Discord. Bis hier hatte ein Beigetretener keine Rolle und damit
+kein Recht „schreiben“, auch nicht in #allgemein; die Gründerin erfuhr nichts
+vom Beitritt, und der Hinweis sagte nicht, wie man schreiben darf.
+
+**Was neu ist:**
+- `JEDER_ROLLE` („jeder“) und `JEDER_RECHTE` (lesen, schreiben, Threads) in
+  `spaces.ts`: Nennt die Rollenliste des Gründers (34701) die Rolle, gilt sie für
+  jeden, ohne Zuweisung (`permissionsOf()`); nur ihre Grundrechte zählen –
+  Moderieren, Rollen vergeben, Kanäle verwalten und Repos pflegen gibt es weiter
+  nur über eine zugewiesene Rolle mit Rang. `canWriteTo()`: Kanäle ohne
+  Schreibrollen und Kanäle, die `jeder` nennen; #ankündigungen (`mod`) bleibt bei
+  den Moderatoren. Eine Rollenliste mit `jeder` von jemand anderem zählt wie bisher nicht.
+- App (`shell/tabs/raeume.ts`): neue offene Räume mit der Rolle für alle;
+  Menüpunkt „Wer im Raum schreiben darf“ (`#space-schreiben`, nur der Gründer eines
+  offenen Raums) → `stelleSchreibrechtEin()`: „Alle, die beitreten“ oder „Nur wer
+  eine Rolle hat“, veröffentlicht eine neue Rollenliste, die übrigen Rollen
+  bleiben. Ohne die Rolle sagt der Hinweis im Kanal jetzt, dass der Gründer den
+  Raum für alle öffnen kann (`raum.nurMitRolle`); die Warnung beim Anlegen nennt
+  das Mitschreiben. Ältere Räume bleiben, wie sie sind, bis der Gründer umschaltet.
+
+**Verdrahtet:** `legeRaumAn()` (Rollenliste mit `JEDER_ROLLE`), `zeigeRaumArt()`
+(`#space-schreiben`), `stelleSchreibrechtEin()` über `wireSpacesTab()`,
+`oeffneKanal()` (Hinweis mit `JEDER_ROLLE`); `permissionsOf()`/`canWriteTo()` im
+echten Pfad jeder Schreibprüfung offener Räume.
+
+**Tests:** `spaces.test.ts` (+2: Beigetretene schreiben im offenen Kanal, nicht in
+#ankündigungen, ausdrücklich genannte Rolle, zurückgeschaltet wieder zu; nur
+Grundrechte – kein Moderieren, Vergeben, Verwalten, keine Selbst-Zuweisung,
+Ausblenden zählt nicht mit Gegenprobe, fremde Rollenliste zählt nicht),
+`app/test/raum-jeder.test.ts` (+5: Raum wie die App ihn anlegt über
+`raumZustandFuer()`, Kanal-Event eines Beigetretenen zählt nicht, zurückgeschaltet
+und ältere Räume, frühere Nachrichten beim Ab- und Wiedereinschalten, Verdrahtung,
+Texte).
+
+**Rechte gelten, wie sie jetzt sind:** Schaltet der Gründer ab, verschwinden
+auch frühere Nachrichten von Leuten ohne Rolle aus der Ansicht (wie bei jedem
+entzogenen Recht seit B-19/B-20); schaltet er wieder ein, sind sie zurück. Der
+Dialog sagt das vorher (`raum.schreibenText`) – bei Discord blieben sie stehen,
+das bräuchte hier eine Geschichte der Rollenlisten.
+
+**Fund beim Prüfen im Browser (klein, Oberfläche, Spur C genannt):** Am Handy
+ging ein Tipp auf „Senden“ beim Tippen ins Leere – in Chat, Räumen und beim
+Agenten. Gemessen: `mousedown` auf dem Knopf (y 786), der Fokus wechselt, die
+untere Leiste kehrt zurück (`body.tippt`), der Knopf rutscht 48 px nach oben,
+`mouseup` trifft einen Knopf der Leiste, der Klick geht an `#app`. Das erklärt
+Befund C-13 des Nutzertests (Carol konnte nicht senden). `navigation.ts`: unter
+1024 px nimmt ein Tipp auf einen Knopf beim Tippen dem Feld den Fokus nicht
+(`mousedown` abgefangen) – der Klick kommt an, die Tastatur bleibt offen. Neue
+Prüfung „Senden beim Tippen“ im Smoke-Test „mobil“ (hoch und quer); ohne die
+Änderung rot (hoch: Klick an ein DIV, quer: Fokus verloren), mit ihr grün.
+
+**Doku:** `docs/PROTOCOL.md` §22 (Rolle für alle), CLAUDE.md (Fallstricke Offene
+Räume, Mobil), FORTSCHRITT (Spur B), Sammlung (B-22, O1; dazu G1 und A-14 für Spur A).
+
+**Prüfungen** (nach dem Einmergen von `main` mit 7.5b/7.5c): protocol 1227 grün
+(+2, 6 übersprungen), node 313 (7 übersprungen ohne Netz, mit Netz 314), app 954
+(+5), Leak 73 + 1 todo, mls 13; Typprüfung überall, Build, check-wiring
+`--streng` Exit 0, check-website ok, check_innerhtml Exit 0, Smoke-Test bestanden
+(mit „Senden beim Tippen“), build-site Exit 0.
+
+Knoten-Stand: unverändert.
+
 ## Schritt 6.1b1a – Tor in der Desktop-Hülle
 
 Teil b von 6.1 (Sammlung C-23). Der MENSCH hat am 07.10.2026 arti freigegeben (TOR1 A:

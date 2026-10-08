@@ -3993,6 +3993,23 @@ def mobil_pruefen(browser, url: str) -> dict:
         erg[lage]["tastatur"] = [vorher, beim_tippen, danach]
         if vorher == "none" or beim_tippen != "none" or danach == "none":
             erg["fehler"].append(f"{lage}: untere Leiste beim Tippen {erg[lage]['tastatur']}")
+        # Senden beim Tippen (Nutzertest 08.10.): Der Tipp auf „Senden“ kommt beim Knopf an. Vorher kehrte die
+        # Leiste beim Drücken zurück, alles rutschte um ihre Höhe, und der Klick ging an den Rahmen. Der Klick
+        # wird hier abgefangen – gesendet wird nichts.
+        s.locator("#ai-prompt").focus()
+        s.wait_for_timeout(50)
+        ziel = ev("""() => { window.__tipp = [];
+          document.addEventListener('click', (e) => { window.__tipp.push(e.target.closest('button')?.id || e.target.id || e.target.tagName);
+            e.stopImmediatePropagation(); e.preventDefault(); }, { capture: true, once: true });
+          const k = document.getElementById('ai-send'); k.scrollIntoView({ block: 'nearest' });
+          const r = k.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; }""")
+        s.touchscreen.tap(ziel[0], ziel[1])
+        s.wait_for_timeout(300)
+        getippt = ev("() => [window.__tipp, document.activeElement?.id ?? null]")
+        erg[lage]["senden_beim_tippen"] = getippt
+        if getippt[0] != ["ai-send"] or getippt[1] != "ai-prompt":
+            erg["fehler"].append(f"{lage}: Senden beim Tippen trifft {getippt[0]}, Fokus danach {getippt[1]}")
+        ev("() => document.activeElement.blur()")
         ctx.close()
     # C.6b: zwischen 860 und 1199 px steht die Seitenleiste des Agenten da, das rechte Feld nicht –
     # dort führt nur „Arbeitsbereich“ dorthin und zurück

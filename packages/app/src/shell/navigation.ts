@@ -138,7 +138,17 @@ export function wireNavigation(oeffne: (seite: Seite) => void): void {
   const tippt = () => document.body.classList.toggle("tippt", tipptIn(document.activeElement));
   document.addEventListener("focusin", tippt);
   document.addEventListener("focusout", () => setTimeout(tippt, 0));
+  // Ein Tipp auf einen Knopf beim Tippen (Senden, Anhang) nimmt dem Feld den Fokus nicht: Sonst kehrt
+  // die Leiste beim Drücken zurück, alles rutscht um ihre Höhe, und das Loslassen trifft einen anderen
+  // Knopf – gesendet wurde nichts (Nutzertest 08.10.). Die Tastatur bleibt offen, wie im Chat üblich.
+  const mobil = matchMedia("(max-width: 1023px)");
+  document.addEventListener("mousedown", (e) => {
+    if (mobil.matches && document.body.classList.contains("tippt") && (e.target as Element | null)?.closest?.(KNOPF)) e.preventDefault();
+  }, true);
 }
+
+/** Was beim Tippen den Fokus nicht nehmen soll (Knöpfe neben dem Feld). */
+export const KNOPF = "button, [role='button']"; // kein UI-Text
 
 /** Öffnet dieses Element die Bildschirmtastatur? Textfelder ja, Häkchen, Knöpfe und Dateiwahl nein. */
 export function tipptIn(e: Element | null): boolean {
