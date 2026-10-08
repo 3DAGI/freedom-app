@@ -27,7 +27,7 @@ Relays, RPC-Anbietern und Lightning-Diensten.
   AppImage, Installer für Windows – als Artefakt der CI, unsigniert), a4b
   Selbst-Update der Hülle (Signierschlüssel: MENSCH); b Tor – arti freigegeben
   07.10.2026, Desktop zuerst: b1a ✓ Hülle (SOCKS5 nur fürs eigene Webview, Wahl
-  Direkt/Tor, nie still direkt), b1b ✓ Schalter in der App, b2 Android – b2a ✓ Hülle (HTTP CONNECT, Proxy über androidx.webkit, Warteseite bis er gilt), b2b Schalter in der App; c Android – c1 ✓ APK zum Testen (CI, Wegwerf-Schlüssel je Lauf), c2 fester
+  Direkt/Tor, nie still direkt), b1b ✓ Schalter in der App, b2 Android – b2a ✓ Hülle (HTTP CONNECT, Proxy über androidx.webkit, Warteseite bis er gilt), b2b ✓ Schalter in der App (Rückfrage „App schließen“); c Android – c1 ✓ APK zum Testen (CI, Wegwerf-Schlüssel je Lauf), c2 fester
   Schlüssel und Verteilung (MENSCH). Schritt 1–3 oben gehören zu b.
 
 ## 6.2 Ehrlicher Modus in der Web-App

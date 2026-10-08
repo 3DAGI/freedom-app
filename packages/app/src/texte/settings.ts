@@ -163,7 +163,7 @@ export const settings: Texte = {
   "set.sichtbarText": { de: "Was in deiner Einstellung für andere sichtbar ist.", en: "What others can see with your settings." },
   "set.verbindungLabel": { de: "Verbindung", en: "Connection" },
   "set.netzKlar": { de: "direkt (Relays sehen deine IP)", en: "direct (relays see your IP)" },
-  "set.netzTor": { de: ".onion-Relays bevorzugen (nur über Tor wirksam: Tor Browser oder Tor in der Desktop-App)", en: "prefer .onion relays (only effective over Tor: Tor Browser or Tor in the desktop app)" },
+  "set.netzTor": { de: ".onion-Relays bevorzugen (nur über Tor wirksam: Tor Browser oder Tor in der App – Desktop und Android)", en: "prefer .onion relays (only effective over Tor: Tor Browser or Tor in the app – desktop and Android)" },
   "set.netzMixnet": { de: "Mixnetz (nur wirksam, wenn du selbst eines nutzt)", en: "mixnet (only effective if you use one yourself)" },
   "set.onionText": { de: "Ob deine IP-Adresse verborgen ist, prüft die App, wenn du diesen Bericht öffnest: Erreicht sie ein .onion-Relay, läuft deine Verbindung über Tor. Sie versucht bis zu drei .onion-Relays, die sie kennt, höchstens 10 Sekunden.", en: "Whether your IP address is hidden is checked when you open this report: if the app reaches an .onion relay, your connection runs over Tor. It tries up to three .onion relays it knows, for at most 10 seconds." },
   "set.erneutPruefen": { de: "erneut prüfen", en: "check again" },
@@ -430,8 +430,8 @@ export const settings: Texte = {
   "set.huelleFKeineHuelle": { de: "Installieren geht nur in der App (Desktop oder Android), nicht im Browser.", en: "Installing only works in the app (desktop or Android), not in the browser." },
   "set.huelleFUnbekannt": { de: "Die App hat die Installation nicht bestätigt – nicht installiert.", en: "The app didn't confirm the installation – not installed." },
   // Direkt oder Tor in der Desktop-Hülle (6.1b1b)
-  "set.torHaken": { de: "Tor in dieser App: der gesamte Verkehr über Tor (Desktop)", en: "Tor in this app: all traffic over Tor (desktop)" },
-  "set.torText": { de: "Langsamer als direkt – Relays, Solana-RPC und Downloads sehen deine IP-Adresse nicht mehr. Anrufe laufen nicht über Tor. Ist Tor nicht verbunden, geht nichts hinaus – nie still direkt. Umschalten startet die App neu.", en: "Slower than direct – relays, Solana RPC and downloads no longer see your IP address. Calls don't go over Tor. If Tor isn't connected, nothing goes out – never silently direct. Switching restarts the app." },
+  "set.torHaken": { de: "Tor in dieser App: der gesamte Verkehr über Tor", en: "Tor in this app: all traffic over Tor" },
+  "set.torText": { de: "Langsamer als direkt – Relays, Solana-RPC und Downloads sehen deine IP-Adresse nicht mehr. Anrufe laufen nicht über Tor. Ist Tor nicht verbunden, geht nichts hinaus – nie still direkt. Umschalten braucht einen Neustart der App.", en: "Slower than direct – relays, Solana RPC and downloads no longer see your IP address. Calls don't go over Tor. If Tor isn't connected, nothing goes out – never silently direct. Switching needs a restart of the app." },
   "set.torBereit": { de: "Tor: verbunden – der Verkehr dieser App geht über Tor.", en: "Tor: connected – this app's traffic goes over Tor." },
   "set.torVerbindet": { de: "Tor: verbindet … bis dahin geht nichts hinaus.", en: "Tor: connecting … until then nothing goes out." },
   "set.torFehlerStart": { de: "Tor startet nicht – es geht nichts hinaus. Neu starten oder auf direkt umstellen.", en: "Tor doesn't start – nothing goes out. Restart or switch to direct." },
@@ -444,5 +444,10 @@ export const settings: Texte = {
   "set.torAusTitel": { de: "Wieder direkt verbinden?", en: "Connect directly again?" },
   "set.torAusText": { de: "Die App startet neu und verbindet sich danach direkt – Relays und Dienste sehen dann wieder deine IP-Adresse.", en: "The app restarts and then connects directly – relays and services see your IP address again." },
   "set.torNeustart": { de: "Neu starten", en: "Restart" },
+  // Unter Android kann sich die App nicht selbst neu starten – sie schließt sich (6.1b2b)
+  "set.torAnTextAndroid": { de: "Die App schließt sich. Öffnest du sie wieder, geht sie nur noch über Tor ins Netz – langsamer, dafür sehen Relays, Solana-RPC und Downloads deine IP-Adresse nicht. Anrufe laufen nicht über Tor. Ist Tor nicht verbunden, geht nichts hinaus.", en: "The app closes. When you open it again, it only goes online over Tor – slower, but relays, Solana RPC and downloads don't see your IP address. Calls don't go over Tor. If Tor isn't connected, nothing goes out." },
+  "set.torAusTextAndroid": { de: "Die App schließt sich. Öffnest du sie wieder, verbindet sie sich direkt – Relays und Dienste sehen dann wieder deine IP-Adresse.", en: "The app closes. When you open it again, it connects directly – relays and services see your IP address again." },
+  "set.torSchliessen": { de: "App schließen", en: "Close app" },
+  "set.torFehlerProxy": { de: "Das WebView nimmt den Tor-Zugang nicht an – es geht nichts hinaus. Auf direkt umstellen oder das Android System WebView aktualisieren.", en: "The WebView doesn't accept the Tor proxy – nothing goes out. Switch to direct or update Android System WebView." },
   "set.torNichtGespeichert": { de: "Die Wahl ließ sich nicht speichern – es bleibt, wie es war.", en: "The choice couldn't be saved – it stays as it was." },
 };

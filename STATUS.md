@@ -18273,3 +18273,32 @@ Schalter in der App folgt mit 6.1b2b (bis dahin bleibt er unter Android verborge
   Leak 73 grün + 1 todo, mls 13 grün – unverändert, der Schritt ändert nur die Hülle.
 - check-wiring `--streng` Exit 0, check-website ok, check_innerhtml Exit 0.
 - repro-build reproduzierbar, build-site Exit 0, Smoke-Test bestanden.
+
+## Schritt 6.1b2b – Tor in der Android-App: der Schalter
+
+Teil b2 von 6.1 (Sammlung C-23, TOR1 A). Seit 6.1b2a kann die Android-Hülle den Verkehr
+der App über Tor leiten; jetzt zeigt die App dort auch den Schalter.
+
+**`shell/netz-huelle.ts`:** `wireHuellenTor()` zeigt den Block in jeder Hülle
+(`huellenArt()`), weiter nur, wenn die Hülle Tor kann (`netz_stand.verfuegbar` – unter
+Android nur mit `PROXY_OVERRIDE` im WebView, im Browser nie). Neu `torRueckfrage()`: Die
+Rückfrage sagt je Hülle, was passiert – Desktop „Die App startet neu …“ mit „Neu starten“,
+Android „Die App schließt sich. Öffnest du sie wieder, …“ mit „App schließen“ (eine
+Android-App kann sich nicht selbst neu starten, 6.1b2a). `leseNetzStand()` kennt den
+Fehler `proxy` (das WebView nahm den Zugang nicht an), `netzZeilen()` erklärt ihn.
+
+**Texte:** „Tor in dieser App“ ohne „(Desktop)“; die Erklärung sagt „Umschalten braucht
+einen Neustart der App“; „.onion-Relays bevorzugen“ nennt „Tor Browser oder Tor in der App
+– Desktop und Android“. Website-Karte „FreedomStack als App“: Tor auf dem Desktop und unter
+Android (langsamer, Anrufe nicht).
+
+**Grenzen:** Auf einem Gerät ist das noch nicht geprüft (kein Emulator hier, kein KVM) –
+den Test mit `https://check.torproject.org/api/ip` macht der MENSCH.
+
+**Prüfungen:**
+- app 959 grün (+1: Rückfrage je Hülle; dazu „proxy“ im Stand und im Text, Verdrahtung
+  ohne „nur Desktop“).
+- protocol 1227 grün (6 übersprungen), node 314 grün (6 übersprungen), Leak 73 grün +
+  1 todo, mls 13 grün, launcher 41 grün (unverändert).
+- check-wiring `--streng` Exit 0, check-website ok, check_innerhtml Exit 0.
+- repro-build reproduzierbar, build-site Exit 0, Smoke-Test bestanden.
