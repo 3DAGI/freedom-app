@@ -1,7 +1,9 @@
 # Versiegelter Provider-Modus – Entwurf (D3)
 
-Stand 06.10.2026, Spur A. **Vorlage zur Freigabe durch den MENSCHEN.** Gebaut
-wird davon erst nach der Freigabe. Grundlage ist der Plan vom 05.10.2026
+Stand 06.10.2026, Spur A. **Freigegeben am 08.10.2026 (MENSCH), ruht –
+später optional:** Der GX10 hat kein TPM (Messung F1/F2). V2 und V7 legt Spur A
+korrigiert neu vor. Siehe Abschnitt „Nachtrag 08.10.2026“ am Ende – er gilt vor
+dem Rest. Grundlage ist der Plan vom 05.10.2026
 (Sammlung D1, Karte `docs/DATENSCHUTZ-PROVIDER.md`, Abschnitt 4): Stufe 1
 (Platzhalter, Schlüssel je Unterhaltung, weniger Verlauf) und Stufe 2
 (Privat-Schalter) sind gebaut (D1a–D1c, D2). Stufe 3 ist dieser Entwurf.
@@ -132,3 +134,70 @@ Je Schritt höchstens etwa 400 geänderte Zeilen.
 
 Bis zur Freigabe ändert sich am Code nichts. Die Karte nennt D3 als
 „Entwurf fertig, wartet auf Freigabe“.
+
+## Nachtrag 08.10.2026 – Freigabe, Messung am GX10, zwei Korrekturen
+
+**Freigabe (MENSCH):** V1, V3, V4, V5 und V6 jeweils A; F3, F4 und F5 wie
+vorgeschlagen. V2 und V7 legt Spur A korrigiert neu vor (unten).
+
+**Messung F1/F2 am GX10 (MENSCH):**
+- Secure Boot ist an.
+- Es gibt kein TPM: kein `/dev/tpm*`, kein `tpm2`-Gerät, kein lesbares EK-Zertifikat.
+
+Damit gibt es auf dem GX10 kein Siegel. Ohne TPM fehlt der Chip, der den Start
+misst, den Beleg signiert und den Schlüssel versiegelt. **D3 ist
+zurückgestellt**, bis eins von zwei Dingen geklärt ist (MENSCH):
+1. **Kein Schalter im UEFI?** Manche Geräte liefern ein Firmware-TPM
+   ausgeschaltet aus. Nachsehen, ob das UEFI-Setup des GX10 einen Schalter
+   „TPM“, „fTPM“, „Security Device“ oder „Trusted Computing“ hat. Wenn ja:
+   einschalten, dann F1/F2 neu messen.
+2. **Zielgerät mit TPM 2.0:** Sonst taugt D3 nur für Rechner mit TPM 2.0, etwa
+   PCs mit NVIDIA-Karte. Fast jeder PC, auf dem Windows 11 läuft, hat eins
+   (fTPM oder Intel PTT). Gebaut wird erst, wenn es ein solches Gerät für den
+   Test D3f gibt. Sonst entstünde Code, den niemand prüfen kann, und
+   „verdrahtet“ hieße nichts.
+
+Bis dahin baut niemand D3a–D3f. Texte sagen weiter nichts über „versiegelt“.
+
+**Entscheidung 08.10.2026, danach (MENSCH):** D3 ruht und ist später optional –
+ein TPM gibt es am GX10 vermutlich nicht. Wieder aufgenommen wird es nur auf
+Wunsch des MENSCHEN und mit einem Testgerät mit TPM 2.0; dann zuerst V2 und V7
+neu vorlegen.
+
+**Korrektur V2 – PCR 7 ist nicht überall gleich.** Der Vorschlag oben sagt,
+PCR 7 hänge nicht von der Firmware des Modells ab. Das stimmt nicht:
+- PCR 7 misst die Secure-Boot-Schlüssel und Sperrlisten (PK, KEK, db, dbx).
+- Diese setzt der Hersteller, und mit jedem Sperrlisten-Update ändern sie sich.
+
+Neuer Vorschlag:
+- Nur **PCR 11** (Kernel-Image samt Wurzel-Hash) wird fest mit dem Release
+  verglichen.
+- Für PCR 7 liest die App das **Startprotokoll** (TCG-Ereignisprotokoll) mit.
+  Daraus rechnet sie nach, dass Secure Boot an war und welcher Schlüssel das
+  Image geprüft hat.
+- Das Protokoll reist im Beleg mit; D3a wächst entsprechend.
+
+**Korrektur V7 – jedes Update kostet den Schlüssel.** Ist der Provider-Schlüssel
+an *genau* diese Werte gebunden, ist er nach jedem Image-Update weg. Für die App
+ist der Provider dann neu: Messung, Prüfrunden und Quittungen beginnen bei null.
+
+Wege zur Wahl, wenn D3 wieder aufgenommen wird:
+- **(a) So lassen:** Jedes Update ergibt einen neuen Provider.
+- **(b) Übergabe vor dem Update:** Das laufende Image tut drei Dinge, bevor es neu startet:
+  - Es prüft das neue signierte Release.
+  - Es legt den neuen Schlüssel schon für dessen Werte versiegelt an.
+  - Es kündigt den Wechsel per Mandat an (wie 8.6a).
+
+  Das ist gleich sicher, aber mehr Bau.
+- **(c) Signierte Freigabe** (TPM2 PolicyAuthorize): Der Chip gibt den
+  Schlüssel jedem Image, das ein Signierer freigibt. Das ist einfacher, aber
+  schon ein einzelner Signierer könnte ein Image freigeben, das den Schlüssel
+  herauslässt.
+
+Tendenz Spur A: (b). Die Entscheidung trifft der MENSCH.
+
+**Was außerdem vom MENSCHEN kommen muss, bevor D3 live geht:**
+- die Signierer für Releases (0.D) und die Liste der TPM-Hersteller (V5);
+- einen Schlüssel, mit dem das Image für Secure Boot signiert wird – jeder
+  Betreiber trägt ihn einmal ein (MOK oder db);
+- den Test D3f auf einem Gerät mit TPM.

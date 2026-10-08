@@ -1,7 +1,8 @@
 # Drei Bausteine ohne Anbindung – Entwurf (E9)
 
-Stand 04.10.2026, Spur A. **Vorlage zur Freigabe durch den MENSCHEN.** Gebaut
-wird davon erst nach der Freigabe. Grundlage ist die Entscheidung E9 A vom
+Stand 04.10.2026, Spur A. **Freigegeben am 08.10.2026 (MENSCH): wie
+vorgeschlagen** – V1–V3 A, F1–F6 ja (Abschnitt „Freigabe“ am Ende: was davon
+schon anderswo entsteht und wer was baut). Grundlage ist die Entscheidung E9 A vom
 04.10.2026 (`docs/neuordnung/SAMMLUNG.md`): alle drei Bausteine aus A-8
 entwerfen. „Modelle laden“ baut danach Spur B.
 
@@ -167,3 +168,18 @@ Andere Wege:
 | E9-3 | Modelle laden im Knoten: Manifest von vertrauten Schlüsseln, `verifyFile()`, `fitsOnDevice()`, `npm run modell`, Selbstprüfung | B |
 | E9-4 | Katalog 38080 mit Manifest-Verweis, App zeigt „geprüft“ je Modell | A |
 | E9-5 | Cluster-Betrieb mit zwei Geräten (Backend wählen, messen) | A, nach F3 |
+
+## Freigabe vom 08.10.2026 (MENSCH)
+
+**Wie vorgeschlagen:** V1–V3 A, F1–F6 ja. Was daraus folgt:
+
+- **E9-2, Gratis:** Den KI-Teil baut schon A-14 (G1, ebenfalls am 08.10. entschieden).
+  - Gratis-Budget je Knoten, Grenze je Antwort, Werte im Angebot.
+  - E9-2 übernimmt den Tag, den A-14 dafür festlegt, statt einen zweiten einzuführen.
+  - Für E9-2 bleibt damit nur der Speicher: Gratis-Grenze als vierter Wert im `storage`-Tag, und `network-capacity.ts` fällt weg.
+- **E9-3, Modelle laden (Spur B):**
+  - Kann sofort beginnen, mit Manifesten vom eigenen Schlüssel des Betreibers.
+  - Kuratoren über Kataloge kommen dazu, sobald E9-4 (Verweis auf das Manifest im Katalog 38080, Spur A) da ist.
+  - Ein neuer Befund der Selbstprüfung braucht wie seit B-11c Kennung und Text in `EINRICHTUNG_TEXT`.
+- **E9-5, Cluster-Betrieb:** erst mit zwei Geräten für eine Messung (F3, MENSCH). Bis dahin nur E9-1 (Kinds, alte Gebühr und Bilanz raus, Angebot 38028).
+- **Reihenfolge Spur A:** E9-1, E9-2 (nach A-14), E9-4.
