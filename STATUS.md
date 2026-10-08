@@ -18624,6 +18624,27 @@ Kopplungscode. Gerätetest: MENSCH.
   Änderung, XML gültig.
 - APK lokal mit den neuen Rechten gebaut (siehe Pull Request).
 
+## Schritt C-26 – Website mobil: Befehle scrollen im Kasten
+
+Gefunden bei 6.1c2a: Die Startseite war auf dem Handy 479 px breit statt 390. Man konnte
+sie seitlich schieben.
+
+**Ursache:** Die Befehle zum Kopieren im Abschnitt „Rechenzeit vermieten“ stehen in
+`pre.mono`. Sie brechen nicht um, und ein Rasterfeld darf nicht schmaler werden als sein
+Inhalt (`min-width: auto`). So schob der längste Befehl die ganze Seite breiter. Auf dem
+Desktop liefen die Befehle über den schwarzen Kasten hinaus.
+
+**`packages/website/css/style.css`:**
+- `pre.mono { overflow-x: auto; }`: Befehle bleiben eine Zeile und scrollen im Kasten.
+  Beim Kopieren kommt der Befehl so heraus, wie er dasteht.
+- `.grid > * { min-width: 0; }`: Rasterfelder dürfen schmaler werden als ihr Inhalt.
+
+**Geprüft:**
+- Alle fünf Seiten (Start, FAQ, Roadmap, Whitepaper, Status) bei 360 und 390 px gebaut
+  und gemessen: keine Seite breiter als der Bildschirm (vorher Start 479 px).
+- Abschnitt auf Handy und Desktop angesehen.
+- check-website ok.
+
 ## Schritt A-14b1 – Gratis-Start: Gratis-Fragen der App passend zum Knoten
 
 Spur A, G1 vom 08.10.2026. Mit A-14a verlangt der Knoten für Gratis-Fragen die
