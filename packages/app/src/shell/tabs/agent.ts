@@ -5,7 +5,7 @@
  * `agent-wege.ts`, `agent-anzeige.ts`, `agent-eingabe.ts`).
  */
 import { KIND_DVM_TEXT_GENERATION, type NostrEvent, buildEvent, buildJobRequest, buildPrivateJobRequest, mitBesitzerNachweis, parseJobResult } from "@freedomstack/protocol";
-import { t } from "../../i18n.js";
+import { gebietsschema, t } from "../../i18n.js";
 import { fehlerText } from "../../protokoll-texte.js";
 import { ScoredProvider } from "../../matchmaking.js";
 import { type AntwortCache } from "../../ki-antworten.js";
@@ -14,7 +14,7 @@ import { frageLokal, lokaleAdresse, lokalesModellAus } from "../../ki-lokal.js";
 import { SessionClient } from "../../session-client.js";
 import { pkShort } from "../../shell-logic.js";
 import { solText } from "../../preis-anzeige.js";
-import { switchTab, zeigeOnboarding } from "../app.js";
+import { merkeGratisAbgelehnt, switchTab, zeigeOnboarding } from "../app.js";
 import { angebotVon, ensurePool, ensureSessionClient, findProviders, kiSitzungen, powJeProvider, state } from "../state.js";
 import { beiFunkAntwort, sendeKiUeberFunk } from "../ki-ueber-funk.js";
 import { quittungNachKanal, quittungNachZahlung } from "../quittungen.js";
@@ -26,6 +26,8 @@ import { type KnotenWeg, wegZumKnoten } from "../knoten-weg-ui.js";
 import { knotenModellAus } from "../../knoten-wahl.js";
 import { hoechstMsat } from "../../anteile-kasse.js";
 import { $, quotaExhausted, refreshQuota, toast, el } from "../ui.js";
+import { GERAET_GRATIS, powFuerAnfrage } from "../../gratis-kontingent.js";
+import { geraeteKontingent, gratisJeProvider } from "../gratis-start.js";
 import { zeigeModelle } from "./agent-netz.js";
 import { type Pruefer } from "../../streitfall.js";
 import { zeigeMitwirkende } from "./earn.js";
@@ -167,6 +169,13 @@ export async function askAi(): Promise<void> {
   const maxMode = selTier === "max";
   const swarmMode = selTier === "swarm";
   const tier = (maxMode || swarmMode ? "pro" : selTier) as "free" | "classic" | "pro";
+  // Gratis-Kontingent dieses Geräts (A-14b, G1): aufgebraucht → nichts hinaus, die Wallet ist dran
+  if (tier === "free" && geraeteKontingent.erschoepft()) {
+    toast(t("agent.gratisGeraetLeer", { antworten: GERAET_GRATIS.antworten, tokens: GERAET_GRATIS.tokens.toLocaleString(gebietsschema()) }), true);
+    merkeGratisAbgelehnt();
+    resetSendBtn(btn);
+    return;
+  }
   try {
     // Kontingent erschöpft + kein Guthaben? → zum Wallet-Tab lenken statt
     // einen Job zu schicken, den niemand bezahlen kann.
@@ -243,12 +252,17 @@ function maybeInsertModelSwitchSummary(newTier: string): void {
  * Rechenarbeit nennt – aeltere Knoten lesen keine Umschlaege. Mehr als
  * MAX_POW_APP Bits rechnet ein Handy zu lange; solche Angebote bleiben aussen vor.
  */
-const MAX_POW_APP = 16;
+export const MAX_POW_APP = 16;
 export const keinPrivaterProvider = () => new EigeneMeldung(t("agent.keinPrivaterProvider"));
 
 export function privatFaehig(kandidaten: ScoredProvider[]): ScoredProvider[] {
   const ok = kandidaten.filter((c) => c.caps.powBits !== undefined && c.caps.powBits <= MAX_POW_APP);
-  for (const c of ok) powJeProvider.set(c.caps.pubkey, c.caps.powBits!);
+  for (const c of ok) {
+    powJeProvider.set(c.caps.pubkey, c.caps.powBits!);
+    // Gratis-Angebot (A-14a): Bits für Gratis-Anfragen – ohne Tag gilt die Rechenarbeit von oben
+    if (c.caps.gratis) gratisJeProvider.set(c.caps.pubkey, c.caps.gratis);
+    else gratisJeProvider.delete(c.caps.pubkey);
+  }
   return ok;
 }
 
@@ -321,7 +335,9 @@ export async function buildJobEvent(
         extraTags: [...extraTags, ...zusatzTags],
       });
   const auftrag = await buildPrivateJobRequest({
-    request: eigen ? mitBesitzerNachweis(request, eigen) : request, sessionSigner: sitzung, providerPk: targetPubkey, powBits: powJeProvider.get(targetPubkey) ?? 0,
+    request: eigen ? mitBesitzerNachweis(request, eigen) : request, sessionSigner: sitzung, providerPk: targetPubkey,
+    // Gratis (Gebot 0, A-14b): die Rechenarbeit aus dem Gratis-Angebot – beim eigenen Knoten nicht, der rechnet mit Nachweis
+    powBits: powFuerAnfrage(powJeProvider.get(targetPubkey) ?? 0, !eigen && bid === 0 ? gratisJeProvider.get(targetPubkey) : undefined),
   });
   // Erst merken (letzte Gutschrift, offene Anfrage), dann senden
   if (kanal) await kanal.merke(auftrag.requestId);
@@ -401,7 +417,8 @@ export async function waitForAnswer(
         continue;
       }
       opts.onFeedback?.(fbMsg);
-      return { ev: feedback[0], parsed: null, providerError: fbMsg };
+      // Kennung der Ablehnung (A-14a: `gratis-leer`) – erkannt am Tag, nie am Text
+      return { ev: feedback[0], parsed: null, providerError: fbMsg, fall: feedback[0].tags.find((x) => x[0] === "fall")?.[1] };
     }
     // Results aus allen aktiven Jobs (Hedge) akzeptieren:
     const results = privat.ergebnisse;
