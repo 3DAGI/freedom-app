@@ -13,6 +13,7 @@ import { fehlerText, offlineFaehigkeiten, torText, wegName } from "../../protoko
 import { LS_VERSAND_VERZOEGERUNG, maxVerzoegerungSek } from "../versand.js";
 import { rufStand, rufTeilenAn, setzeRufTeilen } from "../ruf.js";
 import { $, el, toast } from "../ui.js";
+import { bestaetige } from "../dialog.js";
 import { ladeAbdeckung, nutzeStandort, trageAbdeckungEin, vergissStandort, widerrufeAbdeckung } from "./earn.js";
 import { LS_KONTAKTE_SICHERN, kontakteEinschalten, kontakteSichernAn, sichereKontakte } from "./kontakte.js";
 import { LS_ANZEIGE_EINHEIT, LS_STANDARD_SCHIENE, standardSchiene } from "../../standard-schiene.js";
@@ -129,6 +130,35 @@ async function ensureMeshNode(): Promise<import("../../mesh-radio.js").MeshNode>
   return meshNode;
 }
 
+/**
+ * Nach dem Verbinden (7.5b, 7.5c): was am Meshtastic-Gerät fehlt – Kanal „freedom“,
+ * Region, Senden – und „Kanal anlegen“ nur nach Rückfrage.
+ */
+async function zeigeGeraet(tr: import("../../meshtastic-strecke.js").SerielleStrecke): Promise<void> {
+  const { meshtasticHinweise } = await import("../../meshtastic-strecke.js");
+  const hinweis = $("#mesh-hinweis");
+  const knopf = $("#mesh-kanal") as HTMLButtonElement | null;
+  const zeige = () => {
+    if (hinweis) hinweis.textContent = tr.meshtastic ? meshtasticHinweise(tr.meshtastic).join(" ") : "";
+    knopf?.classList.toggle("hidden", !(tr.meshtastic && tr.meshtastic.kanal === null && tr.kanalAnlegen));
+  };
+  zeige();
+  if (knopf) knopf.onclick = async () => {
+    if (!tr.kanalAnlegen) return;
+    if (!(await bestaetige({ titel: t("set.meshtasticKanalFrage"), text: t("set.meshtasticKanalText"), ok: t("set.meshtasticKanalAnlegen") }))) return;
+    knopf.disabled = true;
+    try {
+      const ok = await tr.kanalAnlegen();
+      toast(t(ok ? "set.meshtasticKanalAngelegt" : "set.meshtasticKanalNicht"), !ok);
+    } catch (e) {
+      toast(fehlerText(e), true);
+    } finally {
+      knopf.disabled = false;
+      zeige();
+    }
+  };
+}
+
 /** Hinweis zum Weg ans Funkgerät – beim Öffnen der Settings neu, so folgt er einem Sprachwechsel (8.16g2a). */
 export async function zeigeMeshWeg(): Promise<void> {
   const { detectTransports } = await import("../../mesh-radio.js");
@@ -155,14 +185,11 @@ export async function wireMeshTab(): Promise<void> {
   if (connect) connect.onclick = async () => {
     try {
       const { connectSerial } = await import("../../mesh-radio.js");
-      const { meshtasticHinweise } = await import("../../meshtastic-strecke.js");
       const n = await ensureMeshNode();
       const tr = await connectSerial(115200, (raw) => n.receive(raw));
       await n.attach(tr);
       $("#mesh-status").textContent = t("set.verbundenMit", { name: n.transportName ?? "" });
-      // Meshtastic (7.5b): was am Gerät fehlt – Kanal „freedom“, Region, Senden
-      const hinweis = $("#mesh-hinweis");
-      if (hinweis) hinweis.textContent = tr.meshtastic ? meshtasticHinweise(tr.meshtastic).join(" ") : "";
+      await zeigeGeraet(tr);
       toast(t("set.funkVerbunden"));
     } catch (e) {
       $("#mesh-status").textContent = fehlerText(e);
@@ -174,8 +201,10 @@ export async function wireMeshTab(): Promise<void> {
     try {
       const { connectBluetooth } = await import("../../mesh-radio.js");
       const n = await ensureMeshNode();
-      await n.attach(await connectBluetooth((raw) => n.receive(raw)));
+      const tr = await connectBluetooth((raw) => n.receive(raw));
+      await n.attach(tr);
       $("#mesh-status").textContent = t("set.verbundenMit", { name: n.transportName ?? "" });
+      await zeigeGeraet(tr);
       // Das Bluetooth-Geraet ist ein Funkgeraet – es sendet ueber LoRa (7.1).
       void zeigeOfflineFaehigkeiten("lora");
       toast(t("set.bluetoothVerbunden"));

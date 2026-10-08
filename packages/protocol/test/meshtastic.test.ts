@@ -10,12 +10,13 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import {
-  FREEDOM_KANAL, MESHTASTIC_MAX_NUTZLAST, MESHTASTIC_PORT, MeshtasticStrom,
-  baueFunkPaket, baueKonfigAnfrage, leseVomGeraet, meshtasticSendezeit, mitMeshtasticKopf, type VomGeraet,
+  FREEDOM_KANAL, MESHTASTIC_MAX_NUTZLAST, MESHTASTIC_PORT, MeshtasticSitzung, MeshtasticStrom,
+  baueFunkPaket, baueKanalAnlegen, baueKonfigAnfrage, leseVomGeraet, meshtasticSendezeit, mitMeshtasticKopf, type VomGeraet,
 } from "../src/meshtastic.js";
 import { LORA_MTU } from "../src/mesh-transport.js";
+import { ProtokollFehler } from "../src/fehler.js";
 
-interface Zum { fall: "konfig" | "paket"; id?: number; kanal?: number; hopLimit?: number; nutzlast?: string; hex: string }
+interface Zum { fall: "konfig" | "paket" | "kanal-anlegen"; id?: number; kanal?: number; hopLimit?: number; nutzlast?: string; knoten?: number; index?: number; hex: string }
 interface Vom { fall: string; hex: string; erwartet: Record<string, unknown> }
 const REF = JSON.parse(readFileSync(new URL("./fixtures/meshtastic-referenz.json", import.meta.url), "utf8")) as {
   quelle: string;
@@ -43,11 +44,13 @@ test("Kanal „freedom“: öffentlicher Schlüssel, nachgerechnet und gleich de
 
 test("zum Gerät: Bytes wie die Referenz", () => {
   assert.match(REF.quelle, /^meshtastic 2\.7\.11$/);
-  assert.equal(REF.zumGeraet.length, 7);
+  assert.equal(REF.zumGeraet.length, 9);
   for (const f of REF.zumGeraet) {
     const b = f.fall === "konfig"
       ? baueKonfigAnfrage(f.id!)
-      : baueFunkPaket({ kanal: f.kanal!, hopLimit: f.hopLimit!, nutzlast: bytes(f.nutzlast!) });
+      : f.fall === "kanal-anlegen"
+        ? baueKanalAnlegen({ knoten: f.knoten!, index: f.index! })
+        : baueFunkPaket({ kanal: f.kanal!, hopLimit: f.hopLimit!, nutzlast: bytes(f.nutzlast!) });
     assert.equal(hex(b), f.hex, `${f.fall} ${f.id ?? f.kanal}`);
   }
 });
@@ -59,6 +62,9 @@ test("zum Gerät: Ungültiges wird abgewiesen, nie still gekürzt", () => {
   for (const kanal of [-1, 1.5, 2 ** 32, NaN]) assert.throws(() => baueFunkPaket({ kanal, hopLimit: 3, nutzlast: n(1) }), RangeError);
   for (const hopLimit of [-1, 0.5, 2 ** 32]) assert.throws(() => baueFunkPaket({ kanal: 1, hopLimit, nutzlast: n(1) }), RangeError);
   for (const id of [-1, 2 ** 32, 1.5]) assert.throws(() => baueKonfigAnfrage(id), RangeError);
+  // Kanal anlegen nur auf Platz 1–7 – 0 ist der Hauptkanal und bleibt, wie er ist (Variante a)
+  for (const index of [0, 8, -1, 1.5]) assert.throws(() => baueKanalAnlegen({ knoten: 1, index }), RangeError);
+  assert.throws(() => baueKanalAnlegen({ knoten: 2 ** 32, index: 1 }), RangeError);
 });
 
 test("Kopf im Strom: START1, START2, Länge – höchstens 512", () => {
@@ -168,4 +174,29 @@ test("Sendezeit nach Semtech: Presets der Firmware, Meshtastic-Kopf, eigene Wert
   assert.equal(meshtasticSendezeit({ preset: 0, vorgabe: false }, LORA_MTU), semtech(voll, 12, 125, 8, 16));
   // Die alte Annahme der App (200 Byte/s) rechnete mit LongFast fast die Hälfte zu wenig
   assert.ok(longFast > 1.8 * (LORA_MTU / 200));
+});
+
+test("Sitzung (7.5c): Kanal erst ab „Ende der Einstellungen“, senden und empfangen nur dort – ohne App", async () => {
+  const ref = (fall: string) => leseVomGeraet(bytes(REF.vomGeraet.find((f) => f.fall === fall)!.hex))!;
+  const geschrieben: Uint8Array[] = [];
+  const empfangen: string[] = [];
+  const s = new MeshtasticSitzung(async (m) => { geschrieben.push(m); }, (r) => empfangen.push(hex(r)));
+  const fertig = s.frage(0x12345678);
+  assert.equal(hex(geschrieben[0]!), hex(baueKonfigAnfrage(0x12345678)));
+  for (const f of ["ich", "lora", "kanal-primaer", "kanal"]) s.verarbeite(ref(f));
+  assert.equal(s.stand.kanal, null, "erst ab Ende der Einstellungen");
+  s.verarbeite(ref("fertig"));
+  await fertig;
+  assert.equal(s.stand.kanal, 1);
+  assert.equal(s.aktiv, true);
+  await s.sende(Uint8Array.of(1, 2, 3));
+  assert.equal(hex(geschrieben.at(-1)!), hex(baueFunkPaket({ kanal: 1, hopLimit: 3, nutzlast: Uint8Array.of(1, 2, 3) })));
+  s.verarbeite(ref("paket")); // Kanal 1, Port 256
+  s.verarbeite(ref("text")); // Kanal 0, Port 1
+  assert.equal(empfangen.length, 1);
+  // Ohne Kanal geht nichts hinaus – als Fehler mit Kennung, die App übersetzt ihn
+  const leer = new MeshtasticSitzung(async () => {});
+  await assert.rejects(leer.sende(Uint8Array.of(1)), (e: unknown) => e instanceof ProtokollFehler && e.kennung === "meshtastic-ohne-kanal");
+  // Ohne eigene Nummer kein Anlegen
+  assert.equal(await leer.legeKanalAn(10), false);
 });

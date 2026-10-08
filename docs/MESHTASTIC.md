@@ -38,7 +38,7 @@ Variante (a) für den Kanal; die Befunde gehen über dieses Dokument an Spur B.
 | Weiterreichen | **Die Firmware flutet selbst** (Hop-Limit). Über Meshtastic reicht die App nichts weiter – sonst ginge jeder Rahmen mehrfach in die Luft | `Router.cpp` |
 | Kanal (Variante a) | Zweiter Kanal „freedom“ neben dem Hauptkanal. Die Frequenz setzt der Hauptkanal; fremde Geräte im Standard „ALL“ leiten weiter, was sie nicht lesen können | `channel.proto` (SECONDARY), `config.proto` (`RebroadcastMode.ALL`) |
 | Schlüssel des Kanals | SHA-256 von `freedomstack-meshtastic-kanal-v1`, steht im Code (`FREEDOM_KANAL`) – **kein Geheimnis**, er trennt nur unseren Verkehr vom Chat der anderen. Geschützt sind die Nachrichten durch ihre Umschläge (7.1) | `channel.proto`: 32 Byte = AES-256, Name unter 12 Byte |
-| Kanal anlegen | Nur auf Klick und nach Rückfrage, per `AdminMessage.set_channel` an das eigene Gerät – lokal braucht das keinen Sitzungsschlüssel (außer `is_managed`) | `AdminModule.cpp` (`mp.from == 0`) |
+| Kanal anlegen | Nur auf Klick und nach Rückfrage (seit 7.5c), per `AdminMessage.set_channel` an das eigene Gerät – auf dem Platz eines „freedom“ mit fremdem Schlüssel, sonst dem ersten freien; lokal braucht das keinen Sitzungsschlüssel (außer `is_managed`) | `AdminModule.cpp` (`mp.from == 0`), `node.py` (`writeChannel`) |
 | Region | Ein neues Gerät hat die Region `UNSET` und sendet nicht – die App sagt das und setzt sie nicht selbst (die Region ist Recht des Landes) | `config.proto` |
 
 ## Datenschutz – was Meshtastic dazu verrät
