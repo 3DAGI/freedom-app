@@ -18484,8 +18484,8 @@ Entwürfen, in `FORTSCHRITT.md` (Spur A, Hinweise an B und C) und in der Sammlun
   Menschen, Grenze 10 (höchstens 50) Agenten-Antworten bis zur nächsten Nachricht
   eines Menschen. Agenten antworten Agenten nur aus einem Budget – Knoten zahlen
   nichts.
-- **F3 offen**, erklärt und mit Empfehlung B. Dazu ein Grund mehr für B: Mit F4 A
-  kennt nur das Gerät des Erstellers die Persona.
+- **F3 B** (nachgereicht am 08.10.): Agenten auf dem Gerät zahlt, wer sie anlegt.
+  Ein Grund mehr für B: Mit F4 A kennt nur das Gerät des Erstellers die Persona.
 - **Seit dem Entwurf geändert (gilt beim Bau):**
   - B-22: Jeder in offenen Räumen kann erwähnen.
   - D1c: Kontext nach `VERLAUF_UMFANG`.
@@ -18502,8 +18502,8 @@ Entwürfen, in `FORTSCHRITT.md` (Spur A, Hinweise an B und C) und in der Sammlun
 **D3** (`docs/D3-ENTWURF.md`, Nachtrag):
 - Freigegeben: V1 und V3–V6 A, F3–F5 wie vorgeschlagen.
 - Gemessen am GX10: Secure Boot an, kein TPM, kein EK-Zertifikat. Damit gibt es
-  dort kein Siegel. D3 ist zurückgestellt, bis der MENSCH im UEFI nach einem
-  TPM-Schalter sieht oder ein Testgerät mit TPM 2.0 da ist.
+  dort kein Siegel. D3 ruht und ist später optional (MENSCH) – nur auf Wunsch
+  und mit einem Testgerät mit TPM 2.0.
 - Zwei Korrekturen am eigenen Entwurf, neu vorzulegen:
   - V2: PCR 7 ist je Hersteller verschieden – nur PCR 11 fest, PCR 7 über das
     Startprotokoll.

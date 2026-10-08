@@ -117,10 +117,10 @@ von Spur A. Der MENSCH kann sie ändern, ohne dass sich der Plan ändert.
 
 ## 4. Stufe 3 – versiegelter Provider-Modus (Entwurf D3: `docs/D3-ENTWURF.md`)
 
-Freigegeben am 08.10.2026, aber **zurückgestellt**: Der GX10 hat kein TPM
-(gemessen: Secure Boot an, kein `/dev/tpm*`, kein EK-Zertifikat). Weiter erst
-mit einem TPM-Schalter im UEFI oder einem Testgerät mit TPM 2.0 – Nachtrag im
-Entwurf. Kurz:
+Freigegeben am 08.10.2026, **ruht – später optional** (MENSCH): Der GX10 hat
+kein TPM (gemessen: Secure Boot an, kein `/dev/tpm*`, kein EK-Zertifikat).
+Wieder aufgenommen nur auf Wunsch und mit einem Testgerät mit TPM 2.0 –
+Nachtrag im Entwurf. Kurz:
 
 - **Ziel:** Die App kann prüfen, dass auf dem Knoten genau die veröffentlichte,
   reproduzierbar gebaute Software läuft, die nichts mitschreibt.
@@ -132,8 +132,8 @@ Entwurf. Kurz:
 - **Grenze:** Das ist kein TEE. Wer physischen Zugriff hat, kann den Speicher
   auslesen. Es belegt nur, welche Software gestartet wurde. Die Texte dürfen
   nicht mehr versprechen.
-- **MENSCH:** gemessen am 08.10. (Secure Boot an, kein TPM). Offen: Gibt es im
-  UEFI-Setup des GX10 einen Schalter für ein TPM? Sonst ein Testgerät mit TPM 2.0.
+- **MENSCH:** gemessen am 08.10. (Secure Boot an, kein TPM); D3 ruht, später
+  optional.
 
 ## 5. Schritte
 
@@ -144,4 +144,4 @@ Entwurf. Kurz:
 | D1b2 ✓ | Neuer Schlüssel je Unterhaltung (offene Beträge mit dem alten begleichen, Abfrage nur je Auftrag, Grenze „ki-unterhaltung“, Whitepaper) |
 | D1c ✓ | Weniger Verlauf: Standard „kurz“ (6 Nachrichten, 3 000 Zeichen), Auswahl aus · kurz · lang (`VERLAUF_UMFANG`, `freedom.verlauf`), Grenze „ki-verlauf“ im Bericht, Whitepaper |
 | D2 ✓ | Privat-Schalter je Unterhaltung: nur Gerät oder eigener Knoten (`wegErlaubt()`, Haken `#ai-privat`, Smoke „lokal“) |
-| D3-Entwurf ✓ | Versiegelter Provider-Modus (`docs/D3-ENTWURF.md`) – freigegeben 08.10. (V2, V7 neu vorzulegen), zurückgestellt: GX10 ohne TPM; D3a–D3f erst mit Testgerät |
+| D3-Entwurf ✓ | Versiegelter Provider-Modus (`docs/D3-ENTWURF.md`) – freigegeben 08.10., ruht (später optional, GX10 ohne TPM); D3a–D3f erst auf Wunsch und mit Testgerät |

@@ -23,7 +23,7 @@ jeweils als Option.
 | 11.1b | QR in der App: Gerätecode als QR (Settings › Geräte, nur auf Klick, mit Warnung, verschwindet nach kurzer Zeit), Scannen beim Einrichten als Gerät (Kamera nur auf Klick, `BarcodeDetector`, sonst Code einfügen), Werbelink als QR | A | ~300 |
 | 11.2a | Werbelink mit eigener Domain: Earn › Werben „eigene Adresse der App“ (nur https); die App prüft, ob dort eine signierte Version liegt (Release 5.2), sonst ehrlich „nicht geprüft“; Hinweis auf den Hosting-Anteil (`freedom-spiegel.json`, 5.3a) | A | ~200 |
 | 11.2b | Werbelink mit kurzem Namen: `?ref=name@domain` (auf der eigenen Domain auch `?ref=name`), aufgelöst über NIP-05; der erste Werber bleibt; Lightning-Adresse aus `ln` oder dem signierten Profil; die Abfrage nennt der Domain einmal die IP (Datenschutzbericht) | A | ~250 |
-| 11.3a | **Entwurf** Agenten in Räumen (Vorlage wie 4.0/2.2a, MENSCH gibt frei): Agent-Karte (neues Event-Format), Mitgliedschaft privat (MLS-Mitglied) und öffentlich (Rolle im Raum), Erwähnung → Auftrag (Kontext nur, was der Fragende sieht), Antwort als Nachricht des Agenten, beide Betriebsarten, beide Bezahlarten mit Obergrenzen, Datenschutz-Aussagen – **freigegeben 08.10.2026** (F1, F4, F6 A; F2 Monatsbudget mit Pfand; F5 Agentenketten mit Schalter; F3 offen – `docs/AGENTEN-RAUM-ENTWURF.md`, Abschnitt „Entscheidungen“) | A | Dokument |
+| 11.3a | **Entwurf** Agenten in Räumen (Vorlage wie 4.0/2.2a, MENSCH gibt frei): Agent-Karte (neues Event-Format), Mitgliedschaft privat (MLS-Mitglied) und öffentlich (Rolle im Raum), Erwähnung → Auftrag (Kontext nur, was der Fragende sieht), Antwort als Nachricht des Agenten, beide Betriebsarten, beide Bezahlarten mit Obergrenzen, Datenschutz-Aussagen – **freigegeben 08.10.2026** (F1, F4, F6 A; F2 Monatsbudget mit Pfand; F5 Agentenketten mit Schalter; F3 B – `docs/AGENTEN-RAUM-ENTWURF.md`, Abschnitt „Entscheidungen“) | A | Dokument |
 | 11.3b | Protokoll: Agent-Karte, Auftrag und Antwort im Raum, Budget-Regeln, Leak-Szenario | A | ~350 |
 | 11.3c | Agent auf dem eigenen Gerät: anlegen (Schlüssel im Tresor), einladen, Aufträge über `ki-zahlung.ts` | A | ~350 |
 | 11.3d | Agent auf dem Knoten: Agent-Rolle mit eigenem MLS-Konto (`packages/mls`), KeyPackage, Einladung annehmen, Erwähnungen beantworten, Bezahlung je Auftrag oder aus dem Budget | A | ~400, ggf. geteilt |
@@ -34,8 +34,8 @@ jeweils als Option.
 | 11.5 | **Entwurf**, dann Bau: Agenten arbeiten an Raum-Repos – mit Git-Werkzeugen in der Sandbox (8.7) holen, ändern, als Patch in den Raum stellen; angenommen wird nur durch ein Mitglied mit Recht, nie von selbst | A + B | nach 11.3/11.4 |
 
 Reihenfolge Spur A: 11.1a → 11.1b → 11.2a → 11.2b → 11.3a (freigegeben
-08.10.) → 11.3b–d (11.3c nach F3, Monatsbudget beim Knoten nach dem
-Devnet-Deploy) → 11.5. Spur B nimmt 11.4 nach ihrem
+08.10.) → 11.3b–d (Monatsbudget beim Knoten nach dem Devnet-Deploy) →
+11.5. Spur B nimmt 11.4 nach ihrem
 laufenden Schritt; Spur C 11.3e und 11.4c, sobald die Bausteine stehen.
 
 ## Leitplanken

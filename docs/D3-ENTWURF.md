@@ -1,7 +1,7 @@
 # Versiegelter Provider-Modus – Entwurf (D3)
 
-Stand 06.10.2026, Spur A. **Freigegeben am 08.10.2026 (MENSCH), aber
-zurückgestellt:** Der GX10 hat kein TPM (Messung F1/F2). V2 und V7 legt Spur A
+Stand 06.10.2026, Spur A. **Freigegeben am 08.10.2026 (MENSCH), ruht –
+später optional:** Der GX10 hat kein TPM (Messung F1/F2). V2 und V7 legt Spur A
 korrigiert neu vor. Siehe Abschnitt „Nachtrag 08.10.2026“ am Ende – er gilt vor
 dem Rest. Grundlage ist der Plan vom 05.10.2026
 (Sammlung D1, Karte `docs/DATENSCHUTZ-PROVIDER.md`, Abschnitt 4): Stufe 1
@@ -158,6 +158,11 @@ zurückgestellt**, bis eins von zwei Dingen geklärt ist (MENSCH):
    „verdrahtet“ hieße nichts.
 
 Bis dahin baut niemand D3a–D3f. Texte sagen weiter nichts über „versiegelt“.
+
+**Entscheidung 08.10.2026, danach (MENSCH):** D3 ruht und ist später optional –
+ein TPM gibt es am GX10 vermutlich nicht. Wieder aufgenommen wird es nur auf
+Wunsch des MENSCHEN und mit einem Testgerät mit TPM 2.0; dann zuerst V2 und V7
+neu vorlegen.
 
 **Korrektur V2 – PCR 7 ist nicht überall gleich.** Der Vorschlag oben sagt,
 PCR 7 hänge nicht von der Firmware des Modells ab. Das stimmt nicht:

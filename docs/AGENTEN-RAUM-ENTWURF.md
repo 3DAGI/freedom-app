@@ -1,6 +1,6 @@
 # Agenten in Räumen – Entwurf (Schritt 11.3a)
 
-Stand 29.09.2026, Spur A. **Freigegeben am 08.10.2026 (MENSCH)** – bis auf F3
+Stand 29.09.2026, Spur A. **Freigegeben am 08.10.2026 (MENSCH)** – alle Fragen entschieden
 (Abschnitt „Entscheidungen vom 08.10.2026“ am Ende; er gilt vor den Vorschlägen
 darüber). Gebaut wird 11.3b–e, dann 11.5. Grundlage sind die
 Entscheidungen vom 28.09.2026 (`docs/ausbau/phase-11.md`):
@@ -113,7 +113,7 @@ Adressierbar, Autor ist der Schlüssel des Agenten, `d` = `karte`:
 | | Wer ihn anspricht (`fragender`) | Wer ihn einlädt (`einlader`, Budget) |
 |---|---|---|
 | **Knoten** | Die App des Fragenden schickt einen gewöhnlichen versiegelten Auftrag an den Knoten – Sitzungsschlüssel, A+, Lightning oder Gutschrift. Im Kern steht der Verweis auf die Erwähnung (Raum, Id der Nachricht). Der Knoten prüft, dass es die Erwähnung im Raum gibt, und antwortet im Raum. Unbezahlte Erwähnungen beantwortet er nicht; die App zeigt den Preis vor dem Senden. | Zahlkanal vom Einlader zum Knoten, Einlage = Budget (die Obergrenze erzwingt die Kette). Monatsbudget mit Gutschriften in Stufen (F2, entschieden 08.10. – unten). |
-| **Gerät** | F3 (offen; Empfehlung B: zuerst nicht anbieten) | Die App des Erstellers zahlt aus der eigenen Wallet, je Raum mit Budget und Tagesgrenze, über `ki-zahlung.ts`. Einlader ist hier immer der Ersteller. |
+| **Gerät** | gibt es zuerst nicht – Agenten auf dem Gerät zahlt der Ersteller (F3 B, entschieden 08.10.) | Die App des Erstellers zahlt aus der eigenen Wallet, je Raum mit Budget und Tagesgrenze, über `ki-zahlung.ts`. Einlader ist hier immer der Ersteller. |
 
 - **Obergrenzen:**
   - Das Budget gilt je Agent und Raum, in sats oder SOL, dazu eine
@@ -146,7 +146,7 @@ Adressierbar, Autor ist der Schlüssel des Agenten, `d` = `karte`:
 | Schritt | Inhalt | Spur | Umfang |
 |---|---|---|---|
 | 11.3b | Protokoll: Karte 38090 samt Bestätigung des Besitzers (F1), Rolle `agent`, Auslöser- und Kontextregeln, Agentenketten (Schalter, Zählung, F5), Budgetbuch mit Stufen (F2), Verweis im Auftrag, Leak-Regel und Szenario | A | ~350, ggf. zwei Teile |
-| 11.3c | Gerät: Schlüssel im Tresor, zweites MLS-Konto, Erwähnungen beantworten, Einlader-Budget (wer zahlt, wenn ein anderer fragt: F3) | A | ~400 |
+| 11.3c | Gerät: Schlüssel im Tresor, zweites MLS-Konto, Erwähnungen beantworten, Einlader-Budget (F3 B: der Ersteller zahlt, auch wenn ein anderer fragt) | A | ~400 |
 | 11.3d | Knoten: Agent-Rolle, MLS-Konto im Knoten, Einladung annehmen, Erwähnungen beantworten, Bezahlung je Auftrag und aus dem Budget (Monatskanal mit Stufen erst nach dem Devnet-Deploy) | A | ~400, ggf. zwei Teile |
 | 11.3e | Oberfläche: Agent als Mitglied mit Kennzeichen, „Agent hinzufügen“ (neu oder vorhanden), Einstellungen | C | ~300 |
 | 11.5 | Entwurf, dann Bau: Agenten arbeiten an Raum-Repos – mehrere Agenten stimmen sich über Agentenketten ab (F5) | A + B | nach 11.3/11.4 |
@@ -170,7 +170,7 @@ Dieser Abschnitt gilt vor den Vorschlägen oben.
 |---|---|
 | F1 | **A** – Besitzer nur mit seiner Bestätigung (eigene Liste seiner Agenten, NIP-51) |
 | F2 | **A als Monatsbudget mit Pfand** – Wunsch MENSCH: „prepaid mit Escrow und Rückzahlung nach Ablauf, monatlich einzahlen“; Ausgestaltung unten |
-| F3 | **offen** – am 08.10. erklärt (unten), Empfehlung B. 11.3b braucht die Antwort nicht, 11.3c schon |
+| F3 | **B** – Agenten auf dem Gerät zahlt, wer sie anlegt, aus seinem Budget für den Raum; „wer fragt, zahlt“ nur beim Agenten auf dem Knoten. A kann später folgen (Erklärung unten) |
 | F4 | **A** – Persona und Systemanweisung nur beim Gastgeber |
 | F5 | **B mit Schalter** – Wunsch MENSCH: Agenten sollen sich beim gemeinsamen Arbeiten abstimmen können, etwa am Code eines Raum-Repos; Regeln unten |
 | F6 | **A** – Kind 38090, Standardrolle `agent` |
@@ -223,7 +223,7 @@ Dieser Abschnitt gilt vor den Vorschlägen oben.
 - **D1b2:** Ein Agent auf dem Gerät bekommt je Raum einen eigenen Sitzungsschlüssel, nicht nur je Agent – sonst verbände der Provider die Räume.
 - **12.4a:** Mit SOL als Standard-Schiene zahlt KI nur über einen Kanal. Auch „wer fragt, zahlt“ braucht dann einen Kanal des Fragenden zum Knoten.
 
-### F3 erklärt (offen)
+### F3 erklärt (entschieden: B)
 
 **Die Frage:** Ein Agent läuft auf dem Gerät seines Erstellers, und ein anderes Mitglied fragt ihn. Wer bezahlt den Provider?
 
