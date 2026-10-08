@@ -5,12 +5,16 @@
 //! über das eigene Schema aus `oberflaeche.rs`. Die Hülle selbst spricht mit niemandem
 //! im Netz – das tut nur die App, mit denselben Regeln wie im Browser. Eine neuere
 //! Oberfläche installiert die Hülle seit 6.1a3b nur nach eigener Prüfung
-//! (`installation.rs`, `update.rs`); die App darf dafür genau zwei Kommandos rufen
-//! (`capabilities/oberflaeche.json`).
+//! (`installation.rs`, `update.rs`). Auf dem Desktop geht der Verkehr der App auf
+//! Wunsch über Tor (6.1b1a, `netz.rs`, `tor.rs`). Die App darf nur die Kommandos aus
+//! `capabilities/oberflaeche.json` rufen.
 
 mod ablage;
 mod installation;
+mod netz;
 mod oberflaeche;
+#[cfg(desktop)]
+mod tor;
 mod update;
 
 use installation::{Oberflaeche, Startwahl};
@@ -25,17 +29,29 @@ pub fn run() {
             Some(o) => oberflaeche::antwort(anfrage.uri().path(), &o.html()),
             None => oberflaeche::antwort(anfrage.uri().path(), oberflaeche::BEIGELEGT),
         })
-        .invoke_handler(tauri::generate_handler![installation::oberflaeche_stand, installation::oberflaeche_installieren])
+        .invoke_handler(tauri::generate_handler![
+            installation::oberflaeche_stand,
+            installation::oberflaeche_installieren,
+            netz::netz_stand,
+            netz::netz_setzen
+        ])
         .setup(|app| {
             app.manage(Oberflaeche::starte(installation::ablageordner(app.path()), Startwahl::aus(std::env::args())));
-            WebviewWindowBuilder::new(app, "haupt", WebviewUrl::CustomProtocol(oberflaeche::adresse().parse()?))
+            // Mit Tor bekommt das Fenster seinen eigenen SOCKS5-Zugang als Proxy – nur dieses Fenster.
+            let netz = netz::Netz::starte(app.path());
+            let proxy = netz.proxy();
+            app.manage(netz);
+            let fenster = WebviewWindowBuilder::new(app, "haupt", WebviewUrl::CustomProtocol(oberflaeche::adresse().parse()?))
                 .title("FreedomStack")
                 .inner_size(1200.0, 800.0)
                 .min_inner_size(360.0, 560.0)
                 .initialization_script(oberflaeche::kennung_skript())
                 .on_navigation(oberflaeche::darf_navigieren)
-                .on_new_window(|_, _| NewWindowResponse::Deny)
-                .build()?;
+                .on_new_window(|_, _| NewWindowResponse::Deny);
+            match proxy {
+                Some(p) => fenster.proxy_url(p).build()?,
+                None => fenster.build()?,
+            };
             Ok(())
         })
         .run(tauri::generate_context!())
