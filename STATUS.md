@@ -18120,6 +18120,10 @@ Prüfung „Senden beim Tippen“ im Smoke-Test „mobil“ (hoch und quer); ohn
 **Doku:** `docs/PROTOCOL.md` §22 (Rolle für alle), CLAUDE.md (Fallstricke Offene
 Räume, Mobil), FORTSCHRITT (Spur B), Sammlung (B-22, O1; dazu G1 und A-14 für Spur A).
 
-**Prüfungen:** PRUEFUNGEN_B22
+**Prüfungen** (nach dem Einmergen von `main` mit 7.5b/7.5c): protocol 1227 grün
+(+2, 6 übersprungen), node 313 (7 übersprungen ohne Netz, mit Netz 314), app 954
+(+5), Leak 73 + 1 todo, mls 13; Typprüfung überall, Build, check-wiring
+`--streng` Exit 0, check-website ok, check_innerhtml Exit 0, Smoke-Test bestanden
+(mit „Senden beim Tippen“), build-site Exit 0.
 
 Knoten-Stand: unverändert.
