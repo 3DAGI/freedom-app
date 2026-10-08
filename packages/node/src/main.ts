@@ -417,18 +417,22 @@ async function main(): Promise<void> {
   }
 
   // Funk-Gateway (optional, 7.4b2): FUNK_GATEWAY=host:port – TCP-Brücke zum
-  // Funkgerät (z. B. ser2net). Reicht versiegelte KI-Aufträge aus dem Funk ins
-  // Netz und funkt die Antworten gemerkter Sitzungen in der Sendezeit zurück.
+  // Funkgerät (z. B. ser2net); seit 7.5d FUNK_GATEWAY=meshtastic:host[:4403] –
+  // ein Meshtastic-Gerät mit WLAN direkt. Reicht versiegelte KI-Aufträge aus dem
+  // Funk ins Netz und funkt die Antworten gemerkter Sitzungen in der Sendezeit zurück.
   let funkGateway: import("./gateway-role.js").GatewayRolle | undefined;
   if (process.env.FUNK_GATEWAY) {
-    const { GatewayRolle, funkBruecke } = await import("./gateway-role.js");
+    const { GatewayRolle, funkBruecke, meshtasticTcp } = await import("./gateway-role.js");
     const { LocalSigner } = await import("@freedomstack/protocol");
     // Fehler nie unbehandelt: Ein kaputtes Paket darf den Knoten nicht beenden (nur der Fehlername ins Log)
-    const strecke = funkBruecke(process.env.FUNK_GATEWAY, (f) => void funkGateway?.empfange(f).catch((e) => console.warn(`[funk] ${(e as Error).name}`)));
+    const empfang = (f: Uint8Array) => void funkGateway?.empfange(f).catch((e) => console.warn(`[funk] ${(e as Error).name}`));
+    const adresse = process.env.FUNK_GATEWAY;
+    const meshtastic = adresse.startsWith("meshtastic:");
+    const strecke = meshtastic ? meshtasticTcp(adresse.slice("meshtastic:".length), empfang) : funkBruecke(adresse, empfang);
     funkGateway = new GatewayRolle({ strecke, gateway: new LocalSigner(keypair.sk), netz: pool });
     funkGateway.starte();
     statusRollen.add("gateway");
-    console.log("[funk] Gateway an (TCP-Brücke zum Funkgerät)");
+    console.log(meshtastic ? "[funk] Gateway an (Meshtastic per TCP)" : "[funk] Gateway an (TCP-Brücke zum Funkgerät)");
   }
 
   // Sweep der Wochen-Wallets und ihr Arweave-Spiegel sind seit 5.1.4a entfernt:

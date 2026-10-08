@@ -18061,3 +18061,57 @@ absichtlich eingebaute Fehler macht je ein Test rot.
 übersprungen), app 949 grün (+5), Leak 73 grün + 1 todo, mls 13 grün;
 check-wiring `--streng` Exit 0 (0 offen), check-website ok, check_innerhtml
 Exit 0; repro-build reproduzierbar, build-site Exit 0, Smoke-Test bestanden.
+
+## Schritt 7.5d – Meshtastic: Gateway im Knoten per TCP, Smoke-Test
+
+**Knoten:** `FUNK_GATEWAY=meshtastic:host[:4403]` verbindet das Funk-Gateway
+direkt mit einem Meshtastic-Gerät mit WLAN (`meshtasticTcp()` in
+`gateway-role.ts`, Port 4403 wie die Python-Bibliothek). Es nutzt dieselbe
+`MeshtasticSitzung` wie die App, mit Strom `0x94 0xC3`. Je Verbindung fragt es
+das Gerät neu und verbindet nach einer Trennung neu. Ohne Kanal „freedom“ geht
+nichts hinaus. Was am Gerät fehlt (Kanal samt öffentlichem Schlüssel zum
+Abtippen, Region, Senden), steht nur im Log (`meshtasticBefunde()`, Fehler nur
+mit Namen); der Knoten legt nichts an. `FUNK_GATEWAY=host:port` bleibt die
+TCP-Brücke mit Längenpräfix. Die Gateway-Rolle nimmt Sendezeit, Wartezeit und
+Takt von der Strecke (`zeit()`), sonst wie bisher 200 Byte/s.
+
+**Ehrlich nachgerechnet:** Eine KI-Antwort mit 500 Zeichen ist als Umschlag
+rund 2,9 KB, also 16 Rahmen. Mit LongFast braucht sie rund 30 s Sendezeit,
+nicht „gut 15 s“ (angenommene 200 Byte/s). Bei 1 % schafft ein Gateway damit
+etwa eine Antwort je Stunde statt zwei. Korrigiert in:
+- Protokoll-Satz `offlineCapabilities()` und App-Fassung.
+- Gateway-Karte und Hinweis im Agenten (beide Sprachen).
+- FAQ und `CLAUDE.md`.
+
+Der Test in `mesh-sync.test.ts` rechnet jetzt je Rahmen mit
+`meshtasticSendezeit()`.
+
+**Doku:**
+- `docs/PROVIDER.md`: neuer Abschnitt „Funk-Gateway“.
+- `docker-compose.yml`: nennt `FUNK_GATEWAY`.
+- GO-LIVE, `docs/MESHTASTIC.md` (Gateway-Zeile, Schritte, Spur B frei).
+- Karte 7.5d ✓, FORTSCHRITT (PR-Links 7.5a–c, Hinweis an Spur B: Dateien wieder frei).
+
+**Tests:**
+- `node/test/gateway-meshtastic.test.ts` (neu, 3) gegen einen TCP-Server, der wie ein Gerät antwortet. Geprüft wird:
+  - Einstellungen, Senden auf Kanal 1, Empfangen nur dort.
+  - Sendezeit des Presets.
+  - Neu fragen nach Trennung; nach dem Schließen wirft Senden.
+  - Ohne Kanal: das Log mit Schlüssel, und nichts geht hinaus.
+  - Befunde zu Region und Senden; Adressen.
+  - Die Gateway-Rolle bucht und taktet nach der Sendezeit der Strecke.
+- Smoke-Test „meshtastic“: Eine Web-Serial-Attrappe antwortet mit Bytes aus der Referenz. Geprüft wird:
+  - Erkannt, Hinweis samt Schlüssel, Knopf sichtbar.
+  - Abbrechen in der Rückfrage schickt nichts.
+  - „Anlegen“ schickt genau `set_channel` aus der Referenz, danach ist der Hinweis weg.
+  - Keine Browser-Dialoge.
+
+Gegenprobe: Sechs absichtlich eingebaute Fehler im Gateway macht je ein Test rot. Das sind:
+- Sendezeit ohne Strecke.
+- Nicht fragen.
+- Nicht neu verbinden.
+- Keine Befunde.
+- Senden ohne Verbindung.
+- Andere Port-Grenze.
+
+Im Smoke-Test: Anlegen ohne Rückfrage.

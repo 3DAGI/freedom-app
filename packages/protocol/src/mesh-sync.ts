@@ -371,8 +371,9 @@ export function offlineCapabilities(link: Link): { feature: string; works: boole
     },
     {
       // Seit 7.4: kurz über ein Funk-Gateway (funk-gateway.ts) – eine lange Antwort bräuchte mehr als eine Stunde Sendezeit.
+      // Seit 7.5d mit der Sendezeit von Meshtastic gerechnet (LongFast): 500 Zeichen sind 16 Rahmen, rund 30 s.
       feature: "KI-Anfragen", works: ueberFunk,
-      note: "Nur über Funk und ein Gateway mit Netz: kurze Antwort (höchstens 500 Zeichen), rund zwei je Stunde und Gateway – eine Antwort kostet als Umschlag gut 15 s Sendezeit. Bezahlt nur über einen Zahlkanal oder gratis; per Datei nicht.",
+      note: "Nur über Funk und ein Gateway mit Netz: kurze Antwort (höchstens 500 Zeichen), etwa eine je Stunde und Gateway – eine Antwort kostet als Umschlag rund eine halbe Minute Sendezeit (Meshtastic-Standard). Bezahlt nur über einen Zahlkanal oder gratis; per Datei nicht.",
     },
   ];
 }
