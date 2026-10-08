@@ -4,7 +4,7 @@
  *
  * Aus tabs/agent.ts verschoben (C-5d) – wörtlich, ohne Logikänderung.
  */
-import { KIND_GIFT_WRAP, parseJobResult } from "@freedomstack/protocol";
+import { GRATIS_LEER, KIND_GIFT_WRAP, parseJobResult } from "@freedomstack/protocol";
 import { t } from "../../i18n.js";
 import { fehlerText } from "../../protokoll-texte.js";
 import { DEFAULT_MAX_MODE, ScoredProvider, matchRaceProviders } from "../../matchmaking.js";
@@ -16,7 +16,10 @@ import { ergebnisDesLaufs } from "../../messbuch.js";
 import { hoechstMsat } from "../../anteile-kasse.js";
 import { type Pruefrunde, messeLauf, starteRunde } from "../pruefrunde-lauf.js";
 import { $, toast } from "../ui.js";
-import { buildJobEvent, handleAnswer, jobAbort, keinPrivaterProvider, privatFaehig, waitForAnswer } from "./agent.js";
+import { MAX_POW_APP, buildJobEvent, handleAnswer, jobAbort, keinPrivaterProvider, privatFaehig, waitForAnswer } from "./agent.js";
+import { gratisKandidaten } from "../../gratis-kontingent.js";
+import { zaehleGratisAntwort } from "../gratis-start.js";
+import { merkeGratisAbgelehnt } from "../app.js";
 import { zieleNachSchiene } from "../ki-zahlung.js";
 import { addAiMessage, EigeneMeldung, hideTyping, showAiError } from "./agent-anzeige.js";
 import { selectedTools } from "./agent-eingabe.js";
@@ -26,7 +29,9 @@ import { selectedTools } from "./agent-eingabe.js";
 export async function askWithFailover(prompt: string, bid: number, tier: "free" | "classic" | "pro", maxMode = false): Promise<void> {
   const pool = await ensurePool();
   const sc = ensureSessionClient();
-  const candidates = privatFaehig(await findProviders(tier));
+  // Gratis (Gebot 0, A-14b): nur an Provider, die gerade gratis anbieten – mit machbarer Rechenarbeit
+  const privat = privatFaehig(await findProviders(tier));
+  const candidates = bid === 0 ? gratisKandidaten(privat, MAX_POW_APP) : privat;
 
   if (maxMode) {
     return askRace(prompt, bid, tier, candidates);
@@ -41,6 +46,12 @@ export async function askWithFailover(prompt: string, bid: number, tier: "free" 
   // Private Anfragen brauchen einen Empfaenger – einen offenen Bid-Job an
   // alle gibt es seit 3.1 nicht mehr (er stand im Klartext auf den Relays).
   if (pubkeyList.length === 0) {
+    // Es gibt Provider, aber gerade keinen, der gratis anbietet (A-14b) – das sagen, nicht „keiner da“
+    if (bid === 0 && privat.length > 0) {
+      merkeGratisAbgelehnt();
+      showAiError(new EigeneMeldung(t("agent.keinGratisProvider")), prompt, bid, tier);
+      return;
+    }
     showAiError(keinPrivaterProvider(), prompt, bid, tier);
     return;
   }
@@ -61,6 +72,8 @@ export async function askWithFailover(prompt: string, bid: number, tier: "free" 
   /** Alle aktiven Job-Ids dieses Laufs (Results aus allen akzeptieren). */
   const activeJobIds = new Set<string>();
   let lastFeedbackError = "";
+  // Gratis-Budget eines Providers für heute verbraucht (A-14a, Kennung `gratis-leer`)
+  let gratisLeer = false;
   // Eigene Messung (P2a): wann wer den Auftrag bekam, wer seine Frist verpasste
   const gesendetMs = new Map<string, number>();
   const zuLangsam = new Set<string>();
@@ -92,7 +105,12 @@ export async function askWithFailover(prompt: string, bid: number, tier: "free" 
         // Ablehnung durch DIESEN Provider → Failover zum nächsten (die meisten
         // Ablehnungen sind provider-spezifisch: quota, bootstrap, preis).
         lastFeedbackError = answer.providerError;
-        toast(t("agent.providerLehntAb", { grund: answer.providerError.slice(0, 50) }));
+        if (answer.fall === GRATIS_LEER) {
+          gratisLeer = true;
+          toast(t("agent.gratisLeerProvider", { pk: pkShort(target) }));
+        } else {
+          toast(t("agent.providerLehntAb", { grund: answer.providerError.slice(0, 50) }));
+        }
         continue; // Failover!
       }
       if (answer.aborted) {
@@ -103,6 +121,8 @@ export async function askWithFailover(prompt: string, bid: number, tier: "free" 
       messeLauf(runde, ergebnisDesLaufs(gesendetMs, zuLangsam, { pk: answer.ev.pubkey, kaputt: "kaputt" in answer }, Date.now()),
         "kaputt" in answer ? null : { pk: answer.ev.pubkey, output: answer.parsed!.output });
       await handleAnswer(answer.ev, answer.parsed!, prompt);
+      // Gratis-Kontingent dieses Geräts (A-14b): Frage samt Verlauf und Antwort aus der Abrechnung des Providers
+      if (bid === 0 && !("kaputt" in answer)) await zaehleGratisAntwort(answer.parsed?.usage);
       return;
     }
     zuLangsam.add(target);
@@ -115,6 +135,12 @@ export async function askWithFailover(prompt: string, bid: number, tier: "free" 
   }
   // Alle Kandidaten versagt (Timeout oder Ablehnung):
   messeLauf(runde, ergebnisDesLaufs(gesendetMs, zuLangsam, null, Date.now()), null);
+  if (gratisLeer && bid === 0) {
+    // Gratis-Budgets für heute verbraucht – jetzt ist die Frage nach der Wallet berechtigt
+    merkeGratisAbgelehnt();
+    showAiError(new EigeneMeldung(t("agent.gratisLeer")), prompt, bid, tier);
+    return;
+  }
   showAiError(
     lastFeedbackError ? new Error(lastFeedbackError) : new EigeneMeldung(t("agent.keinProviderAntwort")),
     prompt, bid, tier,

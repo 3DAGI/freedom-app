@@ -4,7 +4,7 @@ import type { Texte } from "../i18n.js";
 export const einstieg: Texte = {
   // Führung (onboarding.ts)
   "ein.losTitel": { de: "Stell einfach eine Frage", en: "Just ask a question" },
-  "ein.losGratis": { de: "Im Gratis-Tarif kostet eine Anfrage kein Geld, solange Provider ihn anbieten — dein Gerät rechnet dafür kurz. Du brauchst nichts einzurichten; danach entscheidest du, ob du eine Wallet verbindest.", en: "In the free tier a request costs nothing as long as providers offer it — your device computes briefly for it. You don't need to set anything up; afterwards you decide whether to connect a wallet." },
+  "ein.losGratis": { de: "Im Gratis-Tarif kostet eine Anfrage kein Geld, solange Provider ihn anbieten — dein Gerät rechnet dafür kurz, je Gerät bis zu 20 Antworten am Tag. Du brauchst nichts einzurichten; danach entscheidest du, ob du eine Wallet verbindest.", en: "In the free tier a request costs nothing as long as providers offer it — your device computes briefly for it, up to 20 answers a day per device. You don't need to set anything up; afterwards you decide whether to connect a wallet." },
   "ein.losProbier": { de: "Probier es aus. Falls gerade kein Provider gratis antwortet, findest du unter „Wallet“ heraus, wie du bezahlst.", en: "Try it. If no provider answers for free right now, you'll find out how to pay under “Wallet”." },
   "ein.losAktion": { de: "Zur KI", en: "To the AI" },
   "ein.sichernTitel": { de: "Sichere deinen Zugang", en: "Secure your access" },
