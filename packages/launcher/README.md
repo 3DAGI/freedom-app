@@ -23,8 +23,8 @@ Activity.
   denselben Regeln wie im Browser.
 - Der Verkehr der App geht auf Wunsch über Tor (Desktop seit 6.1b1a, Android seit
   6.1b2a – siehe unten).
-- Noch nicht: Selbst-Update der Hülle (6.1a4b), der Schalter für Tor in der
-  Android-App (6.1b2b), ein Android-Paket mit festem Schlüssel (6.1c2).
+- Noch nicht: Selbst-Update der Hülle (6.1a4b), ein Android-Paket mit festem
+  Schlüssel (6.1c2).
 - Unter Linux geht „App exportieren“ (Weitergeben) in der Hülle nicht: Die CSP der
   App lässt kein `fetch` auf `freedom://` zu (Entscheidung H1 in der Sammlung).
 
@@ -117,7 +117,8 @@ erkannt): Der Name geht als Name hinaus, andere Methoden (`GET http://…`) lehn
   wählt direkt und schließt die App (nur per Klick).
 - Ohne Tor prüft die Hülle beim Start nur, ob ein Proxy ginge (`netz_stand.verfuegbar`).
 - Neu starten kann sich eine Android-App nicht selbst: Mit Neustart schließt sie sich und
-  öffnet sich beim nächsten Antippen mit der neuen Wahl.
+  öffnet sich beim nächsten Antippen mit der neuen Wahl. Der Schalter in Settings ›
+  Datenschutz (seit 6.1b2b) sagt das in der Rückfrage („App schließen“).
 - arti prüft die Rechte der Ordner über den App-Daten; unter Android gehören sie dem
   System – dort schützt die Sandbox je App, die Prüfung ist aus.
 - androidx.webkit ruft nur die Hülle über JNI auf – R8 entfernte die Klassen sonst aus dem
