@@ -71,6 +71,8 @@ section { padding: 60px 0; border-top: 1px solid var(--border); }
 section h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: var(--accent); margin-bottom: 24px; }
 
 .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
+/* Ein Rasterfeld darf schmaler werden als sein Inhalt (C-26) – sonst schiebt ein langer Befehl die Seite breiter als den Bildschirm */
+.grid > * { min-width: 0; }
 
 .card {
   background: var(--card); border: 1px solid var(--border); border-radius: 2px; padding: 18px;
@@ -104,6 +106,8 @@ footer .wrap { display: flex; justify-content: space-between; flex-wrap: wrap; g
 .err { color: var(--red); }
 .muted { color: var(--text-muted); }
 .mono { font-size: 11px; color: var(--text-muted); word-break: break-all; }
+/* Befehle zum Kopieren bleiben eine Zeile und scrollen im Kasten (C-26) */
+pre.mono { overflow-x: auto; }
 
 @media (max-width: 640px) {
   .hero h1 { font-size: 28px; }
