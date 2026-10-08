@@ -18644,3 +18644,61 @@ Desktop liefen die Befehle über den schwarzen Kasten hinaus.
   und gemessen: keine Seite breiter als der Bildschirm (vorher Start 479 px).
 - Abschnitt auf Handy und Desktop angesehen.
 - check-website ok.
+
+## Schritt A-14b1 – Gratis-Start: Gratis-Fragen der App passend zum Knoten
+
+Spur A, G1 vom 08.10.2026. Mit A-14a verlangt der Knoten für Gratis-Fragen die
+Bits aus seinem Gratis-Angebot (Vorgabe 16) und lehnt mit `gratis-leer` ab,
+wenn sein Budget verbraucht ist. Die App schickte Gratis-Fragen noch mit 12 Bit,
+und zwar an jeden Provider. Den Wert `free` aus dem Angebot las sie nicht.
+
+**App:**
+- `gratis-kontingent.ts` (neu):
+  - Kontingent je Gerät: 20 Antworten oder 20 000 Tokens am Tag (UTC), was
+    zuerst erreicht ist (`GeraeteKontingent`, streng gelesen).
+  - Tokens zählt `tokensDerAntwort()` aus der bereinigten Abrechnung, je
+    Antwort begrenzt.
+  - Die Rechenarbeit liefert `powFuerAnfrage()`.
+  - `gratisKandidaten()`: nur Provider mit `free` und machbaren Bits. Knoten vor
+    A-14a ohne Tag `gratis` bleiben dabei.
+- `shell/gratis-start.ts` (neu):
+  - `geraeteKontingent` liegt in `geheim`, der Schlüssel steht in
+    `GEHEIM_FEST`, nie in der Sicherung.
+  - Dazu `gratisJeProvider` und `zaehleGratisAntwort()`.
+- `agent.ts`:
+  - `privatFaehig()` merkt sich die Gratis-Angebote.
+  - `buildJobEvent()` rechnet bei Gebot 0 die Bits aus dem Gratis-Angebot,
+    beim eigenen Knoten nicht.
+  - `askAi()` prüft vor dem Senden das Kontingent: Ist es aufgebraucht, geht
+    nichts hinaus, ein Hinweis erscheint, und die Einstiegsleiste fragt nach
+    der Wallet.
+  - `waitForAnswer()` liefert die Kennung `fall` der Ablehnung.
+- `agent-wege.ts`:
+  - Gratis-Fragen gehen nur an Gratis-Anbieter.
+  - Bei `gratis-leer` ein eigener Hinweis, dann der nächste Provider. Sind alle
+    leer oder bietet keiner gratis an, sagt die App genau das.
+  - Gezählt wird nach der Antwort.
+- **Texte:** de/en `agent.gratisGeraetLeer` („Fairness-Regel, keine Sperre“),
+  `agent.gratisLeer`, `agent.gratisLeerProvider` und `agent.keinGratisProvider`.
+  Einstieg (`ein.losGratis`) und FAQ nennen die 20 Antworten je Gerät.
+
+**Tests:** `gratis-kontingent.test.ts` (+7) prüft:
+- Vorgabe, strenges Lesen und nächster Tag;
+- 20 Antworten bzw. vorher 20 000 Tokens;
+- Tokens aus der Abrechnung;
+- Auswahl und Bits;
+- die Verdrahtung: Prüfung vor dem Senden, Bits nie beim eigenen Knoten,
+  Kennung am Tag, gezählt nach der Antwort;
+- nur in `geheim`, nicht in der Sicherung.
+
+`kontakt-pruefung.test.ts` erwartet `freedom.kontakte.geprueft` als letzten
+Eintrag von `GEHEIM_FEST` – der neue Schlüssel steht deshalb davor.
+
+**Prüfungen:**
+- app 966 grün (+7); protocol 1231 und node 323 unverändert.
+- Leak 73 + 1 todo, mls 13.
+- check-wiring `--streng`, check-website und innerHTML streng: Exit 0.
+
+**Knoten-Stand:** Ab jetzt darf der GX10 auf `main` (A-14a): Die App schickt
+Gratis-Fragen mit den verlangten Bits. Offen bleibt A-14b2: Tarif „Automatisch“
+als Vorgabe und eine Rückfrage vor dem ersten Bezahlen.
