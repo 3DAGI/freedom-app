@@ -10,6 +10,9 @@
 //! Lücke in ihr auf eine ältere, verwundbare Fassung zurückschalten.
 //! `--oberflaeche=vorher` macht die vorige installierte Fassung wieder aktuell,
 //! `--oberflaeche=beigelegt` startet diesmal mit der beigelegten.
+//! Android kennt keine Startargumente (6.1c): Dort liegt die Ablage im Cache der
+//! App – „Cache leeren“ in den Einstellungen des Systems führt zur beigelegten
+//! Fassung zurück, ohne Tresor und Verläufe (die liegen bei den Daten des Webviews).
 
 use crate::ablage::{Ablage, Stand};
 use crate::{oberflaeche, update};
@@ -34,6 +37,13 @@ const fn zahl(s: &str) -> u64 {
         i += 1;
     }
     n
+}
+
+/// Wo installierte Fassungen liegen: Desktop bei den Daten der Hülle, Android im
+/// Cache (der Rückweg dort); ohne Ordner gilt nur die beigelegte.
+pub fn ablageordner<R: tauri::Runtime>(pfade: &tauri::path::PathResolver<R>) -> Option<PathBuf> {
+    let basis = if cfg!(target_os = "android") { pfade.app_cache_dir() } else { pfade.app_data_dir() };
+    basis.ok().map(|d| d.join("oberflaeche"))
 }
 
 /// Wie die Hülle diesmal startet.
@@ -189,6 +199,13 @@ mod tests {
             k
         });
         (vertraut.collect(), v.faelle)
+    }
+
+    #[test]
+    fn ablage_auf_android_im_cache() {
+        // Android hat keine Startargumente: Der Rückweg ist „Cache leeren“ (6.1c)
+        let quelle = include_str!("installation.rs");
+        assert!(quelle.contains("if cfg!(target_os = \"android\") { pfade.app_cache_dir() } else { pfade.app_data_dir() }"));
     }
 
     #[test]

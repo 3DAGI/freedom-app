@@ -26,7 +26,8 @@ Relays, RPC-Anbietern und Lightning-Diensten.
   Rückfall nur über den Start; a3c ✓ Knopf in der App), a4a Pakete ✓ (deb,
   AppImage, Installer für Windows – als Artefakt der CI, unsigniert), a4b
   Selbst-Update der Hülle (Signierschlüssel: MENSCH); b Tor (arti, vorher
-  fragen), c Android. Schritt 1–3 oben gehören zu b.
+  fragen), c Android – c1 ✓ APK zum Testen (CI, Wegwerf-Schlüssel je Lauf), c2 fester
+  Schlüssel und Verteilung (MENSCH). Schritt 1–3 oben gehören zu b.
 
 ## 6.2 Ehrlicher Modus in der Web-App
 

@@ -21,7 +21,7 @@ import { geheim, tresorEingerichtet, wireTresorKarte } from "../tresor.js";
 import { $, el, toast } from "../ui.js";
 import { bestaetige, dialog, hinweis, type Option, type Werte } from "../dialog.js";
 import { TRUSTED_SIGNERS, ladeManifestEvents, manifesteAus } from "../../release-signierer.js";
-import { INSTALL_FEHLER_TEXT, huellenStand, huellenStandZeilen, ladeOberflaeche, uebergibHuelle } from "../oberflaeche-huelle.js";
+import { INSTALL_FEHLER_TEXT, huellenArt, huellenStand, huellenStandZeilen, ladeOberflaeche, rueckwegText, uebergibHuelle } from "../oberflaeche-huelle.js";
 import { conversations } from "./kommunikation.js";
 import { zeigeGeraete, zeigeSicherung } from "./sicherung.js";
 
@@ -269,13 +269,14 @@ export async function pruefeEigeneEchtheit(): Promise<void> {
     box.replaceChildren(el("span", echtheitText(r, "freedom.html"), cls));
     if (neueste) box.append(document.createElement("br"), t("set.neuereVersion", { version: neueste.version }));
     // In der Desktop-Hülle (6.1a3c): welche Fassung läuft, und die neuere installieren
-    if (stand) for (const zeile of huellenStandZeilen(stand)) box.append(document.createElement("br"), el("span", zeile, "muted"));
-    if (stand && neueste) {
+    const art = huellenArt();
+    if (stand && art) for (const zeile of huellenStandZeilen(stand, art)) box.append(document.createElement("br"), el("span", zeile, "muted"));
+    if (stand && art && neueste) {
       const installieren = el("button", t("set.huelleInstallieren", { version: neueste.version }), "ghost");
       installieren.style.cssText = "width:auto;padding:4px 8px;margin-top:4px";
       installieren.addEventListener("click", () => {
         installieren.disabled = true;
-        void installiereNeue(neueste, box).finally(() => { installieren.disabled = false; });
+        void installiereNeue(neueste, box, rueckwegText(art)).finally(() => { installieren.disabled = false; });
       });
       box.append(document.createElement("br"), installieren);
     }
@@ -309,7 +310,7 @@ export async function pruefeEigeneEchtheit(): Promise<void> {
  * Neue Oberfläche in der Desktop-Hülle (6.1a3c): laden und prüfen, fragen, dann
  * übergeben – die Hülle prüft die Belege selbst noch einmal und legt erst dann ab.
  */
-async function installiereNeue(angebot: import("@freedomstack/protocol").UpdateAngebot, box: HTMLElement): Promise<void> {
+async function installiereNeue(angebot: import("@freedomstack/protocol").UpdateAngebot, box: HTMLElement, rueckweg: string): Promise<void> {
   const zeile = el("div", t("set.huelleLaedt", { version: angebot.version }), "muted");
   box.appendChild(zeile);
   const daten = await ladeOberflaeche(angebot);
@@ -319,7 +320,7 @@ async function installiereNeue(angebot: import("@freedomstack/protocol").UpdateA
   }
   const mb = (angebot.sizeBytes / (1024 * 1024)).toLocaleString(gebietsschema(), { maximumFractionDigits: 1 });
   const datum = new Date(angebot.releasedAt * 1000).toLocaleDateString(gebietsschema());
-  if (!(await bestaetige({ titel: t("set.huelleFrageTitel", { version: angebot.version }), text: t("set.huelleFrageText", { mb, signierer: angebot.belege.length, datum }), ok: t("set.huelleOk") }))) {
+  if (!(await bestaetige({ titel: t("set.huelleFrageTitel", { version: angebot.version }), text: t("set.huelleFrageText", { mb, signierer: angebot.belege.length, datum, rueckweg }), ok: t("set.huelleOk") }))) {
     zeile.remove();
     return;
   }

@@ -1,15 +1,17 @@
-# FreedomStack Desktop (Hülle)
+# FreedomStack als App (Hülle)
 
-Dieselbe App wie im Browser – `freedom.html` – als eigenes Programm für Linux
-und Windows (Karte `docs/ausbau/phase-6.md`, 6.1; Entscheidung N2 vom
-07.10.2026). Gebaut mit Tauri 2 und dem Webview des Systems (WebKitGTK unter
-Linux, WebView2 unter Windows).
+Dieselbe App wie im Browser – `freedom.html` – als eigenes Programm für Linux,
+Windows und seit 6.1c Android (Karte `docs/ausbau/phase-6.md`, 6.1; Entscheidung
+N2 vom 07.10.2026). Gebaut mit Tauri 2 und dem Webview des Systems (WebKitGTK
+unter Linux, WebView2 unter Windows, System-WebView unter Android). Die Hülle
+steht in `src/lib.rs`; Desktop startet sie aus `src/main.rs`, Android aus der
+Activity.
 
 ## Was die Hülle tut – und was nicht
 
 - Sie legt die beim Bauen erzeugte `packages/app/dist/freedom.html` bei und
   liefert sie über ein eigenes Schema aus (`freedom://localhost/`, unter Windows
-  `http://freedom.localhost/`). Ein sicherer Kontext: Tresor, MLS und
+  und Android `http://freedom.localhost/`). Ein sicherer Kontext: Tresor, MLS und
   `crypto.subtle` gehen wie im Browser.
 - Nur die App selbst; jeder andere Pfad ist 404. Das Fenster navigiert nie zu
   einer fremden Seite, neue Fenster werden abgelehnt.
@@ -19,7 +21,8 @@ Linux, WebView2 unter Windows).
   keine Kommandos von Tauri selbst (Fenster, App, Dateien).
 - Die Hülle selbst spricht mit niemandem im Netz; das tut nur die App, mit
   denselben Regeln wie im Browser.
-- Noch nicht: Selbst-Update der Hülle (6.1a4b), Tor (6.1b), Android (6.1c).
+- Noch nicht: Selbst-Update der Hülle (6.1a4b), Tor (6.1b), ein Android-Paket mit
+  festem Schlüssel (6.1c2).
 - Unter Linux geht „App exportieren“ (Weitergeben) in der Hülle nicht: Die CSP der
   App lässt kein `fetch` auf `freedom://` zu (Entscheidung H1 in der Sammlung).
 
@@ -78,3 +81,32 @@ nirgends verlinkt, nur zum Testen auf Geräten. Lokal:
 
 Die Symbole in `icons/` entstehen nur aus dem Logo der App:
 `python3 scripts/launcher-symbole.py` (prüfen: `--pruefen`).
+
+## Android (seit 6.1c1)
+
+- Paketname `io.github.threedagi.freedom` (`tauri.android.conf.json`): Ein Teil
+  eines Android-Pakets darf nicht mit einer Ziffer beginnen – Desktop behält
+  `io.github.3dagi.freedom` (dort hängen Datenverzeichnis und Webview-Speicher daran).
+- Android kennt keine Startargumente. Installierte Oberflächen liegen deshalb im
+  Cache der App: „Cache leeren“ in den Einstellungen von Android führt zur
+  beigelegten Fassung zurück; Tresor und Verläufe liegen bei den Daten des Webviews
+  und bleiben.
+- Das Projekt unter `gen/android` wird nicht eingecheckt, sondern je Lauf erzeugt
+  (`cargo tauri android init`); `scripts/launcher-symbole.py --android` setzt danach
+  die Symbole aus dem Logo ein.
+- Die CI (`launcher.yml`, Job „Android-APK bauen“) legt
+  `freedom-android-arm64-test.apk` mit `SHA256SUMS` als Artefakt ab (14 Tage),
+  signiert mit einem Wegwerf-Schlüssel, der nur in diesem Lauf entsteht. Deshalb
+  geht ein Update von einem Lauf auf den nächsten nur nach dem Deinstallieren –
+  dabei sind die Daten der App weg. Zum Testen, kein Release; ein fester Schlüssel
+  ist eine Aufgabe für den MENSCHEN (6.1c2).
+
+Lokal (Android-SDK mit Plattform 36, Build-Tools, NDK r27d; Java 17 oder neuer):
+
+```bash
+export ANDROID_HOME=… NDK_HOME=$ANDROID_HOME/ndk/27.3.13750724
+cd packages/launcher && cargo tauri android init --ci
+python3 ../../scripts/launcher-symbole.py --android
+cargo tauri android build --apk --target aarch64
+```
+

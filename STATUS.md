@@ -17873,3 +17873,59 @@ MENSCHEN.
   Ausnahme ist raus (zuerst Exit 1: „veraltete Ausnahme“); check-website ok,
   check_innerhtml Exit 0.
 - repro-build reproduzierbar, build-site Exit 0, Smoke-Test bestanden.
+
+## Schritt 6.1c1 – Android-App: APK zum Testen
+
+Teil c von 6.1 (Sammlung C-23, Entscheidung N2): dieselbe Hülle wie auf dem Desktop
+als Android-App. Der MENSCH hat am 07.10.2026 Android nach a3 und vor Tor (b) gewählt.
+
+**Hülle (`packages/launcher`):**
+- Die Hülle steht jetzt in `src/lib.rs` (`run()` mit `mobile_entry_point`); `main.rs`
+  startet sie auf dem Desktop. `Cargo.toml` baut dafür auch eine Bibliothek
+  (`freedom_launcher_lib`, wie Tauri es für Mobilgeräte verlangt).
+- Paketname `io.github.threedagi.freedom` nur für Android (`tauri.android.conf.json`):
+  Ein Teil eines Android-Pakets darf nicht mit einer Ziffer beginnen. Der Desktop
+  behält `io.github.3dagi.freedom` – dort hängen Datenverzeichnis und Speicher des
+  Webviews daran.
+- Schema wie unter Windows `http://freedom.localhost/` (`HTTP_FORM`);
+  `__FREEDOM_NATIVE__.huelle` ist dort „android“ (`HUELLE`).
+- Android kennt keine Startargumente. Die Ablage liegt deshalb im Cache der App
+  (`ablageordner()`): „Cache leeren“ in den Einstellungen führt zur beigelegten
+  Fassung zurück; Tresor und Verläufe liegen bei den Daten des Webviews und bleiben.
+
+**App:** `huellenArt()` erkennt Desktop und Android; die Settings nennen den
+Rückweg je Hülle (`rueckwegText()`: Desktop `--oberflaeche=vorher`, Android „Cache
+leeren“), die Texte sagen „diese App“ statt „Desktop-App“.
+
+**Symbole:** `scripts/launcher-symbole.py --android` schreibt `ic_launcher`,
+`ic_launcher_round` und `ic_launcher_foreground` in fünf Dichten aus dem Logo, ohne
+Bildbibliothek – Tauri setzt sonst sein eigenes Logo ein. `--pruefen` prüft wie
+bisher nur die eingecheckten Desktop-Symbole (unverändert bitgleich).
+
+**CI (`launcher.yml`, Job „Android-APK bauen (Test)“):** Java 17, NDK r27d
+(27.3.13750724), `cargo tauri android init --ci` (das Projekt `gen/android` wird
+nicht eingecheckt), Symbole, `cargo tauri android build --apk --target aarch64`, dann
+`zipalign` und `apksigner` mit einem Wegwerf-Schlüssel, der nur in diesem Lauf
+entsteht (Passwort aus `/dev/urandom`, nirgends ausgegeben, danach gelöscht). Artefakt
+`freedom-android` mit `freedom-android-arm64-test.apk` und `SHA256SUMS`, 14 Tage –
+kein Release. Ein Update von einem Lauf zum nächsten geht nur nach dem
+Deinstallieren (anderer Schlüssel); einen festen Schlüssel legt der MENSCH an (c2).
+
+**Lokal gebaut:** Android-SDK (Plattform 36, Build-Tools 35, NDK r27d) in der
+Sitzung; das APK (13,6 MB, arm64) mit `aapt2` geprüft: Paket
+`io.github.threedagi.freedom`, Name „FreedomStack“, nur die Erlaubnis `INTERNET`
+(dazu die interne für dynamische Empfänger), Symbol aus dem Logo; Signatur mit
+`apksigner verify` geprüft. Einen Emulator gibt es hier nicht (kein KVM) – das APK
+auf einem Gerät testen ist eine MENSCH-Aufgabe. Maven Central antwortete über den
+Proxy mit 429; lokal half ein Gradle-Init-Skript mit Googles Spiegel (nicht im Repo).
+
+**Website:** Karte „FreedomStack als App (Linux, Windows, Android)“ – Testpakete
+baut die CI, Pakete zum Herunterladen folgen mit dem ersten signierten Release.
+
+**Prüfungen:**
+- launcher: 26 grün (+2: Kennung je Plattform, HTTP-Form), `cargo clippy
+  --all-targets` ohne Warnung.
+- app 938 grün (+1: Rückweg je Hülle), Leak 73 grün + 1 todo, protocol 1214 grün
+  (6 übersprungen), node 314 grün (6 übersprungen), mls 13 grün.
+- check-wiring `--streng` Exit 0, check-website ok, check_innerhtml Exit 0.
+- repro-build reproduzierbar, build-site Exit 0, Smoke-Test bestanden.

@@ -8,7 +8,8 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFileSync, readdirSync } from "node:fs";
 import { buildReleaseManifest, generateKeypair, hashText, signEvent, suchUpdate, type UpdateAngebot } from "@freedomstack/protocol";
-import { alsText, huellenAufruf, huellenStand, ladeOberflaeche, leseHuellenStand, uebergibHuelle } from "../src/shell/oberflaeche-huelle.js";
+import { alsText, huellenArt, huellenAufruf, huellenStand, huellenStandZeilen, ladeOberflaeche, leseHuellenStand, rueckwegText, uebergibHuelle } from "../src/shell/oberflaeche-huelle.js";
+import { setLang } from "../src/i18n.js";
 
 const HTML = "﻿<!doctype html><title>Fassung 2</title><p>„ü“ 😀</p>\n";
 const DATEN = new TextEncoder().encode(HTML);
@@ -32,7 +33,10 @@ test("6.1a3c: die Hülle nur mit Kennung und Tauri-Aufruf", async () => {
   assert.equal(huellenAufruf({}), null);
   assert.equal(huellenAufruf({ __FREEDOM_NATIVE__: { huelle: "desktop" } }), null);
   assert.equal(huellenAufruf({ __TAURI_INTERNALS__: { invoke: async () => 1 } }), null, "Tauri allein ist nicht diese Hülle");
-  assert.equal(huellenAufruf({ __FREEDOM_NATIVE__: { huelle: "android" }, __TAURI_INTERNALS__: { invoke: async () => 1 } }), null);
+  assert.equal(huellenAufruf({ __FREEDOM_NATIVE__: { huelle: "ios" }, __TAURI_INTERNALS__: { invoke: async () => 1 } }), null, "nur bekannte Hüllen");
+  // Seit 6.1c auch Android
+  assert.ok(huellenAufruf({ __FREEDOM_NATIVE__: { huelle: "android" }, __TAURI_INTERNALS__: { invoke: async () => 1 } }));
+  assert.deepEqual([huellenArt({}), huellenArt({ __FREEDOM_NATIVE__: { huelle: "desktop" } }), huellenArt({ __FREEDOM_NATIVE__: { huelle: "android" } }), huellenArt({ __FREEDOM_NATIVE__: { huelle: 1 } })], [null, "desktop", "android", null]);
   const innen = {
     gesehen: [] as unknown[],
     async invoke(this: { gesehen: unknown[] }, befehl: string, argumente?: unknown) {
@@ -56,6 +60,25 @@ test("6.1a3c: der Stand der Hülle wird streng gelesen", () => {
     { ...STAND, releasedAt: -1 }, { ...STAND, releasedAt: 1.5 }, { ...STAND, releasedAt: "2000" }, { ...STAND, version: "<b>" },
     { ...STAND, version: 2 }, { ...STAND, vorher: "ja" }, { ...STAND, nurBeigelegt: undefined },
   ]) assert.equal(leseHuellenStand(kaputt), null, JSON.stringify(kaputt));
+});
+
+test("6.1c: der Rückweg je Hülle – Desktop über den Start, Android über „Cache leeren“", () => {
+  setLang("de");
+  try {
+    const beigelegt = { ...STAND, quelle: "beigelegt", version: null, vorher: true } as const;
+    const installiert = { ...STAND, quelle: "installiert", vorher: true } as const;
+    assert.deepEqual(huellenStandZeilen(installiert, "desktop"), ["Oberfläche dieser App: installiert, Version 2.0.0.", "Zurück zur vorigen Fassung: die Desktop-App mit --oberflaeche=vorher starten."]);
+    // Android kennt keine Startargumente: kein --oberflaeche, aber der Weg über den Cache
+    const android = huellenStandZeilen(installiert, "android");
+    assert.equal(android.length, 2);
+    assert.match(android[1]!, /Cache leeren/);
+    assert.ok(android.every((z) => !z.includes("--oberflaeche")));
+    assert.deepEqual(huellenStandZeilen(beigelegt, "android"), ["Oberfläche dieser App: wie beigelegt."], "beigelegt: kein Rückweg nötig");
+    assert.match(rueckwegText("desktop"), /--oberflaeche=vorher/);
+    assert.match(rueckwegText("android"), /Cache leeren/);
+  } finally {
+    setLang("en");
+  }
 });
 
 test("6.1a3c: geladen wird Quelle für Quelle, nur genau die angebotene Datei", async () => {
@@ -117,7 +140,8 @@ test("6.1a3c: Übergabe an die Hülle – Datei und Belege, Fehler nur als Kennu
 test("Verdrahtung (6.1a3c): Installieren nur in der Hülle, nach Rückfrage, nie zurück aus der App", () => {
   const s = readFileSync(new URL("../src/shell/tabs/settings.ts", import.meta.url), "utf8");
   assert.match(s, /const seit = stand && stand\.releasedAt > 0 \? \{ releasedAt: stand\.releasedAt \} : \{\};\n\s*const update = suchUpdate\(events, TRUSTED_SIGNERS, \{ sha256: hash, \.\.\.seit \}\);/, "die Hülle nennt den Zeitpunkt der laufenden Fassung, 0 heißt unbekannt");
-  assert.match(s, /if \(stand && neueste\) \{/, "der Knopf nur in der Hülle und nur mit Angebot");
+  assert.match(s, /if \(stand && art && neueste\) \{/, "der Knopf nur in der Hülle und nur mit Angebot");
+  assert.match(s, /void installiereNeue\(neueste, box, rueckwegText\(art\)\)/, "die Rückfrage nennt den Rückweg dieser Hülle");
   assert.match(s, /const hash = stand \? stand\.sha256 : hashText\(await \(await fetch\(location\.href, \{ cache: "no-store" \}\)\)\.text\(\)\);/, "in der Hülle deren Prüfsumme – die CSP lässt kein fetch aufs eigene Schema zu");
   const knopf = s.slice(s.indexOf("async function installiereNeue("));
   assert.ok(knopf.length > 0);
