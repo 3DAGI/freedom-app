@@ -19,6 +19,7 @@ import { UnsignedEvent, buildEvent, getTag, getTags } from "./event.js";
 import { KIND_PROVIDER_CAPABILITIES } from "./kinds.js";
 import { MAX_POW_BITS } from "./private-job.js";
 import { adresseFuer } from "./aufteilung.js";
+import { gratisTag, leseGratisTag, type GratisAngebot } from "./gratis.js";
 
 export type ProviderTier = "free" | "classic" | "pro";
 
@@ -83,6 +84,12 @@ export interface ProviderCapabilities {
    * Angabe nicht – die App wählt es, solange sie Netz hat.
    */
   funkGateway?: boolean;
+  /**
+   * Gratis-Start (A-14, G1): Budget des Knotens je Tag, Grenze je Antwort und
+   * die Rechenarbeit einer Gratis-Anfrage (`gratis.ts`). Ohne Angabe
+   * verschenkt er nichts nach dieser Regel.
+   */
+  gratis?: GratisAngebot;
   /** Gueltig ab (ersetzbar via d-Tag = pubkey). */
   updatedAt: number;
 }
@@ -114,6 +121,8 @@ export function buildCapabilities(
   const kanal = c.kanal && adresseFuer({ sol: c.kanal.adresse }, "solana") && adresseFuer({ sol: c.kanal.programm }, "solana");
   if (kanal) tags.push(["kanal", c.kanal!.adresse, c.kanal!.programm]);
   if (c.funkGateway) tags.push(["funk", "gateway"]);
+  const gratis = c.gratis && gratisTag(c.gratis);
+  if (gratis) tags.push(gratis);
   return buildEvent(c.pubkey, KIND_PROVIDER_CAPABILITIES, tags, "", createdAt);
 }
 
@@ -167,6 +176,8 @@ export function parseCapabilities(ev: UnsignedEvent): ProviderCapabilities {
   const kanalAdr = adresseFuer({ sol: kt2?.[1] }, "solana");
   const kanalProg = adresseFuer({ sol: kt2?.[2] }, "solana");
   const kanal = kanalAdr && kanalProg ? { adresse: kanalAdr, programm: kanalProg } : undefined;
+  // Gratis-Start (A-14): fremde Angabe – drei ganze Zahlen im Bereich, sonst keine
+  const gratis = leseGratisTag(ev.tags);
 
   return {
     pubkey: ev.pubkey,
@@ -186,6 +197,7 @@ export function parseCapabilities(ev: UnsignedEvent): ProviderCapabilities {
     ...(aufteilung !== undefined ? { aufteilung } : {}),
     ...(kanal ? { kanal } : {}),
     ...(ev.tags.some((t) => t[0] === "funk" && t[1] === "gateway") ? { funkGateway: true } : {}),
+    ...(gratis ? { gratis } : {}),
     updatedAt: ev.created_at,
   };
 }
