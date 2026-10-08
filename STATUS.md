@@ -18109,3 +18109,41 @@ aus dem Tor-Projekt), C-Code (SQLite, liblzma, ring), MIT/Apache-2.0.
   Leak 73 grün + 1 todo, mls 13 grün – unverändert, der Schritt ändert nur die Hülle.
 - check-wiring `--streng` Exit 0, check-website ok, check_innerhtml Exit 0.
 - repro-build reproduzierbar, build-site Exit 0, Smoke-Test bestanden.
+
+## Schritt 6.1b1b – Tor in der Desktop-App: der Schalter
+
+Teil b von 6.1 (Sammlung C-23, TOR1 A). Seit b1a kann die Desktop-Hülle den Verkehr der
+App über Tor leiten; jetzt gibt es den Schalter dafür.
+
+**Neu `packages/app/src/shell/netz-huelle.ts`:**
+- `leseNetzStand()` liest die Antwort auf `netz_stand` streng; `netzStand()` nur in der Hülle.
+- `netzZeilen()` sagt, wie diese Sitzung läuft – verbunden, verbindet („bis dahin geht
+  nichts hinaus“), startet nicht oder erreicht das Tor-Netz nicht („es geht nichts
+  hinaus“), direkt („Relays und Dienste sehen deine IP-Adresse“) – und was ab dem
+  nächsten Start gilt.
+- `setzeTor()` ruft `netz_setzen` mit Neustart; `wireHuellenTor()` zeigt den Schalter nur
+  in der Desktop-Hülle mit `verfuegbar` und schaltet nur nach `bestaetige()` um
+  (langsamer, Anrufe nicht über Tor, Neustart); scheitert das Speichern, bleibt alles,
+  wie es war.
+
+**Settings › Datenschutz:** unter „Verbindung“ der Block „Tor in dieser App: der gesamte
+Verkehr über Tor (Desktop)“ – verborgen, bis die Hülle ihn zeigt. „.onion-Relays
+bevorzugen“ und die Erklärung der IP-Prüfung sagen jetzt „über Tor (Tor Browser oder Tor
+in der Desktop-App)“ statt nur Tor Browser. Datenschutzbericht und Fakten bleiben: Sie
+raten schon „Native App oder Tor Browser“, und „verborgen“ meldet weiter nur die
+geprüfte .onion-Verbindung (6.2).
+
+**Unter Xvfb in der echten Hülle (nur lokale Probe):** Der Block ist sichtbar, steht auf
+„Direkt“; Haken setzen öffnet die Rückfrage, „Neu starten“ speichert `{"tor":true}` in
+`netz.json`. Nach dem Neustart steht der Haken, der Stand lautet „Tor: verbindet … bis
+dahin geht nichts hinaus.“ (ins Tor-Netz kommt arti hier nicht, siehe 6.1b1a).
+
+**Website:** Die Karte „FreedomStack als App“ nennt Tor auf dem Desktop (langsamer,
+Anrufe nicht).
+
+**Prüfungen:**
+- app 953 grün (+4: Stand lesen, nur in der Hülle, Texte je Lage, Verdrahtung).
+- Leak 73 grün + 1 todo, protocol 1225 grün (6 übersprungen), node 314 grün (6
+  übersprungen), mls 13 grün, launcher 34 grün (unverändert).
+- check-wiring `--streng` Exit 0, check-website ok, check_innerhtml Exit 0.
+- repro-build reproduzierbar, build-site Exit 0, Smoke-Test bestanden.
