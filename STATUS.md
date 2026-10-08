@@ -18515,6 +18515,74 @@ Entwürfen, in `FORTSCHRITT.md` (Spur A, Hinweise an B und C) und in der Sammlun
 **Prüfungen:** nur Doku – `check-website.py` und `check-wiring.py --streng`
 gelaufen (Exit 0). Kein Code, keine Tests geändert. Knoten-Stand: unverändert.
 
+## Schritt A-14a – Gratis-Start: Knoten und Protokoll
+
+Spur A, Entscheidung G1 vom 08.10.2026 (Nutzertest, Befund A-1). Die Vorgabe
+„Classic“ schickte ein Gebot, und neue Knoten lehnten es in der Bootstrap-Phase
+ab. Für private Anfragen gab es kein Kontingent: Mit „Free“ war es unbegrenzt
+gratis, nur mit 12 Bit Rechenarbeit. A-14 ist geteilt: a Knoten und Protokoll
+(hier), b App.
+
+**Protokoll (`gratis.ts`, neu):**
+- `GRATIS_VORGABE`: 100 000 Tokens am Tag, 2 000 je Antwort, 16 Bit.
+- Tag `["gratis", <Tag>, <je Antwort>, <Bits>]` im Angebot 38027 (`tiers.ts`),
+  gebaut mit `gratisTag()`, gelesen streng mit `leseGratisTag()`.
+- `gratisAusUmgebung()` liest `GRATIS_TOKENS_TAG` (0 = aus),
+  `GRATIS_TOKENS_JE_ANTWORT` und `GRATIS_POW_BITS`. Ein unbrauchbarer Wert
+  ergibt einen Grund.
+- Kennung `GRATIS_LEER` = `gratis-leer`.
+- `docs/PROTOCOL.md` §30.
+
+**Knoten (`dvm-provider.ts`, `inference.ts`, `main.ts`):**
+- Budget je Tag (UTC) für alle zusammen (`gratisRest()`). Es zählt Frage und
+  Antwort aus der eigenen Abrechnung und liegt nur im Speicher.
+- Eine Gratis-Antwort hat höchstens `tokensJeAntwort` und läuft ohne Werkzeuge
+  des Modells (`ohneWerkzeuge`). Sonst ruft Ollama selbst Werkzeuge auf, bis zu
+  fünf Runden, jede wieder mit `maxTokens`.
+- Werkzeuge und Schwarm gibt es gratis nicht.
+- Private Gratis-Anfragen müssen die Bits aus dem Angebot tragen. Die
+  Rechenarbeit jedes Umschlags merkt sich der Knoten beim Öffnen.
+- Ist das Budget leer, lehnt er mit `GratisLeer` ab; die Rückmeldung trägt
+  `["fall", "gratis-leer"]`. „Gerade gratis“ (`free`) ist dann aus.
+- In der Bootstrap-Phase bedient er Gebote gratis, nach derselben Regel.
+  Gutschriften und Sitzungen lehnt er dort weiter ab, weil eine Gutschrift auch
+  später gälte.
+- `main.ts`: Bei ungültigen Werten startet der Knoten nicht. Die Werte stehen
+  im Log und im Angebot. Ohne `gratis` in der Konfiguration gilt die alte Regel.
+
+**Doku:**
+- `docs/PROVIDER.md`, Abschnitt „Gratis-Start“.
+- `docker-compose.yml`: `GRATIS_*`, leer heißt Vorgabe.
+- `docs/FREEDOM-PRUEFUNG.md` 3.4: Probezeit.
+- `CLAUDE.md`: Regel und Stand.
+
+**Tests:**
+- `node/test/gratis-budget.test.ts` (+6):
+  - Grenze je Antwort und keine Werkzeuge.
+  - Budget mit Frage und Antwort; `gratis-leer` versiegelt; am nächsten Tag
+    wieder voll.
+  - Zu wenig Bits (ein Umschlag mit sicher zu wenig – die Rechenarbeit ist
+    „mindestens“).
+  - Werkzeuge und Schwarm.
+  - Bezahlte Anfragen unverändert.
+  - Bootstrap mit Gebot.
+  - Versiegelte Antwort.
+- `protocol/test/gratis.test.ts` (+4): Vorgabe, hin und zurück auch über das
+  Angebot, zwölf fremde Unsinnsfälle, Umgebung.
+- `bootstrap.test.ts`: Ein Gebot in der Bootstrap-Phase wird jetzt gratis
+  beantwortet statt abgelehnt. Das ist von G1 verlangt, kein Abschwächen –
+  der Test prüft die neue Regel genauso streng.
+
+**Prüfungen:**
+- protocol 1231 grün (+4), 6 übersprungen; node 323 grün (+6), 6 übersprungen;
+  app 959.
+- Leak 73 + 1 todo; mls 13.
+- check-wiring `--streng`, check-website und innerHTML streng: Exit 0.
+
+**Knoten-Stand:** Der GX10 braucht diesen Stand, aber erst zusammen mit A-14b.
+Die Live-App schickt Gratis-Fragen noch mit 12 Bit; ein aktualisierter Knoten
+lehnte sie bis dahin ab.
+
 ## Schritt E9-3a – Modelle laden im Knoten: Manifest, Prüfung, Angebot
 
 Freigabe des MENSCHEN vom 08.10.2026: E9 wie vorgeschlagen (V1–V3 A, F1–F6 ja).

@@ -27,6 +27,7 @@ import {
   signEvent,
   startUrls,
   toHex,
+  gratisAusUmgebung,
 } from "@freedomstack/protocol";
 import { DvmProvider, DEFAULT_PROVIDER_CONFIG } from "./dvm-provider.js";
 import { kanalKasseAusUmgebung, kanalOrte } from "./kanal-kasse.js";
@@ -165,6 +166,16 @@ async function main(): Promise<void> {
     process.exit(1);
   }
   if (torProxy) statusRollen.add("tor");
+  // Gratis-Start (A-14, G1): Budget des Knotens je Tag, steht im Angebot – GRATIS_TOKENS_TAG=0 schaltet es ab.
+  // Ungültig → kein Start, sonst verschenkte der Knoten still etwas anderes als verlangt
+  const { gratis, grund: gratisGrund } = gratisAusUmgebung(process.env);
+  if (gratisGrund) {
+    console.error(`[gratis] ${gratisGrund} – der Knoten startet nicht mit anderen Werten als verlangt`);
+    process.exit(1);
+  }
+  console.log(gratis
+    ? `[gratis] ${gratis.tokensProTag} Tokens am Tag, je Antwort höchstens ${gratis.tokensJeAntwort}, ${gratis.powBits} Bit Rechenarbeit`
+    : "[gratis] aus (GRATIS_TOKENS_TAG=0)");
   if (torProxy) console.log(`[tor] Relays über Tor (SOCKS ${torProxy.host}:${torProxy.port}) – Solana-RPC, LND und Ollama nicht`);
   const verbinde = torProxy ? torWebSocket(torProxy) : undefined;
   const relays = useMemory
@@ -274,6 +285,8 @@ async function main(): Promise<void> {
       // ohne Gratis-Antworten testet niemand das Netz. Provider kann es via
       // FREE_TOKENS_PER_DAY=0 bewusst abstellen.
       freeTokensPerPubkeyPerDay: Number(process.env.FREE_TOKENS_PER_DAY ?? 2000),
+      // Seit A-14 begrenzt das Budget des Knotens jede Gratis-Antwort, auch private und in der Bootstrap-Phase
+      gratis,
       // SOL-Preis (alle Preise in SOL verfuegbar): SOL_PRICE_SATS=150000 (1 SOL ~ 150k sats)
       solPriceSats: process.env.SOL_PRICE_SATS ? Number(process.env.SOL_PRICE_SATS) : undefined,
       solanaAddress: process.env.NODE_SOL_ADDRESS || undefined,
@@ -526,6 +539,8 @@ async function main(): Promise<void> {
       kanal: kanalKasse && process.env.NODE_SOL_ADDRESS ? { adresse: process.env.NODE_SOL_ADDRESS, programm: KANAL_PROGRAMM_ID } : undefined,
       // Funk-Gateway (7.4b2): die App wählt es, solange sie Netz hat
       funkGateway: funkGateway !== undefined,
+      // Gratis-Start (A-14): Budget am Tag, Grenze je Antwort, Rechenarbeit – die App zeigt es vor der Frage
+      gratis,
     });
     return { ev: signEvent(caps, keypair.sk), tier, models };
   };

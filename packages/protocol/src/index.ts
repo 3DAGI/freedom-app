@@ -57,6 +57,7 @@ export * from "./network-capacity.js";
 export * from "./stream.js";
 export * from "./sol-deposit.js";
 export * from "./tiers.js";
+export * from "./gratis.js";
 export * from "./pricing.js";
 export * from "./price-ticker.js";
 
