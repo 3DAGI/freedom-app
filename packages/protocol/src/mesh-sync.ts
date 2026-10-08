@@ -347,7 +347,7 @@ export function offlineCapabilities(link: Link): { feature: string; works: boole
       feature: "Direktnachrichten", works: true,
       note: "Nur als Umschlag – ohne Absender, ohne Klartext. Empfangene gibt die App ans Netz weiter; " +
         "Post für einen Kontakt nimmst du im Chat als Datei mit." +
-        (ueberFunk ? " Funk: höchstens 1 % Sendezeit je Stunde – drei bis vier kurze Nachrichten." : ""),
+        (ueberFunk ? " Funk: höchstens 1 % Sendezeit je Stunde – etwa zwei kurze Nachrichten." : ""),
     },
     // Private Raeume sind seit 2.3 MLS-Gruppen; ihre Nachrichten (445) sind keine Umschlaege – pruefeMeshInhalt() laesst sie nicht durch.
     { feature: "Räume und Kanäle", works: false, note: "Private Räume sind verschlüsselt (MLS), gehen aber (noch) nicht über Mesh – nur 1:1-Unterhaltungen." },

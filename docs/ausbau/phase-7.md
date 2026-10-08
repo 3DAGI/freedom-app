@@ -118,11 +118,32 @@
     Kanal, Ende der Einstellungen, Warteschlange, Neustart; Unbekanntes
     übersprungen, Kaputtes `null`), `FREEDOM_KANAL`. Prüfvektoren mit
     `scripts/meshtastic-referenz.py`.
-  - **7.5b:** App über USB – Start, Kanal „freedom“ finden, Hop-Limit und Rate
-    aus den Einstellungen, über Meshtastic kein Weiterreichen der App; der Weg
-    mit Längenpräfix bleibt (eigene Firmware, TCP-Brücke); Aussage „mesh“ im
-    Bericht um die offene Gerätenummer ergänzen, Texte zur Mesh-Karte.
-  - **7.5c:** App über Bluetooth; Kanal „freedom“ anlegen nach Rückfrage,
-    Hinweis bei Region `UNSET`.
+  - **7.5b – FERTIG:** App über USB (`meshtastic-strecke.ts`,
+    `erkenneSerielleStrecke()` aus `connectSerial()`): weckt und fragt das Gerät
+    (`want_config`, alle 2 s erneut – ein ESP32 startet beim Öffnen neu), nimmt
+    Kanal „freedom“ nur mit unserem Schlüssel, Hop-Limit aus den Einstellungen
+    (ohne Angabe 3), Sendezeit je Rahmen aus dem Preset (`meshtasticSendezeit()`,
+    eigene Funkwerte wie LongSlow); empfangen nur Port 256 auf diesem Kanal;
+    nach einem Neustart neu gefragt. Antwortet in 10 s nichts Meshtastisches,
+    bleibt der Weg mit Längenpräfix (auch für schon Empfangenes). Der Funkknoten
+    reicht über Meshtastic nichts weiter (`leitetSelbstWeiter`) und bucht die
+    Sendezeit der Strecke. Mesh-Karte: Hinweise zu Kanal (mit öffentlichem
+    Schlüssel zum Abtippen), Region und Senden; neue Grenze „mesh-geraet“ im
+    Bericht. Ehrlich gerechnet: eine kurze Nachricht (Umschlag rund 1,7 KB,
+    10 Rahmen) braucht mit LongFast rund 18 s – bei 1 % etwa zwei je Stunde
+    statt „drei bis vier“ (App, Protokoll, FAQ, Whitepaper korrigiert).
+  - **7.5c – FERTIG:** App über Bluetooth (`meshtasticBluetooth()` aus
+    `connectBluetooth()`: Meshtastic-Dienst, sonst Nordic UART wie bisher) –
+    `ToRadio` ohne Kopf an „zum Gerät“, „vom Gerät“ lesen bis leer, nach jedem
+    Schreiben und bei „Meldung“; ein Gerät, das nicht antwortet, wird getrennt.
+    USB und Bluetooth teilen sich `MeshtasticSitzung`; Kanäle gelten erst ab
+    „Ende der Einstellungen“ (sonst ginge beim Neustart des Geräts ein Rahmen
+    verloren, und ein gelöschter Kanal bliebe in Gebrauch). Kanal „freedom“
+    anlegen (`baueKanalAnlegen()`, `AdminMessage.set_channel` an das eigene
+    Gerät, wie `writeChannel()` der Python-Bibliothek, Vektor aus der Referenz)
+    nur über den Knopf in der Mesh-Karte und nach `bestaetige()`: auf dem Platz
+    eines „freedom“ mit fremdem Schlüssel, sonst dem ersten freien (1–7) – der
+    Hauptkanal bleibt; ohne Platz nichts. Danach neu gefragt. Hinweis bei
+    Region `UNSET` seit 7.5b; die Region setzt die App nie.
   - **7.5d:** Gateway des Knotens direkt an ein Meshtastic-Gerät per TCP
     (Port 4403); Texte (FAQ, Mesh-Karte, GO-LIVE); Smoke-Test mit Attrappe.

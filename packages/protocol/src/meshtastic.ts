@@ -25,6 +25,7 @@
  * - Eine Paket-Id setzt die App nicht: Fehlt sie, vergibt die Firmware eine.
  */
 import { hexToBytes } from "@noble/hashes/utils.js";
+import { ProtokollFehler } from "./fehler.js";
 
 /** Beginn jeder Nachricht im Strom (USB, TCP): START1, START2. */
 const MESHTASTIC_START = Uint8Array.from([0x94, 0xc3]);
@@ -99,6 +100,25 @@ export function baueFunkPaket(p: { kanal: number; hopLimit: number; nutzlast: Ui
   return Uint8Array.from(teil(1, paket));
 }
 
+/** Port der Verwaltung (`PortNum.ADMIN_APP`) und Rolle „zweiter Kanal“ (`Channel.Role.SECONDARY`). */
+const ADMIN_PORT = 6;
+const ROLLE_ZWEIT = 2;
+
+/**
+ * `ToRadio { packet }` an das eigene Gerät (`knoten` = eigene Nummer): Kanal
+ * „freedom“ als zweiten Kanal an Platz `index` (1–7) anlegen
+ * (`AdminMessage.set_channel`, wie `writeChannel()` der Python-Bibliothek).
+ * Lokal braucht das keinen Sitzungsschlüssel (`AdminModule.cpp`, `from == 0`).
+ */
+export function baueKanalAnlegen(p: { knoten: number; index: number }): Uint8Array {
+  if (!Number.isInteger(p.index) || p.index < 1 || p.index > 7) throw new RangeError("meshtastic: Kanal-Index ungültig");
+  const einstellungen = [...teil(2, FREEDOM_KANAL.psk), ...teil(3, new TextEncoder().encode(FREEDOM_KANAL.name))];
+  const kanal = [...zahl(1, p.index), ...teil(2, einstellungen), ...zahl(3, ROLLE_ZWEIT)];
+  const daten = [...zahl(1, ADMIN_PORT), ...teil(2, teil(33, kanal)), ...zahl(3, 1)];
+  const paket = [...fest32(2, uint32(p.knoten, "knoten")), ...teil(4, daten), ...zahl(10, 1)];
+  return Uint8Array.from(teil(1, paket));
+}
+
 /** Kopf für den Strom (USB, TCP): START1, START2, Länge (Big Endian). */
 export function mitMeshtasticKopf(nachricht: Uint8Array): Uint8Array {
   if (nachricht.length > MESHTASTIC_MAX_NACHRICHT) throw new RangeError("meshtastic: Nachricht zu groß");
@@ -147,7 +167,7 @@ export class MeshtasticStrom {
 export type VomGeraet =
   | { art: "paket"; von: number; an: number; kanal: number; port: number; nutzlast: Uint8Array }
   | { art: "ich"; knoten: number }
-  | { art: "lora"; region: number; hopLimit: number; senden: boolean; preset: number }
+  | { art: "lora"; region: number; hopLimit: number; senden: boolean; preset: number; vorgabe: boolean }
   | { art: "kanal"; index: number; name: string; psk: Uint8Array; rolle: number }
   | { art: "fertig"; id: number }
   | { art: "warteschlange"; frei: number; max: number }
@@ -246,9 +266,10 @@ function leseKonfig(b: Uint8Array): VomGeraet {
       lora = { art: "anderes" };
       return;
     }
-    const l = { art: "lora" as const, region: 0, hopLimit: 0, senden: false, preset: 0 };
+    const l = { art: "lora" as const, region: 0, hopLimit: 0, senden: false, preset: 0, vorgabe: false };
     felder(roh(f), (ln, lf) => {
-      if (ln === 2) l.preset = u32(lf);
+      if (ln === 1) l.vorgabe = u32(lf) !== 0;
+      else if (ln === 2) l.preset = u32(lf);
       else if (ln === 7) l.region = u32(lf);
       else if (ln === 8) l.hopLimit = u32(lf);
       else if (ln === 9) l.senden = u32(lf) !== 0;
@@ -302,5 +323,165 @@ export function leseVomGeraet(b: Uint8Array): VomGeraet | null {
   } catch (e) {
     if (e instanceof Kaputt) return null;
     throw e;
+  }
+}
+
+// --- Sendezeit (7.5b) ---
+
+/**
+ * Funkparameter der Presets (Bandbreite kHz, Spreizfaktor, Coding-Rate 4/x) wie
+ * `modemPresetToParams()` der Firmware (`MeshRadio.h`); Unbekanntes gilt dort als
+ * LongFast. Breitband (2,4 GHz) ist schneller – die Zahlen hier rechnen dann zu viel.
+ */
+const PRESETS: Record<number, [number, number, number]> = {
+  0: [250, 11, 5], // LONG_FAST
+  1: [125, 12, 8], // LONG_SLOW
+  3: [250, 10, 5], // MEDIUM_SLOW
+  4: [250, 9, 5], // MEDIUM_FAST
+  5: [250, 8, 5], // SHORT_SLOW
+  6: [250, 7, 5], // SHORT_FAST
+  7: [125, 11, 8], // LONG_MODERATE
+  8: [500, 7, 5], // SHORT_TURBO
+  9: [500, 11, 8], // LONG_TURBO
+  10: [125, 9, 5], // LITE_FAST
+  11: [125, 10, 5], // LITE_SLOW
+  12: [62.5, 7, 6], // NARROW_FAST
+  13: [62.5, 8, 6], // NARROW_SLOW
+  16: [500, 9, 5], // MEDIUM_TURBO
+};
+/** Kopf jedes Meshtastic-Pakets in der Luft (`MESHTASTIC_HEADER_LENGTH`). */
+const MESHTASTIC_KOPF = 16;
+/** Präambel der Firmware in Symbolen (`preambleLength`). */
+const PRAEAMBEL = 16;
+
+/**
+ * Sendezeit eines Pakets mit `nutzlast` Byte in Sekunden – Formel von Semtech
+ * (explizite Kopfzeile, CRC an), dazu der Meshtastic-Kopf und die Hülle der
+ * Daten (Port, Längenangabe, Bitfeld der Firmware). Eigene Funkparameter
+ * (`vorgabe` aus) kennt die App nicht: dann so langsam wie LongSlow.
+ */
+export function meshtasticSendezeit(e: { preset: number; vorgabe: boolean }, nutzlast: number): number {
+  const [bw, sf, cr] = (e.vorgabe ? PRESETS[e.preset] : undefined) ?? (e.vorgabe ? PRESETS[0]! : PRESETS[1]!);
+  const daten = 3 + 1 + (nutzlast > 127 ? 2 : 1) + nutzlast + 2;
+  const laenge = MESHTASTIC_KOPF + daten;
+  const symbol = 2 ** sf / (bw * 1000);
+  const de = symbol > 0.016 ? 1 : 0;
+  const symbole = 8 + Math.max(Math.ceil((8 * laenge - 4 * sf + 28 + 16) / (4 * (sf - 2 * de))) * cr, 0);
+  return (PRAEAMBEL + 4.25) * symbol + symbole * symbol;
+}
+
+// --- Sitzung mit einem Gerät (7.5c) ---
+
+/** Was das Gerät über sich sagt. */
+export interface MeshtasticStand {
+  /** Index des Kanals „freedom“ mit unserem Schlüssel; null: fehlt. */
+  kanal: number | null;
+  /** Es gibt einen Kanal „freedom“ mit anderem Schlüssel – den lesen die anderen nicht. */
+  kanalFremd: boolean;
+  region: number;
+  hopLimit: number;
+  senden: boolean;
+  preset: number;
+  vorgabe: boolean;
+}
+
+/** Hop-Limit der Firmware, wenn das Gerät keines nennt (`HOP_RELIABLE`). */
+const HOP_STANDARD = 3;
+const gleich = (a: Uint8Array, b: Uint8Array): boolean => a.length === b.length && a.every((x, i) => x === b[i]);
+const neueId = (): number => crypto.getRandomValues(new Uint32Array(1))[0]! || 1;
+
+/**
+ * Eine Verbindung zu einem Meshtastic-Gerät (7.5c) – gleich für USB und Bluetooth
+ * (App) und TCP (Knoten): Einstellungen lesen, Rahmen senden und empfangen, den
+ * Kanal „freedom“ anlegen. `schreibe` bekommt eine `ToRadio`-Nachricht ohne Kopf;
+ * die Rahmung (Strom oder Bluetooth) macht die Strecke.
+ */
+export class MeshtasticSitzung {
+  readonly stand: MeshtasticStand = { kanal: null, kanalFremd: false, region: 0, hopLimit: 0, senden: false, preset: 0, vorgabe: true };
+  /** Eine Nachricht kam, wie sie nur ein Meshtastic-Gerät schickt. */
+  belegt = false;
+  /** Ab dem ersten „Ende der Einstellungen“ gehen Pakete an den Knoten. */
+  aktiv = false;
+  #knoten: number | null = null;
+  #rollen = new Map<number, number>();
+  #fremdIndex: number | null = null;
+  /** Kanäle der laufenden Abfrage – sie gelten erst ab „Ende der Einstellungen“. */
+  #neu = { kanal: null as number | null, fremdIndex: null as number | null, rollen: new Map<number, number>() };
+  #wartet = new Map<number, () => void>();
+  #letzteId = 0;
+
+  constructor(private schreibe: (m: Uint8Array) => Promise<void>, private onFrame?: (raw: Uint8Array) => void) {}
+
+  verarbeite(v: VomGeraet): void {
+    if (v.art === "ich") {
+      this.belegt = true;
+      this.#knoten = v.knoten;
+    } else if (v.art === "lora") {
+      Object.assign(this.stand, { region: v.region, hopLimit: v.hopLimit, senden: v.senden, preset: v.preset, vorgabe: v.vorgabe });
+      this.belegt = true;
+    } else if (v.art === "kanal") {
+      this.belegt = true;
+      this.#neu.rollen.set(v.index, v.rolle);
+      if (v.name !== FREEDOM_KANAL.name || v.rolle === 0) return;
+      if (gleich(v.psk, FREEDOM_KANAL.psk)) this.#neu.kanal = v.index;
+      else this.#neu.fremdIndex = v.index;
+    } else if (v.art === "fertig") {
+      this.#wartet.get(v.id)?.();
+    } else if (v.art === "neustart") void this.frage().catch(() => { /* getrennt */ });
+    else if (v.art === "paket" && this.aktiv && v.port === MESHTASTIC_PORT && this.stand.kanal !== null && v.kanal === this.stand.kanal) {
+      this.onFrame?.(v.nutzlast);
+    }
+  }
+
+  /**
+   * Die Kanäle der letzten Abfrage übernehmen. Bis dahin gilt der alte Stand –
+   * sonst ginge ein Rahmen verloren, den der Knoten während eines Neustarts des
+   * Geräts sendet.
+   */
+  uebernimm(): void {
+    this.stand.kanal = this.#neu.kanal;
+    this.stand.kanalFremd = this.#neu.fremdIndex !== null;
+    this.#fremdIndex = this.#neu.fremdIndex;
+    this.#rollen = this.#neu.rollen;
+  }
+
+  /** Einstellungen (neu) erfragen; erfüllt, wenn das Gerät sie ganz geschickt hat. */
+  frage(id = neueId()): Promise<void> {
+    this.#neu = { kanal: null, fremdIndex: null, rollen: new Map() };
+    this.#letzteId = id;
+    const fertig = new Promise<void>((r) => this.#wartet.set(id, () => {
+      this.#wartet.delete(id);
+      this.uebernimm();
+      this.aktiv = true;
+      r();
+    }));
+    return this.schreibe(baueKonfigAnfrage(id)).then(() => fertig);
+  }
+
+  /** Dieselbe Anfrage noch einmal (das Gerät startete vielleicht gerade neu). */
+  wiederhole(): Promise<void> {
+    return this.schreibe(baueKonfigAnfrage(this.#letzteId));
+  }
+
+  /** Ein Rahmen als Paket an alle auf dem Kanal „freedom“ – ohne Kanal geht nichts hinaus. */
+  async sende(frame: Uint8Array): Promise<void> {
+    if (this.stand.kanal === null) throw new ProtokollFehler("meshtastic-ohne-kanal", "Auf dem Meshtastic-Gerät fehlt der Kanal „freedom“ – nichts gesendet.");
+    await this.schreibe(baueFunkPaket({ kanal: this.stand.kanal, hopLimit: this.stand.hopLimit || HOP_STANDARD, nutzlast: frame }));
+  }
+
+  /**
+   * Kanal „freedom“ anlegen (7.5c) – auf dem Platz eines gleichnamigen mit fremdem
+   * Schlüssel, sonst auf dem ersten freien (1–7); der Hauptkanal bleibt (Variante a).
+   * Danach neu fragen: Erst die Einstellungen des Geräts belegen den Kanal.
+   */
+  async legeKanalAn(fristMs = 15_000): Promise<boolean> {
+    if (this.stand.kanal !== null) return true;
+    const index = this.#fremdIndex ?? [1, 2, 3, 4, 5, 6, 7].find((i) => (this.#rollen.get(i) ?? 0) === 0);
+    if (this.#knoten === null || index === undefined) return false;
+    await this.schreibe(baueKanalAnlegen({ knoten: this.#knoten, index }));
+    let zeit: ReturnType<typeof setTimeout> | undefined;
+    await Promise.race([this.frage(), new Promise<void>((r) => { zeit = setTimeout(r, fristMs); })]);
+    clearTimeout(zeit);
+    return this.stand.kanal !== null;
   }
 }

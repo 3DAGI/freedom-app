@@ -92,12 +92,6 @@ leak-rules.ts|regelUploadVerschluesselt|Prüfregeln der Leak-Tests, gehören in 
 leak-rules.ts|regelBesitzerVersiegelt|Prüfregeln der Leak-Tests, gehören in die Tests (1.5)
 leak-rules.ts|regelAnrufNurRelay|Prüfregeln der Leak-Tests, gehören in die Tests (1.5, B-13d1)
 
-meshtastic.ts|MeshtasticStrom|Meshtastic-Format, verdrahtet mit der USB-Strecke der App (7.5b)
-meshtastic.ts|baueFunkPaket|Meshtastic-Format, verdrahtet mit der USB-Strecke der App (7.5b)
-meshtastic.ts|baueKonfigAnfrage|Meshtastic-Format, verdrahtet mit der USB-Strecke der App (7.5b)
-meshtastic.ts|leseVomGeraet|Meshtastic-Format, verdrahtet mit der USB-Strecke der App (7.5b)
-meshtastic.ts|mitMeshtasticKopf|Meshtastic-Format, verdrahtet mit der USB-Strecke der App (7.5b)
-
 local-search.ts|indexStats|Suche verdrahtet (8.13, suche.ts); Vorschläge und Statistik ohne Oberfläche
 local-search.ts|searchInfo|Suche verdrahtet (8.13, suche.ts); Vorschläge und Statistik ohne Oberfläche
 local-search.ts|suggest|Suche verdrahtet (8.13, suche.ts); Vorschläge und Statistik ohne Oberfläche

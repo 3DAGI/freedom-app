@@ -630,7 +630,7 @@
         </div></div>
           <div class="subpane" data-subpane="netz:mesh"><div class="card">
           <h3><span class="ic" data-icon="radio"></span> <span data-i18n="set.ohneInternet">Ohne Internet</span></h3>
-          <p class="mono-sm" data-i18n="set.meshText">Verschlüsselte Nachrichten über Funk oder per Datei, wenn das Netz weg ist – nur Umschläge, ohne deinen Schlüssel und ohne Klartext. Funk sendet höchstens 1 % der Zeit (EU 868 MHz): drei bis vier kurze Nachrichten je Stunde. SOL mit vorbereitetem Nonce-Konto (Wallet-Tab); empfangene SOL-Zahlungen reicht die App ein, sobald sie Netz hat. Lightning geht so nicht; KI nur kurz über ein Funk-Gateway (unten).</p>
+          <p class="mono-sm" data-i18n="set.meshText">Verschlüsselte Nachrichten über Funk oder per Datei, wenn das Netz weg ist – nur Umschläge, ohne deinen Schlüssel und ohne Klartext. Funkgeräte mit Meshtastic verbindet die App per USB oder Bluetooth und sendet auf dem Kanal „freedom“; das Gerät funkt dabei seine Nummer offen mit, je nach Einstellung auch Name und Position. Funk sendet höchstens 1 % der Zeit (EU 868 MHz): im Meshtastic-Standard etwa zwei kurze Nachrichten je Stunde. SOL mit vorbereitetem Nonce-Konto (Wallet-Tab); empfangene SOL-Zahlungen reicht die App ein, sobald sie Netz hat. Lightning geht so nicht; KI nur kurz über ein Funk-Gateway (unten).</p>
           <div id="mesh-transport" class="mono-sm"></div>
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
             <button id="mesh-connect" class="ghost" style="width:auto;padding:6px 10px" data-i18n="set.usbGeraet">USB-Gerät</button>
@@ -640,6 +640,8 @@
             <button id="mesh-import" class="ghost" style="width:auto;padding:6px 10px" data-i18n="set.dateiEinlesen">Datei einlesen</button>
           </div>
           <div id="mesh-status" class="mono-sm"></div>
+          <div id="mesh-hinweis" class="mono-sm"></div>
+          <button id="mesh-kanal" class="ghost hidden" style="width:auto;padding:6px 10px" data-i18n="set.meshtasticKanalAnlegen">Kanal „freedom“ anlegen</button>
           <details style="margin-top:8px">
             <summary class="mono-sm" style="cursor:pointer" data-i18n="set.wasOffline">Was geht ohne Internet?</summary>
             <div id="offline-caps" class="mono-sm" style="margin-top:6px"></div>

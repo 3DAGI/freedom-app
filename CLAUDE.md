@@ -47,9 +47,9 @@ bash contracts/solana-channel/pruefen.sh --werkzeuge     # nur bei Änderungen a
 cd packages/launcher && cargo test --locked && cd ../..  # nur bei Änderungen an der Hülle (Linux: WebKitGTK 4.1, App vorher bauen)
 ```
 
-Stand 08.10.2026 (nach 8.2c, 5.5a–c, 8.15, 11.1a, C.3c2, 11.1b, 5.9a–b, 6.3a–b2, 11.4a–b2, C.4a–b, C.5a–b, C.6b, 11.4c, C-18, C-17a–c, C-20a–j3, C-1a–f, C-2, C-3, C-4, C-5a–d, C-6a–e, C-7a–b, C-8, C-10 bis C-16, 11.2a–b, A-4 bis A-7, A-7r, Z1, 12.1–12.3, E8, P1a–b, P2a, E10a, E11, E9-Entwurf, 12.4a, P2b1–b2, P3a–b, P4, P5a–b, P5c1–c2, D1a, D1b1–b2, D1c, D2, D3-Entwurf, 12.6, 12.7a–c, 12.1 C, C-21, C-22a, C-22c, C-24, 6.1a1–a2, 6.1a3a–c, 6.1a4a, 6.1c1, B-1, B-2a–c, B-3 bis B-7, B-8a–c, B-9a, B-15, B-19, B-20a–c, B-10a–b, B-9b1–b2, B-9c1–c3, B-11a–c, B-12a–d, B-13a–e, B-21, B-17a, B-17b1, B-17b2, B-17b3a, B-17b3b und 7.5a): protocol 1222 grün (6 übersprungen), node 314 grün
+Stand 08.10.2026 (nach 8.2c, 5.5a–c, 8.15, 11.1a, C.3c2, 11.1b, 5.9a–b, 6.3a–b2, 11.4a–b2, C.4a–b, C.5a–b, C.6b, 11.4c, C-18, C-17a–c, C-20a–j3, C-1a–f, C-2, C-3, C-4, C-5a–d, C-6a–e, C-7a–b, C-8, C-10 bis C-16, 11.2a–b, A-4 bis A-7, A-7r, Z1, 12.1–12.3, E8, P1a–b, P2a, E10a, E11, E9-Entwurf, 12.4a, P2b1–b2, P3a–b, P4, P5a–b, P5c1–c2, D1a, D1b1–b2, D1c, D2, D3-Entwurf, 12.6, 12.7a–c, 12.1 C, C-21, C-22a, C-22c, C-24, 6.1a1–a2, 6.1a3a–c, 6.1a4a, 6.1c1, B-1, B-2a–c, B-3 bis B-7, B-8a–c, B-9a, B-15, B-19, B-20a–c, B-10a–b, B-9b1–b2, B-9c1–c3, B-11a–c, B-12a–d, B-13a–e, B-21, B-17a, B-17b1, B-17b2, B-17b3a, B-17b3b und 7.5a–c): protocol 1225 grün (6 übersprungen), node 314 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 938 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 73 grün + 1 `todo` (heutige Lecks,
+in `tools.test.ts`), app 949 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 73 grün + 1 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
 Ausnahme: gesendete SOL-Zahlungen von frischen Adressen, eine bewusste Grenze
 nach Entscheidung 4.9 A – im Datenschutzbericht unter „Bewusste Grenzen“).
@@ -1402,3 +1402,14 @@ einen Schritt als fertig markieren, dessen Prüfungen nicht gelaufen sind.
   sind die Umschläge. Nachrichten des Geräts nur über `leseVomGeraet()` (Kaputtes `null`,
   Unbekanntes übersprungen); die Firmware flutet selbst, über Meshtastic reicht die App
   nichts weiter (7.5b). Die Region setzt die App nie selbst.
+  USB (seit 7.5b) nur über `erkenneSerielleStrecke()` (`meshtastic-strecke.ts`, aus
+  `connectSerial()`): Meshtastic erst nach `want_config` erkannt (alle 2 s neu, 10 s Frist),
+  sonst Längenpräfix; Kanal „freedom“ nur mit unserem Schlüssel, ohne Kanal nichts senden.
+  Eine Strecke mit `leitetSelbstWeiter` bekommt vom Funkknoten nichts zum Weiterreichen,
+  ihre `sendezeit` (`meshtasticSendezeit()`) zählt im Sendezeitkonto – nie wieder mit
+  angenommenen 200 Byte/s rechnen, wo das Gerät sein Preset nennt. Was das Gerät selbst
+  funkt (Nummer, Name, Position), steht als Grenze „mesh-geraet“ im Bericht.
+  Bluetooth (seit 7.5c) nur über `meshtasticBluetooth()` (Meshtastic-Dienst, sonst Nordic
+  UART); USB und Bluetooth teilen `MeshtasticSitzung` – Kanäle gelten erst ab „Ende der
+  Einstellungen“ (`uebernimm()`). Kanal „freedom“ anlegen nur über `baueKanalAnlegen()`, nur
+  per Knopf nach `bestaetige()`, nie den Hauptkanal; ohne freien Platz nichts.

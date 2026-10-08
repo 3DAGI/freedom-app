@@ -60,7 +60,7 @@ export const protokollsaetze: Texte = {
   "ps.wegDatei": { de: "Datei / Stick", en: "file / stick" },
   "ps.ofDm": { de: "Direktnachrichten", en: "Direct messages" },
   "ps.ofDmText": { de: "Nur als Umschlag – ohne Absender, ohne Klartext. Empfangene gibt die App ans Netz weiter; Post für einen Kontakt nimmst du im Chat als Datei mit.", en: "Only as an envelope – without sender, without plaintext. The app passes received ones on to the network; you take mail for a contact along as a file in the chat." },
-  "ps.ofDmFunk": { de: " Funk: höchstens 1 % Sendezeit je Stunde – drei bis vier kurze Nachrichten.", en: " Radio: at most 1 % airtime per hour – three to four short messages." },
+  "ps.ofDmFunk": { de: " Funk: höchstens 1 % Sendezeit je Stunde – etwa zwei kurze Nachrichten.", en: " Radio: at most 1 % airtime per hour – about two short messages." },
   "ps.ofRaeume": { de: "Räume und Kanäle", en: "Rooms and channels" },
   "ps.ofRaeumeText": { de: "Private Räume sind verschlüsselt (MLS), gehen aber (noch) nicht über Mesh – nur 1:1-Unterhaltungen.", en: "Private rooms are encrypted (MLS), but don't (yet) go over mesh – only 1:1 conversations." },
   "ps.ofSol": { de: "Solana-Zahlungen", en: "Solana payments" },
