@@ -554,8 +554,9 @@ test("belegte Aussagen nennen ihre Regel, und jede genannte Regel gibt es", () =
   // Ohne Regel nur, was kein Event-Mitschnitt pruefen kann.
   // „ki-verlauf“ (D1c): was der Provider nach dem Öffnen liest, sieht kein Mitschnitt – den Umfang prüft app/test/ki-kontext.test.ts
   // „ki-unterhaltung“ (D1b2): welcher Schlüssel je Unterhaltung, entscheidet die App – das prüft app/test/ki-wechsel.test.ts
+  // „mesh-geraet“ (7.5b): was ein Meshtastic-Gerät selbst funkt, ist Funk, kein Event – das prüft app/test/meshtastic-strecke.test.ts
   // „zeitanker“ (B-17b3a): die Kalender fragt die App per https, nicht über ein Relay – das prüft app/test/zeitanker.test.ts
-  assert.deepEqual(PRIVACY_FACTS.filter((f) => !f.regel).map((f) => f.id).sort(), ["dm-forward-secrecy", "ip", "ki-unterhaltung", "ki-verlauf", "werbe-name", "zeitanker"]);
+  assert.deepEqual(PRIVACY_FACTS.filter((f) => !f.regel).map((f) => f.id).sort(), ["dm-forward-secrecy", "ip", "ki-unterhaltung", "ki-verlauf", "mesh-geraet", "werbe-name", "zeitanker"]);
 });
 
 test("4.5b: eine SOL-Adresse je Knoten steht als bewusste Grenze im Bericht – mit Grund und Entscheidung", () => {
@@ -643,6 +644,16 @@ test("D1b2: neuer Schlüssel je Unterhaltung steht als Grenze im Bericht – mit
   for (const g of [/Zahlkanal/, /wieder geöffnete Unterhaltung schickt ihren Verlauf mit/, /Zeitpunkte/, /Relay/]) assert.match(f?.grund ?? "", g);
   const t = privacyFactsText();
   assert.match(t.slice(t.indexOf("Bewusste Grenzen:")), /△ Für jede KI-Unterhaltung bekommt jeder Provider einen neuen Sitzungsschlüssel/);
+});
+
+test("7.5b: Meshtastic als Grenze – offene Gerätenummer, Name und Position, öffentlicher Kanal", () => {
+  const f = PRIVACY_FACTS.find((x) => x.id === "mesh-geraet");
+  assert.equal(f?.status, "grenze");
+  assert.match(f?.aussage ?? "", /^Über ein Meshtastic-Funkgerät trägt jedes Paket offen die Nummer deines Geräts/);
+  for (const g of [/Namen und seine Position/]) assert.match(f?.aussage ?? "", g);
+  for (const g of [/öffentlichen Schlüssel/, /Umschläge/, /Position schaltest du dort ab/]) assert.match(f?.grund ?? "", g);
+  const t = privacyFactsText();
+  assert.match(t.slice(t.indexOf("Bewusste Grenzen:")), /△ Über ein Meshtastic-Funkgerät trägt jedes Paket offen die Nummer deines Geräts/);
 });
 
 test("Grenzen nennen ihren Grund", () => {

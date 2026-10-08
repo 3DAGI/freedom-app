@@ -33,6 +33,7 @@ import {
 } from "@freedomstack/protocol";
 import { t } from "./i18n.js";
 import { fehlerText, funkText, meshGrund, syncNotiz } from "./protokoll-texte.js";
+import { erkenneSerielleStrecke, type SerielleStrecke } from "./meshtastic-strecke.js";
 
 export type TransportKind = "seriell" | "bluetooth" | "datei";
 
@@ -41,6 +42,10 @@ export interface MeshTransport {
   name: string;
   send(frame: Uint8Array): Promise<void>;
   close(): Promise<void>;
+  /** Das Gerät leitet selbst weiter (Meshtastic, 7.5b) – die App reicht nichts weiter. */
+  leitetSelbstWeiter?: boolean;
+  /** Sendezeit eines Rahmens in Sekunden, wie das Gerät sie braucht (7.5b); sonst 200 Byte/s. */
+  sendezeit?: (bytes: number) => number;
 }
 
 export interface TransportAvailability {
@@ -81,8 +86,8 @@ export function detectTransports(override?: Record<string, unknown>): TransportA
   };
 }
 
-/** Serielle Verbindung zu einem LoRa-Gerät. */
-export async function connectSerial(baudRate = 115200, onFrame?: (raw: Uint8Array) => void): Promise<MeshTransport> {
+/** Serielle Verbindung zu einem LoRa-Gerät – Meshtastic oder Längenpräfix (7.5b). */
+export async function connectSerial(baudRate = 115200, onFrame?: (raw: Uint8Array) => void): Promise<SerielleStrecke> {
   const nav = navigator as unknown as {
     serial?: { requestPort(): Promise<SerialPortLike> };
   };
@@ -90,7 +95,7 @@ export async function connectSerial(baudRate = 115200, onFrame?: (raw: Uint8Arra
 
   const port = await nav.serial.requestPort();
   await port.open({ baudRate });
-  return serielleStrecke(port, onFrame);
+  return erkenneSerielleStrecke(port, onFrame);
 }
 
 /**
@@ -324,6 +329,8 @@ export class MeshNode {
   private gedaechtnis = new Sendegedaechtnis();
   private lueckenTakt: ReturnType<typeof setInterval> | null = null;
   private transport: MeshTransport | null = null;
+  /** Sendezeit je Rahmen von der Strecke (7.5b); sonst aus dem Durchsatz. */
+  private sendezeitJe: ((bytes: number) => number) | null = null;
   private sending = false;
   private stopped = false;
 
@@ -368,7 +375,10 @@ export class MeshNode {
     // Durchsatz und Sendezeit haengen an der Strecke. Per USB und per Bluetooth
     // spricht die App ein Funkgeraet an – beides geht danach ueber LoRa (7.1).
     this.link = tr.kind === "datei" ? "datei" : "lora";
-    this.bytesPerSecond = tr.kind === "datei" ? 5_000_000 : 200;
+    // Meshtastic nennt die Sendezeit seines Presets (7.5b) – die Annahme 200 Byte/s
+    // lag mit LongFast fast um die Hälfte zu niedrig.
+    this.sendezeitJe = tr.kind === "datei" ? null : tr.sendezeit ?? null;
+    this.bytesPerSecond = tr.kind === "datei" ? 5_000_000 : this.sendezeitJe ? LORA_MTU / this.sendezeitJe(LORA_MTU) : 200;
     this.events.onLog?.(t("bau.verbunden", { name: tr.name }));
     // Über Funk gehen Rahmen verloren: Lücken nachfordern (7.4b). Der Datei-Weg
     // ist ein Bündel ohne Rückweg – dort nicht.
@@ -520,7 +530,8 @@ export class MeshNode {
    * Sendezeit-Grenze. Bis 7.1 ging jeder Rahmen sofort und ungeprüft weiter.
    */
   private weiterreichen(payload: Uint8Array, kind: MeshKind, priority: MeshPriority, ttl: number, nowSecs: number): void {
-    if (!this.transport) return;
+    // Meshtastic flutet selbst (7.5b): ein zweites Mal ginge jeder Rahmen doppelt in die Luft.
+    if (!this.transport || this.transport.leitetSelbstWeiter) return;
     // Sprungzahl und Dubletten je Nachricht – am ersten Rahmen, gleich in welcher Reihenfolge sie kamen.
     if (!this.forwarding.shouldForward(fragment(payload, kind, priority, ttl)[0], nowSecs)) return;
     if (!pruefeMeshInhalt(payload, kind, { eigeneSchluessel: this.eigeneSchluessel }).ok) return;
@@ -588,7 +599,7 @@ export class MeshNode {
         // Sendezeit ueber Funk (7.1): hoechstens 1 % je Stunde. Geprueft mit
         // dem groessten Rahmen, bevor einer aus der Warteschlange geht.
         if (this.link === "lora") {
-          const warte = this.konto.wartezeit(LORA_MTU / this.bytesPerSecond, Date.now() / 1000);
+          const warte = this.konto.wartezeit(this.sendezeitFuer(LORA_MTU), Date.now() / 1000);
           if (warte > 0) {
             this.meldeFortschritt(warte);
             await this.schlafe(Math.min(warte, 60) * 1000);
@@ -598,17 +609,22 @@ export class MeshNode {
         const next = this.queue.next();
         if (!next) break;
         await this.transport.send(next.frame);
-        if (this.link === "lora") this.konto.buche(next.frame.length / this.bytesPerSecond, Date.now() / 1000);
+        if (this.link === "lora") this.konto.buche(this.sendezeitFuer(next.frame.length), Date.now() / 1000);
         this.meldeFortschritt();
         // Takt einhalten: Ein Funkgeraet, das zugeschuettet wird, verwirft
         // Pakete still — und die Nachricht fehlt ohne Hinweis.
-        await this.schlafe((next.frame.length / this.bytesPerSecond) * 1000);
+        await this.schlafe(this.sendezeitFuer(next.frame.length) * 1000);
       }
     } catch (e) {
       this.events.onLog?.(t("bau.sendefehler", { fehler: fehlerText(e) }));
     } finally {
       this.sending = false;
     }
+  }
+
+  /** Sendezeit eines Rahmens: von der Strecke (7.5b) oder aus dem Durchsatz. */
+  private sendezeitFuer(bytes: number): number {
+    return this.sendezeitJe ? this.sendezeitJe(bytes) : bytes / this.bytesPerSecond;
   }
 
   /** Wartet, bis `ms` um sind oder der Knoten getrennt wird. */
