@@ -97,3 +97,32 @@
     Stunde und Gateway, bezahlt nur über einen Zahlkanal oder gratis, die
     Antwort nur, solange die App offen bleibt. Smoke-Test „rahmen“ prüft die
     Karte.
+
+## 7.5 Meshtastic-Geräte direkt (Wunsch MENSCH 08.10.2026, Spur A)
+
+- **Anlass:** Die App sprach seit 7.4c1 rohe Rahmen mit Längenpräfix – ein
+  Meshtastic-Gerät von der Stange verwarf sie still; die Firmware „mit
+  Längenpräfix“ gab es nie. Befunde, Festlegungen und Quellen:
+  `docs/MESHTASTIC.md` (zugleich die Information an Spur B).
+- **Entschieden (MENSCH 08.10.):** Spur A baut es; Kanal nach Variante (a) –
+  zweiter Kanal „freedom“ neben dem Hauptkanal, Schlüssel öffentlich im Code.
+- **Abnahme:** Format Byte für Byte gegen die offizielle Python-Bibliothek
+  (meshtastic 2.7.11); Strecken mit einer Geräte-Attrappe, die Meshtastic
+  spricht; MENSCH: zwei echte Geräte (GO-LIVE 5).
+- **Aufteilung:**
+  - **7.5a – FERTIG:** Protokoll `meshtastic.ts` ohne Abhängigkeit:
+    `baueKonfigAnfrage()`, `baueFunkPaket()` (an alle, Port `PRIVATE_APP`,
+    Kanal, Hop-Limit, ohne Paket-Id), `mitMeshtasticKopf()`/`MeshtasticStrom`
+    (Strom mit `0x94 0xC3`, Debug-Text der Firmware übergangen, neu aufsetzen
+    über 512 Byte), `leseVomGeraet()` (Paket, eigene Nummer, LoRa-Einstellungen,
+    Kanal, Ende der Einstellungen, Warteschlange, Neustart; Unbekanntes
+    übersprungen, Kaputtes `null`), `FREEDOM_KANAL`. Prüfvektoren mit
+    `scripts/meshtastic-referenz.py`.
+  - **7.5b:** App über USB – Start, Kanal „freedom“ finden, Hop-Limit und Rate
+    aus den Einstellungen, über Meshtastic kein Weiterreichen der App; der Weg
+    mit Längenpräfix bleibt (eigene Firmware, TCP-Brücke); Aussage „mesh“ im
+    Bericht um die offene Gerätenummer ergänzen, Texte zur Mesh-Karte.
+  - **7.5c:** App über Bluetooth; Kanal „freedom“ anlegen nach Rückfrage,
+    Hinweis bei Region `UNSET`.
+  - **7.5d:** Gateway des Knotens direkt an ein Meshtastic-Gerät per TCP
+    (Port 4403); Texte (FAQ, Mesh-Karte, GO-LIVE); Smoke-Test mit Attrappe.

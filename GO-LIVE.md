@@ -199,7 +199,9 @@ Erst jetzt. Eine Ausfall-Geschichte auf einer Zahlungsschicht, die nie
 gelaufen ist, wäre eine Ankündigung — und davon hat das Projekt genug hinter
 sich.
 
-- [ ] Zwei LoRa-Geräte kaufen (Meshtastic-kompatibel, ~40 € das Stück)
+- [ ] Zwei LoRa-Geräte mit Meshtastic-Firmware kaufen (~40 € das Stück, Region
+      EU_868). Die App spricht Meshtastic erst ab 7.5b (USB) bzw. 7.5c (Bluetooth) –
+      vorher verwarf das Gerät ihre Rahmen (`docs/MESHTASTIC.md`)
 - [ ] Echten Nachrichtenversand über Funk testen
 - [ ] **Eine Solana-Transaktion über Funk einreichen.** Das ist das Bild,
       das die Geschichte trägt.
