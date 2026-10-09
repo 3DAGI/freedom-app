@@ -7182,6 +7182,15 @@ Lizenzgebers (Art. 14, 15), amtlich auch auf Deutsch (Art. 13).
 `freedom.html` steckt `rpc-websockets` (über `@solana/web3.js`) unter LGPL-3.0. Die LGPL
 steht im Anhang der EUPL, das passt.
 
+**Zwei Funde im Spiegel-Skript:** `@ardrive/turbo-sdk` zieht zwei Pakete mit:
+- `arweave-stream-tx` steht unter GPL-3.0.
+- `@metamask/sdk` steht unter einer eigenen Lizenz von ConsenSys („All rights reserved“),
+  über `x402` → `wagmi`.
+
+Beide sind nicht in `freedom.html` (`turbo-sdk` ist im Build `external`) und nicht im
+Knoten; sie laufen nur in `scripts/mirror/spiegeln.mts` im Release-Job. Wandert
+`turbo-sdk` je in App oder Knoten, vorher prüfen.
+
 **Nicht geändert:**
 - **`packages/mls/crate`:** erbt `license` aus dem MDK-Arbeitsbereich (MIT).
 - **Hülle und Solana-Programme:** tragen keine Angabe.
