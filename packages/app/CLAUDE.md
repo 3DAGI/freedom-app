@@ -670,3 +670,8 @@ Fallstricke dieses Bereichs unten anhängen.
   Textfeld 22 px schmal und „Senden“ lag am Handy außerhalb. Felder in Reihen bekommen
   `width: auto` (und `margin-bottom: 0`). Die Eingabe einer offenen Unterhaltung misst der
   Smoke-Test „composer“ (Desktop, Handy hoch und quer).
+- **Anhänge im Chat nur über `handleChatFiles()`** (seit C-29, `anhang-warte.ts`): Jeder Upload
+  meldet sich bei `anhangWarte` an, und `sendChatMessage()` wartet auf alle, bevor es Text und
+  Anhänge liest. Ein neuer Weg, Dateien anzuhängen (Einfügen, Ziehen, Sprachnachricht), geht durch
+  `handleChatFiles()` – sonst schickt „Senden“ während des Uploads den Text allein, und der Anhang
+  hängt an der nächsten Nachricht. Scheitert ein Upload, geht nichts hinaus.

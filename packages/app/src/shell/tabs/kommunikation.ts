@@ -21,7 +21,7 @@ import { versendeVerzoegert } from "../versand.js";
 import { zeigeRaumLeiste } from "./raeume.js";
 import { fehlerText } from "../../protokoll-texte.js";
 import { leseAnforderung } from "../../zahlungs-anforderung.js";
-import { anforderungen, anhangElement, chatAttachments, leereAnhaenge, setAttachStatus, wireBlobButtons } from "./chat-anhaenge.js";
+import { anforderungen, anhangElement, anhangWarte, chatAttachments, leereAnhaenge, setAttachStatus, wireBlobButtons, zeigeAnhangListe } from "./chat-anhaenge.js";
 import { loeseNamenAuf, markiereSchluessel, schluesselHinweis, schluesselStand, setzePetname, sichereKontakte } from "./kontakte.js";
 import { type DmAnzeige, entschluesselungFehlgeschlagen, geraeteBuch, ladeDmNachrichten, syncDmInbox, veroeffentlicheDm } from "./posteingang.js";
 
@@ -365,8 +365,33 @@ export async function loadChatMessages(cid: string): Promise<void> {
   } catch { /* offline */ }
 }
 
+/** Ein Senden wartet gerade auf Anhänge (C-29) – ein zweites Senden bis dahin nicht. */
+let wartetAufAnhang = false;
+
 export async function sendChatMessage(): Promise<void> {
+  if (wartetAufAnhang) return;
   const input = $("#chat-input") as HTMLTextAreaElement;
+  // Läuft noch ein Upload, wartet Senden auf ihn (C-29, Nutzertest C-7) – vorher ging der Text
+  // ohne Anhang hinaus, und der Anhang hing an der nächsten Nachricht
+  if (anhangWarte.anzahl > 0) {
+    const ziel = activeConversation;
+    const knopf = $("#chat-send") as HTMLButtonElement | null;
+    wartetAufAnhang = true;
+    input.readOnly = true;
+    if (knopf) { knopf.disabled = true; knopf.setAttribute("aria-busy", "true"); }
+    setAttachStatus($("#chat-attach-list"), t("komm.anhangWartet"));
+    let gut = false;
+    try {
+      gut = await anhangWarte.alleFertig();
+    } finally {
+      wartetAufAnhang = false;
+      input.readOnly = false;
+      if (knopf) { knopf.disabled = false; knopf.removeAttribute("aria-busy"); }
+    }
+    // Geht nichts hinaus, steht unter dem Feld wieder, was vorgemerkt ist – nicht mehr „wird gesendet“
+    if (!gut) { zeigeAnhangListe(); toast(t("komm.anhangFehlt"), true); return; }
+    if (activeConversation !== ziel) { zeigeAnhangListe(); toast(t("komm.anhangGewechselt"), true); return; }
+  }
   const text = input.value.trim();
   // Ein reiner Anhang ohne Text ist eine gueltige Nachricht.
   if ((!text && chatAttachments.length === 0) || !state.keypair || !activeConversation) return;

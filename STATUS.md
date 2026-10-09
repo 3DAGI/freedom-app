@@ -6517,3 +6517,38 @@ der Eingabe außerhalb, das Feld mindestens 300 px (Desktop) bzw. 200 px (Handy)
 jede Fläche ab 40 px. Vor dem Fix rot, danach grün.
 
 Fallstrick in `packages/app/CLAUDE.md`: Formularfelder in einer Reihe nur mit eigener Breite.
+
+## Schritt C-29 – Senden wartet auf Anhänge
+
+Spur C, Befund C-7 aus dem Nutzertest vom 08.10. (Anhang D der Sammlung).
+
+**Befund, im Browser nachgestellt** (neuer Smoke „anhang_senden“): Eine Datei über 32 KB
+geht verschlüsselt ins Blob-Netz und braucht dafür einige Zeit. Wer in dieser Zeit „Senden“
+drückt, schickte den Text allein hinaus. Der Anhang kam erst danach in `chatAttachments` an
+und hing dann an der nächsten Nachricht, auch an eine, die gar nicht ihm galt. Gemessen:
+zwei Nachrichten, die erste ohne Anhang.
+
+**`anhang-warte.ts`** (neu, ohne DOM): `AnhangWarte` merkt sich laufende Uploads (`merke()`)
+und zählt sie (`anzahl`). `alleFertig()` wartet auf alle, auch auf solche, die währenddessen
+dazukommen, und meldet, ob jeder gelang.
+
+**`chat-anhaenge.ts`:** `handleChatFiles()` meldet jeden Upload bei `anhangWarte` an.
+`ladeAnhaenge()` liefert `false`, wenn eine Datei scheiterte (der Toast bleibt wie bisher).
+`zeigeAnhangListe()` zeigt die vorgemerkten Anhänge unter dem Feld.
+
+**`kommunikation.ts`**, `sendChatMessage()`: Läuft ein Upload, wartet Senden, bevor es Text
+und Anhänge liest.
+- Während des Wartens: Knopf gesperrt (`aria-busy`), Feld nur lesbar, Hinweis „Wird gesendet,
+  sobald der Anhang hochgeladen ist …“. Ein zweites Senden wird nicht angenommen.
+- Danach gehen Text und Anhang zusammen in einer Nachricht hinaus.
+- Scheitert ein Upload, geht nichts hinaus. Der Text bleibt im Feld, ein Hinweis sagt es, und
+  unter dem Feld steht wieder, was vorgemerkt ist.
+- Wechselt die Unterhaltung, während der Anhang lädt, geht ebenfalls nichts hinaus.
+
+**Tests:** `anhang-warte.test.ts` (6): Zählung, Warten auf später Dazugekommenes, Fehlschlag,
+Verdrahtung (erst warten, dann lesen; ohne Erfolg nichts senden). Smoke „anhang_senden“
+(40 KB, sofort Senden): Während des Wartens sind Knopf und Feld gesperrt und der Hinweis
+steht da. Danach gibt es genau eine Nachricht mit Text und Anhang, Feld und Liste sind leer.
+Vor dem Fix rot (zwei Nachrichten), danach grün.
+
+Fallstrick in `packages/app/CLAUDE.md`: Anhänge im Chat nur über `handleChatFiles()`.
