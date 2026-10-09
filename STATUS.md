@@ -7156,3 +7156,36 @@ entschieden. Eingetragen in `docs/neuordnung/SAMMLUNG.md`:
   MENSCHEN.
 
 Nur Doku, kein Code.
+
+## Schritt C-30 – Ungelesenes in Direktnachrichten
+
+Spur C, Befund C-11 aus dem Nutzertest vom 08.10. (Anhang D der Sammlung): Nichts zeigte an,
+dass eine Nachricht da war – kein Fettdruck, kein Zähler in der Liste oder in der Navigation.
+
+**`ungelesen.ts`** (neu, ohne DOM): Je Unterhaltung zählen zwei Zeitpunkte – `eingang` (die
+neueste Nachricht vom Gegenüber) und `gelesen` (wann man sie zuletzt vor Augen hatte).
+Ungelesen ist, was neuer ist als gelesen. Der Zähler zeigt ab 100 „99+“. Gespeicherte
+Unterhaltungen von vorher gelten bis zu ihrer letzten Nachricht als gelesen
+(`ergaenzeGelesen()`) – sonst stünde nach dem Update alles als neu da.
+
+**`posteingang.ts`, `ordneEin()`** (seit A-15a der gemeinsame Weg für Abgleich und Abo):
+Nur was das Gegenüber schrieb, setzt `eingang` – eigene Kopien von anderen Geräten zählen
+nicht. Neue Unterhaltungen beginnen mit `gelesen: 0`. Nach dem Abgleich und nach Post aus
+dem Abo gilt die offene Unterhaltung als gelesen (`markiereGelesen()`).
+
+**`kommunikation.ts`:**
+- „Vor Augen“ heißt: offen, Seite Kommunikation mit den Direktnachrichten, Fenster sichtbar,
+  am Handy der Verlauf statt der Liste.
+- Gelesen wird beim Öffnen, beim Zurückkommen auf die Seite (`loadChatList()`) und wenn das
+  Fenster wieder sichtbar wird (`visibilitychange`). Mobil öffnet `openConversation()` den
+  Verlauf jetzt selbst (`thread-open`), bevor der Lesestand zählt.
+- In der Liste: Name fett und eine Marke „neu“. An „Chat“ in der Navigation und an den
+  Direktnachrichten der Raum-Leiste eine Zahl; Vorleser hören „1 Unterhaltung mit neuen
+  Nachrichten“.
+
+**Tests:** `ungelesen.test.ts` (4): Regeln, Zähler, alte Unterhaltungen, Verdrahtung. Smoke
+„fremdtext“ erweitert: Die versiegelte Nachricht eines Fremden steht fett mit „neu“ und der
+Zahl 1 an „Chat“ da und ist nach dem Öffnen gelesen. Vor dem Fix rot.
+
+**Prüfungen:** protocol 1252 grün (6 übersprungen), node 347, app 1014 (+4), Leak 73 + 1 todo;
+tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
