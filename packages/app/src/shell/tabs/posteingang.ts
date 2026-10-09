@@ -21,6 +21,7 @@ import { t } from "../../i18n.js";
 import { kontaktName, zeigeRaumLeiste } from "./raeume.js";
 import { alsAnruf } from "../anruf.js";
 import { activeConversation, conversations, loadChatList, loadChatMessages, saveConversations } from "./kommunikation.js";
+import { LivePost, postFilter } from "../../post-live.js";
 import { aktualisiereSchluessel, ladeKontakte } from "./kontakte.js";
 
 /** Eine DM zur Anzeige: entschluesselt; legacy = altes Kind-4-Format. */
@@ -261,19 +262,7 @@ export async function syncDmInbox(): Promise<void> {
     // Kontakte von anderen Geraeten (2.5b, nur wenn eingeschaltet)
     let neu = await ladeKontakte().catch(() => 0);
     const umschlaege = await pool.query({ kinds: [1059], "#p": [me.pk], limit: 200 });
-    for (const w of umschlaege) {
-      const e = await oeffneUmschlag(w);
-      // Keine DM: vielleicht eine MLS-Einladung eines Kontakts (2.2b-d1)
-      if (!e) await alsMlsEinladung(w);
-      if (!e || e.partner === me.pk || e.partner === state.person) continue;
-      const vorhanden = conversations.find((x) => x.id === e.partner);
-      if (!vorhanden) {
-        conversations.push({ id: e.partner, type: "dm", name: t("komm.anfrage", { pk: pkShort(e.partner) }), lastTs: e.ev.created_at });
-        neu++;
-      } else if (e.ev.created_at > (vorhanden.lastTs ?? 0)) {
-        vorhanden.lastTs = e.ev.created_at;
-      }
-    }
+    for (const w of umschlaege) if ((await ordneEin(w, me.pk)).neu) neu++;
     // MLS-Gruppen (2.2b-d1): nur wenn es welche gibt – sonst bleibt die Engine ungeladen
     const mitMls = conversations.filter((c) => c.type === "dm" && c.mls);
     if (mitMls.length > 0 && !mlsGesperrt()) {
@@ -292,4 +281,58 @@ export async function syncDmInbox(): Promise<void> {
   } catch {
     /* offline */
   }
+  // Erst nach einem Abgleich (A-15a): Was schon lag, ist dann geöffnet – das Abo bringt nur Neues
+  void lauscheAufPost();
+}
+
+/** Ein Umschlag aus dem Abgleich oder dem Abo (A-15a): öffnen und der Liste zuordnen. */
+async function ordneEin(w: NostrEvent, me: string): Promise<{ neu: boolean; spaeter: boolean; frischVon?: string }> {
+  const frisch = !dmCache.has(w.id);
+  const e = await oeffneUmschlag(w);
+  // Keine DM: vielleicht eine MLS-Einladung eines Kontakts (2.2b-d1)
+  if (!e) await alsMlsEinladung(w);
+  if (!e || e.partner === me || e.partner === state.person) return { neu: false, spaeter: false };
+  const frischVon = frisch ? { frischVon: e.partner } : {};
+  const vorhanden = conversations.find((x) => x.id === e.partner);
+  if (!vorhanden) {
+    conversations.push({ id: e.partner, type: "dm", name: t("komm.anfrage", { pk: pkShort(e.partner) }), lastTs: e.ev.created_at });
+    return { neu: true, spaeter: false, ...frischVon };
+  }
+  const spaeter = e.ev.created_at > (vorhanden.lastTs ?? 0);
+  if (spaeter) vorhanden.lastTs = e.ev.created_at;
+  return { neu: false, spaeter, ...frischVon };
+}
+
+let postAbo: { fuer: string; stopp?: () => void } | null = null;
+const livePost = new LivePost();
+
+/**
+ * Post sofort (A-15a, Befund C-12): solange die App offen ist, ein Abo an den eigenen Schlüssel – was dort neu
+ * ankommt, öffnet die App gleich (`post-live.ts`: keine Anrufe, je Umschlag einmal, Grenze je Minute). Gestartet
+ * am Ende jedes Abgleichs; läuft es schon für diesen Schlüssel, bleibt es.
+ */
+export async function lauscheAufPost(): Promise<void> {
+  const ich = state.keypair?.pk;
+  if (!ich || postAbo?.fuer === ich) return;
+  postAbo?.stopp?.();
+  const abo: { fuer: string; stopp?: () => void } = { fuer: ich };
+  postAbo = abo;
+  const pool = await ensurePool();
+  const stopp = await pool.subscribe(postFilter(ich), (w) => {
+    if (livePost.nimm(w, (id) => dmCache.has(id))) void nimmLivePost(w, ich);
+  }).catch(() => null);
+  if (postAbo !== abo) stopp?.();
+  else if (stopp) abo.stopp = stopp;
+  else postAbo = null; // der nächste Abgleich versucht es neu
+}
+
+async function nimmLivePost(w: NostrEvent, ich: string): Promise<void> {
+  if (state.keypair?.pk !== ich) return;
+  const r = await ordneEin(w, ich).catch(() => null);
+  if (!r) return;
+  if (r.neu || r.spaeter) {
+    saveConversations();
+    loadChatList();
+  }
+  if (r.frischVon && r.frischVon === activeConversation) void loadChatMessages(r.frischVon);
 }

@@ -18940,3 +18940,47 @@ Kein Skript und keine CI liest `CLAUDE.md` oder `STATUS.md` (geprüft mit `grep`
 
 **Prüfungen:** nur Doku – `check-website.py` und `check-wiring.py --streng`
 (Exit 0). Kein Code, keine Tests geändert. Knoten-Stand: unverändert.
+
+## Schritt A-15a – Post kommt sofort (Nutzertest, Befund C-12)
+
+Spur A. Im Nutzertest erschienen neue Direktnachrichten erst nach 89 s: Sie kamen nur
+mit dem Abgleich des Posteingangs, und der läuft höchstens einmal je Minute. Das Abo
+für Anrufe (B-13e) half nicht. Es fragt „ab jetzt“ (`since`), und Chat-Umschläge sind
+bis zu zwei Tage zurückdatiert (NIP-59) – ein Relay schickt sie diesem Abo nie.
+A-15 ist geteilt: a NIP-17 (hier), b MLS in der offenen Unterhaltung.
+
+**Was:**
+- **`app/src/post-live.ts`** (neu):
+  - `postFilter()`: Umschläge an den eigenen Schlüssel, ohne `since`, `limit: 1` – was
+    schon liegt, holt der Abgleich.
+  - `LivePost.nimm()`: gleich öffnen nur, was noch nicht geöffnet ist, keine Anrufe
+    (`vielleichtAnruf()` – die haben ihr Abo) und höchstens 30 je Minute. Wer den
+    Schlüssel flutet, bekommt nicht je Umschlag eine Entschlüsselung (mit Bunker je
+    eine Anfrage); der Rest kommt wie bisher mit dem Abgleich.
+- **`shell/tabs/posteingang.ts`:**
+  - `ordneEin()`: der Rumpf der Schleife des Abgleichs, unverändert herausgezogen. Er
+    sagt zusätzlich, ob der Umschlag neu geöffnet wurde und für wen.
+  - `lauscheAufPost()`: das Abo, je Schlüssel eines, gestartet am Ende jedes
+    Abgleichs. Was beim Start schon lag, ist dann geöffnet, und die MLS-Engine lädt
+    nicht früher als bisher.
+  - `nimmLivePost()`: über `ordneEin()`, dieselbe Kette wie der Abgleich. Dann Liste
+    nachführen; ist die Unterhaltung offen, lädt sie nach.
+- **Datenschutzbericht** („anruf-vermittler“, beide Sprachen): „Damit ein Anruf sofort
+  klingelt und Nachrichten sofort ankommen, hält die App … Abfragen … offen“. Die
+  Relays sahen schon vorher, wann die App läuft; der Satz nennt jetzt beide Abos.
+
+**Verdrahtet:** `shell/tabs/posteingang.ts` – `syncDmInbox()` endet mit
+`void lauscheAufPost()`; das Abo ruft `nimmLivePost()` → `ordneEin()` →
+`oeffneUmschlag()`.
+
+**Tests:**
+- `post-live.test.ts` (+4):
+  - Filter ohne `since`;
+  - zurückdatierter Umschlag ja, schon geöffneter nicht, Anruf nicht, anderes Kind nicht;
+  - Grenze je Minute;
+  - Verdrahtung, und das Abo für Anrufe bleibt „ab jetzt“.
+- `privacy-facts.test.ts`: prüft den neuen Satz wörtlich (vorher den alten) – Zahl
+  gleich.
+- **Smoke „post_live“** (neu, `scripts/dm-probe.mts`): Unterhaltung offen, Abo offen,
+  eine Nachricht eines Wegwerf-Schlüssels über `ProbeRelay.zustellen()`. Sie steht nach
+  0,1 s im Chat; ohne das Abo (Gegenprobe) nach 15 s nicht.
