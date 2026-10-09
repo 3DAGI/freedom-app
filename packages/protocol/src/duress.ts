@@ -49,7 +49,7 @@ export const WIPE_TARGETS: WipeTarget[] = [
  * Geloescht wird zusaetzlich jede Datenbank, deren Name mit `freedom`
  * beginnt – wie beim Praefix fuer localStorage.
  */
-export const WIPE_DATENBANKEN = ["freedom-vault", "freedom-suche", "freedom-blobs", "freedom-mls", "freedom-mls-verlauf", "freedom-repos"];
+export const WIPE_DATENBANKEN = ["freedom-vault", "freedom-suche", "freedom-blobs", "freedom-mls", "freedom-mls-verlauf", "freedom-repos", "freedom-agenten-mls"];
 
 const unsere = (name: string): boolean => name.startsWith("freedom");
 
