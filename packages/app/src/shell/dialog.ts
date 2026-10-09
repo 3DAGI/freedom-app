@@ -123,19 +123,22 @@ export function dialog(o: DialogOptionen): Promise<Werte | null> {
     }
     const label = el("label", f.label, "dlg-label");
     label.htmlFor = id(f.name);
-    const e = f.art === "textarea" ? el("textarea") : el("input");
+    // Lesefelder mehrzeilig (C-34, Nutzertest C-9): Sicherheitscode und Schlüssel stehen ganz da, nicht nur ihr Anfang
+    const e = f.art === "textarea" || f.art === "nurlesen" ? el("textarea") : el("input");
     e.id = id(f.name);
     e.value = f.wert ?? "";
     // Passphrasen verdeckt (B-6); sonst Text
     // Datum und Uhrzeit (B-15b) mit der Auswahl des Browsers
     if (e instanceof HTMLInputElement) e.type = "verdeckt" in f && f.verdeckt ? "password" : "typ" in f && f.typ ? f.typ : "text";
     if (f.art === "textarea") (e as HTMLTextAreaElement).rows = 3;
+    if (f.art === "nurlesen") (e as HTMLTextAreaElement).rows = Math.min(4, Math.max(1, Math.ceil(f.wert.length / 32)));
     if (f.art === "nurlesen" || ("mono" in f && f.mono)) e.classList.add("mono");
     e.autocomplete = "off";
     e.spellcheck = f.art === "textarea";
     erstes[f.name] = e;
     if (f.art === "nurlesen") {
       e.readOnly = true;
+      e.classList.add("dlg-nurlesen");
       const zeile = el("div", undefined, "dlg-kopier");
       const kopieren = el("button", t("dlg.kopieren"), "ghost");
       kopieren.type = "button";
