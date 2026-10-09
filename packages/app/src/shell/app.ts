@@ -45,7 +45,7 @@ import { refreshModelDropdown, setupModelPicker } from "./tabs/modellwahl.js";
 import { setupAttach, setupEmptyState, setupToolChips } from "./tabs/agent-eingabe.js";
 import { updateBudgetBar, updateFeePreview, updateTokenEstimate } from "./tabs/agent-anzeige.js";
 import { wireFunkGateway } from "./funk-gateway-ui.js";
-import { dialog } from "./dialog.js";
+import { alsModal, dialog } from "./dialog.js";
 import { wireEigeneAdresse, wireWerbeName } from "./werben-ui.js";
 import { wireBelege } from "./belege-ui.js";
 import { wireSenden } from "./senden-ui.js";
@@ -217,19 +217,21 @@ async function baueSicherungsDialog(mnemonic: string): Promise<void> {
   const fehler = el("div", undefined, "mono-sm");
   fehler.id = "bk-error";
   fehler.classList.add("err");
+  // Bestätigen und „später“ nebeneinander mit Abstand (C-39b, Nutzertest E-2, E-3)
+  const knoepfe = el("div", undefined, "bk-knoepfe");
+  knoepfe.append(knopf("bk-done", t("ein.bestaetigen"), "send-btn", ""), knopf("bk-later", t("ein.spaeterBestaetigen"), "ghost", ""));
   const bisBestaetigt = el("p", t("ein.bisBestaetigt"), "mono-sm");
   bisBestaetigt.classList.add("muted");
   const modal = el("div", undefined, "modal");
   modal.append(
     el("h3", t("ein.phraseTitel")), el("p", t("ein.phraseText"), "mono-sm"), liste, ablage,
-    el("p", t("ein.zurBestaetigung"), "mono-sm"), abfrage, fehler,
-    knopf("bk-done", t("ein.bestaetigen"), "send-btn", "margin-top:8px"),
-    knopf("bk-later", t("ein.spaeterBestaetigen"), "ghost", `${KLEIN};margin-top:8px`),
+    el("p", t("ein.zurBestaetigung"), "mono-sm"), abfrage, fehler, knoepfe,
     bisBestaetigt,
   );
   const box = el("div", undefined, "modal-backdrop");
   box.append(modal);
   document.body.appendChild(box);
+  alsModal(box, modal);
 
   return new Promise<void>((resolve) => {
     box.querySelector("#bk-copy")!.addEventListener("click", () => {

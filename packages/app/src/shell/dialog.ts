@@ -66,6 +66,52 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, text?: string, klasse
 let zaehler = 0;
 let offen = 0;
 
+/**
+ * Der Rest der App ist nicht bedienbar, solange irgendein Dialog offen ist – gezählt über `dialog()` und
+ * `alsModal()`. Frei erst, wenn der letzte zu ist, gleich in welcher Reihenfolge (bis C-39b merkte sich
+ * jeder Dialog den Stand vor ihm – schloss der erste zuerst, blieb die App gesperrt).
+ */
+function sperreApp(): () => void {
+  const app = document.getElementById("app");
+  offen++;
+  if (app) app.inert = true;
+  let frei = false;
+  return () => {
+    if (frei) return;
+    frei = true;
+    offen--;
+    if (app && offen === 0) app.inert = false;
+  };
+}
+
+/** Den Dialog nach seinem Titel benennen (der erste h1–h3 darin) – auch nach jedem Seitenwechsel. */
+export function beschrifte(karte: HTMLElement): void {
+  const titel = karte.querySelector<HTMLElement>("h1, h2, h3");
+  if (!titel) return;
+  if (!titel.id) titel.id = `dlg-${++zaehler}-titel`;
+  karte.setAttribute("aria-labelledby", titel.id);
+}
+
+/**
+ * Eigene Overlays (Merkphrase, Einrichtung, Tresor, eingebaute Wallet, Notfall) wie `dialog()` für Tastatur
+ * und Vorleser (C-39b, Nutzertest E-4, E-5): `role="dialog"`, `aria-modal`, vom Titel benannt, der Fokus
+ * darin und der Rest der App `inert` – bis die Hülle aus dem Dokument ist, gleich auf welchem Weg. Erst
+ * aufrufen, wenn die Hülle im Dokument hängt.
+ */
+export function alsModal(huelle: HTMLElement, karte: HTMLElement): void {
+  karte.setAttribute("role", "dialog");
+  karte.setAttribute("aria-modal", "true");
+  beschrifte(karte);
+  const gibFrei = sperreApp();
+  if (!karte.contains(document.activeElement)) karte.querySelector<HTMLElement>("input, textarea, select, button")?.focus();
+  const beobachter = new MutationObserver(() => {
+    if (huelle.isConnected) return;
+    beobachter.disconnect();
+    gibFrei();
+  });
+  beobachter.observe(huelle.parentNode ?? document.body, { childList: true });
+}
+
 /** Ein Dialog; liefert die Eingaben oder null (abgebrochen). */
 export function dialog(o: DialogOptionen): Promise<Werte | null> {
   const vorher = document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -164,10 +210,7 @@ export function dialog(o: DialogOptionen): Promise<Werte | null> {
   box.append(meldung, knoepfe);
   huelle.append(box);
 
-  const app = document.getElementById("app");
-  const warInert = app?.inert ?? false;
-  if (app) app.inert = true;
-  offen++;
+  const gibFrei = sperreApp();
   document.body.append(huelle);
 
   const fokussierbar = () => [...box.querySelectorAll<HTMLElement>("input, textarea, button")]
@@ -183,8 +226,7 @@ export function dialog(o: DialogOptionen): Promise<Werte | null> {
     const ende = (w: Werte | null) => {
       document.removeEventListener("focusin", halteFokus);
       huelle.remove();
-      offen--;
-      if (app && offen === 0) app.inert = warInert;
+      gibFrei();
       if (vorher?.isConnected) vorher.focus();
       fertig(w);
     };

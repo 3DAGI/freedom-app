@@ -2743,6 +2743,63 @@ def einrichtung_wahl_pruefen(browser, url: str) -> dict:
     return erg
 
 
+def overlay_dialog_pruefen(browser, url: str) -> dict:
+    """C-39b (Nutzertest E-2 bis E-5): Merkphrase und Einrichtung als Dialog – `role="dialog"`, `aria-modal`,
+    vom Titel benannt, der Fokus darin, die App dahinter `inert` und danach wieder frei; Knöpfe mit Abstand,
+    in der Einrichtung untereinander und gleich breit. Am Handy und am Desktop."""
+    erg = {"fehler": []}
+    basis = url.rsplit("/", 1)[0]
+    lies = """(sel) => { const d = document.querySelector(sel); const id = d?.getAttribute('aria-labelledby');
+        return { role: d?.getAttribute('role') ?? null, modal: d?.getAttribute('aria-modal') ?? null,
+          titel: id ? document.getElementById(id)?.textContent ?? null : null,
+          fokus: !!d && d.contains(document.activeElement), inert: document.getElementById('app').inert }; }"""
+    for name, vp in [("desktop", {"width": 1280, "height": 800}), ("handy", {"width": 390, "height": 844})]:
+        relay = ProbeRelay()
+        ctx = browser.new_context(locale="de-DE", viewport=vp)
+        ctx.route("**/*", lambda r: r.continue_() if r.request.url.startswith(basis) else r.abort())
+        ctx.route_web_socket(re.compile(r"^wss?://"), relay.verbinde)
+        s = ctx.new_page()
+        s.on("pageerror", lambda e: erg["fehler"].append(str(e)[:300]))
+        ev = s.evaluate
+        s.goto(url, wait_until="load")
+        s.wait_for_selector("#bk-done", timeout=30000)
+        stand = {"merkphrase": ev(lies, ".modal:has(#bk-done)")}
+        stand["merkphrase_knoepfe"] = ev("""() => { const a = document.getElementById('bk-done').getBoundingClientRect(),
+            b = document.getElementById('bk-later').getBoundingClientRect();
+            return Math.round(Math.abs(a.top - b.top) < 2 ? b.left - a.right : b.top - a.bottom); }""")
+        w = ev("() => [...document.querySelectorAll('.mnemonic-list li')].map(l => l.textContent)")
+        ev("(w) => document.querySelectorAll('#bk-challenge input').forEach(i => i.value = w[+i.dataset.pos])", w)
+        ev("() => document.getElementById('bk-done').click()")
+        s.wait_for_selector("#einrichtung .onboarding-card[data-seite=schutz]", timeout=15000)
+        s.wait_for_timeout(200)
+        stand["schutz"] = ev(lies, "#einrichtung")
+        s.wait_for_timeout(200)
+        ev("() => document.getElementById('ein-weiter').click()")
+        s.wait_for_selector("#einrichtung .onboarding-card[data-seite=zahlen]", timeout=10000)
+        stand["zahlen"] = ev(lies, "#einrichtung")
+        stand["breiten"] = ev("""() => [...document.querySelectorAll('#einrichtung .ein-knoepfe button')].map(b => Math.round(b.getBoundingClientRect().width))""")
+        stand["abstand"] = ev("""() => { const k = [...document.querySelectorAll('#einrichtung .ein-knoepfe button')].map(b => b.getBoundingClientRect());
+            return Math.round(k[1].top - k[0].bottom); }""")
+        ev("() => document.getElementById('ein-abbrechen').click()")
+        s.wait_for_function("() => !document.getElementById('einrichtung')", timeout=10000)
+        s.wait_for_timeout(200)
+        stand["danach_inert"] = ev("() => document.getElementById('app').inert")
+        ctx.close()
+        erg[name] = stand
+        for teil, titel in [("merkphrase", None), ("schutz", "Schutz"), ("zahlen", "Womit zahlst du?")]:
+            d = stand[teil]
+            if d["role"] != "dialog" or d["modal"] != "true" or not d["titel"] or (titel and d["titel"] != titel) or not d["fokus"] or d["inert"] is not True:
+                erg["fehler"].append(f"{name}: {teil} {d}")
+        if stand["merkphrase_knoepfe"] < 8:
+            erg["fehler"].append(f"{name}: Abstand Bestätigen/später {stand['merkphrase_knoepfe']}")
+        if len(set(stand["breiten"])) != 1 or len(stand["breiten"]) != 2 or stand["abstand"] < 8:
+            erg["fehler"].append(f"{name}: Knöpfe {stand['breiten']} Abstand {stand['abstand']}")
+        if stand["danach_inert"] is not False:
+            erg["fehler"].append(f"{name}: App nach der Einrichtung noch inert")
+    erg["bestanden"] = not erg["fehler"]
+    return erg
+
+
 def weckworker_pruefen(browser, url: str) -> dict:
     """B-12c (W3 A): freedom-sw.js lässt sich unter der CSP der App anmelden (worker-src 'self').
     Ein Push – hier mit Daten, die nie erscheinen dürfen – ergibt genau eine Meldung mit festem
@@ -5110,6 +5167,10 @@ def main() -> int:
             except Exception as e:
                 erg["einrichtung_wahl"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
             try:
+                erg["overlay_dialog"] = overlay_dialog_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
+            except Exception as e:
+                erg["overlay_dialog"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
+            try:
                 erg["lokal"] = lokal_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
             except Exception as e:
                 erg["lokal"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
@@ -5168,6 +5229,7 @@ def main() -> int:
           and erg.get("geld_settings_klein", {}).get("bestanden") is True
           and erg.get("ohne_knoten", {}).get("bestanden") is True
           and erg.get("einrichtung_wahl", {}).get("bestanden") is True
+          and erg.get("overlay_dialog", {}).get("bestanden") is True
           and erg.get("lokal", {}).get("bestanden") is True
           and erg.get("meshtastic", {}).get("bestanden") is True
           and erg.get("einrichtung", {}).get("bestanden") is True

@@ -14,6 +14,7 @@ import { pkShort } from "../shell-logic.js";
 import { LS_STANDARD_SCHIENE, standardSchiene } from "../standard-schiene.js";
 import { mitBunker, state } from "./state.js";
 import { richteTresorEin, tresorEingerichtet } from "./tresor.js";
+import { alsModal, beschrifte } from "./dialog.js";
 import { el } from "./ui.js";
 
 let laeuft = false;
@@ -42,6 +43,8 @@ export async function zeigeEinrichtung(p: {
     box.className = "onboarding-overlay";
     box.id = "einrichtung";
     document.body.appendChild(box);
+    // Ein Dialog für Vorleser und Tastatur, die App dahinter nicht bedienbar (C-39b, Nutzertest E-4, E-5)
+    alsModal(box, box);
     const rest = seiten.filter((s) => s !== "sichern");
     for (const [i, seite] of rest.entries()) {
       if ((await zeigeSeite(box, seite, seiten.length - rest.length + i + 1, seiten.length, p)) === "abbrechen") break;
@@ -53,16 +56,21 @@ export async function zeigeEinrichtung(p: {
   }
 }
 
-// Aussehen wie bisher, über `style` (CSSOM) statt HTML-Text (seit C-6e)
-const KNOPF_STIL = "width:auto;padding:8px 14px;margin:4px 6px 0 0"; // kein UI-Text
-const HAUPT_STIL = "width:auto;padding:8px 18px"; // kein UI-Text
+// Über `style` (CSSOM) statt HTML-Text (seit C-6e); die Knöpfe seit C-39b über `.ein-knoepfe`
 const ZEILE_STIL = "display:block;margin:8px 0"; // kein UI-Text
 
 function knopf(id: string, text: string, haupt = false): HTMLButtonElement {
   const b = el("button", text, haupt ? "cta" : "ghost");
   b.id = id;
-  b.style.cssText = haupt ? HAUPT_STIL : KNOPF_STIL;
+  b.type = "button";
   return b;
+}
+
+/** Die Knöpfe einer Seite untereinander, gleich breit, mit Abstand (C-39b, Nutzertest E-2, E-3). */
+function knoepfe(...k: HTMLButtonElement[]): HTMLElement {
+  const zeile = el("div", undefined, "ein-knoepfe");
+  zeile.append(...k);
+  return zeile;
 }
 
 /** Häkchen mit Text – nie vorausgewählt (Zustimmung heißt: selbst gesetzt). */
@@ -96,6 +104,8 @@ function zeigeSeite(
   fuss.append(ueberspringen);
   karte.append(...inhalt(seite), fuss);
   box.replaceChildren(karte);
+  beschrifte(box);
+  karte.querySelector<HTMLElement>("button, select, input")?.focus();
   return new Promise((fertig) => {
     const beiKlick = (id: string, fn: () => unknown) => box.querySelector(`#${id}`)?.addEventListener("click", () => {
       void Promise.resolve(fn()).then(() => fertig("weiter"));
@@ -117,12 +127,12 @@ function inhalt(seite: Seite): HTMLElement[] {
   switch (seite) {
     case "schutz":
       return [el("h2", t("ein.schutz")), el("p", t("ein.schutzText"), "mono-sm"),
-        knopf("ein-tresor", t("ein.passFestlegen"), true), knopf("ein-weiter", t("ein.spaeter"))];
+        knoepfe(knopf("ein-tresor", t("ein.passFestlegen"), true), knopf("ein-weiter", t("ein.spaeter")))];
     case "zahlen": {
       const jetzt = standardSchiene();
       return [el("h2", t("ein.womitZahlen")), el("p", t("ein.womitZahlenText"), "mono-sm"),
-        knopf("ein-lightning", `${jetzt === "lightning" ? "✓ " : ""}${t("zahl.optLightning")}`),
-        knopf("ein-solana", `${jetzt === "solana" ? "✓ " : ""}${t("zahl.optSolana")}`)];
+        knoepfe(knopf("ein-lightning", `${jetzt === "lightning" ? "✓ " : ""}${t("zahl.optLightning")}`),
+          knopf("ein-solana", `${jetzt === "solana" ? "✓ " : ""}${t("zahl.optSolana")}`))];
     }
     case "privat": {
       const { belegt, offen } = datenschutzKurz();
@@ -139,12 +149,12 @@ function inhalt(seite: Seite): HTMLElement[] {
       verbindung.append(`${t("ein.verbindung")} `, netz);
       return [el("h2", t("ein.privat")), stand, verbindung, kasten("ein-kontakte", t("ein.kontakteAbgleichen")),
         ...(mitWerber ? [kasten("ein-werber", t("ein.werberNennen", { wer: pkShort(werber!) })), leise(t("ein.werberText"))] : []),
-        leise(t("ein.spaeterSettings")), knopf("ein-weiter", t("ein.weiter"), true)];
+        leise(t("ein.spaeterSettings")), knoepfe(knopf("ein-weiter", t("ein.weiter"), true))];
     }
     case "los":
       return [el("h2", t("ein.womitAnfangen")), el("p", t("ein.leisteDanach"), "mono-sm"),
-        knopf("ein-nutzen", t("ein.kiFragen")), knopf("ein-kommunizieren", t("ein.nachrichtenSchreiben")),
-        knopf("ein-verdienen", t("ein.vermietenTitel"))];
+        knoepfe(knopf("ein-nutzen", t("ein.kiFragen")), knopf("ein-kommunizieren", t("ein.nachrichtenSchreiben")),
+          knopf("ein-verdienen", t("ein.vermietenTitel")))];
     default:
       return [];
   }

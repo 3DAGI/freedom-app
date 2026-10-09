@@ -28,7 +28,7 @@ import {
 import { t } from "../i18n.js";
 import { fehlerText } from "../protokoll-texte.js";
 import { verschluesselungMoeglich } from "../sicherer-kontext.js";
-import { hinweis } from "./dialog.js";
+import { alsModal, hinweis } from "./dialog.js";
 import { LS_BUNKER, LS_KEY, LS_MERKPHRASE } from "./state.js";
 import { $, el, toast } from "./ui.js";
 
@@ -97,6 +97,7 @@ function dialog(...teile: HTMLElement[]): HTMLElement {
   box.append(modal);
   document.body.appendChild(box);
   (box.querySelector("input, textarea") as HTMLElement | null)?.focus();
+  alsModal(box, modal);
   return box;
 }
 
