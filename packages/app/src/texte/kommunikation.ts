@@ -149,7 +149,8 @@ export const kommunikation: Texte = {
   "komm.moderatorRolle": { de: "Moderator", en: "moderator" },
   "komm.nurGruender": { de: "Nur der Gründer kann Moderatoren benennen", en: "Only the founder can name moderators" },
   "komm.modPubkeys": { de: "Schlüssel der Moderatoren (npub oder Hex), je Zeile einer:", en: "Moderators' keys (npub or hex), one per line:" },
-  "komm.einladungRaum": { de: "Einladung in einen privaten Raum von {name} – in der Raumleiste", en: "Invitation to a private room from {name} – in the room bar" },
+  "komm.einladungRaum": { de: "Einladung in „{raum}“ von {name} – in der Raumleiste", en: "Invitation to “{raum}” from {name} – in the room bar" },
+  "komm.raumEingeladen": { de: "{raum} – Einladung von {name}", en: "{raum} – invitation from {name}" },
   // Direktnachrichten
   "komm.keinBlossom": { de: "Kein Blossom-Server erreichbar – Datei zu groß für die Nachricht", en: "No Blossom server reachable – file too large for the message" },
   "komm.verschluessele": { de: "{name}: verschlüssele…", en: "{name}: encrypting…" },

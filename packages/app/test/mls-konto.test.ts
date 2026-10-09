@@ -336,7 +336,8 @@ test("2.3b: Raum – nur mit mir gegründet, eigene Kanäle im Stand; einladen n
   const meine = await sucheKeyPackages({ pk: ICH.pk, abfrage: async (f) => frage(f, EIGENE) });
   const zuZweit = await eva.mls.gruppeAnlegen("Evas Raum", [meine[0]!], GRUPPE);
   const e = { von: eva.pk, relays: GRUPPE, wrap: zuZweit.einladungen[0]! };
-  assert.deepEqual(await mlsEinladungAnnehmen(e, u), { gruppe: zuZweit.gruppe, partner: null });
+  // Seit C-35 mit dem Namen – die Raumleiste zeigt ihn gleich, nicht erst nach dem ersten Öffnen
+  assert.deepEqual(await mlsEinladungAnnehmen(e, u), { gruppe: zuZweit.gruppe, partner: null, name: "Evas Raum" });
   await mlsErreichbar(u);
 
   assert.equal(await mlsSetzeAdmins(g, [ICH.pk, eva.pk], u), true);

@@ -60,12 +60,14 @@ function umfrageKarte(raum: PrivaterRaum, u: RaumUmfrage, name: (pk: string) => 
   const frage = el("h4", u.frage, "planung-frage");
   const liste = el("div", undefined, "planung-optionen");
   const prozent = anteile(u);
+  // Balken erst nach der eigenen Stimme oder am Ende (C-35, Nutzertest R-3) – vorher sah die führende Antwort gewählt aus
+  const ergebnis = !!u.meine?.length || u.beendet;
   u.optionen.forEach((o, i) => {
     const b = knopf("", "planung-option", () => void senden(() => mlsSendeEvent(raum.gruppe, raumStimme(raum.gruppe, u.id, neueWahl(u, o.id))), neu));
     b.disabled = u.beendet;
     b.setAttribute("aria-pressed", String(!!u.meine?.includes(o.id)));
     const balken = el("span", undefined, "planung-balken");
-    balken.style.width = `${prozent[i]}%`;
+    balken.style.width = `${ergebnis ? prozent[i] : 0}%`;
     b.append(balken, el("span", o.text, "planung-option-text"), el("span", t("raum.umfrageStimmen", { n: o.stimmen }), "planung-zahl mono-sm"));
     liste.append(b);
   });

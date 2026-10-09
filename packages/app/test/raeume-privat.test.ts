@@ -81,5 +81,5 @@ test("C.2a: Räume in eigener Datei – kein Raum-Code mehr in kommunikation.ts,
   }
   assert.match(raeume, /^export async function wireSpacesTab\(\)/m);
   assert.match(quelle("../src/shell/app.ts"), /import \{ wireSpacesTab, zeigeRaumLeiste \} from "\.\/tabs\/raeume\.js";/);
-  assert.match(kom, /import \{ kontaktName, zeigeRaumLeiste \} from "\.\/raeume\.js";/);
+  assert.match(kom, /import \{ kontaktName, merkeEinladung, zeigeRaumLeiste \} from "\.\/raeume\.js";/);
 });

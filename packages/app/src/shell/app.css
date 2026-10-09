@@ -855,6 +855,11 @@ h3 .ic-svg, h3 .logo-btc, h3 .logo-sol { vertical-align: -2px; margin-right: 6px
   border-bottom:1px solid #1E1E1E;
 }
 .channel-head h3 { margin:0; font-size:14px; font-weight:600; }
+/* Am Handy steht die Art des Kanals in einer eigenen Zeile (C-35, Nutzertest R-7) – vorher Silbe für Silbe */
+@media (max-width: 1023px) {
+  .channel-head { flex-wrap: wrap; row-gap: 2px; }
+  #channel-privacy { order: 10; flex-basis: 100%; }
+}
 .channel-thread { flex:1; overflow-y:auto; padding:12px 14px; display:flex; flex-direction:column; gap:2px; }
 .channel-composer { display:flex; gap:8px; padding:10px 14px; border-top:1px solid #1E1E1E; }
 .channel-composer input {
@@ -1544,7 +1549,8 @@ button.repo-karte:hover, button.repo-karte:focus-visible { border-color: var(--a
 
 /* ---------- Räume: Mitglieder (Schritt C.2d1) ---------- */
 .mitglieder-kopf { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.member-row .mitglied-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Ganze Namen, umgebrochen statt abgeschnitten (C-35, Nutzertest R-4) */
+.member-row .mitglied-name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .member-row .msg-role.rolle-gruender { color: var(--acc, #C9A227); }
 .member-row .mitglied-knopf { min-height: 28px; padding: 2px 8px; }
 .menue-schwebend { z-index: 900; }
@@ -1702,6 +1708,8 @@ button.menue-punkt.menue-gefahr { color: var(--red-text); }
 .planung-optionen, .planung-antworten { display: flex; flex-direction: column; gap: 4px; }
 .planung-antworten { flex-direction: row; flex-wrap: wrap; }
 .planung-option { position: relative; display: flex; justify-content: space-between; align-items: center; gap: 8px; width: 100%; text-align: left; overflow: hidden; }
+/* Antworten so geschrieben, wie sie eingegeben wurden (C-35) – nicht in Großbuchstaben wie Knöpfe */
+.planung-option, .planung-antwort { text-transform: none; letter-spacing: normal; font-weight: 400; }
 .planung-option .planung-balken { position: absolute; inset: 0 auto 0 0; background: var(--accent-dim); opacity: .35; pointer-events: none; }
 .planung-option-text, .planung-zahl { position: relative; overflow-wrap: anywhere; }
 .planung-option[aria-pressed="true"], .planung-antwort[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }

@@ -89,5 +89,5 @@ test("verdrahtet: Profile bei den Autoren, Anfrage als Merkmal, endet mit Antwor
   assert.match(komm, /c\.lastTs = Math\.floor\(Date\.now\(\) \/ 1000\);\n[^\n]*\n\s+if \(c\.type === "dm"\) nimmAnfrageAn\(c\.id\);/, "nach dem Senden");
   assert.match(komm, /if \(name\.trim\(\)\) c\.anfrage = false;/, "eigener Name");
   assert.match(quelle("../src/shell/app.ts"), /if \(await pruefeKontakt\(c\.id, kontaktKurzName\(c\)\)\) nimmAnfrageAn\(c\.id\);/, "Prüfung");
-  assert.match(quelle("../src/shell/tabs/raeume.ts"), /return c \? kontaktKurzName\(c\) : pkShort\(pk\);/, "Raum, Umfrage, Repo");
+  assert.match(quelle("../src/shell/tabs/raeume.ts"), /if \(c\) return kontaktKurzName\(c\);/, "Raum, Umfrage, Repo");
 });
