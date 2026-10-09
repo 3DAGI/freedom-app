@@ -224,7 +224,10 @@ export async function askAi(): Promise<void> {
     // free tier = bid 0 (gratis-job, kein escrow) — sonst lehnt der bootstrap-provider ab
     const effectiveBid = tier === "free" ? 0 : bid;
     // Modellwechsel: wenn das Tier wechselt und schon Verlauf da ist, Summary einfuegen
-    maybeInsertModelSwitchSummary(selTier);
+    // Mit dem Namen aus der Wahl („Free“ aus „Free — kleines Modell“), nicht der Kennung „free“ (C-32, Nutzertest A-6);
+    // der Wechsel zählt weiter nach der Kennung
+    const tarifName = ($("#ai-tier") as HTMLSelectElement | null)?.selectedOptions[0]?.textContent?.split(" — ")[0]?.trim();
+    maybeInsertModelSwitchSummary(selTier, tarifName || selTier);
     // Tool-Input = Prompt (die Query, die das Tool ausfuehrt)
     for (const t of selectedTools) t.input = prompt;
     addAiMessage("user", prompt, "");
@@ -264,7 +267,7 @@ export async function askAi(): Promise<void> {
  *  zeigt ein Hinweis, dass der Kontext mitgeht. */
 let lastTier: string | null = null;
 let pendingContextSummary = "";
-function maybeInsertModelSwitchSummary(newTier: string): void {
+function maybeInsertModelSwitchSummary(newTier: string, name = newTier): void {
   const thread = $("#ai-thread");
   const msgs = aktuellerVerlauf?.messages ?? [];
   pendingContextSummary = kontextPraefix(msgs, leseUmfang(localStorage.getItem(LS_VERLAUF))); // D1c: Umfang aus Settings › Datenschutz
@@ -272,7 +275,7 @@ function maybeInsertModelSwitchSummary(newTier: string): void {
     const note = document.createElement("div");
     note.className = "model-switch";
     const innen = el("div", `${t("agent.modellGewechselt")} `, "model-switch-inner");
-    innen.append(el("b", newTier), ` — ${t("agent.kontextMit", { n: msgs.length })}`);
+    innen.append(el("b", name), ` — ${msgs.length === 1 ? t("agent.kontextMitEiner") : t("agent.kontextMit", { n: msgs.length })}`);
     note.replaceChildren(innen);
     thread.appendChild(note);
     stickToBottom();

@@ -33,6 +33,11 @@ export function ausMsat(msat: number, kurs?: Pick<MarktKurs, "satsProSol">, einh
   return einheit === "sol" ? `≈ ${sol} (${satsText(m)})` : `${satsText(m)} ≈ ${sol}`;
 }
 
+/** Für schmale Knöpfe (C-32, Nutzertest A-3): mit Kurs wie `ausMsat()`, ohne Kurs nur sats – „(SOL: kein Kurs)“ steht dann im Tooltip, nicht auf jedem Knopf. */
+export function knopfPreis(msat: number, kurs?: Pick<MarktKurs, "satsProSol">, einheit: AnzeigeEinheit = anzeigeEinheit()): string {
+  return kurs ? ausMsat(msat, kurs, einheit) : satsText(Math.max(0, Math.round(msat)));
+}
+
 /** „0,002 SOL ≈ 300 sats“ – mit der Anzeigeeinheit sats „≈ 300 sats (0,002 SOL)“; ohne Kurs „0,002 SOL (sats: kein Kurs)“. */
 export function ausLamports(lamports: number, kurs?: Pick<MarktKurs, "satsProSol">, einheit: AnzeigeEinheit = anzeigeEinheit()): string {
   const l = Math.max(0, Math.round(lamports));

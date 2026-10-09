@@ -5,7 +5,7 @@
  */
 import { type ToolPrice } from "@freedomstack/protocol";
 import { t } from "../../i18n.js";
-import { ausMsat } from "../../preis-anzeige.js";
+import { knopfPreis } from "../../preis-anzeige.js";
 import { werkzeugPreise, werkzeugPreisText } from "../../werkzeug-preise.js";
 import { aktuellerKurs } from "../marktkurs.js";
 import { $, el } from "../ui.js";
@@ -26,8 +26,8 @@ export function zeigeWerkzeugPreise(angebote: ReadonlyArray<{ tools?: ToolPrice[
       el.className = "tool-preis";
       chip.append(el);
     }
-    // Beide Einheiten am Knopf (Regel 4.4b), die Erklaerung im Tooltip
-    el.textContent = preis ? ausMsat(preis.msat, kurs) : t("agent.preisUnbekannt");
+    // Beide Einheiten am Knopf (Regel 4.4b), die Erklaerung im Tooltip; ohne Kurs nur sats (C-32)
+    el.textContent = preis ? knopfPreis(preis.msat, kurs) : t("agent.preisUnbekannt");
   });
 }
 

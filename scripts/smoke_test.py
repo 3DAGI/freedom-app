@@ -2794,6 +2794,51 @@ def gratis_auto_pruefen(browser, url: str) -> dict:
     return erg
 
 
+def agent_klein_pruefen(browser, url: str) -> dict:
+    """C-32 (Nutzertest A-3, A-5): Werkzeug-Knöpfe ohne Kurs nur in sats (die Lücke steht im Tooltip);
+    „erneut“ nach einem Fehler – danach steht die Frage einmal da, im Verlauf „1 Nachricht“."""
+    erg = {"fehler": []}
+    basis = url.rsplit("/", 1)[0]
+    relay = ProbeRelay()
+    ctx = browser.new_context(locale="de-DE", viewport={"width": 1280, "height": 800})
+    ctx.route("**/*", lambda r: r.continue_() if r.request.url.startswith(basis) else r.abort())
+    ctx.route_web_socket(re.compile(r"^wss?://"), relay.verbinde)
+    s = ctx.new_page()
+    s.on("pageerror", lambda e: erg["fehler"].append(str(e)[:300]))
+    ev = s.evaluate
+    s.goto(url, wait_until="load")
+    s.wait_for_selector("#bk-done", timeout=30000)
+    w = ev("() => [...document.querySelectorAll('.mnemonic-list li')].map(l => l.textContent)")
+    ev("(w) => document.querySelectorAll('#bk-challenge input').forEach(i => i.value = w[+i.dataset.pos])", w)
+    ev("() => document.getElementById('bk-done').click()")
+    s.wait_for_timeout(1500)
+    ev("() => document.getElementById('ein-abbrechen')?.click()")
+    ev("() => document.querySelector('.app-nav button[data-tab=\"ai\"]').click()")
+    s.wait_for_selector(".tool-chip .tool-preis", timeout=10000)
+    knoepfe = ev("() => [...document.querySelectorAll('.tool-chip')].map(c => [c.querySelector('.tool-preis')?.textContent ?? '', c.title])")
+    erg["knoepfe"] = knoepfe[:2]
+    if not knoepfe or any("kein Kurs" in k[0] or not k[0].endswith(" sats") for k in knoepfe) \
+            or not all("kein Kurs" in k[1] for k in knoepfe):
+        erg["fehler"].append(f"Werkzeug-Knöpfe {knoepfe}")
+    # „erneut“: Tarif Free ohne Provider – Fehlerblase mit Knopf; danach dieselbe Frage genau einmal
+    frage = "Erneut gefragt 5150"
+    ev("(f) => { document.getElementById('ai-tier').value = 'free'; document.getElementById('ai-prompt').value = f;"
+       " document.getElementById('ai-send').click(); }", frage)
+    s.wait_for_selector("#ai-thread .bubble.error .btn-retry", timeout=60000)
+    ev("() => document.querySelector('#ai-thread .bubble.error .btn-retry').click()")
+    s.wait_for_function("() => document.querySelector('#ai-thread .bubble.error .btn-retry')"
+                        " && document.getElementById('ai-send').dataset.running !== '1'", timeout=60000)
+    erg["erneut"] = ev("""(f) => ({
+        fragen: [...document.querySelectorAll('#ai-thread .bubble.user')].filter(b => b.textContent.includes(f)).length,
+        fehler: document.querySelectorAll('#ai-thread .bubble.error').length,
+        verlauf: document.querySelector('#agent-history .active .history-sub')?.textContent ?? '' })""", frage)
+    ctx.close()
+    if erg["erneut"] != {"fragen": 1, "fehler": 1, "verlauf": "1 Nachricht"}:
+        erg["fehler"].append(f"erneut {erg['erneut']}")
+    erg["bestanden"] = not erg["fehler"]
+    return erg
+
+
 def lokal_pruefen(browser, url: str) -> dict:
     """KI auf diesem Gerät (B-1): „Dieses Gerät“ steht in der Modellwahl, gesucht wird
     erst auf Klick, die Frage geht nur an localhost – kein Auftrag, kein Umschlag ans Relay."""
@@ -2903,7 +2948,8 @@ def lokal_pruefen(browser, url: str) -> dict:
     ev("() => document.getElementById('ai-privat').click()")
     if erg["privat"] != {"feld": "Privat ins Netz 2342", "laeuft": "", "fragen": 0, "hinweis": True, "relay": [], "geraet": 1}:
         erg["fehler"].append(f"Privat {erg['privat']}")
-    # Mein Knoten (B-9a): gekoppelt steht die Gruppe zwischen Netz und Gerät; die Frage geht nur als Umschlag an den
+    # Mein Knoten (B-9a): gekoppelt steht die Gruppe seit C-32 oben, vor Gerät und Netz (sonst lag sie mit vielen
+    # Netz-Modellen außer Sicht) und ist ohne Scrollen sichtbar; die Frage geht nur als Umschlag an den
     # Knoten (kein Klartext, kein anderer Provider), ohne Antwort wartet die App – „Stopp“ bricht ab
     knoten_pk = "ab" * 32
     ev("() => document.getElementById('knoten-koppeln').click()")
@@ -2915,6 +2961,8 @@ def lokal_pruefen(browser, url: str) -> dict:
     karte_k = '#model-popover .knoten-bereich .model-card[data-model="knoten:"]'
     s.wait_for_selector(karte_k, timeout=20000)
     gruppen = ev("() => [...document.querySelectorAll('#model-popover .mc-gruppe')].map(g => g.textContent)")
+    sichtbar_k = ev(f"""() => {{ const p = document.getElementById('model-popover').getBoundingClientRect();
+        const k = document.querySelector('{karte_k}').getBoundingClientRect(); return k.top >= p.top && k.bottom <= p.bottom; }}""")
     ev(f"() => document.querySelector('{karte_k}').click()")
     knopf_k = ev("() => document.getElementById('ai-model-btn').textContent.trim()")
     vorher_k = len(relay.gesendet)
@@ -2933,10 +2981,10 @@ def lokal_pruefen(browser, url: str) -> dict:
         abgebrochen = False
     neu_k = list({e["id"]: e for e in relay.gesendet[vorher_k:]}.values())
     umschlaege = [e for e in neu_k if e.get("kind") == 1059]
-    erg["knoten"] = {"gruppen": gruppen, "knopf": knopf_k, "abgebrochen": abgebrochen,
+    erg["knoten"] = {"gruppen": gruppen, "sichtbar": sichtbar_k, "knopf": knopf_k, "abgebrochen": abgebrochen,
                      "arten": sorted({e.get("kind") for e in neu_k}),
                      "an": sorted({t[1] for e in umschlaege for t in e["tags"] if t[0] == "p"})}
-    if gruppen != ["Netz", "Mein Knoten", "Dieses Gerät"] or knopf_k != "Modell des Knotens · mein Knoten" or not abgebrochen \
+    if gruppen != ["Mein Knoten", "Dieses Gerät", "Netz"] or not sichtbar_k or knopf_k != "Modell des Knotens · mein Knoten" or not abgebrochen \
             or len(umschlaege) != 1 or erg["knoten"]["an"] != [knoten_pk] \
             or any(5000 <= int(e.get("kind", 0)) < 7000 for e in neu_k) or any(frage_k in json.dumps(e) for e in neu_k):
         erg["fehler"].append(f"Mein Knoten {erg['knoten']}")
@@ -4722,6 +4770,10 @@ def main() -> int:
             except Exception as e:
                 erg["gratis_auto"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
             try:
+                erg["agent_klein"] = agent_klein_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
+            except Exception as e:
+                erg["agent_klein"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
+            try:
                 erg["lokal"] = lokal_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
             except Exception as e:
                 erg["lokal"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
@@ -4773,6 +4825,7 @@ def main() -> int:
           and erg.get("werben", {}).get("bestanden") is True
           and erg.get("unsicher", {}).get("bestanden") is True
           and erg.get("gratis_auto", {}).get("bestanden") is True
+          and erg.get("agent_klein", {}).get("bestanden") is True
           and erg.get("lokal", {}).get("bestanden") is True
           and erg.get("meshtastic", {}).get("bestanden") is True
           and erg.get("einrichtung", {}).get("bestanden") is True

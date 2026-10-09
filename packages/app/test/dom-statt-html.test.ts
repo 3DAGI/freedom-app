@@ -130,7 +130,7 @@ test("C-6d1: agent.ts – Modellwahl, Verlauf, Werkzeuge, Fehler und Vorschau al
   assert.match(agent, /b\.append\(el\("span", v\.title, "history-title"\)/);
   assert.match(agent, /el\("span", x\.name, "panel-name"\)/);
   assert.match(agent, /koerper\.append\(el\("b", cause\)\);/);
-  assert.match(agent, /innen\.append\(el\("b", newTier\)/);
+  assert.match(agent, /innen\.append\(el\("b", name\)/);
   assert.match(agent, /bild\.src = attachment\.dataUrl;/);
   assert.doesNotMatch(agent, /\b(pop|btn|box|c|note|status)\.innerHTML/);
   // Die Helfer setzen nur Symbole aus der festen Tabelle

@@ -95,6 +95,7 @@ export const agent: Texte = {
   "agent.heute": { de: "Heute", en: "Today" },
   "agent.frueher": { de: "Früher", en: "Earlier" },
   "agent.nachrichten": { de: "{n} Nachrichten", en: "{n} messages" },
+  "agent.eineNachricht": { de: "1 Nachricht", en: "1 message" },
   "agent.dieseSitzung": { de: "Diese Sitzung", en: "This session" },
   "agent.gebuehrVorschau": { de: "{betrag} → Provider mind. {provider} / Anteile höchstens {anteile}", en: "{betrag} → provider at least {provider} / shares at most {anteile}" },
   "agent.schaetzung": { de: "~{tokens} Tokens ≈ {preis}", en: "~{tokens} tokens ≈ {preis}" },
@@ -191,6 +192,7 @@ export const agent: Texte = {
   "agent.swarmTimeout": { de: "Swarm: der Provider antwortet nicht — Zeitüberschreitung", en: "Swarm: the provider doesn't answer — timeout" },
   "agent.modellGewechselt": { de: "⇄ Modell gewechselt zu", en: "⇄ switched model to" },
   "agent.kontextMit": { de: "der Kontext wird mitgegeben ({n} Nachrichten)", en: "the context is passed along ({n} messages)" },
+  "agent.kontextMitEiner": { de: "der Kontext wird mitgegeben (1 Nachricht)", en: "the context is passed along (1 message)" },
   // Antwort, Zahlung
   "agent.providerKurz": { de: "Provider {pk}…", en: "provider {pk}…" },
   "agent.providerVerlangte": { de: "Provider verlangte {sats} sats – mehr als dein Gebot; die App zahlt höchstens das Gebot", en: "Provider asked for {sats} sats – more than your bid; the app pays at most the bid" },

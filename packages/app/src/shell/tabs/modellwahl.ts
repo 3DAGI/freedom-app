@@ -140,7 +140,8 @@ async function zeigeKnotenBereich(): Promise<void> {
     b.append(head, sub);
     bereich.append(b);
   }
-  pop.insertBefore(bereich, pop.querySelector(".lokal-bereich"));
+  // Ganz oben (C-32, Nutzertest N-2): unter den Modellen des Netzes lag „Mein Knoten“ außer Sicht
+  pop.prepend(bereich);
 }
 
 // ------------------------------------------------ KI auf diesem Gerät (B-1)
@@ -199,7 +200,9 @@ function zeigeLokalBereich(): void {
   aendern.className = "ghost mono-sm lokal-adresse";
   aendern.textContent = t("agent.lokalAdresse", { adresse });
   bereich.append(aendern);
-  pop.append(bereich);
+  // Oben, nach „Mein Knoten“ (C-32): eigene Wege vor dem Netz
+  const knoten = pop.querySelector(".knoten-bereich");
+  if (knoten) knoten.after(bereich); else pop.prepend(bereich);
 }
 
 /** Modelle auf diesem Rechner suchen – nur auf Wunsch; danach auch beim Öffnen der Wahl. */
