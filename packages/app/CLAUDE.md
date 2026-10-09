@@ -727,6 +727,12 @@ Fallstricke dieses Bereichs unten anhängen.
   wird nur über `ladeAgentInPrivatenRaum()` → `mlsLadeAgentEin()`: KeyPackage vom Gerät (erst sichern, dann
   einladen), die Einladung reicht `uebergib` direkt seinem Konto – nie an ein Relay, nur der Commit geht an die
   Gruppe. Danach nur innere Events: Raumstand, Karte vom Agenten, Liste des Besitzers, Hinweis ohne Erwähnung.
+  Beantwortet (seit 11.3c3b) nur über `setzePrivatAuf()` (`shell/agenten-lauschen.ts`) – die Engine lädt dafür erst im
+  Abruftakt (`agentenImTakt`), nie beim Start: je Agent und Gruppe ein Abo an die Relays der Gruppe, vorher alles
+  nachholen (`agentAbgleichen()`, auch Commits – wer einen auslässt, liest danach nichts mehr; Verlauf vor dem Zustand),
+  beantwortet nur, was nach dem Abo kam. Agenten im privaten Raum erkennt man an ihrer Karte (`agentRaum().agenten`),
+  nicht an einer Rolle; geschrieben wird nur über `agentSendet()` (inneres Event, gleich in den eigenen Verlauf).
+  Auftrag und Bezahlung teilen offene und private Räume (`frageUndZahle()`).
 - **Anhänge im Chat nur über `handleChatFiles()`** (seit C-29, `anhang-warte.ts`): Jeder Upload
   meldet sich bei `anhangWarte` an, und `sendChatMessage()` wartet auf alle, bevor es Text und
   Anhänge liest. Ein neuer Weg, Dateien anzuhängen (Einfügen, Ziehen, Sprachnachricht), geht durch
