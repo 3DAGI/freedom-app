@@ -152,7 +152,10 @@ was Kunden wirklich fragen. Kind 38081 wird nicht wiederverwendet.
 
 ### 3.3 Auswahl in der App (wie OpenRouter)
 1. **Ausschluss nach hinten:** eigener Ausfall in den letzten 60 Sekunden;
-   bestätigte Reklamationen (wie heute).
+   bestätigte Reklamationen (wie heute); seit L2-1 ein Angebot, das zwei
+   Erneuerungen verpasst hat (der Knoten erneuert alle 30 Minuten,
+   `angebotVeraltet()`) – hinter alle frischen, vor die gemessenen Ausfälle.
+   Für einen neuen Nutzer sähe ein toter Provider sonst wie ein lebender aus.
 2. **Stufe nach Verfügbarkeit:**
    - Quelle: die eigene Messung ab 20 Anfragen, sonst gilt der Provider als
      neu (seit P5a; vorher zählten Berichte gewählter Prüfer).
@@ -170,7 +173,12 @@ was Kunden wirklich fragen. Kind 38081 wird nicht wiederverwendet.
 5. **Lastverteilung:** Unter gleich Guten wählt die App zufällig, gewichtet mit
    1/Preis² (`sichererZufall()`), statt immer denselben. So bekommen günstige
    und neue Provider Verkehr.
-6. **Rückfall:** Die Reihenfolge bei Ausfall ist diese Liste.
+6. **Rückfall:** Die Reihenfolge bei Ausfall ist diese Liste. Seit L2-2 fragt
+   die App den nächsten zusätzlich, wenn ein Provider 20 Sekunden ohne
+   Lebenszeichen bleibt (kein Ergebnis, keine Rückmeldung – ein Knoten meldet
+   „processing“, sobald er einen Auftrag angenommen hat); wer lebt, bekommt
+   die ganze Frist. Mit Gutschrift im Zahlkanal nie vor der Frist – ein
+   zweiter Provider bekäme eine zweite Gutschrift.
 
 ### 3.4 Probezeit (24 Stunden), neu gedeutet
 - **Bleibt:** In den ersten 24 Stunden verdient der Knoten nichts. Seit A-14

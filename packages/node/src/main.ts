@@ -24,6 +24,7 @@ import {
   signEvent,
   startUrls,
   gratisAusUmgebung,
+  ANGEBOT_TAKT_SEK,
 } from "@freedomstack/protocol";
 import { DvmProvider, DEFAULT_PROVIDER_CONFIG } from "./dvm-provider.js";
 import { kanalKasseAusUmgebung, kanalOrte } from "./kanal-kasse.js";
@@ -569,8 +570,9 @@ async function main(): Promise<void> {
 
   // NEU: Capabilities regelmaessig neu publizieren (alle 30min), damit der
   // Provider nicht als "stale" (veraltet) gefiltert wird. Der Client filtert
-  // Events aelter als 24h — ohne Refresh verschwindet der Provider.
-  const CAPS_REFRESH_MS = 30 * 60 * 1000; // 30 Minuten
+  // Events aelter als 24h — ohne Refresh verschwindet der Provider; nach zwei
+  // verpassten Erneuerungen steht er hinter frischen (L2-1, `angebotVeraltet()`).
+  const CAPS_REFRESH_MS = ANGEBOT_TAKT_SEK * 1000; // 30 Minuten
   setInterval(async () => {
     try {
       await pool.publish((await baueAngebot()).ev);
