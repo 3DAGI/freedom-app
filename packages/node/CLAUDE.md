@@ -150,3 +150,7 @@ Bereichs unten anhängen.
   `tool_call_id` (`werkzeugRunde()`). Modelle kennt der Knoten über `antriebModelle()` (`/v1/models`
   ohne Fingerabdruck) – geprüft laden (`ModellDienst`) geht nur mit Ollama; `pruefeModelle(…, antrieb)`
   sagt das mit eigenen Kennungen, nie „geprüft“ für einen anderen Antrieb.
+  Gemessen wird (seit B-29b) nur über `npm run messen` (`messung.ts`): derselbe Antrieb und Weg wie
+  echte Anfragen (`complete()` mit `ohneWerkzeuge`), feste Übungsfragen, höchstens N zugleich
+  (`missStufe()`), Fehler nur mit Namen, Antworten nie ausgeben. Tokens je Sekunde nur, wenn der
+  Antrieb sie für jede Anfrage nennt – sonst „–“, nie hochrechnen.
