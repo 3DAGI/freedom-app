@@ -5,7 +5,7 @@
  * als feste Kennungen und werden hier übersetzt; Modellnamen bleiben, wie sie
  * sind, und landen nur als Text im DOM.
  */
-import type { KnotenStatus, MarktKurs, StatusBefund, StatusRolle } from "@freedomstack/protocol";
+import type { KnotenStatus, MarktKurs, ModellBefund, ModellLaden, ModellSchritt, StatusBefund, StatusRolle } from "@freedomstack/protocol";
 import { gebietsschema, t } from "./i18n.js";
 import { ausMsat, solText } from "./preis-anzeige.js";
 
@@ -55,6 +55,40 @@ export const EINRICHTUNG_TEXT: Record<string, string> = {
   "sol.auszahlungUngueltig": "set.einSolAuszahlungUngueltig",
 };
 
+/**
+ * Textschlüssel je Modell-Befund (E9-3b) – Kennungen aus
+ * `node/src/modell-pruefung.ts`; ein Test hält beide Listen gleich. Unbekannte
+ * (neuerer Knoten) zeigen nur die Kennung.
+ */
+export const MODELL_TEXT: Record<string, string> = {
+  "modell.geprueft": "set.modGeprueft",
+  "modell.ungeprueft": "set.modUngeprueft",
+  "modell.veraendert": "set.modVeraendert",
+  "modell.fehltBeiOllama": "set.modFehltBeiOllama",
+  "modell.fehltImAngebot": "set.modFehltImAngebot",
+  "modell.ollamaStumm": "set.modOllamaStumm",
+  "modell.wartet": "set.modWartet",
+  "modell.manifestKeins": "set.modManifestKeins",
+  "modell.manifestUneinig": "set.modManifestUneinig",
+  "modell.manifestKeineQuelle": "set.modManifestKeineQuelle",
+  "modell.manifestNichtVeroeffentlicht": "set.modManifestNichtVeroeffentlicht",
+  "modell.registryNichtErreichbar": "set.modRegistryNichtErreichbar",
+  "modell.passtNicht": "set.modPasstNicht",
+  "modell.registryAnders": "set.modRegistryAnders",
+  "modell.ollamaLaden": "set.modOllamaLaden",
+  "modell.ollamaFehlt": "set.modOllamaFehlt",
+  "modell.schichtForm": "set.modSchichtForm",
+  "modell.schichtFremd": "set.modSchichtFremd",
+  "modell.schichtGroesse": "set.modSchichtGroesse",
+  "modell.schichtFehlt": "set.modSchichtFehlt",
+  "modell.fehler": "set.modFehler",
+};
+
+/** Textschlüssel je Schritt beim Laden (E9-3b). */
+export const SCHRITT_TEXT: Record<ModellSchritt, string> = {
+  manifest: "set.modSchrittManifest", vorpruefung: "set.modSchrittVorpruefung", laden: "set.modSchrittLaden", pruefen: "set.modSchrittPruefen",
+};
+
 const ZEICHEN: Record<StatusBefund["stufe"], string> = { ok: "✓", hinweis: "!", fehler: "✗" }; // kein UI-Text
 
 /** Werte eines Befunds für den Text: Lamports als SOL, Zahlen im Gebietsschema, Fehlernamen wie sie sind. */
@@ -70,7 +104,25 @@ export function befundZeile(b: StatusBefund): string {
   return `${ZEICHEN[b.stufe]} ${t(b.schiene === "lightning" ? "set.schieneLightning" : "set.schieneSol")}: ${text}`;
 }
 
+/** Eine Zeile je Modell (E9-3b): Zeichen der Stufe, Name (nur als Text), Text aus der Kennung. */
+export function modellZeile(b: ModellBefund): string {
+  const werte: Record<string, string> = { fall: b.fall };
+  for (const [k, w] of Object.entries(b.werte)) werte[k] = typeof w === "number" ? (k === "bytes" ? gb(w) : zahl(w)) : w;
+  const text = MODELL_TEXT[b.fall] ? t(MODELL_TEXT[b.fall]!, werte) : t("set.einUnbekannt", { fall: b.fall });
+  return `${ZEICHEN[b.stufe]} ${b.name}: ${text}`;
+}
+
+/** Was gerade lädt (E9-3b): Schritt, beim Laden der Anteil (höchstens 100 %). */
+export function ladenZeile(l: ModellLaden): string {
+  const schritt = t(SCHRITT_TEXT[l.schritt]);
+  if (l.schritt !== "laden" || !l.gesamt) return t("set.modLaedt", { name: l.name, schritt });
+  const prozent = Math.min(100, Math.floor(((l.geladen ?? 0) / l.gesamt) * 100));
+  return t("set.modLaedtAnteil", { name: l.name, schritt, prozent: zahl(prozent), gb: gb(l.gesamt) });
+}
+
 const zahl = (n: number): string => n.toLocaleString(gebietsschema());
+/** Bytes als GB-Zahl – die Einheit steht im Text. */
+const gb = (n: number): string => (n / 1e9).toLocaleString(gebietsschema(), { maximumFractionDigits: 1 });
 /** Bytes als MB-Zahl – die Einheit steht im Text. */
 const mb = (n: number): string => (n / 1024 ** 2).toLocaleString(gebietsschema(), { maximumFractionDigits: 1 });
 
@@ -93,5 +145,14 @@ export function statusZeilen(s: KnotenStatus, kurs?: Pick<MarktKurs, "satsProSol
   // Selbstprüfung (B-11c): fehlt sie, sagt die Anzeige das – nie „alles gut“ erfinden
   if (s.einrichtung) zeilen.push(t("set.statusEinrichtung"), ...s.einrichtung.map(befundZeile));
   else zeilen.push(t("set.statusEinrichtungFehlt"));
+  // Modelle (E9-3b): fehlt das Feld, ist der Knoten älter – nie „alles gut“ erfinden
+  const m = s.modellPruefung;
+  if (!m) zeilen.push(t("set.statusModelleFehlt"));
+  else {
+    zeilen.push(t("set.statusModellPruefung"));
+    if (m.laeuft) zeilen.push(ladenZeile(m.laeuft));
+    zeilen.push(...m.befunde.map(modellZeile));
+    if (!m.laeuft && m.befunde.length === 0) zeilen.push(t("set.statusModelleKeine"));
+  }
   return zeilen;
 }

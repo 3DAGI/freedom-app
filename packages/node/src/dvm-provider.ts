@@ -137,7 +137,7 @@ export interface ProviderConfig {
    * den Prozess weiß (Fassung, Start, laufende Rollen, Modelle, Relay).
    * Aufträge und Speicher zählt der Provider selbst. Ohne: keine Statusabfrage.
    */
-  status?: () => Pick<KnotenStatus, "fassung" | "seit" | "rollen" | "modelle" | "relay" | "einrichtung" | "weckSchluessel">;
+  status?: () => Pick<KnotenStatus, "fassung" | "seit" | "rollen" | "modelle" | "relay" | "einrichtung" | "weckSchluessel" | "modellPruefung">;
   /**
    * Was der Knoten anbietet (`main.ts`): `PROVIDER_MODELS` und seit E9-3a die
    * geprüft geladenen Modelle. Ohne: nur `PROVIDER_MODELS`.

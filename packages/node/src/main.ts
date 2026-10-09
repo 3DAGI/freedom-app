@@ -34,7 +34,8 @@ import { turnAusUmgebung } from "./turn.js";
 import { kopplungsDatei, leseKopplung } from "./kopplung-datei.js";
 import { torAusUmgebung, torWebSocket } from "./tor.js";
 import { OllamaBackend } from "./inference.js";
-import { ModellDienst, nurBeiOllama, ollamaPull, ollamaTags, registryDateien } from "./modell-laden.js";
+import { ModellDienst, leseStand, leseWuensche, modellDatei, nurBeiOllama, ollamaPull, ollamaTags, registryDateien, wunschDatei } from "./modell-laden.js";
+import { providerModelle, pruefeModelle } from "./modell-pruefung.js";
 import { type KnotenSchluessel, SchluesselFehler, knotenSchluesselDatei, ladeKnotenSchluessel } from "./knoten-schluessel.js";
 import http from "node:http";
 
@@ -143,10 +144,21 @@ async function main(): Promise<void> {
   let gepruefteModelle: readonly string[] = [];
   // B-41: nur, was Ollama hat (`nurBeiOllama()`, bei jedem Angebot neu gefragt); ohne Antwort keine Aussage
   let ollamaNamen: readonly string[] | null = null;
+  // E9-3b: Namen und Fingerabdrücke aus derselben Antwort – der Status zeigt den Stand des letzten Angebots
+  let ollamaStand: ReadonlyArray<{ name: string; digest: string }> | null = null;
   const alleAngebotenen = () => [...new Set([
-    ...(process.env.PROVIDER_MODELS ?? process.env.OLLAMA_MODEL ?? "nemotron-3.5-lightning:30b-a3b-nvfp4").split(",").map((m) => m.trim()).filter(Boolean),
+    ...providerModelle(process.env),
     ...gepruefteModelle,
   ])];
+  // Modelle im Status an den Besitzer (E9-3b): Befunde je Modell und was gerade lädt – nur Kennungen, Zahlen, Namen
+  const modellPruefung = (): import("@freedomstack/protocol").KnotenStatus["modellPruefung"] => {
+    const stand = leseStand(modellDatei());
+    const befunde = pruefeModelle({ angeboten: providerModelle(process.env), stand, wuensche: leseWuensche(wunschDatei()), ollama: ollamaStand });
+    return {
+      befunde: befunde.map(({ name, stufe, fall, werte }) => ({ name, stufe, fall, werte: werte ?? {} })),
+      ...(stand.laeuft ? { laeuft: stand.laeuft } : {}),
+    };
+  };
   const angebotModelle = () => (ollamaNamen ? nurBeiOllama(alleAngebotenen(), ollamaNamen).modelle : alleAngebotenen());
 
   const keypair = loadKeypair();
@@ -263,6 +275,7 @@ async function main(): Promise<void> {
           fassung, seit: statusSeit, rollen: [...statusRollen], modelle: angebotModelle(), relay: r ? { events: r.events, verbindungen: r.verbindungen } : null,
           einrichtung: einrichtung?.map(({ schiene, stufe, fall, werte }) => ({ schiene, stufe, fall, werte: werte ?? {} })),
           weckSchluessel: vapid?.oeffentlich,
+          modellPruefung: modellPruefung(),
         };
       },
       pricePerKTokenMsat: Number(process.env.PRICE_PER_K_TOKEN_MSAT ?? DEFAULT_PROVIDER_CONFIG.pricePerKTokenMsat),
@@ -515,7 +528,7 @@ async function main(): Promise<void> {
   const baueAngebot = async () => {
     const { AUFTEILUNG_FASSUNG, buildCapabilities, defaultPriceFor, DEFAULT_TOOL_PRICES, signEvent, KANAL_PROGRAMM_ID } = await import("@freedomstack/protocol");
     gepruefteModelle = await modellDienst.imAngebot();
-    ollamaNamen = await ollamaTags(ollamaUrl).then((t) => t.map((m) => m.name), () => null);
+    ollamaNamen = await ollamaTags(ollamaUrl).then((t) => (ollamaStand = t).map((m) => m.name), () => (ollamaStand = null));
     const models = angebotModelle();
     const model = models[0]; // primaer
     // B-41: was angekündigt war, Ollama aber nicht hat, und ein OLLAMA_MODEL außerhalb des Angebots – nur ins Log
