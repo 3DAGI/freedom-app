@@ -6713,3 +6713,56 @@ allem den Abgleich der MLS-Gruppen (jede Minute je Gruppe) und Leser nach NIP-65
   `frageAn()`/`queryAn()`, „post_live“).
 
 Knoten-Stand: unverändert – nur App und `OutboxPool` (Protokoll).
+
+## Schritt 11.3b – Agenten in Räumen: Protokoll (b1 und b2)
+
+Spur A, nach dem Entwurf `docs/AGENTEN-RAUM-ENTWURF.md` (freigegeben 08.10.:
+F1, F4, F6 A; F2 Monatsbudget mit Pfand; F3 B; F5 Agentenketten mit Schalter).
+Nur Protokoll – Gerät (11.3c, Spur A), Knoten (11.3d, Spur B) und Oberfläche
+(11.3e, Spur C) bauen darauf. Format in `docs/PROTOCOL.md` 32.
+
+**b1 – Karte, Besitzer, Rolle (`protocol/src/agent-karte.ts`):**
+- Karte (Kind 38090, `d` = `karte`): Autor ist der Agent, Inhalt leer.
+  - Name, Beschreibung, Betrieb (`knoten`/`geraet`), Bezahlung
+    (`fragender`/`einlader`), optional Besitzer, Provider, Modell.
+  - Keine Persona, keine Systemanweisung (F4 A).
+  - Streng gelesen: jedes Feld einmal, bekannte Werte, Grenzen, keine
+    Steuerzeichen; je Agent die neueste.
+- Besitzer nur bestätigt (F1 A): NIP-51-Liste des Besitzers (Kind 30000, `d` =
+  `freedom-agenten`); es zählt seine neueste. Eine Liste ohne den Agenten
+  widerruft.
+- Rolle `agent` (F6 A): lesen, schreiben, Threads, Rang 1. `mitAgentRolle()` nimmt
+  ihr jedes weitere Recht – geprüft mit `can()` in einem offenen Raum.
+- Private Räume: Karte und Liste nur als innere Events (`raumAgentKarte()`,
+  `raumAgentenListe()`, `raumAgentKarten()`, `raumListenEvents()`).
+- Leak-Regel `agent-raum-privat`: keine Karte, keine Liste mit dem Agenten und keine
+  Nachricht von oder an ihn offen; KeyPackages (443) erlaubt.
+
+**b2 – wann ein Agent antwortet (`protocol/src/agent-auftrag.ts`):**
+- Auslöser (`sollAntworten()`): nur bei Erwähnung, nie die eigene Nachricht, nur
+  mit Schreibrecht im Kanal.
+- Agentenketten (F5):
+  - Schalter `["agentenketten", <1–50>]` in der Raum-Definition, ohne Tag aus.
+  - Antworten nur aus einem Budget.
+  - `kettenLaenge()` zählt rückwärts über die Antworten bis zum ersten Menschen;
+    sie endet an fehlenden Gliedern und an Kreisen.
+- Bremse: 3 Aufträge je Absender und Minute (`AuftragsBremse`, `RateLimiter`).
+- Kontext (`agentKontext()`): nur Kanal bzw. Thread samt Anfang, nur davor, in den
+  Grenzen des Fragenden; andere Agenten gekennzeichnet.
+- Verweis im Kern: `agent-raum` (Adresse oder Gruppe) und `agent-erwaehnung`,
+  streng gelesen.
+- Antwort: Kind 42 bzw. inneres Event Art 9, mit `root`/`reply`/`mention`,
+  höchstens 4000 Zeichen.
+- Monatsbudget (F2): `budgetStufe()` (Standard 10 %) und `naechsteStufe()` –
+  kumulativ eine Stufe über dem Verbrauchten, nie über dem Budget.
+
+**Verdrahtet:** noch nicht – nur Protokoll. Die Exporte stehen bis 11.3c/11.3d in
+`scripts/wiring-ausnahmen.txt`. Die Aussagen im Datenschutzbericht kommen mit
+11.3c: Erst dann gibt es Agenten in der App, und ein Szenario mit echter Engine.
+
+**Tests:**
+- `agent-karte.test.ts` (+5): Karte, strenges Lesen, Besitzer, Rolle samt `can()`,
+  Leak-Regel.
+- `agent-auftrag.test.ts` (+7): Auslöser, Ketten, Schalter, Bremse, Kontext,
+  Verweis und Antwort, Budget.
+- Der Sammeltest der Leak-Regeln kennt die neue Regel.
