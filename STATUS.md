@@ -7190,6 +7190,40 @@ Zahl 1 an „Chat“ da und ist nach dem Öffnen gelesen. Vor dem Fix rot.
 **Prüfungen:** protocol 1252 grün (6 übersprungen), node 347, app 1014 (+4), Leak 73 + 1 todo;
 tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
 
+## Schritt 11.3c3a – Agenten auf dem Gerät in privaten Räumen: eigenes MLS-Konto, Einladen
+
+Dritter Teil von 11.3c (Entwurf P1, P2, P4, P6). 11.3c3 ist geteilt: c3a Konto und
+Einladen, c3b Erwähnungen in privaten Räumen beantworten.
+
+**Neu:**
+
+- `packages/app/src/shell/agent-mls.ts`: `agentKonto()` – ein eigenes MLS-Konto je Agent
+  (sein Schlüssel, eigener Kontobeweis, Zustand verschlüsselt in der IndexedDB
+  `freedom-agenten-mls`, je Agent ein Eintrag, an ihn gebunden; Schlüssel des Zustands wie beim
+  eigenen Konto im Tresor). `ladeAgentInPrivatenRaum()` – nur als Admin der Gruppe, nie als
+  Gerät: KeyPackage auf dem Gerät erzeugen und sichern, über `mlsLadeAgentEin()` einladen,
+  danach Raumstand, Budget, Karte (vom Agenten), Liste des Besitzers (alle seine Agenten in
+  diesem Raum) und Pflicht-Hinweis – alles nur als innere Events. `entferneAgentAusPrivatemRaum()`.
+- `shell/mls-konto.ts`: `mlsLadeAgentEin()` – wie `mlsLadeEin()`, aber das KeyPackage kommt vom
+  Gerät, und die Einladung reicht ein eigenes Netz direkt an das Konto des Agenten; nur der
+  Commit geht an die Relays der Gruppe.
+- `shell/raum-mls.ts`: `sendeRaumstand()` aus `ladeInPrivatenRaum()` herausgelöst (auch für Agenten).
+- `vault.ts`: `IndexedDbSpeicher` mit Eintrag je Schlüssel (Standard wie bisher „blob“);
+  `duress.ts`: `freedom-agenten-mls` in `WIPE_DATENBANKEN`.
+- Datenschutzbericht: „agent-raum“ (belegt, Regel `agent-raum-privat`, Szenario mit echter
+  Engine: lokale Einladung, Karte, Liste, Erwähnung, Antwort – keine Einladung an ein Relay,
+  kein Klartext, nur Gruppen-Nachrichten) und „agent-geraet“ (Grenze: der Provider liest den
+  Verlauf des Kanals bis zur Erwähnung, auch was andere schrieben – nur mit Pseudonymen, ohne
+  Raum), Texte de/en.
+
+**Verdrahtet:** `raumAgentKarte`, `raumAgentenListe` sind damit aus `wiring-ausnahmen.txt`
+heraus. Aufrufer von `ladeAgentInPrivatenRaum()` ist die Oberfläche (11.3e, Spur C);
+beantwortet wird ab 11.3c3b.
+
+**Prüfungen:** protocol 1252 grün (6 übersprungen), node 347, app 1013 (+3), Leak 73 + 1 todo;
+mls 13; tsc ×3, Build, `check-wiring --streng` (0 offen), `check-website`, `check_innerhtml --streng`,
+Smoke-Test, Website-Bau und reproduzierbarer Build grün.
+
 ## Schritt C-31 – Agent-Verlauf folgt dem Ende
 
 Spur C, Befund A-4 aus dem Nutzertest vom 08.10. (Anhang D der Sammlung): Der Agent-Chat
