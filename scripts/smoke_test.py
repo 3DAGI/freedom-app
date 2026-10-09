@@ -1080,6 +1080,38 @@ def anhang_senden_pruefen(browser, url: str) -> dict:
     return erg
 
 
+def agent_folgen_pruefen(browser, url: str) -> dict:
+    """Der Agent-Verlauf folgt dem Ende (C-31, Nutzertest A-4): Bis C-31 maß die App erst nach dem Anhängen, ob
+    man unten war – jede Blase über 80 px galt als „hochgescrollt“, und die Ansicht blieb stehen. Ein langer
+    Verlauf öffnet jetzt am Ende; wer hochscrollt, bleibt oben, bis er selbst wieder nach unten geht."""
+    erg = {"fehler": []}
+    lang = "Ein langer Absatz. " * 60
+    verlauf = [{"id": "lang", "title": "Lang", "at": 1790000000, "messages": [
+        {"role": "user" if i % 2 == 0 else "ai", "text": f"{i}: {lang}", "meta": ""} for i in range(12)]}]
+    seite = DialogSeite(browser, url, ProbeRelay(), erg,
+                        init=f"localStorage.setItem('freedom.agentHistory', {json.dumps(json.dumps(verlauf))});")
+    s, ev = seite.s, seite.ev
+    ev("() => { location.hash = '#/agent'; }")
+    s.wait_for_selector(".history-item[data-hid='lang']", state="attached", timeout=30000)
+    ev("() => document.querySelector(\".history-item[data-hid='lang']\").click()")
+    s.wait_for_function("() => document.querySelectorAll('#ai-thread .bubble').length === 12", timeout=10000)
+    s.wait_for_timeout(300)
+    abstand = "() => { const t = document.getElementById('ai-thread'); return Math.round(t.scrollHeight - t.scrollTop - t.clientHeight); }"
+    erg["geoeffnet"] = ev(abstand)
+    # Hochscrollen: Die Ansicht bleibt dort, auch wenn ein neuer Verlauf nichts daran ändert
+    ev("() => { const t = document.getElementById('ai-thread'); t.scrollTop = 0; t.dispatchEvent(new Event('scroll')); }")
+    s.wait_for_timeout(100)
+    erg["hochgescrollt"] = ev("() => document.getElementById('ai-thread').scrollTop")
+    erg["hoehe"] = ev("() => document.getElementById('ai-thread').scrollHeight")
+    if erg["geoeffnet"] > 5:
+        erg["fehler"].append(f"langer Verlauf öffnet nicht am Ende: {erg['geoeffnet']} px darüber")
+    if erg["hochgescrollt"] != 0 or erg["hoehe"] < 3000:
+        erg["fehler"].append(f"hochgescrollt {erg['hochgescrollt']}, Höhe {erg['hoehe']}")
+    seite.ctx.close()
+    erg["bestanden"] = not erg["fehler"]
+    return erg
+
+
 def sprachnachricht_pruefen(browser, url: str) -> dict:
     """Sprachnachrichten (C-7): Mikrofon erst auf Klick, nach dem Beenden und Verwerfen aus; die Aufnahme ist ein
     Anhang, reist klein in der verschlüsselten Nachricht und spielt im eigenen Verlauf."""
@@ -4577,6 +4609,10 @@ def main() -> int:
             except Exception as e:
                 erg["anhang_senden"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
             try:
+                erg["agent_folgen"] = agent_folgen_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
+            except Exception as e:
+                erg["agent_folgen"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
+            try:
                 erg["anruf"] = anruf_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
             except Exception as e:
                 erg["anruf"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
@@ -4676,6 +4712,7 @@ def main() -> int:
           and erg.get("sprachnachricht", {}).get("bestanden") is True
           and erg.get("composer", {}).get("bestanden") is True
           and erg.get("anhang_senden", {}).get("bestanden") is True
+          and erg.get("agent_folgen", {}).get("bestanden") is True
           and erg.get("anruf", {}).get("bestanden") is True
           and erg.get("post_live", {}).get("bestanden") is True
           and erg.get("agent_abo", {}).get("bestanden") is True

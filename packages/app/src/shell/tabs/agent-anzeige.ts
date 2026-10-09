@@ -109,7 +109,7 @@ export function showAiError(e: unknown, retryPrompt: string, retryBid: number, r
   };
   blase.appendChild(btn);
   $("#ai-thread").appendChild(blase);
-  stickToBottom(() => blase.scrollIntoView({ behavior: "smooth", block: "end" }));
+  stickToBottom();
   const sendBtn = $("#ai-send") as HTMLButtonElement;
   resetSendBtn(sendBtn);
 }
@@ -159,7 +159,8 @@ export function addAiMessage(role: "user" | "ai", text: string, meta: string, mo
   // AI-Antworten: Markdown nur über antwortDom(). User: reiner Text.
   koerper.append(role === "ai" ? antwortDom(text) : text);
   $("#ai-thread").appendChild(blase);
-  stickToBottom(() => blase.scrollIntoView({ behavior: "smooth", block: "end" }));
+  // Die eigene Frage holt die Ansicht ans Ende zurück (C-31)
+  if (role === "user") folgeWieder(); else stickToBottom();
   merkeNachricht(role, text, meta, model);
   return blase;
 }
@@ -170,19 +171,19 @@ export function addAiMessage(role: "user" | "ai", text: string, meta: string, mo
 export function addAiMessageStreaming(role: "ai", text: string, meta: string, model?: string, onDone?: () => void): HTMLElement {
   const { blase, koerper: bodyEl } = blasenGeruest(role, meta, model);
   $("#ai-thread").appendChild(blase);
-  stickToBottom(() => blase.scrollIntoView({ behavior: "smooth", block: "end" }));
+  stickToBottom();
 
   let i = 0;
   const speed = 12; // ms pro zeichen (schneller: nutzer wollen die antwort)
   const tick = () => {
     if (i < text.length) {
       bodyEl.textContent = text.slice(0, ++i);
-      stickToBottom(() => blase.scrollIntoView({ behavior: "smooth", block: "end" }));
+      stickToBottom();
       setTimeout(tick, speed);
     } else {
       // fertig: Markdown samt Code-Blöcken (Kopier-Knopf) als DOM
       bodyEl.replaceChildren(antwortDom(text));
-      stickToBottom(() => blase.scrollIntoView({ behavior: "smooth", block: "end" }));
+      stickToBottom();
       merkeNachricht("ai", text, meta, model);
       onDone?.();
     }
@@ -352,7 +353,7 @@ abrechnung?: { providerMsat: number; posten: Array<{ anteil: string; msat: numbe
   });
   blase.append(toggle, koerper);
   $("#ai-thread").appendChild(blase);
-  stickToBottom(() => blase.scrollIntoView({ behavior: "smooth", block: "end" }));
+  stickToBottom();
 }
 
 const ANTEIL_NAME: Record<string, string> = {
@@ -392,7 +393,7 @@ export function showTyping(status: string = "thinking"): HTMLElement {
   tippt.append(leiste, label);
   $("#ai-thread").appendChild(tippt);
   addStepIcon(status);
-  stickToBottom(() => tippt.scrollIntoView({ behavior: "smooth", block: "end" }));
+  stickToBottom();
   return tippt;
 }
 
@@ -457,17 +458,38 @@ export function setTypingLabel(text: string): void {
   el.textContent = t2;
 }
 
+/** Folgt die Ansicht dem Ende (C-31)? Wer hochscrollt, liest – dann bleibt sie stehen. */
+let folgen = true;
+let beobachtet: HTMLElement | null = null;
+
+/** Nah genug am Ende, um ihm zu folgen. */
+function amEnde(thread: HTMLElement): boolean {
+  return thread.scrollHeight - thread.scrollTop - thread.clientHeight < 80;
+}
+
 /**
- * Scrollt nur, wenn der Nutzer bereits ganz unten ist. Sobald er hochscrollt,
- * bleibt die Ansicht stehen (lesen ohne Sprung). Rückgabe: war unten?
+ * Hält die Ansicht am Ende, solange der Nutzer nicht hochgescrollt hat (C-31, Nutzertest
+ * A-4). Ob er liest, entscheidet sein Scrollen – bis C-31 maß die App erst nach dem
+ * Anhängen: Eine Blase höher als 80 px galt dann als „hochgescrollt“, und die Antwort
+ * lief unten aus dem Bild. Gescrollt wird sofort, nicht weich – eine laufende Animation
+ * hätte die nächste Messung verfälscht. Rückgabe: folgt sie?
  */
-export function stickToBottom(scrollFn?: () => void): boolean {
+export function stickToBottom(): boolean {
   const thread = $("#ai-thread");
   if (!thread) return true;
   // .ai-thread IST selbst der scroll-container (overflow-y:auto)
-  const nearBottom = thread.scrollHeight - thread.scrollTop - thread.clientHeight < 80;
-  if (nearBottom && scrollFn) scrollFn();
-  return nearBottom;
+  if (beobachtet !== thread) {
+    beobachtet = thread;
+    thread.addEventListener("scroll", () => { folgen = amEnde(thread); }, { passive: true });
+  }
+  if (folgen) thread.scrollTop = thread.scrollHeight;
+  return folgen;
+}
+
+/** Nach eigener Frage oder beim Öffnen eines Verlaufs wieder ans Ende (C-31). */
+export function folgeWieder(): void {
+  folgen = true;
+  stickToBottom();
 }
 
 /** Animiert den Orb (pulsierende Blob-Kugel in accent). */
