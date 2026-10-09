@@ -6,16 +6,18 @@
  * Geräte gelten dann nicht mehr als Besitzer. Der Code ist ein Schlüssel:
  * nur dem eigenen Gerät zeigen.
  */
-import { kopplungscode, toHex } from "@freedomstack/protocol";
-import { schnorr } from "@noble/curves/secp256k1.js";
+import { kopplungscode } from "@freedomstack/protocol";
 import { erneuereKopplung, kopplungImTerminal, kopplungsDatei, leseKopplung } from "./kopplung-datei.js";
+import { SchluesselFehler, knotenSchluesselDatei, ladeKnotenSchluessel } from "./knoten-schluessel.js";
 
-const sk = process.env.NODE_SECRET_KEY ?? "";
-if (!/^[0-9a-f]{64}$/.test(sk)) {
-  console.error("NODE_SECRET_KEY fehlt oder ist ungültig – mit derselben Umgebung wie der Knoten aufrufen.");
+// Derselbe Schlüssel wie der Knoten (B-40): NODE_SECRET_KEY oder ~/.freedom/node-key – hier nie neu anlegen
+let knoten: string;
+try {
+  knoten = ladeKnotenSchluessel(process.env.NODE_SECRET_KEY, knotenSchluesselDatei(), { anlegen: false }).pk;
+} catch (e) {
+  console.error(e instanceof SchluesselFehler ? e.message : "Schlüssel des Knotens nicht lesbar – mit derselben Umgebung wie der Knoten aufrufen.");
   process.exit(1);
 }
-const knoten = toHex(schnorr.getPublicKey(Uint8Array.from(Buffer.from(sk, "hex"))));
 const datei = kopplungsDatei();
 const neu = process.argv.includes("--neu");
 const k = (!neu && leseKopplung(datei, knoten)) || erneuereKopplung(datei, knoten);

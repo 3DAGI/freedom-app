@@ -12,21 +12,17 @@
  *   - publiziert Results + Leistungs-Events
  *   - verwahrt NICHTS (non-custodial by design)
  */
-import { schnorr } from "@noble/curves/secp256k1.js";
 import { join } from "node:path";
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { totalmem } from "node:os";
 import {
   buildModelManifest,
-  generateKeypair,
   KIND_MODEL_MANIFEST,
   OutboxPool,
   WebSocketRelay,
   MemoryRelay,
-  fromHex,
   signEvent,
   startUrls,
-  toHex,
   gratisAusUmgebung,
 } from "@freedomstack/protocol";
 import { DvmProvider, DEFAULT_PROVIDER_CONFIG } from "./dvm-provider.js";
@@ -38,25 +34,30 @@ import { kopplungsDatei, leseKopplung } from "./kopplung-datei.js";
 import { torAusUmgebung, torWebSocket } from "./tor.js";
 import { OllamaBackend } from "./inference.js";
 import { ModellDienst, ollamaPull, ollamaTags, registryDateien } from "./modell-laden.js";
+import { type KnotenSchluessel, SchluesselFehler, knotenSchluesselDatei, ladeKnotenSchluessel } from "./knoten-schluessel.js";
 import http from "node:http";
 
 /** Ohne RELAYS: die ganze Startliste (5.4) – so teilt jede App-Sitzung Relays mit dem Knoten. */
 const RELAYS_DEFAULT = startUrls().join(",");
 
+/**
+ * Schlüssel des Knotens (B-40): `NODE_SECRET_KEY` oder `~/.freedom/node-key` (beim ersten
+ * Start angelegt, 0600) – nie bei jedem Start ein neuer, der geheime nie ins Log.
+ */
 function loadKeypair() {
-  const skHex = process.env.NODE_SECRET_KEY;
-  if (!skHex) {
-    const kp = generateKeypair();
-    console.log("==========================================================");
-    console.log("Kein NODE_SECRET_KEY gesetzt -> neuer Key generiert.");
-    console.log("Sichere ihn und setze ihn beim naechsten Start:");
-    console.log(`  NODE_SECRET_KEY=${Buffer.from(kp.sk).toString("hex")}`);
-    console.log(`  pubkey=${kp.pk}`);
-    console.log("==========================================================");
-    return kp;
+  const datei = knotenSchluesselDatei();
+  let k: KnotenSchluessel;
+  try {
+    k = ladeKnotenSchluessel(process.env.NODE_SECRET_KEY, datei, { anlegen: true });
+  } catch (e) {
+    console.error(e instanceof SchluesselFehler ? e.message : `Schlüssel nicht lesbar (${(e as Error).name}).`);
+    process.exit(1);
   }
-  const sk = fromHex(skHex);
-  return { sk, pk: toHex(schnorr.getPublicKey(sk)) };
+  if (k.quelle === "neu") {
+    console.log(`Neuer Schlüssel des Knotens in ${datei} angelegt – diese Datei sichern, an ihr hängen Ruf und Zahlkanäle.`);
+  }
+  console.log(`Schlüssel des Knotens aus ${k.quelle === "umgebung" ? "NODE_SECRET_KEY" : datei}: pubkey=${k.pk}`);
+  return { sk: k.sk, pk: k.pk };
 }
 
 /**

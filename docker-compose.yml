@@ -78,6 +78,9 @@ services:
       # Pflicht. Fehlt sie, bricht der Knoten mit einer klaren Meldung ab.
       NODE_LUD16: "${NODE_LUD16:?NODE_LUD16 fehlt — ohne Auszahlungsadresse waere die Arbeit geschenkt}"
       REGION: "${REGION:-}"
+      # B-40: Schluessel des Knotens. Leer: ~/.freedom/node-key im Volume freedom-state
+      # (beim ersten Start angelegt, 0600) – so bleibt die Identitaet ueber Neustarts.
+      NODE_SECRET_KEY: "${NODE_SECRET_KEY:-}"
       OLLAMA_URL: "http://ollama:11434"
       OLLAMA_MODEL: "${OLLAMA_MODEL:-qwen2.5:7b}"
       PROVIDER_MODELS: "${PROVIDER_MODELS:-qwen2.5:7b}"
@@ -145,9 +148,9 @@ services:
       TURN_SECRET: "${TURN_SECRET:-}"
       QUOTA_API_PORT: "3602"
     volumes:
-      # Identitaet und Bootstrap-Zeitpunkt ueberleben Neustarts. Ohne dieses
-      # Volume erzeugt jeder Neustart einen neuen Schluessel — Reputation weg,
-      # Gratisphase zurueck auf Anfang.
+      # Identitaet (node-key, B-40) und Bootstrap-Zeitpunkt ueberleben Neustarts. Ohne
+      # dieses Volume (und ohne NODE_SECRET_KEY) entsteht nach jedem Neubau des Containers
+      # ein neuer Schluessel — Reputation weg, Gratisphase zurueck auf Anfang.
       - freedom-state:/home/node/.freedom
       - freedom-data:/home/node/freedom-data
     ports:
