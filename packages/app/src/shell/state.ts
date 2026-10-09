@@ -9,7 +9,7 @@
  */
 import {
   LocalSigner, type NostrEvent, OutboxPool, type RelayFilter, type Signer, type UnsignedEvent, WebSocketRelay, baueRelayAuth,
-  normalizeRelayUrl, startUrls,
+  normalizeRelayUrl, startUrls, verifyEvent,
 } from "@freedomstack/protocol";
 import { zugaenge } from "../relay-kauf.js";
 import { ScoredProvider, discoverProviders, matchProviders, mitMessung } from "../matchmaking.js";
@@ -332,6 +332,24 @@ export async function frageAn(filter: RelayFilter, urls: readonly string[]): Pro
   const alle = new Map<string, NostrEvent>();
   for (const a of antworten) if (a.status === "fulfilled") for (const ev of a.value) alle.set(ev.id, ev);
   return [...alle.values()];
+}
+
+/**
+ * Dauer-Abo nur an diesen Relays (A-15b) – etwa an den Relays einer MLS-Gruppe, solange ihre Unterhaltung
+ * offen ist; der Filter (`#h`) geht an kein anderes Relay. Relays des Pools über dessen Verbindung, andere
+ * über je eine eigene, die `stopp` wieder schließt. Weiter geht nur, was gültig signiert ist.
+ */
+export async function abonniereAn(filter: RelayFilter, urls: readonly string[], onEvent: (ev: NostrEvent) => void): Promise<() => void> {
+  const pool = await ensurePool();
+  const imPool = new Map(pool.urls.map((u) => [normalizeRelayUrl(u), u]));
+  const ziele = [...new Set(urls.map(normalizeRelayUrl))];
+  const stopps = [await pool.subscribeAn(filter, ziele.filter((u) => imPool.has(u)).map((u) => imPool.get(u)!), onEvent)];
+  for (const u of ziele.filter((u) => !imPool.has(u))) {
+    const r = relayVerbindung(u, { timeoutMs: 8000 });
+    const s = await r.subscribe(filter, (ev) => { if (verifyEvent(ev)) onEvent(ev); }).catch(() => null);
+    stopps.push(() => { s?.(); r.close(); });
+  }
+  return () => { for (const s of stopps) s(); };
 }
 
 /** Outbox beim Lesen (5.4b): Events von Kontakten auch an deren Schreib-Relays (NIP-65). */

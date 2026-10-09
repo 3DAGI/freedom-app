@@ -583,7 +583,7 @@ test("B-13d3: Anrufe – die IP vor dem Gegenüber belegt, der Vermittler als Gr
   assert.equal(f?.status, "grenze");
   assert.equal(f?.regel, "anruf-nur-relay");
   assert.match(f?.grund ?? "", /versiegelt und kurzlebig/, "T3 B: der Zugang reist nur versiegelt");
-  assert.match(f?.aussage ?? "", /solange sie offen ist, bei ihren Relays eine Abfrage nach Umschlägen an dich offen – die Relays sehen also, wann sie läuft\./, "B-13e: das Abo für Anrufe");
+  assert.match(f?.aussage ?? "", /Damit ein Anruf sofort klingelt und Nachrichten sofort ankommen, hält die App, solange sie offen ist, bei ihren Relays Abfragen nach Umschlägen an dich offen – die Relays sehen also, wann sie läuft\./, "B-13e und A-15a: die Abos für Anrufe und Post");
   const t = privacyFactsText();
   assert.match(t.slice(0, t.indexOf("Bewusste Grenzen:")), /✓ Bei Anrufen sieht dein Gegenüber deine IP-Adresse nicht/);
   assert.match(t.slice(t.indexOf("Bewusste Grenzen:")), /△ Ein Anruf läuft immer über einen Vermittler \(TURN\) .*die App sagt dir das vor dem Annehmen\./);

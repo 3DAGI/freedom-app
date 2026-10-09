@@ -6518,6 +6518,101 @@ jede Fläche ab 40 px. Vor dem Fix rot, danach grün.
 
 Fallstrick in `packages/app/CLAUDE.md`: Formularfelder in einer Reihe nur mit eigener Breite.
 
+## Schritt A-15a – Post kommt sofort (Nutzertest, Befund C-12)
+
+Spur A. Im Nutzertest erschienen neue Direktnachrichten erst nach 89 s: Sie kamen nur
+mit dem Abgleich des Posteingangs, und der läuft höchstens einmal je Minute. Das Abo
+für Anrufe (B-13e) half nicht. Es fragt „ab jetzt“ (`since`), und Chat-Umschläge sind
+bis zu zwei Tage zurückdatiert (NIP-59) – ein Relay schickt sie diesem Abo nie.
+A-15 ist geteilt: a NIP-17 (hier), b MLS in der offenen Unterhaltung.
+
+**Was:**
+- **`app/src/post-live.ts`** (neu):
+  - `postFilter()`: Umschläge an den eigenen Schlüssel, ohne `since`, `limit: 1` – was
+    schon liegt, holt der Abgleich.
+  - `LivePost.nimm()`: gleich öffnen nur, was noch nicht geöffnet ist, keine Anrufe
+    (`vielleichtAnruf()` – die haben ihr Abo) und höchstens 30 je Minute. Wer den
+    Schlüssel flutet, bekommt nicht je Umschlag eine Entschlüsselung (mit Bunker je
+    eine Anfrage); der Rest kommt wie bisher mit dem Abgleich.
+- **`shell/tabs/posteingang.ts`:**
+  - `ordneEin()`: der Rumpf der Schleife des Abgleichs, unverändert herausgezogen. Er
+    sagt zusätzlich, ob der Umschlag neu geöffnet wurde und für wen.
+  - `lauscheAufPost()`: das Abo, je Schlüssel eines, gestartet am Ende jedes
+    Abgleichs. Was beim Start schon lag, ist dann geöffnet, und die MLS-Engine lädt
+    nicht früher als bisher.
+  - `nimmLivePost()`: über `ordneEin()`, dieselbe Kette wie der Abgleich. Dann Liste
+    nachführen; ist die Unterhaltung offen, lädt sie nach.
+- **Datenschutzbericht** („anruf-vermittler“, beide Sprachen): „Damit ein Anruf sofort
+  klingelt und Nachrichten sofort ankommen, hält die App … Abfragen … offen“. Die
+  Relays sahen schon vorher, wann die App läuft; der Satz nennt jetzt beide Abos.
+
+**Verdrahtet:** `shell/tabs/posteingang.ts` – `syncDmInbox()` endet mit
+`void lauscheAufPost()`; das Abo ruft `nimmLivePost()` → `ordneEin()` →
+`oeffneUmschlag()`.
+
+**Tests:**
+- `post-live.test.ts` (+4):
+  - Filter ohne `since`;
+  - zurückdatierter Umschlag ja, schon geöffneter nicht, Anruf nicht, anderes Kind nicht;
+  - Grenze je Minute;
+  - Verdrahtung, und das Abo für Anrufe bleibt „ab jetzt“.
+- `privacy-facts.test.ts`: prüft den neuen Satz wörtlich (vorher den alten) – Zahl
+  gleich.
+- **Smoke „post_live“** (neu, `scripts/dm-probe.mts`): Unterhaltung offen, Abo offen,
+  eine Nachricht eines Wegwerf-Schlüssels über `ProbeRelay.zustellen()`. Sie steht nach
+  0,1 s im Chat; ohne das Abo (Gegenprobe) nach 15 s nicht.
+
+## Schritt A-15b – MLS in der offenen Unterhaltung sofort (Befund C-6)
+
+Spur A, Fortsetzung von A-15a. Über MLS kam im Nutzertest eine Antwort bei offener
+Unterhaltung erst nach etwa 55 s. Gruppennachrichten (Kind 445) gehen an die Relays
+der Gruppe, nicht an den Posteingang – das Abo für Post sieht sie nicht. Der Abgleich
+holt sie höchstens einmal je Minute.
+
+**Was:**
+- **`OutboxPool.subscribeAn()`** (Protokoll): ein Abo nur an den genannten Relays des
+  Pools, wie `publishAn()`, mit derselben Prüfung wie `subscribe()` (Signatur, je Event
+  einmal). Ein Filter mit `#h` nennt die Gruppe so keinem anderen Relay.
+  `subscribe()` ruft dieselbe innere Funktion und verhält sich wie bisher.
+- **`abonniereAn()`** (`shell/state.ts`): Relays des Pools über dessen Verbindung, andere
+  über je eine eigene, die `stopp` schließt. Weiter geht nur gültig Signiertes.
+- **`mlsGruppenAbo()`** (`shell/mls-konto.ts`): Filter der Gruppe aus `gruppenAbos()`
+  mit `limit: 1` und ihre Relays; null ohne Konto (Bunker, ohne Tresor).
+- **`shell/gruppe-live.ts`** (neu): `lauscheAufGruppe()` hält für die offene
+  Unterhaltung ein Abo an den Relays ihrer Gruppe; eine andere Unterhaltung beendet es.
+  Ein Treffer stößt nur an, empfangen wird über `mlsAbgleichen([gruppe])` wie beim
+  Abgleich.
+- **`Nachziehen`** (`post-live.ts`): Nie zwei Läufe zugleich (die Engine weist einen
+  zweiten ab); was währenddessen kommt, gibt genau einen weiteren, frühestens 2 s
+  danach. So bremst sich auch ein Relay, das Treffer flutet.
+- **`kommunikation.ts`:** `loadChatMessages()` der offenen Unterhaltung ruft
+  `lauscheAufGruppe()` – auch wenn sie erst jetzt eine Gruppe hat. `zeigeNeuesMls()`
+  ist dieselbe Anzeige wie nach der Wartezeit (`mlsBeiNeuem`).
+- Die Engine lädt dadurch nicht früher. Eine Unterhaltung mit Gruppe lädt sie beim
+  Öffnen ohnehin (`mlsVerlauf()`).
+
+**Verdrahtet:** `shell/tabs/kommunikation.ts` `loadChatMessages()` →
+`lauscheAufGruppe()` → `mlsGruppenAbo()` und `abonniereAn()` → `pool.subscribeAn()`; ein
+Treffer → `Nachziehen` → `mlsAbgleichen()` → `zeigeNeuesMls()`.
+
+**Tests:**
+- `outbox.test.ts` (+1): nur die genannten Relays, Gefälschtes nie, doppelt einmal,
+  ohne Treffer kein Fehler, `subscribe()` unverändert.
+- `post-live.test.ts` (+2): `Nachziehen` – nie zwei zugleich, genau einer nachgezogen,
+  ein Anstoß in der Pause gibt keinen dritten (der Test fand das im ersten Entwurf),
+  Fehler halten nichts auf; Verdrahtung.
+- Ein Browser-Test mit zwei Geräten und MLS-1:1 fehlt. Die Verdrahtung prüfen
+  Quelltext-Tests; der Rest ist der Abgleich, den der Smoke-Test „privatraum“ mit echter
+  Engine schon fährt.
+
+**Prüfungen (A-15a und A-15b):**
+- protocol 1238 grün (6 übersprungen, +1), node 337 (6 übersprungen), app 975 (+6);
+- Leak-Tests 73 grün + 1 todo;
+- check-wiring `--streng`, check-website, innerHTML streng: alle Exit 0;
+- Build, Smoke-Test bestanden (mit „post_live“, je nach a und nach b ganz gelaufen).
+
+Knoten-Stand: unverändert – nur App und `OutboxPool` (Protokoll).
+
 ## Schritt B-24 – Warntext zum Zeitanker (Nutzertest, T-1)
 
 Der Dialog „Diebstahl vorbeugen“ (Settings › Sicherheit, Schritt 3) endete mit
