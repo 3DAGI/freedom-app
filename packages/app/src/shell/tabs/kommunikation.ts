@@ -28,6 +28,7 @@ import { anforderungen, anhangElement, anhangWarte, chatAttachments, leereAnhaen
 import { loeseNamenAuf, markiereSchluessel, schluesselHinweis, schluesselStand, setzePetname, sichereKontakte } from "./kontakte.js";
 import { type DmAnzeige, entschluesselungFehlgeschlagen, geraeteBuch, ladeDmNachrichten, syncDmInbox, veroeffentlicheDm } from "./posteingang.js";
 import { lauscheAufGruppe } from "../gruppe-live.js";
+import { zeigeOnboarding } from "../app.js";
 
 /** Kommunikation: zwischen Direktnachrichten und einem Raum umschalten. */
 export function setzeKommModus(modus: "dm" | "space"): void {
@@ -550,6 +551,11 @@ export async function sendChatMessage(): Promise<void> {
     if (c.type === "dm") nimmAnfrageAn(c.id);
     saveConversations();
     loadChatMessages(activeConversation);
+    // Die erste Nachricht ist die erste Nutzung (C-39, E-7) – wie die erste KI-Antwort; danach fragt die Leiste nach der Sicherung
+    if (localStorage.getItem("freedom.usedOnce") !== "1") {
+      localStorage.setItem("freedom.usedOnce", "1");
+      void zeigeOnboarding();
+    }
   } catch (e) {
     toast(t("komm.fehler", { grund: fehlerText(e) }), true);
   }

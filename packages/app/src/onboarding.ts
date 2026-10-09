@@ -49,6 +49,7 @@ export interface Readiness {
 
 export type StepId =
   | "los"
+  | "los-chat"
   | "sichern"
   | "tresor"
   | "wallet"
@@ -75,8 +76,13 @@ export interface NextStep {
  * keinen Grund, eine einzurichten.
  */
 export function nextStep(r: Readiness, intent: Intent = "unbekannt"): NextStep {
-  // 1. Noch nichts gemacht? Dann zuerst etwas erleben.
+  // 1. Noch nichts gemacht? Dann zuerst etwas erleben – das, was der Nutzer in der Einrichtung
+  //    gewählt hat (C-39, Nutzertest E-7): Schreiben oder einen Knoten einrichten, sonst die KI.
   if (!r.hasUsedOnce) {
+    if (intent === "kommunizieren") {
+      return { id: "los-chat", title: t("ein.losChatTitel"), body: t("ein.losChatText"), action: t("ein.losChatAktion"), skippable: false, urgency: "info" };
+    }
+    if (intent === "verdienen") return providerAnleitung();
     return {
       id: "los",
       title: t("ein.losTitel"),
@@ -115,16 +121,7 @@ export function nextStep(r: Readiness, intent: Intent = "unbekannt"): NextStep {
   }
 
   // 4. Verdienen wollen: die Hürde ist die Software, nicht die Wallet.
-  if (intent === "verdienen") {
-    return {
-      id: "provider-anleitung",
-      title: t("ein.vermietenTitel"),
-      body: t("ein.vermietenText"),
-      action: t("ein.anleitung"),
-      skippable: true,
-      urgency: "info",
-    };
-  }
+  if (intent === "verdienen") return providerAnleitung();
 
   // 5. Gratis aufgebraucht und keine Wallet: jetzt ist die Frage berechtigt.
   if (!r.hasWallet && r.gratisErschoepft) {
@@ -154,6 +151,18 @@ export function nextStep(r: Readiness, intent: Intent = "unbekannt"): NextStep {
     id: "fertig",
     title: t("ein.fertigTitel"),
     body: t("ein.fertigText"),
+    skippable: true,
+    urgency: "info",
+  };
+}
+
+/** Verdienen: die Anleitung zum eigenen Knoten (Earn › Hosten). */
+function providerAnleitung(): NextStep {
+  return {
+    id: "provider-anleitung",
+    title: t("ein.vermietenTitel"),
+    body: t("ein.vermietenText"),
+    action: t("ein.anleitung"),
     skippable: true,
     urgency: "info",
   };
