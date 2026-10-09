@@ -313,7 +313,7 @@ test("8.16f: Earn, Profil, Settings – über Schlüssel; Sätze des Protokolls 
       id: "0".repeat(64), sig: "0".repeat(128), pubkey: autor,
     });
     const [a, b, c] = ["a", "b", "c"].map((x) => x.repeat(64));
-    for (const evs of [[], [beitrag(a!, 3)], [beitrag(a!, 60)], [beitrag(a!, 400)]]) {
+    for (const evs of [[], [beitrag(a!, 0)], [beitrag(a!, 3)], [beitrag(a!, 60)], [beitrag(a!, 400)]]) {
       const o = P.buildRepoOverview("r", evs as never, jetzt);
       assert.equal(T.repoZustand(o, jetzt), o.healthNote);
     }
@@ -517,7 +517,7 @@ test("8.16g2b2: Sätze des Protokolls in Settings und im Chat – deutsch wortgl
     assert.equal(stati.size, 5, "jeder Stand gesehen");
     // Sicherung: Info, gebaut, wiederhergestellt
     const jetzt = Math.floor(Date.now() / 1000);
-    for (const [groesse, zuletzt] of [[0, undefined], [2048, jetzt - 3 * TAG - 3600], [512_000, jetzt - 40 * TAG]] as const) {
+    for (const [groesse, zuletzt] of [[0, undefined], [2048, jetzt - 3600], [2048, jetzt - 3 * TAG - 3600], [512_000, jetzt - 40 * TAG]] as const) {
       assert.equal(T.sicherungInfo(groesse, zuletzt), P.backupInfo(groesse, zuletzt));
     }
     const schluessel = P.deriveBackupKey(ich!.sk);

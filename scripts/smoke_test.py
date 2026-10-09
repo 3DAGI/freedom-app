@@ -3003,6 +3003,67 @@ def profil_klein_pruefen(browser, url: str) -> dict:
     return erg
 
 
+def geld_settings_klein_pruefen(browser, url: str) -> dict:
+    """C-38a (Nutzertest W-1, W-2, X-1 bis X-4): Kopf der Seite Währung als „KI-Budget“ ohne
+    leere SOL-Zeile, Häkchen-Sätze wie geschrieben, Kurs-Hinweis mit Abstand; in Settings › Sicherheit
+    der Balken je Schritt an seiner Stelle, der Satz darüber, „jetzt prüfen“ im Datenschutz."""
+    erg = {"fehler": []}
+    basis = url.rsplit("/", 1)[0]
+    relay = ProbeRelay()
+    ctx = browser.new_context(locale="de-DE", viewport={"width": 1280, "height": 800})
+    ctx.route("**/*", lambda r: r.continue_() if r.request.url.startswith(basis) else r.abort())
+    ctx.route_web_socket(re.compile(r"^wss?://"), relay.verbinde)
+    s = ctx.new_page()
+    s.on("pageerror", lambda e: erg["fehler"].append(str(e)[:300]))
+    ev = s.evaluate
+    s.goto(url, wait_until="load")
+    s.wait_for_selector("#bk-done", timeout=30000)
+    w = ev("() => [...document.querySelectorAll('.mnemonic-list li')].map(l => l.textContent)")
+    ev("(w) => document.querySelectorAll('#bk-challenge input').forEach(i => i.value = w[+i.dataset.pos])", w)
+    ev("() => document.getElementById('bk-done').click()")
+    s.wait_for_timeout(1500)
+    ev("() => document.getElementById('ein-abbrechen')?.click()")
+    ev("() => document.querySelector('.app-nav button[data-tab=\"wallet\"]').click()")
+    s.wait_for_timeout(800)
+    erg["waehrung"] = ev("""() => {
+        const haken = document.getElementById('nwc-privat').closest('label');
+        const kurs = document.getElementById('kurs-info');
+        return {
+          kopf: [...document.querySelectorAll('#nav-balances .nb-label')].map(l => l.textContent),
+          sol: !!document.getElementById('nb-sol'),
+          haken: getComputedStyle(haken).textTransform,
+          kursAbstand: kurs.textContent ? getComputedStyle(kurs).marginBottom : 'leer',
+          verbundenAbstand: getComputedStyle(document.getElementById('sol-pubkey')).marginBottom,
+        }; }""")
+    wa = erg["waehrung"]
+    if wa["kopf"] != ["KI-Budget"] or wa["sol"]:
+        erg["fehler"].append(f"Kopf {wa['kopf']} sol={wa['sol']}")
+    if wa["haken"] != "none":
+        erg["fehler"].append(f"Häkchen-Satz {wa['haken']}")
+    if wa["kursAbstand"] not in ("8px", "leer") or wa["verbundenAbstand"] != "8px":
+        erg["fehler"].append(f"Abstände {wa}")
+    # Schritt 4 (Nachfolge) erledigt, 2 und 3 nicht: der vierte Teil des Balkens leuchtet, nicht der zweite
+    ev("() => localStorage.setItem('freedom.successionSet', '1')")
+    ev("() => document.querySelector('.app-nav button[data-tab=\"settings\"]').click()")
+    s.wait_for_timeout(800)
+    erg["sicherheit"] = ev("""() => ({
+        balken: [...document.querySelectorAll('.sec-progress span')].map(x => x.classList.contains('on') ? 1 : 0),
+        erledigt: [...document.querySelectorAll('.sec-step')].map(x => x.classList.contains('done') ? 1 : 0),
+        satz: document.querySelector('.settings-lead').textContent,
+        pruefen: document.getElementById('onion-pruefen').textContent,
+      })""")
+    ctx.close()
+    si = erg["sicherheit"]
+    if si["balken"] != si["erledigt"] or si["balken"][3] != 1 or si["balken"][1] != 0:
+        erg["fehler"].append(f"Balken {si['balken']} statt {si['erledigt']}")
+    if not si["satz"].startswith("Alle fünf helfen nur, wenn sie vor einem Verlust"):
+        erg["fehler"].append(f"Satz {si['satz']!r}")
+    if si["pruefen"] != "jetzt prüfen":
+        erg["fehler"].append(f"Knopf {si['pruefen']!r}")
+    erg["bestanden"] = not erg["fehler"]
+    return erg
+
+
 def lokal_pruefen(browser, url: str) -> dict:
     """KI auf diesem Gerät (B-1): „Dieses Gerät“ steht in der Modellwahl, gesucht wird
     erst auf Klick, die Frage geht nur an localhost – kein Auftrag, kein Umschlag ans Relay."""
@@ -4958,6 +5019,10 @@ def main() -> int:
             except Exception as e:
                 erg["profil_klein"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
             try:
+                erg["geld_settings_klein"] = geld_settings_klein_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
+            except Exception as e:
+                erg["geld_settings_klein"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
+            try:
                 erg["lokal"] = lokal_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
             except Exception as e:
                 erg["lokal"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
@@ -5013,6 +5078,7 @@ def main() -> int:
           and erg.get("gratis_auto", {}).get("bestanden") is True
           and erg.get("agent_klein", {}).get("bestanden") is True
           and erg.get("profil_klein", {}).get("bestanden") is True
+          and erg.get("geld_settings_klein", {}).get("bestanden") is True
           and erg.get("lokal", {}).get("bestanden") is True
           and erg.get("meshtastic", {}).get("bestanden") is True
           and erg.get("einrichtung", {}).get("bestanden") is True

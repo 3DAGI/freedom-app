@@ -10,6 +10,7 @@ export const protokollsaetze: Texte = {
   "ps.nfWartefrist": { de: "Schwelle erreicht. Freigabe in {rest} Tagen. Ein einziges Lebenszeichen des Besitzers bricht den Vorgang ab.", en: "Threshold reached. Release in {rest} days. A single sign of life from the owner cancels the process." },
   "ps.nfFreigegeben": { de: "Freigegeben. {schwelle} Vertraute können den Schlüssel zusammensetzen.", en: "Released. {schwelle} trusted people can combine the key." },
   // Zustandssicherung (backupInfo, buildStateBackup, restoreStateBackup)
+  "ps.sichHeute": { de: "Letzte Sicherung heute, {kb} KB.", en: "Last backup today, {kb} KB." },
   "ps.sichLetzte": { de: "Letzte Sicherung vor {tage} Tag(en), {kb} KB.", en: "Last backup {tage} day(s) ago, {kb} KB." },
   "ps.sichKeine": { de: "Noch keine Sicherung.", en: "No backup yet." },
   "ps.sichInfo": { de: "{stand} Unterhaltungen, Räume und Namen, verschlüsselt — auch kein Relay kann sie lesen. Deine Merkphrase allein genügt zur Wiederherstellung. Nie darin: dein Schlüssel, Wallet-Zugänge, laufende Tauschvorgänge und Gruppenschlüssel – ein neues Gerät tritt Räumen neu bei.", en: "{stand} Conversations, rooms and names, encrypted — no relay can read them either. Your recovery phrase alone is enough to restore. Never included: your key, wallet access, running swaps and group keys – a new device joins rooms anew." },

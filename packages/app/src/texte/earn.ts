@@ -107,6 +107,7 @@ export const earn: Texte = {
   "earn.spaeterGezaehlt": { de: "Wird beim nächsten Netzkontakt gezählt.", en: "Counted at the next network contact." },
   // Sätze des Protokolls (protokoll-texte.ts) – Deutsch wortgleich mit dem Protokoll
   "earn.repoUnbekannt": { de: "Keine veröffentlichten Beiträge — das Repo kann trotzdem existieren.", en: "No published contributions — the repo may exist anyway." },
+  "earn.repoHeute": { de: "Heute etwas veröffentlicht.", en: "Published something today." },
   "earn.repoAktiv": { de: "Zuletzt vor {n} Tag(en) etwas veröffentlicht.", en: "Last published something {n} day(s) ago." },
   "earn.repoRuhig": { de: "Seit {n} Tagen nichts Neues. Kann fertig sein oder eingeschlafen.", en: "Nothing new for {n} days. May be finished or dormant." },
   "earn.repoVerwaist": { de: "Seit über {n} Monaten nichts. Wer hier mitarbeiten will, sollte mit keiner Antwort rechnen.", en: "Nothing for more than {n} months. Whoever wants to contribute here should expect no answer." },

@@ -141,7 +141,7 @@ export function buildRepoOverview(
     const tageHer = Math.floor((nowSecs - letzter) / TAG);
     if (tageHer <= 30) {
       health = "aktiv";
-      healthNote = `Zuletzt vor ${tageHer} Tag(en) etwas veröffentlicht.`;
+      healthNote = tageHer === 0 ? "Heute etwas veröffentlicht." : `Zuletzt vor ${tageHer} Tag(en) etwas veröffentlicht.`;
     } else if (tageHer <= 180) {
       health = "ruhig";
       healthNote = `Seit ${tageHer} Tagen nichts Neues. Kann fertig sein oder eingeschlafen.`;

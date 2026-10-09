@@ -171,8 +171,9 @@ export async function aktualisiereSicherheitsStand(): Promise<void> {
     const btn = el.querySelector<HTMLElement>(".sec-action");
     if (btn) btn.hidden = ok;
   });
+  // Je Schritt ein Teil, an seiner Stelle (C-38, Nutzertest X-2) – nicht von links aufgefüllt
   document.querySelectorAll<HTMLElement>(".sec-progress span").forEach((s, i) => {
-    s.classList.toggle("on", i < erledigt);
+    s.classList.toggle("on", !!schritte[i]);
   });
   wireTresorKarte();
 }
