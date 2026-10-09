@@ -43,8 +43,10 @@ test("Verdrahtet: Prüfung vor der Gutschrift, Failover und Max nur mit erlaubte
   assert.match(race, /const erlaubt = new Set\(zieleNachSchiene\(candidates\.map\(\(c\) => c\.caps\.pubkey\), bid > 0\)\);\s*const racers = matchRaceProviders\(candidates\.filter\(\(c\) => erlaubt\.has\(c\.caps\.pubkey\)\), tier, DEFAULT_MAX_MODE\);/);
 
   const zahlung = lies("shell/ki-zahlung.ts");
-  assert.match(zahlung, /if \(kiZahlweg\(standardSchiene\(\), kanalDa\(providerPk\)\) === "kanal-noetig"\) throw new Error\(t\("zahl\.kanalNoetig"\)\);/);
-  assert.match(zahlung, /if \(liste\.length > 0 && ziele\.length === 0\) throw new Error\(t\("zahl\.kanalNoetig"\)\);/, "keiner mit Kanal – Fehler statt Lightning");
+  // Seit 12.4b nach der Schiene für KI (ohne Wahl die Standard-Schiene, ki-schiene.test.ts), Fehler mit dem Provider
+  assert.match(zahlung, /if \(kiZahlweg\(kiSchiene\(\), kanalDa\(providerPk\)\) === "kanal-noetig"\) throw new KanalNoetig\(providerPk\);/);
+  assert.match(zahlung, /if \(liste\.length > 0 && ziele\.length === 0\) throw new KanalNoetig\(liste\[0\]\);/, "keiner mit Kanal – Fehler statt Lightning");
+  assert.match(zahlung, /class KanalNoetig extends Error \{\s*constructor\(readonly provider: string\) \{\s*super\(t\("zahl\.kanalNoetig"\)\);/);
   // Die Einstellung sagt, dass sie auch für KI gilt
   assert.match(lies("texte/settings.ts"), /"set\.schieneText": \{ de: "Vorgabe für Zaps, Trinkgeld und KI/);
 });
