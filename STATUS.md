@@ -6651,3 +6651,12 @@ allem den Abgleich der MLS-Gruppen (jede Minute je Gruppe) und Leser nach NIP-65
   Verdrahtung, und keine Wegwerf-Verbindung je Aufruf mehr.
 - `post-live.test.ts`: der Verdrahtungstest aus A-15b liest die neue Schreibweise von
   `abonniereAn()` – dieselbe Aussage, Zahl gleich.
+
+**Prüfungen:**
+- protocol 1239 grün (6 übersprungen, +1), node 337 (6 übersprungen), app 980 (+5);
+- Leak-Tests 73 grün + 1 todo;
+- check-wiring `--streng`, check-website, innerHTML streng: alle Exit 0;
+- Build reproduzierbar, Smoke-Test bestanden (privater Raum mit echter Engine über
+  `frageAn()`/`queryAn()`, „post_live“).
+
+Knoten-Stand: unverändert – nur App und `OutboxPool` (Protokoll).
