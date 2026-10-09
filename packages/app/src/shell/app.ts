@@ -869,15 +869,18 @@ function starte(): void {
   void aktualisiereNavStatus();
   wireOfflineHinweis();
   void aktualisiereSicherheitsStand();
-  // Profil teilen: den oeffentlichen Schluessel kopieren — damit findet dich jeder Nostr-Client.
+  // Profil teilen: den oeffentlichen Schluessel als npub kopieren (C-37) – so nimmt ihn jeder Nostr-Client.
+  // Derselbe Schluessel, unter dem „Profil speichern“ das Profil veroeffentlicht.
   document.getElementById("profile-share")?.addEventListener("click", async () => {
     if (!state.keypair) return;
+    const { encodeNpub } = await import("../identity.js");
+    const npub = encodeNpub(state.keypair.pk);
     try {
-      await navigator.clipboard.writeText(state.keypair.pk);
+      await navigator.clipboard.writeText(npub);
       toast(t("ein.pubkeyKopiert"));
     } catch {
       // Ohne Zwischenablage zum Markieren im Dialog (C-1e, statt prompt())
-      await dialog({ titel: t("ein.pubkeyTitel"), felder: [{ art: "nurlesen", name: "pk", label: t("ein.pubkey"), wert: state.keypair.pk }], ok: t("dlg.schliessen"), abbrechen: false });
+      await dialog({ titel: t("ein.pubkeyTitel"), felder: [{ art: "nurlesen", name: "pk", label: t("ein.pubkey"), wert: npub }], ok: t("dlg.schliessen"), abbrechen: false });
     }
   });
   const ziele: Record<string, string> = { "1": "backup-now", "2": "rotation-prepare", "3": "succ-setup" };

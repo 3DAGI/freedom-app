@@ -24,6 +24,8 @@ export const profil: Texte = {
   "profil.jobs": { de: "{n} Jobs", en: "{n} jobs" },
   "profil.abzeichen": { de: "Abzeichen", en: "Badges" },
   "profil.abzeichenVergebenKnopf": { de: "Abzeichen vergeben", en: "Award a badge" },
+  "profil.identitaet": { de: "Identität", en: "Identity" },
+  "profil.identText": { de: "Dein Schlüssel auf diesem Gerät. Ein Klick darauf kopiert den privaten Schlüssel – nur zum Sichern, nie weitergeben. „Importieren“ ersetzt diese Identität durch eine andere.", en: "Your key on this device. Clicking it copies the private key – only for backups, never share it. “Import” replaces this identity with another one." },
   "profil.identTitel": { de: "Öffentlicher Schlüssel – Klick exportiert den privaten", en: "Public key – click exports the private one" },
   // Stilwerte (die Werte selbst gehen so ins Profil)
   "profil.stilMessing": { de: "Messing", en: "brass" },

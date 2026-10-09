@@ -921,7 +921,7 @@ h3 .ic-svg, h3 .logo-btc, h3 .logo-sol { vertical-align: -2px; margin-right: 6px
   font-size: 20px; border: 2px solid currentColor; flex-shrink: 0;
 }
 .profile-text { position: relative; min-width: 0; }
-.profile-text h3 { margin: 0 0 3px; font-size: 16px; }
+.profile-text h3 { margin: 0 0 3px; font-size: 16px; text-transform: none; letter-spacing: normal; }
 .profile-text p { margin: 0; font-size: 12px; color: #9A9A9A; line-height: 1.5; word-break: break-word; }
 
 .badge-row { display: flex; gap: 9px; align-items: flex-start; padding: 7px 0; border-top: 1px solid #1E1E1E; }

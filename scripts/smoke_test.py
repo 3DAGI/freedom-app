@@ -2956,6 +2956,53 @@ def agent_klein_pruefen(browser, url: str) -> dict:
     return erg
 
 
+def profil_klein_pruefen(browser, url: str) -> dict:
+    """C-37 (Nutzertest P-1 bis P-3): Die Karte mit dem Schlüssel und „Importieren“ hat eine
+    Überschrift, „Teilen“ kopiert den npub, der Name im Profilkopf steht nicht in Großbuchstaben."""
+    erg = {"fehler": []}
+    basis = url.rsplit("/", 1)[0]
+    relay = ProbeRelay()
+    ctx = browser.new_context(locale="de-DE", viewport={"width": 1280, "height": 800})
+    ctx.route("**/*", lambda r: r.continue_() if r.request.url.startswith(basis) else r.abort())
+    ctx.route_web_socket(re.compile(r"^wss?://"), relay.verbinde)
+    s = ctx.new_page()
+    s.on("pageerror", lambda e: erg["fehler"].append(str(e)[:300]))
+    ev = s.evaluate
+    s.goto(url, wait_until="load")
+    s.wait_for_selector("#bk-done", timeout=30000)
+    w = ev("() => [...document.querySelectorAll('.mnemonic-list li')].map(l => l.textContent)")
+    ev("(w) => document.querySelectorAll('#bk-challenge input').forEach(i => i.value = w[+i.dataset.pos])", w)
+    ev("() => document.getElementById('bk-done').click()")
+    s.wait_for_timeout(1500)
+    ev("() => document.getElementById('ein-abbrechen')?.click()")
+    ev("() => document.querySelector('.app-nav button[data-tab=\"profile\"]').click()")
+    s.wait_for_selector("#profile-preview .profile-text h3", timeout=10000)
+    # Zwischenablage als Attrappe: was „Teilen“ hineinlegt, bleibt in window.__kopiert
+    ev("() => { navigator.clipboard.writeText = async (x) => { window.__kopiert = x; }; }")
+    ev("() => document.getElementById('profile-share').click()")
+    s.wait_for_function("() => typeof window.__kopiert === 'string'", timeout=5000)
+    erg["profil"] = ev("""() => {
+        const name = document.querySelector('#profile-preview .profile-text h3');
+        const karte = document.getElementById('nb-ident').closest('.card');
+        return {
+          kopiert: window.__kopiert,
+          name: name.textContent, gross: getComputedStyle(name).textTransform,
+          ueberschrift: karte?.querySelector('h3')?.textContent.trim() ?? null,
+          import: !!karte?.querySelector('#nb-import'),
+          ident: document.getElementById('nb-ident').textContent,
+        }; }""")
+    ctx.close()
+    p = erg["profil"]
+    if not re.fullmatch(r"npub1[02-9ac-hj-np-z]{58}", p["kopiert"] or ""):
+        erg["fehler"].append(f"Teilen kopiert {p['kopiert']!r} statt npub")
+    if p["gross"] != "none":
+        erg["fehler"].append(f"Name im Profilkopf {p['gross']}")
+    if p["ueberschrift"] != "Identität" or not p["import"]:
+        erg["fehler"].append(f"Schlüssel-Karte {p}")
+    erg["bestanden"] = not erg["fehler"]
+    return erg
+
+
 def lokal_pruefen(browser, url: str) -> dict:
     """KI auf diesem Gerät (B-1): „Dieses Gerät“ steht in der Modellwahl, gesucht wird
     erst auf Klick, die Frage geht nur an localhost – kein Auftrag, kein Umschlag ans Relay."""
@@ -4907,6 +4954,10 @@ def main() -> int:
             except Exception as e:
                 erg["agent_klein"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
             try:
+                erg["profil_klein"] = profil_klein_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
+            except Exception as e:
+                erg["profil_klein"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
+            try:
                 erg["lokal"] = lokal_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
             except Exception as e:
                 erg["lokal"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
@@ -4961,6 +5012,7 @@ def main() -> int:
           and erg.get("unsicher", {}).get("bestanden") is True
           and erg.get("gratis_auto", {}).get("bestanden") is True
           and erg.get("agent_klein", {}).get("bestanden") is True
+          and erg.get("profil_klein", {}).get("bestanden") is True
           and erg.get("lokal", {}).get("bestanden") is True
           and erg.get("meshtastic", {}).get("bestanden") is True
           and erg.get("einrichtung", {}).get("bestanden") is True
