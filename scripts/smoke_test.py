@@ -1785,8 +1785,17 @@ def fremdtext_pruefen(browser, url: str) -> dict:
     zeile = f"#chat-list .chat-item[data-cid='{probe['absender']}']"
     seite.s.wait_for_function(f"() => document.querySelector(\"{zeile} .label\")?.textContent.includes('kontakt')", timeout=30000)
     erg["chat_name"] = ev(f"() => document.querySelector(\"{zeile} .label\").textContent")
+    # C-30 (Nutzertest C-11): die neue Nachricht steht als ungelesen da – fett, „neu“, Zähler an „Chat“ –, bis man sie öffnet
+    lesestand = f"""() => {{ const z = document.querySelector("{zeile}"); const n = document.querySelector('[data-tab="comm"] .nav-zahl');
+      return {{ zeile: z.classList.contains('ungelesen'), marke: z.querySelector('.chat-ungelesen')?.textContent ?? null,
+        fett: getComputedStyle(z.querySelector('.label')).fontWeight, zahl: n?.textContent ?? null, vorleser: n?.getAttribute('aria-label') ?? null }}; }}"""
+    erg["ungelesen"] = ev(lesestand)
     ev(f"() => document.querySelector(\"{zeile}\").click()")
     seite.s.wait_for_function("() => document.querySelector('#chat-thread .bubble .txt')", timeout=30000)
+    erg["gelesen"] = ev(lesestand)
+    if erg["ungelesen"] != {"zeile": True, "marke": "neu", "fett": "700", "zahl": "1", "vorleser": "1 Unterhaltung mit neuen Nachrichten"} \
+            or erg["gelesen"] != {"zeile": False, "marke": None, "fett": "400", "zahl": None, "vorleser": None}:
+        erg["fehler"].append(f"ungelesen {erg['ungelesen']} → nach dem Öffnen {erg['gelesen']}")
     erg["chat"] = ev("""() => { const txt = document.querySelector('#chat-thread .bubble .txt');
       const knopf = txt.querySelector('.chat-blob-btn');
       return { text: txt.firstChild.textContent, bild: txt.querySelector('img.chat-media')?.alt ?? null,
