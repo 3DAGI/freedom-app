@@ -19027,3 +19027,11 @@ Treffer → `Nachziehen` → `mlsAbgleichen()` → `zeigeNeuesMls()`.
 - Ein Browser-Test mit zwei Geräten und MLS-1:1 fehlt. Die Verdrahtung prüfen
   Quelltext-Tests; der Rest ist der Abgleich, den der Smoke-Test „privatraum“ mit echter
   Engine schon fährt.
+
+**Prüfungen (A-15a und A-15b):**
+- protocol 1238 grün (6 übersprungen, +1), node 337 (6 übersprungen), app 975 (+6);
+- Leak-Tests 73 grün + 1 todo;
+- check-wiring `--streng`, check-website, innerHTML streng: alle Exit 0;
+- Build, Smoke-Test bestanden (mit „post_live“, je nach a und nach b ganz gelaufen).
+
+Knoten-Stand: unverändert – nur App und `OutboxPool` (Protokoll).
