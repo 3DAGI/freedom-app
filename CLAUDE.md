@@ -371,9 +371,12 @@ Claude Code lädt sie, sobald eine Datei darin gelesen wird: `packages/app`,
   Schlüssel trägt (Gerätecode), nur mit `geheim: true`: auf Klick, Warnung
   vorher, nach `QR_SICHTBAR_MS` weg, nie speichern, nie als Bild exportieren;
   den Schlüssel vor dem Zeigen nullen. Kamera nur auf Klick über `scanKnopf()`
-  (Feld `scannen: true`), erkannt nur vom Browser (`BarcodeDetector`), danach
-  aus; ohne Erkennung der Hinweis zum Einfügen. Der Smoke-Test („qr“) ersetzt
-  Kamera und Erkennung durch Attrappen (Canvas-Strom, `BarcodeDetector`).
+  (Feld `scannen: true`), erkannt im Gerät – vom Browser (`BarcodeDetector`), sonst
+  seit A-20 von jsQR (`jsqr` 1.4.0, exakt gepinnt, `leseQrAusBild()`, Bild auf
+  `SCAN_BREITE_MAX` verkleinert) –, danach aus; ohne Kamera-Schnittstelle der Hinweis
+  zum Einfügen. Das Bild geht nie ins Netz. Der Smoke-Test („qr“) ersetzt Kamera und
+  Erkennung durch Attrappen (Canvas-Strom, `BarcodeDetector`); ohne `BarcodeDetector`
+  zeigt die Kamera-Attrappe den echten QR-Pfad des Gerätecodes, und jsQR liest ihn.
 - **Reproduzierbarer Build** (seit 5.9a): `freedom.html` muss aus einem
   frischen Checkout bitgleich entstehen – in `build.mjs` nichts Zeit-, Pfad-
   oder Zufallsabhängiges (kein `Date.now()`, keine absoluten Pfade im Bundle).

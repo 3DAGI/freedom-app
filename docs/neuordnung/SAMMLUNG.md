@@ -198,7 +198,7 @@ andere Spuren und stehen deshalb hier, nicht in deren Abschnitten:
 | A-17 | **Eingebaute Lightning-Wallet** (E4b D, Anhang E): Breez SDK (Spark) eingebaut, dazu Cashu nur für kleine Beträge und ohne Netz (NUT-11, NUT-12); Cashu immer als verwahrt benennen, die Mint nennen. | `Entwurf zuerst` – neue Abhängigkeiten (Breez SDK als WASM, eine Cashu-Bibliothek: Größe, Lizenz, CSP), API-Schlüssel von Breez (MENSCH, Konto), Grenzen im Datenschutzbericht; NWC bleibt |
 | A-18 | **FROSTR über NIP-46** (FR1 A, Anhang E): Schlüssel t-von-n über Geräte und Knoten (Bifrost, Igloo). | `MENSCH` – die App kann es schon: Anmelden per NIP-46 (1.3f). Test mit Igloo als Bunker durch den MENSCHEN, Befunde als eigene Punkte; eigener Signer erst nach dem Audit von FROSTR |
 | A-19 | **Nachfolge mit der Shamir-Bibliothek von Privy** (SH1 A, Anhang E). | `fertig` (SH1) – Fassung 2 über `teileGeheimnis()`, Fassung 1 bleibt lesbar |
-| A-20 | **QR-Scannen auch in Firefox und Safari** (Anhang E: qr-scanner bzw. zxing): heute erkennt nur der Browser (`BarcodeDetector`, Chromium). | `frei` – neue Abhängigkeit (Größe vor dem Einbau nennen; ein Worker passt nicht in die eine Datei, also ohne oder eingebettet); die Regel „QR-Codes nur über `shell/qr-ui.ts`“ ändert sich |
+| A-20 | **QR-Scannen auch in Firefox und Safari** (Anhang E: qr-scanner bzw. zxing): heute erkennt nur der Browser (`BarcodeDetector`, Chromium). | `fertig` (A-20) – jsQR 1.4.0 (Apache-2.0, ohne Abhängigkeiten; +345 KB in `freedom.html`, die App ist unminifiziert, rund 58 KB gzip) liest, wo der Browser keinen `BarcodeDetector` hat; ohne Worker, im Gerät |
 | A-21 | **@solana/kit statt web3.js v1** (Anhang E): Nachfolger, kleineres Bundle. | `frei` – groß (Wallet, Zahlkanal, HTLC, Relayer), erst ein Plan mit Teilschritten; Borsh-Layouts bleiben |
 | A-22 | **Boltz-Backend als Vorlage** für den Ablauf des Liquiditätsgebers (Anhang E). | `frei` – nur Vergleich mit `docs/SWAPS.md`, Befunde als eigene Punkte |
 | A-23 | **Relay-Auswahl im Outbox-Modell wie NDK, Welshman, applesauce** (Anhang E). | `frei` – nur Vergleich mit `outbox.ts` (5.4b), Befunde als eigene Punkte |
@@ -430,7 +430,7 @@ Abhängigkeit = STOPP-Punkt; neues WASM nur nach Freigabe, CSP).
 | Breez SDK (Spark), Cashu | eingebaute Lightning-Wallet, Zahlen ohne Netz | App | A | E4b → A-17 |
 | FROSTR (Bifrost, Igloo) | Schlüssel ohne einzelnen Angriffspunkt | über NIP-46, später Signer | A | FR1 → A-18 |
 | Shamir von Privy | auditierte Nachfolge-Anteile | App, Protokoll | A | SH1 → A-19 (erledigt) |
-| qr-scanner bzw. zxing | QR-Scannen auch in Firefox und Safari | App | A | A-20 |
+| qr-scanner bzw. zxing | QR-Scannen auch in Firefox und Safari | App | A | A-20 (erledigt) |
 | @solana/kit | Nachfolger von web3.js v1, kleineres Bundle | App, Protokoll | A | A-21 |
 | Boltz-Backend | Vorlage für den Ablauf eines Liquiditätsgebers | Vorlage | A | A-22 |
 | NDK, Welshman, applesauce | Relay-Auswahl im Outbox-Modell | Vorlage, nicht die Bibliothek | A | A-23 |

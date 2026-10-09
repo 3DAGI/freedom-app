@@ -2118,8 +2118,9 @@ class ProbeRelay:
 
 def qr_pruefen(browser, url: str) -> dict:
     """QR (11.1b): Gerätecode nur auf Klick, mit Warnung, nach 60 s weg; Scannen beim
-    Import mit Kamera-Attrappe (Kamera erst auf Klick, danach aus); ohne Erkennung
-    der Hinweis zum Einfügen; Werbelink als QR."""
+    Import mit Kamera-Attrappe (Kamera erst auf Klick, danach aus); ohne Kamera
+    der Hinweis zum Einfügen; Werbelink als QR. Seit A-20: ohne `BarcodeDetector`
+    liest jsQR den echten Gerätecode aus dem Bild der Kamera-Attrappe."""
     erg = {"fehler": []}
     basis = url.rsplit("/", 1)[0]
 
@@ -2140,12 +2141,21 @@ def qr_pruefen(browser, url: str) -> dict:
         s.evaluate("() => document.getElementById('ein-abbrechen')?.click()")
         return ctx, s
 
-    # Kamera zählen; ohne BarcodeDetector (so wie im Linux-Chromium) oder mit Attrappe
+    # Kamera zählen; ohne BarcodeDetector (so wie im Linux-Chromium) oder mit Attrappe. Liegt ein
+    # QR-Pfad bereit (`__qrPfad`, aus dem SVG des Hauptgeräts), zeigt die Kamera ihn – für jsQR (A-20)
     kamera = """window.__kamera = 0; window.__spuren = [];
       if (navigator.mediaDevices) navigator.mediaDevices.getUserMedia = async () => { window.__kamera++;
-        const c = document.createElement('canvas'); c.width = 64; c.height = 64; c.getContext('2d').fillRect(0, 0, 8, 8);
+        const c = document.createElement('canvas'); const g = window.__qrGroesse || 0, s = 6;
+        c.width = g ? g * s : 64; c.height = g ? g * s : 64;
+        const zeichne = () => { const x = c.getContext('2d'); x.setTransform(1, 0, 0, 1, 0, 0);
+          if (!g) { x.fillRect(0, 0, 8, 8); return; }
+          x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height);
+          x.setTransform(s, 0, 0, s, 0, 0); x.fillStyle = '#000'; x.fill(new Path2D(window.__qrPfad)); };
+        zeichne(); setInterval(zeichne, 100);
         const st = c.captureStream(5); window.__spuren = st.getTracks(); return st; };"""
     ohne_erkennung = kamera + "try { delete window.BarcodeDetector; } catch (e) {} window.BarcodeDetector = undefined;"
+    ohne_kamera = """window.__kamera = 0; try { delete window.BarcodeDetector; } catch (e) {} window.BarcodeDetector = undefined;
+      if (navigator.mediaDevices) navigator.mediaDevices.getUserMedia = undefined;"""
     mit_erkennung = kamera + """window.__erkannt = 0; window.BarcodeDetector = class {
         constructor(o) { window.__formate = o.formats; }
         static async getSupportedFormats() { return ['qr_code']; }
@@ -2160,7 +2170,7 @@ def qr_pruefen(browser, url: str) -> dict:
 
     # Hauptgerät: Gerät hinzufügen → Gerätecode mit QR auf Klick, verschwindet nach 60 s
     relay_a = ProbeRelay()
-    ctx, s = seite(relay_a, ohne_erkennung)
+    ctx, s = seite(relay_a, ohne_kamera)
     ev = s.evaluate
     ev("() => document.querySelector('.app-nav button[data-tab=\"settings\"]').click()")
     ev("() => document.getElementById('device-add').click()")
@@ -2178,6 +2188,8 @@ def qr_pruefen(browser, url: str) -> dict:
     code = code_dlg.get("wert") or ""
     ev("() => document.querySelector('[role=dialog] .qr-zeigen').click()")
     gezeigt = ev(dlg) or {}
+    qr_pfad = ev("""() => { const b = document.querySelector('[role=dialog] .qr-bild');
+      return b ? { d: b.querySelector('path').getAttribute('d'), g: +b.getAttribute('viewBox').split(' ')[2] } : null; }""")
     jetzt_ms = ev("() => Date.now()")
     s.clock.pause_at(datetime.datetime.fromtimestamp((jetzt_ms + 1000) / 1000, tz=datetime.timezone.utc))
     s.clock.fast_forward("00:58")
@@ -2192,7 +2204,7 @@ def qr_pruefen(browser, url: str) -> dict:
     s.wait_for_timeout(200)
     grants = {e["id"]: e["pubkey"] for e in relay_a.gesendet if e.get("kind") == 38070}  # an jedes Relay, dasselbe Event
     person_a = next(iter(grants.values()), None)  # die Vollmacht signiert das Hauptgerät
-    # Import ohne Erkennung: ehrlicher Hinweis, kein Scan-Knopf
+    # Import ohne Kamera: ehrlicher Hinweis, kein Scan-Knopf
     ev("() => document.getElementById('nb-import').click()")
     s.wait_for_timeout(300)
     ohne = ev(dlg) or {}
@@ -2224,7 +2236,7 @@ def qr_pruefen(browser, url: str) -> dict:
         erg["fehler"].append(f"gespeichert {gespeichert}, Vollmachten {len(grants)}")
     if not (ohne.get("titel") == "Identität importieren" and ohne.get("scan") is False
             and "Dieser Browser kann QR-Codes nicht mit der Kamera lesen – bitte den Code einfügen." in ohne.get("hinweise", [])):
-        erg["fehler"].append(f"ohne Erkennung {ohne}")
+        erg["fehler"].append(f"ohne Kamera {ohne}")
     if werbung != {"bilder": 1, "label": "Werbelink als QR-Code"} or kamera_a != 0:
         erg["fehler"].append(f"Werbelink {werbung}, Kamera {kamera_a}")
 
@@ -2260,6 +2272,34 @@ def qr_pruefen(browser, url: str) -> dict:
         erg["fehler"].append(f"Kamera {spuren}")
     if not person or person != person_a:
         erg["fehler"].append("nach dem Import nicht als Gerät der Person angemeldet")
+
+    # A-20: Gerät ohne BarcodeDetector (Firefox, Safari) – jsQR liest den echten Gerätecode aus dem Kamerabild
+    relay_c = ProbeRelay()
+    ctx, s = seite(relay_c, ohne_erkennung)
+    ev = s.evaluate
+    ev("(q) => { window.__qrPfad = q && q.d; window.__qrGroesse = q && q.g; }", qr_pfad)
+    ev("() => document.getElementById('nb-import').click()")
+    s.wait_for_timeout(300)
+    vor_jsqr = ev(dlg) or {}
+    ev("() => document.querySelector('[role=dialog] .qr-scannen')?.click()")
+    try:
+        s.wait_for_function("() => document.querySelector('[role=dialog] textarea')?.value.startsWith('freedom-geraet:')", timeout=15000)
+    except Exception:
+        pass
+    mit_jsqr = ev(dlg) or {}
+    spuren_c = ev("() => ({ kamera: window.__kamera, aus: window.__spuren.length > 0 && window.__spuren.every(t => t.readyState === 'ended') })")
+    erg["ohne_barcodedetector"] = {"vor": {k: v for k, v in vor_jsqr.items() if k != "wert"},
+                                   "gelesen": {k: v for k, v in mit_jsqr.items() if k != "wert"}, "spuren": spuren_c}
+    ctx.close()
+    if not (qr_pfad and qr_pfad.get("g") == 57):
+        erg["fehler"].append(f"QR-Pfad des Gerätecodes {qr_pfad and qr_pfad.get('g')}")
+    if vor_jsqr.get("scan") is not True:
+        erg["fehler"].append(f"ohne BarcodeDetector kein Scan-Knopf {vor_jsqr}")
+    if not (mit_jsqr.get("wert") == code and mit_jsqr.get("videos") == 0
+            and "Code gelesen – prüfen und bestätigen." in mit_jsqr.get("hinweise", [])):
+        erg["fehler"].append(f"jsQR hat den Gerätecode nicht gelesen {mit_jsqr.get('videos')} {mit_jsqr.get('hinweise')}")
+    if spuren_c != {"kamera": 1, "aus": True}:
+        erg["fehler"].append(f"Kamera ohne BarcodeDetector {spuren_c}")
     erg["bestanden"] = not erg["fehler"]
     return erg
 
