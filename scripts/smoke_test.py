@@ -633,10 +633,12 @@ class DialogSeite:
     """Frische App ohne Einrichtung hinter der Relay-Attrappe (seit C-1a, für C-1): zählt Browser-Dialoge
     (`prompt`/`confirm`/`alert` – es darf keinen geben) und bedient die Dialoge aus `shell/dialog.ts`."""
 
-    def __init__(self, browser, url: str, relay: "ProbeRelay", erg: dict, init: str | None = None) -> None:
+    def __init__(self, browser, url: str, relay: "ProbeRelay", erg: dict, init: str | None = None,
+                 viewport: dict | None = None, mobil: bool = False) -> None:
         basis = url.rsplit("/", 1)[0]
         self.browser_dialoge: list[str] = []
-        self.ctx = browser.new_context(locale="de-DE", viewport={"width": 1280, "height": 800})
+        self.ctx = browser.new_context(locale="de-DE", viewport=viewport or {"width": 1280, "height": 800},
+                                       is_mobile=mobil, has_touch=mobil)
         if init:
             self.ctx.add_init_script(init)
         self.ctx.route("**/*", lambda r: r.continue_() if r.request.url.startswith(basis) else r.abort())
@@ -931,6 +933,55 @@ MIKROFON_ATTRAPPE = """
   localStorage.setItem('freedom.versand.verzoegerung', '0');
 })();
 """
+
+
+COMPOSER_MESSEN = """() => {
+  const c = document.querySelector('#page-comm .comm-dm .chat-composer') ?? document.querySelector('#page-comm .chat-composer'); const rc = c.getBoundingClientRect();
+  const masse = (sel) => { const e = document.querySelector(sel); const b = e.getBoundingClientRect();
+    return { links: Math.round(b.left), rechts: Math.round(b.right), breite: Math.round(b.width), hoehe: Math.round(b.height),
+      sichtbar: !e.hidden && b.width > 0 && b.height > 0 }; };
+  const teile = [...c.children].filter(e => !e.hidden && e.getBoundingClientRect().width > 0);
+  const draussen = teile.filter(e => { const b = e.getBoundingClientRect();
+    return b.left < rc.left - 1 || b.right > rc.right + 1 || b.right > innerWidth + 1 || b.bottom > innerHeight + 1; })
+    .map(e => e.id || e.tagName.toLowerCase());
+  const klein = teile.filter(e => { const b = e.getBoundingClientRect(); return b.width < 39.5 || b.height < 39.5; })
+    .map(e => (e.id || e.tagName.toLowerCase()) + ' ' + Math.round(e.getBoundingClientRect().width) + '×' + Math.round(e.getBoundingClientRect().height));
+  const m = document.querySelector('main');
+  return { laufleiste: document.documentElement.scrollWidth - innerWidth, main: m.scrollWidth - m.clientWidth,
+    feld: masse('#chat-input'), ablauf: masse('#chat-ablauf'), senden: masse('#chat-send'), draussen, klein };
+}"""
+
+
+def composer_pruefen(browser, url: str) -> dict:
+    """Eingabe einer offenen Unterhaltung (C-28, Nutzertest C-1/C-13): Die Ablauf-Auswahl erbte `width: 100%`
+    und ließ sich nicht schrumpfen – das Textfeld wurde 22 px schmal, `main` lief über, am Handy lag „Senden“
+    außerhalb. Gemessen mit offener Direktnachricht (dann ist die Auswahl da) auf Desktop, Handy hoch und quer:
+    keine Laufleiste, nichts außerhalb, das Feld breit genug, am Handy jede Fläche mindestens 40 px."""
+    erg = {"fehler": []}
+    pk = "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798"  # ein gültiger Punkt (x von G) – geht nur an die Attrappe
+    for lage, vp, mobil, mindestens in [("desktop", {"width": 1280, "height": 800}, False, 300),
+                                        ("hoch", {"width": 390, "height": 844}, True, 200),
+                                        ("quer", {"width": 844, "height": 390}, True, 200)]:
+        seite = DialogSeite(browser, url, ProbeRelay(), erg, viewport=vp, mobil=mobil)
+        s, ev = seite.s, seite.ev
+        ev("() => { location.hash = '#/chat'; }")
+        s.wait_for_selector("#chat-new-dm", timeout=30000)
+        ev("() => document.getElementById('chat-new-dm').click()")
+        seite.warte_dialog("Neue Nachricht")
+        seite.tippe(pk)
+        seite.warte_zu()
+        s.wait_for_function("(pk) => !!document.querySelector(`#chat-list .chat-item.active[data-cid='${pk}']`)", arg=pk, timeout=10000)
+        s.wait_for_timeout(300)
+        m = ev(COMPOSER_MESSEN)
+        erg[lage] = m
+        if m["laufleiste"] > 0 or m["main"] > 0 or m["draussen"] or not m["ablauf"]["sichtbar"] or not m["senden"]["sichtbar"] \
+                or m["feld"]["breite"] < mindestens or (mobil and m["klein"]):
+            erg["fehler"].append(f"{lage}: {m}")
+        if seite.browser_dialoge:
+            erg["fehler"].append(f"{lage}: Browser-Dialoge {seite.browser_dialoge}")
+        seite.ctx.close()
+    erg["bestanden"] = not erg["fehler"]
+    return erg
 
 
 def sprachnachricht_pruefen(browser, url: str) -> dict:
@@ -4347,6 +4398,10 @@ def main() -> int:
             except Exception as e:
                 erg["sprachnachricht"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
             try:
+                erg["composer"] = composer_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
+            except Exception as e:
+                erg["composer"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
+            try:
                 erg["anruf"] = anruf_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
             except Exception as e:
                 erg["anruf"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
@@ -4436,6 +4491,7 @@ def main() -> int:
           and erg.get("waehrung", {}).get("bestanden") is True
           and erg.get("kontakt", {}).get("bestanden") is True
           and erg.get("sprachnachricht", {}).get("bestanden") is True
+          and erg.get("composer", {}).get("bestanden") is True
           and erg.get("anruf", {}).get("bestanden") is True
           and erg.get("post_live", {}).get("bestanden") is True
           and erg.get("privatraum", {}).get("bestanden") is True
