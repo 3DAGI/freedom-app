@@ -991,3 +991,43 @@ abonnierten Modellkatalogen (38080).
   `verifyFile()`, Größe gleich, keine fremde, keine fehlende).
 - **Grenze der Prüfung:** Ollama prüft die Bytes jeder Schicht gegen ihre
   Summe. Der Knoten prüft, dass es die Summen des Manifests sind.
+
+## 32. Agenten in Räumen – Karte, Besitzer, Rolle (Kind 38090, seit 11.3b1)
+
+Entwurf `docs/AGENTEN-RAUM-ENTWURF.md`, freigegeben 08.10.2026 (F1 A, F4 A, F6 A).
+Ein Agent hat einen eigenen Schlüssel, nie die Identität seines Erstellers.
+
+**Karte** (Kind 38090), ersetzbar je Autor und `d`; Autor ist der Agent, Inhalt leer:
+
+| Tag | Inhalt |
+|---|---|
+| `d` | `karte` |
+| `name` | Anzeigename, höchstens 64 Zeichen |
+| `about` | Beschreibung, höchstens 500 Zeichen, freiwillig |
+| `betrieb` | `knoten` oder `geraet` – wo der Schlüssel liegt und wer antwortet |
+| `bezahlung` | `fragender` oder `einlader` – wer eine Antwort bezahlt |
+| `p` | `<besitzer>`, `""`, `besitzer` – behauptet, zählt nur bestätigt; nie der Agent selbst |
+| `provider` | Schlüssel des Providers, der rechnet; freiwillig |
+| `modell` | gewünschtes Modell, freiwillig |
+
+Jedes Feld höchstens einmal; unbekannte Werte, Steuerzeichen oder ein Inhalt
+machen die Karte ungültig. Keine Persona und keine Systemanweisung – die hält
+der Gastgeber (F4 A).
+
+**Bestätigung des Besitzers** (F1 A): eine NIP-51-Liste (Kind 30000, `d` =
+`freedom-agenten`) vom Besitzer, je Agent ein `p`, höchstens 100. Ein Besitzer
+gilt nur, wenn seine neueste Liste den Agenten nennt (`besitzerBestaetigt()`).
+Eine neue Liste ohne ihn widerruft.
+
+**Rolle** `agent` in offenen Räumen (F6 A, `mitAgentRolle()`): lesen, schreiben,
+Threads, Rang 1. Steht sie mit mehr Rechten in der Rollenliste, gilt sie nur mit
+diesen drei – ein Agent moderiert nie. Zugewiesen wird sie wie jede Rolle (34702).
+
+**Private Räume:** Karte und Liste nur als innere Events der Gruppe
+(`raumAgentKarte()`, `raumAgentenListe()`, gelesen über `raumAgentKarten()` und
+`raumListenEvents()`); den Absender belegt MLS. Leak-Regel `agent-raum-privat`:
+keine Karte, keine Liste mit dem Agenten und keine Nachricht von oder an ihn offen.
+KeyPackages (443) darf er offen haben – sonst lädt ihn niemand ein.
+
+Was fehlt (11.3b2): Auslöser, Kontext, Agentenketten, Verweis im Auftrag,
+Budgetbuch mit Stufen.
