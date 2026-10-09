@@ -41,7 +41,9 @@
  *    zurückdatieren. Die Apps der Kontakte merken sich deshalb das ERSTE
  *    Mandat, das sie zu einer Person sehen (`merkeMandate`), und `resolveKey`
  *    nimmt dieses statt des ältesten Zeitstempels. Wer das echte Mandat nie
- *    gesehen hat, ist erst mit Zeitzeugen (5.10) geschützt.
+ *    gesehen hat, ist geschützt, sobald es in Bitcoin verankert ist: Seit
+ *    B-17b3b schlägt ein verankertes Mandat bei Streit jedes unverankerte
+ *    (`merkeMandate(…, anker)`).
  */
 import { NostrEvent, UnsignedEvent, buildEvent, getTag } from "./event.js";
 import { ProtokollFehler } from "./fehler.js";
@@ -383,7 +385,9 @@ export function rotationWarning(): string {
     "",
     "Die Grenze: Die Apps deiner Kontakte merken sich diese Erklärung, sobald",
     "sie sie sehen. Wer sie vor einem Diebstahl nie gesehen hat, kann auf eine",
-    "zurückdatierte des Diebs hereinfallen – bis es Zeitzeugen gibt.",
+    "zurückdatierte des Diebs hereinfallen – es sei denn, deine Erklärung ist",
+    "dann schon in Bitcoin verankert. Das erledigt die App von selbst, solange",
+    "sie offen ist; nach dem Erzeugen dauert es einige Stunden.",
   ].join("\n");
 }
 
