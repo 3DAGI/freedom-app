@@ -6749,3 +6749,30 @@ Im Nutzertest konnte Carol (Handy, ohne Tresor) gar keinen Raum anlegen:
   Tresor-Angebot, mit demselben Titel „Raum anlegen (privat)“.
 
 Knoten-Stand: nicht betroffen.
+
+## Schritt B-27 – Systemprompt des Knotens sagt nur, was stimmt (Nutzertest, A-7)
+
+Der Systemprompt (`node/src/inference.ts`) galt für jeden Provider, sagte aber
+„Du laeuffst auf EINEM Provider-Knoten (GX10)“, nannte web_search, image_gen und
+video_gen auch bei Anfragen ohne Werkzeuge (Gratis-Antworten seit A-14a) und
+behauptete für jedes Modell einen „Knowledge-Cutoff Ende 2024“. Dazu nannte er
+Streaming-Sats mit Kind 38020, das es nicht gibt.
+
+**Knoten** (`inference.ts`):
+- `systemPrompt({ werkzeuge, heute })`: die Werkzeuge genau dieser Anfrage (aus
+  `getTools()`, mit `ohneWerkzeuge` keine – dann „keine Werkzeuge“), das heutige
+  Datum (UTC); kein fester Knoten, kein erfundener Wissensstand. Den Hinweis auf
+  die Websuche gibt es nur, wenn sie da ist.
+- `complete()` baut den Prompt nach den Werkzeugen, die es Ollama schickt.
+
+**Tests** (`node/test/systemprompt.test.ts`, +3): kein GX10, kein Wissensstand,
+das Datum; nur die Werkzeuge der Anfrage; an Ollama geht der Prompt passend zu
+den übergebenen Werkzeugen (mit und ohne). Das Datum wird vor und nach dem
+Aufruf gelesen – springt dazwischen der Tag, gilt jedes von beiden.
+
+**Offen (Befund am Rand):** image_gen und video_gen liefern Links auf
+`localhost:8188` (ComfyUI des Knotens) – ein Kunde kann sie nicht öffnen. Der
+Prompt nennt sie weiter, weil sie angeboten werden; ob sie ins Angebot gehören,
+ist ein eigener Punkt.
+
+Knoten-Stand: neu (B-27) – ohne Update antwortet ein Knoten wie bisher.
