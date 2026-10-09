@@ -37,7 +37,7 @@ und **KI-Anfragen**, die Provider gegen Bezahlung ausführen (NIP-90).
 
 | Wann | Was |
 |---|---|
-| Juli bis September 2026 | Aufbau in vielen Arbeitsrunden mit Claude; Protokoll in `STATUS.md` |
+| Juli bis September 2026 | Aufbau in vielen Arbeitsrunden mit Claude; Protokoll in `docs/archiv/STATUS-2026-09.md` |
 | 20.09.2026 | erste Veröffentlichung auf GitHub Pages |
 | 23.09.2026 | drei Prüfberichte (Kritische Analyse, Zweitgutachten, Gesamtbericht) und daraus der Ausbauplan |
 | 24.09.2026 | **Phase 0** live: XSS geschlossen, Content-Security-Policy, ehrliche Texte, Prüfsumme; HTLC-Einlösefrist im Programmcode |
@@ -55,7 +55,7 @@ Relay-Sortierung (6.x); Rangliste aus Selbstauskunft (5.5).
 
 | Datei | Inhalt |
 |---|---|
-| `STATUS.md` | vollständiges Entwicklungsprotokoll, neueste Abschnitte am Ende |
+| `STATUS.md` | Entwicklungsprotokoll des laufenden Monats, neueste Abschnitte am Ende; abgeschlossene Monate in `docs/archiv/STATUS-<JJJJ-MM>.md` |
 | `DEPLOY.md` | Devnet-Deploy und Website-Prüfsumme |
 | `GO-LIVE.md` | Go-Live-Checkliste |
 | `docs/archiv/` | frühere Stände, Pläne und Analysen – nicht als heutigen Stand lesen (Übersicht dort) |
