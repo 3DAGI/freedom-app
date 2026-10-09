@@ -1187,6 +1187,16 @@ main { min-width: 0; }
 .chat-composer > * { flex-shrink: 0; }
 .chat-composer textarea { flex: 1 1 auto; min-width: 0; }
 .chat-composer button { width: auto; min-width: 40px; }
+/* Ablauf-Auswahl nur so breit wie ihr Text (C-28, Nutzertest C-1/C-13): mit width:100%
+   aus der Grundregel nahm sie die ganze Zeile, das Feld schrumpfte auf 22 px und
+   „Senden“ lag am Handy außerhalb */
+.chat-composer select { width: auto; margin-bottom: 0; }
+@media (max-width: 1023px) {
+  /* Handy: oben Feld und Senden, darunter die Werkzeuge */
+  .chat-composer { flex-wrap: wrap; }
+  .chat-composer textarea { order: -2; flex: 1 1 calc(100% - 64px); }
+  .chat-composer #chat-send { order: -1; }
+}
 
 /* Kopf der Direktnachrichten: eine Zeile, kompakte Knoepfe */
 .comm-dm .chat-side-head {
