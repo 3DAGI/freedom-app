@@ -7002,3 +7002,31 @@ Leak 73 + 1 todo, mls 13; tsc überall, Build, Wiring (0 offen, Exit 0), Website
 innerHTML, Smoke (neu „agent_abo“: 8 Abos, eines je Relay, mit `since`), Site,
 Repro grün.
 
+## Schritt Anhang E – Integrationen erprobter Projekte (Sammlung)
+
+Auf Wunsch des MENSCHEN geprüft, wo spezialisierte Projekte in ihrem Gebiet
+weiter sind als unsere eigenen Umsetzungen (Vorlage „FreedomStack – Offgrid /
+Anti-Zensur“ und eigene Recherche). MENSCH 09.10.: „Ja zu allen Vorschlägen“,
+dazu Cashu, Atomic Agent und TensorFold.
+
+**Sammlung** (`docs/neuordnung/SAMMLUNG.md`):
+- Abschnitt 2: B-29 bis B-39 (KI-Antrieb wählbar mit vLLM/SGLang/TensorFold,
+  Atomic Agent, MCP mit Kiwix, Reticulum, Pluggable Transports, LiveKit,
+  Negentropy, Bitchat, MeshCore, whisper.cpp/Piper, Iroh-Blobs).
+- Abschnitt 5: Entscheidungen AG1, MC1, RN1, RN2, PT1, LK1, NG1, BC1 (Spur B)
+  und – als Vorschlag für Spur A – E4b (eingebaute Lightning-Wallet: Breez SDK
+  Spark, Cashu nur ehrlich als verwahrt), FR1 (FROSTR), SH1 (Shamir von Privy).
+- Anhang E: alle Projekte mit Nutzen, Weg, vorgeschlagener Spur und Nummer;
+  was nicht übernommen wird und warum.
+
+**FORTSCHRITT:** Zeile Spur B nennt B-29 bis B-39; Vorschlag, B-29 direkt nach
+E9-3b zu bauen.
+
+**Dazu Anhang F** (Lauf 2 des lokalen Agenten, 50 Nutzer mit echtem Provider):
+jeder Befund am Code nachgeprüft. Spur B: B-40 (ohne `NODE_SECRET_KEY` bei
+jedem Start ein neuer Schlüssel, der geheime im Log; Docker immer) und B-41
+(angekündigtes und ausgeliefertes Modell können auseinanderfallen). Für Spur A:
+toter Provider gewählt (L2-1), Rückfall erst nach 5 min statt nach 20 s (L2-2),
+netzweite Ausfall-Kenntnis nur dezentral (L2-3).
+
+Kein Code geändert; Knoten-Stand: nicht betroffen.
