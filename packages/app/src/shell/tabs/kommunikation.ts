@@ -24,6 +24,7 @@ import { leseAnforderung } from "../../zahlungs-anforderung.js";
 import { anforderungen, anhangElement, chatAttachments, leereAnhaenge, setAttachStatus, wireBlobButtons } from "./chat-anhaenge.js";
 import { loeseNamenAuf, markiereSchluessel, schluesselHinweis, schluesselStand, setzePetname, sichereKontakte } from "./kontakte.js";
 import { type DmAnzeige, entschluesselungFehlgeschlagen, geraeteBuch, ladeDmNachrichten, syncDmInbox, veroeffentlicheDm } from "./posteingang.js";
+import { lauscheAufGruppe } from "../gruppe-live.js";
 
 /** Kommunikation: zwischen Direktnachrichten und einem Raum umschalten. */
 export function setzeKommModus(modus: "dm" | "space"): void {
@@ -39,13 +40,16 @@ export function setzeKommModus(modus: "dm" | "space"): void {
   }
 }
 
+/** Neues in einer MLS-Gruppe: zeigen, wenn ihre Unterhaltung offen ist. */
+function zeigeNeuesMls(gruppe: string): void {
+  const c = conversations.find((x) => x.mls === gruppe);
+  if (c && activeConversation === c.id) void loadChatMessages(c.id);
+}
+
 export function wireKommunikation(): void {
   document.getElementById("comm-dm-btn")?.addEventListener("click", () => setzeKommModus("dm"));
   // MLS (2.2b-d1): nach der Wartezeit zugestellte Nachrichten zeigen
-  mlsBeiNeuem((gruppe) => {
-    const c = conversations.find((x) => x.mls === gruppe);
-    if (c && activeConversation === c.id) void loadChatMessages(c.id);
-  });
+  mlsBeiNeuem(zeigeNeuesMls);
   // Die Leistenknoepfe loesen die vorhandenen Aktionen aus — keine zweite Logik.
   // Mobil: eine Ebene zur Zeit, wie Discord — Liste, oder nach dem Antippen der Chat.
   const layout = document.querySelector<HTMLElement>(".comm-layout");
@@ -246,6 +250,8 @@ export async function loadChatMessages(cid: string): Promise<void> {
   // DMs: kind 4 (NIP-44, p-tag = partner). Communities: kind 42 (channel) mit h-tag.
   const c = conversations.find((x) => x.id === cid);
   if (!c || !state.keypair) return;
+  // MLS sofort (A-15b): die offene Unterhaltung hält ein Abo an den Relays ihrer Gruppe – auch wenn sie erst jetzt eine hat
+  if (cid === activeConversation) void lauscheAufGruppe(c.type === "dm" ? c.mls ?? null : null, zeigeNeuesMls);
   try {
     const pool = await ensurePool();
     let events: NostrEvent[] = [];

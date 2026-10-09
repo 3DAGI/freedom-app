@@ -82,3 +82,34 @@ test("Outbox: Verfuegbarkeits-Audit macht Vorenthalten sichtbar", async () => {
   assert.deepEqual(audit.missing, ["wss://censor"]);
   assert.equal(audit.has.length, 2);
 });
+
+test("A-15b: subscribeAn – Abo nur an den genannten Relays des Pools, geprüft und je Event einmal", async () => {
+  const abos: string[] = [];
+  const senden = new Map<string, (ev: ReturnType<typeof signed>["ev"]) => void>();
+  const relay = (url: string) => Object.assign(new MemoryRelay(url), {
+    subscribe: async (_f: unknown, on: (ev: ReturnType<typeof signed>["ev"]) => void) => {
+      abos.push(url);
+      senden.set(url, on);
+      return () => { abos.splice(abos.indexOf(url), 1); };
+    },
+  });
+  const pool = new OutboxPool([relay("wss://a"), relay("wss://b"), relay("wss://c")]);
+  const empfangen: string[] = [];
+  const stopp = await pool.subscribeAn({ kinds: [445], "#h": ["g"] }, ["wss://a", "wss://c", "wss://fremd"], (ev) => empfangen.push(ev.id));
+  assert.deepEqual(abos, ["wss://a", "wss://c"], "der Filter geht an kein anderes Relay");
+  const { ev } = signed(445);
+  senden.get("wss://a")!(ev);
+  senden.get("wss://c")!(ev);
+  senden.get("wss://a")!({ ...ev, content: "manipuliert" });
+  assert.deepEqual(empfangen, [ev.id], "doppelt einmal, Gefälschtes nie");
+  stopp();
+  assert.deepEqual(abos, []);
+  // Ohne passendes Relay: kein Fehler, kein Abo
+  const leer = await pool.subscribeAn({ kinds: [445] }, ["wss://fremd"], () => assert.fail("nichts"));
+  leer();
+  assert.deepEqual(abos, []);
+  // subscribe() bleibt, wie es war: alle Relays
+  const alle = await pool.subscribe({ kinds: [1] }, () => {});
+  assert.deepEqual(abos.sort(), ["wss://a", "wss://b", "wss://c"]);
+  alle();
+});

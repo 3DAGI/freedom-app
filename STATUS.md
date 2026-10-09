@@ -18984,3 +18984,46 @@ A-15 ist geteilt: a NIP-17 (hier), b MLS in der offenen Unterhaltung.
 - **Smoke „post_live“** (neu, `scripts/dm-probe.mts`): Unterhaltung offen, Abo offen,
   eine Nachricht eines Wegwerf-Schlüssels über `ProbeRelay.zustellen()`. Sie steht nach
   0,1 s im Chat; ohne das Abo (Gegenprobe) nach 15 s nicht.
+
+## Schritt A-15b – MLS in der offenen Unterhaltung sofort (Befund C-6)
+
+Spur A, Fortsetzung von A-15a. Über MLS kam im Nutzertest eine Antwort bei offener
+Unterhaltung erst nach etwa 55 s. Gruppennachrichten (Kind 445) gehen an die Relays
+der Gruppe, nicht an den Posteingang – das Abo für Post sieht sie nicht. Der Abgleich
+holt sie höchstens einmal je Minute.
+
+**Was:**
+- **`OutboxPool.subscribeAn()`** (Protokoll): ein Abo nur an den genannten Relays des
+  Pools, wie `publishAn()`, mit derselben Prüfung wie `subscribe()` (Signatur, je Event
+  einmal). Ein Filter mit `#h` nennt die Gruppe so keinem anderen Relay.
+  `subscribe()` ruft dieselbe innere Funktion und verhält sich wie bisher.
+- **`abonniereAn()`** (`shell/state.ts`): Relays des Pools über dessen Verbindung, andere
+  über je eine eigene, die `stopp` schließt. Weiter geht nur gültig Signiertes.
+- **`mlsGruppenAbo()`** (`shell/mls-konto.ts`): Filter der Gruppe aus `gruppenAbos()`
+  mit `limit: 1` und ihre Relays; null ohne Konto (Bunker, ohne Tresor).
+- **`shell/gruppe-live.ts`** (neu): `lauscheAufGruppe()` hält für die offene
+  Unterhaltung ein Abo an den Relays ihrer Gruppe; eine andere Unterhaltung beendet es.
+  Ein Treffer stößt nur an, empfangen wird über `mlsAbgleichen([gruppe])` wie beim
+  Abgleich.
+- **`Nachziehen`** (`post-live.ts`): Nie zwei Läufe zugleich (die Engine weist einen
+  zweiten ab); was währenddessen kommt, gibt genau einen weiteren, frühestens 2 s
+  danach. So bremst sich auch ein Relay, das Treffer flutet.
+- **`kommunikation.ts`:** `loadChatMessages()` der offenen Unterhaltung ruft
+  `lauscheAufGruppe()` – auch wenn sie erst jetzt eine Gruppe hat. `zeigeNeuesMls()`
+  ist dieselbe Anzeige wie nach der Wartezeit (`mlsBeiNeuem`).
+- Die Engine lädt dadurch nicht früher. Eine Unterhaltung mit Gruppe lädt sie beim
+  Öffnen ohnehin (`mlsVerlauf()`).
+
+**Verdrahtet:** `shell/tabs/kommunikation.ts` `loadChatMessages()` →
+`lauscheAufGruppe()` → `mlsGruppenAbo()` und `abonniereAn()` → `pool.subscribeAn()`; ein
+Treffer → `Nachziehen` → `mlsAbgleichen()` → `zeigeNeuesMls()`.
+
+**Tests:**
+- `outbox.test.ts` (+1): nur die genannten Relays, Gefälschtes nie, doppelt einmal,
+  ohne Treffer kein Fehler, `subscribe()` unverändert.
+- `post-live.test.ts` (+2): `Nachziehen` – nie zwei zugleich, genau einer nachgezogen,
+  ein Anstoß in der Pause gibt keinen dritten (der Test fand das im ersten Entwurf),
+  Fehler halten nichts auf; Verdrahtung.
+- Ein Browser-Test mit zwei Geräten und MLS-1:1 fehlt. Die Verdrahtung prüfen
+  Quelltext-Tests; der Rest ist der Abgleich, den der Smoke-Test „privatraum“ mit echter
+  Engine schon fährt.

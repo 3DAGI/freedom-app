@@ -172,6 +172,30 @@ export class OutboxPool {
     filter: RelayFilter,
     onEvent: (ev: NostrEvent) => void,
   ): Promise<() => void> {
+    const stop = await this.abonniere(this.relays, filter, onEvent);
+    if (!stop) throw new Error("Kein Relay unterstuetzt Dauer-Abos — Abfrage-Betrieb noetig.");
+    return stop;
+  }
+
+  /**
+   * Dauer-Abo nur an einigen Relays dieses Pools (A-15b) – etwa an den Relays
+   * einer MLS-Gruppe, ueber die Verbindung, die der Pool ohnehin haelt. Ein
+   * Filter, der etwas verraet (`#h` einer Gruppe), geht so nur an diese
+   * Relays. Wirft nicht; ohne passendes Relay ein Abo, das nichts liefert.
+   */
+  async subscribeAn(
+    filter: RelayFilter,
+    urls: readonly string[],
+    onEvent: (ev: NostrEvent) => void,
+  ): Promise<() => void> {
+    return (await this.abonniere(this.relays.filter((r) => urls.includes(r.url)), filter, onEvent)) ?? (() => {});
+  }
+
+  private async abonniere(
+    relays: readonly Relay[],
+    filter: RelayFilter,
+    onEvent: (ev: NostrEvent) => void,
+  ): Promise<(() => void) | null> {
     const seen = new Set<string>();
     const stops: (() => void)[] = [];
 
@@ -189,7 +213,7 @@ export class OutboxPool {
       onEvent(ev);
     };
 
-    for (const r of this.relays) {
+    for (const r of relays) {
       if (!r.subscribe) continue;
       try {
         stops.push(await r.subscribe(filter, handle));
@@ -199,9 +223,7 @@ export class OutboxPool {
       }
     }
 
-    if (stops.length === 0) {
-      throw new Error("Kein Relay unterstuetzt Dauer-Abos — Abfrage-Betrieb noetig.");
-    }
+    if (stops.length === 0) return null;
     return () => { for (const stop of stops) stop(); };
   }
 

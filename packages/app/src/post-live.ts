@@ -44,3 +44,39 @@ export class LivePost {
     return true;
   }
 }
+
+/**
+ * Einen Abgleich nachziehen (A-15b, MLS in der offenen Unterhaltung): nie zwei Läufe zugleich – die
+ * MLS-Engine weist einen zweiten Aufruf ab („MLS beschäftigt“). Was während eines Laufs anstößt, gibt
+ * genau einen weiteren, frühestens `abstandMs` danach; so bremst sich auch ein Relay, das Abo-Treffer flutet.
+ */
+export class Nachziehen {
+  private laeuft = false;
+  private nochmal = false;
+
+  constructor(
+    private readonly lauf: () => Promise<void>,
+    private readonly abstandMs = 2_000,
+    private readonly planen: (fn: () => void, ms: number) => void = (fn, ms) => { setTimeout(fn, ms); },
+  ) {}
+
+  anstossen(): void {
+    if (this.laeuft) {
+      this.nochmal = true;
+      return;
+    }
+    this.laeuft = true;
+    void this.lauf().catch(() => undefined).finally(() => {
+      if (!this.nochmal) {
+        this.laeuft = false;
+        return;
+      }
+      this.planen(() => {
+        // Was bis hier anstieß – auch in der Pause –, deckt der Lauf, der jetzt beginnt
+        this.laeuft = false;
+        this.nochmal = false;
+        this.anstossen();
+      }, this.abstandMs);
+    });
+  }
+}
