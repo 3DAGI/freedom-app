@@ -672,3 +672,11 @@ Claude Code lädt sie, sobald eine Datei darin gelesen wird: `packages/app`,
   den Pool). Für Ollama: `model` = Name bei Ollama mit Tag, `upstream` = `ollama:<derselbe>`,
   Dateien heißen `sha256-<hex>` (Schichten und Konfiguration, `ollamaDateien()`).
   *(Weitere Teile: `packages/node/CLAUDE.md`.)*
+- **Nachfolge-Anteile nur über `teileGeheimnis()`** (seit SH1, entschieden 09.10.2026): neue
+  Anteile in Fassung 2 mit der auditierten Bibliothek von Privy (`shamir-secret-sharing` 0.0.4,
+  exakt gepinnt, Cure53 und Zellic) – ein Anteil ist das Geheimnis plus ein Byte mit seiner Stelle,
+  `index` nur die Nummer des Vertrauten. Im Anteil (38077) und in der Übergabe (38079) steht
+  `["fassung", "2"]`; ohne Tag ist es Fassung 1 (eigenes GF(256), `splitSecret()` – nur noch für
+  Tests). Zusammengesetzt wird nur über `setzeGeheimnisZusammen()` bzw. `setzeNachfolgeZusammen()`
+  (beide Fassungen, nie gemischt, async). Die Bibliothek nimmt nur ein echtes `Uint8Array` – kein
+  `Buffer` (sie prüft `constructor`); `teileGeheimnis()` kopiert und nullt die Kopie.

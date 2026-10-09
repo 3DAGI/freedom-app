@@ -190,12 +190,12 @@ async function uebergib(z: VertrautenZeile, anfrage: AnteilAnfrage): Promise<voi
 }
 
 /** Anteile zusammensetzen und den Schluessel als Datei geben. */
-function setzeZusammen(z: VertrautenZeile): void {
+async function setzeZusammen(z: VertrautenZeile): Promise<void> {
   if (!z.plan) return;
   const st = stand();
   let schluessel: Uint8Array | null = null;
   try {
-    schluessel = setzeNachfolgeZusammen([z.anteil, ...(st.erhalten[z.besitzer] ?? [])], z.plan);
+    schluessel = await setzeNachfolgeZusammen([z.anteil, ...(st.erhalten[z.besitzer] ?? [])], z.plan);
     const hex = Array.from(schluessel, (b) => b.toString(16).padStart(2, "0")).join("");
     const text = t("ein.nachfolgeDatei", { besitzer: z.besitzer, hex });
     const url = URL.createObjectURL(new Blob([text], { type: "text/plain" }));

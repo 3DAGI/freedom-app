@@ -28,6 +28,7 @@
     "@solana/web3.js": "^1.98.4",
     "@zxing/text-encoding": "^0.9.0",
     "reedsolomon": "^1.0.0",
+    "shamir-secret-sharing": "0.0.4",
     "wasm-reed-solomon-erasure": "^0.2.2"
   }
 }
