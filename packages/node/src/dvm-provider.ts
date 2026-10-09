@@ -1251,11 +1251,12 @@ export class DvmProvider {
     // Kurz (7.4): das Modell darum bitten – gekürzt wird danach trotzdem
     if (kurz) finalPrompt += `\n\nAntworte in höchstens ${kurz} Zeichen, ohne Einleitung.`;
     // Gewuenschtes Modell aus dem Job lesen ([\"param\", \"model\", \"...\"]).
-    // Nur akzeptieren wenn der Provider dieses Modell anbietet; sonst Default.
+    // Nur akzeptieren wenn der Provider dieses Modell anbietet; sonst das erste angebotene
+    // (B-41) – nie still ein anderes als angekündigt (früher: OLLAMA_MODEL des Backends).
     const modelParam = request.tags.find((t) => t[0] === "param" && t[1] === "model")?.[2];
     const offeredModels = this.cfg.modelle?.() ?? (process.env.PROVIDER_MODELS ?? process.env.OLLAMA_MODEL ?? "")
       .split(",").map((m) => m.trim()).filter(Boolean);
-    const requestedModel = modelParam && offeredModels.includes(modelParam) ? modelParam : undefined;
+    const requestedModel = modelParam && offeredModels.includes(modelParam) ? modelParam : offeredModels[0];
 
     // Live-Progress: bei jedem Tool-Aufruf ein kind-7000 (status=progress) an
     // den Kunden — die App zeigt daraus den passenden Schritt in der Leiste.

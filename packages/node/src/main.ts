@@ -33,7 +33,7 @@ import { turnAusUmgebung } from "./turn.js";
 import { kopplungsDatei, leseKopplung } from "./kopplung-datei.js";
 import { torAusUmgebung, torWebSocket } from "./tor.js";
 import { OllamaBackend } from "./inference.js";
-import { ModellDienst, ollamaPull, ollamaTags, registryDateien } from "./modell-laden.js";
+import { ModellDienst, nurBeiOllama, ollamaPull, ollamaTags, registryDateien } from "./modell-laden.js";
 import { type KnotenSchluessel, SchluesselFehler, knotenSchluesselDatei, ladeKnotenSchluessel } from "./knoten-schluessel.js";
 import http from "node:http";
 
@@ -140,10 +140,13 @@ async function main(): Promise<void> {
   const fassung = (JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as { version?: string }).version ?? "unbekannt";
   // Angeboten wird PROVIDER_MODELS wie bisher, dazu seit E9-3a die geprüft geladenen Modelle (`npm run modell`)
   let gepruefteModelle: readonly string[] = [];
-  const angebotModelle = () => [...new Set([
+  // B-41: nur, was Ollama hat (`nurBeiOllama()`, bei jedem Angebot neu gefragt); ohne Antwort keine Aussage
+  let ollamaNamen: readonly string[] | null = null;
+  const alleAngebotenen = () => [...new Set([
     ...(process.env.PROVIDER_MODELS ?? process.env.OLLAMA_MODEL ?? "nemotron-3.5-lightning:30b-a3b-nvfp4").split(",").map((m) => m.trim()).filter(Boolean),
     ...gepruefteModelle,
   ])];
+  const angebotModelle = () => (ollamaNamen ? nurBeiOllama(alleAngebotenen(), ollamaNamen).modelle : alleAngebotenen());
 
   const keypair = loadKeypair();
   const backend = new OllamaBackend();
@@ -507,11 +510,24 @@ async function main(): Promise<void> {
   // Der provider bietet ALLE an — der user waehlt, oder der provider routet.
   // Beim Start und beim Erneuern gleich gebaut: frueher fehlten beim Erneuern
   // Speicherangabe und (seit 3.1) die Rechenarbeit fuer private Anfragen.
+  let letzteModellMeldung = "";
   const baueAngebot = async () => {
     const { AUFTEILUNG_FASSUNG, buildCapabilities, defaultPriceFor, DEFAULT_TOOL_PRICES, signEvent, KANAL_PROGRAMM_ID } = await import("@freedomstack/protocol");
     gepruefteModelle = await modellDienst.imAngebot();
+    ollamaNamen = await ollamaTags(ollamaUrl).then((t) => t.map((m) => m.name), () => null);
     const models = angebotModelle();
     const model = models[0]; // primaer
+    // B-41: was angekündigt war, Ollama aber nicht hat, und ein OLLAMA_MODEL außerhalb des Angebots – nur ins Log
+    const fehlen = ollamaNamen ? nurBeiOllama(alleAngebotenen(), ollamaNamen).fehlen : [];
+    const meldung = [
+      fehlen.length === 0 ? ""
+        : fehlen.length === alleAngebotenen().length ? `[modell] Ollama kennt keins der angebotenen Modelle (${fehlen.join(",")}) – Aufträge werden scheitern`
+          : `[modell] nicht bei Ollama, nicht im Angebot: ${fehlen.join(",")}`,
+      process.env.OLLAMA_MODEL && !models.includes(process.env.OLLAMA_MODEL)
+        ? `[modell] OLLAMA_MODEL ${process.env.OLLAMA_MODEL} ist nicht im Angebot – Aufträge ohne Modellwunsch beantwortet ${model}` : "",
+    ].filter(Boolean).join("\n");
+    if (meldung && meldung !== letzteModellMeldung) console.warn(meldung);
+    letzteModellMeldung = meldung;
     const mp = defaultPriceFor(model);
     const tier = (process.env.PROVIDER_TIER as "free" | "classic" | "pro") ?? mp?.tier ?? "classic";
     const caps = buildCapabilities({
