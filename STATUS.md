@@ -7347,3 +7347,78 @@ dann nach 20 s zusätzlich den nächsten (seine Antwort zählt weiter). Der GX10
 Quelltext-Test folgt dem neuen Namen `fb`), Leak 73 + 1 todo; mls 13; tsc ×3, Build,
 `check-wiring --streng` (0 offen), `check-website`, `check_innerhtml --streng`, Smoke-Test,
 Website-Bau und reproduzierbarer Build grün.
+
+## Schritt E9-3b – Modelle in der Selbstprüfung und im Status des eigenen Knotens
+
+Zweiter Teil von E9-3 (Entwurf `docs/E9-ENTWURF.md`, V3 A, Freigabe 08.10.):
+`pruefeEinrichtung()` sollte ungeprüfte Modelle mit eigener Kennung melden (wie B-11c), und den
+Fortschritt beim Laden sieht der Besitzer über den Status des eigenen Knotens (B-11).
+
+**Knoten:**
+- **`modell-pruefung.ts` (neu):** `pruefeModelle()` liefert je Modell eine Kennung:
+  - `modell.geprueft`: gegen das Manifest geprüft, Fingerabdruck bei Ollama gleich – mit
+    Dateien und Bytes.
+  - `modell.ungeprueft`: aus `PROVIDER_MODELS` angeboten, ohne Prüfung gegen ein Manifest.
+  - `modell.veraendert`: Ollama hat unter dem Namen inzwischen etwas anderes.
+  - `modell.fehltBeiOllama`: nicht bei Ollama, nicht im Angebot.
+  - `modell.fehltImAngebot`: Ollama kennt keins – die Liste bleibt im Angebot (B-41), Aufträge
+    scheitern.
+  - `modell.ollamaStumm`: Ollama antwortete nicht, keine Aussage.
+  - `modell.wartet`: gewünscht, noch nicht dran.
+  - Das letzte gescheiterte Laden je Name, aus der Kennung von `ladeModell()` abgeleitet
+    (`modellFall()`: `passt.nicht` → `modell.passtNicht`). Ein älteres Scheitern zählt nicht,
+    wenn derselbe Name wieder gewünscht ist.
+- **Sätze:** nur in `MODELL_TEXT`. `npm run modell` nimmt dieselben; seine eigene Tabelle fiel weg.
+- **`npm run pruefen`:** zeigt die Modelle nach Lightning und SOL. Der Exit-Code hängt wie bisher
+  nur an Lightning und SOL.
+- **`main.ts`:**
+  - Der Status an den Besitzer (5077) trägt `modellPruefung`: Befunde und was gerade lädt (aus
+    `modelle.json`).
+  - Ollama wird einmal je Angebot gefragt; Namen und Fingerabdrücke kommen aus derselben Antwort
+    (`ollamaStand`).
+  - Angebot und Status lesen `PROVIDER_MODELS` über `providerModelle()`.
+
+**Protokoll** (`knoten-status.ts`, `docs/PROTOCOL.md` §24):
+- **Neues Feld:** `modellPruefung` mit `befunde` (höchstens 30: Name, Stufe, `modell.…`, Werte
+  wie bei `einrichtung`) und `laeuft` (Name, Schritt, seit, beim Laden Bytes).
+- **Eigenes Feld, nicht in `einrichtung`:** Eine App vor E9-3b läse sonst den ganzen Status nicht
+  mehr, sie übergeht das neue Feld.
+- **Nichts Unlesbares:** `knotenStatusText()` schickt nichts, was `leseKnotenStatus()` abwiese.
+  Ein Modellname aus der Umgebung mit Steuerzeichen fällt weg, statt den Status unlesbar zu
+  machen.
+
+**App** (`knoten-status-ansicht.ts`):
+- **Anzeige unter „Einrichtung“:** „Modelle (Prüfung gegen das Manifest)“ mit einer Zeile je
+  Modell (`modellZeile()`) und dem Fortschritt (`ladenZeile()`, Schritt, Anteil höchstens
+  100 %).
+- **Ältere Knoten:** Bei einem Knoten vor E9-3b steht das ehrlich da.
+- **Texte:** je Kennung ein Text in beiden Sprachen (`MODELL_TEXT`). Ein Test vergleicht die
+  Kennungen mit dem Knoten.
+
+**Echt gestartet:** `npm run pruefen` gegen eine Ollama-Attrappe (`/api/tags`) mit gemerktem
+Stand und Wünschen in einem frischen `HOME`. Die Ausgabe nennt:
+- geprüft,
+- verändert (anderer Fingerabdruck),
+- ungeprüft (`nemotron-3.5-lightning` → `:latest`),
+- fehlt bei Ollama,
+- wartet,
+- „braucht etwa 48 GB, das Gerät hat 32 GB“.
+
+**Tests:**
+- **protocol** `knoten-status.test.ts` (+2): Hin und zurück; alles Kaputte ist null; der
+  Schreiber lässt Unlesbares weg.
+- **node** `modell-pruefung.test.ts` (+7):
+  - jede Kennung;
+  - jeder Ausgang von `ladeModell()` hat einen Satz;
+  - Weg durch den Provider (Antwort an den Besitzer, Name mit Steuerzeichen fällt weg);
+  - Verdrahtung.
+- **app** `knoten-status.test.ts` (+2): Zeilen, Fortschritt, Kennungen gleich denen des Knotens.
+- **Angepasst, nicht abgeschwächt** (B-11b/c): Zwei Tests zählten die Zeilen der Anzeige. Dazu
+  kommt die Zeile zu den Modellen; geprüft wird sie jetzt mit.
+
+**Prüfungen:** protocol 1257 grün (+2, 6 übersprungen), node 356 grün (+7, ohne Netz 7
+übersprungen; mit Netz 357), app 1029 (+2), Leak 73 + 1 todo, mls 13; tsc überall, Build,
+`check-wiring --streng`, `check-website`, `check_innerhtml --streng`, Smoke-Test, Website-Bau grün.
+
+Knoten-Stand: `main` mit E9-3b, damit die App die Modelle im Status zeigt. Ohne Update steht dort
+„dieser Knoten meldet keine Prüfung“.
