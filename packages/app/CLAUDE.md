@@ -705,6 +705,16 @@ Fallstricke dieses Bereichs unten anhängen.
   (`verschluesseleMitPassphrase()`, JSON mit `art`, der private Schlüssel nie im Klartext), ohne
   sie wie bisher als Text. Der Widerruf liest Hex oder diese Datei nur über `leseErsatz()` – vor
   `fromHex()`; eine falsche Passphrase meldet einen festen Text, nie die Meldung des Browsers.
+- **Agenten auf dem Gerät nur über `agenten-buch.ts`** (seit 11.3c1, Entwurf
+  `docs/AGENTEN-RAUM-ENTWURF.md`): Schlüssel und Persona nur in `freedom.agenten` (`geheim`,
+  `SICHERUNG_NIE`), angelegt erst nach `verlangeTresor()` (`legeGeraeteAgentAn()`), als Gerät nie.
+  Ein Agent zahlt nur, was `reicht()` durchlässt (je Raum Monat und Tag, UTC, in der Einheit der
+  Schiene), verbucht mit `buche()`; „Budget erreicht“ sagt er je Zeitraum einmal (`meldeEinmal()`).
+  In offene Räume nur über `ladeAgentInOffenenRaum()` (`shell/agenten.ts`): nur mit
+  `rollen_vergeben`, die Rolle `agent` legt nur der Gründer an und nur mit Grundrechten
+  (`mitAgentRolle()`), die Karte signiert der Agent, die Liste 30000 nennt nur Agenten offener Räume
+  (`inOffenenRaeumen()`, Agenten anderer Geräte bleiben), der Pflicht-Hinweis im Raum ohne
+  Erwähnung – sonst löste er den Agenten aus. Die Persona verlässt das Gerät nur versiegelt im Auftrag.
 - **Anhänge im Chat nur über `handleChatFiles()`** (seit C-29, `anhang-warte.ts`): Jeder Upload
   meldet sich bei `anhangWarte` an, und `sendChatMessage()` wartet auf alle, bevor es Text und
   Anhänge liest. Ein neuer Weg, Dateien anzuhängen (Einfügen, Ziehen, Sprachnachricht), geht durch
