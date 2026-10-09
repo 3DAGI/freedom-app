@@ -199,10 +199,6 @@ release.ts|latestRelease|Baustein; „neuere Version“ in der App seit 6.1a2 nu
 release.ts|sharingInstructions|deutsche Referenz; die App bildet den Begleittext seit 8.16g2b2 in protokoll-texte.ts (weitergabeText) nach, ein Test hält ihn wortgleich
 mesh-sync.ts|offlineCapabilities|deutsche Referenz; die App bildet die Liste seit 8.16g2b2 in protokoll-texte.ts (offlineFaehigkeiten) nach, ein Test hält sie gleich
 spaces.ts|privacyInfo|deutsche Referenz; die App bildet die Rauminfo seit C.2b2 in protokoll-texte.ts (kanalVertraulichkeit) nach, ein Test hält sie wortgleich
-kopfgeld.ts|aktuelleKopfgelder|Kopfgelder (E10 B, 04.10.2026) – verdrahtet in E10b (App: Kopfgeld am Issue, Zahlung per Klick)
-kopfgeld.ts|baueKopfgeld|Kopfgelder (E10 B, 04.10.2026) – verdrahtet in E10b (App: Kopfgeld am Issue, Zahlung per Klick)
-kopfgeld.ts|kopfgelderZuIssue|Kopfgelder (E10 B, 04.10.2026) – verdrahtet in E10b (App: Kopfgeld am Issue, Zahlung per Klick)
-kopfgeld.ts|leseKopfgeld|Kopfgelder (E10 B, 04.10.2026) – verdrahtet in E10b (App: Kopfgeld am Issue, Zahlung per Klick)
 kopfgeld.ts|offeneKopfgelder|Kopfgelder (E10 B, 04.10.2026) – verdrahtet in E10b (App: Kopfgeld am Issue, Zahlung per Klick)
 agent-karte.ts|besitzerBestaetigt|Agenten in Räumen (11.3b1, nur Protokoll) – verdrahtet in 11.3c (Gerät) und 11.3d (Knoten, Spur B)
 agent-karte.ts|raumListenEvents|Agenten in Räumen (11.3b1, nur Protokoll) – verdrahtet in 11.3c (Gerät) und 11.3d (Knoten, Spur B)

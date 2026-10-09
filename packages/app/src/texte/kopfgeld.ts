@@ -1,0 +1,32 @@
+/** Texte: Kopfgelder am Issue (E10b). */
+import type { Texte } from "../i18n.js";
+
+export const kopfgeld: Texte = {
+  "kopf.titel": { de: "Kopfgelder", en: "Bounties" },
+  "kopf.lade": { de: "lade …", en: "loading …" },
+  "kopf.keine": { de: "Noch kein Kopfgeld für dieses Issue.", en: "No bounty for this issue yet." },
+  "kopf.aussetzen": { de: "Kopfgeld aussetzen", en: "Post a bounty" },
+  "kopf.aussetzenOk": { de: "aussetzen", en: "post" },
+  "kopf.hinweis": { de: "Öffentlich und mit deinem Schlüssel signiert. Du sagst den Betrag zu und zahlst ihn selbst direkt an die Person, die es erledigt – niemand verwahrt etwas, und nichts wird von selbst gezahlt.", en: "Public and signed with your key. You promise the amount and pay it yourself directly to whoever does it – nobody holds anything, and nothing is paid automatically." },
+  "kopf.feldTitel": { de: "Aufgabe", en: "Task" },
+  "kopf.feldText": { de: "Was genau erledigt sein muss (optional)", en: "What exactly has to be done (optional)" },
+  "kopf.feldSats": { de: "Betrag in sats (optional)", en: "Amount in sats (optional)" },
+  "kopf.feldSol": { de: "Betrag in SOL (optional)", en: "Amount in SOL (optional)" },
+  "kopf.betragFehlt": { de: "Mindestens ein Betrag – in sats oder in SOL.", en: "At least one amount – in sats or in SOL." },
+  "kopf.nurGanzeSats": { de: "In sats nur ganze Zahlen.", en: "Whole numbers only in sats." },
+  "kopf.ausgesetzt": { de: "Kopfgeld ausgesetzt", en: "Bounty posted" },
+  "kopf.von": { de: "von {name}", en: "by {name}" },
+  "kopf.standOffen": { de: "offen", en: "open" },
+  "kopf.standVergeben": { de: "vergeben an {name}", en: "assigned to {name}" },
+  "kopf.standErledigt": { de: "erledigt von {name}", en: "done by {name}" },
+  "kopf.standZurueck": { de: "zurückgezogen", en: "withdrawn" },
+  "kopf.vergeben": { de: "Vergeben an …", en: "Assign to …" },
+  "kopf.vergebenOk": { de: "vergeben", en: "assign" },
+  "kopf.vergebenText": { de: "Wer die Aufgabe übernimmt – zur Wahl stehen, wer das Issue geschrieben oder kommentiert hat. Öffentlich wie das Kopfgeld.", en: "Who takes on the task – you can pick whoever wrote or commented on the issue. Public like the bounty." },
+  "kopf.an": { de: "An", en: "To" },
+  "kopf.niemand": { de: "Noch niemand außer dir am Issue – vergeben geht an die Autorin oder an jemanden, der kommentiert hat.", en: "Nobody but you on this issue yet – you can assign to the author or someone who commented." },
+  "kopf.erledigt": { de: "Als erledigt markieren", en: "Mark as done" },
+  "kopf.wiederOffen": { de: "Wieder öffnen", en: "Reopen" },
+  "kopf.zurueckziehen": { de: "Zurückziehen", en: "Withdraw" },
+  "kopf.gesetzt": { de: "Kopfgeld: {stand}", en: "Bounty: {stand}" },
+};

@@ -3244,6 +3244,76 @@ def gratis_anzeige_pruefen(browser, url: str) -> dict:
     return erg
 
 
+def kopfgeld_pruefen(browser, url: str) -> dict:
+    """E10b1: Kopfgelder an einem öffentlichen Issue – ein fremdes wird gezeigt (Betrag, Stand, Geldgeber, ohne Knöpfe),
+    ein eigenes ausgesetzt (38061 mit Issue, Repo, Betrag, „offen“, signiert) und vergeben (Stand „vergeben“ mit
+    `p` = gewählte Person). Repo, Issue und fremdes Kopfgeld aus `scripts/kopfgeld-probe.mts`."""
+    erg = {"fehler": []}
+    wurzel = Path(__file__).resolve().parent.parent
+    aus = subprocess.run(["npx", "tsx", "scripts/kopfgeld-probe.mts"], cwd=wurzel, capture_output=True, text=True, timeout=180, check=True)
+    probe = json.loads(aus.stdout)
+    relay = ProbeRelay()
+    relay.events = probe["events"]
+    seite = DialogSeite(browser, url, relay, erg)
+    s, ev = seite.s, seite.ev
+    ev("() => { location.hash = '#/repos'; }")
+    s.wait_for_function("() => document.querySelectorAll('#repos-karten .repo-karte').length > 0", timeout=20000)
+    ev("() => document.querySelector('#repos-karten .repo-karte').click()")
+    s.wait_for_timeout(300)
+    ev("() => document.querySelector('#repo-seite [data-reiter=issues]')?.click()")
+    s.wait_for_function("() => !!document.querySelector('#repo-seite .issue-betreff')", timeout=15000)
+    ev("() => document.querySelector('#repo-seite .issue-betreff').click()")
+    s.wait_for_function("() => document.querySelectorAll('#repo-seite .kopfgelder .kopfgeld-zeile').length === 1", timeout=15000)
+    zeilen = """() => [...document.querySelectorAll('#repo-seite .kopfgelder .kopfgeld-zeile')].map(z => [z.dataset.stand,
+        z.querySelector('.kopfgeld-betrag').textContent, z.querySelector('.kopfgeld-stand').textContent.trim(),
+        [...z.querySelectorAll('.kopfgeld-aktionen button')].map(b => b.textContent)])"""
+    erg["fremd"] = ev(zeilen)
+    # Aussetzen: Titel steht schon da, 500 sats und 0,01 SOL
+    vorher = len(relay.gesendet)
+    ev("() => document.querySelector('#repo-seite .kopfgeld-neu').click()")
+    s.wait_for_selector("[role=dialog] .dlg-text", timeout=5000)
+    erg["hinweis"] = ev("() => document.querySelector('[role=dialog] .dlg-text').textContent")
+    ev("""() => { const f = [...document.querySelectorAll('[role=dialog] input')];
+        f[1].value = '500'; f[2].value = '0,01'; f.forEach(i => i.dispatchEvent(new Event('input')));
+        [...document.querySelectorAll('[role=dialog] .dlg-knoepfe button')].pop().click(); }""")
+    s.wait_for_function("() => document.querySelectorAll('#repo-seite .kopfgelder .kopfgeld-zeile').length === 2", timeout=15000)
+    neu = [e for e in relay.gesendet[vorher:] if e.get("kind") == 38061]
+    tags = {t[0]: t[1:] for t in (neu[-1]["tags"] if neu else [])}
+    erg["gesendet"] = {"anzahl": len({e["id"] for e in neu}), "e": tags.get("e"), "a": tags.get("a"), "msat": tags.get("amount_msat"),
+                       "lamports": tags.get("amount_lamports"), "status": tags.get("status"), "title": tags.get("title")}
+    erg["eigen"] = ev(zeilen)
+    # Vergeben an: die Autorin des Issues ist vorgewählt
+    vorher = len(relay.gesendet)
+    s.wait_for_timeout(1100)  # der neue Stand braucht einen späteren Zeitstempel (Sekunden)
+    ev("""() => [...document.querySelectorAll('#repo-seite .kopfgeld-aktionen button')].find(b => b.textContent.startsWith('Vergeben'))?.click()""")
+    s.wait_for_selector("[role=dialog] .dlg-wahl", timeout=5000)
+    erg["wahl"] = ev("() => [...document.querySelectorAll('[role=dialog] .dlg-wahl input')].length")
+    ev("() => [...document.querySelectorAll('[role=dialog] .dlg-knoepfe button')].pop().click()")
+    s.wait_for_function("() => [...document.querySelectorAll('#repo-seite .kopfgeld-zeile')].some(z => z.dataset.stand === 'vergeben')", timeout=15000)
+    neu = [e for e in relay.gesendet[vorher:] if e.get("kind") == 38061]
+    tags = {t[0]: t[1:] for t in (neu[-1]["tags"] if neu else [])}
+    erg["vergeben"] = {"status": tags.get("status"), "p": tags.get("p"), "e": tags.get("e")}
+    erg["danach"] = ev(zeilen)
+    seite.ctx.close()
+    if len(erg["fremd"]) != 1 or erg["fremd"][0][0:2] != ["offen", "21 sats"] or erg["fremd"][0][3] != []:
+        erg["fehler"].append(f"fremdes Kopfgeld {erg['fremd']}")
+    if not erg["hinweis"].startswith("Öffentlich und mit deinem Schlüssel signiert"):
+        erg["fehler"].append(f"Hinweis {erg['hinweis']!r}")
+    if erg["gesendet"] != {"anzahl": 1, "e": [probe["issue"]], "a": [probe["repo"]], "msat": ["500000"], "lamports": ["10000000"],
+                           "status": ["offen"], "title": ["Säge stumpf"]}:
+        erg["fehler"].append(f"ausgesetzt {erg['gesendet']}")
+    eigen = [z for z in erg["eigen"] if z[3]]
+    if len(eigen) != 1 or eigen[0][1] != "500 sats + 0,01 SOL" or eigen[0][3] != ["Vergeben an …", "Zurückziehen"]:
+        erg["fehler"].append(f"eigenes Kopfgeld {erg['eigen']}")
+    if erg["wahl"] != 2 or erg["vergeben"] != {"status": ["vergeben"], "p": [probe["autorin"]], "e": [probe["issue"]]}:
+        erg["fehler"].append(f"vergeben {erg['wahl']} {erg['vergeben']}")
+    vergeben = [z for z in erg["danach"] if z[0] == "vergeben"]
+    if len(vergeben) != 1 or vergeben[0][3] != ["Als erledigt markieren", "Wieder öffnen", "Zurückziehen"]:
+        erg["fehler"].append(f"nach dem Vergeben {erg['danach']}")
+    erg["bestanden"] = not erg["fehler"]
+    return erg
+
+
 def lokal_pruefen(browser, url: str) -> dict:
     """KI auf diesem Gerät (B-1): „Dieses Gerät“ steht in der Modellwahl, gesucht wird
     erst auf Klick, die Frage geht nur an localhost – kein Auftrag, kein Umschlag ans Relay."""
@@ -5219,6 +5289,10 @@ def main() -> int:
             except Exception as e:
                 erg["gratis_anzeige"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
             try:
+                erg["kopfgeld"] = kopfgeld_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
+            except Exception as e:
+                erg["kopfgeld"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
+            try:
                 erg["lokal"] = lokal_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
             except Exception as e:
                 erg["lokal"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
@@ -5279,6 +5353,7 @@ def main() -> int:
           and erg.get("einrichtung_wahl", {}).get("bestanden") is True
           and erg.get("overlay_dialog", {}).get("bestanden") is True
           and erg.get("gratis_anzeige", {}).get("bestanden") is True
+          and erg.get("kopfgeld", {}).get("bestanden") is True
           and erg.get("lokal", {}).get("bestanden") is True
           and erg.get("meshtastic", {}).get("bestanden") is True
           and erg.get("einrichtung", {}).get("bestanden") is True
