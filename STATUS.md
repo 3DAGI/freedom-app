@@ -7263,3 +7263,42 @@ der Agent nicht (er holt sie nur nach).
 mls 13; tsc ×3, Build, `check-wiring --streng` (0 offen), `check-website`, `check_innerhtml --streng`,
 Smoke-Test, Website-Bau und reproduzierbarer Build grün.
 
+## Schritt L2-1, L2-2 – Frische Angebote vorn, Rückfall nach 20 s Stille (Lauf 2, Anhang F)
+
+Befunde aus Lauf 2 des lokalen Agenten (Sammlung Anhang F); entschieden 09.10.2026
+(MENSCH, L2-3): erst diese beiden, die netzweite Ausfall-Kenntnis später.
+
+**L2-1 – ein toter Provider wurde gewählt:**
+
+- `protocol/src/pruefung.ts`: `ANGEBOT_TAKT_SEK` (30 min, auch der Takt des Knotens in
+  `main.ts`), `PRUEF_GRENZEN.veraltetSek` (zwei Takte plus fünf Minuten),
+  `angebotVeraltet()`; `ordneNachPruefung()` stellt veraltete Angebote hinter alle
+  frischen (auch hinter Herabgestufte), vor die gemessen Ausgefallenen.
+- `app/src/matchmaking.ts`: je Provider nur das neueste Angebot; `matchProviders()`
+  rechnet „veraltet“ je Auswahl mit der Uhr (der Angebots-Cache altert mit), eigene
+  Provider unter sich frische vor veralteten; `jetzt` für Tests.
+
+**L2-2 – Rückfall erst nach 5 min:**
+
+- Knoten (`dvm-provider.ts`): `meldeBearbeitung()` – „processing“ (7000, versiegelt), sobald
+  ein Auftrag angenommen ist: nach allen Ablehnungen, vor Werkzeugen und Rechnen, über
+  Funk nie.
+- App (`tabs/agent.ts`): `waitForAnswer()` liest Ergebnisse vor Rückmeldungen – bis hier
+  hielt jede Rückmeldung (auch ein Zwischenstand) ein fertiges Ergebnis bis zur Frist auf;
+  eine Ablehnung zählt vor Zwischenständen; „processing“ heißt warten; `stummNachMs`:
+  ohne Lebenszeichen zurück.
+- App (`tabs/agent-wege.ts`): nach `HEDGE_AFTER_MS` (20 s) ohne Lebenszeichen bekommt der
+  nächste den Auftrag zusätzlich – nur wenn es einen gibt und nie mit Gutschrift im
+  Zahlkanal (`perKanal()`); das letzte Ziel wartet mindestens bis zur Frist des ersten.
+
+**Verdrahtet:** `shell/state.ts` (`findProviders()` → `matchProviders()`),
+`shell/tabs/agent-wege.ts` (`askWithFailover()`), `node/src/dvm-provider.ts`
+(`handleJob()`), `node/src/main.ts` (`CAPS_REFRESH_MS`).
+
+**Knoten-Stand:** Ohne das Update schickt ein Knoten kein „processing“ – die App fragt
+dann nach 20 s zusätzlich den nächsten (seine Antwort zählt weiter). Der GX10 auf `main`.
+
+**Prüfungen:** protocol 1253 grün (+1, 6 übersprungen), node 350 (+3), app 1027 (+8; ein
+Quelltext-Test folgt dem neuen Namen `fb`), Leak 73 + 1 todo; mls 13; tsc ×3, Build,
+`check-wiring --streng` (0 offen), `check-website`, `check_innerhtml --streng`, Smoke-Test,
+Website-Bau und reproduzierbarer Build grün.

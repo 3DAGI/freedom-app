@@ -19,7 +19,7 @@ import { $, toast } from "../ui.js";
 import { MAX_POW_APP, buildJobEvent, handleAnswer, jobAbort, keinPrivaterProvider, privatFaehig, waitForAnswer } from "./agent.js";
 import { gratisAnbieter, merkeGratisLeer, zaehleGratisAntwort } from "../gratis-start.js";
 import { merkeGratisAbgelehnt } from "../app.js";
-import { zieleNachSchiene } from "../ki-zahlung.js";
+import { perKanal, zieleNachSchiene } from "../ki-zahlung.js";
 import { addAiMessage, EigeneMeldung, hideTyping, showAiError } from "./agent-anzeige.js";
 import { selectedTools } from "./agent-eingabe.js";
 
@@ -64,9 +64,11 @@ export async function askWithFailover(prompt: string, bid: number, tier: "free" 
   }
   const targets = ziele.slice(0, 3);
 
-  // HEDGING: Nach HEDGE_AFTER_MS ohne Antwort wird derselbe Job ZUSÄTZLICH an
-  // den nächsten Provider geschickt (der erste läuft weiter). Wer zuerst
-  // antwortet, gewinnt — Wartezeit max. Hedge-Intervall statt Provider-Timeout.
+  // HEDGING: Nach HEDGE_AFTER_MS ohne Lebenszeichen (kein Ergebnis, keine Rückmeldung – ein Knoten
+  // meldet seit L2-2 „processing“, sobald er rechnet) wird derselbe Job ZUSÄTZLICH an den nächsten
+  // Provider geschickt (der erste läuft weiter). Wer zuerst antwortet, gewinnt; wer lebt, bekommt die
+  // ganze Frist. Bis L2-2 wartete der erste 5 min. Mit Gutschrift im Zahlkanal nie vor der Frist –
+  // ein zweiter Provider bekäme eine zweite Gutschrift.
   const HEDGE_AFTER_MS = Number(localStorage.getItem("freedom.hedgeMs") ?? 20_000);
   /** Alle aktiven Job-Ids dieses Laufs (Results aus allen akzeptieren). */
   const activeJobIds = new Set<string>();
@@ -78,13 +80,18 @@ export async function askWithFailover(prompt: string, bid: number, tier: "free" 
   const zuLangsam = new Set<string>();
   // Prüfrunde (P5c2): etwa jede 400. Antwort zusätzlich an zwei andere Provider – Pflicht, aus dem Prüfbudget
   let runde: Promise<Pruefrunde | null> = Promise.resolve(null);
+  // Frist des ersten Ziels – so lange wartet das letzte noch mit, falls der erste nur still war (L2-2)
+  let ersteFrist = 0;
 
   for (let i = 0; i < targets.length; i++) {
     const target = targets[i];
     // erster Kandidat: hedge-fenster + restlaufzeit (browser-suche braucht zeit)
-    const timeoutMs = i === 0 ? HEDGE_AFTER_MS + Math.min(280_000, 300_000 - HEDGE_AFTER_MS) : 120_000;
+    const frist = i === 0 ? HEDGE_AFTER_MS + Math.min(280_000, 300_000 - HEDGE_AFTER_MS) : 120_000;
+    const letztes = i === targets.length - 1;
+    const timeoutMs = letztes ? Math.max(frist, ersteFrist - Date.now()) : frist;
     const { wrap, requestId } = await buildJobEvent(prompt, bid, tier, target, sc);
     await pool.publish(wrap);
+    if (i === 0) ersteFrist = Date.now() + frist;
     activeJobIds.add(requestId);
     gesendetMs.set(target, Date.now());
     if (i === 0) {
@@ -94,10 +101,13 @@ export async function askWithFailover(prompt: string, bid: number, tier: "free" 
       }).catch(() => null);
     }
 
+    // Rückfall nach Stille (L2-2) nur, wenn es einen nächsten gibt, und nie mit Gutschrift im Zahlkanal
+    const stumm = !letztes && !perKanal(requestId);
     const answer = await waitForAnswer(requestId, timeoutMs, target, {
       extraJobIds: activeJobIds,
       onFeedback: (msg) => { lastFeedbackError = msg; },
       signal: jobAbort?.signal,
+      ...(stumm ? { stummNachMs: HEDGE_AFTER_MS } : {}),
     });
     if (answer) {
       if ("providerError" in answer && answer.providerError) {
