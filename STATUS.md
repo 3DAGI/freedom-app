@@ -6835,5 +6835,11 @@ dazu Cashu, Atomic Agent und TensorFold.
 **FORTSCHRITT:** Zeile Spur B nennt B-29 bis B-39; Vorschlag, B-29 direkt nach
 E9-3b zu bauen.
 
-Kein Code geändert; Knoten-Stand: nicht betroffen.
+**Dazu Anhang F** (Lauf 2 des lokalen Agenten, 50 Nutzer mit echtem Provider):
+jeder Befund am Code nachgeprüft. Spur B: B-40 (ohne `NODE_SECRET_KEY` bei
+jedem Start ein neuer Schlüssel, der geheime im Log; Docker immer) und B-41
+(angekündigtes und ausgeliefertes Modell können auseinanderfallen). Für Spur A:
+toter Provider gewählt (L2-1), Rückfall erst nach 5 min statt nach 20 s (L2-2),
+netzweite Ausfall-Kenntnis nur dezentral (L2-3).
 
+Kein Code geändert; Knoten-Stand: nicht betroffen.

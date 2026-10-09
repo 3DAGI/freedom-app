@@ -104,6 +104,8 @@ Reihenfolge: erst die freien Punkte von oben nach unten.
 | B-37 | **MeshCore als zweites LoRa-Format** (Anhang E): Repeater und Room Server halten Nachrichten; spricht nicht mit Meshtastic. Wie 7.5: Format ohne Abhängigkeit, Vektoren aus der Referenz. | `frei` – nachrangig; lohnt, wo das Netz vor Ort MeshCore nutzt | `meshtastic*.ts` als Vorlage |
 | B-38 | **Sprache lokal: whisper.cpp und Piper** (Anhang E): Sprachnachrichten in Text, Antworten vorlesen – als Werkzeuge des eigenen Knotens bzw. von „Dieses Gerät“, Dienste wie ComfyUI. | `frei` – nach B-31 (als MCP-Server) | `tools.ts`, `sprachnachricht.ts` |
 | B-39 | **Iroh-Blobs** (Anhang E): BLAKE3 mit geprüftem Streaming auch für Teilbereiche – weiter als unser Blob-Netz. | `wartet` – auf eine Browser-Fassung von iroh-blobs (angekündigt, nicht bestätigt) | `blob.ts`, `storage-role.ts` |
+| B-40 | **Stabile Knoten-Identität, kein Schlüssel im Log** (Lauf 2 des lokalen Agenten, Anhang F): Ohne `NODE_SECRET_KEY` erzeugt `loadKeypair()` (`main.ts`) bei jedem Start einen neuen Schlüssel und schreibt den geheimen ins Log. `docker-compose.yml` reicht `NODE_SECRET_KEY` nicht durch und verspricht, das Volume `~/.freedom` erhalte die Identität – das stimmt nicht; jeder Neustart kostet Ruf, Zahlkanäle und Kopplung. Künftig: `NODE_SECRET_KEY` nur streng (64 Zeichen Hex, sonst kein Start), sonst `~/.freedom/node-key` (dieselbe Datei wie der Installer, 0600, beim ersten Start angelegt); ins Log nur der öffentliche Schlüssel. | `frei` | `main.ts`, `koppeln.ts`, `docker-compose.yml` |
+| B-41 | **Angebotenes Modell = ausgeliefertes Modell** (Anhang F): Nennt eine Anfrage kein angebotenes Modell, antwortet der Knoten mit `OLLAMA_MODEL` (Vorgabe Nemotron) – auch wenn er nur `PROVIDER_MODELS` anbietet. Künftig ohne Wunsch das erste angebotene Modell; die Selbstprüfung meldet ein angebotenes Modell, das Ollama nicht kennt, und ein `OLLAMA_MODEL` außerhalb des Angebots. | `frei` | `dvm-provider.ts`, `inference.ts`, `einrichtung.ts` |
 
 ---
 
@@ -440,3 +442,24 @@ github.com/ashhart/TensorFold; Nutzerberichte, nicht unabhängig geprüft),
 vLLM gegen Ollama auf dem DGX Spark (Messungen im NVIDIA-Forum), LiveKit
 (docs.livekit.io/transport/encryption), Breez SDK Spark (Breez-Blog,
 WalletScrutiny), Cashu (NUT-11, NUT-12), Shamir (Cure53-Bericht).
+
+---
+
+## Anhang F – Befunde aus Lauf 2 des lokalen Agenten (09.10.2026)
+
+Lokaler Agent des MENSCHEN, adversariell, ohne Code-Änderung: App aus frischem
+Checkout, eigener Knoten mit Ollama `qwen3.8:27b` auf dem GB10, 50 Nutzer mit
+echter Merkphrase (Devnet-SOL). Bericht beim MENSCHEN
+(`BEFUND-50-NUTZER-MIT-PROVIDER-09-10-2026.md`). **Der Fluss funktioniert:**
+echte Antworten in 12–34 s, Abrechnung stimmt. Spur B hat jeden Befund am Code
+nachgeprüft; die Spalte „Spur“ ist ein Vorschlag wie in Anhang D.
+
+| Befund | Was (nachgeprüft) | Wo | Spur | Stand |
+|---|---|---|---|---|
+| L2-1 | **Schwer:** Ein toter Provider wird gewählt. Für einen neuen Nutzer sehen ein lebender und ein toter Provider gleich aus (`stufe: "neu"`, `ausfallJetzt` nur aus der eigenen Messung); dann entscheidet der Zufall mit 1/Preis². Frisch heißt heute „jünger als 24 h“, obwohl der Knoten sein Angebot alle 30 min erneuert – ein Angebot, das zwei Erneuerungen verpasst hat, sollte hinter frische. Die feste Liste `DEAD_PROVIDERS` (ein alter GX10-Schlüssel) hilft nur gegen genau diesen. | `matchmaking.ts:93-102`, `pruefung.ts:110` | A | |
+| L2-2 | **Schwer:** Rückfall erst nach 5 min. Der Kommentar sagt „nach 20 s zusätzlich an den nächsten“, gewartet wird beim ersten Ziel aber `HEDGE_AFTER_MS` + 280 s = 300 s. Vorsicht beim Kürzen: Mit Zahlkanal-Gutschrift (SOL) zahlte ein zweites Ziel ein zweites Mal – Regel nötig (erst nach Ablauf oder nur ohne Gutschrift). | `shell/tabs/agent-wege.ts:85` | A | |
+| L2-3 | Netzweite Ausfall-Kenntnis: Ausfälle kennt nur, wer selbst gefragt hat. Dezentral ginge es über die Ruf-Zusammenfassungen der Kontakte (38075, 5.5c), nie über eine zentrale Liste. | `ruf-teilen.ts`, `pruefung.ts` | A | Entscheidung (neu) |
+| L2-4 | Angekündigt `PROVIDER_MODELS`, ausgeliefert `OLLAMA_MODEL`, wenn die Anfrage kein angebotenes Modell nennt | `dvm-provider.ts:1253-1258`, `inference.ts:104` | B | B-41 |
+| L2-5 | Neue Identität bei jedem Start ohne `NODE_SECRET_KEY` (Docker immer), geheimer Schlüssel im Log | `main.ts:46-59`, `docker-compose.yml:147-151` | B | B-40 |
+| L2-6 | Einrichtung meldet eine Lightning-Adresse mit HTTP 404 als Fehler – richtig so (die Adresse muss erreichbar sein) | `einrichtung.ts` | – | kein Punkt |
+| L2-7 | Zahlkanal ohne `ZAHLKANAL=1` aus – gewollt (`kanalKasseAusUmgebung()`). Der Bericht nennt einen frisch deployten Zahlkanal (`F9P2Peyy…`): die Programm-ID trägt der MENSCH ein (M-2, `KANAL_PROGRAMM_ID`) | `kanal-kasse.ts`, `channel.ts` | MENSCH | M-2 |
