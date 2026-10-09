@@ -191,6 +191,8 @@ label:has(input[type="checkbox"]), label:has(input[type="radio"]) { text-transfo
 /* Kurs-Hinweis und Verbindungsstand der Solana-Karte nicht aneinander (W-2) */
 #kurs-info:not(:empty) { margin-bottom: 8px; }
 #sol-pubkey { margin-bottom: 8px; }
+/* Verdienen ohne Knoten unter dem Schlüssel (C-38b, Nutzertest V-1): ein Hinweis statt „Dein Knoten …“ und Umgebungsvariablen */
+#earn-ohne-knoten:not([hidden]) ~ .nur-mit-knoten { display: none; }
 
 .row { display: flex; gap: 8px; }
 .row > * { flex: 1; }
