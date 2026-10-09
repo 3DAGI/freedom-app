@@ -30,7 +30,7 @@ test("Auswahl: die eigene Messung bestimmt die Stufe – gemessen normal vor neu
     [aus.caps.pubkey, gemessen({ erfolge: 10, stufe: "ausgefallen" })],
   ]));
   assert.equal(alle.find((p) => p.caps.pubkey === unbekannt.caps.pubkey)!.messung, undefined);
-  const r = matchProviders(alle, "classic", { maxResults: 10, zufall: () => 0.5 }).map((p) => p.caps.pubkey);
+  const r = matchProviders(alle, "classic", { maxResults: 10, zufall: () => 0.5, jetzt: JETZT }).map((p) => p.caps.pubkey);
   assert.equal(r[0], gut.caps.pubkey, "gemessen normal vorn – trotz achtfachem Preis");
   assert.deepEqual(new Set(r.slice(1, 3)), new Set([unbekannt.caps.pubkey, wenig.caps.pubkey]), "ohne genug Messung in der Mitte");
   assert.deepEqual(r.slice(3), [herab.caps.pubkey, aus.caps.pubkey]);

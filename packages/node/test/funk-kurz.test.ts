@@ -60,8 +60,11 @@ test("7.4a: max_zeichen – gekürzt auf höchstens 500 Zeichen, keine Zwischens
 });
 
 test("7.4a: ohne max_zeichen bleibt alles wie bisher – ganze Antwort, Zwischenstand, keine Bitte um Kürze", async () => {
-  const { backend, antworten } = await lauf([], 2);
-  assert.equal(antworten.filter((a) => a.kind === KIND_DVM_FEEDBACK).length, 1, "Zwischenstand wie bisher");
+  const { backend, antworten } = await lauf([], 3);
+  const status = (s: string) => antworten.filter((a) => a.kind === KIND_DVM_FEEDBACK && a.tags.some((t) => t[0] === "status" && t[1] === s));
+  assert.equal(status("progress").length, 1, "Zwischenstand wie bisher");
+  assert.equal(status("processing").length, 1, "angenommen (L2-2) – über Funk nicht, siehe oben");
+  assert.equal(antworten.filter((a) => a.kind === KIND_DVM_FEEDBACK).length, 2);
   const text = parseJobResult(antworten.find((a) => a.kind === KIND_DVM_TEXT_GENERATION + 1000)!).output;
   assert.ok([...text].length > FUNK_MAX_ZEICHEN);
   assert.doesNotMatch(backend.prompts[0]!, /höchstens \d+ Zeichen/);
