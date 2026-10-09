@@ -646,6 +646,15 @@ export class DvmProvider {
     }
   }
 
+  /** NIP-90-Rückmeldung „processing“ (L2-2): der Auftrag ist angenommen – best effort, wie Zwischenstände. */
+  private meldeBearbeitung(request: NostrEvent, privat: boolean): void {
+    const fb = signEvent(
+      buildEvent(this.cfg.keypair.pk, 7000, [["e", request.id], ["p", request.pubkey], ["status", "processing"]], "processing"),
+      this.cfg.keypair.sk,
+    );
+    void this.antworte(fb, request, privat).catch(() => { /* best-effort */ });
+  }
+
   /** NIP-90-Rueckmeldung (Kind 7000): dem Kunden sofort sagen, warum abgelehnt. */
   private async meldeFehler(request: NostrEvent, err: unknown, privat = false): Promise<void> {
     try {
@@ -1180,6 +1189,9 @@ export class DvmProvider {
     const isSwarm = request.tags.some((t) => t[0] === "swarm" && t[1] === "1");
     if (gratisRegel && toolCalls.length > 0) throw new Error("Werkzeuge nur gegen Bezahlung");
     if (gratisRegel && isSwarm) throw new Error("Schwarm nur gegen Bezahlung");
+    // Lebenszeichen (L2-2): angenommen, jetzt wird gerechnet – die App wartet dann bis zur Frist,
+    // statt nach 20 s Stille den nächsten Provider zu fragen. Über Funk nicht (Sendezeit, 7.4).
+    if (!kurz) this.meldeBearbeitung(request, privat);
     const toolResults: Array<{ name: string; kind: number; costMsat: number; output: string; ok: boolean }> = [];
     let toolContext = "";
     if (toolCalls.length > 0 && this.toolRegistry) {
