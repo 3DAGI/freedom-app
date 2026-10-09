@@ -246,8 +246,8 @@ Entscheidungsvorlage vom 28.09.2026 und sind hier gekürzt.
 
 | Nr. | Punkt |
 |---|---|
-| M-1 | **0.G** Programm-ID abgleichen (Code `B6W19U…`, laut `DEPLOY.md` deployt `3UmRR…`). |
-| M-2 | **Deploy des Zahlkanals** (`KANAL_PROGRAMM_ID` ist ein Platzhalter) – ohne M-1 und M-2 keine KI-Zahlung mit SOL. |
+| M-1 | **0.G** Programm-ID abgleichen (Code `B6W19U…`, laut `DEPLOY.md` deployt `3UmRR…`). Geprüft 09.10.: nur `B6W19U…` nimmt Aufrufe an (Stand Juli, Upgrade-Recht `8DhKPv…`), `3UmRR…` lehnt alle ab (4100). |
+| M-2 | **Deploy des Zahlkanals** – auf Devnet seit 09.10. (`F9P2…`), die erste Binary lehnt aber jeden Aufruf ab (alte `declare_id!`). Offen: Upgrade mit der Binary aus 4.3e (README des Programms) – ohne M-1 und M-2 keine KI-Zahlung mit SOL. |
 | M-3 | Adressen der Entwicklung (`ENTWICKLUNG` in `aufteilung.ts`), Testnet-Test der Zahlung (aus 5.1). |
 | M-4 | Konten der Spiegel (`docs/KONTEN.md`, 5.3). |
 | M-5 | **0.D** signierte Releases (erst dann schützt die Echtheitsprüfung aus 5.2 wirklich) · **0.E** Wallet-Erweiterungen unter CSP · **5.1b** gesponserte Pools (Devnet-Deploy). |

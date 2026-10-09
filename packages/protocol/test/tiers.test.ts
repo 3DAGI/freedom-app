@@ -117,7 +117,7 @@ test("Result ohne usage-Tag: rueckwaertskompatibel", () => {
 test("Capabilities (4.3c): Kanal-Annahme mit Solana-Adresse und Programm; Unsinn fällt weg", () => {
   const kp = generateKeypair();
   const basis = { pubkey: kp.pk, tier: "classic" as const, models: ["m"], textRatePerKTokenMsat: 1000, tools: [], currentlyFree: false };
-  const kanal = { adresse: "9xQeWvG816bUx9EPjHmaT23yvVM2ZWbrrpZb9PusVFin", programm: "7tukwiJ8cKiWPmkhH2seJycWebHuZy1XLXEZYAMLB5Dj" };
+  const kanal = { adresse: "9xQeWvG816bUx9EPjHmaT23yvVM2ZWbrrpZb9PusVFin", programm: "F9P2PeyySkeQL4d1KAtHjtnVBqzjW3dqbfubY1PChW2m" };
   const mit = signEvent(buildCapabilities({ ...basis, kanal }), kp.sk);
   assert.deepEqual(mit.tags.find((t) => t[0] === "kanal"), ["kanal", kanal.adresse, kanal.programm]);
   assert.deepEqual(parseCapabilities(mit).kanal, kanal);
