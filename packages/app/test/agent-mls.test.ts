@@ -23,7 +23,9 @@ const ls = new Map<string, string>();
 };
 const { setzeIdentitaet } = await import("../src/shell/state.js");
 const { mlsKonto, mlsLadeAgentEin } = await import("../src/shell/mls-konto.js");
-const { agentKonto, AGENTEN_MLS_DB } = await import("../src/shell/agent-mls.js");
+const { agentAbgleichen, agentKonto, agentRaum, agentSendet, AGENTEN_MLS_DB } = await import("../src/shell/agent-mls.js");
+const { AuftragsBremse, raumAgentAntwort, raumAgentKarte, raumDefinition, raumNachricht } = await import("@freedomstack/protocol");
+const { entscheide } = await import("../src/agent-antwort.js");
 const { empfangeGruppe, gruendeGruppe, sendeInGruppe } = await import("../src/mls-nostr.js");
 const { mlsEngine } = await import("../src/mls-engine.js");
 const { SpeicherImRam, createVault, geheimSpeicher } = await import("../src/vault.js");
@@ -55,6 +57,8 @@ const bobKp = generateKeypair();
 const bob = { pk: bobKp.pk, signer: new LocalSigner(bobKp.sk), mls: new Mls(new LocalSigner(bobKp.sk), (id) => toHex(schnorr.sign(fromHex(id), bobKp.sk))), sichern: async () => {} };
 eingaenge.set(bob.pk, ["wss://eingang-bob.test"]);
 
+let gemeinsam: { gruppe: string; agent: Awaited<ReturnType<typeof agentKonto>>; agentPk: string } | null = null;
+
 test("11.3c3a: Agent lokal eingeladen – eigenes Konto, Einladung über kein Relay, danach liest und schreibt er", async () => {
   const k = await mlsKonto(u)!;
   const kpBob = await bob.signer.signEvent(await bob.mls.keyPackage("cd".repeat(32)));
@@ -62,7 +66,7 @@ test("11.3c3a: Agent lokal eingeladen – eigenes Konto, Einladung über kein Re
   const agentKp = generateKeypair();
   const eintrag = { pk: agentKp.pk, sk: toHex(agentKp.sk), name: "Lektor", persona: "P", raeume: [] };
   const zustand = new SpeicherImRam();
-  const agent = await agentKonto(eintrag, { zustand: () => zustand, geheim, netz })!;
+  const agent = await agentKonto(eintrag, { zustand: (e: string) => (e.startsWith("verlauf:") ? new SpeicherImRam() : zustand), geheim, netz, frage })!;
   assert.notEqual(agent.mls, k.mls, "eigenes Konto");
   const kp = await new LocalSigner(agentKp.sk).signEvent(await agent.mls.keyPackage("ab".repeat(32)));
   await agent.sichern();
@@ -92,6 +96,36 @@ test("11.3c3a: Agent lokal eingeladen – eigenes Konto, Einladung über kein Re
   assert.deepEqual(texte, ["Hallo Agent"]);
   // … und schreibt selbst hinein, als er selbst
   assert.ok(await sendeInGruppe({ mls: agent.mls, netz, sichern: agent.sichern, gruppe: g.gruppe, text: "Hallo zurück" }));
+  gemeinsam = { gruppe: g.gruppe, agent, agentPk: agentKp.pk };
+});
+
+test("11.3c3b: Erwähnung im privaten Raum – nachgeholt, entschieden mit dem Raum aus seinem Verlauf, Antwort nur in der Gruppe", async () => {
+  const { gruppe, agent, agentPk } = gemeinsam!;
+  const k = await mlsKonto(u)!;
+  const sende = async (x: { art: number; tags: string[][]; text: string }) => (await import("../src/mls-nostr.js")).sendeEventInGruppe({ mls: k.mls, netz, sichern: k.sichern, gruppe, ...x });
+  await sende(raumDefinition(gruppe, { name: "Werkstatt", kanaele: [{ id: "allgemein", name: "allgemein", privacy: "verschluesselt", writeRoles: [], position: 0 }] }));
+  await agentSendet(agent!, gruppe, raumAgentKarte({ name: "Lektor", betrieb: "geraet", bezahlung: "einlader", besitzer: ich.pk }));
+  const frageId = await sende(raumNachricht({ kanal: "allgemein", text: "Bitte gegenlesen", erwaehnt: [agentPk] }));
+  assert.ok(frageId);
+  const neu = await agentAbgleichen(agent!, gruppe);
+  assert.ok(neu.some((e) => e.inneres === frageId && e.text === "Bitte gegenlesen"), "nachgeholt");
+  const raum = agentRaum(agent!, gruppe);
+  assert.equal(raum.zustand.space?.name, "Werkstatt", "Raumstand aus dem Verlauf des Agenten");
+  assert.ok(raum.agenten.has(agentPk), "Agent an seiner Karte erkannt");
+  const ev = raum.nachrichten.find((n) => n.id === frageId)!;
+  const e = entscheide({ agent: agentPk, ev, alle: raum.nachrichten, stand: raum.zustand, definition: raum.definition, bremse: new AuftragsBremse(), jetzt: ev.created_at, istAgent: (pk) => raum.agenten.has(pk) });
+  assert.equal(e.art, "antworten");
+  const vorher = relay(GRUPPE[0]!).gesendet.length;
+  assert.ok(e.art === "antworten" && (await agentSendet(agent!, gruppe, raumAgentAntwort(e.nachricht, "Gelesen, passt."))));
+  const neueEvents = relay(GRUPPE[0]!).gesendet.slice(vorher);
+  assert.deepEqual(neueEvents.map((x) => x.kind), [445], "nur eine Gruppen-Nachricht");
+  assert.ok(!JSON.stringify(neueEvents).includes("Gelesen"));
+  // Die Gruppe liest die Antwort – vom Agenten, als Antwort auf die Frage
+  const gelesen: { von: string; text: string; tags: string[][] }[] = [];
+  await empfangeGruppe({ mls: k.mls, sichern: k.sichern, ev: neueEvents[0]!, merken: async (n) => void gelesen.push(...n) });
+  assert.deepEqual(gelesen.map((n) => [n.von, n.text]), [[agentPk, "Gelesen, passt."]]);
+  assert.ok(gelesen[0]!.tags.some((t) => t[0] === "e" && t[1] === frageId && t[3] === "reply"));
+  assert.ok(agent!.verlauf.nachrichten(gruppe).some((x) => x.text === "Gelesen, passt."), "eigene Antwort im Verlauf des Agenten");
 });
 
 test("11.3c3a: nur als Admin", async () => {
@@ -102,7 +136,7 @@ test("11.3c3a: nur als Admin", async () => {
   const g = await bob.mls.gruppeAnlegen("Bobs Raum", [kpIch], GRUPPE);
   await k.mls.beitreten(g.einladungen[0]!);
   const agentKp = generateKeypair();
-  const agent = await agentKonto({ pk: agentKp.pk, sk: toHex(agentKp.sk), name: "B", persona: "P", raeume: [] }, { zustand: () => new SpeicherImRam(), geheim, netz })!;
+  const agent = await agentKonto({ pk: agentKp.pk, sk: toHex(agentKp.sk), name: "B", persona: "P", raeume: [] }, { zustand: () => new SpeicherImRam(), geheim, netz, frage })!;
   const kp = await new LocalSigner(agentKp.sk).signEvent(await agent.mls.keyPackage("ac".repeat(32)));
   let uebergeben = 0;
   assert.equal(await mlsLadeAgentEin(g.gruppe, kp, async () => { uebergeben++; return true; }, u), "kein Admin");
@@ -114,8 +148,8 @@ test("11.3c3a: Ablauf in der App – nur in der Gruppe, erst sichern, als Gerät
   const i = (s: string) => { const n = q.indexOf(s); assert.ok(n >= 0, s); return n; };
   assert.ok(i("await k.sichern();\n  const r = await mlsLadeAgentEin(") > 0, "privater Teil des KeyPackages gesichert, bevor es benutzt wird");
   assert.ok(i("const r = await mlsLadeAgentEin(") < i("await sendeRaumstand(raum)"));
-  assert.ok(i("await sendeRaumstand(raum)") < i("...raumAgentKarte({"));
-  assert.match(q, /await sendeEventInGruppe\(\{\s*mls: k\.mls, netz: k\.netz, sichern: k\.sichern, gruppe: raum\.gruppe,\s*\.\.\.raumAgentKarte\(/, "Karte vom Agenten");
+  assert.ok(i("await sendeRaumstand(raum)") < i("await agentSendet(k, raum.gruppe, raumAgentKarte({"));
+  assert.match(q, /export async function agentSendet\(k: AgentKonto, gruppe: string, s: InneresSenden\)[\s\S]{0,200}sendeEventInGruppe\(\{ mls: k\.mls, netz: k\.netz, sichern: k\.sichern, gruppe, \.\.\.s \}\)/, "Karte vom Agenten");
   assert.match(q, /await mlsSendeEvent\(raum\.gruppe, listeImRaum\(besitzer, raum\.gruppe\)\);/, "Liste vom Besitzer, innen");
   assert.match(q, /await sendePrivat\(raum\.gruppe, kanal, t\("agentRaum\.hinweisGeraet", \{ name: agent\.name \}\)\);/, "Hinweis ohne Erwähnung");
   assert.doesNotMatch(q, /publish\(|signiere\(|veroeffentlicheAn\(ev/, "nichts offen");
