@@ -19,6 +19,7 @@ import { t } from "../i18n.js";
 import { fehlerText } from "../protokoll-texte.js";
 import { eigeneListenAbgleichen, ladeEigeneRelays, poolRelays } from "../relay-satz.js";
 import { OutboxLeser } from "../outbox-lesen.js";
+import { Nebenverbindungen } from "../neben-verbindungen.js";
 import { $, el, toast } from "./ui.js";
 
 // ------------------------------------------------------------- Konstanten
@@ -304,50 +305,67 @@ export async function ensurePool(): Promise<OutboxPool> {
 }
 
 /**
+ * Verbindungen zu Relays außerhalb des Pools (A-16, Befund N-1): wiederverwendet statt je Aufruf neu, nach
+ * zwei Minuten ohne Gebrauch geschlossen, höchstens acht. Je Identität eigene – angemeldet wird für sie.
+ */
+const neben = new Nebenverbindungen((u) => relayVerbindung(u, { timeoutMs: 8000 }));
+const nebenArt = (): string => state.keypair?.pk ?? "";
+
+/** Ziele aufteilen: Relays des Pools (unter ihrer Adresse im Pool) und die übrigen. */
+function teileZiele(pool: OutboxPool, urls: readonly string[]): { imPool: string[]; fremd: string[] } {
+  const bekannt = new Map(pool.urls.map((u) => [normalizeRelayUrl(u), u]));
+  const ziele = [...new Set(urls.map(normalizeRelayUrl))];
+  return { imPool: ziele.filter((u) => bekannt.has(u)).map((u) => bekannt.get(u)!), fremd: ziele.filter((u) => !bekannt.has(u)) };
+}
+
+/**
  * Nur an diese Relays (5.4) – etwa den Posteingang eines Empfaengers. Relays
- * des Pools nutzen ihre Verbindung, andere bekommen eine kurze eigene, die
- * danach geschlossen wird. Gibt zurueck, wie viele annahmen.
+ * des Pools nutzen ihre Verbindung, andere eine Nebenverbindung (A-16).
+ * Gibt zurueck, wie viele annahmen.
  */
 export async function veroeffentlicheAn(ev: NostrEvent, urls: readonly string[]): Promise<number> {
   const pool = await ensurePool();
-  const imPool = new Map(pool.urls.map((u) => [normalizeRelayUrl(u), u]));
-  const ziele = [...new Set(urls.map(normalizeRelayUrl))];
-  const fremd = ziele.filter((u) => !imPool.has(u)).map((u) => relayVerbindung(u, { timeoutMs: 8000, autoReconnect: false }));
+  const { imPool, fremd } = teileZiele(pool, urls);
+  const art = nebenArt();
   const [ausPool, ...einzeln] = await Promise.allSettled([
-    pool.publishAn(ev, ziele.filter((u) => imPool.has(u)).map((u) => imPool.get(u)!)),
-    ...fremd.map((r) => r.publish(ev)),
+    pool.publishAn(ev, imPool),
+    ...fremd.map((u) => neben.mit(u, art, (r) => r.publish(ev))),
   ]);
-  for (const r of fremd) r.close();
   return (ausPool.status === "fulfilled" ? ausPool.value.accepted.length : 0) + einzeln.filter((e) => e.status === "fulfilled").length;
 }
 
 /**
- * Nur an diesen Relays fragen (2.2b-d1) – etwa an den Relays einer MLS-Gruppe,
- * über je eine kurze eigene Verbindung.
+ * Nur an diesen Relays fragen (2.2b-d1) – etwa an den Relays einer MLS-Gruppe.
+ * Seit A-16 Relays des Pools über dessen Verbindung, andere über eine
+ * Nebenverbindung; weiter geht nur, was gültig signiert ist.
  */
 export async function frageAn(filter: RelayFilter, urls: readonly string[]): Promise<NostrEvent[]> {
-  const relays = [...new Set(urls.map(normalizeRelayUrl))].map((u) => relayVerbindung(u, { timeoutMs: 8000, autoReconnect: false }));
-  const antworten = await Promise.allSettled(relays.map((r) => r.query(filter)));
-  for (const r of relays) r.close();
+  const pool = await ensurePool();
+  const { imPool, fremd } = teileZiele(pool, urls);
+  const art = nebenArt();
+  const antworten = await Promise.allSettled([
+    imPool.length > 0 ? pool.queryAn(filter, imPool) : Promise.resolve([]),
+    ...fremd.map((u) => neben.mit(u, art, (r) => r.query(filter))),
+  ]);
   const alle = new Map<string, NostrEvent>();
-  for (const a of antworten) if (a.status === "fulfilled") for (const ev of a.value) alle.set(ev.id, ev);
+  for (const a of antworten) if (a.status === "fulfilled") for (const ev of a.value) if (!alle.has(ev.id) && verifyEvent(ev)) alle.set(ev.id, ev);
   return [...alle.values()];
 }
 
 /**
  * Dauer-Abo nur an diesen Relays (A-15b) – etwa an den Relays einer MLS-Gruppe, solange ihre Unterhaltung
  * offen ist; der Filter (`#h`) geht an kein anderes Relay. Relays des Pools über dessen Verbindung, andere
- * über je eine eigene, die `stopp` wieder schließt. Weiter geht nur, was gültig signiert ist.
+ * über eine Nebenverbindung (A-16), die `stopp` zurückgibt. Weiter geht nur, was gültig signiert ist.
  */
 export async function abonniereAn(filter: RelayFilter, urls: readonly string[], onEvent: (ev: NostrEvent) => void): Promise<() => void> {
   const pool = await ensurePool();
-  const imPool = new Map(pool.urls.map((u) => [normalizeRelayUrl(u), u]));
-  const ziele = [...new Set(urls.map(normalizeRelayUrl))];
-  const stopps = [await pool.subscribeAn(filter, ziele.filter((u) => imPool.has(u)).map((u) => imPool.get(u)!), onEvent)];
-  for (const u of ziele.filter((u) => !imPool.has(u))) {
-    const r = relayVerbindung(u, { timeoutMs: 8000 });
+  const { imPool, fremd } = teileZiele(pool, urls);
+  const art = nebenArt();
+  const stopps = [await pool.subscribeAn(filter, imPool, onEvent)];
+  for (const u of fremd) {
+    const r = neben.hole(u, art);
     const s = await r.subscribe(filter, (ev) => { if (verifyEvent(ev)) onEvent(ev); }).catch(() => null);
-    stopps.push(() => { s?.(); r.close(); });
+    stopps.push(() => { s?.(); neben.gib(u, art); });
   }
   return () => { for (const s of stopps) s(); };
 }

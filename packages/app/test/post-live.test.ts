@@ -98,7 +98,7 @@ test("A-15b: verdrahtet – die offene Unterhaltung abonniert ihre Gruppe, nur a
   assert.match(lies("shell/mls-konto.ts"), /return a \? \{ filter: \{ \.\.\.a\.filter, limit: 1 \}, relays: a\.relays \} : null;/);
   const s = lies("shell/state.ts");
   const an = s.slice(s.indexOf("export async function abonniereAn("), s.indexOf("/** Outbox beim Lesen"));
-  assert.match(an, /pool\.subscribeAn\(filter, ziele\.filter\(\(u\) => imPool\.has\(u\)\)/, "Relays des Pools über ihre Verbindung");
+  assert.match(an, /pool\.subscribeAn\(filter, imPool, onEvent\)/, "Relays des Pools über ihre Verbindung (seit A-16 über teileZiele())");
   assert.match(an, /if \(verifyEvent\(ev\)\) onEvent\(ev\);/);
   assert.doesNotMatch(an, /pool\.subscribe\(/, "nie an alle Relays des Pools – der Filter nennt die Gruppe");
   const k = lies("shell/tabs/kommunikation.ts");

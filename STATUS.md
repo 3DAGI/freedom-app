@@ -6612,3 +6612,42 @@ Treffer → `Nachziehen` → `mlsAbgleichen()` → `zeigeNeuesMls()`.
 - Build, Smoke-Test bestanden (mit „post_live“, je nach a und nach b ganz gelaufen).
 
 Knoten-Stand: unverändert – nur App und `OutboxPool` (Protokoll).
+
+## Schritt A-16 – Weniger Verbindungen (Nutzertest, Befund N-1)
+
+Spur A. Im Nutzertest öffnete die App mit Tresor und MLS je rund 140 WebSockets in
+45 Minuten. `frageAn()` baute je Abfrage und Adresse eine neue Verbindung auf und
+schloss sie danach – auch für Relays, die der Pool ohnehin offen hielt. Das traf vor
+allem den Abgleich der MLS-Gruppen (jede Minute je Gruppe) und Leser nach NIP-65.
+
+**Was:**
+- **`OutboxPool.queryAn()`** (Protokoll): fragt nur die genannten Relays des Pools,
+  über dessen Verbindung, geprüft wie `query()`. `queryMitBericht()` nutzt dieselbe
+  innere Funktion und verhält sich wie bisher.
+- **`app/src/neben-verbindungen.ts`** (neu), `Nebenverbindungen` für Relays außerhalb
+  des Pools:
+  - je Identität und Adresse eine Verbindung, wiederverwendet;
+  - nach zwei Minuten ohne Gebrauch zu, nie während sie gebraucht wird;
+  - höchstens acht – darüber geht die am längsten ungenutzte.
+- **`shell/state.ts`:** `teileZiele()` trennt Relays des Pools von den übrigen.
+  - `frageAn()`: Relays des Pools über `queryAn()`, die übrigen über Nebenverbindungen.
+    Neu: weiter geht nur gültig Signiertes, auch von fremden Relays – vorher prüfte
+    erst der Aufrufer (Outbox-Leser) oder niemand (MLS-Abgleich).
+  - `veroeffentlicheAn()` (Posteingänge) und `abonniereAn()` (A-15b) ebenso.
+- Angemeldet wird wie bisher nur auf Verlangen (`relayVerbindung()`, NIP-42). Eine
+  Verbindung des Pools, die schon angemeldet ist, trägt jetzt auch Abfragen an die
+  Relays einer MLS-Gruppe. Das Relay sieht dieselbe IP zur selben Zeit ohnehin;
+  `veroeffentlicheAn()` hielt es seit 5.4 schon so.
+
+**Verdrahtet:** `shell/state.ts` – `frageAn()` (MLS über `mls-konto.ts`, Outbox-Leser
+`outbox-lesen.ts`), `veroeffentlicheAn()` (Direktnachrichten, Einladungen),
+`abonniereAn()` (`gruppe-live.ts`).
+
+**Tests:**
+- `outbox.test.ts` (+1): `queryAn()` fragt nur die genannten, Gefälschtes nie, doppelt
+  einmal.
+- `neben-verbindungen.test.ts` (+5): wiederverwendet; je Identität eigene; Ruhezeit und
+  Rücksetzen; Grenze nur über Ungenutzte; `mit()` gibt auch bei Fehlern zurück;
+  Verdrahtung, und keine Wegwerf-Verbindung je Aufruf mehr.
+- `post-live.test.ts`: der Verdrahtungstest aus A-15b liest die neue Schreibweise von
+  `abonniereAn()` – dieselbe Aussage, Zahl gleich.
