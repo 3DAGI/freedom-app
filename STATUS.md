@@ -6993,5 +6993,12 @@ schweigt bei Ablehnung oder nach 3 Minuten. Quittungen (5.5b) legt er nicht an �
 die Rangfolge der Provider bleibt bei den eigenen Fragen. Private Räume folgen mit
 11.3c3 (eigenes MLS-Konto, Aussage im Bericht).
 
-**Prüfungen:** siehe Pull Request (app +10 Tests, Smoke „agent_abo“).
+Die Bausteine `AuftragsBremse`, `agentKontext`, `ausRaumEvent`, `kettenLaenge`,
+`kuerzeAgentAntwort`, `leseAgentenketten`, `sollAntworten` sind damit aus
+`wiring-ausnahmen.txt` heraus.
+
+**Prüfungen:** protocol 1252 grün (6 übersprungen), node 340, app 1004 (+10),
+Leak 73 + 1 todo, mls 13; tsc überall, Build, Wiring (0 offen, Exit 0), Website,
+innerHTML, Smoke (neu „agent_abo“: 8 Abos, eines je Relay, mit `since`), Site,
+Repro grün.
 
