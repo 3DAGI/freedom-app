@@ -6919,3 +6919,38 @@ Programms), danach eine Simulation, die nicht mehr mit 4100 endet; dann ein
 KI-Auftrag über den Kanal. Bis zum Upgrade scheitert jeder Kanal-Aufruf in der
 Vorabsimulation – es fließt kein Geld.
 
+## Schritt 11.3c1 – Agenten auf dem Gerät: Buch, Anlegen, Einladen (offene Räume)
+
+Erster Teil von 11.3c (Karte `phase-11.md`, Entwurf `docs/AGENTEN-RAUM-ENTWURF.md`,
+freigegeben 08.10.). 11.3c ist geteilt, weil es mehr als 400 Zeilen braucht:
+c1 Buch und Einladen, c2 Erwähnungen in offenen Räumen beantworten, c3 private
+Räume mit eigenem MLS-Konto.
+
+**Neu:**
+
+- `packages/app/src/agenten-buch.ts` (ohne DOM): Agenten dieses Geräts mit eigenem
+  Schlüssel (nie die Identität), Name, Beschreibung, Persona (nur hier, F4 A),
+  Modell; je Raum ein Budget in Monat und Tag (UTC) in der Einheit der Schiene (msat
+  oder Lamports). `reicht()` vor dem Auftrag, `buche()` nach der Antwort, neuer Tag
+  bzw. Monat beginnt neu, eine andere Einheit auch; `meldeEinmal()` je Zeitraum.
+  Streng gelesen: Ein Schlüssel, der nicht zum Agenten passt, ein kaputtes Budget,
+  Doppeltes und Unsinn fallen weg. Grenzen: 20 Agenten, 50 Räume je Agent, Persona
+  4000 Zeichen.
+- `packages/app/src/shell/agenten.ts`: `legeGeraeteAgentAn()` (erst der Tresor),
+  `ladeAgentInOffenenRaum()` (Recht `rollen_vergeben`; Rolle `agent` fehlt oder hat
+  zu viele Rechte → nur der Gründer legt sie über `mitAgentRolle()` an; Budget,
+  Zuweisung 34702, Karte 38090 vom Agenten mit Besitzer, Liste 30000 des Besitzers
+  nur mit Agenten offener Räume – Agenten anderer Geräte bleiben darin; Pflicht-Hinweis
+  im ersten beschreibbaren Kanal, ohne Erwähnung), `entferneAgentAusOffenemRaum()`.
+  Als Gerät nie (Karte und Liste nennten sonst das Gerät als Besitzer).
+- `freedom.agenten` im Tresor (`GEHEIM_FEST`) und in `SICHERUNG_NIE`; Texte
+  `agentRaum.*` (de, en).
+
+**Verdrahtet:** noch nicht im Ablauf der App – Aufrufer sind 11.3c2 (Antworten,
+`agentenBuch`) und 11.3e (Oberfläche „Agent hinzufügen“, Spur C). Die
+Protokoll-Bausteine `baueAgentKarte`, `baueAgentenListe`, `mitAgentRolle`,
+`agentKarteTags`, `agentRolle`, `agentenListeTags` sind damit aus
+`wiring-ausnahmen.txt` heraus.
+
+**Prüfungen:** protocol 1252 grün (6 übersprungen), node 340, app 994 (+6), Leak 73 + 1 todo, mls 13; tsc überall, Build, Wiring (0 offen, Exit 0), Website, innerHTML, Smoke, Site, Repro grün.
+
