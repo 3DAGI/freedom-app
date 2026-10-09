@@ -772,6 +772,7 @@ Aufträge.
 | `relay` | `events`, `verbindungen` – oder `null` |
 | `weckSchluessel` | seit B-12a, darf fehlen: öffentlicher VAPID-Schlüssel des Knotens (P-256, unkomprimiert, base64url, 87 Zeichen) |
 | `einrichtung` | seit B-11c, darf fehlen: Befunde der Selbstprüfung beim Start, höchstens 40, je `schiene` (`lightning`, `sol`), `stufe` (`ok`, `hinweis`, `fehler`), `fall` (`ln.…`/`sol.…`) und `werte` (höchstens 6, nur ganze Zahlen ab 0 oder Fehlernamen aus Buchstaben) |
+| `modellPruefung` | seit E9-3b, darf fehlen: `befunde` (höchstens 30, je `name` des Modells wie bei `modelle`, `stufe`, `fall` (`modell.…`) und `werte` wie bei `einrichtung`) und `laeuft` (darf fehlen: `name`, `schritt` (`manifest`, `vorpruefung`, `laden`, `pruefen`), `seit`, beim Laden `geladen` und `gesamt` in Bytes). Ein eigenes Feld, nicht in `einrichtung` – ältere Apps übergehen es. Was der Leser abwiese, schickt der Knoten nicht. |
 
 Unbekannte Felder bleiben unbeachtet, damit ein neuerer Knoten mehr melden
 kann; bekannte müssen stimmen, sonst zeigt die App nichts. Kein Text aus
