@@ -22,4 +22,5 @@ und die Website (`packages/website`).
 | `Whitepaper.md`, `dApp-Konzept.md`, `Techstack-Resistenz.md`, `Master-Whitepaper.md` | Konzeptpapiere (Juli 2026, altes Gebührenmodell) | Whitepaper der Website (`packages/website/whitepaper.html`) |
 | `ANLEITUNG-INTEROP.md` | Anleitung zum NIP-17-Interop-Test aus 2.1 (bestanden, #1) – die Werkzeuge `scripts/interop/nip17-bot.mjs` und `nip17_ui_test.py` bleiben | `docs/ausbau/FORTSCHRITT.md` (2.1) |
 | `website-DEPLOY.md` | Handanleitung für IPFS, Tor und ENS mit lokalen Pfaden (aus `packages/website/`) | Spiegel-Job in `pages.yml` (5.3), `docs/KONTEN.md` |
+| `STATUS-2026-09.md` | Entwicklungsprotokoll bis September 2026, beginnt mit dem Bericht vom 29.08.2026 (verschoben mit C-22b) | `STATUS.md` (laufender Monat); weitere Monate verschiebt `scripts/status-archiv.py` hierher |
 | `ROADMAP.md` | Offene Produktfragen R1–R3 | R1 und R2 als RM1 und RM2 in `docs/neuordnung/SAMMLUNG.md` (Abschnitt 5); R3 ist erledigt (Repository öffentlich, README, CI) bis auf die Lizenz (LIZ) |
