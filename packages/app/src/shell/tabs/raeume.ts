@@ -62,6 +62,51 @@ const spacesUi: SpaceUiState = {
 };
 
 /**
+ * Offener Raum live (B-25, Nutzertest R-9): Solange ein offener Raum gewählt
+ * ist, ein Abo auf seine neuen Nachrichten und Maßnahmen – vorher kam Neues
+ * anderer erst beim erneuten Öffnen. Private Räume gleicht der Abruftakt ab.
+ */
+let liveAbo: { raum: string; stopp: () => void } | null = null;
+
+function beendeLiveAbo(): void {
+  liveAbo?.stopp();
+  liveAbo = null;
+}
+
+async function lauscheImRaum(raum: string, kennung: string): Promise<void> {
+  if (liveAbo?.raum === raum) return;
+  beendeLiveAbo();
+  const stopps: (() => void)[] = [];
+  let beendet = false;
+  const abo = { raum, stopp: () => { beendet = true; for (const s of stopps.splice(0)) s(); } };
+  liveAbo = abo;
+  const { KIND_CHANNEL_MESSAGE, KIND_MODERATION_HIDE, KIND_MODERATION_BAN } = await import("@freedomstack/protocol");
+  const pool = await ensurePool();
+  // Ab jetzt: was beim Öffnen schon da war, hat oeffneRaum() geladen
+  const seit = Math.floor(Date.now() / 1000);
+  const neu = (liste: "messages" | "massnahmen") => (ev: { id: string }): void => {
+    if (beendet || spacesUi.spaceId !== raum || spacesUi.privat) return;
+    if ((spacesUi[liste] as { id: string }[]).some((e) => e.id === ev.id)) return;
+    spacesUi[liste] = [...spacesUi[liste], ev];
+    zeichneLiveNeu();
+  };
+  const ergebnisse = await Promise.all([
+    pool.subscribe({ kinds: [KIND_CHANNEL_MESSAGE], "#space": [kennung], since: seit }, neu("messages")).catch(() => null),
+    pool.subscribe({ kinds: [KIND_MODERATION_HIDE, KIND_MODERATION_BAN], "#h": [kennung], since: seit }, neu("massnahmen")).catch(() => null),
+  ]);
+  for (const s of ergebnisse) if (s) (beendet ? s() : stopps.push(s));
+  // Ging keines, versucht das nächste Öffnen es neu
+  if (!beendet && stopps.length === 0 && liveAbo === abo) liveAbo = null;
+}
+
+/** Neues sichtbar machen: den Kanal nur neu zeichnen, wenn man ihn sieht – sonst spränge der Lesestand auf jetzt. */
+function zeichneLiveNeu(): void {
+  const kanal = spacesUi.channelId;
+  if (kanal && !document.hidden && document.getElementById("channel-thread")?.offsetParent) void oeffneKanal(kanal);
+  else void zeigeKanalliste();
+}
+
+/**
  * Lesestand (seit C-14 über `geheim`): Wann man welchen Kanal las, verrät
  * Gewohnheiten. Ein Klartext-Stand aus der Zeit davor wandert mit Tresor einmal
  * hinein und verschwindet aus localStorage.
@@ -206,6 +251,8 @@ export async function zeigeRaumLeiste(): Promise<void> {
 /** Einen Raum laden: Definition, Rollen, Zuweisungen, Nachrichten. */
 async function oeffneRaum(spaceId: string): Promise<void> {
   if (spacesUi.spaceId !== spaceId) {
+    // Das Abo des vorigen Raums endet (B-25) – ein offener Raum bekommt beim Laden ein neues
+    beendeLiveAbo();
     // Beim Verlassen: was dort noch ungelesen ist, bleibt als Punkt in der Leiste (C-13a)
     await merkeUngelesen().catch(() => undefined);
     spacesUi.channelId = null;
@@ -282,6 +329,8 @@ async function oeffneRaum(spaceId: string): Promise<void> {
     // Repos dieses Raums (11.4c) lädt die Repo-Liste ab jetzt mit
     const ziel = raumZiel();
     if (ziel && "adresse" in ziel) merkeRaumAdresse(ziel.adresse);
+    // Neues anderer kommt ab jetzt von selbst (B-25)
+    void lauscheImRaum(adresse, kennung);
   } catch (e) {
     $("#space-name").textContent = t("komm.nichtErreichbar", { grund: fehlerText(e) });
     return;

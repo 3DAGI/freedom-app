@@ -3025,6 +3025,17 @@ def raum_pruefen(browser, url: str) -> dict:
             if moderation != {"zeile": "🛡 1 Nachricht(en) von Moderatoren ausgeblendetanzeigen", "verlauf": False,
                               "angezeigt": ["🛡 1 ausgeblendete Nachricht(en) werden gezeigtwieder ausblenden", True]}:
                 erg["fehler"].append(f"desktop: Moderation im offenen Raum {moderation}")
+            # Seit B-25 (Nutzertest R-9): Neues anderer erscheint ohne erneutes Öffnen – über das Abo des offenen Raums
+            zugestellt = relay.zustellen(probe["live"])
+            relay.events.append(probe["live"])
+            try:
+                s.wait_for_function("() => document.getElementById('channel-thread').textContent.includes('Gerade eben geschrieben.')", timeout=10000)
+                live = True
+            except Exception:
+                live = False
+            erg["desktop"]["live"] = {"zugestellt": zugestellt, "angezeigt": live}
+            if zugestellt < 1 or not live:
+                erg["fehler"].append(f"desktop: Neues im offenen Raum ohne erneutes Öffnen {erg['desktop']['live']}")
         # Raum-Repos (11.4c): im Probe-Raum die Liste seiner Repos, ohne „Repo anlegen“ (meine Rolle hat das Recht nicht);
         # ein Klick öffnet die Repo-Seite mit dem Raum, „Zum Raum“ führt zurück, der Fokus steht auf dem Repo
         if not mobil:

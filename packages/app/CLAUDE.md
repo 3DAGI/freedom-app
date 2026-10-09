@@ -479,6 +479,11 @@ Fallstricke dieses Bereichs unten anhängen.
 - **Offene Räume nur über die Adresse des Gründers** – In der App (seit B-20b)
   „Kanal anlegen“ offen nur mit `darfKanaele()` und nur über `baueRaumKanal()`
   – nie eine neue Definition (34700) dafür.
+  Neues anderer (seit B-25, Nutzertest R-9) nur über `lauscheImRaum()`: ein Abo je
+  gewähltem offenen Raum, ab dem Öffnen (`since`), Nachrichten (42, `#space`) und
+  Maßnahmen (34551/34552, `#h`), beendet beim Wechsel (`beendeLiveAbo()`) – nie ein
+  Abfragetakt dafür. Den Kanal zeichnet `zeichneLiveNeu()` nur neu, wenn man ihn sieht
+  (sonst spränge der Lesestand); im Smoke-Test („raum“, `live`) über `ProbeRelay.zustellen()`.
   *(Weitere Teile: Wurzel (`CLAUDE.md`).)*
 - **Umfragen und Termine nur in der Gruppe** – In der App (seit B-15b) nur über `shell/raum-planung-ui.ts`: gesendet nur
   mit `mlsSendeEvent(raum.gruppe, …)`, gezeigt nur als Text über dem Verlauf
