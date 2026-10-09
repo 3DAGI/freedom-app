@@ -7036,3 +7036,6 @@ steht da. Danach gibt es genau eine Nachricht mit Text und Anhang, Feld und List
 Vor dem Fix rot (zwei Nachrichten), danach grün.
 
 Fallstrick in `packages/app/CLAUDE.md`: Anhänge im Chat nur über `handleChatFiles()`.
+
+**Prüfungen:** protocol 1252 grün (6 übersprungen), node 340, app 1010 (+6), Leak 73 + 1 todo;
+tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
