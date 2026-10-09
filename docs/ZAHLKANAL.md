@@ -13,11 +13,13 @@ neues Programm (neue Version im Domain-Präfix).
 
 ## Programm-ID
 
-Bis zum Devnet-Deploy (MENSCH) steht im Code ein **Platzhalter**: die 32 Bytes
-von `freedomstack-channel-platzhalter` als Adresse. Zu ihr gibt es keinen
-Schlüssel, niemand kann dort ein Programm ablegen. Beim Deploy erzeugt der
-MENSCH das Programm-Schlüsselpaar und trägt die Adresse in `declare_id!`
-(`contracts/solana-channel`) und in `KANAL_PROGRAMM_ID` (`channel.ts`) ein.
+Devnet: `F9P2PeyySkeQL4d1KAtHjtnVBqzjW3dqbfubY1PChW2m` (Deploy durch den MENSCHEN am 09.10.2026, Upgrade-Recht
+siehe `docs/SOLANA-UPGRADE-AUTHORITY.md`). Die Adresse steht in `declare_id!`
+(`contracts/solana-channel`) und in `KANAL_PROGRAMM_ID` (`channel.ts`); ein
+Test hält beide gleich. Anchor vergleicht sie bei jedem Aufruf mit der
+Adresse, an der das Programm liegt – stimmen sie nicht, scheitert jeder
+Aufruf mit 4100 (`DeclaredProgramIdMismatch`). Bis 4.3e galt ein Platzhalter
+ohne Schlüssel (32 Bytes `freedomstack-channel-platzhalter`, `7tukwi…`).
 
 ## Konto `Channel`
 

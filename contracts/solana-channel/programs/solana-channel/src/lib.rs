@@ -15,15 +15,16 @@
 //! Die Lamports liegen im programm-eigenen Kanal-PDA; `settle` verschiebt sie
 //! per direkter Lamport-Arithmetik (zulaessig, das Programm besitzt das Konto).
 //!
-//! Programm-ID: Platzhalter ohne Schluessel bis zum Deploy (MENSCH), siehe
-//! `docs/ZAHLKANAL.md`. Nie `--final` durch den Agenten.
+//! Programm-ID: Devnet-Deploy vom 09.10.2026 (MENSCH), siehe `docs/ZAHLKANAL.md`.
+//! Muss gleich der Adresse sein, an der das Programm liegt – Anchor prueft sie
+//! bei jedem Aufruf (sonst Fehler 4100). Nie `--final` durch den Agenten.
 
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::ed25519_program;
 use anchor_lang::solana_program::sysvar::instructions as anweisungen;
 use anchor_lang::system_program;
 
-declare_id!("7tukwiJ8cKiWPmkhH2seJycWebHuZy1XLXEZYAMLB5Dj");
+declare_id!("F9P2PeyySkeQL4d1KAtHjtnVBqzjW3dqbfubY1PChW2m");
 
 /// Hoechstens so viele Empfaenger je Kanal (Platz im Konto ist fest).
 pub const MAX_EMPFAENGER: usize = 8;

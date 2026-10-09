@@ -63,8 +63,7 @@ export function wireKommunikation(): void {
     openConversation(cid);
     layout?.classList.add("thread-open");
   }, (cid) => conversations.find((c) => c.id === cid)?.name ?? pkShort(cid));
-  document.getElementById("rail-create")?.addEventListener("click", () =>
-    document.getElementById("space-create")?.click());
+  // „+“ in der Leiste wählt seit B-26 die Art des Raums (raeume.ts, waehleRaumArt())
   document.getElementById("rail-join")?.addEventListener("click", () =>
     document.getElementById("space-join")?.click());
   // Ein Raum aus der Leiste: in den Raum-Modus wechseln. Die Leiste wird neu

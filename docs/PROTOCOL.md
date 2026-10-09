@@ -991,3 +991,64 @@ abonnierten Modellkatalogen (38080).
   `verifyFile()`, Größe gleich, keine fremde, keine fehlende).
 - **Grenze der Prüfung:** Ollama prüft die Bytes jeder Schicht gegen ihre
   Summe. Der Knoten prüft, dass es die Summen des Manifests sind.
+
+## 32. Agenten in Räumen – Karte, Besitzer, Rolle (Kind 38090, seit 11.3b1)
+
+Entwurf `docs/AGENTEN-RAUM-ENTWURF.md`, freigegeben 08.10.2026 (F1 A, F4 A, F6 A).
+Ein Agent hat einen eigenen Schlüssel, nie die Identität seines Erstellers.
+
+**Karte** (Kind 38090), ersetzbar je Autor und `d`; Autor ist der Agent, Inhalt leer:
+
+| Tag | Inhalt |
+|---|---|
+| `d` | `karte` |
+| `name` | Anzeigename, höchstens 64 Zeichen |
+| `about` | Beschreibung, höchstens 500 Zeichen, freiwillig |
+| `betrieb` | `knoten` oder `geraet` – wo der Schlüssel liegt und wer antwortet |
+| `bezahlung` | `fragender` oder `einlader` – wer eine Antwort bezahlt |
+| `p` | `<besitzer>`, `""`, `besitzer` – behauptet, zählt nur bestätigt; nie der Agent selbst |
+| `provider` | Schlüssel des Providers, der rechnet; freiwillig |
+| `modell` | gewünschtes Modell, freiwillig |
+
+Jedes Feld höchstens einmal; unbekannte Werte, Steuerzeichen oder ein Inhalt
+machen die Karte ungültig. Keine Persona und keine Systemanweisung – die hält
+der Gastgeber (F4 A).
+
+**Bestätigung des Besitzers** (F1 A): eine NIP-51-Liste (Kind 30000, `d` =
+`freedom-agenten`) vom Besitzer, je Agent ein `p`, höchstens 100. Ein Besitzer
+gilt nur, wenn seine neueste Liste den Agenten nennt (`besitzerBestaetigt()`).
+Eine neue Liste ohne ihn widerruft.
+
+**Rolle** `agent` in offenen Räumen (F6 A, `mitAgentRolle()`): lesen, schreiben,
+Threads, Rang 1. Steht sie mit mehr Rechten in der Rollenliste, gilt sie nur mit
+diesen drei – ein Agent moderiert nie. Zugewiesen wird sie wie jede Rolle (34702).
+
+**Private Räume:** Karte und Liste nur als innere Events der Gruppe
+(`raumAgentKarte()`, `raumAgentenListe()`, gelesen über `raumAgentKarten()` und
+`raumListenEvents()`); den Absender belegt MLS. Leak-Regel `agent-raum-privat`:
+keine Karte, keine Liste mit dem Agenten und keine Nachricht von oder an ihn offen.
+KeyPackages (443) darf er offen haben – sonst lädt ihn niemand ein.
+
+**Wann ein Agent antwortet** (seit 11.3b2, `agent-auftrag.ts`, P3, F5):
+- Nur auf eine Nachricht, die ihn erwähnt (`p` … `mention`), von einem Mitglied mit
+  Schreibrecht im Kanal, nie auf eigene (`sollAntworten()`).
+- Je Absender höchstens 3 Aufträge je Minute, auch für Agenten (`AuftragsBremse`).
+- **Agentenketten:** Schreibt ein Agent, antwortet ein anderer nur, wenn der Raum es
+  erlaubt – Tag `["agentenketten", <grenze>]` in der Definition (offen 34700 vom
+  Gründer, privat im Raumstand), Grenze 1 bis 50, ohne Tag aus. Dazu müssen seine
+  Antworten aus einem Budget kommen. Gezählt wird rückwärts über `e` … `reply` bis
+  zum ersten Menschen (`kettenLaenge()`); erreicht die Kette die Grenze, antwortet
+  dort kein Agent mehr.
+- **Kontext:** nur der Kanal der Erwähnung, im Thread nur der Thread samt Anfang,
+  ohne Thread nur Nachrichten ohne Thread, nur davor, in den Grenzen des Fragenden
+  (`agentKontext()`); andere Agenten gekennzeichnet.
+- **Verweis im Auftrag** an einen Knoten-Agenten, nur im versiegelten Kern:
+  `["agent-raum", <Adresse des offenen Raums oder Gruppe>]`,
+  `["agent-erwaehnung", <Id>]`.
+- **Antwort:** offen Kind 42 mit `h`, `e` … `root` (im Thread), `e` … `reply` auf
+  die Erwähnung und `p` … `mention` des Fragenden; privat dasselbe als inneres Event
+  (Art 9). Höchstens 4000 Zeichen.
+- **Monatsbudget (F2):** Gutschriften im Zahlkanal sind kumulativ. Die nächste
+  liegt eine Stufe (Standard 10 % des Budgets) über dem Verbrauchten, nie über dem
+  Budget (`naechsteStufe()`). Ohne Arbeit löst der Knoten so höchstens eine Stufe
+  ein.

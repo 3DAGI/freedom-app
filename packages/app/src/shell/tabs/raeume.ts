@@ -10,13 +10,13 @@ import {
   JEDER_RECHTE, JEDER_ROLLE, MELDE_GRUENDE, RAUM_REPO_RECHT, applyModeration, can as darf, darfKanalAendern, gruenderZurKennung, leseRaumAdresse, raumAdresse, raumModeration, raumZustandFuer, type Channel, type ChannelMessage, type MeldeGrund, type Space, type SpaceState, type ThreadView,
 } from "@freedomstack/protocol";
 import { pkShort, schluesselAusEingabe } from "../../shell-logic.js";
-import { ensurePool, signiere, state } from "../state.js";
+import { ensurePool, mitBunker, signiere, state } from "../state.js";
 import { mlsAbgleichen, mlsGesperrt } from "../mls-konto.js";
 import {
   PRIVAT, type PrivaterRaum, aenderePrivatenKanal, einladungsText, entferneAusRaum, gruppeVon, istPrivat, ladeInPrivatenRaum, ladePrivatenRaum, legePrivatenKanalAn, legePrivatenRaumAn, loescheImRaum, meldeImRaum, meldungErledigt, meldungenFuer, privateRaeume, sendePrivat, setzeModeratoren, wennMeldung,
 } from "../raum-mls.js";
 import { $, toast } from "../ui.js";
-import { geheim, tresorEingerichtet } from "../tresor.js";
+import { geheim, richteTresorEin, tresorEingerichtet } from "../tresor.js";
 import { LS_LESESTAND, leseLesestand, schreibeLesestand } from "../../lesestand.js";
 import { bestaetige, dialog, hinweis, type Option } from "../dialog.js";
 import { type MenuePunkt, oeffneMenueAn, wireMenue } from "../menue.js";
@@ -60,6 +60,51 @@ const spacesUi: SpaceUiState = {
   spaceId: null, channelId: null, state: null, messages: [], lastRead: new Map(), privat: null, verlauf: null, thread: null,
   massnahmen: [], alleZeigen: new Set(),
 };
+
+/**
+ * Offener Raum live (B-25, Nutzertest R-9): Solange ein offener Raum gewählt
+ * ist, ein Abo auf seine neuen Nachrichten und Maßnahmen – vorher kam Neues
+ * anderer erst beim erneuten Öffnen. Private Räume gleicht der Abruftakt ab.
+ */
+let liveAbo: { raum: string; stopp: () => void } | null = null;
+
+function beendeLiveAbo(): void {
+  liveAbo?.stopp();
+  liveAbo = null;
+}
+
+async function lauscheImRaum(raum: string, kennung: string): Promise<void> {
+  if (liveAbo?.raum === raum) return;
+  beendeLiveAbo();
+  const stopps: (() => void)[] = [];
+  let beendet = false;
+  const abo = { raum, stopp: () => { beendet = true; for (const s of stopps.splice(0)) s(); } };
+  liveAbo = abo;
+  const { KIND_CHANNEL_MESSAGE, KIND_MODERATION_HIDE, KIND_MODERATION_BAN } = await import("@freedomstack/protocol");
+  const pool = await ensurePool();
+  // Ab jetzt: was beim Öffnen schon da war, hat oeffneRaum() geladen
+  const seit = Math.floor(Date.now() / 1000);
+  const neu = (liste: "messages" | "massnahmen") => (ev: { id: string }): void => {
+    if (beendet || spacesUi.spaceId !== raum || spacesUi.privat) return;
+    if ((spacesUi[liste] as { id: string }[]).some((e) => e.id === ev.id)) return;
+    spacesUi[liste] = [...spacesUi[liste], ev];
+    zeichneLiveNeu();
+  };
+  const ergebnisse = await Promise.all([
+    pool.subscribe({ kinds: [KIND_CHANNEL_MESSAGE], "#space": [kennung], since: seit }, neu("messages")).catch(() => null),
+    pool.subscribe({ kinds: [KIND_MODERATION_HIDE, KIND_MODERATION_BAN], "#h": [kennung], since: seit }, neu("massnahmen")).catch(() => null),
+  ]);
+  for (const s of ergebnisse) if (s) (beendet ? s() : stopps.push(s));
+  // Ging keines, versucht das nächste Öffnen es neu
+  if (!beendet && stopps.length === 0 && liveAbo === abo) liveAbo = null;
+}
+
+/** Neues sichtbar machen: den Kanal nur neu zeichnen, wenn man ihn sieht – sonst spränge der Lesestand auf jetzt. */
+function zeichneLiveNeu(): void {
+  const kanal = spacesUi.channelId;
+  if (kanal && !document.hidden && document.getElementById("channel-thread")?.offsetParent) void oeffneKanal(kanal);
+  else void zeigeKanalliste();
+}
 
 /**
  * Lesestand (seit C-14 über `geheim`): Wann man welchen Kanal las, verrät
@@ -206,6 +251,8 @@ export async function zeigeRaumLeiste(): Promise<void> {
 /** Einen Raum laden: Definition, Rollen, Zuweisungen, Nachrichten. */
 async function oeffneRaum(spaceId: string): Promise<void> {
   if (spacesUi.spaceId !== spaceId) {
+    // Das Abo des vorigen Raums endet (B-25) – ein offener Raum bekommt beim Laden ein neues
+    beendeLiveAbo();
     // Beim Verlassen: was dort noch ungelesen ist, bleibt als Punkt in der Leiste (C-13a)
     await merkeUngelesen().catch(() => undefined);
     spacesUi.channelId = null;
@@ -282,6 +329,8 @@ async function oeffneRaum(spaceId: string): Promise<void> {
     // Repos dieses Raums (11.4c) lädt die Repo-Liste ab jetzt mit
     const ziel = raumZiel();
     if (ziel && "adresse" in ziel) merkeRaumAdresse(ziel.adresse);
+    // Neues anderer kommt ab jetzt von selbst (B-25)
+    void lauscheImRaum(adresse, kennung);
   } catch (e) {
     $("#space-name").textContent = t("komm.nichtErreichbar", { grund: fehlerText(e) });
     return;
@@ -1000,8 +1049,53 @@ async function sendeRaumNachricht(imThread = false): Promise<void> {
  * erzeugen. Damit war die gesamte Raum-Funktion unbenutzbar: Protokoll und
  * Oberflaeche waren da, aber niemand konnte den ersten Schritt tun.
  */
+/** Fehlt für private Räume nur der Tresor? Das lässt sich gleich beheben – Bunker und fehlende Identität nicht. */
+const nurTresorFehlt = (): boolean => !!mlsGesperrt() && !tresorEingerichtet() && !!state.signer && !mitBunker();
+
+/**
+ * Privat geht nur mit Tresor (2.2b-e1) – vorher sagen und gleich anbieten,
+ * nicht erst nach dem Namen (B-26, Nutzertest R-5). Mit Bunker oder ohne
+ * Identität lässt es sich hier nicht beheben: dann nur der Grund.
+ */
+async function privatMoeglich(): Promise<boolean> {
+  const gesperrt = mlsGesperrt();
+  if (!gesperrt) return true;
+  if (!nurTresorFehlt()) {
+    await hinweis(t("komm.anlegenPrivat"), gesperrt);
+    return false;
+  }
+  if (!(await bestaetige({ titel: t("komm.anlegenPrivat"), text: t("raum.privatTresorZuerst"), ok: t("raum.tresorEinrichten") }))) return false;
+  return (await richteTresorEin()) && !mlsGesperrt();
+}
+
+/**
+ * „+“ in der Leiste (B-26, Nutzertest R-6): erst die Art wählen, ohne schon in
+ * einem Raum zu sein – vorher legte „+“ nur private an, und „öffentlich“ stand
+ * nur im Menü eines offenen Raums. Ohne Tresor ist öffentlich vorgewählt. Den
+ * Namen fragt danach `legeRaumAn()` wie aus dem Menü – privat erst, wenn der
+ * Tresor da ist, so geht kein Name verloren.
+ */
+async function waehleRaumArt(): Promise<void> {
+  if (!state.keypair) return;
+  const gesperrt = mlsGesperrt();
+  const w = await dialog({
+    titel: t("komm.raumAnlegen"),
+    felder: [
+      { art: "wahl", name: "art", label: t("raum.art"), pflicht: true, wert: gesperrt ? "offen" : "privat", optionen: [
+        { wert: "privat", text: t("komm.anlegenPrivat"), hinweis: !gesperrt ? t("komm.privatTitel") : nurTresorFehlt() ? t("raum.privatOhneTresor") : gesperrt },
+        { wert: "offen", text: t("komm.anlegenOeffentlich"), hinweis: t("komm.oeffentlichTitel") },
+      ] },
+    ],
+    ok: t("raum.weiter"),
+  });
+  if (!w) return;
+  await legeRaumAn(w.art === "offen");
+}
+
 async function legeRaumAn(oeffentlich = false): Promise<void> {
   if (!state.keypair) return;
+  // Privat ohne Tresor: erst das sagen und anbieten, dann nach dem Namen fragen (B-26)
+  if (!oeffentlich && !(await privatMoeglich())) return;
   // Neue Räume sind privat (2.3b); öffentlich nur ausdrücklich und mit Hinweis
   const w = await dialog({
     titel: t(oeffentlich ? "komm.anlegenOeffentlich" : "komm.anlegenPrivat"),
@@ -1270,6 +1364,8 @@ export async function wireSpacesTab(): Promise<void> {
   });
   const create = $("#space-create");
   if (create) create.onclick = () => void legeRaumAn();
+  // „+“ in der Leiste: privat oder öffentlich, auch ohne Raum (B-26)
+  document.getElementById("rail-create")?.addEventListener("click", () => void waehleRaumArt());
   // Umfrage und Termin anlegen (B-15b) – nur im privaten Raum, im offenen Kanal
   document.getElementById("kanal-umfrage")?.addEventListener("click", () => {
     if (spacesUi.privat && spacesUi.channelId) void neueUmfrage(spacesUi.privat, spacesUi.channelId, () => void raumNeuLaden());

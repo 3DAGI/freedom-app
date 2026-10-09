@@ -1,7 +1,7 @@
 // Probe-Raum für Browser-Prüfungen (seit C.2b2): ein offener Raum mit zwei Kanälen,
 // Rollen, Nachrichten und (seit C.2c) einem Thread, signiert mit Wegwerfschlüsseln – nur für smoke_test.py
 // und screenshots.py, nie für ein echtes Relay.
-// Aufruf: npx tsx scripts/raum-probe.mts <eigener-pubkey-hex>  ->  {"spaceId": "...", "events": [...], "uebernahme": {...}, "ausblendung": {...}}
+// Aufruf: npx tsx scripts/raum-probe.mts <eigener-pubkey-hex>  ->  {"spaceId": "...", "events": [...], "uebernahme": {...}, "ausblendung": {...}, "live": {...}}
 // Der eigene Schlüssel bekommt die Rolle „mod“, damit die Aktionen an Nachrichten erscheinen.
 import {
   baueCoverageEintrag, baueIssue, baueKommentar, baueRepoAnkuendigung, bauePatch, buildChannelMessage, buildContribution, buildGitRepoRef, buildHide, buildRoleGrant, buildRoles, buildSpace, generateKeypair,
@@ -94,4 +94,6 @@ const uebernahme = signEvent(buildSpace({
 } as never, heute + 10 * 3600), fremd.sk);
 // Seit B-19: der Gründer blendet Bos Nachricht aus – ebenfalls erst nachgelegt (die anderen Prüfungen sehen den Verlauf vollständig)
 const ausblendung = signEvent({ ...buildHide(spaceId, gruender.pk, morgen.id, "Nicht zum Thema"), created_at: heute + 11 * 3600 }, gruender.sk);
-console.log(JSON.stringify({ spaceId, events, uebernahme, ausblendung }));
+// Seit B-25: eine Nachricht von jetzt – nicht in `events`: Der Smoke-Test stellt sie erst zu, wenn der Raum offen ist (Abo)
+const live = nachricht(ada, "Gerade eben geschrieben.", Math.floor(Date.now() / 1000));
+console.log(JSON.stringify({ spaceId, events, uebernahme, ausblendung, live }));

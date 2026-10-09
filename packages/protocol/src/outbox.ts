@@ -240,12 +240,25 @@ export class OutboxPool {
    * gefunden“ heisst nur dann „gibt es nicht“, wenn ueberhaupt jemand antwortete.
    */
   async queryMitBericht(filter: RelayFilter): Promise<{ events: NostrEvent[]; antworten: string[] }> {
-    const results = await Promise.allSettled(this.relays.map((r) => r.query(filter)));
+    return this.frage(this.relays, filter);
+  }
+
+  /**
+   * Nur an einigen Relays dieses Pools fragen (A-16) – ueber die Verbindung,
+   * die der Pool ohnehin haelt, statt je Abfrage eine neue. Geprueft wie
+   * `query()`; ohne passendes Relay leer.
+   */
+  async queryAn(filter: RelayFilter, urls: readonly string[]): Promise<NostrEvent[]> {
+    return (await this.frage(this.relays.filter((r) => urls.includes(r.url)), filter)).events;
+  }
+
+  private async frage(relays: readonly Relay[], filter: RelayFilter): Promise<{ events: NostrEvent[]; antworten: string[] }> {
+    const results = await Promise.allSettled(relays.map((r) => r.query(filter)));
     const byId = new Map<string, NostrEvent>();
     const antworten: string[] = [];
     for (const [i, res] of results.entries()) {
       if (res.status !== "fulfilled") continue;
-      antworten.push(this.relays[i].url);
+      antworten.push(relays[i].url);
       for (const ev of res.value) {
         if (byId.has(ev.id)) continue;
         if (!verifyEvent(ev)) continue; // gefaelschte/manipulierte Events raus

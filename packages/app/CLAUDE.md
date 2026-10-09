@@ -479,6 +479,15 @@ Fallstricke dieses Bereichs unten anhängen.
 - **Offene Räume nur über die Adresse des Gründers** – In der App (seit B-20b)
   „Kanal anlegen“ offen nur mit `darfKanaele()` und nur über `baueRaumKanal()`
   – nie eine neue Definition (34700) dafür.
+  Neues anderer (seit B-25, Nutzertest R-9) nur über `lauscheImRaum()`: ein Abo je
+  gewähltem offenen Raum, ab dem Öffnen (`since`), Nachrichten (42, `#space`) und
+  Maßnahmen (34551/34552, `#h`), beendet beim Wechsel (`beendeLiveAbo()`) – nie ein
+  Abfragetakt dafür. Den Kanal zeichnet `zeichneLiveNeu()` nur neu, wenn man ihn sieht
+  (sonst spränge der Lesestand); im Smoke-Test („raum“, `live`) über `ProbeRelay.zustellen()`.
+  Anlegen (seit B-26, Nutzertest R-6/R-5): „+“ in der Leiste fragt erst die Art (`waehleRaumArt()`,
+  auch ohne Raum; ohne Tresor öffentlich vorgewählt), den Namen dann `legeRaumAn()` wie aus dem
+  Menü; privat nur nach `privatMoeglich()` – ohne Tresor erst sagen und `richteTresorEin()`
+  anbieten, nie erst nach dem Namen scheitern.
   *(Weitere Teile: Wurzel (`CLAUDE.md`).)*
 - **Umfragen und Termine nur in der Gruppe** – In der App (seit B-15b) nur über `shell/raum-planung-ui.ts`: gesendet nur
   mit `mlsSendeEvent(raum.gruppe, …)`, gezeigt nur als Text über dem Verlauf
@@ -683,6 +692,19 @@ Fallstricke dieses Bereichs unten anhängen.
   nur an deren Relays über `abonniereAn()` – nie `pool.subscribe()` mit `#h`, das nennte die Gruppe
   allen Relays. Ein Treffer stößt nur an; empfangen wird über `mlsAbgleichen()` hinter `Nachziehen`
   (nie zwei Läufe zugleich – sonst „MLS beschäftigt“).
+- **Relays außerhalb des Pools nur über Nebenverbindungen** (seit A-16, `neben-verbindungen.ts`, Befund
+  N-1): `frageAn()`, `veroeffentlicheAn()` und `abonniereAn()` teilen die Ziele mit `teileZiele()` – Relays
+  des Pools über dessen Verbindung (`queryAn()`, `publishAn()`, `subscribeAn()`), die übrigen über `neben`
+  (je Identität und Adresse eine, nach `NEBEN_GRENZEN.ruheMs` ohne Gebrauch zu, höchstens `max`). Keine
+  Verbindung je Aufruf mehr (`autoReconnect: false` + `close()`), ein Test findet das. Wer eine holt
+  (`hole()`), gibt sie zurück (`gib()`, sonst bleibt sie offen) – am einfachsten über `mit()`. `frageAn()`
+  gibt nur gültig Signiertes weiter, auch von fremden Relays.
+- **Ersatzschlüssel nur über `ersatz-datei.ts`** (seit B-28, Nutzertest T-2): „Diebstahl
+  vorbeugen“ fragt vor dem Erzeugen nach einer Passphrase (nur mit `verschluesselungMoeglich()`);
+  mit ihr entsteht die Datei nur über `baueErsatzDatei()` im Format des Tresors
+  (`verschluesseleMitPassphrase()`, JSON mit `art`, der private Schlüssel nie im Klartext), ohne
+  sie wie bisher als Text. Der Widerruf liest Hex oder diese Datei nur über `leseErsatz()` – vor
+  `fromHex()`; eine falsche Passphrase meldet einen festen Text, nie die Meldung des Browsers.
 - **Anhänge im Chat nur über `handleChatFiles()`** (seit C-29, `anhang-warte.ts`): Jeder Upload
   meldet sich bei `anhangWarte` an, und `sendChatMessage()` wartet auf alle, bevor es Text und
   Anhänge liest. Ein neuer Weg, Dateien anzuhängen (Einfügen, Ziehen, Sprachnachricht), geht durch

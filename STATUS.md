@@ -6613,6 +6613,312 @@ Treffer → `Nachziehen` → `mlsAbgleichen()` → `zeigeNeuesMls()`.
 
 Knoten-Stand: unverändert – nur App und `OutboxPool` (Protokoll).
 
+## Schritt B-24 – Warntext zum Zeitanker (Nutzertest, T-1)
+
+Der Dialog „Diebstahl vorbeugen“ (Settings › Sicherheit, Schritt 3) endete mit
+„… kann auf eine zurückdatierte des Diebs hereinfallen – bis es Zeitzeugen
+gibt.“ Zeitzeugen gibt es nicht. Seit B-17b3 wird das eigene Mandat in Bitcoin
+verankert (`ankereMandat()`, gestempelt im Abruftakt), und bei Streit schlägt
+ein verankertes Mandat jedes unverankerte (`merkeMandate(…, anker)`).
+
+**Neu:** „… hereinfallen – es sei denn, deine Erklärung ist dann schon in
+Bitcoin verankert. Das erledigt die App von selbst, solange sie offen ist; nach
+dem Erzeugen dauert es einige Stunden.“ Englisch entsprechend.
+
+**Geändert:**
+- `protocol/src/key-rotation.ts` (`rotationWarning()`) samt Kopfkommentar.
+- `app/src/texte/protokollsaetze.ts` (`ps.wechselWarnung`, de wortgleich zum
+  Protokoll – `i18n.test.ts` vergleicht).
+
+**Tests:** `key-rotation.test.ts` +1 – keine Zeitzeugen mehr, der Anker, „solange
+sie offen ist“, „einige Stunden“; die Gleichheit von App und Protokoll prüft
+`i18n.test.ts` wie bisher.
+
+Knoten-Stand: nicht betroffen.
+
+## Schritt B-25 – Offene Räume zeigen Neues von selbst (Nutzertest, R-9)
+
+Im Nutzertest sah Alice Carols Nachricht im offenen Raum erst, nachdem sie den
+Raum erneut geöffnet hatte. Private Räume gleicht der Abruftakt ab (2.3b);
+offene Räume luden nur beim Öffnen.
+
+**App** (`shell/tabs/raeume.ts`):
+- `lauscheImRaum()`: Nach dem Laden eines offenen Raums ein Abo auf seine
+  Nachrichten (42, `#space`) und Maßnahmen (34551/34552, `#h`) – ab jetzt
+  (`since`), denn was schon da war, hat `oeffneRaum()` geladen.
+  - Nur für den gewählten Raum: je Raum ein Abo, ein zweiter Aufruf öffnet keins.
+  - Ein Event zählt nur, solange dieser Raum offen ist, nie in einem privaten,
+    nie doppelt (nach Kennung).
+- `beendeLiveAbo()` beim Wechsel des Raums, vor dem ersten `await` – kein Event
+  des alten Raums danach. Ein Abo, das erst nach dem Wechsel zustande kam, wird
+  gleich beendet; ging keins, versucht das nächste Öffnen es neu.
+- `zeichneLiveNeu()`: den Kanal nur neu zeichnen, wenn man ihn sieht – sonst
+  spränge der Lesestand auf jetzt; sonst nur die Kanalliste (Punkte für Neues).
+- Kein Abfragetakt dafür (6.4).
+
+**Tests:**
+- `app/test/raum-live.test.ts` (+3): Filter und `since`, nur offen und nach dem
+  Laden, beendet beim Wechsel, ein Abo je Raum, Neuzeichnen nur sichtbar.
+- Smoke-Test „raum“ (desktop, `live`): `scripts/raum-probe.mts` liefert eine
+  Nachricht von jetzt; `ProbeRelay.zustellen()` schickt sie an die offenen Abos,
+  der Verlauf zeigt sie ohne erneutes Öffnen. Ohne die Änderung:
+  `zugestellt: 0, angezeigt: False` (Gegenprobe).
+
+Knoten-Stand: nicht betroffen.
+
+## Schritt A-16 – Weniger Verbindungen (Nutzertest, Befund N-1)
+
+Spur A. Im Nutzertest öffnete die App mit Tresor und MLS je rund 140 WebSockets in
+45 Minuten. `frageAn()` baute je Abfrage und Adresse eine neue Verbindung auf und
+schloss sie danach – auch für Relays, die der Pool ohnehin offen hielt. Das traf vor
+allem den Abgleich der MLS-Gruppen (jede Minute je Gruppe) und Leser nach NIP-65.
+
+**Was:**
+- **`OutboxPool.queryAn()`** (Protokoll): fragt nur die genannten Relays des Pools,
+  über dessen Verbindung, geprüft wie `query()`. `queryMitBericht()` nutzt dieselbe
+  innere Funktion und verhält sich wie bisher.
+- **`app/src/neben-verbindungen.ts`** (neu), `Nebenverbindungen` für Relays außerhalb
+  des Pools:
+  - je Identität und Adresse eine Verbindung, wiederverwendet;
+  - nach zwei Minuten ohne Gebrauch zu, nie während sie gebraucht wird;
+  - höchstens acht – darüber geht die am längsten ungenutzte.
+- **`shell/state.ts`:** `teileZiele()` trennt Relays des Pools von den übrigen.
+  - `frageAn()`: Relays des Pools über `queryAn()`, die übrigen über Nebenverbindungen.
+    Neu: weiter geht nur gültig Signiertes, auch von fremden Relays – vorher prüfte
+    erst der Aufrufer (Outbox-Leser) oder niemand (MLS-Abgleich).
+  - `veroeffentlicheAn()` (Posteingänge) und `abonniereAn()` (A-15b) ebenso.
+- Angemeldet wird wie bisher nur auf Verlangen (`relayVerbindung()`, NIP-42). Eine
+  Verbindung des Pools, die schon angemeldet ist, trägt jetzt auch Abfragen an die
+  Relays einer MLS-Gruppe. Das Relay sieht dieselbe IP zur selben Zeit ohnehin;
+  `veroeffentlicheAn()` hielt es seit 5.4 schon so.
+
+**Verdrahtet:** `shell/state.ts` – `frageAn()` (MLS über `mls-konto.ts`, Outbox-Leser
+`outbox-lesen.ts`), `veroeffentlicheAn()` (Direktnachrichten, Einladungen),
+`abonniereAn()` (`gruppe-live.ts`).
+
+**Tests:**
+- `outbox.test.ts` (+1): `queryAn()` fragt nur die genannten, Gefälschtes nie, doppelt
+  einmal.
+- `neben-verbindungen.test.ts` (+5): wiederverwendet; je Identität eigene; Ruhezeit und
+  Rücksetzen; Grenze nur über Ungenutzte; `mit()` gibt auch bei Fehlern zurück;
+  Verdrahtung, und keine Wegwerf-Verbindung je Aufruf mehr.
+- `post-live.test.ts`: der Verdrahtungstest aus A-15b liest die neue Schreibweise von
+  `abonniereAn()` – dieselbe Aussage, Zahl gleich.
+
+**Prüfungen:**
+- protocol 1239 grün (6 übersprungen, +1), node 337 (6 übersprungen), app 980 (+5);
+- Leak-Tests 73 grün + 1 todo;
+- check-wiring `--streng`, check-website, innerHTML streng: alle Exit 0;
+- Build reproduzierbar, Smoke-Test bestanden (privater Raum mit echter Engine über
+  `frageAn()`/`queryAn()`, „post_live“).
+
+Knoten-Stand: unverändert – nur App und `OutboxPool` (Protokoll).
+
+## Schritt B-26 – Raum anlegen ohne Umweg (Nutzertest, R-6 und R-5)
+
+Im Nutzertest konnte Carol (Handy, ohne Tresor) gar keinen Raum anlegen:
+- **R-6:** „+“ in der Leiste legte nur private Räume an, „öffentlichen Raum
+  anlegen“ stand nur im Menü eines offenen Raums – das es erst in einem Raum gibt.
+- **R-5:** Privat ohne Tresor kam der Hinweis erst nach dem Namen, der Name war
+  dann weg, und einen Weg zum Tresor gab es nicht.
+
+**App** (`shell/tabs/raeume.ts`):
+- `waehleRaumArt()` an „+“ (`#rail-create`): erst „Welcher Raum?“ – privat oder
+  öffentlich. Ohne Tresor ist öffentlich vorgewählt; der Hinweis bei privat sagt,
+  dass die App den Tresor gleich anbietet (mit Bunker nennt er den Grund). Danach
+  fragt `legeRaumAn()` den Namen wie aus dem Raum-Menü – mit Hinweis.
+- `privatMoeglich()` in `legeRaumAn()` vor dem Namen (für „+“ und das Menü):
+  ohne Tresor erst sagen und `richteTresorEin()` anbieten – der Name kommt erst
+  danach, so geht keiner verloren. Mit Bunker oder ohne Identität lässt es sich
+  hier nicht beheben: dann nur der Grund.
+- `legeRaumAn(oeffentlich = false)` bleibt sonst, wie es war – zwei Tests (Leak
+  „private Räume sind der Standard“, C.2b1 „ohne Namen nichts angelegt“) prüfen
+  es wörtlich und sind unverändert grün.
+- `kommunikation.ts` (Spur C, eine Zeile): „+“ leitet nicht mehr an
+  `#space-create` weiter, `raeume.ts` verdrahtet es selbst.
+
+**Tests:**
+- `app/test/raum-anlegen.test.ts` (+2): Verdrahtung an genau einer Stelle, die
+  Wahl ohne Namen (nie zweimal gefragt), `privatMoeglich()` vor dem Namen, nur der
+  fehlende Tresor ist zu beheben.
+- Smoke-Test „raum_anlegen“ (neu): ohne Tresor und ohne Raum öffentlich
+  vorgewählt; privat → „Tresor einrichten“, abgebrochen entsteht nichts;
+  öffentlich → der gewohnte Dialog mit Namen → angelegt, die Adresse gleich da;
+  kein Browser-Dialog.
+- Smoke-Test „raum“ unverändert grün: Das Raum-Menü öffnet ohne Tresor jetzt das
+  Tresor-Angebot, mit demselben Titel „Raum anlegen (privat)“.
+
+Knoten-Stand: nicht betroffen.
+
+## Schritt B-27 – Systemprompt des Knotens sagt nur, was stimmt (Nutzertest, A-7)
+
+Der Systemprompt (`node/src/inference.ts`) galt für jeden Provider, sagte aber
+„Du laeuffst auf EINEM Provider-Knoten (GX10)“, nannte web_search, image_gen und
+video_gen auch bei Anfragen ohne Werkzeuge (Gratis-Antworten seit A-14a) und
+behauptete für jedes Modell einen „Knowledge-Cutoff Ende 2024“. Dazu nannte er
+Streaming-Sats mit Kind 38020, das es nicht gibt.
+
+**Knoten** (`inference.ts`):
+- `systemPrompt({ werkzeuge, heute })`: die Werkzeuge genau dieser Anfrage (aus
+  `getTools()`, mit `ohneWerkzeuge` keine – dann „keine Werkzeuge“), das heutige
+  Datum (UTC); kein fester Knoten, kein erfundener Wissensstand. Den Hinweis auf
+  die Websuche gibt es nur, wenn sie da ist.
+- `complete()` baut den Prompt nach den Werkzeugen, die es Ollama schickt.
+
+**Tests** (`node/test/systemprompt.test.ts`, +3): kein GX10, kein Wissensstand,
+das Datum; nur die Werkzeuge der Anfrage; an Ollama geht der Prompt passend zu
+den übergebenen Werkzeugen (mit und ohne). Das Datum wird vor und nach dem
+Aufruf gelesen – springt dazwischen der Tag, gilt jedes von beiden.
+
+**Offen (Befund am Rand):** image_gen und video_gen liefern Links auf
+`localhost:8188` (ComfyUI des Knotens) – ein Kunde kann sie nicht öffnen. Der
+Prompt nennt sie weiter, weil sie angeboten werden; ob sie ins Angebot gehören,
+ist ein eigener Punkt.
+
+Knoten-Stand: neu (B-27) – ohne Update antwortet ein Knoten wie bisher.
+
+## Schritt B-28 – Ersatzschlüssel nicht im Klartext (Nutzertest, T-2)
+
+„Diebstahl vorbeugen“ (Settings › Sicherheit, Schritt 3) speicherte den
+Ersatzschlüssel nur als Klartext-Datei `freedom-ersatzschluessel.txt`.
+
+**App:**
+- `ersatz-datei.ts` (neu):
+  - `baueErsatzDatei()`: mit Passphrase ein JSON (`art`, `version`, der
+    öffentliche Schlüssel offen – er steht ohnehin im Mandat –, das Chiffrat im
+    Format des Tresors über `verschluesseleMitPassphrase()`), sonst der Klartext
+    wie bisher.
+  - `leseErsatz()`: 64 Zeichen Hex wie bisher oder die Datei mit ihrer
+    Passphrase; eine falsche Passphrase wirft, Fremdes gibt `null`.
+- `shell/tabs/sicherung.ts`:
+  - `bereiteWechselVor()` fragt nach der Warnung und **bevor** ein Schlüssel oder
+    Mandat entsteht nach einer Passphrase (zweimal, Mindestlänge des Tresors;
+    leer: Klartext). Ohne `crypto.subtle` (http im Heimnetz, B-10) nur Klartext.
+  - `widerrufeSchluessel()` nimmt im Feld des Ersatzschlüssels auch den Inhalt
+    der verschlüsselten Datei, dazu ein Feld für ihre Passphrase; gelesen über
+    `leseErsatz()` vor `fromHex()`.
+- Texte de/en (`set.ersatzPass…`, `set.ersatzFrage`/`set.ersatzHex` erweitert).
+
+**Tests** (`app/test/ersatz-datei.test.ts`, +3): ohne Passphrase Klartext, mit
+Passphrase kein privater Schlüssel in der Datei, zu kurze abgewiesen; Widerruf
+aus Hex und aus der Datei, falsche Passphrase und Fremdes abgewiesen;
+Verdrahtung (Frage vor `generateKeypair()`, nur mit `verschluesselungMoeglich()`,
+`leseErsatz()` vor `fromHex()`). Die bestehenden Tests zu beiden Dialogen
+(`browser-dialoge`, `schluessel-status`) bleiben unverändert grün.
+
+**Smoke-Test** („einstellungen“): Der Widerruf hat ein Feld mehr (Passphrase),
+die Meldung zu ungültiger Eingabe nennt die Datei; neu geprüft werden der Inhalt
+einer verschlüsselten Datei ohne Passphrase (Meldung im Dialog) und „Diebstahl
+vorbeugen“ – nach der Warnung die Frage nach der Passphrase (zwei verdeckte
+Felder, zu kurz meldet sich), abgebrochen geht nichts hinaus. Der erste volle
+Lauf war hier rot: die alte Prüfung erwartete drei Felder.
+
+Knoten-Stand: nicht betroffen.
+
+## Schritt 11.3b – Agenten in Räumen: Protokoll (b1 und b2)
+
+Spur A, nach dem Entwurf `docs/AGENTEN-RAUM-ENTWURF.md` (freigegeben 08.10.:
+F1, F4, F6 A; F2 Monatsbudget mit Pfand; F3 B; F5 Agentenketten mit Schalter).
+Nur Protokoll – Gerät (11.3c, Spur A), Knoten (11.3d, Spur B) und Oberfläche
+(11.3e, Spur C) bauen darauf. Format in `docs/PROTOCOL.md` 32.
+
+**b1 – Karte, Besitzer, Rolle (`protocol/src/agent-karte.ts`):**
+- Karte (Kind 38090, `d` = `karte`): Autor ist der Agent, Inhalt leer.
+  - Name, Beschreibung, Betrieb (`knoten`/`geraet`), Bezahlung
+    (`fragender`/`einlader`), optional Besitzer, Provider, Modell.
+  - Keine Persona, keine Systemanweisung (F4 A).
+  - Streng gelesen: jedes Feld einmal, bekannte Werte, Grenzen, keine
+    Steuerzeichen; je Agent die neueste.
+- Besitzer nur bestätigt (F1 A): NIP-51-Liste des Besitzers (Kind 30000, `d` =
+  `freedom-agenten`); es zählt seine neueste. Eine Liste ohne den Agenten
+  widerruft.
+- Rolle `agent` (F6 A): lesen, schreiben, Threads, Rang 1. `mitAgentRolle()` nimmt
+  ihr jedes weitere Recht – geprüft mit `can()` in einem offenen Raum.
+- Private Räume: Karte und Liste nur als innere Events (`raumAgentKarte()`,
+  `raumAgentenListe()`, `raumAgentKarten()`, `raumListenEvents()`).
+- Leak-Regel `agent-raum-privat`: keine Karte, keine Liste mit dem Agenten und keine
+  Nachricht von oder an ihn offen; KeyPackages (443) erlaubt.
+
+**b2 – wann ein Agent antwortet (`protocol/src/agent-auftrag.ts`):**
+- Auslöser (`sollAntworten()`): nur bei Erwähnung, nie die eigene Nachricht, nur
+  mit Schreibrecht im Kanal.
+- Agentenketten (F5):
+  - Schalter `["agentenketten", <1–50>]` in der Raum-Definition, ohne Tag aus.
+  - Antworten nur aus einem Budget.
+  - `kettenLaenge()` zählt rückwärts über die Antworten bis zum ersten Menschen;
+    sie endet an fehlenden Gliedern und an Kreisen.
+- Bremse: 3 Aufträge je Absender und Minute (`AuftragsBremse`, `RateLimiter`).
+- Kontext (`agentKontext()`): nur Kanal bzw. Thread samt Anfang, nur davor, in den
+  Grenzen des Fragenden; andere Agenten gekennzeichnet.
+- Verweis im Kern: `agent-raum` (Adresse oder Gruppe) und `agent-erwaehnung`,
+  streng gelesen.
+- Antwort: Kind 42 bzw. inneres Event Art 9, mit `root`/`reply`/`mention`,
+  höchstens 4000 Zeichen.
+- Monatsbudget (F2): `budgetStufe()` (Standard 10 %) und `naechsteStufe()` –
+  kumulativ eine Stufe über dem Verbrauchten, nie über dem Budget.
+
+**Verdrahtet:** noch nicht – nur Protokoll. Die Exporte stehen bis 11.3c/11.3d in
+`scripts/wiring-ausnahmen.txt`. Die Aussagen im Datenschutzbericht kommen mit
+11.3c: Erst dann gibt es Agenten in der App, und ein Szenario mit echter Engine.
+
+**Tests:**
+- `agent-karte.test.ts` (+5): Karte, strenges Lesen, Besitzer, Rolle samt `can()`,
+  Leak-Regel.
+- `agent-auftrag.test.ts` (+7): Auslöser, Ketten, Schalter, Bremse, Kontext,
+  Verweis und Antwort, Budget.
+- Der Sammeltest der Leak-Regeln kennt die neue Regel.
+
+**Prüfungen:**
+- protocol 1252 grün (6 übersprungen, +12), node 337, app 983;
+- Leak-Tests 73 grün + 1 todo;
+- check-wiring `--streng`, check-website, innerHTML streng: alle Exit 0;
+- Build reproduzierbar, Smoke-Test bestanden.
+
+Knoten-Stand: unverändert.
+
+## Schritt 4.3e – Programm-ID des Devnet-Deploys (Zahlkanal)
+
+Der MENSCH hat das Zahlkanal-Programm am 09.10.2026 auf Devnet gelegt
+(`F9P2PeyySkeQL4d1KAtHjtnVBqzjW3dqbfubY1PChW2m`, Bericht des lokalen Agenten
+„ZAHLKANAL-DEPLOY-09-10-2026.md“). Gebaut war die Binary noch mit
+`declare_id!` des Platzhalters (`7tukwi…`). Anchor 0.30.1 vergleicht diese ID
+bei jedem Aufruf mit der Adresse, an der das Programm liegt – eine Simulation
+gegen Devnet endet deshalb für jede Anweisung mit
+`Custom 4100` („AnchorError … DeclaredProgramIdMismatch … The declared program
+id does not match the actual program id“). Das Programm ist ausführbar, nimmt
+aber nichts an; die Annahme im Bericht, die alte ID sei nur irreführend, trifft
+für Anchor nicht zu. Dieselbe Simulation zeigt dasselbe beim HTLC an `3UmRR…`
+(Schritt 0.G); `B6W19U…` (die ID im Code) nimmt dort Aufrufe an.
+
+**Geändert:**
+
+- `contracts/solana-channel`: `declare_id!` und `Anchor.toml` auf `F9P2…`,
+  README mit den Befehlen für das Upgrade (MENSCH) und dem Vergleich danach.
+- `packages/protocol/src/channel.ts`: `KANAL_PROGRAMM_ID = "F9P2…"`, Kommentar
+  ohne Platzhalter.
+- `channel.test.ts`: statt der Platzhalter-Bytes prüft der Test, dass die ID
+  kanonisch ist und dass `declare_id!` und `Anchor.toml` genau sie tragen
+  (Gegenprobe: eine geänderte `declare_id!` macht ihn rot).
+  `tiers.test.ts`: Testvektor mit der neuen ID.
+- Doku: `docs/ZAHLKANAL.md`, `docs/SOLANA-UPGRADE-AUTHORITY.md` (beide
+  Programme mit dem geprüften Stand, Checkliste), `phase-4.md` (4.3e),
+  SAMMLUNG M-1/M-2, Regeln in `CLAUDE.md` und `contracts/CLAUDE.md`.
+
+Alle übrigen Stellen nutzen die Konstante (durchgesehen: Knoten `kanal-kasse.ts`,
+`einrichtung.ts`, `main.ts`; App `zahlkanal.ts`, `zahlkanal-ui.ts`,
+`verdienst.ts`, `verdienst-ui.ts` samt Tests) – kein weiteres Literal.
+
+**Prüfungen:** `pruefen.sh --werkzeuge` (Agave 3.1.10): Programm gebaut, 7 von 7
+Tests gegen den Validator grün – das Programm liegt dort an `F9P2…`, die Kasse
+des Knotens löst gegen es ein. Protokoll, Knoten, App, Leak, MLS, Build,
+Wiring, Website, innerHTML, Smoke, Site, Repro wie unten im Pull Request.
+Anzahl der Tests unverändert (eine Prüfung ersetzt).
+
+**MENSCH:** Upgrade an `F9P2…` mit der Binary aus diesem Stand (README des
+Programms), danach eine Simulation, die nicht mehr mit 4100 endet; dann ein
+KI-Auftrag über den Kanal. Bis zum Upgrade scheitert jeder Kanal-Aufruf in der
+Vorabsimulation – es fließt kein Geld.
+
 ## Schritt C-29 – Senden wartet auf Anhänge
 
 Spur C, Befund C-7 aus dem Nutzertest vom 08.10. (Anhang D der Sammlung).
