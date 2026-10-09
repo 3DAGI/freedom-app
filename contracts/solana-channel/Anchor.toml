@@ -2,7 +2,7 @@
 anchor_version = "0.30.1"
 
 [programs.localnet]
-solana_channel = "7tukwiJ8cKiWPmkhH2seJycWebHuZy1XLXEZYAMLB5Dj"
+solana_channel = "F9P2PeyySkeQL4d1KAtHjtnVBqzjW3dqbfubY1PChW2m"
 
 [provider]
 cluster = "localnet"

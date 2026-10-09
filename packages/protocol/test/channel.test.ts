@@ -6,6 +6,7 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { Ed25519Program, Keypair, PublicKey, SystemProgram, SYSVAR_INSTRUCTIONS_PUBKEY } from "@solana/web3.js";
 import { ed25519 } from "@noble/curves/ed25519.js";
 import { sha256 } from "@noble/hashes/sha2.js";
@@ -27,8 +28,11 @@ function stand(sitzung: string, eingezahlt = 1_000_000n): { adresse: string; sta
   return { adresse, stand: { kunde, provider, sitzungsSchluessel: sitzung, nonce: 7n, eingezahlt, ausgezahlt: 0n, ablauf: ABLAUF, empfaenger: [], bump } };
 }
 
-test("Format: Platzhalter-ID ohne Schlüssel, Gutschrift 71 Byte – Präfix, Kanal, Betrag u64 LE, Ablauf i64 LE", () => {
-  assert.deepEqual(Buffer.from(new PublicKey(KANAL_PROGRAMM_ID).toBytes()).toString(), "freedomstack-channel-platzhalter");
+test("Format: Programm-ID wie im Programm, Gutschrift 71 Byte – Präfix, Kanal, Betrag u64 LE, Ablauf i64 LE", () => {
+  assert.equal(new PublicKey(KANAL_PROGRAMM_ID).toBase58(), KANAL_PROGRAMM_ID, "32 Byte, kanonisch geschrieben");
+  const lies = (p: string) => readFileSync(new URL(`../../../contracts/solana-channel/${p}`, import.meta.url), "utf8");
+  assert.deepEqual([...lies("programs/solana-channel/src/lib.rs").matchAll(/declare_id!\("(\w+)"\)/g)].map((m) => m[1]), [KANAL_PROGRAMM_ID], "declare_id!");
+  assert.deepEqual([...lies("Anchor.toml").matchAll(/^solana_channel = "(\w+)"$/gm)].map((m) => m[1]), [KANAL_PROGRAMM_ID], "Anchor.toml");
   const { adresse } = kanalAdresse(kunde, provider, 1n);
   const n = gutschriftNachricht(adresse, 0x0102030405060708n, -2n);
   assert.equal(n.length, GUTSCHRIFT_LAENGE);

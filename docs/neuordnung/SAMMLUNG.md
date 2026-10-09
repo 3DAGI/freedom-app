@@ -270,8 +270,8 @@ Entscheidungsvorlage vom 28.09.2026 und sind hier gekürzt.
 
 | Nr. | Punkt |
 |---|---|
-| M-1 | **0.G** Programm-ID abgleichen (Code `B6W19U…`, laut `DEPLOY.md` deployt `3UmRR…`). |
-| M-2 | **Deploy des Zahlkanals** (`KANAL_PROGRAMM_ID` ist ein Platzhalter) – ohne M-1 und M-2 keine KI-Zahlung mit SOL. |
+| M-1 | **0.G** Programm-ID abgleichen (Code `B6W19U…`, laut `DEPLOY.md` deployt `3UmRR…`). Geprüft 09.10.: nur `B6W19U…` nimmt Aufrufe an (Stand Juli, Upgrade-Recht `8DhKPv…`), `3UmRR…` lehnt alle ab (4100). |
+| M-2 | **Deploy des Zahlkanals** – auf Devnet seit 09.10. (`F9P2…`), die erste Binary lehnt aber jeden Aufruf ab (alte `declare_id!`). Offen: Upgrade mit der Binary aus 4.3e (README des Programms) – ohne M-1 und M-2 keine KI-Zahlung mit SOL. |
 | M-3 | Adressen der Entwicklung (`ENTWICKLUNG` in `aufteilung.ts`), Testnet-Test der Zahlung (aus 5.1). |
 | M-4 | Konten der Spiegel (`docs/KONTEN.md`, 5.3). |
 | M-5 | **0.D** signierte Releases (erst dann schützt die Echtheitsprüfung aus 5.2 wirklich) · **0.E** Wallet-Erweiterungen unter CSP · **5.1b** gesponserte Pools (Devnet-Deploy). |
@@ -462,4 +462,4 @@ nachgeprüft; die Spalte „Spur“ ist ein Vorschlag wie in Anhang D.
 | L2-4 | Angekündigt `PROVIDER_MODELS`, ausgeliefert `OLLAMA_MODEL`, wenn die Anfrage kein angebotenes Modell nennt | `dvm-provider.ts:1253-1258`, `inference.ts:104` | B | B-41 |
 | L2-5 | Neue Identität bei jedem Start ohne `NODE_SECRET_KEY` (Docker immer), geheimer Schlüssel im Log | `main.ts:46-59`, `docker-compose.yml:147-151` | B | B-40 |
 | L2-6 | Einrichtung meldet eine Lightning-Adresse mit HTTP 404 als Fehler – richtig so (die Adresse muss erreichbar sein) | `einrichtung.ts` | – | kein Punkt |
-| L2-7 | Zahlkanal ohne `ZAHLKANAL=1` aus – gewollt (`kanalKasseAusUmgebung()`). Der Bericht nennt einen frisch deployten Zahlkanal (`F9P2Peyy…`): die Programm-ID trägt der MENSCH ein (M-2, `KANAL_PROGRAMM_ID`) | `kanal-kasse.ts`, `channel.ts` | MENSCH | M-2 |
+| L2-7 | Zahlkanal ohne `ZAHLKANAL=1` aus – gewollt (`kanalKasseAusUmgebung()`). Der Bericht nennt einen frisch deployten Zahlkanal (`F9P2Peyy…`): die Programm-ID steht seit 4.3e im Code (`KANAL_PROGRAMM_ID`); das Upgrade auf Devnet bleibt beim MENSCHEN | `kanal-kasse.ts`, `channel.ts` | A, MENSCH | 4.3e, M-2 |

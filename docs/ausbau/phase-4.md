@@ -136,6 +136,13 @@ Jede Funktion, in der Geld fließt, bietet beide Schienen mit gleichem Komfort.
     Programm auf der Kette liegt), Übersicht, Texte, Aussage „zahlkanal“ im
     Datenschutzbericht; SOL-Anteile damit erzwungen. **4.3 Code fertig** –
     offen nur MENSCH: Devnet-Deploy, dann ein KI-Auftrag über den Kanal.
+  - **4.3e – FERTIG (Code, 09.10.2026):** Devnet-Deploy durch den MENSCHEN
+    (`F9P2PeyySkeQL4d1KAtHjtnVBqzjW3dqbfubY1PChW2m`). Die Binary trug noch
+    `declare_id!` des Platzhalters – Anchor lehnt damit jeden Aufruf ab
+    (4100, per Simulation geprüft). Adresse jetzt in `declare_id!`,
+    `Anchor.toml` und `KANAL_PROGRAMM_ID`, ein Test hält sie gleich;
+    Validator-Tests mit der neuen ID grün. Offen MENSCH: Upgrade an derselben
+    Adresse mit der neuen Binary, dann ein KI-Auftrag über den Kanal.
 
 ---
 
