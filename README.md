@@ -83,7 +83,8 @@ cd packages/app      && npx tsc -p tsconfig.json --noEmit && npm test && npm run
 python3 scripts/smoke_test.py packages/app/dist   # Browser-Test (Playwright, Chromium)
 ```
 
-Alle Befehle, Regeln und Fallstricke stehen in `CLAUDE.md`, der Ausbauplan in
+Alle Befehle und Regeln stehen in `CLAUDE.md`, die Fallstricke dort und je Bereich in
+`packages/*/CLAUDE.md`, `contracts/CLAUDE.md` und `scripts/CLAUDE.md`, der Ausbauplan in
 `docs/ausbau/` (`FORTSCHRITT.md`), das Protokoll jedes Schritts in `STATUS.md`.
 Veröffentlicht wird nur über `.github/workflows/pages.yml` und nur mit grünen
 Tests.
