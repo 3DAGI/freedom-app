@@ -6875,3 +6875,47 @@ Nur Protokoll – Gerät (11.3c, Spur A), Knoten (11.3d, Spur B) und Oberfläche
 - Build reproduzierbar, Smoke-Test bestanden.
 
 Knoten-Stand: unverändert.
+
+## Schritt 4.3e – Programm-ID des Devnet-Deploys (Zahlkanal)
+
+Der MENSCH hat das Zahlkanal-Programm am 09.10.2026 auf Devnet gelegt
+(`F9P2PeyySkeQL4d1KAtHjtnVBqzjW3dqbfubY1PChW2m`, Bericht des lokalen Agenten
+„ZAHLKANAL-DEPLOY-09-10-2026.md“). Gebaut war die Binary noch mit
+`declare_id!` des Platzhalters (`7tukwi…`). Anchor 0.30.1 vergleicht diese ID
+bei jedem Aufruf mit der Adresse, an der das Programm liegt – eine Simulation
+gegen Devnet endet deshalb für jede Anweisung mit
+`Custom 4100` („AnchorError … DeclaredProgramIdMismatch … The declared program
+id does not match the actual program id“). Das Programm ist ausführbar, nimmt
+aber nichts an; die Annahme im Bericht, die alte ID sei nur irreführend, trifft
+für Anchor nicht zu. Dieselbe Simulation zeigt dasselbe beim HTLC an `3UmRR…`
+(Schritt 0.G); `B6W19U…` (die ID im Code) nimmt dort Aufrufe an.
+
+**Geändert:**
+
+- `contracts/solana-channel`: `declare_id!` und `Anchor.toml` auf `F9P2…`,
+  README mit den Befehlen für das Upgrade (MENSCH) und dem Vergleich danach.
+- `packages/protocol/src/channel.ts`: `KANAL_PROGRAMM_ID = "F9P2…"`, Kommentar
+  ohne Platzhalter.
+- `channel.test.ts`: statt der Platzhalter-Bytes prüft der Test, dass die ID
+  kanonisch ist und dass `declare_id!` und `Anchor.toml` genau sie tragen
+  (Gegenprobe: eine geänderte `declare_id!` macht ihn rot).
+  `tiers.test.ts`: Testvektor mit der neuen ID.
+- Doku: `docs/ZAHLKANAL.md`, `docs/SOLANA-UPGRADE-AUTHORITY.md` (beide
+  Programme mit dem geprüften Stand, Checkliste), `phase-4.md` (4.3e),
+  SAMMLUNG M-1/M-2, Regeln in `CLAUDE.md` und `contracts/CLAUDE.md`.
+
+Alle übrigen Stellen nutzen die Konstante (durchgesehen: Knoten `kanal-kasse.ts`,
+`einrichtung.ts`, `main.ts`; App `zahlkanal.ts`, `zahlkanal-ui.ts`,
+`verdienst.ts`, `verdienst-ui.ts` samt Tests) – kein weiteres Literal.
+
+**Prüfungen:** `pruefen.sh --werkzeuge` (Agave 3.1.10): Programm gebaut, 7 von 7
+Tests gegen den Validator grün – das Programm liegt dort an `F9P2…`, die Kasse
+des Knotens löst gegen es ein. Protokoll, Knoten, App, Leak, MLS, Build,
+Wiring, Website, innerHTML, Smoke, Site, Repro wie unten im Pull Request.
+Anzahl der Tests unverändert (eine Prüfung ersetzt).
+
+**MENSCH:** Upgrade an `F9P2…` mit der Binary aus diesem Stand (README des
+Programms), danach eine Simulation, die nicht mehr mit 4100 endet; dann ein
+KI-Auftrag über den Kanal. Bis zum Upgrade scheitert jeder Kanal-Aufruf in der
+Vorabsimulation – es fließt kein Geld.
+

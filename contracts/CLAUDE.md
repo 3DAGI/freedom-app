@@ -21,3 +21,10 @@ Bereichs unten anhängen.
   Den Websocket am Ende mit `setAutoReconnect(false)` schließen – sonst
   verbindet er endlos neu, und der Job läuft bis zu seinem Limit.
   *(Weitere Teile: Wurzel (`CLAUDE.md`), `packages/node/CLAUDE.md`, `packages/app/CLAUDE.md`.)*
+- **`declare_id!` ist die Adresse auf der Kette** (seit 4.3e): Anchor vergleicht
+  sie bei jedem Aufruf mit der Adresse, an der das Programm liegt – eine Binary
+  mit einer anderen ID lehnt dort alles ab (4100, `DeclaredProgramIdMismatch`).
+  „Ausführbar“ (`ausfuehrbar()`, `programmBereit()`) sagt darüber nichts; ob ein
+  Deploy taugt, zeigt nur eine Simulation. So lag der Zahlkanal am 09.10.2026 auf
+  Devnet und nahm keinen Aufruf an, ebenso der HTLC an `3UmRR…`. Erst die ID
+  eintragen, dann bauen, dann deployen – nie umgekehrt.

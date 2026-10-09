@@ -26,11 +26,12 @@ import { ProtokollFehler } from "./fehler.js";
 const text = new TextEncoder();
 
 /**
- * Platzhalter bis zum Devnet-Deploy (MENSCH): die 32 Bytes von
- * „freedomstack-channel-platzhalter“ als Adresse. Zu ihr gibt es keinen
- * Schlüssel – niemand kann dort ein Programm ablegen.
+ * Adresse des Programms auf Devnet (Deploy durch den MENSCHEN am 09.10.2026,
+ * `docs/ZAHLKANAL.md`). Gleich `declare_id!` in `contracts/solana-channel` –
+ * Anchor lehnt sonst jeden Aufruf ab (4100); ein Test vergleicht beide. Ändern
+ * nur zusammen mit einem Deploy oder Upgrade durch den MENSCHEN.
  */
-export const KANAL_PROGRAMM_ID = new PublicKey(text.encode("freedomstack-channel-platzhalter")).toBase58();
+export const KANAL_PROGRAMM_ID = "F9P2PeyySkeQL4d1KAtHjtnVBqzjW3dqbfubY1PChW2m";
 
 /** Domain-Präfix der Gutschrift; eine neue Version heißt: neues Programm. */
 export const GUTSCHRIFT_PRAEFIX = "freedomstack-channel-v1";
