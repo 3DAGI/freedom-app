@@ -7136,3 +7136,23 @@ Fallstrick in `packages/app/CLAUDE.md`: Anhänge im Chat nur über `handleChatFi
 
 **Prüfungen:** protocol 1252 grün (6 übersprungen), node 340, app 1010 (+6), Leak 73 + 1 todo;
 tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
+
+## Schritt Entscheidungen 09.10. – Anhang E, Spur A, H1 (MENSCH)
+
+Der MENSCH hat die 19 offenen Entscheidungen „alle wie empfohlen außer LIZ“
+entschieden. Eingetragen in `docs/neuordnung/SAMMLUNG.md`:
+
+- **Spur B (Abschnitt 5):** AG1 A, MC1 A, RN1 wie empfohlen (im Entwurf zu B-32),
+  RN2 A, PT1 A, LK1 A, NG1 B, BC1 B. Damit sind B-30 bis B-35 frei (B-32 zuerst
+  als Entwurf); B-36 wartet auf ein Audit von Bitchat.
+- **Spur A:** E4b D, FR1 A, SH1 A, P5d B (nach M-2), RM2 B. A-11 später, zuerst
+  Transkribieren; A-12 ohne eigenes Programm, Squads anbinden; A-13 nach Audit und
+  Mainnet. L2-3 (Anhang F): erst B (L2-1, L2-2), A später. Umsetzen muss Spur A.
+- **Spur C:** H1 A (`'self'` in `connect-src`).
+- **LIZ bleibt offen.** Der MENSCH schlägt GPL-3.0 mit Zusatzbedingungen nach
+  Abschnitt 7 vor (Marken; österreichisches Recht, Gerichtsstand Wien). Die
+  Markenklausel ist dort vorgesehen, Rechtswahl und Gerichtsstand nicht. Neu als
+  Option E: EUPL-1.2, die beides von sich aus regelt. Der Wortlaut liegt beim
+  MENSCHEN.
+
+Nur Doku, kein Code.
