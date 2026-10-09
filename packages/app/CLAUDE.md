@@ -484,6 +484,10 @@ Fallstricke dieses Bereichs unten anhängen.
   Maßnahmen (34551/34552, `#h`), beendet beim Wechsel (`beendeLiveAbo()`) – nie ein
   Abfragetakt dafür. Den Kanal zeichnet `zeichneLiveNeu()` nur neu, wenn man ihn sieht
   (sonst spränge der Lesestand); im Smoke-Test („raum“, `live`) über `ProbeRelay.zustellen()`.
+  Anlegen (seit B-26, Nutzertest R-6/R-5): „+“ in der Leiste fragt erst die Art (`waehleRaumArt()`,
+  auch ohne Raum; ohne Tresor öffentlich vorgewählt), den Namen dann `legeRaumAn()` wie aus dem
+  Menü; privat nur nach `privatMoeglich()` – ohne Tresor erst sagen und `richteTresorEin()`
+  anbieten, nie erst nach dem Namen scheitern.
   *(Weitere Teile: Wurzel (`CLAUDE.md`).)*
 - **Umfragen und Termine nur in der Gruppe** – In der App (seit B-15b) nur über `shell/raum-planung-ui.ts`: gesendet nur
   mit `mlsSendeEvent(raum.gruppe, …)`, gezeigt nur als Text über dem Verlauf
