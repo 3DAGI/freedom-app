@@ -7263,3 +7263,47 @@ der Agent nicht (er holt sie nur nach).
 mls 13; tsc ×3, Build, `check-wiring --streng` (0 offen), `check-website`, `check_innerhtml --streng`,
 Smoke-Test, Website-Bau und reproduzierbarer Build grün.
 
+## Schritt LIZ – Lizenz EUPL-1.2
+
+Entscheidung des MENSCHEN vom 09.10.2026: **EUPL-1.2** (Option E). Copyleft auch über
+das Netz, Namen und Marken nicht lizenziert (Art. 5), Recht und Gericht am Sitz des
+Lizenzgebers (Art. 14, 15), amtlich auch auf Deutsch (Art. 13).
+
+**Neu:**
+- **`LICENSE`:** der englische Text von choosealicense (GitHub erkennt die Lizenz
+  daran). Der Wortlaut ist gleich dem der SPDX-Liste; verglichen ohne Leerraum und
+  Strichformen.
+- **Lizenzfelder:** `"license": "EUPL-1.2"` in der Wurzel und in `app`, `mls`, `node`,
+  `protocol`. Die Sperrdatei ist mit `npm install --package-lock-only` nachgezogen; ihr
+  Diff enthält nur diese fünf Zeilen.
+- **README:** Abschnitt „Lizenz“ mit dem Hinweis „Licensed under the EUPL“ und den
+  Kernpunkten. Link zu allen Sprachfassungen bei Joinup; den Link kennt choosealicense,
+  hier ist er nicht abrufbar (Proxy).
+- **FAQ:** „Der Code ist quelloffen (Lizenz EUPL-1.2)“.
+- **`CLAUDE.md`:**
+  - STOPP-Punkt „neue Abhängigkeit“: jetzt auch mit Lizenz.
+  - Fallstrick „Lizenz EUPL-1.2“.
+
+**Abhängigkeiten:** Fast alle npm-Pakete stehen unter MIT, Apache, BSD oder ISC. In
+`freedom.html` steckt `rpc-websockets` (über `@solana/web3.js`) unter LGPL-3.0. Die LGPL
+steht im Anhang der EUPL, das passt.
+
+**Zwei Funde im Spiegel-Skript:** `@ardrive/turbo-sdk` zieht zwei Pakete mit:
+- `arweave-stream-tx` steht unter GPL-3.0.
+- `@metamask/sdk` steht unter einer eigenen Lizenz von ConsenSys („All rights reserved“),
+  über `x402` → `wagmi`.
+
+Beide sind nicht in `freedom.html` (`turbo-sdk` ist im Build `external`) und nicht im
+Knoten; sie laufen nur in `scripts/mirror/spiegeln.mts` im Release-Job. Wandert
+`turbo-sdk` je in App oder Knoten, vorher prüfen.
+
+**Nicht geändert:**
+- **`packages/mls/crate`:** erbt `license` aus dem MDK-Arbeitsbereich (MIT).
+- **Hülle und Solana-Programme:** tragen keine Angabe.
+- Für jede Änderung dort gelten die Prüfungen des Bereichs (`bauen.sh --pruefen`,
+  `cargo test`, `pruefen.sh`). Die Datei `LICENSE` in der Wurzel gilt für alles.
+
+**Test:** `protocol/test/lizenz.test.ts` (+2):
+- Prüfsumme von `LICENSE`, mit Gegenprobe.
+- Jedes Paket und die Sperrdatei nennen EUPL-1.2.
+- README mit Hinweis.

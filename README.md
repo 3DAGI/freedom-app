@@ -96,6 +96,27 @@ ist noch nicht geflossen. Was vor dem Start fehlt, steht in `GO-LIVE.md`, was
 nur ein Mensch erledigen kann (Schlüssel, Konten, Deploy), in `docs/KONTEN.md`
 und `docs/neuordnung/SAMMLUNG.md` (Abschnitt 6).
 
+## Lizenz
+
+Copyright © 2026 3DAGI und die Mitwirkenden. Licensed under the EUPL.
+
+FreedomStack steht unter der **European Union Public Licence v. 1.2**
+(EUPL-1.2), Wortlaut in [`LICENSE`](LICENSE). In Kürze:
+
+- **Copyleft, auch über das Netz:** Wer eine geänderte Fassung weitergibt oder
+  ihre wesentlichen Funktionen über das Netz anbietet (etwa einen geänderten
+  Knoten), legt den Quellcode offen (Art. 1, 5).
+- **Namen und Marken** des Lizenzgebers sind nicht lizenziert (Art. 5).
+- **Recht und Gericht:** Es gilt das Recht des EU-Staats, in dem der
+  Lizenzgeber seinen Sitz hat; zuständig ist ausschließlich das Gericht dort, wo
+  er wohnt oder hauptsächlich tätig ist (Art. 14, 15).
+- **Sprachen:** Die EUPL gibt es amtlich in allen Amtssprachen der EU, auch auf
+  Deutsch; alle Fassungen gelten gleich (Art. 13):
+  https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12
+- **Verträgliche Lizenzen** (Anhang der EUPL): Wird FreedomStack mit Code unter
+  einer davon zu einem abgeleiteten Werk verbunden, darf dieses auch unter jener
+  Lizenz weitergegeben werden (Art. 5).
+
 ## Rechtlicher Hinweis
 
 Technisches Referenzprojekt, keine Rechts- oder Anlageberatung. Der Betrieb

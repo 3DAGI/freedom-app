@@ -47,7 +47,7 @@ bash contracts/solana-channel/pruefen.sh --werkzeuge     # nur bei Änderungen a
 cd packages/launcher && cargo test --locked && cd ../..  # nur bei Änderungen an der Hülle (Linux: WebKitGTK 4.1, App vorher bauen)
 ```
 
-Stand 09.10.2026 (nach 8.2c, 5.5a–c, 8.15, 11.1a, C.3c2, 11.1b, 5.9a–b, 6.3a–b2, 11.4a–b2, C.4a–b, C.5a–b, C.6b, 11.4c, C-18, C-17a–c, C-20a–j3, C-1a–f, C-2, C-3, C-4, C-5a–d, C-6a–e, C-7a–b, C-8, C-10 bis C-16, 11.2a–b, A-4 bis A-7, A-7r, Z1, 12.1–12.3, E8, P1a–b, P2a, E10a, E11, E9-Entwurf, 12.4a, P2b1–b2, P3a–b, P4, P5a–b, P5c1–c2, D1a, D1b1–b2, D1c, D2, D3-Entwurf, 12.6, 12.7a–c, 12.1 C, C-21, C-22a, C-22c, C-24, C-25, C-26, C-22b, 6.1a1–a2, 6.1a3a–c, 6.1a4a, 6.1b1a–b, 6.1b2a–b, 6.1b3, 6.1c1, 6.1c2a, 6.1d, B-1, B-2a–c, B-3 bis B-7, B-8a–c, B-9a, B-15, B-19, B-20a–c, B-10a–b, B-9b1–b2, B-9c1–c3, B-11a–c, B-12a–d, B-13a–e, B-21, B-17a, B-17b1, B-17b2, B-17b3a, B-17b3b und 7.5a–d, B-22, A-14a–b3, E9-3a, B-23, C-28, C-29, A-15a–b, B-24, B-25, A-16, B-26, B-27, B-28, 11.3b, 4.3e, 11.3c1, 11.3c2, B-40, B-41, 11.3c3a, C-30, 11.3c3b): protocol 1252 grün (6 übersprungen), node 347 grün
+Stand 09.10.2026 (nach 8.2c, 5.5a–c, 8.15, 11.1a, C.3c2, 11.1b, 5.9a–b, 6.3a–b2, 11.4a–b2, C.4a–b, C.5a–b, C.6b, 11.4c, C-18, C-17a–c, C-20a–j3, C-1a–f, C-2, C-3, C-4, C-5a–d, C-6a–e, C-7a–b, C-8, C-10 bis C-16, 11.2a–b, A-4 bis A-7, A-7r, Z1, 12.1–12.3, E8, P1a–b, P2a, E10a, E11, E9-Entwurf, 12.4a, P2b1–b2, P3a–b, P4, P5a–b, P5c1–c2, D1a, D1b1–b2, D1c, D2, D3-Entwurf, 12.6, 12.7a–c, 12.1 C, C-21, C-22a, C-22c, C-24, C-25, C-26, C-22b, 6.1a1–a2, 6.1a3a–c, 6.1a4a, 6.1b1a–b, 6.1b2a–b, 6.1b3, 6.1c1, 6.1c2a, 6.1d, B-1, B-2a–c, B-3 bis B-7, B-8a–c, B-9a, B-15, B-19, B-20a–c, B-10a–b, B-9b1–b2, B-9c1–c3, B-11a–c, B-12a–d, B-13a–e, B-21, B-17a, B-17b1, B-17b2, B-17b3a, B-17b3b und 7.5a–d, B-22, A-14a–b3, E9-3a, B-23, C-28, C-29, A-15a–b, B-24, B-25, A-16, B-26, B-27, B-28, 11.3b, 4.3e, 11.3c1, 11.3c2, B-40, B-41, 11.3c3a, C-30, 11.3c3b, LIZ): protocol 1254 grün (6 übersprungen), node 347 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
 in `tools.test.ts`), app 1019 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 73 grün + 1 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
@@ -117,7 +117,8 @@ gegenseitig brechen:
 - eine MENSCH-Aufgabe dran ist (Schlüssel, Geld, Geräte, Entscheidungen, Konten);
 - kryptografische Parameter, Zeitschlossregeln, Gebührenberechnung, Borsh-Layouts,
   Event-Formate oder Ableitungspfade geändert werden müssten, ohne dass die Karte es verlangt;
-- eine neue Abhängigkeit nötig ist (Name, Zweck, Größe nennen);
+- eine neue Abhängigkeit nötig ist (Name, Zweck, Größe, Lizenz nennen – starkes Copyleft
+  wie GPL oder AGPL zöge das Ganze unter seine Lizenz, seit LIZ: EUPL-1.2);
 - die Karte nicht zum Code passt und die Absicht unklar ist;
 - ein Schritt mehr als etwa 400 geänderte Zeilen bräuchte – dann Aufteilung vorschlagen.
 
@@ -672,3 +673,9 @@ Claude Code lädt sie, sobald eine Datei darin gelesen wird: `packages/app`,
   den Pool). Für Ollama: `model` = Name bei Ollama mit Tag, `upstream` = `ollama:<derselbe>`,
   Dateien heißen `sha256-<hex>` (Schichten und Konfiguration, `ollamaDateien()`).
   *(Weitere Teile: `packages/node/CLAUDE.md`.)*
+- **Lizenz EUPL-1.2** (seit LIZ, MENSCH 09.10.2026): `LICENSE` ist der amtliche Text,
+  nie bearbeiten (`protocol/test/lizenz.test.ts` prüft die Prüfsumme); jedes neue Paket
+  bekommt `"license": "EUPL-1.2"` in `package.json`, die Sperrdatei nur über
+  `npm install --package-lock-only`. Die Crate in `packages/mls` erbt ihre Angabe aus dem
+  MDK-Arbeitsbereich, Hülle und Programme tragen noch keine – ändern nur mit den Prüfungen
+  ihres Bereichs (`bauen.sh --pruefen`, `cargo test`, `pruefen.sh`).
