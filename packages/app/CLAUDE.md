@@ -573,7 +573,7 @@ Fallstricke dieses Bereichs unten anhängen.
   eigenen Schlüssel über `lauscheAufAnrufe()` – je Schlüssel eines, nicht mit dem
   Anruf beendet; daraus nur entschlüsseln, was `vielleichtAnruf()` am offenen
   Umschlag durchlässt (Chat-Umschläge nie – sonst je Nachricht eine Anfrage an einen
-  Bunker). Klingeln `KLINGELN_SEK` = 180, immer kürzer als `ANRUF_GRENZEN.ablaufSek`.
+  Bunker; die öffnet seit A-15a das Abo für Post, je Umschlag einmal). Klingeln `KLINGELN_SEK` = 180, immer kürzer als `ANRUF_GRENZEN.ablaufSek`.
   Im Smoke-Test kommt das Angebot nur über `ProbeRelay.zustellen()` (offene Abos).
   *(Weitere Teile: Wurzel (`CLAUDE.md`), `packages/node/CLAUDE.md`.)*
 - **App vom Knoten nur mit Prüfsumme** – In der App (seit B-10b) vorher `verschluesselungMoeglich()`
@@ -670,3 +670,16 @@ Fallstricke dieses Bereichs unten anhängen.
   Textfeld 22 px schmal und „Senden“ lag am Handy außerhalb. Felder in Reihen bekommen
   `width: auto` (und `margin-bottom: 0`). Die Eingabe einer offenen Unterhaltung misst der
   Smoke-Test „composer“ (Desktop, Handy hoch und quer).
+- **Post sofort nur über `lauscheAufPost()`** (seit A-15a, `post-live.ts`, Befund C-12): ein Abo an
+  den eigenen Schlüssel ohne `since` – Chat-Umschläge sind bis zu zwei Tage zurückdatiert, ein Abo
+  „ab jetzt“ sähe sie nie – mit `limit: 1`, gestartet erst am Ende eines Abgleichs (was lag, ist dann
+  geöffnet; die MLS-Engine lädt nicht früher als bisher). Geöffnet nur über `ordneEin()` →
+  `oeffneUmschlag()`, dieselbe Kette wie der Abgleich, je Umschlag einmal (`dmCache`), höchstens
+  `POST_LIVE_JE_MINUTE` je Minute (Flut, Bunker) und nie Anrufe (die hat `lauscheAufAnrufe()`).
+  Kein Zeitgeber dafür. Im Smoke-Test („post_live“) kommt die Nachricht über `ProbeRelay.zustellen()`
+  und zusätzlich in `relay.events` – die offene Unterhaltung lädt danach vom Relay nach.
+  MLS in der offenen Unterhaltung (seit A-15b) nur über `lauscheAufGruppe()` (`shell/gruppe-live.ts`,
+  aus `loadChatMessages()` der offenen): je eine Gruppe, Filter aus `mlsGruppenAbo()` (`limit: 1`) und
+  nur an deren Relays über `abonniereAn()` – nie `pool.subscribe()` mit `#h`, das nennte die Gruppe
+  allen Relays. Ein Treffer stößt nur an; empfangen wird über `mlsAbgleichen()` hinter `Nachziehen`
+  (nie zwei Läufe zugleich – sonst „MLS beschäftigt“).
