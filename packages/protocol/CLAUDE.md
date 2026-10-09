@@ -36,3 +36,15 @@ Fallstricke dieses Bereichs unten anhängen.
   Bedarf; die Explorer sehen IP und Höhe. Node-`fetch` nutzt den Agent-Proxy nur mit
   `NODE_USE_ENV_PROXY=1` (und `NODE_EXTRA_CA_CERTS`) – Live-Proben sonst „nicht-erreichbar“.
   *(Weitere Teile: `packages/app/CLAUDE.md`.)*
+- **Agenten in Räumen nur über `agent-karte.ts`** (seit 11.3b1, `docs/PROTOCOL.md` 32): Karte (38090)
+  nur über `baueAgentKarte()`/`raumAgentKarte()`, gelesen nur über `leseAgentKarte()`/`aktuelleAgentKarten()`
+  bzw. `raumAgentKarten()` (streng, je Agent die neueste); Autor ist immer der Agent, nie sein Ersteller.
+  Einen Besitzer nur über `besitzerBestaetigt()` zeigen – die Karte allein behauptet ihn nur. Die Rolle nur
+  über `mitAgentRolle()` (Grundrechte, Rang 1), nie mit Moderieren oder Vergeben. In privaten Räumen Karte und
+  Liste nur als innere Events – Leak-Regel `agent-raum-privat`. Keine Persona und keine Systemanweisung in
+  die Karte (F4 A).
+  Wann ein Agent antwortet (seit 11.3b2) nur über `sollAntworten()` und `AuftragsBremse` – Agentenketten
+  nur mit Schalter des Raums, aus einem Budget und unter der Grenze, gezählt aus dem Raum (`kettenLaenge()`),
+  nie aus einer Angabe des Agenten. Kontext nur über `agentKontext()` (nie andere Kanäle, Räume, DMs), der
+  Verweis nur im versiegelten Kern (`auftragsVerweisTags()`), Gutschriften des Monatsbudgets nur über
+  `naechsteStufe()` (kumulativ, eine Stufe über dem Verbrauchten).
