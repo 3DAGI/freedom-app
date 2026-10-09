@@ -234,6 +234,15 @@ test("8.6a: die Warnung nennt die Grenze des Merkens", () => {
   assert.match(rotationWarning(), /zurückdatierte des Diebs/);
 });
 
+test("B-24: die Warnung nennt den Zeitanker statt der Zeitzeugen (Nutzertest T-1)", () => {
+  const t = rotationWarning();
+  // Zeitzeugen gibt es nicht – seit B-17b3 schützt der Anker in Bitcoin, und das braucht Zeit
+  assert.doesNotMatch(t, /Zeitzeugen/);
+  assert.match(t, /in Bitcoin verankert/);
+  assert.match(t, /solange\nsie offen ist/);
+  assert.match(t, /einige Stunden/);
+});
+
 // ------------------------------------------------ B-17b3b: Zeitanker entscheiden
 
 test("B-17b3b: zugleich zum ersten Mal gesehen – das verankerte gewinnt vor dem zurückdatierten, das frühere vor dem späteren", () => {
