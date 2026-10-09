@@ -275,7 +275,7 @@ function maybeInsertModelSwitchSummary(newTier: string): void {
     innen.append(el("b", newTier), ` — ${t("agent.kontextMit", { n: msgs.length })}`);
     note.replaceChildren(innen);
     thread.appendChild(note);
-    stickToBottom(() => note.scrollIntoView({ behavior: "smooth", block: "end" }));
+    stickToBottom();
   }
   lastTier = newTier;
 }
