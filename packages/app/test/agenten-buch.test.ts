@@ -127,7 +127,7 @@ test("11.3c1: öffentliche Liste nur mit Agenten offener Räume", async () => {
 });
 
 test("11.3c1: Tresor, nie Sicherung; Anlegen und Einladen nach den Regeln", () => {
-  assert.match(lies("shell/tresor.ts"), /"freedom\.agenten"\]/);
+  assert.match(lies("shell/tresor.ts"), /const GEHEIM_FEST = \[[^\]]*"freedom\.agenten"/);
   assert.ok(!(LS_AGENTEN in waehleSicherung([LS_AGENTEN], () => "[]")), "nie in Sicherung oder Export");
   assert.ok(!(LS_AGENTEN in filtereWiederherstellung({ [LS_AGENTEN]: "[]" })), "auch nicht zurück");
   const sh = lies("shell/agenten.ts");
