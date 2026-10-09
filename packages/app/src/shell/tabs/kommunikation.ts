@@ -21,6 +21,7 @@ import { versendeVerzoegert } from "../versand.js";
 import { zeigeRaumLeiste } from "./raeume.js";
 import { fehlerText } from "../../protokoll-texte.js";
 import { leseAnforderung } from "../../zahlungs-anforderung.js";
+import { ergaenzeGelesen, istUngelesen, zaehlerText, zahlUngelesen } from "../../ungelesen.js";
 import { anforderungen, anhangElement, anhangWarte, chatAttachments, leereAnhaenge, setAttachStatus, wireBlobButtons, zeigeAnhangListe } from "./chat-anhaenge.js";
 import { loeseNamenAuf, markiereSchluessel, schluesselHinweis, schluesselStand, setzePetname, sichereKontakte } from "./kontakte.js";
 import { type DmAnzeige, entschluesselungFehlgeschlagen, geraeteBuch, ladeDmNachrichten, syncDmInbox, veroeffentlicheDm } from "./posteingang.js";
@@ -48,6 +49,10 @@ function zeigeNeuesMls(gruppe: string): void {
 
 export function wireKommunikation(): void {
   document.getElementById("comm-dm-btn")?.addEventListener("click", () => setzeKommModus("dm"));
+  // Das Fenster kommt wieder nach vorn: die offene Unterhaltung gilt als gelesen (C-30)
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden && markiereGelesen()) { saveConversations(); loadChatList(); }
+  });
   // MLS (2.2b-d1): nach der Wartezeit zugestellte Nachrichten zeigen
   mlsBeiNeuem(zeigeNeuesMls);
   // Die Leistenknoepfe loesen die vorhandenen Aktionen aus — keine zweite Logik.
@@ -87,6 +92,9 @@ interface ChatConversation {
   ablaufSecs?: number;
   /** MLS-Gruppe dieser 1:1-Unterhaltung (2.2b-d1), wenn der Kontakt eingeladen hat. */
   mls?: string;
+  /** Neueste Nachricht vom Gegenüber und zuletzt gelesen (C-30, Sekunden) – daraus „ungelesen“. */
+  eingang?: number;
+  gelesen?: number;
 }
 
 export let conversations: ChatConversation[] = [];
@@ -94,8 +102,40 @@ export let activeConversation: string | null = null;
 
 function loadConversations(): void {
   try {
-    conversations = JSON.parse(geheim.getItem("freedom.chats") ?? "[]");
+    conversations = (JSON.parse(geheim.getItem("freedom.chats") ?? "[]") as ChatConversation[]).map(ergaenzeGelesen);
   } catch { conversations = []; }
+}
+
+/**
+ * Die Unterhaltung steht gerade vor Augen (C-30): offen, Seite Kommunikation mit den
+ * Direktnachrichten, Fenster sichtbar – am Handy nur, wenn der Verlauf statt der Liste offen ist.
+ */
+function vorAugen(cid: string): boolean {
+  const layout = document.querySelector<HTMLElement>(".comm-layout");
+  return activeConversation === cid && !document.hidden && !!document.getElementById("page-comm")?.classList.contains("active")
+    && layout?.dataset.commMode !== "space"
+    && (!window.matchMedia("(max-width: 1023px)").matches || !!layout?.classList.contains("thread-open"));
+}
+
+/** Was vor Augen ist, gilt als gelesen (C-30) – `true`, wenn sich dadurch etwas änderte. */
+export function markiereGelesen(cid: string | null = activeConversation): boolean {
+  const c = cid ? conversations.find((x) => x.id === cid) : undefined;
+  if (!c || !vorAugen(c.id) || !istUngelesen(c)) return false;
+  c.gelesen = c.eingang;
+  return true;
+}
+
+/** Zähler an „Chat“ in der Navigation und an den Direktnachrichten der Raum-Leiste (C-30). */
+export function zeigeUngelesen(): void {
+  const n = zahlUngelesen(conversations.filter((c) => c.type === "dm"));
+  document.querySelectorAll<HTMLElement>('[data-tab="comm"], #comm-dm-btn').forEach((knopf) => {
+    let zahl = knopf.querySelector<HTMLElement>(".nav-zahl");
+    if (n === 0) { zahl?.remove(); return; }
+    // vorn einfügen: Die Regeln für die Beschriftung zielen auf das letzte Kind des Knopfs
+    if (!zahl) { zahl = el("span", undefined, "nav-zahl"); knopf.prepend(zahl); }
+    zahl.textContent = zaehlerText(n);
+    zahl.setAttribute("aria-label", n === 1 ? t("komm.ungelesenEine") : t("komm.ungelesenZahl", { n }));
+  });
 }
 
 export function saveConversations(): void {
@@ -107,6 +147,8 @@ export function saveConversations(): void {
 export function loadChatList(): void {
   void syncDmInbox();
   loadConversations();
+  // Zurück zur offenen Unterhaltung (Seite, Modus): was jetzt vor Augen ist, gilt als gelesen (C-30)
+  if (markiereGelesen()) saveConversations();
   const list = $("#chat-list");
   // Nur Direktnachrichten – Communities stehen seit C-10 in der Raum-Leiste
   const dms = conversations.filter((c) => c.type === "dm");
@@ -114,6 +156,7 @@ export function loadChatList(): void {
     const leer = el("div", t("komm.keineUnterhaltungen"), "mono-sm");
     leer.style.cssText = "padding:10px;color:var(--text-muted)";
     list.replaceChildren(leer);
+    zeigeUngelesen();
     return;
   }
   // Namen kommen aus Profilen und Petnames – nur als Text (C-6c)
@@ -123,9 +166,15 @@ export function loadChatList(): void {
       const zeile = el("div", undefined, c.id === activeConversation ? "chat-item active" : "chat-item");
       zeile.dataset.cid = c.id;
       zeile.append(el("span", c.type === "community" ? "🏠" : c.name.slice(0, 1).toUpperCase(), "av"), el("span", c.name, "label"));
+      // Ungelesenes (C-30): fett, mit Punkt und für Vorleser als Text
+      if (istUngelesen(c)) {
+        zeile.classList.add("ungelesen");
+        zeile.append(el("span", t("komm.ungelesen"), "chat-ungelesen"));
+      }
       return zeile;
     }));
   markiereSchluessel(list);
+  zeigeUngelesen();
   list.querySelectorAll(".chat-item").forEach((el) => {
     el.addEventListener("click", () => openConversation((el as HTMLElement).dataset.cid!));
     // Rechtsklick vergibt einen eigenen Namen. Er gilt nur lokal und kann
@@ -153,6 +202,9 @@ export function loadChatList(): void {
 
 export function openConversation(cid: string): void {
   activeConversation = cid;
+  // Mobil zeigt jedes Öffnen den Verlauf statt der Liste – vor dem Lesestand, sonst bliebe sie ungelesen (C-30)
+  document.querySelector(".comm-layout")?.classList.add("thread-open");
+  if (markiereGelesen(cid)) saveConversations();
   loadChatList();
   const c = conversations.find((x) => x.id === cid);
   const thread = $("#chat-thread");

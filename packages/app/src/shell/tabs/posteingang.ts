@@ -20,7 +20,7 @@ import { $, toast } from "../ui.js";
 import { t } from "../../i18n.js";
 import { kontaktName, zeigeRaumLeiste } from "./raeume.js";
 import { alsAnruf } from "../anruf.js";
-import { activeConversation, conversations, loadChatList, loadChatMessages, saveConversations } from "./kommunikation.js";
+import { activeConversation, conversations, loadChatList, loadChatMessages, markiereGelesen, saveConversations } from "./kommunikation.js";
 import { LivePost, postFilter } from "../../post-live.js";
 import { aktualisiereSchluessel, ladeKontakte } from "./kontakte.js";
 
@@ -269,11 +269,15 @@ export async function syncDmInbox(): Promise<void> {
       const zahlen = await mlsAbgleichen(mitMls.map((c) => c.mls!)).catch(() => new Map<string, number>());
       for (const c of mitMls) if ((zahlen.get(c.mls!) ?? 0) > 0) {
         c.lastTs = Math.max(c.lastTs ?? 0, Math.floor(Date.now() / 1000));
+        // Eigene MLS-Nachrichten entschlüsselt MLS nicht zurück – was kommt, ist vom Gegenüber (C-30)
+        c.eingang = c.lastTs;
         neu++;
         if (activeConversation === c.id) void loadChatMessages(c.id);
       }
     }
     if (neu > 0) {
+      // Was gerade vor Augen ist, gilt als gelesen (C-30)
+      markiereGelesen();
       saveConversations();
       loadChatList();
     }
@@ -293,14 +297,20 @@ async function ordneEin(w: NostrEvent, me: string): Promise<{ neu: boolean; spae
   if (!e) await alsMlsEinladung(w);
   if (!e || e.partner === me || e.partner === state.person) return { neu: false, spaeter: false };
   const frischVon = frisch ? { frischVon: e.partner } : {};
+  // Ungelesen (C-30): nur, was das Gegenüber schrieb – eigene Kopien zeigen als „ich“ (ordneDmZu)
+  const vomGegenueber = e.ev.pubkey !== (sprichtFuer() ?? me);
   const vorhanden = conversations.find((x) => x.id === e.partner);
   if (!vorhanden) {
-    conversations.push({ id: e.partner, type: "dm", name: t("komm.anfrage", { pk: pkShort(e.partner) }), lastTs: e.ev.created_at });
+    conversations.push({ id: e.partner, type: "dm", name: t("komm.anfrage", { pk: pkShort(e.partner) }), lastTs: e.ev.created_at,
+      gelesen: 0, ...(vomGegenueber ? { eingang: e.ev.created_at } : {}) });
     return { neu: true, spaeter: false, ...frischVon };
   }
   const spaeter = e.ev.created_at > (vorhanden.lastTs ?? 0);
   if (spaeter) vorhanden.lastTs = e.ev.created_at;
-  return { neu: false, spaeter, ...frischVon };
+  // Neues vom Gegenüber ändert den Lesestand (C-30) – auch, wenn es nicht die späteste Nachricht ist
+  const eingang = vomGegenueber && e.ev.created_at > (vorhanden.eingang ?? 0);
+  if (eingang) vorhanden.eingang = e.ev.created_at;
+  return { neu: eingang, spaeter, ...frischVon };
 }
 
 let postAbo: { fuer: string; stopp?: () => void } | null = null;
@@ -331,6 +341,8 @@ async function nimmLivePost(w: NostrEvent, ich: string): Promise<void> {
   const r = await ordneEin(w, ich).catch(() => null);
   if (!r) return;
   if (r.neu || r.spaeter) {
+    // Was gerade vor Augen ist, gilt als gelesen (C-30)
+    markiereGelesen();
     saveConversations();
     loadChatList();
   }
