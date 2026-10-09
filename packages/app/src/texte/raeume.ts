@@ -133,6 +133,14 @@ export const raeume: Texte = {
   "raum.schreibenJederAn": { de: "Jetzt schreiben alle, die beitreten", en: "Everyone who joins can now write" },
   "raum.schreibenJederAus": { de: "Jetzt schreibt nur, wer eine Rolle hat", en: "Now only those with a role can write" },
   "raum.nurMitRolle": { de: "Hier schreibt nur, wer im Raum eine Rolle hat – wer den Raum gegründet hat, kann ihn für alle öffnen. Lesen kannst du alles.", en: "Only those with a role in this room can write here – whoever founded the room can open it to everyone. You can read everything." },
+  "raum.art": { de: "Welcher Raum?", en: "Which room?" },
+  "raum.privatOhneTresor": { de: "Ende-zu-Ende-verschlüsselt (MLS) – braucht den Tresor, die App bietet ihn gleich an", en: "End-to-end encrypted (MLS) – needs the vault, the app offers it right away" },
+  "raum.weiter": { de: "Weiter", en: "Continue" },
+  "raum.privatTresorZuerst": {
+    de: "Private Räume sind Ende-zu-Ende-verschlüsselt (MLS) und gehen nur mit Tresor: Er schützt die Schlüssel der Gruppe auf diesem Gerät. Jetzt einrichten? Danach geht es mit dem Raum weiter.",
+    en: "Private rooms are end-to-end encrypted (MLS) and only work with a vault: it protects the group's keys on this device. Set it up now? The room comes right after.",
+  },
+  "raum.tresorEinrichten": { de: "Tresor einrichten", en: "Set up vault" },
   "raum.infoOffen": {
     de: "Offen: Jeder kann mitlesen, auch ohne diese App.\n\nDie Rechte hier regeln, wer schreiben darf — nicht, wer lesen kann.\nNachrichten liegen unverschlüsselt auf den Relays.",
     en: "Open: anyone can read along, even without this app.\n\nThe rights here govern who may write — not who can read.\nMessages sit unencrypted on the relays.",

@@ -119,3 +119,7 @@ Bereichs unten anhängen.
   Ollama oder der Registry. Die Registry ist aus dieser Umgebung nicht erreichbar – Live-Proben
   macht der MENSCH.
   *(Weitere Teile: Wurzel (`CLAUDE.md`).)*
+- **Der Systemprompt sagt nur, was stimmt** (seit B-27, Nutzertest A-7): gebaut nur über
+  `systemPrompt()` (`inference.ts`) – die Werkzeuge genau der Anfrage (aus `getTools()`, mit
+  `ohneWerkzeuge` keine), das heutige Datum (UTC); nie ein fester Knoten („GX10“), nie ein
+  erfundener Wissensstand. Ein neues Werkzeug kommt über `getTools()` von selbst in den Prompt.

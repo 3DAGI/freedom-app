@@ -90,9 +90,9 @@ Reihenfolge: erst die freien Punkte von oben nach unten.
 | B-23 | **Knoten nur mit eigenem Relay hört live mit** (Nutzertest 08.10., Befund K-1): `RelayRole.alsRelay()` hatte kein `subscribe` – ein Knoten, der nur sein eigenes Relay nutzt, lief im Abfrage-Betrieb, jede KI-Anfrage wartete bis zu 15 s. | `fertig` – Dauer-Abo im Prozess: erst Gespeichertes, dann jedes neue Event nach denselben Regeln wie ein REQ (Umschläge nur an den Knoten); gemessen 0,3 s statt 12 s | `node/src/relay-role.ts` |
 | B-24 | **Warntext zum Zeitanker** (Nutzertest, Befund T-1): „Diebstahl vorbeugen“ endet mit „… hereinfallen – bis es Zeitzeugen gibt.“ Seit B-17b3 wird das Mandat in Bitcoin verankert und bei Streit geprüft – der Satz ist veraltet. | `fertig` – die Grenze nennt jetzt den Anker: geschützt, sobald die Erklärung in Bitcoin verankert ist; das erledigt die App, solange sie offen ist, und dauert einige Stunden | `protocol/src/key-rotation.ts` (`wechselWarnung`), `app/src/texte/protokollsaetze.ts` (wortgleich, Test) |
 | B-25 | **Offene Räume zeigen Neues von selbst** (Nutzertest, Befund R-9): Nachrichten anderer erscheinen erst nach erneutem Öffnen des Raums. | `fertig` – solange ein offener Raum gewählt ist, ein Abo auf seine Nachrichten und Maßnahmen ab dem Öffnen; der Kanal wird nur neu gezeichnet, wenn man ihn sieht | `shell/tabs/raeume.ts` |
-| B-26 | **Raum anlegen ohne Umweg** (Nutzertest, Befunde R-6, R-5): „Öffentlichen Raum anlegen“ steht nur im Raum-Menü, das es erst in einem Raum gibt – ohne Tresor und ohne Raum ließ sich gar keiner anlegen. Privat ohne Tresor kommt der Hinweis erst nach „Anlegen“, der Name ist dann weg. | `frei` | `shell/tabs/raeume.ts` |
-| B-27 | **Systemprompt des Knotens** (Nutzertest, Befund A-7): fest verdrahtet „Du laeuffst auf … (GX10)“, „Tools: web_search, image_gen, video_gen“ auch ohne diese Werkzeuge, „Knowledge-Cutoff Ende 2024“ – gilt für jeden Provider. Nur sagen, was stimmt. | `frei` | `node/src/inference.ts` |
-| B-28 | **Ersatzschlüssel nicht im Klartext** (Nutzertest, Befund T-2): „Diebstahl vorbeugen“ speichert `freedom-ersatzschluessel.txt` als Klartext. Optional mit Passphrase (Format des Exports, `verschluesseleMitPassphrase()`). | `frei` | `shell/tabs/sicherung.ts`, `datenexport.ts` |
+| B-26 | **Raum anlegen ohne Umweg** (Nutzertest, Befunde R-6, R-5): „Öffentlichen Raum anlegen“ steht nur im Raum-Menü, das es erst in einem Raum gibt – ohne Tresor und ohne Raum ließ sich gar keiner anlegen. Privat ohne Tresor kommt der Hinweis erst nach „Anlegen“, der Name ist dann weg. | `fertig` – „+“ fragt privat oder öffentlich, auch ohne Raum (ohne Tresor öffentlich vorgewählt); privat ohne Tresor bietet erst den Tresor an, der Name bleibt | `shell/tabs/raeume.ts` |
+| B-27 | **Systemprompt des Knotens** (Nutzertest, Befund A-7): fest verdrahtet „Du laeuffst auf … (GX10)“, „Tools: web_search, image_gen, video_gen“ auch ohne diese Werkzeuge, „Knowledge-Cutoff Ende 2024“ – gilt für jeden Provider. Nur sagen, was stimmt. | `fertig` – `systemPrompt()`: nur die Werkzeuge der Anfrage, das heutige Datum, kein fester Knoten | `node/src/inference.ts` |
+| B-28 | **Ersatzschlüssel nicht im Klartext** (Nutzertest, Befund T-2): „Diebstahl vorbeugen“ speichert `freedom-ersatzschluessel.txt` als Klartext. Optional mit Passphrase (Format des Exports, `verschluesseleMitPassphrase()`). | `fertig` – Passphrase vor dem Erzeugen (leer: Klartext wie bisher), Datei im Format des Tresors; der Widerruf nimmt Hex oder die Datei mit Passphrase | `shell/tabs/sicherung.ts`, `datenexport.ts` |
 
 ---
 
@@ -344,7 +344,7 @@ ihren Abschnitt (Regel „Ergänzen“) und trägt die Nummer hier nach.
 | A-4 | Agent-Chat scrollt nicht mit: `stickToBottom()` misst nach dem Anhängen der Blase | `agent-anzeige.ts:160`, `:354` | C | C-31 |
 | K-1 | Knoten nur mit eigenem Relay im Abfrage-Betrieb | `relay-role.ts` | B | erledigt (B-23) |
 | N-1 | Zu viele neue Verbindungen (je ~140 WebSockets in 45 min mit Tresor und MLS): `frageAn()` öffnet je Adresse eine eigene, auch für Relays im Pool | `shell/state.ts:328` | A | erledigt (A-16) |
-| R-6, R-5 | Öffentlichen Raum nur aus einem Raum heraus; privat ohne Tresor: Hinweis erst nach „Anlegen“ | `raeume.ts` | B | B-26 |
+| R-6, R-5 | Öffentlichen Raum nur aus einem Raum heraus; privat ohne Tresor: Hinweis erst nach „Anlegen“ | `raeume.ts` | B | erledigt (B-26) |
 | W-1 | „Sats 100“ im Kopf der Seite Währung ohne Wallet (Rest des Sitzungsbudgets) liest sich wie Guthaben | `#nb-sats` | C | C-38 |
 | C-8, C-2, R-2, G-4 | Veröffentlichte Namen erscheinen nicht (Hex, Avatar „2“); „Anfrage · …“ bleibt nach Antwort und Prüfung, auch in Raum, Umfrage und Repo | Kontakte, Anfragestatus | C | C-33 |
 | T-1 | Veralteter Warntext „bis es Zeitzeugen gibt“ | `key-rotation.ts`, `protokollsaetze.ts` | B | erledigt (B-24) |
@@ -359,7 +359,7 @@ ihren Abschnitt (Regel „Ergänzen“) und trägt die Nummer hier nach.
 | G-1, G-2, G-3, G-5 | Repos: zwei Wege zum Anlegen, doppelte Rückfrage, Karte „Mitwirkende“ doppelt, „Werkstatt“ ohne „(privater Raum)“ | Repos | C | C-36 |
 | P-1, P-2, P-3 | Profil: Karte „…197f [Importieren]“ ohne Überschrift; „Teilen“ kopiert Hex statt npub; Hex in Großbuchstaben | `profil.ts` | C | C-37 |
 | W-2, X-1 bis X-4 | Währung und Settings: Warnung klebt an „Nicht verbunden“; lange Häkchen-Sätze in Großbuchstaben (Label-Regel); Fortschrittsbalken füllt von links; „Zwei der fünf Schritte gehen nur vorher.“ unklar; „ERNEUT PRÜFEN“ beim ersten Öffnen; „vor 0 Tag(en)“ | `app.css`, `settings.ts`, `sicherung.ts` | C | C-38 |
-| A-7 | Systemprompt des Knotens fest verdrahtet (GX10, Werkzeuge, Wissensstand) | `node/src/inference.ts` | B | B-27 |
-| T-2 | Ersatzschlüssel als Klartext-Datei | `sicherung.ts` | B | B-28 |
+| A-7 | Systemprompt des Knotens fest verdrahtet (GX10, Werkzeuge, Wissensstand) | `node/src/inference.ts` | B | erledigt (B-27) |
+| T-2 | Ersatzschlüssel als Klartext-Datei | `sicherung.ts` | B | erledigt (B-28) |
 | C-6 | MLS-Antwort brauchte bei offener Unterhaltung ~55 s (folgt aus C-12) | – | A | erledigt (A-15b) |
 | K-2 | Lightning-Adresse im Test nicht erreichbar – erwartbar | – | – | kein Punkt |

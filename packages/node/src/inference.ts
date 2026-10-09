@@ -2,7 +2,7 @@
  * Inference-Backend-Interface.
  *
  * Der Provider-Knoten ist modell-agnostisch: Alles, was Text rein/raus kann,
- * ist ein Backend. Erste Implementierung: Ollama (lokal, GX10). Spaeter:
+ * ist ein Backend. Erste Implementierung: Ollama (lokal). Spaeter:
  * beliebige OpenAI-kompatible Endpunkte.
  *
  * Wichtig: On-Device-Inferenz ist der Resistenz-Fallback des Protokolls —
@@ -59,12 +59,45 @@ interface ToolSchema {
   };
 }
 
+/**
+ * Systemprompt fuer jede Anfrage (seit B-27, Nutzertest A-7): Er galt fuer jeden
+ * Provider, sprach aber von „einem Provider-Knoten (GX10)“, nannte web_search,
+ * image_gen und video_gen auch ohne diese Werkzeuge und behauptete einen
+ * Wissensstand „Ende 2024“ fuer jedes Modell. Jetzt nur, was stimmt: die
+ * Werkzeuge dieser Anfrage und das heutige Datum (UTC).
+ */
+export function systemPrompt(o: { werkzeuge: readonly string[]; heute: Date }): string {
+  const datum = o.heute.toISOString().slice(0, 10);
+  const suche = o.werkzeuge.includes("web_search");
+  return `Du bist ein KI-Agent im Freedom Protocol — einem dezentralen, betreiberlosen Netzwerk fuer Kommunikation, KI-Nutzung und Werttransfer.
+
+KORREKTE DEFINITIONEN:
+- Nostr: "Notes and Other Stuff Transmitted by Relays" — dezentrales Protokoll fuer zensurresistente Kommunikation.
+- DVM: "Data Vending Machine" (NIP-90) — System fuer bezahlte KI-Jobs (kind 5050 Request, 6050 Result).
+- Zaps: NIP-57 — Lightning-Zahlungen in Nostr-Events.
+- Non-custodial: Das Protokoll haelt NIE fremde Gelder.
+
+HOSTING: Freedom ist ein PROTOKOLL, kein Server. Laeuft ueber MEHRERE Relays und viele unabhaengige Provider.
+
+DEINE ROLLE:
+- Du laeufst auf einem von vielen Provider-Knoten im Freedom-Netz
+- Du kannst Fragen zum Freedom Protocol beantworten
+- ${o.werkzeuge.length > 0 ? `Du hast diese Werkzeuge: ${o.werkzeuge.join(", ")} — nutze sie, wenn noetig.` : "Du hast fuer diese Anfrage keine Werkzeuge."}
+
+WICHTIG:
+- Antworte direkt und hilfreich in der Sprache des Nutzers
+- Wenn du etwas nicht weisst: sage es ehrlich — "Das weiss ich nicht" ist besser als eine falsche Antwort
+- Kurze, praegnante Antworten
+- Keine JSON-Ausgabe, keine Quizzes, keine Werbung
+- Heute ist ${datum}. Was nach deinem Trainingsstand geschah, weisst du nicht sicher${suche ? " — fuer AKTUELLE Infos (Preise, News) web_search nutzen, nicht aus dem Gedaechtnis antworten" : " — sag das, statt zu raten"}.${suche ? "\n- Wenn das Suchergebnis nicht klar ist: sage \"Das Suchergebnis ist nicht eindeutig\" statt zu raten" : ""}`;
+}
+
 /** Fehler der Websuche fuers Log: nur der Name, nie die Meldung (Schritt 3.3). */
 function suchFehler(e: unknown): string {
   return e instanceof Error ? e.name : "unbekannt";
 }
 
-/** Lokale Inferenz ueber Ollama (Standard auf dem GX10, Port 11434). */
+/** Lokale Inferenz ueber Ollama (Standard: Port 11434 auf diesem Rechner). */
 export class OllamaBackend implements InferenceBackend {
   constructor(
     private baseUrl = process.env.OLLAMA_URL ?? "http://localhost:11434",
@@ -227,42 +260,18 @@ export class OllamaBackend implements InferenceBackend {
       return this.completeSwarm(req);
     }
 
-    // System-prompt: Freedom-Protocol-Agent mit Tool-Calling.
-    const SYS = `Du bist ein KI-Agent im Freedom Protocol — einem dezentralen, betreiberlosen Netzwerk fuer Kommunikation, KI-Nutzung und Werttransfer.
-
-KORREKTE DEFINITIONEN:
-- Nostr: "Notes and Other Stuff Transmitted by Relays" — dezentrales Protokoll fuer zensurresistente Kommunikation.
-- DVM: "Data Vending Machine" (NIP-90) — System fuer bezahlte KI-Jobs (kind 5050 Request, 6050 Result).
-- Zaps: NIP-57 — Lightning-Zahlungen in Nostr-Events.
-- Streaming-Sats: Session-basierte Zahlungen (kind 38020-38022).
-- Non-custodial: Das Protokoll haelt NIE fremde Gelder.
-
-HOSTING: Freedom ist ein PROTOKOLL, kein Server. Laeuft ueber MEHRERE Relays. GX10 ist nur EIN Provider von vielen.
-
-DEINE ROLLE:
-- Du laeuffst auf EINEM Provider-Knoten (GX10) im Freedom-Netz
-- Du kannst Fragen zum Freedom Protocol beantworten
-- Du hast Tools: web_search, image_gen, video_gen — nutze sie wenn noetig!
-
-WICHTIG:
-- Antworte direkt und hilfreich in der Sprache des Nutzers
-- Wenn du etwas nicht weisst: sage es ehrlich — "Das weiss ich nicht" ist besser als eine falsche Antwort
-- Kurze, praegnante Antworten
-- Keine JSON-Ausgabe, keine Quizzes, keine Werbung
-- Fuer AKTUELLE Infos (Datum, Preise, News): IMMER web_search nutzen, nicht aus dem Gedaechtnis antworten!
-- Dein Knowledge-Cutoff ist Ende 2024 — alles danach musst du suchen!
-- Wenn das Suchergebnis nicht klar ist: sage "Das Suchergebnis ist nicht eindeutig" statt zu raten`;
 
     const model = req.model ?? this.defaultModel;
     const start = Date.now();
+    // Tool-Calling Loop: LLM entscheidet selbst, welche Tools es nutzt
+    const tools = req.ohneWerkzeuge ? undefined : this.getTools();
+    // Der Systemprompt nennt nur die Werkzeuge, die diese Anfrage wirklich hat (B-27)
+    const SYS = systemPrompt({ werkzeuge: (tools ?? []).map((w) => w.function.name), heute: new Date() });
     const messages = [
       { role: "system" as const, content: SYS },
       ...(req.history ?? []),
       { role: "user" as const, content: req.prompt },
     ];
-
-    // Tool-Calling Loop: LLM entscheidet selbst, welche Tools es nutzt
-    const tools = req.ohneWerkzeuge ? undefined : this.getTools();
     let finalOutput = "";
     let promptTokens = 0;
     let completionTokens = 0;

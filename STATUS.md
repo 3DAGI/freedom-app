@@ -6714,6 +6714,107 @@ allem den Abgleich der MLS-Gruppen (jede Minute je Gruppe) und Leser nach NIP-65
 
 Knoten-Stand: unverändert – nur App und `OutboxPool` (Protokoll).
 
+## Schritt B-26 – Raum anlegen ohne Umweg (Nutzertest, R-6 und R-5)
+
+Im Nutzertest konnte Carol (Handy, ohne Tresor) gar keinen Raum anlegen:
+- **R-6:** „+“ in der Leiste legte nur private Räume an, „öffentlichen Raum
+  anlegen“ stand nur im Menü eines offenen Raums – das es erst in einem Raum gibt.
+- **R-5:** Privat ohne Tresor kam der Hinweis erst nach dem Namen, der Name war
+  dann weg, und einen Weg zum Tresor gab es nicht.
+
+**App** (`shell/tabs/raeume.ts`):
+- `waehleRaumArt()` an „+“ (`#rail-create`): erst „Welcher Raum?“ – privat oder
+  öffentlich. Ohne Tresor ist öffentlich vorgewählt; der Hinweis bei privat sagt,
+  dass die App den Tresor gleich anbietet (mit Bunker nennt er den Grund). Danach
+  fragt `legeRaumAn()` den Namen wie aus dem Raum-Menü – mit Hinweis.
+- `privatMoeglich()` in `legeRaumAn()` vor dem Namen (für „+“ und das Menü):
+  ohne Tresor erst sagen und `richteTresorEin()` anbieten – der Name kommt erst
+  danach, so geht keiner verloren. Mit Bunker oder ohne Identität lässt es sich
+  hier nicht beheben: dann nur der Grund.
+- `legeRaumAn(oeffentlich = false)` bleibt sonst, wie es war – zwei Tests (Leak
+  „private Räume sind der Standard“, C.2b1 „ohne Namen nichts angelegt“) prüfen
+  es wörtlich und sind unverändert grün.
+- `kommunikation.ts` (Spur C, eine Zeile): „+“ leitet nicht mehr an
+  `#space-create` weiter, `raeume.ts` verdrahtet es selbst.
+
+**Tests:**
+- `app/test/raum-anlegen.test.ts` (+2): Verdrahtung an genau einer Stelle, die
+  Wahl ohne Namen (nie zweimal gefragt), `privatMoeglich()` vor dem Namen, nur der
+  fehlende Tresor ist zu beheben.
+- Smoke-Test „raum_anlegen“ (neu): ohne Tresor und ohne Raum öffentlich
+  vorgewählt; privat → „Tresor einrichten“, abgebrochen entsteht nichts;
+  öffentlich → der gewohnte Dialog mit Namen → angelegt, die Adresse gleich da;
+  kein Browser-Dialog.
+- Smoke-Test „raum“ unverändert grün: Das Raum-Menü öffnet ohne Tresor jetzt das
+  Tresor-Angebot, mit demselben Titel „Raum anlegen (privat)“.
+
+Knoten-Stand: nicht betroffen.
+
+## Schritt B-27 – Systemprompt des Knotens sagt nur, was stimmt (Nutzertest, A-7)
+
+Der Systemprompt (`node/src/inference.ts`) galt für jeden Provider, sagte aber
+„Du laeuffst auf EINEM Provider-Knoten (GX10)“, nannte web_search, image_gen und
+video_gen auch bei Anfragen ohne Werkzeuge (Gratis-Antworten seit A-14a) und
+behauptete für jedes Modell einen „Knowledge-Cutoff Ende 2024“. Dazu nannte er
+Streaming-Sats mit Kind 38020, das es nicht gibt.
+
+**Knoten** (`inference.ts`):
+- `systemPrompt({ werkzeuge, heute })`: die Werkzeuge genau dieser Anfrage (aus
+  `getTools()`, mit `ohneWerkzeuge` keine – dann „keine Werkzeuge“), das heutige
+  Datum (UTC); kein fester Knoten, kein erfundener Wissensstand. Den Hinweis auf
+  die Websuche gibt es nur, wenn sie da ist.
+- `complete()` baut den Prompt nach den Werkzeugen, die es Ollama schickt.
+
+**Tests** (`node/test/systemprompt.test.ts`, +3): kein GX10, kein Wissensstand,
+das Datum; nur die Werkzeuge der Anfrage; an Ollama geht der Prompt passend zu
+den übergebenen Werkzeugen (mit und ohne). Das Datum wird vor und nach dem
+Aufruf gelesen – springt dazwischen der Tag, gilt jedes von beiden.
+
+**Offen (Befund am Rand):** image_gen und video_gen liefern Links auf
+`localhost:8188` (ComfyUI des Knotens) – ein Kunde kann sie nicht öffnen. Der
+Prompt nennt sie weiter, weil sie angeboten werden; ob sie ins Angebot gehören,
+ist ein eigener Punkt.
+
+Knoten-Stand: neu (B-27) – ohne Update antwortet ein Knoten wie bisher.
+
+## Schritt B-28 – Ersatzschlüssel nicht im Klartext (Nutzertest, T-2)
+
+„Diebstahl vorbeugen“ (Settings › Sicherheit, Schritt 3) speicherte den
+Ersatzschlüssel nur als Klartext-Datei `freedom-ersatzschluessel.txt`.
+
+**App:**
+- `ersatz-datei.ts` (neu):
+  - `baueErsatzDatei()`: mit Passphrase ein JSON (`art`, `version`, der
+    öffentliche Schlüssel offen – er steht ohnehin im Mandat –, das Chiffrat im
+    Format des Tresors über `verschluesseleMitPassphrase()`), sonst der Klartext
+    wie bisher.
+  - `leseErsatz()`: 64 Zeichen Hex wie bisher oder die Datei mit ihrer
+    Passphrase; eine falsche Passphrase wirft, Fremdes gibt `null`.
+- `shell/tabs/sicherung.ts`:
+  - `bereiteWechselVor()` fragt nach der Warnung und **bevor** ein Schlüssel oder
+    Mandat entsteht nach einer Passphrase (zweimal, Mindestlänge des Tresors;
+    leer: Klartext). Ohne `crypto.subtle` (http im Heimnetz, B-10) nur Klartext.
+  - `widerrufeSchluessel()` nimmt im Feld des Ersatzschlüssels auch den Inhalt
+    der verschlüsselten Datei, dazu ein Feld für ihre Passphrase; gelesen über
+    `leseErsatz()` vor `fromHex()`.
+- Texte de/en (`set.ersatzPass…`, `set.ersatzFrage`/`set.ersatzHex` erweitert).
+
+**Tests** (`app/test/ersatz-datei.test.ts`, +3): ohne Passphrase Klartext, mit
+Passphrase kein privater Schlüssel in der Datei, zu kurze abgewiesen; Widerruf
+aus Hex und aus der Datei, falsche Passphrase und Fremdes abgewiesen;
+Verdrahtung (Frage vor `generateKeypair()`, nur mit `verschluesselungMoeglich()`,
+`leseErsatz()` vor `fromHex()`). Die bestehenden Tests zu beiden Dialogen
+(`browser-dialoge`, `schluessel-status`) bleiben unverändert grün.
+
+**Smoke-Test** („einstellungen“): Der Widerruf hat ein Feld mehr (Passphrase),
+die Meldung zu ungültiger Eingabe nennt die Datei; neu geprüft werden der Inhalt
+einer verschlüsselten Datei ohne Passphrase (Meldung im Dialog) und „Diebstahl
+vorbeugen“ – nach der Warnung die Frage nach der Passphrase (zwei verdeckte
+Felder, zu kurz meldet sich), abgebrochen geht nichts hinaus. Der erste volle
+Lauf war hier rot: die alte Prüfung erwartete drei Felder.
+
+Knoten-Stand: nicht betroffen.
+
 ## Schritt 11.3b – Agenten in Räumen: Protokoll (b1 und b2)
 
 Spur A, nach dem Entwurf `docs/AGENTEN-RAUM-ENTWURF.md` (freigegeben 08.10.:
