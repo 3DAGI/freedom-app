@@ -722,6 +722,11 @@ Fallstricke dieses Bereichs unten anhängen.
   dann der Auftrag: versiegelt vom Sitzungsschlüssel je Agent und Raum (`AgentSitzungen`), Platzhalter je Auftrag
   (`maskiereEinzeln()`), nie mit Verweis auf den Raum oder der Identität, bezahlt nur über `ki-zahlung.ts`; verbucht
   höchstens das Gebot. An den Provider gehen Absender nur als „Person 1“/„Agent 1“ (`agentPrompt()`).
+  In privaten Räumen (seit 11.3c3a) hat jeder Agent ein eigenes MLS-Konto (`agentKonto()`, `shell/agent-mls.ts`,
+  IndexedDB `freedom-agenten-mls` je Agent ein Eintrag, in `WIPE_DATENBANKEN`) – nie das der Identität. Eingeladen
+  wird nur über `ladeAgentInPrivatenRaum()` → `mlsLadeAgentEin()`: KeyPackage vom Gerät (erst sichern, dann
+  einladen), die Einladung reicht `uebergib` direkt seinem Konto – nie an ein Relay, nur der Commit geht an die
+  Gruppe. Danach nur innere Events: Raumstand, Karte vom Agenten, Liste des Besitzers, Hinweis ohne Erwähnung.
 - **Anhänge im Chat nur über `handleChatFiles()`** (seit C-29, `anhang-warte.ts`): Jeder Upload
   meldet sich bei `anhangWarte` an, und `sendChatMessage()` wartet auf alle, bevor es Text und
   Anhänge liest. Ein neuer Weg, Dateien anzuhängen (Einfügen, Ziehen, Sprachnachricht), geht durch
