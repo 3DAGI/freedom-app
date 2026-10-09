@@ -42,6 +42,7 @@ import { starteStreitfall } from "./streitfall-ui.js";
 import { askAi, setupFunkAntworten } from "./tabs/agent.js";
 import { neueAufgabe, wirePrivat, zeigeVerlaeufe } from "./tabs/agent-verlauf.js";
 import { refreshModelDropdown, setupModelPicker } from "./tabs/modellwahl.js";
+import { zeigeGratisStand } from "./gratis-start.js";
 import { setupAttach, setupEmptyState, setupToolChips } from "./tabs/agent-eingabe.js";
 import { updateBudgetBar, updateFeePreview, updateTokenEstimate } from "./tabs/agent-anzeige.js";
 import { wireFunkGateway } from "./funk-gateway-ui.js";
@@ -535,7 +536,7 @@ export function switchTab(name: string): void {
   if (name === "profile") { void zeigeAbzeichen(); void zeigeProfilVorschau(); zeigeProfilTexte(); }
   if (name === "settings") { void zeigeSicherung(); void zeigeGeraete(); void zeigeDatenschutz(); void aktualisiereSicherheitsStand(); }
   // Verlauf und Budget neu zeichnen – so folgen sie auch einem Sprachwechsel (8.16d1)
-  if (name === "ai") { zeigeVerlaeufe(); updateBudgetBar(); void refreshModelDropdown(); void refreshQuota(); }
+  if (name === "ai") { zeigeVerlaeufe(); updateBudgetBar(); void refreshModelDropdown(); void refreshQuota(); zeigeGratisStand(); }
   if (name === "wallet") { loadWallet(); void zeigeKanaele(); }
   if (name === "earn") { loadEarnings(); loadTrust(); updateReferralLink(); void zeigeSolEinnahmen(); }
   // Karte und Mesh stehen seit C.1b auf der Seite „Netz“
@@ -857,6 +858,8 @@ function starte(): void {
   void import("./tabs/repos.js").then((m) => m.wireNip34());
   $("#ai-send").onclick = askAi;
   $("#ai-bid").oninput = updateFeePreview;
+  // Gratis-Stand (C-27) nur in „Automatisch“ und „Free“
+  $("#ai-tier").addEventListener("change", zeigeGratisStand);
   $("#wallet-refresh").onclick = loadWallet;
   void wireGebuehrenKarte();
   void pruefeFixierungBeimStart();

@@ -583,6 +583,8 @@ input:focus, textarea:focus, select:focus {
   padding: 6px 12px 4px; font-family: var(--font-mono);
 }
 .lokal-bereich { border-top: 1px solid var(--border); margin-top: 4px; padding-top: 2px; }
+/* C-27: Modelle, die ein Provider heute gratis beantwortet */
+.mc-gratis { color: var(--accent); font-weight: 600; }
 .lokal-bereich .mc-sub { overflow-wrap: anywhere; }
 .mc-speed.lokal { background: rgba(80,160,220,.13); color: #6ab0e8; }
 .lokal-adresse { display: block; width: 100%; text-align: left; padding: 6px 12px; overflow-wrap: anywhere; }
