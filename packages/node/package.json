@@ -1,6 +1,7 @@
 {
   "name": "@freedomstack/node",
   "version": "0.1.0",
+  "license": "EUPL-1.2",
   "type": "module",
   "description": "FreedomStack Provider-Knoten: DVM (KI-Jobs), LP (Swap-Liquiditaet), lokale Inferenz via Ollama",
   "exports": {

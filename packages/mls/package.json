@@ -1,6 +1,7 @@
 {
   "name": "@freedomstack/mls",
   "version": "0.1.0",
+  "license": "EUPL-1.2",
   "type": "module",
   "description": "MLS nach Marmot (MDK als WASM) für FreedomStack – Schritt 2.2b",
   "exports": {
