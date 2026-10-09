@@ -6954,6 +6954,54 @@ Protokoll-Bausteine `baueAgentKarte`, `baueAgentenListe`, `mitAgentRolle`,
 
 **Prüfungen:** protocol 1252 grün (6 übersprungen), node 340, app 994 (+6), Leak 73 + 1 todo, mls 13; tsc überall, Build, Wiring (0 offen, Exit 0), Website, innerHTML, Smoke, Site, Repro grün.
 
+## Schritt 11.3c2 – Agenten auf dem Gerät beantworten Erwähnungen (offene Räume)
+
+Zweiter Teil von 11.3c (Karte `phase-11.md`, Entwurf P3–P5, F3 B, F5).
+
+**Neu:**
+
+- `packages/app/src/agent-antwort.ts` (ohne Netz und DOM): `entscheide()` – die
+  Regeln aus 11.3b (`sollAntworten()`, `AuftragsBremse`) mit dem Stand des Raums:
+  Schreibrecht je Kanal (auch der Agent selbst), Agenten an der Rolle `agent`,
+  Agentenketten nur mit dem Schalter in der Definition des Gründers, Antworten
+  immer aus dem Budget des Erstellers. `agentPrompt()` – Persona, Verlauf nur des
+  Kanals bzw. Threads bis zur Erwähnung (Umfang aus `VERLAUF_UMFANG`), Absender als
+  „Person 1“, „Agent 1“, der Agent als „Du“ – nie Schlüssel oder Namen.
+  `agentAntwortEvent()`/`agentHinweisEvent()` (Kind 42 des Agenten, Antwort auf die
+  Erwähnung, Fragender erwähnt, höchstens 4000 Zeichen; Hinweis ohne Erwähnung).
+  `AgentSitzungen` – Sitzungsschlüssel je Agent und Raum (D1b2).
+- `packages/app/src/shell/agenten-lauschen.ts`: `starteGeraeteAgenten()` – ein Abo
+  ab jetzt auf Nachrichten an die Agenten dieses Geräts (nie als Gerät, nur mit
+  offenem Raum im Buch), neu nur bei Änderung. Je Agent eine Erwähnung nach der
+  anderen: Stand und Verlauf des Raums laden, entscheiden, Provider in der Einheit
+  des Budgets wählen (msat nur über Lightning, Lamports nur mit Zahlkanal), Gebot
+  100 sats gegen `reicht()`, sonst einmal je Zeitraum „Budget aufgebraucht“ im
+  Raum. Auftrag wie jeder andere versiegelt vom Sitzungsschlüssel, A+ über
+  `ki-zahlung.ts` (Deklaration oder Gutschrift), Platzhalter je Auftrag
+  (`maskiereEinzeln()`), kein Verweis auf den Raum. Antwort nur an diesen Schlüssel
+  abgefragt, bezahlt (Kanal: Preis verbuchen; Lightning: Abrechnung, Sitzung,
+  Anteile), höchstens das Gebot verbucht, Antwort vom Agenten signiert.
+- `shell/app.ts`: gestartet mit der App, im Abruftakt geprüft; `shell/agenten.ts`
+  setzt das Abo nach Einladen und Entfernen neu auf. Texte `agentRaum.budget*`.
+
+**Verdrahtet:** `shell/app.ts` (`void starteGeraeteAgenten();` nach `wireAnrufe()`,
+`abrufTakt.melde("agenten", …)`); Smoke „agent_abo“: Mit einem Agenten im Buch hält
+die App nach dem Start ein Abo auf 42 mit `#p` des Agenten und `since`.
+
+**Grenzen:** Ein Agent fragt nur einen Provider je Erwähnung (kein Failover) und
+schweigt bei Ablehnung oder nach 3 Minuten. Quittungen (5.5b) legt er nicht an –
+die Rangfolge der Provider bleibt bei den eigenen Fragen. Private Räume folgen mit
+11.3c3 (eigenes MLS-Konto, Aussage im Bericht).
+
+Die Bausteine `AuftragsBremse`, `agentKontext`, `ausRaumEvent`, `kettenLaenge`,
+`kuerzeAgentAntwort`, `leseAgentenketten`, `sollAntworten` sind damit aus
+`wiring-ausnahmen.txt` heraus.
+
+**Prüfungen:** protocol 1252 grün (6 übersprungen), node 340, app 1004 (+10),
+Leak 73 + 1 todo, mls 13; tsc überall, Build, Wiring (0 offen, Exit 0), Website,
+innerHTML, Smoke (neu „agent_abo“: 8 Abos, eines je Relay, mit `since`), Site,
+Repro grün.
+
 ## Schritt Anhang E – Integrationen erprobter Projekte (Sammlung)
 
 Auf Wunsch des MENSCHEN geprüft, wo spezialisierte Projekte in ihrem Gebiet

@@ -53,5 +53,15 @@ export function merkeErsetzt(requestId: string, n: number): void {
 
 export const ersetztFuer = (requestId: string): number => ersetztJe.get(requestId) ?? 0;
 
+/**
+ * Für einen Auftrag eines Agenten auf dem Gerät (11.3c2): eine eigene Zuordnung
+ * je Auftrag, nie die der Unterhaltung. Zurückgesetzt wird nur in seine Antwort im
+ * Raum – dort stand der Wert schon.
+ */
+export function maskiereEinzeln(text: string): { text: string; zurueck: (s: string) => string } {
+  const z = new Zuordnung();
+  return { text: platzhalterAn() ? ersetzeAngaben(text, z, bekannteNamen()).text : text, zurueck: (s) => z.setzeEin(s) };
+}
+
 /** Die Werte in die Antwort zurücksetzen – nur für Anzeige und eigenen Verlauf. */
 export const entmaskiere = (text: string): string => zuordnung.setzeEin(text);

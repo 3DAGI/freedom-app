@@ -102,6 +102,8 @@ export async function ladeAgentInOffenenRaum(
       content: t("agentRaum.hinweisGeraet", { name: agent.name }),
     })));
   }
+  // Ab jetzt beantwortet er Erwähnungen (11.3c2) – dynamisch, sonst hingen die Module im Kreis
+  void (await import("./agenten-lauschen.js")).starteGeraeteAgenten();
 }
 
 /** Einen Agenten dieses Geräts aus einem offenen Raum nehmen: Rolle entziehen, Budget weg, Liste neu. */
@@ -113,4 +115,5 @@ export async function entferneAgentAusOffenemRaum(agentPk: string, adresse: stri
   }
   await agentenBuch.entferneRaum(agentPk, adresse);
   await aktualisiereListe(besitzer);
+  void (await import("./agenten-lauschen.js")).starteGeraeteAgenten();
 }
