@@ -43,3 +43,8 @@ Fallstricke dieses Bereichs unten anhängen.
   über `mitAgentRolle()` (Grundrechte, Rang 1), nie mit Moderieren oder Vergeben. In privaten Räumen Karte und
   Liste nur als innere Events – Leak-Regel `agent-raum-privat`. Keine Persona und keine Systemanweisung in
   die Karte (F4 A).
+  Wann ein Agent antwortet (seit 11.3b2) nur über `sollAntworten()` und `AuftragsBremse` – Agentenketten
+  nur mit Schalter des Raums, aus einem Budget und unter der Grenze, gezählt aus dem Raum (`kettenLaenge()`),
+  nie aus einer Angabe des Agenten. Kontext nur über `agentKontext()` (nie andere Kanäle, Räume, DMs), der
+  Verweis nur im versiegelten Kern (`auftragsVerweisTags()`), Gutschriften des Monatsbudgets nur über
+  `naechsteStufe()` (kumulativ, eine Stufe über dem Verbrauchten).

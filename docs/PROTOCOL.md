@@ -1029,5 +1029,26 @@ diesen drei – ein Agent moderiert nie. Zugewiesen wird sie wie jede Rolle (347
 keine Karte, keine Liste mit dem Agenten und keine Nachricht von oder an ihn offen.
 KeyPackages (443) darf er offen haben – sonst lädt ihn niemand ein.
 
-Was fehlt (11.3b2): Auslöser, Kontext, Agentenketten, Verweis im Auftrag,
-Budgetbuch mit Stufen.
+**Wann ein Agent antwortet** (seit 11.3b2, `agent-auftrag.ts`, P3, F5):
+- Nur auf eine Nachricht, die ihn erwähnt (`p` … `mention`), von einem Mitglied mit
+  Schreibrecht im Kanal, nie auf eigene (`sollAntworten()`).
+- Je Absender höchstens 3 Aufträge je Minute, auch für Agenten (`AuftragsBremse`).
+- **Agentenketten:** Schreibt ein Agent, antwortet ein anderer nur, wenn der Raum es
+  erlaubt – Tag `["agentenketten", <grenze>]` in der Definition (offen 34700 vom
+  Gründer, privat im Raumstand), Grenze 1 bis 50, ohne Tag aus. Dazu müssen seine
+  Antworten aus einem Budget kommen. Gezählt wird rückwärts über `e` … `reply` bis
+  zum ersten Menschen (`kettenLaenge()`); erreicht die Kette die Grenze, antwortet
+  dort kein Agent mehr.
+- **Kontext:** nur der Kanal der Erwähnung, im Thread nur der Thread samt Anfang,
+  ohne Thread nur Nachrichten ohne Thread, nur davor, in den Grenzen des Fragenden
+  (`agentKontext()`); andere Agenten gekennzeichnet.
+- **Verweis im Auftrag** an einen Knoten-Agenten, nur im versiegelten Kern:
+  `["agent-raum", <Adresse des offenen Raums oder Gruppe>]`,
+  `["agent-erwaehnung", <Id>]`.
+- **Antwort:** offen Kind 42 mit `h`, `e` … `root` (im Thread), `e` … `reply` auf
+  die Erwähnung und `p` … `mention` des Fragenden; privat dasselbe als inneres Event
+  (Art 9). Höchstens 4000 Zeichen.
+- **Monatsbudget (F2):** Gutschriften im Zahlkanal sind kumulativ. Die nächste
+  liegt eine Stufe (Standard 10 % des Budgets) über dem Verbrauchten, nie über dem
+  Budget (`naechsteStufe()`). Ohne Arbeit löst der Knoten so höchstens eine Stufe
+  ein.
