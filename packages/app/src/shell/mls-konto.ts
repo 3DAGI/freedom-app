@@ -137,7 +137,7 @@ export async function mlsErreichbar(u: MlsUmgebung = APP): Promise<boolean> {
   return true;
 }
 
-const alsEintrag = (n: MlsNachricht): VerlaufEintrag => ({
+export const alsEintrag = (n: MlsNachricht): VerlaufEintrag => ({
   id: n.id, von: n.von, text: n.text, zeit: n.zeit, inneres: n.inneres,
   ...(n.art !== ART_CHAT ? { art: n.art } : {}), ...(n.tags.length > 0 ? { tags: n.tags } : {}), ...(n.admin !== undefined ? { admin: n.admin } : {}),
 });

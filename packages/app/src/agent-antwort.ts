@@ -47,6 +47,8 @@ export function entscheide(p: {
   definition: readonly (readonly string[])[];
   bremse: AuftragsBremse;
   jetzt: number;
+  /** Wer ein Agent ist – offen die Rolle `agent` (Standard), privat die Karten der Gruppe (11.3c3b). */
+  istAgent?: (pk: string) => boolean;
 }): Entscheid {
   const nachricht = ausRaumEvent(p.ev);
   if (!nachricht) return { art: "schweigen", grund: "keine-nachricht" };
@@ -54,7 +56,7 @@ export function entscheide(p: {
   if (!darfSchreiben(p.agent, nachricht.kanal)) return { art: "schweigen", grund: "agent-ohne-schreibrecht" };
   const alle = p.alle.map(ausRaumEvent).filter((n): n is RaumNachricht => n !== null);
   const r = sollAntworten({
-    agent: p.agent, nachricht, alle, darfSchreiben, istAgent: istAgentIm(p.stand),
+    agent: p.agent, nachricht, alle, darfSchreiben, istAgent: p.istAgent ?? istAgentIm(p.stand),
     ketten: leseAgentenketten(p.definition), ausBudget: true,
   });
   if (!r.ja) return { art: "schweigen", grund: r.grund };
