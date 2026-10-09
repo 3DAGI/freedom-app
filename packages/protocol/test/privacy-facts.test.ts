@@ -41,7 +41,9 @@ import { baueAnteilAnfrage, baueAnteilUebergabe, baueAnteilUmschlag, neueTeilung
 import { buildSuccessionPlan, secretHashOf, splitSecret } from "../src/succession.js";
 import { buildStateBackup, deriveBackupKey, waehleSicherung } from "../src/state-backup.js";
 import { baueStueckAbruf } from "../src/blob.js";
-import { regelMlsGruppe } from "../src/leak-rules.js";
+import { regelAgentRaumPrivat, regelMlsGruppe } from "../src/leak-rules.js";
+import { raumAgentAntwort, type RaumNachricht } from "../src/agent-auftrag.js";
+import { raumAgentKarte, raumAgentenListe } from "../src/agent-karte.js";
 import { baueRaumMeldung, raumDefinition, raumNachricht } from "../src/raum-gruppe.js";
 import { baueRufUmschlaege } from "../src/quittung.js";
 import { buildProfile, oeffentlichesProfil } from "../src/profile.js";
@@ -65,6 +67,9 @@ interface MlsKontoT {
   gruppeAnlegen(name: string, kps: NostrEvent[], relays: string[]): Promise<{ gruppe: string; einladungen: NostrEvent[] }>;
   senden(gruppe: string, text: string): Promise<{ events: NostrEvent[] }>;
   sendenEvent(gruppe: string, art: number, tags: string[][], text: string): Promise<{ events: NostrEvent[]; inneres?: string }>;
+  einladen(gruppe: string, kps: NostrEvent[]): Promise<{ events: NostrEvent[]; einladungen: NostrEvent[]; ausstehend: unknown }>;
+  bestaetigt(ausstehend: unknown): Promise<void>;
+  beitreten(wrap: NostrEvent): Promise<string>;
 }
 interface MlsModulT {
   Mls: new (signer: LocalSigner, beweis: (id: string) => string) => MlsKontoT;
@@ -483,6 +488,40 @@ const SZENARIEN: Record<string, () => Promise<number>> = {
       + regelKeinKlartext(alle, ["Geheimprojekt", "Geheime Änderung", KEY, "Geheimes Issue", "Geheime Schritte", "Geheimer Kommentar"]).length +
       regelAutorNicht(alle, a.pk).length + regelMlsGruppe(alle, { gruppenIds: [g.gruppe], identitaeten: [a.pk, b.pk] }).length;
   },
+  "agent-raum": async () => {
+    // Wie die App seit 11.3c3a: Agent auf dem Gerät mit eigenem Konto, lokal eingeladen; Karte, Liste,
+    // Erwähnung und Antwort als innere Events – echte Engine
+    const { Mls, ladeMls } = (await import(["@freedomstack", "mls"].join("/"))) as MlsModulT;
+    ladeMls(gunzipSync(readFileSync(new URL("../../mls/dist/freedom_mls_bg.wasm.gz", import.meta.url))));
+    const konto = (k: typeof a) => new Mls(new LocalSigner(k.sk), (id) => toHex(schnorr.sign(fromHex(id), k.sk)));
+    const agent = generateKeypair();
+    const [ma, mb, mAgent] = [konto(a), konto(b), konto(agent)];
+    const kpB = await new LocalSigner(b.sk).signEvent(await mb.keyPackage("ef".repeat(32)));
+    const g = await ma.gruppeAnlegen("Werkstatt", [kpB], ["wss://gruppe.test"]);
+    // Einladen wie mlsLadeAgentEin(): KeyPackage vom Gerät, die Einladung nur an das Konto des Agenten – nie veröffentlicht
+    const kpAgent = await new LocalSigner(agent.sk).signEvent(await mAgent.keyPackage("ab".repeat(32)));
+    const s = await ma.einladen(g.gruppe, [kpAgent]);
+    if (s.ausstehend) await ma.bestaetigt(s.ausstehend); // der Commit ging an die Relays der Gruppe
+    if (s.einladungen.length !== 1 || (await mAgent.beitreten(s.einladungen[0]!)) !== g.gruppe) return 1;
+    const events: NostrEvent[] = [...s.events];
+    const sende = async (m: MlsKontoT, x: { art: number; tags: string[][]; text: string }) => {
+      const r = await m.sendenEvent(g.gruppe, ...alsArgs(x));
+      events.push(...r.events);
+      return r.inneres;
+    };
+    await sende(mAgent, raumAgentKarte({ name: "Geheimlektor", betrieb: "geraet", bezahlung: "einlader", besitzer: a.pk }));
+    await sende(ma, raumAgentenListe(a.pk, [agent.pk]));
+    const frage = await sende(ma, raumNachricht({ kanal: "allgemein", text: "Geheime Frage an den Agenten", erwaehnt: [agent.pk] }));
+    if (!frage) return 1;
+    const auf: RaumNachricht = { id: frage, von: a.pk, zeit: 1, text: "Geheime Frage an den Agenten", kanal: "allgemein", erwaehnt: [agent.pk] };
+    if (!(await sende(mAgent, raumAgentAntwort(auf, "Geheime Antwort des Agenten")))) return 1;
+    const alle = [...g.einladungen, ...events];
+    if (events.length !== 5) return 1;
+    const einladungOffen = alle.filter((e) => e.kind === 1059 && e.tags.some((t) => t[0] === "p" && t[1] === agent.pk)).length;
+    return einladungOffen + regelAgentRaumPrivat(alle, { agenten: [agent.pk] }).length
+      + regelKeinKlartext(alle, ["Geheimlektor", "Geheime Frage", "Geheime Antwort", agent.pk]).length
+      + regelMlsGruppe(alle, { gruppenIds: [g.gruppe], identitaeten: [a.pk, b.pk, agent.pk] }).length;
+  },
   "raum-meldung": async () => {
     // Wie die App seit 8.5 meldet: je Moderator ein Umschlag, nie in die Gruppe, nie offen
     const mods = [generateKeypair(), generateKeypair()];
@@ -556,7 +595,8 @@ test("belegte Aussagen nennen ihre Regel, und jede genannte Regel gibt es", () =
   // „ki-unterhaltung“ (D1b2): welcher Schlüssel je Unterhaltung, entscheidet die App – das prüft app/test/ki-wechsel.test.ts
   // „mesh-geraet“ (7.5b): was ein Meshtastic-Gerät selbst funkt, ist Funk, kein Event – das prüft app/test/meshtastic-strecke.test.ts
   // „zeitanker“ (B-17b3a): die Kalender fragt die App per https, nicht über ein Relay – das prüft app/test/zeitanker.test.ts
-  assert.deepEqual(PRIVACY_FACTS.filter((f) => !f.regel).map((f) => f.id).sort(), ["dm-forward-secrecy", "ip", "ki-unterhaltung", "ki-verlauf", "mesh-geraet", "werbe-name", "zeitanker"]);
+  // „agent-geraet“ (11.3c3a): was der Provider nach dem Öffnen liest, sieht kein Mitschnitt – Pseudonyme und Umfang prüft app/test/agent-antwort.test.ts
+  assert.deepEqual(PRIVACY_FACTS.filter((f) => !f.regel).map((f) => f.id).sort(), ["agent-geraet", "dm-forward-secrecy", "ip", "ki-unterhaltung", "ki-verlauf", "mesh-geraet", "werbe-name", "zeitanker"]);
 });
 
 test("4.5b: eine SOL-Adresse je Knoten steht als bewusste Grenze im Bericht – mit Grund und Entscheidung", () => {

@@ -287,6 +287,26 @@ export async function mlsLadeEin(gruppe: string, pk: string, u: MlsUmgebung = AP
   return r?.angenommen && (await ohneUnzugestellte(a, gruppe, r.nichtZugestellt)) ? "eingeladen" : "nicht zugestellt"; // kein UI-Text
 }
 
+/**
+ * Einen Agenten dieses Geräts einladen (11.3c3a, nur als Admin): sein KeyPackage
+ * kommt vom Gerät selbst, die Einladung geht nie über ein Relay – `uebergib`
+ * reicht sie seinem Konto. Der Commit geht wie jeder an die Relays der Gruppe.
+ */
+export async function mlsLadeAgentEin(gruppe: string, keyPackage: NostrEvent, uebergib: (wrap: NostrEvent) => Promise<boolean>, u: MlsUmgebung = APP): Promise<EinladungsErgebnis> {
+  const kl = mlsKonto(u);
+  if (!kl) return "kein KeyPackage"; // kein UI-Text
+  const k = await kl;
+  if (!k.mls.admins(gruppe).includes(k.pk)) return "kein Admin"; // kein UI-Text
+  const LOKAL = "lokal:agent"; // kein UI-Text
+  const netz: MlsNetz = {
+    sendeAn: async (ev, urls) => (urls.length === 1 && urls[0] === LOKAL ? ((await uebergib(ev)) ? 1 : 0) : k.u.netz.sendeAn(ev, urls)),
+    posteingang: async (pk) => (pk === keyPackage.pubkey ? [LOKAL] : k.u.netz.posteingang(pk)),
+  };
+  const a: Ablauf = { mls: k.mls, netz, sichern: k.sichern };
+  const r = await aendereGruppe({ ...a, gruppe, einladen: [keyPackage] }).catch(() => null);
+  return r?.angenommen && (await ohneUnzugestellte(a, gruppe, r.nichtZugestellt)) ? "eingeladen" : "nicht zugestellt"; // kein UI-Text
+}
+
 /** Mitglied entfernen (nur als Admin): ein Commit – danach liest es nichts mehr (neuer Schlüssel). */
 export async function mlsEntferne(gruppe: string, pk: string, u: MlsUmgebung = APP): Promise<boolean> {
   const kl = mlsKonto(u);

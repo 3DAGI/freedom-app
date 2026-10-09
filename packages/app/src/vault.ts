@@ -75,9 +75,9 @@ interface TresorBlob extends Kopf {
 
 // ------------------------------------------------------------- Speicher
 
-/** IndexedDB: eine Datenbank, ein Eintrag – der ganze Tresor. */
+/** IndexedDB: eine Datenbank, ein Eintrag – der ganze Tresor. Mehrere Einträge einer Datenbank (11.3c3: je Agent) über `eintrag`. */
 export class IndexedDbSpeicher implements TresorSpeicher {
-  constructor(private dbName = "freedom-vault", private store = "tresor") {}
+  constructor(private dbName = "freedom-vault", private store = "tresor", private eintrag = "blob") {}
 
   private oeffnen(): Promise<IDBDatabase> {
     return new Promise((res, rej) => {
@@ -102,16 +102,16 @@ export class IndexedDbSpeicher implements TresorSpeicher {
   }
 
   async lesen(): Promise<string | null> {
-    const wert = await this.tx("readonly", (s) => s.get("blob"));
+    const wert = await this.tx("readonly", (s) => s.get(this.eintrag));
     return typeof wert === "string" ? wert : null;
   }
 
   async schreiben(blob: string): Promise<void> {
-    await this.tx("readwrite", (s) => s.put(blob, "blob"));
+    await this.tx("readwrite", (s) => s.put(blob, this.eintrag));
   }
 
   async loeschen(): Promise<void> {
-    await this.tx("readwrite", (s) => s.delete("blob"));
+    await this.tx("readwrite", (s) => s.delete(this.eintrag));
   }
 }
 

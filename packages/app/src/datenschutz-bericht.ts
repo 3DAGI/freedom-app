@@ -60,6 +60,8 @@ const FAKT: Record<string, readonly [string, string?]> = {
   "pruefrunde": ["ds.fPruefrunde", "ds.gPruefrunde"],
   "ki-platzhalter": ["ds.fKiPlatzhalter", "ds.gKiPlatzhalter"],
   "ki-verlauf": ["ds.fKiVerlauf", "ds.gKiVerlauf"],
+  "agent-raum": ["ds.fAgentRaum"],
+  "agent-geraet": ["ds.fAgentGeraet", "ds.gAgentGeraet"],
   "ki-unterhaltung": ["ds.fKiUnterhaltung", "ds.gKiUnterhaltung"],
   "mesh-geraet": ["ds.fMeshGeraet", "ds.gMeshGeraet"],
   "ki-zahlung": ["ds.fKiZahlung"],

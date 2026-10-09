@@ -94,6 +94,11 @@ export function sendePrivat(gruppe: string, kanal: string, text: string, bezug: 
 export async function ladeInPrivatenRaum(raum: PrivaterRaum, pk: string): Promise<EinladungsErgebnis | "ohne Raumstand"> { // kein UI-Text
   const r = await mlsLadeEin(raum.gruppe, pk);
   if (r !== "eingeladen") return r;
+  return (await sendeRaumstand(raum)) ? "eingeladen" : "ohne Raumstand"; // kein UI-Text
+}
+
+/** Den Raumstand (Definition, Rollen, Zuweisungen) erneut senden – nach jeder Einladung (auch eines Agenten, 11.3c3a). */
+export async function sendeRaumstand(raum: PrivaterRaum): Promise<boolean> {
   const st = raum.zustand;
   const stand: InneresSenden[] = [];
   if (st.space) stand.push(raumDefinition(raum.gruppe, { name: st.space.name, beschreibung: st.space.description, kanaele: st.space.channels }));
@@ -103,8 +108,8 @@ export async function ladeInPrivatenRaum(raum: PrivaterRaum, pk: string): Promis
     const eigene = ids.filter((id) => !id.startsWith("__") && id !== "mitglied");
     if (eigene.length > 0 && !raum.admins.includes(wer)) stand.push(raumZuweisung(raum.gruppe, wer, eigene));
   }
-  for (const s of stand) if (!(await mlsSendeEvent(raum.gruppe, s))) return "ohne Raumstand"; // kein UI-Text
-  return "eingeladen";
+  for (const s of stand) if (!(await mlsSendeEvent(raum.gruppe, s))) return false;
+  return true;
 }
 
 /** Kennung → Schlüssel des Textes. */
