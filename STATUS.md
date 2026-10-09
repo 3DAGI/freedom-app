@@ -18856,3 +18856,46 @@ jetzt nur für den Tag (UTC) – wie das Kontingent je Gerät.
 
 **Prüfungen:** app 969 grün (+1); protocol, node, Leak, mls, Skripte, Build und
 Smoke wie im Pull Request.
+
+## Schritt B-23 – Knoten nur mit eigenem Relay hört live mit (Nutzertest, K-1)
+
+Auftrag des MENSCHEN vom 09.10.2026: die Befunde aus dem Nutzertest vom 08.10.
+als Schritte anlegen und abarbeiten. Die Sammlung hat dafür Anhang D mit allen
+Befunden und einem Vorschlag, welche Spur sie übernimmt. Spur B bekommt
+B-23 bis B-28; die übrigen übernehmen Spur A und Spur C in ihre Abschnitte
+(Regel „Ergänzen“ – neue Punkte nur im eigenen Abschnitt).
+
+**Befund K-1:** `RelayRole.alsRelay()` (B-9c1) hatte `publish` und `query`, aber
+kein `subscribe`. Ein Knoten, der nur sein eigenes Relay nutzt, meldete
+„Kein Relay unterstuetzt Dauer-Abos“ und lief im Abfrage-Betrieb – jede
+KI-Anfrage wartete bis zum nächsten Takt (Standard 15 s).
+
+**Knoten** (`relay-role.ts`):
+- `alsRelay()` bekommt `subscribe`: erst die gespeicherten Treffer, dann
+  `onEose`, danach jedes neue Event – wie ein REQ über das Netz.
+- Dieselben Regeln: ein Filter auf Umschläge an andere wirft
+  `auth-required` (wie `CLOSED`), geliefert wird nur, was `darfAusliefern()`
+  erlaubt.
+- `verteile()` stellt nach den WebSocket-Abos auch die Abos im Prozess zu, per
+  Mikrotask: Wer im Abo selbst veröffentlicht, landet nicht mitten im
+  Durchlauf; ein Fehler des Empfängers bleibt dort.
+- `stop()` leert die Abos.
+
+**Im echten Knoten geprüft** (`main.ts`, `RELAYS` = nur die eigene Adresse,
+Ollama-Attrappe, Gratis-Anfrage über das Relay mit Wegwerfschlüsseln):
+
+| | Log | Antwort nach |
+|---|---|---|
+| vorher | „Kein Relay unterstuetzt Dauer-Abos … Abfrage-Betrieb“ | 12 235 ms |
+| mit B-23 | „Dauer-Abo aktiv — Jobs kommen ohne Verzoegerung an“ | 326 ms |
+
+**Tests** (`relay-intern.test.ts`, +3; ohne die Änderung alle drei rot):
+- Abo: erst Gespeichertes, dann Neues über das Netz und aus dem Prozess;
+  keine fremden Umschläge, keine doppelten, nach dem Beenden nichts mehr.
+- Regeln: Umschläge an andere sind nicht zu abonnieren; ein werfender
+  Empfänger hält weder den Relay noch andere Abos auf.
+- Provider: `subscribeJobs()` gelingt nur mit dem eigenen Relay, die Anfrage
+  kommt ohne `pollOnce()` an.
+
+Knoten-Stand: neu (B-23). Ohne Update läuft ein Knoten nur mit eigenem Relay
+weiter im Abfrage-Betrieb.

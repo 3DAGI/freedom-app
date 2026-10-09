@@ -113,3 +113,93 @@ test("B-9c1: main.ts – der Weg im Prozess ersetzt eine Verbindung zu sich selb
   assert.ok(start > 0 && intern > start);
   assert.match(main.slice(intern), /^const intern = relayRole\.alsRelay\(keypair\.pk\);\s*pool\.removeRelay\(intern\.url\);\s*pool\.addRelay\(intern\);/);
 });
+
+/** Bis `bedingung()` gilt – mit Frist, nie eine feste Pause (CLAUDE.md, „Nebenläufiges im Test“). */
+async function bis(bedingung: () => boolean, frist = 3000): Promise<void> {
+  const ende = Date.now() + frist;
+  while (!bedingung()) {
+    if (Date.now() > ende) throw new Error("Frist abgelaufen");
+    await new Promise((r) => setTimeout(r, 10));
+  }
+}
+
+test("B-23: alsRelay – Dauer-Abo: erst Gespeichertes, dann jedes neue Event, Umschläge nur an den Knoten", async () => {
+  const knoten = generateKeypair();
+  await mitRelay({}, async (url, r) => {
+    const intern = r.alsRelay(knoten.pk);
+    assert.equal(typeof intern.subscribe, "function", "ohne subscribe lief der Knoten im Abfrage-Betrieb (K-1)");
+    const vorher = umschlag(knoten.pk);
+    await intern.publish(vorher);
+    const gesehen: string[] = [];
+    let eose = false;
+    const stop = await intern.subscribe!({ kinds: [1059], "#p": [knoten.pk] }, (ev) => { gesehen.push(ev.id); }, () => { eose = true; });
+    assert.deepEqual(gesehen, [vorher.id], "gespeicherte Treffer zuerst");
+    assert.ok(eose, "dann das Ende des Gespeicherten");
+    // Über das Netz eingegangen: kommt ohne Abfrage an – nur, was zum Filter passt und an den Knoten geht
+    const an = umschlag(knoten.pk), fremd = umschlag(generateKeypair().pk);
+    const s = new WebSocketRelay(url, { autoReconnect: false });
+    for (const e of [fremd, an]) await s.publish(e);
+    await s.publish(an); // doppelt: nicht noch einmal
+    await bis(() => gesehen.includes(an.id));
+    // Im Prozess geschrieben ebenso
+    const auchIntern = umschlag(knoten.pk);
+    await intern.publish(auchIntern);
+    await bis(() => gesehen.includes(auchIntern.id));
+    assert.deepEqual(gesehen, [vorher.id, an.id, auchIntern.id], "keine fremden, keine doppelten");
+    // Nach dem Beenden nichts mehr
+    stop();
+    const danach = umschlag(knoten.pk);
+    await s.publish(danach);
+    await new Promise((r) => setTimeout(r, 50));
+    assert.ok(!gesehen.includes(danach.id));
+    s.close();
+  });
+});
+
+test("B-23: alsRelay – Dauer-Abo nach denselben Regeln wie ein REQ; ein Fehler des Empfängers stört den Relay nicht", async () => {
+  const knoten = generateKeypair();
+  await mitRelay({ umschlaegeSchuetzen: true }, async (url, r) => {
+    const intern = r.alsRelay(knoten.pk);
+    // Umschläge an andere sind nicht zu abonnieren – wie CLOSED auth-required über das Netz
+    await assert.rejects(intern.subscribe!({ kinds: [1059], "#p": [generateKeypair().pk] }, () => {}), /auth-required/);
+    await assert.rejects(intern.subscribe!({ kinds: [1059] }, () => {}), /auth-required/);
+    // Ein Abo, das wirft, hält weder den Relay noch andere Abos auf
+    const gesehen: string[] = [];
+    await intern.subscribe!({ kinds: [1] }, () => { throw new Error("kaputter Empfänger"); });
+    await intern.subscribe!({ kinds: [1] }, (ev) => { gesehen.push(ev.id); });
+    const fremd = generateKeypair();
+    const notiz = signEvent(buildEvent(fremd.pk, 1, [], "hallo"), fremd.sk);
+    const s = new WebSocketRelay(url, { autoReconnect: false });
+    await s.publish(notiz);
+    await bis(() => gesehen.includes(notiz.id));
+    const leser = new WebSocketRelay(url, { timeoutMs: 2000, autoReconnect: false });
+    assert.deepEqual((await leser.query({ kinds: [1] })).map((e) => e.id), [notiz.id], "der Relay läuft weiter");
+    leser.close();
+    s.close();
+  });
+});
+
+test("B-23: Knoten nur mit eigenem Relay – Dauer-Abo statt Abfrage-Betrieb, die Anfrage kommt ohne pollOnce an", async () => {
+  const kp: Keypair = generateKeypair();
+  const k = neueKopplung(kp.pk);
+  await mitRelay({}, async (url, r) => {
+    const backend = new MerkBackend();
+    const pool = new OutboxPool([r.alsRelay(kp.pk)], { minAcks: 1 });
+    const provider = new DvmProvider({
+      keypair: kp, lud16: "p@x.cash", pricePerKTokenMsat: 1000, minBidMsat: 100, powDifficulty: 2, seasonId: "s", besitzer: () => [k.geheimnis],
+    }, pool, backend);
+    const fertig: string[] = [];
+    // Bisher: „Kein Relay unterstuetzt Dauer-Abos“ – main.ts fiel auf den Abfragetakt (15 s) zurück
+    const stop = await provider.subscribeJobs((j) => { fertig.push(j.requestId); });
+    const sitzungKp = generateKeypair();
+    const sitzung = new LocalSigner(sitzungKp.sk);
+    const kern = mitBesitzerNachweis(buildJobRequest({ customerPubkey: sitzung.publicKey(), input: "Frage live über mein Relay", bidMsat: 0, providerPubkey: kp.pk }), k);
+    const { wrap, requestId } = await buildPrivateJobRequest({ request: kern, sessionSigner: sitzung, providerPk: kp.pk });
+    const app = new WebSocketRelay(url, { timeoutMs: 3000, autoReconnect: false, anmelden: als(sitzungKp) });
+    await app.publish(wrap);
+    await bis(() => fertig.includes(requestId));
+    assert.ok(backend.prompts.some((p) => p.includes("Frage live über mein Relay")));
+    stop();
+    app.close();
+  });
+});
