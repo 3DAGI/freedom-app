@@ -18899,3 +18899,26 @@ Ollama-Attrappe, Gratis-Anfrage über das Relay mit Wegwerfschlüsseln):
 
 Knoten-Stand: neu (B-23). Ohne Update läuft ein Knoten nur mit eigenem Relay
 weiter im Abfrage-Betrieb.
+
+## Schritt B-24 – Warntext zum Zeitanker (Nutzertest, T-1)
+
+Der Dialog „Diebstahl vorbeugen“ (Settings › Sicherheit, Schritt 3) endete mit
+„… kann auf eine zurückdatierte des Diebs hereinfallen – bis es Zeitzeugen
+gibt.“ Zeitzeugen gibt es nicht. Seit B-17b3 wird das eigene Mandat in Bitcoin
+verankert (`ankereMandat()`, gestempelt im Abruftakt), und bei Streit schlägt
+ein verankertes Mandat jedes unverankerte (`merkeMandate(…, anker)`).
+
+**Neu:** „… hereinfallen – es sei denn, deine Erklärung ist dann schon in
+Bitcoin verankert. Das erledigt die App von selbst, solange sie offen ist; nach
+dem Erzeugen dauert es einige Stunden.“ Englisch entsprechend.
+
+**Geändert:**
+- `protocol/src/key-rotation.ts` (`rotationWarning()`) samt Kopfkommentar.
+- `app/src/texte/protokollsaetze.ts` (`ps.wechselWarnung`, de wortgleich zum
+  Protokoll – `i18n.test.ts` vergleicht).
+
+**Tests:** `key-rotation.test.ts` +1 – keine Zeitzeugen mehr, der Anker, „solange
+sie offen ist“, „einige Stunden“; die Gleichheit von App und Protokoll prüft
+`i18n.test.ts` wie bisher.
+
+Knoten-Stand: nicht betroffen.
