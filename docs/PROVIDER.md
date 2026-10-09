@@ -192,6 +192,39 @@ im eigenen Prozess, eine Verbindung zu sich selbst in `RELAYS` ersetzt er. An
 seinem Relay meldet sich die App mit dem Schlüssel der jeweiligen Anfrage an,
 nur so bekommt sie die versiegelte Antwort.
 
+## KI-Antrieb: Ollama oder OpenAI-kompatibel (B-29a)
+
+Standard ist Ollama (`OLLAMA_URL`). Ollama arbeitet gleichzeitige Anfragen von
+Haus aus nacheinander ab. vLLM, SGLang und TensorFold bündeln sie und haben
+eine OpenAI-kompatible Schnittstelle. Der Knoten spricht sie mit:
+
+```bash
+KI_ANTRIEB=openai
+KI_URL=http://127.0.0.1:8000/v1        # vLLM; SGLang …:30000/v1, TensorFold …:8080/v1
+KI_SCHLUESSEL=…                        # nur, wenn der Dienst einen verlangt (--api-key)
+PROVIDER_MODELS=Qwen/Qwen2.5-7B-Instruct   # genau die Namen aus <KI_URL>/models
+```
+
+- **Nur dieser Rechner oder das Heimnetz:** `KI_URL` zeigt auf localhost, eine
+  private Adresse, einen Namen ohne Punkt (Docker-Dienst) oder einen Namen auf
+  `.local`, `.lan`, `.internal` oder `.home.arpa`. Ein Dienst im Internet ist
+  kein Antrieb – die Fragen der Kunden gingen sonst an einen Dritten.
+- **Nie still Ollama:** Eine ungültige Einstellung hält den Knoten an
+  (`[ki] … – der Knoten startet nicht`); `npm run pruefen` nennt den Grund.
+- **Schlüssel:** Der Knoten schickt `KI_SCHLUESSEL` als Bearer an den Dienst,
+  nie ins Log.
+- **Werkzeuge** (Websuche und andere) brauchen beim Dienst Werkzeug-Aufrufe.
+  vLLM: `--enable-auto-tool-choice --tool-call-parser <Parser zum Modell>`,
+  SGLang: `--tool-call-parser <Parser zum Modell>`.
+- **Docker:** Läuft der Antrieb auf dem Rechner selbst, `KI_URL` auf dessen
+  Adresse im Heimnetz setzen (z. B. `http://192.168.1.20:8000/v1`) oder den
+  Antrieb als Dienst ins selbe Compose-Netz stellen (`http://vllm:8000/v1`).
+- **Modelle:** Im Angebot steht aus `PROVIDER_MODELS`, was `<KI_URL>/models`
+  nennt. Geprüft laden (nächster Abschnitt) geht bisher nur mit Ollama – mit
+  diesem Antrieb melden `npm run pruefen` und der Status das ehrlich, Wünsche
+  aus `npm run modell` warten. Die Gewichte eines anderen Antriebs gegen ein
+  Manifest prüfen, kommt mit B-29c.
+
 ## Modelle laden, geprüft (E9-3)
 
 ```bash

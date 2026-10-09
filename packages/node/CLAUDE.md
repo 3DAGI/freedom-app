@@ -140,3 +140,13 @@ Bereichs unten anhängen.
   `PROVIDER_MODELS` nur, was Ollama bei jedem Erneuern unter genau dem Namen nennt
   (`nurBeiOllama()`, ohne Tag „:latest“); bliebe nichts, bleibt die Liste (nie still vom Netz),
   das Log nennt, was fehlt.
+- **KI-Antrieb nur über `antriebAusUmgebung()`** (seit B-29a, `ki-antrieb.ts`): `KI_ANTRIEB=ollama`
+  (Vorgabe, `OLLAMA_URL`) oder `openai` (vLLM, SGLang, TensorFold; `KI_URL` mit `/v1`). `KI_URL` nur
+  über `lokaleAntriebAdresse()` – dieser Rechner oder das Heimnetz, ohne Zugangsdaten; ein Dienst im
+  Internet wäre ein Dritter, der die Fragen liest. Ungültig → kein Start, nie still auf Ollama
+  ausweichen. `KI_SCHLUESSEL` nur als Bearer an den Dienst (`antriebKopf()`), nie ins Log; Fehler des
+  Dienstes nur mit Status, nie mit seinem Text. Aufrufe nur über `rufe()` in `OllamaBackend` – Ollama und
+  OpenAI-kompatibel geben dieselbe Form zurück; die Antwort eines Werkzeugs trägt OpenAI-kompatibel die
+  `tool_call_id` (`werkzeugRunde()`). Modelle kennt der Knoten über `antriebModelle()` (`/v1/models`
+  ohne Fingerabdruck) – geprüft laden (`ModellDienst`) geht nur mit Ollama; `pruefeModelle(…, antrieb)`
+  sagt das mit eigenen Kennungen, nie „geprüft“ für einen anderen Antrieb.

@@ -110,8 +110,8 @@ test("E9-3b: im Status an den Besitzer – alles, was `pruefeModelle()` liefert,
 test("E9-3b: Verdrahtung – der Status nennt die Modelle, Ollama einmal je Angebot, `npm run pruefen` zeigt sie", () => {
   const main = quelle("../src/main.ts");
   assert.match(main, /modellPruefung: modellPruefung\(\),/);
-  assert.match(main, /const befunde = pruefeModelle\(\{ angeboten: providerModelle\(process\.env\), stand, wuensche: leseWuensche\(wunschDatei\(\)\), ollama: ollamaStand \}\);/);
-  assert.match(main, /ollamaNamen = await ollamaTags\(ollamaUrl\)\.then\(\(t\) => \(ollamaStand = t\)\.map/, "Namen und Fingerabdrücke aus derselben Antwort");
+  assert.match(main, /const befunde = pruefeModelle\(\{ angeboten: providerModelle\(process\.env\), stand, wuensche: leseWuensche\(wunschDatei\(\)\), ollama: ollamaStand, antrieb: antrieb\.art \}\);/);
+  assert.match(main, /ollamaNamen = await antriebModelle\(antrieb\)\.then\(\(t\) => \(ollamaStand = t\)\.map/, "Namen und Fingerabdrücke aus derselben Antwort");
   assert.match(main, /\.\.\.providerModelle\(process\.env\),\n    \.\.\.gepruefteModelle,/, "Angebot und Status lesen PROVIDER_MODELS gleich");
   assert.match(quelle("../src/dvm-provider.ts"), /"weckSchluessel" \| "modellPruefung">/);
   const pruefen = quelle("../src/pruefen.ts");

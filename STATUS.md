@@ -7422,3 +7422,86 @@ Stand und Wünschen in einem frischen `HOME`. Die Ausgabe nennt:
 
 Knoten-Stand: `main` mit E9-3b, damit die App die Modelle im Status zeigt. Ohne Update steht dort
 „dieser Knoten meldet keine Prüfung“.
+
+## Schritt B-29a – KI-Antrieb wählbar (OpenAI-kompatibel: vLLM, SGLang, TensorFold)
+
+Erster Teil von B-29 (Sammlung, Anhang E). Der Knoten sprach nur Ollama. Ollama arbeitet
+gleichzeitige Anfragen von Haus aus nacheinander ab; vLLM, SGLang und TensorFold bündeln sie.
+B-29 ist dreigeteilt:
+- **B-29a (dieser Schritt):** Antrieb wählbar.
+- **B-29b:** Messskript – dasselbe Modell, Durchsatz bei einer und bei N gleichzeitigen Anfragen.
+- **B-29c:** Gewichte außerhalb von Ollama gegen das Manifest prüfen.
+
+TensorFold ist OpenAI-kompatibel, die Sammlung hatte „prüfen“ vermerkt.
+
+**Knoten:**
+- **`ki-antrieb.ts` (neu):** `antriebAusUmgebung()` wählt über `KI_ANTRIEB`:
+  - `ollama` (Vorgabe): `OLLAMA_URL` wie bisher.
+  - `openai`: `KI_URL` mit `/v1` (Vorgabe vLLM `http://127.0.0.1:8000/v1`), optional
+    `KI_SCHLUESSEL` als Bearer.
+- **`KI_URL` nur dieser Rechner oder das Heimnetz** (`lokaleAntriebAdresse()`): localhost, private
+  Adresse, Name ohne Punkt (Docker-Dienst), `.local`/`.lan`/`.internal`/`.home.arpa`; ohne
+  Zugangsdaten. Ein Dienst im Internet wäre ein Dritter, der die Fragen der Kunden liest.
+  Ungültig → der Knoten startet nicht, nie still Ollama.
+- **`inference.ts`:** Alle Aufrufe (Werkzeug-Schleife, Swarm, Richter, Strom) gehen über `rufe()`.
+  - Ollama: `/api/chat` wie bisher.
+  - OpenAI-kompatibel: `/chat/completions` mit `max_tokens`. Werkzeug-Argumente kommen als
+    JSON-Text, die Antwort des Werkzeugs trägt `tool_call_id` (`werkzeugRunde()`).
+  - Fehler des Dienstes nur mit Status, nie mit seinem Text (der kann die Frage enthalten).
+  - Der Strom kommt in einem Stück, ohne Denkspur wie bei Ollama.
+  - Systemprompt, Werkzeuge und `ohneWerkzeuge` sind für beide gleich.
+- **Modelle:** `antriebModelle()` fragt `/v1/models`, nur Kennungen (begrenzt, ohne
+  Steuerzeichen) und ohne Fingerabdruck. Ins Angebot kommt aus `PROVIDER_MODELS`, was der Antrieb
+  nennt (B-41 wie bisher).
+- **Geprüft laden** (`ModellDienst`) geht nur mit Ollama. Mit einem anderen Antrieb:
+  - wartet der Takt, und das Log sagt es;
+  - nennt `pruefeModelle(…, antrieb)` eigene Kennungen: `modell.nurOllama`,
+    `modell.ungeprueftAntrieb`, `modell.fehltBeimAntrieb`, `modell.antriebKenntKeins`,
+    `modell.antriebStumm`, `modell.ladenNurOllama`;
+  - heißt nie etwas „geprüft“.
+- **`npm run pruefen`:** fragt den gewählten Antrieb. Bei ungültiger Einstellung zeigt es
+  „✗ KI-Antrieb: …“ und endet mit 1.
+
+**App:** je neue Kennung ein Text in beiden Sprachen (`knoten-status-ansicht.ts`,
+`texte/settings.ts`). Der Test aus E9-3b vergleicht die Kennungen mit dem Knoten.
+
+**Doku:**
+- `docs/PROVIDER.md` (Abschnitt „KI-Antrieb“, mit den Schaltern für Werkzeug-Aufrufe bei vLLM und
+  SGLang).
+- `docker-compose.yml` reicht `KI_ANTRIEB`, `KI_URL`, `KI_SCHLUESSEL` durch.
+- Fallstrick in `packages/node/CLAUDE.md`.
+- Sammlung (B-29 geteilt), FORTSCHRITT.
+
+**Echt gestartet:** `npm run pruefen` gegen eine OpenAI-Attrappe (`/v1/models`) in einem frischen
+`HOME`, mit Schlüssel:
+- Das bekannte Modell erscheint als „angeboten, aber nicht gegen ein Manifest geprüft … mit diesem
+  KI-Antrieb geht das noch nicht“.
+- Das unbekannte Modell erscheint als „der KI-Antrieb (KI_URL) kennt das Modell nicht“.
+- Die Attrappe bekam den Schlüssel; in der Ausgabe steht er nicht.
+- Mit `KI_URL=https://api.example.com/v1`: „✗ KI-Antrieb: KI_URL muss auf diesen Rechner oder ins
+  Heimnetz zeigen …“, Exit 1.
+
+Der erste Lauf zeigte bei OpenAI noch den Rat „npm run modell -- <name> --aus-registry“, der dort
+nicht hilft. Daher gibt es jetzt die eigene Kennung `modell.ungeprueftAntrieb`.
+
+**Tests:**
+- **node** `ki-antrieb.test.ts` (+9):
+  - Adressregeln;
+  - Wahl aus der Umgebung;
+  - Anfrage mit Systemprompt, Werkzeugen, Grenze, Schlüssel;
+  - `ohneWerkzeuge`;
+  - Werkzeug-Runde mit `tool_call_id`;
+  - Fehler ohne Text des Dienstes;
+  - Strom ohne Denkspur;
+  - Modellliste;
+  - Selbstprüfung mit OpenAI;
+  - Verdrahtung (kein Schlüssel in Log-Zeilen).
+- **Angepasst, nicht abgeschwächt:**
+  - `modell-laden.test.ts` und `modell-pruefung.test.ts` erwarten den Aufruf über
+    `antriebModelle(antrieb)`.
+  - `angebot-modell.test.ts` prüft jetzt, dass die gesuchte Stelle gefunden wird. Vorher wäre ein
+    `indexOf` von -1 still durchgegangen.
+
+**Prüfungen:** Alle Befehle aus CLAUDE.md auf `01a6fc1` (`main` c6bc12c + B-29a), `GESAMT fail=0`: protocol 1257 grün (6 übersprungen), node 365 grün (+9, ohne Netz 7 übersprungen; mit Netz 366), app 1029, Leak 73 + 1 todo, mls 13; tsc überall, Build, `check-wiring --streng`, `check-website`, `check_innerhtml --streng`, Smoke-Test, Website-Bau grün.
+
+Knoten-Stand: kein Update nötig – ohne `KI_ANTRIEB` arbeitet der Knoten wie bisher mit Ollama.

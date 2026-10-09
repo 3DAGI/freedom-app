@@ -34,6 +34,7 @@ import { turnAusUmgebung } from "./turn.js";
 import { kopplungsDatei, leseKopplung } from "./kopplung-datei.js";
 import { torAusUmgebung, torWebSocket } from "./tor.js";
 import { OllamaBackend } from "./inference.js";
+import { antriebAusUmgebung, antriebModelle } from "./ki-antrieb.js";
 import { ModellDienst, leseStand, leseWuensche, modellDatei, nurBeiOllama, ollamaPull, ollamaTags, registryDateien, wunschDatei } from "./modell-laden.js";
 import { providerModelle, pruefeModelle } from "./modell-pruefung.js";
 import { type KnotenSchluessel, SchluesselFehler, knotenSchluesselDatei, ladeKnotenSchluessel } from "./knoten-schluessel.js";
@@ -144,7 +145,8 @@ async function main(): Promise<void> {
   let gepruefteModelle: readonly string[] = [];
   // B-41: nur, was Ollama hat (`nurBeiOllama()`, bei jedem Angebot neu gefragt); ohne Antwort keine Aussage
   let ollamaNamen: readonly string[] | null = null;
-  // E9-3b: Namen und Fingerabdrücke aus derselben Antwort – der Status zeigt den Stand des letzten Angebots
+  // E9-3b: Namen und Fingerabdrücke aus derselben Antwort – der Status zeigt den Stand des letzten Angebots.
+  // Seit B-29a vom gewählten KI-Antrieb (OpenAI-kompatibel ohne Fingerabdruck)
   let ollamaStand: ReadonlyArray<{ name: string; digest: string }> | null = null;
   const alleAngebotenen = () => [...new Set([
     ...providerModelle(process.env),
@@ -153,7 +155,7 @@ async function main(): Promise<void> {
   // Modelle im Status an den Besitzer (E9-3b): Befunde je Modell und was gerade lädt – nur Kennungen, Zahlen, Namen
   const modellPruefung = (): import("@freedomstack/protocol").KnotenStatus["modellPruefung"] => {
     const stand = leseStand(modellDatei());
-    const befunde = pruefeModelle({ angeboten: providerModelle(process.env), stand, wuensche: leseWuensche(wunschDatei()), ollama: ollamaStand });
+    const befunde = pruefeModelle({ angeboten: providerModelle(process.env), stand, wuensche: leseWuensche(wunschDatei()), ollama: ollamaStand, antrieb: antrieb.art });
     return {
       befunde: befunde.map(({ name, stufe, fall, werte }) => ({ name, stufe, fall, werte: werte ?? {} })),
       ...(stand.laeuft ? { laeuft: stand.laeuft } : {}),
@@ -162,11 +164,19 @@ async function main(): Promise<void> {
   const angebotModelle = () => (ollamaNamen ? nurBeiOllama(alleAngebotenen(), ollamaNamen).modelle : alleAngebotenen());
 
   const keypair = loadKeypair();
-  const backend = new OllamaBackend();
+  // KI-Antrieb (B-29a): Ollama oder OpenAI-kompatibel (vLLM, SGLang, TensorFold) – nur auf diesem Rechner
+  // oder im Heimnetz; ungültig → kein Start, nie still auf Ollama ausweichen
+  const antriebWahl = antriebAusUmgebung(process.env);
+  if (!antriebWahl.antrieb) {
+    console.error(`[ki] ${antriebWahl.grund} – der Knoten startet nicht`);
+    process.exit(1);
+  }
+  const antrieb = antriebWahl.antrieb;
+  const backend = new OllamaBackend(antrieb.url, undefined, { antrieb: antrieb.art, schluessel: antrieb.schluessel });
 
   const ollamaOk = await backend.available();
   if (!ollamaOk) {
-    console.error(`Ollama nicht erreichbar (${backend.name()}). Daemon beendet.`);
+    console.error(`KI-Antrieb nicht erreichbar (${backend.name()}). Daemon beendet.`);
     process.exit(1);
   }
   console.log(`Inference-Backend bereit: ${backend.name()}`);
@@ -204,6 +214,9 @@ async function main(): Promise<void> {
   // Kataloge kommen mit E9-4), Ollama lädt, die Schichten müssen genau die des Manifests sein – erst
   // dann im Angebot. Mit --aus-registry signiert der Knoten vorher, was die Registry jetzt nennt.
   const ollamaUrl = process.env.OLLAMA_URL ?? "http://localhost:11434";
+  // Geprüft laden und anbieten geht bisher nur mit Ollama als Antrieb (B-29a) – sonst nennt der
+  // Dienst nichts als geprüft: ein Modell aus einem Ollama daneben bediente der Antrieb nicht
+  const mitOllama = antrieb.art === "ollama";
   const modellDienst = new ModellDienst({
     manifeste: (name) => pool.query({ kinds: [KIND_MODEL_MANIFEST], "#d": [`model:${name}`], limit: 100 }),
     registry: registryDateien,
@@ -213,7 +226,7 @@ async function main(): Promise<void> {
       return ev;
     },
     pull: (name, fortschritt) => ollamaPull(ollamaUrl, name, fortschritt),
-    tags: () => ollamaTags(ollamaUrl),
+    tags: mitOllama ? () => ollamaTags(ollamaUrl) : async () => [],
     speicherGb: Number(process.env.MODELL_SPEICHER_GB) || totalmem() / 1e9,
     vertraut: new Set(),
     eigener: keypair.pk,
@@ -528,7 +541,7 @@ async function main(): Promise<void> {
   const baueAngebot = async () => {
     const { AUFTEILUNG_FASSUNG, buildCapabilities, defaultPriceFor, DEFAULT_TOOL_PRICES, signEvent, KANAL_PROGRAMM_ID } = await import("@freedomstack/protocol");
     gepruefteModelle = await modellDienst.imAngebot();
-    ollamaNamen = await ollamaTags(ollamaUrl).then((t) => (ollamaStand = t).map((m) => m.name), () => (ollamaStand = null));
+    ollamaNamen = await antriebModelle(antrieb).then((t) => (ollamaStand = t).map((m) => m.name), () => (ollamaStand = null));
     const models = angebotModelle();
     const model = models[0]; // primaer
     // B-41: was angekündigt war, Ollama aber nicht hat, und ein OLLAMA_MODEL außerhalb des Angebots – nur ins Log
@@ -600,8 +613,10 @@ async function main(): Promise<void> {
   const modellTakt = async () => {
     if (await modellDienst.arbeite().catch(() => false)) await pool.publish((await baueAngebot()).ev).catch(() => undefined);
   };
-  void modellTakt();
-  setInterval(() => void modellTakt(), 60_000);
+  if (mitOllama) {
+    void modellTakt();
+    setInterval(() => void modellTakt(), 60_000);
+  } else console.log("[modell] geprüft laden geht bisher nur mit Ollama als KI-Antrieb – Wünsche aus npm run modell warten");
 
   // Zahlkanal: fällige Gutschriften einlösen (ab Schwelle oder vor Ablauf) –
   // nur Kanal, Betrag und Fehlername ins Log

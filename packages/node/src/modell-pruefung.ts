@@ -11,6 +11,7 @@
  * Listen. Nie Text aus Ollama oder der Registry.
  */
 import type { Stufe } from "./einrichtung.js";
+import type { AntriebArt } from "./ki-antrieb.js";
 import { type ModellStand, type Wunsch, offeneWuensche } from "./modell-laden.js";
 
 export interface ModellPruefBefund {
@@ -40,6 +41,12 @@ export const MODELL_TEXT: Record<string, (w: Record<string, number | string>) =>
   "modell.fehltBeiOllama": () => "Ollama kennt das Modell nicht – nicht im Angebot",
   "modell.fehltImAngebot": () => "Ollama kennt keins der angebotenen Modelle – es bleibt im Angebot, Aufträge dafür scheitern",
   "modell.ollamaStumm": () => "Ollama antwortete nicht – Stand ungewiss",
+  "modell.fehltBeimAntrieb": () => "der KI-Antrieb (KI_URL) kennt das Modell nicht – nicht im Angebot",
+  "modell.antriebKenntKeins": () => "der KI-Antrieb kennt keins der angebotenen Modelle – es bleibt im Angebot, Aufträge dafür scheitern",
+  "modell.antriebStumm": () => "der KI-Antrieb antwortete nicht – Stand ungewiss",
+  "modell.nurOllama": () => "geprüft über Ollama geladen – mit diesem KI-Antrieb nicht im Angebot",
+  "modell.ungeprueftAntrieb": () => "angeboten, aber nicht gegen ein Manifest geprüft (PROVIDER_MODELS) – mit diesem KI-Antrieb geht das noch nicht",
+  "modell.ladenNurOllama": () => "gewünscht – geprüft laden geht bisher nur mit Ollama als KI-Antrieb",
   "modell.wartet": () => "gewünscht, wartet auf den Knoten",
   "modell.manifestKeins": () => "kein eigenes Manifest des Knotens – festhalten, was die Registry jetzt nennt: npm run modell -- <name> --aus-registry",
   "modell.manifestUneinig": (w) => `${w.herausgeber} Herausgeber nennen verschiedene Dateien – keine Wahl`,
@@ -63,19 +70,30 @@ export const modellText = (fall: string, werte: Record<string, number | string> 
  * `PROVIDER_MODELS` gegen die Namen bei Ollama (ohne Tag wie Ollama selbst
  * `:latest`), offene Wünsche und das letzte gescheiterte Laden je Name – ein
  * älteres Scheitern zählt nicht, wenn derselbe Name wieder gewünscht ist.
- * `ollama` ist null, wenn Ollama nicht antwortete.
+ * `ollama` ist null, wenn der Antrieb nicht antwortete.
  */
 export function pruefeModelle(e: {
   angeboten: readonly string[];
   stand: ModellStand;
   wuensche: readonly Wunsch[];
+  /** Was der Antrieb kennt (Ollama `/api/tags`, OpenAI-kompatibel `/v1/models`); null ohne Antwort. */
   ollama: ReadonlyArray<{ name: string; digest: string }> | null;
+  /** Seit B-29a: mit einem OpenAI-kompatiblen Antrieb gibt es kein geprüftes Laden (noch nur Ollama). */
+  antrieb?: AntriebArt;
 }): ModellPruefBefund[] {
   const b = (name: string, stufe: Stufe, fall: string, werte?: Record<string, number | string>): ModellPruefBefund =>
     ({ name, stufe, fall, ...(werte ? { werte } : {}), text: modellText(fall, werte) });
   const aus: ModellPruefBefund[] = [];
-  const geprueft = new Set(e.stand.modelle.map((m) => m.name));
+  const openai = e.antrieb === "openai";
+  const fehlt = openai ? "modell.fehltBeimAntrieb" : "modell.fehltBeiOllama";
+  const stumm = openai ? "modell.antriebStumm" : "modell.ollamaStumm";
+  // Geprüft heißt geprüft in Ollama – ein OpenAI-kompatibler Antrieb bedient es nicht
+  const geprueft = new Set(openai ? [] : e.stand.modelle.map((m) => m.name));
   for (const m of e.stand.modelle) {
+    if (openai) {
+      aus.push(b(m.name, "hinweis", "modell.nurOllama"));
+      continue;
+    }
     const t = e.ollama?.find((x) => x.name === m.name);
     aus.push(!e.ollama ? b(m.name, "hinweis", "modell.ollamaStumm")
       : !t ? b(m.name, "fehler", "modell.fehltBeiOllama")
@@ -87,11 +105,11 @@ export function pruefeModelle(e: {
   const keins = !aus.some((x) => x.fall === "modell.geprueft") && ![...e.angeboten].some(hat);
   for (const n of new Set(e.angeboten)) {
     if (geprueft.has(n)) continue;
-    aus.push(!e.ollama ? b(n, "hinweis", "modell.ollamaStumm") : hat(n) ? b(n, "hinweis", "modell.ungeprueft")
-      : b(n, "fehler", keins ? "modell.fehltImAngebot" : "modell.fehltBeiOllama"));
+    aus.push(!e.ollama ? b(n, "hinweis", stumm) : hat(n) ? b(n, "hinweis", openai ? "modell.ungeprueftAntrieb" : "modell.ungeprueft")
+      : b(n, "fehler", keins ? (openai ? "modell.antriebKenntKeins" : "modell.fehltImAngebot") : fehlt));
   }
   const offen = offeneWuensche(e.wuensche, e.stand);
-  for (const w of offen) if (w.name !== e.stand.laeuft?.name) aus.push(b(w.name, "hinweis", "modell.wartet"));
+  for (const w of offen) if (w.name !== e.stand.laeuft?.name) aus.push(b(w.name, "hinweis", openai ? "modell.ladenNurOllama" : "modell.wartet"));
   for (const r of e.stand.ergebnisse) {
     if (r.fall !== "ok" && !offen.some((w) => w.name === r.name)) aus.push(b(r.name, "fehler", modellFall(r.fall), r.werte));
   }
