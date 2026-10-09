@@ -34,6 +34,7 @@
 import { NostrEvent, UnsignedEvent, buildEvent, getTag } from "./event.js";
 import { sha256 } from "@noble/hashes/sha2.js";
 import { bytesToHex } from "@noble/hashes/utils.js";
+import { split as bibliothekTeilen, combine as bibliothekZusammen } from "shamir-secret-sharing";
 import { ProtokollFehler } from "./fehler.js";
 
 /** Lebenszeichen des Besitzers. */
@@ -44,6 +45,14 @@ export const KIND_SUCCESSION_PLAN = 38064;
 export const KIND_RECOVERY_CLAIM = 38065;
 
 // --------------------------------------------------- Shamir über GF(256)
+//
+// Zwei Fassungen der Anteile (SH1, entschieden 09.10.2026):
+//   1  eigenes GF(256) unten (`splitSecret`/`combineShares`) – bis SH1; nur noch
+//      zum Lesen alter Anteile, neue entstehen so nicht mehr
+//   2  die auditierte Bibliothek von Privy (`shamir-secret-sharing`, Cure53 und
+//      Zellic) – seit SH1 (`teileGeheimnis`); ein Anteil ist dort das Geheimnis
+//      plus ein Byte mit seiner Stelle, `index` nur die Nummer des Vertrauten
+// Zusammengesetzt wird beides über `setzeGeheimnisZusammen()`.
 
 // Generator 2 mit dem Polynom 0x11d. Die Kombination ist nicht beliebig:
 // 0x11d mit Generator 3 erreicht nur 51 der 255 Werte, und dann fallen
@@ -78,18 +87,61 @@ export interface Share {
   /** 1..255, nie 0 — bei 0 stünde das Geheimnis im Klartext. */
   index: number;
   data: Uint8Array;
+  /** Fassung der Anteile (SH1): fehlt = 1 (eigenes GF(256)), 2 = Bibliothek von Privy. */
+  fassung?: AnteilFassung;
+}
+
+export type AnteilFassung = 1 | 2;
+/** Neue Anteile entstehen seit SH1 in dieser Fassung. */
+export const ANTEIL_FASSUNG: AnteilFassung = 2;
+
+function pruefeTeilung(n: number, k: number): void {
+  if (k < 2) throw new ProtokollFehler("schwelle-min", "Schwelle muss mindestens 2 sein — bei 1 genügt ein Vertrauter allein.");
+  if (n < k) throw new ProtokollFehler("teile-zu-wenig", `${n} Teile reichen für eine Schwelle von ${k} nicht.`, { n, k });
+  if (n > 255) throw new ProtokollFehler("teile-max", "Höchstens 255 Teile.");
 }
 
 /**
- * Zerlegt ein Geheimnis in n Teile, von denen k zur Rekonstruktion genügen.
+ * Zerlegt ein Geheimnis in n Teile, von denen k genügen – mit der auditierten
+ * Bibliothek (Fassung 2, SH1). Unter k Teilen ist nichts über das Geheimnis bekannt.
+ */
+export async function teileGeheimnis(secret: Uint8Array, n: number, k: number): Promise<Share[]> {
+  pruefeTeilung(n, k);
+  if (secret.length === 0) throw new ProtokollFehler("geheimnis-leer", "Ein leeres Geheimnis lässt sich nicht teilen.");
+  // Die Bibliothek nimmt nur ein echtes Uint8Array, kein Buffer – und die Kopie wird danach genullt
+  const kopie = new Uint8Array(secret);
+  try {
+    const teile = await bibliothekTeilen(kopie, n, k);
+    return teile.map((data, i) => ({ index: i + 1, data, fassung: 2 as const }));
+  } finally {
+    kopie.fill(0);
+  }
+}
+
+/** Setzt das Geheimnis aus k Teilen zusammen – beide Fassungen, nie gemischt. */
+export async function setzeGeheimnisZusammen(shares: Share[]): Promise<Uint8Array> {
+  if (new Set(shares.map((s) => s.fassung ?? 1)).size > 1) {
+    throw new ProtokollFehler("teile-fassungen", "Teile verschiedener Fassungen passen nicht zusammen.");
+  }
+  if ((shares[0]?.fassung ?? 1) === 1) return combineShares(shares);
+  if (shares.length < 2) throw new ProtokollFehler("teile-mindestens", "Mindestens zwei Teile nötig.");
+  const len = shares[0].data.length;
+  if (len < 2 || shares.some((s) => s.data.length !== len)) throw new ProtokollFehler("teile-laengen", "Teile haben verschiedene Längen.");
+  if (new Set(shares.map((s) => s.data[len - 1])).size !== shares.length) {
+    throw new ProtokollFehler("teile-doppelt", "Doppelte Teile — sie tragen nichts bei.");
+  }
+  return bibliothekZusammen(shares.map((s) => new Uint8Array(s.data)));
+}
+
+/**
+ * Fassung 1 (bis SH1): zerlegt ein Geheimnis in n Teile, von denen k zur
+ * Rekonstruktion genügen. Neue Anteile entstehen über `teileGeheimnis()`.
  *
  * Unter k Teilen ist mathematisch nichts über das Geheimnis bekannt — nicht
  * „schwer zu berechnen", sondern nichts.
  */
 export function splitSecret(secret: Uint8Array, n: number, k: number): Share[] {
-  if (k < 2) throw new ProtokollFehler("schwelle-min", "Schwelle muss mindestens 2 sein — bei 1 genügt ein Vertrauter allein.");
-  if (n < k) throw new ProtokollFehler("teile-zu-wenig", `${n} Teile reichen für eine Schwelle von ${k} nicht.`, { n, k });
-  if (n > 255) throw new ProtokollFehler("teile-max", "Höchstens 255 Teile.");
+  pruefeTeilung(n, k);
 
   const shares: Share[] = Array.from({ length: n }, (_, i) => ({
     index: i + 1,
@@ -112,7 +164,7 @@ export function splitSecret(secret: Uint8Array, n: number, k: number): Share[] {
   return shares;
 }
 
-/** Setzt das Geheimnis aus k Teilen wieder zusammen. */
+/** Fassung 1: setzt das Geheimnis aus k Teilen wieder zusammen (alte Anteile bleiben lesbar). */
 export function combineShares(shares: Share[]): Uint8Array {
   if (shares.length < 2) throw new ProtokollFehler("teile-mindestens", "Mindestens zwei Teile nötig.");
   const len = shares[0].data.length;
