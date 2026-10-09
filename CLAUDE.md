@@ -480,7 +480,9 @@ Claude Code lädt sie, sobald eine Datei darin gelesen wird: `packages/app`,
   Baustein dafür (Ausnahmen in `wiring-ausnahmen.txt` mit diesem Grund).
   Auswahl seit P2a nur über `matchProviders()` → `ordneNachPruefung()`
   (`pruefung.ts`): eigene Provider zuerst, dann normale, Neue (bekannte vor
-  unbekannten), Ausreißer, Herabgestufte, gerade und länger Ausgefallene; vorn
+  unbekannten), Ausreißer, Herabgestufte, veraltete Angebote (seit L2-1: zwei
+  Erneuerungen verpasst, `angebotVeraltet()` – je Auswahl mit der Uhr, in Tests
+  `jetzt` übergeben), gerade und länger Ausgefallene; vorn
   zufällig mit 1/Preis² aus `sichererZufall()` – in Tests immer `zufall`
   übergeben, sonst würfelt der Test. Die Stufe kommt nur aus der eigenen
   Messung (ab 20 Anfragen, sonst „neu“), die Qualität nur aus Prüfrunden
@@ -672,3 +674,11 @@ Claude Code lädt sie, sobald eine Datei darin gelesen wird: `packages/app`,
   den Pool). Für Ollama: `model` = Name bei Ollama mit Tag, `upstream` = `ollama:<derselbe>`,
   Dateien heißen `sha256-<hex>` (Schichten und Konfiguration, `ollamaDateien()`).
   *(Weitere Teile: `packages/node/CLAUDE.md`.)*
+- **Rückfall nur nach Stille, Ergebnisse vor Rückmeldungen** (seit L2-2, Lauf 2 des lokalen Agenten):
+  Der Knoten meldet „processing“ (7000, versiegelt wie Zwischenstände), sobald er einen Auftrag
+  angenommen hat (`meldeBearbeitung()`, nach allen Ablehnungen, vor Werkzeugen; über Funk nie). Die
+  App fragt den nächsten nur nach `HEDGE_AFTER_MS` ohne Lebenszeichen (`stummNachMs` in
+  `waitForAnswer()`), nur wenn es einen nächsten gibt und nie mit Gutschrift im Zahlkanal
+  (`perKanal()`) – ein zweiter Provider bekäme eine zweite. `waitForAnswer()` liest Ergebnisse vor
+  Rückmeldungen und eine Ablehnung vor Zwischenständen – bis L2-2 hielt jede Rückmeldung ein
+  fertiges Ergebnis bis zur Frist (5 min) auf. Neue Rückmeldungen nie vor Ergebnisse stellen.

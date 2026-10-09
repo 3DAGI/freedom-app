@@ -6,7 +6,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  PRUEF_GRENZEN, fasseMessungZusammen, merkeMesspunkt, ordneNachPruefung, stufeAus, type PruefKandidat,
+  ANGEBOT_TAKT_SEK, PRUEF_GRENZEN, angebotVeraltet, fasseMessungZusammen, merkeMesspunkt, ordneNachPruefung, stufeAus,
+  type PruefKandidat,
 } from "../src/index.js";
 
 const JETZT = 1_790_000_000;
@@ -56,6 +57,29 @@ test("Auswahl: normale vorn, Neue in der Mitte (bekannte zuerst), Ausreißer, He
   const r = ordneNachPruefung(liste, folge(0.99)).map((x) => x.pk);
   assert.deepEqual(r.slice(2), ["neu-bekannt", "neu", "ausreisser", "wackelt", "gerade-aus", "tot"], "mit Quittungen vor Unbekannten, auch wenn teurer");
   assert.deepEqual(new Set(r.slice(0, 2)), new Set(["gut", "auch-gut"]));
+});
+
+test("L2-1: veraltete Angebote hinter alle frischen, auch hinter Herabgestufte – vor gemessenen Ausfällen", () => {
+  assert.equal(ANGEBOT_TAKT_SEK, 1800, "der Knoten erneuert alle 30 Minuten");
+  assert.equal(PRUEF_GRENZEN.veraltetSek, 2 * 1800 + 300);
+  assert.equal(angebotVeraltet(JETZT - 1800, JETZT), false, "eine Erneuerung verpasst – noch frisch");
+  assert.equal(angebotVeraltet(JETZT - 3900, JETZT), false, "Grenze: zwei Takte plus fünf Minuten");
+  assert.equal(angebotVeraltet(JETZT - 3901, JETZT), true);
+  assert.equal(angebotVeraltet(JETZT + 60, JETZT), false, "aus der Zukunft (Uhr des Knotens) – nicht veraltet");
+  assert.equal(angebotVeraltet(Number.NaN, JETZT), true, "ohne Zeit nie frisch");
+  const k = (pk: string, p: Partial<PruefKandidat>): PruefKandidat => ({ pk, preisMsat: 1000, stufe: "neu", ...p });
+  const liste = [
+    k("tot", { stufe: "ausgefallen", veraltet: true }),
+    k("gerade-aus", { ausfallJetzt: true, veraltet: true }),
+    k("still", { veraltet: true, preisMsat: 1 }),
+    k("still-bekannt", { veraltet: true, bekannt: true, stufe: "normal", vertrauen: 50 }),
+    k("wackelt", { stufe: "herabgestuft" }),
+    k("frisch", {}),
+  ];
+  // Der veraltete Billige (1/Preis² riesig) steht trotzdem nicht vorn – bei einem neuen Nutzer entschied
+  // bisher nur der Zufall, weil lebende und tote gleich „neu“ aussahen; unter Veralteten fest nach Vertrauen, Preis
+  const r = ordneNachPruefung(liste, folge(0)).map((x) => x.pk);
+  assert.deepEqual(r, ["frisch", "wackelt", "still-bekannt", "still", "gerade-aus", "tot"]);
 });
 
 test("Lastverteilung: unter gleich Guten 1/Preis² – halb so teuer, viermal so oft vorn; Vertrauen wiegt mit", () => {
