@@ -163,10 +163,10 @@ Andere Wege:
 
 | Schritt | Inhalt | Spur |
 |---|---|---|
-| E9-1 | `cluster.ts` aufräumen: eigene Kinds (B1), alte Gebühr und Bilanz raus (B2, B3), Angebot 38028, Absprache versiegelt | A |
-| E9-2 | Gratis im Angebot: Tag `gratis` (KI), vierter Wert im `storage`-Tag; `network-capacity.ts` raus; App zeigt und wählt danach | A |
+| E9-1 | `cluster.ts` aufräumen: eigene Kinds (B1), alte Gebühr und Bilanz raus (B2, B3), Angebot 38028, Absprache versiegelt | B (seit 09.10.) |
+| E9-2 | Gratis im Angebot: Tag `gratis` (KI), vierter Wert im `storage`-Tag; `network-capacity.ts` raus; App zeigt und wählt danach | B (seit 09.10.) |
 | E9-3 | Modelle laden im Knoten: Manifest von vertrauten Schlüsseln, `verifyFile()`, `fitsOnDevice()`, `npm run modell`, Selbstprüfung | B |
-| E9-4 | Katalog 38080 mit Manifest-Verweis, App zeigt „geprüft“ je Modell | A |
+| E9-4 | Katalog 38080 mit Manifest-Verweis, App zeigt „geprüft“ je Modell | B (seit 09.10.) |
 | E9-5 | Cluster-Betrieb mit zwei Geräten (Backend wählen, messen) | A, nach F3 |
 
 ## Freigabe vom 08.10.2026 (MENSCH)
@@ -182,4 +182,21 @@ Andere Wege:
   - Kuratoren über Kataloge kommen dazu, sobald E9-4 (Verweis auf das Manifest im Katalog 38080, Spur A) da ist.
   - Ein neuer Befund der Selbstprüfung braucht wie seit B-11c Kennung und Text in `EINRICHTUNG_TEXT`.
 - **E9-5, Cluster-Betrieb:** erst mit zwei Geräten für eine Messung (F3, MENSCH). Bis dahin nur E9-1 (Kinds, alte Gebühr und Bilanz raus, Angebot 38028).
-- **Reihenfolge Spur A:** E9-1, E9-2 (nach A-14), E9-4.
+- **Reihenfolge Spur A:** E9-1, E9-2 (nach A-14), E9-4 – seit 09.10. baut sie Spur B (Abschnitt „Übergabe“ unten).
+
+## Übergabe vom 09.10.2026 (MENSCH)
+
+Spur B baut E9-4, E9-2 und E9-1 – nach E9-3b und in dieser Reihenfolge. Spur A
+baut 11.3. Was dabei gilt:
+
+- **E9-4:** Verweis aufs Manifest (38057) im Katalog 38080, gebaut und gelesen
+  über `baueModellKatalog()`/`leseModellKatalog()`. Die App holt Kataloge weiter
+  ohne Filter nach Kurator (5.7) und zeigt „geprüft“ nur als Text. Im Knoten
+  zählen Kuratoren danach über `vertrautesManifest()` – kein voreingestellter
+  (F5), keine zweite Liste daneben.
+- **E9-2:** nur Speicher – die Gratis-Grenze als vierter Wert im `storage`-Tag
+  (heute Kapazität, Preis, Bootstrap), streng gelesen wie `leseGratisTag()`;
+  `network-capacity.ts` fällt weg, seine Zeilen in `wiring-ausnahmen.txt` mit.
+  Den KI-Teil hat A-14 gebaut (Tag `gratis`, `gratis.ts`) – keinen zweiten
+  einführen.
+- **E9-1:** wie in der Tabelle oben; E9-5 erst mit zwei Geräten.
