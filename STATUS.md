@@ -6814,3 +6814,26 @@ Felder, zu kurz meldet sich), abgebrochen geht nichts hinaus. Der erste volle
 Lauf war hier rot: die alte Prüfung erwartete drei Felder.
 
 Knoten-Stand: nicht betroffen.
+
+## Schritt Anhang E – Integrationen erprobter Projekte (Sammlung)
+
+Auf Wunsch des MENSCHEN geprüft, wo spezialisierte Projekte in ihrem Gebiet
+weiter sind als unsere eigenen Umsetzungen (Vorlage „FreedomStack – Offgrid /
+Anti-Zensur“ und eigene Recherche). MENSCH 09.10.: „Ja zu allen Vorschlägen“,
+dazu Cashu, Atomic Agent und TensorFold.
+
+**Sammlung** (`docs/neuordnung/SAMMLUNG.md`):
+- Abschnitt 2: B-29 bis B-39 (KI-Antrieb wählbar mit vLLM/SGLang/TensorFold,
+  Atomic Agent, MCP mit Kiwix, Reticulum, Pluggable Transports, LiveKit,
+  Negentropy, Bitchat, MeshCore, whisper.cpp/Piper, Iroh-Blobs).
+- Abschnitt 5: Entscheidungen AG1, MC1, RN1, RN2, PT1, LK1, NG1, BC1 (Spur B)
+  und – als Vorschlag für Spur A – E4b (eingebaute Lightning-Wallet: Breez SDK
+  Spark, Cashu nur ehrlich als verwahrt), FR1 (FROSTR), SH1 (Shamir von Privy).
+- Anhang E: alle Projekte mit Nutzen, Weg, vorgeschlagener Spur und Nummer;
+  was nicht übernommen wird und warum.
+
+**FORTSCHRITT:** Zeile Spur B nennt B-29 bis B-39; Vorschlag, B-29 direkt nach
+E9-3b zu bauen.
+
+Kein Code geändert; Knoten-Stand: nicht betroffen.
+

@@ -93,6 +93,17 @@ Reihenfolge: erst die freien Punkte von oben nach unten.
 | B-26 | **Raum anlegen ohne Umweg** (Nutzertest, Befunde R-6, R-5): „Öffentlichen Raum anlegen“ steht nur im Raum-Menü, das es erst in einem Raum gibt – ohne Tresor und ohne Raum ließ sich gar keiner anlegen. Privat ohne Tresor kommt der Hinweis erst nach „Anlegen“, der Name ist dann weg. | `fertig` – „+“ fragt privat oder öffentlich, auch ohne Raum (ohne Tresor öffentlich vorgewählt); privat ohne Tresor bietet erst den Tresor an, der Name bleibt | `shell/tabs/raeume.ts` |
 | B-27 | **Systemprompt des Knotens** (Nutzertest, Befund A-7): fest verdrahtet „Du laeuffst auf … (GX10)“, „Tools: web_search, image_gen, video_gen“ auch ohne diese Werkzeuge, „Knowledge-Cutoff Ende 2024“ – gilt für jeden Provider. Nur sagen, was stimmt. | `fertig` – `systemPrompt()`: nur die Werkzeuge der Anfrage, das heutige Datum, kein fester Knoten | `node/src/inference.ts` |
 | B-28 | **Ersatzschlüssel nicht im Klartext** (Nutzertest, Befund T-2): „Diebstahl vorbeugen“ speichert `freedom-ersatzschluessel.txt` als Klartext. Optional mit Passphrase (Format des Exports, `verschluesseleMitPassphrase()`). | `fertig` – Passphrase vor dem Erzeugen (leer: Klartext wie bisher), Datei im Format des Tresors; der Widerruf nimmt Hex oder die Datei mit Passphrase | `shell/tabs/sicherung.ts`, `datenexport.ts` |
+| B-29 | **KI-Antrieb wählbar** (Integrationen, Anhang E): Der Knoten spricht nur Ollama (`/api/chat`, `/api/tags` in `inference.ts`). Ollama arbeitet gleichzeitige Anfragen standardmäßig nacheinander ab; vLLM und SGLang bündeln sie, TensorFold meldet auf GB10 nach eigenen Messungen 1,6- bis 3-mal so schnell wie vLLM (Nemotron 3.5 Lightning auf CUDA/GB10 laut README geprüft) – nicht unabhängig bestätigt. Ein zweiter Weg neben Ollama über eine OpenAI-kompatible Schnittstelle (vLLM, SGLang; bei TensorFold prüfen), Modelle dafür nur geprüft (E9: Manifest auch für Gewichte außerhalb von Ollama), dazu ein Messskript: dasselbe Modell, Durchsatz bei einer und bei N gleichzeitigen Anfragen. | `frei` – welcher Antrieb auf dem GX10 läuft, entscheidet die Messung (MENSCH, M-7); E9-5 (Cluster, Spur A) bleibt getrennt | `inference.ts`, `modell-laden.ts`, `modell-ollama.ts` |
+| B-30 | **Atomic Agent als Agent-Harness** (Anhang E): Werkzeuge (Browser, Dateien, Shell mit Freigabe, Gedächtnis), MCP und Werkzeugsuche – weit mehr als `tools.ts`. MIT, TypeScript, eigener llama.cpp-Fork. Das Gedächtnis liegt auf der Platte (`~/.atomic-agent`): passt zu eigenen Wegen (Dieses Gerät, Mein Knoten), für Aufträge Fremder nur flüchtig (Regel „Kein Klartext im Knoten“). | `Entscheidung` – AG1 | `tools.ts`, `inference.ts`, 11.3c/d |
+| B-31 | **Werkzeuge über MCP, Wissen ohne Internet** (Anhang E): MCP-Server (TypeScript-SDK) nur hinter `ToolRegistry` (Grenzen aus `WERKZEUG_GRENZEN`), ausführende Werkzeuge nur in einer Sandbox (bubblewrap). Erster Server: Kiwix (Wikipedia offline, `kiwix-serve`) – auch für ein Funk-Gateway ohne Internet (7.4). | `Entscheidung` – MC1 (neue Abhängigkeit) | `tools.ts`, `url-guard.ts`, `docker-compose.yml` |
+| B-32 | **Reticulum als zweiter Funkweg** (Anhang E): Routing über mehrere Sprünge und Träger (LoRa über RNode, Packet-Radio, WLAN, I2P, TCP), Links, Ressourcen und LXMF (Nachrichten warten, bis der Empfänger erreichbar ist). Über Reticulum gehen nur Umschläge (Regel „Mesh nur verschlüsselt“). Ein LoRa-Gerät läuft entweder mit RNode- oder mit Meshtastic-Firmware. Erst ein Entwurf (wie E9). | `Entscheidung` – RN1, RN2 | `mesh-*.ts`, `gateway-role.ts` |
+| B-33 | **Tor mit Pluggable Transports** (Anhang E): Reines Tor wird in Iran und Russland gesperrt; Snowflake, WebTunnel und obfs4 sind dort der erprobte Weg. arti in der Hülle mit den externen Programmen lyrebird und snowflake-client. | `Entscheidung` – PT1 | `packages/launcher` (`tor.rs`, `netz.rs`) |
+| B-34 | **Gruppenanrufe über LiveKit** (Anhang E): SFU als Dienst neben dem Knoten (wie coturn), Ende-zu-Ende über Insertable Streams. LiveKit verteilt keine Schlüssel – der Schlüssel kommt aus der MLS-Gruppe des privaten Raums; die Signalisierung sieht nur der eigene Knoten. | `Entscheidung` – LK1 | `shell/anruf*.ts`, `docker-compose.yml` |
+| B-35 | **Abgleich mit Negentropy** (NIP-77, Anhang E): mit wenig Daten herausfinden, was der anderen Seite fehlt – nach einer Zeit ohne Netz und zwischen dem eigenen Relay und anderen, vor allem über Funk-Gateways. Das Verfahren aus strfry, ohne strfry selbst (keine zweite Annahme-Logik, B-9c1). | `Entscheidung` – NG1 | `relay-role.ts`, `gateway-role.ts` |
+| B-36 | **Bitchat-Protokoll (Bluetooth-Mesh)** in der Android-Hülle (Anhang E): Handy zu Handy ohne Funkgerät, verbunden mit bestehenden Bitchat-Nutzern, Nostr als Brücke – statt Briar. Gemeinfrei, nicht auditiert, feste Gerätekennung im Funk. | `Entscheidung` – BC1 | `packages/launcher` (Android) |
+| B-37 | **MeshCore als zweites LoRa-Format** (Anhang E): Repeater und Room Server halten Nachrichten; spricht nicht mit Meshtastic. Wie 7.5: Format ohne Abhängigkeit, Vektoren aus der Referenz. | `frei` – nachrangig; lohnt, wo das Netz vor Ort MeshCore nutzt | `meshtastic*.ts` als Vorlage |
+| B-38 | **Sprache lokal: whisper.cpp und Piper** (Anhang E): Sprachnachrichten in Text, Antworten vorlesen – als Werkzeuge des eigenen Knotens bzw. von „Dieses Gerät“, Dienste wie ComfyUI. | `frei` – nach B-31 (als MCP-Server) | `tools.ts`, `sprachnachricht.ts` |
+| B-39 | **Iroh-Blobs** (Anhang E): BLAKE3 mit geprüftem Streaming auch für Teilbereiche – weiter als unser Blob-Netz. | `wartet` – auf eine Browser-Fassung von iroh-blobs (angekündigt, nicht bestätigt) | `blob.ts`, `storage-role.ts` |
 
 ---
 
@@ -239,6 +250,17 @@ Entscheidungsvorlage vom 28.09.2026 und sind hier gekürzt.
 | O1 | Öffentliche Räume (Nutzertest 08.10., Befund R-8): Wer beitritt, hat keine Rolle und schreibt nirgends, auch nicht in #allgemein. (Spur B) | A wie @everyone bei Discord: eine Rolle für alle mit den Grundrechten, Kanäle mit Schreibrollen bleiben beschränkt · B Beitreten mit Anfrage, der Gründer vergibt „Mitglied“ · C so lassen | – **entschieden 08.10.2026 (MENSCH):** A – „ja, in Kanälen, die das erlauben, eben wie bei Discord“; B-22 |
 | G1 | Gratis-Start (Nutzertest 08.10., Befund A-1): Vorgabe „Classic“ schickt ein Gebot – ohne Wallet und bei neuen Knoten scheitert die erste Frage. Ein Kontingent je Person kann der Knoten nicht durchsetzen, ohne Anfragen zu verknüpfen (Schlüssel kosten nichts, die App wechselt sie je Unterhaltung, D1b2). Heute: mit „Free“ unbegrenzt gratis, nur 12 Bit Rechenarbeit. (Spur A) | Vorschlag Spur B: Knoten mit Gratis-Budget je Knoten (Vorgabe 100 000 Tokens am Tag, 0 = aus), 16 Bit Rechenarbeit, Kennung `gratis-leer`, Werte im Angebot, Gebote in der Bootstrap-Phase gratis; App mit Tarif „Automatisch“ und Kontingent je Gerät (lokal, in `geheim`), danach einmal fragen, nie still bezahlen; ehrlich: das Gerätekontingent ist eine Fairness-Regel, keine Sperre. Später: anonyme Gratis-Marken (eigene Karte) | – **entschieden 08.10.2026 (MENSCH):** Vorschlag angenommen, das Gerätekontingent zählt **auch Tokens**, nicht nur Antworten („sonst vibecodet einer mit ‚bau mir ein Spiel, antworte erst, wenn du fertig bist‘ ein ganzes Spiel“): je Gerät und Tag höchstens 20 Antworten und 20 000 Tokens (Frage samt Verlauf und Antwort, aus der Abrechnung des Providers), was zuerst erreicht ist; je Gratis-Antwort höchstens 2 000 Tokens (der Knoten begrenzt beim Modell) und Werkzeuge nur gegen Bezahlung; A-14 |
 | H1 | Selbst-Export in der Desktop-Hülle unter Linux: Die CSP der App (`connect-src https: http: wss: ws: data: blob:`) lässt kein `fetch` auf das eigene Schema `freedom://` zu – „App exportieren“ (Weitergeben) scheitert dort (Befund bei 6.1a3c unter Xvfb; Windows nutzt `http://freedom.localhost/` und ist gedeckt). Die Echtheitsprüfung nimmt seit 6.1a3c die Prüfsumme der Hülle. (Spur C) | A `'self'` in `connect-src` (im Browser und vom Knoten schon durch `https:`/`http:` gedeckt – neu erlaubt ist nur der eigene Ursprung der Hülle) · B so lassen, Export nur im Browser | A – **offen** (MENSCH: CSP-Änderung) |
+| AG1 | B-30: Wie kommt Atomic Agent in Freedom? Sein Gedächtnis liegt auf der Platte (`~/.atomic-agent`). (Spur B) | A eigene Wege (Dieses Gerät, Mein Knoten, eigener Agent aus 11.3c/d) mit Gedächtnis; Aufträge Fremder nur flüchtig (kein Gedächtnis, Arbeitsordner je Auftrag, danach gelöscht) · B nur eigene Wege · C ersetzt die Agent-Schleife des Knotens ganz | A |
+| MC1 | B-31: MCP im Knoten – neue Abhängigkeit `@modelcontextprotocol/sdk` (Größe vor dem Einbau nennen). (Spur B) | A ja, Werkzeuge nur hinter `ToolRegistry`, ausführende nur in bubblewrap · B nein | A |
+| RN1 | B-32: Reticulum – Bibliothek oder eigene Umsetzung? (Spur B) | A reticulum-js (`@reticulum/core`, ohne Abhängigkeiten, läuft im Browser) · B eigene Umsetzung mit Vektoren aus Python-RNS wie bei Meshtastic (7.5) | im Entwurf prüfen: A, wenn Größe, Lizenz und Pflege passen, sonst B |
+| RN2 | B-32: Reticulum-Ankündigungen machen eine Adresse im Funk sichtbar. (Spur B) | A eigene Reticulum-Identität je Gerät, nie aus dem Nostr-Schlüssel, Grenze im Datenschutzbericht · B je Sitzung neu (dann kein Zustellen an Abwesende über LXMF) | A |
+| PT1 | B-33: Pluggable Transports in der Hülle – externe Programme (lyrebird, snowflake-client); Größe und Lizenz vor dem Einbau nennen. (Spur B) | A Snowflake und WebTunnel (obfs4 kommt mit lyrebird) · B nur Snowflake · C nicht | A |
+| LK1 | B-34: Gruppenanrufe mit LiveKit als Dienst neben dem Knoten? (Spur B) | A ja, nur in privaten Räumen, Schlüssel aus MLS · B nicht jetzt | A |
+| NG1 | B-35: Negentropy – Referenzbibliothek oder eigene Umsetzung? (Spur B) | A JS-Referenz (hoytech/negentropy) · B eigene Umsetzung mit Vektoren aus der Referenz | B – klein, in Relay und Gateway gleich |
+| BC1 | B-36: Bitchat in der Android-Hülle? Nicht auditiert, feste Gerätekennung im Funk. (Spur B) | A ja, nach B-32, mit Grenze im Datenschutzbericht · B erst nach einem Audit | B |
+| E4b | E4 neu (MENSCH 09.10.: „eingebaute Lightning-Wallet wäre gut – alles soll auch nur mit Lightning gehen“; E4 war am 04.10. A, nur NWC). Cashu verwahrt: Das Geld hinter den Token hält der Betreiber der Mint – Freedom verwahrt nichts, der Nutzer trägt das Risiko der Mint. Breez SDK (Spark) nennt sich nicht verwahrend (vorab signierter Ausstieg auf die Kette), aber zwei von drei Betreibern signieren jede Übertragung mit, und der Ausstieg ohne sie ist in der Praxis noch kaum erprobt. (Spur A) | A nur NWC (wie bisher) · B Breez SDK (Spark) eingebaut · C Cashu eingebaut, Mint vom Nutzer gewählt und immer genannt · D B, dazu C nur für kleine Beträge und ohne Netz (NUT-11, NUT-12) | D |
+| FR1 | FROSTR: der Schlüssel t-von-n über Geräte und Knoten verteilt, gemeinsam signiert (Schnorr wie bisher); ein Audit ist erst geplant. (Spur A) | A über den NIP-46-Bunker testen, sobald die Brücke da ist; eigener Signer erst nach dem Audit · B eigener Signer jetzt | A |
+| SH1 | Nachfolge mit der auditierten Shamir-Bibliothek von Privy (Cure53, Zellic) statt eigenem GF(256) in `succession.ts`: anderes Format der Anteile → neue Fassung samt Übergang (STOPP-Punkt). (Spur A) | A ja, neue Fassung, alte Anteile bleiben lesbar · B nein | A |
 
 ---
 
@@ -363,3 +385,58 @@ ihren Abschnitt (Regel „Ergänzen“) und trägt die Nummer hier nach.
 | T-2 | Ersatzschlüssel als Klartext-Datei | `sicherung.ts` | B | erledigt (B-28) |
 | C-6 | MLS-Antwort brauchte bei offener Unterhaltung ~55 s (folgt aus C-12) | – | A | erledigt (A-15b) |
 | K-2 | Lightning-Adresse im Test nicht erreichbar – erwartbar | – | – | kein Punkt |
+
+---
+
+## Anhang E – Integrationen erprobter Projekte (09.10.2026)
+
+Analyse von Spur B auf Wunsch des MENSCHEN (Vorlage „FreedomStack – Offgrid /
+Anti-Zensur“ und eigene Recherche): Wo ist ein spezialisiertes Projekt in
+seinem Gebiet weiter als unsere eigene Umsetzung? Freedom baut fast alles
+selbst auf den noble-Bibliotheken (Relay-Pool, NIP-44/17/46, NWC, Outbox,
+Shamir, Suche, Git, Markdown, QR, Meshtastic, OTS); der Knoten spricht nur
+Ollama. **MENSCH 09.10.: „Ja zu allen Vorschlägen“** – dazu Cashu (E4b),
+Atomic Agent und TensorFold. Die Spalte „Spur“ ist ein Vorschlag wie in
+Anhang D; jede Spur übernimmt ihre Punkte und trägt die Nummer nach.
+
+Wege, vom unproblematischsten zum heikelsten: Dienst neben dem Knoten
+(Docker-Profil) · Rust-Crate in der Hülle · Protokoll übernehmen und gegen die
+Referenz testen (wie Meshtastic, OTS, QR) · Bibliothek im App-Bundle (neue
+Abhängigkeit = STOPP-Punkt; neues WASM nur nach Freigabe, CSP).
+
+| Projekt | Was es Freedom bringt | Weg | Spur | Stand |
+|---|---|---|---|---|
+| vLLM, SGLang, TensorFold | Mehr Antworten je GPU bei gleichzeitigen Anfragen (Swarm, Prüfrunden, viele Kunden); TensorFold nach eigenen Messungen am schnellsten auf GB10 | Dienst neben dem Knoten | B | B-29 |
+| Atomic Agent | Agent-Harness mit Werkzeugen, Freigaben, MCP, Gedächtnis | Knoten, eigene Wege | B | B-30 |
+| MCP (TypeScript-SDK), Kiwix | Werkzeuge aus einem großen Ökosystem; Wikipedia ohne Internet | Knoten | B | B-31 |
+| Reticulum (reticulum-js) | Routing über mehrere Sprünge und Träger, LXMF | Protokoll, Entwurf zuerst | B | B-32 |
+| arti mit Snowflake, WebTunnel, obfs4 | Tor auch, wo Tor gesperrt ist | Hülle | B | B-33 |
+| LiveKit | Gruppenanrufe Ende-zu-Ende | Dienst neben dem Knoten | B | B-34 |
+| Negentropy (NIP-77) | Abgleich mit wenig Daten | Protokoll | B | B-35 |
+| Bitchat | Bluetooth-Mesh von Handy zu Handy, statt Briar | Hülle (Android) | B | B-36 |
+| MeshCore | LoRa mit Repeatern und Room Servern | Protokoll | B | B-37 |
+| whisper.cpp, Piper | Sprache lokal | Dienst neben dem Knoten | B | B-38 |
+| Iroh-Blobs | geprüftes Streaming großer Dateien | später | B | B-39 |
+| llama.cpp in der Android-Hülle | „Dieses Gerät“ auch auf dem Handy | Hülle | B | zu B-16 (L3) |
+| Breez SDK (Spark), Cashu | eingebaute Lightning-Wallet, Zahlen ohne Netz | App | A | E4b |
+| FROSTR (Bifrost, Igloo) | Schlüssel ohne einzelnen Angriffspunkt | über NIP-46, später Signer | A | FR1 |
+| Shamir von Privy | auditierte Nachfolge-Anteile | App, Protokoll | A | SH1 |
+| qr-scanner bzw. zxing | QR-Scannen auch in Firefox und Safari | App | A | |
+| @solana/kit | Nachfolger von web3.js v1, kleineres Bundle | App, Protokoll | A | |
+| Boltz-Backend | Vorlage für den Ablauf eines Liquiditätsgebers | Vorlage | A | |
+| NDK, Welshman, applesauce | Relay-Auswahl im Outbox-Modell | Vorlage, nicht die Bibliothek | A | |
+| isomorphic-git, ngit | Git im Browser (Diff, Blame, Patches anwenden); `git clone nostr://…` | App | C | |
+| micromark | Markdown nach CommonMark und GFM einlesen, Ausgabe bleibt `markdownDom()` | App | C | |
+
+**Nicht übernommen:** strfry (zweite Annahme-Logik neben dem Relay – nur
+Negentropy), Briar (keine Schnittstelle für andere Apps – Bitchat), Gitea,
+Forgejo, Woodpecker, Stoat, Mattermost, Continuwuity, code-server, DevPod, E2B,
+Verdaccio, Excalidraw, Mastodon (Infrastruktur des Projekts, keine Bausteine der
+App – Entscheidung MENSCH), Nostr-Clients (Partner zum Testen, ob unsere Events
+dort richtig erscheinen).
+
+**Quellen der Zahlen:** TensorFold (README und Releases auf GitHub,
+github.com/ashhart/TensorFold; Nutzerberichte, nicht unabhängig geprüft),
+vLLM gegen Ollama auf dem DGX Spark (Messungen im NVIDIA-Forum), LiveKit
+(docs.livekit.io/transport/encryption), Breez SDK Spark (Breez-Blog,
+WalletScrutiny), Cashu (NUT-11, NUT-12), Shamir (Cure53-Bericht).
