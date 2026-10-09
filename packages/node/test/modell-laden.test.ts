@@ -280,7 +280,9 @@ test("Provider: ein geprüftes Modell aus dem Angebot wird angenommen, ein nicht
     await pool.publish(signEvent(buildEvent(kunde.pk, KIND_DVM_TEXT_GENERATION, [["i", "frage", "text"], ["param", "model", m]], ""), kunde.sk));
     await p.pollOnce();
   }
-  assert.deepEqual(backend.modelle, [NAME, undefined]);
+  // Ein nicht angebotener Wunsch wird nie angenommen – seit B-41 antwortet dann das erste angebotene Modell, nie das
+  // Standardmodell des Backends außerhalb des Angebots (Lauf 2 des lokalen Agenten)
+  assert.deepEqual(backend.modelle, [NAME, "standard:1"]);
 });
 
 test("Verdrahtet: main.ts lädt über den Dienst und bietet Geprüftes an; npm run modell verbindet sich mit keinem Relay", () => {
@@ -292,7 +294,8 @@ test("Verdrahtet: main.ts lädt über den Dienst und bietet Geprüftes an; npm r
   assert.match(main, /manifeste: \(name\) => pool\.query\(\{ kinds: \[KIND_MODEL_MANIFEST\], "#d": \[`model:\$\{name\}`\], limit: 100 \}\)/);
   assert.match(main, /\.\.\.gepruefteModelle,\n  \]\)\];/);
   assert.match(main, /modelle: angebotModelle,/);
-  assert.match(main, /gepruefteModelle = await modellDienst\.imAngebot\(\);\n    const models = angebotModelle\(\);/, "jedes Angebot frisch geprüft");
+  // Seit B-41 fragt das Angebot dazwischen Ollama, welche Modelle es hat (`nurBeiOllama()`)
+  assert.match(main, /gepruefteModelle = await modellDienst\.imAngebot\(\);\n    ollamaNamen = await ollamaTags\(ollamaUrl\)[^\n]*\n    const models = angebotModelle\(\);/, "jedes Angebot frisch geprüft");
   assert.match(main, /if \(await modellDienst\.arbeite\(\)\.catch\(\(\) => false\)\) await pool\.publish\(\(await baueAngebot\(\)\)\.ev\)/);
   assert.match(quelle("../src/dvm-provider.ts"), /const offeredModels = this\.cfg\.modelle\?\.\(\) \?\?/);
   const cli = quelle("../src/modell.ts");

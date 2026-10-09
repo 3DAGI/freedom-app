@@ -129,3 +129,9 @@ Bereichs unten anhängen.
   koppeln` nie). Eine defekte Datei nie ersetzen; ins Log nur Quelle und pubkey – bis B-40 schrieb der
   Knoten den geheimen Schlüssel ins Log und erzeugte ohne Variable bei jedem Start einen neuen (unter
   Docker immer).
+- **Angeboten heißt ausgeliefert** (seit B-41, Lauf 2 des lokalen Agenten): Ohne angebotenen
+  Modellwunsch antwortet der Provider mit dem ersten Modell aus `cfg.modelle()` – nie mit
+  `OLLAMA_MODEL` des Backends, das nicht im Angebot steht. Ins Angebot kommt aus
+  `PROVIDER_MODELS` nur, was Ollama bei jedem Erneuern unter genau dem Namen nennt
+  (`nurBeiOllama()`, ohne Tag „:latest“); bliebe nichts, bleibt die Liste (nie still vom Netz),
+  das Log nennt, was fehlt.
