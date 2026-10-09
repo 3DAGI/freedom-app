@@ -6636,6 +6636,36 @@ sie offen ist“, „einige Stunden“; die Gleichheit von App und Protokoll pr�
 
 Knoten-Stand: nicht betroffen.
 
+## Schritt B-25 – Offene Räume zeigen Neues von selbst (Nutzertest, R-9)
+
+Im Nutzertest sah Alice Carols Nachricht im offenen Raum erst, nachdem sie den
+Raum erneut geöffnet hatte. Private Räume gleicht der Abruftakt ab (2.3b);
+offene Räume luden nur beim Öffnen.
+
+**App** (`shell/tabs/raeume.ts`):
+- `lauscheImRaum()`: Nach dem Laden eines offenen Raums ein Abo auf seine
+  Nachrichten (42, `#space`) und Maßnahmen (34551/34552, `#h`) – ab jetzt
+  (`since`), denn was schon da war, hat `oeffneRaum()` geladen.
+  - Nur für den gewählten Raum: je Raum ein Abo, ein zweiter Aufruf öffnet keins.
+  - Ein Event zählt nur, solange dieser Raum offen ist, nie in einem privaten,
+    nie doppelt (nach Kennung).
+- `beendeLiveAbo()` beim Wechsel des Raums, vor dem ersten `await` – kein Event
+  des alten Raums danach. Ein Abo, das erst nach dem Wechsel zustande kam, wird
+  gleich beendet; ging keins, versucht das nächste Öffnen es neu.
+- `zeichneLiveNeu()`: den Kanal nur neu zeichnen, wenn man ihn sieht – sonst
+  spränge der Lesestand auf jetzt; sonst nur die Kanalliste (Punkte für Neues).
+- Kein Abfragetakt dafür (6.4).
+
+**Tests:**
+- `app/test/raum-live.test.ts` (+3): Filter und `since`, nur offen und nach dem
+  Laden, beendet beim Wechsel, ein Abo je Raum, Neuzeichnen nur sichtbar.
+- Smoke-Test „raum“ (desktop, `live`): `scripts/raum-probe.mts` liefert eine
+  Nachricht von jetzt; `ProbeRelay.zustellen()` schickt sie an die offenen Abos,
+  der Verlauf zeigt sie ohne erneutes Öffnen. Ohne die Änderung:
+  `zugestellt: 0, angezeigt: False` (Gegenprobe).
+
+Knoten-Stand: nicht betroffen.
+
 ## Schritt A-16 – Weniger Verbindungen (Nutzertest, Befund N-1)
 
 Spur A. Im Nutzertest öffnete die App mit Tresor und MLS je rund 140 WebSockets in
