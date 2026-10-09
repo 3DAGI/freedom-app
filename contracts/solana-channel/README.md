@@ -36,7 +36,8 @@ solana program dump --url devnet F9P2PeyySkeQL4d1KAtHjtnVBqzjW3dqbfubY1PChW2m /t
 sha256sum /tmp/kanal.so contracts/solana-channel/target/deploy/solana_channel.so   # gleich
 ```
 
-Die Prüfsumme hängt vom Rechner ab (Pfade landen in der Binary) – verglichen
-wird die eigene Build-Datei mit dem, was danach auf der Kette liegt.
+Verglichen wird die eigene Build-Datei mit dem, was danach auf der Kette liegt.
+Mit Agave 3.1.10 ergab derselbe Stand an zwei Orten dieselbe Summe; auf einem
+anderen Rechner kann sie abweichen (Werkzeuge, Pfade der Abhängigkeiten).
 
 **Nie** durch den Agenten: Deploy, `--final`, Upgrade-Rechte ändern.
