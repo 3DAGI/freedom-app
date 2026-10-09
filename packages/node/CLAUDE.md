@@ -123,3 +123,9 @@ Bereichs unten anhängen.
   `systemPrompt()` (`inference.ts`) – die Werkzeuge genau der Anfrage (aus `getTools()`, mit
   `ohneWerkzeuge` keine), das heutige Datum (UTC); nie ein fester Knoten („GX10“), nie ein
   erfundener Wissensstand. Ein neues Werkzeug kommt über `getTools()` von selbst in den Prompt.
+- **Schlüssel des Knotens nur über `ladeKnotenSchluessel()`** (seit B-40, `knoten-schluessel.ts`,
+  Lauf 2 des lokalen Agenten): `NODE_SECRET_KEY` streng (64 Zeichen Hex, sonst kein Start), sonst
+  `~/.freedom/node-key` (dieselbe Datei wie der Installer, 0600, nur der Knoten legt sie an – `npm run
+  koppeln` nie). Eine defekte Datei nie ersetzen; ins Log nur Quelle und pubkey – bis B-40 schrieb der
+  Knoten den geheimen Schlüssel ins Log und erzeugte ohne Variable bei jedem Start einen neuen (unter
+  Docker immer).

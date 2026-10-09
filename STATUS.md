@@ -7030,3 +7030,39 @@ toter Provider gewählt (L2-1), Rückfall erst nach 5 min statt nach 20 s (L2-2)
 netzweite Ausfall-Kenntnis nur dezentral (L2-3).
 
 Kein Code geändert; Knoten-Stand: nicht betroffen.
+
+## Schritt B-40 – Stabile Knoten-Identität, kein Schlüssel im Log (Lauf 2, L2-5)
+
+Lauf 2 des lokalen Agenten fand zwei Starts desselben Knotens mit zwei
+verschiedenen pubkeys. Nachgeprüft: Ohne `NODE_SECRET_KEY` erzeugte
+`loadKeypair()` (`main.ts`) bei jedem Start einen neuen Schlüssel und schrieb den
+geheimen ins Log. `docker-compose.yml` reichte die Variable nicht durch und
+versprach, das Volume `~/.freedom` erhalte die Identität – unter Docker kostete
+also jeder Neustart Ruf, Zahlkanäle und Kopplung. Der Installer legt
+`~/.freedom/node-key` an und setzt die Variable – nur dort ging es gut.
+
+**Knoten:**
+- `knoten-schluessel.ts` (neu): `ladeKnotenSchluessel(umgebung, datei, { anlegen })`
+  – `NODE_SECRET_KEY` streng (64 Zeichen Hex; leer gilt als nicht gesetzt),
+  sonst `~/.freedom/node-key` (`knotenSchluesselDatei()`, dieselbe wie der
+  Installer); fehlt sie, mit `anlegen` neu (0600, Ordner 0700, `wx` – nie eine
+  Datei ersetzen). Eine defekte Datei startet nicht und wird nie überschrieben;
+  Fehler nur als `SchluesselFehler` mit festem Text.
+- `main.ts`: `loadKeypair()` nur noch darüber; ins Log Quelle und pubkey, beim
+  ersten Mal der Hinweis, die Datei zu sichern. Ungenutzte Importe raus.
+- `koppeln.ts`: derselbe Schlüssel (`anlegen: false` – `npm run koppeln` legt nie
+  einen an).
+- `docker-compose.yml`: `NODE_SECRET_KEY: "${NODE_SECRET_KEY:-}"`, Kommentar zum
+  Volume ehrlich.
+
+**Tests** (`node/test/knoten-schluessel.test.ts`, +4): angelegt mit 0600, danach
+derselbe Schlüssel, leer heißt Datei; Umgebung vor Datei, streng (kürzer, `0x`,
+fremdes Zeichen, länger); defekte Datei nie ersetzt, Fehlertext ohne Inhalt,
+`koppeln` legt nie an; Verdrahtung (beide Aufrufe, kein `generateKeypair()` in
+`main.ts`, Logzeilen ohne geheimen Schlüssel, Compose reicht durch).
+Zusätzlich echt gestartet (ohne Ollama, Abbruch danach): zweimal derselbe pubkey,
+`npm run koppeln` nennt ihn im Kopplungscode, ohne Datei bricht es mit Text ab.
+
+Knoten-Stand: neu nötig, damit die Identität Neustarts überlebt (GX10: die
+Variable ist dort gesetzt – unverändert).
+
