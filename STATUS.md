@@ -18831,6 +18831,32 @@ check-website ok, check_innerhtml Exit 0, Smoke-Test bestanden, build-site Exit 
 Knoten-Stand: neu (E9-3a). Ohne Update bleibt alles wie bisher – `npm run modell`
 gibt es dann noch nicht.
 
+## Schritt A-14b3 – Gratis-Start: Rückfrage vor dem Bezahlen jeden Tag
+
+Spur A, Entscheidung MENSCH vom 09.10.2026 zur offenen Frage aus A-14b2: „Man hat
+jeden Tag wieder den Wechsel von gratis auf zu zahlen – natürlich jeden Tag, wenn
+es passiert.“ Bisher galt die Zustimmung im Tarif „Automatisch“ einmal je Gerät,
+jetzt nur für den Tag (UTC) – wie das Kontingent je Gerät.
+
+**App:**
+- `gratis-kontingent.ts`:
+  - `zustimmungGilt()` gilt nur für den heutigen Tag. Was anderes gespeichert ist,
+    auch die frühere „1“, gilt nicht.
+  - `zustimmungFuer()` liefert den Tag, der gemerkt wird.
+- `shell/gratis-start.ts`: `autoZugestimmt()`/`merkeAutoZustimmung()` lesen und
+  merken nur darüber.
+- Texte (de/en): „Gefragt wird heute nur dieses eine Mal, morgen wieder beim
+  Wechsel“; ohne Wallet: „bevor sie bezahlt, fragt die App einmal am Tag“. Die FAQ
+  sagt „jeden Tag“.
+
+**Tests:** `gratis-kontingent.test.ts` (+1) prüft:
+- später am selben Tag gilt die Zustimmung, am nächsten Tag nicht;
+- `null`, „1“ und ein anderer Tag gelten nicht;
+- gelesen und gemerkt wird nur über die beiden Funktionen.
+
+**Prüfungen:** app 969 grün (+1); protocol, node, Leak, mls, Skripte, Build und
+Smoke wie im Pull Request.
+
 ## Schritt B-23 – Knoten nur mit eigenem Relay hört live mit (Nutzertest, K-1)
 
 Auftrag des MENSCHEN vom 09.10.2026: die Befunde aus dem Nutzertest vom 08.10.

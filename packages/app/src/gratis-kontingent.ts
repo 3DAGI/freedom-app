@@ -110,8 +110,22 @@ export function gratisKandidaten<T extends { caps: Pick<ProviderCapabilities, "c
   return kandidaten.filter((c) => c.caps.currentlyFree && powFuerAnfrage(c.caps.powBits ?? 0, c.caps.gratis) <= maxPow);
 }
 
-/** Zustimmung zum Bezahlen im Tarif „Automatisch“ (A-14b2) – nur auf diesem Gerät. */
+/** Zustimmung zum Bezahlen im Tarif „Automatisch“ (A-14b2) – nur auf diesem Gerät, als Tag (UTC). */
 export const LS_AUTO_BEZAHLEN = "freedom.gratis.bezahlenOk";
+
+/**
+ * Die Zustimmung gilt nur an dem Tag (UTC), an dem sie gegeben wurde – jeden Tag
+ * wechselt „Automatisch“ neu von gratis auf bezahlt, und jeden Tag wird gefragt
+ * (MENSCH 09.10.2026, A-14b3). Was anderes gespeichert ist (auch die frühere „1“), gilt nicht.
+ */
+export function zustimmungGilt(roh: string | null, jetztSek: number): boolean {
+  return roh === tagVon(jetztSek);
+}
+
+/** Was für die Zustimmung gemerkt wird: der heutige Tag (UTC). */
+export function zustimmungFuer(jetztSek: number): string {
+  return tagVon(jetztSek);
+}
 
 export type AutoWahl =
   | { art: "gratis" }
@@ -121,8 +135,8 @@ export type AutoWahl =
 
 /**
  * Tarif „Automatisch“ (A-14b2, G1): gratis, solange das Gerät Kontingent hat
- * und ein Provider gratis anbietet. Sonst bezahlt – das erste Mal nur nach
- * Rückfrage, ohne Wallet gar nicht. Nie still bezahlen.
+ * und ein Provider gratis anbietet. Sonst bezahlt – an jedem Tag erst nach
+ * Rückfrage (A-14b3), ohne Wallet gar nicht. Nie still bezahlen.
  */
 export function waehleAuto(o: { kontingentLeer: boolean; gratisAnbieter: number; zugestimmt: boolean; wallet: boolean }): AutoWahl {
   if (!o.kontingentLeer && o.gratisAnbieter > 0) return { art: "gratis" };

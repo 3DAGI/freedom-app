@@ -4,7 +4,7 @@
  * Stand verrät, wie viel man fragt – und nie in der Sicherung.
  */
 import type { GratisAngebot, ProviderCapabilities } from "@freedomstack/protocol";
-import { GeraeteKontingent, LS_AUTO_BEZAHLEN, gratisKandidaten, tokensDerAntwort } from "../gratis-kontingent.js";
+import { GeraeteKontingent, LS_AUTO_BEZAHLEN, gratisKandidaten, tokensDerAntwort, zustimmungFuer, zustimmungGilt } from "../gratis-kontingent.js";
 import { geheim } from "./tresor.js";
 
 export const geraeteKontingent = new GeraeteKontingent(geheim);
@@ -36,11 +36,11 @@ export function gratisAnbieter<T extends { caps: Pick<ProviderCapabilities, "pub
   return gratisKandidaten(kandidaten, maxPow).filter((c) => leerHeute.get(c.caps.pubkey) !== heute());
 }
 
-/** Zustimmung zum Bezahlen im Tarif „Automatisch“ – einmal gefragt, dann gemerkt. */
+/** Zustimmung zum Bezahlen im Tarif „Automatisch“ – gilt nur heute (UTC), morgen wird neu gefragt (A-14b3). */
 export function autoZugestimmt(): boolean {
-  return localStorage.getItem(LS_AUTO_BEZAHLEN) === "1";
+  return zustimmungGilt(localStorage.getItem(LS_AUTO_BEZAHLEN), Math.floor(Date.now() / 1000));
 }
 
 export function merkeAutoZustimmung(): void {
-  localStorage.setItem(LS_AUTO_BEZAHLEN, "1");
+  localStorage.setItem(LS_AUTO_BEZAHLEN, zustimmungFuer(Math.floor(Date.now() / 1000)));
 }

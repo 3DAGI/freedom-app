@@ -16,7 +16,7 @@ import { readFileSync } from "node:fs";
 import { waehleSicherung } from "@freedomstack/protocol";
 import {
   GERAET_GRATIS, GeraeteKontingent, LS_AUTO_BEZAHLEN, LS_GRATIS_KONTINGENT, gratisKandidaten, kontingentErschoepft, kontingentRest,
-  leseKontingent, powFuerAnfrage, tierFuerListe, tokensDerAntwort, waehleAuto,
+  leseKontingent, powFuerAnfrage, tierFuerListe, tokensDerAntwort, waehleAuto, zustimmungFuer, zustimmungGilt,
 } from "../src/gratis-kontingent.js";
 import type { GeheimSpeicher } from "../src/vault.js";
 
@@ -143,4 +143,16 @@ test("Automatisch verdrahtet: Vorgabe, Rückfrage vor dem Merken, Funk nur grati
   const wege = lies("shell/tabs/agent-wege.ts");
   assert.match(wege, /gratisLeer = true;\s*merkeGratisLeer\(target\);/);
   assert.match(wege, /bid === 0 \? gratisAnbieter\(privat, MAX_POW_APP\) : privat/);
+});
+
+test("Automatisch (A-14b3): die Zustimmung zum Bezahlen gilt nur heute – jeden Tag wird neu gefragt", () => {
+  const heute = zustimmungFuer(JETZT);
+  assert.equal(heute, TAG);
+  assert.ok(zustimmungGilt(heute, JETZT));
+  assert.ok(zustimmungGilt(heute, JETZT + 3600), "später am selben Tag: gilt");
+  assert.ok(!zustimmungGilt(heute, JETZT + 86_400), "am nächsten Tag (UTC): neu fragen");
+  for (const roh of [null, "", "1", "ja", "2026-09-20"]) assert.ok(!zustimmungGilt(roh, JETZT), String(roh));
+  const gs = lies("shell/gratis-start.ts");
+  assert.match(gs, /return zustimmungGilt\(localStorage\.getItem\(LS_AUTO_BEZAHLEN\), /, "gelesen nur über zustimmungGilt()");
+  assert.match(gs, /localStorage\.setItem\(LS_AUTO_BEZAHLEN, zustimmungFuer\(/, "gemerkt wird der Tag, nicht „ja“");
 });
