@@ -26,10 +26,12 @@
  *   Schluesseln; sie bremst die Grenze je Verbindung.
  * - App (seit B-10, Sammlung Neuordnung): mit `app` liefert der Relay auf
  *   demselben Port auch freedom.html aus (`/`, `/freedom.html`) samt Summe –
- *   nur die beim Start gepruefte Datei (`ladeApp()`), aus dem Speicher. * - Im eigenen Prozess (seit B-9c, L5 A): `alsRelay()` – der Knoten liest und
+ *   nur die beim Start gepruefte Datei (`ladeApp()`), aus dem Speicher.
+ * - Im eigenen Prozess (seit B-9c, L5 A): `alsRelay()` – der Knoten liest und
  *   schreibt hier ohne WebSocket, als sei er mit seinem Schluessel angemeldet
  *   (Umschlaege nur an ihn). So erreichen ihn Anfragen, die nur ueber sein
  *   Relay kommen, und seine Antworten liegen dort fuer den Sitzungsschluessel.
+ *   Seit B-23 auch als Dauer-Abo – Anfragen kommen ohne Abfragetakt an.
  */
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { randomBytes } from "node:crypto";
@@ -148,11 +150,19 @@ interface Verbindung {
   abos: Map<string, Record<string, unknown>[]>;
 }
 
+interface InternesAbo {
+  filter: Record<string, unknown>;
+  angemeldet: ReadonlySet<string>;
+  onEvent: (ev: NostrEvent) => void;
+}
+
 export class RelayRole {
   private events = new Map<string, { ev: NostrEvent; seit: number }>();
   /** Ersetzbare Events: Schluessel -> Id der neuesten Fassung. */
   private neueste = new Map<string, string>();
   private verbindungen = new Map<WebSocket, Verbindung>();
+  /** Dauer-Abos des Knotens im eigenen Prozess (`alsRelay()`, seit B-23). */
+  private interneAbos = new Set<InternesAbo>();
   private http?: Server;
   private wss?: WebSocketServer;
   private putzer?: NodeJS.Timeout;
@@ -224,6 +234,7 @@ export class RelayRole {
     clearInterval(this.sicherer);
     this.sichereEvents();
     for (const ws of this.verbindungen.keys()) ws.terminate();
+    this.interneAbos.clear();
     this.wss?.close();
     this.http?.close();
   }
@@ -444,13 +455,6 @@ export class RelayRole {
   }
 
   /**
-   * Der Relay im eigenen Prozess (B-9c, L5 A): Der Knoten liest und schreibt
-   * ohne WebSocket, als sei er mit `ich` angemeldet – Umschlaege bekommt er
-   * nur an sich. Geschrieben wird nach denselben Regeln wie ueber das Netz.
-   * Die Adresse ist die oeffentliche, damit der Pool eine Verbindung zu sich
-   * selbst durch diesen Weg ersetzt (ohne Anmeldung saehe sie keine Umschlaege).
-   */
-  /**
    * Welche Umschläge (1059) an diese Schlüssel hier liegen (B-12b, Weckdienst)
    * – nur für den Knoten im eigenen Prozess, für die Schlüssel, die sein
    * Besitzer zum Wecken gemeldet hat. Geliefert werden Kennung, Zeit und
@@ -463,6 +467,18 @@ export class RelayRole {
       .map((ev) => ({ id: ev.id, created_at: ev.created_at, an: ev.tags.filter((t) => t[0] === "p" && gesucht.has(t[1] ?? "")).map((t) => t[1]!) }));
   }
 
+  /**
+   * Der Relay im eigenen Prozess (B-9c, L5 A): Der Knoten liest und schreibt
+   * ohne WebSocket, als sei er mit `ich` angemeldet – Umschlaege bekommt er
+   * nur an sich. Geschrieben wird nach denselben Regeln wie ueber das Netz.
+   * Die Adresse ist die oeffentliche, damit der Pool eine Verbindung zu sich
+   * selbst durch diesen Weg ersetzt (ohne Anmeldung saehe sie keine Umschlaege).
+   *
+   * Dauer-Abos (seit B-23, Befund K-1 aus dem Nutzertest): erst die
+   * gespeicherten Treffer, dann jedes neue Event wie bei einem REQ ueber das
+   * Netz – sonst lief ein Knoten, der nur sein eigenes Relay nutzt, im
+   * Abfrage-Betrieb, und jede Anfrage wartete bis zu 15 s.
+   */
   alsRelay(ich: string): Relay {
     const angemeldet = new Set([ich]);
     return {
@@ -472,6 +488,16 @@ export class RelayRole {
         if (!r.ok) throw new Error(r.text);
       },
       query: async (f: RelayFilter) => this.gespeichert([f as Record<string, unknown>], { angemeldet }),
+      subscribe: async (f: RelayFilter, onEvent: (ev: NostrEvent) => void, onEose?: () => void) => {
+        const filter = f as Record<string, unknown>;
+        // Dieselbe Regel wie beim REQ: Umschlaege nur an den angemeldeten Empfaenger
+        if (brauchtAnmeldung(filter, angemeldet, this.schuetzen)) throw new Error("auth-required: Umschläge nur an den angemeldeten Empfänger");
+        const abo: InternesAbo = { filter, angemeldet, onEvent };
+        for (const ev of this.gespeichert([filter], { angemeldet })) onEvent(ev);
+        onEose?.();
+        this.interneAbos.add(abo);
+        return () => { this.interneAbos.delete(abo); };
+      },
     };
   }
 
@@ -494,6 +520,15 @@ export class RelayRole {
     for (const [ws, v] of this.verbindungen) {
       if (ws.readyState !== WebSocket.OPEN || !darfAusliefern(ev, v.angemeldet, this.schuetzen)) continue;
       for (const [subId, filters] of v.abos) if (this.matchesAny(filters, ev)) this.reply(ws, ["EVENT", subId, ev]);
+    }
+    // Im eigenen Prozess (B-23): erst nach dem Annehmen – wer im Abo selbst
+    // veroeffentlicht, landet nicht mitten in diesem Durchlauf
+    for (const abo of this.interneAbos) {
+      if (!darfAusliefern(ev, abo.angemeldet, this.schuetzen) || !this.matches(abo.filter, ev)) continue;
+      queueMicrotask(() => {
+        if (!this.interneAbos.has(abo)) return;
+        try { abo.onEvent(ev); } catch { /* ein Fehler des Empfaengers bleibt dort, der Relay laeuft weiter */ }
+      });
     }
   }
 
