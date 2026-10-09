@@ -1880,6 +1880,64 @@ NEUIGKEITEN_KARTEN = {"desktop": [["raumrepo", None, None], ["meins", None, None
 PROBE_MD_BUNDLE = (Path(__file__).resolve().parent.parent / "packages/app/test/fixtures/probe-md.bundle").read_bytes()
 
 
+def post_live_pruefen(browser, url: str) -> dict:
+    """Post sofort (A-15a, Befund C-12): Solange die App offen ist, hält sie nach dem ersten Abgleich ein Abo an
+    den eigenen Schlüssel – ohne `since` (Chat-Umschläge sind zurückdatiert), nur Neues (`limit: 1`). Eine
+    Nachricht eines Kontakts (`scripts/dm-probe.mts`) kommt darüber und steht sofort in der offenen Unterhaltung –
+    der Abgleich des Posteingangs liefe frühestens nach einer Minute wieder."""
+    erg = {"fehler": []}
+    wurzel = Path(__file__).resolve().parent.parent
+    relay = ProbeRelay()
+    seite = DialogSeite(browser, url, relay, erg)
+    s, ev = seite.s, seite.ev
+    ev("() => { location.hash = '#/chat'; }")
+    for _ in range(80):
+        if relay.ich:
+            break
+        s.wait_for_timeout(250)
+    if not relay.ich:
+        seite.ctx.close()
+        return {"bestanden": False, "fehler": ["keine Abfrage der eigenen Relay-Listen – eigener Schlüssel unbekannt"]}
+    text = "Hallo, sofort da (A-15a)"
+    aus = subprocess.run(["npx", "tsx", "scripts/dm-probe.mts", relay.ich, text], cwd=wurzel, capture_output=True, text=True, timeout=180, check=True)
+    probe = json.loads(aus.stdout)
+    # Der Absender wird Kontakt: eine Unterhaltung über „Neue Nachricht“, sie bleibt offen
+    s.wait_for_selector("#chat-new-dm", timeout=30000)
+    ev("() => document.getElementById('chat-new-dm').click()")
+    seite.warte_dialog("Neue Nachricht")
+    seite.tippe(probe["absender"])
+    seite.warte_zu()
+    s.wait_for_function("(pk) => !!document.querySelector(`#chat-list .chat-item.active[data-cid='${pk}']`)", arg=probe["absender"], timeout=10000)
+
+    def post_abos() -> list[dict]:
+        return [f for _, fs in relay.abos.values() for f in fs
+                if f.get("kinds") == [1059] and f.get("#p") == [relay.ich] and f.get("limit") == 1 and "since" not in f]
+    for _ in range(120):
+        if post_abos():
+            break
+        s.wait_for_timeout(250)
+    erg["abo"] = len(post_abos())
+    # Wie ein Relay: gespeichert (für das Nachladen der Unterhaltung) und an die offenen Abos
+    relay.events.append(probe["events"][0])
+    beginn = datetime.datetime.now()
+    erg["zugestellt"] = relay.zustellen(probe["events"][0])
+    try:
+        s.wait_for_function("(t) => [...document.querySelectorAll('#chat-thread .bubble')].some(b => b.textContent.includes(t))", arg=text, timeout=15000)
+        erg["sichtbar_nach_s"] = round((datetime.datetime.now() - beginn).total_seconds(), 1)
+    except Exception:
+        erg["sichtbar_nach_s"] = None
+    if erg["abo"] < 1 or erg["zugestellt"] < 1:
+        erg["fehler"].append(f"Abo für Post: {erg['abo']} offen, {erg['zugestellt']} zugestellt")
+    if erg["sichtbar_nach_s"] is None:
+        erg["fehler"].append("Nachricht nicht sofort in der offenen Unterhaltung (15 s)")
+    erg["browser_dialoge"] = seite.browser_dialoge
+    if seite.browser_dialoge:
+        erg["fehler"].append(f"Browser-Dialoge: {seite.browser_dialoge}")
+    seite.ctx.close()
+    erg["bestanden"] = not erg["fehler"]
+    return erg
+
+
 class ProbeRelay:
     """Relay-Attrappe (seit C.2b2): jede REQ bekommt die passenden Probe-Events und
     EOSE, jedes EVENT ein OK. Den eigenen Schlüssel liest sie aus der Abfrage der
@@ -4394,6 +4452,10 @@ def main() -> int:
             except Exception as e:
                 erg["anruf"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
             try:
+                erg["post_live"] = post_live_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
+            except Exception as e:
+                erg["post_live"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
+            try:
                 erg["privatraum"] = privatraum_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
             except Exception as e:
                 erg["privatraum"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
@@ -4478,6 +4540,7 @@ def main() -> int:
           and erg.get("composer", {}).get("bestanden") is True
           and erg.get("anhang_senden", {}).get("bestanden") is True
           and erg.get("anruf", {}).get("bestanden") is True
+          and erg.get("post_live", {}).get("bestanden") is True
           and erg.get("privatraum", {}).get("bestanden") is True
           and erg.get("einstellungen", {}).get("bestanden") is True
           and erg.get("einnahmen", {}).get("bestanden") is True

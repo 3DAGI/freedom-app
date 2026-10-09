@@ -214,6 +214,17 @@ export async function mlsAbgleichen(gruppen: readonly string[], u: MlsUmgebung =
   return neu;
 }
 
+/**
+ * Abo einer Gruppe (A-15b): Kind 445 mit `#h` an deren Relays – nur Neues (`limit: 1`), was schon liegt,
+ * holt `mlsAbgleichen()`. null ohne Konto (gesperrt) oder wenn die Gruppe nicht (mehr) zum Konto gehört.
+ */
+export async function mlsGruppenAbo(gruppe: string, u: MlsUmgebung = APP): Promise<{ filter: RelayFilter; relays: string[] } | null> {
+  const kl = mlsKonto(u);
+  if (!kl) return null;
+  const a = gruppenAbos((await kl).mls).find((x) => x.gruppe === gruppe);
+  return a ? { filter: { ...a.filter, limit: 1 }, relays: a.relays } : null;
+}
+
 /** Verlauf einer 1:1-Gruppe (zum Anzeigen) – nur Chat. */
 export async function mlsVerlauf(gruppe: string, u: MlsUmgebung = APP): Promise<VerlaufEintrag[]> {
   const k = mlsKonto(u);
