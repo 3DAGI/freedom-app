@@ -222,6 +222,20 @@ export class ModellDienst {
   }
 }
 
+/**
+ * Nur anbieten, was Ollama hat (B-41, Lauf 2 des lokalen Agenten): ein Modell
+ * aus `PROVIDER_MODELS` nur, wenn Ollama es unter genau diesem Namen kennt (ohne
+ * Tag wie Ollama selbst: `:latest`) – sonst scheitert jeder Auftrag dafür. Bliebe
+ * nichts übrig, bleibt die Liste, wie sie war: Der Knoten geht nie still vom Netz,
+ * das Log nennt, was fehlt.
+ */
+export function nurBeiOllama(angeboten: readonly string[], ollama: readonly string[]): { modelle: string[]; fehlen: string[] } {
+  const da = new Set(ollama);
+  const hat = (m: string) => da.has(m) || (!m.includes(":") && da.has(`${m}:latest`));
+  const modelle = angeboten.filter(hat);
+  return { modelle: modelle.length > 0 ? modelle : [...angeboten], fehlen: angeboten.filter((m) => !hat(m)) };
+}
+
 /** `/api/tags` von Ollama: Name und Fingerabdruck je Modell. */
 export async function ollamaTags(basis: string): Promise<Array<{ name: string; digest: string }>> {
   const r = await fetch(`${basis}/api/tags`, { signal: AbortSignal.timeout(10_000) });

@@ -7066,3 +7066,36 @@ Zusätzlich echt gestartet (ohne Ollama, Abbruch danach): zweimal derselbe pubke
 Knoten-Stand: neu nötig, damit die Identität Neustarts überlebt (GX10: die
 Variable ist dort gesetzt – unverändert).
 
+## Schritt B-41 – Angebotenes Modell = ausgeliefertes Modell (Lauf 2, L2-4)
+
+Lauf 2 des lokalen Agenten setzte nur `PROVIDER_MODELS=qwen3.8:27b`; der Knoten
+kündigte Qwen an und antwortete mit Nemotron. Nachgeprüft: Nennt eine Anfrage
+kein angebotenes Modell, gab `dvm-provider.ts` kein Modell weiter, und das
+Backend nahm `OLLAMA_MODEL` (Vorgabe Nemotron). Ebenso stand im Angebot, was in
+`PROVIDER_MODELS` steht, auch wenn Ollama es nicht hat – jeder Auftrag dafür
+scheitert (wie in L2-1 ein toter Provider).
+
+**Knoten:**
+- `dvm-provider.ts`: ohne angebotenen Wunsch das erste Modell aus
+  `cfg.modelle()` – nie ein Modell außerhalb des Angebots.
+- `modell-laden.ts`: `nurBeiOllama(angeboten, ollama)` – nur Modelle, die Ollama
+  unter genau dem Namen nennt (ohne Tag wie Ollama selbst `:latest`); bliebe
+  nichts, bleibt die Liste (nie still vom Netz).
+- `main.ts`: `angebotModelle()` darüber; `baueAngebot()` fragt `/api/tags` bei
+  jedem Erneuern (ohne Antwort keine Aussage); ins Log einmal je Änderung, was
+  fehlt, und ein `OLLAMA_MODEL` außerhalb des Angebots.
+
+Die Selbstprüfung (`einrichtung.ts`, Schienen Lightning und SOL) bleibt
+unverändert – Modelle sind keine Schiene; die Meldung steht im Log.
+
+**Tests** (`node/test/angebot-modell.test.ts`, +3): ohne Wunsch, mit fremdem
+und mit angebotenem Wunsch (Besitzer-Auftrag über den Umschlag; ohne die
+Änderung zweimal das Standardmodell – Gegenprobe rot); `nurBeiOllama()` mit Tag,
+ohne Tag, nichts übrig, leer; Verdrahtung (erst Ollama fragen, dann anbieten).
+Angepasst an die neue Regel (nicht abgeschwächt): zwei Tests aus E9-3a
+(`modell-laden.test.ts`) erwarteten für einen fremden Wunsch das Standardmodell
+(`undefined`) und die Zeilen in `baueAngebot()` direkt hintereinander – jetzt das
+erste angebotene Modell und die Abfrage bei Ollama dazwischen.
+
+Knoten-Stand: neu nötig, damit Angebot und Antwort übereinstimmen.
+
