@@ -10,13 +10,13 @@ import {
   JEDER_RECHTE, JEDER_ROLLE, MELDE_GRUENDE, RAUM_REPO_RECHT, applyModeration, can as darf, darfKanalAendern, gruenderZurKennung, leseRaumAdresse, raumAdresse, raumModeration, raumZustandFuer, type Channel, type ChannelMessage, type MeldeGrund, type Space, type SpaceState, type ThreadView,
 } from "@freedomstack/protocol";
 import { pkShort, schluesselAusEingabe } from "../../shell-logic.js";
-import { ensurePool, signiere, state } from "../state.js";
+import { ensurePool, mitBunker, signiere, state } from "../state.js";
 import { mlsAbgleichen, mlsGesperrt } from "../mls-konto.js";
 import {
   PRIVAT, type PrivaterRaum, aenderePrivatenKanal, einladungsText, entferneAusRaum, gruppeVon, istPrivat, ladeInPrivatenRaum, ladePrivatenRaum, legePrivatenKanalAn, legePrivatenRaumAn, loescheImRaum, meldeImRaum, meldungErledigt, meldungenFuer, privateRaeume, sendePrivat, setzeModeratoren, wennMeldung,
 } from "../raum-mls.js";
 import { $, toast } from "../ui.js";
-import { geheim, tresorEingerichtet } from "../tresor.js";
+import { geheim, richteTresorEin, tresorEingerichtet } from "../tresor.js";
 import { LS_LESESTAND, leseLesestand, schreibeLesestand } from "../../lesestand.js";
 import { bestaetige, dialog, hinweis, type Option } from "../dialog.js";
 import { type MenuePunkt, oeffneMenueAn, wireMenue } from "../menue.js";
@@ -1049,8 +1049,53 @@ async function sendeRaumNachricht(imThread = false): Promise<void> {
  * erzeugen. Damit war die gesamte Raum-Funktion unbenutzbar: Protokoll und
  * Oberflaeche waren da, aber niemand konnte den ersten Schritt tun.
  */
+/** Fehlt für private Räume nur der Tresor? Das lässt sich gleich beheben – Bunker und fehlende Identität nicht. */
+const nurTresorFehlt = (): boolean => !!mlsGesperrt() && !tresorEingerichtet() && !!state.signer && !mitBunker();
+
+/**
+ * Privat geht nur mit Tresor (2.2b-e1) – vorher sagen und gleich anbieten,
+ * nicht erst nach dem Namen (B-26, Nutzertest R-5). Mit Bunker oder ohne
+ * Identität lässt es sich hier nicht beheben: dann nur der Grund.
+ */
+async function privatMoeglich(): Promise<boolean> {
+  const gesperrt = mlsGesperrt();
+  if (!gesperrt) return true;
+  if (!nurTresorFehlt()) {
+    await hinweis(t("komm.anlegenPrivat"), gesperrt);
+    return false;
+  }
+  if (!(await bestaetige({ titel: t("komm.anlegenPrivat"), text: t("raum.privatTresorZuerst"), ok: t("raum.tresorEinrichten") }))) return false;
+  return (await richteTresorEin()) && !mlsGesperrt();
+}
+
+/**
+ * „+“ in der Leiste (B-26, Nutzertest R-6): erst die Art wählen, ohne schon in
+ * einem Raum zu sein – vorher legte „+“ nur private an, und „öffentlich“ stand
+ * nur im Menü eines offenen Raums. Ohne Tresor ist öffentlich vorgewählt. Den
+ * Namen fragt danach `legeRaumAn()` wie aus dem Menü – privat erst, wenn der
+ * Tresor da ist, so geht kein Name verloren.
+ */
+async function waehleRaumArt(): Promise<void> {
+  if (!state.keypair) return;
+  const gesperrt = mlsGesperrt();
+  const w = await dialog({
+    titel: t("komm.raumAnlegen"),
+    felder: [
+      { art: "wahl", name: "art", label: t("raum.art"), pflicht: true, wert: gesperrt ? "offen" : "privat", optionen: [
+        { wert: "privat", text: t("komm.anlegenPrivat"), hinweis: !gesperrt ? t("komm.privatTitel") : nurTresorFehlt() ? t("raum.privatOhneTresor") : gesperrt },
+        { wert: "offen", text: t("komm.anlegenOeffentlich"), hinweis: t("komm.oeffentlichTitel") },
+      ] },
+    ],
+    ok: t("raum.weiter"),
+  });
+  if (!w) return;
+  await legeRaumAn(w.art === "offen");
+}
+
 async function legeRaumAn(oeffentlich = false): Promise<void> {
   if (!state.keypair) return;
+  // Privat ohne Tresor: erst das sagen und anbieten, dann nach dem Namen fragen (B-26)
+  if (!oeffentlich && !(await privatMoeglich())) return;
   // Neue Räume sind privat (2.3b); öffentlich nur ausdrücklich und mit Hinweis
   const w = await dialog({
     titel: t(oeffentlich ? "komm.anlegenOeffentlich" : "komm.anlegenPrivat"),
@@ -1319,6 +1364,8 @@ export async function wireSpacesTab(): Promise<void> {
   });
   const create = $("#space-create");
   if (create) create.onclick = () => void legeRaumAn();
+  // „+“ in der Leiste: privat oder öffentlich, auch ohne Raum (B-26)
+  document.getElementById("rail-create")?.addEventListener("click", () => void waehleRaumArt());
   // Umfrage und Termin anlegen (B-15b) – nur im privaten Raum, im offenen Kanal
   document.getElementById("kanal-umfrage")?.addEventListener("click", () => {
     if (spacesUi.privat && spacesUi.channelId) void neueUmfrage(spacesUi.privat, spacesUi.channelId, () => void raumNeuLaden());

@@ -675,6 +675,60 @@ class DialogSeite:
         return self.stand()
 
 
+def raum_anlegen_pruefen(browser, url: str) -> dict:
+    """Raum anlegen ohne Umweg (B-26, Nutzertest R-6/R-5): „+“ in der Leiste fragt erst privat oder öffentlich – ohne Raum
+    und ohne Tresor ist öffentlich vorgewählt; privat bietet dann zuerst den Tresor an (abgebrochen entsteht nichts),
+    öffentlich führt zum gewohnten Dialog mit Namen und Hinweis."""
+    erg = {"fehler": []}
+    relay = ProbeRelay()
+    seite = DialogSeite(browser, url, relay, erg)
+    s, ev = seite.s, seite.ev
+    ev("() => { location.hash = '#/chat'; }")
+    s.wait_for_selector("#rail-create", state="visible", timeout=30000)
+    optionen = """() => [...document.querySelectorAll('[role=dialog] .dlg-option')].map(o => [o.querySelector('input').value,
+      o.querySelector('input').checked, o.querySelector('.dlg-option-text').firstChild.textContent])"""
+    # Privat ohne Tresor: erst der Tresor, abbrechen legt nichts an
+    ev("() => document.getElementById('rail-create').click()")
+    auf = seite.warte_dialog("Raum anlegen")
+    wahl = ev(optionen)
+    ev("() => document.querySelector('[role=dialog] input[value=privat]').click()")
+    s.keyboard.press("Enter")
+    tresor = seite.warte_dialog("Raum anlegen (privat)")
+    tresor_knopf = ev("() => [...document.querySelectorAll('[role=dialog] button')].map(b => b.textContent)")
+    s.keyboard.press("Escape")
+    seite.warte_zu()
+    nichts = [len([e for e in relay.gesendet if e.get("kind") == 34700]), ev("() => document.querySelectorAll('#space-rail .space-pill').length")]
+    # Öffentlich ohne Raum: der gewohnte Dialog mit Hinweis und Namen, danach die Adresse
+    ev("() => document.getElementById('rail-create').click()")
+    seite.warte_dialog("Raum anlegen")
+    s.keyboard.press("Enter")
+    name_dialog = seite.warte_dialog("öffentlichen Raum anlegen")
+    seite.tippe("Ohne Umweg")
+    angelegt = seite.warte_dialog("Raum angelegt")
+    s.keyboard.press("Escape")
+    seite.warte_zu()
+    definitionen = [e for e in relay.gesendet if e.get("kind") == 34700]
+    stand = [ev("() => document.getElementById('space-name').textContent"), len({e["id"] for e in definitionen}),
+             ev("() => document.querySelectorAll('#space-rail .space-pill').length")]
+    erg.update({"wahl": [auf["felder"], wahl], "tresor": [tresor["text"], tresor_knopf], "nichts": nichts,
+                "name_dialog": name_dialog["felder"], "angelegt": angelegt["felder"], "stand": stand, "browser_dialoge": seite.browser_dialoge})
+    if auf["felder"] != ["Welcher Raum?"] or wahl != [["privat", False, "Raum anlegen (privat)"], ["offen", True, "öffentlichen Raum anlegen"]]:
+        erg["fehler"].append(f"Wahl {erg['wahl']}")
+    if not (tresor["text"] or "").startswith("Private Räume sind Ende-zu-Ende-verschlüsselt") or "Tresor einrichten" not in tresor_knopf:
+        erg["fehler"].append(f"privat ohne Tresor {erg['tresor']}")
+    if nichts != [0, 0]:
+        erg["fehler"].append(f"abgebrochen und doch angelegt {nichts}")
+    if name_dialog["felder"] != ["Name des öffentlichen Raums:"]:
+        erg["fehler"].append(f"Name öffentlich {name_dialog['felder']}")
+    if stand != ["Ohne Umweg", 1, 1] or "Raum-Adresse" not in angelegt["felder"]:
+        erg["fehler"].append(f"öffentlich ohne Raum {stand} {angelegt['felder']}")
+    if seite.browser_dialoge:
+        erg["fehler"].append(f"Browser-Dialoge {seite.browser_dialoge}")
+    seite.ctx.close()
+    erg["bestanden"] = not erg["fehler"]
+    return erg
+
+
 def waehrung_pruefen(browser, url: str) -> dict:
     """Währung (C-1a): Tausch über Dialoge statt prompt()/confirm() – Betrag und Adresse prüft der Dialog,
     abgebrochen geht nichts hinaus. Senden (12.7a): Ziel, Betrag, Bestätigung, ohne Wallet ehrlich gescheitert. Empfangen (12.7b): ohne Wallet ein Hinweis. Verlauf (12.7c): leer, Lightning ohne NWC. LP-Angebote aus `scripts/lp-probe.mts` über die Relay-Attrappe."""
@@ -4445,6 +4499,10 @@ def main() -> int:
             except Exception as e:
                 erg["raum"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
             try:
+                erg["raum_anlegen"] = raum_anlegen_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
+            except Exception as e:
+                erg["raum_anlegen"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
+            try:
                 erg["karte"] = karte_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
             except Exception as e:
                 erg["karte"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
@@ -4511,6 +4569,7 @@ def main() -> int:
           and erg.get("fremdtext", {}).get("bestanden") is True
           and erg.get("zugang", {}).get("bestanden") is True
           and erg.get("raum", {}).get("bestanden") is True
+          and erg.get("raum_anlegen", {}).get("bestanden") is True
           and erg.get("karte", {}).get("bestanden") is True
           and erg.get("qr", {}).get("bestanden") is True
           and erg.get("werben", {}).get("bestanden") is True

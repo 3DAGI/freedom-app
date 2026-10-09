@@ -6665,3 +6665,39 @@ offene Räume luden nur beim Öffnen.
   `zugestellt: 0, angezeigt: False` (Gegenprobe).
 
 Knoten-Stand: nicht betroffen.
+
+## Schritt B-26 – Raum anlegen ohne Umweg (Nutzertest, R-6 und R-5)
+
+Im Nutzertest konnte Carol (Handy, ohne Tresor) gar keinen Raum anlegen:
+- **R-6:** „+“ in der Leiste legte nur private Räume an, „öffentlichen Raum
+  anlegen“ stand nur im Menü eines offenen Raums – das es erst in einem Raum gibt.
+- **R-5:** Privat ohne Tresor kam der Hinweis erst nach dem Namen, der Name war
+  dann weg, und einen Weg zum Tresor gab es nicht.
+
+**App** (`shell/tabs/raeume.ts`):
+- `waehleRaumArt()` an „+“ (`#rail-create`): erst „Welcher Raum?“ – privat oder
+  öffentlich. Ohne Tresor ist öffentlich vorgewählt; der Hinweis bei privat sagt,
+  dass die App den Tresor gleich anbietet (mit Bunker nennt er den Grund). Danach
+  fragt `legeRaumAn()` den Namen wie aus dem Raum-Menü – mit Hinweis.
+- `privatMoeglich()` in `legeRaumAn()` vor dem Namen (für „+“ und das Menü):
+  ohne Tresor erst sagen und `richteTresorEin()` anbieten – der Name kommt erst
+  danach, so geht keiner verloren. Mit Bunker oder ohne Identität lässt es sich
+  hier nicht beheben: dann nur der Grund.
+- `legeRaumAn(oeffentlich = false)` bleibt sonst, wie es war – zwei Tests (Leak
+  „private Räume sind der Standard“, C.2b1 „ohne Namen nichts angelegt“) prüfen
+  es wörtlich und sind unverändert grün.
+- `kommunikation.ts` (Spur C, eine Zeile): „+“ leitet nicht mehr an
+  `#space-create` weiter, `raeume.ts` verdrahtet es selbst.
+
+**Tests:**
+- `app/test/raum-anlegen.test.ts` (+2): Verdrahtung an genau einer Stelle, die
+  Wahl ohne Namen (nie zweimal gefragt), `privatMoeglich()` vor dem Namen, nur der
+  fehlende Tresor ist zu beheben.
+- Smoke-Test „raum_anlegen“ (neu): ohne Tresor und ohne Raum öffentlich
+  vorgewählt; privat → „Tresor einrichten“, abgebrochen entsteht nichts;
+  öffentlich → der gewohnte Dialog mit Namen → angelegt, die Adresse gleich da;
+  kein Browser-Dialog.
+- Smoke-Test „raum“ unverändert grün: Das Raum-Menü öffnet ohne Tresor jetzt das
+  Tresor-Angebot, mit demselben Titel „Raum anlegen (privat)“.
+
+Knoten-Stand: nicht betroffen.
