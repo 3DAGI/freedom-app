@@ -41,8 +41,6 @@ export const agent: Texte = {
   "agent.katalogVeroeffentlichen": { de: "eigenen Katalog veröffentlichen", en: "publish your own catalog" },
   "agent.repositories": { de: "Repositories", en: "Repositories" },
   "agent.reposText": { de: "Git-Bundles liegen im Speichernetz; Zusammenarbeit (Patches, Annahme) läuft nach NIP-34.", en: "Git bundles live in the storage network; collaboration (patches, acceptance) follows NIP-34." },
-  "agent.repoNamePh": { de: "Repo-Name", en: "repo name" },
-  "agent.bundlePublizieren": { de: "⇪ Bundle publizieren", en: "⇪ Publish bundle" },
   "agent.nip34Text1": { de: "Ankündigungen, Patches und Annahmen sind öffentlich und mit deinem Schlüssel signiert – wie bei jedem Git-Projekt. Andere Nostr-Clients (ngit, gitworkshop) lesen sie auch. Einen Patch erzeugst du mit", en: "Announcements, patches and acceptances are public and signed with your key – like in any Git project. Other Nostr clients (ngit, gitworkshop) read them too. You create a patch with" },
   "agent.nip34Text2": { de: "; angenommen ist er, wenn Eigentümer oder Maintainer es sagen.", en: "; it is accepted when the owner or a maintainer says so." },
   "agent.repoKennungPh": { de: "Repo-Kennung", en: "repo identifier" },

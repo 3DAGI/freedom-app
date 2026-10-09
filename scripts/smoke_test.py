@@ -1492,12 +1492,9 @@ def privatraum_repo(ada: "DialogSeite", bo: "DialogSeite", relay: "ProbeRelay", 
     Ada sieht den Patch – alles als innere Events, auf dem Relay nur Chiffrat."""
     ada.s.wait_for_function("() => document.getElementById('space-repo-neu')?.classList.contains('hidden') === false", timeout=30000)
     ada.ev("() => document.getElementById('space-repo-neu').click()")
-    ada.warte_dialog("Repo ankündigen")
+    # Seit C-36 eine Rückfrage: was geschieht, steht im Dialog selbst – Enter legt an
+    frage = ada.warte_dialog("Repo ankündigen")
     ada.tippe(repo_id)
-    # Die Rückfrage trägt denselben Titel – auf ihren Text warten
-    ada.s.wait_for_function("() => /im privaten Raum anlegen\\?/.test(document.querySelector('[role=dialog] .dlg-text')?.textContent ?? '')", timeout=10000)
-    frage = ada.stand()
-    dialog_ok(ada, "Repo ankündigen")
     ada.warte_zu()
     liste = "() => [...document.querySelectorAll('#raum-repos .raum-repo')].map(b => b.textContent)"
     try:
@@ -3601,15 +3598,18 @@ def raum_pruefen(browser, url: str) -> dict:
         except Exception:
             pass
         mitwirkende = ev("() => document.querySelectorAll('#repo-seite .repo-mitwirkende .usage-row').length")
+        # C-36 (Nutzertest G-3): die Mitwirkenden des Projekts nicht zusätzlich unter der Repo-Seite
+        projekt_mitwirkende = [ev("() => document.getElementById('repos-mitwirkende').classList.contains('hidden')")]
         ev("() => document.querySelector('.repo-zurueck').click()")
+        projekt_mitwirkende.append(ev("() => document.getElementById('repos-mitwirkende').classList.contains('hidden')"))
+        if projekt_mitwirkende != [True, False] or ev("() => !!document.getElementById('git-repo-publish')"):
+            erg["fehler"].append(f"{groesse}: Mitwirkende/Bundle-Knopf in der Liste {projekt_mitwirkende}")
         # Suche von oben leeren, sonst bleibt das neue Repo verborgen
         ev("() => { const s = document.getElementById('repos-suche'); s.value = ''; s.dispatchEvent(new Event('input')); }")
         ev("() => document.getElementById('nip34-ankuendigen').click()")
         s.wait_for_timeout(200)
         s.keyboard.type("meins")
-        s.keyboard.press("Enter")  # Dialog: Kennung
-        s.wait_for_timeout(200)
-        s.keyboard.press("Enter")  # Rückfrage: ankündigen
+        s.keyboard.press("Enter")  # Dialog: Kennung – seit C-36 ohne zweite Rückfrage
         try:
             s.wait_for_function("() => [...document.querySelectorAll('#repos-karten .repo-name')].some(n => n.textContent === 'meins')", timeout=5000)
         except Exception:
@@ -4231,11 +4231,10 @@ def raum_pruefen(browser, url: str) -> dict:
                 pass
             ev("() => document.getElementById('space-repo-neu')?.click()")
             s.wait_for_timeout(200)
-            s.keyboard.type("raumrepo")
-            s.keyboard.press("Enter")  # Dialog: Kennung
-            s.wait_for_timeout(200)
+            # Seit C-36 steht der Hinweis im Dialog selbst, Enter legt an
             frage = ev("() => document.querySelector('[role=dialog] .dlg-text')?.textContent ?? ''")
-            s.keyboard.press("Enter")  # Rückfrage: ankündigen
+            s.keyboard.type("raumrepo")
+            s.keyboard.press("Enter")
             try:
                 s.wait_for_function("() => [...document.querySelectorAll('#raum-repos .raum-repo')].some(b => b.textContent === 'raumrepo')", timeout=10000)
             except Exception:
@@ -4244,7 +4243,7 @@ def raum_pruefen(browser, url: str) -> dict:
             verweis_raum = [t[1] for t in (neu_im_raum[-1]["tags"] if neu_im_raum else []) if t[0] == "a"]
             liste_raum = ev("() => [...document.querySelectorAll('#raum-repos .raum-repo')].map(b => b.textContent)")
             erg["desktop"]["repo_im_raum"] = {"frage": frage, "verweis": verweis_raum, "liste": liste_raum}
-            if not frage.startswith("Repo „raumrepo“ im öffentlichen Raum „Werkstatt“ ankündigen?") or not werkstatt \
+            if not frage.startswith("Öffentlich im Raum „Werkstatt“") or not werkstatt \
                     or verweis_raum != [f"34700:{relay.ich}:space:{werkstatt}"] or liste_raum != ["raumrepo"]:
                 erg["fehler"].append(f"desktop: Repo im Raum anlegen {erg['desktop']['repo_im_raum']} {werkstatt}")
         # Seit C-20f: Neues seit dem letzten Blick. Den Blick auf „werkzeug“ zurückdrehen (ohne Tresor liegt er wie jedes

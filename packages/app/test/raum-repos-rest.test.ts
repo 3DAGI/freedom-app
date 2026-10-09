@@ -32,7 +32,9 @@ test("C-15: „Wo“ bietet auch öffentliche Räume mit repos_pflegen – die A
   assert.match(an, /const oeffentlich = imRaum \? \[\] : await meineRepoRaeume\(\)\.catch\(\(\) => \[\]\);/);
   assert.match(an, /\.\.\.oeffentlich\.map\(\(r\) => \(\{ wert: OEFFENTLICH \+ r\.adresse, text: t\("repo\.oeffentlicherRaum", \{ name: r\.name \}\) \}\)\)/);
   assert.match(an, /const raum = imRaum && "adresse" in imRaum \? imRaum\.adresse : gewaehlt\?\.adresse;/);
-  assert.match(an, /raum: imRaum\?\.name \?\? gewaehlt\?\.name \?\? ""/, "die Rückfrage nennt den Raum");
+  // Seit C-36 eine Rückfrage statt zwei: der Dialog sagt, was geschieht; der gewählte Raum steht in der Wahl
+  assert.doesNotMatch(an, /bestaetige\(/, "keine zweite Rückfrage");
+  assert.match(an, /titel: t\("agent\.repoAnkuendigen"\), ok: t\("agent\.repoAnkuendigen"\), text: hinweis,/);
   // meineRepoRaeume() wählt nur beigetretene Räume, in denen ich das Recht habe (raumAuswahl, 11.4a)
   assert.match(repos, /return raumAuswahl\(await raumStruktur\(kennungen\), state\.keypair\.pk\)/);
 });

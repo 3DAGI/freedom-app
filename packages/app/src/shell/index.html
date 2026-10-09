@@ -576,16 +576,11 @@
               </div>
               <button id="nip34-ankuendigen" class="ghost mini" type="button" data-i18n="agent.repoAnkuendigen">Repo ankündigen</button>
             </div>
-            <div class="composer-meta repos-bundle">
-              <input id="git-repo-name" data-i18n-aria="agent.repoNamePh" placeholder="Repo-Name" data-i18n-ph="agent.repoNamePh" style="width:120px" />
-              <button id="git-repo-publish" class="ghost copy-btn" data-i18n="agent.bundlePublizieren">⇪ Bundle publizieren</button>
-              <input type="file" id="git-bundle-file" accept=".bundle" style="display:none" />
-            </div>
             <div id="repos-karten" class="repos-karten"><span class="mono-sm" data-i18n="agent.lade">lade …</span></div>
             <p class="mono-sm muted"><span data-i18n="agent.nip34Text1">Ankündigungen, Patches und Annahmen sind öffentlich und mit deinem Schlüssel signiert – wie bei jedem Git-Projekt. Andere Nostr-Clients (ngit, gitworkshop) lesen sie auch. Einen Patch erzeugst du mit</span> <code>git format-patch -1</code><span data-i18n="agent.nip34Text2">; angenommen ist er, wenn Eigentümer oder Maintainer es sagen.</span></p>
           </div>
           <div id="repo-seite" class="card repo-seite hidden"></div>
-        <div class="card">
+        <div id="repos-mitwirkende" class="card">
           <h3><span class="ic" data-icon="code"></span> <span data-i18n="earn.mitwirkende">Mitwirkende</span></h3>
           <p class="mono-sm" data-i18n="earn.mitwirkendeText">Wer mitarbeitet und ob das Projekt an einer Person hängt. Gezählt werden aktive Tage.</p>
           <div id="contrib-list" class="mono-sm"><span data-i18n="earn.lade">lade …</span></div>
