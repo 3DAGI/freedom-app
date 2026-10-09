@@ -17,6 +17,8 @@ import { bestaetige, dialog } from "../dialog.js";
 import { geraeteBuch } from "./posteingang.js";
 import { aktualisiereSicherheitsStand, nurHauptidentitaet, richteNachfolgeEin } from "./settings.js";
 import { ankereMandat } from "../zeitanker-takt.js";
+import { istErsatzDatei, leseErsatz } from "../../ersatz-datei.js";
+import { verschluesselungMoeglich } from "../../sicherer-kontext.js";
 
 
 /** Was das Zusammenfuehren (B-5) tut – vor dem Schreiben gezeigt. */
@@ -221,6 +223,24 @@ async function bereiteWechselVor(): Promise<void> {
     await import("@freedomstack/protocol");
 
   if (!(await bestaetige({ titel: t("set.schritt3"), text: fliesstext(wechselWarnung()), ok: t("set.ersatzErzeugen") }))) return;
+  // Die Datei auf Wunsch mit Passphrase (B-28, Nutzertest T-2) – gefragt, bevor etwas entsteht; ohne crypto.subtle nur Klartext
+  let passphrase = "";
+  if (verschluesselungMoeglich()) {
+    const w = await dialog({
+      titel: t("set.ersatzPassTitel"),
+      text: t("set.ersatzPassText"),
+      felder: [
+        { name: "pass", label: t("set.ersatzPass"), art: "text", verdeckt: true },
+        { name: "pass2", label: t("set.exportPass2"), art: "text", verdeckt: true },
+      ],
+      ok: t("set.ersatzSpeichern"),
+      pruefe: (w) => (!String(w.pass ?? "") ? null
+        : String(w.pass).normalize("NFC").length < MIN_PASSPHRASE ? t("ein.passZuKurz", { n: MIN_PASSPHRASE })
+          : w.pass !== w.pass2 ? t("set.exportPassUngleich") : null),
+    });
+    if (!w) return;
+    passphrase = String(w.pass ?? "");
+  }
   try {
     const ersatz = generateKeypair();
     const mandat = await signiere(buildRotationMandate(state.keypair.pk, ersatz.pk));
@@ -229,12 +249,12 @@ async function bereiteWechselVor(): Promise<void> {
     await ankereMandat(mandat);
 
     // Der Ersatz darf NICHT auf diesem Geraet bleiben — wer beides hat, ist du.
-    const url = URL.createObjectURL(new Blob([
-      t("set.ersatzDatei", { privat: th(ersatz.sk), oeffentlich: ersatz.pk }),
-    ], { type: "text/plain" }));
+    const { baueErsatzDatei } = await import("../../ersatz-datei.js");
+    const datei = await baueErsatzDatei(th(ersatz.sk), ersatz.pk, t("set.ersatzDatei", { privat: th(ersatz.sk), oeffentlich: ersatz.pk }), passphrase || undefined);
+    const url = URL.createObjectURL(new Blob([datei.inhalt], { type: datei.typ }));
     const a = document.createElement("a");
     a.href = url;
-    a.download = "freedom-ersatzschluessel.txt";
+    a.download = datei.name;
     a.click();
     URL.revokeObjectURL(url);
 
@@ -265,11 +285,15 @@ async function widerrufeSchluessel(): Promise<void> {
     felder: [
       { art: "text", name: "alt", label: t("set.welcherGestohlen"), wert: state.keypair?.pk ?? "", pflicht: true, mono: true },
       { art: "text", name: "ersatz", label: t("set.ersatzFrage"), pflicht: true, mono: true, verdeckt: true },
+      // Seit B-28 auch der Inhalt der verschlüsselten Ersatz-Datei – mit ihrer Passphrase
+      { art: "text", name: "ersatzPass", label: t("set.ersatzPassWiderruf"), verdeckt: true },
       { art: "text", name: "seit", label: t("set.seitWann"), typ: "date" },
     ],
     pruefe: (w) => {
       if (!pubkeyAus(w.alt)) return t("set.keinPubkey");
-      if (!/^[0-9a-f]{64}$/.test(String(w.ersatz).trim().toLowerCase())) return t("set.ersatzHex");
+      const datei = istErsatzDatei(String(w.ersatz));
+      if (!datei && !/^[0-9a-f]{64}$/.test(String(w.ersatz).trim().toLowerCase())) return t("set.ersatzHex");
+      if (datei && !String(w.ersatzPass ?? "")) return t("set.ersatzPassFehlt");
       const seit = seitAus(w.seit);
       return seit !== undefined && !Number.isFinite(seit) ? t("set.datumUnlesbar") : null;
     },
@@ -278,9 +302,11 @@ async function widerrufeSchluessel(): Promise<void> {
   });
   if (!w) return;
   const alt = pubkeyAus(w.alt);
-  const ersatzHex = String(w.ersatz).trim().toLowerCase();
+  const ersatzHex = await leseErsatz(String(w.ersatz), String(w.ersatzPass ?? "")).catch(() => undefined);
+  if (ersatzHex === undefined) return toast(t("set.ersatzFalschePass"), true);
   const seitUnix = seitAus(w.seit);
   if (!alt || (seitUnix !== undefined && !Number.isFinite(seitUnix))) return;
+  if (!ersatzHex) return;
   if (!/^[0-9a-f]{64}$/.test(ersatzHex)) return;
 
   const sk = fromHex(ersatzHex);

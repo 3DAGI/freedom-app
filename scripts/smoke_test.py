@@ -1480,6 +1480,7 @@ def privatraum_pruefen(browser, url: str) -> dict:
 def einstellungen_pruefen(browser, url: str) -> dict:
     """Settings (C-1c): Widerruf, Nachfolge und „für jemanden melden“ über Dialoge statt prompt()/confirm() –
     Fehler melden sich im Dialog, der private Ersatzschlüssel steht verdeckt, abgebrochen geht nichts hinaus.
+    „Diebstahl vorbeugen“ fragt seit B-28 nach einer Passphrase, bevor ein Schlüssel entsteht.
     Dazu im Profil die SOL-Adresse (12.6): öffentlich nur mit Häkchen nach der Warnung."""
     erg = {"fehler": []}
     relay = ProbeRelay()
@@ -1503,6 +1504,21 @@ def einstellungen_pruefen(browser, url: str) -> dict:
     wr["fokus"] = ev("() => document.activeElement?.textContent")
     feld(1, "abc")
     wr_falsch = bestaetigen()
+    # Seit B-28 auch der Inhalt der verschlüsselten Ersatz-Datei – ohne ihre Passphrase meldet sich der Dialog
+    feld(1, '{"art":"freedom-ersatzschluessel","version":1,"oeffentlich":"' + "ab" * 32 + '","chiffre":"x"}')
+    wr_datei = bestaetigen()
+    seite.s.keyboard.press("Escape")
+    seite.warte_zu()
+    # Diebstahl vorbeugen (B-28, Nutzertest T-2): nach der Warnung erst die Frage nach der Passphrase – bevor ein
+    # Schlüssel entsteht; zu kurz meldet sich im Dialog, abgebrochen geht nichts hinaus (Prüfung „gesendet“ unten)
+    ev("() => document.getElementById('rotation-prepare').click()")
+    seite.warte_dialog("Diebstahl vorbeugen")
+    bestaetigen()
+    ep = seite.warte_dialog("Ersatzschlüssel verschlüsseln?")
+    ep["typen"] = ev("() => [...document.querySelectorAll('[role=dialog] input')].map(i => i.type)")
+    feld(0, "kurz")
+    feld(1, "kurz")
+    ep_kurz = bestaetigen()
     seite.s.keyboard.press("Escape")
     seite.warte_zu()
     # Nachfolge: unter drei Vertrauten meldet sich der Dialog
@@ -1569,10 +1585,16 @@ def einstellungen_pruefen(browser, url: str) -> dict:
             and ab_falsch["meldung"] == "Kein gültiger Pubkey dabei"):
         erg["fehler"].append(f"Abzeichen {erg['abzeichen']}")
     erg["widerruf"], erg["nachfolge"], erg["melden"] = (
-        {"dialog": wr, "falsch": wr_falsch}, {"dialog": nf, "zwei": nf_zwei}, {"dialog": md, "falsch": md_falsch})
-    if not (wr["text"] and wr["text"].startswith("So widerrufst du") and wr["typen"] == ["text", "password", "date"]
-            and wr["fokus"] == "Abbrechen" and wr_falsch["meldung"] == "Der Ersatzschlüssel muss 64 Zeichen hex sein"):
+        {"dialog": wr, "falsch": wr_falsch, "datei": wr_datei}, {"dialog": nf, "zwei": nf_zwei}, {"dialog": md, "falsch": md_falsch})
+    if not (wr["text"] and wr["text"].startswith("So widerrufst du") and wr["typen"] == ["text", "password", "password", "date"]
+            and wr["fokus"] == "Abbrechen"
+            and wr_falsch["meldung"] == "Der Ersatzschlüssel muss 64 Zeichen hex sein – oder der Inhalt der verschlüsselten Ersatz-Datei"
+            and wr_datei["meldung"] == "Die Ersatz-Datei ist verschlüsselt – gib ihre Passphrase ein."):
         erg["fehler"].append(f"Widerruf {erg['widerruf']}")
+    erg["ersatz_pass"] = {"dialog": ep, "kurz": ep_kurz}
+    if not ((ep["text"] or "").startswith("Mit einer Passphrase ist die Datei ohne sie nutzlos") and ep["typen"] == ["password", "password"]
+            and ep_kurz["meldung"] == "Passphrase zu kurz – mindestens 8 Zeichen"):
+        erg["fehler"].append(f"Ersatz-Passphrase {erg['ersatz_pass']}")
     if not (nf["text"] == "Mindestens 3 Personen, die sich NICHT kennen und FreedomStack nutzen."
             and nf_zwei["meldung"] == "Mindestens drei Vertraute – bei weniger ist eine Absprache zu leicht"):
         erg["fehler"].append(f"Nachfolge {erg['nachfolge']}")

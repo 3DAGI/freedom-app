@@ -699,3 +699,9 @@ Fallstricke dieses Bereichs unten anhängen.
   Verbindung je Aufruf mehr (`autoReconnect: false` + `close()`), ein Test findet das. Wer eine holt
   (`hole()`), gibt sie zurück (`gib()`, sonst bleibt sie offen) – am einfachsten über `mit()`. `frageAn()`
   gibt nur gültig Signiertes weiter, auch von fremden Relays.
+- **Ersatzschlüssel nur über `ersatz-datei.ts`** (seit B-28, Nutzertest T-2): „Diebstahl
+  vorbeugen“ fragt vor dem Erzeugen nach einer Passphrase (nur mit `verschluesselungMoeglich()`);
+  mit ihr entsteht die Datei nur über `baueErsatzDatei()` im Format des Tresors
+  (`verschluesseleMitPassphrase()`, JSON mit `art`, der private Schlüssel nie im Klartext), ohne
+  sie wie bisher als Text. Der Widerruf liest Hex oder diese Datei nur über `leseErsatz()` – vor
+  `fromHex()`; eine falsche Passphrase meldet einen festen Text, nie die Meldung des Browsers.

@@ -6776,3 +6776,41 @@ Prompt nennt sie weiter, weil sie angeboten werden; ob sie ins Angebot gehören,
 ist ein eigener Punkt.
 
 Knoten-Stand: neu (B-27) – ohne Update antwortet ein Knoten wie bisher.
+
+## Schritt B-28 – Ersatzschlüssel nicht im Klartext (Nutzertest, T-2)
+
+„Diebstahl vorbeugen“ (Settings › Sicherheit, Schritt 3) speicherte den
+Ersatzschlüssel nur als Klartext-Datei `freedom-ersatzschluessel.txt`.
+
+**App:**
+- `ersatz-datei.ts` (neu):
+  - `baueErsatzDatei()`: mit Passphrase ein JSON (`art`, `version`, der
+    öffentliche Schlüssel offen – er steht ohnehin im Mandat –, das Chiffrat im
+    Format des Tresors über `verschluesseleMitPassphrase()`), sonst der Klartext
+    wie bisher.
+  - `leseErsatz()`: 64 Zeichen Hex wie bisher oder die Datei mit ihrer
+    Passphrase; eine falsche Passphrase wirft, Fremdes gibt `null`.
+- `shell/tabs/sicherung.ts`:
+  - `bereiteWechselVor()` fragt nach der Warnung und **bevor** ein Schlüssel oder
+    Mandat entsteht nach einer Passphrase (zweimal, Mindestlänge des Tresors;
+    leer: Klartext). Ohne `crypto.subtle` (http im Heimnetz, B-10) nur Klartext.
+  - `widerrufeSchluessel()` nimmt im Feld des Ersatzschlüssels auch den Inhalt
+    der verschlüsselten Datei, dazu ein Feld für ihre Passphrase; gelesen über
+    `leseErsatz()` vor `fromHex()`.
+- Texte de/en (`set.ersatzPass…`, `set.ersatzFrage`/`set.ersatzHex` erweitert).
+
+**Tests** (`app/test/ersatz-datei.test.ts`, +3): ohne Passphrase Klartext, mit
+Passphrase kein privater Schlüssel in der Datei, zu kurze abgewiesen; Widerruf
+aus Hex und aus der Datei, falsche Passphrase und Fremdes abgewiesen;
+Verdrahtung (Frage vor `generateKeypair()`, nur mit `verschluesselungMoeglich()`,
+`leseErsatz()` vor `fromHex()`). Die bestehenden Tests zu beiden Dialogen
+(`browser-dialoge`, `schluessel-status`) bleiben unverändert grün.
+
+**Smoke-Test** („einstellungen“): Der Widerruf hat ein Feld mehr (Passphrase),
+die Meldung zu ungültiger Eingabe nennt die Datei; neu geprüft werden der Inhalt
+einer verschlüsselten Datei ohne Passphrase (Meldung im Dialog) und „Diebstahl
+vorbeugen“ – nach der Warnung die Frage nach der Passphrase (zwei verdeckte
+Felder, zu kurz meldet sich), abgebrochen geht nichts hinaus. Der erste volle
+Lauf war hier rot: die alte Prüfung erwartete drei Felder.
+
+Knoten-Stand: nicht betroffen.
