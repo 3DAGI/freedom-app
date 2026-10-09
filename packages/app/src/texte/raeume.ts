@@ -150,6 +150,8 @@ export const raeume: Texte = {
   "agentRaum.ungueltig": { de: "Angaben zum Agenten ungültig (Name, Beschreibung, Persona, Budget).", en: "Invalid agent details (name, description, persona, budget)." },
   "agentRaum.zuViele": { de: "Höchstens {n} Agenten auf einem Gerät.", en: "At most {n} agents on one device." },
   "agentRaum.zuVieleRaeume": { de: "Höchstens {n} Räume je Agent.", en: "At most {n} rooms per agent." },
+  "agentRaum.budgetTag": { de: "Mein Budget für heute in diesem Raum ist aufgebraucht – morgen antworte ich wieder.", en: "My budget for today in this room is used up – I will answer again tomorrow." },
+  "agentRaum.budgetMonat": { de: "Mein Budget für diesen Monat in diesem Raum ist aufgebraucht.", en: "My budget for this month in this room is used up." },
   "agentRaum.hinweisGeraet": {
     de: "Agent {name} läuft auf meinem Gerät: Er antwortet nur, solange meine App offen ist, und ich bezahle seine Antworten – auch auf Fragen von anderen.",
     en: "Agent {name} runs on my device: it only answers while my app is open, and I pay for its answers – including questions from others.",
