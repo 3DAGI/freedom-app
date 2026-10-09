@@ -322,6 +322,26 @@ export function regelAnrufNurRelay(events: readonly NostrEvent[], innere: readon
 }
 
 /** Alle Regeln mit ihrer Aussage – Datenschutz-Aussagen verweisen hierauf. */
+/**
+ * Agenten privater Räume nie offen (11.3b1, Entwurf `AGENTEN-RAUM-ENTWURF.md` P6): Karte (38090), die Liste
+ * des Besitzers mit dem Agenten (30000, `freedom-agenten`) und Nachrichten von ihm oder an ihn gehören nur in
+ * die MLS-Gruppe. KeyPackages (443) und Relay-Listen darf er offen haben – sonst lädt ihn niemand ein.
+ * `agenten` sind die Schlüssel von Agenten, die nur in privaten Räumen sind.
+ */
+export function regelAgentRaumPrivat(events: readonly NostrEvent[], p: { agenten: readonly string[] }): LeakFinding[] {
+  const ag = new Set(p.agenten);
+  const nennt = (e: NostrEvent) => e.tags.some((t) => t[0] === "p" && ag.has(t[1] ?? ""));
+  return events.filter((e) => e.kind !== 1059 && e.kind !== 445).flatMap((e): LeakFinding[] => {
+    const d = e.tags.find((t) => t[0] === "d")?.[1];
+    if (e.kind === 38090 && ag.has(e.pubkey)) return [{ regel: "agent-raum-privat", eventId: e.id, detail: "Karte eines Agenten im privaten Raum offen" }];
+    if (e.kind === 30000 && d === "freedom-agenten" && nennt(e)) return [{ regel: "agent-raum-privat", eventId: e.id, detail: "Agent eines privaten Raums in offener Liste" }];
+    if ([1, 9, 42, 1111].includes(e.kind) && (ag.has(e.pubkey) || nennt(e))) {
+      return [{ regel: "agent-raum-privat", eventId: e.id, detail: `Nachricht von oder an einen Agenten eines privaten Raums offen (Kind ${e.kind})` }];
+    }
+    return [];
+  });
+}
+
 export const LEAK_REGELN: Readonly<Record<string, string>> = {
   "kein-kind4": "Keine Direktnachrichten im alten, offenen Format (Kind 4).",
   "kein-klartext": "Kein Klartext im Inhalt oder in Tags.",
@@ -343,4 +363,5 @@ export const LEAK_REGELN: Readonly<Record<string, string>> = {
   "raum-repo-privat": "Repos privater Räume – Ankündigung, Bundle-Schlüssel, Patches, Status – nur in der MLS-Gruppe, nie offen.",
   "besitzer-versiegelt": "Der Nachweis des Besitzers an den eigenen Knoten nur versiegelt, nie offen.",
   "anruf-nur-relay": "Anrufe nur über den Vermittler: Anruf-Aufbau nie offen, innen nur Relay-Kandidaten mit Fingerabdruck.",
+  "agent-raum-privat": "Agenten privater Räume – Karte, Liste des Besitzers, Erwähnung und Antwort – nur in der MLS-Gruppe, nie offen.",
 };
