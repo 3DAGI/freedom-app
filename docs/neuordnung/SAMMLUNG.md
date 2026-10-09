@@ -92,7 +92,7 @@ Reihenfolge: erst die freien Punkte von oben nach unten.
 | B-25 | **Offene Räume zeigen Neues von selbst** (Nutzertest, Befund R-9): Nachrichten anderer erscheinen erst nach erneutem Öffnen des Raums. | `fertig` – solange ein offener Raum gewählt ist, ein Abo auf seine Nachrichten und Maßnahmen ab dem Öffnen; der Kanal wird nur neu gezeichnet, wenn man ihn sieht | `shell/tabs/raeume.ts` |
 | B-26 | **Raum anlegen ohne Umweg** (Nutzertest, Befunde R-6, R-5): „Öffentlichen Raum anlegen“ steht nur im Raum-Menü, das es erst in einem Raum gibt – ohne Tresor und ohne Raum ließ sich gar keiner anlegen. Privat ohne Tresor kommt der Hinweis erst nach „Anlegen“, der Name ist dann weg. | `fertig` – „+“ fragt privat oder öffentlich, auch ohne Raum (ohne Tresor öffentlich vorgewählt); privat ohne Tresor bietet erst den Tresor an, der Name bleibt | `shell/tabs/raeume.ts` |
 | B-27 | **Systemprompt des Knotens** (Nutzertest, Befund A-7): fest verdrahtet „Du laeuffst auf … (GX10)“, „Tools: web_search, image_gen, video_gen“ auch ohne diese Werkzeuge, „Knowledge-Cutoff Ende 2024“ – gilt für jeden Provider. Nur sagen, was stimmt. | `fertig` – `systemPrompt()`: nur die Werkzeuge der Anfrage, das heutige Datum, kein fester Knoten | `node/src/inference.ts` |
-| B-28 | **Ersatzschlüssel nicht im Klartext** (Nutzertest, Befund T-2): „Diebstahl vorbeugen“ speichert `freedom-ersatzschluessel.txt` als Klartext. Optional mit Passphrase (Format des Exports, `verschluesseleMitPassphrase()`). | `frei` | `shell/tabs/sicherung.ts`, `datenexport.ts` |
+| B-28 | **Ersatzschlüssel nicht im Klartext** (Nutzertest, Befund T-2): „Diebstahl vorbeugen“ speichert `freedom-ersatzschluessel.txt` als Klartext. Optional mit Passphrase (Format des Exports, `verschluesseleMitPassphrase()`). | `fertig` – Passphrase vor dem Erzeugen (leer: Klartext wie bisher), Datei im Format des Tresors; der Widerruf nimmt Hex oder die Datei mit Passphrase | `shell/tabs/sicherung.ts`, `datenexport.ts` |
 
 ---
 
@@ -360,6 +360,6 @@ ihren Abschnitt (Regel „Ergänzen“) und trägt die Nummer hier nach.
 | P-1, P-2, P-3 | Profil: Karte „…197f [Importieren]“ ohne Überschrift; „Teilen“ kopiert Hex statt npub; Hex in Großbuchstaben | `profil.ts` | C | C-37 |
 | W-2, X-1 bis X-4 | Währung und Settings: Warnung klebt an „Nicht verbunden“; lange Häkchen-Sätze in Großbuchstaben (Label-Regel); Fortschrittsbalken füllt von links; „Zwei der fünf Schritte gehen nur vorher.“ unklar; „ERNEUT PRÜFEN“ beim ersten Öffnen; „vor 0 Tag(en)“ | `app.css`, `settings.ts`, `sicherung.ts` | C | C-38 |
 | A-7 | Systemprompt des Knotens fest verdrahtet (GX10, Werkzeuge, Wissensstand) | `node/src/inference.ts` | B | erledigt (B-27) |
-| T-2 | Ersatzschlüssel als Klartext-Datei | `sicherung.ts` | B | B-28 |
+| T-2 | Ersatzschlüssel als Klartext-Datei | `sicherung.ts` | B | erledigt (B-28) |
 | C-6 | MLS-Antwort brauchte bei offener Unterhaltung ~55 s (folgt aus C-12) | – | A | erledigt (A-15b) |
 | K-2 | Lightning-Adresse im Test nicht erreichbar – erwartbar | – | – | kein Punkt |
