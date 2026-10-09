@@ -1038,6 +1038,48 @@ def composer_pruefen(browser, url: str) -> dict:
     return erg
 
 
+def anhang_senden_pruefen(browser, url: str) -> dict:
+    """Senden während eines Uploads (C-29, Nutzertest C-7): Vorher ging der Text ohne Anhang hinaus, und der
+    Anhang hing an der nächsten Nachricht. Jetzt wartet Senden – Knopf gesperrt, Feld nur lesbar, ein Hinweis –
+    und schickt dann Text und Anhang zusammen in einer Nachricht."""
+    erg = {"fehler": []}
+    relay = ProbeRelay()
+    seite = DialogSeite(browser, url, relay, erg, init="localStorage.setItem('freedom.versand.verzoegerung', '0');")
+    s, ev = seite.s, seite.ev
+    ev("() => { location.hash = '#/chat'; }")
+    s.wait_for_selector("#chat-new-dm", timeout=30000)
+    ev("() => document.getElementById('chat-new-dm').click()")
+    seite.warte_dialog("Neue Nachricht")
+    pk = "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798"  # ein gültiger Punkt (x von G) – geht nur an die Attrappe
+    seite.tippe(pk)
+    seite.warte_zu()
+    s.wait_for_function("(pk) => !!document.querySelector(`#chat-list .chat-item.active[data-cid='${pk}']`)", arg=pk, timeout=10000)
+    s.fill("#chat-input", "mit Anhang")
+    # 40 KB – über der Grenze für inline, also ein Upload ins Blob-Netz (hier an die Attrappe)
+    s.set_input_files("#chat-file-input", files=[{"name": "gross.bin", "mimeType": "application/octet-stream",
+                                                  "buffer": bytes(range(256)) * 160}])
+    erg["beim_senden"] = ev("""() => { document.getElementById('chat-send').click();
+      const k = document.getElementById('chat-send'), f = document.getElementById('chat-input');
+      return { gesperrt: k.disabled, busy: k.getAttribute('aria-busy'), nurLesen: f.readOnly,
+        hinweis: document.getElementById('chat-attach-list').textContent }; }""")
+    s.wait_for_function("() => !!document.querySelector('#chat-thread .chat-blob-btn')", timeout=30000)
+    erg["danach"] = ev("""() => { const k = document.getElementById('chat-send'), f = document.getElementById('chat-input');
+      const blasen = [...document.querySelectorAll('#chat-thread .bubble')];
+      const mit = blasen.filter(b => b.textContent.includes('mit Anhang'));
+      return { gesperrt: k.disabled, nurLesen: f.readOnly, feld: f.value, liste: document.getElementById('chat-attach-list').textContent,
+        nachrichten: mit.length, anhangInDerselben: mit.some(b => !!b.querySelector('.chat-blob-btn')) }; }""")
+    b, d = erg["beim_senden"], erg["danach"]
+    if not (b["gesperrt"] and b["busy"] == "true" and b["nurLesen"] and "sobald der Anhang" in b["hinweis"]):
+        erg["fehler"].append(f"beim Senden: {b}")
+    if d["gesperrt"] or d["nurLesen"] or d["feld"] or d["liste"] or d["nachrichten"] != 1 or not d["anhangInDerselben"]:
+        erg["fehler"].append(f"danach: {d}")
+    if seite.browser_dialoge:
+        erg["fehler"].append(f"Browser-Dialoge {seite.browser_dialoge}")
+    seite.ctx.close()
+    erg["bestanden"] = not erg["fehler"]
+    return erg
+
+
 def sprachnachricht_pruefen(browser, url: str) -> dict:
     """Sprachnachrichten (C-7): Mikrofon erst auf Klick, nach dem Beenden und Verwerfen aus; die Aufnahme ist ein
     Anhang, reist klein in der verschlüsselten Nachricht und spielt im eigenen Verlauf."""
@@ -4522,6 +4564,10 @@ def main() -> int:
             except Exception as e:
                 erg["composer"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
             try:
+                erg["anhang_senden"] = anhang_senden_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
+            except Exception as e:
+                erg["anhang_senden"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
+            try:
                 erg["anruf"] = anruf_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
             except Exception as e:
                 erg["anruf"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
@@ -4620,6 +4666,7 @@ def main() -> int:
           and erg.get("kontakt", {}).get("bestanden") is True
           and erg.get("sprachnachricht", {}).get("bestanden") is True
           and erg.get("composer", {}).get("bestanden") is True
+          and erg.get("anhang_senden", {}).get("bestanden") is True
           and erg.get("anruf", {}).get("bestanden") is True
           and erg.get("post_live", {}).get("bestanden") is True
           and erg.get("agent_abo", {}).get("bestanden") is True

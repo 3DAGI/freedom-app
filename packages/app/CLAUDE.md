@@ -722,3 +722,8 @@ Fallstricke dieses Bereichs unten anhängen.
   dann der Auftrag: versiegelt vom Sitzungsschlüssel je Agent und Raum (`AgentSitzungen`), Platzhalter je Auftrag
   (`maskiereEinzeln()`), nie mit Verweis auf den Raum oder der Identität, bezahlt nur über `ki-zahlung.ts`; verbucht
   höchstens das Gebot. An den Provider gehen Absender nur als „Person 1“/„Agent 1“ (`agentPrompt()`).
+- **Anhänge im Chat nur über `handleChatFiles()`** (seit C-29, `anhang-warte.ts`): Jeder Upload
+  meldet sich bei `anhangWarte` an, und `sendChatMessage()` wartet auf alle, bevor es Text und
+  Anhänge liest. Ein neuer Weg, Dateien anzuhängen (Einfügen, Ziehen, Sprachnachricht), geht durch
+  `handleChatFiles()` – sonst schickt „Senden“ während des Uploads den Text allein, und der Anhang
+  hängt an der nächsten Nachricht. Scheitert ein Upload, geht nichts hinaus.

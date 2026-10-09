@@ -14,6 +14,7 @@ import { fehlerText } from "../../protokoll-texte.js";
 import { type Anforderung } from "../../zahlungs-anforderung.js";
 import { halteBeiMeinemKnoten } from "../knoten-halten-ui.js";
 import { istAudioTyp } from "../../sprachnachricht.js";
+import { AnhangWarte } from "../../anhang-warte.js";
 
 /** Zahlungsanforderungen der gezeigten Nachrichten (A-5): Id → Anforderung und Absender. */
 export const anforderungen = new Map<string, { anf: Anforderung; von: string }>();
@@ -48,10 +49,21 @@ async function uploadToBlossom(file: File): Promise<string> {
  */
 const INLINE_MAX_BYTES = 32_000;
 
+/** Laufende Uploads (C-29): Senden wartet auf sie, statt den Text ohne Anhang zu schicken. */
+export const anhangWarte = new AnhangWarte();
+
 export async function handleChatFiles(files: FileList | File[] | null): Promise<void> {
   if (!files || files.length === 0) return;
+  const lauf = ladeAnhaenge(Array.from(files));
+  anhangWarte.merke(lauf);
+  await lauf;
+}
+
+/** Lädt die Dateien nacheinander – `true`, wenn jede ankam (Fehler meldet ein Toast). */
+async function ladeAnhaenge(dateien: File[]): Promise<boolean> {
   const listEl = $("#chat-attach-list");
-  for (const file of Array.from(files)) {
+  let gut = true;
+  for (const file of dateien) {
     try {
       let url: string;
       let enc: DateiSchluessel | undefined;
@@ -83,15 +95,22 @@ export async function handleChatFiles(files: FileList | File[] | null): Promise<
         }
       }
       chatAttachments.push({ name: file.name, mime: file.type || "application/octet-stream", size: file.size, url, ...(enc ? { enc } : {}) });
-      setAttachStatus(listEl, chatAttachments.map((a) => `${a.name} (${Math.round(a.size / 1024)}kb)`).join(", "));
+      zeigeAnhangListe();
     } catch (e) {
       toast(`${file.name}: ${fehlerText(e)}`, true);
+      gut = false;
     }
   }
+  return gut;
 }
 
 export function setAttachStatus(el: HTMLElement | null, text: string): void {
   if (el) el.textContent = text;
+}
+
+/** Die vorgemerkten Anhänge unter dem Feld (seit C-29 auch nach dem Warten, wenn nichts hinausging). */
+export function zeigeAnhangListe(): void {
+  setAttachStatus($("#chat-attach-list"), chatAttachments.map((a) => `${a.name} (${Math.round(a.size / 1024)}kb)`).join(", "));
 }
 
 
