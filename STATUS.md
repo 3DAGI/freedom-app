@@ -7034,3 +7034,39 @@ beantwortet wird ab 11.3c3b.
 
 **Prüfungen:** siehe Pull Request (app +3 Tests, protocol: neues Szenario im bestehenden Test).
 
+## Schritt 11.3c3b – Agenten auf dem Gerät beantworten Erwähnungen in privaten Räumen
+
+Letzter Teil von 11.3c – **11.3c Code fertig** (offene und private Räume).
+
+**Neu:**
+
+- `shell/agent-mls.ts`: Verlauf je Agent (verschlüsselt wie sein Zustand, Eintrag
+  `verlauf:<agent>`); `agentAbgleichen()` holt die Nachrichten einer Gruppe in ihrer
+  Reihenfolge – auch Commits, wer einen auslässt, liest danach nichts mehr – und legt sie
+  vor dem Zustand in den Verlauf; zurückgehaltene Nachrichten nach einem Commit kommen
+  später in den Verlauf. `agentRaum()` baut den Raum aus diesem Verlauf (Raumstand,
+  Agenten an ihren Karten, Definition eines Admins für den Schalter der Agentenketten).
+  `agentSendet()` schreibt als Agent in die Gruppe und gleich in seinen Verlauf; die
+  Karte beim Einladen geht seitdem auch darüber.
+- `shell/agenten-lauschen.ts`: `setzePrivatAuf()` – je Agent und Gruppe ein Abo an die
+  Relays der Gruppe (`abonniereAn`, `limit: 1`), vorher nachholen ohne zu antworten,
+  danach über `Nachziehen` nur Neues: Nachrichten nach dem Abo, die den Agenten
+  erwähnen. `beantwortePrivat()` entscheidet mit dem Raum aus seinem Verlauf und
+  antwortet als inneres Event (`raumAgentAntwort()`), den Hinweis „Budget aufgebraucht“
+  ohne Erwähnung. Auftrag und Bezahlung teilen offene und private Räume
+  (`frageUndZahle()`, aus 11.3c2 herausgelöst – unverändert).
+- `agent-antwort.ts`: `entscheide()` nimmt wahlweise eine eigene Erkennung der Agenten
+  (privat: Karten statt Rolle).
+- `shell/app.ts`: Der Abruftakt prüft offene und private Räume (`agentenImTakt`); der Start
+  nur offene – die MLS-Engine lädt nie beim Start. Nach dem Einladen in einen privaten
+  Raum setzt `ladeAgentInPrivatenRaum()` die Abos gleich neu auf.
+
+**Verdrahtet:** `shell/app.ts` (`abrufTakt.melde("agenten", agentenImTakt, 2)`),
+`shell/agent-mls.ts` (nach Einladen und Entfernen).
+
+**Grenzen:** Nachrichten, die die Engine nach einem Commit zurückhält, kommen in den
+Verlauf, werden aber nicht beantwortet. Mentions, während die App zu war, beantwortet
+der Agent nicht (er holt sie nur nach).
+
+**Prüfungen:** siehe Pull Request.
+
