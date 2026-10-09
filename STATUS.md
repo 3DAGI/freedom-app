@@ -18900,6 +18900,47 @@ Ollama-Attrappe, Gratis-Anfrage über das Relay mit Wegwerfschlüsseln):
 Knoten-Stand: neu (B-23). Ohne Update läuft ein Knoten nur mit eigenem Relay
 weiter im Abfrage-Betrieb.
 
+## Schritt Übergaben 09.10. – Arbeit für Spur B und C, C-22b freigegeben
+
+Spur A, nur Doku. B und C hatten nichts mehr in ihrer Spur und warteten auf
+Spur A. Der MENSCH hat am 09.10. diese Übergaben und C-22b freigegeben.
+
+Am selben Tag kam der Nutzertest von Spur B dazu (B-23, Anhang D der Sammlung).
+Die Reihenfolge berücksichtigt ihn: Befunde aus dem Test zuerst.
+
+**An Spur B** (nach E9-3b und B-24 bis B-28, in dieser Reihenfolge):
+- E9-4: Katalog 38080 mit Verweis aufs Manifest; damit kommen Kuratoren in
+  `vertrautesManifest()`.
+- E9-2: nur Speicher, als vierter Wert im `storage`-Tag; `network-capacity.ts`
+  fällt weg.
+- E9-1: `cluster.ts` aufräumen.
+- Danach 11.3d (Agent auf dem Knoten), sobald 11.3b gemergt ist.
+- Regeln in `docs/E9-ENTWURF.md`, neuer Abschnitt „Übergabe vom 09.10.2026“;
+  `phase-11.md` nennt bei 11.3d jetzt Spur B.
+
+**An Spur C:**
+- Zuerst der schwere Befund C-1/C-13 (Senden am Handy außerhalb).
+- Dann C-22b. Regeln in der Sammlung bei C-22: nur verschieben, die Wurzel
+  behält, was jede Sitzung braucht; `STATUS.md` je Monat ins Archiv.
+- Dann die übrigen Befunde mit Spur C aus Anhang D, als eigene C-Punkte.
+- C-27 (neu in der Sammlung): Anzeige des Gratis-Starts – Kontingent des Geräts
+  und Gratis-Anbieter. A-14 hatte keine Anzeige gebaut.
+- E10b: Kopfgeld per Klick (Regeln in der Sammlung bei A-9).
+- 12.4b samt Schalter (Regeln bei A-1). E5 ist dafür geändert: hier baut Spur C
+  Logik und Oberfläche.
+- Danach 11.3e.
+
+**Spur A:** übernimmt aus dem Nutzertest A-15 „Chat empfängt live“ (C-12, C-6) und
+A-16 „Weniger Verbindungen“ (N-1) – beide zuerst. Dann 11.3b – das gibt
+11.3d (B) und 11.3e (C) frei –, dann 11.3c.
+
+**Während C-22b offen ist:** Neue Fallstricke kommen wie bisher unten in
+`CLAUDE.md`. Wer danach `main` einmergt, trägt sie in die Datei des Bereichs um.
+Kein Skript und keine CI liest `CLAUDE.md` oder `STATUS.md` (geprüft mit `grep`).
+
+**Prüfungen:** nur Doku – `check-website.py` und `check-wiring.py --streng`
+(Exit 0). Kein Code, keine Tests geändert. Knoten-Stand: unverändert.
+
 ## Schritt B-24 – Warntext zum Zeitanker (Nutzertest, T-1)
 
 Der Dialog „Diebstahl vorbeugen“ (Settings › Sicherheit, Schritt 3) endete mit
