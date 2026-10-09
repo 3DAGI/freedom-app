@@ -663,3 +663,10 @@ Fallstricke dieses Bereichs unten anhängen.
   Einstellungen“ (`uebernimm()`). Kanal „freedom“ anlegen nur über `baueKanalAnlegen()`, nur
   per Knopf nach `bestaetige()`, nie den Hauptkanal; ohne freien Platz nichts.
   *(Weitere Teile: Wurzel (`CLAUDE.md`), `packages/node/CLAUDE.md`, `scripts/CLAUDE.md`.)*
+- **Formularfelder in einer Reihe nur mit eigener Breite** (seit C-28, Nutzertest C-1/C-13):
+  Die Grundregel `input, textarea, select { width: 100% }` (`app.css`) macht jedes Feld so
+  breit wie sein Kasten. In einer Flex-Reihe, deren Kinder nicht schrumpfen
+  (`.chat-composer > * { flex-shrink: 0 }`), nimmt so ein Feld die ganze Zeile – so wurde das
+  Textfeld 22 px schmal und „Senden“ lag am Handy außerhalb. Felder in Reihen bekommen
+  `width: auto` (und `margin-bottom: 0`). Die Eingabe einer offenen Unterhaltung misst der
+  Smoke-Test „composer“ (Desktop, Handy hoch und quer).

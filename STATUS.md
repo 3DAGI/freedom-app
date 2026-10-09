@@ -6473,3 +6473,47 @@ sobald eine Datei darin gelesen wird:
 
 Verweise nachgezogen: README, `docs/ausbau/UEBERSICHT.md`, `phase-1.md`
 (Abschnitte 52–55 jetzt im Archiv), Übersicht `docs/archiv/README.md`.
+
+## Schritt C-28 – Chat-Eingabe am Handy
+
+Spur C, schwerer Befund C-1/C-13 aus dem Nutzertest vom 08.10. (Anhang D der Sammlung).
+Die übrigen Befunde mit Spur C stehen jetzt als C-29 bis C-39 in der Sammlung, die Nummern
+sind in Anhang D nachgetragen.
+
+**Befund, im Browser nachgestellt** (neuer Smoke „composer“, offene Direktnachricht):
+
+| Größe | Textfeld | Ablauf-Auswahl | „Senden“ rechts bei | `main` läuft über |
+|---|---|---|---|---|
+| Desktop 1280 | 22 px | 876 px | 1559 px | 279 px |
+| Handy hoch 390 | 22 px | 370 px | 669 px | 279 px |
+| Handy quer 844 | 22 px | 512 px | 1123 px | 279 px |
+
+**Ursache:** Die Ablauf-Auswahl `#chat-ablauf` (nur bei Direktnachrichten sichtbar) erbt
+aus der Grundregel `input, textarea, select { width: 100% }` die volle Breite. Im
+Composer darf seit 8.16 kein Kind schrumpfen (`.chat-composer > * { flex-shrink: 0 }`).
+Damit nahm die Auswahl die ganze Zeile, und das Textfeld (`min-width: 0`) blieb mit 22 px
+übrig.
+
+**`app.css`:**
+- `.chat-composer select { width: auto; margin-bottom: 0; }`: Die Auswahl ist so breit wie
+  ihr Text (115 px).
+- Unter 1024 px bricht die Reihe um. Oben stehen Feld und „Senden“ (`order`), darunter die
+  Werkzeuge (Anhang, Sprachnachricht, Ablauf, Zap, Prüfen).
+
+**Danach:**
+
+| Größe | Textfeld | Laufleiste | `main` | außerhalb | Flächen unter 40 px |
+|---|---|---|---|---|---|
+| Desktop | 494 px | 0 | 0 | – | – |
+| Handy hoch | 310 px | 0 | 0 | – | – |
+| Handy quer | 452 px | 0 | 0 | – | – |
+
+Bildschirmfotos auf Handy und Desktop angesehen: Feld und Senden in einer Zeile, die
+Werkzeuge darunter.
+
+**Smoke „composer“** (neu, `DialogSeite` kann jetzt Größe und Touch): öffnet eine
+Direktnachricht. Er misst keine waagrechte Laufleiste, kein Überlauf von `main`, kein Teil
+der Eingabe außerhalb, das Feld mindestens 300 px (Desktop) bzw. 200 px (Handy), am Handy
+jede Fläche ab 40 px. Vor dem Fix rot, danach grün.
+
+Fallstrick in `packages/app/CLAUDE.md`: Formularfelder in einer Reihe nur mit eigener Breite.
