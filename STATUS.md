@@ -6952,5 +6952,5 @@ Protokoll-Bausteine `baueAgentKarte`, `baueAgentenListe`, `mitAgentRolle`,
 `agentKarteTags`, `agentRolle`, `agentenListeTags` sind damit aus
 `wiring-ausnahmen.txt` heraus.
 
-**Prüfungen:** siehe Pull Request (app +6 Tests).
+**Prüfungen:** protocol 1252 grün (6 übersprungen), node 340, app 994 (+6), Leak 73 + 1 todo, mls 13; tsc überall, Build, Wiring (0 offen, Exit 0), Website, innerHTML, Smoke, Site, Repro grün.
 
