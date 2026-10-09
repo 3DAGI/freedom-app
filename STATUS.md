@@ -6766,3 +6766,11 @@ Nur Protokoll – Gerät (11.3c, Spur A), Knoten (11.3d, Spur B) und Oberfläche
 - `agent-auftrag.test.ts` (+7): Auslöser, Ketten, Schalter, Bremse, Kontext,
   Verweis und Antwort, Budget.
 - Der Sammeltest der Leak-Regeln kennt die neue Regel.
+
+**Prüfungen:**
+- protocol 1252 grün (6 übersprungen, +12), node 337, app 983;
+- Leak-Tests 73 grün + 1 todo;
+- check-wiring `--streng`, check-website, innerHTML streng: alle Exit 0;
+- Build reproduzierbar, Smoke-Test bestanden.
+
+Knoten-Stand: unverändert.
