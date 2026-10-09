@@ -18857,12 +18857,58 @@ jetzt nur für den Tag (UTC) – wie das Kontingent je Gerät.
 **Prüfungen:** app 969 grün (+1); protocol, node, Leak, mls, Skripte, Build und
 Smoke wie im Pull Request.
 
+## Schritt B-23 – Knoten nur mit eigenem Relay hört live mit (Nutzertest, K-1)
+
+Auftrag des MENSCHEN vom 09.10.2026: die Befunde aus dem Nutzertest vom 08.10.
+als Schritte anlegen und abarbeiten. Die Sammlung hat dafür Anhang D mit allen
+Befunden und einem Vorschlag, welche Spur sie übernimmt. Spur B bekommt
+B-23 bis B-28; die übrigen übernehmen Spur A und Spur C in ihre Abschnitte
+(Regel „Ergänzen“ – neue Punkte nur im eigenen Abschnitt).
+
+**Befund K-1:** `RelayRole.alsRelay()` (B-9c1) hatte `publish` und `query`, aber
+kein `subscribe`. Ein Knoten, der nur sein eigenes Relay nutzt, meldete
+„Kein Relay unterstuetzt Dauer-Abos“ und lief im Abfrage-Betrieb – jede
+KI-Anfrage wartete bis zum nächsten Takt (Standard 15 s).
+
+**Knoten** (`relay-role.ts`):
+- `alsRelay()` bekommt `subscribe`: erst die gespeicherten Treffer, dann
+  `onEose`, danach jedes neue Event – wie ein REQ über das Netz.
+- Dieselben Regeln: ein Filter auf Umschläge an andere wirft
+  `auth-required` (wie `CLOSED`), geliefert wird nur, was `darfAusliefern()`
+  erlaubt.
+- `verteile()` stellt nach den WebSocket-Abos auch die Abos im Prozess zu, per
+  Mikrotask: Wer im Abo selbst veröffentlicht, landet nicht mitten im
+  Durchlauf; ein Fehler des Empfängers bleibt dort.
+- `stop()` leert die Abos.
+
+**Im echten Knoten geprüft** (`main.ts`, `RELAYS` = nur die eigene Adresse,
+Ollama-Attrappe, Gratis-Anfrage über das Relay mit Wegwerfschlüsseln):
+
+| | Log | Antwort nach |
+|---|---|---|
+| vorher | „Kein Relay unterstuetzt Dauer-Abos … Abfrage-Betrieb“ | 12 235 ms |
+| mit B-23 | „Dauer-Abo aktiv — Jobs kommen ohne Verzoegerung an“ | 326 ms |
+
+**Tests** (`relay-intern.test.ts`, +3; ohne die Änderung alle drei rot):
+- Abo: erst Gespeichertes, dann Neues über das Netz und aus dem Prozess;
+  keine fremden Umschläge, keine doppelten, nach dem Beenden nichts mehr.
+- Regeln: Umschläge an andere sind nicht zu abonnieren; ein werfender
+  Empfänger hält weder den Relay noch andere Abos auf.
+- Provider: `subscribeJobs()` gelingt nur mit dem eigenen Relay, die Anfrage
+  kommt ohne `pollOnce()` an.
+
+Knoten-Stand: neu (B-23). Ohne Update läuft ein Knoten nur mit eigenem Relay
+weiter im Abfrage-Betrieb.
+
 ## Schritt Übergaben 09.10. – Arbeit für Spur B und C, C-22b freigegeben
 
 Spur A, nur Doku. B und C hatten nichts mehr in ihrer Spur und warteten auf
 Spur A. Der MENSCH hat am 09.10. diese Übergaben und C-22b freigegeben.
 
-**An Spur B** (nach E9-3b, in dieser Reihenfolge):
+Am selben Tag kam der Nutzertest von Spur B dazu (B-23, Anhang D der Sammlung).
+Die Reihenfolge berücksichtigt ihn: Befunde aus dem Test zuerst.
+
+**An Spur B** (nach E9-3b und B-24 bis B-28, in dieser Reihenfolge):
 - E9-4: Katalog 38080 mit Verweis aufs Manifest; damit kommen Kuratoren in
   `vertrautesManifest()`.
 - E9-2: nur Speicher, als vierter Wert im `storage`-Tag; `network-capacity.ts`
@@ -18873,8 +18919,10 @@ Spur A. Der MENSCH hat am 09.10. diese Übergaben und C-22b freigegeben.
   `phase-11.md` nennt bei 11.3d jetzt Spur B.
 
 **An Spur C:**
-- Zuerst C-22b. Regeln in der Sammlung bei C-22: nur verschieben, die Wurzel
+- Zuerst der schwere Befund C-1/C-13 (Senden am Handy außerhalb).
+- Dann C-22b. Regeln in der Sammlung bei C-22: nur verschieben, die Wurzel
   behält, was jede Sitzung braucht; `STATUS.md` je Monat ins Archiv.
+- Dann die übrigen Befunde mit Spur C aus Anhang D, als eigene C-Punkte.
 - C-27 (neu in der Sammlung): Anzeige des Gratis-Starts – Kontingent des Geräts
   und Gratis-Anbieter. A-14 hatte keine Anzeige gebaut.
 - E10b: Kopfgeld per Klick (Regeln in der Sammlung bei A-9).
@@ -18882,8 +18930,9 @@ Spur A. Der MENSCH hat am 09.10. diese Übergaben und C-22b freigegeben.
   Logik und Oberfläche.
 - Danach 11.3e.
 
-**Spur A:** als Nächstes 11.3b – das gibt 11.3d (B) und 11.3e (C) frei –, dann
-11.3c.
+**Spur A:** übernimmt aus dem Nutzertest A-15 „Chat empfängt live“ (C-12, C-6) und
+A-16 „Weniger Verbindungen“ (N-1) – beide zuerst. Dann 11.3b – das gibt
+11.3d (B) und 11.3e (C) frei –, dann 11.3c.
 
 **Während C-22b offen ist:** Neue Fallstricke kommen wie bisher unten in
 `CLAUDE.md`. Wer danach `main` einmergt, trägt sie in die Datei des Bereichs um.

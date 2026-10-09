@@ -87,6 +87,12 @@ Reihenfolge: erst die freien Punkte von oben nach unten.
 | B-20 | **Kanäle in offenen Räumen durch Moderatoren** (aus E6: „wie Discord“): Heute ändert nur der Gründer die Definition (34700 trägt seine Signatur); `kanaele_verwalten` wirkt deshalb nur privat. Braucht ein eigenes Event für Kanäle, das Berechtigte signieren. | `fertig` – entschieden 01.10. (MENSCH): ja, eigenes Event für Kanäle, das Berechtigte signieren. Aufgeteilt: **a fertig** (#238, Protokoll: Kind 34703, `mitRaumKanaelen()` in `raumZustandFuer()`), **b fertig** (#239, App: anlegen mit dem Recht, Moderatoren offener Räume über die Rolle statt der Liste 34550), **c fertig** (#241, Kanäle ändern und entfernen: offen über Kanal-Events nach `darfKanalAendern()`, privat neue Definition) | `spaces.ts` |
 | B-21 | **Überholte Bausteine entfernen** (Hinweis von Spur C: unverdrahtete Exporte anbinden oder entfernen): `merge.ts` (Mengen mit Zeitstempeln je Feld – seit B-5 ungenutzt), `decrementTtl` (`mesh-transport.ts`, seit 7.1), der allgemeine Ablauf in `state-backup.ts` (seit 2.5 über `private-dm.ts`), die offenen Mesh-Pakete und Zustellbelege mit Kurier-Belohnung (`mesh.ts`, keine Karte). | `fertig` – entschieden 04.10.2026 (MENSCH): entfernen samt Tests, auch die Belege aus `mesh.ts`; 17 Ausnahmen und 30 Tests weg, 38030/38031 nicht mehr belegt | `scripts/wiring-ausnahmen.txt` |
 | B-22 | **Öffentliche Räume: wer beitritt, schreibt mit** (Nutzertest 08.10., Befund R-8): Beigetretene hatten keine Rolle und damit kein „schreiben“, auch nicht in #allgemein; der Gründer erfuhr nichts vom Beitritt. | `fertig` – O1 entschieden 08.10.: wie @everyone bei Discord – Rolle für alle (`JEDER_ROLLE`, nur lesen, schreiben, Threads), neue offene Räume mit ihr, der Gründer schaltet im Raum-Menü um; beschränkte Kanäle bleiben | `protocol/src/spaces.ts`, `shell/tabs/raeume.ts` |
+| B-23 | **Knoten nur mit eigenem Relay hört live mit** (Nutzertest 08.10., Befund K-1): `RelayRole.alsRelay()` hatte kein `subscribe` – ein Knoten, der nur sein eigenes Relay nutzt, lief im Abfrage-Betrieb, jede KI-Anfrage wartete bis zu 15 s. | `fertig` – Dauer-Abo im Prozess: erst Gespeichertes, dann jedes neue Event nach denselben Regeln wie ein REQ (Umschläge nur an den Knoten); gemessen 0,3 s statt 12 s | `node/src/relay-role.ts` |
+| B-24 | **Warntext zum Zeitanker** (Nutzertest, Befund T-1): „Diebstahl vorbeugen“ endet mit „… hereinfallen – bis es Zeitzeugen gibt.“ Seit B-17b3 wird das Mandat in Bitcoin verankert und bei Streit geprüft – der Satz ist veraltet. | `frei` | `protocol/src/key-rotation.ts` (`wechselWarnung`), `app/src/texte/protokollsaetze.ts` (wortgleich, Test) |
+| B-25 | **Offene Räume zeigen Neues von selbst** (Nutzertest, Befund R-9): Nachrichten anderer erscheinen erst nach erneutem Öffnen des Raums. | `frei` | `shell/tabs/raeume.ts` |
+| B-26 | **Raum anlegen ohne Umweg** (Nutzertest, Befunde R-6, R-5): „Öffentlichen Raum anlegen“ steht nur im Raum-Menü, das es erst in einem Raum gibt – ohne Tresor und ohne Raum ließ sich gar keiner anlegen. Privat ohne Tresor kommt der Hinweis erst nach „Anlegen“, der Name ist dann weg. | `frei` | `shell/tabs/raeume.ts` |
+| B-27 | **Systemprompt des Knotens** (Nutzertest, Befund A-7): fest verdrahtet „Du laeuffst auf … (GX10)“, „Tools: web_search, image_gen, video_gen“ auch ohne diese Werkzeuge, „Knowledge-Cutoff Ende 2024“ – gilt für jeden Provider. Nur sagen, was stimmt. | `frei` | `node/src/inference.ts` |
+| B-28 | **Ersatzschlüssel nicht im Klartext** (Nutzertest, Befund T-2): „Diebstahl vorbeugen“ speichert `freedom-ersatzschluessel.txt` als Klartext. Optional mit Passphrase (Format des Exports, `verschluesseleMitPassphrase()`). | `frei` | `shell/tabs/sicherung.ts`, `datenexport.ts` |
 
 ---
 
@@ -162,6 +168,8 @@ andere Spuren und stehen deshalb hier, nicht in deren Abschnitten:
 | A-12 | **Gemeinsame Kasse für Räume** (Mehrfachsignatur für SOL) – neues Programm, braucht Audit. | `Entscheidung` |
 | A-13 | **Handel zwischen Menschen mit Treuhand** (Sperre wie beim Tausch, Prüfer aus dem eigenen Netz). | `Entscheidung` |
 | A-14 | **Gratis-Start und Kontingent** (Nutzertest 08.10., Befund A-1): Vorgabe „Classic“ schickt ein Gebot, neue Knoten lehnen es ab; für private Anfragen zählt der Knoten kein Kontingent (`gratisErlaubt()` fragt nur, ob er gratis anbietet), die Anzeige in der App ist seit 3.1 aus. Umsetzung nach G1: Knoten (Budget je Knoten, Grenze je Antwort, keine Werkzeuge gratis, 16 Bit, Kennung `gratis-leer`, Angebot nennt die Werte, Bootstrap bedient Gebote gratis) und App (Tarif „Automatisch“, Kontingent je Gerät nach Antworten und Tokens, Rückfrage vor dem ersten Bezahlen). | `fertig` (Code) – G1 entschieden 08.10.2026 (MENSCH); neue Angebots-Tags sind damit freigegeben. **a** Knoten und Protokoll `fertig` (Tag `gratis`, Budget je Knoten, `gratis-leer`, Bootstrap bedient Gebote), **b1** App: Gratis-Fragen passend zum Knoten, Kontingent je Gerät `fertig`, **b2** Tarif „Automatisch“ als Vorgabe und Rückfrage vor dem ersten Bezahlen `fertig`; **entschieden 09.10.2026 (MENSCH):** gefragt wird jeden Tag beim Wechsel von gratis auf bezahlt – **b3** `fertig` |
+| A-15 | **Chat empfängt live** (Nutzertest 08.10., Befunde C-12, C-6): Neue Direktnachrichten erscheinen erst mit dem Abruftakt – NIP-17 nach 89 s, MLS bei offener Unterhaltung nach ~55 s. Das Anruf-Abo (`lauscheAufAnrufe()`, B-13e) sieht die Umschläge an den eigenen Schlüssel schon; ein neuer Umschlag zieht künftig den Abgleich des Posteingangs vor, ohne selbst zu entschlüsseln (mit Bunker sonst je Nachricht eine Anfrage). MLS (445 an die Relays der Gruppe) braucht ein eigenes Abo, solange die Unterhaltung offen ist – im Schritt prüfen. | `offen` – als Nächstes in Spur A |
+| A-16 | **Weniger Verbindungen** (Nutzertest, Befund N-1): je rund 140 WebSockets in 45 min mit Tresor und MLS – `frageAn()` (`shell/state.ts`) öffnet je Adresse eine eigene Verbindung und schließt sie danach, auch für Relays, die im Pool schon offen sind. Künftig eine offene Verbindung mitnutzen; Anmeldung (NIP-42) nur wie bisher über `relayVerbindung()`. | `offen` – nach A-15 |
 
 ---
 
@@ -305,3 +313,41 @@ offenen Fragen RM1 und RM2 aus `ROADMAP.md` stehen in Abschnitt 5.
 | `docs/ROADMAP.md`, `docs/PROJECT-PLAN.md`, `docs/ANALYSIS.md`, `docs/UI-UPGRADE.md` | ältere Pläne und Analysen |
 | `docs/ausbau/UEBERSICHT.md`, `docs/ausbau/FORTSCHRITT.md`, `STATUS.md` | aktueller Ausbauplan und Protokoll – gelten bis zur Neuordnung weiter |
 | `packages/website/roadmap.html` | öffentliche Roadmap |
+
+## Anhang D – Befunde aus dem Nutzertest (08.10.2026)
+
+Nutzertest von Spur B mit drei Personen (Desktop, Handy), zwei Knoten und einer
+KI-Attrappe, ohne echtes Geld; Bericht und Screenshots beim MENSCHEN. Die Spalte
+„Spur“ ist ein Vorschlag – jede Spur übernimmt ihre Befunde als eigene Punkte in
+ihren Abschnitt (Regel „Ergänzen“) und trägt die Nummer hier nach.
+
+| Befund | Was | Wo | Spur | Stand |
+|---|---|---|---|---|
+| C-1, C-13 | **Schwer:** 1:1-Chat – die Ablauf-Auswahl `#chat-ablauf` wird über `input, textarea, select { width:100% }` 876 px (Handy 370 px) breit, das Textfeld 22 px, `<main>` läuft über; am Handy liegt Senden außerhalb. Der Smoke-Test misst den Eingabebereich einer offenen Unterhaltung nicht. | `app.css:168`, `app.css:1187` (`.chat-composer > *`) | C | offen (der Tipp auf Senden beim Tippen ist seit B-22 behoben) |
+| A-1, A-2 | **Schwer:** erste KI-Frage scheitert (Vorgabe „Classic“, Bootstrap) | `agent.ts`, `dvm-provider.ts` | A | erledigt (A-14) |
+| R-8 | **Schwer:** Beigetretene können im offenen Raum nicht schreiben | `spaces.ts` | B | erledigt (B-22) |
+| C-7 | Senden während des Uploads schickt den Text ohne Anhang; der Anhang hängt an der nächsten Nachricht | `chat-anhaenge.ts:51-90` | C | offen |
+| C-12 | Kein Live-Empfang im Chat (NIP-17 nach 89 s, MLS nach ~55 s); das Anruf-Abo sieht die Umschläge schon und könnte einen Abgleich vorziehen, ohne selbst zu entschlüsseln (B-13e) | `shell/anruf.ts:125`, Abruftakt | A | A-15 |
+| C-11 | Nichts zeigt Ungelesenes an – kein Fettdruck, kein Zähler in Liste oder Navigation | `kommunikation.ts` | C | offen |
+| A-4 | Agent-Chat scrollt nicht mit: `stickToBottom()` misst nach dem Anhängen der Blase | `agent-anzeige.ts:160`, `:354` | C | offen |
+| K-1 | Knoten nur mit eigenem Relay im Abfrage-Betrieb | `relay-role.ts` | B | erledigt (B-23) |
+| N-1 | Zu viele neue Verbindungen (je ~140 WebSockets in 45 min mit Tresor und MLS): `frageAn()` öffnet je Adresse eine eigene, auch für Relays im Pool | `shell/state.ts:328` | A | A-16 |
+| R-6, R-5 | Öffentlichen Raum nur aus einem Raum heraus; privat ohne Tresor: Hinweis erst nach „Anlegen“ | `raeume.ts` | B | B-26 |
+| W-1 | „Sats 100“ im Kopf der Seite Währung ohne Wallet (Rest des Sitzungsbudgets) liest sich wie Guthaben | `#nb-sats` | C | offen |
+| C-8, C-2, R-2, G-4 | Veröffentlichte Namen erscheinen nicht (Hex, Avatar „2“); „Anfrage · …“ bleibt nach Antwort und Prüfung, auch in Raum, Umfrage und Repo | Kontakte, Anfragestatus | C | offen |
+| T-1 | Veralteter Warntext „bis es Zeitzeugen gibt“ | `key-rotation.ts`, `protokollsaetze.ts` | B | B-24 |
+| V-1 | „Verdienen“ spricht ohne eigenen Knoten von „Dein Knoten …“ und zeigt `ZAHLKANAL=1`, `NODE_SOL_ADDRESS` | `earn.ts` | C | offen |
+| C-5 | Zap-Knopf in fremden Nachrichten erbt die globale Knopf-Regel: 340 px breiter Balken, Nachricht ohne Blase | `.zap-msg-btn` | C | offen |
+| R-9 | Offener Raum lädt Nachrichten anderer nicht von selbst | `raeume.ts` | B | B-25 |
+| E-1 bis E-5, E-7 | Einrichtung: „nichts einzurichten“ neben Phrase-Dialog und Assistent; Abstände und Knopfbreiten in Dialogen; Overlay ohne `role=dialog`/`aria-modal`, Hintergrund nicht `inert`; Wahl „Nachrichten schreiben“ wird ignoriert | `einrichtung-ui.ts`, Dialoge | C | offen |
+| A-3, E-6 | „(SOL: kein Kurs)“ auf jedem Werkzeug-Chip | Agent | C | offen |
+| A-5, A-6, A-8, N-2 | Agent: fehlgeschlagene Frage doppelt im Verlauf; „(1 Nachrichten)“ und Kennung „free“ in der Wechsel-Notiz; rohes Markdown während der Tipp-Animation; „Mein Knoten“ unter dem sichtbaren Teil der Modellwahl | Agent | C | offen |
+| C-3, C-4, C-9 | Chat: Anruf- und Eingabezeile ohne gewählte Unterhaltung; „⇪ ⇩“ ohne Text; Sicherheitscode im einzeiligen Feld (7 von 12 Gruppen sichtbar) | `kommunikation.ts` | C | offen |
+| R-1, R-3, R-4, R-7 | Räume: Einladung als „🔒 P“ ohne Absender; Umfrage „von <eigener Hex>“, Antworten in Großbuchstaben, führende Antwort auch für Nichtwähler gefüllt; Mitgliederliste abgeschnitten; mobil silbenweiser Kanalkopf | `raeume.ts`, `raum-planung-ui.ts`, `app.css` | C | offen |
+| G-1, G-2, G-3, G-5 | Repos: zwei Wege zum Anlegen, doppelte Rückfrage, Karte „Mitwirkende“ doppelt, „Werkstatt“ ohne „(privater Raum)“ | Repos | C | offen |
+| P-1, P-2, P-3 | Profil: Karte „…197f [Importieren]“ ohne Überschrift; „Teilen“ kopiert Hex statt npub; Hex in Großbuchstaben | `profil.ts` | C | offen |
+| W-2, X-1 bis X-4 | Währung und Settings: Warnung klebt an „Nicht verbunden“; lange Häkchen-Sätze in Großbuchstaben (Label-Regel); Fortschrittsbalken füllt von links; „Zwei der fünf Schritte gehen nur vorher.“ unklar; „ERNEUT PRÜFEN“ beim ersten Öffnen; „vor 0 Tag(en)“ | `app.css`, `settings.ts`, `sicherung.ts` | C | offen |
+| A-7 | Systemprompt des Knotens fest verdrahtet (GX10, Werkzeuge, Wissensstand) | `node/src/inference.ts` | B | B-27 |
+| T-2 | Ersatzschlüssel als Klartext-Datei | `sicherung.ts` | B | B-28 |
+| C-6 | MLS-Antwort brauchte bei offener Unterhaltung ~55 s (folgt aus C-12) | – | A | mit C-12 (A-15) |
+| K-2 | Lightning-Adresse im Test nicht erreichbar – erwartbar | – | – | kein Punkt |
