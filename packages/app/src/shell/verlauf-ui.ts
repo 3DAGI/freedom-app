@@ -18,7 +18,7 @@ const wann = (s: number): string => new Date(s * 1000).toLocaleString(gebietssch
 const ZWECK: Record<Zweck, string> = {
   zap: "verlauf.zweck.zap", job: "verlauf.zweck.job", sitzung: "verlauf.zweck.sitzung", deposit: "verlauf.zweck.deposit",
   trinkgeld: "verlauf.zweck.trinkgeld", gebuehr: "verlauf.zweck.gebuehr", swap: "verlauf.zweck.swap", relay: "verlauf.zweck.relay",
-  anforderung: "verlauf.zweck.anforderung", senden: "verlauf.zweck.senden",
+  anforderung: "verlauf.zweck.anforderung", senden: "verlauf.zweck.senden", kopfgeld: "verlauf.zweck.kopfgeld",
 };
 
 /** Ziel zum Anzeigen: Adressen ganz, Rechnungen gekürzt. */

@@ -2,7 +2,7 @@
  * Kopfgelder am Issue (Schritt E10b1, Entscheidung E10 B, an Spur C übergeben 09.10.2026):
  * zeigen, anlegen, den Stand setzen. Ein Kopfgeld (38061, `kopfgeld.ts`) sagt einen Betrag in
  * sats, in SOL oder in beiden zu; bezahlt wird direkt vom Geldgeber an den, der es erledigt –
- * nichts wird verwahrt. Bezahlen per Klick folgt mit E10b2.
+ * nichts wird verwahrt. Bezahlen per Klick seit E10b2 (`kopfgeld-zahlung.ts`).
  *
  * Der Stand kommt nur aus `kopfgelderZuIssue()` (je Geldgeber und Kennung der neueste);
  * anlegen und den Stand setzen nur der Geldgeber selbst über `signiere()`. Nur an öffentlichen
@@ -14,8 +14,8 @@ import { t } from "../../i18n.js";
 import { satsText, solText } from "../../preis-anzeige.js";
 import { fehlerText } from "../../protokoll-texte.js";
 import type { IssueZeile, RepoKarte } from "../../repo-ansicht.js";
-import { dialog } from "../dialog.js";
-import { ensurePool, signiere, state } from "../state.js";
+import { bestaetige, dialog } from "../dialog.js";
+import { ensurePool, frageBeiAutoren, solRpcUrl, signiere, state } from "../state.js";
 import { toast } from "../ui.js";
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, text?: string, klasse?: string): HTMLElementTagNameMap[K] {
@@ -80,6 +80,10 @@ function kopfgeldZeile(kg: Kopfgeld, z: IssueZeile, name: (pk: string) => string
     const aktionen = el("div", undefined, "kopfgeld-aktionen");
     if (kg.stand === "offen") aktionen.append(knopf(t("kopf.vergeben"), () => void vergib(kg, z, name, neu)));
     if (kg.stand === "vergeben") {
+      // Bezahlen per Klick (E10b2): direkt an die Person, danach „erledigt“
+      const zahlen = knopf(t("kopf.bezahlen"), () => void bezahle(kg, name, neu, zahlen));
+      zahlen.classList.add("kopfgeld-bezahlen");
+      aktionen.append(zahlen);
       aktionen.append(knopf(t("kopf.erledigt"), () => void setzeStand(kg, "erledigt", kg.an, neu)));
       aktionen.append(knopf(t("kopf.wiederOffen"), () => void setzeStand(kg, "offen", undefined, neu)));
     }
@@ -132,6 +136,53 @@ async function vergib(kg: Kopfgeld, z: IssueZeile, name: (pk: string) => string,
   const an = String(w?.an ?? "");
   if (!w || !kandidaten.includes(an)) return;
   await setzeStand(kg, "vergeben", an, neu);
+}
+
+/**
+ * Bezahlen per Klick: einmal bestätigen, dann je Währung eine Zahlung aus der eigenen Wallet direkt an
+ * die Person – nie von selbst wiederholt. Erst wenn alles bezahlt ist, steht das Kopfgeld auf „erledigt“.
+ */
+async function bezahle(kg: Kopfgeld, name: (pk: string) => string, neu: () => Promise<void>, knopf: HTMLButtonElement): Promise<void> {
+  const an = kg.an;
+  if (!an || !state.signer) return;
+  const { bezahleKopfgeld, schonBezahlt } = await import("../../kopfgeld-zahlung.js");
+  const { geheim } = await import("../tresor.js");
+  const offen = schonBezahlt(kg, geheim);
+  const rest = { ...(kg.msat !== undefined && !offen.msat ? { msat: kg.msat } : {}), ...(kg.lamports !== undefined && !offen.lamports ? { lamports: kg.lamports } : {}) };
+  if (!(await bestaetige({ titel: t("kopf.bezahlenTitel"), text: t("kopf.bezahlenText", { betrag: kopfgeldBetrag(rest), name: name(an) }), ok: t("kopf.bezahlenOk") }))) return;
+  knopf.disabled = true;
+  try {
+    const [{ zahle, parseProfileSafe }, { zahlschienen }, { solAdresseAusProfil }, { frageAdresseAn, gemerkteAdresse }, { frageRechnungAn }, { ketteAusRpc }, { veroeffentlicheDm }] = await Promise.all([
+      import("@freedomstack/protocol"), import("../zahlschienen.js"), import("../../zap-zahlung.js"), import("../../trinkgeld-adresse.js"),
+      import("../../ln-rechnung-anfrage.js"), import("../../wallet-standard.js"), import("./posteingang.js"),
+    ]);
+    const pool = await ensurePool();
+    const signer = state.signer;
+    // Profil auch an den Schreib-Relays der Person (5.4b); das neueste gilt
+    const profil = (await frageBeiAutoren({ kinds: [0], authors: [an], limit: 1 })).sort((a, b) => b.created_at - a.created_at)[0];
+    const kette = ketteAusRpc(await solRpcUrl());
+    await bezahleKopfgeld(kg, {
+      lud16: async () => (profil ? parseProfileSafe(profil).lud16 ?? "" : ""),
+      frageRechnung: async (msat) => {
+        toast(t("zahl.frageRechnung", { name: name(an) }));
+        return frageRechnungAn({ pool, signer, empfaenger: an, betragMsat: msat, sende: veroeffentlicheDm });
+      },
+      solAdresse: async () => gemerkteAdresse(geheim, an, kette)
+        ?? await frageAdresseAn({ pool, speicher: geheim, signer, empfaenger: an, kette, sende: veroeffentlicheDm }),
+      solAusProfil: async () => {
+        const oeffentlich = profil ? solAdresseAusProfil(profil.content) : "";
+        return oeffentlich && await bestaetige({ titel: t("kopf.bezahlenTitel"), text: t("zahl.oeffentlicheAdresseFrage", { name: name(an) }), ok: t("zahl.trotzdemDorthin") }) ? oeffentlich : null;
+      },
+      zahle: (a) => zahle(zahlschienen(), a),
+      speicher: geheim,
+    });
+    toast(t("kopf.bezahlt", { name: name(an) }));
+    await setzeStand(kg, "erledigt", an, neu);
+  } catch (e) {
+    // Was schon bezahlt ist, bleibt gemerkt – ein neuer Klick zahlt nur den Rest
+    toast(t("kopf.bezahlenFehler", { fehler: fehlerText(e) }), true);
+    knopf.disabled = false;
+  }
 }
 
 async function setzeStand(kg: Kopfgeld, stand: KopfgeldStand, an: string | undefined, neu: () => Promise<void>): Promise<void> {
