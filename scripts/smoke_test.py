@@ -1080,6 +1080,62 @@ def anhang_senden_pruefen(browser, url: str) -> dict:
     return erg
 
 
+def kontaktname_pruefen(browser, url: str) -> dict:
+    """Namen von Kontakten (C-33, Nutzertest C-8, C-2): Ein Fremder mit veröffentlichtem Profil schreibt. Die Liste
+    zeigt „Anfrage · ~Name“ – den selbst gewählten Namen mit „~“, HTML darin nur als Text, das runde Zeichen ist sein
+    erster Buchstabe (vorher: „Anfrage · <Schlüssel>“, Zeichen „A“). Nach der ersten Antwort endet die Anfrage."""
+    erg = {"fehler": []}
+    wurzel = Path(__file__).resolve().parent.parent
+    relay = ProbeRelay()
+    seite = DialogSeite(browser, url, relay, erg, init="localStorage.setItem('freedom.versand.verzoegerung', '0');")
+    ev = seite.ev
+    ev("() => { location.hash = '#/chat'; }")
+    for _ in range(80):
+        if relay.ich:
+            break
+        seite.s.wait_for_timeout(250)
+    if not relay.ich:
+        seite.ctx.close()
+        return {"bestanden": False, "fehler": ["keine Abfrage der eigenen Relay-Listen – eigener Schlüssel unbekannt"]}
+    aus = subprocess.run(["npx", "tsx", "scripts/kontaktname-probe.mts", relay.ich], cwd=wurzel,
+                         capture_output=True, text=True, timeout=180, check=True)
+    probe = json.loads(aus.stdout)
+    relay.events = probe["events"]
+    # Der Posteingang gleicht beim Start ab
+    seite.s.reload(wait_until="load")
+    ev("() => { location.hash = '#/chat'; }")
+    zeile = f"#chat-list .chat-item[data-cid='{probe['absender']}']"
+    lies = f"""() => {{ const z = document.querySelector("{zeile}"); return z ? {{ label: z.querySelector('.label').textContent,
+        zeichen: z.querySelector('.av').textContent, elemente: z.querySelectorAll('b, img').length }} : null; }}"""
+    try:
+        seite.s.wait_for_function(f"() => document.querySelector(\"{zeile} .label\")?.textContent.includes('~')", timeout=30000)
+    except Exception:
+        pass
+    erg["vorher"] = ev(lies)
+    # Antworten nimmt die Anfrage an
+    ev(f"() => document.querySelector(\"{zeile}\").click()")
+    seite.s.wait_for_selector("#chat-input", timeout=10000)
+    ev("() => { document.getElementById('chat-input').value = 'Ja, hallo'; document.getElementById('chat-send').click(); }")
+    try:
+        seite.s.wait_for_function(f"() => !document.querySelector(\"{zeile} .label\")?.textContent.startsWith('Anfrage')", timeout=20000)
+    except Exception:
+        pass
+    erg["nachher"] = ev(lies)
+    erg["gespeichert"] = ev("""(pk) => { const c = JSON.parse(localStorage.getItem('freedom.chats') ?? '[]').find(x => x.id === pk);
+        return c ? { anfrage: c.anfrage ?? null, profil: c.profil ?? null } : null; }""", probe["absender"])
+    name = probe["name"]
+    if erg["vorher"] != {"label": f"Anfrage · ~{name}", "zeichen": "A", "elemente": 0}:
+        erg["fehler"].append(f"vorher {erg['vorher']}")
+    if erg["nachher"] != {"label": f"~{name}", "zeichen": "A", "elemente": 0}:
+        erg["fehler"].append(f"nach der Antwort {erg['nachher']}")
+    if erg["gespeichert"] != {"anfrage": False, "profil": name}:
+        erg["fehler"].append(f"gespeichert {erg['gespeichert']}")
+    if seite.browser_dialoge:
+        erg["fehler"].append(f"Browser-Dialoge {seite.browser_dialoge}")
+    seite.ctx.close()
+    erg["bestanden"] = not erg["fehler"]
+    return erg
+
 def agent_folgen_pruefen(browser, url: str) -> dict:
     """Der Agent-Verlauf folgt dem Ende (C-31, Nutzertest A-4): Bis C-31 maß die App erst nach dem Anhängen, ob
     man unten war – jede Blase über 80 px galt als „hochgescrollt“, und die Ansicht blieb stehen. Ein langer
@@ -4702,6 +4758,10 @@ def main() -> int:
             except Exception as e:
                 erg["anhang_senden"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
             try:
+                erg["kontaktname"] = kontaktname_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
+            except Exception as e:
+                erg["kontaktname"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
+            try:
                 erg["agent_folgen"] = agent_folgen_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
             except Exception as e:
                 erg["agent_folgen"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
@@ -4809,6 +4869,7 @@ def main() -> int:
           and erg.get("sprachnachricht", {}).get("bestanden") is True
           and erg.get("composer", {}).get("bestanden") is True
           and erg.get("anhang_senden", {}).get("bestanden") is True
+          and erg.get("kontaktname", {}).get("bestanden") is True
           and erg.get("agent_folgen", {}).get("bestanden") is True
           and erg.get("anruf", {}).get("bestanden") is True
           and erg.get("post_live", {}).get("bestanden") is True

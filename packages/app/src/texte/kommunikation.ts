@@ -204,6 +204,7 @@ export const kommunikation: Texte = {
   "komm.du": { de: "du", en: "you" },
   "komm.keineVollmacht": { de: "Dieses Gerät hat keine gültige Vollmacht (mehr) – Settings → Geräte", en: "This device has no valid authorization (anymore) – Settings → Devices" },
   "komm.anfrage": { de: "Anfrage · {pk}", en: "Request · {pk}" },
+  "komm.nameBekannt": { de: "{name} (so nennen ihn {n} deiner Kontakte)", en: "{name} (what {n} of your contacts call them)" },
   "komm.fehler": { de: "Fehler: {grund}", en: "Error: {grund}" },
   "komm.kontaktSchluessel": { de: "Schlüssel des Kontakts (npub oder hex)", en: "Contact's key (npub or hex)" },
   "komm.unterhaltungBeginnen": { de: "Unterhaltung beginnen", en: "Start conversation" },

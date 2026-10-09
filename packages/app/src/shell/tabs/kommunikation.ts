@@ -22,6 +22,7 @@ import { zeigeRaumLeiste } from "./raeume.js";
 import { fehlerText } from "../../protokoll-texte.js";
 import { leseAnforderung } from "../../zahlungs-anforderung.js";
 import { ergaenzeGelesen, istUngelesen, zaehlerText, zahlUngelesen } from "../../ungelesen.js";
+import { istAnfrage, istAnfrageName, istPlatzhalterName, kontaktAnzeige, kontaktInitiale } from "../../kontakt-name.js";
 import { anforderungen, anhangElement, anhangWarte, chatAttachments, leereAnhaenge, setAttachStatus, wireBlobButtons, zeigeAnhangListe } from "./chat-anhaenge.js";
 import { loeseNamenAuf, markiereSchluessel, schluesselHinweis, schluesselStand, setzePetname, sichereKontakte } from "./kontakte.js";
 import { type DmAnzeige, entschluesselungFehlgeschlagen, geraeteBuch, ladeDmNachrichten, syncDmInbox, veroeffentlicheDm } from "./posteingang.js";
@@ -67,7 +68,7 @@ export function wireKommunikation(): void {
   wireSuche((cid) => {
     openConversation(cid);
     layout?.classList.add("thread-open");
-  }, (cid) => conversations.find((c) => c.id === cid)?.name ?? pkShort(cid));
+  }, (cid) => { const c = conversations.find((x) => x.id === cid); return c ? kontaktAnzeige(c) : pkShort(cid); });
   // „+“ in der Leiste wählt seit B-26 die Art des Raums (raeume.ts, waehleRaumArt())
   document.getElementById("rail-join")?.addEventListener("click", () =>
     document.getElementById("space-join")?.click());
@@ -95,6 +96,10 @@ interface ChatConversation {
   /** Neueste Nachricht vom Gegenüber und zuletzt gelesen (C-30, Sekunden) – daraus „ungelesen“. */
   eingang?: number;
   gelesen?: number;
+  /** Jemand Fremdes schrieb zuerst; endet mit der ersten Antwort, der Prüfung oder einem eigenen Namen (C-33). */
+  anfrage?: boolean;
+  /** Selbst gewählter Name aus dem Profil des Kontakts (C-33, `kontakt-name.ts`) – gezeigt als „~Name“. */
+  profil?: string;
 }
 
 export let conversations: ChatConversation[] = [];
@@ -165,7 +170,8 @@ export function loadChatList(): void {
     .map((c) => {
       const zeile = el("div", undefined, c.id === activeConversation ? "chat-item active" : "chat-item");
       zeile.dataset.cid = c.id;
-      zeile.append(el("span", c.type === "community" ? "🏠" : c.name.slice(0, 1).toUpperCase(), "av"), el("span", c.name, "label"));
+      // Name mit Anfrage-Zusatz und Profilname (C-33) – das Zeichen nie aus „Anfrage“ oder dem Schlüssel allein
+      zeile.append(el("span", c.type === "community" ? "🏠" : kontaktInitiale(c), "av"), el("span", kontaktAnzeige(c), "label"));
       // Ungelesenes (C-30): fett, mit Punkt und für Vorleser als Text
       if (istUngelesen(c)) {
         zeile.classList.add("ungelesen");
@@ -194,10 +200,25 @@ export function loadChatList(): void {
   void loeseNamenAuf(conversations.filter((c) => c.type === "dm").map((c) => c.id))
     .then((namen: Map<string, string>) => {
       for (const [pk, anzeige] of namen) {
-        const el = list.querySelector(`[data-cid="${CSS.escape(pk)}"] .label`);
-        if (el) el.textContent = anzeige;
+        const zeile = list.querySelector(`[data-cid="${CSS.escape(pk)}"]`);
+        const c = conversations.find((x) => x.id === pk);
+        const label = zeile?.querySelector(".label");
+        if (label) label.textContent = c && istAnfrage(c) ? t("komm.anfrage", { pk: anzeige }) : anzeige;
+        const av = zeile?.querySelector(".av");
+        if (av) av.textContent = (Array.from(anzeige.replace(/^~/, ""))[0] ?? "?").toUpperCase();
       }
     });
+}
+
+/** Die Anfrage annehmen (C-33): nach der ersten Antwort oder der Prüfung des Sicherheitscodes. */
+export function nimmAnfrageAn(cid: string): void {
+  const c = conversations.find((x) => x.type === "dm" && x.id === cid);
+  if (!c || !istAnfrage(c)) return;
+  c.anfrage = false;
+  // „Anfrage · …“ aus der Zeit vor C-33 stand im Namen selbst
+  if (istAnfrageName(c.name, c.id)) c.name = pkShort(c.id);
+  saveConversations();
+  loadChatList();
 }
 
 export function openConversation(cid: string): void {
@@ -209,7 +230,7 @@ export function openConversation(cid: string): void {
   const c = conversations.find((x) => x.id === cid);
   const thread = $("#chat-thread");
   const leer = el("div", undefined, "empty-state");
-  leer.append(c ? c.name : "", document.createElement("br"), c?.type === "dm" ? dmHinweis(c) : t("komm.community"));
+  leer.append(c ? kontaktAnzeige(c) : "", document.createElement("br"), c?.type === "dm" ? dmHinweis(c) : t("komm.community"));
   if (c?.type === "dm") leer.append(document.createElement("br"), el("span", pruefStand(c.id), "pruef-stand"));
   thread.replaceChildren(leer);
   zeigeAblauf(c);
@@ -228,7 +249,7 @@ async function benenneKontakt(c: ChatConversation): Promise<void> {
     titel: t("komm.nameTitel"),
     felder: [
       // Vorbelegt nur ein echter Name, nicht der gekürzte Schlüssel aus newDm()
-      { art: "text", name: "name", label: t("komm.eigenerName", { pk: pkShort(c.id) }), wert: [c.id.slice(0, 12) + "…", pkShort(c.id)].includes(c.name) ? "" : c.name },
+      { art: "text", name: "name", label: t("komm.eigenerName", { pk: pkShort(c.id) }), wert: istPlatzhalterName(c.name, c.id) ? "" : c.name },
       { art: "mehrfach", name: "teilen", label: t("komm.nameSichtbar"), optionen: [
         { wert: "ja", text: t("komm.nameVeroeffentlichen"), hinweis: t("komm.nameVeroeffentlichenHinweis") },
       ] },
@@ -240,6 +261,8 @@ async function benenneKontakt(c: ChatConversation): Promise<void> {
   const teilen = !!name.trim() && Array.isArray(w.teilen) && w.teilen.includes("ja");
   setzePetname(c.id, name, teilen);
   c.name = name.trim() || pkShort(c.id);
+  // Wer einen eigenen Namen vergibt, kennt die Person – keine Anfrage mehr (C-33)
+  if (name.trim()) c.anfrage = false;
   saveConversations();
   loadChatList();
 }
@@ -514,6 +537,8 @@ export async function sendChatMessage(): Promise<void> {
     leereAnhaenge();
     setAttachStatus($("#chat-attach-list"), "");
     c.lastTs = Math.floor(Date.now() / 1000);
+    // Die erste Antwort nimmt die Anfrage an (C-33) – danach heißt die Person nur noch mit ihrem Namen
+    if (c.type === "dm") nimmAnfrageAn(c.id);
     saveConversations();
     loadChatMessages(activeConversation);
   } catch (e) {

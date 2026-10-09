@@ -165,7 +165,8 @@ async function alsMlsEinladung(w: NostrEvent): Promise<null> {
   }
   let c = conversations.find((x) => x.type === "dm" && x.id === r.partner);
   if (!c) {
-    c = { id: r.partner, type: "dm", name: t("komm.anfrage", { pk: pkShort(r.partner) }), lastTs: Math.floor(Date.now() / 1000) };
+    // Anfrage (C-33): als Merkmal, nicht im Namen – die Anzeige baut kontaktAnzeige()
+    c = { id: r.partner, type: "dm", name: pkShort(r.partner), anfrage: true, lastTs: Math.floor(Date.now() / 1000) };
     conversations.push(c);
   }
   c.mls = r.gruppe;
@@ -301,7 +302,7 @@ async function ordneEin(w: NostrEvent, me: string): Promise<{ neu: boolean; spae
   const vomGegenueber = e.ev.pubkey !== (sprichtFuer() ?? me);
   const vorhanden = conversations.find((x) => x.id === e.partner);
   if (!vorhanden) {
-    conversations.push({ id: e.partner, type: "dm", name: t("komm.anfrage", { pk: pkShort(e.partner) }), lastTs: e.ev.created_at,
+    conversations.push({ id: e.partner, type: "dm", name: pkShort(e.partner), anfrage: true, lastTs: e.ev.created_at,
       gelesen: 0, ...(vomGegenueber ? { eingang: e.ev.created_at } : {}) });
     return { neu: true, spaeter: false, ...frischVon };
   }

@@ -14,6 +14,7 @@ import { $, el, toast } from "../ui.js";
 import { t } from "../../i18n.js";
 import { schluesselText } from "../../protokoll-texte.js";
 import { activeConversation, conversations, loadChatList, loadChatMessages, openConversation, saveConversations } from "./kommunikation.js";
+import { istPlatzhalterName, neuesteProfilNamen } from "../../kontakt-name.js";
 
 // ------------------------------------------ private Kontaktliste (2.5b)
 
@@ -102,11 +103,35 @@ export async function ladeKontakte(): Promise<number> {
  * Nutzer bereits kennt, wird gewarnt — bevor eine Zahlung passiert.
  */
 let namenCache: { at: number; events: unknown[] } | null = null;
+/** Profilnamen (Kind 0) der Kontakte (C-33) – bei den Autoren gelesen, höchstens alle zehn Minuten. */
+let profilCache: { at: number; pks: string; namen: Map<string, string> } | null = null;
 
+/** Die selbst gewählten Namen holen und an den Unterhaltungen merken (gespeichert, wenn sich einer änderte). */
+async function ladeProfilNamen(pubkeys: string[]): Promise<Map<string, string>> {
+  const pks = [...new Set(pubkeys)].sort();
+  const jetzt = Date.now();
+  if (!profilCache || profilCache.pks !== pks.join() || jetzt - profilCache.at > 600_000) {
+    const events = pks.length ? await frageBeiAutoren({ kinds: [0], authors: pks, limit: pks.length * 2 }) : [];
+    profilCache = { at: jetzt, pks: pks.join(), namen: neuesteProfilNamen(events) };
+  }
+  let geaendert = false;
+  for (const c of conversations) {
+    if (c.type !== "dm") continue;
+    const name = profilCache.namen.get(c.id);
+    if (name && c.profil !== name) { c.profil = name; geaendert = true; }
+  }
+  if (geaendert) saveConversations();
+  return profilCache.namen;
+}
+
+/**
+ * Anzeige je Schlüssel (seit C-33 mit Profilnamen und ohne „Anfrage“ – den Zusatz setzt die Liste):
+ * eigener Name, sonst der aus dem Bekanntenkreis, sonst „~Profilname“, sonst der gekürzte Schlüssel.
+ */
 export async function loeseNamenAuf(pubkeys: string[]): Promise<Map<string, string>> {
   const out = new Map<string, string>();
   try {
-    const { resolveName, displayWithSource, checkImpersonation, KIND_PETNAME } =
+    const { resolveName, checkImpersonation, KIND_PETNAME } =
       await import("@freedomstack/protocol");
 
     const eigene = new Map<string, string>(
@@ -123,10 +148,18 @@ export async function loeseNamenAuf(pubkeys: string[]): Promise<Map<string, stri
     // Namenslawine erzeugen und damit jemanden umbenennen.
     const vertraut = new Set(conversations.filter((c) => c.type === "dm").map((c) => c.id));
 
+    const profile = await ladeProfilNamen(pubkeys).catch(() => new Map<string, string>());
     for (const pk of pubkeys) {
-      const r = resolveName(pk, namenCache.events as never[], { ownPetnames: eigene, trusted: vertraut });
+      const r = resolveName(pk, namenCache.events as never[], { ownPetnames: eigene, trusted: vertraut, selfNames: profile });
       const warnung = checkImpersonation(r, eigene);
-      out.set(pk, displayWithSource(r) + (warnung ? " \u26A0" : ""));
+      const c = conversations.find((x) => x.type === "dm" && x.id === pk);
+      // Die Herkunft bleibt sichtbar (naming.ts): Bekanntenkreis mit Zahl, Selbstbezeichnung mit „~“
+      const anzeige = r.source === "eigener" ? r.display
+        : c && !istPlatzhalterName(c.name, c.id) ? c.name
+        : r.source === "bekanntenkreis" ? t("komm.nameBekannt", { name: r.display, n: r.agreement ?? 0 })
+        : profile.has(pk) ? `~${r.display}`
+        : pkShort(pk);
+      out.set(pk, anzeige + (warnung ? " \u26A0" : ""));
     }
   } catch { /* ohne Netz bleibt der gekuerzte Schluessel */ }
   return out;
@@ -232,7 +265,8 @@ function wechsleZuNeuemSchluessel(alt: string, neu: string): void {
   if (!/^[0-9a-f]{64}$/.test(neu)) return;
   const c = conversations.find((x) => x.id === alt);
   if (!conversations.some((x) => x.id === neu)) {
-    conversations.push({ id: neu, type: "dm", name: c?.name.replace(ALT_MARKE, "") ?? pkShort(neu), lastTs: Math.floor(Date.now() / 1000), ...(c?.ablaufSecs ? { ablaufSecs: c.ablaufSecs } : {}) });
+    // Ein Platzhalter des alten Schlüssels wäre beim neuen ein falscher Name (C-33)
+    conversations.push({ id: neu, type: "dm", name: c && !istPlatzhalterName(c.name, alt) ? c.name.replace(ALT_MARKE, "") : pkShort(neu), lastTs: Math.floor(Date.now() / 1000), ...(c?.ablaufSecs ? { ablaufSecs: c.ablaufSecs } : {}) });
   }
   if (c && !ALT_MARKE.test(c.name)) c.name = t("komm.alterSchluessel", { name: c.name });
   saveConversations();

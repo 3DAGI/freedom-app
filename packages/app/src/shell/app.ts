@@ -12,6 +12,7 @@ import { startHero } from "../hero.js";
 import { LANGS, Lang, detectLang, gespeicherteSprache, getLang, setLang, t } from "../i18n.js";
 import { fehlerText } from "../protokoll-texte.js";
 import { pkShort } from "../shell-logic.js";
+import { kontaktKurzName } from "../kontakt-name.js";
 import { nimmBunkerAuf, wireBunkerKarte } from "./bunker.js";
 import { wireMeinKnoten } from "./mein-knoten.js";
 import { wireKnotenHalten } from "./knoten-halten-ui.js";
@@ -70,6 +71,7 @@ import {
   loadChatList,
   loadChatMessages,
   newDm,
+  nimmAnfrageAn,
   sendChatMessage,
   setzeAblauf,
   wireKommunikation,
@@ -778,7 +780,7 @@ function starte(): void {
         return;
       }
       const { openZapDialog } = await import("../chat-zap.js");
-      openZapDialog(c.id, c.name);
+      openZapDialog(c.id, kontaktKurzName(c));
     };
   }
   // Kontakt prüfen (B-4): Sicherheitscode vergleichen – nur in 1:1-Unterhaltungen
@@ -788,7 +790,8 @@ function starte(): void {
       const c = conversations.find((x) => x.id === activeConversation);
       if (!c || c.type !== "dm") return toast(t("komm.pruefNur11"), true);
       const { pruefeKontakt } = await import("./kontakt-pruefen-ui.js");
-      await pruefeKontakt(c.id, c.name);
+      // Geprüft heißt: man kennt die Person – keine Anfrage mehr (C-33)
+      if (await pruefeKontakt(c.id, kontaktKurzName(c))) nimmAnfrageAn(c.id);
     };
   }
   // Mesh-Transfer (USB/offline): Post fuer einen Kontakt mitnehmen / Datei einlesen.
