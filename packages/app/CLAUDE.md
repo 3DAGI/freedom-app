@@ -688,3 +688,10 @@ Fallstricke dieses Bereichs unten anhängen.
   nur an deren Relays über `abonniereAn()` – nie `pool.subscribe()` mit `#h`, das nennte die Gruppe
   allen Relays. Ein Treffer stößt nur an; empfangen wird über `mlsAbgleichen()` hinter `Nachziehen`
   (nie zwei Läufe zugleich – sonst „MLS beschäftigt“).
+- **Relays außerhalb des Pools nur über Nebenverbindungen** (seit A-16, `neben-verbindungen.ts`, Befund
+  N-1): `frageAn()`, `veroeffentlicheAn()` und `abonniereAn()` teilen die Ziele mit `teileZiele()` – Relays
+  des Pools über dessen Verbindung (`queryAn()`, `publishAn()`, `subscribeAn()`), die übrigen über `neben`
+  (je Identität und Adresse eine, nach `NEBEN_GRENZEN.ruheMs` ohne Gebrauch zu, höchstens `max`). Keine
+  Verbindung je Aufruf mehr (`autoReconnect: false` + `close()`), ein Test findet das. Wer eine holt
+  (`hole()`), gibt sie zurück (`gib()`, sonst bleibt sie offen) – am einfachsten über `mit()`. `frageAn()`
+  gibt nur gültig Signiertes weiter, auch von fremden Relays.

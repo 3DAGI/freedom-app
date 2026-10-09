@@ -113,3 +113,25 @@ test("A-15b: subscribeAn – Abo nur an den genannten Relays des Pools, geprüft
   assert.deepEqual(abos.sort(), ["wss://a", "wss://b", "wss://c"]);
   alle();
 });
+
+test("A-16: queryAn – nur die genannten Relays des Pools, geprüft und je Event einmal", async () => {
+  const a = new MemoryRelay("wss://a"), b = new MemoryRelay("wss://b"), c = new MemoryRelay("wss://c");
+  const gefragt: string[] = [];
+  for (const r of [a, b, c]) {
+    const q = r.query.bind(r);
+    r.query = async (f) => { gefragt.push(r.url); return q(f); };
+  }
+  const pool = new OutboxPool([a, b, c]);
+  const { ev } = signed(445);
+  await a.publish(ev);
+  await c.publish(ev);
+  const { ev: nurB } = signed(445);
+  await b.publish(nurB);
+  // Ein manipuliertes Event in einem Relay: fällt heraus
+  const f = { ...signed(445).ev, content: "manipuliert" };
+  (a as unknown as { store: unknown[] }).store.push(f);
+  const r = await pool.queryAn({ kinds: [445] }, ["wss://a", "wss://c", "wss://fremd"]);
+  assert.deepEqual(gefragt.sort(), ["wss://a", "wss://c"], "kein anderes Relay gefragt");
+  assert.deepEqual(r.map((e) => e.id), [ev.id], "doppelt einmal, Gefälschtes nie, b nicht gefragt");
+  assert.deepEqual(await pool.queryAn({ kinds: [445] }, ["wss://fremd"]), []);
+});
