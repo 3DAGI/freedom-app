@@ -299,9 +299,9 @@ async function main(): Promise<void> {
   const provider = new DvmProvider(
     {
       keypair,
-      agent: knotenAgent,
       weckBuch,
       turn,
+      agent: knotenAgent,
       lud16,
       werber,
       besitzer: () => { const k = leseKopplung(kopplungOrt, keypair.pk); return k ? [k.geheimnis] : []; },
