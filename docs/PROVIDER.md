@@ -343,9 +343,11 @@ AGENT_PRIVAT=besitzer                              # freiwillig: private Räume 
     sichern.
   - **Antworten** (seit 11.3d2b) wie im offenen Raum: nur auf einen bezahlten
     Auftrag mit Verweis, dieselben Prüfungen, die Antwort verschlüsselt in der
-    Gruppe. Aus der App fragen lässt sich das mit 11.3d2c.
-- **Noch nicht:** Fragen und Einladen aus der App in privaten Räumen (11.3d2c)
-  und das Budget des Einladers (11.3d3, nach dem Upgrade des Zahlkanals).
+    Gruppe. Die App fragt seit 11.3d2c auch in privaten Räumen; wer deinen
+    Agenten einlädt, sieht vorher eine Warnung, und im Raum steht danach ein
+    Hinweis, dass dein Knoten alles mitliest.
+- **Noch nicht:** das Budget des Einladers (11.3d3, nach dem Upgrade des
+  Zahlkanals).
 
 ## Anrufe über den eigenen Knoten (B-13, im Aufbau)
 
