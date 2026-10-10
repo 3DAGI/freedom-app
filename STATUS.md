@@ -8087,5 +8087,5 @@ Befunde aus dem Vergleich A-23 (`docs/OUTBOX-VERGLEICH.md`).
 **Prüfungen:** protocol 1269 (+3), node 389 (je 6 übersprungen), app 1040 grün (+2), Leak 73 + 1 todo;
 mls 13; tsc ×3, Build, `check-wiring --streng` (0 offen), `check-website`, `check_innerhtml --streng`,
 Website-Bau und reproduzierbarer Build grün. Smoke-Test: im ersten Lauf rot im Abschnitt „raum“
-(Zeitüberschreitung beim Warten auf `#code-ref-wahl`, Code-Reiter eines Repos), im zweiten Lauf
-bestanden; der Pfad berührt den Outbox-Plan nicht (lokale Relays fallen dort schon vorher heraus).
+(Zeitüberschreitung beim Warten auf `#code-ref-wahl`, Code-Reiter eines Repos), in drei weiteren
+Läufen bestanden; der Pfad berührt den Outbox-Plan nicht (lokale Relays fallen dort schon vorher heraus).
