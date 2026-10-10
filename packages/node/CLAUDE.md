@@ -117,7 +117,12 @@ Bereichs unten anhängen.
   Angebot); `PROVIDER_MODELS` bleibt daneben. Der Provider nimmt Modelle nur aus `cfg.modelle()`.
   Nach außen und ins Log nur Kennung (`fall`), Zahlen, Fehlernamen, Modellnamen – nie Text aus
   Ollama oder der Registry. Die Registry ist aus dieser Umgebung nicht erreichbar – Live-Proben
-  macht der MENSCH.
+  macht der MENSCH. Wie ein Modell steht (seit E9-3b), sagt nur `pruefeModelle()`
+  (`modell-pruefung.ts`): Kennungen `modell.…`, Sätze nur in `MODELL_TEXT` (auch für `npm run modell`),
+  die App hat je Kennung einen Text (`MODELL_TEXT` in `knoten-status-ansicht.ts`, ein Test vergleicht).
+  Ein neuer Ausgang von `ladeModell()` braucht dort einen Eintrag (`modellFall()`). Im Status geht es
+  als eigenes Feld `modellPruefung` hinaus, nie in `einrichtung` – sonst läse eine ältere App den
+  ganzen Status nicht mehr.
   *(Weitere Teile: Wurzel (`CLAUDE.md`).)*
 - **Der Systemprompt sagt nur, was stimmt** (seit B-27, Nutzertest A-7): gebaut nur über
   `systemPrompt()` (`inference.ts`) – die Werkzeuge genau der Anfrage (aus `getTools()`, mit
@@ -135,3 +140,45 @@ Bereichs unten anhängen.
   `PROVIDER_MODELS` nur, was Ollama bei jedem Erneuern unter genau dem Namen nennt
   (`nurBeiOllama()`, ohne Tag „:latest“); bliebe nichts, bleibt die Liste (nie still vom Netz),
   das Log nennt, was fehlt.
+- **KI-Antrieb nur über `antriebAusUmgebung()`** (seit B-29a, `ki-antrieb.ts`): `KI_ANTRIEB=ollama`
+  (Vorgabe, `OLLAMA_URL`) oder `openai` (vLLM, SGLang, TensorFold; `KI_URL` mit `/v1`). `KI_URL` nur
+  über `lokaleAntriebAdresse()` – dieser Rechner oder das Heimnetz, ohne Zugangsdaten; ein Dienst im
+  Internet wäre ein Dritter, der die Fragen liest. Ungültig → kein Start, nie still auf Ollama
+  ausweichen. `KI_SCHLUESSEL` nur als Bearer an den Dienst (`antriebKopf()`), nie ins Log; Fehler des
+  Dienstes nur mit Status, nie mit seinem Text. Aufrufe nur über `rufe()` in `OllamaBackend` – Ollama und
+  OpenAI-kompatibel geben dieselbe Form zurück; die Antwort eines Werkzeugs trägt OpenAI-kompatibel die
+  `tool_call_id` (`werkzeugRunde()`). Modelle kennt der Knoten über `antriebModelle()` (`/v1/models`
+  ohne Fingerabdruck) – geprüft laden (`ModellDienst`) geht nur mit Ollama; `pruefeModelle(…, antrieb)`
+  sagt das mit eigenen Kennungen, nie „geprüft“ für einen anderen Antrieb.
+  Gemessen wird (seit B-29b) nur über `npm run messen` (`messung.ts`): derselbe Antrieb und Weg wie
+  echte Anfragen (`complete()` mit `ohneWerkzeuge`), feste Übungsfragen, höchstens N zugleich
+  (`missStufe()`), Fehler nur mit Namen, Antworten nie ausgeben. Tokens je Sekunde nur, wenn der
+  Antrieb sie für jede Anfrage nennt – sonst „–“, nie hochrechnen.
+- **Agent auf dem Knoten nur über `knoten-agent.ts`** (seit 11.3d1a, offene Räume, „wer fragt, zahlt“):
+  `KNOTEN_AGENT=1` über `agentAusUmgebung()` (ungültig → kein Start), eigener Schlüssel nur über
+  `ladeKnotenSchluessel(undefined, agentSchluesselDatei(), …)` – nie der des Knotens. Ein Auftrag mit Verweis
+  (`leseAuftragsVerweis()`) nur aus einem Umschlag; geprüft über `KnotenAgent.pruefe()` nach der Zahlungsprüfung
+  und vor dem Rechnen (`entscheide()` mit `ausBudget: false`), gerechnet nur `agentAuftrag.prompt` – nie die
+  Eingabe des Auftrags, sonst ließe sich der Agent unter einer fremden Erwähnung alles sagen. Erst die Antwort im
+  Raum (`antworte()`), dann das Ergebnis an den Fragenden; scheitert das Rechnen, gibt `gib()` die Erwähnung frei.
+  Jede Erwähnung höchstens einmal (`agent-beantwortet.json`, nur Ids). Ablehnungen nur als `AgentAbgelehnt`
+  mit `fall` – nie Text aus dem Raum oder von Relays.
+- **Agent in privaten Räumen nur über `knoten-mls.ts`** (seit 11.3d2a, MENSCH 10.10.2026): nur mit
+  `AGENT_PRIVAT` (`besitzer` – nur Einladungen von `AGENT_BESITZER`, `alle`), höchstens
+  `KNOTEN_MLS_GRENZEN.gruppen`; eigenes MLS-Konto mit dem Schlüssel des Agenten, Kontobeweis über
+  `signiereId()`. Ausnahme von „Kein Klartext im Knoten“, nur hier: Chat privater Räume hält der Knoten
+  im Speicher (je Gruppe die letzten 50), nie in einer eigenen Datei, nie im Log; auf die Platte nur
+  MLS-Zustand und Raumstand (`STRUKTUR`), verschlüsselt wie `MlsZustand` der App (`MlsAblage`,
+  AES-256-GCM, Schlüssel in `agent-mls.json`, alles 0600) – eine beschädigte Schlüsseldatei heißt kein
+  Start, nie ersetzen. Die Engine behält Verarbeitetes in ihrem Zustand und stellt es nach einem
+  Neustart erneut zu: nie aus „neu“ im Abgleich schließen, dass etwas unbeantwortet ist. Fremde Relays
+  einer Gruppe nur `wss://`, plausibel, über `pruefeRelay` (ohne Tor `checkUrlSafe()`) und nur über
+  die Fabrik `relayAn` aus `main.ts` – die einzige Stelle mit `new WebSocketRelay(` (Test in
+  `tor.test.ts`). Aufrufe des Kontos nur über `exklusiv()`. Test-Relays brauchen `wss://`-Adressen –
+  MDK lehnt andere Schemata beim Gründen ab.
+  Antworten in privaten Räumen (seit 11.3d2b) nur über `KnotenAgent.pruefePrivat()` – nur Gruppen, in
+  denen der Agent Mitglied ist (`nutzePrivat()` nur mit dem Konto aus `AGENT_PRIVAT`), der Raum aus
+  `gruppenRaum()` mit Admins und Mitgliedern aus MLS, Agenten an ihrer Karte, die Antwort nur als inneres
+  Event (`raumAgentAntwort()` über `KnotenMls.sende()`) – nie offen. Fehlt die Erwähnung, einmal abgleichen.
+  Der Kontext nimmt nur Nachrichten vor der Erwähnung; die Engine stempelt in Sekunden – im Test eine
+  Sekunde dazwischen.

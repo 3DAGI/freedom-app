@@ -106,6 +106,12 @@ test("11.3b2: Nachrichten offen und innen gelesen; Verweis streng; Antwort", () 
   const adresse = raumAdresse(kp.pk, "werkstatt");
   assert.deepEqual(leseAuftragsVerweis(auftragsVerweisTags({ raum: adresse, erwaehnung: ev.id })), { raum: adresse, erwaehnung: ev.id });
   assert.deepEqual(leseAuftragsVerweis(auftragsVerweisTags({ raum: "ee".repeat(32), erwaehnung: ev.id }))?.raum, "ee".repeat(32), "Gruppe");
+  // 11.3d2b: MDK vergibt Gruppen-Ids mit 16 Byte (32 Zeichen) – bis hier passte keine echte Gruppe
+  assert.deepEqual(leseAuftragsVerweis(auftragsVerweisTags({ raum: "ab".repeat(16), erwaehnung: ev.id }))?.raum, "ab".repeat(16), "Gruppe von MDK");
+  for (const falsch of ["ab".repeat(15), "AB".repeat(16), "ab".repeat(33), "zz".repeat(16)]) {
+    assert.throws(() => auftragsVerweisTags({ raum: falsch, erwaehnung: ev.id }), falsch);
+    assert.equal(leseAuftragsVerweis([["agent-raum", falsch], ["agent-erwaehnung", ev.id]]), null, falsch);
+  }
   assert.throws(() => auftragsVerweisTags({ raum: "irgendwas", erwaehnung: ev.id }));
   assert.equal(leseAuftragsVerweis([["agent-raum", adresse], ["agent-erwaehnung", ev.id], ["agent-erwaehnung", ev.id]]), null, "doppelt");
   assert.equal(leseAuftragsVerweis([["agent-raum", adresse]]), null);

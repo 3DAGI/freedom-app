@@ -142,6 +142,8 @@ test("TOR_SOCKS: ohne → kein Tor, ungültig → Grund (kein Start), verdrahtet
   const main = readFileSync(new URL("../src/main.ts", import.meta.url), "utf8");
   const block = main.slice(main.indexOf("if (torGrund) {"), main.indexOf("if (torProxy) console.log"));
   assert.match(block, /console\.error\(`\[tor\] \$\{torGrund\}[^`]*`\);\n\s+process\.exit\(1\);\n\s+\}/, "ungültig → kein Start");
-  assert.match(main, /relayUrls\.map\(\(url\) => new WebSocketRelay\(url, \{ verbinde \}\)\)/);
+  // Seit 11.3d2a eine benannte Fabrik – auch Relays privater Räume entstehen nur dort
+  assert.match(main, /const relayAn = \(url: string\) => new WebSocketRelay\(url, \{ verbinde \}\);/);
+  assert.match(main, /relayUrls\.map\(\(url\) => relayAn\(url\)\)/);
   assert.equal((main.match(/new WebSocketRelay\(/g) ?? []).length, 1, "sonst entstünden Verbindungen am Proxy vorbei");
 });

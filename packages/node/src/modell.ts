@@ -7,25 +7,10 @@
  * (eigenes Manifest, signiert und veröffentlicht). Ohne Namen: der Stand.
  */
 import { leseStand, leseWuensche, merkeWunsch, modellDatei, offeneWuensche, wunschDatei } from "./modell-laden.js";
+import { modellFall, modellText } from "./modell-pruefung.js";
 
-const FALL: Record<string, (w: Record<string, number | string>) => string> = {
-  "ok": () => "geprüft, im Angebot",
-  "manifest.keins": () => "kein eigenes Manifest des Knotens – festhalten, was die Registry jetzt nennt: npm run modell -- <name> --aus-registry",
-  "manifest.uneinig": (w) => `${w.herausgeber} Herausgeber nennen verschiedene Dateien – keine Wahl`,
-  "manifest.nichtVeroeffentlicht": (w) => `eigenes Manifest nicht veröffentlicht (${w.fehler}) – nichts geladen`,
-  "registry.nichtErreichbar": () => "die Registry war nicht zu befragen – nichts festgehalten, nichts geladen",
-  "manifest.keineQuelle": () => "das Manifest nennt keine Ollama-Quelle zu diesem Namen (upstream ollama:<name>)",
-  "passt.nicht": (w) => `braucht etwa ${w.brauchtGb} GB, das Gerät hat ${w.hatGb} GB (MODELL_SPEICHER_GB)`,
-  "registry.anders": () => "die Registry nennt andere Dateien als das Manifest – nichts geladen",
-  "ollama.laden": (w) => `Ollama hat nicht geladen (${w.fehler})`,
-  "ollama.fehlt": () => "nach dem Laden nicht in Ollama",
-  "schicht.form": () => "Ollama meldet Schichten ohne gültige Summe – nicht angeboten",
-  "schicht.fremd": (w) => `${w.anzahl} geladene Schicht(en) stehen nicht im Manifest – nicht angeboten`,
-  "schicht.groesse": (w) => `${w.anzahl} Schicht(en) mit anderer Größe als im Manifest – nicht angeboten`,
-  "schicht.fehlt": (w) => `${w.anzahl} Datei(en) des Manifests hat Ollama nicht geladen – nicht angeboten`,
-  "fehler": (w) => `abgebrochen (${w.fehler})`,
-};
-const text = (fall: string, werte: Record<string, number | string> = {}) => FALL[fall]?.(werte) ?? fall;
+// Die Sätze je Kennung teilt sich die Kommandozeile mit der Selbstprüfung (E9-3b, `modell-pruefung.ts`)
+const text = (fall: string, werte: Record<string, number | string> = {}) => modellText(modellFall(fall), werte);
 
 const args = process.argv.slice(2);
 const ausRegistry = args.includes("--aus-registry");

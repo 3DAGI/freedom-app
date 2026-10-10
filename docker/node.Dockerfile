@@ -15,6 +15,7 @@ WORKDIR /app
 # solange sich nur der Quelltext aendert.
 COPY package.json package-lock.json* ./
 COPY packages/protocol/package.json packages/protocol/
+COPY packages/mls/package.json packages/mls/
 COPY packages/node/package.json packages/node/
 
 ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
@@ -23,6 +24,9 @@ RUN npm install --workspaces --include-workspace-root \
     || npm install --no-audit --no-fund --omit=optional
 
 COPY packages/protocol packages/protocol
+# MLS-Engine (gebaut, dist/) – für den Agenten in privaten Räumen (11.3d2a, AGENT_PRIVAT)
+COPY packages/mls/src packages/mls/src
+COPY packages/mls/dist packages/mls/dist
 COPY packages/node packages/node
 
 RUN mkdir -p /home/node/.freedom /home/node/freedom-data \

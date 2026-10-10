@@ -192,6 +192,63 @@ im eigenen Prozess, eine Verbindung zu sich selbst in `RELAYS` ersetzt er. An
 seinem Relay meldet sich die App mit dem Schlüssel der jeweiligen Anfrage an,
 nur so bekommt sie die versiegelte Antwort.
 
+## KI-Antrieb: Ollama oder OpenAI-kompatibel (B-29a)
+
+Standard ist Ollama (`OLLAMA_URL`). Ollama arbeitet gleichzeitige Anfragen von
+Haus aus nacheinander ab. vLLM, SGLang und TensorFold bündeln sie und haben
+eine OpenAI-kompatible Schnittstelle. Der Knoten spricht sie mit:
+
+```bash
+KI_ANTRIEB=openai
+KI_URL=http://127.0.0.1:8000/v1        # vLLM; SGLang …:30000/v1, TensorFold …:8080/v1
+KI_SCHLUESSEL=…                        # nur, wenn der Dienst einen verlangt (--api-key)
+PROVIDER_MODELS=Qwen/Qwen2.5-7B-Instruct   # genau die Namen aus <KI_URL>/models
+```
+
+- **Nur dieser Rechner oder das Heimnetz:** `KI_URL` zeigt auf localhost, eine
+  private Adresse, einen Namen ohne Punkt (Docker-Dienst) oder einen Namen auf
+  `.local`, `.lan`, `.internal` oder `.home.arpa`. Ein Dienst im Internet ist
+  kein Antrieb – die Fragen der Kunden gingen sonst an einen Dritten.
+- **Nie still Ollama:** Eine ungültige Einstellung hält den Knoten an
+  (`[ki] … – der Knoten startet nicht`); `npm run pruefen` nennt den Grund.
+- **Schlüssel:** Der Knoten schickt `KI_SCHLUESSEL` als Bearer an den Dienst,
+  nie ins Log.
+- **Werkzeuge** (Websuche und andere) brauchen beim Dienst Werkzeug-Aufrufe.
+  vLLM: `--enable-auto-tool-choice --tool-call-parser <Parser zum Modell>`,
+  SGLang: `--tool-call-parser <Parser zum Modell>`.
+- **Docker:** Läuft der Antrieb auf dem Rechner selbst, `KI_URL` auf dessen
+  Adresse im Heimnetz setzen (z. B. `http://192.168.1.20:8000/v1`) oder den
+  Antrieb als Dienst ins selbe Compose-Netz stellen (`http://vllm:8000/v1`).
+- **Modelle:** Im Angebot steht aus `PROVIDER_MODELS`, was `<KI_URL>/models`
+  nennt. Geprüft laden (nächster Abschnitt) geht bisher nur mit Ollama – mit
+  diesem Antrieb melden `npm run pruefen` und der Status das ehrlich, Wünsche
+  aus `npm run modell` warten. Die Gewichte eines anderen Antriebs gegen ein
+  Manifest prüfen, kommt mit B-29c.
+
+### Welcher Antrieb? Messen (B-29b)
+
+```bash
+cd ~/freedomstack/packages/node
+npm run messen -- --gleichzeitig 1,4,8          # Modell: das erste aus PROVIDER_MODELS
+npm run messen -- --modell <name> --anfragen 16 --tokens 256
+# Docker: docker compose exec node npm run messen -- --gleichzeitig 1,4,8
+```
+
+- **Was es misst:** mit derselben Umgebung wie der Knoten, je Stufe:
+  - Tokens je Sekunde über alle gleichzeitigen Anfragen;
+  - Antworten je Minute;
+  - Median und p95 der Dauer einer Antwort;
+  - den Faktor gegenüber der ersten Stufe.
+- **Ein Faktor nahe 1** heißt: Der Antrieb arbeitet nacheinander. Ollama
+  bedient gleichzeitige Anfragen nur bis `OLLAMA_NUM_PARALLEL` (Umgebung des
+  Ollama-Dienstes).
+- **Ablauf:** Es stellt feste Übungsfragen ohne Werkzeuge, über denselben Weg
+  wie echte Anfragen. Vorher kommt eine Anfrage zum Aufwärmen (Modell laden),
+  die nicht zählt.
+- **Ausgabe:** Antworten zeigt es nicht, Fehler nur mit Namen.
+- **Wann:** am besten, solange der Knoten keine Aufträge bedient. Für einen
+  fairen Vergleich zweier Antriebe dasselbe Modell und dieselben Zahlen nehmen.
+
 ## Modelle laden, geprüft (E9-3)
 
 ```bash
@@ -233,6 +290,62 @@ Modell gut, sicher oder legal ist. Ein Manifest für Ollama hat:
 - `upstream`: `ollama:<derselbe Name>`;
 - je Datei den Namen ihres Blobs (`sha256-<hex>`), mit Summe und Größe – alle
   Schichten und die Konfiguration aus dem Manifest der Registry.
+
+## Agent auf dem Knoten (11.3d1a, im Aufbau)
+
+Ein Agent ist ein eigenes Mitglied in offenen Räumen und antwortet, wenn ihn
+jemand erwähnt. Er läuft auf deinem Knoten und hat einen eigenen Schlüssel
+(`~/.freedom/agent-key`, beim ersten Start angelegt, 0600) – nie den des Knotens.
+
+```bash
+KNOTEN_AGENT=1
+AGENT_NAME=Lektor                                  # Pflicht, höchstens 64 Zeichen
+AGENT_PERSONA="Du bist Lektor. Antworte knapp."    # Anweisung an das Modell – bleibt auf dem Knoten
+AGENT_ABOUT=…                                      # freiwillig, öffentlich auf der Karte
+AGENT_MODELL=qwen3.8:27b                           # freiwillig, ein angebotenes Modell
+AGENT_BESITZER=<hex>                               # freiwillig; gilt erst mit deiner Bestätigung in der App
+AGENT_PRIVAT=besitzer                              # freiwillig: private Räume – besitzer oder alle (11.3d2a)
+```
+
+- **Karte:** Beim Start und mit jedem Erneuern des Angebots veröffentlicht der
+  Knoten die Karte des Agenten (Kind 38090, „läuft auf dem Knoten, wer fragt,
+  zahlt“). Die Persona steht nicht darin.
+- **Bezahlt** jede Antwort, wer fragt: Seine App schickt einen versiegelten
+  Auftrag mit dem Verweis auf die Erwähnung, bezahlt wie jede KI-Antwort.
+  Der Knoten prüft die Erwähnung im Raum:
+  - Darf der Fragende dort schreiben?
+  - Hat der Agent die Rolle `agent`?
+  - Ist die Erwähnung noch nicht beantwortet?
+  Nur dann rechnet er, mit Persona, dem Verlauf des Kanals bis zur Erwähnung
+  und der Erwähnung selbst, und antwortet im Raum. Agenten antworten keinem
+  Agenten, wenn der Fragende zahlt.
+- **In den Raum** holt ihn der Gründer: Rolle `agent` für seinen Schlüssel (er
+  steht im Log, `[agent] … pubkey=…`).
+- **Ungültige Angaben** halten den Knoten an (`[agent] … – der Knoten startet nicht`).
+- **Fragen** (seit 11.3d1b2): Wer den Agenten im Raum mit „@Name“ erwähnt,
+  sieht in der App den Preis (höchstens 100 sats je Antwort, mit der Rate deines
+  Angebots) und schickt nach der Bestätigung einen versiegelten Auftrag mit
+  Verweis an deinen Knoten – über Lightning oder einen Zahlkanal zu dir.
+- **Private Räume** (seit 11.3d2a, nur mit `AGENT_PRIVAT`): Der Agent wird
+  volles Mitglied der MLS-Gruppe und **liest alles im Raum mit**.
+  - `besitzer`: nur Einladungen von `AGENT_BESITZER`; `alle`: von jedem.
+    Höchstens 20 Gruppen.
+  - Der Knoten veröffentlicht dafür Relay-Listen und ein KeyPackage des Agenten
+    und gleicht alle 15 Sekunden ab.
+  - Fremde Relays einer Gruppe nur `wss://` und öffentlich, höchstens 10, über
+    Tor, wenn der Knoten Tor nutzt.
+  - Auf der Platte nur verschlüsselt, alles 0600 neben `agent-key`:
+    `agent-mls.json` (Schlüssel), `agent-mls.zustand`, `agent-mls.raumstand`
+    (Kanäle, Rollen, Karten). Chat-Nachrichten hält der Knoten nur im Speicher;
+    die MLS-Engine behält sie wie bei jedem Mitglied in ihrem verschlüsselten
+    Zustand.
+  - Geht `agent-mls.json` verloren, sind die Gruppen weg – mit `agent-key`
+    sichern.
+  - **Antworten** (seit 11.3d2b) wie im offenen Raum: nur auf einen bezahlten
+    Auftrag mit Verweis, dieselben Prüfungen, die Antwort verschlüsselt in der
+    Gruppe. Aus der App fragen lässt sich das mit 11.3d2c.
+- **Noch nicht:** Fragen und Einladen aus der App in privaten Räumen (11.3d2c)
+  und das Budget des Einladers (11.3d3, nach dem Upgrade des Zahlkanals).
 
 ## Anrufe über den eigenen Knoten (B-13, im Aufbau)
 
