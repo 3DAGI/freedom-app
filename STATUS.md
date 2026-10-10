@@ -7915,3 +7915,61 @@ Verweis („wer fragt, zahlt“).
   grün.
 
 Knoten-Stand: `main` mit 11.3d2b, nur mit `AGENT_PRIVAT`; sonst kein Update nötig.
+
+## Schritt 11.3d2c – Knoten-Agenten in privaten Räumen einladen und fragen (App)
+
+Dritter Teil von 11.3d2 – damit sind private Räume fertig:
+- **d2a:** Der Agent auf dem Knoten ist Mitglied.
+- **d2b:** Er antwortet auf bezahlte Aufträge.
+- **d2c (dieser Schritt):** Die App fragt jetzt auch in privaten Räumen. Lädt jemand einen Agenten ein,
+  der auf einem Knoten läuft, sagt sie vorher und im Raum, dass der Knoten alles mitliest (Entwurf P2).
+
+**App:**
+- **`shell/mls-konto.ts` (Spur A, klein):** `mlsSendeEventId()` liefert die Id des inneren Events. Bei
+  allen Mitgliedern ist sie dieselbe; die MLS-Nachrichten-Id kennt der Absender nicht.
+  `mlsSendeEvent()` bleibt und ruft sie.
+- **`shell/raum-mls.ts`:** `sendePrivat()` liefert diese Id statt `true`.
+- **`shell/tabs/raeume.ts` (Spur C, klein):**
+  - Im privaten Raum nach dem Senden `frageKnotenAgenten()` mit der Gruppe als `raum` und der Id als
+    Erwähnung. Die Karten kommen aus der Gruppe (`raumAgentKarten()`).
+  - **`ladeEin()`:**
+    - Nennt die Karte des Eingeladenen `knoten` (`knotenAgentKarte()`), erst eine Warnung mit
+      `bestaetige()`: der Knoten liest alles mit, Antworten bezahlt, wer fragt. Abgelehnt heißt nicht
+      eingeladen.
+    - Nach der Einladung der Pflicht-Hinweis als inneres Event im ersten Kanal
+      (`meldeKnotenAgentImRaum()`).
+- **Datenschutz:** Die Aussage „agent-knoten“ gilt für beide Raumarten, im Protokoll und in beiden
+  Sprachen:
+  - Die Antwort steht im offenen Raum öffentlich, im privaten für die Mitglieder.
+  - Im privaten liest der Knoten Erwähnung und Verlauf als Mitglied mit.
+
+**Doku:**
+- `docs/PROTOCOL.md` §32 und `docs/PROVIDER.md`.
+- Fallstrick in `packages/app/CLAUDE.md`.
+- Karte `phase-11.md` (d2 fertig), FORTSCHRITT.
+
+**Tests:**
+- **app** `knoten-agent-fragen.test.ts` (+1):
+  - im privaten Zweig zuerst `sendePrivat()`, nur bei Erfolg die Frage mit Gruppe und Id, die Karten der
+    Gruppe;
+  - Einladen erst nach der Warnung, der Hinweis nur nach der Einladung und nur als inneres Event;
+  - nur Agenten auf einem Knoten;
+  - Texte in beiden Sprachen.
+- **app** `mls-konto.test.ts` (+1, echte Engine): Die Id aus `mlsSendeEventId()` ist dieselbe, die der
+  Empfänger als `inneres` sieht; ohne Gruppe `null`.
+- **Angepasst, nicht abgeschwächt** (`leak/raum.test.ts`): Der private Zweig sendet weiter zuerst über
+  `sendePrivat()`, jetzt als `const gesendet = …`. `sendePrivat()` geht über `mlsSendeEventId()`; neu
+  geprüft, dass diese nur über MLS sendet und `mlsSendeEvent()` sie ruft.
+
+**Prüfungen:**
+- protocol 1261 grün (6 übersprungen); node 388 grün (7 übersprungen – der Live-Abruf in `tools.test.ts` ohne
+  Netz); app 1036 grün (vorher 1034); mls 13 grün; Leak-Tests 73 grün + 1 `todo`.
+- Build, `check-wiring --streng`, `check-website`, `check_innerhtml`, Smoke-Test (mit privatem Raum) und
+  `build-site.sh`: grün.
+
+**MENSCH (Geld, Devnet/Testnet):** einen Knoten mit `AGENT_PRIVAT` in einen privaten Raum einladen
+(Warnung, Hinweis im Raum), ihn mit „@Name“ erwähnen und den Preis bestätigen. Erwartet:
+- die Antwort in der Gruppe;
+- Zahlung höchstens 100 sats (Lightning-Testnet bzw. Gutschrift im Zahlkanal auf Devnet).
+
+Knoten-Stand: `main` mit 11.3d2b, nur mit `AGENT_PRIVAT`; sonst kein Update nötig.
