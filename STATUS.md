@@ -7405,7 +7405,7 @@ Chromium); Firefox und Safari zeigten nur den Hinweis zum Einfügen.
 
 **Prüfungen:** PRUEFUNGEN
 
-## Schritt A-12-Entwurf, A-23, A-22 – Kasse über Squads; Vergleiche Outbox-Auswahl und Boltz
+## Schritt A-12-Entwurf, A-23, A-22, A-21-Plan – Kasse über Squads; Vergleiche Outbox und Boltz; Plan für kit
 
 Entschieden 09.10.2026 (MENSCH): kein eigenes Programm, Squads anbinden. `docs/KASSE-ENTWURF.md`
 legt fest, wie; kein Code.
@@ -7428,5 +7428,9 @@ legt fest, wie; kein Code.
   Zwei Entscheidungen für den MENSCHEN: A-27 Reihenfolge in Richtung 1 wie Boltz (erst zahlt der
   Kunde in die Hold-Invoice, dann sperrt der LP – ohne Vorab-Gebühr; Vorschlag: so lassen), A-28
   Rückgabe vor Ablauf in Richtung 2 (neue Anweisung im HTLC-Programm; Vorschlag: ja, mit 0.G).
+- A-21-Plan (`docs/KIT-PLAN.md`): web3.js v1 belegt rund 760 KB des Bundles (esbuild-Metafile),
+  `@solana/kit` 8.4.0 mit `@solana-program/system` für dieselben Aufgaben 228 KB. Teilschritte
+  A-21a–f (erst Byte-Vektoren je Transaktion, dann Protokoll, RPC über den `RpcPool`, Signieren über
+  `@noble/curves`, Knoten, Aufräumen); Fragen W1–W3 an den MENSCHEN.
 
 **Prüfungen:** PRUEFUNGEN

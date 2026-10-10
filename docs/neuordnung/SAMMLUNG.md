@@ -199,7 +199,7 @@ andere Spuren und stehen deshalb hier, nicht in deren Abschnitten:
 | A-18 | **FROSTR über NIP-46** (FR1 A, Anhang E): Schlüssel t-von-n über Geräte und Knoten (Bifrost, Igloo). | `MENSCH` – die App kann es schon: Anmelden per NIP-46 (1.3f). Test mit Igloo als Bunker durch den MENSCHEN, Befunde als eigene Punkte; eigener Signer erst nach dem Audit von FROSTR |
 | A-19 | **Nachfolge mit der Shamir-Bibliothek von Privy** (SH1 A, Anhang E). | `fertig` (SH1) – Fassung 2 über `teileGeheimnis()`, Fassung 1 bleibt lesbar |
 | A-20 | **QR-Scannen auch in Firefox und Safari** (Anhang E: qr-scanner bzw. zxing): heute erkennt nur der Browser (`BarcodeDetector`, Chromium). | `fertig` (A-20) – jsQR 1.4.0 (Apache-2.0, ohne Abhängigkeiten; +345 KB in `freedom.html`, die App ist unminifiziert, rund 58 KB gzip) liest, wo der Browser keinen `BarcodeDetector` hat; ohne Worker, im Gerät |
-| A-21 | **@solana/kit statt web3.js v1** (Anhang E): Nachfolger, kleineres Bundle. | `frei` – groß (Wallet, Zahlkanal, HTLC, Relayer), erst ein Plan mit Teilschritten; Borsh-Layouts bleiben |
+| A-21 | **@solana/kit statt web3.js v1** (Anhang E): Nachfolger, kleineres Bundle. | `Plan` – [`docs/KIT-PLAN.md`](../KIT-PLAN.md) (Spur A, 10.10.): web3.js v1 belegt rund 760 KB des Bundles, kit für dieselben Aufgaben 228 KB (Ersparnis etwa 7 % von `freedom.html`); Teilschritte A-21a–f mit Byte-Vektoren je Transaktion; Borsh-Layouts bleiben. Fragen W1–W3 an den MENSCHEN (Abhängigkeiten `@solana/kit` MIT und `@solana-program/system` Apache-2.0, Signieren über `@noble/curves`, Zeitpunkt vor oder nach A-12) |
 | A-22 | **Boltz-Backend als Vorlage** für den Ablauf des Liquiditätsgebers (Anhang E). | `fertig` (Vergleich, [`docs/BOLTZ-VERGLEICH.md`](../BOLTZ-VERGLEICH.md), 10.10.) – Befunde als A-27 und A-28 (beide Entscheidungen); Frist der Rechnung, Rückholen, Wiederanlauf und Rückhol-Wächter gleich oder besser |
 | A-23 | **Relay-Auswahl im Outbox-Modell wie NDK, Welshman, applesauce** (Anhang E). | `fertig` (Vergleich, [`docs/OUTBOX-VERGLEICH.md`](../OUTBOX-VERGLEICH.md), 10.10.) – Befunde als A-24 bis A-26; Indexer-Relays bewusst nicht (verrieten den Kreis der Kontakte), Posteingang gleich |
 | A-24 | **Outbox: alle Autoren abdecken** (A-23, B1): `outboxPlan()` nimmt die acht meistgenannten Relays – Autoren auf seltenen Relays fallen heraus, Relays des Pools belegen Plätze und werden erst danach gestrichen. | `frei` – Adressen des Pools in den Plan (abgedeckt, kein Platz), dann gierig wie applesauce, Ziel zwei Relays je Autor wie NDK, höchstens acht fremde |
@@ -436,7 +436,7 @@ Abhängigkeit = STOPP-Punkt; neues WASM nur nach Freigabe, CSP).
 | FROSTR (Bifrost, Igloo) | Schlüssel ohne einzelnen Angriffspunkt | über NIP-46, später Signer | A | FR1 → A-18 |
 | Shamir von Privy | auditierte Nachfolge-Anteile | App, Protokoll | A | SH1 → A-19 (erledigt) |
 | qr-scanner bzw. zxing | QR-Scannen auch in Firefox und Safari | App | A | A-20 (erledigt) |
-| @solana/kit | Nachfolger von web3.js v1, kleineres Bundle | App, Protokoll | A | A-21 |
+| @solana/kit | Nachfolger von web3.js v1, kleineres Bundle | App, Protokoll | A | A-21 (Plan, Freigabe offen) |
 | Boltz-Backend | Vorlage für den Ablauf eines Liquiditätsgebers | Vorlage | A | A-22 (Vergleich erledigt; A-27, A-28 Entscheidungen) |
 | NDK, Welshman, applesauce | Relay-Auswahl im Outbox-Modell | Vorlage, nicht die Bibliothek | A | A-23 (Vergleich erledigt; A-24 bis A-26) |
 | isomorphic-git, ngit | Git im Browser (Diff, Blame, Patches anwenden); `git clone nostr://…` | App | C | |
