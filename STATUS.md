@@ -7632,3 +7632,48 @@ Antrieb (B-29a). Ein Skript spielt Raum, Rollen, Erwähnung und einen versiegelt
 
 Knoten-Stand: `main` mit 11.3d1a, nur wer einen Agenten auf dem Knoten will (`KNOTEN_AGENT=1`); sonst
 kein Update nötig.
+
+## Schritt 11.3d1b1 – Agenten per „@Name“ erwähnen
+
+Erster Teil von 11.3d1b (App), geteilt: **d1b1** Erwähnen per Name, **d1b2** der bezahlte Auftrag an
+einen Agenten auf dem Knoten (Preis, Verweis, Datenschutz). Anlass: Die App setzte in Räumen eine
+Erwähnung nur beim Antworten (erwähnt wird der Autor). Einen Agenten, der noch nichts geschrieben
+hatte, konnte niemand ansprechen – weder auf dem Gerät (11.3c) noch auf dem Knoten (11.3d1a).
+
+**Protokoll** (`agent-raum.ts`):
+- `erwaehnteAgenten(text, karten)`:
+  - „@Name“ als ganzes Wort, ohne Groß- und Kleinschreibung;
+  - nur aus den gegebenen Karten, nie aus dem Text allein;
+  - höchstens fünf (`AT_ERWAEHNUNGEN`), in der Reihenfolge des Textes;
+  - teilen sich zwei Agenten einen Namen, erwähnt sie keinen – nie den falschen.
+
+**App** (`shell/tabs/raeume.ts`, Spur C, klein gehalten):
+- **Offener Raum:** Beim Öffnen lädt die App die Karten der Mitglieder mit der Rolle `agent`
+  (`agentKartenIm()`, `aktuelleAgentKarten()`).
+- **Privater Raum:** Karten der Gruppe (`raumAgentKarten()`).
+- **Beim Senden** kommen die erwähnten Agenten in den Bezug, offen als `p` … `mention`, privat im
+  inneren Event. Die Sendezeilen selbst bleiben, wie der Leak-Test und der Test aus 11.4c sie lesen.
+- Das gilt für Agenten auf dem Gerät wie auf dem Knoten. Ein Agent auf dem Knoten antwortet erst mit
+  d1b2, wenn jemand den Auftrag bezahlt.
+
+**Doku:** `docs/PROTOCOL.md` §32, Fallstrick in `packages/app/CLAUDE.md`, Karte `phase-11.md`,
+FORTSCHRITT.
+
+**Tests:**
+- **protocol** `agent-raum.test.ts` (+1): 13 Fälle (Satzende, Klammern, zwei Namen, Mail-Adresse,
+  Wortteil, doppelter Name, Sonderzeichen im Namen), höchstens fünf, ohne Karten niemand.
+- **app** `agent-antwort.test.ts` (+1): Verdrahtung – Karten offen und privat, Erwähnungen in den
+  Bezug, beide Sendewege.
+- **Angepasst, nicht abgeschwächt** (`raum-thread.test.ts`, C.2c): `bezug` ist jetzt `let` mit Typ;
+  der Test prüft weiter, dass er aus `antwortBezug()` kommt.
+
+**Erster Prüflauf:** drei rote Prüfungen, alle durch eigene Änderungen.
+- Der Test aus 11.4c und der Leak-Test „private Räume senden über MLS“ lesen die Zeilen in
+  `raeume.ts` wörtlich. Meine erste Fassung hatte dort eine eigene Variable `erwaehnt`. Jetzt laufen
+  die Erwähnungen über `bezug`, und beide Tests sind unverändert grün.
+- `check-wiring --streng`: Zwei Ausnahmen waren veraltet (`aktuelleAgentKarten`, `leseAgentKarte`
+  sind jetzt verdrahtet), sie sind entfernt.
+
+**Prüfungen:** Alle Befehle aus CLAUDE.md auf `fe2c85b` (`main` b223939 + 11.3d1b1), `GESAMT fail=0`: protocol 1260 grün (+1, 6 übersprungen), node 378 grün (ohne Netz 7 übersprungen; mit Netz 379), app 1030 (+1), Leak 73 + 1 todo, mls 13; tsc überall, Build, `check-wiring --streng`, `check-website`, `check_innerhtml --streng`, Smoke-Test, Website-Bau grün.
+
+Knoten-Stand: kein Update nötig.
