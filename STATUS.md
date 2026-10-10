@@ -7971,4 +7971,6 @@ Chromium); Firefox und Safari zeigten nur den Hinweis zum Einfügen.
 **Verdrahtet:** `shell/qr-ui.ts:207` (`waehleErkenner()` im Klick von `scanKnopf()`);
 `leseQrAusBild()` über `JsQrErkenner`.
 
-**Prüfungen:** PRUEFUNGEN
+**Prüfungen:** protocol 1266, node 389 (je 6 übersprungen), app 1036 grün (+2), Leak 73 + 1 todo; mls 13;
+tsc ×3, Build, `check-wiring --streng` (0 offen), `check-website`, `check_innerhtml --streng`, Smoke-Test
+(mit jsQR ohne `BarcodeDetector`), Website-Bau und reproduzierbarer Build grün.
