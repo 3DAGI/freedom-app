@@ -1069,6 +1069,10 @@ KeyPackages (443) darf er offen haben – sonst lädt ihn niemand ein.
   Raum aus dem, was er als Mitglied liest (`gruppenRaum()`), die Antwort als
   inneres Event (Art 9, `raumAgentAntwort()`). Ablehnung `agent-privat`, wenn er
   nicht Mitglied der Gruppe ist oder der Knoten keine privaten Räume zulässt.
+  Die App (seit 11.3d2c) fragt wie im offenen Raum, mit der Gruppe und der Id des
+  inneren Events im Verweis; lädt jemand einen Agenten ein, dessen Karte `knoten`
+  nennt, warnt sie vorher und schreibt danach den Pflicht-Hinweis in den ersten
+  Kanal („der Knoten liest alles in diesem Raum mit“).
 - **„@Name“** (seit 11.3d1b1): Die App setzt `p` … `mention` für Agenten, deren Name
   im Text als ganzes Wort nach „@“ steht – ohne Groß/klein, nur Agenten des Raums
   (offen: Mitglieder mit der Rolle `agent` und gültiger Karte; privat: Karten der

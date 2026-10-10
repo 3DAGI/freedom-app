@@ -258,17 +258,22 @@ export async function mlsGruende(name: string, u: MlsUmgebung = APP): Promise<st
 
 /** Inneres Event in die Gruppe; eigene entschlüsselt MLS nicht zurück – darum gleich in den Verlauf. */
 export async function mlsSendeEvent(gruppe: string, s: InneresSenden, u: MlsUmgebung = APP): Promise<boolean> {
+  return (await mlsSendeEventId(gruppe, s, u)) !== null;
+}
+
+/** Wie `mlsSendeEvent`, mit der Id des inneren Events – für Verweise auf die Nachricht (Fragen an Knoten-Agenten, 11.3d2c). */
+export async function mlsSendeEventId(gruppe: string, s: InneresSenden, u: MlsUmgebung = APP): Promise<string | null> {
   const kl = mlsKonto(u);
-  if (!kl) return false;
+  if (!kl) return null;
   const k = await kl;
   const inneres = await sendeEventInGruppe({ mls: k.mls, netz: k.u.netz, sichern: k.sichern, gruppe, ...s }).catch(() => null);
-  if (!inneres) return false;
+  if (!inneres) return null;
   k.verlauf.nimmAuf(gruppe, [{
     id: `eigen:${inneres}`, inneres, von: k.pk, text: s.text, zeit: Math.floor(Date.now() / 1000),
     ...(s.art !== ART_CHAT ? { art: s.art } : {}), ...(s.tags.length > 0 ? { tags: s.tags } : {}),
   }]);
   await k.verlauf.sichern();
-  return true;
+  return inneres;
 }
 
 /** Ergebnis einer Einladung – Kennungen; angezeigt über `einladungsText()` (raum-mls.ts). */

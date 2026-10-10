@@ -2,7 +2,8 @@
  * Fragen an Agenten auf dem Knoten (11.3d1b2, Entwurf
  * `docs/AGENTEN-RAUM-ENTWURF.md` P4, „wer fragt, zahlt“; Knoten seit 11.3d1a).
  *
- * - Nach dem Senden in einem offenen Raum: je erwähntem Agenten, dessen Karte
+ * - Nach dem Senden in einem Raum (offen seit 11.3d1b2, privat seit 11.3d2c mit der
+ *   Gruppe und der Id des inneren Events im Verweis): je erwähntem Agenten, dessen Karte
  *   „wer fragt, zahlt“ und seinen Knoten nennt (`zuBezahlen()`), erst den Preis
  *   zeigen – ohne Bestätigung geht nichts hinaus. Die Nachricht selbst steht
  *   schon im Raum; sie ist öffentlich, gleich wie man sich entscheidet.
@@ -17,7 +18,7 @@
  *   Kennung (`ablehnungsText()`). Kein zweiter Versuch von selbst: Im Zahlkanal
  *   hielte die offene erste Gutschrift die zweite um ein Gebot höher.
  */
-import { auftragsVerweisTags } from "@freedomstack/protocol";
+import { KIND_AGENT_KARTE, aktuelleAgentKarten, auftragsVerweisTags, type AgentKarte } from "@freedomstack/protocol";
 import { hoechstMsat } from "../anteile-kasse.js";
 import { t } from "../i18n.js";
 import { KiSitzungen } from "../ki-sitzung.js";
@@ -30,14 +31,15 @@ import { AGENT_GEBOT_SATS } from "./agenten-lauschen.js";
 import { bezahlterAuftrag } from "./bezahlter-auftrag.js";
 import { bestaetige } from "./dialog.js";
 import { kanalDa, providerZahlung } from "./ki-zahlung.js";
-import { providerMitStand, state } from "./state.js";
+import { type PrivaterRaum, sendePrivat } from "./raum-mls.js";
+import { ensurePool, providerMitStand, state } from "./state.js";
 import { privatFaehig } from "./tabs/agent.js";
 import { toast } from "./ui.js";
 
 /** Eingabe des Auftrags – der Knoten liest sie nicht (11.3d1a), sie muss nur da sein. */
 const EINGABE = "agent-raum";
 
-/** Nach dem Senden einer Nachricht im offenen Raum `raum` (Adresse) mit der Id `erwaehnung`. */
+/** Nach dem Senden einer Nachricht: `raum` ist die Adresse des offenen Raums oder die Gruppe, `erwaehnung` die Id der Nachricht. */
 export async function frageKnotenAgenten(p: { raum: string; erwaehnung: string; erwaehnt: string[]; karten: RaumAgentKarte[] }): Promise<void> {
   const ich = state.keypair?.pk;
   if (!ich) return;
@@ -75,4 +77,18 @@ async function frageEinen(raum: string, erwaehnung: string, k: ZuBezahlen): Prom
   if (r?.art === "antwort") toast(t("agentKnoten.beantwortet", { name: k.name }));
   else if (r?.art === "abgelehnt") toast(t(ablehnungsText(r.fall), { name: k.name, fall: r.fall ?? "–" }), true);
   else toast(t("agentKnoten.keineAntwort", { name: k.name }), true);
+}
+
+// ------------------------------------------------------------ Einladen in private Räume (11.3d2c)
+
+/** Die Karte, wenn dieser Schlüssel ein Agent auf einem Knoten ist (38090, vom Agenten signiert) – sonst null. */
+export async function knotenAgentKarte(pk: string): Promise<AgentKarte | null> {
+  const evs = await (await ensurePool()).query({ kinds: [KIND_AGENT_KARTE], authors: [pk], limit: 5 }).catch(() => []);
+  return aktuelleAgentKarten(evs).find((k) => k.agent === pk && k.betrieb === "knoten") ?? null;
+}
+
+/** Pflicht-Hinweis (Entwurf P2) nach dem Einladen: im ersten Kanal, dass der Knoten alles im Raum mitliest. */
+export async function meldeKnotenAgentImRaum(raum: PrivaterRaum, name: string): Promise<boolean> {
+  const kanal = [...(raum.zustand.space?.channels ?? [])].sort((a, b) => a.position - b.position)[0]?.id;
+  return !!kanal && !!(await sendePrivat(raum.gruppe, kanal, t("agentKnoten.hinweisRaum", { name })).catch(() => null));
 }
