@@ -7971,7 +7971,9 @@ Chromium); Firefox und Safari zeigten nur den Hinweis zum Einfügen.
 **Verdrahtet:** `shell/qr-ui.ts:207` (`waehleErkenner()` im Klick von `scanKnopf()`);
 `leseQrAusBild()` über `JsQrErkenner`.
 
-**Prüfungen:** PRUEFUNGEN
+**Prüfungen:** protocol 1266, node 389 (je 6 übersprungen), app 1036 grün (+2), Leak 73 + 1 todo; mls 13;
+tsc ×3, Build, `check-wiring --streng` (0 offen), `check-website`, `check_innerhtml --streng`, Smoke-Test
+(mit jsQR ohne `BarcodeDetector`), Website-Bau und reproduzierbarer Build grün.
 
 ## Schritt A-12-Entwurf, A-23, A-22, A-21-Plan – Kasse über Squads; Vergleiche Outbox und Boltz; Plan für kit
 
@@ -7990,7 +7992,7 @@ legt fest, wie; kein Code.
 - Fragen W1–W5 an den MENSCHEN.
 - A-23 (`docs/OUTBOX-VERGLEICH.md`): `outboxPlan()` neben NDK 3.0.3, Welshman 0.8.16 und
   applesauce 6.2.0 (Quelltext gelesen). Befunde als neue Punkte: A-24 alle Autoren abdecken
-  (gierig, Pool zählt mit, zwei Relays je Autor), A-25 keine fremden `ws://`, A-26 kaputte Relays
+  (gierig, Pool zählt mit, erst jeder Autor ein Relay), A-25 keine fremden `ws://`, A-26 kaputte Relays
   eine Viertelstunde aussetzen. Indexer-Relays bewusst nicht (verrieten den Kreis der Kontakte).
 - A-22 (`docs/BOLTZ-VERGLEICH.md`): Ablauf des LP neben dem Boltz-Backend (Lifecycle-Doku).
   Zwei Entscheidungen für den MENSCHEN: A-27 Reihenfolge in Richtung 1 wie Boltz (erst zahlt der
