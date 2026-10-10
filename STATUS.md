@@ -8032,3 +8032,35 @@ Chromium); Firefox und Safari zeigten nur den Hinweis zum Einfügen.
 **Prüfungen:** protocol 1266, node 389 (je 6 übersprungen), app 1038 grün (+2; mit `main` bis 11.3d2c), Leak 73 + 1 todo; mls 13;
 tsc ×3, Build, `check-wiring --streng` (0 offen), `check-website`, `check_innerhtml --streng`, Smoke-Test
 (mit jsQR ohne `BarcodeDetector`), Website-Bau und reproduzierbarer Build grün.
+
+## Schritt A-12-Entwurf, A-23, A-22, A-21-Plan – Kasse über Squads; Vergleiche Outbox und Boltz; Plan für kit
+
+Entschieden 09.10.2026 (MENSCH): kein eigenes Programm, Squads anbinden. `docs/KASSE-ENTWURF.md`
+legt fest, wie; kein Code.
+
+- Befunde, auf der Kette abgefragt: Squads v4 (`SQDS4ep…`) ist auf Mainnet unveränderlich (keine
+  Upgrade-Berechtigung), auf Devnet upgradebar und ein anderer Stand (andere Prüfsumme);
+  Gebühr fürs Anlegen auf beiden Netzen 0, änderbar durch Squads. SDK `@sqds/multisig` 2.1.4 (MIT)
+  für den Browser gebündelt 772 KB ohne web3.js, an web3.js v1 gebunden; Programm AGPL-3.0,
+  nur aufgerufen.
+- Vorschläge V1–V7: eigene Anweisungen nach der IDL statt SDK, getestet gegen beide Programme im
+  Validator; ohne Verwalter; Recht „kasse“ erlaubt, die Kette entscheidet; frische Adresse je
+  Raum und Mitglied; Grenze „raum-kasse“ im Bericht; Stimmen nur auf der Kette; nur SOL, nur
+  Devnet bis M-8, Teilschritte A-12a–e.
+- Fragen W1–W5 an den MENSCHEN.
+- A-23 (`docs/OUTBOX-VERGLEICH.md`): `outboxPlan()` neben NDK 3.0.3, Welshman 0.8.16 und
+  applesauce 6.2.0 (Quelltext gelesen). Befunde als neue Punkte: A-24 alle Autoren abdecken
+  (gierig, Pool zählt mit, erst jeder Autor ein Relay), A-25 keine fremden `ws://`, A-26 kaputte Relays
+  eine Viertelstunde aussetzen. Indexer-Relays bewusst nicht (verrieten den Kreis der Kontakte).
+- A-22 (`docs/BOLTZ-VERGLEICH.md`): Ablauf des LP neben dem Boltz-Backend (Lifecycle-Doku).
+  Zwei Entscheidungen für den MENSCHEN: A-27 Reihenfolge in Richtung 1 wie Boltz (erst zahlt der
+  Kunde in die Hold-Invoice, dann sperrt der LP – ohne Vorab-Gebühr; Vorschlag: so lassen), A-28
+  Rückgabe vor Ablauf in Richtung 2 (neue Anweisung im HTLC-Programm; Vorschlag: ja, mit 0.G).
+- A-21-Plan (`docs/KIT-PLAN.md`): web3.js v1 belegt rund 760 KB des Bundles (esbuild-Metafile),
+  `@solana/kit` 8.4.0 mit `@solana-program/system` für dieselben Aufgaben 228 KB. Teilschritte
+  A-21a–f (erst Byte-Vektoren je Transaktion, dann Protokoll, RPC über den `RpcPool`, Signieren über
+  `@noble/curves`, Knoten, Aufräumen); Fragen W1–W3 an den MENSCHEN.
+
+**Prüfungen:** nur Dokumente – protocol 1266, node 389 (je 6 übersprungen), app 1038 grün (unverändert),
+Leak 73 + 1 todo; mls 13; tsc ×3, Build, `check-wiring --streng`, `check-website`,
+`check_innerhtml --streng`, Smoke-Test, Website-Bau und reproduzierbarer Build grün.
