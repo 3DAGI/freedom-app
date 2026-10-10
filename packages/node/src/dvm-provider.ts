@@ -59,9 +59,11 @@ import {
   KIND_DVM_WECKEN, leseWeckAnmeldung, weckAntwortText,
   KIND_DVM_TURN, turnZugangText,
   GRATIS_LEER, type GratisAngebot,
+  leseAuftragsVerweis,
 } from "@freedomstack/protocol";
 import type { WeckBuch } from "./wecken.js";
 import { type TurnDienst, turnZugang } from "./turn.js";
+import { AgentAbgelehnt, type AgentAuftrag, type KnotenAgent } from "./knoten-agent.js";
 import type { KanalKasse } from "./kanal-kasse.js";
 import type { Connection } from "@solana/web3.js";
 import { InferenceBackend, OllamaBackend } from "./inference.js";
@@ -169,6 +171,12 @@ export interface ProviderConfig {
    * die alte Regel (Bootstrap, freiwilliges Free-Tier) ohne Budget.
    */
   gratis?: GratisAngebot;
+  /**
+   * Agent auf dem Knoten (11.3d1a, `KNOTEN_AGENT=1`): beantwortet Erwähnungen in
+   * offenen Räumen, wenn ein versiegelter Auftrag mit Verweis darauf kommt. Ohne:
+   * Aufträge mit Verweis lehnt der Knoten ab.
+   */
+  agent?: KnotenAgent;
 }
 
 /** Ablehnung mit Kennung (A-14): Das Gratis-Budget des Tages ist verbraucht. */
@@ -664,7 +672,7 @@ export class DvmProvider {
           ["p", request.pubkey],
           ["status", "error"],
           // Kennung (A-14): Die App erkennt den Fall, ohne den Text zu lesen
-          ...(err instanceof GratisLeer ? [["fall", err.fall]] : []),
+          ...(err instanceof GratisLeer || err instanceof AgentAbgelehnt ? [["fall", err.fall]] : []),
         ], `error: ${(err as Error).message.slice(0, 200)}`),
         this.cfg.keypair.sk,
       );
@@ -1079,6 +1087,10 @@ export class DvmProvider {
     // Über ein Funk-Gateway (7.4): kurze Antwort ohne Zwischenstände – jede Sekunde Sendezeit zählt
     const kurz = leseKurzWunsch(request);
     const kuerze = (text: string): string => (kurz ? kuerzeAntwort(text, kurz) : text);
+    // Agent auf dem Knoten (11.3d1a): Der Verweis nennt Raum und Erwähnung – nur versiegelt
+    const verweis = leseAuftragsVerweis(request.tags);
+    if (verweis && !privat) throw new AgentAbgelehnt("agent-nur-versiegelt");
+    if (verweis && !this.cfg.agent) throw new AgentAbgelehnt("agent-keiner");
     // Gebührenmodell A+ (5.1): Deklaration prüfen, bevor gerechnet wird
     const aufteilung = aufteilungFuer(request, !!this.cfg.werber);
     // Zahlkanal (4.3c): Gutschrift im versiegelten Kern – Vorauszahlung bis zum Gebot
@@ -1189,6 +1201,9 @@ export class DvmProvider {
     const isSwarm = request.tags.some((t) => t[0] === "swarm" && t[1] === "1");
     if (gratisRegel && toolCalls.length > 0) throw new Error("Werkzeuge nur gegen Bezahlung");
     if (gratisRegel && isSwarm) throw new Error("Schwarm nur gegen Bezahlung");
+    // Agent (11.3d1a): nur Text, nach der Zahlungsprüfung und vor dem Rechnen geprüft – reserviert die Erwähnung
+    if (verweis && (toolCalls.length > 0 || isSwarm || kurz)) throw new AgentAbgelehnt("agent-nur-text");
+    const agentAuftrag: AgentAuftrag | undefined = verweis ? await this.cfg.agent!.pruefe(verweis) : undefined;
     // Lebenszeichen (L2-2): angenommen, jetzt wird gerechnet – die App wartet dann bis zur Frist,
     // statt nach 20 s Stille den nächsten Provider zu fragen. Über Funk nicht (Sendezeit, 7.4).
     if (!kurz) this.meldeBearbeitung(request, privat);
@@ -1262,10 +1277,12 @@ export class DvmProvider {
     }
     // Kurz (7.4): das Modell darum bitten – gekürzt wird danach trotzdem
     if (kurz) finalPrompt += `\n\nAntworte in höchstens ${kurz} Zeichen, ohne Einleitung.`;
+    // Agent: Persona, Verlauf und Erwähnung aus dem Raum – nie die Eingabe des Auftrags
+    if (agentAuftrag) finalPrompt = agentAuftrag.prompt;
     // Gewuenschtes Modell aus dem Job lesen ([\"param\", \"model\", \"...\"]).
     // Nur akzeptieren wenn der Provider dieses Modell anbietet; sonst das erste angebotene
     // (B-41) – nie still ein anderes als angekündigt (früher: OLLAMA_MODEL des Backends).
-    const modelParam = request.tags.find((t) => t[0] === "param" && t[1] === "model")?.[2];
+    const modelParam = (agentAuftrag && this.cfg.agent!.modell) || request.tags.find((t) => t[0] === "param" && t[1] === "model")?.[2];
     const offeredModels = this.cfg.modelle?.() ?? (process.env.PROVIDER_MODELS ?? process.env.OLLAMA_MODEL ?? "")
       .split(",").map((m) => m.trim()).filter(Boolean);
     const requestedModel = modelParam && offeredModels.includes(modelParam) ? modelParam : offeredModels[0];
@@ -1291,7 +1308,12 @@ export class DvmProvider {
       onProgress: kurz ? undefined : onProgress,
       // Gratis (A-14): höchstens so viele Tokens, ohne Werkzeuge des Modells
       ...(gratisRegel && this.cfg.gratis ? { maxTokens: this.cfg.gratis.tokensJeAntwort, ohneWerkzeuge: true } : {}),
+    }).catch((e: unknown) => {
+      if (agentAuftrag) this.cfg.agent!.gib(agentAuftrag);
+      throw e;
     });
+    // Agent: erst die Antwort im Raum, dann das Ergebnis an den Fragenden – scheitert sie, zahlt er nichts
+    if (agentAuftrag) await this.cfg.agent!.antworte(agentAuftrag, result.output);
 
     // Preis: Session-Rate, Deposit-Rate, Free-Tier (0), oder Bid-Preis.
     // PLUS Tool-Kosten (web_search etc.) — werden on top gerechnet.

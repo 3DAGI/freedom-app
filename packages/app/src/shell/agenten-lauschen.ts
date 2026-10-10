@@ -22,7 +22,7 @@
  */
 import {
   ART_RAUM_CHAT, AuftragsBremse, KIND_CHANNEL_MESSAGE, KIND_GIFT_WRAP, KIND_RAUM_KANAL, KIND_ROLE_GRANT, KIND_SPACE, KIND_SPACE_ROLES,
-  ausRaumEvent, buildJobRequest, buildPrivateJobRequest, leseRaumAdresse, parseJobResult, raumAgentAntwort, raumNachricht, raumZustandFuer,
+  ausRaumEvent, buildJobRequest, buildPrivateJobRequest, definitionDesGruenders, leseRaumAdresse, parseJobResult, raumAgentAntwort, raumNachricht, raumZustandFuer,
   type NostrEvent, type RaumNachricht,
 } from "@freedomstack/protocol";
 import { AgentSitzungen, agentAntwortEvent, agentHinweisEvent, agentPrompt, entscheide, istAgentIm } from "../agent-antwort.js";
@@ -167,9 +167,8 @@ async function beantworteOffen(agentPk: string, raum: string, ev: NostrEvent): P
   ]);
   const stand = raumZustandFuer(raum, struktur);
   if (!stand?.space) return;
-  // Schalter der Agentenketten: nur in der Definition des Gründers (F5)
-  const definition = struktur.filter((e) => e.kind === KIND_SPACE && e.pubkey === ort.besitzer && e.tags.some((x) => x[0] === "d" && x[1] === ort.spaceId))
-    .sort((a, b) => b.created_at - a.created_at)[0]?.tags ?? [];
+  // Schalter der Agentenketten: nur in der Definition des Gründers (F5) – `d` ist `space:<kennung>` (bis 11.3d1a nie gefunden)
+  const definition = definitionDesGruenders(raum, struktur);
   const alle = verlauf.some((e) => e.id === ev.id) ? verlauf : [...verlauf, ev];
   const e = entscheide({ agent: agentPk, ev, alle, stand, definition, bremse: bremseFuer(agentPk), jetzt: jetztSek() });
   if (e.art !== "antworten") return;

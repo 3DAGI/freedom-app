@@ -38,6 +38,7 @@ import { antriebAusUmgebung, antriebModelle } from "./ki-antrieb.js";
 import { ModellDienst, leseStand, leseWuensche, modellDatei, nurBeiOllama, ollamaPull, ollamaTags, registryDateien, wunschDatei } from "./modell-laden.js";
 import { providerModelle, pruefeModelle } from "./modell-pruefung.js";
 import { type KnotenSchluessel, SchluesselFehler, knotenSchluesselDatei, ladeKnotenSchluessel } from "./knoten-schluessel.js";
+import { KnotenAgent, agentAusUmgebung, agentBeantwortetDatei, agentSchluesselDatei } from "./knoten-agent.js";
 import http from "node:http";
 
 /** Ohne RELAYS: die ganze Startliste (5.4) – so teilt jede App-Sitzung Relays mit dem Knoten. */
@@ -273,11 +274,34 @@ async function main(): Promise<void> {
   const { dienst: turn, grund: turnGrund } = turnAusUmgebung(process.env);
   console.log(turn ? `[turn] Zugänge für den Besitzer an (${turn.urls.length} Adresse(n), je ${turn.gueltigSek} s)` : `[turn] ${turnGrund}`);
   if (turn) statusRollen.add("turn");
+  // Agent auf dem Knoten (11.3d1a): eigener Schlüssel, offene Räume, „wer fragt, zahlt“ – ungültig → kein Start
+  const agentWahl = agentAusUmgebung(process.env);
+  if (agentWahl?.grund) {
+    console.error(`[agent] ${agentWahl.grund} – der Knoten startet nicht`);
+    process.exit(1);
+  }
+  let knotenAgent: KnotenAgent | undefined;
+  if (agentWahl?.einstellung) {
+    let s: KnotenSchluessel;
+    try {
+      s = ladeKnotenSchluessel(undefined, agentSchluesselDatei(), { anlegen: true });
+    } catch (e) {
+      console.error(`[agent] ${e instanceof SchluesselFehler ? e.message : `Schlüssel nicht lesbar (${(e as Error).name}).`}`);
+      process.exit(1);
+    }
+    if (s.pk === keypair.pk) {
+      console.error("[agent] Der Agent braucht einen eigenen Schlüssel, nicht den des Knotens – der Knoten startet nicht");
+      process.exit(1);
+    }
+    knotenAgent = new KnotenAgent({ schluessel: s, einstellung: agentWahl.einstellung, knoten: keypair.pk, pool, datei: agentBeantwortetDatei() });
+    console.log(`[agent] Agent auf dem Knoten: pubkey=${s.pk} – offene Räume, wer fragt, zahlt`);
+  }
   const provider = new DvmProvider(
     {
       keypair,
       weckBuch,
       turn,
+      agent: knotenAgent,
       lud16,
       werber,
       besitzer: () => { const k = leseKopplung(kopplungOrt, keypair.pk); return k ? [k.geheimnis] : []; },
@@ -591,6 +615,8 @@ async function main(): Promise<void> {
   {
     const { ev, tier, models } = await baueAngebot();
     await pool.publish(ev);
+    // Karte des Agenten (38090) mit dem Angebot – ersetzbar, sie bleibt aktuell
+    if (knotenAgent) await pool.publish(knotenAgent.karte()).catch((e) => console.warn(`[agent] Karte nicht veröffentlicht (${(e as Error).name})`));
     console.log(`Capabilities publiziert: tier=${tier} models=${models.join(",")} free=${provider.isCurrentlyFree()}${storageEnabled ? " storage=an" : ""} pow=${privatePowBits}`);
   }
 
@@ -602,6 +628,7 @@ async function main(): Promise<void> {
   setInterval(async () => {
     try {
       await pool.publish((await baueAngebot()).ev);
+      if (knotenAgent) await pool.publish(knotenAgent.karte());
       console.log(`[caps-refresh] Capabilities erneuert: ${new Date().toISOString()}`);
     } catch (err) {
       console.error("[caps-refresh] Fehler:", err);

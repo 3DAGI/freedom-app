@@ -7561,3 +7561,74 @@ Jeweils Exit 1 mit eigenem Satz bei:
 **Prüfungen:** Alle Befehle aus CLAUDE.md auf `88874ee` (`main` 25bbb19 + B-29b), `GESAMT fail=0`: protocol 1257 grün (6 übersprungen), node 371 grün (+6, ohne Netz 7 übersprungen; mit Netz 372), app 1029, Leak 73 + 1 todo, mls 13; tsc überall, Build, `check-wiring --streng`, `check-website`, `check_innerhtml --streng`, Smoke-Test, Website-Bau grün.
 
 Knoten-Stand: kein Update nötig – das Skript läuft am Knoten, wenn der MENSCH misst.
+
+## Schritt 11.3d1a – Agent auf dem Knoten: offene Räume, „wer fragt, zahlt“
+
+Erster Teil von 11.3d (Karte `phase-11.md`, Entwurf `docs/AGENTEN-RAUM-ENTWURF.md` P4, P5, F5; an
+Spur B übergeben 09.10.). 11.3d ist geteilt:
+- **d1a (dieser Schritt):** der Knoten, offene Räume, „wer fragt, zahlt“.
+- **d1b:** die App zeigt den Preis und schickt den Auftrag mit Verweis.
+- **d2:** private Räume mit einem MLS-Konto im Knoten.
+- **d3:** Budget des Einladers (Pfand im Zahlkanal), nach M-2.
+
+**Protokoll** (`agent-raum.ts`, neu):
+- Aus der App (`agent-antwort.ts`, 11.3c2a) hierher gezogen: `entscheide()` (neu mit `ausBudget`),
+  `istAgentIm()`, `darfSchreibenIm()`, `agentAntwortEvent()`, `agentHinweisEvent()` und der Prompt als
+  `agentPromptMit()` mit festen Grenzen. App und Knoten entscheiden so mit denselben Regeln.
+- Die App behält ihre Schnittstelle; `agentPrompt()` nimmt die Grenzen aus `VERLAUF_UMFANG`.
+- **Neu: `definitionDesGruenders()`.** Die Definition hat `d` = `space:<kennung>`. Die App suchte bis
+  hier nach `d` = `<kennung>` und fand den Schalter der Agentenketten nie, Ketten blieben in offenen
+  Räumen immer aus. Behoben in `shell/agenten-lauschen.ts` (Spur A, eine Zeile).
+
+**Knoten** (`knoten-agent.ts`, neu):
+- **Einstellung:** `KNOTEN_AGENT=1` mit `AGENT_NAME` (Pflicht), `AGENT_ABOUT`, `AGENT_PERSONA`,
+  `AGENT_MODELL`, `AGENT_BESITZER`; ungültig → kein Start.
+- **Schlüssel:** eigener in `~/.freedom/agent-key` (0600, über `ladeKnotenSchluessel()`), nie der des
+  Knotens (geprüft).
+- **Karte** (38090, Knoten, „wer fragt“, `provider` = der Knoten) beim Start und mit jedem Erneuern
+  des Angebots; die Persona steht nicht darin.
+- **Auftrag** (`dvm-provider.ts`):
+  - Ein Verweis (`leseAuftragsVerweis()`) nur aus einem Umschlag.
+  - `KnotenAgent.pruefe()` nach der Zahlungsprüfung, vor dem Rechnen. Die Erwähnung muss es im Raum
+    geben (signiert, Kind 42, Kennung), mit dem Stand des Raums und `entscheide()` mit
+    `ausBudget: false` – nie auf Agenten.
+  - Gerechnet wird nur Persona, Verlauf und Erwähnung aus dem Raum, nie die Eingabe des Auftrags.
+  - Erst die Antwort im Raum (Kind 42 vom Agenten), dann das Ergebnis versiegelt an den Fragenden.
+  - Scheitert das Rechnen, ist die Erwähnung wieder frei.
+- **Einmal:** Jede Erwähnung beantwortet er höchstens einmal (`agent-beantwortet.json`, nur Ids, 0600).
+- **Ablehnungen:** vor dem Rechnen als `AgentAbgelehnt` mit `["fall", …]` in der Rückmeldung – nie mit
+  Text aus dem Raum oder von Relays.
+
+**Doku:**
+- `docs/PROVIDER.md` (Abschnitt „Agent auf dem Knoten“), `docs/PROTOCOL.md` §32 (Prüfung, Kennungen).
+- Fallstricke in `packages/node`, `packages/protocol`, `packages/app`.
+- Karte `phase-11.md` (11.3d geteilt), FORTSCHRITT, `docker-compose.yml`.
+
+**Echt gestartet:** der Knoten mit eigenem Relay (`RELAY_ENABLED=1`), Agent an, OpenAI-Attrappe als
+Antrieb (B-29a). Ein Skript spielt Raum, Rollen, Erwähnung und einen versiegelten, bezahlten Auftrag
+über `ws://` durch:
+- Die Karte ist da („Lektor, knoten, fragender, provider = der Knoten“).
+- Die Antwort steht im Raum vom Agenten (`space`, `h`, `e` … `reply` auf die Erwähnung, `p` … `mention`
+  des Fragenden).
+- Ein zweiter bezahlter Auftrag für dieselbe Erwähnung bringt keine zweite Antwort; im Log steht nur
+  „agent-schon-beantwortet“.
+- Kein Klartext im Log; `agent-key` und `agent-beantwortet.json` mit 0600.
+
+**Tests:**
+- **protocol** `agent-raum.test.ts` (+2): Definition des Gründers (`space:<kennung>`, nur vom Gründer,
+  die neueste); „wer fragt, zahlt“ nie auf Agenten; Prompt mit festen Grenzen.
+- **node** `knoten-agent.test.ts` (+7):
+  - Einstellung;
+  - Karte;
+  - der ganze Weg durch den Provider (Prompt aus dem Raum statt der Eingabe, Antwort im Raum und
+    versiegelt, bezahlt, kein Klartext im Log);
+  - einmal, auch nach einem Neustart;
+  - Ablehnungen mit Kennung;
+  - offen abgelehnt;
+  - Verdrahtung.
+- **app:** unverändert grün (die Bausteine kommen jetzt aus dem Protokoll).
+
+**Prüfungen:** Alle Befehle aus CLAUDE.md auf `d87e0d0` (`main` cf3c89a + 11.3d1a): protocol 1259 grün (+2, 6 übersprungen), app 1029, Leak 73 + 1 todo, mls 13; tsc überall, Build, `check-wiring --streng`, `check-website`, `check_innerhtml --streng`, Smoke-Test, Website-Bau grün. Knoten im ersten Lauf 376 grün, 2 rot: Die Verdrahtungstests aus B-12a und B-13a lesen „keypair, weckBuch, turn,“ zusammenhängend, und `agent: knotenAgent` stand dazwischen – jetzt dahinter (Tests unverändert); danach node 378 grün (+7, ohne Netz 7 übersprungen; mit Netz 379), `check-wiring --streng` Exit 0.
+
+Knoten-Stand: `main` mit 11.3d1a, nur wer einen Agenten auf dem Knoten will (`KNOTEN_AGENT=1`); sonst
+kein Update nötig.

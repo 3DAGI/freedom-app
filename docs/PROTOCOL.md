@@ -1046,6 +1046,17 @@ KeyPackages (443) darf er offen haben – sonst lädt ihn niemand ein.
 - **Verweis im Auftrag** an einen Knoten-Agenten, nur im versiegelten Kern:
   `["agent-raum", <Adresse des offenen Raums oder Gruppe>]`,
   `["agent-erwaehnung", <Id>]`.
+- **Agent auf dem Knoten** (seit 11.3d1a, offene Räume, „wer fragt, zahlt“): Der
+  Knoten nimmt den Verweis nur aus einem Umschlag, prüft die Erwähnung mit dem
+  Stand des Raums (`entscheide()` mit `ausBudget: false`, die Definition nur über
+  `definitionDesGruenders()`, `d` = `space:<kennung>`) und rechnet nur Persona,
+  Verlauf und Erwähnung aus dem Raum – nie die Eingabe des Auftrags. Jede Erwähnung
+  beantwortet er höchstens einmal. Abgelehnt wird vor dem Rechnen, als Rückmeldung
+  (7000, `error`) mit `["fall", <kennung>]`: `agent-nur-versiegelt`, `agent-keiner`,
+  `agent-privat` (Gruppen erst mit 11.3d2), `agent-nur-text`, `agent-schon-beantwortet`,
+  `agent-keine-erwaehnung`, `agent-kein-raum`, `agent-raum-nicht-erreichbar`,
+  `agent-nicht-veroeffentlicht` und `agent-<grund>` aus `entscheide()`
+  (`agent-kein-schreibrecht`, `agent-ohne-budget` …).
 - **Antwort:** offen Kind 42 mit `h`, `e` … `root` (im Thread), `e` … `reply` auf
   die Erwähnung und `p` … `mention` des Fragenden; privat dasselbe als inneres Event
   (Art 9). Höchstens 4000 Zeichen.

@@ -154,3 +154,12 @@ Bereichs unten anhängen.
   echte Anfragen (`complete()` mit `ohneWerkzeuge`), feste Übungsfragen, höchstens N zugleich
   (`missStufe()`), Fehler nur mit Namen, Antworten nie ausgeben. Tokens je Sekunde nur, wenn der
   Antrieb sie für jede Anfrage nennt – sonst „–“, nie hochrechnen.
+- **Agent auf dem Knoten nur über `knoten-agent.ts`** (seit 11.3d1a, offene Räume, „wer fragt, zahlt“):
+  `KNOTEN_AGENT=1` über `agentAusUmgebung()` (ungültig → kein Start), eigener Schlüssel nur über
+  `ladeKnotenSchluessel(undefined, agentSchluesselDatei(), …)` – nie der des Knotens. Ein Auftrag mit Verweis
+  (`leseAuftragsVerweis()`) nur aus einem Umschlag; geprüft über `KnotenAgent.pruefe()` nach der Zahlungsprüfung
+  und vor dem Rechnen (`entscheide()` mit `ausBudget: false`), gerechnet nur `agentAuftrag.prompt` – nie die
+  Eingabe des Auftrags, sonst ließe sich der Agent unter einer fremden Erwähnung alles sagen. Erst die Antwort im
+  Raum (`antworte()`), dann das Ergebnis an den Fragenden; scheitert das Rechnen, gibt `gib()` die Erwähnung frei.
+  Jede Erwähnung höchstens einmal (`agent-beantwortet.json`, nur Ids). Ablehnungen nur als `AgentAbgelehnt`
+  mit `fall` – nie Text aus dem Raum oder von Relays.

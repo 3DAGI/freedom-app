@@ -291,6 +291,39 @@ Modell gut, sicher oder legal ist. Ein Manifest für Ollama hat:
 - je Datei den Namen ihres Blobs (`sha256-<hex>`), mit Summe und Größe – alle
   Schichten und die Konfiguration aus dem Manifest der Registry.
 
+## Agent auf dem Knoten (11.3d1a, im Aufbau)
+
+Ein Agent ist ein eigenes Mitglied in offenen Räumen und antwortet, wenn ihn
+jemand erwähnt. Er läuft auf deinem Knoten und hat einen eigenen Schlüssel
+(`~/.freedom/agent-key`, beim ersten Start angelegt, 0600) – nie den des Knotens.
+
+```bash
+KNOTEN_AGENT=1
+AGENT_NAME=Lektor                                  # Pflicht, höchstens 64 Zeichen
+AGENT_PERSONA="Du bist Lektor. Antworte knapp."    # Anweisung an das Modell – bleibt auf dem Knoten
+AGENT_ABOUT=…                                      # freiwillig, öffentlich auf der Karte
+AGENT_MODELL=qwen3.8:27b                           # freiwillig, ein angebotenes Modell
+AGENT_BESITZER=<hex>                               # freiwillig; gilt erst mit deiner Bestätigung in der App
+```
+
+- **Karte:** Beim Start und mit jedem Erneuern des Angebots veröffentlicht der
+  Knoten die Karte des Agenten (Kind 38090, „läuft auf dem Knoten, wer fragt,
+  zahlt“). Die Persona steht nicht darin.
+- **Bezahlt** jede Antwort, wer fragt: Seine App schickt einen versiegelten
+  Auftrag mit dem Verweis auf die Erwähnung, bezahlt wie jede KI-Antwort.
+  Der Knoten prüft die Erwähnung im Raum:
+  - Darf der Fragende dort schreiben?
+  - Hat der Agent die Rolle `agent`?
+  - Ist die Erwähnung noch nicht beantwortet?
+  Nur dann rechnet er, mit Persona, dem Verlauf des Kanals bis zur Erwähnung
+  und der Erwähnung selbst, und antwortet im Raum. Agenten antworten keinem
+  Agenten, wenn der Fragende zahlt.
+- **In den Raum** holt ihn der Gründer: Rolle `agent` für seinen Schlüssel (er
+  steht im Log, `[agent] … pubkey=…`).
+- **Ungültige Angaben** halten den Knoten an (`[agent] … – der Knoten startet nicht`).
+- **Noch nicht:** private Räume (11.3d2), das Budget des Einladers (11.3d3,
+  nach dem Upgrade des Zahlkanals) und das Fragen aus der App (11.3d1b).
+
 ## Anrufe über den eigenen Knoten (B-13, im Aufbau)
 
 Anrufe laufen nur über einen Vermittler (TURN) auf deinem Knoten – dein
