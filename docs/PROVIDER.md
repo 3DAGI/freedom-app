@@ -304,6 +304,7 @@ AGENT_PERSONA="Du bist Lektor. Antworte knapp."    # Anweisung an das Modell –
 AGENT_ABOUT=…                                      # freiwillig, öffentlich auf der Karte
 AGENT_MODELL=qwen3.8:27b                           # freiwillig, ein angebotenes Modell
 AGENT_BESITZER=<hex>                               # freiwillig; gilt erst mit deiner Bestätigung in der App
+AGENT_PRIVAT=besitzer                              # freiwillig: private Räume – besitzer oder alle (11.3d2a)
 ```
 
 - **Karte:** Beim Start und mit jedem Erneuern des Angebots veröffentlicht der
@@ -325,8 +326,24 @@ AGENT_BESITZER=<hex>                               # freiwillig; gilt erst mit d
   sieht in der App den Preis (höchstens 100 sats je Antwort, mit der Rate deines
   Angebots) und schickt nach der Bestätigung einen versiegelten Auftrag mit
   Verweis an deinen Knoten – über Lightning oder einen Zahlkanal zu dir.
-- **Noch nicht:** private Räume (11.3d2) und das Budget des Einladers (11.3d3,
-  nach dem Upgrade des Zahlkanals).
+- **Private Räume** (seit 11.3d2a, nur mit `AGENT_PRIVAT`): Der Agent wird
+  volles Mitglied der MLS-Gruppe und **liest alles im Raum mit**.
+  - `besitzer`: nur Einladungen von `AGENT_BESITZER`; `alle`: von jedem.
+    Höchstens 20 Gruppen.
+  - Der Knoten veröffentlicht dafür Relay-Listen und ein KeyPackage des Agenten
+    und gleicht alle 15 Sekunden ab.
+  - Fremde Relays einer Gruppe nur `wss://` und öffentlich, höchstens 10, über
+    Tor, wenn der Knoten Tor nutzt.
+  - Auf der Platte nur verschlüsselt, alles 0600 neben `agent-key`:
+    `agent-mls.json` (Schlüssel), `agent-mls.zustand`, `agent-mls.raumstand`
+    (Kanäle, Rollen, Karten). Chat-Nachrichten hält der Knoten nur im Speicher;
+    die MLS-Engine behält sie wie bei jedem Mitglied in ihrem verschlüsselten
+    Zustand.
+  - Geht `agent-mls.json` verloren, sind die Gruppen weg – mit `agent-key`
+    sichern.
+  - Antworten in privaten Räumen kommen mit 11.3d2b.
+- **Noch nicht:** Antworten in privaten Räumen (11.3d2b) und das Budget des
+  Einladers (11.3d3, nach dem Upgrade des Zahlkanals).
 
 ## Anrufe über den eigenen Knoten (B-13, im Aufbau)
 

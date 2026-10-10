@@ -597,7 +597,8 @@ test("belegte Aussagen nennen ihre Regel, und jede genannte Regel gibt es", () =
   // „zeitanker“ (B-17b3a): die Kalender fragt die App per https, nicht über ein Relay – das prüft app/test/zeitanker.test.ts
   // „agent-geraet“ (11.3c3a): was der Provider nach dem Öffnen liest, sieht kein Mitschnitt – Pseudonyme und Umfang prüft app/test/agent-antwort.test.ts
   // „agent-knoten“ (11.3d1b2): was der Knoten nach dem Öffnen des Auftrags liest, sieht kein Mitschnitt – den Verweis im Kern prüft app/test/knoten-agent-fragen.test.ts
-  assert.deepEqual(PRIVACY_FACTS.filter((f) => !f.regel).map((f) => f.id).sort(), ["agent-geraet", "agent-knoten", "dm-forward-secrecy", "ip", "ki-unterhaltung", "ki-verlauf", "mesh-geraet", "werbe-name", "zeitanker"]);
+  // „agent-knoten-privat“ (11.3d2a): was der Knoten als Mitglied liest, sieht kein Mitschnitt – Ablage und Schalter prüft node/test/knoten-mls.test.ts
+  assert.deepEqual(PRIVACY_FACTS.filter((f) => !f.regel).map((f) => f.id).sort(), ["agent-geraet", "agent-knoten", "agent-knoten-privat", "dm-forward-secrecy", "ip", "ki-unterhaltung", "ki-verlauf", "mesh-geraet", "werbe-name", "zeitanker"]);
 });
 
 test("4.5b: eine SOL-Adresse je Knoten steht als bewusste Grenze im Bericht – mit Grund und Entscheidung", () => {

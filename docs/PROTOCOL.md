@@ -1057,6 +1057,13 @@ KeyPackages (443) darf er offen haben – sonst lädt ihn niemand ein.
   `agent-keine-erwaehnung`, `agent-kein-raum`, `agent-raum-nicht-erreichbar`,
   `agent-nicht-veroeffentlicht` und `agent-<grund>` aus `entscheide()`
   (`agent-kein-schreibrecht`, `agent-ohne-budget` …).
+- **Agent auf dem Knoten in privaten Räumen** (seit 11.3d2a): eigenes MLS-Konto
+  des Agenten (Schlüssel des Agenten, nie der des Knotens). Er veröffentlicht
+  Kind 10002 und 10050 mit den Relays des Knotens und ein KeyPackage (30443,
+  fester d-Tag, neu nach jedem Beitritt). Einladungen (Kind 444 im Umschlag)
+  nimmt er nur nach dem Schalter des Betreibers an (`besitzer`: nur vom
+  Besitzer, `alle`), höchstens 20 Gruppen. Danach sendet er seine Karte als
+  inneres Event.
 - **„@Name“** (seit 11.3d1b1): Die App setzt `p` … `mention` für Agenten, deren Name
   im Text als ganzes Wort nach „@“ steht – ohne Groß/klein, nur Agenten des Raums
   (offen: Mitglieder mit der Rolle `agent` und gültiger Karte; privat: Karten der

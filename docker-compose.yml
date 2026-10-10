@@ -96,6 +96,7 @@ services:
       AGENT_PERSONA: "${AGENT_PERSONA:-}"
       AGENT_MODELL: "${AGENT_MODELL:-}"
       AGENT_BESITZER: "${AGENT_BESITZER:-}"
+      AGENT_PRIVAT: "${AGENT_PRIVAT:-}"
       # E9-3: Modelle geprueft laden (docker compose exec node npm run modell -- <name> --aus-registry,
       # docs/PROVIDER.md); passt es in den Speicher? Leer: Arbeitsspeicher des Rechners
       MODELL_SPEICHER_GB: "${MODELL_SPEICHER_GB:-}"
