@@ -174,6 +174,15 @@ export const raeume: Texte = {
   "agentKnoten.agentOhneRecht": { de: "{name} darf in diesem Kanal nicht schreiben.", en: "{name} may not write in this channel." },
   "agentKnoten.keinRecht": { de: "{name} antwortet hier nicht: Laut Knoten darfst du in diesem Kanal nicht schreiben.", en: "{name} does not answer here: according to the node you may not write in this channel." },
   "agentKnoten.bremse": { de: "{name} antwortet dir gerade nicht – zu viele Fragen in kurzer Zeit.", en: "{name} is not answering you right now – too many questions in a short time." },
+  "agentKnoten.einladenTitel": { de: "Agent {name} einladen?", en: "Invite agent {name}?" },
+  "agentKnoten.einladenText": {
+    de: "{name} läuft auf einem Knoten. Als Mitglied liest der Knoten alles in diesem Raum mit – Kanäle, Rollen und Nachrichten. Antworten bezahlt, wer ihn fragt. Alle im Raum sehen danach einen Hinweis.",
+    en: "{name} runs on a node. As a member, the node reads everything in this room – channels, roles and messages. Whoever asks pays for the answers. Everyone in the room will then see a notice.",
+  },
+  "agentKnoten.hinweisRaum": {
+    de: "Agent {name} läuft auf einem Knoten: Der Knoten liest alles in diesem Raum mit. Antworten bezahlt, wer ihn fragt.",
+    en: "Agent {name} runs on a node: the node reads everything in this room. Whoever asks pays for the answers.",
+  },
   "agentKnoten.abgelehnt": { de: "{name} antwortet hier nicht ({fall}).", en: "{name} does not answer here ({fall})." },
   "raum.infoOffen": {
     de: "Offen: Jeder kann mitlesen, auch ohne diese App.\n\nDie Rechte hier regeln, wer schreiben darf — nicht, wer lesen kann.\nNachrichten liegen unverschlüsselt auf den Relays.",
