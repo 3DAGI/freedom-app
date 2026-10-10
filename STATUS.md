@@ -8112,3 +8112,24 @@ Code eines Raum-Repos, ändern ihn und stellen einen Patch in den Raum; annehmen
 **Prüfungen:** nur Dokumente – protocol 1269, node 389 (je 6 übersprungen), app 1040 grün
 (unverändert), Leak 73 + 1 todo; mls 13; tsc ×3, Build, `check-wiring --streng`, `check-website`,
 `check_innerhtml --streng`, Smoke-Test, Website-Bau und reproduzierbarer Build grün.
+
+## Schritt A-29 – `file_io` je Auftrag getrennt
+
+Befund aus dem 11.5-Entwurf: Alle Aufträge teilten sich den Ordner von `file_io`
+(`/tmp/freedom-workspace`) – was einer schrieb, lag für den nächsten bereit und blieb auf der Platte.
+Heute nicht wirksam, weil `main.ts` keine `ToolRegistry` übergibt; getrennt, bevor jemand es verdrahtet.
+
+- `node/src/tools.ts`: `ToolCall.auftrag` (64 Zeichen Hex); `FileIoExecutor` arbeitet dann nur in
+  `<workspace>/<auftrag>` (0700, beim ersten Gebrauch angelegt), eine ungültige Id wird abgelehnt.
+  `vergiss()` am Werkzeug und `ToolRegistry.vergiss()` löschen den Ordner (Fehler nur als Name ins Log).
+- `node/src/dvm-provider.ts`: `parseToolCalls()` gibt die Id der Anfrage mit; nach den Werkzeugen
+  löscht der Provider den Ordner (`finally`, auch wenn ein Werkzeug scheitert) – das Ergebnis steht
+  schon im Kontext.
+- Tests: node +1 (`tools.test.ts`: zwei Aufträge sehen sich nicht, auch nicht über `../`, der
+  Workspace selbst nicht, ungültige Id, Aufräumen je Auftrag); `sol-price.test.ts` prüft zusätzlich,
+  dass nach einem Auftrag mit `file_io` kein Ordner liegen bleibt (ohne das Aufräumen rot – gegengeprüft).
+
+**Verdrahtet:** `node/src/dvm-provider.ts` (`parseToolCalls()` mit `auftrag: request.id`,
+`this.toolRegistry.vergiss(request.id)` nach der Werkzeug-Schleife).
+
+**Prüfungen:** siehe Pull Request.

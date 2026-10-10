@@ -332,7 +332,8 @@ export class DvmProvider {
   private parseToolCalls(request: NostrEvent): ToolCall[] {
     return request.tags
       .filter((t) => t[0] === "tool" && t.length >= 3)
-      .map((t) => ({ kind: Number(t[1]), name: `tool-${t[1]}`, input: t.slice(2).join(" ") }));
+      // Je Auftrag ein eigener Ordner für file_io (A-29)
+      .map((t) => ({ kind: Number(t[1]), name: `tool-${t[1]}`, input: t.slice(2).join(" "), auftrag: request.id }));
   }
 
   /**
@@ -1211,12 +1212,17 @@ export class DvmProvider {
     let toolContext = "";
     if (toolCalls.length > 0 && this.toolRegistry) {
       const { defaultToolPrice } = await import("@freedomstack/protocol");
-      for (const tc of toolCalls) {
-        const res = await this.toolRegistry.run(tc);
-        const price = defaultToolPrice(tc.kind);
-        const costMsat = (price?.satsPerCall ?? 0) * 1000;
-        toolResults.push({ name: tc.name, kind: tc.kind, costMsat, output: res.output, ok: res.ok });
-        toolContext += `\n[Tool ${tc.name} Ergebnis]:\n${res.output}\n`;
+      try {
+        for (const tc of toolCalls) {
+          const res = await this.toolRegistry.run(tc);
+          const price = defaultToolPrice(tc.kind);
+          const costMsat = (price?.satsPerCall ?? 0) * 1000;
+          toolResults.push({ name: tc.name, kind: tc.kind, costMsat, output: res.output, ok: res.ok });
+          toolContext += `\n[Tool ${tc.name} Ergebnis]:\n${res.output}\n`;
+        }
+      } finally {
+        // Was der Auftrag in den Werkzeugen schrieb, bleibt nicht liegen (A-29) – sein Ergebnis steht im Kontext
+        await this.toolRegistry.vergiss(request.id);
       }
     }
 

@@ -38,6 +38,10 @@ Bereichs unten anhängen.
   Netz nur über `safeFetch` + `leseBegrenzt`. Private Adressen nur mit
   `isPrivateAddress()` aus dem Protokoll prüfen – `new URL` schreibt
   IPv4-in-IPv6 als Hex (`[::ffff:7f00:1]`), eine Suche nach Punkten übersieht das.
+  `file_io` je Auftrag (seit A-29): Der Provider gibt die Id der Anfrage als `auftrag` mit
+  (`parseToolCalls()`), `FileIoExecutor` arbeitet dann nur in `<workspace>/<auftrag>` (0700),
+  und nach den Werkzeugen löscht `ToolRegistry.vergiss()` den Ordner – auch wenn ein Werkzeug
+  scheitert. Ein neuer Aufrufer gibt immer einen Auftrag mit; ohne teilten sich alle einen Ordner.
 - **LP nur mit eingeschränkter Macaroon und mit Ablage** (seit 8.3a): Der
   Knoten startet den LP nur nach `pruefeLpMacaroon()` (genau `invoices:*`,
   `offchain:*`, optional `info:read`). Hinrichtung: erst ablegen
