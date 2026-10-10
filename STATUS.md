@@ -7916,6 +7916,36 @@ Verweis („wer fragt, zahlt“).
 
 Knoten-Stand: `main` mit 11.3d2b, nur mit `AGENT_PRIVAT`; sonst kein Update nötig.
 
+## Schritt SH1 – Nachfolge mit der auditierten Shamir-Bibliothek
+
+Entschieden 09.10.2026 (MENSCH, SH1 A): neue Fassung der Anteile, alte bleiben lesbar.
+
+**Neu:**
+
+- Abhängigkeit `shamir-secret-sharing` 0.0.4 (Privy, Apache-2.0, ohne Abhängigkeiten,
+  85 KB entpackt, rund 13 KB Code; geprüft von Cure53 und Zellic), exakt gepinnt im Protokoll.
+- `protocol/src/succession.ts`: `teileGeheimnis()` (Fassung 2, async; kopiert das Geheimnis
+  und nullt die Kopie – die Bibliothek nimmt kein `Buffer`), `setzeGeheimnisZusammen()` (beide
+  Fassungen, nie gemischt), `ANTEIL_FASSUNG`; `splitSecret()`/`combineShares()` bleiben als
+  Fassung 1 (Lesen alter Anteile, Tests).
+- `protocol/src/nachfolge-anteile.ts`: Anteil (38077) und Übergabe (38079) tragen
+  `["fassung", "2"]`; ohne Tag Fassung 1, eine unbekannte Fassung wird abgelehnt;
+  `setzeNachfolgeZusammen()` ist async und setzt je Teilung mit der richtigen Fassung zusammen.
+- App: `richteNachfolgeEin()` (`tabs/settings.ts`) teilt über `teileGeheimnis()`,
+  `setzeZusammen()` (`nachfolge-ui.ts`) wartet; Texte für `teile-fassungen` und
+  `geheimnis-leer` (de/en); Whitepaper nennt die geprüfte Bibliothek.
+- Sammlung: Spur A übernimmt Anhang E (A-17 bis A-23), A-12 angelegt (Squads, Entwurf
+  zuerst), RM2 geprüft (B1 Vorauszahlung oder B2 keine Sitzungen auf Kredit – Frage an den
+  MENSCHEN).
+
+**Verdrahtet:** `shell/tabs/settings.ts` (`teileGeheimnis()`), `shell/nachfolge-ui.ts`
+(`setzeNachfolgeZusammen()` → `setzeGeheimnisZusammen()`); `splitSecret` mit Begründung in
+`wiring-ausnahmen.txt` (nur noch Tests).
+
+**Prüfungen:** protocol 1266 grün (+5, 6 übersprungen; mit `main` bis 11.3d2b), node 389, app 1034,
+Leak 73 + 1 todo; mls 13; tsc ×3, Build, `check-wiring --streng` (0 offen, `splitSecret` begründet),
+`check-website`, `check_innerhtml --streng`, Smoke-Test, Website-Bau und reproduzierbarer Build
+grün.
 ## Schritt 11.3d2c – Knoten-Agenten in privaten Räumen einladen und fragen (App)
 
 Dritter Teil von 11.3d2 – damit sind private Räume fertig:

@@ -12,6 +12,7 @@ import {
   splitSecret, combineShares, buildSuccessionPlan, parseSuccessionPlan,
   buildHeartbeat, buildRecoveryClaim, evaluateSuccession,
   verifyRecovered, secretHashOf, successionWarning,
+  ANTEIL_FASSUNG, setzeGeheimnisZusammen, teileGeheimnis,
 } from "../src/succession.js";
 
 const TAG = 86400;
@@ -72,6 +73,44 @@ test("Geheimnisse beliebiger Laenge funktionieren", () => {
     const s = crypto.getRandomValues(new Uint8Array(len));
     assert.deepEqual(combineShares(splitSecret(s, 4, 2).slice(0, 2)), s, `Laenge ${len}`);
   }
+});
+
+// ------------------------------------------- Fassung 2 (SH1, Bibliothek von Privy)
+
+test("SH1: neue Anteile über die auditierte Bibliothek – jede Auswahl der Schwelle genügt", async () => {
+  assert.equal(ANTEIL_FASSUNG, 2);
+  const teile = await teileGeheimnis(GEHEIMNIS, 5, 3);
+  assert.deepEqual(teile.map((t) => [t.index, t.fassung, t.data.length]), [1, 2, 3, 4, 5].map((i) => [i, 2, 33]));
+  assert.equal(new Set(teile.map((t) => t.data[32])).size, 5, "jeder Anteil an einer eigenen Stelle");
+  for (const auswahl of [[0, 1, 2], [4, 0, 2], [1, 3, 4], [0, 1, 2, 3, 4]]) {
+    assert.deepEqual(await setzeGeheimnisZusammen(auswahl.map((i) => teile[i]!)), GEHEIMNIS, `Teile ${auswahl}`);
+  }
+  assert.notDeepEqual(await setzeGeheimnisZusammen(teile.slice(0, 2)), GEHEIMNIS, "unter der Schwelle nichts");
+  assert.equal(verifyRecovered(await setzeGeheimnisZusammen(teile.slice(1, 4)), plan()), true);
+});
+
+test("SH1: Grenzen wie bisher; das Geheimnis wird nicht verändert, ein Buffer geht auch", async () => {
+  await assert.rejects(teileGeheimnis(GEHEIMNIS, 5, 1), /mindestens 2/);
+  await assert.rejects(teileGeheimnis(GEHEIMNIS, 2, 3), /reichen für/);
+  await assert.rejects(teileGeheimnis(GEHEIMNIS, 256, 3), /Höchstens 255/);
+  await assert.rejects(teileGeheimnis(new Uint8Array(0), 3, 2), /leeres Geheimnis/);
+  const roh = Buffer.from(GEHEIMNIS);
+  const teile = await teileGeheimnis(roh, 3, 2);
+  assert.deepEqual(new Uint8Array(roh), GEHEIMNIS, "die Kopie wird genullt, nicht das Original");
+  assert.deepEqual(await setzeGeheimnisZusammen([teile[2]!, teile[0]!]), GEHEIMNIS);
+  await assert.rejects(setzeGeheimnisZusammen([teile[0]!, teile[0]!]), /Doppelte Teile/);
+  await assert.rejects(setzeGeheimnisZusammen([teile[0]!]), /Mindestens zwei/);
+  await assert.rejects(setzeGeheimnisZusammen([teile[0]!, { ...teile[1]!, data: teile[1]!.data.slice(1) }]), /Längen/);
+});
+
+test("SH1: alte Anteile (Fassung 1) bleiben lesbar – gemischt nie", async () => {
+  const alt = splitSecret(GEHEIMNIS, 5, 3);
+  assert.equal(alt[0]!.fassung, undefined, "Fassung 1 trägt keine Angabe");
+  assert.deepEqual(await setzeGeheimnisZusammen([alt[4]!, alt[1]!, alt[2]!]), GEHEIMNIS);
+  const neu = await teileGeheimnis(GEHEIMNIS, 5, 3);
+  await assert.rejects(setzeGeheimnisZusammen([alt[0]!, alt[1]!, neu[2]!]), /verschiedener Fassungen/);
+  // Gegenprobe: dieselben Bytes mit der jeweils anderen Rechnung ergeben nicht das Geheimnis
+  assert.notDeepEqual(combineShares(neu.slice(0, 3).map((t) => ({ index: t.index, data: t.data.slice(0, 32) }))), GEHEIMNIS);
 });
 
 test("Pruefsumme bestaetigt, dass die Teile zusammenpassen", () => {
