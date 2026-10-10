@@ -17,8 +17,8 @@
  * - **Kein Klartext im Knoten:** Raum und Antwort nur für den Auftrag im Speicher;
  *   gemerkt werden nur die Ids beantworteter Erwähnungen.
  *
- * Private Räume (eigenes MLS-Konto im Knoten) kommen mit 11.3d2, das Budget des
- * Einladers (Pfand im Zahlkanal) mit 11.3d3.
+ * Private Räume: Beitreten seit 11.3d2a (`knoten-mls.ts`), Antworten mit 11.3d2b;
+ * das Budget des Einladers (Pfand im Zahlkanal) mit 11.3d3.
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -26,7 +26,7 @@ import {
   AuftragsBremse, KIND_CHANNEL_MESSAGE, KIND_RAUM_KANAL, KIND_ROLE_GRANT, KIND_SPACE, KIND_SPACE_ROLES,
   agentAntwortEvent, agentPromptMit, ausRaumEvent, baueAgentKarte, definitionDesGruenders, entscheide, istAgentIm, leseRaumAdresse,
   raumZustandFuer, signEvent, verifyEvent,
-  type AgentVerlaufGrenzen, type NostrEvent, type RaumNachricht, type RelayFilter,
+  type AgentKarteDaten, type AgentVerlaufGrenzen, type NostrEvent, type RaumNachricht, type RelayFilter,
 } from "@freedomstack/protocol";
 
 export const agentSchluesselDatei = (home = process.env.HOME ?? "."): string => join(home, ".freedom", "agent-key");
@@ -43,6 +43,8 @@ export interface KnotenAgentEinstellung {
   persona: string;
   modell?: string;
   besitzer?: string;
+  /** Private Räume (11.3d2a): Einladungen nur vom Besitzer oder von allen – ohne Angabe keine. */
+  privat?: "besitzer" | "alle";
 }
 
 const HEX64 = /^[0-9a-f]{64}$/;
@@ -51,7 +53,8 @@ const textOk = (s: string, max: number) => s.trim() !== "" && [...s].length <= m
 
 /**
  * Aus der Umgebung: `KNOTEN_AGENT=1` schaltet ihn ein; `AGENT_NAME` (Pflicht),
- * `AGENT_ABOUT`, `AGENT_PERSONA`, `AGENT_MODELL`, `AGENT_BESITZER` (Hex).
+ * `AGENT_ABOUT`, `AGENT_PERSONA`, `AGENT_MODELL`, `AGENT_BESITZER` (Hex),
+ * `AGENT_PRIVAT` (`besitzer` oder `alle`, 11.3d2a).
  * `null`: aus. Ungültig: ein Grund – dann startet der Knoten nicht.
  */
 export function agentAusUmgebung(env: Record<string, string | undefined>):
@@ -72,7 +75,15 @@ export function agentAusUmgebung(env: Record<string, string | undefined>):
   if (modell !== undefined && !textOk(modell, 128)) return { grund: "AGENT_MODELL ist ungültig" };
   const besitzer = env.AGENT_BESITZER?.trim().toLowerCase() || undefined;
   if (besitzer !== undefined && !HEX64.test(besitzer)) return { grund: "AGENT_BESITZER ist kein Schlüssel (64 Zeichen Hex)" };
-  return { einstellung: { name, persona, ...(about ? { about } : {}), ...(modell ? { modell } : {}), ...(besitzer ? { besitzer } : {}) } };
+  const privat = (env.AGENT_PRIVAT ?? "").trim();
+  if (privat !== "" && privat !== "besitzer" && privat !== "alle") return { grund: "AGENT_PRIVAT ist weder besitzer noch alle" };
+  if (privat === "besitzer" && !besitzer) return { grund: "AGENT_PRIVAT=besitzer braucht AGENT_BESITZER" };
+  return {
+    einstellung: {
+      name, persona, ...(about ? { about } : {}), ...(modell ? { modell } : {}), ...(besitzer ? { besitzer } : {}),
+      ...(privat === "besitzer" || privat === "alle" ? { privat } : {}),
+    },
+  };
 }
 
 /** Ablehnung mit Kennung – die App erkennt den Fall am Tag `fall`, nie am Text. */
@@ -126,13 +137,18 @@ export class KnotenAgent {
     return this.p.einstellung.modell;
   }
 
-  /** Karte (38090): Betrieb Knoten, „wer fragt, zahlt“, der Knoten rechnet – signiert vom Agenten. */
-  karte(): NostrEvent {
+  /** Angaben der Karte: Betrieb Knoten, „wer fragt, zahlt“, der Knoten rechnet – offen wie im privaten Raum (11.3d2a). */
+  kartenDaten(): AgentKarteDaten {
     const e = this.p.einstellung;
-    return signEvent(baueAgentKarte(this.pk, {
+    return {
       name: e.name, betrieb: "knoten", bezahlung: "fragender", provider: this.p.knoten,
       ...(e.about ? { about: e.about } : {}), ...(e.modell ? { modell: e.modell } : {}), ...(e.besitzer ? { besitzer: e.besitzer } : {}),
-    }, this.jetzt()), this.sk);
+    };
+  }
+
+  /** Karte (38090) für offene Räume – signiert vom Agenten. */
+  karte(): NostrEvent {
+    return signEvent(baueAgentKarte(this.pk, this.kartenDaten(), this.jetzt()), this.sk);
   }
 
   /**

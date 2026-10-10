@@ -163,3 +163,16 @@ Bereichs unten anhängen.
   Raum (`antworte()`), dann das Ergebnis an den Fragenden; scheitert das Rechnen, gibt `gib()` die Erwähnung frei.
   Jede Erwähnung höchstens einmal (`agent-beantwortet.json`, nur Ids). Ablehnungen nur als `AgentAbgelehnt`
   mit `fall` – nie Text aus dem Raum oder von Relays.
+- **Agent in privaten Räumen nur über `knoten-mls.ts`** (seit 11.3d2a, MENSCH 10.10.2026): nur mit
+  `AGENT_PRIVAT` (`besitzer` – nur Einladungen von `AGENT_BESITZER`, `alle`), höchstens
+  `KNOTEN_MLS_GRENZEN.gruppen`; eigenes MLS-Konto mit dem Schlüssel des Agenten, Kontobeweis über
+  `signiereId()`. Ausnahme von „Kein Klartext im Knoten“, nur hier: Chat privater Räume hält der Knoten
+  im Speicher (je Gruppe die letzten 50), nie in einer eigenen Datei, nie im Log; auf die Platte nur
+  MLS-Zustand und Raumstand (`STRUKTUR`), verschlüsselt wie `MlsZustand` der App (`MlsAblage`,
+  AES-256-GCM, Schlüssel in `agent-mls.json`, alles 0600) – eine beschädigte Schlüsseldatei heißt kein
+  Start, nie ersetzen. Die Engine behält Verarbeitetes in ihrem Zustand und stellt es nach einem
+  Neustart erneut zu: nie aus „neu“ im Abgleich schließen, dass etwas unbeantwortet ist. Fremde Relays
+  einer Gruppe nur `wss://`, plausibel, über `pruefeRelay` (ohne Tor `checkUrlSafe()`) und nur über
+  die Fabrik `relayAn` aus `main.ts` – die einzige Stelle mit `new WebSocketRelay(` (Test in
+  `tor.test.ts`). Aufrufe des Kontos nur über `exklusiv()`. Test-Relays brauchen `wss://`-Adressen –
+  MDK lehnt andere Schemata beim Gründen ab.
